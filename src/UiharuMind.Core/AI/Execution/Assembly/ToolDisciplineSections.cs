@@ -109,7 +109,7 @@ internal static class ToolDisciplineSections
         // 记忆靠 Read/Write/Edit/Glob 读写,没有专门的记忆工具(ADR 0028)
         list.Section(facts.Memory.Length > 0 && facts.FileRead,
             AgentPromptHeadings.Memory("##"),
-            () => AgentToolPrompts.BuildMemory(facts.Memory,
+            () => AgentToolPrompts.BuildMemory(
                 AgentPathResolver.ShorthandFor(AgentPathResolver.MemoryVariable, facts.ShellBinary)));
 
         list.Section(facts.FileRead, AgentPromptHeadings.FileOperations, AgentToolPrompts.FileReadDefault);

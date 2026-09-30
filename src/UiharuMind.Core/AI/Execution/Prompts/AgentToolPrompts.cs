@@ -80,46 +80,44 @@ public static class AgentToolPrompts
     /// 草稿目录段：会话自己的产出房间。不是 Python 专用的——测试脚本（含 py 文件）、
     /// 不该进项目的中间文件都放这里，不要散进项目里。
     ///
-    /// 路径用双引号而目录名不用反引号：反引号专表工具名。
-    ///
-    /// 主推简写而不是完整路径：完整路径带两段哈希，模型嫌长就绕开草稿目录，把临时文件散进项目；
-    /// 硬抄又容易抄错一位，落到别的房间被判成跨会话写入。简写在文件工具里由
-    /// <see cref="Files.AgentPathResolver"/> 展开，在 shell 里是同名环境变量。
-    /// 图片引用是例外：它要进历史长期有效，换了工作区简写就指到新房间了，所以仍给完整前缀。
+    /// 只教简写，完整路径只出现在给用户看的链接前缀里：简写在文件工具里由
+    /// <see cref="Files.AgentPathResolver"/> 展开，在 shell 里是同名环境变量，模型用不着手抄那条带两段哈希的路径。
+    /// 从前两者并列，完整路径一段里出现两次，提示词反倒比没有简写时更长。
+    /// 链接是例外：它要进历史长期有效，换了工作区简写就指到新房间了。
+    /// 简写与目录名都不用反引号：反引号专表工具名。
     /// </summary>
-    /// <param name="roomDirectory">房间绝对路径</param>
+    /// <param name="roomDirectory">房间绝对路径（只用来拼给用户看的链接前缀）</param>
     /// <param name="draftToken">草稿目录简写（随 shell 写法，见 <see cref="Files.AgentPathResolver.ShorthandFor"/>）</param>
     /// <param name="forSubAgent">
     /// 是否给子代理用。子代理与派活者<b>共用同一间房</b>，但它的正文不进用户对话——
-    /// 交出去的是一份报告，展示归派活者。给它 markdown 图片语法只会让它写出一段
-    /// 没人渲染的引用，而派活者真正需要的是一个能直接转引的绝对路径
+    /// 交出去的是一份报告，展示归派活者。给它链接格式只会让它写出没人渲染的引用；
+    /// 派活者认得同一个简写，结论里写简写就能直接转引
     /// </param>
     /// <returns>提示词段落正文</returns>
     public static string BuildOutputRoom(string roomDirectory, string draftToken, bool forSubAgent = false)
     {
         StringBuilder sb = new();
         sb.AppendLine(
-            $"你的草稿目录（免审批写入区）是 \"{roomDirectory}\"，简写为 {draftToken}。测试、验证用的临时脚本（含 py 文件），" +
-            "以及不该进项目的中间文件(例如方便参考而临时 git clone 的源码)，都放这里，不要散进项目里。\n" +
-            $"凡是写路径的地方（工具参数、命令行）都用简写，例如 {draftToken}/probe.py：" +
-            "手抄完整路径抄错一位，就会被当成跨会话写入而等审批。");
+            $"你的草稿目录是 {draftToken}{(forSubAgent ? "（与派活者共用）" : string.Empty)}，免审批写入，" +
+            $"工具参数和命令行里都直接写 {draftToken}/文件名。" +
+            "测试、验证用的临时脚本，以及不该进项目的中间文件（例如临时 git clone 的源码），都放这里，不要散进项目里。");
 
         if (forSubAgent)
         {
-            sb.Append(
-                "- 要给人看的文件（图表、导出的数据），同样放这里，并在结论里写出它的绝对路径。");
+            sb.Append($"- 要给人看的文件（图表、导出的数据）同样放这里，结论里写出 {draftToken}/文件名，派活者认得。");
             return sb.ToString().TrimEnd();
         }
 
-        // 要给用户看的文件是这段的另一半:对话正文按 markdown 渲染,本地文件图片
-        // 走 file:// 才加载得出来。前缀直接给出,不让模型自己拼 URI
-        // (Windows 上 C:\a\b 要变成 file:///C:/a/b,反斜杠与盘符两处都得改)。
-        // 引用就用裸图:渲染库给图片设了 HRef,点得开,不必再包一层链接
+        // 要给用户看的文件是这段的另一半:对话正文按 markdown 渲染,本地文件走 file:// 才加载得出来、点得开。
+        // 前缀直接给出,不让模型自己拼 URI(Windows 上 C:\a\b 要变成 file:///C:/a/b,反斜杠与盘符两处都得改)。
+        // 图片用裸图:渲染库给图片设了 HRef,点得开,不必再包一层链接;别的文件套图片语法只会显示成一张坏图。
+        // 「告诉用户在哪」也走链接:否则模型会把用户不认得、也点不开的简写写进正文。
+        // 要点明前缀就是简写的完整写法:实测没这半句时模型认不出两者是一处,多跑一次 echo $DRAFT 去查
         string uriPrefix = ToFileUriPrefix(roomDirectory);
         sb.Append(
-            "- 要给用户看的文件（图表、导出的数据），同样放这里。正文里照这个格式引用它：" +
-            $"![说明]({uriPrefix}文件名)，这里不认简写。只报一句文件名、或者路径写到别处，" +
-            "对话里就什么都不会出现。");
+            "- 给用户看的文件也放这里，正文里用完整前缀引用（不认简写）：" +
+            $"图片写 ![说明]({uriPrefix}文件名)（这个前缀就是 {draftToken}/ 的完整写法），" +
+            "其他文件写 [说明](同一前缀/文件名)。告诉用户文件在哪也用这个格式。");
 
         return sb.ToString().TrimEnd();
     }
@@ -130,14 +128,13 @@ public static class AgentToolPrompts
     ///
     /// 开场是否查看由模型自决：记忆是「需要时才看」的资源，不进工作循环当必做步骤。
     /// 内容边界：只记对话里的沉淀，不镜像 repo——代码/文档/git 以文件为准，再抄一份就会两份漂移。
-    /// 简写与草稿目录段同一道理（见 <see cref="BuildOutputRoom"/>）：完整路径带工作区哈希，手抄既长又容易错。
+    /// 只给简写不给完整路径：记忆从不给用户看，模型用不着那条带工作区哈希的路径（见 <see cref="BuildOutputRoom"/>）。
     /// </summary>
-    /// <param name="memoryDirectory">记忆目录绝对路径</param>
     /// <param name="memoryToken">记忆目录简写（随 shell 写法，见 <see cref="Files.AgentPathResolver.ShorthandFor"/>）</param>
     /// <returns>提示词段落正文</returns>
-    public static string BuildMemory(string memoryDirectory, string memoryToken)
+    public static string BuildMemory(string memoryToken)
     {
-        return $"你的记忆目录是 \"{memoryDirectory}\"，简写为 {memoryToken}，路径里用简写即可。这是你在本工作区跨会话保留的笔记：" +
+        return $"你的记忆目录是 {memoryToken}。这是你在本工作区跨会话保留的笔记：" +
                "按主题一个 .md 文件，需要时先 `Glob`（或 `Grep`）再 `Read`，" +
                "开场是否查看由你自己判断。只记对话里的沉淀（偏好、踩坑、用户给的可复用的重要信息）。";
     }

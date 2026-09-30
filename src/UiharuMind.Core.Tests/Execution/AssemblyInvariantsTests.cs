@@ -641,7 +641,11 @@ public class HarnessInstructionsCompositionTests
         Assert.Contains(AgentPromptHeadings.OutputRoom("##"), instructions);
         Assert.Contains(new Uri(room + Path.DirectorySeparatorChar).AbsoluteUri, instructions);
         Assert.Contains("![说明](", instructions);
+        Assert.Contains("[说明](同一前缀/文件名)", instructions); //别的文件套图片语法只会显示成坏图
         Assert.DoesNotContain("[![", instructions);
+        // 完整路径只在链接前缀里出现这一次，其余一律写简写
+        Assert.Equal(1, instructions.Split(room).Length - 1);
+        Assert.Contains("$DRAFT/文件名", instructions);
     }
 
     /// <summary>无房间（无会话）时草稿段不出现：指一个不存在的目录比不说更糟</summary>
@@ -771,7 +775,7 @@ public class HarnessInstructionsCompositionTests
         Assert.All(segments.Where(x => x.Section != EPromptSection.Mcp), x => Assert.True(x.CountsTowardTotal));
     }
 
-    /// <summary>记忆目录段(ADR 0028)出现时给出绝对路径与简写，并教模型先 Glob 再 Read</summary>
+    /// <summary>记忆目录段(ADR 0028)出现时只给简写，并教模型先 Glob 再 Read</summary>
     [Fact]
     public void MemorySection_Appears_WithMemoryDirectory()
     {
@@ -781,8 +785,8 @@ public class HarnessInstructionsCompositionTests
             .ChatOptions?.Instructions ?? string.Empty;
 
         Assert.Contains(AgentPromptHeadings.Memory("##"), instructions);
-        Assert.Contains(memory, instructions);
-        Assert.Contains("简写为 $MEMORY", instructions);
+        Assert.Contains("你的记忆目录是 $MEMORY", instructions);
+        Assert.DoesNotContain(memory, instructions); //记忆从不给用户看，用不着完整路径
         Assert.Contains("`Glob`", instructions);
     }
 
@@ -1325,7 +1329,7 @@ public class SubAgentBoundaryTests
             .ChatOptions!.Instructions!;
 
         Assert.Contains(AgentPromptHeadings.OutputRoom("#"), instructions);
-        Assert.Contains("12345678", instructions);
+        Assert.Contains("你的草稿目录是 $DRAFT", instructions);
     }
 
     /// <summary>草稿目录段教的简写跟 shell 走：PowerShell 下写 $DRAFT 会静默展开成空串</summary>
@@ -1341,7 +1345,7 @@ public class SubAgentBoundaryTests
                 })!
             .ChatOptions!.Instructions!;
 
-        Assert.Contains("$env:DRAFT/probe.py", instructions);
+        Assert.Contains("$env:DRAFT/文件名", instructions);
     }
 
     /// <summary>子代理的 Python 段同样不复述房间与引用格式</summary>
@@ -1358,11 +1362,10 @@ public class SubAgentBoundaryTests
         string instructions = SubAgentAssembly.BuildSubAgentOptions(input)!
             .ChatOptions!.Instructions!;
 
-        // 房间 id8 恰出现一次：草稿目录段正文里那一次。
-        // 子代理那份草稿目录段不再给 markdown 图片语法(它的正文不进用户对话,
-        // 交出去的是报告,展示归派活方),于是派生的 file URI 那一次也没有了
+        // 房间路径一次都不出现：子代理只认简写，也不给链接格式(它的正文不进用户对话,
+        // 交出去的是报告,展示归派活方),于是派生的 file URI 也没有
         Assert.Contains(".py", instructions);
-        Assert.Equal(1, instructions.Split("12345678").Length - 1);
+        Assert.DoesNotContain("12345678", instructions);
         Assert.DoesNotContain("写到这个目录", instructions);
     }
 
