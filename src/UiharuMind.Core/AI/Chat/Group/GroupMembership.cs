@@ -3,7 +3,7 @@ using UiharuMind.Core.AI.Character;
 namespace UiharuMind.Core.AI.Chat.Group;
 
 /// <summary>
-/// 建群之后改名单：移出、加人、加回（ADR 0046 修订「建群之后增删成员、更换工作区」）。
+/// 建群之后改名单：移出、加人、加回、调整发言顺序（ADR 0046 修订「建群之后增删成员、更换工作区」）。
 /// 退群的会话留着（<see cref="ChatSession.HasLeftGroup"/>），加回的是同一份；补多少历史由 <see cref="EGroupBackfill"/> 定。
 /// 名单变了，各成员下一轮开跑时按新场景段重建装配（ADR 0048 决策 2）
 /// </summary>
@@ -49,6 +49,37 @@ public static class GroupMembership
             member.HasLeftGroup = true;
             coordinator.ForgetMember(member.SessionId);
             Save(group, member, coordinator);
+            result = EGroupRosterEdit.Done;
+        });
+        if (result == EGroupRosterEdit.Done) RosterChanged?.Invoke(group.SessionId);
+        return edited ? result : EGroupRosterEdit.Busy;
+    }
+
+    /// <summary>
+    /// 调整发言顺序：把一位成员在名单里挪几位。场景段按入群先后列人（<see cref="GroupSceneSource"/>），
+    /// 挪了不改写系统提示，不失效缓存
+    /// </summary>
+    /// <param name="group">群壳会话</param>
+    /// <param name="memberSessionId">成员会话标识</param>
+    /// <param name="offset">挪几位：负数往前、正数往后</param>
+    /// <param name="coordinator">群聊调度器；null 用应用里那一个</param>
+    /// <returns>结果；不在名单里、挪出界或没挪为 <see cref="EGroupRosterEdit.Refused"/></returns>
+    public static EGroupRosterEdit Move(ChatSession group, string memberSessionId, int offset,
+        GroupChatCoordinator? coordinator = null)
+    {
+        coordinator ??= GroupChatCoordinator.Instance;
+        EGroupRosterEdit result = EGroupRosterEdit.Refused;
+        bool edited = coordinator.TryEditRoster(group, () =>
+        {
+            List<string> ids = [..group.GroupMemberSessionIds];
+            int from = ids.IndexOf(memberSessionId);
+            int to = from + offset;
+            if (from < 0 || offset == 0 || to < 0 || to >= ids.Count) return;
+
+            ids.RemoveAt(from);
+            ids.Insert(to, memberSessionId);
+            group.GroupMemberSessionIds = ids;
+            SaveGroup(group, coordinator);
             result = EGroupRosterEdit.Done;
         });
         if (result == EGroupRosterEdit.Done) RosterChanged?.Invoke(group.SessionId);
@@ -177,8 +208,13 @@ public static class GroupMembership
     // 群描述就是成员名单（右栏群卡与左栏副标题），名单变了跟着改
     private static void Save(ChatSession group, ChatSession member, GroupChatCoordinator coordinator)
     {
-        group.Description = string.Join("、", coordinator.RosterOf(group).Select(x => x.Name));
         member.SaveMeta(touchUpdatedAt: false);
+        SaveGroup(group, coordinator);
+    }
+
+    private static void SaveGroup(ChatSession group, GroupChatCoordinator coordinator)
+    {
+        group.Description = string.Join("、", coordinator.RosterOf(group).Select(x => x.Name));
         group.SaveMeta(touchUpdatedAt: false);
     }
 }

@@ -13,7 +13,7 @@ namespace UiharuMind.Core.Tests.Chat;
 /// </summary>
 public class GroupSceneTests
 {
-    private static readonly Dictionary<string, CharacterData> Characters = new()
+    private static readonly Dictionary<string, CharacterData?> Characters = new()
     {
         ["a"] = new CharacterData { CharacterName = "Alice" },
         ["b"] = new CharacterData { CharacterName = "Bob" },
@@ -118,7 +118,7 @@ public class GroupSceneTests
     {
         (ChatSession group, ChatSession alice) = NewGroup(host: "c");
 
-        string scene = GroupSceneSource.For(alice, group, Characters.GetValueOrDefault, "我");
+        string scene = GroupSceneSource.For(alice, group, MemberOf(Characters), "我");
 
         Assert.Contains("我（用户）、Bob、Carol", scene);
         Assert.Contains("本群主持人是Carol", scene);
@@ -135,9 +135,22 @@ public class GroupSceneTests
             ["c"] = new CharacterData { CharacterName = "Carol", Works = "魔法禁书目录" },
         };
 
-        string scene = GroupSceneSource.For(alice, group, characters.GetValueOrDefault, "我");
+        string scene = GroupSceneSource.For(alice, group, MemberOf(characters), "我");
 
         Assert.Contains("《魔法禁书目录》：Bob、Carol", scene);
+    }
+
+    /// <summary>在场的人按入群先后列，与发言顺序无关：调了顺序系统提示不变</summary>
+    [Fact]
+    public void Source_ListsByJoinOrder_NotBySpeakingOrder()
+    {
+        (ChatSession group, ChatSession alice) = NewGroup(host: null);
+        string before = GroupSceneSource.For(alice, group, MemberOf(Characters), "我");
+
+        group.GroupMemberSessionIds = ["c", "a", "b"];
+
+        Assert.Equal(before, GroupSceneSource.For(alice, group, MemberOf(Characters), "我"));
+        Assert.Contains("我（用户）、Bob、Carol", before);
     }
 
     [Fact]
@@ -145,10 +158,10 @@ public class GroupSceneTests
     {
         (ChatSession group, ChatSession alice) = NewGroup(host: null);
 
-        Assert.Equal("", GroupSceneSource.For(new ChatSession { IsTransient = true }, group, Characters.GetValueOrDefault, "我"));
-        Assert.Equal("", GroupSceneSource.For(alice, null, Characters.GetValueOrDefault, "我"));
+        Assert.Equal("", GroupSceneSource.For(new ChatSession { IsTransient = true }, group, MemberOf(Characters), "我"));
+        Assert.Equal("", GroupSceneSource.For(alice, null, MemberOf(Characters), "我"));
         Assert.Equal("", GroupSceneSource.For(alice, new ChatSession { IsGroup = true, IsTransient = true },
-            Characters.GetValueOrDefault, "我"));
+            MemberOf(Characters), "我"));
     }
 
     /// <summary>换主持人 → 场景段变 → 快照不等，下一次挂接重建；两种形态都一样</summary>
@@ -249,6 +262,16 @@ public class GroupSceneTests
     private static string Compose(string scene, out IReadOnlyList<AgentPromptSegment> segments) =>
         AgentInstructionsComposer.Compose("我是 Alice", scene, new AgentToolConfig(), false, "/tmp/uiharu-scene-test",
             "", "", "", "", "", "", "", "", out segments);
+
+    // 入群先后按标识字母序：a 最早、c 最晚
+    private static Func<string, GroupRosterMember?> MemberOf(IReadOnlyDictionary<string, CharacterData?> characters) =>
+        id => characters.GetValueOrDefault(id) is { } character
+            ? new GroupRosterMember(character, new ChatSessionMeta
+            {
+                SessionId = id,
+                CreatedAt = DateTimeOffset.UnixEpoch.AddMinutes(id[0]),
+            })
+            : null;
 
     private static (ChatSession Group, ChatSession Alice) NewGroup(string? host)
     {

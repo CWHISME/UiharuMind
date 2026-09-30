@@ -3294,6 +3294,12 @@ Allow them?</value>
     <data name="GroupRemoveMember" xml:space="preserve">
         <value>Remove from group</value>
     </data>
+    <data name="GroupMoveUp" xml:space="preserve">
+        <value>Move up</value>
+    </data>
+    <data name="GroupMoveDown" xml:space="preserve">
+        <value>Move down</value>
+    </data>
     <data name="GroupRemoveConfirm" xml:space="preserve">
         <value>Remove "{0}" from the group? Their session stays under "Left" and can be added back at any time.</value>
     </data>

@@ -24,7 +24,7 @@ namespace UiharuMind.Features.Conversation.Group;
 /// 装载后由 <see cref="MarkSpeaking"/> 跟着调度器的发言人变化刷新，不重建实例。
 /// 顶上是调度设置与主持人，改了即写回群壳：调度下一波起生效（ADR 0049 决策 1），
 /// 主持人写在各成员的系统提示场景段里，各自下一轮开跑时重建装配生效（ADR 0048）。
-/// 名单也能改：加人、移出、加回（ADR 0046 修订「建群之后增删成员」）。名单是构造时的快照，
+/// 名单也能改：加人、移出、加回、调整发言顺序（ADR 0046 修订「建群之后增删成员」）。名单是构造时的快照，
 /// 改了由群视图按 <see cref="GroupMembership.RosterChanged"/> 换一份新的
 /// </summary>
 public sealed partial class GroupMembersViewData : ObservableObject
@@ -40,9 +40,14 @@ public sealed partial class GroupMembersViewData : ObservableObject
     {
         _group = group;
         GroupRoster roster = GroupRoster.Of(group);
+        int last = roster.Present.Count - 1;
         Members = roster.Present
-            .Select(x => new GroupMemberItem(x.Meta, x.SessionId == group.GroupHostSessionId,
-                item => _ = RemoveAsync(item)))
+            .Select((x, i) => new GroupMemberItem(x.Meta, x.SessionId == group.GroupHostSessionId,
+                item => _ = RemoveAsync(item), Move)
+            {
+                CanMoveUp = i > 0,
+                CanMoveDown = i < last,
+            })
             .ToList();
         FormerMembers = roster.Former
             .Select(x => new GroupFormerMemberItem(x.Meta, character => _ = AddAsync(character)))
@@ -216,6 +221,16 @@ public sealed partial class GroupMembersViewData : ObservableObject
     }
 
     /// <summary>
+    /// 挪发言顺序：不动系统提示（场景段按入群先后列人），不必确认。
+    /// 成员私聊不影响顺序，只有跑着一波时改不动
+    /// </summary>
+    private void Move(GroupMemberItem item, int offset)
+    {
+        if (GroupMembership.Move(_group, item.SessionId, offset) == EGroupRosterEdit.Busy)
+            GroupChangePrompts.Notify(Loc.Text(LangKey.GroupEditBusy), MessageSeverity.Warning);
+    }
+
+    /// <summary>
     /// 把「正在说」标到对应成员上（并行时可能几位同时）；传空则全部熄灭。
     /// 每次发言人变化都顺带刷新占用：成员跑完一轮，<see cref="ChatSession.LastInputTokens"/> 落盘，
     /// 列表跟着更新，不再是建群时的那口初始值
@@ -268,6 +283,7 @@ public sealed partial class GroupMemberItem : ObservableObject
     private readonly ChatSessionMeta _meta;
     private readonly CharacterData _character;
     private readonly Action<GroupMemberItem> _remove;
+    private readonly Action<GroupMemberItem, int> _move;
     private int _fixedTokens; //固定开销：预演一次后缓存，不随历史变
     private long _usageTokens; //当前有效占用：最近一次请求输入与固定开销取大
     private long _inputTokens; //会话累计输入
@@ -356,12 +372,15 @@ public sealed partial class GroupMemberItem : ObservableObject
     /// <param name="meta">成员会话的元数据</param>
     /// <param name="isHost">是不是本群主持人</param>
     /// <param name="remove">移出群聊（要确认，交给成员列表）</param>
-    public GroupMemberItem(ChatSessionMeta meta, bool isHost, Action<GroupMemberItem> remove)
+    /// <param name="move">挪发言顺序（第二个参数负数往前、正数往后，交给成员列表）</param>
+    public GroupMemberItem(ChatSessionMeta meta, bool isHost, Action<GroupMemberItem> remove,
+        Action<GroupMemberItem, int> move)
     {
         SessionId = meta.SessionId;
         IsHost = isHost;
         _meta = meta;
         _remove = remove;
+        _move = move;
         _character = SessionManager.CharacterOf(meta);
         _ = RefreshStatsAsync();
     }
@@ -455,6 +474,20 @@ public sealed partial class GroupMemberItem : ObservableObject
     /// <summary>移出群聊</summary>
     [RelayCommand]
     private void Remove() => _remove(this);
+
+    /// <summary>不是第一位，能往前挪</summary>
+    public bool CanMoveUp { get; init; }
+
+    /// <summary>不是最后一位，能往后挪</summary>
+    public bool CanMoveDown { get; init; }
+
+    /// <summary>发言顺序往前挪一位</summary>
+    [RelayCommand(CanExecute = nameof(CanMoveUp))]
+    private void MoveUp() => _move(this, -1);
+
+    /// <summary>发言顺序往后挪一位</summary>
+    [RelayCommand(CanExecute = nameof(CanMoveDown))]
+    private void MoveDown() => _move(this, 1);
 }
 
 /// <summary>「已退出」区的一项：会话留着，可点开看、可加回</summary>

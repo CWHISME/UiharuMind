@@ -3287,6 +3287,12 @@
     <data name="GroupRemoveMember" xml:space="preserve">
         <value>移出群聊</value>
     </data>
+    <data name="GroupMoveUp" xml:space="preserve">
+        <value>上移</value>
+    </data>
+    <data name="GroupMoveDown" xml:space="preserve">
+        <value>下移</value>
+    </data>
     <data name="GroupRemoveConfirm" xml:space="preserve">
         <value>把“{0}”移出群聊？他的会话会留在「已退出」里，可以随时加回。</value>
     </data>

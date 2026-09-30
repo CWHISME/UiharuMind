@@ -42,7 +42,7 @@ public class GroupMembershipTests
         Assert.Equal("Alice", _group.Description);
         // 场景段只认名单：他之后私聊就是个普通角色
         Assert.Equal("", GroupSceneSource.For(_bob, _group, _ => null, "我"));
-        Assert.DoesNotContain("Bob", GroupSceneSource.For(_alice, _group, CharacterOf, "我"));
+        Assert.DoesNotContain("Bob", GroupSceneSource.For(_alice, _group, MemberOf, "我"));
     }
 
     [Fact]
@@ -51,6 +51,41 @@ public class GroupMembershipTests
         Assert.Equal(EGroupRosterEdit.Done, GroupMembership.Remove(_group, _bob, _coordinator));
         Assert.Equal(EGroupRosterEdit.Refused, GroupMembership.Remove(_group, _alice, _coordinator));
         Assert.Equal([_alice.SessionId], _group.GroupMemberSessionIds);
+    }
+
+    /// <summary>挪了发言顺序：串行按新顺序轮、群描述跟着换，场景段不变（按入群先后列人）</summary>
+    [Fact]
+    public async Task Move_ReordersSpeaking_AndDescription_ButNotTheScene()
+    {
+        ChatSession carol = Member("Carol");
+        _group.GroupMemberSessionIds = [.._group.GroupMemberSessionIds, carol.SessionId];
+        string scene = GroupSceneSource.For(_bob, _group, MemberOf, "我");
+
+        Assert.Equal(EGroupRosterEdit.Done, GroupMembership.Move(_group, carol.SessionId, -2, _coordinator));
+
+        Assert.Equal([carol.SessionId, _alice.SessionId, _bob.SessionId], _group.GroupMemberSessionIds);
+        Assert.Equal("Carol、Alice、Bob", _group.Description);
+        Assert.Equal(scene, GroupSceneSource.For(_bob, _group, MemberOf, "我"));
+
+        await _coordinator.PostAsync(_group, "大家好");
+        Assert.Equal([carol.SessionId, _alice.SessionId, _bob.SessionId], _runner.Calls.Select(x => x.Member.SessionId));
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(2)]
+    [InlineData(0)]
+    public void Move_OutOfBoundsOrInPlace_IsRefused(int offset)
+    {
+        Assert.Equal(EGroupRosterEdit.Refused, GroupMembership.Move(_group, _alice.SessionId, offset, _coordinator));
+        Assert.Equal([_alice.SessionId, _bob.SessionId], _group.GroupMemberSessionIds);
+    }
+
+    [Fact]
+    public void Move_LeftMember_IsRefused()
+    {
+        GroupMembership.Remove(_group, _bob, _coordinator);
+        Assert.Equal(EGroupRosterEdit.Refused, GroupMembership.Move(_group, _bob.SessionId, -1, _coordinator));
     }
 
     /// <summary>名单的判断与修改在开波那把锁里：跑着一波时改不动，名单原样</summary>
@@ -167,7 +202,8 @@ public class GroupMembershipTests
 
     private ChatSession? Load(string id) => _sessions.GetValueOrDefault(id);
 
-    private CharacterData? CharacterOf(string id) => Load(id)?.CharacterData;
+    private GroupRosterMember? MemberOf(string id) =>
+        Load(id) is { } session ? new GroupRosterMember(session.CharacterData, session.ToMeta()) : null;
 
     private ChatSession Member(string name)
     {

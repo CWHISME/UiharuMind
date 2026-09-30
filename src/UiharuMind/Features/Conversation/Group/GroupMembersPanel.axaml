@@ -25,7 +25,7 @@
                 <!-- 全群累计：看得到这个群一共烧了多少，只是仪表，不做任何自动干预（方案 v6 §3.4） -->
                 <TextBlock Grid.Column="1" Classes="muted" FontSize="11" VerticalAlignment="Center"
                            Text="{Binding TotalCostLine}" IsVisible="{Binding HasTotalCost}" />
-                <!-- 建群之后加人（含加回退群的人），只占一个图标位；移出在成员行的右键菜单里 -->
+                <!-- 建群之后加人（含加回退群的人），只占一个图标位；移出与调整顺序在成员行的右键菜单里 -->
                 <ThemedIconButton Grid.Column="2" Width="24" Height="24" VerticalAlignment="Center"
                                   IconName="user-plus"
                                   ToolTip.Tip="{loc:Loc GroupAddMembers}"
@@ -54,6 +54,9 @@
                                 ToolTip.Tip="{Binding CardTip}">
                             <Button.ContextMenu>
                                 <ContextMenu>
+                                    <MenuItem Header="{loc:Loc GroupMoveUp}" Command="{Binding MoveUpCommand}" />
+                                    <MenuItem Header="{loc:Loc GroupMoveDown}" Command="{Binding MoveDownCommand}" />
+                                    <Separator />
                                     <MenuItem Header="{loc:Loc GroupRemoveMember}" Command="{Binding RemoveCommand}" />
                                 </ContextMenu>
                             </Button.ContextMenu>
