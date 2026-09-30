@@ -4,6 +4,7 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Models;
@@ -554,8 +555,48 @@ public class TurnDriverTests
         Assert.True(started >= 0 && written > started,
             $"expected HandoffStarted before HandoffWritten; got {string.Join(",", notices.Select(x => x.Kind))}");
         Assert.Equal(6, session.History.Count); //5 条历史 + 交接文档
-        Assert.Equal("交接正文", HistoryHandoff.NoteBody(session.History[^1].Text));
+        string body = HistoryHandoff.NoteBody(session.History[^1].Text);
+        Assert.StartsWith("交接正文", body);
+        Assert.Contains("- #5: 第 4 条", body); //用户原话由代码追加在模型正文之后
+        Assert.DoesNotContain("transcript", body); //临时会话不写转录,也就不给路径
         Assert.Contains("别忘了临时结论", client.Seen[^1].Text);
+    }
+
+    /// <summary>挂了 Grep/Read 的正式会话：交接时写出转录，交接文档末尾给出它的路径</summary>
+    [Fact]
+    public async Task Handoff_WithFileTools_WritesTranscript_AndPointsToIt()
+    {
+        ChatSession session = new("test", new CharacterData { CharacterId = "test" });
+        for (int i = 0; i < 5; i++) session.History.Add(Prompt($"第 {i} 条"));
+
+        CapturingChatClient client = new("交接正文");
+        ModelRunningData running = new(new GGufModelInfo { ModelName = "m1" });
+        running.CompleteLoading(client, runtimeContextSize: 65536);
+        session.ChatModelRunningData = running;
+        StubRunner runner = new()
+        {
+            ChatOptions = new ChatOptions
+            {
+                Tools = [Named(FileToolNames.Grep), Named(FileToolNames.Read)],
+            },
+        };
+
+        TurnDriver driver = new(new FakeSink(), new TurnUsageLedger { ContextLength = 128_000 }, _ => { });
+        try
+        {
+            await driver.CompactAsync(session, runner);
+
+            string body = HistoryHandoff.NoteBody(session.History[^1].Text);
+            string path = System.Text.RegularExpressions.Regex.Match(body, "\"([^\"]+\\.transcript\\.md)\"").Groups[1].Value;
+            Assert.True(File.Exists(path), body);
+            Assert.Contains("## #5 user", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
+        }
+        finally
+        {
+            SessionManager.Instance.Delete(session.SessionId);
+        }
+
+        static AITool Named(string name) => AIFunctionFactory.Create(() => string.Empty, name);
     }
 
     [Fact]
@@ -733,7 +774,7 @@ public class TurnDriverTests
 
         public Action? BusyChanged { get; set; }
 
-        public ChatOptions? ChatOptions => null;
+        public ChatOptions? ChatOptions { get; init; }
 
         /// <summary>最近一轮拿到的取消令牌（外层取消有没有串进来，看它）</summary>
         public CancellationToken LastToken { get; private set; }

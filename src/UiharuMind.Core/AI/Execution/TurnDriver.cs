@@ -605,7 +605,11 @@ public sealed class TurnDriver : IDisposable
             // 压缩要吃掉的东西。少了它,压缩之后就没法用 SendMessage 续上旧委派了(见 BuildSubSessionRoster)
             string roster = HistoryHandoff.BuildSubSessionRoster(
                 SessionManager.Instance.GetSubSessions(session.SessionId));
-            ChatMessage message = HistoryHandoff.CreateNote(roster.Length > 0 ? $"{note}\n{roster}" : note);
+            // 回查段同理确定性追加:最近几条用户原话 + 转录路径(转录只在挂了 Grep/Read 时写,见 HistoryTranscript)
+            string? transcriptPath = HistoryTranscript.TrySave(session, runner.ChatOptions?.Tools);
+            string recall = HistoryHandoff.BuildRecall(session.History, transcriptPath, _usage.ContextLength);
+            ChatMessage message = HistoryHandoff.CreateNote(
+                string.Join("\n", new[] { note, roster, recall }.Where(x => x.Length > 0)));
             int before = session.History.Count;
             session.History.Add(message);
             session.SaveAppended(before);

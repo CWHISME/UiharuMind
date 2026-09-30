@@ -37,6 +37,7 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     private const string AgentStateSuffix = ".agentstate.json";
     private const string MetaSuffix = ".meta.json"; //会话头(小,原子重写)
     private const string HistorySuffix = ".history.jsonl"; //历史(一行一条消息,追加式)
+    private const string TranscriptSuffix = ".transcript.md"; //纯文本转录(交接时由历史重生成,供模型回查)
 
     /// <summary>会话新增</summary>
     public event Action<ChatSession>? OnSessionAdded;
@@ -654,6 +655,7 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
 
         SaveUtility.Delete(GetMetaPath(sessionId));
         SaveUtility.Delete(GetHistoryPath(sessionId));
+        SaveUtility.Delete(GetTranscriptPath(sessionId));
         SaveUtility.Delete(GetBodyPath(sessionId)); //旧单文件格式残留
         SaveUtility.Delete(GetAgentStatePath(sessionId));
         AgentOutputLayout.DeleteAll(sessionId); //agent 画的图与导出的数据,按 id 后缀通配
@@ -807,6 +809,19 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
         SaveUtility.Delete(GetAgentStatePath(sessionId));
     }
 
+    /// <summary>
+    /// 覆盖写入会话的纯文本转录（见 <c>HistoryTranscript</c>）。历史 jsonl 仍是唯一真源
+    /// </summary>
+    /// <param name="sessionId">会话标识</param>
+    /// <param name="transcript">转录正文</param>
+    /// <returns>转录文件的绝对路径；写盘失败为 null</returns>
+    public string? SaveTranscript(string sessionId, string transcript)
+    {
+        string path = Path.GetFullPath(GetTranscriptPath(sessionId));
+        SaveUtility.SaveText(path, transcript);
+        return File.Exists(path) ? path : null; //SaveText 失败只记日志不抛,给出一个不存在的路径比不给更糟
+    }
+
     //================= 路径 =================
 
     // 调用方须持有 _locker:枚举 _metas 与写 index.json 都不能与别的线程交错
@@ -833,6 +848,11 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     private static string GetHistoryPath(string sessionId)
     {
         return Path.Combine(AppPaths.Data.Sessions, sessionId + HistorySuffix);
+    }
+
+    private static string GetTranscriptPath(string sessionId)
+    {
+        return Path.Combine(AppPaths.Data.Sessions, sessionId + TranscriptSuffix);
     }
 
     private static string GetAgentStatePath(string sessionId)

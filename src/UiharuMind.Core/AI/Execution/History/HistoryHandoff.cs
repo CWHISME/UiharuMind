@@ -11,6 +11,7 @@ using System.Linq;
 using System.Text;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.Core.SimpleLog;
 
@@ -45,6 +46,19 @@ public static class HistoryHandoff
     // 委派清单里每条摘要的篇幅。10 条 × 160 字 ≈ 1600 字,在交接文档自己的预算里是小头,
     // 而这正是模型判断「该不该续这一个」的唯一依据——截太狠等于整段白写
     private const int SubSessionSummaryChars = 160;
+
+    private const int RecallMessages = 10; //回查段最多带几条用户原话
+    private const int RecallMessageChars = 300; //每条原话的篇幅
+    private const int RecallBudgetDivisor = 4; //原话合计不超过交接文档篇幅上限的 1/4
+
+    // 这些 user 消息不是用户本人说的话:子代理交回的报告、派活方插话、群里别人的发言、知识库片段
+    private static readonly string[] NotUserWords =
+    [
+        ChatMessageAnnotations.SubAgentReport,
+        ChatMessageAnnotations.ParentInterjection,
+        ChatMessageAnnotations.GroupDelivery,
+        ChatMessageAnnotations.Knowledge,
+    ];
 
     private const int CharsPerToken = 2; //中英混排的保守估计:英文约 4、中文约 1.5,取 2 不至于让模型写超
 
@@ -101,16 +115,6 @@ public static class HistoryHandoff
     }
 
     /// <summary>
-    /// 构造交接文档消息。
-    ///
-    /// 角色取 <b>system</b> 而不是 assistant，是为了不被框架截断吃掉：交接文档在供给窗口里
-    /// 恰好是最老的一条，而 <c>TruncationCompactionStrategy</c> 正是从最老的非 system 组开始删——
-    /// 取 assistant 的话，占用一旦冲到截断水位，第一个被删的就是它自己，那段历史就白压了。
-    /// 框架对 system 组一律保留，这条因此稳住。
-    /// </summary>
-    /// <param name="note">文档正文</param>
-    /// <returns>可直接写进历史的消息</returns>
-    /// <summary>
     /// 这个会话派出过的委派清单，<b>确定性追加</b>在交接文档正文之后。
     ///
     /// 存在的理由很窄：用 <c>SendMessage</c> 续上一次委派要写子会话编号，而编号只出现在回执与报告里
@@ -150,17 +154,103 @@ public static class HistoryHandoff
     /// 取 <see cref="ChatSessionMeta.Description"/>（派活时的<b>任务原文</b>）而不是
     /// <see cref="ChatSessionMeta.Title"/>：后者是界面用的，首行截到 40 字，
     /// 实测经常看不出这次委派到底干什么——而模型要判断的正是「该不该续这一个」。
-    /// 多行压成一行：清单一项占一行，换行会把它冲散。
+    /// 多行压成一行（<see cref="OneLine"/>）：清单一项占一行，换行会把它冲散。
     /// </summary>
     private static string Summarize(ChatSessionMeta meta)
     {
         string task = string.IsNullOrWhiteSpace(meta.Description) ? meta.Title : meta.Description;
-        task = string.Join(' ', task.Split('\n', '\r', '\t')
-            .Select(x => x.Trim())
-            .Where(x => x.Length > 0));
-        return task.Length <= SubSessionSummaryChars ? task : task[..SubSessionSummaryChars] + "…";
+        return OneLine(task, SubSessionSummaryChars);
     }
 
+    private static string OneLine(string text, int maxChars)
+    {
+        text = string.Join(' ', text.Split('\n', '\r', '\t')
+            .Select(x => x.Trim())
+            .Where(x => x.Length > 0));
+        return text.Length <= maxChars ? text : text[..maxChars] + "…";
+    }
+
+    /// <summary>
+    /// 回查段，<b>确定性追加</b>在交接文档末尾：最近几条用户原话，加上纯文本转录的路径。
+    ///
+    /// 用户原话是意图与约束的第一手来源，"别动 X"这类约束在摘要里最容易丢，所以由代码原样带上。
+    /// 只带最近几条并逐条截断：交接文档有篇幅上限（防"压缩→还是满→再压缩"），用户消息却没有，
+    /// 贴一段日志就能冲穿它。更早的原话与完整过程靠转录回查。
+    /// 每次都从整份历史现算最近几条，多次压缩不会逐次累积。
+    /// </summary>
+    /// <param name="history">完整历史</param>
+    /// <param name="transcriptPath">转录文件路径；没挂 Grep/Read 时为 null，路径与回查提示都不写</param>
+    /// <param name="contextLength">当前模型的上下文上限，用于算原话部分的预算</param>
+    /// <returns>要追加的段落（以空行开头）；无可追加时为空串</returns>
+    public static string BuildRecall(IReadOnlyList<ChatMessage> history, string? transcriptPath, int contextLength)
+    {
+        int budget = NoteCharLimitFor(contextLength) / RecallBudgetDivisor;
+        List<string> quotes = [];
+        int used = 0;
+        int older = 0;
+        for (int i = history.Count - 1; i >= 0; i--)
+        {
+            string? words = UserWords(history[i]);
+            if (words == null) continue;
+
+            string quote = $"- #{i + 1}: {OneLine(words, RecallMessageChars)}";
+            // 最近的那一条无论多长都带上,它往往就是当前这件事本身
+            if (quotes.Count >= RecallMessages || (quotes.Count > 0 && used + quote.Length > budget))
+            {
+                older++;
+                continue;
+            }
+
+            quotes.Add(quote);
+            used += quote.Length;
+        }
+
+        StringBuilder recall = new();
+        if (quotes.Count > 0)
+        {
+            quotes.Reverse();
+            recall.Append("\nWhat the user said most recently, verbatim (oldest first; #N is the message number):\n");
+            foreach (string quote in quotes) recall.Append(quote).Append('\n');
+        }
+
+        if (transcriptPath != null)
+        {
+            string earlier = older > 0 ? $" and {older} earlier user message(s)" : string.Empty;
+            recall.Append($"\nThe whole conversation before this handoff, including everything summarized away{earlier}, "
+                          + $"is in \"{transcriptPath}\" as plain text: one \"## #N role time\" header per message, "
+                          + "tool calls and results cut to one line. "
+                          + $"`{FileToolNames.Grep}` it for exact wording, paths or decisions, "
+                          + $"then `{FileToolNames.Read}` around the hit.\n");
+        }
+
+        return recall.ToString().TrimEnd();
+    }
+
+    // 用户本人说的话;点名技能取用户敲的那一行,正文是整份技能说明
+    private static string? UserWords(ChatMessage message)
+    {
+        if (message.Role != ChatRole.User) return null;
+        AdditionalPropertiesDictionary? properties = message.AdditionalProperties;
+        if (properties != null && NotUserWords.Any(properties.ContainsKey)) return null;
+        if (properties?.TryGetValue(ChatMessageAnnotations.NamedSkillInput, out object? input) == true)
+        {
+            return input?.ToString();
+        }
+
+        string text = message.Text;
+        return string.IsNullOrWhiteSpace(text) ? null : text;
+    }
+
+    /// <summary>
+    /// 构造交接文档消息。
+    ///
+    /// 角色取 <b>system</b> 而不是 assistant，是为了不被框架截断吃掉：交接文档在供给窗口里
+    /// 恰好是最老的一条，而 <c>TruncationCompactionStrategy</c> 正是从最老的非 system 组开始删——
+    /// 取 assistant 的话，占用一旦冲到截断水位，第一个被删的就是它自己，那段历史就白压了。
+    /// 框架对 system 组一律保留，这条因此稳住。
+    /// </summary>
+    /// <param name="note">文档正文</param>
+    /// <returns>可直接写进历史的消息</returns>
     public static ChatMessage CreateNote(string note)
     {
         return new ChatMessage(ChatRole.System, $"[{Title}]\n{note}")
