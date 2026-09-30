@@ -34,7 +34,7 @@ public static class SubAgentToolPrompts
     /// <b>也刻意不提「只读」那一档</b>：档位差异已经退役，对方能做什么由权限档说了算。
     /// </summary>
     public const string SendMessageDescription =
-        "Send a message to subagent and let them work on it. ";
+        "Send a message to a subagent and let them work on it.";
     /// <summary>
     /// <c>to</c> 参数说明。一个参数收两种收件人（人 / 一次进行中的委派），
     /// 因为对模型来说这本来就是同一个动作——**给某人发消息**，
@@ -71,7 +71,7 @@ public static class SubAgentToolPrompts
     public const string RoleParam =
         "Optional short role (e.g. 'senior C# reviewer', 'devil's advocate'). " +
         "Becomes the session title and their identity, setting what they focus on and how they weigh trade-offs. " +
-        "With a named person, they keep their persona and this adds the emphasis. ";
+        "With a named person, they keep their persona and this adds the emphasis.";
     
     /// <summary>
     /// <c>model</c> 参数说明。

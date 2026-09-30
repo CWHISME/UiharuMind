@@ -124,19 +124,14 @@ public static class AgentToolPrompts
     ///
     /// 开场是否查看由模型自决：记忆是「需要时才看」的资源，不进工作循环当必做步骤。
     /// 内容边界：只记对话里的沉淀，不镜像 repo——代码/文档/git 以文件为准，再抄一份就会两份漂移。
-    /// `Shell` 那句只在命令行工具在场时出现（提示语指名的工具必须真的在同一份工具集里）。
     /// </summary>
     /// <param name="memoryDirectory">记忆目录绝对路径</param>
-    /// <param name="shellMounted">命令行工具是否已装配</param>
     /// <returns>提示词段落正文</returns>
-    public static string BuildMemory(string memoryDirectory, bool shellMounted)
+    public static string BuildMemory(string memoryDirectory)
     {
-        StringBuilder sb = new();
-        sb.AppendLine(
-            $"你的记忆目录是 \"{memoryDirectory}\"。这是你在本工作区跨会话保留的笔记：" +
-            "按主题一个 .md 文件，需要时先 `Glob`（或 `Grep`） 再 `Read`，" +
-            "开场是否查看由你自己判断。只记对话里的沉淀（偏好、踩坑、用户给的可复用的重要信息）");
-        return sb.ToString().TrimEnd();
+        return $"你的记忆目录是 \"{memoryDirectory}\"。这是你在本工作区跨会话保留的笔记：" +
+               "按主题一个 .md 文件，需要时先 `Glob`（或 `Grep`）再 `Read`，" +
+               "开场是否查看由你自己判断。只记对话里的沉淀（偏好、踩坑、用户给的可复用的重要信息）。";
     }
 
     /// <summary>
@@ -379,6 +374,8 @@ public static class AgentToolPrompts
     /// ⚠️ <b>措辞刻意避开 run / task / 派活</b>：那套词在教函数调用心智
     /// （对方是可运行的东西、任务是输入、产出是返回值），而我们要的是对话心智——
     /// 对方能反问、能说「你这个需求我没听懂」。
+    ///
+    /// 参数怎么填（to 填回执里的编号、role 管什么）归 <see cref="SubAgentToolPrompts"/> 的参数说明，这里不重复。
     /// </summary>
     /// <param name="roster">可点名的收件人清单（每行一个）；空串表示只有默认对象</param>
     public static string BuildDelegation(string roster)
@@ -386,11 +383,10 @@ public static class AgentToolPrompts
         string body =
             "- 通读大量材料、可独立拆出的实现、深入调查、讨论或任务卡住时，" +
             "可以用 `" + SubAgentTool.ToolName + "` 找个人聊，拿回另一个视角的方案、观点或异议。\n" +
-            "- 需要特定视角（评审、对抗性检验、领域专家）时用 role 给对方身份：换的是关注点与取舍标准，不是能力。\n" +
+            "- 需要特定视角（评审、对抗性检验、领域专家）时给对方一个 role。它只换视角，不换能力。\n" +
             "- 消息后台送达：当场只回一张回执，答复到达时你会被唤醒。等待时做不依赖它的事，依赖它的等答复。\n" +
             "- 答复回来不等于事情结束：同一主题的后续（审新修复、验上轮结论、换角度复查）算延续，" +
-            "把回执末行 [sub-session: …] 里的编号填进 to 再发，回到同一个人接着谈。" +
-            "只有全新主题才另找人——重起会丢掉对方已做过的一切。\n";
+            "要回到同一个人接着谈。只有全新主题才另找人——重起会丢掉对方已做过的一切。\n";
         
         if (string.IsNullOrWhiteSpace(roster)) return body;
         return body + "\n" + SubAgentToolPrompts.RosterHeading + "\n" + roster.TrimEnd() + "\n";
