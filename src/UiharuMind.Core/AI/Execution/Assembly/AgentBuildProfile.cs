@@ -204,8 +204,13 @@ public class AgentBuildProfile
     /// </summary>
     /// <param name="session">会话</param>
     /// <returns>路径解析口径</returns>
-    public static AgentPathResolver PathResolverOf(ChatSession session) =>
-        new(GroupChatSessions.WorkspaceOf(session), AgentOutputLayout.GetRoomAbsolutePath(OutputFolderNameOf(session)));
+    public static AgentPathResolver PathResolverOf(ChatSession session)
+    {
+        string? workspace = GroupChatSessions.WorkspaceOf(session);
+        string folder = OutputFolderNameOf(session);
+        return new AgentPathResolver(workspace, AgentOutputLayout.GetRoomAbsolutePath(folder),
+            MemoryLayout.GetMemoryDirectory(workspace, folder));
+    }
 
     private static string OutputFolderNameOf(ChatSession session) =>
         session.IsSubSession && session.ParentOutputFolderName is { Length: > 0 }

@@ -771,7 +771,7 @@ public class HarnessInstructionsCompositionTests
         Assert.All(segments.Where(x => x.Section != EPromptSection.Mcp), x => Assert.True(x.CountsTowardTotal));
     }
 
-    /// <summary>记忆目录段(ADR 0028)出现时给出绝对路径，并教模型先 Glob 再 Read</summary>
+    /// <summary>记忆目录段(ADR 0028)出现时给出绝对路径与简写，并教模型先 Glob 再 Read</summary>
     [Fact]
     public void MemorySection_Appears_WithMemoryDirectory()
     {
@@ -782,6 +782,7 @@ public class HarnessInstructionsCompositionTests
 
         Assert.Contains(AgentPromptHeadings.Memory("##"), instructions);
         Assert.Contains(memory, instructions);
+        Assert.Contains("简写为 $MEMORY", instructions);
         Assert.Contains("`Glob`", instructions);
     }
 

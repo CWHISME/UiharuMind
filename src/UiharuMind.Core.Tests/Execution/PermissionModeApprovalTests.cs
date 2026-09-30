@@ -188,6 +188,7 @@ public class PermissionModeApprovalTests
         // 兄弟工作区的记忆仍问；工作区与房间之外(绝对越界)也仍问
         Assert.False(await ApprovedAsync(Edit("/tmp/uiharu-data/Agent/Workspaces/ws2/Memory/x.md")));
         Assert.False(await ApprovedAsync(Edit("/etc/hosts")));
+        Assert.True(await ApprovedAsync(Edit("$MEMORY/decisions.md"))); //简写按记忆目录展开再判
     }
 
     /// <summary>删记忆走 shell：只读与自动编辑档仍需审批——记忆目录不在 shell 预授权里(ADR 0028)</summary>

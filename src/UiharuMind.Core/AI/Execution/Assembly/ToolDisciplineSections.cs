@@ -104,12 +104,13 @@ internal static class ToolDisciplineSections
         list.Section(facts.OutputRoom.Length > 0 && (facts.FileWrite || facts.Shell),
             AgentPromptHeadings.OutputRoom("##"),
             () => AgentToolPrompts.BuildOutputRoom(facts.OutputRoom,
-                AgentPathResolver.DraftTokenFor(facts.ShellBinary), facts.ForSubAgent));
+                AgentPathResolver.ShorthandFor(AgentPathResolver.DraftVariable, facts.ShellBinary), facts.ForSubAgent));
 
         // 记忆靠 Read/Write/Edit/Glob 读写,没有专门的记忆工具(ADR 0028)
         list.Section(facts.Memory.Length > 0 && facts.FileRead,
             AgentPromptHeadings.Memory("##"),
-            () => AgentToolPrompts.BuildMemory(facts.Memory));
+            () => AgentToolPrompts.BuildMemory(facts.Memory,
+                AgentPathResolver.ShorthandFor(AgentPathResolver.MemoryVariable, facts.ShellBinary)));
 
         list.Section(facts.FileRead, AgentPromptHeadings.FileOperations, AgentToolPrompts.FileReadDefault);
         list.Section(facts.FileWrite, AgentPromptHeadings.FileModifications, AgentToolPrompts.FileWriteDefault);

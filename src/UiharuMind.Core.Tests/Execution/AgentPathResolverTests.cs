@@ -10,6 +10,7 @@ public class AgentPathResolverTests
 {
     private static readonly string Workspace = Path.Combine(Path.GetTempPath(), "uiharu-paths-ws");
     private static readonly string Draft = Path.Combine(Path.GetTempPath(), "uiharu-paths-data", "ws_1234", "abcd1234");
+    private static readonly string Memory = Path.Combine(Path.GetTempPath(), "uiharu-paths-data", "ws_1234", "Memory");
 
     [Fact]
     public void Resolve_RelativeGoesUnderWorkspace_AbsoluteStaysPut()
@@ -109,7 +110,7 @@ public class AgentPathResolverTests
     [InlineData(null, "$DRAFT/sub/a.png")]
     public void ToPortable_FilesInTheDraftRoot_UseTheShellsShorthand(string? shellBinary, string expected)
     {
-        AgentPathResolver paths = new(Workspace, Draft, shellBinary);
+        AgentPathResolver paths = new(Workspace, Draft, shellBinary: shellBinary);
 
         Assert.Equal(expected, paths.ToPortable(Path.Combine(Draft, "sub", "a.png")));
         Assert.Equal(paths.DraftToken, paths.ToPortable(Draft));
@@ -123,6 +124,26 @@ public class AgentPathResolverTests
         string file = Path.Combine(Draft, "sub", "a.png");
 
         Assert.Equal(file, paths.Resolve(paths.ToPortable(file)));
+    }
+
+    [Fact]
+    public void Resolve_MemoryShorthand_ExpandsToTheMemoryRoot()
+    {
+        AgentPathResolver paths = new(Workspace, Draft, Memory);
+
+        Assert.Equal(Path.Combine(Memory, "decisions.md"), paths.Resolve("$MEMORY/decisions.md"));
+        Assert.Equal("$MEMORY/decisions.md", paths.ToPortable(Path.Combine(Memory, "decisions.md")));
+    }
+
+    /// <summary>没绑工作区时记忆目录住在草稿目录里面：写回取更贴近的那个简写</summary>
+    [Fact]
+    public void ToPortable_MemoryInsideTheDraftRoot_PrefersTheMemoryShorthand()
+    {
+        string nestedMemory = Path.Combine(Draft, "Memory");
+        AgentPathResolver paths = new(Workspace, Draft, nestedMemory, "pwsh");
+
+        Assert.Equal("$env:MEMORY/a.md", paths.ToPortable(Path.Combine(nestedMemory, "a.md")));
+        Assert.Equal("$env:DRAFT/b.py", paths.ToPortable(Path.Combine(Draft, "b.py")));
     }
 
     private static AgentPathResolver WithDraft() => new(Workspace, Draft);

@@ -13,13 +13,15 @@ public class DraftShorthandToolTests : IDisposable
     private readonly string _root = Directory.CreateTempSubdirectory("uiharu-draft-").FullName;
     private readonly string _workspace;
     private readonly string _draft;
+    private readonly string _memory;
     private readonly AgentPathResolver _paths;
 
     public DraftShorthandToolTests()
     {
         _workspace = Directory.CreateDirectory(Path.Combine(_root, "ws")).FullName;
         _draft = Directory.CreateDirectory(Path.Combine(_root, "Workspaces", "ws_1234", "abcd1234")).FullName;
-        _paths = new AgentPathResolver(_workspace, _draft, "/bin/zsh");
+        _memory = Path.Combine(_root, "Workspaces", "ws_1234", "Memory");
+        _paths = new AgentPathResolver(_workspace, _draft, _memory, "/bin/zsh");
     }
 
     public void Dispose()
@@ -45,6 +47,20 @@ public class DraftShorthandToolTests : IDisposable
         Assert.True(File.Exists(Path.Combine(_draft, "probe.py")));
         Assert.False(Directory.Exists(Path.Combine(_workspace, "$DRAFT"))); //没当成相对路径散进工作区
         Assert.Equal("print('hello')", await tools.Read("$DRAFT/probe.py", cancellationToken: ct));
+    }
+
+    /// <summary>记忆目录同理：Write 按需建出目录，Glob 回来的也是简写</summary>
+    [Fact]
+    public async Task MemoryShorthand_WritesIntoTheMemoryRoot()
+    {
+        PermissiveFileAccessTools tools = new(_paths, new FileBackupStore(Path.Combine(_root, "backups")));
+        CancellationToken ct = TestContext.Current.CancellationToken;
+
+        await tools.Write("$MEMORY/decisions.md", "# 决定", ct);
+        GlobOutcome glob = await new SimpleGlobber(_paths).SearchAsync("*.md", "$MEMORY", ct: ct);
+
+        Assert.True(File.Exists(Path.Combine(_memory, "decisions.md")));
+        Assert.Equal(["$MEMORY/decisions.md"], glob.Entries.Select(x => x.Path));
     }
 
     [Fact]
@@ -74,15 +90,16 @@ public class DraftShorthandToolTests : IDisposable
     }
 
     [Fact]
-    public void ShellEnvironment_ExportsTheDraftRoot_AlongsideVenvActivation()
+    public void ShellEnvironment_ExportsBothRoots_AlongsideVenvActivation()
     {
         Dictionary<string, string?> activation = new() { ["VIRTUAL_ENV"] = "/venv" };
 
-        IReadOnlyDictionary<string, string?>? merged = AgentAssemblyPlan.BuildShellEnvironment(activation, _draft);
+        IReadOnlyDictionary<string, string?>? merged = AgentAssemblyPlan.BuildShellEnvironment(activation, _draft, _memory);
 
         Assert.NotNull(merged);
         Assert.Equal(_draft, merged![AgentPathResolver.DraftVariable]);
+        Assert.Equal(_memory, merged[AgentPathResolver.MemoryVariable]);
         Assert.Equal("/venv", merged["VIRTUAL_ENV"]);
-        Assert.Null(AgentAssemblyPlan.BuildShellEnvironment(null, string.Empty)); //什么都不加就不改环境
+        Assert.Null(AgentAssemblyPlan.BuildShellEnvironment(null, string.Empty, string.Empty)); //什么都不加就不改环境
     }
 }

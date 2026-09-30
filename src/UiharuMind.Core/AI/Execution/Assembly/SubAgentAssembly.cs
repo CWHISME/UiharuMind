@@ -335,8 +335,8 @@ internal static class SubAgentAssembly
         // (调研就该只读,免得一次"看一眼"顺手改了东西)。
         bool canMutate = !input.SubAgentProfile.ForceReadOnly;
         string outputRoom = AgentOutputLayout.GetRoomAbsolutePath(input.OutputFolderName);
-        // 与主代理同一份路径口径:共用那间草稿目录,简写的写法跟子代理自己的 shell 走
-        AgentPathResolver paths = new(input.WorkingDirectory, outputRoom, input.ShellBinary);
+        // 与主代理同一份路径口径:共用那间草稿目录,简写的写法跟子代理自己的 shell 走(子代理不带记忆)
+        AgentPathResolver paths = new(input.WorkingDirectory, outputRoom, shellBinary: input.ShellBinary);
 
         List<AITool> tools = new();
         if (config.EnableFileAccess)

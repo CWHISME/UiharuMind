@@ -88,7 +88,7 @@ public static class AgentToolPrompts
     /// 图片引用是例外：它要进历史长期有效，换了工作区简写就指到新房间了，所以仍给完整前缀。
     /// </summary>
     /// <param name="roomDirectory">房间绝对路径</param>
-    /// <param name="draftToken">草稿目录简写（随 shell 写法，见 <see cref="Files.AgentPathResolver.DraftTokenFor"/>）</param>
+    /// <param name="draftToken">草稿目录简写（随 shell 写法，见 <see cref="Files.AgentPathResolver.ShorthandFor"/>）</param>
     /// <param name="forSubAgent">
     /// 是否给子代理用。子代理与派活者<b>共用同一间房</b>，但它的正文不进用户对话——
     /// 交出去的是一份报告，展示归派活者。给它 markdown 图片语法只会让它写出一段
@@ -130,12 +130,14 @@ public static class AgentToolPrompts
     ///
     /// 开场是否查看由模型自决：记忆是「需要时才看」的资源，不进工作循环当必做步骤。
     /// 内容边界：只记对话里的沉淀，不镜像 repo——代码/文档/git 以文件为准，再抄一份就会两份漂移。
+    /// 简写与草稿目录段同一道理（见 <see cref="BuildOutputRoom"/>）：完整路径带工作区哈希，手抄既长又容易错。
     /// </summary>
     /// <param name="memoryDirectory">记忆目录绝对路径</param>
+    /// <param name="memoryToken">记忆目录简写（随 shell 写法，见 <see cref="Files.AgentPathResolver.ShorthandFor"/>）</param>
     /// <returns>提示词段落正文</returns>
-    public static string BuildMemory(string memoryDirectory)
+    public static string BuildMemory(string memoryDirectory, string memoryToken)
     {
-        return $"你的记忆目录是 \"{memoryDirectory}\"。这是你在本工作区跨会话保留的笔记：" +
+        return $"你的记忆目录是 \"{memoryDirectory}\"，简写为 {memoryToken}，路径里用简写即可。这是你在本工作区跨会话保留的笔记：" +
                "按主题一个 .md 文件，需要时先 `Glob`（或 `Grep`）再 `Read`，" +
                "开场是否查看由你自己判断。只记对话里的沉淀（偏好、踩坑、用户给的可复用的重要信息）。";
     }

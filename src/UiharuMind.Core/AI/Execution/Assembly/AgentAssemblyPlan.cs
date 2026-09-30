@@ -106,7 +106,7 @@ internal sealed class AgentAssemblyPlan
     /// <summary>
     /// 给 shell 追加的环境变量。两件事：
     /// <list type="bullet">
-    /// <item>草稿目录导出成 <c>DRAFT</c>（<see cref="AgentPathResolver.DraftVariable"/>），与文件工具认的简写同名</item>
+    /// <item>草稿目录、记忆目录导出成 <c>DRAFT</c>、<c>MEMORY</c>（<see cref="AgentPathResolver"/>），与文件工具认的简写同名</item>
     /// <item>受管 Python 环境就绪时做一次 venv 激活：<b>前置</b>进 `PATH` 并设上 `VIRTUAL_ENV`</item>
     /// </list>
     ///
@@ -182,6 +182,10 @@ internal sealed class AgentAssemblyPlan
         string outputRoom = profile.OutputFolderName.Length > 0
             ? EnsureDirectory(AgentOutputLayout.GetRoomAbsolutePath(profile.OutputFolderName))
             : string.Empty;
+        // 记忆改跟工作区走(ADR 0028):模型用普通文件工具自管,这里只算路径给提示词、审批与 shell 简写用
+        string memoryDirectory = config.EnableFileAccess
+            ? MemoryLayout.GetMemoryDirectory(profile.WorkspacePath, profile.OutputFolderName)
+            : string.Empty;
         return new AgentAssemblyPlan
         {
             Profile = profile,
@@ -206,7 +210,7 @@ internal sealed class AgentAssemblyPlan
             OutputRoomDirectory = outputRoom,
             // 读宿主 PATH 属于"读外部世界",只能在这里做——AgentAssembler 是不碰单例的纯函数
             ShellEnvironment = config.EnableShellExecution
-                ? BuildShellEnvironment(PythonEnvironment.BuildActivationEnvironment(), outputRoom)
+                ? BuildShellEnvironment(PythonEnvironment.BuildActivationEnvironment(), outputRoom, memoryDirectory)
                 : null,
             // 提前读出:子代理要继承同一份
             WorkspaceInstructions = WorkspaceInstructionsLoader.Load(profile.WorkspacePath),
@@ -219,10 +223,7 @@ internal sealed class AgentAssemblyPlan
             // 全局开关在装配时固化:关掉后技能 provider(广告列表 + 三个工具)整体消失,
             // 由 AgentAssemblyFacts 入账触发重建
             DisableSkillsProvider = !AgentSettingConfig.Current.ModelSkillsEnabled,
-            // 记忆改跟工作区走(ADR 0028):模型用普通文件工具自管,这里只算路径给提示词与审批用
-            MemoryDirectory = config.EnableFileAccess
-                ? MemoryLayout.GetMemoryDirectory(profile.WorkspacePath, profile.OutputFolderName)
-                : string.Empty,
+            MemoryDirectory = memoryDirectory,
         };
     }
 
@@ -246,19 +247,21 @@ internal sealed class AgentAssemblyPlan
     /// <param name="shellBinary">实际解析出的 shell；没挂 shell 为空</param>
     /// <returns>路径解析口径</returns>
     public AgentPathResolver CreatePathResolver(string? shellBinary) =>
-        new(WorkingDirectory, OutputRoomDirectory, shellBinary);
+        new(WorkingDirectory, OutputRoomDirectory, MemoryDirectory, shellBinary);
 
     /// <summary>
     /// 合出 shell 的追加环境（见 <see cref="ShellEnvironment"/>）
     /// </summary>
     /// <param name="activation">venv 激活变量；受管环境未就绪为 null</param>
     /// <param name="outputRoom">草稿目录；没有为空串</param>
+    /// <param name="memoryDirectory">记忆目录；没有为空串</param>
     /// <returns>追加的环境变量；什么都不加为 null</returns>
     internal static IReadOnlyDictionary<string, string?>? BuildShellEnvironment(
-        IReadOnlyDictionary<string, string?>? activation, string outputRoom)
+        IReadOnlyDictionary<string, string?>? activation, string outputRoom, string memoryDirectory)
     {
         Dictionary<string, string?> environment = activation == null ? new() : new(activation);
         if (outputRoom.Length > 0) environment[AgentPathResolver.DraftVariable] = outputRoom;
+        if (memoryDirectory.Length > 0) environment[AgentPathResolver.MemoryVariable] = memoryDirectory;
         return environment.Count > 0 ? environment : null;
     }
 

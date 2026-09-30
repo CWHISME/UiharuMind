@@ -88,12 +88,10 @@ public static class ApprovalModeMapper
         Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null,
         string approvedWriteRoot = "", string memoryWriteRoot = "")
     {
-        // 产出房间就是草稿目录:简写 $DRAFT 按它展开,与工具执行时落到同一处
-        AgentPathResolver paths = new(workspaceRoot, approvedWriteRoot);
+        // 产出房间就是草稿目录:简写 $DRAFT / $MEMORY 按它们展开,与工具执行时落到同一处
+        AgentPathResolver paths = new(workspaceRoot, approvedWriteRoot, memoryWriteRoot);
         string room = paths.DraftRoot;
-        string memory = string.IsNullOrWhiteSpace(memoryWriteRoot)
-            ? string.Empty
-            : Path.GetFullPath(memoryWriteRoot);
+        string memory = paths.MemoryRoot;
 
         List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> rules = new()
         {
