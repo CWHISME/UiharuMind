@@ -173,13 +173,10 @@ internal sealed class PermissiveFileAccessTools
     [Description("Search file contents. Respects .gitignore.")]
     internal async Task<GrepToolResult> Grep(
         [Description("Search pattern (ripgrep syntax).")] string pattern,
-        [Description("Treat the pattern as a regular expression. "
-                     + "A pattern that does not compile as one is retried as a literal string, "
-                     + "and the result says so.")]
-        bool isRegex = true,
+        // 编译不过的正则会自动按字面串重搜并在 Notice 里说明,事前不必叮嘱
+        [Description("Treat the pattern as a regular expression.")] bool isRegex = true,
         [Description("Case-sensitive search.")] bool caseSensitive = false,
         [Description("How many lines of context to show around each match.")] int contextLines = 0,
-        [Description("Maximum directory depth to walk (null means no limit).")] int? maxDepth = null,
         // 带路径或 **/ 前缀的 glob 在搜索器里已剥成裸文件名,不必再警告模型别这么写
         [Description("File-name globs, e.g. [\"*.cs\"]. Matched against the file name only; "
                      + "scope by folder with path.")]
@@ -188,7 +185,7 @@ internal sealed class PermissiveFileAccessTools
         CancellationToken ct = default)
     {
         GrepOutcome outcome = await _grepper
-            .SearchAsync(pattern, isRegex, caseSensitive, contextLines, maxDepth, fileGlobs, path, ct)
+            .SearchAsync(pattern, isRegex, caseSensitive, contextLines, maxDepth: null, fileGlobs, path, ct)
             .ConfigureAwait(false);
         return GrepResultShaper.Shape(outcome, pattern);
     }

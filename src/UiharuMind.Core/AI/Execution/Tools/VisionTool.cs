@@ -43,7 +43,8 @@ public static class VisionTool
             ToolName,
             "Analyze one or more image files by delegating to a vision-capable model: identify their content " +
             "and answer questions about them. " +
-            "Pass multiple paths to compare images side by side.");
+            "Pass multiple paths to compare images side by side. " +
+            "Never guess an image's content from its file name.");
     }
 
     private static async Task<string> AskVisionAsync(string workspaceRoot, string[] imagePaths, string question,
