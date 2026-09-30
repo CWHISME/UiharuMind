@@ -35,7 +35,7 @@ public partial class UserCardViewData : ObservableObject
 
     public UserCardViewData()
     {
-        _user = new CharacterInfoViewData(CharacterManager.Instance.UserCharacterData);
+        _user = new CharacterInfoViewData(CharacterManager.Instance.UserCharacterData, App.Services.GetRequiredService<IMessageService>());
     }
 
     [RelayCommand]

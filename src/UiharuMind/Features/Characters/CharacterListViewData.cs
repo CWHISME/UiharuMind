@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Core.AI.Character;
@@ -65,6 +66,7 @@ public partial class CharacterListViewData : ObservableObject
     /// </summary>
     [ObservableProperty] private CharacterInfoViewData? _selectedCharacter;
 
+    private readonly IMessageService _messages;
     private readonly List<CharacterInfoViewData> _characterChacheList = new(20);
 
     /// <summary>还没入库的那个新角色（顶在列表最前，取消建立即消失）</summary>
@@ -83,8 +85,17 @@ public partial class CharacterListViewData : ObservableObject
     /// </summary>
     public Func<Task>? NewCharacterRequested { get; set; }
 
-    public CharacterListViewData()
+    public CharacterListViewData() : this(App.Services.GetRequiredService<IMessageService>())
     {
+    }
+
+    /// <summary>
+    /// 构造
+    /// </summary>
+    /// <param name="messages">列表项弹提示与确认用的消息服务</param>
+    public CharacterListViewData(IMessageService messages)
+    {
+        _messages = messages;
         LoadCharacters();
         CharacterManager.Instance.OnCharacterAdded += OnCharacterAdded;
         CharacterManager.Instance.OnCharacterRemoved += OnCharacterRemoved;
@@ -99,7 +110,7 @@ public partial class CharacterListViewData : ObservableObject
         _characterChacheList.Clear();
         foreach (var characterData in CharacterManager.Instance.CharacterDataDictionary)
         {
-            CharacterInfoViewData item = new(characterData.Value);
+            CharacterInfoViewData item = new(characterData.Value, _messages);
             if (!Matches(item)) continue;
             _characterChacheList.Add(item);
         }
@@ -181,7 +192,7 @@ public partial class CharacterListViewData : ObservableObject
     public void BeginPending(CharacterData seed)
     {
         CancelPending();
-        _pending = new CharacterInfoViewData(seed);
+        _pending = new CharacterInfoViewData(seed, _messages);
         _characterChacheList.Insert(0, _pending);
         Characters.Insert(0, _pending);
         SelectedCharacter = _pending;
@@ -209,7 +220,7 @@ public partial class CharacterListViewData : ObservableObject
             return;
         }
 
-        var characterInfo = new CharacterInfoViewData(obj);
+        var characterInfo = new CharacterInfoViewData(obj, _messages);
         int index = Math.Max(0, Characters.IndexOf(SelectedCharacter!));
         Characters.Insert(index, characterInfo);
         _characterChacheList.Insert(index, characterInfo);

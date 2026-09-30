@@ -3,7 +3,6 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
@@ -59,15 +58,6 @@ public partial class CharacterInfoViewData : ObservableObject
 
     /// <summary>提示词正文。用户卡面板要按只读方式回显它</summary>
     public string Template => _characterData.Template;
-
-    public CharacterInfoViewData() : this(new CharacterData())
-    {
-    }
-
-    public CharacterInfoViewData(CharacterData characterData)
-        : this(characterData, App.Services.GetRequiredService<IMessageService>())
-    {
-    }
 
     public CharacterInfoViewData(CharacterData characterData, IMessageService messageService)
     {

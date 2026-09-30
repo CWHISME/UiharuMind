@@ -61,7 +61,7 @@ public partial class HomePageData : PageDataBase
     public HomePageData(IMessageService messageService)
     {
         _messageService = messageService;
-        _characterListViewData = new CharacterListViewData();
+        _characterListViewData = new CharacterListViewData(messageService);
         _characterListViewData.NewCharacterRequested = NewCharacterAsync;
         // 骨架先行:不在构造里建 Editor——否则首次切页的同步布局要连带物化整个编辑表单
         // (实测 CharacterView 首次布局 ~115ms)。首帧只有左列表+空态,点亮推迟到 OnEnable 的下一拍
