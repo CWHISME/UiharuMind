@@ -7,11 +7,14 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Buffers;
+
 namespace UiharuMind.Core.AI.Execution.Files;
 
 /// <summary>
 /// 工具路径参数的解析口径：绝对路径直接用，相对路径拼工作区根，
-/// 以简写（<c>$DRAFT</c>、<c>$MEMORY</c> 及其各 shell 写法）开头的展开到草稿目录、记忆目录。
+/// 以简写（<c>$DRAFT</c>、<c>$MEMORY</c> 及其各 shell 写法）开头的展开到草稿目录、记忆目录，
+/// <c>~</c> 照 shell 的习惯展开到用户主目录，其余变量写法一律报错。
 ///
 /// 文件工具、搜索、识图、审批越界判定、群产物区、界面的审批预演都经这一处。
 /// 从前这条规则在八处各写一遍，改一处漏一处的后果是：执行落在 A、审批判的是 B、卡片预演的是 C。
@@ -29,6 +32,10 @@ public sealed record AgentPathResolver
 
     /// <summary>记忆目录简写的环境变量名（shell 里导出的就是它）</summary>
     public const string MemoryVariable = "MEMORY";
+
+    /// <summary>环境变量名里允许的字符（<c>%NAME%</c> 的判定用）</summary>
+    private static readonly SearchValues<char> VariableNameChars =
+        SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_");
 
     /// <summary>
     /// 构造解析口径
@@ -93,12 +100,14 @@ public sealed record AgentPathResolver
     /// <param name="path">模型给的路径</param>
     /// <param name="relativeTo">相对路径的基准；省略即工作区根（Glob 的模式退化成路径时相对的是搜索根）</param>
     /// <returns>规范化的绝对路径</returns>
-    /// <exception cref="ArgumentException">路径不成形（非法字符等），相对路径没有基准可拼，或用了简写却没有对应目录</exception>
+    /// <exception cref="ArgumentException">
+    /// 路径不成形（非法字符等），相对路径没有基准可拼，用了简写却没有对应目录，或以不认识的变量开头
+    /// </exception>
     public string Resolve(string path, string? relativeTo = null)
     {
         foreach ((string variable, string root, _) in Shorthands)
         {
-            if (!TrySplitShorthand(path, variable, out string rest)) continue;
+            if (!TrySplitPrefix(path, ShellSpellings(variable), out string rest)) continue;
 
             if (root.Length == 0)
             {
@@ -106,6 +115,20 @@ public sealed record AgentPathResolver
             }
 
             return Path.GetFullPath(root + rest);
+        }
+
+        // 下面两种从前都被当成相对路径，Write 会在工作区里建出名叫 ~ 或 $HOME 的文件夹，而且不报错。
+        // 教会模型用 $DRAFT 之后，它更可能顺手试别的变量
+        if (TrySplitPrefix(path, ["~"], out string inHome))
+        {
+            return Path.GetFullPath(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + inHome);
+        }
+
+        if (StartsWithVariable(path))
+        {
+            string known = string.Join(", ", Shorthands.Where(x => x.Root.Length > 0).Select(x => x.Token));
+            throw new ArgumentException($"'{path}' starts with a variable that file tools don't expand. "
+                                        + (known.Length > 0 ? $"Use {known}, or an absolute path." : "Use an absolute path."));
         }
 
         if (Path.IsPathRooted(path)) return Path.GetFullPath(path);
@@ -125,10 +148,25 @@ public sealed record AgentPathResolver
     /// <param name="path">模型给的路径；空视为解析不了</param>
     /// <param name="fullPath">规范化的绝对路径；失败时为空串</param>
     /// <returns>是否解析成功</returns>
-    public bool TryResolve(string? path, out string fullPath)
+    public bool TryResolve(string? path, out string fullPath) => TryResolve(path, out fullPath, out _);
+
+    /// <summary>
+    /// 同上，另给出解析不了的原因（英文，与工具 schema 同一层）。文件工具用它：
+    /// 自建工具的失败一律回一句模型能照着改的话，不抛给框架
+    /// </summary>
+    /// <param name="path">模型给的路径；空视为解析不了</param>
+    /// <param name="fullPath">规范化的绝对路径；失败时为空串</param>
+    /// <param name="error">失败原因；成功时为空串</param>
+    /// <returns>是否解析成功</returns>
+    public bool TryResolve(string? path, out string fullPath, out string error)
     {
         fullPath = string.Empty;
-        if (string.IsNullOrWhiteSpace(path)) return false;
+        error = string.Empty;
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            error = "The path is empty.";
+            return false;
+        }
 
         try
         {
@@ -137,6 +175,7 @@ public sealed record AgentPathResolver
         }
         catch (Exception e) when (e is ArgumentException or NotSupportedException or PathTooLongException)
         {
+            error = e.Message;
             return false;
         }
     }
@@ -172,12 +211,14 @@ public sealed record AgentPathResolver
     private static string Normalize(string? directory) =>
         string.IsNullOrWhiteSpace(directory) ? string.Empty : Path.GetFullPath(directory);
 
-    /// 以某个简写开头（后面紧跟分隔符或就此结束）时切出余下部分；<c>$DRAFTS</c> 这类只是前缀撞上的不算。
-    /// 四种 shell 写法都认：模型照着哪种 shell 学的就会写哪种。
+    /// 简写在四种 shell 里的写法。文件工具都认：模型照着哪种 shell 学的就会写哪种
+    private static string[] ShellSpellings(string variable) =>
+        ["$" + variable, "${" + variable + "}", "$env:" + variable, "%" + variable + "%"];
+
+    /// 以某个前缀开头（后面紧跟分隔符或就此结束）时切出余下部分；<c>$DRAFTS</c> 这类只是前缀撞上的不算。
     /// 分隔符按平台认：Unix 上反斜杠是文件名里的普通字符，当成分隔符会拼出名叫 "room\a.py" 的文件
-    private static bool TrySplitShorthand(string path, string variable, out string rest)
+    private static bool TrySplitPrefix(string path, string[] spellings, out string rest)
     {
-        string[] spellings = ["$" + variable, "${" + variable + "}", "$env:" + variable, "%" + variable + "%"];
         foreach (string spelling in spellings)
         {
             if (!path.StartsWith(spelling, StringComparison.Ordinal)) continue;
@@ -191,6 +232,15 @@ public sealed record AgentPathResolver
 
         rest = string.Empty;
         return false;
+    }
+
+    /// 看着像变量的开头：<c>$NAME</c>、<c>${NAME}</c>、<c>$env:NAME</c>、<c>%NAME%</c>
+    private static bool StartsWithVariable(string path)
+    {
+        if (path.Length > 1 && path[0] == '$') return path[1] == '{' || char.IsAsciiLetter(path[1]) || path[1] == '_';
+
+        int close = path.Length > 2 && path[0] == '%' ? path.IndexOf('%', 1) : -1;
+        return close > 1 && !path.AsSpan(1, close - 1).ContainsAnyExcept(VariableNameChars);
     }
 
     /// 落在 root 之内时给相对路径（正斜杠，恰是 root 本身为 "."），之外为 null

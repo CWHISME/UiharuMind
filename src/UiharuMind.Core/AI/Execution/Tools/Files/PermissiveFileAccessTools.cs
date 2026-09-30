@@ -205,7 +205,7 @@ internal sealed class PermissiveFileAccessTools
         [Description("Max lines to return. Pass -1 to read the whole file (no byte cap).")] int? limit = null,
         CancellationToken cancellationToken = default)
     {
-        string full = _paths.Resolve(filePath);
+        if (!_paths.TryResolve(filePath, out string full, out string pathError)) return Task.FromResult(pathError);
         if (!File.Exists(full)) return Task.FromResult($"File '{filePath}' not found.");
 
         if (offset < 1) offset = 1;
@@ -260,8 +260,9 @@ internal sealed class PermissiveFileAccessTools
         [Description("Full file content.")] string content,
         CancellationToken ct = default)
     {
+        if (!_paths.TryResolve(filePath, out string resolved, out string pathError)) return $"[Write failed] {pathError}";
         // 写目标解析 symlink:锁与落盘都对着真实路径(否则链接被替换成普通文件)
-        string full = ResolveWriteTarget(_paths.Resolve(filePath));
+        string full = ResolveWriteTarget(resolved);
         SemaphoreSlim fileLock = LockFor(full);
         await fileLock.WaitAsync(ct).ConfigureAwait(false);
         try
@@ -305,8 +306,9 @@ internal sealed class PermissiveFileAccessTools
         [Description("The replacements to apply.")] List<FileEdit> edits,
         CancellationToken ct = default)
     {
+        if (!_paths.TryResolve(filePath, out string resolved, out string pathError)) return $"[Edit failed] {pathError}";
         // 写目标解析 symlink:锁与落盘都对着真实路径(否则链接被替换成普通文件)
-        string full = ResolveWriteTarget(_paths.Resolve(filePath));
+        string full = ResolveWriteTarget(resolved);
         SemaphoreSlim fileLock = LockFor(full);
         await fileLock.WaitAsync(ct).ConfigureAwait(false);
         try

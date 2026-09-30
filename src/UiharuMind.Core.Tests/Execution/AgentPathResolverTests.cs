@@ -76,11 +76,12 @@ public class AgentPathResolverTests
         Assert.Equal(Draft, WithDraft().Resolve("$DRAFT"));
     }
 
-    /// <summary>只是前缀撞上的不是简写，照旧按相对路径拼工作区</summary>
+    /// <summary>只是前缀撞上的不是简写：不展开到草稿目录，按不认识的变量报错</summary>
     [Fact]
-    public void Resolve_NameThatMerelyStartsLikeTheShorthand_StaysRelative()
+    public void Resolve_NameThatMerelyStartsLikeTheShorthand_IsNotExpanded()
     {
-        Assert.Equal(Path.Combine(Workspace, "$DRAFTS", "a.py"), WithDraft().Resolve("$DRAFTS/a.py"));
+        Assert.False(WithDraft().TryResolve("$DRAFTS/a.py", out _, out string error));
+        Assert.Contains("don't expand", error);
     }
 
     /// <summary>简写之后照常规范化：<c>..</c> 能走出草稿目录，审批据此判界外</summary>
@@ -144,6 +145,41 @@ public class AgentPathResolverTests
 
         Assert.Equal("$env:MEMORY/a.md", paths.ToPortable(Path.Combine(nestedMemory, "a.md")));
         Assert.Equal("$env:DRAFT/b.py", paths.ToPortable(Path.Combine(Draft, "b.py")));
+    }
+
+    /// <summary><c>~</c> 照 shell 的习惯展开；<c>~user</c> 这种不认，照旧按相对路径</summary>
+    [Fact]
+    public void Resolve_Tilde_ExpandsToTheUserHome()
+    {
+        string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        AgentPathResolver paths = new(Workspace);
+
+        Assert.Equal(Path.Combine(home, "notes.md"), paths.Resolve("~/notes.md"));
+        Assert.Equal(home, paths.Resolve("~"));
+        Assert.Equal(Path.Combine(Workspace, "~backup", "a.txt"), paths.Resolve("~backup/a.txt"));
+    }
+
+    /// <summary>不认识的变量报错并指出能用哪些简写，而不是在工作区里建出一个叫 $HOME 的文件夹</summary>
+    [Theory]
+    [InlineData("$HOME/notes.md")]
+    [InlineData("${HOME}/notes.md")]
+    [InlineData("$env:USERPROFILE/notes.md")]
+    [InlineData("%APPDATA%/notes.md")]
+    public void Resolve_UnknownVariable_FailsAndNamesTheShorthands(string path)
+    {
+        Assert.False(WithDraft().TryResolve(path, out _, out string error));
+        Assert.Contains("$DRAFT", error);
+        Assert.DoesNotContain("$MEMORY", error); //没有记忆目录就不提它
+    }
+
+    /// <summary>只是带 $ 或 % 的普通文件名不算变量</summary>
+    [Theory]
+    [InlineData("$1.txt")]
+    [InlineData("%notes.txt")]
+    [InlineData("%%/a.txt")]
+    public void Resolve_NamesThatMerelyContainSigils_StayRelative(string path)
+    {
+        Assert.Equal(Path.Combine(Workspace, path), WithDraft().Resolve(path));
     }
 
     private static AgentPathResolver WithDraft() => new(Workspace, Draft);

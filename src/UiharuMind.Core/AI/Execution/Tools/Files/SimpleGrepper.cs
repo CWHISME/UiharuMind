@@ -102,7 +102,22 @@ public sealed class SimpleGrepper
         string? path = null,
         CancellationToken ct = default)
     {
-        string target = SearchRoot.Resolve(_paths, path);
+        if (!SearchRoot.TryResolve(_paths, path, out string target, out string pathError))
+        {
+            return new GrepOutcome
+            {
+                ResolvedDirectory = string.Empty,
+                EffectiveQuery = query,
+                Failure = new SearchFailure
+                {
+                    Kind = ESearchFailureKind.InvalidPath,
+                    RequestedDirectory = path,
+                    WorkingDirectory = _paths.WorkspaceRoot,
+                    Pattern = query,
+                    Detail = pathError,
+                },
+            };
+        }
 
         // 搜索范围只认两种东西：目录（递归搜）或单文件（只搜它）。
         // 模型把文件路径往 directory 塞、或发明 path 参数,都是同一个缺口的两漏

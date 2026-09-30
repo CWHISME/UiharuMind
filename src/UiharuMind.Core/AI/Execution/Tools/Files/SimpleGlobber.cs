@@ -53,7 +53,10 @@ public sealed class SimpleGlobber
         int maxResults = 300,
         CancellationToken ct = default)
     {
-        string target = SearchRoot.Resolve(_paths, path);
+        if (!SearchRoot.TryResolve(_paths, path, out string target, out string pathError))
+        {
+            return Failed(ESearchFailureKind.InvalidPath, string.Empty, path, pattern, pathError);
+        }
 
         bool isFileScope = !Directory.Exists(target) && File.Exists(target);
         if (!Directory.Exists(target) && !isFileScope)
@@ -67,7 +70,7 @@ public sealed class SimpleGlobber
         // 无通配符退化：LLM 经常把绝对路径当 pattern 传
         if (!LooksLikeGlob(pattern))
         {
-            string candidate = _paths.Resolve(pattern, searchRoot);
+            string candidate = ResolveCandidate(pattern, searchRoot);
             if (File.Exists(candidate)
                 && (!isFileScope
                     || string.Equals(Path.GetFullPath(candidate), Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase)))
@@ -152,6 +155,19 @@ public sealed class SimpleGlobber
                     : string.Empty,
             },
         };
+    }
+
+    // 模式退化成路径时相对的是搜索根;解析不了(如不认识的变量)就当没有这个文件,走"没有通配符"那条说明
+    private string ResolveCandidate(string pattern, string searchRoot)
+    {
+        try
+        {
+            return _paths.Resolve(pattern, searchRoot);
+        }
+        catch (ArgumentException)
+        {
+            return string.Empty;
+        }
     }
 
     private static bool LooksLikeGlob(string s)

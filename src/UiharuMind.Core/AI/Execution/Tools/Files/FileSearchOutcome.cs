@@ -15,6 +15,9 @@ public enum ESearchFailureKind
     /// <summary>搜索范围（目录或单文件）不存在</summary>
     PathNotFound,
 
+    /// <summary>搜索范围的写法解析不了（不认识的变量、简写没有对应目录等），原因在 Detail</summary>
+    InvalidPath,
+
     /// <summary>glob 表达式非法（语法错）</summary>
     InvalidGlobPattern,
 

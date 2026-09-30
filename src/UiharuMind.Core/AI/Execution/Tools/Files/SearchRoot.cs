@@ -18,13 +18,19 @@ public static class SearchRoot
 {
     /// <summary>
     /// 解析搜索范围：没传就是工作区根，其余按 <see cref="AgentPathResolver.Resolve"/>。
-    /// 范围可以是目录（在其下递归搜）或单个文件（只搜它）。
+    /// 范围可以是目录（在其下递归搜）或单个文件（只搜它）。解析不了时给出原因而不抛，搜索器据此回一条结构化失败
     /// </summary>
     /// <param name="paths">路径解析口径</param>
     /// <param name="path">调用方给的搜索范围，可为 null/空</param>
-    /// <returns>绝对路径</returns>
-    public static string Resolve(AgentPathResolver paths, string? path) =>
-        string.IsNullOrWhiteSpace(path) ? paths.WorkspaceRoot : paths.Resolve(path);
+    /// <param name="target">绝对路径；失败时为空串</param>
+    /// <param name="error">失败原因；成功时为空串</param>
+    /// <returns>是否解析成功</returns>
+    public static bool TryResolve(AgentPathResolver paths, string? path, out string target, out string error)
+    {
+        error = string.Empty;
+        target = paths.WorkspaceRoot;
+        return string.IsNullOrWhiteSpace(path) || paths.TryResolve(path, out target, out error);
+    }
 
     /// <summary>
     /// 计算离 <paramref name="absolutePath"/> 最近的、存在于工作区内的祖先目录，

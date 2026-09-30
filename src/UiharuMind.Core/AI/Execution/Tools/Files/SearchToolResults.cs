@@ -103,6 +103,7 @@ internal static class SearchFailureRenderer
         return failure.Kind switch
         {
             ESearchFailureKind.PathNotFound => PathNotFound(failure),
+            ESearchFailureKind.InvalidPath => failure.Detail,
             ESearchFailureKind.InvalidGlobPattern =>
                 $"Invalid glob pattern \"{failure.Pattern}\": {failure.Detail} "
                 + "Patterns look like \"**/*.cs\" or \"src/**/Foo*\".",

@@ -89,6 +89,25 @@ public class DraftShorthandToolTests : IDisposable
         Assert.Equal(["$DRAFT/probe.py"], glob.Entries.Select(x => x.Path));
     }
 
+    /// <summary>解析不了的路径回一句能照着改的话：文件工具不抛给框架，搜索回结构化失败</summary>
+    [Fact]
+    public async Task UnknownVariable_IsReportedAsText_AndNothingLandsInTheWorkspace()
+    {
+        PermissiveFileAccessTools tools = new(_paths, new FileBackupStore(Path.Combine(_root, "backups")));
+        CancellationToken ct = TestContext.Current.CancellationToken;
+
+        string write = await tools.Write("$HOME/notes.md", "x", ct);
+        string read = await tools.Read("$HOME/notes.md", cancellationToken: ct);
+        GlobOutcome glob = await new SimpleGlobber(_paths).SearchAsync("*.md", "$HOME", ct: ct);
+        GrepOutcome grep = await new SimpleGrepper(_paths).SearchAsync("x", path: "$HOME", ct: ct);
+
+        Assert.StartsWith("[Write failed]", write);
+        Assert.Contains("$DRAFT", read);
+        Assert.Equal(ESearchFailureKind.InvalidPath, glob.Failure?.Kind);
+        Assert.Equal(ESearchFailureKind.InvalidPath, grep.Failure?.Kind);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(_workspace));
+    }
+
     [Fact]
     public void ShellEnvironment_ExportsBothRoots_AlongsideVenvActivation()
     {
