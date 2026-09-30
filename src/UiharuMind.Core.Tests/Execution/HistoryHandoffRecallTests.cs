@@ -96,6 +96,28 @@ public class HistoryHandoffRecallTests
         Assert.DoesNotContain("Grep", without); //搜不了的会话不给一个搜不了的提示
     }
 
+    /// <summary>原话预算按输入预算单独算：正文篇幅上限封顶 8000 token，附加段不再跟着它封顶</summary>
+    [Fact]
+    public void Budget_ScalesWithTheContext_NotCappedByTheNoteLimit()
+    {
+        List<ChatMessage> history = Enumerable.Range(1, 300)
+            .Select(i => new ChatMessage(ChatRole.User, $"第{i}条" + new string('字', 1000)))
+            .ToList();
+
+        int at128K = QuoteLines(HistoryHandoff.BuildRecall(history, null, ContextLength)).Count;
+        int at1M = QuoteLines(HistoryHandoff.BuildRecall(history, null, 1_000_000)).Count;
+
+        Assert.True(at1M > at128K, $"128k: {at128K}, 1M: {at1M}");
+    }
+
+    [Fact]
+    public void WithAppendix_SeparatesGeneratedSectionsFromTheModelsNote()
+    {
+        Assert.Equal("正文", HistoryHandoff.WithAppendix("正文", string.Empty, string.Empty));
+        Assert.Equal($"正文\n\n{HistoryHandoff.AppendixHeading}\nA\n\nB",
+            HistoryHandoff.WithAppendix("正文", "\nA", string.Empty, "\nB\n"));
+    }
+
     [Fact]
     public void NothingToRecall_ProducesNothing()
     {

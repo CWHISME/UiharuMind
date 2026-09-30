@@ -202,6 +202,17 @@ public class HistoryHandoffTests
         Assert.Contains(HistoryHandoff.NoteCharLimitFor(128_000).ToString(), instruction);
     }
 
+    /// <summary>上一份交接的附加段会随历史一起交给模型(剔掉它会让前缀缓存整段作废),只能靠指令叫它别照抄</summary>
+    [Fact]
+    public async Task WriteAsync_TellsTheModelNotToCopyTheGeneratedAppendix()
+    {
+        StubChatClient client = new("正文");
+
+        await HistoryHandoff.WriteAsync(client, [User("a")], null, 128_000, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Contains(HistoryHandoff.AppendixHeading, client.Seen[^1].Text);
+    }
+
     [Fact]
     public async Task WriteAsync_ReturnsNullOnEmptyOutputInsteadOfWritingABlankNote()
     {

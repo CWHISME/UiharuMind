@@ -557,6 +557,7 @@ public class TurnDriverTests
         Assert.Equal(6, session.History.Count); //5 条历史 + 交接文档
         string body = HistoryHandoff.NoteBody(session.History[^1].Text);
         Assert.StartsWith("交接正文", body);
+        Assert.Contains($"交接正文\n\n{HistoryHandoff.AppendixHeading}\n", body); //附加段与正文用分隔标题隔开
         Assert.Contains("- #5: 第 4 条", body); //用户原话由代码追加在模型正文之后
         Assert.DoesNotContain("transcript", body); //临时会话不写转录,也就不给路径
         Assert.Contains("别忘了临时结论", client.Seen[^1].Text);

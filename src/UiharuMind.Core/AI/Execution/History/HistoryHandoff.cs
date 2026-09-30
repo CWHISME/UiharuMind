@@ -40,6 +40,13 @@ public static class HistoryHandoff
     /// <summary>交接文档在对话里的标题，界面与提示词共用一处</summary>
     public const string Title = "Context handoff";
 
+    /// <summary>
+    /// 附加段的分隔标题：它之后是代码现算的内容（委派清单、用户原话、转录路径），不是模型写的正文。
+    /// 与正文同在一条消息里而不另起一条：另起一条的话，下次压缩要么把它一并交给模型（照样被总结），
+    /// 要么剔掉它（请求从那里岔开，前缀缓存整段作废）；指令里一句"不要照抄"就够了。界面要折叠附录时按它切
+    /// </summary>
+    public const string AppendixHeading = "--- Appended automatically (regenerated at every handoff) ---";
+
     private const double NoteBudgetRatio = 0.1; //交接文档自己占输入预算的比例
     private const int MinNoteTokens = 400;
     private const int MaxNoteTokens = 8000;
@@ -48,7 +55,7 @@ public static class HistoryHandoff
     private const int SubSessionSummaryChars = 160;
 
     private const int RecallMessageChars = 300; //每条原话的篇幅
-    private const int RecallBudgetDivisor = 4; //原话合计不超过交接文档篇幅上限的 1/4
+    private const double RecallBudgetRatio = 0.02; //原话合计占输入预算的比例,与正文篇幅上限脱钩
 
     // 这些 user 消息不是用户本人说的话:子代理交回的报告、派活方插话、群里别人的发言、知识库片段
     private static readonly string[] NotUserWords =
@@ -77,7 +84,7 @@ public static class HistoryHandoff
         return tokens * CharsPerToken;
     }
 
-    private const string Instruction = """
+    private const string Instruction = $$"""
         You are about to lose access to the earlier part of this conversation: it is being
         compacted to fit the context window. Write a handoff document for your future self.
 
@@ -96,6 +103,8 @@ public static class HistoryHandoff
         - Do not address the user, do not ask questions, do not offer to continue.
         - Write in the language the conversation is in.
         - Output the document only. No preamble, no closing remarks.
+        - If an earlier handoff ends with a section headed "{{AppendixHeading}}", do not copy it:
+          it is regenerated automatically after your document.
         - HARD LIMIT: at most {0} characters. This document replaces the conversation above,
           so if it is too long it defeats its own purpose. Spend the budget on sections 3 and 5
           (current progress and concrete details); compress sections 1 and 2 hard.
@@ -183,7 +192,8 @@ public static class HistoryHandoff
     /// <returns>要追加的段落（以空行开头）；无可追加时为空串</returns>
     public static string BuildRecall(IReadOnlyList<ChatMessage> history, string? transcriptPath, int contextLength)
     {
-        int budget = NoteCharLimitFor(contextLength) / RecallBudgetDivisor;
+        // 按输入预算单独算:正文的篇幅上限封顶 8000 token,只管模型写的那段,附加段不该挤在它里面
+        int budget = (int)(HistoryCompaction.InputBudgetFor(contextLength) * RecallBudgetRatio) * CharsPerToken;
         List<string> quotes = [];
         int used = 0;
         int older = 0;
@@ -238,6 +248,18 @@ public static class HistoryHandoff
 
         string text = message.Text;
         return string.IsNullOrWhiteSpace(text) ? null : text;
+    }
+
+    /// <summary>
+    /// 在模型写的正文之后接上附加段，中间用 <see cref="AppendixHeading"/> 隔开
+    /// </summary>
+    /// <param name="note">模型写的交接正文</param>
+    /// <param name="sections">各附加段（委派清单、回查段）；空串跳过</param>
+    /// <returns>整份交接文档；没有附加段时即正文本身</returns>
+    public static string WithAppendix(string note, params string[] sections)
+    {
+        string appendix = string.Join("\n\n", sections.Where(x => x.Length > 0).Select(x => x.Trim()));
+        return appendix.Length == 0 ? note : $"{note}\n\n{AppendixHeading}\n{appendix}";
     }
 
     /// <summary>
