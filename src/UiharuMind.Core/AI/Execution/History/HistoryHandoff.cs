@@ -47,7 +47,6 @@ public static class HistoryHandoff
     // 而这正是模型判断「该不该续这一个」的唯一依据——截太狠等于整段白写
     private const int SubSessionSummaryChars = 160;
 
-    private const int RecallMessages = 10; //回查段最多带几条用户原话
     private const int RecallMessageChars = 300; //每条原话的篇幅
     private const int RecallBudgetDivisor = 4; //原话合计不超过交接文档篇幅上限的 1/4
 
@@ -174,9 +173,9 @@ public static class HistoryHandoff
     /// 回查段，<b>确定性追加</b>在交接文档末尾：最近几条用户原话，加上纯文本转录的路径。
     ///
     /// 用户原话是意图与约束的第一手来源，"别动 X"这类约束在摘要里最容易丢，所以由代码原样带上。
-    /// 只带最近几条并逐条截断：交接文档有篇幅上限（防"压缩→还是满→再压缩"），用户消息却没有，
-    /// 贴一段日志就能冲穿它。更早的原话与完整过程靠转录回查。
-    /// 每次都从整份历史现算最近几条，多次压缩不会逐次累积。
+    /// 逐条截断、合计按预算从最近往前带，不另设条数上限：交接文档有篇幅上限（防"压缩→还是满→再压缩"），
+    /// 用户消息却没有，贴一段日志就能冲穿它。更早的原话与完整过程靠转录回查。
+    /// 每次都从整份历史现算，多次压缩不会逐次累积。
     /// </summary>
     /// <param name="history">完整历史</param>
     /// <param name="transcriptPath">转录文件路径；没挂 Grep/Read 时为 null，路径与回查提示都不写</param>
@@ -195,7 +194,7 @@ public static class HistoryHandoff
 
             string quote = $"- #{i + 1}: {OneLine(words, RecallMessageChars)}";
             // 最近的那一条无论多长都带上,它往往就是当前这件事本身
-            if (quotes.Count >= RecallMessages || (quotes.Count > 0 && used + quote.Length > budget))
+            if (quotes.Count > 0 && used + quote.Length > budget)
             {
                 older++;
                 continue;
