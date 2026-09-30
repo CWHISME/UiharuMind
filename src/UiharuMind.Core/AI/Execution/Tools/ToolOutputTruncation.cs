@@ -25,6 +25,17 @@ internal static class ToolOutputTruncation
     public const int TailBudgetBytes = 4 * 1024;
 
     /// <summary>
+    /// 超长单行截断（Read/Grep 共用；只截工具输出，不改动底层数据）
+    /// </summary>
+    /// <param name="text">一行文本</param>
+    /// <param name="maxChars">保留的字符数</param>
+    /// <returns>未超长原样返回，否则截断并带标记</returns>
+    public static string TruncateLine(string text, int maxChars)
+    {
+        return text.Length <= maxChars ? text : text[..maxChars] + " …[truncated]";
+    }
+
+    /// <summary>
     /// 把超限正文切成「头 + 分隔 Notice + 尾」的返回形态。
     /// 头尾按行对齐(行号锚点才诚实);整行装不进预算的极长行退化为按字节截断的部分行;
     /// 头尾重叠/相邻(全文被极长行主导)时退化为只返头,避免同一行出现两遍。

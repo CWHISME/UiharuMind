@@ -34,37 +34,22 @@ namespace UiharuMind.Core.AI.Execution.Files;
 /// Glob 采用 Meziantou.Framework.Globbing 实现递归路径枚举;Grep 采用 Glacier.Grep 高性能检索引擎
 /// (它自带 .gitignore/.ignore/.rgignore 的层级排除,对齐 ripgrep 行为)。
 /// 编辑语义(唯一匹配/重叠检测/保守 fuzzy/落盘保真)全在 <see cref="FileEditPlanner"/>,
-/// 本类只负责路径解析、限幅与落盘;Write 覆盖前经 <see cref="IFileBackupStore"/> 自动备份。
+/// Grep 结果整形在 <see cref="GrepResultShaper"/>;本类只负责路径解析、限幅与落盘;Write 覆盖前经 <see cref="IFileBackupStore"/> 自动备份。
 /// 写工具各包一层 ApprovalRequiredAIFunction,沿用 MFA 的审批管线。
 /// </summary>
 internal sealed class PermissiveFileAccessTools
 {
     // —— 输出限幅:工具输出直接进模型上下文,编码会话的上下文大头是工具结果而非对话。
-    //    Glob 已在 SimpleGlobber 内限 300 条;shell 由框架 MaxOutputBytes(64KiB)截断。——
+    //    Grep 的限幅在 GrepResultShaper;Glob 在 SimpleGlobber 内限 300 条;shell 由框架截断。——
     internal const int DefaultReadLineLimit = 2000; //未显式传 limit 时的行数上限
 
     /// <summary>
-    /// Read 单次返回的总量上限,按 <b>UTF-8 字节</b>算。
-    ///
-    /// 曾按字符算(120_000,注释写"约 3 万 token"),那是英文的 4 字符/token；中文约 1~1.5 字符/token,
-    /// 于是读一个中文文件实际能放进 8~12 万 token,是标称值的三四倍。本仓注释通篇中文、
-    /// docs 更是纯中文,一次 Read 就能吃掉大半个上下文。按字节算则中英文都落在 1.5 万 token 上下。
-    ///
-    /// 与 Grep 的地图阈值同口径(32KB≈8K token):默认读是一个安全窗口,远程大模型忘传 limit 也不会
-    /// 一次灌进几十万 token。想要全文就走 <c>limit=-1</c> 的显式通道,Description 里已经写清。
+    /// Read 单次返回的总量上限，按 <b>UTF-8 字节</b>算而不是字符：中文约 1~1.5 字符/token，
+    /// 按字符算实际能放进标称值三四倍的 token。与 Grep 的正文预算同口径；要全文走 <c>limit=-1</c>。
     /// </summary>
     internal const int MaxReadTotalBytes = 32 * 1024;
 
     internal const int MaxReadLineChars = 2000; //单行截断(压缩产物一行可达数百 KB)
-    internal const int MaxGrepMatches = 200; //Grep 命中上限(只限工具边界,UI 文件搜索仍全量)
-    internal const int MaxGrepLineChars = 500; //Grep 单行截断
-
-    /// <summary>Grep 正文输出预算,按 <b>UTF-8 字节</b>算(与 Read 同口径)。超了不返半截正文,
-    /// 整页换成命中地图——半截正文按扫描序取、无相关度排序,留着只会让模型锚定到运气好的文件上。</summary>
-    internal const int MaxGrepOutputBytes = 32 * 1024;
-
-    /// <summary>地图模式最多列出的文件数(按命中数降序取 Top N;命中极度分散本身就是"搜宽了"的信号)</summary>
-    internal const int MaxGrepMapFiles = 50;
 
     /// <summary>Edit 回给模型的 diff 行数上限（与审批卡片共用，见 <c>FileEditPlanner.DefaultMaxDiffLines</c>）</summary>
     internal const int MaxEditDiffLines = FileEditPlanner.DefaultMaxDiffLines;
@@ -78,20 +63,12 @@ internal sealed class PermissiveFileAccessTools
         + "Returned paths are relative to the working directory.";
 
     /// <summary>
-    /// 落盘的"读→计划→写"关键区不原子：<c>AllowConcurrentInvocation=true</c> 时同一轮
-    /// 消息里两个工具调用并发执行，两个 Edit/Write 打同一文件就会 lost-update（后写覆盖前写），
-    /// 而且是静默丢改动、连报错都没有。锁表是进程级静态的：主代理与子代理在同一个进程中
-    /// 各自持有本类的实例，静态表让它们自然互斥；同文件不再同时读-改-写。
+    /// 同文件的"读→计划→写"互斥锁。<c>AllowConcurrentInvocation=true</c> 时同一轮的两个 Edit/Write
+    /// 打同一文件会静默 lost-update；锁表进程级静态，主代理与子代理的实例天然互斥。
     ///
-    /// 用<b>定长 striped 锁数组</b>而不是 <c>ConcurrentDictionary</c>：条目固定、内存有界、
-    /// 永不回收（字典会随接触过的文件数无界增长，review 点名）。按路径 hash 取模,碰撞的
-    /// 代价只是不同文件偶发伪串行——写路径毫秒级，无所谓。
-    /// key 用 OrdinalIgnoreCase——macOS/Windows 默认文件系统大小写不敏感，
-    /// <c>/a.cs</c> 与 <c>/A.cs</c> 是同一文件，不能各自拿一把锁。
-    /// 已知边界：不做符号链接 realpath 归一，<c>/real/c.cs</c> 与 <c>/link→real/c.cs</c>
-    /// 会拿到不同条纹——与 ApprovalModeMapper 的"不解析符号链接"口径一致，可接受。
-    /// 注：Write/Edit 在进入锁前已解析<b>文件本体</b>的 symlink（ResolveWriteTarget），
-    /// 所以"文件本身是链接"的场景已覆盖；未覆盖的只剩<b>父目录是链接</b>的别名（见该方法注释）。
+    /// 用定长 striped 数组而不是字典：内存有界，碰撞的代价只是偶发伪串行。key 大小写不敏感
+    /// （macOS/Windows 默认文件系统如此）。父目录是符号链接的别名路径会拿到不同条纹，
+    /// 与 ApprovalModeMapper"不解析符号链接"的口径一致，接受（见 <see cref="ResolveWriteTarget"/>）。
     /// </summary>
     private const int FileLockStripes = 64;
     private static readonly SemaphoreSlim[] _fileLocks = BuildFileLocks();
@@ -159,18 +136,10 @@ internal sealed class PermissiveFileAccessTools
             };
         }
 
-        // 0 命中要明说。裸一个空列表分不出"搜过了确实没有"与"根本没搜成",
-        // 而模型对这两种情况该做的下一步完全不同
-        // 面向模型的渲染只在这一层做:每个文件都标大小。纪律段要求它"绝不要把一整个大文件
-        // 拉进上下文",却从来不给判断依据——这是那句要求唯一缺的东西。
-        // 只标超阈值的文件试过,不行:没有标注就分不清"这个小"和"这个没测",
-        // 一堆小文件全无标注也就没法排序、选不出该先读哪个。
-        // 一条约 4 token,而一次误读大文件是上万 token,期望值上很划算
-        // 文件在前、目录在后,各组内按路径。搜索器给的是纯路径字典序,那会让同一层的
-        // [FILE] 与 [DIR] 逐行交替(README.md / cmake / data / default.nix / docs …),
-        // 扫起来很费劲。文件才是可行动的东西——拿到路径下一步就是 Read/Edit,
-        // 而 `**/*` 里的目录多数时候只是结构信息,压在后面即可。
-        // 排序只在这一层做:界面那侧有自己的习惯(见 SearchService)
+        // 每个文件都标大小:纪律段要它别把大文件整个拉进来,这是判断依据(一条约 4 token,
+        // 误读一次大文件是上万 token)。只标超阈值的不行——没标注就分不清"小"和"没测"。
+        // 文件在前、目录在后:文件才是下一步 Read/Edit 的对象;按纯字典序两者会逐行交替,很难扫。
+        // 排序只在这一层做,界面那侧有自己的习惯(见 SearchService)
         return new GlobToolResult
         {
             Entries = outcome.Entries
@@ -221,182 +190,7 @@ internal sealed class PermissiveFileAccessTools
         GrepOutcome outcome = await _grepper
             .SearchAsync(pattern, isRegex, caseSensitive, contextLines, maxDepth, fileGlobs, path, ct)
             .ConfigureAwait(false);
-
-        if (outcome.Failure != null)
-        {
-            return new GrepToolResult
-            {
-                Notice = SearchFailureRenderer.Render(outcome.Failure, FileToolNames.Grep),
-            };
-        }
-
-        IReadOnlyList<GrepMatchResult> results = outcome.Matches;
-
-        // 全量命中的每文件统计——地图模式用。引擎本来就全量返回,这里免费算;
-        // 不随 200 上限截断,地图才能看到被丢掉的部分在哪。
-        var fileStats = new Dictionary<string, (int Hits, int FirstLine, int LastLine, string Snippet)>(StringComparer.Ordinal);
-        foreach (GrepMatchResult result in results)
-        {
-            if (!fileStats.TryGetValue(result.FileName, out var stat))
-            {
-                stat = (Hits: 0, FirstLine: int.MaxValue, LastLine: 0, Snippet: string.Empty);
-            }
-
-            int first = int.MaxValue;
-            int last = 0;
-            foreach (GrepMatchLine line in result.MatchingLines)
-            {
-                if (!line.IsMatch) continue;
-                if (line.LineNumber < first) first = line.LineNumber;
-                if (line.LineNumber > last) last = line.LineNumber;
-            }
-
-            stat.Hits++;
-            if (first < stat.FirstLine) stat.FirstLine = first;
-            if (last > stat.LastLine) stat.LastLine = last;
-            if (stat.Snippet.Length == 0) stat.Snippet = result.Snippet;
-            fileStats[result.FileName] = stat;
-        }
-
-        // 自有结果 → 工具结果的转换只发生在这里:按文件分组 + 每行 grep 味文本,
-        // 命中限幅也只发生在这里。
-        // 界面那侧要的是可逐条点开的命中列表,那层读的是 SimpleGrepper 的结构化结果,
-        // 不经这里——所以这里可以放心为模型优化成紧凑的分组视图。
-        var converted = new List<GrepFileHits>();
-        var byFile = new Dictionary<string, GrepFileHits>(StringComparer.Ordinal);
-        var pendingLines = new Dictionary<string, List<(int LineNumber, string Text)>>(StringComparer.Ordinal);
-        var seenLines = new Dictionary<string, HashSet<int>>(StringComparer.Ordinal);
-        int remaining = MaxGrepMatches;
-        int droppedMatches = 0;
-        HashSet<string> droppedFiles = new(StringComparer.Ordinal);
-
-        foreach (GrepMatchResult result in results)
-        {
-            if (remaining <= 0)
-            {
-                droppedMatches++;
-                droppedFiles.Add(result.FileName);
-                continue;
-            }
-
-            // 限幅按“命中处”计(一处命中连同它的上下文行算一条);
-            // 上下文重叠去重按文件计——同一文件多处命中的上下文会互相重叠,只保留一次
-            remaining--;
-            if (!byFile.TryGetValue(result.FileName, out GrepFileHits? file))
-            {
-                byFile[result.FileName] = file = new GrepFileHits { File = result.FileName };
-                converted.Add(file);
-                pendingLines[result.FileName] = [];
-                seenLines[result.FileName] = [];
-            }
-
-            HashSet<int> seen = seenLines[result.FileName];
-            foreach (GrepMatchLine line in result.MatchingLines)
-            {
-                if (!seen.Add(line.LineNumber)) continue;
-
-                // 路径只在组头出现一次;行内只需行号 + 分隔符。
-                // 命中行用 : 分隔行号,上下文行用 -(对齐 ripgrep)
-                pendingLines[result.FileName].Add((line.LineNumber,
-                    line.IsMatch
-                        ? $"{line.LineNumber}:{TruncateLine(line.Line, MaxGrepLineChars)}"
-                        : $"{line.LineNumber}-{TruncateLine(line.Line, MaxGrepLineChars)}"));
-            }
-        }
-
-        // 组内按行号升序,模型一眼能数出“哪几处、第几行”
-        foreach ((string fileName, List<(int, string)> lines) in pendingLines)
-        {
-            lines.Sort((a, b) => a.Item1.CompareTo(b.Item1));
-            byFile[fileName].Lines = lines.Select(x => x.Item2).ToList();
-        }
-
-        // 正文输出字节预算:超了整页换地图,不带半截正文。
-        // 半截正文按扫描序取、无相关度排序,留着只会让模型锚定到运气好的文件上
-        int bodyBytes = 0;
-        foreach (GrepFileHits file in converted)
-        {
-            bodyBytes += Encoding.UTF8.GetByteCount(file.File) + 1;
-            foreach (string line in file.Lines)
-            {
-                bodyBytes += Encoding.UTF8.GetByteCount(line) + 1;
-            }
-        }
-
-        if (bodyBytes > MaxGrepOutputBytes)
-        {
-            return BuildHitMap();
-        }
-
-        // 说明走 Notice 字段,不再塞一条 FileName = "[truncated]" 的假命中:
-        // 那种假条目正是模型分不清"命中"与"一句话"的来源
-        return new GrepToolResult { Matches = converted, Notice = BuildGrepNotice() };
-
-        GrepToolResult BuildHitMap()
-        {
-            List<GrepMapEntry> map = fileStats
-                .OrderByDescending(x => x.Value.Hits)
-                .ThenBy(x => x.Key, StringComparer.Ordinal)
-                .Take(MaxGrepMapFiles)
-                .Select(x => new GrepMapEntry
-                {
-                    File = x.Key,
-                    Hits = x.Value.Hits,
-                    FirstLine = x.Value.FirstLine,
-                    LastLine = x.Value.LastLine,
-                    Snippet = TruncateLine(x.Value.Snippet, MaxGrepLineChars),
-                })
-                .ToList();
-
-            // 刻意不给正文:模型第一反应应是判断"词是不是搜宽了",而不是将就着读半截扫描序正文。
-            // 定点 Read 或收窄重搜都行;唯独别换更宽的词重搜——那会把刚截掉的内容原样再灌一遍(回灌)
-            string notice = $"{results.Count} matches across {fileStats.Count} file(s) — too broad to return inline. "
-                            + $"Showing the top {map.Count} files by hit count; `Read` the files below, "
-                            + "or narrow the query (fileGlobs/path) instead of re-searching with a broader term.";
-
-            return new GrepToolResult { Matches = [], Map = map, Notice = notice };
-        }
-
-        string? BuildGrepNotice()
-        {
-            List<string> parts = [];
-
-            // 降级必须说。模型以为自己传的是正则,实际按字面搜的,
-            // 不说一声它对"为什么少了几条命中"会推错
-            if (outcome.FellBackToLiteral)
-            {
-                parts.Add($"\"{pattern}\" does not compile as a supported regular expression "
-                          + "(backreferences and lookarounds are not supported), "
-                          + "so it was searched as a literal string. "
-                          + "Pass isRegex false to do that on purpose.");
-            }
-            else if (!string.Equals(outcome.EffectiveQuery, pattern, StringComparison.Ordinal))
-            {
-                parts.Add($"The pattern was normalised to \"{outcome.EffectiveQuery}\" "
-                          + "so that a leading wildcard means \"anything\".");
-            }
-
-            if (converted.Count == 0)
-            {
-                parts.Add($"Searched \"{outcome.ResolvedDirectory}\" — 0 matches; "
-                          + "the path exists, nothing there matched.");
-            }
-
-            if (droppedMatches > 0)
-            {
-                parts.Add($"Showing the first {MaxGrepMatches} matches; {droppedMatches} more "
-                          + $"across {droppedFiles.Count} file(s) were dropped. "
-                          + "Narrow the query, or scope it with fileGlobs/path.");
-            }
-
-            return parts.Count == 0 ? null : string.Join(" ", parts);
-        }
-    }
-
-    /// <summary>超长行截断(限幅只服务工具输出,不改动底层搜索结果)</summary>
-    internal static string TruncateLine(string text, int maxChars)
-    {
-        return text.Length <= maxChars ? text : text[..maxChars] + " …[truncated]";
+        return GrepResultShaper.Shape(outcome, pattern);
     }
 
     // 描述只写契约;何时读全文、何时先 Grep 再切片是策略,归文件纪律段(AgentToolPrompts.FileReadDefault)
@@ -436,7 +230,7 @@ internal sealed class PermissiveFileAccessTools
                 break;
             }
 
-            if (line.Length > MaxReadLineChars) line = TruncateLine(line, MaxReadLineChars);
+            if (line.Length > MaxReadLineChars) line = ToolOutputTruncation.TruncateLine(line, MaxReadLineChars);
             totalBytes += Encoding.UTF8.GetByteCount(line) + 1;
             lines.Add(line);
         }
@@ -528,13 +322,9 @@ internal sealed class PermissiveFileAccessTools
         }
     }
 
-    //统一落盘:BOM 与行尾按信封原样还原。先写同目录临时文件再原子替换——
-    // 读方永远看到旧或新完整内容(不会读到写一半的文件),进程中途崩溃也不留残缺目标文件;
-    // 同目录是前提:跨文件系统 rename 会退化成 copy+delete,失去原子性。
-    // 注意"原子"指替换动作本身:只保证读方不看到半截,不保证断电后数据在盘(无 fsync)。
-    // 读方(Read/Grep/预览)故意不进锁——原子写让它们永远看到完整文件,不需要锁。
-    // 固有代价:rename 替换目录项会<b>断开硬链接关系</b>(其它链接仍指向旧 inode、
-    // 永远读到旧内容,不报错)——vim 式原子写的通病,非本仓回归,知道即可。
+    // 统一落盘:BOM 与行尾按信封原样还原。先写同目录临时文件再 rename 替换(跨文件系统会失去原子性),
+    // 读方永远看到完整的旧或新内容,所以 Read/Grep 不进锁;不 fsync,不保证断电后在盘。
+    // 固有代价:rename 会断开硬链接(其它链接仍指向旧 inode),vim 式原子写的通病
     private static async Task SaveAsync(string full, TextFileEnvelope envelope, string content, CancellationToken ct)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(full)!);
@@ -596,17 +386,11 @@ internal sealed class PermissiveFileAccessTools
     }
 
     /// <summary>
-    /// 写目标解析：跟随符号链接到真实路径。锁与原子写都对着<b>解析后的</b>路径做，
-    /// 否则两个回归同时发生：<c>File.Move</c> 是 rename 覆盖链接<b>本体</b>（不写目标，
-    /// 静默把链接换成普通文件），且 <c>/real</c> 与 <c>/link→real</c> 在锁表里拿不同条纹、
-    /// 互斥失效。
-    /// 解析失败（例如文件不存在）回退原路径。
+    /// 写目标跟随符号链接到真实路径，锁与原子写都对着它做：否则 rename 会把链接<b>本体</b>静默换成
+    /// 普通文件，且链接与目标在锁表里拿不同条纹。解析失败（例如文件不存在）回退原路径。
     ///
-    /// <b>已知边界</b>：只解析末段组件——父目录是 symlink（<c>/work/linkdir/target.txt</c>，
-    /// <c>linkdir → realdir</c>）时返回的仍是 <c>/work/linkdir/target.txt</c>，与
-    /// <c>/work/realdir/target.txt</c> 在锁表里是两条不同条纹（同一 inode），并发别名编辑
-    /// 仍可能 lost-update。与 <c>ApprovalModeMapper</c>"不解析符号链接"口径一致，接受此边界；
-    /// 全路径 realpath 会引入 TOCTOU 与锁 key 一致性问题，对代理场景不划算。
+    /// 已知边界：只解析末段——父目录是链接时别名路径仍拿不同条纹，并发别名编辑可能 lost-update。
+    /// 与 <c>ApprovalModeMapper</c>"不解析符号链接"口径一致；全路径 realpath 带来 TOCTOU，不划算。
     /// </summary>
     private static string ResolveWriteTarget(string full)
     {

@@ -23,7 +23,7 @@ public sealed class GrepMatchLine
 ///
 /// 名字曾是 <c>GrepFileResult</c>、注释写"一个文件的搜索结果"，而实现一直是一个命中一条——
 /// 界面的文件搜索窗正是按"一行一个命中"渲染的（<c>SearchService</c> 取 <c>MatchingLines.First()</c>）。
-/// 按文件聚合只发生在工具边界（<c>PermissiveFileAccessTools.Grep</c>）：模型要的是紧凑的按文件视图，
+/// 按文件聚合只发生在工具边界（<c>GrepResultShaper</c>）：模型要的是紧凑的按文件视图，
 /// 界面要的是可逐条点开的命中列表，两种形状各取所需，不在这一层强行统一。
 ///
 /// 项目自有类型：不绑定 Agent Framework 的工具结果形状。

@@ -1,5 +1,6 @@
 using System.Text;
 using UiharuMind.Core.AI.Execution.Files;
+using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.Tests.Agent;
 
@@ -123,7 +124,7 @@ public class ToolOutputCapTests : IDisposable
         // 按文件分组:300 处命中来自同一文件 → 一组,但命中数仍封顶在 200
         GrepFileHits file = Assert.Single(result.Matches);
         Assert.Equal("haystack.txt", file.File);
-        Assert.Equal(PermissiveFileAccessTools.MaxGrepMatches, file.Lines.Count);
+        Assert.Equal(GrepResultShaper.MaxMatches, file.Lines.Count);
         Assert.NotNull(result.Notice);
         Assert.Contains("100 more", result.Notice);
         Assert.Contains("Narrow the query", result.Notice);
@@ -212,7 +213,7 @@ public class ToolOutputCapTests : IDisposable
 
         Assert.Empty(result.Matches);
         Assert.NotNull(result.Map);
-        Assert.Equal(PermissiveFileAccessTools.MaxGrepMapFiles, result.Map.Count);
+        Assert.Equal(GrepResultShaper.MaxMapFiles, result.Map.Count);
         Assert.All(result.Map, e => Assert.Equal(10, e.Hits));
         Assert.Contains("600 matches across 60 file(s)", result.Notice);
     }
@@ -220,8 +221,8 @@ public class ToolOutputCapTests : IDisposable
     [Fact]
     public void TruncateLine_RespectsBudget()
     {
-        Assert.Equal("short", PermissiveFileAccessTools.TruncateLine("short", 10));
-        string truncated = PermissiveFileAccessTools.TruncateLine(new string('a', 100), 10);
+        Assert.Equal("short", ToolOutputTruncation.TruncateLine("short", 10));
+        string truncated = ToolOutputTruncation.TruncateLine(new string('a', 100), 10);
         Assert.StartsWith("aaaaaaaaaa …[truncated]", truncated);
     }
 }

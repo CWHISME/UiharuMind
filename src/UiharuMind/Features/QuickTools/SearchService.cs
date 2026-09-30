@@ -142,7 +142,7 @@ public class SearchService
     }
 
     /// <summary>
-    /// 界面预览片段上限。文件里常有压缩产物一行几百 KB（模型侧工具输出有 MaxGrepLineChars=500
+    /// 界面预览片段上限。文件里常有压缩产物一行几百 KB（模型侧工具输出有 GrepResultShaper.MaxLineChars=500
     /// 截断，界面这条路径从前没有）——TextTrimming 仍要等整行字形整形才知道从哪截断，
     /// 虚拟化滚动滚到那一行就卡一下。预览本来就只够看一两行，这里截断，打开文件不受影响。
     /// </summary>

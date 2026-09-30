@@ -633,7 +633,7 @@ public static class FileEditPlanner
         };
     }
 
-    /// <summary>本地截断(不入依赖 PermissiveFileAccessTools.TruncateLine):只为控制话术长度</summary>
+    /// <summary>本地截断(不入依赖 ToolOutputTruncation.TruncateLine):只为控制话术长度</summary>
     private static string Clamp(string s) => s.Length <= 120 ? s : s[..120] + " …[truncated]";
 
     /// <summary>
