@@ -3181,6 +3181,9 @@ Allow them?</value>
     <data name="GroupHostHint" xml:space="preserve">
         <value>In parallel mode, a message without @ wakes only the host, who calls on the right members. Changes take effect the next time each member speaks.</value>
     </data>
+    <data name="GroupRenameConfirm" xml:space="preserve">
+        <value>The group name is part of every member's system prompt, so renaming makes each member's next round recompute the full context at full price (prefix cache miss), then caching resumes. Rename to "{0}"?</value>
+    </data>
     <data name="GroupHostChangeConfirm" xml:space="preserve">
         <value>Switching host rewrites every member's system prompt, so each member's next round recomputes the full context at full price (prefix cache miss), then caching resumes. Switch to "{0}"?</value>
     </data>

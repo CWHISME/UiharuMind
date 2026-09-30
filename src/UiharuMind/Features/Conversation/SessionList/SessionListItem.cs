@@ -23,6 +23,7 @@ using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Features.Characters;
+using UiharuMind.Features.Conversation.Group;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
@@ -319,6 +320,7 @@ public partial class SessionListItem : ObservableObject
     {
         string? result = await UIManager.ShowStringEditWindow(_meta.Title, title: Loc.Text(LangKey.EditSessionTitleTitle));
         if (string.IsNullOrWhiteSpace(result) || result == _meta.Title) return;
+        if (IsGroup && !await GroupChangePrompts.ConfirmRenameAsync(Session, result)) return;
 
         // 标题是纯显示字段:改名不动文件、不删不加。
         // 索引与本体各存一份,两边都要写——只写本体会让列表在重建索引前显示旧名
