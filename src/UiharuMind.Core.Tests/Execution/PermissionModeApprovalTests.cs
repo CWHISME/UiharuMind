@@ -136,6 +136,26 @@ public class PermissionModeApprovalTests
         Assert.False(await ApprovedInRoomAsync(Edit("/etc/hosts"))); //房间之外仍问
     }
 
+    /// <summary>
+    /// 草稿目录简写按房间展开再判界：与工具执行落到同一处。
+    /// 用 .. 走出房间的、没有房间可展开的，都照旧要问
+    /// </summary>
+    [Fact]
+    public async Task DraftShorthand_IsJudgedWhereItActuallyLands()
+    {
+        const string room = "/tmp/uiharu-data/Agent/Workspaces/ws/12345678";
+
+        Task<bool> ApprovedAsync(FunctionCallContent call, string approvedWriteRoot) =>
+            ApprovalRuleProbe.IsApprovedAsync(
+                ApprovalModeMapper.BuildRules(EAgentPermissionMode.AutoEdit, Root, approvedWriteRoot: approvedWriteRoot),
+                call);
+
+        Assert.True(await ApprovedAsync(Edit("$DRAFT/probe.py"), room));
+        Assert.True(await ApprovedAsync(Edit("$env:DRAFT/sub/out.png"), room));
+        Assert.False(await ApprovedAsync(Edit("$DRAFT/../87654321/x.py"), room)); //走进兄弟房间
+        Assert.False(await ApprovedAsync(Edit("$DRAFT/probe.py"), approvedWriteRoot: "")); //没有房间可展开
+    }
+
     /// <summary>只读档连自己的房间也不放行：那一档什么写工具都不批</summary>
     [Fact]
     public async Task ReadOnly_StillDeniesWritesIntoOwnRoom()

@@ -334,12 +334,14 @@ internal static class SubAgentAssembly
         // 唯一仍然恒定只读的是<b>探索档</b>:那是产品决定而不是技术限制
         // (调研就该只读,免得一次"看一眼"顺手改了东西)。
         bool canMutate = !input.SubAgentProfile.ForceReadOnly;
+        string outputRoom = AgentOutputLayout.GetRoomAbsolutePath(input.OutputFolderName);
+        // 与主代理同一份路径口径:共用那间草稿目录,简写的写法跟子代理自己的 shell 走
+        AgentPathResolver paths = new(input.WorkingDirectory, outputRoom, input.ShellBinary);
 
         List<AITool> tools = new();
         if (config.EnableFileAccess)
         {
-            tools.AddRange(new PermissiveFileAccessTools(input.WorkingDirectory)
-                .Create(disableWriteTools: !canMutate));
+            tools.AddRange(new PermissiveFileAccessTools(paths).Create(disableWriteTools: !canMutate));
         }
 
         // 探索档与「恒定只读」同源(产品决定而非技术限制):它干的是工作区内的初级调研,
@@ -357,7 +359,7 @@ internal static class SubAgentAssembly
         bool hasShell = canMutate && input.ShellTool != null;
         if (hasVision)
         {
-            tools.Add(VisionTool.Create(new AgentPathResolver(input.WorkingDirectory)));
+            tools.Add(VisionTool.Create(paths));
         }
 
         if (canMutate)
@@ -388,13 +390,12 @@ internal static class SubAgentAssembly
             AutoApprovalRules = ApprovalModeMapper.BuildRules(input.PermissionMode,
                 input.WorkingDirectory, input.PreAuthorizedShellPatterns, input.SessionShellApprovalSource,
                 // 子会话沿用派活者的房间(见 AgentBuildProfile),豁免同一间
-                AgentOutputLayout.GetRoomAbsolutePath(input.OutputFolderName)),
+                outputRoom),
         };
         ChatOptions subOptions = input.Sampling?.ToChatOptions() ?? new ChatOptions();
         subOptions.Instructions = BuildSubAgentInstructions(config, hasWeb, hasVision, hasShell,
             input.ShellBinary ?? string.Empty, canMutate, input.PythonOutputDirectory,
-            input.WorkingDirectory,
-            AgentOutputLayout.GetRoomAbsolutePath(input.OutputFolderName),
+            input.WorkingDirectory, outputRoom,
             input.WorkspaceInstructions, input.McpInstructions,
             input.Persona, input.Role);
         subOptions.Tools = tools;

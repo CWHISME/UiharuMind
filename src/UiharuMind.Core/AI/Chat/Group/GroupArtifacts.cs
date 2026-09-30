@@ -52,7 +52,7 @@ public static class GroupArtifacts
     /// </summary>
     /// <param name="group">群壳会话</param>
     /// <returns>路径解析口径</returns>
-    public static AgentPathResolver MemberPathsOf(ChatSession group) => new(group.WorkspacePath);
+    public static AgentPathResolver MemberPathsOf(ChatSession group) => new(group.WorkspacePath, DraftRoomOf(group));
 
     /// <summary>
     /// 收集本群产物，最近改过的在前

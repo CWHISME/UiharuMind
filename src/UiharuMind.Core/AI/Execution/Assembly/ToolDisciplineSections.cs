@@ -7,6 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Prompts;
 
 namespace UiharuMind.Core.AI.Execution.Assembly;
@@ -102,7 +103,8 @@ internal static class ToolDisciplineSections
         // 说了也只是指一个写不进去的目录
         list.Section(facts.OutputRoom.Length > 0 && (facts.FileWrite || facts.Shell),
             AgentPromptHeadings.OutputRoom("##"),
-            () => AgentToolPrompts.BuildOutputRoom(facts.OutputRoom, facts.ForSubAgent));
+            () => AgentToolPrompts.BuildOutputRoom(facts.OutputRoom,
+                AgentPathResolver.DraftTokenFor(facts.ShellBinary), facts.ForSubAgent));
 
         // 记忆靠 Read/Write/Edit/Glob 读写,没有专门的记忆工具(ADR 0028)
         list.Section(facts.Memory.Length > 0 && facts.FileRead,

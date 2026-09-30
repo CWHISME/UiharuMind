@@ -104,10 +104,13 @@ internal sealed class AgentAssemblyPlan
     public string OutputRoomDirectory { get; init; } = string.Empty;
 
     /// <summary>
-    /// 给 shell 追加的环境变量。目前只有一件事：把受管 Python 环境<b>前置</b>进 `PATH`
-    /// 并设上 `VIRTUAL_ENV`——也就是标准的 venv 激活。
+    /// 给 shell 追加的环境变量。两件事：
+    /// <list type="bullet">
+    /// <item>草稿目录导出成 <c>DRAFT</c>（<see cref="AgentPathResolver.DraftVariable"/>），与文件工具认的简写同名</item>
+    /// <item>受管 Python 环境就绪时做一次 venv 激活：<b>前置</b>进 `PATH` 并设上 `VIRTUAL_ENV`</item>
+    /// </list>
     ///
-    /// 这么做是为了让模型写裸 `python` / `pip`：旧根含空格
+    /// venv 激活是为了让模型写裸 `python` / `pip`：旧根含空格
     /// （macOS 上曾是 `Application Support`），每次调用都要模型自己记得加引号，
     /// 忘一次就是一条断命令加一轮白烧。新根 `~/.uiharu` 无空格，这条仍保留。
     ///
@@ -115,7 +118,7 @@ internal sealed class AgentAssemblyPlan
     /// 带自己的 venv 时，裸 `python` 会落到我们这个环境里。纪律段有一句对冲，
     /// 但 PATH 是静默生效的，那句话拦不住每一次。
     ///
-    /// null 表示不改环境（受管环境未就绪，或没挂 shell）。
+    /// null 表示不改环境（没挂 shell，或两件事都不成立）。
     /// </summary>
     public IReadOnlyDictionary<string, string?>? ShellEnvironment { get; init; }
 
@@ -202,8 +205,8 @@ internal sealed class AgentAssemblyPlan
             // 建好它(shell 重定向不像 Write 那样按需建父目录)
             OutputRoomDirectory = outputRoom,
             // 读宿主 PATH 属于"读外部世界",只能在这里做——AgentAssembler 是不碰单例的纯函数
-            ShellEnvironment = config.EnableShellExecution && PythonEnvironment.IsReady
-                ? PythonEnvironment.BuildActivationEnvironment()
+            ShellEnvironment = config.EnableShellExecution
+                ? BuildShellEnvironment(PythonEnvironment.BuildActivationEnvironment(), outputRoom)
                 : null,
             // 提前读出:子代理要继承同一份
             WorkspaceInstructions = WorkspaceInstructionsLoader.Load(profile.WorkspacePath),
@@ -236,6 +239,28 @@ internal sealed class AgentAssemblyPlan
     /// 会话绑定模型优先,回落全局当前模型——与 LazyChatClient 同一解析次序
     private static ModelRunningData? CurrentModel(AgentBuildProfile profile) =>
         profile.SessionModelSource?.Invoke() ?? LlmManager.Instance.CurrentRunningModel;
+
+    /// <summary>
+    /// 本会话工具的路径口径。简写的写法随 shell 而定，所以要等 shell 解析出来再建
+    /// </summary>
+    /// <param name="shellBinary">实际解析出的 shell；没挂 shell 为空</param>
+    /// <returns>路径解析口径</returns>
+    public AgentPathResolver CreatePathResolver(string? shellBinary) =>
+        new(WorkingDirectory, OutputRoomDirectory, shellBinary);
+
+    /// <summary>
+    /// 合出 shell 的追加环境（见 <see cref="ShellEnvironment"/>）
+    /// </summary>
+    /// <param name="activation">venv 激活变量；受管环境未就绪为 null</param>
+    /// <param name="outputRoom">草稿目录；没有为空串</param>
+    /// <returns>追加的环境变量；什么都不加为 null</returns>
+    internal static IReadOnlyDictionary<string, string?>? BuildShellEnvironment(
+        IReadOnlyDictionary<string, string?>? activation, string outputRoom)
+    {
+        Dictionary<string, string?> environment = activation == null ? new() : new(activation);
+        if (outputRoom.Length > 0) environment[AgentPathResolver.DraftVariable] = outputRoom;
+        return environment.Count > 0 ? environment : null;
+    }
 
     private static string GetScratchDirectory() => EnsureDirectory(AppPaths.Cache.Scratch);
 

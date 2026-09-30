@@ -76,7 +76,7 @@ internal static class AgentAssembler
                     plan.Compaction), null, inputEstimate: plan.InputEstimate);
         }
 
-        // ShellEnvironment 只在受管 Python 环境就绪时非空,内容是一次 venv 激活(见 AgentAssemblyPlan)
+        // ShellEnvironment 带草稿目录简写与(受管 Python 就绪时的)venv 激活,见 AgentAssemblyPlan
         LocalShellExecutor? shellExecutor = plan.Config.EnableShellExecution
             ? ShellExecutorFactory.Create(plan.WorkingDirectory, plan.ShellEnvironment)
             : null;
@@ -129,6 +129,8 @@ internal static class AgentAssembler
     {
         AgentToolConfig config = plan.Config;
         List<AgentToolEntry> tools = new();
+        // 文件工具与识图共用一份路径口径,草稿目录简写的写法跟 shell 走
+        AgentPathResolver paths = plan.CreatePathResolver(shellExecutor?.ResolvedShellBinary);
 
         void Add(EAgentCapability capability, AITool tool) => tools.Add(new AgentToolEntry(capability, tool));
 
@@ -142,7 +144,7 @@ internal static class AgentAssembler
         // 该判定进装配快照,切换视觉/非视觉模型时下一次挂接自动重建
         if (plan.MountVisionTool)
         {
-            Add(EAgentCapability.VisionTool, VisionTool.Create(new AgentPathResolver(plan.WorkingDirectory)));
+            Add(EAgentCapability.VisionTool, VisionTool.Create(paths));
         }
 
         // 委派:工具集与权限档都从主代理派生,全部能力都关掉时不挂载。
@@ -169,7 +171,7 @@ internal static class AgentAssembler
 
         if (config.EnableFileAccess)
         {
-            foreach (AITool tool in new PermissiveFileAccessTools(plan.WorkingDirectory).Create())
+            foreach (AITool tool in new PermissiveFileAccessTools(paths).Create())
             {
                 Add(EAgentCapability.FileAccess, tool);
             }

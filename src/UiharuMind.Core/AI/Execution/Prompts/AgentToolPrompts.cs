@@ -81,22 +81,28 @@ public static class AgentToolPrompts
     /// 不该进项目的中间文件都放这里，不要散进项目里。
     ///
     /// 路径用双引号而目录名不用反引号：反引号专表工具名。
+    ///
+    /// 主推简写而不是完整路径：完整路径带两段哈希，模型嫌长就绕开草稿目录，把临时文件散进项目；
+    /// 硬抄又容易抄错一位，落到别的房间被判成跨会话写入。简写在文件工具里由
+    /// <see cref="Files.AgentPathResolver"/> 展开，在 shell 里是同名环境变量。
+    /// 图片引用是例外：它要进历史长期有效，换了工作区简写就指到新房间了，所以仍给完整前缀。
     /// </summary>
     /// <param name="roomDirectory">房间绝对路径</param>
+    /// <param name="draftToken">草稿目录简写（随 shell 写法，见 <see cref="Files.AgentPathResolver.DraftTokenFor"/>）</param>
     /// <param name="forSubAgent">
     /// 是否给子代理用。子代理与派活者<b>共用同一间房</b>，但它的正文不进用户对话——
     /// 交出去的是一份报告，展示归派活者。给它 markdown 图片语法只会让它写出一段
     /// 没人渲染的引用，而派活者真正需要的是一个能直接转引的绝对路径
     /// </param>
     /// <returns>提示词段落正文</returns>
-    public static string BuildOutputRoom(string roomDirectory, bool forSubAgent = false)
+    public static string BuildOutputRoom(string roomDirectory, string draftToken, bool forSubAgent = false)
     {
         StringBuilder sb = new();
         sb.AppendLine(
-            $"你的草稿目录（免审批写入区）是 \"{roomDirectory}\"。测试、验证用的临时脚本（含 py 文件），" +
+            $"你的草稿目录（免审批写入区）是 \"{roomDirectory}\"，简写为 {draftToken}。测试、验证用的临时脚本（含 py 文件），" +
             "以及不该进项目的中间文件(例如方便参考而临时 git clone 的源码)，都放这里，不要散进项目里。\n" +
-            "此路径必须逐字使用，不要改写或自造：写错位置会被视为" +
-            "跨会话写入而触发审批，无人确认时会一直等待。");
+            $"凡是写路径的地方（工具参数、命令行）都用简写，例如 {draftToken}/probe.py：" +
+            "手抄完整路径抄错一位，就会被当成跨会话写入而等审批。");
 
         if (forSubAgent)
         {
@@ -112,7 +118,7 @@ public static class AgentToolPrompts
         string uriPrefix = ToFileUriPrefix(roomDirectory);
         sb.Append(
             "- 要给用户看的文件（图表、导出的数据），同样放这里。正文里照这个格式引用它：" +
-            $"![说明]({uriPrefix}文件名)。只报一句文件名、或者路径写到别处，" +
+            $"![说明]({uriPrefix}文件名)，这里不认简写。只报一句文件名、或者路径写到别处，" +
             "对话里就什么都不会出现。");
 
         return sb.ToString().TrimEnd();

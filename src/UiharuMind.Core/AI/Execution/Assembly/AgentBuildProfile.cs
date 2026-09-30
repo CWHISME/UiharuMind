@@ -190,9 +190,7 @@ public class AgentBuildProfile
             // 于是子代理的产出直接落主代理会话的目录(见 ChatSession.ParentOutputFolderName)。
             // 旧存档没有这个值,回退子会话自己的目录。
             // 群成员共用群壳那一间:一起干的活落在一处,产物不必从五个目录里拼;群删了房间随之删
-            OutputFolderName = session.IsSubSession && session.ParentOutputFolderName is { Length: > 0 }
-                ? session.ParentOutputFolderName
-                : AgentOutputLayout.GetFolderName(GroupChatSessions.WorkspaceOf(session), session.GroupId ?? session.SessionId),
+            OutputFolderName = OutputFolderNameOf(session),
             SessionModelSource = sessionModelSource,
             SessionKnowledgeSource = sessionKnowledgeSource,
             SessionShellApprovalSource = sessionShellApprovalSource,
@@ -207,7 +205,12 @@ public class AgentBuildProfile
     /// <param name="session">会话</param>
     /// <returns>路径解析口径</returns>
     public static AgentPathResolver PathResolverOf(ChatSession session) =>
-        new(GroupChatSessions.WorkspaceOf(session));
+        new(GroupChatSessions.WorkspaceOf(session), AgentOutputLayout.GetRoomAbsolutePath(OutputFolderNameOf(session)));
+
+    private static string OutputFolderNameOf(ChatSession session) =>
+        session.IsSubSession && session.ParentOutputFolderName is { Length: > 0 }
+            ? session.ParentOutputFolderName
+            : AgentOutputLayout.GetFolderName(GroupChatSessions.WorkspaceOf(session), session.GroupId ?? session.SessionId);
 
     /// <summary>
     /// 从<b>尚不存在的会话</b>构造：智能体页的会话是懒建的，首轮发送前没有 <see cref="ChatSession"/>，

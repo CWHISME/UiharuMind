@@ -629,6 +629,10 @@ agent **在会话里写下的一切文件**——跑 Python 画的图、导出�
 ⚠️ 房间同时是通用草稿目录（测试脚本、不该进项目的中间文件放这里，不随 Python 环境起落，
 提示词通用段有专节），`Write`/`Edit` 落自己这间房免审批——只认这一间，见 [ADR 0010](adr/0010-权限档定版三档，越界写入贯穿三档.md)。
 
+⚠️ 草稿目录有**简写** `$DRAFT`：shell 里是同名环境变量，文件工具、审批、审批预演经 `AgentPathResolver`
+展开同一个名字，搜索结果也按它写回。写法随 shell 变（PowerShell 是 `$env:DRAFT`、cmd 是 `%DRAFT%`——
+PowerShell 里 `$DRAFT` 会静默展开成空串）。**图片引用不用简写**：它要进历史长期有效，换了工作区简写就指到新房间。
+
 ### Skill（技能）
 
 遵循 [agentskills.io](https://agentskills.io) `SKILL.md` 规范的技能包。

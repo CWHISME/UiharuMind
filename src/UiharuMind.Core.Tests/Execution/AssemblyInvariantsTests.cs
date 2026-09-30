@@ -1327,6 +1327,22 @@ public class SubAgentBoundaryTests
         Assert.Contains("12345678", instructions);
     }
 
+    /// <summary>草稿目录段教的简写跟 shell 走：PowerShell 下写 $DRAFT 会静默展开成空串</summary>
+    [Fact]
+    public void SubAgentInstructions_TeachTheShellsDraftShorthand()
+    {
+        string instructions = SubAgentAssembly.BuildSubAgentOptions(
+                NewInput(mode: EAgentPermissionMode.FullAuto) with
+                {
+                    ShellTool = StubShellTool(),
+                    ShellBinary = "/usr/local/bin/pwsh",
+                    OutputFolderName = "ws-seg/12345678",
+                })!
+            .ChatOptions!.Instructions!;
+
+        Assert.Contains("$env:DRAFT/probe.py", instructions);
+    }
+
     /// <summary>子代理的 Python 段同样不复述房间与引用格式</summary>
     [Fact]
     public void SubAgentPythonDiscipline_DoesNotRepeatTheRoom()
