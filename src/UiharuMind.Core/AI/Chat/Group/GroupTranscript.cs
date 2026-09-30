@@ -11,6 +11,7 @@ namespace UiharuMind.Core.AI.Chat.Group;
 public static class GroupTranscript
 {
     private const int MaxStripPasses = 3; //循环剥前缀上限：脏数据一般叠一两层，三层封顶，再多当正文
+    private static readonly string[] BracketedPassMarkers = [PassReply, "【沉默】"]; //能从正文开头剥掉的沉默写法
 
     /// <summary>
     /// 把游标之后、这个成员还没听过的群发言合成<b>一条</b>投递正文，逐条标发言人。
@@ -113,8 +114,8 @@ public static class GroupTranscript
     }
 
     /// <summary>
-    /// 剥掉模型自加的发言人前缀。场景段要求成员「直接说，不要自己加 [名字]: 前缀」，
-    /// 但弱模型常照着投递格式仿写（`[一方通行]: 嗯。`）。整段以 `[名]:` 开头时，
+    /// 剥掉模型自加的发言人前缀。场景段告诉成员「群里会自动标上你的名字，直接写正文」
+    /// （不再写成「不要加前缀」的禁令——那句本身又把格式念了一遍），但弱模型仍常照着投递格式仿写（`[一方通行]: 嗯。`）。整段以 `[名]:` 开头时，
     /// markdown 会把它当链接引用定义整段吞掉——气泡空白、复制却有字；投递时再包一层还会变双前缀。
     /// 只认发言人自己的名字，不做通用 `[...]:` 猜测，避免误伤正文里合法的中括号开头。
     /// </summary>
@@ -136,7 +137,24 @@ public static class GroupTranscript
             result = rest;
         }
 
-        return result;
+        return StripBracketedLinePrefixes(result, name);
+    }
+
+    // 实测白井黑子第一段照常说，第二段开头写「[黑子]:」——把投递格式当成了分段标记。
+    // 行中只剥括号式：裸名式在行首多半是在跟人说话
+    private static string StripBracketedLinePrefixes(string text, string name)
+    {
+        if (!text.Contains('\n')) return text;
+
+        string[] lines = text.Split('\n');
+        for (int i = 1; i < lines.Length; i++)
+        {
+            string line = lines[i].TrimStart();
+            if (line.Length == 0 || (line[0] != '[' && line[0] != '【')) continue;
+            if (StripOnce(line, name) is { } rest) lines[i] = rest;
+        }
+
+        return string.Join('\n', lines);
     }
 
     /// <summary>
@@ -198,6 +216,24 @@ public static class GroupTranscript
     public const string PassReply = "[沉默]";
 
     /// <summary>
+    /// 剥掉开头的「[沉默]」，前提是后面还有话：模型偶尔先回沉默、紧接着又说了一段，那段才是它要说的
+    /// </summary>
+    /// <param name="text">剥过发言人前缀的正文</param>
+    /// <returns>后面有话时返回后面那段，否则原样返回</returns>
+    public static string StripLeadingPass(string text)
+    {
+        string trimmed = text.TrimStart();
+        foreach (string marker in BracketedPassMarkers)
+        {
+            if (!trimmed.StartsWith(marker, StringComparison.Ordinal)) continue;
+            string rest = trimmed[marker.Length..].TrimStart();
+            return rest.Length > 0 ? rest : text;
+        }
+
+        return text;
+    }
+
+    /// <summary>
     /// 这句回复是不是「不接话」。容忍模型常见的几种写法（全角括号、不带括号、末尾句号）
     /// </summary>
     /// <param name="text">剥过发言人前缀的正文</param>
@@ -235,7 +271,7 @@ public static class GroupTranscript
     {
         string coda = personaCoda.Trim();
         if (coda.Length > 0 && !"。！？.!?".Contains(coda[^1])) coda += "。";
-        return $"{VoiceReminderOpening}{coda}群里说话像聊天，平常两三句。）";
+        return $"{VoiceReminderOpening}{coda}群里照你自己的说话方式说，平常两三句。）";
     }
 
     /// <summary>
@@ -275,9 +311,10 @@ public static class GroupTranscript
 
         // 规矩一条一行、一个意思只说一次：挤成长句连排时分不出主次；同一个意思分几条说，模型反而分不出哪条最要紧
         text.Append("\n\n- 格式：群里的发言按「[名字]: 内容」交给你；你每次说完的正文就是你在群里说的话，" +
-                    "直接说，不要自己加「[名字]:」前缀。想请某位成员接话，写 @名字。");
+                    "群里会自动标上你的名字，直接写正文就行。想请某位成员接话，写 @名字。");
         // 不给尺度，群里的话会被当成交付物写，一人写长报告、别人跟着学
-        text.Append("\n- 尺度：像平常聊天，一次两三句，说你自己的看法，不写成报告。");
+        // 口吻交给各自的卡：「像平常聊天」实测把 OP-01 的协议、原作角色的口吻一并抹成同一种聊天腔
+        text.Append("\n- 尺度：一次两三句，说你自己的看法，用你自己的说话方式；不写成报告。");
         if (scene.SharesDraftRoom) text.Append("材料长（清单、对比、摘录）就写成草稿目录里的文件，群里只说结论、附上路径。");
         // 实测：过程话写成调工具前的开场白；以「让我去翻一下……」收尾，这一轮就此结束、群里等不到下文
         if (scene.CanPostMidTurn)

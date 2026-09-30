@@ -100,9 +100,9 @@ public class GroupChatCoordinatorTests
     }
 
     [Theory]
-    [InlineData("你是Alice。", "（说话前记着：你是Alice。群里说话像聊天，平常两三句。）")]
-    [InlineData("你是Alice，爱查证", "（说话前记着：你是Alice，爱查证。群里说话像聊天，平常两三句。）")]
-    [InlineData("", "（说话前记着：群里说话像聊天，平常两三句。）")]
+    [InlineData("你是Alice。", "（说话前记着：你是Alice。群里照你自己的说话方式说，平常两三句。）")]
+    [InlineData("你是Alice，爱查证", "（说话前记着：你是Alice，爱查证。群里照你自己的说话方式说，平常两三句。）")]
+    [InlineData("", "（说话前记着：群里照你自己的说话方式说，平常两三句。）")]
     public void VoiceReminder_JoinsTheAnchorAndTheGroupScale(string coda, string expected)
     {
         Assert.Equal(expected, GroupTranscript.VoiceReminder(coda));
@@ -283,9 +283,32 @@ public class GroupChatCoordinatorTests
     [InlineData("【初春】：那个……", "初春饰利", "那个……")]
     [InlineData("[子]: 单字不算", "白井黑子", "[子]: 单字不算")]
     [InlineData("黑子：裸名式只认全名", "白井黑子", "黑子：裸名式只认全名")]
+    [InlineData("第一段照常说。\n\n[黑子]: 第二段自己又标了一次", "白井黑子", "第一段照常说。\n\n第二段自己又标了一次")]
+    [InlineData("第一段\n[御坂美琴]: 引用别人的话", "白井黑子", "第一段\n[御坂美琴]: 引用别人的话")]
+    [InlineData("第一段\n黑子：行中裸名不剥", "白井黑子", "第一段\n黑子：行中裸名不剥")]
     public void StripSpeakerPrefix_StripsOnlyOwnPrefix(string body, string speaker, string expected)
     {
         Assert.Equal(expected, GroupTranscript.StripSpeakerPrefix(body, speaker));
+    }
+
+    /// <summary>实测：OP-01 回了「[沉默] 白露和晨曦把主线说完了……」，整条连着「[沉默]」进了群</summary>
+    [Fact]
+    public void TryPostFromMember_StripsLeadingPassMarkerWhenMoreFollows()
+    {
+        Assert.True(_coordinator.TryPostFromMember(_alice.SessionId, "[沉默] 我补一个分叉点"));
+
+        ChatMessage post = Assert.Single(_group.History);
+        Assert.Equal("我补一个分叉点", post.Text);
+    }
+
+    [Theory]
+    [InlineData("[沉默] 我补一句", "我补一句")]
+    [InlineData("【沉默】\n我补一句", "我补一句")]
+    [InlineData("[沉默]", "[沉默]")] //只有沉默：留给 IsPass 判，不在这里剥空
+    [InlineData("沉默是金", "沉默是金")] //不带括号的不剥：正文可能就这么开头
+    public void StripLeadingPass_KeepsWhatFollows(string body, string expected)
+    {
+        Assert.Equal(expected, GroupTranscript.StripLeadingPass(body));
     }
 
     [Fact]

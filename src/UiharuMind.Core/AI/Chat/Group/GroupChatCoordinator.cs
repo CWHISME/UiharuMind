@@ -318,7 +318,8 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
     private Task? PostFromMember(ChatSession group, ChatSession member, string text,
         DateTimeOffset? createdAt = null)
     {
-        string body = GroupTranscript.StripSpeakerPrefix(text.Trim(), member.CharacterData.CharacterName);
+        string body = GroupTranscript.StripLeadingPass(
+            GroupTranscript.StripSpeakerPrefix(text.Trim(), member.CharacterData.CharacterName));
         if (string.IsNullOrWhiteSpace(body)) return null;
 
         ChatMessage post = group.CreateMessage(ChatRole.Assistant, body, createdAt: createdAt);

@@ -28,7 +28,8 @@ public class GroupSceneTests
         Assert.Contains("群聊「会审」", scene);
         Assert.Contains("我（用户）、Bob", scene);
         Assert.Contains("你是Alice", scene);
-        Assert.Contains("不要自己加「[名字]:」前缀", scene);
+        Assert.Contains("自动标上你的名字", scene);
+        Assert.DoesNotContain("不要自己加", scene); //禁令式会把前缀格式再念一遍，改用正面说法
         Assert.DoesNotContain("主持人", scene);
         Assert.DoesNotContain(GroupPostTool.ToolName, scene); //没这个工具就不提
         Assert.DoesNotContain("一轮怎么算", scene); //普通形态没工具，「过程话、查完再说」都无从谈起
