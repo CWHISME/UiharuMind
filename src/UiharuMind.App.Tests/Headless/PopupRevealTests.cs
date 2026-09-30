@@ -38,8 +38,9 @@ public class PopupRevealTests
 
         List<double> opacities = Open(window, combo);
 
-        Assert.True(opacities[0] < 1);
-        Assert.Equal(1, opacities[^1]);
+        string trace = string.Join(" ", opacities.Select(o => o.ToString("F2")));
+        Assert.True(opacities[0] < 1, $"第二次打开首帧应仍在动画中，实际不透明度 {opacities[0]:F2}\n{trace}");
+        Assert.True(opacities[^1] == 1, $"动画应走完，实际采样：{trace}");
         window.Close();
     });
 
@@ -64,14 +65,15 @@ public class PopupRevealTests
     {
         List<double> opacities = [];
         combo.IsDropDownOpen = true;
-        // 正常约 10 帧走完并提前退出；预算给足是为了兜住偶发的合成器停滞(见 Show 里的说明)
+        // 首个采样在任何等待之前，读到的必是动画中途。之后每轮等 50ms、至多 250 轮，总预算约 12 秒：
+        // 整套并行跑时合成器时钟偶发停走（见 Show 的说明），实测曾卡在 0.88 超过 3 秒，旧的 12ms 步长只给 3 秒
         for (int i = 0; i < 250; i++)
         {
             Pump(window);
             LayoutTransformControl? content = FindPopupContent(combo);
             if (content != null) opacities.Add(content.Opacity);
             if (opacities.Count > 0 && opacities[^1] >= 1) break;
-            Thread.Sleep(12);
+            Thread.Sleep(50);
         }
 
         Assert.NotEmpty(opacities);
