@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using Avalonia.Controls;
-using Avalonia.Platform;
 using SkiaSharp;
 using UiharuMind.Shared.Utils;
 
@@ -15,6 +14,7 @@ internal static class TrayFrameBuilder
 {
     // Windows 分支的角标直径占边长比例。0.28 ≈ 18px 上直径 5px：舒适下限，再小就丢了
     private const float BadgeDiameterRatio = 0.28f;
+    private const float WobbleAmplitude = 12f; //摆动的最大角度（度）
 
     /// <summary>绕<b>alpha 质心</b>旋转的帧序列（Running）。手绘花瓣不完全对称，
     /// 绕画布中心转会感觉重心在跳；绕质心转则视觉重心稳定。
@@ -26,11 +26,15 @@ internal static class TrayFrameBuilder
         return BuildAngleFrames(source, angles);
     }
 
-    /// <summary>绕 alpha 质心左右摆动的帧序列（AwaitingApproval）：像摇头提醒。
+    /// <summary>绕 alpha 质心左右摆动的帧序列（AwaitingApproval）：像摇头提醒，一个来回按正弦走。
     /// 只旋转不水平偏移——偏移会超出画布或被菜单栏缩放后占用比变小</summary>
-    public static WindowIcon[] BuildWobbleFrames(SKBitmap source)
+    /// <param name="source">素图</param>
+    /// <param name="frameCount">一个来回的帧数：来回的时长由调用方按帧时长换算，帧率变了摆速不变</param>
+    public static WindowIcon[] BuildWobbleFrames(SKBitmap source, int frameCount)
     {
-        float[] angles = { 0f, 6f, 12f, 6f, 0f, -6f, -12f, -6f };
+        float[] angles = new float[frameCount];
+        for (int i = 0; i < frameCount; i++)
+            angles[i] = WobbleAmplitude * MathF.Sin(2 * MathF.PI * i / frameCount);
         return BuildAngleFrames(source, angles);
     }
 
@@ -38,7 +42,7 @@ internal static class TrayFrameBuilder
     private static WindowIcon[] BuildAngleFrames(SKBitmap source, float[] angles)
     {
         int canvas = source.Width;
-        (float cx, float cy) = AlphaCentroid(source);
+        (float cx, float cy) = SkiaBitmapUtils.AlphaCentroid(source);
         var frames = new WindowIcon[angles.Length];
         for (int i = 0; i < angles.Length; i++)
         {
@@ -51,28 +55,6 @@ internal static class TrayFrameBuilder
             frames[i] = ToWindowIcon(bmp, null);
         }
         return frames;
-    }
-
-    /// <summary>位图的 alpha 质心（旋转轴心）。手绘素材中心未必在画布正中，按质心旋转重心才稳</summary>
-    private static (float X, float Y) AlphaCentroid(SKBitmap bmp)
-    {
-        long sumX = 0, sumY = 0, sumA = 0;
-        for (int y = 0; y < bmp.Height; y++)
-        {
-            for (int x = 0; x < bmp.Width; x++)
-            {
-                byte a = bmp.GetPixel(x, y).Alpha;
-                if (a > 0)
-                {
-                    sumX += x * a;
-                    sumY += y * a;
-                    sumA += a;
-                }
-            }
-        }
-        return sumA == 0
-            ? (bmp.Width / 2f, bmp.Height / 2f)
-            : (sumX / (float)sumA, sumY / (float)sumA);
     }
 
     /// <summary>底图加一个右下角的点。<paramref name="badge"/> 为空就是原图（Windows 分支用）</summary>
@@ -94,12 +76,5 @@ internal static class TrayFrameBuilder
         using SKData encoded = canvasBitmap.Encode(SKEncodedImageFormat.Png, 100);
         using MemoryStream stream = new(encoded.ToArray());
         return new WindowIcon(stream);
-    }
-
-    /// <summary>解码 Assets 下的位图（素图底图）</summary>
-    public static SKBitmap DecodeAsset(string fileName)
-    {
-        using Stream stream = AssetLoader.Open(IconUtils.AssetUri(fileName));
-        return SKBitmap.Decode(stream);
     }
 }

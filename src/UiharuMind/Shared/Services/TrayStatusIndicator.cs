@@ -52,7 +52,7 @@ public enum ETrayStatus
 /// - macOS 走 template image + 动画：系统每帧按菜单栏实际明暗（壁纸亮度）自动着色，
 ///   所以<b>不需要探测明暗</b>，也绕开了「彩色与反色互斥」的 AppKit 限制。
 ///   素图是纯黑剪影 + alpha，正好满足 template 素材要求。状态用动画表达：
-///   Idle 静态纯花，Running 旋转（12 帧），AwaitingApproval 晃动（左右摆）。
+///   Idle 静态纯花，Running 旋转（一圈 <see cref="SpinClock.FrameCount"/> 帧），AwaitingApproval 晃动（左右摆）。
 /// - Windows 没有反色机制，黑剪影在深色任务栏会看不见，保留彩色底图 +
 ///   右下角白环彩点（蓝=运行 / 橙=待审批）。
 /// </summary>
@@ -60,6 +60,7 @@ public sealed class TrayStatusIndicator : IDisposable
 {
     private static readonly SKColor RunningColor = new(SpinnerIcon.RunningColor.R, SpinnerIcon.RunningColor.G, SpinnerIcon.RunningColor.B);
     private static readonly SKColor ApprovalColor = new(0xF2, 0x99, 0x3D);
+    private const int WobblePeriodMs = 800; //待审批摆一个来回的时长
 
     private readonly TrayIcon? _trayIcon;
     private readonly bool _isMacOs; //macOS: template + 动画;Windows: 彩色底图 + 角标
@@ -73,7 +74,7 @@ public sealed class TrayStatusIndicator : IDisposable
     private WindowIcon?[] _macAlertFrames = [];
     private WindowIcon?[] _activeFrames = []; //当前在播的帧序列,OnAnimTick 只认它
     private bool _clockSubscribed; //是否已订阅 SpinClock;托盘与应用内转圈共用它,两边才转得一致
-    private long _shownFrame = -1; //当前托盘上显示的帧号;轮询比帧时长短,同一帧不重复换图
+    private long _shownFrame = -1; //当前托盘上显示的帧号;定时器早到时帧号没变,同一帧不重复换图
 
     private ETrayStatus _current = (ETrayStatus)(-1); //哨兵:首次 Refresh 必然不同,强制把图标落上去
     private bool _disposed;
@@ -97,9 +98,9 @@ public sealed class TrayStatusIndicator : IDisposable
             {
                 // 三态统一用纯花(镂空):Idle 静态,动画帧绕质心旋转/摆动
                 _macIdle = IconUtils.LoadWindowIconFromAsset("TrayFlowerIdle.png");
-                using SKBitmap flower = TrayFrameBuilder.DecodeAsset("TrayFlowerIdle.png");
+                using SKBitmap flower = SkiaBitmapUtils.DecodeAsset("TrayFlowerIdle.png");
                 _macRunningFrames = TrayFrameBuilder.BuildRotationFrames(flower, SpinClock.FrameCount);
-                _macAlertFrames = TrayFrameBuilder.BuildWobbleFrames(flower);
+                _macAlertFrames = TrayFrameBuilder.BuildWobbleFrames(flower, WobblePeriodMs / SpinClock.IntervalMs);
             }
             else
             {

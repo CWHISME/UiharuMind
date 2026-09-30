@@ -18,14 +18,17 @@ namespace UiharuMind.Shared.Spinner;
 /// </summary>
 public static class SpinClock
 {
-    /// <summary>转一圈的帧数（托盘换图的帧数）</summary>
-    public const int FrameCount = 12;
+    /// <summary>
+    /// 转一圈的帧数（托盘换图的帧数）。每步 12°：花五瓣、每转 72° 重合一次，
+    /// 步长接近半瓣（36°）时眼睛分不清是往前还是往回转，12 帧（30°）时看着一跳一跳
+    /// </summary>
+    public const int FrameCount = 30;
 
     /// <summary>托盘每一帧的时长</summary>
-    public const int IntervalMs = 100;
+    public const int IntervalMs = 40;
 
     private const int PeriodMs = FrameCount * IntervalMs;
-    private const int PollIntervalMs = IntervalMs / 2; //比帧时长短一半,换图最多晚半帧
+    private const int BoundaryMarginMs = 2; //定时器略晚于帧边界触发，落进新帧里；早到了就再等一小段
 
     private static readonly Stopwatch Clock = Stopwatch.StartNew();
 
@@ -41,14 +44,19 @@ public static class SpinClock
     /// <summary>此刻的连续旋转角度（度），转一圈用 <c>FrameCount × IntervalMs</c> 毫秒</summary>
     public static float Angle => (float)(ElapsedMs() % PeriodMs / PeriodMs * 360);
 
-    /// <summary>周期性触发，供只能逐帧换图的一方（托盘）轮询 <see cref="Frame"/>；有订阅者时才走表</summary>
+    /// <summary>
+    /// 每到帧边界触发一次，供只能逐帧换图的一方（托盘）读 <see cref="Frame"/>；有订阅者时才走表。
+    /// 对准边界而不是半帧轮询：轮询与边界对不齐，换图间隔会在半帧到一帧半之间忽长忽短，看着卡
+    /// </summary>
     public static event Action Ticked
     {
         add
         {
             _ticked += value;
-            _timer ??= new DispatcherTimer(
-                TimeSpan.FromMilliseconds(PollIntervalMs), DispatcherPriority.Normal, (_, _) => _ticked?.Invoke());
+            _timer ??= new DispatcherTimer(DispatcherPriority.Normal);
+            _timer.Tick -= OnTimerTick;
+            _timer.Tick += OnTimerTick;
+            ScheduleNextTick();
             _timer.Start();
         }
         remove
@@ -56,5 +64,20 @@ public static class SpinClock
             _ticked -= value;
             if (_ticked == null) _timer?.Stop();
         }
+    }
+
+    private static void OnTimerTick(object? sender, EventArgs e)
+    {
+        _ticked?.Invoke();
+        ScheduleNextTick();
+    }
+
+    /// <summary>从此刻到下一次触发的毫秒数：下一帧边界之后一点点</summary>
+    internal static double DelayToNextFrameMs() => IntervalMs - ElapsedMs() % IntervalMs + BoundaryMarginMs;
+
+    // 运行中改 Interval 会从此刻重新计时，正好用来对准下一帧边界
+    private static void ScheduleNextTick()
+    {
+        if (_timer != null) _timer.Interval = TimeSpan.FromMilliseconds(DelayToNextFrameMs());
     }
 }
