@@ -139,6 +139,47 @@ public class SearchFailureVisibilityTests : IDisposable
         Assert.True(outcome.FellBackToLiteral);
     }
 
+    /// <summary>
+    /// 引擎用 NonBacktracking：反向引用、前后断言按默认选项编译得过，到引擎里却不支持。
+    /// 预检要与引擎同一口径，降级为字面串，而不是让引擎抛了、留下卡死的遍历线程
+    /// </summary>
+    [Theory]
+    [InlineData("foo(?=bar)")]
+    [InlineData("(a)\\1")]
+    public async Task Grep_RegexTheEngineCannotRun_FallsBackToLiteral(string pattern)
+    {
+        await File.WriteAllTextAsync(Path.Combine(_dir, "a.txt"), $"x {pattern} y", TestContext.Current.CancellationToken);
+
+        GrepOutcome outcome = await _grepper.SearchAsync(pattern, isRegex: true, ct: TestContext.Current.CancellationToken);
+
+        Assert.Null(outcome.Failure);
+        Assert.NotEmpty(outcome.Matches);
+        Assert.True(outcome.FellBackToLiteral);
+    }
+
+    /// <summary>取消立刻抛；被丢下的扫描跑完会放开闸，下一次照常搜，不会一直排着</summary>
+    [Fact]
+    public async Task Grep_Cancelled_ThrowsAndTheNextSearchStillRuns()
+    {
+        await File.WriteAllTextAsync(Path.Combine(_dir, "a.txt"), "needle", TestContext.Current.CancellationToken);
+        using CancellationTokenSource cts = new();
+
+        Task<GrepOutcome> cancelled = _grepper.SearchAsync("needle", ct: cts.Token);
+        await cts.CancelAsync();
+        try
+        {
+            await cancelled;
+        }
+        catch (OperationCanceledException)
+        {
+            // 扫描可能在取消之前就已跑完，两种结局都行
+        }
+
+        GrepOutcome next = await _grepper.SearchAsync("needle", ct: TestContext.Current.CancellationToken)
+            .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        Assert.NotEmpty(next.Matches);
+    }
+
     /// <summary>归一化只动首尾：中间的 <c>*</c> 是合法正则，动它会改掉一个写对了的表达式</summary>
     [Theory]
     [InlineData("*Foo", ".*Foo")]

@@ -372,7 +372,8 @@ internal sealed class PermissiveFileAccessTools
             // 不说一声它对"为什么少了几条命中"会推错
             if (outcome.FellBackToLiteral)
             {
-                parts.Add($"\"{pattern}\" does not compile as a regular expression, "
+                parts.Add($"\"{pattern}\" does not compile as a supported regular expression "
+                          + "(backreferences and lookarounds are not supported), "
                           + "so it was searched as a literal string. "
                           + "Pass isRegex false to do that on purpose.");
             }

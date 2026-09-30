@@ -24,10 +24,8 @@ public partial class SearchViewModel : ViewModelBase
     private DispatcherTimer? _debounceTimer;
     private bool _isInitialized;
 
-    // 单 flight 串行:引擎(Glacier.Grep v1.0.0)没有取消接口,在途搜索停不下来,
-    // 自动搜索下每敲一个字符就会多起一个占满全核的扫描,几个叠在一起内存与 CPU 一起爆。
-    // 这里保证同一时间只有一个引擎搜索在跑,飞行中途的新请求只记一个"重跑"标志,
-    // 落地后用最新条件再跑一遍——旧结果永远不会反超盖掉新结果。
+    // 单 flight 串行:飞行中途的新请求只记一个"重跑"标志,落地后用最新条件再跑一遍,
+    // 旧结果永远不会反超盖掉新结果。引擎停不下来,取消只是不再等它;防扫描堆积靠 SimpleGrepper 的闸。
     private bool _searchInFlight;
     private bool _searchRerunRequested;
 
@@ -94,12 +92,12 @@ public partial class SearchViewModel : ViewModelBase
     [RelayCommand]
     private async Task SearchAsync()
     {
-        // 飞行中有新请求:只标记重跑,不另起扫描(引擎停不下来,另起就是堆积)。
+        // 飞行中有新请求:只标记重跑,不另起一轮。
         // 查询已清空的情况也走这条:本轮落地后重跑会走到下面的清空分支,最终状态是对的。
         if (_searchInFlight)
         {
             _searchRerunRequested = true;
-            _searchCts?.Cancel(); // 能停的只有引擎返回后的映射循环,让它尽早退出
+            _searchCts?.Cancel(); // 不再等旧扫描,本轮立刻落地、用新条件重跑
             return;
         }
 

@@ -48,6 +48,11 @@ public sealed class GrepMatchResult
 /// </summary>
 public sealed class SimpleGrepper
 {
+    // 引擎停不下来：同一时间只放一个扫描进引擎，闸跟着引擎走、不跟着等待——
+    // 被取消丢下的扫描跑完才放下一个，不然每取消一次就多叠一个占满全核的扫描。
+    // 代价是并行群聊里几位成员同时搜会排队，好在每个扫描本来就吃满全部核心，并排跑也快不了
+    private static readonly SemaphoreSlim EngineGate = new(1, 1);
+
     private string _rootDirectory;
 
     public SimpleGrepper(string workspaceRoot)
@@ -73,10 +78,10 @@ public sealed class SimpleGrepper
     /// <param name="fileGlobs">按<b>文件名</b>（不含路径）过滤，如 <c>*.cs</c>；null/空则不过滤</param>
     /// <param name="path">搜索范围：目录（在其下递归搜）或单文件（只搜它）；绝对路径直接用，相对路径拼工作区</param>
     /// <param name="ct">
-    /// 取消令牌。<b>注意：Glacier.Grep v1.0.0 的 <c>SearchEngine</c> 没有取消接口，
-    /// 这个 token 只能中断引擎返回之后的转换循环，中断不了扫描本身</b>——调用方不要假设
-    /// "取消上一次搜索"真的停掉了上一次的 CPU/内存开销（见 SearchViewModel 的单 flight 串行，
-    /// 那才是防堆积的真正手段）。等引擎支持取消/限幅再把 token 透进去。
+    /// 取消令牌。<b>Glacier.Grep 1.0.1 的 <c>SearchEngine</c> 没有取消接口</b>：取消时立即抛 OCE
+    /// （停止、切走立刻生效），但扫描本身停不下来，在后台跑完、结果丢弃。
+    /// 防堆积靠 <see cref="EngineGate"/>：前一个扫描没跑完，下一个等着。
+    /// 哪天引擎支持取消，把 token 透进去，外层等待与闸一起删掉
     /// </param>
     /// <returns>命中列表与失败原因</returns>
     public async Task<GrepOutcome> SearchAsync(
@@ -141,14 +146,15 @@ public sealed class SimpleGrepper
 
         try
         {
-            var engine = new SearchEngine(searchRoot);
-            List<SearchResult> matches = await engine.SearchAsync(
+            Task<List<SearchResult>> scan = await StartScanAsync(() => new SearchEngine(searchRoot).SearchAsync(
                 query: effective,
                 isRegex: isRegex,
                 caseSensitive: caseSensitive,
                 contextLines: contextLines,
                 maxDepth: maxDepth,
-                fileGlobs: effectiveFileGlobs).ConfigureAwait(false);
+                fileGlobs: effectiveFileGlobs), ct).ConfigureAwait(false);
+            // 扫大目录可能持续数十秒：取消时只是不再等它，停止按钮立刻有反应
+            List<SearchResult> matches = await scan.WaitAsync(ct).ConfigureAwait(false);
 
             var results = new List<GrepMatchResult>(matches.Count);
             foreach (SearchResult match in matches)
@@ -204,6 +210,41 @@ public sealed class SimpleGrepper
         }
     }
 
+    private static async Task<Task<List<SearchResult>>> StartScanAsync(Func<Task<List<SearchResult>>> start,
+        CancellationToken ct)
+    {
+        await EngineGate.WaitAsync(ct).ConfigureAwait(false);
+        Task<List<SearchResult>> scan;
+        try
+        {
+            scan = start();
+        }
+        catch
+        {
+            EngineGate.Release();
+            throw;
+        }
+
+        _ = ReleaseWhenDoneAsync(scan);
+        return scan;
+    }
+
+    private static async Task ReleaseWhenDoneAsync(Task scan)
+    {
+        try
+        {
+            await scan.ConfigureAwait(false);
+        }
+        catch
+        {
+            // 在等它的那次会自己报成 EngineFailed；被取消丢下的已没人要。这里只为观察掉异常
+        }
+        finally
+        {
+            EngineGate.Release();
+        }
+    }
+
     /// <summary>
     /// glob 味归一化：把无从量化的前导 <c>*</c> 补成 <c>.*</c>。
     ///
@@ -227,14 +268,16 @@ public sealed class SimpleGrepper
         return result;
     }
 
+    // 与引擎同一组选项（SearchEngine 用 NonBacktracking）：反向引用、前后断言按默认选项编译得过，
+    // 到引擎里却抛 NotSupportedException——那时它的目录遍历线程已经起来，没人读就永远卡在写满的队列上
     private static bool IsCompilableRegex(string pattern)
     {
         try
         {
-            _ = new Regex(pattern);
+            _ = new Regex(pattern, RegexOptions.Multiline | RegexOptions.NonBacktracking);
             return true;
         }
-        catch (ArgumentException)
+        catch (Exception e) when (e is ArgumentException or NotSupportedException)
         {
             return false;
         }
