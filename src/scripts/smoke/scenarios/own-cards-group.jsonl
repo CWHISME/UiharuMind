@@ -1,0 +1,8 @@
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"group.create","args":{"name":"自有卡冒烟","members":["BaiLuAgent","ChenXiAgent","RationalAgent"],"workspace":"{{WS_EMPTY}}","mode":"serial"}}
+{"op":"group.post","args":{"group":"自有卡冒烟","text":"我想给一个桌面应用加个暗色主题，你们觉得先做什么？"}}
+{"op":"group.wait","args":{"groups":["自有卡冒烟"],"timeoutMinutes":10,"approvals":"deny"}}
+{"op":"group.post","args":{"group":"自有卡冒烟","text":"有个偶发崩溃，我觉得肯定是多线程竞争，干脆给所有公共方法都加上锁吧？"}}
+{"op":"group.wait","args":{"groups":["自有卡冒烟"],"timeoutMinutes":10,"approvals":"deny"}}
+{"op":"group.dump","args":{"group":"自有卡冒烟","path":"{{OUT}}/own-cards-group.md"}}
+{"op":"quit"}

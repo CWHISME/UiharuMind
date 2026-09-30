@@ -1,0 +1,14 @@
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"session.new","args":{"character":"ShiraiKurokoAgent","workspace":"{{WS_REPO}}"}}
+{"op":"session.post","args":{"text":"你好"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"once"}}
+{"op":"session.post","args":{"text":"测试一下编辑文件功能"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"once"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/solo-kuroko.md"}}
+{"op":"session.new","args":{"character":"RationalAgent","workspace":"{{WS_REPO}}"}}
+{"op":"session.post","args":{"text":"你好"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"deny"}}
+{"op":"session.post","args":{"text":"有个偶发崩溃，我觉得肯定是多线程竞争，干脆给所有公共方法都加上锁吧？"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"deny"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/solo-op01.md"}}
+{"op":"quit"}

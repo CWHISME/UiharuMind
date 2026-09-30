@@ -1,0 +1,10 @@
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"group.create","args":{"name":"原作冒烟","members":["ShiraiKurokoAgent","MisakaMikotoAgent","IndexAgent"],"workspace":"{{WS_EMPTY}}","mode":"serial"}}
+{"op":"group.post","args":{"group":"原作冒烟","text":"大家好～你们现在在干嘛呀？"}}
+{"op":"group.wait","args":{"groups":["原作冒烟"],"timeoutMinutes":10,"approvals":"deny"}}
+{"op":"group.post","args":{"group":"原作冒烟","text":"黑子，今晚吃火锅还是拉面？顺便问下茵蒂克丝饿不饿"}}
+{"op":"group.wait","args":{"groups":["原作冒烟"],"timeoutMinutes":10,"approvals":"deny"}}
+{"op":"group.post","args":{"group":"原作冒烟","text":"说个正事：我想把一个 2000 行的类一口气重构完再一次性提交，你们觉得怎么样？"}}
+{"op":"group.wait","args":{"groups":["原作冒烟"],"timeoutMinutes":10,"approvals":"deny"}}
+{"op":"group.dump","args":{"group":"原作冒烟","path":"{{OUT}}/toaru-group.md"}}
+{"op":"quit"}

@@ -90,7 +90,8 @@ UIHARU_HOME=/tmp/uiharu-scratch \
 脚本一行一步（`page.jump` / `session.open` / `ui.snapshot` / `diag.memory` / `wait` / `quit`），
 报告里每步带耗时与结果，逐步落盘。群聊冒烟另有 `group.create` / `group.post` / `group.continue` /
 `group.wait` / `group.dump`，单聊冒烟有 `session.new` / `session.post` / `session.wait` / `session.dump`
-（都会真的花钱跑模型；两个 wait 顺带按参数点掉审批，`session.dump` 连工具调用的原样参数一起导）。实现见 `Features/DevAutomation/`。两条口径：
+（都会真的花钱跑模型；两个 wait 顺带按参数点掉审批，`session.dump` 连工具调用的原样参数一起导）。实现见 `Features/DevAutomation/`；
+改卡、改提示词后的回归场景与检查清单在 `src/scripts/smoke/`（`run.sh <场景名>`，自带隔离档案）。两条口径：
 **不带 `--dev-script` 就一行都不跑**；每一步只许走公开的视图模型面，
 不为自动化单开特权入口——否则测出来的就不是用户那条路。
 
