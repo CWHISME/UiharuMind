@@ -83,7 +83,11 @@ public partial class ConversationPageData : ConversationPageDataBase
         ? ERightPaneKind.Agent
         : IsEmptyState ? ERightPaneKind.NewSession : ERightPaneKind.Chat;
 
-    public ConversationPageData() : base(EConversationType.Agent)
+    public ConversationPageData() : this(App.Services.GetRequiredService<IMessageService>())
+    {
+    }
+
+    private ConversationPageData(IMessageService messages) : base(EConversationType.Agent, messages)
     {
         // 与 ChatInfoView 构造自取的是同一个全局单例（App.ViewModel 按类型缓存）——
         // 页面 SetSession 要能反映到视图上，两者必须同一份
@@ -178,7 +182,7 @@ public partial class ConversationPageData : ConversationPageDataBase
 
     protected override ConversationViewModel CreateConversation()
     {
-        ConversationViewModel conversation = new();
+        ConversationViewModel conversation = new(Messages);
         if (CurrentType == EConversationType.Chat)
         {
             // 普通对话：继承上一个空会话的角色（同类才继承，跨类型不污染），否则回默认角色；

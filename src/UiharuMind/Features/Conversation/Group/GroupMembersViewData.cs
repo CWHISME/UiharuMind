@@ -30,15 +30,18 @@ namespace UiharuMind.Features.Conversation.Group;
 public sealed partial class GroupMembersViewData : ObservableObject
 {
     private readonly ChatSession _group;
+    private readonly GroupChangePrompts _prompts;
     private GroupHostChoice _selectedHost;
 
     /// <summary>
     /// 构造
     /// </summary>
     /// <param name="group">群壳会话</param>
-    public GroupMembersViewData(ChatSession group)
+    /// <param name="prompts">改群前的两道关（空闲、跑过先确认）</param>
+    internal GroupMembersViewData(ChatSession group, GroupChangePrompts prompts)
     {
         _group = group;
+        _prompts = prompts;
         GroupRoster roster = GroupRoster.Of(group);
         int last = roster.Present.Count - 1;
         Members = roster.Present
@@ -118,7 +121,7 @@ public sealed partial class GroupMembersViewData : ObservableObject
     /// </summary>
     private async Task ConfirmHostChangeAsync(GroupHostChoice previous, GroupHostChoice next)
     {
-        bool confirmed = await GroupChangePrompts.ConfirmIfRunAsync(true,
+        bool confirmed = await _prompts.ConfirmIfRunAsync(true,
             Loc.Text(LangKey.GroupHostChangeConfirm, next.Name));
         // 弹窗期间用户又换了一次：以最新那次为准，这次什么都不做（那次有自己的确认）
         if (_selectedHost != next) return;
@@ -148,11 +151,11 @@ public sealed partial class GroupMembersViewData : ObservableObject
     /// </summary>
     private async Task AddAsync(CharacterData? preselected)
     {
-        if (!GroupChangePrompts.EnsureIdle(_group)) return;
+        if (!_prompts.EnsureIdle(_group)) return;
         if (await GroupAddMembersWindow.ShowAsync(_group, preselected) is not { } request) return;
 
         string names = string.Join(Loc.Text(LangKey.GroupSpeakerSeparator), request.Members.Select(x => x.CharacterName));
-        if (!await GroupChangePrompts.ConfirmIfRunAsync(HasTotalCost,
+        if (!await _prompts.ConfirmIfRunAsync(HasTotalCost,
                 GroupChangePrompts.WithCacheNote(true, Loc.Text(LangKey.GroupAddConfirmFormat, names))))
             return;
 
@@ -172,7 +175,7 @@ public sealed partial class GroupMembersViewData : ObservableObject
         }
 
         // 写摘要要等几秒，期间群可能又跑起来了：先问一声，真正的把关在改名单那把锁里，撞上了就停在已加进去的那几位
-        if (!GroupChangePrompts.EnsureIdle(_group)) return;
+        if (!_prompts.EnsureIdle(_group)) return;
         bool allSeated = true;
         foreach ((CharacterData character, string? modelName, ChatSession? former) in picks)
         {
@@ -185,16 +188,16 @@ public sealed partial class GroupMembersViewData : ObservableObject
             break;
         }
 
-        if (!allSeated) GroupChangePrompts.Notify(Loc.Text(LangKey.GroupEditBusy), MessageSeverity.Warning);
+        if (!allSeated) _prompts.Notify(Loc.Text(LangKey.GroupEditBusy), MessageSeverity.Warning);
     }
 
     private async Task<GroupBackfill> WriteBriefingAsync(bool returning)
     {
         if (GroupMembership.PickBriefingWriter(_group, id => SessionManager.Instance.Load(id)) is { } writer)
-            GroupChangePrompts.Notify(Loc.Text(LangKey.GroupBriefingWriting, writer.CharacterData.CharacterName));
+            _prompts.Notify(Loc.Text(LangKey.GroupBriefingWriting, writer.CharacterData.CharacterName));
         if (await GroupMembership.WriteBriefingAsync(_group, returning) is { } briefing) return briefing;
 
-        GroupChangePrompts.Notify(Loc.Text(LangKey.GroupBriefingFailed), MessageSeverity.Warning);
+        _prompts.Notify(Loc.Text(LangKey.GroupBriefingFailed), MessageSeverity.Warning);
         return GroupBackfill.None;
     }
 
@@ -205,19 +208,19 @@ public sealed partial class GroupMembersViewData : ObservableObject
     {
         if (Members.Count <= GroupMembership.MinMembers)
         {
-            GroupChangePrompts.Notify(Loc.Text(LangKey.GroupRemoveLastMember), MessageSeverity.Warning);
+            _prompts.Notify(Loc.Text(LangKey.GroupRemoveLastMember), MessageSeverity.Warning);
             return;
         }
 
-        if (!GroupChangePrompts.EnsureIdle(_group)) return;
+        if (!_prompts.EnsureIdle(_group)) return;
         string message = Loc.Text(LangKey.GroupRemoveConfirm, item.Name);
         if (item.IsHost) message += "\n" + Loc.Text(LangKey.GroupRemoveHostNote);
-        if (!await GroupChangePrompts.ConfirmAsync(HasTotalCost, message)) return;
-        if (!GroupChangePrompts.EnsureIdle(_group)) return;
+        if (!await _prompts.ConfirmAsync(HasTotalCost, message)) return;
+        if (!_prompts.EnsureIdle(_group)) return;
         if (SessionManager.Instance.Load(item.SessionId) is not { } member) return;
 
         if (GroupMembership.Remove(_group, member) == EGroupRosterEdit.Busy)
-            GroupChangePrompts.Notify(Loc.Text(LangKey.GroupEditBusy), MessageSeverity.Warning);
+            _prompts.Notify(Loc.Text(LangKey.GroupEditBusy), MessageSeverity.Warning);
     }
 
     /// <summary>
@@ -227,7 +230,7 @@ public sealed partial class GroupMembersViewData : ObservableObject
     private void Move(GroupMemberItem item, int offset)
     {
         if (GroupMembership.Move(_group, item.SessionId, offset) == EGroupRosterEdit.Busy)
-            GroupChangePrompts.Notify(Loc.Text(LangKey.GroupEditBusy), MessageSeverity.Warning);
+            _prompts.Notify(Loc.Text(LangKey.GroupEditBusy), MessageSeverity.Warning);
     }
 
     /// <summary>

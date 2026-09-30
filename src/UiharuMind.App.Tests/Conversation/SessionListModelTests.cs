@@ -5,6 +5,7 @@ using UiharuMind.Features.Conversation;
 using UiharuMind.Shared.Services;
 using UiharuMind.Features.Conversation.Pages;
 using UiharuMind.Features.Conversation.SessionList;
+using UiharuMind.App.Tests.TestDoubles;
 
 namespace UiharuMind.App.Tests.Conversation;
 
@@ -38,7 +39,7 @@ public class SessionListModelTests
         EConversationType type = EConversationType.Agent)
     {
         return new SessionListModel(type, source,
-            action => action(), new StubMessageService());
+            action => action(), new RecordingMessageService());
     }
 
     private static string[] Ids(SessionListModel model) =>
@@ -244,7 +245,7 @@ public class SessionListModelTests
         List<ChatSessionMeta> agent = [Meta("agent1"), Meta("agent2")];
         SessionListModel model = new(EConversationType.Agent,
             () => chat.Concat(agent).ToList(),
-            action => action(), new StubMessageService());
+            action => action(), new RecordingMessageService());
         return (model, chat, agent);
     }
 
@@ -536,7 +537,7 @@ public class SessionListModelTests
         //删一批只弹一次确认框；正在跑的跳过（单删是直接禁用的，这里不能卡死整批）
         string busyId = Guid.NewGuid().ToString("N");
         List<ChatSessionMeta> metas = [Meta(busyId, "busy one"), Meta("b", "bee"), Meta("c", "cee")];
-        StubMessageService messages = new();
+        RecordingMessageService messages = new();
         using SessionListModel model = new(EConversationType.Agent, () => metas, action => action(), messages);
         foreach (SessionListItem item in model.Sessions) item.IsBatchChecked = true;
         int removed = 0;
@@ -550,7 +551,7 @@ public class SessionListModelTests
 
         Assert.Equal([busyId], Ids(model));
         Assert.Equal(2, removed);
-        Assert.Equal(1, messages.ConfirmCalls);
+        Assert.Equal(1, messages.ConfirmCount);
         Assert.Equal(0, model.CheckedCount);
     }
 
@@ -628,14 +629,14 @@ public class SessionListModelTests
     {
         return new SessionListItem(
             new ChatSessionMeta { SessionId = "s", HasComposerDraft = hasDraft },
-            new StubMessageService());
+            new RecordingMessageService());
     }
 
     private static SessionListItem Item(string title, string description)
     {
         return new SessionListItem(
             new ChatSessionMeta { SessionId = "s", Title = title, Description = description },
-            new StubMessageService());
+            new RecordingMessageService());
     }
 
     [Fact]
@@ -737,33 +738,5 @@ public class SessionListModelTests
         item.UpdateMeta(new ChatSessionMeta { SessionId = "s", Title = "同一句", Description = "同一句" });
 
         Assert.False(item.HasDistinctDescription);
-    }
-
-    private sealed class StubMessageService : IMessageService
-    {
-        public int ConfirmCalls;
-
-        public Task ShowInfoAsync(string message, string? title = null, CancellationToken ct = default) =>
-            Task.CompletedTask;
-
-        public Task ShowWarningAsync(string message, string? title = null, CancellationToken ct = default) =>
-            Task.CompletedTask;
-
-        public Task ShowErrorAsync(string message, string? title = null, CancellationToken ct = default) =>
-            Task.CompletedTask;
-
-        public Task<bool> ConfirmAsync(string message, string? title = null, CancellationToken ct = default)
-        {
-            ConfirmCalls++;
-            return Task.FromResult(true);
-        }
-
-        public Task<EConfirmChoice> ConfirmWithCancelAsync(string message, string? title = null,
-            CancellationToken ct = default) => Task.FromResult(EConfirmChoice.Yes);
-
-        public void ShowNotification(string message, string? title = null,
-            MessageSeverity severity = MessageSeverity.Information, TimeSpan? duration = null)
-        {
-        }
     }
 }

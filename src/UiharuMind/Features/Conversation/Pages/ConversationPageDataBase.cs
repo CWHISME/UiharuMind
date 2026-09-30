@@ -18,6 +18,7 @@ using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.Diagnostics;
 using UiharuMind.Features.Conversation.SessionList;
 using UiharuMind.Shared.Shell;
+using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Conversation.Pages;
 
@@ -33,10 +34,15 @@ public abstract partial class ConversationPageDataBase : PageDataBase
     public SessionListModel SessionList { get; }
 
     /// <param name="type">会话列表初始类型</param>
-    protected ConversationPageDataBase(EConversationType type)
+    /// <param name="messages">弹提示与确认用的消息服务，本页建的会话与列表都用它</param>
+    protected ConversationPageDataBase(EConversationType type, IMessageService messages)
     {
-        SessionList = new SessionListModel(type);
+        Messages = messages;
+        SessionList = new SessionListModel(type, messages);
     }
+
+    /// <summary>弹提示与确认用的消息服务</summary>
+    protected IMessageService Messages { get; }
 
     /// <summary>低于此宽度收起右栏</summary>
     private const double RightPaneCollapseWidth = 888;

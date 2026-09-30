@@ -21,6 +21,7 @@ namespace UiharuMind.Features.Conversation.Group;
 public sealed class GroupShellViewData : ObservableObject, IDisposable
 {
     private readonly ChatSession _group;
+    private readonly GroupChangePrompts _prompts;
     private GroupMembersViewData _members;
     private GroupArtifactsViewData _artifacts;
 
@@ -28,9 +29,11 @@ public sealed class GroupShellViewData : ObservableObject, IDisposable
     /// 构造并挂上发言人变化的通知。装载前这一圈可能已经在跑、信号早发完了，所以构造时先补标一次
     /// </summary>
     /// <param name="group">群壳会话</param>
-    public GroupShellViewData(ChatSession group)
+    /// <param name="messages">弹提示与确认用的消息服务</param>
+    public GroupShellViewData(ChatSession group, IMessageService messages)
     {
         _group = group;
+        _prompts = new GroupChangePrompts(messages);
         _members = CreateMembers();
         _artifacts = new GroupArtifactsViewData(group);
         Approvals = new GroupApprovalsViewData(group);
@@ -112,13 +115,13 @@ public sealed class GroupShellViewData : ObservableObject, IDisposable
     /// <returns>可以改为 true</returns>
     public async Task<bool> ConfirmWorkspaceChangeAsync(string? path)
     {
-        if (!GroupChangePrompts.EnsureIdle(_group)) return false;
+        if (!_prompts.EnsureIdle(_group)) return false;
         bool hasRun = Members.HasTotalCost;
         string target = path ?? Loc.Text(LangKey.AgentWorkspaceNone);
-        if (!await GroupChangePrompts.ConfirmIfRunAsync(hasRun,
+        if (!await _prompts.ConfirmIfRunAsync(hasRun,
                 GroupChangePrompts.WithCacheNote(hasRun, Loc.Text(LangKey.GroupWorkspaceChangeConfirm, target))))
             return false;
-        return GroupChangePrompts.EnsureIdle(_group);
+        return _prompts.EnsureIdle(_group);
     }
 
     /// <summary>停掉这一圈：当前发言人与后面还没轮到的人一起停</summary>
@@ -163,7 +166,7 @@ public sealed class GroupShellViewData : ObservableObject, IDisposable
 
     private GroupMembersViewData CreateMembers()
     {
-        GroupMembersViewData members = new(_group);
+        GroupMembersViewData members = new(_group, _prompts);
         members.MarkSpeaking(GroupChatCoordinator.Instance.SpeakersOf(_group.SessionId));
         members.RefreshRunStates();
         return members;

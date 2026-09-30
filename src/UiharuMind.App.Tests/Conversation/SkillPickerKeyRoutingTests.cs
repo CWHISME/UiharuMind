@@ -3,6 +3,7 @@ using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Composer;
+using UiharuMind.App.Tests.TestDoubles;
 
 namespace UiharuMind.App.Tests.Conversation;
 
@@ -44,7 +45,7 @@ public class SkillPickerKeyRoutingTests
     [Fact]
     public void AcceptCandidate_DoesNothingWhenPickerIsClosed()
     {
-        ConversationViewModel vm = new() { InputText = "普通消息" };
+        ConversationViewModel vm = new(new RecordingMessageService()) { InputText = "普通消息" };
 
         Assert.False(vm.AcceptCandidate()); //返回 false,调用方据此照常发送
         Assert.Equal("普通消息", vm.InputText);
@@ -69,7 +70,7 @@ public class SkillPickerKeyRoutingTests
     /// <returns>视图模型</returns>
     private static ConversationViewModel CreateViewModelWithOpenPicker(string typed)
     {
-        ConversationViewModel vm = new() { InputText = typed };
+        ConversationViewModel vm = new(new RecordingMessageService()) { InputText = typed };
         vm.Palette.RefreshAsync(typed, typed.Length).GetAwaiter().GetResult(); //记下这次匹配（整行）
         OpenPickerWithDemoSkill(vm.Palette);
         return vm;

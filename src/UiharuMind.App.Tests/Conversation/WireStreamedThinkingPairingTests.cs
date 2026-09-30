@@ -3,6 +3,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Items;
+using UiharuMind.App.Tests.TestDoubles;
 
 namespace UiharuMind.App.Tests.Conversation;
 
@@ -25,7 +26,7 @@ public class WireStreamedThinkingPairingTests
     private static (ConversationItemActions Actions, ObservableCollection<ConversationItemBase> Items) Create()
     {
         ObservableCollection<ConversationItemBase> items = new();
-        return (new ConversationItemActions(items, new StubHost()), items);
+        return (new ConversationItemActions(items, new StubHost(), new RecordingMessageService()), items);
     }
 
     /// <summary>

@@ -5,7 +5,6 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
@@ -243,17 +242,18 @@ public partial class CharacterDraft : ObservableObject
     /// 为一个已有角色开一份草稿
     /// </summary>
     /// <param name="origin">角色库里那个活实例；提交时往它身上盖</param>
+    /// <param name="messages">提交失败时提示用的消息服务</param>
     /// <returns>草稿</returns>
-    public static CharacterDraft ForEdit(CharacterData origin) =>
-        new(origin, origin.DeepCopy(), App.Services.GetRequiredService<IMessageService>());
+    public static CharacterDraft ForEdit(CharacterData origin, IMessageService messages) =>
+        new(origin, origin.DeepCopy(), messages);
 
     /// <summary>
     /// 为一个还没入库的新角色开一份草稿
     /// </summary>
     /// <param name="seed">空角色（新建一律是普通角色）</param>
+    /// <param name="messages">提交失败时提示用的消息服务</param>
     /// <returns>草稿</returns>
-    public static CharacterDraft ForNew(CharacterData seed) =>
-        new(null, seed, App.Services.GetRequiredService<IMessageService>());
+    public static CharacterDraft ForNew(CharacterData seed, IMessageService messages) => new(null, seed, messages);
 
     /// <summary>
     /// 提交草稿：校验名字、补正参数写法，然后写回活实例并落盘（新角色则入库）。

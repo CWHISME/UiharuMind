@@ -1,5 +1,4 @@
 using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Generated;
@@ -27,8 +26,9 @@ internal static class GroupFromChat
     /// </summary>
     /// <param name="source">原单聊</param>
     /// <param name="workspacePath">原单聊此刻的工作区（智能体群绑它）；普通对话为 null</param>
+    /// <param name="messages">写背景期间的提示用</param>
     /// <returns>建好的群；用户取消为 null</returns>
-    public static async Task<ChatSession?> CreateAsync(ChatSession source, string? workspacePath)
+    public static async Task<ChatSession?> CreateAsync(ChatSession source, string? workspacePath, IMessageService messages)
     {
         // 群的类型跟原单聊那一侧，与空态建群同一口径：agent 卡开成的普通对话落在普通群（ADR 0050）
         bool isAgentGroup = SessionManager.IsAgentSide(source.ToMeta());
@@ -41,7 +41,6 @@ internal static class GroupFromChat
         string? summary = null;
         if (source.History.Count > 0)
         {
-            IMessageService messages = App.Services.GetRequiredService<IMessageService>();
             messages.ShowNotification(Loc.Text(LangKey.GroupFromChatSummarizing, characterName));
             summary = await GroupBackground.WriteAsync(source);
             if (summary == null)

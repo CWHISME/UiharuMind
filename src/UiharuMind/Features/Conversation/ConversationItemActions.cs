@@ -13,7 +13,6 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System;
 using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Core.AI.Chat;
@@ -58,13 +57,13 @@ public sealed class ConversationItemActions
 {
     private readonly ObservableCollection<ConversationItemBase> _items;
     private readonly IConversationItemActionHost _host;
-    private readonly IMessageService? _messageService;
+    private readonly IMessageService _messageService;
 
     /// <param name="items">界面条目集合(与视图模型共用同一个实例)</param>
     /// <param name="host">要回头请视图模型做的那几件事</param>
-    /// <param name="messageService">删除确认弹窗;省略则首次删除时从容器取(惰性,测试可缺)</param>
+    /// <param name="messageService">删除与重试的确认弹窗</param>
     public ConversationItemActions(ObservableCollection<ConversationItemBase> items,
-        IConversationItemActionHost host, IMessageService? messageService = null)
+        IConversationItemActionHost host, IMessageService messageService)
     {
         _items = items;
         _host = host;
@@ -410,11 +409,10 @@ public sealed class ConversationItemActions
 
         // 提示用<b>界面实际会删的条目数</b>——历史消息数与界面条目数不对应
         // (一条含思考+正文的消息 = 两个条目,一次工具往返两条历史 = 一张卡),报历史条数用户数不上
-        IMessageService messageService = _messageService ?? App.Services.GetRequiredService<IMessageService>();
         string confirmText = targets.Count > 1
             ? string.Format(Loc.Text(LangKey.MessageDeleteTurnConfirmFormat), targets.Count)
             : Loc.Text(LangKey.MessageDeleteConfirm);
-        if (!await messageService.ConfirmAsync(confirmText)) return;
+        if (!await _messageService.ConfirmAsync(confirmText)) return;
 
         // 删除集合在弹窗之前就算好了,但它装的是消息与条目的<b>实例</b>而不是下标——
         // 等待确认期间即便有新一轮落盘、追加了消息与条目,这里也不会误伤
@@ -491,9 +489,8 @@ public sealed class ConversationItemActions
         int doomedCount = session.History.Count - index;
         if (item.SourceMessage.Role == ChatRole.Assistant && doomedCount >= RetryConfirmThreshold)
         {
-            IMessageService messageService = _messageService ?? App.Services.GetRequiredService<IMessageService>();
             string confirmText = string.Format(Loc.Text(LangKey.MessageRetryTurnConfirmFormat), doomedCount);
-            if (!await messageService.ConfirmAsync(confirmText)) return;
+            if (!await _messageService.ConfirmAsync(confirmText)) return;
         }
 
         ChatMessage input = session.History[index];

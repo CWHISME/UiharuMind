@@ -3,6 +3,7 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Features.Conversation.Group;
 using UiharuMind.Features.Conversation.Items;
+using UiharuMind.App.Tests.TestDoubles;
 
 namespace UiharuMind.App.Tests.Conversation;
 
@@ -81,7 +82,7 @@ public class GroupDeliveryRendererTests
     public void SplitBubbles_ArePairedAsOneGroupWithThePersistedCopy()
     {
         System.Collections.ObjectModel.ObservableCollection<ConversationItemBase> items = new();
-        UiharuMind.Features.Conversation.ConversationItemActions actions = new(items, new StubHost());
+        UiharuMind.Features.Conversation.ConversationItemActions actions = new(items, new StubHost(), new RecordingMessageService());
         ChatMessage live = new(ChatRole.User, "（场景）\n\n[Alice]: 嗯。");
         ChatMessageAnnotations.MarkGroupDelivery(live);
         ChatMessage earlierReply = new(ChatRole.Assistant, "上一轮");

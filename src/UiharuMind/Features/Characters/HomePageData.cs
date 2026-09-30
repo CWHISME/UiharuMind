@@ -116,7 +116,7 @@ public partial class HomePageData : PageDataBase
         DrivingSelection(() =>
         {
             CharacterListViewData.BeginPending(seed);
-            Editor = CharacterDraft.ForNew(seed);
+            Editor = CharacterDraft.ForNew(seed, _messageService);
         });
     }
 
@@ -255,6 +255,6 @@ public partial class HomePageData : PageDataBase
     }
 
     /// <summary>给选中项开一份草稿；没有选中项时右主区显示空态</summary>
-    private static CharacterDraft? CreateEditorFor(CharacterInfoViewData? selected) =>
-        selected == null ? null : CharacterDraft.ForEdit(selected.Data);
+    private CharacterDraft? CreateEditorFor(CharacterInfoViewData? selected) =>
+        selected == null ? null : CharacterDraft.ForEdit(selected.Data, _messageService);
 }

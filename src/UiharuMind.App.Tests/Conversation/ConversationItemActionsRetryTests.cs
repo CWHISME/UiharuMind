@@ -8,6 +8,7 @@ using UiharuMind.Core.AI.Chat;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Items;
 using UiharuMind.Shared.Services;
+using UiharuMind.App.Tests.TestDoubles;
 
 namespace UiharuMind.App.Tests.Conversation;
 
@@ -43,28 +44,6 @@ public class ConversationItemActionsRetryTests
         public void NotifyItemsWired() { }
     }
 
-    /// <summary>确认 stub;记录是否问过、以及拒绝时的行为</summary>
-    private sealed class ConfirmStub : IMessageService
-    {
-        public int ConfirmCount { get; private set; }
-        public bool Result { get; init; } = true;
-        public string? LastMessage { get; private set; }
-
-        public Task<bool> ConfirmAsync(string message, string? title = null, CancellationToken ct = default)
-        {
-            ConfirmCount++;
-            LastMessage = message;
-            return Task.FromResult(Result);
-        }
-        public Task ShowInfoAsync(string message, string? title = null, CancellationToken ct = default) => Task.CompletedTask;
-        public Task ShowWarningAsync(string message, string? title = null, CancellationToken ct = default) => Task.CompletedTask;
-        public Task ShowErrorAsync(string message, string? title = null, CancellationToken ct = default) => Task.CompletedTask;
-        public Task<EConfirmChoice> ConfirmWithCancelAsync(string message, string? title = null,
-            CancellationToken ct = default) => Task.FromResult(EConfirmChoice.Yes);
-        public void ShowNotification(string message, string? title = null,
-            MessageSeverity severity = MessageSeverity.Information, TimeSpan? duration = null) { }
-    }
-
     private static ChatSession TransientSession() => new() { IsTransient = true };
 
     private static ChatMessage UserMessage(string text) => new(ChatRole.User, text);
@@ -74,7 +53,7 @@ public class ConversationItemActionsRetryTests
     public void WiringAssistantMessage_ProvidesRetry()
     {
         ChatSession session = TransientSession();
-        ConversationItemActions actions = new(new ObservableCollection<ConversationItemBase>(), new RecordingHost(session));
+        ConversationItemActions actions = new(new ObservableCollection<ConversationItemBase>(), new RecordingHost(session), new RecordingMessageService());
 
         ChatMessage reply = AssistantText("回答");
         ProbeItem item = actions.Wire(new ProbeItem(), reply);
@@ -86,7 +65,7 @@ public class ConversationItemActionsRetryTests
     public void WiringUserMessage_StillProvidesRetry()
     {
         ChatSession session = TransientSession();
-        ConversationItemActions actions = new(new ObservableCollection<ConversationItemBase>(), new RecordingHost(session));
+        ConversationItemActions actions = new(new ObservableCollection<ConversationItemBase>(), new RecordingHost(session), new RecordingMessageService());
 
         ChatMessage question = UserMessage("提问");
         ProbeItem item = actions.Wire(new ProbeItem(), question);
@@ -98,7 +77,7 @@ public class ConversationItemActionsRetryTests
     public void WiringNarration_DoesNotProvideRetry()
     {
         ChatSession session = TransientSession();
-        ConversationItemActions actions = new(new ObservableCollection<ConversationItemBase>(), new RecordingHost(session));
+        ConversationItemActions actions = new(new ObservableCollection<ConversationItemBase>(), new RecordingHost(session), new RecordingMessageService());
 
         ChatMessage narration = new(ChatRole.Assistant, "开场白")
         {
@@ -119,7 +98,7 @@ public class ConversationItemActionsRetryTests
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
         RecordingHost host = new(session);
-        ConversationItemActions actions = new(items, host);
+        ConversationItemActions actions = new(items, host, new RecordingMessageService());
 
         ChatMessage reply = AssistantText("开场回复");
         session.History.Add(reply);
@@ -143,7 +122,7 @@ public class ConversationItemActionsRetryTests
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
         RecordingHost host = new(session);
-        ConversationItemActions actions = new(items, host);
+        ConversationItemActions actions = new(items, host, new RecordingMessageService());
 
         ChatMessage narration = new(ChatRole.User, "开场白")
         {
@@ -172,7 +151,7 @@ public class ConversationItemActionsRetryTests
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
         RecordingHost host = new(session);
-        ConfirmStub confirms = new() { Result = false }; //点「取消」
+        RecordingMessageService confirms = new() { ConfirmResult = false }; //点「取消」
         ConversationItemActions actions = new(items, host, confirms);
 
         ChatMessage user0 = UserMessage("问题1");
@@ -204,7 +183,7 @@ public class ConversationItemActionsRetryTests
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
         RecordingHost host = new(session);
-        ConfirmStub confirms = new() { Result = true };
+        RecordingMessageService confirms = new() { ConfirmResult = true };
         ConversationItemActions actions = new(items, host, confirms);
 
         ChatMessage user0 = UserMessage("问题1");
@@ -236,7 +215,7 @@ public class ConversationItemActionsRetryTests
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
         RecordingHost host = new(session);
-        ConfirmStub confirms = new();
+        RecordingMessageService confirms = new();
         ConversationItemActions actions = new(items, host, confirms);
 
         ChatMessage user0 = UserMessage("问题1");

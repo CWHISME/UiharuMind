@@ -9,6 +9,8 @@ using UiharuMind.Shared.Windows;
 using UiharuMind.Core.AI.Chat;
 
 using UiharuMind.Shared.WindowManagement;
+using Microsoft.Extensions.DependencyInjection;
+using UiharuMind.Shared.Services;
 namespace UiharuMind.Features.Conversation.QuickChat;
 
 /// <summary>
@@ -110,7 +112,7 @@ public partial class QuickChatViewWindow : QuickWindowBase
             return;
         }
 
-        ConversationViewModel conversation = new();
+        ConversationViewModel conversation = new(App.Services.GetRequiredService<IMessageService>());
         // <b>必须在 LoadSessionAsync 之前</b>:装载途中会检查这一项,false 就把活推迟到
         // 「切回来再说」(那是为页面壳的会话列表设计的闸门)。浮窗没有页面壳替它维护,
         // 不自己声明就永远推迟——症状是窗口一片空白

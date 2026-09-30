@@ -15,7 +15,6 @@ using System.Linq;
 using Avalonia;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution.Tools;
@@ -70,10 +69,9 @@ public partial class SessionListModel : ObservableObject, IDisposable
     public event Action<SessionListItem>? Removed;
 
     /// <param name="type">初始会话类型（左栏切换器决定）</param>
+    /// <param name="messageService">条目的确认弹窗</param>
     /// <param name="post">回 UI 线程的方式；测试传同步执行</param>
-    /// <param name="messageService">条目的确认弹窗；省略则从容器取</param>
-    public SessionListModel(EConversationType type,
-        Action<Action>? post = null, IMessageService? messageService = null)
+    public SessionListModel(EConversationType type, IMessageService messageService, Action<Action>? post = null)
         : this(type, null, post, messageService)
     {
     }
@@ -84,12 +82,12 @@ public partial class SessionListModel : ObservableObject, IDisposable
     /// 类型归路仍是 <c>CharacterKindRouting</c> 一个出口
     /// </summary>
     internal SessionListModel(EConversationType type,
-        Func<List<ChatSessionMeta>>? source, Action<Action>? post, IMessageService? messageService)
+        Func<List<ChatSessionMeta>>? source, Action<Action>? post, IMessageService messageService)
     {
         _source = source;
         _type = type;
         _post = post ?? (action => Dispatcher.UIThread.Post(action));
-        _messageService = messageService ?? App.Services.GetRequiredService<IMessageService>();
+        _messageService = messageService;
 
         Sync();
 

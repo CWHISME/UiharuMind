@@ -3,6 +3,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Items;
+using UiharuMind.App.Tests.TestDoubles;
 
 namespace UiharuMind.App.Tests.Headless;
 
@@ -46,7 +47,7 @@ public class ConversationItemActionsRetryHeadlessTests
             ChatSession session = TransientSession();
             ObservableCollection<ConversationItemBase> items = new();
             RecordingHost host = new(session);
-            ConversationItemActions actions = new(items, host);
+            ConversationItemActions actions = new(items, host, new RecordingMessageService());
 
             ChatMessage user0 = new(ChatRole.User, "问题1");
             ChatMessage reply0 = new(ChatRole.Assistant, "回答1");
@@ -91,7 +92,7 @@ public class ConversationItemActionsRetryHeadlessTests
             ChatSession session = TransientSession();
             ObservableCollection<ConversationItemBase> items = new();
             RecordingHost host = new(session);
-            ConversationItemActions actions = new(items, host);
+            ConversationItemActions actions = new(items, host, new RecordingMessageService());
 
             ChatMessage opening = new(ChatRole.Assistant, "开场白")
             {
@@ -133,7 +134,7 @@ public class ConversationItemActionsRetryHeadlessTests
             ChatSession session = TransientSession();
             ObservableCollection<ConversationItemBase> items = new();
             RecordingHost host = new(session);
-            ConversationItemActions actions = new(items, host);
+            ConversationItemActions actions = new(items, host, new RecordingMessageService());
 
             ChatMessage user0 = new(ChatRole.User, "问题1");
             ChatMessage reply0 = new(ChatRole.Assistant, "回答1");

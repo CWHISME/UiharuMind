@@ -17,7 +17,6 @@ using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Runtime;
@@ -37,6 +36,8 @@ public partial class ModelService : ObservableObject
 {
     public ObservableCollection<ModelRunningData> ModelSources { get; set; } =
         new ObservableCollection<ModelRunningData>();
+
+    private readonly IMessageService _messages;
 
     //选择本地模型会有风险运行提示，取消后还原
     private ModelRunningData? _modelSelectionOverride;
@@ -73,8 +74,9 @@ public partial class ModelService : ObservableObject
     /// </summary>
     public int CurRunningCount => ModelSources.Count(x => x.IsRunning);
 
-    public ModelService()
+    public ModelService(IMessageService messages)
     {
+        _messages = messages;
         LlmManager.Instance.OnCurrentModelChanged += OnCurrentModelStateChanged;
         // LlmManager.Instance.OnAnyModelStateChanged += OnAnyModelStateChanged;
         LlmManager.Instance.OnCurrentModelStartLoading += OnCurrentModelStartLoading;
@@ -139,7 +141,7 @@ public partial class ModelService : ObservableObject
         Refresh();
     }
 
-    private static async Task<bool> ConfirmLocalLoadRiskAsync(string modelName, bool isRemoteModel)
+    private async Task<bool> ConfirmLocalLoadRiskAsync(string modelName, bool isRemoteModel)
     {
         if (isRemoteModel) return true;
 
@@ -157,8 +159,7 @@ public partial class ModelService : ObservableObject
             message += Environment.NewLine + string.Join(Environment.NewLine, risk.Warnings.Select(x => $"- {x}"));
         message += Environment.NewLine + Loc.Text(LangKey.ModelRuntimeLoadRiskNativeCrashHint);
 
-        IMessageService messageService = App.Services.GetRequiredService<IMessageService>();
-        return await messageService.ConfirmAsync(message, Loc.Text(LangKey.ModelRuntimeLoadRiskConfirmTitle));
+        return await _messages.ConfirmAsync(message, Loc.Text(LangKey.ModelRuntimeLoadRiskConfirmTitle));
     }
 
     private static string FormatRiskLevel(RuntimeLoadRiskLevel level)

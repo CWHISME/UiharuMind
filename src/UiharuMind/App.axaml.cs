@@ -66,17 +66,19 @@ public partial class App : Application, ILogger, IDisposable
             DummyWindow = new DummyWindow();
             UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("dummy-window");
 
-            Clipboard = new ClipboardService(DummyWindow);
+            // 消息服务先造出来：剪贴板、模型这些随 App 起的服务由这里递给它们，不各自回头去容器里取
+            ScreensService = new ScreensService(DummyWindow);
+            MessageService messages = new(ScreensService);
+            Clipboard = new ClipboardService(DummyWindow, messages);
             UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("clipboard-service");
             FilesService = new FilesService();
-            ScreensService = new ScreensService(DummyWindow);
-            ModelService = new ModelService();
+            ModelService = new ModelService(messages);
             MemoryService = new MemoryService();
             UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("app-services");
 
             Services = new ServiceCollection()
                 .AddSingleton(ScreensService)
-                .AddSingleton<IMessageService, MessageService>()
+                .AddSingleton<IMessageService>(messages)
                 .AddSingleton<ApplicationUpdateService>()
                 .AddSingleton<MainViewModel>()
                 .AddSingleton<SearchService>()

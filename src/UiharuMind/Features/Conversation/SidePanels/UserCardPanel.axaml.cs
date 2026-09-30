@@ -5,6 +5,8 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Features.Characters;
 
 using UiharuMind.Shared.WindowManagement;
+using Microsoft.Extensions.DependencyInjection;
+using UiharuMind.Shared.Services;
 namespace UiharuMind.Features.Conversation.SidePanels;
 
 public partial class UserCardPanel : UserControl
@@ -42,7 +44,7 @@ public partial class UserCardViewData : ObservableObject
         // 编辑走草稿-提交,面板绑的这份是活实例、只读;因此关窗时统一刷一遍就够
         UIManager.ShowWindow<UserCardEditWindow>(x =>
         {
-            x.SetCharacterInfo(CharacterDraft.ForEdit(CharacterManager.Instance.UserCharacterData));
+            x.SetCharacterInfo(CharacterDraft.ForEdit(CharacterManager.Instance.UserCharacterData, App.Services.GetRequiredService<IMessageService>()));
             x.Closed += (_, _) =>
             {
                 _user.Refresh();

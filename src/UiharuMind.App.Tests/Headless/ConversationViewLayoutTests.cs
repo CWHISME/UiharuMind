@@ -10,6 +10,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Items;
 using UiharuMind.Shared.Controls;
+using UiharuMind.App.Tests.TestDoubles;
 
 namespace UiharuMind.App.Tests.Headless;
 
@@ -188,7 +189,7 @@ public class ConversationViewLayoutTests(ITestOutputHelper output)
     [Fact]
     public void MessageList_RealisesEveryItem_BecauseItIsNotVirtualised() => HeadlessUi.Run(() =>
     {
-        ConversationViewModel vm = new();
+        ConversationViewModel vm = new(new RecordingMessageService());
         foreach (ConversationItemBase item in MixedItems(40)) vm.Items.Add(item);
 
         (Window window, ConversationView view) = ShowView(vm);
@@ -206,7 +207,7 @@ public class ConversationViewLayoutTests(ITestOutputHelper output)
     [Fact]
     public void Trimming_ShrinksTheVisualTreeAndTheLayoutCost() => HeadlessUi.Run(() =>
     {
-        ConversationViewModel vm = new();
+        ConversationViewModel vm = new(new RecordingMessageService());
         foreach (ConversationItemBase item in MixedItems(200)) vm.Items.Add(item);
 
         Stopwatch watch = Stopwatch.StartNew();
@@ -243,7 +244,7 @@ public class ConversationViewLayoutTests(ITestOutputHelper output)
     [Fact]
     public void ScrollingFarAway_UnloadsCards_WithoutMovingTheExtent() => HeadlessUi.Run(() =>
     {
-        ConversationViewModel vm = new() { IsPlaintext = false };
+        ConversationViewModel vm = new(new RecordingMessageService()) { IsPlaintext = false };
         foreach (ConversationItemBase item in MarkdownItems(60)) vm.Items.Add(item);
 
         (Window window, ConversationView view) = ShowView(vm);
@@ -294,7 +295,7 @@ public class ConversationViewLayoutTests(ITestOutputHelper output)
     [Fact]
     public void ScrollingBack_ReloadsBubbles_PlaintextIncluded() => HeadlessUi.Run(() =>
     {
-        ConversationViewModel vm = new() { IsPlaintext = false };
+        ConversationViewModel vm = new(new RecordingMessageService()) { IsPlaintext = false };
         foreach (ConversationItemBase item in DialogueItems(30)) vm.Items.Add(item);
 
         (Window window, ConversationView view) = ShowView(vm);

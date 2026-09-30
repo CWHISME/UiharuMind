@@ -2,6 +2,7 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Features.Conversation;
+using UiharuMind.App.Tests.TestDoubles;
 
 namespace UiharuMind.App.Tests.Headless;
 
@@ -20,7 +21,7 @@ public class ConversationGroupLoadTests
             ChatSession group = CreateGroup();
             try
             {
-                using ConversationViewModel vm = new();
+                using ConversationViewModel vm = new(new RecordingMessageService());
                 _ = vm.LoadSessionAsync(SessionManager.Instance.GetMeta(group.SessionId));
 
                 Assert.True(vm.IsGroupSession);
@@ -41,7 +42,7 @@ public class ConversationGroupLoadTests
             ChatSession group = CreateGroup();
             try
             {
-                using ConversationViewModel vm = new();
+                using ConversationViewModel vm = new(new RecordingMessageService());
                 _ = vm.LoadSessionAsync(SessionManager.Instance.GetGroupMembers(group.SessionId)[0]);
 
                 Assert.True(vm.IsGroupMemberSession);

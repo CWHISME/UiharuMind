@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using UiharuMind.Features.Conversation;
+using UiharuMind.App.Tests.TestDoubles;
 
 namespace UiharuMind.App.Tests.Headless;
 
@@ -21,7 +22,7 @@ public class ConversationEmptyClickTests
     {
         HeadlessUi.Run(() =>
         {
-            ConversationViewModel vm = new(); //空会话：无条目、非加载 → 空态 presenter 可见
+            ConversationViewModel vm = new(new RecordingMessageService()); //空会话：无条目、非加载 → 空态 presenter 可见
             ConversationView view = new() { DataContext = vm };
             int clicks = 0;
             Button probe = new() { Content = "probe", Width = 160, Height = 36 };

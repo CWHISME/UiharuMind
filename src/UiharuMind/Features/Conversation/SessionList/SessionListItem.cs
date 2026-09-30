@@ -16,7 +16,6 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
@@ -189,17 +188,6 @@ public partial class SessionListItem : ObservableObject
     /// <summary>会话已被删除。页面壳据此刷新列表并处理"删的正是当前会话"</summary>
     public event Action<SessionListItem>? Deleted;
 
-    public SessionListItem(ChatSession chatSession)
-        : this(chatSession.ToMeta())
-    {
-        _session = chatSession;
-    }
-
-    public SessionListItem(ChatSessionMeta meta)
-        : this(meta, App.Services.GetRequiredService<IMessageService>())
-    {
-    }
-
     public SessionListItem(ChatSessionMeta meta, IMessageService messageService)
     {
         _messageService = messageService;
@@ -312,7 +300,7 @@ public partial class SessionListItem : ObservableObject
     [RelayCommand]
     public void EditCharacter()
     {
-        CharacterWindows.ShowEditCharacterWindow(CharacterDraft.ForEdit(Session.CharacterData));
+        CharacterWindows.ShowEditCharacterWindow(CharacterDraft.ForEdit(Session.CharacterData, _messageService));
     }
 
     [RelayCommand]
@@ -320,7 +308,7 @@ public partial class SessionListItem : ObservableObject
     {
         string? result = await UIManager.ShowStringEditWindow(_meta.Title, title: Loc.Text(LangKey.EditSessionTitleTitle));
         if (string.IsNullOrWhiteSpace(result) || result == _meta.Title) return;
-        if (IsGroup && !await GroupChangePrompts.ConfirmRenameAsync(Session, result)) return;
+        if (IsGroup && !await new GroupChangePrompts(_messageService).ConfirmRenameAsync(Session, result)) return;
 
         // 标题是纯显示字段:改名不动文件、不删不加。
         // 索引与本体各存一份,两边都要写——只写本体会让列表在重建索引前显示旧名

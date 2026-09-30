@@ -24,7 +24,6 @@ using Avalonia.Input.Platform;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Clowd.Clipboard;
-using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Core.Core;
@@ -40,6 +39,7 @@ namespace UiharuMind.Features.Clipboard;
 public class ClipboardService : IDisposable
 {
     private readonly Window _target;
+    private readonly IMessageService _messages;
 
     private IClipboard Clipboard => _target.Clipboard!;
     private readonly IClipboardMonitor? _clipboardMonitor;
@@ -74,9 +74,10 @@ public class ClipboardService : IDisposable
         set => _isSelfCopying = value;
     }
 
-    public ClipboardService(Window target)
+    public ClipboardService(Window target, IMessageService messages)
     {
         _target = target;
+        _messages = messages;
 
         //初始化剪切板监控
         _clipboardMonitor = CreateClipboardMonitor();
@@ -104,7 +105,7 @@ public class ClipboardService : IDisposable
             if (tips)
             {
                 // 弹一条:剪贴板是不可见的,不给反馈用户只能再点一次确认
-                App.Services.GetRequiredService<IMessageService>().ShowNotification(Loc.Text(LangKey.CopiedToClipboardTips), severity: MessageSeverity.Success);
+                _messages.ShowNotification(Loc.Text(LangKey.CopiedToClipboardTips), severity: MessageSeverity.Success);
             }
         }
         catch (Exception e)

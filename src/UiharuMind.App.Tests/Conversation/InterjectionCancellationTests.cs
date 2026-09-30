@@ -1,6 +1,7 @@
 using Microsoft.Extensions.AI;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Composer;
+using UiharuMind.App.Tests.TestDoubles;
 
 namespace UiharuMind.App.Tests.Conversation;
 
@@ -14,7 +15,7 @@ public class InterjectionCancellationTests
     [Fact]
     public async Task RemoveInterjection_DropsThePendingRow()
     {
-        ConversationViewModel vm = new();
+        ConversationViewModel vm = new(new RecordingMessageService());
         var message = new ChatMessage(ChatRole.User, "插话");
         vm.Interjections.Items.Add(new PendingInterjectionViewData(message, "插话"));
         Assert.Single(vm.Interjections.Items);
@@ -27,7 +28,7 @@ public class InterjectionCancellationTests
     [Fact]
     public async Task RemoveInterjection_RestoresTextAndAttachments()
     {
-        ConversationViewModel vm = new();
+        ConversationViewModel vm = new(new RecordingMessageService());
         var attachment = new ConversationAttachment
         {
             Bytes = new byte[] { 1, 2, 3 },
@@ -48,7 +49,7 @@ public class InterjectionCancellationTests
     [Fact]
     public void RemoveInterjection_WithNullParameter_DoesNothing()
     {
-        ConversationViewModel vm = new();
+        ConversationViewModel vm = new(new RecordingMessageService());
         vm.Interjections.RemoveCommand.Execute(null);
         Assert.Empty(vm.Interjections.Items);
     }
@@ -56,7 +57,7 @@ public class InterjectionCancellationTests
     [Fact]
     public void StopSending_RestoresPendingInterjectionsToComposer()
     {
-        ConversationViewModel vm = new();
+        ConversationViewModel vm = new(new RecordingMessageService());
         var attachment = new ConversationAttachment
         {
             Bytes = new byte[] { 1, 2, 3 },
@@ -77,7 +78,7 @@ public class InterjectionCancellationTests
     [Fact]
     public void StopSending_AppendsToExistingComposerText()
     {
-        ConversationViewModel vm = new();
+        ConversationViewModel vm = new(new RecordingMessageService());
         vm.InputText = "草稿";
         vm.Interjections.Items.Add(new PendingInterjectionViewData(new ChatMessage(ChatRole.User, "插话"), "插话"));
 

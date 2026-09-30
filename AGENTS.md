@@ -172,6 +172,13 @@ public void UpdateHost()
 }
 ```
 
+### 依赖规范
+
+[规则4-1] App 项目里的服务（如 `IMessageService`）由**组装入口**取出、经构造函数往下传。组装入口只有三处：
+`App` 启动、窗口与视图的后台代码、开窗口调系统的界面外壳静态入口（如 `FileOpener`）。视图数据、视图模型、
+辅助类一律从构造接收，这样弹确认、弹提示的流程才测得到——测试传 `App.Tests/TestDoubles/RecordingMessageService`。
+框架按类型创建、只能无参构造的（如 `App.ViewModel.GetViewModel<T>()` 建的页面数据），无参构造取一次再转调可注入的那个。
+
 ## 协作口径
 
 - 请严格按照仓库规则工作，如果出现冲突，一切以仓库口径为准

@@ -14,7 +14,6 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.AI;
-using Microsoft.Extensions.DependencyInjection;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -289,6 +288,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private CancellationTokenSource? _tokenRefreshDebounce; //打字时合并刷新,避免每个字符都触发 ToolTip 重排
     private CancellationTokenSource? _usageRefreshDebounce; //流式期合并 UsageObserved 刷新,避免每个 chunk 都重排 ToolTip
 
+    private readonly IMessageService _messages; //弹提示与确认
     private readonly ConversationItemActions _itemActions; //气泡上的编辑/删除/分叉/重试
     private readonly ConversationHistoryRenderer _history; //把历史画进 Items(回放、续窗、落盘补渲染)
     private readonly RegisteredApprovalAdopter _approvalAdopter; //子会话/群成员认领登记在册的审批卡
@@ -486,8 +486,13 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     public string SendButtonText =>
         Loc.Text(IsGenerating ? LangKey.AgentInterject : LangKey.Send);
 
-    public ConversationViewModel()
+    /// <summary>
+    /// 构造
+    /// </summary>
+    /// <param name="messages">弹提示与确认用的消息服务</param>
+    public ConversationViewModel(IMessageService messages)
     {
+        _messages = messages;
         // 子模型只吃窄依赖、不反向持有本类:附件盘取会话要用委托(首轮发送时会话还不存在),
         // 命令面板要能改写输入框并读当前角色,挂接器只需报忙碌态
         Tray = new AttachmentTrayViewData(() => CurrentSession,
@@ -503,7 +508,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         Interjections = new InterjectionQueueViewData(() => CurrentRunner, () => InputText, text => InputText = text,
             Tray.Attachments);
         _binder = new ConversationSessionBinder(NotifyBusyChanged);
-        _itemActions = new ConversationItemActions(Items, this);
+        _itemActions = new ConversationItemActions(Items, this, messages);
         _history = new ConversationHistoryRenderer(Items, _itemActions, () => _currentCharacter,
             () => IsAutoCollapseThinking, () => GroupMember?.DeliveryRenderer);
         _trimmer = new ConversationItemWindowTrimmer(Items, _historyWindow,
@@ -1007,7 +1012,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     [RelayCommand]
     private void EditActiveCharacter()
     {
-        CharacterDraft draft = CharacterDraft.ForEdit(ActiveCharacter);
+        CharacterDraft draft = CharacterDraft.ForEdit(ActiveCharacter, _messages);
         // 让编辑页能按开关标出「关掉这一档能省多少 token」。必须在能力面板首次建之前给
         draft.CapabilitySnapshot = CurrentRunner?.GetCapabilities();
         CharacterWindows.ShowEditCharacterWindow(draft);
@@ -1076,7 +1081,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private async Task CreateGroupFromHereAsync()
     {
         if (CurrentSession is not { } source || !CanCreateGroupFromHere) return;
-        ChatSession? group = await GroupFromChat.CreateAsync(source, Workspace.Path);
+        ChatSession? group = await GroupFromChat.CreateAsync(source, Workspace.Path, _messages);
         if (group == null) return;
         SessionsChanged?.Invoke();
         OpenSessionRequested?.Invoke(group.SessionId);
@@ -1131,8 +1136,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             List<McpApprovalRequest> pending = McpManager.Instance.GetPendingApprovals(workspacePath);
             if (pending.Count == 0) return;
 
-            IMessageService messageService = App.Services.GetRequiredService<IMessageService>();
-            if (!await messageService.ConfirmAsync(BuildMcpApprovalMessage(workspacePath, pending),
+            if (!await _messages.ConfirmAsync(BuildMcpApprovalMessage(workspacePath, pending),
                     Loc.Text(LangKey.AgentMcpApprovalTitle)))
             {
                 // 拒绝不落任何记录:下次再进这个工作区会再问一次。
@@ -1190,7 +1194,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             {
                 // 运行中命令没处安放:把字还给输入框并明说,静默吞掉就是"点了没反应"
                 InputText = text;
-                App.Services.GetRequiredService<IMessageService>().ShowNotification(
+                _messages.ShowNotification(
                     Loc.Text(LangKey.CompactWhileRunning), severity: MessageSeverity.Warning);
                 return;
             }
@@ -1198,7 +1202,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             if (CurrentSession is not { } current)
             {
                 // 空会话(新建未发首轮):没有可压缩的内容,明说而不是静默吞掉
-                App.Services.GetRequiredService<IMessageService>().ShowNotification(
+                _messages.ShowNotification(
                     Loc.Text(LangKey.HandoffNothingToCompact), severity: MessageSeverity.Information);
                 return;
             }
@@ -1207,7 +1211,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             if (TurnDriver.IsCompacting(current.SessionId))
             {
                 // 正在整理时再敲一次:防重复写两份交接文档、出两张卡
-                App.Services.GetRequiredService<IMessageService>().ShowNotification(
+                _messages.ShowNotification(
                     Loc.Text(LangKey.CompactAlreadyInProgress), severity: MessageSeverity.Information);
                 return;
             }
@@ -1234,13 +1238,13 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 if (await Interjections.TryInjectAsync(interjection, text, interjectionAttachments)) return;
 
                 // 排不进去(执行者还在装配、或这个执行者不支持注入):字和附件已还回去,明说一声
-                App.Services.GetRequiredService<IMessageService>().ShowNotification(
+                _messages.ShowNotification(
                     Loc.Text(LangKey.AgentInterjectUnavailable), severity: MessageSeverity.Warning);
                 return;
             }
 
             // 他正在群里发言:明说排队,接着走下面的正常发送路径(RunTurnAsync 会等到群轮结束)
-            App.Services.GetRequiredService<IMessageService>().ShowNotification(
+            _messages.ShowNotification(
                 Loc.Text(LangKey.GroupMemberBusyQueueTip), severity: MessageSeverity.Information);
         }
 
@@ -1704,7 +1708,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         ChatSession? loaded = meta == null ? null : SessionManager.Instance.Load(meta.SessionId);
         // 群壳这一份必须在第一个 await 之前就位:页面先调装载、再换绑实例,绑定在这之后立刻求值,
         // 晚一步右栏就先按单聊画出群壳的占位角色,再跳成群卡
-        Group = loaded is { IsGroup: true } ? new GroupShellViewData(loaded) : null;
+        Group = loaded is { IsGroup: true } ? new GroupShellViewData(loaded, _messages) : null;
         if (Group != null) InputPlaceholderKey = LangKey.GroupInputTips; //群里是对全群说话,不是给谁派任务
         OnPropertyChanged(nameof(IsGroupMemberSession));
         OnPropertyChanged(nameof(IsPermissionEditable));

@@ -6,6 +6,7 @@ using UiharuMind.Core.AI.Chat;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Items;
 using UiharuMind.Shared.Services;
+using UiharuMind.App.Tests.TestDoubles;
 
 namespace UiharuMind.App.Tests.Conversation;
 
@@ -54,36 +55,9 @@ public class ConversationItemActionsDeletionTests
         public void NotifyItemsWired() { }
     }
 
-    /// <summary>删除确认 stub;记录是否真的问过、以及拒绝时的行为</summary>
-    private sealed class ConfirmStub : IMessageService
-    {
-        public int ConfirmCount { get; private set; }
-        public bool Result { get; init; } = true;
-        public string? LastMessage { get; private set; }
-
-        /// <summary>提示里报出的条目数;没报数(单条删除)时为 1</summary>
-        public int LastCount { get; private set; }
-
-        public Task<bool> ConfirmAsync(string message, string? title = null,
-            System.Threading.CancellationToken ct = default)
-        {
-            ConfirmCount++;
-            LastMessage = message;
-            LastCount = int.TryParse(new string(message.Where(char.IsDigit).ToArray()), out int count) ? count : 1;
-            return Task.FromResult(Result);
-        }
-
-        public Task ShowInfoAsync(string message, string? title = null,
-            System.Threading.CancellationToken ct = default) => Task.CompletedTask;
-        public Task ShowWarningAsync(string message, string? title = null,
-            System.Threading.CancellationToken ct = default) => Task.CompletedTask;
-        public Task ShowErrorAsync(string message, string? title = null,
-            System.Threading.CancellationToken ct = default) => Task.CompletedTask;
-        public Task<EConfirmChoice> ConfirmWithCancelAsync(string message, string? title = null,
-            System.Threading.CancellationToken ct = default) => Task.FromResult(EConfirmChoice.Yes);
-        public void ShowNotification(string message, string? title = null,
-            MessageSeverity severity = MessageSeverity.Information, TimeSpan? duration = null) { }
-    }
+    // 提示里报出的条目数；没报数（单条删除）时为 1
+    private static int CountIn(string? message) =>
+        int.TryParse(new string((message ?? "").Where(char.IsDigit).ToArray()), out int count) ? count : 1;
 
     private static ChatSession TransientSession()
     {
@@ -106,7 +80,7 @@ public class ConversationItemActionsDeletionTests
     {
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
-        ConfirmStub confirms = new();
+        RecordingMessageService confirms = new();
         ConversationItemActions actions = new(items, new StubHost(session), confirms);
 
         ChatMessage user0 = UserMessage("帮我改代码");
@@ -157,7 +131,7 @@ public class ConversationItemActionsDeletionTests
     {
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
-        ConfirmStub confirms = new();
+        RecordingMessageService confirms = new();
         ConversationItemActions actions = new(items, new StubHost(session), confirms);
 
         ChatMessage user0 = UserMessage("你好");
@@ -190,7 +164,7 @@ public class ConversationItemActionsDeletionTests
     {
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
-        ConfirmStub confirms = new();
+        RecordingMessageService confirms = new();
         ConversationItemActions actions = new(items, new StubHost(session), confirms);
 
         // 一条 assistant 消息自带思考 + 正文
@@ -239,7 +213,7 @@ public class ConversationItemActionsDeletionTests
     {
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
-        ConfirmStub confirms = new();
+        RecordingMessageService confirms = new();
         ConversationItemActions actions = new(items, new StubHost(session), confirms);
 
         ChatMessage user0 = UserMessage("帮我改代码");
@@ -284,7 +258,7 @@ public class ConversationItemActionsDeletionTests
     {
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
-        ConfirmStub confirms = new() { Result = false };
+        RecordingMessageService confirms = new() { ConfirmResult = false };
         ConversationItemActions actions = new(items, new StubHost(session), confirms);
 
         ChatMessage user0 = UserMessage("帮我改代码");
@@ -319,7 +293,7 @@ public class ConversationItemActionsDeletionTests
     {
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
-        ConfirmStub confirms = new();
+        RecordingMessageService confirms = new();
         ConversationItemActions actions = new(items, new StubHost(session), confirms);
 
         ChatMessage user0 = UserMessage("做事");
@@ -363,7 +337,7 @@ public class ConversationItemActionsDeletionTests
     {
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
-        ConfirmStub confirms = new();
+        RecordingMessageService confirms = new();
         ConversationItemActions actions = new(items, new StubHost(session), confirms);
 
         ChatMessage user0 = UserMessage("做事");
@@ -396,7 +370,7 @@ public class ConversationItemActionsDeletionTests
         Assert.DoesNotContain(stepBubble, items);
         Assert.DoesNotContain(card, items);
         Assert.Contains(finalBubble, items);
-        Assert.Equal(2, confirms.LastCount); //提示的是界面条目数
+        Assert.Equal(2, CountIn(confirms.LastConfirm)); //提示的是界面条目数
     }
 
     /// <summary>
@@ -410,7 +384,7 @@ public class ConversationItemActionsDeletionTests
     {
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
-        ConfirmStub confirms = new();
+        RecordingMessageService confirms = new();
         ConversationItemActions actions = new(items, new StubHost(session), confirms);
 
         ChatMessage user0 = UserMessage("做事");
@@ -454,7 +428,7 @@ public class ConversationItemActionsDeletionTests
     {
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
-        ConfirmStub confirms = new();
+        RecordingMessageService confirms = new();
         ConversationItemActions actions = new(items, new StubHost(session), confirms);
 
         ChatMessage user0 = UserMessage("做事");
@@ -501,7 +475,7 @@ public class ConversationItemActionsDeletionTests
     {
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
-        ConfirmStub confirms = new();
+        RecordingMessageService confirms = new();
         ConversationItemActions actions = new(items, new StubHost(session), confirms);
 
         ChatMessage user0 = UserMessage("做事");
@@ -543,7 +517,7 @@ public class ConversationItemActionsDeletionTests
     {
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
-        ConfirmStub confirms = new();
+        RecordingMessageService confirms = new();
         ConversationItemActions actions = new(items, new StubHost(session), confirms);
 
         ChatMessage user0 = UserMessage("做事");
@@ -565,9 +539,9 @@ public class ConversationItemActionsDeletionTests
 
         await bubble.DeleteCommand.ExecuteAsync(null);
 
-        Assert.Equal(3, confirms.LastCount);
-        Assert.NotNull(confirms.LastMessage);
-        Assert.Contains("3", confirms.LastMessage);
+        Assert.Equal(3, CountIn(confirms.LastConfirm));
+        Assert.NotNull(confirms.LastConfirm);
+        Assert.Contains("3", confirms.LastConfirm);
         Assert.Single(items);
         AssertNoDangling(session);
     }
@@ -582,7 +556,7 @@ public class ConversationItemActionsDeletionTests
     {
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
-        ConfirmStub confirms = new();
+        RecordingMessageService confirms = new();
         ConversationItemActions actions = new(items, new StubHost(session), confirms);
 
         ChatMessage first = UserMessage("再来一次");
