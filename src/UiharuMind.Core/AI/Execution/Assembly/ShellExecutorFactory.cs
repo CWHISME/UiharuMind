@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using Microsoft.Agents.AI.Tools.Shell;
+using Microsoft.Extensions.AI;
 
 namespace UiharuMind.Core.AI.Execution.Assembly;
 
@@ -34,6 +35,24 @@ internal static class ShellExecutorFactory
         "DOTNET_DiagnosticPorts",
         "DOTNET_DefaultDiagnosticPortSuspend",
     ];
+
+    // [MFA绕坑] 绕:从默认工具描述里剥掉这句 因:它写死在 LocalShellExecutor 私有的 BuildDefaultDescription 末尾,自动档与预授权下并不成立 删除条件:框架按审批配置决定是否输出
+    private const string ApprovalClaim = "The user reviews and approves every call.";
+
+    /// <summary>
+    /// 把执行器包成模型可调的 shell 工具（主代理与子代理共用）。
+    /// 审批是给用户看的机制，模型知道了也不改变行为（ADR 0017 第九节）；而自动档下那句还是假的，
+    /// 会让模型以为总有人替它把关破坏性命令。
+    /// </summary>
+    /// <param name="executor">shell 执行器</param>
+    /// <returns>需审批的 shell 工具</returns>
+    public static AIFunction CreateTool(LocalShellExecutor executor)
+    {
+        string description = executor.AsAIFunction(CharacterRunnerFactory.ShellToolName).Description
+            .Replace(ApprovalClaim, string.Empty, StringComparison.Ordinal)
+            .TrimEnd();
+        return executor.AsAIFunction(CharacterRunnerFactory.ShellToolName, description);
+    }
 
     public static LocalShellExecutor Create(
         string workingDirectory,

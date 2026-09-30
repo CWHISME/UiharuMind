@@ -181,7 +181,7 @@ internal static class SubAgentAssembly
         LocalShellExecutor? shellExecutor = canMutate && effectiveConfig.EnableShellExecution
             ? ShellExecutorFactory.Create(plan.WorkingDirectory, plan.ShellEnvironment)
             : null;
-        AITool? shellTool = shellExecutor?.AsAIFunction(CharacterRunnerFactory.ShellToolName);
+        AITool? shellTool = shellExecutor == null ? null : ShellExecutorFactory.CreateTool(shellExecutor);
         IReadOnlyList<AITool>? mcpTools = canMutate ? plan.Mcp.Tools : null;
 
         SubAgentAssemblyInput input = new()
