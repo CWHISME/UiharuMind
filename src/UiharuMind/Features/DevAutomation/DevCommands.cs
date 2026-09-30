@@ -15,6 +15,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Pages;
@@ -27,7 +28,7 @@ namespace UiharuMind.Features.DevAutomation;
 /// 开发脚本能用的那几步。
 ///
 /// 这里<b>只有读与导航</b>：看一眼现在什么样、跳到哪一页、打开哪个会话。
-/// 「发一句话给模型」要花钱、要有模型在线，是另一件事——只有群聊冒烟那几步做了，见 <see cref="GroupDevCommands"/>。
+/// 「发一句话给模型」要花钱、要有模型在线，是另一件事——见群聊的 <see cref="GroupDevCommands"/> 与单聊的 <see cref="SessionDevCommands"/>。
 /// </summary>
 internal static class DevCommandRegistry
 {
@@ -42,7 +43,19 @@ internal static class DevCommandRegistry
         new MemoryStatsCommand(),
         new FontDiagnosticsCommand(),
         ..GroupDevCommands.CreateAll(),
+        ..SessionDevCommands.CreateAll(),
     ];
+
+    /// <summary>按角色标识或显示名找角色（标识优先）</summary>
+    /// <param name="key">角色标识或名字</param>
+    /// <returns>角色</returns>
+    internal static CharacterData ResolveCharacter(string key)
+    {
+        IEnumerable<CharacterData> all = CharacterManager.Instance.CharacterDataDictionary.Values;
+        return all.FirstOrDefault(x => x.CharacterId == key)
+               ?? all.FirstOrDefault(x => x.CharacterName == key)
+               ?? throw new ArgumentException($"character '{key}' not found");
+    }
 
     /// <summary>取当前显示的那一页（不是会话页时为 null）</summary>
     internal static ConversationPageDataBase? CurrentConversationPage() =>

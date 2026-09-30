@@ -156,8 +156,12 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
             // 学得更起劲;气泡里行首那样写还会被 markdown 当链接引用定义吞掉
             if (session.IsGroupMember)
             {
+                // 记一笔：前缀是随机冒出来的，剥掉后就看不见了，攒日志才看得出措辞改了有没有用
                 foreach (ChatMessage message in context.ResponseMessages)
-                    GroupTranscript.StripOwnPrefix(message, session.CharacterData.CharacterName);
+                {
+                    if (GroupTranscript.StripOwnPrefix(message, session.CharacterData.CharacterName))
+                        Log.Debug($"Group member '{session.CharacterData.CharacterName}' self-added speaker prefix, stripped.");
+                }
             }
 
             AppendOwned(session, context.ResponseMessages, storedAt, restamp: true);

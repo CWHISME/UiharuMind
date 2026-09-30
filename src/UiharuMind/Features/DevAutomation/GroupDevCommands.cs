@@ -107,7 +107,7 @@ internal sealed class GroupCreateCommand : IAsyncDevCommand
     public async Task<object?> ExecuteAsync(JsonElement args)
     {
         string name = DevCommandRegistry.RequireString(args, "name");
-        List<CharacterData> members = GroupDevCommands.Strings(args, "members").Select(ResolveCharacter).ToList();
+        List<CharacterData> members = GroupDevCommands.Strings(args, "members").Select(DevCommandRegistry.ResolveCharacter).ToList();
         List<string> models = GroupDevCommands.Strings(args, "models");
         string workspace = DevCommandRegistry.RequireString(args, "workspace");
         EGroupScheduleMode mode = GroupDevCommands.StringOr(args, "mode") == "parallel"
@@ -130,13 +130,6 @@ internal sealed class GroupCreateCommand : IAsyncDevCommand
         return new { id = group.SessionId, members = members.Select(x => x.CharacterName), mode = mode.ToString(), openMs };
     }
 
-    private static CharacterData ResolveCharacter(string key)
-    {
-        IEnumerable<CharacterData> all = CharacterManager.Instance.CharacterDataDictionary.Values;
-        return all.FirstOrDefault(x => x.CharacterId == key)
-               ?? all.FirstOrDefault(x => x.CharacterName == key)
-               ?? throw new ArgumentException($"character '{key}' not found");
-    }
 }
 
 /// <summary>往群里说一句：点开群、填输入框、点发送。不等这一波跑完（那是 group.wait 的事）</summary>
