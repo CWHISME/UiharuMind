@@ -37,7 +37,7 @@
             <StackPanel Orientation="Horizontal" Spacing="6">
                 <!-- 状态点的配色由 Tag 选,所以一个 Border 绑 key 即可;
                      文案那两条仍是两个 TextBlock——loc 标记要能跟着切语言重取,换成绑定字符串就跟不了 -->
-                <Border Classes="status-dot" Tag="{Binding Conversation.RunStatusKey}" />
+                <Border Classes="status-dot icon-tweak" Tag="{Binding Conversation.RunStatusKey}" />
                 <TextBlock FontSize="12" Text="{loc:Loc AgentStatusRunning}"
                            IsVisible="{Binding Conversation.IsGenerating}" />
                 <!-- 第三档:本会话闲着但名下的后台子代理还没回来。少了它,用户看到的是「空闲」,

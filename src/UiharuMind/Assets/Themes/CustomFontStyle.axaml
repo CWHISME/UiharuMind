@@ -97,4 +97,11 @@
             </Setter.Value>
         </Setter>
     </Style>
+    <Style Selector=":is(Border).icon-tweak">
+        <Setter Property="RenderTransform">
+            <Setter.Value>
+                <TranslateTransform Y="-1" />
+            </Setter.Value>
+        </Setter>
+    </Style>
 </Styles>
