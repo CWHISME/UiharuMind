@@ -3278,5 +3278,71 @@
     <data name="ThemeModeLight" xml:space="preserve">
         <value>浅色</value>
     </data>
+    <data name="GroupEditBusy" xml:space="preserve">
+        <value>群正在进行中，或有成员在私聊。等停下来再改。</value>
+    </data>
+    <data name="GroupRosterCacheNote" xml:space="preserve">
+        <value>名单或工作区一变，所有成员的系统提示随之改写，各自下一轮整个上下文按全价重算一遍（前缀缓存失效），之后恢复正常。</value>
+    </data>
+    <data name="GroupRemoveMember" xml:space="preserve">
+        <value>移出群聊</value>
+    </data>
+    <data name="GroupRemoveConfirm" xml:space="preserve">
+        <value>把“{0}”移出群聊？他的会话会留在「已退出」里，可以随时加回。</value>
+    </data>
+    <data name="GroupRemoveLastMember" xml:space="preserve">
+        <value>群里至少要留一位成员</value>
+    </data>
+    <data name="GroupRemoveHostNote" xml:space="preserve">
+        <value>他是主持人，移出后本群改为无主持人。</value>
+    </data>
+    <data name="GroupFormerMembersFormat" xml:space="preserve">
+        <value>已退出（{0}）</value>
+    </data>
+    <data name="GroupRejoin" xml:space="preserve">
+        <value>加回</value>
+    </data>
+    <data name="GroupOpenSession" xml:space="preserve">
+        <value>查看</value>
+    </data>
+    <data name="GroupAddMembers" xml:space="preserve">
+        <value>添加成员</value>
+    </data>
+    <data name="GroupAddHint" xml:space="preserve">
+        <value>加入“{0}”。已退出的成员会恢复原来的会话，接着之前的记忆。</value>
+    </data>
+    <data name="GroupAddAction" xml:space="preserve">
+        <value>添加</value>
+    </data>
+    <data name="GroupAddConfirmFormat" xml:space="preserve">
+        <value>把 {0} 加进群里？</value>
+    </data>
+    <data name="GroupFormerBadge" xml:space="preserve">
+        <value>曾在群里</value>
+    </data>
+    <data name="GroupBackfillLabel" xml:space="preserve">
+        <value>群里之前的发言</value>
+    </data>
+    <data name="GroupBackfillNone" xml:space="preserve">
+        <value>不补：从现在起听</value>
+    </data>
+    <data name="GroupBackfillSummary" xml:space="preserve">
+        <value>摘要：由主持人或最近发言的成员整理一份</value>
+    </data>
+    <data name="GroupBackfillFullFormat" xml:space="preserve">
+        <value>全部：下一轮一次补发（最多 {0} 条，太长可能顶满上下文）</value>
+    </data>
+    <data name="GroupBriefingWriting" xml:space="preserve">
+        <value>正在请{0}整理入群摘要…</value>
+    </data>
+    <data name="GroupBriefingFailed" xml:space="preserve">
+        <value>没能写出入群摘要，按不补处理</value>
+    </data>
+    <data name="GroupWorkspaceChangeConfirm" xml:space="preserve">
+        <value>把群的工作区换成“{0}”？
+· 旧草稿不再显示在本群产物区（文件保留，删群时一并清理）
+· 成员历史里读写过的旧路径不会跟着改
+· 项目级 MCP 与记忆随工作区一起换</value>
+    </data>
 
 </root>

@@ -112,8 +112,10 @@ public sealed class ConversationSessionBinder
         if (!session.IsGroupMember) session.PermissionModeIndex = meta.PermissionModeIndex; //成员跟群走
         session.SessionModelName = meta.SessionModelName;
         session.SaveMeta(); //只动头字段,不必重写整份历史
-        // 群改了权限档：当场推给成员，正在跑的那一轮下一条调用就按新档审批
-        if (session.IsGroup) GroupChatSessions.ApplyPermissionToMembers(session);
+        // 群改了权限档：当场推给成员，正在跑的那一轮下一条调用就按新档审批；工作区同理
+        if (!session.IsGroup) return;
+        GroupChatSessions.ApplyPermissionToMembers(session);
+        GroupChatSessions.ApplyWorkspaceToMembers(session);
     }
 
     /// <summary>

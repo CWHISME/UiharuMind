@@ -391,6 +391,13 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         if (newValue != null) newValue.SpeakersChanged += NotifyBusyChanged;
     }
 
+    // 群的名单或工作区改了：按索引里那份新元数据重装一遍，群卡、成员列表、产物区、@ 补全一起换新
+    private void ReloadGroup()
+    {
+        if (CurrentMeta is { IsGroup: true } meta && SessionManager.Instance.GetMeta(meta.SessionId) is { } fresh)
+            _ = LoadSessionAsync(fresh);
+    }
+
     partial void OnGroupMemberChanged(GroupMemberSessionViewData? oldValue, GroupMemberSessionViewData? newValue)
     {
         oldValue?.Dispose();
@@ -519,7 +526,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             Directory.Exists(agentSetting.DefaultWorkspacePath)
                 ? agentSetting.DefaultWorkspacePath
                 : null;
-        Workspace = new WorkspacePickerViewData(defaultWorkspace, OnWorkspacePathChanged);
+        // 群的工作区改之前要过群那两道关（空闲、跑过先确认）；单聊不拦
+        Workspace = new WorkspacePickerViewData(defaultWorkspace, OnWorkspacePathChanged,
+            path => Group?.ConfirmWorkspaceChangeAsync(path) ?? Task.FromResult(true));
         SessionModel = new SessionModelViewData(() => CurrentMeta, () => _isLoadingSession, OnSessionModelChanged);
         SessionModel.Refresh();
 
@@ -1092,6 +1101,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         if (CurrentMeta == null || _isLoadingSession) return;
         CurrentMeta.WorkspacePath = value;
         ConversationSessionBinder.PersistSettings(CurrentMeta);
+        // 群的草稿目录、成员预演都跟着工作区走：整块重建
+        if (Group != null) ReloadGroup();
     }
 
     /// 换了工作区:先把该项目的授权要到手,再无条件刷一次面板。
@@ -1700,7 +1711,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         ChatSession? loaded = meta == null ? null : SessionManager.Instance.Load(meta.SessionId);
         // 群壳这一份必须在第一个 await 之前就位:页面先调装载、再换绑实例,绑定在这之后立刻求值,
         // 晚一步右栏就先按单聊画出群壳的占位角色,再跳成群卡
-        Group = loaded is { IsGroup: true } ? new GroupShellViewData(loaded) : null;
+        Group = loaded is { IsGroup: true } ? new GroupShellViewData(loaded, ReloadGroup) : null;
         if (Group != null) InputPlaceholderKey = LangKey.GroupInputTips; //群里是对全群说话,不是给谁派任务
         OnPropertyChanged(nameof(IsGroupMemberSession));
         OnPropertyChanged(nameof(IsPermissionEditable));

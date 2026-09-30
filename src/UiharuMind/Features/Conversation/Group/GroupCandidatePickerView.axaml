@@ -1,0 +1,114 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:group="clr-namespace:UiharuMind.Features.Conversation.Group"
+             xmlns:chars="clr-namespace:UiharuMind.Features.Characters"
+             xmlns:panels="clr-namespace:UiharuMind.Features.Conversation.SidePanels"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             mc:Ignorable="d" d:DesignWidth="520" d:DesignHeight="400"
+             x:Class="UiharuMind.Features.Conversation.Group.GroupCandidatePickerView"
+             x:DataType="group:GroupCandidatePicker">
+    <Grid RowDefinitions="Auto,*" RowSpacing="12">
+        <!-- 挑人前先筛:搜索按名字与描述,胶囊按类别。普通群里点「智能体」会筛空,是正常语义。
+             刻意只有一条轴:两组胶囊并排会出现两个「全部」,那个比排版更别扭。
+             选项由枚举派生,不落回「下标 + Tag」那套 -->
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <TextBox Text="{Binding SearchText}"
+                     PlaceholderText="{loc:Loc CharacterSearchPlaceholder}"
+                     VerticalAlignment="Center" />
+            <ItemsControl Grid.Column="1" ItemsSource="{Binding KindPills}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="4" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="chars:CharacterFilterPill">
+                        <Button Classes="filter-pill" Classes.selected="{Binding IsSelected}"
+                                Content="{Binding Label}" Command="{Binding PickCommand}" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Grid>
+
+        <Border Grid.Row="1" BorderThickness="1" CornerRadius="8"
+                BorderBrush="{DynamicResource SemiGrey2}" Padding="6">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Classes="muted" Margin="4,6"
+                           Text="{loc:Loc CharacterPickerEmpty}"
+                           IsVisible="{Binding IsEmpty}" />
+                <ScrollViewer>
+                    <ItemsControl ItemsSource="{Binding Candidates}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="group:GroupCandidate">
+                            <!-- 整行可点：CheckBox 只占左列，内容用 Grid 约束宽度以便截断；
+                                 模型下拉只在勾选后出现（未选行整行让给名字和描述）——点行勾选、
+                                 点下拉只选模型，互不抢事件；行高由头像撑起，下拉显隐不跳布局 -->
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" Margin="4,5"
+                                  VerticalAlignment="Center">
+                                <CheckBox IsChecked="{Binding IsPicked}"
+                                          VerticalAlignment="Center"
+                                          VerticalContentAlignment="Center"
+                                          HorizontalAlignment="Stretch"
+                                          HorizontalContentAlignment="Stretch">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10"
+                                          VerticalAlignment="Center">
+                                        <controls:CircleAvatar Width="32" Height="32" Source="{Binding Icon}"
+                                                               VerticalAlignment="Center" />
+                                        <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                                            <!-- 名字占剩余宽度截断，徽章贴名字右边 -->
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                                           FontSize="13" TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center"
+                                                           HorizontalAlignment="Left" />
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                                                    <controls:KindBadge Header="{Binding KindName}" BadgeBackground="{Binding KindColor}" />
+                                                    <!-- 曾在群里：勾上恢复他原来的会话 -->
+                                                    <controls:KindBadge Header="{loc:Loc GroupFormerBadge}" BadgeBackground="{DynamicResource SemiGrey5}"
+                                                                        IsVisible="{Binding WasMember}" />
+                                                </StackPanel>
+                                            </Grid>
+                                            <!-- 描述一行：截断靠 ToolTip 看全文 -->
+                                            <TextBlock Text="{Binding Description}" Classes="muted" FontSize="11"
+                                                       MaxLines="1" TextTrimming="CharacterEllipsis"
+                                                       ToolTip.Tip="{Binding Description}"
+                                                       IsVisible="{Binding HasDescription}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </CheckBox>
+                                <ComboBox Grid.Column="1" ItemsSource="{Binding ModelOptions}"
+                                          SelectedItem="{Binding SelectedModelOption}"
+                                          IsVisible="{Binding IsPicked}"
+                                          Width="190" VerticalAlignment="Center"
+                                          ToolTip.Tip="{Binding SelectedModelOption.DisplayName}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="panels:SessionModelOption">
+                                            <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                                                <controls:KindBadge Header="{loc:Loc ModelStateRemote}"
+                                                                    BadgeBackground="LimeGreen"
+                                                                    IsVisible="{Binding IsRemoteModel, Mode=OneWay}" />
+                                                <controls:KindBadge Header="{loc:Loc ModelStateVision}"
+                                                                    BadgeBackground="Gold"
+                                                                    IsVisible="{Binding IsVisionModel, Mode=OneWay}" />
+                                                <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                    <ComboBox.SelectionBoxItemTemplate>
+                                        <DataTemplate x:DataType="panels:SessionModelOption">
+                                            <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                                        </DataTemplate>
+                                    </ComboBox.SelectionBoxItemTemplate>
+                                </ComboBox>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </Grid>
+</UserControl>

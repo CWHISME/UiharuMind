@@ -25,10 +25,11 @@ public sealed class GroupShellViewData : IDisposable
     /// 构造并挂上发言人变化的通知。装载前这一圈可能已经在跑、信号早发完了，所以构造时先补标一次
     /// </summary>
     /// <param name="group">群壳会话</param>
-    public GroupShellViewData(ChatSession group)
+    /// <param name="reload">名单变了之后重建群视图</param>
+    public GroupShellViewData(ChatSession group, Action reload)
     {
         _group = group;
-        Members = new GroupMembersViewData(group);
+        Members = new GroupMembersViewData(group, reload);
         Approvals = new GroupApprovalsViewData(group);
         Artifacts = new GroupArtifactsViewData(group);
         Members.MarkSpeaking(GroupChatCoordinator.Instance.SpeakersOf(group.SessionId));
@@ -54,6 +55,9 @@ public sealed class GroupShellViewData : IDisposable
 
     /// <summary>群描述（成员名单，右栏群卡）</summary>
     public string Description => _group.Description;
+
+    /// <summary>是不是智能体群：工作区那一行只对它显示</summary>
+    public bool IsAgentGroup => _group.IsAgentGroup;
 
     /// <summary>群的类型显示名（右栏群卡）</summary>
     public string TypeName => Loc.Text(_group.IsAgentGroup ? LangKey.GroupTypeAgent : LangKey.GroupTypeChat);
@@ -90,6 +94,23 @@ public sealed class GroupShellViewData : IDisposable
     /// 不开口也让大家接着说：串行再说一圈（ADR 0046 决策 5），并行叫醒还有新话没听的人（ADR 0049 决策 6 的手动兜底）
     /// </summary>
     public Task ContinueAsync() => GroupChatCoordinator.Instance.ContinueAsync(_group);
+
+    /// <summary>
+    /// 群的工作区要改了（右栏群卡上那个工作区选择器问过来的）：空闲才许，跑过的群先确认——
+    /// 旧草稿不再显示、成员历史里的旧路径不跟着改、MCP 与记忆跟着换。写回与重建由对话视图模型接着做
+    /// </summary>
+    /// <param name="path">新目录；清除为 null</param>
+    /// <returns>可以改为 true</returns>
+    public async Task<bool> ConfirmWorkspaceChangeAsync(string? path)
+    {
+        if (!GroupChangePrompts.EnsureIdle(_group)) return false;
+        bool hasRun = Members.HasTotalCost;
+        string target = path ?? Loc.Text(LangKey.AgentWorkspaceNone);
+        if (!await GroupChangePrompts.ConfirmIfRunAsync(hasRun,
+                GroupChangePrompts.WithCacheNote(hasRun, Loc.Text(LangKey.GroupWorkspaceChangeConfirm, target))))
+            return false;
+        return GroupChangePrompts.EnsureIdle(_group);
+    }
 
     /// <summary>停掉这一圈：当前发言人与后面还没轮到的人一起停</summary>
     public void Stop() => GroupChatCoordinator.Instance.Stop(_group.SessionId);

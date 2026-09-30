@@ -3285,5 +3285,71 @@ Allow them?</value>
     <data name="ThemeModeLight" xml:space="preserve">
         <value>Light</value>
     </data>
+    <data name="GroupEditBusy" xml:space="preserve">
+        <value>The group is running or a member is in a private chat. Wait until it stops.</value>
+    </data>
+    <data name="GroupRosterCacheNote" xml:space="preserve">
+        <value>Changing the roster or workspace rewrites every member's system prompt, so each member's next round recomputes the full context at full price (prefix cache miss), then caching resumes.</value>
+    </data>
+    <data name="GroupRemoveMember" xml:space="preserve">
+        <value>Remove from group</value>
+    </data>
+    <data name="GroupRemoveConfirm" xml:space="preserve">
+        <value>Remove "{0}" from the group? Their session stays under "Left" and can be added back at any time.</value>
+    </data>
+    <data name="GroupRemoveLastMember" xml:space="preserve">
+        <value>A group needs at least one member</value>
+    </data>
+    <data name="GroupRemoveHostNote" xml:space="preserve">
+        <value>They are the host; the group will have no host afterwards.</value>
+    </data>
+    <data name="GroupFormerMembersFormat" xml:space="preserve">
+        <value>Left ({0})</value>
+    </data>
+    <data name="GroupRejoin" xml:space="preserve">
+        <value>Add back</value>
+    </data>
+    <data name="GroupOpenSession" xml:space="preserve">
+        <value>View</value>
+    </data>
+    <data name="GroupAddMembers" xml:space="preserve">
+        <value>Add members</value>
+    </data>
+    <data name="GroupAddHint" xml:space="preserve">
+        <value>Joining "{0}". Members who left get their original session back, memories intact.</value>
+    </data>
+    <data name="GroupAddAction" xml:space="preserve">
+        <value>Add</value>
+    </data>
+    <data name="GroupAddConfirmFormat" xml:space="preserve">
+        <value>Add {0} to the group?</value>
+    </data>
+    <data name="GroupFormerBadge" xml:space="preserve">
+        <value>Was here</value>
+    </data>
+    <data name="GroupBackfillLabel" xml:space="preserve">
+        <value>Earlier messages</value>
+    </data>
+    <data name="GroupBackfillNone" xml:space="preserve">
+        <value>None: start listening from now</value>
+    </data>
+    <data name="GroupBackfillSummary" xml:space="preserve">
+        <value>Summary: written by the host or the latest speaker</value>
+    </data>
+    <data name="GroupBackfillFullFormat" xml:space="preserve">
+        <value>All: delivered at once next round (up to {0} messages; long logs can fill the context)</value>
+    </data>
+    <data name="GroupBriefingWriting" xml:space="preserve">
+        <value>Asking {0} to write a catch-up summary…</value>
+    </data>
+    <data name="GroupBriefingFailed" xml:space="preserve">
+        <value>Could not write the catch-up summary; adding without backfill</value>
+    </data>
+    <data name="GroupWorkspaceChangeConfirm" xml:space="preserve">
+        <value>Switch the group's workspace to "{0}"?
+· Old drafts no longer show in this group's artifacts (files are kept and removed with the group)
+· Old paths in members' histories are not rewritten
+· Project MCP servers and memory follow the new workspace</value>
+    </data>
 
 </root>

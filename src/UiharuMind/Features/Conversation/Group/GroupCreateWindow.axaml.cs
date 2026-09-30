@@ -38,7 +38,7 @@ public partial class GroupCreateWindow : Window
     private void CreateButton_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not GroupCreateWindowModel { CanCreate: true } model) return;
-        Close(new GroupCreateRequest(model.Name.Trim(), [..model.Picked], [..model.PickedModelNames],
+        Close(new GroupCreateRequest(model.Name.Trim(), [..model.Picked], [..model.Picker.PickedModelNames],
             model.PickedSchedule));
     }
 }

@@ -31,10 +31,12 @@ public static class GroupSceneSource
     /// <param name="group">他所在的群壳；为 null 视为群已不在</param>
     /// <param name="characterOf">按成员会话标识取角色卡；取不到为 null（那位不列）</param>
     /// <param name="userName">用户的名字</param>
-    /// <returns>场景段正文；不是这个群的成员为空串</returns>
+    /// <returns>场景段正文；不是这个群的成员（含已退群的）为空串</returns>
     public static string For(ChatSession member, ChatSession? group, Func<string, CharacterData?> characterOf, string userName)
     {
         if (group is not { IsGroup: true } || member.GroupId != group.SessionId) return string.Empty;
+        // 退群的人 GroupId 还在，只认名单：他之后私聊就是个普通角色，不再挂发群工具
+        if (!group.GroupMemberSessionIds.Contains(member.SessionId)) return string.Empty;
 
         List<GroupMemberPresence> others = group.GroupMemberSessionIds
             .Where(x => x != member.SessionId)

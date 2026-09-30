@@ -51,8 +51,10 @@ public sealed class GroupDeliveryRenderer
         if (SessionManager.Instance.Load(groupId) is not { IsGroup: true } group) return null;
 
         Dictionary<string, CharacterData> speakers = new();
-        foreach (ChatSessionMeta meta in SessionManager.MemberMetasOf(group))
+        // 退群的人也算：他之前的发言还在投递里
+        foreach (string id in GroupMembership.EveryMemberIdOf(group))
         {
+            if (SessionManager.Instance.GetMeta(id) is not { } meta) continue;
             CharacterData character = SessionManager.CharacterOf(meta);
             speakers.TryAdd(character.CharacterName, character);
         }

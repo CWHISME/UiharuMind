@@ -38,6 +38,9 @@
                             </StackPanel>
                             <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
                                        Text="{Binding Conversation.Group.Description}" />
+                            <!-- 智能体群的工作区：与单聊工作区卡同一个组件；改之前要空闲、跑过先确认 -->
+                            <panels:WorkspacePickerView DataContext="{Binding Conversation.Workspace}"
+                                                        IsVisible="{Binding Conversation.Group.IsAgentGroup}" />
                         </StackPanel>
                     </Border>
                 </Grid>

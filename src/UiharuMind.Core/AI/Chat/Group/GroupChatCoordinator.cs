@@ -100,6 +100,15 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
         }
     }
 
+    /// <summary>
+    /// 成员退群：忘掉他「被打断待续」的记号，不然加回来后第一轮会先收到一句「接着做」
+    /// </summary>
+    /// <param name="memberSessionId">成员会话标识</param>
+    public void ForgetMember(string memberSessionId)
+    {
+        lock (_locker) _interrupted.Remove(memberSessionId);
+    }
+
     /// <summary>停下这个群正在跑的那一波（连同所有正在说的成员）</summary>
     /// <param name="groupId">群壳会话标识</param>
     public void Stop(string groupId) => EpisodeOf(groupId)?.Run.Cancel();
@@ -115,6 +124,7 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
         if (string.IsNullOrWhiteSpace(content)) return false;
         if (_load(memberSessionId) is not { IsGroupMember: true } member) return false;
         if (_load(member.GroupId!) is not { IsGroup: true } group) return false;
+        if (!group.GroupMemberSessionIds.Contains(member.SessionId)) return false; //已退群
 
         // 广播与唤醒不等：工具调用要立刻拿到回执，那一段在后台照追加顺序做完
         return PostFromMember(group, member, content.Trim()) != null;
@@ -143,6 +153,12 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
             if (_interrupted.Remove(member.SessionId)) delivery ??= GroupTranscript.ResumeNote;
             images = GroupTranscript.DeliveryImages(group.History, member.GroupCursor, member.SessionId, consumed);
             member.GroupCursor = group.History.Count;
+            // 入群摘要只搭投递的车：没新话时不为它单独叫醒
+            if (delivery != null && member.GroupBriefing is { } briefing)
+            {
+                delivery = briefing + "\n\n" + delivery;
+                member.GroupBriefing = null;
+            }
             if (delivery != null)
             {
                 turn = new GroupMemberTurnState(member, cause, group.History.Count);

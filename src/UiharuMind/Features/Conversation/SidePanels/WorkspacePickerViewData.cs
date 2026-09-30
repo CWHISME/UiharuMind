@@ -27,10 +27,13 @@ namespace UiharuMind.Features.Conversation.SidePanels;
 /// 本类<b>持有</b>工作目录这份状态（视图模型不再有 WorkspacePath），
 /// 变化经 <c>onPathChanged</c> 报出去——写回会话是调用方的事，
 /// 因为「什么时候该写盘」取决于它是否正在装载会话，那个判据只有它知道。
+/// 用户经这里的动作（选、切最近、清）改目录前会先问 <c>canChange</c>：群聊要空闲才许改、跑过先确认；
+/// 装载会话时直接设 <see cref="Path"/> 不走这一问。
 /// </summary>
 public partial class WorkspacePickerViewData : ObservableObject
 {
     private readonly Action<string?> _onPathChanged;
+    private readonly Func<string?, Task<bool>>? _canChange;
 
     [ObservableProperty] private string? _path;
 
@@ -39,9 +42,12 @@ public partial class WorkspacePickerViewData : ObservableObject
 
     /// <param name="initialPath">初始工作目录；构造期直接落到字段，不触发变化回调</param>
     /// <param name="onPathChanged">工作目录变化</param>
-    public WorkspacePickerViewData(string? initialPath, Action<string?> onPathChanged)
+    /// <param name="canChange">用户改目录前问一声（参数是新目录，清除为 null）；null 不拦</param>
+    public WorkspacePickerViewData(string? initialPath, Action<string?> onPathChanged,
+        Func<string?, Task<bool>>? canChange = null)
     {
         _onPathChanged = onPathChanged;
+        _canChange = canChange;
         _path = initialPath;
         RefreshRecent();
     }
@@ -85,7 +91,7 @@ public partial class WorkspacePickerViewData : ObservableObject
 
             if (string.Equals(path, Path, StringComparison.Ordinal)) continue;
             Recent.Add(new RecentWorkspaceItem(path,
-                new RelayCommand(() => Use(path)),
+                new AsyncRelayCommand(() => UseAsync(path)),
                 new RelayCommand(() => Forget(path))));
         }
     }
@@ -94,13 +100,13 @@ public partial class WorkspacePickerViewData : ObservableObject
     private async Task Select()
     {
         string path = await App.FilesService.OpenSelectFolderAsync(Path);
-        if (!string.IsNullOrEmpty(path)) Use(path);
+        if (!string.IsNullOrEmpty(path)) await UseAsync(path);
     }
 
     [RelayCommand]
-    private void Clear()
+    private async Task Clear()
     {
-        Path = null;
+        if (await CanChangeAsync(null)) Path = null;
     }
 
     /// <summary>在系统文件管理器里打开当前工作目录</summary>
@@ -110,14 +116,16 @@ public partial class WorkspacePickerViewData : ObservableObject
         if (!string.IsNullOrEmpty(Path)) App.FilesService.OpenFolder(Path);
     }
 
-    /// <summary>切到某个工作目录并把它记为最近使用</summary>
-    /// <param name="path">工作目录</param>
-    private void Use(string path)
+    // 切到某个工作目录并把它记为最近使用
+    private async Task UseAsync(string path)
     {
+        if (!string.Equals(path, Path, StringComparison.Ordinal) && !await CanChangeAsync(path)) return;
         AgentSettingConfig.Current.RememberWorkspace(path);
         Path = path;
         RefreshRecent(); //路径没变化时上面的 partial 回调不会触发,列表仍要跟上置顶顺序
     }
+
+    private Task<bool> CanChangeAsync(string? path) => _canChange?.Invoke(path) ?? Task.FromResult(true);
 
     private void Forget(string path)
     {

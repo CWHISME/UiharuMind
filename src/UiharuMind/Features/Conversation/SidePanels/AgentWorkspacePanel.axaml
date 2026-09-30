@@ -4,7 +4,6 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pages="clr-namespace:UiharuMind.Features.Conversation.Pages"
              xmlns:panels="clr-namespace:UiharuMind.Features.Conversation.SidePanels"
-             xmlns:convs="clr-namespace:UiharuMind.Shared.Converters"
              xmlns:chars="clr-namespace:UiharuMind.Features.Characters"
              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
@@ -110,96 +109,9 @@
                 </StackPanel>
             </Button>
 
-            <!-- 工作区段：只有智能体档有这概念，普通对话整段不出。
-                 布局与角色行同一路子：标题行只放标签 + 清除按钮，
-                 改目录的入口改到目录行本身（点目录名展开操作菜单），不再单放一个铅笔。
-                 一个入口同时管「更改… + 打开目录图标 / 最近列表」，
-                 高频的切目录走列表，不用每次都翻系统选择器 -->
-            <StackPanel Spacing="6" IsVisible="{Binding IsAgentType}">
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="2">
-                    <TextBlock Grid.Column="0" Classes="muted" VerticalAlignment="Center"
-                               Text="{loc:Loc AgentWorkspaceLabel}" />
-                    <ThemedIconButton Grid.Column="1" Width="24" Height="24"
-                                      VerticalAlignment="Center"
-                                      IconName="trash-2"
-                                      ToolTip.Tip="{loc:Loc AgentWorkspaceClear}"
-                                      Command="{Binding Conversation.Workspace.ClearCommand}"
-                                      IsVisible="{Binding Conversation.Workspace.Path, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                </Grid>
-                <!-- 目录行：名字 + 父路径省略号收在下面——工作区路径普遍很长，
-                     全路径铺开会把卡片撑高，而用户认的是最后那一节。整块点击=展开上面的操作菜单，
-                     不再直达文件管理器（原一键 Reveal 收进菜单里，代价多半次点击）。
-                     未绑定时整行退成占位文案，仍是同一个入口：铅笔去掉后这里就是选目录的唯一念想。
-                     名字显式给前景色：与左侧列表的工作区名同色（项目色，见 SessionListItem），
-                     不跟标题行/按钮主题的默认色走 -->
-                <Button Classes="text-row" HorizontalAlignment="Stretch"
-                        ToolTip.Tip="{Binding Conversation.Workspace.Path}">
-                    <StackPanel>
-                        <TextBlock FontSize="12" TextTrimming="CharacterEllipsis"
-                                   Foreground="{Binding Conversation.Workspace.WorkspaceColor}"
-                                   Text="{Binding Conversation.Workspace.Name}"
-                                   IsVisible="{Binding Conversation.Workspace.Path, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                        <TextBlock FontSize="10" Classes="muted" TextTrimming="CharacterEllipsis"
-                                   Text="{Binding Conversation.Workspace.Parent}"
-                                   IsVisible="{Binding Conversation.Workspace.Path, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                        <TextBlock FontSize="11" Classes="muted"
-                                   Text="{loc:Loc AgentWorkspaceNone}"
-                                   IsVisible="{Binding Conversation.Workspace.Path, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
-                    </StackPanel>
-                    <Button.Flyout>
-                        <Flyout Placement="BottomEdgeAlignedLeft"
-                                Opening="OnWorkspaceFlyoutOpening">
-                            <StackPanel MinWidth="200" MaxWidth="320" Spacing="2">
-                                <!-- 第一行：更换目录 + 在文件管理器中打开。两者都是高频操作，
-                                     并排一列省高度；打开图标只在已绑定目录时出现（没目录可开） -->
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="2">
-                                    <Button Grid.Column="0" Classes="picker-row" HorizontalAlignment="Stretch"
-                                            Command="{Binding Conversation.Workspace.SelectCommand}"
-                                            Content="{loc:Loc AgentWorkspaceChange}" />
-                                    <Button Grid.Column="1" Classes="picker-row" VerticalAlignment="Center"
-                                            ToolTip.Tip="{loc:Loc AgentWorkspaceReveal}"
-                                            Command="{Binding Conversation.Workspace.RevealCommand}"
-                                            IsVisible="{Binding Conversation.Workspace.Path, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                        <controls:ThemedSvgIcon Width="14" Height="14" IconName="folder-open" />
-                                    </Button>
-                                </Grid>
-                                <TextBlock Classes="muted" FontSize="11" Margin="6,2"
-                                           Text="{loc:Loc AgentWorkspaceRecent}" />
-                                <TextBlock Classes="muted" FontSize="11" Margin="6,2"
-                                           Text="{loc:Loc AgentWorkspaceRecentEmpty}"
-                                           IsVisible="{Binding Conversation.Workspace.Recent.Count,
-                                               Converter={x:Static convs:IntToBoolConverter.Inverted}}" />
-                                <ItemsControl ItemsSource="{Binding Conversation.Workspace.Recent}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="panels:RecentWorkspaceItem">
-                                            <Grid ColumnDefinitions="*,Auto">
-                                                <Button Grid.Column="0" Classes="picker-row"
-                                                        HorizontalAlignment="Stretch"
-                                                        Command="{Binding UseCommand}"
-                                                        ToolTip.Tip="{Binding Path}">
-                                                    <StackPanel>
-                                                        <TextBlock FontSize="12"
-                                                                   TextTrimming="CharacterEllipsis"
-                                                                   Text="{Binding Name}" />
-                                                        <TextBlock FontSize="10" Classes="muted"
-                                                                   TextTrimming="CharacterEllipsis"
-                                                                   Text="{Binding Parent}" />
-                                                    </StackPanel>
-                                                </Button>
-                                                <Button Grid.Column="1" Classes="picker-row"
-                                                        VerticalAlignment="Center" FontSize="11"
-                                                        Command="{Binding ForgetCommand}"
-                                                        ToolTip.Tip="{loc:Loc AgentWorkspaceForget}"
-                                                        Content="✕" />
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
-                        </Flyout>
-                    </Button.Flyout>
-                </Button>
-            </StackPanel>
+            <!-- 工作区段：只有智能体档有这概念，普通对话整段不出。与群卡共用同一个组件 -->
+            <panels:WorkspacePickerView DataContext="{Binding Conversation.Workspace}"
+                                        IsVisible="{Binding IsAgentType}" />
         </StackPanel>
     </Border>
 </UserControl>

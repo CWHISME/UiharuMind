@@ -148,7 +148,8 @@ public sealed partial class GroupArtifactsViewData : ObservableObject, IDisposab
     private IReadOnlyList<GroupArtifact> Collect()
     {
         List<(string, IReadOnlyList<string>)> members = [];
-        foreach (string id in _group.GroupMemberSessionIds)
+        // 退群的人写过的文件照样列
+        foreach (string id in GroupMembership.EveryMemberIdOf(_group))
         {
             if (SessionManager.Instance.Load(id) is not { } member) continue;
             // 历史已卸掉的成员用缓存，不为这一张清单把整份历史读回来

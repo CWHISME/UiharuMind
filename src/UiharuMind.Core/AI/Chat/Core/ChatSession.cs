@@ -161,6 +161,17 @@ public class ChatSession
     /// </summary>
     public HashSet<int> GroupConsumedPosts { get; set; } = [];
 
+    /// <summary>
+    /// 已被移出群的成员会话：<see cref="GroupId"/> 仍在（随群级联删除、可在群右栏点开），但不在名单里、不再算在场。
+    /// 可以加回（ADR 0046 修订「建群之后增删成员」）。仅群成员有意义
+    /// </summary>
+    public bool HasLeftGroup { get; set; }
+
+    /// <summary>
+    /// 入群摘要：新加入或加回时由一位成员写的背景，随他下一次投递放在最前，交出即清。仅群成员有意义
+    /// </summary>
+    public string? GroupBriefing { get; set; }
+
     /// <summary>会话是不是群成员会话</summary>
     [JsonIgnore]
     public bool IsGroupMember => !string.IsNullOrEmpty(GroupId);
@@ -564,6 +575,7 @@ public class ChatSession
             IsGroup = IsGroup,
             IsAgentGroup = IsAgentGroup,
             GroupId = GroupId,
+            HasLeftGroup = HasLeftGroup,
         };
     }
 

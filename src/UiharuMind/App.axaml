@@ -24,6 +24,10 @@
             <!-- 与 MainFont 同值：换字体只改 MainFont。此键删不得（AvaloniaEdit 主题按 key 查找），故用别名 -->
             <StaticResource ResourceKey="MainFont" x:Key="ContentControlThemeFontFamily" />
             <Thickness x:Key="ToolTipBorderThemeThickness">1</Thickness>
+            <!-- Semi 的 Expander 标题外左右各缩 8（ExpanderHeaderMargin）、内容区再缩 16（ExpanderContentPadding），
+                 标题与展开的内容都比外面同级的行窄一截。左右归零，缩进交给内容自己定；两个都是 DynamicResource，在这里覆盖得到 -->
+            <Thickness x:Key="ExpanderHeaderMargin">0 4</Thickness>
+            <Thickness x:Key="ExpanderContentPadding">8</Thickness>
 
             <ResourceDictionary.MergedDictionaries>
                 <ResourceInclude Source="avares://LiveMarkdown.Avalonia/Defaults.axaml"/>

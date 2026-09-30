@@ -58,23 +58,10 @@ public static class GroupChatSessions
             GroupStopPolicy = schedule?.StopPolicy ?? EGroupStopPolicy.Conservative,
         };
 
-        // 不走带角色的构造：那会写入开场白，而在群里开场白是他对着空气自我介绍
+        // 建群时按成员逐个钉选模型；没给就当跟随全局
         List<ChatSession> sessions = members
-            .Select((character, i) => new ChatSession
-            {
-                CharacterId = character.CharacterId,
-                Title = $"{name} · {character.CharacterName}",
-                Description = name,
-                GroupId = group.SessionId,
-                // 成员形态由群类型 × 成员身份决定，不由成员自由选（ADR 0050 决策 3）：
-                // 智能体群的 agent 成员跑 agent 形态；普通群全员 chat 形态（agent 卡也不带工具）
-                IsAgentForm = isAgentGroup && character.IsAgent,
-                WorkspacePath = character.IsAgent ? groupWorkspace : null,
-                // 建群时按成员逐个钉选模型；没给就当跟随全局
-                SessionModelName = memberModelNames != null && i < memberModelNames.Count
-                    ? memberModelNames[i]
-                    : null,
-            })
+            .Select((character, i) => NewMember(group, character,
+                memberModelNames != null && i < memberModelNames.Count ? memberModelNames[i] : null))
             .ToList();
         group.GroupMemberSessionIds = sessions.Select(x => x.SessionId).ToList();
         if (schedule?.HostIndex is { } host && host >= 0 && host < sessions.Count)
@@ -86,6 +73,28 @@ public static class GroupChatSessions
         SessionManager.Instance.Add(group);
         return group;
     }
+
+    /// <summary>
+    /// 为群建一个成员会话（不入库、不进名单）。建群与之后加人共用
+    /// </summary>
+    /// <param name="group">群壳会话</param>
+    /// <param name="character">成员角色</param>
+    /// <param name="modelName">钉选的模型名；null 跟随全局</param>
+    /// <returns>成员会话</returns>
+    public static ChatSession NewMember(ChatSession group, CharacterData character, string? modelName) =>
+        // 不走带角色的构造：那会写入开场白，而在群里开场白是他对着空气自我介绍
+        new()
+        {
+            CharacterId = character.CharacterId,
+            Title = $"{group.Title} · {character.CharacterName}",
+            Description = group.Title,
+            GroupId = group.SessionId,
+            // 成员形态由群类型 × 成员身份决定，不由成员自由选（ADR 0050 决策 3）：
+            // 智能体群的 agent 成员跑 agent 形态；普通群全员 chat 形态（agent 卡也不带工具）
+            IsAgentForm = group.IsAgentGroup && character.IsAgent,
+            WorkspacePath = character.IsAgent ? group.WorkspacePath : null,
+            SessionModelName = modelName,
+        };
 
     /// <summary>
     /// 成员的有效权限档：一律取群的。群聊的权限只在群视图一处设，成员窗口里不各设一份——
@@ -114,6 +123,22 @@ public static class GroupChatSessions
         }
 
         PermissionApplied?.Invoke(group.SessionId);
+    }
+
+    /// <summary>
+    /// 群换了工作区：当场推给 agent 形态的成员。开跑前本来也会对齐，这里是让成员窗口与右栏预演立刻对上
+    /// </summary>
+    /// <param name="group">群壳会话</param>
+    public static void ApplyWorkspaceToMembers(ChatSession group)
+    {
+        if (!group.IsGroup) return;
+        foreach (string memberId in group.GroupMemberSessionIds)
+        {
+            if (SessionManager.Instance.Load(memberId) is not { IsAgentForm: true } member) continue;
+            if (member.WorkspacePath == group.WorkspacePath) continue;
+            member.WorkspacePath = group.WorkspacePath;
+            member.SaveMeta(touchUpdatedAt: false);
+        }
     }
 }
 

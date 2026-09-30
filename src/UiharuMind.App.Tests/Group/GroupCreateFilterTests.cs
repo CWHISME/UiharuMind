@@ -42,9 +42,9 @@ public class GroupCreateFilterTests
     {
         GroupCreateWindowModel model = new(true, null);
 
-        Assert.Equal(ECharacterKindFilter.All, model.KindFilter);
-        Assert.NotEmpty(model.Candidates);
-        Assert.NotEmpty(model.KindPills);
+        Assert.Equal(ECharacterKindFilter.All, model.Picker.KindFilter);
+        Assert.NotEmpty(model.Picker.Candidates);
+        Assert.NotEmpty(model.Picker.KindPills);
     }
 
     /// <summary>档位轴只管档位：筛出来的必须全都落在那一档，另一档一档都不许漏进来</summary>
@@ -53,13 +53,13 @@ public class GroupCreateFilterTests
     {
         GroupCreateWindowModel model = new(true, null);
 
-        model.KindFilter = ECharacterKindFilter.Agent;
-        Assert.NotEmpty(model.Candidates);
-        Assert.All(model.Candidates, c => Assert.True(c.Data.IsAgent));
+        model.Picker.KindFilter = ECharacterKindFilter.Agent;
+        Assert.NotEmpty(model.Picker.Candidates);
+        Assert.All(model.Picker.Candidates, c => Assert.True(c.Data.IsAgent));
 
-        model.KindFilter = ECharacterKindFilter.Chat;
-        Assert.NotEmpty(model.Candidates);
-        Assert.All(model.Candidates, c => Assert.False(c.Data.IsAgent));
+        model.Picker.KindFilter = ECharacterKindFilter.Chat;
+        Assert.NotEmpty(model.Picker.Candidates);
+        Assert.All(model.Picker.Candidates, c => Assert.False(c.Data.IsAgent));
     }
 
     /// <summary>胶囊的选中态是快照，跟着模型走：换档之后必须重高亮，否则界面停在一个筛不出东西的档上</summary>
@@ -70,13 +70,13 @@ public class GroupCreateFilterTests
         GroupCreateWindowModel model = new(true, null);
 
         // 默认是「全部」那一档
-        Assert.Equal(options[0].Label, model.KindPills.Single(p => p.IsSelected).Label);
+        Assert.Equal(options[0].Label, model.Picker.KindPills.Single(p => p.IsSelected).Label);
 
-        model.KindFilter = ECharacterKindFilter.Agent;
+        model.Picker.KindFilter = ECharacterKindFilter.Agent;
 
-        Assert.Equal(options[2].Label, model.KindPills.Single(p => p.IsSelected).Label);
+        Assert.Equal(options[2].Label, model.Picker.KindPills.Single(p => p.IsSelected).Label);
         // 选中项恒为一项：两个都亮或都不亮都是坏了
-        Assert.Single(model.KindPills, p => p.IsSelected);
+        Assert.Single(model.Picker.KindPills, p => p.IsSelected);
     }
 
     /// <summary>
@@ -91,14 +91,14 @@ public class GroupCreateFilterTests
         {
             GroupCreateWindowModel model = new(true, null);
 
-            model.SearchText = "试卡智能体"; //名字
-            Assert.Contains(model.Candidates, c => c.Data.CharacterId == mine.CharacterId);
+            model.Picker.SearchText = "试卡智能体"; //名字
+            Assert.Contains(model.Picker.Candidates, c => c.Data.CharacterId == mine.CharacterId);
 
-            model.SearchText = TempAgentDescription; //只有描述里有
-            Assert.Contains(model.Candidates, c => c.Data.CharacterId == mine.CharacterId);
+            model.Picker.SearchText = TempAgentDescription; //只有描述里有
+            Assert.Contains(model.Picker.Candidates, c => c.Data.CharacterId == mine.CharacterId);
 
-            model.SearchText = "查无此人";
-            Assert.Empty(model.Candidates);
+            model.Picker.SearchText = "查无此人";
+            Assert.Empty(model.Picker.Candidates);
         }
         finally
         {
