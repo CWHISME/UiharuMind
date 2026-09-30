@@ -23,11 +23,19 @@ public sealed class SimpleGlobber
         Glob.Parse("**/obj", GlobDialect.Standard, GlobOptions.IgnoreCase)
     );
 
-    private string _rootDirectory;
+    private readonly AgentPathResolver _paths;
 
-    public SimpleGlobber(string rootDirectory)
+    public SimpleGlobber(string rootDirectory) : this(new AgentPathResolver(rootDirectory))
     {
-        _rootDirectory = Path.GetFullPath(rootDirectory);
+    }
+
+    /// <summary>
+    /// 按给定的路径口径搜索（agent 的文件工具用：与 Read/Write 同一份解析）
+    /// </summary>
+    /// <param name="paths">路径解析口径；其工作区根即默认搜索根</param>
+    public SimpleGlobber(AgentPathResolver paths)
+    {
+        _paths = paths;
     }
 
     /// <summary>
@@ -45,7 +53,7 @@ public sealed class SimpleGlobber
         int maxResults = 300,
         CancellationToken ct = default)
     {
-        string target = SearchRoot.Resolve(_rootDirectory, path);
+        string target = SearchRoot.Resolve(_paths, path);
 
         bool isFileScope = !Directory.Exists(target) && File.Exists(target);
         if (!Directory.Exists(target) && !isFileScope)
@@ -59,7 +67,7 @@ public sealed class SimpleGlobber
         // 无通配符退化：LLM 经常把绝对路径当 pattern 传
         if (!LooksLikeGlob(pattern))
         {
-            string candidate = ResolveCandidate(pattern, searchRoot);
+            string candidate = _paths.Resolve(pattern, searchRoot);
             if (File.Exists(candidate)
                 && (!isFileScope
                     || string.Equals(Path.GetFullPath(candidate), Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase)))
@@ -70,7 +78,7 @@ public sealed class SimpleGlobber
                     ResolvedDirectory = target,
                     Entries = new List<GlobEntry>
                     {
-                        new(SearchRoot.ToPortablePath(_rootDirectory, candidate), false,
+                        new(_paths.ToPortable(candidate), false,
                             new FileInfo(candidate).Length)
                     },
                 };
@@ -92,7 +100,7 @@ public sealed class SimpleGlobber
 
         bool dirsOnly = pattern.EndsWith('/');
 
-        using var enumerator = new GlobEnum(glob, HardSkips, searchRoot, _rootDirectory, dirsOnly, maxResults);
+        using var enumerator = new GlobEnum(glob, HardSkips, searchRoot, _paths, dirsOnly, maxResults);
         var list = new List<GlobEntry>(Math.Min(maxResults, 60));
 
         bool hitLimit = false;
@@ -112,7 +120,7 @@ public sealed class SimpleGlobber
             // 精确路径过滤：同名的兄弟/深层文件不是目标
             for (int i = list.Count - 1; i >= 0; i--)
             {
-                if (!string.Equals(Path.GetFullPath(Path.Combine(_rootDirectory, list[i].Path)),
+                if (!string.Equals(_paths.Resolve(list[i].Path),
                         Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase))
                 {
                     list.RemoveAt(i);
@@ -135,12 +143,12 @@ public sealed class SimpleGlobber
                 Kind = kind,
                 RequestedDirectory = requested,
                 ResolvedDirectory = resolved,
-                WorkingDirectory = _rootDirectory,
+                WorkingDirectory = _paths.WorkspaceRoot,
                 Pattern = pattern,
                 Detail = detail,
                 // PathNotFound 顺带回最近存活祖先，其余失败种类没有这个事实
                 NearestExistingDirectory = kind == ESearchFailureKind.PathNotFound
-                    ? SearchRoot.NearestExistingAncestorWithin(_rootDirectory, resolved) ?? string.Empty
+                    ? SearchRoot.NearestExistingAncestorWithin(_paths.WorkspaceRoot, resolved) ?? string.Empty
                     : string.Empty,
             },
         };
@@ -149,23 +157,18 @@ public sealed class SimpleGlobber
     private static bool LooksLikeGlob(string s)
         => s.IndexOfAny(['*', '?', '{', '[']) >= 0 || s.Contains("**");
 
-    private static string ResolveCandidate(string pattern, string root)
-        => Path.IsPathFullyQualified(pattern)
-            ? Path.GetFullPath(pattern)
-            : Path.GetFullPath(Path.Combine(root, pattern));
-
     // ── 核心：零分配剪枝枚举 ──
     private sealed class GlobEnum : FileSystemEnumerator<GlobEntry>
     {
         private readonly Glob _glob;
         private readonly GlobCollection _skip;
         private readonly string _root; //搜索根:glob 表达式是相对它匹配的
-        private readonly string _workspaceRoot; //工作区根:输出路径相对它写,好让 Read 能直接吃
+        private readonly AgentPathResolver _paths; //输出路径按它写回,好让 Read 能直接吃
         private readonly bool _dirsOnly;
         public bool HitLimit { get; private set; }
         private int _count, _cap;
 
-        public GlobEnum(Glob glob, GlobCollection skip, string root, string workspaceRoot, bool dirsOnly, int cap)
+        public GlobEnum(Glob glob, GlobCollection skip, string root, AgentPathResolver paths, bool dirsOnly, int cap)
             : base(root, new EnumerationOptions
             {
                 RecurseSubdirectories = true,
@@ -173,7 +176,7 @@ public sealed class SimpleGlobber
                 AttributesToSkip = FileAttributes.Hidden | FileAttributes.ReparsePoint | FileAttributes.System
             })
         {
-            _glob = glob; _skip = skip; _root = root; _workspaceRoot = workspaceRoot;
+            _glob = glob; _skip = skip; _root = root; _paths = paths;
             _dirsOnly = dirsOnly; _cap = cap;
         }
 
@@ -182,9 +185,9 @@ public sealed class SimpleGlobber
             if (++_count > _cap) { HitLimit = true; }
 
             string full = Path.Join(e.Directory, e.FileName);
-            // 输出按工作区根:回给模型的路径要能直接当 Read 的入参(见 SearchRoot.ToPortablePath)。
+            // 输出按工作区根:回给模型的路径要能直接当 Read 的入参(见 AgentPathResolver.ToPortable)。
             // 匹配用的 rel 仍按搜索根算,那是 glob 表达式的基准,两者不能混
-            string rel = SearchRoot.ToPortablePath(_workspaceRoot, full);
+            string rel = _paths.ToPortable(full);
             bool isDir = e.Attributes.HasFlag(FileAttributes.Directory);
             // e.Length 从枚举器已有的文件元数据里取,不额外走一次 stat
             return new GlobEntry(rel, isDir, isDir ? 0 : e.Length);

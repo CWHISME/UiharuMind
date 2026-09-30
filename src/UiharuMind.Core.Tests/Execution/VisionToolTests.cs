@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Files;
 
 namespace UiharuMind.Core.Tests.Execution;
 
@@ -12,7 +13,7 @@ public class VisionToolTests
 {
     private static AIFunction Tool()
     {
-        return (AIFunction)VisionTool.Create(Path.Combine(Path.GetTempPath(), "uiharu-vision-test"));
+        return (AIFunction)VisionTool.Create(new AgentPathResolver(Path.Combine(Path.GetTempPath(), "uiharu-vision-test")));
     }
 
     private static async Task<string> Invoke(string[] paths, string question)

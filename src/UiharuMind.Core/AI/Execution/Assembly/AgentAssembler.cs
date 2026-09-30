@@ -142,7 +142,7 @@ internal static class AgentAssembler
         // 该判定进装配快照,切换视觉/非视觉模型时下一次挂接自动重建
         if (plan.MountVisionTool)
         {
-            Add(EAgentCapability.VisionTool, VisionTool.Create(plan.WorkingDirectory));
+            Add(EAgentCapability.VisionTool, VisionTool.Create(new AgentPathResolver(plan.WorkingDirectory)));
         }
 
         // 委派:工具集与权限档都从主代理派生,全部能力都关掉时不挂载。

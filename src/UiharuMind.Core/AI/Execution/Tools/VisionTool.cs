@@ -11,6 +11,7 @@ using System.ComponentModel;
 using System.Text;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character.PromptActions;
+using UiharuMind.Core.AI.Execution.Files;
 
 namespace UiharuMind.Core.AI.Execution;
 
@@ -31,15 +32,15 @@ public static class VisionTool
     /// <summary>
     /// 创建识图 AIFunction
     /// </summary>
-    /// <param name="workspaceRoot">工作目录根,相对路径的解析基准(与文件/shell 工具同一规则)</param>
+    /// <param name="paths">路径解析口径(与文件工具同一份)</param>
     /// <returns>工具实例</returns>
-    public static AITool Create(string workspaceRoot)
+    public static AITool Create(AgentPathResolver paths)
     {
         return AIFunctionFactory.Create(
             async ([Description("Absolute or workspace-relative paths of the image files.")] string[] imagePaths,
                     [Description("The question to answer about the image(s).")] string question,
                     CancellationToken cancellationToken = default) =>
-                await AskVisionAsync(workspaceRoot, imagePaths, question, cancellationToken).ConfigureAwait(false),
+                await AskVisionAsync(paths, imagePaths, question, cancellationToken).ConfigureAwait(false),
             ToolName,
             "Analyze one or more image files by delegating to a vision-capable model: identify their content " +
             "and answer questions about them. " +
@@ -47,7 +48,7 @@ public static class VisionTool
             "Never guess an image's content from its file name.");
     }
 
-    private static async Task<string> AskVisionAsync(string workspaceRoot, string[] imagePaths, string question,
+    private static async Task<string> AskVisionAsync(AgentPathResolver paths, string[] imagePaths, string question,
         CancellationToken cancellationToken)
     {
         if (imagePaths is null or { Length: 0 }) return "Error: imagePaths must contain at least one path.";
@@ -57,8 +58,7 @@ public static class VisionTool
         List<string> missing = new();
         foreach (string imagePath in imagePaths)
         {
-            string full = ResolvePath(workspaceRoot, imagePath);
-            if (!File.Exists(full))
+            if (!paths.TryResolve(imagePath, out string full) || !File.Exists(full))
             {
                 missing.Add(imagePath);
                 continue;
@@ -93,12 +93,5 @@ public static class VisionTool
             ".gif" => "image/gif",
             _ => "image/jpeg", //含 .jpg/.jpeg 与一切未知扩展
         };
-    }
-
-    // 相对路径解析到工作区根,绝对路径直接访问(与 PermissiveFileAccessTools.ResolvePath 同规则)
-    private static string ResolvePath(string workspaceRoot, string path)
-    {
-        if (Path.IsPathRooted(path)) return Path.GetFullPath(path);
-        return Path.GetFullPath(Path.Combine(workspaceRoot, path));
     }
 }

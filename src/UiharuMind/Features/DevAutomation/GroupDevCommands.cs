@@ -245,7 +245,7 @@ internal sealed class GroupDumpCommand : IDevCommand
         }
 
         IReadOnlyList<GroupArtifact> artifacts = GroupArtifacts.Collect(GroupArtifacts.DraftRoomOf(group), group.WorkspacePath,
-            members.Select(x => (x.Name, x.Session == null ? [] : GroupWrittenPaths.Of(x.Session, group.WorkspacePath))));
+            members.Select(x => (x.Name, x.Session == null ? [] : GroupWrittenPaths.Of(x.Session, GroupArtifacts.MemberPathsOf(group)))));
         text.AppendLine().AppendLine("## 本群产物").AppendLine();
         foreach (GroupArtifact artifact in artifacts)
         {

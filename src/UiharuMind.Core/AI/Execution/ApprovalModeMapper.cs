@@ -88,7 +88,7 @@ public static class ApprovalModeMapper
         Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null,
         string approvedWriteRoot = "", string memoryWriteRoot = "")
     {
-        string root = string.IsNullOrWhiteSpace(workspaceRoot) ? string.Empty : Path.GetFullPath(workspaceRoot);
+        AgentPathResolver paths = new(workspaceRoot);
         string room = string.IsNullOrWhiteSpace(approvedWriteRoot)
             ? string.Empty
             : Path.GetFullPath(approvedWriteRoot);
@@ -108,7 +108,7 @@ public static class ApprovalModeMapper
         // 而无人值守下越界写入没人拦就真的没人拦了
         rules.Add(context => new ValueTask<bool>(
             modeSource() == EAgentPermissionMode.FullAuto &&
-            !IsOutOfWorkspaceWrite(context.FunctionCallContent, root, room)));
+            !IsOutOfWorkspaceWrite(context.FunctionCallContent, paths, room)));
 
         // 自动编辑:工作区内的写入放行。这一档曾经<b>一条规则都不加</b>,于是与只读档行为完全一致:
         // 枚举注释写着"文件读写自动放行",实际每次编辑都弹卡。更要命的是定时任务写死用这一档而
@@ -116,14 +116,14 @@ public static class ApprovalModeMapper
         rules.Add(context => new ValueTask<bool>(
             modeSource() == EAgentPermissionMode.AutoEdit &&
             IsMutatingFileTool(context.FunctionCallContent) &&
-            !IsOutOfWorkspaceWrite(context.FunctionCallContent, root, room)));
+            !IsOutOfWorkspaceWrite(context.FunctionCallContent, paths, room)));
 
         // 记忆目录:任何权限档可写(ADR 0028)——记忆是 agent 的工作台,只读/计划档也得能记笔记。
         // 范围只认 Memory/ 这一格;删除不在这里,走 shell 由命令行审批纪律兜。
         if (memory.Length > 0)
         {
             rules.Add(context =>
-                new ValueTask<bool>(IsUnderMemory(context.FunctionCallContent, root, memory)));
+                new ValueTask<bool>(IsUnderMemory(context.FunctionCallContent, paths, memory)));
         }
 
         if (preAuthorizedShellPatterns is { Count: > 0 })
@@ -217,28 +217,19 @@ public static class ApprovalModeMapper
     /// 每次审批都去 realpath 一趟只是把成本花在挡不住的地方。
     /// </summary>
     /// <param name="approvedWriteRoot">会话自己的产出房间(已规范化);落在里面的写入视为界内</param>
-    private static bool IsOutOfWorkspaceWrite(FunctionCallContent functionCall, string workspaceRoot,
+    private static bool IsOutOfWorkspaceWrite(FunctionCallContent functionCall, AgentPathResolver paths,
         string approvedWriteRoot)
     {
         if (!IsMutatingFileTool(functionCall)) return false;
-        if (workspaceRoot.Length == 0) return true;
+        if (paths.WorkspaceRoot.Length == 0) return true;
 
         string? path = ExtractFilePath(functionCall.Arguments);
         if (path == null) return false;
 
-        string full;
-        try
-        {
-            full = Path.IsPathRooted(path)
-                ? Path.GetFullPath(path)
-                : Path.GetFullPath(Path.Combine(workspaceRoot, path));
-        }
-        catch (Exception)
-        {
-            return true; //路径非法(含非法字符/过长)一样交给用户看一眼
-        }
+        //路径非法(含非法字符/过长)一样交给用户看一眼
+        if (!paths.TryResolve(path, out string full)) return true;
 
-        if (IsUnder(full, workspaceRoot)) return false;
+        if (IsUnder(full, paths.WorkspaceRoot)) return false;
         return !IsUnder(full, approvedWriteRoot);
     }
 
@@ -246,26 +237,12 @@ public static class ApprovalModeMapper
     /// 记忆目录内的写是否成立(ADR 0028):写工具 + 目标落在记忆目录之内。
     /// 判据与 <see cref="IsOutOfWorkspaceWrite"/> 用同一份路径解析——相对路径按工作目录展开。
     /// </summary>
-    private static bool IsUnderMemory(FunctionCallContent functionCall, string workspaceRoot, string memoryRoot)
+    private static bool IsUnderMemory(FunctionCallContent functionCall, AgentPathResolver paths, string memoryRoot)
     {
-        if (workspaceRoot.Length == 0) return false;
+        if (paths.WorkspaceRoot.Length == 0) return false;
 
-        string? path = ExtractFilePath(functionCall.Arguments);
-        if (string.IsNullOrWhiteSpace(path)) return false;
-
-        string full;
-        try
-        {
-            full = Path.IsPathRooted(path)
-                ? Path.GetFullPath(path)
-                : Path.GetFullPath(Path.Combine(workspaceRoot, path));
-        }
-        catch (Exception)
-        {
-            return false; //路径非法:宁可当不在记忆里,让用户看一眼
-        }
-
-        return IsUnder(full, memoryRoot);
+        //路径非法:宁可当不在记忆里,让用户看一眼
+        return paths.TryResolve(ExtractFilePath(functionCall.Arguments), out string full) && IsUnder(full, memoryRoot);
     }
 
     /// <summary>目标是否落在某根目录之下(含恰好就是它)。空根目录永远返回 false</summary>

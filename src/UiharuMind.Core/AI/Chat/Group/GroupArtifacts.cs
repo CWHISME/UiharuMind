@@ -48,6 +48,13 @@ public static class GroupArtifacts
         AgentOutputLayout.GetRoomAbsolutePath(AgentOutputLayout.GetFolderName(group.WorkspacePath, group.SessionId));
 
     /// <summary>
+    /// 成员工具调用里的路径按什么口径解析（认成员写过哪些文件用）
+    /// </summary>
+    /// <param name="group">群壳会话</param>
+    /// <returns>路径解析口径</returns>
+    public static AgentPathResolver MemberPathsOf(ChatSession group) => new(group.WorkspacePath);
+
+    /// <summary>
     /// 收集本群产物，最近改过的在前
     /// </summary>
     /// <param name="draftRoom">草稿目录绝对路径</param>
@@ -90,16 +97,16 @@ public static class GroupArtifacts
     /// 一段会话历史里成功写过的文件（绝对路径，按第一次写的先后，不重复）
     /// </summary>
     /// <param name="history">会话历史</param>
-    /// <param name="workspace">相对路径的根；没绑时相对路径认不出落在哪，跳过</param>
+    /// <param name="paths">成员工具的路径口径；没绑工作区时相对路径认不出落在哪，跳过</param>
     /// <returns>绝对路径</returns>
-    public static IReadOnlyList<string> WrittenPaths(IReadOnlyList<ChatMessage> history, string? workspace)
+    public static IReadOnlyList<string> WrittenPaths(IReadOnlyList<ChatMessage> history, AgentPathResolver paths)
     {
         Dictionary<string, string> pending = new(); //调用编号 → 目标路径，等它的结果来确认
         List<string> written = [];
         foreach (AIContent content in history.SelectMany(x => x.Contents))
         {
             if (content is FunctionCallContent call && FileToolNames.Mutating.Contains(call.Name)
-                && ResolveTarget(call, workspace) is { } target)
+                && ResolveTarget(call, paths) is { } target)
             {
                 pending[call.CallId] = target;
             }
@@ -118,24 +125,13 @@ public static class GroupArtifacts
     private static StringComparer PathComparer =>
         OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 
-    private static string? ResolveTarget(FunctionCallContent call, string? workspace)
+    private static string? ResolveTarget(FunctionCallContent call, AgentPathResolver paths)
     {
         object? argument = null;
-        if (call.Arguments?.TryGetValue(FilePathArgument, out argument) != true
-            || argument?.ToString() is not { Length: > 0 } path)
-        {
-            return null;
-        }
+        if (call.Arguments?.TryGetValue(FilePathArgument, out argument) != true) return null;
 
-        try
-        {
-            if (Path.IsPathRooted(path)) return Path.GetFullPath(path);
-            return string.IsNullOrWhiteSpace(workspace) ? null : Path.GetFullPath(Path.Combine(workspace, path));
-        }
-        catch (Exception)
-        {
-            return null; //模型写了个不成形的路径：那次写入本来也落不了盘
-        }
+        //不成形的路径：那次写入本来也落不了盘
+        return paths.TryResolve(argument?.ToString(), out string full) ? full : null;
     }
 
     private static IEnumerable<string> ListDraftRoom(string draftRoom)

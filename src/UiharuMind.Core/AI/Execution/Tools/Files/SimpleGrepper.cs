@@ -53,11 +53,19 @@ public sealed class SimpleGrepper
     // 代价是并行群聊里几位成员同时搜会排队，好在每个扫描本来就吃满全部核心，并排跑也快不了
     private static readonly SemaphoreSlim EngineGate = new(1, 1);
 
-    private string _rootDirectory;
+    private readonly AgentPathResolver _paths;
 
-    public SimpleGrepper(string workspaceRoot)
+    public SimpleGrepper(string workspaceRoot) : this(new AgentPathResolver(workspaceRoot))
     {
-        _rootDirectory = Path.GetFullPath(workspaceRoot);
+    }
+
+    /// <summary>
+    /// 按给定的路径口径搜索（agent 的文件工具用：与 Read/Write 同一份解析）
+    /// </summary>
+    /// <param name="paths">路径解析口径；其工作区根即默认搜索根</param>
+    public SimpleGrepper(AgentPathResolver paths)
+    {
+        _paths = paths;
     }
 
     /// <summary>
@@ -94,7 +102,7 @@ public sealed class SimpleGrepper
         string? path = null,
         CancellationToken ct = default)
     {
-        string target = SearchRoot.Resolve(_rootDirectory, path);
+        string target = SearchRoot.Resolve(_paths, path);
 
         // 搜索范围只认两种东西：目录（递归搜）或单文件（只搜它）。
         // 模型把文件路径往 directory 塞、或发明 path 参数,都是同一个缺口的两漏
@@ -110,10 +118,10 @@ public sealed class SimpleGrepper
                     Kind = ESearchFailureKind.PathNotFound,
                     RequestedDirectory = path,
                     ResolvedDirectory = target,
-                    WorkingDirectory = _rootDirectory,
+                    WorkingDirectory = _paths.WorkspaceRoot,
                     Pattern = query,
                     NearestExistingDirectory =
-                        SearchRoot.NearestExistingAncestorWithin(_rootDirectory, target) ?? string.Empty,
+                        SearchRoot.NearestExistingAncestorWithin(_paths.WorkspaceRoot, target) ?? string.Empty,
                 },
             };
         }
@@ -171,8 +179,8 @@ public sealed class SimpleGrepper
                 results.Add(new GrepMatchResult
                 {
                     // 引擎回的是相对搜索根的路径,换算成相对工作区——否则缩了 path 之后
-                    // 回来的路径喂给 Read 会解析到别处(见 SearchRoot.ToPortablePath)
-                    FileName = SearchRoot.ToPortablePath(_rootDirectory, absolute),
+                    // 回来的路径喂给 Read 会解析到别处(见 AgentPathResolver.ToPortable)
+                    FileName = _paths.ToPortable(absolute),
                     Snippet = match.MatchContent?.TrimEnd() ?? "",
                     MatchingLines = BuildLines(match),
                 });
@@ -202,7 +210,7 @@ public sealed class SimpleGrepper
                     Kind = ESearchFailureKind.EngineFailed,
                     RequestedDirectory = path,
                     ResolvedDirectory = target,
-                    WorkingDirectory = _rootDirectory,
+                    WorkingDirectory = _paths.WorkspaceRoot,
                     Pattern = effective,
                     Detail = ex.Message,
                 },

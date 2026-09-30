@@ -63,7 +63,7 @@ public class ApprovalDiffTests : IDisposable
         Directory.CreateDirectory(Path.Combine(_dir, "src"));
         File.WriteAllText(Path.Combine(_dir, "src", "B.cs"), "alpha\n");
 
-        var lines = DiffLineView.BuildForToolCall(EditCall("src/B.cs", ("alpha", "beta")), _dir);
+        var lines = DiffLineView.BuildForToolCall(EditCall("src/B.cs", ("alpha", "beta")), new AgentPathResolver(_dir));
 
         Assert.Contains(lines, x => x.IsAdded && x.Text.Contains("beta"));
     }

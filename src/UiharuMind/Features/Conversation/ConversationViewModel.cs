@@ -27,6 +27,7 @@ using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools;
@@ -532,7 +533,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
         _transcript = new ConversationTranscript(Items, () => ConversationItemFactory.CreateAssistant(_currentCharacter),
             pattern => CurrentSession?.AddSessionApprovedShellPattern(pattern),
-            () => CurrentSession is { } session ? GroupChatSessions.WorkspaceOf(session) : null,
+            () => CurrentSession is { } session ? AgentBuildProfile.PathResolverOf(session) : null,
             createUserItems: _history.CreateUserItems);
         // 用量不经转录器转发:运行侧看得见同一条内容流,由它记账并写回会话本体,
         // 这里只负责把数字刷到界面上(UsageObserved 通知)

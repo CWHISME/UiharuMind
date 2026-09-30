@@ -14,6 +14,7 @@ using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Memory;
 using UiharuMind.Core.Configs;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.ToolCall;
 
 namespace UiharuMind.Core.AI.Execution.Assembly;
@@ -199,6 +200,14 @@ public class AgentBuildProfile
             SubSessionStarted = subSessionStarted,
         };
     }
+
+    /// <summary>
+    /// 界面侧解析这个会话工具调用里的路径（审批卡预演 diff）用的口径，与装配给工具的同源
+    /// </summary>
+    /// <param name="session">会话</param>
+    /// <returns>路径解析口径</returns>
+    public static AgentPathResolver PathResolverOf(ChatSession session) =>
+        new(GroupChatSessions.WorkspaceOf(session));
 
     /// <summary>
     /// 从<b>尚不存在的会话</b>构造：智能体页的会话是懒建的，首轮发送前没有 <see cref="ChatSession"/>，

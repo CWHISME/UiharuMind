@@ -92,7 +92,7 @@ public sealed class GroupArtifactsTests : IDisposable
         Assert.Empty(GroupArtifacts.Collect(Path.Combine(_root, "nope"), null, []));
     }
 
-    private IReadOnlyList<string> Written(List<ChatMessage> history) => GroupArtifacts.WrittenPaths(history, _workspace);
+    private IReadOnlyList<string> Written(List<ChatMessage> history) => GroupArtifacts.WrittenPaths(history, new AgentPathResolver(_workspace));
 
     private static string Touch(string root, string relative)
     {

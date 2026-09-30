@@ -25,6 +25,7 @@ namespace UiharuMind.Core.AI.Execution.Files;
 /// 且该类为 internal 无法继承/修改;因此这里完全自行实现文件访问:
 /// - 相对路径解析到工作区根目录;
 /// - 绝对路径直接访问真实文件系统。
+/// 解析口径只有一份(<see cref="AgentPathResolver"/>),搜索、审批、界面预演与这里同源。
 ///
 /// <b>工作区外的写入没有在这一层拦</b>,拦在审批规则里(<c>ApprovalModeMapper</c>):
 /// 任何权限档下首次越界写入都要用户点一次,包括完全自动档。放在那一层是因为「越界」是<b>授权</b>
@@ -83,18 +84,23 @@ internal sealed class PermissiveFileAccessTools
     private static SemaphoreSlim LockFor(string path)
         => _fileLocks[(uint)StringComparer.OrdinalIgnoreCase.GetHashCode(path) % _fileLocks.Length];
 
-    private readonly string _workspaceRoot;
+    private readonly AgentPathResolver _paths;
     private readonly SimpleGlobber _glob;
     private readonly SimpleGrepper _grepper;
     private readonly IFileBackupStore _backupStore; //组合持有:Write 覆盖前备份用,可注入
 
     public PermissiveFileAccessTools(string workspaceRoot, IFileBackupStore? backupStore = null)
+        : this(new AgentPathResolver(workspaceRoot), backupStore)
     {
-        _workspaceRoot = Path.GetFullPath(workspaceRoot);
-        _glob = new SimpleGlobber(workspaceRoot);
-        _grepper = new SimpleGrepper(workspaceRoot);
+    }
+
+    public PermissiveFileAccessTools(AgentPathResolver paths, IFileBackupStore? backupStore = null)
+    {
+        _paths = paths;
+        _glob = new SimpleGlobber(paths);
+        _grepper = new SimpleGrepper(paths);
         _backupStore = backupStore ?? new FileBackupStore();
-        Directory.CreateDirectory(_workspaceRoot);
+        Directory.CreateDirectory(paths.WorkspaceRoot);
     }
 
     public IReadOnlyList<AITool> Create(bool disableWriteTools = false)
@@ -199,7 +205,7 @@ internal sealed class PermissiveFileAccessTools
         [Description("Max lines to return. Pass -1 to read the whole file (no byte cap).")] int? limit = null,
         CancellationToken cancellationToken = default)
     {
-        string full = ResolvePath(filePath);
+        string full = _paths.Resolve(filePath);
         if (!File.Exists(full)) return Task.FromResult($"File '{filePath}' not found.");
 
         if (offset < 1) offset = 1;
@@ -255,7 +261,7 @@ internal sealed class PermissiveFileAccessTools
         CancellationToken ct = default)
     {
         // 写目标解析 symlink:锁与落盘都对着真实路径(否则链接被替换成普通文件)
-        string full = ResolveWriteTarget(ResolvePath(filePath));
+        string full = ResolveWriteTarget(_paths.Resolve(filePath));
         SemaphoreSlim fileLock = LockFor(full);
         await fileLock.WaitAsync(ct).ConfigureAwait(false);
         try
@@ -300,7 +306,7 @@ internal sealed class PermissiveFileAccessTools
         CancellationToken ct = default)
     {
         // 写目标解析 symlink:锁与落盘都对着真实路径(否则链接被替换成普通文件)
-        string full = ResolveWriteTarget(ResolvePath(filePath));
+        string full = ResolveWriteTarget(_paths.Resolve(filePath));
         SemaphoreSlim fileLock = LockFor(full);
         await fileLock.WaitAsync(ct).ConfigureAwait(false);
         try
@@ -374,13 +380,6 @@ internal sealed class PermissiveFileAccessTools
     }
 
     // ---- 路径解析 ----
-
-    private string ResolvePath(string path)
-    {
-        return Path.IsPathRooted(path)
-            ? Path.GetFullPath(path)
-            : Path.GetFullPath(Path.Combine(_workspaceRoot, path));
-    }
 
     /// <summary>
     /// 写目标跟随符号链接到真实路径，锁与原子写都对着它做：否则 rename 会把链接<b>本体</b>静默换成

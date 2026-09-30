@@ -21,10 +21,10 @@ public sealed class GroupWrittenPathsTests : IDisposable
     public void UnloadedMember_AnswersFromCache_WithoutReloadingHistory()
     {
         string spec = Write("1", "spec.md");
-        Assert.Equal([spec], GroupWrittenPaths.Of(_member, _workspace));
+        Assert.Equal([spec], GroupWrittenPaths.Of(_member, new AgentPathResolver(_workspace)));
 
         Assert.True(_member.UnloadHistory());
-        Assert.Equal([spec], GroupWrittenPaths.Of(_member, _workspace));
+        Assert.Equal([spec], GroupWrittenPaths.Of(_member, new AgentPathResolver(_workspace)));
 
         Assert.False(_member.IsHistoryResident);
     }
@@ -33,23 +33,23 @@ public sealed class GroupWrittenPathsTests : IDisposable
     public void AppendAfterCaching_IsSeenOnceUnloaded()
     {
         string spec = Write("1", "spec.md");
-        Assert.Equal([spec], GroupWrittenPaths.Of(_member, _workspace));
+        Assert.Equal([spec], GroupWrittenPaths.Of(_member, new AgentPathResolver(_workspace)));
 
         string code = Write("2", "code.cs"); //追加落盘：缓存作废
         Assert.True(_member.UnloadHistory());
 
-        Assert.Equal([spec, code], GroupWrittenPaths.Of(_member, _workspace));
+        Assert.Equal([spec, code], GroupWrittenPaths.Of(_member, new AgentPathResolver(_workspace)));
     }
 
     [Fact]
     public void DifferentWorkspace_IsNotServedFromCache()
     {
         Write("1", "spec.md");
-        GroupWrittenPaths.Of(_member, _workspace);
+        GroupWrittenPaths.Of(_member, new AgentPathResolver(_workspace));
         Assert.True(_member.UnloadHistory());
 
         string other = Path.Combine(Path.GetTempPath(), $"written-other-{Guid.NewGuid():N}");
-        Assert.Equal([Path.Combine(other, "spec.md")], GroupWrittenPaths.Of(_member, other));
+        Assert.Equal([Path.Combine(other, "spec.md")], GroupWrittenPaths.Of(_member, new AgentPathResolver(other)));
     }
 
     /// <summary>成员成功写了一个文件，并按常规落盘（追加）</summary>

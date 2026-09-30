@@ -15,6 +15,7 @@ using Avalonia.Threading;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.Core.SimpleLog;
@@ -44,7 +45,7 @@ public sealed class ConversationTranscript : ITurnSink
     private readonly Func<TextConversationItem> _createAssistantItem;
     private readonly Func<ChatMessage, IReadOnlyList<TextConversationItem>> _createUserItems;
     private readonly Action<string>? _rememberShellPattern;
-    private readonly Func<string?>? _workspaceRootSource; //审批卡片预演 diff 要用它解析相对路径
+    private readonly Func<AgentPathResolver?>? _pathsSource; //审批卡片预演 diff 要用它解析路径
     private readonly ThinkTagStreamParser _thinkParser = new();
     private readonly List<ApprovalRequestItem> _pending = new(); //待决审批(可被整体取消)
     private readonly List<ApprovalRequestItem> _round = new(); //本轮新增审批(供运行循环回应)
@@ -95,7 +96,7 @@ public sealed class ConversationTranscript : ITurnSink
     /// 省略则不画用户消息——回放缓冲不需要，历史里的用户消息由调用方按种类自己画
     /// </param>
     /// <param name="rememberShellPattern">「本会话放行同类命令」的落点</param>
-    /// <param name="workspaceRootSource">当前工作目录的来源（现取现用：会话中途改工作目录也能跟上）</param>
+    /// <param name="pathsSource">当前会话工具的路径口径来源（现取现用：会话中途改工作目录也能跟上）</param>
     /// <param name="renderedBefore">
     /// 本次装配<b>之前</b>就已经渲染出去的条目。只在增量装配（外驱会话每次服务调用补渲染一段）时给：
     /// 那时工具调用与它的结果落在<b>不同批</b>里，只认本批的话结果永远配不上调用，
@@ -105,7 +106,7 @@ public sealed class ConversationTranscript : ITurnSink
         IList<ConversationItemBase> target,
         Func<TextConversationItem> createAssistantItem,
         Action<string>? rememberShellPattern = null,
-        Func<string?>? workspaceRootSource = null,
+        Func<AgentPathResolver?>? pathsSource = null,
         IReadOnlyList<ConversationItemBase>? renderedBefore = null,
         Func<ChatMessage, IReadOnlyList<TextConversationItem>>? createUserItems = null)
     {
@@ -115,7 +116,7 @@ public sealed class ConversationTranscript : ITurnSink
         _createAssistantItem = createAssistantItem;
         _createUserItems = createUserItems ?? (_ => []);
         _rememberShellPattern = rememberShellPattern;
-        _workspaceRootSource = workspaceRootSource;
+        _pathsSource = pathsSource;
     }
 
     // [诊断探针] 界面绑定集合必须在 UI 线程写入:Avalonia 的弱事件簿记不是线程安全的,
@@ -160,7 +161,7 @@ public sealed class ConversationTranscript : ITurnSink
                     CallId = call.CallId,
                     ToolName = call.Name,
                     IconName = AgentContentFormatter.GetToolIconName(call.Name),
-                    ArgumentSummary = AgentContentFormatter.SummarizeArguments(call, _workspaceRootSource?.Invoke()),
+                    ArgumentSummary = AgentContentFormatter.SummarizeArguments(call, _pathsSource?.Invoke()?.WorkspaceRoot),
                     FilePath = AgentContentFormatter.GetFilePath(call),
                     ArgumentsJson = call.Arguments == null
                         ? string.Empty
@@ -197,7 +198,7 @@ public sealed class ConversationTranscript : ITurnSink
 
             case ToolApprovalRequestContent approvalRequest:
                 ThinkingBoundary.Dispatch(approvalRequest, _thinkParser, AppendText, AppendThinking, CloseSegment);
-                ApprovalRequestItem approvalItem = new(approvalRequest, _workspaceRootSource?.Invoke())
+                ApprovalRequestItem approvalItem = new(approvalRequest, _pathsSource?.Invoke())
                 {
                     RememberShellPatternCallback = pattern => _rememberShellPattern?.Invoke(pattern),
                 };

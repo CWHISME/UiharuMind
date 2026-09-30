@@ -357,7 +357,7 @@ internal static class SubAgentAssembly
         bool hasShell = canMutate && input.ShellTool != null;
         if (hasVision)
         {
-            tools.Add(VisionTool.Create(input.WorkingDirectory));
+            tools.Add(VisionTool.Create(new AgentPathResolver(input.WorkingDirectory)));
         }
 
         if (canMutate)

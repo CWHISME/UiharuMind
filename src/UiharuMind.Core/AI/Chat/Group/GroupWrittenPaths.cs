@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using UiharuMind.Core.AI.Execution.Files;
 
 namespace UiharuMind.Core.AI.Chat.Group;
 
@@ -24,23 +25,23 @@ public static class GroupWrittenPaths
     /// 这个成员写过的文件（绝对路径，按第一次写的先后）
     /// </summary>
     /// <param name="member">成员会话</param>
-    /// <param name="workspace">相对路径的根；没绑为 null</param>
+    /// <param name="paths">成员工具的路径口径</param>
     /// <returns>绝对路径</returns>
-    public static IReadOnlyList<string> Of(ChatSession member, string? workspace)
+    public static IReadOnlyList<string> Of(ChatSession member, AgentPathResolver paths)
     {
         string sessionId = member.SessionId;
         Watch(member);
         int version = Versions.GetValueOrDefault(sessionId);
         if (!member.IsHistoryResident && Cache.TryGetValue(sessionId, out Entry? cached)
-                                      && cached.Version == version && cached.Workspace == workspace)
+                                      && cached.Version == version && cached.Paths == paths)
         {
-            return cached.Paths;
+            return cached.Written;
         }
 
         // 历史可能正被执行线程追加：取一份快照再读。算的过程中又追加了就不记——那一份已经旧了
-        IReadOnlyList<string> paths = GroupArtifacts.WrittenPaths(member.History.ToList(), workspace);
-        if (Versions.GetValueOrDefault(sessionId) == version) Cache[sessionId] = new Entry(version, workspace, paths);
-        return paths;
+        IReadOnlyList<string> written = GroupArtifacts.WrittenPaths(member.History.ToList(), paths);
+        if (Versions.GetValueOrDefault(sessionId) == version) Cache[sessionId] = new Entry(version, paths, written);
+        return written;
     }
 
     private static void Watch(ChatSession member)
@@ -53,5 +54,5 @@ public static class GroupWrittenPaths
 
     private static void Invalidate(string sessionId) => Versions.AddOrUpdate(sessionId, 1, (_, v) => v + 1);
 
-    private sealed record Entry(int Version, string? Workspace, IReadOnlyList<string> Paths);
+    private sealed record Entry(int Version, AgentPathResolver Paths, IReadOnlyList<string> Written);
 }

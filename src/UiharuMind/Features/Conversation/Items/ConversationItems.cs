@@ -478,19 +478,19 @@ public partial class ApprovalRequestItem : ConversationItemBase
     public Task<ChatMessage> Response => _completion.Task;
 
     /// <param name="request">框架发来的审批请求</param>
-    /// <param name="workspaceRoot">工作目录,用于把模型给的相对路径解析成真实文件以预演 diff;可空</param>
-    public ApprovalRequestItem(ToolApprovalRequestContent request, string? workspaceRoot = null)
+    /// <param name="paths">会话工具的路径口径,用于把模型给的路径解析成真实文件以预演 diff;可空</param>
+    public ApprovalRequestItem(ToolApprovalRequestContent request, AgentPathResolver? paths = null)
     {
         _request = request;
         if (request.ToolCall is FunctionCallContent call)
         {
             ToolName = call.Name;
-            ArgumentSummary = AgentContentFormatter.SummarizeArguments(call, workspaceRoot);
+            ArgumentSummary = AgentContentFormatter.SummarizeArguments(call, paths?.WorkspaceRoot);
             SuggestedCommandPattern = call.Name == CharacterRunnerFactory.ShellToolName
                 ? ApprovalModeMapper.DeriveCommandPattern(
                     ApprovalModeMapper.ExtractCommand(call.Arguments) ?? string.Empty)
                 : string.Empty;
-            DiffLines = DiffLineView.BuildForToolCall(call, workspaceRoot);
+            DiffLines = DiffLineView.BuildForToolCall(call, paths);
         }
         else
         {
@@ -619,16 +619,16 @@ public sealed class DiffLineView
     /// 从编辑类工具调用构建 diff 行;非编辑类工具返回空
     /// </summary>
     /// <param name="call">工具调用</param>
-    /// <param name="workspaceRoot">工作目录,用于把模型给的相对路径解析成真实文件;可空</param>
+    /// <param name="paths">会话工具的路径口径,用于把模型给的路径解析成真实文件;可空</param>
     /// <returns>diff 行列表</returns>
-    public static IReadOnlyList<DiffLineView> BuildForToolCall(FunctionCallContent call, string? workspaceRoot = null)
+    public static IReadOnlyList<DiffLineView> BuildForToolCall(FunctionCallContent call, AgentPathResolver? paths = null)
     {
         try
         {
             List<DiffLineView> lines = call.Name switch
             {
                 FileToolNames.Write => BuildWriteDiff(call.Arguments),
-                FileToolNames.Edit => BuildEditDiff(call.Arguments, workspaceRoot),
+                FileToolNames.Edit => BuildEditDiff(call.Arguments, paths ?? new AgentPathResolver(null)),
                 _ => [],
             };
             return Cap(lines);
@@ -718,7 +718,7 @@ public sealed class DiffLineView
     /// 因此卡片上看到的就是落盘后的样子,而不是把 oldString/newString 两块裸文本对着摆。
     /// 语义只有一处定义:工具执行与这张卡片调的是同一个纯函数。
     /// </summary>
-    private static List<DiffLineView> BuildEditDiff(IDictionary<string, object?>? args, string? workspaceRoot)
+    private static List<DiffLineView> BuildEditDiff(IDictionary<string, object?>? args, AgentPathResolver paths)
     {
         string? filePath = GetString(args, "filePath");
         if (string.IsNullOrEmpty(filePath)) return [];
@@ -735,12 +735,8 @@ public sealed class DiffLineView
         };
         if (edits is not { Count: > 0 }) return [];
 
-        string full = Path.IsPathRooted(filePath)
-            ? filePath
-            : string.IsNullOrEmpty(workspaceRoot)
-                ? filePath //没有工作目录可拼,相对路径无从解析,回退成参数摘要
-                : Path.Combine(workspaceRoot, filePath);
-
+        //没有工作目录可拼时相对路径无从解析,回退成参数摘要
+        if (!paths.TryResolve(filePath, out string full)) return [];
         if (!File.Exists(full) || new FileInfo(full).Length > MaxPreviewFileBytes) return [];
 
         FileEditPlan plan = FileEditPlanner.PlanFile(full, filePath, edits);

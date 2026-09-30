@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
+using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Features.Conversation.Items;
 
@@ -91,7 +92,7 @@ public sealed partial class GroupApprovalViewData
     {
         MemberSessionId = member.SessionId;
         MemberName = member.CharacterData.CharacterName;
-        Card = new ApprovalRequestItem(request, GroupChatSessions.WorkspaceOf(member))
+        Card = new ApprovalRequestItem(request, AgentBuildProfile.PathResolverOf(member))
         {
             RememberShellPatternCallback = member.AddSessionApprovedShellPattern,
         };
