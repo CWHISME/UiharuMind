@@ -288,6 +288,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private int _composerCaret = -1; //输入框光标（视图报上来）；-1 表示不知道，按末尾算
 
     private readonly IMessageService _messages; //弹提示与确认
+    private readonly WorkspaceMcpApprovalFlow _mcpApproval; //选定工作区时为项目级 MCP 要一次确认
     private readonly ConversationItemActions _itemActions; //气泡上的编辑/删除/分叉/重试
     private readonly ConversationHistoryRenderer _history; //把历史画进 Items(回放、续窗、落盘补渲染)
     private readonly RegisteredApprovalAdopter _approvalAdopter; //子会话/群成员认领登记在册的审批卡
@@ -495,6 +496,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     public ConversationViewModel(IMessageService messages)
     {
         _messages = messages;
+        _mcpApproval = new WorkspaceMcpApprovalFlow(messages);
         // 用量排最前:后面几个子模型的构造期回调就可能刷它
         Usage = new ConversationUsageViewData(ContextLength, () => SessionModelLabel);
         // 子模型只吃窄依赖、不反向持有本类:附件盘取会话要用委托(首轮发送时会话还不存在),
@@ -1108,67 +1110,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// 换到一个没有 .mcp.json 的目录时,上一个项目那几条必须从预告区消失
     private async Task OnWorkspaceChangedAsync(string? workspacePath)
     {
-        await PromptWorkspaceMcpApprovalAsync(workspacePath);
+        await _mcpApproval.PromptAsync(workspacePath);
         await RefreshCapabilitiesAsync();
-    }
-
-    /// <summary>
-    /// 选定工作区时，就地为该项目的 <c>.mcp.json</c> 要一次安全确认。
-    ///
-    /// <b>时机定在这一刻而不是首轮发送时</b>，理由是它同时解决三件事：
-    /// 用户当场知道这个项目会连上什么、确认不会在发送后突然弹出来打断，
-    /// 而最要紧的是——这一刻<b>早于任何子进程启动</b>。
-    ///
-    /// 弹窗由 App 层主动发起（Core 只提供"查待确认 / 记授权"两个被动 API）：
-    /// 抛全局事件的做法这个仓库已经踩过，预连提示曾因此点亮到一个跟 MCP 毫无关系的会话上。
-    ///
-    /// 确认是「全部允许」这一档，但<b>记录仍逐条落</b>（每条各记自己的可执行面指纹）——
-    /// 于是下次仓库新增第四个 server 时，弹窗只说新增的那一条，而不是把四条重新摆一遍。
-    /// 后者会养出"看第三次就直接点确认"的习惯，而确认疲劳就是这类机制实际失效的方式。
-    /// </summary>
-    /// <param name="workspacePath">刚选定的工作区；空表示解绑，无事可做</param>
-    private async Task PromptWorkspaceMcpApprovalAsync(string? workspacePath)
-    {
-        if (string.IsNullOrEmpty(workspacePath)) return;
-
-        try
-        {
-            List<McpApprovalRequest> pending = McpManager.Instance.GetPendingApprovals(workspacePath);
-            if (pending.Count == 0) return;
-
-            if (!await _messages.ConfirmAsync(BuildMcpApprovalMessage(workspacePath, pending),
-                    Loc.Text(LangKey.AgentMcpApprovalTitle)))
-            {
-                // 拒绝不落任何记录:下次再进这个工作区会再问一次。
-                // 记一条"拒绝过"看着更省事,但那会让"我当时点错了"没有回头路,
-                // 而这一问的成本只是一个弹窗
-                return;
-            }
-
-            McpManager.Instance.ApproveWorkspaceServers(workspacePath);
-        }
-        catch (Exception e)
-        {
-            Log.Warning($"Prompt workspace MCP approval failed: {e.Message}");
-        }
-    }
-
-    /// 确认框正文:名字、将执行的命令原文,以及"这一条是被改过的"那个标记。
-    /// 命令必须逐字摆出来——用户批的是这条命令,不是这个名字
-    private static string BuildMcpApprovalMessage(string workspacePath, List<McpApprovalRequest> pending)
-    {
-        LocalizationManager loc = LocalizationManager.Instance;
-        string changedMark = loc.GetString("AgentMcpApprovalChangedMark");
-        StringBuilder list = new();
-        foreach (McpApprovalRequest request in pending)
-        {
-            list.Append("• ").Append(request.Name).Append(":  ").Append(request.CommandLine);
-            if (request.IsChanged) list.Append(changedMark);
-            list.Append('\n');
-        }
-
-        return string.Format(loc.GetString("AgentMcpApprovalBody"),
-            WorkspaceDisplay.NameOf(workspacePath), pending.Count, list.ToString());
     }
 
     //================= 发送与运行循环 =================
