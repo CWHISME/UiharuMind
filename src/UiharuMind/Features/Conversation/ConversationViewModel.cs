@@ -28,6 +28,7 @@ using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
+using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools;
@@ -354,6 +355,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// </summary>
     public bool IsSubSession => CurrentSession?.IsSubSession == true;
 
+    // 实时与回放共用一份路径口径:卡片里的草稿目录简写两边展开成同一个地方
+    private AgentPathResolver? SessionPaths() =>
+        CurrentSession is { } session ? AgentBuildProfile.PathResolverOf(session) : null;
+
     /// <summary>群壳那一份（右栏群卡、成员、产物、待审批条）；打开的不是群壳为 null</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsGroupSession), nameof(IsSenderSwitchVisible))]
@@ -510,7 +515,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _binder = new ConversationSessionBinder(NotifyBusyChanged);
         _itemActions = new ConversationItemActions(Items, this, messages);
         _history = new ConversationHistoryRenderer(Items, _itemActions, () => _currentCharacter,
-            () => IsAutoCollapseThinking, () => GroupMember?.DeliveryRenderer);
+            () => IsAutoCollapseThinking, () => GroupMember?.DeliveryRenderer, SessionPaths);
         _trimmer = new ConversationItemWindowTrimmer(Items, _historyWindow,
             () => CurrentRunner?.GetHistory() ?? [],
             // 不在界面上的实例没有会被抽走的视口,照裁——后台跑着的那个正是最该裁的
@@ -532,7 +537,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
         _transcript = new ConversationTranscript(Items, () => ConversationItemFactory.CreateAssistant(_currentCharacter),
             pattern => CurrentSession?.AddSessionApprovedShellPattern(pattern),
-            () => CurrentSession is { } session ? AgentBuildProfile.PathResolverOf(session) : null,
+            SessionPaths,
             createUserItems: _history.CreateUserItems);
         // 用量不经转录器转发:运行侧看得见同一条内容流,由它记账并写回会话本体,
         // 这里只负责把数字刷到界面上(UsageObserved 通知)

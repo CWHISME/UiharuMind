@@ -15,6 +15,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Core;
+using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Features.Conversation.Group;
 using UiharuMind.Features.Conversation.Items;
@@ -35,6 +36,7 @@ public sealed class ConversationHistoryRenderer
     private readonly Func<CharacterData?> _characterSource; //会话角色：助手气泡的名字与头像
     private readonly Func<bool> _autoCollapseThinkingSource;
     private readonly Func<GroupDeliveryRenderer?> _deliverySource; //成员会话的群投递拆段；不是成员会话为 null
+    private readonly Func<AgentPathResolver?> _pathsSource; //回放的生图、看图卡片按会话口径展开草稿目录简写
 
     /// <summary>
     /// 构造
@@ -46,13 +48,15 @@ public sealed class ConversationHistoryRenderer
     /// <param name="deliverySource">群投递渲染器</param>
     public ConversationHistoryRenderer(ObservableCollection<ConversationItemBase> items,
         ConversationItemActions itemActions, Func<CharacterData?> characterSource,
-        Func<bool> autoCollapseThinkingSource, Func<GroupDeliveryRenderer?> deliverySource)
+        Func<bool> autoCollapseThinkingSource, Func<GroupDeliveryRenderer?> deliverySource,
+        Func<AgentPathResolver?> pathsSource)
     {
         _items = items;
         _itemActions = itemActions;
         _characterSource = characterSource;
         _autoCollapseThinkingSource = autoCollapseThinkingSource;
         _deliverySource = deliverySource;
+        _pathsSource = pathsSource;
     }
 
     /// <summary>
@@ -202,7 +206,7 @@ public sealed class ConversationHistoryRenderer
         CharacterData? sessionCharacter = _characterSource();
         CharacterData? speaker = sessionCharacter; //群流水里每条消息换一次发言人,工厂闭包取的是它
         ConversationTranscript replay = new(buffer, () => ConversationItemFactory.CreateAssistant(speaker),
-            renderedBefore: liveTail ? (IReadOnlyList<ConversationItemBase>)_items : null)
+            pathsSource: _pathsSource, renderedBefore: liveTail ? (IReadOnlyList<ConversationItemBase>)_items : null)
         {
             AutoCollapseThinking = _autoCollapseThinkingSource(),
         };
