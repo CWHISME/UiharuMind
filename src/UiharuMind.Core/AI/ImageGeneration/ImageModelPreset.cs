@@ -34,8 +34,9 @@ public sealed record ImageModelPreset(
             "{\"watermark\": true}"),
         new("agnes", "Agnes AI", EImageDialect.Agnes, "https://api.agnes-ai.cn/v1",
             ["agnes-image-2.5-flash"], true, "https://wiki.agnes-ai.cn"),
+        // flare 日常出图、sunburst 重编辑精度（2026-09 起官方推荐这两款；1.5 / 1-mini 于 2026-12-01 下线）
         new("openai", "OpenAI", EImageDialect.OpenAI, "https://api.openai.com/v1",
-            ["gpt-image-1"], true, "https://platform.openai.com"),
+            ["gpt-image-2.5-flare", "gpt-image-2.5-sunburst"], true, "https://platform.openai.com"),
         new(CustomKey, "Custom", EImageDialect.OpenAI, "", [], true),
     ];
 }
