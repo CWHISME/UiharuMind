@@ -152,6 +152,11 @@ public sealed class SimpleGrepper
             maxDepth = null;
         }
 
+        // 单文件是点名要搜的，不套上层忽略规则；目录才让搜索根之上的 .gitignore 生效
+        IgnoreAwareSearchScope scope = isFileScope
+            ? IgnoreAwareSearchScope.Whole(searchRoot, maxDepth)
+            : IgnoreAwareSearchScope.For(_paths.WorkspaceRoot, searchRoot, maxDepth);
+
         string effective = query;
         bool fellBack = false;
         if (isRegex)
@@ -169,21 +174,17 @@ public sealed class SimpleGrepper
 
         try
         {
-            Task<List<SearchResult>> scan = await StartScanAsync(() => new SearchEngine(searchRoot).SearchAsync(
-                query: effective,
-                isRegex: isRegex,
-                caseSensitive: caseSensitive,
-                contextLines: contextLines,
-                maxDepth: maxDepth,
-                fileGlobs: effectiveFileGlobs), ct).ConfigureAwait(false);
+            Task<List<(string Root, SearchResult Match)>> scan = await StartScanAsync(() => ScanAsync(scope.Runs,
+                effective, isRegex, caseSensitive, contextLines, effectiveFileGlobs), ct).ConfigureAwait(false);
             // 扫大目录可能持续数十秒：取消时只是不再等它，停止按钮立刻有反应
-            List<SearchResult> matches = await scan.WaitAsync(ct).ConfigureAwait(false);
+            List<(string Root, SearchResult Match)> matches = await scan.WaitAsync(ct).ConfigureAwait(false);
 
             var results = new List<GrepMatchResult>(matches.Count);
-            foreach (SearchResult match in matches)
+            foreach ((string root, SearchResult match) in matches)
             {
                 ct.ThrowIfCancellationRequested();
-                string absolute = Path.Combine(searchRoot, match.FilePath);
+                string absolute = Path.Combine(root, match.FilePath);
+                if (!scope.Keeps(absolute)) continue;
                 if (isFileScope
                     // macOS 默认文件系统大小写不敏感,同源路径比较用忽略大小写
                     && !string.Equals(Path.GetFullPath(absolute), Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase))
@@ -233,11 +234,30 @@ public sealed class SimpleGrepper
         }
     }
 
-    private static async Task<Task<List<SearchResult>>> StartScanAsync(Func<Task<List<SearchResult>>> start,
-        CancellationToken ct)
+    // 拆成几次调用时依次跑：每次调用本就吃满全部核心，并排跑快不了
+    private static async Task<List<(string Root, SearchResult Match)>> ScanAsync(IReadOnlyList<EngineRun> runs,
+        string query, bool isRegex, bool caseSensitive, int contextLines, string[] fileGlobs)
+    {
+        var all = new List<(string Root, SearchResult Match)>();
+        foreach (EngineRun run in runs)
+        {
+            List<SearchResult> matches = await new SearchEngine(run.Root).SearchAsync(
+                query: query,
+                isRegex: isRegex,
+                caseSensitive: caseSensitive,
+                contextLines: contextLines,
+                maxDepth: run.MaxDepth,
+                fileGlobs: fileGlobs).ConfigureAwait(false);
+            foreach (SearchResult match in matches) all.Add((run.Root, match));
+        }
+
+        return all;
+    }
+
+    private static async Task<Task<T>> StartScanAsync<T>(Func<Task<T>> start, CancellationToken ct)
     {
         await EngineGate.WaitAsync(ct).ConfigureAwait(false);
-        Task<List<SearchResult>> scan;
+        Task<T> scan;
         try
         {
             scan = start();
