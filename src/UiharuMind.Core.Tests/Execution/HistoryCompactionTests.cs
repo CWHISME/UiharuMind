@@ -164,6 +164,53 @@ public class HistoryCompactionTests
         Assert.NotEqual(Signature(first[0]), Signature(stepped[0]));
     }
 
+    /// <summary>
+    /// 组数少、最近几组特别大（一次并行读十来个文件只算一组）时也压得回去。复现冒烟 handoff-cache：
+    /// 22 组、最近 16 组装了几乎全部历史，下限按两个类单用时的默认（16 / 32）取，折与截都无从下手，请求超窗
+    /// </summary>
+    [Fact]
+    public async Task FewHeavyGroups_StillFitTheWindow()
+    {
+        IChatReducer reducer = HistoryCompaction.Create(() => 20_000, new TurnInputEstimate()).AsChatReducer();
+        CancellationToken token = TestContext.Current.CancellationToken;
+        // 8 组，6 组并行读各约 3k token，合计约 18.3k，过截断水位(0.9 额度 ≈ 15.75k)
+        List<ChatMessage> history = [new(ChatRole.User, "先读前三批")];
+        for (int i = 0; i < 3; i++) AddParallelToolGroup(history, i);
+        history.Add(new ChatMessage(ChatRole.User, "再读后三批"));
+        for (int i = 3; i < 6; i++) AddParallelToolGroup(history, i);
+        int quota = HistoryCompaction.HistoryQuotaFor(20_000, 0);
+        Assert.True(await TokensAsync(history, token) > quota * HistoryCompaction.TruncationThreshold);
+
+        List<ChatMessage> sent = (await reducer.ReduceAsync(history, token)).ToList();
+
+        Assert.True(await TokensAsync(sent, token) <= quota * HistoryCompaction.TruncationThreshold);
+        Assert.Equal("先读前三批", sent[0].Text); //折叠就腾够了，没轮到截断
+        Assert.Equal(history.TakeLast(4).Select(Signature), sent.TakeLast(4).Select(Signature)); //最近两组原样
+    }
+
+    private static void AddParallelToolGroup(List<ChatMessage> history, int batch)
+    {
+        List<AIContent> calls = [];
+        List<AIContent> results = [];
+        for (int i = 0; i < 10; i++)
+        {
+            string callId = $"batch{batch}-{i}";
+            calls.Add(new FunctionCallContent(callId, "Read"));
+            results.Add(new FunctionResultContent(callId, $"{batch}.{i}:{new string('x', 1_200)}"));
+        }
+
+        history.Add(new ChatMessage(ChatRole.Assistant, calls));
+        history.Add(new ChatMessage(ChatRole.Tool, results));
+    }
+
+    // 框架的 CompactionMessageIndex.Create 是 internal:借一份大到不会触发的策略,读它记下的原始大小
+    internal static async Task<long> TokensAsync(IReadOnlyList<ChatMessage> messages, CancellationToken token)
+    {
+        TurnInputEstimate probe = new();
+        await HistoryCompaction.Create(() => 100_000_000, probe).AsChatReducer().ReduceAsync(messages, token);
+        return probe.LastRawHistory;
+    }
+
     private static void AddChatLine(List<ChatMessage> history, int i)
     {
         ChatRole role = i % 2 == 0 ? ChatRole.User : ChatRole.Assistant;

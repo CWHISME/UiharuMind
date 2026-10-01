@@ -76,20 +76,13 @@ public class HistorySupplyTests
         for (int i = 0; i < 200; i++) HistoryCompactionTests.AddToolGroup(history, i);
         int quota = HistoryCompaction.HistoryQuotaFor(ContextLength, 0);
         CancellationToken token = TestContext.Current.CancellationToken;
-        Assert.True(await TokensAsync(history, token) > ContextLength, "原始历史得先超窗，否则测的不是这件事");
+        Assert.True(await HistoryCompactionTests.TokensAsync(history, token) > ContextLength, "原始历史得先超窗，否则测的不是这件事");
 
         IReadOnlyList<ChatMessage> handoff =
             await HistorySupply.ForSideRequestAsync(history, WithTools, ContextLength, 0, token);
 
-        long sent = await TokensAsync(handoff, token);
+        long sent = await HistoryCompactionTests.TokensAsync(handoff, token);
         Assert.True(sent <= quota * HistoryCompaction.TruncationThreshold, $"压完仍有 {sent}");
     }
 
-    // 框架的 CompactionMessageIndex.Create 是 internal:借一份大到不会触发的策略,读它记下的原始大小
-    private static async Task<long> TokensAsync(IReadOnlyList<ChatMessage> messages, CancellationToken token)
-    {
-        TurnInputEstimate probe = new();
-        await HistoryCompaction.Create(() => 100_000_000, probe).AsChatReducer().ReduceAsync(messages, token);
-        return probe.LastRawHistory;
-    }
 }

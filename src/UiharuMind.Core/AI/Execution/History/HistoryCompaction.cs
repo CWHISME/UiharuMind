@@ -56,6 +56,10 @@ public static class HistoryCompaction
     private const int MinReserve = 512;
     private const int MaxReserve = 8192;
 
+    // 折叠与截断都不碰的最近几组，取框架 ContextWindowCompactionStrategy 的值。两个类单用时的默认是 16 与 32，
+    // 按组数而不按 token：一次并行读十几个文件只算一组，最近几组就装下了几乎全部历史，折与截都无从下手，请求直接超窗
+    private const int PreservedGroups = 2;
+
     /// <summary>
     /// 给回复与估算误差预留的 token。随上下文缩放而不是取固定值——固定 8192 会让一个
     /// 4096 上下文的本地模型算出负预算，构造阈值时直接抛。
@@ -111,15 +115,16 @@ public static class HistoryCompaction
             TruncationThreshold, TruncationTarget);
         return new PipelineCompactionStrategy(
         [
-            new ToolResultCompactionStrategy(folding.Trigger, target: folding.Target)
+            new ToolResultCompactionStrategy(folding.Trigger, PreservedGroups, folding.Target)
             {
                 // 默认格式把结果原文照抄，折了等于没折（见 ToolCallFolding）
                 ToolCallFormatter = ToolCallFolding.Format,
             },
-            new TruncationCompactionStrategy(truncation.Trigger, target: truncation.Target),
+            new TruncationCompactionStrategy(truncation.Trigger, PreservedGroups, truncation.Target),
         ]);
     }
 
+    // [MFA绕坑] 绕:只看原始大小定台阶的无状态回差 因:压缩挂在最内层 reducer 上,每次从原始历史重建索引(见 AgentAssembler.MoveCompactionToLeaf),折过哪些无处可记;框架原路 CompactionProvider 把索引存进会话状态、增量追加,固定停止线就自带回差 删除条件:CompactionProvider 认得本地哨兵、改回框架原路,停止线直接写成「低于额度 × 停止比例」
     /// <summary>
     /// 按台阶压缩的触发与停止条件，折叠与截断共用。
     ///
