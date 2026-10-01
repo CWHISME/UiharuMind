@@ -60,7 +60,7 @@ public class DefaultCharacterResourceTests
                 case "DeathNote":
                 case "DrStone":
                 case "CodeGeass":
-                case "Danganronpa":
+                case "SteinsGate":
                     Assert.True(data.IsAgent, $"{id} 在 {folder}/ 下却不是智能体");
                     break;
                 case "Tools":
@@ -110,9 +110,9 @@ public class DefaultCharacterResourceTests
     [InlineData("LawlietAgent")]
     [InlineData("HououinKyoumaAgent")]
     [InlineData("MisakaMikotoAgent")]
-    [InlineData("SaizakiSuisuiAgent")]
+    [InlineData("KinuhataSaiaiAgent")]
     [InlineData("TsuchimikadoMotoharuAgent")]
-    [InlineData("SatenTeiriAgent")]
+    [InlineData("SatenRuikoAgent")]
     [InlineData("IndexAgent")]
     [InlineData("RationalAgent")]
     public void CardWithAnchor_CodaEqualsAnchor(string id)
