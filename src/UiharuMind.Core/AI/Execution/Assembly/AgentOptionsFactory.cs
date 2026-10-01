@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+﻿﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -122,7 +122,7 @@ internal static class AgentOptionsFactory
             : string.Empty;
         chatOptions.Instructions = AgentInstructionsComposer.Compose(chatOptions.Instructions,
             plan.Profile.GroupScene, config,
-            plan.MountVisionTool, plan.WorkingDirectory, plan.WorkspaceInstructions, plan.Mcp.Instructions,
+            plan.WorkingDirectory, plan.WorkspaceInstructions, plan.Mcp.Instructions,
             shellBinary, plan.PythonInterpreterPath, plan.OutputRoomDirectory, plan.MemoryDirectory,
             delegationRoster, character.GetPersonaCoda(), out promptSegments);
 

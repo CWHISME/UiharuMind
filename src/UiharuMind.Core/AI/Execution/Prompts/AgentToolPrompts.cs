@@ -311,27 +311,6 @@ public static class AgentToolPrompts
         }
     }
 
-    /// <summary>
-    /// 识图工具纪律段默认正文。
-    ///
-    /// 附件格式<b>用双引号而不是反引号</b>：反引号在提示词里专表工具名，
-    /// 有不变量测试按这条约定校验（「指名的工具必须真的在同一份工具集里」）。
-    /// 这里从前写的是反引号——主代理那份校验不到（要真工具集才能比对），
-    /// 子代理从前用的是另一句，于是这条违规一直活着，直到两档共用同一段才被撞出来。
-    /// </summary>
-    public const string VisionToolDefault =
-        "- 附件是以 \"[Attached file: <path>]\" 的形式送到的。要看懂一张图的内容(画面、文字、界面、图表等)，" +
-        "就拿那个路径调用 `AnalyzeImage`；需要对比多张图时，把各条路径一并传给同一个调用。" +
-        "绝不要靠文件名去猜。";
-
-    /// <summary>
-    /// 联网工具纪律段默认正文。措辞沿用子代理侧原有的那一句——它本来就只说了
-    /// 「先搜再取正文」这一件事，而那恰好是两个工具的正确配合方式。
-    /// </summary>
-    public static readonly string WebAccessDefault =
-        $"- 查网上的资料用 `{WebSearchTool.ToolName}`，" +
-        $"再对看着有戏的结果用 `{WebFetchTool.ToolName}` 取正文。";
-
     /// <summary>知识库检索工具纪律段默认正文。查询怎么写归参数说明，这里只管何时查、查不到怎么办</summary>
     public const string KnowledgeSearchDefault =
         "- 要在用户挂给本次会话的文档里查东西，调用 `" + KnowledgeTool.ToolName + "`。\n" +

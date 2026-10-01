@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+﻿﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -44,7 +44,6 @@ internal static class AgentInstructionsComposer
     /// <param name="characterPrompt">角色段(CharacterPromptBuilder 的产物)</param>
     /// <param name="groupScene">群场景段正文（不含标题）；空串则不写该段</param>
     /// <param name="config">智能体的能力配置(角色自带)</param>
-    /// <param name="visionToolMounted">识图工具是否已装配</param>
     /// <param name="workingDirectory">工作目录绝对路径;空串则不写该段</param>
     /// <param name="workspaceInstructions">工作区 AGENTS.md 内容;空串则不写该段。
     /// 主代理与子代理统一只取有无(正文由模型按指针自读,见 <see cref="WorkspacePointerSection"/>);
@@ -63,7 +62,7 @@ internal static class AgentInstructionsComposer
     /// </param>
     /// <returns>整段系统提示</returns>
     internal static string Compose(string? characterPrompt, string groupScene, AgentToolConfig config,
-        bool visionToolMounted, string workingDirectory, string workspaceInstructions,
+        string workingDirectory, string workspaceInstructions,
         string mcpInstructions, string shellBinary, string pythonInterpreter,
         string outputRoomDirectory, string memoryDirectory, string delegationRoster,
         string personaCoda, out IReadOnlyList<AgentPromptSegment> segments)
@@ -74,7 +73,7 @@ internal static class AgentInstructionsComposer
         AppendSection(sb, CharacterSection(characterPrompt), EPromptSection.Character, registry);
         // 场景紧跟人格：先知道自己是谁，再知道自己在哪、有谁在，然后才是工具
         AppendSection(sb, SceneSection(groupScene), EPromptSection.Scene, registry);
-        AppendSection(sb, BuildToolDisciplines(config, visionToolMounted, workingDirectory, shellBinary,
+        AppendSection(sb, BuildToolDisciplines(config, workingDirectory, shellBinary,
             pythonInterpreter, outputRoomDirectory, memoryDirectory, delegationRoster),
             EPromptSection.ToolDisciplines, registry);
         if (mcpInstructions.Length > 0)
@@ -288,10 +287,9 @@ internal static class AgentInstructionsComposer
     /// 「工作循环」的子节——层级说的是一件与事实不符的事。
     /// </summary>
     /// <param name="config">智能体的能力配置(角色自带)</param>
-    /// <param name="visionToolMounted">识图工具是否已装配</param>
     /// <param name="outputRoomDirectory">草稿目录绝对路径；空串则不写该段</param>
     /// <returns>harness 层指令文本；无任何内容时为空串</returns>
-    private static string BuildToolDisciplines(AgentToolConfig config, bool visionToolMounted,
+    private static string BuildToolDisciplines(AgentToolConfig config,
         string workingDirectory, string shellBinary, string pythonInterpreter,
         string outputRoomDirectory, string memoryDirectory, string delegationRoster)
     {
@@ -306,8 +304,6 @@ internal static class AgentInstructionsComposer
             // 判据取环境是否真的就绪而非某个开关——告诉模型一个不存在的解释器,
             // 它会照着调然后白烧一次调用(同 ADR 0017"判据取装配结果"那条)
             Python = pythonInterpreter.Length > 0,
-            WebAccess = config.EnableWebSearch,
-            Vision = config.EnableVisionTool && visionToolMounted,
             KnowledgeBase = config.EnableKnowledgeSearchTool,
             Delegation = config.EnableSubAgent,
             DelegationRoster = delegationRoster,

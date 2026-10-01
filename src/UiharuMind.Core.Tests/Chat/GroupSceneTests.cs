@@ -269,7 +269,7 @@ public class GroupSceneTests
     }
 
     private static string Compose(string scene, out IReadOnlyList<AgentPromptSegment> segments) =>
-        AgentInstructionsComposer.Compose("我是 Alice", scene, new AgentToolConfig(), false, "/tmp/uiharu-scene-test",
+        AgentInstructionsComposer.Compose("我是 Alice", scene, new AgentToolConfig(), "/tmp/uiharu-scene-test",
             "", "", "", "", "", "", "", "", out segments);
 
     // 入群先后按标识字母序：a 最早、c 最晚

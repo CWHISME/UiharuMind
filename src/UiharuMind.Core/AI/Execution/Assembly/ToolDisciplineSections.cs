@@ -40,12 +40,6 @@ internal static class ToolDisciplineSections
         /// <summary>受管 Python 环境是否就绪。它不对应任何工具，Python 由 shell 跑（ADR 0019）</summary>
         public bool Python { get; init; }
 
-        /// <summary>联网工具（WebSearch/WebFetch）是否已装配</summary>
-        public bool WebAccess { get; init; }
-
-        /// <summary>识图工具是否已装配</summary>
-        public bool Vision { get; init; }
-
         /// <summary>知识库检索工具是否已装配</summary>
         public bool KnowledgeBase { get; init; }
 
@@ -125,8 +119,7 @@ internal static class ToolDisciplineSections
         list.Section(facts.Shell && facts.Python, AgentPromptHeadings.Python,
             () => AgentToolPrompts.BuildPython(facts.FileWrite));
 
-        // list.Section(facts.WebAccess, AgentPromptHeadings.WebAccess, AgentToolPrompts.WebAccessDefault);
-        // list.Section(facts.Vision, AgentPromptHeadings.Images, AgentToolPrompts.VisionToolDefault);
+        // 纪律段按需而不是挂了工具就写(ADR 0054):联网、识图、生图、看图的用法各自的工具描述已说清,这里不重复
         list.Section(facts.KnowledgeBase, AgentPromptHeadings.KnowledgeBase, AgentToolPrompts.KnowledgeSearchDefault);
         list.Section(facts.Delegation, AgentPromptHeadings.Delegation,
             () => AgentToolPrompts.BuildDelegation(facts.DelegationRoster));

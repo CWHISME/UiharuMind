@@ -1,4 +1,4 @@
-﻿using System.Text.RegularExpressions;
+﻿﻿using System.Text.RegularExpressions;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Compaction;
 using Microsoft.Extensions.AI;
@@ -1465,7 +1465,6 @@ public class SubAgentBoundaryTests
         Assert.DoesNotContain(AgentPromptHeadings.FileModifications, instructions);
         Assert.DoesNotContain("`Edit`", instructions);
         Assert.DoesNotContain("`Write`", instructions);
-        Assert.DoesNotContain(AgentPromptHeadings.WebAccess, instructions); //不挂联网,联网纪律段不得出现
     }
 
     /// <summary>

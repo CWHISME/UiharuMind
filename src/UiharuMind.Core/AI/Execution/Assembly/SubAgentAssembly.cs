@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+﻿﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -414,7 +414,7 @@ internal static class SubAgentAssembly
                 outputRoom),
         };
         ChatOptions subOptions = input.Sampling?.ToChatOptions() ?? new ChatOptions();
-        subOptions.Instructions = BuildSubAgentInstructions(config, hasWeb, hasVision, hasShell,
+        subOptions.Instructions = BuildSubAgentInstructions(config, hasShell,
             input.ShellBinary ?? string.Empty, canMutate, input.PythonOutputDirectory,
             input.WorkingDirectory, outputRoom,
             input.WorkspaceInstructions, input.McpInstructions,
@@ -442,8 +442,6 @@ internal static class SubAgentAssembly
     /// 调用方看不见子代理挂了哪些工具。
     /// </summary>
     /// <param name="config">能力配置</param>
-    /// <param name="hasWeb">联网工具是否已装配(探索档恒为 false,见装配处)</param>
-    /// <param name="hasVision">识图工具是否已装配</param>
     /// <param name="hasShell">命令行工具是否已装配</param>
     /// <param name="shellBinary">实际解析出来的 shell 可执行路径;空串则不写那一句</param>
     /// <param name="canMutate">是否挂了可变更工具(完全自动档)</param>
@@ -452,7 +450,7 @@ internal static class SubAgentAssembly
     /// <param name="workspaceInstructions">工作区说明文件内容(只取有无,有则给指针,不拼正文)</param>
     /// <param name="mcpInstructions">MCP server 自述（与主代理同一份）</param>
     /// <returns>提示词</returns>
-    private static string BuildSubAgentInstructions(AgentToolConfig config, bool hasWeb, bool hasVision, bool hasShell,
+    private static string BuildSubAgentInstructions(AgentToolConfig config, bool hasShell,
         string shellBinary, bool canMutate, string pythonOutputDirectory,
         string workingDirectory, string outputRoomDirectory,
         string workspaceInstructions, string mcpInstructions,
@@ -491,9 +489,6 @@ internal static class SubAgentAssembly
             FileWrite = config.EnableFileAccess && canMutate,
             Shell = hasShell,
             Python = hasShell && pythonOutputDirectory.Length > 0,
-            // 与 hasVision 同口径:段只在实际挂了工具时出现——探索档恒不挂(见装配处)
-            WebAccess = hasWeb,
-            Vision = hasVision,
             // 子代理不挂知识库工具,也不能再派子代理(防无限递归)
             KnowledgeBase = false,
             Delegation = false,

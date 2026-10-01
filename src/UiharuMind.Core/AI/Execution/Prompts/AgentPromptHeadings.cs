@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+﻿﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -54,18 +54,8 @@ public static class AgentPromptHeadings
     /// </summary>
     public const string FileModifications = "## 文件修改";
 
-    /// <summary>识图纪律段</summary>
-    public const string Images = "## 图像";
-
     /// <summary>知识库检索纪律段</summary>
     public const string KnowledgeBase = "## 知识库";
-
-    /// <summary>
-    /// 联网纪律段。<b>主代理从前没有这一段</b>：它按 <c>EnableWebSearch</c> 挂了
-    /// WebSearch/WebFetch 两个工具却零指示，而子代理侧反倒有一句。
-    /// 段落清单两档共用之后，这个不对称自然消掉了。
-    /// </summary>
-    public const string WebAccess = "## 联网";
 
     /// <summary>命令行纪律段</summary>
     public const string Shell = "## 命令行";
