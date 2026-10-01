@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Models;
 
 namespace UiharuMind.Features.Models;
@@ -18,7 +19,8 @@ public partial class CreateRemoteLlmModelWindow : Window
     {
         var window = new CreateRemoteLlmModelWindow
         {
-            DataContext = new RemoteModelEditViewData(remoteModelInfo)
+            DataContext = new RemoteModelEditViewData(remoteModelInfo,
+                name => LlmManager.Instance.TryGetRemoteModelInfo(name, out _))
         };
         return await window.ShowDialog<RemoteModelInfo>(owner);
     }

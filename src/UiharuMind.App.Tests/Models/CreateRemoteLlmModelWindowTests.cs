@@ -45,6 +45,28 @@ public class CreateRemoteLlmModelWindowTests
         Assert.False(vm.CanConfirm);
     }
 
+    /// <summary>新建时与已有模型同名不许确认：模型按名字认，重名会把那一个顶掉</summary>
+    [Fact]
+    public void CreateMode_TakenName_IsDuplicate()
+    {
+        var vm = new RemoteModelEditViewData(null, name => name == "taken-model") { ModelName = "  taken-model " };
+
+        Assert.True(vm.HasDuplicateNameError);
+        Assert.False(vm.CanConfirm);
+    }
+
+    /// <summary>编辑时保留原名放行：它占着的正是自己这个名字</summary>
+    [Fact]
+    public void EditMode_KeepingOriginalName_IsNotDuplicate()
+    {
+        var vm = new RemoteModelEditViewData(CreateSource("taken-model"), _ => true);
+
+        Assert.False(vm.HasDuplicateNameError);
+
+        vm.ModelName = "other-taken-model";
+        Assert.True(vm.HasDuplicateNameError);
+    }
+
     /// <summary>复制已有模型：模型 ID 要一块带过去</summary>
     [Fact]
     public void CopySource_BringsModelIdOver()

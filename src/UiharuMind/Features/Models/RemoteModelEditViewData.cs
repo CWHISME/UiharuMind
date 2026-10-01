@@ -22,6 +22,7 @@ public partial class RemoteModelEditViewData : ObservableObject
 {
     private readonly RemoteModelInfo? _sourceInfo; //编辑模式的原实例,确认时写回并原样返回
     private readonly string? _originalName; //编辑模式的原名,重名校验放行用
+    private readonly Func<string, bool> _isNameTaken; //名字是否已被别的模型占用
     private BaseRemoteModelConfig? _draftConfig; //创建/复制模式下待写入的新配置实例
     private bool _suppressProviderReset; //编辑模式初始化选中服务商时不重置表单
 
@@ -172,7 +173,7 @@ public partial class RemoteModelEditViewData : ObservableObject
             var name = ModelName.Trim();
             if (name.Length == 0) return false;
             if (IsEditMode && name == _originalName) return false;
-            return LlmManager.Instance.TryGetRemoteModelInfo(name, out _);
+            return _isNameTaken(name);
         }
     }
 
@@ -221,8 +222,8 @@ public partial class RemoteModelEditViewData : ObservableObject
     /// </summary>
     public bool CanOpenProviderWebsite => SelectedProvider?.WebsiteUrl is { Length: > 0 };
 
-    /// <summary>新建模式（也供设计期预览）</summary>
-    public RemoteModelEditViewData() : this(null)
+    /// <summary>新建模式，视为没有已占用的名字（供设计期预览与测试）</summary>
+    public RemoteModelEditViewData() : this(null, _ => false)
     {
     }
 
@@ -230,8 +231,10 @@ public partial class RemoteModelEditViewData : ObservableObject
     /// 新建或编辑
     /// </summary>
     /// <param name="remoteModelInfo">要编辑的模型；null 为新建</param>
-    public RemoteModelEditViewData(RemoteModelInfo? remoteModelInfo)
+    /// <param name="isNameTaken">名字是否已被已有模型占用（重名校验用）</param>
+    public RemoteModelEditViewData(RemoteModelInfo? remoteModelInfo, Func<string, bool> isNameTaken)
     {
+        _isNameTaken = isNameTaken;
         _sourceInfo = remoteModelInfo;
         IsEditMode = remoteModelInfo != null;
 
