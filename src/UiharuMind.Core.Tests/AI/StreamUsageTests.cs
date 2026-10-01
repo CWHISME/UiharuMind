@@ -54,4 +54,24 @@ public class StreamUsageTests
         Assert.IsType<UsageContent>(contents[^1]);
         Assert.Equal("ab", string.Concat(contents.OfType<TextContent>().Select(t => t.Text)));
     }
+
+    /// <summary>重试耗尽、整个流抛出时，已经收到的用量照样交出去——花掉的钱不能因为失败就不记</summary>
+    [Fact]
+    public async Task UsageSeenBeforeAFailure_IsStillReported_ThenTheErrorSurfaces()
+    {
+        static async IAsyncEnumerable<ChatResponseUpdate> Failing()
+        {
+            await Task.Yield();
+            yield return Update(new TextContent("a"), Usage(9));
+            throw new HttpIOException(HttpRequestError.ResponseEnded);
+        }
+
+        List<ChatResponseUpdate> output = new();
+        await Assert.ThrowsAsync<HttpIOException>(async () =>
+        {
+            await foreach (ChatResponseUpdate update in StreamUsage.KeepLast(Failing())) output.Add(update);
+        });
+
+        Assert.Equal(9, Assert.Single(output.SelectMany(u => u.Contents).OfType<UsageContent>()).Details.InputTokenCount);
+    }
 }
