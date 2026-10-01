@@ -129,6 +129,21 @@ public class DefaultCharacterResourceTests
     }
 
     /// <summary>
+    /// 生图默认只给 OP-01：每次出图都可能花钱，其余内置卡与新建角色一律关，要用的在编辑页自己开
+    /// </summary>
+    [Fact]
+    public void ImageGeneration_IsOnlyOnForRationalAgentByDefault()
+    {
+        string[] enabled = DefaultCharacterManager.Instance.All.Values
+            .Where(data => data.Tools.EnableImageGeneration)
+            .Select(data => data.CharacterId)
+            .ToArray();
+
+        Assert.Equal(["RationalAgent"], enabled);
+        Assert.False(new AgentToolConfig().EnableImageGeneration);
+    }
+
+    /// <summary>
     /// 身份卡的提示词模板<b>必须保持为空</b>。
     ///
     /// 匿名委派会话的系统提示由 <c>SubAgentAssembly.BuildSubAgentInstructions</c> 现拼，

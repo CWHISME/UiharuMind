@@ -1022,7 +1022,8 @@ public class SubAgentBoundaryTests
     [Fact]
     public void SubAgentTools_IncludeImageGeneration_OnlyWhenParentHasItAndNotExplorer()
     {
-        SubAgentAssembly.SubAgentAssemblyInput available = NewInput() with { ImageGenerationAvailable = true };
+        SubAgentAssembly.SubAgentAssemblyInput available =
+            NewInput(new AgentToolConfig { EnableImageGeneration = true }) with { ImageGenerationAvailable = true };
 
         Assert.DoesNotContain(ImageGenerationTool.ToolName, ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(NewInput())));
         Assert.Contains(ImageGenerationTool.ToolName, ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(available)));

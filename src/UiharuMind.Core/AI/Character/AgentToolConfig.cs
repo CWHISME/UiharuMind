@@ -28,9 +28,10 @@ public class AgentToolConfig
     public bool EnableVisionTool { get; set; } = true;
 
     /// <summary>
-    /// 启用生图工具(GenerateImage,委托生图模型出图、改图)。默认开:没配生图模型时工具本就不挂,不占一个 token
+    /// 启用生图工具(GenerateImage,委托生图模型出图、改图)。默认关:每次出图都可能花钱,
+    /// 内置卡里只有 OP-01 在卡上打开,其余要用的在编辑页自己开
     /// </summary>
-    public bool EnableImageGeneration { get; set; } = true;
+    public bool EnableImageGeneration { get; set; }
 
     /// <summary>启用知识库检索工具(KnowledgeSearch,检索会话挂载的嵌入知识库)</summary>
     public bool EnableKnowledgeSearchTool { get; set; }
