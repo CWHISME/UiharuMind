@@ -1,0 +1,8 @@
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"group.create","args":{"name":"审核组冒烟","members":["AcceleratorAgent","MakiseKurisuAgent","MisakaMikotoAgent","ShokuhouMisakiAgent","ShiraiKurokoAgent","LawlietAgent"],"workspace":"{{WS_EMPTY}}","mode":"serial"}}
+{"op":"group.post","args":{"group":"审核组冒烟","text":"正事：老板拍板要把现有单体服务拆成微服务，说这样扩展性好，限期六个月拆完。你们怎么看？"}}
+{"op":"group.wait","args":{"groups":["审核组冒烟"],"timeoutMinutes":10,"approvals":"deny"}}
+{"op":"group.post","args":{"group":"审核组冒烟","text":"另一个方案：先全量迁移到新集群，出了问题再整批回滚。有人提议这个，你们怎么看？"}}
+{"op":"group.wait","args":{"groups":["审核组冒烟"],"timeoutMinutes":10,"approvals":"deny"}}
+{"op":"group.dump","args":{"group":"审核组冒烟","path":"{{OUT}}/reviewers.md"}}
+{"op":"quit"}

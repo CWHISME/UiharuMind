@@ -1,0 +1,18 @@
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"group.create","args":{"name":"新三角冒烟","members":["KamijouToumaAgent","LastOrderAgent","Misaka10032Agent"],"workspace":"{{WS_EMPTY}}","mode":"serial"}}
+{"op":"group.post","args":{"group":"新三角冒烟","text":"你们仨倒是头回凑一块儿，今天都在忙什么呐？"}}
+{"op":"group.wait","args":{"groups":["新三角冒烟"],"timeoutMinutes":10,"approvals":"deny"}}
+{"op":"group.post","args":{"group":"新三角冒烟","text":"说个正事：我想给每周例会做个自动摘要，录音转文字再自动总结，靠谱吗？"}}
+{"op":"group.wait","args":{"groups":["新三角冒烟"],"timeoutMinutes":10,"approvals":"deny"}}
+{"op":"group.post","args":{"group":"新三角冒烟","text":"那按你们说的来，我该拿什么当验收标准？"}}
+{"op":"group.wait","args":{"groups":["新三角冒烟"],"timeoutMinutes":10,"approvals":"deny"}}
+{"op":"group.dump","args":{"group":"新三角冒烟","path":"{{OUT}}/new-triangle.md"}}
+{"op":"group.create","args":{"name":"对手戏冒烟","members":["MakiseKurisuAgent","HououinKyoumaAgent","CcAgent","LelouchAgent"],"workspace":"{{WS_EMPTY}}","mode":"serial"}}
+{"op":"group.post","args":{"group":"对手戏冒烟","text":"嘿，你们四个凑一块儿画风有点怪——先说说在忙什么？"}}
+{"op":"group.wait","args":{"groups":["对手戏冒烟"],"timeoutMinutes":10,"approvals":"deny"}}
+{"op":"group.post","args":{"group":"对手戏冒烟","text":"正事：老板拍板要上一套 7×24 监控告警，还要求三年内收回成本。你们怎么看？"}}
+{"op":"group.wait","args":{"groups":["对手戏冒烟"],"timeoutMinutes":10,"approvals":"deny"}}
+{"op":"group.post","args":{"group":"对手戏冒烟","text":"假设方案本身定下来了，接下来最该盯什么？"}}
+{"op":"group.wait","args":{"groups":["对手戏冒烟"],"timeoutMinutes":10,"approvals":"deny"}}
+{"op":"group.dump","args":{"group":"对手戏冒烟","path":"{{OUT}}/rivalry.md"}}
+{"op":"quit"}

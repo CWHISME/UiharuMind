@@ -114,6 +114,11 @@ public class DefaultCharacterResourceTests
     [InlineData("TsuchimikadoMotoharuAgent")]
     [InlineData("SatenRuikoAgent")]
     [InlineData("IndexAgent")]
+    [InlineData("KamijouToumaAgent")]
+    [InlineData("LastOrderAgent")]
+    [InlineData("Misaka10032Agent")]
+    [InlineData("MakiseKurisuAgent")]
+    [InlineData("CcAgent")]
     [InlineData("RationalAgent")]
     public void CardWithAnchor_CodaEqualsAnchor(string id)
     {
