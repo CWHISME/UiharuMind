@@ -415,7 +415,7 @@
         <value>Scheduled tasks</value>
     </data>
     <data name="AgentSettingCapVisionTool" xml:space="preserve">
-        <value>Vision tool (AnalyzeImage)</value>
+        <value>Vision tool</value>
     </data>
     <data name="AgentSettingCapKnowledgeSearchTool" xml:space="preserve">
         <value>Knowledge search tool (KnowledgeSearch)</value>
@@ -466,7 +466,7 @@
         <value>Web search and page fetching (WebSearch / WebFetch). With an API key the official search API is used first; otherwise free scraping fallbacks are used.</value>
     </data>
     <data name="AgentGateDescVisionTool" xml:space="preserve">
-        <value>Lets a text-only model ask a vision model about image files (AnalyzeImage). Only mounted when the current model cannot see images itself. The prompt below tells the agent when to use it.</value>
+        <value>Lets the agent understand image files: a model that can see images looks at them directly, a text-only model asks a vision model. The prompt below tells the agent when to use it.</value>
     </data>
     <data name="AgentGateDescKnowledgeSearch" xml:space="preserve">
         <value>Retrieve the knowledge base attached to this session (KnowledgeSearch). When disabled (or the model does not support tool calls), relevant snippets are injected automatically each turn. It searches the documents you provide; the agent's own notes (workspace memory) are a different thing.</value>
@@ -3365,7 +3365,7 @@ Allow them?</value>
     </data>
 
     <data name="AgentSettingCapImageGeneration" xml:space="preserve">
-        <value>Image generation (GenerateImage)</value>
+        <value>Image generation</value>
     </data>
     <data name="AgentGateDescImageGeneration" xml:space="preserve">
         <value>Lets the agent generate or edit images with the image models configured on the Models page, trying them in list order. Only mounted when at least one image model is configured.</value>

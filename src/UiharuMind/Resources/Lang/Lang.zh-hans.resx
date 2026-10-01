@@ -408,7 +408,7 @@
         <value>定时任务</value>
     </data>
     <data name="AgentSettingCapVisionTool" xml:space="preserve">
-        <value>识图工具（AnalyzeImage）</value>
+        <value>识图工具</value>
     </data>
     <data name="AgentSettingCapKnowledgeSearchTool" xml:space="preserve">
         <value>知识库检索工具（KnowledgeSearch）</value>
@@ -459,7 +459,7 @@
         <value>网络搜索与网页抓取（WebSearch / WebFetch）。填入 API key 后优先走官方搜索接口，未填时使用免费的网页抓取兜底。</value>
     </data>
     <data name="AgentGateDescVisionTool" xml:space="preserve">
-        <value>让不识图的模型把图片问题转交给视觉模型（AnalyzeImage）。仅在当前模型自己看不了图时才会挂载。下方提示词告诉智能体何时使用它。</value>
+        <value>让智能体看懂图片文件：当前模型自己能看图时直接看，看不了时转交给视觉模型。下方提示词告诉智能体何时使用它。</value>
     </data>
     <data name="AgentGateDescKnowledgeSearch" xml:space="preserve">
         <value>检索会话挂载的知识库（KnowledgeSearch）。关闭时（或模型不支持工具调用时）改为每轮自动注入相关片段。检索的是你提供的文档；智能体自己的笔记（工作区记忆）是另一回事。</value>
@@ -3358,7 +3358,7 @@
     </data>
 
     <data name="AgentSettingCapImageGeneration" xml:space="preserve">
-        <value>生图工具（GenerateImage）</value>
+        <value>生图工具</value>
     </data>
     <data name="AgentGateDescImageGeneration" xml:space="preserve">
         <value>让智能体用模型页配置的生图模型出图、改图，按列表顺序回退。至少配了一个生图模型才会挂载。</value>
