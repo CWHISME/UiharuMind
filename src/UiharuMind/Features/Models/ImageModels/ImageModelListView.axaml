@@ -1,0 +1,82 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:images="clr-namespace:UiharuMind.Features.Models.ImageModels"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="UiharuMind.Features.Models.ImageModels.ImageModelListView"
+             x:DataType="images:ImageModelListViewData">
+
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Spacing="8">
+            <TextBlock Text="{loc:Loc ImageModelListHint}" Classes="muted" TextWrapping="Wrap" />
+            <Button Content="{loc:Loc AddBtn}" Command="{Binding AddCommand}" HorizontalAlignment="Left" />
+        </StackPanel>
+
+        <TextBlock DockPanel.Dock="Top" Margin="0,16,0,0" Classes="muted"
+                   Text="{loc:Loc ImageModelListEmpty}" IsVisible="{Binding !HasItems}" />
+
+        <ScrollViewer Margin="0,12,0,0" HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding Items}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="images:ImageModelItemViewData">
+                        <Border BorderBrush="{DynamicResource SemiGrey1}" CornerRadius="12" BorderThickness="1"
+                                Padding="12,8" Margin="0,0,0,8">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                <!-- 序号即回退顺序 -->
+                                <TextBlock Text="{Binding Order}" FontSize="18" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource SemiGrey5}" />
+                                <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <SelectableTextBlock Text="{Binding Name}" />
+                                        <controls:KindBadge Header="{loc:Loc ImageModelEditingBadge}"
+                                                            BadgeBackground="Gold"
+                                                            IsVisible="{Binding SupportsEditing}" />
+                                    </StackPanel>
+                                    <SelectableTextBlock Text="{Binding Detail}" FontSize="12" />
+                                    <SelectableTextBlock Text="{Binding Endpoint}" FontSize="12"
+                                                         Foreground="{DynamicResource SemiGrey6}" />
+                                    <TextBlock Text="{Binding StatusText}" FontSize="12" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource SemiGreen6}"
+                                               IsVisible="{Binding IsReady}" />
+                                    <TextBlock Text="{Binding StatusText}" FontSize="12" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource MessageStatusErrorBrush}"
+                                               IsVisible="{Binding !IsReady}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
+                                            VerticalAlignment="Center">
+                                    <Button Classes="NoneStyle" Padding="6" Cursor="Hand"
+                                            ToolTip.Tip="{loc:Loc ImageModelMoveUp}"
+                                            IsEnabled="{Binding CanMoveUp}"
+                                            Command="{Binding $parent[ItemsControl].((images:ImageModelListViewData)DataContext).MoveUpCommand}"
+                                            CommandParameter="{Binding}">
+                                        <controls:ThemedSvgIcon Width="14" Height="14" IconName="chevron-down">
+                                            <controls:ThemedSvgIcon.RenderTransform>
+                                                <RotateTransform Angle="180" />
+                                            </controls:ThemedSvgIcon.RenderTransform>
+                                        </controls:ThemedSvgIcon>
+                                    </Button>
+                                    <Button Classes="NoneStyle" Padding="6" Cursor="Hand"
+                                            ToolTip.Tip="{loc:Loc ImageModelMoveDown}"
+                                            IsEnabled="{Binding CanMoveDown}"
+                                            Command="{Binding $parent[ItemsControl].((images:ImageModelListViewData)DataContext).MoveDownCommand}"
+                                            CommandParameter="{Binding}">
+                                        <controls:ThemedSvgIcon Width="14" Height="14" IconName="chevron-down" />
+                                    </Button>
+                                    <Button CornerRadius="15" Content="{loc:Loc ModifyBtn}"
+                                            Command="{Binding $parent[ItemsControl].((images:ImageModelListViewData)DataContext).EditCommand}"
+                                            CommandParameter="{Binding}" />
+                                    <Button CornerRadius="15" Content="{loc:Loc Delete}"
+                                            Command="{Binding $parent[ItemsControl].((images:ImageModelListViewData)DataContext).DeleteCommand}"
+                                            CommandParameter="{Binding}" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>

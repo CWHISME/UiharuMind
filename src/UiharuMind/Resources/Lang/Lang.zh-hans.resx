@@ -3357,4 +3357,140 @@
 · 项目级 MCP 与记忆随工作区一起换</value>
     </data>
 
+    <data name="AgentSettingCapImageGeneration" xml:space="preserve">
+        <value>生图工具（GenerateImage）</value>
+    </data>
+    <data name="AgentGateDescImageGeneration" xml:space="preserve">
+        <value>让智能体用模型页配置的生图模型出图、改图，按列表顺序回退。至少配了一个生图模型才会挂载。</value>
+    </data>
+    <data name="ModelPageChatModelsTab" xml:space="preserve">
+        <value>对话模型</value>
+    </data>
+    <data name="ModelPageImageModelsTab" xml:space="preserve">
+        <value>生图模型</value>
+    </data>
+    <data name="ImageModelListHint" xml:space="preserve">
+        <value>智能体用这些模型出图、改图。从上往下依次尝试；只有当前这个用不了（没配好、连不上、限流、服务端出错）时才换下一个。提示词被拒不会换下一个。</value>
+    </data>
+    <data name="ImageModelListEmpty" xml:space="preserve">
+        <value>还没有生图模型。添加一个，智能体就能出图了。</value>
+    </data>
+    <data name="ImageModelStateReady" xml:space="preserve">
+        <value>就绪</value>
+    </data>
+    <data name="ImageModelStateNotConfigured" xml:space="preserve">
+        <value>未配置</value>
+    </data>
+    <data name="ImageModelStateCooling" xml:space="preserve">
+        <value>连续失败，暂停使用：{0}</value>
+    </data>
+    <data name="ImageModelEditingBadge" xml:space="preserve">
+        <value>可编辑</value>
+    </data>
+    <data name="ImageModelMoveUp" xml:space="preserve">
+        <value>上移</value>
+    </data>
+    <data name="ImageModelMoveDown" xml:space="preserve">
+        <value>下移</value>
+    </data>
+    <data name="ImageModelDeleteConfirm" xml:space="preserve">
+        <value>确定删除生图模型 {0} 吗？</value>
+    </data>
+    <data name="ImageModelWindowTitle" xml:space="preserve">
+        <value>生图模型</value>
+    </data>
+    <data name="ImageModelCreateTitle" xml:space="preserve">
+        <value>添加生图模型</value>
+    </data>
+    <data name="ImageModelEditTitle" xml:space="preserve">
+        <value>编辑生图模型</value>
+    </data>
+    <data name="ImageModelCreateHint" xml:space="preserve">
+        <value>在左侧选择服务商，地址与接口格式会自动填好。</value>
+    </data>
+    <data name="ImageModelEditHint" xml:space="preserve">
+        <value>改动从下一次出图起生效。</value>
+    </data>
+    <data name="ImageModelSelectPreset" xml:space="preserve">
+        <value>服务商</value>
+    </data>
+    <data name="ImageModelPresetCustom" xml:space="preserve">
+        <value>自定义</value>
+    </data>
+    <data name="ImageModelCopyKeyFrom" xml:space="preserve">
+        <value>沿用已有对话模型的密钥</value>
+    </data>
+    <data name="ImageModelCopyKeyHint" xml:space="preserve">
+        <value>只复制一次，之后那个对话模型改了密钥不会同步过来。</value>
+    </data>
+    <data name="ImageModelApiKeyHint" xml:space="preserve">
+        <value>只有不需要鉴权的自建服务才可以留空。</value>
+    </data>
+    <data name="ImageModelNameLabel" xml:space="preserve">
+        <value>名称</value>
+    </data>
+    <data name="ImageModelNameError" xml:space="preserve">
+        <value>请输入一个其他生图模型没用过的名称</value>
+    </data>
+    <data name="ImageModelEndpointLabel" xml:space="preserve">
+        <value>服务地址</value>
+    </data>
+    <data name="ImageModelEndpointHint" xml:space="preserve">
+        <value>服务根地址，如 https://api.openai.com/v1。出图接口的路径会按接口格式补上。</value>
+    </data>
+    <data name="ImageModelEndpointError" xml:space="preserve">
+        <value>请输入合法的 http(s) 地址</value>
+    </data>
+    <data name="ImageModelIdLabel" xml:space="preserve">
+        <value>模型 ID</value>
+    </data>
+    <data name="ImageModelIdError" xml:space="preserve">
+        <value>请输入模型 ID</value>
+    </data>
+    <data name="ImageModelDialectLabel" xml:space="preserve">
+        <value>接口格式</value>
+    </data>
+    <data name="ImageModelDialectHint" xml:space="preserve">
+        <value>请求怎么写。号称 OpenAI 兼容的服务商，出图接口也各不相同。</value>
+    </data>
+    <data name="ImageModelResolutionLabel" xml:space="preserve">
+        <value>分辨率</value>
+    </data>
+    <data name="ImageModelResolutionHint" xml:space="preserve">
+        <value>档位越高越贵。OpenAI 格式不看这一项，用固定尺寸。</value>
+    </data>
+    <data name="ImageModelSupportsEditing" xml:space="preserve">
+        <value>支持编辑（带输入图）</value>
+    </data>
+    <data name="ImageModelSupportsEditingHint" xml:space="preserve">
+        <value>不支持编辑的模型，在智能体传了输入图时会被跳过。</value>
+    </data>
+    <data name="ImageModelTimeoutLabel" xml:space="preserve">
+        <value>超时（秒）</value>
+    </data>
+    <data name="ImageModelTimeoutError" xml:space="preserve">
+        <value>请输入 10 到 3600 之间的数</value>
+    </data>
+    <data name="ImageModelExtraBodyLabel" xml:space="preserve">
+        <value>附加请求参数（JSON）</value>
+    </data>
+    <data name="ImageModelExtraBodyHint" xml:space="preserve">
+        <value>并入每次请求的顶层，同名字段覆盖默认值，例如 {"watermark": false}。</value>
+    </data>
+    <data name="ImageModelExtraBodyError" xml:space="preserve">
+        <value>必须是 JSON 对象</value>
+    </data>
+    <data name="AgentSettingImageModelsTitle" xml:space="preserve">
+        <value>生图</value>
+    </data>
+    <data name="AgentSettingImageModelsSummary" xml:space="preserve">
+        <value>已配置 {0} 个生图模型，按列表顺序回退。</value>
+    </data>
+    <data name="AgentSettingImageModelsNone" xml:space="preserve">
+        <value>还没有配置生图模型。添加之后智能体才能使用生图工具。</value>
+    </data>
+    <data name="AgentSettingImageModelsManage" xml:space="preserve">
+        <value>管理生图模型</value>
+    </data>
+
 </root>

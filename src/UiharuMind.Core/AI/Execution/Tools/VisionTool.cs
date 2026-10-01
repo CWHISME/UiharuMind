@@ -12,6 +12,7 @@ using System.Text;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character.PromptActions;
 using UiharuMind.Core.AI.Execution.Files;
+using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.AI.Execution;
 
@@ -65,7 +66,7 @@ public static class VisionTool
             }
 
             byte[] imageBytes = await File.ReadAllBytesAsync(full, cancellationToken).ConfigureAwait(false);
-            images.Add(new ImageInput(imageBytes, InferMediaType(full)));
+            images.Add(new ImageInput(imageBytes, ImageFormats.MediaTypeFromPath(full, "image/jpeg")));
         }
 
         // 任一缺失就整体报错并列出全部缺失路径,让模型修正后重试;
@@ -81,17 +82,5 @@ public static class VisionTool
         }
 
         return result.Length == 0 ? "(vision model returned no answer)" : result.ToString();
-    }
-
-    /// <summary>按扩展名推 MIME 类型;推不出默认 jpeg(视觉问答链路的老默认)</summary>
-    private static string InferMediaType(string path)
-    {
-        return Path.GetExtension(path).ToLowerInvariant() switch
-        {
-            ".png" => "image/png",
-            ".webp" => "image/webp",
-            ".gif" => "image/gif",
-            _ => "image/jpeg", //含 .jpg/.jpeg 与一切未知扩展
-        };
     }
 }

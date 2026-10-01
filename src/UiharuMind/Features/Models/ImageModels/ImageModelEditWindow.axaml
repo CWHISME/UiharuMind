@@ -1,0 +1,195 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:images="clr-namespace:UiharuMind.Features.Models.ImageModels"
+        xmlns:models="clr-namespace:UiharuMind.Core.AI.Models;assembly=UiharuMind.Core"
+        xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+        xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+        mc:Ignorable="d" d:DesignWidth="820" d:DesignHeight="620"
+        x:Class="UiharuMind.Features.Models.ImageModels.ImageModelEditWindow"
+        x:DataType="images:ImageModelEditViewData"
+        Width="820"
+        Height="620"
+        MinWidth="680"
+        MinHeight="480"
+        WindowStartupLocation="CenterOwner"
+        Title="{loc:Loc ImageModelWindowTitle}">
+
+    <Window.Styles>
+        <Style Selector="TextBlock.error">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource MessageStatusErrorBrush}" />
+        </Style>
+        <Style Selector="Button.copy-chip">
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="CornerRadius" Value="14" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource SemiGrey0}">
+
+        <!-- 头部:图标 + 标题 -->
+        <Border Padding="18,15" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="50,*" ColumnSpacing="12">
+                <Border Width="50" Height="50" CornerRadius="8" Background="{DynamicResource SemiBlue0}">
+                    <controls:ThemedSvgIcon Width="24" Height="24" IconName="image" />
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
+                    <TextBlock Text="{loc:Loc ImageModelCreateTitle}" FontSize="20" IsVisible="{Binding !IsEditMode}" />
+                    <TextBlock Text="{loc:Loc ImageModelEditTitle}" FontSize="20" IsVisible="{Binding IsEditMode}" />
+                    <TextBlock Text="{loc:Loc ImageModelCreateHint}" Classes="muted" TextWrapping="Wrap"
+                               IsVisible="{Binding !IsEditMode}" />
+                    <TextBlock Text="{loc:Loc ImageModelEditHint}" Classes="muted" TextWrapping="Wrap"
+                               IsVisible="{Binding IsEditMode}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 主体:左侧服务商(仅新建) / 右侧表单 -->
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*">
+
+            <Border Width="200" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,0,1,0"
+                    IsVisible="{Binding !IsEditMode}">
+                <Grid RowDefinitions="Auto,*">
+                    <TextBlock Text="{loc:Loc ImageModelSelectPreset}" Margin="16,14,16,8" />
+                    <ListBox Grid.Row="1" Background="Transparent"
+                             ItemsSource="{Binding Presets}"
+                             SelectedItem="{Binding SelectedPreset}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="images:ImageModelPresetItem">
+                                <TextBlock Text="{Binding DisplayName}" FontSize="14" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+
+            <ScrollViewer Grid.Column="1">
+                <StackPanel Margin="18" Spacing="14">
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="{loc:Loc ApiKey}" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <TextBox Text="{Binding ApiKey}" PasswordChar="*" />
+                            <Button Grid.Column="1" VerticalAlignment="Stretch" Padding="14,0"
+                                    Click="OpenWebsite_Click" IsVisible="{Binding HasWebsite}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <controls:ThemedSvgIcon Width="14" Height="14" IconName="square-arrow-out-up-right" />
+                                    <TextBlock Text="{loc:Loc RemoteModelOpenWebsite}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                        <TextBlock Text="{loc:Loc ImageModelApiKeyHint}" Classes="muted" TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <!-- 同一服务地址下的对话模型:沿用它的密钥(只复制一次,不引用) -->
+                    <StackPanel Spacing="6" IsVisible="{Binding HasCopySources}">
+                        <TextBlock Text="{loc:Loc ImageModelCopyKeyFrom}" />
+                        <TextBlock Text="{loc:Loc ImageModelCopyKeyHint}" Classes="muted" TextWrapping="Wrap" />
+                        <ItemsControl ItemsSource="{Binding CopySources}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:RemoteModelInfo">
+                                    <Button Classes="copy-chip" Margin="0,0,8,8"
+                                            Content="{Binding ModelName}"
+                                            Command="{Binding $parent[ItemsControl].((images:ImageModelEditViewData)DataContext).CopyKeyFromCommand}"
+                                            CommandParameter="{Binding}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="{loc:Loc ImageModelNameLabel}" />
+                        <TextBox Text="{Binding Name}" />
+                        <TextBlock Classes="error" Text="{loc:Loc ImageModelNameError}"
+                                   IsVisible="{Binding HasNameError}" />
+                    </StackPanel>
+
+                    <!-- 与文本模型窗口同一种控件:下拉箭头本身就说明有候选,也照样能手输自定义 id -->
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="{loc:Loc ImageModelIdLabel}" />
+                        <ComboBox IsEditable="True"
+                                  ItemsSource="{Binding ModelIdOptions}"
+                                  SelectedItem="{Binding SelectedModelIdOption}"
+                                  Text="{Binding ModelId}"
+                                  HorizontalAlignment="Stretch"
+                                  IsVisible="{Binding HasModelIdOptions}" />
+                        <TextBox Text="{Binding ModelId}" IsVisible="{Binding !HasModelIdOptions}" />
+                        <TextBlock Classes="error" Text="{loc:Loc ImageModelIdError}"
+                                   IsVisible="{Binding HasModelIdError}" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="{loc:Loc ImageModelEndpointLabel}" />
+                        <TextBox Text="{Binding Endpoint}" />
+                        <TextBlock Text="{loc:Loc ImageModelEndpointHint}" Classes="muted" TextWrapping="Wrap" />
+                        <TextBlock Classes="error" Text="{loc:Loc ImageModelEndpointError}"
+                                   IsVisible="{Binding HasEndpointError}" />
+                    </StackPanel>
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="{loc:Loc ImageModelDialectLabel}" />
+                            <ComboBox ItemsSource="{Binding DialectOptions}" SelectedItem="{Binding Dialect}"
+                                      HorizontalAlignment="Stretch" />
+                            <TextBlock Text="{loc:Loc ImageModelDialectHint}" Classes="muted" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="6">
+                            <TextBlock Text="{loc:Loc ImageModelResolutionLabel}" />
+                            <ComboBox ItemsSource="{Binding ResolutionOptions}" SelectedItem="{Binding Resolution}"
+                                      HorizontalAlignment="Stretch">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="images:ImageResolutionOption">
+                                        <TextBlock Text="{Binding Label}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBlock Text="{loc:Loc ImageModelResolutionHint}" Classes="muted" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+
+                    <StackPanel Spacing="6">
+                        <CheckBox IsChecked="{Binding SupportsEditing}" Content="{loc:Loc ImageModelSupportsEditing}" />
+                        <TextBlock Text="{loc:Loc ImageModelSupportsEditingHint}" Classes="muted" TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="{loc:Loc ImageModelTimeoutLabel}" />
+                        <TextBox Text="{Binding TimeoutText}" Width="160" HorizontalAlignment="Left" />
+                        <TextBlock Classes="error" Text="{loc:Loc ImageModelTimeoutError}"
+                                   IsVisible="{Binding HasTimeoutError}" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="{loc:Loc ImageModelExtraBodyLabel}" />
+                        <TextBox Text="{Binding ExtraBody}" Classes="mono" AcceptsReturn="True" MinHeight="64"
+                                 TextWrapping="Wrap" />
+                        <TextBlock Text="{loc:Loc ImageModelExtraBodyHint}" Classes="muted" TextWrapping="Wrap" />
+                        <TextBlock Classes="error" Text="{loc:Loc ImageModelExtraBodyError}"
+                                   IsVisible="{Binding HasExtraBodyError}" />
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- 底部按钮条 -->
+        <Border Grid.Row="2" Padding="14" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,1,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                <Button Content="{loc:Loc CancelBtn}" Click="Cancel_Click" />
+                <Button IsEnabled="{Binding CanConfirm}" Click="Confirm_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <controls:ThemedSvgIcon Width="15" Height="15" IconName="save" />
+                        <TextBlock Text="{loc:Loc CreateBtn}" IsVisible="{Binding !IsEditMode}" />
+                        <TextBlock Text="{loc:Loc SaveBtn}" IsVisible="{Binding IsEditMode}" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

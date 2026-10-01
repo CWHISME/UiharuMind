@@ -147,6 +147,12 @@ internal static class AgentAssembler
             Add(EAgentCapability.VisionTool, VisionTool.Create(paths));
         }
 
+        // 生图只看配置:角色开着、且至少配了一个生图模型,连不连得通不看(ADR 0052)
+        if (plan.MountImageGeneration)
+        {
+            Add(EAgentCapability.ImageGeneration, ImageGenerationTool.Create(paths));
+        }
+
         // 委派:工具集与权限档都从主代理派生,全部能力都关掉时不挂载。
         // ADR 0044 之前这里挂三把(通用派活 / 只读派活 / 续跑),现在只有一把 SendMessage——
         // 新开与续跑由收件人参数自己分流,档位差异已退役。

@@ -63,6 +63,9 @@ internal static class SubAgentAssembly
         /// <summary>识图工具是否可挂(开关开且当前模型不自带视觉)</summary>
         public bool VisionToolAvailable { get; init; } = true;
 
+        /// <summary>生图工具是否可挂(主代理那一侧挂上了)</summary>
+        public bool ImageGenerationAvailable { get; init; }
+
         /// <summary>继承自主代理的权限档,决定可变更工具挂不挂</summary>
         public EAgentPermissionMode PermissionMode { get; init; } = EAgentPermissionMode.ReadOnly;
 
@@ -192,6 +195,7 @@ internal static class SubAgentAssembly
             Name = identity.AgentName,
             WorkingDirectory = plan.WorkingDirectory,
             VisionToolAvailable = plan.MountVisionTool,
+            ImageGenerationAvailable = plan.MountImageGeneration,
             PermissionMode = effectivePermission,
             WorkspaceInstructions = plan.WorkspaceInstructions,
             ShellTool = shellTool,
@@ -258,6 +262,7 @@ internal static class SubAgentAssembly
             Name = name,
             WorkingDirectory = workingDirectory,
             VisionToolAvailable = plan.MountVisionTool,
+            ImageGenerationAvailable = plan.MountImageGeneration,
             PermissionMode = effectivePermission,
             WorkspaceInstructions = plan.WorkspaceInstructions,
             ShellTool = shellTool,
@@ -360,6 +365,12 @@ internal static class SubAgentAssembly
         if (hasVision)
         {
             tools.Add(VisionTool.Create(paths));
+        }
+
+        // 生图要写草稿目录:探索档恒定只读,与联网同一口径不挂
+        if (canMutate && config.EnableImageGeneration && input.ImageGenerationAvailable)
+        {
+            tools.Add(ImageGenerationTool.Create(paths));
         }
 
         if (canMutate)

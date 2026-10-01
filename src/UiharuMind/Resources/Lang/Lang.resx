@@ -3364,4 +3364,140 @@ Allow them?</value>
 · Project MCP servers and memory follow the new workspace</value>
     </data>
 
+    <data name="AgentSettingCapImageGeneration" xml:space="preserve">
+        <value>Image generation (GenerateImage)</value>
+    </data>
+    <data name="AgentGateDescImageGeneration" xml:space="preserve">
+        <value>Lets the agent generate or edit images with the image models configured on the Models page, trying them in list order. Only mounted when at least one image model is configured.</value>
+    </data>
+    <data name="ModelPageChatModelsTab" xml:space="preserve">
+        <value>Chat models</value>
+    </data>
+    <data name="ModelPageImageModelsTab" xml:space="preserve">
+        <value>Image models</value>
+    </data>
+    <data name="ImageModelListHint" xml:space="preserve">
+        <value>Agents use these models to generate and edit images. They are tried from top to bottom; the next one is used only when the current one is unavailable (not configured, unreachable, rate-limited or a server error). A rejected prompt never moves on to the next model.</value>
+    </data>
+    <data name="ImageModelListEmpty" xml:space="preserve">
+        <value>No image model yet. Add one to let agents generate images.</value>
+    </data>
+    <data name="ImageModelStateReady" xml:space="preserve">
+        <value>Ready</value>
+    </data>
+    <data name="ImageModelStateNotConfigured" xml:space="preserve">
+        <value>Not configured</value>
+    </data>
+    <data name="ImageModelStateCooling" xml:space="preserve">
+        <value>Paused after repeated failures: {0}</value>
+    </data>
+    <data name="ImageModelEditingBadge" xml:space="preserve">
+        <value>Editing</value>
+    </data>
+    <data name="ImageModelMoveUp" xml:space="preserve">
+        <value>Move up</value>
+    </data>
+    <data name="ImageModelMoveDown" xml:space="preserve">
+        <value>Move down</value>
+    </data>
+    <data name="ImageModelDeleteConfirm" xml:space="preserve">
+        <value>Delete image model {0}?</value>
+    </data>
+    <data name="ImageModelWindowTitle" xml:space="preserve">
+        <value>Image model</value>
+    </data>
+    <data name="ImageModelCreateTitle" xml:space="preserve">
+        <value>Add image model</value>
+    </data>
+    <data name="ImageModelEditTitle" xml:space="preserve">
+        <value>Edit image model</value>
+    </data>
+    <data name="ImageModelCreateHint" xml:space="preserve">
+        <value>Pick a provider on the left; its address and dialect are filled in for you.</value>
+    </data>
+    <data name="ImageModelEditHint" xml:space="preserve">
+        <value>Changes take effect from the next image request.</value>
+    </data>
+    <data name="ImageModelSelectPreset" xml:space="preserve">
+        <value>Provider</value>
+    </data>
+    <data name="ImageModelPresetCustom" xml:space="preserve">
+        <value>Custom</value>
+    </data>
+    <data name="ImageModelCopyKeyFrom" xml:space="preserve">
+        <value>Use the API key of an existing chat model</value>
+    </data>
+    <data name="ImageModelCopyKeyHint" xml:space="preserve">
+        <value>Copies the key once; later changes to that chat model do not carry over.</value>
+    </data>
+    <data name="ImageModelApiKeyHint" xml:space="preserve">
+        <value>Leave empty only for self-hosted services that need no authentication.</value>
+    </data>
+    <data name="ImageModelNameLabel" xml:space="preserve">
+        <value>Name</value>
+    </data>
+    <data name="ImageModelNameError" xml:space="preserve">
+        <value>Enter a name that is not used by another image model</value>
+    </data>
+    <data name="ImageModelEndpointLabel" xml:space="preserve">
+        <value>Endpoint</value>
+    </data>
+    <data name="ImageModelEndpointHint" xml:space="preserve">
+        <value>The service root, such as https://api.openai.com/v1. The image paths are appended according to the dialect.</value>
+    </data>
+    <data name="ImageModelEndpointError" xml:space="preserve">
+        <value>Enter a valid http(s) address</value>
+    </data>
+    <data name="ImageModelIdLabel" xml:space="preserve">
+        <value>Model ID</value>
+    </data>
+    <data name="ImageModelIdError" xml:space="preserve">
+        <value>Enter the model ID</value>
+    </data>
+    <data name="ImageModelDialectLabel" xml:space="preserve">
+        <value>Dialect</value>
+    </data>
+    <data name="ImageModelDialectHint" xml:space="preserve">
+        <value>How requests are shaped. Providers that claim OpenAI compatibility still differ on their image endpoints.</value>
+    </data>
+    <data name="ImageModelResolutionLabel" xml:space="preserve">
+        <value>Resolution</value>
+    </data>
+    <data name="ImageModelResolutionHint" xml:space="preserve">
+        <value>Higher tiers cost more. The OpenAI dialect ignores it and uses fixed sizes.</value>
+    </data>
+    <data name="ImageModelSupportsEditing" xml:space="preserve">
+        <value>Supports editing (input images)</value>
+    </data>
+    <data name="ImageModelSupportsEditingHint" xml:space="preserve">
+        <value>Models without editing are skipped when the agent passes input images.</value>
+    </data>
+    <data name="ImageModelTimeoutLabel" xml:space="preserve">
+        <value>Timeout (seconds)</value>
+    </data>
+    <data name="ImageModelTimeoutError" xml:space="preserve">
+        <value>Enter a number from 10 to 3600</value>
+    </data>
+    <data name="ImageModelExtraBodyLabel" xml:space="preserve">
+        <value>Extra request fields (JSON)</value>
+    </data>
+    <data name="ImageModelExtraBodyHint" xml:space="preserve">
+        <value>Merged into the top level of every request, overriding fields with the same name, e.g. {"watermark": false}.</value>
+    </data>
+    <data name="ImageModelExtraBodyError" xml:space="preserve">
+        <value>Must be a JSON object</value>
+    </data>
+    <data name="AgentSettingImageModelsTitle" xml:space="preserve">
+        <value>Image generation</value>
+    </data>
+    <data name="AgentSettingImageModelsSummary" xml:space="preserve">
+        <value>{0} image model(s) configured, tried in list order.</value>
+    </data>
+    <data name="AgentSettingImageModelsNone" xml:space="preserve">
+        <value>No image model configured. Agents can use image generation once one is added.</value>
+    </data>
+    <data name="AgentSettingImageModelsManage" xml:space="preserve">
+        <value>Manage image models</value>
+    </data>
+
 </root>

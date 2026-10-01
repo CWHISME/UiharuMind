@@ -85,6 +85,18 @@
                     <!-- 联网搜索(凭据 + 链路状态)自成一块，见 WebSearchSettingsView -->
                     <vm:WebSearchSettingsView DataContext="{Binding WebSearch}" />
 
+                    <!-- 生图模型的列表在模型页(ADR 0052),这里只给摘要与入口 -->
+                    <Border Classes="form-pane" Padding="14">
+                        <StackPanel Spacing="6">
+                            <TextBlock FontSize="13" Text="{loc:Loc AgentSettingImageModelsTitle}" />
+                            <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
+                                       Text="{Binding ImageModelsSummary}" />
+                            <Button HorizontalAlignment="Left" Margin="0,4,0,0"
+                                    Content="{loc:Loc AgentSettingImageModelsManage}"
+                                    Command="{Binding ManageImageModelsCommand}" />
+                        </StackPanel>
+                    </Border>
+
                     <!-- 受管 Python 环境。它不是能力开关:agent 用 Shell 调那个解释器,见 ADR 0019 -->
                     <vm:PythonEnvSettingsView DataContext="{Binding PythonEnv}" />
 

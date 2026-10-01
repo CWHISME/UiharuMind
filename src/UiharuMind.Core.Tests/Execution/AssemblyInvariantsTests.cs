@@ -891,7 +891,7 @@ public class HarnessInstructionsCompositionTests
             FileToolNames.Read, FileToolNames.Write, FileToolNames.Edit, FileToolNames.Glob,
             FileToolNames.Grep, CharacterRunnerFactory.ShellToolName,
             WebSearchTool.ToolName, WebFetchTool.ToolName, VisionTool.ToolName, KnowledgeTool.ToolName,
-            SchedulerTools.ToolName,
+            SchedulerTools.ToolName, ImageGenerationTool.ToolName,
             SubAgentTool.ToolName,
         };
 
@@ -1014,6 +1014,20 @@ public class SubAgentBoundaryTests
         // 这条不变量就会在不报错的情况下失效
         string[] mutating = [..FileToolNames.Mutating, CharacterRunnerFactory.ShellToolName];
         Assert.DoesNotContain(names, name => mutating.Contains(name));
+    }
+
+    /// <summary>
+    /// 生图随主代理那一侧挂没挂（配了生图模型才挂）；它要写草稿目录，探索档恒定只读，不挂
+    /// </summary>
+    [Fact]
+    public void SubAgentTools_IncludeImageGeneration_OnlyWhenParentHasItAndNotExplorer()
+    {
+        SubAgentAssembly.SubAgentAssemblyInput available = NewInput() with { ImageGenerationAvailable = true };
+
+        Assert.DoesNotContain(ImageGenerationTool.ToolName, ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(NewInput())));
+        Assert.Contains(ImageGenerationTool.ToolName, ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(available)));
+        Assert.DoesNotContain(ImageGenerationTool.ToolName, ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(
+            available with { SubAgentProfile = SubAgentProfile.Explorer })));
     }
 
     /// <summary>

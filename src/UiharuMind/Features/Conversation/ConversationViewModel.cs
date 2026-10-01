@@ -58,7 +58,8 @@ namespace UiharuMind.Features.Conversation;
 /// 由角色的 IsAgent 控制显隐，因此不需要为此分出子类；
 /// 原先的 ConversationViewModelBase 只有一个实现，已并入本类。
 /// </summary>
-public partial class ConversationViewModel : ViewModelBase, IConversationItemActionHost, IConversationReconcileHost, IDisposable
+public partial class ConversationViewModel : ViewModelBase, IConversationItemActionHost, IConversationReconcileHost,
+    IAttachmentTrayHost, IDisposable
 {
     /// <summary>发送身份:以用户身份发送并生成回复,或以角色身份直接写入一条回复</summary>
     public enum SendMode
@@ -496,9 +497,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _messages = messages;
         // 子模型只吃窄依赖、不反向持有本类:附件盘取会话要用委托(首轮发送时会话还不存在),
         // 命令面板要能改写输入框并读当前角色,挂接器只需报忙碌态
-        Tray = new AttachmentTrayViewData(() => CurrentSession,
-            // 发图退路按会话形态判（ADR 0050）：普通对话形态的会话不挂识图工具，图片照样会白发
-            () => VisionFallback.HasFallback(IsAgentSession, SessionCharacter.Tools));
+        Tray = new AttachmentTrayViewData(this);
         Palette = new CommandPaletteViewData((text, caret) =>
             {
                 _composerCaret = caret;
@@ -1942,6 +1941,13 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
     /// <inheritdoc />
     void IConversationItemActionHost.NotifyItemsWired() => OnPropertyChanged(nameof(CanRegenerate));
+
+    //================= IAttachmentTrayHost =================
+
+    ChatSession? IAttachmentTrayHost.Session => CurrentSession;
+
+    // 发图退路按会话形态判（ADR 0050）：普通对话形态的会话不挂识图工具，图片照样会白发
+    bool IAttachmentTrayHost.HasVisionFallback => VisionFallback.HasFallback(IsAgentSession, SessionCharacter.Tools);
 
     //================= IConversationReconcileHost =================
     // 显式实现:对账要的只是这几个窄依赖,不该把整个视图模型暴露给对账器

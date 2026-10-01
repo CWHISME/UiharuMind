@@ -64,6 +64,9 @@ public sealed class AgentToolViewData
         Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapVisionTool), Loc.Text(LangKey.AgentGateDescVisionTool),
             () => tools.EnableVisionTool, v => tools.EnableVisionTool = v,
             Tokens(EAgentCapability.VisionTool)));
+        Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapImageGeneration), Loc.Text(LangKey.AgentGateDescImageGeneration),
+            () => tools.EnableImageGeneration, v => tools.EnableImageGeneration = v,
+            Tokens(EAgentCapability.ImageGeneration)));
         Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapKnowledgeSearchTool), Loc.Text(LangKey.AgentGateDescKnowledgeSearch),
             () => tools.EnableKnowledgeSearchTool, v => tools.EnableKnowledgeSearchTool = v,
             Tokens(EAgentCapability.KnowledgeSearch)));

@@ -14,6 +14,7 @@ using UiharuMind.Core.AI.Execution.Prompts;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution.Python;
+using UiharuMind.Core.AI.ImageGeneration;
 
 namespace UiharuMind.Core.AI.Execution.Assembly;
 
@@ -93,6 +94,9 @@ public sealed record AgentAssemblyFacts
 
     /// <summary>识图工具开关</summary>
     public bool VisionTool { get; init; }
+
+    /// <summary>生图工具挂没挂：角色开着且配了生图模型（新增第一个生图模型即触发重建）</summary>
+    public bool ImageGeneration { get; init; }
 
     /// <summary>知识库检索工具开关</summary>
     public bool KnowledgeSearchTool { get; init; }
@@ -178,7 +182,8 @@ public sealed record AgentAssemblyFacts
             profile.EffectiveIsAgentForm, profile.GroupScene,
             profile.EffectiveIsAgentForm
                 ? McpManager.Instance.DescribeOnDemand(profile.WorkspacePath, profile.Tools.DisabledMcpServers)
-                : string.Empty);
+                : string.Empty,
+            ImageGenerationService.Shared.HasConfiguredModel);
     }
 
     /// <summary>
@@ -200,6 +205,7 @@ public sealed record AgentAssemblyFacts
     /// <param name="isAgentForm">会话形态；null = 跟角色身份（ADR 0050）</param>
     /// <param name="groupScene">群场景段正文；不是群成员传空串</param>
     /// <param name="mcpOnDemand">按需 MCP 名单签名（<see cref="McpManager.DescribeOnDemand"/>）</param>
+    /// <param name="imageModelsConfigured">至少配了一个生图模型</param>
     /// <returns>快照</returns>
     public static AgentAssemblyFacts Capture(CharacterData character,
         string instructions, string? workspacePath,
@@ -208,7 +214,7 @@ public sealed record AgentAssemblyFacts
         bool modelSupportsVision = false, IReadOnlyList<CharacterData>? mountedAgents = null,
         bool pythonEnvReady = false, string outputFolderName = "",
         string subAgentKey = "", bool modelSkillsEnabled = true, bool? isAgentForm = null,
-        string groupScene = "", string mcpOnDemand = "")
+        string groupScene = "", string mcpOnDemand = "", bool imageModelsConfigured = false)
     {
         // 非 agent 形态不装配工具,工具相关输入一律归零——能力配置变化不连累它们重建
         bool isAgent = isAgentForm ?? character.IsAgent;
@@ -237,6 +243,7 @@ public sealed record AgentAssemblyFacts
             WebSearch = isAgent && config.EnableWebSearch,
             ScheduledTasks = isAgent && config.EnableScheduledTasks,
             VisionTool = isAgent && config.EnableVisionTool,
+            ImageGeneration = isAgent && config.EnableImageGeneration && imageModelsConfigured,
             KnowledgeSearchTool = isAgent && config.EnableKnowledgeSearchTool,
             SubAgent = isAgent && config.EnableSubAgent,
             // 名字与描述一并入账:花名册固化的正是这两样,改名改描述模型也该重新看见

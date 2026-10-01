@@ -29,6 +29,7 @@ using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.AI.Models;
+using UiharuMind.Features.Models.ImageModels;
 
 using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.Models;
@@ -68,6 +69,23 @@ public partial class ModelPageData : PageDataBase
     public ModelPageData(IMessageService messageService)
     {
         _messageService = messageService;
+        ImageModels = new ImageModelListViewData(messageService,
+            (source, takenNames) => ImageModelEditWindow.ShowWindow(UIManager.GetRootWindow(), source, takenNames));
+    }
+
+    /// <summary>生图模型页签（ADR 0052）</summary>
+    public ImageModelListViewData ImageModels { get; }
+
+    /// <summary>当前页签：0 对话模型，1 生图模型</summary>
+    [ObservableProperty] private int _selectedTabIndex;
+
+    /// <summary>
+    /// 切到生图模型页签。从 Agent 设置页跳过来时用
+    /// </summary>
+    public void ShowImageModels()
+    {
+        SelectedTabIndex = 1;
+        ImageModels.Refresh();
     }
 
     [RelayCommand]
@@ -172,6 +190,8 @@ public partial class ModelPageData : PageDataBase
     public override void OnEnable()
     {
         base.OnEnable();
+        // 熔断会随时间恢复,回到这一页时重刷一次生图模型的状态
+        ImageModels.Refresh();
         // 骨架先行：首帧先不亮列表，下一拍再挂全集合并让引擎出画——
         // 否则 ListBox 一次性物化会卡在点击路径上（见 CurrentItems 注释）
         if (!IsListDataReady && !_isListSchedulePending)

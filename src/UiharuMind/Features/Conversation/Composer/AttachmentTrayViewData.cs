@@ -25,6 +25,7 @@ using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.Core.Utils;
 
 using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.Conversation.Composer;
@@ -38,19 +39,16 @@ namespace UiharuMind.Features.Conversation.Composer;
 /// </summary>
 public partial class AttachmentTrayViewData : ObservableObject
 {
-    private readonly Func<ChatSession?> _session;
-    private readonly Func<bool> _hasVisionFallback;
+    private readonly IAttachmentTrayHost _host;
     private readonly List<string> _pendingOwnedFiles = new();
 
     /// <summary>附件集合(文件路径或内存字节),由输入框上方区域展示</summary>
     public ObservableCollection<ConversationAttachment> Attachments { get; } = new();
 
-    /// <param name="session">取当前会话；尚未创建时为 null</param>
-    /// <param name="hasVisionFallback">当前会话发图有没有识图工具兜底（按会话形态判，见 ADR 0050）</param>
-    public AttachmentTrayViewData(Func<ChatSession?> session, Func<bool> hasVisionFallback)
+    /// <param name="host">会话与形态的来源</param>
+    public AttachmentTrayViewData(IAttachmentTrayHost host)
     {
-        _session = session;
-        _hasVisionFallback = hasVisionFallback;
+        _host = host;
         // 加图/删图都会翻转警示,集合自己报就够;模型与角色变了要外部叫一声(见 NotifyVisionStateChanged)
         Attachments.CollectionChanged += (_, _) => NotifyVisionStateChanged();
     }
@@ -72,7 +70,7 @@ public partial class AttachmentTrayViewData : ObservableObject
             if (model == null) return false;
 
             return VisionFallback.WillDropImages(Attachments.Any(x => x.IsImage), model.IsVisionModel,
-                _hasVisionFallback());
+                _host.HasVisionFallback);
         }
     }
 
@@ -98,7 +96,7 @@ public partial class AttachmentTrayViewData : ObservableObject
         {
             FilePath = path,
             FileName = Path.GetFileName(path),
-            MediaType = GetMediaType(path),
+            MediaType = ImageFormats.MediaTypeFromPath(path, "application/octet-stream"),
         });
     }
 
@@ -197,14 +195,10 @@ public partial class AttachmentTrayViewData : ObservableObject
         foreach (ConversationAttachment attachment in attachments)
         {
             // 仅图片且为视觉模型时内联字节;其余文件一律以路径文本引用
-            if (isVision && attachment.IsImage && TryInline(attachment) is { } inline)
-            {
-                contents!.Add(inline);
-            }
-            else
-            {
-                fileReferences.Add(ReferenceOf(attachment));
-            }
+            DataContent? inline = isVision && attachment.IsImage ? TryInline(attachment) : null;
+            if (inline != null) contents!.Add(inline);
+            // agent 形态下内联的图也带路径:视觉模型只拿到字节,要改这张图时没有路径可传(ADR 0052)
+            if (inline == null || _host.IsAgentSession) fileReferences.Add(ReferenceOf(attachment));
         }
 
         // 文件引用与用户文本合成同一份文本:同一条 user 消息只保留一块 text。
@@ -312,7 +306,7 @@ public partial class AttachmentTrayViewData : ObservableObject
 
     /// 生效模型:会话绑定的专属模型优先于全局当前模型,口径与 SessionModelLabel / LazyChatClient 一致
     private ModelRunningData? EffectiveModel() =>
-        _session()?.ChatModelRunningData ?? LlmManager.Instance.CurrentRunningModel;
+        _host.Session?.ChatModelRunningData ?? LlmManager.Instance.CurrentRunningModel;
 
     /// <summary>
     /// 附件的文本引用。粘贴来的图片会先落盘再引用其路径——否则模型只会收到一个
@@ -337,7 +331,7 @@ public partial class AttachmentTrayViewData : ObservableObject
     {
         if (_pendingOwnedFiles.Count == 0) return;
 
-        ChatSession? session = _session();
+        ChatSession? session = _host.Session;
         if (session != null)
         {
             session.OwnedAttachmentFiles.AddRange(_pendingOwnedFiles);
@@ -367,19 +361,5 @@ public partial class AttachmentTrayViewData : ObservableObject
             Log.Warning($"Read attachment failed '{attachment.FileName}': {e.Message}");
             return ReadOnlyMemory<byte>.Empty;
         }
-    }
-
-    /// <summary>根据路径推断 MIME 类型;非图片返回通用二进制类型</summary>
-    private static string GetMediaType(string path)
-    {
-        return Path.GetExtension(path).ToLowerInvariant() switch
-        {
-            ".png" => "image/png",
-            ".gif" => "image/gif",
-            ".webp" => "image/webp",
-            ".bmp" => "image/bmp",
-            ".jpg" or ".jpeg" => "image/jpeg",
-            _ => "application/octet-stream",
-        };
     }
 }

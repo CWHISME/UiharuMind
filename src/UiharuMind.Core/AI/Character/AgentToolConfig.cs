@@ -27,6 +27,11 @@ public class AgentToolConfig
     /// <summary>启用识图工具(AnalyzeImage,委托视觉模型答图片问题)</summary>
     public bool EnableVisionTool { get; set; } = true;
 
+    /// <summary>
+    /// 启用生图工具(GenerateImage,委托生图模型出图、改图)。默认开:没配生图模型时工具本就不挂,不占一个 token
+    /// </summary>
+    public bool EnableImageGeneration { get; set; } = true;
+
     /// <summary>启用知识库检索工具(KnowledgeSearch,检索会话挂载的嵌入知识库)</summary>
     public bool EnableKnowledgeSearchTool { get; set; }
 
@@ -72,6 +77,7 @@ public class AgentToolConfig
             EnableWebSearch = EnableWebSearch && other.EnableWebSearch,
             EnableScheduledTasks = EnableScheduledTasks && other.EnableScheduledTasks,
             EnableVisionTool = EnableVisionTool && other.EnableVisionTool,
+            EnableImageGeneration = EnableImageGeneration && other.EnableImageGeneration,
             EnableKnowledgeSearchTool = EnableKnowledgeSearchTool && other.EnableKnowledgeSearchTool,
             EnableSubAgent = EnableSubAgent && other.EnableSubAgent,
             EnableTodoList = EnableTodoList && other.EnableTodoList,

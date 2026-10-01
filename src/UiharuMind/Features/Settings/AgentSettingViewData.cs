@@ -23,6 +23,10 @@ using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
+using UiharuMind.Core.AI.ImageGeneration;
+using UiharuMind.Features.Models;
+using UiharuMind.Generated;
+using UiharuMind.Shared.WindowManagement;
 
 namespace UiharuMind.Features.Settings;
 
@@ -54,6 +58,10 @@ public partial class AgentSettingViewData : ViewModelBase
     //================= 联网搜索(能力开关已下沉到角色,见 ADR 0003) =================
     /// <summary>凭据与链路状态自成一块,见 <see cref="WebSearchSettingsViewData"/></summary>
     public WebSearchSettingsViewData WebSearch { get; } = new();
+
+    //================= 生图 =================
+    /// <summary>生图模型的一句话摘要；列表本身在模型页（ADR 0052：那是一张模型清单，不是 agent 设置）</summary>
+    [ObservableProperty] private string _imageModelsSummary = string.Empty;
 
     //================= 受管 Python 环境 =================
     /// <summary>
@@ -104,6 +112,25 @@ public partial class AgentSettingViewData : ViewModelBase
         if (App.ModelService is { } service)
             service.ModelListRefreshed += RefreshAvailableModels;
         _ = RefreshSkillsAsync(); //技能列表要读盘解析,不阻塞构造
+        RefreshImageModelsSummary();
+        // 与设置窗同寿命,不退订(同上)
+        ImageModelSettingConfig.Current.ModelsChanged += RefreshImageModelsSummary;
+    }
+
+    private void RefreshImageModelsSummary()
+    {
+        int count = ImageModelSettingConfig.Current.Models.Count(m => m.IsConfigured);
+        ImageModelsSummary = count > 0
+            ? Loc.Text(LangKey.AgentSettingImageModelsSummary, count)
+            : Loc.Text(LangKey.AgentSettingImageModelsNone);
+    }
+
+    [RelayCommand]
+    private void ManageImageModels()
+    {
+        App.ViewModel.JumpToPage(MenuPages.MenuModelKey);
+        if (App.ViewModel.Content is ModelPageData page) page.ShowImageModels();
+        UIManager.GetRootWindow().Activate();
     }
 
     //================= 常规:变更即存 =================

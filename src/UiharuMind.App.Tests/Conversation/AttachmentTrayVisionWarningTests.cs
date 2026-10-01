@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using UiharuMind.App.Tests.TestDoubles;
 using UiharuMind.Features.Conversation.Composer;
 
 namespace UiharuMind.App.Tests.Conversation;
@@ -10,7 +11,7 @@ namespace UiharuMind.App.Tests.Conversation;
 /// </summary>
 public class AttachmentTrayVisionWarningTests
 {
-    private static AttachmentTrayViewData CreateTray() => new(() => null, () => false);
+    private static AttachmentTrayViewData CreateTray() => new(new StubAttachmentTrayHost());
 
     /// 只记属性名,不去读属性值——读值会碰 LlmManager 单例,那不是本测试要验的东西
     private static List<string> TrackNotifications(AttachmentTrayViewData tray)

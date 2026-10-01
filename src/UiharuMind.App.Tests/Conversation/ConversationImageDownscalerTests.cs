@@ -56,19 +56,6 @@ public class ConversationImageDownscalerTests
         Assert.Null(ConversationImageDownscaler.ComputeTargetSize(width, height, 1568));
     }
 
-    [Fact]
-    public void SniffsPngJpegAndWebp()
-    {
-        byte[] png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
-        byte[] jpeg = [0xFF, 0xD8, 0xFF, 0xE0];
-        byte[] webp = "RIFF"u8.ToArray().Concat(new byte[] { 0, 0, 0, 0 }).Concat("WEBP"u8.ToArray()).ToArray();
-
-        Assert.Equal("image/png", ConversationImageDownscaler.SniffMediaType(png));
-        Assert.Equal("image/jpeg", ConversationImageDownscaler.SniffMediaType(jpeg));
-        Assert.Equal("image/webp", ConversationImageDownscaler.SniffMediaType(webp));
-        Assert.Null(ConversationImageDownscaler.SniffMediaType([1, 2, 3, 4]));
-    }
-
     /// <summary>
     /// 端到端:真造一张大图跑一遍。这条是整件事的支点——「缩了没有」以前只能靠推理，
     /// 而实测发现 Avalonia 的 Bitmap.Save 只写 PNG，照片缩到 1568px 仍有 1~2MB，

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.AI;
+using UiharuMind.App.Tests.TestDoubles;
 using UiharuMind.Features.Conversation.Composer;
 
 namespace UiharuMind.App.Tests.Conversation;
@@ -50,7 +51,7 @@ public class AttachmentTrayMessageTests
     [Fact]
     public void BuildUserMessage_NonVision_JoinsReferencesIntoOneText()
     {
-        AttachmentTrayViewData tray = new(() => null, () => false);
+        AttachmentTrayViewData tray = new(new StubAttachmentTrayHost());
         tray.AddAttachmentPath("/tmp/a.txt"); //非图片 → 走路径引用
         List<ConversationAttachment>? attachments = tray.TakePending();
 
@@ -70,7 +71,7 @@ public class AttachmentTrayMessageTests
         Directory.CreateDirectory(dir);
         try
         {
-            AttachmentTrayViewData tray = new(() => null, () => false);
+            AttachmentTrayViewData tray = new(new StubAttachmentTrayHost());
             tray.AddAttachmentPath(dir);
 
             Assert.Empty(tray.Attachments);

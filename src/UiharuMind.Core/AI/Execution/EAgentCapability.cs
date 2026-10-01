@@ -31,6 +31,9 @@ public enum EAgentCapability
     /// <summary>识图(委托视觉模型)</summary>
     VisionTool,
 
+    /// <summary>生图与改图(委托生图模型)</summary>
+    ImageGeneration,
+
     /// <summary>知识库检索</summary>
     KnowledgeSearch,
 

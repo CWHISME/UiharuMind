@@ -18,6 +18,7 @@ using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Python;
 using UiharuMind.Core.AI.Execution.Skills;
+using UiharuMind.Core.AI.ImageGeneration;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 
@@ -52,6 +53,9 @@ internal sealed class AgentAssemblyPlan
 
     /// <summary>当前模型是否自带视觉。决定识图工具挂不挂——视觉模型直接收图，那工具是绕路</summary>
     public bool ModelSupportsVision { get; init; }
+
+    /// <summary>至少配了一个生图模型。只看配置不看连通（ADR 0052），与 <see cref="AgentAssemblyFacts.ImageGeneration"/> 同一判据</summary>
+    public bool ImageModelsConfigured { get; init; }
 
     /// <summary>挂载的子智能体（已按档位过滤并排除自己，见 <see cref="CharacterRunnerFactory.ResolveMountedAgents"/>）</summary>
     public IReadOnlyList<CharacterData> MountedAgents { get; init; } = [];
@@ -156,6 +160,9 @@ internal sealed class AgentAssemblyPlan
     public bool MountVisionTool =>
         VisionFallback.HasFallback(IsAgentForm, Config) && !ModelSupportsVision;
 
+    /// <summary>生图工具是否该挂：agent 形态、角色开着、且配了生图模型——没配时一个 token 都不占</summary>
+    public bool MountImageGeneration => IsAgentForm && Config.EnableImageGeneration && ImageModelsConfigured;
+
     /// <summary>
     /// 从构建配置解析出装配所需的全部事实。<b>这是唯一读单例与磁盘的地方</b>。
     /// </summary>
@@ -215,6 +222,7 @@ internal sealed class AgentAssemblyPlan
             // 提前读出:子代理要继承同一份
             WorkspaceInstructions = WorkspaceInstructionsLoader.Load(profile.WorkspacePath),
             ModelSupportsVision = CurrentModel(profile)?.IsVisionModel == true,
+            ImageModelsConfigured = ImageGenerationService.Shared.HasConfiguredModel,
             MountedAgents = config.EnableSubAgent
                 ? CharacterRunnerFactory.ResolveMountedAgents(profile.Character)
                 : [],
