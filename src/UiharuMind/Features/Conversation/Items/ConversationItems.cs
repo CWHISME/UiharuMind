@@ -829,7 +829,7 @@ public static class AgentContentFormatter
         // 兜底：以后新增文件工具先有个像样的图标，而不是扳手
         if (FileToolNames.All.Contains(toolName)) return "file-text";
         if (toolName is "load_skill" or "read_skill_resource" or "run_skill_script" or LoadSkillTool.ToolName) return "sparkles";
-        if (toolName == VisionTool.ToolName) return "eye";
+        if (toolName is VisionTool.ToolName or ViewImageTool.ToolName) return "eye";
         if (toolName == SchedulerTools.ToolName) return "clock";
         if (toolName == SubAgentTool.ToolName) return "bot";
         return "wrench";

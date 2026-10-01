@@ -218,6 +218,8 @@ public static class HistoryCompaction
         IReadOnlyList<ChatMessage> messages)
     {
         (int imageBytes, int imageCount) = ImagePayloadOf(messages);
+        // 发送时才投影进去的图(ADR 0053):字节不在这组里,只按张数补上界
+        imageCount += ViewImageProjection.CountProjectedImages(messages);
         // 不含图片的组原样采用框架的数:那一侧的估算本来就够准,也不必假设它是怎么算出来的
         if (imageCount == 0) return groupTokenCount;
 

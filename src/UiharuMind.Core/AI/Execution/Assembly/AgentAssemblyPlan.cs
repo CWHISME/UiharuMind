@@ -160,6 +160,9 @@ internal sealed class AgentAssemblyPlan
     public bool MountVisionTool =>
         VisionFallback.HasFallback(IsAgentForm, Config) && !ModelSupportsVision;
 
+    /// <summary>看图工具是否该挂：同一个识图开关，当前模型自带视觉时自己看（ADR 0053），与识图工具互斥</summary>
+    public bool MountViewImage => VisionFallback.HasFallback(IsAgentForm, Config) && ModelSupportsVision;
+
     /// <summary>生图工具是否该挂：agent 形态、角色开着、且配了生图模型——没配时一个 token 都不占</summary>
     public bool MountImageGeneration => IsAgentForm && Config.EnableImageGeneration && ImageModelsConfigured;
 

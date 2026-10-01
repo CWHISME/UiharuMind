@@ -76,6 +76,9 @@ internal static class AgentAssembler
                     plan.Compaction), null, inputEstimate: plan.InputEstimate);
         }
 
+        // 视觉模型才投影 ViewImage 的图;投影挂在压缩里面,工具组折叠了图就跟着不发(ADR 0053)
+        if (plan.ModelSupportsVision) client = new ViewImageProjectingChatClient(client, plan.CreatePathResolver(null));
+
         // ShellEnvironment 带草稿目录简写与(受管 Python 就绪时的)venv 激活,见 AgentAssemblyPlan
         LocalShellExecutor? shellExecutor = plan.Config.EnableShellExecution
             ? ShellExecutorFactory.Create(plan.WorkingDirectory, plan.ShellEnvironment)
@@ -145,6 +148,10 @@ internal static class AgentAssembler
         if (plan.MountVisionTool)
         {
             Add(EAgentCapability.VisionTool, VisionTool.Create(paths));
+        }
+        else if (plan.MountViewImage)
+        {
+            Add(EAgentCapability.VisionTool, ViewImageTool.Create(paths));
         }
 
         // 生图只看配置:角色开着、且至少配了一个生图模型,连不连得通不看(ADR 0052)

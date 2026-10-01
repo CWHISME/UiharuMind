@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -20,7 +21,7 @@ public sealed record ToolResultImage(string FilePath, Bitmap Thumbnail);
 
 /// <summary>
 /// 生图工具的卡片直接显示产出的图（ADR 0052）：图不交回模型，模型忘了贴图用户也看得到；
-/// 卡片收起时照样显示，看图不该要先展开一张工具卡。
+/// 看图工具显示模型看到的那份预览（ADR 0053）。卡片收起时照样显示，看图不该要先展开一张工具卡。
 /// </summary>
 public partial class ToolCallItem
 {
@@ -34,15 +35,22 @@ public partial class ToolCallItem
     public bool HasResultImages => ResultImages.Count > 0;
 
     /// <summary>
-    /// 生图成功后按结果里的路径载入缩略图。路径多是草稿目录简写，按会话的路径口径展开；
+    /// 生图、看图成功后按结果里的路径载入缩略图。路径多是草稿目录简写，按会话的路径口径展开；
     /// 文件已被删掉的那张静默跳过
     /// </summary>
     /// <param name="paths">会话的路径口径；拿不到时只认绝对路径</param>
     public void LoadResultImages(AgentPathResolver? paths)
     {
-        if (ToolName != ImageGenerationTool.ToolName || !IsSuccess || HasResultImages) return;
+        if (!IsSuccess || HasResultImages) return;
+        IReadOnlyList<string> produced = ToolName switch
+        {
+            ImageGenerationTool.ToolName => ImageGenerationTool.ParseSavedPaths(ResultText),
+            ViewImageTool.ToolName => ViewImageTool.ParsePreviewPaths(ResultText),
+            _ => [],
+        };
+        if (produced.Count == 0) return;
 
-        foreach (string path in ImageGenerationTool.ParseSavedPaths(ResultText))
+        foreach (string path in produced)
         {
             string full = paths != null && paths.TryResolve(path, out string resolved) ? resolved : path;
             if (TryLoadThumbnail(full) is { } image) ResultImages.Add(image);

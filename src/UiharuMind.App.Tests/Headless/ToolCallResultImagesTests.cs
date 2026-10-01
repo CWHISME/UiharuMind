@@ -6,7 +6,7 @@ using UiharuMind.Features.Conversation.Items;
 namespace UiharuMind.App.Tests.Headless;
 
 /// <summary>
-/// 生图卡片的缩略图：结果里的草稿目录简写按会话口径展开、只解缩略图大小、丢弃条目时释放
+/// 生图与看图卡片的缩略图：结果里的草稿目录简写按会话口径展开、只解缩略图大小、丢弃条目时释放
 /// </summary>
 [Collection(HeadlessCollection.Name)]
 public sealed class ToolCallResultImagesTests : IDisposable
@@ -49,6 +49,20 @@ public sealed class ToolCallResultImagesTests : IDisposable
 
         item.ReleaseImages();
         Assert.False(item.HasResultImages);
+    });
+
+    /// <summary>ViewImage 的卡片显示模型看到的那份预览（ADR 0053）</summary>
+    [Fact]
+    public void ViewedImage_ShowsThePreviewTheModelSaw() => HeadlessUi.Run(() =>
+    {
+        WritePng("images/previews/ab12.png", 640, 480);
+        ToolCallItem item = Finished(ViewImageTool.ToolName,
+            "Attached: cat.png\nPreview: $DRAFT/images/previews/ab12.png\nThe images follow in the next message.");
+
+        item.LoadResultImages(Paths);
+
+        Assert.Equal(Path.Combine(_root, "draft", "images", "previews", "ab12.png"),
+            Assert.Single(item.ResultImages).FilePath);
     });
 
     [Fact]

@@ -107,6 +107,9 @@ public partial class App : Application, ILogger, IDisposable
         ApplicationThemeManager.InitializeFromConfig();
         UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("theme");
         WireBackgroundSubAgents();
+        // 缩图要 SkiaSharp,只有 App 引用它;ViewImage 的预览与用户附图同一套上限(ADR 0053)
+        UiharuMind.Core.AI.Execution.ViewImageTool.Downscaler =
+            UiharuMind.Features.Conversation.Composer.ConversationImageDownscaler.Downscale;
         WireGroupApprovals();
         // 上次退出时还在跑的后台委派:父会话里那条「已派出」永远等不到下文,在这里补上一条中止说明
         UiharuMind.Core.AI.Execution.Tools.BackgroundSubAgentDispatcher.SettleOrphansOnStartup();

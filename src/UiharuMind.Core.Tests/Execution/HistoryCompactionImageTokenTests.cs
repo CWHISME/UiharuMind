@@ -49,6 +49,20 @@ public class HistoryCompactionImageTokenTests
         Assert.True(corrected < groupTokens / 10, "修正后应当降一个量级");
     }
 
+    /// <summary>ViewImage 的图在发送时才投影进请求（ADR 0053），压缩看不见字节，只能按预览行数补上界</summary>
+    [Fact]
+    public void ViewImageResults_CountTheirProjectedImages()
+    {
+        List<ChatMessage> messages =
+        [
+            new(ChatRole.Assistant, [new FunctionCallContent("c1", ViewImageTool.ToolName)]),
+            new(ChatRole.Tool, [new FunctionResultContent("c1", "Preview: $DRAFT/a.png\nPreview: $DRAFT/b.png")]),
+        ];
+
+        Assert.Equal(100 + 2L * InlineImageLimits.MaxTokensPerImage,
+            HistoryCompaction.CorrectedGroupTokens(400, 100, messages));
+    }
+
     [Fact]
     public void MultipleImages_CountOncePerImage()
     {

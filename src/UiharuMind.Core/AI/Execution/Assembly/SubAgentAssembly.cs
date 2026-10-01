@@ -63,6 +63,9 @@ internal static class SubAgentAssembly
         /// <summary>识图工具是否可挂(开关开且当前模型不自带视觉)</summary>
         public bool VisionToolAvailable { get; init; } = true;
 
+        /// <summary>看图工具是否可挂(开关开且当前模型自带视觉)</summary>
+        public bool ViewImageAvailable { get; init; }
+
         /// <summary>生图工具是否可挂(主代理那一侧挂上了)</summary>
         public bool ImageGenerationAvailable { get; init; }
 
@@ -136,8 +139,9 @@ internal static class SubAgentAssembly
         SubSessionAssembly assembled = BuildSubSessionAssembly(plan);
         // 模型走会话覆写(派活时已把解析结果钉在子会话上,见 SubAgentTool.ResolveSubAgentModelName)——
         // 与主代理同一条解析链,于是界面显示的模型与实际问话的那个<b>由构造保证一致</b>
-        return AgentAssembler.BuildHandle(new LazyChatClient(plan.Profile.SessionModelSource),
-            assembled.Options, assembled.Shell);
+        IChatClient client = new LazyChatClient(plan.Profile.SessionModelSource);
+        if (plan.ModelSupportsVision) client = new ViewImageProjectingChatClient(client, plan.CreatePathResolver(null));
+        return AgentAssembler.BuildHandle(client, assembled.Options, assembled.Shell);
     }
 
     /// <summary>子会话装配的产物：框架选项，以及要随句柄一同释放的 shell 执行器</summary>
@@ -195,6 +199,7 @@ internal static class SubAgentAssembly
             Name = identity.AgentName,
             WorkingDirectory = plan.WorkingDirectory,
             VisionToolAvailable = plan.MountVisionTool,
+            ViewImageAvailable = plan.MountViewImage,
             ImageGenerationAvailable = plan.MountImageGeneration,
             PermissionMode = effectivePermission,
             WorkspaceInstructions = plan.WorkspaceInstructions,
@@ -262,6 +267,7 @@ internal static class SubAgentAssembly
             Name = name,
             WorkingDirectory = workingDirectory,
             VisionToolAvailable = plan.MountVisionTool,
+            ViewImageAvailable = plan.MountViewImage,
             ImageGenerationAvailable = plan.MountImageGeneration,
             PermissionMode = effectivePermission,
             WorkspaceInstructions = plan.WorkspaceInstructions,
@@ -365,6 +371,10 @@ internal static class SubAgentAssembly
         if (hasVision)
         {
             tools.Add(VisionTool.Create(paths));
+        }
+        else if (canMutate && config.EnableVisionTool && input.ViewImageAvailable)
+        {
+            tools.Add(ViewImageTool.Create(paths));
         }
 
         // 生图要写草稿目录:探索档恒定只读,与联网同一口径不挂
