@@ -481,6 +481,7 @@ public sealed class TurnDriver : IDisposable
         }
 
         (long input, long output, long reasoning) = _usage.Add(details);
+        Log.Debug($"Service call usage: input {_usage.LastInput}, cached {_usage.LastCachedInput}");
         SyncEstimate(runner);
         session.AccumulateUsage(input, output, reasoning);
         session.LastInputTokens = _usage.LastInput; //占用随本体持久化,切回会话时不必等下一次响应

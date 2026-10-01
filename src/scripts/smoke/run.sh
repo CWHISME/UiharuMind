@@ -43,7 +43,7 @@ if [ -n "${SMOKE_CONTEXT:-}" ]; then
     mv "$remote.tmp" "$remote"
 fi
 
-sed -e "s#{{OUT}}#$out#g" -e "s#{{WS_EMPTY}}#$out/ws-empty#g" -e "s#{{WS_REPO}}#$out/ws-repo#g" \
+sed -e "s#{{OUT}}#$out#g" -e "s#{{REPO}}#$REPO_ROOT#g" -e "s#{{WS_EMPTY}}#$out/ws-empty#g" -e "s#{{WS_REPO}}#$out/ws-repo#g" \
     -e "s#{{WS_DOCS}}#$out/ws-docs#g" "$template" > "$out/scenario.jsonl"
 
 if [ "${SMOKE_NO_BUILD:-}" != "1" ]; then

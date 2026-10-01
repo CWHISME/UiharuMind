@@ -69,6 +69,25 @@ grep -h "Context handoff request" /tmp/uiharu-smoke/handoff-cache-*/home/Logs/*
 - `D` 一直是 0 说明这个服务端不缓存或不报命中数，这一场测不出结论，换个模型
 - 最后一问答得出 0006 定了什么：交接文档把前情带过来了
 
+### view-image：视觉模型自己看图（ADR 0053）
+
+OP-01 钉在视觉模型上（`session.new` 的 `model`；自动挑选不会挑视觉模型），看仓库里一张头像，再凭记忆追问一个细节。
+图是水彩少女：深色头发、花环、蓝眼睛、深蓝水手服配橙色领巾、米色底散落花瓣。文件名却是 `ShiraiKuroko`。
+
+- 调的是 `ViewImage` 而不是 `AnalyzeImage`；结果里有 `Preview: $DRAFT/images/previews/…`，草稿目录里真有那份副本
+- 描述对得上画面（花环、水手服、领巾），而不是照文件名编一个白井黑子
+- 第二问不再调工具，答案来自第一轮看到的图——投影每次请求都带着
+- `home/Logs/Bodies.txt` 里第二轮请求中那条带图 user 消息与上一次请求逐字节一致；`Service call usage` 的 cached 数
+  在 SenseNova 上按 4096 一块、时有时无，单凭它判断不了图片段命没命中
+
+### generate-image：出图后自己验图
+
+OP-01 钉在 `Deepseek-Flash-1`（视觉模型）上出一张图，再让它自己看一眼回答细节。**会真的出一张图、花钱**。
+
+- 正文里没有 `![…](…)` 再贴一遍：工具卡上已经有图了
+- 第二问调的是 `ViewImage`，路径就是出图结果里那条；答的细节对得上 `home/Data/Agent/Workspaces/*/*/images/` 里那张图
+- 已知未解：OP-01 爱在正文里写一行 `文件：$DRAFT/…`（它的「证据」习惯），工具结果里说了也压不住
+
 ## 读结果的口径
 
 - **一次说明不了什么**。模型输出有随机性，前缀这类毛病三轮里可能只冒一次；下结论前至少跑两遍。

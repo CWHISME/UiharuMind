@@ -1,0 +1,8 @@
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"session.new","args":{"character":"RationalAgent","workspace":"{{WS_EMPTY}}","model":"sensenova-6.8-flash-lite"}}
+{"op":"session.post","args":{"text":"看看这张图里画的是什么人，发色、服装、背景分别是什么：{{REPO}}/src/UiharuMind/Assets/Avatars/ShiraiKuroko.png"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"once"}}
+{"op":"session.post","args":{"text":"她的头发是怎么扎的？别再调工具，就凭刚才看到的回答。"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"once"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/view-image.md"}}
+{"op":"quit"}

@@ -1,0 +1,8 @@
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"session.new","args":{"character":"RationalAgent","workspace":"{{WS_EMPTY}}","model":"Deepseek-Flash-1"}}
+{"op":"session.post","args":{"text":"画一只坐在弯月上的小狐狸，水彩风格。"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"once"}}
+{"op":"session.post","args":{"text":"你自己看一眼画出来的效果，狐狸尾巴是什么颜色？"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"once"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/generate-image.md"}}
+{"op":"quit"}

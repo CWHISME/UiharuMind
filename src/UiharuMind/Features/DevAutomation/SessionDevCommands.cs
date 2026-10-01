@@ -45,7 +45,8 @@ internal static class SessionDevCommands
 
 /// <summary>
 /// 进空态并选好角色，与点「新建」再在选择器里挑角色同一条路；会话首轮发送时才建（懒建）。
-/// <c>args</c>：character（角色标识或名字）、workspace（智能体侧才用）、permission（权限档序号）
+/// <c>args</c>：character（角色标识或名字）、workspace（智能体侧才用）、permission（权限档序号）、
+/// model（会话模型名，与在会话模型下拉里选同一条路；自动挑选不会挑视觉模型，测看图得点名）
 /// </summary>
 internal sealed class SessionNewCommand : IAsyncDevCommand
 {
@@ -66,6 +67,12 @@ internal sealed class SessionNewCommand : IAsyncDevCommand
         if (GroupDevCommands.StringOr(args, "workspace") is { } workspace) conversation.Workspace.Path = workspace;
         int permission = GroupDevCommands.IntOr(args, "permission", -1);
         if (permission >= 0) conversation.PermissionModeIndex = permission;
+        if (GroupDevCommands.StringOr(args, "model") is { } model)
+        {
+            conversation.SessionModel.SelectedOption =
+                conversation.SessionModel.Options.FirstOrDefault(o => o.ModelName == model)
+                ?? throw new InvalidOperationException($"no model named '{model}'");
+        }
 
         SessionDevCommands.Track(conversation);
         return new { character = conversation.ActiveCharacterName, agentForm = conversation.IsAgentSession };
