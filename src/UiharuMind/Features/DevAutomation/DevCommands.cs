@@ -197,6 +197,9 @@ internal sealed class MemoryStatsCommand : IDevCommand
         return new
         {
             managedHeapMb = Math.Round(GC.GetTotalMemory(collect) / 1048576.0, 1),
+            // 上一次阻塞式全量回收存活下来的字节 = 活对象。managedHeapMb 不是它：实测可以比已提交还大
+            // （开群 140MB > 已提交 118MB，同刻 dumpheap -live 84MB），拿它判泄漏会判错；不带 collect 时这个数是上一次全量回收的，可能偏旧
+            liveMb = Math.Round(GC.GetGCMemoryInfo(GCKind.FullBlocking).PromotedBytes / 1048576.0, 1),
             committedMb = Math.Round(info.TotalCommittedBytes / 1048576.0, 1),
             fragmentedMb = Math.Round(info.FragmentedBytes / 1048576.0, 1),
             workingSetMb = Math.Round(Environment.WorkingSet / 1048576.0, 1),

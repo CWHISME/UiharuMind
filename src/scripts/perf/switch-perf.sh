@@ -99,9 +99,9 @@ summary="$out/summary.txt"
              END { for (k in n) { split(substr(v[k], 2), a, " "); printf "%-36s %4d %6d %6d\n", k, n[k], a[int((n[k] + 1) / 2)], a[n[k]] } }' |
         sort
     echo
-    echo "== 内存（MB）：托管堆 已提交 工作集 已加载会话 驻留历史 =="
+    echo "== 内存（MB）：托管堆 活对象 已提交 工作集 已加载会话 驻留历史 =="
     jq -r '.[] | select(.op == "diag.memory" and .ok) | .result |
-        "\(.managedHeapMb) \(.committedMb) \(.workingSetMb) \(.loadedSessions) \(.residentHistories)"' "$out/report.json"
+        "\(.managedHeapMb) \(.liveMb // "-") \(.committedMb) \(.workingSetMb) \(.loadedSessions) \(.residentHistories)"' "$out/report.json"
     echo
     echo "== 切换后条目数：会话 条目 有更早 =="
     jq -r '.[] | select(.op == "ui.snapshot" and .ok) | .result |
