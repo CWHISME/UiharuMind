@@ -23,4 +23,13 @@ internal static class HeadlessUi
     /// <param name="body">测试体</param>
     public static void Run(Action body) =>
         Session.Dispatch(body, CancellationToken.None).GetAwaiter().GetResult();
+
+    /// <summary>在无头界面线程上跑一段异步测试体，等它连同回到界面线程的续体一起跑完</summary>
+    /// <param name="body">测试体</param>
+    public static void RunAsync(Func<Task> body) =>
+        Session.Dispatch(async () =>
+        {
+            await body();
+            return true;
+        }, CancellationToken.None).GetAwaiter().GetResult();
 }

@@ -34,7 +34,7 @@ public sealed class HistoryReplayResultImagesTests : IDisposable
     }
 
     [Fact]
-    public void ReplayedGenerateImageCard_LoadsItsThumbnailFromDraftShorthand() => HeadlessUi.Run(() =>
+    public void ReplayedGenerateImageCard_LoadsItsThumbnailFromDraftShorthand() => HeadlessUi.RunAsync(async () =>
     {
         string draft = Path.Combine(_root, "draft");
         Directory.CreateDirectory(Path.Combine(draft, "images"));
@@ -58,6 +58,8 @@ public sealed class HistoryReplayResultImagesTests : IDisposable
         List<ConversationItemBase> built = renderer.Build(history, 0, history.Count);
 
         ToolCallItem card = Assert.Single(built.OfType<ToolCallItem>());
+        // 缩略图在后台解码，回放本身不等它
+        for (int i = 0; i < 500 && !card.HasResultImages; i++) await Task.Delay(10);
         Assert.True(card.HasResultImages);
     });
 }
