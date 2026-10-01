@@ -76,8 +76,9 @@ internal static class AgentAssembler
                     plan.Compaction), null, inputEstimate: plan.InputEstimate);
         }
 
-        // 视觉模型才投影 ViewImage 的图;投影挂在压缩里面,工具组折叠了图就跟着不发(ADR 0053)
-        if (plan.ModelSupportsVision) client = new ViewImageProjectingChatClient(client, plan.CreatePathResolver(null));
+        // 挂了 ViewImage 才投影它的图:关掉识图开关就停发看过的图,模型只剩路径文本。
+        // 投影挂在压缩里面,工具组折叠了图就跟着不发(ADR 0053)
+        if (plan.MountViewImage) client = new ViewImageProjectingChatClient(client, plan.CreatePathResolver(null));
 
         // ShellEnvironment 带草稿目录简写与(受管 Python 就绪时的)venv 激活,见 AgentAssemblyPlan
         LocalShellExecutor? shellExecutor = plan.Config.EnableShellExecution

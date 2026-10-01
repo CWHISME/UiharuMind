@@ -1,9 +1,13 @@
 using System.Text.Json;
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.Files;
+using UiharuMind.Core.AI.Execution.Mcp;
+using UiharuMind.Core.AI.Execution.Skills;
+using UiharuMind.Core.AI.Execution.Tools.Skills;
 using UiharuMind.Core.Tests.Utils;
 
 namespace UiharuMind.Core.Tests.Execution;
@@ -105,5 +109,34 @@ public sealed class ViewImageToolTests : IDisposable
 
         Assert.Equal(view, plan.MountViewImage);
         Assert.Equal(analyze, plan.MountVisionTool);
+    }
+
+    /// <summary>
+    /// 投影跟着看图工具走：关掉识图开关就不再重发看过的图（模型只剩结果里的路径文本），
+    /// 用户才有办法停掉这笔每次请求都要付的钱
+    /// </summary>
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public async Task Projection_FollowsTheVisionToggle(bool enabled, bool projected)
+    {
+        CharacterData character = new()
+        {
+            CharacterId = "a",
+            IsAgent = true,
+            Tools = new AgentToolConfig { EnableShellExecution = false, EnableVisionTool = enabled },
+        };
+        AgentAssemblyPlan plan = new()
+        {
+            Profile = new AgentBuildProfile { Character = character, PermissionMode = EAgentPermissionMode.AutoEdit },
+            WorkingDirectory = Workspace,
+            SkillsSource = new AgentFileSkillsSource(Path.Combine(_root, "skills")),
+            Mcp = McpToolSet.Empty,
+            ModelSupportsVision = true,
+        };
+
+        await using AgentHandle handle = AgentAssembler.Assemble(plan);
+
+        Assert.Equal(projected, handle.ServiceCalls.GetService<ViewImageProjectingChatClient>() != null);
     }
 }

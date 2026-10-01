@@ -140,7 +140,7 @@ internal static class SubAgentAssembly
         // 模型走会话覆写(派活时已把解析结果钉在子会话上,见 SubAgentTool.ResolveSubAgentModelName)——
         // 与主代理同一条解析链,于是界面显示的模型与实际问话的那个<b>由构造保证一致</b>
         IChatClient client = new LazyChatClient(plan.Profile.SessionModelSource);
-        if (plan.ModelSupportsVision) client = new ViewImageProjectingChatClient(client, plan.CreatePathResolver(null));
+        if (plan.MountViewImage) client = new ViewImageProjectingChatClient(client, plan.CreatePathResolver(null));
         return AgentAssembler.BuildHandle(client, assembled.Options, assembled.Shell);
     }
 
