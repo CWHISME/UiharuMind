@@ -349,12 +349,12 @@ public static class HistoryHandoff
     /// 提示模型在文档里照顾到它；为空时不附加，指令与从前逐字一致。
     /// </param>
     /// <param name="cancellationToken">取消标记</param>
-    /// <returns>文档正文；失败或产出为空时返回 null</returns>
-    public static async Task<string?> WriteAsync(IChatClient client, IReadOnlyList<ChatMessage> history,
+    /// <returns>文档正文与这一发的用量；失败或产出为空时正文为 null</returns>
+    public static async Task<HandoffReply> WriteAsync(IChatClient client, IReadOnlyList<ChatMessage> history,
         ChatOptions? agentOptions, int contextLength, string? extraInstructions = null,
         CancellationToken cancellationToken = default)
     {
-        if (history.Count == 0) return null;
+        if (history.Count == 0) return default;
 
         int charLimit = NoteCharLimitFor(contextLength);
         string instruction = string.Format(Instruction, charLimit);
@@ -386,7 +386,7 @@ public static class HistoryHandoff
                 .GetResponseAsync(messages, options, cancellationToken)
                 .ConfigureAwait(false);
             string text = response.Text.Trim();
-            return text.Length == 0 ? null : Cap(text, charLimit);
+            return new HandoffReply(text.Length == 0 ? null : Cap(text, charLimit), response.Usage);
         }
         catch (OperationCanceledException)
         {
@@ -395,7 +395,7 @@ public static class HistoryHandoff
         catch (Exception e)
         {
             Log.Warning($"Write context handoff failed: {e.Message}");
-            return null;
+            return default;
         }
         finally
         {
@@ -403,3 +403,10 @@ public static class HistoryHandoff
         }
     }
 }
+
+/// <summary>
+/// 写交接文档那一发请求的产出
+/// </summary>
+/// <param name="Text">文档正文；失败或产出为空时为 null</param>
+/// <param name="Usage">这一发的用量；没发成或服务端不报时为 null。正文为空也照样花了钱，所以与正文分开给</param>
+public readonly record struct HandoffReply(string? Text, UsageDetails? Usage);

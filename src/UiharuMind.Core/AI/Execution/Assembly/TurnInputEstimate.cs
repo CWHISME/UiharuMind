@@ -64,6 +64,16 @@ public sealed class TurnInputEstimate
     }
 
     /// <summary>
+    /// 忘掉历史估算，回到「还没压缩判定过」的状态（与新会话、句柄重建后的首个请求一致）。
+    /// 交接文档写成之后调用：此前的估算描述的是已被它替换的那段历史
+    /// </summary>
+    public void ForgetHistory()
+    {
+        LastHistory = 0;
+        LastRawHistory = 0;
+    }
+
+    /// <summary>
     /// 不绑句柄、固定开销取定值的一份。给旁路请求单独压一次用（见 <c>HistorySupply.ForSideRequestAsync</c>）：
     /// 压缩会回写这里的历史估算，与 agent 那份共用的话，旁路一压就把界面与交接水位读的数改掉了
     /// </summary>

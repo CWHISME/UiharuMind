@@ -235,9 +235,13 @@ public class HistoryHandoffTests
     [Fact]
     public async Task WriteAsync_ReturnsNullOnEmptyOutputInsteadOfWritingABlankNote()
     {
-        StubChatClient client = new(" \n ");
+        StubChatClient client = new(" \n ", new UsageDetails { InputTokenCount = 900, OutputTokenCount = 3 });
 
-        Assert.Null(await HistoryHandoff.WriteAsync(client, [User("a")], null, 128_000, cancellationToken: TestContext.Current.CancellationToken));
+        HandoffReply reply = await HistoryHandoff.WriteAsync(client, [User("a")], null, 128_000,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Null(reply.Text);
+        Assert.Equal(900, reply.Usage?.InputTokenCount); //没写出正文也照样花了钱,用量照给
     }
 
     [Fact]
@@ -245,7 +249,11 @@ public class HistoryHandoffTests
     {
         ThrowingChatClient client = new();
 
-        Assert.Null(await HistoryHandoff.WriteAsync(client, [User("a")], null, 128_000, cancellationToken: TestContext.Current.CancellationToken));
+        HandoffReply reply = await HistoryHandoff.WriteAsync(client, [User("a")], null, 128_000,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Null(reply.Text);
+        Assert.Null(reply.Usage);
     }
 
     [Fact]
@@ -253,7 +261,7 @@ public class HistoryHandoffTests
     {
         StubChatClient client = new("交接正文");
 
-        string? note = await HistoryHandoff.WriteAsync(client, [User("聊天内容")], null, 128_000, cancellationToken: TestContext.Current.CancellationToken);
+        string? note = (await HistoryHandoff.WriteAsync(client, [User("聊天内容")], null, 128_000, cancellationToken: TestContext.Current.CancellationToken)).Text;
 
         Assert.Equal("交接正文", note);
         Assert.Equal(2, client.Seen.Count); //历史 + 指令
@@ -284,7 +292,7 @@ public class HistoryHandoffTests
         Assert.DoesNotContain("Additional instructions", client.Seen[^1].Text);
     }
 
-    private sealed class StubChatClient(string reply) : IChatClient
+    private sealed class StubChatClient(string reply, UsageDetails? usage = null) : IChatClient
     {
         public List<ChatMessage> Seen { get; } = [];
         public ChatOptions? SeenOptions { get; private set; }
@@ -294,7 +302,7 @@ public class HistoryHandoffTests
         {
             Seen.AddRange(messages);
             SeenOptions = options;
-            return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, reply)));
+            return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, reply)) { Usage = usage });
         }
 
         public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages,

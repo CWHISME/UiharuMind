@@ -4,6 +4,7 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Execution.ToolCall;
@@ -563,6 +564,34 @@ public class TurnDriverTests
         Assert.Contains("别忘了临时结论", client.Seen[^1].Text);
     }
 
+    /// <summary>
+    /// 写交接那一发照常记账（会话累计、缓存命中），写完把估算里那段被替换的历史忘掉：
+    /// 交接后第一次请求框架不问触发条件，不清的话账本会把交接之前的大数当成那一次的占用
+    /// </summary>
+    [Fact]
+    public async Task Handoff_RecordsItsOwnUsage_AndForgetsTheSupersededEstimate()
+    {
+        ChatSession session = NewSession();
+        for (int i = 0; i < 5; i++) session.History.Add(Prompt($"第 {i} 条"));
+        UsageDetails usage = new() { InputTokenCount = 90_000, OutputTokenCount = 800, CachedInputTokenCount = 85_000 };
+        ModelRunningData running = new(new GGufModelInfo { ModelName = "m1" });
+        running.CompleteLoading(new CapturingChatClient("交接正文", usage), runtimeContextSize: 65536);
+        session.ChatModelRunningData = running;
+
+        TurnInputEstimate estimate = new() { LastHistory = 70_000, LastRawHistory = 95_000 }; //上一次请求折过
+        TurnUsageLedger ledger = new() { ContextLength = 128_000, CompactedInput = 25_000 };
+        TurnDriver driver = new(new FakeSink(), ledger);
+
+        await driver.CompactAsync(session, new StubRunner { InputEstimate = estimate });
+
+        Assert.Equal(90_000, session.TotalInputTokens);
+        Assert.Equal(800, session.TotalOutputTokens);
+        Assert.Equal(85_000, ledger.LastCachedInput); //面板据此显示交接那一发的命中率
+        Assert.Equal(0, estimate.LastHistory);
+        Assert.Equal(0, estimate.CompactedHistory);
+        Assert.Equal(0, ledger.CompactedInput); //「已折叠」那一行随之消失
+    }
+
     /// <summary>挂了 Grep/Read 的正式会话：交接时写出转录，交接文档末尾给出它的路径</summary>
     [Fact]
     public async Task Handoff_WithFileTools_WritesTranscript_AndPointsToIt()
@@ -777,6 +806,8 @@ public class TurnDriverTests
 
         public ChatOptions? ChatOptions { get; init; }
 
+        public TurnInputEstimate? InputEstimate { get; init; }
+
         /// <summary>最近一轮拿到的取消令牌（外层取消有没有串进来，看它）</summary>
         public CancellationToken LastToken { get; private set; }
 
@@ -820,7 +851,7 @@ public class TurnDriverTests
     }
 
     /// <summary>捕获它收到的全部消息,回一条固定回复(交接文档那一发用)</summary>
-    private sealed class CapturingChatClient(string reply) : IChatClient
+    private sealed class CapturingChatClient(string reply, UsageDetails? usage = null) : IChatClient
     {
         public List<ChatMessage> Seen { get; } = [];
 
@@ -828,7 +859,7 @@ public class TurnDriverTests
             CancellationToken cancellationToken = default)
         {
             Seen.AddRange(messages);
-            return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, reply)));
+            return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, reply)) { Usage = usage });
         }
 
         public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages,

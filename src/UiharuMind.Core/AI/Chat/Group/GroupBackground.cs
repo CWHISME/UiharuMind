@@ -84,9 +84,18 @@ public static class GroupBackground
             model.ContextLength, source.Runner.InputEstimate?.FixedOverhead ?? 0, cancellationToken).ConfigureAwait(false);
         if (supplied.Count == 0) return null;
 
-        string? summary = await HistoryHandoff.WriteAsync(client, supplied, options, model.ContextLength, audience,
+        HandoffReply reply = await HistoryHandoff.WriteAsync(client, supplied, options, model.ContextLength, audience,
             cancellationToken).ConfigureAwait(false);
-        return summary == null ? null : HistoryHandoff.Cap(summary, SummaryCharLimit);
+        // 是这个会话的模型花的,记进它的累计:群成员面板的成本读的就是它。不碰占用——单聊本身没有变满
+        if (reply.Usage is { } usage)
+        {
+            source.AccumulateUsage(usage.InputTokenCount ?? 0, usage.OutputTokenCount ?? 0,
+                usage.ReasoningTokenCount ?? 0);
+            source.SaveMeta(touchUpdatedAt: false);
+            SessionManager.Instance.NotifyUsageReported(source.SessionId);
+        }
+
+        return reply.Text == null ? null : HistoryHandoff.Cap(reply.Text, SummaryCharLimit);
     }
 
     /// <summary>

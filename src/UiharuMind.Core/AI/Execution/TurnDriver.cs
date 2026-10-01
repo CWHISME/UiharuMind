@@ -478,9 +478,7 @@ public sealed class TurnDriver : IDisposable
         _usage.EstimatedInput = runner.InputEstimate?.Total ?? 0;
         _usage.CompactedInput = runner.InputEstimate?.CompactedHistory ?? 0;
         _usage.FixedOverhead = runner.InputEstimate?.FixedOverhead ?? 0;
-        session.TotalInputTokens += input;
-        session.TotalOutputTokens += output;
-        session.TotalReasoningTokens += reasoning;
+        session.AccumulateUsage(input, output, reasoning);
         session.LastInputTokens = _usage.LastInput; //占用随本体持久化,切回会话时不必等下一次响应
         SessionManager.Instance.NotifyUsageReported(session.SessionId);
         LogUsageRatio(runner);
@@ -543,6 +541,20 @@ public sealed class TurnDriver : IDisposable
     }
 
     /// <summary>
+    /// 交接文档落进历史之后，估算里记的还是被它替换掉的那段历史。下一次请求只有交接文档加一条用户消息，
+    /// 框架见非 System 组不过一组就整段跳过压缩、不问触发条件，估算不会刷新——不清的话，
+    /// 账本会把交接之前的大数当成那一次的占用，进度条、配色与「已折叠」一行都挂着旧值
+    /// </summary>
+    private void ForgetSupersededEstimate(ICharacterRunner runner)
+    {
+        if (runner.InputEstimate is not { } estimate) return;
+
+        estimate.ForgetHistory();
+        _usage.EstimatedInput = estimate.Total;
+        _usage.CompactedInput = 0;
+    }
+
+    /// <summary>
     /// 到水位就让当前模型写一份交接文档，之后的历史供给从它开始。
     /// 失败不作声张——框架的截断仍挂着当兜底，最坏结果是回到「悄悄丢最旧的消息」。
     /// </summary>
@@ -600,9 +612,16 @@ public sealed class TurnDriver : IDisposable
                 runner.ChatOptions, _usage.ContextLength, runner.InputEstimate?.FixedOverhead ?? 0,
                 CancellationToken.None);
             // 选项取本会话装配好的那一份(系统提示词 + 工具定义 + 采样参数),与常规轮次逐字一致
-            string? note = await HistoryHandoff.WriteAsync(client, supplied, runner.ChatOptions,
+            HandoffReply reply = await HistoryHandoff.WriteAsync(client, supplied, runner.ChatOptions,
                 _usage.ContextLength, extraInstructions, CancellationToken.None);
-            if (note == null)
+            // 这一发往往是整个会话最大的一次请求,照常记账:不记的话会话累计少算,它命没命中缓存也无从验证
+            if (reply.Usage is { } usage)
+            {
+                RecordUsage(session, runner, usage);
+                Log.Debug($"Context handoff request: input {_usage.LastInput}, cached {_usage.LastCachedInput}");
+            }
+
+            if (reply.Text is not { } note)
             {
                 _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffFailed));
                 return;
@@ -619,6 +638,7 @@ public sealed class TurnDriver : IDisposable
             int before = session.History.Count;
             session.History.Add(message);
             session.SaveAppended(before);
+            ForgetSupersededEstimate(runner);
             //正文从消息本体取而不是直接用 note:去标题这一步与写进历史的那份逐字对应
             _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffWritten, HistoryHandoff.NoteBody(message.Text)));
             _notify?.Invoke(new TurnNotice(ETurnNotice.ScrollToEnd));

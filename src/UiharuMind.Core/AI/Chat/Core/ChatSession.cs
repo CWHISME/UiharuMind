@@ -754,6 +754,19 @@ public class ChatSession
     }
 
     /// <summary>
+    /// 计入一次请求的用量到会话累计。只改内存，随下一次存会话头落盘
+    /// </summary>
+    /// <param name="input">输入 token</param>
+    /// <param name="output">输出 token</param>
+    /// <param name="reasoning">思考 token</param>
+    public void AccumulateUsage(long input, long output, long reasoning)
+    {
+        TotalInputTokens += input;
+        TotalOutputTokens += output;
+        TotalReasoningTokens += reasoning;
+    }
+
+    /// <summary>
     /// 立即全量保存(头文件 + 历史整写)。这是默认路径——历史、编辑等有价值数据
     /// 不能坐在任何延迟窗里等崩溃/强杀,只有低价值高频的偏好类字段才允许用 <see cref="SaveDebounced"/>。
     /// </summary>
