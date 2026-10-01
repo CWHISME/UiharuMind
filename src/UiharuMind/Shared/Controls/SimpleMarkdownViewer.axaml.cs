@@ -84,6 +84,9 @@ public partial class SimpleMarkdownViewer : UserControl
     {
         base.OnLoaded(e);
         UpdateCodeBlockTheme();
+        // 主题订阅跟着上下树走,不能放构造里:应用对象永生,构造里订阅就再也摘不掉,
+        // 每个建过的气泡连同它的卡片、条目与整个会话视图模型都被挂住(切会话、滚远重建都在漏)
+        if (Application.Current != null) Application.Current.ActualThemeVariantChanged += OnThemeChanged;
         EffectiveViewportChanged += OnEffectiveViewportChanged;
 
         // 兜底:没有滚动容器的宿主(帮助页之类)可能一次视口通知都收不到,
@@ -97,6 +100,7 @@ public partial class SimpleMarkdownViewer : UserControl
     protected override void OnUnloaded(RoutedEventArgs e)
     {
         base.OnUnloaded(e);
+        if (Application.Current != null) Application.Current.ActualThemeVariantChanged -= OnThemeChanged;
         EffectiveViewportChanged -= OnEffectiveViewportChanged;
     }
 
@@ -260,8 +264,6 @@ public partial class SimpleMarkdownViewer : UserControl
         // 链接点击此前全仓一处未接,于是回复里的链接与图片一律点不动。
         // agent 产出的图表正是以 markdown 图片进对话的(见 ADR 0019),这条不接它就打不开
         MarkdownTextRender.LinkClick += OnLinkClick;
-
-        if (Application.Current != null) Application.Current.ActualThemeVariantChanged += OnThemeChanged;
     }
 
     /// <summary>
