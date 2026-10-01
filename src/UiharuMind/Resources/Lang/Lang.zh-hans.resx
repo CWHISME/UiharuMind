@@ -360,7 +360,7 @@
         <value>已错过</value>
     </data>
     <data name="AgentSetting" xml:space="preserve">
-        <value>Agent</value>
+        <value>智能体</value>
     </data>
     <data name="AgentSettingGeneral" xml:space="preserve">
         <value>常规</value>
@@ -450,7 +450,7 @@
         <value>计划模式</value>
     </data>
     <data name="AgentGateDescFileAccess" xml:space="preserve">
-        <value>工作区文件工具：Glob 找文件、Grep 搜文本、Read/Write/Edit/Replace/Delete 查看与修改。写操作始终需要审批。下方提示词用于教 agent 正确使用它们。</value>
+        <value>工作区文件工具：Glob 找文件、Grep 搜文本、Read/Write/Edit/Replace/Delete 查看与修改。写操作始终需要审批。下方提示词用于教智能体正确使用它们。</value>
     </data>
     <data name="AgentGateDescShell" xml:space="preserve">
         <value>在工作区执行 shell 命令（run_shell）。每条命令都需审批；可在审批卡片上"本会话放行同类命令"降低打扰。输出超过 64 KiB 自动截断。</value>
@@ -459,10 +459,10 @@
         <value>网络搜索与网页抓取（WebSearch / WebFetch）。填入 API key 后优先走官方搜索接口，未填时使用免费的网页抓取兜底。</value>
     </data>
     <data name="AgentGateDescVisionTool" xml:space="preserve">
-        <value>让不识图的模型把图片问题转交给视觉模型（AnalyzeImage）。仅在当前模型自己看不了图时才会挂载。下方提示词告诉 agent 何时使用它。</value>
+        <value>让不识图的模型把图片问题转交给视觉模型（AnalyzeImage）。仅在当前模型自己看不了图时才会挂载。下方提示词告诉智能体何时使用它。</value>
     </data>
     <data name="AgentGateDescKnowledgeSearch" xml:space="preserve">
-        <value>检索会话挂载的知识库（KnowledgeSearch）。关闭时（或模型不支持工具调用时）改为每轮自动注入相关片段。检索的是你提供的文档；agent 自己的笔记（工作区记忆）是另一回事。</value>
+        <value>检索会话挂载的知识库（KnowledgeSearch）。关闭时（或模型不支持工具调用时）改为每轮自动注入相关片段。检索的是你提供的文档；智能体自己的笔记（工作区记忆）是另一回事。</value>
     </data>
     <data name="AgentGateDescSubAgent" xml:space="preserve">
         <value>允许用 SendMessage 把一件事交给子代理，只有它的报告回到主对话，原始材料不进主上下文。子代理在后台跑，继承本会话的权限档；它的过程是一个真的子会话，从工具卡片或右栏「子代理」面板打开，可以接着聊，随会话存档。</value>
@@ -471,10 +471,10 @@
         <value>创建定时任务（ScheduleTask），到点后在无人值守模式下运行，只允许预授权的 shell 命令。</value>
     </data>
     <data name="AgentGateDescTodoList" xml:space="preserve">
-        <value>侧栏展示的 agent 任务清单。关闭后侧栏面板隐藏，agent 也不再维护待办。</value>
+        <value>侧栏展示的智能体任务清单。关闭后侧栏面板隐藏，智能体也不再维护待办。</value>
     </data>
     <data name="AgentGateDescAgentMode" xml:space="preserve">
-        <value>计划/执行模式切换。关闭后输入框的模式切换按钮隐藏，agent 始终直接执行。</value>
+        <value>计划/执行模式切换。关闭后输入框的模式切换按钮隐藏，智能体始终直接执行。</value>
     </data>
     <data name="AgentSettingWebSearchKeys" xml:space="preserve">
         <value>网络搜索 API key</value>
@@ -564,7 +564,7 @@
         <value>主动技能</value>
     </data>
     <data name="AgentSkillsUserInvokedTip" xml:space="preserve">
-        <value>只能由你在 agent 会话里敲 /技能名 触发，模型不会自己用它。</value>
+        <value>只能由你在智能体会话里敲 /技能名 触发，模型不会自己用它。</value>
     </data>
     <data name="AgentSkillsNotLoaded" xml:space="preserve">
         <value>未加载</value>
@@ -2671,7 +2671,7 @@
     <value>受管 Python 环境</value>
   </data>
   <data name="AgentSettingPythonDesc" xml:space="preserve">
-    <value>解释器归你，虚拟环境归我们。建好之后 agent 用命令行工具调它跑 Python，装包也只装进这个环境，不会动你的系统 Python。</value>
+    <value>解释器归你，虚拟环境归我们。建好之后智能体用命令行工具调它跑 Python，装包也只装进这个环境，不会动你的系统 Python。</value>
   </data>
   <data name="AgentSettingPythonInterpreter" xml:space="preserve">
     <value>宿主解释器（留空则从 PATH 自动探测）</value>
@@ -3002,7 +3002,7 @@
         <value>开始一段新对话</value>
     </data>
     <data name="AgentEmptyTitle" xml:space="preserve">
-        <value>让 Agent 做点什么?</value>
+        <value>让智能体做点什么?</value>
     </data>
     <data name="AgentEmptyHint" xml:space="preserve">
         <value>绑定工作目录并描述任务即可开始。</value>
@@ -3491,6 +3491,18 @@
     </data>
     <data name="AgentSettingImageModelsManage" xml:space="preserve">
         <value>管理生图模型</value>
+    </data>
+
+    <data name="ModelInfoReloaded" xml:space="preserve">
+        <value>已重新加载：{0}</value>
+    </data>
+
+    <data name="RemoteModelDeleteConfirm" xml:space="preserve">
+        <value>确定删除远程模型 {0} 吗？</value>
+    </data>
+
+    <data name="ModelListUpdated" xml:space="preserve">
+        <value>模型列表已更新。</value>
     </data>
 
 </root>

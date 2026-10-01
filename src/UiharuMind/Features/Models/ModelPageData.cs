@@ -113,7 +113,7 @@ public partial class ModelPageData : PageDataBase
     private async Task RefreshSelectModelInfo(string path)
     {
         await App.ModelService.LoadModelList();
-        _messageService.ShowNotification("Reload Info: " + path);
+        _messageService.ShowNotification(Loc.Text(LangKey.ModelInfoReloaded, path));
     }
 
     [RelayCommand]
@@ -160,7 +160,7 @@ public partial class ModelPageData : PageDataBase
     [RelayCommand]
     private async Task DeleteRemoteModel(string name)
     {
-        if (await _messageService.ConfirmAsync("Are you sure to delete remote model " + name + "?"))
+        if (await _messageService.ConfirmAsync(Loc.Text(LangKey.RemoteModelDeleteConfirm, name)))
         {
             LlmManager.Instance.DeleteRemoteModel(name);
             LoadModels();
@@ -184,7 +184,7 @@ public partial class ModelPageData : PageDataBase
     {
         LoadModels();
         // 切页时的对齐不是用户改的路径,不该弹提示
-        if (!_isSyncingModelPath) _messageService.ShowNotification("Model list updated.");
+        if (!_isSyncingModelPath) _messageService.ShowNotification(Loc.Text(LangKey.ModelListUpdated));
     }
 
     public override void OnEnable()

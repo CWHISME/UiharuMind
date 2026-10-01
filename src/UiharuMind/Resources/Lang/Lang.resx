@@ -3500,4 +3500,16 @@ Allow them?</value>
         <value>Manage image models</value>
     </data>
 
+    <data name="ModelInfoReloaded" xml:space="preserve">
+        <value>Reloaded: {0}</value>
+    </data>
+
+    <data name="RemoteModelDeleteConfirm" xml:space="preserve">
+        <value>Delete remote model {0}?</value>
+    </data>
+
+    <data name="ModelListUpdated" xml:space="preserve">
+        <value>Model list updated.</value>
+    </data>
+
 </root>
