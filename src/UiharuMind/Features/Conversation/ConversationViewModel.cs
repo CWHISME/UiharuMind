@@ -288,10 +288,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private readonly TurnDriver _driver; //一轮对话的编排,与定时任务共用同一份
     private readonly ConversationTurnRunner _turns; //跑一轮:装配、过闸、交给驱动
     private readonly HandoffWritingPlaceholder _handoffWriting; //整理交接文档时的占位卡
-    private ChatSession? _signalSession; //已挂上历史变更信号的会话
-    private IDisposable? _sessionPin; //挂着期间钉住它的历史,不许被驻留策略卸掉
-    private IDisposable? _liveObservation; //挂在会话实时内容流上的订阅(别人驱动那一轮时靠它逐 token)
-    private readonly ITurnSink _liveObserverSink; //实时流的落点:同一个转录器,外面包一层 UI 线程 marshal
+    private readonly SessionSignalHandlers _signalHandlers; //挂会话时接的几路回调,构造时建一份
+    private SessionSignalSubscription? _signals; //挂在当前会话上的信号,换会话先摘再挂
     private readonly ConversationHistoryPager _pager; //历史开窗：首屏回放、续窗与裁剪
     private readonly ConversationHistoryReconciler _reconciler; //落盘与界面对不上的兜底
 
@@ -541,7 +539,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _handoffWriting = new HandoffWritingPlaceholder(Items, () => ScrollToEnd = true);
         // 观察别人驱动的那一轮时用它:内核仍是 _transcript,所以自己驱动时会被去重掉(见 LiveTurnStream)
         // 登记在册的才放行审批请求——嵌套审批的卡只该在子窗口弹,普通会话的观察窗弹出来也没人听
-        _liveObserverSink = new LiveObserverSink(_transcript, _approvalAdopter.AllowsObservedApproval);
+        _signalHandlers = new SessionSignalHandlers(_turns.ResolveApprovalsAsync, OnSessionHistoryAppended,
+            OnSessionHistoryReplaced, OnObservedTurnEnded,
+            new LiveObserverSink(_transcript, _approvalAdopter.AllowsObservedApproval), _transcript);
         _driver.StateChanged += OnDriverStateChanged;
         BackgroundSubAgentDispatcher.PendingWorkChanged += OnPendingWorkChanged;
         SessionManager.Instance.Running.StateChanged += OnSessionRunStateChanged;
@@ -746,37 +746,17 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         });
     }
 
-    /// <summary>挂上「别处改了这个会话的历史」的两个信号。重复挂接先摘再挂，不攒订阅</summary>
+    /// <summary>挂上这个会话的信号。重复挂接先摘再挂，不攒订阅</summary>
     private void AttachSessionSignals(ChatSession session)
     {
         DetachSessionSignals();
-        _signalSession = session;
-        // 钉住它的历史:每个气泡都指着历史里的某一条消息实例,历史被卸掉重载之后
-        // 那些引用全部认不回来,编辑/删除/分叉/重试会静默失效(见 SessionResidencyPolicy)
-        _sessionPin = SessionManager.Instance.Pin(session.SessionId);
-        // 后台子代理跑完起的那一轮,审批只有本壳接得住(见 WakeApprovalHosts)
-        WakeApprovalHosts.Register(session.SessionId, _turns.ResolveApprovalsAsync);
-        session.HistoryAppended += OnSessionHistoryAppended;
-        session.HistoryMessageReplaced += OnSessionHistoryReplaced;
-        // 挂上这个会话的实时内容流。自己驱动时按身份去重,不会渲染两遍;
-        // 这一轮跑到一半才挂上来也补得齐(尚未落盘的那一段会当场补发)
-        _liveObservation = session.LiveTurn.Observe(_liveObserverSink, _transcript);
-        session.LiveTurn.TurnEnded += OnObservedTurnEnded;
+        _signals = new SessionSignalSubscription(session, _signalHandlers);
     }
 
-    /// <summary>摘掉订阅。会话比本视图活得久，不摘就是一路泄漏到已销毁的视图上</summary>
     private void DetachSessionSignals()
     {
-        if (_signalSession is not { } previous) return;
-        WakeApprovalHosts.Unregister(previous.SessionId, _turns.ResolveApprovalsAsync);
-        previous.HistoryAppended -= OnSessionHistoryAppended;
-        previous.HistoryMessageReplaced -= OnSessionHistoryReplaced;
-        previous.LiveTurn.TurnEnded -= OnObservedTurnEnded;
-        _liveObservation?.Dispose();
-        _liveObservation = null;
-        _sessionPin?.Dispose();
-        _sessionPin = null;
-        _signalSession = null;
+        _signals?.Dispose();
+        _signals = null;
     }
 
     private void OnDriverStateChanged()
