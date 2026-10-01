@@ -14,6 +14,7 @@ internal sealed class SseSanitizingStream : Stream
     private byte[] _pending = []; //当前行修正后的字节
     private int _offset;
     private bool _sawDone; //是否见过 data: [DONE]——EOF 时没见过说明服务器掐了流
+    private int _usageFrames; //带 usage 的帧数:多于 1 时用量会被记多次
     private int _linesRead; //已读行数(诊断用:终止时看流到底被消费了多少)
     private string _lastDataLine = ""; //最后一条 data 行原文(诊断用:看服务端收尾时到底发了什么)
 
@@ -106,6 +107,7 @@ internal sealed class SseSanitizingStream : Stream
     {
         _linesRead++;
         if (line.Contains("[DONE]", StringComparison.Ordinal)) _sawDone = true;
+        if (line.Contains("\"usage\":{", StringComparison.Ordinal)) _usageFrames++;
         // 跳过 [DONE]:要的是最后一条<b>业务帧</b>(它才带 finish_reason/usage)。
         // 之前把 [DONE] 也记进来,收尾帧被它覆盖,看不到服务端到底发了什么
         if (!_sawDone && line.StartsWith("data:", StringComparison.Ordinal)) _lastDataLine = line;
@@ -145,7 +147,7 @@ internal sealed class SseSanitizingStream : Stream
         // 无条件留痕:无论流怎么结束(正常读完/被掐/被提前丢弃)都会走到这里。
         // 这是判断"服务端到底发没发完"的决定性观测——行数为 0 说明流根本没被读
         if (_sawDone)
-            Log.Debug($"SseSanitizingStream disposed: {_linesRead} lines, saw [DONE] (normal end).");
+            Log.Debug($"SseSanitizingStream disposed: {_linesRead} lines, {_usageFrames} usage frames, saw [DONE] (normal end).");
         else
             Log.Warning($"SseSanitizingStream disposed: {_linesRead} lines, NO [DONE]. " +
                         (disposing ? "Disposed by caller" : "Finalizer"));

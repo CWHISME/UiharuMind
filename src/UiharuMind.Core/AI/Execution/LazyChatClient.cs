@@ -64,9 +64,15 @@ public class LazyChatClient : IChatClient
         return response;
     }
 
-    public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+    // 用量只认流尾那一份:有的服务商一次调用报两遍累计用量,逐条记账会翻倍(见 StreamUsage)
+    public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
         IEnumerable<ChatMessage> messages, ChatOptions? options = null,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        StreamUsage.KeepLast(StreamWithRetryAsync(messages, options, cancellationToken), cancellationToken);
+
+    private async IAsyncEnumerable<ChatResponseUpdate> StreamWithRetryAsync(
+        IEnumerable<ChatMessage> messages, ChatOptions? options,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         IReadOnlyList<ChatMessage> messageList = AsList(messages);
         LlmRequestContext.PendingReasoningByCallId = CollectReasoningByCallId(messageList);
