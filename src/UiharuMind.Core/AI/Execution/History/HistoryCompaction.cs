@@ -217,23 +217,24 @@ public static class HistoryCompaction
     internal static long CorrectedGroupTokens(int groupByteCount, int groupTokenCount,
         IReadOnlyList<ChatMessage> messages)
     {
-        (int imageBytes, int imageCount) = ImagePayloadOf(messages);
-        // 发送时才投影进去的图(ADR 0053):字节不在这组里,只按张数补上界
-        imageCount += ViewImageProjection.CountProjectedImages(messages);
+        (int imageBytes, long imageTokens, int imageCount) = ImagePayloadOf(messages);
+        // 发送时才投影进去的图(ADR 0053):字节不在这组里,按结果里记下的预览尺寸计
+        (int projectedCount, long projectedTokens) = ViewImageProjection.EstimateProjectedImages(messages);
         // 不含图片的组原样采用框架的数:那一侧的估算本来就够准,也不必假设它是怎么算出来的
-        if (imageCount == 0) return groupTokenCount;
+        if (imageCount + projectedCount == 0) return groupTokenCount;
 
-        return (groupByteCount - imageBytes) / 4 + (long)imageCount * InlineImageLimits.MaxTokensPerImage;
+        return (groupByteCount - imageBytes) / 4 + imageTokens + projectedTokens;
     }
 
     /// <summary>
-    /// 统计一组消息里图片内容的字节数与张数
+    /// 统计一组消息里图片内容的字节数、token 数与张数
     /// </summary>
     /// <param name="messages">消息</param>
-    /// <returns>图片总字节数与张数；字节口径与框架的 <c>ComputeContentByteCount</c> 一致</returns>
-    private static (int Bytes, int Count) ImagePayloadOf(IReadOnlyList<ChatMessage> messages)
+    /// <returns>字节口径与框架的 <c>ComputeContentByteCount</c> 一致；token 按每张图自己的尺寸计</returns>
+    private static (int Bytes, long Tokens, int Count) ImagePayloadOf(IReadOnlyList<ChatMessage> messages)
     {
         int bytes = 0;
+        long tokens = 0;
         int count = 0;
         foreach (ChatMessage message in messages)
         {
@@ -243,11 +244,12 @@ public static class HistoryCompaction
 
                 // 与框架同口径:数据体 + MediaType + Name 的 UTF-8 字节数
                 bytes += data.Data.Length + ByteCountOf(data.MediaType) + ByteCountOf(data.Name);
+                tokens += InlineImageLimits.EstimateTokens(data.Data.Span);
                 count++;
             }
         }
 
-        return (bytes, count);
+        return (bytes, tokens, count);
     }
 
     private static int ByteCountOf(string? value)

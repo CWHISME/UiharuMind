@@ -1,6 +1,7 @@
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.History;
+using UiharuMind.Core.Tests.Utils;
 
 namespace UiharuMind.Core.Tests.Execution;
 
@@ -76,6 +77,38 @@ public class HistoryCompactionImageTokenTests
         long corrected = HistoryCompaction.CorrectedGroupTokens(groupBytes, groupTokens, messages);
 
         Assert.Equal(3 * InlineImageLimits.MaxTokensPerImage + TextBytesOf("三张图") / 4, corrected);
+    }
+
+    /// <summary>
+    /// 读得出尺寸就按这张图自己的像素计（仍是最贵的「宽 × 高 / 750」口径）：一张 256 见方的头像
+    /// 按 1568 见方的上限算是虚高三十多倍，状态栏与交接都被它拖着提前
+    /// </summary>
+    [Fact]
+    public void ImagesOfKnownSize_CountTheirOwnPixels_CappedAtTheCeiling()
+    {
+        Assert.Equal(88, InlineImageLimits.EstimateTokens(256, 256)); //256*256/750 向上取整
+        Assert.Equal(InlineImageLimits.MaxTokensPerImage, InlineImageLimits.EstimateTokens(4000, 4000)); //服务端会先缩到长边上限
+        Assert.Equal(InlineImageLimits.MaxEdge * 784 / 750 + 1, InlineImageLimits.EstimateTokens(3136, 1568)); //等比缩到 1568x784
+
+        List<ChatMessage> messages = [new(ChatRole.User, [new DataContent(TestImages.Png(256, 256), ImageType)])];
+        (int groupBytes, int groupTokens) = FrameworkCountsOf(messages);
+
+        Assert.Equal(88, HistoryCompaction.CorrectedGroupTokens(groupBytes, groupTokens, messages));
+    }
+
+    [Fact]
+    public void ViewImageResults_UseThePreviewSizeTheToolRecorded()
+    {
+        List<ChatMessage> messages =
+        [
+            new(ChatRole.Assistant, [new FunctionCallContent("c1", ViewImageTool.ToolName)]),
+            new(ChatRole.Tool, [new FunctionResultContent("c1",
+                "Preview: $DRAFT/a.png\nPreview size: 256x256\nPreview: $DRAFT/b.png")]),
+        ];
+
+        //第二张没记尺寸(老结果):按上限
+        Assert.Equal(100 + 88 + (long)InlineImageLimits.MaxTokensPerImage,
+            HistoryCompaction.CorrectedGroupTokens(400, 100, messages));
     }
 
     [Fact]

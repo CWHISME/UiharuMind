@@ -45,16 +45,26 @@ public static class ViewImageProjection
     }
 
     /// <summary>
-    /// 一组消息投影出去会多带几张图。压缩在投影之前跑，看不见这些字节，靠它补上
+    /// 一组消息投影出去会多带几张图、按多少 token 计。压缩在投影之前跑，看不见这些字节，靠它补上；
+    /// 尺寸取工具结果里记下的预览尺寸，没记（老结果）按上限
     /// </summary>
     /// <param name="messages">消息（一个压缩组）</param>
-    /// <returns>张数</returns>
-    public static int CountProjectedImages(IReadOnlyList<ChatMessage> messages)
+    /// <returns>张数与 token 数</returns>
+    public static (int Count, long Tokens) EstimateProjectedImages(IReadOnlyList<ChatMessage> messages)
     {
         HashSet<string> viewCalls = ViewCallsIn(messages);
-        return viewCalls.Count == 0
-            ? 0
-            : messages.Where(m => m.Role == ChatRole.Tool).Sum(m => PreviewsIn(m, viewCalls).Count());
+        if (viewCalls.Count == 0) return (0, 0);
+
+        List<ViewImageTool.PreviewEntry> previews = messages
+            .Where(m => m.Role == ChatRole.Tool)
+            .SelectMany(m => m.Contents.OfType<FunctionResultContent>())
+            .Where(r => viewCalls.Contains(r.CallId))
+            .SelectMany(r => ViewImageTool.ParsePreviews(TextOf(r)))
+            .ToList();
+        long tokens = previews.Sum(p => (long)(p.Width > 0
+            ? InlineImageLimits.EstimateTokens(p.Width, p.Height)
+            : InlineImageLimits.MaxTokensPerImage));
+        return (previews.Count, tokens);
     }
 
     private static HashSet<string> ViewCallsIn(IReadOnlyList<ChatMessage> messages) => messages

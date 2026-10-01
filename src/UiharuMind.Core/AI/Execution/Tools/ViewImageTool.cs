@@ -31,8 +31,9 @@ public static class ViewImageTool
     /// <summary>预览副本在草稿目录下的子目录</summary>
     internal static readonly string PreviewFolder = Path.Combine(AgentOutputLayout.ImagesFolder, "previews");
 
-    // 结果里每张图一行，投影与工具卡据此找图；写与读都在本类
+    // 结果里每张图一行，投影与工具卡据此找图；尺寸紧跟其后一行，压缩据此计 token。写与读都在本类
     private const string PreviewPrefix = "Preview: ";
+    private const string PreviewSizePrefix = "Preview size: ";
 
     /// <summary>缩图器。SkiaSharp 只在 App 里，由 App 启动时注入；没注入（CLI）就原样复制</summary>
     public static ImageDownscaler? Downscaler { get; set; }
@@ -70,6 +71,47 @@ public static class ViewImageTool
     /// <returns>路径，按调用顺序</returns>
     public static IReadOnlyList<string> ParsePreviewPaths(string? result) => ToolResultLines.Parse(result, PreviewPrefix);
 
+    /// <summary>
+    /// 结果里的一张预览：路径与尺寸
+    /// </summary>
+    /// <param name="Path">预览路径（草稿目录简写或绝对路径）</param>
+    /// <param name="Width">宽；结果没记（老结果）为 0</param>
+    /// <param name="Height">高；结果没记为 0</param>
+    public readonly record struct PreviewEntry(string Path, int Width, int Height);
+
+    /// <summary>
+    /// 从工具结果里取出预览与它们的尺寸
+    /// </summary>
+    /// <param name="result">工具结果原文</param>
+    /// <returns>预览，按调用顺序</returns>
+    public static IReadOnlyList<PreviewEntry> ParsePreviews(string? result)
+    {
+        List<PreviewEntry> previews = new();
+        if (string.IsNullOrEmpty(result)) return previews;
+        foreach (string line in result.Split('\n'))
+        {
+            if (line.StartsWith(PreviewPrefix, StringComparison.Ordinal))
+            {
+                previews.Add(new PreviewEntry(line[PreviewPrefix.Length..].Trim(), 0, 0));
+            }
+            else if (line.StartsWith(PreviewSizePrefix, StringComparison.Ordinal) && previews.Count > 0 &&
+                     TryParseSize(line[PreviewSizePrefix.Length..], out int width, out int height))
+            {
+                previews[^1] = previews[^1] with { Width = width, Height = height };
+            }
+        }
+
+        return previews;
+    }
+
+    private static bool TryParseSize(string text, out int width, out int height)
+    {
+        width = 0;
+        height = 0;
+        string[] parts = text.Trim().Split('x');
+        return parts.Length == 2 && int.TryParse(parts[0], out width) && int.TryParse(parts[1], out height);
+    }
+
     private static async Task<string> ViewAsync(AgentPathResolver resolver, ImageDownscaler? downscaler,
         string[]? imagePaths, CancellationToken ct)
     {
@@ -99,6 +141,10 @@ public static class ViewImageTool
             string saved = await SavePreviewAsync(resolver, bytes, mediaType, ct).ConfigureAwait(false);
             sb.Append("Attached: ").Append(imagePath).Append('\n');
             sb.Append(PreviewPrefix).Append(resolver.ToPortable(saved)).Append('\n');
+            if (ImageFormats.TryReadSize(bytes, out int width, out int height))
+            {
+                sb.Append(PreviewSizePrefix).Append(width).Append('x').Append(height).Append('\n');
+            }
         }
 
         sb.Append("The images follow in the next message.");

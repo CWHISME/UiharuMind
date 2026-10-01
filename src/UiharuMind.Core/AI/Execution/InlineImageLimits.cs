@@ -7,6 +7,8 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using UiharuMind.Core.Core.Utils;
+
 namespace UiharuMind.Core.AI.Execution;
 
 /// <summary>
@@ -35,4 +37,29 @@ public static class InlineImageLimits
     /// 误差方向是<b>刻意偏高</b>的：高估只会让压缩早触发一点，低估则会发出超长请求换来 400。
     /// </summary>
     public const int MaxTokensPerImage = MaxEdge * MaxEdge / 750;
+
+    /// <summary>
+    /// 一张已知尺寸的图按多少 token 计：仍取最贵的「宽 × 高 / 750」口径，只是按这张图自己的像素算，
+    /// 超过 <see cref="MaxEdge"/> 的先等比缩（服务端也会这么做），封顶 <see cref="MaxTokensPerImage"/>。
+    /// 误差方向不变，仍不低于它在任何一家的实际开销
+    /// </summary>
+    /// <param name="width">宽（像素）</param>
+    /// <param name="height">高（像素）</param>
+    /// <returns>token 数；尺寸无效时按上限</returns>
+    public static int EstimateTokens(int width, int height)
+    {
+        if (width <= 0 || height <= 0) return MaxTokensPerImage;
+        double scale = Math.Min(1, MaxEdge / (double)Math.Max(width, height));
+        return (int)Math.Min(MaxTokensPerImage, Math.Ceiling(width * scale * (height * scale) / 750));
+    }
+
+    /// <summary>
+    /// 按图片字节头里的尺寸计；读不出尺寸（不是 PNG/JPEG/WebP 或头残缺）按上限
+    /// </summary>
+    /// <param name="image">图片字节</param>
+    /// <returns>token 数</returns>
+    public static int EstimateTokens(ReadOnlySpan<byte> image) =>
+        ImageFormats.TryReadSize(image, out int width, out int height)
+            ? EstimateTokens(width, height)
+            : MaxTokensPerImage;
 }
