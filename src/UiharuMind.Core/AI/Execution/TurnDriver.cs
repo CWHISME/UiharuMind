@@ -476,6 +476,7 @@ public sealed class TurnDriver : IDisposable
 
         (long input, long output, long reasoning) = _usage.Add(details);
         _usage.EstimatedInput = runner.InputEstimate?.Total ?? 0;
+        _usage.CompactedInput = runner.InputEstimate?.CompactedHistory ?? 0;
         _usage.FixedOverhead = runner.InputEstimate?.FixedOverhead ?? 0;
         session.TotalInputTokens += input;
         session.TotalOutputTokens += output;
@@ -564,9 +565,11 @@ public sealed class TurnDriver : IDisposable
         }
 
         // 收有效占用而不是报告占用:服务端的 usage 未必含工具定义,只信它的话
-        // 在少报的服务端上这条水位永远不触发——三条里唯一能保住上下文的那条就此失效。见 ADR 0009
+        // 在少报的服务端上这条水位永远不触发——三条里唯一能保住上下文的那条就此失效。见 ADR 0009。
+        // 再加回被折叠压掉的那截:折叠把发出去的那份压回线下,只看有效占用的话交接会被它一直压住
         _usage.EstimatedInput = runner.InputEstimate?.Total ?? _usage.EstimatedInput;
-        if (!force && !HistoryHandoff.ShouldWrite(_usage.EffectiveInput, _usage.ContextLength)) return;
+        _usage.CompactedInput = runner.InputEstimate?.CompactedHistory ?? _usage.CompactedInput;
+        if (!force && !HistoryHandoff.ShouldWrite(_usage.RawInput, _usage.ContextLength)) return;
 
         int start = HistoryHandoff.SupplyStartIndex(session.History);
         // 上一份交接之后没攒下几条,再压一次只会把已经压过的东西再压一遍
@@ -591,7 +594,11 @@ public sealed class TurnDriver : IDisposable
         _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffStarted));
         try
         {
-            List<ChatMessage> supplied = session.History.Skip(start).ToList();
+            // 与常规请求同一视图:同一口径供给(不带知识库片段)、同一套压缩。发原始历史的话,前缀在第一组折叠处
+            // 就与已缓存的那份岔开,原始历史本身还可能比窗口还大——交接恰恰常在折叠动过手之后才写
+            IReadOnlyList<ChatMessage> supplied = await HistorySupply.ForSideRequestAsync(session.History,
+                runner.ChatOptions, _usage.ContextLength, runner.InputEstimate?.FixedOverhead ?? 0,
+                CancellationToken.None);
             // 选项取本会话装配好的那一份(系统提示词 + 工具定义 + 采样参数),与常规轮次逐字一致
             string? note = await HistoryHandoff.WriteAsync(client, supplied, runner.ChatOptions,
                 _usage.ContextLength, extraInstructions, CancellationToken.None);

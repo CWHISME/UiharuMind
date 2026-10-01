@@ -62,12 +62,26 @@ public class TurnUsageLedgerTests
     {
         TurnUsageLedger ledger = new();
         ledger.Add(Usage(10, 20));
+        ledger.CompactedInput = 500;
 
         ledger.Reset();
 
         Assert.Equal(0, ledger.SessionInput);
         Assert.Equal(0, ledger.SessionOutput);
         Assert.Equal(0, ledger.TurnInput);
+        Assert.Equal(0, ledger.CompactedInput); //留着会让新会话一开始就顶着旧会话折掉的那截
+    }
+
+    /// <summary>原始占用 = 有效占用 + 压掉的那截；没压时两者相等</summary>
+    [Fact]
+    public void RawInput_AddsTheCompactedSliceOnTopOfEffective()
+    {
+        TurnUsageLedger ledger = new() { EstimatedInput = 1000 };
+        ledger.RestoreSession(0, 0, 3000);
+        Assert.Equal(ledger.EffectiveInput, ledger.RawInput);
+
+        ledger.CompactedInput = 400;
+        Assert.Equal(3400, ledger.RawInput);
     }
 
     [Fact]

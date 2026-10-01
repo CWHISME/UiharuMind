@@ -53,6 +53,17 @@ public class HistoryCompactionTests
         Assert.True(HistoryCompaction.ToolEvictionThreshold < HistoryCompaction.TruncationThreshold);
     }
 
+    /// <summary>
+    /// 折叠的比例高于交接，是任何固定开销下折叠线都在交接线之上的充分条件
+    /// （额度 × 折叠 − (预算 × 交接 − 固定开销) = 预算 × (折叠 − 交接) + 固定开销 × (1 − 折叠)）。
+    /// 反过来的话历史每次都先撞上折叠：折一次断一次缓存，轮末交接再断一次
+    /// </summary>
+    [Fact]
+    public void EvictionSitsAboveHandoff()
+    {
+        Assert.True(HistoryCompaction.ToolEvictionThreshold > HistoryHandoff.Threshold);
+    }
+
     [Fact]
     public void Create_ReturnsAStrategy()
     {
@@ -101,37 +112,41 @@ public class HistoryCompactionTests
     [Fact]
     public async Task Folding_LeavesHeadroom_SoTheNextCallsKeepThePrefix()
     {
-        IChatReducer reducer = HistoryCompaction.Create(() => 20_000, new TurnInputEstimate()).AsChatReducer();
+        TurnInputEstimate estimate = new();
+        IChatReducer reducer = HistoryCompaction.Create(() => 20_000, estimate).AsChatReducer();
         List<ChatMessage> history = [new(ChatRole.User, "把这些文件都看一遍")];
-        for (int i = 0; i < 60; i++) AddToolGroup(history, i);
+        // 55 组约 16.8k token,落在第一级台阶中间(0.85 → 1.05 额度);起点贴着台阶的话,下面多三组就跨级了
+        for (int i = 0; i < 55; i++) AddToolGroup(history, i);
 
         List<ChatMessage> first = (await reducer.ReduceAsync(history, TestContext.Current.CancellationToken)).ToList();
-        Assert.True(first.Count(x => x.Role == ChatRole.Tool) < 60, "该折的没折");
+        Assert.True(first.Count(x => x.Role == ChatRole.Tool) < 55, "该折的没折");
         Assert.Equal("把这些文件都看一遍", first[0].Text); //折叠就腾够了地方，没轮到截断
+        //压掉的那截记下来了：交接水位要把它加回去，否则会被折叠压住
+        Assert.True(estimate.CompactedHistory > 0, $"原始 {estimate.LastRawHistory} / 发出 {estimate.LastHistory}");
 
-        for (int i = 60; i < 63; i++) AddToolGroup(history, i);
+        for (int i = 55; i < 58; i++) AddToolGroup(history, i);
         List<ChatMessage> next = (await reducer.ReduceAsync(history, TestContext.Current.CancellationToken)).ToList();
 
         Assert.Equal(first.Select(Signature), next.Take(first.Count).Select(Signature));
         Assert.Equal(first.Count + 6, next.Count); //新的三组原样接在后面，没有再折
 
         // 再长过一级台阶（额度 20% ≈ 3.5k token），才一次多折一截
-        for (int i = 63; i < 78; i++) AddToolGroup(history, i);
+        for (int i = 58; i < 73; i++) AddToolGroup(history, i);
         List<ChatMessage> stepped = (await reducer.ReduceAsync(history, TestContext.Current.CancellationToken)).ToList();
         Assert.True(Folded(stepped) > Folded(first) + 3, $"跨级应多折一截：{Folded(first)} → {Folded(stepped)}");
     }
 
-    private static int Folded(IEnumerable<ChatMessage> messages) =>
+    internal static int Folded(IEnumerable<ChatMessage> messages) =>
         messages.Count(x => x.Text.StartsWith(ToolCallFolding.Header, StringComparison.Ordinal));
 
-    private static void AddToolGroup(List<ChatMessage> history, int i)
+    internal static void AddToolGroup(List<ChatMessage> history, int i)
     {
         string callId = $"call-{i}";
         history.Add(new ChatMessage(ChatRole.Assistant, [new FunctionCallContent(callId, "Read")]));
         history.Add(new ChatMessage(ChatRole.Tool, [new FunctionResultContent(callId, $"{i}:{new string('x', 1_200)}")]));
     }
 
-    private static string Signature(ChatMessage message) =>
+    internal static string Signature(ChatMessage message) =>
         message.Role + "|" + string.Join("|", message.Contents.Select(x => x switch
         {
             FunctionCallContent call => "call:" + call.CallId,

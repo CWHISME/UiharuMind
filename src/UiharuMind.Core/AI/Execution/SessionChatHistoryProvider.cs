@@ -80,17 +80,9 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
         if (session == null) return new ValueTask<IEnumerable<ChatMessage>>([]);
 
         // 有交接文档就从它开始供给:它之前的历史已经被压进那份文档,只留在会话文件与界面上。
-        // 起点每次现算(扫最后一条交接消息)而不是记个下标——分支会话、删消息都不会把它算错
-        IReadOnlyList<ChatMessage> full = session.History;
-        int start = HistoryHandoff.SupplyStartIndex(full);
-
-        // 知识库检索片段「存而不供」:落了盘只为界面回溯,回灌给模型就会逐轮累积过期上下文。
-        // 每轮的片段由 MemoryContextProvider 按当前提问重新检索并注入,模型要看的永远是新的那份
-        IReadOnlyList<ChatMessage> supplied = full
-            .Skip(start)
-            .Where(x => !ChatMessageAnnotations.IsKnowledge(x))
-            .ToList();
-        if (_promptOnly) supplied = PromptOnlyHistory.StripToolContents(supplied);
+        // 起点每次现算(扫最后一条交接消息)而不是记个下标——分支会话、删消息都不会把它算错。
+        // 口径与旁路请求共用一处(见 HistorySupply),两边的前缀才逐字一致
+        IReadOnlyList<ChatMessage> supplied = HistorySupply.From(session.History, _promptOnly);
 
         // 其余开窗交给框架的在环压缩(ADR 0006):按当前模型的上下文动态定预算,先折叠老的工具结果、
         // 必要时才截断,组边界由 CompactionMessageIndex 保证不会产生孤儿工具结果。

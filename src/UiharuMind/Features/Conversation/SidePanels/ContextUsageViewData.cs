@@ -60,7 +60,10 @@ public partial class ContextUsageViewData : ObservableObject
     /// <summary>「未计入（估）」那一行；服务端口径与我们一致时为空，整行不出现</summary>
     [ObservableProperty] private string _unreportedText = string.Empty;
 
-    /// <summary>三条水位的说明文本（折叠 → 交接 → 截断）</summary>
+    /// <summary>「已折叠（估）」那一行：最近一次请求发出前被折叠或截断压掉的量；没压时为空，整行不出现</summary>
+    [ObservableProperty] private string _compactedText = string.Empty;
+
+    /// <summary>三条水位的说明文本（交接 → 折叠 → 截断）</summary>
     [ObservableProperty] private string _thresholdText = string.Empty;
 
     /// <summary>前缀缓存命中的显示文本；服务端不报时为空</summary>
@@ -125,6 +128,7 @@ public partial class ContextUsageViewData : ObservableObject
             EffectivePercent = 0;
             ReportedText = string.Empty;
             UnreportedText = string.Empty;
+            CompactedText = string.Empty;
             ReasoningText = string.Empty;
             StateKey = NormalState;
             return;
@@ -151,6 +155,11 @@ public partial class ContextUsageViewData : ObservableObject
         UnreportedText = hasGap
             ? TurnUsageLedger.FormatExact(ledger.UnreportedInput)
             : string.Empty;
+        // 进度条画的是发出去的那份,折叠过后可能落回交接线下,而交接按原始占用判——把压掉的那截亮出来,
+        // 「进度条没到线、交接却来了」才有交代
+        CompactedText = ledger.CompactedInput > 0
+            ? TurnUsageLedger.FormatExact(ledger.CompactedInput)
+            : string.Empty;
 
         int budget = HistoryCompaction.InputBudgetFor(contextLength);
         // 折叠与截断乘在**历史额度**上(输入预算减固定开销),而这根轴是全量,所以要把固定开销加回来;
@@ -160,8 +169,8 @@ public partial class ContextUsageViewData : ObservableObject
         double handoff = budget * HistoryHandoff.Threshold;
         double truncation = ledger.FixedOverhead + quota * HistoryCompaction.TruncationThreshold;
         // 水位按输入预算(总长减预留)算,而进度条整条是总长——所以给绝对 token 数而不是百分比,
-        // 两者的比例对不上。按数值排成一条递进的链,读起来就是"接下来会依次发生什么":
-        // 折叠与交接分母不同,固定开销很大时两者会换位,写死顺序就会说错
+        // 两者的比例对不上。按数值排成一条递进的链,读起来就是"接下来会依次发生什么"。
+        // 三者的次序由折叠的比例保证(见 HistoryCompaction.ToolEvictionThreshold),排序只是不让文案替它再写死一遍
         ThresholdText = string.Join(" → ", new[]
             {
                 (Value: eviction, Key: LangKey.ContextWatermarkFold),
@@ -173,10 +182,11 @@ public partial class ContextUsageViewData : ObservableObject
 
         // 配色按「接下来会发生什么」分档,不按水位数量分:
         // 折叠工具结果基本无损,不值得变色;真正该警示的是"要开始丢上下文了"。
-        // 判据用有效占用——它就是三条水位实际比对的那个数,配色与压缩何时动手必须同源
-        StateKey = usage >= truncation
+        // 判据用原始占用——交接比的就是它,压缩动过手之后进度条可能落回线下,配色仍得说"要交接了"
+        long raw = ledger.RawInput;
+        StateKey = raw >= truncation
             ? TruncatingState
-            : usage >= handoff
+            : raw >= handoff
                 ? EvictingState
                 : NormalState;
     }

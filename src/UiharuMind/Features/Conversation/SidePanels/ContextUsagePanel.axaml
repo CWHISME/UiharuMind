@@ -98,6 +98,17 @@
                    ToolTip.Tip="{Binding UnreportedText}" />
     </Grid>
 
+    <!-- 折叠(或截断)压掉的那截。进度条画的是发出去的那份,压过之后可能落回交接线下,
+         这一行交代交接为什么照样会来。没压时整行不出现 -->
+    <Grid ColumnDefinitions="Auto,*"
+          ToolTip.Tip="{loc:Loc ContextCompactedTip}"
+          IsVisible="{Binding CompactedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock Classes="muted" Text="{loc:Loc ContextCompactedLabel}" />
+        <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
+                   Text="{Binding CompactedText}" TextTrimming="CharacterEllipsis"
+                   ToolTip.Tip="{Binding CompactedText}" />
+    </Grid>
+
     <Grid ColumnDefinitions="Auto,*"
           IsVisible="{Binding CachedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <TextBlock Classes="muted" Text="{loc:Loc ContextCachedLabel}" />

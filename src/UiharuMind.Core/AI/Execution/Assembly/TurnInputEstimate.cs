@@ -34,6 +34,15 @@ public sealed class TurnInputEstimate
     public long LastHistory { get; internal set; }
 
     /// <summary>
+    /// 同一次压缩判定里、压缩动手<b>之前</b>的历史估算（原始历史）。由折叠的触发条件写入——
+    /// 它是每次压缩问的第一个条件，此刻还一组没排除。没压时与 <see cref="LastHistory"/> 相等
+    /// </summary>
+    public long LastRawHistory { get; internal set; }
+
+    /// <summary>最近一次请求发出前被折叠或截断压掉的历史估算；没压时为 0</summary>
+    public long CompactedHistory => Math.Max(0, LastRawHistory - LastHistory);
+
+    /// <summary>
     /// 每轮固定开销（系统提示 + 工具定义）。未绑定时为 0，等于退回「不扣固定开销」的旧行为。
     ///
     /// ⚠️ 普通角色（纯提示词）就走这条：它们不登记工具与提示分段，能力快照恒为空。
@@ -52,5 +61,16 @@ public sealed class TurnInputEstimate
     public void BindTo(AgentHandle handle)
     {
         _fixedOverhead = () => handle.Capabilities.EstimatedTokens;
+    }
+
+    /// <summary>
+    /// 不绑句柄、固定开销取定值的一份。给旁路请求单独压一次用（见 <c>HistorySupply.ForSideRequestAsync</c>）：
+    /// 压缩会回写这里的历史估算，与 agent 那份共用的话，旁路一压就把界面与交接水位读的数改掉了
+    /// </summary>
+    /// <param name="fixedOverhead">固定开销</param>
+    /// <returns>独立的一份估算</returns>
+    internal static TurnInputEstimate Detached(int fixedOverhead)
+    {
+        return new TurnInputEstimate { _fixedOverhead = () => fixedOverhead };
     }
 }

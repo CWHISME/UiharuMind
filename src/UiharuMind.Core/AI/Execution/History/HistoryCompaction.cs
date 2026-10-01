@@ -27,17 +27,21 @@ namespace UiharuMind.Core.AI.Execution.History;
 public static class HistoryCompaction
 {
     /// <summary>
-    /// 工具结果折叠的水位（占历史额度的比例）。折叠会改掉靠前的消息、断一次前缀缓存，所以它只是<b>轮内</b>的缓冲：
-    /// 交接文档只在两轮之间写，一轮几十次工具调用一路涨上去时，靠它挡在截断前面
+    /// 工具结果折叠的水位（占历史额度的比例）。<b>必须高于交接文档的比例</b>：折叠每次请求都判，交接只在轮末写，
+    /// 折叠线一低，历史每次都先撞上它——先折一次断一次缓存，轮末交接再断一次。
+    /// 只要高于交接的比例，任何固定开销下折叠线都在交接线之上：
+    /// 额度 × 0.85 −（预算 × 0.8 − 固定开销）= 预算 × 0.05 + 固定开销 × 0.15 &gt; 0。
+    ///
+    /// 于是折叠只剩两种情形：单轮内一路冲过交接线（轮末照常交接），以及子代理那种一轮到底、轮间根本没有交接的长任务
     /// </summary>
-    public const double ToolEvictionThreshold = 0.7;
+    public const double ToolEvictionThreshold = 0.85;
 
     /// <summary>
     /// 折叠一次腾到这里（回差）。只折到刚好不触发的话，之后每多一条工具结果就再折最老的一组，
-    /// 几乎每次调用都整段不中缓存；一次折出一截余量，断一次缓存换后面多次命中。
+    /// 几乎每次调用都整段不中缓存；一次折出一截余量（额度的 20%），断一次缓存换后面多次命中。
     /// 实际占用因此在它与 <see cref="ToolEvictionThreshold"/> 之间来回（折法见 <c>FoldInSteps</c>）
     /// </summary>
-    public const double ToolEvictionTarget = 0.5;
+    public const double ToolEvictionTarget = 0.65;
 
     /// <summary>截断的水位（占输入预算的比例）。最后一道防线，必须高于交接文档的水位</summary>
     public const double TruncationThreshold = 0.9;
@@ -143,6 +147,7 @@ public static class HistoryCompaction
         CompactionTrigger trigger = index =>
         {
             raw = CorrectedTokenCount(index);
+            estimate.LastRawHistory = raw; //交接水位读它:折叠把发出去的那份压回线下,交接不能因此被压住
             estimate.LastHistory = raw;
             int quota = HistoryQuotaFor(contextSource(), estimate.FixedOverhead);
             return quota > 0 && raw > quota * ToolEvictionThreshold;

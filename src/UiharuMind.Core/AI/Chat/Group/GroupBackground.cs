@@ -79,7 +79,9 @@ public static class GroupBackground
         if (source.ChatModelRunningData is not { ChatClient: { } client } model) return null;
 
         ChatOptions? options = source.Runner.ChatOptions;
-        IReadOnlyList<ChatMessage> supplied = SuppliedHistory(source.History, options);
+        // 与原单聊平时的请求同一视图:同一口径供给、同一套压缩,前缀才中得了它的缓存
+        IReadOnlyList<ChatMessage> supplied = await HistorySupply.ForSideRequestAsync(source.History, options,
+            model.ContextLength, source.Runner.InputEstimate?.FixedOverhead ?? 0, cancellationToken).ConfigureAwait(false);
         if (supplied.Count == 0) return null;
 
         string? summary = await HistoryHandoff.WriteAsync(client, supplied, options, model.ContextLength, audience,
@@ -95,20 +97,4 @@ public static class GroupBackground
     /// <returns>草稿正文</returns>
     public static string Compose(string characterName, string summary) =>
         $"（背景：这个群是从我和{characterName}的单聊开出来的，下面是那段对话的摘要。）\n\n{summary.Trim()}\n\n";
-
-    /// <summary>
-    /// 写摘要时交给模型的历史：与平时供给同一口径（从最后一份交接文档起、不带知识库片段）；
-    /// 选项里没挂工具时去掉工具内容，否则模型会照着历史再编一个调用（见 <see cref="PromptOnlyHistory"/>）
-    /// </summary>
-    /// <param name="history">原单聊的完整历史</param>
-    /// <param name="options">原单聊装配好的选项；未装配为 null</param>
-    /// <returns>要交给模型的历史</returns>
-    internal static IReadOnlyList<ChatMessage> SuppliedHistory(IReadOnlyList<ChatMessage> history, ChatOptions? options)
-    {
-        List<ChatMessage> supplied = history
-            .Skip(HistoryHandoff.SupplyStartIndex(history))
-            .Where(x => !ChatMessageAnnotations.IsKnowledge(x))
-            .ToList();
-        return options?.Tools is { Count: > 0 } ? supplied : PromptOnlyHistory.StripToolContents(supplied);
-    }
 }

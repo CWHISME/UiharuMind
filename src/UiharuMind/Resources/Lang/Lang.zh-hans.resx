@@ -128,6 +128,12 @@
     <data name="ContextUnreportedTip" xml:space="preserve">
         <value>服务端回报的用量未含工具定义与系统提示，这一截是我们自己估的。上下文占用与压缩水位按两者之和判定。</value>
     </data>
+    <data name="ContextCompactedLabel" xml:space="preserve">
+        <value>已折叠（估）</value>
+    </data>
+    <data name="ContextCompactedTip" xml:space="preserve">
+        <value>本次请求发出前被折叠（或截断）压掉的历史，是我们估的。进度条画的是发出去的那份；交接文档按占用加上这一截判定，所以进度条落回水位下时交接照样会来。</value>
+    </data>
     <data name="ChatAutoCollapseThinking" xml:space="preserve">
         <value>自动折叠思考</value>
     </data>

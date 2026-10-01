@@ -45,6 +45,25 @@ public class HistoryHandoffTests
         Assert.True(HistoryHandoff.ShouldWrite(ledger.EffectiveInput, 128_000));
     }
 
+    /// <summary>
+    /// 折叠把发出去的那份压回交接线之下时，交接照样要来：它替换的是原始历史，被压住的话只会越拖越大，
+    /// 最后发出去的那一发原始历史可能比窗口还大
+    /// </summary>
+    [Fact]
+    public void ShouldWrite_StillFiresAfterFoldingPushedTheSentHistoryBelowTheLine()
+    {
+        int budget = HistoryCompaction.InputBudgetFor(128_000);
+        TurnUsageLedger ledger = new()
+        {
+            ContextLength = 128_000,
+            EstimatedInput = (long)(budget * 0.7), //折叠之后发出去的
+            CompactedInput = (long)(budget * 0.2), //折掉的那截
+        };
+
+        Assert.False(HistoryHandoff.ShouldWrite(ledger.EffectiveInput, 128_000), "只看发出去的那份就被折叠压住了");
+        Assert.True(HistoryHandoff.ShouldWrite(ledger.RawInput, 128_000));
+    }
+
     /// <summary>服务端报得比我们估的高时以它为准——取大是两侧都兜，不是单向替换</summary>
     [Fact]
     public void EffectiveUsage_KeepsTheLargerSide()
@@ -65,17 +84,18 @@ public class HistoryHandoffTests
 
     /// <summary>
     /// 三条水位换到<b>全量占用</b>那根轴上（进度条与配色用的就是它）之后，次序必须仍是
-    /// 折叠 → 交接 → 截断。
+    /// 交接 → 折叠 → 截断。
     ///
     /// 这一条会静默坏掉：折叠与截断乘在<b>历史额度</b>上（预算减固定开销），交接乘在<b>输入预算</b>上，
-    /// 两者分母不同，固定开销一大就可能把顺序颠过来——那样界面上会先变红再说"要交接了",
-    /// 而 <see cref="ShouldWrite_FiresBeforeFrameworkTruncation"/> 只比常数，看不见这个。
+    /// 两者分母不同。折叠一旦落到交接前面，历史每次都先撞上它，折一次、轮末交接再一次，缓存断两回；
+    /// <see cref="ShouldWrite_FiresBeforeFrameworkTruncation"/> 只比常数，看不见这个。
     /// </summary>
     [Theory]
     [InlineData(128_000, 0)]
     [InlineData(128_000, 25_600)] //GLM + Unity 那套
     [InlineData(128_000, 60_000)] //固定开销吃掉半个预算的极端情形
     [InlineData(8192, 2000)] //小上下文的本地模型
+    [InlineData(1_048_576, 10_000)]
     public void Watermarks_StayOrderedOnTheFullUsageAxis(int context, int fixedOverhead)
     {
         int budget = HistoryCompaction.InputBudgetFor(context);
@@ -85,9 +105,8 @@ public class HistoryHandoffTests
         double handoff = budget * HistoryHandoff.Threshold;
         double truncation = fixedOverhead + quota * HistoryCompaction.TruncationThreshold;
 
-        // 折叠是轮内缓冲，与交接谁先谁后随固定开销变（界面按数值排序显示）；两者都必须赶在截断之前
+        Assert.True(handoff < eviction, $"交接 {handoff:0} 必须早于折叠 {eviction:0}");
         Assert.True(eviction < truncation, $"折叠 {eviction:0} 必须早于截断 {truncation:0}");
-        Assert.True(handoff < truncation, $"交接 {handoff:0} 必须早于截断 {truncation:0}");
         //截断之后请求必须还发得出去,这正是分母改扣固定开销要保证的事
         Assert.True(truncation < context, $"截断水位 {truncation:0} 必须仍在上限 {context} 之内");
     }

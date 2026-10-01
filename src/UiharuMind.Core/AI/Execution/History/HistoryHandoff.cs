@@ -113,13 +113,13 @@ public static class HistoryHandoff
     /// <summary>
     /// 是否该写交接文档了
     /// </summary>
-    /// <param name="effectiveInput">有效占用（报告占用与我们的估算取大，见 <c>TurnUsageLedger</c>）</param>
+    /// <param name="rawInput">原始占用（有效占用加上被折叠或截断压掉的那截，见 <c>TurnUsageLedger.RawInput</c>）</param>
     /// <param name="contextLength">当前模型的上下文上限</param>
     /// <returns>达到水位为 true</returns>
-    public static bool ShouldWrite(long effectiveInput, int contextLength)
+    public static bool ShouldWrite(long rawInput, int contextLength)
     {
         int budget = HistoryCompaction.InputBudgetFor(contextLength);
-        return budget > 0 && effectiveInput > budget * Threshold;
+        return budget > 0 && rawInput > budget * Threshold;
     }
 
     /// <summary>
@@ -341,7 +341,7 @@ public static class HistoryHandoff
     /// 让模型写一份交接文档
     /// </summary>
     /// <param name="client">模型客户端</param>
-    /// <param name="history">要交接的历史（通常是当前供给给模型的那一份）</param>
+    /// <param name="history">要交接的历史，与常规请求同一视图（见 <see cref="HistorySupply.ForSideRequestAsync"/>）</param>
     /// <param name="agentOptions">本会话装配好的对话选项，见 <see cref="ICharacterRunner.ChatOptions"/></param>
     /// <param name="contextLength">当前模型的上下文上限，用于算出文档自己的篇幅上限</param>
     /// <param name="extraInstructions">

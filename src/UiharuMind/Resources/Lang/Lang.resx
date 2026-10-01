@@ -135,6 +135,12 @@
     <data name="ContextUnreportedTip" xml:space="preserve">
         <value>This server's reported usage leaves out tool definitions and the system prompt, so this slice is our own estimate. Context usage and the compaction watermarks are judged on the sum of both.</value>
     </data>
+    <data name="ContextCompactedLabel" xml:space="preserve">
+        <value>Folded away (est.)</value>
+    </data>
+    <data name="ContextCompactedTip" xml:space="preserve">
+        <value>History folded (or truncated) away before this request was sent, by our own estimate. The bar shows what was actually sent; the handoff watermark counts this slice too, so a handoff can still come while the bar sits below it.</value>
+    </data>
     <data name="ChatAutoCollapseThinking" xml:space="preserve">
         <value>Auto-collapse thinking</value>
     </data>

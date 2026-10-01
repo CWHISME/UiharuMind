@@ -60,6 +60,19 @@ public sealed class TurnUsageLedger
     /// </summary>
     public long UnreportedInput => Math.Max(0, EstimatedInput - LastInput);
 
+    /// <summary>
+    /// 最近一次请求发出前被折叠或截断压掉的历史估算，由执行侧每次记账时写入。没压时为 0
+    /// </summary>
+    public long CompactedInput { get; set; }
+
+    /// <summary>
+    /// <b>原始占用</b>：有效占用加上被压掉的那截，即供给窗口里实际攒下了多少。交接文档水位读它。
+    ///
+    /// 不能只读有效占用：折叠把发出去的那份压回交接线之下，交接就被它一直压住——
+    /// 而交接替换的正是原始历史，越晚写，原始历史越大。没压时与有效占用相等
+    /// </summary>
+    public long RawInput => EffectiveInput + CompactedInput;
+
     /// <summary>当前模型的上下文窗口，0 表示未知（占用段整段省略）</summary>
     public int ContextLength { get; set; }
 
@@ -193,6 +206,7 @@ public sealed class TurnUsageLedger
         TurnOutput = 0;
         LastInput = 0; //占用是「这个会话现在多满」,换会话必须清掉,否则会挂着上一个会话的数
         EstimatedInput = 0; //同理:它是另一半口径,留着会让新会话一开始就顶着旧会话的固定开销
+        CompactedInput = 0;
         FixedOverhead = 0;
         LastCachedInput = 0;
         LastReasoningTokens = 0;
