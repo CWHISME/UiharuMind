@@ -33,6 +33,9 @@ internal sealed class ViewerThumbDrag
     /// <summary>是否正按住会话流自己的滑块</summary>
     public bool IsDragging { get; private set; }
 
+    /// <summary>
+    /// 构造并挂上滑块的拖动事件
+    /// </summary>
     /// <param name="viewer">会话流的滚动容器</param>
     /// <param name="whileHeld">按住期间每隔一段时间调用一次</param>
     /// <param name="released">松手时调用</param>
@@ -40,7 +43,10 @@ internal sealed class ViewerThumbDrag
     {
         _viewer = viewer;
         _released = released;
-        _heldTimer = new DispatcherTimer(HeldInterval, DispatcherPriority.Background, (_, _) => whileHeld());
+        // 不能用带回调的那个构造:它构造即启动——每个视图从建出来起就每 300ms 空跑一次,
+        // 而在跑的计时器被调度器强引用着,视图连同它的数据上下文就再也回收不掉
+        _heldTimer = new DispatcherTimer(HeldInterval, DispatcherPriority.Background, Dispatcher.UIThread);
+        _heldTimer.Tick += (_, _) => whileHeld();
         viewer.AddHandler(Thumb.DragStartedEvent, OnDragStarted);
         viewer.AddHandler(Thumb.DragCompletedEvent, OnDragCompleted);
     }

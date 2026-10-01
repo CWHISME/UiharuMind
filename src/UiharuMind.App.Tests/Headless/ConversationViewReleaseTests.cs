@@ -2,6 +2,8 @@ using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Threading;
+using UiharuMind.App.Tests.TestDoubles;
+using UiharuMind.Features.Conversation;
 using UiharuMind.Shared.Controls;
 
 namespace UiharuMind.App.Tests.Headless;
@@ -12,7 +14,7 @@ namespace UiharuMind.App.Tests.Headless;
 /// 强制 GC 之后托管堆每圈仍涨约 18MB，元凶是气泡在构造里订阅了应用的主题事件、从不退订。
 /// 「滚远收卡、滚回重建」每重建一次也多漏一个。
 ///
-/// 只测气泡本身而不测整个视图模型：后者在全量测试里会被别的测试留下的窗口与静态状态交叉挂住，
+/// 气泡那条只测气泡本身而不测整个视图模型：后者在全量测试里会被别的测试留下的窗口与静态状态交叉挂住，
 /// 判不出是谁的锅。
 /// </summary>
 [Collection(HeadlessCollection.Name)]
@@ -34,6 +36,42 @@ public class ConversationViewReleaseTests
         Assert.False(released.IsAlive, "离开视觉树的气泡仍被挂住");
         window.Close();
     });
+
+    /// <summary>
+    /// 关掉的会话视图要能被回收（快捷对话窗每开一扇就建一个）。视图里挂着的计时器、订阅一旦常驻，
+    /// 就连同它的数据上下文一起留在堆上——滑块拖动那个定时器曾经构造即启动，正是这么漏的
+    /// </summary>
+    [Fact]
+    public void ClosedConversationView_CanBeCollected() => HeadlessUi.Run(() =>
+    {
+        WeakReference released = ShowThenClose();
+        Settle();
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        Assert.False(released.IsAlive, "关掉的会话视图仍被挂住");
+    });
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static WeakReference ShowThenClose()
+    {
+        ConversationView view = new();
+        Window window = new() { Width = 600, Height = 400, Content = view };
+        window.Show();
+        Settle(window);
+        window.Close();
+        return new WeakReference(view);
+    }
+
+    private static void Settle()
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        }
+    }
 
     /// <summary>不内联：局部变量留在本帧里，调用方的 GC 才看不到它们</summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
