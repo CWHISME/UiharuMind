@@ -10,6 +10,7 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
@@ -38,8 +39,9 @@ internal static class McpCallResult
     /// <param name="raw">工具的原始返回</param>
     /// <param name="spillDirectory">超限落盘的目录</param>
     /// <param name="fileStem">落盘文件名的可读前缀</param>
+    /// <param name="paths">落盘目录是会话房间时给出，图片路径按它写成草稿目录简写（与 GenerateImage 同口径）；null 写绝对路径</param>
     /// <returns>字符串；只有带认不出的非文本块时才是内容列表</returns>
-    public static object Normalize(object? raw, string spillDirectory, string fileStem)
+    public static object Normalize(object? raw, string spillDirectory, string fileStem, AgentPathResolver? paths = null)
     {
         switch (raw)
         {
@@ -50,11 +52,11 @@ internal static class McpCallResult
             case TextContent textContent:
                 return ToolResultSpill.Limit(TidyJsonText(textContent.Text), spillDirectory, fileStem);
             case JsonElement json:
-                return NormalizeCallToolResult(json, spillDirectory, fileStem);
+                return NormalizeCallToolResult(json, spillDirectory, fileStem, paths);
             case AIContent other:
-                return NormalizeContents([other], spillDirectory, fileStem);
+                return NormalizeContents([other], spillDirectory, fileStem, paths);
             case IEnumerable<AIContent> contents:
-                return NormalizeContents(contents, spillDirectory, fileStem);
+                return NormalizeContents(contents, spillDirectory, fileStem, paths);
             default:
                 return ToolResultSpill.Limit(JsonSerializer.Serialize(raw), spillDirectory, fileStem);
         }
@@ -63,7 +65,8 @@ internal static class McpCallResult
     /// <summary>
     /// 解包序列化的 CallToolResult。认不出形状（没有 content 数组）就退回原始文本，不丢信息。
     /// </summary>
-    internal static object NormalizeCallToolResult(JsonElement json, string spillDirectory, string fileStem)
+    internal static object NormalizeCallToolResult(JsonElement json, string spillDirectory, string fileStem,
+        AgentPathResolver? paths = null)
     {
         if (json.ValueKind != JsonValueKind.Object ||
             !json.TryGetProperty("content", out JsonElement blocks) || blocks.ValueKind != JsonValueKind.Array)
@@ -95,7 +98,7 @@ internal static class McpCallResult
 
         return contents.Count == 0
             ? "(empty result)"
-            : NormalizeContents(contents, spillDirectory, fileStem);
+            : NormalizeContents(contents, spillDirectory, fileStem, paths);
     }
 
     /// <summary>
@@ -156,7 +159,8 @@ internal static class McpCallResult
                     }
                     catch (FormatException)
                     {
-                        // 数据不是合法 base64：落到下面保留原文
+                        // 不是合法 base64：原文就是那一大串，留着等于又塞给模型，只说一句
+                        return new TextContent($"[{type} block with unreadable data omitted]");
                     }
                 }
 
@@ -169,11 +173,12 @@ internal static class McpCallResult
         }
     }
 
-    private static object NormalizeContents(IEnumerable<AIContent> contents, string spillDirectory, string fileStem)
+    private static object NormalizeContents(IEnumerable<AIContent> contents, string spillDirectory, string fileStem,
+        AgentPathResolver? paths)
     {
         List<AIContent> all = contents.ToList();
         List<string> texts = all.OfType<TextContent>().Select(x => TidyJsonText(x.Text)).ToList();
-        List<string> media = all.OfType<DataContent>().Select(x => SaveMedia(x, spillDirectory, fileStem)).ToList();
+        List<string> media = all.OfType<DataContent>().Select(x => SaveMedia(x, spillDirectory, fileStem, paths)).ToList();
         List<AIContent> others = all.Where(x => x is not (TextContent or DataContent)).ToList();
 
         List<string> lines = texts.Count > 0 ? [ToolResultSpill.Limit(string.Join("\n", texts), spillDirectory, fileStem)] : [];
@@ -187,18 +192,18 @@ internal static class McpCallResult
         return result;
     }
 
-    /// 图片、音频落进产出房间的 images/（与 GenerateImage 同一处），结果里只留路径
-    private static string SaveMedia(DataContent data, string spillDirectory, string fileStem)
+    // 图片、音频落进产出房间的 images/（与 GenerateImage 同一处），结果里只留路径
+    private static string SaveMedia(DataContent data, string spillDirectory, string fileStem, AgentPathResolver? paths)
     {
         string mediaType = data.MediaType;
         try
         {
-            string directory = Path.Combine(spillDirectory, ImageGenerationTool.OutputFolder);
+            string directory = Path.Combine(spillDirectory, AgentOutputLayout.ImagesFolder);
             Directory.CreateDirectory(directory);
             string path = Path.Combine(directory,
                 ToolResultSpill.FileNameFor(fileStem, data.Data.Span, ExtensionOf(mediaType)));
             File.WriteAllBytes(path, data.Data.ToArray());
-            return $"[{mediaType} saved: {path}]";
+            return $"[{mediaType} saved: {paths?.ToPortable(path) ?? path}]";
         }
         catch (Exception e)
         {
@@ -224,21 +229,25 @@ internal sealed class McpResultFunction : DelegatingAIFunction
 {
     private readonly string _spillDirectory;
     private readonly string _serverName;
+    private readonly AgentPathResolver? _paths;
 
     /// <param name="innerFunction">原工具（可能已经是改过名的那个）</param>
     /// <param name="spillDirectory">超限落盘的目录</param>
     /// <param name="serverName">server 名，用作落盘文件名前缀的一部分</param>
-    public McpResultFunction(AIFunction innerFunction, string spillDirectory, string serverName)
+    /// <param name="paths">落盘目录是会话房间时的路径口径；null 写绝对路径</param>
+    public McpResultFunction(AIFunction innerFunction, string spillDirectory, string serverName,
+        AgentPathResolver? paths = null)
         : base(innerFunction)
     {
         _spillDirectory = spillDirectory;
         _serverName = serverName;
+        _paths = paths;
     }
 
     protected override async ValueTask<object?> InvokeCoreAsync(AIFunctionArguments arguments,
         CancellationToken cancellationToken)
     {
         object? raw = await base.InvokeCoreAsync(arguments, cancellationToken).ConfigureAwait(false);
-        return McpCallResult.Normalize(raw, _spillDirectory, $"Mcp_{_serverName}_{Name}");
+        return McpCallResult.Normalize(raw, _spillDirectory, $"Mcp_{_serverName}_{Name}", _paths);
     }
 }

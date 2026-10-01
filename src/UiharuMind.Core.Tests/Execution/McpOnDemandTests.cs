@@ -12,6 +12,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
+using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Prompts;
 using UiharuMind.Core.AI.Execution.Tools;
@@ -456,7 +457,7 @@ public class McpOnDemandTests : IDisposable
         string alone = Assert.IsType<string>(McpCallResult.Normalize(image, _directory, "stem"));
 
         Assert.StartsWith("hello\n", mixed);
-        Assert.Equal(2, Directory.GetFiles(Path.Combine(_directory, ImageGenerationTool.OutputFolder)).Length); //同一张图只落一份
+        Assert.Equal(2, Directory.GetFiles(Path.Combine(_directory, AgentOutputLayout.ImagesFolder)).Length); //同一张图只落一份
         Assert.Contains(".wav", mixed);
         Assert.DoesNotContain("hello", alone);
         Assert.Contains(".png", alone);
@@ -513,10 +514,35 @@ public class McpOnDemandTests : IDisposable
 
         Assert.StartsWith("shot\n", result);
         Assert.DoesNotContain(base64, result);
-        string saved = Assert.Single(Directory.GetFiles(Path.Combine(_directory, ImageGenerationTool.OutputFolder)));
+        string saved = Assert.Single(Directory.GetFiles(Path.Combine(_directory, AgentOutputLayout.ImagesFolder)));
         Assert.EndsWith(".png", saved);
         Assert.Contains(saved, result);
         Assert.Equal(bytes, File.ReadAllBytes(saved));
+    }
+
+    /// <summary>落进会话房间时写成草稿目录简写，与 GenerateImage 同口径，模型拿它直接喂看图、改图</summary>
+    [Fact]
+    public void MediaSavedInTheRoom_IsReportedWithDraftShorthand()
+    {
+        DataContent image = new(new byte[] { 1, 2, 3 }, "image/png");
+
+        string result = Assert.IsType<string>(
+            McpCallResult.Normalize(image, _directory, "s", new AgentPathResolver(null, _directory)));
+
+        Assert.Contains($"${AgentPathResolver.DraftVariable}/{AgentOutputLayout.ImagesFolder}/", result);
+        Assert.DoesNotContain(_directory, result);
+    }
+
+    [Fact]
+    public void ImageBlockWithUnreadableData_IsNotPassedThroughAsText()
+    {
+        const string junk = "!!!not-base64!!!";
+        JsonElement raw = Result($$"""{"content":[{"type":"image","data":"{{junk}}","mimeType":"image/png"}]}""");
+
+        string result = Assert.IsType<string>(McpCallResult.Normalize(raw, _directory, "s"));
+
+        Assert.DoesNotContain(junk, result);
+        Assert.Contains("image", result);
     }
 
     /// <summary>实机那条 61743 字符的日志结果：转义来自 server 自己的编码器，语义等价，整理掉纯省 token</summary>

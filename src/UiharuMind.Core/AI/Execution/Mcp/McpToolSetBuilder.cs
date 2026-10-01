@@ -12,6 +12,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Prompts;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.AI.Execution.Files;
 
 namespace UiharuMind.Core.AI.Execution.Mcp;
 
@@ -47,10 +48,11 @@ internal static class McpToolSetBuilder
     /// 直挂工具结果的落盘目录；给了就给每个直挂工具套上结果整形（解包 CallToolResult、超限落盘），
     /// null 则原样挂（纯函数单测用）
     /// </param>
+    /// <param name="paths">落盘目录是会话房间时的路径口径；null 写绝对路径</param>
     /// <returns>工具集、分组明细与拼好的自述</returns>
     public static McpToolSet Build(IReadOnlyList<ResolvedMcpServer> resolved,
         IReadOnlyList<McpOnDemandServer>? onDemand = null, IReadOnlyList<AIFunction>? metaTools = null,
-        string? spillDirectory = null)
+        string? spillDirectory = null, AgentPathResolver? paths = null)
     {
         onDemand ??= [];
         if (resolved.Count == 0 && onDemand.Count == 0) return McpToolSet.Empty;
@@ -80,7 +82,7 @@ internal static class McpToolSetBuilder
                 bool collides = nameOwners.GetValueOrDefault(tool.Name) > 1;
                 string finalName = collides ? $"{SanitizePrefix(server.Config.Name)}_{tool.Name}" : tool.Name;
                 AIFunction mounted = collides ? new RenamedMcpFunction(tool, finalName) : tool;
-                if (spillDirectory != null) mounted = new McpResultFunction(mounted, spillDirectory, server.Config.Name);
+                if (spillDirectory != null) mounted = new McpResultFunction(mounted, spillDirectory, server.Config.Name, paths);
 
                 ToolTokenBreakdown parts = ToolTokenEstimator.Breakdown(mounted);
                 groupParts = new ToolTokenBreakdown(groupParts.Name + parts.Name,

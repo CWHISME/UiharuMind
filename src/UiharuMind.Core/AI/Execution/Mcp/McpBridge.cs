@@ -10,6 +10,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Core.AI.Execution.Files;
 
 namespace UiharuMind.Core.AI.Execution.Mcp;
 
@@ -36,18 +37,21 @@ internal sealed class McpBridge
     private readonly string? _workspacePath;
     private readonly IReadOnlyList<string> _disabledServers;
     private readonly string _spillDirectory;
+    private readonly AgentPathResolver? _paths; //落盘目录是会话房间时的路径口径
 
     /// <param name="host">宿主（查找、连接、读缓存）</param>
     /// <param name="workspacePath">会话的工作区；空表示只有全局 server</param>
     /// <param name="disabledServers">本角色禁用的 server 名单</param>
     /// <param name="spillDirectory">超限结果的落盘目录（会话自己的产出房间）</param>
+    /// <param name="paths">落盘目录是会话房间时给出，图片路径写成草稿目录简写；null 写绝对路径</param>
     public McpBridge(IMcpServerHost host, string? workspacePath, IEnumerable<string>? disabledServers,
-        string spillDirectory)
+        string spillDirectory, AgentPathResolver? paths = null)
     {
         _host = host;
         _workspacePath = workspacePath;
         _disabledServers = disabledServers?.ToList() ?? [];
         _spillDirectory = spillDirectory;
+        _paths = paths;
     }
 
     /// <summary>
@@ -156,7 +160,7 @@ internal sealed class McpBridge
             AIFunctionArguments callArguments = new(
                 arguments?.ToDictionary(x => x.Key, object? (x) => x.Value) ?? new Dictionary<string, object?>());
             object? raw = await function.InvokeAsync(callArguments, cancellationToken).ConfigureAwait(false);
-            return McpCallResult.Normalize(raw, _spillDirectory, $"McpCall_{config.Name}_{function.Name}");
+            return McpCallResult.Normalize(raw, _spillDirectory, $"McpCall_{config.Name}_{function.Name}", _paths);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

@@ -19,9 +19,6 @@ public static class ImageGenerationTool
     /// <summary>工具名。提示词里提到本工具时一律引用这个常量</summary>
     public const string ToolName = "GenerateImage";
 
-    /// <summary>产出在草稿目录下的子目录</summary>
-    public const string OutputFolder = "images";
-
     // 结果里每张图一行，工具卡据此找图；写与读都在本类，格式只有一处
     private const string SavedPrefix = "Saved: ";
 
@@ -66,14 +63,7 @@ public static class ImageGenerationTool
     /// </summary>
     /// <param name="result">工具结果原文</param>
     /// <returns>路径，按产出顺序</returns>
-    public static IReadOnlyList<string> ParseSavedPaths(string? result)
-    {
-        if (string.IsNullOrEmpty(result)) return [];
-        return result.Split('\n')
-            .Where(line => line.StartsWith(SavedPrefix, StringComparison.Ordinal))
-            .Select(line => line[SavedPrefix.Length..].Trim())
-            .ToList();
-    }
+    public static IReadOnlyList<string> ParseSavedPaths(string? result) => ToolResultLines.Parse(result, SavedPrefix);
 
     private static async Task<string> GenerateAsync(AgentPathResolver paths, ImageGenerationService service,
         string prompt, string[]? imagePaths, string? aspectRatio, CancellationToken ct)
@@ -143,10 +133,7 @@ public static class ImageGenerationTool
     private static async Task<string> SaveAsync(AgentPathResolver paths, GeneratedImage image, string prompt,
         CancellationToken ct)
     {
-        // 能力预览没有会话、没有草稿目录,那条路不跑轮次;兜底到产出根免得写进进程工作目录
-        string root = paths.DraftRoot.Length > 0 ? paths.DraftRoot : AgentOutputLayout.RootPath;
-        string directory = Path.Combine(root, OutputFolder);
-        Directory.CreateDirectory(directory);
+        string directory = AgentOutputLayout.EnsureDraftSubdirectory(paths.DraftRoot, AgentOutputLayout.ImagesFolder);
 
         string stem = BuildFileStem(prompt, DateTime.Now);
         string extension = ImageFormats.ExtensionOf(image.MediaType);

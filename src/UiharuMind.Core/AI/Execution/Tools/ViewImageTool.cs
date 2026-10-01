@@ -29,7 +29,7 @@ public static class ViewImageTool
     internal const int MaxUnscaledBytes = 5 * 1024 * 1024;
 
     /// <summary>预览副本在草稿目录下的子目录</summary>
-    internal static readonly string PreviewFolder = Path.Combine(ImageGenerationTool.OutputFolder, "previews");
+    internal static readonly string PreviewFolder = Path.Combine(AgentOutputLayout.ImagesFolder, "previews");
 
     // 结果里每张图一行，投影与工具卡据此找图；写与读都在本类
     private const string PreviewPrefix = "Preview: ";
@@ -68,14 +68,7 @@ public static class ViewImageTool
     /// </summary>
     /// <param name="result">工具结果原文</param>
     /// <returns>路径，按调用顺序</returns>
-    public static IReadOnlyList<string> ParsePreviewPaths(string? result)
-    {
-        if (string.IsNullOrEmpty(result)) return [];
-        return result.Split('\n')
-            .Where(line => line.StartsWith(PreviewPrefix, StringComparison.Ordinal))
-            .Select(line => line[PreviewPrefix.Length..].Trim())
-            .ToList();
-    }
+    public static IReadOnlyList<string> ParsePreviewPaths(string? result) => ToolResultLines.Parse(result, PreviewPrefix);
 
     private static async Task<string> ViewAsync(AgentPathResolver resolver, ImageDownscaler? downscaler,
         string[]? imagePaths, CancellationToken ct)
@@ -116,9 +109,7 @@ public static class ViewImageTool
     private static async Task<string> SavePreviewAsync(AgentPathResolver paths, byte[] bytes, string mediaType,
         CancellationToken ct)
     {
-        string root = paths.DraftRoot.Length > 0 ? paths.DraftRoot : AgentOutputLayout.RootPath;
-        string directory = Path.Combine(root, PreviewFolder);
-        Directory.CreateDirectory(directory);
+        string directory = AgentOutputLayout.EnsureDraftSubdirectory(paths.DraftRoot, PreviewFolder);
 
         string hash = Convert.ToHexStringLower(SHA256.HashData(bytes))[..16];
         string path = Path.Combine(directory, hash + ImageFormats.ExtensionOf(mediaType));

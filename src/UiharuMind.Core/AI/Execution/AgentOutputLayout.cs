@@ -36,6 +36,23 @@ public static class AgentOutputLayout
     /// <summary>所有会话的产出房间的根目录</summary>
     public static string RootPath => AppPaths.Data.AgentWorkspaces;
 
+    /// <summary>图片产出（生图、看图预览、MCP 返回的图）在草稿目录下的子目录</summary>
+    public const string ImagesFolder = "images";
+
+    /// <summary>
+    /// 建好草稿目录下的一个子目录。能力预览没有会话、没有草稿目录，那条路不跑轮次；
+    /// 兜底到产出根，免得写进进程工作目录
+    /// </summary>
+    /// <param name="draftRoot">草稿目录；空串表示没有</param>
+    /// <param name="relative">子目录</param>
+    /// <returns>子目录绝对路径</returns>
+    public static string EnsureDraftSubdirectory(string draftRoot, string relative)
+    {
+        string directory = Path.Combine(draftRoot.Length > 0 ? draftRoot : RootPath, relative);
+        Directory.CreateDirectory(directory);
+        return directory;
+    }
+
     /// <summary>
     /// 会话的产出目录名（相对 <see cref="RootPath"/>）：<c>工作区段/id8</c> 或 <c>NoWorkspace/id8</c>。
     /// </summary>

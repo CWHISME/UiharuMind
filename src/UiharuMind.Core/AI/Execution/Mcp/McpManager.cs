@@ -17,6 +17,7 @@ using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
+using UiharuMind.Core.AI.Execution.Files;
 
 namespace UiharuMind.Core.AI.Execution.Mcp;
 
@@ -262,10 +263,12 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
         }
 
         string spill = spillDirectory.Length > 0 ? spillDirectory : AppPaths.Cache.Scratch;
+        // 落进会话房间时图片路径写成草稿目录简写,模型拿它直接喂 ViewImage / GenerateImage;退到缓存时没有简写可用
+        AgentPathResolver? paths = spillDirectory.Length > 0 ? new AgentPathResolver(workspacePath, spillDirectory) : null;
         IReadOnlyList<AIFunction>? metaTools = onDemand.Count == 0
             ? null
-            : McpMetaTools.Create(new McpBridge(this, workspacePath, disabledList, spill));
-        return McpToolSetBuilder.Build(resolved, onDemand, metaTools, spill);
+            : McpMetaTools.Create(new McpBridge(this, workspacePath, disabledList, spill, paths));
+        return McpToolSetBuilder.Build(resolved, onDemand, metaTools, spill, paths);
     }
 
     /// <summary>
