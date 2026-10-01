@@ -47,9 +47,12 @@ public class AgentFormAssemblyTests
     [Fact]
     public void Facts_ChatFormAgentCard_ZerosAllToolInputs()
     {
-        AgentAssemblyFacts facts = AgentAssemblyFacts.Capture(AgentCard(), "instr", "/ws",
-            EAgentPermissionMode.AutoEdit, null, 0, "ws-instr", false, null, false, "room", "", true,
-            isAgentForm: false);
+        AgentAssemblyFacts facts = AgentAssemblyFacts.Capture(AgentCard(),
+            new AgentAssemblyInputs
+            {
+                Instructions = "instr", WorkspacePath = "/ws", Permission = EAgentPermissionMode.AutoEdit,
+                WorkspaceInstructions = "ws-instr", OutputFolderName = "room", IsAgentForm = false,
+            });
 
         Assert.False(facts.IsAgent);
         Assert.Null(facts.WorkspacePath);
@@ -63,9 +66,12 @@ public class AgentFormAssemblyTests
     [Fact]
     public void Facts_AgentForm_SameCard_KeepsTools()
     {
-        AgentAssemblyFacts facts = AgentAssemblyFacts.Capture(AgentCard(), "instr", "/ws",
-            EAgentPermissionMode.AutoEdit, null, 0, "ws-instr", false, null, false, "room", "", true,
-            isAgentForm: true);
+        AgentAssemblyFacts facts = AgentAssemblyFacts.Capture(AgentCard(),
+            new AgentAssemblyInputs
+            {
+                Instructions = "instr", WorkspacePath = "/ws", Permission = EAgentPermissionMode.AutoEdit,
+                WorkspaceInstructions = "ws-instr", OutputFolderName = "room", IsAgentForm = true,
+            });
 
         Assert.True(facts.IsAgent);
         Assert.Equal("/ws", facts.WorkspacePath);
@@ -78,10 +84,18 @@ public class AgentFormAssemblyTests
     public void Facts_SameCard_DifferentForm_DoNotMatch()
     {
         // 句柄跨会话复用只比快照：同一张卡、不同形态的两个会话绝不能捡到同一个 agent
-        AgentAssemblyFacts agentForm = AgentAssemblyFacts.Capture(AgentCard(), "instr", "/ws",
-            EAgentPermissionMode.AutoEdit, null, 0, "", false, null, false, "", "", true, isAgentForm: true);
-        AgentAssemblyFacts chatForm = AgentAssemblyFacts.Capture(AgentCard(), "instr", "/ws",
-            EAgentPermissionMode.AutoEdit, null, 0, "", false, null, false, "", "", true, isAgentForm: false);
+        AgentAssemblyFacts agentForm = AgentAssemblyFacts.Capture(AgentCard(),
+            new AgentAssemblyInputs
+            {
+                Instructions = "instr", WorkspacePath = "/ws", Permission = EAgentPermissionMode.AutoEdit,
+                IsAgentForm = true,
+            });
+        AgentAssemblyFacts chatForm = AgentAssemblyFacts.Capture(AgentCard(),
+            new AgentAssemblyInputs
+            {
+                Instructions = "instr", WorkspacePath = "/ws", Permission = EAgentPermissionMode.AutoEdit,
+                IsAgentForm = false,
+            });
 
         Assert.NotEqual(agentForm, chatForm);
     }

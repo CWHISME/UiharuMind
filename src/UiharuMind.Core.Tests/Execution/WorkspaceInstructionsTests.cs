@@ -89,10 +89,18 @@ public class WorkspaceInstructionsTests : IDisposable
     {
         CharacterData character = new() { CharacterId = "agent", IsAgent = true };
 
-        AgentAssemblyFacts before = AgentAssemblyFacts.Capture(character, "prompt", "/ws",
-            EAgentPermissionMode.AutoEdit, null, 1, workspaceInstructions: "v1");
-        AgentAssemblyFacts after = AgentAssemblyFacts.Capture(character, "prompt", "/ws",
-            EAgentPermissionMode.AutoEdit, null, 1, workspaceInstructions: "v2");
+        AgentAssemblyFacts before = AgentAssemblyFacts.Capture(character,
+            new AgentAssemblyInputs
+            {
+                Instructions = "prompt", WorkspacePath = "/ws", Permission = EAgentPermissionMode.AutoEdit,
+                McpRevision = 1, WorkspaceInstructions = "v1",
+            });
+        AgentAssemblyFacts after = AgentAssemblyFacts.Capture(character,
+            new AgentAssemblyInputs
+            {
+                Instructions = "prompt", WorkspacePath = "/ws", Permission = EAgentPermissionMode.AutoEdit,
+                McpRevision = 1, WorkspaceInstructions = "v2",
+            });
 
         Assert.NotEqual(before, after); //文件编辑 → 下一次挂接重建装配
     }

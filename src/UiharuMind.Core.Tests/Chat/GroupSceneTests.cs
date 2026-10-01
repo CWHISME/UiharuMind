@@ -172,8 +172,12 @@ public class GroupSceneTests
     public void ChangingTheScene_RebuildsTheAssembly(bool isAgentForm)
     {
         CharacterData character = new() { CharacterId = "x", IsAgent = true };
-        AgentAssemblyFacts Capture(string scene) => AgentAssemblyFacts.Capture(character, "prompt", "/ws",
-            EAgentPermissionMode.AutoEdit, null, mcpRevision: 1, isAgentForm: isAgentForm, groupScene: scene);
+        AgentAssemblyFacts Capture(string scene) => AgentAssemblyFacts.Capture(character,
+            new AgentAssemblyInputs
+            {
+                Instructions = "prompt", WorkspacePath = "/ws", Permission = EAgentPermissionMode.AutoEdit,
+                McpRevision = 1, IsAgentForm = isAgentForm, GroupScene = scene,
+            });
 
         Assert.Equal(Capture("主持人是 Bob"), Capture("主持人是 Bob"));
         Assert.NotEqual(Capture("主持人是 Bob"), Capture("主持人是 Carol"));
@@ -205,8 +209,12 @@ public class GroupSceneTests
         Assert.Equal(isMember, tools.Contains(GroupPostTool.ToolName));
         Assert.Equal(!isMember, tools.Contains(SubAgentTool.ToolName));
         Assert.True(character.Tools.EnableSubAgent); //只是这次装配不给，角色卡本身不改
-        Assert.Equal(!isMember, AgentAssemblyFacts.Capture(character, "prompt", "/ws",
-            EAgentPermissionMode.AutoEdit, null, mcpRevision: 1, isAgentForm: true, groupScene: scene).SubAgent);
+        Assert.Equal(!isMember, AgentAssemblyFacts.Capture(character,
+            new AgentAssemblyInputs
+            {
+                Instructions = "prompt", WorkspacePath = "/ws", Permission = EAgentPermissionMode.AutoEdit,
+                McpRevision = 1, IsAgentForm = true, GroupScene = scene,
+            }).SubAgent);
     }
 
     [Fact]

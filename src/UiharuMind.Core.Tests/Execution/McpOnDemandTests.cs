@@ -614,8 +614,12 @@ public class McpOnDemandTests : IDisposable
     }
 
     private static AgentAssemblyFacts Capture(CharacterData character, string onDemand, int revision = 0) =>
-        AgentAssemblyFacts.Capture(character, "prompt", "/ws", EAgentPermissionMode.ReadOnly, null, revision,
-            mcpOnDemand: onDemand);
+        AgentAssemblyFacts.Capture(character,
+            new AgentAssemblyInputs
+            {
+                Instructions = "prompt", WorkspacePath = "/ws", Permission = EAgentPermissionMode.ReadOnly,
+                McpRevision = revision, McpOnDemand = onDemand,
+            });
 
     /// 不会被调用的宿主：这里只看元工具的定义，不执行
     private sealed class NullHost : IMcpServerHost

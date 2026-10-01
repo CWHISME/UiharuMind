@@ -167,8 +167,11 @@ public sealed class ImageGenerationToolTests : IDisposable
         {
             Profile = new AgentBuildProfile { Character = character }, ImageModelsConfigured = configured,
         };
-        AgentAssemblyFacts facts = AgentAssemblyFacts.Capture(character, "", null, EAgentPermissionMode.AutoEdit, null, 0,
-            imageModelsConfigured: configured);
+        AgentAssemblyFacts facts = AgentAssemblyFacts.Capture(character,
+            new AgentAssemblyInputs
+            {
+                Permission = EAgentPermissionMode.AutoEdit, ImageModelsConfigured = configured,
+            });
 
         Assert.Equal(expected, plan.MountImageGeneration);
         Assert.Equal(expected, facts.ImageGeneration); //重建判据与挂载判据同一口径

@@ -474,10 +474,18 @@ public class HarnessInstructionsCompositionTests
     {
         CharacterData character = new() { CharacterId = "agent", IsAgent = true };
 
-        AgentAssemblyFacts on = AgentAssemblyFacts.Capture(character, "prompt", "/ws",
-            EAgentPermissionMode.AutoEdit, null, 1, modelSkillsEnabled: true);
-        AgentAssemblyFacts off = AgentAssemblyFacts.Capture(character, "prompt", "/ws",
-            EAgentPermissionMode.AutoEdit, null, 1, modelSkillsEnabled: false);
+        AgentAssemblyFacts on = AgentAssemblyFacts.Capture(character,
+            new AgentAssemblyInputs
+            {
+                Instructions = "prompt", WorkspacePath = "/ws", Permission = EAgentPermissionMode.AutoEdit,
+                McpRevision = 1, ModelSkillsEnabled = true,
+            });
+        AgentAssemblyFacts off = AgentAssemblyFacts.Capture(character,
+            new AgentAssemblyInputs
+            {
+                Instructions = "prompt", WorkspacePath = "/ws", Permission = EAgentPermissionMode.AutoEdit,
+                McpRevision = 1, ModelSkillsEnabled = false,
+            });
 
         Assert.NotEqual(on, off); //开关切换 → 下一次挂接重建装配
     }
@@ -1721,10 +1729,18 @@ public class AssemblySnapshotTests
     [Fact]
     public void SameInputs_ProduceEqualSnapshots()
     {
-        AgentAssemblyFacts first = AgentAssemblyFacts.Capture(NewAgentCharacter(), "prompt", "/ws",
-            EAgentPermissionMode.AutoEdit, null, mcpRevision: 1);
-        AgentAssemblyFacts second = AgentAssemblyFacts.Capture(NewAgentCharacter(), "prompt", "/ws",
-            EAgentPermissionMode.AutoEdit, null, mcpRevision: 1);
+        AgentAssemblyFacts first = AgentAssemblyFacts.Capture(NewAgentCharacter(),
+            new AgentAssemblyInputs
+            {
+                Instructions = "prompt", WorkspacePath = "/ws", Permission = EAgentPermissionMode.AutoEdit,
+                McpRevision = 1,
+            });
+        AgentAssemblyFacts second = AgentAssemblyFacts.Capture(NewAgentCharacter(),
+            new AgentAssemblyInputs
+            {
+                Instructions = "prompt", WorkspacePath = "/ws", Permission = EAgentPermissionMode.AutoEdit,
+                McpRevision = 1,
+            });
 
         Assert.Equal(first, second);
     }
@@ -1744,8 +1760,12 @@ public class AssemblySnapshotTests
     [InlineData("mcp-servers")]
     public void ChangedInput_ProducesDifferentSnapshot(string dimension)
     {
-        AgentAssemblyFacts baseline = AgentAssemblyFacts.Capture(NewAgentCharacter(), "prompt", "/ws",
-            EAgentPermissionMode.AutoEdit, null, mcpRevision: 1);
+        AgentAssemblyFacts baseline = AgentAssemblyFacts.Capture(NewAgentCharacter(),
+            new AgentAssemblyInputs
+            {
+                Instructions = "prompt", WorkspacePath = "/ws", Permission = EAgentPermissionMode.AutoEdit,
+                McpRevision = 1,
+            });
 
         AgentToolConfig changedConfig = new();
         string instructions = "prompt";
@@ -1773,8 +1793,12 @@ public class AssemblySnapshotTests
         }
 
         AgentAssemblyFacts changed = AgentAssemblyFacts.Capture(NewAgentCharacter(changedConfig),
-            instructions, workspace, permission, preAuthorized, mcpRevision,
-            modelSupportsVision: modelSupportsVision);
+            new AgentAssemblyInputs
+            {
+                Instructions = instructions, WorkspacePath = workspace, Permission = permission,
+                PreAuthorizedShellPatterns = preAuthorized, McpRevision = mcpRevision,
+                ModelSupportsVision = modelSupportsVision,
+            });
 
         Assert.NotEqual(baseline, changed);
     }
@@ -1794,12 +1818,18 @@ public class AssemblySnapshotTests
     [Fact]
     public void ChangedSubAgentRoster_ProducesDifferentSnapshot()
     {
-        AgentAssemblyFacts baseline = AgentAssemblyFacts.Capture(NewAgentCharacter(), "prompt", "/ws",
-            EAgentPermissionMode.AutoEdit, null, mcpRevision: 1,
-            mountedAgents: [NewSubAgent("helper", "Helper")]);
-        AgentAssemblyFacts changed = AgentAssemblyFacts.Capture(NewAgentCharacter(), "prompt", "/ws",
-            EAgentPermissionMode.AutoEdit, null, mcpRevision: 1,
-            mountedAgents: [NewSubAgent("helper", "Helper"), NewSubAgent("writer", "Writer")]);
+        AgentAssemblyFacts baseline = AgentAssemblyFacts.Capture(NewAgentCharacter(),
+            new AgentAssemblyInputs
+            {
+                Instructions = "prompt", WorkspacePath = "/ws", Permission = EAgentPermissionMode.AutoEdit,
+                McpRevision = 1, MountedAgents = [NewSubAgent("helper", "Helper")],
+            });
+        AgentAssemblyFacts changed = AgentAssemblyFacts.Capture(NewAgentCharacter(),
+            new AgentAssemblyInputs
+            {
+                Instructions = "prompt", WorkspacePath = "/ws", Permission = EAgentPermissionMode.AutoEdit,
+                McpRevision = 1, MountedAgents = [NewSubAgent("helper", "Helper"), NewSubAgent("writer", "Writer")],
+            });
 
         Assert.NotEqual(baseline, changed);
     }
@@ -1810,12 +1840,18 @@ public class AssemblySnapshotTests
     public void RenamedOrRedescribedSubAgent_ProducesDifferentSnapshot(string name, string description)
     {
         //花名册给模型看的就是名字与描述,改了它们模型也该重新看见
-        AgentAssemblyFacts baseline = AgentAssemblyFacts.Capture(NewAgentCharacter(), "prompt", "/ws",
-            EAgentPermissionMode.AutoEdit, null, mcpRevision: 1,
-            mountedAgents: [NewSubAgent("helper", "Helper")]);
-        AgentAssemblyFacts changed = AgentAssemblyFacts.Capture(NewAgentCharacter(), "prompt", "/ws",
-            EAgentPermissionMode.AutoEdit, null, mcpRevision: 1,
-            mountedAgents: [NewSubAgent("helper", name, description)]);
+        AgentAssemblyFacts baseline = AgentAssemblyFacts.Capture(NewAgentCharacter(),
+            new AgentAssemblyInputs
+            {
+                Instructions = "prompt", WorkspacePath = "/ws", Permission = EAgentPermissionMode.AutoEdit,
+                McpRevision = 1, MountedAgents = [NewSubAgent("helper", "Helper")],
+            });
+        AgentAssemblyFacts changed = AgentAssemblyFacts.Capture(NewAgentCharacter(),
+            new AgentAssemblyInputs
+            {
+                Instructions = "prompt", WorkspacePath = "/ws", Permission = EAgentPermissionMode.AutoEdit,
+                McpRevision = 1, MountedAgents = [NewSubAgent("helper", name, description)],
+            });
 
         Assert.NotEqual(baseline, changed);
     }
@@ -1827,12 +1863,18 @@ public class AssemblySnapshotTests
     public void SubAgentRoster_IsIgnored_WhenTheToolIsOff()
     {
         AgentToolConfig off = new() { EnableSubAgent = false };
-        AgentAssemblyFacts first = AgentAssemblyFacts.Capture(NewAgentCharacter(off), "prompt", "/ws",
-            EAgentPermissionMode.AutoEdit, null, mcpRevision: 1,
-            mountedAgents: [NewSubAgent("helper", "Helper")]);
-        AgentAssemblyFacts second = AgentAssemblyFacts.Capture(NewAgentCharacter(off), "prompt", "/ws",
-            EAgentPermissionMode.AutoEdit, null, mcpRevision: 1,
-            mountedAgents: [NewSubAgent("writer", "Writer")]);
+        AgentAssemblyFacts first = AgentAssemblyFacts.Capture(NewAgentCharacter(off),
+            new AgentAssemblyInputs
+            {
+                Instructions = "prompt", WorkspacePath = "/ws", Permission = EAgentPermissionMode.AutoEdit,
+                McpRevision = 1, MountedAgents = [NewSubAgent("helper", "Helper")],
+            });
+        AgentAssemblyFacts second = AgentAssemblyFacts.Capture(NewAgentCharacter(off),
+            new AgentAssemblyInputs
+            {
+                Instructions = "prompt", WorkspacePath = "/ws", Permission = EAgentPermissionMode.AutoEdit,
+                McpRevision = 1, MountedAgents = [NewSubAgent("writer", "Writer")],
+            });
 
         Assert.Equal(first, second);
     }
@@ -1858,10 +1900,18 @@ public class AssemblySnapshotTests
         CharacterData a = new() { CharacterId = "rp", IsAgent = false, Tools = configA };
         CharacterData b = new() { CharacterId = "rp", IsAgent = false, Tools = configB };
 
-        AgentAssemblyFacts first = AgentAssemblyFacts.Capture(a, "prompt", "/ws",
-            EAgentPermissionMode.AutoEdit, null, mcpRevision: 1);
-        AgentAssemblyFacts second = AgentAssemblyFacts.Capture(b, "prompt", "/other",
-            EAgentPermissionMode.FullAuto, ["*"], mcpRevision: 99);
+        AgentAssemblyFacts first = AgentAssemblyFacts.Capture(a,
+            new AgentAssemblyInputs
+            {
+                Instructions = "prompt", WorkspacePath = "/ws", Permission = EAgentPermissionMode.AutoEdit,
+                McpRevision = 1,
+            });
+        AgentAssemblyFacts second = AgentAssemblyFacts.Capture(b,
+            new AgentAssemblyInputs
+            {
+                Instructions = "prompt", WorkspacePath = "/other", Permission = EAgentPermissionMode.FullAuto,
+                PreAuthorizedShellPatterns = ["*"], McpRevision = 99,
+            });
 
         Assert.Equal(first, second);
     }

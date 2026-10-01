@@ -165,102 +165,84 @@ public sealed record AgentAssemblyFacts
     public static AgentAssemblyFacts Capture(AgentBuildProfile profile)
     {
         CharacterData character = profile.Character;
-        return Capture(character, CharacterPromptBuilder.Build(character, profile.PromptArguments),
-            profile.WorkspacePath,
-            profile.PermissionMode,
-            profile.PreAuthorizedShellPatterns,
-            McpManager.Instance.Revision,
-            profile.EffectiveIsAgentForm
-                ? WorkspaceInstructionsLoader.Load(profile.WorkspacePath)
-                : string.Empty,
-            profile.ResolveCurrentModel()?.IsVisionModel == true,
+        bool isAgentForm = profile.EffectiveIsAgentForm;
+        return Capture(character, new AgentAssemblyInputs
+        {
+            Instructions = CharacterPromptBuilder.Build(character, profile.PromptArguments),
+            WorkspacePath = profile.WorkspacePath,
+            Permission = profile.PermissionMode,
+            PreAuthorizedShellPatterns = profile.PreAuthorizedShellPatterns,
+            McpRevision = McpManager.Instance.Revision,
+            WorkspaceInstructions = isAgentForm ? WorkspaceInstructionsLoader.Load(profile.WorkspacePath) : string.Empty,
+            ModelSupportsVision = profile.ResolveCurrentModel()?.IsVisionModel == true,
             //与装配读的是同一个解析器,过滤规则不会两处漂移
-            profile.EffectiveIsAgentForm ? CharacterRunnerFactory.ResolveMountedAgents(character) : null,
-            PythonEnvironment.IsReady, profile.OutputFolderName,
-            profile.SubAgent is { } sub ? $"{sub.Type}:{sub.AgentName}" : string.Empty,
-            AgentSettingConfig.Current.ModelSkillsEnabled,
-            profile.EffectiveIsAgentForm, profile.GroupScene,
-            profile.EffectiveIsAgentForm
+            MountedAgents = isAgentForm ? CharacterRunnerFactory.ResolveMountedAgents(character) : null,
+            PythonEnvReady = PythonEnvironment.IsReady,
+            OutputFolderName = profile.OutputFolderName,
+            SubAgentKey = profile.SubAgent is { } sub ? $"{sub.Type}:{sub.AgentName}" : string.Empty,
+            ModelSkillsEnabled = AgentSettingConfig.Current.ModelSkillsEnabled,
+            IsAgentForm = isAgentForm,
+            GroupScene = profile.GroupScene,
+            McpOnDemand = isAgentForm
                 ? McpManager.Instance.DescribeOnDemand(profile.WorkspacePath, profile.Tools.DisabledMcpServers)
                 : string.Empty,
-            ImageGenerationService.Shared.HasConfiguredModel);
+            ImageModelsConfigured = ImageGenerationService.Shared.HasConfiguredModel,
+        });
     }
 
     /// <summary>
     /// 显式入参捕获快照(可单测,不触碰任何单例)
     /// </summary>
     /// <param name="character">角色</param>
-    /// <param name="instructions">重算好的系统提示词</param>
-    /// <param name="workspacePath">工作目录</param>
-    /// <param name="permission">权限档</param>
-    /// <param name="preAuthorizedShellPatterns">shell 预授权模式</param>
-    /// <param name="mcpRevision">MCP 工具集修订号</param>
-    /// <param name="workspaceInstructions">工作区说明文件内容</param>
-    /// <param name="modelSupportsVision">当前模型是否自带视觉</param>
-    /// <param name="mountedAgents">已解析的子智能体名单（过滤规则见 <c>CharacterRunnerFactory.ResolveMountedAgents</c>）</param>
-    /// <param name="pythonEnvReady">受管 Python 环境是否已就绪</param>
-    /// <param name="outputFolderName">产出目录名</param>
-    /// <param name="subAgentKey">子会话身份指纹；主会话传空串</param>
-    /// <param name="modelSkillsEnabled">技能清单是否发给模型(全局开关)</param>
-    /// <param name="isAgentForm">会话形态；null = 跟角色身份（ADR 0050）</param>
-    /// <param name="groupScene">群场景段正文；不是群成员传空串</param>
-    /// <param name="mcpOnDemand">按需 MCP 名单签名（<see cref="McpManager.DescribeOnDemand"/>）</param>
-    /// <param name="imageModelsConfigured">至少配了一个生图模型</param>
+    /// <param name="inputs">其余入参</param>
     /// <returns>快照</returns>
-    public static AgentAssemblyFacts Capture(CharacterData character,
-        string instructions, string? workspacePath,
-        EAgentPermissionMode permission, IReadOnlyList<string>? preAuthorizedShellPatterns,
-        int mcpRevision, string workspaceInstructions = "",
-        bool modelSupportsVision = false, IReadOnlyList<CharacterData>? mountedAgents = null,
-        bool pythonEnvReady = false, string outputFolderName = "",
-        string subAgentKey = "", bool modelSkillsEnabled = true, bool? isAgentForm = null,
-        string groupScene = "", string mcpOnDemand = "", bool imageModelsConfigured = false)
+    public static AgentAssemblyFacts Capture(CharacterData character, AgentAssemblyInputs inputs)
     {
         // 非 agent 形态不装配工具,工具相关输入一律归零——能力配置变化不连累它们重建
-        bool isAgent = isAgentForm ?? character.IsAgent;
-        AgentToolConfig config = AgentBuildProfile.EffectiveTools(character, groupScene);
+        bool isAgent = inputs.IsAgentForm ?? character.IsAgent;
+        AgentToolConfig config = AgentBuildProfile.EffectiveTools(character, inputs.GroupScene);
         return new AgentAssemblyFacts
         {
             CharacterId = character.CharacterId,
             IsAgent = isAgent,
-            SubAgentKey = subAgentKey,
-            Instructions = instructions,
-            GroupScene = groupScene,
+            SubAgentKey = inputs.SubAgentKey,
+            Instructions = inputs.Instructions,
+            GroupScene = inputs.GroupScene,
             ExecutionSettings = JsonSerializer.Serialize(character.Config.ExecutionSettings),
-            WorkspacePath = isAgent ? workspacePath : null,
-            Permission = isAgent ? permission : default,
-            PreAuthorizedShellPatterns = isAgent && preAuthorizedShellPatterns is { Count: > 0 }
-                ? string.Join('\n', preAuthorizedShellPatterns)
+            WorkspacePath = isAgent ? inputs.WorkspacePath : null,
+            Permission = isAgent ? inputs.Permission : default,
+            PreAuthorizedShellPatterns = isAgent && inputs.PreAuthorizedShellPatterns is { Count: > 0 }
+                ? string.Join('\n', inputs.PreAuthorizedShellPatterns)
                 : string.Empty,
             FileAccess = isAgent && config.EnableFileAccess,
             Shell = isAgent && config.EnableShellExecution,
             //只在挂了 shell 时入账:没 shell 就没人跑得动它,纪律段本来也不发
-            PythonEnvReady = isAgent && config.EnableShellExecution && pythonEnvReady,
+            PythonEnvReady = isAgent && config.EnableShellExecution && inputs.PythonEnvReady,
             //房间提示不随 Python 起落:文件工具独占时草稿段照发,所以入账口径是两者任一
             OutputFolderName = isAgent && (config.EnableShellExecution || config.EnableFileAccess)
-                ? outputFolderName
+                ? inputs.OutputFolderName
                 : string.Empty,
             WebSearch = isAgent && config.EnableWebSearch,
             ScheduledTasks = isAgent && config.EnableScheduledTasks,
             VisionTool = isAgent && config.EnableVisionTool,
-            ImageGeneration = isAgent && config.EnableImageGeneration && imageModelsConfigured,
+            ImageGeneration = isAgent && config.EnableImageGeneration && inputs.ImageModelsConfigured,
             KnowledgeSearchTool = isAgent && config.EnableKnowledgeSearchTool,
             SubAgent = isAgent && config.EnableSubAgent,
             // 名字与描述一并入账:花名册固化的正是这两样,改名改描述模型也该重新看见
-            MountedAgents = isAgent && config.EnableSubAgent && mountedAgents is { Count: > 0 }
+            MountedAgents = isAgent && config.EnableSubAgent && inputs.MountedAgents is { Count: > 0 }
                 ? string.Join('\n',
-                    mountedAgents.Select(x => $"{x.CharacterId}\t{x.CharacterName}\t{x.Description}"))
+                    inputs.MountedAgents.Select(x => $"{x.CharacterId}\t{x.CharacterName}\t{x.Description}"))
                 : string.Empty,
-            ModelSupportsVision = isAgent && modelSupportsVision,
+            ModelSupportsVision = isAgent && inputs.ModelSupportsVision,
             TodoList = isAgent && config.EnableTodoList,
             AgentMode = isAgent && config.EnableAgentMode,
-            WorkspaceInstructions = isAgent ? workspaceInstructions : string.Empty,
+            WorkspaceInstructions = isAgent ? inputs.WorkspaceInstructions : string.Empty,
             DisabledSkills = isAgent ? string.Join('\n', config.DisabledSkills) : string.Empty,
             // 非 agent 不装配工具,归默认值免得全局开关变化引发无谓重建(与 DisabledSkills 同口径)
-            ModelSkillsEnabled = isAgent && modelSkillsEnabled,
-            McpRevision = isAgent ? mcpRevision : 0,
+            ModelSkillsEnabled = isAgent && inputs.ModelSkillsEnabled,
+            McpRevision = isAgent ? inputs.McpRevision : 0,
             DisabledMcpServers = isAgent ? string.Join('\n', config.DisabledMcpServers) : string.Empty,
-            McpOnDemand = isAgent ? mcpOnDemand : string.Empty,
+            McpOnDemand = isAgent ? inputs.McpOnDemand : string.Empty,
         };
     }
 }
