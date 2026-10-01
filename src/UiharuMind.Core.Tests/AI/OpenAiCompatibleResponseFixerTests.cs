@@ -41,6 +41,30 @@ public class OpenAiCompatibleResponseFixerTests
         Assert.Null(OpenAiCompatibleResponseFixer.FixJson(json));
     }
 
+    /// <summary>商汤每块都带空串：按字面改写，正文原样（不经 DOM 重新转义），语义与 DOM 改写一致</summary>
+    [Fact]
+    public void EmptyFinishReason_IsRewrittenLiterally_KeepingContent()
+    {
+        const string json = """{"choices":[{"index":0,"delta":{"content":"说 \"finish_reason\":\"\" 也不误伤"},"finish_reason":""}]}""";
+
+        var fixedJson = OpenAiCompatibleResponseFixer.FixJson(json);
+
+        Assert.Equal("""{"choices":[{"index":0,"delta":{"content":"说 \"finish_reason\":\"\" 也不误伤"},"finish_reason":null}]}""", fixedJson);
+    }
+
+    /// <summary>字面快路径认不出的形态（带空格、混着未知值）仍由 DOM 兜住</summary>
+    [Theory]
+    [InlineData("""{"choices":[{"index":0,"finish_reason": ""}]}""", "\"finish_reason\":null")]
+    [InlineData("""{"choices":[{"index":0,"finish_reason":""},{"index":1,"finish_reason":"sensitive"}]}""", "\"finish_reason\":\"stop\"")]
+    public void UnusualFinishReasonShapes_StillFixed(string json, string expected)
+    {
+        var fixedJson = OpenAiCompatibleResponseFixer.FixJson(json);
+
+        Assert.NotNull(fixedJson);
+        Assert.Contains(expected, fixedJson);
+        Assert.DoesNotContain("\"finish_reason\":\"\"", fixedJson);
+    }
+
     [Fact]
     public void BrokenJson_IsLeftAlone()
     {

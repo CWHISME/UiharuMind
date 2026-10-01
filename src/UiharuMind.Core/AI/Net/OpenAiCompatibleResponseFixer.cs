@@ -20,6 +20,9 @@ internal static class OpenAiCompatibleResponseFixer
     private const string ToolCallsKey = "tool_calls";
     private const string TypeKey = "type";
     private const string FunctionToolCall = "function"; //OpenAI 规范里 tool_calls 的 type 只有这一个合法值
+    private const string QuotedFinishReasonKey = "\"finish_reason\"";
+    private const string NullFinishReason = "\"finish_reason\":null";
+    private const string EmptyFinishReason = "\"finish_reason\":\"\"";
 
     private static readonly HashSet<string> ValidFinishReasons = new(StringComparer.Ordinal)
     {
@@ -48,10 +51,18 @@ internal static class OpenAiCompatibleResponseFixer
     /// <returns>需要修正时返回新 JSON，无需修正或解析失败返回 null</returns>
     public static string? FixJson(string json)
     {
-        if (!json.Contains(FinishReasonKey, StringComparison.Ordinal) &&
-            !json.Contains(ToolCallsKey, StringComparison.Ordinal))
+        bool hasToolCalls = json.Contains(ToolCallsKey, StringComparison.Ordinal);
+        if (!json.Contains(FinishReasonKey, StringComparison.Ordinal) && !hasToolCalls) return null;
+
+        // 商汤的每个增量块都带 "finish_reason":""（一轮上千块），逐块建 DOM 再序列化是流式里最大的一笔分配。
+        // finish_reason 只有 null 或空串两种形态时按字面处理，其余（带空格、未知值、tool_calls）仍走 DOM
+        if (!hasToolCalls)
         {
-            return null;
+            int keys = CountOf(json, QuotedFinishReasonKey);
+            int nulls = CountOf(json, NullFinishReason);
+            int empties = CountOf(json, EmptyFinishReason);
+            if (keys == nulls) return null;
+            if (keys == nulls + empties) return json.Replace(EmptyFinishReason, NullFinishReason, StringComparison.Ordinal);
         }
 
         try
@@ -63,6 +74,19 @@ internal static class OpenAiCompatibleResponseFixer
         {
             return null;
         }
+    }
+
+    private static int CountOf(string text, string value)
+    {
+        int count = 0;
+        for (int index = text.IndexOf(value, StringComparison.Ordinal);
+             index >= 0;
+             index = text.IndexOf(value, index + value.Length, StringComparison.Ordinal))
+        {
+            count++;
+        }
+
+        return count;
     }
 
     private static bool FixNode(JsonNode? node)
