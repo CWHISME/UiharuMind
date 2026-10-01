@@ -188,6 +188,27 @@ public class HistoryCompactionTests
         Assert.Equal(history.TakeLast(4).Select(Signature), sent.TakeLast(4).Select(Signature)); //最近两组原样
     }
 
+    /// <summary>
+    /// 校准系数乘在估算上再比水位：服务端算得比我们多的模型，按我们的数还没到线、按它的数已经过了，就得动手
+    /// </summary>
+    [Fact]
+    public async Task Folding_UsesTheCalibratedEstimate()
+    {
+        CancellationToken token = TestContext.Current.CancellationToken;
+        // 40 组约 12.2k token：低于折叠水位(0.85 额度 ≈ 14.9k)，乘 1.5 就过了
+        List<ChatMessage> history = [new(ChatRole.User, "把这些文件都看一遍")];
+        for (int i = 0; i < 40; i++) AddToolGroup(history, i);
+
+        IChatReducer plain = HistoryCompaction.Create(() => 20_000, new TurnInputEstimate()).AsChatReducer();
+        Assert.Equal(0, Folded(await plain.ReduceAsync(history, token)));
+
+        TurnInputEstimate calibrated = new() { LastHistory = 1000 };
+        calibrated.Calibrate("m", 1500);
+        IChatReducer scaled = HistoryCompaction.Create(() => 20_000, calibrated).AsChatReducer();
+        Assert.True(Folded(await scaled.ReduceAsync(history, token)) > 0, "按服务端的口径已经过线，该折");
+        Assert.Equal(1.5, calibrated.Calibration, 3); //判定只读系数，不改它
+    }
+
     private static void AddParallelToolGroup(List<ChatMessage> history, int batch)
     {
         List<AIContent> calls = [];

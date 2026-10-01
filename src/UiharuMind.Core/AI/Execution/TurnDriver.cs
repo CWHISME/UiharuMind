@@ -151,6 +151,7 @@ public sealed class TurnDriver : IDisposable
         if (userMessage != null) Tools.BackgroundSubAgentDispatcher.NoteUserTurn(session.SessionId);
         _usage.BeginTurn();
         _ratioLogged = false;
+        runner.InputEstimate?.UseModel(session.ChatModelRunningData?.ModelName);
         _notify?.Invoke(new TurnNotice(ETurnNotice.Started)); //本轮实际使用的模型此刻可解析
         _runCancellation = CancellationTokenSource.CreateLinkedTokenSource(externalCancellation);
         CancellationToken cancellationToken = _runCancellation.Token;
@@ -220,7 +221,13 @@ public sealed class TurnDriver : IDisposable
                     await foreach (AIContent content in runner.RunAsync(nextMessages, cancellationToken))
                     {
                         if (content is ToolApprovalRequestContent request) roundRequests.Add(request);
-                        if (content is UsageContent usage) RecordUsage(session, runner, usage.Details);
+                        if (content is UsageContent usage)
+                        {
+                            // 先校准再记账:水位刻度要按下一发实际用的系数换算。旁路请求(写交接)不校准,它与常规请求不同形
+                            runner.InputEstimate?.Calibrate(session.ChatModelRunningData?.ModelName,
+                                usage.Details.InputTokenCount ?? 0);
+                            RecordUsage(session, runner, usage.Details);
+                        }
                         _turnSink?.Apply(content);
                         thinkingStats.NoteContent(content);
                     }
@@ -475,9 +482,7 @@ public sealed class TurnDriver : IDisposable
         }
 
         (long input, long output, long reasoning) = _usage.Add(details);
-        _usage.EstimatedInput = runner.InputEstimate?.Total ?? 0;
-        _usage.CompactedInput = runner.InputEstimate?.CompactedHistory ?? 0;
-        _usage.FixedOverhead = runner.InputEstimate?.FixedOverhead ?? 0;
+        SyncEstimate(runner);
         session.AccumulateUsage(input, output, reasoning);
         session.LastInputTokens = _usage.LastInput; //占用随本体持久化,切回会话时不必等下一次响应
         SessionManager.Instance.NotifyUsageReported(session.SessionId);
@@ -504,7 +509,8 @@ public sealed class TurnDriver : IDisposable
         _ratioLogged = true;
         TurnInputEstimate? estimate = runner.InputEstimate;
         Log.Debug($"Usage ratio off: server {_usage.LastInput} / ours {_usage.EstimatedInput} = {ratio:0.00} " +
-                  $"(fixed {estimate?.FixedOverhead ?? 0} + history {estimate?.LastHistory ?? 0}); " +
+                  $"(fixed {estimate?.FixedOverhead ?? 0} + history {estimate?.LastHistory ?? 0}, " +
+                  $"calibration {estimate?.Calibration ?? 1:0.00}); " +
                   (ratio < 1
                       ? "server under-reports (or our estimate reads high: handoff may fire early); effective usage falls back to ours"
                       : "our estimate reads low; effective usage follows the server"));
@@ -550,8 +556,21 @@ public sealed class TurnDriver : IDisposable
         if (runner.InputEstimate is not { } estimate) return;
 
         estimate.ForgetHistory();
-        _usage.EstimatedInput = estimate.Total;
-        _usage.CompactedInput = 0;
+        SyncEstimate(runner);
+    }
+
+    /// <summary>
+    /// 把执行侧的估算同步进账本。估算本身照原样记（有效占用与比值日志要的是我们自己的数）；
+    /// 压掉的那截与固定开销乘上校准系数——前者进原始占用、交接按它判，后者只用来画水位刻度，
+    /// 都得是折叠与截断实际比对的口径，刻度才与它们动手的位置重合
+    /// </summary>
+    private void SyncEstimate(ICharacterRunner runner)
+    {
+        TurnInputEstimate? estimate = runner.InputEstimate;
+        double scale = estimate?.Calibration ?? 1;
+        _usage.EstimatedInput = estimate?.Total ?? 0;
+        _usage.CompactedInput = (long)((estimate?.CompactedHistory ?? 0) * scale);
+        _usage.FixedOverhead = (int)Math.Ceiling((estimate?.FixedOverhead ?? 0) * scale);
     }
 
     /// <summary>
@@ -579,8 +598,7 @@ public sealed class TurnDriver : IDisposable
         // 收有效占用而不是报告占用:服务端的 usage 未必含工具定义,只信它的话
         // 在少报的服务端上这条水位永远不触发——三条里唯一能保住上下文的那条就此失效。见 ADR 0009。
         // 再加回被折叠压掉的那截:折叠把发出去的那份压回线下,只看有效占用的话交接会被它一直压住
-        _usage.EstimatedInput = runner.InputEstimate?.Total ?? _usage.EstimatedInput;
-        _usage.CompactedInput = runner.InputEstimate?.CompactedHistory ?? _usage.CompactedInput;
+        if (runner.InputEstimate != null) SyncEstimate(runner);
         if (!force && !HistoryHandoff.ShouldWrite(_usage.RawInput, _usage.ContextLength)) return;
 
         int start = HistoryHandoff.SupplyStartIndex(session.History);

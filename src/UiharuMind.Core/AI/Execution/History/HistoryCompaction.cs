@@ -140,31 +140,40 @@ public static class HistoryCompaction
     /// 停止条件逐组重问，最后落下的是压完之后的值——那正是本轮真会发出去的历史大小。
     ///
     /// 额度为 0 时一律不压缩——两种成因：预算未知（没有模型在跑），或固定开销自己就吃光了预算。
-    /// 两种情况下请求本来就发不出去，压缩只会白白毁掉历史
+    /// 两种情况下请求本来就发不出去，压缩只会白白毁掉历史。
+    ///
+    /// 比水位时固定开销与历史都乘上校准系数（见 <see cref="TurnInputEstimate.Calibrate"/>），回写的估算不乘
     /// </summary>
     private static (CompactionTrigger Trigger, CompactionTrigger Target) InSteps(Func<int> contextSource,
         TurnInputEstimate estimate, double threshold, double target, Action<long>? onStart = null)
     {
-        long start = 0; //这一道开始时的历史大小
+        long start = 0; //这一道开始时的历史大小（我们的口径）
+        double scale = 1; //这一次压缩用的校准系数：触发与停止必须同一个
         CompactionTrigger trigger = index =>
         {
             start = CorrectedTokenCount(index);
             onStart?.Invoke(start);
             estimate.LastHistory = start;
-            int quota = HistoryQuotaFor(contextSource(), estimate.FixedOverhead);
-            return quota > 0 && start > quota * threshold;
+            scale = estimate.Calibration;
+            int quota = CalibratedQuota(contextSource(), estimate, scale);
+            return quota > 0 && start * scale > quota * threshold;
         };
         CompactionTrigger stop = index =>
         {
             long now = CorrectedTokenCount(index);
             estimate.LastHistory = now;
-            int quota = HistoryQuotaFor(contextSource(), estimate.FixedOverhead);
+            int quota = CalibratedQuota(contextSource(), estimate, scale);
             double step = quota * (threshold - target);
             if (step <= 0) return true;
-            double steps = Math.Floor((start - quota * threshold) / step) + 1;
-            return start - now >= steps * step;
+            double steps = Math.Floor((start * scale - quota * threshold) / step) + 1;
+            return (start - now) * scale >= steps * step;
         };
         return (trigger, stop);
+    }
+
+    private static int CalibratedQuota(int contextLength, TurnInputEstimate estimate, double scale)
+    {
+        return HistoryQuotaFor(contextLength, (int)Math.Ceiling(estimate.FixedOverhead * scale));
     }
 
     // [MFA绕坑] 绕:自己重算图片的 token 数 因:框架把非文本内容一律按 字节数/4 估,且没有注入 Tokenizer 的口子 删除条件:CompactionProvider 允许传 Tokenizer 或框架按模态计价

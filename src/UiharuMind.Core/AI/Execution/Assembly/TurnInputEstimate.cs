@@ -25,7 +25,11 @@ namespace UiharuMind.Core.AI.Execution.Assembly;
 /// </summary>
 public sealed class TurnInputEstimate
 {
+    private const double MaxCalibration = 4; //再高多半是测错了(或服务端把别的也算了进来),封顶免得一发异常就把压缩提得很早
+    private const double CalibrationBand = 0.05; //新测值偏离不到这么多就不动,见 Calibrate
+
     private Func<int>? _fixedOverhead;
+    private string? _calibratedModel; //系数属于哪个模型
 
     /// <summary>
     /// 最近一次压缩判定时的历史 token 估算。由 <c>HistoryCompaction</c> 的触发条件写入——
@@ -54,6 +58,12 @@ public sealed class TurnInputEstimate
     public long Total => FixedOverhead + LastHistory;
 
     /// <summary>
+    /// 校准系数（≥ 1）：最近一次量过的请求里，服务端报的输入 ÷ 我们估的输入。
+    /// 折叠与截断判定时乘在估算上；这里记的估算本身不乘——否则下一次拿它去比，系数会自己往 1 收。见 <see cref="Calibrate"/>
+    /// </summary>
+    public double Calibration { get; private set; } = 1;
+
+    /// <summary>
     /// 装配末尾绑定到句柄。
     /// 传委托而不是直接取数，是为了让分词保持惰性：绑定时不算，第一次读才算。
     /// </summary>
@@ -61,6 +71,43 @@ public sealed class TurnInputEstimate
     public void BindTo(AgentHandle handle)
     {
         _fixedOverhead = () => handle.Capabilities.EstimatedTokens;
+    }
+
+    /// <summary>
+    /// 按服务端报的输入校准。
+    ///
+    /// 各家的分词器与提示模板我们拿不到（DeepSeek 套上工具模板后，固定开销是我们估的 2.7 倍）；唯一准的是服务端每次报的输入，
+    /// 而那一发装了什么我们清楚。下一发 ≈ 这一发 + 新增的几条，乘上这一发的比值，误差就只剩新增那截的估算。
+    /// <list type="bullet">
+    /// <item><b>只往上调</b>：少报的服务端（GLM 不计工具定义，比值 0.48）取 1，不把估算往下拖——晚压的代价远大于早压，见 ADR 0009。</item>
+    /// <item><b>带死区</b>：偏离不到 5% 不动。折叠与截断按台阶走，同一级里压哪些组不变靠的是要腾的量不变；系数每发微调，前缀就又不稳了。</item>
+    /// <item><b>没量过不算</b>：历史估算为 0 的那一发（新会话、交接后的首发，框架跳过了压缩判定）只估了固定开销，
+    /// 服务端却连交接文档一起算，比值虚高。</item>
+    /// <item><b>换模型重来</b>：系数属于那一个模型。</item>
+    /// </list>
+    /// </summary>
+    /// <param name="model">这一发用的模型</param>
+    /// <param name="reported">服务端报的输入 token</param>
+    public void Calibrate(string? model, long reported)
+    {
+        UseModel(model);
+        long ours = Total;
+        if (reported <= 0 || LastHistory <= 0 || ours <= 0) return;
+
+        double measured = Math.Clamp((double)reported / ours, 1, MaxCalibration);
+        if (Math.Abs(measured - Calibration) > Calibration * CalibrationBand) Calibration = measured;
+    }
+
+    /// <summary>
+    /// 声明接下来用哪个模型；与上次校准的不是同一个就把系数归 1。轮次开头调：
+    /// agent 不随换模型重建，不在发出第一发之前归位的话，那一发会按上一个模型的系数压
+    /// </summary>
+    /// <param name="model">模型名</param>
+    public void UseModel(string? model)
+    {
+        if (model == _calibratedModel) return;
+        _calibratedModel = model;
+        Calibration = 1;
     }
 
     /// <summary>
