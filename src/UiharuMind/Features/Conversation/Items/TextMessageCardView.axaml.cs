@@ -9,7 +9,6 @@
 
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Media.Imaging;
 
 using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.Conversation.Items;
@@ -35,10 +34,12 @@ public partial class TextMessageCardView : UserControl
     /// </summary>
     private void OnMessageImagePressed(object? sender, PointerPressedEventArgs e)
     {
-        if (sender is not Image { Source: Bitmap bitmap }) return;
+        if (sender is not Image { DataContext: ImageThumbnail thumbnail }) return;
 
-        // 传副本:气泡这张图还挂在条目上,预览窗关闭时会释放它自己那份
-        UIManager.ShowPreviewImageCopyWindowAtMousePosition(bitmap);
+        // 气泡里只有缩略图:原图从来源现解一份交给预览窗,窗口关闭时由它释放
+        UIManager.ShowPreviewImageWindowAtMousePosition(thumbnail.DecodeFull(),
+            horizontalAlignment: Avalonia.Layout.HorizontalAlignment.Center,
+            verticalAlignment: Avalonia.Layout.VerticalAlignment.Center);
         e.Handled = true;
     }
 }

@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -190,6 +191,11 @@ public partial class TextConversationItem : ConversationItemBase, IStreamFlushTa
     private readonly object _bufferGate = new(); //追加来自推理线程,冲刷在 UI 线程,两边都要过锁
     private readonly bool _isUser;
     private readonly bool _isNarration;
+    private readonly ThumbnailStrip _messageImages = new();
+    private int _imageCount; //来源张数：同步给出，气泡布局不等解码
+
+    /// <summary>气泡缩略图的解码宽度：显示边长 320，按 2x 屏解得清楚</summary>
+    private const int ImageDecodeWidth = 640;
 
     /// <summary>
     /// UI 侧上屏间隔。流式期间每个 token 都把累积全文重设一次,渲染侧要么做全量文本重排、
@@ -255,16 +261,16 @@ public partial class TextConversationItem : ConversationItemBase, IStreamFlushTa
 
     /// <summary>
     /// 随消息一同显示的图片（多模态消息里的 DataContent），一条消息可以带多张。
-    /// 解码后按原始像素驻留（缩放后仍可达上千像素边长），<b>由本条目独占并在
+    /// 后台只解到缩略图大小，原图点开时从来源现解；<b>由本条目独占并在
     /// <see cref="ReleaseImages"/> 里释放</b>——条目被整体丢弃时没有别人会去释放它们。
     /// </summary>
-    public ObservableCollection<Bitmap> MessageImages { get; } = [];
+    public ObservableCollection<ImageThumbnail> MessageImages => _messageImages.Items;
 
-    /// <summary>是否含图片</summary>
-    public bool HasImage => MessageImages.Count > 0;
+    /// <summary>是否含图片（按来源算，缩略图可能还在解）</summary>
+    public bool HasImage => _imageCount > 0;
 
     /// <summary>气泡里缩略图的边长:多图时缩小,免得几张图把气泡撑成一条长龙</summary>
-    public double ImageThumbSize => MessageImages.Count > 1 ? 160 : 320;
+    public double ImageThumbSize => _imageCount > 1 ? 160 : 320;
 
     /// <summary>
     /// 实际进入模型的正文，与 <see cref="ConversationItemBase.Message"/> 不同时才有值。
@@ -318,36 +324,23 @@ public partial class TextConversationItem : ConversationItemBase, IStreamFlushTa
     void IStreamFlushTarget.FlushForDisplay() => Flush();
 
     /// <summary>
-    /// 追加一张消息里的图片；解码失败则跳过这一张
+    /// 设置这条消息的图片，后台解码缩略图；解不了的那张跳过。须在界面线程调用
     /// </summary>
-    /// <param name="bytes">图片字节</param>
-    public void AddImage(ReadOnlyMemory<byte> bytes)
+    /// <param name="sources">图片来源，按显示顺序</param>
+    public void SetImages(IReadOnlyList<ImageThumbnailSource> sources)
     {
-        if (bytes.IsEmpty) return;
-        try
-        {
-            using MemoryStream stream = new(bytes.ToArray());
-            MessageImages.Add(new Bitmap(stream));
-        }
-        catch (Exception e)
-        {
-            Log.Warning($"Load message image failed: {e.Message}");
-            return;
-        }
-
+        if (sources.Count == 0) return;
+        _imageCount = sources.Count;
         OnPropertyChanged(nameof(HasImage));
         OnPropertyChanged(nameof(ImageThumbSize));
+        _ = _messageImages.LoadAsync(sources, ImageDecodeWidth);
     }
 
     /// <inheritdoc />
     public override void ReleaseImages()
     {
-        // 先摘绑定再释放:集合清空会让 ItemsSource 收到通知、摘掉那些 Image,
-        // 顺序反了就是把还在界面上的位图放掉
-        Bitmap[] stale = MessageImages.ToArray();
-        MessageImages.Clear();
-        foreach (Bitmap image in stale) image.Dispose();
-
+        _messageImages.Release();
+        _imageCount = 0;
         OnPropertyChanged(nameof(HasImage));
         OnPropertyChanged(nameof(ImageThumbSize));
     }

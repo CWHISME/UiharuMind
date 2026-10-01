@@ -4,7 +4,6 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:conv="clr-namespace:UiharuMind.Features.Conversation"
              xmlns:items="clr-namespace:UiharuMind.Features.Conversation.Items"
-             xmlns:imaging="clr-namespace:Avalonia.Media.Imaging;assembly=Avalonia.Base"
              xmlns:converters="clr-namespace:UiharuMind.Shared.Converters"
              xmlns:common="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
@@ -102,12 +101,12 @@
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
-                            <DataTemplate DataType="{x:Type imaging:Bitmap}">
+                            <DataTemplate DataType="{x:Type items:ImageThumbnail}">
                                 <!-- 每张图各自描边:多张浅色截图挨在一起时,没有边界就会被读成一整张长图 -->
                                 <Border Margin="4" CornerRadius="4" ClipToBounds="True"
                                         BorderThickness="1"
                                         BorderBrush="{DynamicResource SemiGrey3}">
-                                    <Image Source="{Binding}"
+                                    <Image Source="{Binding Bitmap}"
                                            MaxWidth="{Binding $parent[ItemsControl].((items:TextConversationItem)DataContext).ImageThumbSize}"
                                            MaxHeight="{Binding $parent[ItemsControl].((items:TextConversationItem)DataContext).ImageThumbSize}"
                                            Stretch="Uniform"

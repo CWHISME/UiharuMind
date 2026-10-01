@@ -43,8 +43,8 @@ public sealed class ToolCallResultImagesTests : IDisposable
 
         await item.LoadResultImagesAsync(Paths);
 
-        ToolResultImage image = Assert.Single(item.ResultImages);
-        Assert.Equal(320, image.Thumbnail.PixelSize.Width);
+        ImageThumbnail image = Assert.Single(item.ResultImages);
+        Assert.Equal(320, image.Bitmap.PixelSize.Width);
         Assert.Equal(Path.Combine(_root, "draft", "images", "fox.png"), image.FilePath);
 
         item.ReleaseImages();

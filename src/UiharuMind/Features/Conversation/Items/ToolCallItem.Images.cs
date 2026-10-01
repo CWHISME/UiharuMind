@@ -1,25 +1,13 @@
-using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Avalonia.Media.Imaging;
-using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Files;
-using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Conversation.Items;
-
-/// <summary>
-/// 工具结果里产出的一张图：缩略图常驻，原图点开时从盘上现读
-/// </summary>
-/// <param name="FilePath">图片绝对路径</param>
-/// <param name="Thumbnail">缩略图</param>
-public sealed record ToolResultImage(string FilePath, Bitmap Thumbnail);
 
 /// <summary>
 /// 生图工具的卡片直接显示产出的图（ADR 0052）：图不交回模型，模型忘了贴图用户也看得到；
@@ -30,11 +18,10 @@ public partial class ToolCallItem
     /// <summary>缩略图解码宽度：只解这么大，卡片常驻不攥原图的几 MB（ADR 0041 的内存账）</summary>
     private const int ThumbnailWidth = 320;
 
-    private int _imageGeneration; //每释放一次加一：晚到的解码结果据此认出条目已被裁掉
-    private bool _imagesLoading; //解码在路上，防同一张卡重复起解
+    private readonly ThumbnailStrip _resultImages = new();
 
     /// <summary>产出的图，按结果里的顺序</summary>
-    public ObservableCollection<ToolResultImage> ResultImages { get; } = [];
+    public ObservableCollection<ImageThumbnail> ResultImages => _resultImages.Items;
 
     /// <summary>有图可显示</summary>
     public bool HasResultImages => ResultImages.Count > 0;
@@ -53,7 +40,7 @@ public partial class ToolCallItem
     /// <returns>解完并挂上（或因条目已被释放而丢弃）时完成</returns>
     public async Task LoadResultImagesAsync(AgentPathResolver? paths)
     {
-        if (!IsSuccess || HasResultImages || _imagesLoading) return;
+        if (!IsSuccess || HasResultImages) return;
         IReadOnlyList<string> produced = ToolName switch
         {
             ImageGenerationTool.ToolName => ImageGenerationTool.ParseSavedPaths(ResultText),
@@ -62,53 +49,24 @@ public partial class ToolCallItem
         };
         if (produced.Count == 0) return;
 
-        List<string> files = produced
-            .Select(path => paths != null && paths.TryResolve(path, out string resolved) ? resolved : path)
+        List<ImageThumbnailSource> sources = produced
+            .Select(path => ImageThumbnailSource.FromFile(
+                paths != null && paths.TryResolve(path, out string resolved) ? resolved : path))
             .ToList();
-        int generation = _imageGeneration;
-        _imagesLoading = true;
-        List<ToolResultImage> decoded = await Task.Run(() => files.Select(TryLoadThumbnail).OfType<ToolResultImage>().ToList())
-            .ConfigureAwait(false);
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            _imagesLoading = false;
-            if (generation != _imageGeneration)
-            {
-                foreach (ToolResultImage image in decoded) image.Thumbnail.Dispose();
-                return;
-            }
-
-            foreach (ToolResultImage image in decoded) ResultImages.Add(image);
-            if (decoded.Count > 0) OnPropertyChanged(nameof(HasResultImages));
-        });
+        await _resultImages.LoadAsync(sources, ThumbnailWidth);
+        OnPropertyChanged(nameof(HasResultImages));
     }
 
     /// <inheritdoc />
     public override void ReleaseImages()
     {
-        _imageGeneration++;
-        // 先摘绑定再释放，顺序反了就是把还在界面上的位图放掉
-        ToolResultImage[] stale = ResultImages.ToArray();
-        ResultImages.Clear();
-        foreach (ToolResultImage image in stale) image.Thumbnail.Dispose();
+        _resultImages.Release();
         OnPropertyChanged(nameof(HasResultImages));
     }
 
     [RelayCommand]
-    private static void OpenResultImage(ToolResultImage image) => FileOpener.OpenPreviewImage(image.FilePath);
-
-    private static ToolResultImage? TryLoadThumbnail(string path)
+    private static void OpenResultImage(ImageThumbnail image)
     {
-        if (!File.Exists(path)) return null;
-        try
-        {
-            using FileStream stream = File.OpenRead(path);
-            return new ToolResultImage(path, Bitmap.DecodeToWidth(stream, ThumbnailWidth));
-        }
-        catch (Exception e)
-        {
-            Log.Warning($"Load generated image failed '{path}': {e.Message}");
-            return null;
-        }
+        if (image.FilePath != null) FileOpener.OpenPreviewImage(image.FilePath);
     }
 }

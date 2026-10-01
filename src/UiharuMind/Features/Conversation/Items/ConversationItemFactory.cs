@@ -103,18 +103,20 @@ public static class ConversationItemFactory
             .ToList() ?? [];
         if (images.Count > 0)
         {
-            foreach (DataContent image in images) item.AddImage(image.Data);
+            item.SetImages(images.Select(image => ImageThumbnailSource.FromBytes(image.Data)).ToList());
             return item;
         }
 
         // 没内联字节的情况:非视觉模型下 BuildUserMessage 把附件降级成了文本引用。
         // 但用户附了图就该在界面上看到,与模型能否看图无关,所以回落到附件本身
         if (attachments == null) return item;
-        foreach (ConversationAttachment attached in attachments.Where(x => x.IsImage))
-        {
-            item.AddImage(AttachmentTrayViewData.ReadAttachmentBytes(attached));
-        }
-
+        // 有路径的按文件来源:读盘也跟着解码挪到后台,不攥原图字节
+        item.SetImages(attachments
+            .Where(x => x.IsImage)
+            .Select(x => x.Bytes == null && !string.IsNullOrEmpty(x.FilePath)
+                ? ImageThumbnailSource.FromFile(x.FilePath)
+                : ImageThumbnailSource.FromBytes(AttachmentTrayViewData.ReadAttachmentBytes(x)))
+            .ToList());
         return item;
     }
 
