@@ -11,16 +11,17 @@ using System.Collections.Concurrent;
 using System.Net;
 using UiharuMind.Core.Core.SimpleLog;
 
-namespace UiharuMind.Core.AI.Execution.Tools.WebTools;
+namespace UiharuMind.Core.AI.Net;
 
 /// <summary>
 /// 外部服务的熔断记账,<b>按服务名而非按 provider 实例</b>——Firecrawl 在搜索链和读页链里各有一环,
 /// 但共用同一份额度,搜索撞了 429 就没理由让读页再去撞一次。
+/// 联网工具与生图共用这一份,生图的键带 <c>Image:</c> 前缀(见 ADR 0052)。
 ///
 /// 连续失败到阈值就静默一段时间。免 key 额度是按天给的,耗尽后每次调用都要先吃一发 429
 /// 再回退,既拖慢每一轮,日志也被刷成一串 miss。
 /// </summary>
-internal static class WebServiceCircuit
+internal static class ServiceCircuit
 {
     /// <summary>连续失败多少次开始熔断</summary>
     internal const int FailureThreshold = 3;
@@ -112,7 +113,7 @@ internal static class WebServiceCircuit
 
         Interlocked.Exchange(ref state.ConsecutiveFailures, 0);
         Volatile.Write(ref state.OpenUntilTick, Environment.TickCount64 + (long)OpenDuration.TotalMilliseconds);
-        Log.Warning($"[Web] '{service}' tripped after {FailureThreshold} failures: " +
+        Log.Warning($"[Circuit] '{service}' tripped after {FailureThreshold} failures: " +
                     $"skipping it for {OpenDuration.TotalMinutes:F0} min");
     }
 }

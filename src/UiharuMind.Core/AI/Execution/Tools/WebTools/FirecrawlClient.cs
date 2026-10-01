@@ -10,6 +10,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Configs;
 
 namespace UiharuMind.Core.AI.Execution.Tools.WebTools;
@@ -54,7 +55,7 @@ internal static class FirecrawlClient
     /// 不在这里把它转成异常的话，解析方会因找不到 <c>data</c> 返回空结果/失败原因，
     /// 错误原文被静默吞掉，模型拿到的是假成功——这是最危险的一类失败
     /// （基于空结果做错误决策且毫无察觉）。
-    /// 抛 <see cref="HttpRequestException"/> 是为了让 <see cref="WebServiceCircuit.IsServiceLevelFailure"/>
+    /// 抛 <see cref="HttpRequestException"/> 是为了让 <see cref="ServiceCircuit.IsServiceLevelFailure"/>
     /// 把它当服务级故障（限额耗尽/5xx）记入熔断，后续引擎/读取器才会上位。
     /// 搜索与读页共用这一个出口，故这里统一处理，两处行为保持一致。
     /// </summary>

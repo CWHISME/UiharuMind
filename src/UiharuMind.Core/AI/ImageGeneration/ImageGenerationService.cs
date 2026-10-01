@@ -1,5 +1,5 @@
-using UiharuMind.Core.AI.Execution.Tools.WebTools;
 using UiharuMind.Core.AI.ImageGeneration.Dialects;
+using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 
@@ -46,9 +46,9 @@ public sealed class ImageGenerationService
         if (!model.IsConfigured) return new ImageModelStatus(EImageModelState.NotConfigured, null);
 
         string key = CircuitKey(model);
-        return WebServiceCircuit.IsTripped(key, out _)
-            ? new ImageModelStatus(EImageModelState.Cooling, WebServiceCircuit.GetLastError(key))
-            : new ImageModelStatus(EImageModelState.Ready, WebServiceCircuit.GetLastError(key));
+        return ServiceCircuit.IsTripped(key, out _)
+            ? new ImageModelStatus(EImageModelState.Cooling, ServiceCircuit.GetLastError(key))
+            : new ImageModelStatus(EImageModelState.Ready, ServiceCircuit.GetLastError(key));
     }
 
     /// <summary>
@@ -70,7 +70,7 @@ public sealed class ImageGenerationService
             }
 
             string circuitKey = CircuitKey(model);
-            if (WebServiceCircuit.IsTripped(circuitKey, out TimeSpan cooldown))
+            if (ServiceCircuit.IsTripped(circuitKey, out TimeSpan cooldown))
             {
                 skipped.Add(new SkippedImageModel(model.Name,
                     $"disabled for {cooldown.TotalSeconds:F0}s after repeated failures"));
@@ -81,7 +81,7 @@ public sealed class ImageGenerationService
                 .ConfigureAwait(false);
             if (outcome.Failure is { Kind: EImageFailureKind.Unavailable } unavailable)
             {
-                WebServiceCircuit.RecordFailure(circuitKey, unavailable.Message);
+                ServiceCircuit.RecordFailure(circuitKey, unavailable.Message);
                 skipped.Add(new SkippedImageModel(model.Name, unavailable.Message));
                 Log.Warning($"[ImageGen] '{model.Name}' unavailable, falling back: {unavailable.Message}");
                 continue;
@@ -93,7 +93,7 @@ public sealed class ImageGenerationService
                 return Failed(model.Name, outcome.Failure, skipped);
             }
 
-            WebServiceCircuit.RecordSuccess(circuitKey);
+            ServiceCircuit.RecordSuccess(circuitKey);
             return await MaterializeAsync(model.Name, outcome, skipped, ct).ConfigureAwait(false);
         }
 

@@ -10,6 +10,7 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
+using UiharuMind.Core.AI.Net;
 
 namespace UiharuMind.Core.AI.Execution.Tools.WebTools;
 
@@ -72,13 +73,13 @@ public static class WebSearchDiagnostics
         for (int i = 0; i < providers.Count; i++)
         {
             ISearchProvider provider = providers[i];
-            bool cooling = WebServiceCircuit.IsTripped(provider.Name, out TimeSpan cooldown);
+            bool cooling = ServiceCircuit.IsTripped(provider.Name, out TimeSpan cooldown);
             EWebProviderState state = !provider.IsAvailable ? EWebProviderState.NotConfigured
                 : cooling ? EWebProviderState.Cooling
                 : EWebProviderState.Ready;
 
             list.Add(new WebProviderStatus(
-                provider.Name, i + 1, state, cooldown, WebServiceCircuit.GetLastError(provider.Name)));
+                provider.Name, i + 1, state, cooldown, ServiceCircuit.GetLastError(provider.Name)));
         }
 
         return list;
