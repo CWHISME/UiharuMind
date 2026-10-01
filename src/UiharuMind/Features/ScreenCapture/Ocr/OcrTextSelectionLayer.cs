@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using Avalonia.Rendering;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Generated;
@@ -32,9 +33,10 @@ public sealed class OcrTextSelectionLayer : Panel, ICustomHitTest
     // 行盒外的宽容量：贴着行边缘按下也算命中
     private const double HitSlack = 4;
 
-    private static readonly IBrush DimBrush = new SolidColorBrush(Color.FromArgb(72, 0, 0, 0));
-    private static readonly IBrush PlateBrush = new SolidColorBrush(Color.FromArgb(38, 255, 255, 255));
-    private static readonly IBrush SelectionBrush = new SolidColorBrush(Color.FromArgb(140, 46, 155, 255));
+    // 静态共用必须是不可变画刷:SolidColorBrush 归建它的线程,先在别的线程建出来,渲染时就抛跨线程访问
+    private static readonly IBrush DimBrush = new ImmutableSolidColorBrush(Color.FromArgb(72, 0, 0, 0));
+    private static readonly IBrush PlateBrush = new ImmutableSolidColorBrush(Color.FromArgb(38, 255, 255, 255));
+    private static readonly IBrush SelectionBrush = new ImmutableSolidColorBrush(Color.FromArgb(140, 46, 155, 255));
 
     private readonly MenuFlyout _flyout;
     private readonly MenuItem _copyItem;

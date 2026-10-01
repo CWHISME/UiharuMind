@@ -22,9 +22,13 @@ namespace UiharuMind.Shared.Controls;
 /// </summary>
 public class ConditionalContent : ContentControl
 {
+    /// <summary>为真时生成内容、为假时丢掉的那个条件</summary>
     public static readonly StyledProperty<bool> WhenProperty =
         AvaloniaProperty.Register<ConditionalContent, bool>(nameof(When));
 
+    /// <summary>
+    /// 构造。初始不可见、不裁剪
+    /// </summary>
     public ConditionalContent()
     {
         IsVisible = false; //When 默认为假,没收到属性变更前也不能空占一格

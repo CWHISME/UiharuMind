@@ -42,6 +42,13 @@ public class HoverDeferredContent : ContentControl
         if (_host != null) _host.PointerEntered += OnHostPointerEntered;
     }
 
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        // 已经实例化过的要跟上新的数据上下文,否则复用的宿主里按钮还作用在上一个条目上
+        if (change.Property == DataContextProperty && Content != null) Content = DataContext;
+    }
+
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);

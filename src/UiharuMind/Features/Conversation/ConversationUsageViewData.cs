@@ -136,9 +136,10 @@ public sealed partial class ConversationUsageViewData : ObservableObject, IDispo
             session.TotalReasoningTokens);
     }
 
-    /// <summary>停掉还没到点的刷新</summary>
+    /// <summary>停掉还没到点的刷新，作废还在后台的计数</summary>
     public void Dispose()
     {
+        ++_inputEstimateVersion;
         _typingDebounce?.Cancel();
         _streamingDebounce?.Cancel();
     }
