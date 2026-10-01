@@ -488,7 +488,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _messages = messages;
         _mcpApproval = new WorkspaceMcpApprovalFlow(messages);
         // 用量排最前:后面几个子模型的构造期回调就可能刷它
-        Usage = new ConversationUsageViewData(ContextLength, () => SessionModelLabel);
+        Usage = new ConversationUsageViewData(ContextLength, () => SessionModelLabel,
+            () => CurrentSession?.TotalGeneratedImages ?? 0);
         // 子模型只吃窄依赖、不反向持有本类:附件盘取会话要用委托(首轮发送时会话还不存在),
         // 命令面板要能改写输入框并读当前角色,挂接器只需报忙碌态
         Tray = new AttachmentTrayViewData(this);

@@ -34,6 +34,7 @@ public sealed partial class ConversationUsageViewData : ObservableObject, IDispo
 
     private readonly Func<int> _contextLength; //上限每次现读：顶栏换模型不重建 agent，缓存就是过期的分母
     private readonly Func<string> _modelLabel;
+    private readonly Func<int> _generatedImages;
     private readonly Func<string, int> _countTokens;
     private int _inputEstimateVersion; //后台计数只采纳最新一次
     private CancellationTokenSource? _typingDebounce;
@@ -50,12 +51,14 @@ public sealed partial class ConversationUsageViewData : ObservableObject, IDispo
     /// </summary>
     /// <param name="contextLength">取当前有效模型的上下文上限</param>
     /// <param name="modelLabel">取悬停面板上显示的模型名</param>
+    /// <param name="generatedImages">取会话累计生图张数（按张计，不在账本里）</param>
     /// <param name="countTokens">输入估算用的计数；缺省用 <see cref="LlmTokenizer.CountTokens"/></param>
-    public ConversationUsageViewData(Func<int> contextLength, Func<string> modelLabel,
+    public ConversationUsageViewData(Func<int> contextLength, Func<string> modelLabel, Func<int> generatedImages,
         Func<string, int>? countTokens = null)
     {
         _contextLength = contextLength;
         _modelLabel = modelLabel;
+        _generatedImages = generatedImages;
         _countTokens = countTokens ?? LlmTokenizer.CountTokens;
     }
 
@@ -70,7 +73,7 @@ public sealed partial class ConversationUsageViewData : ObservableObject, IDispo
 
         Ledger.ContextLength = _contextLength();
         Text = Ledger.Text;
-        Context.Refresh(Ledger, _modelLabel());
+        Context.Refresh(Ledger, _modelLabel(), _generatedImages());
     }
 
     /// <summary>

@@ -145,6 +145,14 @@
                    Text="{Binding SessionText}" TextTrimming="CharacterEllipsis"
                    ToolTip.Tip="{Binding SessionText}" />
     </Grid>
+
+    <!-- 生图按张计费、不报 token,不混进上面的 token 累计,单列一行 -->
+    <Grid ColumnDefinitions="Auto,*"
+          IsVisible="{Binding GeneratedImagesText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock Classes="muted" Text="{loc:Loc ContextGeneratedImagesLabel}" />
+        <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
+                   Text="{Binding GeneratedImagesText}" />
+    </Grid>
     </StackPanel>
 
 </UserControl>

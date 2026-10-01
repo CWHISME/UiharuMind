@@ -72,6 +72,9 @@ public partial class ContextUsageViewData : ObservableObject
     /// <summary>思考（推理）token 的显示文本；服务端不报时为空</summary>
     [ObservableProperty] private string _reasoningText = string.Empty;
 
+    /// <summary>会话累计生图张数的显示文本；没生过图时为空，整行不出现</summary>
+    [ObservableProperty] private string _generatedImagesText = string.Empty;
+
     /// <summary>档位键，供样式选色：Normal / Evicting / Truncating</summary>
     [ObservableProperty] private string _stateKey = NormalState;
 
@@ -87,8 +90,10 @@ public partial class ContextUsageViewData : ObservableObject
     /// </summary>
     /// <param name="ledger">token 账本</param>
     /// <param name="modelName">当前模型名</param>
-    public void Refresh(TurnUsageLedger ledger, string modelName)
+    /// <param name="generatedImages">会话累计生图张数（按张计费，不在账本里）</param>
+    public void Refresh(TurnUsageLedger ledger, string modelName, int generatedImages)
     {
+        GeneratedImagesText = generatedImages > 0 ? generatedImages.ToString() : string.Empty;
         int contextLength = ledger.ContextLength;
         long usage = ledger.EffectiveInput; //「还剩多少空间」一律用它,见类注释
         ModelName = modelName;

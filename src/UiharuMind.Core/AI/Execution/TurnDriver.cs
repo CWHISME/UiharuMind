@@ -173,6 +173,7 @@ public sealed class TurnDriver : IDisposable
         // 无界面轮次的兜底,兼界面配对失败时的回填——只写缺统计的消息,已有值的不碰
         int historyBefore = session.History.Count;
         ThinkingStatsRecorder thinkingStats = new();
+        GeneratedImageTally imageTally = new(); //生图按张计,不进 token 账本
         // 岔口的释放必须晚到 finally 里:收尾的 CloseSegment/StopRunningToolCalls 与失败路径的
         // 落库都要经过它,拆早了自己的落点都收不到那几下
         LiveTurnStream.Scope? liveScope = null;
@@ -227,6 +228,8 @@ public sealed class TurnDriver : IDisposable
                             Calibrate(session, runner, usage.Details);
                             RecordUsage(session, runner, usage.Details);
                         }
+
+                        if (imageTally.Observe(content) is > 0 and int generated) RecordGeneratedImages(session, generated);
                         _turnSink?.Apply(content);
                         thinkingStats.NoteContent(content);
                     }
@@ -487,6 +490,18 @@ public sealed class TurnDriver : IDisposable
         session.LastInputTokens = _usage.LastInput; //占用随本体持久化,切回会话时不必等下一次响应
         SessionManager.Instance.NotifyUsageReported(session.SessionId);
         LogUsageRatio(runner);
+        _notify?.Invoke(new TurnNotice(ETurnNotice.UsageObserved));
+    }
+
+    /// <summary>
+    /// 生图张数写回会话本体，与 token 累计同一条通知路：旁观的窗口与群成员面板据此刷新
+    /// </summary>
+    /// <param name="session">当前会话</param>
+    /// <param name="count">新存下的张数</param>
+    private void RecordGeneratedImages(ChatSession session, int count)
+    {
+        session.AccumulateGeneratedImages(count);
+        SessionManager.Instance.NotifyUsageReported(session.SessionId);
         _notify?.Invoke(new TurnNotice(ETurnNotice.UsageObserved));
     }
 

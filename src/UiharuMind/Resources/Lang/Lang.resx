@@ -105,6 +105,9 @@
     <data name="ContextSessionLabel" xml:space="preserve">
         <value>Total usage</value>
     </data>
+    <data name="ContextGeneratedImagesLabel" xml:space="preserve">
+        <value>Images generated</value>
+    </data>
     <data name="ContextWatermarkFold" xml:space="preserve">
         <value>Fold tool results at {0}</value>
     </data>

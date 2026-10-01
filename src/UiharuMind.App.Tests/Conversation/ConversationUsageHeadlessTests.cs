@@ -32,7 +32,7 @@ public class ConversationUsageHeadlessTests
         HeadlessUi.Run(() =>
         {
             int contextLength = 1000;
-            ConversationUsageViewData usage = new(() => contextLength, () => "m");
+            ConversationUsageViewData usage = new(() => contextLength, () => "m", () => 0);
 
             usage.Refresh();
             contextLength = 2000;
@@ -43,12 +43,30 @@ public class ConversationUsageHeadlessTests
         });
     }
 
+    /// <summary>生图张数单列一行：生过才出现，数取自会话而不是账本</summary>
+    [Fact]
+    public void Refresh_ShowsGeneratedImagesOnlyWhenAny()
+    {
+        HeadlessUi.Run(() =>
+        {
+            int images = 0;
+            ConversationUsageViewData usage = new(() => 0, () => "m", () => images);
+
+            usage.Refresh();
+            Assert.Equal(string.Empty, usage.Context.GeneratedImagesText);
+
+            images = 3;
+            usage.Refresh();
+            Assert.Equal("3", usage.Context.GeneratedImagesText);
+        });
+    }
+
     [Fact]
     public void RestoreFrom_TakesSessionTotals()
     {
         HeadlessUi.Run(() =>
         {
-            ConversationUsageViewData usage = new(() => 0, () => "m");
+            ConversationUsageViewData usage = new(() => 0, () => "m", () => 0);
             ChatSession session = new("t", new CharacterData { CharacterId = "t" })
             {
                 IsTransient = true,
@@ -73,7 +91,7 @@ public class ConversationUsageHeadlessTests
         HeadlessUi.RunAsync(async () =>
         {
             int refreshes = 0;
-            ConversationUsageViewData usage = new(() => ++refreshes, () => "m");
+            ConversationUsageViewData usage = new(() => ++refreshes, () => "m", () => 0);
 
             for (int i = 0; i < 5; i++) usage.RefreshCoalesced();
             Assert.Equal(0, refreshes);
@@ -89,7 +107,7 @@ public class ConversationUsageHeadlessTests
         HeadlessUi.RunAsync(async () =>
         {
             int refreshes = 0;
-            ConversationUsageViewData usage = new(() => ++refreshes, () => "m");
+            ConversationUsageViewData usage = new(() => ++refreshes, () => "m", () => 0);
 
             usage.RefreshCoalesced();
             usage.RefreshCoalesced(force: true);
@@ -106,7 +124,7 @@ public class ConversationUsageHeadlessTests
         HeadlessUi.RunAsync(async () =>
         {
             int refreshes = 0;
-            ConversationUsageViewData usage = new(() => ++refreshes, () => "m");
+            ConversationUsageViewData usage = new(() => ++refreshes, () => "m", () => 0);
 
             usage.RefreshCoalesced();
             usage.Dispose();
@@ -122,7 +140,7 @@ public class ConversationUsageHeadlessTests
         HeadlessUi.RunAsync(async () =>
         {
             int refreshes = 0;
-            ConversationUsageViewData usage = new(() => ++refreshes, () => "m", _ => 5);
+            ConversationUsageViewData usage = new(() => ++refreshes, () => "m", () => 0, _ => 5);
 
             usage.EstimateInput("abc");
             await WaitUntilAsync(() => usage.Ledger.InputEstimate == 5);
@@ -142,7 +160,7 @@ public class ConversationUsageHeadlessTests
         HeadlessUi.RunAsync(async () =>
         {
             using ManualResetEventSlim releaseFirst = new();
-            ConversationUsageViewData usage = new(() => 0, () => "m", text =>
+            ConversationUsageViewData usage = new(() => 0, () => "m", () => 0, text =>
             {
                 if (text == "first") releaseFirst.Wait(TimeSpan.FromSeconds(5));
                 return text.Length;

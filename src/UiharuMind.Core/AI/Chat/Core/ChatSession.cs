@@ -215,6 +215,11 @@ public class ChatSession
     /// </summary>
     public long LastInputTokens { get; set; }
 
+    /// <summary>
+    /// 会话累计生图张数。生图按张计费、不报 token，不进 token 累计；与 token 累计一样记在本体上
+    /// </summary>
+    public int TotalGeneratedImages { get; set; }
+
     /// <summary>创建时间</summary>
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
 
@@ -764,6 +769,15 @@ public class ChatSession
         TotalInputTokens += input;
         TotalOutputTokens += output;
         TotalReasoningTokens += reasoning;
+    }
+
+    /// <summary>
+    /// 计入生图张数到会话累计。只改内存，随下一次存会话头落盘
+    /// </summary>
+    /// <param name="count">新存下的张数</param>
+    public void AccumulateGeneratedImages(int count)
+    {
+        TotalGeneratedImages += count;
     }
 
     /// <summary>
