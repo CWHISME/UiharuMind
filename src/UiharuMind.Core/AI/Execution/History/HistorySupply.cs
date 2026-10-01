@@ -15,7 +15,7 @@ using UiharuMind.Core.AI.Execution.Assembly;
 namespace UiharuMind.Core.AI.Execution.History;
 
 /// <summary>
-/// 供给给模型的那一份历史。常规请求与旁路请求（写交接文档、群背景摘要）共用这一处口径：
+/// 供给给模型的那一份历史，以及发它的客户端。常规请求与旁路请求（写交接文档、群背景摘要）共用这一处口径：
 /// 旁路请求的前缀要与常规请求逐字一致才中得了服务端缓存，哪一处各写一遍都会悄悄岔开。
 /// </summary>
 internal static class HistorySupply
@@ -39,9 +39,21 @@ internal static class HistorySupply
     }
 
     /// <summary>
+    /// 旁路请求的客户端：与常规请求同一条路径，而不是直接用会话模型的底层客户端。
+    /// 请求体的逐模型改写（思考模式下按 tool_call 回填 reasoning_content 等）都在 <see cref="LazyChatClient"/> 里，
+    /// 绕过它的话，第一条带工具调用的助手消息就与已缓存的那份岔开
+    /// </summary>
+    /// <param name="session">发请求的会话</param>
+    /// <returns>客户端；不持有底层客户端，用完不必释放</returns>
+    public static IChatClient ClientFor(ChatSession session)
+    {
+        return new LazyChatClient(() => session.ChatModelRunningData);
+    }
+
+    /// <summary>
     /// 旁路请求的供给：常规供给，再按常规请求的同一套压缩策略压一遍。
     ///
-    /// 旁路请求走的是不带压缩的原始客户端。不先压这一道，发出去的就是原始历史：前缀在第一组折叠处就与
+    /// 旁路请求的客户端不带压缩（见 <see cref="ClientFor"/>）。不先压这一道，发出去的就是原始历史：前缀在第一组折叠处就与
     /// 已缓存的那份岔开，而这一发恰好是占用最高时最大的一次请求；原始历史还可能比窗口本身还大，请求直接被拒。
     /// 折叠只看原始大小落在哪一级台阶，所以同一份历史压出来与常规请求逐字相同；多出的最后那条回复只在末尾。
     ///

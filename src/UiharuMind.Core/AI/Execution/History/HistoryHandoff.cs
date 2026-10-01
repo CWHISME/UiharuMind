@@ -103,6 +103,7 @@ public static class HistoryHandoff
         - Do not address the user, do not ask questions, do not offer to continue.
         - Write in the language the conversation is in.
         - Output the document only. No preamble, no closing remarks.
+        - Do not call any tools: everything you need is already above.
         - If an earlier handoff ends with a section headed "{{AppendixHeading}}", do not copy it:
           it is regenerated automatically after your document.
         - HARD LIMIT: at most {0} characters. This document replaces the conversation above,
@@ -354,7 +355,7 @@ public static class HistoryHandoff
         ChatOptions? agentOptions, int contextLength, string? extraInstructions = null,
         CancellationToken cancellationToken = default)
     {
-        if (history.Count == 0) return default;
+        if (history.Count == 0) return new HandoffReply(null, []);
 
         int charLimit = NoteCharLimitFor(contextLength);
         string instruction = string.Format(Instruction, charLimit);
@@ -377,16 +378,28 @@ public static class HistoryHandoff
         // Clone 是必须的:直接改会污染 agent 自己在用的那一份
         ChatOptions options = agentOptions?.Clone() ?? new ChatOptions();
 
+        List<UsageDetails> usages = [];
         try
         {
-            // 工具带着但不许调:这是一次纯文本产出,真让它调工具会跑偏并多烧配额。
-            // MEAI 的 ChatToolMode 没有 None,只能经逐请求上下文让 HTTP 层写 tool_choice
-            LlmRequestContext.ForbidToolCalls = true;
+            // 第一发不禁工具:tool_choice 同样是请求体的一部分,写成 none 就与常规请求不再同形,
+            // 服务端可能据它改写工具段的渲染。指令里已明说别调工具;
+            // 它真去调了才禁掉重发一次(MEAI 的 ChatToolMode 没有 None,经逐请求上下文让 HTTP 层写 tool_choice)——
+            // 那一发不中缓存,但少见,总好过每次都不中
             ChatResponse response = await client
                 .GetResponseAsync(messages, options, cancellationToken)
                 .ConfigureAwait(false);
+            if (response.Usage != null) usages.Add(response.Usage);
+            if (CallsTools(response))
+            {
+                LlmRequestContext.ForbidToolCalls = true;
+                response = await client
+                    .GetResponseAsync(messages, options, cancellationToken)
+                    .ConfigureAwait(false);
+                if (response.Usage != null) usages.Add(response.Usage);
+            }
+
             string text = response.Text.Trim();
-            return new HandoffReply(text.Length == 0 ? null : Cap(text, charLimit), response.Usage);
+            return new HandoffReply(text.Length == 0 ? null : Cap(text, charLimit), usages);
         }
         catch (OperationCanceledException)
         {
@@ -395,12 +408,17 @@ public static class HistoryHandoff
         catch (Exception e)
         {
             Log.Warning($"Write context handoff failed: {e.Message}");
-            return default;
+            return new HandoffReply(null, usages);
         }
         finally
         {
             LlmRequestContext.ForbidToolCalls = false;
         }
+    }
+
+    private static bool CallsTools(ChatResponse response)
+    {
+        return response.Messages.SelectMany(x => x.Contents).OfType<FunctionCallContent>().Any();
     }
 }
 
@@ -408,5 +426,8 @@ public static class HistoryHandoff
 /// 写交接文档那一发请求的产出
 /// </summary>
 /// <param name="Text">文档正文；失败或产出为空时为 null</param>
-/// <param name="Usage">这一发的用量；没发成或服务端不报时为 null。正文为空也照样花了钱，所以与正文分开给</param>
-public readonly record struct HandoffReply(string? Text, UsageDetails? Usage);
+/// <param name="Usages">
+/// 每一发的用量（模型去调工具时会禁掉重发一次，于是有两发）；没发成或服务端不报时为空。
+/// 正文为空也照样花了钱，所以与正文分开给；逐发给而不合并，是因为账本的「最近一次占用」要的是单发的数
+/// </param>
+public readonly record struct HandoffReply(string? Text, IReadOnlyList<UsageDetails> Usages);

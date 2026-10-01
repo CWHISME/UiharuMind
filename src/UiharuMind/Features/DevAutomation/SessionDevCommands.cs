@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Items;
 using UiharuMind.Features.Conversation.Pages;
@@ -102,7 +103,7 @@ internal sealed class SessionPostCommand : IDevCommand
 }
 
 /// <summary>
-/// 等当前会话这一轮（含后台子代理）跑完。<c>args</c>：timeoutMinutes、approvals（deny / once，默认 deny）。
+/// 等当前会话这一轮（含后台子代理、轮末的交接文档）跑完。<c>args</c>：timeoutMinutes、approvals（deny / once，默认 deny）。
 /// 期间冒出来的审批卡按 approvals 点掉并记进报告——被要了什么本身就是观测量
 /// </summary>
 internal sealed class SessionWaitCommand : IAsyncDevCommand
@@ -141,7 +142,9 @@ internal sealed class SessionWaitCommand : IAsyncDevCommand
                 card.ResolveCommand.Execute(decision);
             }
 
-            idlePolls = conversation.HasPendingWork ? 0 : idlePolls + 1;
+            // 交接文档在轮末写，那时这一轮已不算在跑：不等它的话，紧跟着的 quit 会把它掐掉
+            bool busy = conversation.HasPendingWork || TurnDriver.IsCompacting(conversation.CurrentMeta?.SessionId);
+            idlePolls = busy ? 0 : idlePolls + 1;
         }
 
         return new { timedOut = false, elapsedSeconds = (int)watch.Elapsed.TotalSeconds, approvals, shownChanges };

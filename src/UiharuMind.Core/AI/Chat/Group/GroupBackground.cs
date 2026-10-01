@@ -76,7 +76,7 @@ public static class GroupBackground
 
     private static async Task<string?> WriteForAsync(ChatSession source, string audience, CancellationToken cancellationToken)
     {
-        if (source.ChatModelRunningData is not { ChatClient: { } client } model) return null;
+        if (source.ChatModelRunningData is not { ChatClient: not null } model) return null;
 
         ChatOptions? options = source.Runner.ChatOptions;
         // 与原单聊平时的请求同一视图:同一口径供给、同一套压缩,前缀才中得了它的缓存
@@ -84,13 +84,17 @@ public static class GroupBackground
             model.ContextLength, source.Runner.InputEstimate?.FixedOverhead ?? 0, cancellationToken).ConfigureAwait(false);
         if (supplied.Count == 0) return null;
 
-        HandoffReply reply = await HistoryHandoff.WriteAsync(client, supplied, options, model.ContextLength, audience,
-            cancellationToken).ConfigureAwait(false);
+        HandoffReply reply = await HistoryHandoff.WriteAsync(HistorySupply.ClientFor(source), supplied, options,
+            model.ContextLength, audience, cancellationToken).ConfigureAwait(false);
         // 是这个会话的模型花的,记进它的累计:群成员面板的成本读的就是它。不碰占用——单聊本身没有变满
-        if (reply.Usage is { } usage)
+        foreach (UsageDetails usage in reply.Usages)
         {
             source.AccumulateUsage(usage.InputTokenCount ?? 0, usage.OutputTokenCount ?? 0,
                 usage.ReasoningTokenCount ?? 0);
+        }
+
+        if (reply.Usages.Count > 0)
+        {
             source.SaveMeta(touchUpdatedAt: false);
             SessionManager.Instance.NotifyUsageReported(source.SessionId);
         }

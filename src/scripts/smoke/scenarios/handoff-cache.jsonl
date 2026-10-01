@@ -1,0 +1,18 @@
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"session.new","args":{"character":"RationalAgent","workspace":"{{WS_DOCS}}"}}
+{"op":"session.post","args":{"text":"读一下 adr 目录里编号 0006 的那份全文，用三句话说它定了什么。"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"once"}}
+{"op":"session.post","args":{"text":"再读编号 0009 的那份全文，说说它和 0006 是什么关系。"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"once"}}
+{"op":"session.post","args":{"text":"把 CONTEXT.md 全文读一遍，挑三个最容易混淆的术语讲讲。"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"once"}}
+{"op":"session.post","args":{"text":"依次读 adr 目录里编号 0001 到 0005 的几份全文，各用一句话概括。"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"once"}}
+{"op":"session.post","args":{"text":"一口气把编号 0003、0006、0007、0009 的几份和 CONTEXT.md 全文都读一遍，然后列出它们之间互相引用的地方。"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"once"}}
+{"op":"session.post","args":{"text":"把 adr 目录里编号 0010 到 0030 的几份全文都读一遍，各用一句话概括。"}}
+{"op":"session.wait","args":{"timeoutMinutes":15,"approvals":"once"}}
+{"op":"session.post","args":{"text":"一句话：我们最开始读的 0006 定了什么？"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"once"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/handoff-cache.md"}}
+{"op":"quit"}

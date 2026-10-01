@@ -1,4 +1,5 @@
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.History;
@@ -241,7 +242,7 @@ public class HistoryHandoffTests
             cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Null(reply.Text);
-        Assert.Equal(900, reply.Usage?.InputTokenCount); //没写出正文也照样花了钱,用量照给
+        Assert.Equal(900, Assert.Single(reply.Usages).InputTokenCount); //没写出正文也照样花了钱,用量照给
     }
 
     [Fact]
@@ -253,7 +254,24 @@ public class HistoryHandoffTests
             cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Null(reply.Text);
-        Assert.Null(reply.Usage);
+        Assert.Empty(reply.Usages);
+    }
+
+    /// <summary>
+    /// 第一发不禁工具：tool_choice 写成 none 请求就与常规请求不同形，前缀缓存跟着断。
+    /// 模型真去调了工具才禁掉重发一次，两发的用量逐发交回
+    /// </summary>
+    [Fact]
+    public async Task WriteAsync_ForbidsToolsOnlyWhenTheModelReachesForOne()
+    {
+        ToolReachingChatClient client = new();
+
+        HandoffReply reply = await HistoryHandoff.WriteAsync(client, [User("a")], null, 128_000,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal([false, true], client.Forbidden);
+        Assert.Equal("交接正文", reply.Text);
+        Assert.Equal(2, reply.Usages.Count);
     }
 
     [Fact]
@@ -303,6 +321,32 @@ public class HistoryHandoffTests
             Seen.AddRange(messages);
             SeenOptions = options;
             return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, reply)) { Usage = usage });
+        }
+
+        public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages,
+            ChatOptions? options = null, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public void Dispose()
+        {
+        }
+    }
+
+    /// <summary>第一发回一个工具调用，第二发回正文；记下每一发是否禁了工具</summary>
+    private sealed class ToolReachingChatClient : IChatClient
+    {
+        public List<bool> Forbidden { get; } = [];
+
+        public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null,
+            CancellationToken cancellationToken = default)
+        {
+            Forbidden.Add(LlmRequestContext.ForbidToolCalls);
+            ChatMessage message = Forbidden.Count == 1
+                ? new ChatMessage(ChatRole.Assistant, [new FunctionCallContent("c1", "Read")])
+                : new ChatMessage(ChatRole.Assistant, "交接正文");
+            return Task.FromResult(new ChatResponse(message) { Usage = new UsageDetails { InputTokenCount = 100 } });
         }
 
         public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages,

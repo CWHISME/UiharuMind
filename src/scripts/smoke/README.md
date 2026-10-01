@@ -50,6 +50,25 @@ SMOKE_NO_BUILD=1 src/scripts/smoke/run.sh solo-replay
 - 群里长清单写成草稿目录里的文件，产物区能认出是谁写的
 - 工具参数与正文里都没有自拼的 `~/`、`$HOME/` 这类路径
 
+### handoff-cache：交接请求命中缓存
+
+OP-01 在 docs 副本里逐份读文档，几轮之后在轮末冲过交接线；交接后再一口气读二十来份没读过的，一轮之内冲过折叠线。
+（读过的它不会重读，所以冲折叠线的那一轮必须给新材料。）
+**要配 `SMOKE_CONTEXT` 跑**，把上下文压小，几轮就走到水位，不必真把 1M 跑满：
+
+```bash
+SMOKE_CONTEXT=64000 src/scripts/smoke/run.sh handoff-cache
+grep -h "Context handoff request" /tmp/uiharu-smoke/handoff-cache-*/home/Logs/*
+```
+
+每次交接一行：`input A, cached B; previous request: input C, cached D, folded E`。
+
+- 至少两行：前几轮之后一次（`folded 0`，正常路径），读二十来份那一轮之后一次（`folded` > 0，轮内折叠过）
+- 两行都应 `B / A` 接近 `D / C`：交接请求原样接在上一次请求后面，只多了最后那条回复和写文档的指令。
+  明显更低就是前缀岔开了
+- `D` 一直是 0 说明这个服务端不缓存或不报命中数，这一场测不出结论，换个模型
+- 最后一问答得出 0006 定了什么：交接文档把前情带过来了
+
 ## 读结果的口径
 
 - **一次说明不了什么**。模型输出有随机性，前缀这类毛病三轮里可能只冒一次；下结论前至少跑两遍。

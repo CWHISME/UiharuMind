@@ -592,8 +592,7 @@ public sealed class TurnDriver : IDisposable
         }
 
         // ChatModelRunningData 取不到会话自己那份时已经回落到当前运行模型,这里不必再兜一层
-        IChatClient? client = session.ChatModelRunningData?.ChatClient;
-        if (client == null)
+        if (session.ChatModelRunningData?.ChatClient == null)
         {
             // 手动触发时不能静默无操作:占位卡没插入、也没失败提示,用户只会看到"点了没反应"
             if (force) _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffFailed));
@@ -612,13 +611,17 @@ public sealed class TurnDriver : IDisposable
                 runner.ChatOptions, _usage.ContextLength, runner.InputEstimate?.FixedOverhead ?? 0,
                 CancellationToken.None);
             // 选项取本会话装配好的那一份(系统提示词 + 工具定义 + 采样参数),与常规轮次逐字一致
-            HandoffReply reply = await HistoryHandoff.WriteAsync(client, supplied, runner.ChatOptions,
-                _usage.ContextLength, extraInstructions, CancellationToken.None);
-            // 这一发往往是整个会话最大的一次请求,照常记账:不记的话会话累计少算,它命没命中缓存也无从验证
-            if (reply.Usage is { } usage)
+            HandoffReply reply = await HistoryHandoff.WriteAsync(HistorySupply.ClientFor(session), supplied,
+                runner.ChatOptions, _usage.ContextLength, extraInstructions, CancellationToken.None);
+            // 这一发往往是整个会话最大的一次请求,照常记账:不记的话会话累计少算,它命没命中缓存也无从验证。
+            // 日志带上前一次常规请求的命中与折叠量:对照着看才分得清是前缀岔开了,还是服务端本就不缓存
+            long previousInput = _usage.LastInput;
+            long previousCached = _usage.LastCachedInput;
+            foreach (UsageDetails usage in reply.Usages)
             {
                 RecordUsage(session, runner, usage);
-                Log.Debug($"Context handoff request: input {_usage.LastInput}, cached {_usage.LastCachedInput}");
+                Log.Debug($"Context handoff request: input {_usage.LastInput}, cached {_usage.LastCachedInput}; " +
+                          $"previous request: input {previousInput}, cached {previousCached}, folded {_usage.CompactedInput}");
             }
 
             if (reply.Text is not { } note)
