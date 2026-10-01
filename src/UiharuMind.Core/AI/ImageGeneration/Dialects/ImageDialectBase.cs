@@ -89,7 +89,8 @@ internal abstract class ImageDialectBase : IImageDialect
 
     /// <summary>
     /// 按状态码分类。400 一律归「请求本身不行」：SenseNova 的 <c>failed_precondition_error</c>
-    /// 同时覆盖引擎不可用与安全检查未通过，分不清时宁可少换家也不重复扣费（ADR 0052）
+    /// 同时覆盖引擎不可用与安全检查未通过，分不清时宁可少换家也不重复扣费（ADR 0052）。
+    /// 504 不算普通 5xx：网关等不及，上游多半已经在画、可能已扣费，换家就是再付一次
     /// </summary>
     /// <param name="status">HTTP 状态码</param>
     /// <returns>失败类别</returns>
@@ -97,6 +98,7 @@ internal abstract class ImageDialectBase : IImageDialect
     {
         return status switch
         {
+            HttpStatusCode.GatewayTimeout => EImageFailureKind.MaybeCharged,
             HttpStatusCode.Unauthorized or HttpStatusCode.PaymentRequired or HttpStatusCode.Forbidden
                 or HttpStatusCode.NotFound or HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests =>
                 EImageFailureKind.Unavailable,

@@ -11,7 +11,7 @@ public enum EImageFailureKind
     /// <summary>这次请求本身不行（内容审核、参数非法、输入图读不了）：停下交还模型</summary>
     Rejected,
 
-    /// <summary>可能已经扣费（超时、成功却拿不到图）：停下并如实说明</summary>
+    /// <summary>可能已经扣费（超时、网关超时、成功却拿不到图）：停下并如实说明</summary>
     MaybeCharged,
 }
 

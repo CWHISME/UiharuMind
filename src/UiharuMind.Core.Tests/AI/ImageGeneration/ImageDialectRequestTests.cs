@@ -141,6 +141,9 @@ public class ImageDialectRequestTests
     [InlineData(HttpStatusCode.NotFound, EImageFailureKind.Unavailable)]
     [InlineData(HttpStatusCode.TooManyRequests, EImageFailureKind.Unavailable)]
     [InlineData(HttpStatusCode.ServiceUnavailable, EImageFailureKind.Unavailable)]
+    [InlineData(HttpStatusCode.PaymentRequired, EImageFailureKind.Unavailable)] //余额不足:这一家用不了
+    [InlineData(HttpStatusCode.RequestTimeout, EImageFailureKind.Unavailable)] //服务端没开始处理
+    [InlineData(HttpStatusCode.GatewayTimeout, EImageFailureKind.MaybeCharged)] //上游可能已经画完扣了费
     public void Classify_OnlyServiceSideFailuresFallBack(HttpStatusCode status, EImageFailureKind expected)
     {
         Assert.Equal(expected, ImageDialectBase.Classify(status));
