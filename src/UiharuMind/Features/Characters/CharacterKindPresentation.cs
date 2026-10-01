@@ -1,4 +1,5 @@
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
@@ -15,7 +16,8 @@ namespace UiharuMind.Features.Characters;
 /// </summary>
 public static class CharacterKindPresentation
 {
-    private static readonly SolidColorBrush s_agentBrush = new(Color.Parse("#D0BCF7")); //智能体薰衣草紫
+    // 静态共用必须是不可变画刷:SolidColorBrush 归建它的线程,先在别的线程建出来,渲染时就抛跨线程访问
+    private static readonly ImmutableSolidColorBrush s_agentBrush = new(Color.Parse("#D0BCF7")); //智能体薰衣草紫
 
     /// <summary>
     /// 可建的那两类的显示名（用户卡是单例，由专属编辑窗管，不在此列）
