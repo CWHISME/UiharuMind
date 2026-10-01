@@ -93,7 +93,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     [ObservableProperty] private bool _hasLoadedEarlier;
 
     [ObservableProperty] private bool _isSessionLoading; //会话切换构建中(空状态覆盖层此间不显示,避免闪烁)
-    [ObservableProperty] private string _tokenUsageText = string.Empty; //token 统计(输入估算/本轮/会话累计)
 
     /// <summary>
     /// 发送/插话。
@@ -286,10 +285,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private bool _isDisplayed = true; //本实例是否正显示在界面上
     private ChatSessionMeta? _deferredLoad; //中途被切走而欠下的那次装载,切回来时接着做
     private bool _isLoadingSession; //加载会话期间抑制设置写回(加载是读,不是用户改动)
-    private int _inputCountVersion; //输入估算版本号,后台计数只采纳最新一次
     private int _composerCaret = -1; //输入框光标（视图报上来）；-1 表示不知道，按末尾算
-    private CancellationTokenSource? _tokenRefreshDebounce; //打字时合并刷新,避免每个字符都触发 ToolTip 重排
-    private CancellationTokenSource? _usageRefreshDebounce; //流式期合并 UsageObserved 刷新,避免每个 chunk 都重排 ToolTip
 
     private readonly IMessageService _messages; //弹提示与确认
     private readonly ConversationItemActions _itemActions; //气泡上的编辑/删除/分叉/重试
@@ -305,10 +301,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private readonly HistoryWindow _historyWindow = new(); //历史渲染窗口
     private readonly ConversationItemWindowTrimmer _trimmer; //运行期把涨上来的条目裁回上限
     private readonly ConversationHistoryReconciler _reconciler; //落盘与界面对不上的兜底
-    private readonly TurnUsageLedger _usage = new(); //token 账本
 
-    /// <summary>上下文占用的悬停面板数据（进度条、压缩水位刻度与配色）</summary>
-    public ContextUsageViewData ContextUsage { get; } = new();
+    /// <summary>token 用量（工具行文本与上下文占用的悬停面板）</summary>
+    public ConversationUsageViewData Usage { get; }
 
     /// <summary>
     /// 界面是否跟在底部，由宿主视图接上（它才持有那个滚动容器）。
@@ -500,6 +495,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     public ConversationViewModel(IMessageService messages)
     {
         _messages = messages;
+        // 用量排最前:后面几个子模型的构造期回调就可能刷它
+        Usage = new ConversationUsageViewData(ContextLength, () => SessionModelLabel);
         // 子模型只吃窄依赖、不反向持有本类:附件盘取会话要用委托(首轮发送时会话还不存在),
         // 命令面板要能改写输入框并读当前角色,挂接器只需报忙碌态
         Tray = new AttachmentTrayViewData(this);
@@ -546,7 +543,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _approvalAdopter = new RegisteredApprovalAdopter(_transcript, () => CurrentMeta?.SessionId, () => CurrentSession);
         _transcript.SubSessionAttached += RefreshSubSessionApprovalWait;
         _transcript.MessageBoundaryReached += OnMessageBoundaryReached;
-        _driver = new TurnDriver(_transcript, _usage, OnTurnNotice);
+        _driver = new TurnDriver(_transcript, Usage.Ledger, OnTurnNotice);
         // 观察别人驱动的那一轮时用它:内核仍是 _transcript,所以自己驱动时会被去重掉(见 LiveTurnStream)
         // 登记在册的才放行审批请求——嵌套审批的卡只该在子窗口弹,普通会话的观察窗弹出来也没人听
         _liveObserverSink = new LiveObserverSink(_transcript, _approvalAdopter.AllowsObservedApproval);
@@ -615,9 +612,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         {
             if (_driver.IsRunning || CurrentSession is not { } session) return;
 
-            _usage.RestoreSession(session.TotalInputTokens, session.TotalOutputTokens, session.LastInputTokens,
-                session.TotalReasoningTokens);
-            RefreshTokenUsageText();
+            Usage.RestoreFrom(session);
+            Usage.Refresh();
         });
     }
 
@@ -683,7 +679,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             if (fromIndex < 0 || fromIndex >= history.Count) return;
 
             _history.AppendPersisted(history, fromIndex, ownTurn, streaming);
-            if (!ownTurn) RefreshTokenUsageText(); //本轮的用量由 UsageObserved 逐块刷,这里重复一次只会抖
+            if (!ownTurn) Usage.Refresh(); //本轮的用量由 UsageObserved 逐块刷,这里重复一次只会抖
         });
     }
 
@@ -853,7 +849,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         SessionModel.Refresh(); //默认项的跟随对象变了,下拉标签跟着变
         Tray.NotifyVisionStateChanged(); //换成非视觉模型时,待发的图就该立刻出警示
         // 上限是跟着模型走的:换个模型,占用的分母、三条水位与配色档位全都变了
-        RefreshTokenUsageText();
+        Usage.Refresh();
     }
 
     /// <summary>本会话的覆写变了，有效模型与用量分母都跟着变，走与全局切换同一套刷新</summary>
@@ -861,7 +857,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     {
         OnPropertyChanged(nameof(SessionModelLabel));
         Tray.NotifyVisionStateChanged();
-        RefreshTokenUsageText();
+        Usage.Refresh();
     }
 
     private void OnLanguageChanged()
@@ -871,7 +867,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         OnPropertyChanged(nameof(ModeTooltip));
         OnPropertyChanged(nameof(PermissionTooltip));
         OnPropertyChanged(nameof(SenderTooltip));
-        RefreshTokenUsageText(); //压缩水位那句提示是在 C# 里拼的,不会自己跟着语言变
+        Usage.Refresh(); //压缩水位那句提示是在 C# 里拼的,不会自己跟着语言变
         SubAgentStatuses.Refresh(CurrentMeta?.SessionId, force: true); //同上:那几行的文案也是取一次存一次
     }
 
@@ -912,8 +908,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         // 执行者归会话所有、比本视图活得久,回调不摘就是一路泄漏到已销毁的视图上
         if (CurrentRunner is { } runner) runner.BusyChanged = null;
         _prepareCancellation?.Cancel();
-        _tokenRefreshDebounce?.Cancel();
-        _usageRefreshDebounce?.Cancel();
+        Usage.Dispose();
         _driver.Dispose();
         MemoryPanel?.Detach();
     }
@@ -1408,7 +1403,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 SessionsChanged?.Invoke();
                 // 流式期间的 UsageObserved 走防抖合并,停流后立刻补刷最终值,
                 // 不能等下一个事件或防抖窗口——否则最后一个数要拖 250ms 才上屏
-                DebouncedRefreshTokenUsage(force: true);
+                Usage.RefreshCoalesced(force: true);
                 // 这轮结束还没消费的插话不会再有机会被这轮消费,留着只会让下一轮莫名收到旧话
                 _ = Interjections.CancelAllAsync();
                 break;
@@ -1425,7 +1420,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 // 流式期间 provider 通常每个 chunk 都带 UsageContent,逐块直达会让状态栏文本与
                 // ToolTip 面板跟着每个 chunk 重排而闪烁;合并到 250ms 窗口内一次性刷新。
                 // 账本值仍逐块记准,这里只是界面刷新频率的节流,与打字防抖同一套路
-                DebouncedRefreshTokenUsage();
+                Usage.RefreshCoalesced();
                 break;
 
             case ETurnNotice.KnowledgeRetrieved:
@@ -1730,7 +1725,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             MemoryPanel?.Detach();
             MemoryPanel = null;
             GroupMember = null;
-            RefreshTokenUsageText();
+            Usage.Refresh();
             // 空态也要刷一次能力面板。这里曾经直接返回,于是新会话在首轮发送之前
             // 整个「能力」页签一片空白——而恰恰是这个时候用户最需要知道
             // 「这个会话会自动连上什么、要占多少」。没有执行者时由面板自己预演一次装配,
@@ -1871,11 +1866,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         // 会话累计用量从本体恢复(响应 usage 不随消息持久化)
         if (CurrentSession is { } session)
         {
-            _usage.RestoreSession(session.TotalInputTokens, session.TotalOutputTokens, session.LastInputTokens,
-                session.TotalReasoningTokens);
+            Usage.RestoreFrom(session);
         }
 
-        RefreshTokenUsageText();
+        Usage.Refresh();
         StartupPhaseProbe.End($"conversation/replay:items={Items.Count},history={messages.Count}", replayBegin);
     }
 
@@ -1986,7 +1980,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _itemActions.WireStreamed(history);
 
     /// <inheritdoc />
-    void IConversationReconcileHost.RefreshTokenUsage() => RefreshTokenUsageText();
+    void IConversationReconcileHost.RefreshTokenUsage() => Usage.Refresh();
 
     /// <summary>
     /// 当前会话本体。只查已加载缓存而不走 <c>Load</c>：这里是高频路径（绑定 getter、事件回调），
@@ -1998,7 +1992,13 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// <summary>当前会话的执行者(会话本体持有);无会话为 null</summary>
     private ICharacterRunner? CurrentRunner => CurrentSession?.Runner;
 
-    //================= token 统计 =================
+    /// <summary>
+    /// 当前有效模型的上下文上限，用量分母与能力面板共用。每次现读：顶栏换模型不重建 agent，缓存就是过期的分母
+    /// </summary>
+    private int ContextLength() =>
+        (CurrentSession?.ChatModelRunningData ?? LlmManager.Instance.CurrentRunningModel)?.ContextLength ?? 0;
+
+    //================= 输入框 =================
 
     partial void OnInputTextChanged(string value)
     {
@@ -2010,81 +2010,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         int caret = _composerCaret < 0 || _composerCaret > value.Length ? value.Length : _composerCaret;
         _ = Palette.RefreshAsync(value, caret);
 
-        int version = ++_inputCountVersion;
-        if (string.IsNullOrEmpty(value))
-        {
-            _usage.InputEstimate = 0;
-            RefreshTokenUsageText();
-            return;
-        }
-
-        // 后台估算(首次会加载词表),只采纳最新一次的结果
-        _ = Task.Run(() =>
-        {
-            int count = LlmTokenizer.CountTokens(value);
-            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-            {
-                if (version != _inputCountVersion) return;
-                _usage.InputEstimate = count;
-                // 防抖:打字时每个字符都会触发一次估算,合并到停手后一次性刷新,
-                // 避免 ToolTip 里的 ContextUsagePanel 跟着每个字符重排而闪烁
-                _tokenRefreshDebounce?.Cancel();
-                _tokenRefreshDebounce = new CancellationTokenSource();
-                CancellationToken token = _tokenRefreshDebounce.Token;
-                DispatcherTimer.RunOnce(() =>
-                {
-                    if (token.IsCancellationRequested) return;
-                    RefreshTokenUsageText();
-                }, TimeSpan.FromMilliseconds(200));
-            });
-        });
-    }
-
-    private void RefreshTokenUsageText()
-    {
-        // 模型就绪的通知来自后台线程的异步续体,而绑定要求属性变更在 UI 线程上抛
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            Dispatcher.UIThread.Post(RefreshTokenUsageText);
-            return;
-        }
-
-        // 上限每次刷新时现读:顶栏换模型不重建 agent,这里同样不能缓存
-        _usage.ContextLength = (CurrentSession?.ChatModelRunningData
-                                ?? LlmManager.Instance.CurrentRunningModel)?.ContextLength ?? 0;
-        TokenUsageText = _usage.Text;
-        ContextUsage.Refresh(_usage, SessionModelLabel);
-    }
-
-    /// <summary>
-    /// 合并刷新 token 统计。流式期间 provider 每个 chunk 都带 UsageContent 时,
-    /// <see cref="ETurnNotice.UsageObserved"/> 会高频到达——每次都重排状态栏文本与
-    /// ToolTip 面板就闪。这里把刷新收进 250ms 窗口,窗口内只刷一次;
-    /// <paramref name="force"/> 跳过合并立即刷(流结束时补最终值)。
-    /// </summary>
-    /// <param name="force">是否立即刷新,不合并</param>
-    private void DebouncedRefreshTokenUsage(bool force = false)
-    {
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            Dispatcher.UIThread.Post(() => DebouncedRefreshTokenUsage(force));
-            return;
-        }
-
-        _usageRefreshDebounce?.Cancel();
-        if (force)
-        {
-            RefreshTokenUsageText();
-            return;
-        }
-
-        _usageRefreshDebounce = new CancellationTokenSource();
-        CancellationToken token = _usageRefreshDebounce.Token;
-        DispatcherTimer.RunOnce(() =>
-        {
-            if (token.IsCancellationRequested) return;
-            RefreshTokenUsageText();
-        }, TimeSpan.FromMilliseconds(250));
+        Usage.EstimateInput(value);
     }
 
     //================= 能力面板 =================
@@ -2096,14 +2022,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     {
         try
         {
-            // 上限现读,与 RefreshTokenUsageText 同一解析次序:顶栏换模型不重建 agent,
-            // 缓存下来就会留下过期的分母
-            int contextLength = (CurrentSession?.ChatModelRunningData
-                                 ?? LlmManager.Instance.CurrentRunningModel)?.ContextLength ?? 0;
             // 所有档都报固定开销:agent 报五档,普通对话只报角色提示词段(见
             // PreviewCapabilitiesAsync 对普通角色的处理)。以前这里对普通对话传 null,
             // 于是空态一片空白——而恰恰是发送前最该知道"这段对话固定占多少"
-            await Capabilities.RefreshAsync(CurrentRunner, SessionCharacter, contextLength,
+            await Capabilities.RefreshAsync(CurrentRunner, SessionCharacter, ContextLength(),
                 Workspace.Path, PermissionModeIndex, IsAgentSession);
         }
         catch (Exception e)
@@ -2154,7 +2076,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _historyWindow.Clear();
         Interjections.Items.Clear(); //待发的插话归属于那个会话的注入队列,切走就不再显示
         _transcript.Reset();
-        _usage.Reset();
+        Usage.Ledger.Reset();
         // 记忆库面板与 token 文本不在此清空:切会话时先空后填会让工具行闪烁,
         // 由 LoadSessionAsync 在新值就绪时一次性替换
     }

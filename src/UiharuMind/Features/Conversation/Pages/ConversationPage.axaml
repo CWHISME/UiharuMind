@@ -49,7 +49,7 @@
                         IsVisible="{Binding !Conversation.IsGroupSession}"
                         BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}"
                         CornerRadius="8" Padding="8">
-                    <panels:ContextUsagePanel DataContext="{Binding Conversation.ContextUsage}" />
+                    <panels:ContextUsagePanel DataContext="{Binding Conversation.Usage.Context}" />
                 </Border>
                 <!-- 群壳：下块换成成员列表。能力/子代理/会话详情讲的都是「一个角色的会话」，群壳挂的是占位角色 -->
                 <ScrollViewer Grid.Row="2" IsVisible="{Binding Conversation.IsGroupSession}"
