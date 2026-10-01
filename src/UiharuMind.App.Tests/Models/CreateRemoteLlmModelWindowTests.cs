@@ -25,9 +25,9 @@ public class CreateRemoteLlmModelWindowTests
         };
     }
 
-    private static CreateRemoteLlmModelWindowViewModel CreateViewModelFor(Type configType)
+    private static RemoteModelEditViewData CreateViewModelFor(Type configType)
     {
-        var vm = new CreateRemoteLlmModelWindowViewModel();
+        var vm = new RemoteModelEditViewData();
         vm.SelectedProvider = vm.Providers.First(p => p.ConfigType == configType);
         return vm;
     }
@@ -36,7 +36,7 @@ public class CreateRemoteLlmModelWindowTests
     [Fact]
     public void CreateMode_EmptyModelId_CannotConfirm()
     {
-        CreateRemoteLlmModelWindowViewModel vm = CreateViewModelFor(typeof(RemoteDeepSeekModelConfig));
+        RemoteModelEditViewData vm = CreateViewModelFor(typeof(RemoteDeepSeekModelConfig));
         vm.ModelName = "new-model-" + Guid.NewGuid().ToString("N");
         vm.ApiKey = "test-key";
         vm.ModelId = "";
@@ -50,7 +50,7 @@ public class CreateRemoteLlmModelWindowTests
     public void CopySource_BringsModelIdOver()
     {
         RemoteModelInfo source = CreateSource();
-        CreateRemoteLlmModelWindowViewModel vm = CreateViewModelFor(typeof(RemoteDeepSeekModelConfig));
+        RemoteModelEditViewData vm = CreateViewModelFor(typeof(RemoteDeepSeekModelConfig));
         vm.SelectCopySourceCommand.Execute(source);
 
         Assert.Equal(source.Config.ModelId, vm.ModelId);

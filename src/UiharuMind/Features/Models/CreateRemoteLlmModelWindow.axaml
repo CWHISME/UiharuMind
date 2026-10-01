@@ -15,7 +15,7 @@
         Title="{loc:Loc RemoteModelWindowTitle}">
 
     <Design.DataContext>
-        <common:CreateRemoteLlmModelWindowViewModel />
+        <common:RemoteModelEditViewData />
     </Design.DataContext>
 
     <Window.Styles>
@@ -108,7 +108,7 @@
                             <TextBox Text="{Binding ApiKey}" PasswordChar="*"
                                      PlaceholderText="{loc:Loc RemoteModelApiKeyPlaceholder}" />
                             <Button Grid.Column="1" VerticalAlignment="Stretch" Padding="14,0"
-                                    Command="{Binding OpenProviderWebsiteCommand}"
+                                    Click="OpenWebsite_Click"
                                     IsVisible="{Binding CanOpenProviderWebsite}">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <controls:ThemedSvgIcon Width="14" Height="14" IconName="square-arrow-out-up-right" />

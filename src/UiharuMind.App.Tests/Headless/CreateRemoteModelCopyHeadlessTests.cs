@@ -28,7 +28,7 @@ public class CreateRemoteModelCopyHeadlessTests
                 },
                 ApiKey = "test-key",
             };
-            var vm = new CreateRemoteLlmModelWindowViewModel();
+            var vm = new RemoteModelEditViewData();
             vm.SelectedProvider = vm.Providers.First(p => p.ConfigType == typeof(RemoteDeepSeekModelConfig));
             var window = new CreateRemoteLlmModelWindow { DataContext = vm };
             window.Show();
@@ -53,7 +53,7 @@ public class CreateRemoteModelCopyHeadlessTests
     {
         HeadlessUi.Run(() =>
         {
-            var vm = new CreateRemoteLlmModelWindowViewModel();
+            var vm = new RemoteModelEditViewData();
             vm.SelectedProvider = vm.Providers.First(p => p.ConfigType == typeof(RemoteDeepSeekModelConfig));
             var window = new CreateRemoteLlmModelWindow { DataContext = vm };
             window.Show();
@@ -76,7 +76,7 @@ public class CreateRemoteModelCopyHeadlessTests
     {
         HeadlessUi.Run(() =>
         {
-            var vm = new CreateRemoteLlmModelWindowViewModel();
+            var vm = new RemoteModelEditViewData();
             vm.SelectedProvider = vm.Providers.First(p => p.ConfigType == typeof(RemoteDeepSeekModelConfig));
             var window = new CreateRemoteLlmModelWindow { DataContext = vm };
             window.Show();
