@@ -72,6 +72,30 @@ public class SessionListViewTests
         window.Close();
     });
 
+    /// <summary>
+    /// 键盘唤出（Shift+F10 / 菜单键）没有指针位置，要像框架默认那样落在行下方，而不是上一次鼠标停留处。
+    /// 关掉之后菜单不能还挂着那一行的条目：用它删掉的会话会被一直留在堆上，直到下次右键
+    /// </summary>
+    [Fact]
+    public void KeyboardContextRequest_OpensBelowRow_AndClosingReleasesItem() => HeadlessUi.Run(() =>
+    {
+        (Window window, SessionListView view, _) = Show();
+        ListBoxItem row = Rows(view)[3];
+
+        row.RaiseEvent(new ContextRequestedEventArgs());
+        Settle(window);
+
+        ContextMenu menu = Assert.IsType<ContextMenu>(view.Resources["SessionRowMenu"]);
+        Assert.True(menu.IsOpen);
+        Assert.Equal(PlacementMode.Bottom, menu.Placement);
+        Assert.Same(row.DataContext, menu.DataContext);
+
+        menu.Close();
+        Settle(window);
+        Assert.Null(menu.DataContext);
+        window.Close();
+    });
+
     [Fact]
     public void DeleteButton_IsBuiltOnHover_WithoutChangingRowHeight() => HeadlessUi.Run(() =>
     {

@@ -9,9 +9,8 @@
 
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.VisualTree;
 using Avalonia.Input;
-using System.Linq;
+using Avalonia.VisualTree;
 
 namespace UiharuMind.Features.Conversation.SessionList;
 
@@ -20,6 +19,8 @@ namespace UiharuMind.Features.Conversation.SessionList;
 /// </summary>
 public partial class SessionListView : UserControl
 {
+    private ContextMenu? _rowMenu; //共用的行菜单,首次右键时取出并挂上关闭处理
+
     /// <summary>
     /// 是否显示角色头像。
     ///
@@ -50,14 +51,23 @@ public partial class SessionListView : UserControl
     /// 右键哪一行就在哪一行弹那份共用菜单,数据上下文换成那一行的条目
     private void OnListContextRequested(object? sender, ContextRequestedEventArgs e)
     {
-        if (e.Source is not Control source) return;
+        // 挂在整行上而不是命中的最内层元素:行内的转圈、草稿点可能在菜单开着时被拆掉,连带摘走菜单的父节点
+        ListBoxItem? row = (e.Source as Control)?.FindAncestorOfType<ListBoxItem>(includeSelf: true);
+        if (row?.DataContext is not SessionListItem item || RowMenu() is not { } menu) return;
 
-        Control? row = source.GetSelfAndVisualAncestors().OfType<Control>()
-            .FirstOrDefault(x => x.DataContext is SessionListItem);
-        if (row == null || Resources["SessionRowMenu"] is not ContextMenu menu) return;
-
-        menu.DataContext = row.DataContext;
+        menu.DataContext = item;
+        // 键盘唤出(Shift+F10 / 菜单键)没有指针位置,与框架默认口径一致落在行下方
+        menu.Placement = e.TryGetPosition(null, out _) ? PlacementMode.Pointer : PlacementMode.Bottom;
         menu.Open(row);
         e.Handled = true;
+    }
+
+    private ContextMenu? RowMenu()
+    {
+        if (_rowMenu != null || Resources["SessionRowMenu"] is not ContextMenu menu) return _rowMenu;
+
+        // 关掉就放开条目:否则用它删掉的会话会被菜单一直挂着,直到下次右键
+        menu.Closed += (_, _) => menu.DataContext = null;
+        return _rowMenu = menu;
     }
 }
