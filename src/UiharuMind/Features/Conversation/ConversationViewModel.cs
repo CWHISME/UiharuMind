@@ -84,13 +84,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     [ObservableProperty] private SendMode _senderMode = SendMode.User;
     [ObservableProperty] private bool _isPlaintext;
     [ObservableProperty] private bool _isAutoCollapseThinking;
-    [ObservableProperty] private bool _hasEarlierMessages;
-
-    /// <summary>
-    /// 本会话是否已经续过至少一窗更早的消息。只用来决定顶部那行「已到会话开头」显不显示——
-    /// 短会话本来就没有更早的消息，一进来就挂那一行是噪音。
-    /// </summary>
-    [ObservableProperty] private bool _hasLoadedEarlier;
 
     [ObservableProperty] private bool _isSessionLoading; //会话切换构建中(空状态覆盖层此间不显示,避免闪烁)
 
@@ -299,8 +292,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private IDisposable? _sessionPin; //挂着期间钉住它的历史,不许被驻留策略卸掉
     private IDisposable? _liveObservation; //挂在会话实时内容流上的订阅(别人驱动那一轮时靠它逐 token)
     private readonly ITurnSink _liveObserverSink; //实时流的落点:同一个转录器,外面包一层 UI 线程 marshal
-    private readonly HistoryWindow _historyWindow = new(); //历史渲染窗口
-    private readonly ConversationItemWindowTrimmer _trimmer; //运行期把涨上来的条目裁回上限
+    private readonly ConversationHistoryPager _pager; //历史开窗：首屏回放、续窗与裁剪
     private readonly ConversationHistoryReconciler _reconciler; //落盘与界面对不上的兜底
 
     /// <summary>token 用量（工具行文本与上下文占用的悬停面板）</summary>
@@ -515,11 +507,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _itemActions = new ConversationItemActions(Items, this, messages);
         _history = new ConversationHistoryRenderer(Items, _itemActions, () => _currentCharacter,
             () => IsAutoCollapseThinking, () => GroupMember?.DeliveryRenderer, SessionPaths);
-        _trimmer = new ConversationItemWindowTrimmer(Items, _historyWindow,
-            () => CurrentRunner?.GetHistory() ?? [],
-            // 不在界面上的实例没有会被抽走的视口,照裁——后台跑着的那个正是最该裁的
-            () => !IsDisplayed || (IsStuckToBottomSource?.Invoke() ?? true));
-        _reconciler = new ConversationHistoryReconciler(Items, _historyWindow, this);
+        _pager = new ConversationHistoryPager(Items, _history, () => CurrentRunner?.GetHistory() ?? [],
+            () => IsDisplayed, () => IsStuckToBottomSource?.Invoke() ?? true);
+        _pager.PropertyChanged += (_, e) => OnPropertyChanged(e.PropertyName); //两个状态位原名转发给绑定
+        _reconciler = new ConversationHistoryReconciler(Items, _pager.Window, this);
 
         var agentSetting = AgentSettingConfig.Current;
         // 工作目录选择器要在最早构造:它持有那份状态,后面几处都从它读
@@ -1306,8 +1297,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private void OnMessageBoundaryReached()
     {
         _itemActions.WireStreamed(CurrentRunner?.GetHistory() ?? []);
-        bool trimmed = IsDisplayed ? _trimmer.TrimIfNeeded() : _trimmer.TrimToBackgroundBudget();
-        if (trimmed) HasEarlierMessages = _historyWindow.HasEarlier;
+        _pager.TrimToBudget();
     }
 
     /// <summary>
@@ -1337,8 +1327,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 // 裁剪必须排在回填之后:锚点就是回填出来的那些来源消息。
                 // 不在界面上的会话直接按首屏量级裁——它在后台可能还要跑很多轮,
                 // 每轮都只裁回运行期上限的话,切回去照样是一屏之外的条目在重新实体化
-                bool trimmed = IsDisplayed ? _trimmer.TrimIfNeeded() : _trimmer.TrimToBackgroundBudget();
-                if (trimmed) HasEarlierMessages = _historyWindow.HasEarlier;
+                _pager.TrimToBudget();
                 break;
 
             case ETurnNotice.Ended:
@@ -1594,7 +1583,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             _isDisplayed = value;
             if (!value)
             {
-                ScheduleBackgroundTrim();
+                _pager.ScheduleBackgroundTrim();
                 return;
             }
 
@@ -1603,32 +1592,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             _deferredLoad = null;
             _ = LoadSessionAsync(deferred);
         }
-    }
-
-    /// <summary>
-    /// 切走之后把条目压到「后台上限」。
-    ///
-    /// 排到 Background 优先级而不是就地做：切走那一刻视图还绑在本实例上（页面壳先翻
-    /// <see cref="IsDisplayed"/>，DataContext 的替换晚一步到），就地裁等于在「让切换变快」
-    /// 这件事上先付一次布局；排到队尾时视图已经换给新会话，本集合不再有人绑，裁剪是纯内存操作。
-    /// </summary>
-    private void ScheduleBackgroundTrim()
-    {
-        // 两个数分开量:排队延迟说明这次裁剪有没有被饿着,耗时说明它值不值得占关键路径
-        long queuedAt = StartupPhaseProbe.Begin();
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (IsDisplayed) return; //这一小会儿里又切回来了,当前上限自己会管
-
-            StartupPhaseProbe.End("conversation/trim-delay", queuedAt);
-            long trimBegin = StartupPhaseProbe.Begin();
-            int before = Items.Count;
-            if (_trimmer.TrimToBackgroundBudget()) HasEarlierMessages = _historyWindow.HasEarlier;
-            StartupPhaseProbe.End($"conversation/trim:{before}->{Items.Count}", trimBegin);
-            // Normal 而不是 Background:切走的会话往往正在流式输出,而流式期间高优先级任务
-            // 不断进来,Background 会被饿着——那等于切回去时这次裁剪还没发生。
-            // Normal 同样排在 DataContext 替换之后(替换是同步做完的),不会误裁到已经绑上的集合
-        }, DispatcherPriority.Normal);
     }
 
     /// <summary>
@@ -1799,12 +1762,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private void ReplayMessages(IReadOnlyList<ChatMessage> messages)
     {
         long replayBegin = StartupPhaseProbe.Begin();
-        (int from, int to) = _historyWindow.Reset(messages.Count);
-        HasEarlierMessages = _historyWindow.HasEarlier;
         // 有一轮正跑着的时候,历史末尾那次工具调用的结果多半正在路上(它是下一次服务调用的
         // 请求消息,随那次落盘,而实时流这就会把它送来)。按"历史里没有结果"收掉它就是谎报
-        bool live = CurrentSession?.LiveTurn.IsTurnRunning == true;
-        _history.Append(messages, from, to, live);
+        _pager.Replay(messages, CurrentSession?.LiveTurn.IsTurnRunning == true);
 
         // 会话累计用量从本体恢复(响应 usage 不随消息持久化)
         if (CurrentSession is { } session)
@@ -1816,51 +1776,23 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         StartupPhaseProbe.End($"conversation/replay:items={Items.Count},history={messages.Count}", replayBegin);
     }
 
+    /// <summary>窗口之前还有没渲染的历史（顶部「加载更早」的可见性）</summary>
+    public bool HasEarlierMessages => _pager.HasEarlierMessages;
+
+    /// <summary>本会话是否已经往前续过一窗（决定「已到会话开头」那一行显不显示）</summary>
+    public bool HasLoadedEarlier => _pager.HasLoadedEarlier;
+
     /// <summary>
     /// 向前扩展一窗历史。由视图层调用,滚动位置的保持由调用方负责
     /// </summary>
     /// <returns>真的前插了条目返回 true(调用方据此决定要不要补偿视口)</returns>
-    public bool LoadEarlierMessages()
-    {
-        IReadOnlyList<ChatMessage> history = CurrentRunner?.GetHistory() ?? [];
-        if (_historyWindow.Extend(history.Count) is not { } range)
-        {
-            HasEarlierMessages = false;
-            return false;
-        }
-
-        PrependHistory(history, range);
-        HasLoadedEarlier = true;
-        return true;
-    }
+    public bool LoadEarlierMessages() => _pager.LoadEarlier();
 
     /// <summary>
-    /// 把首屏补齐到整窗。切会话时只回放首屏,省下的那几条布局是"点下去到看见"这段延迟的大头;
-    /// 界面贴底可见之后由视图层在空闲时调用本方法补上。滚动位置的保持同样由调用方负责。
-    ///
-    /// 与 <see cref="LoadEarlierMessages"/> 不同,这不是用户往前翻,所以不置 <see cref="HasLoadedEarlier"/>——
-    /// 那个标记只用来决定要不要显示"已到开头"
+    /// 把首屏补齐到整窗,界面贴底可见之后由视图层在空闲时调用,见 <see cref="ConversationHistoryPager.FillFirstWindow"/>
     /// </summary>
     /// <returns>真的补了条目返回 true</returns>
-    public bool FillFirstWindow()
-    {
-        IReadOnlyList<ChatMessage> history = CurrentRunner?.GetHistory() ?? [];
-        if (_historyWindow.FillFirstWindow(history.Count) is not { } range)
-        {
-            HasEarlierMessages = _historyWindow.HasEarlier;
-            return false;
-        }
-
-        PrependHistory(history, range);
-        return true;
-    }
-
-    /// <summary>把一段历史前插到条目集合头部</summary>
-    private void PrependHistory(IReadOnlyList<ChatMessage> history, (int From, int To) range)
-    {
-        _history.Prepend(history, range);
-        HasEarlierMessages = _historyWindow.HasEarlier;
-    }
+    public bool FillFirstWindow() => _pager.FillFirstWindow();
 
     //================= IConversationItemActionHost =================
     // 显式实现:这五件事是给消息级操作用的,不该混进本类给界面绑定的公开面
@@ -1906,8 +1838,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// <inheritdoc />
     bool IConversationReconcileHost.HasEarlierMessages
     {
-        get => HasEarlierMessages;
-        set => HasEarlierMessages = value;
+        get => _pager.HasEarlierMessages;
+        set => _pager.HasEarlierMessages = value;
     }
 
     /// <inheritdoc />
@@ -2014,9 +1946,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
         Todos.Clear();
         HasTodos = false;
-        HasEarlierMessages = false;
-        HasLoadedEarlier = false;
-        _historyWindow.Clear();
+        _pager.Reset();
         Interjections.Items.Clear(); //待发的插话归属于那个会话的注入队列,切走就不再显示
         _transcript.Reset();
         Usage.Ledger.Reset();
