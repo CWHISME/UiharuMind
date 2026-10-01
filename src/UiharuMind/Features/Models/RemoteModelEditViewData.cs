@@ -15,6 +15,9 @@ using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Models;
 
+/// <summary>
+/// 远程对话模型的新建、编辑、复制表单：服务商预设回填、模型 ID 候选、重名与必填校验，确认时产出模型信息
+/// </summary>
 public partial class RemoteModelEditViewData : ObservableObject
 {
     private readonly RemoteModelInfo? _sourceInfo; //编辑模式的原实例,确认时写回并原样返回
@@ -218,10 +221,15 @@ public partial class RemoteModelEditViewData : ObservableObject
     /// </summary>
     public bool CanOpenProviderWebsite => SelectedProvider?.WebsiteUrl is { Length: > 0 };
 
+    /// <summary>新建模式（也供设计期预览）</summary>
     public RemoteModelEditViewData() : this(null)
     {
     }
 
+    /// <summary>
+    /// 新建或编辑
+    /// </summary>
+    /// <param name="remoteModelInfo">要编辑的模型；null 为新建</param>
     public RemoteModelEditViewData(RemoteModelInfo? remoteModelInfo)
     {
         _sourceInfo = remoteModelInfo;

@@ -64,7 +64,14 @@ public class LazyChatClient : IChatClient
         return response;
     }
 
-    // 用量只认流尾那一份:有的服务商一次调用报两遍累计用量,逐条记账会翻倍(见 StreamUsage)
+    /// <summary>
+    /// 流式请求当前模型。中途断线整段重发（见 <see cref="StreamWithRetryAsync"/>）；
+    /// 用量只认流尾那一份——有的服务商一次调用报两遍累计用量，逐条记账会翻倍（见 <see cref="StreamUsage"/>）
+    /// </summary>
+    /// <param name="messages">请求消息</param>
+    /// <param name="options">请求选项</param>
+    /// <param name="cancellationToken">取消</param>
+    /// <returns>流式更新，至多带一份用量</returns>
     public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
         IEnumerable<ChatMessage> messages, ChatOptions? options = null,
         CancellationToken cancellationToken = default) =>

@@ -9,8 +9,12 @@ using UiharuMind.Core.RemoteOpenAI;
 
 namespace UiharuMind.Features.Models.ImageModels;
 
+/// <summary>
+/// 生图模型的新建、编辑对话框；后台代码只管开窗与调系统，表单逻辑在 <see cref="ImageModelEditViewData"/>
+/// </summary>
 public partial class ImageModelEditWindow : Window
 {
+    /// <summary>构造窗口（经 <see cref="ShowWindow"/> 打开）</summary>
     public ImageModelEditWindow()
     {
         InitializeComponent();
