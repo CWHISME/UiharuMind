@@ -224,8 +224,7 @@ public sealed class TurnDriver : IDisposable
                         if (content is UsageContent usage)
                         {
                             // 先校准再记账:水位刻度要按下一发实际用的系数换算。旁路请求(写交接)不校准,它与常规请求不同形
-                            runner.InputEstimate?.Calibrate(session.ChatModelRunningData?.ModelName,
-                                usage.Details.InputTokenCount ?? 0);
+                            Calibrate(session, runner, usage.Details);
                             RecordUsage(session, runner, usage.Details);
                         }
                         _turnSink?.Apply(content);
@@ -502,6 +501,9 @@ public sealed class TurnDriver : IDisposable
     private void LogUsageRatio(ICharacterRunner runner)
     {
         if (_ratioLogged || _usage.LastInput <= 0 || _usage.EstimatedInput <= 0) return;
+        // 历史估算为 0 的那一发(新会话、交接后的首发,框架跳过了压缩判定)只估了固定开销,比值必然虚高。
+        // 曾因此把交接文档的体量误读成「固定开销被低估 2.7 倍」,与校准同一条规则跳过
+        if (runner.InputEstimate is { LastHistory: <= 0 }) return;
 
         double ratio = _usage.LastInput / (double)_usage.EstimatedInput;
         if (ratio is >= 0.8 and <= 1.2) return;
@@ -557,6 +559,19 @@ public sealed class TurnDriver : IDisposable
 
         estimate.ForgetHistory();
         SyncEstimate(runner);
+    }
+
+    // 系数变了才记一行:有死区挡着不会多,而它是「折叠与截断此刻按什么口径判」的唯一线索
+    private static void Calibrate(ChatSession session, ICharacterRunner runner, UsageDetails details)
+    {
+        if (runner.InputEstimate is not { } estimate) return;
+
+        double before = estimate.Calibration;
+        long ours = estimate.Total;
+        estimate.Calibrate(session.ChatModelRunningData?.ModelName, details.InputTokenCount ?? 0);
+        if (estimate.Calibration != before)
+            Log.Debug($"Usage calibration {before:0.00} -> {estimate.Calibration:0.00} " +
+                      $"(server {details.InputTokenCount} / ours {ours})");
     }
 
     /// <summary>
