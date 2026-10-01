@@ -249,8 +249,7 @@ internal sealed class AgentAssemblyPlan
     }
 
     /// 会话绑定模型优先,回落全局当前模型——与 LazyChatClient 同一解析次序
-    private static ModelRunningData? CurrentModel(AgentBuildProfile profile) =>
-        profile.SessionModelSource?.Invoke() ?? LlmManager.Instance.CurrentRunningModel;
+    private static ModelRunningData? CurrentModel(AgentBuildProfile profile) => profile.ResolveCurrentModel();
 
     /// <summary>
     /// 本会话工具的路径口径。简写的写法随 shell 而定，所以要等 shell 解析出来再建

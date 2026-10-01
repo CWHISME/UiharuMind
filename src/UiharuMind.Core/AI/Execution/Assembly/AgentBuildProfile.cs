@@ -133,14 +133,14 @@ public class AgentBuildProfile
         groupScene.Length > 0 ? character.Tools.WithoutDelegation() : character.Tools;
 
     /// <summary>
-    /// 本次装配面对的模型：会话绑定的优先，回落全局当前模型。
+    /// 本次装配面对的模型：会话绑定的优先，回落全局有效模型（还没选过时就是首个请求会自动挑的那个）。
     /// 与 <c>LazyChatClient</c> 同一解析次序——识图工具挂不挂由它定，
     /// <see cref="AgentAssemblyFacts"/> 与 <see cref="AgentAssemblyPlan"/> 都读这一份。
     /// </summary>
     /// <returns>当前模型；一个都没有则为 null</returns>
     public ModelRunningData? ResolveCurrentModel()
     {
-        return SessionModelSource?.Invoke() ?? LlmManager.Instance.CurrentRunningModel;
+        return SessionModelSource?.Invoke() ?? LlmManager.Instance.EffectiveGlobalModel;
     }
 
     /// <summary>

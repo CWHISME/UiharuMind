@@ -190,6 +190,14 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
             : RuntimeLoadRisk.Low;
     }
 
+    /// <summary>
+    /// 全局有效模型：选过就是当前那个；还没选过时取发请求时会自动挑的那个（与 <c>LazyChatClient</c> 同一判据）。
+    /// 装配读它而不读 <see cref="CurrentRunningModel"/>：新启动没选模型时那里是空的，
+    /// 首轮会按「看不了图」装配，第二轮模型落定又重建一次
+    /// </summary>
+    public ModelRunningData? EffectiveGlobalModel =>
+        CurrentRunningModel ?? (GetPreferredModelName(false) is { } name ? _cacheModels.GetValueOrDefault(name) : null);
+
     public string? GetPreferredModelName(bool isVision)
     {
         return PreferredModel.Pick(CurrentRunningModel, ModelSettingConfig.Current.FavoriteModels, _cacheModels,
