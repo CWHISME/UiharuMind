@@ -1,4 +1,5 @@
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using UiharuMind.Shared.Utils;
 
 namespace UiharuMind.App.Tests.Shared;
@@ -12,8 +13,8 @@ public class WorkspaceTintTests
     [Fact]
     public void SameWorkspace_AlwaysSameColor()
     {
-        SolidColorBrush a = WorkspaceTint.For("/Users/me/projects/client", dark: false);
-        SolidColorBrush b = WorkspaceTint.For("/Users/me/projects/client", dark: false);
+        ImmutableSolidColorBrush a = WorkspaceTint.For("/Users/me/projects/client", dark: false);
+        ImmutableSolidColorBrush b = WorkspaceTint.For("/Users/me/projects/client", dark: false);
 
         Assert.Equal(a.Color, b.Color);
         Assert.Same(a, b); //缓存同一实例
@@ -22,8 +23,8 @@ public class WorkspaceTintTests
     [Fact]
     public void DifferentWorkspaces_NormallyDiffer()
     {
-        SolidColorBrush client = WorkspaceTint.For("/Users/me/projects/client", dark: false);
-        SolidColorBrush server = WorkspaceTint.For("/Users/me/projects/server", dark: false);
+        ImmutableSolidColorBrush client = WorkspaceTint.For("/Users/me/projects/client", dark: false);
+        ImmutableSolidColorBrush server = WorkspaceTint.For("/Users/me/projects/server", dark: false);
 
         Assert.NotEqual(client.Color, server.Color);
     }
@@ -35,8 +36,8 @@ public class WorkspaceTintTests
     [Fact]
     public void SameFolderName_DifferentParents_Differ()
     {
-        SolidColorBrush a = WorkspaceTint.For("/a/projects/client", dark: false);
-        SolidColorBrush b = WorkspaceTint.For("/b/projects/client", dark: false);
+        ImmutableSolidColorBrush a = WorkspaceTint.For("/a/projects/client", dark: false);
+        ImmutableSolidColorBrush b = WorkspaceTint.For("/b/projects/client", dark: false);
 
         Assert.NotEqual(a.Color, b.Color);
     }
@@ -44,8 +45,8 @@ public class WorkspaceTintTests
     [Fact]
     public void DarkTheme_UsesBrighterTextColor()
     {
-        SolidColorBrush light = WorkspaceTint.For("/Users/me/projects/client", dark: false);
-        SolidColorBrush dark = WorkspaceTint.For("/Users/me/projects/client", dark: true);
+        ImmutableSolidColorBrush light = WorkspaceTint.For("/Users/me/projects/client", dark: false);
+        ImmutableSolidColorBrush dark = WorkspaceTint.For("/Users/me/projects/client", dark: true);
 
         Assert.True(Brightness(dark.Color) > Brightness(light.Color),
             "深色主题该用更亮的字,现在是 light=" + Brightness(light.Color) + ", dark=" + Brightness(dark.Color));

@@ -18,7 +18,7 @@
             <StackPanel Orientation="Horizontal" Spacing="6">
                 <TextBlock Text="{loc:Loc SessionModelTitle}" VerticalAlignment="Center" />
                 <controls:KindBadge Header="{loc:Loc SessionModelOverrideBadge}"
-                                    BadgeBackground="{DynamicResource SemiBlue1}"
+                                    BadgeBackground="#CBE7FE"
                                     IsVisible="{Binding HasOverride}" />
             </StackPanel>
             <!-- 闭合态只放纯文本：右栏窄，徽章加长名必溢出；全名悬停看 -->

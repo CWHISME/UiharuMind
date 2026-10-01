@@ -10,6 +10,7 @@
 using System;
 using System.Collections.Generic;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Shared.Services;
 
@@ -34,11 +35,12 @@ public static class WorkspaceTint
     private const double JitterSpan = 9; //档内微调幅度(±9°),小于半档 15°,不会串到隔壁档
 
     private static readonly object Gate = new();
-    private static readonly Dictionary<int, (SolidColorBrush Light, SolidColorBrush Dark)> Cache = new();
+    // 缓存不可变画刷:SolidColorBrush 是 AvaloniaObject,归建它的那个线程,静态缓存一旦先在别的线程建出来,渲染时就抛跨线程访问
+    private static readonly Dictionary<int, (ImmutableSolidColorBrush Light, ImmutableSolidColorBrush Dark)> Cache = new();
 
     // 未绑工作区:两主题同灰。刻意不参与彩色——它不是项目,不该假装有归属
-    private static readonly SolidColorBrush UnspecifiedLight = new(Color.FromRgb(0x8C, 0x8C, 0x8C));
-    private static readonly SolidColorBrush UnspecifiedDark = new(Color.FromRgb(0x6E, 0x6E, 0x6E));
+    private static readonly ImmutableSolidColorBrush UnspecifiedLight = new(Color.FromRgb(0x8C, 0x8C, 0x8C));
+    private static readonly ImmutableSolidColorBrush UnspecifiedDark = new(Color.FromRgb(0x6E, 0x6E, 0x6E));
 
     /// <summary>
     /// 取项目色画刷。
@@ -46,23 +48,23 @@ public static class WorkspaceTint
     /// <param name="workspacePath">工作区完整路径；未绑定为 null 或空串 → 中性灰</param>
     /// <param name="dark">深/浅主题；缺省按当前实际主题</param>
     /// <returns>画刷（缓存实例，可安全复用）</returns>
-    public static SolidColorBrush For(string? workspacePath, bool? dark = null)
+    public static ImmutableSolidColorBrush For(string? workspacePath, bool? dark = null)
     {
         if (string.IsNullOrWhiteSpace(workspacePath))
             return (dark ?? ApplicationThemeManager.IsDarkTheme()) ? UnspecifiedDark : UnspecifiedLight;
 
-        (SolidColorBrush light, SolidColorBrush darkBrush) = Get(workspacePath);
+        (ImmutableSolidColorBrush light, ImmutableSolidColorBrush darkBrush) = Get(workspacePath);
         return (dark ?? ApplicationThemeManager.IsDarkTheme()) ? darkBrush : light;
     }
 
-    private static (SolidColorBrush Light, SolidColorBrush Dark) Get(string workspacePath)
+    private static (ImmutableSolidColorBrush Light, ImmutableSolidColorBrush Dark) Get(string workspacePath)
     {
         (int hue, int satIndex) = PaletteOf(workspacePath);
         // 色相档内微调最多 ±9°、饱和只有三档:两者拼一个键不会互相覆盖
         int key = hue * 3 + satIndex;
         lock (Gate)
         {
-            if (Cache.TryGetValue(key, out (SolidColorBrush Light, SolidColorBrush Dark) pair)) return pair;
+            if (Cache.TryGetValue(key, out (ImmutableSolidColorBrush Light, ImmutableSolidColorBrush Dark) pair)) return pair;
 
             double sat = SaturationBase + satIndex * SaturationStep;
             pair = (ToBrush(hue, sat, lightness: 0.32), ToBrush(hue, sat, lightness: 0.72));
@@ -89,10 +91,10 @@ public static class WorkspaceTint
         return (hue, satIndex);
     }
 
-    private static SolidColorBrush ToBrush(int hue, double saturation, double lightness)
+    private static ImmutableSolidColorBrush ToBrush(int hue, double saturation, double lightness)
     {
         (double r, double g, double b) = HslToRgb(hue / 360.0, saturation, lightness);
-        return new SolidColorBrush(Color.FromRgb(
+        return new ImmutableSolidColorBrush(Color.FromRgb(
             (byte)Math.Round(r * 255), (byte)Math.Round(g * 255), (byte)Math.Round(b * 255)));
     }
 

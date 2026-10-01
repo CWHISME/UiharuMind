@@ -15,6 +15,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Core.Configs;
@@ -59,7 +60,7 @@ public partial class WorkspacePickerViewData : ObservableObject
     public string Parent => string.IsNullOrEmpty(Path) ? string.Empty : WorkspaceDisplay.ParentOf(Path);
 
     /// <summary>当前工作目录的项目色（与左侧列表「工作区名」同一套配色，见 SessionListItem）</summary>
-    public SolidColorBrush WorkspaceColor => WorkspaceTint.For(Path);
+    public ImmutableSolidColorBrush WorkspaceColor => WorkspaceTint.For(Path);
 
     /// <summary>主题切换后重取项目色（页面在 ActualThemeVariantChanged 上调用；绑定值不会自动重算）</summary>
     public void RefreshWorkspaceColor() => OnPropertyChanged(nameof(WorkspaceColor));

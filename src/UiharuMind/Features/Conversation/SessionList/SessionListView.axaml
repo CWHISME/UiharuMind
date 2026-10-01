@@ -14,6 +14,21 @@
          而两份模板此前是拷贝后各自演化(一边有头像与描述、一边有悬停删除),观感因此飘了。
          唯一有意保留的差异是头像——工作区页要的是密度,见 ShowAvatar。
          搜索行与批量动作条也在这一层：都是列表的事，与页面的类型切换器无关 -->
+    <UserControl.Resources>
+        <!-- 整个列表共用一份右键菜单,右键时才弹(见 OnListContextRequested)。
+             放在行模板里则每行都要建一套菜单与五个菜单项,而行模板每次回收都重建。
+             弹出时挂在被右键的那一行上,数据上下文随之继承那一行的条目 -->
+        <ContextMenu x:Key="SessionRowMenu" x:DataType="sessions:SessionListItem">
+            <MenuItem Header="{loc:Loc EditCharacter}" Command="{Binding EditCharacterCommand}" />
+            <MenuItem Header="{loc:Loc Rename}" Command="{Binding RenameCommand}" />
+            <MenuItem Header="{loc:Loc Copy}" Command="{Binding CopyCommand}" />
+            <MenuItem Header="{loc:Loc ClearChatHistory}" ToolTip.Tip="{Binding BusyTip}"
+                      Command="{Binding ClearChatHistoryCommand}" />
+            <MenuItem Header="{loc:Loc Delete}" ToolTip.Tip="{Binding BusyTip}"
+                      Command="{Binding DeleteCommand}" />
+        </ContextMenu>
+    </UserControl.Resources>
+
     <UserControl.Styles>
         <Style Selector="ListBox">
             <Setter Property="Background" Value="Transparent" />
@@ -95,12 +110,16 @@
             </Grid>
         </Border>
 
+        <!-- 行模板要轻:Avalonia 的 ListBox 回收容器时会清掉 Content,行模板随之整棵重建,
+             滚动每露出一行、拖滚动条每换一屏都要重建。所以平时看不见的部件一律用到才建:
+             条件型的走 ConditionalContent,删除按钮悬停才建,右键菜单整个列表共用一份(见后台代码) -->
         <ListBox ItemsSource="{Binding Sessions}"
-                 SelectedItem="{Binding SelectedSession}">
+                 SelectedItem="{Binding SelectedSession}"
+                 ContextRequested="OnListContextRequested">
             <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="sessions:SessionListItem">
                     <!-- 悬停给全文:标题与描述在这窄侧栏里都是单行截断的,看不到尾 -->
-                    <Grid ColumnDefinitions="Auto,Auto,*,Auto" Background="Transparent"
+                    <Grid Classes="session-row" ColumnDefinitions="Auto,Auto,*,Auto" Background="Transparent"
                           ToolTip.ShowDelay="600"
                           ToolTip.Placement="Pointer">
                         <!-- 明确给换行与上限宽度:标题本来就是因为放不下才截断的,
@@ -108,29 +127,29 @@
                         <ToolTip.Tip>
                             <TextBlock Text="{Binding FullTextTip}" TextWrapping="Wrap" MaxWidth="320" />
                         </ToolTip.Tip>
-                        <Grid.ContextMenu>
-                            <ContextMenu>
-                                <MenuItem Header="{loc:Loc EditCharacter}" Command="{Binding EditCharacterCommand}" />
-                                <MenuItem Header="{loc:Loc Rename}" Command="{Binding RenameCommand}" />
-                                <MenuItem Header="{loc:Loc Copy}" Command="{Binding CopyCommand}" />
-                                <MenuItem Header="{loc:Loc ClearChatHistory}" ToolTip.Tip="{Binding BusyTip}"
-                                          Command="{Binding ClearChatHistoryCommand}" />
-                                <MenuItem Header="{loc:Loc Delete}" ToolTip.Tip="{Binding BusyTip}"
-                                          Command="{Binding DeleteCommand}" />
-                            </ContextMenu>
-                        </Grid.ContextMenu>
 
                         <!-- 批量勾选列：只在批量模式占位。点行依然是选中（看会话），
                              勾选才管删哪几个——两套状态，见 SessionListItem.IsBatchChecked -->
-                        <CheckBox Grid.Column="0" Margin="0,0,10,0" VerticalAlignment="Center"
-                                  IsChecked="{Binding IsBatchChecked}"
-                                  IsVisible="{Binding $parent[ListBox].((sessions:SessionListModel)DataContext).IsBatchMode}" />
+                        <controls:ConditionalContent Grid.Column="0"
+                                                     When="{Binding $parent[ListBox].((sessions:SessionListModel)DataContext).IsBatchMode}">
+                            <controls:ConditionalContent.ContentTemplate>
+                                <DataTemplate x:DataType="sessions:SessionListItem">
+                                    <CheckBox Margin="0,0,10,0" VerticalAlignment="Center"
+                                              IsChecked="{Binding IsBatchChecked}" />
+                                </DataTemplate>
+                            </controls:ConditionalContent.ContentTemplate>
+                        </controls:ConditionalContent>
 
                         <!-- 间距给在头像自己的 Margin 上而不是 ColumnSpacing:
-                             隐藏时它整体退出布局,列宽归零,不会留下一道空白缩进 -->
-                        <controls:CircleAvatar Grid.Column="1" Width="38" Height="38" Margin="0,0,10,0"
-                                               VerticalAlignment="Center" Source="{Binding Icon}"
-                                               IsVisible="{Binding $parent[sessions:SessionListView].ShowAvatar}" />
+                             不建时它整体退出布局,列宽归零,不会留下一道空白缩进 -->
+                        <controls:ConditionalContent Grid.Column="1" VerticalAlignment="Center"
+                                                     When="{Binding $parent[sessions:SessionListView].ShowAvatar}">
+                            <controls:ConditionalContent.ContentTemplate>
+                                <DataTemplate x:DataType="sessions:SessionListItem">
+                                    <controls:CircleAvatar Width="38" Height="38" Margin="0,0,10,0" Source="{Binding Icon}" />
+                                </DataTemplate>
+                            </controls:ConditionalContent.ContentTemplate>
+                        </controls:ConditionalContent>
 
                         <!-- 指示器与「标题+描述」并列,而不是塞进标题那一行:
                              塞进去的话标题会被指示器那一列推右、描述不动,两行左边就对不齐,
@@ -139,33 +158,52 @@
                             <!-- 在跑用转圈(动效最能说明"它在动"),待审批用橙点(那是要你去处理的)。
                                  两者**可以同时出现**且刻意叠在同一格:名下几个委派在跑、其中一个在等你批,
                                  是两件正交的事。橙点声明在转圈之后,所以画在它上面 -->
-                            <SpinnerIcon Grid.Column="0" Width="13" Height="13" Margin="0,0,6,0"
-                                         VerticalAlignment="Center"
-                                         IsVisible="{Binding IsRunning}" />
+                            <controls:ConditionalContent Grid.Column="0" VerticalAlignment="Center"
+                                                         When="{Binding IsRunning}">
+                                <controls:ConditionalContent.ContentTemplate>
+                                    <DataTemplate>
+                                        <SpinnerIcon Width="13" Height="13" Margin="0,0,6,0" />
+                                    </DataTemplate>
+                                </controls:ConditionalContent.ContentTemplate>
+                            </controls:ConditionalContent>
                             <!-- 压在转圈之上,所以比从前的 8 收一点:13 的圈里留得下 7,
                                  再大就把转圈整个盖住、动效白做了 -->
-                            <Ellipse Grid.Column="0" Width="7" Height="7" Margin="0,0,6,0"
-                                     HorizontalAlignment="Center" VerticalAlignment="Center"
-                                     Fill="#FF9800"
-                                     IsVisible="{Binding IsAwaitingApproval}" />
+                            <controls:ConditionalContent Grid.Column="0" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                         When="{Binding IsAwaitingApproval}">
+                                <controls:ConditionalContent.ContentTemplate>
+                                    <DataTemplate>
+                                        <Ellipse Width="7" Height="7" Margin="0,0,6,0" Fill="#FF9800" />
+                                    </DataTemplate>
+                                </controls:ConditionalContent.ContentTemplate>
+                            </controls:ConditionalContent>
 
                             <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto" MinWidth="0">
                                 <!-- 草稿标记:非当前会话且有未发送输入时在标题前亮一个小圆点 -->
                                 <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,*" MinWidth="0">
-                                    <Ellipse Grid.Column="0" Width="6" Height="6" Margin="0,0,6,0"
-                                             VerticalAlignment="Center"
-                                             Fill="#7AA2F7"
-                                             IsVisible="{Binding IsDraftVisible}" />
+                                    <controls:ConditionalContent Grid.Column="0" VerticalAlignment="Center"
+                                                                 When="{Binding IsDraftVisible}">
+                                        <controls:ConditionalContent.ContentTemplate>
+                                            <DataTemplate>
+                                                <Ellipse Width="6" Height="6" Margin="0,0,6,0" Fill="#7AA2F7" />
+                                            </DataTemplate>
+                                        </controls:ConditionalContent.ContentTemplate>
+                                    </controls:ConditionalContent>
                                     <!-- 群徽章放标题行:扫列表时眼睛只落在标题上,放描述行的灰字前缀分不出群与单聊。
-                                         用图标不用文字,窄侧栏省宽;配色同会话流里「已发到群」,群相关标记一个色。
-                                         尺寸取 15 不取 14:标题行盒 17、字形中心在 7.5,15 居中再经 icon-tweak 上移 1 正好落上;
-                                         14 的中心在 7,整数平移怎么调都差半像素(无头截图量过) -->
-                                    <controls:ThemedSvgIcon Grid.Column="1" Classes="icon-tweak"
-                                                            Width="16" Height="16" Margin="0,0,5,0"
-                                                            VerticalAlignment="Center"
-                                                            IconName="users-round"
-                                                            CurrentColor="{DynamicResource SemiBlue5Color}"
-                                                            IsVisible="{Binding IsGroup}" />
+                                         用带字的徽章而不是 SVG 图标:图标每建一个都要走一遍 SVG 加载,
+                                         而这一格每行都在、每次回收都重建。外边距上 -1.5 下 -0.5:抵掉徽章比标题行高出的那 2px,
+                                         同时上移半个逻辑像素——居中时底板下沿比基线多出 3px、上沿只比字顶高 2px,看着靠下。
+                                         Retina 下半像素正好是一个物理像素,布局取整会把它落在整像素上,不发虚。
+                                         底色给固定浅蓝而不是 SemiBlue1:徽章字是写死的深色,主题资源到深色主题会变成深底,字就看不清 -->
+                                    <controls:ConditionalContent Grid.Column="1" VerticalAlignment="Center"
+                                                                 When="{Binding IsGroup}">
+                                        <controls:ConditionalContent.ContentTemplate>
+                                            <DataTemplate>
+                                                <controls:KindBadge Margin="0,-1.5,5,-0.5"
+                                                                    Header="{loc:Loc SessionGroupBadge}"
+                                                                    BadgeBackground="#CBE7FE" />
+                                            </DataTemplate>
+                                        </controls:ConditionalContent.ContentTemplate>
+                                    </controls:ConditionalContent>
                                     <TextBlock Grid.Column="2"
                                                Text="{Binding Name}"
                                                Foreground="{DynamicResource SemiGrey7}"
@@ -173,10 +211,6 @@
                                                MaxLines="1"
                                                TextTrimming="CharacterEllipsis" />
                                 </Grid>
-                                <!-- 副行:时间 + 角色名 横排(都是短内容,不会挤),
-                                     描述单独一行——长描述不再跟角色名挤成一团。
-                                     角色名的显隐是页面级选择(见 ShowAvatar 的说明),不从标题推——
-                                     推过一版,会话一复制标题被加后缀,角色名就冒出来了 -->
                                 <!-- 中间行:描述(对话页)。agent 页通常没有描述,这行自动隐藏。
                                      群壳的描述是成员名单,群身份已由标题行的徽章表明 -->
                                 <TextBlock Grid.Row="1" Classes="muted" FontSize="11"
@@ -200,12 +234,21 @@
                             </Grid>
                         </Grid>
 
-                        <!-- 批量模式下收起单删：避免"删一个"和"删一批"两个入口打架 -->
-                        <Button Grid.Column="3" Classes="session-delete" Padding="4"
-                                VerticalAlignment="Center" FontSize="10" Content="✕"
-                                ToolTip.Tip="{Binding BusyTip}"
-                                Command="{Binding DeleteCommand}"
-                                IsVisible="{Binding !$parent[ListBox].((sessions:SessionListModel)DataContext).IsBatchMode}" />
+                        <!-- 悬停才建:不悬停时它透明不可见,逐行预建纯属浪费。
+                             MinHeight 顶住按钮原本撑出的行高,否则一悬停整行长高、列表跟着跳。
+                             批量模式下收起单删：避免"删一个"和"删一批"两个入口打架 -->
+                        <controls:HoverDeferredContent Grid.Column="3" HostClass="session-row" VerticalAlignment="Center"
+                                                       MinHeight="32"
+                                                       IsVisible="{Binding !$parent[ListBox].((sessions:SessionListModel)DataContext).IsBatchMode}">
+                            <controls:HoverDeferredContent.ContentTemplate>
+                                <DataTemplate x:DataType="sessions:SessionListItem">
+                                    <Button Classes="session-delete" Padding="4"
+                                            FontSize="10" Content="✕"
+                                            ToolTip.Tip="{Binding BusyTip}"
+                                            Command="{Binding DeleteCommand}" />
+                                </DataTemplate>
+                            </controls:HoverDeferredContent.ContentTemplate>
+                        </controls:HoverDeferredContent>
                     </Grid>
                 </DataTemplate>
             </ListBox.ItemTemplate>

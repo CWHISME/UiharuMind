@@ -3022,6 +3022,9 @@ Allow them?</value>
         <value>Pick a character on the right to start chatting</value>
     </data>
 
+    <data name="SessionGroupBadge" xml:space="preserve">
+        <value>Group</value>
+    </data>
     <data name="CreateGroupChat" xml:space="preserve">
         <value>Create group chat</value>
     </data>

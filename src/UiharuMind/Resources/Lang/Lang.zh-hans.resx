@@ -3015,6 +3015,9 @@
         <value>在右侧选一个角色即可开始，或创建一个群聊</value>
     </data>
 
+    <data name="SessionGroupBadge" xml:space="preserve">
+        <value>群</value>
+    </data>
     <data name="CreateGroupChat" xml:space="preserve">
         <value>创建群聊</value>
     </data>

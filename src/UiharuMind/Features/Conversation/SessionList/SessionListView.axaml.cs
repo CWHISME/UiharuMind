@@ -9,6 +9,9 @@
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.VisualTree;
+using Avalonia.Input;
+using System.Linq;
 
 namespace UiharuMind.Features.Conversation.SessionList;
 
@@ -42,5 +45,19 @@ public partial class SessionListView : UserControl
     public SessionListView()
     {
         InitializeComponent();
+    }
+
+    /// 右键哪一行就在哪一行弹那份共用菜单,数据上下文换成那一行的条目
+    private void OnListContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (e.Source is not Control source) return;
+
+        Control? row = source.GetSelfAndVisualAncestors().OfType<Control>()
+            .FirstOrDefault(x => x.DataContext is SessionListItem);
+        if (row == null || Resources["SessionRowMenu"] is not ContextMenu menu) return;
+
+        menu.DataContext = row.DataContext;
+        menu.Open(row);
+        e.Handled = true;
     }
 }

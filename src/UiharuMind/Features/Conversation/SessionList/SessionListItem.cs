@@ -13,6 +13,7 @@ using System.Linq;
 using System.IO;
 using System.Threading.Tasks;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -108,7 +109,7 @@ public partial class SessionListItem : ObservableObject
     /// 工作区的项目色（类似 Rider 的项目名配色）：路径哈希 → 色相，亮度按深浅主题取。
     /// 主题切换后由 <see cref="RefreshWorkspaceColor"/> 重取
     /// </summary>
-    public SolidColorBrush WorkspaceColor => WorkspaceTint.For(WorkspaceFullPath);
+    public ImmutableSolidColorBrush WorkspaceColor => WorkspaceTint.For(WorkspaceFullPath);
 
     /// <summary>主题切换后重取项目色（<c>SessionListModel</c> 在 <c>ActualThemeVariantChanged</c> 上调用）</summary>
     public void RefreshWorkspaceColor() => OnPropertyChanged(nameof(WorkspaceColor));
