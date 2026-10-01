@@ -287,6 +287,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private readonly ConversationTranscript _transcript; //实时流装配器,落点即 Items
     private readonly TurnDriver _driver; //一轮对话的编排,与定时任务共用同一份
     private readonly ConversationTurnRunner _turns; //跑一轮:装配、过闸、交给驱动
+    private readonly HandoffWritingPlaceholder _handoffWriting; //整理交接文档时的占位卡
     private ChatSession? _signalSession; //已挂上历史变更信号的会话
     private IDisposable? _sessionPin; //挂着期间钉住它的历史,不许被驻留策略卸掉
     private IDisposable? _liveObservation; //挂在会话实时内容流上的订阅(别人驱动那一轮时靠它逐 token)
@@ -537,6 +538,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _transcript.MessageBoundaryReached += OnMessageBoundaryReached;
         _driver = new TurnDriver(_transcript, Usage.Ledger, OnTurnNotice);
         _turns = new ConversationTurnRunner(this, _driver, _transcript);
+        _handoffWriting = new HandoffWritingPlaceholder(Items, () => ScrollToEnd = true);
         // 观察别人驱动的那一轮时用它:内核仍是 _transcript,所以自己驱动时会被去重掉(见 LiveTurnStream)
         // 登记在册的才放行审批请求——嵌套审批的卡只该在子窗口弹,普通会话的观察窗弹出来也没人听
         _liveObserverSink = new LiveObserverSink(_transcript, _approvalAdopter.AllowsObservedApproval);
@@ -1338,7 +1340,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 break;
 
             case ETurnNotice.HandoffWritten:
-                RemoveHandoffWritingItem();
+                _handoffWriting.Hide();
                 // 卡片默认由落盘/回放路径渲染(ConversationHistoryRenderer.Build 的 HandoffNote 分支),这里只收掉占位;
                 // 通知自己再 Add 一张会与落盘渲染各画一遍,同一条交接文档就出两张卡。
                 // 只在自己那一轮正跑时补画:落盘路径走 AppendHandedBackReports 不画交接文档,
@@ -1352,39 +1354,20 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 break;
 
             case ETurnNotice.HandoffFailed:
-                RemoveHandoffWritingItem();
+                _handoffWriting.Hide();
                 Items.Add(new ErrorItem { Message = Loc.Text(LangKey.HandoffFailed) });
                 break;
 
             case ETurnNotice.HandoffNothingToCompact:
-                RemoveHandoffWritingItem();
+                _handoffWriting.Hide();
                 Items.Add(new ErrorItem
                     { Message = Loc.Text(LangKey.HandoffNothingToCompact) });
                 break;
 
             case ETurnNotice.HandoffStarted:
-                InsertHandoffWritingItem();
+                _handoffWriting.Show();
                 break;
         }
-    }
-
-    /// <summary>正在整理交接文档的会话内占位卡(整理是多一次模型请求,会话流里不能毫无动静)</summary>
-    private HandoffWritingItem? _handoffWritingItem;
-
-    private void InsertHandoffWritingItem()
-    {
-        if (_handoffWritingItem != null) return; //事件是串行的,同一次整理不会重复挂
-        var item = new HandoffWritingItem { Message = Loc.Text(LangKey.HandoffWriting) };
-        _handoffWritingItem = item;
-        Items.Add(item);
-        ScrollToEnd = true;
-    }
-
-    private void RemoveHandoffWritingItem()
-    {
-        if (_handoffWritingItem is not { } item) return;
-        _handoffWritingItem = null;
-        if (Items.Remove(item)) ScrollToEnd = true;
     }
 
     /// <summary>
@@ -1615,7 +1598,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             ReplayMessages(externallyDriven ? body.History : body.Runner.GetHistory());
 
             // 切走时占位卡被清掉了;若压缩还在跑,切回来得重新挂上,否则会话流里毫无动静
-            if (_driver.Busy == ETurnBusy.Compacting) InsertHandoffWritingItem();
+            if (_driver.Busy == ETurnBusy.Compacting) _handoffWriting.Show();
 
             // 就在这里收尾,不能拖到下面两个 await 之后:视图靠这一步同步贴到底,
             // 而 await 会让出线程——中间那一帧会把列表按 offset 0(会话顶部)画出来,
@@ -1850,7 +1833,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         Items.Clear();
         foreach (ConversationItemBase item in discarded) item.ReleaseImages();
         // 整理中的占位卡随清空一起消失;若压缩还在跑,切回时由 LoadSessionAsync 重新挂上
-        _handoffWritingItem = null;
+        _handoffWriting.Forget();
 
         Todos.Clear();
         HasTodos = false;
