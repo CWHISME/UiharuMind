@@ -17,6 +17,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using System;
 using System.Collections.Specialized;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using UiharuMind.Shared.Controls;
@@ -80,6 +81,7 @@ public partial class ConversationView : UserControl
     private readonly ConversationCardViewport _cardViewport;
     private bool _isCardSweepScheduled; //已排了一次视口清扫,合并同一帧内的多次滚动通知
     private ConversationViewModel? _viewModel;
+    private readonly ViewerThumbDrag _thumbDrag;
     private bool _isLoadingEarlier; //正在续一窗更早的消息(防抖)
 
     public ConversationView()
@@ -88,6 +90,7 @@ public partial class ConversationView : UserControl
         _autoScrollHolder = new ScrollViewerAutoScrollHolder(Viewer);
         _cardViewport = new ConversationCardViewport(Viewer, MessageList);
         Viewer.ScrollChanged += OnViewerScrollChanged;
+        _thumbDrag = new ViewerThumbDrag(Viewer, PageEarlierWhileDragging, TryScheduleLoadEarlier);
         // 探针关着时连事件都不挂:布局回调是每次布局都会跑的路径,不该为一个默认关闭的诊断付钱
         if (StreamPerfProbe.IsEnabled) Viewer.LayoutUpdated += OnViewerLayoutUpdated;
         DataContextChanged += OnDataContextChanged;
@@ -305,22 +308,52 @@ public partial class ConversationView : UserControl
         // 而那不改变任何卡片与视口的距离——跟底那一路 offset 会跟着动,照样清扫
         if (e.OffsetDelta.Y != 0 || e.ViewportDelta.Y != 0) ScheduleCardSweep();
 
-        if (_isLoadingEarlier) return;
         // extent 增长是"内容变多要贴底",不是"用户滚到顶"。初始贴底时 AnchorToBottom 第一次
         // UpdateLayout 会让 extent 首度长高,此刻 Offset 还在顶部(0),若不当心会把这一窗续掉,
         // 表现为首屏 5 条贴完底后进度条又涨成 10 条
         if (e.ExtentDelta.Y > 0) return;
-        if (DataContext is not ConversationViewModel vm) return;
-        if (!vm.HasEarlierMessages || vm.IsSessionLoading) return;
-        // 内容还没多到能滚就不续:此时 Offset 恒为 0,不判这一条会一路把整段历史续完
-        if (Viewer.Extent.Height <= Viewer.Viewport.Height) return;
-        if (Viewer.Offset.Y > EarlierLoadThreshold) return;
+        TryScheduleLoadEarlier();
+    }
+
+    /// <summary>
+    /// 按住滑块停在顶部时连续往前翻：每次续一窗、<b>不补偿 Offset</b>，视口直接落到新一窗的开头。
+    ///
+    /// 不能沿用滚轮那条补偿路径。补偿把 Offset 补成「前插高度」，而滑块位置是 Offset 占可滚范围的比例——
+    /// 前插那段越高，滑块就被推得越靠下；Thumb 却保留着按下时的抓点，指针得先追上滑块被推开的那段距离
+    /// 才能接着拖。实测一次前插就把滑块从顶部推到轨道六成处，连续两三次指针撞到屏幕顶，再也拖不动，
+    /// 看着就是「进度条跑到底下、只能滚轮」。不补偿则 Offset 留在顶部、滑块留在指针下面；
+    /// 拖动本来就是在快速掠过内容，视口这一跳不突兀。松手后回到补偿那一路（见 <see cref="TryScheduleLoadEarlier"/>）
+    /// </summary>
+    private void PageEarlierWhileDragging()
+    {
+        if (_isLoadingEarlier || !CanLoadEarlierAtTop(out ConversationViewModel? vm)) return;
+        if (!vm.LoadEarlierMessages()) return;
+
+        // 当场排版并清扫:新一窗就在视口里要转 markdown,被挤下去的那些也该收成占位——
+        // Offset 没动,不会有滚动通知替我们排清扫
+        Viewer.UpdateLayout();
+        _cardViewport.Sweep();
+    }
+
+    private void TryScheduleLoadEarlier()
+    {
+        if (_isLoadingEarlier || _thumbDrag.IsDragging || !CanLoadEarlierAtTop(out ConversationViewModel? vm)) return;
 
         // 不在滚动回调里当场做:前插要跟一次同步 UpdateLayout 才能算补偿量,
         // 而在 ScrollChanged 里同步跑整棵树的布局是自找麻烦。
         // 排到 Loaded 去做,整段落在同一个派发任务里——中间不会渲染出一帧错位的视口
         _isLoadingEarlier = true;
         Dispatcher.UIThread.Post(() => PrependKeepingViewport(vm.LoadEarlierMessages), DispatcherPriority.Loaded);
+    }
+
+    /// <summary>此刻停在顶部、且还有更早的历史可续</summary>
+    private bool CanLoadEarlierAtTop([NotNullWhen(true)] out ConversationViewModel? vm)
+    {
+        vm = DataContext as ConversationViewModel;
+        if (vm is not { HasEarlierMessages: true, IsSessionLoading: false }) return false;
+        // 内容还没多到能滚就不续:此时 Offset 恒为 0,不判这一条会一路把整段历史续完
+        if (Viewer.Extent.Height <= Viewer.Viewport.Height) return false;
+        return Viewer.Offset.Y <= EarlierLoadThreshold;
     }
 
     /// <summary>
