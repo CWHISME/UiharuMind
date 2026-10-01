@@ -153,6 +153,37 @@ public class ConversationUsageHeadlessTests
         });
     }
 
+    /// <summary>
+    /// 连着敲字只在停手后分词一次。分词是整段全文重算（长输入一次几毫秒，首次还要加载词表），
+    /// 每个字都在后台跑一遍是白烧 CPU——打字跟手不跟手就差在这里
+    /// </summary>
+    [Fact]
+    public void EstimateInput_BurstOfKeystrokes_CountsOnceAfterPause()
+    {
+        HeadlessUi.RunAsync(async () =>
+        {
+            int counts = 0;
+            ConversationUsageViewData usage = new(() => 0, () => "m", () => 0, text =>
+            {
+                Interlocked.Increment(ref counts);
+                return text.Length;
+            });
+
+            string typed = string.Empty;
+            for (int i = 0; i < 10; i++)
+            {
+                typed += "字";
+                usage.EstimateInput(typed);
+                await Task.Delay(10);
+            }
+
+            await WaitUntilAsync(() => usage.Ledger.InputEstimate == typed.Length);
+            await Task.Delay(PastDebounce);
+
+            Assert.Equal(1, counts);
+        });
+    }
+
     /// <summary>后台计数按完成先后回来，只有最新那次输入的数算数</summary>
     [Fact]
     public void EstimateInput_StaleCountIsIgnored()

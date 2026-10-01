@@ -100,13 +100,14 @@ public sealed partial class ConversationUsageViewData : ObservableObject, IDispo
     }
 
     /// <summary>
-    /// 按输入框文本重估输入 token。计数在后台跑（首次会加载词表），停手后才刷新，
-    /// 免得悬停面板跟着每个字符重排
+    /// 按输入框文本重估输入 token。<b>停手后</b>才在后台计数（首次会加载词表），数回来当场刷新。
+    /// 先防抖再计数：计数是整段全文重算，每个字都跑一遍是白烧 CPU，打字就不跟手
     /// </summary>
     /// <param name="text">输入框全文</param>
     public void EstimateInput(string text)
     {
         int version = ++_inputEstimateVersion;
+        _typingDebounce?.Cancel();
         if (string.IsNullOrEmpty(text))
         {
             Ledger.InputEstimate = 0;
@@ -114,17 +115,17 @@ public sealed partial class ConversationUsageViewData : ObservableObject, IDispo
             return;
         }
 
-        _ = Task.Run(() =>
+        _typingDebounce = RunAfter(TypingDebounce, () => _ = Task.Run(() =>
         {
             int count = _countTokens(text);
             Dispatcher.UIThread.Post(() =>
             {
+                // 两次停顿各自的计数仍可能乱序回来,只采纳最新那次
                 if (version != _inputEstimateVersion) return;
                 Ledger.InputEstimate = count;
-                _typingDebounce?.Cancel();
-                _typingDebounce = RefreshAfter(TypingDebounce);
+                Refresh();
             });
-        });
+        }));
     }
 
     /// <summary>从会话本体恢复累计用量（响应用量不随消息持久化，累计值记在本体上）</summary>
@@ -142,14 +143,16 @@ public sealed partial class ConversationUsageViewData : ObservableObject, IDispo
         _streamingDebounce?.Cancel();
     }
 
-    private CancellationTokenSource RefreshAfter(TimeSpan delay)
+    private CancellationTokenSource RefreshAfter(TimeSpan delay) => RunAfter(delay, Refresh);
+
+    private static CancellationTokenSource RunAfter(TimeSpan delay, Action action)
     {
         CancellationTokenSource debounce = new();
         CancellationToken token = debounce.Token;
         DispatcherTimer.RunOnce(() =>
         {
             if (token.IsCancellationRequested) return;
-            Refresh();
+            action();
         }, delay);
         return debounce;
     }
