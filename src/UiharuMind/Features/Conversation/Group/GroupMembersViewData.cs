@@ -322,6 +322,9 @@ public sealed partial class GroupMemberItem : ObservableObject
     /// <summary>有没有累计可显示</summary>
     public bool HasCost => SpentTokens > 0;
 
+    /// <summary>底部统计行有没有可显示（占用或累计任一段有即显示，容器据此折叠）</summary>
+    public bool HasTokenLine => HasUsage || HasCost;
+
     /// <summary>整卡 tooltip：模型名 + 上下文，花过的再补一行输入 / 输出拆分</summary>
     public string CardTip
     {
@@ -432,6 +435,7 @@ public sealed partial class GroupMemberItem : ObservableObject
         OnPropertyChanged(nameof(ContextLine));
         OnPropertyChanged(nameof(UsagePercent));
         OnPropertyChanged(nameof(HasUsage));
+        OnPropertyChanged(nameof(HasTokenLine));
         OnPropertyChanged(nameof(CardTip));
     }
 

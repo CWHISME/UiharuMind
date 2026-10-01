@@ -60,12 +60,12 @@
                                     <MenuItem Header="{loc:Loc GroupRemoveMember}" Command="{Binding RemoveCommand}" />
                                 </ContextMenu>
                             </Button.ContextMenu>
-                            <!-- 头像跨满四行；发言状态只占第一行最右，只跟名字争宽——描述、占用、进度条都跨到最右，
-                                 状态出现时不再把下面几行挤成省略号。名字列用 Grid 约束宽度，省略号才算得准 -->
+                            <!-- 上身份（头像只跨名字+描述两行、垂直居中），下统计（统一一行 + 全宽进度条）。
+                                 发言状态只占第一行最右，只跟名字争宽——描述跨到最右，状态出现时不再挤出省略号 -->
                             <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto"
-                                  ColumnSpacing="8" RowSpacing="1">
-                                <controls:CircleAvatar Grid.RowSpan="4" Width="32" Height="32" Source="{Binding Icon}"
-                                                       VerticalAlignment="Center" />
+                                   ColumnSpacing="8" RowSpacing="1">
+                                <controls:CircleAvatar Grid.RowSpan="2" Width="32" Height="32" Source="{Binding Icon}"
+                                                        VerticalAlignment="Center" />
                                 <Grid Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="6" HorizontalAlignment="Left">
                                     <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
                                                TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
@@ -80,16 +80,18 @@
                                            ToolTip.Tip="{Binding Description}"
                                            TextTrimming="CharacterEllipsis" MaxLines="1"
                                            IsVisible="{Binding HasDescription}" />
-                                <!-- 左：真实占用 / 模型上限（与右栏上下文占用同一形状）；右：累计花费。随每次用量上报刷新 -->
-                                <Grid Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                <!-- 底部统一统计：左占用 / 上限，右累计（右沿对齐，竖扫一眼看出累计）。随每次用量上报刷新 -->
+                                <Grid Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3"
+                                      ColumnDefinitions="*,Auto" ColumnSpacing="6"
+                                      IsVisible="{Binding HasTokenLine}">
                                     <TextBlock Classes="muted" FontSize="10" Text="{Binding ContextLine}"
                                                TextTrimming="CharacterEllipsis" IsVisible="{Binding HasUsage}" />
                                     <TextBlock Grid.Column="1" Classes="muted" FontSize="10" Text="{Binding CostLine}"
                                                IsVisible="{Binding HasCost}" />
                                 </Grid>
-                                <!-- 占用进度条：一眼看出离上限还有多远 -->
-                                <ProgressBar Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2"
-                                             Classes="member-usage" Minimum="0" Maximum="100"
+                                <!-- 占用进度条：一眼看出离上限还有多远，贴底当卡片底边线 -->
+                                <ProgressBar Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3"
+                                              Classes="member-usage" Minimum="0" Maximum="100"
                                              Value="{Binding UsagePercent}" Height="4" CornerRadius="2"
                                              MinWidth="0" Margin="0,3,0,2"
                                              Background="{DynamicResource SemiGrey3}"
