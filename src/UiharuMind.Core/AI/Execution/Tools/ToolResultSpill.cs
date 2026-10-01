@@ -87,13 +87,17 @@ internal static class ToolResultSpill
     }
 
     /// 文件名 = 前缀 + 内容哈希：同一份输出重复调用落在同一文件，不同输出不会互相覆盖
-    internal static string FileNameFor(string fileStem, string text)
+    internal static string FileNameFor(string fileStem, string text) =>
+        FileNameFor(fileStem, Encoding.UTF8.GetBytes(text), ".txt");
+
+    /// <inheritdoc cref="FileNameFor(string, string)"/>
+    internal static string FileNameFor(string fileStem, ReadOnlySpan<byte> content, string extension)
     {
         string prefix = new string(fileStem.Select(c => char.IsLetterOrDigit(c) || c == '_' ? c : '_')
             .Take(80).ToArray()).Trim('_');
         if (prefix.Length == 0) prefix = "output";
-        string hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)))[..8];
-        return $"{prefix}_{hash}.txt";
+        string hash = Convert.ToHexStringLower(SHA256.HashData(content))[..8];
+        return $"{prefix}_{hash}{extension}";
     }
 
     private static string Save(string text, string directory, string fileStem)

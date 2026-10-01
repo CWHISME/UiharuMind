@@ -446,16 +446,20 @@ public class McpOnDemandTests : IDisposable
     }
 
     [Fact]
-    public void NormalizeResult_KeepsNonTextBlocksAndLimitsOnlyText()
+    public void NormalizeResult_MediaFromEveryRawShapeEndsUpAsAPath()
     {
         DataContent image = new(new byte[] { 1, 2, 3 }, "image/png");
-        AIContent[] contents = [new TextContent("hello"), image];
+        DataContent audio = new(new byte[] { 4, 5 }, "audio/wav");
 
-        object result = McpCallResult.Normalize(contents, _directory, "stem");
+        string mixed = Assert.IsType<string>(McpCallResult.Normalize(
+            new AIContent[] { new TextContent("hello"), image, audio }, _directory, "stem"));
+        string alone = Assert.IsType<string>(McpCallResult.Normalize(image, _directory, "stem"));
 
-        List<AIContent> list = Assert.IsType<List<AIContent>>(result);
-        Assert.Equal("hello", Assert.IsType<TextContent>(list[0]).Text);
-        Assert.Same(image, list[1]);
+        Assert.StartsWith("hello\n", mixed);
+        Assert.Equal(2, Directory.GetFiles(Path.Combine(_directory, ImageGenerationTool.OutputFolder)).Length); //同一张图只落一份
+        Assert.Contains(".wav", mixed);
+        Assert.DoesNotContain("hello", alone);
+        Assert.Contains(".png", alone);
     }
 
     //================= CallToolResult 解包 =================
@@ -494,20 +498,25 @@ public class McpOnDemandTests : IDisposable
             McpCallResult.Normalize(Result("""{"content":[],"isError":true}"""), _directory, "s")));
     }
 
+    /// <summary>tool 消息只收文本：图片留在结果里会被整个序列化成 base64 塞给模型，所以落盘只给路径</summary>
     [Fact]
-    public void CallToolResult_ImageBlocksBecomeDataContent_TextStays()
+    public void CallToolResult_ImageBlocksAreSavedAndOnlyThePathIsReturned()
     {
+        byte[] bytes = [1, 2, 3];
+        string base64 = Convert.ToBase64String(bytes);
         JsonElement raw = Result($$"""
             {"content":[{"type":"text","text":"shot"},
-                        {"type":"image","data":"{{Convert.ToBase64String(new byte[] { 1, 2, 3 })}}","mimeType":"image/png"}]}
+                        {"type":"image","data":"{{base64}}","mimeType":"image/png"}]}
             """);
 
-        List<AIContent> list = Assert.IsType<List<AIContent>>(McpCallResult.Normalize(raw, _directory, "s"));
+        string result = Assert.IsType<string>(McpCallResult.Normalize(raw, _directory, "s"));
 
-        Assert.Equal("shot", Assert.IsType<TextContent>(list[0]).Text);
-        DataContent image = Assert.IsType<DataContent>(list[1]);
-        Assert.Equal("image/png", image.MediaType);
-        Assert.Equal(new byte[] { 1, 2, 3 }, image.Data.ToArray());
+        Assert.StartsWith("shot\n", result);
+        Assert.DoesNotContain(base64, result);
+        string saved = Assert.Single(Directory.GetFiles(Path.Combine(_directory, ImageGenerationTool.OutputFolder)));
+        Assert.EndsWith(".png", saved);
+        Assert.Contains(saved, result);
+        Assert.Equal(bytes, File.ReadAllBytes(saved));
     }
 
     /// <summary>实机那条 61743 字符的日志结果：转义来自 server 自己的编码器，语义等价，整理掉纯省 token</summary>

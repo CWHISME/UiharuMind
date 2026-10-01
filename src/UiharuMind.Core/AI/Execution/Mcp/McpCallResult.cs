@@ -11,12 +11,15 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.AI.Execution.Mcp;
 
 /// <summary>
-/// 把 MCP 工具调用的原始返回整形成给模型的结果：<b>只有文本块受体量限制</b>（超限落盘留头尾），
-/// 图片等非文本块原样透传——图片对多模态模型有意义，而只有文本会随长度失控。
+/// 把 MCP 工具调用的原始返回整形成给模型的结果：文本块受体量限制（超限落盘留头尾），
+/// 图片、音频<b>落盘只给路径</b>——Chat Completions 的 tool 消息只收文本，非字符串结果会被整个序列化，
+/// 留着 DataContent 等于把一串 base64 当文本塞给模型：看不到图，还白付 token。与 GenerateImage 同口径。
 ///
 /// 原始返回的形态由框架的 MCP 包装决定（单块 → 该块；多块 → 块列表；
 /// 出错或带结构化内容 → CallToolResult 的 JSON），这里对三种都要认。
@@ -35,7 +38,7 @@ internal static class McpCallResult
     /// <param name="raw">工具的原始返回</param>
     /// <param name="spillDirectory">超限落盘的目录</param>
     /// <param name="fileStem">落盘文件名的可读前缀</param>
-    /// <returns>字符串，或含非文本块的内容列表</returns>
+    /// <returns>字符串；只有带认不出的非文本块时才是内容列表</returns>
     public static object Normalize(object? raw, string spillDirectory, string fileStem)
     {
         switch (raw)
@@ -49,7 +52,7 @@ internal static class McpCallResult
             case JsonElement json:
                 return NormalizeCallToolResult(json, spillDirectory, fileStem);
             case AIContent other:
-                return other;
+                return NormalizeContents([other], spillDirectory, fileStem);
             case IEnumerable<AIContent> contents:
                 return NormalizeContents(contents, spillDirectory, fileStem);
             default:
@@ -169,16 +172,47 @@ internal static class McpCallResult
     private static object NormalizeContents(IEnumerable<AIContent> contents, string spillDirectory, string fileStem)
     {
         List<AIContent> all = contents.ToList();
-        List<string> texts = all.OfType<TextContent>().Select(x => x.Text).ToList();
-        List<AIContent> others = all.Where(x => x is not TextContent).ToList();
+        List<string> texts = all.OfType<TextContent>().Select(x => TidyJsonText(x.Text)).ToList();
+        List<string> media = all.OfType<DataContent>().Select(x => SaveMedia(x, spillDirectory, fileStem)).ToList();
+        List<AIContent> others = all.Where(x => x is not (TextContent or DataContent)).ToList();
 
-        string joined = ToolResultSpill.Limit(string.Join("\n", texts.Select(TidyJsonText)), spillDirectory, fileStem);
+        List<string> lines = texts.Count > 0 ? [ToolResultSpill.Limit(string.Join("\n", texts), spillDirectory, fileStem)] : [];
+        lines.AddRange(media);
+        string joined = string.Join("\n", lines);
         if (others.Count == 0) return joined;
 
         List<AIContent> result = new();
-        if (texts.Count > 0) result.Add(new TextContent(joined));
+        if (joined.Length > 0) result.Add(new TextContent(joined));
         result.AddRange(others);
         return result;
+    }
+
+    /// 图片、音频落进产出房间的 images/（与 GenerateImage 同一处），结果里只留路径
+    private static string SaveMedia(DataContent data, string spillDirectory, string fileStem)
+    {
+        string mediaType = data.MediaType;
+        try
+        {
+            string directory = Path.Combine(spillDirectory, ImageGenerationTool.OutputFolder);
+            Directory.CreateDirectory(directory);
+            string path = Path.Combine(directory,
+                ToolResultSpill.FileNameFor(fileStem, data.Data.Span, ExtensionOf(mediaType)));
+            File.WriteAllBytes(path, data.Data.ToArray());
+            return $"[{mediaType} saved: {path}]";
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Mcp media save failed ({fileStem}): {e.Message}");
+            return $"[{mediaType}, {data.Data.Length} bytes, could not be saved to disk]";
+        }
+    }
+
+    private static string ExtensionOf(string mediaType)
+    {
+        if (mediaType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)) return ImageFormats.ExtensionOf(mediaType);
+        int slash = mediaType.IndexOf('/');
+        string subtype = slash >= 0 ? mediaType[(slash + 1)..] : string.Empty;
+        return subtype.Length > 0 && subtype.All(char.IsAsciiLetterOrDigit) ? "." + subtype.ToLowerInvariant() : ".bin";
     }
 }
 
