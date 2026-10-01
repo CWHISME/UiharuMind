@@ -3072,9 +3072,6 @@
     <data name="GroupMemberCountFormat" xml:space="preserve">
         <value>成员 {0} 位</value>
     </data>
-    <data name="GroupBadgePrefix" xml:space="preserve">
-        <value>[群聊]</value>
-    </data>
     <data name="GroupMemberBusyQueueTip" xml:space="preserve">
         <value>他正在群里发言，这条消息已排队，等这轮结束自动发送</value>
     </data>

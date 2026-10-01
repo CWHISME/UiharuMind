@@ -151,12 +151,22 @@
 
                             <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto" MinWidth="0">
                                 <!-- 草稿标记:非当前会话且有未发送输入时在标题前亮一个小圆点 -->
-                                <Grid Grid.Row="0" ColumnDefinitions="Auto,*" MinWidth="0">
+                                <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,*" MinWidth="0">
                                     <Ellipse Grid.Column="0" Width="6" Height="6" Margin="0,0,6,0"
                                              VerticalAlignment="Center"
                                              Fill="#7AA2F7"
                                              IsVisible="{Binding IsDraftVisible}" />
-                                    <TextBlock Grid.Column="1"
+                                    <!-- 群徽章放标题行:扫列表时眼睛只落在标题上,放描述行的灰字前缀分不出群与单聊。
+                                         用图标不用文字,窄侧栏省宽;配色同会话流里「已发到群」,群相关标记一个色。
+                                         尺寸取 15 不取 14:标题行盒 17、字形中心在 7.5,15 居中再经 icon-tweak 上移 1 正好落上;
+                                         14 的中心在 7,整数平移怎么调都差半像素(无头截图量过) -->
+                                    <controls:ThemedSvgIcon Grid.Column="1" Classes="icon-tweak"
+                                                            Width="16" Height="16" Margin="0,0,5,0"
+                                                            VerticalAlignment="Center"
+                                                            IconName="users-round"
+                                                            CurrentColor="{DynamicResource SemiBlue5Color}"
+                                                            IsVisible="{Binding IsGroup}" />
+                                    <TextBlock Grid.Column="2"
                                                Text="{Binding Name}"
                                                Foreground="{DynamicResource SemiGrey7}"
                                                TextWrapping="NoWrap"
@@ -168,16 +178,11 @@
                                      角色名的显隐是页面级选择(见 ShowAvatar 的说明),不从标题推——
                                      推过一版,会话一复制标题被加后缀,角色名就冒出来了 -->
                                 <!-- 中间行:描述(对话页)。agent 页通常没有描述,这行自动隐藏。
-                                     群壳的描述是成员名单,前面加一个 [群聊] 前缀(黄色加粗),一眼分出群与单聊 -->
-                                <Grid Grid.Row="1" ColumnDefinitions="Auto,*" MinWidth="0"
-                                      IsVisible="{Binding HasDistinctDescription}">
-                                    <TextBlock Grid.Column="0" Classes="muted" FontSize="11" FontWeight="Bold"
-                                               Text="{loc:Loc GroupBadgePrefix}"
-                                               IsVisible="{Binding IsGroup}" />
-                                    <TextBlock Grid.Column="1" Classes="muted" FontSize="11"
-                                               Text="{Binding Description}" TextTrimming="CharacterEllipsis"
-                                               MaxLines="1" />
-                                </Grid>
+                                     群壳的描述是成员名单,群身份已由标题行的徽章表明 -->
+                                <TextBlock Grid.Row="1" Classes="muted" FontSize="11"
+                                           Text="{Binding Description}" TextTrimming="CharacterEllipsis"
+                                           MaxLines="1"
+                                           IsVisible="{Binding HasDistinctDescription}" />
                                 <!-- 末行:agent 页(不显头像)是「工作区名(项目色) + 时间」,聊天页(显头像)只有时间。
                                      工作区名打头让同角色不同项目一眼分开;角色名已从末行移除
                                      (同工作区多个会话角色不同是常态,身份靠标题与右侧栏呈现)。
