@@ -240,7 +240,7 @@ public class ConversationItemActionsRetryTests
 }
 
 /// <summary>
-/// 装配阶段被取消时把本轮输入补回历史（<see cref="ConversationViewModel.RestoreUserMessageOnAbort"/>）。
+/// 装配阶段被取消时把本轮输入补回历史（<see cref="ConversationTurnRunner.RestoreUserMessageOnAbort"/>）。
 /// 覆盖「发送/重试后立刻停止」丢消息的修复：正常轮次的取消由 TurnDriver 收尾，
 /// 这里只兜它接手之前的空窗。
 /// </summary>
@@ -252,7 +252,7 @@ public class RestoreUserMessageOnAbortTests
         ChatSession session = new() { IsTransient = true };
         ChatMessage message = new(ChatRole.User, "hello");
 
-        ConversationViewModel.RestoreUserMessageOnAbort(session, message);
+        ConversationTurnRunner.RestoreUserMessageOnAbort(session, message);
 
         ChatMessage persisted = Assert.Single(session.History);
         Assert.Same(message, persisted);
@@ -266,7 +266,7 @@ public class RestoreUserMessageOnAbortTests
         ChatMessage message = new(ChatRole.User, "hello");
         session.History.Add(message);
 
-        ConversationViewModel.RestoreUserMessageOnAbort(session, message);
+        ConversationTurnRunner.RestoreUserMessageOnAbort(session, message);
 
         Assert.Single(session.History);
     }
@@ -276,7 +276,7 @@ public class RestoreUserMessageOnAbortTests
     {
         ChatMessage message = new(ChatRole.User, "hello");
 
-        ConversationViewModel.RestoreUserMessageOnAbort(null, message);
+        ConversationTurnRunner.RestoreUserMessageOnAbort(null, message);
     }
 
     /// <summary>无输入轮(助手消息重试)装配阶段被取消:没有用户消息要补,不写任何东西</summary>
@@ -285,7 +285,7 @@ public class RestoreUserMessageOnAbortTests
     {
         ChatSession session = new() { IsTransient = true };
 
-        ConversationViewModel.RestoreUserMessageOnAbort(session, null);
+        ConversationTurnRunner.RestoreUserMessageOnAbort(session, null);
 
         Assert.Empty(session.History);
     }

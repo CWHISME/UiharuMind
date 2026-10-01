@@ -60,7 +60,7 @@ namespace UiharuMind.Features.Conversation;
 /// 原先的 ConversationViewModelBase 只有一个实现，已并入本类。
 /// </summary>
 public partial class ConversationViewModel : ViewModelBase, IConversationItemActionHost, IConversationReconcileHost,
-    IAttachmentTrayHost, IDisposable
+    IAttachmentTrayHost, IConversationTurnHost, IDisposable
 {
     /// <summary>发送身份:以用户身份发送并生成回复,或以角色身份直接写入一条回复</summary>
     public enum SendMode
@@ -272,8 +272,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         OnPropertyChanged(nameof(SenderTooltip));
     }
 
-    private CancellationTokenSource? _prepareCancellation; //会话装配阶段的取消源,此后由 TurnDriver 接手
-    private bool _isPreparing; //正在装配会话(此时 TurnDriver 还没开始跑)
     private int _loadVersion; //会话加载版本号,用于放弃已被新切换取代的旧加载
     private bool _isDisplayed = true; //本实例是否正显示在界面上
     private ChatSessionMeta? _deferredLoad; //中途被切走而欠下的那次装载,切回来时接着做
@@ -288,6 +286,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private readonly ConversationSessionBinder _binder; //建/装会话并挂执行者
     private readonly ConversationTranscript _transcript; //实时流装配器,落点即 Items
     private readonly TurnDriver _driver; //一轮对话的编排,与定时任务共用同一份
+    private readonly ConversationTurnRunner _turns; //跑一轮:装配、过闸、交给驱动
     private ChatSession? _signalSession; //已挂上历史变更信号的会话
     private IDisposable? _sessionPin; //挂着期间钉住它的历史,不许被驻留策略卸掉
     private IDisposable? _liveObservation; //挂在会话实时内容流上的订阅(别人驱动那一轮时靠它逐 token)
@@ -310,7 +309,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// 本轮是否正在跑。装配会话的那一小段也算在内——那时执行者还没接手，
     /// 但界面必须已经显示停止按钮，否则用户能在装配期间再发一条。
     /// </summary>
-    public bool IsGenerating => _isPreparing || _driver.IsRunning || IsExternallyDriven;
+    public bool IsGenerating => _turns.IsPreparing || _driver.IsRunning || IsExternallyDriven;
 
     /// <summary>此刻是否正在整理交接文档（压缩不是轮次，<c>IsGenerating</c> 不涵盖它）</summary>
     public bool IsCompacting => _driver.Busy == ETurnBusy.Compacting;
@@ -320,7 +319,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// 旁观别处跑的那一轮（<see cref="IsExternallyDriven"/>）不算，弃了不影响那边。
     /// 变化随 <see cref="IsGenerating"/> 一起通知
     /// </summary>
-    public bool IsRunningOwnWork => _isPreparing || _driver.IsRunning || IsCompacting;
+    public bool IsRunningOwnWork => _turns.IsPreparing || _driver.IsRunning || IsCompacting;
 
     /// <summary>
     /// 本会话名下还有<b>未了结的工作</b>：自己这一轮，或者名下还没交回报告的后台子代理。
@@ -537,6 +536,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _transcript.SubSessionAttached += RefreshSubSessionApprovalWait;
         _transcript.MessageBoundaryReached += OnMessageBoundaryReached;
         _driver = new TurnDriver(_transcript, Usage.Ledger, OnTurnNotice);
+        _turns = new ConversationTurnRunner(this, _driver, _transcript);
         // 观察别人驱动的那一轮时用它:内核仍是 _transcript,所以自己驱动时会被去重掉(见 LiveTurnStream)
         // 登记在册的才放行审批请求——嵌套审批的卡只该在子窗口弹,普通会话的观察窗弹出来也没人听
         _liveObserverSink = new LiveObserverSink(_transcript, _approvalAdopter.AllowsObservedApproval);
@@ -753,7 +753,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         // 那些引用全部认不回来,编辑/删除/分叉/重试会静默失效(见 SessionResidencyPolicy)
         _sessionPin = SessionManager.Instance.Pin(session.SessionId);
         // 后台子代理跑完起的那一轮,审批只有本壳接得住(见 WakeApprovalHosts)
-        WakeApprovalHosts.Register(session.SessionId, ResolveApprovalsAsync);
+        WakeApprovalHosts.Register(session.SessionId, _turns.ResolveApprovalsAsync);
         session.HistoryAppended += OnSessionHistoryAppended;
         session.HistoryMessageReplaced += OnSessionHistoryReplaced;
         // 挂上这个会话的实时内容流。自己驱动时按身份去重,不会渲染两遍;
@@ -766,7 +766,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private void DetachSessionSignals()
     {
         if (_signalSession is not { } previous) return;
-        WakeApprovalHosts.Unregister(previous.SessionId, ResolveApprovalsAsync);
+        WakeApprovalHosts.Unregister(previous.SessionId, _turns.ResolveApprovalsAsync);
         previous.HistoryAppended -= OnSessionHistoryAppended;
         previous.HistoryMessageReplaced -= OnSessionHistoryReplaced;
         previous.LiveTurn.TurnEnded -= OnObservedTurnEnded;
@@ -900,7 +900,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         DetachSessionSignals();
         // 执行者归会话所有、比本视图活得久,回调不摘就是一路泄漏到已销毁的视图上
         if (CurrentRunner is { } runner) runner.BusyChanged = null;
-        _prepareCancellation?.Cancel();
+        _turns.CancelPreparing();
         Usage.Dispose();
         _driver.Dispose();
         MemoryPanel?.Detach();
@@ -1161,7 +1161,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         if (IsGenerating)
         {
             // 群成员会话正在跑群里那一轮:打字不该插话——插话的回应会被群轮按「这一轮正文」
-            // 收成群发言,私聊就泄进群里了。掉到正常发送路径,由 RunTurnAsync 过闸排队
+            // 收成群发言,私聊就泄进群里了。掉到正常发送路径,由 轮次运行器过闸排队
             if (GroupMember?.IsRunningGroupTurn(_driver.IsRunning) != true)
             {
                 // 插话与正常发送共用同一套组装:附件盘上的图要进消息,不能只发 text
@@ -1177,7 +1177,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 return;
             }
 
-            // 他正在群里发言:明说排队,接着走下面的正常发送路径(RunTurnAsync 会等到群轮结束)
+            // 他正在群里发言:明说排队,接着走下面的正常发送路径(轮次运行器会等到群轮结束)
             _messages.ShowNotification(
                 Loc.Text(LangKey.GroupMemberBusyQueueTip), severity: MessageSeverity.Information);
         }
@@ -1203,7 +1203,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         // 转录器按引用认出它才不会画第二遍;副本落盘时由 WireStreamed 换成历史里那一条
         Items.Add(_itemActions.Wire(ConversationItemFactory.CreateUser(text, userMessage, attachments), userMessage));
         ScrollToEnd = true;
-        await RunTurnAsync(userMessage, text);
+        await _turns.RunAsync(userMessage, text);
     }
 
     /// <summary>组装要发出去的用户消息。群成员会话里用户直接打的话是私聊，见 <see cref="GroupMemberSessionViewData.BuildPrivateMessage"/></summary>
@@ -1243,8 +1243,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
     private void OnStopSending()
     {
-        _prepareCancellation?.Cancel(); //还卡在装配阶段时也要停得下来
-        _driver.Cancel();
+        _turns.Cancel(); //还卡在装配阶段时也要停得下来
         // 外驱时要停的是别处那一轮——自己的 driver 根本没在跑。
         // 停止按钮既然显示出来了就必须真能停,否则是个骗人的按钮
         if (IsExternallyDriven) TurnDriver.CancelSession(CurrentMeta?.SessionId);
@@ -1252,29 +1251,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         Group?.Stop();
         _transcript.CancelPendingApprovals();
         _ = Interjections.CancelAllAsync(); //停止后待发的插话不该还挂在输入区,也从队列撤掉
-    }
-
-    /// <summary>
-    /// 审批回应：等用户对本轮每个请求做出决定，回应即下一轮的输入。
-    ///
-    /// <b>按请求对象相认</b>，不是把转录器攒着的整批抽干：同一个会话上可能同时有两轮在跑
-    /// （用户那一轮与后台委派回来时起的<b>唤醒轮</b>共用这一个转录器），抽干会领走别人那一轮的卡片，
-    /// 让那一轮的工具调用永远没有结果地留在历史里。
-    /// </summary>
-    /// <param name="requests">本轮新增的审批请求</param>
-    /// <returns>回应消息</returns>
-    private async Task<IReadOnlyList<ChatMessage>> ResolveApprovalsAsync(
-        IReadOnlyList<ToolApprovalRequestContent> requests)
-    {
-        IReadOnlyList<ApprovalRequestItem> turnApprovals = _transcript.TakeRoundApprovals(requests);
-        List<ChatMessage> responses = new(turnApprovals.Count);
-        foreach (ApprovalRequestItem approval in turnApprovals)
-        {
-            responses.Add(await approval.Response);
-        }
-
-        _transcript.ResolveApprovals(turnApprovals);
-        return responses;
     }
 
     /// <summary>
@@ -1420,95 +1396,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     {
         if (CurrentSession == null) return;
         if (ThinkingItem.StampLiveItems(Items) > 0) CurrentSession.Save();
-    }
-
-    /// <summary>
-    /// 跑一轮：先把会话装配好，再交给运行侧。
-    ///
-    /// 装配阶段单独持一个取消源——那时 <see cref="TurnDriver"/> 还没接手，
-    /// 而它耗时（要建会话、装配 agent），用户在这期间按停止必须停得下来。
-    /// </summary>
-    /// <param name="userMessage">用户消息;为 null 是无输入轮(助手消息重试),模型基于既有历史续写</param>
-    /// <param name="titleSeed">新建会话时用来取标题的原文</param>
-    private async Task RunTurnAsync(ChatMessage? userMessage, string titleSeed)
-    {
-        _isPreparing = true;
-        NotifyRunStateChanged();
-        _prepareCancellation = new CancellationTokenSource();
-        ChatSession? session = null; //提到 try 外:装配被停时还要靠它把 userMessage 补回历史
-        try
-        {
-            // 装配阶段也登记成「在跑」:重建 agent 要拉 MCP 工具、可能好几秒,
-            // 这期间不能让删除/清空去动它的文件,而那一轮随后照样会往里写。
-            // 新会话此刻还没有标识,BeginRun(null) 按设计是空操作
-            // 这一份**一直持有到本轮结束**,不在装配结束时放掉。从前是装配一段、运行一段两个作用域,
-            // 注释写着「两段之间没有空窗」——单线程看确实没有,但登记处的锁在两段之间放开了,
-            // 别的线程(后台委派回来时起的唤醒轮)正好能在这里挤进来抢到会话,两轮就重叠了。
-            // 登记是引用计数的,与 TurnDriver 自己那一次叠加无害
-            using IDisposable running = SessionManager.Instance.Running.BeginRun(CurrentMeta?.SessionId);
-            session = await EnsureSessionAsync(titleSeed, _prepareCancellation.Token);
-            Tray.FlushOwnedFiles();
-
-            // 子会话与后台轮共用同一把串行闸（后台那轮整轮持有：跑+交回）：用户在子会话窗口
-            // 直发必须等后台那一轮结束，否则两轮在 runner 释放/重建上重叠——后台轮 finally 释放
-            // 旧实例，此刻正在 Attach/Run 的这一轮会拿到没挂接的新 runner（实机「尚未挂接会话」）。
-            // 主会话不过闸（它的后台轮另走 TryBeginRun 抢占）。
-            using IDisposable? turnGate = await BackgroundSubAgentDispatcher
-                .EnterSubSessionTurnGateAsync(session.SessionId).ConfigureAwait(false);
-            // 群成员会话的私聊与群轮投递共用同一把闸:排队到群轮结束(它整轮持有),两轮永不重叠
-            using IDisposable memberGate = await GroupMemberTurnGate
-                .EnterAsync(session.SessionId).ConfigureAwait(false);
-
-            await _driver.RunAsync(session, session.Runner, userMessage, ResolveApprovalsAsync);
-        }
-        catch (OperationCanceledException)
-        {
-            // 装配阶段就被停掉:TurnDriver 还没接手,userMessage 从未交给框架,历史里自然也没有它。
-            // 发送方(发送/重试)已经把「这条消息必须在历史里」当成 RunAsync 的责任,责任悬空就丢消息
-            // (重试最典型:Retry 先删后跑,这里不补回,切走/重开会话那条输入就没了)
-            RestoreUserMessageOnAbort(session ?? CurrentSession, userMessage);
-        }
-        catch (Exception e)
-        {
-            Log.Error($"Ensure session failed: {e}");
-            Items.Add(new ErrorItem { Message = e.Message });
-        }
-        finally
-        {
-            _isPreparing = false;
-            _prepareCancellation = null;
-            NotifyRunStateChanged();
-        }
-    }
-
-    /// <summary>
-    /// 装配阶段被取消时把 userMessage 补回历史,避免「发送/重试后立刻停止」丢消息。
-    /// 正常轮次的取消由 <see cref="TurnDriver"/> 的 <c>SettleInterruptedTurn</c> 收尾,
-    /// 这里只兜它接手之前的那段空窗——那时 userMessage 还没交给框架,没有人会写它。
-    /// 无输入轮(助手消息重试)没有用户消息要补,直接返回。
-    /// </summary>
-    /// <param name="session">会话;新建会话装配半路取消时为 null(此时无处可写)</param>
-    /// <param name="userMessage">本轮输入;无输入轮为 null</param>
-    internal static void RestoreUserMessageOnAbort(ChatSession? session, ChatMessage? userMessage)
-    {
-        if (session == null)
-        {
-            Log.Warning("Turn aborted during session assembly; user message was not persisted.");
-            return;
-        }
-
-        // 无输入轮(助手消息重试):没有用户消息被删,也就没有要补回的东西
-        if (userMessage == null) return;
-
-        // 与 TurnDriver 同口径:重试的原消息带着框架就地盖的 _attribution,
-        // 不摘掉持久化会把它当注入消息滤掉(见 RunAsync 开头的 ClearAttribution)
-        ChatMessageAnnotations.ClearAttribution(userMessage);
-        // 取消前若恰好已写回(罕见)就别重复追加:框架落的是同一个实例,按引用判重即可
-        if (session.History.Any(x => ReferenceEquals(x, userMessage))) return;
-
-        int before = session.History.Count;
-        session.History.Add(userMessage);
-        session.SaveAppended(before);
     }
 
     //================= agent / 会话装配 =================
@@ -1807,7 +1694,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     void IConversationItemActionHost.Rerun(ChatMessage? input)
     {
         ScrollToEnd = true;
-        _ = RunTurnAsync(input, input == null ? string.Empty : ConversationItemFactory.DisplayTextOf(input));
+        _ = _turns.RunAsync(input, input == null ? string.Empty : ConversationItemFactory.DisplayTextOf(input));
     }
 
     /// <inheritdoc />
@@ -1822,6 +1709,27 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
     // 发图退路按会话形态判（ADR 0050）：普通对话形态的会话不挂识图工具，图片照样会白发
     bool IAttachmentTrayHost.HasVisionFallback => VisionFallback.HasFallback(IsAgentSession, SessionCharacter.Tools);
+
+    //================= IConversationTurnHost =================
+
+    /// <inheritdoc />
+    string? IConversationTurnHost.CurrentSessionId => CurrentMeta?.SessionId;
+
+    /// <inheritdoc />
+    ChatSession? IConversationTurnHost.CurrentSession => CurrentSession;
+
+    /// <inheritdoc />
+    Task<ChatSession> IConversationTurnHost.EnsureSessionAsync(string titleSeed, CancellationToken cancellationToken) =>
+        EnsureSessionAsync(titleSeed, cancellationToken);
+
+    /// <inheritdoc />
+    void IConversationTurnHost.OnSessionEnsured() => Tray.FlushOwnedFiles();
+
+    /// <inheritdoc />
+    void IConversationTurnHost.NotifyPreparingChanged() => NotifyRunStateChanged();
+
+    /// <inheritdoc />
+    void IConversationTurnHost.ShowError(string message) => Items.Add(new ErrorItem { Message = message });
 
     //================= IConversationReconcileHost =================
     // 显式实现:对账要的只是这几个窄依赖,不该把整个视图模型暴露给对账器
