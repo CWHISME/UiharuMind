@@ -39,12 +39,19 @@ public static class HistoryCompaction
     /// <summary>
     /// 折叠一次腾到这里（回差）。只折到刚好不触发的话，之后每多一条工具结果就再折最老的一组，
     /// 几乎每次调用都整段不中缓存；一次折出一截余量（额度的 20%），断一次缓存换后面多次命中。
-    /// 实际占用因此在它与 <see cref="ToolEvictionThreshold"/> 之间来回（折法见 <c>FoldInSteps</c>）
+    /// 实际占用因此在它与 <see cref="ToolEvictionThreshold"/> 之间来回（折法见 <c>InSteps</c>）
     /// </summary>
     public const double ToolEvictionTarget = 0.65;
 
-    /// <summary>截断的水位（占输入预算的比例）。最后一道防线，必须高于交接文档的水位</summary>
+    /// <summary>截断的水位（占历史额度的比例）。最后一道防线，必须高于交接文档与折叠的水位</summary>
     public const double TruncationThreshold = 0.9;
+
+    /// <summary>
+    /// 截断一次删到这里（回差），一级台阶同样是额度的 20%。不留余量的话，越线之后每多一条消息就再删最老的一组，
+    /// 岔口紧跟在系统提示之后，这一轮剩下的每次请求几乎整段不中缓存（本地 llama.cpp 就是整段重算）。
+    /// 代价是一次多丢一截最老的消息——反正马上要丢，早丢一截换后面多次命中
+    /// </summary>
+    public const double TruncationTarget = 0.7;
 
     private const int MinReserve = 512;
     private const int MaxReserve = 8192;
@@ -97,8 +104,11 @@ public static class HistoryCompaction
     /// <returns>压缩策略</returns>
     internal static CompactionStrategy Create(Func<int> contextSource, TurnInputEstimate estimate)
     {
-        (CompactionTrigger Trigger, CompactionTrigger Target) folding = FoldInSteps(contextSource, estimate);
-        // 截断的停止条件留空:框架默认取触发条件的反面,即"压到不再触发为止"——它是最后一道防线,平时有交接文档先顶着
+        // 折叠是第一道，此刻还一组没排除：它看到的就是原始历史，交接水位要读这个数（见 TurnUsageLedger.RawInput）
+        (CompactionTrigger Trigger, CompactionTrigger Target) folding = InSteps(contextSource, estimate,
+            ToolEvictionThreshold, ToolEvictionTarget, raw => estimate.LastRawHistory = raw);
+        (CompactionTrigger Trigger, CompactionTrigger Target) truncation = InSteps(contextSource, estimate,
+            TruncationThreshold, TruncationTarget);
         return new PipelineCompactionStrategy(
         [
             new ToolResultCompactionStrategy(folding.Trigger, target: folding.Target)
@@ -106,63 +116,50 @@ public static class HistoryCompaction
                 // 默认格式把结果原文照抄，折了等于没折（见 ToolCallFolding）
                 ToolCallFormatter = ToolCallFolding.Format,
             },
-            new TruncationCompactionStrategy(ExceedsFraction(contextSource, estimate, TruncationThreshold)),
+            new TruncationCompactionStrategy(truncation.Trigger, target: truncation.Target),
         ]);
     }
 
-    // 额度为 0 时一律不压缩——两种成因:预算未知(没有模型在跑),或固定开销自己就吃光了预算。
-    // 两种情况下请求本来就发不出去,压缩只会白白毁掉历史
-    private static CompactionTrigger ExceedsFraction(Func<int> contextSource, TurnInputEstimate estimate,
-        double fraction)
-    {
-        return index =>
-        {
-            // 顺手记下:这里本就要算一遍,而交接文档水位要拿它与服务端报的数取大(见 ADR 0009)。
-            // 截断靠"排除一组 → 重问一次条件"收敛,所以最后落下的是压完之后的值——
-            // 那正是本轮真会发出去的历史大小,比压之前的数更该用
-            long history = CorrectedTokenCount(index);
-            estimate.LastHistory = history;
-
-            int quota = HistoryQuotaFor(contextSource(), estimate.FixedOverhead);
-            return quota > 0 && history > quota * fraction;
-        };
-    }
-
     /// <summary>
-    /// 按台阶折叠的触发与停止条件。
+    /// 按台阶压缩的触发与停止条件，折叠与截断共用。
     ///
-    /// 每次调用拿到的都是<b>原始</b>历史（存下的不折，见 <c>AgentAssembler.MoveCompactionToLeaf</c>），
-    /// 「上次折过哪些」无处可记，普通的回差因此失效：原始大小一直在触发线上方，每次都按停止线重折，多一条就多折一组。
-    /// 改成只看原始大小 R：它每越过一级台阶（额度 × (触发 − 停止)），就再腾出一级。同一级里要腾的量不变，
-    /// 历史只往后长、折的总是最老那几组，于是折哪些组也不变，前缀逐字稳定；跨级才多折一截、断一次缓存。
+    /// 每次调用拿到的都是<b>原始</b>历史（存下的不压，见 <c>AgentAssembler.MoveCompactionToLeaf</c>），
+    /// 「上次压过哪些」无处可记，普通的回差因此失效：大小一直在触发线上方，每次都按停止线重压，多一条就多压一组。
+    /// 改成只看这一道开始时的大小 S：它每越过一级台阶（额度 × (触发 − 停止)），就再腾出一级。同一级里要腾的量不变，
+    /// 历史只往后长、压的总是最老那几组，于是压哪些组也不变，前缀逐字稳定；跨级才多压一截、断一次缓存。
     /// 实际占用落在停止线与触发线之间，效果与回差相同，而且不依赖任何状态——重建、重启都一样。
+    /// 截断那一道的 S 是折叠之后的大小：折叠同样按台阶走，同一级里它也是稳定的。
     ///
-    /// 两个条件在同一次压缩里先后调用（先问触发、再逐组问停止），所以用闭包带着这一次的 R；
-    /// 同一个 agent 的服务调用是一次接一次的，不会交错
+    /// 两个条件在同一次压缩里先后调用（先问触发、再逐组问停止），所以用闭包带着这一次的 S；
+    /// 同一个 agent 的服务调用是一次接一次的，不会交错。每次问都顺手回写历史估算，
+    /// 停止条件逐组重问，最后落下的是压完之后的值——那正是本轮真会发出去的历史大小。
+    ///
+    /// 额度为 0 时一律不压缩——两种成因：预算未知（没有模型在跑），或固定开销自己就吃光了预算。
+    /// 两种情况下请求本来就发不出去，压缩只会白白毁掉历史
     /// </summary>
-    private static (CompactionTrigger Trigger, CompactionTrigger Target) FoldInSteps(Func<int> contextSource,
-        TurnInputEstimate estimate)
+    private static (CompactionTrigger Trigger, CompactionTrigger Target) InSteps(Func<int> contextSource,
+        TurnInputEstimate estimate, double threshold, double target, Action<long>? onStart = null)
     {
-        long raw = 0; //这一次压缩开始时的原始历史大小（折叠是第一道，此刻还一组没排除）
+        long start = 0; //这一道开始时的历史大小
         CompactionTrigger trigger = index =>
         {
-            raw = CorrectedTokenCount(index);
-            estimate.LastRawHistory = raw; //交接水位读它:折叠把发出去的那份压回线下,交接不能因此被压住
-            estimate.LastHistory = raw;
+            start = CorrectedTokenCount(index);
+            onStart?.Invoke(start);
+            estimate.LastHistory = start;
             int quota = HistoryQuotaFor(contextSource(), estimate.FixedOverhead);
-            return quota > 0 && raw > quota * ToolEvictionThreshold;
+            return quota > 0 && start > quota * threshold;
         };
-        CompactionTrigger target = index =>
+        CompactionTrigger stop = index =>
         {
             long now = CorrectedTokenCount(index);
             estimate.LastHistory = now;
             int quota = HistoryQuotaFor(contextSource(), estimate.FixedOverhead);
-            double step = quota * (ToolEvictionThreshold - ToolEvictionTarget);
+            double step = quota * (threshold - target);
             if (step <= 0) return true;
-            double steps = Math.Floor((raw - quota * ToolEvictionThreshold) / step) + 1;
-            return raw - now >= steps * step;
+            double steps = Math.Floor((start - quota * threshold) / step) + 1;
+            return start - now >= steps * step;
         };
-        return (trigger, target);
+        return (trigger, stop);
     }
 
     // [MFA绕坑] 绕:自己重算图片的 token 数 因:框架把非文本内容一律按 字节数/4 估,且没有注入 Tokenizer 的口子 删除条件:CompactionProvider 允许传 Tokenizer 或框架按模态计价

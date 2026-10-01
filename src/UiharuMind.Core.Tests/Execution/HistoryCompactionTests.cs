@@ -136,6 +136,40 @@ public class HistoryCompactionTests
         Assert.True(Folded(stepped) > Folded(first) + 3, $"跨级应多折一截：{Folded(first)} → {Folded(stepped)}");
     }
 
+    /// <summary>
+    /// 截断同样按台阶删：越线一次删到 <see cref="HistoryCompaction.TruncationTarget"/>，之后几次调用前缀逐字不变。
+    /// 从前删到刚好不触发，每多一条消息就再删最老的一组，岔口紧跟在系统提示之后，几乎每次调用都整段不中缓存
+    /// </summary>
+    [Fact]
+    public async Task Truncation_LeavesHeadroom_SoTheNextCallsKeepThePrefix()
+    {
+        IChatReducer reducer = HistoryCompaction.Create(() => 20_000, new TurnInputEstimate()).AsChatReducer();
+        CancellationToken token = TestContext.Current.CancellationToken;
+        // 纯对话没有可折的工具组，只有截断起作用。120 条约 18.2k token，落在第一级台阶中间(0.9 → 1.1 额度)
+        List<ChatMessage> history = [];
+        for (int i = 0; i < 120; i++) AddChatLine(history, i);
+
+        List<ChatMessage> first = (await reducer.ReduceAsync(history, token)).ToList();
+        Assert.True(first.Count < 120, "该删的没删");
+
+        for (int i = 120; i < 124; i++) AddChatLine(history, i);
+        List<ChatMessage> next = (await reducer.ReduceAsync(history, token)).ToList();
+
+        Assert.Equal(first.Select(Signature), next.Take(first.Count).Select(Signature));
+        Assert.Equal(first.Count + 4, next.Count); //新的四条原样接在后面，没有再删
+
+        // 再长过一级台阶（额度 20% ≈ 3.5k token），才一次多删一截
+        for (int i = 124; i < 150; i++) AddChatLine(history, i);
+        List<ChatMessage> stepped = (await reducer.ReduceAsync(history, token)).ToList();
+        Assert.NotEqual(Signature(first[0]), Signature(stepped[0]));
+    }
+
+    private static void AddChatLine(List<ChatMessage> history, int i)
+    {
+        ChatRole role = i % 2 == 0 ? ChatRole.User : ChatRole.Assistant;
+        history.Add(new ChatMessage(role, $"{i}:{new string('x', 600)}"));
+    }
+
     internal static int Folded(IEnumerable<ChatMessage> messages) =>
         messages.Count(x => x.Text.StartsWith(ToolCallFolding.Header, StringComparison.Ordinal));
 
