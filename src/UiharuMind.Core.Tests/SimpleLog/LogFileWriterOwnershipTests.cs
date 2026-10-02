@@ -57,6 +57,42 @@ public class LogFileWriterOwnershipTests : IDisposable
     }
 
     /// <summary>
+    /// 两个实例同时开着、交替落盘时不互抢 Log.txt：从前每抢一次就推一代、删最老的一代，
+    /// 实测 8 秒里十代日志全被冲成空文件。被挪走的一方就在挪到的那一代接着写
+    /// </summary>
+    [Fact]
+    public void TwoLiveInstances_FlushingInTurns_DoNotChurnTheGenerations()
+    {
+        using LogFileWriter first = new(_directory, "T", maxBytes: 1024 * 1024, generations: 5);
+        first.RotateOnStartup();
+        byte[] firstPayload = Encoding.UTF8.GetBytes("第一实例最早那条");
+        long firstOffset = first.Append(firstPayload);
+        int firstFileId = first.CurrentFileId;
+        first.Flush();
+
+        using LogFileWriter second = new(_directory, "T", maxBytes: 1024 * 1024, generations: 5);
+        second.RotateOnStartup();
+        byte[] secondPayload = Encoding.UTF8.GetBytes("第二实例最早那条");
+        long secondOffset = second.Append(secondPayload);
+        int secondFileId = second.CurrentFileId;
+        second.Flush();
+
+        for (int i = 0; i < 20; i++)
+        {
+            first.Append(Encoding.UTF8.GetBytes($"一{i}\n"));
+            first.Flush();
+            second.Append(Encoding.UTF8.GetBytes($"二{i}\n"));
+            second.Flush();
+        }
+
+        Assert.False(File.Exists(Path.Combine(_directory, "T.2.txt"))); //链只在第二个实例启动时推过一代
+        Assert.Equal("第一实例最早那条", first.Read(firstFileId, firstOffset, firstPayload.Length));
+        Assert.Equal("第二实例最早那条", second.Read(secondFileId, secondOffset, secondPayload.Length));
+        Assert.Contains("一19", File.ReadAllText(Path.Combine(_directory, "T.1.txt")));
+        Assert.Contains("二19", File.ReadAllText(Path.Combine(_directory, "T.txt")));
+    }
+
+    /// <summary>
     /// 当前文件被外部换成一个更短的文件（别的实例新开/截断）时，
     /// 读回必须是 null（死链）而不是空串——空串正是「详情面板空白」的直接来源
     /// </summary>

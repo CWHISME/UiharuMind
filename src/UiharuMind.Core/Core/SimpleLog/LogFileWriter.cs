@@ -20,8 +20,12 @@ namespace UiharuMind.Core.Core.SimpleLog;
 /// 多实例防线：每个实例在自己文件的头部盖一个会话戳。别的实例 <c>RotateOnStartup</c>
 /// 会把本实例的 <c>Log.txt</c> 改名并新开一个——本实例的写句柄还在往旧 inode 写（数据
 /// 落在改名后的深处），而 <c>ResolvePath</c> 却指向新文件，表现为「详情面板空白
-/// （read=0）」。这里在 <c>Flush</c>/<c>Read</c> 时校验文件头戳，发现被接管就按「我的
-/// 最新数据所在的世代」校准 <c>_currentFileId</c> 并拿回 <c>Log.txt</c>，旧索引全部可读回。
+/// （read=0）」。这里在 <c>Flush</c>/<c>Read</c> 时校验文件头戳，发现被挪走就找到自己那份
+/// 文件现在在第几代，<b>就在那一代接着写</b>，旧索引全部可读回。
+///
+/// ⚠ 被挪走的一方<b>不抢回 Log.txt</b>：从前这里会滚动一代抢回来，两个实例同时开着就你抢我、
+/// 我抢你，每抢一次删掉最老的一代——实测 8 秒里两个实例互抢二十来次，十代日志全被冲成空文件。
+/// 代价是被挪走期间不按大小滚动（滚动要动 Log.txt），那份文件可以超过上限。
 /// </summary>
 internal sealed class LogFileWriter : IDisposable
 {
@@ -33,6 +37,7 @@ internal sealed class LogFileWriter : IDisposable
     private Stream? _stream;
     private long _offset; //当前文件已写入的字节数,也就是下一条的起点
     private int _currentFileId;
+    private int _generation; //正在写的那份文件在第几代:平时是 0,被别的实例挪走后是它现在的位置
 
     /// <summary>当前正在写入的文件代号</summary>
     public int CurrentFileId => _currentFileId;
@@ -55,8 +60,8 @@ internal sealed class LogFileWriter : IDisposable
     public long Append(ReadOnlySpan<byte> bytes)
     {
         EnsureOpen();
-        // 空文件即便超限也不滚动:否则一条超大正文会滚出一个又一个空文件
-        if (_offset > 0 && _offset + bytes.Length > _maxBytes) Rotate();
+        // 空文件即便超限也不滚动:否则一条超大正文会滚出一个又一个空文件;被挪走期间也不滚动(见类注释)
+        if (_generation == 0 && _offset > 0 && _offset + bytes.Length > _maxBytes) Rotate();
 
         long start = _offset;
         _stream!.Write(bytes);
@@ -78,7 +83,7 @@ internal sealed class LogFileWriter : IDisposable
     /// <returns>路径；已被滚动淘汰（死链）时为 null</returns>
     public string? ResolvePath(int fileId)
     {
-        int generation = _currentFileId - fileId;
+        int generation = _generation + _currentFileId - fileId;
         if (generation < 0 || generation >= _generations) return null;
         return GenerationPath(generation);
     }
@@ -131,7 +136,7 @@ internal sealed class LogFileWriter : IDisposable
         Close();
         _currentFileId++;
         _offset = 0;
-        File.Delete(GenerationPath(0));
+        File.Delete(GenerationPath(_generation));
     }
 
     /// <summary>
@@ -144,10 +149,8 @@ internal sealed class LogFileWriter : IDisposable
     }
 
     /// <summary>
-    /// 校验 Log.txt 是否仍归本实例。被别的实例换走后：
-    /// 按「我的最新数据所在世代」校准 <c>_currentFileId</c>，再 Rotate 拿回 Log.txt。
-    /// 外部每推一代,<c>currentFileId</c> 与全目录文件同步 +1,校准后旧索引的
-    /// <c>ResolvePath</c> 恰好指向改名后的文件,已写日志全部可读回。
+    /// 校验正在写的那份文件是否还在原位。被别的实例往后推了几代，就把 <c>_generation</c> 跟过去、
+    /// 在那里接着写；文件号不变，<c>ResolvePath</c> 按新位置换算，已写日志全部可读回
     /// </summary>
     private void EnsureOwnership()
     {
@@ -165,9 +168,17 @@ internal sealed class LogFileWriter : IDisposable
 
         try
         {
-            _currentFileId += FindLatestOwnedGeneration();
             Close(); //旧句柄指向已被改名的文件,数据仍在原地
-            Rotate(); //全目录推一代并拿回 Log.txt(Rotate 内部 EnsureOpen 会盖新戳)
+            int moved = FindCurrentFileGeneration();
+            if (moved < 0)
+            {
+                // 自己那份已被推出链外:只能新开一份。这是唯一还会动 Log.txt 的情形,链要被推满十代才走到这里
+                _generation = 0;
+                Rotate();
+                return;
+            }
+            _generation = moved;
+            EnsureOpen();
         }
         catch (Exception)
         {
@@ -179,20 +190,23 @@ internal sealed class LogFileWriter : IDisposable
     {
         if (_stream != null) return;
         Directory.CreateDirectory(_directory);
-        FileStream fs = new(GenerationPath(0), FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+        string path = GenerationPath(_generation);
+        // 戳要用只读流核:追加流读不了
+        if (File.Exists(path) && new FileInfo(path).Length > 0 && !OwnsFile(path))
+        {
+            // 非空且不是本会话:别人的文件,推一代后接管(只在启动、Reset 时走到,那时本就该新开 Log.txt)
+            _generation = 0;
+            Rotate();
+            return;
+        }
+
+        FileStream fs = new(path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
         if (fs.Length == 0)
         {
             // 新文件:盖本会话戳作为身份标记,正文偏移一律从戳之后算
             byte[] tag = Encoding.UTF8.GetBytes(_sessionTag);
             fs.Write(tag);
             _offset = tag.Length;
-        }
-        else if (!StartsWithSessionTag(fs))
-        {
-            // 非空且不是本会话:别人的文件,推一代后接管
-            fs.Dispose();
-            Rotate();
-            return;
         }
         else
         {
@@ -215,36 +229,41 @@ internal sealed class LogFileWriter : IDisposable
         }
 
         _currentFileId++;
+        _generation = 0;
         _offset = 0;
         EnsureOpen();
     }
 
-    // 本会话标记出现的最大世代号:外部实例每启动一次就把整条链推一代,
-    // 「最大世代」正是本实例最后写入的那份文件被外部改名后的位置
-    private int FindLatestOwnedGeneration()
+    // 正在写的那份文件现在在第几代:链只会往后推,所以从原位往后找第一份带本会话戳的
+    // (更深处带戳的是本实例更早滚出去的文件);找不到为 -1
+    private int FindCurrentFileGeneration()
     {
-        int latest = 0;
-        for (int generation = 1; generation < _generations; generation++)
+        for (int generation = _generation + 1; generation < _generations; generation++)
         {
             string path = GenerationPath(generation);
             if (!File.Exists(path)) continue;
             try
             {
                 using FileStream fs = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-                if (StartsWithSessionTag(fs)) latest = generation;
+                if (StartsWithSessionTag(fs)) return generation;
             }
             catch (Exception)
             {
                 // 单代读失败跳过,不影响其余世代
             }
         }
-        return latest;
+        return -1;
     }
 
     private bool IsCurrentOwned()
     {
-        string path = GenerationPath(0);
-        if (!File.Exists(path)) return true; //Log.txt 不存在:稍后 EnsureOpen 会创建并盖戳
+        string path = GenerationPath(_generation);
+        if (!File.Exists(path)) return true; //不存在:稍后 EnsureOpen 会创建并盖戳
+        return OwnsFile(path);
+    }
+
+    private bool OwnsFile(string path)
+    {
         try
         {
             using FileStream fs = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
