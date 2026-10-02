@@ -62,6 +62,17 @@ public class GroupSceneTests
         Assert.Equal(shares, scene.Contains("写成草稿目录里的文件")); //长材料有地方放，才让他挪出去
     }
 
+    [Theory]
+    [InlineData(true, true, true)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    public void Scene_AsksToClaimWork_OnlyWhenHeCanTouchTheWorkspaceAndPostMidTurn(bool shares, bool canPost, bool expected)
+    {
+        string scene = GroupTranscript.BuildScene(new GroupScene("会审", "Alice", [new GroupMemberPresence("Bob", "")], "我", canPost, null, shares));
+
+        Assert.Equal(expected, scene.Contains("动手前先认领"));
+    }
+
     /// <summary>群成员的产出落群壳那一间：一起干的活在一处，不必从各人目录里拼</summary>
     [Fact]
     public void Members_ShareTheGroupsOutputRoom()
