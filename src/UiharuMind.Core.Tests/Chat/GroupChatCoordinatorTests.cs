@@ -467,6 +467,46 @@ public class GroupChatCoordinatorTests
     }
 
     [Fact]
+    public async Task EpisodeEnded_ReportsTheRangeAndFiresAfterTheGroupIsIdle()
+    {
+        List<GroupEpisodeSummary> ended = [];
+        bool idleWhenRaised = false;
+        _coordinator.EpisodeEnded += summary =>
+        {
+            idleWhenRaised = !_coordinator.IsRunning(_group.SessionId);
+            ended.Add(summary);
+        };
+
+        await _coordinator.PostAsync(_group, "大家好");
+        await _coordinator.ContinueAsync(_group);
+
+        Assert.True(idleWhenRaised); //离席要在这里当场开下一波，不能撞上「还在跑」
+        Assert.Equal(2, ended.Count);
+        Assert.Equal((0, 0, 3, 2, false),
+            (ended[0].KickoffPostIndex, ended[0].Start, ended[0].End, ended[0].MemberPostCount, ended[0].Stopped));
+        Assert.Equal(((int?)null, 3, 5, 2), (ended[1].KickoffPostIndex, ended[1].Start, ended[1].End, ended[1].MemberPostCount));
+    }
+
+    [Fact]
+    public async Task EpisodeEnded_KnowsTheEpisodeWasStopped()
+    {
+        GroupEpisodeSummary? ended = null;
+        _coordinator.EpisodeEnded += summary => ended = summary;
+        _runner.During[_alice.SessionId] = () =>
+        {
+            _coordinator.Stop(_group.SessionId);
+            return Task.CompletedTask;
+        };
+        _runner.Fail.Add(_alice.SessionId);
+
+        await _coordinator.PostAsync(_group, "大家好");
+
+        Assert.NotNull(ended);
+        Assert.True(ended.Stopped);
+        Assert.Equal(0, ended.MemberPostCount);
+    }
+
+    [Fact]
     public async Task FailedTurn_PostsNothingButTheRoundGoesOn()
     {
         _runner.Fail.Add(_alice.SessionId);

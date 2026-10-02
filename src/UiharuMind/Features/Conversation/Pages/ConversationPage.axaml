@@ -56,6 +56,10 @@
                               HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Spacing="10">
                         <group:GroupMembersPanel DataContext="{Binding Conversation.Group.Members}" />
+                        <!-- 离席：只有智能体群有（ADR 0055）。显隐放外层：绑在面板自己身上会按它换过的 DataContext 去找 -->
+                        <Border IsVisible="{Binding Conversation.Group.Away, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <group:GroupAwayPanel DataContext="{Binding Conversation.Group.Away}" />
+                        </Border>
                         <!-- 本群产物：群到底落了哪些盘（方案 v6 §1.4 产出锚点） -->
                         <group:GroupArtifactsPanel DataContext="{Binding Conversation.Group.Artifacts}" />
                     </StackPanel>

@@ -176,7 +176,13 @@ public class ChatSession
     /// </summary>
     public string? GroupBriefing { get; set; }
 
-    /// <summary>会话是不是群成员会话</summary>
+    /// <summary>
+    /// 群的化身会话（ADR 0055）：离席时替用户坐在群里。也挂 <see cref="GroupId"/>（权限、工作区、轮次闸、级联删除照成员走），
+    /// 但不进名单、对成员而言说的话就是用户说的。每群至多一份，见 <see cref="Group.GroupAvatar"/>
+    /// </summary>
+    public bool IsGroupAvatar { get; set; }
+
+    /// <summary>会话是不是群成员会话（含化身）</summary>
     [JsonIgnore]
     public bool IsGroupMember => !string.IsNullOrEmpty(GroupId);
 
@@ -585,6 +591,7 @@ public class ChatSession
             IsAgentGroup = IsAgentGroup,
             GroupId = GroupId,
             HasLeftGroup = HasLeftGroup,
+            IsGroupAvatar = IsGroupAvatar,
             GroupMemberSessionIds = GroupMemberSessionIds,
         };
     }

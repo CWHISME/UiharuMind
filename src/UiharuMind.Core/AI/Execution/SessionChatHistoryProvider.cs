@@ -151,8 +151,9 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
                 // 记一笔：前缀是随机冒出来的，剥掉后就看不见了，攒日志才看得出措辞改了有没有用
                 foreach (ChatMessage message in context.ResponseMessages)
                 {
-                    if (GroupTranscript.StripOwnPrefix(message, session.CharacterData.CharacterName))
-                        Log.Debug($"Group member '{session.CharacterData.CharacterName}' self-added speaker prefix, stripped.");
+                    string speaker = GroupSceneSource.SpeakerNameOf(session);
+                    if (GroupTranscript.StripOwnPrefix(message, speaker))
+                        Log.Debug($"Group member '{speaker}' self-added speaker prefix, stripped.");
                 }
             }
 

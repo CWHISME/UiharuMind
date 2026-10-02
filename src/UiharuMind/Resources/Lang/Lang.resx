@@ -3518,4 +3518,106 @@ Allow them?</value>
         <value>Model list updated.</value>
     </data>
 
+    <data name="GroupAwayTitle" xml:space="preserve">
+        <value>Away</value>
+    </data>
+    <data name="GroupAwayHint" xml:space="preserve">
+        <value>While you're away, your avatar sits in for you: at the end of each wave it decides for you and keeps things moving or stops.</value>
+    </data>
+    <data name="GroupAwayGoalPlaceholder" xml:space="preserve">
+        <value>Goal (notes welcome, e.g. "leave the docs folder alone this time"); posted to the group as you</value>
+    </data>
+    <data name="GroupAwayModelLabel" xml:space="preserve">
+        <value>Avatar model</value>
+    </data>
+    <data name="GroupAwayStart" xml:space="preserve">
+        <value>Go away</value>
+    </data>
+    <data name="GroupAwayEnd" xml:space="preserve">
+        <value>End away</value>
+    </data>
+    <data name="GroupAwayWakeNow" xml:space="preserve">
+        <value>Wake now</value>
+    </data>
+    <data name="GroupAwayOpenAvatar" xml:space="preserve">
+        <value>Open avatar</value>
+    </data>
+    <data name="GroupAwayStatusFormat" xml:space="preserve">
+        <value>Away · avatar acted {0} times</value>
+    </data>
+    <data name="GroupAwayAvatarThinking" xml:space="preserve">
+        <value>Your avatar is reviewing the group…</value>
+    </data>
+    <data name="GroupAwayCountdownFormat" xml:space="preserve">
+        <value>Avatar wakes in {0}</value>
+    </data>
+    <data name="GroupAvatarSender" xml:space="preserve">
+        <value>Avatar</value>
+    </data>
+    <data name="GroupAwayReceiptTitleFormat" xml:space="preserve">
+        <value>Away ended: {0}</value>
+    </data>
+    <data name="GroupAwayReasonDone" xml:space="preserve">
+        <value>goal reached</value>
+    </data>
+    <data name="GroupAwayReasonNeedsUser" xml:space="preserve">
+        <value>needs your decision</value>
+    </data>
+    <data name="GroupAwayReasonManual" xml:space="preserve">
+        <value>ended by you</value>
+    </data>
+    <data name="GroupAwayReasonDurationFuse" xml:space="preserve">
+        <value>time limit reached</value>
+    </data>
+    <data name="GroupAwayReasonTurnsFuse" xml:space="preserve">
+        <value>avatar turn limit reached</value>
+    </data>
+    <data name="GroupAwayReasonIdleFuse" xml:space="preserve">
+        <value>no new output for many waves</value>
+    </data>
+    <data name="GroupAwayReceiptStatsFormat" xml:space="preserve">
+        <value>Lasted {0}; avatar acted {1} times and spoke {2} times for you</value>
+    </data>
+    <data name="GroupAwayReceiptApprovalsFormat" xml:space="preserve">
+        <value>Approvals: {0} ({1} approved, {2} denied)</value>
+    </data>
+    <data name="GroupAwayReceiptDeniedFormat" xml:space="preserve">
+        <value>Denied {1} from {0}: {2}</value>
+    </data>
+    <data name="GroupAwayReceiptActionsFormat" xml:space="preserve">
+        <value>Avatar did: {0}</value>
+    </data>
+    <data name="GroupAwayReceiptSummaryFormat" xml:space="preserve">
+        <value>Note: {0}</value>
+    </data>
+    <data name="GroupAwayDurationHoursFormat" xml:space="preserve">
+        <value>{0} h {1} min</value>
+    </data>
+    <data name="GroupAwayDurationMinutesFormat" xml:space="preserve">
+        <value>{0} min</value>
+    </data>
+    <data name="AgentSettingAway" xml:space="preserve">
+        <value>Group away</value>
+    </data>
+    <data name="AgentSettingAwayDesc" xml:space="preserve">
+        <value>While you're away your avatar keeps an agent group moving. These are runaway guards and wake pacing; the defaults are generous.</value>
+    </data>
+    <data name="AgentSettingAwayMaxHours" xml:space="preserve">
+        <value>Max away time (hours)</value>
+    </data>
+    <data name="AgentSettingAwayMaxAvatarTurns" xml:space="preserve">
+        <value>Max avatar turns</value>
+    </data>
+    <data name="AgentSettingAwayMaxIdleWaves" xml:space="preserve">
+        <value>End after this many waves without new output</value>
+    </data>
+    <data name="AgentSettingAwayBackoffStart" xml:space="preserve">
+        <value>First delay when stalled (seconds, doubling after)</value>
+    </data>
+    <data name="AgentSettingAwayBackoffMax" xml:space="preserve">
+        <value>Max delay when stalled (minutes)</value>
+    </data>
+    <data name="AgentSettingAwayStopDelay" xml:space="preserve">
+        <value>Wake the avatar this long after a stop (minutes)</value>
+    </data>
 </root>

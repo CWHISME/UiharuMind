@@ -10,6 +10,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
+using UiharuMind.Core.AI.Chat.Group.Away;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Group;
 using UiharuMind.Features.Conversation.Pages;
@@ -35,6 +36,9 @@ internal static class GroupDevCommands
         new GroupContinueCommand(),
         new GroupWaitCommand(),
         new GroupDumpCommand(),
+        new GroupAwayStartCommand(),
+        new GroupAwayEndCommand(),
+        new GroupAwayWaitCommand(),
     ];
 
     /// <summary>按脚本参数里的群名（<c>group</c>）找群壳会话</summary>
@@ -77,10 +81,25 @@ internal static class GroupDevCommands
         return page.Conversation;
     }
 
+    /// <summary>点开群、取右栏离席块（只有智能体群有）</summary>
+    /// <param name="group">群壳会话</param>
+    /// <returns>离席块的视图数据</returns>
+    internal static async Task<GroupAwayViewData> AwayOf(ChatSession group)
+    {
+        ConversationViewModel conversation = await OpenAsync(group.SessionId);
+        return conversation.Group?.Away ?? throw new ArgumentException($"group '{group.Title}' has no away panel (not an agent group)");
+    }
+
     internal static int IntOr(JsonElement args, string name, int fallback) =>
         args.ValueKind == JsonValueKind.Object && args.TryGetProperty(name, out JsonElement value) &&
         value.ValueKind == JsonValueKind.Number
             ? value.GetInt32()
+            : fallback;
+
+    internal static bool BoolOr(JsonElement args, string name, bool fallback) =>
+        args.ValueKind == JsonValueKind.Object && args.TryGetProperty(name, out JsonElement value) &&
+        value.ValueKind is JsonValueKind.True or JsonValueKind.False
+            ? value.GetBoolean()
             : fallback;
 
     internal static string? StringOr(JsonElement args, string name) =>
@@ -227,13 +246,16 @@ internal sealed class GroupDumpCommand : IDevCommand
         List<(string Name, ChatSession? Session)> members = GroupRoster.Of(group).Present
             .Select(member => (member.Name, SessionManager.Instance.Load(member.SessionId)))
             .ToList();
+        if (GroupAvatar.MetaOf(group.SessionId) is { } avatar) members.Add(("化身", SessionManager.Instance.Load(avatar.SessionId)));
 
         StringBuilder text = new();
         text.AppendLine($"# {group.Title}").AppendLine();
         text.AppendLine("## 流水").AppendLine();
         foreach (ChatMessage post in group.History)
         {
-            string speaker = post.Role == ChatRole.User ? "用户" : post.AuthorName ?? "?";
+            string speaker = ChatMessageAnnotations.GroupAwayReceiptOf(post) != null ? "离席回执"
+                : ChatMessageAnnotations.GroupAvatarPostOf(post) != null ? "用户（化身）"
+                : post.Role == ChatRole.User ? "用户" : post.AuthorName ?? "?";
             text.AppendLine($"### {speaker}").AppendLine().AppendLine(post.Text.Trim()).AppendLine();
         }
 
@@ -244,8 +266,7 @@ internal sealed class GroupDumpCommand : IDevCommand
             text.AppendLine($"- {name}：输入 {session?.TotalInputTokens ?? 0} · 输出 {session?.TotalOutputTokens ?? 0} · 工具调用 {toolCalls} 次");
         }
 
-        IReadOnlyList<GroupArtifact> artifacts = GroupArtifacts.Collect(GroupArtifacts.DraftRoomOf(group), group.WorkspacePath,
-            members.Select(x => (x.Name, x.Session == null ? [] : GroupWrittenPaths.Of(x.Session, GroupArtifacts.MemberPathsOf(group)))));
+        IReadOnlyList<GroupArtifact> artifacts = GroupArtifacts.CollectFor(group);
         text.AppendLine().AppendLine("## 本群产物").AppendLine();
         foreach (GroupArtifact artifact in artifacts)
         {
@@ -254,5 +275,83 @@ internal sealed class GroupDumpCommand : IDevCommand
 
         File.WriteAllText(path, text.ToString());
         return new { group = group.Title, posts = group.History.Count, artifacts = artifacts.Count, path };
+    }
+}
+
+/// <summary>
+/// 开始离席：点开群，在右栏离席块里填目标、选化身模型、点「开始离席」。<c>args</c>：group、goal、model（模型名，省略跟随全局）
+/// </summary>
+internal sealed class GroupAwayStartCommand : IAsyncDevCommand
+{
+    public string Name => "group.away.start";
+
+    public async Task<object?> ExecuteAsync(JsonElement args)
+    {
+        ChatSession group = GroupDevCommands.RequireGroup(args);
+        GroupAwayViewData away = await GroupDevCommands.AwayOf(group);
+        away.Goal = DevCommandRegistry.RequireString(args, "goal");
+        if (GroupDevCommands.StringOr(args, "model") is { } model)
+        {
+            away.SelectedModel = away.ModelOptions.FirstOrDefault(x => x.ModelName == model)
+                                 ?? throw new ArgumentException($"model '{model}' not found");
+        }
+
+        away.StartCommand.Execute(null);
+        return new { group = group.Title, away = GroupAwayController.Instance.IsAway(group.SessionId), model = away.SelectedModel.DisplayName };
+    }
+}
+
+/// <summary>点离席块上的「结束离席」</summary>
+internal sealed class GroupAwayEndCommand : IAsyncDevCommand
+{
+    public string Name => "group.away.end";
+
+    public async Task<object?> ExecuteAsync(JsonElement args)
+    {
+        ChatSession group = GroupDevCommands.RequireGroup(args);
+        (await GroupDevCommands.AwayOf(group)).EndCommand.Execute(null);
+        return new { group = group.Title };
+    }
+}
+
+/// <summary>
+/// 等离席结束。<c>args</c>：group、timeoutMinutes（到点就点「结束离席」收场）、skipDelays（true 时一出倒计时就点「立即唤醒」，冒烟不必真等退避）。
+/// 报告带化身出手次数与回执原文
+/// </summary>
+internal sealed class GroupAwayWaitCommand : IAsyncDevCommand
+{
+    public string Name => "group.away.wait";
+
+    public async Task<object?> ExecuteAsync(JsonElement args)
+    {
+        ChatSession group = GroupDevCommands.RequireGroup(args);
+        GroupAwayViewData away = await GroupDevCommands.AwayOf(group);
+        TimeSpan timeout = TimeSpan.FromMinutes(GroupDevCommands.IntOr(args, "timeoutMinutes", 60));
+        bool skipDelays = GroupDevCommands.BoolOr(args, "skipDelays", false);
+
+        Stopwatch watch = Stopwatch.StartNew();
+        int wakes = 0;
+        bool timedOut = false;
+        while (GroupAwayController.Instance.IsAway(group.SessionId))
+        {
+            if (watch.Elapsed > timeout)
+            {
+                timedOut = true;
+                away.EndCommand.Execute(null);
+                break;
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(2));
+            if (!skipDelays || !away.HasCountdown) continue;
+            wakes++;
+            away.WakeNowCommand.Execute(null);
+        }
+
+        GroupAwayReceipt? receipt = group.History.Select(GroupAwayReceipt.Of).LastOrDefault(x => x != null);
+        return new
+        {
+            group = group.Title, timedOut, elapsedSeconds = (int)watch.Elapsed.TotalSeconds, skippedDelays = wakes,
+            receipt = receipt == null ? null : GroupAwayReceiptText.Format(receipt),
+        };
     }
 }

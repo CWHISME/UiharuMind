@@ -133,6 +133,17 @@ public static class ChatMessageAnnotations
     public const string GroupSpeakerSession = "_groupSpeakerSession";
 
     /// <summary>
+    /// 化身替用户说的群发言：值为化身会话标识（ADR 0055）。消息本身是用户发言，成员看到的就是用户说的；
+    /// 这个标记只给界面画「化身」、给回执认它，投递时据此跳过化身自己的话
+    /// </summary>
+    public const string GroupAvatarPost = "_groupAvatarPost";
+
+    /// <summary>
+    /// 离席回执：群流水里一条只给人看的记录，值为回执 JSON（ADR 0055）。<b>永不投递</b>给成员与化身
+    /// </summary>
+    public const string GroupAwayReceipt = "_groupAwayReceipt";
+
+    /// <summary>
     /// 群投递标记：成员会话里这条 user 消息是群里别人的发言（投递或插话），不是用户私聊说的话。
     /// 呈现轴：存储与供给仍是合成的一条，渲染按 <c>[名字]: </c> 拆成各发言人的气泡。
     /// 带它之前落盘的旧投递没有标记，渲染侧另有兜底
@@ -222,6 +233,24 @@ public static class ChatMessageAnnotations
         message.AdditionalProperties ??= new AdditionalPropertiesDictionary();
         message.AdditionalProperties[GroupSpeaker] = characterId;
         message.AdditionalProperties[GroupSpeakerSession] = memberSessionId;
+    }
+
+    /// <summary>给一条用户发言盖上「化身替用户说的」。就地写：调用方随后把同一引用追加进群流水</summary>
+    /// <param name="message">群发言（用户角色）</param>
+    /// <param name="avatarSessionId">化身会话标识</param>
+    public static void MarkGroupAvatarPost(ChatMessage message, string avatarSessionId)
+    {
+        message.AdditionalProperties ??= new AdditionalPropertiesDictionary();
+        message.AdditionalProperties[GroupAvatarPost] = avatarSessionId;
+    }
+
+    /// <summary>给一条群流水记录盖上离席回执。就地写</summary>
+    /// <param name="message">记录</param>
+    /// <param name="receiptJson">回执 JSON</param>
+    public static void MarkGroupAwayReceipt(ChatMessage message, string receiptJson)
+    {
+        message.AdditionalProperties ??= new AdditionalPropertiesDictionary();
+        message.AdditionalProperties[GroupAwayReceipt] = receiptJson;
     }
 
     /// <summary>给一条投递进成员会话的群发言盖上标记。就地写：调用方随后交出去的是同一引用</summary>
@@ -317,6 +346,16 @@ public static class ChatMessageAnnotations
     /// <param name="message">消息</param>
     /// <returns>成员会话标识；不是成员的群发言（含用户发言）为 null</returns>
     public static string? GroupSpeakerSessionOf(ChatMessage message) => ReadString(message, GroupSpeakerSession);
+
+    /// <summary>读化身替用户说的群发言出自哪个化身会话</summary>
+    /// <param name="message">消息</param>
+    /// <returns>化身会话标识；不是化身说的为 null</returns>
+    public static string? GroupAvatarPostOf(ChatMessage message) => ReadString(message, GroupAvatarPost);
+
+    /// <summary>读离席回执</summary>
+    /// <param name="message">消息</param>
+    /// <returns>回执 JSON；不是回执为 null</returns>
+    public static string? GroupAwayReceiptOf(ChatMessage message) => ReadString(message, GroupAwayReceipt);
 
     private static string? ReadString(ChatMessage message, string key)
     {

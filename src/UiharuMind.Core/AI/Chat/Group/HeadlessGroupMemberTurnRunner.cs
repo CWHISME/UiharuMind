@@ -25,6 +25,12 @@ public sealed class HeadlessGroupMemberTurnRunner : IGroupMemberTurnRunner
     /// </summary>
     public static Action<ChatSession>? ApprovalWaitingNotifier { get; set; }
 
+    /// <summary>
+    /// 离席期间的审批通道（ADR 0055）：返回非空就由化身接，不等用户。每批审批现问一次——离席可能在一轮中途开始或结束。
+    /// 静态口，由 <c>GroupAwayController.Instance</c> 接上
+    /// </summary>
+    public static Func<ChatSession, CancellationToken, ApprovalResolver?>? AwayApprovals { get; set; }
+
     /// <inheritdoc />
     public async Task<bool> RunAsync(ChatSession member, ChatMessage input, Func<Task>? onReplyFinishing,
         CancellationToken cancellationToken)
@@ -44,6 +50,8 @@ public sealed class HeadlessGroupMemberTurnRunner : IGroupMemberTurnRunner
         // 成员自己那份由 TurnDriver 登记（右栏成员列表认它）
         async Task<IReadOnlyList<ChatMessage>> Resolver(IReadOnlyList<ToolApprovalRequestContent> requests)
         {
+            if (AwayApprovals?.Invoke(member, cancellationToken) is { } away) return await away(requests).ConfigureAwait(false);
+
             using IDisposable waiting = SessionManager.Instance.Running.BeginApprovalWait(member.GroupId);
             return await waitForUser(requests).ConfigureAwait(false);
         }

@@ -30,6 +30,9 @@ public enum DefaultCharacter
     /// <summary>老的只读子会话身份载体(内部角色，仅为重建存量)</summary>
     LegacyExploreAgent,
 
+    /// <summary>群的化身(ADR 0055):离席时替用户坐在智能体群里，注入用户卡</summary>
+    GroupAvatarAgent,
+
     /// <summary>翻译</summary>
     TranslationPrompt,
 

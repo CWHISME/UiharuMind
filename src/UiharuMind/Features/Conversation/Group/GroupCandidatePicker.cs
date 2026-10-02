@@ -49,26 +49,9 @@ public partial class GroupCandidatePicker : ObservableObject
     public GroupCandidatePicker(IReadOnlyList<CharacterData>? alwaysListed = null,
         IReadOnlySet<string>? excludedIds = null, IReadOnlySet<string>? formerIds = null)
     {
-        // 成员模型的选项：默认「跟随全局」+ 当前模型清单。模型清单打开窗口时拍一张快照即可
-        // （窗口是模态的短命界面，模型列表在这几秒里变了的概率和代价都不值得挂订阅）
-        ModelOptions.Add(new SessionModelOption
-        {
-            IsDefault = true,
-            DisplayName = Loc.Text(LangKey.GroupModelFollowGlobal),
-        });
-        if (App.ModelService?.ModelSources is { } sources)
-        {
-            foreach (ModelRunningData model in sources)
-            {
-                ModelOptions.Add(new SessionModelOption
-                {
-                    ModelName = model.ModelName,
-                    DisplayName = model.ModelName,
-                    IsRemoteModel = model.IsRemoteModel,
-                    IsVisionModel = model.IsVisionModel,
-                });
-            }
-        }
+        // 成员模型的选项：默认「跟随全局」+ 当前模型清单，打开窗口时拍一张快照
+        foreach (SessionModelOption option in SessionModelOption.SnapshotWithDefault(Loc.Text(LangKey.GroupModelFollowGlobal)))
+            ModelOptions.Add(option);
 
         // 候选与建群时的校验同源(GroupChatSessions.CanJoin)：两类群都收所有非用户卡——
         // agent 卡进普通群以 chat 形态加入（不带工具，ADR 0050 决策 3）

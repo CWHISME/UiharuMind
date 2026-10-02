@@ -59,6 +59,9 @@ public partial class AgentSettingViewData : ViewModelBase
     /// <summary>凭据与链路状态自成一块,见 <see cref="WebSearchSettingsViewData"/></summary>
     public WebSearchSettingsViewData WebSearch { get; } = new();
 
+    /// <summary>群聊离席的保险丝与唤醒节奏（ADR 0055）</summary>
+    public GroupAwaySettingsViewData Away { get; } = new();
+
     //================= 生图 =================
     /// <summary>生图模型的一句话摘要；列表本身在模型页（ADR 0052：那是一张模型清单，不是 agent 设置）</summary>
     [ObservableProperty] private string _imageModelsSummary = string.Empty;

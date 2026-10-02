@@ -1,0 +1,56 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:group="clr-namespace:UiharuMind.Features.Conversation.Group"
+             xmlns:panels="clr-namespace:UiharuMind.Features.Conversation.SidePanels"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="200"
+             x:Class="UiharuMind.Features.Conversation.Group.GroupAwayPanel"
+             x:DataType="group:GroupAwayViewData">
+
+    <!-- 离席（ADR 0055）：离开时化身替用户坐在群里，每一波结束替他拍板、决定接着推还是停下 -->
+    <Border BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}" CornerRadius="8" Padding="8">
+        <StackPanel Spacing="8">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"
+                           Text="{loc:Loc GroupAwayTitle}" />
+                <Button Grid.Column="1" Classes="Tertiary" Padding="6,2" FontSize="11"
+                        Content="{loc:Loc GroupAwayOpenAvatar}" Command="{Binding OpenAvatarCommand}" />
+            </Grid>
+            <TextBlock Classes="muted" Text="{loc:Loc GroupAwayHint}" TextWrapping="Wrap" />
+
+            <!-- 没在离席：目标（以用户的名义发进群）+ 化身模型 -->
+            <StackPanel Spacing="6" IsVisible="{Binding IsIdle}">
+                <TextBox Text="{Binding Goal}" PlaceholderText="{loc:Loc GroupAwayGoalPlaceholder}"
+                         AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="160" />
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                    <TextBlock Classes="muted" VerticalAlignment="Center" Text="{loc:Loc GroupAwayModelLabel}" />
+                    <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding ModelOptions}" SelectedItem="{Binding SelectedModel}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="panels:SessionModelOption">
+                                <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </Grid>
+                <Button HorizontalAlignment="Right" Content="{loc:Loc GroupAwayStart}" Command="{Binding StartCommand}" />
+            </StackPanel>
+
+            <!-- 离席中：状态、倒计时与动作 -->
+            <StackPanel Spacing="6" IsVisible="{Binding IsAway}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Border Classes="status-dot" Tag="Progress" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding StatusLine}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                </StackPanel>
+                <TextBlock Classes="muted" FontSize="11" Text="{Binding CountdownLine}" IsVisible="{Binding HasCountdown}" />
+                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
+                    <Button Classes="Tertiary" Content="{loc:Loc GroupAwayWakeNow}" Command="{Binding WakeNowCommand}"
+                            IsVisible="{Binding HasCountdown}" />
+                    <Button Content="{loc:Loc GroupAwayEnd}" Command="{Binding EndCommand}" />
+                </StackPanel>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

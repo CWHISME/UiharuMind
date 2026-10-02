@@ -3511,4 +3511,106 @@
         <value>模型列表已更新。</value>
     </data>
 
+    <data name="GroupAwayTitle" xml:space="preserve">
+        <value>离席</value>
+    </data>
+    <data name="GroupAwayHint" xml:space="preserve">
+        <value>离开时让化身替你坐在群里：每一波结束时它替你拍板，决定接着推还是停下。</value>
+    </data>
+    <data name="GroupAwayGoalPlaceholder" xml:space="preserve">
+        <value>目标（可附备注，如「这次别动文档目录」），会以你的名义发进群</value>
+    </data>
+    <data name="GroupAwayModelLabel" xml:space="preserve">
+        <value>化身模型</value>
+    </data>
+    <data name="GroupAwayStart" xml:space="preserve">
+        <value>开始离席</value>
+    </data>
+    <data name="GroupAwayEnd" xml:space="preserve">
+        <value>结束离席</value>
+    </data>
+    <data name="GroupAwayWakeNow" xml:space="preserve">
+        <value>立即唤醒</value>
+    </data>
+    <data name="GroupAwayOpenAvatar" xml:space="preserve">
+        <value>打开化身</value>
+    </data>
+    <data name="GroupAwayStatusFormat" xml:space="preserve">
+        <value>离席中 · 化身已出手 {0} 次</value>
+    </data>
+    <data name="GroupAwayAvatarThinking" xml:space="preserve">
+        <value>化身正在看群里的情况…</value>
+    </data>
+    <data name="GroupAwayCountdownFormat" xml:space="preserve">
+        <value>化身 {0} 后醒来</value>
+    </data>
+    <data name="GroupAvatarSender" xml:space="preserve">
+        <value>化身</value>
+    </data>
+    <data name="GroupAwayReceiptTitleFormat" xml:space="preserve">
+        <value>离席结束：{0}</value>
+    </data>
+    <data name="GroupAwayReasonDone" xml:space="preserve">
+        <value>目标达成</value>
+    </data>
+    <data name="GroupAwayReasonNeedsUser" xml:space="preserve">
+        <value>有事要你本人定</value>
+    </data>
+    <data name="GroupAwayReasonManual" xml:space="preserve">
+        <value>你手动结束</value>
+    </data>
+    <data name="GroupAwayReasonDurationFuse" xml:space="preserve">
+        <value>离席时长到顶</value>
+    </data>
+    <data name="GroupAwayReasonTurnsFuse" xml:space="preserve">
+        <value>化身出手次数到顶</value>
+    </data>
+    <data name="GroupAwayReasonIdleFuse" xml:space="preserve">
+        <value>连续多波没有新产物</value>
+    </data>
+    <data name="GroupAwayReceiptStatsFormat" xml:space="preserve">
+        <value>历时 {0}，化身出手 {1} 次，替你说了 {2} 句</value>
+    </data>
+    <data name="GroupAwayReceiptApprovalsFormat" xml:space="preserve">
+        <value>审批 {0} 条：批 {1}，驳 {2}</value>
+    </data>
+    <data name="GroupAwayReceiptDeniedFormat" xml:space="preserve">
+        <value>驳回 {0} 的 {1}：{2}</value>
+    </data>
+    <data name="GroupAwayReceiptActionsFormat" xml:space="preserve">
+        <value>化身自己动手：{0}</value>
+    </data>
+    <data name="GroupAwayReceiptSummaryFormat" xml:space="preserve">
+        <value>交代：{0}</value>
+    </data>
+    <data name="GroupAwayDurationHoursFormat" xml:space="preserve">
+        <value>{0} 小时 {1} 分</value>
+    </data>
+    <data name="GroupAwayDurationMinutesFormat" xml:space="preserve">
+        <value>{0} 分钟</value>
+    </data>
+    <data name="AgentSettingAway" xml:space="preserve">
+        <value>群聊离席</value>
+    </data>
+    <data name="AgentSettingAwayDesc" xml:space="preserve">
+        <value>离席时化身替你值守智能体群。下面是只防失控的保险丝与唤醒节奏，默认值给得很宽。</value>
+    </data>
+    <data name="AgentSettingAwayMaxHours" xml:space="preserve">
+        <value>最长离席（小时）</value>
+    </data>
+    <data name="AgentSettingAwayMaxAvatarTurns" xml:space="preserve">
+        <value>化身最多出手次数</value>
+    </data>
+    <data name="AgentSettingAwayMaxIdleWaves" xml:space="preserve">
+        <value>连续多少波没有新产物就结束</value>
+    </data>
+    <data name="AgentSettingAwayBackoffStart" xml:space="preserve">
+        <value>没进展时首次延迟（秒，之后逐次翻倍）</value>
+    </data>
+    <data name="AgentSettingAwayBackoffMax" xml:space="preserve">
+        <value>没进展时延迟封顶（分钟）</value>
+    </data>
+    <data name="AgentSettingAwayStopDelay" xml:space="preserve">
+        <value>按停止后多久再唤醒化身（分钟）</value>
+    </data>
 </root>

@@ -1,0 +1,6 @@
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"group.create","args":{"name":"离席冒烟","members":["ChenXiAgent","RationalAgent","BaiLuAgent"],"workspace":"{{WS_REPO}}","mode":"parallel","stop":"conservative","host":0,"permission":1}}
+{"op":"group.away.start","args":{"group":"离席冒烟","goal":"在工作区新建 NOTES.md，用三条要点说清 README.md 讲了什么；写完请一位成员复核措辞，定稿就算完成。备注：不要改 AGENTS.md 和 README.md。"}}
+{"op":"group.away.wait","args":{"group":"离席冒烟","timeoutMinutes":20,"skipDelays":true}}
+{"op":"group.dump","args":{"group":"离席冒烟","path":"{{OUT}}/group-away.md"}}
+{"op":"quit"}

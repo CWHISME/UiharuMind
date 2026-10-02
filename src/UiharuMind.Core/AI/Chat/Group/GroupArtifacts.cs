@@ -57,6 +57,27 @@ public static class GroupArtifacts
             MemoryLayout.GetMemoryDirectory(group.WorkspacePath, AgentOutputLayout.GetFolderName(group.WorkspacePath, group.SessionId)));
 
     /// <summary>
+    /// 收集本群产物（读会话管理器）：在群里待过的成员、加上化身写过的都算，退群的人写过的照样列
+    /// </summary>
+    /// <param name="group">群壳会话</param>
+    /// <returns>产物，最近改过的在前</returns>
+    public static IReadOnlyList<GroupArtifact> CollectFor(ChatSession group)
+    {
+        List<(string, IReadOnlyList<string>)> writers = [];
+        AgentPathResolver paths = MemberPathsOf(group);
+        IEnumerable<string> sessionIds = GroupRoster.Of(group).Everyone.Select(x => x.SessionId);
+        if (GroupAvatar.MetaOf(group.SessionId) is { } avatar) sessionIds = sessionIds.Append(avatar.SessionId);
+        foreach (string id in sessionIds)
+        {
+            if (SessionManager.Instance.Load(id) is not { } writer) continue;
+            // 历史已卸掉的用缓存，不为这一张清单把整份历史读回来
+            writers.Add((GroupSceneSource.SpeakerNameOf(writer), GroupWrittenPaths.Of(writer, paths)));
+        }
+
+        return Collect(DraftRoomOf(group), group.WorkspacePath, writers);
+    }
+
+    /// <summary>
     /// 收集本群产物，最近改过的在前
     /// </summary>
     /// <param name="draftRoom">草稿目录绝对路径</param>

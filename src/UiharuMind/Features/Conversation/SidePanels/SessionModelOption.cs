@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
+using UiharuMind.Core.AI.Core;
 
 namespace UiharuMind.Features.Conversation.SidePanels;
 
@@ -21,6 +22,31 @@ public partial class SessionModelOption : ObservableObject
     public bool IsVisionModel { get; set; }
 
     [ObservableProperty] private string _displayName = string.Empty;
+
+    /// <summary>
+    /// 模型下拉的一份快照：默认哨兵在首位，后接当前模型清单。给模态的短命界面用——
+    /// 模型列表在那几秒里变了的概率和代价都不值得挂订阅
+    /// </summary>
+    /// <param name="defaultLabel">默认哨兵的显示名（如「跟随全局」）</param>
+    /// <returns>选项，默认在首位</returns>
+    public static List<SessionModelOption> SnapshotWithDefault(string defaultLabel)
+    {
+        List<SessionModelOption> options = [new SessionModelOption { IsDefault = true, DisplayName = defaultLabel }];
+        if (App.ModelService?.ModelSources is not { } sources) return options;
+
+        foreach (ModelRunningData model in sources)
+        {
+            options.Add(new SessionModelOption
+            {
+                ModelName = model.ModelName,
+                DisplayName = model.ModelName,
+                IsRemoteModel = model.IsRemoteModel,
+                IsVisionModel = model.IsVisionModel,
+            });
+        }
+
+        return options;
+    }
 
     /// <summary>
     /// 钉选名对应哪类条目：空=默认，列表里有=模型，没有=保留的缺失条。

@@ -14,7 +14,7 @@ namespace UiharuMind.Core.AI.Chat.Group;
 /// 于是「送达即不可改」（0046 决策 6）与只追加的顺序由构造保证</item>
 /// </list>
 /// </summary>
-public sealed class GroupChatCoordinator : IGroupTurnHost
+public sealed partial class GroupChatCoordinator : IGroupTurnHost
 {
     private readonly IGroupMemberTurnRunner _runner;
     private readonly Func<string, ChatSession?> _load;
@@ -47,6 +47,18 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
     /// </summary>
     public event Action<string>? SpeakerChanged;
 
+    /// <summary>
+    /// 一波收场了，且群已报空闲：此时开下一波（<see cref="PostAsync"/> / <see cref="ContinueAsync"/>）不会被当成重复调用。
+    /// ⚠️ <b>来自后台线程</b>，订阅方自行 marshal；订阅方抛出只记日志
+    /// </summary>
+    public event Action<GroupEpisodeSummary>? EpisodeEnded;
+
+    /// <summary>
+    /// 用户本人往群里说了一句（化身替用户说的不算），参数是群壳会话标识。离席据此取消正在走的倒计时。
+    /// ⚠️ 订阅方抛出只记日志
+    /// </summary>
+    public event Action<string>? UserPosted;
+
     /// <summary>这个群此刻是不是在跑一波</summary>
     /// <param name="groupId">群壳会话标识</param>
     /// <returns>在跑为 true</returns>
@@ -66,9 +78,34 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
     /// <param name="group">群壳会话</param>
     /// <param name="text">发言（附件的路径引用已拼在正文里）</param>
     /// <param name="images">随发言发出的图片；没有为 null</param>
-    public async Task PostAsync(ChatSession group, string text, IReadOnlyList<DataContent>? images = null)
+    public Task PostAsync(ChatSession group, string text, IReadOnlyList<DataContent>? images = null)
     {
-        ChatMessage post = group.CreateMessage(ChatRole.User, text, images);
+        // 先通报再落：这句开的一波可能当场跑完，离席在波末排上的新倒计时不能被这一声误取消
+        try
+        {
+            UserPosted?.Invoke(group.SessionId);
+        }
+        catch (Exception e)
+        {
+            Log.Error($"Group user-posted handler failed: {e}");
+        }
+
+        return PostUserMessageAsync(group, group.CreateMessage(ChatRole.User, text, images));
+    }
+
+    /// <summary>
+    /// 群流水此刻的一份拷贝（与追加同一把锁）：后台读群流水的地方用，免得边读边被追加
+    /// </summary>
+    /// <param name="group">群壳会话</param>
+    /// <returns>拷贝</returns>
+    public IReadOnlyList<ChatMessage> HistorySnapshot(ChatSession group)
+    {
+        lock (_locker) return group.History.ToList();
+    }
+
+    // 用户发言（含化身替用户说的）落进群流水：群闲着就由它开一波，在跑就插进那一波
+    private async Task PostUserMessageAsync(ChatSession group, ChatMessage post)
+    {
         int index = Append(group, post);
 
         while (true)
@@ -126,9 +163,13 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
         lock (_locker) _interrupted.Remove(memberSessionId);
     }
 
-    /// <summary>停下这个群正在跑的那一波（连同所有正在说的成员）</summary>
+    /// <summary>停下这个群正在跑的那一波（连同所有正在说的成员），以及正在跑的化身那一轮</summary>
     /// <param name="groupId">群壳会话标识</param>
-    public void Stop(string groupId) => EpisodeOf(groupId)?.Run.Cancel();
+    public void Stop(string groupId)
+    {
+        EpisodeOf(groupId)?.Run.Cancel();
+        StopAvatar(groupId);
+    }
 
     /// <summary>
     /// 成员自己用 SendMessage 往群里发一句（0046 决策 4）。调用方不是群成员时返回 false，交回委派那条路
@@ -246,9 +287,11 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
     private async Task<bool> RunEpisodeAsync(ChatSession group, GroupKickoff kickoff)
     {
         Episode episode;
+        int start;
         lock (_locker)
         {
             if (_episodes.ContainsKey(group.SessionId)) return false;
+            start = kickoff.UserPostIndex ?? group.History.Count;
 
             GroupRun run = new(group);
             IGroupScheduler scheduler = run.Mode == EGroupScheduleMode.Parallel
@@ -258,21 +301,44 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
             _episodes[group.SessionId] = episode;
         }
 
+        bool stopped;
+        int end;
         // 把群壳登记成在跑：界面据此进外驱模式（停止按钮、打字即插话），列表也看得见它在跑。
-        // using 在 finally 之后才释放——先摘掉这一波再报空闲，否则界面看到空闲时再点「继续」会被当成重复调用
-        using IDisposable running = SessionManager.Instance.Running.BeginRun(group.SessionId);
-        try
+        // 先摘掉这一波再报空闲，否则界面看到空闲时再点「继续」会被当成重复调用
+        using (SessionManager.Instance.Running.BeginRun(group.SessionId))
         {
-            await episode.Scheduler.RunAsync(kickoff);
-        }
-        finally
-        {
-            lock (_locker) _episodes.Remove(group.SessionId);
-            episode.Run.Dispose();
-            episode.Removed.TrySetResult();
+            try
+            {
+                await episode.Scheduler.RunAsync(kickoff);
+            }
+            finally
+            {
+                lock (_locker)
+                {
+                    _episodes.Remove(group.SessionId);
+                    end = group.History.Count;
+                }
+                stopped = episode.Run.Token.IsCancellationRequested;
+                episode.Run.Dispose();
+                episode.Removed.TrySetResult();
+            }
         }
 
+        // 报空闲之后再通报：订阅方（离席）可能当场开下一波
+        RaiseEpisodeEnded(new GroupEpisodeSummary(group, kickoff.UserPostIndex, start, end, stopped));
         return true;
+    }
+
+    private void RaiseEpisodeEnded(GroupEpisodeSummary summary)
+    {
+        try
+        {
+            EpisodeEnded?.Invoke(summary);
+        }
+        catch (Exception e)
+        {
+            Log.Error($"Group episode-ended handler failed: {e}");
+        }
     }
 
     private Episode? EpisodeOf(string groupId)

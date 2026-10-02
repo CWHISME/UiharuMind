@@ -146,20 +146,7 @@ public sealed partial class GroupArtifactsViewData : ObservableObject, IDisposab
         }
     }
 
-    private IReadOnlyList<GroupArtifact> Collect()
-    {
-        List<(string, IReadOnlyList<string>)> members = [];
-        AgentPathResolver paths = GroupArtifacts.MemberPathsOf(_group);
-        // 退群的人写过的文件照样列
-        foreach (GroupRosterMember entry in GroupRoster.Of(_group).Everyone)
-        {
-            if (SessionManager.Instance.Load(entry.SessionId) is not { } member) continue;
-            // 历史已卸掉的成员用缓存，不为这一张清单把整份历史读回来
-            members.Add((member.CharacterData.CharacterName, GroupWrittenPaths.Of(member, paths)));
-        }
-
-        return GroupArtifacts.Collect(DraftRoom, _group.WorkspacePath, members);
-    }
+    private IReadOnlyList<GroupArtifact> Collect() => GroupArtifacts.CollectFor(_group);
 }
 
 /// <summary>产物区的一行</summary>

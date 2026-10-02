@@ -200,6 +200,15 @@ public static class ApprovalModeMapper
         => FileToolNames.Mutating.Contains(functionCall.Name);
 
     /// <summary>
+    /// 这次调用是不是越界写入（离席时化身据此不替用户点，ADR 0055）。与放行规则同一份口径，草稿目录算界内
+    /// </summary>
+    /// <param name="functionCall">工具调用</param>
+    /// <param name="paths">发起调用的会话的路径口径</param>
+    /// <returns>越界写入为 true</returns>
+    public static bool IsOutOfWorkspaceWrite(FunctionCallContent functionCall, AgentPathResolver paths) =>
+        IsOutOfWorkspaceWrite(functionCall, paths, paths.DraftRoot);
+
+    /// <summary>
     /// 这次调用是否是「工作区外的写入」。
     ///
     /// 判据故意保守:是写工具、但路径<b>无从判定</b>(非法字符、过长)时也算越界——宁可多问一次,

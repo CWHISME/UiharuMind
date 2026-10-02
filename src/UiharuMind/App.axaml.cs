@@ -26,6 +26,8 @@ using UiharuMind.Features.Memory;
 using UiharuMind.Features.Clipboard;
 using UiharuMind.Core.Core;
 using UiharuMind.Features.Conversation;
+using UiharuMind.Features.Conversation.Group;
+using UiharuMind.Core.AI.Chat.Group.Away;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Core.Core.Process;
@@ -311,6 +313,17 @@ public partial class App : Application, ILogger, IDisposable
                 string.Format(Loc.Text(LangKey.GroupApprovalWaitingFormat), member.CharacterData.CharacterName,
                     groupTitle),
                 MessageSeverity.Warning, TimeSpan.FromSeconds(20)));
+        };
+
+        // 离席（ADR 0055）：取一次实例就接上了离席期间的审批通道；结束时提示一声，回执已落进群里
+        GroupAwayController.Instance.Ended += receipt =>
+        {
+            if (Services?.GetService<IMessageService>() is not { } messageService) return;
+
+            string groupTitle = UiharuMind.Core.AI.Chat.SessionManager.Instance.GetMeta(receipt.GroupId)?.Title ?? string.Empty;
+            string body = GroupAwayReceiptText.Format(receipt);
+            Dispatcher.UIThread.Post(() => messageService.ShowNotification(groupTitle, body,
+                MessageSeverity.Information, TimeSpan.FromSeconds(20)));
         };
     }
 

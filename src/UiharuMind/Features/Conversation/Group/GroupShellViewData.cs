@@ -37,6 +37,7 @@ public sealed class GroupShellViewData : ObservableObject, IDisposable
         _members = CreateMembers();
         _artifacts = new GroupArtifactsViewData(group);
         Approvals = new GroupApprovalsViewData(group);
+        Away = group.IsAgentGroup ? new GroupAwayViewData(group) : null;
         // 发言人变化（轮到谁 / 一轮结束）与名单变化都可能来自后台线程，处理里自行 marshal
         GroupChatCoordinator.Instance.SpeakerChanged += OnSpeakerChanged;
         GroupMembership.RosterChanged += OnRosterChanged;
@@ -54,6 +55,9 @@ public sealed class GroupShellViewData : ObservableObject, IDisposable
 
     /// <summary>输入区上方的待审批条</summary>
     public GroupApprovalsViewData Approvals { get; }
+
+    /// <summary>右栏离席块；只有智能体群有，普通群为 null</summary>
+    public GroupAwayViewData? Away { get; }
 
     /// <summary>右栏产物区</summary>
     public GroupArtifactsViewData Artifacts
@@ -162,6 +166,7 @@ public sealed class GroupShellViewData : ObservableObject, IDisposable
         GroupMembership.RosterChanged -= OnRosterChanged;
         Approvals.Dispose();
         Artifacts.Dispose();
+        Away?.Dispose();
     }
 
     private GroupMembersViewData CreateMembers()

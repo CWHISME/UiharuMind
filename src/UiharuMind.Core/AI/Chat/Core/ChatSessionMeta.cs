@@ -119,7 +119,10 @@ public class ChatSessionMeta
     /// <summary>已被移出群的成员会话（群头像拼图等只读索引的地方据此排除，不必加载群壳）</summary>
     public bool HasLeftGroup { get; set; }
 
-    /// <summary>会话是不是群成员会话。算出来的，不入索引（理由同 <see cref="IsSubSession"/>）</summary>
+    /// <summary>群的化身会话（ADR 0055）：挂在群上、不进名单</summary>
+    public bool IsGroupAvatar { get; set; }
+
+    /// <summary>会话是不是群成员会话（含化身）。算出来的，不入索引（理由同 <see cref="IsSubSession"/>）</summary>
     [JsonIgnore]
     public bool IsGroupMember => !string.IsNullOrEmpty(GroupId);
 }

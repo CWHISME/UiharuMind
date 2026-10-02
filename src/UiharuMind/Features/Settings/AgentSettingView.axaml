@@ -72,6 +72,43 @@
             </StackPanel>
         </TabItem>
 
+        <!-- ===================== 群聊离席（ADR 0055） ===================== -->
+        <TabItem Header="{loc:Loc AgentSettingAway}">
+            <StackPanel Margin="0,12" Spacing="10" MaxWidth="520" HorizontalAlignment="Left">
+                <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap" Text="{loc:Loc AgentSettingAwayDesc}" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Text="{loc:Loc AgentSettingAwayMaxHours}" />
+                    <NumericUpDown Grid.Column="1" Width="140" Minimum="1" Maximum="8760" Increment="1"
+                                   FormatString="0" Value="{Binding Away.MaxHours}" />
+                </Grid>
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Text="{loc:Loc AgentSettingAwayMaxAvatarTurns}" />
+                    <NumericUpDown Grid.Column="1" Width="140" Minimum="1" Maximum="100000" Increment="1"
+                                   FormatString="0" Value="{Binding Away.MaxAvatarTurns}" />
+                </Grid>
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Text="{loc:Loc AgentSettingAwayMaxIdleWaves}" />
+                    <NumericUpDown Grid.Column="1" Width="140" Minimum="1" Maximum="10000" Increment="1"
+                                   FormatString="0" Value="{Binding Away.MaxIdleWaves}" />
+                </Grid>
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Text="{loc:Loc AgentSettingAwayBackoffStart}" />
+                    <NumericUpDown Grid.Column="1" Width="140" Minimum="5" Maximum="3600" Increment="1"
+                                   FormatString="0" Value="{Binding Away.BackoffStartSeconds}" />
+                </Grid>
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Text="{loc:Loc AgentSettingAwayBackoffMax}" />
+                    <NumericUpDown Grid.Column="1" Width="140" Minimum="1" Maximum="1440" Increment="1"
+                                   FormatString="0" Value="{Binding Away.BackoffMaxMinutes}" />
+                </Grid>
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Text="{loc:Loc AgentSettingAwayStopDelay}" />
+                    <NumericUpDown Grid.Column="1" Width="140" Minimum="1" Maximum="1440" Increment="1"
+                                   FormatString="0" Value="{Binding Away.StopDelayMinutes}" />
+                </Grid>
+            </StackPanel>
+        </TabItem>
+
         <!-- 能力门控:左列 toggle+名称,右栏详细描述/提示词/专属设置 -->
         <TabItem Header="{loc:Loc AgentSettingCapabilities}">
             <ScrollViewer Margin="0,12">

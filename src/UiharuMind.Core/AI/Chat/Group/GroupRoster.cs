@@ -53,7 +53,7 @@ public sealed class GroupRoster
         IReadOnlyList<string> ids = group.GroupMemberSessionIds.Count > 0
             ? group.GroupMemberSessionIds
             : SessionManager.Instance.GetGroupMembers(group.SessionId)
-                .Where(x => !x.HasLeftGroup)
+                .Where(x => !x.HasLeftGroup && !x.IsGroupAvatar)
                 .OrderBy(x => x.CreatedAt)
                 .Select(x => x.SessionId)
                 .ToList();

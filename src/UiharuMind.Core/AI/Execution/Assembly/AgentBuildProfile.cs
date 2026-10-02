@@ -75,8 +75,11 @@ public class AgentBuildProfile
     /// </summary>
     public string GroupScene { get; init; } = string.Empty;
 
-    /// <summary>是不是群成员会话：群场景段只给群成员拼</summary>
-    public bool IsGroupMember => GroupScene.Length > 0;
+    /// <summary>是不是群的化身会话（ADR 0055）：也有群场景段，但不往群里发言、多挂一把结束离席</summary>
+    public bool IsGroupAvatar { get; init; }
+
+    /// <summary>是不是（在场的）群成员会话：挂群发言工具。化身不算——它说完的话由离席以用户的名义发</summary>
+    public bool IsGroupMember => GroupScene.Length > 0 && !IsGroupAvatar;
 
     /// <summary>本次装配实际生效的能力配置，见 <see cref="EffectiveTools"/></summary>
     public AgentToolConfig Tools => EffectiveTools(Character, GroupScene);
@@ -186,6 +189,7 @@ public class AgentBuildProfile
             PreAuthorizedShellPatterns = session.PreAuthorizedShellPatterns,
             PromptArguments = session.CustomParams,
             GroupScene = GroupSceneSource.For(session),
+            IsGroupAvatar = session.IsGroupAvatar,
             // 子会话的产出目录跟随派活者:派活时把主代理的目录名固化在子会话上,
             // 于是子代理的产出直接落主代理会话的目录(见 ChatSession.ParentOutputFolderName)。
             // 旧存档没有这个值,回退子会话自己的目录。

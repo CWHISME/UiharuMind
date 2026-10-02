@@ -88,6 +88,24 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     private RecentPathList RecentHistory =>
         _recentWorkspaces ??= new RecentPathList(RecentWorkspaces, RecentWorkspacesLimit);
 
+    /// <summary>离席最长多少小时（保险丝，只防失控，ADR 0055）</summary>
+    public int AwayMaxHours { get; set; } = 24;
+
+    /// <summary>一次离席里化身最多出手几次（保险丝）</summary>
+    public int AwayMaxAvatarTurns { get; set; } = 500;
+
+    /// <summary>连续多少波没有新产物就结束离席（保险丝）</summary>
+    public int AwayMaxIdleWaves { get; set; } = 50;
+
+    /// <summary>化身没进展时，第一次延迟唤醒等多少秒；之后逐次翻倍</summary>
+    public int AwayBackoffStartSeconds { get; set; } = 60;
+
+    /// <summary>没进展时延迟唤醒的封顶分钟数</summary>
+    public int AwayBackoffMaxMinutes { get; set; } = 30;
+
+    /// <summary>离席中用户按了停止（没关离席）后，等多少分钟再唤醒化身</summary>
+    public int AwayStopDelayMinutes { get; set; } = 5;
+
     /// <summary>
     /// 把一个工作目录记为最近使用:置顶、去重、裁尾,并立即落盘。列表操作见 <see cref="RecentPathList"/>。
     /// </summary>

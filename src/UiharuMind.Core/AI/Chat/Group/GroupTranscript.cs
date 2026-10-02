@@ -84,6 +84,8 @@ public static class GroupTranscript
         {
             ChatMessage post = groupLog[i];
             if (ChatMessageAnnotations.GroupSpeakerSessionOf(post) == memberSessionId) continue;
+            if (ChatMessageAnnotations.GroupAvatarPostOf(post) == memberSessionId) continue; //化身自己的话
+            if (ChatMessageAnnotations.GroupAwayReceiptOf(post) != null) continue; //离席回执只给人看
             if (injected?.Contains(i) == true) continue;
 
             string body = StripSpeakerPrefix(post.Text.Trim(), post.AuthorName);
@@ -342,6 +344,17 @@ public static class GroupTranscript
     /// </summary>
     private static string BuildRoster(string userName, IReadOnlyList<GroupMemberPresence> others)
     {
+        string members = JoinMembers(others);
+        return members.Length == 0 ? $"{userName}（用户）" : $"{userName}（用户）、" + members;
+    }
+
+    /// <summary>
+    /// 成员名单（不含用户），排法见 <see cref="BuildRoster"/>
+    /// </summary>
+    /// <param name="others">成员（名字 + 作品）</param>
+    /// <returns>顿号连起来的名单；没人为空串</returns>
+    internal static string JoinMembers(IReadOnlyList<GroupMemberPresence> others)
+    {
         List<string> bare = [];
         List<(string Works, List<string> Names)> groups = [];
         Dictionary<string, int> indexOf = new(StringComparer.Ordinal);
@@ -365,7 +378,7 @@ public static class GroupTranscript
 
         List<string> segments = [.. bare];
         segments.AddRange(groups.Select(x => $"《{x.Works}》：" + string.Join("、", x.Names)));
-        return segments.Count == 0 ? $"{userName}（用户）" : $"{userName}（用户）、" + string.Join("、", segments);
+        return string.Join("、", segments);
     }
 
     /// <summary>

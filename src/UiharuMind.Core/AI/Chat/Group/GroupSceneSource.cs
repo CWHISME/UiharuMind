@@ -25,6 +25,15 @@ public static class GroupSceneSource
     }
 
     /// <summary>
+    /// 这个会话在群里以谁的名字说话：成员是他自己的角色名，化身是用户的名字（ADR 0055）。
+    /// 剥模型自加的 <c>[名字]: </c> 前缀认的就是它
+    /// </summary>
+    /// <param name="session">成员或化身会话</param>
+    /// <returns>群里的署名</returns>
+    public static string SpeakerNameOf(ChatSession session) =>
+        session.IsGroupAvatar ? CharacterManager.Instance.UserCharacterName : session.CharacterData.CharacterName;
+
+    /// <summary>
     /// 取成员会话的群场景段正文（显式入参，可单测）
     /// </summary>
     /// <param name="member">成员会话</param>
@@ -35,20 +44,11 @@ public static class GroupSceneSource
     public static string For(ChatSession member, ChatSession? group, Func<string, GroupRosterMember?> memberOf, string userName)
     {
         if (group is not { IsGroup: true } || member.GroupId != group.SessionId) return string.Empty;
+        if (member.IsGroupAvatar) return ForAvatar(member, group, memberOf, userName);
         // 退群的人 GroupId 还在，只认名单：他之后私聊就是个普通角色，不再挂发群工具
         if (!group.GroupMemberSessionIds.Contains(member.SessionId)) return string.Empty;
 
-        // 同一时刻建出的按会话标识定序，保证与名单顺序无关
-        List<GroupMemberPresence> others = group.GroupMemberSessionIds
-            .Where(x => x != member.SessionId)
-            .Select(memberOf)
-            .OfType<GroupRosterMember>()
-            .OrderBy(x => x.Meta.CreatedAt)
-            .ThenBy(x => x.SessionId, StringComparer.Ordinal)
-            .Select(x => x.Character)
-            .Where(x => !string.IsNullOrWhiteSpace(x.CharacterName))
-            .Select(x => new GroupMemberPresence(x.CharacterName, x.Works))
-            .ToList();
+        List<GroupMemberPresence> others = Presence(group, memberOf, member.SessionId);
         CharacterData self = member.CharacterData;
         string? hostName = group.GroupHostSessionId == member.SessionId
             ? self.CharacterName
@@ -60,4 +60,28 @@ public static class GroupSceneSource
         return GroupTranscript.BuildScene(new GroupScene(group.Title, self.CharacterName, others, userName,
             agentForm, hostName, sharesDraftRoom));
     }
+
+    // 化身不在名单里：在场的成员全列，「你是谁」换成「替用户坐着」
+    private static string ForAvatar(ChatSession avatar, ChatSession group, Func<string, GroupRosterMember?> memberOf,
+        string userName)
+    {
+        string? hostName = group.GroupHostSessionId is { } hostId ? memberOf(hostId)?.Character.CharacterName : null;
+        AgentToolConfig tools = avatar.CharacterData.Tools;
+        return GroupAvatarTranscript.BuildScene(new GroupAvatarScene(group.Title, userName,
+            Presence(group, memberOf, avatar.SessionId), hostName, tools.EnableFileAccess || tools.EnableShellExecution));
+    }
+
+    // 在场的人（不含 self），按入群先后；同一时刻建出的按会话标识定序，保证与名单顺序无关
+    private static List<GroupMemberPresence> Presence(ChatSession group, Func<string, GroupRosterMember?> memberOf,
+        string selfSessionId) =>
+        group.GroupMemberSessionIds
+            .Where(x => x != selfSessionId)
+            .Select(memberOf)
+            .OfType<GroupRosterMember>()
+            .OrderBy(x => x.Meta.CreatedAt)
+            .ThenBy(x => x.SessionId, StringComparer.Ordinal)
+            .Select(x => x.Character)
+            .Where(x => !string.IsNullOrWhiteSpace(x.CharacterName))
+            .Select(x => new GroupMemberPresence(x.CharacterName, x.Works))
+            .ToList();
 }

@@ -14,6 +14,7 @@ using System.Linq;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Chat.Group.Away;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.History;
@@ -77,7 +78,10 @@ public sealed class ConversationHistoryRenderer
             return renderer.Render(message).Select(x => _itemActions.Wire(x, message)).ToList();
         }
 
-        return [_itemActions.Wire(ConversationItemFactory.CreateUser(text, message), message)];
+        TextConversationItem item = ConversationItemFactory.CreateUser(text, message);
+        // 化身替用户说的：成员看到的就是用户说的，这个标记只给用户回来复核、推翻用（ADR 0055）
+        if (ChatMessageAnnotations.GroupAvatarPostOf(message) != null) item.SenderName = Loc.Text(LangKey.GroupAvatarSender);
+        return [_itemActions.Wire(item, message)];
     }
 
     /// <summary>
@@ -268,6 +272,16 @@ public sealed class ConversationHistoryRenderer
                     if (lastKnown is { } reportStamp)
                         reportItem.Timestamp = ConversationItemFactory.TimestampText(reportStamp);
                     buffer.Add(reportItem);
+                    continue;
+                }
+
+                // 离席回执：只给人看的一段记录，不归对话双方任何一方
+                case EHistoryItemKind.AwayReceipt:
+                {
+                    TextConversationItem receiptItem = ConversationItemFactory.CreateNarration(message);
+                    if (GroupAwayReceipt.Of(message) is { } receipt)
+                        receiptItem.Message = GroupAwayReceiptText.Format(receipt);
+                    buffer.Add(_itemActions.Wire(receiptItem, message));
                     continue;
                 }
 

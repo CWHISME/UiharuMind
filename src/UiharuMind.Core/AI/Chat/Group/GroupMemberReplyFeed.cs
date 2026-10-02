@@ -79,7 +79,7 @@ internal sealed class GroupMemberReplyFeed : IDisposable
                 if (!IsFinishedReply(history[_scanned], out string text)) continue;
 
                 // 回「[跳过]」就是这次不接话：不进群，也就不广播、不叫醒谁
-                string own = GroupTranscript.StripSpeakerPrefix(text, _member.CharacterData.CharacterName);
+                string own = GroupTranscript.StripSpeakerPrefix(text, GroupSceneSource.SpeakerNameOf(_member));
                 if (GroupTranscript.IsPass(own)) continue;
                 if (_post(text, history[_scanned].CreatedAt) is not { } posted) continue;
 

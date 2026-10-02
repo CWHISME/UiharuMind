@@ -170,6 +170,7 @@ internal static class AgentAssembler
         }
 
         if (plan.Profile.IsGroupMember) Add(EAgentCapability.GroupPost, GroupPostTool.Create(plan.Profile.SessionId));
+        if (plan.Profile.IsGroupAvatar) Add(EAgentCapability.GroupAway, EndAwayTool.Create());
 
         if (config.EnableKnowledgeSearchTool)
         {
