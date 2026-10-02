@@ -23,9 +23,12 @@ namespace UiharuMind.Features.Conversation;
 /// </summary>
 public sealed partial class ConversationHistoryPager
 {
-    private const int JumpBatchSize = 40; //搜索跳转每批续多少条:比滚到顶的一窗大,又小到一批布局不卡顿
+    private const int JumpBatchSize = 40; //分批往前续到命中时每批多少条:比滚到顶的一窗大,又小到一批布局不卡顿
+    private const int LaterBatchSize = 20; //脱离末尾时往下滚到底每批续多少条:是滚动途中的一下停顿,宁可多续几次
     private const int JumpContextBefore = 10; //截断重载时命中之前留几条
-    private const int JumpContextAfter = 30; //命中之后留几条:往下读是常态,多给些免得一落地就要续
+    // 命中之后留几条。落地那一下的耗时几乎全在新画的这批条目的首次布局上(按条数涨),
+    // 30 条约 68 个条目、15 条约 40 个,实测快 25～70%;再往下读由滚到底续批接上
+    private const int JumpContextAfter = 15;
 
     /// <summary>从旧消息那段回到了最新（条目整窗换成了末尾首屏，视图据此贴回底部）</summary>
     public event Action? ReturnedToLatest;
@@ -79,7 +82,7 @@ public sealed partial class ConversationHistoryPager
     public bool LoadLater()
     {
         IReadOnlyList<ChatMessage> history = _historySource();
-        (int From, int To)? range = Window.ExtendLater(history.Count, JumpBatchSize);
+        (int From, int To)? range = Window.ExtendLater(history.Count, LaterBatchSize);
         SyncFlags();
         if (range is not { } later) return false;
 

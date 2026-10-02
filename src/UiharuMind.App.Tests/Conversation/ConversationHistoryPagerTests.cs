@@ -91,7 +91,7 @@ public class ConversationHistoryPagerTests
 
         Assert.True(fixture.Pager.JumpTo(100));
 
-        Assert.Equal(40, fixture.Items.Count); //前 10 条、后 30 条
+        Assert.Equal(25, fixture.Items.Count); //前 10 条、后 15 条
         Assert.Same(fixture.History[90], fixture.Items[0].SourceMessage);
         Assert.True(fixture.Pager.HasLaterMessages);
         Assert.True(fixture.Pager.HasEarlierMessages);
@@ -104,10 +104,12 @@ public class ConversationHistoryPagerTests
     {
         Fixture fixture = new(100);
         fixture.Pager.Replay(fixture.History, liveTail: false);
-        fixture.Pager.JumpTo(10); //[0, 40)
+        fixture.Pager.JumpTo(10); //[0, 25)
 
-        Assert.True(fixture.Pager.LoadLater()); //[0, 80)
-        Assert.True(fixture.Pager.LoadLater()); //[0, 100),跟上末尾
+        int batches = 0;
+        while (fixture.Pager.HasLaterMessages && fixture.Pager.LoadLater()) batches++;
+
+        Assert.Equal(4, batches); //每批 20 条:45、65、85,最后一批到 100 跟上末尾
         Assert.False(fixture.Pager.HasLaterMessages);
         Assert.False(fixture.Pager.LoadLater());
         Assert.Equal(100, fixture.Items.Count);
@@ -153,16 +155,16 @@ public class ConversationHistoryPagerTests
     {
         Fixture fixture = new(100);
         fixture.Pager.Replay(fixture.History, liveTail: false);
-        fixture.Pager.JumpTo(10); //[0, 40)
+        fixture.Pager.JumpTo(10); //[0, 25)
 
         ChatMessage doomed = fixture.History[20];
         fixture.History.RemoveAt(20);
         fixture.Items.Remove(fixture.Items.First(x => ReferenceEquals(x.SourceMessage, doomed))); //删除连卡一起摘
         fixture.Pager.NoteRemoved([20]);
-        fixture.Pager.LoadLater(); //[0, 79)
+        fixture.Pager.LoadLater(); //[0, 44)
 
-        Assert.Same(fixture.History[39], fixture.Items[39].SourceMessage); //删除前的第 40 条,没被跳过
-        Assert.Same(fixture.History[78], fixture.Items[^1].SourceMessage);
+        Assert.Same(fixture.History[24], fixture.Items[24].SourceMessage); //删除前窗外的第一条,没被跳过
+        Assert.Same(fixture.History[43], fixture.Items[^1].SourceMessage);
     }
 
     /// <summary>重试截到窗内某条及之后：窗口接回末尾，不必整窗重放</summary>
@@ -171,7 +173,7 @@ public class ConversationHistoryPagerTests
     {
         Fixture fixture = new(100);
         fixture.Pager.Replay(fixture.History, liveTail: false);
-        fixture.Pager.JumpTo(10); //[0, 40)
+        fixture.Pager.JumpTo(10); //[0, 25)
 
         fixture.History.RemoveRange(25, 75);
         fixture.Pager.NoteRemoved(Enumerable.Range(25, 75).ToList());
