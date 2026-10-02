@@ -1,0 +1,12 @@
+{"op": "page.jump", "args": {"page": "agent"}}
+{"op": "group.create", "args": {"name": "人设对照·Agnes", "members": ["SenkuAgent", "LelouchAgent", "MakiseKurisuAgent", "KamijouToumaAgent"], "models": ["Agnes-3.0-Flash", "Agnes-3.0-Flash", "Agnes-3.0-Flash", "Agnes-3.0-Flash"], "workspace": "{{WS_REPO}}", "mode": "serial"}}
+{"op": "group.create", "args": {"name": "人设对照·DeepSeek", "members": ["SenkuAgent", "LelouchAgent", "MakiseKurisuAgent", "KamijouToumaAgent"], "models": ["Deepseek-V4-Flash-深度思考", "Deepseek-V4-Flash-深度思考", "Deepseek-V4-Flash-深度思考", "Deepseek-V4-Flash-深度思考"], "workspace": "{{WS_REPO}}", "mode": "serial"}}
+{"op": "group.post", "args": {"group": "人设对照·Agnes", "text": "今天先不聊正事——你们最近都在忙什么？"}}
+{"op": "group.post", "args": {"group": "人设对照·DeepSeek", "text": "今天先不聊正事——你们最近都在忙什么？"}}
+{"op": "group.wait", "args": {"groups": ["人设对照·Agnes", "人设对照·DeepSeek"], "timeoutMinutes": 15, "approvals": "deny"}}
+{"op": "group.post", "args": {"group": "人设对照·Agnes", "text": "说个正事：先读工作区的 AGENTS.md。仓库里有个偶发的启动崩溃，同事提议给所有单例的初始化都加一把全局锁。你们怎么看，下一步做什么？"}}
+{"op": "group.post", "args": {"group": "人设对照·DeepSeek", "text": "说个正事：先读工作区的 AGENTS.md。仓库里有个偶发的启动崩溃，同事提议给所有单例的初始化都加一把全局锁。你们怎么看，下一步做什么？"}}
+{"op": "group.wait", "args": {"groups": ["人设对照·Agnes", "人设对照·DeepSeek"], "timeoutMinutes": 15, "approvals": "deny"}}
+{"op": "group.dump", "args": {"group": "人设对照·Agnes", "path": "{{OUT}}/agnes.md"}}
+{"op": "group.dump", "args": {"group": "人设对照·DeepSeek", "path": "{{OUT}}/deepseek.md"}}
+{"op": "quit"}
