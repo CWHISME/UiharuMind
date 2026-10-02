@@ -29,6 +29,8 @@ public partial class ThinkingItem
     private TimeSpan _closedElapsed; //收尾那一刻的耗时,写回历史用它而不用 Now
     private long _closedChars; //收尾那一刻的全文长度
     private DateTime _lastStatsAt = DateTime.MinValue; //上次刷标题统计的时刻,节流用
+    private static readonly TimeSpan MinLiveSpeedSpan = TimeSpan.FromSeconds(1); //流式中不满这么久不报速度
+    private static readonly TimeSpan MinFinalSpeedSpan = TimeSpan.FromMilliseconds(100); //定格后短于这个不报速度
 
     // 标题统计现在显示的是谁的数
     private enum EStatsSource
@@ -60,17 +62,20 @@ public partial class ThinkingItem
 
     /// <summary>
     /// 拼标题统计。纯函数：同一输入永远同一输出，可单测。
-    /// 1 秒内不带速度（除零抖动，3 个字 / 0.1s 会跳出 30 字/秒这种瞬时值）；
+    /// 还在流的时候 1 秒内不带速度：每拍重算，3 个字 / 0.1s 会跳出 30 字/秒这种瞬时值，下一拍又掉下去；
+    /// 定格之后（收尾、存档）数不再变，不满一秒也照算。只是短到 0.1s 以下不算——
+    /// 那多半是整段一个包到的，分母量的是包间隔，算出来的几万字/秒没有意义。
     /// 速度取整数，1s 节拍下小数只会制造无效跳动。
     /// </summary>
     /// <param name="elapsed">耗时</param>
     /// <param name="charCount">全文字符数</param>
+    /// <param name="isFinal">数已定格（收尾、存档），不会再跳</param>
     /// <returns>标题栏文本</returns>
-    public static string FormatStats(TimeSpan elapsed, long charCount)
+    public static string FormatStats(TimeSpan elapsed, long charCount, bool isFinal = false)
     {
         string count = charCount.ToString("N0");
         string speedSuffix = string.Empty;
-        if (elapsed.TotalSeconds >= 1 && charCount > 0)
+        if (elapsed >= (isFinal ? MinFinalSpeedSpan : MinLiveSpeedSpan) && charCount > 0)
         {
             long speed = (long)Math.Round(charCount / elapsed.TotalSeconds);
             speedSuffix = string.Format(Loc.Text(LangKey.AgentThinkingSpeedFormat), speed.ToString("N0"));
@@ -88,7 +93,7 @@ public partial class ThinkingItem
     /// <param name="chars">存档字数</param>
     public void ApplyPersistedStats(TimeSpan duration, long chars)
     {
-        StatsText = FormatStats(duration, chars);
+        StatsText = FormatStats(duration, chars, isFinal: true);
         _closedElapsed = duration;
         _closedChars = chars;
         _statsSource = EStatsSource.Persisted; //存档里已有，不必再写回

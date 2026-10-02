@@ -12,12 +12,32 @@ namespace UiharuMind.App.Tests.Conversation;
 /// </summary>
 public class ThinkingItemStatsTests
 {
+    /// <summary>还在流的时候不满一秒不报速度：每拍重算，瞬时值会上下乱跳</summary>
     [Fact]
-    public void FormatStats_SubSecond_HasNoSpeedSegment()
+    public void FormatStats_LiveSubSecond_HasNoSpeedSegment()
     {
         string expected = string.Format(Loc.Text("AgentThinkingStatsFormat"), "0.3s", "12", string.Empty);
 
         Assert.Equal(expected, ThinkingItem.FormatStats(TimeSpan.FromMilliseconds(300), 12));
+    }
+
+    /// <summary>定格之后数不再变：不满一秒也照算</summary>
+    [Fact]
+    public void FormatStats_FinalSubSecond_HasSpeed()
+    {
+        string suffix = string.Format(Loc.Text("AgentThinkingSpeedFormat"), ((long)40).ToString("N0"));
+        string expected = string.Format(Loc.Text("AgentThinkingStatsFormat"), "0.3s", "12", suffix);
+
+        Assert.Equal(expected, ThinkingItem.FormatStats(TimeSpan.FromMilliseconds(300), 12, isFinal: true));
+    }
+
+    /// <summary>短到 0.1s 以下多半是整段一个包到的：分母是包间隔，速度没有意义</summary>
+    [Fact]
+    public void FormatStats_FinalButTooShort_HasNoSpeedSegment()
+    {
+        string expected = string.Format(Loc.Text("AgentThinkingStatsFormat"), "0s", "12", string.Empty);
+
+        Assert.Equal(expected, ThinkingItem.FormatStats(TimeSpan.FromMilliseconds(40), 12, isFinal: true));
     }
 
     [Fact]
@@ -55,7 +75,7 @@ public class ThinkingItemStatsTests
 
         ThinkingItem.FreezeReplayItems([thinking], message);
 
-        Assert.Equal(ThinkingItem.FormatStats(TimeSpan.FromSeconds(2.5), 1234), thinking.StatsText);
+        Assert.Equal(ThinkingItem.FormatStats(TimeSpan.FromSeconds(2.5), 1234, isFinal: true), thinking.StatsText);
     }
 
     [Fact]
@@ -113,7 +133,7 @@ public class ThinkingItemStatsTests
         ChatMessageAnnotations.WriteThinkingStats(message, 3000, 2);
 
         Assert.Equal(1, ThinkingItem.AdoptPersistedStats([replayed]));
-        Assert.Equal(ThinkingItem.FormatStats(TimeSpan.FromSeconds(3), 2), replayed.StatsText);
+        Assert.Equal(ThinkingItem.FormatStats(TimeSpan.FromSeconds(3), 2, isFinal: true), replayed.StatsText);
     }
 
     [Fact]

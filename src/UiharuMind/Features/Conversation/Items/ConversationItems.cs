@@ -137,7 +137,7 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
 
         Message = text;
         NotifyContentChanged(); //收尾补上最后一段增量;没有订阅者时零成本
-        UpdateStats(fullLen); //统计用全文长度,不随截断预览缩水
+        UpdateStats(fullLen, isFinal: true); //统计用全文长度,不随截断预览缩水
         // 收尾快照:写回历史用此刻的值——条目驻留内存期间 Now 只会越涨越假
         _closedElapsed = DateTime.Now - _startedAt;
         _closedChars = fullLen;
@@ -234,9 +234,9 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
 
     /// <summary>刷新标题栏的耗时、字符数与速度(流式期间受节拍节流,收尾为准)</summary>
     /// <param name="charCount">缓冲里的字符数</param>
-    private void UpdateStats(int charCount)
+    private void UpdateStats(int charCount, bool isFinal = false)
     {
-        StatsText = FormatStats(DateTime.Now - _startedAt, charCount);
+        StatsText = FormatStats(DateTime.Now - _startedAt, charCount, isFinal);
         _lastStatsAt = DateTime.Now;
     }
 
