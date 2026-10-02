@@ -48,9 +48,8 @@ public sealed class GrepMatchResult
 /// </summary>
 public sealed class SimpleGrepper
 {
-    // 引擎停不下来：同一时间只放一个扫描进引擎，闸跟着引擎走、不跟着等待——
-    // 被取消丢下的扫描跑完才放下一个，不然每取消一次就多叠一个占满全核的扫描。
-    // 代价是并行群聊里几位成员同时搜会排队，好在每个扫描本来就吃满全部核心，并排跑也快不了
+    // 同一时间只放一个扫描进引擎：每个扫描本来就吃满全部核心，并排跑也快不了。
+    // 引擎认取消令牌（返回时它的线程已全部停下），所以闸随这次调用释放
     private static readonly SemaphoreSlim EngineGate = new(1, 1);
 
     private readonly AgentPathResolver _paths;
@@ -85,12 +84,7 @@ public sealed class SimpleGrepper
     /// <param name="maxDepth">目录遍历最大深度（null 不限制）</param>
     /// <param name="fileGlobs">按<b>文件名</b>（不含路径）过滤，如 <c>*.cs</c>；null/空则不过滤</param>
     /// <param name="path">搜索范围：目录（在其下递归搜）或单文件（只搜它）；绝对路径直接用，相对路径拼工作区</param>
-    /// <param name="ct">
-    /// 取消令牌。<b>Glacier.Grep 1.0.1 的 <c>SearchEngine</c> 没有取消接口</b>：取消时立即抛 OCE
-    /// （停止、切走立刻生效），但扫描本身停不下来，在后台跑完、结果丢弃。
-    /// 防堆积靠 <see cref="EngineGate"/>：前一个扫描没跑完，下一个等着。
-    /// 哪天引擎支持取消，把 token 透进去，外层等待与闸一起删掉
-    /// </param>
+    /// <param name="ct">取消令牌；引擎的遍历与各工作线程都认它，每个线程最多做完手上那个文件</param>
     /// <returns>命中列表与失败原因</returns>
     public async Task<GrepOutcome> SearchAsync(
         string query,
@@ -152,10 +146,9 @@ public sealed class SimpleGrepper
             maxDepth = null;
         }
 
-        // 单文件是点名要搜的，不套上层忽略规则；目录才让搜索根之上的 .gitignore 生效
-        IgnoreAwareSearchScope scope = isFileScope
-            ? IgnoreAwareSearchScope.Whole(searchRoot, maxDepth)
-            : IgnoreAwareSearchScope.For(_paths.WorkspaceRoot, searchRoot, maxDepth);
+        // 搜索根之上、工作区之内的 .gitignore 也生效（搜 path=Code 时仓库根的 /Code/build/ 要认）；
+        // 单文件是点名要搜的，不套上层规则
+        string? ignoreBoundary = isFileScope ? null : _paths.WorkspaceRoot;
 
         string effective = query;
         bool fellBack = false;
@@ -174,17 +167,30 @@ public sealed class SimpleGrepper
 
         try
         {
-            Task<List<(string Root, SearchResult Match)>> scan = await StartScanAsync(() => ScanAsync(scope.Runs,
-                effective, isRegex, caseSensitive, contextLines, effectiveFileGlobs), ct).ConfigureAwait(false);
-            // 扫大目录可能持续数十秒：取消时只是不再等它，停止按钮立刻有反应
-            List<(string Root, SearchResult Match)> matches = await scan.WaitAsync(ct).ConfigureAwait(false);
+            List<SearchResult> matches;
+            await EngineGate.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                matches = await new SearchEngine(searchRoot).SearchAsync(
+                    query: effective,
+                    isRegex: isRegex,
+                    caseSensitive: caseSensitive,
+                    contextLines: contextLines,
+                    maxDepth: maxDepth,
+                    fileGlobs: effectiveFileGlobs,
+                    ignoreBoundary: ignoreBoundary,
+                    cancellationToken: ct).ConfigureAwait(false);
+            }
+            finally
+            {
+                EngineGate.Release();
+            }
 
             var results = new List<GrepMatchResult>(matches.Count);
-            foreach ((string root, SearchResult match) in matches)
+            foreach (SearchResult match in matches)
             {
                 ct.ThrowIfCancellationRequested();
-                string absolute = Path.Combine(root, match.FilePath);
-                if (!scope.Keeps(absolute)) continue;
+                string absolute = Path.Combine(searchRoot, match.FilePath);
                 if (isFileScope
                     // macOS 默认文件系统大小写不敏感,同源路径比较用忽略大小写
                     && !string.Equals(Path.GetFullPath(absolute), Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase))
@@ -234,60 +240,6 @@ public sealed class SimpleGrepper
         }
     }
 
-    // 拆成几次调用时依次跑：每次调用本就吃满全部核心，并排跑快不了
-    private static async Task<List<(string Root, SearchResult Match)>> ScanAsync(IReadOnlyList<EngineRun> runs,
-        string query, bool isRegex, bool caseSensitive, int contextLines, string[] fileGlobs)
-    {
-        var all = new List<(string Root, SearchResult Match)>();
-        foreach (EngineRun run in runs)
-        {
-            List<SearchResult> matches = await new SearchEngine(run.Root).SearchAsync(
-                query: query,
-                isRegex: isRegex,
-                caseSensitive: caseSensitive,
-                contextLines: contextLines,
-                maxDepth: run.MaxDepth,
-                fileGlobs: fileGlobs).ConfigureAwait(false);
-            foreach (SearchResult match in matches) all.Add((run.Root, match));
-        }
-
-        return all;
-    }
-
-    private static async Task<Task<T>> StartScanAsync<T>(Func<Task<T>> start, CancellationToken ct)
-    {
-        await EngineGate.WaitAsync(ct).ConfigureAwait(false);
-        Task<T> scan;
-        try
-        {
-            scan = start();
-        }
-        catch
-        {
-            EngineGate.Release();
-            throw;
-        }
-
-        _ = ReleaseWhenDoneAsync(scan);
-        return scan;
-    }
-
-    private static async Task ReleaseWhenDoneAsync(Task scan)
-    {
-        try
-        {
-            await scan.ConfigureAwait(false);
-        }
-        catch
-        {
-            // 在等它的那次会自己报成 EngineFailed；被取消丢下的已没人要。这里只为观察掉异常
-        }
-        finally
-        {
-            EngineGate.Release();
-        }
-    }
-
     /// <summary>
     /// glob 味归一化：把无从量化的前导 <c>*</c> 补成 <c>.*</c>。
     ///
@@ -312,7 +264,7 @@ public sealed class SimpleGrepper
     }
 
     // 与引擎同一组选项（SearchEngine 用 NonBacktracking）：反向引用、前后断言按默认选项编译得过，
-    // 到引擎里却抛 NotSupportedException——那时它的目录遍历线程已经起来，没人读就永远卡在写满的队列上
+    // 到引擎里却抛 NotSupportedException。先在这里判，编不过就降级为字面量，而不是报引擎失败
     private static bool IsCompilableRegex(string pattern)
     {
         try

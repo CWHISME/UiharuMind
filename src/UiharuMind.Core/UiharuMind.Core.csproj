@@ -23,7 +23,6 @@
       <PackageReference Include="Microsoft.ML.Tokenizers.Data.O200kBase" Version="2.0.0" />
       <PackageReference Include="CliWrap" Version="3.10.5" />
       <PackageReference Include="Downloader" Version="5.9.6" />
-      <PackageReference Include="Glacier.Grep" Version="1.0.1" />
       <PackageReference Include="LLamaSharp" Version="0.27.0" />
       <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0" />
       <PackageReference Include="Meziantou.Framework.Globbing" Version="5.0.5" />
@@ -64,4 +63,8 @@
       <EmbeddedResource Include="Resources\Help*.md" />
     </ItemGroup>
 
+  <ItemGroup>
+    <!-- 用 fork 的子模块：原包的扫描停不下来、忽略规则只认引擎根往下 -->
+    <ProjectReference Include="..\ThirdParty\Glacier.Grep\src\Glacier.Grep\Glacier.Grep.csproj" />
+  </ItemGroup>
 </Project>

@@ -53,33 +53,22 @@ public class GrepAncestorIgnoreTests : IDisposable
         Assert.Equal(["Code/lib/l.txt", "Code/src/a.txt", "Code/src/keep.log", "Code/top.txt"], Files(outcome));
     }
 
-    /// <summary>
-    /// 不上移引擎根：SLG2 只有仓库根一个 .gitignore，上移后搜 Logic/Kit 成了整库搜索（3ms → 9 秒）。
-    /// 搜索根下没有被上层规则忽略的目录时，就是原样一次调用
-    /// </summary>
+    /// <summary>取消是真的停下：扫描中途取消，闸随这次调用释放，下一次搜索不用等被丢下的扫描跑完</summary>
     [Fact]
-    public void NarrowPathWithoutIgnoredDirectories_RunsOnceAtSearchRoot()
+    public async Task CancelledSearch_ReleasesGateForNextSearch()
     {
-        IgnoreAwareSearchScope scope = IgnoreAwareSearchScope.For(_dir, Path.Combine(_dir, "Code", "lib"), null);
+        for (int i = 0; i < 3000; i++) Write($"Code/bulk/d{i % 30}/f{i}.txt");
+        using var cts = new CancellationTokenSource();
 
-        Assert.Equal([("Code/lib", (int?)null)], Runs(scope));
-    }
+        // 进闸是同步完成的，引擎起来之后才回到这里，所以取消落在扫描中途
+        Task<GrepOutcome> search = _grepper.SearchAsync("needle", path: "Code", ct: cts.Token);
+        await cts.CancelAsync();
 
-    /// <summary>
-    /// 只沿通往被忽略目录的路径拆根，拆开的那层只搜散文件。
-    /// Code/.gitignore 的 gen/ 对引擎根 Code/src 而言也成了上层规则，所以 src 也得拆
-    /// </summary>
-    [Fact]
-    public void IgnoredDirectories_SplitOnlyAlongTheirPaths()
-    {
-        IgnoreAwareSearchScope scope = IgnoreAwareSearchScope.For(_dir, Path.Combine(_dir, "Code"), null);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => search);
+        GrepOutcome outcome = await _grepper.SearchAsync("needle", path: "Code/src", ct: TestContext.Current.CancellationToken)
+            .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
-        Assert.Equal(
-            [
-                ("Code", 0), ("Code/Game", 0), ("Code/Game/Plugins", 0), ("Code/Game/Plugins/X", 0),
-                ("Code/lib", null), ("Code/src", 0),
-            ],
-            Runs(scope));
+        Assert.Equal(["Code/src/a.txt", "Code/src/keep.log"], Files(outcome));
     }
 
     /// <summary>上层规则按文件名、带斜杠的通配、否定都与 git 同口径</summary>
@@ -91,9 +80,9 @@ public class GrepAncestorIgnoreTests : IDisposable
         Assert.Equal(["Code/src/a.txt", "Code/src/keep.log"], Files(outcome));
     }
 
-    /// <summary>拆根之后深度仍按调用方给的搜索根算</summary>
+    /// <summary>带上层规则时深度仍按调用方给的搜索根算</summary>
     [Fact]
-    public async Task MaxDepth_SurvivesSplitting()
+    public async Task MaxDepth_CountsFromRequestedPathWithAncestorRules()
     {
         GrepOutcome outcome = await _grepper.SearchAsync("needle", maxDepth: 1, path: "Code",
             ct: TestContext.Current.CancellationToken);
@@ -135,10 +124,6 @@ public class GrepAncestorIgnoreTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, "a needle here\n");
     }
-
-    private List<(string, int?)> Runs(IgnoreAwareSearchScope scope) =>
-        scope.Runs.Select(x => (Path.GetRelativePath(_dir, x.Root).Replace('\\', '/'), x.MaxDepth))
-            .Order().ToList();
 
     private static List<string> Files(GrepOutcome outcome) =>
         outcome.Matches.Select(x => x.FileName.Replace('\\', '/')).Distinct().Order(StringComparer.Ordinal).ToList();

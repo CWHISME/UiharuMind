@@ -1,3 +1,6 @@
 [submodule "src/ThirdParty/ClassicDiagnostics.Avalonia"]
 	path = src/ThirdParty/ClassicDiagnostics.Avalonia
 	url = https://github.com/CWHISME/ClassicDiagnostics.Avalonia.git
+[submodule "src/ThirdParty/Glacier.Grep"]
+	path = src/ThirdParty/Glacier.Grep
+	url = https://github.com/CWHISME/Glacier.Grep.git
