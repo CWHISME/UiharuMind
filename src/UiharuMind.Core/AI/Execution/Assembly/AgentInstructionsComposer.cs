@@ -24,6 +24,11 @@ internal static class AgentInstructionsComposer
     /// </summary>
     internal const string ReadWorkspaceRulesFirst = "本会话第一次调用工具之前，先 `Read` 它读完全文；读过就不用再读。";
 
+    /// <summary>
+    /// 项目规矩里的回复风格写给通用助手（实测 MyStory 那份「活泼、加喵～」被化身照搬），与角色卡冲突时让给人格
+    /// </summary>
+    internal const string WorkspaceStyleYields = "里面要是规定了说话风格，和「你是谁」冲突时照「你是谁」说。";
+
     // 标题一律取自 AgentPromptHeadings：工作区规矩段与 MCP 自述段主代理与子代理逐字共用
     // ——子代理干的正是探查工作区的活、拿的是同一份 MCP 工具，不该是全场唯一不知道规矩的人。
 
@@ -229,7 +234,7 @@ internal static class AgentInstructionsComposer
         string pointer = string.IsNullOrEmpty(fileName)
             ? "工作目录下有一份 AGENTS.md（或 CLAUDE.md），写着这个项目的协作规矩与禁区。"
             : $"工作目录下的 {fileName} 写着这个项目的协作规矩与禁区。";
-        return $"{AgentPromptHeadings.Workspace}\n\n{pointer}\n" + ReadWorkspaceRulesFirst;
+        return $"{AgentPromptHeadings.Workspace}\n\n{pointer}\n" + ReadWorkspaceRulesFirst + "\n" + WorkspaceStyleYields;
     }
 
     /// <summary>
