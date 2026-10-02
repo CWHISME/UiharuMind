@@ -1,8 +1,4 @@
-using System.ClientModel;
-using System.ClientModel.Primitives;
 using Microsoft.Extensions.AI;
-using OpenAI;
-using OpenAI.Chat;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Net;
@@ -59,24 +55,10 @@ internal sealed class RemoteModelManager
 
     private IChatClient CreateChatClient(ILlmModel model)
     {
-        var handler = new OpenAICompatibleHttpHandler(
-            model, model.ModelPath + (model.Port > 0 ? ":" + model.Port : ""));
-        // HttpClient.Timeout 默认就是 100s(管到响应头/首字节),SDK 自带客户端反而设成了 Infinite。
-        // 流式长思考会撞它,一并关掉,裁决交给上层 CancellationToken
-        var httpClient = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
-        var options = new OpenAIClientOptions
-        {
-            Transport = new HttpClientPipelineTransport(httpClient),
-            // SDK 默认重试对限流太急(3 次 / 6 秒内打完),免费档模型的共享配额窗口远不止这么短
-            RetryPolicy = new RateLimitAwareRetryPolicy(),
-            // 流式响应的读闸默认 100s:思考期 chunk 间隔一长就被 ReadTimeoutStream 掐断,
-            // 且那异常在 HTTP 200 之后冒出,OpenAICompatibleHttpHandler 看不到,只会被上层当用户取消吞掉。
-            // 读卡的裁决完全交给上层 CancellationToken(用户停止按钮),这里不设静态时限
-            NetworkTimeout = Timeout.InfiniteTimeSpan,
-        };
-        var client = new ChatClient(model.ModelId,
-            new ApiKeyCredential(model is RemoteModelInfo remoteModel ? remoteModel.ApiKey : ""), options);
-        return client.AsIChatClient();
+        var handler = new OpenAICompatibleHttpHandler(model.ModelPath + (model.Port > 0 ? ":" + model.Port : ""));
+        // SDK 默认重试对限流太急(3 次 / 6 秒内打完),免费档模型的共享配额窗口远不止这么短
+        return OpenAICompatibleChatClient.Create(handler, model, model.ModelId,
+            model is RemoteModelInfo remoteModel ? remoteModel.ApiKey : "", new RateLimitAwareRetryPolicy());
     }
 
     public void AddRemoteModel(RemoteModelInfo model)

@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using UiharuMind.Core.AI.Models;
+using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Configs.RemoteAI;
 using UiharuMind.Core.Core.LLM;
 
@@ -25,7 +26,7 @@ public class OpenAICompatibleReasoningRoundtripTests
             ["thinking"] = new JsonObject { ["type"] = "enabled" },
         };
 
-        OpenAICompatibleHttpHandler.StripSamplingParams(json);
+        OpenAICompatibleRequestRewriter.StripSamplingParams(json);
 
         Assert.Null(json["temperature"]);
         Assert.Null(json["top_p"]);
@@ -55,7 +56,7 @@ public class OpenAICompatibleReasoningRoundtripTests
         };
         var reasoning = new Dictionary<string, string> { ["call-1"] = "先想好再调工具。" };
 
-        OpenAICompatibleHttpHandler.RestoreReasoningContent(json, reasoning);
+        OpenAICompatibleRequestRewriter.RestoreReasoningContent(json, reasoning);
 
         var message = (JsonObject)json["messages"]![0]!;
         Assert.Equal("先想好再调工具。", message["reasoning_content"]!.GetValue<string>());
@@ -81,7 +82,7 @@ public class OpenAICompatibleReasoningRoundtripTests
         };
         var reasoning = new Dictionary<string, string> { ["call-2"] = "第二个调用的思考。" };
 
-        OpenAICompatibleHttpHandler.RestoreReasoningContent(json, reasoning);
+        OpenAICompatibleRequestRewriter.RestoreReasoningContent(json, reasoning);
 
         var message = (JsonObject)json["messages"]![0]!;
         Assert.Equal("第二个调用的思考。", message["reasoning_content"]!.GetValue<string>());
@@ -107,7 +108,7 @@ public class OpenAICompatibleReasoningRoundtripTests
         };
         var reasoning = new Dictionary<string, string> { ["call-1"] = "新的思考，不该覆盖。" };
 
-        OpenAICompatibleHttpHandler.RestoreReasoningContent(json, reasoning);
+        OpenAICompatibleRequestRewriter.RestoreReasoningContent(json, reasoning);
 
         var message = (JsonObject)json["messages"]![0]!;
         Assert.Equal("已有的思考。", message["reasoning_content"]!.GetValue<string>());
@@ -125,7 +126,7 @@ public class OpenAICompatibleReasoningRoundtripTests
         };
         var reasoning = new Dictionary<string, string> { ["call-1"] = "用不上的思考。" };
 
-        OpenAICompatibleHttpHandler.RestoreReasoningContent(json, reasoning);
+        OpenAICompatibleRequestRewriter.RestoreReasoningContent(json, reasoning);
 
         var message = (JsonObject)json["messages"]![0]!;
         Assert.Null(message["reasoning_content"]);

@@ -9,12 +9,9 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
-using System.ClientModel;
-using System.ClientModel.Primitives;
 using Microsoft.Extensions.AI;
-using OpenAI;
-using OpenAI.Chat;
 using UiharuMind.Core.AI.Models;
+using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.LLM;
@@ -155,17 +152,8 @@ internal sealed class LLamaCppRuntimeService
 
     private IChatClient CreateChatClient(ILlmModel model)
     {
-        var handler = new OpenAICompatibleHttpHandler(model, port: LLamaCppSettingConfig.Current.DefaultPort);
-        // HttpClient.Timeout 默认 100s,对 stream=true 的响应等响应头时就会掐掉长思考,显式关掉
-        var httpClient = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
-        var options = new OpenAIClientOptions
-        {
-            Transport = new HttpClientPipelineTransport(httpClient),
-            // 流式读闸默认 100s 会掐掉思考期长停顿,详见 RemoteModelManager 同款注释
-            NetworkTimeout = Timeout.InfiniteTimeSpan,
-        };
-        var client = new ChatClient("UiharuMind", new ApiKeyCredential("None"), options);
-        return client.AsIChatClient();
+        var handler = new OpenAICompatibleHttpHandler(port: LLamaCppSettingConfig.Current.DefaultPort);
+        return OpenAICompatibleChatClient.Create(handler, model, "UiharuMind", "None");
     }
 
     public async Task<IReadOnlyDictionary<string, GGufModelInfo>> GetModelList(VersionInfo? version)

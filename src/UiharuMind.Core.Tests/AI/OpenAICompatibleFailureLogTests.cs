@@ -1,4 +1,5 @@
 using System.Net;
+using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Core.LLM;
 
 namespace UiharuMind.Core.Tests.AI;
@@ -59,7 +60,7 @@ public class OpenAICompatibleFailureLogTests
     {
         string body = "{\"image_url\":{\"url\":\"data:image/png;base64," + new string('A', 2000) + "\"}}";
 
-        string logged = OpenAICompatibleHttpHandler.ForLog(body);
+        string logged = LlmBodyLogFormat.ForLog(body);
 
         Assert.Contains("data:image/png;base64,", logged); //还看得出这里挂过一张 png
         Assert.Contains("base64 chars>", logged);
@@ -72,7 +73,7 @@ public class OpenAICompatibleFailureLogTests
     {
         string body = "{\"data\":\"" + new string('Q', 3000) + "\"}";
 
-        string logged = OpenAICompatibleHttpHandler.ForLog(body);
+        string logged = LlmBodyLogFormat.ForLog(body);
 
         Assert.Contains("base64 chars>", logged);
         Assert.DoesNotContain(new string('Q', 600), logged);
@@ -84,7 +85,7 @@ public class OpenAICompatibleFailureLogTests
         const string body =
             """{"temperature":0.5,"top_p":0.8,"messages":[{"role":"system","content":"# Task 你是Uiharu，具备活泼的性格。"}],"tools":[{"function":{"name":"run_shell"}}]}""";
 
-        string logged = OpenAICompatibleHttpHandler.ForLog(body);
+        string logged = LlmBodyLogFormat.ForLog(body);
 
         //内容一个字都不能少;中文必须是中文,不能是 \uXXXX——那样日志基本没法读
         Assert.Contains("# Task 你是Uiharu，具备活泼的性格。", logged);
@@ -99,7 +100,7 @@ public class OpenAICompatibleFailureLogTests
         //发出去的是压缩过的单行 JSON,直接写进日志就是挤成一坨的一大段
         const string body = """{"a":1,"b":{"c":2}}""";
 
-        string logged = OpenAICompatibleHttpHandler.ForLog(body);
+        string logged = LlmBodyLogFormat.ForLog(body);
 
         Assert.Contains("\n", logged);
     }
@@ -111,7 +112,7 @@ public class OpenAICompatibleFailureLogTests
         // 只还原字符串值内部,结构性的换行(WriteIndented 插的)不动
         const string body = """{"content":"第一行\n第二行","nested":{"s":"甲\n乙"}}""";
 
-        string logged = OpenAICompatibleHttpHandler.ForLog(body);
+        string logged = LlmBodyLogFormat.ForLog(body);
 
         Assert.Contains("第一行\n第二行", logged);
         Assert.Contains("甲\n乙", logged);
@@ -124,14 +125,14 @@ public class OpenAICompatibleFailureLogTests
         //错误响应未必是 JSON,格式化失败不该影响任何事
         const string body = "upstream connect error";
 
-        Assert.Equal(body, OpenAICompatibleHttpHandler.ForLog(body));
+        Assert.Equal(body, LlmBodyLogFormat.ForLog(body));
     }
 
     [Fact]
     public void ShortBase64LikeString_IsLeftAlone()
     {
         //短的可能是真内容(id、哈希),抹掉反而丢信息
-        string logged = OpenAICompatibleHttpHandler.ForLog("""{"id":"chatcmpl-abc123XYZ"}""");
+        string logged = LlmBodyLogFormat.ForLog("""{"id":"chatcmpl-abc123XYZ"}""");
 
         Assert.Contains("chatcmpl-abc123XYZ", logged);
     }
