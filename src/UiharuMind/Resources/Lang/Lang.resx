@@ -3527,6 +3527,9 @@ Allow them?</value>
     <data name="GroupAwayGoalPlaceholder" xml:space="preserve">
         <value>Goal (notes welcome, e.g. "leave the docs folder alone this time"); posted to the group as you</value>
     </data>
+    <data name="GroupAwayMandatePlaceholder" xml:space="preserve">
+        <value>Authority (optional, only the avatar sees it), e.g. "you may decide structural changes for me"</value>
+    </data>
     <data name="GroupAwayModelLabel" xml:space="preserve">
         <value>Avatar model</value>
     </data>

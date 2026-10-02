@@ -18,9 +18,11 @@ internal sealed class GroupAwaySession
     /// <param name="settings">定格的离席参数</param>
     /// <param name="startedAt">开始时刻</param>
     /// <param name="artifactStamp">开始时的本群产物指纹</param>
+    /// <param name="mandate">只给化身看的授权范围；没有为 null</param>
     public GroupAwaySession(ChatSession group, ChatSession avatar, GroupAwaySettings settings, DateTimeOffset startedAt,
-        string artifactStamp)
+        string artifactStamp, string? mandate = null)
     {
+        Mandate = string.IsNullOrWhiteSpace(mandate) ? null : mandate.Trim();
         Group = group;
         Avatar = avatar;
         Settings = settings;
@@ -35,6 +37,9 @@ internal sealed class GroupAwaySession
 
     /// <summary>化身会话</summary>
     public ChatSession Avatar { get; }
+
+    /// <summary>只给化身看的授权范围；没有为 null</summary>
+    public string? Mandate { get; }
 
     /// <summary>定格的离席参数</summary>
     public GroupAwaySettings Settings { get; }

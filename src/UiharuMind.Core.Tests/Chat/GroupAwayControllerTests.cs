@@ -109,6 +109,25 @@ public class GroupAwayControllerTests
     }
 
     [Fact]
+    public async Task Mandate_RidesEveryAvatarTurn_ButNeverReachesTheGroup()
+    {
+        const string mandate = "原语级改动可以替我拍";
+        _runner.Replies[_avatar.SessionId] = _ => GroupTranscript.PassReply;
+
+        _away.Start(_group, "目标", null, mandate);
+        await Until(() => _delays.Count == 1);
+        Assert.Contains(mandate, LastAvatarInput());
+
+        _delays[0].Due.SetResult();
+        await Until(() => _delays.Count == 2);
+        Assert.Contains(mandate, LastAvatarInput());
+        Assert.EndsWith(GroupAvatarTranscript.SilentNote, LastAvatarInput()); //没进展的提示仍在最后
+
+        Assert.DoesNotContain(_group.History, x => x.Text.Contains(mandate));
+        Assert.DoesNotContain(_runner.Calls, x => x.Member != _avatar && x.Input.Contains(mandate));
+    }
+
+    [Fact]
     public async Task PushNobodyAnswers_IsAnEmptyPush()
     {
         foreach (string id in _group.GroupMemberSessionIds) _runner.Replies[id] = _ => GroupTranscript.PassReply;

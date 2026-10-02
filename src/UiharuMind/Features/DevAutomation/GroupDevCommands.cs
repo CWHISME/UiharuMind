@@ -279,7 +279,7 @@ internal sealed class GroupDumpCommand : IDevCommand
 }
 
 /// <summary>
-/// 开始离席：点开群，在右栏离席块里填目标、选化身模型、点「开始离席」。<c>args</c>：group、goal、model（模型名，省略跟随全局）
+/// 开始离席：点开群，在右栏离席块里填目标、授权范围、选化身模型、点「开始离席」。<c>args</c>：group、goal、mandate（可省）、model（模型名，省略跟随全局）
 /// </summary>
 internal sealed class GroupAwayStartCommand : IAsyncDevCommand
 {
@@ -290,6 +290,7 @@ internal sealed class GroupAwayStartCommand : IAsyncDevCommand
         ChatSession group = GroupDevCommands.RequireGroup(args);
         GroupAwayViewData away = await GroupDevCommands.AwayOf(group);
         away.Goal = DevCommandRegistry.RequireString(args, "goal");
+        away.Mandate = GroupDevCommands.StringOr(args, "mandate") ?? string.Empty;
         if (GroupDevCommands.StringOr(args, "model") is { } model)
         {
             away.SelectedModel = away.ModelOptions.FirstOrDefault(x => x.ModelName == model)

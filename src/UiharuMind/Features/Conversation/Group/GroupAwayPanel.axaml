@@ -24,6 +24,8 @@
             <StackPanel Spacing="6" IsVisible="{Binding IsIdle}">
                 <TextBox Text="{Binding Goal}" PlaceholderText="{loc:Loc GroupAwayGoalPlaceholder}"
                          AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="160" />
+                <TextBox Text="{Binding Mandate}" PlaceholderText="{loc:Loc GroupAwayMandatePlaceholder}"
+                         AcceptsReturn="True" TextWrapping="Wrap" MinHeight="40" MaxHeight="120" />
                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
                     <TextBlock Classes="muted" VerticalAlignment="Center" Text="{loc:Loc GroupAwayModelLabel}" />
                     <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"

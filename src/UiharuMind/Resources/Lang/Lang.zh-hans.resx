@@ -3520,6 +3520,9 @@
     <data name="GroupAwayGoalPlaceholder" xml:space="preserve">
         <value>目标（可附备注，如「这次别动文档目录」），会以你的名义发进群</value>
     </data>
+    <data name="GroupAwayMandatePlaceholder" xml:space="preserve">
+        <value>授权范围（可选，只给化身看，成员看不到），如「原语级改动可以替我拍」</value>
+    </data>
     <data name="GroupAwayModelLabel" xml:space="preserve">
         <value>化身模型</value>
     </data>

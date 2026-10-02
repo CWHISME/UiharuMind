@@ -94,8 +94,9 @@ public sealed class GroupAwayController
     /// <param name="group">群壳会话（智能体群）</param>
     /// <param name="goal">目标（可含备注）</param>
     /// <param name="avatarModelName">化身这次用的模型；null 跟随全局</param>
+    /// <param name="mandate">只给化身看的授权范围（成员看不到）；null 或空白为没有</param>
     /// <returns>开始了为 true；已经在离席为 false</returns>
-    public bool Start(ChatSession group, string goal, string? avatarModelName)
+    public bool Start(ChatSession group, string goal, string? avatarModelName, string? mandate = null)
     {
         if (string.IsNullOrWhiteSpace(goal)) throw new ArgumentException("An away session needs a goal.", nameof(goal));
 
@@ -110,7 +111,7 @@ public sealed class GroupAwayController
         lock (_sync)
         {
             if (_sessions.ContainsKey(group.SessionId)) return false;
-            _sessions[group.SessionId] = new GroupAwaySession(group, avatar, _settings(), _now(), stamp);
+            _sessions[group.SessionId] = new GroupAwaySession(group, avatar, _settings(), _now(), stamp, mandate);
         }
 
         RaiseStatusChanged(group.SessionId);
@@ -267,7 +268,7 @@ public sealed class GroupAwayController
         GroupAvatarTurn turn;
         try
         {
-            turn = await _coordinator.RunAvatarAsync(session.Group, session.Avatar, note, session.Token)
+            turn = await _coordinator.RunAvatarAsync(session.Group, session.Avatar, WithMandate(session, note), session.Token)
                 .ConfigureAwait(false);
         }
         catch (Exception e)
@@ -475,6 +476,14 @@ public sealed class GroupAwayController
     }
 
     private static string UserName => CharacterManager.Instance.UserCharacterName;
+
+    // 授权范围每一轮都带：化身的历史跨离席保留，只靠第一轮那一次，换一次离席就分不清哪份作数
+    private static string? WithMandate(GroupAwaySession session, string? note)
+    {
+        if (session.Mandate == null) return note;
+        string mandate = GroupAvatarTranscript.MandateNote(UserName, session.Mandate);
+        return note == null ? mandate : mandate + "\n\n" + note;
+    }
 
     private void RaiseStatusChanged(string groupId)
     {

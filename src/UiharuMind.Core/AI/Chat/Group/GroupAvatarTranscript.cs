@@ -37,6 +37,15 @@ public static class GroupAvatarTranscript
     public static string StoppedNote(string userName) => $"（{userName}刚才按了停止。看看现在的情况，再决定怎么推。）";
 
     /// <summary>
+    /// 授权范围：用户开离席时只交代给化身的话，每一轮附在投递末尾（在没进展的提示之前），⛔ 不进群
+    /// </summary>
+    /// <param name="userName">用户的名字</param>
+    /// <param name="mandate">用户写的授权范围</param>
+    /// <returns>提示</returns>
+    public static string MandateNote(string userName, string mandate) =>
+        $"（{userName}离席前只交代给你的授权范围，成员看不到，别原样转述：{mandate.Trim()}）";
+
+    /// <summary>
     /// 开离席时以用户名义发进群的那句：目标与备注原样带上标签
     /// </summary>
     /// <param name="goal">用户写的目标（可含备注）</param>

@@ -30,6 +30,8 @@ public sealed partial class GroupAwayViewData : ObservableObject, IDisposable
     [NotifyCanExecuteChangedFor(nameof(StartCommand))]
     private string _goal = string.Empty;
 
+    [ObservableProperty] private string _mandate = string.Empty; //只给化身看的授权范围
+
     [ObservableProperty] private SessionModelOption _selectedModel;
 
     /// <summary>
@@ -101,7 +103,9 @@ public sealed partial class GroupAwayViewData : ObservableObject, IDisposable
     private void Start()
     {
         string? model = SelectedModel.IsDefault ? null : SelectedModel.ModelName;
-        if (_away.Start(_group, Goal, model)) Goal = string.Empty;
+        if (!_away.Start(_group, Goal, model, Mandate)) return;
+        Goal = string.Empty;
+        Mandate = string.Empty;
     }
 
     private bool CanStart() => !string.IsNullOrWhiteSpace(Goal);
