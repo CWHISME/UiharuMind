@@ -98,6 +98,7 @@ public partial class ConversationPageData : ConversationPageDataBase
         SessionList.SelectionChanged += OnSelectionChanged;
         SessionList.Mutated += OnSessionMutated;
         SessionList.Removed += OnSessionRemoved;
+        SessionList.ContentSearch.OpenRequested += OnContentHitOpenRequested;
 
         // 启动时恢复最近会话(历史加载不依赖模型状态)
         SessionListItem? first = SessionList.Sessions.FirstOrDefault();
@@ -314,6 +315,16 @@ public partial class ConversationPageData : ConversationPageDataBase
         // 删掉当前会话后顺位选下一条（普通对话）或回空态（智能体）。两类口径保持原样
         if (CurrentType == EConversationType.Chat) SessionList.SelectFirstOrNone();
         else NewSession();
+    }
+
+    /// <summary>
+    /// 点了「消息里提到的」一条摘要：切到那个会话（已在看就不切），再请它在会话内跳到那条。
+    /// 切换是同步做完的；没切过去（会话刚被删）就不交——交给别的会话，它会在自己里面按这个词乱跳
+    /// </summary>
+    private void OnContentHitOpenRequested(SessionContentHitRow hit)
+    {
+        SessionList.SelectFromContentSearch(hit.SessionId);
+        if (Conversation.CurrentMeta?.SessionId == hit.SessionId) Conversation.RequestSearchReveal(hit.Reveal);
     }
 
     private void OpenSession(string sessionId)

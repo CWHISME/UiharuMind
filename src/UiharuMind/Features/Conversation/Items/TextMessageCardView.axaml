@@ -118,7 +118,8 @@
                     </ItemsControl>
                 </Border>
 
-                <Border Classes="message-bubble" Classes.narration="{Binding IsNarration}"
+                <!-- search-surface:搜索跳到这条时亮的是这一块(见 ConversationSearchHighlight) -->
+                <Border Classes="message-bubble search-surface" Classes.narration="{Binding IsNarration}"
                         Margin="0,5,0,0"
                         BorderBrush="{Binding SenderColor}"
                         HorizontalAlignment="{Binding Alignment}"

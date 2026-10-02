@@ -446,6 +446,25 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
         }
     }
 
+    /// <summary>
+    /// 逐行读一个会话的历史文件，不装载、不驻留（跨会话搜索扫全部会话用：装载会把几百份历史留在内存里）。
+    /// 读的是磁盘上那份，正在跑的那一轮还没落盘的部分不在里面。
+    ///
+    /// 枚举时才打开，且<b>不挡写入与删除</b>：<c>File.ReadLines</c> 只共享读，Windows 上读着的时候
+    /// 那一轮的追加会撞共享冲突、记一条日志就丢了（追加不重试）
+    /// </summary>
+    /// <param name="sessionId">会话标识</param>
+    /// <returns>历史文件的行；文件不在为空</returns>
+    public static IEnumerable<string> ReadHistoryLines(string sessionId)
+    {
+        string path = GetHistoryPath(sessionId);
+        if (!File.Exists(path)) yield break;
+
+        using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using StreamReader reader = new(stream);
+        while (reader.ReadLine() is { } line) yield return line;
+    }
+
     private static List<ChatMessage> LoadHistory(string sessionId)
     {
         string path = GetHistoryPath(sessionId);

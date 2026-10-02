@@ -42,7 +42,7 @@ public sealed record SessionSearchHit(int MessageIndex, ChatMessage Message, ESe
 /// 会话历史的全文搜索。搜的是<b>消息历史</b>而不是界面条目——会话流按窗渲染、滚远的卡片会被卸掉、
 /// 长思考与工具结果只显示截断预览，界面上的东西从来不全（见 ADR 0056）。
 ///
-/// 纯函数、不碰存储：单个会话直接喂历史；跨会话搜索逐个会话把历史读出来再喂进来，同一套口径
+/// 纯函数、不碰存储：单个会话直接喂历史；跨会话搜索（<see cref="SessionContentSearch"/>）逐行解析后逐条喂 <see cref="FindIn"/>，同一套口径
 /// </summary>
 public static class SessionSearch
 {
@@ -61,18 +61,26 @@ public static class SessionSearch
         SessionSearchOptions options = default, CancellationToken cancellationToken = default)
     {
         List<SessionSearchHit> hits = new();
-        string keyword = query?.Trim() ?? string.Empty;
-        if (keyword.Length == 0) return hits;
+        if (KeywordOf(query) is not { } keyword) return hits;
 
         for (int i = 0; i < history.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (Match(history[i], keyword, options) is not { } match) continue;
-            hits.Add(new SessionSearchHit(i, history[i], match.Kind, match.Snippet));
+            if (FindIn(history[i], i, keyword, options) is { } hit) hits.Add(hit);
         }
 
         return hits;
     }
+
+    /// <summary>关键词规整：去首尾空白，空白返回 null</summary>
+    internal static string? KeywordOf(string? query) => query?.Trim() is { Length: > 0 } keyword ? keyword : null;
+
+    /// <summary>一条消息里的命中（跨会话扫描逐行解析，下标由调用方按行号给）</summary>
+    internal static SessionSearchHit? FindIn(ChatMessage message, int index, string keyword,
+        SessionSearchOptions options) =>
+        Match(message, keyword, options) is { } match
+            ? new SessionSearchHit(index, message, match.Kind, match.Snippet)
+            : null;
 
     private static (ESearchHitKind Kind, string Snippet)? Match(ChatMessage message, string keyword,
         SessionSearchOptions options)

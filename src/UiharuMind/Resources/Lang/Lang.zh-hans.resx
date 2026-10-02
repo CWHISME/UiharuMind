@@ -3658,4 +3658,19 @@
     <data name="ConversationReturnToLatest" xml:space="preserve">
         <value>回到最新</value>
     </data>
+    <data name="SessionContentSearchHeader" xml:space="preserve">
+        <value>消息里提到的（{0} 个会话）</value>
+    </data>
+    <data name="SessionContentSearchSearching" xml:space="preserve">
+        <value>正在搜索消息…</value>
+    </data>
+    <data name="SessionContentSearchNoMatch" xml:space="preserve">
+        <value>消息里也没有</value>
+    </data>
+    <data name="SessionContentSearchStart" xml:space="preserve">
+        <value>在消息里搜索「{0}」</value>
+    </data>
+    <data name="SessionContentSearchFailed" xml:space="preserve">
+        <value>消息搜索出错了</value>
+    </data>
 </root>

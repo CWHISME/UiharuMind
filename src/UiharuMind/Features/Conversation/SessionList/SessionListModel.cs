@@ -72,22 +72,25 @@ public partial class SessionListModel : ObservableObject, IDisposable
     /// <param name="messageService">条目的确认弹窗</param>
     /// <param name="post">回 UI 线程的方式；测试传同步执行</param>
     public SessionListModel(EConversationType type, IMessageService messageService, Action<Action>? post = null)
-        : this(type, null, post, messageService)
+        : this(type, null, post, messageService, SessionManager.ReadHistoryLines)
     {
     }
 
     /// <summary>
     /// 把全量清单来源换成固定数据（测试用）。<paramref name="source"/> 返回<b>全部</b>会话
     /// （不含子会话），类型过滤在模型内部做——与生产路径（<c>SessionManager.GetSessions</c>）同形状。
-    /// 类型归路仍是 <c>CharacterKindRouting</c> 一个出口
+    /// 类型归路仍是 <c>CharacterKindRouting</c> 一个出口。历史读取不给就是什么都读不到——测试的固定清单没有历史文件
     /// </summary>
     internal SessionListModel(EConversationType type,
-        Func<List<ChatSessionMeta>>? source, Action<Action>? post, IMessageService messageService)
+        Func<List<ChatSessionMeta>>? source, Action<Action>? post, IMessageService messageService,
+        Func<string, IEnumerable<string>>? readHistoryLines = null)
     {
         _source = source;
         _type = type;
         _post = post ?? (action => Dispatcher.UIThread.Post(action));
         _messageService = messageService;
+        ContentSearch = new SessionContentSearchViewData(() => _all.Where(x => BelongsHere(x.Meta)).ToList(),
+            readHistoryLines ?? (_ => []), _post);
 
         Sync();
 
@@ -243,6 +246,7 @@ public partial class SessionListModel : ObservableObject, IDisposable
         if (_type == type) return;
         _type = type;
         RebuildFiltered();
+        ContentSearch.NotifySessionsChanged();
         SessionListItem? target = null;
         if (_lastSelectedByType.TryGetValue(type, out string? id)) target = Find(id);
         SelectWithoutNotifying(target ?? Sessions.FirstOrDefault());
@@ -295,6 +299,7 @@ public partial class SessionListModel : ObservableObject, IDisposable
         SessionManager.Instance.Running.StateChanged -= OnRunStateChanged;
         BackgroundSubAgentDispatcher.PendingWorkChanged -= OnRunStateChanged;
         foreach (SessionListItem item in _all) Detach(item);
+        ContentSearch.Dispose();
     }
 
     //================= 内部 =================
@@ -426,6 +431,7 @@ public partial class SessionListModel : ObservableObject, IDisposable
         ForgetMemory(sessionId);
         // 不替页面决定接着选谁:各页口径不同
         if (ReferenceEquals(SelectedSession, item)) SelectWithoutNotifying(null);
+        ContentSearch.NotifySessionRemoved(sessionId);
         Removed?.Invoke(item);
     }
 

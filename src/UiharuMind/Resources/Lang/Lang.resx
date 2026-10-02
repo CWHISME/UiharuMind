@@ -3665,4 +3665,19 @@ Allow them?</value>
     <data name="ConversationReturnToLatest" xml:space="preserve">
         <value>Back to latest</value>
     </data>
+    <data name="SessionContentSearchHeader" xml:space="preserve">
+        <value>In messages ({0} conversations)</value>
+    </data>
+    <data name="SessionContentSearchSearching" xml:space="preserve">
+        <value>Searching messages…</value>
+    </data>
+    <data name="SessionContentSearchNoMatch" xml:space="preserve">
+        <value>Not found in messages either</value>
+    </data>
+    <data name="SessionContentSearchStart" xml:space="preserve">
+        <value>Search messages for “{0}”</value>
+    </data>
+    <data name="SessionContentSearchFailed" xml:space="preserve">
+        <value>Message search failed</value>
+    </data>
 </root>

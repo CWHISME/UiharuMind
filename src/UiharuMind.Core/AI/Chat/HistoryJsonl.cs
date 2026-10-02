@@ -63,10 +63,7 @@ public static class HistoryJsonl
             if (string.IsNullOrWhiteSpace(line)) continue;
             try
             {
-                ChatMessage? message = JsonSerializer.Deserialize<ChatMessage>(line, LineOptions);
-                if (message == null) continue;
-                ChatContentNormalizer.Normalize(message);
-                result.Add(message);
+                if (ParseLine(line) is { } message) result.Add(message);
             }
             catch (JsonException e)
             {
@@ -75,5 +72,31 @@ public static class HistoryJsonl
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// 解析一行（与 <see cref="Parse"/> 同样规整内容），损坏行返回 null、不告警——
+    /// 跨会话搜索每扫一遍都会碰到同一批损坏行，装载时告过一次就够了
+    /// </summary>
+    /// <param name="line">一行</param>
+    /// <returns>消息；空行或损坏行为 null</returns>
+    public static ChatMessage? TryParseLine(string line)
+    {
+        try
+        {
+            return ParseLine(line);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static ChatMessage? ParseLine(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line)) return null;
+        ChatMessage? message = JsonSerializer.Deserialize<ChatMessage>(line, LineOptions);
+        if (message != null) ChatContentNormalizer.Normalize(message);
+        return message;
     }
 }

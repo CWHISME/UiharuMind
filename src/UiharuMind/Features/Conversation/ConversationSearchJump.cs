@@ -29,12 +29,10 @@ namespace UiharuMind.Features.Conversation;
 /// </summary>
 internal sealed class ConversationSearchJump
 {
-    private const string HitClass = "search-hit";
     private const double ViewportAnchor = 0.25; //命中落在视口上方四分之一处:上文看得到一点,下文留得多
     private const double InsetGap = 12; //落点与搜索栏下沿之间留的空
     private const int MaxSettlePasses = 6; //转 markdown 会改高度,落点要跟着重算;垫高续批也占一轮
     private const int MaxLaterTopUps = 3; //命中之后的内容不够高、滚不到锚点时,往后续几批垫高
-    private static readonly TimeSpan FlashDuration = TimeSpan.FromSeconds(1.6);
 
     private readonly ScrollViewer _viewer;
     private readonly ItemsControl _list;
@@ -43,8 +41,8 @@ internal sealed class ConversationSearchJump
     private readonly Func<Func<bool>, bool> _prependKeepingViewport;
     private readonly Func<double> _topInset;
     private readonly Func<bool> _loadLater;
+    private readonly ConversationSearchHighlight _highlight = new();
     private int _version; //后一次跳转作废前一次还在续窗的那次
-    private Control? _flashing;
 
     /// <summary>构造</summary>
     /// <param name="viewer">会话流的滚动容器</param>
@@ -114,7 +112,7 @@ internal sealed class ConversationSearchJump
                 Math.Abs(settled.Y - Anchor()) < 1 || IsAtScrollLimit()) break;
         }
 
-        Flash(container);
+        _highlight.Show(container);
         Log.Debug($"Search jump: {plan}, {batches} batch(es), " +
                   $"{Stopwatch.GetElapsedTime(started).TotalMilliseconds:0}ms, items {_list.ItemCount}");
     }
@@ -138,17 +136,5 @@ internal sealed class ConversationSearchJump
     {
         double max = Math.Max(0, _viewer.Extent.Height - _viewer.Viewport.Height);
         return _viewer.Offset.Y <= 0 || _viewer.Offset.Y >= max - 1;
-    }
-
-    private void Flash(Control container)
-    {
-        _flashing?.Classes.Remove(HitClass);
-        _flashing = container;
-        container.Classes.Add(HitClass);
-        DispatcherTimer.RunOnce(() =>
-        {
-            container.Classes.Remove(HitClass);
-            if (ReferenceEquals(_flashing, container)) _flashing = null;
-        }, FlashDuration);
     }
 }

@@ -46,6 +46,14 @@
         <Style Selector="ListBoxItem:selected">
             <Setter Property="Background" Value="{DynamicResource SemiBlue0}" />
         </Style>
+        <!-- 「在消息里搜索」与「消息里提到的」摘要行:沿用内联选择器的行(picker-row),内容铺满整行。
+             正文色取列表本身的:按钮主题给的是强调色,一侧栏蓝字读着像一串链接(muted 的标签自己有色) -->
+        <Style Selector="Button.picker-row.content-hit">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
+        <Style Selector="Button.content-hit TextBlock:not(.muted)">
+            <Setter Property="Foreground" Value="{Binding $parent[sessions:SessionListView].Foreground}" />
+        </Style>
         <!-- 删除按钮只在悬停时露出:常驻会把每一条都塞得很挤 -->
         <Style Selector="ListBoxItem Button.session-delete">
             <Setter Property="Opacity" Value="0" />
@@ -68,7 +76,12 @@
                          Padding="31,6,8,6"
                          FontSize="12"
                          PlaceholderText="{loc:Loc SessionSearchPlaceholder}"
-                         VerticalAlignment="Center" />
+                         VerticalAlignment="Center">
+                    <!-- 打字只按标题滤;回车才去消息里搜(同下方那一行) -->
+                    <TextBox.KeyBindings>
+                        <KeyBinding Gesture="Enter" Command="{Binding ContentSearch.StartCommand}" />
+                    </TextBox.KeyBindings>
+                </TextBox>
                 <controls:ThemedSvgIcon Width="15" Height="15" Margin="9,0,0,0"
                                         HorizontalAlignment="Left"
                                         VerticalAlignment="Center"
@@ -82,6 +95,19 @@
                                              CheckedBackground="{DynamicResource SemiBlue1}"
                                              ToolTips="{loc:Loc SessionBatchMode}" />
         </Grid>
+
+        <!-- 紧挨搜索框:打字只按标题滤,要去消息里搜点这一行(或回车)。放在下方结果段那里的话,
+             标题一个都没匹配时它沉在空列表最底下,离输入框整整一屏 -->
+        <Button DockPanel.Dock="Top" Classes="picker-row content-hit" Margin="0,0,0,8"
+                IsVisible="{Binding ContentSearch.CanStart}"
+                Command="{Binding ContentSearch.StartCommand}">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                <controls:ThemedSvgIcon Width="14" Height="14" VerticalAlignment="Center" IconName="search" />
+                <TextBlock Grid.Column="1" FontSize="12" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"
+                           Text="{Binding ContentSearch.StartText}" />
+            </Grid>
+        </Button>
 
         <!-- 批量动作条：只在批量模式出现。删的口径是"勾了的"（含被搜索滤掉的），
              不是"看得见的"；计数同此，"3/12"这种纯数字格式不牵本地化。
@@ -108,6 +134,50 @@
                     </TextBlock.Text>
                 </TextBlock>
             </Grid>
+        </Border>
+
+        <!-- 消息里提到的：同一个搜索词在这一侧全部会话的消息里搜（见 ADR 0057）。要点下面那一行（或回车）才扫，
+             打字本身只按标题滤。沉在列表下方、自己滚，标题匹配的列表照旧在上面；点一条摘要切过去，并在会话内搜索栏里跳到那条 -->
+        <Border DockPanel.Dock="Bottom" Margin="0,8,0,0" Padding="0,8,0,0" MaxHeight="340"
+                BorderThickness="0,1,0,0" BorderBrush="{DynamicResource SemiGrey2}"
+                IsVisible="{Binding ContentSearch.IsActive}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Classes="muted" FontSize="11" Margin="2,0,0,6"
+                           Text="{Binding ContentSearch.HeaderText}" />
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding ContentSearch.Results}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="sessions:SessionContentResultRow">
+                                <StackPanel Margin="0,0,0,8" Spacing="2">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" Margin="2,0">
+                                        <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding Session.Name}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" Classes="muted" FontSize="11"
+                                                   VerticalAlignment="Center" Text="{Binding CountText}" />
+                                    </Grid>
+                                    <ItemsControl ItemsSource="{Binding Hits}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="sessions:SessionContentHitRow">
+                                                <Button Classes="picker-row content-hit"
+                                                        Command="{Binding $parent[sessions:SessionListView].((sessions:SessionListModel)DataContext).ContentSearch.OpenCommand}"
+                                                        CommandParameter="{Binding}">
+                                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                                                        <TextBlock Classes="muted" FontSize="11" Margin="0,1,0,0"
+                                                                   VerticalAlignment="Top" Text="{Binding Label}" />
+                                                        <TextBlock Grid.Column="1" FontSize="12" TextWrapping="Wrap"
+                                                                   MaxLines="2" TextTrimming="CharacterEllipsis"
+                                                                   Text="{Binding Snippet}" />
+                                                    </Grid>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
         </Border>
 
         <!-- 行模板要轻:Avalonia 的 ListBox 回收容器时会清掉 Content,行模板随之整棵重建,

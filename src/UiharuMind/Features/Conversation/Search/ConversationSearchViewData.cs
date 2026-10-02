@@ -20,6 +20,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat.Search;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Utils;
 
 namespace UiharuMind.Features.Conversation.Search;
 
@@ -54,15 +55,16 @@ public sealed partial class ConversationSearchViewData : ObservableObject, IDisp
     [ObservableProperty] private string _statusText = string.Empty;
 
     private readonly Func<IReadOnlyList<ChatMessage>?> _history;
-    private int _version; //后台搜索只采纳最新一次
-    private CancellationTokenSource? _debounce;
-    private CancellationTokenSource? _running;
+    private readonly LatestOnlyRunner _runner;
+    private ConversationSearchReveal? _revealTarget; //跨会话点进来要跳的那条,由下一次采纳的结果兑现
 
     /// <summary>构造</summary>
     /// <param name="history">当前会话的历史（现取现用：中途换会话也跟得上）；没有会话为 null</param>
-    public ConversationSearchViewData(Func<IReadOnlyList<ChatMessage>?> history)
+    /// <param name="post">回 UI 线程的方式；默认投到界面调度器</param>
+    public ConversationSearchViewData(Func<IReadOnlyList<ChatMessage>?> history, Action<Action>? post = null)
     {
         _history = history;
+        _runner = new LatestOnlyRunner(post ?? (action => Dispatcher.UIThread.Post(action)));
     }
 
     /// <summary>结果，新到旧</summary>
@@ -95,7 +97,8 @@ public sealed partial class ConversationSearchViewData : ObservableObject, IDisp
     public void Close()
     {
         IsOpen = false;
-        Invalidate();
+        _revealTarget = null;
+        _runner.Cancel();
         SetHits([]);
     }
 
@@ -121,6 +124,24 @@ public sealed partial class ConversationSearchViewData : ObservableObject, IDisp
         if (SelectedIndex >= 0 && SelectedIndex < Hits.Count) JumpRequested?.Invoke(Hits[SelectedIndex].Hit);
     }
 
+    /// <summary>
+    /// 带着关键词打开并跳到指定那条（从跨会话搜索点进来），焦点给搜索框——接着按回车就是在这个会话里往前翻。
+    ///
+    /// 下标来自历史文件、可能对不上装载后的历史，所以按关键词在会话内重搜，取下标最近的那条；
+    /// 会话里已经搜不到就只打开不跳。目标记下、由<b>下一次采纳的结果</b>兑现，而不是等这一次搜完就去读 <see cref="Hits"/>：
+    /// 这一次可能被追加消息触发的重搜取代，那时列表里还是上一个词的结果
+    /// </summary>
+    /// <param name="reveal">要跳的那条</param>
+    /// <returns>这一次搜完（或被取代）</returns>
+    public Task OpenAtAsync(ConversationSearchReveal reveal)
+    {
+        IsOpen = true;
+        Query = reveal.Query;
+        _revealTarget = reveal; //排在改词之后:改词会清掉目标(用户自己改了词就不该再跳)
+        FocusRequested?.Invoke();
+        return SearchNowAsync();
+    }
+
     /// <summary>历史变了（追加、删除、换了会话）。开着就按原词重搜，选中原位保住</summary>
     public void NotifyHistoryChanged()
     {
@@ -129,46 +150,23 @@ public sealed partial class ConversationSearchViewData : ObservableObject, IDisp
     }
 
     /// <summary>
-    /// 立即搜一次（跳过防抖）。测试用，也给「打开就有词」那一路
+    /// 立即搜一次（跳过防抖）。测试用，也给「打开就跳」那一路
     /// </summary>
     /// <returns>搜完（或被更新的一次取代）</returns>
-    internal async Task SearchNowAsync()
-    {
-        _debounce?.Cancel();
-        int version = ++_version;
-        _running?.Cancel();
-        CancellationTokenSource running = _running = new CancellationTokenSource();
+    internal Task SearchNowAsync() => _runner.RunNow(SearchAsync);
 
-        string query = Query;
-        SessionSearchOptions options = new(IncludeThinking, IncludeTools);
-        // 快照在 UI 线程上取:会话本体那份历史随时在被追加,冷会话还可能被卸载
-        List<ChatMessage> snapshot = _history()?.ToList() ?? [];
-        List<SessionSearchHit> hits;
-        try
-        {
-            hits = await Task.Run(() => SessionSearch.Find(snapshot, query, options, running.Token), running.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            return;
-        }
-
-        if (version != _version) return;
-        hits.Reverse();
-        SetHits(hits);
-    }
+    /// <summary>最近一次搜索（跑完、被取代都算完成）。测试用</summary>
+    internal Task Pending => _runner.Pending;
 
     /// <summary>停掉还没到点的搜索，作废还在后台的那次</summary>
-    public void Dispose()
-    {
-        Invalidate();
-    }
+    public void Dispose() => _runner.Dispose();
 
     partial void OnQueryChanged(string value)
     {
+        _revealTarget = null;
         if (string.IsNullOrWhiteSpace(value))
         {
-            Invalidate();
+            _runner.Cancel();
             SetHits([]);
             return;
         }
@@ -192,21 +190,20 @@ public sealed partial class ConversationSearchViewData : ObservableObject, IDisp
     private void Schedule(TimeSpan delay)
     {
         if (!IsOpen || string.IsNullOrWhiteSpace(Query)) return;
-
-        _debounce?.Cancel();
-        CancellationTokenSource debounce = _debounce = new CancellationTokenSource();
-        CancellationToken token = debounce.Token;
-        DispatcherTimer.RunOnce(() =>
-        {
-            if (!token.IsCancellationRequested) _ = SearchNowAsync();
-        }, delay);
+        _runner.Schedule(delay, SearchAsync);
     }
 
-    private void Invalidate()
+    private async Task SearchAsync(CancellationToken token)
     {
-        ++_version;
-        _debounce?.Cancel();
-        _running?.Cancel();
+        string query = Query;
+        SessionSearchOptions options = new(IncludeThinking, IncludeTools);
+        // 快照在 UI 线程上取:会话本体那份历史随时在被追加,冷会话还可能被卸载
+        List<ChatMessage> snapshot = _history()?.ToList() ?? [];
+        List<SessionSearchHit> hits = await Task.Run(() => SessionSearch.Find(snapshot, query, options, token), token);
+        if (token.IsCancellationRequested) return;
+
+        hits.Reverse();
+        SetHits(hits);
     }
 
     private void SetHits(List<SessionSearchHit> hits)
@@ -220,6 +217,17 @@ public sealed partial class ConversationSearchViewData : ObservableObject, IDisp
 
         OnPropertyChanged(nameof(HasHits));
         RefreshStatus();
+        if (_revealTarget is { } target && target.Query == Query) Reveal(target);
+    }
+
+    private void Reveal(ConversationSearchReveal target)
+    {
+        _revealTarget = null;
+        if (Hits.Count == 0) return;
+
+        SelectedIndex = Enumerable.Range(0, Hits.Count)
+            .MinBy(i => Math.Abs(Hits[i].Hit.MessageIndex - target.MessageIndex)); //一样近取先列出的(新的)那条
+        JumpToSelected();
     }
 
     private void RefreshStatus()

@@ -194,6 +194,7 @@ public partial class ConversationView : UserControl
             _viewModel.Palette.CandidateAccepted -= OnCandidateAccepted;
             _viewModel.Search.JumpRequested -= OnSearchJumpRequested;
             _viewModel.ReturnedToLatest -= OnReturnedToLatest;
+            _viewModel.SearchRevealRequested -= OnSearchRevealRequested;
             _viewModel.IsStuckToBottomSource = null;
         }
 
@@ -205,6 +206,7 @@ public partial class ConversationView : UserControl
             _viewModel.Palette.CandidateAccepted += OnCandidateAccepted;
             _viewModel.Search.JumpRequested += OnSearchJumpRequested;
             _viewModel.ReturnedToLatest += OnReturnedToLatest;
+            _viewModel.SearchRevealRequested += OnSearchRevealRequested;
             // 滚动状态只有本视图知道,而运行期裁剪要靠它决定能不能裁(见 ConversationItemWindowTrimmer)
             _viewModel.IsStuckToBottomSource = () => _autoScrollHolder.IsStuckToBottom;
 
@@ -294,8 +296,10 @@ public partial class ConversationView : UserControl
     /// <param name="vm">已就绪的视图模型</param>
     private void SettleNow(ConversationViewModel vm)
     {
+        // 从跨会话搜索点进来的:照常落位,再打开会话内搜索跳过去(搜不到也已经落好了位)
+        bool hasReveal = vm.HasPendingSearchReveal;
         // 切回一个停在旧消息那段的缓存实例:滚回上次跳到的那条,而不是贴到这一小段的底部
-        if (vm is { HasLaterMessages: true, SearchNavigator.Anchor: { } anchor })
+        if (!hasReveal && vm is { HasLaterMessages: true, SearchNavigator.Anchor: { } anchor })
         {
             _ = _searchJump.JumpAsync(vm.SearchNavigator, anchor, x => ReferenceEquals(_viewModel?.SearchNavigator, x));
             return;
@@ -306,6 +310,27 @@ public partial class ConversationView : UserControl
         _autoScrollHolder.Resume();
         global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.End($"conversation/settle:items={vm.Items.Count}", settleBegin);
         ScheduleViewportTopUp(vm);
+        if (hasReveal) ConsumeSearchReveal(vm);
+    }
+
+    /// <summary>
+    /// 跨会话搜索要跳进本实例。装载中的由装载完成那次落位接手；已就位的排到绑定落地之后再取——
+    /// 刚换绑过来的话那次落位也已经排上了，它先到就由它取走（先落位再跳），这里取空
+    /// </summary>
+    private void OnSearchRevealRequested()
+    {
+        if (_viewModel is not { IsSessionLoading: false } vm) return;
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (ReferenceEquals(_viewModel, vm)) ConsumeSearchReveal(vm);
+        }, DispatcherPriority.Normal);
+    }
+
+    // 取走待跳的那条并交给会话内搜索;两个入口(落位、已就位时的通知)谁先到谁取,后到的取空
+    private static void ConsumeSearchReveal(ConversationViewModel vm)
+    {
+        if (vm.TakeSearchReveal() is { } reveal) _ = vm.Search.OpenAtAsync(reveal);
     }
 
     /// <summary>

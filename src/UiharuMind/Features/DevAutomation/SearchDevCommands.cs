@@ -13,7 +13,9 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Items;
+using UiharuMind.Features.Conversation.Pages;
 using UiharuMind.Features.Conversation.Search;
+using UiharuMind.Features.Conversation.SessionList;
 
 namespace UiharuMind.Features.DevAutomation;
 
@@ -61,6 +63,64 @@ internal sealed class SessionSearchCommand : IAsyncDevCommand
             items = conversation.Items.Count,
             hasEarlierMessages = conversation.HasEarlierMessages,
             labels = search.Hits.Take(5).Select(x => $"{x.Label}: {x.Snippet}").ToList(),
+        };
+    }
+}
+
+/// <summary>
+/// 跨会话搜索：在会话列表搜索框填词、点「在消息里搜索」，等「消息里提到的」扫完，点第 result 个会话的第 hit 条摘要，报告切过去之后的落点。
+/// 与在侧栏打字再点摘要同一条路，不调模型、不改数据。作用于当前类型那一侧（先 <c>page.jump</c>）。
+/// <c>args</c>：query（关键词）、start（点不点「在消息里搜索」，默认 true）、result（第几个会话，默认 0；负数只搜不点）、
+/// hit（第几条摘要，默认 0）
+/// </summary>
+internal sealed class SessionsSearchCommand : IAsyncDevCommand
+{
+    private static readonly TimeSpan ScanTimeout = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan OpenSettle = TimeSpan.FromSeconds(3); //装载、落位、会话内重搜再跳
+
+    public string Name => "sessions.search";
+
+    public async Task<object?> ExecuteAsync(JsonElement args)
+    {
+        ConversationPageDataBase page = DevCommandRegistry.RequireConversationPage();
+        SessionContentSearchViewData content = page.SessionList.ContentSearch;
+        page.SessionList.SearchText = DevCommandRegistry.RequireString(args, "query");
+        // 与点「在消息里搜索」那一行同一条路;已开扫时是空操作。start=false 只填词(看标题过滤与那一行本身)
+        if (GroupDevCommands.BoolOr(args, "start", true)) content.StartCommand.Execute(null);
+
+        long began = Environment.TickCount64;
+        await Task.WhenAny(content.Pending, Task.Delay(ScanTimeout)); //没开扫时它本来就是完成的
+        long scanMs = Environment.TickCount64 - began;
+
+        int result = GroupDevCommands.IntOr(args, "result", 0);
+        int hit = GroupDevCommands.IntOr(args, "hit", 0);
+        SessionContentHitRow? clicked = result >= 0 && result < content.Results.Count &&
+                                        hit < content.Results[result].Hits.Count
+            ? content.Results[result].Hits[hit]
+            : null;
+        if (clicked != null)
+        {
+            content.OpenCommand.Execute(clicked);
+            await Task.Delay(OpenSettle);
+        }
+
+        ConversationViewModel conversation = page.Conversation;
+        ConversationSearchViewData search = conversation.Search;
+        ConversationSearchHitRow? selected = search.SelectedIndex >= 0 ? search.Hits[search.SelectedIndex] : null;
+        return new
+        {
+            header = content.HeaderText,
+            sessions = content.Results.Count,
+            scanMs,
+            top = content.Results.Take(5).Select(x => $"{x.Session.Name} ({x.CountText})").ToList(),
+            clicked = clicked == null ? null : new { clicked.SessionId, clicked.Reveal.MessageIndex, clicked.Snippet },
+            openedSession = conversation.CurrentMeta?.SessionId,
+            listSelected = page.SessionList.SelectedSession?.SessionId,
+            searchOpen = search.IsOpen,
+            searchStatus = search.StatusText,
+            selectedIndex = selected?.Hit.MessageIndex,
+            targetDrawn = selected != null && conversation.SearchNavigator.Find(selected.Hit) != null,
+            items = conversation.Items.Count,
         };
     }
 }

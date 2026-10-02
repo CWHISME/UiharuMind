@@ -447,6 +447,63 @@ public class SessionListModelTests
         Assert.Equal(["a", "b"], Ids(model));
     }
 
+    /// <summary>
+    /// 从「消息里提到的」点开的会话标题未必匹配：得留在显示集合里，列表框才认得出选中；换搜索词就不留了
+    /// </summary>
+    [Fact]
+    public void SelectFromContentSearch_KeepsTheSessionVisibleUntilTheQueryChanges()
+    {
+        using SessionListModel model = Create(() => [Meta("a", "apple"), Meta("b", "banana")]);
+        List<SessionListItem?> selections = new();
+        model.SelectionChanged += selections.Add;
+        model.SearchText = "apple";
+
+        model.SelectFromContentSearch("b");
+
+        Assert.Equal(["a", "b"], Ids(model));
+        Assert.Equal("b", model.SelectedSession?.SessionId);
+        Assert.Equal("b", Assert.Single(selections)?.SessionId); //走用户点选同一路:页面据此切过去
+
+        model.SearchText = "appl";
+        Assert.Equal(["a"], Ids(model));
+    }
+
+    /// <summary>
+    /// 换钉的那一下，上一个钉住的（正选着）被摘出显示集合：列表框写回的空选中不能当成用户选的，
+    /// 否则页面先切到空态再切回来
+    /// </summary>
+    [Fact]
+    public void SelectFromContentSearch_SwitchingThePin_NeverReportsAnEmptySelection()
+    {
+        using SessionListModel model = Create(() => [Meta("a", "apple"), Meta("b", "banana"), Meta("c", "cherry")]);
+        List<SessionListItem?> selections = new();
+        model.SelectionChanged += selections.Add;
+        model.SearchText = "apple";
+        model.SelectFromContentSearch("b");
+        // 模拟列表框:选中项被摘出集合时把选中写回空
+        model.Sessions.CollectionChanged += (_, _) =>
+        {
+            if (model.SelectedSession is { } selected && !model.Sessions.Contains(selected)) model.SelectedSession = null;
+        };
+
+        model.SelectFromContentSearch("c");
+
+        Assert.Equal(["a", "c"], Ids(model));
+        Assert.Equal(["b", "c"], selections.Select(x => x?.SessionId));
+    }
+
+    [Fact]
+    public void SelectFromContentSearch_DeletedSince_DoesNothing()
+    {
+        using SessionListModel model = Create(() => [Meta("a", "apple")]);
+        List<SessionListItem?> selections = new();
+        model.SelectionChanged += selections.Add;
+
+        model.SelectFromContentSearch("gone");
+
+        Assert.Empty(selections);
+    }
+
     [Fact]
     public void Search_KeepsSelectionEvenWhenFilteredOut()
     {

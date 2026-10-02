@@ -1456,6 +1456,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             _isDisplayed = value;
             if (!value)
             {
+                ForgetSearchReveal();
                 _pager.ScheduleBackgroundTrim();
                 return;
             }

@@ -72,19 +72,6 @@
         <Style Selector="ThemedIconButton.memory-status[Tag=Ready] controls|ThemedSvgIcon">
             <Setter Property="CurrentColor" Value="LawnGreen" />
         </Style>
-        <!-- 搜索跳到的那张卡闪一下(ConversationSearchJump 挂/摘类)。画在容器底色上而不是边框:
-             边框厚度会改高度,而卡片视口的等高占位要求容器高度只由卡片决定 -->
-        <Style Selector="ItemsControl#MessageList > ContentPresenter">
-            <Setter Property="CornerRadius" Value="10" />
-            <Setter Property="Transitions">
-                <Transitions>
-                    <BrushTransition Property="Background" Duration="0:0:0.35" />
-                </Transitions>
-            </Setter>
-        </Style>
-        <Style Selector="ItemsControl#MessageList > ContentPresenter.search-hit">
-            <Setter Property="Background" Value="{DynamicResource SemiBlue1}" />
-        </Style>
     </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource SemiGrey0}">
@@ -218,7 +205,7 @@
                          文字 VerticalAlignment=Center 居中,无按压反馈——Expander 的表头内边距
                          来自 Semi 的 ControlTheme,改不动也对不准(见 ThinkingCardView) -->
                     <DataTemplate DataType="{x:Type items:HandoffItem}">
-                        <Border Classes="tool-card"
+                        <Border Classes="tool-card search-surface"
                                 MaxWidth="{Binding $parent[ItemsControl].Bounds.Width,
                                 Converter={x:Static AddConverter.Instance},
                                 ConverterParameter=-10}">

@@ -160,4 +160,101 @@ public class ConversationSearchViewDataTests
             Assert.Single(search.Hits);
         });
     }
+
+    /// <summary>从跨会话搜索点进来：按关键词在会话内重搜，跳到下标最近的那条（文件里的下标未必对得上）</summary>
+    [Fact]
+    public void OpenAt_JumpsToTheClosestHit()
+    {
+        HeadlessUi.RunAsync(async () =>
+        {
+            List<ChatMessage> history = History("缓存一", "无关", "缓存二", "无关", "缓存三");
+            ConversationSearchViewData search = new(() => history);
+            List<SessionSearchHit> jumps = new();
+            search.JumpRequested += jumps.Add;
+
+            await search.OpenAtAsync(new ConversationSearchReveal("缓存", 3));
+
+            Assert.True(search.IsOpen);
+            Assert.Equal("缓存", search.Query);
+            Assert.Equal(4, Assert.Single(jumps).MessageIndex); //3 离 2 与 4 一样近,取先列出的(新的)那条
+        });
+    }
+
+    [Fact]
+    public void OpenAt_NoHitInTheSession_OpensWithoutJumping()
+    {
+        HeadlessUi.RunAsync(async () =>
+        {
+            List<ChatMessage> history = History("无关");
+            ConversationSearchViewData search = new(() => history);
+            List<SessionSearchHit> jumps = new();
+            search.JumpRequested += jumps.Add;
+
+            await search.OpenAtAsync(new ConversationSearchReveal("缓存", 0));
+
+            Assert.True(search.IsOpen);
+            Assert.Empty(jumps);
+        });
+    }
+
+    /// <summary>
+    /// 点进来那次搜索被别的重搜取代（追加消息、切范围）：仍由采纳的那次结果兑现，
+    /// 不能等这一次返回就去读列表——那时列表里还是上一个词的结果
+    /// </summary>
+    [Fact]
+    public void OpenAt_SupersededSearch_StillJumpsOnTheAdoptedResult()
+    {
+        HeadlessUi.RunAsync(async () =>
+        {
+            List<ChatMessage> history = History("旧词", "缓存一", "旧词", "缓存二");
+            ConversationSearchViewData search = new(() => history);
+            List<SessionSearchHit> jumps = new();
+            search.JumpRequested += jumps.Add;
+            search.Open();
+            search.Query = "旧词";
+            await search.SearchNowAsync();
+
+            _ = search.OpenAtAsync(new ConversationSearchReveal("缓存", 1));
+            search.ToggleThinking(); //马上又排了一次重搜,取代上面那次
+            await search.Pending;
+
+            Assert.Equal(1, Assert.Single(jumps).MessageIndex);
+        });
+    }
+
+    /// <summary>点进来之后焦点给搜索框：接着按回车就是在这个会话里往前翻</summary>
+    [Fact]
+    public void OpenAt_RequestsFocus()
+    {
+        HeadlessUi.RunAsync(async () =>
+        {
+            List<ChatMessage> history = History("缓存");
+            ConversationSearchViewData search = new(() => history);
+            int focusRequests = 0;
+            search.FocusRequested += () => focusRequests++;
+
+            await search.OpenAtAsync(new ConversationSearchReveal("缓存", 0));
+
+            Assert.Equal(1, focusRequests);
+        });
+    }
+
+    /// <summary>用户自己改了词：点进来的那个目标作废，不该在新词的结果上跳</summary>
+    [Fact]
+    public void OpenAt_UserEditsTheQuery_DropsTheTarget()
+    {
+        HeadlessUi.RunAsync(async () =>
+        {
+            List<ChatMessage> history = History("缓存", "缓存命中");
+            ConversationSearchViewData search = new(() => history);
+            List<SessionSearchHit> jumps = new();
+            search.JumpRequested += jumps.Add;
+
+            _ = search.OpenAtAsync(new ConversationSearchReveal("缓存", 0));
+            search.Query = "缓存命中";
+            await search.SearchNowAsync();
+
+            Assert.Empty(jumps);
+        });
+    }
 }

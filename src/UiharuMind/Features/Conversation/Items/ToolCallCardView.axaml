@@ -30,7 +30,7 @@
     <!-- MaxWidth 不只是为了留白:它给了这张卡一个<b>有限</b>宽度,
          下面那个 ColumnDefinitions 里的 * 列才算得出宽度。少了它,在无约束的容器
          (比如过程窗口的 ItemsControl)里 * 列会塌成 0,症状是"只显示工具名、参数不见了" -->
-    <Border Classes="tool-card"
+    <Border Classes="tool-card search-surface"
             MaxWidth="{Binding $parent[ItemsControl].Bounds.Width,
             Converter={x:Static AddConverter.Instance},
             ConverterParameter=-10}">
