@@ -24,11 +24,13 @@ namespace UiharuMind.Core.AI.Execution.Assembly;
 /// Rider 调试时会给被调试进程注入 `DOTNET_DiagnosticPorts=...,connect,suspend`，
 /// 子 shell 不剥就继承，起的每个 `dotnet` 都在 `ds_server_pause_for_diagnostics_monitor`
 /// 里零 CPU 挂起；且 `Timeout` 默认为空即无限等待，一 hang 就全堵。
-/// 超过外层超时的任务走后台加轮询（`cmd &gt; log 2&gt;&amp;1 &amp;` 再 `tail`），不受此前台上限影响。
+/// 超过外层超时的任务走后台加轮询（`cmd &gt; log 2&gt;&amp;1 &amp;` 再 `tail`），不受此前台上限影响；
+/// 后台那段没把输出整个重定向走时，框架会在超时之外一直等输出管道关闭，由 <see cref="ShellHangGuardFunction"/> 兜底。
 /// </summary>
 internal static class ShellExecutorFactory
 {
     private static readonly TimeSpan CommandTimeout = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan HangGrace = TimeSpan.FromSeconds(30); //框架自己的超时先到，兜底只接它接不住的那种
 
     private static readonly string[] StrippedVariables =
     [
@@ -51,7 +53,8 @@ internal static class ShellExecutorFactory
         string description = executor.AsAIFunction(CharacterRunnerFactory.ShellToolName).Description
             .Replace(ApprovalClaim, string.Empty, StringComparison.Ordinal)
             .TrimEnd();
-        return executor.AsAIFunction(CharacterRunnerFactory.ShellToolName, description);
+        AIFunction gated = executor.AsAIFunction(CharacterRunnerFactory.ShellToolName, description);
+        return new ApprovalRequiredAIFunction(new ShellHangGuardFunction(gated, CommandTimeout + HangGrace));
     }
 
     public static LocalShellExecutor Create(

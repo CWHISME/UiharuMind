@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.Agents.AI.Tools.Shell;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution;
@@ -22,5 +23,36 @@ public class ShellToolDescriptionTests
         Assert.DoesNotContain("approves", tool.Description, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Shell:", tool.Description); //框架描述的其余部分(系统与 shell 种类)仍保留
         Assert.IsAssignableFrom<ApprovalRequiredAIFunction>(tool);
+    }
+
+    /// <summary>
+    /// 后台进程占着输出管道时，框架的调用不受自己的超时管、会一直挂着；兜底时限到点必须先返回说明
+    /// </summary>
+    [Fact]
+    public async Task BackgroundJobHoldingThePipe_ReturnsNoticeAtTheGuardLimit()
+    {
+        await using LocalShellExecutor executor = ShellExecutorFactory.Create(Path.GetTempPath(), null);
+        AIFunction guarded = new ShellHangGuardFunction(
+            executor.AsAIFunction(CharacterRunnerFactory.ShellToolName), TimeSpan.FromSeconds(2));
+
+        Stopwatch watch = Stopwatch.StartNew();
+        object? result = await guarded.InvokeAsync(new AIFunctionArguments { ["command"] = "sleep 15 & echo started" },
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(ShellHangGuardFunction.HangNotice, result?.ToString());
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(10), $"兜底没生效，等了 {watch.Elapsed}");
+    }
+
+    [Fact]
+    public async Task OrdinaryCommand_PassesThroughTheGuard()
+    {
+        await using LocalShellExecutor executor = ShellExecutorFactory.Create(Path.GetTempPath(), null);
+        AIFunction guarded = new ShellHangGuardFunction(
+            executor.AsAIFunction(CharacterRunnerFactory.ShellToolName), TimeSpan.FromSeconds(30));
+
+        object? result = await guarded.InvokeAsync(new AIFunctionArguments { ["command"] = "echo hello" },
+            TestContext.Current.CancellationToken);
+
+        Assert.Contains("hello", result?.ToString());
     }
 }
