@@ -14,11 +14,10 @@ using UiharuMind.Core.AI.Execution.Skills;
 namespace UiharuMind.Features.Conversation.Composer;
 
 /// <summary>
-/// 点名调用（<c>/技能名</c>）在消息上留下的注解的读写。
+/// 点名调用（<c>/技能名</c>）在消息上留下的注解的写入。
 ///
-/// 独立成一处而不是挂在补全面板上：写入方是输入区的补全那条线，
-/// 而读取方是气泡构造、回放与消息级操作接线——后者与「输入框弹不弹候选」无关，
-/// 让它们去依赖一个界面模块的静态方法只会把依赖方向绕反。
+/// 读取方是气泡构造、回放、消息级操作与会话内搜索，读法在 Core 的
+/// <see cref="ChatMessageAnnotations.NamedSkillInputOf"/>——搜索不在界面层，读写口径不能只活在这里。
 /// </summary>
 public static class NamedSkillAnnotations
 {
@@ -34,23 +33,5 @@ public static class NamedSkillAnnotations
         message.AdditionalProperties ??= new AdditionalPropertiesDictionary();
         message.AdditionalProperties[ChatMessageAnnotations.NamedSkill] = invocation.SkillName;
         message.AdditionalProperties[ChatMessageAnnotations.NamedSkillInput] = input;
-    }
-
-    /// <summary>
-    /// 取点名调用消息里用户原样输入的那一行。落盘往返后值会变成 JsonElement,
-    /// 因此一律经 ToString 读取,不能强转 string。
-    /// </summary>
-    /// <param name="message">消息</param>
-    /// <returns>用户输入;不是点名调用消息则为 null</returns>
-    public static string? InputOf(ChatMessage message)
-    {
-        if (message.AdditionalProperties?.TryGetValue(ChatMessageAnnotations.NamedSkillInput,
-                out object? value) != true)
-        {
-            return null;
-        }
-
-        string? input = value?.ToString();
-        return string.IsNullOrEmpty(input) ? null : input;
     }
 }

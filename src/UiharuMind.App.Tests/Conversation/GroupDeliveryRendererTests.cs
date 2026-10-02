@@ -60,7 +60,7 @@ public class GroupDeliveryRendererTests
         delivery.AdditionalProperties![ChatMessageAnnotations.Attribution] = System.Text.Json.JsonDocument
             .Parse($$"""{"sourceType":{"value":"{{sourceType}}"},"sourceId":"x"}""").RootElement.Clone();
 
-        Assert.Equal(injected, ConversationItemFactory.IsFrameworkInjected(delivery));
+        Assert.Equal(injected, ChatMessageDisplay.IsFrameworkInjected(delivery));
     }
 
     [Fact]
@@ -69,7 +69,7 @@ public class GroupDeliveryRendererTests
         ChatMessage message = new(ChatRole.User, UiharuMind.Core.AI.Chat.Group.GroupTranscript.WithPrivateNote("你怎么看"));
         ChatMessageAnnotations.MarkGroupPrivate(message);
 
-        Assert.Equal("你怎么看", ConversationItemFactory.DisplayTextOf(message));
+        Assert.Equal("你怎么看", ChatMessageDisplay.TextOf(message));
         Assert.Equal("你怎么看", ConversationItemFactory.CreateUser("你怎么看", message).Message);
         Assert.False(_renderer.IsDelivery(message)); //私聊不是投递
     }

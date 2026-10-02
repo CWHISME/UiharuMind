@@ -52,7 +52,7 @@ public interface IConversationReconcileHost
     /// 不先配就判定，尾巴上那张思考卡会被当成漏画又追加一张。
     /// </summary>
     /// <param name="history">当前历史</param>
-    void WireStreamedSources(IReadOnlyList<ChatMessage> history);
+    void SettleStreamedItems(IReadOnlyList<ChatMessage> history);
 
     /// <summary>用量文案跟着新画出来的条目刷一次</summary>
     void RefreshTokenUsage();
@@ -107,7 +107,7 @@ public sealed class ConversationHistoryReconciler
         // 先配对再判定：“没人跑”不等于“都配好了”。轮末配对走后台线程，
         // 到这里仍可能是空来源——不先配就判定，尾巴上那张思考卡会被当成漏画又追加一张。
         // 本方法只在 UI 线程上调用，配对在这里做才是线程安全的。
-        _host.WireStreamedSources(session.History);
+        _host.SettleStreamedItems(session.History);
 
         if (ConversationOrderCheck.FindDivergence(_items, session.History) is { } divergence)
         {
@@ -130,12 +130,10 @@ public sealed class ConversationHistoryReconciler
         _host.RefreshTokenUsage();
     }
 
-    /// <summary>全量重放当前窗口。旧条目的位图随条目走，直接 Clear 会泄漏：先摘绑定再释放</summary>
+    /// <summary>全量重放当前窗口。旧条目的位图随条目走，直接 Clear 会泄漏</summary>
     private void ReplayPreservingWindow(IReadOnlyList<ChatMessage> history)
     {
-        ConversationItemBase[] discarded = _items.ToArray();
-        _items.Clear();
-        foreach (ConversationItemBase item in discarded) item.ReleaseImages();
+        _items.DiscardAll();
 
         // 保住用户已翻出的窗口：HistoryWindow.Reset 会把起点打回首屏，
         // 全量重放就把「加载更早」取回来的那几段又弄丢了。历史只增不减时起点原位；

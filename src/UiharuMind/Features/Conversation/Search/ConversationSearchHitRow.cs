@@ -17,6 +17,7 @@ namespace UiharuMind.Features.Conversation.Search;
 /// <summary>结果列表里的一行：谁说的 / 哪一部分，加命中前后那一小段</summary>
 public sealed class ConversationSearchHitRow
 {
+    /// <summary>构造</summary>
     /// <param name="hit">命中</param>
     public ConversationSearchHitRow(SessionSearchHit hit)
     {

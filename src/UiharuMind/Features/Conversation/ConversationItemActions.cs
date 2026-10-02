@@ -94,7 +94,7 @@ public sealed class ConversationItemActions
         if (_host.Session is { IsGroup: true } or { IsGroupMember: true }) return item;
         // 点名调用的气泡显示的是 /技能名 那一行,而消息正文是注入的技能全文;
         // 放开编辑会把正文改写成那一行,当场毁掉注入内容
-        if (NamedSkillAnnotations.InputOf(source) == null) item.EditedCallback = OnEdited;
+        if (ChatMessageAnnotations.NamedSkillInputOf(source) == null) item.EditedCallback = OnEdited;
         item.DeleteCallback = OnDeleted;
         // 旁白(开场白)不给分叉:它是历史的第一条,"从这里分出去"就是新建一个会话
         if (!ChatMessageAnnotations.IsNarration(source)) item.BranchCallback = OnBranch;
@@ -153,7 +153,7 @@ public sealed class ConversationItemActions
             // 用户气泡再问一句「正文对得上吗」:形状对不上时宁可不接,接错了编辑/删除会改错消息。
             // 助手气泡不做这一道:正文是流式攒的,与落盘那份未必逐字相同
             if (item.IsUser &&
-                !string.Equals(ConversationItemFactory.DisplayTextOf(history[cursor]), item.Message,
+                !string.Equals(ChatMessageDisplay.TextOf(history[cursor]), item.Message,
                     StringComparison.Ordinal))
             {
                 break;
@@ -428,7 +428,7 @@ public sealed class ConversationItemActions
         List<int> removedIndices = IndicesOf(session.History, doomedSet);
         session.History.RemoveAll(doomedSet.Contains);
         session.Save();
-        RemoveItems(targets);
+        _items.Discard(targets);
         _host.NoteHistoryRemoved(removedIndices);
     }
 
@@ -441,23 +441,6 @@ public sealed class ConversationItemActions
         }
 
         return indices;
-    }
-
-    /// <summary>
-    /// 把一批条目摘出界面。倒序遍历：<c>RemoveAt</c> 会压缩下标，正序删同一批下标
-    /// 会把后面的条目一路全删掉。
-    /// 释放排在摘除之后：还挂在界面上的位图一释放，下一帧渲染就撞上去。
-    /// </summary>
-    /// <param name="targets">要摘掉的条目</param>
-    private void RemoveItems(List<ConversationItemBase> targets)
-    {
-        HashSet<ConversationItemBase> doomed = new(targets);
-        for (int i = _items.Count - 1; i >= 0; i--)
-        {
-            if (doomed.Contains(_items[i])) _items.RemoveAt(i);
-        }
-
-        foreach (ConversationItemBase item in targets) item.ReleaseImages();
     }
 
     private void OnBranch(ConversationItemBase item)
@@ -523,18 +506,7 @@ public sealed class ConversationItemActions
 
         // 界面侧从<b>该条气泡</b>起删:用户与助手都以自己为锚,不需再前移到提问气泡
         int itemIndex = _items.IndexOf(item);
-        if (itemIndex >= 0)
-        {
-            // 截断的这一段条目不再回来,连它们气泡里的图一起释放(先摘出集合再释放)
-            List<ConversationItemBase> discarded = new();
-            for (int i = _items.Count - 1; i >= itemIndex; i--)
-            {
-                discarded.Add(_items[i]);
-                _items.RemoveAt(i);
-            }
-
-            foreach (ConversationItemBase discardedItem in discarded) discardedItem.ReleaseImages();
-        }
+        if (itemIndex >= 0) _items.DiscardRange(itemIndex, _items.Count - itemIndex); //截断的这一段不再回来
 
         if (item.SourceMessage.Role == ChatRole.Assistant)
         {
@@ -545,7 +517,7 @@ public sealed class ConversationItemActions
         {
             // 用户消息:提问由这轮请求写回(与发送同一条路)
             _items.Add(Wire(ConversationItemFactory.CreateUser(
-                ConversationItemFactory.DisplayTextOf(input), input), input));
+                ChatMessageDisplay.TextOf(input), input), input));
             _host.Rerun(input);
         }
     }

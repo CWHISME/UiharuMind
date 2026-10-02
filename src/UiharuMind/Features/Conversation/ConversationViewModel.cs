@@ -1704,7 +1704,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     void IConversationItemActionHost.Rerun(ChatMessage? input)
     {
         ScrollToEnd = true;
-        _ = _turns.RunAsync(input, input == null ? string.Empty : ConversationItemFactory.DisplayTextOf(input));
+        _ = _turns.RunAsync(input, input == null ? string.Empty : ChatMessageDisplay.TextOf(input));
     }
 
     /// <inheritdoc />
@@ -1768,7 +1768,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         int from, int to) => _history.Build(history, from, to);
 
     /// <inheritdoc />
-    void IConversationReconcileHost.WireStreamedSources(IReadOnlyList<ChatMessage> history)
+    void IConversationReconcileHost.SettleStreamedItems(IReadOnlyList<ChatMessage> history)
     {
         _itemActions.WireStreamed(history);
         // 来源配好才认得出消息;旁观别人那一轮的思考卡此刻改读驱动方落盘的耗时
@@ -1857,11 +1857,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// <summary>丢掉上一个会话留在界面上的一切(条目、侧栏、开窗与转录器状态)</summary>
     private void ClearStreamState()
     {
-        // 气泡里的图是本会话现解出来的大位图,随条目走;条目被整体丢掉时没人会去释放它们,
-        // 于是切一次会话就漏掉一整个会话的图。先 Clear 摘掉绑定,再释放(顺序反了会撞渲染)
-        ConversationItemBase[] discarded = Items.ToArray();
-        Items.Clear();
-        foreach (ConversationItemBase item in discarded) item.ReleaseImages();
+        Items.DiscardAll(); //气泡里的大位图随条目走,只 Clear 会漏掉一整个会话的图
         // 整理中的占位卡随清空一起消失;若压缩还在跑,切回时由 LoadSessionAsync 重新挂上
         _handoffWriting.Forget();
 

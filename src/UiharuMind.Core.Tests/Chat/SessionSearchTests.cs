@@ -29,6 +29,13 @@ public class SessionSearchTests
         Assert.Same(history[2], hits[1].Message);
     }
 
+    /// <summary>审批回应界面上不画，搜索也不该搜到（两边曾各写一份口径而分叉）</summary>
+    [Fact]
+    public void Find_SkipsApprovalResponses()
+    {
+        Assert.Empty(SessionSearch.Find([ChatMessageDisplayTests.ApprovalResponse("同意写入")], "同意"));
+    }
+
     [Fact]
     public void Find_BlankQuery_ReturnsNothing()
     {

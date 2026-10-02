@@ -9,7 +9,6 @@
 
 using System.Text;
 using Microsoft.Extensions.AI;
-using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Execution.History;
 
 namespace UiharuMind.Core.AI.Chat.Search;
@@ -78,7 +77,7 @@ public static class SessionSearch
     private static (ESearchHitKind Kind, string Snippet)? Match(ChatMessage message, string keyword,
         SessionSearchOptions options)
     {
-        if (IsInjected(message)) return null;
+        if (ChatMessageDisplay.IsFrameworkInjected(message)) return null; //与界面同一口径:不画的不搜
 
         MessageText text = Extract(message, options);
         foreach ((ESearchHitKind kind, string? content) in new[]
@@ -96,14 +95,6 @@ public static class SessionSearch
         return null;
     }
 
-    // 与界面「不画注入消息」同一口径:点名调用不受溯源标记屏蔽,历史回灌时盖的来源是我们自己的消息
-    private static bool IsInjected(ChatMessage message)
-    {
-        AdditionalPropertiesDictionary? props = message.AdditionalProperties;
-        if (props == null || props.ContainsKey(ChatMessageAnnotations.NamedSkillInput)) return false;
-        return props.ContainsKey(ChatMessageAnnotations.Attribution) && !ChatMessageAnnotations.IsHistoryEcho(message);
-    }
-
     /// <summary>按界面显示的口径把一条消息拆成三部分。不搜的部分不拼，长工具结果不白拷一份</summary>
     private static MessageText Extract(ChatMessage message, SessionSearchOptions options)
     {
@@ -118,7 +109,7 @@ public static class SessionSearch
             ChatMessageAnnotations.GroupAwayReceiptOf(message) != null)
             return new MessageText(message.Text, null, null);
 
-        if (message.Role == ChatRole.User) return new MessageText(UserDisplayText(message), null, null);
+        if (message.Role == ChatRole.User) return new MessageText(ChatMessageDisplay.TextOf(message), null, null);
         // 交接文档的角色也是 system(见 HistoryHandoff.CreateNote),所以排在认完卡片之后
         if (message.Role == ChatRole.System) return default;
 
@@ -155,18 +146,6 @@ public static class SessionSearch
 
         parser?.Complete(x => body.Append(x), x => thinking?.Append(x));
         return new MessageText(body.ToString(), thinking?.ToString(), tool?.ToString());
-    }
-
-    // 与用户气泡同一口径:点名调用显示用户敲的那一行,群私聊摘掉发给模型的那句说明
-    private static string UserDisplayText(ChatMessage message)
-    {
-        if (message.AdditionalProperties?.TryGetValue(ChatMessageAnnotations.NamedSkillInput, out object? input) ==
-            true && input?.ToString() is { Length: > 0 } typed)
-            return typed;
-
-        return ChatMessageAnnotations.IsGroupPrivate(message)
-            ? GroupTranscript.StripPrivateNote(message.Text)
-            : message.Text;
     }
 
     /// <summary>命中前后各取一小段，换行与连续空白折成一个空格（结果列表一行一条）</summary>

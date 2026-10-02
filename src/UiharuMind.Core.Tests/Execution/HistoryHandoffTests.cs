@@ -40,7 +40,7 @@ public class HistoryHandoffTests
         long reported = ours / 2; //服务端只报一半
 
         TurnUsageLedger ledger = new() { ContextLength = 128_000, EstimatedInput = ours };
-        ledger.RestoreSession(0, 0, reported);
+        ledger.Add(new UsageDetails { InputTokenCount = reported });
 
         Assert.False(HistoryHandoff.ShouldWrite(ledger.LastInput, 128_000), "只信服务端的话这一条压根不会触发");
         Assert.True(HistoryHandoff.ShouldWrite(ledger.EffectiveInput, 128_000));
@@ -70,7 +70,7 @@ public class HistoryHandoffTests
     public void EffectiveUsage_KeepsTheLargerSide()
     {
         TurnUsageLedger ledger = new() { EstimatedInput = 1000 };
-        ledger.RestoreSession(0, 0, 3000);
+        ledger.Add(new UsageDetails { InputTokenCount = 3000 });
 
         Assert.Equal(3000, ledger.EffectiveInput);
         Assert.Equal(0, ledger.UnreportedInput); //服务端报得更高时没有"未计入"那一段

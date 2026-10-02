@@ -42,6 +42,7 @@ public sealed class ConversationSearchNavigator
     private readonly Func<IReadOnlyList<ChatMessage>?> _history;
     private readonly Func<bool> _canReload;
 
+    /// <summary>构造</summary>
     /// <param name="items">界面条目</param>
     /// <param name="pager">开窗</param>
     /// <param name="history">当前会话历史；没有会话为 null</param>

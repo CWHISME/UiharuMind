@@ -122,7 +122,7 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
     /// </summary>
     public void Flush()
     {
-        if (_isStatsFrozen) return; //回放冻结:存档值已定,收尾重算只会把它抹成 0.1s
+        if (IsStatsFrozen) return; //回放冻结:存档值已定,收尾重算只会把它抹成 0.1s
         string text;
         int fullLen;
         // 取快照再赋值:赋值会引发绑定与布局,不该攥着锁做
@@ -141,7 +141,7 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
         // 收尾快照:写回历史用此刻的值——条目驻留内存期间 Now 只会越涨越假
         _closedElapsed = DateTime.Now - _startedAt;
         _closedChars = fullLen;
-        _isClosed = true;
+        if (_statsSource == EStatsSource.Live) _statsSource = EStatsSource.Timed; //再收一次尾不撤销已写回
         IsPreviewTruncated = IsTruncated(fullLen); //超限的长思考收尾后仍保留「查看全文」入口
     }
 
@@ -151,7 +151,7 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
     // 头部起点钉在 0,内容逐拍不变,高度稳定;想看最新与全量去全文窗(ShowFullText),按增量追着流走。
     void IStreamFlushTarget.FlushForDisplay()
     {
-        if (_isStatsFrozen) return; //回放冻结:泵的延迟冲刷不能盖掉存档值
+        if (IsStatsFrozen) return; //回放冻结:泵的延迟冲刷不能盖掉存档值
         string text;
         int len;
         lock (_bufferGate)

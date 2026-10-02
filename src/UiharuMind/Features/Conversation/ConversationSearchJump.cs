@@ -46,6 +46,7 @@ internal sealed class ConversationSearchJump
     private int _version; //后一次跳转作废前一次还在续窗的那次
     private Control? _flashing;
 
+    /// <summary>构造</summary>
     /// <param name="viewer">会话流的滚动容器</param>
     /// <param name="list">消息列表</param>
     /// <param name="cards">卡片视口带</param>

@@ -69,8 +69,8 @@ public sealed class ConversationHistoryRenderer
     /// <returns>气泡；这条不该显示则为空</returns>
     public IReadOnlyList<TextConversationItem> CreateUserItems(ChatMessage message)
     {
-        string text = ConversationItemFactory.DisplayTextOf(message);
-        if (ConversationItemFactory.IsFrameworkInjected(message)) return [];
+        string text = ChatMessageDisplay.TextOf(message);
+        if (ChatMessageDisplay.IsFrameworkInjected(message)) return [];
         if (string.IsNullOrWhiteSpace(text) && !ConversationItemFactory.HasImage(message)) return [];
 
         if (_deliverySource() is { } renderer && renderer.IsDelivery(message))
@@ -236,7 +236,7 @@ public sealed class ConversationHistoryRenderer
                 case EHistoryItemKind.HandoffNote:
                     buffer.Add(new HandoffItem
                     {
-                        Message = HistoryHandoff.NoteBody(ConversationItemFactory.DisplayTextOf(message)),
+                        Message = HistoryHandoff.NoteBody(ChatMessageDisplay.TextOf(message)),
                         SourceMessage = message,
                     });
                     continue;

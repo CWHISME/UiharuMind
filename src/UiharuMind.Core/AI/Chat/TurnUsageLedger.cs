@@ -14,8 +14,8 @@ namespace UiharuMind.Core.AI.Chat;
 
 /// <summary>
 /// token 账本：本轮用量、会话累计用量与输入框估算，以及它们的显示文本格式化。
-/// 只记账不落盘——会话本体的累计字段由调用方按 <see cref="Add"/> 返回的增量自行写回，
-/// 账本因此与存储无关，可直接单测。
+/// 与会话本体的往返只有一对：<see cref="Record"/> 记一次并写回，<see cref="RestoreFrom"/> 读回来——
+/// 哪些数随本体落盘只在这两处定，加一个字段不会只存不读（缓存命中与本轮用量就曾这样重开即丢）。
 /// </summary>
 public sealed class TurnUsageLedger
 {
@@ -95,7 +95,7 @@ public sealed class TurnUsageLedger
 
     /// <summary>
     /// 会话累计思考（推理）token。随本体持久化（见 <c>ChatSession.TotalReasoningTokens</c>），
-    /// 切回会话时由 RestoreSession 恢复。
+    /// 切回会话时由 <see cref="RestoreFrom"/> 恢复。
     /// </summary>
     public long SessionReasoningTokens { get; private set; }
 
@@ -183,32 +183,36 @@ public sealed class TurnUsageLedger
     }
 
     /// <summary>
-    /// 从会话本体恢复累计值（响应用量不随消息持久化，累计值记在本体上）
+    /// 计入一次响应用量并写回会话本体。累计值按增量加而不是整值覆盖：
+    /// 群后台的旁路调用也往同一本体上加（见 <c>GroupBackground</c>），覆盖会把那部分抹掉
     /// </summary>
-    /// <param name="input">累计输入</param>
-    /// <param name="output">累计输出</param>
-    /// <param name="lastInput">最近一次响应的输入 token（上下文占用），未知传 0</param>
-    /// <param name="reasoning">累计思考 token，未知传 0</param>
-    /// <param name="lastCached">最近一次响应命中缓存的输入 token，未知传 0</param>
-    public void RestoreSession(long input, long output, long lastInput = 0, long reasoning = 0, long lastCached = 0)
+    /// <param name="details">响应携带的用量</param>
+    /// <param name="session">会话本体</param>
+    public void Record(UsageDetails details, ChatSession session)
     {
-        SessionInput = input;
-        SessionOutput = output;
-        LastInput = lastInput;
-        SessionReasoningTokens = reasoning;
-        LastCachedInput = lastCached;
+        (long input, long output, long reasoning) = Add(details);
+        session.AccumulateUsage(input, output, reasoning);
+        // 占用、命中与本轮用量随本体持久化:切回会话不必等下一次响应,旁观的窗口(子会话)也只读得到本体
+        session.LastInputTokens = LastInput;
+        session.LastCachedInputTokens = LastCachedInput;
+        session.LastTurnInputTokens = TurnInput;
+        session.LastTurnOutputTokens = TurnOutput;
     }
 
     /// <summary>
-    /// 从会话本体恢复最近一轮的用量。与 <see cref="RestoreSession"/> 分开：本轮是驱动者逐块记的，
-    /// 只有不在跑的时候（重开会话、旁观别人那一轮）才该拿存档顶上
+    /// 从会话本体恢复 <see cref="Record"/> 写下的那些数（响应用量不随消息持久化）。
+    /// 本轮那两个数是驱动者逐块记的，调用方只在没在跑的时候（重开会话、旁观别人那一轮）调这个
     /// </summary>
-    /// <param name="input">最近一轮输入</param>
-    /// <param name="output">最近一轮输出</param>
-    public void RestoreLastTurn(long input, long output)
+    /// <param name="session">会话本体</param>
+    public void RestoreFrom(ChatSession session)
     {
-        TurnInput = input;
-        TurnOutput = output;
+        SessionInput = session.TotalInputTokens;
+        SessionOutput = session.TotalOutputTokens;
+        SessionReasoningTokens = session.TotalReasoningTokens;
+        LastInput = session.LastInputTokens;
+        LastCachedInput = session.LastCachedInputTokens;
+        TurnInput = session.LastTurnInputTokens;
+        TurnOutput = session.LastTurnOutputTokens;
     }
 
     /// <summary>

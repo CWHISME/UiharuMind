@@ -25,13 +25,23 @@ namespace UiharuMind.Features.Conversation.Items;
 /// </summary>
 public partial class ThinkingItem
 {
-    private bool _isClosed; //收尾(Flush)跑过,快照可信
+    private EStatsSource _statsSource = EStatsSource.Live;
     private TimeSpan _closedElapsed; //收尾那一刻的耗时,写回历史用它而不用 Now
     private long _closedChars; //收尾那一刻的全文长度
     private DateTime _lastStatsAt = DateTime.MinValue; //上次刷标题统计的时刻,节流用
-    private bool _isStatsFrozen; //回放冻结:存档值已定,泵与收尾都不许重算
-    private bool _statsStamped; //已写回历史,本轮不再重复盖章
-    private bool _hasPersistedStats; //显示的是存档值(不是本窗口自己的计时,也不是只有字数)
+
+    // 标题统计现在显示的是谁的数
+    private enum EStatsSource
+    {
+        Live, //还在流,本窗口计时
+        Timed, //收尾了,快照可信,还没写回历史
+        Stamped, //本窗口的快照已写回历史(显示值即存档值)
+        CharsOnly, //回放时没有存档,只定格字数
+        Persisted, //回放或旁观时读的存档
+    }
+
+    // 回放冻结:存档值已定,泵与收尾都不许重算
+    private bool IsStatsFrozen => _statsSource is EStatsSource.CharsOnly or EStatsSource.Persisted;
 
     /// <summary>收尾快照的耗时（未收尾为零）</summary>
     public TimeSpan ClosedElapsed => _closedElapsed;
@@ -81,10 +91,7 @@ public partial class ThinkingItem
         StatsText = FormatStats(duration, chars);
         _closedElapsed = duration;
         _closedChars = chars;
-        _isClosed = true;
-        _isStatsFrozen = true;
-        _statsStamped = true; //存档里已有，不必再写回
-        _hasPersistedStats = true;
+        _statsSource = EStatsSource.Persisted; //存档里已有，不必再写回
     }
 
     /// <summary>
@@ -95,9 +102,7 @@ public partial class ThinkingItem
     {
         StatsText = string.Format(Loc.Text(LangKey.AgentThinkingCharsFormat), chars.ToString("N0"));
         _closedChars = chars;
-        _isClosed = true;
-        _isStatsFrozen = true;
-        _statsStamped = true;
+        _statsSource = EStatsSource.CharsOnly;
     }
 
     /// <summary>
@@ -159,7 +164,7 @@ public partial class ThinkingItem
     }
 
     // 旁观窗口自己计的时(收尾了、没写回过),或回放时还没盖章、只定格了字数
-    private bool NeedsPersistedStats => (_isClosed && !_statsStamped) || (_isStatsFrozen && !_hasPersistedStats);
+    private bool NeedsPersistedStats => _statsSource is EStatsSource.Timed or EStatsSource.CharsOnly;
 
     /// <summary>
     /// 把本轮新收尾的思考段统计写回它们对应的历史消息（就地写，调用方负责落盘）。
@@ -174,7 +179,7 @@ public partial class ThinkingItem
     {
         int stamped = 0;
         IEnumerable<IGrouping<ChatMessage, ThinkingItem>> groups = items.OfType<ThinkingItem>()
-            .Where(x => x._isClosed && !x._statsStamped && x.SourceMessage != null)
+            .Where(x => x._statsSource == EStatsSource.Timed && x.SourceMessage != null)
             .GroupBy(x => x.SourceMessage!);
         foreach (IGrouping<ChatMessage, ThinkingItem> group in groups)
         {
@@ -186,7 +191,7 @@ public partial class ThinkingItem
             {
                 durationMs += (long)thinking._closedElapsed.TotalMilliseconds;
                 chars += thinking._closedChars;
-                thinking._statsStamped = true;
+                thinking._statsSource = EStatsSource.Stamped;
             }
 
             ChatMessageAnnotations.WriteThinkingStats(message, durationMs, chars);

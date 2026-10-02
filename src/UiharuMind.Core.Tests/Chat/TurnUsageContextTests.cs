@@ -1,4 +1,5 @@
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 
 namespace UiharuMind.Core.Tests.Chat;
@@ -40,12 +41,12 @@ public class TurnUsageContextTests
     }
 
     [Fact]
-    public void RestoreSession_BringsBackTheOccupancy()
+    public void RestoreFrom_BringsBackTheOccupancy()
     {
         TurnUsageLedger ledger = new();
 
         //切回一个老会话:占用随本体持久化,不该等到下一次响应才有数
-        ledger.RestoreSession(50_000, 3_000, 12_345);
+        ledger.RestoreFrom(Session(lastInput: 12_345));
 
         Assert.Equal(12_345, ledger.LastInput);
     }
@@ -149,27 +150,33 @@ public class TurnUsageContextTests
         Assert.Equal(120, ledger.SessionReasoningTokens);
     }
 
+    /// <summary>
+    /// 重开会话、旁观子会话时账本只读得到本体：记下的每个数都要读得回来（缓存命中与本轮用量曾只存不读）
+    /// </summary>
     [Fact]
-    public void RestoreSession_BringsBackReasoningAccumulation()
+    public void RecordThenRestoreFrom_RoundTripsEverythingTheSessionKeeps()
     {
-        TurnUsageLedger ledger = new();
-        ledger.RestoreSession(50_000, 3_000, 12_345, 456);
+        TurnUsageLedger recorder = new();
+        ChatSession session = Session();
+        recorder.Record(new UsageDetails
+        {
+            InputTokenCount = 12_345, OutputTokenCount = 900, ReasoningTokenCount = 456, CachedInputTokenCount = 10_000,
+        }, session);
 
-        Assert.Equal(456, ledger.SessionReasoningTokens);
+        TurnUsageLedger restored = new();
+        restored.RestoreFrom(session);
+
+        Assert.Equal(recorder.SessionInput, restored.SessionInput);
+        Assert.Equal(recorder.SessionOutput, restored.SessionOutput);
+        Assert.Equal(456, restored.SessionReasoningTokens);
+        Assert.Equal(12_345, restored.LastInput);
+        Assert.Equal(10_000, restored.LastCachedInput);
+        Assert.Equal(12_345, restored.TurnInput);
+        Assert.Equal(900, restored.TurnOutput);
     }
 
-    [Fact]
-    public void RestoreSession_BringsBackCacheHitAndLastTurn()
-    {
-        // 重开会话、旁观子会话时账本只读得到本体：缓存命中与本轮那一行不存就看不见
-        TurnUsageLedger ledger = new();
-        ledger.RestoreSession(50_000, 3_000, 12_345, 456, 10_000);
-        ledger.RestoreLastTurn(24_000, 900);
-
-        Assert.Equal(10_000, ledger.LastCachedInput);
-        Assert.Equal(24_000, ledger.TurnInput);
-        Assert.Equal(900, ledger.TurnOutput);
-    }
+    private static ChatSession Session(long lastInput = 0) =>
+        new("t", new CharacterData { CharacterId = "t" }) { IsTransient = true, LastInputTokens = lastInput };
 
     [Fact]
     public void ReasoningTokens_AreZeroWhenTheProviderDoesNotReportThem()

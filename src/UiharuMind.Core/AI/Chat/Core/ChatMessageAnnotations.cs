@@ -337,6 +337,11 @@ public static class ChatMessageAnnotations
         return null;
     }
 
+    /// <summary>读点名调用时用户原样输入的那一行</summary>
+    /// <param name="message">消息</param>
+    /// <returns>用户输入；不是点名调用消息为 null</returns>
+    public static string? NamedSkillInputOf(ChatMessage message) => ReadString(message, NamedSkillInput);
+
     /// <summary>读群发言的发言人角色标识。落盘往返后值是 <c>JsonElement</c>，一律经 <c>ToString</c></summary>
     /// <param name="message">消息</param>
     /// <returns>角色标识；不是群发言为 null</returns>

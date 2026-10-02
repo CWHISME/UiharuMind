@@ -22,6 +22,7 @@ public partial class ConversationSearchBar : UserControl
 {
     private ConversationSearchViewData? _viewData;
 
+    /// <summary>构造</summary>
     public ConversationSearchBar()
     {
         InitializeComponent();

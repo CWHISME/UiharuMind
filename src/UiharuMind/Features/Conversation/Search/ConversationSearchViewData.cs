@@ -58,6 +58,7 @@ public sealed partial class ConversationSearchViewData : ObservableObject, IDisp
     private CancellationTokenSource? _debounce;
     private CancellationTokenSource? _running;
 
+    /// <summary>构造</summary>
     /// <param name="history">当前会话的历史（现取现用：中途换会话也跟得上）；没有会话为 null</param>
     public ConversationSearchViewData(Func<IReadOnlyList<ChatMessage>?> history)
     {

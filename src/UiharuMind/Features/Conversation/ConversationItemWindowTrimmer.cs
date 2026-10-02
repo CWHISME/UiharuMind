@@ -154,16 +154,7 @@ public sealed class ConversationItemWindowTrimmer
             int historyIndex = IndexOfSame(history, source);
             if (historyIndex < 0) continue;
 
-            // 摘出集合再释放:还挂在界面上的位图一释放,下一帧渲染就撞上去(见 ReleaseImages 的注释)。
-            // 与 ConversationItemActions 里重跑截断历史那一处同一套顺序
-            List<ConversationItemBase> discarded = new(anchor);
-            for (int i = anchor - 1; i >= 0; i--)
-            {
-                discarded.Add(_items[i]);
-                _items.RemoveAt(i);
-            }
-
-            foreach (ConversationItemBase item in discarded) item.ReleaseImages();
+            _items.DiscardRange(0, anchor);
 
             _window.SetStart(historyIndex);
             return true;

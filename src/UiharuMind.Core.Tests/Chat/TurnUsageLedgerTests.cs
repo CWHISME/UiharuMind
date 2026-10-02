@@ -1,4 +1,5 @@
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 
 namespace UiharuMind.Core.Tests.Chat;
@@ -77,24 +78,24 @@ public class TurnUsageLedgerTests
     public void RawInput_AddsTheCompactedSliceOnTopOfEffective()
     {
         TurnUsageLedger ledger = new() { EstimatedInput = 1000 };
-        ledger.RestoreSession(0, 0, 3000);
+        ledger.Add(Usage(3000, 0));
         Assert.Equal(ledger.EffectiveInput, ledger.RawInput);
 
         ledger.CompactedInput = 400;
         Assert.Equal(3400, ledger.RawInput);
     }
 
+    /// <summary>累计按增量加：群后台的旁路调用也往同一本体上加，整值覆盖会抹掉那部分</summary>
     [Fact]
-    public void RestoreSession_SetsAccumulatedWithoutTouchingTurn()
+    public void Record_AddsTotalsOnTopOfTheSession()
     {
-        TurnUsageLedger ledger = new();
-        ledger.Add(Usage(1, 2));
+        ChatSession session = new("t", new CharacterData { CharacterId = "t" })
+            { IsTransient = true, TotalInputTokens = 500, TotalOutputTokens = 600 };
 
-        ledger.RestoreSession(500, 600);
+        new TurnUsageLedger().Record(Usage(1, 2), session);
 
-        Assert.Equal(500, ledger.SessionInput);
-        Assert.Equal(600, ledger.SessionOutput);
-        Assert.Equal(1, ledger.TurnInput);
+        Assert.Equal(501, session.TotalInputTokens);
+        Assert.Equal(602, session.TotalOutputTokens);
     }
 
     [Fact]
