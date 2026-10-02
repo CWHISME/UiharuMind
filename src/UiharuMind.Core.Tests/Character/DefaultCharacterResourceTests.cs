@@ -61,6 +61,12 @@ public class DefaultCharacterResourceTests
                 case "DrStone":
                 case "CodeGeass":
                 case "SteinsGate":
+                case "SwordArtOnline":
+                case "Sakurasou":
+                case "SpiceAndWolf":
+                case "KinoNoTabi":
+                case "Oreimo":
+                case "HatarakuMaousama":
                     Assert.True(data.IsAgent, $"{id} 在 {folder}/ 下却不是智能体");
                     break;
                 case "Tools":
@@ -119,6 +125,15 @@ public class DefaultCharacterResourceTests
     [InlineData("Misaka10032Agent")]
     [InlineData("MakiseKurisuAgent")]
     [InlineData("CcAgent")]
+    [InlineData("KayabaAkihikoAgent")]
+    [InlineData("KiritoAgent")]
+    [InlineData("KandaSorataAgent")]
+    [InlineData("ShiinaMashiroAgent")]
+    [InlineData("HoloAgent")]
+    [InlineData("KinoAgent")]
+    [InlineData("GokouRuriAgent")]
+    [InlineData("KousakaKirinoAgent")]
+    [InlineData("MaouSadaoAgent")]
     [InlineData("RationalAgent")]
     public void CardWithAnchor_CodaEqualsAnchor(string id)
     {
