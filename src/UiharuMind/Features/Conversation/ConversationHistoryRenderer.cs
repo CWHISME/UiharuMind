@@ -321,14 +321,15 @@ public sealed class ConversationHistoryRenderer
             for (int i = before; i < buffer.Count; i++)
             {
                 buffer[i].SourceMessage = message;
-                // 回放定格：命中存档读存档（冻结真耗时），未命中只留字数——
-                // 重建的 _startedAt 是打开会话那一刻，不定格就是统一 0.1s 的假耗时
-                if (buffer[i] is ThinkingItem thinking) ThinkingItem.FreezeReplayItem(thinking, message);
                 if (buffer[i] is not TextConversationItem textItem) continue;
 
                 _itemActions.Wire(textItem, message);
                 if (lastKnown is { } stamp) textItem.Timestamp = ConversationItemFactory.TimestampText(stamp);
             }
+
+            // 回放定格：命中存档读存档（冻结真耗时），未命中只留字数——
+            // 重建的 _startedAt 是打开会话那一刻，不定格就是统一 0.1s 的假耗时
+            ThinkingItem.FreezeReplayItems(buffer.Skip(before).OfType<ThinkingItem>().ToList(), message);
         }
 
         // 调用与它的结果是两条消息,开窗分批完全可能把它们切在两批里:不越过批边界找一次,

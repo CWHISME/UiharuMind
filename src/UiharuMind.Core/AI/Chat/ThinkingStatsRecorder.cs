@@ -26,8 +26,10 @@ public sealed class ThinkingStatsRecorder
 {
     private readonly ThinkTagStreamParser _thinkParser = new();
     private readonly Stopwatch _clock = Stopwatch.StartNew();
+    private readonly List<(long Ms, long Chars)> _segments = new(); //本轮已收尾的思考段，按到达顺序
     private TimeSpan _segmentStart; //当前思考段的开始时刻（相对 _clock）
     private bool _segmentOpen; //正处在一段思考里
+    private long _segmentChars; //当前思考段的字数
     private TimeSpan _totalThinking; //本轮思考段耗时之和
     private long _totalThinkingChars; //本轮思考字数之和
 
@@ -56,7 +58,11 @@ public sealed class ThinkingStatsRecorder
 
     /// <summary>
     /// 给本轮新增且缺统计的思考消息盖章。先收尾未闭合的段（失败路径可能没走 CloseSegment），
-    /// 再按各消息的思考字数把总耗时按比例分摊（最大余数法，保证分摊之和等于总量）。
+    /// 再按到达顺序把各段的真实耗时归到各自的消息上；段与消息对不上（取消截掉的半段没进历史、
+    /// 有消息已带统计被跳过）时才退回按字数比例分摊总耗时。
+    ///
+    /// 不能一上来就按比例摊：一轮多次工具往返时各次思考的快慢差得很远，
+    /// 摊下来是「想了半分钟的那条显示 3 秒、几秒的那条显示半分钟」。
     /// </summary>
     /// <param name="history">会话历史（就地写）</param>
     /// <param name="fromIndex">本轮新增段的起始下标，该位置之前的消息不动</param>
@@ -81,13 +87,41 @@ public sealed class ThinkingStatsRecorder
         }
 
         if (targets.Count == 0) return 0;
-        long[] shares = DistributeDurations((long)TotalThinking.TotalMilliseconds, weights.ToArray());
+        long[] shares = AttributeSegments(_segments, weights.ToArray())
+                        ?? DistributeDurations((long)TotalThinking.TotalMilliseconds, weights.ToArray());
         for (int i = 0; i < targets.Count; i++)
         {
             ChatMessageAnnotations.WriteThinkingStats(targets[i], shares[i], weights[i]);
         }
 
         return targets.Count;
+    }
+
+    /// <summary>
+    /// 按到达顺序把思考段归到消息上：每条消息依次吃掉字数正好凑满它的那几段（同一条消息可以有多段）。
+    /// 纯函数。段与消息的字数对不上就返回 null，由调用方退回比例分摊。
+    /// </summary>
+    /// <param name="segments">本轮各思考段的耗时与字数，按到达顺序</param>
+    /// <param name="weights">各消息的思考字数，按历史顺序</param>
+    /// <returns>各消息的耗时毫秒数；对不上为 null</returns>
+    public static long[]? AttributeSegments(IReadOnlyList<(long Ms, long Chars)> segments, long[] weights)
+    {
+        long[] shares = new long[weights.Length];
+        int next = 0;
+        for (int i = 0; i < weights.Length; i++)
+        {
+            long chars = 0;
+            while (chars < weights[i] && next < segments.Count)
+            {
+                chars += segments[next].Chars;
+                shares[i] += segments[next].Ms;
+                next++;
+            }
+
+            if (chars != weights[i]) return null;
+        }
+
+        return next == segments.Count ? shares : null;
     }
 
     /// <summary>
@@ -167,8 +201,10 @@ public sealed class ThinkingStatsRecorder
         {
             _segmentOpen = true;
             _segmentStart = _clock.Elapsed;
+            _segmentChars = 0;
         }
 
+        _segmentChars += delta.Length;
         _totalThinkingChars += delta.Length;
     }
 
@@ -176,6 +212,8 @@ public sealed class ThinkingStatsRecorder
     {
         if (!_segmentOpen) return;
         _segmentOpen = false;
-        _totalThinking += _clock.Elapsed - _segmentStart;
+        TimeSpan elapsed = _clock.Elapsed - _segmentStart;
+        _totalThinking += elapsed;
+        _segments.Add(((long)elapsed.TotalMilliseconds, _segmentChars));
     }
 }

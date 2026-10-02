@@ -24,6 +24,9 @@ namespace UiharuMind.Features.Conversation;
 ///
 /// 会话流没有虚拟化，「界面上留多少条目」就是排版与内存的成本，这件事只在这里管。
 /// 对外只给意图（回放、往前翻、按预算收），窗口怎么开、上限是多少都不外露。
+/// 搜索跳到旧消息之后「脱离末尾」的那一组动作在 <c>ConversationHistoryPager.Detach.cs</c>。
+///
+/// 三个状态位都是窗口的投影，只在 <see cref="SyncFlags"/> 一处刷新，不各自赋值
 /// </summary>
 public sealed partial class ConversationHistoryPager : ObservableObject
 {
@@ -36,10 +39,17 @@ public sealed partial class ConversationHistoryPager : ObservableObject
     /// </summary>
     [ObservableProperty] private bool _hasLoadedEarlier;
 
+    /// <summary>
+    /// 窗口脱离了历史末尾：截断重载到旧消息附近之后为真（「回到最新」的可见性、跟底暂停、对账与裁剪让路）。
+    /// 为真期间新消息不往窗口里追加，见 <see cref="AppendPersisted"/>
+    /// </summary>
+    [ObservableProperty] private bool _hasLaterMessages;
+
     private readonly ObservableCollection<ConversationItemBase> _items;
     private readonly ConversationHistoryRenderer _renderer;
     private readonly Func<IReadOnlyList<ChatMessage>> _historySource;
     private readonly Func<bool> _isDisplayed;
+    private readonly Func<bool> _isTurnRunning;
     private readonly ConversationItemWindowTrimmer _trimmer;
 
     /// <summary>渲染窗口。对账重放要原位保住用户已翻出的那一段，所以与它共用</summary>
@@ -53,14 +63,16 @@ public sealed partial class ConversationHistoryPager : ObservableObject
     /// <param name="historySource">当前完整历史（现取现用：中途换会话也能跟上）</param>
     /// <param name="isDisplayed">本实例此刻是否显示在界面上</param>
     /// <param name="isStuckToBottom">界面是否跟在底部；用户上滚在读时不裁，免得正看的内容被抽走</param>
+    /// <param name="isTurnRunning">有一轮正往这个会话流内容（回到最新时末尾那次工具调用的结果可能还在路上）</param>
     public ConversationHistoryPager(ObservableCollection<ConversationItemBase> items,
         ConversationHistoryRenderer renderer, Func<IReadOnlyList<ChatMessage>> historySource,
-        Func<bool> isDisplayed, Func<bool> isStuckToBottom)
+        Func<bool> isDisplayed, Func<bool> isStuckToBottom, Func<bool> isTurnRunning)
     {
         _items = items;
         _renderer = renderer;
         _historySource = historySource;
         _isDisplayed = isDisplayed;
+        _isTurnRunning = isTurnRunning;
         // 不在界面上的实例没有会被抽走的视口,照裁——后台跑着的那个正是最该裁的
         _trimmer = new ConversationItemWindowTrimmer(items, Window, historySource,
             () => !isDisplayed() || isStuckToBottom());
@@ -75,7 +87,7 @@ public sealed partial class ConversationHistoryPager : ObservableObject
     public void Replay(IReadOnlyList<ChatMessage> messages, bool liveTail)
     {
         (int from, int to) = Window.Reset(messages.Count);
-        HasEarlierMessages = Window.HasEarlier;
+        SyncFlags();
         _renderer.Append(messages, from, to, liveTail);
     }
 
@@ -88,7 +100,7 @@ public sealed partial class ConversationHistoryPager : ObservableObject
         IReadOnlyList<ChatMessage> history = _historySource();
         if (Window.Extend(history.Count) is not { } range)
         {
-            HasEarlierMessages = false;
+            SyncFlags();
             return false;
         }
 
@@ -109,7 +121,7 @@ public sealed partial class ConversationHistoryPager : ObservableObject
         IReadOnlyList<ChatMessage> history = _historySource();
         if (Window.FillFirstWindow(history.Count) is not { } range)
         {
-            HasEarlierMessages = Window.HasEarlier;
+            SyncFlags();
             return false;
         }
 
@@ -123,8 +135,9 @@ public sealed partial class ConversationHistoryPager : ObservableObject
     /// </summary>
     public void TrimToBudget()
     {
+        if (Window.IsDetached) return; //裁剪按「窗口跟着末尾」算锚点,脱离时不动
         bool trimmed = _isDisplayed() ? _trimmer.TrimIfNeeded() : _trimmer.TrimToBackgroundBudget();
-        if (trimmed) HasEarlierMessages = Window.HasEarlier;
+        if (trimmed) SyncFlags();
     }
 
     /// <summary>
@@ -141,11 +154,12 @@ public sealed partial class ConversationHistoryPager : ObservableObject
         Dispatcher.UIThread.Post(() =>
         {
             if (_isDisplayed()) return; //这一小会儿里又切回来了,当前上限自己会管
+            if (Window.IsDetached) return; //停在搜索跳到的那一段:切回来还在原处,本来就只画了一小段
 
             StartupPhaseProbe.End("conversation/trim-delay", queuedAt);
             long trimBegin = StartupPhaseProbe.Begin();
             int before = _items.Count;
-            if (_trimmer.TrimToBackgroundBudget()) HasEarlierMessages = Window.HasEarlier;
+            if (_trimmer.TrimToBackgroundBudget()) SyncFlags();
             StartupPhaseProbe.End($"conversation/trim:{before}->{_items.Count}", trimBegin);
             // Normal 而不是 Background:切走的会话往往正在流式输出,而流式期间高优先级任务
             // 不断进来,Background 会被饿着——那等于切回去时这次裁剪还没发生。
@@ -156,14 +170,24 @@ public sealed partial class ConversationHistoryPager : ObservableObject
     /// <summary>换会话前清掉窗口与两个状态位</summary>
     public void Reset()
     {
-        HasEarlierMessages = false;
-        HasLoadedEarlier = false;
         Window.Clear();
+        HasLoadedEarlier = false;
+        SyncFlags();
     }
 
     private void Prepend(IReadOnlyList<ChatMessage> history, (int From, int To) range)
     {
         _renderer.Prepend(history, range);
+        SyncFlags();
+    }
+
+    /// <summary>窗口被别处改过（对账重放挪了起点）：把状态位重新投影出来</summary>
+    public void NotifyWindowChanged() => SyncFlags();
+
+    // 窗口变了之后把状态位投影出来
+    private void SyncFlags()
+    {
         HasEarlierMessages = Window.HasEarlier;
+        HasLaterMessages = Window.IsDetached;
     }
 }

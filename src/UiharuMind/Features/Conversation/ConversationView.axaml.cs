@@ -77,18 +77,25 @@ public partial class ConversationView : UserControl
     /// <summary>离顶多少像素以内算"滚到顶了"。留一点余量,让续窗在用户撞到顶之前就开始</summary>
     private const double EarlierLoadThreshold = 32.0;
 
+    /// <summary>离底多远才亮「回到最新」。留出余量:流式增长在补底之前的那一瞬也算离底,不该跟着闪</summary>
+    private const double JumpToLatestThreshold = 160.0;
+
     private readonly ScrollViewerAutoScrollHolder _autoScrollHolder;
     private readonly ConversationCardViewport _cardViewport;
+    private readonly ConversationSearchJump _searchJump;
     private bool _isCardSweepScheduled; //已排了一次视口清扫,合并同一帧内的多次滚动通知
     private ConversationViewModel? _viewModel;
     private readonly ViewerThumbDrag _thumbDrag;
     private bool _isLoadingEarlier; //正在续一窗更早的消息(防抖)
+    private bool _isLoadingLater; //停在旧消息那段时正在往后续一批(防抖)
 
     public ConversationView()
     {
         InitializeComponent();
         _autoScrollHolder = new ScrollViewerAutoScrollHolder(Viewer);
         _cardViewport = new ConversationCardViewport(Viewer, MessageList);
+        _searchJump = new ConversationSearchJump(Viewer, MessageList, _cardViewport, _autoScrollHolder,
+            PrependKeepingViewport, SearchPanelInset, () => _viewModel?.LoadLaterMessages() == true);
         Viewer.ScrollChanged += OnViewerScrollChanged;
         _thumbDrag = new ViewerThumbDrag(Viewer, PageEarlierWhileDragging, TryScheduleLoadEarlier);
         // 探针关着时连事件都不挂:布局回调是每次布局都会跑的路径,不该为一个默认关闭的诊断付钱
@@ -111,6 +118,27 @@ public partial class ConversationView : UserControl
         ComposerBorder.AddHandler(KeyDownEvent, OnComposerKeyDown, RoutingStrategies.Tunnel);
         SkillPicker.PointerReleased += OnSkillPickerPointerReleased;
         InputBox.PropertyChanged += OnInputBoxPropertyChanged; //@ 补全要知道光标在哪
+        // Ctrl/⌘+F 打开会话内搜索。隧道阶段拦:焦点在输入框里时也得认
+        AddHandler(KeyDownEvent, OnViewKeyDown, RoutingStrategies.Tunnel);
+    }
+
+    private void OnViewKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.F || (e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Meta)) == 0) return;
+        if (DataContext is not ConversationViewModel vm) return;
+
+        vm.Search.Open();
+        e.Handled = true;
+    }
+
+    // 搜索栏浮在消息流上,跳到的卡要落在它下沿以下
+    private double SearchPanelInset() =>
+        SearchPanel.IsVisible ? SearchPanel.TranslatePoint(new Point(0, SearchPanel.Bounds.Height), Viewer)?.Y ?? 0 : 0;
+
+    private void OnSearchJumpRequested(Core.AI.Chat.Search.SessionSearchHit hit)
+    {
+        if (_viewModel is not { IsSessionLoading: false } vm) return;
+        _ = _searchJump.JumpAsync(vm.SearchNavigator, hit, x => ReferenceEquals(_viewModel?.SearchNavigator, x));
     }
 
     private void OnComposerKeyDown(object? sender, KeyEventArgs e)
@@ -165,6 +193,8 @@ public partial class ConversationView : UserControl
         {
             _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
             _viewModel.Palette.CandidateAccepted -= OnCandidateAccepted;
+            _viewModel.Search.JumpRequested -= OnSearchJumpRequested;
+            _viewModel.ReturnedToLatest -= OnReturnedToLatest;
             _viewModel.IsStuckToBottomSource = null;
         }
 
@@ -173,6 +203,10 @@ public partial class ConversationView : UserControl
         {
             _viewModel.PropertyChanged += OnViewModelPropertyChanged;
             _viewModel.Palette.CandidateAccepted += OnCandidateAccepted;
+            _viewModel.Search.JumpRequested += OnSearchJumpRequested;
+            _viewModel.ReturnedToLatest += OnReturnedToLatest;
+            // 跟底状态是全局唯一那一份,切回一个停在旧消息那段的缓存实例时要跟着停
+            _autoScrollHolder.IsSuspended = _viewModel.HasLaterMessages;
             // 滚动状态只有本视图知道,而运行期裁剪要靠它决定能不能裁(见 ConversationItemWindowTrimmer)
             _viewModel.IsStuckToBottomSource = () => _autoScrollHolder.IsStuckToBottom;
 
@@ -214,6 +248,43 @@ public partial class ConversationView : UserControl
         {
             SettleNow(vm);
         }
+
+        // 停在旧消息那段时「底部」不是最新,跟过去只会让滚到底续一批连环触发
+        if (e.PropertyName == nameof(ConversationViewModel.HasLaterMessages) && _viewModel != null)
+        {
+            _autoScrollHolder.IsSuspended = _viewModel.HasLaterMessages;
+            // 自然接回末尾(往下续到头、重试截到这里):此刻就在底部,恢复跟底,新一轮才跟得上
+            if (!_viewModel.HasLaterMessages) _autoScrollHolder.Resume();
+            UpdateJumpToLatestVisibility();
+        }
+    }
+
+    private void UpdateJumpToLatestVisibility()
+    {
+        double fromBottom = Viewer.Extent.Height - Viewer.Viewport.Height - Viewer.Offset.Y;
+        JumpToLatestButton.IsVisible = _viewModel is { HasLaterMessages: true } || fromBottom > JumpToLatestThreshold;
+    }
+
+    private void OnJumpToLatestClick(object? sender, RoutedEventArgs e)
+    {
+        if (_viewModel is not { } vm) return;
+
+        // 停在旧消息那段:末尾没画,重放最新(贴底由 ReturnedToLatest 那一路做);只是往上翻了就直接贴底
+        if (vm.HasLaterMessages)
+        {
+            vm.ReturnToLatestCommand.Execute(null);
+            return;
+        }
+
+        ScrollToBottom();
+        _autoScrollHolder.Resume();
+        ScheduleCardSweep();
+    }
+
+    /// <summary>从旧消息那段回到了最新：条目整窗换成了末尾首屏，与切回会话同一套落位</summary>
+    private void OnReturnedToLatest()
+    {
+        if (_viewModel is { } vm) ScheduleSettle(vm);
     }
 
     /// <summary>
@@ -252,6 +323,13 @@ public partial class ConversationView : UserControl
     /// <param name="vm">已就绪的视图模型</param>
     private void SettleNow(ConversationViewModel vm)
     {
+        // 切回一个停在旧消息那段的缓存实例:滚回上次跳到的那条,而不是贴到这一小段的底部
+        if (vm is { HasLaterMessages: true, SearchNavigator.Anchor: { } anchor })
+        {
+            _ = _searchJump.JumpAsync(vm.SearchNavigator, anchor, x => ReferenceEquals(_viewModel?.SearchNavigator, x));
+            return;
+        }
+
         long settleBegin = global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Begin();
         AnchorToBottom();
         _autoScrollHolder.Resume();
@@ -307,12 +385,31 @@ public partial class ConversationView : UserControl
         // 只有视口真的挪过才值得清扫。流式期间每来一段正文都会抬高 extent 并发一次本事件,
         // 而那不改变任何卡片与视口的距离——跟底那一路 offset 会跟着动,照样清扫
         if (e.OffsetDelta.Y != 0 || e.ViewportDelta.Y != 0) ScheduleCardSweep();
+        UpdateJumpToLatestVisibility();
 
         // extent 增长是"内容变多要贴底",不是"用户滚到顶"。初始贴底时 AnchorToBottom 第一次
         // UpdateLayout 会让 extent 首度长高,此刻 Offset 还在顶部(0),若不当心会把这一窗续掉,
         // 表现为首屏 5 条贴完底后进度条又涨成 10 条
         if (e.ExtentDelta.Y > 0) return;
         TryScheduleLoadEarlier();
+        TryScheduleLoadLater();
+    }
+
+    /// <summary>
+    /// 停在旧消息那段（搜索截断重载）时滚到底，往后续一批。追加在下面，视口不用补偿；
+    /// 续到历史末尾就重新跟上末尾
+    /// </summary>
+    private void TryScheduleLoadLater()
+    {
+        if (_isLoadingLater || DataContext is not ConversationViewModel { HasLaterMessages: true } vm) return;
+        if (Viewer.Extent.Height - Viewer.Viewport.Height - Viewer.Offset.Y > EarlierLoadThreshold) return;
+
+        _isLoadingLater = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (vm.LoadLaterMessages()) ScheduleCardSweep();
+            Dispatcher.UIThread.Post(() => _isLoadingLater = false, DispatcherPriority.Background);
+        }, DispatcherPriority.Loaded);
     }
 
     /// <summary>

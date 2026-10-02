@@ -487,7 +487,11 @@ public sealed class TurnDriver : IDisposable
         Log.Debug($"Service call usage: input {_usage.LastInput}, cached {_usage.LastCachedInput}");
         SyncEstimate(runner);
         session.AccumulateUsage(input, output, reasoning);
-        session.LastInputTokens = _usage.LastInput; //占用随本体持久化,切回会话时不必等下一次响应
+        // 占用、命中与本轮用量随本体持久化:切回会话不必等下一次响应,旁观的窗口(子会话)也只读得到本体
+        session.LastInputTokens = _usage.LastInput;
+        session.LastCachedInputTokens = _usage.LastCachedInput;
+        session.LastTurnInputTokens = _usage.TurnInput;
+        session.LastTurnOutputTokens = _usage.TurnOutput;
         SessionManager.Instance.NotifyUsageReported(session.SessionId);
         LogUsageRatio(runner);
         _notify?.Invoke(new TurnNotice(ETurnNotice.UsageObserved));

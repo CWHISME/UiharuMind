@@ -38,6 +38,23 @@ public class ThinkingStatsRecorderTests
     }
 
     [Fact]
+    public void AttributeSegments_GivesEachMessageItsOwnSegments()
+    {
+        // 一轮多次工具往返时各次思考快慢差得远，按字数比例摊会把长短对调
+        long[]? shares = ThinkingStatsRecorder.AttributeSegments([(30_000, 100), (2_000, 300), (1_000, 600)], [100, 900]);
+
+        Assert.Equal([30_000L, 3_000L], shares);
+    }
+
+    [Fact]
+    public void AttributeSegments_MismatchFallsBackToNull()
+    {
+        // 取消截掉的半段没进历史，段与消息对不上
+        Assert.Null(ThinkingStatsRecorder.AttributeSegments([(1_000, 100), (1_000, 50)], [100]));
+        Assert.Null(ThinkingStatsRecorder.AttributeSegments([(1_000, 100)], [60, 40]));
+    }
+
+    [Fact]
     public void Stamp_ReasoningMessage_GetsStats()
     {
         ThinkingStatsRecorder recorder = new();

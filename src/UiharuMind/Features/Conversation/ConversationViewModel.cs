@@ -38,6 +38,8 @@ using UiharuMind.Features.Characters;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
+using UiharuMind.Core.AI.Chat.Search;
+using UiharuMind.Features.Conversation.Search;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution.History;
@@ -296,6 +298,12 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// <summary>token 用量（工具行文本与上下文占用的悬停面板）</summary>
     public ConversationUsageViewData Usage { get; }
 
+    /// <summary>会话内搜索栏（关键词、范围、结果与上下条）</summary>
+    public ConversationSearchViewData Search { get; }
+
+    /// <summary>搜索跳转的决策：命中怎么进窗、落到哪张卡（滚动归视图）</summary>
+    public ConversationSearchNavigator SearchNavigator { get; }
+
     /// <summary>
     /// 界面是否跟在底部，由宿主视图接上（它才持有那个滚动容器）。
     /// 视图切走时会把它<b>置回 null</b>，而那等于「没有视口」而不是「视口不在底部」——
@@ -490,6 +498,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         // 用量排最前:后面几个子模型的构造期回调就可能刷它
         Usage = new ConversationUsageViewData(ContextLength, () => SessionModelLabel,
             () => CurrentSession?.TotalGeneratedImages ?? 0);
+        Search = new ConversationSearchViewData(() => CurrentSession?.History);
         // 子模型只吃窄依赖、不反向持有本类:附件盘取会话要用委托(首轮发送时会话还不存在),
         // 命令面板要能改写输入框并读当前角色,挂接器只需报忙碌态
         Tray = new AttachmentTrayViewData(this);
@@ -507,8 +516,12 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _history = new ConversationHistoryRenderer(Items, _itemActions, () => _currentCharacter,
             () => IsAutoCollapseThinking, () => GroupMember?.DeliveryRenderer, SessionPaths);
         _pager = new ConversationHistoryPager(Items, _history, () => CurrentRunner?.GetHistory() ?? [],
-            () => IsDisplayed, () => IsStuckToBottomSource?.Invoke() ?? true);
-        _pager.PropertyChanged += (_, e) => OnPropertyChanged(e.PropertyName); //两个状态位原名转发给绑定
+            () => IsDisplayed, () => IsStuckToBottomSource?.Invoke() ?? true,
+            () => CurrentSession?.LiveTurn.IsTurnRunning == true);
+        _pager.PropertyChanged += (_, e) => OnPropertyChanged(e.PropertyName); //几个状态位原名转发给绑定
+        _pager.ReturnedToLatest += () => ReturnedToLatest?.Invoke();
+        SearchNavigator = new ConversationSearchNavigator(Items, _pager, () => CurrentSession?.History,
+            () => IsSessionIdle && !IsCompacting);
         _reconciler = new ConversationHistoryReconciler(Items, _pager.Window, this);
 
         var agentSetting = AgentSettingConfig.Current;
@@ -631,9 +644,13 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
         // 本会话转空闲了：唤醒轮之类别处驱动的轮次到此应该已经把内容留在了历史里，
         // 还对不上就是实时通道漏了，对一次尾部（方法内部只在没人跑时动手）
-        if (!SessionManager.Instance.Running.IsBusy(sessionId)) ReconcileHistoryTail("session idle");
+        bool busy = SessionManager.Instance.Running.IsBusy(sessionId);
+        if (!busy) ReconcileHistoryTail("session idle");
         Dispatcher.UIThread.Post(() =>
         {
+            // 别处开跑了(唤醒轮、子会话被续跑):实时流要往条目末尾追加,停在旧消息那段就接不上。
+            // 运行登记早于第一段内容,这一步排在内容之前
+            if (busy) ReturnToLatestIfDetached();
             NotifyRunStateChanged();
             NotifyBusyChanged(); //忙碌文案里有"别处正在跑"那一档,它跟着运行态变
         });
@@ -673,9 +690,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             if (CurrentSession is not { } session) return;
             IReadOnlyList<ChatMessage> history = session.History;
             if (fromIndex < 0 || fromIndex >= history.Count) return;
-
-            _history.AppendPersisted(history, fromIndex, ownTurn, streaming);
+            _pager.AppendPersisted(history, fromIndex, ownTurn, streaming);
             if (!ownTurn) Usage.Refresh(); //本轮的用量由 UsageObserved 逐块刷,这里重复一次只会抖
+            Search.NotifyHistoryChanged();
         });
     }
 
@@ -744,6 +761,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             if (index < 0 || index >= history.Count) return;
 
             _history.Replace(history, index, replaced);
+            Search.NotifyHistoryChanged();
         });
     }
 
@@ -885,6 +903,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         if (CurrentRunner is { } runner) runner.BusyChanged = null;
         _turns.CancelPreparing();
         Usage.Dispose();
+        Search.Dispose();
         _driver.Dispose();
         MemoryPanel?.Detach();
     }
@@ -928,6 +947,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private async Task RegenerateLast()
     {
         if (IsGenerating) return;
+        // 停在旧消息那段时条目里的「最后一条」不是历史的最后一条:先回到最新再挑,否则重试会截掉后面整段历史
+        ReturnToLatestIfDetached();
         ConversationItemBase? target = Items.LastOrDefault(x => x.CanRetry);
         if (target != null) await _itemActions.Retry(target);
     }
@@ -1092,6 +1113,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
     private async Task SendCoreAsync(string text)
     {
+        ReturnToLatestIfDetached(); //停在搜索跳到的旧消息那里时发话:先回到末尾,新气泡才接得上
         // 群壳永不跑轮:打的字一律是群发言,交给调度器——闲着就开一圈,跑着就插进当前发言人那一轮。
         // 排在最前:压缩命令、以角色身份发送、插话这几条路对群壳都不成立
         if (Group is { } group)
@@ -1624,6 +1646,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         }
 
         Usage.Refresh();
+        Search.NotifyHistoryChanged(); //换了会话:开着的搜索栏按原词重搜这一个
         StartupPhaseProbe.End($"conversation/replay:items={Items.Count},history={messages.Count}", replayBegin);
     }
 
@@ -1644,6 +1667,29 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// </summary>
     /// <returns>真的补了条目返回 true</returns>
     public bool FillFirstWindow() => _pager.FillFirstWindow();
+
+    /// <summary>窗口之后还有没渲染的历史：搜索截断重载到旧消息附近之后为真（「回到最新」的可见性）</summary>
+    public bool HasLaterMessages => _pager.HasLaterMessages;
+
+    /// <summary>从旧消息那段回到了最新（视图据此把视口贴回底部）</summary>
+    public event Action? ReturnedToLatest;
+
+    /// <summary>停在旧消息那段时往后续一批，由视图在滚到底时调用</summary>
+    /// <returns>真的追加了条目返回 true</returns>
+    public bool LoadLaterMessages() => _pager.LoadLater();
+
+    [RelayCommand]
+    private void ReturnToLatest() => ReturnToLatestIfDetached();
+
+    private bool ReturnToLatestIfDetached() => _pager.ReturnToLatest();
+
+    /// <summary>
+    /// 会话此刻没人在跑：自己没跑也没在装配、登记处空闲、也没有别处的实时流。
+    /// 对账与截断重载共用这一个判据——唤醒轮占位与直播置位之间有一瞬空窗，三者缺一不可
+    /// </summary>
+    private bool IsSessionIdle =>
+        !IsGenerating && CurrentSession is { } session && !session.LiveTurn.IsTurnRunning &&
+        !SessionManager.Instance.Running.IsBusy(session.SessionId);
 
     //================= IConversationItemActionHost =================
     // 显式实现:这五件事是给消息级操作用的,不该混进本类给界面绑定的公开面
@@ -1666,6 +1712,13 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
     /// <inheritdoc />
     void IConversationItemActionHost.NotifyItemsWired() => OnPropertyChanged(nameof(CanRegenerate));
+
+    /// <inheritdoc />
+    void IConversationItemActionHost.NoteHistoryRemoved(IReadOnlyCollection<int> removedIndices)
+    {
+        _pager.NoteRemoved(removedIndices);
+        Search.NotifyHistoryChanged();
+    }
 
     //================= IAttachmentTrayHost =================
 
@@ -1699,7 +1752,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     // 显式实现:对账要的只是这几个窄依赖,不该把整个视图模型暴露给对账器
 
     /// <inheritdoc />
-    bool IConversationReconcileHost.IsOwnTurnRunning => _driver.IsRunning;
+    bool IConversationReconcileHost.IsSessionIdle => IsSessionIdle;
 
     /// <inheritdoc />
     bool IConversationReconcileHost.IsSessionLoading => IsSessionLoading;
@@ -1708,23 +1761,19 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     ChatSession? IConversationReconcileHost.CurrentSession => CurrentSession;
 
     /// <inheritdoc />
-    bool IConversationReconcileHost.HasEarlierMessages
-    {
-        get => _pager.HasEarlierMessages;
-        set => _pager.HasEarlierMessages = value;
-    }
-
-    /// <inheritdoc />
-    bool IConversationReconcileHost.IsSessionBusy(string sessionId) =>
-        SessionManager.Instance.Running.IsBusy(sessionId);
+    void IConversationReconcileHost.NotifyWindowChanged() => _pager.NotifyWindowChanged();
 
     /// <inheritdoc />
     List<ConversationItemBase> IConversationReconcileHost.BuildItems(IReadOnlyList<ChatMessage> history,
         int from, int to) => _history.Build(history, from, to);
 
     /// <inheritdoc />
-    void IConversationReconcileHost.WireStreamedSources(IReadOnlyList<ChatMessage> history) =>
+    void IConversationReconcileHost.WireStreamedSources(IReadOnlyList<ChatMessage> history)
+    {
         _itemActions.WireStreamed(history);
+        // 来源配好才认得出消息;旁观别人那一轮的思考卡此刻改读驱动方落盘的耗时
+        ThinkingItem.AdoptPersistedStats(Items);
+    }
 
     /// <inheritdoc />
     void IConversationReconcileHost.RefreshTokenUsage() => Usage.Refresh();

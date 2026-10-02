@@ -159,6 +159,19 @@ public class TurnUsageContextTests
     }
 
     [Fact]
+    public void RestoreSession_BringsBackCacheHitAndLastTurn()
+    {
+        // 重开会话、旁观子会话时账本只读得到本体：缓存命中与本轮那一行不存就看不见
+        TurnUsageLedger ledger = new();
+        ledger.RestoreSession(50_000, 3_000, 12_345, 456, 10_000);
+        ledger.RestoreLastTurn(24_000, 900);
+
+        Assert.Equal(10_000, ledger.LastCachedInput);
+        Assert.Equal(24_000, ledger.TurnInput);
+        Assert.Equal(900, ledger.TurnOutput);
+    }
+
+    [Fact]
     public void ReasoningTokens_AreZeroWhenTheProviderDoesNotReportThem()
     {
         UsageDetails details = new() { InputTokenCount = 8000 };

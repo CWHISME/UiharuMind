@@ -134,7 +134,6 @@ public partial class ContextUsageViewData : ObservableObject
             ReportedText = string.Empty;
             UnreportedText = string.Empty;
             CompactedText = string.Empty;
-            ReasoningText = string.Empty;
             StateKey = NormalState;
             return;
         }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using Microsoft.Extensions.AI;
@@ -53,6 +54,37 @@ public class ConversationItemActionsDeletionTests
         public void Rerun(ChatMessage? input) { }
         public void NotifySessionsChanged() { }
         public void NotifyItemsWired() { }
+    }
+
+    private sealed class RemovalRecordingHost(ChatSession session) : IConversationItemActionHost
+    {
+        public List<int> Removed { get; } = new();
+        public ChatSession? Session => session;
+        public bool IsGenerating => false;
+        public void Rerun(ChatMessage? input) { }
+        public void NotifySessionsChanged() { }
+        public void NotifyItemsWired() { }
+        public void NoteHistoryRemoved(IReadOnlyCollection<int> removedIndices) => Removed.AddRange(removedIndices);
+    }
+
+    /// <summary>删了几条要报给宿主（删除之前的下标）：开窗记的是下标，停在旧消息那段时要跟着修正</summary>
+    [Fact]
+    public async Task Deleting_ReportsTheRemovedIndicesToTheHost()
+    {
+        ChatSession session = TransientSession();
+        ObservableCollection<ConversationItemBase> items = new();
+        RemovalRecordingHost host = new(session);
+        ConversationItemActions actions = new(items, host, new RecordingMessageService());
+        ChatMessage user0 = UserMessage("问");
+        ChatMessage call = ToolCallMessage("c1");
+        ChatMessage result = ToolResultMessage("c1");
+        session.History.AddRange([user0, call, result]);
+        ProbeItem card = actions.Wire(new ProbeItem(items), call);
+        items.Add(card);
+
+        await card.DeleteCommand.ExecuteAsync(null);
+
+        Assert.Equal([1, 2], host.Removed); //调用与结果成对删
     }
 
     // 提示里报出的条目数；没报数（单条删除）时为 1

@@ -8,6 +8,7 @@
              xmlns:group="clr-namespace:UiharuMind.Features.Conversation.Group"
              xmlns:items="clr-namespace:UiharuMind.Features.Conversation.Items"
              xmlns:panels="clr-namespace:UiharuMind.Features.Conversation.SidePanels"
+             xmlns:search="clr-namespace:UiharuMind.Features.Conversation.Search"
              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              mc:Ignorable="d" d:DesignWidth="760" d:DesignHeight="640"
@@ -71,6 +72,19 @@
         <Style Selector="ThemedIconButton.memory-status[Tag=Ready] controls|ThemedSvgIcon">
             <Setter Property="CurrentColor" Value="LawnGreen" />
         </Style>
+        <!-- 搜索跳到的那张卡闪一下(ConversationSearchJump 挂/摘类)。画在容器底色上而不是边框:
+             边框厚度会改高度,而卡片视口的等高占位要求容器高度只由卡片决定 -->
+        <Style Selector="ItemsControl#MessageList > ContentPresenter">
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.35" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="ItemsControl#MessageList > ContentPresenter.search-hit">
+            <Setter Property="Background" Value="{DynamicResource SemiBlue1}" />
+        </Style>
     </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource SemiGrey0}">
@@ -124,6 +138,9 @@
                                IsVisible="{Binding HandoffNotice, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <ThemedIconButton IconName="search"
+                                      Command="{Binding Search.OpenCommand}"
+                                      ToolTips="{loc:Loc ConversationSearchOpenTip}" />
                     <!-- 子会话专属:把结论交回派它出来的那个会话。会话级动作,
                          与「重新生成」同一形态放在头部——输入区那一行已经满了 -->
                     <ThemedIconButton IconName="import"
@@ -280,6 +297,23 @@
                     </MultiBinding>
                 </ContentPresenter.IsVisible>
             </ContentPresenter>
+
+            <!-- 回到最新:往上翻离开底部、或停在搜索跳到的旧消息那段(末尾没画)时常驻。
+                 与日志页「回到顶部」同一形态;显隐由视图按滚动位置与 HasLaterMessages 刷新 -->
+            <Button Name="JumpToLatestButton" Width="34" Height="34" CornerRadius="17" Padding="0"
+                    HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,22,12"
+                    Background="{DynamicResource SemiGrey0}" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="1"
+                    IsVisible="False" ToolTip.Tip="{loc:Loc ConversationReturnToLatest}"
+                    Click="OnJumpToLatestClick">
+                <ThemedSvgIcon IconName="chevron-down" Width="18" Height="18" />
+            </Button>
+
+            <!-- 会话内搜索:浮在消息流右上角,开关不让会话流重排。
+                 显隐挂在外层:DataContext 换成搜索栏那份之后,本元素自己的绑定就不再对着会话视图模型 -->
+            <Panel Name="SearchPanel" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,8,18,0"
+                   IsVisible="{Binding Search.IsOpen}">
+                <search:ConversationSearchBar DataContext="{Binding Search}" />
+            </Panel>
         </Grid>
 
         <!-- composer -->

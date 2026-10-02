@@ -36,12 +36,27 @@ public class ScrollViewerAutoScrollHolder
     private readonly ScrollViewer _scrollViewer;
     private bool _isStuckToBottom = true;
     private bool _isSyncPending; //已排了一次补底,同一批增长不重复排
+    private bool _isSuspended;
 
     /// <summary>
     /// 此刻是否跟着底部。运行期裁剪据此决定"能不能裁"——用户上滚在读旧消息时裁，
     /// 他正看的内容会当场消失。
     /// </summary>
     public bool IsStuckToBottom => _isStuckToBottom;
+
+    /// <summary>
+    /// 暂停跟底：列表此刻画的不是末尾那段（搜索截断重载到旧消息附近），「底部」不是最新，
+    /// 跟过去只会让「滚到底续下一批」连环触发，一路续到末尾。恢复后由调用方自己贴底
+    /// </summary>
+    public bool IsSuspended
+    {
+        get => _isSuspended;
+        set
+        {
+            _isSuspended = value;
+            if (value) _isStuckToBottom = false;
+        }
+    }
 
     public ScrollViewerAutoScrollHolder(ScrollViewer scrollViewer)
     {
@@ -56,8 +71,18 @@ public class ScrollViewerAutoScrollHolder
     /// </summary>
     public void Resume()
     {
+        if (_isSuspended) return;
         _isStuckToBottom = true;
         RequestStickToBottom();
+    }
+
+    /// <summary>
+    /// 让出跟底：程序要把视口挪到别处（搜索跳到旧消息）。不让的话前插补偿与内容增长会把视口拽回底部，
+    /// 运行期裁剪也会把刚续出来的那段收回去。用户滚回底部时由几何重判自己恢复
+    /// </summary>
+    public void Release()
+    {
+        _isStuckToBottom = false;
     }
 
     /// <summary>
@@ -100,7 +125,7 @@ public class ScrollViewerAutoScrollHolder
 
         // 其余情形(用户滚动、拖动进度条、视口变化、内容收缩)一律按几何重判:
         // 在底部就接管，离开底部就让开。补底本身也走这里，它落在底部,结论仍是接管
-        _isStuckToBottom = IsAtBottom;
+        _isStuckToBottom = !_isSuspended && IsAtBottom;
     }
 
     private double MaxOffset => Math.Max(0, _scrollViewer.Extent.Height - _scrollViewer.Viewport.Height);

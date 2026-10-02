@@ -3623,4 +3623,46 @@ Allow them?</value>
     <data name="AgentSettingAwayStopDelay" xml:space="preserve">
         <value>Wake the avatar this long after a stop (minutes)</value>
     </data>
+    <data name="ConversationSearchPlaceholder" xml:space="preserve">
+        <value>Search this conversation</value>
+    </data>
+    <data name="ConversationSearchOpenTip" xml:space="preserve">
+        <value>Search this conversation (Ctrl/⌘+F)</value>
+    </data>
+    <data name="ConversationSearchNoMatch" xml:space="preserve">
+        <value>No matches</value>
+    </data>
+    <data name="ConversationSearchCount" xml:space="preserve">
+        <value>{0} found</value>
+    </data>
+    <data name="ConversationSearchOlder" xml:space="preserve">
+        <value>Older match (Enter)</value>
+    </data>
+    <data name="ConversationSearchNewer" xml:space="preserve">
+        <value>Newer match (Shift+Enter)</value>
+    </data>
+    <data name="ConversationSearchClose" xml:space="preserve">
+        <value>Close (Esc)</value>
+    </data>
+    <data name="ConversationSearchThinking" xml:space="preserve">
+        <value>Thinking</value>
+    </data>
+    <data name="ConversationSearchThinkingTip" xml:space="preserve">
+        <value>Also search thinking</value>
+    </data>
+    <data name="ConversationSearchTools" xml:space="preserve">
+        <value>Tools</value>
+    </data>
+    <data name="ConversationSearchToolsTip" xml:space="preserve">
+        <value>Also search tool calls, results and retrieved snippets</value>
+    </data>
+    <data name="ConversationSearchKindUser" xml:space="preserve">
+        <value>Me</value>
+    </data>
+    <data name="ConversationSearchKindReply" xml:space="preserve">
+        <value>Reply</value>
+    </data>
+    <data name="ConversationReturnToLatest" xml:space="preserve">
+        <value>Back to latest</value>
+    </data>
 </root>

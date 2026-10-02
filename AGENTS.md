@@ -87,7 +87,7 @@ UIHARU_HOME=/tmp/uiharu-scratch \
   UiharuMind.Desktop --dev-script scenario.jsonl --dev-report report.json
 ```
 
-脚本一行一步（`page.jump` / `session.open` / `ui.snapshot` / `diag.memory` / `wait` / `quit`），
+脚本一行一步（`page.jump` / `session.open` / `ui.snapshot` / `session.search` / `diag.memory` / `wait` / `quit`），
 报告里每步带耗时与结果，逐步落盘。群聊冒烟另有 `group.create` / `group.post` / `group.continue` /
 `group.wait` / `group.dump`，离席另有 `group.away.start` / `group.away.wait` / `group.away.end`，单聊冒烟有 `session.new` / `session.post` / `session.wait` / `session.dump`
 （都会真的花钱跑模型；两个 wait 顺带按参数点掉审批，`session.dump` 连工具调用的原样参数一起导）。实现见 `Features/DevAutomation/`；

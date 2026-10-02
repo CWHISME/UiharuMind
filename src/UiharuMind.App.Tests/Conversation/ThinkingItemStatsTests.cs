@@ -45,7 +45,7 @@ public class ThinkingItemStatsTests
     }
 
     [Fact]
-    public void FreezeReplayItem_WithStats_ReadsArchive()
+    public void FreezeReplayItems_WithStats_ReadsArchive()
     {
         ChatMessage message = new(ChatRole.Assistant, [new TextReasoningContent("先想。")]);
         ChatMessageAnnotations.WriteThinkingStats(message, 2500, 1234);
@@ -53,23 +53,77 @@ public class ThinkingItemStatsTests
         thinking.Append("先想。");
         thinking.Flush();
 
-        ThinkingItem.FreezeReplayItem(thinking, message);
+        ThinkingItem.FreezeReplayItems([thinking], message);
 
         Assert.Equal(ThinkingItem.FormatStats(TimeSpan.FromSeconds(2.5), 1234), thinking.StatsText);
     }
 
     [Fact]
-    public void FreezeReplayItem_WithoutStats_ShowsCharsOnly()
+    public void FreezeReplayItems_WithoutStats_ShowsCharsOnly()
     {
         ChatMessage message = new(ChatRole.Assistant, [new TextReasoningContent("先想。")]);
         ThinkingItem thinking = new();
         thinking.Append("先想后想");
         thinking.Flush();
 
-        ThinkingItem.FreezeReplayItem(thinking, message);
+        ThinkingItem.FreezeReplayItems([thinking], message);
 
         string expected = string.Format(Loc.Text("AgentThinkingCharsFormat"), thinking.FullLength.ToString("N0"));
         Assert.Equal(expected, thinking.StatsText);
+    }
+
+    [Fact]
+    public void FreezeReplayItems_SplitsMergedStatsAcrossCards()
+    {
+        // 存档是整条消息的合并值：拆成两张卡时各挂合并值，就显示成两倍耗时
+        ChatMessage message = new(ChatRole.Assistant, [new TextReasoningContent("一二三四")]);
+        ChatMessageAnnotations.WriteThinkingStats(message, 4000, 4);
+        ThinkingItem first = Closed("一");
+        ThinkingItem second = Closed("二三四");
+
+        ThinkingItem.FreezeReplayItems([first, second], message);
+
+        Assert.Equal(TimeSpan.FromSeconds(1), first.ClosedElapsed);
+        Assert.Equal(TimeSpan.FromSeconds(3), second.ClosedElapsed);
+    }
+
+    [Fact]
+    public void AdoptPersistedStats_ObservedCardTakesTheDriversArchive()
+    {
+        // 旁观窗口自己的计时不可信（中途打开时积压内容一口气补发）：轮末改读驱动方落的盘
+        ChatMessage message = new(ChatRole.Assistant, [new TextReasoningContent("想。")]);
+        ThinkingItem observed = Closed("想。", message);
+        ChatMessageAnnotations.WriteThinkingStats(message, 7000, 2);
+
+        Assert.Equal(1, ThinkingItem.AdoptPersistedStats([observed]));
+        Assert.Equal(TimeSpan.FromSeconds(7), observed.ClosedElapsed);
+        // 接着在这个窗口自己发话时，本轮的盖章不能拿旁观计时盖掉存档
+        Assert.Equal(0, ThinkingItem.StampLiveItems([observed]));
+        Assert.True(ChatMessageAnnotations.TryReadThinkingStats(message, out TimeSpan duration, out _));
+        Assert.Equal(TimeSpan.FromSeconds(7), duration);
+    }
+
+    [Fact]
+    public void AdoptPersistedStats_UpgradesCharsOnlyReplay()
+    {
+        // 本轮已落盘的消息回放时驱动方还没盖章，只能定格字数；轮末盖上了就该读到
+        ChatMessage message = new(ChatRole.Assistant, [new TextReasoningContent("想。")]);
+        ThinkingItem replayed = Closed("想。", message);
+        ThinkingItem.FreezeReplayItems([replayed], message);
+        ChatMessageAnnotations.WriteThinkingStats(message, 3000, 2);
+
+        Assert.Equal(1, ThinkingItem.AdoptPersistedStats([replayed]));
+        Assert.Equal(ThinkingItem.FormatStats(TimeSpan.FromSeconds(3), 2), replayed.StatsText);
+    }
+
+    [Fact]
+    public void AdoptPersistedStats_LeavesOwnStampedCardsAlone()
+    {
+        ChatMessage message = new(ChatRole.Assistant, [new TextReasoningContent("想。")]);
+        ThinkingItem own = Closed("想。", message);
+        ThinkingItem.StampLiveItems([own]);
+
+        Assert.Equal(0, ThinkingItem.AdoptPersistedStats([own]));
     }
 
     [Fact]
@@ -126,5 +180,13 @@ public class ThinkingItemStatsTests
 
         Assert.Equal(1, ThinkingItem.StampLiveItems([thinking]));
         Assert.Equal(0, ThinkingItem.StampLiveItems([thinking]));
+    }
+
+    private static ThinkingItem Closed(string text, ChatMessage? source = null)
+    {
+        ThinkingItem thinking = new() { SourceMessage = source };
+        thinking.Append(text);
+        thinking.Flush();
+        return thinking;
     }
 }

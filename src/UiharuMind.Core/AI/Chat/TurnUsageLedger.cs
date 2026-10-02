@@ -189,12 +189,26 @@ public sealed class TurnUsageLedger
     /// <param name="output">累计输出</param>
     /// <param name="lastInput">最近一次响应的输入 token（上下文占用），未知传 0</param>
     /// <param name="reasoning">累计思考 token，未知传 0</param>
-    public void RestoreSession(long input, long output, long lastInput = 0, long reasoning = 0)
+    /// <param name="lastCached">最近一次响应命中缓存的输入 token，未知传 0</param>
+    public void RestoreSession(long input, long output, long lastInput = 0, long reasoning = 0, long lastCached = 0)
     {
         SessionInput = input;
         SessionOutput = output;
         LastInput = lastInput;
         SessionReasoningTokens = reasoning;
+        LastCachedInput = lastCached;
+    }
+
+    /// <summary>
+    /// 从会话本体恢复最近一轮的用量。与 <see cref="RestoreSession"/> 分开：本轮是驱动者逐块记的，
+    /// 只有不在跑的时候（重开会话、旁观别人那一轮）才该拿存档顶上
+    /// </summary>
+    /// <param name="input">最近一轮输入</param>
+    /// <param name="output">最近一轮输出</param>
+    public void RestoreLastTurn(long input, long output)
+    {
+        TurnInput = input;
+        TurnOutput = output;
     }
 
     /// <summary>

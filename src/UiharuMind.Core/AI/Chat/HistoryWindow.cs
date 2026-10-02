@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System;
+using System.Linq;
 
 namespace UiharuMind.Core.AI.Chat;
 
@@ -18,6 +19,7 @@ namespace UiharuMind.Core.AI.Chat;
 public sealed class HistoryWindow
 {
     private int _firstScreenDeficit; //首屏之后还欠多少条才够整窗
+    private int? _end; //窗口终点(不含);null 表示跟到历史末尾,只有截断重载之后才有具体下标
 
     /// <summary>默认每批窗口大小</summary>
     public const int DefaultSize = 10;
@@ -42,6 +44,12 @@ public sealed class HistoryWindow
     /// <summary>起点之前是否还有更早的消息</summary>
     public bool HasEarlier => Start > 0;
 
+    /// <summary>
+    /// 窗口是否脱离了历史末尾（截断重载到某条旧消息附近之后）。脱离期间新消息不往窗口里追加，
+    /// 由调用方先回到末尾再说
+    /// </summary>
+    public bool IsDetached => _end != null;
+
     /// <param name="size">每批窗口大小，非正值按默认处理</param>
     /// <param name="firstScreenSize">首屏批次大小，非正值按默认处理；不小于 <paramref name="size"/> 时等于关掉分批</param>
     public HistoryWindow(int size = DefaultSize, int firstScreenSize = DefaultFirstScreenSize)
@@ -60,6 +68,7 @@ public sealed class HistoryWindow
     public (int From, int To) Reset(int messageCount)
     {
         int count = Math.Max(0, messageCount);
+        _end = null;
         Start = Math.Max(0, count - FirstScreenSize);
         _firstScreenDeficit = Math.Min(Size, count) - (count - Start);
         return (Start, count);
@@ -94,8 +103,9 @@ public sealed class HistoryWindow
     /// 向前扩展一窗
     /// </summary>
     /// <param name="messageCount">完整历史的消息条数</param>
+    /// <param name="size">这一批的条数，非正值按 <see cref="Size"/>（搜索跳转往前续得远，一批给得大些）</param>
     /// <returns>要前插的区间 [From, To)；已到历史开头时为 null</returns>
-    public (int From, int To)? Extend(int messageCount)
+    public (int From, int To)? Extend(int messageCount, int size = 0)
     {
         _firstScreenDeficit = 0; //用户已经自己往前翻,首屏那笔账作废
         int end = Math.Min(Start, Math.Max(0, messageCount));
@@ -105,9 +115,72 @@ public sealed class HistoryWindow
             return null;
         }
 
-        int from = Math.Max(0, end - Size);
+        int from = Math.Max(0, end - (size > 0 ? size : Size));
         Start = from;
         return (from, end);
+    }
+
+    /// <summary>窗口终点（不含）：跟着末尾时就是历史条数</summary>
+    /// <param name="messageCount">完整历史的消息条数</param>
+    /// <returns>终点下标</returns>
+    public int EndFor(int messageCount) =>
+        _end is { } end ? Math.Min(end, Math.Max(0, messageCount)) : Math.Max(0, messageCount);
+
+    /// <summary>
+    /// 终点之后是否还有更新的消息（只在脱离末尾时可能为真）
+    /// </summary>
+    /// <param name="messageCount">完整历史的消息条数</param>
+    /// <returns>有则 true</returns>
+    public bool HasLater(int messageCount) => _end is { } end && end < messageCount;
+
+    /// <summary>
+    /// 截断重载：窗口整个换成 [<paramref name="from"/>, <paramref name="to"/>)（搜索跳到旧消息）。
+    /// 终点够到历史末尾就仍是跟着末尾的普通窗口
+    /// </summary>
+    /// <param name="from">起点</param>
+    /// <param name="to">终点（不含）</param>
+    /// <param name="messageCount">完整历史的消息条数</param>
+    /// <returns>实际要渲染的区间 [From, To)</returns>
+    public (int From, int To) Detach(int from, int to, int messageCount)
+    {
+        int count = Math.Max(0, messageCount);
+        int end = Math.Clamp(to, 0, count);
+        _firstScreenDeficit = 0;
+        Start = Math.Clamp(from, 0, end);
+        _end = end >= count ? null : end;
+        return (Start, end);
+    }
+
+    /// <summary>
+    /// 脱离末尾时向后扩展一批。够到历史末尾就重新跟上末尾
+    /// </summary>
+    /// <param name="messageCount">完整历史的消息条数</param>
+    /// <param name="size">这一批的条数，非正值按 <see cref="Size"/></param>
+    /// <returns>要追加的区间 [From, To)；没脱离或已到末尾时为 null</returns>
+    public (int From, int To)? ExtendLater(int messageCount, int size = 0)
+    {
+        if (_end is not { } end) return null;
+
+        int count = Math.Max(0, messageCount);
+        int from = Math.Min(end, count);
+        int to = Math.Min(count, from + (size > 0 ? size : Size));
+        _end = to >= count ? null : to;
+        return from < to ? (from, to) : null;
+    }
+
+    /// <summary>
+    /// 历史里删掉了几条（删除消息、重试截断）。窗口记的是下标，删在起点或终点之前的要跟着前移，
+    /// 不然往前、往后续都会跳过同样多条不画；终点够到末尾就重新跟上末尾
+    /// </summary>
+    /// <param name="removedIndices">被删消息<b>删除之前</b>的下标</param>
+    /// <param name="messageCount">删除之后的历史条数</param>
+    public void NoteRemoved(IReadOnlyCollection<int> removedIndices, int messageCount)
+    {
+        int start = Start;
+        int? end = _end;
+        Start -= removedIndices.Count(x => x < start);
+        if (end is { } oldEnd) end = oldEnd - removedIndices.Count(x => x < oldEnd);
+        _end = end >= messageCount ? null : end;
     }
 
     /// <summary>
@@ -130,6 +203,7 @@ public sealed class HistoryWindow
     /// </summary>
     public void Clear()
     {
+        _end = null;
         _firstScreenDeficit = 0;
         Start = 0;
     }

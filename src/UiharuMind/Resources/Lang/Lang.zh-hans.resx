@@ -3616,4 +3616,46 @@
     <data name="AgentSettingAwayStopDelay" xml:space="preserve">
         <value>按停止后多久再唤醒化身（分钟）</value>
     </data>
+    <data name="ConversationSearchPlaceholder" xml:space="preserve">
+        <value>在会话中搜索</value>
+    </data>
+    <data name="ConversationSearchOpenTip" xml:space="preserve">
+        <value>在会话中搜索（Ctrl/⌘+F）</value>
+    </data>
+    <data name="ConversationSearchNoMatch" xml:space="preserve">
+        <value>无匹配</value>
+    </data>
+    <data name="ConversationSearchCount" xml:space="preserve">
+        <value>{0} 条</value>
+    </data>
+    <data name="ConversationSearchOlder" xml:space="preserve">
+        <value>更早一条（回车）</value>
+    </data>
+    <data name="ConversationSearchNewer" xml:space="preserve">
+        <value>更新一条（Shift+回车）</value>
+    </data>
+    <data name="ConversationSearchClose" xml:space="preserve">
+        <value>关闭（Esc）</value>
+    </data>
+    <data name="ConversationSearchThinking" xml:space="preserve">
+        <value>思考</value>
+    </data>
+    <data name="ConversationSearchThinkingTip" xml:space="preserve">
+        <value>连思考过程一起搜</value>
+    </data>
+    <data name="ConversationSearchTools" xml:space="preserve">
+        <value>工具</value>
+    </data>
+    <data name="ConversationSearchToolsTip" xml:space="preserve">
+        <value>连工具调用、工具结果与检索片段一起搜</value>
+    </data>
+    <data name="ConversationSearchKindUser" xml:space="preserve">
+        <value>我</value>
+    </data>
+    <data name="ConversationSearchKindReply" xml:space="preserve">
+        <value>回复</value>
+    </data>
+    <data name="ConversationReturnToLatest" xml:space="preserve">
+        <value>回到最新</value>
+    </data>
 </root>

@@ -24,8 +24,10 @@ namespace UiharuMind.Features.Conversation;
 /// </summary>
 public interface IConversationReconcileHost
 {
-    /// <summary>自己那一轮是否正在跑</summary>
-    bool IsOwnTurnRunning { get; }
+    /// <summary>
+    /// 会话此刻没人在跑：自己没跑、登记处空闲、也没有别处的实时流（唤醒轮占位与直播置位之间有一瞬空窗，三者都得看）
+    /// </summary>
+    bool IsSessionIdle { get; }
 
     /// <summary>会话是否正在加载</summary>
     bool IsSessionLoading { get; }
@@ -33,13 +35,8 @@ public interface IConversationReconcileHost
     /// <summary>当前会话；无会话为 null</summary>
     ChatSession? CurrentSession { get; }
 
-    /// <summary>「加载更早」的状态位，对账改写窗口后同步它</summary>
-    bool HasEarlierMessages { get; set; }
-
-    /// <summary>运行态登记处的空闲判据（唤醒轮占位与直播置位之间有一瞬空窗，只认它）</summary>
-    /// <param name="sessionId">会话标识</param>
-    /// <returns>忙则 true</returns>
-    bool IsSessionBusy(string sessionId);
+    /// <summary>对账改写了窗口起点，请开窗那边把状态位重新投影出来</summary>
+    void NotifyWindowChanged();
 
     /// <summary>回放一段历史。定格重放（<c>liveTail: false</c>）：对账只在没人跑时动手，
     /// 此时尚无结果的调用就该按「历史里没有结果」收口，转圈卡才是谎报</summary>
@@ -50,7 +47,7 @@ public interface IConversationReconcileHost
     List<ConversationItemBase> BuildItems(IReadOnlyList<ChatMessage> history, int from, int to);
 
     /// <summary>
-    /// 把界面上来源还没落定的流式条目与历史配对（幂等）。对账先配对再判定——
+    /// 把界面上来源还没落定的流式条目与历史配对，并让思考卡接上落盘的统计（幂等）。对账先配对再判定——
     /// 「没人跑」不等于「都配好了」：轮末配对走后台线程，到这里仍可能是空来源，
     /// 不先配就判定，尾巴上那张思考卡会被当成漏画又追加一张。
     /// </summary>
@@ -101,12 +98,11 @@ public sealed class ConversationHistoryReconciler
     /// <param name="reason">触发来源，进日志，方便区分是哪条路兜住的</param>
     public void Reconcile(string reason)
     {
-        if (_host.IsOwnTurnRunning) return;
         if (_host.IsSessionLoading) return;
+        if (_window.IsDetached) return; //停在搜索跳到的那一段:末尾本来就没画,按尾部对账会把整段补回来
         if (_host.CurrentSession is not { } session) return;
-        // 登记处是“空闲”的唯一可靠定义，先查它（被拦下的对账由「session idle」在轮结束后再来一次）
-        if (_host.IsSessionBusy(session.SessionId)) return;
-        if (session.LiveTurn.IsTurnRunning) return;
+        // 被拦下的对账由「session idle」在轮结束后再来一次
+        if (!_host.IsSessionIdle) return;
 
         // 先配对再判定：“没人跑”不等于“都配好了”。轮末配对走后台线程，
         // 到这里仍可能是空来源——不先配就判定，尾巴上那张思考卡会被当成漏画又追加一张。
@@ -152,7 +148,7 @@ public sealed class ConversationHistoryReconciler
             _items.Add(item);
         }
 
-        _host.HasEarlierMessages = _window.HasEarlier;
+        _host.NotifyWindowChanged();
         _host.RefreshTokenUsage();
     }
 }

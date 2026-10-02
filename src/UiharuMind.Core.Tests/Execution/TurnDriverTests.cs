@@ -462,6 +462,8 @@ public class TurnDriverTests
         Assert.Equal(1200, session.TotalInputTokens);
         Assert.Equal(340, session.TotalOutputTokens);
         Assert.Equal(1200, session.LastInputTokens);
+        Assert.Equal(1200, session.LastTurnInputTokens);
+        Assert.Equal(340, session.LastTurnOutputTokens);
     }
 
     [Fact]
@@ -587,6 +589,7 @@ public class TurnDriverTests
         Assert.Equal(90_000, session.TotalInputTokens);
         Assert.Equal(800, session.TotalOutputTokens);
         Assert.Equal(85_000, ledger.LastCachedInput); //面板据此显示交接那一发的命中率
+        Assert.Equal(85_000, session.LastCachedInputTokens); //随本体落盘,重开会话与旁观窗口读的是它
         Assert.Equal(0, estimate.LastHistory);
         Assert.Equal(0, estimate.CompactedHistory);
         Assert.Equal(0, ledger.CompactedInput); //「已折叠」那一行随之消失

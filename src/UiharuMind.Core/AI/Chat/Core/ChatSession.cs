@@ -222,6 +222,18 @@ public class ChatSession
     public long LastInputTokens { get; set; }
 
     /// <summary>
+    /// 最近一次响应里命中前缀缓存的输入 token，与 <see cref="LastInputTokens"/> 成对（命中率由两数现算）。
+    /// 不记的话重开会话、或在子会话窗口里旁观（账本在驱动方手里）都看不到缓存命中
+    /// </summary>
+    public long LastCachedInputTokens { get; set; }
+
+    /// <summary>最近一轮的输入 token（一轮多次工具往返时为各次之和），悬停面板「本轮」那一行的存档</summary>
+    public long LastTurnInputTokens { get; set; }
+
+    /// <summary>最近一轮的输出 token</summary>
+    public long LastTurnOutputTokens { get; set; }
+
+    /// <summary>
     /// 会话累计生图张数。生图按张计费、不报 token，不进 token 累计；与 token 累计一样记在本体上
     /// </summary>
     public int TotalGeneratedImages { get; set; }

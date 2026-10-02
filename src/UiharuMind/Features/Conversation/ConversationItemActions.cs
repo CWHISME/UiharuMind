@@ -45,6 +45,15 @@ public interface IConversationItemActionHost
 
     /// <summary>条目接线完毕——接线不触发集合事件，可重新生成的判据要手动刷</summary>
     void NotifyItemsWired();
+
+    /// <summary>
+    /// 历史里删掉了几条（删除、重试截断），删除之后调。开窗记的是下标，要跟着修正；
+    /// 不开窗的宿主（测试替身）什么都不用做
+    /// </summary>
+    /// <param name="removedIndices">被删消息删除之前的下标</param>
+    void NoteHistoryRemoved(IReadOnlyCollection<int> removedIndices)
+    {
+    }
 }
 
 /// <summary>
@@ -416,9 +425,22 @@ public sealed class ConversationItemActions
 
         // 删除集合在弹窗之前就算好了,但它装的是消息与条目的<b>实例</b>而不是下标——
         // 等待确认期间即便有新一轮落盘、追加了消息与条目,这里也不会误伤
+        List<int> removedIndices = IndicesOf(session.History, doomedSet);
         session.History.RemoveAll(doomedSet.Contains);
         session.Save();
         RemoveItems(targets);
+        _host.NoteHistoryRemoved(removedIndices);
+    }
+
+    private static List<int> IndicesOf(IReadOnlyList<ChatMessage> history, HashSet<ChatMessage> targets)
+    {
+        List<int> indices = new();
+        for (int i = 0; i < history.Count; i++)
+        {
+            if (targets.Contains(history[i])) indices.Add(i);
+        }
+
+        return indices;
     }
 
     /// <summary>
@@ -496,6 +518,8 @@ public sealed class ConversationItemActions
         ChatMessage input = session.History[index];
         session.History.RemoveRange(index, doomedCount);
         session.Save();
+        // 停在旧消息那段时截到这里正好让窗口接回末尾,新一轮接着往末尾追加,不必整窗重放
+        _host.NoteHistoryRemoved(Enumerable.Range(index, doomedCount).ToList());
 
         // 界面侧从<b>该条气泡</b>起删:用户与助手都以自己为锚,不需再前移到提问气泡
         int itemIndex = _items.IndexOf(item);

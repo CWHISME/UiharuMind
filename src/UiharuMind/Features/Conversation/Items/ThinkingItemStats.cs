@@ -31,6 +31,7 @@ public partial class ThinkingItem
     private DateTime _lastStatsAt = DateTime.MinValue; //上次刷标题统计的时刻,节流用
     private bool _isStatsFrozen; //回放冻结:存档值已定,泵与收尾都不许重算
     private bool _statsStamped; //已写回历史,本轮不再重复盖章
+    private bool _hasPersistedStats; //显示的是存档值(不是本窗口自己的计时,也不是只有字数)
 
     /// <summary>收尾快照的耗时（未收尾为零）</summary>
     public TimeSpan ClosedElapsed => _closedElapsed;
@@ -83,6 +84,7 @@ public partial class ThinkingItem
         _isClosed = true;
         _isStatsFrozen = true;
         _statsStamped = true; //存档里已有，不必再写回
+        _hasPersistedStats = true;
     }
 
     /// <summary>
@@ -100,16 +102,64 @@ public partial class ThinkingItem
 
     /// <summary>
     /// 回放定格：命中存档读存档，未命中只留字数。调用方在转录器收尾之后、逐条配来源时调。
+    ///
+    /// 存档是整条消息的合并值，一条消息拆成多张卡（think/text 交替）时按各卡字数分回去——
+    /// 每张都挂合并值的话，三段思考就显示成三倍耗时。
     /// </summary>
-    /// <param name="item">回放刚产出的思考条目</param>
+    /// <param name="items">同一条来源消息产出的思考条目，按显示顺序</param>
     /// <param name="message">来源历史消息</param>
-    public static void FreezeReplayItem(ThinkingItem item, ChatMessage message)
+    public static void FreezeReplayItems(IReadOnlyList<ThinkingItem> items, ChatMessage message)
     {
-        if (ChatMessageAnnotations.TryReadThinkingStats(message, out TimeSpan duration, out long chars))
-            item.ApplyPersistedStats(duration, chars);
-        else
-            item.FreezeCharsOnly(item.FullLength);
+        if (items.Count == 0) return;
+        if (!ChatMessageAnnotations.TryReadThinkingStats(message, out TimeSpan duration, out long chars))
+        {
+            foreach (ThinkingItem item in items) item.FreezeCharsOnly(item.FullLength);
+            return;
+        }
+
+        if (items.Count == 1)
+        {
+            items[0].ApplyPersistedStats(duration, chars);
+            return;
+        }
+
+        long[] lengths = items.Select(x => (long)x.FullLength).ToArray();
+        long[] shares = ThinkingStatsRecorder.DistributeDurations((long)duration.TotalMilliseconds, lengths);
+        for (int i = 0; i < items.Count; i++)
+        {
+            items[i].ApplyPersistedStats(TimeSpan.FromMilliseconds(shares[i]), lengths[i]);
+        }
     }
+
+    /// <summary>
+    /// 旁观别人那一轮的窗口（子会话窗口）在轮末接上驱动方落盘的统计。来源须已配好（对账先配对再调这里）。
+    ///
+    /// 旁观窗口自己的计时不可信：中途打开时积压的内容是一口气补发的，计时从打开那一刻起算；
+    /// 本轮已落盘的那几条回放时驱动方还没盖章，只能定格成纯字数。驱动方轮末盖好的值写在
+    /// 同一批消息实例上，这里改读它。顺带把这些卡标成「已写回」——否则用户接着在这个窗口发话时，
+    /// 自己那一轮的盖章会把旁观计时当成本轮的值写回历史，覆盖掉正确的那份。
+    /// 自己那一轮的卡已写回过（显示值即存档值），不动。
+    /// </summary>
+    /// <param name="items">界面条目集合</param>
+    /// <returns>改读存档的消息数</returns>
+    public static int AdoptPersistedStats(IEnumerable<ConversationItemBase> items)
+    {
+        int adopted = 0;
+        foreach (IGrouping<ChatMessage, ThinkingItem> group in items.OfType<ThinkingItem>()
+                     .Where(x => x.SourceMessage != null)
+                     .GroupBy(x => x.SourceMessage!))
+        {
+            if (!group.Any(x => x.NeedsPersistedStats)) continue;
+            if (!ChatMessageAnnotations.TryReadThinkingStats(group.Key, out _, out _)) continue;
+            FreezeReplayItems(group.ToList(), group.Key);
+            adopted++;
+        }
+
+        return adopted;
+    }
+
+    // 旁观窗口自己计的时(收尾了、没写回过),或回放时还没盖章、只定格了字数
+    private bool NeedsPersistedStats => (_isClosed && !_statsStamped) || (_isStatsFrozen && !_hasPersistedStats);
 
     /// <summary>
     /// 把本轮新收尾的思考段统计写回它们对应的历史消息（就地写，调用方负责落盘）。

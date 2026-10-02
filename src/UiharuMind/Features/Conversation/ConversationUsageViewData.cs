@@ -128,12 +128,13 @@ public sealed partial class ConversationUsageViewData : ObservableObject, IDispo
         }));
     }
 
-    /// <summary>从会话本体恢复累计用量（响应用量不随消息持久化，累计值记在本体上）</summary>
+    /// <summary>从会话本体恢复用量（响应用量不随消息持久化，累计值与最近一次的数记在本体上）</summary>
     /// <param name="session">会话</param>
     public void RestoreFrom(ChatSession session)
     {
         Ledger.RestoreSession(session.TotalInputTokens, session.TotalOutputTokens, session.LastInputTokens,
-            session.TotalReasoningTokens);
+            session.TotalReasoningTokens, session.LastCachedInputTokens);
+        Ledger.RestoreLastTurn(session.LastTurnInputTokens, session.LastTurnOutputTokens);
     }
 
     /// <summary>停掉还没到点的刷新，作废还在后台的计数</summary>

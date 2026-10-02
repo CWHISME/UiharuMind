@@ -60,6 +60,92 @@ public class HistoryWindowTests
     }
 
     [Fact]
+    public void Extend_WithSize_UsesThatBatch()
+    {
+        HistoryWindow window = new(20, 20);
+        window.Reset(100);
+
+        Assert.Equal((30, 80), window.Extend(100, 50));
+        Assert.Equal((10, 30), window.Extend(100)); //不给就按窗口大小
+    }
+
+    /// <summary>截断重载到旧消息附近：脱离末尾，向后续到末尾时重新跟上</summary>
+    [Fact]
+    public void Detach_ThenExtendLater_ReattachesAtTheEnd()
+    {
+        HistoryWindow window = new(20, 20);
+
+        Assert.Equal((10, 40), window.Detach(10, 40, 100));
+        Assert.True(window.IsDetached);
+        Assert.True(window.HasLater(100));
+        Assert.Equal((40, 80), window.ExtendLater(100, 40));
+        Assert.Equal((80, 100), window.ExtendLater(100, 40));
+        Assert.False(window.IsDetached);
+        Assert.Null(window.ExtendLater(100));
+        Assert.Equal(10, window.Start); //向后续不动起点
+    }
+
+    [Fact]
+    public void Detach_ReachingTheEnd_StaysAttached()
+    {
+        HistoryWindow window = new(20, 20);
+
+        Assert.Equal((70, 100), window.Detach(70, 130, 100));
+        Assert.False(window.IsDetached);
+    }
+
+    [Fact]
+    public void Reset_ReattachesADetachedWindow()
+    {
+        HistoryWindow window = new(20, 20);
+        window.Detach(0, 10, 100);
+
+        window.Reset(100);
+
+        Assert.False(window.IsDetached);
+        Assert.False(window.HasLater(100));
+    }
+
+    /// <summary>脱离末尾时删了窗内的一条：终点跟着前移，往后续不跳过消息</summary>
+    [Fact]
+    public void NoteRemoved_ShiftsTheEndSoLaterLoadsDoNotSkip()
+    {
+        HistoryWindow window = new(20, 20);
+        window.Detach(10, 40, 100);
+
+        window.NoteRemoved([20], 99);
+
+        Assert.Equal(10, window.Start);
+        Assert.Equal(39, window.EndFor(99));
+        Assert.Equal((39, 59), window.ExtendLater(99, 20));
+    }
+
+    /// <summary>重试截掉窗内某条及之后的全部：终点落到新末尾，重新跟上末尾</summary>
+    [Fact]
+    public void NoteRemoved_TruncatingPastTheEnd_Reattaches()
+    {
+        HistoryWindow window = new(20, 20);
+        window.Detach(10, 40, 100);
+
+        window.NoteRemoved(Enumerable.Range(25, 75).ToList(), 25);
+
+        Assert.False(window.IsDetached);
+        Assert.Equal(10, window.Start);
+    }
+
+    [Fact]
+    public void NoteRemoved_BeforeTheStart_ShiftsTheStart()
+    {
+        HistoryWindow window = new(20, 20);
+        window.Reset(100); //[80, 100)
+
+        window.NoteRemoved([5, 6], 98);
+
+        Assert.Equal(78, window.Start);
+        Assert.False(window.IsDetached);
+    }
+
+    [Fact]
     public void Extend_PrependsPreviousWindow()
     {
         HistoryWindow window = new(20, 20); //关掉首屏分批,只测整窗语义

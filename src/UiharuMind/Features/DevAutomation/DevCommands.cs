@@ -42,6 +42,7 @@ internal static class DevCommandRegistry
         new OpenSessionCommand(),
         new MemoryStatsCommand(),
         new FontDiagnosticsCommand(),
+        new SessionSearchCommand(),
         ..GroupDevCommands.CreateAll(),
         ..SessionDevCommands.CreateAll(),
     ];
