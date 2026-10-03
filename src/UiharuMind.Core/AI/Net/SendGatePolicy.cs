@@ -24,13 +24,6 @@ internal sealed class SendGatePolicy : PipelinePolicy
         _gate = gate;
     }
 
-    /// <summary>
-    /// 这条消息是否由闸管着发送节奏：是的话 429 的退避交给闸，重试策略不再另等一遍
-    /// </summary>
-    /// <param name="message">管道消息</param>
-    /// <returns>过过闸为 true</returns>
-    public static bool IsGated(PipelineMessage message) => message.TryGetProperty(typeof(Attempt), out _);
-
     //挂在消息上：有它就说明这是重试
     private sealed class Attempt
     {

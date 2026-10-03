@@ -80,13 +80,8 @@ internal sealed class RateLimitAwareRetryPolicy : ClientRetryPolicy
     protected override TimeSpan GetNextDelay(PipelineMessage message, int tryCount)
     {
         bool rateLimited = IsRateLimited(message);
-        // 过了闸的限流不在这里等：闸已按间隔与 Retry-After 推后了下一个发送位，重试直接去排队首（ADR 0058）
-        if (rateLimited && SendGatePolicy.IsGated(message))
-        {
-            Log.Warning($"Remote model rate limited (429), retry #{tryCount} queued at the send gate.");
-            return TimeSpan.Zero;
-        }
-
+        // 过了闸的请求也照这里退避：闸只管一组的发送间隔，单条请求连撞的退避在这里。
+        // 段 24 试过把这里归零、全交给闸，连撞的请求按 1–2 秒间隔一分钟撞了 19 次（ADR 0058 调参记录）
         TimeSpan delay = ApplyJitter(ComputeDelay(rateLimited, tryCount, ReadRetryAfterSeconds(message)));
         Log.Warning($"Remote model {(rateLimited ? "rate limited (429)" : "request failed")}, " +
                     $"retry #{tryCount} in {delay.TotalSeconds:0.#}s.");

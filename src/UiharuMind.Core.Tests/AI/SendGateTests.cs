@@ -168,9 +168,9 @@ public class SendGateTests
         Assert.True(staying.IsCompleted); //取消的那位没占掉这个发送位
     }
 
-    /// <summary>真管道：撞一次 429 后由闸推后发送位，重试策略不再另等 2～8 秒</summary>
+    /// <summary>真管道：撞一次 429 后重试策略照常退避（约 2 秒），之后仍在闸上排队首；成功后间隔减半</summary>
     [Fact]
-    public async Task Pipeline_RateLimitedRetryWaitsOnlyAtTheGate()
+    public async Task Pipeline_RateLimitedRetryBacksOffThenQueuesAtTheGate()
     {
         SendGate gate = new("test", () => _now, wait =>
         {
@@ -197,7 +197,7 @@ public class SendGateTests
         Assert.Equal(2, server.Requests);
         Assert.Equal(SendPacer.StartInterval.TotalMilliseconds, _now); //在闸上等了一个间隔（模拟时间）
         Assert.Equal(SendPacer.StartInterval * SendPacer.SuccessFactor, gate.Interval);
-        Assert.True(elapsed.Elapsed < TimeSpan.FromSeconds(1.5), $"retry also backed off locally: {elapsed.Elapsed}");
+        Assert.True(elapsed.Elapsed >= TimeSpan.FromSeconds(1.4), $"retry did not back off: {elapsed.Elapsed}"); //2 秒 ±25% 抖动
     }
 
     private sealed class RateLimitedOnce : HttpMessageHandler
