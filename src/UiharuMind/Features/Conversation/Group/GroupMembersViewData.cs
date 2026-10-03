@@ -98,19 +98,32 @@ public sealed partial class GroupMembersViewData : ObservableObject
     /// <summary>主持人可选项：「无」+ 各成员</summary>
     public IReadOnlyList<GroupHostChoice> HostOptions { get; }
 
-    /// <summary>当前主持人。改了先确认再写回群壳，成员名字旁的徽章跟着挪</summary>
+    /// <summary>
+    /// 当前主持人。用户在下拉里亲手选定（关下拉提交，见面板后台代码）才走到这里：
+    /// 跑过的群先确认再写回群壳，成员名字旁的徽章跟着挪。
+    /// 下拉的选中是单向显示，切会话/模板重建时控件的抖动到不了这里。
+    /// </summary>
     public GroupHostChoice? SelectedHost
     {
         get => _selectedHost;
         set
         {
-            // 下拉重建模板时会先推一次 null，不当成「改成无」
-            if (value == null || value == _selectedHost) return;
+            // 下拉重建模板时会先推一次 null，不当成「改成无」。
+            // 身份只认 SessionId：同一个人改名后选项实例换了名字，记录相等会误判成「换人」。
+            if (value == null || value.SessionId == _selectedHost.SessionId) return;
+            // 推回来的是落盘真相（取消时的回滚、模板重建时的抖动）：静默对齐，不弹确认。
+            // 否则取消那次回推会被当成又一次换主持人，弹窗套弹窗。
+            if (value.SessionId == _group.GroupHostSessionId)
+            {
+                AlignHostChoice(value.SessionId);
+                return;
+            }
             GroupHostChoice previous = _selectedHost;
-            _selectedHost = value;
+            _selectedHost = LiveChoice(value.SessionId);
             OnPropertyChanged();
-            // 还没跑过的群没有缓存可失效，直接写回，不弹确认
-            if (!HasTotalCost) ApplyHost(value);
+            // 还没跑过的群没有缓存可失效，直接写回，不弹确认。
+            // 跑没跑过问落盘真相：成员行的累计是异步预演后才填上，刚打开那一会儿全是 0。
+            if (!GroupChangePrompts.HasRun(_group)) ApplyHost(value);
             else _ = ConfirmHostChangeAsync(previous, value);
         }
     }
@@ -124,21 +137,37 @@ public sealed partial class GroupMembersViewData : ObservableObject
         bool confirmed = await _prompts.ConfirmIfRunAsync(true,
             Loc.Text(LangKey.GroupHostChangeConfirm, next.Name));
         // 弹窗期间用户又换了一次：以最新那次为准，这次什么都不做（那次有自己的确认）
-        if (_selectedHost != next) return;
+        if (_selectedHost.SessionId != next.SessionId) return;
         if (!confirmed)
         {
-            _selectedHost = previous;
-            OnPropertyChanged(nameof(SelectedHost));
+            AlignHostChoice(previous.SessionId);
             return;
         }
 
         ApplyHost(next);
     }
 
+    /// <summary>把下拉与徽章都对齐到指定的主持人（落盘真相或取消回滚），不写盘不弹窗</summary>
+    /// <param name="hostSessionId">主持人的成员会话标识；null 为无主持人</param>
+    private void AlignHostChoice(string? hostSessionId)
+    {
+        _selectedHost = LiveChoice(hostSessionId);
+        OnPropertyChanged(nameof(SelectedHost));
+        foreach (GroupMemberItem member in Members) member.IsHost = member.SessionId == hostSessionId;
+    }
+
+    /// <summary>取当前选项列表里的那一份（同 SessionId）：下拉绑定的选中项必须是列表里的实例</summary>
+    /// <param name="hostSessionId">主持人的成员会话标识；null 为无主持人</param>
+    /// <returns>列表里的对应项；找不到回「无」</returns>
+    private GroupHostChoice LiveChoice(string? hostSessionId) =>
+        HostOptions.FirstOrDefault(x => x.SessionId == hostSessionId) ?? HostOptions[0];
+
     private void ApplyHost(GroupHostChoice value)
     {
         _group.GroupHostSessionId = value.SessionId;
         _group.SaveMeta(touchUpdatedAt: false);
+        _selectedHost = LiveChoice(value.SessionId);
+        OnPropertyChanged(nameof(SelectedHost));
         foreach (GroupMemberItem member in Members) member.IsHost = member.SessionId == value.SessionId;
     }
 

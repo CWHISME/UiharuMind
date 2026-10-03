@@ -337,6 +337,9 @@ public class ChatSession
     /// </summary>
     public void NotifyServiceCallPersisted()
     {
+        // 落了盘的那次调用不必再给中途挂上来的观察者补发:它从历史里读得到,补发就是渲染两遍。
+        // 只认服务调用边界,不认凡追加(SaveAppended):别处追加一条时正在流的那段还没落盘,清了就补不齐
+        LiveTurn.NoteHistoryPersisted();
         ServiceCallPersisted?.Invoke();
     }
 
@@ -612,6 +615,9 @@ public class ChatSession
             HasLeftGroup = HasLeftGroup,
             IsGroupAvatar = IsGroupAvatar,
             GroupMemberSessionIds = GroupMemberSessionIds,
+            GroupHostSessionId = GroupHostSessionId,
+            GroupScheduleMode = GroupScheduleMode,
+            GroupStopPolicy = GroupStopPolicy,
         };
     }
 
@@ -832,8 +838,6 @@ public class ChatSession
     public void SaveAppended(int fromIndex)
     {
         SessionManager.Instance.Append(this, fromIndex);
-        // 落了盘的那一段不必再给中途挂上来的观察者补发:它从历史里读得到,补发就是渲染两遍
-        LiveTurn.NoteHistoryPersisted();
         HistoryAppended?.Invoke(fromIndex);
     }
 

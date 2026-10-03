@@ -67,4 +67,32 @@ public class ChatSessionSerializationTests
         Assert.Equal("Vision", meta.CharacterId);
         Assert.Equal(2, meta.MessageCount);
     }
+
+    /// <summary>
+    /// 群的主持人与调度是索引里的冗余：只读索引的地方（左栏、搜索）也要能对上右栏，落盘不能丢。
+    /// </summary>
+    [Fact]
+    public void Meta_ProjectionKeepsGroupHostAndSchedule()
+    {
+        ChatSession session = new()
+        {
+            SessionId = "g1",
+            IsGroup = true,
+            GroupMemberSessionIds = ["m1", "m2"],
+            GroupHostSessionId = "m2",
+            GroupScheduleMode = UiharuMind.Core.AI.Chat.Group.EGroupScheduleMode.Parallel,
+            GroupStopPolicy = UiharuMind.Core.AI.Chat.Group.EGroupStopPolicy.Aggressive,
+        };
+
+        ChatSessionMeta meta = session.ToMeta();
+
+        Assert.Equal(["m1", "m2"], meta.GroupMemberSessionIds);
+        Assert.Equal("m2", meta.GroupHostSessionId);
+        Assert.Equal(UiharuMind.Core.AI.Chat.Group.EGroupScheduleMode.Parallel, meta.GroupScheduleMode);
+        Assert.Equal(UiharuMind.Core.AI.Chat.Group.EGroupStopPolicy.Aggressive, meta.GroupStopPolicy);
+
+        string json = JsonSerializer.Serialize(session, SessionJsonOptions.Default);
+        ChatSession restored = JsonSerializer.Deserialize<ChatSession>(json, SessionJsonOptions.Default)!;
+        Assert.Equal("m2", restored.GroupHostSessionId);
+    }
 }

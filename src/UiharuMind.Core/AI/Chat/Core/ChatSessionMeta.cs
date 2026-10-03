@@ -113,6 +113,18 @@ public class ChatSessionMeta
     /// </summary>
     public IReadOnlyList<string> GroupMemberSessionIds { get; set; } = [];
 
+    /// <summary>
+    /// 主持人的成员会话标识；null 为无主持人（<see cref="ChatSession.GroupHostSessionId"/> 在索引里的冗余）。
+    /// 仅群壳有意义：名单与调度已经在索引里有冗余，主持人漏了会导致只读索引的地方与右栏对不上。
+    /// </summary>
+    public string? GroupHostSessionId { get; set; }
+
+    /// <summary>群的调度模式（<see cref="ChatSession.GroupScheduleMode"/> 在索引里的冗余）。仅群壳有意义</summary>
+    public Group.EGroupScheduleMode GroupScheduleMode { get; set; }
+
+    /// <summary>并行群聊的停止条件（<see cref="ChatSession.GroupStopPolicy"/> 在索引里的冗余）。仅群壳有意义</summary>
+    public Group.EGroupStopPolicy GroupStopPolicy { get; set; }
+
     /// <summary>所属群壳会话；非空即群成员会话：不进左栏，入口是群的右栏成员列表，随群级联删除</summary>
     public string? GroupId { get; set; }
 

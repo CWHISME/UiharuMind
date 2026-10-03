@@ -75,8 +75,10 @@ internal sealed class GroupChangePrompts(IMessageService messages)
     public void Notify(string message, MessageSeverity severity = MessageSeverity.Information) =>
         messages.ShowNotification(message, severity: severity);
 
-    // 与右栏全群累计同一口径：有成员花过 token 才算跑过
-    private static bool HasRun(ChatSession group) =>
+    // 与右栏全群累计同一口径：有成员花过 token 才算跑过。
+    // 主持人下拉刚打开时成员行的累计还是异步预演前的 0，决策弹不弹窗必须问落盘真相，
+    // 不能读界面那份（否则跑过的群在打开瞬间换主持人会静默写回、不弹窗）。
+    internal static bool HasRun(ChatSession group) =>
         GroupRoster.Of(group).Present.Any(x => SessionManager.Instance.Load(x.SessionId) is { } member
                                                && member.TotalInputTokens + member.TotalOutputTokens > 0);
 }
