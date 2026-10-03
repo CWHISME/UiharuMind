@@ -11,6 +11,7 @@ using Avalonia.Platform.Storage;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Character.CharacterCards;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
@@ -28,14 +29,13 @@ public partial class ImportCharacterWindow : Window
     }
 
     /// <summary>
-    /// 链接导入：目前只认开发者网址——输入它静默解锁屏蔽角色，其余一律不动。
-    /// 解锁成功不给提示（角色列表里出现屏蔽角色即反馈）；其余输入补一行「暂不可用」，
-    /// 让“写着暂不支持却可点击”的界面行为与文案一致。地址与解锁逻辑在
-    /// <see cref="CharacterVisibility"/>。
+    /// 链接导入：目前只认两个开发者入口——开发者网址静默解锁屏蔽角色（<see cref="CharacterVisibility"/>），
+    /// 开发者口令静默打开开发者模式（<see cref="DeveloperMode"/>），其余一律不动。
+    /// 解锁成功不给提示；其余输入补一行「暂不可用」，让“写着暂不支持却可点击”的界面行为与文案一致。
     /// </summary>
     private void OnImportFromUrlBtnClick(object? sender, RoutedEventArgs e)
     {
-        if (CharacterVisibility.TryUnlock(ImportUrlInput.Text))
+        if (CharacterVisibility.TryUnlock(ImportUrlInput.Text) || DeveloperMode.TryUnlock(ImportUrlInput.Text))
         {
             RemoveUrlImportResultTip();
             return;

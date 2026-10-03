@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using UiharuMind.Core.Core;
-using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Character;
 
@@ -10,51 +9,29 @@ namespace UiharuMind.Core.AI.Character;
 ///
 /// 默认关闭——屏蔽角色不出现在角色库与任何选择器里；由「开发者网址」解锁后可见。
 ///
-/// 解锁状态<b>刻意不走常规配置</b>：不进设置页、不是 <c>TConfigBase</c>，只落一个标记文件，
-/// 存在即解锁。这样普通用户看不到这个开关，而开发者解锁一次之后也不用每次重输网址。
+/// 解锁状态落一个标记文件（<see cref="MarkerFileFlag"/>），开发者解锁一次之后不用每次重输网址。
+/// 与开发者模式（<see cref="DeveloperMode"/>）是两个标记，互不牵连。
 /// </summary>
 public static class CharacterVisibility
 {
     /// <summary>开发者网址：输入它即静默解锁屏蔽角色（刻意做成不起眼的入口，不做成设置项）</summary>
     public const string DeveloperUrl = "https://wangjiaying.top";
 
-    /// <summary>解锁标记文件；存在即「屏蔽角色可见」</summary>
-    private static readonly string UnlockMarker = Path.Combine(AppPaths.Data.Root, "DeveloperUnlocked");
-
-    private static bool? _showShielded;
+    private static readonly MarkerFileFlag Unlocked = new(Path.Combine(AppPaths.Data.Root, "DeveloperUnlocked")); //存在即「屏蔽角色可见」
 
     /// <summary>屏蔽角色此刻是否可见（首次访问读一次标记文件）</summary>
-    public static bool ShowShielded => _showShielded ??= File.Exists(UnlockMarker);
+    public static bool ShowShielded => Unlocked.IsSet;
 
     /// <summary>解锁 / 锁回屏蔽角色时触发。列表、选择器之类常驻视图靠它重建，而不是等角色数据变化</summary>
-    public static event Action? ShowShieldedChanged;
+    public static event Action? ShowShieldedChanged
+    {
+        add => Unlocked.Changed += value;
+        remove => Unlocked.Changed -= value;
+    }
 
     /// <summary>解锁 / 锁回屏蔽角色，并落盘（下次启动仍生效）</summary>
     /// <param name="value">True 解锁</param>
-    public static void SetShowShielded(bool value)
-    {
-        if (_showShielded == value) return;
-
-        _showShielded = value;
-        try
-        {
-            if (value)
-            {
-                Directory.CreateDirectory(AppPaths.Data.Root);
-                File.WriteAllText(UnlockMarker, DateTimeOffset.Now.ToString("O"));
-            }
-            else if (File.Exists(UnlockMarker))
-            {
-                File.Delete(UnlockMarker);
-            }
-        }
-        catch (Exception e)
-        {
-            Log.Error($"Toggle shielded characters failed: {e.Message}");
-        }
-
-        ShowShieldedChanged?.Invoke();
-    }
+    public static void SetShowShielded(bool value) => Unlocked.Set(value);
 
     /// <summary>该角色此刻是否应当出现在列表 / 选择器里（只看屏蔽这一维；内部角色另有开关）</summary>
     public static bool PassesShield(CharacterData character) => !character.IsShielded || ShowShielded;
