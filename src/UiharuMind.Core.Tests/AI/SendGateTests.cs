@@ -1,0 +1,203 @@
+using System.ClientModel.Primitives;
+using System.Diagnostics;
+using System.Net;
+using UiharuMind.Core.AI.Net;
+
+namespace UiharuMind.Core.Tests.AI;
+
+/// <summary>
+/// 共享发送闸（ADR 0058）。时间全由用例推：时钟是个数，等待挂在用例手里，推一步放一位
+/// </summary>
+public class SendGateTests
+{
+    private long _now;
+    private TaskCompletionSource? _pendingDelay;
+    private TimeSpan _pendingWait;
+
+    private SendGate CreateGate() => new("test", () => _now, wait =>
+    {
+        _pendingWait = wait;
+        _pendingDelay = new TaskCompletionSource(); //同步续体：推一步，闸当场放下一位
+        return _pendingDelay.Task;
+    });
+
+    private void Step()
+    {
+        TaskCompletionSource delay = Assert.IsType<TaskCompletionSource>(_pendingDelay);
+        _pendingDelay = null;
+        _now += (long)_pendingWait.TotalMilliseconds;
+        delay.SetResult();
+    }
+
+    [Fact]
+    public void Pacer_StartsOpen()
+    {
+        SendPacer pacer = new();
+
+        Assert.Equal(TimeSpan.Zero, pacer.Claim(0));
+        Assert.Equal(TimeSpan.Zero, pacer.Claim(0));
+        Assert.False(pacer.OnSuccess());
+    }
+
+    [Fact]
+    public void Pacer_RateLimitClosesThenSpacesSends()
+    {
+        SendPacer pacer = new();
+        pacer.Claim(0);
+
+        Assert.True(pacer.OnRateLimited(sentAt: 0, now: 100, retryAfter: null));
+
+        Assert.Equal(SendPacer.StartInterval, pacer.Interval);
+        Assert.Equal(TimeSpan.FromMilliseconds(1000), pacer.Claim(100));
+        Assert.Equal(TimeSpan.Zero, pacer.Claim(1100));
+        Assert.Equal(TimeSpan.FromMilliseconds(1000), pacer.Claim(1100)); //占下一位后，下一位再隔一个间隔
+    }
+
+    /// <summary>三条并发在途、一起被打回：只翻一次倍；翻倍之后发出的再撞才接着翻</summary>
+    [Fact]
+    public void Pacer_ConcurrentRateLimitsWidenOnce()
+    {
+        SendPacer pacer = new();
+
+        Assert.True(pacer.OnRateLimited(0, 10, null));
+        Assert.False(pacer.OnRateLimited(0, 11, null));
+        Assert.False(pacer.OnRateLimited(0, 12, null));
+        Assert.Equal(TimeSpan.FromSeconds(1), pacer.Interval);
+
+        Assert.True(pacer.OnRateLimited(2000, 2100, null));
+        Assert.Equal(TimeSpan.FromSeconds(2), pacer.Interval);
+    }
+
+    [Fact]
+    public void Pacer_IntervalIsCapped()
+    {
+        SendPacer pacer = new();
+        for (int i = 0; i < 20; i++) pacer.OnRateLimited(i * 100_000, i * 100_000, null);
+
+        Assert.Equal(SendPacer.MaxInterval, pacer.Interval);
+    }
+
+    [Fact]
+    public void Pacer_RetryAfterPushesNextSendCapped()
+    {
+        SendPacer pacer = new();
+
+        pacer.OnRateLimited(0, 0, TimeSpan.FromSeconds(5));
+        Assert.Equal(TimeSpan.FromSeconds(5), pacer.Claim(0));
+
+        pacer.OnRateLimited(0, 0, TimeSpan.FromHours(1));
+        Assert.Equal(SendPacer.RetryAfterCap, pacer.Claim(0));
+    }
+
+    [Fact]
+    public void Pacer_SuccessesShrinkUntilOpen()
+    {
+        SendPacer pacer = new();
+        pacer.OnRateLimited(0, 0, null);
+
+        int successes = 0;
+        while (!pacer.OnSuccess()) successes++;
+
+        Assert.Equal(6, successes); //1s × 0.9⁷ ≈ 0.478s，第 7 次撤闸
+        Assert.Equal(TimeSpan.Zero, pacer.Interval);
+    }
+
+    [Fact]
+    public void Gate_OpenPassesWithoutWaiting()
+    {
+        SendGate gate = CreateGate();
+
+        Assert.True(gate.WaitTurnAsync(false, CancellationToken.None).IsCompletedSuccessfully);
+        Assert.True(gate.WaitTurnAsync(false, CancellationToken.None).IsCompletedSuccessfully);
+        Assert.Null(_pendingDelay);
+    }
+
+    [Fact]
+    public void Gate_RetryJumpsTheQueue()
+    {
+        SendGate gate = CreateGate();
+        gate.OnRateLimited(gate.Now, null);
+
+        Task first = gate.WaitTurnAsync(false, CancellationToken.None);
+        Task second = gate.WaitTurnAsync(false, CancellationToken.None);
+        Task retry = gate.WaitTurnAsync(true, CancellationToken.None);
+        Assert.False(first.IsCompleted || second.IsCompleted || retry.IsCompleted);
+
+        Step();
+        Assert.True(retry.IsCompleted);
+        Assert.False(first.IsCompleted);
+
+        Step();
+        Assert.True(first.IsCompleted);
+        Assert.False(second.IsCompleted);
+
+        Step();
+        Assert.True(second.IsCompleted);
+        Assert.Null(_pendingDelay); //队空，闸不再空转
+    }
+
+    [Fact]
+    public async Task Gate_CancelledWaiterLeavesTheQueue()
+    {
+        SendGate gate = CreateGate();
+        gate.OnRateLimited(gate.Now, null);
+        using CancellationTokenSource cancel = new();
+
+        Task leaving = gate.WaitTurnAsync(false, cancel.Token);
+        Task staying = gate.WaitTurnAsync(false, CancellationToken.None);
+        cancel.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => leaving);
+
+        Step();
+        Assert.True(staying.IsCompleted); //取消的那位没占掉这个发送位
+    }
+
+    /// <summary>真管道：撞一次 429 后由闸推后发送位，重试策略不再另等 2～8 秒</summary>
+    [Fact]
+    public async Task Pipeline_RateLimitedRetryWaitsOnlyAtTheGate()
+    {
+        SendGate gate = new("test", () => _now, wait =>
+        {
+            _now += (long)wait.TotalMilliseconds;
+            return Task.CompletedTask;
+        });
+        RateLimitedOnce server = new();
+        ClientPipeline pipeline = ClientPipeline.Create(
+            new ClientPipelineOptions
+            {
+                Transport = new HttpClientPipelineTransport(new HttpClient(server)),
+                RetryPolicy = new RateLimitAwareRetryPolicy(),
+            },
+            perCallPolicies: ReadOnlySpan<PipelinePolicy>.Empty, perTryPolicies: [new SendGatePolicy(gate)],
+            beforeTransportPolicies: ReadOnlySpan<PipelinePolicy>.Empty);
+
+        PipelineMessage message = pipeline.CreateMessage();
+        message.Request.Method = "POST";
+        message.Request.Uri = new Uri("http://localhost/v1/chat/completions");
+        Stopwatch elapsed = Stopwatch.StartNew();
+        await pipeline.SendAsync(message);
+
+        Assert.Equal(200, message.Response!.Status);
+        Assert.Equal(2, server.Requests);
+        Assert.Equal(SendPacer.StartInterval.TotalMilliseconds, _now); //在闸上等了一个间隔（模拟时间）
+        Assert.Equal(SendPacer.StartInterval * SendPacer.SuccessFactor, gate.Interval);
+        Assert.True(elapsed.Elapsed < TimeSpan.FromSeconds(1.5), $"retry also backed off locally: {elapsed.Elapsed}");
+    }
+
+    private sealed class RateLimitedOnce : HttpMessageHandler
+    {
+        public int Requests;
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token) =>
+            Task.FromResult(new HttpResponseMessage(++Requests == 1 ? HttpStatusCode.TooManyRequests : HttpStatusCode.OK)
+                { Content = new StringContent("{}") });
+    }
+
+    [Fact]
+    public void Gate_SameGroupSharesOneGate()
+    {
+        Assert.Same(SendGate.For("https://a/v1", "k", "m"), SendGate.For("https://a/v1", "k", "m"));
+        Assert.NotSame(SendGate.For("https://a/v1", "k", "m"), SendGate.For("https://a/v1", "k2", "m"));
+        Assert.NotSame(SendGate.For("https://a/v1", "k", "m"), SendGate.For("https://a/v1", "k", "m2"));
+    }
+}

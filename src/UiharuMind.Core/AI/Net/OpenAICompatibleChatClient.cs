@@ -31,9 +31,10 @@ internal static class OpenAICompatibleChatClient
     /// <param name="modelId">请求里的模型名</param>
     /// <param name="apiKey">密钥</param>
     /// <param name="retryPolicy">重试策略；为 null 时用 SDK 默认</param>
+    /// <param name="sendGate">共用限额的发送闸；为 null 时不排队</param>
     /// <returns>聊天客户端</returns>
     public static IChatClient Create(OpenAICompatibleHttpHandler handler, ILlmModel? model, string modelId, string apiKey,
-        ClientRetryPolicy? retryPolicy = null)
+        ClientRetryPolicy? retryPolicy = null, SendGate? sendGate = null)
     {
         // HttpClient.Timeout 默认就是 100s(管到响应头/首字节),SDK 自带客户端反而设成了 Infinite。
         // 流式长思考会撞它,一并关掉,裁决交给上层 CancellationToken
@@ -48,6 +49,7 @@ internal static class OpenAICompatibleChatClient
         };
         if (retryPolicy != null) options.RetryPolicy = retryPolicy;
         options.AddPolicy(new OpenAICompatibleRequestPolicy(model), PipelinePosition.PerCall);
+        if (sendGate != null) options.AddPolicy(new SendGatePolicy(sendGate), PipelinePosition.PerTry);
 
         return new ChatClient(modelId, new ApiKeyCredential(apiKey), options).AsIChatClient();
     }

@@ -55,10 +55,13 @@ internal sealed class RemoteModelManager
 
     private IChatClient CreateChatClient(ILlmModel model)
     {
-        var handler = new OpenAICompatibleHttpHandler(model.ModelPath + (model.Port > 0 ? ":" + model.Port : ""));
-        // SDK 默认重试对限流太急(3 次 / 6 秒内打完),免费档模型的共享配额窗口远不止这么短
-        return OpenAICompatibleChatClient.Create(handler, model, model.ModelId,
-            model is RemoteModelInfo remoteModel ? remoteModel.ApiKey : "", new RateLimitAwareRetryPolicy());
+        string endpoint = model.ModelPath + (model.Port > 0 ? ":" + model.Port : "");
+        string apiKey = model is RemoteModelInfo remoteModel ? remoteModel.ApiKey : "";
+        var handler = new OpenAICompatibleHttpHandler(endpoint);
+        // SDK 默认重试对限流太急(3 次 / 6 秒内打完),免费档模型的共享配额窗口远不止这么短;
+        // 同一把密钥上并行的请求经发送闸排队,不再各自退避互撞
+        return OpenAICompatibleChatClient.Create(handler, model, model.ModelId, apiKey, new RateLimitAwareRetryPolicy(),
+            SendGate.For(endpoint, apiKey, model.ModelId));
     }
 
     public void AddRemoteModel(RemoteModelInfo model)

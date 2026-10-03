@@ -44,7 +44,7 @@ internal sealed class RateLimitAwareRetryPolicy : ClientRetryPolicy
     /// <summary>抖动幅度（相对退避时长的比例）</summary>
     internal const double JitterRatio = 0.25;
 
-    private const int RateLimitStatus = 429;
+    internal const int RateLimitStatus = 429;
     private static readonly TimeSpan RateLimitBaseDelay = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan RateLimitMaxDelay = TimeSpan.FromSeconds(8);
     private static readonly TimeSpan TransientBaseDelay = TimeSpan.FromSeconds(0.8);
@@ -80,6 +80,13 @@ internal sealed class RateLimitAwareRetryPolicy : ClientRetryPolicy
     protected override TimeSpan GetNextDelay(PipelineMessage message, int tryCount)
     {
         bool rateLimited = IsRateLimited(message);
+        // 过了闸的限流不在这里等：闸已按间隔与 Retry-After 推后了下一个发送位，重试直接去排队首（ADR 0058）
+        if (rateLimited && SendGatePolicy.IsGated(message))
+        {
+            Log.Warning($"Remote model rate limited (429), retry #{tryCount} queued at the send gate.");
+            return TimeSpan.Zero;
+        }
+
         TimeSpan delay = ApplyJitter(ComputeDelay(rateLimited, tryCount, ReadRetryAfterSeconds(message)));
         Log.Warning($"Remote model {(rateLimited ? "rate limited (429)" : "request failed")}, " +
                     $"retry #{tryCount} in {delay.TotalSeconds:0.#}s.");
@@ -126,7 +133,7 @@ internal sealed class RateLimitAwareRetryPolicy : ClientRetryPolicy
     /// </summary>
     /// <param name="message">管道消息</param>
     /// <returns>秒数；无或不可解析时为 null</returns>
-    private static int? ReadRetryAfterSeconds(PipelineMessage message)
+    internal static int? ReadRetryAfterSeconds(PipelineMessage message)
     {
         if (message.Response?.Headers.TryGetValue("Retry-After", out string? value) != true) return null;
         return int.TryParse(value, out int seconds) && seconds > 0 ? seconds : null;
