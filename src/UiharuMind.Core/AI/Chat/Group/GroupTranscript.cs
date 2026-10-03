@@ -160,20 +160,49 @@ public static class GroupTranscript
     }
 
     /// <summary>
+    /// 剥成员发言开头的自加前缀：自己的名字之外，还认开头的「[用户名]:」。
+    /// 实测 Agnes 的千空两条发言以「[黑猫]:」（用户的名字）开头，是把投递格式里用户那条的写法仿了过来。
+    /// 用户名只认括号式全名：「黑猫：」在句首多半是在对用户说话
+    /// </summary>
+    /// <param name="body">正文</param>
+    /// <param name="speaker">发言成员的名字</param>
+    /// <param name="userName">用户的名字；为空时只剥自己的</param>
+    /// <returns>剥掉自加前缀后的正文</returns>
+    public static string StripMemberPrefix(string body, string? speaker, string? userName)
+    {
+        string result = StripSpeakerPrefix(body, speaker);
+        if (string.IsNullOrWhiteSpace(userName)) return result;
+
+        string name = userName.Trim();
+        string trimmed = result.TrimStart();
+        if (!IsExactBracketName(trimmed, name)) return result;
+        return StripOnce(trimmed, name) is { } rest ? StripSpeakerPrefix(rest, speaker) : result;
+    }
+
+    private static bool IsExactBracketName(string text, string name)
+    {
+        if (text.Length == 0 || (text[0] != '[' && text[0] != '【')) return false;
+        char close = text[0] == '[' ? ']' : '】';
+        int end = text.IndexOf(close);
+        return end > 1 && string.Equals(text.Substring(1, end - 1).Trim(), name, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// 就地剥掉一条助手消息开头自加的发言人前缀（落盘前用，成员会话里存的就是干净的那份）。
     /// 只动第一段有字的正文；带工具调用的旁白一样剥，它也会画成气泡
     /// </summary>
     /// <param name="message">模型刚回的消息</param>
     /// <param name="speaker">这个成员自己的名字</param>
+    /// <param name="userName">用户的名字，见 <see cref="StripMemberPrefix"/>；为空时只剥自己的</param>
     /// <returns>剥过为 true</returns>
-    public static bool StripOwnPrefix(ChatMessage message, string? speaker)
+    public static bool StripOwnPrefix(ChatMessage message, string? speaker, string? userName = null)
     {
         if (message.Role != ChatRole.Assistant) return false;
 
         TextContent? first = message.Contents.OfType<TextContent>().FirstOrDefault(x => !string.IsNullOrWhiteSpace(x.Text));
         if (first == null) return false;
 
-        string stripped = StripSpeakerPrefix(first.Text, speaker);
+        string stripped = StripMemberPrefix(first.Text, speaker, userName);
         if (stripped.Length == first.Text.Length) return false;
 
         first.Text = stripped;

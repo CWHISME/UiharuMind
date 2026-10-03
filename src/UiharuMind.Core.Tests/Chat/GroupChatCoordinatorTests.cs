@@ -291,6 +291,21 @@ public class GroupChatCoordinatorTests
         Assert.Equal(expected, GroupTranscript.StripSpeakerPrefix(body, speaker));
     }
 
+    /// <summary>实测：Agnes 的千空两条发言以「[黑猫]:」（用户的名字）开头</summary>
+    [Theory]
+    [InlineData("[黑猫]: 先把读数贴出来", "石神千空", "黑猫", "先把读数贴出来")]
+    [InlineData("【黑猫】：先把读数贴出来", "石神千空", "黑猫", "先把读数贴出来")]
+    [InlineData("[黑猫]: [石神千空]: 两层", "石神千空", "黑猫", "两层")]
+    [InlineData("[石神千空]: [黑猫]: 两层", "石神千空", "黑猫", "两层")]
+    [InlineData("黑猫：这格你来拍", "石神千空", "黑猫", "黑猫：这格你来拍")] //裸名是在对用户说话
+    [InlineData("[猫]: 用户名只认全名", "石神千空", "黑猫", "[猫]: 用户名只认全名")]
+    [InlineData("第一段\n[黑猫]: 引用用户的话", "石神千空", "黑猫", "第一段\n[黑猫]: 引用用户的话")]
+    [InlineData("[黑猫]: 没给用户名就不剥", "石神千空", null, "[黑猫]: 没给用户名就不剥")]
+    public void StripMemberPrefix_AlsoStripsLeadingUserPrefix(string body, string speaker, string? userName, string expected)
+    {
+        Assert.Equal(expected, GroupTranscript.StripMemberPrefix(body, speaker, userName));
+    }
+
     /// <summary>实测：OP-01 回了「[沉默] 白露和晨曦把主线说完了……」，整条连着「[沉默]」进了群</summary>
     [Fact]
     public void TryPostFromMember_StripsLeadingPassMarkerWhenMoreFollows()

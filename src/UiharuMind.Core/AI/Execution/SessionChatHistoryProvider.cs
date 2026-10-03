@@ -9,6 +9,7 @@
 
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Execution.History;
@@ -152,7 +153,7 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
                 foreach (ChatMessage message in context.ResponseMessages)
                 {
                     string speaker = GroupSceneSource.SpeakerNameOf(session);
-                    if (GroupTranscript.StripOwnPrefix(message, speaker))
+                    if (GroupTranscript.StripOwnPrefix(message, speaker, CharacterManager.Instance.UserCharacterName))
                         Log.Debug($"Group member '{speaker}' self-added speaker prefix, stripped.");
                 }
             }
