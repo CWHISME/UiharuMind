@@ -43,15 +43,39 @@ public static class LoadSkillTool
     /// <param name="source">技能源(取 plan.SkillsSource,已过滤到广告列表)</param>
     /// <param name="hasFileTools">文件工具是否挂载(资源读取提示按实际工具集裁剪)</param>
     /// <param name="hasShell">shell 工具是否挂载(同上)</param>
+    /// <param name="builtIns">此刻可用的内置技能(ADR 0061):名字与描述写进工具描述——清单不发给模型,
+    /// 用户技能的名字它能从点名注入的正文里得知,内置技能的名字却无处可知</param>
     /// <returns>工具实例</returns>
-    public static AITool Create(AgentSkillsSource source, bool hasFileTools, bool hasShell)
+    public static AITool Create(AgentSkillsSource source, bool hasFileTools, bool hasShell,
+        IReadOnlyList<BuiltInSkill>? builtIns = null)
     {
         return AIFunctionFactory.Create(
             async (string skillName, CancellationToken cancellationToken = default) =>
                 await LoadAsync(source, skillName, hasFileTools, hasShell, cancellationToken)
                     .ConfigureAwait(false),
             ToolName,
-            "Loads the full content of a specific skill by name.");
+            Describe(builtIns));
+    }
+
+    private static string Describe(IReadOnlyList<BuiltInSkill>? builtIns)
+    {
+        const string summary = "Loads the full content of a specific skill by name.";
+        if (builtIns is not { Count: > 0 }) return summary;
+
+        StringBuilder sb = new(summary);
+        sb.Append(" Built-in skills of this app:");
+        foreach (BuiltInSkill skill in builtIns)
+            sb.Append($"\n- {skill.Frontmatter.Name}: {SingleLine(skill.Frontmatter.Description)}");
+        return sb.ToString();
+    }
+
+    /// <summary>描述压成一行并截断：多行描述会破坏工具描述格式</summary>
+    /// <param name="value">原始描述</param>
+    /// <returns>单行描述，超长截断</returns>
+    private static string SingleLine(string value)
+    {
+        string line = value.Replace('\r', ' ').Replace('\n', ' ').Trim();
+        return line.Length > 200 ? line[..200] + "…" : line;
     }
 
     private static async Task<string> LoadAsync(AgentSkillsSource source, string skillName,

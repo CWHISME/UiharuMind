@@ -21,6 +21,14 @@ public sealed class DevControlHost : IDisposable
     private const string ControlArgument = "--dev-control";
     private static readonly TimeSpan QuitDelay = TimeSpan.FromMilliseconds(200); //先让 app.quit 的回复写出去
 
+    /// <summary>控制通道自己答的几步（不经执行器）</summary>
+    internal static readonly IReadOnlyList<DevStepUsage> HostUsages =
+    [
+        new("app.ops", "列出全部步骤与用法"),
+        new("app.ping", "通道是否在、应用进程号"),
+        new("app.quit", "退出应用"),
+    ];
+
     private readonly bool _forced;
     private readonly DevStepExecutor _executor = new();
     private DevControlServer? _server;
@@ -84,7 +92,7 @@ public sealed class DevControlHost : IDisposable
         switch (op)
         {
             case "app.ops":
-                return new DevStepOutcome(true, 0, _executor.Ops);
+                return new DevStepOutcome(true, 0, HostUsages.Concat(_executor.Usages).ToList());
             case "app.quit":
                 _ = Task.Delay(QuitDelay).ContinueWith(_ => DevScriptRunner.QuitApp(), TaskScheduler.Default);
                 return new DevStepOutcome(true, 0);

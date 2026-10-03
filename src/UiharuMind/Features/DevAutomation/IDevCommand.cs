@@ -25,9 +25,12 @@ namespace UiharuMind.Features.DevAutomation;
 /// 而且那条入口会一直留在出货代码里。
 /// </summary>
 public interface IDevCommand
-{
+ {
     /// <summary>步骤名（脚本里的 <c>op</c>）</summary>
     string Name { get; }
+
+    /// <summary>一行用法：做什么、带哪些参数。控制通道的 <c>app.ops</c> 与内置技能 uiharu-dev 都从这里取，不另写一份</summary>
+    string Usage { get; }
 
     /// <summary>
     /// 执行一步
@@ -51,3 +54,8 @@ public interface IAsyncDevCommand : IDevCommand
     /// <returns>写进报告的结果，可为 null</returns>
     Task<object?> ExecuteAsync(JsonElement args);
 }
+
+/// <summary>一步的用法：步骤名与一行说明（含参数）</summary>
+/// <param name="Op">步骤名</param>
+/// <param name="Usage">做什么、带哪些参数</param>
+public sealed record DevStepUsage(string Op, string Usage);

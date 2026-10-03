@@ -31,10 +31,17 @@ public static class SkillGrouping
     /// 分组
     /// </summary>
     /// <param name="entries">平铺的技能条目</param>
-    /// <returns>分好组的列表：本地技能置顶，其余按包名排序</returns>
+    /// <returns>分好组的列表：本地技能置顶，内置技能其次，其余按包名排序</returns>
     public static List<SkillGroupItem> Build(IEnumerable<SkillCatalogEntry> entries)
     {
-        List<SkillGroupItem> groups = entries
+        List<SkillCatalogEntry> all = entries.ToList();
+        // 内置技能没有目录、相对路径为空，按路径分会混进「本地技能」：单独成组
+        List<SkillDisplayItem> builtIns = all.Where(x => x.IsBuiltIn)
+            .Select(x => new SkillDisplayItem(x))
+            .OrderBy(x => x.Name, StringComparer.Ordinal)
+            .ToList();
+
+        List<SkillGroupItem> groups = all.Where(x => !x.IsBuiltIn)
             .Select(entry => (entry, path: Split(entry.RelativePath)))
             .GroupBy(x => PackageOf(x.path), StringComparer.Ordinal)
             .Select(package => new SkillGroupItem(
@@ -53,6 +60,13 @@ public static class SkillGrouping
             .OrderBy(x => x.IsLocal ? 0 : 1) //根下直接放的技能是用户自己写的,置顶
             .ThenBy(x => x.Name, StringComparer.Ordinal)
             .ToList();
+
+        if (builtIns.Count > 0)
+        {
+            int at = groups.Count > 0 && groups[0].IsLocal ? 1 : 0;
+            groups.Insert(at, new SkillGroupItem(Loc.Text(LangKey.AgentSkillsBuiltInGroup), false,
+                [new SkillCategoryItem(string.Empty, builtIns)]));
+        }
 
         return groups;
     }

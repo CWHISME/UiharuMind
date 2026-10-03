@@ -27,8 +27,11 @@ public class SkillCatalogEntry
     /// <summary>描述(frontmatter description)</summary>
     public string Description { get; init; } = string.Empty;
 
-    /// <summary>技能目录路径</summary>
+    /// <summary>技能目录路径；内置技能没有目录，为空串</summary>
     public string DirectoryPath { get; init; } = string.Empty;
+
+    /// <summary>随应用发布、正文由代码生成的内置技能（ADR 0061）：只读，没有目录可打开</summary>
+    public bool IsBuiltIn { get; init; }
 
     /// <summary>
     /// 相对技能根的目录路径,一律用 / 分隔(如 <c>pack/skills/engineering/tdd</c>)。
@@ -141,6 +144,8 @@ public class SkillCatalog : Singleton<SkillCatalog>
 
     private readonly SkillDirectoryScanner _scanner = new();
     private readonly Lock _sourceLock = new();
+    private readonly List<BuiltInSkill> _builtIns = []; //登记处；读写都在 _sourceLock 里
+    private HashSet<string> _fileSkillNames = new(StringComparer.OrdinalIgnoreCase); //最近一次成功列举里的文件技能名；AvailableBuiltIns 减同名用，读写都在 _sourceLock 里
     private AgentSkillsSource? _sharedSource; //扫盘 + 解析的结果缓存,设置页「重新扫描」负责作废
 
     /// <summary>技能根目录</summary>
@@ -162,11 +167,60 @@ public class SkillCatalog : Singleton<SkillCatalog>
         {
             lock (_sourceLock)
             {
-                return _sharedSource ??= new CachingAgentSkillsSource(
+                // 内置技能叠在缓存外面：它们可用与否随时会变（开发者模式），不能跟扫盘结果一起缓存
+                return _sharedSource ??= new BuiltInSkillsSource(new CachingAgentSkillsSource(
                     new DeduplicatingAgentSkillsSource(new DeepFileSkillsSource(SkillsRootPath)),
-                    new CachingAgentSkillsSourceOptions { CacheIsolationKeySelector = _ => string.Empty });
+                    new CachingAgentSkillsSourceOptions { CacheIsolationKeySelector = _ => string.Empty }),
+                    BuiltInSnapshot);
             }
         }
+    }
+
+    /// <summary>
+    /// 登记一个内置技能（应用启动时）。同名的重复登记以后到的为准
+    /// </summary>
+    /// <param name="skill">内置技能</param>
+    public void RegisterBuiltIn(BuiltInSkill skill)
+    {
+        lock (_sourceLock)
+        {
+            _builtIns.RemoveAll(x => string.Equals(x.Frontmatter.Name, skill.Frontmatter.Name, StringComparison.OrdinalIgnoreCase));
+            _builtIns.Add(skill);
+        }
+    }
+
+    /// <summary>
+    /// 此刻可用、没被本智能体禁用、参与模型自选的内置技能。技能清单不发给模型时，<c>Skill</c> 工具的描述里点出它们的名字——
+    /// 否则模型无从得知（ADR 0061）
+    /// </summary>
+    /// <param name="disabledSkills">本智能体禁用的技能名</param>
+    /// <returns>内置技能，按登记顺序</returns>
+    public IReadOnlyList<BuiltInSkill> AvailableBuiltIns(IEnumerable<string> disabledSkills)
+    {
+        HashSet<string> disabled = new(disabledSkills, StringComparer.OrdinalIgnoreCase);
+        HashSet<string> files;
+        lock (_sourceLock) files = new(_fileSkillNames, StringComparer.OrdinalIgnoreCase);
+        return SubtractShadowed(
+            BuiltInSnapshot().Where(x => x.IsAvailable && IsAdvertised(x, disabled)), files);
+    }
+
+    /// <summary>
+    /// 减掉被文件技能顶掉的内置。与 <see cref="BuiltInSkillsSource"/> 同一条去重口径，
+    /// 否则工具描述里打着内置的名字，实际加载到的却是文件正文
+    /// </summary>
+    /// <param name="builtIns">候选内置技能</param>
+    /// <param name="fileSkillNames">文件技能名（忽略大小写）</param>
+    /// <returns>没被顶掉的内置技能</returns>
+    internal static IReadOnlyList<BuiltInSkill> SubtractShadowed(IEnumerable<BuiltInSkill> builtIns,
+        IEnumerable<string> fileSkillNames)
+    {
+        HashSet<string> files = new(fileSkillNames, StringComparer.OrdinalIgnoreCase);
+        return builtIns.Where(x => !files.Contains(x.Frontmatter.Name)).ToList();
+    }
+
+    private IReadOnlyList<BuiltInSkill> BuiltInSnapshot()
+    {
+        lock (_sourceLock) return _builtIns.ToList();
     }
 
     /// <summary>
@@ -235,6 +289,7 @@ public class SkillCatalog : Singleton<SkillCatalog>
                 DirectoryPath = directory,
                 RelativePath = ToRelativePath(directory),
                 IsModelInvocable = IsModelInvocable(skill),
+                IsBuiltIn = skill is BuiltInSkill,
             });
         }
 
@@ -450,7 +505,13 @@ public class SkillCatalog : Singleton<SkillCatalog>
     {
         try
         {
-            return await SharedSource.GetSkillsAsync(null!).ConfigureAwait(false);
+            IList<AgentSkill> skills = await SharedSource.GetSkillsAsync(null!).ConfigureAwait(false);
+            lock (_sourceLock)
+            {
+                _fileSkillNames = new(skills.Where(x => x is not BuiltInSkill)
+                    .Select(x => x.Frontmatter.Name), StringComparer.OrdinalIgnoreCase);
+            }
+            return skills;
         }
         catch (Exception e)
         {
@@ -467,6 +528,9 @@ public class SkillCatalog : Singleton<SkillCatalog>
     /// <returns>是否参与模型自选</returns>
     internal static bool IsModelInvocable(AgentSkill skill)
     {
+        // 内置技能不声明 disable-model-invocation：直接返回，不读正文。
+        // 读正文意味着跑一次完整生成（帮助文档、步骤清单），每次列举都要付几次
+        if (skill is BuiltInSkill) return true;
         if (skill.Frontmatter.Metadata?.TryGetValue(DisableModelInvocationKey, out object? value) == true &&
             IsYamlTrue(value?.ToString()))
         {

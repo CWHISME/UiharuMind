@@ -32,6 +32,8 @@ internal sealed class SessionSearchCommand : IAsyncDevCommand
 
     public string Name => "session.search";
 
+    public string Usage => "在当前会话里搜索并跳转。query、steps、thinking、tools";
+
     public async Task<object?> ExecuteAsync(JsonElement args)
     {
         ConversationViewModel conversation = DevCommandRegistry.RequireConversationPage().Conversation;
@@ -79,6 +81,8 @@ internal sealed class SessionsSearchCommand : IAsyncDevCommand
     private static readonly TimeSpan OpenSettle = TimeSpan.FromSeconds(3); //装载、落位、会话内重搜再跳
 
     public string Name => "sessions.search";
+
+    public string Usage => "跨会话搜索。query、start、result、hit";
 
     public async Task<object?> ExecuteAsync(JsonElement args)
     {

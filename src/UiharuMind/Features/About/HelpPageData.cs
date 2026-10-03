@@ -35,7 +35,12 @@ public partial class HelpPageData : PageDataBase
         HelpText = ReadHelpDocument(LocalizationManager.Instance.LanguageCode);
     }
 
-    private static string ReadHelpDocument(string? languageCode)
+    /// <summary>
+    /// 按语言读帮助文档，没有对应语言的回落中文版。内置技能 uiharu-guide 也读这一份
+    /// </summary>
+    /// <param name="languageCode">语言代码；为空用默认</param>
+    /// <returns>帮助正文（markdown）</returns>
+    internal static string ReadHelpDocument(string? languageCode)
     {
         if (!string.IsNullOrWhiteSpace(languageCode))
         {

@@ -217,7 +217,8 @@ internal static class AgentAssembler
         if (plan.DisableSkillsProvider && plan.SkillsSource is { } skillsSource)
         {
             Add(EAgentCapability.Skills, LoadSkillTool.Create(skillsSource,
-                hasFileTools: config.EnableFileAccess, hasShell: shellExecutor != null));
+                hasFileTools: config.EnableFileAccess, hasShell: shellExecutor != null,
+                builtIns: plan.BuiltInSkills));
         }
 
         return tools;

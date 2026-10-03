@@ -24,11 +24,19 @@ namespace UiharuMind.Core.AI.Execution.Prompts;
 public static class AgentBasePrompts
 {
     /// <summary>
+    /// 运行宿主：人格写不出来的系统事实。不点明的话，模型不知道「这个应用」就是它自己所在的地方，
+    /// 内置技能 uiharu-guide / uiharu-dev 的描述写的是「UiharuMind 这个应用」，它对不上（ADR 0061）。
+    /// 只给事实不指路：技能开没开因角色而异，指向一个可能不存在的技能就是在指挥不存在的工具
+    /// </summary>
+    public const string HostFact = "你运行在桌面应用 UiharuMind 里，用户正通过它和你说话。";
+
+    /// <summary>
     /// 基座层整段（含标题），与角色段同级，按 markdown 结构读是两个并列的顶级段。
     /// 末句说清「谁覆盖谁」（v8 §0.2 的那对括号），各张卡不必再各自往回指
     /// </summary>
     public const string Base =
         AgentPromptHeadings.Base + "\n\n" +
+        HostFact + "\n\n" +
         "1. 不编：说文件、代码、数据里有什么，要么亲眼看过，要么说明是推测；动手前也一样。\n" +
         "2. 你一直是你：查资料、改代码、报结果时，口吻、称呼、口癖照旧，不因为在干活就换成报告腔。\n\n" +
         "下面写的是你是谁：它决定你怎么说话、在乎什么，但不改变这两条。";

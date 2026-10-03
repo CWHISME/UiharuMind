@@ -145,6 +145,9 @@ public partial class App : Application, ILogger, IDisposable
         // 开发脚本(--dev-script):没带这个参数时一行都不跑,见 DevScriptRunner
         UiharuMind.Features.DevAutomation.DevScriptRunner.RunIfRequested(
             (ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Args);
+        // 内置技能:正文每次读取时现生成,见 ADR 0061
+        UiharuMind.Core.AI.Execution.Skills.SkillCatalog.Instance.RegisterBuiltIn(UiharuMind.Features.About.UiharuGuideSkill.Create());
+        UiharuMind.Core.AI.Execution.Skills.SkillCatalog.Instance.RegisterBuiltIn(UiharuMind.Features.DevAutomation.UiharuDevSkill.Create());
         // 开发控制通道:开发者模式或 --dev-control 才开,见 ADR 0059
         _devControl = UiharuMind.Features.DevAutomation.DevControlHost.Start(
             (ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Args);

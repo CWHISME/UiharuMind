@@ -2873,6 +2873,10 @@ Allow them?</value>
         <value>Not loaded: another skill with the same name was found first, at {0}. Remove one of the two.</value>
     </data>
 
+    <data name="AgentSkillsBuiltInGroup" xml:space="preserve">
+        <value>Built-in skills</value>
+    </data>
+
     <data name="AgentSkillsLocalGroup" xml:space="preserve">
         <value>Local skills</value>
     </data>

@@ -71,6 +71,9 @@ internal sealed class AgentAssemblyPlan
     /// <summary>技能来源（已按角色的禁用清单过滤）；普通角色为 null</summary>
     public AgentSkillsSource? SkillsSource { get; init; }
 
+    /// <summary>此刻可用的内置技能（ADR 0061）：技能清单关着时写进 Skill 工具描述，模型才知道它们叫什么</summary>
+    public IReadOnlyList<BuiltInSkill> BuiltInSkills { get; init; } = [];
+
     /// <summary>
     /// 技能 provider 整体不挂（全局开关 <c>AgentSettingConfig.ModelSkillsEnabled</c> 关掉时）。
     /// 不能靠把 <see cref="SkillsSource"/> 置 null 表达——框架对 null 会 fallback 到扫描进程
@@ -188,6 +191,8 @@ internal sealed class AgentAssemblyPlan
         }
 
         AgentToolConfig config = profile.Tools;
+        // 清单开着时框架每轮现取，描述里用不到，不必算
+        bool disableSkillsProvider = !AgentSettingConfig.Current.ModelSkillsEnabled;
         // 草稿目录(会话自己的产出房间):既是 OutputRoomDirectory,也是按需 MCP 超限结果的落盘处,取一次
         string outputRoom = profile.OutputFolderName.Length > 0
             ? EnsureDirectory(AgentOutputLayout.GetRoomAbsolutePath(profile.OutputFolderName))
@@ -231,9 +236,12 @@ internal sealed class AgentAssemblyPlan
                 : [],
             Mcp = McpManager.Instance.Resolve(profile.WorkspacePath, config.DisabledMcpServers, outputRoom),
             SkillsSource = SkillCatalog.Instance.BuildSkillsSource(config.DisabledSkills),
+            BuiltInSkills = disableSkillsProvider
+                ? SkillCatalog.Instance.AvailableBuiltIns(config.DisabledSkills)
+                : [],
             // 全局开关在装配时固化:关掉后技能 provider(广告列表 + 三个工具)整体消失,
             // 由 AgentAssemblyFacts 入账触发重建
-            DisableSkillsProvider = !AgentSettingConfig.Current.ModelSkillsEnabled,
+            DisableSkillsProvider = disableSkillsProvider,
             MemoryDirectory = memoryDirectory,
         };
     }

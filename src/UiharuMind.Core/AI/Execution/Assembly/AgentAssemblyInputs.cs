@@ -45,6 +45,9 @@ public sealed record AgentAssemblyInputs
     /// <summary>技能清单是否发给模型（全局开关）</summary>
     public bool ModelSkillsEnabled { get; init; } = true;
 
+    /// <summary>此刻可用的内置技能名（换行拼接）：清单关着时写进 Skill 工具描述，开发者模式一开关就变</summary>
+    public string BuiltInSkills { get; init; } = string.Empty;
+
     /// <summary>会话形态；null = 跟角色身份（ADR 0050）</summary>
     public bool? IsAgentForm { get; init; }
 

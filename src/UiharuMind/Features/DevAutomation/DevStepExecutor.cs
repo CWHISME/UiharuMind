@@ -22,8 +22,17 @@ internal sealed class DevStepExecutor
     private readonly Dictionary<string, IDevCommand> _commands =
         DevCommandRegistry.CreateAll().ToDictionary(x => x.Name, StringComparer.Ordinal);
 
+    private const string WaitUsage = "等一会儿再走下一步。ms（默认 500）";
+
     /// <summary>全部步骤名（含 <c>wait</c>），按字母序</summary>
-    public IReadOnlyList<string> Ops => _commands.Keys.Append("wait").Order(StringComparer.Ordinal).ToList();
+    public IReadOnlyList<string> Ops => Usages.Select(x => x.Op).ToList();
+
+    /// <summary>全部步骤的用法（含 <c>wait</c>），按字母序</summary>
+    public IReadOnlyList<DevStepUsage> Usages => _commands.Values
+        .Select(x => new DevStepUsage(x.Name, x.Usage))
+        .Append(new DevStepUsage("wait", WaitUsage))
+        .OrderBy(x => x.Op, StringComparer.Ordinal)
+        .ToList();
 
     /// <summary>
     /// 执行一步。失败不抛，收进结果里

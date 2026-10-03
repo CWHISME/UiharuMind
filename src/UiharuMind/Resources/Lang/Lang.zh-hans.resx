@@ -2866,6 +2866,10 @@
         <value>未加载：同名技能已被先扫到的那个占用，在 {0}。两个里删掉一个。</value>
     </data>
 
+    <data name="AgentSkillsBuiltInGroup" xml:space="preserve">
+        <value>内置技能</value>
+    </data>
+
     <data name="AgentSkillsLocalGroup" xml:space="preserve">
         <value>本地技能</value>
     </data>

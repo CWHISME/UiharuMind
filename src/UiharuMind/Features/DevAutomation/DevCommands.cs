@@ -87,6 +87,8 @@ internal sealed class JumpToPageCommand : IDevCommand
 {
     public string Name => "page.jump";
 
+    public string Usage => "跳到某一页（主窗口跟着换）。page：agent / chat / character / model / log";
+
     public object? Execute(JsonElement args)
     {
         string page = DevCommandRegistry.RequireString(args, "page");
@@ -121,6 +123,8 @@ internal sealed class UiSnapshotCommand : IDevCommand
 {
     public string Name => "ui.snapshot";
 
+    public string Usage => "当前界面的快照：页、会话、条目数、忙碌态";
+
     public object? Execute(JsonElement args)
     {
         if (DevCommandRegistry.CurrentConversationPage() is not { } page)
@@ -148,6 +152,8 @@ internal sealed class SessionListCommand : IDevCommand
 {
     public string Name => "session.list";
 
+    public string Usage => "列出当前会话页里的会话（id 与名字）";
+
     public object? Execute(JsonElement args)
     {
         ConversationPageDataBase page = DevCommandRegistry.RequireConversationPage();
@@ -164,6 +170,8 @@ internal sealed class SessionListCommand : IDevCommand
 internal sealed class OpenSessionCommand : IDevCommand
 {
     public string Name => "session.open";
+
+    public string Usage => "在会话页里打开某个会话（与左栏点一下同一条路）。id";
 
     public object? Execute(JsonElement args)
     {
@@ -184,6 +192,8 @@ internal sealed class OpenSessionCommand : IDevCommand
 internal sealed class MemoryStatsCommand : IDevCommand
 {
     public string Name => "diag.memory";
+
+    public string Usage => "内存与驻留：托管堆、活对象、加载的会话与常驻历史。collect（true 时先强制回收）";
 
     public object? Execute(JsonElement args)
     {
@@ -225,6 +235,8 @@ internal sealed class MemoryStatsCommand : IDevCommand
 internal sealed class FontDiagnosticsCommand : IDevCommand
 {
     public string Name => "diag.font";
+
+    public string Usage => "字体诊断：样本文字每段实际用到的字体。text、family";
 
     public object? Execute(JsonElement args)
     {

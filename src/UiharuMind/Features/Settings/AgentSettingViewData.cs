@@ -21,6 +21,7 @@ using UiharuMind.Shared.Utils;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Core.Configs;
+using UiharuMind.Core.Core;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.ImageGeneration;
@@ -115,6 +116,9 @@ public partial class AgentSettingViewData : ViewModelBase
         if (App.ModelService is { } service)
             service.ModelListRefreshed += RefreshAvailableModels;
         _ = RefreshSkillsAsync(); //技能列表要读盘解析,不阻塞构造
+        // 开发者模式运行中开关会增删 uiharu-dev（ADR 0061）：内置不经过扫盘缓存，重查重画即可，不必 Invalidate。
+        // 与设置窗同寿命，不退订（同 ModelListRefreshed）
+        DeveloperMode.Changed += RefreshSkillsOnDeveloperModeChanged;
         RefreshImageModelsSummary();
         // 与设置窗同寿命,不退订(同上)
         ImageModelSettingConfig.Current.ModelsChanged += RefreshImageModelsSummary;
@@ -260,5 +264,11 @@ public partial class AgentSettingViewData : ViewModelBase
         SkillGroups.Clear();
         foreach (SkillGroupItem group in SkillGrouping.Build(entries)) SkillGroups.Add(group);
         HasNoSkills = SkillGroups.Count == 0;
+    }
+
+    private void RefreshSkillsOnDeveloperModeChanged()
+    {
+        if (Dispatcher.UIThread.CheckAccess()) _ = RefreshSkillsAsync();
+        else Dispatcher.UIThread.Post(() => _ = RefreshSkillsAsync());
     }
 }

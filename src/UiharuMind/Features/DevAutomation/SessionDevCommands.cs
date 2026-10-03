@@ -54,6 +54,8 @@ internal sealed class SessionNewCommand : IAsyncDevCommand
 
     public string Name => "session.new";
 
+    public string Usage => "在会话页新建会话（首轮发送时才真正建）。character、workspace、permission、model";
+
     public async Task<object?> ExecuteAsync(JsonElement args)
     {
         if (DevCommandRegistry.RequireConversationPage() is not ConversationPageData page)
@@ -99,6 +101,8 @@ internal sealed class SessionPostCommand : IDevCommand
 {
     public string Name => "session.post";
 
+    public string Usage => "往当前显示的会话说一句，不等跑完。text";
+
     public object? Execute(JsonElement args)
     {
         string text = DevCommandRegistry.RequireString(args, "text");
@@ -118,6 +122,8 @@ internal sealed class SessionWaitCommand : IAsyncDevCommand
     private const int IdlePollsToSettle = 3; //连着几次看到闲着才算跑完：发送到开跑之间有空拍
 
     public string Name => "session.wait";
+
+    public string Usage => "等当前显示的会话这一轮跑完。timeoutMinutes、approvals（deny / once）";
 
     public async Task<object?> ExecuteAsync(JsonElement args)
     {
@@ -167,6 +173,8 @@ internal sealed class SessionDumpCommand : IDevCommand
     private const int MaxResultChars = 600; //工具结果只留开头：看的是调用本身，不是读回来的文件
 
     public string Name => "session.dump";
+
+    public string Usage => "把当前显示的会话导成 markdown（工具调用带原样参数）。path";
 
     public object? Execute(JsonElement args)
     {

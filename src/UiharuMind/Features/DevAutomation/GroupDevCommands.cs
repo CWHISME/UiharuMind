@@ -123,6 +123,8 @@ internal sealed class GroupCreateCommand : IAsyncDevCommand
 {
     public string Name => "group.create";
 
+    public string Usage => "建智能体群并点开。name、members（角色标识或名字，顺序即发言顺序）、models（与成员一一对应）、workspace、mode（serial / parallel）、stop（conservative / aggressive）、host（成员下标，-1 无）、permission（权限档序号）";
+
     public async Task<object?> ExecuteAsync(JsonElement args)
     {
         string name = DevCommandRegistry.RequireString(args, "name");
@@ -156,6 +158,8 @@ internal sealed class GroupPostCommand : IAsyncDevCommand
 {
     public string Name => "group.post";
 
+    public string Usage => "以用户的名义在群里说一句，不等跑完。group、text";
+
     public async Task<object?> ExecuteAsync(JsonElement args)
     {
         ChatSession group = GroupDevCommands.RequireGroup(args);
@@ -171,6 +175,8 @@ internal sealed class GroupPostCommand : IAsyncDevCommand
 internal sealed class GroupContinueCommand : IAsyncDevCommand
 {
     public string Name => "group.continue";
+
+    public string Usage => "点群的「继续」，不等跑完。group";
 
     public async Task<object?> ExecuteAsync(JsonElement args)
     {
@@ -190,6 +196,8 @@ internal sealed class GroupWaitCommand : IAsyncDevCommand
     private const int IdlePollsToSettle = 3; //连着几次看到闲着才算跑完：开波与收尾之间有空拍
 
     public string Name => "group.wait";
+
+    public string Usage => "等若干个群跑完这一波。groups（群名数组）、timeoutMinutes、approvals（deny / once）";
 
     public async Task<object?> ExecuteAsync(JsonElement args)
     {
@@ -239,6 +247,8 @@ internal sealed class GroupDumpCommand : IDevCommand
 {
     public string Name => "group.dump";
 
+    public string Usage => "把群导成 markdown：流水、成员用量、产物。group、path";
+
     public object? Execute(JsonElement args)
     {
         ChatSession group = GroupDevCommands.RequireGroup(args);
@@ -285,6 +295,8 @@ internal sealed class GroupAwayStartCommand : IAsyncDevCommand
 {
     public string Name => "group.away.start";
 
+    public string Usage => "开始离席，化身替用户拍板。group、goal、mandate（只给化身看）、model（化身模型）";
+
     public async Task<object?> ExecuteAsync(JsonElement args)
     {
         ChatSession group = GroupDevCommands.RequireGroup(args);
@@ -307,6 +319,8 @@ internal sealed class GroupAwayEndCommand : IAsyncDevCommand
 {
     public string Name => "group.away.end";
 
+    public string Usage => "结束离席。group";
+
     public async Task<object?> ExecuteAsync(JsonElement args)
     {
         ChatSession group = GroupDevCommands.RequireGroup(args);
@@ -322,6 +336,8 @@ internal sealed class GroupAwayEndCommand : IAsyncDevCommand
 internal sealed class GroupAwayWaitCommand : IAsyncDevCommand
 {
     public string Name => "group.away.wait";
+
+    public string Usage => "等离席结束，结果带回执。group、timeoutMinutes、skipDelays";
 
     public async Task<object?> ExecuteAsync(JsonElement args)
     {

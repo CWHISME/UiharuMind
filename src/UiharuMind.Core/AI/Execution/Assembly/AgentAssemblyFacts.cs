@@ -9,6 +9,7 @@
 
 using System.Text.Json;
 using UiharuMind.Core.AI.Execution.Mcp;
+using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution.Prompts;
 using UiharuMind.Core.Configs;
@@ -135,6 +136,14 @@ public sealed record AgentAssemblyFacts
     public bool ModelSkillsEnabled { get; init; } = true;
 
     /// <summary>
+    /// 此刻可用的内置技能名（ADR 0061）。清单关着时它们写在 Skill 工具描述里，开发者模式运行中开关，
+    /// 名单随之变——不入账就不重建，模型看到的还是旧名单。
+    /// 名字用 '\0' 拼接：技能名理论上可含换行，'\n' 拼接会让两份不同名单比出相等；
+    /// 描述不单列入账——描述随版本写死，改描述即发版，重建自然发生
+    /// </summary>
+    public string BuiltInSkills { get; init; } = string.Empty;
+
+    /// <summary>
     /// MCP 侧修订号(见 <see cref="McpManager.Revision"/>)。工具集与 server 自述<b>都</b>由它捕获——
     /// 自述随工具同一次取回、同一次自增，故不必再单列一个字段。
     /// 与工作区说明的差别在此：那个是磁盘文件，没有修订号可依，只能把内容本身入账。
@@ -166,6 +175,7 @@ public sealed record AgentAssemblyFacts
     {
         CharacterData character = profile.Character;
         bool isAgentForm = profile.EffectiveIsAgentForm;
+        bool modelSkillsEnabled = AgentSettingConfig.Current.ModelSkillsEnabled;
         return Capture(character, new AgentAssemblyInputs
         {
             Instructions = CharacterPromptBuilder.Build(character, profile.PromptArguments),
@@ -180,7 +190,11 @@ public sealed record AgentAssemblyFacts
             PythonEnvReady = PythonEnvironment.IsReady,
             OutputFolderName = profile.OutputFolderName,
             SubAgentKey = profile.SubAgent is { } sub ? $"{sub.Type}:{sub.AgentName}" : string.Empty,
-            ModelSkillsEnabled = AgentSettingConfig.Current.ModelSkillsEnabled,
+            ModelSkillsEnabled = modelSkillsEnabled,
+            // 清单开着时框架每轮现取，不必算更不必入账
+            BuiltInSkills = isAgentForm && !modelSkillsEnabled
+                ? string.Join('\0', SkillCatalog.Instance.AvailableBuiltIns(profile.Tools.DisabledSkills).Select(x => x.Frontmatter.Name))
+                : string.Empty,
             IsAgentForm = isAgentForm,
             GroupScene = profile.GroupScene,
             McpOnDemand = isAgentForm
@@ -240,6 +254,8 @@ public sealed record AgentAssemblyFacts
             DisabledSkills = isAgent ? string.Join('\n', config.DisabledSkills) : string.Empty,
             // 非 agent 不装配工具,归默认值免得全局开关变化引发无谓重建(与 DisabledSkills 同口径)
             ModelSkillsEnabled = isAgent && inputs.ModelSkillsEnabled,
+            // 只在清单关着时入账：开着时清单由框架每轮现取，内置技能的增减不必重建
+            BuiltInSkills = isAgent && !inputs.ModelSkillsEnabled ? inputs.BuiltInSkills : string.Empty,
             McpRevision = isAgent ? inputs.McpRevision : 0,
             DisabledMcpServers = isAgent ? string.Join('\n', config.DisabledMcpServers) : string.Empty,
             McpOnDemand = isAgent ? inputs.McpOnDemand : string.Empty,

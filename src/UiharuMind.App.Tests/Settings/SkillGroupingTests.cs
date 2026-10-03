@@ -48,6 +48,23 @@ public class SkillGroupingTests
         Assert.False(groups[0].Categories.Single().HasName); //根下技能没有分类层,不该造一个空组名
     }
 
+    /// <summary>内置技能没有目录、相对路径为空：单独成组排在本地技能之后，不混进本地技能</summary>
+    [Fact]
+    public void Build_GivesBuiltInSkillsTheirOwnGroupAfterLocal()
+    {
+        List<SkillGroupItem> groups = SkillGrouping.Build([
+            Entry("pack/skills/misc/one"),
+            new SkillCatalogEntry { Name = "uiharu-guide", IsBuiltIn = true },
+            Entry("my-own-skill"),
+        ]);
+
+        Assert.True(groups[0].IsLocal);
+        Assert.Equal(["my-own-skill"], groups[0].Categories.Single().Skills.Select(x => x.Name));
+        Assert.Equal(["uiharu-guide"], groups[1].Categories.Single().Skills.Select(x => x.Name));
+        Assert.False(groups[1].IsLocal);
+        Assert.Equal("pack", groups[2].Name);
+    }
+
     [Fact]
     public void Build_KeepsUncategorizedSkillsAheadOfCategories()
     {
