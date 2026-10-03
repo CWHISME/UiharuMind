@@ -3,7 +3,8 @@ using Microsoft.Extensions.AI;
 namespace UiharuMind.Core.AI.Chat.Group;
 
 /// <summary>
-/// 一位成员一轮里<b>每一次说完</b>都是一条群发言，不只最后那次。
+/// 回复就是发言的那一方（对话形态的成员、化身；ADR 0060）：一轮里<b>每一次说完</b>都是一条群发言，不只最后那次。
+/// 智能体形态的成员只经群发言工具说话，不走这里。
 ///
 /// 插话会把一轮拆成几段：模型答完一句，框架发现注入队列里有别人的新发言，接着再调一次模型——
 /// 于是一轮里有好几条「说完了」的回复，各自回应不同的人。只取最后一条的话，前面几条
@@ -12,12 +13,6 @@ namespace UiharuMind.Core.AI.Chat.Group;
 /// 判据：助手消息有正文、且不带工具调用（带工具调用的是边做边说的旁白，这一步还没说完）。
 /// 每次服务调用落盘即扫一遍，说完立刻进群、立刻广播给还在跑的人；一轮收尾再补扫一遍，兜住没走落盘通知的跑法。
 /// 进了群的那条盖上进群标记，他自己的会话里据此挂「已发到群」
-///
-/// <b>不再按「本轮发过群就不贴正文」收口</b>：一条正文不带工具调用的消息按定义不可能自己带
-/// <c>SendMessage</c>，所以跨消息去判「同一句话重复贴」永远判不中同义，只判得中「这一轮前面发过群」——
-/// 于是一轮里只要中途发过一次群，本轮第一个（常常也是唯一一个）说完必被吞掉，而那通常正是结论
-/// （实测：智能体成员发了两次群、中间跑完四分钟压测，末尾那条判决书群里一个字没见着）。
-/// 「不重复贴」由结构本身保证：带 <c>SendMessage</c> 的那条永远不算「说完」，永远不贴。
 /// </summary>
 internal sealed class GroupMemberReplyFeed : IDisposable
 {
@@ -32,7 +27,7 @@ internal sealed class GroupMemberReplyFeed : IDisposable
     /// 开始盯一位成员的这一轮
     /// </summary>
     /// <param name="member">成员会话</param>
-    /// <param name="post">把一段正文记成群发言（剥前缀、追加、广播）；没记为 null。
+    /// <param name="post">把一段正文记成群发言（剥前缀、追加、广播）；没记（含不接话）为 null。
     /// 第二个参数是成员那条消息的时间，群里沿用它——同一句话两边是同一时刻</param>
     public GroupMemberReplyFeed(ChatSession member, Func<string, DateTimeOffset?, Task?> post)
     {
@@ -78,9 +73,6 @@ internal sealed class GroupMemberReplyFeed : IDisposable
             {
                 if (!IsFinishedReply(history[_scanned], out string text)) continue;
 
-                // 回「[跳过]」就是这次不接话：不进群，也就不广播、不叫醒谁
-                string own = GroupTranscript.StripSpeakerPrefix(text, GroupSceneSource.SpeakerNameOf(_member));
-                if (GroupTranscript.IsPass(own)) continue;
                 if (_post(text, history[_scanned].CreatedAt) is not { } posted) continue;
 
                 _posted.Add(posted);

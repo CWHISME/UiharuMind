@@ -34,6 +34,7 @@ public sealed class LiveTurnStream
     private readonly List<AIContent> _pending = new(); //本轮已产出、尚未落盘的那一段
     private ITurnSink? _primary; //本轮的驱动落点(没有观察者时它就是全部)
     private bool _turnRunning;
+    private bool _persistedAhead; //落盘信号已到、流里还没走到它的边界:其间交来的都是已落盘那次调用的尾巴
     private Scope? _currentScope; //当前这一轮的作用域。重叠时靠它认领,免得先结束的那一轮拆掉后开的
 
     /// <summary>
@@ -107,6 +108,7 @@ public sealed class LiveTurnStream
             _currentScope = scope;
             _primary = primary;
             _pending.Clear();
+            _persistedAhead = false;
             _turnRunning = true;
         }
 
@@ -114,13 +116,21 @@ public sealed class LiveTurnStream
     }
 
     /// <summary>
-    /// 历史已落盘到此为止。<b>待补发的那一段就此清空</b>——它的定义正是「已产出但历史里还没有」，
+    /// 一次服务调用已落盘。<b>待补发的那一段就此清空</b>——它的定义正是「已产出但历史里还没有」，
     /// 落了盘的部分中途挂上来的观察者从历史读得到，留着只会让它渲染两遍。
     /// 顺带把本轮缓冲的内存钉在一次服务调用的量级上。
+    ///
+    /// 这个信号与内容流<b>不同序</b>：框架在泵线程上交出这次调用的最后一块就落盘，那一块经通道到岔口要晚一拍
+    /// （并行工具调用正是 OpenAI 兼容流的最后一块）。所以清空之后、流里走到这次调用的消息边界之前，
+    /// 交来的内容也已在历史里，不入缓冲（实测：中途打开群成员窗口，同一组工具卡画两遍，转圈的那组轮末被标成「已停止」）
     /// </summary>
     public void NoteHistoryPersisted()
     {
-        lock (_gate) _pending.Clear();
+        lock (_gate)
+        {
+            _pending.Clear();
+            _persistedAhead = true;
+        }
     }
 
     private bool IsSelf(Observer observer) => _primary != null && ReferenceEquals(_primary, observer.Identity);
@@ -164,7 +174,12 @@ public sealed class LiveTurnStream
         public void Apply(AIContent content)
         {
             //先入缓冲再取快照:此刻挂上来的观察者要么收到补发、要么落进这份快照,不会既漏又重
-            lock (_owner._gate) _owner._pending.Add(content);
+            lock (_owner._gate)
+            {
+                // 边界之后流出来的才属于还没落盘的下一次调用
+                if (content is MessageBoundaryContent) _owner._persistedAhead = false;
+                else if (!_owner._persistedAhead) _owner._pending.Add(content);
+            }
 
             (ITurnSink? primary, Observer[] observers) = _owner.Snapshot();
             primary?.Apply(content);

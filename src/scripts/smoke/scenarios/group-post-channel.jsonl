@@ -1,0 +1,8 @@
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"group.create","args":{"name":"发言通道冒烟","members":["KiritoAgent","GokouRuriAgent","ShiinaMashiroAgent","KousakaKirinoAgent"],"models":["Deepseek-V4-Flash-B","Deepseek-V4-Flash-B","Agnes-3.0-Flash","Agnes-3.0-Flash"],"workspace":"{{WS_REPO}}","mode":"parallel","stop":"aggressive","permission":2}}
+{"op":"group.post","args":{"group":"发言通道冒烟","text":"读一下 AGENTS.md 和 README.md，每人挑一处你觉得新人最容易读不懂的地方：先说你看哪一块，别和别人撞，看完说结论和怎么改。只讨论，不改文件。"}}
+{"op":"group.wait","args":{"groups":["发言通道冒烟"],"timeoutMinutes":15,"approvals":"once"}}
+{"op":"group.post","args":{"group":"发言通道冒烟","text":"@桐人 你那条和别人的比，哪条最该先改？一句话。"}}
+{"op":"group.wait","args":{"groups":["发言通道冒烟"],"timeoutMinutes":10,"approvals":"once"}}
+{"op":"group.dump","args":{"group":"发言通道冒烟","path":"{{OUT}}/group.md"}}
+{"op":"quit"}

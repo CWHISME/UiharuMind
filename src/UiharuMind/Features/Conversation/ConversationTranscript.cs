@@ -156,6 +156,9 @@ public sealed class ConversationTranscript : ITurnSink
                     break;
                 }
 
+                // CallId 唯一：已有这张卡（观察中途挂上来，历史回放已画过）就不再画第二张，结果照常回写到它上面
+                if (!string.IsNullOrEmpty(call.CallId) && FindCall(call.CallId) != null) break;
+
                 _target.Add(new ToolCallItem
                 {
                     CallId = call.CallId,

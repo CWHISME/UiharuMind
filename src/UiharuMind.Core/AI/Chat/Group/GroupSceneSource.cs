@@ -53,13 +53,20 @@ public static class GroupSceneSource
         string? hostName = group.GroupHostSessionId == member.SessionId
             ? self.CharacterName
             : group.GroupHostSessionId is { } hostId ? memberOf(hostId)?.Character.CharacterName : null;
-        // 群发言工具随 agent 形态必挂（AgentAssembler），看会话形态而非卡身份（ADR 0050）：chat 形态的 agent 卡不装工具
-        bool agentForm = member.IsAgentForm is true;
+        bool agentForm = PostsThroughTool(member);
         // 与装配给不给草稿目录段同一判据（AgentAssemblyFacts.OutputFolderName）
         bool sharesDraftRoom = agentForm && (self.Tools.EnableFileAccess || self.Tools.EnableShellExecution);
         return GroupTranscript.BuildScene(new GroupScene(group.Title, self.CharacterName, others, userName,
             agentForm, hostName, sharesDraftRoom));
     }
+
+    /// <summary>
+    /// 这位成员是不是经群发言工具说话（ADR 0060）：群发言工具随 agent 形态必挂（AgentAssembler），
+    /// 看会话形态而非卡身份（ADR 0050）——chat 形态的 agent 卡不装工具，回复正文就是发言
+    /// </summary>
+    /// <param name="member">成员会话</param>
+    /// <returns>是为 true</returns>
+    public static bool PostsThroughTool(ChatSession member) => member.IsAgentForm is true;
 
     // 化身不在名单里：在场的成员全列，「你是谁」换成「替用户坐着」
     private static string ForAvatar(ChatSession avatar, ChatSession group, Func<string, GroupRosterMember?> memberOf,

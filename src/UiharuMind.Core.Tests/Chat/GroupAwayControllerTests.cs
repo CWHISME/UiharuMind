@@ -90,7 +90,7 @@ public class GroupAwayControllerTests
     [Fact]
     public async Task Silence_BacksOffDoubling_AndTellsTheAvatarNextTime()
     {
-        _runner.Replies[_avatar.SessionId] = _ => GroupTranscript.PassReply;
+        _runner.Replies[_avatar.SessionId] = _ => ""; //没写正文
 
         _away.Start(_group, "目标", null);
         await Until(() => _delays.Count == 1);
@@ -112,7 +112,7 @@ public class GroupAwayControllerTests
     public async Task Mandate_RidesEveryAvatarTurn_ButNeverReachesTheGroup()
     {
         const string mandate = "原语级改动可以替我拍";
-        _runner.Replies[_avatar.SessionId] = _ => GroupTranscript.PassReply;
+        _runner.Replies[_avatar.SessionId] = _ => ""; //没写正文
 
         _away.Start(_group, "目标", null, mandate);
         await Until(() => _delays.Count == 1);
@@ -156,7 +156,7 @@ public class GroupAwayControllerTests
         Assert.Equal(0, AvatarCalls());
 
         _runner.During.Remove(_alice.SessionId);
-        _runner.Replies[_avatar.SessionId] = _ => GroupTranscript.PassReply;
+        _runner.Replies[_avatar.SessionId] = _ => ""; //没写正文
         _delays[0].Due.SetResult();
         await Until(() => AvatarCalls() == 1);
         Assert.EndsWith(GroupAvatarTranscript.StoppedNote(CharacterManager.Instance.UserCharacterName), LastAvatarInput());
@@ -178,7 +178,7 @@ public class GroupAwayControllerTests
     [Fact]
     public async Task Overtime_BlowsTheDurationFuseAtTheNextWake()
     {
-        _runner.Replies[_avatar.SessionId] = _ => GroupTranscript.PassReply;
+        _runner.Replies[_avatar.SessionId] = _ => ""; //没写正文
         _away.Start(_group, "目标", null);
         await Until(() => _delays.Count == 1);
 
@@ -193,7 +193,7 @@ public class GroupAwayControllerTests
     [Fact]
     public async Task ManualEnd_CancelsThePendingWake()
     {
-        _runner.Replies[_avatar.SessionId] = _ => GroupTranscript.PassReply;
+        _runner.Replies[_avatar.SessionId] = _ => ""; //没写正文
         _away.Start(_group, "目标", null);
         await Until(() => _delays.Count == 1);
 
@@ -208,7 +208,7 @@ public class GroupAwayControllerTests
     [Fact]
     public async Task UserPost_CancelsTheCountdown_AndHisWaveWakesTheAvatar()
     {
-        _runner.Replies[_avatar.SessionId] = _ => GroupTranscript.PassReply;
+        _runner.Replies[_avatar.SessionId] = _ => ""; //没写正文
         _away.Start(_group, "目标", null);
         await Until(() => _delays.Count == 1);
 
@@ -262,7 +262,7 @@ public class GroupAwayControllerTests
     {
         Assert.Null(_away.ApprovalsFor(_alice, CancellationToken.None));
 
-        _runner.Replies[_avatar.SessionId] = _ => GroupTranscript.PassReply;
+        _runner.Replies[_avatar.SessionId] = _ => ""; //没写正文
         _away.Start(_group, "目标", null);
         Assert.NotNull(_away.ApprovalsFor(_alice, CancellationToken.None));
         Assert.NotNull(_away.ApprovalsFor(_avatar, CancellationToken.None));

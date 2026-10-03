@@ -107,6 +107,7 @@ public class LiveTurnStreamTests
         using LiveTurnStream.Scope scope = stream.BeginTurn(new RecordingSink());
         scope.Sink.Apply(new TextContent("已落盘"));
         stream.NoteHistoryPersisted();
+        scope.Sink.Apply(MessageBoundaryContent.Instance); //落盘回调写进流里的边界
         scope.Sink.Apply(new TextContent("还没落盘"));
 
         RecordingSink latecomer = new();

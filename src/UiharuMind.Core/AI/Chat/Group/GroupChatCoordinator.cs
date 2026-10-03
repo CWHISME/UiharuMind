@@ -1,4 +1,5 @@
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Chat.Group;
@@ -176,7 +177,7 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
     }
 
     /// <summary>
-    /// 成员自己用 SendMessage 往群里发一句（0046 决策 4）。调用方不是群成员时返回 false，交回委派那条路
+    /// 智能体形态的成员经群发言工具说一句：这是它在群里唯一的发言通道（ADR 0060）。调用方不是群成员时返回 false
     /// </summary>
     /// <param name="memberSessionId">发言人的会话标识</param>
     /// <param name="content">发言</param>
@@ -239,15 +240,21 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
             SpeakerChanged?.Invoke(group.SessionId);
 
             string input = ComposeInput(member, cause, delivery!);
-            // 插话会让一轮说好几次话，每次说完都进群，而不是只取最后一条
-            using GroupMemberReplyFeed replies = new(member, (text, at) => PostFromMember(group, member, text, at));
+            // 一种形态一条发言通道（ADR 0060）：智能体形态只经群发言工具，回复留在他自己那里；
+            // 对话形态的回复就是发言——插话会让一轮说好几次话，每次说完都进群，而不是只取最后一条
+            bool postsThroughTool = GroupSceneSource.PostsThroughTool(member);
+            int replyStart = member.History.Count;
+            using GroupMemberReplyFeed? replies = postsThroughTool
+                ? null
+                : new GroupMemberReplyFeed(member, (text, at) => PostReply(group, member, text, at));
             // 图的路径引用在正文里，看不了图的成员靠它用识图工具；看得了的直接给图
             ChatMessage deliveryMessage = GroupTranscript.DeliveryMessage(input, _seesImages(member) ? images : []);
             // 并行里说完即封口：别人的话不再让他续说一句，要不要再开口交给唤醒边界（ADR 0049 修订）。
             // 串行不封：本来人人轮到，没有谁一直被续着说
             Func<Task>? seal = run.Mode == EGroupScheduleMode.Parallel ? () => turn.SealAsync(_runner) : null;
             bool completed = await RunTurnAsync(member, deliveryMessage, seal, run.Token);
-            replies.Finish(completed);
+            replies?.Finish(completed);
+            if (postsThroughTool && completed) NoteUnpostedReply(member, replyStart);
             if (!completed)
             {
                 lock (_locker) _interrupted.Add(member.SessionId);
@@ -259,7 +266,7 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
             member.SaveMeta(touchUpdatedAt: false);
 
             if (run.End(member.SessionId)) SpeakerChanged?.Invoke(group.SessionId);
-            await replies.WhenPostedAsync();
+            if (replies != null) await replies.WhenPostedAsync();
 
             // 失败或被停：已经说完的几段照常算，没说完的半截留在他自己的会话里
             return new GroupTurnOutcome(completed, consumedNow);
@@ -358,8 +365,9 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
     // 场景与规矩在系统提示里（ADR 0048，见 GroupSceneSource），投递只带这一刻才成立的东西
     private string ComposeInput(ChatSession member, EGroupWakeCause cause, string delivery)
     {
+        bool postsThroughTool = GroupSceneSource.PostsThroughTool(member);
         string input = delivery + "\n\n" + GroupTranscript.VoiceReminder(member.CharacterData.GetPersonaCoda());
-        if (cause == EGroupWakeCause.CatchUp) input += "\n\n" + GroupTranscript.CatchUpHint;
+        if (cause == EGroupWakeCause.CatchUp) input += "\n\n" + GroupTranscript.CatchUpHint(postsThroughTool);
         return input;
     }
 
@@ -393,8 +401,7 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
     private Task? PostFromMember(ChatSession group, ChatSession member, string text,
         DateTimeOffset? createdAt = null)
     {
-        string body = GroupTranscript.StripLeadingPass(
-            GroupTranscript.StripSpeakerPrefix(text.Trim(), member.CharacterData.CharacterName));
+        string body = GroupTranscript.StripSpeakerPrefix(text.Trim(), member.CharacterData.CharacterName);
         if (string.IsNullOrWhiteSpace(body)) return null;
 
         ChatMessage post = group.CreateMessage(ChatRole.Assistant, body, createdAt: createdAt);
@@ -405,6 +412,25 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
         return EpisodeOf(group.SessionId) is { } episode
             ? OnAppendedAsync(episode, post, index, member.SessionId)
             : Task.CompletedTask;
+    }
+
+    // 对话形态成员说完的一段：回「[沉默]」就是这次不接话，不进群，也就不广播、不叫醒谁
+    private Task? PostReply(ChatSession group, ChatSession member, string text, DateTimeOffset? createdAt)
+    {
+        string own = GroupTranscript.StripSpeakerPrefix(text, GroupSceneSource.SpeakerNameOf(member));
+        return GroupTranscript.IsPass(own) ? null : PostFromMember(group, member, text, createdAt);
+    }
+
+    // 智能体形态一轮跑完、一次没调群发言工具却留了回复正文：可能是不接话时顺手写的，也可能是忘了调工具。
+    // 不替他发（那就回到两条通道），记一笔，查会话时对得上
+    private static void NoteUnpostedReply(ChatSession member, int replyStart)
+    {
+        List<ChatMessage> turn = member.History.Skip(replyStart).Where(x => x.Role == ChatRole.Assistant).ToList();
+        if (turn.SelectMany(x => x.Contents).OfType<FunctionCallContent>().Any(x => x.Name == GroupPostTool.ToolName)) return;
+        if (turn.LastOrDefault() is not { } last || string.IsNullOrWhiteSpace(last.Text)) return;
+
+        Log.Debug($"Group member '{member.Title}' ({member.SessionId}) ended a turn without {GroupPostTool.ToolName}; " +
+                 $"its reply stays in its own session ({last.Text.Trim().Length} chars).");
     }
 
     // 返回这一波接没接住：已收场的波接不住，用户发言由调用方另开一波；成员发言照旧只落盘（没有波时也是如此）
@@ -430,7 +456,7 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
         string body = GroupTranscript.StripSpeakerPrefix(post.Text.Trim(), post.AuthorName);
         if (body.Length == 0) return;
 
-        string text = GroupTranscript.FormatPost(post.AuthorName, body);
+        string text = GroupTranscript.FormatInjection(post.AuthorName, body);
         foreach (GroupMemberTurnState turn in episode.Run.Turns)
         {
             // 发言不回投给发送者本人。其余在跑的人都插：他们要看得到同伴实时说了什么（ADR 0049 第 12 条已撤）。

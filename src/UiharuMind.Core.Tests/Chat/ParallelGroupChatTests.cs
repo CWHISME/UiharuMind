@@ -178,8 +178,8 @@ public class ParallelGroupChatTests
         Assert.Equal([_alice.SessionId], _coordinator.SpeakersOf(_group.SessionId)); //Bob、Carol 已说完，Alice 还在说
         // 广播在线程池上排队做，等它到了再看
         await WaitUntil(() => _runner.Injected.Count(x => x.Member == _alice) >= 2);
-        Assert.Contains(_runner.Injected, x => x.Member == _alice && x.Text == "[Bob]: Bob 的第 1 次发言");
-        Assert.Contains(_runner.Injected, x => x.Member == _alice && x.Text == "[Carol]: Carol 的第 1 次发言");
+        Assert.Contains(_runner.Injected, x => x.Member == _alice && x.Text == GroupTranscript.FormatInjection("Bob", "Bob 的第 1 次发言"));
+        Assert.Contains(_runner.Injected, x => x.Member == _alice && x.Text == GroupTranscript.FormatInjection("Carol", "Carol 的第 1 次发言"));
         Assert.DoesNotContain(_runner.Injected, x => x.Member == _carol); //Bob 说时 Carol 还没开口：随投递拿到，不插
         Assert.Contains("[Bob]: Bob 的第 1 次发言", _runner.Calls.Single(x => x.Member == _carol).Input);
 
@@ -227,7 +227,7 @@ public class ParallelGroupChatTests
         aliceGate.SetResult();
         await posting;
 
-        Assert.Contains(_runner.Injected, x => x.Member == _alice && x.Text == "[Bob]: @Alice 你怎么看");
+        Assert.Contains(_runner.Injected, x => x.Member == _alice && x.Text == GroupTranscript.FormatInjection("Bob", "@Alice 你怎么看"));
         Assert.Equal(1, _runner.CallsOf(_carol)); //Alice 被 Bob 点到之后的 @Carol 不再叫醒她
     }
 
@@ -415,7 +415,7 @@ public class ParallelGroupChatTests
         await _coordinator.PostAsync(_group, "大家好");
 
         List<(ChatSession Member, string Input)> catchUps =
-            _runner.Calls.Where(x => x.Input.Contains(GroupTranscript.CatchUpHint)).ToList();
+            _runner.Calls.Where(x => x.Input.Contains(GroupTranscript.CatchUpHint(false))).ToList();
         Assert.NotEmpty(catchUps);
         Assert.All(catchUps, x => Assert.Equal(2, _runner.CallsOf(x.Member)));
         Assert.All(new[] { _alice, _bob, _carol }, x => Assert.True(_runner.CallsOf(x) <= 2));
@@ -427,7 +427,7 @@ public class ParallelGroupChatTests
     {
         await _coordinator.PostAsync(_group, "大家好");
 
-        Assert.DoesNotContain(_runner.Calls, x => x.Input.Contains(GroupTranscript.CatchUpHint));
+        Assert.DoesNotContain(_runner.Calls, x => x.Input.Contains(GroupTranscript.CatchUpHint(false)));
     }
 
     /// <summary>这一波没跑成的（这里是失败）不被补位自动重跑：失败多半还会再失败，交给「继续」</summary>

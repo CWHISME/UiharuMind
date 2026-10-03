@@ -67,8 +67,8 @@ public class GroupAvatarTests
         string? toAvatar = GroupTranscript.BuildDelivery([byAvatar, reply], 0, "avatar");
         string? toAlice = GroupTranscript.BuildDelivery([byAvatar, reply], 0, "alice-session");
 
-        Assert.Equal("[Alice]: 好，我来改", toAvatar);
-        Assert.Equal("[黑猫]: 就用方案 A", toAlice); //成员看到的就是用户说的
+        Assert.Equal(GroupTranscript.FeedHeader + "[Alice]: 好，我来改", toAvatar);
+        Assert.Equal(GroupTranscript.FeedHeader + "[黑猫]: 就用方案 A", toAlice); //成员看到的就是用户说的
     }
 
     [Fact]

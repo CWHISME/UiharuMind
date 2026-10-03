@@ -13,7 +13,7 @@ public enum EGroupAvatarTurnResult
     /// <summary>调了结束离席</summary>
     Ended,
 
-    /// <summary>没给出下文：沉默、空回复、撞轮数上限、或只是嘴上收住</summary>
+    /// <summary>没给出下文：没写正文、撞轮数上限</summary>
     Silent,
 
     /// <summary>出错</summary>

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
@@ -33,7 +34,20 @@ public class GroupSceneTests
         Assert.DoesNotContain("主持人", scene);
         Assert.DoesNotContain(GroupPostTool.ToolName, scene); //没这个工具就不提
         Assert.DoesNotContain("一轮怎么算", scene); //普通形态没工具，「过程话、查完再说」都无从谈起
-        Assert.Contains("一次两三句", scene);
+        Assert.Contains("不写成报告", scene);
+    }
+
+    /// <summary>一种形态一条发言通道（ADR 0060）：智能体形态只听到工具那条，对话形态只听到回复那条</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Scene_DescribesOnlyTheChannelThisFormSpeaksThrough(bool postsThroughTool)
+    {
+        string scene = GroupTranscript.BuildScene(new GroupScene("会审", "Alice", [new GroupMemberPresence("Bob", "")], "我", postsThroughTool, null));
+
+        Assert.Equal(postsThroughTool, scene.Contains("否则你的只是在自言自语"));
+        Assert.Equal(!postsThroughTool, scene.Contains(GroupTranscript.PassReply));
+        Assert.Equal(!postsThroughTool, scene.Contains("你每次说完的正文就是你在群里说的话"));
     }
 
     [Theory]
@@ -45,7 +59,6 @@ public class GroupSceneTests
 
         Assert.Contains(expected, scene);
         Assert.Contains(GroupPostTool.ToolName, scene);
-        Assert.Contains("一轮怎么算", scene);
         if (host == "Alice")
             Assert.Contains("点完名这一轮就结束", scene); //主持人自己的收尾与查资料规矩只在场景段讲，不再随投递插一句
     }
@@ -58,7 +71,6 @@ public class GroupSceneTests
         string scene = GroupTranscript.BuildScene(new GroupScene("会审", "Alice", [new GroupMemberPresence("Bob", "")], "我", false, null, shares));
 
         Assert.Equal(shares, scene.Contains("草稿目录是全群共用的"));
-        Assert.Equal(shares, scene.Contains("方案由用户拍板")); //动得了工作区的人才需要这条
         Assert.Equal(shares, scene.Contains("写成草稿目录里的文件")); //长材料有地方放，才让他挪出去
     }
 
@@ -70,7 +82,7 @@ public class GroupSceneTests
     {
         string scene = GroupTranscript.BuildScene(new GroupScene("会审", "Alice", [new GroupMemberPresence("Bob", "")], "我", canPost, null, shares));
 
-        Assert.Equal(expected, scene.Contains("动手前先认领"));
+        Assert.Equal(expected, scene.Contains("没点名谁做时，先调用"));
     }
 
     /// <summary>群成员的产出落群壳那一间：一起干的活在一处，不必从各人目录里拼</summary>
@@ -216,9 +228,11 @@ public class GroupSceneTests
 
         await using AgentHandle handle = AgentAssembler.Assemble(plan);
 
-        List<string> tools = handle.ChatOptions?.Tools?.Select(x => x.Name).ToList() ?? [];
-        Assert.Equal(isMember, tools.Contains(GroupPostTool.ToolName));
-        Assert.Equal(!isMember, tools.Contains(SubAgentTool.ToolName));
+        // 群发言工具与委派同名（SendMessage），按参数认：委派要填收件人 to，群发言只收正文
+        List<AIFunction> tools = handle.ChatOptions?.Tools?.OfType<AIFunction>().ToList() ?? [];
+        bool Delegates(AIFunction x) => x.JsonSchema.GetRawText().Contains("\"to\"");
+        Assert.Equal(isMember, tools.Any(x => x.Name == GroupPostTool.ToolName && !Delegates(x)));
+        Assert.Equal(!isMember, tools.Any(x => x.Name == SubAgentTool.ToolName && Delegates(x)));
         Assert.True(character.Tools.EnableSubAgent); //只是这次装配不给，角色卡本身不改
         Assert.Equal(!isMember, AgentAssemblyFacts.Capture(character,
             new AgentAssemblyInputs

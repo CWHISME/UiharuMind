@@ -59,7 +59,7 @@ public class GroupChatCoordinatorTests
         Assert.Contains("[Bob]: Bob 的第 1 次发言", aliceInput);
         Assert.DoesNotContain("大家好", aliceInput);
         Assert.DoesNotContain("[Alice]", aliceInput);
-        Assert.StartsWith("[Alice]: Alice 的第 2 次发言\n\n" + GroupTranscript.VoiceReminderOpening, _runner.Calls[1].Input);
+        Assert.StartsWith(GroupTranscript.FeedHeader + "[Alice]: Alice 的第 2 次发言\n\n" + GroupTranscript.VoiceReminderOpening, _runner.Calls[1].Input);
     }
 
     /// <summary>
@@ -97,7 +97,7 @@ public class GroupChatCoordinatorTests
 
         (ChatSession member, string input) = Assert.Single(_runner.Calls);
         Assert.Same(_alice, member);
-        Assert.StartsWith("后台任务跑完了\n\n[Bob]: 我先说一句", input);
+        Assert.StartsWith("后台任务跑完了\n\n" + GroupTranscript.FeedHeader + "[Bob]: 我先说一句", input);
         Assert.Equal(_alice.SessionId, ChatMessageAnnotations.GroupSpeakerSessionOf(_group.History[^1]));
 
         _runner.ClearCalls();
@@ -169,9 +169,9 @@ public class GroupChatCoordinatorTests
     }
 
     [Theory]
-    [InlineData("你是Alice。", "（说话前记着：你是Alice。群里照你自己的说话方式说，平常两三句。）")]
-    [InlineData("你是Alice，爱查证", "（说话前记着：你是Alice，爱查证。群里照你自己的说话方式说，平常两三句。）")]
-    [InlineData("", "（说话前记着：群里照你自己的说话方式说，平常两三句。）")]
+    [InlineData("你是Alice。", "（说话前记着：你是Alice。群里照你自己的说话方式说。）")]
+    [InlineData("你是Alice，爱查证", "（说话前记着：你是Alice，爱查证。群里照你自己的说话方式说。）")]
+    [InlineData("", "（说话前记着：群里照你自己的说话方式说。）")]
     public void VoiceReminder_JoinsTheAnchorAndTheGroupScale(string coda, string expected)
     {
         Assert.Equal(expected, GroupTranscript.VoiceReminder(coda));
@@ -203,7 +203,7 @@ public class GroupChatCoordinatorTests
         await _coordinator.PostAsync(_group, "大家好");
 
         Assert.DoesNotContain("群聊「会审」", _runner.Calls[0].Input);
-        Assert.StartsWith("[黑猫]: 大家好\n\n" + GroupTranscript.VoiceReminderOpening, _runner.Calls[0].Input);
+        Assert.StartsWith(GroupTranscript.FeedHeader + "[黑猫]: 大家好\n\n" + GroupTranscript.VoiceReminderOpening, _runner.Calls[0].Input);
     }
 
     /// <summary>
@@ -375,24 +375,54 @@ public class GroupChatCoordinatorTests
         Assert.Equal(expected, GroupTranscript.StripMemberPrefix(body, speaker, userName));
     }
 
-    /// <summary>实测：OP-01 回了「[沉默] 白露和晨曦把主线说完了……」，整条连着「[沉默]」进了群</summary>
+    /// <summary>智能体形态只经群发言工具说话（ADR 0060）：回复正文留在他自己那里</summary>
     [Fact]
-    public void TryPostFromMember_StripsLeadingPassMarkerWhenMoreFollows()
+    public async Task AgentFormMember_SpeaksOnlyThroughTheTool()
     {
-        Assert.True(_coordinator.TryPostFromMember(_alice.SessionId, "[沉默] 我补一个分叉点"));
+        _alice.IsAgentForm = true;
+        _runner.During[_alice.SessionId] = () =>
+        {
+            Assert.True(_coordinator.TryPostFromMember(_alice.SessionId, "我接第一块"));
+            return Task.CompletedTask;
+        };
 
-        ChatMessage post = Assert.Single(_group.History);
-        Assert.Equal("我补一个分叉点", post.Text);
+        await _coordinator.PostAsync(_group, "开工");
+
+        Assert.Equal(["开工", "我接第一块", "Bob 的第 1 次发言"], _group.History.Select(x => x.Text));
+        Assert.Equal("Alice 的第 1 次发言", _alice.History[^1].Text); //回复还在她自己的会话里
     }
 
-    [Theory]
-    [InlineData("[沉默] 我补一句", "我补一句")]
-    [InlineData("【沉默】\n我补一句", "我补一句")]
-    [InlineData("[沉默]", "[沉默]")] //只有沉默：留给 IsPass 判，不在这里剥空
-    [InlineData("沉默是金", "沉默是金")] //不带括号的不剥：正文可能就这么开头
-    public void StripLeadingPass_KeepsWhatFollows(string body, string expected)
+    /// <summary>智能体形态不调工具就是不接话：不用「[沉默]」，回复写了什么也不进群</summary>
+    [Fact]
+    public async Task AgentFormMember_WithoutToolCall_SaysNothingInTheGroup()
     {
-        Assert.Equal(expected, GroupTranscript.StripLeadingPass(body));
+        _alice.IsAgentForm = true;
+
+        await _coordinator.PostAsync(_group, "开工");
+
+        Assert.Equal(["开工", "Bob 的第 1 次发言"], _group.History.Select(x => x.Text));
+    }
+
+    /// <summary>对话形态的回复就是发言，「[沉默]」是它唯一的不接话写法</summary>
+    [Fact]
+    public async Task ChatFormMember_PassReply_IsNotPosted()
+    {
+        _runner.Replies[_alice.SessionId] = _ => GroupTranscript.PassReply;
+
+        await _coordinator.PostAsync(_group, "开工");
+
+        Assert.Equal(["开工", "Bob 的第 1 次发言"], _group.History.Select(x => x.Text));
+    }
+
+    [Fact]
+    public async Task GroupPostTool_RefusesAPassMarker()
+    {
+        AIFunction tool = (AIFunction)UiharuMind.Core.AI.Execution.Tools.GroupPostTool.Create(_alice.SessionId);
+
+        object? result = await tool.InvokeAsync(new AIFunctionArguments { ["content"] = "[沉默]" },
+            TestContext.Current.CancellationToken);
+
+        Assert.StartsWith("Error: not posted. To stay silent", result?.ToString());
     }
 
     [Fact]
@@ -476,7 +506,7 @@ public class GroupChatCoordinatorTests
         string? delivery = GroupTranscript.BuildDelivery([dirty], 0, _bob.SessionId);
 
         //剥掉脏前缀再按投递格式重包，仍是单层 [Alice]:；若不剥，这里会是 [Alice]: [Alice]: 旧脏数据
-        Assert.Equal("[Alice]: 旧脏数据", delivery);
+        Assert.Equal(GroupTranscript.FeedHeader + "[Alice]: 旧脏数据", delivery);
     }
 
     [Fact]
@@ -681,11 +711,23 @@ public class GroupChatCoordinatorTests
     public void SplitDelivery_HidesTheCatchUpHintWithTheReminder()
     {
         string delivery = "[Bob]: 嗯。\n\n" + GroupTranscript.VoiceReminder("你是Carol。") + "\n\n"
-                          + GroupTranscript.CatchUpHint;
+                          + GroupTranscript.CatchUpHint(false);
 
         IReadOnlyList<GroupDeliverySegment> segments = GroupTranscript.SplitDelivery(delivery, ["Bob"]);
 
         Assert.Equal([new GroupDeliverySegment("Bob", "嗯。")], segments);
+    }
+
+    /// <summary>打头那行是说给模型的（这是群里的话，不是单独发给他的）：投递与插话都不画它</summary>
+    [Fact]
+    public void FeedHeader_IsNotRendered()
+    {
+        string delivery = GroupTranscript.FeedHeader + "[Alice]: 第一行\n\n[Bob]: 嗯。";
+
+        Assert.Equal([new GroupDeliverySegment("Alice", "第一行"), new GroupDeliverySegment("Bob", "嗯。")],
+            GroupTranscript.SplitDelivery(delivery, ["Alice", "Bob"]));
+        Assert.Equal(new GroupDeliverySegment("Bob", "@Alice 你看"),
+            GroupTranscript.ParsePost(GroupTranscript.FormatInjection("Bob", "@Alice 你看")));
     }
 
     [Fact]

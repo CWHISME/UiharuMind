@@ -81,10 +81,22 @@ public class GroupAvatarTurnTests
         Assert.Empty(_group.History); //结束之后的话不进群
     }
 
+    /// <summary>化身没有「不接话」这回事（ADR 0060）：写了什么就以用户的名义进群，「[沉默]」也不例外</summary>
+    [Fact]
+    public async Task PassMarker_IsNotSpecialForTheAvatar()
+    {
+        _runner.Replies[_avatar.SessionId] = _ => GroupTranscript.PassReply;
+
+        GroupAvatarTurn turn = await _coordinator.RunAvatarAsync(_group, _avatar, null, CancellationToken.None);
+
+        Assert.Equal(EGroupAvatarTurnResult.Pushed, turn.Result);
+        Assert.Equal(GroupTranscript.PassReply, Assert.Single(_group.History, x => x.Role == ChatRole.User).Text);
+    }
+
     [Fact]
     public async Task Silence_IsNoProgress_AndPostsNothing()
     {
-        _runner.Replies[_avatar.SessionId] = _ => GroupTranscript.PassReply;
+        _runner.Replies[_avatar.SessionId] = _ => ""; //没写正文
 
         GroupAvatarTurn turn = await _coordinator.RunAvatarAsync(_group, _avatar, "（你上次没给出下一步。）",
             CancellationToken.None);
