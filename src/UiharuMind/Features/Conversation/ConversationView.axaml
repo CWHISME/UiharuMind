@@ -401,7 +401,7 @@
                                     <TextBlock Classes="title-tweak-sm" FontSize="11" VerticalAlignment="Center"
                                                Text="{loc:Loc BackgroundTaskRowLabel}" />
                                 </StackPanel>
-                                <TextBlock Grid.Column="1" FontSize="11" Margin="6,0"
+                                <TextBlock Grid.Column="1" Classes="title-tweak-sm" FontSize="11" Margin="6,0"
                                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                            Text="{Binding Description}" ToolTip.Tip="{Binding Command}" />
                                 <Button Grid.Column="2" Classes="Small" CornerRadius="6"
