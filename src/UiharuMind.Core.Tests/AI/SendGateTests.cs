@@ -68,6 +68,22 @@ public class SendGateTests
         Assert.Equal(TimeSpan.FromSeconds(2), pacer.Interval);
     }
 
+    /// <summary>段 23：一条请求连撞六次，间隔 1→28.8 秒。重试再撞只按当前间隔推后，不再翻倍</summary>
+    [Fact]
+    public void Pacer_RetryChainWidensOnce()
+    {
+        SendPacer pacer = new();
+
+        Assert.True(pacer.OnRateLimited(0, 10, null));
+        Assert.False(pacer.OnRateLimited(1010, 1020, null, isRetry: true));
+        Assert.False(pacer.OnRateLimited(2020, 2030, null, isRetry: true));
+
+        Assert.Equal(SendPacer.StartInterval, pacer.Interval);
+        Assert.Equal(TimeSpan.FromMilliseconds(1000), pacer.Claim(2030)); //仍按当前间隔推后
+        Assert.True(pacer.OnRateLimited(3100, 3110, null)); //别的请求头一次撞，照常翻倍
+        Assert.Equal(TimeSpan.FromSeconds(2), pacer.Interval);
+    }
+
     [Fact]
     public void Pacer_IntervalIsCapped()
     {
@@ -98,7 +114,7 @@ public class SendGateTests
         int successes = 0;
         while (!pacer.OnSuccess()) successes++;
 
-        Assert.Equal(6, successes); //1s × 0.9⁷ ≈ 0.478s，第 7 次撤闸
+        Assert.Equal(1, successes); //1s → 0.5s → 0.25s，第 2 次撤闸
         Assert.Equal(TimeSpan.Zero, pacer.Interval);
     }
 

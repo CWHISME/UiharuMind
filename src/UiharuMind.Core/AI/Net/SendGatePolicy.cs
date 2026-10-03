@@ -43,7 +43,7 @@ internal sealed class SendGatePolicy : PipelinePolicy
         _gate.WaitTurnAsync(isRetry, message.CancellationToken).GetAwaiter().GetResult();
         attempt.SentAt = _gate.Now;
         ProcessNext(message, pipeline, currentIndex);
-        Report(message, attempt);
+        Report(message, attempt, isRetry);
     }
 
     public override async ValueTask ProcessAsync(PipelineMessage message, IReadOnlyList<PipelinePolicy> pipeline,
@@ -53,7 +53,7 @@ internal sealed class SendGatePolicy : PipelinePolicy
         await _gate.WaitTurnAsync(isRetry, message.CancellationToken).ConfigureAwait(false);
         attempt.SentAt = _gate.Now;
         await ProcessNextAsync(message, pipeline, currentIndex).ConfigureAwait(false);
-        Report(message, attempt);
+        Report(message, attempt, isRetry);
     }
 
     private static Attempt Enter(PipelineMessage message, out bool isRetry)
@@ -66,13 +66,13 @@ internal sealed class SendGatePolicy : PipelinePolicy
         return created;
     }
 
-    private void Report(PipelineMessage message, Attempt attempt)
+    private void Report(PipelineMessage message, Attempt attempt, bool isRetry)
     {
         int? status = message.Response?.Status;
         if (status == RateLimitAwareRetryPolicy.RateLimitStatus)
         {
             int? seconds = RateLimitAwareRetryPolicy.ReadRetryAfterSeconds(message);
-            _gate.OnRateLimited(attempt.SentAt, seconds is > 0 ? TimeSpan.FromSeconds(seconds.Value) : null);
+            _gate.OnRateLimited(attempt.SentAt, seconds is > 0 ? TimeSpan.FromSeconds(seconds.Value) : null, isRetry);
         }
         else if (status is >= 200 and < 300)
         {

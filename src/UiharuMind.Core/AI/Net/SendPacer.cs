@@ -10,7 +10,8 @@
 namespace UiharuMind.Core.AI.Net;
 
 /// <summary>
-/// 一组请求的发送间隔：撞了 429 翻倍、成功缩短、缩到下限就撤闸（间隔归零，见 ADR 0058）。
+/// 一组请求的发送间隔：撞了 429 翻倍、成功减半、缩到下限就撤闸（间隔归零，见 ADR 0058）。
+/// 同一条请求的重试再撞不再翻倍：段 23 实测一条请求连撞六次，间隔 1→28.8 秒一路翻上去，等同单请求指数退避，却拖慢了整组。
 /// 时间一律是调用方给的毫秒刻度，不碰时钟；不加锁，由 <see cref="SendGate"/> 在自己的锁里调。
 /// </summary>
 internal sealed class SendPacer
@@ -19,7 +20,7 @@ internal sealed class SendPacer
     internal static readonly TimeSpan StartInterval = TimeSpan.FromSeconds(1);
 
     /// <summary>间隔上限</summary>
-    internal static readonly TimeSpan MaxInterval = TimeSpan.FromSeconds(30);
+    internal static readonly TimeSpan MaxInterval = TimeSpan.FromSeconds(8); //与原重试策略的退避上限一致
 
     /// <summary>缩到这个以下就撤闸</summary>
     internal static readonly TimeSpan OpenBelow = TimeSpan.FromMilliseconds(500);
@@ -28,7 +29,7 @@ internal sealed class SendPacer
     internal static readonly TimeSpan RetryAfterCap = TimeSpan.FromSeconds(60);
 
     /// <summary>每次成功间隔乘上的系数</summary>
-    internal const double SuccessFactor = 0.9;
+    internal const double SuccessFactor = 0.5; //0.9 时从 30 秒缩回撤闸要三十几次成功，一组两人要跑好几分钟
 
     private long _nextSendAt; //下一次最早可发的刻度
     private long _lastWidenedAt = long.MinValue; //上次翻倍的刻度：那之前发出的请求撞的 429 不再翻倍
@@ -51,15 +52,17 @@ internal sealed class SendPacer
     }
 
     /// <summary>
-    /// 记一次 429。并发在途的几条一起被打回只翻倍一次：只认上次翻倍之后发出去的那些
+    /// 记一次 429。并发在途的几条一起被打回只翻倍一次：只认上次翻倍之后发出去的那些；
+    /// 重试再撞也不翻倍，只按当前间隔推后
     /// </summary>
     /// <param name="sentAt">这条请求发出时的刻度</param>
     /// <param name="now">当前刻度</param>
     /// <param name="retryAfter">服务端给的等待；没有为 null</param>
+    /// <param name="isRetry">撞的这次本身是重试</param>
     /// <returns>这次翻了倍为 true</returns>
-    public bool OnRateLimited(long sentAt, long now, TimeSpan? retryAfter)
+    public bool OnRateLimited(long sentAt, long now, TimeSpan? retryAfter, bool isRetry = false)
     {
-        bool widened = sentAt >= _lastWidenedAt;
+        bool widened = !isRetry && sentAt >= _lastWidenedAt;
         if (widened)
         {
             TimeSpan doubled = Interval == TimeSpan.Zero ? StartInterval : Interval * 2;

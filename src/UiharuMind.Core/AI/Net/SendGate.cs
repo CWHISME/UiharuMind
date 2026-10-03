@@ -102,11 +102,12 @@ internal sealed class SendGate
     /// </summary>
     /// <param name="sentAt">这条请求发出时的刻度，取自 <see cref="Now"/></param>
     /// <param name="retryAfter">服务端给的等待；没有为 null</param>
-    public void OnRateLimited(long sentAt, TimeSpan? retryAfter)
+    /// <param name="isRetry">撞的这次本身是重试</param>
+    public void OnRateLimited(long sentAt, TimeSpan? retryAfter, bool isRetry = false)
     {
         lock (_sync)
         {
-            if (_pacer.OnRateLimited(sentAt, _clock(), retryAfter))
+            if (_pacer.OnRateLimited(sentAt, _clock(), retryAfter, isRetry))
                 Log.Debug($"Send gate '{_label}' rate limited, interval -> {_pacer.Interval.TotalSeconds:0.#}s.");
         }
     }
