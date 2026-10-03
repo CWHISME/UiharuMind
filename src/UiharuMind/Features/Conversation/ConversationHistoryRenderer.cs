@@ -264,8 +264,9 @@ public sealed class ConversationHistoryRenderer
 
                 // 子会话的后续报告:角色是 User(它要供给模型),但<b>不是用户说的话</b>——
                 // 画成用户气泡等于把子代理的结论安到用户头上。借旁白那套呈现:
-                // 居中、无头像无名字,表示"这条不归对话双方任何一方"
+                // 居中、无头像无名字,表示"这条不归对话双方任何一方"。后台任务的结果同理
                 case EHistoryItemKind.SubAgentReport:
+                case EHistoryItemKind.BackgroundTaskReport:
                 {
                     TextConversationItem reportItem = _itemActions.Wire(
                         ConversationItemFactory.CreateNarration(message), message);
@@ -344,9 +345,9 @@ public sealed class ConversationHistoryRenderer
     }
 
     /// <summary>
-    /// 自己那一轮正跑着的时候落的盘：本轮的东西全由实时流渲染过了，这里<b>只补后续报告</b>。
+    /// 自己那一轮正跑着的时候落的盘：本轮的东西全由实时流渲染过了，这里<b>只补后续报告与后台任务结果</b>。
     ///
-    /// 它是唯一可能在本轮进行中从别处插进来的一类——子会话交回报告要等派活者空闲
+    /// 它们是仅有的可能在本轮进行中从别处插进来的两类——都要等这个会话空闲才落盘
     /// （见 <c>SubAgentReportHandoff</c>），而「登记处已空闲」与「视图的 IsRunning 归零」
     /// 之间有一瞬的错位。整段丢掉的话那条报告就要等重开会话才看得见，用户看到的是「交回丢了」。
     /// 其余几类（检索卡、旁白、交接文档）本轮自有渲染路径，补在这里会画成两条。
@@ -355,7 +356,8 @@ public sealed class ConversationHistoryRenderer
     {
         for (int i = fromIndex; i < history.Count; i++)
         {
-            if (ConversationMessageOrigin.KindOf(history[i]) != EHistoryItemKind.SubAgentReport) continue;
+            if (ConversationMessageOrigin.KindOf(history[i]) is not (EHistoryItemKind.SubAgentReport
+                or EHistoryItemKind.BackgroundTaskReport)) continue;
             Append(history, i, i + 1, liveTail: true);
         }
     }

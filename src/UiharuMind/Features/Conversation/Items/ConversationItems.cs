@@ -486,7 +486,7 @@ public partial class ApprovalRequestItem : ConversationItemBase
         {
             ToolName = call.Name;
             ArgumentSummary = AgentContentFormatter.SummarizeArguments(call, paths?.WorkspaceRoot);
-            SuggestedCommandPattern = call.Name == CharacterRunnerFactory.ShellToolName
+            SuggestedCommandPattern = CharacterRunnerFactory.IsShellCommandTool(call.Name)
                 ? ApprovalModeMapper.DeriveCommandPattern(
                     ApprovalModeMapper.ExtractCommand(call.Arguments) ?? string.Empty)
                 : string.Empty;
@@ -816,7 +816,7 @@ public static class AgentContentFormatter
     /// <returns>图标名</returns>
     public static string GetToolIconName(string toolName)
     {
-        if (toolName == CharacterRunnerFactory.ShellToolName) return "terminal";
+        if (CharacterRunnerFactory.IsShellCommandTool(toolName)) return "terminal";
         // 曾经认的是 file_access_ 前缀(MFA 自带文件工具的命名),而我们那批工具早就自建改名了,
         // 症状是文件工具的卡片一律显示通用扳手。名字改由 FileToolNames 提供,不再各写字面量
         if (toolName == FileToolNames.Read) return "file-text";

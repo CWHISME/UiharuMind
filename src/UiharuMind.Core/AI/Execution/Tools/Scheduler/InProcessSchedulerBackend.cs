@@ -262,6 +262,7 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
             WorkspacePath = task.WorkspacePath,
             PermissionModeIndex = (int)mode,
             PreAuthorizedShellPatterns = task.PreAuthorizedCommands,
+            IsScheduledRun = true,
         };
     }
 

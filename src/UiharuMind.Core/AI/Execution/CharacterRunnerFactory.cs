@@ -42,6 +42,15 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     /// </summary>
     public const string ShellToolName = "Shell";
 
+    /// <summary>
+    /// 这个工具是不是「执行一条 shell 命令」（Shell 与后台任务）。两者参数同为 <c>command</c>，
+    /// 命令放行规则、记住同类命令与图标都按这一口径认，不各写名字比较
+    /// </summary>
+    /// <param name="toolName">工具名</param>
+    /// <returns>是则 true</returns>
+    public static bool IsShellCommandTool(string? toolName) =>
+        toolName is ShellToolName or Tools.BackgroundTasks.BackgroundTaskTool.ToolName;
+
     /// <summary>定时任务调度后端(框架无对应能力,自建保留)</summary>
     public ISchedulerBackend Scheduler { get; private set; } = null!;
 

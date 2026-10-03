@@ -329,7 +329,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     public bool IsRunningOwnWork => _turns.IsPreparing || _driver.IsRunning || IsCompacting;
 
     /// <summary>
-    /// 本会话名下还有<b>未了结的工作</b>：自己这一轮，或者名下还没交回报告的后台子代理。
+    /// 本会话名下还有<b>未了结的工作</b>：自己这一轮，或者名下还没交回报告的后台子代理、还在跑的后台任务。
     ///
     /// ⚠️ 它<b>不是</b> <see cref="IsGenerating"/>，两者不可合并（见 CONTEXT.md「未了结的工作」）。
     /// 这一个只驱动指示器；<see cref="IsGenerating"/> 还管着停止按钮与「打字走插话还是走发送」，
@@ -337,7 +337,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// 用户打的字会进注入队列，一直等到几分钟后的唤醒轮才被消费。
     /// </summary>
     public bool HasPendingWork => IsGenerating
-                                  || BackgroundSubAgentDispatcher.HasPendingWork(CurrentMeta?.SessionId);
+                                  || PendingWork.Has(CurrentMeta?.SessionId);
 
     /// <summary>输入区上方待发的插话（已入注入队列、模型还没消费）</summary>
     public InterjectionQueueViewData Interjections { get; }
@@ -446,8 +446,15 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// <summary>输入区上方的子代理状态行（等审批 / 在跑 / 压着等交回）</summary>
     public SubAgentStatusBarViewData SubAgentStatuses { get; } = new();
 
-    /// <summary>名下子代理的处境变了：状态行跟着刷。只在 UI 线程上调</summary>
-    private void NotifySubAgentStatusChanged() => SubAgentStatuses.Refresh(CurrentMeta?.SessionId);
+    /// <summary>输入区上方的后台任务行（每个在跑的任务一行，带停止）</summary>
+    public BackgroundTaskStatusBarViewData BackgroundTasks { get; } = new();
+
+    /// <summary>名下子代理或后台任务的处境变了：状态行跟着刷。只在 UI 线程上调</summary>
+    private void NotifySubAgentStatusChanged()
+    {
+        SubAgentStatuses.Refresh(CurrentMeta?.SessionId);
+        BackgroundTasks.Refresh(CurrentMeta?.SessionId);
+    }
 
     /// <summary>
     /// 本会话此刻卡在什么具名的事情上。两个来源合并成一处：整理交接文档在驱动那一层，
@@ -557,7 +564,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             OnSessionHistoryReplaced, OnObservedTurnEnded,
             new LiveObserverSink(_transcript, _approvalAdopter.AllowsObservedApproval), _transcript);
         _driver.StateChanged += OnDriverStateChanged;
-        BackgroundSubAgentDispatcher.PendingWorkChanged += OnPendingWorkChanged;
+        PendingWork.Changed += OnPendingWorkChanged;
         SessionManager.Instance.Running.StateChanged += OnSessionRunStateChanged;
         SessionManager.Instance.SessionUsageReported += OnSessionUsageReported;
 
@@ -813,7 +820,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             // 全部交回了：该到的报告都已落盘，此刻还对不上就是实时通道漏了，对一次尾部。
             // pending 判据必须在这里重读：事件来自后台线程，在外面读到的是旧值，
             // 会把「还没交完」看成「交完了」提前对一次空账。
-            if (!BackgroundSubAgentDispatcher.HasPendingWork(sessionId)) _reconciler.Reconcile("background work settled");
+            if (!PendingWork.Has(sessionId)) _reconciler.Reconcile("background work settled");
         });
     }
 
@@ -895,7 +902,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         Group?.Dispose();
         GroupMember?.Dispose();
         _driver.StateChanged -= OnDriverStateChanged;
-        BackgroundSubAgentDispatcher.PendingWorkChanged -= OnPendingWorkChanged;
+        PendingWork.Changed -= OnPendingWorkChanged;
         SessionManager.Instance.Running.StateChanged -= OnSessionRunStateChanged;
         SessionManager.Instance.SessionUsageReported -= OnSessionUsageReported;
         DetachSessionSignals();

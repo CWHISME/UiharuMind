@@ -273,8 +273,7 @@ public partial class App : Application, ILogger, IDisposable
     {
         // 唤醒轮跑的是主代理那一轮,它要动东西时该弹给正看着它的人。
         // 取不到宿主(没开着那个会话)就按无头口径拒绝,与定时任务同形
-        UiharuMind.Core.AI.Execution.Tools.BackgroundSubAgentDispatcher.WakeApprovalSource =
-            WakeApprovalHosts.Resolve;
+        UiharuMind.Core.AI.Execution.SessionWakeTurn.ApprovalSource = WakeApprovalHosts.Resolve;
         UiharuMind.Core.AI.Execution.Tools.BackgroundSubAgentDispatcher.Notifier = (notice, _) =>
         {
             if (Services?.GetService<IMessageService>() is not { } messageService) return;
@@ -343,6 +342,8 @@ public partial class App : Application, ILogger, IDisposable
         // 先给还在跑的那些轮次补上取消结果,再放执行者:反过来的话补写会撞上正在被释放的执行者。
         // 登记在运行侧,因此界面上的对话与无头的定时任务一并收尾
         UiharuMind.Core.AI.Execution.TurnDriver.SettleAllForShutdown();
+        // 轮次都收住了才写「后台任务被中止」,不会与某一轮的落盘交错
+        UiharuMind.Core.AI.Execution.Tools.BackgroundTasks.BackgroundTaskRegistry.SettleAllForShutdown();
         UiharuMind.Core.AI.Chat.SessionManager.Instance.DisposeAllRunners();
         (Services as IDisposable)?.Dispose();
         ProcessHelper.CancelAllProcesses();

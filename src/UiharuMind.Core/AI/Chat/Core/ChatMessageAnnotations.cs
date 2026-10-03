@@ -97,6 +97,13 @@ public static class ChatMessageAnnotations
     public const string SubAgentReport = "_subAgentReport";
 
     /// <summary>
+    /// 后台任务结果标记，值为任务编号。带此键的消息<b>要落盘、要供给模型</b>——
+    /// 任务结束后送回启动它的会话，形状同 <see cref="SubAgentReport"/>：一条真消息，只是渲染成卡片。
+    /// 不走注入队列的理由也同那一条。
+    /// </summary>
+    public const string BackgroundTaskReport = "_backgroundTaskReport";
+
+    /// <summary>
     /// 派活方插话标记。带此键的 user 消息是<b>派活方（主代理）</b>在子代理运行中经
     /// <c>SendMessage</c>（写子会话编号）实时插的话，不是用户在子会话窗口说的话——子代理提示词明确区分这两者。
     ///
@@ -192,6 +199,34 @@ public static class ChatMessageAnnotations
     /// <returns>带 <see cref="SubAgentReport"/> 标记时返回 True</returns>
     public static bool IsSubAgentReport(ChatMessage message) =>
         message.AdditionalProperties?.ContainsKey(SubAgentReport) == true;
+
+    /// <summary>
+    /// 判断是否为后台任务结果消息
+    /// </summary>
+    /// <param name="message">消息</param>
+    /// <returns>带 <see cref="BackgroundTaskReport"/> 标记时返回 True</returns>
+    public static bool IsBackgroundTaskReport(ChatMessage message) =>
+        message.AdditionalProperties?.ContainsKey(BackgroundTaskReport) == true;
+
+    /// <summary>
+    /// 读后台任务结果对应的任务编号。落盘往返后值会变成 <c>JsonElement</c>，一律经 <c>ToString</c>
+    /// </summary>
+    /// <param name="message">消息</param>
+    /// <returns>任务编号；不是后台任务结果时为空串</returns>
+    public static string ReadBackgroundTaskReportId(ChatMessage message)
+    {
+        if (message.AdditionalProperties?.TryGetValue(BackgroundTaskReport, out object? raw) != true) return string.Empty;
+        return raw?.ToString() ?? string.Empty;
+    }
+
+    /// <summary>
+    /// 是不是<b>交回的报告</b>（子代理后续报告、后台任务结果）：user 角色、落盘也供给模型，但不是用户的话。
+    /// 问「这条 user 消息是不是用户说的」「它是不是一张卡」时一律经它，不各自枚举标记——各写一份迟早漏一处
+    /// </summary>
+    /// <param name="message">消息</param>
+    /// <returns>是交回的报告时返回 True</returns>
+    public static bool IsHandedBackReport(ChatMessage message) =>
+        IsSubAgentReport(message) || IsBackgroundTaskReport(message);
 
     /// <summary>
     /// 读后续报告指向的子会话标识。落盘往返后值会变成 <c>JsonElement</c>，一律经 <c>ToString</c>

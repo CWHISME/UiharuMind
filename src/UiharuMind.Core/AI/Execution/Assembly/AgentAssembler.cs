@@ -16,6 +16,7 @@ using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Harness;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
 using UiharuMind.Core.AI.Execution.Tools.Memory;
 using UiharuMind.Core.AI.Execution.Tools.Scheduler;
 using UiharuMind.Core.AI.Execution.Tools.Skills;
@@ -141,7 +142,19 @@ internal static class AgentAssembler
         if (shellExecutor != null)
         {
             // 1.16:shell 作为普通工具挂载,默认名即 run_shell、默认自包审批,预授权规则按名匹配不变
-            Add(EAgentCapability.Shell, ShellExecutorFactory.CreateTool(shellExecutor));
+            // 后台任务跟 shell 同开同关(子代理不走这条装配)。群成员跑完由群调度叫他在群里开口;
+            // 化身不挂:它不在名单里,群叫不醒它,在群外起的一轮又进不了群;
+            // 定时运行不挂:一次性运行跑完就收工,不该留下活得比它久、跑完还要叫醒它的进程
+            bool backgroundTasks = !plan.Profile.IsGroupAvatar && !plan.Profile.IsScheduledRun;
+            Add(EAgentCapability.Shell, ShellExecutorFactory.CreateTool(shellExecutor, backgroundTasks));
+            if (backgroundTasks)
+            {
+                IBackgroundTaskReportSink sink = plan.Profile.IsGroupMember
+                    ? GroupMemberReportSink.Instance
+                    : SessionReportSink.Instance;
+                Add(EAgentCapability.Shell, BackgroundTaskTool.Create(plan.Profile.SessionId,
+                    CreateBackgroundTaskLaunch(plan, shellExecutor), sink));
+            }
         }
 
         // 识图工具只在当前模型自己看不了图时才挂:视觉模型直接收图,AnalyzeImage 是多余的绕路。
@@ -209,6 +222,13 @@ internal static class AgentAssembler
 
         return tools;
     }
+
+    // 与这个会话的 Shell 同一个 shell、目录与环境;日志放在草稿目录下,模型按 $DRAFT 就找得到
+    private static BackgroundTaskLaunch CreateBackgroundTaskLaunch(AgentAssemblyPlan plan,
+        LocalShellExecutor shellExecutor) =>
+        new(shellExecutor.ResolvedShellBinary, plan.WorkingDirectory,
+            ShellExecutorFactory.BuildEnvironment(plan.ShellEnvironment),
+            Path.Combine(plan.OutputRoomDirectory.Length > 0 ? plan.OutputRoomDirectory : Path.GetTempPath(), "tasks"));
 
     /// <summary>
     /// 把装配好的选项变成一个可运行的 agent 句柄

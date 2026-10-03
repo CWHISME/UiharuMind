@@ -16,11 +16,19 @@ internal sealed class ShellHangGuardFunction : DelegatingAIFunction
         "命令本身已经结束或超时，但它放到后台的进程还占着输出管道，这次调用没等到输出收尾就先返回了，输出没取回来。" +
         "后台跑的任务要把整串的输出都重定向走，例如 `(cmd1 && cmd2) > log 2>&1 &`，之后用 `tail log` 看进度。";
 
-    private readonly TimeSpan _limit;
+    /// <summary>同一会话挂了后台任务工具时的说法：不教 shell 写法（各平台不同），直接指过去</summary>
+    internal const string HangNoticeWithBackgroundTasks =
+        "命令本身已经结束或超时，但它放到后台的进程还占着输出管道，这次调用没等到输出收尾就先返回了，输出没取回来。" +
+        "要在后台跑的任务改用 `" + Tools.BackgroundTasks.BackgroundTaskTool.ToolName + "`，它跑完会把结果送回来。";
 
-    public ShellHangGuardFunction(AIFunction innerFunction, TimeSpan limit) : base(innerFunction)
+    private readonly TimeSpan _limit;
+    private readonly string _notice;
+
+    public ShellHangGuardFunction(AIFunction innerFunction, TimeSpan limit, string notice = HangNotice)
+        : base(innerFunction)
     {
         _limit = limit;
+        _notice = notice;
     }
 
     protected override async ValueTask<object?> InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
@@ -32,6 +40,6 @@ internal sealed class ShellHangGuardFunction : DelegatingAIFunction
 
         cancellationToken.ThrowIfCancellationRequested();
         _ = call.ContinueWith(static t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted); //后台进程收尾后它自己会结束，异常别漏成未观察
-        return HangNotice;
+        return _notice;
     }
 }

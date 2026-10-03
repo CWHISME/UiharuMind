@@ -99,6 +99,7 @@ internal static class HistoryTranscript
         string role = message.Role.Value;
         if (Has(message, ChatMessageAnnotations.Handoff)) return "handoff";
         if (Has(message, ChatMessageAnnotations.SubAgentReport)) return $"{role} (sub-agent report)";
+        if (Has(message, ChatMessageAnnotations.BackgroundTaskReport)) return $"{role} (background task)";
         if (Has(message, ChatMessageAnnotations.ParentInterjection)) return $"{role} (from dispatcher)";
         if (Has(message, ChatMessageAnnotations.GroupDelivery)) return $"{role} (group)";
         if (Has(message, ChatMessageAnnotations.Knowledge)) return $"{role} (knowledge)";

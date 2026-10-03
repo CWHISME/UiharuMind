@@ -34,7 +34,10 @@ internal sealed class SerialGroupScheduler : IGroupScheduler
     {
         try
         {
-            foreach (string memberId in _run.Group.GroupMemberSessionIds.ToList())
+            IEnumerable<string> members = kickoff.OnlyMemberSessionId is { } only
+                ? [only]
+                : _run.Group.GroupMemberSessionIds.ToList();
+            foreach (string memberId in members)
             {
                 if (_run.Token.IsCancellationRequested) break;
                 await _host.RunMemberAsync(_run, memberId, EGroupWakeCause.User);
@@ -52,4 +55,8 @@ internal sealed class SerialGroupScheduler : IGroupScheduler
     {
         lock (_sync) return !_finished;
     }
+
+    // 一圈的顺序是开头定死的:他若已轮过,这一圈里没机会再开口。交给宿主等这圈跑完单独叫他;
+    // 若这圈后面还轮得到他,附注会随那次投递交出去,单叫的那一波见没东西可交就跳过
+    public bool OnMemberNoted(string memberSessionId) => false;
 }

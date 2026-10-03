@@ -54,8 +54,18 @@ public class ConversationMessageOriginTests
             },
         };
 
+        ChatMessage taskResult = new(ChatRole.User, "后台任务的结果")
+        {
+            AdditionalProperties = new AdditionalPropertiesDictionary
+            {
+                [ChatMessageAnnotations.BackgroundTaskReport] = "task-1",
+            },
+        };
+
         Assert.Equal(EHistoryItemKind.Knowledge, ConversationMessageOrigin.KindOf(knowledge));
         Assert.Equal(EHistoryItemKind.SubAgentReport, ConversationMessageOrigin.KindOf(report));
+        Assert.Equal(EHistoryItemKind.BackgroundTaskReport, ConversationMessageOrigin.KindOf(taskResult));
+        Assert.False(ConversationMessageOrigin.IsProducedByContentStream(EHistoryItemKind.BackgroundTaskReport));
     }
 
     [Fact]

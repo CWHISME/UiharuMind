@@ -28,6 +28,9 @@ public enum EHistoryItemKind
     /// <summary>子会话交回的后续报告，借旁白那套呈现</summary>
     SubAgentReport,
 
+    /// <summary>后台任务送回的结果，同后续报告</summary>
+    BackgroundTaskReport,
+
     /// <summary>群的离席回执（ADR 0055），借旁白那套呈现</summary>
     AwayReceipt,
 
@@ -62,6 +65,7 @@ public static class ConversationMessageOrigin
         if (ChatMessageAnnotations.IsNarration(message)) return EHistoryItemKind.Narration;
         if (ChatMessageAnnotations.IsKnowledge(message)) return EHistoryItemKind.Knowledge;
         if (ChatMessageAnnotations.IsSubAgentReport(message)) return EHistoryItemKind.SubAgentReport;
+        if (ChatMessageAnnotations.IsBackgroundTaskReport(message)) return EHistoryItemKind.BackgroundTaskReport;
         if (ChatMessageAnnotations.GroupAwayReceiptOf(message) != null) return EHistoryItemKind.AwayReceipt;
         if (message.Role == ChatRole.User) return EHistoryItemKind.UserInput;
         return EHistoryItemKind.StreamContents;
@@ -86,6 +90,7 @@ public static class ConversationMessageOrigin
         EHistoryItemKind.Narration => false,
         EHistoryItemKind.Knowledge => false,
         EHistoryItemKind.SubAgentReport => false,
+        EHistoryItemKind.BackgroundTaskReport => false,
         EHistoryItemKind.AwayReceipt => false,
         EHistoryItemKind.UserInput => true,
     };

@@ -86,6 +86,75 @@ public class GroupChatCoordinatorTests
     }
 
     /// <summary>
+    /// 附注（如他启动的后台任务跑完了）：群闲着时只叫他一个，附注排在新话之前，他说完照常进群
+    /// </summary>
+    [Fact]
+    public async Task NotifyMember_WhenIdle_WakesOnlyThatMember_NoteBeforeNewLines()
+    {
+        Assert.True(_coordinator.TryPostFromMember(_bob.SessionId, "我先说一句")); //群闲着:只落盘不叫人
+
+        Assert.True(await _coordinator.NotifyMemberAsync(_alice.SessionId, "后台任务跑完了"));
+
+        (ChatSession member, string input) = Assert.Single(_runner.Calls);
+        Assert.Same(_alice, member);
+        Assert.StartsWith("后台任务跑完了\n\n[Bob]: 我先说一句", input);
+        Assert.Equal(_alice.SessionId, ChatMessageAnnotations.GroupSpeakerSessionOf(_group.History[^1]));
+
+        _runner.ClearCalls();
+        await _coordinator.ContinueAsync(_group); //附注交过就不再叫她
+        Assert.DoesNotContain(_runner.Calls, x => x.Member == _alice && x.Input.Contains("后台任务跑完了"));
+    }
+
+    /// <summary>串行一圈正跑着、他还没轮到：附注随那次投递交出去，圈后不再为它另开一波（离席会把空波记成没进展）</summary>
+    [Fact]
+    public async Task NotifyMember_DuringSerialRound_RidesTheUpcomingDelivery()
+    {
+        int episodes = 0;
+        _coordinator.EpisodeEnded += _ => Interlocked.Increment(ref episodes);
+        Task<bool>? notified = null;
+        _runner.During[_alice.SessionId] = () =>
+        {
+            notified ??= _coordinator.NotifyMemberAsync(_bob.SessionId, "后台任务跑完了");
+            return Task.CompletedTask;
+        };
+
+        await _coordinator.PostAsync(_group, "大家好");
+        Assert.True(await notified!);
+
+        Assert.Equal(2, _runner.Calls.Count);
+        Assert.StartsWith("后台任务跑完了", _runner.Calls[1].Input);
+        Assert.Equal(1, episodes);
+    }
+
+    /// <summary>他正在私聊（闸被占着）：单叫的那一波一句没说，不算一波；附注留着，下次轮到他照交</summary>
+    [Fact]
+    public async Task NotifyMember_WhileInPrivateChat_KeepsTheNoteAndRaisesNoEpisode()
+    {
+        int episodes = 0;
+        _coordinator.EpisodeEnded += _ => Interlocked.Increment(ref episodes);
+
+        using (GroupMemberTurnGate.TryEnter(_alice.SessionId)) //临时会话不在索引里,私聊那条 EnterAsync 会直接放行
+        {
+            Assert.True(await _coordinator.NotifyMemberAsync(_alice.SessionId, "后台任务跑完了"));
+        }
+
+        Assert.Empty(_runner.Calls);
+        Assert.Equal(0, episodes);
+
+        await _coordinator.ContinueAsync(_group);
+        Assert.StartsWith("后台任务跑完了", _runner.Calls.Single(x => x.Member == _alice).Input);
+    }
+
+    [Fact]
+    public async Task NotifyMember_RefusesNonMembers()
+    {
+        ChatSession loner = Track(new ChatSession { IsTransient = true });
+
+        Assert.False(await _coordinator.NotifyMemberAsync(loner.SessionId, "后台任务跑完了"));
+        Assert.Empty(_runner.Calls);
+    }
+
+    /// <summary>
     /// 每轮重锚：投递末尾贴的是<b>本人</b>的口吻（系统提示末尾那句离开口处太远，长群聊里拉不住）
     /// </summary>
     [Fact]

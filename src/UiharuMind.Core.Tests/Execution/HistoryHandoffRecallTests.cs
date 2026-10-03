@@ -22,6 +22,7 @@ public class HistoryHandoffRecallTests
             Annotated("子代理交回的报告", ChatMessageAnnotations.SubAgentReport),
             Annotated("派活方插的话", ChatMessageAnnotations.ParentInterjection),
             Annotated("[小明]: 群里别人的发言", ChatMessageAnnotations.GroupDelivery),
+            Annotated("后台任务的构建日志末尾", ChatMessageAnnotations.BackgroundTaskReport),
             new(ChatRole.Assistant, "好的"),
             new(ChatRole.User, "继续"),
         ];
@@ -29,8 +30,9 @@ public class HistoryHandoffRecallTests
         string recall = HistoryHandoff.BuildRecall(history, null, ContextLength);
 
         Assert.Contains("- #1: 别动 vendor 目录", recall);
-        Assert.Contains("- #6: 继续", recall);
+        Assert.Contains("- #7: 继续", recall);
         Assert.DoesNotContain("报告", recall);
+        Assert.DoesNotContain("构建日志", recall);
         Assert.DoesNotContain("插的话", recall);
         Assert.DoesNotContain("群里", recall);
     }

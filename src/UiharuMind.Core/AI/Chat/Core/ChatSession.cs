@@ -423,6 +423,13 @@ public class ChatSession
     public IReadOnlyList<string>? PreAuthorizedShellPatterns { get; set; }
 
     /// <summary>
+    /// 这是一次定时任务的无头运行。只属于这一次运行、不落盘。
+    /// 装配据此不挂后台任务：一次性运行跑完就收工，不该留下活得比它久、跑完还要叫醒它的进程
+    /// </summary>
+    [JsonIgnore]
+    public bool IsScheduledRun { get; set; }
+
+    /// <summary>
     /// 本会话内用户点"记住同类命令"放行的 shell 命令模式（glob）。
     /// 随会话持久化；审批规则每次执行现取现用，追加无需重建装配。
     /// 工具级的"本会话总是允许"由框架审批状态承担，这里只管 shell 的命令粒度。

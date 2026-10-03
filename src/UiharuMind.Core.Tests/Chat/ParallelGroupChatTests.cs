@@ -68,6 +68,38 @@ public class ParallelGroupChatTests
         Assert.Empty(_runner.Calls);
     }
 
+    /// <summary>群闲着时有附注：只叫他一个，别人有没听过的话也不跟着醒</summary>
+    [Fact]
+    public async Task NotifyMember_WhenIdle_WakesOnlyThatMember()
+    {
+        Assert.True(_coordinator.TryPostFromMember(_bob.SessionId, "我先说一句")); //Alice 与 Carol 都有新话没听
+
+        Assert.True(await _coordinator.NotifyMemberAsync(_alice.SessionId, "后台任务跑完了"));
+
+        Assert.Equal(1, _runner.CallsOf(_alice));
+        Assert.Equal(0, _runner.CallsOf(_carol));
+        Assert.StartsWith("后台任务跑完了", _runner.Calls.Single(x => x.Member == _alice).Input);
+    }
+
+    /// <summary>他正跑着时来了附注：这一轮说完再叫他一次，附注随那次投递交出</summary>
+    [Fact]
+    public async Task NotifyMember_WhileRunning_RewakesAfterThisTurn()
+    {
+        _runner.Silent = true; //别人不发言:第二次叫醒只能来自附注
+        Task<bool>? notified = null;
+        _runner.During[_alice.SessionId] = () =>
+        {
+            notified ??= _coordinator.NotifyMemberAsync(_alice.SessionId, "后台任务跑完了");
+            return Task.CompletedTask;
+        };
+
+        await _coordinator.PostAsync(_group, "大家好");
+        Assert.True(await notified!);
+
+        Assert.Equal(2, _runner.CallsOf(_alice));
+        Assert.StartsWith("后台任务跑完了", _runner.Calls.Where(x => x.Member == _alice).Last().Input);
+    }
+
     [Fact]
     public async Task UserMention_WakesOnlyTheMentioned()
     {

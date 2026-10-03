@@ -38,7 +38,9 @@ internal sealed class ParallelGroupScheduler : IGroupScheduler
 
     public Task RunAsync(GroupKickoff kickoff)
     {
-        IReadOnlyList<GroupWake> wakes = kickoff.UserPostIndex is { } index
+        IReadOnlyList<GroupWake> wakes = kickoff.OnlyMemberSessionId is { } only
+            ? [new GroupWake(only, EGroupWakeCause.User)]
+            : kickoff.UserPostIndex is { } index
             ? WakesForUserPost(_run.Group.History[index].Text)
             : _run.Group.GroupMemberSessionIds
                 .Where(x => _host.HasNewLines(_run.Group, x))
@@ -74,6 +76,29 @@ internal sealed class ParallelGroupScheduler : IGroupScheduler
                 ? WakesForUserPost(post.Text)
                 : WakesForMemberPost(post.AuthorSessionId, post.Text);
             foreach (GroupWake wake in wakes) Wake(wake, post.Index);
+        }
+        finally
+        {
+            Release();
+        }
+
+        return true;
+    }
+
+    public bool OnMemberNoted(string memberSessionId)
+    {
+        lock (_sync)
+        {
+            // 被停下、还没收场的波也接不住:Wake 会静默不叫,附注就搁着没人交
+            if (_closed || _run.Token.IsCancellationRequested) return false;
+            _active++;
+        }
+
+        try
+        {
+            // 按用户叫醒算:附注来自用户批过的事(如后台任务跑完),他接着说的话照常能 @ 人。
+            // 正在跑就记成待补叫(下标 -1 不会被消费),这一轮说完再叫他一次,附注随那次投递交出
+            Wake(new GroupWake(memberSessionId, EGroupWakeCause.User), -1);
         }
         finally
         {

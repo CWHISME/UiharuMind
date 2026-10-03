@@ -17,7 +17,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
-using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Conversation.SessionList;
@@ -110,7 +110,7 @@ public partial class SessionListModel : ObservableObject, IDisposable
         }
 
         SessionManager.Instance.Running.StateChanged += OnRunStateChanged;
-        BackgroundSubAgentDispatcher.PendingWorkChanged += OnRunStateChanged;
+        PendingWork.Changed += OnRunStateChanged;
         Sessions.CollectionChanged += (_, _) =>
         {
             RefreshListChrome();
@@ -297,7 +297,7 @@ public partial class SessionListModel : ObservableObject, IDisposable
         SessionManager.Instance.OnSessionDraftChanged -= OnSessionDraftChanged;
         CharacterManager.Instance.OnCharacterUpdated -= OnCharacterUpdated;
         SessionManager.Instance.Running.StateChanged -= OnRunStateChanged;
-        BackgroundSubAgentDispatcher.PendingWorkChanged -= OnRunStateChanged;
+        PendingWork.Changed -= OnRunStateChanged;
         foreach (SessionListItem item in _all) Detach(item);
         ContentSearch.Dispose();
     }

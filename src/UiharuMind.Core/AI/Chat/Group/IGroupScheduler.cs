@@ -1,10 +1,11 @@
 namespace UiharuMind.Core.AI.Chat.Group;
 
 /// <summary>
-/// 一波由什么开的头：用户的一句发言（给出它在群流水里的下标），或用户点了「继续」
+/// 一波由什么开的头：用户的一句发言（给出它在群流水里的下标）、用户点了「继续」，或只为叫醒某一位成员
 /// </summary>
-/// <param name="UserPostIndex">用户那句的下标；「继续」为 null</param>
-internal readonly record struct GroupKickoff(int? UserPostIndex);
+/// <param name="UserPostIndex">用户那句的下标；其余为 null</param>
+/// <param name="OnlyMemberSessionId">只叫醒这一位（他有附注待交，见 <see cref="GroupChatCoordinator.NotifyMemberAsync"/>）；其余为 null</param>
+internal readonly record struct GroupKickoff(int? UserPostIndex, string? OnlyMemberSessionId = null);
 
 /// <summary>一条刚追加进群流水的发言</summary>
 /// <param name="Index">群流水下标</param>
@@ -69,4 +70,11 @@ internal interface IGroupScheduler
     /// <param name="post">新发言</param>
     /// <returns>这一波接住了为 true；已收场为 false，由宿主另开一波</returns>
     bool OnPosted(GroupPostEvent post);
+
+    /// <summary>
+    /// 某位成员有附注待交，要他再开口一次。由宿主同步调用，实现里不要阻塞
+    /// </summary>
+    /// <param name="memberSessionId">成员会话标识</param>
+    /// <returns>这一波接住了为 true；接不住（已收场，或这种调度没法插叫）为 false，由宿主等它收场后另开一波</returns>
+    bool OnMemberNoted(string memberSessionId);
 }

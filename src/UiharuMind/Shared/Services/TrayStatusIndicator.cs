@@ -18,7 +18,7 @@ using Avalonia.Threading;
 using SkiaSharp;
 using UiharuMind.Core;
 using UiharuMind.Core.AI.Chat;
-using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Generated;
@@ -118,7 +118,7 @@ public sealed class TrayStatusIndicator : IDisposable
         }
 
         SessionManager.Instance.Running.StateChanged += OnStateChanged;
-        BackgroundSubAgentDispatcher.PendingWorkChanged += OnStateChanged;
+        PendingWork.Changed += OnStateChanged;
         Refresh();
     }
 
@@ -128,7 +128,7 @@ public sealed class TrayStatusIndicator : IDisposable
         _disposed = true;
         SetClockSubscribed(false);
         SessionManager.Instance.Running.StateChanged -= OnStateChanged;
-        BackgroundSubAgentDispatcher.PendingWorkChanged -= OnStateChanged;
+        PendingWork.Changed -= OnStateChanged;
     }
 
     /// <summary>重算一次并落到图标上。<b>可能来自后台线程</b>（子代理不在 UI 线程上）</summary>
@@ -140,7 +140,7 @@ public sealed class TrayStatusIndicator : IDisposable
 
         // 口径是**进程里有没有活在跑**,不限于后台子代理:主会话自己那一轮、定时任务的无头轮次
         // 同样该亮。只看后台委派的话,用户自己发了条消息在等回复时菜单栏一片安静
-        bool anyRunning = BackgroundSubAgentDispatcher.AnyPending();
+        bool anyRunning = PendingWork.Any();
         bool anyApproval = false;
         foreach (KeyValuePair<string, ESessionRunState> active in SessionManager.Instance.Running.ActiveSessions())
         {

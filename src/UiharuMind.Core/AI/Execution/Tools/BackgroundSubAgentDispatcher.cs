@@ -137,14 +137,6 @@ public static class BackgroundSubAgentDispatcher
     public static event Action<string>? PendingWorkChanged;
 
     /// <summary>
-    /// 唤醒轮的审批回应通道从哪儿取（按会话标识）。
-    ///
-    /// 由界面注入：唤醒轮跑的是<b>主代理</b> 那一轮，它要动东西时该弹给正看着它的人。
-    /// 取不到就按无头口径拒绝——与 <c>InProcessSchedulerBackend.DenyUnauthorizedApprovals</c> 同形。
-    /// </summary>
-    public static Func<string, ApprovalResolver?>? WakeApprovalSource { get; set; }
-
-    /// <summary>
     /// 需要让用户知道的事往哪儿送。由界面注入（<c>IMessageService</c> 在 App 项目，Core 引不到，
     /// 同 ADR 0021「为什么 Core 建 driver，不是 UI」）；无界面场合不设，调用处是空操作。
     /// </summary>
@@ -678,36 +670,6 @@ public static class BackgroundSubAgentDispatcher
             return;
         }
 
-        try
-        {
-            ChatSession? parent = SessionManager.Instance.Load(parentId);
-            if (parent == null) return;
-
-            // 原子地占住这个会话:「查一下忙不忙,不忙就开跑」写成两步的话,查与开之间
-            // 用户正好发一条,两轮就重叠了——它们共用会话本体、执行者与转录器。
-            // 抢不到就不唤醒:报告已经在历史里,模型下一轮自然读到(落盘与唤醒本就是两件事)
-            using IDisposable? claim = SessionManager.Instance.Running.TryBeginRun(parentId);
-            if (claim == null)
-            {
-                Log.Debug($"Wake turn skipped: session={parentId} busy; report already in history.");
-                return;
-            }
-
-            Log.Debug($"Wake turn started: session={parentId} streak={streak}");
-            await parent.Runner.AttachAsync(parent).ConfigureAwait(false);
-            using TurnDriver driver = new(null, new TurnUsageLedger());
-            // 无头驱动(sink 为 null),但**审批有人接**——就是派活者自己那个窗口。
-            // 这两件事必须分开告诉 TurnDriver:按 sink 推的话,共享的执行者会被标成
-            // 「没人看着」,于是这一轮里派出的子代理连审批通道都不建(见 TurnDriver 的 attended)
-            ApprovalResolver? resolver = WakeApprovalSource?.Invoke(parentId);
-            // 没有用户消息:模型这一轮读的是刚落进历史的那条后续报告(见 ADR 0025)
-            await driver.RunAsync(parent, parent.Runner, null, resolver, attended: resolver != null)
-                .ConfigureAwait(false);
-        }
-        catch (Exception e)
-        {
-            //唤醒失败不影响结论:它已经在历史里了
-            Log.Warning($"Wake turn failed: session={parentId}: {e.Message}");
-        }
+        await SessionWakeTurn.RunAsync(parentId, $"sub-agent report, streak={streak}").ConfigureAwait(false);
     }
 }

@@ -261,7 +261,7 @@ public partial class SessionListItem : ObservableObject
         // 正在整理交接文档也算"在跑":它不是轮次、不进登记处(见 TurnDriver.IsCompacting),
         // 但列表转圈是用户判断"这个会话还有没有动静"的直观依据
         IsRunning = state == ESessionRunState.Running
-                    || BackgroundSubAgentDispatcher.HasPendingWork(SessionId)
+                    || PendingWork.Has(SessionId)
                     || TurnDriver.IsCompacting(SessionId);
         DeleteCommand.NotifyCanExecuteChanged();
         ClearChatHistoryCommand.NotifyCanExecuteChanged();
@@ -284,7 +284,7 @@ public partial class SessionListItem : ObservableObject
     /// 还会往会话里写交接文档——写到已删除的会话上就是幽灵文件。
     /// </summary>
     public bool CanMutateFiles => !SessionManager.Instance.Running.IsBusy(SessionId)
-                                  && !BackgroundSubAgentDispatcher.HasPendingWork(SessionId)
+                                  && !PendingWork.Has(SessionId)
                                   && !TurnDriver.IsCompacting(SessionId);
 
     //================= 条目级操作 =================

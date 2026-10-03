@@ -155,12 +155,16 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
     }
 
     /// <summary>
-    /// 成员退群：忘掉他「被打断待续」的记号，不然加回来后第一轮会先收到一句「接着做」
+    /// 成员退群：忘掉他「被打断待续」的记号与待交的附注，不然加回来后第一轮会先收到这些
     /// </summary>
     /// <param name="memberSessionId">成员会话标识</param>
     public void ForgetMember(string memberSessionId)
     {
-        lock (_locker) _interrupted.Remove(memberSessionId);
+        lock (_locker)
+        {
+            _interrupted.Remove(memberSessionId);
+            _notes.Remove(memberSessionId);
+        }
     }
 
     /// <summary>停下这个群正在跑的那一波（连同所有正在说的成员），以及正在跑的化身那一轮</summary>
@@ -209,6 +213,8 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
             delivery = GroupTranscript.BuildDelivery(group.History, member.GroupCursor, member.SessionId, consumed);
             // 被打断的人游标早推过去了，没新话时交一句「接着做」；有新话就照常投，那一段历史他自己看得见
             if (_interrupted.Remove(member.SessionId)) delivery ??= GroupTranscript.ResumeNote;
+            // 附注不管有没有新话都要交（见 NotifyMemberAsync），排在新话之前
+            delivery = TakeNotes(member.SessionId, delivery);
             images = GroupTranscript.DeliveryImages(group.History, member.GroupCursor, member.SessionId, consumed);
             member.GroupCursor = group.History.Count;
             // 入群摘要只搭投递的车：没新话时不为它单独叫醒
@@ -274,6 +280,7 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
         lock (_locker)
         {
             if (_interrupted.Contains(memberSessionId)) return true; //「继续」要叫得醒被打断的人
+            if (_notes.ContainsKey(memberSessionId)) return true; //有附注待交
             return GroupTranscript.BuildDelivery(group.History, member.GroupCursor, memberSessionId,
                 member.GroupConsumedPosts) != null;
         }
@@ -324,8 +331,10 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
             }
         }
 
-        // 报空闲之后再通报：订阅方（离席）可能当场开下一波
-        RaiseEpisodeEnded(new GroupEpisodeSummary(group, kickoff.UserPostIndex, start, end, stopped));
+        // 报空闲之后再通报：订阅方（离席）可能当场开下一波。
+        // 只为交附注开的一波若一句没说（他正在私聊被闸挡住），不算一波：离席会把它记成「没进展」
+        if (kickoff.OnlyMemberSessionId == null || end > start)
+            RaiseEpisodeEnded(new GroupEpisodeSummary(group, kickoff.UserPostIndex, start, end, stopped));
         return true;
     }
 

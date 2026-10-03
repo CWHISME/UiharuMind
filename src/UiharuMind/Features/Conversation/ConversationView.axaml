@@ -390,6 +390,29 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
+                <!-- 在跑的后台任务:每个一行,带停止。模型那边没有停止工具,叫停归用户;停了结果照常送回 -->
+                <ItemsControl ItemsSource="{Binding BackgroundTasks.Items}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="conv:BackgroundTaskStatusViewData">
+                            <Grid ColumnDefinitions="Auto,*,Auto" Margin="2,0,2,4">
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6"
+                                            VerticalAlignment="Center">
+                                    <SpinnerIcon Width="12" Height="12" VerticalAlignment="Center" />
+                                    <TextBlock Classes="title-tweak-sm" FontSize="11" VerticalAlignment="Center"
+                                               Text="{loc:Loc BackgroundTaskRowLabel}" />
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" FontSize="11" Margin="6,0"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                           Text="{Binding Description}" ToolTip.Tip="{Binding Command}" />
+                                <Button Grid.Column="2" Classes="Small" CornerRadius="6"
+                                        Command="{Binding $parent[ItemsControl].((conv:ConversationViewModel)DataContext).BackgroundTasks.StopCommand}"
+                                        CommandParameter="{Binding}"
+                                        Content="{loc:Loc BackgroundTaskStop}"
+                                        ToolTip.Tip="{loc:Loc BackgroundTaskStopTip}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
                 <!-- 待发的插话:已入注入队列、模型还没消费。它们不进时间轴(位置要等消费那一刻才定),
                      不列出来的话看着像没发出去 -->
                 <!-- 群成员在等审批:每条一行(谁 · 工具 · 参数摘要 + 按钮),摘要全文进提示,完整的卡(diff)点「查看」去他的会话看。

@@ -155,7 +155,7 @@ public static class ApprovalModeMapper
     private static bool MatchesShellPattern(FunctionCallContent functionCall, IReadOnlyList<string>? patterns)
     {
         if (patterns is not { Count: > 0 }) return false;
-        if (functionCall.Name != CharacterRunnerFactory.ShellToolName) return false;
+        if (!CharacterRunnerFactory.IsShellCommandTool(functionCall.Name)) return false;
         string? command = ExtractCommand(functionCall.Arguments);
         if (string.IsNullOrEmpty(command)) return false;
         return patterns.Any(pattern => GlobMatch(pattern, command));

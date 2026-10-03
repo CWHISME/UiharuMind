@@ -69,6 +69,9 @@ public class AgentBuildProfile
     /// <summary>预授权 shell 命令模式(定时任务无人值守用)</summary>
     public IReadOnlyList<string>? PreAuthorizedShellPatterns { get; init; }
 
+    /// <summary>是不是定时任务的无头运行（见 <see cref="ChatSession.IsScheduledRun"/>）</summary>
+    public bool IsScheduledRun { get; init; }
+
     /// <summary>
     /// 群场景段正文（ADR 0048）；不是群成员为空串。两种形态都有：场景是「我在哪、有谁在」，
     /// 与装不装工具无关。它随群名、名单、主持人变，所以也进装配快照
@@ -187,6 +190,7 @@ public class AgentBuildProfile
             PermissionMode = (EAgentPermissionMode)Math.Clamp(GroupChatSessions.PermissionOf(session), 0, 2),
             PermissionModeSource = () => (EAgentPermissionMode)Math.Clamp(GroupChatSessions.PermissionOf(session), 0, 2),
             PreAuthorizedShellPatterns = session.PreAuthorizedShellPatterns,
+            IsScheduledRun = session.IsScheduledRun,
             PromptArguments = session.CustomParams,
             GroupScene = GroupSceneSource.For(session),
             IsGroupAvatar = session.IsGroupAvatar,

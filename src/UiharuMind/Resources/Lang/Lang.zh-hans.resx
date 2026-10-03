@@ -2739,6 +2739,15 @@
     <data name="ClipboardTooltipMore" xml:space="preserve">
         <value>…（共 {0} 字）</value>
     </data>
+    <data name="BackgroundTaskRowLabel" xml:space="preserve">
+        <value>后台任务</value>
+    </data>
+    <data name="BackgroundTaskStop" xml:space="preserve">
+        <value>停止</value>
+    </data>
+    <data name="BackgroundTaskStopTip" xml:space="preserve">
+        <value>结束这个任务和它起的所有进程，结果照常送回会话</value>
+    </data>
     <data name="SubAgentRunningBanner" xml:space="preserve">
         <value>有后台子代理还在跑</value>
     </data>

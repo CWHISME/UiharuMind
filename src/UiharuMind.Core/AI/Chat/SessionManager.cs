@@ -13,7 +13,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.ToolCall;
-using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.SimpleLog;
@@ -414,9 +414,9 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
         lock (_locker) _loaded.TryGetValue(sessionId, out session);
         if (session == null || session.IsTransient) return false;
 
-        // 在跑(含卡在审批上)、名下还有没交回的后台子代理:历史随时会被写,卸了就是在它脚下抽地板
+        // 在跑(含卡在审批上)、名下还有未了结的工作:历史随时会被写,卸了就是在它脚下抽地板
         if (Running.IsBusy(sessionId)) return false;
-        if (BackgroundSubAgentDispatcher.HasPendingWork(sessionId)) return false;
+        if (PendingWork.Has(sessionId)) return false;
         return !session.BackgroundReportPending;
     }
 
@@ -666,6 +666,10 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
         {
             Delete(member.SessionId);
         }
+
+        // 名下还在跑的后台任务一并叫停:界面上有未了结的工作时本就删不了,这里兜住别的删除入口。
+        // 不停的话进程会跑到时限,结果也无处可落
+        BackgroundTaskRegistry.StopAllOf(sessionId);
 
         // 附件路径记在本体里,所以要在删文件之前把它读出来
         ChatSession? session = Load(sessionId);

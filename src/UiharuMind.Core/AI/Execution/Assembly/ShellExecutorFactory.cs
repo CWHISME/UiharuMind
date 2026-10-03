@@ -41,38 +41,54 @@ internal static class ShellExecutorFactory
     // [MFA绕坑] 绕:从默认工具描述里剥掉这句 因:它写死在 LocalShellExecutor 私有的 BuildDefaultDescription 末尾,自动档与预授权下并不成立 删除条件:框架按审批配置决定是否输出
     private const string ApprovalClaim = "The user reviews and approves every call.";
 
+    private const string BackgroundTasksHint =
+        "For commands that may run longer than a few minutes or never exit on their own, use " +
+        Tools.BackgroundTasks.BackgroundTaskTool.ToolName + " instead.";
+
     /// <summary>
     /// 把执行器包成模型可调的 shell 工具（主代理与子代理共用）。
     /// 审批是给用户看的机制，模型知道了也不改变行为（ADR 0017 第九节）；而自动档下那句还是假的，
     /// 会让模型以为总有人替它把关破坏性命令。
     /// </summary>
     /// <param name="executor">shell 执行器</param>
+    /// <param name="hasBackgroundTasks">同一会话是否挂了后台任务工具：挂了就把长命令指过去</param>
     /// <returns>需审批的 shell 工具</returns>
-    public static AIFunction CreateTool(LocalShellExecutor executor)
+    public static AIFunction CreateTool(LocalShellExecutor executor, bool hasBackgroundTasks = false)
     {
         string description = executor.AsAIFunction(CharacterRunnerFactory.ShellToolName).Description
             .Replace(ApprovalClaim, string.Empty, StringComparison.Ordinal)
             .TrimEnd();
+        if (hasBackgroundTasks) description += " " + BackgroundTasksHint;
         AIFunction gated = executor.AsAIFunction(CharacterRunnerFactory.ShellToolName, description);
-        return new ApprovalRequiredAIFunction(new ShellHangGuardFunction(gated, CommandTimeout + HangGrace));
+        return new ApprovalRequiredAIFunction(new ShellHangGuardFunction(gated, CommandTimeout + HangGrace,
+            hasBackgroundTasks ? ShellHangGuardFunction.HangNoticeWithBackgroundTasks : ShellHangGuardFunction.HangNotice));
     }
 
     public static LocalShellExecutor Create(
         string workingDirectory,
         IReadOnlyDictionary<string, string?>? environment)
     {
+        return new LocalShellExecutor(new LocalShellExecutorOptions
+        {
+            Mode = ShellMode.Stateless,
+            WorkingDirectory = workingDirectory,
+            Environment = BuildEnvironment(environment),
+            Timeout = CommandTimeout,
+        });
+    }
+
+    /// <summary>
+    /// shell 子进程的环境覆盖表：追加项照搬，宿主注入的诊断变量置 null（即删除）。后台任务起进程也用这一份
+    /// </summary>
+    /// <param name="environment">追加环境，可空</param>
+    /// <returns>覆盖表，值为 null 表示从继承的环境里删掉</returns>
+    internal static Dictionary<string, string?> BuildEnvironment(IReadOnlyDictionary<string, string?>? environment)
+    {
         Dictionary<string, string?> merged = environment is null
             ? new(StringComparer.Ordinal)
             : new(environment, StringComparer.Ordinal);
         foreach (string name in StrippedVariables)
             merged[name] = null;
-
-        return new LocalShellExecutor(new LocalShellExecutorOptions
-        {
-            Mode = ShellMode.Stateless,
-            WorkingDirectory = workingDirectory,
-            Environment = merged,
-            Timeout = CommandTimeout,
-        });
+        return merged;
     }
 }

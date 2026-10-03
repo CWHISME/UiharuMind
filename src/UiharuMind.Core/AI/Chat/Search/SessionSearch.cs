@@ -113,7 +113,7 @@ public static class SessionSearch
         // 这几类整条就是一张卡,正文即全部
         if (HistoryHandoff.IsNote(message))
             return new MessageText(HistoryHandoff.NoteBody(message.Text), null, null);
-        if (ChatMessageAnnotations.IsNarration(message) || ChatMessageAnnotations.IsSubAgentReport(message) ||
+        if (ChatMessageAnnotations.IsNarration(message) || ChatMessageAnnotations.IsHandedBackReport(message) ||
             ChatMessageAnnotations.GroupAwayReceiptOf(message) != null)
             return new MessageText(message.Text, null, null);
 

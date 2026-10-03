@@ -7,7 +7,6 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
-using System.Collections.Concurrent;
 using Microsoft.Extensions.AI;
 
 namespace UiharuMind.Core.AI.Chat;
@@ -66,17 +65,14 @@ public static class SubAgentReportHandoff
     /// 为空时才回落到现捞（用户手动点「交回主代理」走的就是那条）。
     /// </param>
     /// <returns>交回结果</returns>
-    /// <summary>同一父会话的多份报告可能由多个子代理并行交回（合并窗口的主场景）：对父历史
-    /// <c>List&lt;ChatMessage&gt;</c> 的并发 Add/SaveAppended 会互相交错。按父会话串行提交。</summary>
-    private static readonly ConcurrentDictionary<string, object> _parentSubmitLocks = new();
-
     public static EHandoffOutcome Submit(ChatSession subSession, string? interruption = null,
         string? conclusion = null)
     {
         if (!subSession.IsSubSession) return EHandoffOutcome.NotASubSession;
         string parentSessionId = subSession.ParentSessionId!;
 
-        lock (_parentSubmitLocks.GetOrAdd(parentSessionId, _ => new object()))
+        // 同一父会话的多份报告可能由多个子代理并行交回（合并窗口的主场景），按父会话串行提交
+        lock (SessionHistoryLocks.For(parentSessionId))
         {
             ChatSession? parent = SessionManager.Instance.Load(parentSessionId);
             if (parent == null) return EHandoffOutcome.ParentMissing;
