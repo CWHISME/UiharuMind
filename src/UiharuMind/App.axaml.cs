@@ -145,11 +145,15 @@ public partial class App : Application, ILogger, IDisposable
         // 开发脚本(--dev-script):没带这个参数时一行都不跑,见 DevScriptRunner
         UiharuMind.Features.DevAutomation.DevScriptRunner.RunIfRequested(
             (ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Args);
+        // 开发控制通道:开发者模式或 --dev-control 才开,见 ADR 0059
+        _devControl = UiharuMind.Features.DevAutomation.DevControlHost.Start(
+            (ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Args);
         Log.Debug("UiharuMind started.");
     }
 
     // public new static App Current => (App)Application.Current!;
     private UiharuMind.Features.Diagnostics.IdleMemoryReclaimer? _memoryReclaimer;
+    private UiharuMind.Features.DevAutomation.DevControlHost? _devControl;
 
     public static DummyWindow DummyWindow { get; private set; } = null!;
     public static ClipboardService Clipboard { get; private set; } = null!;
@@ -333,6 +337,7 @@ public partial class App : Application, ILogger, IDisposable
     public void Dispose()
     {
         _memoryReclaimer?.Dispose();
+        _devControl?.Dispose();
         _trayStatus?.Dispose();
         Clipboard.Dispose();
         // 先给还在跑的那些轮次补上取消结果,再放执行者:反过来的话补写会撞上正在被释放的执行者。

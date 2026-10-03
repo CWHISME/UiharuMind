@@ -94,8 +94,19 @@ UIHARU_HOME=/tmp/uiharu-scratch \
 改卡、改提示词后的回归场景与检查清单在 `src/scripts/smoke/`（`run.sh <场景名>`，自带隔离档案）。
 动了会话流、装载或裁剪，前后各跑一次 `src/scripts/perf/switch-perf.sh`：在真实档案副本上轮流切几个长会话，
 汇总探针打点与内存，不调模型。两条口径：
-**不带 `--dev-script` 就一行都不跑**；每一步只许走公开的视图模型面，
+**不带 `--dev-script`、也没开控制通道，就一行都不跑**；每一步只许走公开的视图模型面，
 不为自动化单开特权入口——否则测出来的就不是用户那条路。
+
+要边跑边插话（长跑中途拍板、改离席目标、看进度），用开发控制通道（ADR 0059）：同一组步骤，经 CLI 发给运行中的应用。
+开发者模式开着或带 `--dev-control` 才开。
+
+```bash
+export UIHARU_HOME=/tmp/uiharu-scratch UIHARU_DESKTOP_EXE=<Desktop 产物路径>
+UiharuMind.CLI app start                      # 独立起应用，等通道应答
+UiharuMind.CLI app call group.post --args '{"group":"…","text":"…"}'
+UiharuMind.CLI app run scenario.jsonl         # 与 --dev-script 同格式
+UiharuMind.CLI app quit
+```
 
 ⚠️ 拿真实档案跑之前先 `UIHARU_HOME` 指到副本上，脚本会真的改那份数据。
 

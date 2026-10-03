@@ -1,6 +1,6 @@
 # 开发控制通道：本机 socket 驱动运行中的应用，命令沿用开发脚本那套
 
-> **状态**：proposed（2026-10-03）。部分推翻 `DevScriptRunner` 注释里「启动期一次性、没有入站通道」那条。
+> **状态**：accepted，**已实现**（2026-10-03）。部分推翻 `DevScriptRunner` 注释里「启动期一次性、没有入站通道」那条。
 
 决定：**开发者模式**开着（或带 `--dev-control` 启动）时，应用在档案目录下开一个本机控制通道；`UiharuMind.CLI` 加 `app` 一组命令连上去，
 一次发一步，步骤就是开发脚本现有的那些（`group.post`、`group.away.wait`、`diag.memory`……）。
@@ -35,8 +35,8 @@
   运行中打开 / 关闭，通道跟着开 / 关。
 - 普通用户没有这个入口，通道就不会开。对开发者常开不算新口子：连得上的只有本机同一用户，而同一用户的进程本来就能直接读档案里的会话与密钥。
 - `--dev-control` 保留：冒烟、性能脚本用的是隔离的临时档案，那里没有解锁标记；`app start` 会带上它。
-- 通道在档案目录下：macOS / Linux 用 Unix socket `$UIHARU_HOME/run/control.sock`，`run/` 目录权限 0700；
-  Windows 用命名管道，名字由档案路径派生，只许当前用户连。
+- 通道在档案目录下：三平台都用 Unix socket `$UIHARU_HOME/run/control.sock`（Windows 10 1803 起支持，省掉命名管道那一支），
+  `run/` 目录权限 0700（Windows 上随用户目录的 ACL）。
 - 每次启动生成随机令牌，写 `run/control.token`（0600），退出时删掉；请求不带对的令牌，一律拒绝并断开。
   CLI 从同一个档案目录读令牌，所以连得上的只有能读这个档案目录的本机用户。
 - 一个档案目录只开一个通道：socket 已存在且连得通，说明这个档案已经有实例在跑，后起的不开通道并记一条警告；
@@ -48,6 +48,14 @@
 - `app run <script.jsonl> [--report <path>]`：逐行发，报告与 `--dev-report` 同形。
 - `app quit`。
 - 档案目录与应用同一套解析（`UIHARU_HOME` 优先），只连、不开档案。
+
+## 实现
+
+- Core `Core/DevControl/`：`DevControlEndpoint`（位置）、`DevControlServer`（监听、令牌、`app.ping`）、`DevControlClient`。不依赖界面，测试走真 socket。
+- App `Features/DevAutomation/`：`DevStepExecutor`（一步怎么执行，脚本与通道共用）、`DevControlHost`（开关与 `app.ops` / `app.quit`，第一步前叫出主窗口一次）。
+- CLI `Commands/App/`：`app start --exe <Desktop>`（或 `UIHARU_DESKTOP_EXE`）、`app call`、`app run`、`app quit`，都认 `--home`。
+  `app start` 经 `nohup … </dev/null >/dev/null 2>&1 &` 起应用：标准输出若接着调用方的管道，调用方要等应用退出才收得到 EOF（段 20 Shell 挂死同一个坑）。
+- 回复不转义中文（群流水要能直接读）；CLI 失败退出码非零：1 步骤失败、2 用法或通道没开、3 超时。
 
 ## 不做的
 
