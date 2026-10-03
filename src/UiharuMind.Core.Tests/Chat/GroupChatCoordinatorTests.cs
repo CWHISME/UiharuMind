@@ -203,7 +203,8 @@ public class GroupChatCoordinatorTests
         await _coordinator.PostAsync(_group, "大家好");
 
         Assert.DoesNotContain("群聊「会审」", _runner.Calls[0].Input);
-        Assert.StartsWith(GroupTranscript.FeedHeader + "[黑猫]: 大家好\n\n" + GroupTranscript.VoiceReminderOpening, _runner.Calls[0].Input);
+        Assert.StartsWith(GroupTranscript.FeedHeader + $"[{_group.History[0].AuthorName}]: 大家好\n\n" + GroupTranscript.VoiceReminderOpening,
+            _runner.Calls[0].Input); //用户名取用户卡，不写死
     }
 
     /// <summary>
@@ -375,9 +376,9 @@ public class GroupChatCoordinatorTests
         Assert.Equal(expected, GroupTranscript.StripMemberPrefix(body, speaker, userName));
     }
 
-    /// <summary>智能体形态只经群发言工具说话（ADR 0060）：回复正文留在他自己那里</summary>
+    /// <summary>智能体形态中途经群发言工具说话，说完的回复照样进群，不看这一轮调没调过工具（ADR 0060 修订）</summary>
     [Fact]
-    public async Task AgentFormMember_SpeaksOnlyThroughTheTool()
+    public async Task AgentFormMember_PostsMidTurnThroughTheTool_AndTheReplyToo()
     {
         _alice.IsAgentForm = true;
         _runner.During[_alice.SessionId] = () =>
@@ -388,19 +389,24 @@ public class GroupChatCoordinatorTests
 
         await _coordinator.PostAsync(_group, "开工");
 
-        Assert.Equal(["开工", "我接第一块", "Bob 的第 1 次发言"], _group.History.Select(x => x.Text));
-        Assert.Equal("Alice 的第 1 次发言", _alice.History[^1].Text); //回复还在她自己的会话里
+        Assert.Equal(["开工", "我接第一块", "Alice 的第 1 次发言", "Bob 的第 1 次发言"], _group.History.Select(x => x.Text));
     }
 
-    /// <summary>智能体形态不调工具就是不接话：不用「[沉默]」，回复写了什么也不进群</summary>
+    /// <summary>
+    /// 智能体形态没调工具，回复就是发言；「[沉默]」才是不接话。实测只经工具说话时，
+    /// 用户直接问到他，他照常在正文里答，群里谁也看不见（段 27）
+    /// </summary>
     [Fact]
-    public async Task AgentFormMember_WithoutToolCall_SaysNothingInTheGroup()
+    public async Task AgentFormMember_ReplyIsSpeech_PassIsSilence()
     {
         _alice.IsAgentForm = true;
+        _runner.Replies[_alice.SessionId] = n => n == 1 ? "直接在正文里答" : GroupTranscript.PassReply;
 
         await _coordinator.PostAsync(_group, "开工");
+        await _coordinator.PostAsync(_group, "还有吗");
 
-        Assert.Equal(["开工", "Bob 的第 1 次发言"], _group.History.Select(x => x.Text));
+        Assert.Equal(["开工", "直接在正文里答", "Bob 的第 1 次发言", "还有吗", "Bob 的第 2 次发言"],
+            _group.History.Select(x => x.Text));
     }
 
     /// <summary>对话形态的回复就是发言，「[沉默]」是它唯一的不接话写法</summary>
@@ -711,7 +717,7 @@ public class GroupChatCoordinatorTests
     public void SplitDelivery_HidesTheCatchUpHintWithTheReminder()
     {
         string delivery = "[Bob]: 嗯。\n\n" + GroupTranscript.VoiceReminder("你是Carol。") + "\n\n"
-                          + GroupTranscript.CatchUpHint(false);
+                          + GroupTranscript.CatchUpHint;
 
         IReadOnlyList<GroupDeliverySegment> segments = GroupTranscript.SplitDelivery(delivery, ["Bob"]);
 

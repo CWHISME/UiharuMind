@@ -277,11 +277,7 @@ public static class GroupTranscript
     /// 补位轮的提示（ADR 0049 修订）：激进档一波静下来后，给还有没看过的发言的人各补一次，随投递附在末尾。
     /// 界面随每轮重锚一并摘掉，不画出来
     /// </summary>
-    /// <param name="postsThroughTool">他是不是经群发言工具说话（智能体形态）</param>
-    /// <returns>提示</returns>
-    public static string CatchUpHint(bool postsThroughTool) => postsThroughTool
-        ? $"（这一波大家说完了，上面是你还没看过的：有新角度就调用 {GroupPostTool.ToolName} 说，没有就直接结束这一轮。）"
-        : $"（这一波大家说完了，上面是你还没看过的：有新角度就说，没有就只回复「{PassReply}」。）";
+    public static string CatchUpHint => $"（这一波大家说完了，上面是你还没看过的：有新角度就说，没有就只回复「{PassReply}」。）";
 
     /// <summary>
     /// 群里那一轮被停或失败后，再被叫醒又没有新话时交给他的一句。他可能已在私聊里接着做完了——
@@ -343,41 +339,35 @@ public static class GroupTranscript
             text.Append($"\n本群主持人是{scene.HostName}。");
 
         // 规矩一条一行、一个意思只说一次：挤成长句连排时分不出主次；同一个意思分几条说，模型反而分不出哪条最要紧
-        // 一种形态只有一条发言通道（ADR 0060）：两条并开时，工具说过之后的回复只能拿「[沉默]」或补一段收尾
-        // 实测（ADR 0060 冒烟）：模型只见到开头那条投递，推断「工具只能发、收不到别人的话」，于是不看别人认领就开干
-        if (scene.PostsThroughTool)
-            text.Append("\n\n- 格式：群里的发言会按「[名字]: 内容」交给你。");
-        else
-            text.Append("\n\n- 格式：群里的发言会按「[名字]: 内容」交给你；你每次说完的正文就是你在群里说的话，" +
-                        "群里会自动标上你的名字，直接写正文就行。想请某位成员接话，写 @名字。");
+        // 回复就是发言（ADR 0060 修订）：只经工具说话时，模型被用户直接问到就照常在正文里答，群里谁也看不见
+        text.Append("\n\n- 格式：群里的发言会按「[名字]: 内容」交给你；你每次说完的正文就是你在群里说的话，" +
+                    "群里会自动标上你的名字，直接写正文就行。想请某位成员接话，写 @名字。");
+        if (scene.HasGroupPostTool)
+            text.Append($"\n- 中途说话：事情做到一半想先说一句（比如先说接哪一块），调用 {GroupPostTool.ToolName}；" +
+                        "它发过的话，最后的正文里不必再说一遍。");
         // 不给尺度，群里的话会被当成交付物写，一人写长报告、别人跟着学
         // 口吻交给各自的卡：「像平常聊天」实测把 OP-01 的协议、原作角色的口吻一并抹成同一种聊天腔
         text.Append("\n- 尺度：说你自己的看法，用你自己的说话方式；发到群聊的信息不要过长，不写成报告。");
         if (scene.SharesDraftRoom) text.Append("材料长（清单、对比、摘录）就写成草稿目录里的文件，群里只说结论、附上路径。");
         // 实测：过程话写成调工具前的开场白；以「让我去翻一下……」收尾，这一轮就此结束、群里等不到下文
-        // if (scene.PostsThroughTool)
+        // if (scene.HasGroupPostTool)
         //     text.Append("\n- 一轮怎么算：说了要去查，就在这一轮里查完再说，别拿「我去翻一下」收尾；" +
         //                 "一轮里可以说几次，比如先说接哪一块、做完再报结果。");
         // 实测：没新信息时人人把现状重申一遍、几个人核同一份事实、一句问用户的话被轮着再催七遍
         text.Append("\n- 只说新的：别人说过的、正在查在核的、你自己刚说过的，都不再重复；和已有的差不多就只说不一样的那一点，" +
                     $"认同一句话带过。已经有人问了{scene.UserName}、正等着回答的事，别再催一遍。");
-        text.Append(scene.PostsThroughTool
-            ? ""//$"\n- 不接话：没什么要补充时不调用 {GroupPostTool.ToolName}，直接结束这一轮；不必为表态「收到」「我也等着」专门说一句。"
-            : $"\n- 不接话：没什么要补充时只回复「{PassReply}」，这句不会发到群里；不必为表态「收到」「我也等着」专门说一句。");
+        text.Append($"\n- 不接话：没什么要补充时只回复「{PassReply}」，这句不会发到群里；不必为表态「收到」「我也等着」专门说一句。");
         if (scene.SharesDraftRoom)
         {
             // 讨论 → 拍板 → 开工（方案 v6 §2.6⑤），拍板归用户。系统不解析用户那句话，判断交给模型
             // text.Append("\n- 方案由用户拍板：用户明确说定（比如「就这么做」「开始吧」）或点名让你去做之前，只讨论、查证，" +
             //             "不改工作区的文件、不跑会改东西的命令；拿不准就问一句。");
             // 实测：并行群里用户一句「开工」没点名，六人同时改同一份文档、三人同时实现同一处代码
-            if (scene.PostsThroughTool)
+            if (scene.HasGroupPostTool)
                 text.Append($"\n- {scene.UserName}让大家开工却没点名谁做时，先调用 {GroupPostTool.ToolName} 说一句你接哪一块；" +
                             "避免和别人认领的撞了：谁先认领谁动手，没接到的只审不改。");
             text.Append("\n- 草稿目录是全群共用的：新建前先看有没有同名的，别盖掉别人的。");
         }
-        if (scene.PostsThroughTool)
-            text.Append($"\n\n**重要提醒**：在群里发言需要调用 {GroupPostTool.ToolName} ，否则你的只是在自言自语，谁也看不到！" +
-                        "想请某位成员接话，在发言里写 @名字。");
 
         return text.ToString();
     }
@@ -500,12 +490,12 @@ public sealed record GroupMemberPresence(string Name, string Works);
 /// <param name="SelfName">这个成员的名字</param>
 /// <param name="Others">其余在场成员（名字 + 作品，同作品的介绍时合并）</param>
 /// <param name="UserName">用户的名字</param>
-/// <param name="PostsThroughTool">他是不是经群发言工具说话（智能体形态，ADR 0060）；否则回复正文就是发言</param>
+/// <param name="HasGroupPostTool">他有没有群发言工具（智能体形态）：中途说话用它，回复正文照样是发言（ADR 0060 修订）</param>
 /// <param name="HostName">主持人的名字；没有为 null</param>
 /// <param name="SharesDraftRoom">他有没有草稿目录（智能体形态且开着文件或命令行）：有就是全群共用的那一间，
 /// 也说明他动得了工作区，场景段要讲清拍板之前不动手</param>
 public sealed record GroupScene(string GroupName, string SelfName, IReadOnlyList<GroupMemberPresence> Others,
-    string UserName, bool PostsThroughTool, string? HostName, bool SharesDraftRoom = false);
+    string UserName, bool HasGroupPostTool, string? HostName, bool SharesDraftRoom = false);
 
 /// <summary>投递拆回来的一段</summary>
 /// <param name="Speaker">发言人显示名；场景说明、主持人提示等无发言人为 null</param>

@@ -240,21 +240,16 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
             SpeakerChanged?.Invoke(group.SessionId);
 
             string input = ComposeInput(member, cause, delivery!);
-            // 一种形态一条发言通道（ADR 0060）：智能体形态只经群发言工具，回复留在他自己那里；
-            // 对话形态的回复就是发言——插话会让一轮说好几次话，每次说完都进群，而不是只取最后一条
-            bool postsThroughTool = GroupSceneSource.PostsThroughTool(member);
-            int replyStart = member.History.Count;
-            using GroupMemberReplyFeed? replies = postsThroughTool
-                ? null
-                : new GroupMemberReplyFeed(member, (text, at) => PostReply(group, member, text, at));
+            // 回复就是发言（ADR 0060 修订）：插话会让一轮说好几次话，每次说完都进群，而不是只取最后一条；
+            // 智能体形态另有群发言工具管中途说话，回复照样进群——不看这一轮调没调过工具
+            using GroupMemberReplyFeed replies = new(member, (text, at) => PostReply(group, member, text, at));
             // 图的路径引用在正文里，看不了图的成员靠它用识图工具；看得了的直接给图
             ChatMessage deliveryMessage = GroupTranscript.DeliveryMessage(input, _seesImages(member) ? images : []);
             // 并行里说完即封口：别人的话不再让他续说一句，要不要再开口交给唤醒边界（ADR 0049 修订）。
             // 串行不封：本来人人轮到，没有谁一直被续着说
             Func<Task>? seal = run.Mode == EGroupScheduleMode.Parallel ? () => turn.SealAsync(_runner) : null;
             bool completed = await RunTurnAsync(member, deliveryMessage, seal, run.Token);
-            replies?.Finish(completed);
-            if (postsThroughTool && completed) NoteUnpostedReply(member, replyStart);
+            replies.Finish(completed);
             if (!completed)
             {
                 lock (_locker) _interrupted.Add(member.SessionId);
@@ -266,7 +261,7 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
             member.SaveMeta(touchUpdatedAt: false);
 
             if (run.End(member.SessionId)) SpeakerChanged?.Invoke(group.SessionId);
-            if (replies != null) await replies.WhenPostedAsync();
+            await replies.WhenPostedAsync();
 
             // 失败或被停：已经说完的几段照常算，没说完的半截留在他自己的会话里
             return new GroupTurnOutcome(completed, consumedNow);
@@ -365,9 +360,8 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
     // 场景与规矩在系统提示里（ADR 0048，见 GroupSceneSource），投递只带这一刻才成立的东西
     private string ComposeInput(ChatSession member, EGroupWakeCause cause, string delivery)
     {
-        bool postsThroughTool = GroupSceneSource.PostsThroughTool(member);
         string input = delivery + "\n\n" + GroupTranscript.VoiceReminder(member.CharacterData.GetPersonaCoda());
-        if (cause == EGroupWakeCause.CatchUp) input += "\n\n" + GroupTranscript.CatchUpHint(postsThroughTool);
+        if (cause == EGroupWakeCause.CatchUp) input += "\n\n" + GroupTranscript.CatchUpHint;
         return input;
     }
 
@@ -414,23 +408,11 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
             : Task.CompletedTask;
     }
 
-    // 对话形态成员说完的一段：回「[沉默]」就是这次不接话，不进群，也就不广播、不叫醒谁
+    // 成员说完的一段：回「[沉默]」就是这次不接话，不进群，也就不广播、不叫醒谁
     private Task? PostReply(ChatSession group, ChatSession member, string text, DateTimeOffset? createdAt)
     {
         string own = GroupTranscript.StripSpeakerPrefix(text, GroupSceneSource.SpeakerNameOf(member));
         return GroupTranscript.IsPass(own) ? null : PostFromMember(group, member, text, createdAt);
-    }
-
-    // 智能体形态一轮跑完、一次没调群发言工具却留了回复正文：可能是不接话时顺手写的，也可能是忘了调工具。
-    // 不替他发（那就回到两条通道），记一笔，查会话时对得上
-    private static void NoteUnpostedReply(ChatSession member, int replyStart)
-    {
-        List<ChatMessage> turn = member.History.Skip(replyStart).Where(x => x.Role == ChatRole.Assistant).ToList();
-        if (turn.SelectMany(x => x.Contents).OfType<FunctionCallContent>().Any(x => x.Name == GroupPostTool.ToolName)) return;
-        if (turn.LastOrDefault() is not { } last || string.IsNullOrWhiteSpace(last.Text)) return;
-
-        Log.Debug($"Group member '{member.Title}' ({member.SessionId}) ended a turn without {GroupPostTool.ToolName}; " +
-                 $"its reply stays in its own session ({last.Text.Trim().Length} chars).");
     }
 
     // 返回这一波接没接住：已收场的波接不住，用户发言由调用方另开一波；成员发言照旧只落盘（没有波时也是如此）

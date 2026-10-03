@@ -415,7 +415,7 @@ public class ParallelGroupChatTests
         await _coordinator.PostAsync(_group, "大家好");
 
         List<(ChatSession Member, string Input)> catchUps =
-            _runner.Calls.Where(x => x.Input.Contains(GroupTranscript.CatchUpHint(false))).ToList();
+            _runner.Calls.Where(x => x.Input.Contains(GroupTranscript.CatchUpHint)).ToList();
         Assert.NotEmpty(catchUps);
         Assert.All(catchUps, x => Assert.Equal(2, _runner.CallsOf(x.Member)));
         Assert.All(new[] { _alice, _bob, _carol }, x => Assert.True(_runner.CallsOf(x) <= 2));
@@ -427,7 +427,7 @@ public class ParallelGroupChatTests
     {
         await _coordinator.PostAsync(_group, "大家好");
 
-        Assert.DoesNotContain(_runner.Calls, x => x.Input.Contains(GroupTranscript.CatchUpHint(false)));
+        Assert.DoesNotContain(_runner.Calls, x => x.Input.Contains(GroupTranscript.CatchUpHint));
     }
 
     /// <summary>这一波没跑成的（这里是失败）不被补位自动重跑：失败多半还会再失败，交给「继续」</summary>

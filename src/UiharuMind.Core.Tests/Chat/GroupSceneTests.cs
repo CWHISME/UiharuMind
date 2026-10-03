@@ -37,17 +37,17 @@ public class GroupSceneTests
         Assert.Contains("不写成报告", scene);
     }
 
-    /// <summary>一种形态一条发言通道（ADR 0060）：智能体形态只听到工具那条，对话形态只听到回复那条</summary>
+    /// <summary>回复两种形态都是发言、「[沉默]」都是不接话；有群发言工具的多讲一条中途说话（ADR 0060 修订）</summary>
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public void Scene_DescribesOnlyTheChannelThisFormSpeaksThrough(bool postsThroughTool)
+    public void Scene_ReplyIsSpeechForBothForms_ToolOnlyForMidTurn(bool hasTool)
     {
-        string scene = GroupTranscript.BuildScene(new GroupScene("会审", "Alice", [new GroupMemberPresence("Bob", "")], "我", postsThroughTool, null));
+        string scene = GroupTranscript.BuildScene(new GroupScene("会审", "Alice", [new GroupMemberPresence("Bob", "")], "我", hasTool, null));
 
-        Assert.Equal(postsThroughTool, scene.Contains("否则你的只是在自言自语"));
-        Assert.Equal(!postsThroughTool, scene.Contains(GroupTranscript.PassReply));
-        Assert.Equal(!postsThroughTool, scene.Contains("你每次说完的正文就是你在群里说的话"));
+        Assert.Contains("你每次说完的正文就是你在群里说的话", scene);
+        Assert.Contains(GroupTranscript.PassReply, scene);
+        Assert.Equal(hasTool, scene.Contains("中途说话"));
     }
 
     [Theory]
