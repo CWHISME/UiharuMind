@@ -12,7 +12,9 @@ public readonly record struct GroupRosterEntry(string SessionId, string Name);
 public static class GroupMentions
 {
     /// <summary>
-    /// 认出正文里 @ 到的成员。名字从长到短比，免得短名吃掉以它开头的长名；全角 ＠ 也认
+    /// 认出正文里 @ 到的成员。叫法按 <see cref="GroupSpeakerName"/>：全名、括号前的本名、括号里的别名（如「五更琉璃（黑猫）」），
+    /// 以及其中连续的两字起（@琉璃、@千空）；完整叫法优先，部分叫法两人共用的不算点到谁。
+    /// 同一处取最长的叫法，免得短名吃掉以它开头的长名；全角 ＠ 也认
     /// </summary>
     /// <param name="text">正文</param>
     /// <param name="roster">成员名单</param>
@@ -21,26 +23,17 @@ public static class GroupMentions
     {
         if (string.IsNullOrEmpty(text) || roster.Count == 0) return [];
 
-        List<GroupRosterEntry> byLength = roster
-            .Where(x => !string.IsNullOrWhiteSpace(x.Name))
-            .OrderByDescending(x => x.Name.Length)
-            .ToList();
+        GroupSpeakerNames<string> names = new(roster.Select(x => (x.SessionId, x.Name)));
         List<string> mentioned = [];
         for (int i = 0; i < text.Length; i++)
         {
             if (text[i] != '@' && text[i] != '＠') continue;
             // @ 紧跟在字母数字后面不算点名：a@alice.com 是邮箱写法（与补全 TryFindMention 同口径）
             if (i > 0 && char.IsAsciiLetterOrDigit(text[i - 1])) continue;
+            if (!names.TryMatchStart(text.AsSpan(i + 1), out string sessionId, out int length)) continue;
 
-            ReadOnlySpan<char> rest = text.AsSpan(i + 1);
-            foreach (GroupRosterEntry entry in byLength)
-            {
-                if (!rest.StartsWith(entry.Name.AsSpan(), StringComparison.OrdinalIgnoreCase)) continue;
-
-                if (!mentioned.Contains(entry.SessionId)) mentioned.Add(entry.SessionId);
-                i += entry.Name.Length;
-                break;
-            }
+            if (!mentioned.Contains(sessionId)) mentioned.Add(sessionId);
+            i += length;
         }
 
         return mentioned;

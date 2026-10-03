@@ -107,8 +107,7 @@ public static class GroupTranscript
     /// <param name="speaker">发言人显示名</param>
     /// <param name="body">正文</param>
     /// <returns>带发言人前缀的一段</returns>
-    public static string FormatPost(string? speaker, string body) =>
-        $"[{(string.IsNullOrWhiteSpace(speaker) ? "?" : speaker)}]: {body}";
+    public static string FormatPost(string? speaker, string body) => GroupSpeakerLine.Format(speaker, body);
 
     /// <summary>
     /// 一条群发言插给正在说的人时的样子：与投递同样打头一行，再是带发言人前缀的一段
@@ -126,9 +125,9 @@ public static class GroupTranscript
     public static GroupDeliverySegment ParsePost(string text)
     {
         if (text.StartsWith(FeedHeader, StringComparison.Ordinal)) text = text[FeedHeader.Length..];
-        int close = text.IndexOf("]: ", StringComparison.Ordinal);
-        if (!text.StartsWith('[') || close <= 1) return new GroupDeliverySegment(null, text);
-        return new GroupDeliverySegment(text[1..close], text[(close + 3)..]);
+        return GroupSpeakerLine.TryReadBracketed(text, out string speaker, out string body)
+            ? new GroupDeliverySegment(speaker, body)
+            : new GroupDeliverySegment(null, text);
     }
 
     /// <summary>
@@ -144,8 +143,8 @@ public static class GroupTranscript
     {
         if (string.IsNullOrEmpty(body) || string.IsNullOrWhiteSpace(speaker)) return body;
 
-        string name = speaker.Trim();
-        if (name.Length == 0) return body;
+        GroupSpeakerName name = new(speaker);
+        if (name.Full.Length == 0) return body;
 
         string result = body;
         for (int i = 0; i < MaxStripPasses; i++)
@@ -160,7 +159,7 @@ public static class GroupTranscript
 
     // 实测白井黑子第一段照常说，第二段开头写「[黑子]:」——把投递格式当成了分段标记。
     // 行中只剥括号式：裸名式在行首多半是在跟人说话
-    private static string StripBracketedLinePrefixes(string text, string name)
+    private static string StripBracketedLinePrefixes(string text, GroupSpeakerName name)
     {
         if (!text.Contains('\n')) return text;
 
@@ -189,18 +188,10 @@ public static class GroupTranscript
         string result = StripSpeakerPrefix(body, speaker);
         if (string.IsNullOrWhiteSpace(userName)) return result;
 
-        string name = userName.Trim();
-        string trimmed = result.TrimStart();
-        if (!IsExactBracketName(trimmed, name)) return result;
-        return StripOnce(trimmed, name) is { } rest ? StripSpeakerPrefix(rest, speaker) : result;
-    }
-
-    private static bool IsExactBracketName(string text, string name)
-    {
-        if (text.Length == 0 || (text[0] != '[' && text[0] != '【')) return false;
-        char close = text[0] == '[' ? ']' : '】';
-        int end = text.IndexOf(close);
-        return end > 1 && string.Equals(text.Substring(1, end - 1).Trim(), name, StringComparison.Ordinal);
+        GroupSpeakerName user = new(userName);
+        return GroupSpeakerLine.TryReadBracketed(result.TrimStart(), out string name, out string rest) && user.IsExactly(name)
+            ? StripSpeakerPrefix(rest, speaker)
+            : result;
     }
 
     /// <summary>
@@ -225,39 +216,20 @@ public static class GroupTranscript
         return true;
     }
 
-    private static string? StripOnce(string text, string name)
+    // 括号里是他的任一叫法（全名、本名、别名或其中连续的两字起：原作角色常拿自称当前缀，如白井黑子写「[黑子]:」）；
+    // 裸名式只认完整叫法：「黑子：」在句首更可能是在对人说话
+    private static string? StripOnce(string text, GroupSpeakerName name)
     {
-        // 中括号式：[名]: / [名]：/【名】: /【名】：，括号与冒号之间允许空格
         if (text.Length > 0 && (text[0] == '[' || text[0] == '【'))
-        {
-            char close = text[0] == '[' ? ']' : '】';
-            int end = text.IndexOf(close);
-            if (end > 1 && IsOwnBracketName(text.Substring(1, end - 1).Trim(), name))
-            {
-                string after = text.Substring(end + 1).TrimStart();
-                if (after.Length > 0 && (after[0] == ':' || after[0] == '：'))
-                    return after.Substring(1).TrimStart();
-            }
+            return GroupSpeakerLine.TryReadBracketed(text, out string token, out string rest) && name.IsCalledBy(token) ? rest : null;
 
-            return null;
-        }
-
-        // 裸名式：名: / 名：
-        if (text.StartsWith(name, StringComparison.Ordinal))
+        foreach (string exact in name.ExactNames)
         {
-            string after = text.Substring(name.Length).TrimStart();
-            if (after.Length > 0 && (after[0] == ':' || after[0] == '：'))
-                return after.Substring(1).TrimStart();
+            if (GroupSpeakerLine.TryReadBare(text, exact, out string rest)) return rest;
         }
 
         return null;
     }
-
-    // 括号里是全名，或全名中连续的一段（两字起）：原作角色常拿自称当前缀，如白井黑子写「[黑子]:」。
-    // 裸名式不放宽：「黑子：」在句首更可能是在对人说话
-    private static bool IsOwnBracketName(string token, string name) =>
-        string.Equals(token, name, StringComparison.Ordinal) ||
-        (token.Length >= 2 && name.Contains(token, StringComparison.Ordinal));
 
     /// <summary>对话形态的成员表示「这次不接话」的回复：不进群（场景段里告诉了他）。智能体形态不用它，不调群发言工具就是不接话</summary>
     public const string PassReply = "[沉默]";
@@ -465,17 +437,9 @@ public static class GroupTranscript
         out string? name, out string rest)
     {
         name = null;
-        rest = string.Empty;
-        if (!line.StartsWith('[')) return false;
-
-        int close = line.IndexOf("]: ", StringComparison.Ordinal);
-        if (close <= 1) return false;
-
-        string candidate = line[1..close];
-        if (!speakerNames.Contains(candidate)) return false;
+        if (!GroupSpeakerLine.TryReadBracketed(line, out string candidate, out rest) || !speakerNames.Contains(candidate)) return false;
 
         name = candidate;
-        rest = line[(close + 3)..];
         return true;
     }
 }

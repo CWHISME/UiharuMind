@@ -362,6 +362,18 @@ public class GroupChatCoordinatorTests
     }
 
     /// <summary>实测：Agnes 的千空两条发言以「[黑猫]:」（用户的名字）开头</summary>
+    /// <summary>名字带括号别名的成员拿别名当前缀（段 27：琉璃发言开头写「[黑猫]:」），照样剥</summary>
+    [Theory]
+    [InlineData("[黑猫]: 两颗钉子我也拔开看了", "两颗钉子我也拔开看了")]
+    [InlineData("【五更琉璃】：拔开看了", "拔开看了")]
+    [InlineData("黑猫：拔开看了", "拔开看了")] //别名是她自己的完整叫法，裸名式也剥
+    [InlineData("[琉璃]: 拔开看了", "拔开看了")]
+    [InlineData("[猫]: 一个字不算", "[猫]: 一个字不算")]
+    public void StripSpeakerPrefix_KnowsTheBracketedAlias(string body, string expected)
+    {
+        Assert.Equal(expected, GroupTranscript.StripSpeakerPrefix(body, "五更琉璃（黑猫）"));
+    }
+
     [Theory]
     [InlineData("[黑猫]: 先把读数贴出来", "石神千空", "黑猫", "先把读数贴出来")]
     [InlineData("【黑猫】：先把读数贴出来", "石神千空", "黑猫", "先把读数贴出来")]

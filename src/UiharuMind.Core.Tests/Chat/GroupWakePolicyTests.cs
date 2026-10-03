@@ -79,6 +79,8 @@ public class GroupWakePolicyTests
     [InlineData("发邮件到 a@alice.com", "")] //@ 前是字母数字，邮箱写法不算点名（alice 是成员，要防误认）
     [InlineData("@Alice @alice", "alice")] //去重
     [InlineData("@Alice和@白井黑子", "alice,kuroko")]
+    [InlineData("@黑子 你看", "kuroko")] //名字中连续的一段；「白井」是另一人的全名，照样归他
+    [InlineData("@井黑 你看", "kuroko")]
     public void Mentions_AreParsedAgainstTheRoster(string text, string expected)
     {
         GroupRosterEntry[] roster =
@@ -86,6 +88,28 @@ public class GroupWakePolicyTests
             new("alice", "Alice"),
             new("shirai", "白井"),
             new("kuroko", "白井黑子"),
+        ];
+
+        Assert.Equal(expected, string.Join(",", GroupMentions.Parse(text, roster)));
+    }
+
+    [Theory]
+    [InlineData("@黑猫 你拍", "ruri")] //别名：模型照卡里的称呼写
+    [InlineData("@五更琉璃 你拍", "ruri")] //括号前的本名
+    [InlineData("@五更琉璃（黑猫） 你拍", "ruri")] //全名
+    [InlineData("@Holo 你看", "holo")] //半角括号
+    [InlineData("@猫 你看", "")] //两人共用的叫法不算点到谁
+    [InlineData("@琉璃你拍", "ruri")] //本名中连续的两字起
+    [InlineData("@五更 你拍", "ruri")]
+    [InlineData("@大家 看看", "")] //名字里没有的两个字不算点名
+    public void Mentions_AlsoMatchTheBracketedAlias(string text, string expected)
+    {
+        GroupRosterEntry[] roster =
+        [
+            new("ruri", "五更琉璃（黑猫）"),
+            new("holo", "赫萝 (Holo)"),
+            new("cat1", "甲（猫）"),
+            new("cat2", "乙（猫）"),
         ];
 
         Assert.Equal(expected, string.Join(",", GroupMentions.Parse(text, roster)));
