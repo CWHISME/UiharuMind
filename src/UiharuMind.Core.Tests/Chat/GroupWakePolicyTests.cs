@@ -115,5 +115,29 @@ public class GroupWakePolicyTests
         Assert.Equal(expected, string.Join(",", GroupMentions.Parse(text, roster)));
     }
 
+    /// <summary>
+    /// 名单在场景段里是分组式写法（「《死亡笔记》：L」），照抄进 @ 的作品名前缀要认得出来，
+    /// 否则点到的人一次都叫不醒（实测化身写「@《死亡笔记》：L」把 L 落下了）
+    /// </summary>
+    [Theory]
+    [InlineData("@《死亡笔记》：L 先把验收口子打通", "l")]
+    [InlineData("@《死亡笔记》L 看看", "l")]
+    [InlineData("@死亡笔记：L 看看", "l")]
+    [InlineData("@《死亡笔记》：白露 看看", "bailu")]
+    [InlineData("@晨曦 看看", "chenxi")]
+    [InlineData("@《死亡笔记》：L 和@晨曦 看看", "l,chenxi")]
+    [InlineData("@大家 看看", "")]
+    public void Mentions_SkipTheWorksPrefix(string text, string expected)
+    {
+        GroupRosterEntry[] roster =
+        [
+            new("bailu", "白露"),
+            new("chenxi", "晨曦"),
+            new("l", "L"),
+        ];
+
+        Assert.Equal(expected, string.Join(",", GroupMentions.Parse(text, roster)));
+    }
+
     private static List<string> Targets(IReadOnlyList<GroupWake> wakes) => wakes.Select(x => x.MemberSessionId).ToList();
 }
