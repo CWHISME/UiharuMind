@@ -269,9 +269,9 @@ public static class SubAgentTool
     private static string UnknownRecipient(LaunchContext context, string target)
     {
         string names = context.Roster.Count == 0
-            ? "No one is listed by name; leave `to` empty to reach the default helper."
+            ? "No one is listed by name; leave `to` empty to message someone new."
             : $"By name: {string.Join(", ", context.Roster.Select(x => x.Name))} "
-              + "(or leave `to` empty for the default helper).";
+              + "(or leave `to` empty to message someone new).";
         string error = $"Error: no one called '{target}'. {names}";
 
         List<ChatSessionMeta> earlier = SessionManager.Instance.GetSubSessions(context.ParentSessionId);

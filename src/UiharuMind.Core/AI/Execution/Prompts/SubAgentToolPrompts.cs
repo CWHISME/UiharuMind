@@ -42,11 +42,14 @@ public static class SubAgentToolPrompts
     ///
     /// 名单不写进这里（那会让工具定义随成员增减而变，失效前缀缓存，见 ADR 0044 决策 4、5），
     /// 可找的人列在系统提示的委派一节里。
+    ///
+    /// 「留空」那句不写 "a general-purpose helper" 这类名词：实测弱模型会照着造一个名字填进来
+    /// （"general"、"general-reviewer"），报错后才改成留空。改为直说只有两种值有效。
     /// </summary>
     public const string ToParam =
-        "Recipient: a name listed in your instructions, " +
-        "or the id in an earlier receipt's [sub-session: …] line to continue that conversation. " +
-        "Leave it empty to start a new conversation with a general-purpose helper.";
+        "Only two kinds of value work here: a name listed in your instructions, " +
+        "or the id from an earlier [sub-session: …] line to continue that conversation. " +
+        "Leave it empty to message someone new.";
 
     /// <summary>
     /// <c>content</c> 参数说明。补一句「写具体」：压缩后
