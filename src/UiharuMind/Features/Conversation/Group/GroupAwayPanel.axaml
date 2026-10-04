@@ -3,56 +3,50 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:group="clr-namespace:UiharuMind.Features.Conversation.Group"
-             xmlns:panels="clr-namespace:UiharuMind.Features.Conversation.SidePanels"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
-             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="200"
+             mc:Ignorable="d" d:DesignWidth="300"
              x:Class="UiharuMind.Features.Conversation.Group.GroupAwayPanel"
              x:DataType="group:GroupAwayViewData">
 
-    <!-- 离席（ADR 0055）：离开时化身替用户坐在群里，每一波结束替他拍板、决定接着推还是停下 -->
-    <Border BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}" CornerRadius="8" Padding="8">
-        <StackPanel Spacing="8">
-            <Grid ColumnDefinitions="*,Auto">
-                <TextBlock FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"
-                           Text="{loc:Loc GroupAwayTitle}" />
-                <Button Grid.Column="1" Classes="Tertiary" Padding="6,2" FontSize="11"
-                        Content="{loc:Loc GroupAwayOpenAvatar}" Command="{Binding OpenAvatarCommand}" />
-            </Grid>
-            <TextBlock Classes="muted" Text="{loc:Loc GroupAwayHint}" TextWrapping="Wrap" />
-
-            <!-- 没在离席：目标（以用户的名义发进群）+ 化身模型 -->
-            <StackPanel Spacing="6" IsVisible="{Binding IsIdle}">
-                <TextBox Text="{Binding Goal}" PlaceholderText="{loc:Loc GroupAwayGoalPlaceholder}"
-                         AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="160" />
-                <TextBox Text="{Binding Mandate}" PlaceholderText="{loc:Loc GroupAwayMandatePlaceholder}"
-                         AcceptsReturn="True" TextWrapping="Wrap" MinHeight="40" MaxHeight="120" />
-                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
-                    <TextBlock Classes="muted" VerticalAlignment="Center" Text="{loc:Loc GroupAwayModelLabel}" />
-                    <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
-                              ItemsSource="{Binding ModelOptions}" SelectedItem="{Binding SelectedModel}">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="panels:SessionModelOption">
-                                <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
+    <!-- 离席（ADR 0055）：标题行（本群产物同款标题），捎话、提醒、模型与无限模式都搬进设置弹窗 -->
+    <Border BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}" CornerRadius="8" Padding="8,6">
+        <StackPanel Spacing="4">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                <!-- 化身：点开它的会话；离席结束后会话还在照样点得开，从没建过才点不开 -->
+                <Button Grid.Column="0" Classes="text-row" VerticalAlignment="Center"
+                        Command="{Binding OpenAvatarCommand}" IsEnabled="{Binding HasAvatar}">
+                    <TextBlock FontSize="15" FontWeight="SemiBold"
+                               Text="{loc:Loc GroupAwayOpenAvatar}" />
+                </Button>
+                <!-- 状态标志：化身在跑就转圈，否则圆点。用 Grid 而非横向 StackPanel，后者给无限宽，状态文字截不断会压到设置按钮上 -->
+                <Grid Grid.Column="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6" VerticalAlignment="Center">
+                    <SpinnerIcon Width="14" Height="14" VerticalAlignment="Center"
+                                 IsVisible="{Binding IsAvatarRunning}" />
+                    <Border Classes="status-dot" Tag="{Binding DotTag}" VerticalAlignment="Center"
+                            IsVisible="{Binding !IsAvatarRunning}" />
+                    <TextBlock Grid.Column="1" Classes="title-tweak-sm" FontSize="12" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               Text="{Binding StatusLine}" ToolTip.Tip="{Binding StatusLine}" />
+                    <TextBlock Grid.Column="2" Classes="muted title-tweak-sm" FontSize="11" VerticalAlignment="Center"
+                               Text="{Binding CountdownLine}" IsVisible="{Binding HasCountdown}" />
                 </Grid>
-                <Button HorizontalAlignment="Right" Content="{loc:Loc GroupAwayStart}" Command="{Binding StartCommand}" />
-            </StackPanel>
-
-            <!-- 离席中：状态、倒计时与动作 -->
-            <StackPanel Spacing="6" IsVisible="{Binding IsAway}">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <Border Classes="status-dot" Tag="Progress" VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding StatusLine}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <!-- 设置常在；离席中左边多一个停止（确认后结束离席） -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                    <ThemedIconButton Width="24" Height="24" VerticalAlignment="Center"
+                                      IconName="stop" CurrentColor="Red"
+                                      ToolTip.Tip="{loc:Loc GroupAwayEnd}"
+                                      Command="{Binding ConfirmEndCommand}"
+                                      IsVisible="{Binding IsAway}" />
+                    <ThemedIconButton Width="24" Height="24" VerticalAlignment="Center"
+                                      IconName="settings"
+                                      ToolTip.Tip="{loc:Loc GroupAwaySettingsTip}"
+                                      Command="{Binding OpenSetupCommand}" />
                 </StackPanel>
-                <TextBlock Classes="muted" FontSize="11" Text="{Binding CountdownLine}" IsVisible="{Binding HasCountdown}" />
-                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
-                    <Button Classes="Tertiary" Content="{loc:Loc GroupAwayWakeNow}" Command="{Binding WakeNowCommand}"
-                            IsVisible="{Binding HasCountdown}" />
-                    <Button Content="{loc:Loc GroupAwayEnd}" Command="{Binding EndCommand}" />
-                </StackPanel>
-            </StackPanel>
+            </Grid>
+            <!-- 化身调用过模型才有：与成员卡同一套用量行，悬停看模型名 -->
+            <Panel IsVisible="{Binding HasAvatarUsage}" ToolTip.Tip="{Binding AvatarUsage.Tip}">
+                <group:SessionUsageBar DataContext="{Binding AvatarUsage}" />
+            </Panel>
         </StackPanel>
     </Border>
 </UserControl>

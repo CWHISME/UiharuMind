@@ -3119,9 +3119,6 @@ Allow them?</value>
     <data name="GroupArtifactsEmpty" xml:space="preserve">
         <value>Nothing on disk yet.</value>
     </data>
-    <data name="GroupArtifactsOpenRoom" xml:space="preserve">
-        <value>Draft room</value>
-    </data>
     <data name="GroupArtifactOpen" xml:space="preserve">
         <value>Open</value>
     </data>
@@ -3531,20 +3528,41 @@ Allow them?</value>
         <value>Model list updated.</value>
     </data>
 
-    <data name="GroupAwayTitle" xml:space="preserve">
-        <value>Away</value>
-    </data>
     <data name="GroupAwayHint" xml:space="preserve">
         <value>While you're away, your avatar sits in for you: at the end of each wave it decides for you and keeps things moving or stops.</value>
     </data>
     <data name="GroupAwayGoalPlaceholder" xml:space="preserve">
-        <value>Goal (notes welcome, e.g. "leave the docs folder alone this time"); posted to the group as you</value>
+        <value>First words for the avatar (members can't see them), e.g. "fix the login crash, then run the tests"</value>
     </data>
-    <data name="GroupAwayMandatePlaceholder" xml:space="preserve">
-        <value>Authority (optional, only the avatar sees it), e.g. "you may decide structural changes for me"</value>
+    <data name="GroupAwayReminderPlaceholder" xml:space="preserve">
+        <value>Notes (optional, only the avatar sees them), e.g. "you may decide structural changes for me"</value>
     </data>
-    <data name="GroupAwayModelLabel" xml:space="preserve">
-        <value>Avatar model</value>
+    <data name="GroupAwayGoalLabel" xml:space="preserve">
+        <value>Message (avatar only)</value>
+    </data>
+    <data name="GroupAwayGoalTip" xml:space="preserve">
+        <value>First words for the avatar when away starts; members can't see them and the avatar starts on them. Be specific to avoid idling</value>
+    </data>
+    <data name="GroupAwayReminderLabel" xml:space="preserve">
+        <value>Notes (avatar only)</value>
+    </data>
+    <data name="GroupAwayReminderTip" xml:space="preserve">
+        <value>Private notes for the avatar; members can't see them</value>
+    </data>
+    <data name="GroupAwayInfiniteLabel" xml:space="preserve">
+        <value>Infinite mode (manual stop only)</value>
+    </data>
+    <data name="GroupAwayInfiniteTip" xml:space="preserve">
+        <value>In infinite mode all fuses are off and EndAway just returns an error; only you can end it. Make the goal explicit to avoid spinning idly</value>
+    </data>
+    <data name="GroupAwaySetupTitle" xml:space="preserve">
+        <value>Avatar Settings</value>
+    </data>
+    <data name="GroupAwaySettingsTip" xml:space="preserve">
+        <value>Avatar settings</value>
+    </data>
+    <data name="GroupAwayIdle" xml:space="preserve">
+        <value>Inactive</value>
     </data>
     <data name="GroupAwayStart" xml:space="preserve">
         <value>Go away</value>
@@ -3552,11 +3570,14 @@ Allow them?</value>
     <data name="GroupAwayEnd" xml:space="preserve">
         <value>End away</value>
     </data>
+    <data name="GroupAwayEndConfirm" xml:space="preserve">
+        <value>End away? Your avatar will stop; the wave already running is not affected.</value>
+    </data>
     <data name="GroupAwayWakeNow" xml:space="preserve">
         <value>Wake now</value>
     </data>
     <data name="GroupAwayOpenAvatar" xml:space="preserve">
-        <value>Open avatar</value>
+        <value>Avatar</value>
     </data>
     <data name="GroupAwayStatusFormat" xml:space="preserve">
         <value>Away · avatar acted {0} times</value>
@@ -3613,7 +3634,7 @@ Allow them?</value>
         <value>{0} min</value>
     </data>
     <data name="AgentSettingAway" xml:space="preserve">
-        <value>Group away</value>
+        <value>Group avatar</value>
     </data>
     <data name="AgentSettingAwayDesc" xml:space="preserve">
         <value>While you're away your avatar keeps an agent group moving. These are runaway guards and wake pacing; the defaults are generous.</value>

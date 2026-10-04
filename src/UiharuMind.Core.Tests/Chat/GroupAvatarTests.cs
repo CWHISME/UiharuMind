@@ -133,6 +133,43 @@ public class GroupAvatarTests
         if (request != null) Assert.Equal("都做完了", request.Summary);
     }
 
+    [Fact]
+    public async Task EndAway_InfiniteMode_ReturnsAnError()
+    {
+        AIFunction tool = (AIFunction)EndAwayTool.Create(() => true);
+
+        object? result = await tool.InvokeAsync(new AIFunctionArguments { ["reason"] = "done", ["summary"] = "做完了" },
+            TestContext.Current.CancellationToken);
+
+        Assert.StartsWith("Error: infinite away mode is on", result?.ToString());
+    }
+
+    [Fact]
+    public async Task EndAway_NormalMode_Acknowledges()
+    {
+        AIFunction tool = (AIFunction)EndAwayTool.Create(() => false);
+
+        object? result = await tool.InvokeAsync(new AIFunctionArguments { ["reason"] = "done", ["summary"] = "做完了" },
+            TestContext.Current.CancellationToken);
+
+        Assert.StartsWith("Away session will end after this turn", result?.ToString());
+    }
+
+    [Fact]
+    public void BriefingNote_KickoffOnlyFirstTurn_ReminderAndInfiniteEveryTurn()
+    {
+        string? first = GroupAvatarTranscript.BriefingNote("黑猫", "把登录页修了", "这类改动可以替我拍", true);
+        string? later = GroupAvatarTranscript.BriefingNote("黑猫", "把登录页修了", "这类改动可以替我拍", true,
+            kickoff: false);
+
+        Assert.Contains("把登录页修了", first);
+        Assert.DoesNotContain("把登录页修了", later);
+        Assert.Contains("这类改动可以替我拍", first);
+        Assert.Contains("这类改动可以替我拍", later);
+        Assert.Contains("无限模式", later);
+        Assert.Null(GroupAvatarTranscript.BriefingNote("黑猫", "  ", null, false, kickoff: false));
+    }
+
     private static IReadOnlyList<CharacterData> Cards(params string[] ids) =>
         ids.Select(x => new CharacterData { CharacterId = $"avatar-{x}", CharacterName = x }).ToList();
 }

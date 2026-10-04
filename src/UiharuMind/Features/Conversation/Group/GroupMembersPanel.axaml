@@ -9,13 +9,6 @@
              x:Class="UiharuMind.Features.Conversation.Group.GroupMembersPanel"
              x:DataType="group:GroupMembersViewData">
 
-    <UserControl.Styles>
-        <!-- 成员占用的细进度条：蓝色随主题强调色，轨道显形（占用低时进度块只有几像素） -->
-        <Style Selector="ProgressBar.member-usage /template/ Border#PART_Indicator">
-            <Setter Property="Background" Value="{DynamicResource MessageStatusInfoBrush}" />
-        </Style>
-    </UserControl.Styles>
-
     <!-- 群的成员:按发言顺序,点开是他自己的会话(可看可聊)。那里看得到他收到了什么、自己干了什么 -->
     <Border BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}" CornerRadius="8" Padding="8">
         <StackPanel Spacing="8">
@@ -52,7 +45,7 @@
                     <DataTemplate x:DataType="group:GroupMemberItem">
                         <Button Classes="Tertiary" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                 Margin="0,2" Command="{Binding OpenCommand}"
-                                ToolTip.Tip="{Binding CardTip}">
+                                ToolTip.Tip="{Binding Usage.Tip}">
                             <Button.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Header="{loc:Loc GroupMoveUp}" Command="{Binding MoveUpCommand}" />
@@ -63,7 +56,7 @@
                             </Button.ContextMenu>
                             <!-- 上身份（头像只跨名字+描述两行、垂直居中），下统计（统一一行 + 全宽进度条）。
                                  发言状态只占第一行最右，只跟名字争宽——描述跨到最右，状态出现时不再挤出省略号 -->
-                            <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto"
+                            <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto"
                                    ColumnSpacing="8" RowSpacing="1">
                                 <controls:CircleAvatar Grid.RowSpan="2" Width="32" Height="32" Source="{Binding Icon}"
                                                         VerticalAlignment="Center" />
@@ -81,22 +74,9 @@
                                            ToolTip.Tip="{Binding Description}"
                                            TextTrimming="CharacterEllipsis" MaxLines="1"
                                            IsVisible="{Binding HasDescription}" />
-                                <!-- 底部统一统计：左占用 / 上限，右累计（右沿对齐，竖扫一眼看出累计）。随每次用量上报刷新 -->
-                                <Grid Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3"
-                                      ColumnDefinitions="*,Auto" ColumnSpacing="6"
-                                      IsVisible="{Binding HasTokenLine}">
-                                    <TextBlock Classes="muted" FontSize="10" Text="{Binding ContextLine}"
-                                               TextTrimming="CharacterEllipsis" IsVisible="{Binding HasUsage}" />
-                                    <TextBlock Grid.Column="1" Classes="muted" FontSize="10" Text="{Binding CostLine}"
-                                               IsVisible="{Binding HasCost}" />
-                                </Grid>
-                                <!-- 占用进度条：一眼看出离上限还有多远，贴底当卡片底边线 -->
-                                <ProgressBar Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3"
-                                              Classes="member-usage" Minimum="0" Maximum="100"
-                                             Value="{Binding UsagePercent}" Height="4" CornerRadius="2"
-                                             MinWidth="0" Margin="0,3,0,2"
-                                             Background="{DynamicResource SemiGrey3}"
-                                             IsVisible="{Binding HasUsage}" />
+                                <!-- 底部统一统计：占用 / 上限、累计与占用进度条，随每次用量上报刷新 -->
+                                <group:SessionUsageBar Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3"
+                                                       DataContext="{Binding Usage}" />
                                 <!-- 正在说的那一位（并行时可能几位）：蓝点 + 文字，跟着调度器的发言人变化走 -->
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
                                             VerticalAlignment="Center"

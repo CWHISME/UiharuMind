@@ -89,17 +89,19 @@ public sealed class GroupAwayController
     }
 
     /// <summary>
-    /// 开始离席：取（或建）化身、定格参数，把目标以用户的名义发进群——群闲着就由它开第一波，波末化身醒来
+    /// 开始离席：取（或建）化身、定格参数，捎话与提醒只私下交代给化身（不进群）——
+    /// 化身由它的第一轮开第一波，波末自然醒来。捎话可空：没填就没有首轮那份
     /// </summary>
     /// <param name="group">群壳会话（智能体群）</param>
-    /// <param name="goal">目标（可含备注）</param>
+    /// <param name="goal">只给化身看的捎话；null 或空白为没有</param>
     /// <param name="avatarModelName">化身这次用的模型；null 跟随全局</param>
-    /// <param name="mandate">只给化身看的授权范围（成员看不到）；null 或空白为没有</param>
+    /// <param name="reminder">只给化身看的重要提醒（成员看不到）；null 或空白为没有</param>
+    /// <param name="infinite">无限模式：只有用户手动能结束，保险丝全关、化身调结束工具报错</param>
     /// <returns>开始了为 true；已经在离席为 false</returns>
-    public bool Start(ChatSession group, string goal, string? avatarModelName, string? mandate = null)
+    public bool Start(ChatSession group, string? goal, string? avatarModelName, string? reminder = null,
+        bool infinite = false)
     {
-        if (string.IsNullOrWhiteSpace(goal)) throw new ArgumentException("An away session needs a goal.", nameof(goal));
-
+        GroupAwaySession session;
         lock (_sync)
         {
             if (_sessions.ContainsKey(group.SessionId)) return false;
@@ -111,12 +113,35 @@ public sealed class GroupAwayController
         lock (_sync)
         {
             if (_sessions.ContainsKey(group.SessionId)) return false;
-            _sessions[group.SessionId] = new GroupAwaySession(group, avatar, _settings(), _now(), stamp, mandate);
+            session = new GroupAwaySession(group, avatar, _settings(), _now(), stamp, goal, reminder, infinite);
+            _sessions[group.SessionId] = session;
         }
 
         RaiseStatusChanged(group.SessionId);
-        _coordinator.PostAsync(group, GroupAvatarTranscript.GoalPost(goal)).LogOnFault("post the away goal");
+        // 群正在跑一波：不等它——波末那次唤醒来带首轮（kickoff 还没消费，丢不了）
+        if (!_coordinator.IsRunning(group.SessionId)) Wake(session, null);
         return true;
+    }
+
+    /// <summary>
+    /// 某个群是不是在无限模式的离席里
+    /// </summary>
+    /// <param name="groupId">群壳会话标识</param>
+    /// <returns>无限模式的离席中为 true</returns>
+    public bool IsInfinite(string groupId)
+    {
+        lock (_sync) return _sessions.GetValueOrDefault(groupId)?.IsInfinite == true;
+    }
+
+    /// <summary>
+    /// 按化身会话查它所在的离席是不是无限模式（结束工具执行时现问）
+    /// </summary>
+    /// <param name="avatarSessionId">化身会话标识</param>
+    /// <returns>无限模式的离席中为 true</returns>
+    public bool IsInfiniteByAvatar(string? avatarSessionId)
+    {
+        if (string.IsNullOrEmpty(avatarSessionId)) return false;
+        lock (_sync) return _sessions.Values.Any(x => x.IsInfinite && x.Avatar.SessionId == avatarSessionId);
     }
 
     /// <summary>
@@ -204,9 +229,10 @@ public sealed class GroupAwayController
             session.ArtifactStamp = stamp;
             // 进展 = 成员接了话或落了新产物：退避归零
             if (summary.MemberPostCount > 0 || newArtifacts) session.BackoffLevel = 0;
-            // 被用户停下的那一波不算「没有新产物」
+            // 被用户停下的那一波不算「没有新产物」；无限模式没有空闲保险丝
             if (newArtifacts) session.IdleWaves = 0;
-            else if (!summary.Stopped && ++session.IdleWaves >= session.Settings.MaxIdleWaves) fuse = EGroupAwayEndReason.IdleFuse;
+            else if (!summary.Stopped && !session.IsInfinite && ++session.IdleWaves >= session.Settings.MaxIdleWaves)
+                fuse = EGroupAwayEndReason.IdleFuse;
         }
 
         if (fuse is { } reason)
@@ -231,6 +257,7 @@ public sealed class GroupAwayController
     private void Wake(GroupAwaySession session, string? note)
     {
         EGroupAwayEndReason? fuse = null;
+        bool infinite;
         lock (_sync)
         {
             if (session.IsEnded) return;
@@ -243,8 +270,11 @@ public sealed class GroupAwayController
                 return;
             }
 
-            if (_now() - session.StartedAt >= session.Settings.MaxDuration) fuse = EGroupAwayEndReason.DurationFuse;
-            else if (session.AvatarTurns >= session.Settings.MaxAvatarTurns) fuse = EGroupAwayEndReason.TurnsFuse;
+            infinite = session.IsInfinite;
+            if (!infinite && _now() - session.StartedAt >= session.Settings.MaxDuration)
+                fuse = EGroupAwayEndReason.DurationFuse;
+            else if (!infinite && session.AvatarTurns >= session.Settings.MaxAvatarTurns)
+                fuse = EGroupAwayEndReason.TurnsFuse;
             else
             {
                 session.IsAvatarRunning = true;
@@ -265,10 +295,20 @@ public sealed class GroupAwayController
 
     private async Task RunAvatarAsync(GroupAwaySession session, string? note)
     {
+        // 捎话只在本次离席化身跑成的第一轮交代：没跑成（用户正在私聊它）就下次重带
+        bool kickoff;
+        lock (_sync)
+        {
+            kickoff = !session.KickoffDelivered;
+            if (kickoff) session.KickoffDelivered = true;
+        }
+
         GroupAvatarTurn turn;
         try
         {
-            turn = await _coordinator.RunAvatarAsync(session.Group, session.Avatar, WithMandate(session, note), session.Token)
+            turn = await _coordinator.RunAvatarAsync(session.Group, session.Avatar,
+                    WithBriefing(session, note, kickoff),
+                    session.Token, endCallsBlocked: session.IsInfinite)
                 .ConfigureAwait(false);
         }
         catch (Exception e)
@@ -306,6 +346,12 @@ public sealed class GroupAwayController
                 return;
         }
 
+        // 捎话轮没跑成（用户正在私聊化身、或这一轮失败）：交代还没送达，下次重带
+        if (kickoff && turn.Result is EGroupAvatarTurnResult.Busy or EGroupAvatarTurnResult.Failed)
+        {
+            lock (_sync) session.KickoffDelivered = false;
+        }
+
         // 跑的期间又有一波收场：不论这一轮结局如何，立刻再看一眼
         if (pending)
         {
@@ -320,8 +366,10 @@ public sealed class GroupAwayController
                 NoProgress(session, NoteFor(turn.Result));
                 break;
             case EGroupAvatarTurnResult.Busy:
-                // 用户正在私聊化身：过一阵再试，不算没进展
-                Schedule(session, session.Settings.BackoffStart, null);
+                // 用户正在私聊化身：过一阵再试，不算没进展（捎话重带在上面已安排；
+                // 没交出去的提示带回去，Busy 也不计出手次数）
+                lock (_sync) session.AvatarTurns--;
+                Schedule(session, session.Settings.BackoffStart, note);
                 break;
             //Pushed：它那句开的一波收场时会再叫醒它
         }
@@ -477,12 +525,14 @@ public sealed class GroupAwayController
 
     private static string UserName => CharacterManager.Instance.UserCharacterName;
 
-    // 授权范围每一轮都带：化身的历史跨离席保留，只靠第一轮那一次，换一次离席就分不清哪份作数
-    private static string? WithMandate(GroupAwaySession session, string? note)
+    // 提醒与无限模式每一轮都带，捎话只在首轮带：化身的历史跨离席保留，
+    // 提醒只靠第一轮那一次会分不清哪份作数；捎话是用户原话，压缩的回查段会原样留着
+    private static string? WithBriefing(GroupAwaySession session, string? note, bool kickoff)
     {
-        if (session.Mandate == null) return note;
-        string mandate = GroupAvatarTranscript.MandateNote(UserName, session.Mandate);
-        return note == null ? mandate : mandate + "\n\n" + note;
+        string? briefing = GroupAvatarTranscript.BriefingNote(UserName, session.Goal, session.Reminder,
+            session.IsInfinite, kickoff);
+        if (briefing == null) return note;
+        return note == null ? briefing : briefing + "\n\n" + note;
     }
 
     private void RaiseStatusChanged(string groupId)

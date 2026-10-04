@@ -15,9 +15,10 @@
             <Grid ColumnDefinitions="*,Auto">
                 <TextBlock FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"
                            Text="{loc:Loc GroupArtifactsTitle}" />
-                <Button Grid.Column="1" Classes="Tertiary" Padding="6,2" FontSize="11"
-                        Content="{loc:Loc GroupArtifactsOpenRoom}" ToolTip.Tip="{Binding DraftRoom}"
-                        Command="{Binding OpenDraftRoomCommand}" />
+                <ThemedIconButton Grid.Column="1" Width="24" Height="24" VerticalAlignment="Center"
+                                  IconName="folder-open"
+                                  ToolTip.Tip="{Binding DraftRoom}"
+                                  Command="{Binding OpenDraftRoomCommand}" />
             </Grid>
             <TextBlock Classes="muted" Text="{loc:Loc GroupArtifactsHint}" TextWrapping="Wrap" />
             <TextBlock Classes="muted" FontSize="11" IsVisible="{Binding IsEmpty}"

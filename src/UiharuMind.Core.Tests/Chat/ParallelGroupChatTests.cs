@@ -19,7 +19,7 @@ public class ParallelGroupChatTests
     private readonly ChatSession _bob;
     private readonly ChatSession _carol;
 
-    public ParallelGroupChatTests()
+    public ParallelGroupChatTests() 
     {
         DefaultCharacterManager.Instance.OnInitialize(); //用户发言的署名取自内置用户卡
         _coordinator = new GroupChatCoordinator(_runner, id => _sessions.GetValueOrDefault(id));

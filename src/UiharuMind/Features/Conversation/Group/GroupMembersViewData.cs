@@ -55,7 +55,7 @@ public sealed partial class GroupMembersViewData : ObservableObject
         FormerMembers = roster.Former
             .Select(x => new GroupFormerMemberItem(x.Meta, character => _ = AddAsync(character)))
             .ToList();
-        foreach (GroupMemberItem member in Members) member.PropertyChanged += OnMemberPropertyChanged;
+        foreach (GroupMemberItem member in Members) member.Usage.PropertyChanged += OnMemberUsageChanged;
         HostOptions = [new GroupHostChoice(null, Loc.Text(LangKey.GroupHostNone)),
             ..Members.Select(x => new GroupHostChoice(x.SessionId, x.Name))];
         _selectedHost = HostOptions.FirstOrDefault(x => x.SessionId == group.GroupHostSessionId) ?? HostOptions[0];
@@ -87,13 +87,13 @@ public sealed partial class GroupMembersViewData : ObservableObject
     {
         get
         {
-            long total = Members.Sum(x => x.SpentTokens);
+            long total = Members.Sum(x => x.Usage.SpentTokens);
             return total > 0 ? string.Format(Loc.Text(LangKey.GroupTotalCostFormat), TurnUsageLedger.Format(total)) : "";
         }
     }
 
     /// <summary>有没有累计可显示</summary>
-    public bool HasTotalCost => Members.Any(x => x.SpentTokens > 0);
+    public bool HasTotalCost => Members.Any(x => x.Usage.HasCost);
 
     /// <summary>主持人可选项：「无」+ 各成员</summary>
     public IReadOnlyList<GroupHostChoice> HostOptions { get; }
@@ -301,9 +301,9 @@ public sealed partial class GroupMembersViewData : ObservableObject
     /// <returns>是成员为 true</returns>
     public bool Contains(string sessionId) => Members.Any(x => x.SessionId == sessionId);
 
-    private void OnMemberPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private void OnMemberUsageChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName != nameof(GroupMemberItem.SpentTokens)) return;
+        if (e.PropertyName != nameof(SessionUsageStats.SpentTokens)) return;
         OnPropertyChanged(nameof(TotalCostLine));
         OnPropertyChanged(nameof(HasTotalCost));
     }
@@ -316,10 +316,6 @@ public sealed partial class GroupMemberItem : ObservableObject
     private readonly CharacterData _character;
     private readonly Action<GroupMemberItem> _remove;
     private readonly Action<GroupMemberItem, int> _move;
-    private int _fixedTokens; //固定开销：预演一次后缓存，不随历史变
-    private long _usageTokens; //当前有效占用：最近一次请求输入与固定开销取大
-    private long _inputTokens; //会话累计输入
-    private long _outputTokens; //会话累计输出
 
     /// <summary>角色描述：副标题的主行，空时折叠（不占位）。模型行内不再出现，只进整卡 tooltip</summary>
     public string Description => _character.Description?.Trim() ?? "";
@@ -327,79 +323,8 @@ public sealed partial class GroupMemberItem : ObservableObject
     /// <summary>有没有可显示的角色描述</summary>
     public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
 
-    /// <summary>上下文行：占用 / 模型上限（与右栏上下文占用同一形状；上限未知时只给占用；无占用时为空，由 HasUsage 折叠）</summary>
-    public string ContextLine
-    {
-        get
-        {
-            if (_usageTokens <= 0) return "";
-            int contextLength = ResolveModel()?.ContextLength ?? 0;
-            return contextLength > 0
-                ? $"{TurnUsageLedger.Format(_usageTokens)} / {TurnUsageLedger.Format(contextLength)}"
-                : TurnUsageLedger.Format(_usageTokens);
-        }
-    }
-
-    /// <summary>累计花费：会话累计输入 + 输出（成本视角，一轮多次工具往返逐次相加）</summary>
-    public long SpentTokens => _inputTokens + _outputTokens;
-
-    /// <summary>累计行：与占用同一行靠右；没花过为空，由 HasCost 折叠</summary>
-    public string CostLine => HasCost
-        ? string.Format(Loc.Text(LangKey.GroupMemberCostFormat), TurnUsageLedger.Format(SpentTokens))
-        : "";
-
-    /// <summary>有没有累计可显示</summary>
-    public bool HasCost => SpentTokens > 0;
-
-    /// <summary>底部统计行有没有可显示（占用或累计任一段有即显示，容器据此折叠）</summary>
-    public bool HasTokenLine => HasUsage || HasCost;
-
-    /// <summary>整卡 tooltip：模型名 + 上下文，花过的再补一行输入 / 输出拆分</summary>
-    public string CardTip
-    {
-        get
-        {
-            string tip = string.Format(Loc.Text(LangKey.GroupMemberModelTooltipFormat), EffectiveModelName,
-                string.IsNullOrEmpty(ContextLine) ? "—" : ContextLine);
-            if (!HasCost) return tip;
-            return tip + "\n" + string.Format(Loc.Text(LangKey.GroupMemberCostTooltipFormat),
-                TurnUsageLedger.Format(_inputTokens), TurnUsageLedger.Format(_outputTokens));
-        }
-    }
-
-    /// <summary>实际生效的模型名（钉选 → 全局当前 → 首选，不套「跟随全局」包装，专给 tooltip）</summary>
-    private string EffectiveModelName
-    {
-        get
-        {
-            if (!string.IsNullOrEmpty(_meta.SessionModelName)) return _meta.SessionModelName;
-            string? name = LlmManager.Instance.CurrentRunningModel?.ModelName
-                           ?? LlmManager.Instance.GetPreferredModelName(false);
-            return string.IsNullOrEmpty(name) ? "—" : name;
-        }
-    }
-
-    /// <summary>占用占上限的百分比（进度条；上限未知或没算出来为 0）</summary>
-    public double UsagePercent
-    {
-        get
-        {
-            int contextLength = ResolveModel()?.ContextLength ?? 0;
-            return contextLength > 0 ? Math.Clamp(_usageTokens * 100.0 / contextLength, 0, 100) : 0;
-        }
-    }
-
-    /// <summary>有没有算出来的占用（占用行与进度条据此显隐）</summary>
-    public bool HasUsage => _usageTokens > 0;
-
-    /// <summary>成员会话的模型（钉选解析 → 全局当前）</summary>
-    private ModelRunningData? ResolveModel()
-    {
-        if (!string.IsNullOrEmpty(_meta.SessionModelName)
-            && LlmManager.Instance.CacheModelDictionary.TryGetValue(_meta.SessionModelName, out ModelRunningData? pinned))
-            return pinned;
-        return LlmManager.Instance.CurrentRunningModel;
-    }
+    /// <summary>模型用量（底部统计行、进度条与整卡 tooltip）</summary>
+    public SessionUsageStats Usage { get; }
 
     /// <summary>
     /// 构造
@@ -417,6 +342,7 @@ public sealed partial class GroupMemberItem : ObservableObject
         _remove = remove;
         _move = move;
         _character = SessionManager.CharacterOf(meta);
+        Usage = new SessionUsageStats(meta.SessionId);
         _ = RefreshStatsAsync();
     }
 
@@ -437,7 +363,7 @@ public sealed partial class GroupMemberItem : ObservableObject
                     AgentBuildProfile.FromDraft(_character, GroupChatSessions.WorkspaceOf(_meta), GroupChatSessions.PermissionOf(_meta),
                         SessionManager.IsAgentSide(_meta), scene));
             });
-            _fixedTokens = snapshot.EstimatedTokens;
+            Usage.FixedTokens = snapshot.EstimatedTokens;
         }
         catch
         {
@@ -447,26 +373,8 @@ public sealed partial class GroupMemberItem : ObservableObject
         RefreshUsage();
     }
 
-    /// <summary>
-    /// 取成员会话本体的真实占用（<see cref="ChatSession.LastInputTokens"/>，最近一次请求的输入 token），
-    /// 与固定开销取大——固定开销是「每轮最低要吃掉多少」，请求输入是服务端报的实际占用，
-    /// 两个口径各管一截（见 ADR 0009 的有效占用）。会话未跑过时以固定开销为准。累计花费同一处取
-    /// </summary>
-    public void RefreshUsage()
-    {
-        ChatSession? session = SessionManager.Instance.Load(SessionId);
-        _usageTokens = Math.Max(session?.LastInputTokens ?? 0, _fixedTokens);
-        _inputTokens = session?.TotalInputTokens ?? 0;
-        _outputTokens = session?.TotalOutputTokens ?? 0;
-        OnPropertyChanged(nameof(SpentTokens));
-        OnPropertyChanged(nameof(CostLine));
-        OnPropertyChanged(nameof(HasCost));
-        OnPropertyChanged(nameof(ContextLine));
-        OnPropertyChanged(nameof(UsagePercent));
-        OnPropertyChanged(nameof(HasUsage));
-        OnPropertyChanged(nameof(HasTokenLine));
-        OnPropertyChanged(nameof(CardTip));
-    }
+    /// <summary>重读成员会话的用量</summary>
+    public void RefreshUsage() => Usage.Refresh();
 
     /// <summary>成员会话标识</summary>
     public string SessionId { get; }

@@ -56,7 +56,72 @@ public class GroupAwayControllerTests
     }
 
     [Fact]
-    public async Task GoalOpensTheFirstWave_AvatarPushes_ThenEndsWhenDone()
+    public async Task FirstTurnFailed_KickoffRetriesWithTheGoal_NotDropped()
+    {
+        _runner.Fail.Add(_avatar.SessionId); //首轮没跑成（走失败）
+        _runner.Replies[_avatar.SessionId] = _ => "@Alice 接着做";
+
+        _away.Start(_group, "把两步做完", null);
+        // 首轮失败：退避重试，捎话待重带
+        await Until(() => _delays.Count == 1);
+        Assert.Contains("把两步做完", LastAvatarInput());
+
+        _runner.Fail.Clear();
+        _delays[0].Due.SetResult();
+        // 重试那一轮带上了捎话。不数精确轮次：化身每 Push 一次就开一波，波末又立即叫醒，
+        // 连锁会一直跑到保险丝，AvatarCalls 从 1 直接跳着涨，== 2 是竞态
+        await Until(() => _runner.Calls.Count(x => x.Member == _avatar && x.Input.Contains("把两步做完")) >= 2);
+
+        // 捎话没丢：重试那一轮又带上了；之后再跑的不再带（对比跑成后的第二轮不再带）
+        List<string> avatarInputs = _runner.Calls.Where(x => x.Member == _avatar).Select(x => x.Input).ToList();
+        Assert.True(avatarInputs.Count >= 2);
+        Assert.Contains("把两步做完", avatarInputs[0]); //首轮（失败那轮也带了）
+        Assert.Contains("把两步做完", avatarInputs[1]); //重试轮重带
+        Assert.All(avatarInputs.Skip(2), x => Assert.DoesNotContain("把两步做完", x));
+    }
+
+    [Fact]
+    public async Task StartWhileGroupRuns_FirstTurnWaitsForTheWaveEnd_WithTheGoal()
+    {
+        TaskCompletionSource gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        _runner.During[_alice.SessionId] = () => gate.Task; //成员波卡在 Alice：群在跑
+        _runner.Replies[_avatar.SessionId] = _ => "@Alice 接着做";
+
+        Task wave = _coordinator.PostAsync(_group, "大家好");
+        await Until(() => _coordinator.IsRunning(_group.SessionId));
+
+        Assert.True(_away.Start(_group, "把两步做完", null));
+        Assert.Equal(0, AvatarCalls()); //首轮不插进跑到一半的波
+
+        gate.SetResult();
+        await wave;
+        // 波末那次首轮带捎话；之后又连锁跑到保险丝，不数精确轮次
+        await Until(() => _runner.Calls.Any(x => x.Member == _avatar && x.Input.Contains("把两步做完")));
+        Assert.Contains("把两步做完", _runner.Calls.First(x => x.Member == _avatar).Input); //首轮带捎话
+    }
+
+    [Fact]
+    public async Task Busy_NotCountedAsATurn_AndCarriesTheNoteOver()
+    {
+        _runner.Replies[_avatar.SessionId] = _ => ""; //没写正文
+        _away.Start(_group, "目标", null);
+        await Until(() => AvatarCalls() == 1); //首轮跑成 Silent
+        await Until(() => _delays.Count == 1); //SilentNote 排上退避
+
+        using (GroupMemberTurnGate.TryEnter(_avatar.SessionId)) //用户正私聊化身：下一轮 Busy
+        {
+            _delays[0].Due.SetResult();
+            await Until(() => _delays.Count == 2); //Busy 又排退避
+            Assert.Equal(1, _away.StatusOf(_group.SessionId)?.AvatarTurns); //Busy 不计出手次数
+        }
+
+        _delays[1].Due.SetResult();
+        await Until(() => AvatarCalls() == 2);
+        Assert.EndsWith(GroupAvatarTranscript.SilentNote, LastAvatarInput()); //没交出去的提示带回来了
+    }
+
+    [Fact]
+    public async Task KickoffGoesToTheFirstAvatarTurnOnly_RestRideEveryTurn()
     {
         _runner.Replies[_avatar.SessionId] = _ => "@Alice 接着把第二步做完";
         _runner.During[_avatar.SessionId] = () =>
@@ -65,16 +130,23 @@ public class GroupAwayControllerTests
             return Task.CompletedTask;
         };
 
-        Assert.True(_away.Start(_group, "把两步做完", null));
+        Assert.True(_away.Start(_group, "把两步做完", null, "别动文档目录"));
         GroupAwayReceipt receipt = await NextReceipt();
 
         Assert.Equal(EGroupAwayEndReason.Done, receipt.Reason);
         Assert.Equal("两步都做完了", receipt.Summary);
         Assert.Equal(2, receipt.AvatarTurns);
-        Assert.StartsWith(GroupAvatarTranscript.AwayGoalTag, _group.History[0].Text);
         int pushed = Assert.Single(receipt.AvatarPostIndices);
         Assert.Equal("@Alice 接着把第二步做完", _group.History[pushed].Text);
         Assert.False(_away.IsAway(_group.SessionId));
+
+        // 捎话与提醒都不进群；捎话只在首轮，提醒每轮都带
+        Assert.DoesNotContain(_group.History, x => x.Text.Contains("把两步做完") || x.Text.Contains("别动文档目录"));
+        List<string> avatarInputs = _runner.Calls.Where(x => x.Member == _avatar).Select(x => x.Input).ToList();
+        Assert.Equal(2, avatarInputs.Count);
+        Assert.Contains("把两步做完", avatarInputs[0]);
+        Assert.DoesNotContain("把两步做完", avatarInputs[1]);
+        Assert.All(avatarInputs, x => Assert.Contains("别动文档目录", x));
 
         // 回执落进群流水，只给人看：读得回来，也不会投递给任何人
         await Until(() => _group.History.Any(x => ChatMessageAnnotations.GroupAwayReceiptOf(x) != null));
@@ -109,22 +181,80 @@ public class GroupAwayControllerTests
     }
 
     [Fact]
-    public async Task Mandate_RidesEveryAvatarTurn_ButNeverReachesTheGroup()
+    public async Task Reminder_RidesEveryAvatarTurn_ButNeverReachesTheGroup()
     {
-        const string mandate = "原语级改动可以替我拍";
+        const string reminder = "原语级改动可以替我拍";
         _runner.Replies[_avatar.SessionId] = _ => ""; //没写正文
 
-        _away.Start(_group, "目标", null, mandate);
+        _away.Start(_group, "目标", null, reminder);
         await Until(() => _delays.Count == 1);
-        Assert.Contains(mandate, LastAvatarInput());
+        Assert.Contains(reminder, LastAvatarInput());
 
         _delays[0].Due.SetResult();
         await Until(() => _delays.Count == 2);
-        Assert.Contains(mandate, LastAvatarInput());
+        Assert.Contains(reminder, LastAvatarInput());
         Assert.EndsWith(GroupAvatarTranscript.SilentNote, LastAvatarInput()); //没进展的提示仍在最后
 
-        Assert.DoesNotContain(_group.History, x => x.Text.Contains(mandate));
-        Assert.DoesNotContain(_runner.Calls, x => x.Member != _avatar && x.Input.Contains(mandate));
+        Assert.DoesNotContain(_group.History, x => x.Text.Contains(reminder));
+        Assert.DoesNotContain(_runner.Calls, x => x.Member != _avatar && x.Input.Contains(reminder));
+    }
+
+    [Fact]
+    public async Task InfiniteMode_IgnoresAllFuses_OnlyManualEnds()
+    {
+        _settings = Settings with { MaxIdleWaves = 1 };
+        _coordinator.EpisodeEnded += _ => _stamp = "same"; //后挂的覆盖前面那个：一直没有新产物
+        _runner.Replies[_avatar.SessionId] = _ => "@Alice 再看看";
+
+        Assert.True(_away.Start(_group, "把登录页修了", null, null, true));
+        await Until(() => AvatarCalls() >= 3);
+        Assert.True(_away.IsAway(_group.SessionId)); //空闲保险丝没炸
+        Assert.Empty(_receipts);
+
+        // 捎话只在首轮，之后不再重带
+        List<string> avatarInputs = _runner.Calls.Where(x => x.Member == _avatar).Select(x => x.Input).ToList();
+        Assert.Contains("把登录页修了", avatarInputs[0]);
+        Assert.All(avatarInputs.Skip(1), x => Assert.DoesNotContain("把登录页修了", x));
+
+        _now += TimeSpan.FromHours(2); //时长也到顶了
+        _away.End(_group.SessionId);
+        GroupAwayReceipt receipt = await NextReceipt();
+
+        Assert.Equal(EGroupAwayEndReason.Manual, receipt.Reason); //还是手动结束，不是保险丝
+    }
+
+    [Fact]
+    public async Task EmptyGoal_StartsWithoutKickoff()
+    {
+        _runner.Replies[_avatar.SessionId] = _ => ""; //没写正文
+        Assert.True(_away.Start(_group, "", null, "别动文档"));
+        await Until(() => _delays.Count == 1);
+
+        string input = LastAvatarInput();
+        Assert.DoesNotContain("捎给你的话", input);
+        Assert.Contains("别动文档", input);
+        Assert.True(_away.IsAway(_group.SessionId));
+    }
+
+    [Fact]
+    public async Task InfiniteMode_BlockedEndCall_DoesNotEnd_AndDoesNotSwallowItsWords()
+    {        _runner.Replies[_avatar.SessionId] = _ => "@Alice 继续";
+        _runner.During[_avatar.SessionId] = () =>
+        {
+            if (AvatarCalls() == 2) AddEndAway("done", "做完了");
+            return Task.CompletedTask;
+        };
+
+        _away.Start(_group, "目标", null, null, true);
+        await Until(() => AvatarCalls() >= 3); //调了结束的那一轮没收场，接着往下走
+        Assert.True(_away.IsAway(_group.SessionId));
+        Assert.Empty(_receipts);
+        // 被拦的那句之后说的话照常进群
+        Assert.Contains(_group.History, x => x.Text == "@Alice 继续");
+
+        _away.End(_group.SessionId);
+        GroupAwayReceipt receipt = await NextReceipt();
+        Assert.Equal(EGroupAwayEndReason.Manual, receipt.Reason);
     }
 
     [Fact]
@@ -151,14 +281,15 @@ public class GroupAwayControllerTests
         };
 
         _away.Start(_group, "目标", null);
-        await Until(() => _delays.Count == 1);
-        Assert.Equal(TimeSpan.FromMinutes(5), _delays[0].Delay);
-        Assert.Equal(0, AvatarCalls());
+        // 化身首轮的话已进群、自己也被停下，成员波被停又补一次：两次都是固定延迟，后一次顶掉前一次
+        await Until(() => _delays.Count >= 1);
+        Assert.Equal(TimeSpan.FromMinutes(5), _delays[^1].Delay);
+        Assert.Equal(1, AvatarCalls());
 
         _runner.During.Remove(_alice.SessionId);
         _runner.Replies[_avatar.SessionId] = _ => ""; //没写正文
-        _delays[0].Due.SetResult();
-        await Until(() => AvatarCalls() == 1);
+        _delays[^1].Due.SetResult();
+        await Until(() => AvatarCalls() == 2);
         Assert.EndsWith(GroupAvatarTranscript.StoppedNote(CharacterManager.Instance.UserCharacterName), LastAvatarInput());
     }
 
@@ -251,10 +382,11 @@ public class GroupAwayControllerTests
         };
 
         _away.Start(_group, "目标", null);
-        await Until(() => _delays.Count == 1);
+        // 化身首轮边说边被停、成员波被停又补一次：两次都是固定延迟，后一次顶掉前一次
+        await Until(() => _delays.Count >= 1);
 
         Assert.True(_away.IsAway(_group.SessionId));
-        Assert.Equal(TimeSpan.FromMinutes(5), _delays[0].Delay);
+        Assert.Equal(TimeSpan.FromMinutes(5), _delays[^1].Delay);
     }
 
     [Fact]

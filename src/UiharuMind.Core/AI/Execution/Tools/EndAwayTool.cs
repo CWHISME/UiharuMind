@@ -36,17 +36,20 @@ public static class EndAwayTool
     /// <summary>
     /// 创建结束离席工具
     /// </summary>
+    /// <param name="isInfinite">此刻是不是无限模式；null 为永远不是（测试与非离席装配用）。
+    /// 无限模式只有用户手动能结束，调这把只会拿到错误</param>
     /// <returns>工具实例</returns>
-    public static AITool Create()
+    public static AITool Create(Func<bool>? isInfinite = null)
     {
         return AIFunctionFactory.Create(
             ([Description("\"done\" when the away goal is reached; \"needs_user\" when something must be decided by the user in person.")]
                 string reason,
                 [Description("What the user should know when they come back: what was done, or exactly what is waiting for them.")]
-                string summary) => Acknowledge(reason, summary),
+                string summary) => Acknowledge(reason, summary, isInfinite?.Invoke() == true),
             ToolName,
             "End the user's away session. The group stops after this turn and the user is notified. " +
-            "Only for a reached goal or a decision the user must make in person.");
+            "Only for a reached goal or a decision the user must make in person. " +
+            "In infinite away mode this tool is disabled and returns an error.");
     }
 
     /// <summary>
@@ -69,10 +72,15 @@ public static class EndAwayTool
         };
     }
 
-    private static string Acknowledge(string reason, string summary) =>
-        reason.Trim() is DoneValue or NeedsUserValue
+    private static string Acknowledge(string reason, string summary, bool infinite)
+    {
+        if (infinite)
+            return "Error: infinite away mode is on and only the user can end this session. " +
+                   "Do not call this tool again; re-analyze the current situation and continue with concrete next steps.";
+        return reason.Trim() is DoneValue or NeedsUserValue
             ? "Away session will end after this turn. Do not say anything more to the group."
             : $"Error: reason must be \"{DoneValue}\" or \"{NeedsUserValue}\".";
+    }
 
     // 落盘往返后参数值是 JsonElement
     private static string? Text(object? value) => value switch

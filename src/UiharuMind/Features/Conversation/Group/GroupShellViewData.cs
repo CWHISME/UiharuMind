@@ -37,7 +37,7 @@ public sealed class GroupShellViewData : ObservableObject, IDisposable
         _members = CreateMembers();
         _artifacts = new GroupArtifactsViewData(group);
         Approvals = new GroupApprovalsViewData(group);
-        Away = group.IsAgentGroup ? new GroupAwayViewData(group) : null;
+        Away = group.IsAgentGroup ? new GroupAwayViewData(group, messages) : null;
         // 发言人变化（轮到谁 / 一轮结束）与名单变化都可能来自后台线程，处理里自行 marshal
         GroupChatCoordinator.Instance.SpeakerChanged += OnSpeakerChanged;
         GroupMembership.RosterChanged += OnRosterChanged;
@@ -141,12 +141,13 @@ public sealed class GroupShellViewData : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// 某个会话刚报了一次用量（可能来自执行线程）。是本群成员就刷右栏那一行
+    /// 某个会话刚报了一次用量（可能来自执行线程）。是本群成员就刷右栏那一行，是化身就刷离席块的用量行
     /// </summary>
     /// <param name="sessionId">报用量的会话</param>
     public void OnSessionUsageReported(string sessionId)
     {
         if (Members.Contains(sessionId)) Dispatcher.UIThread.Post(() => Members.RefreshUsageOf(sessionId));
+        else if (Away != null) Dispatcher.UIThread.Post(() => Away.OnSessionUsageReported(sessionId));
     }
 
     /// <summary>

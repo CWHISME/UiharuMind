@@ -1,0 +1,32 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:group="clr-namespace:UiharuMind.Features.Conversation.Group"
+             mc:Ignorable="d" d:DesignWidth="300"
+             x:Class="UiharuMind.Features.Conversation.Group.SessionUsageBar"
+             x:DataType="group:SessionUsageStats"
+             IsVisible="{Binding HasTokenLine}">
+
+    <UserControl.Styles>
+        <!-- 细进度条：蓝色随主题强调色，轨道显形（占用低时进度块只有几像素） -->
+        <Style Selector="ProgressBar.session-usage /template/ Border#PART_Indicator">
+            <Setter Property="Background" Value="{DynamicResource MessageStatusInfoBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <!-- 上一行左占用 / 上限、右累计（右沿对齐，竖扫一眼看出累计），下一条占用进度条 -->
+    <StackPanel Spacing="1">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+            <TextBlock Classes="muted" FontSize="10" Text="{Binding ContextLine}"
+                       TextTrimming="CharacterEllipsis" IsVisible="{Binding HasUsage}" />
+            <TextBlock Grid.Column="1" Classes="muted" FontSize="10" Text="{Binding CostLine}"
+                       IsVisible="{Binding HasCost}" />
+        </Grid>
+        <ProgressBar Classes="session-usage" Minimum="0" Maximum="100"
+                     Value="{Binding UsagePercent}" Height="4" CornerRadius="2"
+                     MinWidth="0" Margin="0,3,0,2"
+                     Background="{DynamicResource SemiGrey3}"
+                     IsVisible="{Binding HasUsage}" />
+    </StackPanel>
+</UserControl>

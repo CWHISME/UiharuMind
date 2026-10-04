@@ -18,11 +18,15 @@ internal sealed class GroupAwaySession
     /// <param name="settings">定格的离席参数</param>
     /// <param name="startedAt">开始时刻</param>
     /// <param name="artifactStamp">开始时的本群产物指纹</param>
-    /// <param name="mandate">只给化身看的授权范围；没有为 null</param>
+    /// <param name="goal">只给化身看的捎话目标；不会发进群</param>
+    /// <param name="reminder">只给化身看的重要提醒；没有为 null</param>
+    /// <param name="infinite">无限模式：只有用户手动能结束，保险丝全关、结束工具报错</param>
     public GroupAwaySession(ChatSession group, ChatSession avatar, GroupAwaySettings settings, DateTimeOffset startedAt,
-        string artifactStamp, string? mandate = null)
+        string artifactStamp, string? goal = null, string? reminder = null, bool infinite = false)
     {
-        Mandate = string.IsNullOrWhiteSpace(mandate) ? null : mandate.Trim();
+        Goal = string.IsNullOrWhiteSpace(goal) ? string.Empty : goal.Trim();
+        Reminder = string.IsNullOrWhiteSpace(reminder) ? null : reminder.Trim();
+        IsInfinite = infinite;
         Group = group;
         Avatar = avatar;
         Settings = settings;
@@ -38,8 +42,17 @@ internal sealed class GroupAwaySession
     /// <summary>化身会话</summary>
     public ChatSession Avatar { get; }
 
-    /// <summary>只给化身看的授权范围；没有为 null</summary>
-    public string? Mandate { get; }
+    /// <summary>只给化身看的捎话；不进群流水，开离席后化身第一轮随投递看到。没填为空</summary>
+    public string Goal { get; }
+
+    /// <summary>只给化身看的重要提醒；没有为 null</summary>
+    public string? Reminder { get; }
+
+    /// <summary>无限模式：只有用户手动能结束</summary>
+    public bool IsInfinite { get; }
+
+    /// <summary>捎话交代出去了（一轮没跑成时打回，下次重带）</summary>
+    public bool KickoffDelivered { get; set; }
 
     /// <summary>定格的离席参数</summary>
     public GroupAwaySettings Settings { get; }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -14,58 +15,80 @@ using UiharuMind.Shared.Services;
 namespace UiharuMind.Features.Conversation.Group;
 
 /// <summary>
-/// 群右栏的离席块（ADR 0055）：没在离席时是目标框、化身模型与开始按钮；离席中是状态、倒计时与几个动作。
+/// 群右栏的离席块（ADR 0055）：常态只有一行（状态 + 化身 + 设置），点设置开弹窗填目标、提醒、模型与无限模式。
 /// 只在智能体群里有。状态跟着 <see cref="GroupAwayController.StatusChanged"/> 刷新，倒计时每秒走一格
 /// </summary>
 public sealed partial class GroupAwayViewData : ObservableObject, IDisposable
 {
     private readonly ChatSession _group;
     private readonly GroupAwayController _away;
+    private readonly IMessageService _messages;
     private readonly Func<DateTimeOffset> _now;
     private readonly DispatcherTimer _ticker = new() { Interval = TimeSpan.FromSeconds(1) };
     private GroupAwayStatus? _status;
+    private SessionUsageStats? _avatarUsage; //化身会话还没建为 null
     private bool _disposed; //投到 UI 线程的刷新可能在视图关掉之后才到
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(StartCommand))]
     private string _goal = string.Empty;
 
-    [ObservableProperty] private string _mandate = string.Empty; //只给化身看的授权范围
+    [ObservableProperty] private string _reminder = string.Empty; //只给化身看的重要提醒
 
-    [ObservableProperty] private SessionModelOption _selectedModel;
+    [ObservableProperty] private bool _infinite; //无限模式：只有用户手动能结束
 
     /// <summary>
     /// 构造
     /// </summary>
     /// <param name="group">群壳会话（智能体群）</param>
+    /// <param name="messages">结束离席前弹确认用的消息服务</param>
     /// <param name="away">离席控制器；null 取应用里的那一个</param>
     /// <param name="now">当前时刻；null 取本地时间</param>
-    public GroupAwayViewData(ChatSession group, GroupAwayController? away = null, Func<DateTimeOffset>? now = null)
+    public GroupAwayViewData(ChatSession group, IMessageService messages, GroupAwayController? away = null,
+        Func<DateTimeOffset>? now = null)
     {
         _group = group;
+        _messages = messages;
         _away = away ?? GroupAwayController.Instance;
         _now = now ?? (() => DateTimeOffset.Now);
-        ModelOptions = SessionModelOption.SnapshotWithDefault(Loc.Text(LangKey.GroupModelFollowGlobal));
-        _selectedModel = DefaultModel(group, ModelOptions);
+        // 化身模型走会话模型组件的空态草稿：尚无化身会话，预选存在草稿里，开离席时带入
+        ModelPicker = new SessionModelViewData(() => null, () => false, () => { });
+        ModelPicker.Refresh();
+        PreselectHostModel(group);
         _status = _away.StatusOf(group.SessionId);
+        SyncAvatarUsage();
         _ticker.Tick += (_, _) => OnPropertyChanged(nameof(CountdownLine));
         _away.StatusChanged += OnStatusChanged;
         SyncTicker();
     }
 
-    /// <summary>化身模型的选项：「跟随全局」+ 当前模型清单</summary>
-    public IReadOnlyList<SessionModelOption> ModelOptions { get; }
+    /// <summary>化身模型的选项（会话模型组件，空态草稿模式）</summary>
+    public SessionModelViewData ModelPicker { get; }
 
     /// <summary>在离席</summary>
     public bool IsAway => _status != null;
 
-    /// <summary>没在离席（表单显隐）</summary>
+    /// <summary>没在离席（弹窗里开始按钮的显隐）</summary>
     public bool IsIdle => _status == null;
 
-    /// <summary>离席中的状态行</summary>
+    /// <summary>群的化身会话已建（化身标题点不点得开）；离席结束后会话还在，照样点得开</summary>
+    public bool HasAvatar => _avatarUsage != null;
+
+    /// <summary>化身的模型用量；化身会话还没建为 null</summary>
+    public SessionUsageStats? AvatarUsage => _avatarUsage;
+
+    /// <summary>化身调用过模型（标题下的用量行据此显隐）</summary>
+    public bool HasAvatarUsage => _avatarUsage?.HasCost == true;
+
+    /// <summary>化身正在跑（单行里转圈还是圆点）</summary>
+    public bool IsAvatarRunning => _status?.IsAvatarRunning == true;
+
+    /// <summary>单行圆点的配色键（status-dot 按 Tag 选色）：没在离席灰色，离席中蓝色</summary>
+    public string DotTag => IsAway ? "Progress" : "Idle";
+
+    /// <summary>单行里的状态行：没在离席是待机文案，离席中是出手次数或化身正在看群</summary>
     public string StatusLine => _status switch
     {
-        null => string.Empty,
+        null => Loc.Text(LangKey.GroupAwayIdle),
         { IsAvatarRunning: true } => Loc.Text(LangKey.GroupAwayAvatarThinking),
         _ => Loc.Text(LangKey.GroupAwayStatusFormat, _status.AvatarTurns),
     };
@@ -96,22 +119,57 @@ public sealed partial class GroupAwayViewData : ObservableObject, IDisposable
     {
         _disposed = true;
         _away.StatusChanged -= OnStatusChanged;
+        ModelPicker.Dispose();
         _ticker.Stop();
     }
 
-    [RelayCommand(CanExecute = nameof(CanStart))]
+    [RelayCommand]
     private void Start()
     {
-        string? model = SelectedModel.IsDefault ? null : SelectedModel.ModelName;
-        if (!_away.Start(_group, Goal, model, Mandate)) return;
+        // 空态草稿：没选过为 null，即跟随全局
+        string? model = ModelPicker.PeekDraft();
+        if (!_away.Start(_group, Goal, model, Reminder, Infinite)) return;
         Goal = string.Empty;
-        Mandate = string.Empty;
+        Reminder = string.Empty;
+        Infinite = false;
     }
 
-    private bool CanStart() => !string.IsNullOrWhiteSpace(Goal);
+    /// <summary>打开离席设置弹窗（捎话、提醒、模型、无限模式都搬了进去）</summary>
+    [RelayCommand]
+    private async Task OpenSetup() => await GroupAwaySetupWindow.ShowAsync(this);
+
+    /// <summary>
+    /// 某个会话刚报了一次用量（已在 UI 线程上）。是本群化身就刷它的用量行
+    /// </summary>
+    /// <param name="sessionId">报用量的会话</param>
+    public void OnSessionUsageReported(string sessionId)
+    {
+        if (_disposed) return;
+        if (_avatarUsage == null)
+        {
+            // 化身会话可能是这一拍才建出来（第一次离席）：实例还没建，补建并读数
+            SyncAvatarUsage();
+            return;
+        }
+        if (_avatarUsage.SessionId != sessionId) return;
+        _avatarUsage.Refresh();
+        OnPropertyChanged(nameof(HasAvatarUsage));
+    }
 
     [RelayCommand]
     private void End() => _away.End(_group.SessionId);
+
+    /// <summary>右栏停止按钮：确认后结束离席</summary>
+    /// <returns>确认并结束了为 true；取消为 false（设置弹窗据此决定关窗时机）</returns>
+    public async Task<bool> ConfirmEndAsync()
+    {
+        if (!await _messages.ConfirmAsync(Loc.Text(LangKey.GroupAwayEndConfirm))) return false;
+        End();
+        return true;
+    }
+
+    [RelayCommand]
+    private Task ConfirmEnd() => ConfirmEndAsync();
 
     [RelayCommand]
     private void WakeNow() => _away.WakeNow(_group.SessionId);
@@ -120,16 +178,18 @@ public sealed partial class GroupAwayViewData : ObservableObject, IDisposable
     private void OpenAvatar()
     {
         // 离席结束后化身会话还在，照样点得开
-        string? id = _status?.AvatarSessionId ?? GroupAvatar.MetaOf(_group.SessionId)?.SessionId;
+        string? id = _status?.AvatarSessionId ?? _avatarUsage?.SessionId;
         if (id != null) SubSessionWindowOpener.Open(id);
     }
 
     // 默认用主持人的模型（没有主持人取第一位成员的）：化身做的是判断活，值得给群里最强的那个
-    private static SessionModelOption DefaultModel(ChatSession group, IReadOnlyList<SessionModelOption> options)
+    private void PreselectHostModel(ChatSession group)
     {
         string? memberId = group.GroupHostSessionId ?? group.GroupMemberSessionIds.FirstOrDefault();
         string? modelName = memberId == null ? null : SessionManager.Instance.GetMeta(memberId)?.SessionModelName;
-        return options.FirstOrDefault(x => !x.IsDefault && x.ModelName == modelName) ?? options[0];
+        if (modelName == null) return;
+        if (ModelPicker.Options.FirstOrDefault(x => !x.IsDefault && x.ModelName == modelName) is { } match)
+            ModelPicker.SelectedOption = match;
     }
 
     private void OnStatusChanged(string groupId)
@@ -141,11 +201,30 @@ public sealed partial class GroupAwayViewData : ObservableObject, IDisposable
             _status = _away.StatusOf(_group.SessionId);
             OnPropertyChanged(nameof(IsAway));
             OnPropertyChanged(nameof(IsIdle));
+            OnPropertyChanged(nameof(IsAvatarRunning));
+            OnPropertyChanged(nameof(DotTag));
             OnPropertyChanged(nameof(StatusLine));
             OnPropertyChanged(nameof(CountdownLine));
             OnPropertyChanged(nameof(HasCountdown));
+            SyncAvatarUsage();
             SyncTicker();
         });
+    }
+
+    // 化身会话在第一次离席时才建，之后跨离席保留：没建过的每次状态变化再找一次
+    private void SyncAvatarUsage()
+    {
+        if (_avatarUsage == null)
+        {
+            string? id = _status?.AvatarSessionId ?? GroupAvatar.MetaOf(_group.SessionId)?.SessionId;
+            if (id == null) return;
+            _avatarUsage = new SessionUsageStats(id);
+            OnPropertyChanged(nameof(HasAvatar));
+            OnPropertyChanged(nameof(AvatarUsage));
+        }
+
+        _avatarUsage.Refresh();
+        OnPropertyChanged(nameof(HasAvatarUsage));
     }
 
     private void SyncTicker()

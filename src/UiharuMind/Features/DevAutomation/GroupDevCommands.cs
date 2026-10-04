@@ -289,28 +289,30 @@ internal sealed class GroupDumpCommand : IDevCommand
 }
 
 /// <summary>
-/// 开始离席：点开群，在右栏离席块里填目标、授权范围、选化身模型、点「开始离席」。<c>args</c>：group、goal、mandate（可省）、model（模型名，省略跟随全局）
+/// 开始离席：在右栏离席块里填捎话、重要提醒、选化身模型、点「开始离席」。<c>args</c>：group、goal（可省，不填就没有首轮那份）、
+/// reminder（可省，只给化身看）、model（模型名，省略跟随全局）、infinite（true 为无限模式，只有手动停止）
 /// </summary>
 internal sealed class GroupAwayStartCommand : IAsyncDevCommand
 {
     public string Name => "group.away.start";
 
-    public string Usage => "开始离席，化身替用户拍板。group、goal、mandate（只给化身看）、model（化身模型）";
+    public string Usage => "开始离席，化身替用户拍板。group、goal（捎话，可省）、reminder（只给化身看）、model（化身模型）、infinite（无限模式，只有手动停止）";
 
     public async Task<object?> ExecuteAsync(JsonElement args)
     {
         ChatSession group = GroupDevCommands.RequireGroup(args);
         GroupAwayViewData away = await GroupDevCommands.AwayOf(group);
-        away.Goal = DevCommandRegistry.RequireString(args, "goal");
-        away.Mandate = GroupDevCommands.StringOr(args, "mandate") ?? string.Empty;
+        away.Goal = GroupDevCommands.StringOr(args, "goal") ?? string.Empty;
+        away.Reminder = GroupDevCommands.StringOr(args, "reminder") ?? string.Empty;
+        away.Infinite = GroupDevCommands.BoolOr(args, "infinite", false);
         if (GroupDevCommands.StringOr(args, "model") is { } model)
         {
-            away.SelectedModel = away.ModelOptions.FirstOrDefault(x => x.ModelName == model)
-                                 ?? throw new ArgumentException($"model '{model}' not found");
+            away.ModelPicker.SelectedOption = away.ModelPicker.Options.FirstOrDefault(x => x.ModelName == model)
+                                              ?? throw new ArgumentException($"model '{model}' not found");
         }
 
         away.StartCommand.Execute(null);
-        return new { group = group.Title, away = GroupAwayController.Instance.IsAway(group.SessionId), model = away.SelectedModel.DisplayName };
+        return new { group = group.Title, away = GroupAwayController.Instance.IsAway(group.SessionId), model = away.ModelPicker.SelectedOption?.DisplayName };
     }
 }
 

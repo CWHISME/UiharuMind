@@ -27,9 +27,10 @@ public sealed partial class GroupChatCoordinator
     /// <param name="avatar">化身会话</param>
     /// <param name="note">附在投递末尾的提示（上次没进展的情况）；没有为 null</param>
     /// <param name="cancellationToken">离席结束时取消</param>
+    /// <param name="endCallsBlocked">结束调用是不是被拦着（无限模式）：调了也只拿到错误，不结束、不吞掉它说的话</param>
     /// <returns>这一轮的结局</returns>
     public async Task<GroupAvatarTurn> RunAvatarAsync(ChatSession group, ChatSession avatar, string? note,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, bool endCallsBlocked = false)
     {
         // 用户正在私聊化身：这次不跑，游标不动
         using IDisposable? gate = GroupMemberTurnGate.TryEnter(avatar.SessionId);
@@ -55,9 +56,10 @@ public sealed partial class GroupChatCoordinator
 
             Task? PostFromAvatar(string text, DateTimeOffset? createdAt)
             {
-                // 被停之后、调了结束离席之后再说的话都不进群：不让一句迟到的话绕过停止再开一波
+                // 被停之后、调了结束离席之后再说的话都不进群：不让一句迟到的话绕过停止再开一波。
+                // 无限模式里结束调用只会拿到错误，不拦它的话
                 if (turn.IsCancellationRequested) return null;
-                if (GroupAvatarTurn.FindEnd(avatar.History.Skip(start)) != null) return null;
+                if (!endCallsBlocked && GroupAvatarTurn.FindEnd(avatar.History.Skip(start)) != null) return null;
                 string body = GroupTranscript.StripSpeakerPrefix(text.Trim(), GroupSceneSource.SpeakerNameOf(avatar));
                 if (string.IsNullOrWhiteSpace(body)) return null;
 
@@ -75,7 +77,8 @@ public sealed partial class GroupChatCoordinator
             avatar.SaveMeta(touchUpdatedAt: false);
 
             return GroupAvatarTurn.Classify(avatar.History.Skip(start).ToList(), completed,
-                turn.IsCancellationRequested && !cancellationToken.IsCancellationRequested, posted);
+                turn.IsCancellationRequested && !cancellationToken.IsCancellationRequested, posted,
+                endCallsBlocked);
         }
         finally
         {

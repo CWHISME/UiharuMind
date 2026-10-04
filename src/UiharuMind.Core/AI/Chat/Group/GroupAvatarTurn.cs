@@ -38,17 +38,19 @@ public sealed record GroupAvatarTurn(EGroupAvatarTurnResult Result, AwayEndReque
 
     /// <summary>
     /// 判定化身这一轮的结局：结束离席优先（调了它之后再说的话不进群），其次是被停（停止不能被它已说出的话绕过），
-    /// 再看有没有话进了群
+    /// 再看有没有话进了群。无限模式里结束调用只会拿到错误，不算结局
     /// </summary>
     /// <param name="turnMessages">化身这一轮新增的消息</param>
     /// <param name="completed">这一轮是否正常跑完</param>
     /// <param name="stopped">是否被用户停下</param>
     /// <param name="posted">进了群的条数</param>
+    /// <param name="endCallsBlocked">结束调用是不是被拦着（无限模式）；true 时调了也不算结束</param>
     /// <returns>结局</returns>
     public static GroupAvatarTurn Classify(IEnumerable<ChatMessage> turnMessages, bool completed, bool stopped,
-        int posted)
+        int posted, bool endCallsBlocked = false)
     {
-        if (FindEnd(turnMessages) is { } end) return new GroupAvatarTurn(EGroupAvatarTurnResult.Ended, end);
+        if (!endCallsBlocked && FindEnd(turnMessages) is { } end)
+            return new GroupAvatarTurn(EGroupAvatarTurnResult.Ended, end);
         if (stopped) return new GroupAvatarTurn(EGroupAvatarTurnResult.Stopped);
         if (posted > 0) return new GroupAvatarTurn(EGroupAvatarTurnResult.Pushed);
         return new GroupAvatarTurn(completed ? EGroupAvatarTurnResult.Silent : EGroupAvatarTurnResult.Failed);
@@ -58,10 +60,12 @@ public sealed record GroupAvatarTurn(EGroupAvatarTurnResult Result, AwayEndReque
     /// 这一段消息里化身有没有调结束离席
     /// </summary>
     /// <param name="messages">消息</param>
+    /// <param name="endCallsBlocked">结束调用是不是被拦着（无限模式）；true 时一律认不出</param>
     /// <returns>第一次认得出的结束请求；没有为 null</returns>
-    public static AwayEndRequest? FindEnd(IEnumerable<ChatMessage> messages) => Calls(messages)
-            .Select(EndAwayTool.Read)
-            .FirstOrDefault(x => x != null);
+    public static AwayEndRequest? FindEnd(IEnumerable<ChatMessage> messages, bool endCallsBlocked = false) =>
+        endCallsBlocked
+            ? null
+            : Calls(messages).Select(EndAwayTool.Read).FirstOrDefault(x => x != null);
 
     /// <summary>
     /// 化身自己动手做了什么（进离席回执）：除结束离席外的每次工具调用，工具名 + 路径或命令

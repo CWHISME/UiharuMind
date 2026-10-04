@@ -12,6 +12,7 @@ using Microsoft.Agents.AI.Compaction;
 using Microsoft.Agents.AI.Tools.Shell;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Chat.Group.Away;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Harness;
 using UiharuMind.Core.AI.Execution.Mcp;
@@ -183,7 +184,12 @@ internal static class AgentAssembler
         }
 
         if (plan.Profile.IsGroupMember) Add(EAgentCapability.GroupPost, GroupPostTool.Create(plan.Profile.SessionId));
-        if (plan.Profile.IsGroupAvatar) Add(EAgentCapability.GroupAway, EndAwayTool.Create());
+        if (plan.Profile.IsGroupAvatar)
+        {
+            string avatarId = plan.Profile.SessionId;
+            Add(EAgentCapability.GroupAway,
+                EndAwayTool.Create(() => GroupAwayController.Instance.IsInfiniteByAvatar(avatarId)));
+        }
 
         if (config.EnableKnowledgeSearchTool)
         {
