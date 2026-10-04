@@ -3348,6 +3348,9 @@
     <data name="GroupAddConfirmFormat" xml:space="preserve">
         <value>把 {0} 加进群里？</value>
     </data>
+    <data name="GroupAddWhileRunningNote" xml:space="preserve">
+        <value>群正在进行中：正在说话的成员这一轮还不知道新人，下一轮起才知道；各自的下一轮会立刻按全价重算。</value>
+    </data>
     <data name="GroupFormerBadge" xml:space="preserve">
         <value>曾在群里</value>
     </data>

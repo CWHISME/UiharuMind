@@ -176,17 +176,18 @@ public sealed partial class GroupMembersViewData : ObservableObject
     private Task AddMembers() => AddAsync(null);
 
     /// <summary>
-    /// 加人或加回。挑完先确认，要摘要就请一位成员写（写不成按不补），写完再查一次空闲才动名单
+    /// 加人或加回。群在跑也能加（ADR 0046 修订）：正在说的人下一轮才知道新人，确认里明说。
+    /// 挑完先确认，要摘要就请一位成员写（写不成按不补）
     /// </summary>
     private async Task AddAsync(CharacterData? preselected)
     {
-        if (!_prompts.EnsureIdle(_group)) return;
         if (await GroupAddMembersWindow.ShowAsync(_group, preselected) is not { } request) return;
 
         string names = string.Join(Loc.Text(LangKey.GroupSpeakerSeparator), request.Members.Select(x => x.CharacterName));
-        if (!await _prompts.ConfirmIfRunAsync(HasTotalCost,
-                GroupChangePrompts.WithCacheNote(true, Loc.Text(LangKey.GroupAddConfirmFormat, names))))
-            return;
+        string confirm = GroupChangePrompts.WithCacheNote(true, Loc.Text(LangKey.GroupAddConfirmFormat, names));
+        bool running = GroupChatCoordinator.Instance.IsRunning(_group.SessionId);
+        if (running) confirm += "\n\n" + Loc.Text(LangKey.GroupAddWhileRunningNote);
+        if (!await _prompts.ConfirmIfRunAsync(HasTotalCost || running, confirm)) return;
 
         GroupRoster roster = GroupRoster.Of(_group);
         List<(CharacterData Character, string? ModelName, ChatSession? Former)> picks = request.Members
@@ -203,21 +204,18 @@ public sealed partial class GroupMembersViewData : ObservableObject
             if (picks.Any(x => x.Former != null)) returner = await WriteBriefingAsync(returning: true);
         }
 
-        // 写摘要要等几秒，期间群可能又跑起来了：先问一声，真正的把关在改名单那把锁里，撞上了就停在已加进去的那几位
-        if (!_prompts.EnsureIdle(_group)) return;
-        bool allSeated = true;
         foreach ((CharacterData character, string? modelName, ChatSession? former) in picks)
         {
-            if (former != null) former.SessionModelName = modelName;
-            bool seated = former != null
-                ? GroupMembership.Admit(_group, former, returner)
-                : GroupMembership.Join(_group, character, modelName, joiner) != null;
-            if (seated) continue;
-            allSeated = false;
-            break;
+            if (former != null)
+            {
+                former.SessionModelName = modelName;
+                GroupMembership.Admit(_group, former, returner);
+            }
+            else
+            {
+                GroupMembership.Join(_group, character, modelName, joiner);
+            }
         }
-
-        if (!allSeated) _prompts.Notify(Loc.Text(LangKey.GroupEditBusy), MessageSeverity.Warning);
     }
 
     private async Task<GroupBackfill> WriteBriefingAsync(bool returning)

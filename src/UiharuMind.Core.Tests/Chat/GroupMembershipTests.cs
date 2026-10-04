@@ -107,6 +107,33 @@ public class GroupMembershipTests
         Assert.Equal(EGroupRosterEdit.Done, GroupMembership.Remove(_group, _bob, _coordinator)); //停下来就能改
     }
 
+    /// <summary>
+    /// 加人不受「跑着不能改」限制（ADR 0046 修订）：跑着一波时加进来，这一波里 @ 他就能叫醒他，
+    /// 投递从他入群那一刻起
+    /// </summary>
+    [Fact]
+    public async Task Admit_WhileAWaveIsRunning_JoinsAndCanBeMentionedInTheSameWave()
+    {
+        _group.GroupScheduleMode = EGroupScheduleMode.Parallel;
+        ChatSession carol = Member("Carol");
+        Task? mention = null;
+        _runner.During[_alice.SessionId] = () =>
+        {
+            if (mention != null) return Task.CompletedTask;
+            GroupMembership.Admit(_group, carol, GroupBackfill.None, _coordinator);
+            mention = _coordinator.PostAsync(_group, "@Carol 你来看看");
+            return Task.CompletedTask;
+        };
+
+        await _coordinator.PostAsync(_group, "大家好");
+        await mention!;
+
+        Assert.Equal([_alice.SessionId, _bob.SessionId, carol.SessionId], _group.GroupMemberSessionIds);
+        string carolInput = _runner.Calls.Single(x => x.Member == carol).Input;
+        Assert.Contains("你来看看", carolInput);
+        Assert.DoesNotContain("大家好", carolInput); //入群之前的不补
+    }
+
     [Fact]
     public async Task RemovedMember_IsNotScheduled_AndCannotPost()
     {
@@ -192,6 +219,17 @@ public class GroupMembershipTests
 
         _group.GroupHostSessionId = _alice.SessionId;
         Assert.Same(_alice, GroupMembership.PickBriefingWriter(_group, Load));
+    }
+
+    /// <summary>群在跑时主持人正在说：挑闲着的写，免得写不成；都在忙才退回原来的挑法</summary>
+    [Fact]
+    public async Task BriefingWriter_PrefersIdleMembers()
+    {
+        await _coordinator.PostAsync(_group, "大家好");
+        _group.GroupHostSessionId = _alice.SessionId;
+
+        Assert.Same(_bob, GroupMembership.PickBriefingWriter(_group, Load, id => id == _alice.SessionId));
+        Assert.Same(_alice, GroupMembership.PickBriefingWriter(_group, Load, _ => true));
     }
 
     [Fact]

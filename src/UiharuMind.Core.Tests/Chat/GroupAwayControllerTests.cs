@@ -299,8 +299,8 @@ public class GroupAwayControllerTests
         await Until(() => AvatarCalls() >= 3); //调了结束的那一轮没收场，接着往下走
         Assert.True(_away.IsAway(_group.SessionId));
         Assert.Empty(_receipts);
-        // 被拦的那句之后说的话照常进群
-        Assert.Contains(_group.History, x => x.Text == "@Alice 继续");
+        // 被拦的那句之后说的话照常进群。无限模式还在连锁追加：读快照，不直接枚举群流水
+        Assert.Contains(_coordinator.HistorySnapshot(_group), x => x.Text == "@Alice 继续");
 
         _away.End(_group.SessionId);
         GroupAwayReceipt receipt = await NextReceipt();

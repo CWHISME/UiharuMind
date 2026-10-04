@@ -21,7 +21,7 @@ public sealed partial class GroupMemberSessionViewData : ObservableObject, IDisp
     private readonly ChatSession _session;
     private readonly ICharacterRunner _runner; //盯着待发插话的那个执行者（群广播不经视图插进来，得问它）
     private readonly Action<int> _applyPermission;
-    private GroupDeliveryRenderer? _deliveryRenderer; //成员名单建群后不变，缓存一份
+    private GroupDeliveryRenderer? _deliveryRenderer; //认得出哪些发言人；名单变了丢掉重建
 
     [ObservableProperty] private string _pendingText = string.Empty; //群里广播进来、他还没接收的：合成一行
     [ObservableProperty] private string _pendingTip = string.Empty; //那几条的全文
@@ -38,6 +38,7 @@ public sealed partial class GroupMemberSessionViewData : ObservableObject, IDisp
         _runner = session.Runner;
         _runner.PendingInjectionsChanged += OnPendingInjectionsChanged;
         GroupChatSessions.PermissionChanged += OnPermissionChanged;
+        GroupMembership.RosterChanged += OnRosterChanged;
         OnPendingInjectionsChanged(); //挂上来时可能已经有话在排队
     }
 
@@ -84,6 +85,7 @@ public sealed partial class GroupMemberSessionViewData : ObservableObject, IDisp
     {
         _runner.PendingInjectionsChanged -= OnPendingInjectionsChanged;
         GroupChatSessions.PermissionChanged -= OnPermissionChanged;
+        GroupMembership.RosterChanged -= OnRosterChanged;
     }
 
     partial void OnPendingTextChanged(string value) => OnPropertyChanged(nameof(HasPending));
@@ -113,6 +115,15 @@ public sealed partial class GroupMemberSessionViewData : ObservableObject, IDisp
     {
         GroupDeliverySegment post = GroupTranscript.ParsePost(message.Text);
         return post.Speaker == null ? post.Body : $"{post.Speaker}：{post.Body}";
+    }
+
+    /// <summary>
+    /// 名单变了（加人、加回）：丢掉渲染器，下一条投递按新名单拆，新人的发言不并进上一位的气泡
+    /// </summary>
+    private void OnRosterChanged(string groupId)
+    {
+        if (groupId != _session.GroupId) return;
+        Dispatcher.UIThread.Post(() => _deliveryRenderer = null);
     }
 
     /// <summary>

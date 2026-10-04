@@ -156,6 +156,17 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
     }
 
     /// <summary>
+    /// 往名单末尾加人：群在跑也能加。只追加、整份替换，与取投递同一把锁——调度读到的不是加之前的整份就是加之后的整份；
+    /// 正在说的人这一轮还不知道新人，下一轮按新场景段重建装配才知道
+    /// </summary>
+    /// <param name="group">群壳会话</param>
+    /// <param name="edit">加人（整份替换 <see cref="ChatSession.GroupMemberSessionIds"/>）及随之的落盘</param>
+    public void AddToRoster(ChatSession group, Action edit)
+    {
+        lock (_locker) edit();
+    }
+
+    /// <summary>
     /// 成员退群：忘掉他「被打断待续」的记号与待交的附注，不然加回来后第一轮会先收到这些
     /// </summary>
     /// <param name="memberSessionId">成员会话标识</param>

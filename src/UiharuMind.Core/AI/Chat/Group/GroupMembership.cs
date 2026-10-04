@@ -18,9 +18,9 @@ public static class GroupMembership
     public static event Action<string>? RosterChanged;
 
     /// <summary>
-    /// 此刻能不能改名单或工作区：群没在跑一波，成员也没在私聊。
-    /// 一轮中途被撤要处理投递、审批被他占着，不值得。这是给界面先问一声的；
-    /// 名单真正的把关在 <see cref="GroupChatCoordinator.TryEditRoster"/>（判断与修改同一把锁）
+    /// 此刻能不能移出成员、调整顺序或换工作区：群没在跑一波，成员也没在私聊。
+    /// 一轮中途被撤要处理投递、审批被他占着，不值得。加人不受此限（<see cref="Join"/>、<see cref="Admit"/>）。
+    /// 这是给界面先问一声的；名单真正的把关在 <see cref="GroupChatCoordinator.TryEditRoster"/>（判断与修改同一把锁）
     /// </summary>
     /// <param name="group">群壳会话</param>
     /// <returns>能改为 true</returns>
@@ -87,16 +87,16 @@ public static class GroupMembership
     }
 
     /// <summary>
-    /// 加一位新成员：建会话、入库、按补历史的方式定游标，排到名单末尾
+    /// 加一位新成员：建会话、入库、按补历史的方式定游标，排到名单末尾。群在跑也能加
     /// </summary>
     /// <param name="group">群壳会话</param>
     /// <param name="character">角色（须能进群，见 <see cref="GroupChatSessions.CanJoin"/>）</param>
     /// <param name="modelName">钉选的模型名；null 跟随全局</param>
     /// <param name="backfill">补历史的方式</param>
     /// <param name="coordinator">群聊调度器；null 用应用里那一个</param>
-    /// <returns>新成员会话；群正在跑一波为 null（什么都没建）</returns>
+    /// <returns>新成员会话</returns>
     /// <exception cref="ArgumentException">角色进不了群</exception>
-    public static ChatSession? Join(ChatSession group, CharacterData character, string? modelName, GroupBackfill backfill,
+    public static ChatSession Join(ChatSession group, CharacterData character, string? modelName, GroupBackfill backfill,
         GroupChatCoordinator? coordinator = null)
     {
         if (!GroupChatSessions.CanJoin(character))
@@ -104,12 +104,11 @@ public static class GroupMembership
 
         coordinator ??= GroupChatCoordinator.Instance;
         ChatSession member = GroupChatSessions.NewMember(group, character, modelName);
-        bool edited = coordinator.TryEditRoster(group, () =>
+        coordinator.AddToRoster(group, () =>
         {
             SessionManager.Instance.Add(member);
             Seat(group, member, backfill, coordinator);
         });
-        if (!edited) return null;
         RosterChanged?.Invoke(group.SessionId);
         return member;
     }
@@ -117,35 +116,43 @@ public static class GroupMembership
     /// <summary>
     /// 把成员（新建的或退群的）放进名单末尾，并按补历史的方式定游标：
     /// 不补 → 流水末尾；全部 → 新人从头、加回的不动；摘要 → 写摘要的人听到哪儿就从哪儿接（加回的取较大者），
-    /// 之后的原文随下一次投递照常给。没写成的摘要按不补处理
+    /// 之后的原文随下一次投递照常给。没写成的摘要按不补处理。群在跑也能放
     /// </summary>
     /// <param name="group">群壳会话</param>
     /// <param name="member">成员会话（<see cref="ChatSession.GroupId"/> 已指向本群）</param>
     /// <param name="backfill">补历史的方式</param>
     /// <param name="coordinator">群聊调度器；null 用应用里那一个</param>
-    /// <returns>放进去了为 true；群正在跑一波为 false</returns>
-    public static bool Admit(ChatSession group, ChatSession member, GroupBackfill backfill,
+    public static void Admit(ChatSession group, ChatSession member, GroupBackfill backfill,
         GroupChatCoordinator? coordinator = null)
     {
         coordinator ??= GroupChatCoordinator.Instance;
-        if (!coordinator.TryEditRoster(group, () => Seat(group, member, backfill, coordinator))) return false;
+        coordinator.AddToRoster(group, () => Seat(group, member, backfill, coordinator));
         RosterChanged?.Invoke(group.SessionId);
-        return true;
     }
 
     /// <summary>
-    /// 挑一位写入群摘要：主持人 → 最近在群里发过言的 → 名单里第一位有历史的。都没有为 null
+    /// 挑一位写入群摘要：主持人 → 最近在群里发过言的 → 名单里第一位有历史的。都没有为 null。
+    /// 闲着的优先：群在跑时主持人与刚发言的多半正在说，他持着闸就写不成、只能按不补处理
     /// </summary>
     /// <param name="group">群壳会话</param>
     /// <param name="load">按标识取会话</param>
+    /// <param name="isBusy">成员此刻是不是在跑；null 按运行态登记处判断</param>
     /// <returns>写摘要的成员</returns>
-    public static ChatSession? PickBriefingWriter(ChatSession group, Func<string, ChatSession?> load)
+    public static ChatSession? PickBriefingWriter(ChatSession group, Func<string, ChatSession?> load,
+        Func<string, bool>? isBusy = null)
     {
-        List<ChatSession> candidates = group.GroupMemberSessionIds
+        isBusy ??= id => SessionManager.Instance.Running.StateOf(id) != ESessionRunState.Idle;
+        List<ChatSession> withHistory = group.GroupMemberSessionIds
             .Select(load)
             .OfType<ChatSession>()
             .Where(x => x.History.Count > 0)
             .ToList();
+        List<ChatSession> idle = withHistory.Where(x => !isBusy(x.SessionId)).ToList();
+        return PickWriterAmong(group, idle.Count > 0 ? idle : withHistory);
+    }
+
+    private static ChatSession? PickWriterAmong(ChatSession group, List<ChatSession> candidates)
+    {
         if (candidates.FirstOrDefault(x => x.SessionId == group.GroupHostSessionId) is { } host) return host;
 
         for (int i = group.History.Count - 1; i >= 0; i--)
