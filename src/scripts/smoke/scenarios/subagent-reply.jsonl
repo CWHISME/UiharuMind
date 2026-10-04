@@ -4,5 +4,7 @@
 {"op":"session.wait","args":{"timeoutMinutes":15,"approvals":"deny"}}
 {"op":"session.post","args":{"text":"再同时找两个人，一个读 AGENTS.md、一个读 README.md，各用一句话总结给你，都回来后你汇总给我。"}}
 {"op":"session.wait","args":{"timeoutMinutes":15,"approvals":"deny"}}
+{"op":"session.post","args":{"text":"接着问读 README 的那位（用回执里的标识续聊，别另起新人）：README 里提到了哪几个本地模型相关的功能？"}}
+{"op":"session.wait","args":{"timeoutMinutes":15,"approvals":"deny"}}
 {"op":"session.dump","args":{"path":"{{OUT}}/subagent-reply.md"}}
 {"op":"quit"}

@@ -342,7 +342,7 @@ public static class BackgroundSubAgentDispatcher
         // 结尾那行 `[sub-session: …]` 是**跨模块的契约**,不是随手写的格式:
         // 回放历史时卡片靠它认出「这是一次委派」并挂出「查看过程」入口
         // (ToolCallItem.ParseSubSessionId 的正则),而 SubSessionStartedContent 那条
-        // 随当时那一轮就消失了。报告用的是同一个格式,两种工具结果因此一致
+        // 随当时那一轮就消失了。回信信头的署名用的是同一个格式
         // 写成「发给了某个人」:带上名字,说清回信只有一封、做完才写——问「好了没」换不来东西,
         // 不必再立「别催」的规矩;中途补充纠正是正当用法,照实说能做
         string who = subSession.SubAgentName.Length > 0 ? subSession.SubAgentName : subSession.SubAgentRole;

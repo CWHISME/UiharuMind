@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Chat;
 
 namespace UiharuMind.Core.Tests.Chat;
@@ -171,6 +172,19 @@ public class SubAgentReportHandoffTests
 
         Assert.Contains("（更正上一封）", sameRequest);
         Assert.DoesNotContain("更正上一封", newRequest);
+    }
+
+    /// <summary>续聊那句带着给对方看的发信人前缀，引回给派活者时不该露出来</summary>
+    [Fact]
+    public void ReplyQuote_DropsTheSenderPrefix()
+    {
+        ChatSession parent = new() { IsTransient = true };
+        ChatSession sub = new() { IsTransient = true, SubAgentRole = "助手" };
+        sub.History.Add(new ChatMessage(ChatRole.User, SubAgentTool.ParentInterjectionPrefix + "接着说说本地模型"));
+
+        string text = SubAgentReportHandoff.Compose(parent, sub, null, "llama.cpp", 0)!.Text;
+
+        Assert.Contains("回你之前发的「接着说说本地模型」", text);
     }
 
     /// <summary>新问题的回信也不得原地替换上一封——哪怕上一封还停在末尾</summary>

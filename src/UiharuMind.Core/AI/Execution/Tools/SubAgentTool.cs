@@ -278,7 +278,7 @@ public static class SubAgentTool
     /// 跑中注入与排队续跑两分支都用它；落盘带前缀：它本来就是发信人说的，原样留痕才是实话。
     /// 名字跟随 ADR 0044 的对话心智（委派 = 给对方发消息），不再叫「派活方」
     /// </summary>
-    private const string ParentInterjectionPrefix = "【发信人】";
+    internal const string ParentInterjectionPrefix = "【发信人】";
 
     private static string Launch(LaunchContext context, string task, string? agent, string? role = null,
         string? model = null)
@@ -509,7 +509,8 @@ public static class SubAgentTool
             }
         }
 
-        string report = turnSink.Report.Build(timedOut, limit, session.SessionId,
+        // 不缀 [sub-session: …]:它作为来信正文交回,信头已带署名(SubAgentReportHandoff.BuildText)
+        string report = turnSink.Report.Build(timedOut, limit,
             stopped || cancellationToken.IsCancellationRequested, turnSink.SawUserInterjection);
         // 派活方中途插过话:报告里可能答了原任务之外的东西,主代理该知道这份结论不全是它要的。
         // 与用户插话分开交代——两者来源不同,混成一句会让主代理误判是谁改了方向。
@@ -741,18 +742,17 @@ public static class SubAgentTool
         /// </summary>
         /// <param name="timedOut">本次运行是否因超时被掐断</param>
         /// <returns>报告文本</returns>
-        public string Build(bool timedOut) => Build(timedOut, Timeout, string.Empty, false, false);
+        public string Build(bool timedOut) => Build(timedOut, Timeout, false, false);
 
         /// <summary>
         /// 生成交给主代理的报告
         /// </summary>
         /// <param name="timedOut">是否因超时被掐断</param>
         /// <param name="limit">本次适用的墙钟上限(交互与无人值守分档)</param>
-        /// <param name="subSessionId">子会话标识;非空时缀在末尾供续跑点名</param>
         /// <param name="stoppedByUser">是否被用户中止</param>
         /// <param name="userInterjected">过程中用户是否插过话</param>
         /// <returns>报告文本</returns>
-        public string Build(bool timedOut, TimeSpan limit, string subSessionId, bool stoppedByUser,
+        public string Build(bool timedOut, TimeSpan limit, bool stoppedByUser,
             bool userInterjected)
         {
             StringBuilder result = new();
@@ -795,12 +795,6 @@ public static class SubAgentTool
                 result.AppendLine();
                 result.Append("(note: the user also talked to them directly while they worked, "
                               + "so this reply may reflect directions you did not give.)");
-            }
-
-            if (subSessionId.Length > 0)
-            {
-                result.AppendLine();
-                result.Append($"[sub-session: {SubSessionIdAlias.Short(subSessionId)}]");
             }
 
             return result.ToString();

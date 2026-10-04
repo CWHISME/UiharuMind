@@ -248,6 +248,9 @@ public static class SubAgentReportHandoff
     private static string ReplyingTo(ChatSession subSession)
     {
         string text = LastRequest(subSession)?.Text.Trim() ?? string.Empty;
+        // 续聊落进子会话的那句带着给对方看的发信人前缀,引回给派活者时剥掉
+        if (text.StartsWith(SubAgentTool.ParentInterjectionPrefix, StringComparison.Ordinal))
+            text = text[SubAgentTool.ParentInterjectionPrefix.Length..].TrimStart();
         int lineEnd = text.IndexOf('\n');
         if (lineEnd >= 0) text = text[..lineEnd].TrimEnd();
         return text.Length > QuoteLength ? text[..QuoteLength] + "…" : text;
