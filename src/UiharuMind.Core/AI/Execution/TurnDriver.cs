@@ -148,7 +148,7 @@ public sealed class TurnDriver : IDisposable
         WasCancelled = false;
         _activeSession = session;
         // 「这一轮有没有用户参与」的唯一诚实判据就是有没有用户消息——唤醒轮的自激封顶据此清零
-        if (userMessage != null) Tools.BackgroundSubAgentDispatcher.NoteUserTurn(session.SessionId);
+        if (userMessage != null) SessionWakeTurn.NoteUserTurn(session.SessionId);
         _usage.BeginTurn();
         _ratioLogged = false;
         runner.InputEstimate?.UseModel(session.ChatModelRunningData?.ModelName);

@@ -2,27 +2,28 @@ using System.Runtime.CompilerServices;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Delivery;
 using UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
 
 namespace UiharuMind.Core.Tests.Agent;
 
 /// <summary>
-/// 单聊的送达：醒着（一轮在跑）就插进那一轮，不等它收了再叫；没被消费就回退成追加加唤醒，一条结果只落一次
+/// 送信（ADR 0062）：收信人醒着就插进那一轮，被取走了就不再追加、也不再叫醒；
+/// 那一轮没取走就收了，撤回来落进历史再叫醒；闲着直接落再叫醒
 /// </summary>
-public class SessionReportSinkTests
+public class SessionDeliveryTests
 {
     private readonly FakeHost _host = new();
-    private readonly SessionReportSink _sink;
+    private readonly SessionDelivery _delivery;
 
-    public SessionReportSinkTests()
+    public SessionDeliveryTests()
     {
-        _sink = new SessionReportSink(_host);
+        _delivery = new SessionDelivery(_host);
     }
 
     [Fact]
     public async Task WhileTurnRunning_InjectsIntoIt_AndDoesNotWakeAgain()
     {
-        BackgroundTaskOutcome outcome = await BackgroundTaskTests.RunAsync("echo done", TimeSpan.FromSeconds(10));
         _host.Busy = true;
         _host.Runner.OnInjected = message =>
         {
@@ -32,17 +33,30 @@ public class SessionReportSinkTests
             return true;
         };
 
-        await _sink.DeliverAsync(outcome).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        EDeliveryOutcome outcome = await DeliverAsync(new TestLetter(_host.Session));
 
-        ChatMessage report = Assert.Single(_host.Session.History);
-        Assert.Equal(outcome.Task.Id, ChatMessageAnnotations.ReadBackgroundTaskReportId(report));
+        Assert.Equal(EDeliveryOutcome.Consumed, outcome);
+        Assert.Single(_host.Session.History);
+        Assert.Empty(_host.Wakes);
+    }
+
+    /// <summary>那一轮还长着呢：取走了就算送到，不陪它跑完</summary>
+    [Fact]
+    public async Task ConsumedMidTurn_CountsAsDelivered_BeforeTheTurnEnds()
+    {
+        _host.Busy = true;
+        _host.Runner.OnInjected = _ => true;
+
+        EDeliveryOutcome outcome = await DeliverAsync(new TestLetter(_host.Session));
+
+        Assert.Equal(EDeliveryOutcome.Consumed, outcome);
+        Assert.True(_host.Busy);
         Assert.Empty(_host.Wakes);
     }
 
     [Fact]
-    public async Task InjectedButTurnEndedUnconsumed_WithdrawsThenAppendsAndWakes()
+    public async Task InjectedButTurnEndedUnconsumed_WithdrawsThenWritesAndWakes()
     {
-        BackgroundTaskOutcome outcome = await BackgroundTaskTests.RunAsync("echo done", TimeSpan.FromSeconds(10));
         _host.Busy = true;
         _host.Runner.OnInjected = _ =>
         {
@@ -50,26 +64,77 @@ public class SessionReportSinkTests
             return false;
         };
 
-        await _sink.DeliverAsync(outcome).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        EDeliveryOutcome outcome = await DeliverAsync(new TestLetter(_host.Session));
 
+        Assert.Equal(EDeliveryOutcome.Written, outcome);
         Assert.Single(_host.Runner.Withdrawn);
         Assert.Single(_host.Session.History);
         Assert.Single(_host.Wakes);
     }
 
     [Fact]
-    public async Task WhenIdle_AppendsAndWakes_WithoutInjecting()
+    public async Task WhenIdle_WritesAndWakes_WithoutInjecting()
     {
-        BackgroundTaskOutcome outcome = await BackgroundTaskTests.RunAsync("echo done", TimeSpan.FromSeconds(10));
+        EDeliveryOutcome outcome = await DeliverAsync(new TestLetter(_host.Session));
 
-        await _sink.DeliverAsync(outcome).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
-
+        Assert.Equal(EDeliveryOutcome.Written, outcome);
         Assert.Empty(_host.Runner.Injected);
         Assert.Single(_host.Session.History);
         Assert.Single(_host.Wakes);
     }
 
-    private sealed class FakeHost : ISessionReportHost
+    /// <summary>没有可插的（如回信正文还没有）：不插，等收信人闲下来照常落</summary>
+    [Fact]
+    public async Task NothingToInsert_WaitsForIdleThenWrites()
+    {
+        _host.Busy = true;
+        TestLetter letter = new(_host.Session) { Insertable = false };
+        Task<EDeliveryOutcome> delivering = DeliverAsync(letter);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+        _host.Busy = false;
+
+        Assert.Equal(EDeliveryOutcome.Written, await delivering);
+        Assert.Empty(_host.Runner.Injected);
+    }
+
+    /// <summary>退出收尾与正常送达可能都走到：同一个后台任务只留一条</summary>
+    [Fact]
+    public async Task BackgroundTaskResult_IsWrittenOnceByTaskId()
+    {
+        BackgroundTaskOutcome outcome = await BackgroundTaskTests.RunAsync("echo done", TimeSpan.FromSeconds(10));
+        SessionReportSink sink = new(_delivery);
+        _host.Session.SessionId = outcome.Task.OwnerSessionId;
+
+        await sink.DeliverAsync(outcome).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        sink.DeliverOnShutdown(outcome);
+
+        ChatMessage report = Assert.Single(_host.Session.History);
+        Assert.Equal(outcome.Task.Id, ChatMessageAnnotations.ReadBackgroundTaskReportId(report));
+    }
+
+    private Task<EDeliveryOutcome> DeliverAsync(SessionLetter letter) =>
+        _delivery.DeliverAsync(letter).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+    private sealed class TestLetter(ChatSession session) : SessionLetter
+    {
+        private readonly ChatMessage _message = new(ChatRole.User, "信");
+
+        public bool Insertable { get; init; } = true;
+
+        public override string SessionId => session.SessionId;
+
+        public override string Cause => "test";
+
+        public override ChatMessage? Compose(ChatSession target) => Insertable ? _message : null;
+
+        public override ELetterWrite Write(ChatSession target)
+        {
+            target.History.Add(_message);
+            return ELetterWrite.Written;
+        }
+    }
+
+    private sealed class FakeHost : ISessionDeliveryHost
     {
         public ChatSession Session { get; } = new() { IsTransient = true };
 
@@ -94,7 +159,7 @@ public class SessionReportSinkTests
         }
     }
 
-    /// <summary>注入队列的替身：插进来的交给 <see cref="OnInjected"/> 决定当场消费（true）还是留在队列里</summary>
+    /// <summary>注入队列的替身：插进来的交给 <see cref="OnInjected"/> 决定当场取走（true）还是留在队列里</summary>
     private sealed class FakeRunner : ICharacterRunner
     {
         private readonly List<ChatMessage> _queue = [];
@@ -104,6 +169,8 @@ public class SessionReportSinkTests
         public List<ChatMessage> Injected { get; } = [];
 
         public List<ChatMessage> Withdrawn { get; } = [];
+
+        public IReadOnlyList<ChatMessage> PendingInjections => _queue.ToList();
 
         public bool HasSession => true;
 

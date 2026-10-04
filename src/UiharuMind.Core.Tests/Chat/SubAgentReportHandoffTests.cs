@@ -82,19 +82,51 @@ public class SubAgentReportHandoffTests
     }
 
     /// <summary>
-    /// 报告是 user 角色、标题又是任务正文的开头：实测标题以「黑猫，」开头，派活者把它当成用户点头。
-    /// 三种形状都得明说「不是用户的回复」，标题只作任务引用
+    /// 回信写成对方发来的（ADR 0062）：「来自」起头带上回执里那种标识，模型照抄就能接着回；
+    /// 引一句它回的是哪件事；不再出现「委派」「报告」这些调用的说法
     /// </summary>
-    [Theory]
-    [InlineData(false, null)]
-    [InlineData(true, null)]
-    [InlineData(false, "进程退出时它还没跑完")]
-    public void ReportText_SaysItIsNotTheUsersReply(bool supersedes, string? interruption)
+    [Fact]
+    public void ReplyText_SaysWhoSentItAndWhatItAnswers()
     {
-        string text = SubAgentReportHandoff.BuildText("sub1", "黑猫，提交前给你看账：", "可以提交", supersedes, interruption);
+        string text = SubAgentReportHandoff.BuildText("审查员", "sub1", "黑猫，提交前给你看账：", "可以提交",
+            supersedes: false, interruption: null, othersPending: 0);
 
-        Assert.Contains("不是用户的回复", text);
-        Assert.Contains("任务开头：「黑猫，提交前给你看账：」", text);
-        Assert.Contains("可以提交", text);
+        Assert.StartsWith("来自 审查员 [sub-session: sub1]，回你之前发的「黑猫，提交前给你看账：」：", text);
+        Assert.EndsWith("\n\n可以提交", text);
+        Assert.DoesNotContain("委派", text);
+        Assert.DoesNotContain("报告", text);
+        Assert.DoesNotContain("还在等", text);
+    }
+
+    /// <summary>匿名、没给身份的：只留标识，不拿任务开头冒充名字</summary>
+    [Fact]
+    public void ReplyText_WithoutAName_KeepsOnlyTheId()
+    {
+        string text = SubAgentReportHandoff.BuildText("", "sub1", "查一下", "好了", false, null, 0);
+
+        Assert.StartsWith("来自 [sub-session: sub1]，回你之前发的「查一下」：", text);
+    }
+
+    [Fact]
+    public void ReplyText_StatesCorrectionAndWhoElseIsPending()
+    {
+        string text = SubAgentReportHandoff.BuildText("审查员", "sub1", "查一下", "改口了", supersedes: true,
+            interruption: null, othersPending: 2);
+
+        Assert.Contains("（更正上一封）：", text);
+        Assert.Contains("你还在等 2 位的回信。", text);
+    }
+
+    /// <summary>被打断是事实，不是命令：有内容就附上说到一半的，没有就明说没回</summary>
+    [Fact]
+    public void ReplyText_StatesTheInterruption()
+    {
+        string partial = SubAgentReportHandoff.BuildText("审查员", "sub1", "查一下", "查到一半", false,
+            "在应用退出时被中止，没有跑完", 0);
+        string empty = SubAgentReportHandoff.BuildText("审查员", "sub1", "查一下", "", false, "没写完回复就停下了", 0);
+
+        Assert.Contains("对方在应用退出时被中止，没有跑完，以下是它停下前说到的：", partial);
+        Assert.EndsWith("查到一半", partial);
+        Assert.EndsWith("对方没写完回复就停下了，没回任何内容。", empty);
     }
 }

@@ -43,7 +43,8 @@ public static class BackgroundTaskReport
     public static string BuildText(BackgroundTaskOutcome outcome) => BuildText(outcome, ReadTail(outcome.Task.LogPath));
 
     /// <summary>
-    /// 结果正文。要<b>明说它不是用户的话</b>：这条是 user 角色，输出里什么都可能有
+    /// 结果正文。打头那句交代来源（哪个任务、怎么结束的），输出末尾整段在围栏里——
+    /// 这条是 user 角色、输出里什么都可能有，靠的是来源说清楚，不另加「不是用户的话」（ADR 0062）
     /// </summary>
     internal static string BuildText(BackgroundTaskOutcome outcome, string tail)
     {
@@ -58,7 +59,7 @@ public static class BackgroundTaskReport
 
         StringBuilder text = new();
         text.Append($"你先前启动的后台任务 `{task.Id}`（{task.Description}）{how}，用时 {FormatDuration(outcome.Duration)}。");
-        text.Append($"这是任务的运行结果，不是用户的回复。完整输出在 `{task.LogPath}`。\n\n");
+        text.Append($"完整输出在 `{task.LogPath}`。\n\n");
         if (tail.Length == 0)
         {
             text.Append("它没有任何输出。");

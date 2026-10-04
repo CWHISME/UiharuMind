@@ -42,6 +42,9 @@ dotnet msbuild src/UiharuMind.Core.Tests/UiharuMind.Core.Tests.csproj -t:Test
 dotnet msbuild src/UiharuMind.App.Tests/UiharuMind.App.Tests.csproj -t:Test
 ```
 
+实测耗时（Apple Silicon）：增量构建解决方案约 10 秒，Core 测试全量约 10 秒，App 测试全量约 40 秒（含无头界面），
+按类过滤只要一两秒。
+
 测试框架是 xunit v3（`xunit.v3` 4.x），跑在 Microsoft.Testing.Platform（MTP）上，由仓库根的
 `global.json`（`test.runner`）选择加入。MTP 测试项目本身是可执行文件，
 `dotnet msbuild <csproj> -t:Test` 等价于直接运行产物 exe（`<csproj 同名目录>/bin/Debug/net10.0/<项目名>`）。

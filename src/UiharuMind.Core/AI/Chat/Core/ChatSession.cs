@@ -196,6 +196,12 @@ public class ChatSession
     public bool BackgroundReportPending { get; set; }
 
     /// <summary>
+    /// 后台委派已经跑完、回信还没送到时的那份回信正文（仅子会话有意义）。送到即清。
+    /// 落盘是为了进程在送到之前没了时，启动扫描补送这一份，而不是把跑完的说成被中止（ADR 0062）
+    /// </summary>
+    public string? PendingReport { get; set; }
+
+    /// <summary>
     /// 最近一次派发/续跑的开始时刻（仅子会话有意义）。每次派发时由
     /// <c>BackgroundSubAgentDispatcher.Dispatch</c> 写入并随会话落盘——
     /// 右栏「子代理」面板的「本次已运行 / 末轮耗时」靠它重算，不依赖 UI 计时器。

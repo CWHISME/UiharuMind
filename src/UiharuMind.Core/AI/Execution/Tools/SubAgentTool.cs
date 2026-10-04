@@ -64,6 +64,8 @@ public static class SubAgentTool
     /// </summary>
     public const string ToolName = "SendMessage";
 
+    private const int MaxLabelLength = 40; //身份与标题的长度上限：署名、窗口标题、身份句都用它
+
     /// <summary>
     /// 子代理的工具循环轮次上限(传给框架的 <c>MaximumIterationsPerRequest</c>,
     /// 到顶即停止循环并把已有进展作为响应返回,不抛异常)。
@@ -359,9 +361,9 @@ public static class SubAgentTool
     /// <param name="subSessionId">子会话标识</param>
     /// <returns>当场返回给模型的工具结果</returns>
     public static string BuildInjectedReceipt(string subSessionId) =>
-        "Injected into the running session — it reads this on its next model request "
-        + "within the current run. No new turn was started and no separate report arrives "
-        + "for this message; its effect is folded into the current run's upcoming report. "
+        "Delivered while they are still working — they read it before their next step. "
+        + "No separate reply arrives for this message; "
+        + "it shapes the reply they are already working on. "
         + "Do not poll for it.\n"
         + $"[sub-session: {subSessionId}]";
 
@@ -604,14 +606,24 @@ public static class SubAgentTool
         type == ESubAgentType.Explorer ? DefaultCharacter.LegacyExploreAgent : DefaultCharacter.AnonymousAgent;
 
     /// <summary>子会话标题:有 role 用 role,否则取任务首行,都截 40 字。标题纯显示、落盘、改不了名</summary>
-    private static string BuildTitle(string task, string? role = null)
+    private static string BuildTitle(string task, string? role = null) =>
+        Clip(string.IsNullOrWhiteSpace(role) ? task.Trim().Split('\n', 2)[0].Trim() : role);
+
+    /// <summary>
+    /// 截到 <see cref="MaxLabelLength"/> 字以内（含省略号）。拉丁文字退到词边界再截，不切半个词——
+    /// 截出来的会当成名字署在回信上（实测「senior open-source docs/community mainta」）；中文没有词边界，照字截
+    /// </summary>
+    internal static string Clip(string text)
     {
-        string source = string.IsNullOrWhiteSpace(role) ? task.Trim().Split('\n', 2)[0].Trim() : role;
-        const int max = 40;
-        return source.Length <= max ? source : source[..max] + "…";
+        if (text.Length <= MaxLabelLength) return text;
+
+        string head = text[..(MaxLabelLength - 1)];
+        int boundary = head.LastIndexOfAny([' ', '/']);
+        if (char.IsLetterOrDigit(text[MaxLabelLength - 1]) && boundary >= MaxLabelLength / 2) head = head[..boundary];
+        return head.TrimEnd(' ', ',', '，', '/', '、') + "…";
     }
 
-    /// <summary>role 清洗:trim、剥掉换行与反引号(防注入工具名)、截 40 字。返回 null 表示未设定</summary>
+    /// <summary>role 清洗:trim、剥掉换行与反引号(防注入工具名)、截到 <see cref="MaxLabelLength"/> 字。返回 null 表示未设定</summary>
     private static string? NormalizeRole(string? role)
     {
         if (string.IsNullOrWhiteSpace(role)) return null;
@@ -622,7 +634,7 @@ public static class SubAgentTool
             sb.Append(c);
         }
         string result = sb.ToString().Trim();
-        return result.Length > 40 ? result[..40] : result;
+        return result.Length == 0 ? null : Clip(result);
     }
 
     /// <summary>

@@ -9,124 +9,52 @@
 
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
-using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.AI.Execution.Delivery;
 
 namespace UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
 
 /// <summary>
-/// 单聊的送法：会话正在跑就插进那一轮，醒着就及时收到；闲着（或那一轮没消费就收了）时
-/// 把结果追加进它的历史，再起一轮唤醒轮。
-///
-/// 唤醒<b>不计</b>后台子代理那条连续唤醒上限：任务是用户批过的一条命令，跑完了就该有人接着看
+/// 单聊的送法：交给 <see cref="SessionDelivery"/>——会话醒着就插进那一轮，闲着才追加再唤醒
 /// </summary>
 public sealed class SessionReportSink : IBackgroundTaskReportSink
 {
-    private readonly ISessionReportHost _host;
+    private readonly SessionDelivery _delivery;
 
     /// <summary>无状态，全进程共用一份</summary>
-    public static SessionReportSink Instance { get; } = new(new AppHost());
+    public static SessionReportSink Instance { get; } = new(SessionDelivery.Instance);
 
-    internal SessionReportSink(ISessionReportHost host)
+    internal SessionReportSink(SessionDelivery delivery)
     {
-        _host = host;
+        _delivery = delivery;
     }
 
     /// <inheritdoc />
-    public async Task DeliverAsync(BackgroundTaskOutcome outcome)
-    {
-        string sessionId = outcome.Task.OwnerSessionId;
-        ChatMessage message = BackgroundTaskReport.BuildMessage(outcome);
-
-        // 会话正在跑时写它的历史会与那一轮的落盘交错，改插进那一轮；它收了还没消费的撤回来，改走追加。
-        // 消费了的随那一轮落盘，带着任务编号，追加时按编号认出来就不再写。不设上限：那一轮总会结束
-        ICharacterRunner? injectedInto = null;
-        EAppendResult result;
-        while (true)
-        {
-            if (injectedInto != null && !_host.IsBusy(sessionId))
-            {
-                await injectedInto.CancelInjectionsAsync([message]).ConfigureAwait(false);
-                injectedInto = null;
-            }
-
-            result = TryAppend(sessionId, outcome.Task.Id, message, waitForIdle: true);
-            if (result != EAppendResult.Busy) break;
-
-            injectedInto ??= await TryInjectAsync(sessionId, message).ConfigureAwait(false);
-            await Task.Delay(_host.BusyRetryInterval).ConfigureAwait(false);
-        }
-
-        if (result == EAppendResult.Appended)
-        {
-            await _host.WakeAsync(sessionId, $"background task {outcome.Task.Id}").ConfigureAwait(false);
-        }
-    }
+    public Task DeliverAsync(BackgroundTaskOutcome outcome) => _delivery.DeliverAsync(new Letter(outcome));
 
     /// <inheritdoc />
-    public void DeliverOnShutdown(BackgroundTaskOutcome outcome) =>
-        TryAppend(outcome.Task.OwnerSessionId, outcome.Task.Id, BackgroundTaskReport.BuildMessage(outcome),
-            waitForIdle: false);
+    public void DeliverOnShutdown(BackgroundTaskOutcome outcome) => _delivery.WriteNow(new Letter(outcome));
 
-    private enum EAppendResult
+    private sealed class Letter(BackgroundTaskOutcome outcome) : SessionLetter
     {
-        Appended,
-        AlreadyThere,
-        Busy,
-        Missing,
-    }
+        private ChatMessage? _message;
 
-    // 插进正在跑的那一轮，插进去了返回那个执行者（撤回要找同一个）
-    private async Task<ICharacterRunner?> TryInjectAsync(string sessionId, ChatMessage message)
-    {
-        try
+        public override string SessionId => outcome.Task.OwnerSessionId;
+
+        public override string Cause => $"background task {outcome.Task.Id}";
+
+        // 读日志尾巴有 IO，组装一次就够：结局不会再变
+        public override ChatMessage Compose(ChatSession session) => _message ??= BackgroundTaskReport.BuildMessage(outcome);
+
+        // 按任务编号幂等：退出收尾与正常送达可能都走到这里，同一个任务只留一条
+        public override ELetterWrite Write(ChatSession session)
         {
-            if (_host.Load(sessionId) is not { } session) return null;
-            ICharacterRunner runner = _host.RunnerOf(session);
-            return await runner.TryInjectAsync([message]).ConfigureAwait(false) ? runner : null;
+            if (session.History.Any(x => ChatMessageAnnotations.ReadBackgroundTaskReportId(x) == outcome.Task.Id))
+                return ELetterWrite.Unchanged;
+
+            int from = session.History.Count;
+            session.History.Add(Compose(session));
+            session.SaveAppended(from);
+            return ELetterWrite.Written;
         }
-        catch (Exception e)
-        {
-            Log.Warning($"Inject background task report failed: session={sessionId}: {e.Message}");
-            return null;
-        }
-    }
-
-    // 按任务编号幂等:退出收尾与正常送达可能都走到这里,同一个任务只留一条
-    private EAppendResult TryAppend(string sessionId, string taskId, ChatMessage message, bool waitForIdle)
-    {
-        try
-        {
-            lock (SessionHistoryLocks.For(sessionId))
-            {
-                ChatSession? session = _host.Load(sessionId);
-                if (session == null) return EAppendResult.Missing;
-                if (session.History.Any(x => ChatMessageAnnotations.ReadBackgroundTaskReportId(x) == taskId))
-                    return EAppendResult.AlreadyThere;
-                if (waitForIdle && _host.IsBusy(sessionId)) return EAppendResult.Busy;
-
-                int from = session.History.Count;
-                session.History.Add(message);
-                session.SaveAppended(from);
-                return EAppendResult.Appended;
-            }
-        }
-        catch (Exception e)
-        {
-            Log.Error($"Deliver background task report failed: session={sessionId}: {e}");
-            return EAppendResult.Missing;
-        }
-    }
-
-    private sealed class AppHost : ISessionReportHost
-    {
-        public TimeSpan BusyRetryInterval => TimeSpan.FromSeconds(5); //与后台子代理交回同一口径
-
-        public ChatSession? Load(string sessionId) => SessionManager.Instance.Load(sessionId);
-
-        public bool IsBusy(string sessionId) => SessionManager.Instance.Running.IsBusy(sessionId);
-
-        public ICharacterRunner RunnerOf(ChatSession session) => session.Runner;
-
-        public Task WakeAsync(string sessionId, string cause) => SessionWakeTurn.RunAsync(sessionId, cause);
     }
 }

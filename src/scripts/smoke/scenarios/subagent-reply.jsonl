@@ -1,0 +1,8 @@
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"session.new","args":{"character":"RationalAgent","workspace":"{{WS_REPO}}"}}
+{"op":"session.post","args":{"text":"我想在 README.md 末尾加一行「欢迎提 issue 反馈问题」。改之前先找个审查员看看这个改动合不合适；审查员同意了也先别动手，等我确认。"}}
+{"op":"session.wait","args":{"timeoutMinutes":15,"approvals":"deny"}}
+{"op":"session.post","args":{"text":"再同时找两个人，一个读 AGENTS.md、一个读 README.md，各用一句话总结给你，都回来后你汇总给我。"}}
+{"op":"session.wait","args":{"timeoutMinutes":15,"approvals":"deny"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/subagent-reply.md"}}
+{"op":"quit"}

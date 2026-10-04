@@ -168,7 +168,7 @@ public class BackgroundTaskTests
     [InlineData(EBackgroundTaskEnd.TimeLimit, "时间上限")]
     [InlineData(EBackgroundTaskEnd.Stopped, "被用户叫停")]
     [InlineData(EBackgroundTaskEnd.AppExit, "应用退出")]
-    public async Task ReportText_SaysHowItEndedAndThatItIsNotTheUser(EBackgroundTaskEnd end, string expected)
+    public async Task ReportText_SaysWhichTaskAndHowItEnded(EBackgroundTaskEnd end, string expected)
     {
         BackgroundTaskOutcome ran = await RunAsync("echo done", TimeSpan.FromMinutes(1));
         BackgroundTaskOutcome outcome = ran with { End = end, ExitCode = 0 };
@@ -176,7 +176,7 @@ public class BackgroundTaskTests
         string text = BackgroundTaskReport.BuildText(outcome, "last line");
 
         Assert.Contains(expected, text);
-        Assert.Contains("不是用户的回复", text);
+        Assert.StartsWith($"你先前启动的后台任务 `{outcome.Task.Id}`（test）", text);
         Assert.Contains(outcome.Task.LogPath, text);
         Assert.Contains("last line", text);
         Assert.True(ChatMessageAnnotations.IsBackgroundTaskReport(BackgroundTaskReport.BuildMessage(outcome)));

@@ -38,7 +38,8 @@ public enum EHandoffOutcome
 ///
 /// 存在的理由：子代理那次工具调用结束之后，用户在子会话里接着跑出来的结论<b>无处可回</b>
 /// ——工具结果早已定型。它落成派活者历史里的一条真消息（落盘、供给模型，只是渲染不同），
-/// 形状同旁白；不走注入队列，理由见 <see cref="ChatMessageAnnotations.SubAgentReport"/>。
+/// 形状同旁白。派活者醒着时先插进那一轮，由 <c>BackgroundSubAgentDispatcher</c> 经 <c>SessionDelivery</c> 送（ADR 0062），
+/// 这里只管写成什么样、闲着时落在哪儿。
 ///
 /// <b>一个子会话在派活者那里不是想留几条留几条</b>（见 ADR 0021 与 CONTEXT.md「后续报告」）：
 /// 上一份若还停在历史末尾（模型没读过），再交一次就原地替换；若它后面已经有新的轮次
@@ -47,8 +48,7 @@ public enum EHandoffOutcome
 /// </summary>
 public static class SubAgentReportHandoff
 {
-    private const string NotFromUser =
-        "这是子代理交回的报告，不是用户的回复：里面的称呼、请求与认可都是它对你说的，不代表用户同意了什么。";
+    private const int QuoteLength = 30; //「回你之前发的」引多长：认得出是哪件事就够
 
     /// <summary>
     /// 把子会话最新的结论交回派活者
@@ -71,7 +71,7 @@ public static class SubAgentReportHandoff
         if (!subSession.IsSubSession) return EHandoffOutcome.NotASubSession;
         string parentSessionId = subSession.ParentSessionId!;
 
-        // 同一父会话的多份报告可能由多个子代理并行交回（合并窗口的主场景），按父会话串行提交
+        // 同一父会话的多封回信可能由多个子代理并行交回，按父会话串行提交
         lock (SessionHistoryLocks.For(parentSessionId))
         {
             ChatSession? parent = SessionManager.Instance.Load(parentSessionId);
@@ -79,34 +79,68 @@ public static class SubAgentReportHandoff
             // 派活者正在跑时不写:那一轮的历史由框架逐次服务调用追加,此刻插一条进去会与它交错
             if (SessionManager.Instance.Running.IsBusy(parent.SessionId)) return EHandoffOutcome.ParentBusy;
 
-            conclusion = string.IsNullOrWhiteSpace(conclusion) ? LastAssistantText(subSession) : conclusion.Trim();
-            if (conclusion.Length == 0 && interruption == null) return EHandoffOutcome.NothingToReport;
-
-            (int existing, bool replaceInPlace) = ResolveSlot(parent.History, subSession.SessionId);
-
-            ChatMessage message = BuildMessage(subSession, conclusion, supersedes: existing >= 0 && !replaceInPlace,
-                interruption);
-            if (replaceInPlace)
-            {
-                ChatMessage superseded = parent.History[existing];
-                // 结论没变就什么都不做:交回是幂等的。照写不误的话派活者的历史文件要整份重写一遍,
-                // 界面还得为一条一字未改的消息重建条目——用户看到的就是"点一次闪一次"
-                if (string.Equals(superseded.Text, message.Text, StringComparison.Ordinal))
-                    return EHandoffOutcome.Replaced;
-
-                parent.History[existing] = message;
-                parent.Save(); //改的是中间那条,只能整份重写
-                // 派活者的界面壳(如果开着)得知道:这一份不是它写的,不发信号它会一直显示旧的。
-                // 带上被换掉的那一条,界面据此只重建那一处——整份重放会让满屏 markdown 闪一下
-                parent.NotifyHistoryMessageReplaced(existing, superseded);
-                return EHandoffOutcome.Replaced;
-            }
-
-            int from = parent.History.Count;
-            parent.History.Add(message);
-            parent.SaveAppended(from);
-            return EHandoffOutcome.Appended;
+            return Write(parent, subSession, interruption, conclusion, othersPending: 0);
         }
+    }
+
+    /// <summary>
+    /// 落进派活者历史：上一封还停在末尾就原地替换，否则追加。调用方持派活者的历史锁、已确认它不在跑
+    /// </summary>
+    /// <param name="parent">派活者</param>
+    /// <param name="subSession">子会话</param>
+    /// <param name="interruption">被打断的原因，见 <see cref="Submit"/></param>
+    /// <param name="conclusion">回信正文，见 <see cref="Submit"/></param>
+    /// <param name="othersPending">派活者还在等几位别人的回信</param>
+    /// <returns>交回结果</returns>
+    internal static EHandoffOutcome Write(ChatSession parent, ChatSession subSession, string? interruption,
+        string? conclusion, int othersPending)
+    {
+        conclusion = string.IsNullOrWhiteSpace(conclusion) ? LastAssistantText(subSession) : conclusion.Trim();
+        if (conclusion.Length == 0 && interruption == null) return EHandoffOutcome.NothingToReport;
+
+        (int existing, bool replaceInPlace) = ResolveSlot(parent.History, subSession.SessionId);
+
+        ChatMessage message = BuildMessage(subSession, conclusion, supersedes: existing >= 0 && !replaceInPlace,
+            interruption, othersPending);
+        if (replaceInPlace)
+        {
+            ChatMessage superseded = parent.History[existing];
+            // 结论没变就什么都不做:交回是幂等的。照写不误的话派活者的历史文件要整份重写一遍,
+            // 界面还得为一条一字未改的消息重建条目——用户看到的就是"点一次闪一次"
+            if (string.Equals(superseded.Text, message.Text, StringComparison.Ordinal))
+                return EHandoffOutcome.Replaced;
+
+            parent.History[existing] = message;
+            parent.Save(); //改的是中间那条,只能整份重写
+            // 派活者的界面壳(如果开着)得知道:这一份不是它写的,不发信号它会一直显示旧的。
+            // 带上被换掉的那一条,界面据此只重建那一处——整份重放会让满屏 markdown 闪一下
+            parent.NotifyHistoryMessageReplaced(existing, superseded);
+            return EHandoffOutcome.Replaced;
+        }
+
+        int from = parent.History.Count;
+        parent.History.Add(message);
+        parent.SaveAppended(from);
+        return EHandoffOutcome.Appended;
+    }
+
+    /// <summary>
+    /// 组装插进派活者进行中那一轮的回信。它醒着说明上一封（若有）已被读过，所以有上一封就写成更正
+    /// </summary>
+    /// <param name="parent">派活者</param>
+    /// <param name="subSession">子会话</param>
+    /// <param name="interruption">被打断的原因</param>
+    /// <param name="conclusion">回信正文</param>
+    /// <param name="othersPending">派活者还在等几位别人的回信</param>
+    /// <returns>回信；没有可交的为 null</returns>
+    internal static ChatMessage? Compose(ChatSession parent, ChatSession subSession, string? interruption,
+        string? conclusion, int othersPending)
+    {
+        conclusion = string.IsNullOrWhiteSpace(conclusion) ? LastAssistantText(subSession) : conclusion.Trim();
+        if (conclusion.Length == 0 && interruption == null) return null;
+
+        bool supersedes = ResolveSlot(parent.History, subSession.SessionId).Index >= 0;
+        return BuildMessage(subSession, conclusion, supersedes, interruption, othersPending);
     }
 
     /// <summary>子会话里最后一段助手正文，即它此刻的结论</summary>
@@ -149,33 +183,61 @@ public static class SubAgentReportHandoff
     }
 
     /// <summary>
-    /// 组装交回的那条消息。措辞必须<b>显式指回哪次委派</b>——派活者历史里往往已经躺着
-    /// 一条矛盾的前情（那份半截报告说"没结论"），模型得看得出时序与归属。
+    /// 写成对方发来的一封信（ADR 0062）：开头说清是谁、回的是你发的哪一句，正文原样跟在后面。
     ///
-    /// 还要<b>明说它不是用户的话</b>：这条是 user 角色，子代理的结论里又常带着称呼与「可以提交」之类的话，
-    /// 标题也是任务正文的开头（实测以「黑猫，」开头）——派活者把它读成用户点头，照着就去收口改文件了
+    /// 不写「委派」「报告」「结论」：对方是你发消息的人，不是一次调用（ADR 0044）。
+    /// 用「来自 X」起头而不是群投递的「[名字]: 内容」——user 消息里光有后者，模型会当成用户在说（ADR 0060）。
+    /// 署名用与工具回执同一种 <c>[sub-session: …]</c>，照抄进 <c>to</c> 就能接着回
     /// </summary>
-    internal static string BuildText(string subSessionId, string title, string conclusion, bool supersedes,
-        string? interruption)
+    /// <param name="sender">对方的名字或身份，没有为空</param>
+    /// <param name="subSessionId">子会话标识</param>
+    /// <param name="replyingTo">对方回的是你发的哪一句（取开头）</param>
+    /// <param name="conclusion">正文</param>
+    /// <param name="supersedes">更正上一封</param>
+    /// <param name="interruption">被打断的原因（接在「对方」后面成句），没被打断为 null</param>
+    /// <param name="othersPending">还在等几位别人的回信</param>
+    /// <returns>信的全文</returns>
+    internal static string BuildText(string sender, string subSessionId, string replyingTo, string conclusion,
+        bool supersedes, string? interruption, int othersPending)
     {
-        string source = $"子会话 `{subSessionId}`（任务开头：「{title}」）";
-        if (interruption != null)
-        {
-            string tail = conclusion.Length > 0
-                ? $"以下是它中止前已有的进展：\n\n{conclusion}"
-                : "它没有产出任何结论。**不要把这次委派当成已完成。**";
-            return $"你先前那次委派——{source}——{interruption}。{NotFromUser}\n\n{tail}";
-        }
+        string from = sender.Length > 0 ? $"{sender} [sub-session: {subSessionId}]" : $"[sub-session: {subSessionId}]";
+        string head = replyingTo.Length > 0 ? $"来自 {from}，回你之前发的「{replyingTo}」" : $"来自 {from}";
+        if (supersedes) head += "（更正上一封）";
 
-        string head = supersedes
-            ? $"以下是{source}的**进一步结论**，它修正了先前那份后续报告。"
-            : $"以下是你先前那次委派——{source}——在工具调用结束之后产出的**后续结论**。";
-        return $"{head}{NotFromUser}\n\n{conclusion}";
+        string waiting = othersPending > 0 ? $"\n你还在等 {othersPending} 位的回信。" : string.Empty;
+        if (interruption == null) return $"{head}：{waiting}\n\n{conclusion}";
+
+        return conclusion.Length > 0
+            ? $"{head}。对方{interruption}，以下是它停下前说到的：{waiting}\n\n{conclusion}"
+            : $"{head}。对方{interruption}，没回任何内容。{waiting}";
     }
 
     private static ChatMessage BuildMessage(ChatSession subSession, string conclusion, bool supersedes,
-        string? interruption) =>
-        Annotate(subSession, BuildText(subSession.SessionId, subSession.Title, conclusion, supersedes, interruption));
+        string? interruption, int othersPending) =>
+        Annotate(subSession, BuildText(SenderOf(subSession), subSession.SessionId, ReplyingTo(subSession), conclusion,
+            supersedes, interruption, othersPending));
+
+    // 点名的人用派活时那个名字（模型下次 to 填的就是它），匿名的用派活时给的身份
+    private static string SenderOf(ChatSession subSession) =>
+        subSession.SubAgentName.Length > 0 ? subSession.SubAgentName : subSession.SubAgentRole;
+
+    // 子会话里最后一条用户消息就是派活者发的那句（续聊时是最新那句）
+    private static string ReplyingTo(ChatSession subSession)
+    {
+        for (int i = subSession.History.Count - 1; i >= 0; i--)
+        {
+            ChatMessage message = subSession.History[i];
+            if (message.Role != ChatRole.User) continue;
+
+            string text = (message.Text ?? string.Empty).Trim();
+            int lineEnd = text.IndexOf('\n');
+            if (lineEnd >= 0) text = text[..lineEnd].TrimEnd();
+            if (text.Length == 0) continue;
+            return text.Length > QuoteLength ? text[..QuoteLength] + "…" : text;
+        }
+
+        return string.Empty;
+    }
 
     /// <summary>盖上后续报告标记：带它的消息要落盘、要供给模型，只是渲染成旁白那一套</summary>
     private static ChatMessage Annotate(ChatSession subSession, string text) =>

@@ -9,7 +9,9 @@
 
 using System.Collections.Concurrent;
 using UiharuMind.Core.AI.Chat;
+using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Assembly;
+using UiharuMind.Core.AI.Execution.Delivery;
 using UiharuMind.Core.AI.Execution.Prompts;
 using UiharuMind.Core.Core.SimpleLog;
 
@@ -28,10 +30,10 @@ public enum ESubAgentNotice
 /// <summary>
 /// 后台子代理的调度处：**派出之后到报告交回之前**那一段归它。
 ///
-/// 它刻意<b>不认识子代理</b>——跑什么由调用方给一个委托，这里只管三件事：
-/// 后台生命周期（含长跑提示）、报告交回、以及交回之后的<b>唤醒轮</b>。
+/// 它刻意<b>不认识子代理</b>——跑什么由调用方给一个委托，这里只管两件事：
+/// 后台生命周期（含长跑提示）与回信送达（经 <see cref="SessionDelivery"/>，醒着插进那一轮、闲着落盘再叫醒）。
 ///
-/// 为什么要有唤醒轮，以及为什么它没有用户消息，见 ADR 0025。
+/// 为什么要有唤醒轮见 ADR 0025，回信怎么送见 ADR 0062。
 /// </summary>
 public static class BackgroundSubAgentDispatcher
 {
@@ -39,26 +41,7 @@ public static class BackgroundSubAgentDispatcher
     /// <c>SubAgentTool.Timeout</c>（24 小时）刻意没动，靠这条提示兜住「悄悄烧了一夜」</summary>
     public static readonly TimeSpan LongRunNotice = TimeSpan.FromMinutes(30);
 
-    /// <summary>父会话正忙时唤醒的重试间隔。落盘早已完成，这里等的只是一个能起轮次的时机</summary>
-    private static readonly TimeSpan WakeRetryInterval = TimeSpan.FromSeconds(5);
-
-    /// <summary>
-    /// 同一父会话下多个后台子代理交回时的<b>合并窗口</b>：窗口期内到达的报告并入同一轮唤醒，
-    /// 到期无论如何都会醒一次（不再等没跑完的）。窗口由第一份到达触发；只剩最后一份（没有
-    /// 未交回的）时立即醒，不白等阈值。
-    ///
-    /// 取 1 小时而不是更短：多代理并行时通常「全部回来统一汇总」才最有意义，短窗口会在只回
-    /// 了一两份时就提前醒、打断汇总；1 小时窗口把「等全部」复刻回来，只对超过 1 小时的
-    /// 长任务保留一次先醒的兜底。
-    /// </summary>
-    private static readonly TimeSpan WakeMergeWindow = TimeSpan.FromHours(1);
-
-    /// <summary>
-    /// 连续<b>无用户参与</b>的唤醒轮上限。掐的是自激空转（唤醒轮里又派后台子代理 → 又被唤醒），
-    /// 不是总次数——用户说一句话即清零。形状同 <c>SubAgentTool.MaxDeniedApprovalRounds</c>。
-    /// 取 32 而不是 12：主、子代理多轮讨论时每一轮都是无用户参与的唤醒轮，12 轮不够一次讨论收敛。
-    /// </summary>
-    private const int MaxConsecutiveWakeTurns = 32;
+    private const string EmptyReport = "没写完回复就停下了"; //什么都没产出就停了:接在「对方」后面成句
 
     // 父会话 → 名下未交回的子会话标识。记 id 而不是计数,是因为界面要按父会话问
     // 「名下有没有一个卡在审批上」——那件事只有子会话标识答得出
@@ -74,16 +57,6 @@ public static class BackgroundSubAgentDispatcher
     // 表达不了「同一子会话排队多轮」,计数会在先交回的那轮被清成 0,还在跑的后轮隐身。
     // 与 _pendingByParent 互补:后者按 id 供三档显示/按 id 查询,这个按轮次供计数。
     private static readonly ConcurrentDictionary<string, int> _pendingTurnCountByParent = new();
-    private static readonly ConcurrentDictionary<string, int> _wakeStreakByParent = new();
-    // 合并窗口去重:同一父会话同时只有一个「唤醒决定」在排队,窗口期内到达的报告并入那一轮
-    private static readonly ConcurrentDictionary<string, byte> _wakeGateByParent = new();
-    // 最近一次用户轮时刻:窗口到期前据此判断「窗口期内用户已经说过话」——那一轮自然读到了报告,
-    // 再起唤醒轮就是重复消费,应跳过。会话数级大小,只增不减(与 _wakeStreakByParent 同类欠账)。
-    private static readonly ConcurrentDictionary<string, DateTime> _lastUserTurnByParent = new();
-    // 最近一次报告落盘时刻:跳过判据的<b>基准</b>——用户轮必须晚于「窗口内最后一份报告落盘」
-    // 才算读过它。用窗口开启时刻当基准会饿死「用户轮之后才落盘」的报告(它没被那一轮读过,
-    // 却因判据误判而不再唤醒)。只增不减,与上一张同类欠账。
-    private static readonly ConcurrentDictionary<string, DateTime> _lastReportPersistedByParent = new();
     // 同子会话的交回串行闸:轮次只串行 run,交回另起闸防止逆序——先跑完的那份必须先交回
     // (ParentBusy 重试节律彼此独立,不串的话旧报告可能原地替换掉新报告)。只在交回期间持有,
     // 不占 _turnGates,不影响排队轮与窗口直发。
@@ -332,48 +305,6 @@ public static class BackgroundSubAgentDispatcher
     }
 
     /// <summary>
-    /// 反复交回直到派活者闲下来接住。<b>不设上限</b>：报告是已经产出的结论，
-    /// 除了「派活者一直在跑」没有别的理由交不成，而那件事总会结束。
-    /// 排队期间在界面上是明说的（见 <see cref="HandoffQueued"/>）。
-    /// </summary>
-    /// <param name="parentId">派活者标识</param>
-    /// <param name="subSessionId">子会话标识</param>
-    /// <param name="submit">交回一次，返回结果</param>
-    /// <returns>最后一次交回的结果</returns>
-    private static async Task<EHandoffOutcome> SubmitWhenParentIdleAsync(string parentId, string subSessionId,
-        Func<EHandoffOutcome> submit)
-    {
-        // 成功路径故意留一句日志:交回与唤醒都不再静默,否则"报告到了但界面没刷"这类问题
-        // 无从区分是调度没跑还是界面没跟上(实机见过)。
-        EHandoffOutcome outcome;
-        int waits = 0;
-        while ((outcome = submit()) == EHandoffOutcome.ParentBusy)
-        {
-            waits++;
-            MarkHandoffQueued(parentId, subSessionId);
-            await Task.Delay(WakeRetryInterval).ConfigureAwait(false);
-        }
-
-        Log.Debug($"Handed back background sub-agent report: subSession={subSessionId} "
-                  + $"outcome={outcome} waited={waits}x{WakeRetryInterval.TotalSeconds:0}s");
-        return outcome;
-    }
-
-    /// <summary>
-    /// 用户在这个会话里说话了：自激封顶清零。
-    ///
-    /// 由 <see cref="TurnDriver.RunAsync"/> 在<b>带用户消息</b>的轮次上调——
-    /// 「有没有用户参与」的唯一诚实判据就是这一轮有没有用户消息。
-    /// </summary>
-    /// <param name="sessionId">会话标识</param>
-    public static void NoteUserTurn(string? sessionId)
-    {
-        if (string.IsNullOrEmpty(sessionId)) return;
-        _wakeStreakByParent.TryRemove(sessionId, out _);
-        _lastUserTurnByParent[sessionId] = DateTime.UtcNow;
-    }
-
-    /// <summary>
     /// 把一次委派转入后台，<b>立即返回</b>。
     ///
     /// 调用方拿到的那句话会当场成为这次工具调用的结果（框架没有「挂起的工具结果」这种东西，
@@ -412,15 +343,15 @@ public static class BackgroundSubAgentDispatcher
         // 回放历史时卡片靠它认出「这是一次委派」并挂出「查看过程」入口
         // (ToolCallItem.ParseSubSessionId 的正则),而 SubSessionStartedContent 那条
         // 随当时那一轮就消失了。报告用的是同一个格式,两种工具结果因此一致
-        return "Dispatched to the background. "
-               + "NO RESULT YET - it has not found or done anything at this point. "
-               + "Its report arrives on its own; do not poll for it.\n"
+        return "Sent; they are working on it in their own session. "
+               + "NO REPLY YET - they have not found or done anything at this point. "
+               + "Their reply arrives on its own; do not poll for it.\n"
                + (notice.Length > 0 ? notice + "\n" : string.Empty)
                + $"[sub-session: {subSession.SessionId}]";
     }
 
     /// <summary>
-    /// 启动时收口：上次进程退出时还在跑的后台委派，父会话里那条「已派出」<b>永远等不到下文</b>。
+    /// 启动时收口：上次进程退出时还在跑、或跑完了回信没送到的后台委派，父会话里那条「已派出」<b>永远等不到下文</b>。
     ///
     /// 父会话那一轮本身是自洽的（「已派出」那条工具结果早就配对落盘了），所以这里补的不是孤儿，
     /// 而是<b>语义上的断头</b>。不做自动续跑：用户隔了一次启动回来，未必还想要那件事。
@@ -436,9 +367,13 @@ public static class BackgroundSubAgentDispatcher
                 ChatSession? subSession = SessionManager.Instance.Load(meta.SessionId);
                 if (subSession == null) continue;
 
+                // 已经说完、只是回信没送到的，补送那一封；没说完的才是被中止
+                string? report = subSession.PendingReport;
                 subSession.BackgroundReportPending = false;
+                subSession.PendingReport = null;
                 subSession.SaveMeta();
-                SubAgentReportHandoff.Submit(subSession, "在应用退出时被中止，没有跑完");
+                if (report == null) SubAgentReportHandoff.Submit(subSession, "在应用退出时被中止，没有跑完");
+                else SubAgentReportHandoff.Submit(subSession, string.IsNullOrWhiteSpace(report) ? EmptyReport : null, report);
             }
             catch (Exception e)
             {
@@ -507,169 +442,73 @@ public static class BackgroundSubAgentDispatcher
     }
 
     /// <summary>
-    /// 报告交回 + 唤醒。
+    /// 把回信送到派活者：它醒着就插进那一轮，闲着才落进历史再叫醒（ADR 0062）。
     ///
-    /// <b>这是两件事，不能缠成一件。</b>落盘不可失败；唤醒可以排队、可以被封顶掐掉、
-    /// 最坏干脆不发生——那时报告仍然躺在历史里，模型下一轮自然读到。
+    /// 「还没回信」的标记在送到之后才清：插在队列里还没被取走时进程没了，启动扫描靠它把这封补上
     /// </summary>
     private static async Task DeliverAsync(ChatSession subSession, string parentId, string report)
     {
-        // 同子会话的交回串行:轮次只串行 run,交回另起闸防止逆序——先跑完的那份必须先交回。
-        // ParentBusy 重试的节律彼此独立,不串行的话「晚跑完的先提交」会让更早那份的 ResolveSlot
-        // 命中历史尾部并原地替换掉新报告(结论永久朝旧)。只在交回期间持有,不占 _turnGates。
+        // 同子会话的交回串行:轮次只串行 run,交回另起闸防止逆序——先跑完的那份必须先交回,
+        // 不串行的话「晚跑完的先提交」会让更早那份的 ResolveSlot 命中历史尾部并原地替换掉新回信。
+        // 只在交回期间持有,不占 _turnGates
         SemaphoreSlim deliverGate = _deliverGates.GetOrAdd(subSession.SessionId, _ => new SemaphoreSlim(1, 1));
         await deliverGate.WaitAsync().ConfigureAwait(false);
         try
         {
-            EHandoffOutcome handoff = EHandoffOutcome.NothingToReport;
-            try
-            {
-                // 父会话正在跑时写它的历史会与落盘交错,等到它闲下来。这也顺带实现了「合并」:
-                // 排队期间跑完的其他委派各自 Submit 一条,最后只起一轮把它们一起交给模型
-                handoff = await SubmitWhenParentIdleAsync(parentId, subSession.SessionId,
-                    () => SubmitReport(subSession, report)).ConfigureAwait(false);
-            }
-            catch (Exception e)
-            {
-                Log.Error($"Hand back background sub-agent report failed: session={subSession.SessionId}: {e}");
-            }
-            finally
-            {
-                subSession.BackgroundReportPending = false;
-                subSession.SaveMeta();
-                ClearHandoffQueued(parentId, subSession.SessionId);
-                RemovePendingTurn(parentId, subSession.SessionId);
+            // 结论先落在子会话上:送到之前进程没了,启动扫描补的是这一份,而不是一句「被中止」
+            subSession.PendingReport = report;
+            subSession.SaveMeta(touchUpdatedAt: false);
 
-                PendingWorkChanged?.Invoke(parentId);
-            }
-
-            // 没新内容落盘（交不成、没结论）就别唤醒：空转一轮读不到新报告，
-            // 还白烧一次无用户参与额度
-            if (handoff is EHandoffOutcome.Appended or EHandoffOutcome.Replaced)
-            {
-                // 记下这份报告落盘的时刻——窗口期跳过判据以「最后一份落盘」为基准
-                // （用户轮早于它落盘的报告没被读过，仍需唤醒）。
-                MarkReportPersisted(parentId);
-                // 唤醒决策移出子会话闸门：合并窗口不能压着 _turnGates（同子会话
-                // 排队轮/窗口直发会被卡住）。fire-and-forget 安全：WakeParentAsync 全程
-                // try/catch，Delay 无取消源不会抛。
-                _ = WakeParentAsync(parentId);
-            }
+            EDeliveryOutcome outcome = await SessionDelivery.Instance
+                .DeliverAsync(new ReplyLetter(subSession, parentId, report),
+                    () => MarkHandoffQueued(parentId, subSession.SessionId))
+                .ConfigureAwait(false);
+            // 交回与唤醒都留一句日志:「回信到了但界面没刷」这类问题才分得清是调度没跑还是界面没跟上
+            Log.Debug($"Delivered background sub-agent reply: subSession={subSession.SessionId} outcome={outcome}");
+        }
+        catch (Exception e)
+        {
+            Log.Error($"Deliver background sub-agent reply failed: session={subSession.SessionId}: {e}");
         }
         finally
         {
+            subSession.BackgroundReportPending = false;
+            subSession.PendingReport = null;
+            subSession.SaveMeta();
+            ClearHandoffQueued(parentId, subSession.SessionId);
+            RemovePendingTurn(parentId, subSession.SessionId);
+            PendingWorkChanged?.Invoke(parentId);
             deliverGate.Release();
         }
     }
 
     /// <summary>
-    /// 交回一次后台委派的报告。
-    ///
-    /// 交的是委派<b>自己攒出来的那份报告</b>，不是从子会话历史里现捞的最后一段正文——
+    /// 子代理的回信。交的是委派<b>自己攒出来的那份</b>，不是从子会话历史里现捞的最后一段正文——
     /// 那份带着「用户中止了」「超时了」「有几个调用没跑成」的注记，现捞会把它们全丢掉。
     /// 一跑起来就被停掉、什么都没产出的那种，靠 <c>interruption</c> 兜住：
-    /// 「它没干成」本身就是派活者必须知道的事，静默等于让那条「已派出」永远没有下文。
+    /// 「它没干成」本身就是派活者必须知道的事，静默等于让那条「已派出」永远没有下文
     /// </summary>
-    private static EHandoffOutcome SubmitReport(ChatSession subSession, string report) =>
-        SubAgentReportHandoff.Submit(subSession,
-            string.IsNullOrWhiteSpace(report) ? "没有产出任何结论就结束了" : null,
-            report);
-
-    /// <summary>合并窗口是否应继续等：还有未交回轮次且未到封顶时刻（pure，供单测钉 M2 轮询）</summary>
-    internal static bool ShouldKeepWaiting(int pendingCount, DateTime now, DateTime deadline) =>
-        pendingCount > 0 && now < deadline;
-
-    /// <summary>
-    /// 申请这个父会话的唤醒合并窗口。<b>同一父会话同时只允许一个</b>：先到者决定「立即还是等阈值」，
-    /// 窗口期内其他到达的报告（<c>HasPendingWork</c> 仍为真的那几份）直接并入，不再另起。
-    /// </summary>
-    internal static bool BeginWakeMergeWindow(string? parentId) =>
-        !string.IsNullOrEmpty(parentId) && _wakeGateByParent.TryAdd(parentId, 0);
-
-    /// <summary>释放唤醒合并窗口。窗口结束（立即唤醒或阈值到期）后，新的完成者可以再开窗口</summary>
-    internal static void EndWakeMergeWindow(string? parentId)
+    private sealed class ReplyLetter(ChatSession subSession, string parentId, string report) : SessionLetter
     {
-        if (!string.IsNullOrEmpty(parentId)) _wakeGateByParent.TryRemove(parentId, out _);
-    }
+        private readonly string? _interruption = string.IsNullOrWhiteSpace(report) ? EmptyReport : null;
 
-    /// <summary>记下某父会话最近一次报告落盘时刻（交回成功、开唤醒前更新）</summary>
-    internal static void MarkReportPersisted(string? parentId)
-    {
-        if (!string.IsNullOrEmpty(parentId)) _lastReportPersistedByParent[parentId] = DateTime.UtcNow;
-    }
+        public override string SessionId => parentId;
 
-    /// <summary>
-    /// 该父会话是否已有足够新的用户轮，可以跳过本次唤醒：用户轮必须<b>晚于</b>最后一份
-    /// 报告落盘才算「读过它」。纯函数，边界可单测（用窗口开启时刻当基准会让窗口期内
-    /// 新落盘、晚于用户轮的报告被饿死）。
-    /// </summary>
-    internal static bool ShouldSkipWake(DateTime lastUserTurn, DateTime lastReportPersistedAt) =>
-        lastUserTurn > lastReportPersistedAt;
+        public override string Cause => $"sub-agent reply {subSession.SessionId}";
 
-    /// <summary>读两个登记表后做跳过判断（生产路径）</summary>
-    internal static bool ShouldSkipWakeForParent(string? parentId) =>
-        !string.IsNullOrEmpty(parentId)
-        && _lastUserTurnByParent.TryGetValue(parentId, out DateTime lastUser)
-        && _lastReportPersistedByParent.TryGetValue(parentId, out DateTime lastReport)
-        && ShouldSkipWake(lastUser, lastReport);
+        public override ChatMessage? Compose(ChatSession session) =>
+            SubAgentReportHandoff.Compose(session, subSession, _interruption, report, OthersPending());
 
-    private static async Task WakeParentAsync(string parentId)
-    {
-        if (string.IsNullOrEmpty(parentId)) return;
-
-        // 合并窗口：同一父会话同一时间只允许一个「唤醒决定」。先到者决定「立即还是等阈值」，
-        // 窗口期内其他完成者的报告已落盘，由窗口到期这一次唤醒一并带走（省得一份报告一轮）；
-        // 窗口结束之后，新的完成者可以再开窗口。
-        if (!BeginWakeMergeWindow(parentId))
-        {
-            Log.Debug($"Wake turn absorbed by merge window: session={parentId}.");
-            return;
-        }
-
-        try
-        {
-            // 还有别的后台委派没回来:等一个合并窗口再醒——窗口期内到达的报告并入这一轮；
-            // 已经没有未交回的了（最后一份）就直接醒，不白等阈值。
-            if (HasPendingWork(parentId))
+        public override ELetterWrite Write(ChatSession session) =>
+            SubAgentReportHandoff.Write(session, subSession, _interruption, report, OthersPending()) switch
             {
-                Log.Debug($"Wake turn deferred: session={parentId} still has pending sub-sessions; "
-                          + $"will wake after the {WakeMergeWindow.TotalMinutes:0}min merge window.");
-                DateTime deadline = DateTime.UtcNow + WakeMergeWindow;
-                // 等待期间<b>持续看 pending</b>:名下全部交回(轮次计数归零)就提前醒,不必睡满窗口。
-                // 曾只查一次就睡满窗口——多代理并行时最后一份交回后仍要等满 1h,实机日志
-                // 两轮都 done+Appended 却没有唤醒(23:24 的 deferred+absorbed 现场)。
-                while (ShouldKeepWaiting(PendingCount(parentId), DateTime.UtcNow, deadline))
-                {
-                    await Task.Delay(WakeRetryInterval).ConfigureAwait(false);
-                }
-            }
-        }
-        finally
-        {
-            EndWakeMergeWindow(parentId);
-        }
+                EHandoffOutcome.Appended => ELetterWrite.Written,
+                // 原地替换成新的一封也要叫醒；一字未改的那种不必，但区分不出来，多叫一次无害
+                EHandoffOutcome.Replaced => ELetterWrite.Written,
+                _ => ELetterWrite.Missing,
+            };
 
-        // 用户轮晚于窗口内「最后一份报告落盘」：那一轮自然读到了报告（历史供给），
-        // 再起唤醒轮就是重复消费——跳过。用户轮早于最后一份落盘的，那份没被读过，
-        // 仍需唤醒。判据以最后落盘为基准，不是窗口开启时刻（否则窗口期内新落盘的
-        // 报告会被错误饿死）。
-        if (ShouldSkipWakeForParent(parentId))
-        {
-            Log.Debug($"Wake turn skipped: user spoke after the last report landed; "
-                      + $"report already in history. session={parentId}");
-            return;
-        }
-
-        int streak = _wakeStreakByParent.AddOrUpdate(parentId, 1, (_, n) => n + 1);
-        if (streak > MaxConsecutiveWakeTurns)
-        {
-            // 连转了这么多轮用户一句话没说,大概率是自激。报告已经落盘,不会丢——
-            // 用户下次说话时模型自然读到
-            Log.Warning($"Wake turn suppressed after {MaxConsecutiveWakeTurns} "
-                        + $"consecutive turns without user input: session={parentId}");
-            return;
-        }
-
-        await SessionWakeTurn.RunAsync(parentId, $"sub-agent report, streak={streak}").ConfigureAwait(false);
+        // 名下还没回的轮次里含这一封自己
+        private int OthersPending() => Math.Max(0, PendingCount(parentId) - 1);
     }
 }

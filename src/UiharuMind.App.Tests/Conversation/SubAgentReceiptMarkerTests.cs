@@ -77,7 +77,7 @@ public class SubAgentReceiptMarkerTests
 
         string receipt = BackgroundSubAgentDispatcher.Dispatch(session, _ => Task.FromResult(string.Empty));
 
-        Assert.Contains("NO RESULT YET", receipt);
+        Assert.Contains("NO REPLY YET", receipt);
     }
 
     /// <summary>
@@ -98,7 +98,7 @@ public class SubAgentReceiptMarkerTests
     {
         string receipt = SubAgentTool.BuildInjectedReceipt("abc123");
 
-        Assert.Contains("no separate report", receipt);
+        Assert.Contains("No separate reply", receipt);
         Assert.DoesNotContain("Dispatched", receipt);
     }
 }
