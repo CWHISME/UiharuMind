@@ -27,7 +27,7 @@ public static class SubAgentPrompts
     /// 再跟一句"你是 UiharuMind 的一个代理"就是跟人格抢身份（与 ADR 0005 同一道理）。
     ///
     /// 措辞从"独立完成派给你的任务，然后交回结论"改过来：那是一次性交活的框架，
-    /// 而基础设施早就按多轮讨论设计了（<c>BackgroundSubAgentDispatcher.MaxConsecutiveWakeTurns</c>
+    /// 而基础设施早就按多轮讨论设计了（<c>SessionWakeTurn.MaxConsecutiveWakeTurns</c>
     /// 取 32 的理由原话就是"主、子代理多轮讨论时 12 轮不够一次讨论收敛"）。
     /// 提示词说"独立"、代码等着你来回谈，冲突的是提示词。
     /// </summary>

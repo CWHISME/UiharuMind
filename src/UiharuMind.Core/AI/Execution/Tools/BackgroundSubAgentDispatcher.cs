@@ -508,7 +508,7 @@ public static class BackgroundSubAgentDispatcher
                 _ => ELetterWrite.Missing,
             };
 
-        // 名下还没回的轮次里含这一封自己
-        private int OthersPending() => Math.Max(0, PendingCount(parentId) - 1);
+        // 数的是人不是轮次：同一位排着几轮也只算一位，这一位自己不算
+        private int OthersPending() => Snapshot(parentId).Count(x => x != subSession.SessionId);
     }
 }

@@ -40,18 +40,65 @@ public class SessionDeliveryTests
         Assert.Empty(_host.Wakes);
     }
 
-    /// <summary>那一轮还长着呢：取走了就算送到，不陪它跑完</summary>
+    /// <summary>
+    /// 取走了不等于送到：它随那次调用结束才落盘，中间进程没了就丢。进了历史才算，
+    /// 但那一轮还长着呢，也不陪它跑完
+    /// </summary>
     [Fact]
-    public async Task ConsumedMidTurn_CountsAsDelivered_BeforeTheTurnEnds()
+    public async Task ConsumedMidTurn_CountsOnlyOnceInHistory_NotWhenTheTurnEnds()
     {
         _host.Busy = true;
-        _host.Runner.OnInjected = _ => true;
+        ChatMessage? taken = null;
+        _host.Runner.OnInjected = message =>
+        {
+            taken = message;
+            return true;
+        };
+
+        Task<EDeliveryOutcome> delivering = DeliverAsync(new TestLetter(_host.Session));
+        await Task.Delay(100, TestContext.Current.CancellationToken);
+        Assert.False(delivering.IsCompleted);
+
+        _host.Session.History.Add(taken!); //那次调用结束，随之落盘
+        Assert.Equal(EDeliveryOutcome.Consumed, await delivering);
+        Assert.True(_host.Busy);
+        Assert.Empty(_host.Wakes);
+    }
+
+    /// <summary>刚取走就被停、那次调用没发出去：它不会落盘，那就自己落、再叫醒</summary>
+    [Fact]
+    public async Task ConsumedButNeverPersisted_WritesItselfOnceTheTurnEnds()
+    {
+        _host.Busy = true;
+        _host.Runner.OnInjected = _ =>
+        {
+            _host.Busy = false;
+            return true;
+        };
 
         EDeliveryOutcome outcome = await DeliverAsync(new TestLetter(_host.Session));
 
-        Assert.Equal(EDeliveryOutcome.Consumed, outcome);
-        Assert.True(_host.Busy);
-        Assert.Empty(_host.Wakes);
+        Assert.Equal(EDeliveryOutcome.Written, outcome);
+        Assert.Single(_host.Session.History);
+        Assert.Single(_host.Wakes);
+    }
+
+    /// <summary>执行者已经换掉、队列跟着没了：撤不动也不能当成送到了</summary>
+    [Fact]
+    public async Task WithdrawImpossible_WritesInstead()
+    {
+        _host.Busy = true;
+        _host.Runner.CannotWithdraw = true;
+        _host.Runner.OnInjected = _ =>
+        {
+            _host.Busy = false;
+            return false;
+        };
+
+        EDeliveryOutcome outcome = await DeliverAsync(new TestLetter(_host.Session));
+
+        Assert.Equal(EDeliveryOutcome.Written, outcome);
+        Assert.Single(_host.Session.History);
     }
 
     [Fact]
@@ -166,6 +213,8 @@ public class SessionDeliveryTests
 
         public Func<ChatMessage, bool> OnInjected { get; set; } = _ => false;
 
+        public bool CannotWithdraw { get; set; }
+
         public List<ChatMessage> Injected { get; } = [];
 
         public List<ChatMessage> Withdrawn { get; } = [];
@@ -193,7 +242,7 @@ public class SessionDeliveryTests
 
         public Task<IReadOnlyCollection<ChatMessage>> CancelInjectionsAsync(IReadOnlyCollection<ChatMessage> messages)
         {
-            List<ChatMessage> withdrawn = messages.Where(_queue.Remove).ToList();
+            List<ChatMessage> withdrawn = CannotWithdraw ? [] : messages.Where(_queue.Remove).ToList();
             Withdrawn.AddRange(withdrawn);
             return Task.FromResult<IReadOnlyCollection<ChatMessage>>(withdrawn);
         }

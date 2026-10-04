@@ -33,9 +33,9 @@ namespace UiharuMind.Core.AI.Execution.Tools;
 /// 于是落盘、续跑、再对话三件事全部沿用会话的既有能力,不另立实体(见 ADR 0021)。
 ///
 /// <b>一律后台执行</b>(见 ADR 0025):工具当场返回一句「已派出、尚无结果」——那是一条合法且
-/// 已配对的工具结果,派活者那一轮照常自洽地封存。子代理跑完之后,结论走
-/// <see cref="Chat.SubAgentReportHandoff"/> 落进父会话历史,再由一轮<b>没有用户消息</b>的
-/// 唤醒轮交给模型。编排归 <see cref="BackgroundSubAgentDispatcher"/>,本类只管跑那一轮。
+/// 已配对的工具结果,派活者那一轮照常自洽地封存。子代理跑完之后,回信经
+/// <see cref="Delivery.SessionDelivery"/> 送回:派活者醒着就插进那一轮,闲着才落进历史、
+/// 再起一轮<b>没有用户消息</b>的唤醒轮(ADR 0062)。编排归 <see cref="BackgroundSubAgentDispatcher"/>,本类只管跑那一轮。
 ///
 /// <b>审批通道</b>:请求登记到 <see cref="ToolCall.SessionApprovalRegistry"/>,由子会话窗口
 /// 画出卡片。<b>不再先问派活者那一轮</b>——它在子代理开跑前就结束了,恒定接不住。

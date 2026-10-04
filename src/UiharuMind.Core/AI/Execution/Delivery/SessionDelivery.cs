@@ -16,7 +16,7 @@ namespace UiharuMind.Core.AI.Execution.Delivery;
 /// <summary>一封信最后怎么到的</summary>
 public enum EDeliveryOutcome
 {
-    /// <summary>插进那一轮并被取走，随那次模型调用落盘</summary>
+    /// <summary>插进那一轮，随取走它的那次模型调用落进了历史</summary>
     Consumed,
 
     /// <summary>落进历史并起了唤醒轮</summary>
@@ -33,11 +33,13 @@ public enum EDeliveryOutcome
 /// 送信（ADR 0062）：收信人醒着（一轮在跑）就插进那一轮，下一次模型调用前取走；
 /// 闲着、或那一轮没取走就收了，撤回来落进历史再叫醒。
 ///
-/// 被取走的随那次调用落盘，不再追加——判据是注入队列撤不撤得回，不靠比对历史。
-/// 不设上限地等：那一轮总会结束
+/// 插进去的那封落进了收信人历史才算送到（随取走它的那次模型调用落盘）；那一轮收了还在队列里、
+/// 撤不动、或取走了却没落盘，都改走落盘。不设上限地等：那一轮总会结束
 /// </summary>
 public sealed class SessionDelivery
 {
+    private const int RecentScan = 200; //认插进去的那封落没落盘时，从历史末尾往前看多少条
+
     private readonly ISessionDeliveryHost _host;
 
     /// <summary>应用里的那一个</summary>
@@ -62,16 +64,18 @@ public sealed class SessionDelivery
         bool waited = false;
         while (true)
         {
-            // 那一轮还在跑时就已取走：不必等它收完才算送到
-            if (injectedInto != null && !injectedInto.PendingInjections.Any(x => ReferenceEquals(x, injected)))
-                return EDeliveryOutcome.Consumed;
-
-            if (injectedInto != null && !_host.IsBusy(sessionId))
+            if (injected != null)
             {
-                IReadOnlyCollection<ChatMessage> withdrawn =
-                    await injectedInto.CancelInjectionsAsync([injected!]).ConfigureAwait(false);
-                if (withdrawn.Count == 0) return EDeliveryOutcome.Consumed;
+                EInjected state = await CheckInjectedAsync(sessionId, injectedInto!, injected).ConfigureAwait(false);
+                if (state == EInjected.Persisted) return EDeliveryOutcome.Consumed;
+                if (state == EInjected.Pending)
+                {
+                    await Task.Delay(_host.BusyRetryInterval).ConfigureAwait(false);
+                    continue;
+                }
+
                 injectedInto = null;
+                injected = null;
             }
 
             if (TryWrite(letter, waitForIdle: true) is { } written)
@@ -92,7 +96,7 @@ public sealed class SessionDelivery
                 onWaiting?.Invoke();
             }
 
-            if (injectedInto == null) (injectedInto, injected) = await TryInjectAsync(letter).ConfigureAwait(false);
+            (injectedInto, injected) = await TryInjectAsync(letter).ConfigureAwait(false);
             await Task.Delay(_host.BusyRetryInterval).ConfigureAwait(false);
         }
     }
@@ -102,6 +106,63 @@ public sealed class SessionDelivery
     /// </summary>
     /// <param name="letter">信</param>
     public void WriteNow(SessionLetter letter) => TryWrite(letter, waitForIdle: false);
+
+    private enum EInjected
+    {
+        Pending, //还在队列里，或取走了还没随那次调用落盘，那一轮也还在跑
+        Persisted, //已在收信人历史里
+        Abandoned, //撤回来了、撤不动了，或取走了却没落进历史（那次调用没发出去就收了）：改走落盘
+    }
+
+    /// <summary>
+    /// 插进去的那封此刻怎样了。离开队列不等于送到：它随<b>那次</b>模型调用结束才落盘，
+    /// 中间进程没了就丢；那次调用没发出去（刚取走就被停）也就不会落盘。所以送到只认历史里有它
+    /// </summary>
+    private async Task<EInjected> CheckInjectedAsync(string sessionId, ICharacterRunner runner, ChatMessage message)
+    {
+        if (!runner.PendingInjections.Any(x => ReferenceEquals(x, message)))
+        {
+            // 先读忙闲再看历史：一轮的落盘总在它报空闲之前，读到空闲时该落的都已落了
+            bool busy = _host.IsBusy(sessionId);
+            if (IsInHistory(sessionId, message)) return EInjected.Persisted;
+            return busy ? EInjected.Pending : EInjected.Abandoned;
+        }
+
+        if (_host.IsBusy(sessionId)) return EInjected.Pending;
+
+        try
+        {
+            if ((await runner.CancelInjectionsAsync([message]).ConfigureAwait(false)).Count > 0) return EInjected.Abandoned;
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Withdraw letter failed: session={sessionId}: {e.Message}");
+            return EInjected.Abandoned;
+        }
+
+        // 撤不回：要么刚被新起的一轮取走（下次按取走了看），要么执行者已经换掉、队列跟着没了
+        return runner.PendingInjections.Any(x => ReferenceEquals(x, message)) ? EInjected.Abandoned : EInjected.Pending;
+    }
+
+    // 落盘的可能是框架重建的副本，按正文认；正文里带着任务编号或子会话标识，不会撞上别的
+    private bool IsInHistory(string sessionId, ChatMessage message)
+    {
+        try
+        {
+            if (_host.Load(sessionId) is not { } session) return false;
+            IList<ChatMessage> history = session.History;
+            for (int i = history.Count - 1; i >= 0 && i >= history.Count - RecentScan; i--)
+            {
+                if (ReferenceEquals(history[i], message) || history[i].Text == message.Text) return true;
+            }
+        }
+        catch (Exception)
+        {
+            //那一轮正往历史里追加，下次再看
+        }
+
+        return false;
+    }
 
     // 收信人在跑时返回 null
     private ELetterWrite? TryWrite(SessionLetter letter, bool waitForIdle)

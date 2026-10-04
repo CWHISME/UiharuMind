@@ -88,18 +88,15 @@ public static class ChatMessageAnnotations
     /// 它是用户在子会话里点「交回主代理」送进来的结论，形状同 <see cref="Narration"/>：
     /// 一条货真价实的消息，只是渲染成一张独立卡片。
     ///
-    /// 之所以不走注入队列（<c>ICharacterRunner.TryInjectAsync</c>）：那条通道的消费时机
-    /// 由模型下一次请求决定（要等多久不由我们控制），拿不到注入器时还会静默失败——
-    /// 用它送一份来之不易的结论风险不对等。注入进队列的消息最终会随内容流落盘
-    /// （见 <see cref="ParentInterjection"/>），但「什么时候被消费」不是我们能承诺的。
-    /// 见 ADR 0021、0025。
+    /// 派活者醒着时先插进那一轮，落进历史才算送到；插不进、没被取走或取走了没落盘，才由我们直接落进历史
+    /// （<c>SessionDelivery</c>，ADR 0062）。两条路落下的是同一条带此键的消息。
     /// </summary>
     public const string SubAgentReport = "_subAgentReport";
 
     /// <summary>
     /// 后台任务结果标记，值为任务编号。带此键的消息<b>要落盘、要供给模型</b>——
     /// 任务结束后送回启动它的会话，形状同 <see cref="SubAgentReport"/>：一条真消息，只是渲染成卡片。
-    /// 不走注入队列的理由也同那一条。
+    /// 送法也同那一条。
     /// </summary>
     public const string BackgroundTaskReport = "_backgroundTaskReport";
 

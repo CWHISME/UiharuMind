@@ -129,4 +129,21 @@ public class SubAgentReportHandoffTests
         Assert.EndsWith("查到一半", partial);
         Assert.EndsWith("对方没写完回复就停下了，没回任何内容。", empty);
     }
+
+    /// <summary>插进醒着的派活者那一轮时：他醒着说明上一封（若有）已读过，有就写成更正</summary>
+    [Fact]
+    public void Compose_WhileParentAwake_MarksACorrectionOnlyIfAnEarlierReplyExists()
+    {
+        ChatSession parent = new() { IsTransient = true };
+        ChatSession sub = new() { IsTransient = true, SubAgentRole = "审查员" };
+        sub.History.Add(new ChatMessage(ChatRole.User, "看一下这个改动"));
+
+        string first = SubAgentReportHandoff.Compose(parent, sub, null, "可以", 0)!.Text;
+        parent.History.Add(Report(sub.SessionId));
+        string second = SubAgentReportHandoff.Compose(parent, sub, null, "改口了", 0)!.Text;
+
+        Assert.DoesNotContain("更正上一封", first);
+        Assert.Contains("（更正上一封）", second);
+        Assert.Null(SubAgentReportHandoff.Compose(parent, sub, null, "", 0)); //没话可插
+    }
 }
