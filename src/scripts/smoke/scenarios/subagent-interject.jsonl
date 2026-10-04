@@ -1,0 +1,8 @@
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"session.new","args":{"character":"RationalAgent","workspace":"{{WS_DOCS}}"}}
+{"op":"session.post","args":{"text":"找个人通读 adr/ 目录下的全部 ADR，每篇用一句话列出它定了什么，回来后转给我。"}}
+{"op":"session.wait","args":{"timeoutMinutes":5,"approvals":"deny","foreground":true}}
+{"op":"session.post","args":{"text":"对了，趁他还在读，让他顺便把已经被后来的 ADR 推翻或修订过的那几篇标出来。"}}
+{"op":"session.wait","args":{"timeoutMinutes":20,"approvals":"deny"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/subagent-interject.md"}}
+{"op":"quit"}

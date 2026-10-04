@@ -233,13 +233,16 @@ public static class SubAgentReportHandoff
     private static string SenderOf(ChatSession subSession) =>
         subSession.SubAgentName.Length > 0 ? subSession.SubAgentName : subSession.SubAgentRole;
 
-    // 子会话里最后一条有字的用户消息就是派活者发的那句（续聊时是最新那句）
+    // 子会话里最后一条有字的用户消息就是派活者发的那句（续聊时是最新那句）。
+    // 跑着时插进去的补充不算：它并进了这一轮的回信，回信回的仍是开启这一轮的那句
     private static ChatMessage? LastRequest(ChatSession subSession)
     {
         for (int i = subSession.History.Count - 1; i >= 0; i--)
         {
             ChatMessage message = subSession.History[i];
-            if (message.Role == ChatRole.User && !string.IsNullOrWhiteSpace(message.Text)) return message;
+            if (message.Role != ChatRole.User || string.IsNullOrWhiteSpace(message.Text)) continue;
+            if (ChatMessageAnnotations.IsParentInterjection(message)) continue;
+            return message;
         }
 
         return null;

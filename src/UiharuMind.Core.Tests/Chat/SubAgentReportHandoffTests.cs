@@ -187,6 +187,22 @@ public class SubAgentReportHandoffTests
         Assert.Contains("回你之前发的「接着说说本地模型」", text);
     }
 
+    /// <summary>跑着时补的那句并进了同一封回信：信头引的仍是开启这一轮的那句</summary>
+    [Fact]
+    public void ReplyQuote_SkipsMidWorkAdditions()
+    {
+        ChatSession parent = new() { IsTransient = true };
+        ChatSession sub = new() { IsTransient = true, SubAgentRole = "通读者" };
+        sub.History.Add(new ChatMessage(ChatRole.User, "通读全部 ADR"));
+        ChatMessage addition = new(ChatRole.User, SubAgentTool.ParentInterjectionPrefix + "顺便标出被推翻的");
+        ChatMessageAnnotations.MarkParentInterjection(addition);
+        sub.History.Add(addition);
+
+        string text = SubAgentReportHandoff.Compose(parent, sub, null, "63 篇", 0)!.Text;
+
+        Assert.Contains("回你之前发的「通读全部 ADR」", text);
+    }
+
     /// <summary>新问题的回信也不得原地替换上一封——哪怕上一封还停在末尾</summary>
     [Fact]
     public void ReplyToANewMessage_DoesNotReplaceThePreviousOne()

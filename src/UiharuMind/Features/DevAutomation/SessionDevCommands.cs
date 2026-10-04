@@ -114,7 +114,8 @@ internal sealed class SessionPostCommand : IDevCommand
 }
 
 /// <summary>
-/// 等当前会话这一轮（含后台子代理、轮末的交接文档）跑完。<c>args</c>：timeoutMinutes、approvals（deny / once，默认 deny）。
+/// 等当前会话这一轮（含后台子代理、轮末的交接文档）跑完。<c>args</c>：timeoutMinutes、approvals（deny / once，默认 deny）、
+/// foreground（true 时只等主会话自己这一轮，不等后台子代理——要趁对方还在干活时插话就靠它）。
 /// 期间冒出来的审批卡按 approvals 点掉并记进报告——被要了什么本身就是观测量
 /// </summary>
 internal sealed class SessionWaitCommand : IAsyncDevCommand
@@ -123,12 +124,13 @@ internal sealed class SessionWaitCommand : IAsyncDevCommand
 
     public string Name => "session.wait";
 
-    public string Usage => "等当前显示的会话这一轮跑完。timeoutMinutes、approvals（deny / once）";
+    public string Usage => "等当前显示的会话这一轮跑完（默认连后台子代理一起等）。timeoutMinutes、approvals（deny / once）、foreground（true 只等主会话这一轮）";
 
     public async Task<object?> ExecuteAsync(JsonElement args)
     {
         TimeSpan timeout = TimeSpan.FromMinutes(GroupDevCommands.IntOr(args, "timeoutMinutes", 10));
         string decision = GroupDevCommands.StringOr(args, "approvals") ?? "deny";
+        bool foregroundOnly = GroupDevCommands.BoolOr(args, "foreground", false);
 
         ConversationViewModel conversation = SessionDevCommands.Active;
         ConversationPageDataBase page = DevCommandRegistry.RequireConversationPage();
@@ -156,7 +158,8 @@ internal sealed class SessionWaitCommand : IAsyncDevCommand
             }
 
             // 交接文档在轮末写，那时这一轮已不算在跑：不等它的话，紧跟着的 quit 会把它掐掉
-            bool busy = conversation.HasPendingWork || TurnDriver.IsCompacting(conversation.CurrentMeta?.SessionId);
+            bool busy = (foregroundOnly ? conversation.IsGenerating : conversation.HasPendingWork)
+                        || TurnDriver.IsCompacting(conversation.CurrentMeta?.SessionId);
             idlePolls = busy ? 0 : idlePolls + 1;
         }
 
