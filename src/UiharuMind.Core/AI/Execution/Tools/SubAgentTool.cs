@@ -172,13 +172,10 @@ public static class SubAgentTool
         // 泛泛套话,既没信息量又挤掉了固定段该起的作用。要给对方换人格,
         // 请在角色上挂一个子智能体,而不是让模型现编。
         //
-        // ⚠️ 收件人名单<b>不进这里</b>(ADR 0044 决策 4/5):名单一进工具描述,
-        // 成员增减就会改工具定义、失效前缀缓存。名单由装配侧拼进系统提示的委派一节
-        // (ToolDisciplineSections → AgentToolPrompts.BuildDelegation)。
-        return AIFunctionFactory.Create(
+        // to 的说明随收件人名单装配时拼(SubAgentToolPrompts.BuildToParam),[Description] 只能写常量
+        AIFunction function = AIFunctionFactory.Create(
             ([Description(SubAgentToolPrompts.ContentParam)]
                 string content,
-                [Description(SubAgentToolPrompts.ToParam)]
                 string? to = "",
                 [Description(SubAgentToolPrompts.RoleParam)]
                 string? role = null,
@@ -186,6 +183,7 @@ public static class SubAgentTool
                 string? model = null) => SendAsync(context, to, content, role, model),
             ToolName,
             SubAgentToolPrompts.SendMessageDescription);
+        return new ParameterDescriptionFunction(function, "to", SubAgentToolPrompts.BuildToParam(context.Roster));
     }
 
     /// <summary>

@@ -149,6 +149,42 @@ public class SubAgentToolSendMessageTests
             : raw?.ToString() ?? string.Empty;
     }
 
+    /// <summary>
+    /// 没挂子角色时 to 的说明只字不提名字。实测弱模型见到「可以填名字」就自己造一个
+    /// （general、reviewer…），报错后才改成留空
+    /// </summary>
+    [Fact]
+    public void ToDescription_WithoutRoster_NeverMentionsNames()
+    {
+        string description = ToDescription(Tool());
+
+        Assert.DoesNotContain("name", description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("[sub-session: …]", description);
+        Assert.Contains("leave it empty", description);
+    }
+
+    /// <summary>挂了子角色：名字连同用途列在要填名字的地方，而不是系统提示</summary>
+    [Fact]
+    public void ToDescription_WithRoster_ListsThePeople()
+    {
+        AITool tool = SubAgentTool.Create(new SubAgentTool.LaunchContext
+        {
+            ParentSessionId = "parent",
+            Profile = SubAgentProfile.General,
+            Roster = [new SubAgentChoice("Alice", "审代码", "alice-id"), new SubAgentChoice("Bob", "", "bob-id")],
+        });
+
+        string description = ToDescription(tool);
+
+        Assert.Contains("- Alice: 审代码", description);
+        Assert.Contains("- Bob", description);
+        Assert.Contains("[sub-session: …]", description);
+    }
+
+    private static string ToDescription(AITool tool) =>
+        Assert.IsAssignableFrom<AIFunction>(tool).JsonSchema
+            .GetProperty("properties").GetProperty("to").GetProperty("description").GetString() ?? string.Empty;
+
     /// <summary>to 不在 required 里：模型不传这一键时框架不报错，落到默认对象</summary>
     [Fact]
     public void SendMessage_ToIsOptionalInTheSchema()

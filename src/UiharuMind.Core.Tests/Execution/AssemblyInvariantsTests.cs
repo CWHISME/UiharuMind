@@ -738,7 +738,7 @@ public class HarnessInstructionsCompositionTests
             .ChatOptions?.Instructions ?? string.Empty;
 
         Assert.DoesNotContain(AgentPromptHeadings.FileOperations, instructions);
-        Assert.DoesNotContain(AgentToolPrompts.BuildDelegation(string.Empty), instructions);
+        Assert.DoesNotContain(AgentToolPrompts.BuildDelegation(), instructions);
     }
 
     /// <summary>

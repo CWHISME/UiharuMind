@@ -36,20 +36,27 @@ public static class SubAgentToolPrompts
     public const string SendMessageDescription =
         "Send a message to someone who works on it in their own session and replies when done.";
     /// <summary>
-    /// <c>to</c> 参数说明。一个参数收两种收件人（人 / 一次进行中的委派），
-    /// 因为对模型来说这本来就是同一个动作——**给某人发消息**，
-    /// 区别只在这个人是刚认识还是已经聊过。查找顺序见 <c>SubAgentTool.Resolve</c>。
+    /// <c>to</c> 参数说明，<b>按收件人名单装配时拼</b>。一个参数收两种收件人（人 / 聊过的那次对话），
+    /// 因为对模型来说这本来就是同一个动作——给某人发消息，区别只在这个人是刚认识还是已经聊过。
     ///
-    /// 名单不写进这里（那会让工具定义随成员增减而变，失效前缀缓存，见 ADR 0044 决策 4、5），
-    /// 可找的人列在系统提示的委派一节里。
-    ///
-    /// 「留空」那句不写 "a general-purpose helper" 这类名词：实测弱模型会照着造一个名字填进来
-    /// （"general"、"general-reviewer"），报错后才改成留空。改为直说只有两种值有效。
+    /// 名单直接列在这里而不是系统提示：名字就写在要填名字的地方，模型不必去别处对照。
+    /// 没挂子角色时<b>只字不提名字</b>——实测弱模型见到「可以填名字」就自己造一个
+    /// （"general"、"general-reviewer"、"reviewer"），报错后才改成留空。
+    /// 名单只在装配时变，变了本来就要重新装配（系统提示同在前缀里），不会在一次装配之内改 schema（ADR 0044 决策 4、5 补注）。
     /// </summary>
-    public const string ToParam =
-        "Only two kinds of value work here: a name listed in your instructions, " +
-        "or the id from an earlier [sub-session: …] line to continue that conversation. " +
-        "Leave it empty to message someone new.";
+    /// <param name="roster">可点名的收件人；空即没挂子角色</param>
+    /// <returns>参数说明</returns>
+    public static string BuildToParam(IReadOnlyList<SubAgentChoice> roster)
+    {
+        const string continueOrNew =
+            "the id from an earlier [sub-session: …] line to continue that conversation, " +
+            "or leave it empty to message someone new.";
+        if (roster.Count == 0) return "Pass " + continueOrNew;
+
+        IEnumerable<string> people = roster.Select(x =>
+            x.Description.Length > 0 ? $"- {x.Name}: {x.Description}" : $"- {x.Name}");
+        return "One of the names below, " + continueOrNew + "\n" + string.Join("\n", people);
+    }
 
     /// <summary>
     /// <c>content</c> 参数说明。补一句「写具体」：压缩后
@@ -88,11 +95,4 @@ public static class SubAgentToolPrompts
     /// </summary>
     public const string ModelParam =
         "Optional exact model name.";
-
-    /// <summary>
-    /// 收件人名单的小标题。<b>这段不再进工具描述</b>，改由装配侧拼进系统提示的委派一节
-    /// （ADR 0044 决策 4）：名单进 schema 会让工具定义随成员增减而变，前缀缓存全废。
-    /// </summary>
-    public const string RosterHeading =
-        "People you can message (pass the name as to):";
 }

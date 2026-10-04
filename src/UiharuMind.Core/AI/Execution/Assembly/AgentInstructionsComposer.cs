@@ -59,7 +59,6 @@ internal static class AgentInstructionsComposer
     /// 空串则整段不写；非空时正文里也不印它，环境已由 PATH 前置激活</param>
     /// <param name="outputRoomDirectory">草稿目录绝对路径(会话自己的产出房间)；空串则不写该段</param>
     /// <param name="memoryDirectory">记忆目录绝对路径(ADR 0028)；空串则不写该段</param>
-    /// <param name="delegationRoster">可委派名单正文；空串则不写那一节</param>
     /// <param name="personaCoda">人格 coda（<c>CharacterData.GetPersonaCoda</c> 的产物）；空串则不写该段</param>
     /// <param name="segments">
     /// 各段的分段清单，<b>拼接现场登记</b>。能力面板要按段报占用，而事后对整串按标题反切，
@@ -69,7 +68,7 @@ internal static class AgentInstructionsComposer
     internal static string Compose(string? characterPrompt, string groupScene, AgentToolConfig config,
         string workingDirectory, string workspaceInstructions,
         string mcpInstructions, string shellBinary, string pythonInterpreter,
-        string outputRoomDirectory, string memoryDirectory, string delegationRoster,
+        string outputRoomDirectory, string memoryDirectory,
         string personaCoda, out IReadOnlyList<AgentPromptSegment> segments)
     {
         List<AgentPromptSegment> registry = new();
@@ -79,7 +78,7 @@ internal static class AgentInstructionsComposer
         // 场景紧跟人格：先知道自己是谁，再知道自己在哪、有谁在，然后才是工具
         AppendSection(sb, SceneSection(groupScene), EPromptSection.Scene, registry);
         AppendSection(sb, BuildToolDisciplines(config, workingDirectory, shellBinary,
-            pythonInterpreter, outputRoomDirectory, memoryDirectory, delegationRoster),
+            pythonInterpreter, outputRoomDirectory, memoryDirectory),
             EPromptSection.ToolDisciplines, registry);
         if (mcpInstructions.Length > 0)
         {
@@ -296,7 +295,7 @@ internal static class AgentInstructionsComposer
     /// <returns>harness 层指令文本；无任何内容时为空串</returns>
     private static string BuildToolDisciplines(AgentToolConfig config,
         string workingDirectory, string shellBinary, string pythonInterpreter,
-        string outputRoomDirectory, string memoryDirectory, string delegationRoster)
+        string outputRoomDirectory, string memoryDirectory)
     {
         // 段序与条件都归 ToolDisciplineSections 那一张清单,主代理与子代理共用。
         // 这里只负责把"装配结果"翻译成清单认识的事实
@@ -311,7 +310,6 @@ internal static class AgentInstructionsComposer
             Python = pythonInterpreter.Length > 0,
             KnowledgeBase = config.EnableKnowledgeSearchTool,
             Delegation = config.EnableSubAgent,
-            DelegationRoster = delegationRoster,
             WorkingDirectory = workingDirectory,
             OutputRoom = outputRoomDirectory,
             Memory = memoryDirectory,
