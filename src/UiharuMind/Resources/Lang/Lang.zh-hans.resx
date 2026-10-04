@@ -3142,6 +3142,9 @@
     <data name="GroupFromChatTip" xml:space="preserve">
         <value>从这里建群：拉别的角色进来另开一个群，这段对话的摘要会填进群的输入框，原对话不动</value>
     </data>
+    <data name="GroupFromGroupTip" xml:space="preserve">
+        <value>复制本群的成员、模型、调度、工作区与权限，另建一个新的群聊，原群不动</value>
+    </data>
     <data name="GroupFromChatSummarizing" xml:space="preserve">
         <value>正在整理与{0}的对话，整理好就开群…</value>
     </data>

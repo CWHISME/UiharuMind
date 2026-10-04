@@ -2,6 +2,7 @@ using System.Text.Json;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
+using UiharuMind.Core.Configs;
 
 namespace UiharuMind.Core.Tests.Chat;
 
@@ -167,6 +168,43 @@ public class SessionFormTests
 
         Assert.True(GroupChatSessions.CanJoin(agent)); //普通群也收；群类型不影响能不能进（ADR 0050）
         Assert.False(GroupChatSessions.CanJoin(userCard)); //用户卡哪儿都不收
+    }
+
+    [Fact]
+    public void GroupCreate_SetsPermissionFromGlobalDefault_UnlessExplicitlyGiven()
+    {
+        int prev = AgentSettingConfig.Current.DefaultPermissionModeIndex;
+        try
+        {
+            AgentSettingConfig.Current.DefaultPermissionModeIndex = 2; //完全自动
+
+            ChatSession defaultGroup = GroupChatSessions.Create("g-perm-default", false,
+                [new CharacterData { CharacterName = "A" }, new CharacterData { CharacterName = "B" }], null);
+            try
+            {
+                Assert.Equal(2, defaultGroup.PermissionModeIndex); //不传就读全局设置
+            }
+            finally
+            {
+                SessionManager.Instance.Delete(defaultGroup.SessionId);
+            }
+
+            ChatSession explicitGroup = GroupChatSessions.Create("g-perm-explicit", false,
+                [new CharacterData { CharacterName = "A" }, new CharacterData { CharacterName = "B" }],
+                null, null, null, 0);
+            try
+            {
+                Assert.Equal(0, explicitGroup.PermissionModeIndex); //显式传参优先（从群复制时传源群档）
+            }
+            finally
+            {
+                SessionManager.Instance.Delete(explicitGroup.SessionId);
+            }
+        }
+        finally
+        {
+            AgentSettingConfig.Current.DefaultPermissionModeIndex = prev;
+        }
     }
 
     [Fact]

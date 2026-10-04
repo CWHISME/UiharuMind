@@ -366,8 +366,14 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// </summary>
     public bool IsGroupSession => Group != null;
 
-    /// <summary>能不能「从这里建群」：普通的单聊才行。与 <see cref="IsSubSession"/> 一样在会话装载完成时发变更通知</summary>
-    public bool CanCreateGroupFromHere => GroupFromChat.CanStartFrom(CurrentMeta);
+    /// <summary>能不能「从这里建群」：普通的单聊或群壳都行（群聊另开一个参数照抄的群）。与 <see cref="IsSubSession"/> 一样在会话装载完成时发变更通知</summary>
+    public bool CanCreateGroupFromHere =>
+        GroupFromChat.CanStartFrom(CurrentMeta) || GroupFromGroup.CanStartFrom(CurrentMeta);
+
+    /// <summary>「从这里建群」按钮的悬停说明：单聊说的是带摘要，群聊说的是复参数</summary>
+    public string CreateGroupFromHereToolTip => CurrentMeta?.IsGroup == true
+        ? Loc.Text(LangKey.GroupFromGroupTip)
+        : Loc.Text(LangKey.GroupFromChatTip);
 
     /// <summary>
     /// 本会话是不是群成员会话。已解锁私聊：打字过轮次闸门排队，见 <see cref="GroupMemberTurnGate"/>（ADR 0046 未决已落地）。
@@ -1079,13 +1085,16 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     }
 
     /// <summary>
-    /// 从这里建群（方案 v6 §6.6b 规则 5 的轻量落地）：另开一个群、带上这段单聊的背景，原单聊不动，见 <see cref="GroupFromChat"/>
+    /// 从这里建群（方案 v6 §6.6b 规则 5 的轻量落地）：另开一个群、带上这段单聊的背景，原单聊不动，见 <see cref="GroupFromChat"/>。
+    /// 从群聊进来则参数照抄原群（成员/模型/调度/工作区/权限），见 <see cref="GroupFromGroup"/>
     /// </summary>
     [RelayCommand]
     private async Task CreateGroupFromHereAsync()
     {
         if (CurrentSession is not { } source || !CanCreateGroupFromHere) return;
-        ChatSession? group = await GroupFromChat.CreateAsync(source, Workspace.Path, _messages);
+        ChatSession? group = source.IsGroup
+            ? await GroupFromGroup.CreateAsync(source)
+            : await GroupFromChat.CreateAsync(source, Workspace.Path, _messages);
         if (group == null) return;
         SessionsChanged?.Invoke();
         OpenSessionRequested?.Invoke(group.SessionId);
@@ -1580,6 +1589,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             MemoryPanel = new ConversationMemoryViewData(body);
             OnPropertyChanged(nameof(IsSubSession)); //会话换了,「交回主代理」的可见性跟着换
             OnPropertyChanged(nameof(CanCreateGroupFromHere));
+            OnPropertyChanged(nameof(CreateGroupFromHereToolTip));
             OnPropertyChanged(nameof(IsSenderSwitchVisible));
             // 成员这一份挂执行者的待发插话,留到挂接之后建:提前取 Runner 会把执行者的惰性创建挤进切会话的同步窗口
             GroupMember = body.IsGroupMember ? new GroupMemberSessionViewData(body, ApplyGroupPermission) : null;

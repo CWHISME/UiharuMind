@@ -22,7 +22,7 @@ public partial class GroupCreateWindowModel : ObservableObject
     private string _name = string.Empty;
 
     /// <summary>调度设置（建群时定初值，之后右栏可改）</summary>
-    public GroupScheduleViewData Schedule { get; } = new(EGroupScheduleMode.Serial, EGroupStopPolicy.Conservative);
+    public GroupScheduleViewData Schedule { get; }
 
     /// <summary>主持人的选项：第一项是「无」，其余是已选成员（建群时定初值，之后右栏可改）</summary>
     public ObservableCollection<GroupHostOption> HostOptions { get; } = [];
@@ -40,10 +40,13 @@ public partial class GroupCreateWindowModel : ObservableObject
     /// </summary>
     /// <param name="isAgentGroup">是不是智能体群</param>
     /// <param name="workspacePath">智能体群的工作区；普通群为 null</param>
-    /// <param name="preselected">预先勾上的成员（从单聊开群时是原单聊的角色）；没有为 null</param>
+    /// <param name="preselected">预先勾上的成员（从单聊开群时是原单聊的角色；从群开群时是原群成员）；没有为 null</param>
     /// <param name="name">预填的群名；没有为 null</param>
+    /// <param name="memberModelNames">预先勾上的成员各自的模型名，顺序与 <paramref name="preselected"/> 一致；null = 跟随全局</param>
+    /// <param name="schedule">预填的调度设置；null 为串行、无主持人</param>
     public GroupCreateWindowModel(bool isAgentGroup, string? workspacePath,
-        IReadOnlyList<CharacterData>? preselected = null, string? name = null)
+        IReadOnlyList<CharacterData>? preselected = null, string? name = null,
+        IReadOnlyList<string?>? memberModelNames = null, GroupSchedule? schedule = null)
     {
         IsAgentGroup = isAgentGroup;
         TypeHint = isAgentGroup
@@ -53,11 +56,23 @@ public partial class GroupCreateWindowModel : ObservableObject
         // 预选的是用户正在聊的那一位，屏蔽了也照样列出（他本来就看得见），不然预选会静默落空
         Picker = new GroupCandidatePicker(preselected);
         Picker.PickedChanged += OnPickedChanged;
+        Schedule = new GroupScheduleViewData(schedule?.Mode ?? EGroupScheduleMode.Serial,
+            schedule?.StopPolicy ?? EGroupStopPolicy.Conservative);
         HostOptions.Add(GroupHostOption.None);
         SelectedHost = GroupHostOption.None;
 
         Name = name ?? string.Empty;
-        foreach (CharacterData member in preselected ?? []) Picker.Pick(member.CharacterId);
+        for (int i = 0; i < (preselected?.Count ?? 0); i++)
+        {
+            Picker.Pick(preselected![i].CharacterId,
+                memberModelNames != null && i < memberModelNames.Count ? memberModelNames[i] : null);
+        }
+
+        // 主持人按成员顺序记（建群请求里同样按下标取）：预选完名单齐了再定，Pick 途中会重建选项
+        if (schedule?.HostIndex is { } host && host >= 0 && host < Picked.Count)
+        {
+            SelectedHost = HostOptions.FirstOrDefault(x => x.Data != null && x.Data == Picked[host]);
+        }
     }
 
     /// <summary>挑成员</summary>

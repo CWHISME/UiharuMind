@@ -1,4 +1,5 @@
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.Configs;
 
 namespace UiharuMind.Core.AI.Chat.Group;
 
@@ -35,10 +36,12 @@ public static class GroupChatSessions
     /// <param name="workspacePath">智能体群的工作区；普通群忽略</param>
     /// <param name="memberModelNames">成员各自的模型名，顺序与 <paramref name="members"/> 一致；null = 该成员跟随全局</param>
     /// <param name="schedule">调度设置；null 为串行、无主持人</param>
+    /// <param name="permissionModeIndex">群的权限档；null 取全局设置的新会话默认档（与单聊建会话同口径）</param>
     /// <returns>群壳会话</returns>
     /// <exception cref="ArgumentException">没有成员，或有成员进不了这类群</exception>
     public static ChatSession Create(string name, bool isAgentGroup, IReadOnlyList<CharacterData> members,
-        string? workspacePath, IReadOnlyList<string?>? memberModelNames = null, GroupSchedule? schedule = null)
+        string? workspacePath, IReadOnlyList<string?>? memberModelNames = null, GroupSchedule? schedule = null,
+        int? permissionModeIndex = null)
     {
         if (members.Count == 0) throw new ArgumentException("A group needs at least one member.", nameof(members));
         if (members.FirstOrDefault(x => !CanJoin(x)) is { } refused)
@@ -56,6 +59,7 @@ public static class GroupChatSessions
             WorkspacePath = groupWorkspace,
             GroupScheduleMode = schedule?.Mode ?? EGroupScheduleMode.Serial,
             GroupStopPolicy = schedule?.StopPolicy ?? EGroupStopPolicy.Conservative,
+            PermissionModeIndex = permissionModeIndex ?? AgentSettingConfig.Current.DefaultPermissionModeIndex,
         };
 
         // 建群时按成员逐个钉选模型；没给就当跟随全局

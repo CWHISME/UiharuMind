@@ -3149,6 +3149,9 @@ Allow them?</value>
     <data name="GroupFromChatTip" xml:space="preserve">
         <value>Start a group from here: bring other characters into a new group; a summary of this chat is put into the group's input box, and this chat stays as it is</value>
     </data>
+    <data name="GroupFromGroupTip" xml:space="preserve">
+        <value>Creates a new group chat copying this one's members, models, schedule, workspace and permission settings</value>
+    </data>
     <data name="GroupFromChatSummarizing" xml:space="preserve">
         <value>Summarizing the chat with {0}; the group opens once it is done…</value>
     </data>

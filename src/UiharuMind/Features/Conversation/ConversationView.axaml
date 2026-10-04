@@ -134,11 +134,11 @@
                                       Command="{Binding HandBackToParentCommand}"
                                       IsVisible="{Binding IsSubSession}"
                                       ToolTips="{loc:Loc SubAgentHandBackTip}" />
-                    <!-- 从这里建群：拉别的角色进来另开一个群，原单聊不动（方案 v6 §6.6b 规则 5） -->
+                    <!-- 从这里建群：单聊拉别的角色另开一个群（方案 v6 §6.6b 规则 5）；群聊则另开一个参数照抄的群（见 GroupFromGroup） -->
                     <ThemedIconButton IconName="users-round"
                                       Command="{Binding CreateGroupFromHereCommand}"
                                       IsVisible="{Binding CanCreateGroupFromHere}"
-                                      ToolTips="{loc:Loc GroupFromChatTip}" />
+                                      ToolTips="{Binding CreateGroupFromHereToolTip}" />
                     <ThemedIconButton IconName="repeat"
                                       Command="{Binding RegenerateLastCommand}"
                                       IsVisible="{Binding CanRegenerate}"
