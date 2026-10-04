@@ -87,6 +87,9 @@ internal sealed class GroupAwaySession
     /// <summary>化身跑着时又有一波收场：跑完再叫</summary>
     public bool WakePending { get; set; }
 
+    /// <summary>已约好私聊放闸后接回化身：只约一次，免得放闸时连叫几轮</summary>
+    public bool ResumeArmed { get; set; }
+
     /// <summary>已结束（回执可能还要等化身那一轮停稳才出）</summary>
     public bool IsEnded { get; private set; }
 

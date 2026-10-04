@@ -257,6 +257,12 @@ public static class GroupTranscript
     /// </summary>
     public const string ResumeNote = "（你上一轮在群里被打断了：接着做完；要是已经做完了，把结果跟大家说一句。）";
 
+    /// <summary>
+    /// 群里那一轮被用户私聊叫停、私聊结束后接回时，有没有新话都附上的一句（ADR 0063）。只给事实：
+    /// 接着做、说结果、按私聊里的新意思改方向还是放下，由他看着自己的历史定。界面不画
+    /// </summary>
+    public const string PrivateResumeNote = "（你上一轮在群里的活被用户私聊打断了。私聊里说的、做的，群里都看不到。）";
+
     /// <summary>每轮重锚的开头：界面据此认出它、不画出来</summary>
     public const string VoiceReminderOpening = "（说话前记着：";
 

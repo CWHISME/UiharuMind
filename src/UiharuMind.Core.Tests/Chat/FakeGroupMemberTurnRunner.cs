@@ -37,6 +37,9 @@ internal sealed class FakeGroupMemberTurnRunner : IGroupMemberTurnRunner
         }
     }
 
+    /// <summary>成员这一轮装配阶段做的事（投递进历史之前）：之后已被取消就不进历史、直接收尾，像装配时被停下</summary>
+    public Dictionary<string, Func<Task>> Attaching { get; } = new();
+
     /// <summary>成员这一轮中途做的事（在写回答之前）</summary>
     public Dictionary<string, Func<Task>> During { get; } = new();
 
@@ -72,9 +75,15 @@ internal sealed class FakeGroupMemberTurnRunner : IGroupMemberTurnRunner
     public async Task<bool> RunAsync(ChatSession member, ChatMessage input, Func<Task>? onReplyFinishing,
         CancellationToken cancellationToken)
     {
+        lock (_sync) _calls.Add((member, input.Text));
+        if (Attaching.TryGetValue(member.SessionId, out Func<Task>? attaching))
+        {
+            await attaching();
+            if (cancellationToken.IsCancellationRequested) return false;
+        }
+
         lock (_sync)
         {
-            _calls.Add((member, input.Text));
             _replied.Remove(member.SessionId);
             member.History.Add(input);
         }

@@ -3091,8 +3091,8 @@
     <data name="GroupMemberCountFormat" xml:space="preserve">
         <value>成员 {0} 位</value>
     </data>
-    <data name="GroupMemberBusyQueueTip" xml:space="preserve">
-        <value>他正在群里发言，这条消息已排队，等这轮结束自动发送</value>
+    <data name="GroupMemberPreemptTip" xml:space="preserve">
+        <value>他正在群里发言，已先停下那一轮来回你，私聊完会接着做</value>
     </data>
     <data name="GroupMemberAwaitingApproval" xml:space="preserve">
         <value>等审批</value>

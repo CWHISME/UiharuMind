@@ -164,16 +164,21 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
         lock (_locker)
         {
             _interrupted.Remove(memberSessionId);
+            _preempted.Remove(memberSessionId);
             _notes.Remove(memberSessionId);
         }
     }
 
-    /// <summary>停下这个群正在跑的那一波（连同所有正在说的成员），以及正在跑的化身那一轮</summary>
+    /// <summary>
+    /// 停下这个群正在跑的那一波（连同所有正在说的成员），以及正在跑的化身那一轮。
+    /// 被私聊叫停、正等着接回的成员也不再自动接回：用户要群停下，留给「继续」
+    /// </summary>
     /// <param name="groupId">群壳会话标识</param>
     public void Stop(string groupId)
     {
         EpisodeOf(groupId)?.Run.Cancel();
         StopAvatar(groupId);
+        ForgetResumes(groupId);
     }
 
     /// <summary>
@@ -196,26 +201,44 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
     async Task<GroupTurnOutcome> IGroupTurnHost.RunMemberAsync(GroupRun run, string memberSessionId,
         EGroupWakeCause cause)
     {
+        GroupTurnOutcome outcome = await RunMemberTurnAsync(run, memberSessionId, cause);
+        // 闸放了才约：被私聊叫停的（或接回时又撞上私聊的），私聊结束后叫醒他接着做
+        ArmResume(run.Group, memberSessionId);
+        return outcome;
+    }
+
+    private async Task<GroupTurnOutcome> RunMemberTurnAsync(GroupRun run, string memberSessionId,
+        EGroupWakeCause cause)
+    {
         ChatSession group = run.Group;
         if (_load(memberSessionId) is not { } member) return GroupTurnOutcome.Skipped;
 
-        // 成员此刻正在私聊（前台轮占着闸）：这次跳过，游标不动，下次补投——不丢话
-        using IDisposable? gate = GroupMemberTurnGate.TryEnter(member.SessionId);
+        // 成员此刻正在私聊（前台轮占着闸）：这次跳过，游标不动，下次补投——不丢话。
+        // 跑着时用户私聊他：只叫停他这一轮，别人照常说（ADR 0063）
+        using PreemptibleTurn? gate = GroupMemberTurnGate.TryEnterPreemptible(member.SessionId, run.Token);
         if (gate == null) return GroupTurnOutcome.Skipped;
 
         string? delivery;
+        bool resumeAfterPrivate;
         IReadOnlyList<DataContent> images;
+        DeliveryTaken taken;
         GroupMemberTurnState? turn = null;
         // 取投递、推游标、登记在说，与 Append 同一把锁：之后追加的每一条要么在投递里、要么会插给他，不漏不重
         lock (_locker)
         {
             HashSet<int> consumed = member.GroupConsumedPosts;
             member.GroupConsumedPosts = [];
+            taken = new DeliveryTaken(member.GroupCursor, consumed, member.GroupBriefing);
             delivery = GroupTranscript.BuildDelivery(group.History, member.GroupCursor, member.SessionId, consumed);
+            // 被私聊叫停的：有没有新话都交代一声，那之后隔着私聊，光看历史他会只接新话、忘了手上的活。
+            // 投递留空串照样开口，提示由 ComposeInput 贴在末尾
+            resumeAfterPrivate = _preempted.Remove(member.SessionId);
+            if (resumeAfterPrivate) delivery ??= string.Empty;
             // 被打断的人游标早推过去了，没新话时交一句「接着做」；有新话就照常投，那一段历史他自己看得见
             if (_interrupted.Remove(member.SessionId)) delivery ??= GroupTranscript.ResumeNote;
             // 附注不管有没有新话都要交（见 NotifyMemberAsync），排在新话之前
-            delivery = TakeNotes(member.SessionId, delivery);
+            delivery = TakeNotes(member.SessionId, delivery, out List<string>? notes);
+            taken = taken with { Notes = notes };
             images = GroupTranscript.DeliveryImages(group.History, member.GroupCursor, member.SessionId, consumed);
             member.GroupCursor = group.History.Count;
             // 入群摘要只搭投递的车：没新话时不为它单独叫醒
@@ -239,7 +262,7 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
             // 锁外通报：订阅方会回来问 IsRunning/SpeakersOf
             SpeakerChanged?.Invoke(group.SessionId);
 
-            string input = ComposeInput(member, cause, delivery!);
+            string input = ComposeInput(member, cause, delivery!, resumeAfterPrivate);
             // 回复就是发言（ADR 0060 修订）：插话会让一轮说好几次话，每次说完都进群，而不是只取最后一条；
             // 智能体形态另有群发言工具管中途说话，回复照样进群——不看这一轮调没调过工具
             using GroupMemberReplyFeed replies = new(member, (text, at) => PostReply(group, member, text, at));
@@ -248,16 +271,26 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
             // 并行里说完即封口：别人的话不再让他续说一句，要不要再开口交给唤醒边界（ADR 0049 修订）。
             // 串行不封：本来人人轮到，没有谁一直被续着说
             Func<Task>? seal = run.Mode == EGroupScheduleMode.Parallel ? () => turn.SealAsync(_runner) : null;
-            bool completed = await RunTurnAsync(member, deliveryMessage, seal, run.Token);
+            bool completed = await RunTurnAsync(member, deliveryMessage, seal, gate.Token);
             replies.Finish(completed);
+            // 装配阶段就被停下：投递根本没进他的历史，退回去下次照常交，不然游标前那几条他再也看不到
+            bool undelivered = !completed && !member.History.Any(x => ReferenceEquals(x, deliveryMessage));
             if (!completed)
             {
-                lock (_locker) _interrupted.Add(member.SessionId);
+                lock (_locker)
+                {
+                    _interrupted.Add(member.SessionId);
+                    if (gate.WasPreempted(completed)) _preempted.Add(member.SessionId);
+                }
             }
 
             IReadOnlySet<int> consumedNow = await turn.CloseAsync(_runner);
             closed = true;
-            lock (_locker) member.GroupConsumedPosts = [..consumedNow];
+            lock (_locker)
+            {
+                if (undelivered) Restore(member, taken, consumedNow);
+                else member.GroupConsumedPosts = [..consumedNow];
+            }
             member.SaveMeta(touchUpdatedAt: false);
 
             if (run.End(member.SessionId)) SpeakerChanged?.Invoke(group.SessionId);
@@ -334,7 +367,7 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
         }
 
         // 报空闲之后再通报：订阅方（离席）可能当场开下一波。
-        // 只为交附注开的一波若一句没说（他正在私聊被闸挡住），不算一波：离席会把它记成「没进展」
+        // 单为一人开的一波（交附注、私聊后接回）若一句没说（他正在私聊被闸挡住），不算一波：离席会把它记成「没进展」
         if (kickoff.OnlyMemberSessionId == null || end > start)
             RaiseEpisodeEnded(new GroupEpisodeSummary(group, kickoff.UserPostIndex, start, end, stopped));
         return true;
@@ -357,12 +390,23 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
         lock (_locker) return _episodes.GetValueOrDefault(groupId);
     }
 
-    // 场景与规矩在系统提示里（ADR 0048，见 GroupSceneSource），投递只带这一刻才成立的东西
-    private string ComposeInput(ChatSession member, EGroupWakeCause cause, string delivery)
+    // 场景与规矩在系统提示里（ADR 0048，见 GroupSceneSource），投递只带这一刻才成立的东西。
+    // 重锚之后的提示界面不画
+    private string ComposeInput(ChatSession member, EGroupWakeCause cause, string delivery, bool resumeAfterPrivate)
     {
         string input = delivery + "\n\n" + GroupTranscript.VoiceReminder(member.CharacterData.GetPersonaCoda());
+        if (resumeAfterPrivate) input += "\n\n" + GroupTranscript.PrivateResumeNote;
         if (cause == EGroupWakeCause.CatchUp) input += "\n\n" + GroupTranscript.CatchUpHint;
         return input;
+    }
+
+    // 投递没交出去：游标、已读、入群摘要、附注都退回取投递之前。调用方持 _locker
+    private void Restore(ChatSession member, DeliveryTaken taken, IReadOnlySet<int> consumedNow)
+    {
+        member.GroupCursor = taken.Cursor;
+        member.GroupConsumedPosts = [..taken.Consumed, ..consumedNow];
+        member.GroupBriefing ??= taken.Briefing;
+        if (taken.Notes != null) RestoreNotes(member.SessionId, taken.Notes);
     }
 
     private async Task<bool> RunTurnAsync(ChatSession member, ChatMessage delivery, Func<Task>? onReplyFinishing,
@@ -459,6 +503,10 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
             return index;
         }
     }
+
+    // 取投递之前的样子：投递没交出去时照它退回
+    private readonly record struct DeliveryTaken(int Cursor, HashSet<int> Consumed, string? Briefing,
+        List<string>? Notes = null);
 
     private sealed record Episode(GroupRun Run, IGroupScheduler Scheduler)
     {

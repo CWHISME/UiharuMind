@@ -32,16 +32,17 @@ public sealed partial class GroupChatCoordinator
     public async Task<GroupAvatarTurn> RunAvatarAsync(ChatSession group, ChatSession avatar, string? note,
         CancellationToken cancellationToken, bool endCallsBlocked = false)
     {
-        // 用户正在私聊化身：这次不跑，游标不动
-        using IDisposable? gate = GroupMemberTurnGate.TryEnter(avatar.SessionId);
-        if (gate == null) return GroupAvatarTurn.Busy;
-
         using CancellationTokenSource turn = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        // 用户正在私聊化身：这次不跑，游标不动。跑着时用户私聊它：叫停这一轮，由离席在私聊结束后接回（ADR 0063）
+        using PreemptibleTurn? gate = GroupMemberTurnGate.TryEnterPreemptible(avatar.SessionId, turn.Token);
+        if (gate == null) return GroupAvatarTurn.Busy;
         string? delivery;
+        int cursor;
         lock (_locker)
         {
             if (!_avatarTurns.TryAdd(group.SessionId, turn)) return GroupAvatarTurn.Busy;
-            delivery = GroupTranscript.BuildDelivery(group.History, avatar.GroupCursor, avatar.SessionId);
+            cursor = avatar.GroupCursor;
+            delivery = GroupTranscript.BuildDelivery(group.History, cursor, avatar.SessionId);
             avatar.GroupCursor = group.History.Count;
         }
 
@@ -58,7 +59,7 @@ public sealed partial class GroupChatCoordinator
             {
                 // 被停之后、调了结束离席之后再说的话都不进群：不让一句迟到的话绕过停止再开一波。
                 // 无限模式里结束调用只会拿到错误，不拦它的话
-                if (turn.IsCancellationRequested) return null;
+                if (gate.Token.IsCancellationRequested) return null;
                 if (!endCallsBlocked && GroupAvatarTurn.FindEnd(avatar.History.Skip(start)) != null) return null;
                 string body = GroupTranscript.StripSpeakerPrefix(text.Trim(), GroupSceneSource.SpeakerNameOf(avatar));
                 if (string.IsNullOrWhiteSpace(body)) return null;
@@ -72,13 +73,22 @@ public sealed partial class GroupChatCoordinator
             }
 
             using GroupMemberReplyFeed replies = new(avatar, PostFromAvatar);
-            bool completed = await RunTurnAsync(avatar, GroupTranscript.DeliveryMessage(input, []), null, turn.Token);
+            ChatMessage deliveryMessage = GroupTranscript.DeliveryMessage(input, []);
+            bool completed = await RunTurnAsync(avatar, deliveryMessage, null, gate.Token);
             replies.Finish(completed);
+            // 装配阶段就被停下：投递没进它的历史，游标退回去下次照常交
+            if (!completed && !avatar.History.Any(x => ReferenceEquals(x, deliveryMessage)))
+            {
+                lock (_locker) avatar.GroupCursor = cursor;
+            }
+
             avatar.SaveMeta(touchUpdatedAt: false);
 
+            bool preempted = gate.WasPreempted(completed);
+            NoteAvatarTurn(group.SessionId, preempted);
             return GroupAvatarTurn.Classify(avatar.History.Skip(start).ToList(), completed,
-                turn.IsCancellationRequested && !cancellationToken.IsCancellationRequested, posted,
-                endCallsBlocked);
+                turn.IsCancellationRequested && !cancellationToken.IsCancellationRequested, posted, endCallsBlocked,
+                preempted);
         }
         finally
         {

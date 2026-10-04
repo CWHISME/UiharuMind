@@ -35,24 +35,9 @@ public sealed partial class GroupChatCoordinator
 
         if (turn != null && await InjectNoteAsync(turn, note)) return true;
 
-        while (true)
-        {
-            if (EpisodeOf(group.SessionId) is { } running)
-            {
-                if (running.Scheduler.OnMemberNoted(member.SessionId)) return true;
-                // 接不住(已收场或串行一圈定死了顺序):等它摘掉,再单独为他开一波
-                await running.Removed.Task;
-                continue;
-            }
-
-            // 等的这段时间里附注可能已随别的投递交出去(串行这一圈后面轮到了他):那就不必再单叫一波
-            lock (_locker)
-            {
-                if (!_notes.ContainsKey(member.SessionId)) return true;
-            }
-
-            if (await RunEpisodeAsync(group, new GroupKickoff(null, member.SessionId))) return true;
-        }
+        // 等的这段时间里附注可能已随别的投递交出去(串行这一圈后面轮到了他):那就不必再单叫一波
+        await WakeMemberAsync(group, member.SessionId, () => _notes.ContainsKey(member.SessionId));
+        return true;
     }
 
     // 插进他正在跑的那一轮，等到封口或收尾才知道消费了没有。没插进去或被撤回的转回挂起，返回 false
@@ -89,10 +74,17 @@ public sealed partial class GroupChatCoordinator
     }
 
     // 取走待交的附注接到投递前面。调用方持 _locker
-    private string? TakeNotes(string memberSessionId, string? delivery)
+    private string? TakeNotes(string memberSessionId, string? delivery, out List<string>? notes)
     {
-        if (!_notes.Remove(memberSessionId, out List<string>? notes)) return delivery;
+        if (!_notes.Remove(memberSessionId, out notes)) return delivery;
         string joined = string.Join("\n\n", notes);
         return delivery == null ? joined : joined + "\n\n" + delivery;
+    }
+
+    // 投递没交出去：取走的附注排回最前。调用方持 _locker
+    private void RestoreNotes(string memberSessionId, List<string> notes)
+    {
+        if (_notes.TryGetValue(memberSessionId, out List<string>? later)) notes.AddRange(later);
+        _notes[memberSessionId] = notes;
     }
 }

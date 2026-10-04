@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Items;
@@ -27,14 +28,14 @@ public class ConversationTurnRunnerTests
 {
     private sealed class FakeHost : IConversationTurnHost
     {
-        public ChatSession Session { get; } =
+        public ChatSession Session { get; init; } =
             new("t", new CharacterData { CharacterId = "t" }) { IsTransient = true };
 
         public Func<CancellationToken, Task<ChatSession>> Ensure { get; set; } = _ => throw new NotSupportedException();
         public List<string> Errors { get; } = [];
         public int PreparingChanges { get; private set; }
 
-        public string? CurrentSessionId => null;
+        public string? CurrentSessionId { get; init; }
         public ChatSession? CurrentSession => Session;
 
         public Task<ChatSession> EnsureSessionAsync(string titleSeed, CancellationToken cancellationToken) =>
@@ -87,6 +88,44 @@ public class ConversationTurnRunnerTests
         Assert.False(runner.IsPreparing);
         Assert.Equal("session broken", Assert.Single(host.Errors));
         Assert.Empty(host.Session.History);
+    }
+
+    /// <summary>
+    /// 群成员会话私聊撞上群轮（ADR 0063）：装配之前就叫停群轮、等它放闸——群轮整轮持着执行者的锁，
+    /// 先装配就会卡在那把锁上，根本走不到叫停
+    /// </summary>
+    [Fact]
+    public async Task GroupMemberSession_PreemptsTheGroupTurnBeforeAssembling()
+    {
+        ChatSession member = new("m", new CharacterData { CharacterId = "m" }) { GroupId = Guid.NewGuid().ToString() };
+        SessionManager.Instance.Add(member);
+        try
+        {
+            bool ensured = false;
+            FakeHost host = new()
+            {
+                Session = member,
+                CurrentSessionId = member.SessionId,
+                Ensure = _ =>
+                {
+                    ensured = true;
+                    throw new InvalidOperationException("stop here");
+                },
+            };
+            PreemptibleTurn group = GroupMemberTurnGate.TryEnterPreemptible(member.SessionId, CancellationToken.None)!;
+
+            Task run = NewRunner(host).RunAsync(new ChatMessage(ChatRole.User, "hello"), "hello");
+
+            Assert.True(group.Token.IsCancellationRequested);
+            Assert.False(ensured); //群轮还没放闸：装配还没开始
+            group.Dispose();
+            await run;
+            Assert.True(ensured);
+        }
+        finally
+        {
+            SessionManager.Instance.Delete(member.SessionId);
+        }
     }
 
     /// <summary>没在装配时停止什么都不碰（驱动自己的取消是空操作）</summary>

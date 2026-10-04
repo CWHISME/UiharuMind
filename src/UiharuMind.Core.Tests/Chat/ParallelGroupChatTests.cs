@@ -68,6 +68,100 @@ public class ParallelGroupChatTests
         Assert.Empty(_runner.Calls);
     }
 
+    /// <summary>
+    /// 用户私聊正在群里说话的成员（ADR 0063）：只叫停他这一轮，别人照常说；私聊完单独叫醒他，
+    /// 期间群里的新话照常投，末尾附上被私聊打断的交代
+    /// </summary>
+    [Fact]
+    public async Task PrivateChat_PreemptsOnlyThatMember_ThenResumesWithNewPostsAndNote()
+    {
+        Task<IDisposable>? privateTurn = null;
+        _runner.During[_alice.SessionId] = () =>
+        {
+            privateTurn ??= GroupMemberTurnGate.EnterPrivateAsync(_alice.SessionId);
+            return Task.CompletedTask;
+        };
+
+        await _coordinator.PostAsync(_group, "大家好");
+        IDisposable lease = await privateTurn!;
+
+        Assert.Equal(1, _runner.CallsOf(_bob));
+        Assert.DoesNotContain(_group.History, x => x.AuthorName == "Alice"); //被叫停的那一轮没说出话
+        Assert.True(_coordinator.TryPostFromMember(_bob.SessionId, "接口我改好了")); //私聊期间群里来了新话
+
+        lease.Dispose();
+        await WaitUntil(() => _runner.CallsOf(_alice) == 2 && !_coordinator.IsRunning(_group.SessionId));
+
+        string input = _runner.Calls.Last(x => x.Member == _alice).Input;
+        Assert.Contains("接口我改好了", input);
+        Assert.EndsWith(GroupTranscript.PrivateResumeNote, input);
+        Assert.Contains(_group.History, x => x.AuthorName == "Alice");
+    }
+
+    /// <summary>装配阶段就被私聊叫停：投递没进他的历史，接回时那几条照样交给他，不因游标已推过去而丢</summary>
+    [Fact]
+    public async Task PrivateChat_PreemptedWhileAttaching_RedeliversThePosts()
+    {
+        Task<IDisposable>? privateTurn = null;
+        _runner.Attaching[_alice.SessionId] = () =>
+        {
+            privateTurn ??= GroupMemberTurnGate.EnterPrivateAsync(_alice.SessionId);
+            return Task.CompletedTask;
+        };
+
+        await _coordinator.PostAsync(_group, "大家好");
+        IDisposable lease = await privateTurn!;
+        Assert.DoesNotContain(_alice.History, x => x.Text.Contains("大家好"));
+
+        lease.Dispose();
+        await WaitUntil(() => _runner.CallsOf(_alice) == 2 && !_coordinator.IsRunning(_group.SessionId));
+        Assert.Contains("大家好", _runner.Calls.Last(x => x.Member == _alice).Input);
+        Assert.Contains(_alice.History, x => x.Text.Contains("大家好"));
+    }
+
+    /// <summary>私聊期间他被移出群：私聊完不再叫醒他</summary>
+    [Fact]
+    public async Task PrivateChat_RemovedFromGroupMeanwhile_IsNotResumed()
+    {
+        Task<IDisposable>? privateTurn = null;
+        _runner.During[_alice.SessionId] = () =>
+        {
+            privateTurn ??= GroupMemberTurnGate.EnterPrivateAsync(_alice.SessionId);
+            return Task.CompletedTask;
+        };
+
+        await _coordinator.PostAsync(_group, "大家好");
+        IDisposable lease = await privateTurn!;
+        _group.GroupMemberSessionIds = [_bob.SessionId, _carol.SessionId];
+        lease.Dispose();
+        await Task.Delay(200);
+
+        Assert.Equal(1, _runner.CallsOf(_alice));
+    }
+
+    /// <summary>私聊期间用户停了整个群：不再自动接回，留给「继续」</summary>
+    [Fact]
+    public async Task PrivateChat_GroupStoppedMeanwhile_DoesNotResumeByItself()
+    {
+        Task<IDisposable>? privateTurn = null;
+        _runner.During[_alice.SessionId] = () =>
+        {
+            privateTurn ??= GroupMemberTurnGate.EnterPrivateAsync(_alice.SessionId);
+            return Task.CompletedTask;
+        };
+
+        await _coordinator.PostAsync(_group, "大家好");
+        IDisposable lease = await privateTurn!;
+        _coordinator.Stop(_group.SessionId);
+        lease.Dispose();
+        await Task.Delay(200);
+        Assert.Equal(1, _runner.CallsOf(_alice));
+
+        await _coordinator.ContinueAsync(_group);
+        Assert.Equal(2, _runner.CallsOf(_alice));
+        Assert.DoesNotContain(GroupTranscript.PrivateResumeNote, _runner.Calls.Last(x => x.Member == _alice).Input);
+    }
+
     /// <summary>群闲着时有附注：只叫他一个，别人有没听过的话也不跟着醒</summary>
     [Fact]
     public async Task NotifyMember_WhenIdle_WakesOnlyThatMember()

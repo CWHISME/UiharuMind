@@ -49,7 +49,8 @@ public sealed partial class GroupMemberSessionViewData : ObservableObject, IDisp
 
     /// <summary>
     /// 他正在跑<b>群里那一轮</b>（不是本地私聊轮）。判据取运行态登记处：群轮跑成员时把成员会话登记为 busy，
-    /// 而视图自己的那一轮闲着。此时打字不该走插话——插话的回应会被群轮按「这一轮正文」收成群发言
+    /// 而视图自己的那一轮闲着。此时打字不该走插话——插话的回应会被群轮按「这一轮正文」收成群发言，
+    /// 改走正常发送：过闸时叫停群轮（ADR 0063）
     /// </summary>
     /// <param name="ownTurnRunning">视图自己驱动的那一轮是否在跑</param>
     /// <returns>是否正跑着群轮</returns>

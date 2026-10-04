@@ -120,6 +120,56 @@ public class GroupAwayControllerTests
         Assert.EndsWith(GroupAvatarTranscript.SilentNote, LastAvatarInput()); //没交出去的提示带回来了
     }
 
+    /// <summary>化身跑着时用户私聊它（ADR 0063）：叫停这一轮、不计出手次数，私聊完立即接回并附上交代</summary>
+    [Fact]
+    public async Task PrivateChat_PreemptsAvatarTurn_ResumesAfterwardsWithNote()
+    {
+        Task<IDisposable>? privateTurn = null;
+        _runner.Replies[_avatar.SessionId] = _ => ""; //接回那轮没写正文：停在退避上，不连锁
+        _runner.During[_avatar.SessionId] = () =>
+        {
+            if (AvatarCalls() == 1) privateTurn ??= GroupMemberTurnGate.EnterPrivateAsync(_avatar.SessionId);
+            return Task.CompletedTask;
+        };
+
+        _away.Start(_group, "目标", null);
+        await Until(() => privateTurn != null);
+        IDisposable lease = await privateTurn!;
+        await Until(() => _away.StatusOf(_group.SessionId)?.IsAvatarRunning == false);
+
+        Assert.Equal(0, _away.StatusOf(_group.SessionId)?.AvatarTurns); //被叫停的不计出手次数
+        Assert.Empty(_delays); //不排退避：私聊完就接回
+
+        lease.Dispose();
+        await Until(() => AvatarCalls() == 2);
+        Assert.EndsWith(GroupTranscript.PrivateResumeNote, LastAvatarInput());
+    }
+
+    /// <summary>化身被私聊叫停、私聊期间用户停了群：私聊完不直接接回，按停下过一阵再叫</summary>
+    [Fact]
+    public async Task PrivateChat_GroupStoppedMeanwhile_AvatarWaitsTheStopDelay()
+    {
+        Task<IDisposable>? privateTurn = null;
+        _runner.Replies[_avatar.SessionId] = _ => "";
+        _runner.During[_avatar.SessionId] = () =>
+        {
+            if (AvatarCalls() == 1) privateTurn ??= GroupMemberTurnGate.EnterPrivateAsync(_avatar.SessionId);
+            return Task.CompletedTask;
+        };
+
+        _away.Start(_group, "目标", null);
+        await Until(() => privateTurn != null);
+        IDisposable lease = await privateTurn!;
+        await Until(() => _away.StatusOf(_group.SessionId)?.IsAvatarRunning == false);
+
+        _coordinator.Stop(_group.SessionId);
+        lease.Dispose();
+        await Until(() => _delays.Count == 1);
+
+        Assert.Equal(Settings.StopDelay, _delays[0].Delay);
+        Assert.Equal(1, AvatarCalls());
+    }
+
     [Fact]
     public async Task KickoffGoesToTheFirstAvatarTurnOnly_RestRideEveryTurn()
     {

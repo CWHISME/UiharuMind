@@ -344,6 +344,11 @@ public sealed class GroupAwayController
             case EGroupAvatarTurnResult.Stopped:
                 Schedule(session, session.Settings.StopDelay, GroupAvatarTranscript.StoppedNote(UserName));
                 return;
+            case EGroupAvatarTurnResult.Preempted:
+                // 被用户私聊叫停：不计出手次数，私聊结束就接回；期间收场的波也由这次接回一并看
+                lock (_sync) session.AvatarTurns--;
+                ResumeAfterPrivate(session);
+                return;
         }
 
         // 捎话轮没跑成（用户正在私聊化身、或这一轮失败）：交代还没送达，下次重带
@@ -366,13 +371,41 @@ public sealed class GroupAwayController
                 NoProgress(session, NoteFor(turn.Result));
                 break;
             case EGroupAvatarTurnResult.Busy:
-                // 用户正在私聊化身：过一阵再试，不算没进展（捎话重带在上面已安排；
-                // 没交出去的提示带回去，Busy 也不计出手次数）
+                // 用户正在私聊化身：不算没进展（捎话重带在上面已安排；Busy 也不计出手次数）。
+                // 正等着接回的，私聊一结束就再接；否则过一阵再试，没交出去的提示带回去
                 lock (_sync) session.AvatarTurns--;
-                Schedule(session, session.Settings.BackoffStart, note);
+                if (_coordinator.AvatarResumeOf(session.Group.SessionId) == EGroupAvatarResume.Pending)
+                    ResumeAfterPrivate(session);
+                else
+                    Schedule(session, session.Settings.BackoffStart, note);
                 break;
             //Pushed：它那句开的一波收场时会再叫醒它
         }
+    }
+
+    // 私聊放闸就接回；等的期间用户停了群，按停下处理（过一阵再叫），已被别的一轮接过就不再叫
+    private void ResumeAfterPrivate(GroupAwaySession session)
+    {
+        lock (_sync)
+        {
+            if (session.ResumeArmed) return;
+            session.ResumeArmed = true;
+        }
+
+        GroupMemberTurnGate.ResumeAfter(session.Avatar.SessionId, () =>
+        {
+            lock (_sync) session.ResumeArmed = false;
+            switch (_coordinator.AvatarResumeOf(session.Group.SessionId))
+            {
+                case EGroupAvatarResume.Pending:
+                    Wake(session, GroupTranscript.PrivateResumeNote);
+                    break;
+                case EGroupAvatarResume.Stopped:
+                    _coordinator.ClearAvatarResume(session.Group.SessionId);
+                    Schedule(session, session.Settings.StopDelay, GroupAvatarTranscript.StoppedNote(UserName));
+                    break;
+            }
+        });
     }
 
     private void NoProgress(GroupAwaySession session, string? note)

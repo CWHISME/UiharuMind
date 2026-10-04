@@ -24,6 +24,9 @@ public enum EGroupAvatarTurnResult
 
     /// <summary>没跑：用户正在私聊化身（闸被占着）</summary>
     Busy,
+
+    /// <summary>跑到一半被用户私聊叫停：私聊结束后接着做（ADR 0063）</summary>
+    Preempted,
 }
 
 /// <summary>
@@ -37,21 +40,23 @@ public sealed record GroupAvatarTurn(EGroupAvatarTurnResult Result, AwayEndReque
     public static GroupAvatarTurn Busy { get; } = new(EGroupAvatarTurnResult.Busy);
 
     /// <summary>
-    /// 判定化身这一轮的结局：结束离席优先（调了它之后再说的话不进群），其次是被停（停止不能被它已说出的话绕过），
-    /// 再看有没有话进了群。无限模式里结束调用只会拿到错误，不算结局
+    /// 判定化身这一轮的结局：结束离席优先（调了它之后再说的话不进群），其次是被停（停止不能被它已说出的话绕过）、
+    /// 被私聊叫停（已说的照算，接回时它自己看得见），再看有没有话进了群。无限模式里结束调用只会拿到错误，不算结局
     /// </summary>
     /// <param name="turnMessages">化身这一轮新增的消息</param>
     /// <param name="completed">这一轮是否正常跑完</param>
     /// <param name="stopped">是否被用户停下</param>
     /// <param name="posted">进了群的条数</param>
     /// <param name="endCallsBlocked">结束调用是不是被拦着（无限模式）；true 时调了也不算结束</param>
+    /// <param name="preempted">是否被用户私聊叫停</param>
     /// <returns>结局</returns>
     public static GroupAvatarTurn Classify(IEnumerable<ChatMessage> turnMessages, bool completed, bool stopped,
-        int posted, bool endCallsBlocked = false)
+        int posted, bool endCallsBlocked = false, bool preempted = false)
     {
         if (!endCallsBlocked && FindEnd(turnMessages) is { } end)
             return new GroupAvatarTurn(EGroupAvatarTurnResult.Ended, end);
         if (stopped) return new GroupAvatarTurn(EGroupAvatarTurnResult.Stopped);
+        if (preempted) return new GroupAvatarTurn(EGroupAvatarTurnResult.Preempted);
         if (posted > 0) return new GroupAvatarTurn(EGroupAvatarTurnResult.Pushed);
         return new GroupAvatarTurn(completed ? EGroupAvatarTurnResult.Silent : EGroupAvatarTurnResult.Failed);
     }

@@ -102,6 +102,10 @@ public sealed class ConversationTurnRunner
             // 别的线程(后台委派回来时起的唤醒轮)正好能在这里挤进来抢到会话,两轮就重叠了。
             // 登记是引用计数的,与 TurnDriver 自己那一次叠加无害
             using IDisposable running = SessionManager.Instance.Running.BeginRun(_host.CurrentSessionId);
+            // 群成员会话的私聊与群轮投递共用同一把闸:群轮占着就叫停它、等它停稳(ADR 0063),两轮永不重叠。
+            // 要在装配之前过:群轮整轮持着执行者的锁,先装配就会一直等在那把锁上,根本走不到叫停这一步
+            using IDisposable memberGate = await GroupMemberTurnGate
+                .EnterAsync(_host.CurrentSessionId, _prepareCancellation.Token);
             session = await _host.EnsureSessionAsync(titleSeed, _prepareCancellation.Token);
             _host.OnSessionEnsured();
 
@@ -111,11 +115,14 @@ public sealed class ConversationTurnRunner
             // 主会话不过闸（它的后台轮另走 TryBeginRun 抢占）。
             using IDisposable? turnGate = await BackgroundSubAgentDispatcher
                 .EnterSubSessionTurnGateAsync(session.SessionId).ConfigureAwait(false);
-            // 群成员会话的私聊与群轮投递共用同一把闸:排队到群轮结束(它整轮持有),两轮永不重叠
-            using IDisposable memberGate = await GroupMemberTurnGate
-                .EnterAsync(session.SessionId).ConfigureAwait(false);
-
-            await _driver.RunAsync(session, session.Runner, userMessage, ResolveApprovalsAsync);
+            try
+            {
+                await _driver.RunAsync(session, session.Runner, userMessage, ResolveApprovalsAsync);
+            }
+            finally
+            {
+                await WithdrawPrivateInjectionsAsync(session);
+            }
         }
         catch (OperationCanceledException)
         {
@@ -134,6 +141,27 @@ public sealed class ConversationTurnRunner
             IsPreparing = false;
             _prepareCancellation = null;
             _host.NotifyPreparingChanged();
+        }
+    }
+
+    // 群成员会话：这一轮没被消费的私聊插话在放闸前撤掉。放闸可能当场接回群轮，用的是同一个执行者，
+    // 留着会被群轮取走、回复进群。界面那份待发提示另由轮次结束时还回输入框
+    private static async Task WithdrawPrivateInjectionsAsync(ChatSession session)
+    {
+        if (!session.IsGroupMember) return;
+
+        List<ChatMessage> leftover = session.Runner.PendingInjections
+            .Where(ChatMessageAnnotations.IsGroupPrivate)
+            .ToList();
+        if (leftover.Count == 0) return;
+
+        try
+        {
+            await session.Runner.CancelInjectionsAsync(leftover).ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Withdraw private interjections failed: {e.Message}");
         }
     }
 

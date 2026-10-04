@@ -376,7 +376,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         : Loc.Text(LangKey.GroupFromChatTip);
 
     /// <summary>
-    /// 本会话是不是群成员会话。已解锁私聊：打字过轮次闸门排队，见 <see cref="GroupMemberTurnGate"/>（ADR 0046 未决已落地）。
+    /// 本会话是不是群成员会话。已解锁私聊：打字过轮次闸门，群轮占着就叫停它，见 <see cref="GroupMemberTurnGate"/>（ADR 0063）。
     /// 看会话头而不是 <see cref="GroupMember"/>：后者挂接之后才建，而权限档的可改与否在装载一开始就要对
     /// </summary>
     public bool IsGroupMemberSession => CurrentMeta?.IsGroupMember == true;
@@ -1182,7 +1182,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         if (IsGenerating)
         {
             // 群成员会话正在跑群里那一轮:打字不该插话——插话的回应会被群轮按「这一轮正文」
-            // 收成群发言,私聊就泄进群里了。掉到正常发送路径,由 轮次运行器过闸排队
+            // 收成群发言,私聊就泄进群里了。掉到正常发送路径:轮次运行器过闸时叫停那一轮,私聊完再接回(ADR 0063)
             if (GroupMember?.IsRunningGroupTurn(_driver.IsRunning) != true)
             {
                 // 插话与正常发送共用同一套组装:附件盘上的图要进消息,不能只发 text
@@ -1198,9 +1198,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 return;
             }
 
-            // 他正在群里发言:明说排队,接着走下面的正常发送路径(轮次运行器会等到群轮结束)
+            // 他正在群里发言:明说先停下那一轮,接着走下面的正常发送路径
             _messages.ShowNotification(
-                Loc.Text(LangKey.GroupMemberBusyQueueTip), severity: MessageSeverity.Information);
+                Loc.Text(LangKey.GroupMemberPreemptTip), severity: MessageSeverity.Information);
         }
 
         // 以角色身份发送:直接写入一条回复,不触发生成
