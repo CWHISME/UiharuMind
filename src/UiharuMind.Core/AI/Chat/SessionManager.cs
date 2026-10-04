@@ -254,6 +254,16 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     }
 
     /// <summary>
+    /// 按条件找会话元数据，<b>不排序</b>——给只关心命中、不关心顺序的反查用，省掉全量排序
+    /// </summary>
+    /// <param name="predicate">筛选条件（在锁内执行，别做重活）</param>
+    /// <returns>命中的元数据</returns>
+    public List<ChatSessionMeta> FindSessions(Func<ChatSessionMeta, bool> predicate)
+    {
+        lock (_locker) return _metas.Values.Where(predicate).ToList();
+    }
+
+    /// <summary>
     /// 取元数据
     /// </summary>
     /// <param name="sessionId">会话标识</param>

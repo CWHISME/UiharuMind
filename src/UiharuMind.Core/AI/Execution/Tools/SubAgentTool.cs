@@ -110,8 +110,8 @@ public static class SubAgentTool
 
     /// <summary>
     /// 回执末行 <c>[sub-session: xxx]</c> 的宽容认法：<c>to</c> 里整行原样粘回来也认。
-    /// 会话标识是 <c>Guid.ToString("N")</c>（32 位十六进制），这里多放行 <c>-</c> 与 <c>_</c>
-    /// 只是防复制时带上的变体，不代表系统会发出这种标识。
+    /// 模型看到的标识是真实 ID 的前 8 位短号（<see cref="SubSessionIdAlias.Short"/>），
+    /// 这里多放行 <c>-</c> 与 <c>_</c> 只是防复制时带上的变体，不代表系统会发出这种标识。
     /// </summary>
     private static readonly Regex SubSessionRef = new(@"\[sub-session:\s*([A-Za-z0-9\-_]+)\]",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -195,7 +195,7 @@ public static class SubAgentTool
     /// <list type="number">
     /// <item>空 → 默认匿名代理,新开一次</item>
     /// <item>名单里的人名(不区分大小写)→ 新开一次</item>
-    /// <item>一个真实存在的子会话标识 → 续上那一次</item>
+    /// <item>本会话派出过的子会话标识（短号或完整 ID）→ 续上那一次；短号撞车则列出完整 ID 让它挑</item>
     /// <item>都不是 → 报错,并<b>同时</b>给出两条路的提示</item>
     /// </list>
     ///
@@ -214,11 +214,26 @@ public static class SubAgentTool
             .FirstOrDefault(x => string.Equals(x.Name, target, StringComparison.OrdinalIgnoreCase));
         if (named != null) return Task.FromResult(Launch(context, content, named.Name, role, model));
 
-        // 不是人名,那就看是不是一次聊过的委派。用真实加载探测而不是猜标识格式——
-        // 格式一改,猜法就烂,而 Load 本来就要调。
-        if (SessionManager.Instance.Load(target) != null) return ContinueAsync(context, target, content);
+        // 不是人名,那就看是不是一次聊过的委派。按索引反查而不是猜标识格式:
+        // 模型手里是短号,精确 Load 永远对不上(实测新委派因此全部续不上)
+        IReadOnlyList<ChatSessionMeta> runs = SubSessionIdAlias.Match(context.ParentSessionId, target);
+        return runs.Count switch
+        {
+            0 => Task.FromResult(UnknownRecipient(context, target)),
+            1 => ContinueAsync(context, runs[0].SessionId, content),
+            _ => Task.FromResult(AmbiguousRun(target, runs)),
+        };
+    }
 
-        return Task.FromResult(UnknownRecipient(context, target));
+    /// <summary>
+    /// 短号撞车：把各候选的完整 ID 交给模型挑。它手里只有 8 位，让它「多给几位」它给不出来
+    /// </summary>
+    private static string AmbiguousRun(string target, IReadOnlyList<ChatSessionMeta> runs)
+    {
+        IEnumerable<string> lines = runs.Select(x =>
+            $"- {x.SessionId}" + (x.SubAgentName.Length > 0 ? $" ({x.SubAgentName})" : string.Empty));
+        return $"Error: '{target}' matches more than one earlier conversation. "
+               + "Pass the full id of the one you mean as `to`:\n" + string.Join("\n", lines);
     }
 
     /// <summary>
@@ -277,10 +292,7 @@ public static class SubAgentTool
             choice = context.Roster.FirstOrDefault(x => string.Equals(x.Name, agent, StringComparison.OrdinalIgnoreCase));
             if (choice == null)
             {
-                return $"Error: no agent named '{agent}'. "
-                       + (context.Roster.Count == 0
-                           ? "No named agents are mounted; omit `agent` for the default agent."
-                           : $"Available: {string.Join(", ", context.Roster.Select(x => x.Name))}.");
+                return UnknownRecipient(context, agent);
             }
         }
 
@@ -317,11 +329,11 @@ public static class SubAgentTool
         if (string.IsNullOrWhiteSpace(message)) return "Error: message must not be empty.";
 
         ChatSession? session = SessionManager.Instance.Load(subSessionId);
-        if (session == null) return $"Error: no such run '{subSessionId}'.";
+        if (session == null) return $"Error: no conversation '{subSessionId}'.";
         // 只允许续自己派出去的那些:子会话是按派活者归属的,跨会话续跑等于绕过能力交集
         if (!string.Equals(session.ParentSessionId, context.ParentSessionId, StringComparison.Ordinal))
         {
-            return $"Error: run '{subSessionId}' was not started by this session.";
+            return $"Error: '{subSessionId}' isn't someone you've messaged in this session.";
         }
 
         NoteStarted(context, session.SessionId);
@@ -361,11 +373,9 @@ public static class SubAgentTool
     /// <param name="subSessionId">子会话标识</param>
     /// <returns>当场返回给模型的工具结果</returns>
     public static string BuildInjectedReceipt(string subSessionId) =>
-        "Delivered while they are still working — they read it before their next step. "
-        + "No separate reply arrives for this message; "
-        + "it shapes the reply they are already working on. "
-        + "Do not poll for it.\n"
-        + $"[sub-session: {subSessionId}]";
+        "They got this mid-work and will fold it into the reply they're already writing — "
+        + "no separate reply for this one.\n"
+        + $"[sub-session: {SubSessionIdAlias.Short(subSessionId)}]";
 
     /// <summary>
     /// 把这次委派转入后台并当场给出工具结果。
@@ -505,15 +515,15 @@ public static class SubAgentTool
         // 与用户插话分开交代——两者来源不同,混成一句会让主代理误判是谁改了方向。
         if (turnSink.SawParentInterjection)
         {
-            report += "\n(note: the delegating agent sent additional instructions "
-                      + "during this run, so this report may reflect directions beyond the original task.)";
+            report += "\n(note: you messaged them again while they worked, "
+                      + "so this reply may cover more than your first message.)";
         }
         if (unansweredClosed > 0)
         {
             // 有调用因审批未决根本没跑成,必须点名——否则主代理会把没干的活当成干完了
-            report += $"\n(note: {unansweredClosed} tool call(s) in the run never ran - "
-                      + "their approvals were not answered before the turn ended. "
-                      + "Do not assume that work was done.)";
+            report += $"\n(note: {unansweredClosed} of their tool call(s) never ran - "
+                      + "the approvals were not answered before they stopped. "
+                      + "That part of the work was not done.)";
         }
         if (autoApprovedCalls.Count > 0)
         {
@@ -523,7 +533,7 @@ public static class SubAgentTool
             lock (autoApprovedCalls) shown = autoApprovedCalls.Distinct().Take(5).ToArray();
             string more = autoApprovedCalls.Count > shown.Length ? ", …" : string.Empty;
             report += $"\n(note: {autoApprovedCalls.Count} action(s) that normally need approval "
-                      + "were auto-approved because the delegating session runs in FullAuto mode: "
+                      + "were auto-approved for them because your session runs in FullAuto mode: "
                       + string.Join("; ", shown) + more + ".)";
         }
         string outcome = timedOut ? "timed out" : stopped || cancellationToken.IsCancellationRequested ? "stopped" : "done";
@@ -754,17 +764,17 @@ public static class SubAgentTool
             {
                 // 收尾总结缺失(轮次到顶/超时/被截断):给出全程旁白,但要说清它不是结论,
                 // 否则主代理会把中间猜测当成子代理的判断
-                result.AppendLine("(No final report - the agent stopped before summarizing. "
-                                  + "Below is its running commentary, not a conclusion.)");
+                result.AppendLine("(They stopped before writing a final answer. "
+                                  + "Below is what they said along the way, not a conclusion.)");
                 result.Append(_allText.ToString().Trim());
             }
 
-            if (result.Length == 0) result.Append("(agent returned no report)");
+            if (result.Length == 0) result.Append("(They wrote nothing back.)");
 
             if (timedOut)
             {
                 result.AppendLine();
-                result.Append($"(agent stopped: exceeded its {limit.TotalMinutes:0} minute time limit)");
+                result.Append($"(They stopped: hit their {limit.TotalMinutes:0} minute time limit.)");
             }
 
             // 被用户中止与超时是两回事:后者是意外,前者是**用户的决定**。
@@ -773,25 +783,24 @@ public static class SubAgentTool
             if (stoppedByUser)
             {
                 result.AppendLine();
-                result.Append("(agent stopped: the USER deliberately interrupted it. "
-                              + "This was their decision, not a failure. Do NOT re-dispatch this task, "
-                              + "and do NOT work around it by doing the work yourself. "
-                              + "Report that it was stopped and ask what they want to do next. "
-                              + "The run is intact if they ask you to resume it.)");
+                result.Append("(The USER stopped them on purpose - their decision, not a failure. "
+                              + "Don't hand this to someone else or do the work yourself; "
+                              + "tell the user they were stopped and ask what they want next. "
+                              + "You can pick the conversation back up if they ask.)");
             }
 
             // 用户插话改变了这次委派的性质,主代理该知道自己拿到的不全是它自己要的东西
             if (userInterjected)
             {
                 result.AppendLine();
-                result.Append("(note: the user sent additional instructions to the agent "
-                              + "during this delegation, so this report may reflect directions you did not give.)");
+                result.Append("(note: the user also talked to them directly while they worked, "
+                              + "so this reply may reflect directions you did not give.)");
             }
 
             if (subSessionId.Length > 0)
             {
                 result.AppendLine();
-                result.Append($"[sub-session: {subSessionId}]");
+                result.Append($"[sub-session: {SubSessionIdAlias.Short(subSessionId)}]");
             }
 
             return result.ToString();

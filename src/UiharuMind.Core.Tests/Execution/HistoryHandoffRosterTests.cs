@@ -76,8 +76,8 @@ public class HistoryHandoffRosterTests
         ChatSessionMeta running = Sub("abc123", "还在查");
         running.BackgroundReportPending = true;
 
-        Assert.Contains("[still running]", HistoryHandoff.BuildSubSessionRoster([running]));
-        Assert.DoesNotContain("[still running]", HistoryHandoff.BuildSubSessionRoster([Sub("d", "完事了")]));
+        Assert.Contains("[hasn't written back yet]", HistoryHandoff.BuildSubSessionRoster([running]));
+        Assert.DoesNotContain("[hasn't written back yet]", HistoryHandoff.BuildSubSessionRoster([Sub("d", "完事了")]));
     }
 
     [Fact]

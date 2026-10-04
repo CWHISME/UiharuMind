@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.AI.Chat;
 
@@ -44,7 +45,8 @@ public enum EHandoffOutcome
 /// <b>一个子会话在派活者那里不是想留几条留几条</b>（见 ADR 0021 与 CONTEXT.md「后续报告」）：
 /// 上一份若还停在历史末尾（模型没读过），再交一次就原地替换；若它后面已经有新的轮次
 /// （模型已据此回应过），才追加一条并声明它修正了先前那份。抹掉已被消费的那份，
-/// 等于让派活者的那段回应变得没有来由。
+/// 等于让派活者的那段回应变得没有来由。以上只对<b>回同一次来信</b>的两封成立：
+/// 续聊问了新问题，回信就是新的一封，既不替换也不算更正。
 /// </summary>
 public static class SubAgentReportHandoff
 {
@@ -98,7 +100,7 @@ public static class SubAgentReportHandoff
         conclusion = string.IsNullOrWhiteSpace(conclusion) ? LastAssistantText(subSession) : conclusion.Trim();
         if (conclusion.Length == 0 && interruption == null) return EHandoffOutcome.NothingToReport;
 
-        (int existing, bool replaceInPlace) = ResolveSlot(parent.History, subSession.SessionId);
+        (int existing, bool replaceInPlace) = ResolveSlot(parent.History, subSession.SessionId, RequestKey(subSession));
 
         ChatMessage message = BuildMessage(subSession, conclusion, supersedes: existing >= 0 && !replaceInPlace,
             interruption, othersPending);
@@ -139,7 +141,7 @@ public static class SubAgentReportHandoff
         conclusion = string.IsNullOrWhiteSpace(conclusion) ? LastAssistantText(subSession) : conclusion.Trim();
         if (conclusion.Length == 0 && interruption == null) return null;
 
-        bool supersedes = ResolveSlot(parent.History, subSession.SessionId).Index >= 0;
+        bool supersedes = ResolveSlot(parent.History, subSession.SessionId, RequestKey(subSession)).Index >= 0;
         return BuildMessage(subSession, conclusion, supersedes, interruption, othersPending);
     }
 
@@ -166,13 +168,19 @@ public static class SubAgentReportHandoff
     /// </summary>
     /// <param name="parentHistory">派活者的历史</param>
     /// <param name="subSessionId">子会话标识</param>
+    /// <param name="requestKey">这封回信回的是哪一次来信（见 <see cref="RequestKey"/>）</param>
     /// <returns>上一份的下标（没有为 -1）与是否原地替换</returns>
     internal static (int Index, bool ReplaceInPlace) ResolveSlot(IReadOnlyList<ChatMessage> parentHistory,
-        string subSessionId)
+        string subSessionId, string requestKey)
     {
         for (int i = parentHistory.Count - 1; i >= 0; i--)
         {
             if (ChatMessageAnnotations.ReadSubAgentReportSession(parentHistory[i]) != subSessionId) continue;
+
+            // 上一封回的是更早的来信:这次续聊问了新问题,这封是新回答,不占它的位置。
+            // 老数据没记来信,按原口径当同一次
+            string previousKey = ChatMessageAnnotations.ReadSubAgentReplyTo(parentHistory[i]);
+            if (previousKey.Length > 0 && requestKey.Length > 0 && previousKey != requestKey) return (-1, false);
 
             // 还停在末尾就说明模型没读过它，那一份留着只是垃圾；
             // 后面已经有新轮次的话，它已经被据以回应过，抹掉会让那段回应没有来由
@@ -200,15 +208,19 @@ public static class SubAgentReportHandoff
     internal static string BuildText(string sender, string subSessionId, string replyingTo, string conclusion,
         bool supersedes, string? interruption, int othersPending)
     {
-        string from = sender.Length > 0 ? $"{sender} [sub-session: {subSessionId}]" : $"[sub-session: {subSessionId}]";
+        // 信头是显示层:给模型短号,存储/槽位判定仍用真实 ID(ChatMessageAnnotations.SubAgentReport)
+        string from = sender.Length > 0
+            ? $"{sender} [sub-session: {SubSessionIdAlias.Short(subSessionId)}]"
+            : $"[sub-session: {SubSessionIdAlias.Short(subSessionId)}]";
         string head = replyingTo.Length > 0 ? $"来自 {from}，回你之前发的「{replyingTo}」" : $"来自 {from}";
         if (supersedes) head += "（更正上一封）";
 
-        string waiting = othersPending > 0 ? $"\n你还在等 {othersPending} 位的回信。" : string.Empty;
-        if (interruption == null) return $"{head}：{waiting}\n\n{conclusion}";
+        // 还在等谁是附言,不插在信头与正文之间:放在最后,也正好是模型读完要决定下一步的位置
+        string waiting = othersPending > 0 ? $"\n\n（你还在等 {othersPending} 位的回信。）" : string.Empty;
+        if (interruption == null) return $"{head}：\n\n{conclusion}{waiting}";
 
         return conclusion.Length > 0
-            ? $"{head}。对方{interruption}，以下是它停下前说到的：{waiting}\n\n{conclusion}"
+            ? $"{head}。对方{interruption}，以下是对方停下前说到的：\n\n{conclusion}{waiting}"
             : $"{head}。对方{interruption}，没回任何内容。{waiting}";
     }
 
@@ -221,23 +233,29 @@ public static class SubAgentReportHandoff
     private static string SenderOf(ChatSession subSession) =>
         subSession.SubAgentName.Length > 0 ? subSession.SubAgentName : subSession.SubAgentRole;
 
-    // 子会话里最后一条用户消息就是派活者发的那句（续聊时是最新那句）
-    private static string ReplyingTo(ChatSession subSession)
+    // 子会话里最后一条有字的用户消息就是派活者发的那句（续聊时是最新那句）
+    private static ChatMessage? LastRequest(ChatSession subSession)
     {
         for (int i = subSession.History.Count - 1; i >= 0; i--)
         {
             ChatMessage message = subSession.History[i];
-            if (message.Role != ChatRole.User) continue;
-
-            string text = (message.Text ?? string.Empty).Trim();
-            int lineEnd = text.IndexOf('\n');
-            if (lineEnd >= 0) text = text[..lineEnd].TrimEnd();
-            if (text.Length == 0) continue;
-            return text.Length > QuoteLength ? text[..QuoteLength] + "…" : text;
+            if (message.Role == ChatRole.User && !string.IsNullOrWhiteSpace(message.Text)) return message;
         }
 
-        return string.Empty;
+        return null;
     }
+
+    private static string ReplyingTo(ChatSession subSession)
+    {
+        string text = LastRequest(subSession)?.Text.Trim() ?? string.Empty;
+        int lineEnd = text.IndexOf('\n');
+        if (lineEnd >= 0) text = text[..lineEnd].TrimEnd();
+        return text.Length > QuoteLength ? text[..QuoteLength] + "…" : text;
+    }
+
+    /// <summary>回的是哪一次来信：取那条来信的时间戳，消息本身没有稳定编号</summary>
+    private static string RequestKey(ChatSession subSession) =>
+        LastRequest(subSession)?.CreatedAt?.UtcTicks.ToString() ?? string.Empty;
 
     /// <summary>盖上后续报告标记：带它的消息要落盘、要供给模型，只是渲染成旁白那一套</summary>
     private static ChatMessage Annotate(ChatSession subSession, string text) =>
@@ -246,6 +264,7 @@ public static class SubAgentReportHandoff
             AdditionalProperties = new AdditionalPropertiesDictionary
             {
                 [ChatMessageAnnotations.SubAgentReport] = subSession.SessionId,
+                [ChatMessageAnnotations.SubAgentReplyTo] = RequestKey(subSession),
             },
         };
 }

@@ -147,10 +147,10 @@ public static class HistoryHandoff
         foreach (ChatSessionMeta meta in subSessions.Take(max))
         {
             // 还在跑的那些要单独标出来——续跑一个没跑完的与续跑一个已经交回结论的,是两件事
-            string state = meta.BackgroundReportPending ? " [still running]" : string.Empty;
+            string state = meta.BackgroundReportPending ? " [hasn't written back yet]" : string.Empty;
             // 被点名的子代理带上角色名,模型才知道这一单是谁干的;匿名子代理没有名字,不加前缀
             string who = string.IsNullOrWhiteSpace(meta.SubAgentName) ? string.Empty : $"{meta.SubAgentName}: ";
-            roster.AppendLine($"- {meta.SessionId} - {who}{Summarize(meta)}{state}");
+            roster.AppendLine($"- {SubSessionIdAlias.Short(meta.SessionId)} - {who}{Summarize(meta)}{state}");
         }
 
         return roster.ToString().TrimEnd();

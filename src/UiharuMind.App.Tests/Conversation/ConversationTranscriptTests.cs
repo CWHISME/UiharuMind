@@ -1,4 +1,5 @@
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools;
@@ -849,12 +850,35 @@ public class ConversationTranscriptTests
     [Fact]
     public void SubSessionId_IsRecoveredFromPersistedResult()
     {
-        var (transcript, items) = Create();
-        transcript.Apply(new FunctionCallContent("outer", SubAgentTool.ToolName, null));
-        transcript.Apply(new FunctionResultContent("outer", "结论是这样。\n[sub-session: abc987]"));
+        string id = "abc987ff00112233";
+        SessionManager.Instance.Add(new ChatSession { SessionId = id, ParentSessionId = "parent" });
+        try
+        {
+            var (transcript, items) = Create();
+            transcript.Apply(new FunctionCallContent("outer", SubAgentTool.ToolName, null));
+            //落盘的是短号,反查回真实 ID 才能开窗
+            transcript.Apply(new FunctionResultContent("outer", $"结论是这样。\n[sub-session: {SubSessionIdAlias.Short(id)}]"));
 
-        ToolCallItem card = items.OfType<ToolCallItem>().Single();
-        Assert.Equal("abc987", card.SubSessionId);
+            ToolCallItem card = items.OfType<ToolCallItem>().Single();
+            Assert.Equal(id, card.SubSessionId);
+        }
+        finally
+        {
+            SessionManager.Instance.Delete(id);
+        }
+    }
+
+    /// <summary>
+    /// 普通工具读到的正文里夹着这串字样（比如 Read 读委派相关源码）不算委派——标记只认末行
+    /// </summary>
+    [Fact]
+    public void SubSessionMarker_InsideReadContent_IsNotDelegation()
+    {
+        var (transcript, items) = Create();
+        transcript.Apply(new FunctionCallContent("read", "Read", null));
+        transcript.Apply(new FunctionResultContent("read", "/// 回执末行 [sub-session: xxx] 的宽容认法\npublic class SubAgentTool {}"));
+
+        Assert.False(items.OfType<ToolCallItem>().Single().HasSubSession);
     }
 
     /// <summary>

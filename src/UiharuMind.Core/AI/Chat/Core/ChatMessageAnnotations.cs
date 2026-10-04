@@ -94,6 +94,12 @@ public static class ChatMessageAnnotations
     public const string SubAgentReport = "_subAgentReport";
 
     /// <summary>
+    /// 回信回的是哪一次来信，值为那条来信的时间戳（与 <see cref="SubAgentReport"/> 同挂）。
+    /// 同一个人前后两封回信只有回的是同一次来信才算更正；续聊问了新问题，第二封是新回答
+    /// </summary>
+    public const string SubAgentReplyTo = "_subAgentReplyTo";
+
+    /// <summary>
     /// 后台任务结果标记，值为任务编号。带此键的消息<b>要落盘、要供给模型</b>——
     /// 任务结束后送回启动它的会话，形状同 <see cref="SubAgentReport"/>：一条真消息，只是渲染成卡片。
     /// 送法也同那一条。
@@ -233,6 +239,17 @@ public static class ChatMessageAnnotations
     public static string ReadSubAgentReportSession(ChatMessage message)
     {
         if (message.AdditionalProperties?.TryGetValue(SubAgentReport, out object? raw) != true) return string.Empty;
+        return raw?.ToString() ?? string.Empty;
+    }
+
+    /// <summary>
+    /// 读回信回的是哪一次来信（见 <see cref="SubAgentReplyTo"/>）
+    /// </summary>
+    /// <param name="message">消息</param>
+    /// <returns>来信标识；没记（老数据）为空串</returns>
+    public static string ReadSubAgentReplyTo(ChatMessage message)
+    {
+        if (message.AdditionalProperties?.TryGetValue(SubAgentReplyTo, out object? raw) != true) return string.Empty;
         return raw?.ToString() ?? string.Empty;
     }
 

@@ -21,21 +21,25 @@ namespace UiharuMind.Core.Tests.Chat;
 /// </summary>
 public class SubAgentReportHandoffTests
 {
-    private static ChatMessage Report(string subSessionId) =>
-        new(ChatRole.User, "结论")
+    private static ChatMessage Report(string subSessionId, string? replyTo = null)
+    {
+        ChatMessage message = new(ChatRole.User, "结论")
         {
             AdditionalProperties = new AdditionalPropertiesDictionary
             {
                 [ChatMessageAnnotations.SubAgentReport] = subSessionId,
             },
         };
+        if (replyTo != null) message.AdditionalProperties[ChatMessageAnnotations.SubAgentReplyTo] = replyTo; //不给即老数据
+        return message;
+    }
 
     private static ChatMessage Plain(ChatRole role) => new(role, "普通消息");
 
     [Fact]
     public void NoPreviousReport_Appends()
     {
-        (int index, bool replace) = SubAgentReportHandoff.ResolveSlot([Plain(ChatRole.User)], "sub1");
+        (int index, bool replace) = SubAgentReportHandoff.ResolveSlot([Plain(ChatRole.User)], "sub1", "");
 
         Assert.Equal(-1, index);
         Assert.False(replace);
@@ -46,7 +50,7 @@ public class SubAgentReportHandoffTests
     {
         List<ChatMessage> history = [Plain(ChatRole.User), Report("sub1")];
 
-        (int index, bool replace) = SubAgentReportHandoff.ResolveSlot(history, "sub1");
+        (int index, bool replace) = SubAgentReportHandoff.ResolveSlot(history, "sub1", "");
 
         Assert.Equal(1, index);
         Assert.True(replace); //模型还没读过它,留着只是垃圾
@@ -58,7 +62,7 @@ public class SubAgentReportHandoffTests
         //报告之后又跑过一轮,说明派活者已经据它回应过
         List<ChatMessage> history = [Report("sub1"), Plain(ChatRole.Assistant)];
 
-        (int index, bool replace) = SubAgentReportHandoff.ResolveSlot(history, "sub1");
+        (int index, bool replace) = SubAgentReportHandoff.ResolveSlot(history, "sub1", "");
 
         Assert.Equal(0, index);
         Assert.False(replace); //抹掉它会让那段回应没有来由
@@ -72,8 +76,8 @@ public class SubAgentReportHandoffTests
     {
         List<ChatMessage> history = [Report("sub1"), Report("sub2")];
 
-        (int first, bool replaceFirst) = SubAgentReportHandoff.ResolveSlot(history, "sub1");
-        (int second, bool replaceSecond) = SubAgentReportHandoff.ResolveSlot(history, "sub2");
+        (int first, bool replaceFirst) = SubAgentReportHandoff.ResolveSlot(history, "sub1", "");
+        (int second, bool replaceSecond) = SubAgentReportHandoff.ResolveSlot(history, "sub2", "");
 
         Assert.Equal(0, first);
         Assert.False(replaceFirst); //sub1 的那份后面还有别的,不是末尾
@@ -114,7 +118,7 @@ public class SubAgentReportHandoffTests
             interruption: null, othersPending: 2);
 
         Assert.Contains("（更正上一封）：", text);
-        Assert.Contains("你还在等 2 位的回信。", text);
+        Assert.EndsWith("改口了\n\n（你还在等 2 位的回信。）", text); //附言在正文之后,不夹在信头与正文之间
     }
 
     /// <summary>被打断是事实，不是命令：有内容就附上说到一半的，没有就明说没回</summary>
@@ -125,7 +129,7 @@ public class SubAgentReportHandoffTests
             "在应用退出时被中止，没有跑完", 0);
         string empty = SubAgentReportHandoff.BuildText("审查员", "sub1", "查一下", "", false, "没写完回复就停下了", 0);
 
-        Assert.Contains("对方在应用退出时被中止，没有跑完，以下是它停下前说到的：", partial);
+        Assert.Contains("对方在应用退出时被中止，没有跑完，以下是对方停下前说到的：", partial);
         Assert.EndsWith("查到一半", partial);
         Assert.EndsWith("对方没写完回复就停下了，没回任何内容。", empty);
     }
@@ -145,5 +149,37 @@ public class SubAgentReportHandoffTests
         Assert.DoesNotContain("更正上一封", first);
         Assert.Contains("（更正上一封）", second);
         Assert.Null(SubAgentReportHandoff.Compose(parent, sub, null, "", 0)); //没话可插
+    }
+
+    /// <summary>
+    /// 续聊问了新问题，第二封是新回答不是更正。实测踩过：只看「这人回过没有」，
+    /// 续聊的回信一律被标成「（更正上一封）」
+    /// </summary>
+    [Fact]
+    public void ReplyToANewMessage_IsNotACorrection()
+    {
+        ChatSession parent = new() { IsTransient = true };
+        ChatSession sub = new() { IsTransient = true, SubAgentRole = "助手" };
+        DateTimeOffset asked = DateTimeOffset.Now;
+        sub.History.Add(new ChatMessage(ChatRole.User, "这是什么项目") { CreatedAt = asked });
+        parent.History.Add(SubAgentReportHandoff.Compose(parent, sub, null, "一个桌面应用", 0)!);
+        parent.History.Add(Plain(ChatRole.Assistant));
+
+        string sameRequest = SubAgentReportHandoff.Compose(parent, sub, null, "改口：是个 CLI", 0)!.Text;
+        sub.History.Add(new ChatMessage(ChatRole.User, "提到了哪些本地模型功能") { CreatedAt = asked.AddMinutes(1) });
+        string newRequest = SubAgentReportHandoff.Compose(parent, sub, null, "llama.cpp 跑 GGUF", 0)!.Text;
+
+        Assert.Contains("（更正上一封）", sameRequest);
+        Assert.DoesNotContain("更正上一封", newRequest);
+    }
+
+    /// <summary>新问题的回信也不得原地替换上一封——哪怕上一封还停在末尾</summary>
+    [Fact]
+    public void ReplyToANewMessage_DoesNotReplaceThePreviousOne()
+    {
+        List<ChatMessage> history = [Plain(ChatRole.User), Report("sub1", replyTo: "100")];
+
+        Assert.Equal((-1, false), SubAgentReportHandoff.ResolveSlot(history, "sub1", "200"));
+        Assert.Equal((1, true), SubAgentReportHandoff.ResolveSlot(history, "sub1", "100"));
     }
 }

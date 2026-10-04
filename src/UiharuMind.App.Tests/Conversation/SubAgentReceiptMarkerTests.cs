@@ -19,6 +19,10 @@ namespace UiharuMind.App.Tests.Conversation;
 /// 这是<b>跨模块的格式约定</b>，两边都没有编译期联系——Core 那边写、界面这边用正则认。
 /// 委派改成后台执行时回执换过一次措辞，就是在这里断掉的：格式一变，回放历史时卡片
 /// 认不出这是一次委派，「查看过程」入口整个消失，而任何测试都没红。
+///
+/// 回执里给模型的是真实 ID 的前 8 位短号（<see cref="SubSessionIdAlias"/>），
+/// 回放反查回真实 ID 才能开窗。每个用例用互不相同的 ID：Dispatch 的 SaveMeta 会把它
+/// 登记进全局 SessionManager，测试并行跑时靠独立前缀隔离，finally 里清掉。
 /// </summary>
 public class SubAgentReceiptMarkerTests
 {
@@ -28,12 +32,19 @@ public class SubAgentReceiptMarkerTests
     [Fact]
     public void Receipt_CarriesAParseableSubSessionMarker()
     {
-        ChatSession session = SubSession("abc123def456");
+        ChatSession session = SubSession("aaaa1111bbbb2222");
+        try
+        {
+            //派出即返回,跑什么不重要——这里要的只是那句回执
+            string receipt = BackgroundSubAgentDispatcher.Dispatch(session, _ => Task.FromResult(string.Empty));
 
-        //派出即返回,跑什么不重要——这里要的只是那句回执
-        string receipt = BackgroundSubAgentDispatcher.Dispatch(session, _ => Task.FromResult(string.Empty));
-
-        Assert.Equal("abc123def456", ToolCallItem.ParseSubSessionId(receipt));
+            //回执里给模型的是真实 ID 前 8 位短号,回放反查回真实 ID 才能开窗
+            Assert.Equal(session.SessionId, ToolCallItem.ParseSubSessionId(receipt));
+        }
+        finally
+        {
+            SessionManager.Instance.Delete(session.SessionId);
+        }
     }
 
     /// <summary>
@@ -46,38 +57,75 @@ public class SubAgentReceiptMarkerTests
     [Fact]
     public void Receipt_PutsTheFallbackNoticeBeforeTheMarker()
     {
-        ChatSession session = SubSession("abc123def456");
+        ChatSession session = SubSession("bbbb2222cccc3333");
+        try
+        {
+            string receipt = BackgroundSubAgentDispatcher.Dispatch(session, _ => Task.FromResult(string.Empty),
+                "Note: there is no model named 'gpt-4o', so this run uses the default model instead.");
 
-        string receipt = BackgroundSubAgentDispatcher.Dispatch(session, _ => Task.FromResult(string.Empty),
-            "Note: there is no model named 'gpt-4o', so this run uses the default model instead.");
-
-        Assert.Contains("no model named 'gpt-4o'", receipt);
-        Assert.Equal("abc123def456", ToolCallItem.ParseSubSessionId(receipt)); //标记仍认得出
-        Assert.True(receipt.IndexOf("no model named", StringComparison.Ordinal) <
-                    receipt.IndexOf("[sub-session:", StringComparison.Ordinal),
-            "回退告知跑到了标记行之后");
+            Assert.Contains("no model named 'gpt-4o'", receipt);
+            Assert.Equal(session.SessionId, ToolCallItem.ParseSubSessionId(receipt)); //标记仍认得出
+            Assert.True(receipt.IndexOf("no model named", StringComparison.Ordinal) <
+                        receipt.IndexOf("[sub-session:", StringComparison.Ordinal),
+                "回退告知跑到了标记行之后");
+        }
+        finally
+        {
+            SessionManager.Instance.Delete(session.SessionId);
+        }
     }
 
     /// <summary>没发生回退就一个字都不加：回执是每次委派都付的钱</summary>
     [Fact]
     public void Receipt_SaysNothingExtra_WhenTheModelResolved()
     {
-        ChatSession session = SubSession("abc123def456");
+        ChatSession session = SubSession("cccc3333dddd4444");
+        try
+        {
+            string receipt = BackgroundSubAgentDispatcher.Dispatch(session, _ => Task.FromResult(string.Empty));
 
-        string receipt = BackgroundSubAgentDispatcher.Dispatch(session, _ => Task.FromResult(string.Empty));
+            Assert.DoesNotContain("Note:", receipt);
+        }
+        finally
+        {
+            SessionManager.Instance.Delete(session.SessionId);
+        }
+    }
 
-        Assert.DoesNotContain("Note:", receipt);
+    /// <summary>回执写成「发给了某个人」：带名字，并说明中途可以再发消息补充</summary>
+    [Fact]
+    public void Receipt_NamesTheRecipientAndAllowsFollowUps()
+    {
+        ChatSession session = SubSession("ffff6666aaaa7777");
+        session.SubAgentRole = "审查员";
+        try
+        {
+            string receipt = BackgroundSubAgentDispatcher.Dispatch(session, _ => Task.FromResult(string.Empty));
+
+            Assert.StartsWith("Sent to \"审查员\".", receipt); //名字加引号:角色过长被截成「…」时不会再接一个句号
+            Assert.Contains("message them again meanwhile", receipt);
+        }
+        finally
+        {
+            SessionManager.Instance.Delete(session.SessionId);
+        }
     }
 
     [Fact]
     public void Receipt_SaysThereIsNoResultYet()
     {
         //模型最容易犯的错是把「已派出」读成「已完成」,这句话是唯一挡在那儿的东西
-        ChatSession session = SubSession("abc123");
+        ChatSession session = SubSession("dddd4444eeee5555");
+        try
+        {
+            string receipt = BackgroundSubAgentDispatcher.Dispatch(session, _ => Task.FromResult(string.Empty));
 
-        string receipt = BackgroundSubAgentDispatcher.Dispatch(session, _ => Task.FromResult(string.Empty));
-
-        Assert.Contains("NO REPLY YET", receipt);
+            Assert.Contains("will write back once, when done", receipt);
+        }
+        finally
+        {
+            SessionManager.Instance.Delete(session.SessionId);
+        }
     }
 
     /// <summary>
@@ -88,9 +136,28 @@ public class SubAgentReceiptMarkerTests
     [Fact]
     public void InjectedReceipt_CarriesAParseableSubSessionMarker()
     {
-        string receipt = SubAgentTool.BuildInjectedReceipt("abc123def456");
+        //插话的对象本就是登记过的子会话,回放据短号反查回它
+        ChatSession session = SubSession("eeee5555ffff6666");
+        SessionManager.Instance.Add(session);
+        try
+        {
+            string receipt = SubAgentTool.BuildInjectedReceipt(session.SessionId);
 
-        Assert.Equal("abc123def456", ToolCallItem.ParseSubSessionId(receipt));
+            Assert.Equal(session.SessionId, ToolCallItem.ParseSubSessionId(receipt));
+        }
+        finally
+        {
+            SessionManager.Instance.Delete(session.SessionId);
+        }
+    }
+
+    /// <summary>
+    /// 普通工具读到的正文恰好以这行收尾、短号又查不到：点了也打不开，不挂入口
+    /// </summary>
+    [Fact]
+    public void UnknownShortId_GetsNoEntry()
+    {
+        Assert.Empty(ToolCallItem.ParseSubSessionId("报告样例：\n[sub-session: zzzz9999]"));
     }
 
     [Fact]
@@ -98,7 +165,7 @@ public class SubAgentReceiptMarkerTests
     {
         string receipt = SubAgentTool.BuildInjectedReceipt("abc123");
 
-        Assert.Contains("No separate reply", receipt);
+        Assert.Contains("no separate reply", receipt);
         Assert.DoesNotContain("Dispatched", receipt);
     }
 }

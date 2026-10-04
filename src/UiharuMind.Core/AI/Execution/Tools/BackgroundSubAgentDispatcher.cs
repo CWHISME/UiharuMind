@@ -343,11 +343,16 @@ public static class BackgroundSubAgentDispatcher
         // 回放历史时卡片靠它认出「这是一次委派」并挂出「查看过程」入口
         // (ToolCallItem.ParseSubSessionId 的正则),而 SubSessionStartedContent 那条
         // 随当时那一轮就消失了。报告用的是同一个格式,两种工具结果因此一致
-        return "Sent; they are working on it in their own session. "
-               + "NO REPLY YET - they have not found or done anything at this point. "
-               + "Their reply arrives on its own; do not poll for it.\n"
+        // 写成「发给了某个人」:带上名字,说清回信只有一封、做完才写——问「好了没」换不来东西,
+        // 不必再立「别催」的规矩;中途补充纠正是正当用法,照实说能做
+        string who = subSession.SubAgentName.Length > 0 ? subSession.SubAgentName : subSession.SubAgentRole;
+        return (who.Length > 0 ? $"Sent to \"{who}\". " : "Sent. ")
+               + "They're working on it in their own conversation and will write back once, when done. "
+               + "You can message them again meanwhile to add or correct something — "
+               + "it reaches them before their next step.\n"
                + (notice.Length > 0 ? notice + "\n" : string.Empty)
-               + $"[sub-session: {subSession.SessionId}]";
+               // 给模型的是前 8 位短号(真实 ID 的别名),照抄进 to 由 SubSessionIdAlias 反查回真 ID
+               + $"[sub-session: {SubSessionIdAlias.Short(subSession.SessionId)}]";
     }
 
     /// <summary>

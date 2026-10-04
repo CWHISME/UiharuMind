@@ -19,6 +19,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.ToolCall;
@@ -288,21 +289,30 @@ public partial class ToolCallItem : ConversationItemBase
     /// <summary>这张卡片是不是一次子代理委派</summary>
     public bool HasSubSession => SubSessionId.Length > 0;
 
-    /// <summary>工具结果里那行子会话标识（回放时据此恢复入口）</summary>
-    private static readonly Regex _subSessionMarker = new(@"\[sub-session:\s*([A-Za-z0-9]+)\]",
+    /// <summary>
+    /// 工具结果里那行子会话标识（回放时据此恢复入口）。只认末行：Read 等普通工具读到的正文里
+    /// 也可能出现这串字样，不锚定会让普通卡片误挂「查看过程」。不按工具名过滤是因为委派工具改过几次名
+    /// </summary>
+    private static readonly Regex _subSessionMarker = new(@"\[sub-session:\s*([A-Za-z0-9]+)\]\s*\z",
         RegexOptions.Compiled);
 
     /// <summary>
     /// 从工具结果里认出子会话标识。回放历史时走这条——那时 <c>SubSessionStartedContent</c>
-    /// 早已随当时那一轮消失，而结果文本是落了盘的
+    /// 早已随当时那一轮消失，而结果文本是落了盘的。
+    /// 结果里的是前 8 位短号（<see cref="SubSessionIdAlias.Short"/>），这里反查回真实 ID 才能开窗。
+    /// 只认唯一命中：查不到（会话已删，或普通工具读到的正文恰好以这行收尾）点了也打不开，
+    /// 撞号则可能开错窗，两种都不挂入口。
     /// </summary>
     /// <param name="resultText">工具结果正文</param>
-    /// <returns>子会话标识；没有则为空串</returns>
+    /// <returns>真实子会话标识；没有、查不到或撞号则为空串</returns>
     public static string ParseSubSessionId(string? resultText)
     {
         if (string.IsNullOrEmpty(resultText)) return string.Empty;
         Match match = _subSessionMarker.Match(resultText);
-        return match.Success ? match.Groups[1].Value : string.Empty;
+        if (!match.Success) return string.Empty;
+        // 卡片不知道自己属于哪个父会话,只能全局按子会话反查
+        IReadOnlyList<ChatSessionMeta> runs = SubSessionIdAlias.Match(null, match.Groups[1].Value);
+        return runs.Count == 1 ? runs[0].SessionId : string.Empty;
     }
 
     [ObservableProperty] private string _argumentSummary = string.Empty;
