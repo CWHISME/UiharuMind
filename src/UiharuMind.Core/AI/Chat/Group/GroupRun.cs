@@ -52,6 +52,14 @@ internal sealed class GroupRun : IDisposable
         }
     }
 
+    /// <summary>某位成员此刻正在跑的那一轮</summary>
+    /// <param name="memberSessionId">成员会话标识</param>
+    /// <returns>他没在说为 null</returns>
+    public GroupMemberTurnState? TurnOf(string memberSessionId)
+    {
+        lock (_sync) return _turns.GetValueOrDefault(memberSessionId);
+    }
+
     /// <summary>停下这一波</summary>
     public void Cancel() => _cancellation.Cancel();
 

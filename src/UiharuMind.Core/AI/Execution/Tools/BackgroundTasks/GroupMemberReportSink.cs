@@ -12,7 +12,7 @@ using UiharuMind.Core.AI.Chat.Group;
 namespace UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
 
 /// <summary>
-/// 群成员的送法：结果作为附注交给群调度，单独叫他在群里开口一次，说完照常进群。
+/// 群成员的送法：结果作为附注交给群调度——他正在说就插进那一轮，否则单独叫他在群里开口一次，说完照常进群。
 /// 他已经不在群里了就退回单聊的送法
 /// </summary>
 public sealed class GroupMemberReportSink : IBackgroundTaskReportSink
@@ -28,7 +28,7 @@ public sealed class GroupMemberReportSink : IBackgroundTaskReportSink
     public async Task DeliverAsync(BackgroundTaskOutcome outcome)
     {
         bool delivered = await GroupChatCoordinator.Instance
-            .NotifyMemberAsync(outcome.Task.OwnerSessionId, BackgroundTaskReport.BuildText(outcome))
+            .NotifyMemberAsync(outcome.Task.OwnerSessionId, BackgroundTaskReport.BuildMessage(outcome))
             .ConfigureAwait(false);
         if (!delivered) await SessionReportSink.Instance.DeliverAsync(outcome).ConfigureAwait(false);
     }

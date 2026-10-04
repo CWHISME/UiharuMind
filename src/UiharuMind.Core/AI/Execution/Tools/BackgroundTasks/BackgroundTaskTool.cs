@@ -9,6 +9,7 @@
 
 using System.ComponentModel;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
@@ -46,15 +47,13 @@ public static class BackgroundTaskTool
                 [Description("Optional time limit in seconds; the whole process tree is stopped when it is reached.")]
                 int? maxSeconds = null) => Start(ownerSessionId, launch, sink, command, description, maxSeconds),
             ToolName,
-            "Run a shell command in the background and return right away. " +
-            "Use it for commands that may take longer than a few minutes (builds, full test or regression runs) " +
-            "and for programs that never exit on their own (servers, GUI apps; give them maxSeconds). " +
-            "When the task ends, its exit code and the tail of its output are sent back to you as a message " +
-            "and you are woken up, so do not poll or sleep waiting for it. " +
-            "To check progress before that, read the log file it returns. " +
+            "Run a shell command in the background and return at once. " +
+            $"Shell already waits up to {ShellExecutorFactory.CommandTimeout.TotalMinutes:0} minutes and returns the output directly, " +
+            "so use this only for commands expected to run longer, or that never exit (servers, GUI apps; set maxSeconds). " +
+            "When it ends, the exit code and output tail come back to you as a message, so do not poll; " +
+            "read the returned log file to check progress. " +
             $"Without maxSeconds it is stopped after {DefaultMaxRuntime.TotalSeconds:0} seconds. " +
-            "This tool already runs in the background: do not add `&`, `nohup` or `open` to the command, " +
-            "or whatever they detach can no longer be stopped or time-limited.");
+            "Do not add `&`, `nohup` or `open`: anything they detach can no longer be stopped or time-limited.");
         return new ApprovalRequiredAIFunction(function);
     }
 

@@ -72,6 +72,9 @@ public sealed class ConversationHistoryRenderer
         string text = ChatMessageDisplay.TextOf(message);
         if (ChatMessageDisplay.IsFrameworkInjected(message)) return [];
         if (string.IsNullOrWhiteSpace(text) && !ConversationItemFactory.HasImage(message)) return [];
+        // 插进一轮里的后台任务结果也走这里：与回放一样画成旁白，不安到用户头上
+        if (ChatMessageAnnotations.IsHandedBackReport(message))
+            return [_itemActions.Wire(ConversationItemFactory.CreateNarration(message), message)];
 
         if (_deliverySource() is { } renderer && renderer.IsDelivery(message))
         {

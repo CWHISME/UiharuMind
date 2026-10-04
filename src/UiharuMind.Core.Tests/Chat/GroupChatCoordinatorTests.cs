@@ -93,7 +93,7 @@ public class GroupChatCoordinatorTests
     {
         Assert.True(_coordinator.TryPostFromMember(_bob.SessionId, "我先说一句")); //群闲着:只落盘不叫人
 
-        Assert.True(await _coordinator.NotifyMemberAsync(_alice.SessionId, "后台任务跑完了"));
+        Assert.True(await _coordinator.NotifyMemberAsync(_alice.SessionId, new ChatMessage(ChatRole.User, "后台任务跑完了")));
 
         (ChatSession member, string input) = Assert.Single(_runner.Calls);
         Assert.Same(_alice, member);
@@ -114,7 +114,7 @@ public class GroupChatCoordinatorTests
         Task<bool>? notified = null;
         _runner.During[_alice.SessionId] = () =>
         {
-            notified ??= _coordinator.NotifyMemberAsync(_bob.SessionId, "后台任务跑完了");
+            notified ??= _coordinator.NotifyMemberAsync(_bob.SessionId, new ChatMessage(ChatRole.User, "后台任务跑完了"));
             return Task.CompletedTask;
         };
 
@@ -126,6 +126,46 @@ public class GroupChatCoordinatorTests
         Assert.Equal(1, episodes);
     }
 
+    /// <summary>串行里他正在说（一轮里接连调工具）：附注插进这一轮，醒着就收到，圈后不再为它另开一波</summary>
+    [Fact]
+    public async Task NotifyMember_WhileSpeakingInSerialRound_InjectsIntoThisTurn()
+    {
+        int episodes = 0;
+        _coordinator.EpisodeEnded += _ => Interlocked.Increment(ref episodes);
+        Task<bool>? notified = null;
+        _runner.During[_alice.SessionId] = () =>
+        {
+            notified ??= _coordinator.NotifyMemberAsync(_alice.SessionId, new ChatMessage(ChatRole.User, "后台任务跑完了"));
+            return Task.CompletedTask;
+        };
+
+        await _coordinator.PostAsync(_group, "大家好");
+        Assert.True(await notified!);
+
+        Assert.Contains(_runner.Injected, x => x.Member == _alice && x.Text == "后台任务跑完了");
+        Assert.Equal(1, _runner.CallsOf(_alice));
+        Assert.Equal(1, episodes);
+    }
+
+    /// <summary>插进去了却没被消费：撤回来挂回去，这一圈之后单叫他一波，附注随投递交出</summary>
+    [Fact]
+    public async Task NotifyMember_InjectedButWithdrawn_FallsBackToItsOwnEpisode()
+    {
+        _runner.InjectionsNeverConsumed = true;
+        Task<bool>? notified = null;
+        _runner.During[_alice.SessionId] = () =>
+        {
+            notified ??= _coordinator.NotifyMemberAsync(_alice.SessionId, new ChatMessage(ChatRole.User, "后台任务跑完了"));
+            return Task.CompletedTask;
+        };
+
+        await _coordinator.PostAsync(_group, "大家好");
+        Assert.True(await notified!);
+
+        Assert.Equal(2, _runner.CallsOf(_alice));
+        Assert.StartsWith("后台任务跑完了", _runner.Calls.Where(x => x.Member == _alice).Last().Input);
+    }
+
     /// <summary>他正在私聊（闸被占着）：单叫的那一波一句没说，不算一波；附注留着，下次轮到他照交</summary>
     [Fact]
     public async Task NotifyMember_WhileInPrivateChat_KeepsTheNoteAndRaisesNoEpisode()
@@ -135,7 +175,7 @@ public class GroupChatCoordinatorTests
 
         using (GroupMemberTurnGate.TryEnter(_alice.SessionId)) //临时会话不在索引里,私聊那条 EnterAsync 会直接放行
         {
-            Assert.True(await _coordinator.NotifyMemberAsync(_alice.SessionId, "后台任务跑完了"));
+            Assert.True(await _coordinator.NotifyMemberAsync(_alice.SessionId, new ChatMessage(ChatRole.User, "后台任务跑完了")));
         }
 
         Assert.Empty(_runner.Calls);
@@ -150,7 +190,7 @@ public class GroupChatCoordinatorTests
     {
         ChatSession loner = Track(new ChatSession { IsTransient = true });
 
-        Assert.False(await _coordinator.NotifyMemberAsync(loner.SessionId, "后台任务跑完了"));
+        Assert.False(await _coordinator.NotifyMemberAsync(loner.SessionId, new ChatMessage(ChatRole.User, "后台任务跑完了")));
         Assert.Empty(_runner.Calls);
     }
 

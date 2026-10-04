@@ -28,7 +28,7 @@ public class BackgroundTaskTests
         new(ShellBinary, Path.GetTempPath(), ShellExecutorFactory.BuildEnvironment(null),
             Directory.CreateTempSubdirectory("bgtask").FullName);
 
-    private static async Task<BackgroundTaskOutcome> RunAsync(string command, TimeSpan maxRuntime)
+    internal static async Task<BackgroundTaskOutcome> RunAsync(string command, TimeSpan maxRuntime)
     {
         RecordingSink sink = new();
         BackgroundTask task = BackgroundTaskRegistry.Start("owner", command, "test", maxRuntime, NewLaunch(), sink);

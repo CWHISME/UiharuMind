@@ -29,7 +29,8 @@ namespace UiharuMind.Core.AI.Execution.Assembly;
 /// </summary>
 internal static class ShellExecutorFactory
 {
-    private static readonly TimeSpan CommandTimeout = TimeSpan.FromMinutes(10);
+    /// <summary>shell 一次调用的前台上限；后台任务工具的说明拿它划分两把工具</summary>
+    internal static readonly TimeSpan CommandTimeout = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan HangGrace = TimeSpan.FromSeconds(30); //框架自己的超时先到，兜底只接它接不住的那种
 
     private static readonly string[] StrippedVariables =
@@ -41,9 +42,9 @@ internal static class ShellExecutorFactory
     // [MFA绕坑] 绕:从默认工具描述里剥掉这句 因:它写死在 LocalShellExecutor 私有的 BuildDefaultDescription 末尾,自动档与预授权下并不成立 删除条件:框架按审批配置决定是否输出
     private const string ApprovalClaim = "The user reviews and approves every call.";
 
-    private const string BackgroundTasksHint =
-        "For commands that may run longer than a few minutes or never exit on their own, use " +
-        Tools.BackgroundTasks.BackgroundTaskTool.ToolName + " instead.";
+    private static readonly string BackgroundTasksHint =
+        $"Commands expected to run over {CommandTimeout.TotalMinutes:0} minutes or never exit: use " +
+        Tools.BackgroundTasks.BackgroundTaskTool.ToolName + ".";
 
     /// <summary>
     /// 把执行器包成模型可调的 shell 工具（主代理与子代理共用）。
