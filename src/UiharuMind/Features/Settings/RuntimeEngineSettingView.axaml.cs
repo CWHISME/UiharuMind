@@ -20,10 +20,17 @@ namespace UiharuMind.Features.Settings;
 /// </summary>
 public partial class RuntimeEngineSettingView : UserControl
 {
-    public RuntimeEngineSettingView()
+    public RuntimeEngineSettingView() : this(App.ViewModel.GetViewModel<SettingViewModel>().RuntimeEngineSettingData)
+    {
+    }
+
+    /// <summary>
+    /// 可注入页数据。无头 App 下 App.ViewModel 为 null，测试用它组装；生产仍走无参构造。
+    /// </summary>
+    /// <param name="viewModel">Runtime 页数据</param>
+    public RuntimeEngineSettingView(RuntimeEngineSettingData viewModel)
     {
         InitializeComponent();
-
-        DataContext = App.ViewModel.GetViewModel<SettingViewModel>().RuntimeEngineSettingData;
+        DataContext = viewModel;
     }
 }

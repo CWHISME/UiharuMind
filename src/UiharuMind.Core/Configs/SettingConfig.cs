@@ -25,12 +25,18 @@ public class SettingConfig : TConfigBase<SettingConfig>
     public const string DefaultQuickTranslationShortcut = "Alt+Shift+Q";
     public const string DefaultQuickAutoClickShortcut = "Alt+Shift+G";
 
+    /// <summary>剪贴板历史保留天数的出厂值：0 = 不清理</summary>
+    public const int FactoryDefaultClipboardRetentionDays = 0;
+
+    /// <summary>全屏游戏输入支持的出厂值：关闭</summary>
+    public const bool FactoryDefaultFullscreenGameInputSupport = false;
+
     /// <summary>
     /// 是否是本地服务模式
     /// </summary>
     public bool IsLocalServer { get; set; } = true;
 
-    private int _clipboardRetentionDays;
+    private int _clipboardRetentionDays = FactoryDefaultClipboardRetentionDays;
 
     /// <summary>
     /// 剪贴板历史自动清理的保留天数，<b>0 表示不清理</b>（默认）。收藏项永远豁免。
@@ -83,7 +89,7 @@ public class SettingConfig : TConfigBase<SettingConfig>
         }
     }
 
-    private bool _enableFullscreenGameInputSupport;
+    private bool _enableFullscreenGameInputSupport = FactoryDefaultFullscreenGameInputSupport;
 
     /// <summary>
     /// Windows 下是否启动时请求管理员权限，以提升全屏/管理员游戏输入兼容性
@@ -193,4 +199,42 @@ public class SettingConfig : TConfigBase<SettingConfig>
             Save();
         }
     }
+
+    private double _settingsWindowWidth;
+    private double _settingsWindowHeight;
+
+    /// <summary>
+    /// 设置窗口上次关窗时的宽度，0 = 未调过、用默认尺寸。
+    /// 刻意<b>不在 setter 里落盘</b>：拖拽期间尺寸每帧都变，逐帧写盘是白花 IO；
+    /// 由窗口在关窗时一次性赋值 + <see cref="ConfigBase.Save"/>。
+    /// </summary>
+    public double SettingsWindowWidth
+    {
+        get => _settingsWindowWidth;
+        set
+        {
+            if (Math.Abs(_settingsWindowWidth - value) < 0.5) return;
+            _settingsWindowWidth = value;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>设置窗口上次关窗时的高度，0 = 未调过、用默认尺寸</summary>
+    public double SettingsWindowHeight
+    {
+        get => _settingsWindowHeight;
+        set
+        {
+            if (Math.Abs(_settingsWindowHeight - value) < 0.5) return;
+            _settingsWindowHeight = value;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>
+    /// 设置页滚动位置的跨会话记忆：key（页面标题 key）→ 纵向偏移。
+    /// 由 <c>SettingsScrollMemory</c> 附件属性写入，随整份配置在关窗时落盘；
+    /// 不设 UI 绑定，纯数据。
+    /// </summary>
+    public Dictionary<string, double> SettingsScrollPositions { get; set; } = new();
 }

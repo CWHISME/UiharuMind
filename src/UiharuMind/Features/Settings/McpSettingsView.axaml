@@ -5,14 +5,15 @@
              xmlns:mcp="clr-namespace:UiharuMind.Core.AI.Execution.Mcp;assembly=UiharuMind.Core"
              xmlns:settings="clr-namespace:UiharuMind.Features.Settings"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              mc:Ignorable="d" d:DesignWidth="720" d:DesignHeight="480"
              x:Class="UiharuMind.Features.Settings.McpSettingsView"
              x:DataType="settings:McpSettingsViewData">
 
-    <!-- 不套外层 ScrollViewer:那会给子元素无限高度,于是 RowDefinitions="*" 失去参照、
-         下面那个表单的内层滚动一起失效,ListBox 也会长到内容全高。
-         同页签的「技能包」也是这个形状(Grid 定行 + 内层滚动) -->
-    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,*" Margin="0,12">
+    <!-- 布局骨架保留：左栏列表 + 右侧表单 + 顶部折叠、保存钉底、空态引导。
+         样式换共用件：表单字段走 SettingsRow（进搜索索引），折叠内标签 ≈ muted + Margin，
+         本地 form-pane/field-label 样式已删 -->
+    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,*" Margin="0,4,0,0">
         <!-- 左栏在空态时整个让位:一个 server 都没有的时候,一份空列表加两个按钮只是噪声,
              而新建的入口在空态引导里已经有一个更显眼的 -->
         <Grid Grid.Row="1" Grid.Column="0" RowDefinitions="*,Auto" Width="190"
@@ -50,106 +51,129 @@
             </StackPanel>
         </StackPanel>
 
-        <Border Grid.Row="1" Grid.Column="1" Classes="form-pane" Margin="12,0,0,0"
-                IsVisible="{Binding SelectedServer, Converter={x:Static ObjectConverters.IsNotNull}}">
-            <!-- 字段区滚动、操作区钉住:保存与测试原先长在滚动内容的末尾,
-                 面板一矮就必须先滚到底才够得着——而"改完就保存"是这个页面唯一的主线操作 -->
-            <Grid RowDefinitions="*,Auto">
-            <ScrollViewer Grid.Row="0">
-                <StackPanel Spacing="2">
-                    <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpName}" />
-                    <TextBox Text="{Binding SelectedServer.Name}" />
+        <!-- 字段区滚动、操作区钉住:保存与测试原先长在滚动内容的末尾,
+             面板一矮就必须先滚到底才够得着——而"改完就保存"是这个页面唯一的主线操作 -->
+        <controls:SettingsSection Grid.Row="1" Grid.Column="1" Margin="12,0,0,0"
+                                  IsVisible="{Binding SelectedServer, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <controls:SettingsSection.Body>
+                <Grid RowDefinitions="*,Auto">
+                    <ScrollViewer Grid.Row="0" controls:SettingsScrollMemory.ScrollKey="AgentMcp">
+                        <StackPanel>
+                            <controls:SettingsRow Header="{loc:Loc AgentMcpName}">
+                                <controls:SettingsRow.Field>
+                                    <TextBox Text="{Binding SelectedServer.Name}" Width="360" />
+                                </controls:SettingsRow.Field>
+                            </controls:SettingsRow>
 
-                    <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpTransport}" />
-                    <ComboBox SelectedIndex="{Binding TransportIndex}" MinWidth="160">
-                        <ComboBoxItem Content="stdio" />
-                        <ComboBoxItem Content="HTTP" />
-                    </ComboBox>
+                            <controls:SettingsRow Header="{loc:Loc AgentMcpTransport}">
+                                <controls:SettingsRow.Field>
+                                    <ComboBox SelectedIndex="{Binding TransportIndex}" MinWidth="160">
+                                        <ComboBoxItem Content="stdio" />
+                                        <ComboBoxItem Content="HTTP" />
+                                    </ComboBox>
+                                </controls:SettingsRow.Field>
+                            </controls:SettingsRow>
 
-                    <!-- 传输相关的字段按传输类型显隐:另一种传输的字段留在那里只是噪声 -->
-                    <StackPanel Spacing="2" IsVisible="{Binding IsStdio}">
-                        <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpCommand}" />
-                        <TextBox Text="{Binding SelectedServer.Command}" PlaceholderText="npx" />
+                            <!-- 传输相关的字段按传输类型显隐:另一种传输的字段留在那里只是噪声 -->
+                            <controls:SettingsRow Header="{loc:Loc AgentMcpCommand}" IsVisible="{Binding IsStdio}">
+                                <controls:SettingsRow.Field>
+                                    <TextBox Text="{Binding SelectedServer.Command}" PlaceholderText="npx" Width="360" />
+                                </controls:SettingsRow.Field>
+                            </controls:SettingsRow>
 
-                        <!-- 逐行一个参数:含空格的路径不必再靠分隔符猜边界 -->
-                        <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpArguments}" />
-                        <TextBox Text="{Binding ArgsText}" AcceptsReturn="True" MinHeight="60"
-                                 PlaceholderText="-y&#x0a;@modelcontextprotocol/server-filesystem&#x0a;/My Documents" />
+                            <!-- 逐行一个参数:含空格的路径不必再靠分隔符猜边界 -->
+                            <controls:SettingsRow Header="{loc:Loc AgentMcpArguments}" IsVisible="{Binding IsStdio}">
+                                <controls:SettingsRow.Field>
+                                    <TextBox Text="{Binding ArgsText}" AcceptsReturn="True" MinHeight="60" Width="360"
+                                             PlaceholderText="-y&#x0a;@modelcontextprotocol/server-filesystem&#x0a;/My Documents" />
+                                </controls:SettingsRow.Field>
+                            </controls:SettingsRow>
 
-                        <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpEnv}" />
-                        <TextBox Text="{Binding EnvText}" AcceptsReturn="True" MinHeight="48"
-                                 PlaceholderText="API_KEY=xxxx" />
+                            <controls:SettingsRow Header="{loc:Loc AgentMcpEnv}" IsVisible="{Binding IsStdio}">
+                                <controls:SettingsRow.Field>
+                                    <TextBox Text="{Binding EnvText}" AcceptsReturn="True" MinHeight="48" Width="360"
+                                             PlaceholderText="API_KEY=xxxx" />
+                                </controls:SettingsRow.Field>
+                            </controls:SettingsRow>
+
+                            <controls:SettingsRow Header="{loc:Loc AgentMcpUrl}" IsVisible="{Binding IsHttp}">
+                                <controls:SettingsRow.Field>
+                                    <TextBox Text="{Binding SelectedServer.Url}" PlaceholderText="http://localhost:3001/mcp" Width="360" />
+                                </controls:SettingsRow.Field>
+                            </controls:SettingsRow>
+
+                            <controls:SettingsRow Header="{loc:Loc AgentMcpHeaders}" IsVisible="{Binding IsHttp}">
+                                <controls:SettingsRow.Field>
+                                    <TextBox Text="{Binding HeadersText}" AcceptsReturn="True" MinHeight="48" Width="360"
+                                             PlaceholderText="Authorization=Bearer xxxx" />
+                                </controls:SettingsRow.Field>
+                            </controls:SettingsRow>
+
+                            <!-- 送达方式：第三个与「托管、可用」正交的问题（ADR 0051） -->
+                            <controls:SettingsRow Header="{loc:Loc AgentMcpMountMode}"
+                                                  ToolTip.Tip="{loc:Loc AgentMcpMountModeTip}">
+                                <controls:SettingsRow.Field>
+                                    <ComboBox SelectedIndex="{Binding MountModeIndex}" MinWidth="160"
+                                              ToolTip.Tip="{loc:Loc AgentMcpMountModeTip}">
+                                        <ComboBoxItem Content="{loc:Loc AgentMcpMountModeOnDemand}" />
+                                        <ComboBoxItem Content="{loc:Loc AgentMcpMountModeDirect}" />
+                                    </ComboBox>
+                                </controls:SettingsRow.Field>
+                            </controls:SettingsRow>
+
+                            <controls:SettingsRow Header="{loc:Loc AgentMcpDescription}"
+                                                  ToolTip.Tip="{loc:Loc AgentMcpDescriptionTip}">
+                                <controls:SettingsRow.Field>
+                                    <TextBox Text="{Binding SelectedServer.Description}"
+                                             PlaceholderText="{loc:Loc AgentMcpDescriptionPlaceholder}" Width="360" />
+                                </controls:SettingsRow.Field>
+                            </controls:SettingsRow>
+
+                            <controls:SettingsRow Header="{loc:Loc AgentMcpEnabled}"
+                                                  ToolTip.Tip="{loc:Loc AgentMcpEnabledTip}">
+                                <controls:SettingsRow.Field>
+                                    <ToggleSwitch IsChecked="{Binding SelectedServer.IsEnabled}" />
+                                </controls:SettingsRow.Field>
+                            </controls:SettingsRow>
+
+                            <controls:SettingsRow Header="{loc:Loc AgentMcpInjectInstructions}"
+                                                  ToolTip.Tip="{loc:Loc AgentMcpInjectInstructionsTip}"
+                                                  IsVisible="{Binding IsDirectMount}"
+                                                  DividerVisible="False">
+                                <controls:SettingsRow.Field>
+                                    <ToggleSwitch IsChecked="{Binding SelectedServer.InjectInstructions}" />
+                                </controls:SettingsRow.Field>
+                            </controls:SettingsRow>
+
+                            <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,10,0,0"
+                                       Text="{loc:Loc AgentMcpPerAgentHint}" />
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <StackPanel Grid.Row="1" Spacing="6" Margin="0,10,0,0">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Classes="Primary" Content="{loc:Loc AgentSave}"
+                                    Command="{Binding SaveServerCommand}" />
+                            <Button Content="{loc:Loc AgentMcpTest}" Command="{Binding TestServerCommand}"
+                                    ToolTip.Tip="{loc:Loc AgentMcpTestTip}" />
+                            <TextBlock VerticalAlignment="Center" Classes="muted"
+                                       Text="{Binding StatusText}" />
+                        </StackPanel>
+
+                        <!-- 失败原因原样摆出来:光说"失败"没法排查。
+                             跟着按钮钉在底部——它说的正是刚点那下测试的结果 -->
+                        <SelectableTextBlock Classes="muted" Foreground="IndianRed" TextWrapping="Wrap"
+                                             MaxHeight="72"
+                                             IsVisible="{Binding ErrorText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                             Text="{Binding ErrorText}" />
                     </StackPanel>
-
-                    <StackPanel Spacing="2" IsVisible="{Binding IsHttp}">
-                        <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpUrl}" />
-                        <TextBox Text="{Binding SelectedServer.Url}" PlaceholderText="http://localhost:3001/mcp" />
-
-                        <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpHeaders}" />
-                        <TextBox Text="{Binding HeadersText}" AcceptsReturn="True" MinHeight="48"
-                                 PlaceholderText="Authorization=Bearer xxxx" />
-                    </StackPanel>
-
-                    <!-- 送达方式：第三个与「托管、可用」正交的问题（ADR 0051） -->
-                    <TextBlock Classes="field-label" Margin="0,10,0,0" Text="{loc:Loc AgentMcpMountMode}"
-                               ToolTip.Tip="{loc:Loc AgentMcpMountModeTip}" />
-                    <ComboBox SelectedIndex="{Binding MountModeIndex}" MinWidth="160"
-                              ToolTip.Tip="{loc:Loc AgentMcpMountModeTip}">
-                        <ComboBoxItem Content="{loc:Loc AgentMcpMountModeOnDemand}" />
-                        <ComboBoxItem Content="{loc:Loc AgentMcpMountModeDirect}" />
-                    </ComboBox>
-
-                    <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpDescription}"
-                               ToolTip.Tip="{loc:Loc AgentMcpDescriptionTip}" />
-                    <TextBox Text="{Binding SelectedServer.Description}"
-                             PlaceholderText="{loc:Loc AgentMcpDescriptionPlaceholder}" />
-
-                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
-                        <ToggleSwitch IsChecked="{Binding SelectedServer.IsEnabled}" />
-                        <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentMcpEnabled}"
-                                   ToolTip.Tip="{loc:Loc AgentMcpEnabledTip}" />
-                    </StackPanel>
-
-                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsDirectMount}">
-                        <ToggleSwitch IsChecked="{Binding SelectedServer.InjectInstructions}" />
-                        <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentMcpInjectInstructions}"
-                                   ToolTip.Tip="{loc:Loc AgentMcpInjectInstructionsTip}" />
-                    </StackPanel>
-
-                    <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap" Margin="0,10,0,0"
-                               Text="{loc:Loc AgentMcpPerAgentHint}" />
-                </StackPanel>
-            </ScrollViewer>
-
-            <StackPanel Grid.Row="1" Spacing="6" Margin="0,10,0,0">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button Classes="Primary" Content="{loc:Loc AgentSave}"
-                            Command="{Binding SaveServerCommand}" />
-                    <Button Content="{loc:Loc AgentMcpTest}" Command="{Binding TestServerCommand}"
-                            ToolTip.Tip="{loc:Loc AgentMcpTestTip}" />
-                    <TextBlock VerticalAlignment="Center" FontSize="12"
-                               Foreground="{DynamicResource SemiGrey5}"
-                               Text="{Binding StatusText}" />
-                </StackPanel>
-
-                <!-- 失败原因原样摆出来:光说"失败"没法排查。
-                     跟着按钮钉在底部——它说的正是刚点那下测试的结果 -->
-                <SelectableTextBlock FontSize="12" Foreground="IndianRed" TextWrapping="Wrap"
-                                     MaxHeight="72"
-                                     IsVisible="{Binding ErrorText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                     Text="{Binding ErrorText}" />
-            </StackPanel>
-            </Grid>
-        </Border>
+                </Grid>
+            </controls:SettingsSection.Body>
+        </controls:SettingsSection>
 
         <!-- 这一块管的是「整份配置」与「项目级授权」,都不属于某一个 server,所以留在底部。
-             但它<b>收进折叠区</b>:原先平铺时,已授权项目一多就把上面那个表单越挤越矮
-             （表单本来就在滚,再矮就只剩三四个字段可见）。而这里的操作全是低频的——
-             打开配置目录、从文件重载、撤销某个项目的授权,都不是每次进设置页要做的事 -->
-        <!-- 放<b>顶部</b>而不是底部:在底部时展开是"向上顶",表单区被压缩——
-             正是刚修掉的那个挤压问题原样复发;在顶部则是"向下推",
-             而且折叠标题的位置固定,不会随上面内容多少浮动。
-             内容限高并自滚:展开最多吃掉这一段,不会想吃多少吃多少 -->
+             但它收进折叠区:已授权项目一多就把上面那个表单越挤越矮,
+             而这里的操作全是低频的——打开配置目录、从文件重载、撤销某个项目的授权 -->
         <Expander Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
                   Margin="0,0,0,10" HorizontalAlignment="Stretch" IsExpanded="False">
             <Expander.Header>
@@ -157,67 +181,67 @@
             </Expander.Header>
 
             <ScrollViewer MaxHeight="180" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel Spacing="6" Margin="0,6,0,0">
-                <!-- 配置文件是生态标准的 mcpServers 形状,可与别的客户端互拷 -->
-                <TextBlock Classes="muted" Text="{loc:Loc AgentMcpConfigHint}" TextWrapping="Wrap" />
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button Content="{loc:Loc AgentMcpOpenConfigFolder}"
-                            Command="{Binding OpenConfigFolderCommand}" />
-                    <Button Content="{loc:Loc AgentMcpReload}" Command="{Binding ReloadServersCommand}" />
-                </StackPanel>
-                <!-- 路径独占一行并换行:与按钮挤在一行时它总是被截断成一半,
-                     而"整段替换配置"这件事要的正是这条完整路径 -->
-                <SelectableTextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
-                                     Text="{Binding ConfigFilePath}" />
+                <StackPanel Spacing="6" Margin="0,6,0,0">
+                    <!-- 配置文件是生态标准的 mcpServers 形状,可与别的客户端互拷 -->
+                    <TextBlock Classes="muted" Text="{loc:Loc AgentMcpConfigHint}" TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="{loc:Loc AgentMcpOpenConfigFolder}"
+                                Command="{Binding OpenConfigFolderCommand}" />
+                        <Button Content="{loc:Loc AgentMcpReload}" Command="{Binding ReloadServersCommand}" />
+                    </StackPanel>
+                    <!-- 路径独占一行并换行:与按钮挤在一行时它总是被截断成一半,
+                         而"整段替换配置"这件事要的正是这条完整路径 -->
+                    <SelectableTextBlock Classes="muted" TextWrapping="Wrap"
+                                         Text="{Binding ConfigFilePath}" />
 
-                <!-- 项目级授权:确认发生在选定工作区那一刻,之后就静默生效了。
-                     没有这份清单,「我到底允许过哪些仓库在本机起进程」无处可查、也无从撤回 -->
-                <StackPanel Spacing="4" Margin="0,8,0,0"
-                            IsVisible="{Binding HasTrustedWorkspaces}">
-                    <TextBlock Classes="field-label"
-                               Text="{loc:Loc AgentMcpTrustedTitle}"
-                               ToolTip.Tip="{loc:Loc AgentMcpTrustedTip}" />
-                    <ItemsControl ItemsSource="{Binding TrustedWorkspaces}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="settings:McpTrustedWorkspaceItem">
-                              <StackPanel>
-                                <!-- 名字与撤销钉在两端,路径吃掉中间:路径长度差别很大,
-                                     用 StackPanel 排的话撤销按钮的横向位置会跟着路径长度乱跳 -->
-                                <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,3,0,0">
-                                    <TextBlock Grid.Column="0" FontSize="12" VerticalAlignment="Center"
-                                               Text="{Binding Name}" />
-                                    <TextBlock Grid.Column="1" Classes="muted" FontSize="11"
-                                               Margin="8,0" VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis" Text="{Binding Parent}" />
-                                    <Button Grid.Column="2" FontSize="11" Padding="6,2"
-                                            Content="{loc:Loc AgentMcpTrustRevoke}"
-                                            Command="{Binding RevokeCommand}" />
-                                </Grid>
-                                <!-- 该项目 .mcp.json 里的 server：送达方式只在这里改（面板是只读的） -->
-                                <ItemsControl ItemsSource="{Binding Servers}" IsVisible="{Binding HasServers}"
-                                              Margin="12,0,0,0"
-                                              ToolTip.Tip="{loc:Loc AgentMcpWorkspaceServersTip}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="settings:McpWorkspaceServerItem">
-                                            <!-- 开关自己的两个状态就是当前的送达方式（关 = 按需，开 = 直挂），
-                                                 不在旁边另放固定文字——固定的「直挂」会在开关关着时读成"当前是直挂" -->
-                                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                                <ToggleSwitch IsChecked="{Binding IsDirect}"
-                                                              OnContent="{loc:Loc AgentMcpMountModeDirect}"
-                                                              OffContent="{loc:Loc AgentCapabilityMcpOnDemand}"
-                                                              ToolTip.Tip="{loc:Loc AgentMcpWorkspaceDirectTip}" />
-                                                <TextBlock FontSize="11" VerticalAlignment="Center"
-                                                           Text="{Binding Name}" />
-                                            </StackPanel>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                              </StackPanel>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                    <!-- 项目级授权:确认发生在选定工作区那一刻,之后就静默生效了。
+                         没有这份清单,「我到底允许过哪些仓库在本机起进程」无处可查、也无从撤回 -->
+                    <StackPanel Spacing="4" Margin="0,8,0,0"
+                                IsVisible="{Binding HasTrustedWorkspaces}">
+                        <TextBlock Classes="muted" Margin="0,8,0,2"
+                                   Text="{loc:Loc AgentMcpTrustedTitle}"
+                                   ToolTip.Tip="{loc:Loc AgentMcpTrustedTip}" />
+                        <ItemsControl ItemsSource="{Binding TrustedWorkspaces}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="settings:McpTrustedWorkspaceItem">
+                                    <StackPanel>
+                                        <!-- 名字与撤销钉在两端,路径吃掉中间:路径长度差别很大,
+                                             用 StackPanel 排的话撤销按钮的横向位置会跟着路径长度乱跳 -->
+                                        <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,3,0,0">
+                                            <TextBlock Grid.Column="0" Classes="muted" VerticalAlignment="Center"
+                                                       Text="{Binding Name}" />
+                                            <TextBlock Grid.Column="1" Classes="muted"
+                                                       Margin="8,0" VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis" Text="{Binding Parent}" />
+                                            <Button Grid.Column="2" FontSize="11" Padding="6,2"
+                                                    Content="{loc:Loc AgentMcpTrustRevoke}"
+                                                    Command="{Binding RevokeCommand}" />
+                                        </Grid>
+                                        <!-- 该项目 .mcp.json 里的 server：送达方式只在这里改（面板是只读的） -->
+                                        <ItemsControl ItemsSource="{Binding Servers}" IsVisible="{Binding HasServers}"
+                                                      Margin="12,0,0,0"
+                                                      ToolTip.Tip="{loc:Loc AgentMcpWorkspaceServersTip}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="settings:McpWorkspaceServerItem">
+                                                    <!-- 开关自己的两个状态就是当前的送达方式（关 = 按需，开 = 直挂），
+                                                         不在旁边另放固定文字 -->
+                                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                                        <ToggleSwitch IsChecked="{Binding IsDirect}"
+                                                                      OnContent="{loc:Loc AgentMcpMountModeDirect}"
+                                                                      OffContent="{loc:Loc AgentCapabilityMcpOnDemand}"
+                                                                      ToolTip.Tip="{loc:Loc AgentMcpWorkspaceDirectTip}" />
+                                                        <TextBlock Classes="muted" VerticalAlignment="Center"
+                                                                   Text="{Binding Name}" />
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
                 </StackPanel>
-            </StackPanel>
             </ScrollViewer>
         </Expander>
     </Grid>

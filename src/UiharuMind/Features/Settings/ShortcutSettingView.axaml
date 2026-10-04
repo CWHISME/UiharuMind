@@ -4,98 +4,85 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:settingViews="clr-namespace:UiharuMind.Features.Settings"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
               mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-              x:Class="UiharuMind.Features.Settings.ShortcutSettingView"
-                             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
+              x:Class="UiharuMind.Features.Settings.ShortcutSettingView">
 
     <Design.DataContext>
         <settingViews:ShortcutSettingViewModel />
     </Design.DataContext>
 
     <ScrollViewer>
-        <StackPanel Spacing="22" MaxWidth="760">
-            <StackPanel Spacing="8">
-                <TextBlock Text="{loc:Loc GlobalShortcuts}"
-                           FontSize="15" />
-                <Border Classes="SettingsSection">
+        <!-- 卡片铺满内容区：不限 MaxWidth，宽窗下右侧不留空（与智能体页一致） -->
+        <StackPanel Spacing="22">
+            <!-- 分节：标题 15 走 SettingsSection，行/说明/分隔线/单项恢复走 SettingsRow -->
+            <controls:SettingsSection Header="{loc:Loc GlobalShortcuts}">
+                <controls:SettingsSection.Body>
                     <StackPanel>
-                        <Grid ColumnDefinitions="*,220" MinHeight="44">
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="{loc:Loc ShortcutCaptureScreen}" />
-                                <TextBlock Text="{loc:Loc ShortcutCaptureScreenDesc}"
-                                           FontSize="12"
-                                           Foreground="{DynamicResource SemiGrey6}" />
-                            </StackPanel>
-                            <Button Grid.Column="1"
-                                    Content="{Binding CaptureScreenShortcut}"
-                                    Click="OnCaptureScreenShortcutClick"
-                                    HorizontalAlignment="Stretch"
-                                    HorizontalContentAlignment="Center"
-                                    VerticalAlignment="Center" />
-                        </Grid>
-                        <Border Height="1" Background="{DynamicResource SemiGrey2}" />
-                        <Grid ColumnDefinitions="*,220" MinHeight="44">
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="{loc:Loc ShortcutQuickStartChat}" />
-                                <TextBlock Text="{loc:Loc ShortcutQuickStartChatDesc}"
-                                           FontSize="12"
-                                           Foreground="{DynamicResource SemiGrey6}" />
-                            </StackPanel>
-                            <Button Grid.Column="1"
-                                    Content="{Binding QuickStartChatShortcut}"
-                                    Click="OnQuickStartChatShortcutClick"
-                                    HorizontalAlignment="Stretch"
-                                    HorizontalContentAlignment="Center"
-                                    VerticalAlignment="Center" />
-                        </Grid>
-                        <Border Height="1" Background="{DynamicResource SemiGrey2}" />
-                        <Grid ColumnDefinitions="*,220" MinHeight="44">
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="{loc:Loc ShortcutClipboardHistory}" />
-                                <TextBlock Text="{loc:Loc ShortcutClipboardHistoryDesc}"
-                                           FontSize="12"
-                                           Foreground="{DynamicResource SemiGrey6}" />
-                            </StackPanel>
-                            <Button Grid.Column="1"
-                                    Content="{Binding ClipboardHistoryShortcut}"
-                                    Click="OnClipboardHistoryShortcutClick"
-                                    HorizontalAlignment="Stretch"
-                                    HorizontalContentAlignment="Center"
-                                    VerticalAlignment="Center" />
-                        </Grid>
-                        <Border Height="1" Background="{DynamicResource SemiGrey2}" />
-                        <Grid ColumnDefinitions="*,220" MinHeight="44">
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="{loc:Loc ShortcutQuickTranslation}" />
-                                <TextBlock Text="{loc:Loc ShortcutQuickTranslationDesc}"
-                                           FontSize="12"
-                                           Foreground="{DynamicResource SemiGrey6}" />
-                            </StackPanel>
-                            <Button Grid.Column="1"
-                                    Content="{Binding QuickTranslationShortcut}"
-                                    Click="OnQuickTranslationShortcutClick"
-                                    HorizontalAlignment="Stretch"
-                                    HorizontalContentAlignment="Center"
-                                    VerticalAlignment="Center" />
-                        </Grid>
-                        <Border Height="1" Background="{DynamicResource SemiGrey2}" />
-                        <Grid ColumnDefinitions="*,220" MinHeight="44">
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="{loc:Loc ShortcutQuickAutoClick}" />
-                                <TextBlock Text="{loc:Loc ShortcutQuickAutoClickDesc}"
-                                           FontSize="12"
-                                           Foreground="{DynamicResource SemiGrey6}" />
-                            </StackPanel>
-                            <Button Grid.Column="1"
-                                    Content="{Binding QuickAutoClickShortcut}"
-                                    Click="OnQuickAutoClickShortcutClick"
-                                    HorizontalAlignment="Stretch"
-                                    HorizontalContentAlignment="Center"
-                                    VerticalAlignment="Center" />
-                        </Grid>
+                        <controls:SettingsRow Header="{loc:Loc ShortcutCaptureScreen}"
+                                              Description="{loc:Loc ShortcutCaptureScreenDesc}"
+                                              ResetCommand="{Binding ResetCaptureScreenShortcutCommand}"
+                                              ResetVisible="{Binding IsCaptureScreenShortcutNotDefault}">
+                            <controls:SettingsRow.Field>
+                                <Button Content="{Binding CaptureScreenShortcut}"
+                                        Click="OnCaptureScreenShortcutClick"
+                                        Width="220"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalAlignment="Center" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc ShortcutQuickStartChat}"
+                                              Description="{loc:Loc ShortcutQuickStartChatDesc}"
+                                              ResetCommand="{Binding ResetQuickStartChatShortcutCommand}"
+                                              ResetVisible="{Binding IsQuickStartChatShortcutNotDefault}">
+                            <controls:SettingsRow.Field>
+                                <Button Content="{Binding QuickStartChatShortcut}"
+                                        Click="OnQuickStartChatShortcutClick"
+                                        Width="220"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalAlignment="Center" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc ShortcutClipboardHistory}"
+                                              Description="{loc:Loc ShortcutClipboardHistoryDesc}"
+                                              ResetCommand="{Binding ResetClipboardHistoryShortcutCommand}"
+                                              ResetVisible="{Binding IsClipboardHistoryShortcutNotDefault}">
+                            <controls:SettingsRow.Field>
+                                <Button Content="{Binding ClipboardHistoryShortcut}"
+                                        Click="OnClipboardHistoryShortcutClick"
+                                        Width="220"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalAlignment="Center" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc ShortcutQuickTranslation}"
+                                              Description="{loc:Loc ShortcutQuickTranslationDesc}"
+                                              ResetCommand="{Binding ResetQuickTranslationShortcutCommand}"
+                                              ResetVisible="{Binding IsQuickTranslationShortcutNotDefault}">
+                            <controls:SettingsRow.Field>
+                                <Button Content="{Binding QuickTranslationShortcut}"
+                                        Click="OnQuickTranslationShortcutClick"
+                                        Width="220"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalAlignment="Center" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc ShortcutQuickAutoClick}"
+                                              Description="{loc:Loc ShortcutQuickAutoClickDesc}"
+                                              ResetCommand="{Binding ResetQuickAutoClickShortcutCommand}"
+                                              ResetVisible="{Binding IsQuickAutoClickShortcutNotDefault}"
+                                              DividerVisible="False">
+                            <controls:SettingsRow.Field>
+                                <Button Content="{Binding QuickAutoClickShortcut}"
+                                        Click="OnQuickAutoClickShortcutClick"
+                                        Width="220"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalAlignment="Center" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
                     </StackPanel>
-                </Border>
-            </StackPanel>
+                </controls:SettingsSection.Body>
+            </controls:SettingsSection>
 
             <StackPanel Orientation="Horizontal" Spacing="10">
                 <Button Command="{Binding ApplyCommand}">
@@ -106,7 +93,7 @@
                 </Button>
                 <Button Command="{Binding ResetDefaultsCommand}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <controls:ThemedSvgIcon Width="14" Height="14" IconName="repeat" />
+                        <controls:ThemedSvgIcon Width="14" Height="14" IconName="undo" />
                         <TextBlock Text="{loc:Loc ResetDefaults}" />
                     </StackPanel>
                 </Button>

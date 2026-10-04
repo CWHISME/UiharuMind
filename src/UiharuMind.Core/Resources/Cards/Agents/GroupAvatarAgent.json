@@ -3,6 +3,7 @@
   "IsUserCard": false,
   "IsInternal": true,
   "InjectUserCard": true,
+  "CharacterIcon": "avares://UiharuMind/Assets/Avatars/GroupAvatarDefault.png",
   "Config": {
     "PromptConfig": {
       "name": "化身",

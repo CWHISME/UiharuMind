@@ -15,10 +15,18 @@ namespace UiharuMind.Features.Settings;
 
 public partial class ShortcutSettingView : UserControl
 {
-    public ShortcutSettingView()
+    public ShortcutSettingView() : this(App.ViewModel.GetViewModel<ShortcutSettingViewModel>())
+    {
+    }
+
+    /// <summary>
+    /// 可注入页数据。无头 App 下 App.ViewModel 为 null，测试用它组装；生产仍走无参构造。
+    /// </summary>
+    /// <param name="viewModel">Shortcut 页数据</param>
+    public ShortcutSettingView(ShortcutSettingViewModel viewModel)
     {
         InitializeComponent();
-        DataContext = App.ViewModel.GetViewModel<ShortcutSettingViewModel>();
+        DataContext = viewModel;
     }
 
     private async void OnCaptureScreenShortcutClick(object? sender, RoutedEventArgs e)
@@ -68,6 +76,19 @@ public partial class ShortcutSettingViewModel : ViewModelBase
     [ObservableProperty] private string _quickAutoClickShortcut = string.Empty;
     [ObservableProperty] private string _statusText = string.Empty;
 
+    // 「值≠出厂值」才显示单项恢复默认按钮（SettingsRow 可见性绑定用）；出厂值引用 SettingConfig 常量
+    public bool IsCaptureScreenShortcutNotDefault => CaptureScreenShortcut != SettingConfig.DefaultCaptureScreenShortcut;
+    public bool IsQuickStartChatShortcutNotDefault => QuickStartChatShortcut != SettingConfig.DefaultQuickStartChatShortcut;
+    public bool IsClipboardHistoryShortcutNotDefault => ClipboardHistoryShortcut != SettingConfig.DefaultClipboardHistoryShortcut;
+    public bool IsQuickTranslationShortcutNotDefault => QuickTranslationShortcut != SettingConfig.DefaultQuickTranslationShortcut;
+    public bool IsQuickAutoClickShortcutNotDefault => QuickAutoClickShortcut != SettingConfig.DefaultQuickAutoClickShortcut;
+
+    partial void OnCaptureScreenShortcutChanged(string value) => OnPropertyChanged(nameof(IsCaptureScreenShortcutNotDefault));
+    partial void OnQuickStartChatShortcutChanged(string value) => OnPropertyChanged(nameof(IsQuickStartChatShortcutNotDefault));
+    partial void OnClipboardHistoryShortcutChanged(string value) => OnPropertyChanged(nameof(IsClipboardHistoryShortcutNotDefault));
+    partial void OnQuickTranslationShortcutChanged(string value) => OnPropertyChanged(nameof(IsQuickTranslationShortcutNotDefault));
+    partial void OnQuickAutoClickShortcutChanged(string value) => OnPropertyChanged(nameof(IsQuickAutoClickShortcutNotDefault));
+
     public ShortcutSettingViewModel()
     {
         LoadFromConfig();
@@ -114,7 +135,8 @@ public partial class ShortcutSettingViewModel : ViewModelBase
         setting.Save();
 
         LoadFromConfig();
-        App.DummyWindow.ReloadShortcuts();
+        // 无头/未初始化环境没有 DummyWindow，跳过重载（生产路径 DummyWindow 恒在，行为不变）
+        App.DummyWindow?.ReloadShortcuts();
         StatusText = Loc.Text(LangKey.ShortcutSavedTips);
     }
 
@@ -125,6 +147,43 @@ public partial class ShortcutSettingViewModel : ViewModelBase
         QuickStartChatShortcut = SettingConfig.DefaultQuickStartChatShortcut;
         ClipboardHistoryShortcut = SettingConfig.DefaultClipboardHistoryShortcut;
         QuickTranslationShortcut = SettingConfig.DefaultQuickTranslationShortcut;
+        QuickAutoClickShortcut = SettingConfig.DefaultQuickAutoClickShortcut;
+        Apply();
+    }
+
+    // 单项恢复默认：每行自己的「恢复默认」按钮。设回默认值后直接 Apply，
+    // 与整体 ResetDefaults 同一条生效路径（校验+冲突检测+写配置+重载快捷键）
+    [RelayCommand]
+    private void ResetCaptureScreenShortcut()
+    {
+        CaptureScreenShortcut = SettingConfig.DefaultCaptureScreenShortcut;
+        Apply();
+    }
+
+    [RelayCommand]
+    private void ResetQuickStartChatShortcut()
+    {
+        QuickStartChatShortcut = SettingConfig.DefaultQuickStartChatShortcut;
+        Apply();
+    }
+
+    [RelayCommand]
+    private void ResetClipboardHistoryShortcut()
+    {
+        ClipboardHistoryShortcut = SettingConfig.DefaultClipboardHistoryShortcut;
+        Apply();
+    }
+
+    [RelayCommand]
+    private void ResetQuickTranslationShortcut()
+    {
+        QuickTranslationShortcut = SettingConfig.DefaultQuickTranslationShortcut;
+        Apply();
+    }
+
+    [RelayCommand]
+    private void ResetQuickAutoClickShortcut()
+    {
         QuickAutoClickShortcut = SettingConfig.DefaultQuickAutoClickShortcut;
         Apply();
     }

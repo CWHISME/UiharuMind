@@ -538,14 +538,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _reconciler = new ConversationHistoryReconciler(Items, _pager.Window, this);
 
         var agentSetting = AgentSettingConfig.Current;
-        // 工作目录选择器要在最早构造:它持有那份状态,后面几处都从它读
-        string? defaultWorkspace =
-            !string.IsNullOrEmpty(agentSetting.DefaultWorkspacePath) &&
-            Directory.Exists(agentSetting.DefaultWorkspacePath)
-                ? agentSetting.DefaultWorkspacePath
-                : null;
-        // 群的工作区改之前要过群那两道关（空闲、跑过先确认）；单聊不拦
-        Workspace = new WorkspacePickerViewData(defaultWorkspace, OnWorkspacePathChanged,
+        // 工作目录选择器要在最早构造:它持有那份状态,后面几处都从它读。
+        // 新会话不再带全局默认工作目录:未选时由选择器自己决定(空态),用户在会话内指定。
+        Workspace = new WorkspacePickerViewData(null, OnWorkspacePathChanged,
             path => Group?.ConfirmWorkspaceChangeAsync(path) ?? Task.FromResult(true));
         SessionModel = new SessionModelViewData(() => CurrentMeta, () => _isLoadingSession, OnSessionModelChanged);
         SessionModel.Refresh();
@@ -575,7 +570,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         SessionManager.Instance.SessionUsageReported += OnSessionUsageReported;
 
         _permissionModeIndex = Math.Clamp(agentSetting.DefaultPermissionModeIndex, 0, 2);
-        _currentMode = agentSetting.DefaultPlanMode ? EAgentMode.Plan : EAgentMode.Execute;
+        // 新会话一律从执行模式起步:全局默认计划模式已删除,切计划模式是会话内的手动动作
+        _currentMode = EAgentMode.Execute;
 
         _isPlaintext = ChatSettingConfig.Current.IsChatPlainText;
         _isAutoCollapseThinking = ChatSettingConfig.Current.IsChatAutoCollapseThinking;

@@ -377,15 +377,6 @@
     <data name="AgentSettingDefaultPermission" xml:space="preserve">
         <value>默认权限档</value>
     </data>
-    <data name="AgentSettingDefaultWorkspace" xml:space="preserve">
-        <value>默认工作目录</value>
-    </data>
-    <data name="AgentSettingDefaultPlanMode" xml:space="preserve">
-        <value>新会话默认开启计划模式</value>
-    </data>
-    <data name="AgentSettingSubAgent" xml:space="preserve">
-        <value>子代理</value>
-    </data>
     <data name="AgentSettingGeneralSubAgentModel" xml:space="preserve">
         <value>通用子代理模型</value>
     </data>
@@ -612,7 +603,7 @@
         <value>已跳过 {0} 个正在运行的会话。</value>
     </data>
     <data name="RuntimeEngineSetting" xml:space="preserve">
-        <value>本地执行后端设置</value>
+        <value>本地模型</value>
     </data>
     <data name="CurrentEngineTypeSetting" xml:space="preserve">
         <value>当前执行后端：</value>
@@ -1062,6 +1053,21 @@
     </data>
     <data name="SettingsWindowTitle" xml:space="preserve">
         <value>设置</value>
+    </data>
+    <data name="SettingsNavGroupApp" xml:space="preserve">
+        <value>应用</value>
+    </data>
+    <data name="SettingsNavGroupAgent" xml:space="preserve">
+        <value>智能</value>
+    </data>
+    <data name="SettingsNavGroupHelp" xml:space="preserve">
+        <value>帮助</value>
+    </data>
+    <data name="SettingsSearchPlaceholder" xml:space="preserve">
+        <value>搜索设置</value>
+    </data>
+    <data name="SettingsSearchNoResult" xml:space="preserve">
+        <value>没有找到匹配的设置</value>
     </data>
     <data name="ApplicationUpdate" xml:space="preserve">
         <value>应用更新</value>

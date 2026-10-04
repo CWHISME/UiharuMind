@@ -21,10 +21,18 @@ namespace UiharuMind.Features.Settings;
 
 public partial class GeneralSettingView : UserControl
 {
-    public GeneralSettingView()
+    public GeneralSettingView() : this(App.ViewModel.GetViewModel<GeneralSettingViewModel>())
+    {
+    }
+
+    /// <summary>
+    /// 可注入页数据。无头 App 下 App.ViewModel 为 null，测试用它组装；生产仍走无参构造。
+    /// </summary>
+    /// <param name="viewModel">General 页数据</param>
+    public GeneralSettingView(GeneralSettingViewModel viewModel)
     {
         InitializeComponent();
-        DataContext = App.ViewModel.GetViewModel<GeneralSettingViewModel>();
+        DataContext = viewModel;
     }
 }
 
@@ -53,8 +61,17 @@ public partial class GeneralSettingViewModel : ViewModelBase
         {
             ConfigManager.Instance.Setting.ClipboardRetentionDays = (int)value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(IsClipboardRetentionNotDefault));
         }
     }
+
+    /// <summary>保留天数是否偏离出厂值（恢复默认按钮的可见性）</summary>
+    public bool IsClipboardRetentionNotDefault =>
+        ConfigManager.Instance.Setting.ClipboardRetentionDays != SettingConfig.FactoryDefaultClipboardRetentionDays;
+
+    /// <summary>全屏游戏输入支持是否偏离出厂值（恢复默认按钮的可见性）</summary>
+    public bool IsFullscreenGameInputNotDefault =>
+        EnableFullscreenGameInputSupport != SettingConfig.FactoryDefaultFullscreenGameInputSupport;
 
     [ObservableProperty] private bool _isCheckingForAppUpdate;
     [ObservableProperty] private bool _hasAppUpdate;
@@ -123,6 +140,7 @@ public partial class GeneralSettingViewModel : ViewModelBase
 
     async partial void OnEnableFullscreenGameInputSupportChanged(bool value)
     {
+        OnPropertyChanged(nameof(IsFullscreenGameInputNotDefault));
         if (_writeBack.IsLoading) return;
         ConfigManager.Instance.Setting.EnableFullscreenGameInputSupport = value;
         if (await _messageService.ConfirmAsync(
@@ -138,6 +156,16 @@ public partial class GeneralSettingViewModel : ViewModelBase
         TopLevel.GetTopLevel(App.DummyWindow)!.Launcher.LaunchUriAsync(
             new Uri(_applicationUpdateService.LatestReleaseUrl));
     }
+
+    /// <summary>单项恢复默认：保留天数回到出厂值（0，不清理）</summary>
+    [RelayCommand]
+    private void ResetClipboardRetentionDays() =>
+        ClipboardRetentionDays = SettingConfig.FactoryDefaultClipboardRetentionDays;
+
+    /// <summary>单项恢复默认：全屏游戏输入支持回到出厂值（关闭）。关掉时顺带走一次重启确认</summary>
+    [RelayCommand]
+    private void ResetFullscreenGameInputSupport() =>
+        EnableFullscreenGameInputSupport = SettingConfig.FactoryDefaultFullscreenGameInputSupport;
 
     [RelayCommand]
     private async Task CheckApplicationUpdate()

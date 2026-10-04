@@ -12,7 +12,7 @@ using UiharuMind.Core.Core.Utils;
 namespace UiharuMind.Core.Configs;
 
 /// <summary>
-/// Agent 工作区的<b>全局</b>标量配置：新会话默认值、最近工作目录、搜索 API 凭据。
+/// Agent 工作区的<b>全局</b>标量配置：最近工作目录、搜索 API 凭据、各页受管参数。
 ///
 /// 工具开关与技能禁用清单长在角色身上(<see cref="UiharuMind.Core.AI.Character.AgentToolConfig"/>),
 /// 运行时只读那一份,没有全局总闸(见 ADR 0003)。<see cref="ModelSkillsEnabled"/> 是这条规则的
@@ -21,14 +21,21 @@ namespace UiharuMind.Core.Configs;
 /// </summary>
 public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
 {
+    // 出厂值（设置页「单项恢复默认」用）：与各属性初始值同源，页面 reset 命令引用这里而不是手抄数字
+    public const int FactoryDefaultPermissionModeIndex = 1;
+    public const int FactoryDefaultAwayMaxHours = 24;
+    public const int FactoryDefaultAwayMaxAvatarTurns = 500;
+    public const int FactoryDefaultAwayMaxIdleWaves = 50;
+    public const int FactoryDefaultAwayBackoffStartSeconds = 60;
+    public const int FactoryDefaultAwayBackoffMaxMinutes = 30;
+    public const int FactoryDefaultAwayStopDelayMinutes = 5;
+    public const string FactoryDefaultPythonInterpreterPath = "";
+    public const string FactoryDefaultFirecrawlApiKey = "";
+    public const string FactoryDefaultTavilyApiKey = "";
+    public const string FactoryDefaultBraveSearchApiKey = "";
+
     /// <summary>新会话默认权限档(0 只读 / 1 自动编辑 / 2 完全自动)</summary>
-    public int DefaultPermissionModeIndex { get; set; } = 1;
-
-    /// <summary>新会话默认工作目录(空 = 不绑定)</summary>
-    public string DefaultWorkspacePath { get; set; } = string.Empty;
-
-    /// <summary>新会话默认开启 plan 模式</summary>
-    public bool DefaultPlanMode { get; set; }
+    public int DefaultPermissionModeIndex { get; set; } = FactoryDefaultPermissionModeIndex;
 
     /// <summary>
     /// 是否把技能清单与 load_skill 工具集发给模型。关掉后模型侧看不到技能广告列表,
@@ -48,13 +55,13 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     /// Firecrawl API key。<b>可以不填</b>——Firecrawl 无 key 也能用(按 IP 限额),它是搜索与
     /// 正文抓取两条兜底链的首选;填了只是把额度换成账号维度的。
     /// </summary>
-    public string FirecrawlApiKey { get; set; } = string.Empty;
+    public string FirecrawlApiKey { get; set; } = FactoryDefaultFirecrawlApiKey;
 
     /// <summary>Tavily 搜索 API key(填入后搜索优先走正规 API,空则用爬页面兜底链)</summary>
-    public string TavilyApiKey { get; set; } = string.Empty;
+    public string TavilyApiKey { get; set; } = FactoryDefaultTavilyApiKey;
 
     /// <summary>Brave Search API key(同上,优先级次于 Tavily)</summary>
-    public string BraveSearchApiKey { get; set; } = string.Empty;
+    public string BraveSearchApiKey { get; set; } = FactoryDefaultBraveSearchApiKey;
 
     /// <summary>
     /// 宿主 Python 解释器路径。<b>只用于创建受管虚拟环境那一次</b>,建完之后 agent 用的
@@ -63,7 +70,7 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     /// 空 = 自动探测(PATH 上的 python3/python)。填它是为了自动探测不中的情况:
     /// 探测只认 PATH,而 Windows 上装了 Python 却没勾"Add to PATH"是常态。
     /// </summary>
-    public string PythonInterpreterPath { get; set; } = string.Empty;
+    public string PythonInterpreterPath { get; set; } = FactoryDefaultPythonInterpreterPath;
 
     /// <summary>
     /// 探索型子代理使用的模型名(空 = 回退到主代理模型)。
@@ -89,22 +96,22 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
         _recentWorkspaces ??= new RecentPathList(RecentWorkspaces, RecentWorkspacesLimit);
 
     /// <summary>离席最长多少小时（保险丝，只防失控，ADR 0055）</summary>
-    public int AwayMaxHours { get; set; } = 24;
+    public int AwayMaxHours { get; set; } = FactoryDefaultAwayMaxHours;
 
     /// <summary>一次离席里化身最多出手几次（保险丝）</summary>
-    public int AwayMaxAvatarTurns { get; set; } = 500;
+    public int AwayMaxAvatarTurns { get; set; } = FactoryDefaultAwayMaxAvatarTurns;
 
     /// <summary>连续多少波没有新产物就结束离席（保险丝）</summary>
-    public int AwayMaxIdleWaves { get; set; } = 50;
+    public int AwayMaxIdleWaves { get; set; } = FactoryDefaultAwayMaxIdleWaves;
 
     /// <summary>化身没进展时，第一次延迟唤醒等多少秒；之后逐次翻倍</summary>
-    public int AwayBackoffStartSeconds { get; set; } = 60;
+    public int AwayBackoffStartSeconds { get; set; } = FactoryDefaultAwayBackoffStartSeconds;
 
     /// <summary>没进展时延迟唤醒的封顶分钟数</summary>
-    public int AwayBackoffMaxMinutes { get; set; } = 30;
+    public int AwayBackoffMaxMinutes { get; set; } = FactoryDefaultAwayBackoffMaxMinutes;
 
     /// <summary>离席中用户按了停止（没关离席）后，等多少分钟再唤醒化身</summary>
-    public int AwayStopDelayMinutes { get; set; } = 5;
+    public int AwayStopDelayMinutes { get; set; } = FactoryDefaultAwayStopDelayMinutes;
 
     /// <summary>
     /// 把一个工作目录记为最近使用:置顶、去重、裁尾,并立即落盘。列表操作见 <see cref="RecentPathList"/>。

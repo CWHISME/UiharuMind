@@ -37,12 +37,9 @@ public partial class AgentSettingViewData : ViewModelBase
 
     //================= 常规 =================
     [ObservableProperty] private int _defaultPermissionModeIndex;
-    [ObservableProperty] private string _defaultWorkspacePath = string.Empty;
-    [ObservableProperty] private bool _defaultPlanMode;
 
-    //================= 子代理 =================
     /// <summary>
-    /// 可选模型列表(与顶栏模型选择器同源)。子代理从中选模型。
+    /// 可选模型列表(与顶栏模型选择器同源)。通用子代理从中选模型，只有一行，并在常规页里。
     /// </summary>
     public ObservableCollection<ModelRunningData> AvailableModels { get; } = new();
 
@@ -66,6 +63,13 @@ public partial class AgentSettingViewData : ViewModelBase
     //================= 生图 =================
     /// <summary>生图模型的一句话摘要；列表本身在模型页（ADR 0052：那是一张模型清单，不是 agent 设置）</summary>
     [ObservableProperty] private string _imageModelsSummary = string.Empty;
+
+    /// <summary>最近一次改动的反馈文本（如「已保存」），空串不显示</summary>
+    [ObservableProperty] private string _statusText = string.Empty;
+
+    // 「值≠出厂值」才显示单项恢复默认按钮（SettingsRow 可见性绑定用）；出厂值引用 AgentSettingConfig 常量
+    public bool IsDefaultPermissionModeNotDefault => DefaultPermissionModeIndex != AgentSettingConfig.FactoryDefaultPermissionModeIndex;
+    public bool IsGeneralSubAgentModelNotDefault => GeneralSubAgentModel is not null; // null = 回退主代理，出厂态
 
     //================= 受管 Python 环境 =================
     /// <summary>
@@ -106,8 +110,6 @@ public partial class AgentSettingViewData : ViewModelBase
         {
             AgentSettingConfig config = AgentSettingConfig.Current;
             DefaultPermissionModeIndex = config.DefaultPermissionModeIndex;
-            DefaultWorkspacePath = config.DefaultWorkspacePath;
-            DefaultPlanMode = config.DefaultPlanMode;
             ModelSkillsEnabled = config.ModelSkillsEnabled;
             LoadAvailableModels();
         }
@@ -145,18 +147,9 @@ public partial class AgentSettingViewData : ViewModelBase
     {
         AgentSettingConfig.Current.DefaultPermissionModeIndex = value;
         _writeBack.Save();
-    }
-
-    partial void OnDefaultWorkspacePathChanged(string value)
-    {
-        AgentSettingConfig.Current.DefaultWorkspacePath = value;
-        _writeBack.Save();
-    }
-
-    partial void OnDefaultPlanModeChanged(bool value)
-    {
-        AgentSettingConfig.Current.DefaultPlanMode = value;
-        _writeBack.Save();
+        OnPropertyChanged(nameof(IsDefaultPermissionModeNotDefault));
+        // 回填时 IsLoading 为真，不弹反馈；只有用户真的改了才提示
+        if (!_writeBack.IsLoading) StatusText = Loc.Text(LangKey.ShortcutSavedTips);
     }
 
     //================= 技能:变更即存 =================
@@ -166,11 +159,13 @@ public partial class AgentSettingViewData : ViewModelBase
         _writeBack.Save();
     }
 
-    //================= 子代理:变更即存 =================
+    //================= 常规:通用子代理模型,变更即存 =================
     partial void OnGeneralSubAgentModelChanged(ModelRunningData? value)
     {
         AgentSettingConfig.Current.GeneralSubAgentModelName = value?.ModelName ?? string.Empty;
         _writeBack.Save();
+        OnPropertyChanged(nameof(IsGeneralSubAgentModelNotDefault));
+        if (!_writeBack.IsLoading) StatusText = Loc.Text(LangKey.ShortcutSavedTips);
     }
 
     /// <summary>
@@ -222,15 +217,18 @@ public partial class AgentSettingViewData : ViewModelBase
             AvailableModels.Add(model);
     }
 
+    //================= 单项恢复默认 =================
+    // 出厂值引用 AgentSettingConfig 常量，不手抄数字；走属性赋值，handler 统一保存+反馈
     [RelayCommand]
-    private async Task BrowseDefaultWorkspace()
+    private void ResetDefaultPermissionMode()
     {
-        string path = await App.FilesService.OpenSelectFolderAsync(DefaultWorkspacePath);
-        if (string.IsNullOrEmpty(path)) return;
+        DefaultPermissionModeIndex = AgentSettingConfig.FactoryDefaultPermissionModeIndex;
+    }
 
-        DefaultWorkspacePath = path;
-        // 这里选的目录也进最近列表:两处都是"挑一个工作目录",没理由只有会话侧记得
-        AgentSettingConfig.Current.RememberWorkspace(path);
+    [RelayCommand]
+    private void ResetGeneralSubAgentModel()
+    {
+        GeneralSubAgentModel = null; // 回退到主代理模型
     }
 
     //================= 技能(SKILL.md 目录,框架规范) =================

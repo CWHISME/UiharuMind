@@ -42,6 +42,11 @@ public partial class WebSearchSettingsViewData : ObservableObject
     [ObservableProperty] private string _tavilyApiKey = string.Empty;
     [ObservableProperty] private string _braveSearchApiKey = string.Empty;
 
+    // 「值≠出厂值」才显示恢复默认：key 非空（空 = 未配置，是出厂态）
+    public bool IsFirecrawlApiKeyNotDefault => !string.IsNullOrEmpty(FirecrawlApiKey);
+    public bool IsTavilyApiKeyNotDefault => !string.IsNullOrEmpty(TavilyApiKey);
+    public bool IsBraveSearchApiKeyNotDefault => !string.IsNullOrEmpty(BraveSearchApiKey);
+
     /// <summary>按兜底优先级排列的引擎</summary>
     public ObservableCollection<WebSearchProviderItem> Items { get; } = new();
 
@@ -65,6 +70,7 @@ public partial class WebSearchSettingsViewData : ObservableObject
     {
         AgentSettingConfig.Current.FirecrawlApiKey = value;
         _writeBack.Save();
+        OnPropertyChanged(nameof(IsFirecrawlApiKeyNotDefault));
         Refresh(); //填不填 key 直接决定引擎是"可用"还是"未配置"
     }
 
@@ -72,6 +78,7 @@ public partial class WebSearchSettingsViewData : ObservableObject
     {
         AgentSettingConfig.Current.TavilyApiKey = value;
         _writeBack.Save();
+        OnPropertyChanged(nameof(IsTavilyApiKeyNotDefault));
         Refresh();
     }
 
@@ -79,8 +86,14 @@ public partial class WebSearchSettingsViewData : ObservableObject
     {
         AgentSettingConfig.Current.BraveSearchApiKey = value;
         _writeBack.Save();
+        OnPropertyChanged(nameof(IsBraveSearchApiKeyNotDefault));
         Refresh();
     }
+
+    // 单项恢复默认：key 清空 = 出厂未配置；走属性赋值，handler 统一保存+刷新链路状态
+    [RelayCommand] private void ResetFirecrawlApiKey() => FirecrawlApiKey = AgentSettingConfig.FactoryDefaultFirecrawlApiKey;
+    [RelayCommand] private void ResetTavilyApiKey() => TavilyApiKey = AgentSettingConfig.FactoryDefaultTavilyApiKey;
+    [RelayCommand] private void ResetBraveSearchApiKey() => BraveSearchApiKey = AgentSettingConfig.FactoryDefaultBraveSearchApiKey;
 
     /// <summary>测试按钮上的字，测试期间换成进行时</summary>
     public string ProbeAllButtonText => Loc.Text(

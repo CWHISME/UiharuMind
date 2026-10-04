@@ -42,6 +42,9 @@ public partial class PythonEnvSettingsViewData : ObservableObject
     /// <summary>给用户看的一行状态：版本号，或失败原因</summary>
     [ObservableProperty] private string _status = string.Empty;
 
+    /// <summary>「值≠出厂值」才显示恢复默认：解释器路径非空（空 = 自动探测，是出厂态）</summary>
+    public bool IsInterpreterPathNotDefault => !string.IsNullOrEmpty(InterpreterPath);
+
     /// <summary>虚拟环境所在目录（就绪后给用户一个可查看的落点）</summary>
     public string EnvironmentRoot => PythonEnvironment.Root;
 
@@ -61,6 +64,7 @@ public partial class PythonEnvSettingsViewData : ObservableObject
     {
         AgentSettingConfig.Current.PythonInterpreterPath = value;
         _writeBack.Save();
+        OnPropertyChanged(nameof(IsInterpreterPathNotDefault));
     }
 
     /// <summary>
@@ -109,5 +113,12 @@ public partial class PythonEnvSettingsViewData : ObservableObject
         PythonEnvironment.Remove();
         IsReady = PythonEnvironment.IsReady;
         Status = string.Empty;
+    }
+
+    // 单项恢复默认：解释器路径清空 = 回到自动探测。出厂值引用 AgentSettingConfig 常量，不手抄
+    [RelayCommand]
+    private void ResetInterpreterPath()
+    {
+        InterpreterPath = AgentSettingConfig.FactoryDefaultPythonInterpreterPath;
     }
 }

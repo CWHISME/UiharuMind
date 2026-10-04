@@ -14,22 +14,33 @@
         xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
 
     <Window.Styles>
+        <!-- 左栏导航项。悬停/选中的底色由主题画在模板内 ContentPresenter 上，
+             只设按钮自己的 Background 压不住（同 CustomButtonStyle 的 picker-row） -->
         <Style Selector="Button.SettingsNavButton">
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="HorizontalContentAlignment" Value="Left" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="CornerRadius" Value="6" />
-            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="MinHeight" Value="32" />
             <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.SettingsNavButton:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey2}" />
         </Style>
         <Style Selector="Button.SettingsNavButton:selected">
             <Setter Property="Background" Value="{DynamicResource SemiBlue5}" />
             <Setter Property="Foreground" Value="White" />
         </Style>
-        <Style Selector="Border.SettingsSection">
-            <Setter Property="CornerRadius" Value="8" />
-            <Setter Property="Padding" Value="12" />
-            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+        <Style Selector="Button.SettingsNavButton:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SemiBlue5}" />
+        </Style>
+        <!-- 分组标题：给左栏 7 个入口立结构 -->
+        <Style Selector="TextBlock.SettingsNavGroup">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+            <Setter Property="Margin" Value="10,0,0,6" />
         </Style>
     </Window.Styles>
 
@@ -41,66 +52,77 @@
                 Padding="12">
             <Grid RowDefinitions="Auto,*,Auto">
                 <TextBlock Text="{loc:Loc SettingsWindowTitle}"
-                           FontSize="14"
-                           Margin="4,4,4,12" />
+                           FontSize="15"
+                           Margin="4,4,4,16" />
 
-                <StackPanel Grid.Row="1" Spacing="6">
-                    <Button Name="GeneralButton"
-                            Classes="SettingsNavButton"
-                            Click="OnGeneralClick">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <controls:ThemedSvgIcon Width="16" Height="16" IconName="settings" />
-                            <TextBlock Text="{loc:Loc GeneralSetting}" />
-                        </StackPanel>
-                    </Button>
-                    <Button Name="RuntimeButton"
-                            Classes="SettingsNavButton"
-                            Click="OnRuntimeClick">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <controls:ThemedSvgIcon Width="16" Height="16" IconName="refresh-cw" />
-                            <TextBlock Text="{loc:Loc RuntimeEngineSetting}" />
-                        </StackPanel>
-                    </Button>
-                    <Button Name="AgentButton"
-                            Classes="SettingsNavButton"
-                            Click="OnAgentClick">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <controls:ThemedSvgIcon Width="16" Height="16" IconName="cog" />
-                            <TextBlock Text="{loc:Loc AgentSetting}" />
-                        </StackPanel>
-                    </Button>
-                    <Button Name="ShortcutsButton"
-                            Classes="SettingsNavButton"
-                            Click="OnShortcutsClick">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <controls:ThemedSvgIcon Width="16" Height="16" IconName="file-text" />
-                            <TextBlock Text="{loc:Loc ShortcutsSetting}" />
-                        </StackPanel>
-                    </Button>
-                    <Button Name="QuickToolButton"
-                            Classes="SettingsNavButton"
-                            Click="OnQuickToolClick">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <controls:ThemedSvgIcon Width="16" Height="16" IconName="message-circle-more" />
-                            <TextBlock Text="{loc:Loc QuickToolSetting}" />
-                        </StackPanel>
-                    </Button>
-                    <Button Name="HelpButton"
-                            Classes="SettingsNavButton"
-                            Click="OnHelpClick">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <controls:ThemedSvgIcon Width="16" Height="16" IconName="book-search" />
-                            <TextBlock Text="{loc:Loc TrayMenuHelp}" />
-                        </StackPanel>
-                    </Button>
-                    <Button Name="AboutButton"
-                            Classes="SettingsNavButton"
-                            Click="OnAboutClick">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <controls:ThemedSvgIcon Width="16" Height="16" IconName="info" />
-                            <TextBlock Text="{loc:Loc TrayMenuAbout}" />
-                        </StackPanel>
-                    </Button>
+                <StackPanel Grid.Row="1" Spacing="18">
+                    <StackPanel Spacing="2">
+                        <TextBlock Classes="SettingsNavGroup" Text="{loc:Loc SettingsNavGroupApp}" />
+                        <Button Name="GeneralButton"
+                                Classes="SettingsNavButton"
+                                Click="OnGeneralClick">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <controls:ThemedSvgIcon Width="16" Height="16" IconName="settings" />
+                                <TextBlock Text="{loc:Loc GeneralSetting}" />
+                            </StackPanel>
+                        </Button>
+                        <Button Name="ShortcutsButton"
+                                Classes="SettingsNavButton"
+                                Click="OnShortcutsClick">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <controls:ThemedSvgIcon Width="16" Height="16" IconName="keyboard" />
+                                <TextBlock Text="{loc:Loc ShortcutsSetting}" />
+                            </StackPanel>
+                        </Button>
+                        <Button Name="QuickToolButton"
+                                Classes="SettingsNavButton"
+                                Click="OnQuickToolClick">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <controls:ThemedSvgIcon Width="16" Height="16" IconName="message-circle-more" />
+                                <TextBlock Text="{loc:Loc QuickToolSetting}" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <StackPanel Spacing="2">
+                        <TextBlock Classes="SettingsNavGroup" Text="{loc:Loc SettingsNavGroupAgent}" />
+                        <Button Name="AgentButton"
+                                 Classes="SettingsNavButton"
+                                 Click="OnAgentClick">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <controls:ThemedSvgIcon Width="16" Height="16" IconName="bot" />
+                                <TextBlock Text="{loc:Loc AgentSetting}" />
+                            </StackPanel>
+                        </Button>
+                        <Button Name="RuntimeButton"
+                                 Classes="SettingsNavButton"
+                                 Click="OnRuntimeClick">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <controls:ThemedSvgIcon Width="16" Height="16" IconName="terminal" />
+                                <TextBlock Text="{loc:Loc RuntimeEngineSetting}" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <StackPanel Spacing="2">
+                        <TextBlock Classes="SettingsNavGroup" Text="{loc:Loc SettingsNavGroupHelp}" />
+                        <Button Name="HelpButton"
+                                Classes="SettingsNavButton"
+                                Click="OnHelpClick">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <controls:ThemedSvgIcon Width="16" Height="16" IconName="book-search" />
+                                <TextBlock Text="{loc:Loc TrayMenuHelp}" />
+                            </StackPanel>
+                        </Button>
+                        <Button Name="AboutButton"
+                                Classes="SettingsNavButton"
+                                Click="OnAboutClick">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <controls:ThemedSvgIcon Width="16" Height="16" IconName="info" />
+                                <TextBlock Text="{loc:Loc TrayMenuAbout}" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
                 </StackPanel>
 
                 <StackPanel Grid.Row="2" Margin="4,12,4,4">
@@ -114,20 +136,56 @@
         </Border>
 
         <Grid Grid.Column="1" RowDefinitions="Auto,*">
-            <Border Height="48"
+            <!-- 页头：当前页标题 + 全局设置搜索 -->
+            <Border Height="52"
                     BorderBrush="{DynamicResource SemiGrey2}"
                     BorderThickness="0,0,0,1">
-                <DockPanel LastChildFill="True">
+                <Grid ColumnDefinitions="*,Auto" Margin="24,0,20,0">
                     <TextBlock Name="TitleText"
-                               Margin="28,0,0,0"
                                VerticalAlignment="Center"
                                FontSize="16" />
-                </DockPanel>
+                    <TextBox Name="SearchBox"
+                             Grid.Column="1"
+                             Width="220"
+                             VerticalAlignment="Center"
+                             PlaceholderText="{loc:Loc SettingsSearchPlaceholder}"
+                             TextChanged="OnSearchTextChanged" />
+                </Grid>
             </Border>
 
-            <ContentControl Name="SettingsContent"
-                            Grid.Row="1"
-                            Margin="20" />
+            <Grid Grid.Row="1">
+                <ContentControl Name="SettingsContent"
+                                Margin="24" />
+
+                <!-- 搜索结果：盖住内容区，点一条跳到那一页那一行 -->
+                <Border Name="SearchResultPanel"
+                        Margin="24"
+                        Padding="8"
+                        CornerRadius="8"
+                        Background="{DynamicResource SemiGrey0}"
+                        BorderBrush="{DynamicResource SemiGrey2}"
+                        BorderThickness="1"
+                        IsVisible="False">
+                    <Grid RowDefinitions="Auto,*">
+                        <TextBlock Name="SearchEmptyText"
+                                   Classes="muted"
+                                   Margin="8,6"
+                                   Text="{loc:Loc SettingsSearchNoResult}"
+                                   IsVisible="False" />
+                        <ListBox Name="SearchResultList"
+                                 Grid.Row="1"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 SelectionChanged="OnSearchResultSelected">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Display}" VerticalAlignment="Center" />
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Grid>
+                </Border>
+            </Grid>
         </Grid>
     </Grid>
 </Window>

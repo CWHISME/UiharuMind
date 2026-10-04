@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:UiharuMind.Features.Settings"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Features.Settings.QuickToolSettingView"
              x:DataType="vm:QuickToolSettingViewData">
@@ -12,44 +13,57 @@
         <vm:QuickToolSettingViewData />
     </Design.DataContext>
 
-    <UserControl.Styles>
-        <Style Selector="TextBlock.field-label">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
-            <Setter Property="Margin" Value="0,8,0,2" />
-        </Style>
-    </UserControl.Styles>
+    <ScrollViewer controls:SettingsScrollMemory.ScrollKey="QuickToolSetting">
+        <!-- 卡片铺满内容区：不限 MaxWidth，宽窗下右侧不留空（与智能体页一致） -->
+        <StackPanel Spacing="22">
+            <!-- 卡片不加标题：页头已经叫「快捷工具」，标题叠两层；Aico 拍板去掉 -->
+            <controls:SettingsSection>
+                <controls:SettingsSection.Body>
+                    <StackPanel>
+                        <controls:SettingsRow Header="{loc:Loc QuickToolDefaultModel}"
+                                              Description="{loc:Loc QuickToolDefaultModelDesc}"
+                                              ResetCommand="{Binding ResetDefaultModelCommand}"
+                                              ResetVisible="{Binding IsDefaultModelNotDefault}">
+                            <controls:SettingsRow.Field>
+                                <ComboBox ItemsSource="{Binding AvailableModels}"
+                                          SelectedItem="{Binding DefaultModel}"
+                                          PlaceholderText="{loc:Loc QuickToolDefaultModelFallbackHint}"
+                                          MinWidth="300">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc QuickToolDefaultVisionModel}"
+                                              Description="{loc:Loc QuickToolDefaultVisionModelDesc}"
+                                              ResetCommand="{Binding ResetDefaultVisionModelCommand}"
+                                              ResetVisible="{Binding IsDefaultVisionModelNotDefault}"
+                                              DividerVisible="False">
+                            <controls:SettingsRow.Field>
+                                <ComboBox ItemsSource="{Binding AvailableVisionModels}"
+                                          SelectedItem="{Binding DefaultVisionModel}"
+                                          PlaceholderText="{loc:Loc QuickToolDefaultVisionModelFallbackHint}"
+                                          MinWidth="300">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                    </StackPanel>
+                </controls:SettingsSection.Body>
+            </controls:SettingsSection>
 
-    <StackPanel Margin="0,12" Spacing="4" MaxWidth="520" HorizontalAlignment="Left">
-        <TextBlock Classes="field-label" Text="{loc:Loc QuickToolDefaultModel}" />
-        <TextBlock FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4"
-                   Foreground="{DynamicResource SemiGrey6}"
-                   Text="{loc:Loc QuickToolDefaultModelDesc}" />
-        <ComboBox ItemsSource="{Binding AvailableModels}"
-                  SelectedItem="{Binding DefaultModel}"
-                  PlaceholderText="{loc:Loc QuickToolDefaultModelFallbackHint}"
-                  MinWidth="300" HorizontalAlignment="Stretch">
-            <ComboBox.ItemTemplate>
-                <DataTemplate>
-                    <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                </DataTemplate>
-            </ComboBox.ItemTemplate>
-        </ComboBox>
-
-        <TextBlock Classes="field-label" Margin="0,16,0,2" Text="{loc:Loc QuickToolDefaultVisionModel}" />
-        <TextBlock FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4"
-                   Foreground="{DynamicResource SemiGrey6}"
-                   Text="{loc:Loc QuickToolDefaultVisionModelDesc}" />
-        <ComboBox ItemsSource="{Binding AvailableVisionModels}"
-                  SelectedItem="{Binding DefaultVisionModel}"
-                  PlaceholderText="{loc:Loc QuickToolDefaultVisionModelFallbackHint}"
-                  MinWidth="300" HorizontalAlignment="Stretch">
-            <ComboBox.ItemTemplate>
-                <DataTemplate>
-                    <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                </DataTemplate>
-            </ComboBox.ItemTemplate>
-        </ComboBox>
-    </StackPanel>
-
+            <!-- 改完反馈：改哪项都即时落盘，这里给一句「已保存」；空串时不占行 -->
+            <TextBlock Text="{Binding StatusText}"
+                       Foreground="{DynamicResource SemiGrey7}"
+                       TextWrapping="Wrap"
+                       IsVisible="{Binding StatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        </StackPanel>
+    </ScrollViewer>
 </UserControl>

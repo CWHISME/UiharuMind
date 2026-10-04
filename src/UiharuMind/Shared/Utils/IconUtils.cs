@@ -17,6 +17,8 @@ public class IconUtils
     // 谁把它们释放了,整个进程的头像与托盘图标一起变空白
     private static Bitmap? _defaultIcon;
 
+    // private static Bitmap? _defaultUserIcon;
+
     private static readonly Dictionary<string, CharacterIconEntry> CharacterIcons = new(); //角色自带头像,按角色缓存
 
     //缓存项连来源一起存:角色改了头像,来源串跟着变,据此失效
@@ -31,8 +33,8 @@ public class IconUtils
     /// <summary>默认工具人(智能体)头像 = 应用图标，与默认角色头像统一（旧的花环少女图与初春撞脸，不再使用）。进程级缓存，调用方不得释放</summary>
     public static Bitmap? DefaultToolCharIcon => DefaultAppIcon;
 
-    /// <summary>默认用户头像。进程级缓存，调用方不得释放</summary>
-    public static Bitmap? DefaultUserIcon => DefaultAppIcon;
+    /// <summary>默认用户头像 = （用户卡没配头像时回落）。进程级缓存，调用方不得释放</summary>
+    public static Bitmap? DefaultUserIcon => DefaultAppIcon; //_defaultUserIcon ??= LoadDefaultBitmap("Avatars/DefaultUser.png");
 
     /// <summary>
     /// 取角色头像。三种来源：空串回落默认头像；<c>avares://</c> 走内置头像资源；

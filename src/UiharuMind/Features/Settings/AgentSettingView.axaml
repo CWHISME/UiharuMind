@@ -4,135 +4,147 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:UiharuMind.Features.Settings"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              mc:Ignorable="d" d:DesignWidth="720" d:DesignHeight="640"
              x:Class="UiharuMind.Features.Settings.AgentSettingView"
              x:DataType="vm:AgentSettingViewData">
 
-    <UserControl.Styles>
-        <Style Selector="TextBlock.field-label">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
-            <Setter Property="Margin" Value="0,8,0,2" />
-        </Style>
-        <Style Selector="Border.form-pane">
-            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="8" />
-            <Setter Property="Padding" Value="14" />
-        </Style>
-    </UserControl.Styles>
-
+    <!-- 五个 Tab 全部走共用件：页面级分节默认 15，内嵌小卡片 HeaderFontSize=13。
+         本地 field-label/form-pane 样式已删（field-label 视觉 = 全局 muted + Margin） -->
     <TabControl>
         <!-- ===================== 常规 ===================== -->
         <TabItem Header="{loc:Loc AgentSettingGeneral}">
-            <StackPanel Margin="0,12" Spacing="4" MaxWidth="520" HorizontalAlignment="Left">
-                <TextBlock Classes="field-label" Text="{loc:Loc AgentSettingDefaultPermission}" />
-                <ComboBox SelectedIndex="{Binding DefaultPermissionModeIndex}" MinWidth="200">
-                    <ComboBoxItem Content="{loc:Loc AgentPermissionReadOnly}" />
-                    <ComboBoxItem Content="{loc:Loc AgentPermissionAutoEdit}" />
-                    <ComboBoxItem Content="{loc:Loc AgentPermissionFullAuto}" />
-                </ComboBox>
+            <controls:SettingsSection Margin="0,12">
+                <controls:SettingsSection.Body>
+                    <StackPanel>
+                        <controls:SettingsRow Header="{loc:Loc AgentSettingDefaultPermission}"
+                                              ResetCommand="{Binding ResetDefaultPermissionModeCommand}"
+                                              ResetVisible="{Binding IsDefaultPermissionModeNotDefault}">
+                            <controls:SettingsRow.Field>
+                                <ComboBox SelectedIndex="{Binding DefaultPermissionModeIndex}" MinWidth="200">
+                                    <ComboBoxItem Content="{loc:Loc AgentPermissionReadOnly}" />
+                                    <ComboBoxItem Content="{loc:Loc AgentPermissionAutoEdit}" />
+                                    <ComboBoxItem Content="{loc:Loc AgentPermissionFullAuto}" />
+                                </ComboBox>
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <!-- 子代理模型选择：只有一行，直接并在常规里，不值得单独一个 Tab -->
+                        <controls:SettingsRow Header="{loc:Loc AgentSettingGeneralSubAgentModel}"
+                                              Description="{loc:Loc AgentSettingGeneralSubAgentModelDesc}"
+                                              ResetCommand="{Binding ResetGeneralSubAgentModelCommand}"
+                                              ResetVisible="{Binding IsGeneralSubAgentModelNotDefault}"
+                                              DividerVisible="False">
+                            <controls:SettingsRow.Field>
+                                <ComboBox ItemsSource="{Binding AvailableModels}"
+                                          SelectedItem="{Binding GeneralSubAgentModel}"
+                                          PlaceholderText="{loc:Loc AgentSettingSubAgentFallbackHint}"
+                                          MinWidth="300">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
 
-                <TextBlock Classes="field-label" Text="{loc:Loc AgentSettingDefaultWorkspace}" />
-                <Grid ColumnDefinitions="*,Auto">
-                    <TextBox Grid.Column="0" Text="{Binding DefaultWorkspacePath}" />
-                    <Button Grid.Column="1" Margin="6,0,0,0" Content="…"
-                            Command="{Binding BrowseDefaultWorkspaceCommand}" />
-                </Grid>
-
-                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,12,0,0">
-                    <ToggleSwitch IsChecked="{Binding DefaultPlanMode}" />
-                    <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentSettingDefaultPlanMode}" />
-                </StackPanel>
-
-            </StackPanel>
-        </TabItem>
-
-        <!-- ===================== 子代理 ===================== -->
-        <TabItem Header="{loc:Loc AgentSettingSubAgent}">
-            <StackPanel Margin="0,12" Spacing="4" MaxWidth="520" HorizontalAlignment="Left">
-
-                <TextBlock Classes="field-label" Text="{loc:Loc AgentSettingGeneralSubAgentModel}" />
-                <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4"
-                           Text="{loc:Loc AgentSettingGeneralSubAgentModelDesc}" />
-                <ComboBox ItemsSource="{Binding AvailableModels}"
-                          SelectedItem="{Binding GeneralSubAgentModel}"
-                          PlaceholderText="{loc:Loc AgentSettingSubAgentFallbackHint}"
-                          MinWidth="300" HorizontalAlignment="Stretch">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel Orientation="Horizontal" Spacing="5">
-                                <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                            </StackPanel>
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
-
-            </StackPanel>
+                        <!-- 改完反馈：改哪项都即时落盘，这里给一句「已保存」；空串时不占行 -->
+                        <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,10,0,0"
+                                   Text="{Binding StatusText}"
+                                   IsVisible="{Binding StatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    </StackPanel>
+                </controls:SettingsSection.Body>
+            </controls:SettingsSection>
         </TabItem>
 
         <!-- ===================== 群聊离席（ADR 0055） ===================== -->
         <TabItem Header="{loc:Loc AgentSettingAway}">
-            <StackPanel Margin="0,12" Spacing="10" MaxWidth="520" HorizontalAlignment="Left">
-                <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap" Text="{loc:Loc AgentSettingAwayDesc}" />
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Text="{loc:Loc AgentSettingAwayMaxHours}" />
-                    <NumericUpDown Grid.Column="1" Width="140" Minimum="1" Maximum="8760" Increment="1"
-                                   FormatString="0" Value="{Binding Away.MaxHours}" />
-                </Grid>
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Text="{loc:Loc AgentSettingAwayMaxAvatarTurns}" />
-                    <NumericUpDown Grid.Column="1" Width="140" Minimum="1" Maximum="100000" Increment="1"
-                                   FormatString="0" Value="{Binding Away.MaxAvatarTurns}" />
-                </Grid>
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Text="{loc:Loc AgentSettingAwayMaxIdleWaves}" />
-                    <NumericUpDown Grid.Column="1" Width="140" Minimum="1" Maximum="10000" Increment="1"
-                                   FormatString="0" Value="{Binding Away.MaxIdleWaves}" />
-                </Grid>
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Text="{loc:Loc AgentSettingAwayBackoffStart}" />
-                    <NumericUpDown Grid.Column="1" Width="140" Minimum="5" Maximum="3600" Increment="1"
-                                   FormatString="0" Value="{Binding Away.BackoffStartSeconds}" />
-                </Grid>
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Text="{loc:Loc AgentSettingAwayBackoffMax}" />
-                    <NumericUpDown Grid.Column="1" Width="140" Minimum="1" Maximum="1440" Increment="1"
-                                   FormatString="0" Value="{Binding Away.BackoffMaxMinutes}" />
-                </Grid>
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Text="{loc:Loc AgentSettingAwayStopDelay}" />
-                    <NumericUpDown Grid.Column="1" Width="140" Minimum="1" Maximum="1440" Increment="1"
-                                   FormatString="0" Value="{Binding Away.StopDelayMinutes}" />
-                </Grid>
-            </StackPanel>
+            <controls:SettingsSection Margin="0,12" Description="{loc:Loc AgentSettingAwayDesc}">
+                <controls:SettingsSection.Body>
+                    <StackPanel>
+                        <controls:SettingsRow Header="{loc:Loc AgentSettingAwayMaxHours}"
+                                              ResetCommand="{Binding Away.ResetMaxHoursCommand}"
+                                              ResetVisible="{Binding Away.IsMaxHoursNotDefault}">
+                            <controls:SettingsRow.Field>
+                                <NumericUpDown Width="140" Minimum="1" Maximum="8760" Increment="1"
+                                               FormatString="0" Value="{Binding Away.MaxHours}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc AgentSettingAwayMaxAvatarTurns}"
+                                              ResetCommand="{Binding Away.ResetMaxAvatarTurnsCommand}"
+                                              ResetVisible="{Binding Away.IsMaxAvatarTurnsNotDefault}">
+                            <controls:SettingsRow.Field>
+                                <NumericUpDown Width="140" Minimum="1" Maximum="100000" Increment="1"
+                                               FormatString="0" Value="{Binding Away.MaxAvatarTurns}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc AgentSettingAwayMaxIdleWaves}"
+                                              ResetCommand="{Binding Away.ResetMaxIdleWavesCommand}"
+                                              ResetVisible="{Binding Away.IsMaxIdleWavesNotDefault}">
+                            <controls:SettingsRow.Field>
+                                <NumericUpDown Width="140" Minimum="1" Maximum="10000" Increment="1"
+                                               FormatString="0" Value="{Binding Away.MaxIdleWaves}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc AgentSettingAwayBackoffStart}"
+                                              ResetCommand="{Binding Away.ResetBackoffStartSecondsCommand}"
+                                              ResetVisible="{Binding Away.IsBackoffStartSecondsNotDefault}">
+                            <controls:SettingsRow.Field>
+                                <NumericUpDown Width="140" Minimum="5" Maximum="3600" Increment="1"
+                                               FormatString="0" Value="{Binding Away.BackoffStartSeconds}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc AgentSettingAwayBackoffMax}"
+                                              ResetCommand="{Binding Away.ResetBackoffMaxMinutesCommand}"
+                                              ResetVisible="{Binding Away.IsBackoffMaxMinutesNotDefault}">
+                            <controls:SettingsRow.Field>
+                                <NumericUpDown Width="140" Minimum="1" Maximum="1440" Increment="1"
+                                               FormatString="0" Value="{Binding Away.BackoffMaxMinutes}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc AgentSettingAwayStopDelay}"
+                                              ResetCommand="{Binding Away.ResetStopDelayMinutesCommand}"
+                                              ResetVisible="{Binding Away.IsStopDelayMinutesNotDefault}"
+                                              DividerVisible="False">
+                            <controls:SettingsRow.Field>
+                                <NumericUpDown Width="140" Minimum="1" Maximum="1440" Increment="1"
+                                               FormatString="0" Value="{Binding Away.StopDelayMinutes}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+
+                        <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,10,0,0"
+                                   Text="{Binding Away.StatusText}"
+                                   IsVisible="{Binding Away.StatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    </StackPanel>
+                </controls:SettingsSection.Body>
+            </controls:SettingsSection>
         </TabItem>
 
         <!-- 能力门控:左列 toggle+名称,右栏详细描述/提示词/专属设置 -->
         <TabItem Header="{loc:Loc AgentSettingCapabilities}">
-            <ScrollViewer Margin="0,12">
+            <ScrollViewer controls:SettingsScrollMemory.ScrollKey="AgentSetting" Margin="0,12">
                 <StackPanel Spacing="12">
                     <!-- 工具开关与技能启停已下沉到角色(ADR 0003):这里只剩全局共用的搜索凭据 -->
-                    <Border Classes="form-pane" Padding="14">
-                        <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap"
-                                   Text="{loc:Loc AgentSettingCapabilitiesMoved}" />
-                    </Border>
+                    <controls:SettingsSection HeaderFontSize="13">
+                        <controls:SettingsSection.Body>
+                            <TextBlock Classes="muted" TextWrapping="Wrap"
+                                       Text="{loc:Loc AgentSettingCapabilitiesMoved}" />
+                        </controls:SettingsSection.Body>
+                    </controls:SettingsSection>
 
                     <!-- 联网搜索(凭据 + 链路状态)自成一块，见 WebSearchSettingsView -->
                     <vm:WebSearchSettingsView DataContext="{Binding WebSearch}" />
 
                     <!-- 生图模型的列表在模型页(ADR 0052),这里只给摘要与入口 -->
-                    <Border Classes="form-pane" Padding="14">
-                        <StackPanel Spacing="6">
-                            <TextBlock FontSize="13" Text="{loc:Loc AgentSettingImageModelsTitle}" />
-                            <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
-                                       Text="{Binding ImageModelsSummary}" />
+                    <controls:SettingsSection Header="{loc:Loc AgentSettingImageModelsTitle}"
+                                              Description="{Binding ImageModelsSummary}"
+                                              HeaderFontSize="13">
+                        <controls:SettingsSection.Body>
                             <Button HorizontalAlignment="Left" Margin="0,4,0,0"
                                     Content="{loc:Loc AgentSettingImageModelsManage}"
                                     Command="{Binding ManageImageModelsCommand}" />
-                        </StackPanel>
-                    </Border>
+                        </controls:SettingsSection.Body>
+                    </controls:SettingsSection>
 
                     <!-- 受管 Python 环境。它不是能力开关:agent 用 Shell 调那个解释器,见 ADR 0019 -->
                     <vm:PythonEnvSettingsView DataContext="{Binding PythonEnv}" />
@@ -151,31 +163,25 @@
 
         <!-- ===================== 技能包 ===================== -->
         <TabItem Header="{loc:Loc AgentSettingSkills}">
-            <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="0,12">
-                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
-                    <ToggleSwitch IsChecked="{Binding ModelSkillsEnabled}" />
-                    <StackPanel Spacing="2" VerticalAlignment="Center">
-                        <TextBlock Text="{loc:Loc AgentSkillsModelEnabled}" />
-                        <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap" MaxWidth="520"
-                                   Text="{loc:Loc AgentSkillsModelEnabledTip}" />
-                    </StackPanel>
-                </StackPanel>
-                <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
+            <!-- 裸行没有卡片 padding 托底：顶部不再额外留白，靠行内 MinHeight=44 自居中，
+                 否则字到 Tab 条的距离会比到行底分隔线多出 12px，看着偏下 -->
+            <Grid RowDefinitions="Auto,Auto,*">
+                <!-- 长说明收进 tooltip：顶部只留一行开关，不然三行说明把下面的列表顶下去 -->
+                <controls:SettingsRow Grid.Row="0" Header="{loc:Loc AgentSkillsModelEnabled}"
+                                      ToolTip.Tip="{loc:Loc AgentSkillsModelEnabledTip}">
+                    <controls:SettingsRow.Field>
+                        <ToggleSwitch IsChecked="{Binding ModelSkillsEnabled}" />
+                    </controls:SettingsRow.Field>
+                </controls:SettingsRow>
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
                     <Button Content="{loc:Loc AgentSkillsCreate}" Command="{Binding CreateSkillCommand}" />
                     <Button Content="{loc:Loc AgentSkillsOpenFolder}" Command="{Binding OpenSkillsFolderCommand}" />
                     <Button Content="{loc:Loc AgentSkillsReload}" Command="{Binding ReloadSkillsCommand}" />
-                    <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
+                    <TextBlock Classes="muted" VerticalAlignment="Center"
                                MaxWidth="420" TextWrapping="Wrap"
                                Text="{loc:Loc AgentSkillsPerAgentHint}" />
                 </StackPanel>
-                <!-- 路径可选中复制:第三方生成器(如 Unity-MCP 的 setup-skills)要往这里落文件 -->
-                <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6" Margin="0,8,0,0">
-                    <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
-                               Text="{loc:Loc AgentSkillsRootPath}" />
-                    <SelectableTextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
-                                         TextTrimming="CharacterEllipsis" Text="{Binding SkillsRootPath}" />
-                </StackPanel>
-                <ScrollViewer Grid.Row="3" Margin="0,10,0,0">
+                <ScrollViewer Grid.Row="2" controls:SettingsScrollMemory.ScrollKey="AgentSkills" Margin="0,10,0,0">
                     <StackPanel Spacing="6">
                         <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,6"
                                    Text="{loc:Loc AgentSkillsEmpty}" IsVisible="{Binding HasNoSkills}" />
@@ -188,7 +194,7 @@
                                         <Expander.Header>
                                             <StackPanel Orientation="Horizontal" Spacing="6">
                                                 <TextBlock Text="{Binding Name}" />
-                                                <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
+                                                <TextBlock Classes="muted" VerticalAlignment="Center"
                                                            Text="{Binding SkillCount}" />
                                             </StackPanel>
                                         </Expander.Header>
@@ -196,34 +202,38 @@
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="vm:SkillCategoryItem">
                                                     <StackPanel Margin="0,2">
-                                                        <TextBlock Classes="muted" FontSize="11" Margin="2,6,0,2"
+                                                        <TextBlock Classes="muted" Margin="2,6,0,2"
                                                                    IsVisible="{Binding HasName}"
                                                                    Text="{Binding Name}" />
                                                         <ItemsControl ItemsSource="{Binding Skills}">
                                                             <ItemsControl.ItemTemplate>
                                                                 <DataTemplate x:DataType="vm:SkillDisplayItem">
-                                                                    <Border Classes="form-pane" Margin="0,3" Padding="12,8">
+                                                                    <!-- 列表行：只要底部分隔线，不要整张卡片。
+                                                                         几十个技能全套圆角卡又重又碎，行式列表才装得下 -->
+                                                                    <Border Margin="0,1" Padding="2,8"
+                                                                            BorderThickness="0,0,0,1"
+                                                                            BorderBrush="{DynamicResource SemiGrey2}">
                                                                         <StackPanel Spacing="2">
                                                                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                                                                <TextBlock Text="{Binding Name}" />
+                                                                                <!-- 技能名要能复制：派活/排障时点名 offset 等全靠原文 -->
+                                                                                <SelectableTextBlock Text="{Binding Name}" />
                                                                                 <!-- 只读标记:模型自选由 SKILL.md 自己声明,用户不能覆盖 -->
-                                                                                <TextBlock FontSize="11" VerticalAlignment="Center"
+                                                                                <TextBlock Classes="muted" VerticalAlignment="Center"
                                                                                            Foreground="{DynamicResource SemiBlue5}"
                                                                                            IsVisible="{Binding IsUserInvokedOnly}"
                                                                                            Text="{loc:Loc AgentSkillsUserInvoked}"
                                                                                            ToolTip.Tip="{loc:Loc AgentSkillsUserInvokedTip}" />
-                                                                                <TextBlock FontSize="11" VerticalAlignment="Center"
+                                                                                <TextBlock Classes="muted" VerticalAlignment="Center"
                                                                                            Foreground="IndianRed"
                                                                                            IsVisible="{Binding !IsLoaded}"
                                                                                            Text="{loc:Loc AgentSkillsNotLoaded}" />
                                                                             </StackPanel>
-                                                                            <TextBlock FontSize="12"
-                                                                                       Foreground="{DynamicResource SemiGrey5}"
-                                                                                       Text="{Binding Description}" TextWrapping="Wrap"
-                                                                                       IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                                                                            <TextBlock FontSize="12" Foreground="IndianRed" TextWrapping="Wrap"
-                                                                                       Text="{Binding LoadFailureHint}"
-                                                                                       IsVisible="{Binding LoadFailureHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                                                            <SelectableTextBlock Classes="muted"
+                                                                                           Text="{Binding Description}" TextWrapping="Wrap"
+                                                                                           IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                                                            <SelectableTextBlock Classes="muted" Foreground="IndianRed" TextWrapping="Wrap"
+                                                                                           Text="{Binding LoadFailureHint}"
+                                                                                           IsVisible="{Binding LoadFailureHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                                                                         </StackPanel>
                                                                     </Border>
                                                                 </DataTemplate>

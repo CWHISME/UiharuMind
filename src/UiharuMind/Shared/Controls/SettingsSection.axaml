@@ -1,0 +1,40 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             mc:Ignorable="d" d:DesignWidth="720" d:DesignHeight="220"
+             x:Class="UiharuMind.Shared.Controls.SettingsSection">
+
+    <!-- 分节卡片：分节标题(默认 15) + 卡片容器。卡片里放 SettingsRow。
+         字号走 HeaderFontSize 属性：页面级分节用默认 15，
+         页面内嵌的小卡片（如 Agent 里的 WebSearch/Python）传 13 递减一级，不各写一套。
+         卡片底色/描边一律 DynamicResource，深浅主题各自成立。 -->
+    <StackPanel Spacing="8">
+        <!-- 标题区整体：标题和说明都空时整个收起，不然外层 Spacing=8 还会留 8px 幽灵间隔 -->
+        <StackPanel x:Name="HeaderBlock" Spacing="4">
+            <!-- 空标题不能占行高：初始默认收起，有值时后台代码再展开。
+                 只靠 OnPropertyChanged 不够——Header 全程为 null 时根本不会触发变更 -->
+            <TextBlock x:Name="HeaderText"
+                       FontSize="{Binding HeaderFontSize, RelativeSource={RelativeSource AncestorType=controls:SettingsSection}}"
+                       Text="{Binding Header, RelativeSource={RelativeSource AncestorType=controls:SettingsSection}}"
+                       TextWrapping="Wrap"
+                       IsVisible="False" />
+            <TextBlock x:Name="DescriptionText"
+                       Classes="muted"
+                       Text="{Binding Description, RelativeSource={RelativeSource AncestorType=controls:SettingsSection}}"
+                       TextWrapping="Wrap"
+                       IsVisible="False" />
+        </StackPanel>
+        <!-- 没有 Body（如纯说明节）时整张空卡片都要收起，不然标题下挂一个空白圆角框 -->
+        <Border x:Name="CardBorder"
+                CornerRadius="8"
+                Padding="14"
+                Background="{DynamicResource SemiGrey0}"
+                BorderBrush="{DynamicResource SemiGrey2}"
+                BorderThickness="1"
+                IsVisible="False">
+            <ContentPresenter Content="{Binding Body, RelativeSource={RelativeSource AncestorType=controls:SettingsSection}}" />
+        </Border>
+    </StackPanel>
+</UserControl>

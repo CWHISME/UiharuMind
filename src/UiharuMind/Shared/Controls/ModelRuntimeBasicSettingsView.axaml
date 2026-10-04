@@ -25,9 +25,49 @@
             <Setter Property="MinHeight" Value="30" />
             <Setter Property="HorizontalContentAlignment" Value="Right" />
         </Style>
+        <!-- 滑块：轨道 1px 浅灰线太淡，悬空一个蓝圈看不出可拖。
+             全仓 Slider 就这两处，局部模板画 4px 圆角轨道 + 大 thumb，不碰全局主题 -->
+        <Style Selector="Slider.runtime-slider">
+            <Setter Property="Template">
+                <ControlTemplate TargetType="Slider">
+                    <Grid VerticalAlignment="Center" MinHeight="24">
+                        <Border Height="4"
+                                CornerRadius="2"
+                                Background="{DynamicResource SemiGrey3}"
+                                VerticalAlignment="Center" />
+                        <Track Minimum="{TemplateBinding Minimum}"
+                               Maximum="{TemplateBinding Maximum}"
+                               Value="{TemplateBinding Value}"
+                               Orientation="Horizontal"
+                               VerticalAlignment="Center">
+                            <Track.DecreaseButton>
+                                <RepeatButton Background="Transparent"
+                                              BorderThickness="0" />
+                            </Track.DecreaseButton>
+                            <Track.IncreaseButton>
+                                <RepeatButton Background="Transparent"
+                                              BorderThickness="0" />
+                            </Track.IncreaseButton>
+                            <Thumb Width="16" Height="16">
+                                <!-- 主题的 thumb 样式不会跟进自定义模板，这里内联画：蓝圆点 + 细描边，
+                                     轨道 4px + 抓手 16px，一眼看得出可拖 -->
+                                <Thumb.Template>
+                                    <ControlTemplate TargetType="Thumb">
+                                        <Ellipse Fill="{DynamicResource SemiBlue5}"
+                                                 Stroke="{DynamicResource SemiGrey1}"
+                                                 StrokeThickness="1" />
+                                    </ControlTemplate>
+                                </Thumb.Template>
+                            </Thumb>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
     </UserControl.Styles>
 
-    <Border MaxHeight="460"
+    <Border x:Name="OuterBorder"
+            MaxHeight="460"
             CornerRadius="8"
             BorderThickness="1"
             BorderBrush="{DynamicResource SemiGrey2}"
@@ -58,8 +98,9 @@
             <Border Grid.Row="1"
                     Margin="12,10,12,0"
                     Classes="runtime-strip">
-                <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="12">
-                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                <!-- 窄窗下四段并排会溢出被裁：换 WrapPanel 自动折行，间距走子项 Margin -->
+                <WrapPanel Orientation="Horizontal">
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,0,16,4">
                         <TextBlock Text="{loc:Loc ModelRuntimeEstimatedMemoryUsage}" />
                         <Border CornerRadius="4"
                                 Padding="4,1"
@@ -68,29 +109,30 @@
                                        FontSize="11" />
                         </Border>
                     </StackPanel>
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="0,0,16,4">
                         <TextBlock Text="{loc:Loc ModelRuntimeAvailableMemory}" />
                         <Border CornerRadius="4" Padding="5,1" Background="{DynamicResource SemiGrey0}">
                             <TextBlock Text="{Binding AvailableMemoryText}" />
                         </Border>
                     </StackPanel>
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="0,0,16,4">
                         <TextBlock Text="{loc:Loc ModelRuntimeTotalMemory}" />
                         <Border CornerRadius="4" Padding="5,1" Background="{DynamicResource SemiGrey0}">
                             <TextBlock Text="{Binding EstimatedTotalMemoryText}" />
                         </Border>
                     </StackPanel>
-                    <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="0,0,0,4">
                         <TextBlock Text="{loc:Loc ModelRuntimeRiskLevel}" />
                         <Border CornerRadius="4" Padding="5,1" Background="{DynamicResource SemiGrey0}">
                             <TextBlock Text="{Binding RuntimeRiskText}"
                                        ToolTip.Tip="{Binding RuntimeRiskDetailText}" />
                         </Border>
                     </StackPanel>
-                </Grid>
+                </WrapPanel>
             </Border>
 
-            <ScrollViewer Grid.Row="2"
+            <ScrollViewer x:Name="ContentScroll"
+                          Grid.Row="2"
                           MaxHeight="245"
                           HorizontalScrollBarVisibility="Disabled"
                           VerticalScrollBarVisibility="Auto">
@@ -109,6 +151,7 @@
                                      Text="{Binding ContextSize}" />
                         </Grid>
                         <Slider Grid.Row="1"
+                                Classes="runtime-slider"
                                 Minimum="0"
                                 Maximum="{Binding MaxContextSize}"
                                 Value="{Binding ContextSize}" />
@@ -130,6 +173,7 @@
                                      Text="{Binding GpuLayers}" />
                         </Grid>
                         <Slider Grid.Row="1"
+                                Classes="runtime-slider"
                                 Minimum="0"
                                 Maximum="{Binding MaxGpuLayers}"
                                 Value="{Binding GpuLayers}" />

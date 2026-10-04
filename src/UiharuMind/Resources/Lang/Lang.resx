@@ -384,15 +384,6 @@
     <data name="AgentSettingDefaultPermission" xml:space="preserve">
         <value>Default permission mode</value>
     </data>
-    <data name="AgentSettingDefaultWorkspace" xml:space="preserve">
-        <value>Default workspace</value>
-    </data>
-    <data name="AgentSettingDefaultPlanMode" xml:space="preserve">
-        <value>Start new sessions in plan mode</value>
-    </data>
-    <data name="AgentSettingSubAgent" xml:space="preserve">
-        <value>Sub-agents</value>
-    </data>
     <data name="AgentSettingGeneralSubAgentModel" xml:space="preserve">
         <value>General sub-agent model</value>
     </data>
@@ -619,7 +610,7 @@
         <value>{0} running sessions were skipped.</value>
     </data>
     <data name="RuntimeEngineSetting" xml:space="preserve">
-        <value>Runtime Engine Setting</value>
+        <value>Local Models</value>
     </data>
     <data name="CurrentEngineTypeSetting" xml:space="preserve">
         <value>Current Engine Type:</value>
@@ -1069,6 +1060,21 @@
     </data>
     <data name="SettingsWindowTitle" xml:space="preserve">
         <value>Settings</value>
+    </data>
+    <data name="SettingsNavGroupApp" xml:space="preserve">
+        <value>Application</value>
+    </data>
+    <data name="SettingsNavGroupAgent" xml:space="preserve">
+        <value>Intelligence</value>
+    </data>
+    <data name="SettingsNavGroupHelp" xml:space="preserve">
+        <value>Help</value>
+    </data>
+    <data name="SettingsSearchPlaceholder" xml:space="preserve">
+        <value>Search settings</value>
+    </data>
+    <data name="SettingsSearchNoResult" xml:space="preserve">
+        <value>No matching setting</value>
     </data>
     <data name="ApplicationUpdate" xml:space="preserve">
         <value>Application Update</value>

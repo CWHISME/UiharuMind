@@ -1,0 +1,49 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             mc:Ignorable="d" d:DesignWidth="720" d:DesignHeight="60"
+             x:Class="UiharuMind.Shared.Controls.SettingsRow">
+
+    <!-- 设置行 = 标题 + 说明 + 控件，行 MinHeight=44。
+         说明固定走全局 muted（12 + SemiGrey5），页面不再手写字号/灰阶。
+         分隔线在行底：卡片里最后一行的 DividerVisible="False"，其余默认有。
+         行内侧上下各留 3px：内容矮时被 MinHeight=44 吸收、行高不变；
+         说明一换行行高长出来时，这 3px 就是行内呼吸感，不会贴住下一条 -->
+    <StackPanel>
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16" MinHeight="44">
+            <StackPanel VerticalAlignment="Center" Spacing="3" Margin="0,3">
+                <!-- 初始默认收起：Header 全程为 null 时不会触发变更，空串会撑起一行 -->
+                <TextBlock x:Name="HeaderText"
+                           Text="{Binding Header, RelativeSource={RelativeSource AncestorType=controls:SettingsRow}}"
+                           TextWrapping="Wrap"
+                           IsVisible="False" />
+                <TextBlock x:Name="DescriptionText"
+                           Classes="muted"
+                           Text="{Binding Description, RelativeSource={RelativeSource AncestorType=controls:SettingsRow}}"
+                           TextWrapping="Wrap"
+                           IsVisible="False" />
+            </StackPanel>
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal"
+                        Spacing="6"
+                        VerticalAlignment="Center"
+                        Margin="0,3">
+                <ContentPresenter Content="{Binding Field, RelativeSource={RelativeSource AncestorType=controls:SettingsRow}}" />
+                <controls:ThemedSvgIconButton x:Name="ResetButton"
+                                              IconName="undo"
+                                              Width="22"
+                                              Height="22"
+                                              VerticalAlignment="Center"
+                                              ToolTip.Tip="{Binding ResetToolTip, RelativeSource={RelativeSource AncestorType=controls:SettingsRow}}"
+                                              Command="{Binding ResetCommand, RelativeSource={RelativeSource AncestorType=controls:SettingsRow}}"
+                                              IsVisible="False" />
+            </StackPanel>
+        </Grid>
+        <Border x:Name="Divider"
+                Height="1"
+                Background="{DynamicResource SemiGrey2}"
+                IsVisible="{Binding DividerVisible, RelativeSource={RelativeSource AncestorType=controls:SettingsRow}}" />
+    </StackPanel>
+</UserControl>

@@ -11,8 +11,11 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Shared.Shell;
+using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
+using UiharuMind.Generated;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Configs;
@@ -40,6 +43,13 @@ public partial class QuickToolSettingViewData : ViewModelBase
     /// <summary>视觉类快捷工具的默认模型。null = 跟随全局视觉模型自动挑选。</summary>
     [ObservableProperty] private ModelRunningData? _defaultVisionModel;
 
+    /// <summary>最近一次改动的反馈文本（如「已保存」），空串不显示</summary>
+    [ObservableProperty] private string _statusText = string.Empty;
+
+    // 「值≠出厂值」才显示恢复默认：null = 跟随顶栏/自动挑选，是出厂态，不显示
+    public bool IsDefaultModelNotDefault => DefaultModel is not null;
+    public bool IsDefaultVisionModelNotDefault => DefaultVisionModel is not null;
+
     public QuickToolSettingViewData()
     {
         LoadAvailableModels();
@@ -62,12 +72,17 @@ public partial class QuickToolSettingViewData : ViewModelBase
     {
         QuickToolSetting.Current.DefaultModelName = value?.ModelName ?? string.Empty;
         _writeBack.Save();
+        OnPropertyChanged(nameof(IsDefaultModelNotDefault));
+        // 回填/模型列表刷新时 IsLoading 为真，不弹反馈；只有用户真的改了才提示
+        if (!_writeBack.IsLoading) StatusText = Loc.Text(LangKey.ShortcutSavedTips);
     }
 
     partial void OnDefaultVisionModelChanged(ModelRunningData? value)
     {
         QuickToolSetting.Current.DefaultVisionModelName = value?.ModelName ?? string.Empty;
         _writeBack.Save();
+        OnPropertyChanged(nameof(IsDefaultVisionModelNotDefault));
+        if (!_writeBack.IsLoading) StatusText = Loc.Text(LangKey.ShortcutSavedTips);
     }
 
     /// <summary>
@@ -95,6 +110,19 @@ public partial class QuickToolSettingViewData : ViewModelBase
                 ? null
                 : AvailableVisionModels.FirstOrDefault(m => m.ModelName == visionName);
         }
+    }
+
+    // 单项恢复默认 = 回到「跟随顶栏 / 自动挑选」（null）。走属性赋值，handler 统一保存+反馈
+    [RelayCommand]
+    private void ResetDefaultModel()
+    {
+        DefaultModel = null;
+    }
+
+    [RelayCommand]
+    private void ResetDefaultVisionModel()
+    {
+        DefaultVisionModel = null;
     }
 
     /// <summary>
