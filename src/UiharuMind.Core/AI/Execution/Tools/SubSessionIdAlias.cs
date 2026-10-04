@@ -45,9 +45,23 @@ public static class SubSessionIdAlias
             return !scoped || exact.ParentSessionId == parentSessionId ? [exact] : [];
         }
 
+        List<ChatSessionMeta> hits = FindByPrefix(parentSessionId, shortOrFullId);
+        // 模型见了 8 位十六进制会当成截断的 GUID 自己补全(实测 76ebc8ee → 76ebc8ee-8ee4-4a9b-…),
+        // 补出来的后半截对不上任何会话。退回前 8 位再认一次,别让它因此另起新人
+        if (hits.Count == 0 && shortOrFullId.Length > ShortLength)
+        {
+            hits = FindByPrefix(parentSessionId, Short(shortOrFullId));
+        }
+
+        return hits;
+    }
+
+    private static List<ChatSessionMeta> FindByPrefix(string? parentSessionId, string prefix)
+    {
+        bool scoped = !string.IsNullOrEmpty(parentSessionId);
         return SessionManager.Instance.FindSessions(x =>
             x.IsSubSession
             && (!scoped || x.ParentSessionId == parentSessionId)
-            && x.SessionId.StartsWith(shortOrFullId, StringComparison.OrdinalIgnoreCase));
+            && x.SessionId.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
     }
 }

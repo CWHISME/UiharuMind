@@ -90,6 +90,7 @@ public static class SubAgentTool
     /// 模型若执意重试同一动作,无限拒绝等于无限烧轮次。用户批准一次即清零(见
     /// <see cref="ToolCall.NestedApprovalResolver"/>),掐的只是空转</summary>
     private const int MaxDeniedApprovalRounds = 4;
+    private const int MaxListedConversations = 8; //报错里列几位聊过的人:按最近排,够认出想找的那位即可
 
     /// <summary>
     /// 嵌套审批等用户点选的上限。只发生在有人看着时：无人值守上游当场拒绝，轮不到等待。
@@ -261,6 +262,9 @@ public static class SubAgentTool
     /// <summary>
     /// 收件人不认识时的回话。<b>两条路都给</b>:模型此刻不知道自己错在"名字拼错"
     /// 还是"把会话标识当人名",只说一条它会在另一条上再错一次。
+    ///
+    /// 聊过的人直接列出来照抄:只说"去回执里找标识",模型会凭印象补写(实测把短号补成 GUID),
+    /// 对不上就另起新人,前面做过的全丢。
     /// </summary>
     private static string UnknownRecipient(LaunchContext context, string target)
     {
@@ -268,8 +272,18 @@ public static class SubAgentTool
             ? "No one is listed by name; leave `to` empty to reach the default helper."
             : $"By name: {string.Join(", ", context.Roster.Select(x => x.Name))} "
               + "(or leave `to` empty for the default helper).";
-        return $"Error: no one called '{target}'. {names} "
-                + "To continue an earlier conversation, pass the id inside its [sub-session: …] line from the receipt.";
+        string error = $"Error: no one called '{target}'. {names}";
+
+        List<ChatSessionMeta> earlier = SessionManager.Instance.GetSubSessions(context.ParentSessionId);
+        if (earlier.Count == 0) return error;
+
+        IEnumerable<string> lines = earlier.Take(MaxListedConversations).Select(x =>
+        {
+            string who = x.SubAgentName.Length > 0 ? x.SubAgentName : x.Title; //身份即会话标题
+            return $"- {SubSessionIdAlias.Short(x.SessionId)}" + (who.Length > 0 ? $" — {who}" : string.Empty);
+        });
+        return error + "\nPeople you've already messaged in this session (pass the id as `to` to continue with them):\n"
+               + string.Join("\n", lines);
     }
 
     /// <summary>

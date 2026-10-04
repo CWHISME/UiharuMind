@@ -53,6 +53,16 @@ public class SubSessionIdAliasTests
         Assert.Equal(2, SubSessionIdAlias.Match("parent-alias", "alias-ab").Count);
     }
 
+    /// <summary>模型把短号「补全」成 GUID 样子：后半截对不上，退回前 8 位仍认得出</summary>
+    [Fact]
+    public void Match_ModelExtendedShortId_FallsBackToTheFirstEight()
+    {
+        using Registered run = new("aliasx01aa184164a46813b1e03a7dcd", "parent-alias");
+
+        Assert.Equal(run.Id, Assert.Single(SubSessionIdAlias.Match("parent-alias",
+            "aliasx01-8ee4-4a9b-b0b5-8e93a4f3c3c5")).SessionId);
+    }
+
     [Fact]
     public void Match_NoHit_IsEmpty()
     {

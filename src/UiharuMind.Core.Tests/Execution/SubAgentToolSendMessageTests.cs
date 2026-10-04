@@ -117,6 +117,28 @@ public class SubAgentToolSendMessageTests
         }
     }
 
+    /// <summary>
+    /// 认不出收件人时把聊过的人列出来照抄。实测只说「去回执里找标识」，模型凭印象补写对不上，
+    /// 转头另起新人，前面做过的全丢
+    /// </summary>
+    [Fact]
+    public async Task SendMessage_UnknownRecipient_ListsEarlierConversations()
+    {
+        string id = "listearly0001aa";
+        SessionManager.Instance.Add(new ChatSession { SessionId = id, ParentSessionId = "parent", Title = "审查员" });
+        try
+        {
+            string result = await Send("someone-made-up");
+
+            Assert.Contains("no one called", result);
+            Assert.Contains($"- {SubSessionIdAlias.Short(id)} — 审查员", result);
+        }
+        finally
+        {
+            SessionManager.Instance.Delete(id);
+        }
+    }
+
     private static async Task<string> Send(string to)
     {
         AIFunction function = Assert.IsAssignableFrom<AIFunction>(Tool());
