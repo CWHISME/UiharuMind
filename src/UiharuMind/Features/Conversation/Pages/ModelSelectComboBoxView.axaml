@@ -29,12 +29,7 @@
                         <StackPanel Orientation="Horizontal"
                                     Spacing="5"
                                     VerticalAlignment="Center">
-                            <controls:KindBadge Header="{loc:Loc ModelStateRemote}"
-                                                BadgeBackground="LimeGreen"
-                                                IsVisible="{Binding IsRemoteModel,Mode=OneWay}" />
-                            <controls:KindBadge Header="{loc:Loc ModelStateVision}"
-                                                BadgeBackground="Gold"
-                                                IsVisible="{Binding IsVisionModel,Mode=OneWay}" />
+                            <controls:ModelStateBadges IsRemote="{Binding IsRemoteModel}" IsVision="{Binding IsVisionModel}" />
                             <!-- 与 18px 徽章光学对齐走 title-tweak；别用 line-tight，它压行盒会裁掉 g/q 下伸部 -->
                             <TextBlock Text="{Binding ModelName}"
                                        Classes="title-tweak"
@@ -57,12 +52,7 @@
                                     Spacing="5"
                                     VerticalAlignment="Center"
                                     IsVisible="{Binding ., Converter={x:Static ObjectConverters.IsNotNull}}">
-                            <controls:KindBadge Header="{loc:Loc ModelStateRemote}"
-                                                BadgeBackground="LimeGreen"
-                                                IsVisible="{Binding IsRemoteModel,Mode=OneWay}" />
-                            <controls:KindBadge Header="{loc:Loc ModelStateVision}"
-                                                BadgeBackground="Gold"
-                                                IsVisible="{Binding IsVisionModel,Mode=OneWay}" />
+                            <controls:ModelStateBadges IsRemote="{Binding IsRemoteModel}" IsVision="{Binding IsVisionModel}" />
                             <TextBlock Text="{Binding ModelName}"
                                        Classes="title-tweak"
                                        VerticalAlignment="Center"

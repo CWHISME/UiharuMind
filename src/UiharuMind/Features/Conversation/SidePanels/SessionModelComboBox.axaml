@@ -1,0 +1,24 @@
+<ComboBox xmlns="https://github.com/avaloniaui"
+          xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+          xmlns:panels="clr-namespace:UiharuMind.Features.Conversation.SidePanels"
+          xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+          x:Class="UiharuMind.Features.Conversation.SidePanels.SessionModelComboBox">
+    <!-- 选会话模型：下拉里徽章 + 名字；闭合态只放纯文本（放的地方都窄，徽章加长名必溢出），全名悬停看。
+         调用方只给 ItemsSource / SelectedItem，选中项的 tooltip 在后台代码里跟着选中项走 -->
+    <ComboBox.ItemTemplate>
+        <DataTemplate x:DataType="panels:SessionModelOption">
+            <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center"
+                        ToolTip.Tip="{Binding DisplayName}">
+                <controls:ModelStateBadges IsRemote="{Binding IsRemoteModel}" IsVision="{Binding IsVisionModel}" />
+                <TextBlock Text="{Binding DisplayName}" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+        </DataTemplate>
+    </ComboBox.ItemTemplate>
+    <ComboBox.SelectionBoxItemTemplate>
+        <DataTemplate x:DataType="panels:SessionModelOption">
+            <TextBlock Text="{Binding DisplayName}" VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis" />
+        </DataTemplate>
+    </ComboBox.SelectionBoxItemTemplate>
+</ComboBox>

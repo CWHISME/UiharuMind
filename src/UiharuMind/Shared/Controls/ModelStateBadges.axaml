@@ -1,0 +1,14 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             x:Class="UiharuMind.Shared.Controls.ModelStateBadges">
+    <!-- 模型状态徽章：远程（绿）、视觉（金），各自按标志显隐 -->
+    <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                Spacing="{Binding Spacing, RelativeSource={RelativeSource AncestorType=controls:ModelStateBadges}}">
+        <controls:KindBadge Header="{loc:Loc ModelStateRemote}" BadgeBackground="LimeGreen"
+                            IsVisible="{Binding IsRemote, RelativeSource={RelativeSource AncestorType=controls:ModelStateBadges}}" />
+        <controls:KindBadge Header="{loc:Loc ModelStateVision}" BadgeBackground="Gold"
+                            IsVisible="{Binding IsVision, RelativeSource={RelativeSource AncestorType=controls:ModelStateBadges}}" />
+    </StackPanel>
+</UserControl>

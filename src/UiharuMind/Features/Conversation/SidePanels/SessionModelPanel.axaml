@@ -21,37 +21,8 @@
                                     BadgeBackground="#CBE7FE"
                                     IsVisible="{Binding HasOverride}" />
             </StackPanel>
-            <!-- 闭合态只放纯文本：右栏窄，徽章加长名必溢出；全名悬停看 -->
-            <ComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding SelectedOption}"
-                      HorizontalAlignment="Stretch"
-                      ToolTip.Tip="{Binding SelectedOption.DisplayName}">
-                <ComboBox.ItemTemplate>
-                    <DataTemplate>
-                        <StackPanel Orientation="Horizontal"
-                                    Spacing="5"
-                                    VerticalAlignment="Center"
-                                    ToolTip.Tip="{Binding DisplayName}">
-                            <controls:KindBadge Header="{loc:Loc ModelStateRemote}"
-                                                BadgeBackground="LimeGreen"
-                                                IsVisible="{Binding IsRemoteModel, Mode=OneWay}" />
-                            <controls:KindBadge Header="{loc:Loc ModelStateVision}"
-                                                BadgeBackground="Gold"
-                                                IsVisible="{Binding IsVisionModel, Mode=OneWay}" />
-                            <TextBlock Text="{Binding DisplayName}"
-                                       VerticalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis" />
-                        </StackPanel>
-                    </DataTemplate>
-                </ComboBox.ItemTemplate>
-                <ComboBox.SelectionBoxItemTemplate>
-                    <DataTemplate>
-                        <TextBlock Text="{Binding DisplayName}"
-                                   VerticalAlignment="Center"
-                                   TextTrimming="CharacterEllipsis"
-                                   IsVisible="{Binding ., Converter={x:Static ObjectConverters.IsNotNull}}" />
-                    </DataTemplate>
-                </ComboBox.SelectionBoxItemTemplate>
-            </ComboBox>
+            <panels:SessionModelComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding SelectedOption}"
+                                         HorizontalAlignment="Stretch" />
             <TextBlock Text="{Binding EffectiveHint}" Classes="muted" TextWrapping="Wrap"
                        IsVisible="{Binding EffectiveHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
         </StackPanel>

@@ -79,30 +79,10 @@
                                         </StackPanel>
                                     </Grid>
                                 </CheckBox>
-                                <ComboBox Grid.Column="1" ItemsSource="{Binding ModelOptions}"
-                                          SelectedItem="{Binding SelectedModelOption}"
-                                          IsVisible="{Binding IsPicked}"
-                                          Width="190" VerticalAlignment="Center"
-                                          ToolTip.Tip="{Binding SelectedModelOption.DisplayName}">
-                                    <ComboBox.ItemTemplate>
-                                        <DataTemplate x:DataType="panels:SessionModelOption">
-                                            <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-                                                <controls:KindBadge Header="{loc:Loc ModelStateRemote}"
-                                                                    BadgeBackground="LimeGreen"
-                                                                    IsVisible="{Binding IsRemoteModel, Mode=OneWay}" />
-                                                <controls:KindBadge Header="{loc:Loc ModelStateVision}"
-                                                                    BadgeBackground="Gold"
-                                                                    IsVisible="{Binding IsVisionModel, Mode=OneWay}" />
-                                                <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
-                                            </StackPanel>
-                                        </DataTemplate>
-                                    </ComboBox.ItemTemplate>
-                                    <ComboBox.SelectionBoxItemTemplate>
-                                        <DataTemplate x:DataType="panels:SessionModelOption">
-                                            <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
-                                        </DataTemplate>
-                                    </ComboBox.SelectionBoxItemTemplate>
-                                </ComboBox>
+                                <panels:SessionModelComboBox Grid.Column="1" ItemsSource="{Binding ModelOptions}"
+                                                             SelectedItem="{Binding SelectedModelOption}"
+                                                             IsVisible="{Binding IsPicked}"
+                                                             Width="190" VerticalAlignment="Center" />
                             </Grid>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
