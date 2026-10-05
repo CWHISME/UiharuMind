@@ -157,9 +157,13 @@ internal sealed class SessionWaitCommand : IAsyncDevCommand
                 card.ResolveCommand.Execute(decision);
             }
 
-            // 交接文档在轮末写，那时这一轮已不算在跑：不等它的话，紧跟着的 quit 会把它掐掉
+            // 交接文档在轮末写，那时这一轮已不算在跑：不等它的话，紧跟着的 quit 会把它掐掉。
+            // 唤醒轮一开始就占住会话，界面的 IsGenerating 要等装配完才亮，中间约两秒：
+            // 不问占用的话，子代理回信刚落进历史就被当成跑完，下一步的 post 撞上唤醒轮
+            string? sessionId = conversation.CurrentMeta?.SessionId;
             bool busy = (foregroundOnly ? conversation.IsGenerating : conversation.HasPendingWork)
-                        || TurnDriver.IsCompacting(conversation.CurrentMeta?.SessionId);
+                        || (sessionId != null && SessionManager.Instance.Running.IsBusy(sessionId))
+                        || TurnDriver.IsCompacting(sessionId);
             idlePolls = busy ? 0 : idlePolls + 1;
         }
 
