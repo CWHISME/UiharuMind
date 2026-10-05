@@ -234,11 +234,16 @@ public partial class SessionListItem : ObservableObject
 
         Name = meta.Title;
         Description = meta.Description;
-        TimeString = CalcTimeString();
+        RefreshTimeString();
         OnPropertyChanged(nameof(IsGroup));
         OnPropertyChanged(nameof(HasDraft));
         OnPropertyChanged(nameof(IsDraftVisible));
     }
+
+    /// <summary>
+    /// 按现在的日期重算时间显示：元数据没变也会跨天（今天的「HH:mm」到明天要换成日期）
+    /// </summary>
+    public void RefreshTimeString() => TimeString = CalcTimeString();
 
     //================= 运行态 =================
 

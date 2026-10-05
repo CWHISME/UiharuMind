@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading;
 using Avalonia;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -53,6 +54,7 @@ public partial class SessionListModel : ObservableObject, IDisposable
     public IReadOnlyCollection<string> LastSelectedSessionIds => _lastSelectedByType.Values;
 
     private bool _suppressSelectionNotify;
+    private int _syncQueued; //已排着一次 Sync 还没跑(1),跨线程读写
 
     /// <summary>当前类型过滤后的显示集合（ListBox 绑这一份）</summary>
     public ObservableCollection<SessionListItem> Sessions { get; } = new();
@@ -148,35 +150,54 @@ public partial class SessionListModel : ObservableObject, IDisposable
         _post(() => RestoreSelectionQuietly(selected));
     }
 
-    /// <summary>把全量清单对到索引：删消失、补新增、接上新元数据、修顺序</summary>
+    /// <summary>
+    /// 排一次 <see cref="Sync"/>（回 UI 线程跑）。排着还没跑时再要的并进同一次——
+    /// 一轮落盘常连带几次会话头更新，全量对帐跑一次就够了。可在任意线程调用
+    /// </summary>
+    internal void RequestSync()
+    {
+        if (Interlocked.Exchange(ref _syncQueued, 1) == 1) return;
+        _post(() =>
+        {
+            // 先清标记再对帐:对帐途中又来的更新要另排一次,不能被这次吞掉
+            Volatile.Write(ref _syncQueued, 0);
+            Sync();
+        });
+    }
+
+    /// <summary>把全量清单对到索引：删消失、补新增、接上新元数据、修顺序。按标识定位，与条目数成线性</summary>
     private void ReconcileAll()
     {
         List<ChatSessionMeta> metas = ListAllSessions();
-        HashSet<string> wanted = new(metas.Count);
-        foreach (ChatSessionMeta meta in metas) wanted.Add(meta.SessionId);
+        Dictionary<string, SessionListItem> existing = new(_all.Count);
+        foreach (SessionListItem item in _all) existing[item.SessionId] = item;
 
-        // 先删再排:留着已消失的条目会让下标与目标顺序对不上
-        for (int i = _all.Count - 1; i >= 0; i--)
+        List<SessionListItem> ordered = new(metas.Count);
+        foreach (ChatSessionMeta meta in metas)
         {
-            if (wanted.Contains(_all[i].SessionId)) continue;
-            Detach(_all[i]);
-            ForgetMemory(_all[i].SessionId);
-            _all.RemoveAt(i);
-        }
-
-        for (int i = 0; i < metas.Count; i++)
-        {
-            ChatSessionMeta meta = metas[i];
-            int at = IndexOfAll(meta.SessionId);
-            if (at < 0)
+            if (existing.Remove(meta.SessionId, out SessionListItem? item))
             {
-                _all.Insert(i, Attach(new SessionListItem(meta, _messageService)));
-                continue;
+                // 索引每次落盘都换一个新的元数据对象:同一实例就是没变,只补跨天的时间显示
+                if (ReferenceEquals(item.Meta, meta)) item.RefreshTimeString();
+                else item.UpdateMeta(meta);
+            }
+            else
+            {
+                item = Attach(new SessionListItem(meta, _messageService));
             }
 
-            _all[at].UpdateMeta(meta);
-            if (at != i) MoveAll(at, i);
+            ordered.Add(item);
         }
+
+        // 剩下的是索引里已消失的
+        foreach (SessionListItem gone in existing.Values)
+        {
+            Detach(gone);
+            ForgetMemory(gone.SessionId);
+        }
+
+        _all.Clear();
+        _all.AddRange(ordered);
     }
 
     /// <summary>
@@ -197,9 +218,11 @@ public partial class SessionListModel : ObservableObject, IDisposable
         for (int i = 0; i < wanted.Count; i++)
         {
             SessionListItem item = wanted[i];
-            int at = Sessions.IndexOf(item);
+            // 常见情形只有一条浮到顶部,其余位置原本就对:先比当前位,对不上才往后找(前面的已排好)
+            if (i < Sessions.Count && ReferenceEquals(Sessions[i], item)) continue;
+            int at = IndexOfShown(item, i);
             if (at < 0) { Sessions.Insert(i, item); continue; }
-            if (at != i) Sessions.Move(at, i);
+            Sessions.Move(at, i);
         }
     }
 
@@ -330,10 +353,18 @@ public partial class SessionListModel : ObservableObject, IDisposable
     private List<ChatSessionMeta> ListAllSessions()
     {
         if (_source != null) return _source();
-        // 全量但排除子会话与群成员会话:左栏是跨会话导航,子会话是会话内的事,
-        // 群成员会话的入口是群的右栏成员列表——与 SessionManager 的两个出口同口径
-        return SessionManager.Instance.GetSessions().Where(x => !x.IsSubSession && !x.IsGroupMember).ToList();
+        return SessionManager.Instance.GetSessions().Where(IsListed).ToList();
     }
+
+    /// <summary>
+    /// 会话是否进左栏。子会话与群成员会话不进:左栏是跨会话导航,子会话是会话内的事,
+    /// 群成员会话的入口是群的右栏成员列表——与 SessionManager 的两个出口同口径
+    /// </summary>
+    /// <param name="meta">会话元数据</param>
+    /// <returns>进左栏为 true</returns>
+    internal static bool IsListed(ChatSessionMeta meta) => !meta.IsSubSession && !meta.IsGroupMember;
+
+    private static bool IsListed(ChatSession session) => !session.IsSubSession && !session.IsGroupMember;
 
     private bool BelongsHere(ChatSessionMeta meta)
     {
@@ -361,17 +392,20 @@ public partial class SessionListModel : ObservableObject, IDisposable
         return -1;
     }
 
-    private void MoveAll(int from, int to)
+    private int IndexOfShown(SessionListItem item, int from)
     {
-        SessionListItem item = _all[from];
-        _all.RemoveAt(from);
-        _all.Insert(to, item);
+        for (int i = from; i < Sessions.Count; i++)
+        {
+            if (ReferenceEquals(Sessions[i], item)) return i;
+        }
+
+        return -1;
     }
 
     private void OnSessionAdded(ChatSession session)
     {
         // 全量对帐自然处理归属：新会话不是本类型就只是不进显示集合，不会出现在别家
-        _post(() => Sync());
+        if (IsListed(session)) RequestSync();
     }
 
     private void OnSessionRemoved(ChatSession session) => _post(() => Remove(session.SessionId));
@@ -382,12 +416,13 @@ public partial class SessionListModel : ObservableObject, IDisposable
     /// </summary>
     private void OnSessionMetaUpdated(ChatSession session)
     {
-        // 每轮落盘都到这里(可能在后台线程),而条目是界面绑定的
-        _post(Sync);
+        // 每轮落盘都到这里(可能在后台线程),而条目是界面绑定的。
+        // 子会话、群成员不进左栏:它们的运行态经 OnRunStateChanged 刷到父会话/群壳那一行,不靠对帐
+        if (IsListed(session)) RequestSync();
     }
 
     /// <summary>同一档案的另一个实例改了会话(ADR 0064)。来自线程池</summary>
-    private void OnSessionsChangedExternally() => _post(Sync);
+    private void OnSessionsChangedExternally() => RequestSync();
 
     /// <summary>
     /// 角色改完落盘。身份翻转会让它名下的会话换侧（归属实时读角色、不存进元数据），

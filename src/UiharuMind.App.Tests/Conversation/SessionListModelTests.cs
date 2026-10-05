@@ -191,6 +191,59 @@ public class SessionListModelTests
         Assert.Same(itemC, model.Sessions[0]); //仍是同一个实例
     }
 
+    [Fact]
+    public void Sync_LeavesItemsAlone_WhenTheirMetaIsTheSameInstance()
+    {
+        //索引只替换落过盘的那一条的元数据对象,其余条目每次全量对帐都重发一串属性通知,几百条时界面跟着重算
+        List<ChatSessionMeta> metas = [Meta("a"), Meta("b"), Meta("c")];
+        using SessionListModel model = Create(() => metas);
+        List<string?> raised = new();
+        foreach (SessionListItem item in model.Sessions) item.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        metas[1] = Meta("b", "新标题");
+        model.Sync();
+
+        Assert.Contains(nameof(SessionListItem.Name), raised);
+        Assert.Equal("新标题", model.Sessions[1].Name);
+        int before = raised.Count;
+        model.Sync();
+        Assert.Equal(before, raised.Count);
+    }
+
+    [Fact]
+    public void RequestSync_CoalescesUntilThePostRuns()
+    {
+        //一轮落盘连带子会话、群成员几次 SaveMeta,每次都排一次全量对帐是白做
+        int reads = 0;
+        Queue<Action> posted = new();
+        using SessionListModel model = new(EConversationType.Agent, () =>
+        {
+            reads++;
+            return [Meta("a")];
+        }, posted.Enqueue, new RecordingMessageService());
+        while (posted.Count > 0) posted.Dequeue()();
+        reads = 0;
+
+        model.RequestSync();
+        model.RequestSync();
+        model.RequestSync();
+        while (posted.Count > 0) posted.Dequeue()();
+        Assert.Equal(1, reads);
+
+        model.RequestSync();
+        while (posted.Count > 0) posted.Dequeue()();
+        Assert.Equal(2, reads);
+    }
+
+    [Fact]
+    public void IsListed_ExcludesSubSessionsAndGroupMembers()
+    {
+        //它们不进左栏,会话头更新也就不该驱动左栏对帐
+        Assert.True(SessionListModel.IsListed(Meta("a")));
+        Assert.False(SessionListModel.IsListed(new ChatSessionMeta { SessionId = "s", ParentSessionId = "a" }));
+        Assert.False(SessionListModel.IsListed(new ChatSessionMeta { SessionId = "m", GroupId = "g" }));
+    }
+
     //================= 选中 =================
 
     [Fact]
@@ -401,6 +454,27 @@ public class SessionListModelTests
             Assert.True(item.IsAwaitingApproval);
             Assert.False(item.IsRunning);
         }
+    }
+
+    [Fact]
+    public void RunStateChange_RefreshesTheRowWithoutResync()
+    {
+        //转圈与审批橙点按事件里的标识(父会话/群壳)只刷那一行;子会话、群成员的会话头不再驱动对帐,靠的就是这一点
+        string id = Guid.NewGuid().ToString("N");
+        int reads = 0;
+        using SessionListModel model = Create(() =>
+        {
+            reads++;
+            return [Meta(id)];
+        });
+        reads = 0;
+
+        using (SessionManager.Instance.Running.BeginRun(id))
+        {
+            Assert.True(model.Sessions[0].IsRunning);
+        }
+
+        Assert.Equal(0, reads);
     }
 
     [Fact]
