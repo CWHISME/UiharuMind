@@ -261,7 +261,7 @@ public static class GroupTranscript
     /// 群里那一轮被用户私聊叫停、私聊结束后接回时，有没有新话都附上的一句（ADR 0063）。只给事实：
     /// 接着做、说结果、按私聊里的新意思改方向还是放下，由他看着自己的历史定。界面不画
     /// </summary>
-    public const string PrivateResumeNote = "（你上一轮在群里的活被用户私聊打断了。私聊里说的、做的，群里都看不到。）";
+    public const string PrivateResumeNote = "【你上一轮在群里的活被用户私聊打断了。私聊里说的、做的，群里都看不到。】";
 
     /// <summary>每轮重锚的开头：界面据此认出它、不画出来</summary>
     public const string VoiceReminderOpening = "（说话前记着：";
@@ -398,7 +398,8 @@ public static class GroupTranscript
     /// 把一条投递拆回各人的发言（呈现用；存储与供给仍是合成的一条）。
     /// 只认 <paramref name="speakerNames"/> 里的名字开头的 <c>[名字]: </c> 行——正文里别的中括号不会被误拆。
     /// 第一个发言人之前的（旧数据首次投递开头的场景说明）拆成无发言人的一段；
-    /// 每轮重锚与补位提示是说给模型的，不拆出来
+    /// 每轮重锚与补位提示是说给模型的，不拆出来；化身输入末尾的私下交代拆成一段无发言人的旁白
+    /// （渲染器按回执样式画，不并进最后一位发言人的气泡）
     /// </summary>
     /// <param name="text">投递正文</param>
     /// <param name="speakerNames">可能出现的发言人（成员与用户）</param>
@@ -408,7 +409,10 @@ public static class GroupTranscript
         string body = text;
 
         int reminder = body.LastIndexOf("\n\n" + VoiceReminderOpening, StringComparison.Ordinal);
-        if (reminder >= 0 && body.EndsWith('）')) body = body[..reminder];
+        if (reminder >= 0 && (body.EndsWith('）') || body.EndsWith('】'))) body = body[..reminder];
+
+        // 化身那份输入末尾的私下交代（捎话/提醒/无限模式/当轮提示）：说给化身的，不并进发言气泡，另作一段旁白
+        (body, IReadOnlyList<string> notes) = GroupAvatarTranscript.SplitSystemNotes(body);
 
         List<GroupDeliverySegment> segments = [];
         string? speaker = null;
@@ -429,6 +433,15 @@ public static class GroupTranscript
         }
 
         Flush();
+        if (notes.Count > 0)
+        {
+            string joined = string.Join("\n\n", notes);
+            // 空投递（没新发言）本身也是一段旁白：并成一个，免得两个小旁白叠着
+            if (segments.Count == 1 && segments[0].Speaker == null)
+                segments[0] = segments[0] with { Body = (segments[0].Body + "\n\n" + joined).Trim() };
+            else segments.Add(new GroupDeliverySegment(null, joined));
+        }
+
         return segments;
 
         void Flush()

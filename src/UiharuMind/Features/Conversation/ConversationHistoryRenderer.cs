@@ -22,6 +22,7 @@ using UiharuMind.Features.Conversation.Group;
 using UiharuMind.Features.Conversation.Items;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Utils;
 
 namespace UiharuMind.Features.Conversation;
 
@@ -82,8 +83,15 @@ public sealed class ConversationHistoryRenderer
         }
 
         TextConversationItem item = ConversationItemFactory.CreateUser(text, message);
-        // 化身替用户说的：成员看到的就是用户说的，这个标记只给用户回来复核、推翻用（ADR 0055）
-        if (ChatMessageAnnotations.GroupAvatarPostOf(message) != null) item.SenderName = Loc.Text(LangKey.GroupAvatarSender);
+        // 化身替用户说的：成员看到的就是用户说的，"化身"标记只画给用户看，供回来复核、推翻（ADR 0055）。
+        // 头像走化身自己的卡（有独立头像），不再套用户头像
+        if (ChatMessageAnnotations.GroupAvatarPostOf(message) is { } avatarSessionId)
+        {
+            item.SenderName = Loc.Text(LangKey.GroupAvatarSender);
+            if (SessionManager.Instance.Load(avatarSessionId)?.CharacterData is { } avatar)
+                item.Icon = IconUtils.GetCharacterBitmapOrDefault(avatar);
+        }
+
         return [_itemActions.Wire(item, message)];
     }
 

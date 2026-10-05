@@ -35,6 +35,27 @@ public class GroupDeliveryRendererTests
         Assert.Equal("嗯。", items[2].Message); //前缀剥掉了：不会再被当成链接引用定义
     }
 
+    /// <summary>
+    /// 化身会话里的投递：末尾的私下交代（捎话/提醒/无限模式/当轮提示）不并进发言气泡，另画成一段旁白（回执样式）
+    /// </summary>
+    [Fact]
+    public void AvatarNotes_AreRenderedAsNarration_NotMergedIntoSpeech()
+    {
+        ChatMessage delivery = new(ChatRole.User,
+            "[Alice]: 第一版好了\n\n" +
+            UiharuMind.Core.AI.Chat.Group.GroupAvatarTranscript.ReminderNote("我", "这类改动可以替我拍") + "\n\n" +
+            UiharuMind.Core.AI.Chat.Group.GroupAvatarTranscript.InfiniteNote);
+        ChatMessageAnnotations.MarkGroupDelivery(delivery);
+
+        IReadOnlyList<TextConversationItem> items = _renderer.Render(delivery);
+
+        Assert.Equal(2, items.Count);
+        Assert.Equal("第一版好了", items[0].Message);
+        Assert.True(items[1].IsNarration);
+        Assert.Contains("这类改动可以替我拍", items[1].Message);
+        Assert.Contains("无限模式", items[1].Message);
+    }
+
     [Theory]
     [InlineData("[Alice]: 旧投递没有标记", true)]
     [InlineData("（这是群聊「会审」。在场的有……）", true)]

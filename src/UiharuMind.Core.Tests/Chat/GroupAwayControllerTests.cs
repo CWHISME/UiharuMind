@@ -322,6 +322,34 @@ public class GroupAwayControllerTests
     }
 
     [Fact]
+    public async Task Silence_InInfiniteMode_PointsToInfiniteSectionInsteadOfEnding()
+    {
+        _runner.Replies[_avatar.SessionId] = _ => ""; //没写正文
+
+        _away.Start(_group, "目标", null, null, true);
+        await Until(() => _delays.Count == 1);
+
+        _delays[0].Due.SetResult();
+        await Until(() => _delays.Count == 2);
+        Assert.EndsWith(GroupAvatarTranscript.SilentNoteInfinite, LastAvatarInput());
+        Assert.True(_away.IsAway(_group.SessionId)); //没进展不结束离席
+    }
+
+    [Fact]
+    public async Task EmptyPush_InInfiniteMode_DoesNotTellToEnd()
+    {
+        foreach (string id in _group.GroupMemberSessionIds) _runner.Replies[id] = _ => GroupTranscript.PassReply;
+        _runner.Replies[_avatar.SessionId] = _ => "大家继续";
+
+        _away.Start(_group, "目标", null, null, true);
+        await Until(() => _delays.Count == 1);
+        _delays[0].Due.SetResult();
+        await Until(() => AvatarCalls() == 2);
+
+        Assert.EndsWith(GroupAvatarTranscript.EmptyPushNoteInfinite, LastAvatarInput());
+    }
+
+    [Fact]
     public async Task UserStop_WakesTheAvatarAfterTheFixedDelay_WithANote()
     {
         _runner.During[_alice.SessionId] = () =>

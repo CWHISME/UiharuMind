@@ -170,6 +170,27 @@ public class GroupAvatarTests
         Assert.Null(GroupAvatarTranscript.BriefingNote("黑猫", "  ", null, false, kickoff: false));
     }
 
+    /// <summary>
+    /// 无限模式的主体规矩住在化身卡里（系统提示头部、跨轮稳定），每轮投递只带一个模式标记：
+    /// 卡片改了这里跟着改，别让两边分叉
+    /// </summary>
+    [Fact]
+    public void AvatarCard_CoversInfiniteMode()
+    {
+        System.Reflection.Assembly assembly = typeof(CharacterData).Assembly;
+        string name = Assert.Single(assembly.GetManifestResourceNames(),
+            x => x.EndsWith("GroupAvatarAgent.md", StringComparison.Ordinal));
+        using System.IO.Stream stream = assembly.GetManifestResourceStream(name)!;
+        using System.IO.StreamReader reader = new(stream);
+        string card = reader.ReadToEnd();
+
+        Assert.Contains("## 无限模式", card);
+        string section = card[card.IndexOf("## 无限模式", StringComparison.Ordinal)..];
+        Assert.Contains("新方向", section);
+        // 与每轮标记对得上：标记置起"本次是无限模式"这个条件，卡片认同一个条件
+        Assert.Contains("本次是无限模式", section);
+    }
+
     private static IReadOnlyList<CharacterData> Cards(params string[] ids) =>
         ids.Select(x => new CharacterData { CharacterId = $"avatar-{x}", CharacterName = x }).ToList();
 }

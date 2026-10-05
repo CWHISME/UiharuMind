@@ -245,7 +245,9 @@ public sealed class GroupAwayController
         }
         else if (emptyPush)
         {
-            NoProgress(session, GroupAvatarTranscript.EmptyPushNote);
+            NoProgress(session, session.IsInfinite
+                ? GroupAvatarTranscript.EmptyPushNoteInfinite
+                : GroupAvatarTranscript.EmptyPushNote);
         }
         else
         {
@@ -360,7 +362,7 @@ public sealed class GroupAwayController
         // 跑的期间又有一波收场：不论这一轮结局如何，立刻再看一眼
         if (pending)
         {
-            Wake(session, NoteFor(turn.Result));
+            Wake(session, NoteFor(turn.Result, session.IsInfinite));
             return;
         }
 
@@ -368,7 +370,7 @@ public sealed class GroupAwayController
         {
             case EGroupAvatarTurnResult.Silent:
             case EGroupAvatarTurnResult.Failed:
-                NoProgress(session, NoteFor(turn.Result));
+                NoProgress(session, NoteFor(turn.Result, session.IsInfinite));
                 break;
             case EGroupAvatarTurnResult.Busy:
                 // 用户正在私聊化身：不算没进展（捎话重带在上面已安排；Busy 也不计出手次数）。
@@ -510,9 +512,11 @@ public sealed class GroupAwayController
         }
     }
 
-    private static string? NoteFor(EGroupAvatarTurnResult result) => result switch
+    private static string? NoteFor(EGroupAvatarTurnResult result, bool infinite) => result switch
     {
-        EGroupAvatarTurnResult.Silent => GroupAvatarTranscript.SilentNote,
+        EGroupAvatarTurnResult.Silent => infinite
+            ? GroupAvatarTranscript.SilentNoteInfinite
+            : GroupAvatarTranscript.SilentNote,
         EGroupAvatarTurnResult.Failed => GroupAvatarTranscript.FailedNote,
         _ => null,
     };
