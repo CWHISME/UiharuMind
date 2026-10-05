@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Configs.RemoteAI;
@@ -13,123 +14,76 @@ namespace UiharuMind.Core.Tests.AI;
 public class OpenAICompatibleReasoningRoundtripTests
 {
     [Fact]
-    public void StripSamplingParams_RemovesOnlySamplingKeys()
-    {
-        var json = new JsonObject
-        {
-            ["model"] = "kimi-k3",
-            ["temperature"] = 0.7,
-            ["top_p"] = 0.9,
-            ["presence_penalty"] = 0.5,
-            ["frequency_penalty"] = 0.5,
-            ["max_tokens"] = 131072,
-            ["thinking"] = new JsonObject { ["type"] = "enabled" },
-        };
-
-        OpenAICompatibleRequestRewriter.StripSamplingParams(json);
-
-        Assert.Null(json["temperature"]);
-        Assert.Null(json["top_p"]);
-        Assert.Null(json["presence_penalty"]);
-        Assert.Null(json["frequency_penalty"]);
-        Assert.Equal(131072, json["max_tokens"]!.GetValue<int>());
-        Assert.NotNull(json["thinking"]);
-    }
-
-    [Fact]
     public void RestoreReasoningContent_FillsMissingByCallId()
     {
-        var json = new JsonObject
-        {
-            ["messages"] = new JsonArray
-            {
-                new JsonObject
-                {
-                    ["role"] = "assistant",
-                    ["content"] = "查一下",
-                    ["tool_calls"] = new JsonArray
-                    {
-                        new JsonObject { ["id"] = "call-1", ["type"] = "function" },
-                    },
-                },
-            },
-        };
-        var reasoning = new Dictionary<string, string> { ["call-1"] = "先想好再调工具。" };
+        JsonObject message = RestoreFirstMessage(
+            """{"messages":[{"role":"assistant","content":"查一下","tool_calls":[{"id":"call-1","type":"function"}]}]}""",
+            new Dictionary<string, string> { ["call-1"] = "先想好再调工具。" });
 
-        OpenAICompatibleRequestRewriter.RestoreReasoningContent(json, reasoning);
-
-        var message = (JsonObject)json["messages"]![0]!;
         Assert.Equal("先想好再调工具。", message["reasoning_content"]!.GetValue<string>());
     }
 
     [Fact]
     public void RestoreReasoningContent_MatchesAnyCallId()
     {
-        var json = new JsonObject
-        {
-            ["messages"] = new JsonArray
-            {
-                new JsonObject
-                {
-                    ["role"] = "assistant",
-                    ["tool_calls"] = new JsonArray
-                    {
-                        new JsonObject { ["id"] = "call-unknown" },
-                        new JsonObject { ["id"] = "call-2" },
-                    },
-                },
-            },
-        };
-        var reasoning = new Dictionary<string, string> { ["call-2"] = "第二个调用的思考。" };
+        JsonObject message = RestoreFirstMessage(
+            """{"messages":[{"role":"assistant","tool_calls":[{"id":"call-unknown"},{"id":"call-2"}]}]}""",
+            new Dictionary<string, string> { ["call-2"] = "第二个调用的思考。" });
 
-        OpenAICompatibleRequestRewriter.RestoreReasoningContent(json, reasoning);
-
-        var message = (JsonObject)json["messages"]![0]!;
         Assert.Equal("第二个调用的思考。", message["reasoning_content"]!.GetValue<string>());
     }
 
     [Fact]
     public void RestoreReasoningContent_KeepsExistingContent()
     {
-        var json = new JsonObject
-        {
-            ["messages"] = new JsonArray
-            {
-                new JsonObject
-                {
-                    ["role"] = "assistant",
-                    ["reasoning_content"] = "已有的思考。",
-                    ["tool_calls"] = new JsonArray
-                    {
-                        new JsonObject { ["id"] = "call-1" },
-                    },
-                },
-            },
-        };
-        var reasoning = new Dictionary<string, string> { ["call-1"] = "新的思考，不该覆盖。" };
+        JsonObject message = RestoreFirstMessage(
+            """{"messages":[{"role":"assistant","reasoning_content":"已有的思考。","tool_calls":[{"id":"call-1"}]}]}""",
+            new Dictionary<string, string> { ["call-1"] = "新的思考，不该覆盖。" });
 
-        OpenAICompatibleRequestRewriter.RestoreReasoningContent(json, reasoning);
-
-        var message = (JsonObject)json["messages"]![0]!;
         Assert.Equal("已有的思考。", message["reasoning_content"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void RestoreReasoningContent_ReplacesExplicitNull()
+    {
+        JsonObject message = RestoreFirstMessage(
+            """{"messages":[{"role":"assistant","reasoning_content":null,"tool_calls":[{"id":"call-1"}]}]}""",
+            new Dictionary<string, string> { ["call-1"] = "补上的思考。" });
+
+        Assert.Equal("补上的思考。", message["reasoning_content"]!.GetValue<string>());
     }
 
     [Fact]
     public void RestoreReasoningContent_SkipsMessagesWithoutToolCalls()
     {
-        var json = new JsonObject
-        {
-            ["messages"] = new JsonArray
-            {
-                new JsonObject { ["role"] = "user", ["content"] = "你好" },
-            },
-        };
-        var reasoning = new Dictionary<string, string> { ["call-1"] = "用不上的思考。" };
+        JsonObject message = RestoreFirstMessage(
+            """{"messages":[{"role":"user","content":"你好"}]}""",
+            new Dictionary<string, string> { ["call-1"] = "用不上的思考。" });
 
-        OpenAICompatibleRequestRewriter.RestoreReasoningContent(json, reasoning);
-
-        var message = (JsonObject)json["messages"]![0]!;
         Assert.Null(message["reasoning_content"]);
+    }
+
+    /// <summary>只有要求回填的模型才去收集思考：别的模型一次都不调来源</summary>
+    [Fact]
+    public async Task ReasoningSource_IsOnlyInvokedForModelsThatRequireIt()
+    {
+        int invoked = await Task.Run(() =>
+        {
+            int count = 0;
+            LlmRequestContext.PendingReasoningSource = () =>
+            {
+                count++;
+                return new Dictionary<string, string> { ["c1"] = "思考" };
+            };
+            OpenAICompatibleRequestRewriter.For(new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "glm-5.2" } });
+            OpenAICompatibleRequestRewriter.For(model: null);
+            RequestRewrite rewrite = OpenAICompatibleRequestRewriter.For(
+                new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "kimi-k3" } });
+            Assert.NotNull(rewrite.ReasoningByCallId);
+            return count;
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, invoked);
     }
 
     [Fact]
@@ -151,5 +105,11 @@ public class OpenAICompatibleReasoningRoundtripTests
         };
 
         Assert.True(info.RequiresReasoningContentRoundtrip);
+    }
+
+    private static JsonObject RestoreFirstMessage(string json, Dictionary<string, string> reasoning)
+    {
+        string? rewritten = OpenAICompatibleRequestRewriterTests.Rewrite(json, new RequestRewrite(null, false, reasoning, false));
+        return (JsonObject)JsonNode.Parse(rewritten ?? json)!["messages"]![0]!;
     }
 }

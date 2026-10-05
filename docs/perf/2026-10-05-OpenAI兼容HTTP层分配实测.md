@@ -17,10 +17,11 @@
 | 4 | 远程模型都带 `max_tokens`，`Rewrite` 的快速返回从不成立；`CompactJson` 用默认编码器，中文全转 `\uXXXX` | 发出去的请求体 458KB → 595KB（+29.8%） | ✅ 改用宽松编码器（与 SDK 同口径），455KB |
 | 5 | 控制台日志汇对每条日志 `Console.WriteLine(LogItem)` | 请求体每条再拼一份（约 625KB，大对象堆），在请求线程上同步写 stdout（约 1ms） | ✅ 普通日志不再写控制台，Warning 以上照旧 |
 | 6 | Bodies 落盘先插值 `$"{Text}\n\n"` 再 `GetBytes` | 每条外置正文两次大对象堆分配 | ✅ 直接编码进池化缓冲：每条 1.29MB → 约 1.5KB |
-| 7 | 请求侧其余环节仍全在大对象堆：`MemoryStream` 逐次翻倍 + `GetString` + DOM 改写 + `ForLog`（DOM + 缩进串 + `StringBuilder`）+ 插值 | 每次调用约 7MB 大对象堆，gen2 回收与碎片的主要来源 | 原型已验证（见下），未做 |
-| 8 | `UnescapeJsonStringNewlines` 把转义的 `\\n` 也当换行 | `"C:\\new"` 在日志里显示成 `C:\` + 换行 + `ew`，只影响显示 | 随 7 一起改 |
+| 7 | 请求侧其余环节仍全在大对象堆：`MemoryStream` 逐次翻倍 + `GetString` + DOM 改写 + `ForLog`（DOM + 缩进串 + `StringBuilder`）+ 插值 | 每次调用约 7MB 大对象堆，gen2 回收与碎片的主要来源 | ✅ P2：请求侧全程字节，大对象堆 ≈0 |
+| 8 | `UnescapeJsonStringNewlines` 把转义的 `\\n` 也当换行 | `"C:\\new"` 在日志里显示成 `C:\` + 换行 + `ew`，只影响显示 | ✅ 随 7 修掉：先解码再判换行 |
 
-本轮（1–6）之后：每次调用的托管分配降 17–19%，gen2 次数降三分之一；**已提交与碎片峰值没动**——那来自 7 的大对象堆分配。
+1–6 之后：每次调用的托管分配降 17–19%，gen2 次数降三分之一，但已提交与碎片峰值没动——那来自 7 的大对象堆分配。
+P2（7、8）落地后：长跑量级请求每次 41.5MB、大对象堆 ≈0；连跑 120 次 gen2 0 次、已提交峰值 128MB、碎片峰值 13MB，与原型持平。
 
 ## 读数
 
@@ -38,42 +39,43 @@
 
 ### 端到端：一次流式调用（MEAI → SDK → 我们这层 → 假服务端，DeepSeek 模型）
 
-| | 修前 | 修后（本轮） | 请求侧也字节化（原型） |
-|---|---|---|---|
-| 小请求 | 48.6MB | 40.5MB | 40.4MB |
-| 长跑量级请求 | 59.5MB（大对象堆 9.4MB） | 48.2MB（大对象堆 7.0MB） | 41.5MB（大对象堆 ≈0） |
+| | 修前 | P0 + P1 | P2 原型 | P2 落地 |
+|---|---|---|---|---|
+| 小请求 | 48.6MB | 40.5MB | 40.4MB | 40.5MB |
+| 长跑量级请求 | 59.5MB（大对象堆 9.4MB） | 48.2MB（大对象堆 7.0MB） | 41.5MB（大对象堆 ≈0） | 41.5MB（大对象堆 ≈0） |
 
 剩下约 40MB/次是 SDK / MEAI（10-02 问题一），不在这层。
 
 ### 连跑 120 次长跑量级调用（带约 100MB 常驻对象模拟会话数据，工作站并发 GC）
 
-| | 修前 | 修后（本轮） | 请求侧也字节化（原型） |
-|---|---|---|---|
-| gen0 / gen1 / gen2 | 770 / 45–47 / 15 | 629–632 / 31–36 / 10 | 622–626 / 10–21 / 0 |
-| 已提交峰值 | 210MB | 216MB | 126MB |
-| 碎片峰值 | 87–90MB | 89–93MB | 10–12MB |
-| 大对象堆峰值 | 165MB | 184–188MB | 13MB |
+| | 修前 | P0 + P1 | P2 原型 | P2 落地 |
+|---|---|---|---|---|
+| gen0 / gen1 / gen2 | 770 / 45–47 / 15 | 629–632 / 31–36 / 10 | 622–626 / 10–21 / 0 | 622 / 22–23 / 0 |
+| 已提交峰值 | 210MB | 216MB | 126MB | 128–129MB |
+| 碎片峰值 | 87–90MB | 89–93MB | 10–12MB | 13MB |
+| 大对象堆峰值 | 165MB | 184–188MB | 13MB | 15MB |
 
 各跑两到四轮；gen2 次数每轮都一样，gen1 与碎片随轮浮动，给区间。
+落地比原型多的约 2MB 大对象堆是请求体日志的池化缓冲（入队时租、写线程还）留在共享池里；原型直接写文件，没有这份。
 
 ### 请求侧各环节（458KB 请求体，每次调用）
 
-| 环节 | 修前 | 修后（本轮） | 字节化原型 |
-|---|---|---|---|
-| 策略搬运（`MemoryStream` + `GetString` + `FromString`） | 1.61MB | 1.61MB | 0.6KB（池化） |
-| `Rewrite`（只加 `max_tokens`） | 1.67MB，发出 595KB | 1.22MB，发出 455KB | 0.46MB，发出 458KB |
-| `Rewrite`（DeepSeek：再回填 95 段思考） | 2.19MB | 1.50MB，发出 529KB | 0.61MB，发出 533KB |
-| 请求体日志 `ForLog` + 插值 | 3.67MB | 3.53MB | 0.6KB |
-| Bodies 落盘（39 万字符） | 1.29MB | 1.5KB | — |
-| 控制台汇 | 约 625KB + 约 1ms（请求线程上） | 0 | — |
-| 思考回填收集（`LazyChatClient`，每轮思考 240 / 3000 字） | 134KB / 1.22MB | 同左 | — |
+| 环节 | 修前 | P0 + P1 | 字节化原型 | P2 落地 |
+|---|---|---|---|---|
+| 策略搬运（`MemoryStream` + `GetString` + `FromString`） | 1.61MB | 1.61MB | 0.6KB（池化） | 0.46MB（池化 + 64KB 切段正文，全是小对象） |
+| `Rewrite`（只加 `max_tokens`） | 1.67MB，发出 595KB | 1.22MB，发出 455KB | 0.46MB，发出 458KB | 1KB（写进池化缓冲），发出 458KB |
+| `Rewrite`（DeepSeek：再回填 95 段思考） | 2.19MB | 1.50MB，发出 529KB | 0.61MB，发出 533KB | 86KB（95 段思考各一份小数组），发出 533KB |
+| 请求体日志 `ForLog` + 插值 | 3.67MB | 3.53MB | 0.6KB | 格式化 + 入队 27KB（连发时池里偶尔现租一块） |
+| Bodies 落盘（39 万字符） | 1.29MB | 1.5KB | — | 1.1KB |
+| 控制台汇 | 约 625KB + 约 1ms（请求线程上） | 0 | — | 0 |
+| 思考回填收集（`LazyChatClient`，每轮思考 240 / 3000 字） | 134KB / 1.22MB | 同左 | — | 22KB / 22KB；不回填的模型 0 |
 
-表中上百 KB 的分配都落在大对象堆（单份超过 85KB），思考回填收集除外（每段思考各是一份小对象）。
+修前与 P0 + P1 两列上百 KB 的分配都落在大对象堆（单份超过 85KB），思考回填收集除外（每段思考各是一份小对象）。
 
 CPU 不是问题：我们这层每次调用合计十几毫秒，对比几秒的网络与推理。`IndexOf` / `SearchValues` / `Utf8JsonReader` 本身已向量化，
 手写 `Unsafe` 指针循环量不出收益；杠杆在数据流——全程字节、不建 DOM、不经字符串、缓冲复用、大块不进大对象堆。
 
-## 本轮改了什么
+## P0 + P1 改了什么
 
 - **`SseSanitizingStream`**：读缓冲上直接找行界（`\n`、`\r\n`、裸 `\r` 都认，跨读的半行与被拆开的 `\r\n` 也认），
   不需要修的行原样拷贝；一次 `Read` 吐出已到手的全部整行，不等后续数据。末行诊断存字节、Dispose 时只解码一次。
@@ -86,48 +88,30 @@ CPU 不是问题：我们这层每次调用合计十几毫秒，对比几秒的�
 - 非流式 JSON 响应同样按字节修（`ReadOnlyMemoryContent`），不再 `ReadAsStringAsync` → `StringContent`。
 - 3–6 各一处小改，见结论速览；`ReplacedBody_IsDisposed`、`Rewriter_KeepsNonAsciiUnescaped` 两条测试在撤掉修复时会变红。
 
-## 下一步（下个会话专门做）
+## P2 改了什么（结论速览 7、8）
 
-### P2：请求侧字节化（结论速览 7、8）
+照原型落地，落地时用差分核对逐例比过落地与原型一致；之后原型与核对模式都已删掉，基准只量正式代码，语义由单测钉住。
 
-目标：每次调用约 7MB 的大对象堆分配降到 ≈0。原型的端到端读数：长跑量级请求每次 48.3MB → 41.4MB、大对象堆 7.1MB → ≈0；
-连跑 120 次 gen2 10 → 0、已提交峰值 216 → 126MB、碎片峰值约 91 → 11MB。原型都在 `src/scripts/perf/http-alloc/Proto/`，按依赖顺序：
-
-1. **日志加 UTF-8 正文入口**（`Core/SimpleLog`）。请求体日志现在是 `string` 进日志：`ForLog` 格式化出一份（内部还有 DOM 与 `StringBuilder`）、插值拼头行再一份；落盘那份本轮已改为编码进池化缓冲。
-   - `Log` / `LogManager` 加一个收「头行 + UTF-8 正文」的入口。日志是异步落盘，入队时把正文拷进池里租的缓冲，写线程写完还池；
-     `LogItem` 带上这份字节（与 `Text` 二选一）。
-   - `LogStore.Append` 的字节分支：外置正文直接 `Append`（正文与空行仍要一次写完，见 `AppendSpilled` 的注释）、
-     预览只解码首行、`ByteLength` 直接用字节长度。头行里的「N chars」要定：改报字节数，还是 `Encoding.UTF8.GetCharCount` 算一遍。
-   - `ILogger` 订阅方：App 的控制台汇 Debug 已不打印；Warning / Error 打头行加预览即可。`OnLogAppended` 派发的 `LogIndexEntry` 不变，面板不用动。
-   - 测试：`LogStoreTests` 补字节正文的往返（中文按字节算偏移）与写满滚动的边界。
-2. **`LlmBodyLogFormat` 字节化**：`Format(ReadOnlySpan<byte> json, IBufferWriter<byte> output)`。原型 `Utf8BodyLogFormat`：
-   一遍 `Utf8JsonReader`、自己排版（两格缩进、`": "`、空容器 `{}` / `[]`，与 `Utf8JsonWriter` 缩进口径一致；
-   `Utf8JsonWriter.WriteRawValue` 不缩进数字，所以不用它）；字符串按宽松编码器转义、真换行原样留下（顺带修掉 8）；base64 在解码后的字符串上判。
-   大请求体输出与 `ForLog` 逐字相同。失败路径 `OpenAICompatibleHttpHandler.ReadBodySnippetAsync` 一并改走字节版；之后 `ForLog(string)` 若没有调用方就删。
-3. **`OpenAICompatibleRequestRewriter` 字节化**：`Rewrite(ReadOnlySpan<byte> json, ..., IBufferWriter<byte> output) → bool`，不建 DOM。原型 `Utf8RequestRewriter`：
-   - 根对象：保留的属性原样拷；要设的键（额外参数、`tool_choice`）删掉旧的、统一追加在末尾；采样参数直接删。
-   - `messages`：只在要修 `"arguments":"null"` 或回填思考时逐条走进去，其余 `Skip`；回填插在消息对象的 `}` 前，已有 `"reasoning_content":null` 则只换值。
-     内层改动落地时用 `Utf8JsonSplice`（插入就是起点等于终点）。
-   - 插入值用宽松编码器序列化（与本轮的 `CompactJson` 同口径）。
-   - 根上的键顺序会变；JSON 语义不变，前缀缓存按渲染后的 token 算，不受影响。现有 `Rewriter_ForbidsToolCalls_FromTheCallContext` 的字面断言仍成立（键本来就在末尾）。
-4. **`OpenAICompatibleRequestPolicy`**：
-   - `TryComputeLength` 拿长度，SDK 正文 `WriteToAsync` 进池里租的整块，取代 `MemoryStream` 逐次翻倍与 `GetString`。
-   - 改写进池化缓冲 → 走 1 的字节入口记日志 → 发出去的正文切成 64KB 段的 `BinaryContent`（原型 `SegmentedContent`）。
-     段**不从池里租**：HTTP/2 可能在请求体发完之前就收到响应，那时还池会把别处的数据发出去；64KB 小于 85000 字节，不进大对象堆。
-     重试会再发一遍同一份正文，`WriteToAsync` 可重入。
-   - 无需改写时（本地模型没有额外参数）不替换，原样用 SDK 那份。
-   - 测试缝 `Func<string, string>` 换成字节版；`ChatClient_LogsTheRequestBodyOnce_AcrossRetries` 按头行里的字符数认日志，头行口径变了要跟着改。
-5. **验收**：`http-alloc.sh e2e` 与 `gc current` 的读数应接近表里的原型列；`compat` 通过；跑一个冒烟场景，看日志面板里的请求体与 Bodies.txt 照常可读。
-
-### 其余优化（小，可与 P2 同一会话做）
-
-- **思考回填按需收集**：`LazyChatClient` 每次请求都 `CollectReasoningByCallId`，不管模型要不要回填（只有 `RequiresReasoningContentRoundtrip` 的 DeepSeek 系用得上），
-  实测每次 134KB（每轮思考 240 字）到 1.22MB（3000 字）。可把 `LlmRequestContext.PendingReasoningByCallId` 换成惰性来源（例如 `Func` 或 `Lazy`），
-  由改写器只在需要回填时取；一条消息只有一段思考时直接用它的 `Text`，不过 `StringBuilder`（多段拼接只为老会话的逐块碎片）。
-- **改写器的非对象根**：`AsObject()` 对非对象根直接抛 `InvalidOperationException`，与注释「原样返回」不符。SDK 不会发这种正文，属潜在不一致；P2 字节版自然修掉。
-- **`OpenAICompatibleHttpHandler` 的两行响应日志**：`OpenAI-compatible response: … content-type` 与 `SanitizeResponse: mediaType=…` 几乎重复，可合成一行；
-  `_baseUri.AbsolutePath.Contains("chat/completions")` 每个响应算一次，可在构造时算好。量级很小，顺手。
-- **`DefaultLogger`**：全仓没有引用，Debug 仍写控制台。删掉，或与 App 同口径。
+- **日志的 UTF-8 正文入口**：`Log.Debug` / `Log.Warning(string lead, ReadOnlySpan<byte> utf8Body, …)`。
+  正文入队前拷进池里租的缓冲，写线程落完盘还池（`LogItem.ReleaseBody`）；条目的 `Text` 只是排在字节正文前的引导文字。
+  `LogStore` 两个分支都走 `LogItem.CopyUtf8To`，预览只解码首行用得上的那段。
+  头行的「N chars」仍报字符数（`GetCharCount` 算一遍，几十微秒），外置与否也仍按字符数判——与字符串正文同一口径。
+  `ILogger` 收到的原始消息是首行预览，`LogItem.ToString()` 对字节正文也只给预览：控制台不该吃下整份请求体。
+- **`LlmBodyLogFormat.Format(ReadOnlySpan<byte>, PooledByteWriter)`**：一遍 `Utf8JsonReader` 自己排版，字符串先解码再转义，
+  真换行原样留下（`"C:\\new"` 不再被拆成两行）。不是 JSON 就照抄原文。`ForLog(string)` 已删，失败路径的正文也走它。
+- **`OpenAICompatibleRequestRewriter.Rewrite(ReadOnlySpan<byte>, in RequestRewrite, IBufferWriter<byte>) → bool`**：
+  `OpenAICompatibleRequestRewriter.For(model)` 收集模型配置与请求上下文，改写本身是纯函数（测试直接给选项，不用造模型）。
+  内层改动没有用 `Utf8JsonSplice`：根对象要按「保留的 + 追加的」重拼，删相邻的两个属性时 `RemoveProperty` 的逗号会重叠，
+  所以根与内层合在一趟 `Build` 里拼。回填思考在消息收尾时才记下，可能排在同一条消息里修参数那处之前，拼之前按位置排序
+  （`NullReasoningBeforeToolCalls_WithArgumentFix_BothApply` 钉住）。非对象根、截断的 JSON 返回 false 照原样发。
+- **`OpenAICompatibleRequestPolicy`**：SDK 正文经 `PooledByteWriter.AsStream()` 拷进池化缓冲（不依赖 `TryComputeLength` 准不准，
+  它只作初始大小），改写进池化缓冲，发出去的是 `SegmentedBinaryContent`（64KB 段，不从池里租：HTTP/2 可能在请求体发完之前就收到响应，那时还池会把别处的数据发出去）。无需改写时不替换。
+  请求体日志的引导文字改报字节数：`OpenAI-compatible request (17,605 bytes): `，就是发到线上的大小，不必再数字符。
+- **思考回填按需收集**：`LlmRequestContext.PendingReasoningByCallId` 换成 `PendingReasoningSource`（`Func`），
+  只有 `RequiresReasoningContentRoundtrip` 的模型才调；一条消息只有一段思考时直接用它，不过 `StringBuilder`。
+- 顺手：响应日志两行合一（不清洗的端点在行尾标 `(not sanitized)`），路径判断挪到构造时；删掉无人引用的 `DefaultLogger`。
+- 冒烟 `view-image`（Agnes-2.5-Flash-无思考）：`Bodies.txt` 三条请求体两格缩进、真换行、中文原样、图片载荷抹成
+  `<170228 base64 chars>`；第二轮请求的消息前缀与上一轮逐条相同，`max_tokens` 追加在根的末尾。
 
 ## 跑测时踩到的事
 
@@ -141,15 +125,14 @@ CPU 不是问题：我们这层每次调用合计十几毫秒，对比几秒的�
 
 ```bash
 src/scripts/perf/http-alloc.sh sse            # 响应侧：每次调用 / 每块的分配（回归基线）
-src/scripts/perf/http-alloc.sh req            # 请求侧各环节：现状对 P2 原型
-src/scripts/perf/http-alloc.sh e2e            # 端到端一次流式调用：现状对 P2 原型
-src/scripts/perf/http-alloc.sh gc current     # 连跑 120 次；再跑一次 gc proto 对照
-src/scripts/perf/http-alloc.sh compat         # 差分核对：P2 原型与现状逐例比
+src/scripts/perf/http-alloc.sh req            # 请求侧各环节
+src/scripts/perf/http-alloc.sh e2e            # 端到端一次流式调用
+src/scripts/perf/http-alloc.sh gc             # 连跑 120 次长跑量级调用
 ```
 
 工程在 `src/scripts/perf/http-alloc/`，不在解决方案里；程序集名借用 `UiharuMind.Core.Tests` 拿 `InternalsVisibleTo`。脚本每次把 `UIHARU_HOME` 指到新的临时目录，跑完删掉。
 
-- 假服务端：`HttpMessageHandler` 回预先造好的 `text/event-stream` 字节；客户端照 `OpenAICompatibleChatClient.Create` 组装。
+- 假服务端：`HttpMessageHandler` 回预先造好的 `text/event-stream` 字节；客户端直接用 `OpenAICompatibleChatClient.Create` 建（与产品同一条管道）。
 - 分配：`GC.GetTotalAllocatedBytes(precise: true)` 前后差，每项先预热三次；耗时用 `DOTNET_TieredCompilation=0` 固定代码质量。
 - 大对象堆：进程内 `EventListener` 订 `Microsoft-Windows-DotNETRuntime` 的 GC 关键字（0x1），累加 `GCAllocationTick` 里 `AllocationKind = 1` 的 `AllocationAmount64`（约每 100KB 采一次，看量级）。
 - 碎片与已提交：每次调用后取 `GC.GetGCMemoryInfo()` 的 `FragmentedBytes`、`TotalCommittedBytes` 与第 3 代（大对象堆）大小取峰值。

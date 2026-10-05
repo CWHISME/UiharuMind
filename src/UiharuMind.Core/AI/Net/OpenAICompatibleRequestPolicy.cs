@@ -9,11 +9,19 @@
 
 using System.ClientModel;
 using System.ClientModel.Primitives;
-using System.Text;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.AI.Net;
+
+/// <summary>
+/// 处理一份 SDK 序列化出的请求体
+/// </summary>
+/// <param name="json">SDK 序列化出的请求体</param>
+/// <param name="output">要换上去的新正文写到这里</param>
+/// <returns>是否写了新正文；false 时照原样发 SDK 那份</returns>
+internal delegate bool RequestBodyPreparer(ReadOnlySpan<byte> json, PooledByteWriter output);
 
 /// <summary>
 /// 请求体在管道里<b>每次调用只改写、记录一次</b>（挂在重试策略之前，<see cref="PipelinePosition.PerCall"/>）。
@@ -21,19 +29,24 @@ namespace UiharuMind.Core.AI.Net;
 /// 原先这件事做在 HTTP 层，而 SDK 的重试发生在 HTTP 层之上：每撞一次 429 就把整份请求体重读、解析、改写、
 /// 记日志一遍。并行群聊里四十多万字符的请求体约 7MB/次，一轮长跑的限流重试合计约 1GB 分配，
 /// <c>Bodies.txt</c> 十几分钟就写满一代。改写结果只取决于请求体与调用上下文，重试时都不变，做一次即可。
+///
+/// 全程按字节：SDK 正文拷进池化缓冲、改写进池化缓冲、日志按字节格式化入队，发出去的是切段的正文，
+/// 一次调用不在大对象堆上留任何东西（忙时 gen2 与碎片主要就来自这里，实测见 docs/perf/2026-10-05）。
 /// </summary>
 internal sealed class OpenAICompatibleRequestPolicy : PipelinePolicy
 {
-    private readonly Func<string, string> _prepare; //改写并记录，返回要发出去的正文
+    private const int UnknownLengthHint = 64 * 1024;
+
+    private readonly RequestBodyPreparer _prepare;
 
     /// <summary>
     /// 按模型改写请求体并记日志
     /// </summary>
     /// <param name="model">目标模型</param>
-    public OpenAICompatibleRequestPolicy(ILlmModel? model) : this(json =>
+    public OpenAICompatibleRequestPolicy(ILlmModel? model) : this((json, output) =>
     {
-        string rewritten = OpenAICompatibleRequestRewriter.Rewrite(json, model);
-        LogRequest(rewritten);
+        bool rewritten = OpenAICompatibleRequestRewriter.Rewrite(json, OpenAICompatibleRequestRewriter.For(model), output);
+        LogRequest(rewritten ? output.WrittenSpan : json);
         return rewritten;
     })
     {
@@ -42,8 +55,8 @@ internal sealed class OpenAICompatibleRequestPolicy : PipelinePolicy
     /// <summary>
     /// 自定义请求体的处理（测试用）
     /// </summary>
-    /// <param name="prepare">收到 SDK 序列化出的正文，返回要发出去的正文</param>
-    internal OpenAICompatibleRequestPolicy(Func<string, string> prepare)
+    /// <param name="prepare">收到 SDK 序列化出的正文，决定要不要换</param>
+    internal OpenAICompatibleRequestPolicy(RequestBodyPreparer prepare)
     {
         _prepare = prepare;
     }
@@ -52,9 +65,9 @@ internal sealed class OpenAICompatibleRequestPolicy : PipelinePolicy
     {
         if (TakeBody(message) is { } body)
         {
-            using MemoryStream stream = new();
-            body.WriteTo(stream, message.CancellationToken);
-            Replace(message, body, stream);
+            using PooledByteWriter json = Rent(body);
+            body.WriteTo(json.AsStream(), message.CancellationToken);
+            Replace(message, body, json);
         }
 
         ProcessNext(message, pipeline, currentIndex);
@@ -65,9 +78,9 @@ internal sealed class OpenAICompatibleRequestPolicy : PipelinePolicy
     {
         if (TakeBody(message) is { } body)
         {
-            using MemoryStream stream = new();
-            await body.WriteToAsync(stream, message.CancellationToken).ConfigureAwait(false);
-            Replace(message, body, stream);
+            using PooledByteWriter json = Rent(body);
+            await body.WriteToAsync(json.AsStream(), message.CancellationToken).ConfigureAwait(false);
+            Replace(message, body, json);
         }
 
         await ProcessNextAsync(message, pipeline, currentIndex).ConfigureAwait(false);
@@ -76,10 +89,15 @@ internal sealed class OpenAICompatibleRequestPolicy : PipelinePolicy
     private static BinaryContent? TakeBody(PipelineMessage message) =>
         string.Equals(message.Request.Method, "POST", StringComparison.OrdinalIgnoreCase) ? message.Request.Content : null;
 
-    private void Replace(PipelineMessage message, BinaryContent body, MemoryStream stream)
+    private static PooledByteWriter Rent(BinaryContent body) =>
+        new(body.TryComputeLength(out long length) && length < int.MaxValue ? (int)length : UnknownLengthHint);
+
+    private void Replace(PipelineMessage message, BinaryContent body, PooledByteWriter json)
     {
-        string json = Encoding.UTF8.GetString(stream.GetBuffer(), 0, (int)stream.Length);
-        message.Request.Content = BinaryContent.Create(BinaryData.FromString(_prepare(json)));
+        using PooledByteWriter output = new(json.WrittenCount + 4096);
+        if (!_prepare(json.WrittenSpan, output)) return; //无需改写就原样用 SDK 那份
+
+        message.Request.Content = new SegmentedBinaryContent(output.WrittenSpan);
         // 换下来的这份要自己释放：Content 的 setter 只赋值不释放，而流式调用里 SDK 自己那次 Dispose 发生在序列化之前，
         // 上面 WriteTo 时现租的池化缓冲段（16KB 一段）原本只能等 message 释放时还，换掉之后就永远还不回去了
         body.Dispose();
@@ -90,9 +108,10 @@ internal sealed class OpenAICompatibleRequestPolicy : PipelinePolicy
     /// 超过阈值的正文由日志层外置到 <c>Bodies.txt</c>，面板只吃索引。
     /// 仍然抹 base64：那不是截断，是把毫无阅读价值的附件载荷（一张图就十几 MB）换成一句体量说明。
     /// </summary>
-    private static void LogRequest(string content)
+    private static void LogRequest(ReadOnlySpan<byte> body)
     {
-        Log.Debug($"OpenAI-compatible request ({content.Length:N0} chars): {LlmBodyLogFormat.ForLog(content)}",
-            ELogCategory.LlmRequest);
+        using PooledByteWriter formatted = new(body.Length + body.Length / 4);
+        LlmBodyLogFormat.Format(body, formatted);
+        Log.Debug($"OpenAI-compatible request ({body.Length:N0} bytes): ", formatted.WrittenSpan, ELogCategory.LlmRequest);
     }
 }

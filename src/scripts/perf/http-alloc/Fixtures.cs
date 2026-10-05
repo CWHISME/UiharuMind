@@ -158,19 +158,6 @@ internal sealed class CaptureHandler(byte[] sse, bool capture = false) : HttpMes
 
 internal static class Clients
 {
-    /// <summary>照 OpenAICompatibleChatClient.Create 组装，只是请求策略可以换（对比 P2 原型用）</summary>
-    public static IChatClient Create(HttpMessageHandler handler, PipelinePolicy requestPolicy)
-    {
-        var httpClient = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
-        var options = new OpenAIClientOptions
-        {
-            Transport = new HttpClientPipelineTransport(httpClient),
-            NetworkTimeout = Timeout.InfiniteTimeSpan,
-        };
-        options.AddPolicy(requestPolicy, PipelinePosition.PerCall);
-        return new ChatClient("deepseek-v4-flash", new ApiKeyCredential("key"), options).AsIChatClient();
-    }
-
     public static async Task ConsumeAsync(IChatClient client, IEnumerable<ChatMessage> messages, ChatOptions? options)
     {
         await foreach (var _ in client.GetStreamingResponseAsync(messages, options))

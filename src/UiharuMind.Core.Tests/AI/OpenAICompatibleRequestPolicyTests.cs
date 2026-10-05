@@ -19,10 +19,11 @@ public class OpenAICompatibleRequestPolicyTests
     public async Task Retries_ResendTheBodyRewrittenOnce()
     {
         int prepared = 0;
-        var policy = new OpenAICompatibleRequestPolicy(json =>
+        var policy = new OpenAICompatibleRequestPolicy((json, output) =>
         {
             prepared++;
-            return json.Replace("\"a\":1", "\"a\":2", StringComparison.Ordinal);
+            output.Write(Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(json).Replace("\"a\":1", "\"a\":2", StringComparison.Ordinal)));
+            return true;
         });
         var server = new FlakyServer(failures: 2);
         ClientPipeline pipeline = ClientPipeline.Create(
@@ -72,8 +73,8 @@ public class OpenAICompatibleRequestPolicyTests
             Assert.Equal("ok", response.Text);
             Assert.Equal(3, server.Bodies.Count);
             Assert.Single(server.Bodies.Distinct());
-            // 预览只有首行（正文在后面），按首行里的字符数认出本测试那条：日志是全局的，并行的别的测试也会记
-            string head = $"OpenAI-compatible request ({server.Bodies[0].Length:N0} chars)";
+            // 预览只有首行（正文在后面），按首行里的字节数认出本测试那条：日志是全局的，并行的别的测试也会记
+            string head = $"OpenAI-compatible request ({Encoding.UTF8.GetByteCount(server.Bodies[0]):N0} bytes)";
             lock (logged) Assert.Single(logged, x => x.StartsWith(head, StringComparison.Ordinal));
         }
         finally
@@ -86,10 +87,10 @@ public class OpenAICompatibleRequestPolicyTests
     public async Task NonPostRequests_AreLeftAlone()
     {
         int prepared = 0;
-        var policy = new OpenAICompatibleRequestPolicy(json =>
+        var policy = new OpenAICompatibleRequestPolicy((_, _) =>
         {
             prepared++;
-            return json;
+            return false;
         });
         ClientPipeline pipeline = ClientPipeline.Create(
             new ClientPipelineOptions { Transport = new HttpClientPipelineTransport(new HttpClient(new FlakyServer(0))) },
@@ -104,22 +105,68 @@ public class OpenAICompatibleRequestPolicyTests
         Assert.Equal(0, prepared);
     }
 
+    /// <summary>无需改写时不换正文：原样发 SDK 那份，不多拷一遍</summary>
     [Fact]
-    public void Rewriter_ReturnsBodyUntouched_WhenNothingApplies()
+    public async Task UnchangedBody_IsNotReplaced()
     {
-        const string json = "{\"model\":\"m\",\"messages\":[]}";
+        var body = new TrackingContent("{\"a\":1}");
+        var server = new FlakyServer(0);
+        ClientPipeline pipeline = ClientPipeline.Create(
+            new ClientPipelineOptions { Transport = new HttpClientPipelineTransport(new HttpClient(server)) },
+            perCallPolicies: [new OpenAICompatibleRequestPolicy((_, _) => false)],
+            perTryPolicies: ReadOnlySpan<PipelinePolicy>.Empty, beforeTransportPolicies: ReadOnlySpan<PipelinePolicy>.Empty);
 
-        Assert.Same(json, OpenAICompatibleRequestRewriter.Rewrite(json, model: null));
+        PipelineMessage message = pipeline.CreateMessage();
+        message.Request.Method = "POST";
+        message.Request.Uri = new Uri("http://localhost/v1/chat/completions");
+        message.Request.Content = body;
+        await pipeline.SendAsync(message);
+
+        Assert.Same(body, message.Request.Content);
+        Assert.False(body.Disposed);
+        Assert.Equal(["{\"a\":1}"], server.Bodies);
+    }
+
+    /// <summary>超过一段的正文切段发出，收到的与写进去的逐字节相同</summary>
+    [Fact]
+    public async Task LargeReplacedBody_ArrivesIntact()
+    {
+        string large = "{\"content\":\"" + string.Concat(Enumerable.Repeat("长正文 segment ", 20_000)) + "\"}";
+        var server = new FlakyServer(0);
+        ClientPipeline pipeline = ClientPipeline.Create(
+            new ClientPipelineOptions { Transport = new HttpClientPipelineTransport(new HttpClient(server)) },
+            perCallPolicies: [new OpenAICompatibleRequestPolicy((_, output) =>
+            {
+                output.Write(Encoding.UTF8.GetBytes(large));
+                return true;
+            })],
+            perTryPolicies: ReadOnlySpan<PipelinePolicy>.Empty, beforeTransportPolicies: ReadOnlySpan<PipelinePolicy>.Empty);
+
+        PipelineMessage message = pipeline.CreateMessage();
+        message.Request.Method = "POST";
+        message.Request.Uri = new Uri("http://localhost/v1/chat/completions");
+        message.Request.Content = BinaryContent.Create(BinaryData.FromString("{}"));
+        await pipeline.SendAsync(message);
+
+        Assert.True(message.Request.Content!.TryComputeLength(out long length));
+        Assert.Equal(Encoding.UTF8.GetByteCount(large), length);
+        Assert.Equal([large], server.Bodies);
+    }
+
+    [Fact]
+    public void Rewriter_ReturnsFalse_WhenNothingApplies()
+    {
+        Assert.Null(OpenAICompatibleRequestRewriterTests.Rewrite("{\"model\":\"m\",\"messages\":[]}", default));
     }
 
     [Fact]
     public async Task Rewriter_ForbidsToolCalls_FromTheCallContext()
     {
         // AsyncLocal 只在这个异步流里生效，不漏到别的测试
-        string rewritten = await Task.Run(() =>
+        string? rewritten = await Task.Run(() =>
         {
             LlmRequestContext.ForbidToolCalls = true;
-            return OpenAICompatibleRequestRewriter.Rewrite("{\"model\":\"m\"}", model: null);
+            return OpenAICompatibleRequestRewriterTests.Rewrite("{\"model\":\"m\"}", OpenAICompatibleRequestRewriter.For(model: null));
         }, TestContext.Current.CancellationToken);
 
         Assert.Equal("{\"model\":\"m\",\"tool_choice\":\"none\"}", rewritten);
@@ -135,7 +182,11 @@ public class OpenAICompatibleRequestPolicyTests
         var body = new TrackingContent("{\"a\":1}");
         ClientPipeline pipeline = ClientPipeline.Create(
             new ClientPipelineOptions { Transport = new HttpClientPipelineTransport(new HttpClient(new FlakyServer(0))) },
-            perCallPolicies: [new OpenAICompatibleRequestPolicy(json => json)], perTryPolicies: ReadOnlySpan<PipelinePolicy>.Empty,
+            perCallPolicies: [new OpenAICompatibleRequestPolicy((json, output) =>
+            {
+                output.Write(json);
+                return true;
+            })], perTryPolicies: ReadOnlySpan<PipelinePolicy>.Empty,
             beforeTransportPolicies: ReadOnlySpan<PipelinePolicy>.Empty);
 
         PipelineMessage message = pipeline.CreateMessage();
@@ -151,11 +202,11 @@ public class OpenAICompatibleRequestPolicyTests
     [Fact]
     public async Task Rewriter_KeepsNonAsciiUnescaped()
     {
-        string rewritten = await Task.Run(() =>
+        string? rewritten = await Task.Run(() =>
         {
             LlmRequestContext.ForbidToolCalls = true;
-            return OpenAICompatibleRequestRewriter.Rewrite(
-                "{\"messages\":[{\"role\":\"user\",\"content\":\"你好<>&'+\"}]}", model: null);
+            return OpenAICompatibleRequestRewriterTests.Rewrite(
+                "{\"messages\":[{\"role\":\"user\",\"content\":\"你好<>&'+\"}]}", OpenAICompatibleRequestRewriter.For(model: null));
         }, TestContext.Current.CancellationToken);
 
         Assert.Contains("\"content\":\"你好<>&'+\"", rewritten);

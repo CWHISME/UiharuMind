@@ -83,26 +83,34 @@ public class LogManager
         _flushLoop = Task.Run(FlushLoopAsync);
     }
 
-    public void Log(string str, ELogCategory category = ELogCategory.General)
-    {
-        LogItem item = new(ELogType.Log, str, category);
-        Logger?.Debug(str, item);
-        Enqueue(item);
-    }
+    public void Log(string str, ELogCategory category = ELogCategory.General) =>
+        Write(new LogItem(ELogType.Log, str, category), str);
 
-    public void LogWarning(string str, ELogCategory category = ELogCategory.General)
-    {
-        LogItem item = new(ELogType.Warning, str, category);
-        Logger?.Warning(str, item);
-        Enqueue(item);
-    }
+    public void LogWarning(string str, ELogCategory category = ELogCategory.General) =>
+        Write(new LogItem(ELogType.Warning, str, category), str);
 
-    public void LogError(string str, ELogCategory category = ELogCategory.General)
-    {
-        LogItem item = new(ELogType.Error, str, category);
-        Logger?.Error(str, item);
-        Enqueue(item);
-    }
+    public void LogError(string str, ELogCategory category = ELogCategory.General) =>
+        Write(new LogItem(ELogType.Error, str, category), str);
+
+    /// <summary>
+    /// 记一条正文是 UTF-8 字节的日志（请求体这类大正文用它，整条正文不经过字符串）。
+    /// 正文入队前拷进池里租的缓冲，调用返回后调用方的那份即可复用。
+    /// <see cref="Logger"/> 收到的原始消息只是首行预览
+    /// </summary>
+    /// <param name="lead">排在正文之前的引导文字</param>
+    /// <param name="utf8Body">UTF-8 正文</param>
+    /// <param name="category">内容性质</param>
+    public void Log(string lead, ReadOnlySpan<byte> utf8Body, ELogCategory category = ELogCategory.General) =>
+        Write(new LogItem(ELogType.Log, lead, utf8Body, category), null);
+
+    /// <summary>
+    /// 记一条正文是 UTF-8 字节的警告，口径同 <see cref="Log(string, ReadOnlySpan{byte}, ELogCategory)"/>
+    /// </summary>
+    /// <param name="lead">排在正文之前的引导文字</param>
+    /// <param name="utf8Body">UTF-8 正文</param>
+    /// <param name="category">内容性质</param>
+    public void LogWarning(string lead, ReadOnlySpan<byte> utf8Body, ELogCategory category = ELogCategory.General) =>
+        Write(new LogItem(ELogType.Warning, lead, utf8Body, category), null);
 
     /// <summary>取当前索引的快照</summary>
     /// <returns>独立副本，调用方可自由遍历</returns>
@@ -147,11 +155,30 @@ public class LogManager
         _store?.Dispose();
     }
 
-    private void Enqueue(LogItem item)
+    private void Write(LogItem item, string? rawMessage)
     {
+        if (Logger is { } logger)
+        {
+            rawMessage ??= item.Preview;
+            switch (item.LogType)
+            {
+                case ELogType.Warning:
+                    logger.Warning(rawMessage, item);
+                    break;
+                case ELogType.Error:
+                    logger.Error(rawMessage, item);
+                    break;
+                default:
+                    logger.Debug(rawMessage, item);
+                    break;
+            }
+        }
+
         Interlocked.Increment(ref _enqueued);
+        if (_channel.Writer.TryWrite(item)) return;
         // 队列已关(进程正在退出)就把序号补回来,否则 WaitForDrain 会空等到超时
-        if (!_channel.Writer.TryWrite(item)) Interlocked.Increment(ref _processed);
+        item.ReleaseBody();
+        Interlocked.Increment(ref _processed);
     }
 
     /// 等到入队的都写完为止。<b>只等队列为空是不够的</b>——条目被取出但还没写完时，
@@ -180,6 +207,10 @@ public class LogManager
             catch (Exception e)
             {
                 Console.WriteLine($"Log write failed: {e.Message}"); //不能再走 Log,会递归
+            }
+            finally
+            {
+                item.ReleaseBody();
             }
 
             // 计数必须在派发之前推进:订阅方可能很慢,而 WaitForDrain 等的是"落盘完成"

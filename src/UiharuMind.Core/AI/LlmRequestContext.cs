@@ -25,19 +25,20 @@ public static class LlmRequestContext
         set => _forbidToolCalls.Value = value;
     }
 
-    private static readonly AsyncLocal<IReadOnlyDictionary<string, string>?> _pendingReasoningByCallId = new();
+    private static readonly AsyncLocal<Func<IReadOnlyDictionary<string, string>?>?> _pendingReasoningSource = new();
 
     /// <summary>
-    /// 本次请求历史里,按 tool_call id 索引的思考正文(reasoning_content)。
+    /// 本次请求历史里,按 tool_call id 索引的思考正文(reasoning_content)的来源。
     ///
     /// 思考模式下,助手消息带 tool_calls 时接口要求原样带回当时的思考正文,但标准
     /// ChatMessage→wire 消息转换认不出 <c>TextReasoningContent</c>,序列化时会把它悄悄丢掉。
     /// 丢失发生在 OpenAI SDK 内部、早于 HTTP 层能碰到请求体之前,只能趁历史消息对象还在时
-    /// (<see cref="Execution.LazyChatClient"/> 转发前)先按 call id 抄一份,让 HTTP 层照着回填。
+    /// (<see cref="Execution.LazyChatClient"/> 转发前)把它们挂在这里,让 HTTP 层照着回填。
+    /// 给的是来源而不是现成的表:只有要求回填的模型才去收集,其余模型一次都不扫
     /// </summary>
-    public static IReadOnlyDictionary<string, string>? PendingReasoningByCallId
+    public static Func<IReadOnlyDictionary<string, string>?>? PendingReasoningSource
     {
-        get => _pendingReasoningByCallId.Value;
-        set => _pendingReasoningByCallId.Value = value;
+        get => _pendingReasoningSource.Value;
+        set => _pendingReasoningSource.Value = value;
     }
 }

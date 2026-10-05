@@ -21,6 +21,28 @@ public static class Log
         LogManager.Instance.LogWarning(message?.ToString() ?? "Log Print Error: Null message", category);
     }
 
+    /// <summary>
+    /// 记一条正文是 UTF-8 字节的日志，整条正文不经过字符串
+    /// </summary>
+    /// <param name="lead">排在正文之前的引导文字</param>
+    /// <param name="utf8Body">UTF-8 正文，调用返回后即可复用</param>
+    /// <param name="category">内容性质</param>
+    public static void Debug(string lead, ReadOnlySpan<byte> utf8Body, ELogCategory category = ELogCategory.General)
+    {
+        LogManager.Instance.Log(lead, utf8Body, category);
+    }
+
+    /// <summary>
+    /// 记一条正文是 UTF-8 字节的警告，整条正文不经过字符串
+    /// </summary>
+    /// <param name="lead">排在正文之前的引导文字</param>
+    /// <param name="utf8Body">UTF-8 正文，调用返回后即可复用</param>
+    /// <param name="category">内容性质</param>
+    public static void Warning(string lead, ReadOnlySpan<byte> utf8Body, ELogCategory category = ELogCategory.General)
+    {
+        LogManager.Instance.LogWarning(lead, utf8Body, category);
+    }
+
     public static void Error(object? message, ELogCategory category = ELogCategory.General)
     {
         LogManager.Instance.LogError(message?.ToString() ?? "Log Print Error: Null message", category);

@@ -7,6 +7,8 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Text;
+
 namespace UiharuMind.Core.Core.SimpleLog;
 
 /// <summary>
@@ -62,7 +64,7 @@ public static class LogFormat
     /// <param name="item">日志条目</param>
     /// <returns>不带换行的头行</returns>
     public static string Header(LogItem item) =>
-        $"[{item.Time:yyyy-MM-dd HH:mm:ss}][{item.LogType}][{item.Category}] ({item.Text.Length:N0} chars)";
+        $"[{item.Time:yyyy-MM-dd HH:mm:ss}][{item.LogType}][{item.Category}] ({item.CharCount:N0} chars)";
 
     /// <summary>
     /// 取首行预览。列表行只显示一行，因此多行正文只取第一行。
@@ -72,9 +74,35 @@ public static class LogFormat
     /// <returns>不含换行、长度受限的预览</returns>
     public static string Preview(string text)
     {
-        int end = text.IndexOfAny(['\r', '\n']);
-        ReadOnlySpan<char> firstLine = end < 0 ? text : text.AsSpan(0, end);
-        if (firstLine.Length <= PreviewLength) return end < 0 ? firstLine.ToString() : firstLine.ToString() + '…';
-        return string.Concat(firstLine[..PreviewLength], "…");
+        int end = text.AsSpan().IndexOfAny('\r', '\n');
+        if (end < 0) return text.Length <= PreviewLength ? text : Truncate(text, more: false);
+        return Truncate(text.AsSpan(0, end), more: true);
+    }
+
+    /// <summary>
+    /// 引导文字 + UTF-8 正文的首行预览，只解码首行里用得上的那一小段
+    /// </summary>
+    /// <param name="lead">引导文字</param>
+    /// <param name="utf8Body">UTF-8 正文</param>
+    /// <returns>不含换行、长度受限的预览</returns>
+    public static string Preview(string lead, ReadOnlySpan<byte> utf8Body)
+    {
+        if (utf8Body.IsEmpty) return Preview(lead);
+        int end = lead.AsSpan().IndexOfAny('\r', '\n');
+        if (end >= 0) return Truncate(lead.AsSpan(0, end), more: true);
+        if (lead.Length >= PreviewLength) return Truncate(lead, more: true);
+
+        int lineEnd = utf8Body.IndexOfAny((byte)'\r', (byte)'\n');
+        ReadOnlySpan<byte> line = lineEnd < 0 ? utf8Body : utf8Body[..lineEnd];
+        int maxBytes = (PreviewLength - lead.Length + 1) * 4; //一个字符至多 4 字节,多解一个字符才判得出要不要截
+        bool cut = line.Length > maxBytes;
+        if (cut) line = line[..maxBytes];
+        return Truncate(string.Concat(lead, Encoding.UTF8.GetString(line)), more: lineEnd >= 0 || cut);
+    }
+
+    private static string Truncate(ReadOnlySpan<char> firstLine, bool more)
+    {
+        if (firstLine.Length > PreviewLength) return string.Concat(firstLine[..PreviewLength], "…");
+        return more ? string.Concat(firstLine, "…") : firstLine.ToString();
     }
 }

@@ -62,12 +62,12 @@ public sealed class LogStore : IDisposable
     public LogIndexEntry Append(LogItem item)
     {
         string header = LogFormat.Header(item);
-        string preview = LogFormat.Preview(item.Text);
-        int textByteLength = Encoding.UTF8.GetByteCount(item.Text);
+        string preview = item.Preview;
+        int textByteLength = item.Utf8ByteCount;
 
         lock (_locker)
         {
-            LogIndexEntry entry = item.Text.Length > LogFormat.SpillThreshold
+            LogIndexEntry entry = item.CharCount > LogFormat.SpillThreshold
                 ? AppendSpilled(item, header, preview, textByteLength)
                 : AppendInline(item, header, preview, textByteLength);
 
@@ -122,9 +122,24 @@ public sealed class LogStore : IDisposable
     // 正文进主流:头行 + 原样正文 + 空行
     private LogIndexEntry AppendInline(LogItem item, string header, string preview, int textByteLength)
     {
-        byte[] bytes = Encoding.UTF8.GetBytes($"{header}\n{item.Text}\n\n");
-        long start = _main.Append(bytes);
-        long textOffset = start + Encoding.UTF8.GetByteCount(header) + 1; //跳过头行与它的换行
+        int headerByteLength = Encoding.UTF8.GetByteCount(header);
+        byte[] bytes = ArrayPool<byte>.Shared.Rent(headerByteLength + textByteLength + 3);
+        long start;
+        try
+        {
+            int length = Encoding.UTF8.GetBytes(header, bytes);
+            bytes[length++] = (byte)'\n';
+            length += item.CopyUtf8To(bytes.AsSpan(length));
+            bytes[length++] = (byte)'\n';
+            bytes[length++] = (byte)'\n';
+            start = _main.Append(bytes.AsSpan(0, length));
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(bytes);
+        }
+
+        long textOffset = start + headerByteLength + 1; //跳过头行与它的换行
         return new LogIndexEntry(ELogStream.Main, _main.CurrentFileId, textOffset, textByteLength,
             item.LogType, item.Category, item.Time, preview);
     }
@@ -138,7 +153,7 @@ public sealed class LogStore : IDisposable
         long bodyOffset;
         try
         {
-            int length = Encoding.UTF8.GetBytes(item.Text.AsSpan(), bodyBytes);
+            int length = item.CopyUtf8To(bodyBytes);
             bodyBytes[length++] = (byte)'\n';
             bodyBytes[length++] = (byte)'\n';
             bodyOffset = _bodies.Append(bodyBytes.AsSpan(0, length));

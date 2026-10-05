@@ -19,7 +19,7 @@ switch (mode)
     case "all":
         SseBench.Run(alloc);
         await RequestBench.Run(alloc, home);
-        await EndToEndBench.Run(alloc, home);
+        await EndToEndBench.Run(alloc);
         break;
     case "sse":
         SseBench.Run(alloc);
@@ -28,15 +28,13 @@ switch (mode)
         await RequestBench.Run(alloc, home);
         break;
     case "e2e":
-        await EndToEndBench.Run(alloc, home);
+        await EndToEndBench.Run(alloc);
         break;
     case "gc":
-        await EndToEndBench.RunGc(args.Length > 1 ? args[1] : "current", home);
+        await EndToEndBench.RunGc();
         break;
-    case "compat":
-        return Compat.Run();
     default:
-        Console.Error.WriteLine($"未知模式 {mode}：sse | req | e2e | gc [current|proto] | compat | all");
+        Console.Error.WriteLine($"未知模式 {mode}：sse | req | e2e | gc | all");
         return 2;
 }
 

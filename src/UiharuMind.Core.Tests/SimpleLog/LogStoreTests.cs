@@ -96,6 +96,60 @@ public class LogStoreTests : IDisposable
     }
 
     /// <summary>
+    /// 字节正文与字符串正文落成同一种形态：读回的是「引导文字 + 正文」，偏移量按字节算，
+    /// 头行报的是字符数（与字符串正文同口径）
+    /// </summary>
+    [Fact]
+    public void Append_Utf8Body_ReadsBackLeadAndBody()
+    {
+        using LogStore store = new(_directory);
+        const string body = "{\n  \"content\": \"中文正文\"\n}";
+
+        LogIndexEntry first = store.Append(Utf8Item("请求 (1 条): ", body));
+        LogIndexEntry second = store.Append(new LogItem(ELogType.Log, "之后的一条"));
+        store.Flush();
+
+        Assert.Equal(ELogStream.Main, first.Stream);
+        Assert.Equal("请求 (1 条): " + body, store.ReadText(first));
+        Assert.Equal("之后的一条", store.ReadText(second));
+        Assert.Equal("请求 (1 条): {…", first.Preview);
+        Assert.Contains($"({("请求 (1 条): " + body).Length:N0} chars)", File.ReadAllText(Path.Combine(_directory, "Log.txt")));
+    }
+
+    /// <summary>外置与否按字符数判（与字符串正文同口径）：中文按字节早就超了阈值，按字符没超就仍在主流</summary>
+    [Fact]
+    public void Append_Utf8Body_SpillsByCharCount()
+    {
+        using LogStore store = new(_directory);
+        string inline = new('中', LogFormat.SpillThreshold - 10);
+        string spilled = "首行\n" + new string('中', LogFormat.SpillThreshold);
+
+        LogIndexEntry kept = store.Append(Utf8Item("", inline));
+        LogIndexEntry moved = store.Append(Utf8Item("lead: ", spilled));
+
+        Assert.Equal(ELogStream.Main, kept.Stream);
+        Assert.Equal(inline, store.ReadText(kept));
+        Assert.Equal(ELogStream.Bodies, moved.Stream);
+        Assert.Equal("lead: " + spilled, store.ReadText(moved));
+        Assert.Equal("lead: 首行…", moved.Preview);
+    }
+
+    /// <summary>预览只解码首行用得上的那段：超长首行照样截到上限并补省略号，引导文字里有换行就只取它的首行</summary>
+    [Fact]
+    public void Utf8Preview_TruncatesLikeTextPreview()
+    {
+        string longLine = new('长', LogFormat.PreviewLength * 3);
+
+        Assert.Equal(LogFormat.Preview("头" + longLine), LogFormat.Preview("头", Encoding.UTF8.GetBytes(longLine)));
+        Assert.Equal("只有一行", LogFormat.Preview("只有", "一行"u8));
+        Assert.Equal("失败: 429…", LogFormat.Preview("失败: 429\n", "{}"u8));
+        Assert.Equal("空正文", LogFormat.Preview("空正文", ReadOnlySpan<byte>.Empty));
+    }
+
+    private static LogItem Utf8Item(string lead, string body) =>
+        new(ELogType.Log, lead, Encoding.UTF8.GetBytes(body), ELogCategory.LlmRequest);
+
+    /// <summary>
     /// 旧版退出时写的是 JSON 数组，与新格式不兼容。启动时识别到就删，不写迁移
     /// </summary>
     [Fact]
@@ -229,6 +283,23 @@ public class LogManagerTests : IDisposable
         Assert.Equal("hello 日志", manager.ReadText(manager.GetSnapshot()[0]));
         manager.Shutdown();
         Assert.NotNull(dispatched);
+    }
+
+    /// <summary>字节正文入队前就拷了一份：调用方返回后立刻改写自己的缓冲，落盘的仍是原内容</summary>
+    [Fact]
+    public void LogUtf8_CopiesTheBodyBeforeReturning()
+    {
+        LogManager manager = new(_directory);
+        byte[] body = Encoding.UTF8.GetBytes("正文 body");
+
+        manager.Log("lead ", body, ELogCategory.LlmRequest);
+        body.AsSpan().Fill((byte)'x');
+        manager.Flush();
+
+        LogIndexEntry entry = Assert.Single(manager.GetSnapshot());
+        Assert.Equal("lead 正文 body", manager.ReadText(entry));
+        Assert.Equal(ELogCategory.LlmRequest, entry.Category);
+        manager.Shutdown();
     }
 
     /// <summary>

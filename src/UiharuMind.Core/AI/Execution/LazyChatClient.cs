@@ -48,7 +48,7 @@ public class LazyChatClient : IChatClient
         CancellationToken cancellationToken = default)
     {
         IReadOnlyList<ChatMessage> messageList = AsList(messages);
-        LlmRequestContext.PendingReasoningByCallId = CollectReasoningByCallId(messageList);
+        LlmRequestContext.PendingReasoningSource = () => CollectReasoningByCallId(messageList);
 
         IChatClient client = await ResolveAsync(cancellationToken).ConfigureAwait(false);
         ChatResponse response = await client.GetResponseAsync(messageList, options, cancellationToken)
@@ -82,7 +82,7 @@ public class LazyChatClient : IChatClient
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         IReadOnlyList<ChatMessage> messageList = AsList(messages);
-        LlmRequestContext.PendingReasoningByCallId = CollectReasoningByCallId(messageList);
+        LlmRequestContext.PendingReasoningSource = () => CollectReasoningByCallId(messageList);
 
         IChatClient client = await ResolveAsync(cancellationToken).ConfigureAwait(false);
         HashSet<string>? toolNames = CollectToolNames(options);
@@ -257,12 +257,12 @@ public class LazyChatClient : IChatClient
         messages as IReadOnlyList<ChatMessage> ?? messages.ToList();
 
     /// <summary>
-    /// 从历史消息里按 tool_call id 收集对应的思考正文,供 <see cref="LlmRequestContext.PendingReasoningByCallId"/>
+    /// 从历史消息里按 tool_call id 收集对应的思考正文,供 <see cref="LlmRequestContext.PendingReasoningSource"/>
     /// 使用——转发给底层客户端之前,消息里的 <see cref="TextReasoningContent"/> 还在,过了这一层就没处找了。
     /// 同一条 assistant 消息里的思考正文对该消息所有 tool_calls 一视同仁。
     ///
     /// 一条消息里可能躺着多段思考(老会话是逐 chunk 落下的碎片),要拼齐了发回去——
-    /// 只取其中一段等于把思考截成一句话,接口那边照样对不上。
+    /// 只取其中一段等于把思考截成一句话,接口那边照样对不上。只有一段时直接用它,不另拼一份。
     /// </summary>
     private static IReadOnlyDictionary<string, string>? CollectReasoningByCallId(IReadOnlyList<ChatMessage> messages)
     {
@@ -271,14 +271,18 @@ public class LazyChatClient : IChatClient
         {
             if (message.Role != ChatRole.Assistant) continue;
 
-            StringBuilder? reasoning = null;
+            string? single = null;
+            StringBuilder? joined = null;
             List<string>? callIds = null;
             foreach (AIContent content in message.Contents)
             {
                 switch (content)
                 {
+                    case TextReasoningContent { Text.Length: > 0 } rc when single == null:
+                        single = rc.Text;
+                        break;
                     case TextReasoningContent { Text.Length: > 0 } rc:
-                        (reasoning ??= new StringBuilder()).Append(rc.Text);
+                        (joined ??= new StringBuilder(single)).Append(rc.Text);
                         break;
                     case FunctionCallContent fc:
                         (callIds ??= new List<string>()).Add(fc.CallId);
@@ -286,8 +290,8 @@ public class LazyChatClient : IChatClient
                 }
             }
 
-            if (reasoning == null || callIds == null) continue;
-            string reasoningText = reasoning.ToString();
+            if (single == null || callIds == null) continue;
+            string reasoningText = joined?.ToString() ?? single;
             map ??= new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (string callId in callIds) map[callId] = reasoningText;
         }

@@ -11,9 +11,9 @@
 
 using System.Buffers;
 using System.Net.Http.Headers;
-using System.Text;
 using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.Core.LLM;
 
@@ -24,11 +24,11 @@ namespace UiharuMind.Core.Core.LLM;
 class OpenAICompatibleHttpHandler : DelegatingHandler
 {
     private readonly Uri _baseUri;
+    private readonly bool _isChatCompletions; //只有聊天补全的响应需要清洗
 
     public OpenAICompatibleHttpHandler(string address = "http://127.0.0.1:1369/v1/chat/completions")
-        : base(new HttpClientHandler())
+        : this(address, new HttpClientHandler())
     {
-        _baseUri = CreateChatCompletionUri(address).Uri;
     }
 
     /// <summary>
@@ -39,6 +39,7 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
     internal OpenAICompatibleHttpHandler(string address, HttpMessageHandler inner) : base(inner)
     {
         _baseUri = CreateChatCompletionUri(address).Uri;
+        _isChatCompletions = IsChatCompletions(_baseUri);
     }
 
     public OpenAICompatibleHttpHandler(string host = "http://127.0.0.1", int port = 1369,
@@ -51,7 +52,11 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
             Path = absolutePath
         };
         _baseUri = newUriBuilder.Uri;
+        _isChatCompletions = IsChatCompletions(_baseUri);
     }
+
+    private static bool IsChatCompletions(Uri uri) =>
+        uri.AbsolutePath.Contains("chat/completions", StringComparison.OrdinalIgnoreCase);
 
     private static UriBuilder CreateChatCompletionUri(string address)
     {
@@ -73,7 +78,8 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
         // 诊断:无条件记录响应媒体类型与状态码——SseSanitizingContent 只在 text/event-stream 时介入,
         // 非该媒体类型的流不经过 SseSanitizingStream,此类故障的桩也就全都不在链路上
         Log.Debug($"OpenAI-compatible response: {(int)response.StatusCode} {response.ReasonPhrase}, " +
-                  $"content-type: {response.Content?.Headers.ContentType?.MediaType ?? "(null)"}",
+                  $"content-type: {response.Content?.Headers.ContentType?.MediaType ?? "(null)"}" +
+                  (_isChatCompletions ? "" : " (not sanitized)"),
             ELogCategory.LlmResponse);
         await LogFailureAsync(response, cancellationToken);
         return await SanitizeResponseAsync(response, cancellationToken);
@@ -99,11 +105,20 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
         if (response.IsSuccessStatusCode) return;
 
         string? diagnostics = FormatDiagnosticHeaders(response);
-        string body = await ReadBodySnippetAsync(response, cancellationToken);
-        StringBuilder sb = new($"OpenAI-compatible request failed: {(int)response.StatusCode} {response.ReasonPhrase}");
-        if (diagnostics != null) sb.Append(" | ").Append(diagnostics);
-        if (body.Length > 0) sb.Append('\n').Append(body);
-        Log.Warning(sb.ToString(), ELogCategory.LlmResponse);
+        string head = $"OpenAI-compatible request failed: {(int)response.StatusCode} {response.ReasonPhrase}";
+        if (diagnostics != null) head += " | " + diagnostics;
+
+        byte[] body = await ReadBodyAsync(response, cancellationToken);
+        if (body.Length == 0)
+        {
+            Log.Warning(head, ELogCategory.LlmResponse);
+            return;
+        }
+
+        //不压成单行:日志面板自己会做单行摘要+详情展开,压了反而看不了格式
+        using PooledByteWriter formatted = new(body.Length + body.Length / 4);
+        LlmBodyLogFormat.Format(body, formatted);
+        Log.Warning(head + "\n", formatted.WrittenSpan, ELogCategory.LlmResponse);
     }
 
     /// <summary>
@@ -145,21 +160,19 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
     }
 
     // 读走正文后必须让它仍可再读:下游 SanitizeResponseAsync 与 OpenAI SDK 都还要各读一次,
-    // 因此先整体缓冲再取字符串。任何失败都不能影响这次响应本身,一律吞掉只放弃日志
-    private static async Task<string> ReadBodySnippetAsync(HttpResponseMessage response,
-        CancellationToken cancellationToken)
+    // 因此先整体缓冲再取。任何失败都不能影响这次响应本身,一律吞掉只放弃日志
+    private static async Task<byte[]> ReadBodyAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
-        if (response.Content == null) return string.Empty;
+        if (response.Content == null) return [];
         try
         {
-            await response.Content.LoadIntoBufferAsync();
-            string body = await response.Content.ReadAsStringAsync(cancellationToken);
-            return LlmBodyLogFormat.ForLog(body); //不压成单行:日志面板自己会做单行摘要+详情展开,压了反而看不了格式
+            await response.Content.LoadIntoBufferAsync(cancellationToken);
+            return await response.Content.ReadAsByteArrayAsync(cancellationToken);
         }
         catch (Exception e)
         {
             Log.Debug($"Read failed response body error: {e.Message}");
-            return string.Empty;
+            return [];
         }
     }
 
@@ -167,10 +180,9 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
     private async Task<HttpResponseMessage> SanitizeResponseAsync(HttpResponseMessage response,
         CancellationToken cancellationToken)
     {
-        if (!_baseUri.AbsolutePath.Contains("chat/completions", StringComparison.OrdinalIgnoreCase)) return response;
+        if (!_isChatCompletions) return response;
 
         var mediaType = response.Content.Headers.ContentType?.MediaType;
-        Log.Debug($"SanitizeResponse: mediaType='{mediaType ?? "(null)"}'", ELogCategory.LlmResponse);
         if (mediaType == "text/event-stream")
         {
             response.Content = new SseSanitizingContent(response.Content);
