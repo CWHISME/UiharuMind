@@ -266,6 +266,7 @@ public partial class SessionManager
         header.SessionId = sessionId;
         // 老数据定格（ADR 0050）：没存形态的会话按当前身份补写。此后身份翻转不再挪已有会话
         if (header.IsAgentForm == null) header.IsAgentForm = header.CharacterData.IsAgent;
+        header.MarkDraftSaved();
         return header;
     }
 

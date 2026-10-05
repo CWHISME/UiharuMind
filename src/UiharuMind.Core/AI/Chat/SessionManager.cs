@@ -597,6 +597,7 @@ public partial class SessionManager : Singleton<SessionManager>, IInitialize
         // 会话头冗余保存同一份元数据,索引损坏时可据此重建
         SaveUtility.Save(GetMetaPath(session.SessionId), session, SessionJsonOptions.Default);
         RememberMetaStamp(session.SessionId);
+        session.MarkDraftSaved();
 
         ChatSessionMeta meta = session.ToMeta();
         bool draftChanged;

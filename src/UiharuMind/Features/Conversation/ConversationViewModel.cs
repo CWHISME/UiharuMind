@@ -892,8 +892,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// </summary>
     public void Dispose()
     {
-        // 实例被弃用前把草稿落盘(静默,不动列表排序)。此后恢复靠会话头上的 ComposerDraft
-        if (CurrentSession is { } disposing) disposing.SaveMeta(false);
+        // 实例被弃用前把草稿落盘(静默,不动列表排序;没改就不写)。此后恢复靠会话头上的 ComposerDraft
+        CurrentSession?.SaveDraft();
 
         LlmManager.Instance.OnCurrentModelChanged -= OnCurrentModelChanged;
         SessionModel.Dispose();

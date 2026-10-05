@@ -37,6 +37,7 @@ public class ChatSession
 {
     private List<ChatMessage>? _history = []; //null = 已卸载,下次访问按 _historyReload 取回;卸载条件见 SessionManager 驻留策略(ADR 0036)
     private Func<List<ChatMessage>>? _historyReload; //卸载后把历史取回来的入口;只有落盘过的会话给得出
+    private string _savedDraft = ""; //最后一次读入或写进会话头的草稿
 
     /// <summary>存档格式版本(4 起:头文件 .meta.json + 历史 .history.jsonl 分离)</summary>
     public int FormatVersion { get; set; } = 4;
@@ -835,6 +836,19 @@ public class ChatSession
     {
         SessionManager.Instance.SaveMeta(this, touchUpdatedAt);
     }
+
+    /// <summary>
+    /// 草稿与盘上那份不同才静默落会话头（切走、弃用视图时调）。没动也写的话，
+    /// 同一档案的另一个实例会为这次空写白忙一趟（监视、列表对帐），它正跑着这个会话时还会拦下记警告
+    /// </summary>
+    public void SaveDraft()
+    {
+        if (ComposerDraft == _savedDraft) return;
+        SaveMeta(false);
+    }
+
+    /// <summary>会话头刚读入或刚写完：记下此刻的草稿就是盘上那份</summary>
+    internal void MarkDraftSaved() => _savedDraft = ComposerDraft;
 
     /// <summary>
     /// 追加保存:把 History 中自 fromIndex 起的新消息追加进历史文件并刷新会话头。

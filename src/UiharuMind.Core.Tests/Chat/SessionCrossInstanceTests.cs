@@ -278,6 +278,29 @@ public sealed class SessionCrossInstanceTests : IDisposable
         Assert.Equal(0, staleSeen);
     }
 
+    [Fact]
+    public void SaveDraft_WritesOnlyWhenTheDraftChanged()
+    {
+        //切走就存一次会话头:草稿没动也写,另一个实例的监视器与左栏就白忙一趟,正跑着那边还会拦下记一条警告
+        ChatSession mine = Create(_mine, "draft");
+        string metaPath = Path.Combine(AppPaths.Data.Sessions, mine.SessionId + ".meta.json");
+        FileStamp written = FileStamp.Of(metaPath);
+
+        mine.SaveDraft();
+        Assert.Equal(written, FileStamp.Of(metaPath));
+
+        mine.ComposerDraft = "half typed";
+        mine.SaveDraft();
+        Assert.NotEqual(written, FileStamp.Of(metaPath));
+
+        // 读进来的那份记着盘上的草稿,原样切走也不写
+        ChatSession loaded = new SessionManager().Load(mine.SessionId)!;
+        FileStamp afterDraft = FileStamp.Of(metaPath);
+        loaded.SaveDraft();
+        Assert.Equal(afterDraft, FileStamp.Of(metaPath));
+        Assert.Equal("half typed", loaded.ComposerDraft);
+    }
+
     private ChatSession Create(SessionManager manager, string title)
     {
         ChatSession session = new(title, new CharacterData { CharacterName = "X" });
