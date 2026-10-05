@@ -33,6 +33,9 @@ public sealed class LogStore : IDisposable
     /// <summary>日志目录，「打开日志目录」按钮指向这里</summary>
     public string Directory { get; }
 
+    /// <summary>本实例的会话戳</summary>
+    public string SessionId => _main.SessionId;
+
     public LogStore(string directory)
     {
         Directory = directory;
@@ -138,6 +141,35 @@ public sealed class LogStore : IDisposable
 
         return new LogIndexEntry(ELogStream.Bodies, bodyFileId, bodyOffset, textByteLength,
             item.LogType, item.Category, item.Time, preview);
+    }
+
+    /// <summary>
+    /// 找出某个会话写过的主日志文件。会话按大小滚动过就不止一份
+    /// </summary>
+    /// <param name="directory">日志目录</param>
+    /// <param name="sessionId">会话戳</param>
+    /// <returns>从旧到新排好的文件路径</returns>
+    public static List<string> FindSessionFiles(string directory, string sessionId)
+    {
+        string header = LogFormat.SessionHeader(sessionId).TrimEnd('\n');
+        List<string> files = new();
+        // 代号越大越旧,倒着收即是从旧到新
+        for (int generation = LogFormat.MainGenerations - 1; generation >= 0; generation--)
+        {
+            string path = Path.Combine(directory,
+                generation == 0 ? $"{LogFormat.MainBaseName}.txt" : $"{LogFormat.MainBaseName}.{generation}.txt");
+            try
+            {
+                if (!File.Exists(path)) continue;
+                using StreamReader reader = new(new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
+                if (reader.ReadLine() == header) files.Add(path);
+            }
+            catch (Exception)
+            {
+                // 单份读失败跳过
+            }
+        }
+        return files;
     }
 
     // 旧版是「退出时把全量快照序列化成 JSON 数组」,与新格式不兼容。它们只对上次运行有意义,不写迁移

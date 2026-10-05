@@ -42,13 +42,17 @@ internal sealed class LogFileWriter : IDisposable
     /// <summary>当前正在写入的文件代号</summary>
     public int CurrentFileId => _currentFileId;
 
+    /// <summary>本实例的会话戳，盖在它写的每份文件头部</summary>
+    public string SessionId { get; }
+
     public LogFileWriter(string directory, string baseName, long maxBytes, int generations)
     {
         _directory = directory;
         _baseName = baseName;
         _maxBytes = maxBytes;
         _generations = generations;
-        _sessionTag = $"# session: {Guid.NewGuid().ToString("N")[..8]}\n";
+        SessionId = Guid.NewGuid().ToString("N")[..8];
+        _sessionTag = LogFormat.SessionHeader(SessionId);
     }
 
     /// <summary>

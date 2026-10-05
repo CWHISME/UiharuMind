@@ -50,6 +50,13 @@ public static class LogFormat
     public const string BodiesBaseName = "Bodies";
 
     /// <summary>
+    /// 会话戳：每个实例盖在自己日志文件第一行
+    /// </summary>
+    /// <param name="sessionId">会话标识</param>
+    /// <returns>带换行的整行</returns>
+    public static string SessionHeader(string sessionId) => $"# session: {sessionId}\n";
+
+    /// <summary>
     /// 条目的头行，形如 <c>[2026-09-13 17:01:02][Warning][LlmRequest] (12,345 chars)</c>
     /// </summary>
     /// <param name="item">日志条目</param>

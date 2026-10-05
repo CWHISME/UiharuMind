@@ -73,6 +73,7 @@ public partial class App : Application, ILogger, IDisposable
         AppPaths.EnsureRoot();
         UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("enter");
         Log.Debug("UiharuMind begins to start.");
+        _exitGuard = UiharuMind.Core.Core.Diagnostics.UncleanExitGuard.Start(Debugger.IsAttached);
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             // desktop.MainWindow = new MainWindow
@@ -170,6 +171,8 @@ public partial class App : Application, ILogger, IDisposable
 
     // public new static App Current => (App)Application.Current!;
     private UiharuMind.Features.Diagnostics.IdleMemoryReclaimer? _memoryReclaimer;
+    private UiharuMind.Core.Core.Diagnostics.UncleanExitGuard? _exitGuard;
+    private bool _crashing; //崩溃路径上的 Dispose 不算正常退出
     private UiharuMind.Features.DevAutomation.DevControlHost? _devControl;
 
     public static DummyWindow DummyWindow { get; private set; } = null!;
@@ -268,6 +271,7 @@ public partial class App : Application, ILogger, IDisposable
         if (e.IsTerminating)
         {
             Log.Error("A critical error has occurred and the application will now close.");
+            _crashing = true;
             Dispose();
             Environment.Exit(1);
         }
@@ -366,6 +370,7 @@ public partial class App : Application, ILogger, IDisposable
         UiharuMind.Core.AI.Chat.SessionManager.Instance.DisposeAllRunners();
         (Services as IDisposable)?.Dispose();
         ProcessHelper.CancelAllProcesses();
+        if (!_crashing) _exitGuard?.MarkClean();
         Log.Shutdown(); //必须最后:它之后打的日志会被丢掉,而上面每一步都还在打日志
     }
 

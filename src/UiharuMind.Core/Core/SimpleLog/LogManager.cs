@@ -65,6 +65,9 @@ public class LogManager
     /// <summary>日志目录</summary>
     public string Directory => _store?.Directory ?? AppPaths.Logs;
 
+    /// <summary>本实例的日志会话戳；日志落不了盘时为 null</summary>
+    public string? SessionId => _store?.SessionId;
+
     public LogManager(string directory)
     {
         try
