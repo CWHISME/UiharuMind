@@ -14,8 +14,9 @@
 #   SMOKE_NO_BUILD=1  跳过编译，直接用已有的 Release 产物
 #   SMOKE_CONTEXT=N   把副本里每个远程模型的上下文上限改成 N（用户填的值优先于预设表，三条压缩水位随之等比缩小），
 #                     长会话场景（如 handoff-cache）不必真把 1M 跑满；本地模型按实际加载值算，不受影响
-#   SMOKE_MODEL=名字  主会话与子代理都用这个模型：注入到每个 session.new，并把副本里两档子代理默认模型改成它
-#                     （子代理不跟主会话走，没点名时用设置页配的那档）。群成员的模型不受影响
+#   SMOKE_MODEL=名字  主会话、子代理、群成员都用这个模型：注入到每个 session.new，覆盖 group.create 里写死的 models，
+#                     并把副本里两档子代理默认模型改成它（子代理不跟主会话走，没点名时用设置页配的那档）。
+#                     专门比模型的场景（如 persona-model-ab）别设它，会把对照组抹平
 
 set -euo pipefail
 
@@ -50,7 +51,8 @@ sed -e "s#{{OUT}}#$out#g" -e "s#{{REPO}}#$REPO_ROOT#g" -e "s#{{WS_EMPTY}}#$out/w
 
 if [ -n "${SMOKE_MODEL:-}" ]; then
     command -v jq > /dev/null || { echo "SMOKE_MODEL 需要 jq" >&2; exit 1; }
-    jq -c --arg m "$SMOKE_MODEL" 'if .op == "session.new" then .args.model = $m else . end' \
+    jq -c --arg m "$SMOKE_MODEL" \
+        'if .op == "session.new" then .args.model = $m elif .op == "group.create" and .args.models then .args.models |= map($m) else . end' \
         "$out/scenario.jsonl" > "$out/scenario.jsonl.tmp"
     mv "$out/scenario.jsonl.tmp" "$out/scenario.jsonl"
     agent="$out/home/Config/AgentSettingConfig.json"
