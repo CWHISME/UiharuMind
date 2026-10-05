@@ -349,7 +349,7 @@ public static class BackgroundSubAgentDispatcher
         return (who.Length > 0 ? $"Sent to \"{who}\". " : "Sent. ")
                + "They're working on it in their own conversation and will write back once, when done. "
                + $"You can `{SubAgentTool.MessageToolName}` them meanwhile to add or correct something — "
-               + "it reaches them before their next step.\n"
+               + "they fold it into the reply they're already writing.\n"
                + (notice.Length > 0 ? notice + "\n" : string.Empty)
                // 给模型的是前 8 位短号(真实 ID 的别名),照抄进 to 由 SubSessionIdAlias 反查回真 ID
                + $"[sub-session: {SubSessionIdAlias.Short(subSession.SessionId)}]";

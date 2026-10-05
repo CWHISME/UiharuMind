@@ -219,7 +219,7 @@ public static class SubAgentReportHandoff
         if (supersedes) head += "（更正上一封）";
 
         // 附言不插在信头与正文之间:放在最后,也正好是模型读完要决定下一步的位置
-        string waiting = $"\n\n（接着谈同类主题就用 `{SubAgentTool.MessageToolName}`，to 填 {SubSessionIdAlias.Short(subSessionId)}；"
+        string waiting = $"\n\n（接着谈同类主题就用 `{SubAgentTool.MessageToolName}`，to 填 [sub-session: {SubSessionIdAlias.Short(subSessionId)}]；"
                          + $"另开一位的话，对方什么都不知道。）"
                          + (othersPending > 0 ? $"\n（你还在等 {othersPending} 位的回信。）" : string.Empty);
         if (interruption == null) return $"{head}：\n\n{conclusion}{waiting}";

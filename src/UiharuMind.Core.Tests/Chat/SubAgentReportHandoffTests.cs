@@ -98,7 +98,7 @@ public class SubAgentReportHandoffTests
 
         Assert.StartsWith("来自 审查员 [sub-session: sub1]，回你之前发的「黑猫，提交前给你看账：」：", text);
         Assert.Contains("\n\n可以提交\n\n", text);
-        Assert.EndsWith($"`{SubAgentTool.MessageToolName}`，to 填 sub1；另开一位的话，对方什么都不知道。）", text); //读完要决定找谁的地方告诉它怎么接着谈
+        Assert.EndsWith($"`{SubAgentTool.MessageToolName}`，to 填 [sub-session: sub1]；另开一位的话，对方什么都不知道。）", text); //读完要决定找谁的地方告诉它怎么接着谈
         Assert.DoesNotContain("委派", text);
         Assert.DoesNotContain("报告", text);
         Assert.DoesNotContain("还在等", text);

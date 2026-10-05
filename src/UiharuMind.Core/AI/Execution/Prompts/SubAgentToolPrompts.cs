@@ -19,7 +19,7 @@ namespace UiharuMind.Core.AI.Execution.Prompts;
 /// 两把工具上，只此一处。
 ///
 /// 名字对齐 Claude Code（模型训练里见惯的写法），语义保留 ADR 0044 的对话心智：
-/// 对方能反问，回信以来信交回——描述里明说「they can ask you back」。
+/// 对方能反问，回信以来信交回——描述里明说「they can ask you back in their reply」。
 /// </summary>
 public static class SubAgentToolPrompts
 {
@@ -37,10 +37,11 @@ public static class SubAgentToolPrompts
     /// </summary>
     public const string AgentDescription =
         "Launch a sub-agent: someone who works on it in their own session and replies when done; " +
-        "they can ask you back. Use it for reading lots of material, a separable piece of implementation, " +
+        "they can ask you back in their reply. Use it for reading lots of material, a separable piece of implementation, " +
         "a deep investigation, a review or second opinion, or when you're stuck.\n" +
-        "It runs in the background: you get a receipt now and are woken when the reply arrives. " +
-        "Meanwhile do what doesn't depend on it; wait for what does.\n" +
+        "It runs in the background: you get a receipt now. " +
+        "Keep working on anything that doesn't depend on it; if everything left does, end your turn — " +
+        "you'll be woken when the reply lands.\n" +
         "A reply doesn't close the topic: follow-ups on the same subject (reviewing a new fix, " +
         "re-checking a conclusion, a narrower scope, even after a commit) go to the same sub-agent with `" +
         SubAgentTool.MessageToolName + "`. Launch a new one only for a new subject — " +
@@ -101,13 +102,13 @@ public static class SubAgentToolPrompts
     /// </summary>
     public const string SendMessageDescription =
         "Send a message to a sub-agent you already launched: a follow-up, a correction, or 'keep going'. " +
-        "If they're still working, it reaches them before their next step.";
+        "If they're still working, they fold it into the reply they're already writing; either way you get one reply back.";
 
     /// <summary>
     /// <c>to</c> 参数说明。回执末行整行粘进来也认（<c>SubAgentTool.NormalizeTo</c>）。
     /// </summary>
     public const string ToParam =
-        "The id from an earlier [sub-session: …] line.";
+        "The id from an earlier [sub-session: …] line; if you can't find it, an error will list who you've talked to.";
 
     /// <summary><c>message</c> 参数说明</summary>
     public const string MessageParam =

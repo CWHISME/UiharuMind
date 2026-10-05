@@ -187,7 +187,7 @@ public class SubAgentToolTests
             string result = await Send("someone-made-up");
 
             Assert.Contains("no conversation", result);
-            Assert.Contains($"- {SubSessionIdAlias.Short(id)} — 审查员", result);
+            Assert.Contains($"- [sub-session: {SubSessionIdAlias.Short(id)}] — 审查员", result);
         }
         finally
         {

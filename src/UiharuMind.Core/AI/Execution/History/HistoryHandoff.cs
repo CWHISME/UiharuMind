@@ -150,7 +150,7 @@ public static class HistoryHandoff
             string state = meta.BackgroundReportPending ? " [hasn't written back yet]" : string.Empty;
             // 被点名的子代理带上角色名,模型才知道这一单是谁干的;匿名子代理没有名字,不加前缀
             string who = string.IsNullOrWhiteSpace(meta.SubAgentName) ? string.Empty : $"{meta.SubAgentName}: ";
-            roster.AppendLine($"- {SubSessionIdAlias.Short(meta.SessionId)} - {who}{Summarize(meta)}{state}");
+            roster.AppendLine($"- [sub-session: {SubSessionIdAlias.Short(meta.SessionId)}] - {who}{Summarize(meta)}{state}");
         }
 
         return roster.ToString().TrimEnd();

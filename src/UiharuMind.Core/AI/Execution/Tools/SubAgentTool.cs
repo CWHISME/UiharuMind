@@ -240,6 +240,8 @@ public static class SubAgentTool
     /// </summary>
     private static string AmbiguousRun(string target, IReadOnlyList<ChatSessionMeta> runs)
     {
+        // 候选在前、指令紧跟。正文必须不以 [sub-session: …] 收尾——否则回放时
+        // ToolCallItem.ParseSubSessionId 的正则（锚在末行末尾）会把这张报错卡误挂「查看过程」入口
         IEnumerable<string> lines = runs.Select(x =>
             $"- {x.SessionId}" + (x.SubAgentName.Length > 0 ? $" ({x.SubAgentName})" : string.Empty));
         return $"Error: '{target}' matches more than one earlier conversation. "
@@ -282,7 +284,7 @@ public static class SubAgentTool
         IEnumerable<string> lines = earlier.Take(MaxListedConversations).Select(x =>
         {
             string who = x.SubAgentName.Length > 0 ? x.SubAgentName : x.Title; //身份即会话标题
-            return $"- {SubSessionIdAlias.Short(x.SessionId)}" + (who.Length > 0 ? $" — {who}" : string.Empty);
+            return $"- [sub-session: {SubSessionIdAlias.Short(x.SessionId)}]" + (who.Length > 0 ? $" — {who}" : string.Empty);
         });
         return error + "\nPeople you've already messaged in this session (pass the id as `to` to continue with them):\n"
                + string.Join("\n", lines);

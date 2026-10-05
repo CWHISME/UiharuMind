@@ -160,6 +160,39 @@ public class SubAgentReceiptMarkerTests
         Assert.Empty(ToolCallItem.ParseSubSessionId("报告样例：\n[sub-session: zzzz9999]"));
     }
 
+    /// <summary>
+    /// 报错卡（撞号列表）不得挂「查看过程」入口——反过来的半边契约：非回执正文不得以
+    /// [sub-session: …] 收尾（与 <see cref="Receipt_PutsTheFallbackNoticeBeforeTheMarker"/>
+    /// 的「标记必须在末行」合起来才是完整契约）。
+    /// AmbiguousRun 的候选行套括号后，若匿名行在末尾，正文会以标记收尾、正则命中且完整 ID
+    /// 精确命中，误挂入口；兜法是引导语在列表之后、正文以「as `to`.」收尾。
+    /// 用纯字母数字 ID：横杠（如 sendshort-0001）会被 [A-Za-z0-9]+ 拒之门外，测出来是假绿。
+    /// </summary>
+    [Fact]
+    public void AmbiguousRun_ErrorText_GetsNoEntry()
+    {
+        string idA = "aaaa1111bbbb2222";
+        string idB = "aaaa1111cccc3333";
+        SessionManager.Instance.Add(new ChatSession { SessionId = idA, ParentSessionId = "parent" });
+        SessionManager.Instance.Add(new ChatSession { SessionId = idB, ParentSessionId = "parent" });
+        try
+        {
+            // AmbiguousRun 的新格式正文：候选行套括号、引导语在列表之后（不以标记收尾）。
+            // 旧格式（引导语在前、匿名行收尾）下末行会命中正则且精确命中 idB，返回非空——这条断言会红
+            string errorText = $"Error: 'aaaa1111' matches more than one earlier conversation:\n"
+                               + $"- [sub-session: {idA}]\n"
+                               + $"- [sub-session: {idB}]\n"
+                               + "Pass the full id of the one you mean as `to`.";
+
+            Assert.Empty(ToolCallItem.ParseSubSessionId(errorText));
+        }
+        finally
+        {
+            SessionManager.Instance.Delete(idA);
+            SessionManager.Instance.Delete(idB);
+        }
+    }
+
     [Fact]
     public void InjectedReceipt_SaysNoSeparateReport()
     {
