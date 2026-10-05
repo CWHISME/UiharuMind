@@ -39,6 +39,7 @@ internal static class DevCommandRegistry
         new JumpToPageCommand(),
         new UiSnapshotCommand(),
         new SessionListCommand(),
+        new SessionsListCommand(),
         new OpenSessionCommand(),
         new MemoryStatsCommand(),
         new FontDiagnosticsCommand(),
@@ -159,6 +160,37 @@ internal sealed class SessionListCommand : IDevCommand
         ConversationPageDataBase page = DevCommandRegistry.RequireConversationPage();
         return page.SessionList.Sessions
             .Select(x => new { id = x.SessionId, name = x.Name })
+            .ToList();
+    }
+}
+
+/// <summary>
+/// 列出<b>全部</b>会话（含群壳）。<c>session.list</c> 只列当前会话页，
+/// 管理多个群与长会话时不够看，这里直接走会话索引，跨页、不要求先跳页。
+/// 默认只回最近 20 条，免得把整个会话目录灌进脚本；要更多用 <c>limit</c>（0 或负值 = 不限），
+/// 只看群用 <c>groups</c>，按标题过滤用 <c>query</c>
+/// </summary>
+internal sealed class SessionsListCommand : IDevCommand
+{
+    private const int DefaultLimit = 20;
+
+    public string Name => "sessions.list";
+
+    public string Usage => "列出会话（默认最近 20 条，含群壳，isGroup 标记）。groups（只看群）、query（按标题过滤）、limit（条数，0 不限）";
+
+    public object? Execute(JsonElement args)
+    {
+        int limit = GroupDevCommands.IntOr(args, "limit", DefaultLimit);
+        bool groupsOnly = GroupDevCommands.BoolOr(args, "groups", false);
+        string? query = GroupDevCommands.StringOr(args, "query");
+
+        IEnumerable<ChatSessionMeta> metas = SessionManager.Instance.GetSessions();
+        if (groupsOnly) metas = metas.Where(x => x.IsGroup);
+        if (query is not null) metas = metas.Where(x => x.Title.Contains(query, StringComparison.OrdinalIgnoreCase));
+        if (limit > 0) metas = metas.Take(limit);
+
+        return metas
+            .Select(x => new { id = x.SessionId, name = x.Title, isGroup = x.IsGroup, updatedAt = x.UpdatedAt })
             .ToList();
     }
 }
