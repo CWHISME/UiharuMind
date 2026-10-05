@@ -156,6 +156,62 @@ public class OpenAICompatibleFailureLogTests
         Assert.Contains("chatcmpl-abc123XYZ", logged);
     }
 
+    /// <summary>嵌在文字中间的 data URL（工具结果里的 markdown 图片）也要抹，前后的文字原样留着</summary>
+    [Fact]
+    public void DataUrlInsideText_IsRedacted()
+    {
+        string body = "{\"content\":\"看图 ![](data:image/png;base64," + new string('A', 2000) + ") 结束\"}";
+
+        string logged = Format(body);
+
+        Assert.Contains("看图 ![](data:image/png;base64,<2000 base64 chars>) 结束", logged);
+    }
+
+    /// <summary>不是 JSON 的正文（错误页）照抄原文，但 data URL 照样抹</summary>
+    [Fact]
+    public void NonJsonBody_StillHasDataUrlsRedacted()
+    {
+        string body = "<html>data:image/jpeg;base64," + new string('Q', 1000) + "</html>";
+
+        Assert.Equal("<html>data:image/jpeg;base64,<1000 base64 chars></html>", Format(body));
+    }
+
+    /// <summary>
+    /// 孤立代理项的转义（Python 回显被截断的 emoji）解码时抛的不是 JsonException：
+    /// 同样退回照抄原文，不能让日志格式化把失败响应本身弄丢
+    /// </summary>
+    [Fact]
+    public void LoneSurrogateEscape_FallsBackToTheRawBody()
+    {
+        const string body = """{"error":"bad \ud83d input"}""";
+
+        Assert.Equal(body, Format(body));
+    }
+
+    /// <summary>失败响应照常回到调用方：正文怎么都格式化不了，也只影响那条日志</summary>
+    [Fact]
+    public async Task FailedResponse_WithUnformattableBody_StillReachesTheCaller()
+    {
+        var handler = new OpenAICompatibleHttpHandler("http://localhost/v1", new StaticServer(
+            HttpStatusCode.BadRequest, """{"error":"bad \ud83d input"}"""));
+        using var client = new HttpClient(handler);
+
+        using HttpResponseMessage response = await client.PostAsync("http://localhost/v1/chat/completions",
+            new StringContent("{}"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    private sealed class StaticServer(HttpStatusCode status, string body) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(status)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json"),
+            });
+    }
+
     private static string Format(string body)
     {
         using PooledByteWriter output = new(body.Length);

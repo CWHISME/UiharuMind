@@ -32,12 +32,14 @@ internal sealed class SegmentedBinaryContent : BinaryContent
         }
     }
 
+    /// <inheritdoc />
     public override bool TryComputeLength(out long length)
     {
         length = _length;
         return true;
     }
 
+    /// <inheritdoc />
     public override void WriteTo(Stream stream, CancellationToken cancellation = default)
     {
         foreach (byte[] segment in _segments)
@@ -47,11 +49,13 @@ internal sealed class SegmentedBinaryContent : BinaryContent
         }
     }
 
+    /// <inheritdoc />
     public override async Task WriteToAsync(Stream stream, CancellationToken cancellation = default)
     {
         foreach (byte[] segment in _segments) await stream.WriteAsync(segment, cancellation).ConfigureAwait(false);
     }
 
+    /// <inheritdoc />
     public override void Dispose()
     {
     }

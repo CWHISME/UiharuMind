@@ -107,6 +107,20 @@ public class OpenAICompatibleRequestRewriterTests
             rewritten);
     }
 
+    /// <summary>额外参数整个覆盖掉 messages 时，原来那份不能再扫：记下的改动会落到别的属性上</summary>
+    [Fact]
+    public void ExtraParamOverridingMessages_WithArgumentFix_ReplacesThemCleanly()
+    {
+        IReadOnlyList<KeyValuePair<string, JsonNode?>> messages = [new("messages", new JsonArray())];
+        var reasoning = new Dictionary<string, string> { ["c1"] = "思考" };
+
+        string? rewritten = Rewrite(
+            """{"messages":[{"role":"assistant","tool_calls":[{"id":"c1","function":{"arguments":"null"}}]}],"model":"m"}""",
+            new(messages, false, reasoning, false));
+
+        Assert.Equal("""{"model":"m","messages":[]}""", rewritten);
+    }
+
     [Theory]
     [InlineData("[1,2,3]")]
     [InlineData("\"text\"")]

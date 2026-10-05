@@ -58,6 +58,43 @@ public class SseSanitizingStreamTests
         Assert.Equal(FixedChunk + "\n\ndata: [DONE]\n\n", reader.ReadToEnd());
     }
 
+    /// <summary>流开头的 UTF-8 BOM 要跳过，否则首行不以 data: 开头、首帧不修；BOM 被拆在几次读里也一样</summary>
+    [Fact]
+    public async Task LeadingBom_IsSkipped_AndTheFirstFrameIsFixed()
+    {
+        byte[] sse = [0xEF, 0xBB, 0xBF, .. Encoding.UTF8.GetBytes(Chunk + "\n\ndata: [DONE]\n\n")];
+
+        await using var stream = new SseSanitizingStream(new TrickleStream(sse));
+        using var output = new MemoryStream();
+        await stream.CopyToAsync(output, TestContext.Current.CancellationToken);
+
+        Assert.Equal(FixedChunk + "\n\ndata: [DONE]\n\n", Encoding.UTF8.GetString(output.ToArray()));
+    }
+
+    /// <summary>只有开头才认 BOM：不足三字节的短流、正文中间的 EF BB BF 都原样转发</summary>
+    [Fact]
+    public async Task BomLikeBytes_ElsewhereArePassedThrough()
+    {
+        byte[] sse = [(byte)'a', 0xEF, 0xBB, 0xBF, (byte)'\n'];
+
+        await using var stream = new SseSanitizingStream(new TrickleStream(sse));
+        using var output = new MemoryStream();
+        await stream.CopyToAsync(output, TestContext.Current.CancellationToken);
+
+        Assert.Equal(sse, output.ToArray());
+    }
+
+    /// <summary>长行一点点到达：续读时从上次扫到的位置接着找行界，行尾被拆开的 \r\n 照样认</summary>
+    [Fact]
+    public async Task LongLineTrickledIn_WithSplitCrLf_PassesThroughIntact()
+    {
+        string line = "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"" + new string('长', 20_000) + "\"}}]}";
+
+        string text = await ReadAllAsync(new TrickleStream(Encoding.UTF8.GetBytes(line + "\r\n\r\n" + Chunk + "\r\n")));
+
+        Assert.Equal(line + "\n\n" + FixedChunk + "\n", text);
+    }
+
     private static async Task<string> ReadAllAsync(Stream inner)
     {
         await using var stream = new SseSanitizingStream(inner);

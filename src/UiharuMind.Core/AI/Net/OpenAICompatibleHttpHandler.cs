@@ -117,7 +117,17 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
 
         //不压成单行:日志面板自己会做单行摘要+详情展开,压了反而看不了格式
         using PooledByteWriter formatted = new(body.Length + body.Length / 4);
-        LlmBodyLogFormat.Format(body, formatted);
+        try
+        {
+            LlmBodyLogFormat.Format(body, formatted);
+        }
+        catch (Exception e)
+        {
+            // 失败日志本身出错不能盖掉这次响应:正文不要了,状态码与诊断头照记
+            Log.Warning($"{head}\n(response body could not be formatted: {e.GetType().Name}: {e.Message})", ELogCategory.LlmResponse);
+            return;
+        }
+
         Log.Warning(head + "\n", formatted.WrittenSpan, ELogCategory.LlmResponse);
     }
 

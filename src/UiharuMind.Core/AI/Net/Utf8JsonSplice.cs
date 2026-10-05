@@ -105,7 +105,13 @@ internal ref struct Utf8JsonSplice
     private static bool IsWhiteSpace(byte value) =>
         value is (byte)' ' or (byte)'\t' or (byte)'\r' or (byte)'\n';
 
-    private readonly record struct Edit(int Start, int End, byte[] Replacement);
+    /// <summary>
+    /// 一处改动：把 [Start, End) 换成 Replacement；Start 等于 End 即插入
+    /// </summary>
+    /// <param name="Start">起点（含）</param>
+    /// <param name="End">终点（不含）</param>
+    /// <param name="Replacement">替换字节，空数组即删除</param>
+    internal readonly record struct Edit(int Start, int End, byte[] Replacement);
 
     [InlineArray(InlineCapacity)]
     private struct InlineEdits

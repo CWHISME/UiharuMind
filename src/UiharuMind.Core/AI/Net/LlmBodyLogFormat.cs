@@ -26,7 +26,7 @@ namespace UiharuMind.Core.AI.Net;
 internal static class LlmBodyLogFormat
 {
     private const int Base64RedactThreshold = 512; //比这短的 base64 留着,可能是真内容而不是附件
-    private const int MaxDataUrlPrefix = 69; //"data:" + 至多 64 字符的媒体类型
+    private const int MaxMediaType = 64; //data: 与 ;base64, 之间至多这么长,与原先的正则同口径
 
     // 宽松编码器:中文原样。默认编码器会写成 \uXXXX,日志基本没法读
     private static readonly JavaScriptEncoder Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping;
@@ -36,7 +36,9 @@ internal static class LlmBodyLogFormat
 
     /// <summary>
     /// 把正文整理成可写进日志的形态。base64 在解码后的字符串值上判，抹掉的载荷换成一句体量说明：
-    /// 那不是截断，是把毫无阅读价值的附件（一张图就十几 MB）换掉。不是 JSON 就原样照抄
+    /// 那不是截断，是把毫无阅读价值的附件（一张图就十几 MB）换掉。
+    /// 抹两种：整个值是够长的 base64；任何位置出现的 <c>data:…;base64,</c> 后跟够长的载荷（工具结果里的 markdown 图片也算）。
+    /// 不是 JSON 就照抄原文，只抹 data URL
     /// </summary>
     /// <param name="body">UTF-8 正文</param>
     /// <param name="output">写入整理后的正文</param>
@@ -48,10 +50,10 @@ internal static class LlmBodyLogFormat
         {
             WriteIndented(body, output, ref scratch);
         }
-        catch (JsonException)
+        catch (Exception e) when (e is JsonException or InvalidOperationException) //后者:孤立代理项之类解不出的转义
         {
             output.Rewind(mark); //日志格式化失败不该影响任何事
-            output.Write(body);
+            WriteRedactingDataUrls(output, body, escape: false);
         }
         finally
         {
@@ -134,6 +136,12 @@ internal static class LlmBodyLogFormat
     private static void WriteQuoted(PooledByteWriter output, ReadOnlySpan<byte> value)
     {
         output.Write("\""u8);
+        WriteEscaped(output, value);
+        output.Write("\""u8);
+    }
+
+    private static void WriteEscaped(PooledByteWriter output, ReadOnlySpan<byte> value)
+    {
         while (true)
         {
             int newline = value.IndexOf((byte)'\n');
@@ -146,47 +154,74 @@ internal static class LlmBodyLogFormat
                 part = part[consumed..];
             }
 
-            if (newline < 0) break;
+            if (newline < 0) return;
             output.Write("\n"u8);
             value = value[(newline + 1)..];
         }
+    }
 
+    private static void WriteString(PooledByteWriter output, ReadOnlySpan<byte> value)
+    {
+        output.Write("\""u8);
+        if (value.Length >= Base64RedactThreshold && value.IndexOfAnyExcept(Base64Bytes) < 0)
+            WritePlaceholder(output, value.Length);
+        else
+            WriteRedactingDataUrls(output, value, escape: true);
         output.Write("\""u8);
     }
 
-    // data:...;base64,<载荷> 与裸 base64 串：载荷够长时换成一句体量说明
-    private static void WriteString(PooledByteWriter output, ReadOnlySpan<byte> value)
+    private static void WriteRedactingDataUrls(PooledByteWriter output, ReadOnlySpan<byte> text, bool escape)
     {
-        if (value.Length >= Base64RedactThreshold)
+        while (text.Length >= Base64RedactThreshold && FindDataUrlPayload(text, out int start, out int length))
         {
-            Span<byte> note = stackalloc byte[MaxDataUrlPrefix + 96];
-            int marker = value.IndexOf(";base64,"u8);
-            if (marker >= 0 && marker <= MaxDataUrlPrefix && value.StartsWith("data:"u8))
-            {
-                int payloadStart = marker + ";base64,"u8.Length;
-                ReadOnlySpan<byte> payload = value[payloadStart..];
-                if (payload.Length >= Base64RedactThreshold && payload.IndexOfAnyExcept(Base64Bytes) < 0)
-                {
-                    value[..payloadStart].CopyTo(note);
-                    WriteQuoted(output, note[..(payloadStart + Placeholder(payload.Length, note[payloadStart..]))]);
-                    return;
-                }
-            }
-            else if (value.IndexOfAnyExcept(Base64Bytes) < 0)
-            {
-                WriteQuoted(output, note[..Placeholder(value.Length, note)]);
-                return;
-            }
+            WriteText(output, text[..start], escape);
+            WritePlaceholder(output, length);
+            text = text[(start + length)..];
         }
 
-        WriteQuoted(output, value);
+        WriteText(output, text, escape);
     }
 
-    private static int Placeholder(int length, Span<byte> destination)
+    private static void WriteText(PooledByteWriter output, ReadOnlySpan<byte> text, bool escape)
     {
+        if (escape) WriteEscaped(output, text);
+        else output.Write(text);
+    }
+
+    // 找 data:<媒体类型>;base64,<载荷>：媒体类型不含 " ; \ 且至多 64 字节，载荷是连续的 base64 字节，够长才算
+    private static bool FindDataUrlPayload(ReadOnlySpan<byte> text, out int start, out int length)
+    {
+        int offset = 0;
+        while (true)
+        {
+            int found = text[offset..].IndexOf("data:"u8);
+            if (found < 0) break;
+
+            int typeStart = offset + found + "data:"u8.Length;
+            ReadOnlySpan<byte> rest = text[typeStart..];
+            int stop = rest[..Math.Min(rest.Length, MaxMediaType + 1)].IndexOfAny((byte)';', (byte)'"', (byte)'\\');
+            if (stop >= 0 && rest[stop..].StartsWith(";base64,"u8))
+            {
+                start = typeStart + stop + ";base64,"u8.Length;
+                int end = text[start..].IndexOfAnyExcept(Base64Bytes);
+                length = end < 0 ? text.Length - start : end;
+                if (length >= Base64RedactThreshold) return true;
+            }
+
+            offset = typeStart;
+        }
+
+        start = 0;
+        length = 0;
+        return false;
+    }
+
+    private static void WritePlaceholder(PooledByteWriter output, int length)
+    {
+        Span<byte> destination = output.GetSpan(32);
         destination[0] = (byte)'<';
         length.TryFormat(destination[1..], out int digits);
         " base64 chars>"u8.CopyTo(destination[(1 + digits)..]);
-        return 1 + digits + " base64 chars>"u8.Length;
+        output.Advance(1 + digits + " base64 chars>"u8.Length);
     }
 }

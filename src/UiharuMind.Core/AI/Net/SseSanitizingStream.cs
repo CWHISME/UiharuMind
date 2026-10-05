@@ -21,6 +21,8 @@ internal sealed class SseSanitizingStream : Stream
     private byte[] _input = new byte[InitialBufferSize]; //读进来还没成行的字节
     private int _inputStart;
     private int _inputEnd;
+    private int _scanStart; //[_inputStart, _scanStart) 已确认没有行界,长行跨很多次读时不必从头再找
+    private bool _preambleChecked; //流开头的 UTF-8 BOM 判过没有
     private int _outputRead;
     private bool _innerEnded;
     private bool _endReported;
@@ -148,12 +150,21 @@ internal sealed class SseSanitizingStream : Stream
     // 把缓冲里所有完整的行处理进输出。行尾的 \r 若是缓冲最后一个字节，要等下一块数据才知道是不是 \r\n
     private bool TryProcessLines()
     {
+        if (!_preambleChecked && !CheckPreamble()) return false;
+
         bool processed = false;
         while (true)
         {
             ReadOnlySpan<byte> available = _input.AsSpan(_inputStart, _inputEnd - _inputStart);
-            int index = available.IndexOfAny((byte)'\n', (byte)'\r');
-            if (index < 0) return processed;
+            int from = Math.Max(_scanStart - _inputStart, 0);
+            int found = available[from..].IndexOfAny((byte)'\n', (byte)'\r');
+            if (found < 0)
+            {
+                _scanStart = _inputEnd;
+                return processed;
+            }
+
+            int index = from + found;
 
             int terminator = 1;
             if (available[index] == (byte)'\r')
@@ -164,6 +175,7 @@ internal sealed class SseSanitizingStream : Stream
                 }
                 else if (!_innerEnded)
                 {
+                    _scanStart = _inputStart + index; //下次从这个 \r 重新判
                     return processed;
                 }
             }
@@ -172,6 +184,18 @@ internal sealed class SseSanitizingStream : Stream
             _inputStart += index + terminator;
             processed = true;
         }
+    }
+
+    // 流开头的 UTF-8 BOM 跳过（原先的 StreamReader 会跳）：留着的话首行不以 data: 开头，首帧就不修了。
+    // 到手不足三字节、又可能是 BOM 的开头时等下一块
+    private bool CheckPreamble()
+    {
+        ReadOnlySpan<byte> bom = [0xEF, 0xBB, 0xBF];
+        ReadOnlySpan<byte> available = _input.AsSpan(_inputStart, _inputEnd - _inputStart);
+        if (available.Length < bom.Length && !_innerEnded && bom.StartsWith(available)) return false;
+        if (available.StartsWith(bom)) _inputStart += bom.Length;
+        _preambleChecked = true;
+        return true;
     }
 
     private void ProcessLine(ReadOnlySpan<byte> line)
@@ -200,6 +224,7 @@ internal sealed class SseSanitizingStream : Stream
         {
             int pending = _inputEnd - _inputStart;
             _input.AsSpan(_inputStart, pending).CopyTo(_input);
+            _scanStart = Math.Max(_scanStart - _inputStart, 0);
             _inputStart = 0;
             _inputEnd = pending;
         }

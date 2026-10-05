@@ -49,10 +49,10 @@ internal static class OpenAICompatibleRequestRewriter
     // 每次改写后发出去的请求体凭空大三成（中文为主的长会话实测 458KB → 595KB）
     private static readonly JsonWriterOptions WriterOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
+    private const int MaxRetainedScratch = 64 * 1024; //超过就不留:几万字的思考会让这块缓冲常驻在线程池线程上
+
     [ThreadStatic] private static ArrayBufferWriter<byte>? _scratch; //序列化插入值用,每个线程一套
     [ThreadStatic] private static Utf8JsonWriter? _scratchWriter;
-
-    private readonly record struct Edit(int Start, int End, byte[] Replacement);
 
     private readonly record struct Region(int Start, int End);
 
@@ -105,14 +105,15 @@ internal static class OpenAICompatibleRequestRewriter
             if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject) return false;
 
             List<Region> kept = [];
-            List<Edit> edits = [];
+            List<Utf8JsonSplice.Edit> edits = [];
             while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
             {
                 int start = (int)reader.TokenStartIndex;
                 bool drop = IsAdded(ref reader, added) || rewrite.OmitSamplingParams && IsSampling(ref reader);
                 bool isMessages = reader.ValueTextEquals("messages"u8);
                 reader.Read();
-                if (isMessages && (fixArguments || reasoning != null) && reader.TokenType == JsonTokenType.StartArray)
+                // 被额外参数覆盖掉的 messages 不能扫:记下的改动会落到别的属性上
+                if (isMessages && !drop && (fixArguments || reasoning != null) && reader.TokenType == JsonTokenType.StartArray)
                     ScanMessages(ref reader, fixArguments, reasoning, edits);
                 else
                     SkipValue(ref reader);
@@ -130,7 +131,7 @@ internal static class OpenAICompatibleRequestRewriter
     }
 
     private static void ScanMessages(ref Utf8JsonReader reader, bool fixArguments,
-        IReadOnlyDictionary<string, string>? reasoning, List<Edit> edits)
+        IReadOnlyDictionary<string, string>? reasoning, List<Utf8JsonSplice.Edit> edits)
     {
         while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
         {
@@ -144,10 +145,10 @@ internal static class OpenAICompatibleRequestRewriter
     /// 否则报 "If thinking mode and tool_calls, reasoning_content must be passed back to the API"。
     /// 标准 ChatMessage→wire 消息转换认不出 <c>TextReasoningContent</c>,序列化时会把它悄悄丢掉,
     /// 只能按 tool_call id 从 <see cref="LlmRequestContext.PendingReasoningSource"/> 找回来补上。
-    /// 一条消息可带多个 tool_calls,任一 id 命中即恢复整条消息的思考正文;已经带了非空的就不覆盖。
+    /// 一条消息可带多个 tool_calls,任一 id 命中即恢复整条消息的思考正文;已经带了(哪怕是空串)就不覆盖,只有缺省或 null 才补。
     /// </summary>
     private static void ScanMessage(ref Utf8JsonReader reader, bool fixArguments,
-        IReadOnlyDictionary<string, string>? reasoning, List<Edit> edits)
+        IReadOnlyDictionary<string, string>? reasoning, List<Utf8JsonSplice.Edit> edits)
     {
         bool hasReasoning = false;
         Region nullReasoning = new(-1, -1); //"reasoning_content":null 的值区间,回填时只换值
@@ -181,17 +182,17 @@ internal static class OpenAICompatibleRequestRewriter
         if (matched == null || hasReasoning) return;
         if (nullReasoning.Start >= 0)
         {
-            edits.Add(new Edit(nullReasoning.Start, nullReasoning.End, SerializeReasoning(matched, withKey: false)));
+            edits.Add(new Utf8JsonSplice.Edit(nullReasoning.Start, nullReasoning.End, SerializeReasoning(matched, withKey: false)));
         }
         else
         {
             int at = (int)reader.TokenStartIndex;
-            edits.Add(new Edit(at, at, SerializeReasoning(matched, withKey: true)));
+            edits.Add(new Utf8JsonSplice.Edit(at, at, SerializeReasoning(matched, withKey: true)));
         }
     }
 
     private static void ScanToolCalls(ref Utf8JsonReader reader, bool fixArguments,
-        IReadOnlyDictionary<string, string>? reasoning, ref string? matched, List<Edit> edits)
+        IReadOnlyDictionary<string, string>? reasoning, ref string? matched, List<Utf8JsonSplice.Edit> edits)
     {
         while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
         {
@@ -233,14 +234,14 @@ internal static class OpenAICompatibleRequestRewriter
     /// 解析出 None 就直接 400——'NoneType' object has no attribute 'items'。
     /// 修的是发出去的历史,不影响这次调用本身的执行结果。
     /// </summary>
-    private static void FixArguments(ref Utf8JsonReader reader, List<Edit> edits)
+    private static void FixArguments(ref Utf8JsonReader reader, List<Utf8JsonSplice.Edit> edits)
     {
         while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
         {
             bool isArguments = reader.ValueTextEquals("arguments"u8);
             reader.Read();
             if (isArguments && reader.TokenType == JsonTokenType.String && reader.ValueTextEquals("null"u8))
-                edits.Add(new Edit((int)reader.TokenStartIndex, (int)reader.BytesConsumed, "\"{}\""u8.ToArray()));
+                edits.Add(new Utf8JsonSplice.Edit((int)reader.TokenStartIndex, (int)reader.BytesConsumed, "\"{}\""u8.ToArray()));
             else
                 SkipValue(ref reader);
         }
@@ -253,12 +254,12 @@ internal static class OpenAICompatibleRequestRewriter
     }
 
     // '{' + 保留的属性(内层改动就地落下) + 追加的属性 + '}'
-    private static void Build(ReadOnlySpan<byte> json, List<Region> kept, List<Edit> edits,
+    private static void Build(ReadOnlySpan<byte> json, List<Region> kept, List<Utf8JsonSplice.Edit> edits,
         List<(string Key, byte[] Property)> added, IBufferWriter<byte> output)
     {
         int size = 2 + Math.Max(0, kept.Count + added.Count - 1); //花括号 + 属性间的逗号
         foreach (Region property in kept) size += property.End - property.Start;
-        foreach (Edit edit in edits) size += edit.Replacement.Length - (edit.End - edit.Start);
+        foreach (Utf8JsonSplice.Edit edit in edits) size += edit.Replacement.Length - (edit.End - edit.Start);
         foreach (var (_, property) in added) size += property.Length;
 
         // 回填思考在消息收尾时才记下,可能排在同一条消息里修参数那处之前
@@ -273,7 +274,7 @@ internal static class OpenAICompatibleRequestRewriter
             int cursor = property.Start;
             for (; editIndex < edits.Count && edits[editIndex].Start < property.End; editIndex++)
             {
-                Edit edit = edits[editIndex];
+                Utf8JsonSplice.Edit edit = edits[editIndex];
                 written += Copy(json[cursor..edit.Start], destination[written..]);
                 written += Copy(edit.Replacement, destination[written..]);
                 cursor = edit.End;
@@ -354,6 +355,13 @@ internal static class OpenAICompatibleRequestRewriter
     {
         writer.Flush();
         ReadOnlySpan<byte> written = _scratch!.WrittenSpan;
-        return (trimBraces ? written[1..^1] : written).ToArray();
+        byte[] result = (trimBraces ? written[1..^1] : written).ToArray();
+        if (_scratch.Capacity > MaxRetainedScratch)
+        {
+            _scratch = null;
+            _scratchWriter = null;
+        }
+
+        return result;
     }
 }

@@ -29,14 +29,17 @@ internal sealed class PooledByteWriter : IBufferWriter<byte>, IDisposable
     /// <summary>已写入的内容</summary>
     public ReadOnlyMemory<byte> WrittenMemory => _buffer.AsMemory(0, _written);
 
+    /// <inheritdoc />
     public void Advance(int count) => _written += count;
 
+    /// <inheritdoc />
     public Memory<byte> GetMemory(int sizeHint = 0)
     {
         Ensure(sizeHint);
         return _buffer.AsMemory(_written);
     }
 
+    /// <inheritdoc />
     public Span<byte> GetSpan(int sizeHint = 0)
     {
         Ensure(sizeHint);
@@ -66,6 +69,7 @@ internal sealed class PooledByteWriter : IBufferWriter<byte>, IDisposable
     /// <returns>不持有缓冲的流，释放它不影响本对象</returns>
     public Stream AsStream() => new WriteStream(this);
 
+    /// <inheritdoc />
     public void Dispose()
     {
         if (_buffer.Length == 0) return;
