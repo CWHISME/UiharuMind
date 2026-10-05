@@ -166,6 +166,35 @@ public sealed class SessionCrossInstanceTests : IDisposable
     }
 
     [Fact]
+    public void ClaimRefusal_SaysRunningElsewhere_BeforeStale_SameAsTheAskBeforeSending()
+    {
+        //对方正跑着时它一直在写盘,这边多半也已判旧:该让用户等那边结束,而不是切走再切回来
+        ChatSession mine = Create(_mine, "running there");
+        AdvanceElsewhere(mine.SessionId, "from the other instance");
+        using IDisposable? theirLease =
+            ExclusiveFileLock.TryAcquire(Path.Combine(AppInstance.RunDirectory, "leases", mine.SessionId + ".lock"));
+        Assert.NotNull(theirLease);
+
+        Assert.Equal(ETurnBlock.RunningElsewhere, _mine.CheckTurnBlock(mine));
+        Assert.Null(_mine.TryClaimTurn(mine, out ETurnBlock refusal));
+        Assert.Equal(ETurnBlock.RunningElsewhere, refusal);
+    }
+
+    [Fact]
+    public void StaleClaim_GivesTheLeaseBack()
+    {
+        ChatSession mine = Create(_mine, "shared");
+        AdvanceElsewhere(mine.SessionId, "from the other instance");
+
+        Assert.Null(_mine.TryClaimTurn(mine, out ETurnBlock refusal));
+        Assert.Equal(ETurnBlock.StaleCopy, refusal);
+        // 判旧不过时取到的租约要还:否则别的实例从此跑不了这个会话
+        using IDisposable? probe =
+            ExclusiveFileLock.TryAcquire(Path.Combine(AppInstance.RunDirectory, "leases", mine.SessionId + ".lock"));
+        Assert.NotNull(probe);
+    }
+
+    [Fact]
     public void LoadingASessionRunningElsewhere_DoesNotCloseItsInFlightToolCalls()
     {
         // 实机踩到的:另一边每打开一次,就把这边还在等结果的调用当成崩溃残局补上「已中断」

@@ -82,15 +82,18 @@ public partial class SessionManager
         block = ETurnBlock.None;
         if (IsUnsaved(session)) return EmptyScope.Instance;
 
-        if (IsOutdated(session))
+        // 先租约后判旧,与 BlockOf 同序:对方正跑着时这边多半也已旧,该说的是「等那边结束」
+        IDisposable? lease = SessionLease.TryAcquire(session.SessionId);
+        if (lease == null)
         {
-            block = ETurnBlock.StaleCopy;
+            block = ETurnBlock.RunningElsewhere;
             return null;
         }
 
-        IDisposable? lease = SessionLease.TryAcquire(session.SessionId);
-        if (lease == null) block = ETurnBlock.RunningElsewhere;
-        return lease;
+        if (!IsOutdated(session)) return lease;
+        lease.Dispose();
+        block = ETurnBlock.StaleCopy;
+        return null;
     }
 
     /// <summary>
@@ -213,20 +216,26 @@ public partial class SessionManager
 
     // 卸载前的回写:与盘上一字不差就不写。原样重写也会换掉指纹,
     // 另一个正跑着这个会话的实例就会把自己判成旧的,从此写不进盘
-    private void WriteBackHistory(string sessionId, IReadOnlyList<ChatMessage> history)
+    private void WriteBackHistory(ChatSession session, IReadOnlyList<ChatMessage> history)
     {
+        string sessionId = session.SessionId;
         string path = GetHistoryPath(sessionId);
         string text = HistoryJsonl.SerializeLines(history);
-        try
+        lock (HistoryGate(sessionId))
         {
-            if (File.Exists(path) && File.ReadAllText(path) == text) return;
-        }
-        catch (Exception)
-        {
-            // 读不出来就照写
-        }
+            // 拦截与写放在同一道闸里:先拦后写之间对方刚写的话,比较出不同就整份重写,会把它抹掉
+            if (RefuseWrite(session, "history write-back")) return;
+            try
+            {
+                if (File.Exists(path) && File.ReadAllText(path) == text) return;
+            }
+            catch (Exception)
+            {
+                // 读不出来就照写
+            }
 
-        WriteHistoryTracked(sessionId, x => SaveUtility.SaveText(x, text));
+            WriteHistoryTracked(sessionId, x => SaveUtility.SaveText(x, text));
+        }
     }
 
     // 摘掉旧本体,下次取用重新读盘。调用方须持有 _locker

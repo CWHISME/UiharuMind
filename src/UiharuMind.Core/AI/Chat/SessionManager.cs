@@ -429,11 +429,8 @@ public partial class SessionManager : Singleton<SessionManager>, IInitialize
             int count = session.History.Count;
             // 空历史一律不写:会话文件读坏时 LoadHistory 也会给出空列表,
             // 这时候回写等于拿一次读取失败把盘上那份真历史抹了
-            // 被别的实例改过的就只卸不写:盘上那份更新
-            if (count > 0 && !RefuseWrite(session, "history write-back"))
-            {
-                WriteBackHistory(sessionId, session.History);
-            }
+            // 被别的实例改过的就只卸不写:盘上那份更新(WriteBackHistory 里就地核)
+            if (count > 0) WriteBackHistory(session, session.History);
 
             if (!session.UnloadHistory()) continue;
 
