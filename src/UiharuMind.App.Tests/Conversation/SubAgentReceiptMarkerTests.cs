@@ -7,7 +7,10 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Linq;
+using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Features.Conversation.Items;
 
@@ -164,8 +167,10 @@ public class SubAgentReceiptMarkerTests
     /// 报错卡（撞号列表）不得挂「查看过程」入口——反过来的半边契约：非回执正文不得以
     /// [sub-session: …] 收尾（与 <see cref="Receipt_PutsTheFallbackNoticeBeforeTheMarker"/>
     /// 的「标记必须在末行」合起来才是完整契约）。
-    /// AmbiguousRun 的候选行套括号后，若匿名行在末尾，正文会以标记收尾、正则命中且完整 ID
-    /// 精确命中，误挂入口；兜法是引导语在列表之后、正文以「as `to`.」收尾。
+    /// 走真路径：经 messenger 工具调 to=[sub-session: aaaa1111]，前缀命中两个 → 撞号分支 →
+    /// 真 AmbiguousRun 输出。手写字面量测不出实现回退；这条锁三态：新格式（套括号+引导语在后
+    /// → ParseSubSessionId 空）、旧格式（不套括号 → 含 id 断言红）、中间态（套括号+引导语在
+    /// 前+匿名行收尾 → 正则命中非空红）。
     /// 用纯字母数字 ID：横杠（如 sendshort-0001）会被 [A-Za-z0-9]+ 拒之门外，测出来是假绿。
     /// </summary>
     [Fact]
@@ -177,14 +182,22 @@ public class SubAgentReceiptMarkerTests
         SessionManager.Instance.Add(new ChatSession { SessionId = idB, ParentSessionId = "parent" });
         try
         {
-            // AmbiguousRun 的新格式正文：候选行套括号、引导语在列表之后（不以标记收尾）。
-            // 旧格式（引导语在前、匿名行收尾）下末行会命中正则且精确命中 idB，返回非空——这条断言会红
-            string errorText = $"Error: 'aaaa1111' matches more than one earlier conversation:\n"
-                               + $"- [sub-session: {idA}]\n"
-                               + $"- [sub-session: {idB}]\n"
-                               + "Pass the full id of the one you mean as `to`.";
+            AIFunction messenger = Assert.IsAssignableFrom<AIFunction>(
+                SubAgentTool.Create(new SubAgentTool.LaunchContext
+                {
+                    ParentSessionId = "parent",
+                    Profile = SubAgentProfile.General,
+                    Roster = [],
+                }).Single(x => x.Name == SubAgentTool.MessageToolName));
 
-            Assert.Empty(ToolCallItem.ParseSubSessionId(errorText));
+            object? raw = messenger.InvokeAsync(
+                new AIFunctionArguments { ["to"] = "[sub-session: aaaa1111]", ["message"] = "继续" },
+                TestContext.Current.CancellationToken).GetAwaiter().GetResult();
+            string errorText = raw?.ToString() ?? string.Empty;
+
+            Assert.Contains(idA, errorText); //是撞号列表，不是别的分支
+            Assert.Contains(idB, errorText);
+            Assert.Empty(ToolCallItem.ParseSubSessionId(errorText)); //新格式引导语在后，不以标记收尾
         }
         finally
         {
