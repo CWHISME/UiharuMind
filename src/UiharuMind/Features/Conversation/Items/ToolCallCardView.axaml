@@ -143,7 +143,7 @@
                         </StackPanel.IsVisible>
                         <!-- 绑 ArgumentsDisplayText 而不是 ArgumentsJson:参数原文此前<b>零截断</b>,
                              一次 Write 带几百 KB content 展开即入排版。与结果同一套阈值。
-                             这里也要限高:2KB 铺开仍是一大片,而参数是最不值得占版面的那部分 -->
+                              这里也要限高:1KB 铺开仍是一大片,而参数是最不值得占版面的那部分 -->
                         <ScrollViewer MaxHeight="120" HorizontalScrollBarVisibility="Disabled">
                             <!-- 参数区刻意不上色：值形态多样（路径/命令/整段代码），没有可靠语法可判，
                                  上色只会添乱——宁可整块 muted 灰字，见 ADR 0035 -->

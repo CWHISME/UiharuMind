@@ -55,15 +55,14 @@ public readonly record struct ToolResultView
 /// </summary>
 public static class ToolResultTruncation
 {
-    /// <summary>行数上限。280px 高的视口大约能显示 15 行，40 行够翻两三屏，扫一眼绰绰有余</summary>
-    public const int MaxLines = 40;
+    /// <summary>行数上限。12 行约等于原来旁白 240px 内嵌视口的高度，扫一眼 + 查看全文</summary>
+    public const int MaxLines = 12;
 
     /// <summary>
     /// 字符数上限。与行数<b>先到者为准</b>：MCP/JSON 结果常常是一整行几百 KB，只看行数拦不住。
-    /// 旧值 16KB 是照着「200 行视口」估出来的，宽了一个量级，而单行 minified JSON 绕开行数轴
-    /// 直接顶满这 16KB；<c>TextWrapping=Wrap</c> 的排版成本正比于字符数，收到 2KB 等于把这笔钱降了八倍。
+    /// <c>TextWrapping=Wrap</c> 的排版成本正比于字符数，工具卡与旁白统一走这一套。
     /// </summary>
-    public const int MaxChars = 2 * 1024;
+    public const int MaxChars = 1024;
 
     /// <summary>空结果的视图（无正文、未截断）</summary>
     public static ToolResultView Empty { get; } = new() { DisplayText = string.Empty };

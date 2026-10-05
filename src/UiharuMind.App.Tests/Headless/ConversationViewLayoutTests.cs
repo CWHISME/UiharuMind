@@ -97,8 +97,8 @@ public class ConversationViewLayoutTests(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// 一问一答各 <paramref name="rounds"/> 条。用户气泡<b>恒为纯文本档</b>
-    /// （见 TextMessageCardView 的 IsPlaintext 绑定：IsUser 一项就足以把它按下去），
+    /// 一问一答各 <paramref name="rounds"/> 条。用户气泡与助手走同一套 markdown 渲染
+    /// （见 TextMessageCardView 的 IsPlaintext 绑定：只看页面级开关），
     /// 只堆助手回复量不到那一档
     /// </summary>
     /// <param name="rounds">问答轮数</param>
@@ -289,8 +289,9 @@ public class ConversationViewLayoutTests(ITestOutputHelper output)
     /// 这是上面那条的另一半，当初漏了：卸载把两个子块都收起来，控件宽度因此塌成 0，
     /// 被祖先裁出来的视口矩形恒为空，气泡自己那条「滚回来就装回」的通知<b>永远不会到</b>，
     /// 于是装回全靠宿主清扫。而清扫走的 <c>RealizeNow</c> 若只认 markdown 一档，
-    /// 纯文本档（用户消息恒是）就再也解不开卸载态，表现为滚远过的那条只剩一段等高空白。
-    /// 只用 markdown 条目测看不出来，所以这里必须混排。
+    /// 纯文本档就再也解不开卸载态，表现为滚远过的那条只剩一段等高空白。
+    /// 用户气泡不再恒为纯文本档之后，纯文本那一半只在页面级开关勾上时才存在，
+    /// 所以这里两档各滚一圈：先 markdown 档，再把开关勾上滚纯文本档。
     /// </summary>
     [Fact]
     public void ScrollingBack_ReloadsBubbles_PlaintextIncluded() => HeadlessUi.Run(() =>
@@ -322,6 +323,23 @@ public class ConversationViewLayoutTests(ITestOutputHelper output)
         Assert.NotEmpty(inViewport);
         Assert.Empty(blank);
         Assert.Equal(extentBefore, viewer.Extent.Height, 1);
+
+        // 页面级开关勾上，全员切纯文本档：同样到底再回顶，回来也不该有空白。
+        // 两档高度不同，滚动区不跨档比较，只看内容装没装回来。
+        vm.IsPlaintext = true;
+        Settle(window);
+        viewer.Offset = new Vector(0, Math.Max(0, viewer.Extent.Height - viewer.Viewport.Height));
+        Settle(window);
+        viewer.Offset = new Vector(0, 0);
+        Settle(window);
+
+        List<SimpleMarkdownViewer> plainInViewport = BubblesInViewport(view);
+        List<SimpleMarkdownViewer> plainBlank = plainInViewport.Where(x => VisibleText(x).Length == 0).ToList();
+
+        output.WriteLine($"纯文本档回到顶部:视口内 {plainInViewport.Count} 个气泡,空白 {plainBlank.Count} 个");
+
+        Assert.NotEmpty(plainInViewport);
+        Assert.Empty(plainBlank);
         window.Close();
     });
 }

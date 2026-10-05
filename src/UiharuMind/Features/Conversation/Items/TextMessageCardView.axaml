@@ -19,10 +19,6 @@
          走 RelativeSource 向上找 conv:ConversationView。子代理过程窗口<b>不用</b>本组件，
          它那份文本模板是有意简化的只读版（无头像/操作/时间戳）。 -->
 
-    <UserControl.Resources>
-        <converters:MultiConditionBoolOrConverter x:Key="MultiConditionBoolOrConverter" />
-    </UserControl.Resources>
-
     <UserControl.Styles>
         <Style Selector="Border.message-bubble">
             <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
@@ -51,11 +47,7 @@
             <Setter Property="TextElement.Foreground" Value="{DynamicResource SemiGrey6}" />
             <Setter Property="Padding" Value="14,10" />
         </Style>
-        <!-- 旁白正文限高:240 是"扫一眼"的尺寸(约 8~10 行 markdown)。只对旁白类启用,
-             普通气泡不挂这个类,保持不限高、不出现内部滚动 -->
-        <Style Selector="ScrollViewer.narration-limit">
-            <Setter Property="MaxHeight" Value="240" />
-        </Style>
+
     </UserControl.Styles>
 
     <Grid Classes="message-row" ColumnDefinitions="Auto,*,Auto"
@@ -128,29 +120,19 @@
                         ConverterParameter=-10}"
                         IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                     <StackPanel Spacing="4">
-                        <!-- 绑 DisplayMessage 而不是 Message:外层 MaxHeight 只裁<b>视口</b>,
-                             不裁<b>文本布局</b>——超长旁白(子代理报告)整篇 markdown 每次布局
-                             都要重新断行重新量,而会话流没有虚拟化。卡片<b>只</b>拿得到头部
-                             那一小段,全文一律去 FullTextWindow(与工具卡同一套做法,
-                             见 ToolResultTruncation) -->
-                        <ScrollViewer Classes.narration-limit="{Binding IsNarration}"
-                                      HorizontalScrollBarVisibility="Disabled">
-                            <!-- 纯文本档的口径:用户消息恒纯文本,其余只看用户的开关,<b>与是否生成完毕无关</b>。
-                                 流式期间曾额外绑 !IsDone(输出完才转 markdown),那是笔糊涂账:
-                                 增量本来就一直在喂 markdown 的 builder,延后的只是显示 -->
-                            <common:SimpleMarkdownViewer HorizontalAlignment="Left"
-                                                         MarkdownText="{Binding DisplayMessage}">
-                                <common:SimpleMarkdownViewer.IsPlaintext>
-                                    <MultiBinding
-                                        Converter="{StaticResource MultiConditionBoolOrConverter}">
-                                        <Binding Path="IsUser" />
-                                        <Binding Path="DataContext.IsPlaintext"
-                                                 RelativeSource="{RelativeSource AncestorType=conv:ConversationView}" />
-                                    </MultiBinding>
-                                </common:SimpleMarkdownViewer.IsPlaintext>
-                            </common:SimpleMarkdownViewer>
-                        </ScrollViewer>
-                        <!-- 截断提示行。只对旁白类(子代理报告)出现:普通气泡 IsTruncated 恒为 false -->
+                        <!-- 绑 DisplayMessage 而不是 Message:旁白(子代理报告/离席回执)无内部滚动,
+                             超长只走截断 + 查看全文,全文一律去 FullTextWindow(与工具卡同一套做法,
+                             见 ToolResultTruncation)。内嵌 ScrollViewer 会与会话流外层滚动打架,
+                             而 MaxHeight 只裁视口不裁文本布局,排版成本一点没省 -->
+                        <!-- 纯文本档的口径:用户与模型发言一致,只看页面级的纯文本开关,
+                             <b>与是否生成完毕、与谁说的都无关</b>。
+                             流式期间曾额外绑 !IsDone(输出完才转 markdown),那是笔糊涂账:
+                             增量本来就一直在喂 markdown 的 builder,延后的只是显示 -->
+                        <common:SimpleMarkdownViewer HorizontalAlignment="Left"
+                                                     MarkdownText="{Binding DisplayMessage}"
+                                                     IsPlaintext="{Binding DataContext.IsPlaintext,
+                                                     RelativeSource={RelativeSource AncestorType=conv:ConversationView}}" />
+                        <!-- 截断提示行。只对旁白类(子代理报告/离席回执)出现:普通气泡 IsTruncated 恒为 false -->
                         <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsTruncated}">
                             <TextBlock Grid.Column="0" Classes="muted" FontSize="10"
                                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis"

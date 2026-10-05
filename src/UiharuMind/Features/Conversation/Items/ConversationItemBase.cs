@@ -218,9 +218,9 @@ public partial class TextConversationItem : ConversationItemBase, IStreamFlushTa
         IsPostedToGroup = !IsUser && SourceMessage is { } source
                                   && Core.AI.Chat.ChatMessageAnnotations.IsPostedToGroup(source);
 
-    // 旁白类(开场白/子代理后续报告)的截断视图。只对旁白启用:它是静态的"扫一眼"内容,
-    // 与工具结果同一语义;用户/助手消息是流式的、正在被阅读,截断会破坏阅读体验。
-    // 开场白通常很短不会触发,长的是子代理报告——超长时显示头部 + 提示行 + 查看全文
+    // 旁白类(开场白/子代理报告/离席回执)的截断视图。只对旁白启用:它是静态的"扫一眼"内容,
+    // 与工具卡统一走同一套截断;用户/助手消息是流式的、正在被阅读,截断会破坏阅读体验。
+    // 无内部滚动,高度全靠截断定,超长时显示头部 + 提示行 + 查看全文
     private ToolResultView _view = ToolResultTruncation.Empty;
 
     /// <summary>气泡真正渲染的正文:旁白超长时是截断后的头部,其余透传原文</summary>
