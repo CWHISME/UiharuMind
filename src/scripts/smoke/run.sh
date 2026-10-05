@@ -12,6 +12,7 @@
 # 环境变量：
 #   SMOKE_CONFIG      模型配置来源，默认 ~/.uiharu/Config
 #   SMOKE_NO_BUILD=1  跳过编译，直接用已有的 Release 产物
+#   SMOKE_APP=路径    用这份产物跑（隐含不编译）。对照实验时把几个版本的产物各拷一份，轮流指过去
 #   SMOKE_CONTEXT=N   把副本里每个远程模型的上下文上限改成 N（用户填的值优先于预设表，三条压缩水位随之等比缩小），
 #                     长会话场景（如 handoff-cache）不必真把 1M 跑满；本地模型按实际加载值算，不受影响
 #   SMOKE_MODEL=名字  主会话、子代理、群成员都用这个模型：注入到每个 session.new，按人数给每个 group.create 填满 models（没写的群成员也不再走卡上默认），
@@ -23,7 +24,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 DESKTOP_PROJECT="$REPO_ROOT/src/UiharuMind.Desktop/UiharuMind.Desktop.csproj"
-APP="$REPO_ROOT/src/UiharuMind.Desktop/bin/Release/net10.0/UiharuMind.Desktop"
+APP="${SMOKE_APP:-$REPO_ROOT/src/UiharuMind.Desktop/bin/Release/net10.0/UiharuMind.Desktop}"
 
 scenario="${1:?用法：run.sh <场景名> [输出目录]，场景见 scenarios/}"
 template="$SCRIPT_DIR/scenarios/$scenario.jsonl"
@@ -61,7 +62,7 @@ if [ -n "${SMOKE_MODEL:-}" ]; then
     mv "$agent.tmp" "$agent"
 fi
 
-if [ "${SMOKE_NO_BUILD:-}" != "1" ]; then
+if [ "${SMOKE_NO_BUILD:-}" != "1" ] && [ -z "${SMOKE_APP:-}" ]; then
     dotnet build "$DESKTOP_PROJECT" -c Release -v q -nologo
 fi
 
