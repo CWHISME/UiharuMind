@@ -14,18 +14,21 @@ namespace UiharuMind.Features.Conversation.Group;
 public static class GroupAwayReceiptText
 {
     /// <summary>
+    /// 通知用的短版：原因 + 用时/出手/发言。明细（驳回的审批、化身的交代）只在群里的回执卡上看，
+    /// 通知栏放全文会把 toast 撑爆
+    /// </summary>
+    /// <param name="receipt">回执</param>
+    /// <returns>两行文本</returns>
+    public static string FormatBrief(GroupAwayReceipt receipt) => string.Join("\n", HeaderLines(receipt));
+
+    /// <summary>
     /// 回执的显示文本
     /// </summary>
     /// <param name="receipt">回执</param>
     /// <returns>多行文本</returns>
     public static string Format(GroupAwayReceipt receipt)
     {
-        List<string> lines =
-        [
-            Loc.Text(LangKey.GroupAwayReceiptTitleFormat, ReasonText(receipt.Reason)),
-            Loc.Text(LangKey.GroupAwayReceiptStatsFormat, DurationText(receipt.EndedAt - receipt.StartedAt),
-                receipt.AvatarTurns, receipt.AvatarPostIndices.Count),
-        ];
+        List<string> lines = HeaderLines(receipt);
 
         if (receipt.Approvals.Count > 0)
         {
@@ -43,6 +46,13 @@ public static class GroupAwayReceiptText
 
         return string.Join("\n", lines);
     }
+
+    private static List<string> HeaderLines(GroupAwayReceipt receipt) =>
+    [
+        Loc.Text(LangKey.GroupAwayReceiptTitleFormat, ReasonText(receipt.Reason)),
+        Loc.Text(LangKey.GroupAwayReceiptStatsFormat, DurationText(receipt.EndedAt - receipt.StartedAt),
+            receipt.AvatarTurns, receipt.AvatarPostIndices.Count),
+    ];
 
     private static string ReasonText(EGroupAwayEndReason reason) => Loc.Text(reason switch
     {

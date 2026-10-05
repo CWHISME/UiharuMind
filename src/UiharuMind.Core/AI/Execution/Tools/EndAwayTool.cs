@@ -17,7 +17,8 @@ public enum EAwayEndRequest
 /// <summary>化身调 <see cref="EndAwayTool"/> 留下的结束请求</summary>
 /// <param name="Reason">原因</param>
 /// <param name="Summary">给用户的交代</param>
-public sealed record AwayEndRequest(EAwayEndRequest Reason, string Summary);
+/// <param name="Say">点名要进群的告别话；没有为 null</param>
+public sealed record AwayEndRequest(EAwayEndRequest Reason, string Summary, string? Say = null);
 
 /// <summary>
 /// 化身结束离席（ADR 0055）。只挂给化身。
@@ -45,7 +46,10 @@ public static class EndAwayTool
             ([Description("\"done\" when the away goal is reached; \"needs_user\" when something must be decided by the user in person.")]
                 string reason,
                 [Description("What the user should know when they come back: what was done, or exactly what is waiting for them.")]
-                string summary) => Acknowledge(reason, summary, isInfinite?.Invoke() == true),
+                string summary,
+                [Description("Optional closing words to say to the group before ending; leave empty when there is nothing to tell the group. " +
+                    "Anything written next to this call stays local, only this parameter reaches the group.")]
+                string? say = null) => Acknowledge(reason, summary, isInfinite?.Invoke() == true),
             ToolName,
             "End the user's away session. The group stops after this turn and the user is notified. " +
             "Only for a reached goal or a decision the user must make in person. " +
@@ -64,10 +68,11 @@ public static class EndAwayTool
         string? reason = Text(call.Arguments.TryGetValue("reason", out object? rawReason) ? rawReason : null);
         string summary = Text(call.Arguments.TryGetValue("summary", out object? rawSummary) ? rawSummary : null)?.Trim()
                          ?? string.Empty;
+        string? say = Text(call.Arguments.TryGetValue("say", out object? rawSay) ? rawSay : null)?.Trim();
         return reason?.Trim() switch
         {
-            DoneValue => new AwayEndRequest(EAwayEndRequest.Done, summary),
-            NeedsUserValue => new AwayEndRequest(EAwayEndRequest.NeedsUser, summary),
+            DoneValue => new AwayEndRequest(EAwayEndRequest.Done, summary, say),
+            NeedsUserValue => new AwayEndRequest(EAwayEndRequest.NeedsUser, summary, say),
             _ => null,
         };
     }

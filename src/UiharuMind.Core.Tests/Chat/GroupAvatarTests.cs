@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
@@ -189,6 +190,23 @@ public class GroupAvatarTests
         Assert.Contains("新方向", section);
         // 与每轮标记对得上：标记置起"本次是无限模式"这个条件，卡片认同一个条件
         Assert.Contains("本次是无限模式", section);
+    }
+
+    /// <summary>
+    /// 告别话的教学在 EndAway 工具描述里：顺手正文只留本地、进群的走 say 参数，无限模式禁用（调了也只拿到错误）。
+    /// 卡面不重复这些——调了 EndAway 之后再说的话不会进群，写进 summary 的交代下次离席读历史也不会误会进过群
+    /// </summary>
+    [Fact]
+    public void EndAwayTool_DescriptionCarriesThePostEndSpeechAndInfiniteModeReminder()
+    {
+        AITool tool = EndAwayTool.Create();
+
+        // 无限模式禁用，调了也只拿到错误（工具主体描述）
+        Assert.Contains("In infinite away mode this tool is disabled", tool.Description ?? string.Empty);
+        // 顺手正文只留本地，进群只能靠 say 参数（say 参数写在 schema 的 description 里）
+        JsonNode? schema = tool is AIFunction function ? JsonNode.Parse(function.JsonSchema.GetRawText()) : null;
+        string? sayDescription = schema?["properties"]?["say"]?["description"]?.GetValue<string>();
+        Assert.Contains("only this parameter reaches the group", sayDescription);
     }
 
     private static IReadOnlyList<CharacterData> Cards(params string[] ids) =>

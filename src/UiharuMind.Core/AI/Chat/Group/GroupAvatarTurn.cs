@@ -53,7 +53,7 @@ public sealed record GroupAvatarTurn(EGroupAvatarTurnResult Result, AwayEndReque
     public static GroupAvatarTurn Classify(IEnumerable<ChatMessage> turnMessages, bool completed, bool stopped,
         int posted, bool endCallsBlocked = false, bool preempted = false)
     {
-        if (!endCallsBlocked && FindEnd(turnMessages) is { } end)
+        if (FindEnd(turnMessages, endCallsBlocked) is { } end)
             return new GroupAvatarTurn(EGroupAvatarTurnResult.Ended, end);
         if (stopped) return new GroupAvatarTurn(EGroupAvatarTurnResult.Stopped);
         if (preempted) return new GroupAvatarTurn(EGroupAvatarTurnResult.Preempted);

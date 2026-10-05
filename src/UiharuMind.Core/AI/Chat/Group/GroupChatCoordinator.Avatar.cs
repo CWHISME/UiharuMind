@@ -60,7 +60,12 @@ public sealed partial class GroupChatCoordinator
                 // 被停之后、调了结束离席之后再说的话都不进群：不让一句迟到的话绕过停止再开一波。
                 // 无限模式里结束调用只会拿到错误，不拦它的话
                 if (gate.Token.IsCancellationRequested) return null;
-                if (!endCallsBlocked && GroupAvatarTurn.FindEnd(avatar.History.Skip(start)) != null) return null;
+                if (GroupAvatarTurn.FindEnd(avatar.History.Skip(start), endCallsBlocked) != null) return null;
+                return PostBody(text, createdAt);
+            }
+
+            Task? PostBody(string text, DateTimeOffset? createdAt)
+            {
                 string body = GroupTranscript.StripSpeakerPrefix(text.Trim(), GroupSceneSource.SpeakerNameOf(avatar));
                 if (string.IsNullOrWhiteSpace(body)) return null;
 
@@ -72,10 +77,23 @@ public sealed partial class GroupChatCoordinator
                 return Task.CompletedTask;
             }
 
+            // 结束调用里 say 参数带的告别话：和调用写在同一条消息里，回复流按"带工具调用的不算说完"跳过，
+            // 但它是点名要进群的——调用边上的顺手正文照样只留在本地，一个字不动。
+            // 与结局判定共用同一道闸(GroupAvatarTurn.FindEnd,即 Classify 判 Ended 的口径):历史里有成立的
+            // 结束调用时离席就真结束——哪怕这一轮失败或被停,告别话也照样进群;只发第一次调用的 say,
+            // 与回执的 reason/summary 同口径。无限模式下调用被拦,FindEnd 返回 null,不进群
+            void PostEndCallSays()
+            {
+                if (GroupAvatarTurn.FindEnd(avatar.History.Skip(start), endCallsBlocked) is not { } end) return;
+                if (string.IsNullOrWhiteSpace(end.Say)) return;
+                PostBody(end.Say, DateTimeOffset.UtcNow);
+            }
+
             using GroupMemberReplyFeed replies = new(avatar, PostFromAvatar);
             ChatMessage deliveryMessage = GroupTranscript.DeliveryMessage(input, []);
             bool completed = await RunTurnAsync(avatar, deliveryMessage, null, gate.Token);
             replies.Finish(completed);
+            PostEndCallSays();
             // 装配阶段就被停下：投递没进它的历史，游标退回去下次照常交
             if (!completed && !avatar.History.Any(x => ReferenceEquals(x, deliveryMessage)))
             {

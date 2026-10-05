@@ -41,6 +41,24 @@ public class GroupAwayTextTests
     }
 
     [Fact]
+    public void ReceiptBrief_IsTwoLines_WithoutApprovalsActionsOrSummary()
+    {
+        DateTimeOffset start = DateTimeOffset.UnixEpoch;
+        GroupAwayReceipt receipt = new("g", "avatar", EGroupAwayEndReason.NeedsUser, "要不要推送等你定",
+            start, start.AddMinutes(95), 6, [3, 9],
+            [new GroupAwayApproval("Bob", "Write /etc/hosts", false, "越界写入")],
+            ["Edit src/a.cs"]);
+
+        string[] lines = GroupAwayReceiptText.FormatBrief(receipt).Split('\n');
+
+        Assert.Equal(2, lines.Length);
+        Assert.Equal(GroupAwayReceiptText.Format(receipt).Split('\n')[..2], lines);
+        Assert.DoesNotContain("越界写入", GroupAwayReceiptText.FormatBrief(receipt));
+        Assert.DoesNotContain("Edit src/a.cs", GroupAwayReceiptText.FormatBrief(receipt));
+        Assert.DoesNotContain("要不要推送等你定", GroupAwayReceiptText.FormatBrief(receipt));
+    }
+
+    [Fact]
     public void Receipt_WithNothingToReport_IsTwoLines()
     {
         DateTimeOffset start = DateTimeOffset.UnixEpoch;

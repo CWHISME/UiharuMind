@@ -354,8 +354,10 @@ public partial class App : Application, ILogger, IDisposable
             if (Services?.GetService<IMessageService>() is not { } messageService) return;
 
             string groupTitle = UiharuMind.Core.AI.Chat.SessionManager.Instance.GetMeta(receipt.GroupId)?.Title ?? string.Empty;
-            string body = GroupAwayReceiptText.Format(receipt);
-            Dispatcher.UIThread.Post(() => messageService.ShowNotification(groupTitle, body,
+            // 只报原因和用时/出手/发言：全文在群里的回执卡上看。注意参数顺序——第一个是限高的正文栏，
+            // 第二个才是群名标题栏，写反了全文会进不限高的标题栏把通知撑爆
+            string brief = GroupAwayReceiptText.FormatBrief(receipt);
+            Dispatcher.UIThread.Post(() => messageService.ShowNotification(brief, groupTitle,
                 MessageSeverity.Information, TimeSpan.FromSeconds(20)));
         };
     }
