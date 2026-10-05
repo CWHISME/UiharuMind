@@ -113,6 +113,43 @@ public class SessionListViewTests
         window.Close();
     });
 
+    /// <summary>
+    /// 别的会话浮到选中那一行的位置（另一个实例推进了它、后台活落了盘）时，选中不能跟着那个位置走：
+    /// 多实例冒烟实测，正等着回复的那个会话被接连换成别的实例刚动过的会话
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)] //首轮发送才懒建的会话不经列表选中,左栏选中一直是空
+    public void AnotherSessionFloatingToTheSelectedRow_DoesNotStealTheSelection(bool selected) => HeadlessUi.Run(() =>
+    {
+        List<ChatSessionMeta> metas = Metas();
+        SessionListModel model = new(EConversationType.Agent, () => metas, action => Dispatcher.UIThread.Post(action), new RecordingMessageService());
+        SessionListView view = new() { DataContext = model, ShowAvatar = false };
+        Window window = new() { Width = 300, Height = 600, Content = view };
+        window.Show();
+        Settle(window);
+        model.SelectWithoutNotifying(selected ? model.Sessions[0] : null);
+        Settle(window);
+        List<string?> switched = new();
+        model.SelectionChanged += x => switched.Add(x?.SessionId);
+
+        foreach (int pick in new[] { 3, 4, 5 })
+        {
+            ChatSessionMeta moved = metas.First(x => x.SessionId == $"s{pick}");
+            metas.Remove(moved);
+            metas.Insert(0, new ChatSessionMeta
+            {
+                SessionId = moved.SessionId, CharacterId = moved.CharacterId, Title = moved.Title, UpdatedAt = DateTimeOffset.Now,
+            });
+            model.RequestSync();
+            Settle(window);
+        }
+
+        Assert.Equal(selected ? "s0" : null, model.SelectedSession?.SessionId);
+        Assert.Empty(switched);
+        window.Close();
+    });
+
     [Fact]
     public void BatchMode_BuildsCheckBoxes_OnlyWhileOn() => HeadlessUi.Run(() =>
     {
