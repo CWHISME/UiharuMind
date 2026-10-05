@@ -145,7 +145,10 @@ public static class GroupArtifacts
         return written;
     }
 
-    private static StringComparer PathComparer =>
+    /// <summary>
+    /// 盘路径比较口径：按平台文件系统语义（macOS/Windows 不分大小写）
+    /// </summary>
+    public static StringComparer PathComparer =>
         OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 
     private static string? ResolveTarget(FunctionCallContent call, AgentPathResolver paths)

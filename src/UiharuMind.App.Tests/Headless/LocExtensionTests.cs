@@ -9,8 +9,8 @@ using UiharuMind.Shared.Services;
 namespace UiharuMind.App.Tests.Headless;
 
 /// <summary>
-/// <see cref="LocExtension"/> 改走 <c>IObservable&lt;string&gt;.ToBinding()</c> 后的行为守则：
-/// 订阅即推当前值、语言/设置变化实时更新、跨线程推值由 observable 封送回 UI 线程。
+/// <see cref="LocExtension"/> 返回 Source+Path 普通绑定后的行为守则：
+/// 绑定建立即取当前值、语言/设置变化实时更新、跨线程推值由本地化源封送回 UI 线程。
 /// </summary>
 [Collection(HeadlessCollection.Name)]
 public class LocExtensionTests
@@ -119,7 +119,7 @@ public class LocExtensionTests
                 tb.Bind(TextBlock.TextProperty,
                     (BindingBase)new LocExtension("TrayMenuScreenCapture") { SettingProperty = "CaptureScreenShortcut" }.ProvideValue(null!));
 
-                // 在后台线程改快捷键：Push 会走到 Post 封送，不能直接碰控件
+                // 在后台线程改快捷键：RaiseValueChanged 会走到 Post 封送，不能直接碰控件
                 string expected = $"{LocalizationManager.Instance.GetString("TrayMenuScreenCapture")} (Alt+Shift+BG2)";
                 Task.Run(() => SettingConfig.Current.CaptureScreenShortcut = "Alt+Shift+BG2")
                     .GetAwaiter().GetResult();

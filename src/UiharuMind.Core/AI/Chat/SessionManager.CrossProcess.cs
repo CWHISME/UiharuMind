@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat.CrossProcess;
 using UiharuMind.Core.AI.Execution;
@@ -335,8 +336,15 @@ public partial class SessionManager
         if (fileLock == null) Log.Warning("Session index lock timed out; writing without it.");
 
         if (FileStamp.Of(path) != _indexStamp) MergeIndexFromDisk(path);
-        SaveUtility.Save(path, _metas.Values.ToList(), SessionJsonOptions.Default);
-        _indexStamp = FileStamp.Of(path);
+        IReadOnlyList<ChatSessionMeta> metas = _metas.Values.ToList();
+        bool saved = SaveUtility.SaveUtf8(path, writer =>
+        {
+            writer.WriteStartArray();
+            foreach (ChatSessionMeta meta in metas) JsonSerializer.Serialize(writer, meta, SessionJsonOptions.Index);
+            writer.WriteEndArray();
+        }, SessionJsonOptions.Index);
+        // 写失败时指纹保持旧值：下次指纹不一致会先 merge 再重写，静默自愈；别把失败当成已落盘
+        if (saved) _indexStamp = FileStamp.Of(path);
     }
 
     // 盘上有、自己没有:会话头还在就是别人新建的;自己有、盘上没有:会话头没了就是别人删的

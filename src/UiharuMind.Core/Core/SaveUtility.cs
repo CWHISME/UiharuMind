@@ -117,6 +117,73 @@ public static class SaveUtility
     }
 
     /// <summary>
+    /// 以 UTF-8 流式原子写盘：序列化直接写进文件流，不经过中间字符串。
+    /// 大列表（如会话索引）整份重写时，不会把整份 JSON 抬进大对象堆。
+    /// 原子替换与并发语义同 <see cref="Save(string, object)"/>。
+    /// </summary>
+    /// <param name="filePath">目标路径</param>
+    /// <param name="write">在打开的 writer 上写内容（writer 由本方法管理，调用方写完即回）</param>
+    /// <param name="options">序列化配置；其中的 <c>WriteIndented</c> 与 <c>Encoder</c> 同时决定 writer 行为</param>
+    /// <returns>是否成功落盘</returns>
+    public static bool SaveUtf8(string filePath, Action<Utf8JsonWriter> write, JsonSerializerOptions options)
+    {
+        try
+        {
+            string? dir = Path.GetDirectoryName(filePath);
+            if (dir == null) return false;
+            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
+            string tempPath = filePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                const int maxAttempts = 3;
+                for (int attempt = 1;; attempt++)
+                {
+                    try
+                    {
+                        using (FileStream stream = new(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                        using (Utf8JsonWriter writer = new(stream, new JsonWriterOptions
+                        {
+                            Indented = options.WriteIndented,
+                            // 传入现成 writer 时转义由 writer 自己的 Encoder 决定，options.Encoder 不生效；
+                            // 不显式带上，非 ASCII（如中文标题）就会退化成 \uXXXX，文件膨胀且不可读
+                            Encoder = options.Encoder,
+                        }))
+                        {
+                            write(writer);
+                            writer.Flush();
+                            stream.Flush(flushToDisk: true);
+                        }
+
+                        File.Move(tempPath, filePath, true);
+                        return true;
+                    }
+                    catch (IOException) when (attempt < maxAttempts)
+                    {
+                        Thread.Sleep(TimeSpan.FromMilliseconds(20 * attempt));
+                    }
+                }
+            }
+            finally
+            {
+                try
+                {
+                    if (File.Exists(tempPath)) File.Delete(tempPath);
+                }
+                catch
+                {
+                    // 残留 tmp 不影响下次保存,下次会用新的唯一文件名
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Error($"Save File Error:{e.Message},Path:{filePath}");
+            return false;
+        }
+    }
+
+    /// <summary>
     /// 用指定序列化配置保存。会话存档需要 Microsoft.Extensions.AI 的 TypeInfoResolver
     /// 才能正确写入多态 AIContent，不能复用通用配置。
     /// </summary>

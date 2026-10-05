@@ -28,6 +28,19 @@ public static class SessionJsonOptions
     /// </summary>
     public static readonly JsonSerializerOptions Default = Create();
 
+    /// <summary>
+    /// 会话索引（index.json）的序列化配置：与 <see cref="Default"/> 同源，但不缩进。
+    /// 索引整份重写，缩进会让文件成倍膨胀（六百多条时约 950KB → 350KB）。
+    /// </summary>
+    public static readonly JsonSerializerOptions Index = CreateIndex();
+
+    private static JsonSerializerOptions CreateIndex()
+    {
+        JsonSerializerOptions options = new(Default) { WriteIndented = false };
+        options.MakeReadOnly();
+        return options;
+    }
+
     private static JsonSerializerOptions Create()
     {
         JsonSerializerOptions options = new(AIJsonUtilities.DefaultOptions)

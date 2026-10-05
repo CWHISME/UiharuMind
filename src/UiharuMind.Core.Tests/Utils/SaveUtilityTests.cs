@@ -1,3 +1,5 @@
+using System.Text.Json;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 
@@ -50,6 +52,69 @@ public class SaveUtilityTests
         finally
         {
             LogManager.Instance.OnLogAppended -= Handler;
+            try
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
+            catch
+            {
+                // 测试残留清理失败不影响断言
+            }
+        }
+    }
+
+    /// <summary>流式写盘对非 ASCII 保持原样：writer 的 Encoder 继承 options，中文不退化成语 \uXXXX 转义</summary>
+    [Fact]
+    public void SaveUtf8_KeepsNonAsciiAsIs()
+    {
+        string path = NewTempPath();
+        try
+        {
+            SaveUtility.SaveUtf8(path, writer =>
+            {
+                JsonSerializer.Serialize(writer, new { title = "世界观·白露" }, SessionJsonOptions.Index);
+            }, SessionJsonOptions.Index);
+
+            string text = File.ReadAllText(path);
+            Assert.Contains("世界观·白露", text);
+            Assert.DoesNotContain("\\u", text);
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
+            catch
+            {
+                // 测试残留清理失败不影响断言
+            }
+        }
+    }
+
+    /// <summary>流式写盘（P1）：不经过中间字符串也能写出完整 JSON，不缩进、不留 tmp</summary>
+    [Fact]
+    public void SaveUtf8_WritesCompactJson_ReadableBack_NoTempLeft()
+    {
+        string path = NewTempPath();
+        try
+        {
+            SaveUtility.SaveUtf8(path, writer =>
+            {
+                writer.WriteStartArray();
+                foreach (int n in new[] { 3, 1, 2 }) JsonSerializer.Serialize(writer, n, SessionJsonOptions.Index);
+                writer.WriteEndArray();
+            }, SessionJsonOptions.Index);
+
+            string text = File.ReadAllText(path);
+            Assert.DoesNotContain("\n", text.Trim());
+            Assert.Equal(new[] { 3, 1, 2 }, JsonSerializer.Deserialize<List<int>>(text));
+
+            string dir = Path.GetDirectoryName(path)!;
+            Assert.Empty(Directory.GetFiles(dir, Path.GetFileName(path) + ".*.tmp"));
+        }
+        finally
+        {
             try
             {
                 if (File.Exists(path)) File.Delete(path);

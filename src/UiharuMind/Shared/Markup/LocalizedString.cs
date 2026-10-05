@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
 using Avalonia.Threading;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
@@ -10,11 +9,14 @@ using UiharuMind.Shared.Services;
 namespace UiharuMind.Shared.Markup;
 
 /// <summary>
-/// 一条本地化文案的可观察流：订阅时立即推当前值（BehaviorSubject 语义），
-/// 语言或相关设置变化时再推新值。供 <see cref="LocExtension"/> 以
-/// <c>IObservable&lt;string&gt;.ToBinding()</c> 消费。
+/// 一条本地化文案的可观察值：订阅方（Avalonia 绑定）通过 <see cref="INotifyPropertyChanged"/>
+/// 在语言或相关设置变化时收到 <see cref="Value"/> 变更。供 <see cref="LocExtension"/> 以
+/// <c>Binding Source=LocalizedString Path=Value</c> 消费。
+/// 走 INPC 弱事件而非自管的 IObservable 订阅表：弱事件不保留已死控件（控件可正常回收），
+/// 但死订阅条目与旧实现一样只在源推值（语言/设置变化）时压缩——Avalonia 不在控件回收时自动解绑。
+/// 实测（P2）订阅持续增长的主因是产物面板每次刷新重建容器，已由增量更新解决；这里只是把订阅表交还 Avalonia。
 /// </summary>
-public class LocalizedString : IObservable<string>
+public class LocalizedString : INotifyPropertyChanged
 {
     private static readonly Dictionary<string, LocalizedString> Cache = new();
 
@@ -32,8 +34,6 @@ public class LocalizedString : IObservable<string>
     private readonly string _key;
     private readonly string? _settingProperty;
     private readonly Func<SettingConfig, string>? _settingGetter;
-    private readonly object _gate = new();
-    private readonly List<IObserver<string>> _observers = new();
 
     /// <summary>
     /// 当前文案；带设置值时拼成「文案 (设置值)」
@@ -62,12 +62,12 @@ public class LocalizedString : IObservable<string>
     }
 
     /// <summary>
-    /// 取（并缓存）一个 key 的本地化流。缓存与 LocalizationManager/Setting 同为单例，
-    /// 因此应用生命周期内有效，控件销毁只退订、不销毁流本身。
+    /// 取（并缓存）一个 key 的本地化值。缓存与 LocalizationManager/Setting 同为单例，
+    /// 因此应用生命周期内有效，控件销毁只解除绑定、不销毁值本身。
     /// </summary>
     /// <param name="key">资源键</param>
     /// <param name="settingProperty">要拼到文案后的设置属性名；可为 null</param>
-    /// <returns>本地化流</returns>
+    /// <returns>本地化值</returns>
     public static LocalizedString Get(string key, string? settingProperty = null)
     {
         var cacheKey = string.IsNullOrWhiteSpace(settingProperty) ? key : $"{key}:{settingProperty}";
@@ -81,16 +81,7 @@ public class LocalizedString : IObservable<string>
         return localizedString;
     }
 
-    public IDisposable Subscribe(IObserver<string> observer)
-    {
-        lock (_gate)
-        {
-            _observers.Add(observer);
-        }
-
-        Notify(observer, Value);
-        return new Subscription(this, observer);
-    }
+    public event PropertyChangedEventHandler? PropertyChanged;
 
     private string? GetSettingValue()
     {
@@ -99,66 +90,25 @@ public class LocalizedString : IObservable<string>
 
     private void OnLanguageChanged()
     {
-        Push();
+        RaiseValueChanged();
     }
 
     private void OnSettingChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName != _settingProperty) return;
-        Push();
+        RaiseValueChanged();
     }
 
-    private void Push()
-    {
-        var value = Value;
-        IObserver<string>[] snapshot;
-        lock (_gate)
-        {
-            snapshot = _observers.ToArray();
-        }
-
-        foreach (var observer in snapshot)
-        {
-            Notify(observer, value);
-        }
-    }
-
-    // Avalonia 的 observable 绑定不自动封送线程（UntypedObservableBindingExpression.OnNext
-    // 直接 PublishValue），跨线程推值必须回到 UI 线程，否则撞控件线程亲和性。
-    private static void Notify(IObserver<string> observer, string value)
+    // 绑定表达式不自动封送线程，跨线程推值必须回到 UI 线程，否则撞控件线程亲和性。
+    private void RaiseValueChanged()
     {
         if (Dispatcher.UIThread.CheckAccess())
         {
-            observer.OnNext(value);
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Value)));
         }
         else
         {
-            Dispatcher.UIThread.Post(() => observer.OnNext(value));
-        }
-    }
-
-    private void Unsubscribe(IObserver<string> observer)
-    {
-        lock (_gate)
-        {
-            _observers.Remove(observer);
-        }
-    }
-
-    private sealed class Subscription : IDisposable
-    {
-        private readonly LocalizedString _owner;
-        private readonly IObserver<string> _observer;
-
-        public Subscription(LocalizedString owner, IObserver<string> observer)
-        {
-            _owner = owner;
-            _observer = observer;
-        }
-
-        public void Dispose()
-        {
-            _owner.Unsubscribe(_observer);
+            Dispatcher.UIThread.Post(() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Value))));
         }
     }
 }
