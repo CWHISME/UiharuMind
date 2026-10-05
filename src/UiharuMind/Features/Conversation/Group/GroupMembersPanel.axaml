@@ -44,8 +44,15 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="group:GroupMemberItem">
                         <Button Classes="Tertiary" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                                Margin="0,2" Command="{Binding OpenCommand}"
-                                ToolTip.Tip="{Binding Usage.Tip}">
+                                Margin="0,2" Command="{Binding OpenCommand}">
+                            <!-- 上半部（头像/名字/描述）悬停：名称 + 描述；底部 usage 行自己挂了模型 tooltip 覆盖这份继承 -->
+                            <ToolTip.Tip>
+                                <StackPanel MaxWidth="320" Spacing="3">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding Description}" TextWrapping="Wrap"
+                                               IsVisible="{Binding HasDescription}" />
+                                </StackPanel>
+                            </ToolTip.Tip>
                             <Button.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Header="{loc:Loc GroupMoveUp}" Command="{Binding MoveUpCommand}" />
@@ -68,15 +75,25 @@
                                                         VerticalAlignment="Center"
                                                         IsVisible="{Binding IsHost}" />
                                 </Grid>
-                                <!-- 角色描述为主行；模型彻底收进整卡 tooltip，行内不再出现 -->
+                                <!-- 角色描述为主行；模型收进底部 usage 行自己的 tooltip，行内不再出现 -->
                                 <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
                                            Classes="muted" FontSize="11" Text="{Binding Description}"
-                                           ToolTip.Tip="{Binding Description}"
                                            TextTrimming="CharacterEllipsis" MaxLines="1"
                                            IsVisible="{Binding HasDescription}" />
-                                <!-- 底部统一统计：占用 / 上限、累计与占用进度条，随每次用量上报刷新 -->
-                                <group:SessionUsageBar Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3"
-                                                       DataContext="{Binding Usage}" />
+                                <!-- 下半部分：模型统计。整条都是模型 tooltip 的宿主——usage 没数据时行内是空的，
+                                     这层容器不被隐藏（MinHeight 兜底），鼠标落在这条的任何位置都出模型 tooltip。
+                                     必须给透明背景：没背景的 Border 空白处不参与 hit test，会穿透到 Button 显示上半部分 tooltip -->
+                                <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" MinHeight="18"
+                                        Background="Transparent"
+                                        ToolTip.Tip="{Binding Usage.Tip}">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
+                                        <!-- 占用 / 上限、累计与占用进度条，随每次用量上报刷新 -->
+                                        <group:SessionUsageBar DataContext="{Binding Usage}" />
+                                        <!-- 模型图标：视觉提示这里悬停看模型信息；tooltip 由整条容器统一给 -->
+                                        <controls:ThemedSvgIcon Grid.Column="1" Width="14" Height="14"
+                                                                IconName="bot" VerticalAlignment="Center" />
+                                    </Grid>
+                                </Border>
                                 <!-- 正在说的那一位（并行时可能几位）：蓝点 + 文字，跟着调度器的发言人变化走 -->
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
                                             VerticalAlignment="Center"

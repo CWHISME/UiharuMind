@@ -315,13 +315,13 @@ public sealed partial class GroupMemberItem : ObservableObject
     private readonly Action<GroupMemberItem> _remove;
     private readonly Action<GroupMemberItem, int> _move;
 
-    /// <summary>角色描述：副标题的主行，空时折叠（不占位）。模型行内不再出现，只进整卡 tooltip</summary>
+    /// <summary>角色描述：副标题的主行，空时折叠（不占位）。模型名行内不再出现，模型 tooltip 收进下半部分统计条</summary>
     public string Description => _character.Description?.Trim() ?? "";
 
     /// <summary>有没有可显示的角色描述</summary>
     public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
 
-    /// <summary>模型用量（底部统计行、进度条与整卡 tooltip）</summary>
+    /// <summary>模型用量（底部统计行、进度条；模型 tooltip 由下半部分整条容器承载，usage 没数据也始终可悬停）</summary>
     public SessionUsageStats Usage { get; }
 
     /// <summary>
