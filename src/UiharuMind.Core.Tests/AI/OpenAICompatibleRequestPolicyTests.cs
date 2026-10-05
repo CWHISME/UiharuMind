@@ -1,6 +1,7 @@
 using System.ClientModel;
 using System.ClientModel.Primitives;
 using System.Net;
+using System.Text;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Net;
@@ -124,6 +125,42 @@ public class OpenAICompatibleRequestPolicyTests
         Assert.Equal("{\"model\":\"m\",\"tool_choice\":\"none\"}", rewritten);
     }
 
+    /// <summary>
+    /// 换下来的那份请求体要释放：SDK 序列化时现租的池化缓冲段只能靠它还，
+    /// 而 message 释放时只会释放换上去的新正文
+    /// </summary>
+    [Fact]
+    public async Task ReplacedBody_IsDisposed()
+    {
+        var body = new TrackingContent("{\"a\":1}");
+        ClientPipeline pipeline = ClientPipeline.Create(
+            new ClientPipelineOptions { Transport = new HttpClientPipelineTransport(new HttpClient(new FlakyServer(0))) },
+            perCallPolicies: [new OpenAICompatibleRequestPolicy(json => json)], perTryPolicies: ReadOnlySpan<PipelinePolicy>.Empty,
+            beforeTransportPolicies: ReadOnlySpan<PipelinePolicy>.Empty);
+
+        PipelineMessage message = pipeline.CreateMessage();
+        message.Request.Method = "POST";
+        message.Request.Uri = new Uri("http://localhost/v1/chat/completions");
+        message.Request.Content = body;
+        await pipeline.SendAsync(message);
+
+        Assert.True(body.Disposed);
+    }
+
+    /// <summary>改写后中文与 HTML 敏感字符原样：默认编码器会把它们全写成 \uXXXX，请求体凭空大三成</summary>
+    [Fact]
+    public async Task Rewriter_KeepsNonAsciiUnescaped()
+    {
+        string rewritten = await Task.Run(() =>
+        {
+            LlmRequestContext.ForbidToolCalls = true;
+            return OpenAICompatibleRequestRewriter.Rewrite(
+                "{\"messages\":[{\"role\":\"user\",\"content\":\"你好<>&'+\"}]}", model: null);
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Contains("\"content\":\"你好<>&'+\"", rewritten);
+    }
+
     private sealed class ImmediateRetryPolicy() : ClientRetryPolicy(maxRetries: 3)
     {
         protected override TimeSpan GetNextDelay(PipelineMessage message, int tryCount) => TimeSpan.Zero;
@@ -142,5 +179,26 @@ public class OpenAICompatibleRequestPolicyTests
                 ? HttpStatusCode.ServiceUnavailable
                 : HttpStatusCode.OK) { Content = new StringContent(okBody, System.Text.Encoding.UTF8, "application/json") };
         }
+    }
+
+    // 记下自己有没有被释放的请求体
+    private sealed class TrackingContent(string json) : BinaryContent
+    {
+        private readonly byte[] _bytes = Encoding.UTF8.GetBytes(json);
+
+        public bool Disposed { get; private set; }
+
+        public override bool TryComputeLength(out long length)
+        {
+            length = _bytes.Length;
+            return true;
+        }
+
+        public override void WriteTo(Stream stream, CancellationToken cancellation) => stream.Write(_bytes);
+
+        public override Task WriteToAsync(Stream stream, CancellationToken cancellation) =>
+            stream.WriteAsync(_bytes, cancellation).AsTask();
+
+        public override void Dispose() => Disposed = true;
     }
 }

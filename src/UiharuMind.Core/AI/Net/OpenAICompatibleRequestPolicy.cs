@@ -54,7 +54,7 @@ internal sealed class OpenAICompatibleRequestPolicy : PipelinePolicy
         {
             using MemoryStream stream = new();
             body.WriteTo(stream, message.CancellationToken);
-            Replace(message, stream);
+            Replace(message, body, stream);
         }
 
         ProcessNext(message, pipeline, currentIndex);
@@ -67,7 +67,7 @@ internal sealed class OpenAICompatibleRequestPolicy : PipelinePolicy
         {
             using MemoryStream stream = new();
             await body.WriteToAsync(stream, message.CancellationToken).ConfigureAwait(false);
-            Replace(message, stream);
+            Replace(message, body, stream);
         }
 
         await ProcessNextAsync(message, pipeline, currentIndex).ConfigureAwait(false);
@@ -76,10 +76,13 @@ internal sealed class OpenAICompatibleRequestPolicy : PipelinePolicy
     private static BinaryContent? TakeBody(PipelineMessage message) =>
         string.Equals(message.Request.Method, "POST", StringComparison.OrdinalIgnoreCase) ? message.Request.Content : null;
 
-    private void Replace(PipelineMessage message, MemoryStream stream)
+    private void Replace(PipelineMessage message, BinaryContent body, MemoryStream stream)
     {
         string json = Encoding.UTF8.GetString(stream.GetBuffer(), 0, (int)stream.Length);
         message.Request.Content = BinaryContent.Create(BinaryData.FromString(_prepare(json)));
+        // 换下来的这份要自己释放：Content 的 setter 只赋值不释放，而流式调用里 SDK 自己那次 Dispose 发生在序列化之前，
+        // 上面 WriteTo 时现租的池化缓冲段（16KB 一段）原本只能等 message 释放时还，换掉之后就永远还不回去了
+        body.Dispose();
     }
 
     /// <summary>

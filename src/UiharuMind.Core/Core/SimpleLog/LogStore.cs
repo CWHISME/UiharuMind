@@ -7,6 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Buffers;
 using System.Text;
 
 namespace UiharuMind.Core.Core.SimpleLog;
@@ -131,8 +132,22 @@ public sealed class LogStore : IDisposable
     // 正文进 Bodies,主流只留摘要与引用——这正是 Log.txt 能保持人类可读的原因
     private LogIndexEntry AppendSpilled(LogItem item, string header, string preview, int textByteLength)
     {
-        byte[] bodyBytes = Encoding.UTF8.GetBytes($"{item.Text}\n\n");
-        long bodyOffset = _bodies.Append(bodyBytes);
+        // 正文直接编码进池里租的缓冲:请求体动辄几十万字,插值一份字符串再编码一份字节数组就是两次大对象堆分配。
+        // 正文与空行必须一次 Append 写完——分两次的话第二次可能刚好滚动,文件代号就对不上了
+        byte[] bodyBytes = ArrayPool<byte>.Shared.Rent(textByteLength + 2);
+        long bodyOffset;
+        try
+        {
+            int length = Encoding.UTF8.GetBytes(item.Text.AsSpan(), bodyBytes);
+            bodyBytes[length++] = (byte)'\n';
+            bodyBytes[length++] = (byte)'\n';
+            bodyOffset = _bodies.Append(bodyBytes.AsSpan(0, length));
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(bodyBytes);
+        }
+
         int bodyFileId = _bodies.CurrentFileId; //必须在 Append 之后读:它可能刚滚动过
 
         byte[] mainBytes = Encoding.UTF8.GetBytes(

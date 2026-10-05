@@ -9,6 +9,7 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System.Buffers;
 using System.Net.Http.Headers;
 using System.Text;
 using UiharuMind.Core.AI.Net;
@@ -176,13 +177,14 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
         }
         else if (mediaType == "application/json")
         {
-            var json = await response.Content.ReadAsStringAsync(cancellationToken);
-            var fixedJson = OpenAiCompatibleResponseFixer.FixJson(json);
-            if (fixedJson != null)
+            HttpContent original = response.Content;
+            byte[] json = await original.ReadAsByteArrayAsync(cancellationToken);
+            var fixedJson = new ArrayBufferWriter<byte>(json.Length + 64);
+            if (OpenAiCompatibleResponseFixer.TryFix(json, fixedJson))
             {
-                var contentType = response.Content.Headers.ContentType;
-                response.Content = new StringContent(fixedJson, Encoding.UTF8, "application/json");
-                if (contentType != null) response.Content.Headers.ContentType = contentType;
+                response.Content = new ReadOnlyMemoryContent(fixedJson.WrittenMemory);
+                response.Content.Headers.ContentType = original.Headers.ContentType;
+                original.Dispose();
             }
         }
 

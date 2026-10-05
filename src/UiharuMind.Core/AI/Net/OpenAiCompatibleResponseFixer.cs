@@ -1,5 +1,6 @@
+using System.Buffers;
+using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 
 namespace UiharuMind.Core.AI.Net;
 
@@ -14,216 +15,244 @@ namespace UiharuMind.Core.AI.Net;
 /// </list>
 ///
 /// 三处都在商汤 Sensenova 上实测到过。
+///
+/// 流式响应每块都要过这里（网关每块都带 <c>"finish_reason":""</c>，一次调用上千块），
+/// 所以只扫一遍 <see cref="Utf8JsonReader"/>、记下要改的字节区间再拼接（<see cref="Utf8JsonSplice"/>）：
+/// 不建 DOM、不经字符串，没改到的部分一字不动。
 /// </summary>
 internal static class OpenAiCompatibleResponseFixer
 {
-    private const string FinishReasonKey = "finish_reason";
-    private const string ToolCallsKey = "tool_calls";
-    private const string ReasoningKey = "reasoning"; //商汤自研模型的思考字段；SDK 只认 reasoning_content
-    private const string ReasoningContentKey = "reasoning_content";
-    private const string TypeKey = "type";
-    private const string FunctionToolCall = "function"; //OpenAI 规范里 tool_calls 的 type 只有这一个合法值
-    private const string QuotedFinishReasonKey = "\"finish_reason\"";
-    private const string QuotedReasoningKey = "\"reasoning\""; //带引号：不命中 reasoning_content/reasoning_tokens
-    private const string QuotedReasoningContentKey = "\"reasoning_content\"";
-    private const string ReasoningKeyPrefix = "\"reasoning\":"; //字面改名用：紧随 `"` 即字符串值
-    private const string ReasoningContentKeyPrefix = "\"reasoning_content\":";
-    private const string EmptyReasoningHead = "\"reasoning\":\"\","; //空思考在前，后随逗号
-    private const string EmptyReasoningTail = ",\"reasoning\":\"\""; //空思考在后，前随逗号
-    private const string NullFinishReason = "\"finish_reason\":null";
-    private const string EmptyFinishReason = "\"finish_reason\":\"\"";
+    private const int MaxDepth = 64; //与 Utf8JsonReader 默认的嵌套上限一致
+
+    private static readonly byte[] NullValue = "null"u8.ToArray();
+    private static readonly byte[] StopValue = "\"stop\""u8.ToArray();
+    private static readonly byte[] FunctionValue = "\"function\""u8.ToArray(); //OpenAI 规范里 tool_calls 的 type 只有这一个合法值
+    private static readonly byte[] ReasoningContentKey = "\"reasoning_content\""u8.ToArray();
 
     private static readonly HashSet<string> ValidFinishReasons = new(StringComparer.Ordinal)
     {
         "stop", "length", "content_filter", "tool_calls", "function_call"
     };
 
-    /// <summary>
-    /// 修正一行 SSE 文本
-    /// </summary>
-    /// <param name="line">原始行，含 data: 前缀</param>
-    /// <returns>需要修正时返回新行，否则原样返回</returns>
-    public static string FixEventStreamLine(string line)
+    private static readonly HashSet<string>.AlternateLookup<ReadOnlySpan<char>> ValidFinishReasonLookup =
+        ValidFinishReasons.GetAlternateLookup<ReadOnlySpan<char>>();
+
+    private enum Key : byte
     {
-        const string prefix = "data:";
-        if (!line.StartsWith(prefix, StringComparison.Ordinal)) return line;
-        var payload = line[prefix.Length..].Trim();
-        if (payload.Length == 0 || payload == "[DONE]") return line;
-        var fixedPayload = FixJson(payload);
-        return fixedPayload == null ? line : "data: " + fixedPayload;
+        Other,
+        FinishReason,
+        ToolCalls,
+        Reasoning,
+        ToolCallType,
+    }
+
+    // 一层容器的扫描状态。思考键要等对象收尾才能定夺：同对象的 reasoning_content 可能排在它后面
+    private struct Frame
+    {
+        public bool IsToolCallsArray;
+        public bool IsToolCall; //直接位于 tool_calls 数组里的元素
+        public bool HasReasoningContent;
+        public bool ReasoningNonEmpty;
+        public int ReasoningKeyStart; //-1 表示本层没有字符串值的 reasoning 键
+        public int ReasoningKeyEnd;
+        public int ReasoningValueEnd;
+    }
+
+    /// <summary>
+    /// 修正一行 SSE：只认 <c>data:</c> 行，<c>[DONE]</c> 与空载荷不动
+    /// </summary>
+    /// <param name="line">原始行（不含换行）</param>
+    /// <param name="output">需要修正时写入 <c>data: </c> 与修正后的 JSON</param>
+    /// <returns>写了返回 true；无需修正返回 false，output 不动，调用方原样转发</returns>
+    public static bool TryFixEventStreamLine(ReadOnlySpan<byte> line, IBufferWriter<byte> output)
+    {
+        if (!line.StartsWith("data:"u8)) return false;
+        ReadOnlySpan<byte> payload = line["data:"u8.Length..].Trim(" \t"u8);
+        if (payload.IsEmpty || payload.SequenceEqual("[DONE]"u8)) return false;
+        return TryFix(payload, output, "data: "u8);
     }
 
     /// <summary>
     /// 修正一段 chat completion 响应 JSON
     /// </summary>
     /// <param name="json">原始 JSON</param>
-    /// <returns>需要修正时返回新 JSON，无需修正或解析失败返回 null</returns>
-    public static string? FixJson(string json)
+    /// <param name="output">需要修正时写入修正后的 JSON</param>
+    /// <returns>写了返回 true；无需修正或解析失败返回 false，output 不动</returns>
+    public static bool TryFix(ReadOnlySpan<byte> json, IBufferWriter<byte> output) => TryFix(json, output, default);
+
+    /// <summary>
+    /// 修正一行 SSE 文本（字符串入口，测试用）
+    /// </summary>
+    /// <param name="line">原始行，含 data: 前缀</param>
+    /// <returns>需要修正时返回新行，否则原样返回</returns>
+    public static string FixEventStreamLine(string line)
     {
-        bool hasToolCalls = json.Contains(ToolCallsKey, StringComparison.Ordinal);
-        bool hasReasoning = json.Contains(QuotedReasoningKey, StringComparison.Ordinal);
-        if (!json.Contains(FinishReasonKey, StringComparison.Ordinal) && !hasToolCalls && !hasReasoning) return null;
-
-        bool literallyChanged = false;
-        // 思考块的热路径：单 `"reasoning":`、无 reasoning_content、值是非空字符串时纯字面改名，不建 DOM。
-        // 逐块 DOM 是流式里最大的一笔分配（83cf4ca6 才刚把它从 finish_reason 上摘掉），
-        // 思考流一跑就是上万块，这里不能走回头路；拿不准的一律留给下面的 DOM 兜底
-        if (hasReasoning && TryRenameReasoningKey(json, out string renamed))
-        {
-            json = renamed;
-            literallyChanged = true;
-            hasReasoning = false;
-            if (!json.Contains(FinishReasonKey, StringComparison.Ordinal) && !hasToolCalls)
-                return json;
-        }
-
-        // 空思考按字面删掉：思考期 chunk 里常见，不进 DOM（与 finish_reason 空串同理；
-        // 值里的转义写法是 \"reasoning\":\"\" 带反斜杠，撞不上这里的字面形态）。
-        // 只做删除，长度变了就是改过，后续分支返回时不能把这一笔吞掉
-        if (hasReasoning)
-        {
-            string pruned = json.Replace(EmptyReasoningHead, string.Empty, StringComparison.Ordinal)
-                .Replace(EmptyReasoningTail, string.Empty, StringComparison.Ordinal);
-            if (pruned.Length != json.Length)
-            {
-                json = pruned;
-                literallyChanged = true;
-                hasReasoning = json.Contains(QuotedReasoningKey, StringComparison.Ordinal);
-                if (!json.Contains(FinishReasonKey, StringComparison.Ordinal) && !hasToolCalls && !hasReasoning)
-                    return json;
-            }
-        }
-
-        // 商汤的每个增量块都带 "finish_reason":""（一轮上千块），逐块建 DOM 再序列化是流式里最大的一笔分配。
-        // finish_reason 只有 null 或空串两种形态时按字面处理，其余（带空格、未知值、tool_calls）仍走 DOM
-        if (!hasToolCalls && !hasReasoning)
-        {
-            int keys = CountOf(json, QuotedFinishReasonKey);
-            int nulls = CountOf(json, NullFinishReason);
-            int empties = CountOf(json, EmptyFinishReason);
-            if (keys == nulls) return literallyChanged ? json : null;
-            if (keys == nulls + empties) return json.Replace(EmptyFinishReason, NullFinishReason, StringComparison.Ordinal);
-        }
-
-        try
-        {
-            var node = JsonNode.Parse(json);
-            if (!FixNode(node) && !literallyChanged) return null;
-            return node!.ToJsonString();
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
-
-    private static int CountOf(string text, string value)
-    {
-        int count = 0;
-        for (int index = text.IndexOf(value, StringComparison.Ordinal);
-             index >= 0;
-             index = text.IndexOf(value, index + value.Length, StringComparison.Ordinal))
-        {
-            count++;
-        }
-
-        return count;
+        var output = new ArrayBufferWriter<byte>();
+        return TryFixEventStreamLine(Encoding.UTF8.GetBytes(line), output)
+            ? Encoding.UTF8.GetString(output.WrittenSpan)
+            : line;
     }
 
     /// <summary>
-    /// 字面改名 <c>"reasoning":</c> → <c>"reasoning_content":</c>。只在三者齐备时动手：
-    /// 同块没有 <c>reasoning_content</c>（否则改完出现重复键）、<c>"reasoning":</c> 只出现一次、
-    /// 值紧随非空字符串（<c>:</c> 后是 <c>"</c> 且不是紧闭的 <c>""</c>）。
-    /// 拿不准的（双键、非字符串值、键后带空格、空串）一律返回 false，走 DOM 逐个看。
+    /// 修正一段 chat completion 响应 JSON（字符串入口，测试用）
     /// </summary>
-    private static bool TryRenameReasoningKey(string json, out string renamed)
+    /// <param name="json">原始 JSON</param>
+    /// <returns>需要修正时返回新 JSON，无需修正或解析失败返回 null</returns>
+    public static string? FixJson(string json)
     {
-        renamed = json;
-        if (json.Contains(QuotedReasoningContentKey, StringComparison.Ordinal)) return false;
-        int first = json.IndexOf(ReasoningKeyPrefix, StringComparison.Ordinal);
-        if (first < 0) return false;
-        if (json.IndexOf(ReasoningKeyPrefix, first + ReasoningKeyPrefix.Length, StringComparison.Ordinal) >= 0)
-            return false;
-        int valueAt = first + ReasoningKeyPrefix.Length;
-        if (valueAt + 1 >= json.Length || json[valueAt] != '"' || json[valueAt + 1] == '"') return false;
-        renamed = json.Replace(ReasoningKeyPrefix, ReasoningContentKeyPrefix, StringComparison.Ordinal);
+        var output = new ArrayBufferWriter<byte>();
+        return TryFix(Encoding.UTF8.GetBytes(json), output) ? Encoding.UTF8.GetString(output.WrittenSpan) : null;
+    }
+
+    private static bool TryFix(ReadOnlySpan<byte> json, IBufferWriter<byte> output, ReadOnlySpan<byte> prefix)
+    {
+        // 三个键名一个都不含就不必解析
+        if (json.IndexOf("finish_reason"u8) < 0 && json.IndexOf("tool_calls"u8) < 0 &&
+            json.IndexOf("\"reasoning\""u8) < 0) return false;
+
+        var splice = new Utf8JsonSplice();
+        try
+        {
+            if (!Collect(json, ref splice) || splice.Count == 0) return false;
+        }
+        catch (JsonException)
+        {
+            return false; //不是合法 JSON：原样交给 SDK
+        }
+
+        output.Write(prefix);
+        splice.WriteTo(json, output);
         return true;
     }
 
-    private static bool FixNode(JsonNode? node)
+    // 一遍扫描记下全部改动；同一对象里出现两个 reasoning 键这种拿不准的形态，整块不动
+    private static bool Collect(ReadOnlySpan<byte> json, ref Utf8JsonSplice splice)
     {
-        var changed = false;
-        switch (node)
+        Span<Frame> frames = stackalloc Frame[MaxDepth + 1];
+        var reader = new Utf8JsonReader(json);
+        Key key = Key.Other;
+        int keyStart = 0;
+        int keyEnd = 0;
+        int toolCallsDepth = 0;
+
+        while (reader.Read())
         {
-            case JsonObject obj:
-                foreach (var pair in obj.ToList())
-                {
-                    if (pair.Key == FinishReasonKey)
-                    {
-                        if (TryNormalize(pair.Value, out var normalized))
-                        {
-                            obj[pair.Key] = normalized == null ? null : JsonValue.Create(normalized);
-                            changed = true;
-                        }
-                    }
-                    // type 是个到处都有的键名,只在 tool_calls 数组的元素上认它,不做全局匹配
-                    else if (pair.Key == ToolCallsKey && pair.Value is JsonArray toolCalls)
-                    {
-                        changed |= FixToolCallKinds(toolCalls);
-                    }
-                    // 商汤自研模型的思考字段：SDK 只认 reasoning_content，reasoning 会被静默丢掉。
-                    // 非空且对端没有 reasoning_content 时改名；空串或已有 reasoning_content 时直接删掉，
-                    // 思考只留一个来源（下游空思考本来也会被 ChatContentNormalizer 丢掉，这里提前收敛）
-                    else if (pair.Key == ReasoningKey && pair.Value is JsonValue reasoningValue &&
-                             reasoningValue.TryGetValue<string>(out string? reasoningText))
-                    {
-                        obj.Remove(ReasoningKey);
-                        if (!string.IsNullOrEmpty(reasoningText) && !obj.ContainsKey(ReasoningContentKey))
-                            obj[ReasoningContentKey] = pair.Value;
-                        changed = true;
-                    }
-                    else changed |= FixNode(pair.Value);
-                }
-
-                break;
-            case JsonArray array:
-                foreach (var item in array) changed |= FixNode(item);
-                break;
-        }
-
-        return changed;
-    }
-
-    // 只改「存在但不是 function」的 type。缺 type 的增量 chunk 不补:
-    // 流式里后续 chunk 本来就只带 index 与 arguments 增量,给它硬塞一个 type 是在改协议语义
-    private static bool FixToolCallKinds(JsonArray toolCalls)
-    {
-        var changed = false;
-        foreach (var call in toolCalls)
-        {
-            if (call is not JsonObject obj) continue;
-            if (!obj.TryGetPropertyValue(TypeKey, out var typeNode) || typeNode == null) continue;
-            if (typeNode is JsonValue value && value.TryGetValue<string>(out var text) &&
-                string.Equals(text, FunctionToolCall, StringComparison.Ordinal))
+            int depth = reader.CurrentDepth;
+            switch (reader.TokenType)
             {
-                continue;
+                case JsonTokenType.PropertyName:
+                {
+                    ref Frame owner = ref frames[depth - 1];
+                    keyStart = (int)reader.TokenStartIndex;
+                    keyEnd = keyStart + reader.ValueSpan.Length + 2;
+                    key = Classify(ref reader, ref owner, toolCallsDepth > 0);
+                    if (key == Key.Reasoning && owner.ReasoningKeyStart >= 0) return false;
+                    continue;
+                }
+                case JsonTokenType.StartObject:
+                case JsonTokenType.StartArray:
+                {
+                    if (key == Key.ToolCallType)
+                    {
+                        // type 是对象或数组：整个值换成 "function"
+                        int start = (int)reader.TokenStartIndex;
+                        reader.Skip();
+                        splice.Replace(start, (int)reader.BytesConsumed, FunctionValue);
+                        break;
+                    }
+
+                    bool isArray = reader.TokenType == JsonTokenType.StartArray;
+                    frames[depth] = new Frame
+                    {
+                        ReasoningKeyStart = -1,
+                        IsToolCallsArray = isArray && key == Key.ToolCalls,
+                        IsToolCall = !isArray && depth > 0 && frames[depth - 1].IsToolCallsArray,
+                    };
+                    if (frames[depth].IsToolCallsArray) toolCallsDepth++;
+                    break;
+                }
+                case JsonTokenType.EndObject:
+                    ResolveReasoning(json, ref frames[depth], ref splice);
+                    break;
+                case JsonTokenType.EndArray:
+                    if (frames[depth].IsToolCallsArray) toolCallsDepth--;
+                    break;
+                case JsonTokenType.String:
+                    CollectString(ref reader, key, ref splice, frames, keyStart, keyEnd);
+                    break;
+                case JsonTokenType.Number:
+                case JsonTokenType.True:
+                case JsonTokenType.False:
+                    if (key == Key.ToolCallType)
+                        splice.Replace((int)reader.TokenStartIndex, (int)reader.BytesConsumed, FunctionValue);
+                    break;
             }
 
-            obj[TypeKey] = JsonValue.Create(FunctionToolCall);
-            changed = true;
+            key = Key.Other;
         }
 
-        return changed;
+        return true;
     }
 
-    // 空值/空串视为「本 chunk 还没结束」写回 null，非空的未知值统一当作正常结束
-    private static bool TryNormalize(JsonNode? value, out string? normalized)
+    // tool_calls 子树里只认元素自身的 type；finish_reason、reasoning 只在子树外修
+    private static Key Classify(ref Utf8JsonReader reader, ref Frame owner, bool insideToolCalls)
     {
-        normalized = null;
-        if (value is not JsonValue jsonValue || !jsonValue.TryGetValue<string>(out var text)) return false;
-        if (string.IsNullOrWhiteSpace(text)) return true;
-        if (ValidFinishReasons.Contains(text)) return false;
-        normalized = "stop";
-        return true;
+        if (insideToolCalls)
+            return owner.IsToolCall && reader.ValueTextEquals("type"u8) ? Key.ToolCallType : Key.Other;
+        if (reader.ValueTextEquals("finish_reason"u8)) return Key.FinishReason;
+        if (reader.ValueTextEquals("tool_calls"u8)) return Key.ToolCalls;
+        if (reader.ValueTextEquals("reasoning"u8)) return Key.Reasoning;
+        if (reader.ValueTextEquals("reasoning_content"u8)) owner.HasReasoningContent = true;
+        return Key.Other;
+    }
+
+    private static void CollectString(ref Utf8JsonReader reader, Key key, ref Utf8JsonSplice splice,
+        scoped Span<Frame> frames, int keyStart, int keyEnd)
+    {
+        int start = (int)reader.TokenStartIndex;
+        int end = (int)reader.BytesConsumed;
+        switch (key)
+        {
+            case Key.FinishReason:
+                if (FinishReasonFix(reader.ValueSpan, reader.ValueIsEscaped ? reader.GetString() : null) is { } fix)
+                    splice.Replace(start, end, fix);
+                break;
+            case Key.ToolCallType:
+                if (!reader.ValueTextEquals("function"u8)) splice.Replace(start, end, FunctionValue);
+                break;
+            case Key.Reasoning:
+            {
+                ref Frame owner = ref frames[reader.CurrentDepth - 1];
+                owner.ReasoningKeyStart = keyStart;
+                owner.ReasoningKeyEnd = keyEnd;
+                owner.ReasoningValueEnd = end;
+                owner.ReasoningNonEmpty = reader.ValueSpan.Length > 0;
+                break;
+            }
+        }
+    }
+
+    // 空值/空白写回 null（本块还没结束），非空的未知值统一当作正常结束；合法值返回 null 表示不改
+    private static byte[]? FinishReasonFix(ReadOnlySpan<byte> raw, string? unescaped)
+    {
+        if (raw.IsEmpty) return NullValue;
+        Span<char> buffer = stackalloc char[64];
+        scoped ReadOnlySpan<char> text;
+        if (unescaped != null) text = unescaped;
+        else if (raw.Length <= buffer.Length) text = buffer[..Encoding.UTF8.GetChars(raw, buffer)];
+        else text = Encoding.UTF8.GetString(raw);
+        if (text.IsWhiteSpace()) return NullValue;
+        return ValidFinishReasonLookup.Contains(text) ? null : StopValue;
+    }
+
+    // 对象收尾时定夺思考键：非空且同对象没有 reasoning_content 时改名；空串或已有 reasoning_content 时删掉，
+    // 思考只留一个来源（下游空思考本来也会被 ChatContentNormalizer 丢掉，这里提前收敛）
+    private static void ResolveReasoning(ReadOnlySpan<byte> json, ref Frame frame, ref Utf8JsonSplice splice)
+    {
+        if (frame.ReasoningKeyStart < 0) return;
+        if (frame.ReasoningNonEmpty && !frame.HasReasoningContent)
+            splice.Replace(frame.ReasoningKeyStart, frame.ReasoningKeyEnd, ReasoningContentKey);
+        else
+            splice.RemoveProperty(json, frame.ReasoningKeyStart, frame.ReasoningValueEnd);
     }
 }

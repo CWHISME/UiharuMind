@@ -201,9 +201,9 @@ public partial class App : Application, ILogger, IDisposable
         ViewModel.JumpToPage(page);
     }
 
+    // 普通日志只在应用内日志界面看，不再写控制台：请求体这类大正文每条都要再拼一整份、同步写 stdout
     public void Debug(string rawStr, LogItem message)
     {
-        Console.WriteLine(message);
     }
 
     public void Warning(string rawStr, LogItem message)

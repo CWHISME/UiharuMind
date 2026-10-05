@@ -26,7 +26,13 @@ internal static class OpenAICompatibleRequestRewriter
     internal static readonly string[] SamplingParamKeys =
         ["temperature", "top_p", "presence_penalty", "frequency_penalty"];
 
-    private static readonly JsonSerializerOptions CompactJson = new() { WriteIndented = false };
+    // 宽松编码器与 SDK 自己序列化请求体的口径一致：默认编码器会把中文全写成 \uXXXX，
+    // 每次改写后发出去的请求体凭空大三成（中文为主的长会话实测 458KB → 595KB）
+    private static readonly JsonSerializerOptions CompactJson = new()
+    {
+        WriteIndented = false,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
 
     /// <summary>
     /// 按模型配置与本次请求上下文（<see cref="LlmRequestContext"/>）改写请求体

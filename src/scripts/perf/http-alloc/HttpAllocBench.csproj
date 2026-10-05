@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- OpenAI 兼容 HTTP 层的分配基准，不在解决方案里。用法见 ../http-alloc.sh -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- 借用测试程序集名拿 Core 的 InternalsVisibleTo：要量的全是 internal 类型，不为基准在产品代码里另开口子 -->
+    <AssemblyName>UiharuMind.Core.Tests</AssemblyName>
+    <RootNamespace>HttpAllocBench</RootNamespace>
+    <NoWarn>$(NoWarn);OPENAI001;MEAI001</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../../UiharuMind.Core/UiharuMind.Core.csproj" />
+  </ItemGroup>
+
+</Project>

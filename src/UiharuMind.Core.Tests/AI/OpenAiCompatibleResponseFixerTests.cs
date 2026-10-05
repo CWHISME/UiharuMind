@@ -52,17 +52,15 @@ public class OpenAiCompatibleResponseFixerTests
         Assert.Equal("""{"choices":[{"index":0,"delta":{"content":"说 \"finish_reason\":\"\" 也不误伤"},"finish_reason":null}]}""", fixedJson);
     }
 
-    /// <summary>字面快路径认不出的形态（带空格、混着未知值）仍由 DOM 兜住</summary>
+    /// <summary>带空格、空串混着未知值的形态照样修正，只动值本身，原文的空白不动</summary>
     [Theory]
-    [InlineData("""{"choices":[{"index":0,"finish_reason": ""}]}""", "\"finish_reason\":null")]
-    [InlineData("""{"choices":[{"index":0,"finish_reason":""},{"index":1,"finish_reason":"sensitive"}]}""", "\"finish_reason\":\"stop\"")]
+    [InlineData("""{"choices":[{"index":0,"finish_reason": ""}]}""",
+        """{"choices":[{"index":0,"finish_reason": null}]}""")]
+    [InlineData("""{"choices":[{"index":0,"finish_reason":""},{"index":1,"finish_reason":"sensitive"}]}""",
+        """{"choices":[{"index":0,"finish_reason":null},{"index":1,"finish_reason":"stop"}]}""")]
     public void UnusualFinishReasonShapes_StillFixed(string json, string expected)
     {
-        var fixedJson = OpenAiCompatibleResponseFixer.FixJson(json);
-
-        Assert.NotNull(fixedJson);
-        Assert.Contains(expected, fixedJson);
-        Assert.DoesNotContain("\"finish_reason\":\"\"", fixedJson);
+        Assert.Equal(expected, OpenAiCompatibleResponseFixer.FixJson(json));
     }
 
     [Fact]
@@ -145,14 +143,39 @@ public class OpenAiCompatibleResponseFixerTests
         Assert.Null(OpenAiCompatibleResponseFixer.FixJson(json));
     }
 
-    /// <summary>只有孤键 {"reasoning":""}（无逗号可字面删）时由 DOM 兜住</summary>
+    /// <summary>孤键 {"reasoning":""} 前后都没有逗号：只删键值</summary>
     [Fact]
-    public void LoneEmptyReasoning_IsRemovedByDom()
+    public void LoneEmptyReasoning_IsRemoved()
     {
         const string json = """{"choices":[{"index":0,"delta":{"reasoning":""}}]}""";
 
         var fixedJson = OpenAiCompatibleResponseFixer.FixJson(json);
 
         Assert.Equal("""{"choices":[{"index":0,"delta":{}}]}""", fixedJson);
+    }
+
+    /// <summary>
+    /// 工具调用块同样按字节修：只动 finish_reason 与空 type，参数原样
+    /// （旧实现对带 tool_calls 的块整块重新序列化，中文参数会被转成 \uXXXX）
+    /// </summary>
+    [Fact]
+    public void ToolCallChunk_IsFixedInPlace()
+    {
+        const string json = """{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"c","type":"","function":{"name":"Write","arguments":"{\"内容\":\"你好\"}"}}]},"finish_reason":""}]}""";
+
+        Assert.Equal(
+            """{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"c","type":"function","function":{"name":"Write","arguments":"{\"内容\":\"你好\"}"}}]},"finish_reason":null}]}""",
+            OpenAiCompatibleResponseFixer.FixJson(json));
+    }
+
+    /// <summary>tool_calls 子树里只认元素自身的 type：参数里的同名键、子树里的 finish_reason 都不碰</summary>
+    [Fact]
+    public void ToolCallSubtree_OnlyElementTypeIsTouched()
+    {
+        const string json = """{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"type":5,"function":{"type":"","finish_reason":""}}]},"finish_reason":null}]}""";
+
+        Assert.Equal(
+            """{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"type":"function","function":{"type":"","finish_reason":""}}]},"finish_reason":null}]}""",
+            OpenAiCompatibleResponseFixer.FixJson(json));
     }
 }
