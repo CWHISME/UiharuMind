@@ -37,6 +37,7 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Features.Characters;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Chat.CrossProcess;
 using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Chat.Search;
 using UiharuMind.Features.Conversation.Search;
@@ -1167,6 +1168,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 return;
             }
 
+            if (RefuseBlockedTurn(text)) return;
             await _driver.CompactAsync(current, current.Runner, compactExtra);
             return;
         }
@@ -1199,6 +1201,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 Loc.Text(LangKey.GroupMemberPreemptTip), severity: MessageSeverity.Information);
         }
 
+        // 同一档案的另一个实例改过或正跑着这个会话(ADR 0064):不画气泡,字还给输入框并明说。
+        // 画了气泡再被拒,空闲时的对帐会按历史重放把它连同错误一起抹掉,看上去就是点了没反应
+        if (RefuseBlockedTurn(text)) return;
+
         // 以角色身份发送:直接写入一条回复,不触发生成
         if (SenderMode == SendMode.Assistant)
         {
@@ -1221,6 +1227,24 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         Items.Add(_itemActions.Wire(ConversationItemFactory.CreateUser(text, userMessage, attachments), userMessage));
         ScrollToEnd = true;
         await _turns.RunAsync(userMessage, text);
+    }
+
+    /// <summary>当前会话此刻不能在本实例里开跑时，把字还给输入框并明说</summary>
+    private bool RefuseBlockedTurn(string text)
+    {
+        if (CurrentSession is not { } session) return false;
+        ETurnBlock block = SessionManager.Instance.CheckTurnBlock(session);
+        if (block == ETurnBlock.None) return false;
+
+        InputText = text;
+        ShowTurnBlocked(block);
+        return true;
+    }
+
+    private void ShowTurnBlocked(ETurnBlock block)
+    {
+        LangKey message = block == ETurnBlock.StaleCopy ? LangKey.SessionUpdatedElsewhere : LangKey.SessionRunningElsewhere;
+        _messages.ShowNotification(Loc.Text(message), severity: MessageSeverity.Warning);
     }
 
     /// <summary>组装要发出去的用户消息。群成员会话里用户直接打的话是私聊，见 <see cref="GroupMemberSessionViewData.BuildPrivateMessage"/></summary>
@@ -1335,6 +1359,12 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
             case ETurnNotice.Failed:
                 Items.Add(new ErrorItem { Message = notice.Payload ?? string.Empty });
+                break;
+
+            case ETurnNotice.Refused:
+                // 发送前已问过一次,能走到这里是问过之后、开跑之前那一瞬的竞态。用提示而不是错误条目:
+                // 用户消息没进历史,空闲对帐会按历史重放,条目留不住
+                if (Enum.TryParse(notice.Payload, out ETurnBlock refused)) ShowTurnBlocked(refused);
                 break;
 
             case ETurnNotice.ScrollToEnd:

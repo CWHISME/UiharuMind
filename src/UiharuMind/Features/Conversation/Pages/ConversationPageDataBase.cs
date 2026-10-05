@@ -177,6 +177,14 @@ public abstract partial class ConversationPageDataBase : PageDataBase
         long switchBegin = StartupPhaseProbe.Begin();
 
         ConversationViewModel? target = meta == null ? null : FindConversation(meta.SessionId);
+        // 缓存着的视图钉着一份已被另一个实例改过的旧本体(ADR 0064):弃掉重建,新视图会读到盘上那份。
+        // 还在跑的不动——那一轮本就认领着会话,轮到它写盘时自会被拒
+        if (target is { IsGenerating: false, IsCompacting: false } && HoldsOutdatedCopy(meta!.SessionId))
+        {
+            Discard(target);
+            target = null;
+        }
+
         bool cacheHit = target != null;
         if (target == null)
         {
@@ -190,6 +198,13 @@ public abstract partial class ConversationPageDataBase : PageDataBase
         Conversation = target;
         PruneConversations();
         StartupPhaseProbe.End($"conversation/switch:cached={(cacheHit ? 1 : 0)},live={_conversations.Count}", switchBegin);
+    }
+
+    // 缓存里的本体已被摘掉(被盘上新读的顶替),或别的实例改过它的历史
+    private static bool HoldsOutdatedCopy(string sessionId)
+    {
+        ChatSession? loaded = SessionManager.Instance.GetLoaded(sessionId);
+        return loaded == null || SessionManager.Instance.IsOutdated(loaded);
     }
 
     /// <summary>

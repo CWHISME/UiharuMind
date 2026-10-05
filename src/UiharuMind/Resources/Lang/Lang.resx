@@ -78,6 +78,15 @@
     <data name="AgentInterjectUnavailable" xml:space="preserve">
         <value>Cannot interject right now; the agent is still starting up. Try again in a moment.</value>
     </data>
+    <data name="SessionUpdatedElsewhere" xml:space="preserve">
+        <value>This conversation was updated in another open UiharuMind. Switch to another conversation and back to load the latest content.</value>
+    </data>
+    <data name="SessionDeleteRunningElsewhere" xml:space="preserve">
+        <value>This conversation is running in another open UiharuMind. Delete it after it finishes there.</value>
+    </data>
+    <data name="SessionRunningElsewhere" xml:space="preserve">
+        <value>This conversation is running in another open UiharuMind. Wait for it to finish there.</value>
+    </data>
     <data name="CompactWhileRunning" xml:space="preserve">
         <value>Cannot compact right now: a turn is still running. Wait for it to finish.</value>
     </data>

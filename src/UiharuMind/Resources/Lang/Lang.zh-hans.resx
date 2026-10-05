@@ -71,6 +71,15 @@
     <data name="AgentInterjectUnavailable" xml:space="preserve">
         <value>现在插不进去：执行者还在启动中，稍后再试。</value>
     </data>
+    <data name="SessionUpdatedElsewhere" xml:space="preserve">
+        <value>这个会话在另一个打开着的 UiharuMind 里更新过，切到别的会话再切回来即可载入最新内容。</value>
+    </data>
+    <data name="SessionDeleteRunningElsewhere" xml:space="preserve">
+        <value>这个会话正在另一个打开着的 UiharuMind 里运行，等那边结束再删。</value>
+    </data>
+    <data name="SessionRunningElsewhere" xml:space="preserve">
+        <value>这个会话正在另一个打开着的 UiharuMind 里运行，等那边结束再发。</value>
+    </data>
     <data name="CompactWhileRunning" xml:space="preserve">
         <value>现在不能压缩：还有一轮在跑，等它结束再试。</value>
     </data>

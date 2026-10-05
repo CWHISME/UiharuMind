@@ -41,7 +41,7 @@ public sealed class HeadlessGroupMemberTurnRunner : IGroupMemberTurnRunner
         using TurnDriver driver = new(null, new TurnUsageLedger(),
             notice =>
             {
-                if (notice.Kind == ETurnNotice.Failed) failed = true;
+                if (notice.Kind is ETurnNotice.Failed or ETurnNotice.Refused) failed = true;
             });
         ApprovalResolver waitForUser = NestedApprovalResolver.Create(true, member.SessionId,
             SessionApprovalRegistry.Instance, ApprovalTimeout, MaxDeniedApprovalRounds, cancellationToken,

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using UiharuMind.Core.Core.Instances;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.Core.Diagnostics;
@@ -33,13 +34,13 @@ public sealed class UncleanExitGuard
     private sealed record Marker(int Pid, DateTime ProcessStart, DateTime StartedAt, bool DebuggerAttached, string? LogSession);
 
     /// <summary>
-    /// 应用启动用：标记放 <c>run/sessions</c>，留档放崩溃目录，查到的异常退出写进日志
+    /// 应用启动用：标记放 <c>run/instances</c>，留档放崩溃目录，查到的异常退出写进日志
     /// </summary>
     /// <param name="debuggerAttached">本进程是否挂着调试器</param>
     /// <returns>守卫，正常退出时调 <see cref="MarkClean"/></returns>
     public static UncleanExitGuard Start(bool debuggerAttached)
     {
-        UncleanExitGuard guard = Begin(Path.Combine(AppPaths.Root, "run", "sessions"), LogManager.Instance.Directory,
+        UncleanExitGuard guard = Begin(AppInstance.InstancesDirectory, LogManager.Instance.Directory,
             CrashLog.Directory, LogManager.Instance.SessionId, debuggerAttached, out List<UncleanExit> found);
         foreach (UncleanExit exit in found)
         {
@@ -79,6 +80,24 @@ public sealed class UncleanExitGuard
         return new UncleanExitGuard(path);
     }
 
+    /// <summary>
+    /// 除本进程外还有几个活着的实例
+    /// </summary>
+    /// <returns>活着的其它实例数</returns>
+    public static int CountOtherAlive()
+    {
+        string markerDirectory = AppInstance.InstancesDirectory;
+        if (!Directory.Exists(markerDirectory)) return 0;
+
+        int count = 0;
+        foreach (string path in Directory.EnumerateFiles(markerDirectory, "*.json"))
+        {
+            Marker? marker = TryRead(path);
+            if (marker != null && marker.Pid != Environment.ProcessId && IsAlive(marker)) count++;
+        }
+        return count;
+    }
+
     /// <summary>正常退出：删掉本进程的标记。崩溃路径上不要调</summary>
     public void MarkClean() => TryDelete(_markerPath);
 
@@ -87,15 +106,7 @@ public sealed class UncleanExitGuard
         List<UncleanExit> found = new();
         foreach (string path in Directory.EnumerateFiles(markerDirectory, "*.json"))
         {
-            Marker? marker;
-            try
-            {
-                marker = JsonSerializer.Deserialize<Marker>(File.ReadAllText(path));
-            }
-            catch (Exception)
-            {
-                marker = null;
-            }
+            Marker? marker = TryRead(path);
 
             if (marker != null && IsAlive(marker)) continue; //另一个还开着的实例
 
@@ -110,6 +121,18 @@ public sealed class UncleanExitGuard
 
         if (found.Any(exit => exit.PreservedLog != null)) TrimPreserved(preserveDirectory);
         return found.OrderBy(exit => exit.StartedAt).ToList();
+    }
+
+    private static Marker? TryRead(string path)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<Marker>(File.ReadAllText(path));
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     private static bool IsAlive(Marker marker)

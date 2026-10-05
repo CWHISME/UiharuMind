@@ -330,8 +330,13 @@ public partial class SessionListItem : ObservableObject
     public async Task Delete()
     {
         if (!await _messageService.ConfirmAsync(Loc.Text(LangKey.DeleteTips))) return;
-        // 按标识删除,不加载本体
-        SessionManager.Instance.Delete(_meta.SessionId);
+        // 按标识删除,不加载本体。正在另一个实例里跑的删不了(ADR 0064)
+        if (!SessionManager.Instance.Delete(_meta.SessionId))
+        {
+            _messageService.ShowNotification(Loc.Text(LangKey.SessionDeleteRunningElsewhere), severity: MessageSeverity.Warning);
+            return;
+        }
+
         Deleted?.Invoke(this);
     }
 

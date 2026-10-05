@@ -9,6 +9,7 @@
 
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Chat.CrossProcess;
 using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.History;
@@ -143,6 +144,17 @@ public sealed class TurnDriver : IDisposable
         // 输入消息按定义就是我们的:重新生成会把跑过一轮的原消息重新当输入送进来,
         // 而它此刻带着框架就地盖的 _attribution,不摘掉的话持久化会把它当注入消息滤掉
         if (userMessage != null) ChatMessageAnnotations.ClearAttribution(userMessage);
+
+        // 同一档案开着两个实例时(ADR 0064):这份内存已旧,或这个会话正在别的实例里跑,就不开跑。
+        // 在一切写盘之前拦下——失败路径的「补齐中断」此时写盘就是拿旧内容覆盖别人的。持到交接压缩结束
+        using IDisposable? turnClaim = SessionManager.Instance.TryClaimTurn(session, out ETurnBlock block);
+        if (turnClaim == null)
+        {
+            Log.Warning($"Turn refused for session '{session.SessionId}': {SessionManager.Describe(block)}.");
+            _notify?.Invoke(new TurnNotice(ETurnNotice.Refused, block.ToString()));
+            _notify?.Invoke(new TurnNotice(ETurnNotice.Ended));
+            return;
+        }
 
         IsRunning = true;
         WasCancelled = false;
@@ -340,8 +352,19 @@ public sealed class TurnDriver : IDisposable
     /// <param name="session">会话</param>
     /// <param name="runner">该会话的执行者</param>
     /// <param name="extraInstructions">用户随命令附带的额外指示；为空表示没有</param>
-    public Task CompactAsync(ChatSession session, ICharacterRunner runner, string? extraInstructions = null) =>
-        WriteHandoffAsync(session, runner, force: true, extraInstructions);
+    public async Task CompactAsync(ChatSession session, ICharacterRunner runner, string? extraInstructions = null)
+    {
+        // 交接文档要写进历史:与开跑同一道认领(ADR 0064),旧的或正在别的实例里跑的都不压
+        using IDisposable? claim = SessionManager.Instance.TryClaimTurn(session, out ETurnBlock block);
+        if (claim == null)
+        {
+            Log.Warning($"Compaction refused for session '{session.SessionId}': {SessionManager.Describe(block)}.");
+            _notify?.Invoke(new TurnNotice(ETurnNotice.Refused, block.ToString()));
+            return;
+        }
+
+        await WriteHandoffAsync(session, runner, force: true, extraInstructions);
+    }
 
     /// <summary>
     /// 某会话此刻是否正在整理交接文档。压缩不是轮次、不进运行登记处，

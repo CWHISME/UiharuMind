@@ -74,6 +74,11 @@ public partial class App : Application, ILogger, IDisposable
         UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("enter");
         Log.Debug("UiharuMind begins to start.");
         _exitGuard = UiharuMind.Core.Core.Diagnostics.UncleanExitGuard.Start(Debugger.IsAttached);
+        // 同一档案的第二个实例不跑定时任务(ADR 0064),要早于调度后端被造出来
+        if (!UiharuMind.Core.Core.Instances.AppInstance.ClaimPrimary())
+        {
+            Log.Debug("Another instance owns this profile's background work; scheduled tasks are read-only here.");
+        }
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             // desktop.MainWindow = new MainWindow
@@ -136,7 +141,9 @@ public partial class App : Application, ILogger, IDisposable
         AppDomain.CurrentDomain.ProcessExit += OnExit;
 
         //强行清理可能残留的进程
-        ProcessHelper.ForceClearAllProcesses();
+        // 别的实例还开着时,残留的 llama-server 可能正是它在用的本地模型
+        if (UiharuMind.Core.Core.Diagnostics.UncleanExitGuard.CountOtherAlive() == 0) ProcessHelper.ForceClearAllProcesses();
+        UiharuMind.Core.AI.Chat.SessionManager.Instance.WatchExternalChanges();
         UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("clear-stale-processes");
 
         // var name= FontUtils.GetFontFamilyName("F:\\项目\\个人\\UiharuMind\\UiharuMind\\UiharuMind\\Assets\\Fonts\\DreamHanSansCN-W12.ttf");

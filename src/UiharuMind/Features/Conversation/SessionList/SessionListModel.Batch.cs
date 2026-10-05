@@ -70,7 +70,13 @@ public partial class SessionListModel
                 continue;
             }
 
-            SessionManager.Instance.Delete(item.SessionId);
+            // 正在另一个实例里跑的删不了(ADR 0064),与上面的一并算跳过
+            if (!SessionManager.Instance.Delete(item.SessionId))
+            {
+                skipped++;
+                continue;
+            }
+
             Remove(item.SessionId);
         }
 

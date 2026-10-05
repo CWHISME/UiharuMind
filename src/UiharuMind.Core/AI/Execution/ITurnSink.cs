@@ -70,6 +70,13 @@ public enum ETurnNotice
     /// <summary>本轮失败，<c>Payload</c> 为异常消息</summary>
     Failed,
 
+    /// <summary>
+    /// 本轮没开跑：会话已旧或正在同一档案的另一个实例里跑（ADR 0064）。<c>Payload</c> 为
+    /// <see cref="UiharuMind.Core.AI.Chat.CrossProcess.ETurnBlock"/> 的名字，措辞由界面本地化。
+    /// 无头调用方按失败算
+    /// </summary>
+    Refused,
+
     /// <summary>请求把视图滚到末尾</summary>
     ScrollToEnd,
 

@@ -11,6 +11,7 @@ using System.Collections.Concurrent;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Chat.CrossProcess;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
@@ -31,7 +32,7 @@ namespace UiharuMind.Core.AI.Chat;
 ///   SessionData/{sessionId}.json        —— 会话本体，按需加载
 ///   SessionData/{sessionId}.agentstate.json —— 框架附加状态(todos/mode/审批)，可丢弃
 /// </summary>
-public class SessionManager : Singleton<SessionManager>, IInitialize
+public partial class SessionManager : Singleton<SessionManager>, IInitialize
 {
     private const string IndexFileName = "index.json";
     private const string AgentStateSuffix = ".agentstate.json";
@@ -115,7 +116,11 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
         {
             _metas.Clear();
             _loaded.Clear();
+            _metaStamps.Clear();
+            _historyStamps.Clear();
+            _stale.Clear();
 
+            _indexStamp = FileStamp.Of(GetIndexPath());
             List<ChatSessionMeta>? index =
                 SaveUtility.Load<List<ChatSessionMeta>>(GetIndexPath(), SessionJsonOptions.Default);
             if (index == null)
@@ -310,38 +315,62 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     /// <returns>会话；文件缺失或损坏为 null</returns>
     private ChatSession? ResolveLoaded(string sessionId)
     {
-        lock (_locker)
+        // 「有没有人持有」要在锁外问:它会进到后台委派那边的锁,锁内问就是锁序颠倒
+        bool replaceStale = IsStaleOnDisk(sessionId) && !IsHeld(sessionId);
+        ChatSession? dropped = null;
+        try
         {
-            if (_loaded.TryGetValue(sessionId, out ChatSession? cached))
-            {
-                // 历史已卸掉的只是取本体(标题、成员名单),不算访问历史:记回驻留表的话,
-                // 下次清扫会为了卸它先把整份历史读回来再写一遍盘
-                if (cached.IsHistoryResident) Touch(sessionId);
-                return cached;
-            }
+            lock (_locker) return ResolveLoadedLocked(sessionId, replaceStale, out dropped);
+        }
+        finally
+        {
+            DisposeRunner(dropped);
+        }
+    }
 
-            ChatSession? session =
-                SaveUtility.Load<ChatSession>(GetMetaPath(sessionId), SessionJsonOptions.Default);
-            if (session == null)
-            {
-                Log.Warning($"Load chat session '{sessionId}' failed.");
-                return null;
-            }
+    // 调用方须持有 _locker。别的实例改过、这边又没人持有的旧本体换成新读的(ADR 0064),旧的由调用方放掉执行者
+    private ChatSession? ResolveLoadedLocked(string sessionId, bool replaceStale, out ChatSession? dropped)
+    {
+        dropped = null;
+        if (replaceStale && _loaded.ContainsKey(sessionId))
+        {
+            dropped = DropStaleLoaded(sessionId);
+        }
 
-            session.SessionId = sessionId;
-            // 老数据定格：没存形态的会话按当前身份补写（ADR 0050）。此后身份翻转不再挪已有会话
-            if (session.IsAgentForm == null) session.IsAgentForm = session.CharacterData.IsAgent;
-            TrackHistory(session);
-            session.History = LoadHistory(sessionId);
-            // 进程级中断(崩溃/强杀)时当场补的代码跑不到,孤儿 tool_call 留在盘上——
-            // 严格的服务端下一条请求直接 400,这个会话从此发不出话。读取时修:下次打开就有代码可跑了。
-            // 只补末尾那一轮(硬杀只会留下末尾孤儿),中间的历史遗留孤儿不碰(追加到末尾会打乱配对顺序);
-            // 补写幂等,已配对的不动,无孤儿时这里零开销
+        if (_loaded.TryGetValue(sessionId, out ChatSession? cached))
+        {
+            // 历史已卸掉的只是取本体(标题、成员名单),不算访问历史:记回驻留表的话,
+            // 下次清扫会为了卸它先把整份历史读回来再写一遍盘
+            if (cached.IsHistoryResident) Touch(sessionId);
+            return cached;
+        }
+
+        // 指纹先于读取取:读完再取的话,中间别人写的那一下会被当成自己见过的
+        FileStamp stamp = FileStamp.Of(GetMetaPath(sessionId));
+        ChatSession? session = LoadHeader(GetMetaPath(sessionId), sessionId);
+        if (session == null)
+        {
+            Log.Warning($"Load chat session '{sessionId}' failed.");
+            return null;
+        }
+
+        _stale.TryRemove(sessionId, out _); //新读的这份就是盘上最新的,旧标记不能沿用
+        TrackHistory(session);
+        session.History = LoadHistoryTracked(session);
+        // 进程级中断(崩溃/强杀)时当场补的代码跑不到,孤儿 tool_call 留在盘上——
+        // 严格的服务端下一条请求直接 400,这个会话从此发不出话。读取时修:下次打开就有代码可跑了。
+        // 只补末尾那一轮(硬杀只会留下末尾孤儿),中间的历史遗留孤儿不碰(追加到末尾会打乱配对顺序);
+        // 补写幂等,已配对的不动,无孤儿时这里零开销
+        // 正在别的实例里跑的不是崩溃残局:末尾那些调用的结果还在路上,补「已中断」就是替人家收尾(ADR 0064)
+        if (!SessionLease.IsHeldElsewhere(sessionId))
+        {
             ToolCallCancellation.DropDuplicateResults(session);
             ToolCallCancellation.CloseUnansweredAtTail(session);
-            _loaded[sessionId] = session;
-            return session;
         }
+
+        _loaded[sessionId] = session;
+        _metaStamps[sessionId] = stamp;
+        return session;
     }
 
     /// <summary>
@@ -369,7 +398,7 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
         session.SetHistoryReload(() =>
         {
             Touch(sessionId);
-            return LoadHistory(sessionId);
+            return LoadHistoryTracked(session);
         });
         Touch(sessionId);
     }
@@ -400,9 +429,10 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
             int count = session.History.Count;
             // 空历史一律不写:会话文件读坏时 LoadHistory 也会给出空列表,
             // 这时候回写等于拿一次读取失败把盘上那份真历史抹了
-            if (count > 0)
+            // 被别的实例改过的就只卸不写:盘上那份更新
+            if (count > 0 && !RefuseWrite(session, "history write-back"))
             {
-                SaveUtility.SaveText(GetHistoryPath(sessionId), HistoryJsonl.SerializeLines(session.History));
+                WriteBackHistory(sessionId, session.History);
             }
 
             if (!session.UnloadHistory()) continue;
@@ -550,7 +580,8 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     public void Save(ChatSession session)
     {
         if (session.IsTransient) return;
-        SaveUtility.SaveText(GetHistoryPath(session.SessionId), HistoryJsonl.SerializeLines(session.History));
+        if (RefuseWrite(session, "save")) return;
+        WriteHistoryTracked(session.SessionId, x => SaveUtility.SaveText(x, HistoryJsonl.SerializeLines(session.History)));
         SaveMeta(session);
     }
 
@@ -563,10 +594,12 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     public void SaveMeta(ChatSession session, bool touchUpdatedAt = true)
     {
         if (session.IsTransient) return;
+        if (RefuseWrite(session, "meta save")) return;
 
         if (touchUpdatedAt) session.UpdatedAt = DateTimeOffset.Now;
         // 会话头冗余保存同一份元数据,索引损坏时可据此重建
         SaveUtility.Save(GetMetaPath(session.SessionId), session, SessionJsonOptions.Default);
+        RememberMetaStamp(session.SessionId);
 
         ChatSessionMeta meta = session.ToMeta();
         bool draftChanged;
@@ -593,6 +626,7 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     public void Append(ChatSession session, int fromIndex)
     {
         if (session.IsTransient) return;
+        if (RefuseWrite(session, "history append")) return;
 
         int from = Math.Clamp(fromIndex, 0, session.History.Count);
         string path = GetHistoryPath(session.SessionId);
@@ -605,7 +639,7 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
 
         try
         {
-            File.AppendAllText(path, HistoryJsonl.SerializeLines(session.History.Skip(from)));
+            WriteHistoryTracked(session.SessionId, x => File.AppendAllText(x, HistoryJsonl.SerializeLines(session.History.Skip(from))));
         }
         catch (Exception e)
         {
@@ -652,29 +686,50 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     /// 删除会话及其全部文件
     /// </summary>
     /// <param name="session">会话</param>
-    public void Delete(ChatSession session)
-    {
-        Delete(session.SessionId);
-    }
+    /// <returns>是否删了；正在别的实例里跑的不删</returns>
+    public bool Delete(ChatSession session) => Delete(session.SessionId);
 
     /// <summary>
     /// 删除会话及其全部文件
     /// </summary>
     /// <param name="sessionId">会话标识</param>
-    public void Delete(string sessionId)
+    /// <returns>是否删了；正在别的实例里跑的不删（ADR 0064），那一轮落盘时文件已经没了</returns>
+    public bool Delete(string sessionId)
+    {
+        // 删的全程持着租约(连同级联要删的):只查不占的话,查完到删完之间对方开跑,它的追加会把刚删的历史文件又建出来
+        List<IDisposable> leases = new();
+        try
+        {
+            if (!TryClaimTree(sessionId, leases))
+            {
+                Log.Warning($"Skipped deleting session '{sessionId}': it or one of its sub-sessions is running in another instance.");
+                return false;
+            }
+
+            DeleteClaimed(sessionId);
+            return true;
+        }
+        finally
+        {
+            foreach (IDisposable lease in leases) lease.Dispose();
+        }
+    }
+
+    // 调用方已持着这个会话及其名下全部会话的租约
+    private void DeleteClaimed(string sessionId)
     {
         // 级联删掉它派出去的子会话:子会话的入口全都挂在派活者身上(卡片与右栏面板),
         // 派活者没了它们就再也打不开,留在盘上只是孤儿。先收集再删——
         // 递归调用会改 _metas,边遍历边删会抛
         foreach (ChatSessionMeta child in GetSubSessions(sessionId))
         {
-            Delete(child.SessionId);
+            DeleteClaimed(child.SessionId);
         }
 
         // 群的成员会话同理:入口只在群的右栏,群没了它们就打不开
         foreach (ChatSessionMeta member in GetGroupMembers(sessionId))
         {
-            Delete(member.SessionId);
+            DeleteClaimed(member.SessionId);
         }
 
         // 名下还在跑的后台任务一并叫停:界面上有未了结的工作时本就删不了,这里兜住别的删除入口。
@@ -684,6 +739,7 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
         // 附件路径记在本体里,所以要在删文件之前把它读出来
         ChatSession? session = Load(sessionId);
         DeleteOwnedAttachments(session);
+        RetireDeleted(session);
         DisposeRunner(session);
 
         SaveUtility.Delete(GetMetaPath(sessionId));
@@ -695,8 +751,7 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
 
         lock (_locker)
         {
-            _loaded.Remove(sessionId);
-            _resident.TryRemove(sessionId, out _);
+            ForgetLoaded(sessionId);
             if (_metas.Remove(sessionId)) SaveIndex();
         }
 
@@ -776,12 +831,8 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
 
             foreach (string file in Directory.GetFiles(AppPaths.Data.Sessions, "*" + MetaSuffix))
             {
-                ChatSession? session = SaveUtility.Load<ChatSession>(file, SessionJsonOptions.Default);
+                ChatSession? session = LoadHeader(file, Path.GetFileName(file)[..^MetaSuffix.Length]);
                 if (session == null) continue;
-
-                session.SessionId = Path.GetFileName(file)[..^MetaSuffix.Length];
-                // 老数据定格（ADR 0050）：没存形态的会话按当前身份补写，与 OnInitialize 同口径
-                if (session.IsAgentForm == null) session.IsAgentForm = session.CharacterData.IsAgent;
                 _metas[session.SessionId] = session.ToMeta();
             }
 
@@ -800,6 +851,7 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     /// <param name="state">框架序列化产物</param>
     public async Task SaveAgentStateAsync(string sessionId, JsonElement state)
     {
+        if (RefuseWrite(sessionId, "agent state save")) return;
         try
         {
             string dir = AppPaths.Data.Sessions;
@@ -856,12 +908,6 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     }
 
     //================= 路径 =================
-
-    // 调用方须持有 _locker:枚举 _metas 与写 index.json 都不能与别的线程交错
-    private void SaveIndex()
-    {
-        SaveUtility.Save(GetIndexPath(), _metas.Values.ToList(), SessionJsonOptions.Default);
-    }
 
     private static string GetIndexPath()
     {

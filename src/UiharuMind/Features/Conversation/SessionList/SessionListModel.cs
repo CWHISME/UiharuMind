@@ -105,6 +105,7 @@ public partial class SessionListModel : ObservableObject, IDisposable
             SessionManager.Instance.OnSessionAdded += OnSessionAdded;
             SessionManager.Instance.OnSessionRemoved += OnSessionRemoved;
             SessionManager.Instance.OnSessionMetaUpdated += OnSessionMetaUpdated;
+            SessionManager.Instance.OnSessionsChangedExternally += OnSessionsChangedExternally;
             SessionManager.Instance.OnSessionDraftChanged += OnSessionDraftChanged;
             CharacterManager.Instance.OnCharacterUpdated += OnCharacterUpdated;
         }
@@ -294,6 +295,7 @@ public partial class SessionListModel : ObservableObject, IDisposable
         SessionManager.Instance.OnSessionAdded -= OnSessionAdded;
         SessionManager.Instance.OnSessionRemoved -= OnSessionRemoved;
         SessionManager.Instance.OnSessionMetaUpdated -= OnSessionMetaUpdated;
+        SessionManager.Instance.OnSessionsChangedExternally -= OnSessionsChangedExternally;
         SessionManager.Instance.OnSessionDraftChanged -= OnSessionDraftChanged;
         CharacterManager.Instance.OnCharacterUpdated -= OnCharacterUpdated;
         SessionManager.Instance.Running.StateChanged -= OnRunStateChanged;
@@ -383,6 +385,9 @@ public partial class SessionListModel : ObservableObject, IDisposable
         // 每轮落盘都到这里(可能在后台线程),而条目是界面绑定的
         _post(Sync);
     }
+
+    /// <summary>同一档案的另一个实例改了会话(ADR 0064)。来自线程池</summary>
+    private void OnSessionsChangedExternally() => _post(Sync);
 
     /// <summary>
     /// 角色改完落盘。身份翻转会让它名下的会话换侧（归属实时读角色、不存进元数据），

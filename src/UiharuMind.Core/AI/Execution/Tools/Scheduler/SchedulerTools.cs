@@ -85,7 +85,14 @@ public static class SchedulerTools
             WorkspacePath = workspacePath,
             PreAuthorizedCommands = preAuthorizedCommands?.Where(x => !string.IsNullOrWhiteSpace(x)).ToList() ?? new(),
         };
-        await CharacterRunnerFactory.Instance.Scheduler.ScheduleAsync(task).ConfigureAwait(false);
+        try
+        {
+            await CharacterRunnerFactory.Instance.Scheduler.ScheduleAsync(task).ConfigureAwait(false);
+        }
+        catch (InvalidOperationException e)
+        {
+            return $"Error: {e.Message}"; //非主实例不收定时任务(ADR 0064)
+        }
 
         return $"Scheduled task '{displayName}' (id {task.TaskId}) to fire at {fireAt:yyyy-MM-dd HH:mm:ss zzz}. " +
                $"Permission mode: {task.PermissionMode} (the user can raise it to FullAuto in the task list). " +

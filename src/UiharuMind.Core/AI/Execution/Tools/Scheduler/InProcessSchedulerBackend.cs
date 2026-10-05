@@ -12,6 +12,7 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.Core;
+using UiharuMind.Core.Core.Instances;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Execution.Tools.Scheduler;
@@ -33,18 +34,35 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
 
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
 
+    private const string SecondaryRefusal =
+        "Scheduled tasks are managed by the UiharuMind instance that started first on this profile; " +
+        "this instance cannot schedule them. Ask the user to schedule it there.";
+
     private readonly List<ScheduledAgentTask> _tasks = new();
     private readonly object _locker = new();
     private readonly CancellationTokenSource _loopCancellation = new();
+    private readonly bool _readOnly; //非主实例:只读清单,不改不跑(ADR 0064)
 
     public string BackendId => "in-process";
 
     public event Action<ScheduledAgentTask>? OnTaskUpdated;
 
-    public InProcessSchedulerBackend()
+    public InProcessSchedulerBackend() : this(AppInstance.IsPrimary)
     {
+    }
+
+    /// <param name="primary">是否主实例。非主实例只读入清单：启动修正、写盘与轮询都归主实例，
+    /// 否则会把主实例正在跑的任务标成失败，同一任务还会两边各跑一次</param>
+    public InProcessSchedulerBackend(bool primary)
+    {
+        _readOnly = !primary;
         List<ScheduledAgentTask>? loaded = SaveUtility.Load<List<ScheduledAgentTask>>(AppPaths.Data.ScheduledAgentTasks);
         if (loaded != null) _tasks.AddRange(loaded);
+        if (_readOnly)
+        {
+            Log.Debug("Scheduled tasks are owned by another instance; this one only lists them.");
+            return;
+        }
 
         // 上次运行遗留的 Running 状态视为失败;过期的待执行任务转 Missed
         foreach (ScheduledAgentTask task in _tasks)
@@ -66,6 +84,7 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
 
     public Task ScheduleAsync(ScheduledAgentTask task)
     {
+        if (_readOnly) throw new InvalidOperationException(SecondaryRefusal);
         lock (_locker)
         {
             _tasks.Add(task);
@@ -78,6 +97,7 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
 
     public Task CancelAsync(string taskId)
     {
+        if (RefuseReadOnly("cancel")) return Task.CompletedTask;
         ScheduledAgentTask? task = FindTask(taskId);
         if (task is { Status: EScheduledTaskStatus.Pending or EScheduledTaskStatus.Missed })
         {
@@ -91,6 +111,7 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
 
     public async Task RunNowAsync(string taskId)
     {
+        if (RefuseReadOnly("run now")) return;
         ScheduledAgentTask? task = FindTask(taskId);
         if (task is
             {
@@ -103,6 +124,7 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
 
     public Task SetPermissionModeAsync(string taskId, EAgentPermissionMode mode)
     {
+        if (RefuseReadOnly("permission change")) return Task.CompletedTask;
         ScheduledAgentTask? task = FindTask(taskId);
         // 只对还没跑的任务开放:跑过的任务改档位只会让列表上的显示与实际执行过的那一档不符
         if (task is { Status: EScheduledTaskStatus.Pending or EScheduledTaskStatus.Missed } &&
@@ -185,7 +207,7 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
             using TurnDriver driver = new(null, new TurnUsageLedger(),
                 notice =>
                 {
-                    if (notice.Kind == ETurnNotice.Failed) failed = true;
+                    if (notice.Kind is ETurnNotice.Failed or ETurnNotice.Refused) failed = true;
                 });
             await driver.RunAsync(chatSession, chatSession.Runner,
                     new ChatMessage(ChatRole.User, task.Prompt), DenyUnauthorizedApprovals(task))
@@ -326,6 +348,12 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
         {
             return _tasks.FirstOrDefault(x => x.TaskId == taskId);
         }
+    }
+
+    private bool RefuseReadOnly(string what)
+    {
+        if (_readOnly) Log.Warning($"Ignored scheduled task {what}: tasks are owned by another instance.");
+        return _readOnly;
     }
 
     private void Save()
