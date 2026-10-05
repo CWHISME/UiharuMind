@@ -36,7 +36,7 @@ public class AgentToolConfig
     /// <summary>启用知识库检索工具(KnowledgeSearch,检索会话挂载的嵌入知识库)</summary>
     public bool EnableKnowledgeSearchTool { get; set; }
 
-    /// <summary>启用委派工具(SendMessage,把一件事交出去,过程不吃调用方上下文)</summary>
+    /// <summary>启用委派工具(CreateAgent 新开 / SendMessage 续聊,把一件事交出去,过程不吃调用方上下文)</summary>
     public bool EnableSubAgent { get; set; } = true;
 
     /// <summary>启用任务清单(框架 TodoProvider;关闭时对话侧栏的任务清单同步隐藏)</summary>

@@ -17,8 +17,9 @@ namespace UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
 /// <summary>
 /// 把一条命令放到后台跑，跑完把结果送回并叫醒启动者。
 ///
-/// 只有一把：看进度用 Read 读日志；中途叫停交给用户（历史里模型主动叫停自己后台任务的只有一次），
-/// 不会自己退出的程序靠 <c>maxSeconds</c> 收掉
+/// 只有一把：看进度用 Read 读日志；不会自己退出的程序靠 <c>maxSeconds</c> 收掉。
+/// 没有给模型停止工具：它会 <c>ps | grep | kill</c> 自己停，杀掉根进程后照常收尾、通知照常送回
+/// （要不要补一把 <c>TaskStop</c> 见 ADR 0065 待议）
 /// </summary>
 public static class BackgroundTaskTool
 {

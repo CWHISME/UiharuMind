@@ -310,8 +310,8 @@ public static class BackgroundSubAgentDispatcher
     /// 调用方拿到的那句话会当场成为这次工具调用的结果（框架没有「挂起的工具结果」这种东西，
     /// 见 ADR 0025）。
     ///
-    /// <b>它与 <c>AgentToolPrompts.SubAgentDefault</c> 分工，不要两边都写</b>：
-    /// 提示词是每轮重发的固定开销，说的是<b>政策</b>（派不派、派哪一档、后台意味着什么、
+    /// <b>它与 <c>SubAgentToolPrompts.AgentDescription</c> 分工，不要两边都写</b>：
+    /// 工具描述是每轮重发的固定开销，说的是<b>政策</b>（发不发、后台意味着什么、
     /// 依赖它的事要等）——模型在<b>决定调用之前</b>读它。这里说的是<b>这一次的事实</b>
     /// （哪个子会话、此刻什么状态），它紧挨着模型的下一个 token，所以只留一条最强的护栏：
     /// 「尚无结果」。两边都写整段的话，固定开销和每次委派各付一遍钱，而多出来的那几句
@@ -348,7 +348,7 @@ public static class BackgroundSubAgentDispatcher
         string who = subSession.SubAgentName.Length > 0 ? subSession.SubAgentName : subSession.SubAgentRole;
         return (who.Length > 0 ? $"Sent to \"{who}\". " : "Sent. ")
                + "They're working on it in their own conversation and will write back once, when done. "
-               + "You can message them again meanwhile to add or correct something — "
+               + $"You can `{SubAgentTool.MessageToolName}` them meanwhile to add or correct something — "
                + "it reaches them before their next step.\n"
                + (notice.Length > 0 ? notice + "\n" : string.Empty)
                // 给模型的是前 8 位短号(真实 ID 的别名),照抄进 to 由 SubSessionIdAlias 反查回真 ID

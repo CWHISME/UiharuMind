@@ -123,7 +123,7 @@ internal static class SubAgentAssembly
     /// <summary>
     /// 按一份<b>子会话</b>的装配计划直接造出子代理句柄。
     ///
-    /// 与 <see cref="TryCreateTool"/> 的分工：那边是「主代理要一把委派工具」，
+    /// 与 <see cref="TryCreateTools"/> 的分工：那边是「主代理要委派工具」，
     /// 派活时在闭包里现装；这边是「一个子会话要跑自己的轮次」，走的是
     /// <c>AgentAssembler.Assemble</c> 的正规路径。两条路必须产出同一形状的 agent——
     /// 否则重开一个子会话续跑时，装配出来的能力会与它当初被派出去时不一致。
@@ -238,14 +238,14 @@ internal static class SubAgentAssembly
     }
 
     /// <summary>
-    /// 创建子代理工具。每次调用重新装配:装配本身是纯内存组装代价可忽略,
+    /// 创建委派的两把工具（新开 / 续聊）。每次调用重新装配:装配本身是纯内存组装代价可忽略,
     /// 而 shell 执行器是有生命周期的资源,必须一次调用一个、用完即弃。
     /// </summary>
     /// <param name="plan">主代理的装配计划（工作目录、工作区规矩、权限档与名单由此继承）</param>
     /// <param name="client">模型客户端(与主代理同一惰性客户端)</param>
     /// <param name="subProfile">子代理策略;未传时用通用子代理(兼容现有调用方)</param>
-    /// <returns>工具;无任何能力可用时为 null</returns>
-    public static AITool? TryCreateTool(AgentAssemblyPlan plan, IChatClient client,
+    /// <returns>两把工具;无任何能力可用时为 null</returns>
+    public static IReadOnlyList<AITool>? TryCreateTools(AgentAssemblyPlan plan, IChatClient client,
         SubAgentProfile? subProfile = null)
     {
         subProfile ??= SubAgentProfile.General;
@@ -293,11 +293,6 @@ internal static class SubAgentAssembly
 
         return SubAgentTool.Create(BuildLaunchContext(plan, subProfile, roster));
     }
-
-    // 从前这里有一把独立的续跑工具（ContinueAgent）。ADR 0044 之后它退役了：
-    // 新开与续跑是同一个动作——给某个人发消息，区别只在这个人是刚认识还是已经聊过，
-    // 由 SendMessage 的 to 参数自己分流（人名 → 新开；子会话标识 → 续上）。
-    // 少一把工具，就少一份每轮重发的固定开销。
 
     /// <summary>
     /// 组一份派活上下文。子会话的字段几乎全部从派活者继承，因此这里没有任何决策，
@@ -489,9 +484,8 @@ internal static class SubAgentAssembly
             FileWrite = config.EnableFileAccess && canMutate,
             Shell = hasShell,
             Python = hasShell && pythonOutputDirectory.Length > 0,
-            // 子代理不挂知识库工具,也不能再派子代理(防无限递归)
+            // 子代理不挂知识库工具
             KnowledgeBase = false,
-            Delegation = false,
             WorkingDirectory = workingDirectory,
             OutputRoom = outputRoomDirectory,
             // 记忆是主代理专有的:子代理拿的是一份任务书,不需要自己装载跨会话笔记(ADR 0028)

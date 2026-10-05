@@ -103,7 +103,7 @@ public class SubAgentReceiptMarkerTests
             string receipt = BackgroundSubAgentDispatcher.Dispatch(session, _ => Task.FromResult(string.Empty));
 
             Assert.StartsWith("Sent to \"审查员\".", receipt); //名字加引号:角色过长被截成「…」时不会再接一个句号
-            Assert.Contains("message them again meanwhile", receipt);
+            Assert.Contains($"`{SubAgentTool.MessageToolName}` them meanwhile", receipt); //指名续聊工具：中途补充走它
         }
         finally
         {

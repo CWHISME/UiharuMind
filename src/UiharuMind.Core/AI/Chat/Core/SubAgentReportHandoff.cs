@@ -195,7 +195,10 @@ public static class SubAgentReportHandoff
     ///
     /// 不写「委派」「报告」「结论」：对方是你发消息的人，不是一次调用（ADR 0044）。
     /// 用「来自 X」起头而不是群投递的「[名字]: 内容」——user 消息里光有后者，模型会当成用户在说（ADR 0060）。
-    /// 署名用与工具回执同一种 <c>[sub-session: …]</c>，照抄进 <c>to</c> 就能接着回
+    /// 署名用与工具回执同一种 <c>[sub-session: …]</c>，照抄进 <c>to</c> 就能接着回。
+    ///
+    /// 末尾附一句怎么接着谈（ADR 0065）：工具描述里那句「同一主题回到同一个人」弱模型不照做
+    /// （Agnes 0/3），而读完回信正是它决定下一步找谁的时刻。写成事实，不立规矩
     /// </summary>
     /// <param name="sender">对方的名字或身份，没有为空</param>
     /// <param name="subSessionId">子会话标识</param>
@@ -215,8 +218,10 @@ public static class SubAgentReportHandoff
         string head = replyingTo.Length > 0 ? $"来自 {from}，回你之前发的「{replyingTo}」" : $"来自 {from}";
         if (supersedes) head += "（更正上一封）";
 
-        // 还在等谁是附言,不插在信头与正文之间:放在最后,也正好是模型读完要决定下一步的位置
-        string waiting = othersPending > 0 ? $"\n\n（你还在等 {othersPending} 位的回信。）" : string.Empty;
+        // 附言不插在信头与正文之间:放在最后,也正好是模型读完要决定下一步的位置
+        string waiting = $"\n\n（接着谈同类主题就用 `{SubAgentTool.MessageToolName}`，to 填 {SubSessionIdAlias.Short(subSessionId)}；"
+                         + $"另开一位的话，对方什么都不知道。）"
+                         + (othersPending > 0 ? $"\n（你还在等 {othersPending} 位的回信。）" : string.Empty);
         if (interruption == null) return $"{head}：\n\n{conclusion}{waiting}";
 
         return conclusion.Length > 0

@@ -841,7 +841,8 @@ public static class AgentContentFormatter
         if (toolName is "load_skill" or "read_skill_resource" or "run_skill_script" or LoadSkillTool.ToolName) return "sparkles";
         if (toolName is VisionTool.ToolName or ViewImageTool.ToolName) return "eye";
         if (toolName == SchedulerTools.ToolName) return "clock";
-        if (toolName == SubAgentTool.ToolName) return "bot";
+        // 旧历史里委派工具叫 SendMessage(ADR 0065 之前);群发言工具也叫这个名字,一并用机器人图标
+        if (toolName is SubAgentTool.ToolName or SubAgentTool.MessageToolName) return "bot";
         return "wrench";
     }
 

@@ -41,8 +41,8 @@ public sealed record SubAgentProfile
     public required ESubAgentType Type { get; init; }
 
     // 从前这里还有 ToolName 与 Description 两个字段：两档各挂一把工具、各带一份说明书。
-    // ADR 0044 把三把工具归一为 SubAgentTool.ToolName 之后，档位不再决定工具名，
-    // 说明书也只剩一份（SubAgentToolPrompts.SendMessageDescription），两个字段随之退役。
+    // ADR 0044 起档位不再决定工具名（现为 CreateAgent 新开 / SendMessage 续聊，ADR 0065），
+    // 说明书统一收在 SubAgentToolPrompts，两个字段随之退役。
     // 本 record 现在只剩「重建一次已存档的委派时要什么」：类型、只读与否、用哪个模型。
 
     /// <summary>

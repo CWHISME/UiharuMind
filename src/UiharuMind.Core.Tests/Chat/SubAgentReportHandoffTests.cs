@@ -97,7 +97,8 @@ public class SubAgentReportHandoffTests
             supersedes: false, interruption: null, othersPending: 0);
 
         Assert.StartsWith("来自 审查员 [sub-session: sub1]，回你之前发的「黑猫，提交前给你看账：」：", text);
-        Assert.EndsWith("\n\n可以提交", text);
+        Assert.Contains("\n\n可以提交\n\n", text);
+        Assert.EndsWith($"`{SubAgentTool.MessageToolName}`，to 填 sub1；另开一位的话，对方什么都不知道。）", text); //读完要决定找谁的地方告诉它怎么接着谈
         Assert.DoesNotContain("委派", text);
         Assert.DoesNotContain("报告", text);
         Assert.DoesNotContain("还在等", text);
@@ -119,7 +120,8 @@ public class SubAgentReportHandoffTests
             interruption: null, othersPending: 2);
 
         Assert.Contains("（更正上一封）：", text);
-        Assert.EndsWith("改口了\n\n（你还在等 2 位的回信。）", text); //附言在正文之后,不夹在信头与正文之间
+        Assert.Contains("改口了\n\n（接着谈同类主题", text); //附言在正文之后,不夹在信头与正文之间
+        Assert.EndsWith("\n（你还在等 2 位的回信。）", text);
     }
 
     /// <summary>被打断是事实，不是命令：有内容就附上说到一半的，没有就明说没回</summary>
@@ -131,8 +133,8 @@ public class SubAgentReportHandoffTests
         string empty = SubAgentReportHandoff.BuildText("审查员", "sub1", "查一下", "", false, "没写完回复就停下了", 0);
 
         Assert.Contains("对方在应用退出时被中止，没有跑完，以下是对方停下前说到的：", partial);
-        Assert.EndsWith("查到一半", partial);
-        Assert.EndsWith("对方没写完回复就停下了，没回任何内容。", empty);
+        Assert.Contains("查到一半\n\n", partial);
+        Assert.Contains("对方没写完回复就停下了，没回任何内容。", empty);
     }
 
     /// <summary>插进醒着的派活者那一轮时：他醒着说明上一封（若有）已读过，有就写成更正</summary>

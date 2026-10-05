@@ -309,7 +309,6 @@ internal static class AgentInstructionsComposer
             // 它会照着调然后白烧一次调用(同 ADR 0017"判据取装配结果"那条)
             Python = pythonInterpreter.Length > 0,
             KnowledgeBase = config.EnableKnowledgeSearchTool,
-            Delegation = config.EnableSubAgent,
             WorkingDirectory = workingDirectory,
             OutputRoom = outputRoomDirectory,
             Memory = memoryDirectory,

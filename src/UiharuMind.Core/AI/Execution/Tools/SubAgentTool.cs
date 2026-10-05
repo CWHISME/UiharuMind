@@ -47,22 +47,21 @@ namespace UiharuMind.Core.AI.Execution.Tools;
 public static class SubAgentTool
 {
     /// <summary>
-    /// 委派工具名——<b>全系统唯一的通信原语</b>。提示词里提到本工具时一律引用这个常量,
-    /// 写死字面量迟早对不上。
+    /// 新开一位子代理的工具名。提示词里提到本工具时一律引用这个常量,写死字面量迟早对不上。
     ///
-    /// <b>为什么是这个名字</b>(ADR 0044):从前是三把工具
-    /// <c>RunAgent</c> / <c>RunReadOnlyAgent</c> / <c>ContinueAgent</c>。
-    /// <c>RunAgent(agent, task)</c> 这个签名本身就在教模型
-    /// 「agent 是可运行的东西、task 是输入、产出是返回值」——<b>函数调用心智</b>。
-    /// 用了它,模型就把对方当工具人:派活 → 等结果 → 自己总结,
-    /// 对方没有机会反问、没有机会说「你这个需求我没听懂」。而「允许反问」恰恰是
-    /// 委派区别于 API 调用的地方。
-    ///
-    /// 归一之后,群聊、私聊、委派、插话是<b>同一个动作:给某个人发消息</b>,
-    /// 区别只在收件人在不在当前会话。续跑也不再是另一把工具——
-    /// 给一个已经聊过的人再发一条,本来就该是同一个动作。
+    /// <b>拆法对齐 Claude Code</b>(ADR 0065):新开、续聊各一把。名字取动宾式(与 <c>SendMessage</c>、
+    /// <c>StartBackgroundTask</c> 同一套),「这一下是新开」写在名字上。
+    /// ADR 0044 曾把两者归一成一把 <c>SendMessage</c>,实测弱模型因此想不到要委派
+    /// (用户说「找个人审」,0/3 委派),而 <c>to</c> 一个参数兼三义(留空新开 / 人名 / 编号)
+    /// 又招来编名字、该续不续。0044 的对话语义保留:对方能反问,回信以来信交回。
     /// </summary>
-    public const string ToolName = "SendMessage";
+    public const string ToolName = "CreateAgent";
+
+    /// <summary>
+    /// 给聊过的子代理续发消息的工具名(含对方还在干活时的插话)。与群发言工具同名不冲突:
+    /// 群成员装配时去掉了委派(<see cref="AgentToolConfig.WithoutDelegation"/>),两者从不同场
+    /// </summary>
+    public const string MessageToolName = "SendMessage";
 
     private const int MaxLabelLength = 40; //身份与标题的长度上限：署名、窗口标题、身份句都用它
 
@@ -162,64 +161,76 @@ public static class SubAgentTool
     }
 
     /// <summary>
-    /// 创建派活工具
+    /// 创建委派的两把工具:<see cref="ToolName"/> 新开、<see cref="MessageToolName"/> 续聊
     /// </summary>
     /// <param name="context">派活上下文</param>
-    /// <returns>工具实例</returns>
-    public static AITool Create(LaunchContext context)
+    /// <returns>两把工具,新开在前</returns>
+    public static IReadOnlyList<AITool> Create(LaunchContext context) => [CreateLaunch(context), CreateMessage(context)];
+
+    private static AITool CreateLaunch(LaunchContext context)
     {
-        // 刻意没有"自定义子代理提示词"这个参数。曾经有过,实测本地模型往里填的是与 content 重复的
+        // 刻意没有"自定义子代理提示词"这个参数。曾经有过,实测本地模型往里填的是与 prompt 重复的
         // 泛泛套话,既没信息量又挤掉了固定段该起的作用。要给对方换人格,
         // 请在角色上挂一个子智能体,而不是让模型现编。
-        //
-        // to 的说明随收件人名单装配时拼(SubAgentToolPrompts.BuildToParam),[Description] 只能写常量
+        if (context.Roster.Count == 0)
+        {
+            // 没挂子角色就没有 subagent_type:schema 里没有可填名字的地方,也就编不出名字
+            // (ADR 0044 补注:弱模型见到「可以填名字」就自己造一个)
+            return AIFunctionFactory.Create(
+                ([Description(SubAgentToolPrompts.PromptParam)]
+                    string prompt,
+                    [Description(SubAgentToolPrompts.RoleParam)]
+                    string? role = null,
+                    [Description(SubAgentToolPrompts.ModelParam)]
+                    string? model = null) => Launch(context, prompt, null, role, model),
+                ToolName,
+                SubAgentToolPrompts.AgentDescription);
+        }
+
+        // subagent_type 的说明随名单装配时拼(SubAgentToolPrompts.BuildSubagentTypeParam),[Description] 只能写常量
         AIFunction function = AIFunctionFactory.Create(
-            ([Description(SubAgentToolPrompts.ContentParam)]
-                string content,
-                string? to = "",
+            ([Description(SubAgentToolPrompts.PromptParam)]
+                string prompt,
+                string? subagent_type = null,
                 [Description(SubAgentToolPrompts.RoleParam)]
                 string? role = null,
                 [Description(SubAgentToolPrompts.ModelParam)]
-                string? model = null) => SendAsync(context, to, content, role, model),
+                string? model = null) => Launch(context, prompt, subagent_type, role, model),
             ToolName,
-            SubAgentToolPrompts.SendMessageDescription);
-        return new ParameterDescriptionFunction(function, "to", SubAgentToolPrompts.BuildToParam(context.Roster));
+            SubAgentToolPrompts.AgentDescription);
+        return new ParameterDescriptionFunction(function, "subagent_type",
+            SubAgentToolPrompts.BuildSubagentTypeParam(context.Roster));
     }
 
+    private static AITool CreateMessage(LaunchContext context) =>
+        AIFunctionFactory.Create(
+            ([Description(SubAgentToolPrompts.ToParam)]
+                string to,
+                [Description(SubAgentToolPrompts.MessageParam)]
+                string message) => SendAsync(context, to, message),
+            MessageToolName,
+            SubAgentToolPrompts.SendMessageDescription);
+
     /// <summary>
-    /// 唯一入口:把一条消息送到收件人手上。
-    ///
-    /// <c>to</c> 一个参数收两种收件人,因为对模型来说这本来就是同一个动作——
-    /// 区别只在这个人是刚认识还是已经聊过。查找顺序:
-    /// <list type="number">
-    /// <item>空 → 默认匿名代理,新开一次</item>
-    /// <item>名单里的人名(不区分大小写)→ 新开一次</item>
-    /// <item>本会话派出过的子会话标识（短号或完整 ID）→ 续上那一次；短号撞车则列出完整 ID 让它挑</item>
-    /// <item>都不是 → 报错,并<b>同时</b>给出两条路的提示</item>
-    /// </list>
-    ///
-    /// <b>顺序不能倒</b>:人名优先于会话标识。名字是用户起的、会话标识是系统发的,
-    /// 万一撞上,用户起的那个才是模型想找的人。
+    /// 给聊过的人续发一条。<c>to</c> 只收本会话派出过的子会话标识（短号或完整 ID）；
+    /// 短号撞车则列出完整 ID 让它挑。填了人名或留空都是想新开，报错指回 <see cref="ToolName"/>。
     /// </summary>
-    private static Task<string> SendAsync(LaunchContext context, string? to, string content,
-        string? role, string? model)
+    private static Task<string> SendAsync(LaunchContext context, string? to, string message)
     {
-        if (string.IsNullOrWhiteSpace(content)) return Task.FromResult("Error: content must not be empty.");
+        if (string.IsNullOrWhiteSpace(message)) return Task.FromResult("Error: message must not be empty.");
 
         string? target = NormalizeTo(to);
-        if (target == null) return Task.FromResult(Launch(context, content, null, role, model));
+        if (target == null)
+        {
+            return Task.FromResult(UnknownRecipient(context, null));
+        }
 
-        SubAgentChoice? named = context.Roster
-            .FirstOrDefault(x => string.Equals(x.Name, target, StringComparison.OrdinalIgnoreCase));
-        if (named != null) return Task.FromResult(Launch(context, content, named.Name, role, model));
-
-        // 不是人名,那就看是不是一次聊过的委派。按索引反查而不是猜标识格式:
-        // 模型手里是短号,精确 Load 永远对不上(实测新委派因此全部续不上)
+        // 按索引反查而不是猜标识格式:模型手里是短号,精确 Load 永远对不上(实测新委派因此全部续不上)
         IReadOnlyList<ChatSessionMeta> runs = SubSessionIdAlias.Match(context.ParentSessionId, target);
         return runs.Count switch
         {
             0 => Task.FromResult(UnknownRecipient(context, target)),
-            1 => ContinueAsync(context, runs[0].SessionId, content),
+            1 => ContinueAsync(context, runs[0].SessionId, message),
             _ => Task.FromResult(AmbiguousRun(target, runs)),
         };
     }
@@ -236,18 +247,14 @@ public static class SubAgentTool
     }
 
     /// <summary>
-    /// 收件人规范化：空与纯空白一律落到默认对象，其余名字原样返回（trim 后），由调用方继续分流。
+    /// 收件人规范化：空与纯空白为 null，其余原样返回（trim 后）。
     ///
-    /// 刻意<b>不</b>为 "default" 之类当名字的字面量开特例：那不是合法的收件人，
-    /// 填了就该走 UnknownRecipient 报错——模型由此学会「留空 = 默认对象」
-    /// （它曾因 schema 把 to 标成必填而被迫瞎填，那个 bug 的根已经修了，见 Create 的默认值）。
-    ///
-    /// 另一条宽容：模型常把回执末行的 <c>[sub-session: xxx]</c> 整行原样粘进 <c>to</c>
+    /// 宽容：模型常把回执末行的 <c>[sub-session: xxx]</c> 整行原样粘进 <c>to</c>
     /// （实测两连错都是这么来的）。这里把方括号里的编号剥出来，后续按会话标识续跑；
     /// 只传裸编号当然也行，两边等价。
     /// </summary>
     /// <param name="to">模型填的收件人</param>
-    /// <returns>默认对象为 null；否则返回规范化后的收件人</returns>
+    /// <returns>空为 null；否则返回规范化后的收件人</returns>
     internal static string? NormalizeTo(string? to)
     {
         string? target = string.IsNullOrWhiteSpace(to) ? null : to.Trim();
@@ -258,19 +265,16 @@ public static class SubAgentTool
     }
 
     /// <summary>
-    /// 收件人不认识时的回话。<b>两条路都给</b>:模型此刻不知道自己错在"名字拼错"
-    /// 还是"把会话标识当人名",只说一条它会在另一条上再错一次。
+    /// <see cref="MessageToolName"/> 的收件人不认识时的回话。<b>两条路都给</b>:模型此刻不知道
+    /// 自己是想续聊却抄错了编号,还是其实想新开一位——只说一条它会在另一条上再错一次。
     ///
     /// 聊过的人直接列出来照抄:只说"去回执里找标识",模型会凭印象补写(实测把短号补成 GUID),
     /// 对不上就另起新人,前面做过的全丢。
     /// </summary>
-    private static string UnknownRecipient(LaunchContext context, string target)
+    private static string UnknownRecipient(LaunchContext context, string? target)
     {
-        string names = context.Roster.Count == 0
-            ? "No one is listed by name; leave `to` empty to message someone new."
-            : $"By name: {string.Join(", ", context.Roster.Select(x => x.Name))} "
-              + "(or leave `to` empty to message someone new).";
-        string error = $"Error: no one called '{target}'. {names}";
+        string error = (target == null ? "Error: `to` is empty. " : $"Error: no conversation '{target}'. ")
+                       + $"To start someone new, use `{ToolName}`.";
 
         List<ChatSessionMeta> earlier = SessionManager.Instance.GetSubSessions(context.ParentSessionId);
         if (earlier.Count == 0) return error;
@@ -285,6 +289,14 @@ public static class SubAgentTool
     }
 
     /// <summary>
+    /// <see cref="ToolName"/> 的 <c>subagent_type</c> 不在名单里。只有挂了子角色才会走到这里
+    /// (没挂就没有这个参数)。
+    /// </summary>
+    private static string UnknownSubagentType(LaunchContext context, string name) =>
+        $"Error: no one called '{name}'. Pick one of: {string.Join(", ", context.Roster.Select(x => x.Name))}, "
+        + "or leave `subagent_type` empty.";
+
+    /// <summary>
     /// 发信人插话的前缀。子代理提示词明确区分「用户在窗口说话」与「给它发消息的会话追问」，
     /// 插话以 user 身份进流时必须自报家门，否则子代理会把它当成用户的话。
     /// 跑中注入与排队续跑两分支都用它；落盘带前缀：它本来就是发信人说的，原样留痕才是实话。
@@ -295,16 +307,16 @@ public static class SubAgentTool
     private static string Launch(LaunchContext context, string task, string? agent, string? role = null,
         string? model = null)
     {
-        if (string.IsNullOrWhiteSpace(task)) return "Error: task must not be empty.";
+        if (string.IsNullOrWhiteSpace(task)) return "Error: prompt must not be empty.";
 
         // 空 agent 走默认;点了名才进花名册挑选,挑不到才报错
         SubAgentChoice? choice = null;
         if (!string.IsNullOrWhiteSpace(agent))
         {
-            choice = context.Roster.FirstOrDefault(x => string.Equals(x.Name, agent, StringComparison.OrdinalIgnoreCase));
+            choice = context.Roster.FirstOrDefault(x => string.Equals(x.Name, agent.Trim(), StringComparison.OrdinalIgnoreCase));
             if (choice == null)
             {
-                return UnknownRecipient(context, agent);
+                return UnknownSubagentType(context, agent.Trim());
             }
         }
 

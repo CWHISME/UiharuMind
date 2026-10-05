@@ -5,7 +5,7 @@ using Microsoft.Extensions.AI;
 namespace UiharuMind.Core.AI.Execution.Tools;
 
 /// <summary>
-/// 改写某个参数的说明，其余一律透传。参数说明要随装配事实变（如 SendMessage 的 <c>to</c> 随收件人名单变），
+/// 改写某个参数的说明，其余一律透传。参数说明要随装配事实变（如 Agent 的 <c>subagent_type</c> 随名单变），
 /// 而 <c>[Description]</c> 只能写常量。说明在构造时定死，一次装配之内不变。
 /// </summary>
 internal sealed class ParameterDescriptionFunction : DelegatingAIFunction

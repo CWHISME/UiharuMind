@@ -176,11 +176,10 @@ internal static class AgentAssembler
         }
 
         // 委派:工具集与权限档都从主代理派生,全部能力都关掉时不挂载。
-        // ADR 0044 之前这里挂三把(通用派活 / 只读派活 / 续跑),现在只有一把 SendMessage——
-        // 新开与续跑由收件人参数自己分流,档位差异已退役。
-        if (config.EnableSubAgent && SubAgentAssembly.TryCreateTool(plan, client) is { } sendMessageTool)
+        // 两把:CreateAgent 新开、SendMessage 续聊(ADR 0065),档位差异已退役
+        if (config.EnableSubAgent && SubAgentAssembly.TryCreateTools(plan, client) is { } delegationTools)
         {
-            Add(EAgentCapability.SubAgent, sendMessageTool);
+            foreach (AITool tool in delegationTools) Add(EAgentCapability.SubAgent, tool);
         }
 
         if (plan.Profile.IsGroupMember) Add(EAgentCapability.GroupPost, GroupPostTool.Create(plan.Profile.SessionId));

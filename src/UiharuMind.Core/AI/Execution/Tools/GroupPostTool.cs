@@ -16,9 +16,10 @@ namespace UiharuMind.Core.AI.Execution.Tools;
 /// <summary>
 /// 智能体形态的群成员一轮<b>中途</b>说话（先说接哪一块、做完一段报结果）。一轮说完的回复正文照样进群（ADR 0060 修订）。
 ///
-/// 从 <see cref="SubAgentTool"/> 里拆出来单独成一把：群成员不委派，而共用 <c>SendMessage</c> 时
+/// 从 <see cref="SubAgentTool"/> 里拆出来单独成一把：群成员不委派，而从前委派与群发言共用一把时
 /// 收件人填错（写成用户名、留空）就会静默派出一个子代理——群里看不见、群视图停不了，
 /// 它的报告回来还被当成用户的话。这把只收正文，没有收件人可填错。
+/// 与委派的续聊工具（<see cref="SubAgentTool.MessageToolName"/>）同名：两者从不同场，由不变量测试钉住。
 /// </summary>
 public static class GroupPostTool
 {

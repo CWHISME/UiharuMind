@@ -207,8 +207,9 @@ public class GroupSceneTests
     }
 
     /// <summary>
-    /// 群成员不委派，中途发群走只收正文的专用工具：共用 SendMessage 时收件人一填错
-    /// （写成用户名、留空）就静默派出一个群里看不见、也停不了的子代理
+    /// 群成员不委派，中途发群走只收正文的专用工具：从前与委派共用一把时收件人一填错
+    /// （写成用户名、留空）就静默派出一个群里看不见、也停不了的子代理。
+    /// 群发言与委派的续聊同名（SendMessage），两者从不同场：同一次装配里工具名不得重复
     /// </summary>
     [Theory]
     [InlineData("场景正文", true)]
@@ -228,11 +229,13 @@ public class GroupSceneTests
 
         await using AgentHandle handle = AgentAssembler.Assemble(plan);
 
-        // 群发言工具与委派同名（SendMessage），按参数认：委派要填收件人 to，群发言只收正文
+        // 群发言工具与委派的续聊同名（SendMessage），按参数认：续聊要填收件人 to，群发言只收正文
         List<AIFunction> tools = handle.ChatOptions?.Tools?.OfType<AIFunction>().ToList() ?? [];
         bool Delegates(AIFunction x) => x.JsonSchema.GetRawText().Contains("\"to\"");
         Assert.Equal(isMember, tools.Any(x => x.Name == GroupPostTool.ToolName && !Delegates(x)));
-        Assert.Equal(!isMember, tools.Any(x => x.Name == SubAgentTool.ToolName && Delegates(x)));
+        Assert.Equal(!isMember, tools.Any(x => x.Name == SubAgentTool.MessageToolName && Delegates(x)));
+        Assert.Equal(!isMember, tools.Any(x => x.Name == SubAgentTool.ToolName));
+        Assert.Equal(tools.Count, tools.Select(x => x.Name).Distinct().Count());
         Assert.True(character.Tools.EnableSubAgent); //只是这次装配不给，角色卡本身不改
         Assert.Equal(!isMember, AgentAssemblyFacts.Capture(character,
             new AgentAssemblyInputs

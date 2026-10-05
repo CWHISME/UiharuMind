@@ -63,9 +63,6 @@ public static class AgentPromptHeadings
     /// <summary>受管 Python 环境纪律段。它挂在命令行之下的同级位置——Python 由 shell 跑</summary>
     public const string Python = "## Python";
 
-    /// <summary>委派纪律段</summary>
-    public const string Delegation = "## 委派";
-
     /// <summary>群场景段（ADR 0048）：群成员才有，紧跟人格段</summary>
     public const string Scene = "# 场景";
 

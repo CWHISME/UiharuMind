@@ -43,9 +43,6 @@ internal static class ToolDisciplineSections
         /// <summary>知识库检索工具是否已装配</summary>
         public bool KnowledgeBase { get; init; }
 
-        /// <summary>委派工具是否已装配。<b>子代理恒为 false</b>：它不能再派子代理（防无限递归）</summary>
-        public bool Delegation { get; init; }
-
         /// <summary>工作目录绝对路径；空串则不写该段</summary>
         public string WorkingDirectory { get; init; } = string.Empty;
 
@@ -109,10 +106,8 @@ internal static class ToolDisciplineSections
         list.Section(facts.Shell && facts.Python, AgentPromptHeadings.Python,
             () => AgentToolPrompts.BuildPython(facts.FileWrite));
 
-        // 纪律段按需而不是挂了工具就写(ADR 0054):联网、识图、生图、看图的用法各自的工具描述已说清,这里不重复
+        // 纪律段按需而不是挂了工具就写(ADR 0054):联网、识图、生图、看图、委派的用法各自的工具描述已说清,这里不重复
         list.Section(facts.KnowledgeBase, AgentPromptHeadings.KnowledgeBase, AgentToolPrompts.KnowledgeSearchDefault);
-        list.Section(facts.Delegation, AgentPromptHeadings.Delegation,
-            AgentToolPrompts.BuildDelegation);
 
         if (list.IsEmpty) return string.Empty;
 

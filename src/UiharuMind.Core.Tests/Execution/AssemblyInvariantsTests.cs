@@ -732,13 +732,12 @@ public class HarnessInstructionsCompositionTests
     [Fact]
     public void AgentInstructions_OmitDisciplinesOfDisabledTools()
     {
-        AgentToolConfig tools = new() { EnableFileAccess = false, EnableSubAgent = false };
+        AgentToolConfig tools = new() { EnableFileAccess = false };
 
         string instructions = BuildAgentOptions("/tmp/uiharu-agent-test", tools)
             .ChatOptions?.Instructions ?? string.Empty;
 
         Assert.DoesNotContain(AgentPromptHeadings.FileOperations, instructions);
-        Assert.DoesNotContain(AgentToolPrompts.BuildDelegation(), instructions);
     }
 
     /// <summary>
@@ -900,7 +899,7 @@ public class HarnessInstructionsCompositionTests
             FileToolNames.Grep, CharacterRunnerFactory.ShellToolName,
             WebSearchTool.ToolName, WebFetchTool.ToolName, VisionTool.ToolName, KnowledgeTool.ToolName,
             SchedulerTools.ToolName, ImageGenerationTool.ToolName,
-            SubAgentTool.ToolName,
+            SubAgentTool.ToolName, SubAgentTool.MessageToolName,
         };
 
         MatchCollection mentioned = Regex.Matches(instructions, "`([^`]+)`");
@@ -1157,10 +1156,10 @@ public class SubAgentBoundaryTests
     [InlineData(EAgentPermissionMode.FullAuto)]
     public void SubAgentTools_DoNotIncludeSubAgentItself(EAgentPermissionMode mode)
     {
-        // ADR 0044 归一之后只剩一把工具要查。不变量本身一个字没变：
-        // 子会话的工具集里绝不能有委派工具，否则可以无限套娃。
-        Assert.DoesNotContain(SubAgentTool.ToolName,
-            ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(NewInput(mode: mode))));
+        // 子会话的工具集里绝不能有委派工具（新开与续聊两把），否则可以无限套娃
+        IReadOnlyList<string> names = ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(NewInput(mode: mode)));
+        Assert.DoesNotContain(SubAgentTool.ToolName, names);
+        Assert.DoesNotContain(SubAgentTool.MessageToolName, names);
     }
 
     /// <summary>

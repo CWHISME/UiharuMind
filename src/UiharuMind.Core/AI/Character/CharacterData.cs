@@ -115,7 +115,7 @@ public class CharacterData
 
     /// <summary>
     /// 可委派的子智能体名单(只对智能体有意义)：
-    /// 名单里每一项是一个智能体，<c>SendMessage</c> 的收件人据此点名；
+    /// 名单里每一项是一个智能体，<c>CreateAgent</c> 的 <c>subagent_type</c> 据此点名；
     /// 为空则退回内置的通用匿名子代理。
     /// 装配时按身份过滤而非信任存档——名单里的角色可能已经翻回普通角色。
     /// </summary>

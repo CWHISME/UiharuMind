@@ -1,5 +1,8 @@
 # 委派门面统一为 SendMessage，子会话骨架一行不动
 
+> **决策 1（命名）、3（删 `ContinueAgent`）已被 [ADR 0065](0065-委派拆成Agent新开与SendMessage续聊，名字对齐Claude.md) 修订**：
+> 委派拆回 `CreateAgent` 新开 + `SendMessage` 续聊。对话语义与子会话骨架不变。
+
 `RunAgent` / `RunReadOnlyAgent` / `ContinueAgent` 三个工具退役，**暴露给模型的通信原语只剩一个**：
 `SendMessage(to, content, scope?, mode?)`。群聊广播、私聊、委派、插话全走它，
 区别只在**收件人在不在当前会话**。
@@ -127,7 +130,9 @@
 
 1. **工具层归一**（已落地）：三把工具 → `SendMessage(to, content, role?, model?)`；
    `to` 自己分流（人名 → 新开；子会话标识 → 续上）；roster 从工具 description 挪进系统提示的
-   委派一节（`ToolDisciplineFacts.DelegationRoster`，后又挪进 `to` 的参数说明，见决策 5 补注）；政策正文整段改写成对话心智；
+   委派一节（`ToolDisciplineFacts.DelegationRoster`，后又挪进 `to` 的参数说明，见决策 5 补注）；政策正文整段改写成对话心智
+   （委派一节后来整段并进工具说明，见 [0054](0054-工具纪律段按需写，不再挂了工具就得有.md) 补注；
+   工具本身又拆回 `CreateAgent` 新开 + `SendMessage` 续聊，见 [0065](0065-委派拆成Agent新开与SendMessage续聊，名字对齐Claude.md)）；
    机器人图标判据、交接文档措辞、两条不变量测试跟着改。
 2. **存量就地封存**（已落地，**口径比拟稿时收紧**）：拟稿写的是「`ExploreSubAgent` /
    `ESubAgentType` 退役」，落地时改为**封存**——真删会让存量静默出事：
