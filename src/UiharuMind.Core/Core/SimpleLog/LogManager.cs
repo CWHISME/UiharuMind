@@ -37,8 +37,8 @@ public class LogManager
     }
 
     /// <summary>
-    /// 改掉单例的落盘位置。<b>只给测试用</b>，且必须在首次取 <see cref="Instance"/> 之前调用——
-    /// 否则测试会写进并轮换用户真实的日志目录
+    /// 改掉单例的落盘位置。<b>只给测试与界面预览器用</b>，且必须在首次取 <see cref="Instance"/> 之前调用——
+    /// 否则会写进并轮换用户真实的日志目录
     /// </summary>
     /// <param name="directory">日志目录</param>
     public static void UseDirectory(string directory) => _defaultDirectory = directory;

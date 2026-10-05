@@ -11,6 +11,7 @@
 
 using System;
 using System.Diagnostics;
+using System.IO;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -47,6 +48,13 @@ public partial class App : Application, ILogger, IDisposable
     {
         AvaloniaXamlLoader.Load(this);
 
+        // 预览器每开一个 axaml 都会起一次 App:日志转去临时目录,否则每次都轮换掉一格真实日志
+        if (Design.IsDesignMode)
+        {
+            LogManager.UseDirectory(Path.Combine(Path.GetTempPath(), "uiharu-designer-logs"));
+            return;
+        }
+
         LogManager.Instance.Logger = this;
 
         // 捕获未处理的异常
@@ -56,6 +64,12 @@ public partial class App : Application, ILogger, IDisposable
 
     public override void OnFrameworkInitializationCompleted()
     {
+        if (Design.IsDesignMode)
+        {
+            base.OnFrameworkInitializationCompleted();
+            return;
+        }
+
         AppPaths.EnsureRoot();
         UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("enter");
         Log.Debug("UiharuMind begins to start.");
@@ -247,6 +261,8 @@ public partial class App : Application, ILogger, IDisposable
     {
         // 处理AppDomain级别的未处理异常
         var ex = (Exception)e.ExceptionObject;
+        // 崩溃记录先写:它是同步直写,不受日志队列卡住的影响
+        if (e.IsTerminating) CrashLog.Append(ex);
         Log.Error(ex);
         Log.Flush();
         if (e.IsTerminating)
