@@ -90,7 +90,8 @@ public class LazyChatClient : IChatClient
         // 流式中途被服务端掐断(HttpIOException: ResponseEnded)时重发整个请求再试几次。
         // 这类失败发生在响应头已到手、body 读到一半的时候,SDK 的限流/瞬时重试看不见它,
         // 不在这里兜底就一路冒到 TurnDriver,整轮 agent 任务直接作废。
-        // 正常流以 [DONE] 收尾,不会抛 HttpIOException,自然走不到重试。
+        // 正常流以 [DONE] 收尾,不会抛 HttpIOException,自然走不到重试;
+        // 例外是 [DONE] 收尾却只有思考、没有 finish_reason 的截断回复(见 StreamCompletionWatch),同样重试。
         // 重试代价:若断线前已向上层吐过完整的工具调用,重发会让同一调用被框架再执行一次——
         // 好在工具调用通常出现在流中后段,断线多发在思考/等待的停顿期,此时尚无新调用产出。
         for (int attempt = 1; ; attempt++)
@@ -123,7 +124,7 @@ public class LazyChatClient : IChatClient
     }
 
     /// <summary>
-    /// 单次流式枚举。中途断线(HttpIOException)不向外抛,而是产出 (null, 异常) 让上层决定重试;
+    /// 单次流式枚举。中途断线(HttpIOException)或收尾判为截断时不向外抛,而是产出 (null, 异常) 让上层决定重试;
     /// 正常产出 (update, null)。手动驱动 MoveNextAsync 是为了把 yield 从带 catch 的 try 里挪出来
     /// (C# 不允许在带 catch 的 try 内 yield)。
     /// </summary>
@@ -141,7 +142,7 @@ public class LazyChatClient : IChatClient
         // 这条日志能区分"服务端根本没发正文"与"发了但被上层丢了"
         int reasoningChars = 0;
         int textChars = 0;
-        string? lastFinishReason = null; //最后见到的 finish_reason(SDK 解析后的值)
+        StreamCompletionWatch watch = new();
 
         IAsyncEnumerator<ChatResponseUpdate> enumerator = client
             .GetStreamingResponseAsync(messages, options, cancellationToken).GetAsyncEnumerator(cancellationToken);
@@ -173,11 +174,10 @@ public class LazyChatClient : IChatClient
                 if (textParser == null)
                 {
                     DropEmptyTextContents(update);
+                    watch.Observe(update);
                     yield return (update, null);
                     continue;
                 }
-
-                if (update.FinishReason is { } reason) lastFinishReason = reason.ToString();
 
                 List<AIContent> rebuilt = new(update.Contents.Count);
                 foreach (AIContent content in update.Contents)
@@ -200,21 +200,32 @@ public class LazyChatClient : IChatClient
                 }
 
                 update.Contents = rebuilt;
+                watch.Observe(update);
                 yield return (update, null);
             }
         }
 
-        if (textParser == null) yield break;
-
-        Log.Debug($"[stream] assistant reply ended: reasoning={reasoningChars:N0} chars, text={textChars:N0} chars, " +
-                  $"finish_reason={(lastFinishReason ?? "(none)")}.");
-
-        List<AIContent> tail = new();
-        Append(tail, textParser.Flush(), isReasoning: false);
-        Append(tail, reasoningParser!.Flush(), isReasoning: true);
-        if (tail.Count > 0)
+        if (textParser != null)
         {
-            yield return (new ChatResponseUpdate(ChatRole.Assistant, tail), null);
+            Log.Debug($"[stream] assistant reply ended: reasoning={reasoningChars:N0} chars, text={textChars:N0} chars, " +
+                      $"finish_reason={watch.FinishReason ?? "(none)"}.");
+
+            List<AIContent> tail = new();
+            Append(tail, textParser.Flush(), isReasoning: false);
+            Append(tail, reasoningParser!.Flush(), isReasoning: true);
+            if (tail.Count > 0)
+            {
+                ChatResponseUpdate tailUpdate = new(ChatRole.Assistant, tail);
+                watch.Observe(tailUpdate);
+                yield return (tailUpdate, null);
+            }
+        }
+
+        // 网关断了上游仍会补 [DONE] 正常收尾，传输层看不出来；按断线处理，交给上层重试
+        if (watch.IsCutOff)
+        {
+            yield return (null, new HttpIOException(HttpRequestError.ResponseEnded,
+                "stream ended without finish_reason, text or tool calls (reply was cut off upstream)"));
         }
     }
 
