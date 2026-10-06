@@ -20,8 +20,11 @@ public class LLamaCppVersionManager : ReleaseVersionManagerBase<VersionInfo>
 {
     private readonly VersionManager _versionManager = new VersionManager();
 
-    protected override string Owner => "ggerganov";
+    protected override string Owner => "ggml-org";
     protected override string Repository => "llama.cpp";
+
+    // llama.cpp 的 b 系列构建都标为预发布，正式版不带包
+    protected override bool IncludePrereleases => true;
 
     /// <summary>
     /// 获取目录中本地引擎版本信息

@@ -1,3 +1,4 @@
+using System.Xml.Linq;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -31,6 +32,8 @@ public sealed record GitHubReleaseAssetSelectOptions(
 
 public static class GitHubReleaseAssetHelper
 {
+    private const int RecentReleaseCount = 20;
+    private const int FeedTagLimit = 5; // 网页兜底逐个请求，少看几个
     private static readonly HttpClient HttpClient = CreateHttpClient();
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -51,6 +54,50 @@ public static class GitHubReleaseAssetHelper
         {
             return await GetLatestReleaseFromExpandedAssetsAsync(owner, repository, cancellationToken)
                 .ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// 找最近一个满足条件的发布（含预发布）。llama.cpp 的构建都是预发布，正式版反而可能不带包，
+    /// 只看 releases/latest 会落到空包上
+    /// </summary>
+    /// <param name="owner">仓库所有者</param>
+    /// <param name="repository">仓库名</param>
+    /// <param name="accept">发布是否可用（通常是「有本平台的包」）</param>
+    /// <param name="cancellationToken">取消</param>
+    /// <returns>发布；找不到为 null</returns>
+    public static async Task<GitHubReleaseInfo?> FindLatestReleaseAsync(
+        string owner,
+        string repository,
+        Func<GitHubReleaseInfo, bool> accept,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            string url = $"https://api.github.com/repos/{owner}/{repository}/releases?per_page={RecentReleaseCount}";
+            using HttpResponseMessage response = await HttpClient.GetAsync(url, cancellationToken)
+                .ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+            await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken)
+                .ConfigureAwait(false);
+            List<GitHubReleaseDto>? dtos = await JsonSerializer.DeserializeAsync<List<GitHubReleaseDto>>(
+                stream, JsonOptions, cancellationToken).ConfigureAwait(false);
+            return dtos?.Select(dto => ToReleaseInfo(owner, repository, dto)).OfType<GitHubReleaseInfo>()
+                .FirstOrDefault(accept);
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            // API 有匿名限流（每小时 60 次），退到网页：releases.atom 列出最近的标签，逐个看附件
+            foreach (string tag in await GetRecentTagsFromFeedAsync(owner, repository, cancellationToken)
+                         .ConfigureAwait(false))
+            {
+                GitHubReleaseInfo release = await GetReleaseFromExpandedAssetsAsync(
+                    owner, repository, tag, $"https://github.com/{owner}/{repository}/releases/tag/{tag}",
+                    cancellationToken).ConfigureAwait(false);
+                if (accept(release)) return release;
+            }
+
+            return null;
         }
     }
 
@@ -110,7 +157,12 @@ public static class GitHubReleaseAssetHelper
             .ConfigureAwait(false);
         var dto = await JsonSerializer.DeserializeAsync<GitHubReleaseDto>(
             stream, JsonOptions, cancellationToken).ConfigureAwait(false);
-        if (dto == null || string.IsNullOrWhiteSpace(dto.TagName)) return null;
+        return dto == null ? null : ToReleaseInfo(owner, repository, dto);
+    }
+
+    private static GitHubReleaseInfo? ToReleaseInfo(string owner, string repository, GitHubReleaseDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.TagName)) return null;
 
         List<GitHubReleaseAssetInfo> assets = dto.Assets?
             .Where(asset => !string.IsNullOrWhiteSpace(asset.Name) &&
@@ -152,8 +204,26 @@ public static class GitHubReleaseAssetHelper
         }
 
         string decodedTagName = Uri.UnescapeDataString(tagName);
+        GitHubReleaseInfo release = await GetReleaseFromExpandedAssetsAsync(owner, repository, decodedTagName,
+            document.Location.Href, cancellationToken).ConfigureAwait(false);
+        return release with
+        {
+            Name = document.QuerySelector(".Box-body h1")?.TextContent.Trim() ?? decodedTagName,
+            PublishedAt = ParseDateTime(document.QuerySelector(".Box-body relative-time")?.GetAttribute("datetime")),
+            Body = document.QuerySelector(".Box-body pre")?.TextContent
+        };
+    }
+
+    private static async Task<GitHubReleaseInfo> GetReleaseFromExpandedAssetsAsync(
+        string owner,
+        string repository,
+        string tagName,
+        string releaseUrl,
+        CancellationToken cancellationToken)
+    {
+        var context = BrowsingContext.New(Configuration.Default.WithDefaultLoader());
         string assetsUrl =
-            $"https://github.com/{owner}/{repository}/releases/expanded_assets/{Uri.EscapeDataString(decodedTagName)}";
+            $"https://github.com/{owner}/{repository}/releases/expanded_assets/{Uri.EscapeDataString(tagName)}";
         IDocument assetsDocument = await context.OpenAsync(assetsUrl, cancellationToken)
             .ConfigureAwait(false);
 
@@ -170,15 +240,22 @@ public static class GitHubReleaseAssetHelper
             assets.Add(new GitHubReleaseAssetInfo(name, downloadUrl, 0));
         }
 
-        return new GitHubReleaseInfo(
-            owner,
-            repository,
-            decodedTagName,
-            document.QuerySelector(".Box-body h1")?.TextContent.Trim() ?? decodedTagName,
-            document.Location.Href,
-            ParseDateTime(document.QuerySelector(".Box-body relative-time")?.GetAttribute("datetime")),
-            document.QuerySelector(".Box-body pre")?.TextContent,
-            assets);
+        return new GitHubReleaseInfo(owner, repository, tagName, tagName, releaseUrl, null, null, assets);
+    }
+
+    private static async Task<IReadOnlyList<string>> GetRecentTagsFromFeedAsync(
+        string owner,
+        string repository,
+        CancellationToken cancellationToken)
+    {
+        string feed = await HttpClient.GetStringAsync($"https://github.com/{owner}/{repository}/releases.atom",
+            cancellationToken).ConfigureAwait(false);
+        return XDocument.Parse(feed).Descendants(XName.Get("link", "http://www.w3.org/2005/Atom"))
+            .Select(x => x.Attribute("href")?.Value ?? "")
+            .Where(x => x.Contains("/releases/tag/", StringComparison.Ordinal))
+            .Select(x => Uri.UnescapeDataString(x[(x.LastIndexOf('/') + 1)..]))
+            .Take(FeedTagLimit)
+            .ToList();
     }
 
     private static bool MatchesCurrentPlatform(string name)
@@ -197,7 +274,8 @@ public static class GitHubReleaseAssetHelper
 
         if (OperatingSystem.IsLinux())
         {
-            return lowerName.Contains("linux");
+            // llama.cpp 的 Linux 包以 ubuntu 命名
+            return lowerName.Contains("linux") || lowerName.Contains("ubuntu");
         }
 
         return false;

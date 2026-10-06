@@ -7,6 +7,11 @@ public abstract class ReleaseVersionManagerBase<TVersion> where TVersion : Manag
     protected abstract string Owner { get; }
     protected abstract string Repository { get; }
 
+    /// <summary>
+    /// 是否在预发布里找：为 true 时取最近一个带本平台包的发布，而不是 releases/latest
+    /// </summary>
+    protected virtual bool IncludePrereleases => false;
+
     public string? ReleaseInfoText { get; protected set; }
     public GitHubReleaseInfo? LatestReleaseInfo { get; protected set; }
     public IReadOnlyList<TVersion> VersionsList => Versions;
@@ -39,9 +44,13 @@ public abstract class ReleaseVersionManagerBase<TVersion> where TVersion : Manag
     {
         await GetLocalVersionsAsync(rootDirectory, true, cancellationToken).ConfigureAwait(false);
 
-        GitHubReleaseInfo? release = await GitHubReleaseAssetHelper
-            .GetLatestReleaseAsync(Owner, Repository, cancellationToken)
-            .ConfigureAwait(false);
+        GitHubReleaseInfo? release = IncludePrereleases
+            ? await GitHubReleaseAssetHelper
+                .FindLatestReleaseAsync(Owner, Repository, HasUsableAssets, cancellationToken)
+                .ConfigureAwait(false)
+            : await GitHubReleaseAssetHelper
+                .GetLatestReleaseAsync(Owner, Repository, cancellationToken)
+                .ConfigureAwait(false);
         if (release == null) return Versions;
 
         LatestReleaseInfo = release;
@@ -65,6 +74,12 @@ public abstract class ReleaseVersionManagerBase<TVersion> where TVersion : Manag
 
         SortVersions();
         return Versions;
+    }
+
+    private bool HasUsableAssets(GitHubReleaseInfo release)
+    {
+        return GitHubReleaseAssetHelper.SelectPlatformAssets(release.Assets, GetAssetSelectOptions())
+            .Any(ShouldIncludeAsset);
     }
 
     public async Task InstallArchiveAsync(
@@ -179,7 +194,7 @@ public abstract class ReleaseVersionManagerBase<TVersion> where TVersion : Manag
 
     protected virtual string GetRemoteVersionName(GitHubReleaseInfo release, GitHubReleaseAssetInfo asset)
     {
-        return Path.GetFileNameWithoutExtension(asset.Name);
+        return SimpleArchiveHelper.GetNameWithoutArchiveExtension(asset.Name);
     }
 
     protected virtual string GetRemoteInstallDirectory(

@@ -19,6 +19,19 @@ public static class SimpleArchiveHelper
             fileName.EndsWith(suffix, StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>
+    /// 去掉压缩包扩展名（.tar.gz 整个去掉，而不是只去 .gz）
+    /// </summary>
+    /// <param name="fileName">文件名</param>
+    /// <returns>不带压缩扩展名的名字；不是压缩包按普通扩展名处理</returns>
+    public static string GetNameWithoutArchiveExtension(string fileName)
+    {
+        string? suffix = SupportedArchiveSuffixes
+            .Where(x => fileName.EndsWith(x, StringComparison.OrdinalIgnoreCase))
+            .MaxBy(x => x.Length);
+        return suffix == null ? Path.GetFileNameWithoutExtension(fileName) : fileName[..^suffix.Length];
+    }
+
     public static async Task ExtractArchiveAsync(
         string archivePath,
         string extractPath,

@@ -9,6 +9,7 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using UiharuMind.Core.AI.Models.Sources;
 using UiharuMind.Core.Core.DownloadHelper;
 using System.ComponentModel;
 using System.Net;
@@ -162,7 +163,8 @@ public class DownloadableItemData : INotifyPropertyChanged, IDisposable
 
         if (_job != null) _job.PropertyChanged -= OnJobChanged;
         _job = DownloadQueue.Shared.Enqueue(Name, new DownloadRequest(
-            new Uri(DownloadUrl), DownloadFilePath, _target.SegmentCount, _target.Sha256));
+            new Uri(ModelSources.ApplyGitHubProxy(DownloadUrl)), DownloadFilePath, _target.SegmentCount,
+            _target.Sha256));
         _job.PropertyChanged += OnJobChanged;
     }
 
