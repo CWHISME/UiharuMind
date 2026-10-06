@@ -82,7 +82,7 @@ public partial class ModelRuntimeBasicSettingsData : ObservableObject
     public string EstimatedGpuMemoryText => GetRiskEstimateText();
     public string EstimatedTotalMemoryText => GetRiskEstimateText();
     public string AvailableMemoryText => GetAvailableMemoryText();
-    public string RuntimeRiskText => FormatRiskLevel(GetCurrentLoadRisk().Level);
+    public string RuntimeRiskText => RuntimeRiskLabels.Format(GetCurrentLoadRisk().Level);
     public string RuntimeRiskDetailText => BuildRiskDetail(GetCurrentLoadRisk());
     public string ResolvedParametersText => GetResolvedParametersText();
 
@@ -271,16 +271,6 @@ public partial class ModelRuntimeBasicSettingsData : ObservableObject
             : RuntimeLoadRisk.Low;
     }
 
-    private static string FormatRiskLevel(RuntimeLoadRiskLevel level)
-    {
-        return level switch
-        {
-            RuntimeLoadRiskLevel.Danger => Loc.Text(LangKey.ModelRuntimeRiskDanger),
-            RuntimeLoadRiskLevel.Warning => Loc.Text(LangKey.ModelRuntimeRiskWarning),
-            RuntimeLoadRiskLevel.Unknown => Loc.Text(LangKey.ModelRuntimeRiskUnknown),
-            _ => Loc.Text(LangKey.ModelRuntimeRiskLow)
-        };
-    }
 
     private static string BuildRiskDetail(RuntimeLoadRisk risk)
     {

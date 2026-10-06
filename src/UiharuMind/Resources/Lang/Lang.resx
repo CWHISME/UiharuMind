@@ -4129,4 +4129,34 @@ Allow them?</value>
     <data name="ModelDownloadCompletedLoading" xml:space="preserve">
         <value>{0} finished downloading, loading it now</value>
     </data>
+    <data name="ModelParamsMenu" xml:space="preserve">
+        <value>Runtime parameters…</value>
+    </data>
+    <data name="ModelParamsTitle" xml:space="preserve">
+        <value>Model runtime parameters</value>
+    </data>
+    <data name="ModelParamsDesc" xml:space="preserve">
+        <value>Applies to this model only. Items you leave alone follow the global settings.</value>
+    </data>
+    <data name="ModelParamsFollowGlobal" xml:space="preserve">
+        <value>Follows global: {0}</value>
+    </data>
+    <data name="ModelParamsOverridden" xml:space="preserve">
+        <value>This model only · global is {0}</value>
+    </data>
+    <data name="ModelParamsResetTip" xml:space="preserve">
+        <value>Follow global again</value>
+    </data>
+    <data name="ModelParamsResetAll" xml:space="preserve">
+        <value>Follow global for all</value>
+    </data>
+    <data name="ModelParamsDone" xml:space="preserve">
+        <value>Done</value>
+    </data>
+    <data name="ModelParamsEstimate" xml:space="preserve">
+        <value>Estimated usage with these parameters: {0}, risk: {1}</value>
+    </data>
+    <data name="ModelParamsReloadHint" xml:space="preserve">
+        <value>The model is running. Changes apply after it is reloaded.</value>
+    </data>
 </root>

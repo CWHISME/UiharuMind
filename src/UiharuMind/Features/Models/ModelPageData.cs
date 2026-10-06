@@ -29,6 +29,7 @@ using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.AI.Models;
+using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Features.Models.Downloads;
 using UiharuMind.Features.Models.ImageModels;
@@ -251,6 +252,8 @@ public partial class ModelPageData : PageDataBase
             // 跑着的先停掉：Windows 上被占用的文件删不掉
             if (model.IsRunning) App.ModelService.UnloadModel(model.ModelName);
             await Task.Run(() => LocalModelDeleter.Delete(model.ModelPath));
+            ModelRuntimeSettingConfig.Current.SetOverrides(model.ModelName, null);
+            ModelRuntimeSettingConfig.Current.Save();
             _messageService.ShowNotification(Loc.Text(LangKey.ModelDeleteFilesDone, model.ModelName),
                 severity: MessageSeverity.Success);
         }

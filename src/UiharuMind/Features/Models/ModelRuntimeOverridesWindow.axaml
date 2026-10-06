@@ -1,0 +1,121 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:models="clr-namespace:UiharuMind.Features.Models"
+        xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+        xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+        mc:Ignorable="d" d:DesignWidth="620" d:DesignHeight="560"
+        x:Class="UiharuMind.Features.Models.ModelRuntimeOverridesWindow"
+        x:DataType="models:ModelRuntimeOverridesViewData"
+        Width="620"
+        SizeToContent="Height"
+        MinWidth="520"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Title="{loc:Loc ModelParamsTitle}">
+
+    <Window.Styles>
+        <Style Selector="NumericUpDown.runtime-field">
+            <Setter Property="Width" Value="160" />
+            <Setter Property="FormatString" Value="0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="ComboBox.runtime-field">
+            <Setter Property="Width" Value="160" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,Auto,Auto" Background="{DynamicResource SemiGrey0}">
+
+        <Border Padding="18,15" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="44,*" ColumnSpacing="12">
+                <Border Width="44" Height="44" CornerRadius="8" Background="{DynamicResource SemiBlue0}">
+                    <controls:ThemedSvgIcon Width="22" Height="22" IconName="bot" />
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
+                    <TextBlock Text="{Binding ModelName}" FontSize="17" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{loc:Loc ModelParamsDesc}" Classes="muted" TextWrapping="Wrap" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 每行：改了值就记成这个模型自己的，撤销按钮改回跟随全局 -->
+        <StackPanel Grid.Row="1" Margin="20,8,20,12">
+            <controls:SettingsRow Header="{loc:Loc ModelRuntimeContextSize}"
+                                  Description="{Binding ContextSize.StatusText}"
+                                  ResetCommand="{Binding ContextSize.ResetCommand}"
+                                  ResetVisible="{Binding ContextSize.IsOverridden}"
+                                  ResetToolTip="{loc:Loc ModelParamsResetTip}">
+                <controls:SettingsRow.Field>
+                    <NumericUpDown Classes="runtime-field" Minimum="0" Maximum="1048576" Increment="1024"
+                                   Value="{Binding ContextSize.Value}" />
+                </controls:SettingsRow.Field>
+            </controls:SettingsRow>
+            <controls:SettingsRow Header="{loc:Loc ModelRuntimeGpuLayers}"
+                                  Description="{Binding GpuLayers.StatusText}"
+                                  ResetCommand="{Binding GpuLayers.ResetCommand}"
+                                  ResetVisible="{Binding GpuLayers.IsOverridden}"
+                                  ResetToolTip="{loc:Loc ModelParamsResetTip}">
+                <controls:SettingsRow.Field>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <NumericUpDown Classes="runtime-field" Width="96" Minimum="1"
+                                       Maximum="{Binding MaxGpuLayers}"
+                                       IsVisible="{Binding IsCustomGpuLayers}"
+                                       Value="{Binding GpuLayers.Value}" />
+                        <ComboBox Classes="runtime-field" ItemsSource="{Binding GpuLayerModeOptions}"
+                                  SelectedItem="{Binding SelectedGpuLayerMode}"
+                                  DisplayMemberBinding="{ReflectionBinding DisplayName}" />
+                    </StackPanel>
+                </controls:SettingsRow.Field>
+            </controls:SettingsRow>
+            <controls:SettingsRow Header="{loc:Loc ModelRuntimeBatchSize}"
+                                  Description="{Binding BatchSize.StatusText}"
+                                  ResetCommand="{Binding BatchSize.ResetCommand}"
+                                  ResetVisible="{Binding BatchSize.IsOverridden}"
+                                  ResetToolTip="{loc:Loc ModelParamsResetTip}">
+                <controls:SettingsRow.Field>
+                    <NumericUpDown Classes="runtime-field" Minimum="0" Maximum="65536" Increment="256"
+                                   Value="{Binding BatchSize.Value}" />
+                </controls:SettingsRow.Field>
+            </controls:SettingsRow>
+            <controls:SettingsRow Header="{loc:Loc ModelRuntimeUBatchSize}"
+                                  Description="{Binding UBatchSize.StatusText}"
+                                  ResetCommand="{Binding UBatchSize.ResetCommand}"
+                                  ResetVisible="{Binding UBatchSize.IsOverridden}"
+                                  ResetToolTip="{loc:Loc ModelParamsResetTip}">
+                <controls:SettingsRow.Field>
+                    <NumericUpDown Classes="runtime-field" Minimum="0" Maximum="65536" Increment="128"
+                                   Value="{Binding UBatchSize.Value}" />
+                </controls:SettingsRow.Field>
+            </controls:SettingsRow>
+            <controls:SettingsRow Header="{loc:Loc ModelRuntimeThreads}"
+                                  Description="{Binding Threads.StatusText}"
+                                  ResetCommand="{Binding Threads.ResetCommand}"
+                                  ResetVisible="{Binding Threads.IsOverridden}"
+                                  ResetToolTip="{loc:Loc ModelParamsResetTip}"
+                                  DividerVisible="False">
+                <controls:SettingsRow.Field>
+                    <NumericUpDown Classes="runtime-field" Minimum="0" Maximum="512"
+                                   Value="{Binding Threads.Value}" />
+                </controls:SettingsRow.Field>
+            </controls:SettingsRow>
+
+            <StackPanel Margin="0,10,0,0" Spacing="4">
+                <TextBlock Text="{Binding EstimateText}" Classes="muted" TextWrapping="Wrap" />
+                <TextBlock Text="{loc:Loc ModelParamsReloadHint}" Classes="muted" TextWrapping="Wrap"
+                           Foreground="{DynamicResource MessageStatusWarningBrush}"
+                           IsVisible="{Binding IsRunning}" />
+            </StackPanel>
+        </StackPanel>
+
+        <Border Grid.Row="2" Padding="14" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,1,0,0">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <Button Content="{loc:Loc ModelParamsResetAll}" Command="{Binding ResetAllCommand}" />
+                <Button Grid.Column="2" Content="{loc:Loc ModelParamsDone}" Click="DoneButton_Click" />
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

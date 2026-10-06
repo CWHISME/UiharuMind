@@ -4122,4 +4122,34 @@
     <data name="ModelDownloadCompletedLoading" xml:space="preserve">
         <value>{0} 下载完成，正在加载</value>
     </data>
+    <data name="ModelParamsMenu" xml:space="preserve">
+        <value>运行参数…</value>
+    </data>
+    <data name="ModelParamsTitle" xml:space="preserve">
+        <value>模型运行参数</value>
+    </data>
+    <data name="ModelParamsDesc" xml:space="preserve">
+        <value>只对这个模型生效，没改过的项跟随全局设置。</value>
+    </data>
+    <data name="ModelParamsFollowGlobal" xml:space="preserve">
+        <value>跟随全局：{0}</value>
+    </data>
+    <data name="ModelParamsOverridden" xml:space="preserve">
+        <value>仅此模型 · 全局为 {0}</value>
+    </data>
+    <data name="ModelParamsResetTip" xml:space="preserve">
+        <value>改回跟随全局</value>
+    </data>
+    <data name="ModelParamsResetAll" xml:space="preserve">
+        <value>全部跟随全局</value>
+    </data>
+    <data name="ModelParamsDone" xml:space="preserve">
+        <value>完成</value>
+    </data>
+    <data name="ModelParamsEstimate" xml:space="preserve">
+        <value>按这些参数估算占用 {0}，风险：{1}</value>
+    </data>
+    <data name="ModelParamsReloadHint" xml:space="preserve">
+        <value>模型正在运行，改动在重新加载后生效。</value>
+    </data>
 </root>

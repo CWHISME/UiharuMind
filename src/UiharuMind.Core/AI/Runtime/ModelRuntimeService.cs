@@ -126,7 +126,7 @@ internal sealed class ModelRuntimeService
         CancellationToken token = default,
         Action<RuntimeResolvedParameters>? onParametersResolved = null)
     {
-        ModelRuntimeSettingConfig settings = ModelRuntimeSettingConfig.Current;
+        ModelRuntimeSettingConfig settings = ModelRuntimeSettingConfig.Current.ForModel(model.ModelName);
         IModelRuntimeBackend? backend = _registry.FindChatBackend(model, GetPreferredChatBackendId(model));
         if (backend == null)
             throw model is RemoteModelInfo
@@ -146,7 +146,7 @@ internal sealed class ModelRuntimeService
 
     public RuntimeLoadRisk AnalyzeChatLoadRisk(ILlmModel model)
     {
-        ModelRuntimeSettingConfig settings = ModelRuntimeSettingConfig.Current;
+        ModelRuntimeSettingConfig settings = ModelRuntimeSettingConfig.Current.ForModel(model.ModelName);
         IModelRuntimeBackend? backend = _registry.FindChatBackend(model, GetPreferredChatBackendId(model));
         if (backend == null || model is RemoteModelInfo) return RuntimeLoadRisk.Low;
 

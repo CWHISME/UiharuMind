@@ -9,6 +9,7 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System.Collections.Generic;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
@@ -31,21 +32,26 @@ namespace UiharuMind.Features.Models
         private void OnModelListContextRequested(object? sender, ContextRequestedEventArgs e)
         {
             ListBoxItem? row = (e.Source as Control)?.FindAncestorOfType<ListBoxItem>(includeSelf: true);
-            if (row?.DataContext is not ModelRunningData model || DataContext is not ModelPageData data ||
-                !ModelPageData.CanDeleteLocalModel(model))
+            if (row?.DataContext is not ModelRunningData { IsRemoteModel: false } model || DataContext is not ModelPageData data ||
+                TopLevel.GetTopLevel(this) is not Window owner)
                 return;
+
+            MenuItem parameters = new() { Header = Loc.Text(LangKey.ModelParamsMenu) };
+            parameters.Click += (_, _) => _ = ModelRuntimeOverridesWindow.ShowWindow(owner, model);
+            List<MenuItem> items = [parameters];
+            if (ModelPageData.CanDeleteLocalModel(model))
+            {
+                items.Add(new MenuItem
+                {
+                    Header = Loc.Text(LangKey.ModelDeleteFiles),
+                    Command = data.DeleteLocalModelCommand,
+                    CommandParameter = model
+                });
+            }
 
             ContextMenu menu = new()
             {
-                ItemsSource = new[]
-                {
-                    new MenuItem
-                    {
-                        Header = Loc.Text(LangKey.ModelDeleteFiles),
-                        Command = data.DeleteLocalModelCommand,
-                        CommandParameter = model
-                    }
-                },
+                ItemsSource = items,
                 Placement = e.TryGetPosition(null, out _) ? PlacementMode.Pointer : PlacementMode.Bottom
             };
             menu.Open(row);

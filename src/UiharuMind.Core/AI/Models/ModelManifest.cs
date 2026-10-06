@@ -88,11 +88,6 @@ public sealed class ManifestModel
     /// 配给它的视觉投影，相对仓库目录；没有为 null
     /// </summary>
     public string? Projector { get; set; }
-
-    /// <summary>
-    /// 按模型的运行参数覆写，空字段跟随全局
-    /// </summary>
-    public ModelRuntimeOverrides? Overrides { get; set; }
 }
 
 /// <summary>
@@ -114,20 +109,4 @@ public sealed class ManifestFile
     /// 小写十六进制 sha256；模型源没给时为空
     /// </summary>
     public string Sha256 { get; set; } = "";
-}
-
-/// <summary>
-/// 按模型的运行参数覆写（预留，暂无界面）
-/// </summary>
-public sealed class ModelRuntimeOverrides
-{
-    /// <summary>
-    /// 上下文长度
-    /// </summary>
-    public int? ContextSize { get; set; }
-
-    /// <summary>
-    /// GPU 层数
-    /// </summary>
-    public int? GpuLayers { get; set; }
 }

@@ -174,7 +174,7 @@ public partial class ModelService : ObservableObject
         string message = string.Format(
             Loc.Text(LangKey.ModelRuntimeLoadRiskConfirmFormat),
             modelName,
-            FormatRiskLevel(risk.Level),
+            RuntimeRiskLabels.Format(risk.Level),
             FormatBytes(risk.EstimatedTotalBytes),
             string.IsNullOrWhiteSpace(risk.Reason) ? "-" : risk.Reason);
 
@@ -185,16 +185,6 @@ public partial class ModelService : ObservableObject
         return await _messages.ConfirmAsync(message, Loc.Text(LangKey.ModelRuntimeLoadRiskConfirmTitle));
     }
 
-    private static string FormatRiskLevel(RuntimeLoadRiskLevel level)
-    {
-        return level switch
-        {
-            RuntimeLoadRiskLevel.Danger => Loc.Text(LangKey.ModelRuntimeRiskDanger),
-            RuntimeLoadRiskLevel.Warning => Loc.Text(LangKey.ModelRuntimeRiskWarning),
-            RuntimeLoadRiskLevel.Unknown => Loc.Text(LangKey.ModelRuntimeRiskUnknown),
-            _ => Loc.Text(LangKey.ModelRuntimeRiskLow)
-        };
-    }
 
     private static string FormatBytes(long bytes)
     {
