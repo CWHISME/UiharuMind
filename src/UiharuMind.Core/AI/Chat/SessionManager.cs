@@ -201,6 +201,26 @@ public partial class SessionManager : Singleton<SessionManager>, IInitialize
     }
 
     /// <summary>
+    /// 群壳清空历史后把成员与化身的投递游标归零。游标是群流水下标,历史一清、下标全失效:
+    /// 不归零的话成员按旧游标取投递,新发言落在游标之前,<c>BuildDelivery</c> 恒空,
+    /// 群从此听不见新话。已退群的成员一并归零无害(再入群时按回填口径重设);
+    /// 化身归零让离席从新历史开始读。调用方须保证群不在跑(ClearChatHistory 的闸已拦)
+    /// </summary>
+    /// <param name="groupId">群壳会话标识</param>
+    public void ResetGroupCursors(string groupId)
+    {
+        foreach (ChatSessionMeta meta in GetGroupMembers(groupId))
+        {
+            ChatSession? member = Load(meta.SessionId);
+            if (member == null) continue;
+            if (member.GroupCursor == 0 && member.GroupConsumedPosts.Count == 0) continue;
+            member.GroupCursor = 0;
+            member.GroupConsumedPosts = [];
+            member.SaveMeta(touchUpdatedAt: false);
+        }
+    }
+
+    /// <summary>
     /// 某个角色名下的 <b>agent 形态</b> 会话数，<b>含子会话</b>。
     /// 编辑页据它决定智能体能不能翻回普通角色：名下还有 agent 形态会话时翻回去，
     /// 那些历史里的工具调用会不挂工具定义原样发出（ADR 0043「已定」）。

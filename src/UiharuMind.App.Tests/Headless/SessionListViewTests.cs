@@ -97,6 +97,47 @@ public class SessionListViewTests
     });
 
     [Fact]
+    public void GroupRowMenu_HidesEditCharacter() => HeadlessUi.Run(() =>
+    {
+        List<ChatSessionMeta> metas = Metas().ToList();
+        metas.Add(new ChatSessionMeta
+        {
+            SessionId = "g1",
+            CharacterId = nameof(DefaultCharacter.ChenXiAgent),
+            Title = "测试群",
+            IsGroup = true,
+            IsAgentGroup = true,
+            GroupMemberSessionIds = ["s0"],
+            UpdatedAt = DateTimeOffset.Now,
+        });
+        SessionListModel model = new(EConversationType.Agent, () => metas, action => action(), new RecordingMessageService());
+        SessionListView view = new() { DataContext = model, ShowAvatar = false };
+        Window window = new() { Width = 300, Height = 600, Content = view };
+        window.Show();
+        Settle(window);
+
+        ListBoxItem groupRow = Rows(window).Single(x => ((SessionListItem)x.DataContext!).IsGroup);
+        ListBoxItem plainRow = Rows(window).First(x => !((SessionListItem)x.DataContext!).IsGroup);
+        ContextMenu menu = Assert.IsType<ContextMenu>(view.Resources["SessionRowMenu"]);
+        MenuItem edit = Assert.IsType<MenuItem>(menu.Items[0]); //编辑角色
+
+        // 普通行:编辑角色可见;群行:同一份菜单、第一项收起,其余仍留
+        plainRow.RaiseEvent(new ContextRequestedEventArgs());
+        Settle(window);
+        Assert.True(edit.IsVisible);
+        menu.Close();
+
+        groupRow.RaiseEvent(new ContextRequestedEventArgs());
+        Settle(window);
+        Assert.Same(groupRow.DataContext, menu.DataContext);
+        Assert.Equal(5, menu.Items.Count);
+        Assert.False(edit.IsVisible);
+        Assert.All(menu.Items.OfType<MenuItem>().Skip(1), x => Assert.True(x.IsVisible));
+        menu.Close();
+        window.Close();
+    });
+
+    [Fact]
     public void DeleteButton_IsBuiltOnHover_WithoutChangingRowHeight() => HeadlessUi.Run(() =>
     {
         (Window window, SessionListView view, _) = Show();

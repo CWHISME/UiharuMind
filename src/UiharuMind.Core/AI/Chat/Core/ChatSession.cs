@@ -881,6 +881,9 @@ public class ChatSession
         History.Clear();
         Save();
         SessionManager.Instance.DeleteAgentState(SessionId);
+        // 群壳:成员与化身的投递游标指旧流水的下标,历史一清就失效。不归零的话
+        // 新发言落在游标之前,BuildDelivery 恒空,整个群再也听不到新话(见 SessionManager.ResetGroupCursors)
+        if (IsGroup) SessionManager.Instance.ResetGroupCursors(SessionId);
     }
 
     private string AuthorNameOf(ChatRole role)

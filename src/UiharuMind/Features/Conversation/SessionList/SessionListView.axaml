@@ -19,7 +19,9 @@
              放在行模板里则每行都要建一套菜单与五个菜单项,而行模板每次回收都重建。
              弹出时挂在被右键的那一行上,数据上下文随之继承那一行的条目 -->
         <ContextMenu x:Key="SessionRowMenu" x:DataType="sessions:SessionListItem">
-            <MenuItem Header="{loc:Loc EditCharacter}" Command="{Binding EditCharacterCommand}" />
+            <!-- 群壳没有角色(挂的是占位角色,右栏画的是群信息卡),编辑角色对它是空操作且会打开占位卡的编辑窗 -->
+            <MenuItem Header="{loc:Loc EditCharacter}" Command="{Binding EditCharacterCommand}"
+                      IsVisible="{Binding !IsGroup}" />
             <MenuItem Header="{loc:Loc Rename}" Command="{Binding RenameCommand}" />
             <MenuItem Header="{loc:Loc Copy}" Command="{Binding CopyCommand}" />
             <MenuItem Header="{loc:Loc ClearChatHistory}" ToolTip.Tip="{Binding BusyTip}"
