@@ -11,7 +11,8 @@
               x:DataType="pages:ModelPageData"
              xmlns:images="clr-namespace:UiharuMind.Features.Models.ImageModels"
              xmlns:downloads="clr-namespace:UiharuMind.Features.Models.Downloads"
-                             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
+                             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:core="clr-namespace:UiharuMind.Core.AI.Core;assembly=UiharuMind.Core">
 
     <Design.DataContext>
         <pages:ModelPageData />
@@ -21,107 +22,191 @@
         <pages:ModelToBrushConverter x:Key="ModelToBrushConverter" />
     </UserControl.Resources>
 
+    <UserControl.Styles>
+        <!-- 与「获取模型」同一套：卡片里放列表，行间细分隔线，悬停铺整行底色 -->
+        <Style Selector="Border.model-card">
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+            <Setter Property="ClipToBounds" Value="True" />
+        </Style>
+        <Style Selector="ListBox.model-list">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style Selector="ListBox.model-list ListBoxItem">
+            <Setter Property="Padding" Value="14,10" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey1}" />
+        </Style>
+        <Style Selector="ListBox.model-list ListBoxItem:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+        </Style>
+        <Style Selector="ListBox.model-list ListBoxItem:selected">
+            <Setter Property="Background" Value="{DynamicResource SemiBlue0}" />
+        </Style>
+        <Style Selector="Border.model-icon">
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="ThemedIconButton.row-action">
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="IconWidth" Value="16" />
+            <Setter Property="IconHeight" Value="16" />
+        </Style>
+        <Style Selector="Button.toolbar-link">
+            <Setter Property="Padding" Value="6,2" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </UserControl.Styles>
+
 
     <DockPanel>
         <TextBlock DockPanel.Dock="Top" Text="{loc:Loc ModelPageTitle}" FontSize="24" />
         <!-- 生图模型单独一张表(ADR 0052):不进对话模型列表,也就不出现在任何对话模型选择器里 -->
         <TabControl SelectedIndex="{Binding SelectedTabIndex}">
             <TabItem Header="{loc:Loc ModelPageChatModelsTab}">
-                <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Spacing="5">
-                        <StackPanel Spacing="5" Orientation="Horizontal">
-                            <TextBlock Text="{loc:Loc ModelPageLocalModelsFolder}" VerticalAlignment="Center"></TextBlock>
-                            <TextBox IsEnabled="False" Text="{Binding ModelPath}" VerticalAlignment="Center"></TextBox>
-                            <Button Content="{loc:Loc ModelPageChangeBtn}"
-                                    Command="{Binding OpenChangeModelPathCommand}">
-                            </Button>
-                            <Button Content="{loc:Loc ShowInExplorer}" Command="{Binding OpenModelFolderCommand}"></Button>
+                <DockPanel Margin="0,14,0,0">
+                    <!-- 工具条：左边模型目录，右边添加远程模型 -->
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="0,0,0,12">
+                        <controls:ThemedSvgIcon Width="15" Height="15" IconName="folder-open" Opacity="0.7"
+                                                VerticalAlignment="Center" ToolTip.Tip="{loc:Loc ModelListFolderTip}" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding ModelPath}" Classes="muted" VerticalAlignment="Center"
+                                       TextTrimming="PrefixCharacterEllipsis" MaxWidth="420"
+                                       ToolTip.Tip="{Binding ModelPath}" />
+                            <Button Classes="toolbar-link" Content="{loc:Loc ModelPageChangeBtn}"
+                                    Command="{Binding OpenChangeModelPathCommand}" />
+                            <Button Classes="toolbar-link" Content="{loc:Loc ShowInExplorer}"
+                                    Command="{Binding OpenModelFolderCommand}" />
+                            <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="refresh-cw"
+                                              ToolTip.Tip="{loc:Loc ModelListRescanTip}"
+                                              Command="{Binding RefreshModelsCommand}" />
                         </StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="{loc:Loc CreateRemoteModel}" VerticalAlignment="Center" />
-                            <Button Content="{loc:Loc AddBtn}" Command="{Binding CreateRemoteModelCommand}"></Button>
-                        </StackPanel>
-                    </StackPanel>
+                        <Button Grid.Column="2" Command="{Binding CreateRemoteModelCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <controls:ThemedSvgIcon Width="14" Height="14" IconName="globe" />
+                                <TextBlock Text="{loc:Loc ModelListAddRemote}" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
 
-                    <u:Divider Margin="0,10" DockPanel.Dock="Top" />
+                    <Border Classes="model-card">
+                        <Panel>
+                            <!-- 空状态：引去获取模型或添加远程模型 -->
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10"
+                                        Margin="24" IsVisible="{Binding HasNoModels}">
+                                <controls:ThemedSvgIcon Width="32" Height="32" IconName="bot" Opacity="0.5" />
+                                <TextBlock Text="{loc:Loc ModelListEmptyTitle}" HorizontalAlignment="Center"
+                                           FontWeight="SemiBold" />
+                                <TextBlock Text="{loc:Loc ModelListEmptyHint}" Classes="muted"
+                                           HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
+                                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center"
+                                            Margin="0,4,0,0">
+                                    <Button Classes="Primary"
+                                            Content="{loc:Loc ModelPageDownloadsTab}"
+                                            Command="{Binding GoToDownloadsCommand}" />
+                                    <Button Content="{loc:Loc ModelListAddRemote}"
+                                            Command="{Binding CreateRemoteModelCommand}" />
+                                </StackPanel>
+                            </StackPanel>
 
-                    <!-- 右键菜单整表共用一份，右键时才建（见 OnModelListContextRequested） -->
-                    <ListBox
-                        ContextRequested="OnModelListContextRequested"
-                        ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                        ScrollViewer.VerticalScrollBarVisibility="Auto"
-                        ItemsSource="{Binding CurrentItems}">
-                        <!-- 修改选中 style CornerRadius 使其与下面本身设置的匹配 -->
-                        <ListBox.Styles>
-                            <Style Selector="ListBoxItem:pointerover/template/ContentPresenter">
-                                <Setter Property="CornerRadius" Value="30"></Setter>
-                            </Style>
-                            <Style Selector="ListBoxItem:selected/template/ContentPresenter">
-                                <Setter Property="CornerRadius" Value="30"></Setter>
-                            </Style>
-                        </ListBox.Styles>
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Border BorderBrush="{DynamicResource SemiGrey1}" CornerRadius="30" ClipToBounds="True"
-                                        BorderThickness="1" Padding="5">
-                                    <DockPanel>
-                                        <controls:ModelStateBadges IsRemote="{Binding IsRemoteModel}" IsVision="{Binding IsVisionModel}" Spacing="4" />
-                                        <StackPanel Orientation="Vertical" DockPanel.Dock="Left" VerticalAlignment="Center"
-                                                    Margin="10,0,0,0">
-                                            <SelectableTextBlock Text="{Binding ModelName}" />
-                                            <SelectableTextBlock Text="{Binding ModelPath}" FontSize="12" />
-                                            <SelectableTextBlock Text="{Binding ModelMetadataSummary}"
-                                                                 FontSize="12"
-                                                                 Foreground="{DynamicResource SemiGrey6}"
-                                                                 IsVisible="{Binding !IsRemoteModel,Mode=OneWay}" />
-                                        </StackPanel>
-                                        <Panel DockPanel.Dock="Right" HorizontalAlignment="Right">
+                            <!-- 右键菜单整表共用一份，右键时才建（见 OnModelListContextRequested） -->
+                            <ListBox Classes="model-list"
+                                     ContextRequested="OnModelListContextRequested"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     ItemsSource="{Binding CurrentItems}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="core:ModelRunningData">
+                                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                            <Border Classes="model-icon">
+                                                <Panel>
+                                                    <controls:ThemedSvgIcon Width="18" Height="18" IconName="bot"
+                                                                            IsVisible="{Binding !IsRemoteModel}" />
+                                                    <controls:ThemedSvgIcon Width="18" Height="18" IconName="globe"
+                                                                            IsVisible="{Binding IsRemoteModel}" />
+                                                </Panel>
+                                            </Border>
 
-                                            <!-- 本地模型 -->
-                                            <StackPanel Orientation="Horizontal" IsVisible="{Binding !IsRemoteModel,Mode=OneWay}">
-                                                <ThemedIconButton CornerRadius="20"
-                                                                   CurrentColor="{Binding IsFavorite,Converter={StaticResource ModelToBrushConverter}}"
-                                                                   CommandParameter="{Binding ModelName}"
-                                                                   IconName="star"
-                                                                   Command="{Binding DataContext.SetFavoriteModelCommand,RelativeSource={RelativeSource AncestorType=ListBox}}"/>
-                                                <ThemedIconButton CornerRadius="20"
-                                                                      CommandParameter="{Binding ModelPath}"
-                                                                      IconName="refresh-cw"
-                                                                      Command="{Binding DataContext.RefreshSelectModelInfoCommand,RelativeSource={RelativeSource AncestorType=ListBox}}"/>
-                                                <ThemedIconButton CornerRadius="20"
-                                                                      CommandParameter="{Binding ModelPath}"
-                                                                      IconName="square-arrow-out-up-right"
-                                                                      Command="{Binding DataContext.OpenSelectModelFolderCommand,RelativeSource={RelativeSource AncestorType=ListBox}}"/>
-                                                <ThemedIconButton CornerRadius="20"
-                                                                      CommandParameter="{Binding ModelPath}"
-                                                                      IconName="info"
-                                                                      Command="{Binding DataContext.OpenSelectModelInfoCommand,RelativeSource={RelativeSource AncestorType=ListBox}}"/>
+                                            <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock Text="{Binding ModelName}" FontWeight="SemiBold"
+                                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                    <controls:ModelStateBadges IsRemote="{Binding IsRemoteModel}"
+                                                                               IsVision="{Binding IsVisionModel}"
+                                                                               Spacing="4" VerticalAlignment="Center" />
+                                                    <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center"
+                                                                IsVisible="{Binding IsRunning}">
+                                                        <Border Classes="status-dot" Tag="Ready" />
+                                                        <TextBlock Text="{loc:Loc ModelListRunning}" FontSize="12"
+                                                                   Foreground="{DynamicResource MessageStatusSuccessBrush}" />
+                                                    </StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center"
+                                                                IsVisible="{Binding IsLoading}">
+                                                        <Border Classes="status-dot" Tag="Progress" />
+                                                        <TextBlock Text="{loc:Loc ModelListLoading}" FontSize="12"
+                                                                   Foreground="{DynamicResource MessageStatusInfoBrush}" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                                <!-- 本地：大小、量化、上下文；远程：接口地址 -->
+                                                <TextBlock Text="{Binding ModelMetadataSummary}" Classes="muted" FontSize="12"
+                                                           TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ModelPath}"
+                                                           IsVisible="{Binding !IsRemoteModel}" />
+                                                <TextBlock Text="{Binding ModelPath}" Classes="muted" FontSize="12"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           IsVisible="{Binding IsRemoteModel}" />
                                             </StackPanel>
 
-                                            <!-- 远程模型 -->
-                                            <StackPanel Orientation="Horizontal" IsVisible="{Binding IsRemoteModel,Mode=OneWay}">
-                                                <ThemedIconButton CornerRadius="20"
-                                                                   CurrentColor="{Binding IsFavorite,Converter={StaticResource ModelToBrushConverter}}"
-                                                                   CommandParameter="{Binding ModelName}"
-                                                                   IconName="star"
-                                                                   Command="{Binding DataContext.SetFavoriteModelCommand,RelativeSource={RelativeSource AncestorType=ListBox}}"/>
-                                                <Button
-                                                    CornerRadius="15"
-                                                    Content="{loc:Loc ModifyBtn}"
-                                                    CommandParameter="{Binding ModelName}"
-                                                    Command="{Binding DataContext.CreateRemoteModelCommand,RelativeSource={RelativeSource AncestorType=ListBox}}" />
-                                                <Button
-                                                    CornerRadius="15"
-                                                    Content="{loc:Loc Delete}"
-                                                    CommandParameter="{Binding ModelName}"
-                                                    Command="{Binding DataContext.DeleteRemoteModelCommand,RelativeSource={RelativeSource AncestorType=ListBox}}" />
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2"
+                                                        VerticalAlignment="Center">
+                                                <ThemedIconButton Classes="row-action" CornerRadius="6"
+                                                                  ToolTip.Tip="{loc:Loc ModelListFavoriteTip}"
+                                                                  CurrentColor="{Binding IsFavorite, Converter={StaticResource ModelToBrushConverter}}"
+                                                                  CommandParameter="{Binding ModelName}"
+                                                                  IconName="star"
+                                                                  Command="{Binding $parent[ListBox].((pages:ModelPageData)DataContext).SetFavoriteModelCommand}" />
+                                                <!-- 本地模型 -->
+                                                <StackPanel Orientation="Horizontal" Spacing="2" IsVisible="{Binding !IsRemoteModel}">
+                                                    <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="settings"
+                                                                      ToolTip.Tip="{loc:Loc ModelListParamsTip}"
+                                                                      Click="OnModelParamsClick" />
+                                                    <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="square-arrow-out-up-right"
+                                                                      ToolTip.Tip="{loc:Loc ModelListShowFileTip}"
+                                                                      CommandParameter="{Binding ModelPath}"
+                                                                      Command="{Binding $parent[ListBox].((pages:ModelPageData)DataContext).OpenSelectModelFolderCommand}" />
+                                                    <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="info"
+                                                                      ToolTip.Tip="{loc:Loc ModelListInfoTip}"
+                                                                      CommandParameter="{Binding ModelPath}"
+                                                                      Command="{Binding $parent[ListBox].((pages:ModelPageData)DataContext).OpenSelectModelInfoCommand}" />
+                                                </StackPanel>
+                                                <!-- 远程模型 -->
+                                                <StackPanel Orientation="Horizontal" Spacing="2" IsVisible="{Binding IsRemoteModel}">
+                                                    <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="pencil"
+                                                                      ToolTip.Tip="{loc:Loc ModifyBtn}"
+                                                                      CommandParameter="{Binding ModelName}"
+                                                                      Command="{Binding $parent[ListBox].((pages:ModelPageData)DataContext).CreateRemoteModelCommand}" />
+                                                    <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="trash-2"
+                                                                      ToolTip.Tip="{loc:Loc Delete}"
+                                                                      CommandParameter="{Binding ModelName}"
+                                                                      Command="{Binding $parent[ListBox].((pages:ModelPageData)DataContext).DeleteRemoteModelCommand}" />
+                                                </StackPanel>
                                             </StackPanel>
-                                        </Panel>
-                                    </DockPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Panel>
+                    </Border>
                 </DockPanel>
             </TabItem>
             <TabItem Header="{loc:Loc ModelPageImageModelsTab}">

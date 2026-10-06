@@ -44,6 +44,8 @@ public partial class ModelPageData : PageDataBase
     private readonly IMessageService _messageService;
     private readonly Func<ModelPageData, ModelDownloadPageData> _createDownloads;
     private readonly DownloadQueue? _downloadQueueSource; //null 走全局队列
+    private readonly ObservableCollection<ModelRunningData>? _modelSources; //null 走 App.ModelService
+    private bool _isWatchingSources;
     private bool _isSyncingModelPath; //切页对齐路径期间抑制提示
     // public string? Title { get; set; } = "Model Viewer";
     // public string? ModelPrefix { get; set; } = "Local models folder: ";
@@ -53,7 +55,12 @@ public partial class ModelPageData : PageDataBase
     [ObservableProperty] private bool _isListDataReady;
     private bool _isListSchedulePending; //防抖：同一拍里多次 OnEnable 只排一次点亮
 
-    public ObservableCollection<ModelRunningData> ModelSources => App.ModelService.ModelSources;
+    public ObservableCollection<ModelRunningData> ModelSources => _modelSources ?? App.ModelService.ModelSources;
+
+    /// <summary>
+    /// 列表亮起后还一个模型都没有：显示空状态，引去获取模型或添加远程模型
+    /// </summary>
+    public bool HasNoModels => IsListDataReady && ModelSources.Count == 0;
 
     /// <summary>
     /// 切页首帧只出页面骨架，条目列表推迟一拍再挂载。
@@ -67,6 +74,10 @@ public partial class ModelPageData : PageDataBase
     partial void OnIsListDataReadyChanged(bool value)
     {
         OnPropertyChanged(nameof(CurrentItems));
+        OnPropertyChanged(nameof(HasNoModels));
+        if (!value || _isWatchingSources) return;
+        _isWatchingSources = true;
+        ModelSources.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasNoModels));
     }
     
     public ModelPageData() : this(App.Services.GetRequiredService<IMessageService>())
@@ -76,9 +87,12 @@ public partial class ModelPageData : PageDataBase
     /// <param name="messageService">提示与通知</param>
     /// <param name="createDownloads">建「获取模型」页签的数据，默认走真实模型源与全局队列</param>
     /// <param name="downloadQueue">下载队列，默认全局</param>
+    /// <param name="modelSources">对话模型列表，默认 App.ModelService 的</param>
     public ModelPageData(IMessageService messageService,
-        Func<ModelPageData, ModelDownloadPageData>? createDownloads = null, DownloadQueue? downloadQueue = null)
+        Func<ModelPageData, ModelDownloadPageData>? createDownloads = null, DownloadQueue? downloadQueue = null,
+        ObservableCollection<ModelRunningData>? modelSources = null)
     {
+        _modelSources = modelSources;
         _messageService = messageService;
         _createDownloads = createDownloads ?? CreateDefaultDownloads;
         ImageModels = new ImageModelListViewData(messageService,
@@ -170,11 +184,14 @@ public partial class ModelPageData : PageDataBase
     }
 
     [RelayCommand]
-    private async Task RefreshSelectModelInfo(string path)
+    private async Task RefreshModels()
     {
-        await App.ModelService.LoadModelList();
-        _messageService.ShowNotification(Loc.Text(LangKey.ModelInfoReloaded, path));
+        await AsyncCommandScope.RunAsync(v => IsBusy = v, App.ModelService.LoadModelList);
+        _messageService.ShowNotification(Loc.Text(LangKey.ModelListUpdated));
     }
+
+    [RelayCommand]
+    private void GoToDownloads() => SelectedTabIndex = DownloadsTabIndex;
 
     [RelayCommand]
     private async Task OpenSelectModelInfo(string path)

@@ -3,7 +3,9 @@ using Avalonia.Headless;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
 using Avalonia.Styling;
+using Avalonia.Controls;
 using Semi.Avalonia;
+using UiharuMind.Shared.Controls;
 [assembly: AvaloniaTestApplication(typeof(UiharuMind.App.Tests.Headless.HeadlessTestApp))]
 
 namespace UiharuMind.App.Tests.Headless;
@@ -45,6 +47,15 @@ public sealed class HeadlessTestApp : Application
         Styles.Add(Include("avares://LiveMarkdown.Avalonia/Styles.axaml"));
         // 顺序与 App.axaml 一致:必须在 LiveMarkdown 之后才盖得住它硬写的字体
         Styles.Add(Include("avares://UiharuMind/Assets/Themes/CustomMarkdownStyle.axaml"));
+
+        // App.axaml 里给两种图标按钮套 Ursa IconButton 的模板；不套的话它们在测试里没有模板、整个看不见
+        if (this.TryFindResource(typeof(Ursa.Controls.IconButton), out object? iconButton) &&
+            iconButton is ControlTheme iconButtonTheme)
+        {
+            Resources[typeof(ThemedIconButton)] = new ControlTheme(typeof(ThemedIconButton)) { BasedOn = iconButtonTheme };
+            Resources[typeof(ThemedIconToggleButton)] =
+                new ControlTheme(typeof(ThemedIconToggleButton)) { BasedOn = iconButtonTheme };
+        }
     }
 
     private static StyleInclude Include(string uri) =>

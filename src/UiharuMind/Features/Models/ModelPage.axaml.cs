@@ -28,6 +28,12 @@ namespace UiharuMind.Features.Models
             InitializeComponent();
         }
 
+        private void OnModelParamsClick(object? sender, RoutedEventArgs e)
+        {
+            if ((sender as Control)?.DataContext is ModelRunningData model && TopLevel.GetTopLevel(this) is Window owner)
+                _ = ModelRuntimeOverridesWindow.ShowWindow(owner, model);
+        }
+
         // 只有本地模型有菜单；按行建，菜单关了就丢，不在每一行模板里各挂一份
         private void OnModelListContextRequested(object? sender, ContextRequestedEventArgs e)
         {

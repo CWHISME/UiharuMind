@@ -4152,4 +4152,37 @@
     <data name="ModelParamsReloadHint" xml:space="preserve">
         <value>模型正在运行，改动在重新加载后生效。</value>
     </data>
+    <data name="ModelListRunning" xml:space="preserve">
+        <value>运行中</value>
+    </data>
+    <data name="ModelListLoading" xml:space="preserve">
+        <value>加载中</value>
+    </data>
+    <data name="ModelListFolderTip" xml:space="preserve">
+        <value>本地模型目录</value>
+    </data>
+    <data name="ModelListRescanTip" xml:space="preserve">
+        <value>重新扫描模型目录</value>
+    </data>
+    <data name="ModelListAddRemote" xml:space="preserve">
+        <value>添加远程模型</value>
+    </data>
+    <data name="ModelListFavoriteTip" xml:space="preserve">
+        <value>收藏</value>
+    </data>
+    <data name="ModelListParamsTip" xml:space="preserve">
+        <value>运行参数</value>
+    </data>
+    <data name="ModelListShowFileTip" xml:space="preserve">
+        <value>在文件夹中显示</value>
+    </data>
+    <data name="ModelListInfoTip" xml:space="preserve">
+        <value>模型信息</value>
+    </data>
+    <data name="ModelListEmptyTitle" xml:space="preserve">
+        <value>还没有对话模型</value>
+    </data>
+    <data name="ModelListEmptyHint" xml:space="preserve">
+        <value>下载一个本地模型，或者添加远程模型（OpenAI 兼容等）。</value>
+    </data>
 </root>

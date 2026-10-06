@@ -122,6 +122,15 @@ public class ModelRunningData : INotifyPropertyChanged
         OnPropertyChanged(nameof(IsFavorite));
     }
 
+    /// <summary>
+    /// 通知运行、加载状态变了（状态本身在后台线程改，由界面层在 UI 线程上调这个）
+    /// </summary>
+    public void NotifyStateChanged()
+    {
+        OnPropertyChanged(nameof(IsRunning));
+        OnPropertyChanged(nameof(IsLoading));
+    }
+
     public void ForceUpdateModelInfo(ILlmModel modelInfo)
     {
         _modelInfo = modelInfo;

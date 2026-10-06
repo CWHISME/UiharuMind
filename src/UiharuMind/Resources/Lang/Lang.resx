@@ -4159,4 +4159,37 @@ Allow them?</value>
     <data name="ModelParamsReloadHint" xml:space="preserve">
         <value>The model is running. Changes apply after it is reloaded.</value>
     </data>
+    <data name="ModelListRunning" xml:space="preserve">
+        <value>Running</value>
+    </data>
+    <data name="ModelListLoading" xml:space="preserve">
+        <value>Loading</value>
+    </data>
+    <data name="ModelListFolderTip" xml:space="preserve">
+        <value>Local models folder</value>
+    </data>
+    <data name="ModelListRescanTip" xml:space="preserve">
+        <value>Rescan the models folder</value>
+    </data>
+    <data name="ModelListAddRemote" xml:space="preserve">
+        <value>Add remote model</value>
+    </data>
+    <data name="ModelListFavoriteTip" xml:space="preserve">
+        <value>Favorite</value>
+    </data>
+    <data name="ModelListParamsTip" xml:space="preserve">
+        <value>Runtime parameters</value>
+    </data>
+    <data name="ModelListShowFileTip" xml:space="preserve">
+        <value>Show in folder</value>
+    </data>
+    <data name="ModelListInfoTip" xml:space="preserve">
+        <value>Model info</value>
+    </data>
+    <data name="ModelListEmptyTitle" xml:space="preserve">
+        <value>No chat models yet</value>
+    </data>
+    <data name="ModelListEmptyHint" xml:space="preserve">
+        <value>Download a local model, or add a remote one (OpenAI-compatible and others).</value>
+    </data>
 </root>

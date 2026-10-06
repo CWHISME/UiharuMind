@@ -115,6 +115,7 @@ public partial class ModelService : ObservableObject
         };
         _messages.ShowNotification(message, string.Format(Loc.Text(LangKey.ModelRunFailedTitle), modelName),
             MessageSeverity.Error);
+        Refresh();
     }
 
     [RelayCommand]
@@ -257,7 +258,7 @@ public partial class ModelService : ObservableObject
         OnPropertyChanged(nameof(CurIsRunning));
         OnPropertyChanged(nameof(CurRunningCount));
         OnPropertyChanged(nameof(CurModelRunningData));
-        // OnPropertyChanged(nameof(ModelSources));
+        foreach (ModelRunningData model in ModelSources) model.NotifyStateChanged();
     }
 
     // ======= event =======
