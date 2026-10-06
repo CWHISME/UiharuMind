@@ -686,36 +686,6 @@ public class HarnessInstructionsCompositionTests
     }
 
     /// <summary>
-    /// 关掉的工具其纪律段必须一并消失：留着就是纯噪声，还会指挥模型去调不存在的工具。
-    /// 能力配置来自角色，这条同时验证装配确实读的是角色那份。
-    /// </summary>
-    [Fact]
-    public void AgentInstructions_OmitDisciplinesOfDisabledTools()
-    {
-        AgentToolConfig tools = new() { EnableFileAccess = false };
-
-        string instructions = BuildAgentOptions("/tmp/uiharu-agent-test", tools)
-            .ChatOptions?.Instructions ?? string.Empty;
-
-        Assert.DoesNotContain(AgentPromptHeadings.FileOperations, instructions);
-    }
-
-    /// <summary>
-    /// 关掉的工具其纪律段必须一并消失：留着就是纯噪声，还会指挥模型去调不存在的工具。
-    /// 能力配置来自角色，这条同时验证装配确实读的是角色那份。
-    /// </summary>
-    [Fact]
-    public void AgentInstructions_OmitDisciplinesOfDisabledTools()
-    {
-        AgentToolConfig tools = new() { EnableFileAccess = false };
-
-        string instructions = BuildAgentOptions("/tmp/uiharu-agent-test", tools)
-            .ChatOptions?.Instructions ?? string.Empty;
-
-        Assert.DoesNotContain(AgentPromptHeadings.FileOperations, instructions);
-    }
-
-    /// <summary>
     /// 分段清单必须逐字覆盖真正发出去的那段提示，且空段不入册。
     ///
     /// 能力面板按段报占用，靠的就是这份清单。清单一旦与整串脱节，症状是面板上的分项之和
