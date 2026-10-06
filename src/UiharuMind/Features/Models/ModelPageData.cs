@@ -119,7 +119,11 @@ public partial class ModelPageData : PageDataBase
     {
         return new ModelDownloadPageData(new ModelDownloadContext(page._messageService, page.EnsureDownloadQueue(),
             () => App.ModelService.LoadModelList(),
-            () => UIManager.ShowWindow<SettingsWindow>(window => window.ShowDownloadSourceSettings())));
+            () => UIManager.ShowWindow<SettingsWindow>(window => window.ShowDownloadSourceSettings()))
+        {
+            UseModel = name => App.ModelService.LoadModelWithRiskConfirmationAsync(name),
+            HasCurrentModel = () => App.ModelService.CurModelRunningData != null
+        });
     }
 
     /// <summary>

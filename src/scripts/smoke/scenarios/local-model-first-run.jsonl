@@ -1,0 +1,10 @@
+{"op":"wait","args":{"ms":3000}}
+{"op":"model.download","args":{"repo":"unsloth/Qwen3-0.6B-GGUF","quant":"Q4_K_M"}}
+{"op":"model.wait","args":{"timeoutMinutes":30}}
+{"op":"page.jump","args":{"page":"chat"}}
+{"op":"session.new","args":{"character":"Assistant","model":"Qwen3-0.6B-Q4_K_M"}}
+{"op":"session.post","args":{"text":"用一句话介绍你自己"}}
+{"op":"session.wait","args":{"timeoutMinutes":10}}
+{"op":"session.dump","args":{"path":"{{OUT}}/first-run.md"}}
+{"op":"model.list","args":{"local":true}}
+{"op":"quit"}

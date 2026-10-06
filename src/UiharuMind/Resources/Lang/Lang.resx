@@ -4120,4 +4120,13 @@ Allow them?</value>
     <data name="LLamaCppLoadMode_dio" xml:space="preserve">
         <value>Direct I/O</value>
     </data>
+    <data name="ModelDownloadUse" xml:space="preserve">
+        <value>Use</value>
+    </data>
+    <data name="ModelDownloadUseTip" xml:space="preserve">
+        <value>Load this model</value>
+    </data>
+    <data name="ModelDownloadCompletedLoading" xml:space="preserve">
+        <value>{0} finished downloading, loading it now</value>
+    </data>
 </root>

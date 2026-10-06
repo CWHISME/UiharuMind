@@ -49,6 +49,7 @@ internal static class DevCommandRegistry
         new SessionsSearchCommand(),
         ..GroupDevCommands.CreateAll(),
         ..SessionDevCommands.CreateAll(),
+        ..ModelDevCommands.CreateAll(),
     ];
 
     /// <summary>按角色标识或显示名找角色（标识优先）</summary>

@@ -239,10 +239,18 @@ public partial class ModelRepoDetailData : ObservableObject, IDisposable
             () => UiDispatcher.InvokeAsyncTask(async () =>
             {
                 await _context.RefreshLocalModels();
-                _context.Messages.ShowNotification(Loc.Text(LangKey.ModelDownloadCompleted, name));
+                // 还没选过模型（多半是第一次下）就直接用上，省得再去顶栏找
+                bool load = !_context.HasCurrentModel();
+                _context.Messages.ShowNotification(Loc.Text(load
+                    ? LangKey.ModelDownloadCompletedLoading
+                    : LangKey.ModelDownloadCompleted, name));
+                if (load) await _context.UseModel(name);
             }));
         RefreshStatuses();
     }
+
+    [RelayCommand]
+    private Task UseModel(ModelQuantRowData row) => _context.UseModel(row.Quant.Name);
 
     // 本机没有引擎时不问，直接把推荐包一起排进去；拉不到包也不拦着下模型
     private async Task EnsureEngineAsync()

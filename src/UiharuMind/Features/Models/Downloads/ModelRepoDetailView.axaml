@@ -172,9 +172,11 @@
                                             ToolTip.Tip="{Binding ConflictTip}"
                                             Command="{Binding $parent[ItemsControl].((downloads:ModelRepoDetailData)DataContext).DownloadCommand}"
                                             CommandParameter="{Binding}" />
-                                    <controls:ThemedSvgIcon Width="16" Height="16" IconName="check"
-                                                            HorizontalAlignment="Center"
-                                                            IsVisible="{Binding IsDownloaded}" />
+                                    <Button Classes="quant-action" Content="{loc:Loc ModelDownloadUse}"
+                                            IsVisible="{Binding IsDownloaded}"
+                                            ToolTip.Tip="{loc:Loc ModelDownloadUseTip}"
+                                            Command="{Binding $parent[ItemsControl].((downloads:ModelRepoDetailData)DataContext).UseModelCommand}"
+                                            CommandParameter="{Binding}" />
                                 </Panel>
                             </Grid>
                         </Border>

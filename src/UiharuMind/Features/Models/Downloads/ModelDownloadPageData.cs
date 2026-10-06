@@ -90,7 +90,9 @@ public partial class ModelDownloadPageData : ObservableObject
         SourceLabel = Loc.Text(LangKey.ModelDownloadSourceLabel, SourceDisplayName());
         CloseDetail();
         _hasSearched = true;
-        _ = SearchAsync(SearchText, TimeSpan.Zero);
+        // 从别处带着仓库名跳过来（如 owner/repo）时直接打开，热门列表照样拉
+        _ = SearchAsync(ModelRepoReference.TryParse(SearchText, out string repository) ? "" : SearchText, TimeSpan.Zero);
+        if (repository.Length > 0) OpenRepository(repository);
     }
 
     /// <summary>

@@ -11,6 +11,7 @@
 #
 # 环境变量：
 #   SMOKE_CONFIG      模型配置来源，默认 ~/.uiharu/Config
+#   SMOKE_FRESH=1     不复制真实配置，从全新档案起（没装引擎、没有本地模型），验新用户第一次走的那条路
 #   SMOKE_NO_BUILD=1  跳过编译，直接用已有的 Release 产物
 #   SMOKE_APP=路径    用这份产物跑（隐含不编译）。对照实验时把几个版本的产物各拷一份，轮流指过去
 #   SMOKE_CONTEXT=N   把副本里每个远程模型的上下文上限改成 N（用户填的值优先于预设表，三条压缩水位随之等比缩小），
@@ -32,11 +33,11 @@ template="$SCRIPT_DIR/scenarios/$scenario.jsonl"
 
 out="${2:-/tmp/uiharu-smoke/$scenario-$(date +%Y%m%d-%H%M%S)}"
 config="${SMOKE_CONFIG:-$HOME/.uiharu/Config}"
-[ -d "$config" ] || { echo "找不到模型配置：$config（用 SMOKE_CONFIG 指定）" >&2; exit 1; }
+[ "${SMOKE_FRESH:-}" = "1" ] || [ -d "$config" ] || { echo "找不到模型配置：$config（用 SMOKE_CONFIG 指定）" >&2; exit 1; }
 
 # 三个工作区：空目录；放了仓库规矩副本的目录（验「先读 AGENTS.md」「改文件落在哪」）；docs 副本（读得多、涨得快的长会话素材）
 mkdir -p "$out/home" "$out/ws-empty" "$out/ws-repo" "$out/ws-docs"
-cp -R "$config" "$out/home/Config"
+[ "${SMOKE_FRESH:-}" = "1" ] || cp -R "$config" "$out/home/Config"
 cp "$REPO_ROOT/AGENTS.md" "$REPO_ROOT/README.md" "$out/ws-repo/"
 cp -R "$REPO_ROOT/docs/." "$out/ws-docs/"
 

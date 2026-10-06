@@ -62,4 +62,14 @@ public sealed record ModelDownloadContext(
     /// 本机设备信息
     /// </summary>
     public Func<RuntimeDeviceInfo> DeviceInfo { get; init; } = () => RuntimeDeviceInfoProvider.Capture();
+
+    /// <summary>
+    /// 加载某个本地模型（与顶栏选模型同一条路，带风险确认）
+    /// </summary>
+    public Func<string, Task> UseModel { get; init; } = _ => Task.CompletedTask;
+
+    /// <summary>
+    /// 当前已选了模型（在跑或在加载）
+    /// </summary>
+    public Func<bool> HasCurrentModel { get; init; } = () => true;
 }

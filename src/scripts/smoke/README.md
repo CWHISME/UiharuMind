@@ -160,3 +160,17 @@ OP-01 派一个人通读 63 篇 ADR（要读好几分钟）；主会话这一轮
 - **一次说明不了什么**。模型输出有随机性，前缀这类毛病三轮里可能只冒一次；下结论前至少跑两遍。
 - **题目别和卡上样本同一个场景**。OP-01 卡的样本里有「缓存全删了吧」，拿它当题测出来的是照抄。
 - **429 会自动重试**，免费档模型一场跑几分钟是常态；`*.wait` 默认等 10 分钟。
+
+### local-model-first-run：新用户第一次用本地模型
+
+**要配 `SMOKE_FRESH=1` 跑**（全新档案：没装引擎、没有本地模型），会真的下约 400MB 模型与引擎包，不花模型钱：
+
+```bash
+SMOKE_FRESH=1 src/scripts/smoke/run.sh local-model-first-run
+```
+
+在「获取模型」里点下 Qwen3-0.6B Q4_K_M → 等下载区跑完 → 白猫单聊说一句。
+
+- `model.wait` 的 jobs 里引擎包排在模型前面，两项都是 Completed
+- `current` 是刚下的模型且 running 为 true（还没选过模型时下完会顺手加载）
+- 流水里有 assistant 的回复，不是 `Model … is not running`
