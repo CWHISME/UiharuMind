@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
+using UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
 using UiharuMind.Features.Conversation.Composer;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
@@ -38,9 +39,10 @@ public sealed class GroupShellViewData : ObservableObject, IDisposable
         _artifacts = new GroupArtifactsViewData(group);
         Approvals = new GroupApprovalsViewData(group);
         Away = group.IsAgentGroup ? new GroupAwayViewData(group, messages) : null;
-        // 发言人变化（轮到谁 / 一轮结束）与名单变化都可能来自后台线程，处理里自行 marshal
+        // 发言人变化（轮到谁 / 一轮结束）、名单变化、成员名下的后台任务增减都可能来自后台线程，处理里自行 marshal
         GroupChatCoordinator.Instance.SpeakerChanged += OnSpeakerChanged;
         GroupMembership.RosterChanged += OnRosterChanged;
+        BackgroundTaskRegistry.Changed += OnBackgroundTaskChanged;
     }
 
     /// <summary>发言人变了（已在 UI 线程上）：忙碌文案要跟着换</summary>
@@ -165,6 +167,7 @@ public sealed class GroupShellViewData : ObservableObject, IDisposable
     {
         GroupChatCoordinator.Instance.SpeakerChanged -= OnSpeakerChanged;
         GroupMembership.RosterChanged -= OnRosterChanged;
+        BackgroundTaskRegistry.Changed -= OnBackgroundTaskChanged;
         Approvals.Dispose();
         Artifacts.Dispose();
         Away?.Dispose();
@@ -175,6 +178,7 @@ public sealed class GroupShellViewData : ObservableObject, IDisposable
         GroupMembersViewData members = new(_group, _prompts);
         members.MarkSpeaking(GroupChatCoordinator.Instance.SpeakersOf(_group.SessionId));
         members.RefreshRunStates();
+        members.RefreshBackgroundTasks();
         return members;
     }
 
@@ -189,6 +193,15 @@ public sealed class GroupShellViewData : ObservableObject, IDisposable
             OnPropertyChanged(nameof(MemberCountText));
             Artifacts.RefreshCommand.Execute(null);
         });
+    }
+
+    /// <summary>
+    /// 某位成员名下在跑的后台任务有增减（<b>可能来自后台线程</b>）：是本群成员就刷右栏那一行
+    /// </summary>
+    /// <param name="sessionId">任务所属会话</param>
+    private void OnBackgroundTaskChanged(string sessionId)
+    {
+        if (Members.Contains(sessionId)) Dispatcher.UIThread.Post(() => Members.RefreshBackgroundTaskOf(sessionId));
     }
 
     private void OnSpeakerChanged(string groupId)

@@ -13,6 +13,7 @@ using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
+using UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
@@ -292,6 +293,17 @@ public sealed partial class GroupMembersViewData : ObservableObject
     /// <param name="sessionId">成员会话标识</param>
     public void RefreshUsageOf(string sessionId) => Members.FirstOrDefault(x => x.SessionId == sessionId)?.RefreshUsage();
 
+    /// <summary>某位成员名下在跑的后台任务有增减：只刷他那一行</summary>
+    /// <param name="sessionId">任务所属会话</param>
+    public void RefreshBackgroundTaskOf(string sessionId) =>
+        Members.FirstOrDefault(x => x.SessionId == sessionId)?.RefreshBackgroundTasks();
+
+    /// <summary>重读每位成员名下在跑的后台任务（右栏装载时刷一遍，建群后起的任务由 <see cref="RefreshBackgroundTaskOf"/> 续刷）</summary>
+    public void RefreshBackgroundTasks()
+    {
+        foreach (GroupMemberItem member in Members) member.RefreshBackgroundTasks();
+    }
+
     /// <summary>
     /// 这个会话是不是本群成员
     /// </summary>
@@ -402,6 +414,24 @@ public sealed partial class GroupMemberItem : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowsPrivateChat))]
     private bool _isRunning;
+
+    /// <summary>他名下有没有在跑的后台任务（名字旁挂蓝点，悬停看任务说明）</summary>
+    [ObservableProperty]
+    private bool _hasBackgroundTask;
+
+    /// <summary>悬停提示：在跑的后台任务一句话说明，一行一个</summary>
+    [ObservableProperty]
+    private string _backgroundTaskTip = "";
+
+    /// <summary>重读他名下在跑的后台任务：任务开始/结束、群右栏装载时刷</summary>
+    public void RefreshBackgroundTasks()
+    {
+        IReadOnlyList<BackgroundTask> tasks = BackgroundTaskRegistry.RunningOf(SessionId);
+        HasBackgroundTask = tasks.Count > 0;
+        BackgroundTaskTip = tasks.Count == 0
+            ? ""
+            : string.Join("\n", tasks.Select(t => string.IsNullOrWhiteSpace(t.Description) ? t.Command : t.Description));
+    }
 
     /// <summary>标「发言中」：等审批时让位给「等审批」，两个标不同时挂</summary>
     public bool ShowsSpeaking => IsSpeaking && !IsAwaitingApproval;

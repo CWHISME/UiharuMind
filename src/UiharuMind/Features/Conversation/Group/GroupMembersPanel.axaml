@@ -67,13 +67,19 @@
                                    ColumnSpacing="8" RowSpacing="1">
                                 <controls:CircleAvatar Grid.RowSpan="2" Width="32" Height="32" Source="{Binding Icon}"
                                                         VerticalAlignment="Center" />
-                                <Grid Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="6" HorizontalAlignment="Left">
+                                <Grid Grid.Column="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6" HorizontalAlignment="Left">
                                     <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
                                                TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                     <controls:KindBadge Grid.Column="1" Header="{loc:Loc GroupHostLabel}"
                                                         BadgeBackground="{DynamicResource SemiOrange5}"
                                                         VerticalAlignment="Center"
                                                         IsVisible="{Binding IsHost}" />
+                                    <!-- 名下还有在跑的后台任务：名字旁挂蓝点，悬停看任务说明。
+                                         icon-tweak：字形视觉中心天然偏上，盒居中的圆点会低约 1px，上移 1px 对齐 -->
+                                    <Border Grid.Column="2" Classes="status-dot icon-tweak" Tag="Progress"
+                                            VerticalAlignment="Center"
+                                            IsVisible="{Binding HasBackgroundTask}"
+                                            ToolTip.Tip="{Binding BackgroundTaskTip}" />
                                 </Grid>
                                 <!-- 角色描述为主行；模型收进底部 usage 行自己的 tooltip，行内不再出现 -->
                                 <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
