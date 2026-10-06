@@ -36,6 +36,25 @@ public class LocalModelScannerTests : IDisposable
             .WriteTo(Path.Combine(_directory, "owner", "vision", "vision-g.gguf"));
         new GGufBuilder().String("general.architecture", "clip")
             .WriteTo(Path.Combine(_directory, "owner", "vision", "mmproj-F16.gguf"));
+
+        string big = Path.Combine(_directory, "owner", "big");
+        Directory.CreateDirectory(big);
+        new GGufBuilder().String("general.architecture", "qwen3").UInt32("qwen3.context_length", 4096)
+            .Tensor("a", 10, 10).WriteTo(Path.Combine(big, "big-Q4_K_M-00001-of-00002.gguf"));
+        new GGufBuilder().Tensor("b", 5).WriteTo(Path.Combine(big, "big-Q4_K_M-00002-of-00002.gguf"));
+
+        string multi = Path.Combine(_directory, "owner", "multi");
+        Directory.CreateDirectory(multi);
+        new GGufBuilder().String("general.architecture", "gemma3").UInt32("gemma3.context_length", 4096)
+            .WriteTo(Path.Combine(multi, "multi-Q8_0.gguf"));
+        new GGufBuilder().String("general.architecture", "clip").WriteTo(Path.Combine(multi, "mmproj-F16.gguf"));
+        new GGufBuilder().String("general.architecture", "clip").WriteTo(Path.Combine(multi, "mmproj-F32.gguf"));
+        new ModelManifest
+        {
+            Source = "huggingface",
+            Repository = "owner/multi",
+            Models = [new ManifestModel { Files = [new ManifestFile { Path = "multi-Q8_0.gguf" }], Projector = "mmproj-F32.gguf" }]
+        }.Save(multi);
     }
 
     public void Dispose()
@@ -60,7 +79,7 @@ public class LocalModelScannerTests : IDisposable
         string[] chat = LocalModelScanner.Scan(ELocalModelKind.Chat, force: true)
             .Select(x => x.Info.ModelName).Order().ToArray();
 
-        Assert.Equal(["broken-f", "chat-a", "vision-g"], chat);
+        Assert.Equal(["big-Q4_K_M", "broken-f", "chat-a", "multi-Q8_0", "vision-g"], chat);
     }
 
     [Fact]
@@ -89,5 +108,34 @@ public class LocalModelScannerTests : IDisposable
         GGufModelInfo chat = LocalModelScanner.Scan(force: true).Single(x => x.Info.ModelName == "chat-a").Info;
 
         Assert.False(chat.IsVision); //根下有 chat-a、broken-f 两个对话模型，不知道 mmproj 是谁的
+    }
+
+    [Fact]
+    public void ShardedModel_ListsOnce_WithTotalSizeAndParameters()
+    {
+        GGufModelInfo big = LocalModelScanner.Scan(force: true).Single(x => x.Info.ModelName == "big-Q4_K_M").Info;
+        string[] files = Directory.GetFiles(Path.Combine(_directory, "owner", "big"));
+
+        Assert.EndsWith("-00001-of-00002.gguf", big.ModelPath);
+        Assert.Equal((ulong)files.Sum(x => new FileInfo(x).Length), big.FileSizeBytes);
+        Assert.Equal(10ul * 10 + 5, big.ParameterCount);
+    }
+
+    [Fact]
+    public void ManifestProjector_WinsWhereGuessingCannot()
+    {
+        GGufModelInfo multi = LocalModelScanner.Scan(force: true).Single(x => x.Info.ModelName == "multi-Q8_0").Info;
+
+        Assert.EndsWith("mmproj-F32.gguf", multi.ModelProjPath); //目录里两个 mmproj，靠猜配不上
+    }
+
+    [Theory]
+    [InlineData("Qwen3-235B-Q4_K_M-00002-of-00005", true, "Qwen3-235B-Q4_K_M", 2, 5)]
+    [InlineData("model-00001-of-00001", false, "model-00001-of-00001", 0, 0)] //单片不算分片
+    [InlineData("model-Q4_K_M", false, "model-Q4_K_M", 0, 0)]
+    public void SplitName(string name, bool isSplit, string baseName, int index, int count)
+    {
+        Assert.Equal(isSplit, GGufSplitName.TryParse(name, out string parsedBase, out int parsedIndex, out int parsedCount));
+        Assert.Equal((baseName, index, count), (parsedBase, parsedIndex, parsedCount));
     }
 }

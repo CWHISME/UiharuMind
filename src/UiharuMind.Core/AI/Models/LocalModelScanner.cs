@@ -61,6 +61,8 @@ public static class LocalModelScanner
         bool isChanged = false;
         List<string> projectors = [];
         List<GGufModelInfo> scanned = [];
+        Dictionary<string, List<string>> shardParts = new(StringComparer.Ordinal); //分片基名全路径 → 第 2 片起的文件
+        HashSet<GGufModelInfo> reread = [];
         foreach (string file in Directory.GetFiles(directory, "*.gguf", SearchOption.AllDirectories))
         {
             string name = Path.GetFileNameWithoutExtension(file);
@@ -71,12 +73,24 @@ public static class LocalModelScanner
                 continue;
             }
 
+            if (GGufSplitName.TryParse(name, out string baseName, out int index, out _))
+            {
+                if (index != 1)
+                {
+                    AddShardPart(shardParts, file, baseName);
+                    continue;
+                }
+
+                name = baseName;
+            }
+
             if (!config.ModelInfos.TryGetValue(name, out GGufModelInfo? info))
                 info = new GGufModelInfo { ModelName = name };
             if (force || info.NeedsMetadata)
             {
                 info.ApplyMetadata(GGufMetadataReader.TryRead(file));
                 config.ModelInfos[name] = info;
+                reread.Add(info);
                 isChanged = true;
             }
 
@@ -91,8 +105,60 @@ public static class LocalModelScanner
             entries[name] = new LocalModelEntry(info, isBuiltIn);
         }
 
+        foreach (GGufModelInfo info in scanned)
+            MergeShards(info, shardParts, reread.Contains(info));
         PairProjectors(directory, projectors, scanned);
+        ApplyManifests(scanned);
         return isChanged;
+    }
+
+    private static void AddShardPart(Dictionary<string, List<string>> shardParts, string file, string baseName)
+    {
+        string key = Path.Combine(Path.GetDirectoryName(file) ?? "", baseName);
+        if (!shardParts.TryGetValue(key, out List<string>? parts)) shardParts[key] = parts = [];
+        parts.Add(file);
+    }
+
+    // 分片模型以第一片为代表：体积是所有分片之和（内存风险评估靠它），参数量也要把其余分片的张量加上
+    private static void MergeShards(GGufModelInfo info, Dictionary<string, List<string>> shardParts, bool wasReread)
+    {
+        string key = Path.Combine(Path.GetDirectoryName(info.ModelPath) ?? "", info.ModelName);
+        if (!shardParts.TryGetValue(key, out List<string>? parts)) return;
+
+        ulong size = (ulong)new FileInfo(info.ModelPath).Length;
+        foreach (string part in parts)
+        {
+            size += (ulong)new FileInfo(part).Length;
+            if (!wasReread) continue;
+            try
+            {
+                info.ParameterCount += GGufHeaderReader.Read(part).ParameterCount;
+            }
+            catch (InvalidDataException)
+            {
+                // 下了一半的分片读不出头，参数量少算一点不影响使用
+            }
+        }
+
+        info.FileSizeBytes = size;
+    }
+
+    // 清单里写明的视觉投影优先于按目录猜
+    private static void ApplyManifests(List<GGufModelInfo> models)
+    {
+        foreach (IGrouping<string, GGufModelInfo> group in models
+                     .GroupBy(x => Path.GetDirectoryName(x.ModelPath) ?? "", StringComparer.Ordinal))
+        {
+            ModelManifest? manifest = ModelManifest.TryLoad(group.Key);
+            if (manifest == null) continue;
+            foreach (GGufModelInfo model in group)
+            {
+                string? projector = manifest.FindModel(Path.GetFileName(model.ModelPath))?.Projector;
+                if (string.IsNullOrEmpty(projector)) continue;
+                string projectorPath = Path.Combine(group.Key, projector);
+                if (File.Exists(projectorPath)) model.ModelProjPath = projectorPath;
+            }
+        }
     }
 
     // 目录里只有一个视觉投影时配给同目录的对话模型。

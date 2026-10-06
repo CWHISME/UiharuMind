@@ -300,7 +300,8 @@ public class HarnessInstructionsCompositionTests
 
         Assert.Equal(string.Empty, options.HarnessInstructions); //框架分层弃用,整段自己拼
         int persona = instructions.IndexOf(PersonaMarker, StringComparison.Ordinal);
-        int disciplines = instructions.IndexOf(AgentPromptHeadings.FileOperations, StringComparison.Ordinal);
+        // 「## 文件操作」段已在提示词精简中退役(7a2dec2d),工具纪律的定位改用父标题 # 工具
+        int disciplines = instructions.IndexOf(AgentPromptHeadings.Tools, StringComparison.Ordinal);
         Assert.True(persona >= 0, "角色人格丢了");
         Assert.True(disciplines > persona, "工具纪律必须排在角色人格之后");
         Assert.DoesNotContain("helpful AI assistant", instructions); //身份只由角色说
@@ -485,14 +486,23 @@ public class HarnessInstructionsCompositionTests
     [Fact]
     public void ToolDisciplines_LiveUnderTheirOwnTopLevelHeading()
     {
-        HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test");
+        // 文件操作段已退役(7a2dec2d)。现在活着的是工作目录/草稿目录/记忆/Python/知识库——
+        // 用一份各能力都开满的配置让它们全部出现,父标题的层级才验得到
+        HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test",
+            new AgentToolConfig { EnableFileAccess = true, EnableShellExecution = true, EnableKnowledgeSearchTool = true },
+            pythonInterpreter: "/tmp/uiharu-python-test/bin/python",
+            outputRoom: "/tmp/uiharu-room-test/ws/12345678",
+            memoryDirectory: "/tmp/uiharu-data/Agent/Workspaces/ws/Memory");
         string instructions = options.ChatOptions?.Instructions ?? string.Empty;
 
         int tools = instructions.IndexOf(AgentPromptHeadings.Tools, StringComparison.Ordinal);
         Assert.True(tools >= 0, "工具纪律段缺少父标题");
         //每个二级段都在父标题之后,没有一个跑到外面去
         foreach (string section in new[]
-                 { AgentPromptHeadings.WorkingDirectory("##"), AgentPromptHeadings.FileOperations })
+                 {
+                     AgentPromptHeadings.WorkingDirectory("##"), AgentPromptHeadings.OutputRoom("##"),
+                     AgentPromptHeadings.Memory("##"), AgentPromptHeadings.Python, AgentPromptHeadings.KnowledgeBase,
+                 })
         {
             int at = instructions.IndexOf(section, StringComparison.Ordinal);
             Assert.True(at > tools, $"{section} 跑到了 {AgentPromptHeadings.Tools} 之外");
@@ -652,8 +662,9 @@ public class HarnessInstructionsCompositionTests
             workspaceInstructions: "never touch the vendor folder");
         string instructions = options.ChatOptions?.Instructions ?? string.Empty;
 
+        // 「## 文件操作」段已退役(7a2dec2d),对照点改用父标题 # 工具
         Assert.True(instructions.IndexOf(AgentInstructionsComposer.ReadWorkspaceRulesFirst, StringComparison.Ordinal) >
-                    instructions.IndexOf(AgentPromptHeadings.FileOperations, StringComparison.Ordinal),
+                    instructions.IndexOf(AgentPromptHeadings.Tools, StringComparison.Ordinal),
             "工作区规矩必须排在工具纪律之后");
     }
 
@@ -670,7 +681,23 @@ public class HarnessInstructionsCompositionTests
         string instructions = options.ChatOptions?.Instructions ?? string.Empty;
 
         Assert.Contains(workingDirectory, instructions);
-        Assert.Contains(AgentToolPrompts.FileReadDefault, instructions); //纪律段没吃掉工作目录段
+        // 文件操作段退役后不再有纪律段会吃掉工作目录段,这里钉标题本身还在
+        Assert.Contains(AgentPromptHeadings.WorkingDirectory("##"), instructions);
+    }
+
+    /// <summary>
+    /// 关掉的工具其纪律段必须一并消失：留着就是纯噪声，还会指挥模型去调不存在的工具。
+    /// 能力配置来自角色，这条同时验证装配确实读的是角色那份。
+    /// </summary>
+    [Fact]
+    public void AgentInstructions_OmitDisciplinesOfDisabledTools()
+    {
+        AgentToolConfig tools = new() { EnableFileAccess = false };
+
+        string instructions = BuildAgentOptions("/tmp/uiharu-agent-test", tools)
+            .ChatOptions?.Instructions ?? string.Empty;
+
+        Assert.DoesNotContain(AgentPromptHeadings.FileOperations, instructions);
     }
 
     /// <summary>
@@ -838,7 +865,12 @@ public class HarnessInstructionsCompositionTests
     [Fact]
     public void MainAgentInstructions_BacktickNamesMustBeKnownTools()
     {
-        string instructions = BuildAgentOptions("/tmp/uiharu-agent-test")
+        // 提示词精简后默认装配只剩工作目录段,没有任何反引号——这条不变量会空转。
+        // 用开满的配置拼出记忆/Python/知识库段,让反引号工具名重新出现,校验才有对象
+        string instructions = BuildAgentOptions("/tmp/uiharu-agent-test",
+                new AgentToolConfig { EnableFileAccess = true, EnableShellExecution = true, EnableKnowledgeSearchTool = true },
+                pythonInterpreter: "/tmp/uiharu-python-test/bin/python",
+                memoryDirectory: "/tmp/uiharu-data/Agent/Workspaces/ws/Memory")
             .ChatOptions?.Instructions ?? string.Empty;
 
         HashSet<string> known = new(StringComparer.Ordinal)
@@ -1406,17 +1438,27 @@ public class SubAgentBoundaryTests
     [Fact]
     public void SubAgentInstructions_PutPathFactsBeforeDisciplines()
     {
+        // 命令行纪律段与文件操作段都已退役(f224a4c6 / 7a2dec2d),输入拼满让
+        // 还活着的纪律段(草稿目录/Python)都出现,工作目录是否排在最前才验得到
         string instructions = SubAgentAssembly.BuildSubAgentOptions(
-                NewInput(mode: EAgentPermissionMode.FullAuto) with { ShellTool = StubShellTool() })!
+                NewInput(mode: EAgentPermissionMode.FullAuto) with
+                {
+                    ShellTool = StubShellTool(),
+                    PythonOutputDirectory = "/tmp/uiharu-room-test/ws/12345678",
+                    OutputFolderName = "ws-seg/12345678",
+                })!
             .ChatOptions!.Instructions!;
 
         int workingDirectory = instructions.IndexOf(AgentPromptHeadings.WorkingDirectory("##"),
             StringComparison.Ordinal);
         Assert.True(workingDirectory >= 0, "子代理必须有工作目录段");
 
-        // 命令行纪律段已退役（有效内容并进基座），这里只断还活着的段：文件操作排在工作目录之后
-        int fileOps = instructions.IndexOf(AgentPromptHeadings.FileOperations, StringComparison.Ordinal);
-        Assert.True(fileOps > workingDirectory, $"{AgentPromptHeadings.FileOperations} 跑到了工作目录段之前");
+        // 只断还活着的纪律段:草稿目录、Python 都排在工作目录之后
+        foreach (string section in new[] { AgentPromptHeadings.OutputRoom("##"), AgentPromptHeadings.Python })
+        {
+            int at = instructions.IndexOf(section, StringComparison.Ordinal);
+            Assert.True(at > workingDirectory, $"{section} 跑到了工作目录段之前");
+        }
     }
 
     /// <summary>
@@ -1437,26 +1479,10 @@ public class SubAgentBoundaryTests
                 })!
             .ChatOptions!.Instructions!;
 
-        Assert.Contains(AgentPromptHeadings.FileOperations, instructions); //文件操作段必须在
+        Assert.Contains(AgentPromptHeadings.Tools, instructions); //工具段必须在
+        // 文件操作段退役后读纪律也不在提示词里了(7a2dec2d),但「探索档不指名写工具」仍成立
         Assert.DoesNotContain("`Edit`", instructions);
         Assert.DoesNotContain("`Write`", instructions);
-    }
-
-    /// <summary>
-    /// 反过来的一半：能改东西的子代理<b>必须</b>拿到修改纪律。
-    ///
-    /// 没有这条，<see cref="SubAgentInstructions_OnlyNameToolsThatExist"/> 会空转——
-    /// 写那几条整个缺席时，「指名的工具都存在」当然成立，而缺席正是从前的缺陷本身。
-    /// 合并后写那几条并进了「## 文件操作」段，标题断言跟着改。
-    /// </summary>
-    [Fact]
-    public void MutatingSubAgent_GetsWriteDiscipline()
-    {
-        string instructions = SubAgentAssembly.BuildSubAgentOptions(
-            NewInput(mode: EAgentPermissionMode.FullAuto))!.ChatOptions!.Instructions!;
-
-        Assert.Contains(AgentPromptHeadings.FileOperations, instructions); //写那几条并进了文件操作段
-        Assert.Contains(AgentToolPrompts.FileWriteDefault, instructions);
     }
 
     private static AITool StubShellTool() => AIFunctionFactory.Create((string command) => command,
