@@ -32,7 +32,7 @@ public static class AgentPromptHeadings
     /// （默认卡 ChenXi 的 <c># 角色</c>、新建智能体预填的 <c># 工作循环</c>）以卡为准，不重复插。
     /// 不叫「人格」：工程标签读起来像「下面是你的人格配置」，把模型往「扮演一套设定」推（ADR 0048 修订 10）。
     /// </summary>
-    public const string Character = "# 你是谁";
+    public const string Character = "# 角色";
 
     /// <summary>工作目录段的标题正文（不含级别前缀，见 <see cref="WorkingDirectory"/>）</summary>
     public const string WorkingDirectoryName = "工作目录";

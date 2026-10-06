@@ -74,8 +74,7 @@ internal static class AgentInstructionsComposer
         List<AgentPromptSegment> registry = new();
         StringBuilder sb = new();
         AppendSection(sb, AgentBasePrompts.Base, EPromptSection.Base, registry);
-        AppendSection(sb, CharacterSection(characterPrompt, AgentBasePrompts.YouStayYou),
-            EPromptSection.Character, registry);
+        AppendSection(sb, CharacterSection(characterPrompt), EPromptSection.Character, registry);
         // 场景紧跟人格：先知道自己是谁，再知道自己在哪、有谁在，然后才是工具
         AppendSection(sb, SceneSection(groupScene), EPromptSection.Scene, registry);
         AppendSection(sb, BuildToolDisciplines(config, workingDirectory, shellBinary,
@@ -116,24 +115,11 @@ internal static class AgentInstructionsComposer
     /// </summary>
     /// <param name="characterPrompt">角色卡渲染正文（CharacterPromptBuilder 的产物）</param>
     /// <returns>标题 + 正文；正文为空时返回空串</returns>
-    internal static string CharacterSection(string? characterPrompt, string? personaLead = null)
+    internal static string CharacterSection(string? characterPrompt)
     {
         if (string.IsNullOrWhiteSpace(characterPrompt)) return string.Empty;
-        // 无 lead 走原逻辑：自带一级标题原样、裸卡补标题（逐字契约，调用方不传则行为不变）
-        if (string.IsNullOrWhiteSpace(personaLead))
-        {
-            if (StartsWithLevelOneHeading(characterPrompt)) return characterPrompt;
-            return $"{AgentPromptHeadings.Character}\n\n{characterPrompt}";
-        }
-        // 有 lead（「你一直是你」）：插在标题行之后、正文之前，标题逻辑一行不动
-        if (StartsWithLevelOneHeading(characterPrompt))
-        {
-            int firstBreak = characterPrompt.IndexOf('\n', StringComparison.Ordinal);
-            if (firstBreak < 0) return $"{characterPrompt}\n\n{personaLead}";
-            return $"{characterPrompt[..firstBreak]}\n\n{personaLead}\n\n" +
-                   $"{characterPrompt[(firstBreak + 1)..].TrimStart('\n')}";
-        }
-        return $"{AgentPromptHeadings.Character}\n\n{personaLead}\n\n{characterPrompt}";
+        if (StartsWithLevelOneHeading(characterPrompt)) return characterPrompt;
+        return $"{AgentPromptHeadings.Character}\n\n{characterPrompt}";
     }
 
     /// <summary>

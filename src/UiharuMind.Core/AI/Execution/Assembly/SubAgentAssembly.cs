@@ -226,7 +226,7 @@ internal static class SubAgentAssembly
             ChatOptions fallback = input.Sampling?.ToChatOptions() ?? new ChatOptions();
             // 纯对话也走与正常装配同一份身份形状:人格(带标题) + # 角色 段;
             // 工具纪律等一律不拼——没有工具,拼了等于指挥模型调不存在的东西
-            string personaSection = AgentInstructionsComposer.CharacterSection(persona, AgentBasePrompts.YouStayYou);
+            string personaSection = AgentInstructionsComposer.CharacterSection(persona);
             string identitySection = BuildIdentitySection(named, input.Role, canMutate: false);
             List<string> fallbackParts = [];
             if (personaSection.Length > 0) fallbackParts.Add(personaSection);
@@ -441,8 +441,6 @@ internal static class SubAgentAssembly
     private static string BuildIdentitySection(bool named, string role, bool canMutate)
     {
         List<string> identity = [];
-        // 匿名子代理没有 persona 段，「你一直是你」落在「# 角色」段首句(双轨落点不变量)
-        if (!named) identity.Add(AgentBasePrompts.YouStayYou);
         if (!named) identity.Add(SubAgentPrompts.Role);
         if (role.Length > 0)
         {
@@ -500,7 +498,7 @@ internal static class SubAgentAssembly
         list.Raw(true, AgentBasePrompts.Base);
         // 人格段与主代理同一实现:角色卡自带一级标题则原样,裸卡补「# 你是谁」标题
         // (CharacterSection 与主代理同一处,「谁排标题」的口径只有一处定义;ADR 0005 人格在最前)
-        list.Raw(named, AgentInstructionsComposer.CharacterSection(persona, AgentBasePrompts.YouStayYou));
+        list.Raw(named, AgentInstructionsComposer.CharacterSection(persona));
         // 身份段(# 角色)。点名的子智能体人格已是身份,不再跟一句"你是 UiharuMind 的一个代理"
         // ——那是跟人格抢身份;身份段内部用单换行:全是短句,空行撑开既费 token 又让它看着像五段独立的话
         list.Section(true, AgentPromptHeadings.SubAgentRole, BuildIdentitySection(named, role, canMutate));

@@ -130,9 +130,10 @@ internal sealed class PermissiveFileAccessTools
     [Description("Find files by glob pattern.")]
     private async Task<GlobToolResult> Glob(
         [Description("Glob pattern, e.g. \"**/*.cs\".")] string pattern,
-        [Description(SearchPathDescription)] string? path = null)
+        [Description(SearchPathDescription)] string? path = null,
+        CancellationToken ct = default)
     {
-        GlobOutcome outcome = await _glob.SearchAsync(pattern, path).ConfigureAwait(false);
+        GlobOutcome outcome = await _glob.SearchAsync(pattern, path, ct: ct).ConfigureAwait(false);
 
         if (outcome.Failure != null)
         {

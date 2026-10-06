@@ -103,20 +103,10 @@ public sealed class SimpleGlobber
 
         bool dirsOnly = pattern.EndsWith('/');
 
-        using var enumerator = new GlobEnum(glob, HardSkips, searchRoot, _paths, dirsOnly, maxResults);
-        var list = new List<GlobEntry>(Math.Min(maxResults, 60));
-
-        bool hitLimit = false;
-        while (enumerator.MoveNext())
-        {
-            ct.ThrowIfCancellationRequested();
-            list.Add(enumerator.Current!);
-            if (list.Count >= maxResults)
-            {
-                hitLimit = true;
-                break;
-            }
-        }
+        // 遍历是同步的,放到线程池上:界面的快速搜索在 UI 线程上调用,大目录树会把界面整个卡住
+        (List<GlobEntry> list, bool hitLimit) = await Task.Run(
+            () => Enumerate(glob, searchRoot, dirsOnly, AllowedDotSegments(pattern), maxResults, ct), ct)
+            .ConfigureAwait(false);
 
         if (isFileScope)
         {
@@ -134,6 +124,27 @@ public sealed class SimpleGlobber
         list.Sort((a, b) => string.CompareOrdinal(a.Path, b.Path));
         return new GlobOutcome { Entries = list, ResolvedDirectory = target, Truncated = hitLimit };
     }
+
+    private (List<GlobEntry> List, bool HitLimit) Enumerate(Glob glob, string searchRoot, bool dirsOnly,
+        string[] allowedDotNames, int maxResults, CancellationToken ct)
+    {
+        using var enumerator = new GlobEnum(glob, HardSkips, searchRoot, _paths, dirsOnly, allowedDotNames, ct);
+        var list = new List<GlobEntry>(Math.Min(maxResults, 60));
+        while (enumerator.MoveNext())
+        {
+            ct.ThrowIfCancellationRequested();
+            list.Add(enumerator.Current!);
+            if (list.Count >= maxResults) return (list, true);
+        }
+
+        return (list, false);
+    }
+
+    // pattern 里点开头的段(如 .uiharu、.git*):只有点名了的点目录/点文件才放行,其余照旧跳过
+    private static string[] AllowedDotSegments(string pattern)
+        => pattern.Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Where(segment => segment.StartsWith('.') && segment != "." && segment != "..")
+            .ToArray();
 
     private GlobOutcome Failed(ESearchFailureKind kind, string resolved, string? requested,
         string pattern, string detail = "")
@@ -181,25 +192,27 @@ public sealed class SimpleGlobber
         private readonly string _root; //搜索根:glob 表达式是相对它匹配的
         private readonly AgentPathResolver _paths; //输出路径按它写回,好让 Read 能直接吃
         private readonly bool _dirsOnly;
-        public bool HitLimit { get; private set; }
-        private int _count, _cap;
+        private readonly string[] _allowedDotNames; //pattern 点名的点开头段,见 IsUnlistedDotEntry
+        private readonly CancellationToken _ct; //命中稀少时 MoveNext 会在内部走很久不返回，取消只能在回调里认
 
-        public GlobEnum(Glob glob, GlobCollection skip, string root, AgentPathResolver paths, bool dirsOnly, int cap)
+        public GlobEnum(Glob glob, GlobCollection skip, string root, AgentPathResolver paths, bool dirsOnly,
+            string[] allowedDotNames, CancellationToken ct)
             : base(root, new EnumerationOptions
             {
                 RecurseSubdirectories = true,
                 IgnoreInaccessible = true,
-                AttributesToSkip = FileAttributes.Hidden | FileAttributes.ReparsePoint | FileAttributes.System
+                // Unix 上 .NET 把点开头的名字都报成 Hidden,按属性跳过会让 pattern 点名了的 .uiharu 也搜不到;
+                // 那边改由 IsUnlistedDotEntry 按名字判。Windows 的 Hidden 是真属性,照旧
+                AttributesToSkip = FileAttributes.ReparsePoint | FileAttributes.System
+                                   | (OperatingSystem.IsWindows() ? FileAttributes.Hidden : 0)
             })
         {
             _glob = glob; _skip = skip; _root = root; _paths = paths;
-            _dirsOnly = dirsOnly; _cap = cap;
+            _dirsOnly = dirsOnly; _allowedDotNames = allowedDotNames; _ct = ct;
         }
 
         protected override GlobEntry TransformEntry(ref FileSystemEntry e)
         {
-            if (++_count > _cap) { HitLimit = true; }
-
             string full = Path.Join(e.Directory, e.FileName);
             // 输出按工作区根:回给模型的路径要能直接当 Read 的入参(见 AgentPathResolver.ToPortable)。
             // 匹配用的 rel 仍按搜索根算,那是 glob 表达式的基准,两者不能混
@@ -212,7 +225,7 @@ public sealed class SimpleGlobber
         protected override bool ShouldIncludeEntry(ref FileSystemEntry e)
         {
             string rel = Path.GetRelativePath(_root, Path.Join(e.Directory, e.FileName)).Replace('\\', '/');
-            if (IsHardSkipped(rel)) return false; //不下探已经挡住了里面的东西，这里挡的是这个目录自己
+            if (IsHardSkipped(rel) || IsUnlistedDotEntry(ref e)) return false; //不下探已经挡住了里面的东西，这里挡的是这个目录自己
 
             bool isDir = e.Attributes.HasFlag(FileAttributes.Directory);
             return !(_dirsOnly && !isDir) && _glob.IsMatch(rel);
@@ -220,9 +233,22 @@ public sealed class SimpleGlobber
 
         protected override bool ShouldRecurseIntoEntry(ref FileSystemEntry e)
         {
+            _ct.ThrowIfCancellationRequested();
+            if (IsUnlistedDotEntry(ref e)) return false;
             // 剪枝：被硬排除 or 不可能命中用户 pattern，直接不进目录
             string rel = Path.GetRelativePath(_root, Path.Join(e.Directory, e.FileName)).Replace('\\', '/').TrimEnd('/');
             return !IsHardSkipped(rel) && _glob.IsPartialMatch(rel.AsSpan());
+        }
+
+        private bool IsUnlistedDotEntry(ref FileSystemEntry e)
+        {
+            if (OperatingSystem.IsWindows() || !e.FileName.StartsWith('.')) return false;
+            foreach (string allowed in _allowedDotNames)
+            {
+                if (FileSystemName.MatchesSimpleExpression(allowed, e.FileName)) return false;
+            }
+
+            return true;
         }
 
         /// <summary>

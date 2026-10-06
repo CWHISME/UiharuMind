@@ -37,4 +37,38 @@ public class GlobHardSkipTests : IDisposable
         Assert.Null(outcome.Failure);
         Assert.Equal(["src/kept.txt"], outcome.Entries.Select(x => x.Path));
     }
+
+    /// <summary>
+    /// 点开头的条目默认不搜，pattern 点名了才放行（Unix 上它们曾因 Hidden 属性被一律跳过，点名也搜不到）
+    /// </summary>
+    [Fact]
+    public async Task Search_DotEntriesOnlyWhenPatternNamesThem()
+    {
+        WriteFile("x/.uiharu/a.txt");
+        WriteFile("x/.other/b.txt");
+        WriteFile("x/kept.txt");
+        var globber = new SimpleGlobber(_root);
+        CancellationToken ct = TestContext.Current.CancellationToken;
+
+        GlobOutcome plain = await globber.SearchAsync("**/*.txt", ct: ct);
+        GlobOutcome named = await globber.SearchAsync("**/.uiharu/**", ct: ct);
+
+        Assert.Equal(["x/kept.txt"], plain.Entries.Select(x => x.Path));
+        Assert.Equal(["x/.uiharu/a.txt"], named.Entries.Select(x => x.Path));
+    }
+
+    /// <summary>
+    /// 一条都命中不了时枚举器不会把控制权交回循环，取消必须在遍历回调里生效——
+    /// 否则用户点停止也要等它把整个目录树（如 ~ 下 <c>**/.xxx/**</c>）走完
+    /// </summary>
+    [Fact]
+    public async Task Search_CancelledWithoutAnyMatch_Throws()
+    {
+        WriteFile("a/b/c.txt");
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => new SimpleGlobber(_root).SearchAsync("**/*.none", ct: cts.Token));
+    }
 }
