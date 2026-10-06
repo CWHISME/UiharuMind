@@ -29,6 +29,7 @@ public sealed class ModelScopeModelSource(HttpClient httpClient, string? token) 
         return response?.Data?.Model?.Models?
             .Where(x => !string.IsNullOrEmpty(x.Path) && !string.IsNullOrEmpty(x.Name))
             .Select(x => new ModelRepoSummary($"{x.Path}/{x.Name}", x.Downloads))
+            .OrderByDescending(x => x.Downloads) //魔搭的默认排序不是下载量，接口口径要按下载量
             .ToList() ?? [];
     }
 

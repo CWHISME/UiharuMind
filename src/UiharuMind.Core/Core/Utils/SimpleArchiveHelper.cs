@@ -46,6 +46,23 @@ public static class SimpleArchiveHelper
         Directory.CreateDirectory(extractPath);
         string extractRoot = Path.GetFullPath(extractPath);
 
+        // .tar.gz 会被认成只有一个无名条目（整段 tar）的 gzip：先解出 tar 再按 tar 解
+        string? innerTar = await TryUnwrapGzipAsync(archivePath, cancellationToken).ConfigureAwait(false);
+        if (innerTar != null)
+        {
+            try
+            {
+                await ExtractArchiveAsync(innerTar, extractPath, false, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                File.Delete(innerTar);
+            }
+
+            if (deleteArchive) File.Delete(archivePath);
+            return;
+        }
+
         await Task.Run(() =>
         {
             using IArchive archive = ArchiveFactory.Open(archivePath, new ReaderOptions());
@@ -84,6 +101,24 @@ public static class SimpleArchiveHelper
             File.Delete(archivePath);
             Log.Debug($"Archive file deleted: {archivePath}");
         }
+    }
+
+    // 是 gzip 就把唯一的条目解到压缩包旁边的临时文件，返回其路径；不是返回 null
+    private static Task<string?> TryUnwrapGzipAsync(string archivePath, CancellationToken cancellationToken)
+    {
+        return Task.Run(() =>
+        {
+            using IArchive archive = ArchiveFactory.Open(archivePath, new ReaderOptions());
+            if (archive.Type != ArchiveType.GZip) return null;
+
+            IArchiveEntry entry = archive.Entries.Single();
+            string tarPath = archivePath + ".unwrapped.tar";
+            using (Stream source = entry.OpenEntryStream())
+            using (FileStream target = File.Create(tarPath))
+                source.CopyTo(target);
+            cancellationToken.ThrowIfCancellationRequested();
+            return (string?)tarPath;
+        }, cancellationToken);
     }
 
     private static void CreateSymbolicLinkSafely(string extractRoot, string linkPath, string linkTarget)
