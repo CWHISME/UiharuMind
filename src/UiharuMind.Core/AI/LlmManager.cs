@@ -102,6 +102,11 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     /// </summary>
     public event Action? OnCurrentModelLoaded;
 
+    /// <summary>
+    /// 经 <see cref="LoadModel"/> 加载的模型起不来或运行中崩溃（主动卸载不算）
+    /// </summary>
+    public event Action<string, Exception>? OnModelRunFailed;
+
     public void OnInitialize()
     {
         // if (UiharuCoreManager.Instance.IsWindows) SetupTestWin();
@@ -167,6 +172,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
                     OnCurrentModelLoaded?.Invoke();
                 }).ConfigureAwait(false);
                 if (!loaded) SetCurrentRunningModel(null);
+                if (runningInfo.LastError != null) OnModelRunFailed?.Invoke(modelName, runningInfo.LastError);
             }
             catch (Exception e)
             {

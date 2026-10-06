@@ -23,12 +23,24 @@ namespace UiharuMind.Core.Core.Process;
 
 public static class ProcessHelper
 {
-    private static ConcurrentBag<int> _processIds = new();
+    private static readonly ConcurrentDictionary<int, byte> ProcessIds = new();
+
+    /// <summary>
+    /// 登记由本进程拉起的外部进程，退出时统一清理
+    /// </summary>
+    /// <param name="processId">进程 Id</param>
+    public static void Track(int processId) => ProcessIds.TryAdd(processId, 0);
+
+    /// <summary>
+    /// 取消登记
+    /// </summary>
+    /// <param name="processId">进程 Id</param>
+    public static void Untrack(int processId) => ProcessIds.TryRemove(processId, out _);
 
     public static void CancelAllProcesses()
     {
         // 并行终止所有进程
-        var tasks = _processIds.Select(processId => Task.Run(() =>
+        var tasks = ProcessIds.Keys.Select(processId => Task.Run(() =>
         {
             // 尝试获取进程
             using var process = FindProcessById(processId);
@@ -43,7 +55,7 @@ public static class ProcessHelper
         Task.WhenAll(tasks).Wait();
 
         // 清空任务列表
-        _processIds.Clear();
+        ProcessIds.Clear();
     }
 
     /// <summary>
@@ -53,7 +65,7 @@ public static class ProcessHelper
     {
         foreach (var process in System.Diagnostics.Process.GetProcessesByName(LLamaCppSettingConfig.ServerExeName))
         {
-            if (!_processIds.Contains(process.Id)) process.Kill();
+            if (!ProcessIds.ContainsKey(process.Id)) process.Kill();
         }
     }
 
@@ -223,7 +235,7 @@ public static class ProcessHelper
             {
                 var task = cmd.ExecuteAsync(token);
                 processId = task.ProcessId;
-                _processIds.Add(processId);
+                Track(processId);
                 var result = await task.ConfigureAwait(false);
                 if (result.ExitCode == 0)
                 {
@@ -243,7 +255,7 @@ public static class ProcessHelper
                 {
                     case StartedCommandEvent cmdStarted:
                         processId = cmdStarted.ProcessId;
-                        _processIds.Add(processId);
+                        Track(processId);
 
                         // Log.Debug($"Process {exePath} started with PID {processId}.");
                         break;
@@ -275,10 +287,11 @@ public static class ProcessHelper
         catch (Exception ex)
         {
             Log.Error($"Execution error: {ex.Message}. Last log line: {lastLine}");
+            return false;
         }
         finally
         {
-            _processIds.TryTake(out processId);
+            Untrack(processId);
         }
         return true;
     }

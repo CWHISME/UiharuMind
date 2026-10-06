@@ -59,11 +59,17 @@ public static class LocalModelScanner
         if (!Directory.Exists(directory)) return false;
 
         bool isChanged = false;
+        List<string> projectors = [];
+        List<GGufModelInfo> scanned = [];
         foreach (string file in Directory.GetFiles(directory, "*.gguf", SearchOption.AllDirectories))
         {
             string name = Path.GetFileNameWithoutExtension(file);
-            // 名字带 mmproj 的不必读头就能排除
-            if (name.Contains("mmproj", StringComparison.OrdinalIgnoreCase)) continue;
+            // 名字带 mmproj 的不必读头就知道是视觉投影
+            if (name.Contains("mmproj", StringComparison.OrdinalIgnoreCase))
+            {
+                projectors.Add(file);
+                continue;
+            }
 
             if (!config.ModelInfos.TryGetValue(name, out GGufModelInfo? info))
                 info = new GGufModelInfo { ModelName = name };
@@ -75,11 +81,39 @@ public static class LocalModelScanner
             }
 
             info.ModelPath = file;
-            info.ModelProjPath = "";
-            if (info.Kind == ELocalModelKind.Projector) continue;
+            if (info.Kind == ELocalModelKind.Projector)
+            {
+                projectors.Add(file);
+                continue;
+            }
+
+            scanned.Add(info);
             entries[name] = new LocalModelEntry(info, isBuiltIn);
         }
 
+        PairProjectors(directory, projectors, scanned);
         return isChanged;
+    }
+
+    // 目录里只有一个视觉投影时配给同目录的对话模型。
+    // 模型目录根下常是手放的杂项，只有它独占这一个对话模型时才配，免得配错导致加载失败
+    private static void PairProjectors(string root, List<string> projectors, List<GGufModelInfo> models)
+    {
+        Dictionary<string, string?> projectorByDirectory = projectors
+            .GroupBy(x => Path.GetDirectoryName(x) ?? "", StringComparer.Ordinal)
+            .ToDictionary(x => x.Key, x => x.Count() == 1 ? x.First() : null, StringComparer.Ordinal);
+        string rootDirectory = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar);
+
+        foreach (IGrouping<string, GGufModelInfo> group in models
+                     .Where(x => (x.Kind ?? ELocalModelKind.Chat) == ELocalModelKind.Chat)
+                     .GroupBy(x => Path.GetDirectoryName(x.ModelPath) ?? "", StringComparer.Ordinal))
+        {
+            projectorByDirectory.TryGetValue(group.Key, out string? projector);
+            bool isRoot = string.Equals(Path.GetFullPath(group.Key).TrimEnd(Path.DirectorySeparatorChar),
+                rootDirectory, StringComparison.Ordinal);
+            if (isRoot && group.Count() > 1) projector = null;
+            foreach (GGufModelInfo model in group)
+                model.ModelProjPath = projector ?? "";
+        }
     }
 }

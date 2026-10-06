@@ -3719,4 +3719,10 @@
     <data name="SessionContentSearchFailed" xml:space="preserve">
         <value>消息搜索出错了</value>
     </data>
+    <data name="ModelRunFailedTitle" xml:space="preserve">
+        <value>模型「{0}」运行失败</value>
+    </data>
+    <data name="ModelRunFailedNoEngine" xml:space="preserve">
+        <value>还没有可用的 llama.cpp 引擎。请到「设置 → 本地模型」下载或选择一个版本。</value>
+    </data>
 </root>

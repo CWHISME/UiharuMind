@@ -30,6 +30,12 @@ public class LocalModelScannerTests : IDisposable
         new GGufBuilder().String("general.architecture", "clip")
             .WriteTo(Path.Combine(_directory, "mmproj-e.gguf"));
         File.WriteAllText(Path.Combine(_directory, "broken-f.gguf"), "not a gguf");
+
+        Directory.CreateDirectory(Path.Combine(_directory, "owner", "vision"));
+        new GGufBuilder().String("general.architecture", "gemma3").UInt32("gemma3.context_length", 4096)
+            .WriteTo(Path.Combine(_directory, "owner", "vision", "vision-g.gguf"));
+        new GGufBuilder().String("general.architecture", "clip")
+            .WriteTo(Path.Combine(_directory, "owner", "vision", "mmproj-F16.gguf"));
     }
 
     public void Dispose()
@@ -54,7 +60,7 @@ public class LocalModelScannerTests : IDisposable
         string[] chat = LocalModelScanner.Scan(ELocalModelKind.Chat, force: true)
             .Select(x => x.Info.ModelName).Order().ToArray();
 
-        Assert.Equal(["broken-f", "chat-a"], chat);
+        Assert.Equal(["broken-f", "chat-a", "vision-g"], chat);
     }
 
     [Fact]
@@ -66,5 +72,22 @@ public class LocalModelScannerTests : IDisposable
 
         Assert.Equal("embed-b.gguf", candidate.Name);
         Assert.Equal(EmbeddingModelCandidateSource.Application, candidate.Source);
+    }
+
+    [Fact]
+    public void SingleProjectorInModelSubfolder_PairsAsVision()
+    {
+        GGufModelInfo vision = LocalModelScanner.Scan(force: true).Single(x => x.Info.ModelName == "vision-g").Info;
+
+        Assert.EndsWith("mmproj-F16.gguf", vision.ModelProjPath);
+        Assert.True(vision.IsVision);
+    }
+
+    [Fact]
+    public void ProjectorInRootWithSeveralModels_IsNotGuessed()
+    {
+        GGufModelInfo chat = LocalModelScanner.Scan(force: true).Single(x => x.Info.ModelName == "chat-a").Info;
+
+        Assert.False(chat.IsVision); //根下有 chat-a、broken-f 两个对话模型，不知道 mmproj 是谁的
     }
 }

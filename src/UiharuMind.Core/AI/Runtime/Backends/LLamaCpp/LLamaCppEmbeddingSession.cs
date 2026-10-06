@@ -8,8 +8,6 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using CliWrap;
-using CliWrap.EventStream;
 using UiharuMind.Core.AI.Embedding;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Core.SimpleLog;
@@ -18,6 +16,8 @@ namespace UiharuMind.Core.AI.Runtime.Backends;
 
 public sealed class LLamaCppEmbeddingSession : IEmbeddingSession
 {
+    private static readonly TimeSpan ReadyTimeout = TimeSpan.FromMinutes(2);
+
     private readonly HttpClient _httpClient;
     private readonly CancellationTokenSource _serverCts;
     private readonly Task _serverTask;
@@ -50,80 +50,27 @@ public sealed class LLamaCppEmbeddingSession : IEmbeddingSession
         RuntimeResolvedParameters parameters,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(version.ExecutablePath))
-            throw new EmbeddingRuntimeException("llama.cpp runtime path is not set.");
         if (string.IsNullOrWhiteSpace(modelPath) || !File.Exists(modelPath))
             throw new FileNotFoundException("Embedding model file not found.", modelPath);
 
-        string? executablePath = config.GetExeServerPath(version.ExecutablePath);
-        if (string.IsNullOrWhiteSpace(executablePath) || !File.Exists(executablePath))
-            throw new FileNotFoundException("llama.cpp server executable was not found.", executablePath);
-
-        int port = config.DefaultEmbeddedPort;
-        string endpoint = $"http://127.0.0.1:{port}/";
-        using var linkedStartupCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var serverCts = new CancellationTokenSource();
-        var listeningTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        string args = BuildArguments(modelPath, port, parameters);
-        Log.Debug("Start llama.cpp embedding server: " + args);
-
-        Task serverTask = Task.Run(async () =>
+        CancellationTokenSource serverCts = new();
+        using CancellationTokenRegistration startupCancel = cancellationToken.Register(serverCts.Cancel);
+        try
         {
-            try
-            {
-                await foreach (CommandEvent cmdEvent in Cli.Wrap(executablePath)
-                                   .WithArguments(args)
-                                   .WithValidation(CommandResultValidation.None)
-                                   .ListenAsync(serverCts.Token)
-                                   .ConfigureAwait(false))
-                {
-                    switch (cmdEvent)
-                    {
-                        case StandardOutputCommandEvent stdOut:
-                            HandleServerLog(stdOut.Text, listeningTcs);
-                            break;
-                        case StandardErrorCommandEvent stdErr:
-                            HandleServerLog(stdErr.Text, listeningTcs);
-                            break;
-                        case ExitedCommandEvent exited:
-                            if (!listeningTcs.Task.IsCompleted)
-                            {
-                                listeningTcs.TrySetException(new EmbeddingRuntimeException(
-                                    $"llama.cpp embedding server exited before it was ready. Exit code: {exited.ExitCode}."));
-                            }
-
-                            break;
-                    }
-                }
-            }
-            catch (OperationCanceledException)
-            {
-            }
-            catch (Exception e)
-            {
-                Log.Error($"llama.cpp embedding server failed: {e.Message}");
-                listeningTcs.TrySetException(new EmbeddingRuntimeException(
-                    $"llama.cpp embedding server failed: {e.Message}", e));
-            }
-        }, CancellationToken.None);
-
-        await using (linkedStartupCts.Token.Register(() =>
-                     listeningTcs.TrySetCanceled(linkedStartupCts.Token)))
-        {
-            try
-            {
-                await listeningTcs.Task.WaitAsync(TimeSpan.FromSeconds(120), linkedStartupCts.Token)
-                    .ConfigureAwait(false);
-            }
-            catch
-            {
-                serverCts.Cancel();
-                throw;
-            }
+            LlamaServerProcess server = await LlamaServerProcess.StartAsync(
+                    config.GetExeServerPath(version.ExecutablePath) ?? "",
+                    BuildArguments(modelPath, parameters),
+                    ReadyTimeout,
+                    null,
+                    serverCts.Token)
+                .ConfigureAwait(false);
+            return new LLamaCppEmbeddingSession(modelPath, server.BaseUri, serverCts, server.Completion);
         }
-
-        return new LLamaCppEmbeddingSession(modelPath, new Uri(endpoint), serverCts, serverTask);
+        catch
+        {
+            serverCts.Dispose();
+            throw;
+        }
     }
 
     public async Task<ReadOnlyMemory<float>> GenerateEmbeddingAsync(
@@ -185,37 +132,22 @@ public sealed class LLamaCppEmbeddingSession : IEmbeddingSession
         _generationLock.Dispose();
     }
 
-    private static string BuildArguments(
-        string modelPath,
-        int port,
-        RuntimeResolvedParameters parameters)
+    // 嵌入服务用独立参数，避免复用对话配置时夹带无关参数
+    private static IReadOnlyList<string> BuildArguments(string modelPath, RuntimeResolvedParameters parameters)
     {
-        // embedding server 使用独立参数，避免复用聊天配置时夹带 prompt/sampling 等无关参数。
-        return string.Join(" ", new[]
-        {
-            $"-m \"{modelPath}\"",
+        return
+        [
+            "-m", modelPath,
             "--no-webui",
-            $"--alias \"{Path.GetFileNameWithoutExtension(modelPath)}\"",
-            $"--port {port}",
-            "-to 0",
+            "--alias", Path.GetFileNameWithoutExtension(modelPath),
+            "-to", "0",
             "--embedding",
-            "--pooling mean",
-            $"--ctx-size {Math.Max(1, parameters.ContextSize)}",
-            $"--batch-size {Math.Max(1, parameters.BatchSize)}",
-            $"--ubatch-size {Math.Max(1, parameters.UBatchSize)}",
-            $"--gpu-layers {parameters.GpuLayers}"
-        });
-    }
-
-    private static void HandleServerLog(string message, TaskCompletionSource listeningTcs)
-    {
-        if (string.IsNullOrWhiteSpace(message)) return;
-        Log.Debug(message);
-        if (message.Contains("server is listening", StringComparison.OrdinalIgnoreCase))
-            listeningTcs.TrySetResult();
-        else if (message.Contains("error", StringComparison.OrdinalIgnoreCase) &&
-                 !listeningTcs.Task.IsCompleted)
-            Log.Error(message);
+            "--pooling", "mean",
+            "--ctx-size", Math.Max(1, parameters.ContextSize).ToString(),
+            "--batch-size", Math.Max(1, parameters.BatchSize).ToString(),
+            "--ubatch-size", Math.Max(1, parameters.UBatchSize).ToString(),
+            "--gpu-layers", parameters.GpuLayers.ToString()
+        ];
     }
 
     private static float[] ParseEmbedding(string responseJson)

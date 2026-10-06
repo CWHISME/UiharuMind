@@ -25,14 +25,9 @@ public class LLamaCppSettingConfig : TConfigBase<LLamaCppSettingConfig>
     public const string ServerExeName = "llama-server";
     public const string LookupStatsExeName = "llama-lookup-stats";
 
-    /// <summary>
-    /// 默认运行端口
-    /// </summary>
-    public int DefaultPort { get; set; } = 1369;
     
     [JsonIgnore] public string DefaultRuntimePath { get; set; } = "./InternalRuntime";
 
-    public int DefaultEmbeddedPort => DefaultPort + 1;
 
     public string? LLamaCppPath { get; set; }
 

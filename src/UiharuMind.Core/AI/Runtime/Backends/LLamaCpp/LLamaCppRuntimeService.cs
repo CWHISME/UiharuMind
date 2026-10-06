@@ -15,13 +15,14 @@ using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.LLM;
-using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Runtime.Backends;
 
 internal sealed class LLamaCppRuntimeService
 {
+    private static readonly TimeSpan ChatReadyTimeout = TimeSpan.FromMinutes(10); // 大模型冷加载可能要几分钟
+
     private readonly LLamaCppVersionManager _llamaCppVersionManager = new();
     
     public VersionInfo? CurrentVersion { get; private set; }
@@ -65,94 +66,31 @@ internal sealed class LLamaCppRuntimeService
         return await PullLatestVersion(AppPaths.External.Engine).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 起一个对话用的 llama-server，就绪后回调对话客户端，然后陪跑到进程结束
+    /// </summary>
+    /// <exception cref="LlamaServerException">起不来，或没被要求停却退出了</exception>
     public async Task Run(
         VersionInfo version,
         ILlmModel model,
         RuntimeResolvedParameters parameters,
         Action<float>? onLoading = null,
         Action<IChatClient>? onLoadOver = null,
-        int? port = null,
         CancellationToken token = default)
     {
-        int loadingCount = 0;
-        bool loadOver = false;
-
-        const float loadingMaxCount = 128f;
-        const int loadingMinCount = 16;
-
-        void OnMessageUpdate(string msg)
-        {
-            if (loadOver) return;
-
-            if (msg.StartsWith("error", StringComparison.OrdinalIgnoreCase))
-            {
-                onLoadOver?.Invoke(CreateChatClient(model));
-                return;
-            }
-
-            if (!msg.Contains("server is listening", StringComparison.OrdinalIgnoreCase))
-            {
-                loadingCount++;
-                if (loadingCount % loadingMinCount == 0)
-                {
-                    float loadingPercent = Math.Min(1, loadingCount / loadingMaxCount);
-                    onLoading?.Invoke(loadingPercent);
-                }
-
-                if (loadingCount >= loadingMaxCount)
-                {
-                    Log.Debug($"Loading over count {loadingCount}");
-                }
-
-                return;
-            }
-
-            Log.Debug($"Loading over {loadingCount}");
-            loadOver = true;
-            onLoadOver?.Invoke(CreateChatClient(model));
-        }
-
-        await StartServer(
-                version.ExecutablePath,
-                model,
-                parameters,
-                port ?? LLamaCppSettingConfig.Current.DefaultPort,
-                OnMessageUpdate,
-                token)
-            .ConfigureAwait(false);
-    }
-
-    private async Task StartServer(
-        string executablePath,
-        ILlmModel model,
-        RuntimeResolvedParameters parameters,
-        int port,
-        Action<string>? onMessageUpdate,
-        CancellationToken token)
-    {
         if (string.IsNullOrEmpty(model.ModelPath))
-        {
-            Log.Error("Can't run server without model file path");
-            return;
-        }
+            throw new LlamaServerException($"Model '{model.ModelName}' has no file path.");
 
-        string? serverPath = LLamaCppSettingConfig.Current.GetExeServerPath(executablePath);
-        if (string.IsNullOrWhiteSpace(serverPath) || !File.Exists(serverPath))
-        {
-            Log.Error($"Can't find server executable {serverPath}");
-            return;
-        }
-
-        string args = BuildServerArgs(model, parameters, port);
-        Log.Debug("Start server:" + args);
-        await ProcessHelper.StartProcess(serverPath, args, onMessageUpdate, token)
+        string serverPath = LLamaCppSettingConfig.Current.GetExeServerPath(version.ExecutablePath) ?? "";
+        LlamaServerProcess server = await LlamaServerProcess.StartAsync(
+                serverPath, BuildServerArgs(model, parameters), ChatReadyTimeout, onLoading, token)
             .ConfigureAwait(false);
-    }
-
-    private IChatClient CreateChatClient(ILlmModel model)
-    {
-        var handler = new OpenAICompatibleHttpHandler(port: LLamaCppSettingConfig.Current.DefaultPort);
-        return OpenAICompatibleChatClient.Create(handler, model, "UiharuMind", "None");
+        onLoadOver?.Invoke(OpenAICompatibleChatClient.Create(
+            new OpenAICompatibleHttpHandler(port: server.Port), model, "UiharuMind", "None"));
+        await server.Completion.ConfigureAwait(false);
+        if (!token.IsCancellationRequested)
+            throw new LlamaServerException(
+                $"llama-server exited unexpectedly (exit code {server.ExitCode}).", server.LogTail);
     }
 
     private async Task<VersionManager> GetLocalVersions(string enginePath)
@@ -170,26 +108,32 @@ internal sealed class LLamaCppRuntimeService
         return await _llamaCppVersionManager.GetLatestVersion(path).ConfigureAwait(false);
     }
 
-    private static string BuildServerArgs(ILlmModel model, RuntimeResolvedParameters parameters, int port)
+    /// <summary>
+    /// 对话服务参数（不含 host/port）
+    /// </summary>
+    internal static IReadOnlyList<string> BuildServerArgs(ILlmModel model, RuntimeResolvedParameters parameters)
     {
         List<string> args =
         [
-            $"-m \"{model.ModelPath}\"",
+            "-m", model.ModelPath,
             "--no-webui",
-            $"--alias {Path.GetFileNameWithoutExtension(model.ModelPath)}",
-            $"--port {port}",
-            "-to 0",
-            $"-c {parameters.ContextSize}",
-            $"-b {parameters.BatchSize}",
-            $"-ub {parameters.UBatchSize}",
-            $"-ngl {parameters.GpuLayers}"
+            "--alias", Path.GetFileNameWithoutExtension(model.ModelPath),
+            "-to", "0",
+            "-c", parameters.ContextSize.ToString(),
+            "-b", parameters.BatchSize.ToString(),
+            "-ub", parameters.UBatchSize.ToString(),
+            "-ngl", parameters.GpuLayers.ToString(),
+            // 用模型自带的聊天模板渲染，工具调用也靠它
+            "--jinja"
         ];
 
+        if (model is GGufModelInfo { ModelProjPath: { Length: > 0 } projPath })
+            args.AddRange(["--mmproj", projPath]);
         if (parameters.Threads > 0)
-            args.Add($"--threads {parameters.Threads}");
+            args.AddRange(["--threads", parameters.Threads.ToString()]);
         if (parameters.FlashAttention)
-            args.Add("--flash-attn");
+            args.AddRange(["--flash-attn", "on"]);
 
-        return string.Join(' ', args);
+        return args;
     }
 }

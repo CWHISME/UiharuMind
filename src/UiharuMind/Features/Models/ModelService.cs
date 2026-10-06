@@ -82,6 +82,7 @@ public partial class ModelService : ObservableObject
         LlmManager.Instance.OnCurrentModelStartLoading += OnCurrentModelStartLoading;
         LlmManager.Instance.OnCurrentModelLoading += OnCurrentModelLoading;
         LlmManager.Instance.OnCurrentModelLoaded += OnCurrentModelLoaded;
+        LlmManager.Instance.OnModelRunFailed += OnModelRunFailed;
         ModelSettingConfig.Current.PropertyChanged += OnFavoriteModelConfigChanged;
         LoadModelListAsync();
     }
@@ -102,6 +103,18 @@ public partial class ModelService : ObservableObject
     {
         IsLoading = false;
         Refresh();
+    }
+
+    private void OnModelRunFailed(string modelName, Exception error)
+    {
+        string message = error switch
+        {
+            LocalEngineNotReadyException => Loc.Text(LangKey.ModelRunFailedNoEngine),
+            LlamaServerException serverError => serverError.Detail,
+            _ => error.Message
+        };
+        _messages.ShowNotification(message, string.Format(Loc.Text(LangKey.ModelRunFailedTitle), modelName),
+            MessageSeverity.Error);
     }
 
     [RelayCommand]

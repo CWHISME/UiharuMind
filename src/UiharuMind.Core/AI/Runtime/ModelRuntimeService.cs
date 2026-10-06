@@ -109,11 +109,13 @@ internal sealed class ModelRuntimeService
         catch (Exception e)
         {
             Log.Error(e.Message);
+            if (loaded) runningData.FailRunning(e);
+            else runningData.FailLoading(e);
             return false;
         }
         finally
         {
-            if (!loaded) runningData.FailLoading();
+            if (!loaded && runningData.LastError == null) runningData.FailLoading();
         }
     }
 
@@ -129,10 +131,9 @@ internal sealed class ModelRuntimeService
         ModelRuntimeSettingConfig settings = ModelRuntimeSettingConfig.Current;
         IModelRuntimeBackend? backend = _registry.FindChatBackend(model, GetPreferredChatBackendId(model));
         if (backend == null)
-        {
-            Log.Error($"No runtime backend can handle model '{model.ModelName}'.");
-            return;
-        }
+            throw model is RemoteModelInfo
+                ? new InvalidOperationException($"No runtime backend can handle model '{model.ModelName}'.")
+                : new LocalEngineNotReadyException();
 
         ModelMetadata metadata = ModelMetadataService.Read(model);
         RuntimeParameterPolicy policy = backend.CreateParameterPolicy(settings);

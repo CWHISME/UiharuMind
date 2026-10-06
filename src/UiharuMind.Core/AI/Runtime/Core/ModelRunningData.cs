@@ -101,6 +101,11 @@ public class ModelRunningData : INotifyPropertyChanged
     public float LoadingPercent { get; private set; } = 0;
 
     private bool _isLoaded = false;
+
+    /// <summary>
+    /// 最近一次加载失败或运行中崩溃的原因；开始加载时清空
+    /// </summary>
+    public Exception? LastError { get; private set; }
     // private int _loadingCount = 0;
     // private Action<float>? _onLoading;
     // private Action? _onLoaded;
@@ -125,6 +130,7 @@ public class ModelRunningData : INotifyPropertyChanged
         _isLoaded = false;
         _chatClient = null;
         LoadingPercent = 0;
+        LastError = null;
         _cts = new CancellationTokenSource();
         return _cts.Token;
     }
@@ -142,8 +148,9 @@ public class ModelRunningData : INotifyPropertyChanged
         LoadingPercent = 1;
     }
 
-    public void FailLoading()
+    public void FailLoading(Exception? error = null)
     {
+        LastError = error;
         if (!_isLoaded)
         {
             _chatClient = null;
@@ -151,6 +158,16 @@ public class ModelRunningData : INotifyPropertyChanged
         }
 
         _cts = null;
+    }
+
+    /// <summary>
+    /// 跑着跑着出错（如本地进程崩溃）：记下原因并停下
+    /// </summary>
+    /// <param name="error">原因</param>
+    public void FailRunning(Exception error)
+    {
+        StopRunning();
+        LastError = error;
     }
 
     /// <summary>

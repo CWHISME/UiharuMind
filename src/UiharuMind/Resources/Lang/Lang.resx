@@ -3726,4 +3726,10 @@ Allow them?</value>
     <data name="SessionContentSearchFailed" xml:space="preserve">
         <value>Message search failed</value>
     </data>
+    <data name="ModelRunFailedTitle" xml:space="preserve">
+        <value>Model "{0}" failed to run</value>
+    </data>
+    <data name="ModelRunFailedNoEngine" xml:space="preserve">
+        <value>No llama.cpp engine is available yet. Download or select a version in Settings → Local Models.</value>
+    </data>
 </root>

@@ -55,13 +55,7 @@ internal sealed class LLamaCppRuntimeBackend(
         Action<IChatClient>? onLoadOver,
         CancellationToken cancellationToken)
     {
-        VersionInfo? version = selectedVersionProvider();
-        if (version == null)
-        {
-            Log.Error(
-                "Current selected local runtime backend is null. Please select a runtime engine version first.");
-            return;
-        }
+        VersionInfo version = selectedVersionProvider() ?? throw new LocalEngineNotReadyException();
 
         await server.Run(version, request.Model, request.Parameters, onLoading, onLoadOver, token: cancellationToken)
             .ConfigureAwait(false);
@@ -71,9 +65,7 @@ internal sealed class LLamaCppRuntimeBackend(
         EmbeddingRuntimeRequest request,
         CancellationToken cancellationToken)
     {
-        VersionInfo? version = selectedVersionProvider();
-        if (version == null)
-            throw new EmbeddingRuntimeException("llama.cpp runtime is not selected.");
+        VersionInfo version = selectedVersionProvider() ?? throw new LocalEngineNotReadyException();
 
         return await LLamaCppEmbeddingSession.StartAsync(
             version,
