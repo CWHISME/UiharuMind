@@ -11,6 +11,7 @@ namespace UiharuMind.Core.AI.Runtime;
 public static class RuntimeLoadRiskEvaluator
 {
     private const long MiB = 1024L * 1024L;
+    private const int DefaultDownloadContextSize = 8192; // 与本地模型的上下文兜底一致
 
     public static RuntimeLoadRisk Evaluate(
         ILlmModel model,
@@ -45,21 +46,11 @@ public static class RuntimeLoadRiskEvaluator
                 warnings);
         }
 
-        double totalRatio = estimatedTotal / Math.Max(1.0, deviceInfo.TotalMemoryBytes);
-        double availableRatio = estimatedTotal / Math.Max(1.0, deviceInfo.AvailableMemoryBytes);
-        RuntimeLoadRiskLevel level = RuntimeLoadRiskLevel.Low;
-
-        // 使用内存占比判断风险，而不是写死上下文上限；Metal 统一内存也按系统可用内存保守提示。
-        if (availableRatio >= 0.9 || totalRatio >= 0.85)
-        {
-            level = RuntimeLoadRiskLevel.Danger;
+        RuntimeLoadRiskLevel level = ClassifyMemory(estimatedTotal, deviceInfo, true);
+        if (level == RuntimeLoadRiskLevel.Danger)
             warnings.Add("Estimated runtime memory is close to or above available memory.");
-        }
-        else if (availableRatio >= 0.65 || totalRatio >= 0.6)
-        {
-            level = RuntimeLoadRiskLevel.Warning;
+        else if (level == RuntimeLoadRiskLevel.Warning)
             warnings.Add("Estimated runtime memory may create high memory pressure.");
-        }
 
         if (HasAggressiveExplicitParameters(metadata, parameters))
         {
@@ -73,6 +64,39 @@ public static class RuntimeLoadRiskEvaluator
             kvBytes,
             BuildReason(level, estimatedTotal, deviceInfo),
             warnings.Distinct().ToArray());
+    }
+
+    /// <summary>
+    /// 下载前估能不能跑：还没有文件头，KV 缓存按文件体积粗估（10%，按上下文长度缩放），
+    /// 只看总内存——判断的是「这台机器」，不该因为此刻开着别的应用而判红
+    /// </summary>
+    /// <param name="modelBytes">模型文件总大小（分片之和）</param>
+    /// <param name="projectorBytes">视觉投影大小，没有为 0</param>
+    /// <param name="deviceInfo">设备信息</param>
+    /// <param name="contextSize">打算用的上下文长度</param>
+    /// <returns>风险档位；设备内存未知为 Unknown</returns>
+    public static RuntimeLoadRiskLevel EstimateBeforeDownload(
+        long modelBytes,
+        long projectorBytes,
+        RuntimeDeviceInfo deviceInfo,
+        int contextSize = DefaultDownloadContextSize)
+    {
+        if (!deviceInfo.HasMemoryInfo) return RuntimeLoadRiskLevel.Unknown;
+        long kvBytes = (long)(modelBytes * 0.1 * Math.Max(1, contextSize) / DefaultDownloadContextSize);
+        return ClassifyMemory(SafeAdd(SafeAdd(modelBytes, projectorBytes), kvBytes), deviceInfo, false);
+    }
+
+    // 用内存占比分档，而不是写死上下文上限；Metal 统一内存也按系统内存保守提示
+    private static RuntimeLoadRiskLevel ClassifyMemory(long estimatedTotal, RuntimeDeviceInfo deviceInfo,
+        bool considerAvailable)
+    {
+        double totalRatio = estimatedTotal / Math.Max(1.0, deviceInfo.TotalMemoryBytes);
+        double availableRatio = considerAvailable
+            ? estimatedTotal / Math.Max(1.0, deviceInfo.AvailableMemoryBytes)
+            : 0;
+        if (availableRatio >= 0.9 || totalRatio >= 0.85) return RuntimeLoadRiskLevel.Danger;
+        if (availableRatio >= 0.65 || totalRatio >= 0.6) return RuntimeLoadRiskLevel.Warning;
+        return RuntimeLoadRiskLevel.Low;
     }
 
     private static long EstimateKvCacheBytes(ModelMetadata metadata, int contextSize)
