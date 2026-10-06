@@ -11,6 +11,7 @@ internal sealed class TestHttpServer : IDisposable
     private readonly HttpListener _listener = new();
     private readonly byte[] _payload;
     private long _bytesServed;
+    private long _bytesRequested;
     private int _rangeRequests;
 
     public TestHttpServer(byte[] payload)
@@ -28,11 +29,26 @@ internal sealed class TestHttpServer : IDisposable
     public int StatusCode { get; set; } = 200;
     public int BytesPerSecond { get; set; }
     public long BytesServed => Interlocked.Read(ref _bytesServed);
+
+    /// <summary>各请求要的字节数之和（Range 的长度，不带 Range 为整个文件）。
+    /// 比 <see cref="BytesServed"/> 准：客户端掐断后服务端还会往套接字缓冲里写一阵，那些字节对方根本没收</summary>
+    public long BytesRequested => Interlocked.Read(ref _bytesRequested);
     public int RangeRequests => _rangeRequests;
 
     public void Dispose()
     {
         _listener.Close();
+    }
+
+    /// <summary>等上一轮被掐断的连接都停下来（送出字节数一阵子不再涨）</summary>
+    public async Task WaitIdleAsync()
+    {
+        long last = -1;
+        for (int i = 0; i < 40 && BytesServed != last; i++)
+        {
+            last = BytesServed;
+            await Task.Delay(150);
+        }
     }
 
     private async Task AcceptLoop()
@@ -77,6 +93,7 @@ internal sealed class TestHttpServer : IDisposable
                 context.Response.Headers["Content-Range"] = $"bytes {from}-{to}/{_payload.Length}";
             }
 
+            Interlocked.Add(ref _bytesRequested, to - from + 1);
             context.Response.ContentLength64 = to - from + 1;
             Stream output = context.Response.OutputStream;
             for (long offset = from; offset <= to;)

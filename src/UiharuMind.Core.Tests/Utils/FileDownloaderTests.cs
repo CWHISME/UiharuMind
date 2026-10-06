@@ -55,15 +55,17 @@ public class FileDownloaderTests : IDisposable
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             _downloader.DownloadAsync(new DownloadRequest(server.Url, Target, segments), progress, cts.Token));
-        long servedBeforeResume = server.BytesServed;
+        // 按续传时要了多少算，不按服务端写了多少：掐断后几条限速连接还会往套接字缓冲里写一阵（实测多块时能多出近 2MB）
+        await server.WaitIdleAsync();
+        long requestedBeforeResume = server.BytesRequested;
         server.BytesPerSecond = 0;
 
         await _downloader.DownloadAsync(new DownloadRequest(server.Url, Target, segments, Sha256),
             cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(_payload, await File.ReadAllBytesAsync(Target, TestContext.Current.CancellationToken));
-        Assert.True(server.BytesServed - servedBeforeResume < _payload.Length * 0.75,
-            $"resume re-downloaded {server.BytesServed - servedBeforeResume} bytes");
+        long resumed = server.BytesRequested - requestedBeforeResume;
+        Assert.True(resumed < _payload.Length * 0.75, $"resume re-requested {resumed} bytes");
     }
 
     [Fact]
