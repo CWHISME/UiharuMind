@@ -133,9 +133,9 @@ public sealed class LLamaCppEmbeddingSession : IEmbeddingSession
     }
 
     // 嵌入服务用独立参数，避免复用对话配置时夹带无关参数
-    private static IReadOnlyList<string> BuildArguments(string modelPath, RuntimeResolvedParameters parameters)
+    internal static IReadOnlyList<string> BuildArguments(string modelPath, RuntimeResolvedParameters parameters)
     {
-        return
+        List<string> args =
         [
             "-m", modelPath,
             "--no-webui",
@@ -145,9 +145,11 @@ public sealed class LLamaCppEmbeddingSession : IEmbeddingSession
             "--pooling", "mean",
             "--ctx-size", Math.Max(1, parameters.ContextSize).ToString(),
             "--batch-size", Math.Max(1, parameters.BatchSize).ToString(),
-            "--ubatch-size", Math.Max(1, parameters.UBatchSize).ToString(),
-            "--gpu-layers", parameters.GpuLayers.ToString()
+            "--ubatch-size", Math.Max(1, parameters.UBatchSize).ToString()
         ];
+        // 负数是自动：不传，交给 llama-server
+        if (parameters.GpuLayers >= 0) args.AddRange(["--gpu-layers", parameters.GpuLayers.ToString()]);
+        return args;
     }
 
     private static float[] ParseEmbedding(string responseJson)

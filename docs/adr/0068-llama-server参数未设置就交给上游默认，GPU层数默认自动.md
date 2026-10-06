@@ -23,3 +23,4 @@ GPU 层数分三种取法：自动（-1，不传）、纯 CPU（0）、指定层
 - 「额外启动参数」排在最后，与上面的设置冲突时以它为准，给上游新参数留了口子，不必每个都做界面。
 - 按模型的参数（上下文、GPU 层数、批大小、线程）存在 `ModelRuntimeSettingConfig.ModelOverrides`，按模型名，null 的项跟随全局；
   不放模型清单，因为手放的模型没有清单。加载与风险估算都取 `ForModel(模型名)`。删模型文件时一并删掉它的覆写。
+- 嵌入模型同一口径：`EmbeddingModelSettingConfig.GpuLayers` 换 JSON 名为 `GpuOffloadLayers`、默认 -1，负数时不传 `--gpu-layers`。

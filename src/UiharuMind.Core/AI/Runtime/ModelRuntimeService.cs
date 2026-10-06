@@ -198,8 +198,8 @@ internal sealed class ModelRuntimeService
         };
 
         RuntimeParameterPolicy policy = new(
-            settings.GpuLayers <= 0 ? RuntimeDeviceMode.Cpu : RuntimeDeviceMode.Auto,
-            settings.GpuLayers > 0,
+            settings.GpuLayers == 0 ? RuntimeDeviceMode.Cpu : RuntimeDeviceMode.Auto,
+            settings.GpuLayers != 0,
             false);
         return RuntimeParameterResolver.Resolve(normalized, metadata, policy);
     }

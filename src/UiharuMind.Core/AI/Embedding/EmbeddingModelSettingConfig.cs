@@ -64,9 +64,11 @@ public class EmbeddingModelSettingConfig : TConfigBase<EmbeddingModelSettingConf
     public int UBatchSize { get; set; } = 8192;
 
     /// <summary>
-    /// 嵌入模型 GPU 层数（-1 表示尽可能全部使用）。
+    /// 嵌入模型 GPU 层数：负数自动（交给 llama-server 按显存放），0 纯 CPU。
+    /// 换了 JSON 名：旧字段默认 0 等于强制纯 CPU，借换名让所有人回到自动（同对话模型，ADR 0068）
     /// </summary>
-    public int GpuLayers { get; set; } = 0;
+    [JsonPropertyName("GpuOffloadLayers")]
+    public int GpuLayers { get; set; } = -1;
 
     /// <summary>
     /// OpenAI 兼容嵌入接口地址，供远程嵌入后端使用。

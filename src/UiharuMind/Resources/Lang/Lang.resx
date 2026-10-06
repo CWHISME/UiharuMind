@@ -1962,7 +1962,7 @@
         <value>Physical batch size. Lower this when the backend says the input is too large for the batch.</value>
     </data>
     <data name="ServicesGpuLayersDesc" xml:space="preserve">
-        <value>Number of model layers offloaded to GPU. Use 0 for CPU-only embedding.</value>
+        <value>Layers offloaded to the GPU. -1 means auto (llama-server fits them to GPU memory), 0 means CPU only.</value>
     </data>
     <data name="ServicesStatusNeedsConfig" xml:space="preserve">
         <value>Needs setup</value>

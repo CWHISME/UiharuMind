@@ -1955,7 +1955,7 @@
         <value>物理批处理大小。若后端提示 input is too large，可优先降低此项。</value>
     </data>
     <data name="ServicesGpuLayersDesc" xml:space="preserve">
-        <value>卸载到 GPU 的模型层数。设置为 0 表示纯 CPU 嵌入。</value>
+        <value>卸载到 GPU 的模型层数。-1 表示自动（交给 llama-server 按显存放），0 表示纯 CPU。</value>
     </data>
     <data name="ServicesStatusNeedsConfig" xml:space="preserve">
         <value>需要配置</value>
