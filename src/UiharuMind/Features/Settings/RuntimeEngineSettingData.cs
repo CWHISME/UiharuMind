@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -39,6 +40,18 @@ public partial class RuntimeEngineSettingData : ObservableObject
 
     public DownloadListViewData RemoteDwnloadListViewModel { get; }
     public ModelRuntimeBasicSettingsData RuntimeSettings { get; } = new();
+
+    /// <summary>llama-server 专有启动选项</summary>
+    public LLamaCppServerSettingsViewData Server { get; } = new();
+
+    /// <summary>引擎卡上的版本号；没装引擎时说明一句</summary>
+    public string EngineVersionText => SelectedVersion?.Name ?? Loc.Text(LangKey.LLamaCppNoEngine);
+
+    /// <summary>当前版本是本机推荐的变体</summary>
+    public bool IsEngineRecommended => SelectedVersion?.IsRecommended == true;
+
+    /// <summary>当前版本的发布页，从版本名里认出构建号（b1234）</summary>
+    public string? EngineReleaseUrl => SelectedVersion == null ? null : LLamaCppReleaseUrl(SelectedVersion.Name);
 
     /// <summary>下载源一节</summary>
     public DownloadSourceSettingsViewData DownloadSource { get; } = new();
@@ -99,6 +112,28 @@ public partial class RuntimeEngineSettingData : ObservableObject
     }
 
     [RelayCommand]
+    private async Task ResetRuntimeSettings()
+    {
+        if (!await _messageService.ConfirmAsync(Loc.Text(LangKey.LLamaCppResetAllConfirm))) return;
+        RuntimeSettings.ResetToDefaults();
+        Server.ResetToDefaults();
+    }
+
+    /// <summary>
+    /// 从引擎版本名里认出构建号，拼 GitHub 发布页
+    /// </summary>
+    /// <param name="versionName">版本名，如 llama-b11443-bin-macos-arm64</param>
+    /// <returns>发布页地址；认不出为 null</returns>
+    public static string? LLamaCppReleaseUrl(string versionName)
+    {
+        Match match = BuildTagPattern().Match(versionName);
+        return match.Success ? $"https://github.com/ggml-org/llama.cpp/releases/tag/{match.Value}" : null;
+    }
+
+    [GeneratedRegex(@"(?<![A-Za-z0-9])b\d+(?![A-Za-z0-9])")]
+    private static partial Regex BuildTagPattern();
+
+    [RelayCommand]
     private void OpenFolder()
     {
         App.FilesService.OpenFolder(AppPaths.External.Engine);
@@ -130,6 +165,9 @@ public partial class RuntimeEngineSettingData : ObservableObject
 
     partial void OnSelectedVersionChanged(VersionInfo? oldValue, VersionInfo? newValue)
     {
+        OnPropertyChanged(nameof(EngineVersionText));
+        OnPropertyChanged(nameof(IsEngineRecommended));
+        OnPropertyChanged(nameof(EngineReleaseUrl));
         if (newValue == null)
         {
             SelectedVersion = LlmManager.Instance.CurrentRuntimeVersion;

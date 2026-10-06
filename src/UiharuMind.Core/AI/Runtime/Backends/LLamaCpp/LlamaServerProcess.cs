@@ -71,6 +71,7 @@ internal sealed class LlamaServerProcess
     /// <param name="readyTimeout">就绪超时</param>
     /// <param name="onProgress">加载进度（按日志行数估算）</param>
     /// <param name="lifetimeToken">取消即结束进程</param>
+    /// <param name="environment">额外环境变量</param>
     /// <returns>已就绪的服务</returns>
     /// <exception cref="LlamaServerException">进程提前退出或超时</exception>
     public static async Task<LlamaServerProcess> StartAsync(
@@ -78,7 +79,8 @@ internal sealed class LlamaServerProcess
         IReadOnlyList<string> arguments,
         TimeSpan readyTimeout,
         Action<float>? onProgress,
-        CancellationToken lifetimeToken)
+        CancellationToken lifetimeToken,
+        IReadOnlyDictionary<string, string>? environment = null)
     {
         if (!File.Exists(executablePath))
             throw new LlamaServerException($"llama-server executable not found: {executablePath}");
@@ -88,7 +90,7 @@ internal sealed class LlamaServerProcess
         List<string> args = [..arguments, "--host", "127.0.0.1", "--port", server.Port.ToString()];
         Log.Debug($"Start llama-server: {string.Join(' ', args)}");
 
-        server.Completion = Task.Run(() => server.RunAsync(executablePath, args, onProgress, lifetime.Token),
+        server.Completion = Task.Run(() => server.RunAsync(executablePath, args, environment, onProgress, lifetime.Token),
             CancellationToken.None);
 
         try
@@ -123,6 +125,7 @@ internal sealed class LlamaServerProcess
     private async Task RunAsync(
         string executablePath,
         IReadOnlyList<string> args,
+        IReadOnlyDictionary<string, string>? environment,
         Action<float>? onProgress,
         CancellationToken token)
     {
@@ -132,6 +135,8 @@ internal sealed class LlamaServerProcess
         {
             await foreach (CommandEvent cmdEvent in Cli.Wrap(executablePath)
                                .WithArguments(args)
+                               .WithEnvironmentVariables(environment?.ToDictionary(x => x.Key, x => (string?)x.Value) ??
+                                                         new Dictionary<string, string?>())
                                .WithValidation(CommandResultValidation.None)
                                .ListenAsync(token)
                                .ConfigureAwait(false))

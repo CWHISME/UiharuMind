@@ -33,4 +33,10 @@ public partial class RuntimeEngineSettingView : UserControl
         InitializeComponent();
         DataContext = viewModel;
     }
+
+    private void OnReleaseNotesClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is RuntimeEngineSettingData { EngineReleaseUrl: { } url })
+            _ = TopLevel.GetTopLevel(this)?.Launcher.LaunchUriAsync(new System.Uri(url));
+    }
 }

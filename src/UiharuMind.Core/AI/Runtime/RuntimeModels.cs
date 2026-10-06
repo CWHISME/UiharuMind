@@ -28,7 +28,7 @@ public sealed record RuntimeResolvedParameters(
     int UBatchSize,
     int GpuLayers,
     int Threads,
-    bool FlashAttention,
+    bool? FlashAttention,
     bool WasAdjusted,
     string AdjustmentReason,
     RuntimeParameterRequest Request = default,

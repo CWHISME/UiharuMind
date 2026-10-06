@@ -17,12 +17,10 @@
         <ItemsControl ItemsSource="{Binding RemoteVersions}">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <Border Margin="0,5"
-                            Padding="7"
-                            CornerRadius="7"
-                            BorderThickness="1"
-                            BorderBrush="{DynamicResource SemiGrey2}"
-                            Background="{DynamicResource SemiGrey0}">
+                    <!-- 行式列表：行间细分隔线，与获取模型的列表同一口径 -->
+                    <Border Padding="2,9"
+                            BorderThickness="0,0,0,1"
+                            BorderBrush="{DynamicResource SemiGrey1}">
                         <Grid RowDefinitions="Auto,Auto,Auto">
                             <Grid ColumnDefinitions="*,Auto"
                                   ColumnSpacing="6"

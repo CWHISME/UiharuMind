@@ -34,9 +34,14 @@ public class ModelRuntimeSettingConfig : TConfigBase<ModelRuntimeSettingConfig>
     [SettingConfigDesc("上下文长度", LanguageUtils.ChineseSimplified)]
     public int ContextSize { get; set; } = 0;
 
-    [SettingConfigDesc("GPU layers")]
-    [SettingConfigDesc("GPU 层数", LanguageUtils.ChineseSimplified)]
-    public int GpuLayers { get; set; } = 0;
+    /// <summary>
+    /// 卸载到 GPU 的层数：负数自动（交给 llama-server 按显存放），0 纯 CPU。
+    /// 换了 JSON 名：旧字段默认 0 等于强制纯 CPU，Metal/显卡都闲着，借换名让所有人回到自动
+    /// </summary>
+    [SettingConfigDesc("GPU layers. -1 means auto, 0 means CPU only.")]
+    [SettingConfigDesc("GPU 层数，-1 表示自动，0 表示纯 CPU。", LanguageUtils.ChineseSimplified)]
+    [JsonPropertyName("GpuOffloadLayers")]
+    public int GpuLayers { get; set; } = -1;
 
     [SettingConfigDesc("Logical batch size")]
     [SettingConfigDesc("逻辑批处理大小", LanguageUtils.ChineseSimplified)]
@@ -50,8 +55,12 @@ public class ModelRuntimeSettingConfig : TConfigBase<ModelRuntimeSettingConfig>
     [SettingConfigDesc("CPU 线程数，0 表示自动。", LanguageUtils.ChineseSimplified)]
     public int Threads { get; set; } = 0;
 
-    [SettingConfigDesc("Enable Flash Attention")]
-    [SettingConfigDesc("启用 Flash Attention", LanguageUtils.ChineseSimplified)]
-    [SettingConfigNoneValue]
-    public bool FlashAttention { get; set; } = false;
+    /// <summary>
+    /// Flash Attention：null 自动（llama-server 默认），true 开，false 关。
+    /// 旧字段是 bool 且 false 时本来就不传参数（即自动），换 JSON 名免得旧的 false 被读成「关」
+    /// </summary>
+    [SettingConfigDesc("Flash Attention. Empty means auto.")]
+    [SettingConfigDesc("Flash Attention，留空表示自动。", LanguageUtils.ChineseSimplified)]
+    [JsonPropertyName("FlashAttn")]
+    public bool? FlashAttention { get; set; }
 }

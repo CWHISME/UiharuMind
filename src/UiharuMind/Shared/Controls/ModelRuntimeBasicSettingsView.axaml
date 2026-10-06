@@ -167,8 +167,9 @@
                                    Classes="muted" />
                     </Grid>
 
+                    <!-- GPU 层数：自动 / 纯 CPU / 指定层数，指定时才出滑块 -->
                     <Grid RowDefinitions="Auto,Auto" RowSpacing="7">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                             <StackPanel Spacing="2">
                                 <TextBlock Text="{loc:Loc ModelRuntimeGpuLayers}" />
                                 <TextBlock Text="{loc:Loc ModelRuntimeGpuLayersDesc}"
@@ -177,15 +178,22 @@
                             </StackPanel>
                             <TextBox Grid.Column="1"
                                      Classes="runtime-number"
+                                     IsVisible="{Binding IsCustomGpuLayers}"
                                      Text="{Binding GpuLayers}" />
+                            <ComboBox Grid.Column="2"
+                                      Width="110"
+                                      VerticalAlignment="Center"
+                                      ItemsSource="{Binding GpuLayerModeOptions}"
+                                      SelectedItem="{Binding SelectedGpuLayerMode}"
+                                      DisplayMemberBinding="{ReflectionBinding DisplayName}" />
                         </Grid>
                         <Slider Grid.Row="1"
                                 Classes="runtime-slider"
-                                Minimum="0"
+                                Minimum="1"
                                 Maximum="{Binding MaxGpuLayers}"
+                                IsVisible="{Binding IsCustomGpuLayers}"
                                 Value="{Binding GpuLayers}" />
                     </Grid>
-
                     <ToggleSwitch Content="{loc:Loc ModelRuntimeShowAdvancedSettings}"
                                   IsChecked="{Binding ShowAdvancedSettings}" />
 
@@ -213,9 +221,13 @@
                             </StackPanel>
                             <TextBox Grid.Column="1" Classes="runtime-number" Text="{Binding Threads}" />
                         </Grid>
-                        <CheckBox Grid.Row="3"
-                                  Content="{loc:Loc ModelRuntimeFlashAttention}"
-                                  IsChecked="{Binding FlashAttention}" />
+                        <Grid Grid.Row="3" ColumnDefinitions="*,110" ColumnSpacing="10">
+                            <TextBlock Text="{loc:Loc ModelRuntimeFlashAttention}" VerticalAlignment="Center" />
+                            <ComboBox Grid.Column="1"
+                                      ItemsSource="{Binding FlashAttentionOptions}"
+                                      SelectedItem="{Binding SelectedFlashAttention}"
+                                      DisplayMemberBinding="{ReflectionBinding DisplayName}" />
+                        </Grid>
                     </Grid>
                 </StackPanel>
             </ScrollViewer>

@@ -32,6 +32,11 @@ public class LLamaCppSettingConfig : TConfigBase<LLamaCppSettingConfig>
     public string? LLamaCppPath { get; set; }
 
     public string? SelectedRuntimeVersion { get; set; }
+
+    /// <summary>
+    /// llama-server 专有的启动选项
+    /// </summary>
+    public LLamaCppServerOptions Server { get; set; } = new();
     
     public string? GetExeLookupStatsPath(string? executablePath)
     {

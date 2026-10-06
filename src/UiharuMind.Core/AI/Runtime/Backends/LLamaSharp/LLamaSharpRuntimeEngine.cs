@@ -51,7 +51,7 @@ public sealed class LLamaSharpRuntimeEngine
             BatchSize = (uint)parameters.BatchSize,
             UBatchSize = (uint)parameters.UBatchSize,
             Threads = parameters.Threads <= 0 ? null : parameters.Threads,
-            FlashAttention = parameters.FlashAttention
+            FlashAttention = parameters.FlashAttention == true
         };
 
         using LLamaWeights weights = await LLamaWeights

@@ -645,28 +645,28 @@
         <value>GPU 层数</value>
     </data>
     <data name="ModelRuntimeGpuLayersDesc" xml:space="preserve">
-        <value>卸载到 GPU 的层数。设置为 0 表示纯 CPU 运行。</value>
+        <value>放到 GPU 上的层数。自动：交给 llama-server 按显存决定；纯 CPU：不用显卡。</value>
     </data>
     <data name="ModelRuntimeBatchSize" xml:space="preserve">
         <value>批处理</value>
     </data>
     <data name="ModelRuntimeBatchSizeDesc" xml:space="preserve">
-        <value>评估时使用的逻辑批处理大小。0 表示自动。</value>
+        <value>处理提示词的逻辑批大小。0 表示自动（2048）。</value>
     </data>
     <data name="ModelRuntimeUBatchSize" xml:space="preserve">
         <value>物理批处理</value>
     </data>
     <data name="ModelRuntimeUBatchSizeDesc" xml:space="preserve">
-        <value>物理批处理大小。0 表示自动。后端提示 batch/input too large 时可优先降低。</value>
+        <value>物理批大小。0 表示自动（512）。后端提示 batch/input too large 时可优先降低。</value>
     </data>
     <data name="ModelRuntimeThreads" xml:space="preserve">
         <value>CPU 线程</value>
     </data>
     <data name="ModelRuntimeThreadsDesc" xml:space="preserve">
-        <value>0 表示由后端自动选择。</value>
+        <value>生成时用的 CPU 线程数。0 表示交给 llama-server 决定。</value>
     </data>
     <data name="ModelRuntimeFlashAttention" xml:space="preserve">
-        <value>启用 Flash Attention</value>
+        <value>Flash Attention</value>
     </data>
     <data name="ModelRuntimeQuickSettings" xml:space="preserve">
         <value>本地运行设置</value>
@@ -3929,5 +3929,188 @@
     </data>
     <data name="ModelDownloadReadmeFailed" xml:space="preserve">
         <value>说明加载失败：{0}</value>
+    </data>
+    <data name="ModelRuntimeGpuLayersAuto" xml:space="preserve">
+        <value>自动</value>
+    </data>
+    <data name="ModelRuntimeGpuLayersCpu" xml:space="preserve">
+        <value>纯 CPU</value>
+    </data>
+    <data name="ModelRuntimeGpuLayersCustom" xml:space="preserve">
+        <value>指定层数</value>
+    </data>
+    <data name="ModelRuntimeOptionAuto" xml:space="preserve">
+        <value>自动</value>
+    </data>
+    <data name="ModelRuntimeOptionOn" xml:space="preserve">
+        <value>开</value>
+    </data>
+    <data name="ModelRuntimeOptionOff" xml:space="preserve">
+        <value>关</value>
+    </data>
+    <data name="LLamaCppDefaultSuffix" xml:space="preserve">
+        <value>{0}（默认）</value>
+    </data>
+    <data name="LLamaCppReleaseNotes" xml:space="preserve">
+        <value>发布说明</value>
+    </data>
+    <data name="LLamaCppVersion" xml:space="preserve">
+        <value>引擎版本</value>
+    </data>
+    <data name="LLamaCppVersionDesc" xml:space="preserve">
+        <value>下次加载模型时使用的 llama.cpp 构建。</value>
+    </data>
+    <data name="LLamaCppUpdateResult" xml:space="preserve">
+        <value>最新版本说明</value>
+    </data>
+    <data name="LLamaCppNoEngine" xml:space="preserve">
+        <value>未安装</value>
+    </data>
+    <data name="LLamaCppSectionCommon" xml:space="preserve">
+        <value>常用参数</value>
+    </data>
+    <data name="LLamaCppSectionCommonDesc" xml:space="preserve">
+        <value>改动在下次加载模型时生效。留作自动的项由 llama-server 按这台机器决定。</value>
+    </data>
+    <data name="LLamaCppFlashAttentionDesc" xml:space="preserve">
+        <value>更快、更省内存的注意力计算。自动：模型和设备支持时开启。</value>
+    </data>
+    <data name="LLamaCppFit" xml:space="preserve">
+        <value>按内存自动适配</value>
+    </data>
+    <data name="LLamaCppFitDesc" xml:space="preserve">
+        <value>由 llama-server 调整留作自动的项（如 GPU 层数），让模型放得进设备内存。</value>
+    </data>
+    <data name="LLamaCppSectionPerformance" xml:space="preserve">
+        <value>性能</value>
+    </data>
+    <data name="LLamaCppThreadsBatch" xml:space="preserve">
+        <value>提示词处理线程</value>
+    </data>
+    <data name="LLamaCppThreadsBatchDesc" xml:space="preserve">
+        <value>读取提示词时用的线程数。0 表示与生成线程相同。</value>
+    </data>
+    <data name="LLamaCppParallel" xml:space="preserve">
+        <value>并行槽位</value>
+    </data>
+    <data name="LLamaCppParallelDesc" xml:space="preserve">
+        <value>服务同时处理的请求数。0 表示交给 llama-server 决定；各槽位分用上下文。</value>
+    </data>
+    <data name="LLamaCppContinuousBatching" xml:space="preserve">
+        <value>连续批处理</value>
+    </data>
+    <data name="LLamaCppContinuousBatchingDesc" xml:space="preserve">
+        <value>把并发请求拼进同一批处理，一般保持开启。</value>
+    </data>
+    <data name="LLamaCppSectionMemory" xml:space="preserve">
+        <value>内存与缓存</value>
+    </data>
+    <data name="LLamaCppCacheTypeK" xml:space="preserve">
+        <value>KV 缓存类型（K）</value>
+    </data>
+    <data name="LLamaCppCacheTypeV" xml:space="preserve">
+        <value>KV 缓存类型（V）</value>
+    </data>
+    <data name="LLamaCppCacheTypeDesc" xml:space="preserve">
+        <value>q8_0 等量化类型可让上下文占用减半左右，质量略有损失。</value>
+    </data>
+    <data name="LLamaCppCpuMoe" xml:space="preserve">
+        <value>MoE 专家层放 CPU</value>
+    </data>
+    <data name="LLamaCppCpuMoeDesc" xml:space="preserve">
+        <value>前 N 层的专家权重留在内存，让大的 MoE 模型在显存不足时也放得下。</value>
+    </data>
+    <data name="LLamaCppNoKvOffload" xml:space="preserve">
+        <value>KV 缓存不放显存</value>
+    </data>
+    <data name="LLamaCppNoKvOffloadDesc" xml:space="preserve">
+        <value>省显存，但会变慢。</value>
+    </data>
+    <data name="LLamaCppCacheRam" xml:space="preserve">
+        <value>提示词缓存上限（MiB）</value>
+    </data>
+    <data name="LLamaCppCacheRamDesc" xml:space="preserve">
+        <value>留给复用先前提示词的内存。-1 不限，0 关闭。</value>
+    </data>
+    <data name="LLamaCppCacheReuse" xml:space="preserve">
+        <value>缓存复用最小块</value>
+    </data>
+    <data name="LLamaCppCacheReuseDesc" xml:space="preserve">
+        <value>按平移复用缓存时最少匹配的 token 数。0 关闭。</value>
+    </data>
+    <data name="LLamaCppContextShift" xml:space="preserve">
+        <value>上下文平移</value>
+    </data>
+    <data name="LLamaCppContextShiftDesc" xml:space="preserve">
+        <value>上下文满了时丢掉最早的内容继续生成，而不是停下。</value>
+    </data>
+    <data name="LLamaCppSwaFull" xml:space="preserve">
+        <value>滑动窗口完整缓存</value>
+    </data>
+    <data name="LLamaCppSwaFullDesc" xml:space="preserve">
+        <value>给滑动窗口注意力的模型（如 Gemma）用完整大小的缓存。若它们反复重读整段提示词就打开。</value>
+    </data>
+    <data name="LLamaCppSectionAdvanced" xml:space="preserve">
+        <value>高级</value>
+    </data>
+    <data name="LLamaCppFitTarget" xml:space="preserve">
+        <value>适配余量（MiB）</value>
+    </data>
+    <data name="LLamaCppFitTargetDesc" xml:space="preserve">
+        <value>按内存自动适配时，每个设备留出的空余。</value>
+    </data>
+    <data name="LLamaCppLoadTimeout" xml:space="preserve">
+        <value>加载超时（秒）</value>
+    </data>
+    <data name="LLamaCppLoadTimeoutDesc" xml:space="preserve">
+        <value>超过这个时间还没就绪就放弃。大模型首次加载可能要几分钟。</value>
+    </data>
+    <data name="LLamaCppEnvironment" xml:space="preserve">
+        <value>环境变量</value>
+    </data>
+    <data name="LLamaCppEnvironmentDesc" xml:space="preserve">
+        <value>传给 llama-server 的额外变量，KEY=VALUE，用分号分隔。</value>
+    </data>
+    <data name="LLamaCppExtraArgs" xml:space="preserve">
+        <value>额外启动参数</value>
+    </data>
+    <data name="LLamaCppExtraArgsDesc" xml:space="preserve">
+        <value>启动 llama-server 时追加在最后，与上面的设置冲突时以它为准。</value>
+    </data>
+    <data name="LLamaCppResetAll" xml:space="preserve">
+        <value>恢复默认</value>
+    </data>
+    <data name="LLamaCppResetAllDesc" xml:space="preserve">
+        <value>把本页的参数全部恢复默认（不含引擎版本与下载源）。</value>
+    </data>
+    <data name="LLamaCppResetAllButton" xml:space="preserve">
+        <value>恢复默认</value>
+    </data>
+    <data name="LLamaCppResetAllConfirm" xml:space="preserve">
+        <value>确定把本地模型的参数全部恢复默认吗？</value>
+    </data>
+    <data name="LLamaCppLoadMode" xml:space="preserve">
+        <value>加载方式</value>
+    </data>
+    <data name="LLamaCppLoadModeDesc" xml:space="preserve">
+        <value>模型文件怎么进内存。锁定可防止被换出；全部读入加载更慢。</value>
+    </data>
+    <data name="LLamaCppLoadMode_auto" xml:space="preserve">
+        <value>自动（默认）</value>
+    </data>
+    <data name="LLamaCppLoadMode_mmap" xml:space="preserve">
+        <value>内存映射</value>
+    </data>
+    <data name="LLamaCppLoadMode_mmap_mlock" xml:space="preserve">
+        <value>内存映射并锁定</value>
+    </data>
+    <data name="LLamaCppLoadMode_mlock" xml:space="preserve">
+        <value>全部读入并锁定</value>
+    </data>
+    <data name="LLamaCppLoadMode_none" xml:space="preserve">
+        <value>全部读入</value>
+    </data>
+    <data name="LLamaCppLoadMode_dio" xml:space="preserve">
+        <value>直接读盘（DirectIO）</value>
     </data>
 </root>

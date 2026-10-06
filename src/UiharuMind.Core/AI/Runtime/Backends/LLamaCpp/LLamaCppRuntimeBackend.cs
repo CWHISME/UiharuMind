@@ -39,8 +39,8 @@ internal sealed class LLamaCppRuntimeBackend(
     public RuntimeParameterPolicy CreateParameterPolicy(ModelRuntimeSettingConfig settings)
     {
         return new RuntimeParameterPolicy(
-            settings.GpuLayers <= 0 ? RuntimeDeviceMode.Cpu : RuntimeDeviceMode.Auto,
-            settings.GpuLayers > 0,
+            settings.GpuLayers == 0 ? RuntimeDeviceMode.Cpu : RuntimeDeviceMode.Auto,
+            settings.GpuLayers != 0,
             false);
     }
 

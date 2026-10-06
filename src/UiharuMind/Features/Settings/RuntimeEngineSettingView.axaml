@@ -6,7 +6,7 @@
              xmlns:settings="clr-namespace:UiharuMind.Features.Settings"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
-             mc:Ignorable="d" d:DesignWidth="820" d:DesignHeight="620"
+             mc:Ignorable="d" d:DesignWidth="820" d:DesignHeight="900"
              x:Class="UiharuMind.Features.Settings.RuntimeEngineSettingView"
              x:DataType="settingViewData:RuntimeEngineSettingData">
 
@@ -14,71 +14,294 @@
         <settingViewData:RuntimeEngineSettingData />
     </Design.DataContext>
 
-    <!-- 第一块不套 SettingsSection：控件自带一张卡，再套就是卡中卡（双描边 + 双标题）。
-         标题行手写成 15 + muted，与 SettingsSection 的节标题同口径 -->
-    <ScrollViewer controls:SettingsScrollMemory.ScrollKey="RuntimeEngineSetting"
-                   HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-        <!-- 卡片铺满内容区：不限 MaxWidth，宽窗下右侧不留空（与智能体页一致） -->
-        <StackPanel Spacing="22">
-            <StackPanel Spacing="8">
-                <StackPanel Spacing="4">
-                    <TextBlock FontSize="15"
-                               Text="{loc:Loc ModelRuntimeSectionTitle}"
-                               TextWrapping="Wrap" />
-                    <TextBlock Classes="muted"
-                               Text="{loc:Loc ModelRuntimeSectionDesc}"
-                               TextWrapping="Wrap" />
-                </StackPanel>
-                <!-- 高度不限制：内容全展开跟页面一起滚，不然底部提示会被内部 245px 视口裁掉 -->
-                <controls:ModelRuntimeBasicSettingsView DataContext="{Binding RuntimeSettings}"
-                                                        IsHeightLimited="False" />
-            </StackPanel>
+    <UserControl.Styles>
+        <!-- 数字与下拉统一宽度，整页右缘对齐 -->
+        <Style Selector="NumericUpDown.runtime-field">
+            <Setter Property="Width" Value="180" />
+            <Setter Property="FormatString" Value="0" />
+            <Setter Property="Increment" Value="1" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="ComboBox.runtime-field">
+            <Setter Property="Width" Value="180" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBox.runtime-field">
+            <Setter Property="Width" Value="300" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border.engine-badge">
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="6,1" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </UserControl.Styles>
 
+    <ScrollViewer controls:SettingsScrollMemory.ScrollKey="RuntimeEngineSetting"
+                  HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="22">
+            <!-- 引擎：当前用的哪个版本一眼看到（报加载失败时得说得清是哪个 llama.cpp），下面是版本管理 -->
             <controls:SettingsSection Header="{loc:Loc ModelRuntimeLLamaCppTitle}"
                                       Description="{loc:Loc ModelRuntimeLLamaCppDesc}">
                 <controls:SettingsSection.Body>
-                    <StackPanel Spacing="12">
-                        <!-- 版本选择 + 目录/检查更新：操作行，不进设置行口径。
-                             两行摆：选择框独占一行自适应，按钮另起一行，窄窗下互不挤 -->
-                        <StackPanel Spacing="10">
-                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" VerticalAlignment="Center">
-                                <TextBlock Text="{loc:Loc CurrentEngineTypeSetting}" VerticalAlignment="Center" />
-                                <ComboBox Grid.Column="1"
-                                          HorizontalAlignment="Stretch"
-                                          MinWidth="140"
-                                          ItemsSource="{Binding AvailableVersions}"
-                                          SelectedItem="{Binding SelectedVersion}">
+                    <StackPanel Spacing="10">
+                        <DockPanel Margin="0,4,0,2">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8"
+                                        VerticalAlignment="Center">
+                                <Button Classes="NoneStyle" Cursor="Hand" Padding="0" VerticalAlignment="Center"
+                                        IsVisible="{Binding EngineReleaseUrl, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                        Click="OnReleaseNotesClick">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <TextBlock Text="{loc:Loc LLamaCppReleaseNotes}" Classes="muted" FontSize="12"
+                                                   VerticalAlignment="Center" />
+                                        <controls:ThemedSvgIcon Width="12" Height="12" Opacity="0.6"
+                                                                IconName="square-arrow-out-up-right" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Content="{loc:Loc OpenDirectory}" Command="{Binding OpenFolderCommand}" />
+                                <Button Content="{loc:Loc CheckUpdate}" Command="{Binding UpdateRemoteVersionsCommand}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <controls:ThemedSvgIcon Width="18" Height="18" IconName="terminal" Opacity="0.7" />
+                                <TextBlock Text="llama.cpp" FontSize="15" FontWeight="SemiBold"
+                                           VerticalAlignment="Center" />
+                                <Border Classes="engine-badge">
+                                    <TextBlock Text="{Binding EngineVersionText}" Classes="mono" FontSize="12" />
+                                </Border>
+                                <Border Background="{DynamicResource SemiBlue5}" CornerRadius="9" Padding="7,1"
+                                        VerticalAlignment="Center" IsVisible="{Binding IsEngineRecommended}">
+                                    <TextBlock Text="{loc:Loc ModelDownloadRecommended}" FontSize="11"
+                                               Foreground="White" />
+                                </Border>
+                            </StackPanel>
+                        </DockPanel>
+
+                        <StackPanel Orientation="Horizontal" IsVisible="{Binding IsCheckingForUpdate}">
+                            <SpinnerIcon VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <TextBlock Text="{loc:Loc CheckingForUpdates}" VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <controls:SettingsRow Header="{loc:Loc LLamaCppVersion}"
+                                              Description="{loc:Loc LLamaCppVersionDesc}">
+                            <controls:SettingsRow.Field>
+                                <ComboBox Width="300" ItemsSource="{Binding AvailableVersions}"
+                                          SelectedItem="{Binding SelectedVersion}" VerticalAlignment="Center">
                                     <ComboBox.ItemTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                                         </DataTemplate>
                                     </ComboBox.ItemTemplate>
                                 </ComboBox>
-                            </Grid>
-                            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                                <Button Content="{loc:Loc OpenDirectory}"
-                                        Command="{Binding OpenFolderCommand}" />
-                                <Button Content="{loc:Loc CheckUpdate}"
-                                        Command="{Binding UpdateRemoteVersionsCommand}" />
-                                <StackPanel Orientation="Horizontal" IsVisible="{Binding IsCheckingForUpdate}">
-                                    <SpinnerIcon VerticalAlignment="Center" Margin="0,0,6,0" />
-                                    <TextBlock Text="{loc:Loc CheckingForUpdates}" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </StackPanel>
-                        </StackPanel>
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
 
-                        <!-- 更新结果原样摆出来：可选中复制，限高自滚 -->
-                        <Border BorderThickness="1"
-                                BorderBrush="{DynamicResource SemiGrey2}"
-                                Background="{DynamicResource SemiGrey0}"
-                                CornerRadius="7"
-                                IsVisible="{Binding UpdatedResutInfo,FallbackValue=True, TargetNullValue=False}">
-                            <ScrollViewer MaxHeight="160">
-                                <SelectableTextBlock Text="{Binding UpdatedResutInfo}" Margin="10" />
+                        <!-- 检查更新的结果（发布说明）默认收起：内容长，多数时候不需要看 -->
+                        <Expander Header="{loc:Loc LLamaCppUpdateResult}" HorizontalAlignment="Stretch"
+                                  IsVisible="{Binding UpdatedResutInfo, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <ScrollViewer MaxHeight="200">
+                                <SelectableTextBlock Text="{Binding UpdatedResutInfo}" TextWrapping="Wrap" Margin="4" />
                             </ScrollViewer>
-                        </Border>
+                        </Expander>
 
                         <settings:DownloadListView DataContext="{Binding RemoteDwnloadListViewModel}" />
+                    </StackPanel>
+                </controls:SettingsSection.Body>
+            </controls:SettingsSection>
+
+            <!-- 常用：大多数人只会动这几项 -->
+            <controls:SettingsSection Header="{loc:Loc LLamaCppSectionCommon}"
+                                      Description="{loc:Loc LLamaCppSectionCommonDesc}">
+                <controls:SettingsSection.Body>
+                    <StackPanel>
+                        <controls:SettingsRow Header="{loc:Loc ModelRuntimeContextSize}"
+                                              Description="{loc:Loc ModelRuntimeContextSizeDesc}">
+                            <controls:SettingsRow.Field>
+                                <NumericUpDown Classes="runtime-field" Minimum="0" Maximum="1048576" Increment="1024"
+                                               Value="{Binding RuntimeSettings.ContextSize}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc ModelRuntimeGpuLayers}"
+                                              Description="{loc:Loc ModelRuntimeGpuLayersDesc}">
+                            <controls:SettingsRow.Field>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <NumericUpDown Width="110" FormatString="0" Minimum="1" Maximum="999"
+                                                   VerticalAlignment="Center"
+                                                   IsVisible="{Binding RuntimeSettings.IsCustomGpuLayers}"
+                                                   Value="{Binding RuntimeSettings.GpuLayers}" />
+                                    <ComboBox Classes="runtime-field"
+                                              ItemsSource="{Binding RuntimeSettings.GpuLayerModeOptions}"
+                                              SelectedItem="{Binding RuntimeSettings.SelectedGpuLayerMode}"
+                                              DisplayMemberBinding="{ReflectionBinding DisplayName}">
+                                    </ComboBox>
+                                </StackPanel>
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc ModelRuntimeFlashAttention}"
+                                              Description="{loc:Loc LLamaCppFlashAttentionDesc}">
+                            <controls:SettingsRow.Field>
+                                <ComboBox Classes="runtime-field"
+                                          ItemsSource="{Binding RuntimeSettings.FlashAttentionOptions}"
+                                          SelectedItem="{Binding RuntimeSettings.SelectedFlashAttention}"
+                                          DisplayMemberBinding="{ReflectionBinding DisplayName}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc LLamaCppFit}" Description="{loc:Loc LLamaCppFitDesc}"
+                                              DividerVisible="False">
+                            <controls:SettingsRow.Field>
+                                <ToggleSwitch IsChecked="{Binding Server.Fit}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                    </StackPanel>
+                </controls:SettingsSection.Body>
+            </controls:SettingsSection>
+
+            <controls:SettingsSection Header="{loc:Loc LLamaCppSectionPerformance}">
+                <controls:SettingsSection.Body>
+                    <StackPanel>
+                        <controls:SettingsRow Header="{loc:Loc ModelRuntimeThreads}"
+                                              Description="{loc:Loc ModelRuntimeThreadsDesc}">
+                            <controls:SettingsRow.Field>
+                                <NumericUpDown Classes="runtime-field" Minimum="0" Maximum="512"
+                                               Value="{Binding RuntimeSettings.Threads}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc LLamaCppThreadsBatch}"
+                                              Description="{loc:Loc LLamaCppThreadsBatchDesc}">
+                            <controls:SettingsRow.Field>
+                                <NumericUpDown Classes="runtime-field" Minimum="0" Maximum="512"
+                                               Value="{Binding Server.ThreadsBatch}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc ModelRuntimeBatchSize}"
+                                              Description="{loc:Loc ModelRuntimeBatchSizeDesc}">
+                            <controls:SettingsRow.Field>
+                                <NumericUpDown Classes="runtime-field" Minimum="0" Maximum="65536" Increment="256"
+                                               Value="{Binding RuntimeSettings.BatchSize}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc ModelRuntimeUBatchSize}"
+                                              Description="{loc:Loc ModelRuntimeUBatchSizeDesc}">
+                            <controls:SettingsRow.Field>
+                                <NumericUpDown Classes="runtime-field" Minimum="0" Maximum="65536" Increment="128"
+                                               Value="{Binding RuntimeSettings.UBatchSize}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc LLamaCppParallel}" Description="{loc:Loc LLamaCppParallelDesc}">
+                            <controls:SettingsRow.Field>
+                                <NumericUpDown Classes="runtime-field" Minimum="0" Maximum="64"
+                                               Value="{Binding Server.Parallel}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc LLamaCppContinuousBatching}"
+                                              Description="{loc:Loc LLamaCppContinuousBatchingDesc}"
+                                              DividerVisible="False">
+                            <controls:SettingsRow.Field>
+                                <ToggleSwitch IsChecked="{Binding Server.ContinuousBatching}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                    </StackPanel>
+                </controls:SettingsSection.Body>
+            </controls:SettingsSection>
+
+            <controls:SettingsSection Header="{loc:Loc LLamaCppSectionMemory}">
+                <controls:SettingsSection.Body>
+                    <StackPanel>
+                        <controls:SettingsRow Header="{loc:Loc LLamaCppCacheTypeK}" Description="{loc:Loc LLamaCppCacheTypeDesc}">
+                            <controls:SettingsRow.Field>
+                                <ComboBox Classes="runtime-field" ItemsSource="{Binding Server.CacheTypeOptions}"
+                                          SelectedItem="{Binding Server.CacheTypeK}"
+                                          DisplayMemberBinding="{ReflectionBinding DisplayName}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc LLamaCppCacheTypeV}" Description="{loc:Loc LLamaCppCacheTypeDesc}">
+                            <controls:SettingsRow.Field>
+                                <ComboBox Classes="runtime-field" ItemsSource="{Binding Server.CacheTypeOptions}"
+                                          SelectedItem="{Binding Server.CacheTypeV}"
+                                          DisplayMemberBinding="{ReflectionBinding DisplayName}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc LLamaCppCpuMoe}" Description="{loc:Loc LLamaCppCpuMoeDesc}">
+                            <controls:SettingsRow.Field>
+                                <NumericUpDown Classes="runtime-field" Minimum="0" Maximum="999"
+                                               Value="{Binding Server.CpuMoeLayers}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc LLamaCppNoKvOffload}" Description="{loc:Loc LLamaCppNoKvOffloadDesc}">
+                            <controls:SettingsRow.Field>
+                                <ToggleSwitch IsChecked="{Binding Server.NoKvOffload}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc LLamaCppLoadMode}" Description="{loc:Loc LLamaCppLoadModeDesc}">
+                            <controls:SettingsRow.Field>
+                                <ComboBox Classes="runtime-field" ItemsSource="{Binding Server.LoadModeOptions}"
+                                          SelectedItem="{Binding Server.LoadMode}"
+                                          DisplayMemberBinding="{ReflectionBinding DisplayName}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc LLamaCppCacheRam}" Description="{loc:Loc LLamaCppCacheRamDesc}">
+                            <controls:SettingsRow.Field>
+                                <NumericUpDown Classes="runtime-field" Minimum="-1" Maximum="1048576" Increment="1024"
+                                               Value="{Binding Server.CacheRamMiB}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc LLamaCppCacheReuse}" Description="{loc:Loc LLamaCppCacheReuseDesc}">
+                            <controls:SettingsRow.Field>
+                                <NumericUpDown Classes="runtime-field" Minimum="0" Maximum="65536" Increment="64"
+                                               Value="{Binding Server.CacheReuse}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc LLamaCppContextShift}" Description="{loc:Loc LLamaCppContextShiftDesc}">
+                            <controls:SettingsRow.Field>
+                                <ToggleSwitch IsChecked="{Binding Server.ContextShift}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc LLamaCppSwaFull}" Description="{loc:Loc LLamaCppSwaFullDesc}"
+                                              DividerVisible="False">
+                            <controls:SettingsRow.Field>
+                                <ToggleSwitch IsChecked="{Binding Server.SwaFull}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                    </StackPanel>
+                </controls:SettingsSection.Body>
+            </controls:SettingsSection>
+
+            <controls:SettingsSection Header="{loc:Loc LLamaCppSectionAdvanced}">
+                <controls:SettingsSection.Body>
+                    <StackPanel>
+                        <controls:SettingsRow Header="{loc:Loc LLamaCppFitTarget}" Description="{loc:Loc LLamaCppFitTargetDesc}">
+                            <controls:SettingsRow.Field>
+                                <NumericUpDown Classes="runtime-field" Minimum="0" Maximum="65536" Increment="256"
+                                               IsEnabled="{Binding Server.Fit}"
+                                               Value="{Binding Server.FitTargetMiB}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc LLamaCppLoadTimeout}" Description="{loc:Loc LLamaCppLoadTimeoutDesc}">
+                            <controls:SettingsRow.Field>
+                                <NumericUpDown Classes="runtime-field" Minimum="30" Maximum="7200" Increment="30"
+                                               Value="{Binding Server.LoadTimeoutSeconds}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc LLamaCppEnvironment}" Description="{loc:Loc LLamaCppEnvironmentDesc}">
+                            <controls:SettingsRow.Field>
+                                <TextBox Classes="runtime-field" Text="{Binding Server.EnvironmentVariables}"
+                                         PlaceholderText="GGML_METAL_DEBUG=1; KEY=VALUE" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc LLamaCppExtraArgs}" Description="{loc:Loc LLamaCppExtraArgsDesc}">
+                            <controls:SettingsRow.Field>
+                                <TextBox Classes="runtime-field" Text="{Binding Server.ExtraArguments}"
+                                         PlaceholderText="--temp 0.7 --top-k 40" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc LLamaCppResetAll}" Description="{loc:Loc LLamaCppResetAllDesc}"
+                                              DividerVisible="False">
+                            <controls:SettingsRow.Field>
+                                <Button Content="{loc:Loc LLamaCppResetAllButton}" Command="{Binding ResetRuntimeSettingsCommand}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
                     </StackPanel>
                 </controls:SettingsSection.Body>
             </controls:SettingsSection>

@@ -24,7 +24,8 @@ public sealed record RuntimeParameterPolicy(
 public static class RuntimeParameterResolver
 {
     private const int FallbackContextSize = 4096;
-    private const int FallbackBatchSize = 512;
+    private const int DefaultBatchSize = 2048; //与 llama-server 默认一致
+    private const int DefaultUBatchSize = 512;
 
     public static RuntimeResolvedParameters Resolve(
         ModelRuntimeSettingConfig settings,
@@ -88,13 +89,11 @@ public static class RuntimeParameterResolver
 
     private static int ResolveAutoBatch(int contextSize, RuntimeParameterPolicy policy)
     {
-        int target = policy.DeviceMode == RuntimeDeviceMode.Cpu ? FallbackBatchSize : FallbackBatchSize / 2;
-        return Math.Clamp(target, 1, Math.Max(1, contextSize));
+        return Math.Clamp(DefaultBatchSize, 1, Math.Max(1, contextSize));
     }
 
     private static int ResolveAutoUBatch(int batchSize, RuntimeParameterPolicy policy)
     {
-        int target = policy.DeviceMode == RuntimeDeviceMode.Cpu ? batchSize : Math.Min(batchSize, FallbackBatchSize / 2);
-        return Math.Clamp(target, 1, Math.Max(1, batchSize));
+        return Math.Clamp(DefaultUBatchSize, 1, Math.Max(1, batchSize));
     }
 }

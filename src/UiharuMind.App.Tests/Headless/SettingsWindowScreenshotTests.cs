@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.App.Tests.TestDoubles;
 using UiharuMind.Features.About;
 using UiharuMind.Features.Settings;
+using UiharuMind.Shared.Controls;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 
@@ -47,7 +48,7 @@ public class SettingsWindowScreenshotTests : IDisposable
             Capture(window, outDir, "general");
 
             ClickAndCapture(window, "RuntimeButton", outDir, "runtime");
-            AssertRuntimeSliderThumbsVisible(window);
+            AssertRuntimeSectionsRendered(window);
             ClickAndCapture(window, "AgentButton", outDir, "agent");
             ClickAndCapture(window, "QuickToolButton", outDir, "quicktool");
             ClickAndCapture(window, "ShortcutsButton", outDir, "shortcut");
@@ -110,80 +111,15 @@ public class SettingsWindowScreenshotTests : IDisposable
         Capture(window, outDir, pageName);
     }
 
-    private static void AssertRuntimeSliderThumbsVisible(SettingsWindow window)
+    // 本地模型页按 Jan 的口径分节：引擎卡 + 常用 / 性能 / 内存与缓存 / 高级 + 下载源，每节都得真渲染出来
+    private static void AssertRuntimeSectionsRendered(SettingsWindow window)
     {
-        // Aico 像素级打回：轨道在但 Thumb 没外观，图上只剩 4px 灰条。钉死：轨道行里必须有 >4px 的色块
-        List<Slider> sliders = window.GetVisualDescendants().OfType<Slider>().ToList();
-        Assert.True(sliders.Count == 2, "Runtime 页应有 2 个 Slider（上下文长度 / GPU 层数）");
-
-        using Bitmap frame = Avalonia.Headless.HeadlessWindowExtensions.CaptureRenderedFrame(window)
-            ?? throw new InvalidOperationException("CaptureRenderedFrame 返回空帧（Runtime 滑块检查）");
-        int stride = frame.PixelSize.Width * 4;
-        byte[] pixels = new byte[stride * frame.PixelSize.Height];
-        System.Runtime.InteropServices.GCHandle handle =
-            System.Runtime.InteropServices.GCHandle.Alloc(pixels, System.Runtime.InteropServices.GCHandleType.Pinned);
-        try
-        {
-            frame.CopyPixels(new PixelRect(0, 0, frame.PixelSize.Width, frame.PixelSize.Height),
-                handle.AddrOfPinnedObject(), pixels.Length, stride);
-        }
-        finally
-        {
-            handle.Free();
-        }
-
-        for (int i = 0; i < sliders.Count; i++)
-        {
-            Slider slider = sliders[i];
-            Point topLeft = slider.TranslatePoint(new Point(0, 0), window)
-                ?? throw new InvalidOperationException($"Slider[{i}] 不在窗口坐标内");
-            int x = (int)topLeft.X;
-            int y = (int)topLeft.Y;
-            int w = (int)slider.Bounds.Width;
-            int h = (int)slider.Bounds.Height;
-            int maxRun = MaxVerticalContentRun(pixels, frame.PixelSize.Width, x, y, w, h);
-            Assert.True(maxRun > 4,
-                $"Runtime Slider[{i}] 轨道行最高色块 {maxRun}px，应有 >4px（Thumb 没外观时只剩 4px 轨道）");
-        }
-    }
-
-    // 在 (x,y,w,h) 区域内量「与背景主色不同的像素」的纵向最长连续块；轨道 4px、Thumb 16px 时该值约 16
-    private static int MaxVerticalContentRun(byte[] pixels, int width, int x, int y, int w, int h)
-    {
-        int stride = width * 4;
-        // 背景主色：区域内 2px 采样众数（页面浅灰背景占绝大多数）
-        Dictionary<int, int> counts = new();
-        for (int yy = y; yy < y + h; yy += 2)
-        for (int xx = x; xx < x + w; xx += 2)
-        {
-            int off = yy * stride + xx * 4;
-            int key = (pixels[off] << 16) | (pixels[off + 1] << 8) | pixels[off + 2];
-            counts[key] = counts.GetValueOrDefault(key) + 1;
-        }
-        int bg = counts.MaxBy(kv => kv.Value).Key;
-        int br = (bg >> 16) & 0xFF, bgG = (bg >> 8) & 0xFF, bb = bg & 0xFF;
-
-        int best = 0;
-        for (int xx = x; xx < x + w; xx++)
-        {
-            int run = 0;
-            for (int yy = y; yy < y + h; yy++)
-            {
-                int off = yy * stride + xx * 4;
-                int diff = Math.Abs(pixels[off] - br) + Math.Abs(pixels[off + 1] - bgG) + Math.Abs(pixels[off + 2] - bb);
-                if (diff > 90)
-                {
-                    run++;
-                    best = Math.Max(best, run);
-                }
-                else
-                {
-                    run = 0;
-                }
-            }
-        }
-
-        return best;
+        List<SettingsSection> sections = window.GetVisualDescendants().OfType<SettingsSection>()
+            .Where(x => x.FindAncestorOfType<RuntimeEngineSettingView>() != null)
+            .ToList();
+        Assert.True(sections.Count >= 6, $"本地模型页应有至少 6 节，实际 {sections.Count}");
+        Assert.True(window.GetVisualDescendants().OfType<SettingsRow>()
+            .Count(x => x.FindAncestorOfType<RuntimeEngineSettingView>() != null) >= 20, "本地模型页的设置行少了");
     }
 
     private static void Capture(SettingsWindow window, string outDir, string pageName)

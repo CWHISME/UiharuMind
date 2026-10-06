@@ -652,28 +652,28 @@
         <value>GPU layers</value>
     </data>
     <data name="ModelRuntimeGpuLayersDesc" xml:space="preserve">
-        <value>Layers offloaded to GPU. Use 0 for CPU-only execution.</value>
+        <value>Layers placed on the GPU. Auto lets llama-server decide from available video memory; CPU only skips the GPU.</value>
     </data>
     <data name="ModelRuntimeBatchSize" xml:space="preserve">
         <value>Batch size</value>
     </data>
     <data name="ModelRuntimeBatchSizeDesc" xml:space="preserve">
-        <value>Logical batch size used during evaluation. 0 means Auto.</value>
+        <value>Logical batch size for processing prompts. 0 means Auto (2048).</value>
     </data>
     <data name="ModelRuntimeUBatchSize" xml:space="preserve">
         <value>Physical batch</value>
     </data>
     <data name="ModelRuntimeUBatchSizeDesc" xml:space="preserve">
-        <value>Physical batch size. 0 means Auto. Lower it when the backend reports batch/input too large.</value>
+        <value>Physical batch size. 0 means Auto (512). Lower it when the backend reports batch/input too large.</value>
     </data>
     <data name="ModelRuntimeThreads" xml:space="preserve">
         <value>CPU threads</value>
     </data>
     <data name="ModelRuntimeThreadsDesc" xml:space="preserve">
-        <value>0 lets the backend choose automatically.</value>
+        <value>CPU threads for generation. 0 lets llama-server choose.</value>
     </data>
     <data name="ModelRuntimeFlashAttention" xml:space="preserve">
-        <value>Enable Flash Attention</value>
+        <value>Flash Attention</value>
     </data>
     <data name="ModelRuntimeQuickSettings" xml:space="preserve">
         <value>Local runtime settings</value>
@@ -3936,5 +3936,188 @@ Allow them?</value>
     </data>
     <data name="ModelDownloadReadmeFailed" xml:space="preserve">
         <value>Could not load the description: {0}</value>
+    </data>
+    <data name="ModelRuntimeGpuLayersAuto" xml:space="preserve">
+        <value>Auto</value>
+    </data>
+    <data name="ModelRuntimeGpuLayersCpu" xml:space="preserve">
+        <value>CPU only</value>
+    </data>
+    <data name="ModelRuntimeGpuLayersCustom" xml:space="preserve">
+        <value>Set layers</value>
+    </data>
+    <data name="ModelRuntimeOptionAuto" xml:space="preserve">
+        <value>Auto</value>
+    </data>
+    <data name="ModelRuntimeOptionOn" xml:space="preserve">
+        <value>On</value>
+    </data>
+    <data name="ModelRuntimeOptionOff" xml:space="preserve">
+        <value>Off</value>
+    </data>
+    <data name="LLamaCppDefaultSuffix" xml:space="preserve">
+        <value>{0} (default)</value>
+    </data>
+    <data name="LLamaCppReleaseNotes" xml:space="preserve">
+        <value>Release notes</value>
+    </data>
+    <data name="LLamaCppVersion" xml:space="preserve">
+        <value>Engine version</value>
+    </data>
+    <data name="LLamaCppVersionDesc" xml:space="preserve">
+        <value>The llama.cpp build used the next time a model loads.</value>
+    </data>
+    <data name="LLamaCppUpdateResult" xml:space="preserve">
+        <value>Latest release notes</value>
+    </data>
+    <data name="LLamaCppNoEngine" xml:space="preserve">
+        <value>Not installed</value>
+    </data>
+    <data name="LLamaCppSectionCommon" xml:space="preserve">
+        <value>Common</value>
+    </data>
+    <data name="LLamaCppSectionCommonDesc" xml:space="preserve">
+        <value>Changes apply the next time a model loads. Settings left on Auto are decided by llama-server for this machine.</value>
+    </data>
+    <data name="LLamaCppFlashAttentionDesc" xml:space="preserve">
+        <value>Faster attention with less memory. Auto turns it on when the model and device support it.</value>
+    </data>
+    <data name="LLamaCppFit" xml:space="preserve">
+        <value>Fit to memory</value>
+    </data>
+    <data name="LLamaCppFitDesc" xml:space="preserve">
+        <value>Lets llama-server reduce settings left on Auto (such as GPU layers) so the model fits in device memory.</value>
+    </data>
+    <data name="LLamaCppSectionPerformance" xml:space="preserve">
+        <value>Performance</value>
+    </data>
+    <data name="LLamaCppThreadsBatch" xml:space="preserve">
+        <value>Prompt threads</value>
+    </data>
+    <data name="LLamaCppThreadsBatchDesc" xml:space="preserve">
+        <value>Threads for reading the prompt. 0 uses the same as generation.</value>
+    </data>
+    <data name="LLamaCppParallel" xml:space="preserve">
+        <value>Parallel slots</value>
+    </data>
+    <data name="LLamaCppParallelDesc" xml:space="preserve">
+        <value>How many requests the server handles at once. 0 lets llama-server decide; each slot shares the context.</value>
+    </data>
+    <data name="LLamaCppContinuousBatching" xml:space="preserve">
+        <value>Continuous batching</value>
+    </data>
+    <data name="LLamaCppContinuousBatchingDesc" xml:space="preserve">
+        <value>Mixes concurrent requests into the same batches. Usually leave on.</value>
+    </data>
+    <data name="LLamaCppSectionMemory" xml:space="preserve">
+        <value>Memory and cache</value>
+    </data>
+    <data name="LLamaCppCacheTypeK" xml:space="preserve">
+        <value>KV cache type (K)</value>
+    </data>
+    <data name="LLamaCppCacheTypeV" xml:space="preserve">
+        <value>KV cache type (V)</value>
+    </data>
+    <data name="LLamaCppCacheTypeDesc" xml:space="preserve">
+        <value>Quantized types such as q8_0 roughly halve context memory with a small quality cost.</value>
+    </data>
+    <data name="LLamaCppCpuMoe" xml:space="preserve">
+        <value>MoE layers on CPU</value>
+    </data>
+    <data name="LLamaCppCpuMoeDesc" xml:space="preserve">
+        <value>Keep the expert weights of the first N layers in system memory, so large MoE models fit in less video memory.</value>
+    </data>
+    <data name="LLamaCppNoKvOffload" xml:space="preserve">
+        <value>Keep KV cache in RAM</value>
+    </data>
+    <data name="LLamaCppNoKvOffloadDesc" xml:space="preserve">
+        <value>Saves video memory at the cost of speed.</value>
+    </data>
+    <data name="LLamaCppCacheRam" xml:space="preserve">
+        <value>Prompt cache limit (MiB)</value>
+    </data>
+    <data name="LLamaCppCacheRamDesc" xml:space="preserve">
+        <value>Memory kept for reusing earlier prompts. -1 is unlimited, 0 turns it off.</value>
+    </data>
+    <data name="LLamaCppCacheReuse" xml:space="preserve">
+        <value>Cache reuse chunk</value>
+    </data>
+    <data name="LLamaCppCacheReuseDesc" xml:space="preserve">
+        <value>Minimum matching chunk (tokens) to reuse from the cache by shifting. 0 turns it off.</value>
+    </data>
+    <data name="LLamaCppContextShift" xml:space="preserve">
+        <value>Context shift</value>
+    </data>
+    <data name="LLamaCppContextShiftDesc" xml:space="preserve">
+        <value>When the context is full, drop the oldest text and keep generating instead of stopping.</value>
+    </data>
+    <data name="LLamaCppSwaFull" xml:space="preserve">
+        <value>Full SWA cache</value>
+    </data>
+    <data name="LLamaCppSwaFullDesc" xml:space="preserve">
+        <value>Use a full-size cache for sliding-window models (such as Gemma). Turn on if they keep re-reading the whole prompt.</value>
+    </data>
+    <data name="LLamaCppSectionAdvanced" xml:space="preserve">
+        <value>Advanced</value>
+    </data>
+    <data name="LLamaCppFitTarget" xml:space="preserve">
+        <value>Fit margin (MiB)</value>
+    </data>
+    <data name="LLamaCppFitTargetDesc" xml:space="preserve">
+        <value>Memory left free on each device when fitting to memory.</value>
+    </data>
+    <data name="LLamaCppLoadTimeout" xml:space="preserve">
+        <value>Load timeout (seconds)</value>
+    </data>
+    <data name="LLamaCppLoadTimeoutDesc" xml:space="preserve">
+        <value>Give up if the model is not ready in this time. Large models may need several minutes.</value>
+    </data>
+    <data name="LLamaCppEnvironment" xml:space="preserve">
+        <value>Environment variables</value>
+    </data>
+    <data name="LLamaCppEnvironmentDesc" xml:space="preserve">
+        <value>Extra variables for llama-server, KEY=VALUE separated by semicolons.</value>
+    </data>
+    <data name="LLamaCppExtraArgs" xml:space="preserve">
+        <value>Extra arguments</value>
+    </data>
+    <data name="LLamaCppExtraArgsDesc" xml:space="preserve">
+        <value>Appended last when starting llama-server; they win over the settings above.</value>
+    </data>
+    <data name="LLamaCppResetAll" xml:space="preserve">
+        <value>Restore defaults</value>
+    </data>
+    <data name="LLamaCppResetAllDesc" xml:space="preserve">
+        <value>Reset every parameter on this page (not the engine version or download sources).</value>
+    </data>
+    <data name="LLamaCppResetAllButton" xml:space="preserve">
+        <value>Restore</value>
+    </data>
+    <data name="LLamaCppResetAllConfirm" xml:space="preserve">
+        <value>Restore all local model parameters to their defaults?</value>
+    </data>
+    <data name="LLamaCppLoadMode" xml:space="preserve">
+        <value>Load mode</value>
+    </data>
+    <data name="LLamaCppLoadModeDesc" xml:space="preserve">
+        <value>How the model file is brought into memory. Locking keeps it from being swapped out; reading it whole loads slower.</value>
+    </data>
+    <data name="LLamaCppLoadMode_auto" xml:space="preserve">
+        <value>Auto (default)</value>
+    </data>
+    <data name="LLamaCppLoadMode_mmap" xml:space="preserve">
+        <value>Memory map</value>
+    </data>
+    <data name="LLamaCppLoadMode_mmap_mlock" xml:space="preserve">
+        <value>Memory map + lock</value>
+    </data>
+    <data name="LLamaCppLoadMode_mlock" xml:space="preserve">
+        <value>Read whole + lock</value>
+    </data>
+    <data name="LLamaCppLoadMode_none" xml:space="preserve">
+        <value>Read whole</value>
+    </data>
+    <data name="LLamaCppLoadMode_dio" xml:space="preserve">
+        <value>Direct I/O</value>
     </data>
 </root>

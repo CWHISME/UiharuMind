@@ -73,7 +73,7 @@ public class LlamaServerProcessTests : IDisposable
         };
         RuntimeResolvedParameters parameters = new(8192, 512, 256, 99, 0, true, false, "");
 
-        List<string> args = [..LLamaCppRuntimeService.BuildServerArgs(model, parameters)];
+        List<string> args = [..LLamaCppServerArgs.Build(model, parameters, new LLamaCppServerOptions())];
 
         Assert.Equal("My Model", args[args.IndexOf("--alias") + 1]);
         Assert.Equal("/models/mmproj F16.gguf", args[args.IndexOf("--mmproj") + 1]);

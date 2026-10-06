@@ -21,7 +21,6 @@ namespace UiharuMind.Core.AI.Runtime.Backends;
 
 internal sealed class LLamaCppRuntimeService
 {
-    private static readonly TimeSpan ChatReadyTimeout = TimeSpan.FromMinutes(10); // 大模型冷加载可能要几分钟
 
     private readonly LLamaCppVersionManager _llamaCppVersionManager = new();
     
@@ -89,9 +88,12 @@ internal sealed class LLamaCppRuntimeService
         if (string.IsNullOrEmpty(model.ModelPath))
             throw new LlamaServerException($"Model '{model.ModelName}' has no file path.");
 
-        string serverPath = LLamaCppSettingConfig.Current.GetExeServerPath(version.ExecutablePath) ?? "";
+        LLamaCppSettingConfig config = LLamaCppSettingConfig.Current;
+        string serverPath = config.GetExeServerPath(version.ExecutablePath) ?? "";
         LlamaServerProcess server = await LlamaServerProcess.StartAsync(
-                serverPath, BuildServerArgs(model, parameters), ChatReadyTimeout, onLoading, token)
+                serverPath, LLamaCppServerArgs.Build(model, parameters, config.Server),
+                TimeSpan.FromSeconds(Math.Max(30, config.Server.LoadTimeoutSeconds)), onLoading, token,
+                LLamaCppServerArgs.ParseEnvironment(config.Server.EnvironmentVariables))
             .ConfigureAwait(false);
         onLoadOver?.Invoke(OpenAICompatibleChatClient.Create(
             new OpenAICompatibleHttpHandler(port: server.Port), model, "UiharuMind", "None"));
@@ -114,34 +116,5 @@ internal sealed class LLamaCppRuntimeService
         string path = Path.Combine(enginePath, "LLamaCpp");
         if (!Directory.Exists(path)) Directory.CreateDirectory(path);
         return await _llamaCppVersionManager.GetLatestVersion(path).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// 对话服务参数（不含 host/port）
-    /// </summary>
-    internal static IReadOnlyList<string> BuildServerArgs(ILlmModel model, RuntimeResolvedParameters parameters)
-    {
-        List<string> args =
-        [
-            "-m", model.ModelPath,
-            "--no-webui",
-            "--alias", Path.GetFileNameWithoutExtension(model.ModelPath),
-            "-to", "0",
-            "-c", parameters.ContextSize.ToString(),
-            "-b", parameters.BatchSize.ToString(),
-            "-ub", parameters.UBatchSize.ToString(),
-            "-ngl", parameters.GpuLayers.ToString(),
-            // 用模型自带的聊天模板渲染，工具调用也靠它
-            "--jinja"
-        ];
-
-        if (model is GGufModelInfo { ModelProjPath: { Length: > 0 } projPath })
-            args.AddRange(["--mmproj", projPath]);
-        if (parameters.Threads > 0)
-            args.AddRange(["--threads", parameters.Threads.ToString()]);
-        if (parameters.FlashAttention)
-            args.AddRange(["--flash-attn", "on"]);
-
-        return args;
     }
 }
