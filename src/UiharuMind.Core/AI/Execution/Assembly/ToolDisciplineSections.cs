@@ -95,8 +95,8 @@ internal static class ToolDisciplineSections
 
         // 读、写同一段:段按 FileRead 出现,写那几条由 BuildFileOperations 只在写工具在场时附上。
         // 写工具在场蕴含读工具在场(主代理两者恒等;子代理 FileWrite = FileRead && canMutate),只判 FileRead 即可
-        list.Section(facts.FileRead, AgentPromptHeadings.FileOperations,
-            () => AgentToolPrompts.BuildFileOperations(facts.FileWrite));
+        // list.Section(facts.FileRead, AgentPromptHeadings.FileOperations,
+        //     () => AgentToolPrompts.BuildFileOperations(facts.FileWrite));
 
         // shell 曾是唯一挂了工具却零指示的能力,缺口的表现是模型拿 Write 重写全文去做一次 mv。
         // 「文件系统操作用 Shell」那句刻意不写进文件纪律段:shell 可以被关掉,
