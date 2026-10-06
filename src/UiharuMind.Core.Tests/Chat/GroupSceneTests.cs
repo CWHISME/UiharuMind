@@ -34,7 +34,7 @@ public class GroupSceneTests
         Assert.DoesNotContain("主持人", scene);
         Assert.DoesNotContain(GroupPostTool.ToolName, scene); //没这个工具就不提
         Assert.DoesNotContain("一轮怎么算", scene); //普通形态没工具，「过程话、查完再说」都无从谈起
-        Assert.Contains("不写成报告", scene);
+        Assert.Contains("不要长篇大论", scene); //尺度句：别把群里的话当成交付物写（ef7dde18 起的表述）
     }
 
     /// <summary>回复两种形态都是发言、「[沉默]」都是不接话；有群发言工具的多讲一条中途说话（ADR 0060 修订）</summary>
@@ -50,17 +50,20 @@ public class GroupSceneTests
         Assert.Equal(hasTool, scene.Contains("中途说话"));
     }
 
+    /// <summary>
+    /// 主持人信息只对主持人本人说：主持人自己收到主持句，非主持人不再被告知谁是主持人
+    /// （ef7dde18 收敛，注释掉「本群主持人是X」那支；测试同步到现状行为）
+    /// </summary>
     [Theory]
-    [InlineData("Alice", "你是本群主持人")]
-    [InlineData("Bob", "本群主持人是Bob")]
-    public void Scene_TellsWhoTheHostIs(string host, string expected)
+    [InlineData("Alice", true)]
+    [InlineData("Bob", false)]
+    public void Scene_TellsWhoTheHostIs(string host, bool isHost)
     {
         string scene = GroupTranscript.BuildScene(new GroupScene("会审", "Alice", [new GroupMemberPresence("Bob", "")], "我", true, host));
 
-        Assert.Contains(expected, scene);
+        Assert.Equal(isHost, scene.Contains("你是本群主持人"));
+        Assert.DoesNotContain("本群主持人是", scene); //else-if 那支已注释：主持人信息不点名给任何人
         Assert.Contains(GroupPostTool.ToolName, scene);
-        if (host == "Alice")
-            Assert.Contains("点完名这一轮就结束", scene); //主持人自己的收尾与查资料规矩只在场景段讲，不再随投递插一句
     }
 
     [Theory]
@@ -145,7 +148,7 @@ public class GroupSceneTests
         string scene = GroupSceneSource.For(alice, group, MemberOf(Characters), "我");
 
         Assert.Contains("我（用户）、Bob、Carol", scene);
-        Assert.Contains("本群主持人是Carol", scene);
+        Assert.DoesNotContain("本群主持人是", scene); //主持人信息只对主持人本人说(ef7dde18)，成员不被告知
     }
 
     [Fact]

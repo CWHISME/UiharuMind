@@ -88,7 +88,7 @@ public class GroupAvatarTests
 
         Assert.Contains("替黑猫坐着", scene);
         Assert.Contains("在场的成员有：Alice、Bob", scene);
-        Assert.Contains("本群主持人是Bob", scene);
+        Assert.DoesNotContain("本群主持人是", scene); //主持人信息只对主持人本人说(ef7dde18)，化身替用户坐着不被告知
         Assert.DoesNotContain("（用户）", scene); //它就是用户
         Assert.DoesNotContain(GroupPostTool.ToolName, scene);
     }
