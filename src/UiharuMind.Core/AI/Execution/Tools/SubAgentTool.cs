@@ -474,11 +474,10 @@ public static class SubAgentTool
 
         try
         {
-            // 同一轮里多次读 session.Runner 会拿到不同实例：前一轮 finally 释放后属性置 null、
-            // 新一轮惰性重建——Attach 与 Run 各读一次就可能在中间换实例，拿到个没挂接的新 runner
-            // （实机「尚未挂接会话」）。整轮只捕获一次，Attach/Run/总结共用同一实例。
-            ICharacterRunner runner = session.Runner;
-            await runner.AttachAsync(session, timeoutSource.Token).ConfigureAwait(false);
+            // 整轮同一实例：租约借出并挂接，Attach/Run/总结共用它——轮次中途的释放只延迟、不换实例
+            using ChatSession.RunnerLease lease = await session.AcquireRunnerAsync(timeoutSource.Token)
+                .ConfigureAwait(false);
+            ICharacterRunner runner = lease.Runner;
 
             using TurnDriver driver = new(turnSink, new TurnUsageLedger());
             // 令牌串的是本次委派自己的超时源。停止走 TurnDriver.CancelSession(子会话标识),

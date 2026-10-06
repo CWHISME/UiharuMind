@@ -91,6 +91,7 @@ public sealed class ConversationTurnRunner
         IsPreparing = true;
         _host.NotifyPreparingChanged();
         _prepareCancellation = new CancellationTokenSource();
+        CancellationToken prepareToken = _prepareCancellation.Token;
         ChatSession? session = null; //提到 try 外:装配被停时还要靠它把 userMessage 补回历史
         try
         {
@@ -105,8 +106,8 @@ public sealed class ConversationTurnRunner
             // 群成员会话的私聊与群轮投递共用同一把闸:群轮占着就叫停它、等它停稳(ADR 0063),两轮永不重叠。
             // 要在装配之前过:群轮整轮持着执行者的锁,先装配就会一直等在那把锁上,根本走不到叫停这一步
             using IDisposable memberGate = await GroupMemberTurnGate
-                .EnterAsync(_host.CurrentSessionId, _prepareCancellation.Token);
-            session = await _host.EnsureSessionAsync(titleSeed, _prepareCancellation.Token);
+                .EnterAsync(_host.CurrentSessionId, prepareToken);
+            session = await _host.EnsureSessionAsync(titleSeed, prepareToken);
             _host.OnSessionEnsured();
 
             // 子会话与后台轮共用同一把串行闸（后台那轮整轮持有：跑+交回）：用户在子会话窗口
@@ -115,13 +116,18 @@ public sealed class ConversationTurnRunner
             // 主会话不过闸（它的后台轮另走 TryBeginRun 抢占）。
             using IDisposable? turnGate = await BackgroundSubAgentDispatcher
                 .EnterSubSessionTurnGateAsync(session.SessionId).ConfigureAwait(false);
+            // 整轮同一实例：Attach 与 Run 共用租约里的那一个，后台轮收尾的释放只延迟、不换实例。
+            // 装配阶段 binder 已经 Attach 过一次，这里的再 Attach 是幂等复挂（快照比对短路），
+            // 两个都删不得：binder 那个丢了就没了 WatchBusy 前置挂载，租约这个丢了就重开双读竞态
+            using ChatSession.RunnerLease lease =
+                await session.AcquireRunnerAsync(prepareToken).ConfigureAwait(false);
             try
             {
-                await _driver.RunAsync(session, session.Runner, userMessage, ResolveApprovalsAsync);
+                await _driver.RunAsync(session, lease.Runner, userMessage, ResolveApprovalsAsync);
             }
             finally
             {
-                await WithdrawPrivateInjectionsAsync(session);
+                await WithdrawPrivateInjectionsAsync(session, lease.Runner);
             }
         }
         catch (OperationCanceledException)
@@ -146,18 +152,18 @@ public sealed class ConversationTurnRunner
 
     // 群成员会话：这一轮没被消费的私聊插话在放闸前撤掉。放闸可能当场接回群轮，用的是同一个执行者，
     // 留着会被群轮取走、回复进群。界面那份待发提示另由轮次结束时还回输入框
-    private static async Task WithdrawPrivateInjectionsAsync(ChatSession session)
+    private static async Task WithdrawPrivateInjectionsAsync(ChatSession session, ICharacterRunner runner)
     {
         if (!session.IsGroupMember) return;
 
-        List<ChatMessage> leftover = session.Runner.PendingInjections
+        List<ChatMessage> leftover = runner.PendingInjections
             .Where(ChatMessageAnnotations.IsGroupPrivate)
             .ToList();
         if (leftover.Count == 0) return;
 
         try
         {
-            await session.Runner.CancelInjectionsAsync(leftover).ConfigureAwait(false);
+            await runner.CancelInjectionsAsync(leftover).ConfigureAwait(false);
         }
         catch (Exception e)
         {

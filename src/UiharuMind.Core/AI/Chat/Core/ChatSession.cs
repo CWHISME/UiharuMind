@@ -20,6 +20,7 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Memory;
 using UiharuMind.Core.Core.Process;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.AI.Chat;
@@ -570,6 +571,9 @@ public class ChatSession
     private CharacterData? _characterData;
     private MemoryData? _memory;
     private ICharacterRunner? _runner;
+    private readonly object _runnerLock = new(); //守护 _runner、租借计数与延迟释放标记,字段操作从不跨 await
+    private int _runnerLeases; //正借出给轮次的租约数;归零且有延迟释放时才真正释放
+    private bool _runnerDisposeRequested; //租约持有期间有人要释放,等归零再动
 
     public ChatSession()
     {
@@ -735,19 +739,156 @@ public class ChatSession
     /// 本会话的<b>唯一</b>执行者（惰性创建）。页面、快捷技能、调度等一切入口都必须经它运行，
     /// 一个会话绝不允许有第二个执行者——它内部对同会话的并发请求排队。
     /// 普通角色与智能体共用它，由角色的 <see cref="CharacterData.IsAgent"/> 决定装配形态。
+    ///
+    /// 只读执行者状态（能力、用量估算、待发插话）走这里；<b>要跑一轮走
+    /// <see cref="AcquireRunnerAsync"/> 借租约</b>——直接读它再分开 Attach/Run 的话，
+    /// 中间的释放会把实例换掉，Run 拿到没挂接的新实例（「尚未挂接会话」）。
     /// </summary>
     [JsonIgnore]
-    public ICharacterRunner Runner => _runner ??= CharacterRunnerFactory.Instance.CreateRunner();
+    public ICharacterRunner Runner
+    {
+        get
+        {
+            lock (_runnerLock)
+            {
+                return _runner ??= CharacterRunnerFactory.Instance.CreateRunner();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 借出本会话的执行者并挂接好：Attach 与 Run 共用租约里的同一实例，
+    /// 轮次中途的释放只记延迟、不换实例——「尚未挂接会话」不再发生。
+    /// 租约释放归零时，若有延迟的释放会接着执行。
+    ///
+    /// 借了一定要释放（using）：枚举器丢弃而不 Dispose 会让计数永久泄漏，
+    /// 此后该会话的执行者永远只延迟、不释放。
+    /// </summary>
+    /// <param name="cancellationToken">挂接阶段的取消</param>
+    /// <returns>已挂接的执行者租约，轮次结束时释放</returns>
+    public async Task<RunnerLease> AcquireRunnerAsync(CancellationToken cancellationToken = default)
+    {
+        ICharacterRunner runner;
+        lock (_runnerLock)
+        {
+            runner = _runner ??= CharacterRunnerFactory.Instance.CreateRunner();
+            _runnerLeases++;
+        }
+
+        try
+        {
+            await runner.AttachAsync(this, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            ReleaseRunnerLease();
+            throw;
+        }
+
+        return new RunnerLease(this, runner);
+    }
+
+    /// <summary>
+    /// 一轮借出的执行者租约：Attach 与 Run 共用 <see cref="Runner"/> 里的同一实例。
+    /// 持有期间 <see cref="DisposeRunnerAsync"/> 只标记延迟释放，不换实例、不释放；
+    /// 轮次因此不受冷会话卸载、跨实例替换与删除的干扰。
+    /// </summary>
+    public sealed class RunnerLease : IDisposable
+    {
+        private readonly ChatSession _owner;
+        private int _released;
+
+        internal RunnerLease(ChatSession owner, ICharacterRunner runner)
+        {
+            _owner = owner;
+            Runner = runner;
+        }
+
+        /// <summary>借到的、已挂接的执行者；本轮的 Attach/Run/总结共用它</summary>
+        public ICharacterRunner Runner { get; }
+
+        /// <inheritdoc />
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _released, 1) != 0) return;
+            _owner.ReleaseRunnerLease();
+        }
+    }
 
     /// <summary>
     /// 释放本会话的执行者（若从未创建则无事发生）。会话被删除或从缓存卸载时调用；
     /// 之后再次访问 <see cref="Runner"/> 会重新惰性创建。
+    ///
+    /// 轮次持有租约时只标记延迟：实例不换、不释放，租约归零时再真正释放——
+    /// 进行中的轮次不受影响，它的那次落盘可能把刚删的文件重建出来（删忙拦截盖住界面入口，
+    /// 编程式删除需自行确认）。
     /// </summary>
     public async ValueTask DisposeRunnerAsync()
     {
-        ICharacterRunner? runner = _runner;
-        _runner = null;
+        ICharacterRunner? runner = null;
+        int deferredLeases = 0;
+        lock (_runnerLock)
+        {
+            if (_runnerLeases > 0)
+            {
+                _runnerDisposeRequested = true;
+                deferredLeases = _runnerLeases;
+            }
+            else
+            {
+                runner = _runner;
+                _runner = null;
+                _runnerDisposeRequested = false;
+            }
+        }
+
+        // 延迟分支打计数：枚举器被丢弃而不 Dispose 会让计数永久泄漏，届时这里是唯一痕迹
+        if (deferredLeases > 0)
+        {
+            Log.Debug($"Runner dispose deferred: session={SessionId} leases={deferredLeases}");
+            return;
+        }
+
         if (runner != null) await runner.DisposeAsync().ConfigureAwait(false);
+    }
+
+    private void ReleaseRunnerLease()
+    {
+        ICharacterRunner? deferred = null;
+        lock (_runnerLock)
+        {
+            if (_runnerLeases > 0) _runnerLeases--;
+            if (_runnerLeases == 0 && _runnerDisposeRequested)
+            {
+                deferred = _runner;
+                _runner = null;
+                _runnerDisposeRequested = false;
+            }
+        }
+
+        if (deferred == null) return;
+
+        // 同 SessionManager.DisposeRunner：同步流程不等待，后台尽力释放
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await deferred.DisposeAsync().ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                Log.Warning($"Dispose runner failed: {e.GetBaseException().Message}");
+            }
+        });
+    }
+
+    /// <summary>
+    /// 测试用：预置执行者，之后 <see cref="Runner"/> 与租约都认它。
+    /// </summary>
+    /// <param name="runner">预置的执行者</param>
+    internal void SetRunnerForTest(ICharacterRunner runner)
+    {
+        lock (_runnerLock) _runner = runner;
     }
 
     /// <summary>
@@ -768,13 +909,13 @@ public class ChatSession
             yield break;
         }
 
-        await Runner.AttachAsync(this, cancellationToken).ConfigureAwait(false);
+        using RunnerLease lease = await AcquireRunnerAsync(cancellationToken).ConfigureAwait(false);
 
         List<ChatMessage> turnInput = input == null ? [] : [input];
         StringBuilder finalText = StringBuilderPool.Get();
         try
         {
-            await foreach (AIContent content in Runner.RunAsync(turnInput, cancellationToken)
+            await foreach (AIContent content in lease.Runner.RunAsync(turnInput, cancellationToken)
                                .ConfigureAwait(false))
             {
                 // 只在本地累积一份正文用于取消时补存,对外透出的仍是增量

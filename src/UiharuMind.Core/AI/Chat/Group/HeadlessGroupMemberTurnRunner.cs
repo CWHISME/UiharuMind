@@ -35,7 +35,8 @@ public sealed class HeadlessGroupMemberTurnRunner : IGroupMemberTurnRunner
     public async Task<bool> RunAsync(ChatSession member, ChatMessage input, Func<Task>? onReplyFinishing,
         CancellationToken cancellationToken)
     {
-        await member.Runner.AttachAsync(member, cancellationToken).ConfigureAwait(false);
+        // 整轮同一实例：Attach 与 Run 共用租约里的那一个，用户私聊抢占/停止并发时也不换实例
+        using ChatSession.RunnerLease lease = await member.AcquireRunnerAsync(cancellationToken).ConfigureAwait(false);
 
         bool failed = false;
         using TurnDriver driver = new(null, new TurnUsageLedger(),
@@ -56,16 +57,16 @@ public sealed class HeadlessGroupMemberTurnRunner : IGroupMemberTurnRunner
             return await waitForUser(requests).ConfigureAwait(false);
         }
 
-        member.Runner.ReplyFinishing = onReplyFinishing == null ? null : _ => onReplyFinishing();
+        lease.Runner.ReplyFinishing = onReplyFinishing == null ? null : _ => onReplyFinishing();
         try
         {
             // 算有人看着：审批有人接（上面那条），他派出的子代理也照有人看着的口径跑
-            await driver.RunAsync(member, member.Runner, input, Resolver, cancellationToken, attended: true)
+            await driver.RunAsync(member, lease.Runner, input, Resolver, cancellationToken, attended: true)
                 .ConfigureAwait(false);
         }
         finally
         {
-            member.Runner.ReplyFinishing = null;
+            lease.Runner.ReplyFinishing = null;
         }
 
         return !failed && !cancellationToken.IsCancellationRequested;

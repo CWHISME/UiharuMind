@@ -198,7 +198,8 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
 
             NoteUnapprovedMcpServers(task, chatSession);
 
-            await chatSession.Runner.AttachAsync(chatSession).ConfigureAwait(false);
+            // 整轮同一实例：Attach 与 Run 共用租约里的那一个，退出/卸载并发时也不换实例
+            using ChatSession.RunnerLease lease = await chatSession.AcquireRunnerAsync().ConfigureAwait(false);
 
             // 与界面跑的是同一份编排:运行态登记(这个会话就在会话列表里,⏰ 前缀,用户看得见它在跑,
             // 也因此不会在跑的过程中被删除或清空历史)、取消收尾、交接文档一并到手。
@@ -209,7 +210,7 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
                 {
                     if (notice.Kind is ETurnNotice.Failed or ETurnNotice.Refused) failed = true;
                 });
-            await driver.RunAsync(chatSession, chatSession.Runner,
+            await driver.RunAsync(chatSession, lease.Runner,
                     new ChatMessage(ChatRole.User, task.Prompt), DenyUnauthorizedApprovals(task))
                 .ConfigureAwait(false);
 

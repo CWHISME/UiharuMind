@@ -70,8 +70,9 @@ public sealed class ConversationSessionBinder
         // agent 形态不发开场白（ADR 0043 决策 2）：编辑页连字段都藏了，创建入口也要同口径
         if (!isAgentForm && !string.IsNullOrEmpty(character.FirstGreeting)) created.AddNarration(character);
         SessionManager.Instance.Add(created);
-        WatchBusy(created.Runner); //必须在 AttachAsync 之前,预连就在它里面
-        await created.Runner.AttachAsync(created, cancellationToken);
+        ICharacterRunner runner = created.Runner;
+        WatchBusy(runner); //必须在 AttachAsync 之前,预连就在它里面
+        await runner.AttachAsync(created, cancellationToken);
         return created;
     }
 
@@ -98,8 +99,9 @@ public sealed class ConversationSessionBinder
         }
         // 回调要在 AttachAsync **之前**挂上:装配就发生在它里面,预连也在那儿,
         // 挂在后面的话第一次等待(恰好是唯一会等满十秒的那次)一声不响
-        WatchBusy(session.Runner);
-        await session.Runner.AttachAsync(session, cancellationToken);
+        ICharacterRunner runner = session.Runner;
+        WatchBusy(runner);
+        await runner.AttachAsync(session, cancellationToken);
         return session;
     }
 

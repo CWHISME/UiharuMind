@@ -80,13 +80,14 @@ public static class SessionWakeTurn
             }
 
             Log.Debug($"Wake turn started: session={sessionId} cause={cause} streak={streak}");
-            await session.Runner.AttachAsync(session).ConfigureAwait(false);
+            // 整轮同一实例：Attach 与 Run 共用租约里的那一个，轮次中途的释放只延迟、不换实例
+            using ChatSession.RunnerLease lease = await session.AcquireRunnerAsync().ConfigureAwait(false);
             using TurnDriver driver = new(null, new TurnUsageLedger());
             // 无头驱动(sink 为 null),但**审批有人接**——就是这个会话自己那个窗口。
             // 这两件事必须分开告诉 TurnDriver:按 sink 推的话,共享的执行者会被标成
             // 「没人看着」,于是这一轮里派出的子代理连审批通道都不建(见 TurnDriver 的 attended)
             ApprovalResolver? resolver = ApprovalSource?.Invoke(sessionId);
-            await driver.RunAsync(session, session.Runner, null, resolver, attended: resolver != null)
+            await driver.RunAsync(session, lease.Runner, null, resolver, attended: resolver != null)
                 .ConfigureAwait(false);
         }
         catch (Exception e)
