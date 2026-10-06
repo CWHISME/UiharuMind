@@ -522,7 +522,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 InputText = text;
             }, () => SessionCharacter,
             () => IsAgentSession, //技能只在 agent 形态会话开放（ADR 0050）
-            () => Group?.MentionTargets ?? []); //@ 补全只在群里有成员可点
+            () => Group?.MentionTargets ?? []); //@ 补全只在群里有成员可点;成员非空即群壳,/ 补全自行收起
         Interjections = new InterjectionQueueViewData(() => CurrentRunner, () => InputText, text => InputText = text,
             Tray.Attachments);
         _binder = new ConversationSessionBinder(NotifyBusyChanged);

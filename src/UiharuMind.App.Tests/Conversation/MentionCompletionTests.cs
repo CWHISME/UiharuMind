@@ -93,4 +93,23 @@ public class MentionCompletionTests
         await palette.RefreshAsync("@初春", 3);
         Assert.True(palette.IsPickerOpen);
     }
+
+    /// <summary>
+    /// 群壳的 / 补全全是死候选:发送路径在技能/命令解析之前就分流成群发言(见 SendCoreAsync 的群分支),
+    /// 技能正文与 /compact 都不会被执行——补全就不该再弹它们,群里只留 @ 成员
+    /// </summary>
+    [Fact]
+    public async Task GroupPalette_DoesNotOfferSlashCommands_ButKeepsMentions()
+    {
+        CommandPaletteViewData palette = new((_, _) => { }, () => new CharacterData(), () => true, () => Members);
+
+        await palette.RefreshAsync("/comp", 5);
+        Assert.False(palette.IsPickerOpen);
+
+        await palette.RefreshAsync("/技能名 帮我看看", 7);
+        Assert.False(palette.IsPickerOpen);
+
+        await palette.RefreshAsync("@初", 2);
+        Assert.True(palette.IsPickerOpen);
+    }
 }

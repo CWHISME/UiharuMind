@@ -79,14 +79,19 @@ public partial class CommandPaletteViewData : ObservableObject
     /// <param name="setInputText">把输入框内容替换成给定文本，并告知光标该落在哪（先记光标再写文本，免得写文本触发的刷新拿旧光标又弹出来）</param>
     /// <param name="character">取当前会话的角色(尚无会话时是新建会话将使用的那个)</param>
     /// <param name="isAgentSession">当前会话是否 agent 形态（ADR 0050：chat 形态即使挂着 agent 卡也没有技能）</param>
-    /// <param name="groupMembers">当前群的成员（<c>@</c> 补全用）；不是群为空，省略即不开 @ 补全</param>
+    /// <param name="groupMembers">当前群的成员（<c>@</c> 补全用）；不是群为空，省略即不开 @ 补全。
+    /// 成员非空同时就是「这是群壳」的判据——建群保证至少一名成员，非群恒空——
+    /// 群壳的发送路径在技能/命令解析之前就分流成群发言，敲 / 弹出来的技能与内置命令全是死候选，
+    /// 所以 / 补全(技能+内置命令)只在成员为空时挂</param>
     public CommandPaletteViewData(Action<string, int> setInputText, Func<CharacterData> character,
         Func<bool> isAgentSession, Func<IEnumerable<MentionTarget>>? groupMembers = null)
     {
         _setInputText = setInputText;
         _character = character;
         _isAgentSession = isAgentSession;
-        List<ICompletionSource> sources = [new SkillCompletionSource(character, isAgentSession)];
+        // / 补全(技能+内置命令)由 SkillCompletionSource 自己认群壳:见它的 TryMatch。
+        // 判断必须惰性——群壳与否随会话切换变,不能在这里定死一次
+        List<ICompletionSource> sources = [new SkillCompletionSource(character, isAgentSession, groupMembers)];
         if (groupMembers != null) sources.Add(new MentionCompletionSource(groupMembers));
         _sources = sources;
     }

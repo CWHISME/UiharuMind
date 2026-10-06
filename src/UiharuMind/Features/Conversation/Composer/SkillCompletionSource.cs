@@ -16,6 +16,7 @@ public sealed class SkillCompletionSource : ICompletionSource
 {
     private readonly Func<CharacterData> _character;
     private readonly Func<bool> _isAgentSession;
+    private readonly Func<IEnumerable<MentionTarget>>? _groupMembers; //成员非空即群壳:群里的 / 是死路
     private List<SkillCatalogEntry>? _cache; //一次点名期间复用,不每敲一个字读盘
 
     /// <summary>
@@ -23,16 +24,20 @@ public sealed class SkillCompletionSource : ICompletionSource
     /// </summary>
     /// <param name="character">取当前会话的角色（读它禁用了哪些技能）</param>
     /// <param name="isAgentSession">当前会话是否 agent 形态（chat 形态没有技能，只剩内置命令）</param>
-    public SkillCompletionSource(Func<CharacterData> character, Func<bool> isAgentSession)
+    /// <param name="groupMembers">当前群的成员；有成员即群壳，整个源不匹配（群里 / 全是死候选）</param>
+    public SkillCompletionSource(Func<CharacterData> character, Func<bool> isAgentSession,
+        Func<IEnumerable<MentionTarget>>? groupMembers = null)
     {
         _character = character;
         _isAgentSession = isAgentSession;
+        _groupMembers = groupMembers;
     }
 
     public bool TryMatch(string text, int caret, out CompletionMatch match)
     {
         // 与光标无关：点名只认整行，采纳也换整行
         match = default;
+        if (_groupMembers?.Invoke().Any() == true) return false; //群壳的 / 是死路,整条不弹
         if (!SkillInvocation.TryParsePrefix(text, out string prefix)) return false;
 
         match = new CompletionMatch(0, text.Length, prefix);

@@ -133,6 +133,20 @@ public class CommandPaletteViewDataTests
         Assert.Equal(0, palette.CandidateIndex); //往下越过末尾,绕回头部
     }
 
+    /// <summary>
+    /// 单聊(不传群壳标记)的 / 补全必须照常弹:技能与 /compact 在单聊都有效,
+    /// 群壳判定不能把非群误伤成"没有 /"——那正是修群壳死候选时踩过的坑
+    /// </summary>
+    [Fact]
+    public async Task Refresh_OpensSlashCompletion_OutsideGroup()
+    {
+        CommandPaletteViewData palette = CreatePalette(_ => { });
+
+        await palette.RefreshAsync("/comp", 5);
+        Assert.True(palette.IsPickerOpen);
+        Assert.Contains(palette.Candidates, x => x.Label == "/compact");
+    }
+
     /// <param name="setInputText">输入框写回</param>
     /// <returns>命令面板</returns>
     private static CommandPaletteViewData CreatePalette(Action<string> setInputText)
