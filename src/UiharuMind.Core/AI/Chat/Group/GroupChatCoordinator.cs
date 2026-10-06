@@ -20,6 +20,7 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
     private readonly IGroupMemberTurnRunner _runner;
     private readonly Func<string, ChatSession?> _load;
     private readonly Func<ChatSession, bool> _seesImages; //成员此刻的模型能不能看图：看得了才转交群里的图
+    private readonly Func<TimeSpan, Task> _delay; //私聊后接回等一会：测试换成假的，由测试决定什么时候到点
     private readonly object _locker = new();
     private readonly Dictionary<string, Episode> _episodes = new(); //群 → 正在跑的那一波
     private readonly HashSet<string> _interrupted = new(); //群里那一轮被停或失败的成员：投递已交给他，没新话也要能接着做
@@ -34,12 +35,14 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
     /// <param name="runner">成员一轮的跑法</param>
     /// <param name="load">按标识取会话</param>
     /// <param name="seesImages">成员的模型能不能看图；null 按会话的有效模型判断</param>
+    /// <param name="delay">私聊后接回的等待；null 走 <see cref="Task.Delay(TimeSpan)"/></param>
     public GroupChatCoordinator(IGroupMemberTurnRunner runner, Func<string, ChatSession?> load,
-        Func<ChatSession, bool>? seesImages = null)
+        Func<ChatSession, bool>? seesImages = null, Func<TimeSpan, Task>? delay = null)
     {
         _runner = runner;
         _load = load;
         _seesImages = seesImages ?? (member => member.ChatModelRunningData?.IsVisionModel == true);
+        _delay = delay ?? Task.Delay;
     }
 
     /// <summary>
@@ -406,7 +409,8 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
     private string ComposeInput(ChatSession member, EGroupWakeCause cause, string delivery, bool resumeAfterPrivate)
     {
         string input = delivery + "\n\n" + GroupTranscript.VoiceReminder(member.CharacterData.GetPersonaCoda());
-        if (resumeAfterPrivate) input += "\n\n" + GroupTranscript.PrivateResumeNote;
+        if (resumeAfterPrivate)
+            input += "\n\n" + GroupTranscript.PrivateReplyChannelNote + "\n\n" + GroupTranscript.PrivateResumeNote;
         if (cause == EGroupWakeCause.CatchUp) input += "\n\n" + GroupTranscript.CatchUpHint;
         return input;
     }

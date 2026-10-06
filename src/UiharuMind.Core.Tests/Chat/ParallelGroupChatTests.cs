@@ -13,6 +13,7 @@ public class ParallelGroupChatTests
 {
     private readonly Dictionary<string, ChatSession> _sessions = new();
     private readonly FakeGroupMemberTurnRunner _runner = new();
+    private readonly List<(TimeSpan Delay, TaskCompletionSource Due)> _delays = [];
     private readonly GroupChatCoordinator _coordinator;
     private readonly ChatSession _group;
     private readonly ChatSession _alice;
@@ -22,7 +23,7 @@ public class ParallelGroupChatTests
     public ParallelGroupChatTests() 
     {
         DefaultCharacterManager.Instance.OnInitialize(); //用户发言的署名取自内置用户卡
-        _coordinator = new GroupChatCoordinator(_runner, id => _sessions.GetValueOrDefault(id));
+        _coordinator = new GroupChatCoordinator(_runner, id => _sessions.GetValueOrDefault(id), delay: Delay);
         _group = Track(new ChatSession
         {
             Title = "会审", IsGroup = true, IsAgentGroup = true, IsTransient = true,
@@ -69,8 +70,9 @@ public class ParallelGroupChatTests
     }
 
     /// <summary>
-    /// 用户私聊正在群里说话的成员（ADR 0063）：只叫停他这一轮，别人照常说；私聊完单独叫醒他，
-    /// 期间群里的新话照常投，末尾附上被私聊打断的交代
+    /// 用户私聊正在群里说话的成员（ADR 0063）：只叫停他这一轮，别人照常说；
+    /// 私聊完等 30 秒（让用户看完私聊回复）再单独叫醒他，期间群里的新话照常投，
+    /// 末尾先钉死通道（上一轮是私聊回复、没进群）再附上被私聊打断的交代
     /// </summary>
     [Fact]
     public async Task PrivateChat_PreemptsOnlyThatMember_ThenResumesWithNewPostsAndNote()
@@ -90,12 +92,49 @@ public class ParallelGroupChatTests
         Assert.True(_coordinator.TryPostFromMember(_bob.SessionId, "接口我改好了")); //私聊期间群里来了新话
 
         lease.Dispose();
+        await WaitUntil(() => _delays.Count == 1); //私聊完不等了：先等 30 秒再接回
+        Assert.Equal(TimeSpan.FromSeconds(30), _delays[0].Delay);
+        Assert.Equal(1, _runner.CallsOf(_alice)); //到点前不叫
+
+        _delays[0].Due.SetResult();
         await WaitUntil(() => _runner.CallsOf(_alice) == 2 && !_coordinator.IsRunning(_group.SessionId));
 
         string input = _runner.Calls.Last(x => x.Member == _alice).Input;
         Assert.Contains("接口我改好了", input);
+        Assert.Contains(GroupTranscript.PrivateReplyChannelNote, input); //通道先钉死
         Assert.EndsWith(GroupTranscript.PrivateResumeNote, input);
         Assert.Contains(_group.History, x => x.AuthorName == "Alice");
+    }
+
+    /// <summary>私聊后接回的 30 秒里又私聊了一句：重排完整间隔，看完最后一句再过 30 秒才叫</summary>
+    [Fact]
+    public async Task PrivateChat_ResumesAfterThirtySeconds_RetimesOnFollowUpPrivate()
+    {
+        Task<IDisposable>? privateTurn = null;
+        _runner.During[_alice.SessionId] = () =>
+        {
+            privateTurn ??= GroupMemberTurnGate.EnterPrivateAsync(_alice.SessionId);
+            return Task.CompletedTask;
+        };
+
+        await _coordinator.PostAsync(_group, "大家好");
+        IDisposable lease = await privateTurn!;
+        lease.Dispose();
+
+        await WaitUntil(() => _delays.Count == 1);
+        Assert.Equal(TimeSpan.FromSeconds(30), _delays[0].Delay);
+
+        // 等的期间又私聊了一句：成员历史变长，到点时重排、不叫醒
+        _alice.History.Add(new ChatMessage(ChatRole.User, "追一句"));
+        _delays[0].Due.SetResult();
+        await WaitUntil(() => _delays.Count == 2);
+        Assert.Equal(TimeSpan.FromSeconds(30), _delays[1].Delay);
+        Assert.Equal(1, _runner.CallsOf(_alice));
+
+        // 这一轮没再私聊：到点叫醒，交代还在
+        _delays[1].Due.SetResult();
+        await WaitUntil(() => _runner.CallsOf(_alice) == 2 && !_coordinator.IsRunning(_group.SessionId));
+        Assert.EndsWith(GroupTranscript.PrivateResumeNote, _runner.Calls.Last(x => x.Member == _alice).Input);
     }
 
     /// <summary>装配阶段就被私聊叫停：投递没进他的历史，接回时那几条照样交给他，不因游标已推过去而丢</summary>
@@ -114,6 +153,8 @@ public class ParallelGroupChatTests
         Assert.DoesNotContain(_alice.History, x => x.Text.Contains("大家好"));
 
         lease.Dispose();
+        await WaitUntil(() => _delays.Count == 1); //私聊完等 30 秒再接回
+        _delays[0].Due.SetResult();
         await WaitUntil(() => _runner.CallsOf(_alice) == 2 && !_coordinator.IsRunning(_group.SessionId));
         Assert.Contains("大家好", _runner.Calls.Last(x => x.Member == _alice).Input);
         Assert.Contains(_alice.History, x => x.Text.Contains("大家好"));
@@ -134,6 +175,8 @@ public class ParallelGroupChatTests
         IDisposable lease = await privateTurn!;
         _group.GroupMemberSessionIds = [_bob.SessionId, _carol.SessionId];
         lease.Dispose();
+        await WaitUntil(() => _delays.Count == 1); //接回排上 30 秒，但退群了，到点也不叫
+        _delays[0].Due.SetResult();
         await Task.Delay(200);
 
         Assert.Equal(1, _runner.CallsOf(_alice));
@@ -154,6 +197,8 @@ public class ParallelGroupChatTests
         IDisposable lease = await privateTurn!;
         _coordinator.Stop(_group.SessionId);
         lease.Dispose();
+        await WaitUntil(() => _delays.Count == 1); //接回排上 30 秒，但停群了，到点也不叫
+        _delays[0].Due.SetResult();
         await Task.Delay(200);
         Assert.Equal(1, _runner.CallsOf(_alice));
 
@@ -599,6 +644,13 @@ public class ParallelGroupChatTests
     {
         _sessions[session.SessionId] = session;
         return session;
+    }
+
+    private Task Delay(TimeSpan delay)
+    {
+        TaskCompletionSource due = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (_delays) _delays.Add((delay, due));
+        return due.Task;
     }
 
     private static async Task WaitUntil(Func<bool> condition)

@@ -121,7 +121,8 @@ public class GroupAwayControllerTests
         Assert.EndsWith(GroupAvatarTranscript.SilentNote, LastAvatarInput()); //没交出去的提示带回来了
     }
 
-    /// <summary>化身跑着时用户私聊它（ADR 0063）：叫停这一轮、不计出手次数，私聊完立即接回并附上交代</summary>
+    /// <summary>化身跑着时用户私聊它（ADR 0063）：叫停这一轮、不计出手次数；
+    /// 私聊完先等 2 分钟（让用户看完私聊回复）再接回，并把通道钉死（上一轮是私聊回复、没进群）</summary>
     [Fact]
     public async Task PrivateChat_PreemptsAvatarTurn_ResumesAfterwardsWithNote()
     {
@@ -139,9 +140,48 @@ public class GroupAwayControllerTests
         await Until(() => _away.StatusOf(_group.SessionId)?.IsAvatarRunning == false);
 
         Assert.Equal(0, _away.StatusOf(_group.SessionId)?.AvatarTurns); //被叫停的不计出手次数
-        Assert.Empty(_delays); //不排退避：私聊完就接回
 
         lease.Dispose();
+        await Until(() => _delays.Count == 1); //私聊完不等了：先等 2 分钟再接回
+        Assert.Equal(TimeSpan.FromMinutes(2), _delays[0].Delay);
+        Assert.Equal(1, AvatarCalls()); //到点前不叫
+
+        _delays[0].Due.SetResult();
+        await Until(() => AvatarCalls() == 2);
+        Assert.EndsWith(GroupTranscript.PrivateResumeNote, LastAvatarInput());
+        Assert.Contains(GroupTranscript.PrivateReplyChannelNote, LastAvatarInput()); //通道先钉死
+    }
+
+    /// <summary>私聊后接回的 2 分钟里又私聊了一句：重排完整间隔，看完最后一句再过 2 分钟才叫</summary>
+    [Fact]
+    public async Task PrivateResume_RetimesOnFollowUpPrivate()
+    {
+        Task<IDisposable>? privateTurn = null;
+        _runner.Replies[_avatar.SessionId] = _ => ""; //接回那轮没写正文：停在退避上，不连锁
+        _runner.During[_avatar.SessionId] = () =>
+        {
+            if (AvatarCalls() == 1) privateTurn ??= GroupMemberTurnGate.EnterPrivateAsync(_avatar.SessionId);
+            return Task.CompletedTask;
+        };
+
+        _away.Start(_group, "目标", null);
+        await Until(() => privateTurn != null);
+        IDisposable lease = await privateTurn!;
+        await Until(() => _away.StatusOf(_group.SessionId)?.IsAvatarRunning == false);
+
+        lease.Dispose();
+        await Until(() => _delays.Count == 1);
+        Assert.Equal(TimeSpan.FromMinutes(2), _delays[0].Delay);
+
+        // 等的期间又私聊了一句：化身历史变长，到点时重排、不叫醒
+        _avatar.History.Add(new ChatMessage(ChatRole.User, "追一句"));
+        _delays[0].Due.SetResult();
+        await Until(() => _delays.Count == 2);
+        Assert.Equal(TimeSpan.FromMinutes(2), _delays[1].Delay);
+        Assert.Equal(1, AvatarCalls());
+
+        // 这一轮没再私聊：到点叫醒，交代还在
+        _delays[1].Due.SetResult();
         await Until(() => AvatarCalls() == 2);
         Assert.EndsWith(GroupTranscript.PrivateResumeNote, LastAvatarInput());
     }

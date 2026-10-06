@@ -30,6 +30,12 @@ public sealed class GroupAwayController
     private readonly object _sync = new();
     private readonly Dictionary<string, GroupAwaySession> _sessions = new(); //群 → 正在进行的离席
 
+    /// <summary>
+    /// 私聊放闸后等多久再叫醒化身：给用户留看完私聊回复的时间（固定 2 分钟）。
+    /// 用户在群里发言照常取消倒计时、由那波收场时叫醒；等的期间又私聊一句就重排（见 <see cref="DelayThenResumeAsync"/>）
+    /// </summary>
+    private static readonly TimeSpan PrivateResumeDelay = TimeSpan.FromMinutes(2);
+
     /// <summary>应用里的那一个：成员（与化身）的审批在离席期间改由它接</summary>
     public static GroupAwayController Instance { get; } = CreateInstance();
 
@@ -452,7 +458,9 @@ public sealed class GroupAwayController
             switch (_coordinator.AvatarResumeOf(session.Group.SessionId))
             {
                 case EGroupAvatarResume.Pending:
-                    Wake(session, GroupTranscript.PrivateResumeNote);
+                    // 通道先钉死（上一轮是私聊回复、没进群），再等一会才叫：用户还没看完私聊回复
+                    SchedulePrivateResume(session,
+                        GroupTranscript.PrivateReplyChannelNote + "\n\n" + GroupTranscript.PrivateResumeNote);
                     break;
                 case EGroupAvatarResume.Stopped:
                     _coordinator.ClearAvatarResume(session.Group.SessionId);
@@ -460,6 +468,60 @@ public sealed class GroupAwayController
                     break;
             }
         });
+    }
+
+    // 私聊后接回的延迟唤醒：记下化身此刻的历史长度，到点时变长了说明等的期间又私聊了一句，
+    // 重排完整间隔（看完最后一句再过 2 分钟）；提示留着随那次带上
+    private void SchedulePrivateResume(GroupAwaySession session, string? note)
+    {
+        int mark;
+        CancellationToken token;
+        lock (_sync)
+        {
+            if (session.IsEnded) return;
+            session.CancelDelay();
+            session.CarryNote(note);
+            mark = session.Avatar.History.Count;
+            token = session.BeginDelay(_now() + PrivateResumeDelay);
+        }
+
+        RaiseStatusChanged(session.Group.SessionId);
+        DelayThenResumeAsync(session, mark, token).LogOnFault("wake the group avatar after private chat");
+    }
+
+    private async Task DelayThenResumeAsync(GroupAwaySession session, int mark, CancellationToken token)
+    {
+        try
+        {
+            await _delay(PrivateResumeDelay, token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        bool regroup;
+        lock (_sync)
+        {
+            if (token.IsCancellationRequested || session.IsEnded) return;
+            regroup = session.Avatar.History.Count > mark;
+            if (!regroup) session.CancelDelay();
+        }
+
+        if (regroup)
+        {
+            SchedulePrivateResume(session, null);
+            return;
+        }
+
+        // 到点时群正在跑一波：那一波收场会叫醒化身，提示留着随那次带上
+        if (_coordinator.IsRunning(session.Group.SessionId))
+        {
+            RaiseStatusChanged(session.Group.SessionId);
+            return;
+        }
+
+        Wake(session, null);
     }
 
     private void NoProgress(GroupAwaySession session, string? note)

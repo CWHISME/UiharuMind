@@ -105,4 +105,20 @@ public class GroupAvatarNotesSplitTests
         Assert.Equal([new GroupDeliverySegment("Bob", "嗯。")],
             GroupTranscript.SplitDelivery(input, Speakers));
     }
+
+    [Fact]
+    public void PrivateReplyChannelNote_StripsWithTheResumeNote_SpeechIntact()
+    {
+        // 化身侧接回顺序：通道钉死 + 私聊打断交代。两段都是说给化身的，剥成旁白，不并进气泡
+        string input = "[Bob]: 嗯。\n\n" + GroupTranscript.PrivateReplyChannelNote + "\n\n" +
+                       GroupTranscript.PrivateResumeNote;
+
+        IReadOnlyList<GroupDeliverySegment> segments = GroupTranscript.SplitDelivery(input, Speakers);
+
+        Assert.Equal(2, segments.Count);
+        Assert.Equal(new GroupDeliverySegment("Bob", "嗯。"), segments[0]);
+        Assert.Null(segments[1].Speaker);
+        Assert.Contains("私聊回复", segments[1].Body);
+        Assert.Contains("私聊里说的", segments[1].Body);
+    }
 }

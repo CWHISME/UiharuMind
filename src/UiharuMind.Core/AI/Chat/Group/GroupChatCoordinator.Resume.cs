@@ -23,6 +23,12 @@ public sealed partial class GroupChatCoordinator
     private readonly Dictionary<string, EGroupAvatarResume> _avatarResumes = new(); //群 → 化身的接回状态
 
     /// <summary>
+    /// 私聊放闸后等多久再叫醒成员：给用户留看完私聊回复的时间（固定 30 秒）。
+    /// 化身那份是 2 分钟（`GroupAwayController`）：看回复的是用户本人，等得起；成员停着全群那一波都等他，取短
+    /// </summary>
+    private static readonly TimeSpan PrivateResumeDelay = TimeSpan.FromSeconds(30);
+
+    /// <summary>
     /// 这个群的化身有没有被私聊叫停、等着接回
     /// </summary>
     /// <param name="groupId">群壳会话标识</param>
@@ -72,12 +78,36 @@ public sealed partial class GroupChatCoordinator
 
         GroupMemberTurnGate.ResumeAfter(memberSessionId, () =>
         {
-            lock (_locker) _resumeArmed.Remove(memberSessionId);
-            // 等的期间被停群或退了群，就不叫了
-            WakeMemberAsync(group, memberSessionId,
-                    () => _preempted.Contains(memberSessionId) && group.GroupMemberSessionIds.Contains(memberSessionId))
-                .LogOnFault("resume a group member after private chat");
+            int mark;
+            lock (_locker)
+            {
+                _resumeArmed.Remove(memberSessionId);
+                mark = _load(memberSessionId)?.History.Count ?? 0;
+            }
+
+            DelayThenResumeAsync(group, memberSessionId, mark).LogOnFault("resume a group member after private chat");
         });
+    }
+
+    // 私聊后接回的延迟唤醒：等的期间成员历史变长了（又私聊了一句）就重排完整间隔；
+    // 不再待续（停群、退群）就不叫了，醒来那一下仍按待续判（`WakeMemberAsync` 的 pending）
+    private async Task DelayThenResumeAsync(ChatSession group, string memberSessionId, int mark)
+    {
+        while (true)
+        {
+            await _delay(PrivateResumeDelay).ConfigureAwait(false);
+            lock (_locker)
+            {
+                if (!_preempted.Contains(memberSessionId) || !group.GroupMemberSessionIds.Contains(memberSessionId))
+                    return;
+                int now = _load(memberSessionId)?.History.Count ?? 0;
+                if (now <= mark) break; //没再私聊：去叫醒
+                mark = now; //又私聊了一句：重排完整间隔
+            }
+        }
+
+        await WakeMemberAsync(group, memberSessionId,
+            () => _preempted.Contains(memberSessionId) && group.GroupMemberSessionIds.Contains(memberSessionId));
     }
 
     /// <summary>

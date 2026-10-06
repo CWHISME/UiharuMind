@@ -148,7 +148,7 @@ public static class GroupAvatarTranscript
         foreach (string note in new[]
                  {
                      EmptyPushNote, emptyPushNoteInfinite, SilentNote, silentNoteInfinite, FailedNote, InfiniteNote,
-                     GroupTranscript.PrivateResumeNote,
+                     GroupTranscript.PrivateResumeNote, GroupTranscript.PrivateReplyChannelNote,
                  })
         {
             yield return note;

@@ -263,6 +263,12 @@ public static class GroupTranscript
     /// </summary>
     public const string PrivateResumeNote = "【你上一轮在群里的活被用户私聊打断了。私聊里说的、做的，群里都看不到。】";
 
+    /// <summary>
+    /// 私聊后接回时叠在交代前面的一句：点破上一轮是私聊回复、没进群。
+    /// 同一份历史混着两条通道，模型曾把私聊轮的输出误记成已进群，这一句话把它钉死。只在接回那一次带，平时不带
+    /// </summary>
+    public const string PrivateReplyChannelNote = "【你上一轮是私聊回复，只用户可见，没进群。】";
+
     /// <summary>每轮重锚的开头：界面据此认出它、不画出来</summary>
     public const string VoiceReminderOpening = "（说话前记着：";
 
