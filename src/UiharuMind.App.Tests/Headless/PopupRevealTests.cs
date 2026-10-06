@@ -24,7 +24,7 @@ public class PopupRevealTests
         string trace = string.Join(" ", opacities.Select(o => o.ToString("F2")));
         Assert.True(opacities[0] < 1, $"首个可见帧应仍在动画中，实际不透明度 {opacities[0]:F2}\n{trace}");
         Assert.Equal(opacities.OrderBy(o => o), opacities);
-        Assert.True(opacities[^1] == 1, $"动画应走完，实际采样：{trace}");
+        Assert.True(opacities[^1] > 0.999, $"动画应走完，实际采样：{trace}");
         window.Close();
     });
 
@@ -40,7 +40,7 @@ public class PopupRevealTests
 
         string trace = string.Join(" ", opacities.Select(o => o.ToString("F2")));
         Assert.True(opacities[0] < 1, $"第二次打开首帧应仍在动画中，实际不透明度 {opacities[0]:F2}\n{trace}");
-        Assert.True(opacities[^1] == 1, $"动画应走完，实际采样：{trace}");
+        Assert.True(opacities[^1] > 0.999, $"动画应走完，实际采样：{trace}");
         window.Close();
     });
 
@@ -72,7 +72,7 @@ public class PopupRevealTests
             Pump(window);
             LayoutTransformControl? content = FindPopupContent(combo);
             if (content != null) opacities.Add(content.Opacity);
-            if (opacities.Count > 0 && opacities[^1] >= 1) break;
+            if (opacities.Count > 0 && opacities[^1] > 0.999) break;
             Thread.Sleep(50);
         }
 

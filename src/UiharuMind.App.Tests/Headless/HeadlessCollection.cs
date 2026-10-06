@@ -1,3 +1,8 @@
+// 整个程序集不并行。光靠下面的集合还不够：会话每次 Dispatch 都会重置 Dispatcher.UIThread，重置后谁先碰它谁就是界面线程，
+// 别的集合里并行跑的测试一 Post 就可能把它抢走。串行全量只慢几秒（实测约 41 秒到 44 秒）；
+// 串行后剩下的是前面测试遗留的后台续体，由 HeadlessUi 重试建应用那一步兜住
+[assembly: Xunit.v3.Parallelization(Mode = Xunit.Sdk.ParallelMode.None)]
+
 namespace UiharuMind.App.Tests.Headless;
 
 /// <summary>

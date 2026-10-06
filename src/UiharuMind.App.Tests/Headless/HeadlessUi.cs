@@ -19,17 +19,41 @@ internal static class HeadlessUi
     private static readonly HeadlessUnitTestSession Session =
         HeadlessUnitTestSession.GetOrStartForAssembly(typeof(HeadlessUi).Assembly);
 
+    private const int SetupAttempts = 3;
+
     /// <summary>在无头界面线程上跑一段测试体</summary>
     /// <param name="body">测试体</param>
-    public static void Run(Action body) =>
-        Session.Dispatch(body, CancellationToken.None).GetAwaiter().GetResult();
+    public static void Run(Action body) => DispatchWithSetupRetry(() => Session.Dispatch(body, CancellationToken.None));
 
     /// <summary>在无头界面线程上跑一段异步测试体，等它连同回到界面线程的续体一起跑完</summary>
     /// <param name="body">测试体</param>
     public static void RunAsync(Func<Task> body) =>
-        Session.Dispatch(async () =>
+        DispatchWithSetupRetry(() => Session.Dispatch(async () =>
         {
             await body();
             return true;
-        }, CancellationToken.None).GetAwaiter().GetResult();
+        }, CancellationToken.None));
+
+    // 每次 Dispatch 都会重置 Dispatcher.UIThread 再建应用；重置后谁先碰它谁就是界面线程。
+    // 前面测试留下的后台续体（异步加载、静态事件里的 Post）偶尔恰好在这一刻碰到它，
+    // 建应用就撞「The calling thread cannot access this object」——测试体一行都还没跑。
+    // 只重试这种建应用阶段的失败；测试体里抛的照常报错
+    private static void DispatchWithSetupRetry(Func<Task> dispatch)
+    {
+        for (int attempt = 1;; attempt++)
+        {
+            try
+            {
+                dispatch().GetAwaiter().GetResult();
+                return;
+            }
+            catch (InvalidOperationException e) when (attempt < SetupAttempts && IsSetupAffinityFailure(e))
+            {
+                Thread.Sleep(50);
+            }
+        }
+    }
+
+    private static bool IsSetupAffinityFailure(InvalidOperationException e) =>
+        e.StackTrace?.Contains("HeadlessUnitTestSession.EnsureIsolatedApplication", StringComparison.Ordinal) == true;
 }
