@@ -22,10 +22,13 @@
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Padding" Value="0" />
         </Style>
+        <!-- 行间细分隔线（参照 Jan 的模型列表），悬停/选中铺整行底色 -->
         <Style Selector="ListBox.repo-list ListBoxItem">
-            <Setter Property="Padding" Value="10,8" />
-            <Setter Property="Margin" Value="0,0,0,2" />
-            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="10,10" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey1}" />
         </Style>
         <Style Selector="ListBox.repo-list ListBoxItem:pointerover">
             <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />

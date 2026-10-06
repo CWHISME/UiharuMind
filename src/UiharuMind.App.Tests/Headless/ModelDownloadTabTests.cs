@@ -32,8 +32,34 @@ public class ModelDownloadTabTests : IDisposable
         if (Directory.Exists(_root)) Directory.Delete(_root, true);
     }
 
+    private const string SampleReadme = """
+        ---
+        license: apache-2.0
+        base_model: Qwen/Qwen3-8B
+        tags: [gguf]
+        ---
+        <!-- header start -->
+        # Qwen3-8B GGUF
+
+        Quantized with **llama.cpp**. See the [original model](https://huggingface.co/Qwen/Qwen3-8B).
+
+        ## Which file should I choose?
+
+        | Quant | Size | Notes |
+        |---|---|---|
+        | Q4_K_M | 5.0 GB | Recommended |
+        | Q8_0 | 8.7 GB | Near lossless |
+
+        ```bash
+        llama-server -m Qwen3-8B-Q4_K_M.gguf --jinja
+        ```
+
+        > Thinking mode is on by default.
+        """;
+
     private readonly FakeModelSource _source = new()
     {
+        Readme = SampleReadme,
         SearchResults =
         [
             new ModelRepoSummary("unsloth/Qwen3-8B-GGUF", 1_820_000),
@@ -99,6 +125,11 @@ public class ModelDownloadTabTests : IDisposable
             _queue.Pause(_queue.Jobs[0]);
             await Settle();
             Capture("model-download-wide");
+
+            data.Downloads.Detail.ShowReadmeCommand.Execute(null);
+            for (int i = 0; i < 10; i++) await Settle();
+            Capture("model-download-readme");
+            data.Downloads.Detail.ShowFilesCommand.Execute(null);
 
             _window.Width = 560;
             await Settle();

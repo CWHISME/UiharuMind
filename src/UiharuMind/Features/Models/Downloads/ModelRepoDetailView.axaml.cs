@@ -20,11 +20,24 @@ public partial class ModelRepoDetailView : UserControl
         if (_data != null) _data.PropertyChanged -= OnDataPropertyChanged;
         _data = DataContext as ModelRepoDetailData;
         if (_data != null) _data.PropertyChanged += OnDataPropertyChanged;
+        RenderReadme();
+    }
+
+    private void RenderReadme()
+    {
+        ReadmeViewer.MarkdownText = _data?.Readme ?? string.Empty;
+        ReadmeViewer.IsPlaintext = false;
     }
 
     // 量化多的仓库推荐项常在折叠线以下：列完就把它滚进视野
     private void OnDataPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(ModelRepoDetailData.Readme))
+        {
+            RenderReadme();
+            return;
+        }
+
         if (e.PropertyName != nameof(ModelRepoDetailData.IsLoading) || _data is not { IsLoading: false } data) return;
         int index = data.Rows.ToList().FindIndex(x => x.IsRecommended);
         if (index < 0) return;

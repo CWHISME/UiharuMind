@@ -3928,4 +3928,13 @@ Allow them?</value>
     <data name="ServicesDownloadEmbeddingModel" xml:space="preserve">
         <value>Download</value>
     </data>
+    <data name="ModelDownloadReadmeTab" xml:space="preserve">
+        <value>Model card</value>
+    </data>
+    <data name="ModelDownloadNoReadme" xml:space="preserve">
+        <value>This repository has no description.</value>
+    </data>
+    <data name="ModelDownloadReadmeFailed" xml:space="preserve">
+        <value>Could not load the description: {0}</value>
+    </data>
 </root>

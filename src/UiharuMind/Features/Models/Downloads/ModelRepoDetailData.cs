@@ -37,6 +37,13 @@ public partial class ModelRepoDetailData : ObservableObject, IDisposable
     [ObservableProperty] private string? _errorText;
     [ObservableProperty] private bool _isEmpty;
     [ObservableProperty] private bool _includeProjector = true;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowProjectorOption))]
+    private bool _isReadmeTab;
+    [ObservableProperty] private bool _isReadmeLoading;
+    [ObservableProperty] private string? _readme;
+    [ObservableProperty] private string? _readmeStatus;
+    private bool _isReadmeRequested; //说明第一次切过去才拉
 
     public ModelRepoDetailData(ModelDownloadContext context, IModelSource source, string repository)
     {
@@ -79,6 +86,11 @@ public partial class ModelRepoDetailData : ObservableObject, IDisposable
     public ModelRepoQuant? Projector { get; private set; }
 
     /// <summary>
+    /// 视觉投影勾选只关文件页的事，看说明时收起
+    /// </summary>
+    public bool ShowProjectorOption => Projector != null && !IsReadmeTab;
+
+    /// <summary>
     /// 视觉投影勾选框的文案
     /// </summary>
     public string ProjectorText => Projector == null
@@ -107,6 +119,7 @@ public partial class ModelRepoDetailData : ObservableObject, IDisposable
             _repoDirectory = ModelRepoDownloader.RepoDirectory(root, Repository);
             Projector = layout.PickDefaultProjector();
             OnPropertyChanged(nameof(Projector));
+            OnPropertyChanged(nameof(ShowProjectorOption));
             OnPropertyChanged(nameof(ProjectorText));
 
             foreach (ModelRepoQuant quant in layout.Quants)
@@ -175,6 +188,44 @@ public partial class ModelRepoDetailData : ObservableObject, IDisposable
     }
 
     partial void OnIncludeProjectorChanged(bool value) => RefreshRisks();
+
+    partial void OnIsReadmeTabChanged(bool value)
+    {
+        if (!value || _isReadmeRequested) return;
+        _isReadmeRequested = true;
+        _ = LoadReadmeAsync();
+    }
+
+    [RelayCommand]
+    private void ShowFiles() => IsReadmeTab = false;
+
+    [RelayCommand]
+    private void ShowReadme() => IsReadmeTab = true;
+
+    private async Task LoadReadmeAsync()
+    {
+        IsReadmeLoading = true;
+        try
+        {
+            CancellationToken token = _cancellation.Token;
+            string? readme = await Task.Run(() => _source.GetReadmeAsync(Repository, token), token);
+            if (token.IsCancellationRequested) return;
+            Readme = readme == null ? null : ModelReadme.Clean(readme);
+            if (string.IsNullOrWhiteSpace(Readme)) ReadmeStatus = Loc.Text(LangKey.ModelDownloadNoReadme);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Load readme failed: {Repository}, {e.Message}");
+            ReadmeStatus = Loc.Text(LangKey.ModelDownloadReadmeFailed, e.Message);
+        }
+        finally
+        {
+            IsReadmeLoading = false;
+        }
+    }
 
     [RelayCommand]
     private async Task Download(ModelQuantRowData row)

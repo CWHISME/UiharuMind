@@ -38,6 +38,10 @@ public sealed class HuggingFaceModelSource(HttpClient httpClient, string endpoin
             .ToList() ?? [];
     }
 
+    public Task<string?> GetReadmeAsync(string repository, CancellationToken cancellationToken) =>
+        ModelReadme.FetchAsync(httpClient, $"{_endpoint}/{repository}/resolve/{Revision}/README.md", AuthHeaders(),
+            cancellationToken);
+
     public DownloadRequest CreateDownload(string repository, ModelRepoFile file, string destinationPath)
     {
         string path = string.Join('/', file.Path.Split('/').Select(Uri.EscapeDataString));

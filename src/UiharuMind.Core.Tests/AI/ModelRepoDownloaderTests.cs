@@ -100,6 +100,8 @@ public class ModelRepoDownloaderTests : IDisposable
         public Task<IReadOnlyList<ModelRepoFile>> ListFilesAsync(string repository, CancellationToken token) =>
             throw new NotSupportedException();
 
+        public Task<string?> GetReadmeAsync(string repository, CancellationToken token) => Task.FromResult<string?>(null);
+
         public DownloadRequest CreateDownload(string repository, ModelRepoFile file, string destinationPath) =>
             new(url, destinationPath, 1, file.Sha256);
     }

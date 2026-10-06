@@ -142,4 +142,34 @@ public class ModelRepoDetailDataTests : IDisposable
         Assert.Contains(_messages.Notifications, x => x.Severity == MessageSeverity.Warning);
         foreach (DownloadJob job in _queue.Jobs) _queue.Cancel(job);
     }
+
+    [Fact]
+    public async Task Readme_LoadsOnlyWhenTabOpens_AndDropsFrontMatter()
+    {
+        FakeModelSource source = new() { Files = RepoFiles, Readme = "---\nlicense: mit\n---\n# Card\n\nHello" };
+        ModelRepoDetailData detail = Create(source);
+        await detail.LoadAsync();
+        Assert.Equal(0, source.ReadmeCount);
+
+        detail.ShowReadmeCommand.Execute(null);
+        for (int i = 0; i < 100 && detail.IsReadmeLoading; i++) await Task.Delay(10);
+        detail.ShowFilesCommand.Execute(null);
+        detail.ShowReadmeCommand.Execute(null);
+
+        Assert.Equal(1, source.ReadmeCount);
+        Assert.Equal("# Card\n\nHello", detail.Readme);
+        Assert.Null(detail.ReadmeStatus);
+    }
+
+    [Fact]
+    public async Task NoReadme_SaysSo()
+    {
+        ModelRepoDetailData detail = Create(new FakeModelSource { Files = RepoFiles });
+        await detail.LoadAsync();
+
+        detail.ShowReadmeCommand.Execute(null);
+        for (int i = 0; i < 100 && detail.IsReadmeLoading; i++) await Task.Delay(10);
+
+        Assert.NotNull(detail.ReadmeStatus);
+    }
 }

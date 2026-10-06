@@ -3921,4 +3921,13 @@
     <data name="ServicesDownloadEmbeddingModel" xml:space="preserve">
         <value>去下载</value>
     </data>
+    <data name="ModelDownloadReadmeTab" xml:space="preserve">
+        <value>模型说明</value>
+    </data>
+    <data name="ModelDownloadNoReadme" xml:space="preserve">
+        <value>这个仓库没有说明。</value>
+    </data>
+    <data name="ModelDownloadReadmeFailed" xml:space="preserve">
+        <value>说明加载失败：{0}</value>
+    </data>
 </root>

@@ -10,17 +10,38 @@
              x:DataType="downloads:ModelRepoDetailData">
 
     <UserControl.Styles>
-        <!-- 量化行：表格式，行间细分隔线，不给每行套框；推荐行淡蓝底 -->
+        <!-- 量化行：表格式，行间细分隔线（参照 Jan），不给每行套框；推荐行淡蓝底 -->
         <Style Selector="Border.quant-row">
-            <Setter Property="Padding" Value="10,9" />
-            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="10,10" />
             <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey1}" />
         </Style>
         <Style Selector="Border.quant-row:pointerover">
             <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
         </Style>
         <Style Selector="Border.quant-row.recommended">
             <Setter Property="Background" Value="{DynamicResource SemiBlue0}" />
+        </Style>
+        <Style Selector="Button.detail-tab">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style Selector="Button.detail-tab TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey6}" />
+        </Style>
+        <Style Selector="Button.detail-tab.active TextBlock">
+            <Setter Property="Foreground" Value="{Binding $parent[downloads:ModelRepoDetailView].Foreground}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="Border.tab-underline">
+            <Setter Property="Height" Value="2" />
+            <Setter Property="CornerRadius" Value="1" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Button.detail-tab.active Border.tab-underline">
+            <Setter Property="Background" Value="{DynamicResource SemiBlue5}" />
         </Style>
         <Style Selector="Button.quant-action">
             <Setter Property="MinWidth" Value="64" />
@@ -68,22 +89,50 @@
 
         <!-- 视觉投影：随主模型一起下 -->
         <Border DockPanel.Dock="Top" Classes="result-panel" Margin="0,14,0,0" Padding="10,6"
-                IsVisible="{Binding Projector, Converter={x:Static ObjectConverters.IsNotNull}}">
+                IsVisible="{Binding ShowProjectorOption}">
             <CheckBox IsChecked="{Binding IncludeProjector}" FontSize="13">
                 <TextBlock Text="{Binding ProjectorText}" TextWrapping="Wrap" />
             </CheckBox>
         </Border>
 
-        <TextBlock DockPanel.Dock="Top" Text="{loc:Loc ModelDownloadFilesHeader}" Classes="muted" FontSize="12"
-                   Margin="2,16,0,6" IsVisible="{Binding !IsEmpty}" />
+        <!-- 页签：可下载文件 / 模型说明（说明第一次切过去才拉） -->
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="20" Margin="2,16,0,0"
+                    IsVisible="{Binding !IsEmpty}">
+            <Button Classes="NoneStyle detail-tab" Classes.active="{Binding !IsReadmeTab}"
+                    Command="{Binding ShowFilesCommand}">
+                <StackPanel Spacing="5">
+                    <TextBlock Text="{loc:Loc ModelDownloadFilesHeader}" />
+                    <Border Classes="tab-underline" />
+                </StackPanel>
+            </Button>
+            <Button Classes="NoneStyle detail-tab" Classes.active="{Binding IsReadmeTab}"
+                    Command="{Binding ShowReadmeCommand}">
+                <StackPanel Spacing="5">
+                    <TextBlock Text="{loc:Loc ModelDownloadReadmeTab}" />
+                    <Border Classes="tab-underline" />
+                </StackPanel>
+            </Button>
+        </StackPanel>
         <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource SemiGrey2}" Margin="0,0,0,4"
                 IsVisible="{Binding !IsEmpty}" />
 
-        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <Panel>
+            <Panel IsVisible="{Binding IsReadmeTab}">
+                <ProgressBar IsIndeterminate="True" Height="2" MinHeight="2" VerticalAlignment="Top"
+                             IsVisible="{Binding IsReadmeLoading}" />
+                <TextBlock Classes="muted" Margin="2,12" TextWrapping="Wrap" Text="{Binding ReadmeStatus}"
+                           IsVisible="{Binding ReadmeStatus, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                <!-- 分段渲染：只建进了视口的段，长说明也不卡 -->
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                    <controls:ChunkedMarkdownViewer x:Name="ReadmeViewer" Margin="2,10,8,10" />
+                </ScrollViewer>
+            </Panel>
+
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding !IsReadmeTab}">
             <ItemsControl x:Name="QuantList" ItemsSource="{Binding Rows}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="downloads:ModelQuantRowData">
-                        <Border Classes="quant-row" Classes.recommended="{Binding IsRecommended}" Margin="0,1">
+                        <Border Classes="quant-row" Classes.recommended="{Binding IsRecommended}">
                             <Grid ColumnDefinitions="Auto,*,72,Auto" ColumnSpacing="12">
                                 <!-- 圆点只有 8px，套一层透明底放大悬停区 -->
                                 <Panel Width="16" Height="24" Background="Transparent" ToolTip.Tip="{Binding RiskTip}">
@@ -133,5 +182,6 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
         </ScrollViewer>
+        </Panel>
     </DockPanel>
 </UserControl>

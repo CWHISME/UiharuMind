@@ -45,6 +45,10 @@ public sealed class ModelScopeModelSource(HttpClient httpClient, string? token) 
             .ToList() ?? [];
     }
 
+    public Task<string?> GetReadmeAsync(string repository, CancellationToken cancellationToken) =>
+        ModelReadme.FetchAsync(httpClient, $"{Endpoint}/models/{repository}/resolve/{Revision}/README.md", AuthHeaders(),
+            cancellationToken);
+
     public DownloadRequest CreateDownload(string repository, ModelRepoFile file, string destinationPath)
     {
         string path = string.Join('/', file.Path.Split('/').Select(Uri.EscapeDataString));

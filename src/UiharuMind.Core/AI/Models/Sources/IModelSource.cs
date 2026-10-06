@@ -45,6 +45,14 @@ public interface IModelSource
     Task<IReadOnlyList<ModelRepoFile>> ListFilesAsync(string repository, CancellationToken cancellationToken);
 
     /// <summary>
+    /// 仓库的说明（README.md 原文）
+    /// </summary>
+    /// <param name="repository">owner/repo</param>
+    /// <param name="cancellationToken">取消</param>
+    /// <returns>说明原文；仓库没有说明为 null</returns>
+    Task<string?> GetReadmeAsync(string repository, CancellationToken cancellationToken);
+
+    /// <summary>
     /// 某个文件的下载请求（地址、凭据、校验值）
     /// </summary>
     /// <param name="repository">owner/repo</param>

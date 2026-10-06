@@ -16,6 +16,10 @@ internal sealed class FakeModelSource : IModelSource
 
     public Exception? ListError { get; init; }
 
+    public string? Readme { get; init; }
+
+    public int ReadmeCount { get; private set; }
+
     public int SearchCount { get; private set; }
 
     public string? LastQuery { get; private set; }
@@ -29,6 +33,12 @@ internal sealed class FakeModelSource : IModelSource
 
     public Task<IReadOnlyList<ModelRepoFile>> ListFilesAsync(string repository, CancellationToken token) =>
         ListError != null ? Task.FromException<IReadOnlyList<ModelRepoFile>>(ListError) : Task.FromResult(Files);
+
+    public Task<string?> GetReadmeAsync(string repository, CancellationToken token)
+    {
+        ReadmeCount++;
+        return Task.FromResult(Readme);
+    }
 
     public DownloadRequest CreateDownload(string repository, ModelRepoFile file, string destinationPath) =>
         new(new Uri("http://127.0.0.1:1/" + file.Path), destinationPath, 1, file.Sha256);
