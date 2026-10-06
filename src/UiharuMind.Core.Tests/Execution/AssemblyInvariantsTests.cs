@@ -352,8 +352,14 @@ public class HarnessInstructionsCompositionTests
         HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test", persona: cardHead);
         string instructions = options.ChatOptions?.Instructions ?? string.Empty;
 
-        Assert.Contains(cardHead, instructions);
-        Assert.DoesNotContain(AgentPromptHeadings.Character, instructions);
+        // 卡自带一级标题不补「# 你是谁」(不变量核心)；「你一直是你」插在标题行之后、正文之前(ADR 0066 落法 A)
+        int heading = instructions.IndexOf("# 工作循环", StringComparison.Ordinal);
+        int lead = instructions.IndexOf(AgentBasePrompts.YouStayYou, StringComparison.Ordinal);
+        int body = instructions.IndexOf("- 先把事实弄清楚再动手", StringComparison.Ordinal);
+        Assert.True(heading >= 0, "卡自带标题必须在场");
+        Assert.True(lead > heading, "「你一直是你」必须插在自带标题之后");
+        Assert.True(body > lead, "正文必须在「你一直是你」之后");
+        Assert.DoesNotContain(AgentPromptHeadings.Character, instructions); //不补插「# 你是谁」
     }
 
     /// <summary>
@@ -1256,8 +1262,37 @@ public class SubAgentBoundaryTests
         Assert.NotNull(options);
         string instructions = options!.ChatOptions?.Instructions ?? string.Empty;
         Assert.Equal("Researcher", options.Name);
-        Assert.StartsWith("I am the research specialist", instructions, StringComparison.Ordinal);
+        // 基座恒在最前、人格紧跟其后(与主代理 AgentAssemblyFacts 同口径,ADR 0005 人格在最前);
+        // 裸卡由装配层补「# 你是谁」标题(与主代理同一口径)
+        int baseIndex = instructions.IndexOf(AgentPromptHeadings.Base, StringComparison.Ordinal);
+        int persona = instructions.IndexOf("I am the research specialist", StringComparison.Ordinal);
+        Assert.True(baseIndex >= 0, "基座必须在场");
+        Assert.True(persona > baseIndex, "人格必须紧跟基座之后");
         Assert.DoesNotContain(AgentPromptHeadings.SubAgentRole, instructions);
+    }
+
+    /// <summary>
+    /// 子代理<b>不装人格锚段</b>（<c># 记着</c>）：回锚是主代理/群成员专有的 recency 手段，
+    /// 子代理拿的是一份任务书，身份由人格段与 # 角色 段承担（合并口径：子代理不加锚段）。
+    /// 输入拼到能拼的最满，锚段也必须缺席。
+    /// </summary>
+    [Fact]
+    public void SubAgentInstructions_OmitPersonaAnchor()
+    {
+        HarnessAgentOptions? options = SubAgentAssembly.BuildSubAgentOptions(
+            NewInput(mode: EAgentPermissionMode.FullAuto) with
+            {
+                Persona = "I am the research specialist",
+                Name = "Researcher",
+                Role = "senior C# reviewer",
+                ShellTool = StubShellTool(),
+                PythonOutputDirectory = "/tmp/uiharu-room-test/ws/12345678",
+                OutputFolderName = "ws-seg/12345678",
+            });
+
+        Assert.NotNull(options);
+        string instructions = options!.ChatOptions?.Instructions ?? string.Empty;
+        Assert.DoesNotContain(AgentPromptHeadings.PersonaAnchor, instructions);
     }
 
     /// <summary>给了 role 时，role 收进 # 角色 段且排在人格之后——"role 放角色段"这个设计被钉住</summary>
