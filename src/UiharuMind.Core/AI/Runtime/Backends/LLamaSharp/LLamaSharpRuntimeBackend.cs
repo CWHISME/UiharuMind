@@ -21,6 +21,8 @@ internal sealed class LLamaSharpRuntimeBackend : IModelRuntimeBackend
     public IReadOnlySet<RuntimeCapability> Capabilities { get; } =
         new HashSet<RuntimeCapability> { RuntimeCapability.Chat, RuntimeCapability.Embedding };
 
+    public bool IsLocal => true;
+
     public bool CanHandleChat(ILlmModel model)
     {
         return model is GGufModelInfo;
@@ -28,8 +30,12 @@ internal sealed class LLamaSharpRuntimeBackend : IModelRuntimeBackend
 
     public bool CanHandleEmbedding(EmbeddingModelSettingConfig settings)
     {
-        return !EmbeddingModelResolver.IsRemote(settings) &&
-               string.Equals(settings.Backend, BackendId, StringComparison.OrdinalIgnoreCase);
+        return !EmbeddingModelResolver.IsRemote(settings);
+    }
+
+    public RuntimeParameterPolicy CreateParameterPolicy(ModelRuntimeSettingConfig settings)
+    {
+        return LLamaSharpRuntimeEngine.CreatePolicy(settings);
     }
 
     public Task<IReadOnlyDictionary<string, ILlmModel>> DiscoverModelsAsync(

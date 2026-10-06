@@ -196,15 +196,8 @@ public static class AppPaths
     {
         public static readonly string Root = Path.Combine(AppPaths.Root, "External");
 
-        /// <summary>本地 GGUF 模型的默认目录(用户可在设置里改)</summary>
+        /// <summary>本地 GGUF 模型的默认目录(用户可在设置里改)。对话、嵌入模型同住，按文件头分类(ADR 0067)</summary>
         public static readonly string Models = Path.Combine(Root, "Models");
-
-        /// <summary>
-        /// embedding 模型的默认目录(用户可在设置里改)。
-        /// <b>必须与 <see cref="Models"/> 平级,不能嵌进去</b>——对话模型的扫描是
-        /// <c>SearchOption.AllDirectories</c>,嵌进去会让 embedding 模型混进对话模型列表。
-        /// </summary>
-        public static readonly string EmbeddedModels = Path.Combine(Root, "EmbeddedModels");
 
         /// <summary>本地服务引擎(llama.cpp 等)</summary>
         public static readonly string Engine = Path.Combine(Root, "Engine");

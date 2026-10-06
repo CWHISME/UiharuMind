@@ -24,13 +24,18 @@ internal sealed class ModelRuntimeService
 
     public IReadOnlyDictionary<string, ModelRunningData> ModelCache => _modelCache;
 
+    /// <summary>
+    /// 已注册的本地引擎，多于一个时界面才让用户选
+    /// </summary>
+    public IReadOnlyList<IModelRuntimeBackend> LocalEngines => _registry.LocalEngines;
+
     public ModelRuntimeService(
         LLamaCppRuntimeService llamaCppServer,
         RemoteModelManager remoteModelManager,
         Func<VersionInfo?> selectedVersionProvider)
     {
         _selectedVersionProvider = selectedVersionProvider;
-        _registry.Register(new LLamaSharpRuntimeBackend());
+        // LLamaSharp 已屏蔽（ADR 0067），代码留待移除
         _registry.Register(new LLamaCppRuntimeBackend(llamaCppServer, _selectedVersionProvider));
         _registry.Register(new OpenAICompatibleRuntimeBackend(remoteModelManager));
     }
@@ -39,6 +44,8 @@ internal sealed class ModelRuntimeService
         CancellationToken cancellationToken = default)
     {
         Dictionary<string, ILlmModel> discovered = new(StringComparer.Ordinal);
+        foreach (LocalModelEntry entry in LocalModelScanner.Scan(ELocalModelKind.Chat))
+            discovered[entry.Info.ModelName] = entry.Info;
         foreach (IModelRuntimeBackend backend in _registry.Backends)
         {
             IReadOnlyDictionary<string, ILlmModel> backendModels =
@@ -68,17 +75,6 @@ internal sealed class ModelRuntimeService
         }
 
         return _modelCache;
-    }
-
-    public async Task<IReadOnlyDictionary<string, ModelRunningData>> RefreshLocalModelsAsync(
-        CancellationToken cancellationToken = default)
-    {
-        IModelRuntimeBackend backend = _registry.GetRequired(LLamaCppRuntimeBackend.BackendId);
-        IReadOnlyDictionary<string, ILlmModel> models =
-            await backend.DiscoverModelsAsync(cancellationToken).ConfigureAwait(false);
-        return models.ToDictionary(
-            x => x.Key,
-            x => new ModelRunningData(x.Value));
     }
 
     public async Task<bool> StartChatModelAsync(
@@ -131,7 +127,7 @@ internal sealed class ModelRuntimeService
         Action<RuntimeResolvedParameters>? onParametersResolved = null)
     {
         ModelRuntimeSettingConfig settings = ModelRuntimeSettingConfig.Current;
-        IModelRuntimeBackend? backend = _registry.FindChatBackend(model, GetPreferredChatBackendId(model, settings));
+        IModelRuntimeBackend? backend = _registry.FindChatBackend(model, GetPreferredChatBackendId(model));
         if (backend == null)
         {
             Log.Error($"No runtime backend can handle model '{model.ModelName}'.");
@@ -139,7 +135,7 @@ internal sealed class ModelRuntimeService
         }
 
         ModelMetadata metadata = ModelMetadataService.Read(model);
-        RuntimeParameterPolicy policy = CreateChatParameterPolicy(backend, settings);
+        RuntimeParameterPolicy policy = backend.CreateParameterPolicy(settings);
         RuntimeResolvedParameters parameters = RuntimeParameterResolver.Resolve(settings, metadata, policy);
         onParametersResolved?.Invoke(parameters);
         RuntimeLoadRisk risk = model is RemoteModelInfo
@@ -152,24 +148,19 @@ internal sealed class ModelRuntimeService
     public RuntimeLoadRisk AnalyzeChatLoadRisk(ILlmModel model)
     {
         ModelRuntimeSettingConfig settings = ModelRuntimeSettingConfig.Current;
-        IModelRuntimeBackend? backend = _registry.FindChatBackend(model, GetPreferredChatBackendId(model, settings));
+        IModelRuntimeBackend? backend = _registry.FindChatBackend(model, GetPreferredChatBackendId(model));
         if (backend == null || model is RemoteModelInfo) return RuntimeLoadRisk.Low;
 
         ModelMetadata metadata = ModelMetadataService.Read(model);
-        RuntimeParameterPolicy policy = CreateChatParameterPolicy(backend, settings);
+        RuntimeParameterPolicy policy = backend.CreateParameterPolicy(settings);
         RuntimeResolvedParameters parameters = RuntimeParameterResolver.Resolve(settings, metadata, policy);
         return RuntimeLoadRiskEvaluator.Evaluate(model, metadata, parameters, policy, RuntimeDeviceInfoProvider.Capture());
     }
 
-    private static string? GetPreferredChatBackendId(ILlmModel model, ModelRuntimeSettingConfig settings)
+    // 本地模型按用户选的引擎优先，没选或那个引擎没注册就落到第一个能跑的
+    private static string? GetPreferredChatBackendId(ILlmModel model)
     {
-        if (model is RemoteModelInfo) return OpenAICompatibleRuntimeBackend.BackendId;
-        return settings.EngineType switch
-        {
-            ModelRuntimeSettingConfig.EngineLLamaCpp => LLamaCppRuntimeBackend.BackendId,
-            ModelRuntimeSettingConfig.EngineLLamaSharp => LLamaSharpRuntimeBackend.BackendId,
-            _ => null
-        };
+        return model is RemoteModelInfo ? null : ModelRuntimeSettingConfig.Current.LocalEngineId;
     }
 
     public async Task<IEmbeddingSession> CreateEmbeddingSessionAsync(
@@ -177,7 +168,10 @@ internal sealed class ModelRuntimeService
         string modelPath,
         CancellationToken cancellationToken)
     {
-        IModelRuntimeBackend? backend = _registry.FindEmbeddingBackend(settings);
+        string? preferredId = EmbeddingModelResolver.IsRemote(settings)
+            ? null
+            : ModelRuntimeSettingConfig.Current.LocalEngineId;
+        IModelRuntimeBackend? backend = _registry.FindEmbeddingBackend(settings, preferredId);
         if (backend == null)
             throw new EmbeddingRuntimeException($"No embedding backend can handle backend '{settings.Backend}'.");
 
@@ -187,21 +181,6 @@ internal sealed class ModelRuntimeService
         RuntimeResolvedParameters parameters = ResolveEmbeddingParameters(settings, metadata);
         EmbeddingRuntimeRequest request = new(settings, modelPath, metadata, parameters);
         return await backend.CreateEmbeddingSessionAsync(request, cancellationToken).ConfigureAwait(false);
-    }
-
-    private static RuntimeParameterPolicy CreateChatParameterPolicy(
-        IModelRuntimeBackend backend,
-        ModelRuntimeSettingConfig settings)
-    {
-        return backend.Id switch
-        {
-            LLamaSharpRuntimeBackend.BackendId => LLamaSharpRuntimeEngine.CreatePolicy(settings),
-            LLamaCppRuntimeBackend.BackendId => new RuntimeParameterPolicy(
-                settings.GpuLayers <= 0 ? RuntimeDeviceMode.Cpu : RuntimeDeviceMode.Auto,
-                settings.GpuLayers > 0,
-                false),
-            _ => new RuntimeParameterPolicy(RuntimeDeviceMode.Cpu, false, true)
-        };
     }
 
     private static RuntimeResolvedParameters ResolveEmbeddingParameters(

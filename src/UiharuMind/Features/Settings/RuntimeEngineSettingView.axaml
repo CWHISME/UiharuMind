@@ -34,14 +34,8 @@
                                                         IsHeightLimited="False" />
             </StackPanel>
 
-            <!-- LLamaSharp 引擎：只有标题+说明，没有设置项；卡片内留空 -->
-            <controls:SettingsSection Header="{loc:Loc ModelRuntimeLLamaSharpTitle}"
-                                      Description="{loc:Loc ModelRuntimeLLamaSharpDesc}"
-                                      IsVisible="{Binding IsLLamaSharpEngine}" />
-
             <controls:SettingsSection Header="{loc:Loc ModelRuntimeLLamaCppTitle}"
-                                      Description="{loc:Loc ModelRuntimeLLamaCppDesc}"
-                                      IsVisible="{Binding IsLLamaCppEngine}">
+                                      Description="{loc:Loc ModelRuntimeLLamaCppDesc}">
                 <controls:SettingsSection.Body>
                     <StackPanel Spacing="12">
                         <!-- 版本选择 + 目录/检查更新：操作行，不进设置行口径。

@@ -9,26 +9,28 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
-using UiharuMind.Core.AI.Runtime.Backends;
+using UiharuMind.Core.AI.Models;
 
 namespace UiharuMind.Core.AI.Embedding;
 
 public static class EmbeddingModelResolver
 {
-    public static IReadOnlyList<EmbeddingModelCandidate> GetManagedCandidates(EmbeddingModelSettingConfig config)
+    public static IReadOnlyList<EmbeddingModelCandidate> GetManagedCandidates()
     {
-        List<EmbeddingModelCandidate> candidates = new();
-        AddCandidates(candidates, config.ExternalEmbeddedModelPath, EmbeddingModelCandidateSource.Application);
-        AddCandidates(candidates, config.DefaultEmbeddedModelPath, EmbeddingModelCandidateSource.BuiltIn);
-        return candidates
-            .GroupBy(x => System.IO.Path.GetFullPath(x.Path), StringComparer.OrdinalIgnoreCase)
-            .Select(x => x.First())
+        return LocalModelScanner.Scan(ELocalModelKind.Embedding)
+            .Select(x => new EmbeddingModelCandidate
+            {
+                Name = Path.GetFileName(x.Info.ModelPath),
+                Path = x.Info.ModelPath,
+                Source = x.IsBuiltIn ? EmbeddingModelCandidateSource.BuiltIn : EmbeddingModelCandidateSource.Application,
+                SizeBytes = (long)x.Info.FileSizeBytes
+            })
             .OrderBy(x => x.Source)
             .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 
-    public static string ResolveModelPath(EmbeddingModelSettingConfig config, EmbeddingModelSettingConfig llamaConfig)
+    public static string ResolveModelPath(EmbeddingModelSettingConfig config)
     {
         if (IsRemote(config)) return "";
 
@@ -39,7 +41,7 @@ public static class EmbeddingModelResolver
             throw new FileNotFoundException("Selected embedding model file not found.", managedPath);
         }
 
-        EmbeddingModelCandidate? candidate = GetManagedCandidates(llamaConfig).FirstOrDefault();
+        EmbeddingModelCandidate? candidate = GetManagedCandidates().FirstOrDefault();
         if (candidate == null) throw new FileNotFoundException("No managed embedding model was found.");
         return candidate.Path;
     }
@@ -50,25 +52,5 @@ public static class EmbeddingModelResolver
                    StringComparison.OrdinalIgnoreCase) ||
                string.Equals(config.Backend, EmbeddingModelSettingConfig.BackendOpenAICompatible,
                    StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static void AddCandidates(
-        ICollection<EmbeddingModelCandidate> candidates,
-        string directory,
-        EmbeddingModelCandidateSource source)
-    {
-        if (!Directory.Exists(directory)) return;
-
-        foreach (string path in Directory.GetFiles(directory, "*.gguf", SearchOption.TopDirectoryOnly))
-        {
-            FileInfo fileInfo = new(path);
-            candidates.Add(new EmbeddingModelCandidate
-            {
-                Name = fileInfo.Name,
-                Path = fileInfo.FullName,
-                Source = source,
-                SizeBytes = fileInfo.Length
-            });
-        }
     }
 }

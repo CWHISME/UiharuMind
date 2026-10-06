@@ -6,6 +6,8 @@
 
 using CommunityToolkit.Mvvm.ComponentModel;
 using System;
+using UiharuMind.Core.AI;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -26,8 +28,7 @@ public partial class ModelRuntimeBasicSettingsData : ObservableObject
     private readonly ModelRuntimeSettingConfig _config = ModelRuntimeSettingConfig.Current;
     private readonly SettingsWriteBack _writeBack = new(() => ModelRuntimeSettingConfig.Current.Save()); //写回闸门
 
-    [ObservableProperty] private string _engineType;
-    [ObservableProperty] private string _llamaSharpBackendMode;
+    [ObservableProperty] private LocalEngineOption? _selectedLocalEngine;
     [ObservableProperty] private int _contextSize;
     [ObservableProperty] private int _gpuLayers;
     [ObservableProperty] private int _batchSize;
@@ -36,27 +37,19 @@ public partial class ModelRuntimeBasicSettingsData : ObservableObject
     [ObservableProperty] private bool _flashAttention;
     [ObservableProperty] private bool _showAdvancedSettings;
 
+    /// <summary>
+    /// 已注册的本地引擎
+    /// </summary>
+    public IReadOnlyList<LocalEngineOption> LocalEngineOptions { get; }
+
+    /// <summary>
+    /// 本地引擎多于一个才需要选
+    /// </summary>
+    public bool HasEngineChoice => LocalEngineOptions.Count > 1;
+
     public int MaxContextSize => Math.Max(4096, GetCurrentLocalModelInfo()?.ContextLength ?? 131072);
     public int MaxGpuLayers => Math.Max(128, GetCurrentLocalModelInfo()?.LayerCount ?? 128);
 
-    public string[] EngineOptions { get; } =
-    {
-        ModelRuntimeSettingConfig.EngineLLamaSharp,
-        ModelRuntimeSettingConfig.EngineLLamaCpp
-    };
-
-    public string[] LLamaSharpBackendOptions { get; } =
-    {
-        ModelRuntimeSettingConfig.LLamaSharpBackendAuto,
-        ModelRuntimeSettingConfig.LLamaSharpBackendCpu,
-        ModelRuntimeSettingConfig.LLamaSharpBackendGpu
-    };
-
-    public bool IsLLamaSharpEngine => EngineType == ModelRuntimeSettingConfig.EngineLLamaSharp;
-    public bool IsLLamaCppEngine => EngineType == ModelRuntimeSettingConfig.EngineLLamaCpp;
-    public string LLamaSharpBackendModeLabel => string.IsNullOrWhiteSpace(LlamaSharpBackendMode)
-        ? ModelRuntimeSettingConfig.LLamaSharpBackendAuto
-        : LlamaSharpBackendMode;
     public string CurrentModelName => GetCurrentModel()?.ModelName ?? "-";
     public string CurrentModelDetailText => GetCurrentModelDetailText();
     public string EstimatedGpuMemoryText => GetRiskEstimateText();
@@ -68,14 +61,15 @@ public partial class ModelRuntimeBasicSettingsData : ObservableObject
 
     public ModelRuntimeBasicSettingsData()
     {
-        // 回填走 backing field,不惊动生成的 OnXChanged——那七个 handler 每个都会跑一遍
-        // RefreshComputedProperties(),而它背后是显存占用估算,没必要在构造时算七遍
+        // 回填走 backing field,不惊动生成的 OnXChanged——那六个 handler 每个都会跑一遍
+        // RefreshComputedProperties(),而它背后是显存占用估算,没必要在构造时算六遍
+        LocalEngineOptions = LlmManager.Instance.LocalEngines
+            .Select(x => new LocalEngineOption(x.Id, x.DisplayName))
+            .ToList();
         using (_writeBack.BeginLoad())
         {
-            _engineType = NormalizeEngineType(_config.EngineType);
-            _llamaSharpBackendMode = NormalizeBackendMode(_config.LLamaSharpBackendMode);
-            _config.EngineType = _engineType;
-            _config.LLamaSharpBackendMode = _llamaSharpBackendMode;
+            _selectedLocalEngine = LocalEngineOptions.FirstOrDefault(x => x.Id == _config.LocalEngineId)
+                                   ?? LocalEngineOptions.FirstOrDefault();
             _contextSize = _config.ContextSize;
             _gpuLayers = _config.GpuLayers;
             _batchSize = _config.BatchSize;
@@ -103,32 +97,10 @@ public partial class ModelRuntimeBasicSettingsData : ObservableObject
         OnPropertyChanged(nameof(MaxGpuLayers));
     }
 
-    partial void OnEngineTypeChanged(string value)
+    partial void OnSelectedLocalEngineChanged(LocalEngineOption? value)
     {
-        string normalized = NormalizeEngineType(value);
-        if (normalized != value)
-        {
-            EngineType = normalized;
-        }
-
-        _config.EngineType = normalized;
+        _config.LocalEngineId = value?.Id ?? "";
         _writeBack.Save();
-        OnPropertyChanged(nameof(IsLLamaSharpEngine));
-        OnPropertyChanged(nameof(IsLLamaCppEngine));
-        RefreshComputedProperties();
-    }
-
-    partial void OnLlamaSharpBackendModeChanged(string value)
-    {
-        string normalized = NormalizeBackendMode(value);
-        if (normalized != value)
-        {
-            LlamaSharpBackendMode = normalized;
-        }
-
-        _config.LLamaSharpBackendMode = normalized;
-        _writeBack.Save();
-        OnPropertyChanged(nameof(LLamaSharpBackendModeLabel));
         RefreshComputedProperties();
     }
 
@@ -172,22 +144,6 @@ public partial class ModelRuntimeBasicSettingsData : ObservableObject
         _config.FlashAttention = value;
         _writeBack.Save();
         RefreshComputedProperties();
-    }
-
-    private static string NormalizeEngineType(string? value)
-    {
-        return value is ModelRuntimeSettingConfig.EngineLLamaCpp or ModelRuntimeSettingConfig.EngineLLamaSharp
-            ? value
-            : ModelRuntimeSettingConfig.EngineLLamaSharp;
-    }
-
-    private static string NormalizeBackendMode(string? value)
-    {
-        return value is ModelRuntimeSettingConfig.LLamaSharpBackendCpu
-            or ModelRuntimeSettingConfig.LLamaSharpBackendGpu
-            or ModelRuntimeSettingConfig.LLamaSharpBackendAuto
-            ? value
-            : ModelRuntimeSettingConfig.LLamaSharpBackendAuto;
     }
 
     private static ModelRunningData? GetCurrentModel()
@@ -281,3 +237,10 @@ public partial class ModelRuntimeBasicSettingsData : ObservableObject
             : risk.Reason;
     }
 }
+
+/// <summary>
+/// 本地引擎选项
+/// </summary>
+/// <param name="Id">引擎 Id</param>
+/// <param name="DisplayName">显示名</param>
+public sealed record LocalEngineOption(string Id, string DisplayName);

@@ -620,9 +620,6 @@
     <data name="CheckingForUpdates" xml:space="preserve">
         <value>正在检查更新...</value>
     </data>
-    <data name="ModelRuntimeLLamaSharpBackend" xml:space="preserve">
-        <value>LLamaSharp 后端</value>
-    </data>
     <data name="ModelRuntimeChangeHint" xml:space="preserve">
         <value>更换运行引擎或参数不会影响当前已经运行的本地模型，重新加载模型后才会生效。</value>
     </data>
@@ -632,17 +629,11 @@
     <data name="ModelRuntimeSectionDesc" xml:space="preserve">
         <value>选择本地 GGUF 模型的运行方式，并调整下次加载时使用的通用参数。</value>
     </data>
-    <data name="ModelRuntimeLLamaSharpTitle" xml:space="preserve">
-        <value>LLamaSharp 内置运行时</value>
-    </data>
-    <data name="ModelRuntimeLLamaSharpDesc" xml:space="preserve">
-        <value>在应用进程内运行 GGUF 模型。CPU 始终可用；GPU 模式取决于已安装的 LLamaSharp 后端包和当前平台支持。</value>
-    </data>
     <data name="ModelRuntimeLLamaCppTitle" xml:space="preserve">
         <value>llama.cpp 运行包</value>
     </data>
     <data name="ModelRuntimeLLamaCppDesc" xml:space="preserve">
-        <value>使用外部 llama.cpp server 可执行文件。这里选择或下载下次加载模型时使用的运行包。</value>
+        <value>本地模型由 llama.cpp 的 llama-server 运行。这里选择或下载下次加载模型时使用的版本。</value>
     </data>
     <data name="ModelRuntimeContextSize" xml:space="preserve">
         <value>上下文长度</value>
@@ -1882,9 +1873,6 @@
     <data name="ServicesOpenFolder" xml:space="preserve">
         <value>打开目录</value>
     </data>
-    <data name="ServicesSelectFolder" xml:space="preserve">
-        <value>选择目录</value>
-    </data>
     <data name="ServicesCurrentModel" xml:space="preserve">
         <value>当前模型</value>
     </data>
@@ -2003,7 +1991,7 @@
         <value>本地模型</value>
     </data>
     <data name="ServicesEmbeddingSourceLocalDesc" xml:space="preserve">
-        <value>从外部嵌入模型目录和内置目录中选择一个 GGUF 模型。未选择时会使用第一个可用模型。</value>
+        <value>从模型目录里识别出的嵌入模型中选一个。未选择时使用第一个。</value>
     </data>
     <data name="ServicesEmbeddingSourceRemoteApi" xml:space="preserve">
         <value>远程 API</value>
@@ -2024,7 +2012,7 @@
         <value>应用目录：{0} / 内置：{1}</value>
     </data>
     <data name="ServicesNoManagedEmbeddingModels" xml:space="preserve">
-        <value>未发现应用内或内置 GGUF 嵌入模型。请将模型放入应用嵌入模型目录，或切换为自定义本地文件。</value>
+        <value>模型目录里还没有嵌入模型。把 GGUF 嵌入模型放进模型目录即可，应用会按文件自动识别。</value>
     </data>
     <data name="ServicesChatModelNotSelected" xml:space="preserve">
         <value>尚未选择对话模型，请先前往“模型”页选择模型。</value>

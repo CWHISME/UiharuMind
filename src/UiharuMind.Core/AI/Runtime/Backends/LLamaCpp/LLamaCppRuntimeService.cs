@@ -23,7 +23,6 @@ namespace UiharuMind.Core.AI.Runtime.Backends;
 internal sealed class LLamaCppRuntimeService
 {
     private readonly LLamaCppVersionManager _llamaCppVersionManager = new();
-    private readonly Dictionary<string, GGufModelInfo> _modelInfos = new();
     
     public VersionInfo? CurrentVersion { get; private set; }
 
@@ -154,66 +153,6 @@ internal sealed class LLamaCppRuntimeService
     {
         var handler = new OpenAICompatibleHttpHandler(port: LLamaCppSettingConfig.Current.DefaultPort);
         return OpenAICompatibleChatClient.Create(handler, model, "UiharuMind", "None");
-    }
-
-    public async Task<IReadOnlyDictionary<string, GGufModelInfo>> GetModelList(VersionInfo? version)
-    {
-        return await ScanAllLocalModels(version).ConfigureAwait(false);
-    }
-
-    private async Task<Dictionary<string, GGufModelInfo>> ScanAllLocalModels(
-        VersionInfo? version,
-        bool force = false)
-    {
-        _modelInfos.Clear();
-        await ScanLocalModels(version, ModelSettingConfig.Current.DefaultLocalModelPath, _modelInfos, force).ConfigureAwait(false);
-        return await ScanLocalModels(version, ModelSettingConfig.Current.LocalModelPath, _modelInfos, force).ConfigureAwait(false);
-    }
-
-    private Task<Dictionary<string, GGufModelInfo>> ScanLocalModels(
-        VersionInfo? version,
-        string modelPath,
-        Dictionary<string, GGufModelInfo> modelInfos,
-        bool force)
-    {
-        if (!Directory.Exists(modelPath)) return Task.FromResult(modelInfos);
-
-        bool isChanged = false;
-        foreach (string file in Directory.GetFiles(modelPath, "*.gguf", SearchOption.AllDirectories))
-        {
-            string fileName = Path.GetFileNameWithoutExtension(file);
-            if (fileName.Contains("mmproj", StringComparison.Ordinal)) continue;
-
-            string projPath = "";
-            if (!force && ModelSettingConfig.Current.ModelInfos.TryGetValue(fileName, out GGufModelInfo? info))
-            {
-                info.ModelPath = file;
-                info.ModelProjPath = projPath;
-                if (info.ContextLength <= 0)
-                {
-                    info.ApplyMetadata(GGufMetadataReader.TryRead(file));
-                    isChanged = true;
-                }
-
-                modelInfos[fileName] = info;
-                continue;
-            }
-
-            isChanged = true;
-            info = new GGufModelInfo
-            {
-                ModelName = fileName,
-                ModelPath = file,
-                ModelProjPath = projPath
-            };
-            info.ApplyMetadata(GGufMetadataReader.TryRead(file));
-
-            modelInfos[fileName] = info;
-            ModelSettingConfig.Current.ModelInfos[fileName] = info;
-        }
-
-        if (isChanged) LLamaCppSettingConfig.Current.Save();
-        return Task.FromResult(modelInfos);
     }
 
     private async Task<VersionManager> GetLocalVersions(string enginePath)

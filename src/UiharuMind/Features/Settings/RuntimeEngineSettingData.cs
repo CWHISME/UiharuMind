@@ -44,8 +44,6 @@ public partial class RuntimeEngineSettingData : ObservableObject
     [ObservableProperty] private VersionInfo? _selectedVersion;
     [ObservableProperty] private bool _isCheckingForUpdate;
     [ObservableProperty] private string? _updatedResutInfo;
-    public bool IsLLamaCppEngine => RuntimeSettings.IsLLamaCppEngine;
-    public bool IsLLamaSharpEngine => RuntimeSettings.IsLLamaSharpEngine;
 
     public RuntimeEngineSettingData() : this(App.Services.GetRequiredService<IMessageService>())
     {
@@ -54,11 +52,6 @@ public partial class RuntimeEngineSettingData : ObservableObject
     public RuntimeEngineSettingData(IMessageService messageService)
     {
         _messageService = messageService;
-        RuntimeSettings.PropertyChanged += (_, _) =>
-        {
-            OnPropertyChanged(nameof(IsLLamaCppEngine));
-            OnPropertyChanged(nameof(IsLLamaSharpEngine));
-        };
         RemoteDwnloadListViewModel = new DownloadListViewData(messageService)
         {
             DownloadCompletedHandler = OnRuntimeEngineDownloadCompleted,

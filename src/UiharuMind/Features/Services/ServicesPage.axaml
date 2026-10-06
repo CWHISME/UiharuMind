@@ -277,28 +277,11 @@
                                 <StackPanel Spacing="12">
                                     <TextBlock Text="{Binding SelectedEmbeddingSourceMode.Description}" Classes="muted" TextWrapping="Wrap" />
                                     <TextBlock Text="{Binding ManagedEmbeddingSummaryText}" Classes="muted" TextWrapping="Wrap" />
-                                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="8">
-                                        <TextBlock Text="{loc:Loc ServicesBackend}"
+                                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
+                                        <TextBlock Text="{loc:Loc ServicesConfiguredModel}"
                                                    Classes="muted"
                                                    VerticalAlignment="Center" />
                                         <ComboBox Grid.Column="1"
-                                                  MinWidth="160"
-                                                  HorizontalAlignment="Left"
-                                                  ItemsSource="{Binding LocalEmbeddingBackendOptions}"
-                                                  SelectedItem="{Binding SelectedLocalEmbeddingBackend}">
-                                            <ComboBox.ItemTemplate>
-                                                <DataTemplate x:DataType="pages:EmbeddingBackendOption">
-                                                    <TextBlock Text="{Binding DisplayName}" />
-                                                </DataTemplate>
-                                            </ComboBox.ItemTemplate>
-                                        </ComboBox>
-
-                                        <TextBlock Text="{loc:Loc ServicesConfiguredModel}"
-                                                   Grid.Row="1"
-                                                   Classes="muted"
-                                                   VerticalAlignment="Center" />
-                                        <ComboBox Grid.Row="1"
-                                                  Grid.Column="1"
                                                   ItemsSource="{Binding ManagedEmbeddingModels}"
                                                   SelectedItem="{Binding SelectedManagedEmbeddingModel}"
                                                   MaxDropDownHeight="280"
@@ -334,9 +317,6 @@
                                         <Button Classes="compact"
                                                 Content="{loc:Loc ServicesRefreshModels}"
                                                 Command="{Binding RefreshManagedEmbeddingModelListCommand}" />
-                                        <Button Classes="compact"
-                                                Content="{loc:Loc ServicesSelectFolder}"
-                                                Command="{Binding SelectEmbeddingFolderCommand}" />
                                         <Button Classes="compact"
                                                 Content="{loc:Loc ServicesOpenFolder}"
                                                 Command="{Binding OpenEmbeddingFolderCommand}" />

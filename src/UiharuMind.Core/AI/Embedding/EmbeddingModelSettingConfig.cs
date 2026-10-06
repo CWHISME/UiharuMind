@@ -21,8 +21,6 @@ namespace UiharuMind.Core.AI.Embedding;
 [DisplayName("Embedding Model")]
 public class EmbeddingModelSettingConfig : TConfigBase<EmbeddingModelSettingConfig>
 {
-    public const string BackendLLamaSharp = "LLamaSharp";
-    public const string BackendLLamaCpp = "LLamaCpp";
     public const string BackendOpenAICompatible = "OpenAICompatible";
 
     public const string SourceModeLocal = "Local";
@@ -30,24 +28,18 @@ public class EmbeddingModelSettingConfig : TConfigBase<EmbeddingModelSettingConf
     public const string SourceModeCustomLocal = "CustomLocal";
     public const string SourceModeRemoteApi = "RemoteApi";
 
-    //内置模型目录路径(不可修改)
-    [JsonIgnore] public string DefaultEmbeddedModelPath { get; set; } = "./InternalEmbeddedModels";
-
-    //外部模型目录路径(可修改)
-    public string ExternalEmbeddedModelPath { get; set; } = AppPaths.External.EmbeddedModels;
-
     /// <summary>
     /// 嵌入模型来源
     /// </summary>
     public string SourceMode { get; set; } = SourceModeLocal;
 
     /// <summary>
-    /// 嵌入模型后端
+    /// 嵌入模型后端：远程为 OpenAICompatible；本地留空，跟随「本地引擎」设置
     /// </summary>
-    public string Backend { get; set; } = BackendLLamaSharp;
+    public string Backend { get; set; } = "";
 
     /// <summary>
-    /// 嵌入模型路径。留空时会使用嵌入模型目录中的第一个 GGUF 文件。
+    /// 嵌入模型路径。留空时使用模型目录里找到的第一个嵌入模型。
     /// </summary>
     public string ModelPath { get; set; } = "";
 

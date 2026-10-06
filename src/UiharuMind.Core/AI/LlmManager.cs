@@ -32,6 +32,11 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     private readonly ModelRuntimeService _runtimeService;
 
     public VersionInfo? CurrentRuntimeVersion => _llamaCppRuntime.CurrentVersion;
+
+    /// <summary>
+    /// 已注册的本地引擎
+    /// </summary>
+    public IReadOnlyList<IModelRuntimeBackend> LocalEngines => _runtimeService.LocalEngines;
     public int RemoteModelCount => _remoteModelManager.RemoteListModels.Count;
 
     /// <summary>

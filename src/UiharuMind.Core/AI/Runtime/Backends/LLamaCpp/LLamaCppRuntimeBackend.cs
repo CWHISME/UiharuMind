@@ -23,6 +23,8 @@ internal sealed class LLamaCppRuntimeBackend(
     public IReadOnlySet<RuntimeCapability> Capabilities { get; } =
         new HashSet<RuntimeCapability> { RuntimeCapability.Chat, RuntimeCapability.Embedding };
 
+    public bool IsLocal => true;
+
     public bool CanHandleChat(ILlmModel model)
     {
         return model is GGufModelInfo;
@@ -30,16 +32,21 @@ internal sealed class LLamaCppRuntimeBackend(
 
     public bool CanHandleEmbedding(EmbeddingModelSettingConfig settings)
     {
-        return !EmbeddingModelResolver.IsRemote(settings) &&
-               string.Equals(settings.Backend, BackendId, StringComparison.OrdinalIgnoreCase);
+        return !EmbeddingModelResolver.IsRemote(settings);
     }
 
-    public async Task<IReadOnlyDictionary<string, ILlmModel>> DiscoverModelsAsync(
+    public RuntimeParameterPolicy CreateParameterPolicy(ModelRuntimeSettingConfig settings)
+    {
+        return new RuntimeParameterPolicy(
+            settings.GpuLayers <= 0 ? RuntimeDeviceMode.Cpu : RuntimeDeviceMode.Auto,
+            settings.GpuLayers > 0,
+            false);
+    }
+
+    public Task<IReadOnlyDictionary<string, ILlmModel>> DiscoverModelsAsync(
         CancellationToken cancellationToken = default)
     {
-        IReadOnlyDictionary<string, GGufModelInfo> models =
-            await server.GetModelList(selectedVersionProvider()).ConfigureAwait(false);
-        return models.ToDictionary(x => x.Key, x => (ILlmModel)x.Value);
+        return Task.FromResult<IReadOnlyDictionary<string, ILlmModel>>(new Dictionary<string, ILlmModel>());
     }
 
     public async Task RunChatAsync(

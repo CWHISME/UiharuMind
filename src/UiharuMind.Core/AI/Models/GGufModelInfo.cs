@@ -41,6 +41,16 @@ public class GGufModelInfo : ILlmModel
     public ulong ParameterCount { get; set; }
     public ulong FileSizeBytes { get; set; }
 
+    /// <summary>
+    /// 由文件头判定的种类；null 表示还没读过（旧缓存）或读取失败
+    /// </summary>
+    public ELocalModelKind? Kind { get; set; }
+
+    /// <summary>
+    /// 缓存里的信息不全，需要重读文件头
+    /// </summary>
+    [JsonIgnore] public bool NeedsMetadata => Kind == null || ContextLength <= 0;
+
     [JsonInclude] private Dictionary<string, string> Infos { get; set; } = new Dictionary<string, string>(10);
 
     /// <summary>
@@ -75,6 +85,7 @@ public class GGufModelInfo : ILlmModel
         AttentionHeadCountKv = metadata.AttentionHeadCountKv;
         ParameterCount = metadata.ParameterCount;
         FileSizeBytes = metadata.FileSizeBytes;
+        Kind = metadata.Kind;
         foreach ((string key, string value) in metadata.RawMetadata)
             Infos[key] = value;
     }

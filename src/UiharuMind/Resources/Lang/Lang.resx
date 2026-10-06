@@ -627,9 +627,6 @@
     <data name="CheckingForUpdates" xml:space="preserve">
         <value>Checking for updates...</value>
     </data>
-    <data name="ModelRuntimeLLamaSharpBackend" xml:space="preserve">
-        <value>LLamaSharp backend</value>
-    </data>
     <data name="ModelRuntimeChangeHint" xml:space="preserve">
         <value>Changing runtime engine or parameters does not affect the currently running local model. Reload the model to apply changes.</value>
     </data>
@@ -639,17 +636,11 @@
     <data name="ModelRuntimeSectionDesc" xml:space="preserve">
         <value>Choose how local GGUF models run and tune the common parameters used by the next load.</value>
     </data>
-    <data name="ModelRuntimeLLamaSharpTitle" xml:space="preserve">
-        <value>LLamaSharp built-in runtime</value>
-    </data>
-    <data name="ModelRuntimeLLamaSharpDesc" xml:space="preserve">
-        <value>Runs GGUF models in-process. CPU is always available; GPU mode depends on the installed LLamaSharp backend package and platform support.</value>
-    </data>
     <data name="ModelRuntimeLLamaCppTitle" xml:space="preserve">
         <value>llama.cpp runtime package</value>
     </data>
     <data name="ModelRuntimeLLamaCppDesc" xml:space="preserve">
-        <value>Uses an external llama.cpp server executable. Select or download the runtime package used by the next model load.</value>
+        <value>Local models run on llama.cpp's llama-server. Select or download the version used by the next model load.</value>
     </data>
     <data name="ModelRuntimeContextSize" xml:space="preserve">
         <value>Context size</value>
@@ -1889,9 +1880,6 @@
     <data name="ServicesOpenFolder" xml:space="preserve">
         <value>Open folder</value>
     </data>
-    <data name="ServicesSelectFolder" xml:space="preserve">
-        <value>Select folder</value>
-    </data>
     <data name="ServicesCurrentModel" xml:space="preserve">
         <value>Current model</value>
     </data>
@@ -2010,7 +1998,7 @@
         <value>Local model</value>
     </data>
     <data name="ServicesEmbeddingSourceLocalDesc" xml:space="preserve">
-        <value>Choose one GGUF embedding model from the external embedding folder and the built-in folder. If no model is selected, the first available model is used.</value>
+        <value>Choose one of the embedding models recognized in the model folder. If none is selected, the first one is used.</value>
     </data>
     <data name="ServicesEmbeddingSourceRemoteApi" xml:space="preserve">
         <value>Remote API</value>
@@ -2031,7 +2019,7 @@
         <value>App folder: {0} / Built-in: {1}</value>
     </data>
     <data name="ServicesNoManagedEmbeddingModels" xml:space="preserve">
-        <value>No app or built-in GGUF embedding model was found. Add a model to the app embedding model folder, or switch to a custom local file.</value>
+        <value>No embedding model in the model folder yet. Put a GGUF embedding model there; it is recognized from the file automatically.</value>
     </data>
     <data name="ServicesChatModelNotSelected" xml:space="preserve">
         <value>No chat model is selected. Please choose a model on the Model page first.</value>

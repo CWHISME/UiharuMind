@@ -4,6 +4,7 @@
  * UiharuMind v0.0.1
  ****************************************************************************/
 
+using UiharuMind.Core.Configs;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Embedding;
 using UiharuMind.Core.AI.Models;
@@ -20,11 +21,18 @@ internal sealed class OpenAICompatibleRuntimeBackend(RemoteModelManager remoteMo
     public IReadOnlySet<RuntimeCapability> Capabilities { get; } =
         new HashSet<RuntimeCapability> { RuntimeCapability.Chat, RuntimeCapability.Embedding };
 
+    public bool IsLocal => false;
+
     public bool CanHandleChat(ILlmModel model) => model is RemoteModelInfo;
 
     public bool CanHandleEmbedding(EmbeddingModelSettingConfig settings)
     {
         return EmbeddingModelResolver.IsRemote(settings);
+    }
+
+    public RuntimeParameterPolicy CreateParameterPolicy(ModelRuntimeSettingConfig settings)
+    {
+        return new RuntimeParameterPolicy(RuntimeDeviceMode.Cpu, false, true);
     }
 
     public Task<IReadOnlyDictionary<string, ILlmModel>> DiscoverModelsAsync(

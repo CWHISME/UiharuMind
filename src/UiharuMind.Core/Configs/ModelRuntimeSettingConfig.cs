@@ -4,6 +4,7 @@
  * UiharuMind v0.0.1
  ****************************************************************************/
 
+using System.Text.Json.Serialization;
 using System.ComponentModel;
 using UiharuMind.Core.Core.Attributes;
 using UiharuMind.Core.Core.Utils;
@@ -13,18 +14,17 @@ namespace UiharuMind.Core.Configs;
 [DisplayName("Model Runtime")]
 public class ModelRuntimeSettingConfig : TConfigBase<ModelRuntimeSettingConfig>
 {
-    public const string EngineLLamaSharp = "LLamaSharp";
-    public const string EngineLLamaCpp = "LLamaCpp";
-
     public const string LLamaSharpBackendAuto = "Auto";
     public const string LLamaSharpBackendCpu = "CPU";
     public const string LLamaSharpBackendGpu = "GPU";
 
-    [SettingConfigDesc("Local model runtime engine")]
-    [SettingConfigDesc("本地模型运行引擎", LanguageUtils.ChineseSimplified)]
-    [SettingConfigOptions(EngineLLamaSharp, EngineLLamaCpp)]
-    public string EngineType { get; set; } = EngineLLamaSharp;
+    /// <summary>
+    /// 首选的本地引擎 Id，空或未注册时用第一个能跑的。沿用旧字段名 EngineType，旧值本就是引擎 Id
+    /// </summary>
+    [JsonPropertyName("EngineType")]
+    public string LocalEngineId { get; set; } = "";
 
+    // LLamaSharp 已屏蔽（ADR 0067），只剩其死代码还在读
     [SettingConfigDesc("LLamaSharp backend mode")]
     [SettingConfigDesc("LLamaSharp 后端模式", LanguageUtils.ChineseSimplified)]
     [SettingConfigOptions(LLamaSharpBackendAuto, LLamaSharpBackendCpu, LLamaSharpBackendGpu)]

@@ -90,8 +90,15 @@
                     </StackPanel>
                     <ComboBox Grid.Column="1"
                               Width="130"
-                              ItemsSource="{Binding EngineOptions}"
-                              SelectedItem="{Binding EngineType}" />
+                              IsVisible="{Binding HasEngineChoice}"
+                              ItemsSource="{Binding LocalEngineOptions}"
+                              SelectedItem="{Binding SelectedLocalEngine}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="viewData:LocalEngineOption">
+                                <TextBlock Text="{Binding DisplayName}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
                 </Grid>
             </Border>
 
@@ -218,17 +225,6 @@
                     BorderBrush="{DynamicResource SemiGrey2}"
                     BorderThickness="0,1,0,0">
                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                    <StackPanel Orientation="Horizontal"
-                                Spacing="8"
-                                VerticalAlignment="Center"
-                                IsVisible="{Binding IsLLamaSharpEngine}">
-                        <TextBlock Text="{loc:Loc ModelRuntimeLLamaSharpBackend}"
-                                   VerticalAlignment="Center"
-                                   Classes="muted" />
-                        <ComboBox Width="130"
-                                  ItemsSource="{Binding LLamaSharpBackendOptions}"
-                                  SelectedItem="{Binding LlamaSharpBackendMode}" />
-                    </StackPanel>
                     <TextBlock Grid.Column="1"
                                Text="{loc:Loc ModelRuntimeChangeHint}"
                                Classes="muted"

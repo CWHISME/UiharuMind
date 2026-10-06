@@ -28,7 +28,8 @@ public class EmbeddingModelService : Singleton<EmbeddingModelService>
     public event Action? StateChanged;
 
     public bool IsRunning => _session is { IsRunning: true };
-    public string BackendName => _session?.BackendName ?? ConfigManager.Instance.EmbeddingModelSetting.Backend;
+    public string BackendName => _session?.BackendName ??
+                                 (ConfigManager.Instance.EmbeddingModelSetting.Backend is { Length: > 0 } backend ? backend : "-");
     public string ModelPath => _session?.ModelPath ?? GetConfiguredModelPath();
     public int Dimensions => _session?.Dimensions ?? 0;
     public DateTime? LastStartedAt => _lastStartedAt;
@@ -104,6 +105,7 @@ public class EmbeddingModelService : Singleton<EmbeddingModelService>
     {
         return string.Join('|',
             embedding.Backend,
+            ModelRuntimeSettingConfig.Current.LocalEngineId,
             embedding.SourceMode,
             embedding.ModelPath,
             embedding.ContextSize,
@@ -116,12 +118,12 @@ public class EmbeddingModelService : Singleton<EmbeddingModelService>
 
     public static IReadOnlyList<EmbeddingModelCandidate> GetManagedCandidates()
     {
-        return EmbeddingModelResolver.GetManagedCandidates(EmbeddingModelSettingConfig.Current);
+        return EmbeddingModelResolver.GetManagedCandidates();
     }
 
     public static string ResolveModelPath(EmbeddingModelSettingConfig config)
     {
-        return EmbeddingModelResolver.ResolveModelPath(config, EmbeddingModelSettingConfig.Current);
+        return EmbeddingModelResolver.ResolveModelPath(config);
     }
 
     private static string GetConfiguredModelPath()

@@ -724,6 +724,33 @@ PowerShell 里 `$DRAFT` 会静默展开成空串）。**图片引用不用简写
 跑模型的后端。Execution 装配「要问什么」，Runtime 负责「怎么问到模型」。
 包括本地 llama.cpp 进程、LLamaSharp、OpenAI 兼容 HTTP 等，以及 `ChatThread`。
 
+### 模型源（Model Source）
+
+下载本地模型文件（GGUF）的地方：HuggingFace、与其 API 兼容的镜像（如 hf-mirror）、ModelScope。
+镜像只换地址不换协议；ModelScope 是另一套接口。
+
+⚠️ 不要与远程模型的服务商混淆：模型源只管**拿文件**，从不参与问话。
+
+### 引擎版本
+
+一份下载下来的 llama-server 成品包（某个发布号 × 某个变体，如 Vulkan / CPU / Metal），本地推理唯一的引擎
+（见 [ADR 0067](adr/0067-本地推理只走llama-server，屏蔽LLamaSharp.md)）。可装多份，选中一份在用。
+**推荐变体**：macOS 唯一那个，Windows / Linux 是 Vulkan；跑不起来不自动换，交给用户。
+
+### 模型清单（Model Manifest）
+
+本地模型目录里的旁挂文件，记下这个模型从哪个模型源、哪个仓库来，各文件的校验值，配对的 mmproj，以及按模型的参数覆写。
+有清单的叫**下载的模型**；只有 gguf、没清单的叫**手放的模型**，照旧扫描可用，信息靠读文件猜。
+
+⚠️ mmproj 不是模型，是视觉模型的附件：不单独列出，跟着主模型走。
+
+### 本地模型的种类
+
+**对话模型 / 嵌入模型 / 重排模型**，同住一个模型目录，种类由 GGUF 文件头判定，不看文件名、不看放在哪个子目录。
+重排模型目前哪个列表都不进。
+
+⚠️ 不要用「放在 EmbeddedModels 里的」来指嵌入模型——那个目录已废弃（ADR 0067）。
+
 ### 全局当前模型
 
 顶栏在用的那个，内存单例、重启不落盘。体现为 `LlmManager.CurrentRunningModel`。

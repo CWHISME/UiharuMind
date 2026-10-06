@@ -5,8 +5,6 @@
  ****************************************************************************/
 
 using System.Globalization;
-using LLama;
-using LLama.Common;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Models;
@@ -24,6 +22,7 @@ public sealed class GGufMetadataInfo
     public int AttentionHeadCountKv { get; init; }
     public ulong ParameterCount { get; init; }
     public ulong FileSizeBytes { get; init; }
+    public ELocalModelKind Kind { get; init; }
     public IReadOnlyDictionary<string, string> RawMetadata { get; init; } = new Dictionary<string, string>();
 }
 
@@ -35,32 +34,25 @@ public static class GGufMetadataReader
         {
             if (!File.Exists(modelPath)) return null;
 
-            // VocabOnly 只读取词表和元信息，避免为了展示模型信息就分配完整模型张量与上下文。
-            using LLamaWeights weights = LLamaWeights.LoadFromFile(new ModelParams(modelPath)
-            {
-                VocabOnly = true,
-                GpuLayerCount = 0,
-                UseMemorymap = true
-            });
-
-            IReadOnlyDictionary<string, string> metadata = weights.Metadata;
-            string architecture = GetString(metadata, "general.architecture");
+            GGufHeader header = GGufHeaderReader.Read(modelPath);
+            string architecture = header.GetString("general.architecture");
             string prefix = string.IsNullOrWhiteSpace(architecture) ? "" : architecture + ".";
 
             return new GGufMetadataInfo
             {
                 Architecture = architecture,
-                DisplayName = GetString(metadata, "general.name"),
-                SizeLabel = GetString(metadata, "general.size_label"),
-                Quantization = GetString(metadata, "general.file_type"),
-                ContextLength = GetInt(metadata, prefix + "context_length", weights.ContextSize),
-                EmbeddingLength = GetInt(metadata, prefix + "embedding_length", weights.EmbeddingSize),
-                LayerCount = GetInt(metadata, prefix + "block_count"),
-                AttentionHeadCount = GetInt(metadata, prefix + "attention.head_count"),
-                AttentionHeadCountKv = GetInt(metadata, prefix + "attention.head_count_kv"),
-                ParameterCount = weights.ParameterCount,
-                FileSizeBytes = weights.SizeInBytes,
-                RawMetadata = new Dictionary<string, string>(metadata)
+                DisplayName = header.GetString("general.name"),
+                SizeLabel = header.GetString("general.size_label"),
+                Quantization = header.GetInteger("general.file_type")?.ToString(CultureInfo.InvariantCulture) ?? "",
+                ContextLength = GetInt(header, prefix + "context_length"),
+                EmbeddingLength = GetInt(header, prefix + "embedding_length"),
+                LayerCount = GetInt(header, prefix + "block_count"),
+                AttentionHeadCount = GetInt(header, prefix + "attention.head_count"),
+                AttentionHeadCountKv = GetInt(header, prefix + "attention.head_count_kv"),
+                ParameterCount = header.ParameterCount,
+                FileSizeBytes = (ulong)new FileInfo(modelPath).Length,
+                Kind = LocalModelKindClassifier.Classify(header),
+                RawMetadata = header.ToStringDictionary()
             };
         }
         catch (Exception e)
@@ -70,16 +62,9 @@ public static class GGufMetadataReader
         }
     }
 
-    private static string GetString(IReadOnlyDictionary<string, string> metadata, string key)
+    private static int GetInt(GGufHeader header, string key)
     {
-        return metadata.TryGetValue(key, out string? value) ? value : "";
-    }
-
-    private static int GetInt(IReadOnlyDictionary<string, string> metadata, string key, int fallback = 0)
-    {
-        if (!metadata.TryGetValue(key, out string? value)) return fallback;
-        return int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int result)
-            ? result
-            : fallback;
+        long? value = header.GetInteger(key);
+        return value is > 0 and <= int.MaxValue ? (int)value.Value : 0;
     }
 }
