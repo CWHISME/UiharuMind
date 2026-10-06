@@ -43,6 +43,7 @@ public partial class ModelDownloadPageData : ObservableObject
     private string _sourceKey;
     private CancellationTokenSource? _searchCancellation;
     private bool _hasSearched;
+    private string _resultsQuery = ""; //当前结果是按哪个词搜出来的
 
     [ObservableProperty] private string _searchText = "";
     [ObservableProperty] private bool _isSearching;
@@ -66,9 +67,9 @@ public partial class ModelDownloadPageData : ObservableObject
     public ObservableCollection<ModelRepoListItem> Results { get; } = [];
 
     /// <summary>
-    /// 列表上方的小标题：空搜索时是热门仓库
+    /// 列表上方的小标题：按当前结果的来路，空搜索搜出来的是热门仓库
     /// </summary>
-    public string ListCaption => Loc.Text(string.IsNullOrWhiteSpace(SearchText)
+    public string ListCaption => Loc.Text(string.IsNullOrWhiteSpace(_resultsQuery)
         ? LangKey.ModelDownloadPopularCaption
         : LangKey.ModelDownloadResultsCaption);
 
@@ -106,7 +107,6 @@ public partial class ModelDownloadPageData : ObservableObject
 
     partial void OnSearchTextChanged(string value)
     {
-        OnPropertyChanged(nameof(ListCaption));
         if (!_hasSearched) return;
         if (ModelRepoReference.TryParse(value, out string repository))
         {
@@ -150,6 +150,8 @@ public partial class ModelDownloadPageData : ObservableObject
                 cancellation.Token);
             if (cancellation.IsCancellationRequested) return;
 
+            _resultsQuery = query;
+            OnPropertyChanged(nameof(ListCaption));
             Results.Clear();
             foreach (ModelRepoSummary summary in results)
                 Results.Add(new ModelRepoListItem(summary.Repository, FormatDownloads(summary.Downloads)));

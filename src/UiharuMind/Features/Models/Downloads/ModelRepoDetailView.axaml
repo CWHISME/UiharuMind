@@ -80,7 +80,7 @@
                 IsVisible="{Binding !IsEmpty}" />
 
         <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-            <ItemsControl ItemsSource="{Binding Rows}">
+            <ItemsControl x:Name="QuantList" ItemsSource="{Binding Rows}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="downloads:ModelQuantRowData">
                         <Border Classes="quant-row" Classes.recommended="{Binding IsRecommended}" Margin="0,1">
@@ -93,9 +93,12 @@
                                 <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <TextBlock Text="{Binding Label}" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                        <controls:KindBadge Header="{loc:Loc ModelDownloadRecommended}"
-                                                            BadgeBackground="{DynamicResource SemiBlue1}"
-                                                            IsVisible="{Binding IsRecommended}" />
+                                        <!-- 实底白字：KindBadge 写死深色字，暗色主题下读不清 -->
+                                        <Border Background="{DynamicResource SemiBlue5}" CornerRadius="9" Padding="7,1"
+                                                VerticalAlignment="Center" IsVisible="{Binding IsRecommended}">
+                                            <TextBlock Text="{loc:Loc ModelDownloadRecommended}" FontSize="11"
+                                                       Foreground="White" />
+                                        </Border>
                                         <TextBlock Text="{Binding PartsText}" Classes="muted" FontSize="12"
                                                    VerticalAlignment="Center" />
                                     </StackPanel>
