@@ -101,8 +101,9 @@
                         <!-- 检查更新的结果（发布说明）默认收起：内容长，多数时候不需要看 -->
                         <Expander Header="{loc:Loc LLamaCppUpdateResult}" HorizontalAlignment="Stretch"
                                   IsVisible="{Binding UpdatedResutInfo, Converter={x:Static ObjectConverters.IsNotNull}}">
-                            <ScrollViewer MaxHeight="200">
-                                <SelectableTextBlock Text="{Binding UpdatedResutInfo}" TextWrapping="Wrap" Margin="4" />
+                            <ScrollViewer MaxHeight="260" HorizontalScrollBarVisibility="Disabled">
+                                <controls:SimpleMarkdownViewer MarkdownText="{Binding UpdatedResutInfo}"
+                                                               IsPlaintext="False" Margin="4" />
                             </ScrollViewer>
                         </Expander>
 

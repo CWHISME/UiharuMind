@@ -88,13 +88,15 @@ public static class GitHubReleaseAssetHelper
         catch (Exception) when (!cancellationToken.IsCancellationRequested)
         {
             // API 有匿名限流（每小时 60 次），退到网页：releases.atom 列出最近的标签，逐个看附件
-            foreach (string tag in await GetRecentTagsFromFeedAsync(owner, repository, cancellationToken)
+            foreach (FeedEntry entry in await GetRecentFeedEntriesAsync(owner, repository, cancellationToken)
                          .ConfigureAwait(false))
             {
                 GitHubReleaseInfo release = await GetReleaseFromExpandedAssetsAsync(
-                    owner, repository, tag, $"https://github.com/{owner}/{repository}/releases/tag/{tag}",
+                    owner, repository, entry.Tag, $"https://github.com/{owner}/{repository}/releases/tag/{entry.Tag}",
                     cancellationToken).ConfigureAwait(false);
-                if (accept(release)) return release;
+                // 附件页只有附件；发布时间与说明在 feed 里（说明是 HTML）
+                if (accept(release))
+                    return release with { PublishedAt = entry.Updated, Body = MarkdownCleaner.Clean(entry.ContentHtml) };
             }
 
             return null;
@@ -243,20 +245,28 @@ public static class GitHubReleaseAssetHelper
         return new GitHubReleaseInfo(owner, repository, tagName, tagName, releaseUrl, null, null, assets);
     }
 
-    private static async Task<IReadOnlyList<string>> GetRecentTagsFromFeedAsync(
+    private static async Task<IReadOnlyList<FeedEntry>> GetRecentFeedEntriesAsync(
         string owner,
         string repository,
         CancellationToken cancellationToken)
     {
         string feed = await HttpClient.GetStringAsync($"https://github.com/{owner}/{repository}/releases.atom",
             cancellationToken).ConfigureAwait(false);
-        return XDocument.Parse(feed).Descendants(XName.Get("link", "http://www.w3.org/2005/Atom"))
-            .Select(x => x.Attribute("href")?.Value ?? "")
-            .Where(x => x.Contains("/releases/tag/", StringComparison.Ordinal))
-            .Select(x => Uri.UnescapeDataString(x[(x.LastIndexOf('/') + 1)..]))
+        XNamespace atom = "http://www.w3.org/2005/Atom";
+        return XDocument.Parse(feed).Descendants(atom + "entry")
+            .Select(entry => (Entry: entry, Href: entry.Element(atom + "link")?.Attribute("href")?.Value ?? ""))
+            .Where(x => x.Href.Contains("/releases/tag/", StringComparison.Ordinal))
+            .Select(x => new FeedEntry(
+                Uri.UnescapeDataString(x.Href[(x.Href.LastIndexOf('/') + 1)..]),
+                DateTimeOffset.TryParse(x.Entry.Element(atom + "updated")?.Value, out DateTimeOffset updated)
+                    ? updated
+                    : null,
+                x.Entry.Element(atom + "content")?.Value ?? ""))
             .Take(FeedTagLimit)
             .ToList();
     }
+
+    private sealed record FeedEntry(string Tag, DateTimeOffset? Updated, string ContentHtml);
 
     private static bool MatchesCurrentPlatform(string name)
     {

@@ -98,7 +98,10 @@ public class LLamaCppVersionManager : ReleaseVersionManagerBase<VersionInfo>
         string? releaseDate = release.PublishedAt.HasValue
             ? TimeUtils.TimeStringToLocalTimeString(release.PublishedAt.Value.ToString("O"))
             : null;
-        return $"Release Date: {releaseDate} \n\n{release.Body}";
+        // 发布说明夹着 HTML（<details> 等），整理成 markdown 交给界面渲染
+        string body = MarkdownCleaner.Clean(release.Body ?? "");
+        string title = releaseDate == null ? $"**{release.TagName}**" : $"**{release.TagName}** · {releaseDate}";
+        return $"{title}\n\n{body}".TrimEnd();
     }
 
     private VersionManager SyncVersionManager()
