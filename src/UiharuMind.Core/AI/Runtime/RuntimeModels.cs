@@ -14,7 +14,12 @@ namespace UiharuMind.Core.AI.Runtime;
 public enum RuntimeCapability
 {
     Chat,
-    Embedding
+    Embedding,
+
+    /// <summary>
+    /// 对话时能按 ChatOptions.Tools 调用工具
+    /// </summary>
+    ToolCalling
 }
 
 public sealed record RuntimeResolvedParameters(

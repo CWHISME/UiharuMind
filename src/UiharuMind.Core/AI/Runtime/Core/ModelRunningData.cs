@@ -14,6 +14,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Models;
+using UiharuMind.Core.AI.Runtime;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.LLM;
@@ -62,10 +63,10 @@ public class ModelRunningData : INotifyPropertyChanged
     public bool IsVisionModel => _modelInfo.IsVision;
 
     /// <summary>
-    /// 是否支持工具调用。本地 LLamaSharp 路径把消息拍平成 prompt、
-    /// 完全忽略 ChatOptions.Tools,因此只有远程模型算支持。
+    /// 是否支持工具调用，由跑它的引擎声明（<see cref="RuntimeCapability.ToolCalling"/>）。
+    /// 没经过运行时服务登记的（如远程模型设置里的那份列表）按远程算支持
     /// </summary>
-    public bool SupportsToolCalling => IsRemoteModel;
+    public bool SupportsToolCalling => _supportsToolCalling ?? IsRemoteModel;
 
     /// <summary>
     /// 本模型的上下文窗口(token 数)。远程按配置/预设表解析，本地按实际加载值；
@@ -101,6 +102,7 @@ public class ModelRunningData : INotifyPropertyChanged
     public float LoadingPercent { get; private set; } = 0;
 
     private bool _isLoaded = false;
+    private bool? _supportsToolCalling;
 
     /// <summary>
     /// 最近一次加载失败或运行中崩溃的原因；开始加载时清空
@@ -123,6 +125,15 @@ public class ModelRunningData : INotifyPropertyChanged
     public void ForceUpdateModelInfo(ILlmModel modelInfo)
     {
         _modelInfo = modelInfo;
+    }
+
+    /// <summary>
+    /// 记下将来跑它的引擎能做什么
+    /// </summary>
+    /// <param name="backend">引擎，null 表示没有能跑它的</param>
+    public void ApplyBackend(IModelRuntimeBackend? backend)
+    {
+        _supportsToolCalling = backend?.Capabilities.Contains(RuntimeCapability.ToolCalling) == true;
     }
 
     public CancellationToken BeginLoading()

@@ -65,13 +65,11 @@ internal sealed class ModelRuntimeService
 
         foreach ((string key, ILlmModel model) in discovered)
         {
-            if (_modelCache.TryGetValue(key, out ModelRunningData? runningData))
-            {
+            if (!_modelCache.TryGetValue(key, out ModelRunningData? runningData))
+                _modelCache[key] = runningData = new ModelRunningData(model);
+            else
                 runningData.ForceUpdateModelInfo(model);
-                continue;
-            }
-
-            _modelCache[key] = new ModelRunningData(model);
+            runningData.ApplyBackend(_registry.FindChatBackend(model, GetPreferredChatBackendId(model)));
         }
 
         return _modelCache;

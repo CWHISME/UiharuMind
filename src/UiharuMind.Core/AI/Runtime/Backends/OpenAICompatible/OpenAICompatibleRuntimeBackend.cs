@@ -19,7 +19,8 @@ internal sealed class OpenAICompatibleRuntimeBackend(RemoteModelManager remoteMo
     public string Id => BackendId;
     public string DisplayName => "OpenAI Compatible";
     public IReadOnlySet<RuntimeCapability> Capabilities { get; } =
-        new HashSet<RuntimeCapability> { RuntimeCapability.Chat, RuntimeCapability.Embedding };
+        new HashSet<RuntimeCapability>
+            { RuntimeCapability.Chat, RuntimeCapability.Embedding, RuntimeCapability.ToolCalling };
 
     public bool IsLocal => false;
 

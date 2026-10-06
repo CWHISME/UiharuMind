@@ -1,3 +1,4 @@
+using UiharuMind.Core.AI.Core;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Embedding;
 using UiharuMind.Core.AI.Models;
@@ -46,11 +47,27 @@ public class ModelRuntimeBackendRegistryTests
         Assert.Equal(["EngineA", "EngineB"], _registry.LocalEngines.Select(x => x.Id));
     }
 
-    private sealed class FakeBackend(string id, bool isLocal) : IModelRuntimeBackend
+    [Fact]
+    public void ToolCalling_FollowsTheEngine_NotWhetherTheModelIsRemote()
+    {
+        ModelRunningData local = new(_localModel);
+
+        local.ApplyBackend(new FakeBackend("WithTools", true, RuntimeCapability.ToolCalling));
+        Assert.True(local.SupportsToolCalling);
+
+        local.ApplyBackend(new FakeBackend("NoTools", true));
+        Assert.False(local.SupportsToolCalling);
+
+        local.ApplyBackend(null);
+        Assert.False(local.SupportsToolCalling);
+    }
+
+    private sealed class FakeBackend(string id, bool isLocal, params RuntimeCapability[] capabilities)
+        : IModelRuntimeBackend
     {
         public string Id => id;
         public string DisplayName => id;
-        public IReadOnlySet<RuntimeCapability> Capabilities { get; } = new HashSet<RuntimeCapability>();
+        public IReadOnlySet<RuntimeCapability> Capabilities { get; } = new HashSet<RuntimeCapability>(capabilities);
         public bool IsLocal => isLocal;
 
         public bool CanHandleChat(ILlmModel model) => isLocal == model is GGufModelInfo;
