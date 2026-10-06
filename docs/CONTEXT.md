@@ -406,8 +406,9 @@
 ⚠️ `HarnessInstructions` 一律为空串，不要把纪律段塞回去。基座层的落地与当前顺序见
 [ADR 0005](adr/0005-系统提示词的顺序由我们拼，人格在最前.md) 的后续记录。
 
-⚠️ **工作循环属于角色层**（`AgentToolPrompts.AgentWorkLoop`）。见
-[ADR 0004](adr/0004-工作循环指令从框架默认搬到角色提示词.md)。
+⚠️ **工作循环已并入基座层**（`AgentBasePrompts.Base`，标题 `# 法则`，第 1、2、5 条），
+不再由角色卡承担；`AgentToolPrompts.AgentWorkLoop` 已删除。决策沿革见
+[ADR 0004](adr/0004-工作循环指令从框架默认搬到角色提示词.md) 及其补注。
 
 ⚠️ **我们自己写的提示词散文一律中文，标题也中文，只留一份**（`AgentToolPrompts`、
 `AgentPromptHeadings`、子代理体例）。工具与参数的 `[Description]` **保持英文**。

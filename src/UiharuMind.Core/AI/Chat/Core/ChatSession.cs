@@ -583,7 +583,7 @@ public class ChatSession
         // 建会话默认跟角色身份（ADR 0050）；从普通对话侧发起时由调用方显式覆写
         IsAgentForm = characterData.IsAgent;
         // agent 不发开场白（ADR 0043 决策 2，见 0016）：开场白是普通角色的人格旁白，
-        // 智能体带着工具与工作循环，不需要自我介绍。副标题与历史同口径，否则列表副行
+        // 智能体带着工具与任务能力，不需要自我介绍。副标题与历史同口径，否则列表副行
         // 显示开场白、历史里却没有——同一份数据两处对不上
         bool hasGreeting = !characterData.IsAgent && !string.IsNullOrEmpty(characterData.FirstGreeting);
         Description = hasGreeting ? characterData.FirstGreeting : characterData.Description;

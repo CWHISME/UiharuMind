@@ -108,8 +108,7 @@ public partial class HomePageData : PageDataBase
     {
         if (!await ConfirmLeaveEditorAsync()) return;
 
-        // 新建一律是普通角色(ADR 0043):不再先选档。要让它干活,进编辑页把「智能体」打开——
-        // 工作循环那一节由 CharacterDraft.IsAgent 的 setter 在那一刻预填。
+        // 新建一律是普通角色(ADR 0043):不再先选档。要让它干活,进编辑页把「智能体」打开。
         CharacterData seed = new();
 
         // 这两步一起改选中项(撤掉上一个占位项、顶上新的),中间那几次跳动不该被当成用户在切角色

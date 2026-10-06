@@ -60,7 +60,7 @@
             </Border>
 
             <!-- 身份轴只有一根(ADR 0043):装不装 agent 那一套。它是下面几张能力卡片的总开关,不是一张档位清单。
-                 打开它角色才会拿到工具、工作目录、权限档,以及代码注入的工作循环与工具纪律段 -->
+                 打开它角色才会拿到工具、工作目录、权限档,以及代码注入的工具纪律段 -->
             <Border Name="FunctionTypeSection" Classes="edit-card" IsEnabled="{Binding !IsBuiltIn}">
                 <StackPanel Spacing="10">
                     <TextBlock Classes="card-title" Text="{loc:Loc CharacterAgentCapabilityTitle}" />

@@ -21,7 +21,7 @@ namespace UiharuMind.Core.AI.Execution.Prompts;
 /// </summary>
 public static class AgentPromptHeadings
 {
-    /// <summary>工具纪律段的父标题。角色段的「# 工作循环」与它同级</summary>
+    /// <summary>工具纪律段的父标题。与基座段、角色段同级</summary>
     public const string Tools = "# 工具";
 
     /// <summary>基座层的标题（与角色段同级，恒在它之前）</summary>
@@ -29,7 +29,7 @@ public static class AgentPromptHeadings
 
     /// <summary>
     /// 角色段（人格）的父标题。<b>只在角色卡没有自带一级标题时补插</b>——卡自带时
-    /// （默认卡 ChenXi 的 <c># 角色</c>、新建智能体预填的 <c># 工作循环</c>）以卡为准，不重复插。
+    /// （默认卡 ChenXi 的 <c># 角色</c>）以卡为准，不重复插。
     /// 不叫「人格」：工程标签读起来像「下面是你的人格配置」，把模型往「扮演一套设定」推（ADR 0048 修订 10）。
     /// </summary>
     public const string Character = "# 角色";
@@ -43,16 +43,12 @@ public static class AgentPromptHeadings
     /// <summary>记忆目录段的标题正文（不含级别前缀，见 <see cref="Memory"/>）</summary>
     public const string MemoryName = "记忆";
 
-    /// <summary>文件读取纪律段</summary>
-    public const string FileOperations = "## 文件操作";
-
     /// <summary>
-    /// 文件修改纪律段。与 <see cref="FileOperations"/> 分开，是因为只读装配（探索档子代理、
-    /// 关掉写工具的主代理）拿不到 `Edit`/`Write`，而读那几条对它同样成立——
-    /// 从前两者并成一段，结果只读侧要么整段丢失（子代理连上下文卫生都没有），
-    /// 要么整段发出去（指名了不存在的工具）。
+    /// 文件工具纪律段（读 + 写，同一段标题下）。写那几条只在写工具在场时附上，
+    /// 由 <see cref="AgentToolPrompts.BuildFileOperations"/> 按条件拼——只读装配
+    /// （探索档子代理、关掉写工具的主代理）拿不到 `Edit`/`Write`，这一段就只说读。
     /// </summary>
-    public const string FileModifications = "## 文件修改";
+    public const string FileOperations = "## 文件操作";
 
     /// <summary>知识库检索纪律段</summary>
     public const string KnowledgeBase = "## 知识库";

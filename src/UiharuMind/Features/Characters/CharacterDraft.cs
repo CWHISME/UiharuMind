@@ -10,7 +10,6 @@ using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Core.AI.Character;
-using UiharuMind.Core.AI.Execution.Prompts;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.Configs;
@@ -40,7 +39,7 @@ public partial class CharacterDraft : ObservableObject
     private readonly int _sessionCount; //名下会话数(含子会话)，建草稿时取一次
 
     /// <summary>
-    /// 装不装 agent 那一套：工具、工作目录、权限档，以及代码注入的工作循环与工具纪律段。
+    /// 装不装 agent 那一套：工具、工作目录、权限档，以及代码注入的工具纪律段。
     ///
     /// <b>这是角色身份的唯一轴</b>（ADR 0043）。新建角色一律是普通角色，
     /// 要让它干活就在这里打开——界面上它是「启用智能体能力」这个总开关，
@@ -53,15 +52,6 @@ public partial class CharacterDraft : ObservableObject
         {
             if (_draft.IsAgent == value) return;
             _draft.IsAgent = value;
-
-            // 工作循环是弱模型最依赖的几条，而它归角色提示词管（ADR 0004）——
-            // 不预填等于新出炉的智能体默认少了这段。只在提示词还空着时补，
-            // 免得覆盖用户已经写好的东西；用户照样可以改写或删掉。
-            if (value && string.IsNullOrWhiteSpace(_draft.Template))
-            {
-                _draft.Template = AgentToolPrompts.AgentWorkLoop;
-                OnPropertyChanged(nameof(Template));
-            }
 
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsChat));

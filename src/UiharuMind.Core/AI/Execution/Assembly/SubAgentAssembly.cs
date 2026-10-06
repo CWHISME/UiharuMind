@@ -232,7 +232,7 @@ internal static class SubAgentAssembly
             if (personaSection.Length > 0) fallbackParts.Add(personaSection);
             // 标题→正文单换行,与正常路径 list.Section 同一口径(身份段内部刻意不空行撑开)
             if (identitySection.Length > 0)
-                fallbackParts.Add($"{AgentPromptHeadings.SubAgentRole}\n{identitySection}");
+                fallbackParts.Add($"{AgentPromptHeadings.SubAgentRole}\n\n{identitySection}");
             fallback.Instructions = string.Join("\n\n", fallbackParts);
             options.ChatOptions = fallback;
         }
@@ -456,14 +456,12 @@ internal static class SubAgentAssembly
     }
 
     /// <summary>
-    /// 子代理的系统提示。段序：身份 → 工具纪律 → 工作循环 → 协作口径 → MCP 自述 → 工作区规矩。
+    /// 子代理的系统提示。段序：基座 → 身份 → 工具纪律 → 协作口径 → MCP 自述 → 工作区规矩。
     /// <b>与主代理同构</b>——中间那段工具纪律逐字取自同一张清单，只有开关不同。
     ///
     /// <b>子代理不装人格锚段</b>（<c># 记着</c>）：回锚是主代理/群成员专有的 recency 手段，
     /// 子代理拿的是一份任务书，身份由人格段与 # 角色 段承担（有不变量测试钉住）。
-    ///
-    /// 「# 工作循环」<b>点名的子智能体要跳过</b>：新建智能体时它已被预填进角色卡
-    /// （ADR 0004），再追加一份就是同一份提示词里出现两次。有不变量测试钉住。
+    /// 工作循环由基座层提供（<see cref="AgentBasePrompts.Base"/>），不再在装配层追加。
     ///
     /// 工作区规矩必须给:子代理干的正是探查工作区的活,却会是全场唯一不知道工作区规矩的人——
     /// 本仓 AGENTS.md 头一条就是"有四层同名目录,用绝对路径别数相对层数",
@@ -521,9 +519,6 @@ internal static class SubAgentAssembly
             ForSubAgent = true,
         }));
 
-        // 工作循环:点名的子智能体<b>跳过</b>——新建智能体时这一段已被预填进它的角色卡
-        // (HomePageData.NewCharacterAsync),再追加一份就是同一份提示词里出现两次
-        list.Raw(!named, AgentToolPrompts.AgentWorkLoop);
         list.Section(true, AgentPromptHeadings.SubAgentCollaboration, SubAgentPrompts.Collaboration);
 
         // 挂了 MCP 工具就得给对应的自述:只给签名不给用法,子代理照样不会用

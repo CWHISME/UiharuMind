@@ -8,7 +8,6 @@
  ****************************************************************************/
 
 using System.Text;
-using Microsoft.Agents.AI;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.WebTools;
@@ -35,24 +34,6 @@ public static class AgentToolPrompts
     /// </summary>
     public const string ConcurrentCalls =
         "同一条回复里的多个工具调用会同时执行。彼此有先后依赖时(先写后读、先改后编译、同一文件多处修改)分成多轮，每轮只发不互相依赖的调用。";
-
-    /// <summary>
-    /// 智能体的工作循环段：先弄清事实、边做边说、失败换路、收尾总结。弱模型最依赖这几条。
-    ///
-    /// 这段<b>不进 harness 层</b>，而是作为角色提示词的一部分（内置智能体的存档里就写着它，
-    /// 角色打开智能体能力时预填这一段，片段库里也有一份可随时插回）。
-    /// 曾经的做法是把框架的 <see cref="HarnessAgent.DefaultInstructions"/> 拼在 harness 段开头，
-    /// 那样有两个毛病：用户在界面上看不到每轮都发出去的这段话；而且框架那段的第一句是
-    /// "You are a helpful AI assistant..."，harness 段又排在角色段之前，于是每个智能体的人格
-    /// 都要先跟一句"你是通用助手"抢身份。见 ADR 0004。
-    ///
-    /// 标题用一级：与角色卡里的 Task、Style 两节同级——它现在是角色提示词的一节。
-    /// </summary>
-    public const string AgentWorkLoop =
-        "# 工作循环\n" +
-        "- 先把事实弄清楚再动手，不凭印象操作。复杂的活拆成明确的步骤。\n" +
-        "- 调用失败或返回了意料之外的东西，就换一条路，不要原样再试一遍。\n" +
-        "- 收尾时简短总结：做了什么、发现了什么、下一步建议。";
 
     /// <summary>
     /// 工作目录段：这一段是事实而非建议。
@@ -99,7 +80,7 @@ public static class AgentToolPrompts
         StringBuilder sb = new();
         sb.AppendLine(
             $"你的草稿目录是 {draftToken}{(forSubAgent ? "（与派活者共用）" : string.Empty)}，免审批写入，" +
-            $"工具参数和命令行里都直接写 {draftToken}/文件名。" +
+            $"工具参数和命令行里都支持直接写 {draftToken}/文件名 进行操作。" +
             "测试、验证用的临时脚本，以及不该进项目的中间文件（例如临时 git clone 的源码），都放这里，不要散进项目里。");
 
         if (forSubAgent)
@@ -140,7 +121,7 @@ public static class AgentToolPrompts
     }
 
     /// <summary>
-    /// 文件工具纪律段默认正文。
+    /// 读那几条纪律默认正文。
     ///
     /// 两组内容，缺一组都会有实机症状：
     /// <list type="number">
@@ -148,9 +129,8 @@ public static class AgentToolPrompts
     /// <item>上下文卫生——不说模型会把整个文件、整棵目录树拉进来。</item>
     /// </list>
     ///
-    /// 写那一半在 <see cref="FileWriteDefault"/>。<b>分开是因为只读装配也要读</b>：
-    /// 探索档子代理有 `Glob`/`Grep`/`Read` 却没有 `Edit`/`Write`，从前两半并成一段，
-    /// 它要么整段拿不到（连上下文卫生都没有），要么整段拿到（被指名一个不存在的工具）。
+    /// 写那几条在 <see cref="FileWriteDefault"/>，由 <see cref="BuildFileOperations"/>
+    /// 按条件附到同一段——只读装配只有这里读那几条，不指名 `Edit`/`Write`。
     ///
     /// 这里<b>不再重复一句"不知道在哪就先搜"</b>：工作目录段结尾原先有同义的一句，
     /// 两段又是紧挨着发出去的，对小模型那不是强调而是噪声。留具体的那一句（点名了 `Glob`）。
@@ -163,13 +143,12 @@ public static class AgentToolPrompts
     /// </summary>
     public const string FileReadDefault =
         "- 用 `Glob` 找文件，用 `Grep` 搜文本。\n" +
-        "- 上下文是你最稀缺的资源。绝不要把一整个大文件、未经过滤的目录清单、或者一次宽泛搜索的结果整个拉进来。\n" +
         "- 已经知道关键词，就先用 `Grep` 带上 contextLines 搜一次——" +
         "命中行加上它的上下文，往往就是你需要的全部。否则用 offset 和 limit 只 `Read` 需要的那一段。\n" +
         "- 需要完整理解整个文件时，用 `Read` 传 limit=-1 一次读完。";
 
     /// <summary>
-    /// 文件<b>修改</b>纪律段默认正文。只在写工具真的在场时发（见 <see cref="AgentPromptHeadings.FileModifications"/>）。
+    /// 文件<b>修改</b>纪律默认正文。只在写工具真的在场时由 <see cref="BuildFileOperations"/> 附到「## 文件操作」段。
     ///
     /// 「先 `Read` 再改」留在这一侧而不是读那一侧：它是 <c>Edit</c> 的前置条件，
     /// 没有写工具时说它等于指一件做不了的事。
@@ -187,6 +166,26 @@ public static class AgentToolPrompts
         "- 要改一个文件，先 `Read` 它，而且要动的那一段要完整读完：oldString 必须与文件完全一致，" +
         "`Edit` 才会成功。猜的代价比读的代价高。\n" +
         "- 改动已有文件用 `Edit`。`Write` 只用来新建文件，或者整体替换掉一个文件。";
+
+    /// <summary>
+    /// 文件工具纪律段正文：读 + 写，同一段「## 文件操作」之下，写那几条只在写工具在场时附上。
+    ///
+    /// <b>只读装配（探索档子代理、关掉写工具的主代理）只有读那几条</b>：写纪律指名
+    /// `Edit`/`Write`，没有写工具时说它等于指一件做不了的事——「指名的工具必须真的
+    /// 在同一份工具集里」有不变量测试钉着。从前读、写分两段（ADR 0030），只读侧
+    /// 「文件修改」整段缺席；合并后同一标题下按条件拼，两档各拿该拿的那半。
+    ///
+    /// 写工具在场蕴含读工具在场（主代理两者恒等；子代理 FileWrite = FileRead && canMutate），
+    /// 所以装配侧段条件只判 FileRead 即可。
+    /// </summary>
+    /// <param name="fileWriteMounted">写工具（Edit/Write）是否已装配</param>
+    /// <returns>文件操作段正文</returns>
+    public static string BuildFileOperations(bool fileWriteMounted)
+    {
+        return fileWriteMounted
+            ? FileReadDefault + "\n" + FileWriteDefault
+            : FileReadDefault;
+    }
 
     /// <summary>
     /// 命令行工具纪律段正文。按<b>文件工具是否也在场</b>拼：

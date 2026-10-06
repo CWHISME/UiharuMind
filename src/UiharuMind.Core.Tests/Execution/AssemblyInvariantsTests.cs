@@ -283,7 +283,7 @@ public class HistoryAttributionTests
 
 /// <summary>
 /// 不变量之五：<b>整段系统提示由我们按固定顺序拼，人格在最前，不带第二个身份</b>。
-/// 顺序是 基座(所有角色共用、系统锁定) → 角色人格(含工作循环) → 用户卡 → 对话模板 → 工具纪律与工作目录 → 工作区规矩(见 ADR 0005)。
+/// 顺序是 基座(所有角色共用、系统锁定) → 角色人格 → 用户卡 → 对话模板 → 工具纪律与工作目录 → 工作区规矩(见 ADR 0005)。
 /// 框架对 HarnessInstructions 只做一件事——拼在角色段<b>之前</b>，因此那一层必须留空；
 /// 一旦有人把纪律段或框架默认塞回 HarnessInstructions，症状是小模型先读一大段英文工具纪律、
 /// 角色人格被压在后面，实机极难归因。
@@ -339,27 +339,6 @@ public class HarnessInstructionsCompositionTests
         Assert.True(heading >= 0, $"裸角色卡缺 {AgentPromptHeadings.Character} 标题");
         Assert.True(heading > baseSeg.Text.Length, "人格标题必须排在基座之后");
         Assert.True(persona > heading, "人格标题必须排在人格正文之前");
-    }
-
-    /// <summary>
-    /// 角色卡自带一级标题时（ChenXi 卡 <c># 角色</c>、新建智能体预填 <c># 工作循环</c>），
-    /// 装配层不再补插——再插就是一个提示词里角色段出现两个并列一级标题。
-    /// </summary>
-    [Fact]
-    public void AgentInstructions_CardOwnHeadingIsNotDuplicated()
-    {
-        const string cardHead = "# 工作循环\n- 先把事实弄清楚再动手";
-        HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test", persona: cardHead);
-        string instructions = options.ChatOptions?.Instructions ?? string.Empty;
-
-        // 卡自带一级标题不补「# 你是谁」(不变量核心)；「你一直是你」插在标题行之后、正文之前(ADR 0066 落法 A)
-        int heading = instructions.IndexOf("# 工作循环", StringComparison.Ordinal);
-        int lead = instructions.IndexOf(AgentBasePrompts.YouStayYou, StringComparison.Ordinal);
-        int body = instructions.IndexOf("- 先把事实弄清楚再动手", StringComparison.Ordinal);
-        Assert.True(heading >= 0, "卡自带标题必须在场");
-        Assert.True(lead > heading, "「你一直是你」必须插在自带标题之后");
-        Assert.True(body > lead, "正文必须在「你一直是你」之后");
-        Assert.DoesNotContain(AgentPromptHeadings.Character, instructions); //不补插「# 你是谁」
     }
 
     /// <summary>
@@ -499,9 +478,9 @@ public class HarnessInstructionsCompositionTests
     /// <summary>
     /// 工具纪律段挂在自己的 <c># 工具</c> 父标题之下。
     ///
-    /// 这不是排版洁癖：角色段（agent 档默认角色卡）以 <c># 工作循环</c> 起头，
+    /// 这不是排版洁癖：角色段（人格）以一级标题起头（<c># 角色</c> 或卡自带标题），
     /// 工具纪律若像从前那样直接从 <c>## 工作目录</c> 开始，
-    /// 按 markdown 结构读就整个成了「工作循环」的子节——层级说了一件与事实不符的事。
+    /// 按 markdown 结构读就整个成了「角色段」的子节——层级说了一件与事实不符的事。
     /// </summary>
     [Fact]
     public void ToolDisciplines_LiveUnderTheirOwnTopLevelHeading()
@@ -547,48 +526,11 @@ public class HarnessInstructionsCompositionTests
     }
 
     /// <summary>
-    /// 命令行纪律段<b>不许指名文件工具</b>，除非文件工具也在场。
-    ///
-    /// 「shell 开、文件访问关」是这条的关键组合：那一段前两条讲的是「这件事该归 `Shell`
-    /// 还是归文件工具」，会指名 Read/Edit/Write，而那三个只随 <c>EnableFileAccess</c> 出现。
-    /// 少了这条，它们会在文件工具缺席时照样发出去，指挥模型去调不存在的工具——
-    /// 而这种失败在实机上极难归因（表现只是一次工具调用失败）。
-    ///
-    /// 主代理的通用版（按真实工具集校验反引号）做不了：装配一份真工具集要一个 chat client，
-    /// 本套测试的助手只拼提示词。子代理那侧有通用版，见
-    /// <c>SubAgentInstructions_OnlyNameToolsThatExist</c>。
-    /// </summary>
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void ShellDiscipline_NamesFileTools_OnlyWhenFileAccessIsMounted(bool fileAccess)
-    {
-        AgentToolConfig config = new()
-        {
-            EnableFileAccess = fileAccess,
-            EnableShellExecution = true,
-            EnableVisionTool = false,
-            EnableKnowledgeSearchTool = false,
-            EnableSubAgent = false,
-        };
-
-        HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test", config);
-        string instructions = options.ChatOptions?.Instructions ?? string.Empty;
-
-        Assert.Contains(AgentPromptHeadings.Shell, instructions); //shell 开着,这一节必须在
-        Assert.Contains($"`{CharacterRunnerFactory.ShellToolName}`", instructions);
-
-        foreach (string fileTool in new[] { FileToolNames.Read, FileToolNames.Edit, FileToolNames.Write })
-        {
-            if (fileAccess) continue;
-            Assert.DoesNotContain($"`{fileTool}`", instructions);
-        }
-    }
-
-    /// <summary>
-    /// 受管 Python 环境的纪律段<b>只在环境真的就绪时出现</b>，且必须寄生在命令行那一节之下。
+    /// 受管 Python 环境的纪律段<b>只在环境真的就绪时出现</b>，且排在工作目录段之后。
     ///
     /// 两条都是承重的：Python 不是一个工具，是 <c>Shell</c> 的一个分项（见 ADR 0019）。
+    /// 命令行纪律段已退役（有效内容并进基座），Python 段独立存在。
+    /// </summary>
     /// 环境没建就把解释器路径写进提示词，模型会照着调然后白烧一次调用——
     /// 与 ADR 0017「判据取装配结果而非配置意图」是同一条道理。
     /// </summary>
@@ -617,8 +559,8 @@ public class HarnessInstructionsCompositionTests
         Assert.Contains(".py", instructions);
         Assert.True(
             instructions.IndexOf(AgentPromptHeadings.Python, StringComparison.Ordinal) >
-            instructions.IndexOf(AgentPromptHeadings.Shell, StringComparison.Ordinal),
-            "Python 段必须排在命令行段之后——它是那一节的分项");
+            instructions.IndexOf(AgentPromptHeadings.WorkingDirectory("##"), StringComparison.Ordinal),
+            "Python 段必须排在工作目录段之后——路径事实在前");
     }
 
     /// <summary>
@@ -1203,17 +1145,17 @@ public class SubAgentBoundaryTests
     }
 
     /// <summary>
-    /// 子代理与主代理同一口径：工作循环归它自己那份指令，harness 段为空。
+    /// 子代理与主代理同一口径：工作循环已并入基座层，harness 段为空。
     /// 框架默认那段的身份句会和子代理指令开头的「# 角色」抢身份(见 ADR 0004)。
     /// </summary>
     [Fact]
-    public void SubAgent_KeepsTheWorkLoopInItsOwnInstructions()
+    public void SubAgent_KeepsTheBaseInItsOwnInstructions()
     {
         HarnessAgentOptions? options = SubAgentAssembly.BuildSubAgentOptions(NewInput());
 
         Assert.NotNull(options);
         Assert.Equal(string.Empty, options!.HarnessInstructions);
-        Assert.Contains(AgentToolPrompts.AgentWorkLoop, options.ChatOptions?.Instructions);
+        Assert.Contains(AgentBasePrompts.Base, options.ChatOptions?.Instructions);
         Assert.DoesNotContain("helpful AI assistant", options.ChatOptions?.Instructions);
     }
 
@@ -1268,7 +1210,9 @@ public class SubAgentBoundaryTests
         int persona = instructions.IndexOf("I am the research specialist", StringComparison.Ordinal);
         Assert.True(baseIndex >= 0, "基座必须在场");
         Assert.True(persona > baseIndex, "人格必须紧跟基座之后");
-        Assert.DoesNotContain(AgentPromptHeadings.SubAgentRole, instructions);
+        // 无 role 时 SubAgentRole 段正文为空、不生成（Boundary 句已置空）。
+        // 唯一一次「# 角色」是 CharacterSection 给裸卡补的人格标题；SubAgentRole 段若生成，计数会变成 2。
+        Assert.Equal(1, instructions.Split(AgentPromptHeadings.SubAgentRole).Length - 1);
     }
 
     /// <summary>
@@ -1310,7 +1254,8 @@ public class SubAgentBoundaryTests
         Assert.NotNull(options);
         string instructions = options!.ChatOptions?.Instructions ?? string.Empty;
         int persona = instructions.IndexOf("I am the research specialist", StringComparison.Ordinal);
-        int roleSection = instructions.IndexOf(AgentPromptHeadings.SubAgentRole, StringComparison.Ordinal);
+        // 首个「# 角色」是 CharacterSection 给裸卡补的人格标题，role 段标题从人格之后找
+        int roleSection = instructions.IndexOf(AgentPromptHeadings.SubAgentRole, persona, StringComparison.Ordinal);
         Assert.True(persona >= 0, "人格必须在场");
         Assert.True(roleSection > persona, "role 段必须排在人格之后");
         Assert.Contains("senior C# reviewer", instructions);
@@ -1427,15 +1372,14 @@ public class SubAgentBoundaryTests
     }
 
     /// <summary>
-    /// 同一段提示词<b>不得出现两次</b>。
+    /// 装配层<b>不再追加</b>「# 工作循环」——工作循环已并入基座层（<see cref="AgentBasePrompts.Base"/>）。
     ///
-    /// 这条曾经不成立，而且是静默的：新建智能体时工作循环那一段会被预填进角色卡
-    /// （<c>HomePageData.NewCharacterAsync</c> → <c>CharacterData.Template</c>，ADR 0004），
+    /// 这条曾经不成立，而且是静默的：新建智能体时工作循环那一段会被预填进角色卡，
     /// 而子代理装配又在末尾无条件追加同一份常量——于是点名一个子智能体时，
-    /// 「# 工作循环」在同一份系统提示里逐字出现两遍，每轮都多付一遍钱。
+    /// 「# 工作循环」在同一份系统提示里逐字出现两遍，每轮都多付一遍钱（ADR 0004 时期）。
     ///
     /// 只断「不得两次」而<b>不断「必须一次」</b>：用户可以把角色卡改得面目全非，
-    /// 那时跳过追加是对的，强断存在反而会把合法用法判成错误。
+    /// 那时强断存在反而会把合法用法判成错误。
     /// </summary>
     [Fact]
     public void NamedSubAgent_DoesNotRepeatTheWorkLoop()
@@ -1443,12 +1387,12 @@ public class SubAgentBoundaryTests
         HarnessAgentOptions? options = SubAgentAssembly.BuildSubAgentOptions(
             NewInput() with
             {
-                Persona = "I am the research specialist\n\n" + AgentToolPrompts.AgentWorkLoop,
+                Persona = "I am the research specialist\n\n# 工作循环\n- 先把事实弄清楚再动手。",
                 Name = "Researcher",
             });
 
         string instructions = options!.ChatOptions?.Instructions ?? string.Empty;
-        Assert.Equal(1, instructions.Split(AgentToolPrompts.AgentWorkLoop).Length - 1);
+        Assert.Equal(1, instructions.Split("# 工作循环").Length - 1);
     }
 
     /// <summary>
@@ -1470,11 +1414,9 @@ public class SubAgentBoundaryTests
             StringComparison.Ordinal);
         Assert.True(workingDirectory >= 0, "子代理必须有工作目录段");
 
-        foreach (string section in new[] { AgentPromptHeadings.FileOperations, AgentPromptHeadings.Shell })
-        {
-            int at = instructions.IndexOf(section, StringComparison.Ordinal);
-            Assert.True(at > workingDirectory, $"{section} 跑到了工作目录段之前");
-        }
+        // 命令行纪律段已退役（有效内容并进基座），这里只断还活着的段：文件操作排在工作目录之后
+        int fileOps = instructions.IndexOf(AgentPromptHeadings.FileOperations, StringComparison.Ordinal);
+        Assert.True(fileOps > workingDirectory, $"{AgentPromptHeadings.FileOperations} 跑到了工作目录段之前");
     }
 
     /// <summary>
@@ -1483,7 +1425,7 @@ public class SubAgentBoundaryTests
     /// 这条曾经不成立，而且缺口是双向的：探索档连一句文件纪律都拿不到
     /// （上下文卫生、contextLines、limit=-1 全都没有），而通用档虽有 `Edit`/`Write`
     /// 却同样拿不到修改纪律——它收到的 shell 纪律里反倒指名了 `Edit`。
-    /// 读、写两半拆开之后，两档各拿该拿的那半。
+    /// 文件操作段把写那几条按条件拼接之后，只读侧依然只有读那几条，不指名 `Edit`/`Write`。
     /// </summary>
     [Fact]
     public void ExplorerSubAgent_GetsReadDisciplineButNotWriteDiscipline()
@@ -1495,8 +1437,7 @@ public class SubAgentBoundaryTests
                 })!
             .ChatOptions!.Instructions!;
 
-        Assert.Contains(AgentPromptHeadings.FileOperations, instructions); //读那一半必须在
-        Assert.DoesNotContain(AgentPromptHeadings.FileModifications, instructions);
+        Assert.Contains(AgentPromptHeadings.FileOperations, instructions); //文件操作段必须在
         Assert.DoesNotContain("`Edit`", instructions);
         Assert.DoesNotContain("`Write`", instructions);
     }
@@ -1505,7 +1446,8 @@ public class SubAgentBoundaryTests
     /// 反过来的一半：能改东西的子代理<b>必须</b>拿到修改纪律。
     ///
     /// 没有这条，<see cref="SubAgentInstructions_OnlyNameToolsThatExist"/> 会空转——
-    /// 写侧段落整个缺席时，「指名的工具都存在」当然成立，而缺席正是从前的缺陷本身。
+    /// 写那几条整个缺席时，「指名的工具都存在」当然成立，而缺席正是从前的缺陷本身。
+    /// 合并后写那几条并进了「## 文件操作」段，标题断言跟着改。
     /// </summary>
     [Fact]
     public void MutatingSubAgent_GetsWriteDiscipline()
@@ -1513,7 +1455,7 @@ public class SubAgentBoundaryTests
         string instructions = SubAgentAssembly.BuildSubAgentOptions(
             NewInput(mode: EAgentPermissionMode.FullAuto))!.ChatOptions!.Instructions!;
 
-        Assert.Contains(AgentPromptHeadings.FileModifications, instructions);
+        Assert.Contains(AgentPromptHeadings.FileOperations, instructions); //写那几条并进了文件操作段
         Assert.Contains(AgentToolPrompts.FileWriteDefault, instructions);
     }
 

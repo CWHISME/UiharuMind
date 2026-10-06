@@ -1,4 +1,4 @@
-﻿﻿/****************************************************************************
+﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -24,46 +24,9 @@ internal static class AgentInstructionsComposer
     /// </summary>
     internal const string ReadWorkspaceRulesFirst = "本会话第一次调用工具之前，先 `Read` 它读完全文；读过就不用再读。";
 
-    /// <summary>
-    /// 项目规矩里的回复风格写给通用助手（实测 MyStory 那份「活泼、加喵～」被化身照搬），与角色卡冲突时让给人格
-    /// </summary>
-    internal const string WorkspaceStyleYields = "里面要是规定了说话风格，和「你是谁」冲突时照「你是谁」说。";
-
-    // 标题一律取自 AgentPromptHeadings：工作区规矩段与 MCP 自述段主代理与子代理逐字共用
-    // ——子代理干的正是探查工作区的活、拿的是同一份 MCP 工具，不该是全场唯一不知道规矩的人。
-
-    /// <summary>
     /// 按固定顺序拼出 agent 档的整段系统提示：
     /// 基座(所有角色共用、系统锁定) → 角色段(人格 + 用户卡 + 对话模板) → 群场景(群成员才有) → 工具纪律与工作目录 → MCP server 自述 → 工作区规矩 → 人格 coda(末尾回锚)。
     /// 角色段(人格)标题由装配层在卡无自带标题时补上（见 CharacterSection）；卡自带标题则归卡所有。
-    ///
-    /// <b>基座在人格之前</b>（文档 §7 组装顺序）：基座是「怎么当一个人」的底线，人格是这个人本身。
-    /// 人格仍紧跟在基座之后——小模型要先知道自己是谁，再读一大段英文工具纪律。
-    /// 这个顺序拿不到手过：框架只会把 <c>HarnessInstructions</c> 拼在角色段<b>之前</b>，
-    /// 所以那一层弃用，整段自己拼(见 ADR 0005)。
-    ///
-    /// MCP 自述紧跟工具纪律：它讲的正是"这批工具怎么用"，与上一段是同一件事的延续；
-    /// 而工作区规矩讲的是"这个项目怎么干活"，属于另一个层次，排在最后。
-    /// 人格 coda 钉在更后：它是整段最后一个声音，吃结尾权重（静态版重锚，见提案 v8 §7.4）。
-    /// </summary>
-    /// <param name="characterPrompt">角色段(CharacterPromptBuilder 的产物)</param>
-    /// <param name="groupScene">群场景段正文（不含标题）；空串则不写该段</param>
-    /// <param name="config">智能体的能力配置(角色自带)</param>
-    /// <param name="workingDirectory">工作目录绝对路径;空串则不写该段</param>
-    /// <param name="workspaceInstructions">工作区 AGENTS.md 内容;空串则不写该段。
-    /// 主代理与子代理统一只取有无(正文由模型按指针自读,见 <see cref="WorkspacePointerSection"/>);
-    /// 指针方案若出现"没读就编"的 case,截断版正文可经 <see cref="WorkspaceSection"/> 切回</param>
-    /// <param name="mcpInstructions">MCP server 自述(已按 server 分节);空串则不写该段</param>
-    /// <param name="shellBinary">实际解析出来的 shell 可执行路径;空串则不写那一句</param>
-    /// <param name="pythonInterpreter">受管 Python 环境的解释器路径。<b>只作闸门</b>——
-    /// 空串则整段不写；非空时正文里也不印它，环境已由 PATH 前置激活</param>
-    /// <param name="outputRoomDirectory">草稿目录绝对路径(会话自己的产出房间)；空串则不写该段</param>
-    /// <param name="memoryDirectory">记忆目录绝对路径(ADR 0028)；空串则不写该段</param>
-    /// <param name="personaCoda">人格 coda（<c>CharacterData.GetPersonaCoda</c> 的产物）；空串则不写该段</param>
-    /// <param name="segments">
-    /// 各段的分段清单，<b>拼接现场登记</b>。能力面板要按段报占用，而事后对整串按标题反切，
-    /// 本方法一改标题那边就静默错。空段不入册（它本来也没发出去）
-    /// </param>
     /// <returns>整段系统提示</returns>
     internal static string Compose(string? characterPrompt, string groupScene, AgentToolConfig config,
         string workingDirectory, string workspaceInstructions,
@@ -78,7 +41,7 @@ internal static class AgentInstructionsComposer
         // 场景紧跟人格：先知道自己是谁，再知道自己在哪、有谁在，然后才是工具
         AppendSection(sb, SceneSection(groupScene), EPromptSection.Scene, registry);
         AppendSection(sb, BuildToolDisciplines(config, workingDirectory, shellBinary,
-            pythonInterpreter, outputRoomDirectory, memoryDirectory),
+                pythonInterpreter, outputRoomDirectory, memoryDirectory),
             EPromptSection.ToolDisciplines, registry);
         if (mcpInstructions.Length > 0)
         {
@@ -107,7 +70,6 @@ internal static class AgentInstructionsComposer
     /// 角色段：标题 + 角色卡正文。
     /// 标题只在角色卡<b>没有</b>自带一级标题时由装配层补 <c># 角色</c>——
     /// 默认卡 ChenXi 的段首本就是 <c># 角色</c>，裸卡补出来与它同名，恰好统一；
-    /// 新建智能体预填的 <c># 工作循环</c> 也占着段首，那张卡有自己的段结构，同样不插。
     /// 裸卡（如新写的人格稿）才有这个缺口：基座第 4 条「以『角色』节为准」由此得到字面对得上的落点。
     ///
     /// 判的是<b>一级</b>标题：<c>##</c> 开头只是子节，代替不了父标题——不补的话，
@@ -233,7 +195,7 @@ internal static class AgentInstructionsComposer
         string pointer = string.IsNullOrEmpty(fileName)
             ? "工作目录下有一份 AGENTS.md（或 CLAUDE.md），写着这个项目的协作规矩与禁区。"
             : $"工作目录下的 {fileName} 写着这个项目的协作规矩与禁区。";
-        return $"{AgentPromptHeadings.Workspace}\n\n{pointer}\n" + ReadWorkspaceRulesFirst + "\n" + WorkspaceStyleYields;
+        return $"{AgentPromptHeadings.Workspace}\n\n{pointer}\n" + ReadWorkspaceRulesFirst;
     }
 
     /// <summary>
@@ -281,14 +243,13 @@ internal static class AgentInstructionsComposer
     /// 工具纪律段 = 按<b>实际装配的工具集</b>派生的使用纪律(外加工作目录这一事实段)。
     /// 纪律行面向弱模型:短句、祈使、指名工具;关掉的工具绝不出现(纯噪声)。
     ///
-    /// <b>刻意不含工作循环</b>(先想再做/边做边说/失败换路/收尾总结)。那段现在是角色提示词的一节
-    /// (<see cref="AgentToolPrompts.AgentWorkLoop"/>),理由见 ADR 0004:框架默认那段用户看不见,
-    /// 还带一句"You are a helpful AI assistant"抢在角色人格之前。
+    /// <b>刻意不含工作循环</b>：先想再做/失败换路/收尾总结这些已并入基座层
+    /// （<see cref="AgentBasePrompts.Base"/>），不再由角色卡承担。
     ///
     /// 本段由 <see cref="Compose"/> 接在角色段之后，整体挂在一个 <c># 工具</c> 父标题之下。
-    /// <b>那个父标题不是装饰</b>：角色段（agent 档默认角色卡）以 <c># 工作循环</c> 起头，
+    /// <b>那个父标题不是装饰</b>：角色段（人格）以一级标题起头（<c># 角色</c> 或卡自带标题），
     /// 本段若直接从 <c>## 工作目录</c> 开始，按 markdown 结构读就整个成了
-    /// 「工作循环」的子节——层级说的是一件与事实不符的事。
+    /// 「角色段」的子节——层级说的是一件与事实不符的事。
     /// </summary>
     /// <param name="config">智能体的能力配置(角色自带)</param>
     /// <param name="outputRoomDirectory">草稿目录绝对路径；空串则不写该段</param>
