@@ -126,6 +126,16 @@ public partial class ModelService : ObservableObject
         LlmManager.Instance.UnloadModel();
     }
 
+    /// <summary>
+    /// 停掉指定模型（删文件前用）；没在跑什么也不做
+    /// </summary>
+    /// <param name="modelName">模型名</param>
+    public void UnloadModel(string modelName)
+    {
+        if (CurModelRunningData?.ModelName == modelName) _modelSelectionOverride = null;
+        LlmManager.Instance.UnloadModel(modelName);
+    }
+
     public async Task<bool> LoadModelWithRiskConfirmationAsync(string? modelName)
     {
         if (string.IsNullOrWhiteSpace(modelName)) return false;

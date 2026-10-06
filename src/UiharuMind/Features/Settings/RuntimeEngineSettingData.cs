@@ -13,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,6 +22,7 @@ using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.Core;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Shared.Data;
@@ -37,6 +39,9 @@ public partial class RuntimeEngineSettingData : ObservableObject
 
     public DownloadListViewData RemoteDwnloadListViewModel { get; }
     public ModelRuntimeBasicSettingsData RuntimeSettings { get; } = new();
+
+    /// <summary>下载源一节</summary>
+    public DownloadSourceSettingsViewData DownloadSource { get; } = new();
 
     //上一次本地版本列表，用于更新时差分删除
     private List<VersionInfo> _lastAvailableVersions = new List<VersionInfo>();
@@ -59,6 +64,8 @@ public partial class RuntimeEngineSettingData : ObservableObject
         };
         _ = InitializeAvailableVersions();
         RemoteDwnloadListViewModel.OnDownloadFileChange += () => _ = InitializeAvailableVersions();
+        // 获取模型那边自动装的引擎也要出现在这里的版本下拉里
+        LLamaCppEngineInstaller.Shared.Installed += installed => Dispatcher.UIThread.Post(() => _ = InitializeAvailableVersions());
     }
 
     [RelayCommand]
@@ -134,11 +141,20 @@ public partial class RuntimeEngineSettingData : ObservableObject
 
     private static async Task OnRuntimeEngineDownloadCompleted(DownloadableItemData item)
     {
-        // runtime engine 发布包可能是 zip/tar 等格式，统一交给 SharpCompress 工具处理。
+        // 与获取模型自动装引擎走同一条安装：解压到临时目录、校验有 llama-server 再换上
         var version = (VersionInfo)item.Target;
         item.IsDownloading = true;
         item.DownloadInfo = Loc.Text(LangKey.Decompressing) + item.DownloadInfo;
-        await SimpleArchiveHelper.ExtractArchiveAsync(item.DownloadFilePath, version.InstallDirectory, true);
+        try
+        {
+            await LLamaCppEngineInstaller.Shared.InstallAsync(version);
+        }
+        catch (Exception e)
+        {
+            Log.Error($"Install runtime engine failed: {version.Name}, {e.Message}");
+            item.ErrorMessage = e.Message;
+        }
+
         item.IsDownloading = false;
         item.InitFileSize();
     }

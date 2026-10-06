@@ -61,6 +61,14 @@ internal sealed class LLamaCppRuntimeService
         return versions;
     }
 
+    /// <summary>
+    /// 解压引擎包到安装目录并校验，成功后删掉压缩包
+    /// </summary>
+    public Task InstallArchiveAsync(VersionInfo version, CancellationToken token)
+    {
+        return _llamaCppVersionManager.InstallArchiveAsync(version, true, token);
+    }
+
     public async Task<VersionManager> PullLatestVersion()
     {
         return await PullLatestVersion(AppPaths.External.Engine).ConfigureAwait(false);

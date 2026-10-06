@@ -82,6 +82,8 @@
                     </StackPanel>
                 </controls:SettingsSection.Body>
             </controls:SettingsSection>
+
+            <settings:DownloadSourceSettingsView DataContext="{Binding DownloadSource}" />
         </StackPanel>
     </ScrollViewer>
 </UserControl>

@@ -3725,4 +3725,200 @@
     <data name="ModelRunFailedNoEngine" xml:space="preserve">
         <value>还没有可用的 llama.cpp 引擎。请到「设置 → 本地模型」下载或选择一个版本。</value>
     </data>
+    <data name="ModelPageDownloadsTab" xml:space="preserve">
+        <value>获取模型</value>
+    </data>
+    <data name="ModelDownloadSearchHint" xml:space="preserve">
+        <value>搜索 GGUF 模型，或粘贴 作者/仓库 与仓库链接</value>
+    </data>
+    <data name="ModelDownloadSourceLabel" xml:space="preserve">
+        <value>源：{0}</value>
+    </data>
+    <data name="ModelDownloadSourceTip" xml:space="preserve">
+        <value>更改下载源</value>
+    </data>
+    <data name="ModelSourceModelScope" xml:space="preserve">
+        <value>魔搭</value>
+    </data>
+    <data name="ModelDownloadNoResults" xml:space="preserve">
+        <value>没有找到匹配的仓库。</value>
+    </data>
+    <data name="ModelDownloadSearchFailed" xml:space="preserve">
+        <value>搜索失败：{0}</value>
+    </data>
+    <data name="ModelDownloadPickRepo" xml:space="preserve">
+        <value>在左侧选一个仓库查看可下载的文件。</value>
+    </data>
+    <data name="ModelDownloadLoadFailed" xml:space="preserve">
+        <value>仓库加载失败：{0}</value>
+    </data>
+    <data name="ModelDownloadNeedsToken" xml:space="preserve">
+        <value>这个仓库需要访问令牌。</value>
+    </data>
+    <data name="ModelDownloadGoToSettings" xml:space="preserve">
+        <value>去设置</value>
+    </data>
+    <data name="ModelDownloadNoQuants" xml:space="preserve">
+        <value>这个仓库里没有可下载的 GGUF 文件。</value>
+    </data>
+    <data name="ModelDownloadIncludeProjector" xml:space="preserve">
+        <value>同时下载视觉投影（{0}，{1}）</value>
+    </data>
+    <data name="ModelDownloadRecommended" xml:space="preserve">
+        <value>推荐</value>
+    </data>
+    <data name="ModelDownloadParts" xml:space="preserve">
+        <value>{0} 个分片</value>
+    </data>
+    <data name="ModelDownloadRiskTip" xml:space="preserve">
+        <value>预计占用 {0} / 总内存 {1}</value>
+    </data>
+    <data name="ModelDownloadNameConflictTip" xml:space="preserve">
+        <value>本地已有同名模型：{0}</value>
+    </data>
+    <data name="ModelDownloadStateNotDownloaded" xml:space="preserve">
+        <value>未下载</value>
+    </data>
+    <data name="ModelDownloadStateQueued" xml:space="preserve">
+        <value>排队中</value>
+    </data>
+    <data name="ModelDownloadStateDownloading" xml:space="preserve">
+        <value>下载中 {0}%</value>
+    </data>
+    <data name="ModelDownloadStatePaused" xml:space="preserve">
+        <value>已暂停</value>
+    </data>
+    <data name="ModelDownloadStatePausedPercent" xml:space="preserve">
+        <value>已暂停 {0}%</value>
+    </data>
+    <data name="ModelDownloadStateFailed" xml:space="preserve">
+        <value>失败：{0}</value>
+    </data>
+    <data name="ModelDownloadStateFailedShort" xml:space="preserve">
+        <value>下载失败</value>
+    </data>
+    <data name="ModelDownloadStatePartial" xml:space="preserve">
+        <value>未完成 {0}%，点击继续</value>
+    </data>
+    <data name="ModelDownloadStateDownloaded" xml:space="preserve">
+        <value>已下载</value>
+    </data>
+    <data name="ModelDownloadStateNameConflict" xml:space="preserve">
+        <value>本地已有同名模型</value>
+    </data>
+    <data name="ModelDownloadAction" xml:space="preserve">
+        <value>下载</value>
+    </data>
+    <data name="ModelDownloadResume" xml:space="preserve">
+        <value>继续</value>
+    </data>
+    <data name="ModelDownloadRetry" xml:space="preserve">
+        <value>重试</value>
+    </data>
+    <data name="ModelDownloadPause" xml:space="preserve">
+        <value>暂停</value>
+    </data>
+    <data name="ModelDownloadCancel" xml:space="preserve">
+        <value>取消</value>
+    </data>
+    <data name="ModelDownloadQueueTitle" xml:space="preserve">
+        <value>下载</value>
+    </data>
+    <data name="ModelDownloadCompleted" xml:space="preserve">
+        <value>{0} 下载完成</value>
+    </data>
+    <data name="ModelDownloadPopularCaption" xml:space="preserve">
+        <value>热门 GGUF 仓库</value>
+    </data>
+    <data name="ModelDownloadResultsCaption" xml:space="preserve">
+        <value>搜索结果</value>
+    </data>
+    <data name="ModelDownloadSummary" xml:space="preserve">
+        <value>{0} 个量化版本</value>
+    </data>
+    <data name="ModelDownloadSummaryVision" xml:space="preserve">
+        <value>{0} 个量化版本 · 支持视觉</value>
+    </data>
+    <data name="ModelDownloadFilesHeader" xml:space="preserve">
+        <value>可下载文件</value>
+    </data>
+    <data name="ModelDownloadQueueSummary" xml:space="preserve">
+        <value>{0} 个进行中 · 共 {1} 项</value>
+    </data>
+    <data name="DownloadSourceSection" xml:space="preserve">
+        <value>下载源</value>
+    </data>
+    <data name="DownloadSourceSectionDesc" xml:space="preserve">
+        <value>模型文件与引擎包从哪里下载。</value>
+    </data>
+    <data name="DownloadSourceModelSource" xml:space="preserve">
+        <value>模型源</value>
+    </data>
+    <data name="DownloadSourceModelSourceDesc" xml:space="preserve">
+        <value>「获取模型」里的搜索与下载都走这里选的源。</value>
+    </data>
+    <data name="DownloadSourceHfMirror" xml:space="preserve">
+        <value>hf-mirror（HuggingFace 镜像）</value>
+    </data>
+    <data name="DownloadSourceCustom" xml:space="preserve">
+        <value>自定义（兼容 HuggingFace 接口）</value>
+    </data>
+    <data name="DownloadSourceCustomEndpoint" xml:space="preserve">
+        <value>自定义地址</value>
+    </data>
+    <data name="DownloadSourceCustomEndpointDesc" xml:space="preserve">
+        <value>兼容 HuggingFace 接口的站点根地址。</value>
+    </data>
+    <data name="DownloadSourceCustomEndpointInvalid" xml:space="preserve">
+        <value>不是有效的网址，改好之前会改用 HuggingFace。</value>
+    </data>
+    <data name="DownloadSourceHfToken" xml:space="preserve">
+        <value>HuggingFace 令牌</value>
+    </data>
+    <data name="DownloadSourceHfTokenDesc" xml:space="preserve">
+        <value>受限仓库需要。镜像与自定义地址也会带上它。</value>
+    </data>
+    <data name="DownloadSourceModelScopeToken" xml:space="preserve">
+        <value>魔搭令牌</value>
+    </data>
+    <data name="DownloadSourceModelScopeTokenDesc" xml:space="preserve">
+        <value>只有私有仓库需要，公开仓库不填也能下。</value>
+    </data>
+    <data name="DownloadSourceGitHubProxy" xml:space="preserve">
+        <value>GitHub 代理前缀</value>
+    </data>
+    <data name="DownloadSourceGitHubProxyDesc" xml:space="preserve">
+        <value>加在 GitHub 上引擎包下载地址的前面。留空则直连。</value>
+    </data>
+    <data name="ModelDownloadEngineQueued" xml:space="preserve">
+        <value>本机还没有 llama.cpp 引擎，已把 {0} 排在模型前面一起下载，装好后自动启用。</value>
+    </data>
+    <data name="ModelDownloadEngineInstalled" xml:space="preserve">
+        <value>引擎 {0} 已安装并启用。</value>
+    </data>
+    <data name="ModelDownloadEngineFailed" xml:space="preserve">
+        <value>引擎 {0} 安装失败：{1}</value>
+    </data>
+    <data name="ModelDownloadEngineNoPackage" xml:space="preserve">
+        <value>没有找到适合这台电脑的引擎包，请到「设置 → 本地模型」里手动下载。</value>
+    </data>
+    <data name="ModelDownloadEngineCheckFailed" xml:space="preserve">
+        <value>没能取到引擎包列表：{0}。模型照常下载，引擎可稍后到设置里安装。</value>
+    </data>
+    <data name="ModelDeleteFiles" xml:space="preserve">
+        <value>删除模型文件</value>
+    </data>
+    <data name="ModelDeleteFilesConfirm" xml:space="preserve">
+        <value>确定删除模型「{0}」的文件吗？此操作不可撤销。
+{1}</value>
+    </data>
+    <data name="ModelDeleteFilesDone" xml:space="preserve">
+        <value>已删除 {0}</value>
+    </data>
+    <data name="ModelDeleteFilesFailed" xml:space="preserve">
+        <value>模型文件删除失败：{0}</value>
+    </data>
+    <data name="ServicesDownloadEmbeddingModel" xml:space="preserve">
+        <value>去下载</value>
+    </data>
 </root>

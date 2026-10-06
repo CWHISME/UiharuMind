@@ -1,0 +1,117 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:downloads="clr-namespace:UiharuMind.Features.Models.Downloads"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
+             x:Class="UiharuMind.Features.Models.Downloads.ModelDownloadView"
+             x:DataType="downloads:ModelDownloadPageData">
+
+    <UserControl.Styles>
+        <!-- 与服务页同一套卡片：浅底、细框、8 圆角 -->
+        <Style Selector="Border.download-card">
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+        </Style>
+        <Style Selector="ListBox.repo-list">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style Selector="ListBox.repo-list ListBoxItem">
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Margin" Value="0,0,0,2" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="ListBox.repo-list ListBoxItem:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+        </Style>
+        <Style Selector="ListBox.repo-list ListBoxItem:selected">
+            <Setter Property="Background" Value="{DynamicResource SemiBlue0}" />
+        </Style>
+        <!-- 抽屉的返回钮只在窄窗出现 -->
+        <Style Selector="Button.drawer-back">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="downloads|ModelDownloadView.narrow Button.drawer-back">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+    </UserControl.Styles>
+
+    <DockPanel Margin="0,14,0,0">
+        <downloads:DownloadQueueView DockPanel.Dock="Bottom" DataContext="{Binding Queue}" Margin="0,12,0,0" />
+
+        <!-- 窄窗时详情盖在列表上（见后台代码），宽窗左右两栏 -->
+        <Grid x:Name="BodyGrid" ColumnDefinitions="1*,1.45*" ColumnSpacing="16">
+            <DockPanel x:Name="ListPane" MinWidth="240">
+                <!-- 放大镜叠在框内左侧，与会话列表的搜索框同式 -->
+                <Grid DockPanel.Dock="Top">
+                    <TextBox Text="{Binding SearchText}" Padding="31,7,8,7"
+                             PlaceholderText="{loc:Loc ModelDownloadSearchHint}" />
+                    <controls:ThemedSvgIcon Width="15" Height="15" Margin="10,0,0,0" IconName="search"
+                                            HorizontalAlignment="Left" VerticalAlignment="Center"
+                                            IsHitTestVisible="False" />
+                </Grid>
+
+                <DockPanel DockPanel.Dock="Top" Margin="2,12,2,6">
+                    <Button DockPanel.Dock="Right" Classes="NoneStyle" Cursor="Hand" Padding="0"
+                            ToolTip.Tip="{loc:Loc ModelDownloadSourceTip}"
+                            Command="{Binding OpenSourceSettingsCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock Text="{Binding SourceLabel}" Classes="muted" FontSize="12"
+                                       FontWeight="Normal" VerticalAlignment="Center" />
+                            <controls:ThemedSvgIcon Width="12" Height="12" IconName="settings" Opacity="0.6"
+                                                    VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <TextBlock Text="{Binding ListCaption}" Classes="muted" FontSize="12" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" Margin="0,0,8,0" />
+                </DockPanel>
+
+                <ProgressBar DockPanel.Dock="Top" IsIndeterminate="True" Height="2" MinHeight="2"
+                             Margin="0,0,0,4" IsVisible="{Binding IsSearching}" />
+                <TextBlock DockPanel.Dock="Top" Classes="muted" TextWrapping="Wrap" Margin="2,8"
+                           Text="{Binding SearchError}"
+                           IsVisible="{Binding SearchError, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                <TextBlock DockPanel.Dock="Top" Classes="muted" Margin="2,8"
+                           Text="{loc:Loc ModelDownloadNoResults}" IsVisible="{Binding IsResultEmpty}" />
+
+                <ListBox Classes="repo-list" ItemsSource="{Binding Results}" SelectedItem="{Binding SelectedItem}"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="downloads:ModelRepoListItem">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" ToolTip.Tip="{Binding Repository}">
+                                <StackPanel Spacing="1">
+                                    <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Owner}" Classes="muted" FontSize="12"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="3"
+                                            VerticalAlignment="Center" Opacity="0.7">
+                                    <controls:ThemedSvgIcon Width="12" Height="12" IconName="download" />
+                                    <TextBlock Text="{Binding DownloadsText}" Classes="muted" FontSize="12" />
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+
+            <Border x:Name="DetailPane" Grid.Column="1" Classes="download-card" Padding="18,16">
+                <Panel>
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10"
+                                IsVisible="{Binding Detail, Converter={x:Static ObjectConverters.IsNull}}">
+                        <controls:ThemedSvgIcon Width="28" Height="28" IconName="download" Opacity="0.35" />
+                        <TextBlock Classes="muted" Text="{loc:Loc ModelDownloadPickRepo}" TextAlignment="Center" />
+                    </StackPanel>
+                    <downloads:ModelRepoDetailView DataContext="{Binding Detail}"
+                                                   IsVisible="{Binding $parent[UserControl].((downloads:ModelDownloadPageData)DataContext).Detail, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                </Panel>
+            </Border>
+        </Grid>
+    </DockPanel>
+</UserControl>

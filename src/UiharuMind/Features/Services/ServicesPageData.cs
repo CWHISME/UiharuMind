@@ -284,6 +284,13 @@ public partial class ServicesPageData : PageDataBase
     }
 
     [RelayCommand]
+    private void GoDownloadEmbeddingModels()
+    {
+        App.ViewModel.JumpToPage(MenuPages.MenuModelKey);
+        if (App.ViewModel.Content is ModelPageData page) page.ShowDownloads("Embedding");
+    }
+
+    [RelayCommand]
     private void SaveEmbeddingSettings()
     {
         SaveEmbeddingSettings(true);

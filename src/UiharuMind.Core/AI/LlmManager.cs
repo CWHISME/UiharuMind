@@ -318,6 +318,16 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
         return _llamaCppRuntime.PullLatestVersion();
     }
 
+    /// <summary>
+    /// 安装已下好的引擎包：解压到安装目录并校验，成功后删掉压缩包
+    /// </summary>
+    /// <param name="version">引擎版本（压缩包已落在 PackageFilePath）</param>
+    /// <param name="token">取消</param>
+    public Task InstallRuntimeVersionAsync(VersionInfo version, CancellationToken token = default)
+    {
+        return _llamaCppRuntime.InstallArchiveAsync(version, token);
+    }
+
     public void SetSelectedRuntimeVersion(VersionInfo? version)
     {
         _llamaCppRuntime.SetSelectedVersion(version);

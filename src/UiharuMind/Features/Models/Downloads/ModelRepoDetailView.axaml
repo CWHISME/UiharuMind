@@ -1,0 +1,134 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:downloads="clr-namespace:UiharuMind.Features.Models.Downloads"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="520" d:DesignHeight="500"
+             x:Class="UiharuMind.Features.Models.Downloads.ModelRepoDetailView"
+             x:DataType="downloads:ModelRepoDetailData">
+
+    <UserControl.Styles>
+        <!-- 量化行：表格式，行间细分隔线，不给每行套框；推荐行淡蓝底 -->
+        <Style Selector="Border.quant-row">
+            <Setter Property="Padding" Value="10,9" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Border.quant-row:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+        </Style>
+        <Style Selector="Border.quant-row.recommended">
+            <Setter Property="Background" Value="{DynamicResource SemiBlue0}" />
+        </Style>
+        <Style Selector="Button.quant-action">
+            <Setter Property="MinWidth" Value="64" />
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="Padding" Value="12,3" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="CornerRadius" Value="14" />
+        </Style>
+    </UserControl.Styles>
+
+    <DockPanel>
+        <!-- 标题：仓库名为主，作者与概况弱化 -->
+        <DockPanel DockPanel.Dock="Top">
+            <Button DockPanel.Dock="Left" Classes="NoneStyle drawer-back" Padding="4" Margin="-4,0,6,0"
+                    Cursor="Hand" VerticalAlignment="Top"
+                    Command="{Binding $parent[downloads:ModelDownloadView].((downloads:ModelDownloadPageData)DataContext).CloseDetailCommand}">
+                <controls:ThemedSvgIcon Width="18" Height="18" IconName="arrow-left" />
+            </Button>
+            <StackPanel Spacing="3">
+                <SelectableTextBlock Text="{Binding Name}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <TextBlock Classes="muted" FontSize="12">
+                    <Run Text="{Binding Owner}" />
+                    <Run Text="  ·  " />
+                    <Run Text="{Binding SummaryText}" />
+                </TextBlock>
+            </StackPanel>
+        </DockPanel>
+
+        <ProgressBar DockPanel.Dock="Top" IsIndeterminate="True" Height="2" MinHeight="2" Margin="0,12,0,0"
+                     IsVisible="{Binding IsLoading}" />
+
+        <!-- 受限仓库：就地提示，不弹窗 -->
+        <Border DockPanel.Dock="Top" Classes="result-panel" Margin="0,14,0,0" IsVisible="{Binding NeedsToken}">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Content="{loc:Loc ModelDownloadGoToSettings}" Classes="quant-action"
+                        Command="{Binding OpenSourceSettingsCommand}" VerticalAlignment="Center" />
+                <TextBlock Text="{loc:Loc ModelDownloadNeedsToken}" TextWrapping="Wrap" VerticalAlignment="Center" />
+            </DockPanel>
+        </Border>
+        <TextBlock DockPanel.Dock="Top" Classes="muted" TextWrapping="Wrap" Margin="0,14,0,0"
+                   Text="{Binding ErrorText}"
+                   IsVisible="{Binding ErrorText, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        <TextBlock DockPanel.Dock="Top" Classes="muted" Margin="0,14,0,0" Text="{loc:Loc ModelDownloadNoQuants}"
+                   IsVisible="{Binding IsEmpty}" />
+
+        <!-- 视觉投影：随主模型一起下 -->
+        <Border DockPanel.Dock="Top" Classes="result-panel" Margin="0,14,0,0" Padding="10,6"
+                IsVisible="{Binding Projector, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <CheckBox IsChecked="{Binding IncludeProjector}" FontSize="13">
+                <TextBlock Text="{Binding ProjectorText}" TextWrapping="Wrap" />
+            </CheckBox>
+        </Border>
+
+        <TextBlock DockPanel.Dock="Top" Text="{loc:Loc ModelDownloadFilesHeader}" Classes="muted" FontSize="12"
+                   Margin="2,16,0,6" IsVisible="{Binding !IsEmpty}" />
+        <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource SemiGrey2}" Margin="0,0,0,4"
+                IsVisible="{Binding !IsEmpty}" />
+
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding Rows}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="downloads:ModelQuantRowData">
+                        <Border Classes="quant-row" Classes.recommended="{Binding IsRecommended}" Margin="0,1">
+                            <Grid ColumnDefinitions="Auto,*,72,Auto" ColumnSpacing="12">
+                                <!-- 圆点只有 8px，套一层透明底放大悬停区 -->
+                                <Panel Width="16" Height="24" Background="Transparent" ToolTip.Tip="{Binding RiskTip}">
+                                    <Border Classes="status-dot" Tag="{Binding RiskTag}" HorizontalAlignment="Center" />
+                                </Panel>
+
+                                <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="{Binding Label}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                        <controls:KindBadge Header="{loc:Loc ModelDownloadRecommended}"
+                                                            BadgeBackground="{DynamicResource SemiBlue1}"
+                                                            IsVisible="{Binding IsRecommended}" />
+                                        <TextBlock Text="{Binding PartsText}" Classes="muted" FontSize="12"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <!-- 状态行：下载相关时带一条细进度 -->
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <ProgressBar Value="{Binding Percent}" Maximum="100" Width="90"
+                                                     Height="3" MinHeight="3" VerticalAlignment="Center"
+                                                     IsVisible="{Binding ShowProgress}" />
+                                        <TextBlock Text="{Binding StatusText}" Classes="muted" FontSize="12"
+                                                   ToolTip.Tip="{Binding ConflictTip}" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <TextBlock Grid.Column="2" Text="{Binding SizeText}" HorizontalAlignment="Right"
+                                           VerticalAlignment="Center" FontSize="13"
+                                           Foreground="{DynamicResource SemiGrey7}" />
+
+                                <Panel Grid.Column="3" VerticalAlignment="Center" MinWidth="64">
+                                    <Button Classes="quant-action" Content="{Binding ActionText}"
+                                            IsVisible="{Binding !IsDownloaded}"
+                                            IsEnabled="{Binding CanDownload}"
+                                            ToolTip.Tip="{Binding ConflictTip}"
+                                            Command="{Binding $parent[ItemsControl].((downloads:ModelRepoDetailData)DataContext).DownloadCommand}"
+                                            CommandParameter="{Binding}" />
+                                    <controls:ThemedSvgIcon Width="16" Height="16" IconName="check"
+                                                            HorizontalAlignment="Center"
+                                                            IsVisible="{Binding IsDownloaded}" />
+                                </Panel>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>

@@ -82,8 +82,23 @@ public static class RuntimeLoadRiskEvaluator
         int contextSize = DefaultDownloadContextSize)
     {
         if (!deviceInfo.HasMemoryInfo) return RuntimeLoadRiskLevel.Unknown;
+        return ClassifyMemory(EstimateBytesBeforeDownload(modelBytes, projectorBytes, contextSize), deviceInfo, false);
+    }
+
+    /// <summary>
+    /// 下载前估的运行占用（<see cref="EstimateBeforeDownload"/> 分档用的就是它）
+    /// </summary>
+    /// <param name="modelBytes">模型文件总大小（分片之和）</param>
+    /// <param name="projectorBytes">视觉投影大小，没有为 0</param>
+    /// <param name="contextSize">打算用的上下文长度</param>
+    /// <returns>估算字节数</returns>
+    public static long EstimateBytesBeforeDownload(
+        long modelBytes,
+        long projectorBytes,
+        int contextSize = DefaultDownloadContextSize)
+    {
         long kvBytes = (long)(modelBytes * 0.1 * Math.Max(1, contextSize) / DefaultDownloadContextSize);
-        return ClassifyMemory(SafeAdd(SafeAdd(modelBytes, projectorBytes), kvBytes), deviceInfo, false);
+        return SafeAdd(SafeAdd(modelBytes, projectorBytes), kvBytes);
     }
 
     // 用内存占比分档，而不是写死上下文上限；Metal 统一内存也按系统内存保守提示

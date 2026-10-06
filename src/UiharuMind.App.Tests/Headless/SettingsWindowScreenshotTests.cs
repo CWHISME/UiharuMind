@@ -1,4 +1,5 @@
 using Avalonia;
+using UiharuMind.Core.Configs;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
@@ -53,6 +54,33 @@ public class SettingsWindowScreenshotTests : IDisposable
             ClickAndCapture(window, "HelpButton", outDir, "help");
             ClickAndCapture(window, "AboutButton", outDir, "about");
             ScrollAboutToBottomAndCapture(window, outDir);
+        });
+    }
+
+    [Fact]
+    public void JumpToDownloadSource_ScrollsSectionIntoView()
+    {
+        HeadlessUi.Run(() =>
+        {
+            SettingsWindow window = BuildWindow();
+            _window = window;
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            window.ShowDownloadSourceSettings();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            DownloadSourceSettingsView section = window.GetVisualDescendants().OfType<DownloadSourceSettingsView>().Single();
+            Point? topLeft = section.TranslatePoint(new Point(0, 0), window);
+            Assert.True(topLeft is { } p && p.Y >= 0 && p.Y < window.Bounds.Height, $"下载源一节不在视野内：{topLeft}");
+            Capture(window, SettingsShotsDir(), "runtime-download-source");
+
+            // 滚动位置是全局记忆（关窗时也会记一次），先关窗再清，不然同类里后跑的截图从半页开始
+            window.Close();
+            _window = null;
+            ConfigManager.Instance.Setting.SettingsScrollPositions.Remove("RuntimeEngineSetting");
         });
     }
 

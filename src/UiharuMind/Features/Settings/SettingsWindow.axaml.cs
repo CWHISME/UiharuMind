@@ -1,3 +1,5 @@
+using Avalonia.LogicalTree;
+using Avalonia.Threading;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -94,6 +96,17 @@ public partial class SettingsWindow : UiharuWindowBase
     private void SelectByButton(Button button)
     {
         if (FindByButton(button) is { } page) Select(page);
+    }
+
+    /// <summary>
+    /// 切到「本地模型」页并把下载源一节滚进视野（模型页跳下载源设置走这条）
+    /// </summary>
+    public void ShowDownloadSourceSettings()
+    {
+        SelectByButton(RuntimeButton);
+        // 切页后那一节才挂进可视树，等这一轮布局走完再滚
+        Dispatcher.UIThread.Post(() => _runtimeEngineSettingView.GetLogicalDescendants()
+            .OfType<DownloadSourceSettingsView>().FirstOrDefault()?.BringIntoView());
     }
 
     /// <summary>按标题 key 切页（搜索结果跳转走这条）</summary>

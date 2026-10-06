@@ -114,8 +114,23 @@ public sealed class FileDownloader(HttpClient httpClient)
         string partPath = destinationPath.EndsWith(".part", StringComparison.Ordinal)
             ? destinationPath
             : destinationPath + ".part";
+        // 还没开下的项连目录都可能没有，File.Delete 遇到缺目录会抛
+        if (!Directory.Exists(Path.GetDirectoryName(Path.GetFullPath(partPath)))) return;
         File.Delete(partPath);
         File.Delete(DownloadState.PathFor(partPath));
+    }
+
+    /// <summary>
+    /// 读未下完文件的进度（重启后列状态用）
+    /// </summary>
+    /// <param name="destinationPath">最终文件路径</param>
+    /// <returns>已下与总字节；没有可续传的进度为 null</returns>
+    public static DownloadProgress? ReadPartialProgress(string destinationPath)
+    {
+        string partPath = destinationPath + ".part";
+        if (!File.Exists(partPath)) return null;
+        DownloadState? state = DownloadState.Load(partPath);
+        return state == null ? null : new DownloadProgress(state.Segments.Sum(x => x.Done), state.TotalBytes, 0);
     }
 
     // 用 bytes=0-0 探一下：206 + Content-Range 才能分块续传；否则整个下，不能续传

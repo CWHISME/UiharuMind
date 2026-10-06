@@ -10,6 +10,7 @@
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
               x:DataType="pages:ModelPageData"
              xmlns:images="clr-namespace:UiharuMind.Features.Models.ImageModels"
+             xmlns:downloads="clr-namespace:UiharuMind.Features.Models.Downloads"
                              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
 
     <Design.DataContext>
@@ -44,7 +45,9 @@
 
                     <u:Divider Margin="0,10" DockPanel.Dock="Top" />
 
+                    <!-- 右键菜单整表共用一份，右键时才建（见 OnModelListContextRequested） -->
                     <ListBox
+                        ContextRequested="OnModelListContextRequested"
                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                         ScrollViewer.VerticalScrollBarVisibility="Auto"
                         ItemsSource="{Binding CurrentItems}">
@@ -123,6 +126,25 @@
             </TabItem>
             <TabItem Header="{loc:Loc ModelPageImageModelsTab}">
                 <images:ImageModelListView Margin="0,12,0,0" DataContext="{Binding ImageModels}" />
+            </TabItem>
+            <!-- 内容绑数据而不是内联写视图：内联的会随页面构造 new 出来，这里要第一次选中才建 -->
+            <TabItem Content="{Binding Downloads}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="{loc:Loc ModelPageDownloadsTab}" VerticalAlignment="Center" />
+                        <Border Background="{DynamicResource SemiBlue5}" CornerRadius="8" Padding="5,0" MinWidth="16"
+                                VerticalAlignment="Center"
+                                IsVisible="{Binding DownloadQueue.HasActive, FallbackValue=False}">
+                            <TextBlock Text="{Binding DownloadQueue.ActiveCount}" FontSize="11" Foreground="White"
+                                       HorizontalAlignment="Center" />
+                        </Border>
+                    </StackPanel>
+                </TabItem.Header>
+                <TabItem.ContentTemplate>
+                    <DataTemplate x:DataType="downloads:ModelDownloadPageData">
+                        <downloads:ModelDownloadView />
+                    </DataTemplate>
+                </TabItem.ContentTemplate>
             </TabItem>
         </TabControl>
     </DockPanel>

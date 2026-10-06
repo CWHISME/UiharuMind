@@ -314,6 +314,11 @@
                                                IsVisible="{Binding NoManagedEmbeddingModels}"
                                                TextWrapping="Wrap" />
                                     <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                                        <!-- 一个嵌入模型都没有时给条出路：跳到获取模型并搜好 Embedding -->
+                                        <Button Classes="compact Primary"
+                                                Content="{loc:Loc ServicesDownloadEmbeddingModel}"
+                                                IsVisible="{Binding NoManagedEmbeddingModels}"
+                                                Command="{Binding GoDownloadEmbeddingModelsCommand}" />
                                         <Button Classes="compact"
                                                 Content="{loc:Loc ServicesRefreshModels}"
                                                 Command="{Binding RefreshManagedEmbeddingModelListCommand}" />

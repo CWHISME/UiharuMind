@@ -70,6 +70,18 @@ public class DownloadQueueTests : IDisposable
     }
 
     [Fact]
+    public void Cancel_QueuedJobWhoseDirectoryDoesNotExistYet_DoesNotThrow()
+    {
+        using TestHttpServer server = new(_payload) { BytesPerSecond = 1024 * 1024 };
+        _queue.Enqueue("a", Request(server, "a.bin"));
+        DownloadJob queued = _queue.Enqueue("b", new DownloadRequest(server.Url, Path.Combine(_directory, "missing", "b.bin")));
+
+        _queue.Cancel(queued);
+
+        Assert.DoesNotContain(queued, _queue.Jobs);
+    }
+
+    [Fact]
     public async Task Failure_IsReported_AndResumeRetries()
     {
         using TestHttpServer server = new(_payload) { StatusCode = 503 };

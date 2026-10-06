@@ -3732,4 +3732,200 @@ Allow them?</value>
     <data name="ModelRunFailedNoEngine" xml:space="preserve">
         <value>No llama.cpp engine is available yet. Download or select a version in Settings → Local Models.</value>
     </data>
+    <data name="ModelPageDownloadsTab" xml:space="preserve">
+        <value>Get models</value>
+    </data>
+    <data name="ModelDownloadSearchHint" xml:space="preserve">
+        <value>Search GGUF models, or paste owner/repo or a link</value>
+    </data>
+    <data name="ModelDownloadSourceLabel" xml:space="preserve">
+        <value>Source: {0}</value>
+    </data>
+    <data name="ModelDownloadSourceTip" xml:space="preserve">
+        <value>Change the download source</value>
+    </data>
+    <data name="ModelSourceModelScope" xml:space="preserve">
+        <value>ModelScope</value>
+    </data>
+    <data name="ModelDownloadNoResults" xml:space="preserve">
+        <value>No matching repositories.</value>
+    </data>
+    <data name="ModelDownloadSearchFailed" xml:space="preserve">
+        <value>Search failed: {0}</value>
+    </data>
+    <data name="ModelDownloadPickRepo" xml:space="preserve">
+        <value>Pick a repository on the left to see its files.</value>
+    </data>
+    <data name="ModelDownloadLoadFailed" xml:space="preserve">
+        <value>Could not load the repository: {0}</value>
+    </data>
+    <data name="ModelDownloadNeedsToken" xml:space="preserve">
+        <value>This repository needs an access token.</value>
+    </data>
+    <data name="ModelDownloadGoToSettings" xml:space="preserve">
+        <value>Open settings</value>
+    </data>
+    <data name="ModelDownloadNoQuants" xml:space="preserve">
+        <value>This repository has no downloadable GGUF files.</value>
+    </data>
+    <data name="ModelDownloadIncludeProjector" xml:space="preserve">
+        <value>Also download the vision projector ({0}, {1})</value>
+    </data>
+    <data name="ModelDownloadRecommended" xml:space="preserve">
+        <value>Recommended</value>
+    </data>
+    <data name="ModelDownloadParts" xml:space="preserve">
+        <value>{0} parts</value>
+    </data>
+    <data name="ModelDownloadRiskTip" xml:space="preserve">
+        <value>Estimated usage {0} / total memory {1}</value>
+    </data>
+    <data name="ModelDownloadNameConflictTip" xml:space="preserve">
+        <value>A local model with the same name already exists: {0}</value>
+    </data>
+    <data name="ModelDownloadStateNotDownloaded" xml:space="preserve">
+        <value>Not downloaded</value>
+    </data>
+    <data name="ModelDownloadStateQueued" xml:space="preserve">
+        <value>Queued</value>
+    </data>
+    <data name="ModelDownloadStateDownloading" xml:space="preserve">
+        <value>Downloading {0}%</value>
+    </data>
+    <data name="ModelDownloadStatePaused" xml:space="preserve">
+        <value>Paused</value>
+    </data>
+    <data name="ModelDownloadStatePausedPercent" xml:space="preserve">
+        <value>Paused {0}%</value>
+    </data>
+    <data name="ModelDownloadStateFailed" xml:space="preserve">
+        <value>Failed: {0}</value>
+    </data>
+    <data name="ModelDownloadStateFailedShort" xml:space="preserve">
+        <value>Failed</value>
+    </data>
+    <data name="ModelDownloadStatePartial" xml:space="preserve">
+        <value>Incomplete {0}%, click to continue</value>
+    </data>
+    <data name="ModelDownloadStateDownloaded" xml:space="preserve">
+        <value>Downloaded</value>
+    </data>
+    <data name="ModelDownloadStateNameConflict" xml:space="preserve">
+        <value>A local model has this name</value>
+    </data>
+    <data name="ModelDownloadAction" xml:space="preserve">
+        <value>Download</value>
+    </data>
+    <data name="ModelDownloadResume" xml:space="preserve">
+        <value>Continue</value>
+    </data>
+    <data name="ModelDownloadRetry" xml:space="preserve">
+        <value>Retry</value>
+    </data>
+    <data name="ModelDownloadPause" xml:space="preserve">
+        <value>Pause</value>
+    </data>
+    <data name="ModelDownloadCancel" xml:space="preserve">
+        <value>Cancel</value>
+    </data>
+    <data name="ModelDownloadQueueTitle" xml:space="preserve">
+        <value>Downloads</value>
+    </data>
+    <data name="ModelDownloadCompleted" xml:space="preserve">
+        <value>{0} finished downloading</value>
+    </data>
+    <data name="ModelDownloadPopularCaption" xml:space="preserve">
+        <value>Popular GGUF repositories</value>
+    </data>
+    <data name="ModelDownloadResultsCaption" xml:space="preserve">
+        <value>Search results</value>
+    </data>
+    <data name="ModelDownloadSummary" xml:space="preserve">
+        <value>{0} quantizations</value>
+    </data>
+    <data name="ModelDownloadSummaryVision" xml:space="preserve">
+        <value>{0} quantizations · vision</value>
+    </data>
+    <data name="ModelDownloadFilesHeader" xml:space="preserve">
+        <value>Files</value>
+    </data>
+    <data name="ModelDownloadQueueSummary" xml:space="preserve">
+        <value>{0} active · {1} total</value>
+    </data>
+    <data name="DownloadSourceSection" xml:space="preserve">
+        <value>Download sources</value>
+    </data>
+    <data name="DownloadSourceSectionDesc" xml:space="preserve">
+        <value>Where model files and engine packages are downloaded from.</value>
+    </data>
+    <data name="DownloadSourceModelSource" xml:space="preserve">
+        <value>Model source</value>
+    </data>
+    <data name="DownloadSourceModelSourceDesc" xml:space="preserve">
+        <value>Searching and downloading in Get models both go through this source.</value>
+    </data>
+    <data name="DownloadSourceHfMirror" xml:space="preserve">
+        <value>hf-mirror (HuggingFace mirror)</value>
+    </data>
+    <data name="DownloadSourceCustom" xml:space="preserve">
+        <value>Custom (HuggingFace compatible)</value>
+    </data>
+    <data name="DownloadSourceCustomEndpoint" xml:space="preserve">
+        <value>Custom address</value>
+    </data>
+    <data name="DownloadSourceCustomEndpointDesc" xml:space="preserve">
+        <value>Root address of a site compatible with the HuggingFace API.</value>
+    </data>
+    <data name="DownloadSourceCustomEndpointInvalid" xml:space="preserve">
+        <value>Not a valid address; HuggingFace is used until it is fixed.</value>
+    </data>
+    <data name="DownloadSourceHfToken" xml:space="preserve">
+        <value>HuggingFace token</value>
+    </data>
+    <data name="DownloadSourceHfTokenDesc" xml:space="preserve">
+        <value>Needed for gated repositories. Also sent to the mirror and custom address.</value>
+    </data>
+    <data name="DownloadSourceModelScopeToken" xml:space="preserve">
+        <value>ModelScope token</value>
+    </data>
+    <data name="DownloadSourceModelScopeTokenDesc" xml:space="preserve">
+        <value>Only needed for private repositories; public ones work without it.</value>
+    </data>
+    <data name="DownloadSourceGitHubProxy" xml:space="preserve">
+        <value>GitHub proxy prefix</value>
+    </data>
+    <data name="DownloadSourceGitHubProxyDesc" xml:space="preserve">
+        <value>Prepended to engine package download addresses on GitHub. Leave empty to connect directly.</value>
+    </data>
+    <data name="ModelDownloadEngineQueued" xml:space="preserve">
+        <value>No llama.cpp engine yet, so {0} was queued before the model. It will be enabled once installed.</value>
+    </data>
+    <data name="ModelDownloadEngineInstalled" xml:space="preserve">
+        <value>Engine {0} is installed and enabled.</value>
+    </data>
+    <data name="ModelDownloadEngineFailed" xml:space="preserve">
+        <value>Engine {0} failed to install: {1}</value>
+    </data>
+    <data name="ModelDownloadEngineNoPackage" xml:space="preserve">
+        <value>No engine package for this computer was found. Download one in Settings → Local Models.</value>
+    </data>
+    <data name="ModelDownloadEngineCheckFailed" xml:space="preserve">
+        <value>Could not get the engine package list: {0}. The model still downloads; install an engine later in settings.</value>
+    </data>
+    <data name="ModelDeleteFiles" xml:space="preserve">
+        <value>Delete model files</value>
+    </data>
+    <data name="ModelDeleteFilesConfirm" xml:space="preserve">
+        <value>Delete the files of model "{0}"? This cannot be undone.
+{1}</value>
+    </data>
+    <data name="ModelDeleteFilesDone" xml:space="preserve">
+        <value>Deleted {0}</value>
+    </data>
+    <data name="ModelDeleteFilesFailed" xml:space="preserve">
+        <value>Could not delete the model files: {0}</value>
+    </data>
+    <data name="ServicesDownloadEmbeddingModel" xml:space="preserve">
+        <value>Download</value>
+    </data>
 </root>
