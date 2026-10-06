@@ -52,7 +52,21 @@ public class LocalModelDeleterTests : IDisposable
         IReadOnlyList<string> deleted = LocalModelDeleter.Delete(first);
 
         Assert.Equal(4, deleted.Count);
+        Assert.False(Directory.Exists(Path.Combine(_root, "owner")));
+        Assert.True(Directory.Exists(_root));
+    }
+
+    [Fact]
+    public void OwnerWithOtherRepos_IsKept()
+    {
+        string model = Touch("owner/repo/m-Q4.gguf");
+        Touch("owner/other/x-Q4.gguf");
+        WriteManifest("owner/repo", Entry("m-Q4.gguf"));
+
+        LocalModelDeleter.Delete(model);
+
         Assert.False(Directory.Exists(Path.Combine(_root, "owner", "repo")));
+        Assert.True(Directory.Exists(Path.Combine(_root, "owner", "other")));
     }
 
     [Fact]

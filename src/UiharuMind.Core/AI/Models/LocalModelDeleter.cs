@@ -35,7 +35,9 @@ public static class LocalModelDeleter
         foreach (ManifestFile projector in manifest.Projectors)
             DeleteFile(Path.Combine(directory, projector.Path), deleted);
         DeleteFile(Path.Combine(directory, ModelManifest.FileName), deleted);
-        if (!Directory.EnumerateFileSystemEntries(directory).Any()) Directory.Delete(directory);
+        DeleteIfEmpty(directory);
+        // 下载的布局是 <模型目录>/<作者>/<仓库>/：作者目录下没别的仓库了也一起收掉
+        DeleteIfEmpty(Path.GetDirectoryName(directory));
         return deleted;
     }
 
@@ -56,6 +58,12 @@ public static class LocalModelDeleter
     {
         return Directory.EnumerateFiles(directory, "*.gguf")
             .Any(file => !Path.GetFileName(file).Contains("mmproj", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static void DeleteIfEmpty(string? directory)
+    {
+        if (directory != null && Directory.Exists(directory) && !Directory.EnumerateFileSystemEntries(directory).Any())
+            Directory.Delete(directory);
     }
 
     private static void DeleteFile(string path, List<string> deleted)
