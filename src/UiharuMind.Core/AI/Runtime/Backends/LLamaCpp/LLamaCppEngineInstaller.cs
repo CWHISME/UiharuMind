@@ -1,6 +1,7 @@
 using UiharuMind.Core.AI.Models.Sources;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.DownloadHelper;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Runtime.Backends;
 
@@ -40,6 +41,7 @@ public sealed class LLamaCppEngineInstaller(
     Action<VersionInfo> select)
 {
     private readonly SemaphoreSlim _ensureGate = new(1, 1); //连点两个量化时只排一次
+    private VersionInfo? _availableUpdate;
 
     /// <summary>
     /// 走全局队列与 <see cref="LlmManager"/>
@@ -56,6 +58,56 @@ public sealed class LLamaCppEngineInstaller(
     /// 一个引擎包装好了（在下载线程上触发）
     /// </summary>
     public event Action<VersionInfo>? Installed;
+
+    /// <summary>
+    /// 有没有新版本变了（可能在后台线程触发）
+    /// </summary>
+    public event Action? AvailableUpdateChanged;
+
+    /// <summary>
+    /// 比本机已装的都新的推荐包；没有为 null
+    /// </summary>
+    public VersionInfo? AvailableUpdate => _availableUpdate;
+
+    /// <summary>
+    /// 拉一次远端版本，看有没有比本机新的推荐包。拉不到不抛，只记日志
+    /// </summary>
+    /// <returns>新版本；没有为 null</returns>
+    public async Task<VersionInfo?> CheckForUpdateAsync()
+    {
+        try
+        {
+            ApplyVersions(await pullVersions().ConfigureAwait(false));
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Check llama.cpp update failed: {e.Message}");
+        }
+
+        return _availableUpdate;
+    }
+
+    /// <summary>
+    /// 按一份版本列表（含本机已装的）更新「有没有新版本」，手动检查更新拉到的列表也走这里
+    /// </summary>
+    /// <param name="versions">版本列表</param>
+    public void ApplyVersions(IEnumerable<VersionInfo> versions) => SetAvailableUpdate(PickUpdate(versions));
+
+    /// <summary>
+    /// 挑出比已装的都新的推荐包。一个都没装时不算更新（那是 <see cref="EnsureQueuedAsync"/> 的事）
+    /// </summary>
+    /// <param name="versions">版本列表</param>
+    /// <returns>新版本；没有为 null</returns>
+    public static VersionInfo? PickUpdate(IEnumerable<VersionInfo> versions)
+    {
+        List<VersionInfo> list = versions.ToList();
+        Version? installed = list.Where(x => x.IsInstalled).Select(x => x.Version).DefaultIfEmpty().Max();
+        if (installed == null) return null;
+        return list
+            .Where(x => x.IsRecommended && !x.IsInstalled && !string.IsNullOrEmpty(x.DownloadUrl) && x.Version > installed)
+            .OrderByDescending(x => x.Version)
+            .FirstOrDefault();
+    }
 
     /// <summary>
     /// 本机没有引擎、队列里也没有引擎包时，把推荐变体的最新包排进队列，装好后选中
@@ -111,7 +163,15 @@ public sealed class LLamaCppEngineInstaller(
     public async Task InstallAsync(VersionInfo version, CancellationToken token = default)
     {
         await install(version, token).ConfigureAwait(false);
+        if (_availableUpdate != null && version.Version >= _availableUpdate.Version) SetAvailableUpdate(null);
         Installed?.Invoke(version);
+    }
+
+    private void SetAvailableUpdate(VersionInfo? update)
+    {
+        if (_availableUpdate?.Name == update?.Name) return;
+        _availableUpdate = update;
+        AvailableUpdateChanged?.Invoke();
     }
 
     private bool IsActiveEngineJob(DownloadJob job)

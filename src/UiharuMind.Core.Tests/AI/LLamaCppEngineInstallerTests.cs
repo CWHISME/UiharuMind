@@ -112,4 +112,36 @@ public class LLamaCppEngineInstallerTests : IDisposable
         Assert.Equal([version], _selected);
         Assert.Same(version, installedEvent);
     }
+
+    [Fact]
+    public async Task Update_IsNewerRecommendedPackage_AndClearsOnceInstalled()
+    {
+        string? suffix = RecommendedSuffix();
+        if (suffix == null) return;
+        VersionInfo installed = Remote("b100", suffix);
+        installed.IsInstalled = true;
+        VersionInfo newer = Remote("b120", suffix);
+        _remote = [installed, Remote("b110", suffix), newer, Remote("b130", "-bin-unknown-variant")];
+        LLamaCppEngineInstaller installer = Create();
+        int changes = 0;
+        installer.AvailableUpdateChanged += () => changes++;
+
+        Assert.Same(newer, await installer.CheckForUpdateAsync());
+        await installer.InstallAsync(newer);
+
+        Assert.Null(installer.AvailableUpdate);
+        Assert.Equal(2, changes);
+    }
+
+    [Fact]
+    public void Update_NotOfferedWithoutAnInstalledEngine_OrWhenUpToDate()
+    {
+        string? suffix = RecommendedSuffix();
+        if (suffix == null) return;
+        VersionInfo installed = Remote("b120", suffix);
+        installed.IsInstalled = true;
+
+        Assert.Null(LLamaCppEngineInstaller.PickUpdate([Remote("b120", suffix)]));
+        Assert.Null(LLamaCppEngineInstaller.PickUpdate([installed, Remote("b110", suffix)]));
+    }
 }

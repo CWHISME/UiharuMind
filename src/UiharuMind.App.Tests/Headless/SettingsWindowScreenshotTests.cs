@@ -1,3 +1,4 @@
+using UiharuMind.Core.AI.Runtime.Backends;
 using Avalonia;
 using UiharuMind.Core.Configs;
 using Avalonia.Controls;
@@ -82,6 +83,44 @@ public class SettingsWindowScreenshotTests : IDisposable
             window.Close();
             _window = null;
             ConfigManager.Instance.Setting.SettingsScrollPositions.Remove("RuntimeEngineSetting");
+        });
+    }
+
+    [Fact]
+    public void EngineUpdate_ShowsBannerAndNavDot()
+    {
+        HeadlessUi.Run(() =>
+        {
+            string? suffix = new[] { "-bin-macos-arm64", "-bin-macos-x64", "-bin-win-vulkan-x64", "-bin-ubuntu-vulkan-x64" }
+                .FirstOrDefault(x => LLamaCppVariants.IsRecommended("llama-b1" + x + ".zip"));
+            if (suffix == null) return;
+            SettingsWindow window = BuildWindow();
+            _window = window;
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            try
+            {
+                LLamaCppEngineInstaller.Shared.ApplyVersions(
+                [
+                    new VersionInfo { Name = $"llama-b100{suffix}", Version = new Version(100, 0), IsInstalled = true },
+                    new VersionInfo { Name = $"llama-b200{suffix}", Version = new Version(200, 0), DownloadUrl = "http://127.0.0.1:1/x.zip" }
+                ]);
+                Dispatcher.UIThread.RunJobs();
+                window.FindControl<Button>("RuntimeButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+
+                Assert.True(window.FindControl<Border>("EngineUpdateDot")!.IsVisible);
+                Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), x => x.Text?.Contains("b200") == true);
+                Capture(window, SettingsShotsDir(), "runtime-engine-update");
+            }
+            finally
+            {
+                LLamaCppEngineInstaller.Shared.ApplyVersions([]);
+                window.Close();
+                _window = null;
+                ConfigManager.Instance.Setting.SettingsScrollPositions.Remove("RuntimeEngineSetting");
+            }
         });
     }
 

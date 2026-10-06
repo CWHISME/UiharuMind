@@ -10,6 +10,7 @@
  ****************************************************************************/
 
 using System;
+using System.Threading.Tasks;
 using System.Diagnostics;
 using System.IO;
 using Avalonia;
@@ -160,6 +161,12 @@ public partial class App : Application, ILogger, IDisposable
         DeliverTrayFunc();
         UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("tray");
         _ = Services.GetRequiredService<ApplicationUpdateService>().CheckForUpdatesAsync();
+        // 引擎新版本：错开启动高峰再查，查到了在设置入口与引擎卡上提示
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(30));
+            await UiharuMind.Core.AI.Runtime.Backends.LLamaCppEngineInstaller.Shared.CheckForUpdateAsync();
+        });
         UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("update-check-kickoff");
         // 空闲内存回收:长轮次过后 GC 会占着一大片用过的空地不还,见 IdleMemoryReclaimer
         _memoryReclaimer = UiharuMind.Features.Diagnostics.IdleMemoryReclaimer.Start();

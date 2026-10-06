@@ -100,6 +100,8 @@
                             <StackPanel Orientation="Horizontal" Spacing="10">
                                 <controls:ThemedSvgIcon Width="16" Height="16" IconName="terminal" />
                                 <TextBlock Text="{loc:Loc RuntimeEngineSetting}" />
+                                <Border x:Name="EngineUpdateDot" Classes="status-dot" Tag="Progress" IsVisible="False"
+                                        ToolTip.Tip="{loc:Loc SettingsEngineUpdateTip}" />
                             </StackPanel>
                         </Button>
                     </StackPanel>

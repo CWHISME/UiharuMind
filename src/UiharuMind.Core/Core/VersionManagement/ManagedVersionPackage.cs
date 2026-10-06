@@ -84,7 +84,9 @@ public class ManagedVersionPackage : IDownloadable, IInstalledDownloadable, ICom
         string version = rawVersion.Trim().TrimStart('v', 'V');
         var numericVersion = System.Text.RegularExpressions.Regex.Match(version, @"\d+(\.\d+){0,3}");
         if (numericVersion.Success) version = numericVersion.Value;
-        return Version.TryParse(version, out Version? parsed) ? parsed : new Version(0, 0);
+        if (Version.TryParse(version, out Version? parsed)) return parsed;
+        // 只有一个数（如 llama.cpp 的构建号 b11443）：Version.TryParse 不认，当主版本号
+        return int.TryParse(version, out int major) ? new Version(major, 0) : new Version(0, 0);
     }
 
     public static bool IsRemoteVersionNewer(Version remote, Version local)

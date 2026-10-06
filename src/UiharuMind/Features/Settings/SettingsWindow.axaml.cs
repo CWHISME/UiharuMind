@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia.Controls;
+using Avalonia.Data;
 using Avalonia.Interactivity;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
@@ -60,6 +61,8 @@ public partial class SettingsWindow : UiharuWindowBase
         _helpPageData = (HelpPageData)getPage(MenuPages.MenuHelpKey);
         InitializeComponent();
         VersionText.Text = App.Version.ToString();
+        EngineUpdateDot.Bind(IsVisibleProperty,
+            new Binding(nameof(RuntimeEngineSettingData.HasEngineUpdate)) { Source = runtimeEngineSetting });
         LocalizationManager.Instance.LanguageChanged += RefreshTitle;
 
         // 页表是本窗导航、标题、搜索三处的唯一真相源：加页只在这一个地方加一行

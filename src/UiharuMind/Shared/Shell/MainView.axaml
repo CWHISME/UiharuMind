@@ -70,14 +70,22 @@
                     <!-- <controls:Footer DockPanel.Dock="Bottom" DataContext="{Binding}" /> -->
                     <!-- 原本的 Footer，没啥东西，直接放过来 -->
                     <StackPanel DockPanel.Dock="Bottom" Orientation="Vertical" HorizontalAlignment="Center">
-                        <ThemedIconButton HorizontalContentAlignment="Center" HorizontalAlignment="Center"
-                                          Height="42"
-                                          Width="42"
-                                          IconWidth="20"
-                                          IconHeight="20"
-                                          IconName="settings"
-                                          Command="{Binding OpenSettingCommand}" ToolTips="{markup:Loc MenuSettingKey}">
-                        </ThemedIconButton>
+                        <Panel>
+                            <ThemedIconButton HorizontalContentAlignment="Center" HorizontalAlignment="Center"
+                                              Height="42"
+                                              Width="42"
+                                              IconWidth="20"
+                                              IconHeight="20"
+                                              IconName="settings"
+                                              Command="{Binding OpenSettingCommand}" ToolTips="{markup:Loc MenuSettingKey}">
+                            </ThemedIconButton>
+                            <!-- llama.cpp 有新版本 -->
+                            <Border Classes="status-dot" Tag="Progress" Margin="0,6,6,0"
+                                    HorizontalAlignment="Right" VerticalAlignment="Top"
+                                    IsHitTestVisible="False"
+                                    ToolTip.Tip="{markup:Loc SettingsEngineUpdateTip}"
+                                    IsVisible="{Binding HasEngineUpdate}" />
+                        </Panel>
                         <TextBlock Text="{Binding Version}" HorizontalAlignment="Center" />
                     </StackPanel>
 

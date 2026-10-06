@@ -31,6 +31,8 @@ using UiharuMind.Features.Conversation.Pages;
 using UiharuMind.Shared.Diagnostics;
 
 using UiharuMind.Shared.WindowManagement;
+using UiharuMind.Core.AI.Runtime.Backends;
+
 namespace UiharuMind.Shared.Shell;
 
 public partial class MainViewModel : ViewModelBase //, IRecipient<string>
@@ -55,6 +57,8 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
     public MainViewModel(IServiceProvider services)
     {
         _services = services;
+        LLamaCppEngineInstaller.Shared.AvailableUpdateChanged += () =>
+            Dispatcher.UIThread.Post(() => OnPropertyChanged(nameof(HasEngineUpdate)));
         Dispatcher.UIThread.Post(() =>
         {
             // Receive(MenuKeys.MenuMainKey);
@@ -62,6 +66,11 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
             JumpToPage(MenuPages.MenuAgentKey);
         }, DispatcherPriority.ApplicationIdle);
     }
+
+    /// <summary>
+    /// llama.cpp 有新版本：设置入口上挂个点
+    /// </summary>
+    public bool HasEngineUpdate => LLamaCppEngineInstaller.Shared.AvailableUpdate != null;
 
     [RelayCommand]
     private void OpenSetting()

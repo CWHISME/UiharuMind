@@ -4185,4 +4185,16 @@
     <data name="ModelListEmptyHint" xml:space="preserve">
         <value>下载一个本地模型，或者添加远程模型（OpenAI 兼容等）。</value>
     </data>
+    <data name="LLamaCppUpdateAvailable" xml:space="preserve">
+        <value>新版本 {0} 可用</value>
+    </data>
+    <data name="LLamaCppUpdateNow" xml:space="preserve">
+        <value>更新</value>
+    </data>
+    <data name="LLamaCppUpdateQueued" xml:space="preserve">
+        <value>正在下载 {0}，装好后自动启用，进度见「获取模型」的下载区。</value>
+    </data>
+    <data name="SettingsEngineUpdateTip" xml:space="preserve">
+        <value>llama.cpp 有新版本</value>
+    </data>
 </root>

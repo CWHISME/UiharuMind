@@ -25,6 +25,7 @@ using UiharuMind.Core.AI;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Core.Core.DownloadHelper;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Shared.Data;
 using UiharuMind.Shared.Controls;
@@ -53,6 +54,15 @@ public partial class RuntimeEngineSettingData : ObservableObject
     /// <summary>当前版本的发布页，从版本名里认出构建号（b1234）</summary>
     public string? EngineReleaseUrl => SelectedVersion == null ? null : LLamaCppReleaseUrl(SelectedVersion.Name);
 
+    /// <summary>比本机新的推荐引擎包；没有为 null</summary>
+    public VersionInfo? EngineUpdate => LLamaCppEngineInstaller.Shared.AvailableUpdate;
+
+    /// <summary>有新版本可更新</summary>
+    public bool HasEngineUpdate => EngineUpdate != null;
+
+    /// <summary>引擎卡上的新版本提示</summary>
+    public string EngineUpdateText => EngineUpdate == null ? "" : Loc.Text(LangKey.LLamaCppUpdateAvailable, EngineUpdate.Name);
+
     /// <summary>下载源一节</summary>
     public DownloadSourceSettingsViewData DownloadSource { get; } = new();
 
@@ -79,6 +89,32 @@ public partial class RuntimeEngineSettingData : ObservableObject
         RemoteDwnloadListViewModel.OnDownloadFileChange += () => _ = InitializeAvailableVersions();
         // 获取模型那边自动装的引擎也要出现在这里的版本下拉里
         LLamaCppEngineInstaller.Shared.Installed += installed => Dispatcher.UIThread.Post(() => _ = InitializeAvailableVersions());
+        LLamaCppEngineInstaller.Shared.AvailableUpdateChanged += () => Dispatcher.UIThread.Post(() =>
+        {
+            OnPropertyChanged(nameof(EngineUpdate));
+            OnPropertyChanged(nameof(HasEngineUpdate));
+            OnPropertyChanged(nameof(EngineUpdateText));
+        });
+    }
+
+    // 与获取模型自动装引擎同一条路：排进全局下载队列，装好后选中
+    [RelayCommand]
+    private void InstallEngineUpdate()
+    {
+        if (EngineUpdate is not { } version) return;
+        DownloadJob job = LLamaCppEngineInstaller.Shared.Enqueue(version, true);
+        _messageService.ShowNotification(Loc.Text(LangKey.LLamaCppUpdateQueued, version.Name));
+        job.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(DownloadJob.State)) return;
+            if (job.State == EDownloadJobState.Completed)
+                UiDispatcher.FireAndForget(() => _messageService.ShowNotification(
+                    Loc.Text(LangKey.ModelDownloadEngineInstalled, version.Name), severity: MessageSeverity.Success));
+            else if (job.State == EDownloadJobState.Failed)
+                UiDispatcher.FireAndForget(() => _messageService.ShowNotification(
+                    Loc.Text(LangKey.ModelDownloadEngineFailed, version.Name, job.Error?.Message ?? ""),
+                    severity: MessageSeverity.Error));
+        };
     }
 
     [RelayCommand]
@@ -109,6 +145,7 @@ public partial class RuntimeEngineSettingData : ObservableObject
         }
 
         UpdatedResutInfo = versions.ReleaseDate;
+        LLamaCppEngineInstaller.Shared.ApplyVersions(versions.VersionsList);
     }
 
     [RelayCommand]
