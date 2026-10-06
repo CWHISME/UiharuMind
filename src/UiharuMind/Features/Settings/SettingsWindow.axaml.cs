@@ -127,6 +127,12 @@ public partial class SettingsWindow : UiharuWindowBase
         if (setting.SettingsWindowHeight >= MinHeight) Height = setting.SettingsWindowHeight;
     }
 
+    protected override void OnClosed(EventArgs e)
+    {
+        LocalizationManager.Instance.LanguageChanged -= RefreshTitle;
+        base.OnClosed(e);
+    }
+
     protected override void OnPreClose()
     {
         base.OnPreClose();

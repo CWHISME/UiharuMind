@@ -69,6 +69,12 @@ public partial class SimpleMarkdownViewer : UserControl
     private ObservableStringBuilder _markdownBuilder = new ObservableStringBuilder();
     private string _plainText = ""; //原文：纯文本块显示它；渲染器拿的是转义过的那份
 
+    /// <summary>渲染器是否已接上内容（不再是纯文本占位）</summary>
+    internal bool IsMarkdownRealized => _isRealized;
+
+    /// <summary>内部的 markdown 渲染器</summary>
+    internal MarkdownRenderer Renderer => MarkdownTextRender;
+
     /// 纯文本块此刻是否顶在前面:纯文本档，或 markdown 档但渲染器还没接上
     private bool IsPlainTextShown => _isPlaintextCache || !_isRealized;
 

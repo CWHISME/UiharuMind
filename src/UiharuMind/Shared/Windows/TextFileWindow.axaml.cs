@@ -37,7 +37,7 @@ namespace UiharuMind.Shared.Windows;
 /// 无路径也能开（空文档、标题显示未命名），文件从「文件 / 打开」菜单或直接拖进来。
 ///
 /// 编辑态（<see cref="Controls.LongTextView"/> 的 IsEditable 档）与预览态
-/// （<see cref="Controls.SimpleMarkdownViewer"/>）叠在同一片区域，切模式只改可见性——
+/// （<see cref="Controls.ChunkedMarkdownViewer"/>）叠在同一片区域，切模式只改可见性——
 /// 编辑 Document 不销毁，撤销栈与滚动位置跨预览切换保留（换 Document 会清撤销栈，见 LongTextView.ApplyText）。
 ///
 /// 保存走 <see cref="TextFileCodec"/>：原编码、原 BOM 写回，行尾不归一。
@@ -69,7 +69,7 @@ public partial class TextFileWindow : QuickWindowBase
             UpdateStatusBar();
         };
         // 全局偏好：别的文本窗改了设置，这个还开着的窗口跟着变。
-        // 缓存窗口与设置单例同生命周期，不主动退订（复用时还要继续联动）
+        // 进缓存只是隐藏，订阅保留；被缓存淘汰真关时在 OnClosed 退订，否则设置单例会把整扇窗连同预览树钉住
         _setting.PropertyChanged += OnGlobalSettingChanged;
 
         // 整窗接受文件拖放（对照 ConversationView）：DragOver 只在文件拖放时介入，
@@ -433,11 +433,11 @@ public partial class TextFileWindow : QuickWindowBase
         TextView.WordWrap = _setting.WordWrap;
     }
 
-    /// <summary>超过这个字符数的 markdown 不做渲染预览：LiveMarkdown 全量建视觉树太贵，
-    /// 打开时那一帧会直接卡死。超限退化成纯文本档</summary>
+    /// <summary>超过这个字符数的 markdown 不做渲染预览：分段后打开不卡，但纯文本占位与滚过的段
+    /// 仍随长度增长。超限退化成纯文本档</summary>
     private const int PreviewRenderMaxChars = 512 * 1024;
 
-    private void SyncPreviewVisibility(bool preview, bool renderNow = false)
+    private void SyncPreviewVisibility(bool preview)
     {
         PreviewHost.IsVisible = preview;
         TextView.IsVisible = !preview;
@@ -455,11 +455,8 @@ public partial class TextFileWindow : QuickWindowBase
         MarkdownViewer.IsPlaintext = tooLarge;
         if (tooLarge) return;
 
-        // 构造器把 IsPlaintext 置成 true（纯文本档），XAML 字面量会被它覆盖，必须在代码里关掉。
-        // 打开时（SetSource）不 RealizeNow：让控件自己的视口队列分帧渲染，首帧先出纯文本占位，
-        // 避免 LiveMarkdown 全量解析把打开那一帧卡死；用户主动点预览按钮时 renderNow=true 立即渲染。
+        // 分段后只渲染进了视口的那几段，每帧一段，首帧先出纯文本占位
         MarkdownViewer.IsPlaintext = false;
-        if (renderNow) MarkdownViewer.RealizeNow();
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
@@ -540,6 +537,12 @@ public partial class TextFileWindow : QuickWindowBase
         }
 
         base.OnClosing(e);
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        _setting.PropertyChanged -= OnGlobalSettingChanged;
+        base.OnClosed(e);
     }
 
     private async Task ConfirmCloseAsync()
@@ -678,7 +681,7 @@ public partial class TextFileWindow : QuickWindowBase
     private void PreviewButton_Click(object? sender, RoutedEventArgs e)
     {
         // 用户主动点预览：立即渲染，不等视口队列
-        SyncPreviewVisibility(PreviewButton.IsChecked == true, renderNow: true);
+        SyncPreviewVisibility(PreviewButton.IsChecked == true);
     }
 
     private void LineNumbersMenuItem_Click(object? sender, RoutedEventArgs e)

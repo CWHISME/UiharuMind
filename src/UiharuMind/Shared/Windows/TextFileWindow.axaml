@@ -79,7 +79,7 @@
             <ScrollViewer Name="PreviewHost" IsVisible="False" Background="Transparent"
                           BorderBrush="{DynamicResource CodeBlockBorderBrush}"
                           BorderThickness="1" CornerRadius="6">
-                <controls:SimpleMarkdownViewer Name="MarkdownViewer" Margin="8" />
+                <controls:ChunkedMarkdownViewer Name="MarkdownViewer" Margin="8" />
             </ScrollViewer>
         </Grid>
 
