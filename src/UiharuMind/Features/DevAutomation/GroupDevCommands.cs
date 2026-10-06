@@ -259,15 +259,8 @@ internal sealed class GroupDumpCommand : IDevCommand
         if (GroupAvatar.MetaOf(group.SessionId) is { } avatar) members.Add(("化身", SessionManager.Instance.Load(avatar.SessionId)));
 
         StringBuilder text = new();
-        text.AppendLine($"# {group.Title}").AppendLine();
-        text.AppendLine("## 流水").AppendLine();
-        foreach (ChatMessage post in group.History)
-        {
-            string speaker = ChatMessageAnnotations.GroupAwayReceiptOf(post) != null ? "离席回执"
-                : ChatMessageAnnotations.GroupAvatarPostOf(post) != null ? "用户（化身）"
-                : post.Role == ChatRole.User ? "用户" : post.AuthorName ?? "?";
-            text.AppendLine($"### {speaker}").AppendLine().AppendLine(post.Text.Trim()).AppendLine();
-        }
+        text.Append(GroupLogText.BuildHeading(group.Title));
+        foreach (ChatMessage post in group.History) text.Append(GroupLogText.FormatPost(post));
 
         text.AppendLine("## 成员用量").AppendLine();
         foreach ((string name, ChatSession? session) in members)

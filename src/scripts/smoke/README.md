@@ -10,6 +10,21 @@ SMOKE_NO_BUILD=1 src/scripts/smoke/run.sh solo-replay
 
 跑完看输出目录里的 `*.md`（流水）与 `report.json`（每步耗时、审批、单聊里显示的会话有没有中途切换）。
 
+## 真实档案冒烟（正式会话配置目录）
+
+隔离副本跑不出「真用了一阵之后」的问题（长会话、跨离席保留、真实群与草稿目录）。
+需要时把 `UIHARU_HOME` 指到真实档案直接跑：
+
+```bash
+UIHARU_HOME=~/.uiharu UiharuMind.Desktop --dev-script scenario.jsonl --dev-report report.json
+```
+
+**应用支持双实例共享同一份配置**：正在用的主实例与这个冒烟进程可以并存，都在写同一份档案。
+冒烟进程会出一条 `Dev control: … control.sock is held by another instance, not listening` 的告警——
+那只是它不监听控制通道（控制通道归主实例），`--dev-script` 驱动不受影响，可以忽略。
+真实档案上建群、发的言、跑的离席都是真的，会改数据、花模型钱；要复现某个群，先建同班人马新群、
+再拿旧群草稿目录（`Data/Agent/Workspaces/<工作区家>/<群id8>/`）拷进新群草稿目录当参考。
+
 ## 场景与看什么
 
 ### toaru-group：原作三人群（黑子、美琴、茵蒂克丝）

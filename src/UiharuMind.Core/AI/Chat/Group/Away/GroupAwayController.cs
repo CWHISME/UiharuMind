@@ -110,10 +110,18 @@ public sealed class GroupAwayController
         // 化身与产物指纹都在锁外取（读盘）；之后再确认一次没被别处抢先开
         ChatSession avatar = _ensureAvatar(group, avatarModelName);
         string stamp = SafeStamp(group);
+        // 群流水文件：开离席时建/确认，写进全部历史（第三方视角，化身按锚点自己读，不灌正文）
+        IReadOnlyList<ChatMessage> groupLog = _coordinator.HistorySnapshot(group);
+        int logEndLine = GroupLogFile.Initialize(group, groupLog);
         lock (_sync)
         {
             if (_sessions.ContainsKey(group.SessionId)) return false;
-            session = new GroupAwaySession(group, avatar, _settings(), _now(), stamp, goal, reminder, infinite);
+            session = new GroupAwaySession(group, avatar, _settings(), _now(), stamp, goal, reminder, infinite)
+            {
+                LogAppendedUpTo = groupLog.Count,
+                LogEndLine = logEndLine,
+                LogDeliveredUpTo = groupLog.Count - 1, //初始化快照已含全部历史：这些不算「新段」
+            };
             _sessions[group.SessionId] = session;
         }
 
@@ -211,19 +219,29 @@ public sealed class GroupAwayController
     private void OnEpisodeEnded(GroupEpisodeSummary summary)
     {
         string groupId = summary.Group.SessionId;
-        lock (_sync)
-        {
-            if (!_sessions.ContainsKey(groupId)) return;
-        }
-
-        string stamp = SafeStamp(summary.Group); //读盘，锁外做
+        // 快照在 coordinator 的 _locker 里拷贝，与 _sync 不叠加；stamp 也锁外读盘
+        IReadOnlyList<ChatMessage> groupLog = _coordinator.HistorySnapshot(summary.Group);
+        string stamp = SafeStamp(summary.Group);
         bool emptyPush = summary.MemberPostCount == 0 && IsAvatarKickoff(summary);
-        GroupAwaySession? session;
         EGroupAwayEndReason? fuse = null;
+        GroupAwaySession? session;
         lock (_sync)
         {
             session = _sessions.GetValueOrDefault(groupId);
             if (session == null) return;
+
+            // 「读状态 → 追加 → 更新状态」同临界区：同群两波并发收场时，第二个等第一个释放后
+            // 重读到的 LogAppendedUpTo 已经推进，不会把同一段写两遍、锚点行号也不会逐段漂移
+            GroupLogAppend? append = GroupLogFile.AppendNew(session.Group, groupLog, session.LogAppendedUpTo,
+                session.LogEndLine + 1);
+            if (append != null)
+            {
+                session.LogLastAppend = append;
+                session.LogAppendedUpTo = append.LastIndex + 1;
+                session.LogEndLine = append.EndLine;
+            }
+            // 没有新发言（或追加失败）时保留 LogLastAppend 原值：hasNew 由交付水位判，
+            // 已交付的段不会反复标「新发言」；append 失败的日志告警在 GroupLogFile 里
 
             bool newArtifacts = stamp != session.ArtifactStamp;
             session.ArtifactStamp = stamp;
@@ -245,9 +263,7 @@ public sealed class GroupAwayController
         }
         else if (emptyPush)
         {
-            NoProgress(session, session.IsInfinite
-                ? GroupAvatarTranscript.EmptyPushNoteInfinite
-                : GroupAvatarTranscript.EmptyPushNote);
+            NoProgress(session, GroupAvatarTranscript.EmptyPushNote);
         }
         else
         {
@@ -299,10 +315,17 @@ public sealed class GroupAwayController
     {
         // 捎话只在本次离席化身跑成的第一轮交代：没跑成（用户正在私聊它）就下次重带
         bool kickoff;
+        string? anchor;
+        int deliveredUpToAtBuild;
         lock (_sync)
         {
             kickoff = !session.KickoffDelivered;
             if (kickoff) session.KickoffDelivered = true;
+            // 流水文件写失败（LogEndLine=0）时不给锚点，回退 NothingNew——别把化身引向 Read 失败循环
+            anchor = session.LogEndLine > 0 ? BuildDeliveryAnchor(session, kickoff) : null;
+            // 先捕获本轮要交代到的水位，投递真进了历史才提交（下面 turn 结束后判），
+            // 免得 Busy/Failed/Stopped 轮没送到就把段标成已交付，下一轮再也看不见它
+            deliveredUpToAtBuild = session.LogAppendedUpTo - 1;
         }
 
         GroupAvatarTurn turn;
@@ -310,7 +333,8 @@ public sealed class GroupAwayController
         {
             turn = await _coordinator.RunAvatarAsync(session.Group, session.Avatar,
                     WithBriefing(session, note, kickoff),
-                    session.Token, endCallsBlocked: session.IsInfinite)
+                    session.Token, endCallsBlocked: session.IsInfinite,
+                    deliveryOverride: anchor)
                 .ConfigureAwait(false);
         }
         catch (Exception e)
@@ -327,6 +351,13 @@ public sealed class GroupAwayController
             pending = session.WakePending;
             session.WakePending = false;
             ended = session.IsEnded;
+            // 交付水位：投递真进了化身历史才提交（Pushed/Silent/Ended/Preempted）。
+            // 提交的是构建时刻的水位，不取当前——化身跑着时若又有新段追加，那些不算已交付
+            if (turn.Result is EGroupAvatarTurnResult.Pushed or EGroupAvatarTurnResult.Silent
+                or EGroupAvatarTurnResult.Ended or EGroupAvatarTurnResult.Preempted)
+            {
+                session.LogDeliveredUpTo = Math.Max(session.LogDeliveredUpTo, deliveredUpToAtBuild);
+            }
         }
 
         // 离席在这一轮中途结束了：回执等到这一轮停稳才出，免得边读化身历史边被追加
@@ -362,7 +393,7 @@ public sealed class GroupAwayController
         // 跑的期间又有一波收场：不论这一轮结局如何，立刻再看一眼
         if (pending)
         {
-            Wake(session, NoteFor(turn.Result, session.IsInfinite));
+            Wake(session, NoteFor(turn.Result));
             return;
         }
 
@@ -370,7 +401,7 @@ public sealed class GroupAwayController
         {
             case EGroupAvatarTurnResult.Silent:
             case EGroupAvatarTurnResult.Failed:
-                NoProgress(session, NoteFor(turn.Result, session.IsInfinite));
+                NoProgress(session, NoteFor(turn.Result));
                 break;
             case EGroupAvatarTurnResult.Busy:
                 // 用户正在私聊化身：不算没进展（捎话重带在上面已安排；Busy 也不计出手次数）。
@@ -512,11 +543,9 @@ public sealed class GroupAwayController
         }
     }
 
-    private static string? NoteFor(EGroupAvatarTurnResult result, bool infinite) => result switch
+    private static string? NoteFor(EGroupAvatarTurnResult result) => result switch
     {
-        EGroupAvatarTurnResult.Silent => infinite
-            ? GroupAvatarTranscript.SilentNoteInfinite
-            : GroupAvatarTranscript.SilentNote,
+        EGroupAvatarTurnResult.Silent => GroupAvatarTranscript.SilentNote,
         EGroupAvatarTurnResult.Failed => GroupAvatarTranscript.FailedNote,
         _ => null,
     };
@@ -561,6 +590,24 @@ public sealed class GroupAwayController
     }
 
     private static string UserName => CharacterManager.Instance.UserCharacterName;
+
+    /// <summary>
+    /// 化身这一轮的投递锚点（第三方视角）：不灌群发言正文，只给流水文件位置 + 新段行号 + 身份点破。
+    /// 在锁内调用（读 <see cref="GroupAwaySession.LogLastAppend"/>）
+    /// </summary>
+    /// <param name="session">离席会话</param>
+    /// <param name="kickoff">首轮：流水已含全部历史，后面这些话是新的</param>
+    /// <returns>锚点正文</returns>
+    private static string BuildDeliveryAnchor(GroupAwaySession session, bool kickoff)
+    {
+        GroupLogAppend? last = session.LogLastAppend;
+        // hasNew = 有一段的最后一条还没被锚点交代过：交付水位以外的才算「新发言」，
+        // 静默退避重唤不会反复把同一段标成新段
+        bool hasNew = last != null && last.LastIndex > session.LogDeliveredUpTo;
+        return GroupAvatarTranscript.DeliveryAnchor(GroupLogFile.PathOf(session.Group), kickoff, hasNew,
+            last?.FirstIndex ?? 0, last?.LastIndex ?? 0, last?.StartLine ?? 0, last?.EndLine ?? 0,
+            session.LogEndLine);
+    }
 
     // 提醒与无限模式每一轮都带，捎话只在首轮带：化身的历史跨离席保留，
     // 提醒只靠第一轮那一次会分不清哪份作数；捎话是用户原话，压缩的回查段会原样留着

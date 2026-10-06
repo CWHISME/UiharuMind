@@ -28,9 +28,10 @@ public sealed partial class GroupChatCoordinator
     /// <param name="note">附在投递末尾的提示（上次没进展的情况）；没有为 null</param>
     /// <param name="cancellationToken">离席结束时取消</param>
     /// <param name="endCallsBlocked">结束调用是不是被拦着（无限模式）：调了也只拿到错误，不结束、不吞掉它说的话</param>
+    /// <param name="deliveryOverride">化身的投递正文；非空时代替合成群发言段（离席的第三方视角：只给锚点、不灌正文）</param>
     /// <returns>这一轮的结局</returns>
     public async Task<GroupAvatarTurn> RunAvatarAsync(ChatSession group, ChatSession avatar, string? note,
-        CancellationToken cancellationToken, bool endCallsBlocked = false)
+        CancellationToken cancellationToken, bool endCallsBlocked = false, string? deliveryOverride = null)
     {
         using CancellationTokenSource turn = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         // 用户正在私聊化身：这次不跑，游标不动。跑着时用户私聊它：叫停这一轮，由离席在私聊结束后接回（ADR 0063）
@@ -42,7 +43,7 @@ public sealed partial class GroupChatCoordinator
         {
             if (!_avatarTurns.TryAdd(group.SessionId, turn)) return GroupAvatarTurn.Busy;
             cursor = avatar.GroupCursor;
-            delivery = GroupTranscript.BuildDelivery(group.History, cursor, avatar.SessionId);
+            delivery = deliveryOverride ?? GroupTranscript.BuildDelivery(group.History, cursor, avatar.SessionId);
             avatar.GroupCursor = group.History.Count;
         }
 

@@ -1,5 +1,5 @@
 using System.Text;
-using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Core.AI.Execution.Files;
 
 namespace UiharuMind.Core.AI.Chat.Group;
 
@@ -18,22 +18,15 @@ public static class GroupAvatarTranscript
     /// <summary>离席回执在群流水里的正文（化身没留交代时）；界面另按回执画卡</summary>
     public const string AwayEndedText = "（离席结束）";
 
-    /// <summary>化身上一句开的那一波没人接话（空推）之后，下一次投递末尾的提示</summary>
+    /// <summary>化身上一句开的那一波没人接话（空推）之后，下一次投递末尾的提示。模式无关：
+    /// 无限还是普通由 InfiniteNote（每轮都带）与你的规则对应一节说，这里只给推法，收尾只做指针</summary>
     public const string EmptyPushNote =
-        $"【你上一句没人接。换个更具体的推法：点名到人、说清要他做什么；目标已经达成、或者该本人定的，就调用 {EndAwayTool.ToolName}。】";
+        $"【你上一句没人接。换个更具体的推法：点名到人、说清要他做什么；要不要收尾，按你的规则办。】";
 
-    /// <summary>空推之后、无限模式的提示：目标达成也别调结束，直接找新方向</summary>
-    public const string EmptyPushNoteInfinite =
-        $"【你上一句没人接。换个更具体的推法：点名到人、说清要他做什么；目标已经达成就直接找个新方向接着推。】";
-
-    /// <summary>化身上一轮没给出下文之后的提示</summary>
+    /// <summary>化身上一轮没给出下文之后的提示。模式无关：收尾归不归你，由你的规则与 InfiniteNote 说</summary>
     public const string SilentNote =
-        $"【你上次没给出下一步。离席中只有两种结局：说一句能推进的话，或者调用 {EndAwayTool.ToolName}。】";
-
-    /// <summary>化身上一轮没给出下文之后、无限模式的提示：调结束只会报错，直接指无限模式一节</summary>
-    public const string SilentNoteInfinite =
-        $"【你上次没给出下一步。无限模式下没有“结束离席”这个选项：" +
-        "说一句能推进的话；实在没可推的，按系统提示里的无限模式一节找个新方向。】";
+        $"【你上次没给出下一步。说一句能推进的话：拍板（选哪个、为什么）、点名（@名字 让谁做什么）、" +
+        $"或给出明确的下一步；要不要收尾，按你的规则办。】";
 
     /// <summary>化身上一轮出错之后的提示</summary>
     public const string FailedNote = "【你上一轮出错了，没说完。看看现在的情况，接着判断怎么推。】";
@@ -145,10 +138,16 @@ public static class GroupAvatarTranscript
 
     private static IEnumerable<string> FixedNotes()
     {
-        // 已落盘的旧化身历史里还是（）写法：一并认，老消息重开也剥得掉
+        // 已落盘的旧化身历史里还是（）写法：一并认，老消息重开也剥得掉。
+        // 另保留旧无限变体的字面量：合并前生成的投递里带它们，只认不再生成。
+        string emptyPushNoteInfinite =
+            "【你上一句没人接。换个更具体的推法：点名到人、说清要他做什么；目标已经达成就直接找个新方向接着推。】";
+        string silentNoteInfinite =
+            "【你上次没给出下一步。无限模式下没有“结束离席”这个选项："
+            + "说一句能推进的话；实在没可推的，按系统提示里的无限模式一节找个新方向。】";
         foreach (string note in new[]
                  {
-                     EmptyPushNote, EmptyPushNoteInfinite, SilentNote, SilentNoteInfinite, FailedNote, InfiniteNote,
+                     EmptyPushNote, emptyPushNoteInfinite, SilentNote, silentNoteInfinite, FailedNote, InfiniteNote,
                      GroupTranscript.PrivateResumeNote,
                  })
         {
@@ -227,6 +226,56 @@ public static class GroupAvatarTranscript
     /// <param name="goal">用户写的目标（可含备注）</param>
     /// <returns>群发言正文</returns>
     public static string GoalPost(string goal) => $"{AwayGoalTag} {goal.Trim()}";
+
+    /// <summary>
+    /// 化身的投递锚点：原来投递段直接灌群发言正文，现在只给一句「新段在哪、先 Read 再说话」。
+    /// 流水文件里「用户（化身）」是化身以用户名义说的话、「用户」是用户真身——把身份点破写在这里，
+    /// 化身就不会把自己的回声当成用户真身的态度。
+    /// <para>
+    /// 优先指新段：只要本轮有新增（含 kickoff 首轮&群正在跑一波的情况），hither 先 Read 新段；
+    /// kickoff 只作为背景補充。没有新段时指开头几页（背景）与末尾（最新），并点破「越靠后的段越新」
+    /// ——免得化身拿文件开头的旧发言当「用户最新的话」。（旧死循环就是拿旧发言当用户态度。）
+    /// </para>
+    /// </summary>
+    /// <param name="logPath">群流水文件路径（$DRAFT 相对或绝对）</param>
+    /// <param name="kickoff">首轮：捎话刚交代，流水基线要一并交代</param>
+    /// <param name="hasNew">这一波之后有没有新发言可读</param>
+    /// <param name="firstIndex">新段第一条发言的群历史下标（0-based，人读 +1）</param>
+    /// <param name="lastIndex">新段最后一条发言的群历史下标</param>
+    /// <param name="startLine">新段段头所在行（1-based）；无新发言时忽略</param>
+    /// <param name="endLine">新段段尾（含）所在行；无新发言时忽略</param>
+    /// <param name="totalLines">流水文件当前总行数；无新发言且首轮时给，指向文件末尾用</param>
+    /// <returns>锚点正文；每轮必带</returns>
+    public static string DeliveryAnchor(string logPath, bool kickoff, bool hasNew, int firstIndex, int lastIndex,
+        int startLine, int endLine, int totalLines)
+    {
+        string identity = "流水里「用户（化身）」是你以用户名义说的话，「用户」是用户真身。";
+        string where;
+        if (hasNew)
+        {
+            string background = kickoff
+                ? "流水已含到开离席时为止的全部历史，之后的新发言按段追加在末尾；需要背景再 Read 文件开头。"
+                : string.Empty;
+            where = $"本轮新增一段：新发言（群发言编号）#{firstIndex + 1}-{lastIndex + 1}，"
+                    + $"段头在文件第 {startLine} 行、这一段到第 {endLine} 行止。"
+                    + $"先 {FileToolNames.Read}（offset={startLine}）读完这段再决定说什么；{background}";
+        }
+        else if (kickoff)
+        {
+            int tail = Math.Max(1, totalLines - 20);
+            where = $"流水已含到开离席时为止的全部历史（共 {totalLines} 行），之后的新发言追加在文件末尾。"
+                     + $"先 {FileToolNames.Read} 文件开头几页了解背景即可，不必读完；"
+                     + $"要看最近状态再 {FileToolNames.Read} 文件末尾（offset={tail}）。"
+                     + "注意越靠后的段越新，别把旧发言当成「用户最新的话」。";
+        }
+        else
+        {
+            where = "这一阵没有新发言——没有新话不表示没事可做："
+                    + "照你的规则给一句能推进的话（拍板、@点名、明确下一步）；要不要收尾，按你的规则办。";
+        }
+
+        return $"【群流水在 {logPath}。{where}{identity}】";
+    }
 
     /// <summary>
     /// 化身的群场景段：群名、在场成员、主持人与发言格式。成员那份的「只说新的」「拍板归用户」不给它——

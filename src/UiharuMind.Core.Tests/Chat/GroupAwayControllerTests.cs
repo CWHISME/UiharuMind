@@ -3,6 +3,7 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Chat.Group.Away;
+using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.Tests.Chat;
@@ -331,7 +332,7 @@ public class GroupAwayControllerTests
 
         _delays[0].Due.SetResult();
         await Until(() => _delays.Count == 2);
-        Assert.EndsWith(GroupAvatarTranscript.SilentNoteInfinite, LastAvatarInput());
+        Assert.EndsWith(GroupAvatarTranscript.SilentNote, LastAvatarInput()); //无限模式也只用统一提示，模式由 InfiniteNote 说
         Assert.True(_away.IsAway(_group.SessionId)); //没进展不结束离席
     }
 
@@ -346,7 +347,7 @@ public class GroupAwayControllerTests
         _delays[0].Due.SetResult();
         await Until(() => AvatarCalls() == 2);
 
-        Assert.EndsWith(GroupAvatarTranscript.EmptyPushNoteInfinite, LastAvatarInput());
+        Assert.EndsWith(GroupAvatarTranscript.EmptyPushNote, LastAvatarInput()); //空推提示不再分模式；不结束离席由工具与卡片拦
     }
 
     [Fact]
@@ -427,8 +428,74 @@ public class GroupAwayControllerTests
         await Until(() => AvatarCalls() == 2);
 
         string input = LastAvatarInput();
-        Assert.Contains("顺便把第三步也做了", input);
+        Assert.DoesNotContain("顺便把第三步也做了", input); //群发言正文不灌上下文，只给锚点
+        Assert.Contains("新发言", input); //锚点提示有新增段
         Assert.EndsWith(GroupAvatarTranscript.SilentNote, input); //没进展的提示随那次带上
+        // 用户那句落进了群流水文件（化身按锚点去读，而不是被灌进来）
+        Assert.Contains("顺便把第三步也做了", File.ReadAllText(GroupLogFile.PathOf(_group)));
+    }
+
+    /// <summary>化身输入换成锚点：群发言正文不进上下文，锚点含新段行号与身份点破</summary>
+    [Fact]
+    public async Task AvatarInput_IsAnchorWithSegmentHint_NotSpeechBody()
+    {
+        // 首轮 Silent：停在退避上不连锁，AvatarCalls 稳定停在 1，好读首轮 kickoff 锚点
+        _runner.Replies[_avatar.SessionId] = _ => "";
+        _away.Start(_group, "目标", null);
+        await Until(() => AvatarCalls() == 1);
+        Assert.Contains("群流水", LastAvatarInput()); //首轮锚点：流水全量在文件里
+        Assert.Contains(FileToolNames.Read, LastAvatarInput());
+
+        // 用户在群里说一句：正文不必再灌进化身上下文，锚点指到新段行号
+        _runner.Replies[_avatar.SessionId] = _ => "@Alice 再看一遍";
+        await _coordinator.PostAsync(_group, "用户真身在群里说的");
+        await Until(() => AvatarCalls() >= 2);
+
+        string input = LastAvatarInput();
+        Assert.Contains("新发言", input); //锚点说有新增段
+        Assert.Contains("用户（化身）", input); //身份点破在，化身不把自己的回声当用户态度
+        Assert.DoesNotContain("用户真身在群里说的", input); //正文不灌上下文
+        Assert.Contains("用户真身在群里说的", File.ReadAllText(GroupLogFile.PathOf(_group))); //在文件里等它读
+    }
+
+    /// <summary>控制器级锚点的 offset 行号与流水文件实际的段头行一致：化身按锚点 Read 到的是真新段</summary>
+    [Fact]
+    public async Task AvatarAnchor_OffsetLine_MatchesTheLogFileSegmentHeader()
+    {
+        _runner.Replies[_avatar.SessionId] = _ => "";
+        _away.Start(_group, "目标", null);
+        await Until(() => AvatarCalls() == 1); //首轮：kickoff && !hasNew
+
+        _runner.Replies[_avatar.SessionId] = _ => "";
+        await _coordinator.PostAsync(_group, "用户说了一句");
+        await Until(() => AvatarCalls() == 2); //第二轮：hasNew 锚点带 offset（Silent：停在退避不连锁）
+
+        string input = LastAvatarInput();
+        int at = input.IndexOf("offset=", StringComparison.Ordinal);
+        Assert.True(at > 0, $"锚点没有 offset：{input}");
+        int offset = int.Parse(input[(at + 7)..].Split('）')[0].Trim());
+
+        string[] lines = File.ReadAllLines(GroupLogFile.PathOf(_group));
+        Assert.StartsWith("## 流水 @", lines[offset - 1]); //该行正是段头，不是正文或别的段
+    }
+
+    /// <summary>同一次追加的段只会标一次「新发言」：静默后同一段重唤不再重复交付，改说没有新发言</summary>
+    [Fact]
+    public async Task AvatarAnchor_SameSegmentNotRedelivered_OnSilentRetry()
+    {
+        _runner.Replies[_avatar.SessionId] = _ => "";
+        _away.Start(_group, "目标", null);
+        await Until(() => AvatarCalls() == 1);
+
+        _runner.Replies[_avatar.SessionId] = _ => "";
+        await _coordinator.PostAsync(_group, "用户话");
+        await Until(() => AvatarCalls() == 2);
+        Assert.Contains("新发言", LastAvatarInput()); //第一遍交代新段
+
+        _away.WakeNow(_group.SessionId); //同一段没变化，立即再叫一轮
+        await Until(() => AvatarCalls() == 3);
+        Assert.DoesNotContain("本轮新增一段", LastAvatarInput()); //不再重复标新段
+        Assert.Contains("没有新发言", LastAvatarInput());
     }
 
     [Fact]

@@ -69,6 +69,18 @@ internal sealed class GroupAwaySession
     /// <summary>最近一次看到的本群产物指纹</summary>
     public string ArtifactStamp { get; set; }
 
+    /// <summary>群流水文件已含到的群历史下标（下一次从那追加，不含）</summary>
+    public int LogAppendedUpTo { get; set; }
+
+    /// <summary>群流水文件当前行数（下一次追加的段头落点前一行）</summary>
+    public int LogEndLine { get; set; }
+
+    /// <summary>最近一次追加进流水的段；本轮有新增为本次、没有为 null（锚点据此说有没有新发言）</summary>
+    public GroupLogAppend? LogLastAppend { get; set; }
+
+    /// <summary>锚点已交代到的群历史下标：建过一次锚点就算交付，同段不再反复标「新发言」</summary>
+    public int LogDeliveredUpTo { get; set; }
+
     /// <summary>化身点过的审批</summary>
     public List<GroupAwayApproval> Approvals { get; } = [];
 
