@@ -22,6 +22,8 @@ using UiharuMind.Features.Conversation.Pages;
 using UiharuMind.Features.Conversation.SessionList;
 using UiharuMind.Shared.Shell;
 
+using UiharuMind.Features.Models;
+
 namespace UiharuMind.Features.DevAutomation;
 
 /// <summary>
@@ -83,12 +85,13 @@ internal static class DevCommandRegistry
     }
 }
 
-/// <summary>跳到某一页。<c>args.page</c> 取 agent / chat / character / model / log</summary>
+/// <summary>跳到某一页。<c>args.page</c> 取 agent / chat / character / model / log；model 页可带 search 进「获取模型」</summary>
 internal sealed class JumpToPageCommand : IDevCommand
 {
     public string Name => "page.jump";
 
-    public string Usage => "跳到某一页（主窗口跟着换）。page：agent / chat / character / model / log";
+    public string Usage => "跳到某一页（主窗口跟着换）。page：agent / chat / character / model / log；" +
+                           "page 为 model 时可带 search（可为空串），切到「获取模型」并按它搜索（会联网）";
 
     public object? Execute(JsonElement args)
     {
@@ -112,6 +115,10 @@ internal sealed class JumpToPageCommand : IDevCommand
                 ? EConversationType.Agent
                 : EConversationType.Chat;
         }
+
+        if (page == "model" && GroupDevCommands.StringOr(args, "search") is { } search &&
+            App.ViewModel.Content is ModelPageData model)
+            model.ShowDownloads(search);
 
         return new { page };
     }

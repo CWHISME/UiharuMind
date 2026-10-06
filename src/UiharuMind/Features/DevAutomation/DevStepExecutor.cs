@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Avalonia.Threading;
@@ -59,10 +60,17 @@ internal sealed class DevStepExecutor
                 throw new ArgumentException($"unknown op '{op}'; known: {string.Join(", ", Ops)}");
             }
 
-            // 界面的活归界面线程。调用方在后台线程上推进,不搬过去就会在第一处属性赋值上炸
+            // 界面的活归界面线程。调用方在后台线程上推进,不搬过去就会在第一处属性赋值上炸。
+            // 同步命令的异常在 UI 线程内捕获暂存,不逃出 UiDispatcher(否则 Log.Error 会弹窗),
+            // 由下方统一重抛、收成失败结果;异步命令的异常经 Task 传播,本就不弹窗
             object? result = command is IAsyncDevCommand asyncCommand
                 ? await Dispatcher.UIThread.InvokeAsync(() => asyncCommand.ExecuteAsync(args))
-                : await UiDispatcher.InvokeAsync(() => command.Execute(args));
+                : await UiDispatcher.InvokeAsync(() => ExecuteSynchronouslyOnUi(command, args));
+
+            if (result is UiCapturedException captured)
+            {
+                ExceptionDispatchInfo.Capture(captured.Exception).Throw();
+            }
 
             // 先读表再落位:落位等待是这里自己加的,算进耗时里每一步都是 250ms 打底,
             // 报告就再也看不出「切一个长会话到底花了多久」
@@ -74,5 +82,31 @@ internal sealed class DevStepExecutor
         {
             return new DevStepOutcome(false, watch.ElapsedMilliseconds, Error: $"{e.GetType().Name}: {e.Message}");
         }
+    }
+
+    /// <summary>
+    /// 在 UI 线程内执行同步命令;异常先捕获暂存而不是向外抛,避免逃出 <see cref="UiDispatcher"/> 触发日志弹窗
+    /// </summary>
+    /// <param name="command">同步命令</param>
+    /// <param name="args">命令参数</param>
+    /// <returns>命令结果,或 <see cref="UiCapturedException"/> 承载执行异常</returns>
+    private static object? ExecuteSynchronouslyOnUi(IDevCommand command, JsonElement args)
+    {
+        try
+        {
+            return command.Execute(args);
+        }
+        catch (Exception e)
+        {
+            return new UiCapturedException(e);
+        }
+    }
+
+    /// <summary>同步命令在 UI 线程执行时捕获的异常载体</summary>
+    private sealed class UiCapturedException
+    {
+        public UiCapturedException(Exception exception) => Exception = exception;
+
+        public Exception Exception { get; }
     }
 }
