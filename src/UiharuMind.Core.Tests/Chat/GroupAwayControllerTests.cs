@@ -534,6 +534,62 @@ public class GroupAwayControllerTests
         Assert.Equal(TimeSpan.FromMinutes(5), _delays[^1].Delay);
     }
 
+    /// <summary>群在跑一波时开了离席、首轮还没动：更新捎话与提醒，首轮随投递带的是新值</summary>
+    [Fact]
+    public async Task UpdateBeforeIntervention_NewGoalAndReminderRideTheKickoff()
+    {
+        TaskCompletionSource gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        _runner.During[_alice.SessionId] = () => gate.Task; //成员波卡在 Alice：群在跑，化身首轮还没动
+        _runner.Replies[_avatar.SessionId] = _ => ""; //没写正文：停在退避上，好读首轮输入
+
+        Task wave = _coordinator.PostAsync(_group, "大家好");
+        await Until(() => _coordinator.IsRunning(_group.SessionId));
+
+        Assert.True(_away.Start(_group, "旧目标", null));
+        Assert.Equal(0, AvatarCalls()); //首轮不插进跑到一半的波
+
+        Assert.True(_away.Update(_group.SessionId, "新目标", "新提醒", true));
+        Assert.True(_away.IsInfinite(_group.SessionId));
+
+        gate.SetResult();
+        await wave;
+        await Until(() => AvatarCalls() == 1);
+
+        string input = LastAvatarInput();
+        Assert.Contains("新目标", input);
+        Assert.DoesNotContain("旧目标", input);
+        Assert.Contains("新提醒", input);
+    }
+
+    /// <summary>化身已经跑过一轮（介入）：捎话锁定不再投递；提醒每轮带、无限模式照常生效</summary>
+    [Fact]
+    public async Task UpdateAfterIntervention_ReminderAndInfiniteApply_GoalStaysLocked()
+    {
+        _runner.Replies[_avatar.SessionId] = _ => ""; //没写正文
+        _away.Start(_group, "旧目标", null, "旧提醒");
+        await Until(() => AvatarCalls() == 1);
+        Assert.Contains("旧提醒", LastAvatarInput());
+
+        Assert.True(_away.Update(_group.SessionId, "改不了的目标", "新提醒", true));
+        Assert.Equal("改不了的目标", _away.StatusOf(_group.SessionId)?.Goal); //写进会话了，但化身介入后不再投递
+        Assert.True(_away.IsInfinite(_group.SessionId));
+
+        await Until(() => _delays.Count == 1); //首轮 Silent 排上退避
+        _delays[0].Due.SetResult();
+        await Until(() => AvatarCalls() == 2);
+
+        string input = LastAvatarInput();
+        Assert.Contains("新提醒", input); //提醒每轮带，更新下一轮生效
+        Assert.DoesNotContain("旧提醒", input);
+        Assert.DoesNotContain("改不了的目标", input); //捎话只在首轮，化身介入后锁定
+    }
+
+    [Fact]
+    public void Update_WhenNotAway_ReturnsFalse()
+    {
+        Assert.False(_away.Update(_group.SessionId, "x", null, null));
+    }
+
     [Fact]
     public async Task Approvals_GoToTheAvatarOnlyWhileAway()
     {

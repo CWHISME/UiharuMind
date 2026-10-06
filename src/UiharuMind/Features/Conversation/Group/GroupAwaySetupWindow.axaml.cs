@@ -46,4 +46,11 @@ public partial class GroupAwaySetupWindow : Window
         away.WakeNowCommand.Execute(null);
         Close();
     }
+
+    private void UpdateButton_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not GroupAwayViewData away) return;
+        away.UpdateCommand.Execute(null);
+        // 不关窗：改完还能继续调（比如先改提醒再开无限模式）
+    }
 }

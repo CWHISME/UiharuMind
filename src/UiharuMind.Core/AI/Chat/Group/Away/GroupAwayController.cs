@@ -153,6 +153,27 @@ public sealed class GroupAwayController
     }
 
     /// <summary>
+    /// 更新正在进行的离席：捎话、提醒与无限模式。捎话在化身介入前改才随首轮投递；
+    /// 提醒与无限模式每轮现读，随时改随时生效
+    /// </summary>
+    /// <param name="groupId">群壳会话标识</param>
+    /// <param name="goal">新捎话；null 不改</param>
+    /// <param name="reminder">新提醒；null 不改</param>
+    /// <param name="infinite">新无限模式；null 不改</param>
+    /// <returns>更新了为 true；没在离席为 false</returns>
+    public bool Update(string groupId, string? goal, string? reminder, bool? infinite)
+    {
+        lock (_sync)
+        {
+            GroupAwaySession? session = _sessions.GetValueOrDefault(groupId);
+            if (session == null) return false;
+            session.Update(goal, reminder, infinite);
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// 用户手动结束离席。化身正在跑的那一轮随之停下；成员正在跑的那一波不受影响
     /// </summary>
     /// <param name="groupId">群壳会话标识</param>
@@ -604,7 +625,8 @@ public sealed class GroupAwayController
         // hasNew = 有一段的最后一条还没被锚点交代过：交付水位以外的才算「新发言」，
         // 静默退避重唤不会反复把同一段标成新段
         bool hasNew = last != null && last.LastIndex > session.LogDeliveredUpTo;
-        return GroupAvatarTranscript.DeliveryAnchor(GroupLogFile.PathOf(session.Group), kickoff, hasNew,
+        // 群壳、成员与化身的 $DRAFT 都指同一间草稿目录：锚点写 $DRAFT 简称，不暴露真实绝对路径
+        return GroupAvatarTranscript.DeliveryAnchor($"$DRAFT/{GroupLogText.FileName}", kickoff, hasNew,
             last?.FirstIndex ?? 0, last?.LastIndex ?? 0, last?.StartLine ?? 0, last?.EndLine ?? 0,
             session.LogEndLine);
     }

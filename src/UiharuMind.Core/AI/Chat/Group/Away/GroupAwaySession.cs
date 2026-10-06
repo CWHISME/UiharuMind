@@ -43,13 +43,13 @@ internal sealed class GroupAwaySession
     public ChatSession Avatar { get; }
 
     /// <summary>只给化身看的捎话；不进群流水，开离席后化身第一轮随投递看到。没填为空</summary>
-    public string Goal { get; }
+    public string Goal { get; private set; }
 
     /// <summary>只给化身看的重要提醒；没有为 null</summary>
-    public string? Reminder { get; }
+    public string? Reminder { get; private set; }
 
     /// <summary>无限模式：只有用户手动能结束</summary>
-    public bool IsInfinite { get; }
+    public bool IsInfinite { get; private set; }
 
     /// <summary>捎话交代出去了（一轮没跑成时打回，下次重带）</summary>
     public bool KickoffDelivered { get; set; }
@@ -115,6 +115,19 @@ internal sealed class GroupAwaySession
     public CancellationToken Token => _lifetime.Token;
 
     /// <summary>
+    /// 更新这次离席的参数。捎话在化身介入前改才随首轮投递；提醒与无限模式每轮现读，随时改随时生效
+    /// </summary>
+    /// <param name="goal">新捎话；null 不改</param>
+    /// <param name="reminder">新重要提醒；null 不改</param>
+    /// <param name="infinite">新无限模式；null 不改</param>
+    public void Update(string? goal, string? reminder, bool? infinite)
+    {
+        if (goal != null) Goal = string.IsNullOrWhiteSpace(goal) ? string.Empty : goal.Trim();
+        if (reminder != null) Reminder = string.IsNullOrWhiteSpace(reminder) ? null : reminder.Trim();
+        if (infinite is { } value) IsInfinite = value;
+    }
+
+    /// <summary>
     /// 排上一次延迟唤醒（调用方先 <see cref="CancelDelay"/>）
     /// </summary>
     /// <param name="wakeAt">到点时刻</param>
@@ -176,5 +189,5 @@ internal sealed class GroupAwaySession
     /// <summary>界面用的快照</summary>
     /// <returns>状态</returns>
     public GroupAwayStatus Snapshot() =>
-        new(Group.SessionId, Avatar.SessionId, StartedAt, AvatarTurns, IsAvatarRunning, _wakeAt);
+        new(Group.SessionId, Avatar.SessionId, StartedAt, AvatarTurns, IsAvatarRunning, _wakeAt, Goal, Reminder, IsInfinite);
 }

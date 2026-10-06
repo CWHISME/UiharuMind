@@ -3597,6 +3597,9 @@ Allow them?</value>
     <data name="GroupAwayWakeNow" xml:space="preserve">
         <value>Wake now</value>
     </data>
+    <data name="GroupAwayUpdate" xml:space="preserve">
+        <value>Update</value>
+    </data>
     <data name="GroupAwayOpenAvatar" xml:space="preserve">
         <value>Avatar</value>
     </data>

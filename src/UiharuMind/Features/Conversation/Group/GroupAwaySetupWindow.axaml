@@ -41,7 +41,8 @@
                 <TextBlock Text="{loc:Loc GroupAwayGoalLabel}" ToolTip.Tip="{loc:Loc GroupAwayGoalTip}" />
                 <TextBox Text="{Binding Goal}" PlaceholderText="{loc:Loc GroupAwayGoalPlaceholder}"
                          AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="160"
-                         VerticalContentAlignment="Top" Padding="10" />
+                         VerticalContentAlignment="Top" Padding="10"
+                         IsEnabled="{Binding CanEditGoal}" />
             </StackPanel>
             <StackPanel Spacing="4">
                 <TextBlock Text="{loc:Loc GroupAwayReminderLabel}" ToolTip.Tip="{loc:Loc GroupAwayReminderTip}" />
@@ -49,8 +50,8 @@
                          AcceptsReturn="True" TextWrapping="Wrap" MinHeight="40" MaxHeight="120"
                          VerticalContentAlignment="Top" Padding="10" />
             </StackPanel>
-            <!-- 开关自带的文字位就放说明，开/关两态同一句 -->
-            <ToggleSwitch IsChecked="{Binding Infinite}" IsEnabled="{Binding IsIdle}"
+            <!-- 开关自带的文字位就放说明，开/关两态同一句；无限模式每轮现读，离席中也能改（更新时写回会话） -->
+            <ToggleSwitch IsChecked="{Binding Infinite}"
                           OnContent="{loc:Loc GroupAwayInfiniteLabel}"
                           OffContent="{loc:Loc GroupAwayInfiniteLabel}"
                           ToolTip.Tip="{loc:Loc GroupAwayInfiniteTip}" />
@@ -69,7 +70,11 @@
                         IsVisible="{Binding IsIdle}"
                         IsEnabled="{Binding StartCommand.CanExecute}"
                         Click="StartButton_Click" />
-                <!-- 离席中：立即唤醒 / 结束离席 / 关闭 -->
+                <!-- 离席中：更新（写回捎话/提醒/无限模式）/ 立即唤醒 / 结束离席 / 关闭 -->
+                <Button Classes="Primary" Content="{loc:Loc GroupAwayUpdate}"
+                        IsVisible="{Binding IsAway}"
+                        IsEnabled="{Binding HasChanges}"
+                        Click="UpdateButton_Click" />
                 <Button Classes="Tertiary" Content="{loc:Loc GroupAwayWakeNow}"
                         IsVisible="{Binding HasCountdown}"
                         Click="WakeNowButton_Click" />

@@ -73,8 +73,11 @@ public sealed record GroupAwaySettings(TimeSpan MaxDuration, int MaxAvatarTurns,
 /// <param name="AvatarTurns">化身已出手几次</param>
 /// <param name="IsAvatarRunning">化身正在跑</param>
 /// <param name="WakeAt">延迟唤醒的时刻；没在等为 null</param>
+/// <param name="Goal">只给化身看的捎话；没填为空</param>
+/// <param name="Reminder">只给化身看的重要提醒；没有为 null</param>
+/// <param name="IsInfinite">无限模式</param>
 public sealed record GroupAwayStatus(string GroupId, string AvatarSessionId, DateTimeOffset StartedAt, int AvatarTurns,
-    bool IsAvatarRunning, DateTimeOffset? WakeAt);
+    bool IsAvatarRunning, DateTimeOffset? WakeAt, string Goal, string? Reminder, bool IsInfinite);
 
 /// <summary>
 /// 离席期间化身点过的一条审批

@@ -3590,6 +3590,9 @@
     <data name="GroupAwayWakeNow" xml:space="preserve">
         <value>立即唤醒</value>
     </data>
+    <data name="GroupAwayUpdate" xml:space="preserve">
+        <value>更新</value>
+    </data>
     <data name="GroupAwayOpenAvatar" xml:space="preserve">
         <value>化身</value>
     </data>

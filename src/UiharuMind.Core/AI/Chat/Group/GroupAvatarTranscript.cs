@@ -289,11 +289,11 @@ public static class GroupAvatarTranscript
         string members = GroupTranscript.JoinMembers(scene.Members);
         text.Append($"你在群聊「{scene.GroupName}」里，替{scene.UserName}坐着。");
         if (members.Length > 0) text.Append($"在场的成员有：{members}。");
-        if (scene.HostName != null) text.Append($"本群主持人是{scene.HostName}。");
+        // if (scene.HostName != null) text.Append($"本群主持人是{scene.HostName}。");
 
         text.Append($"\n\n- 格式：群里的发言按「[名字]: 内容」交给你；你说完的正文会以{scene.UserName}的名义发到群里，" +
                     "直接写正文，不加前缀。想请某位成员接话，写 @名字，只写名字、不带作品名。");
-        text.Append($"\n- 尺度：像平时在群里说话那样；不写成报告。");
+        text.Append($"\n- 尺度：发到群聊的信息尽量简短，像普通聊天那样，不要长篇大论。");
         text.Append("\n- 一轮怎么算：调用工具时顺手写的话只留在你这里，群里看不到；要对大家说的，等工具用完再说。");
         if (scene.SharesDraftRoom)
             text.Append("\n- 草稿目录是全群共用的：文件名起得具体些，新建前先看有没有同名的，别盖掉别人的。");

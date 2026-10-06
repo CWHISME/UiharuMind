@@ -82,6 +82,13 @@ public sealed partial class GroupAwayViewData : ObservableObject, IDisposable
     /// <summary>化身正在跑（单行里转圈还是圆点）</summary>
     public bool IsAvatarRunning => _status?.IsAvatarRunning == true;
 
+    /// <summary>捎话还能不能改：化身还没出过手（没产生聊天）就能改，改了随首轮投递</summary>
+    public bool CanEditGoal => _status?.AvatarTurns is null or 0;
+
+    /// <summary>弹窗参数与当前离席不一致（更新按钮据此置灰/点亮）</summary>
+    public bool HasChanges => _status != null
+        && (Goal != _status.Goal || Reminder != (_status.Reminder ?? string.Empty) || Infinite != _status.IsInfinite);
+
     /// <summary>单行圆点的配色键（status-dot 按 Tag 选色）：没在离席灰色，离席中蓝色</summary>
     public string DotTag => IsAway ? "Progress" : "Idle";
 
@@ -134,9 +141,40 @@ public sealed partial class GroupAwayViewData : ObservableObject, IDisposable
         Infinite = false;
     }
 
-    /// <summary>打开离席设置弹窗（捎话、提醒、模型、无限模式都搬了进去）</summary>
+    /// <summary>打开离席设置弹窗（捎话、提醒、模型、无限模式都搬了进去）；离席中先对齐当前实际参数</summary>
     [RelayCommand]
-    private async Task OpenSetup() => await GroupAwaySetupWindow.ShowAsync(this);
+    private async Task OpenSetup()
+    {
+        SyncFromAway();
+        await GroupAwaySetupWindow.ShowAsync(this);
+    }
+
+    /// <summary>
+    /// 把弹窗输入对齐到正在进行的离席实际参数：开始后本地属性已清零，直接显示会误导
+    /// （无限模式 toggle 尤其——它跟着的是会话里那份，不是本地这份）
+    /// </summary>
+    private void SyncFromAway()
+    {
+        if (_status is not { } status) return;
+        Goal = status.Goal;
+        Reminder = status.Reminder ?? string.Empty;
+        Infinite = status.IsInfinite;
+    }
+
+    /// <summary>把弹窗里的捎话、提醒与无限模式写回正在进行的离席（提醒与无限模式下一轮生效）</summary>
+    [RelayCommand]
+    private void Update()
+    {
+        if (_status == null) return;
+        if (!_away.Update(_group.SessionId, Goal, Reminder, Infinite)) return;
+        // 更新后基准换成会话新值：变化清空，按钮回到置灰
+        _status = _away.StatusOf(_group.SessionId);
+        OnPropertyChanged(nameof(HasChanges));
+    }
+
+    partial void OnGoalChanged(string value) => OnPropertyChanged(nameof(HasChanges));
+    partial void OnReminderChanged(string value) => OnPropertyChanged(nameof(HasChanges));
+    partial void OnInfiniteChanged(bool value) => OnPropertyChanged(nameof(HasChanges));
 
     /// <summary>
     /// 某个会话刚报了一次用量（已在 UI 线程上）。是本群化身就刷它的用量行
@@ -202,6 +240,8 @@ public sealed partial class GroupAwayViewData : ObservableObject, IDisposable
             OnPropertyChanged(nameof(IsAway));
             OnPropertyChanged(nameof(IsIdle));
             OnPropertyChanged(nameof(IsAvatarRunning));
+            OnPropertyChanged(nameof(CanEditGoal));
+            OnPropertyChanged(nameof(HasChanges));
             OnPropertyChanged(nameof(DotTag));
             OnPropertyChanged(nameof(StatusLine));
             OnPropertyChanged(nameof(CountdownLine));

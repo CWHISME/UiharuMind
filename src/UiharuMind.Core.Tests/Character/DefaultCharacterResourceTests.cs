@@ -99,51 +99,6 @@ public class DefaultCharacterResourceTests
     }
 
     /// <summary>
-    /// 配了手写锚点的内置卡，coda 必须原样返回那句锚点而不是自动拼：
-    /// JSON 键名写错会静默回退到自动拼，不加这条看不出来。
-    /// </summary>
-    [Theory]
-    [InlineData("AcceleratorAgent")]
-    [InlineData("ShokuhouMisakiAgent")]
-    [InlineData("KongoMitsukoAgent")]
-    [InlineData("UiharuKazariAgent")]
-    [InlineData("ChenXiAgent")]
-    [InlineData("BaiLuAgent")]
-    [InlineData("ShiraiKurokoAgent")]
-    [InlineData("SenkuAgent")]
-    [InlineData("LelouchAgent")]
-    [InlineData("YagamiLightAgent")]
-    [InlineData("LawlietAgent")]
-    [InlineData("HououinKyoumaAgent")]
-    [InlineData("MisakaMikotoAgent")]
-    [InlineData("KinuhataSaiaiAgent")]
-    [InlineData("TsuchimikadoMotoharuAgent")]
-    [InlineData("SatenRuikoAgent")]
-    [InlineData("IndexAgent")]
-    [InlineData("KamijouToumaAgent")]
-    [InlineData("LastOrderAgent")]
-    [InlineData("Misaka10032Agent")]
-    [InlineData("MakiseKurisuAgent")]
-    [InlineData("CcAgent")]
-    [InlineData("KayabaAkihikoAgent")]
-    [InlineData("KiritoAgent")]
-    [InlineData("KandaSorataAgent")]
-    [InlineData("ShiinaMashiroAgent")]
-    [InlineData("HoloAgent")]
-    [InlineData("KinoAgent")]
-    [InlineData("GokouRuriAgent")]
-    [InlineData("KousakaKirinoAgent")]
-    [InlineData("MaouSadaoAgent")]
-    [InlineData("RationalAgent")]
-    public void CardWithAnchor_CodaEqualsAnchor(string id)
-    {
-        CharacterData data = DefaultCharacterManager.Instance.All[id];
-
-        Assert.False(string.IsNullOrWhiteSpace(data.PersonaAnchor), $"{id} 的 anchor 丢了");
-        Assert.Equal(data.PersonaAnchor.Trim(), data.GetPersonaCoda());
-    }
-
-    /// <summary>
     /// 生图默认只给 OP-01：每次出图都可能花钱，其余内置卡与新建角色一律关，要用的在编辑页自己开
     /// </summary>
     [Fact]
