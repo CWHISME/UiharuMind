@@ -30,6 +30,16 @@ public interface IDownloadable
     /// 下载完成后，会被 DownloadableItemData 记录
     /// </summary>
     public string? DownloadDirectory { get; }
+
+    /// <summary>
+    /// 分块并发数。单连接限速的源（如 GitHub）开多块，镜像站用 1
+    /// </summary>
+    public int SegmentCount => 1;
+
+    /// <summary>
+    /// 期望的 sha256，为空不校验
+    /// </summary>
+    public string? Sha256 => null;
 }
 
 /// <summary>

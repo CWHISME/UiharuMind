@@ -9,24 +9,23 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using UiharuMind.Core.Core.DownloadHelper;
 using System.ComponentModel;
 using System.Net;
 using System.Runtime.CompilerServices;
-using Downloader;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils.Tools;
-using DownloadProgressChangedEventArgs = Downloader.DownloadProgressChangedEventArgs;
 
 namespace UiharuMind.Core.Core.Utils;
 
 /// <summary>
-/// 封装 Downloader 下载器的下载项数据，支持直接绑定到 UI 组件上，并提供下载进度的实时更新
+/// 下载项的界面数据：把全局下载队列里的一项映射成可绑定的进度、状态
 /// </summary>
 public class DownloadableItemData : INotifyPropertyChanged, IDisposable
 {
     private readonly IDownloadable _target;
 
-    private DownloadService? _downloadService;
+    private DownloadJob? _job;
     private double _downloadProgress;
     private string? _downloadInfo;
     private string? _errorMessage;
@@ -140,8 +139,6 @@ public class DownloadableItemData : INotifyPropertyChanged, IDisposable
     /// </summary>
     public bool IsNeedDownloadInfo { get; set; } = true;
 
-    private ValueBackgroundDelayUpdater<DownloadProgressChangedEventArgs>? _delayUpdater;
-
     public DownloadableItemData(IDownloadable target, bool initDownloadSize = false)
     {
         _target = target;
@@ -150,101 +147,56 @@ public class DownloadableItemData : INotifyPropertyChanged, IDisposable
     }
 
     /// <summary>
-    /// 执行下载
-    /// 如果不需要显示下载信息，请设置 IsNeedDownloadInfo 为 false
+    /// 排进全局下载队列；已在队列里（含暂停）则接着下
     /// </summary>
-    /// <param name="onDownloadFileCompleted"></param>
-    /// <param name="configuration"></param>
-    public async void StartDownload(Action<DownloadableItemData>? onDownloadFileCompleted,
-        DownloadConfiguration? configuration = null)
+    /// <param name="onDownloadFileCompleted">下载完成回调</param>
+    public void StartDownload(Action<DownloadableItemData>? onDownloadFileCompleted)
     {
-        _delayUpdater ??=
-            new ValueBackgroundDelayUpdater<DownloadProgressChangedEventArgs>(UpdateDownloadProgress, 200);
-
         _onDownloadCompleted = onDownloadFileCompleted;
-        _downloadService = CreateDownloadOpt(true, configuration);
-        _downloadService.DownloadProgressChanged += OnDownloadProgressChanged;
-        _downloadService.DownloadFileCompleted += OnDownloadFileCompleted;
-
-
         DownloadInfo = "Preparing to download...";
         ErrorMessage = null;
         DownloadProgress = 0;
         IsDownloaded = false;
-
         DownloadFilePath = ResolveDownloadFilePath();
-
         IsDownloading = true;
-        await _downloadService.DownloadFileTaskAsync(DownloadUrl, DownloadFilePath).ConfigureAwait(false);
-        // await Task.Run(async () =>
-        // {
-        //     while (true)
-        //     {
-        //         await Task.Delay(10);
-        //         OnDownloadProgressChanged(this, new DownloadProgressChangedEventArgs("1"));
-        //     }
-        // });
-        IsDownloading = false;
+
+        if (_job != null) _job.PropertyChanged -= OnJobChanged;
+        _job = DownloadQueue.Shared.Enqueue(Name, new DownloadRequest(
+            new Uri(DownloadUrl), DownloadFilePath, _target.SegmentCount, _target.Sha256));
+        _job.PropertyChanged += OnJobChanged;
     }
 
-
-    private void OnDownloadProgressChanged(object? sender, DownloadProgressChangedEventArgs e)
+    private void OnJobChanged(object? sender, PropertyChangedEventArgs e)
     {
-        _delayUpdater?.UpdateValue(e);
-    }
-
-    private void OnDownloadFileCompleted(object? sender, AsyncCompletedEventArgs e)
-    {
-        if (e.Error != null)
+        DownloadJob job = (DownloadJob)sender!;
+        switch (e.PropertyName)
         {
-            Log.Warning(e.Error.Message);
-            ErrorMessage = e.Error.Message;
-        }
-        else
-        {
-            IsDownloaded = true;
-            _onDownloadCompleted?.Invoke(this);
+            case nameof(DownloadJob.Progress):
+                UpdateDownloadProgress(job.Progress);
+                break;
+            case nameof(DownloadJob.State) when job.State == EDownloadJobState.Completed:
+                IsDownloading = false;
+                IsDownloaded = true;
+                _onDownloadCompleted?.Invoke(this);
+                break;
+            case nameof(DownloadJob.State) when job.State == EDownloadJobState.Failed:
+                IsDownloading = false;
+                ErrorMessage = job.Error?.Message;
+                break;
+            case nameof(DownloadJob.State) when job.State == EDownloadJobState.Paused:
+                IsDownloading = false;
+                break;
         }
     }
 
-    private void UpdateDownloadProgress(DownloadProgressChangedEventArgs e)
+    private void UpdateDownloadProgress(DownloadProgress progress)
     {
         if (IsDownloaded) return;
 
-        DownloadProgress = e.ProgressPercentage;
-
+        if (progress.TotalBytes is > 0 and var total) DownloadProgress = progress.ReceivedBytes * 100.0 / total;
         if (!IsNeedDownloadInfo) return;
         DownloadInfo =
-            $"{SimpleStringHelper.FormatBytes(e.ReceivedBytesSize)} / {SimpleStringHelper.FormatBytes(e.TotalBytesToReceive)} ({SimpleStringHelper.FormatBytesWithSpeed(e.BytesPerSecondSpeed)})";
-    }
-
-    private DownloadService CreateDownloadOpt(bool useDefaultProxy, DownloadConfiguration? configuration = null)
-    {
-        var downloadOpt = configuration ?? new DownloadConfiguration()
-        {
-            BufferBlockSize = 10240,
-            ParallelDownload = true,
-            ParallelCount = Environment.ProcessorCount / 2,
-            MaximumMemoryBufferBytes = 1024 * 1024 * 100,
-        };
-
-        if (useDefaultProxy)
-        {
-            // 使用系统的代理设置
-            var proxy = WebRequest.DefaultWebProxy;
-            if (proxy != null)
-            {
-                proxy.Credentials = CredentialCache.DefaultCredentials;
-
-                downloadOpt.RequestConfiguration = new RequestConfiguration
-                {
-                    UseDefaultCredentials = true,
-                    Proxy = proxy
-                };
-            }
-        }
-
-        return new DownloadService(downloadOpt);
+            $"{SimpleStringHelper.FormatBytes(progress.ReceivedBytes)} / {SimpleStringHelper.FormatBytes(progress.TotalBytes ?? 0)} ({SimpleStringHelper.FormatBytesWithSpeed(progress.BytesPerSecond)})";
     }
 
     /// <summary>
@@ -367,7 +319,12 @@ public class DownloadableItemData : INotifyPropertyChanged, IDisposable
         {
             if (disposing)
             {
-                _downloadService?.Dispose();
+                // 与旧实现一致：列表清掉即停下；已下部分保留，再点下载接着下
+                if (_job != null)
+                {
+                    _job.PropertyChanged -= OnJobChanged;
+                    DownloadQueue.Shared.Pause(_job);
+                }
             }
 
             _disposed = true;

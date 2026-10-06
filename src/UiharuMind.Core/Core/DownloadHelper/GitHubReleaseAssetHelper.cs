@@ -20,7 +20,8 @@ public sealed record GitHubReleaseInfo(
 public sealed record GitHubReleaseAssetInfo(
     string Name,
     string DownloadUrl,
-    long Size);
+    long Size,
+    string? Sha256 = null);
 
 public sealed record GitHubReleaseAssetSelectOptions(
     string? NamePrefix = null,
@@ -117,7 +118,8 @@ public static class GitHubReleaseAssetHelper
             .Select(asset => new GitHubReleaseAssetInfo(
                 asset.Name!,
                 asset.BrowserDownloadUrl!,
-                asset.Size))
+                asset.Size,
+                ParseSha256Digest(asset.Digest)))
             .ToList() ?? [];
 
         return new GitHubReleaseInfo(
@@ -235,10 +237,20 @@ public static class GitHubReleaseAssetHelper
         [JsonPropertyName("assets")] public List<GitHubAssetDto>? Assets { get; set; }
     }
 
+    // 附件的 digest 形如 "sha256:<hex>"，老发布没有
+    private static string? ParseSha256Digest(string? digest)
+    {
+        const string prefix = "sha256:";
+        return digest != null && digest.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            ? digest[prefix.Length..]
+            : null;
+    }
+
     private sealed class GitHubAssetDto
     {
         [JsonPropertyName("name")] public string? Name { get; set; }
         [JsonPropertyName("browser_download_url")] public string? BrowserDownloadUrl { get; set; }
         [JsonPropertyName("size")] public long Size { get; set; }
+        [JsonPropertyName("digest")] public string? Digest { get; set; }
     }
 }

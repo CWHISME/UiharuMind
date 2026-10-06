@@ -173,6 +173,7 @@ public abstract class ReleaseVersionManagerBase<TVersion> where TVersion : Manag
         version.PackageFilePath = GetPackageFilePath(rootDirectory, asset.Name);
         version.InstallDirectory = GetRemoteInstallDirectory(rootDirectory, versionName, asset);
         version.AssetSize = asset.Size;
+        version.Sha256 = asset.Sha256;
         return version;
     }
 

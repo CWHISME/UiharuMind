@@ -22,7 +22,6 @@
       <!-- tiktoken o200k 词表数据:Microsoft.ML.Tokenizers 本体已由 Agents.AI 传递引入 -->
       <PackageReference Include="Microsoft.ML.Tokenizers.Data.O200kBase" Version="2.0.0" />
       <PackageReference Include="CliWrap" Version="3.10.5" />
-      <PackageReference Include="Downloader" Version="5.9.6" />
       <PackageReference Include="LLamaSharp" Version="0.27.0" />
       <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0" />
       <PackageReference Include="Meziantou.Framework.Globbing" Version="5.0.5" />

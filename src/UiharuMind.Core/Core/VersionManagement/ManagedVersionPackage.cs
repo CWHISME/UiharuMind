@@ -10,6 +10,12 @@ public class ManagedVersionPackage : IDownloadable, IInstalledDownloadable, ICom
     public string PackageFilePath { get; set; } = string.Empty;
     public string InstallDirectory { get; set; } = string.Empty;
     public long AssetSize { get; set; }
+    public string? Sha256 { get; set; }
+
+    /// <summary>
+    /// GitHub 发布包走单连接限速的 CDN，分块并发明显更快
+    /// </summary>
+    public int SegmentCount => 8;
     public Version Version { get; set; } = new(0, 0);
     public string? ReleaseUrl { get; set; }
     public DateTimeOffset? PublishedAt { get; set; }

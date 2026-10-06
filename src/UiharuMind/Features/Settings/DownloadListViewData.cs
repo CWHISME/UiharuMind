@@ -173,22 +173,6 @@ public partial class DownloadListViewData : ObservableObject
     [RelayCommand]
     protected void DownloadVersion(DownloadableItemData version)
     {
-        // SimpleZipDownloader downloader1 = new SimpleZipDownloader();
-        // downloader1.DownloadProgressChanged += (totalRead, totalBytes) =>
-        // {
-        //     if (totalBytes != -1)
-        //     {
-        //         Log.Debug($"下载进度1: {totalRead}/{totalBytes} ({(double)totalRead / totalBytes:P})");
-        //     }
-        //     else
-        //     {
-        //         Log.Debug($"下载进度1: {totalRead} bytes");
-        //     }
-        // };
-        //
-        // downloader1.ExtractProgressChanged += (progress) => { Log.Debug($"解压进度1: {progress}"); };
-        //
-        // await downloader1.DownloadAndExtractAsync(version.DownloadUrl, version.ExecutablePath);
         version.StartDownload(OnDownloadCompleted);
     }
 
