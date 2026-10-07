@@ -68,15 +68,23 @@ public static class FileOpener
     }
 
     /// <summary>
-    /// 分流一个文件：读出文本返回 <c>Text</c>（调用方负责展示）；
+    /// 分流一个文件或目录：读出文本返回 <c>Text</c>（调用方负责展示）；
+    /// 目录转交系统打开（Finder / 资源管理器）；
     /// 转交外部（贴图窗/系统）置 <c>Redirected</c>；失败已报错，调用方什么都不用做。
     /// 窗已开着的流程（打开对话框 / 拖放）用这个，窗还没开的直接用 <see cref="OpenAsync"/>。
     /// </summary>
-    /// <param name="filePath">文件绝对路径</param>
+    /// <param name="filePath">文件或目录绝对路径</param>
     public static async Task<RouteOutcome> RouteAsync(string filePath)
     {
         if (!File.Exists(filePath))
         {
+            if (Directory.Exists(filePath))
+            {
+                // 目录：交系统打开，macOS 的 open <目录> 即在 Finder 里打开它
+                await OpenWithSystemAsync(filePath);
+                return new RouteOutcome(null, true);
+            }
+
             Messages.ShowNotification(Loc.Text(LangKey.TextFileFileMissing), severity: MessageSeverity.Error);
             return new RouteOutcome(null, false);
         }

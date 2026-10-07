@@ -306,22 +306,26 @@ public partial class SimpleMarkdownViewer : UserControl
                 return;
             }
 
+            string raw = href.OriginalString;
+
+            // 裸绝对路径（没带 file:// 的 /Users/…、~/…、C:\…）：.NET 把它解析成相对 Uri，
+            // 但语义是本地文件——不依赖基目录，聊天场景也照样点得开
+            if (IsRootedLocalPath(raw))
+            {
+                OpenLocalFile(ExpandHome(StripAnchor(raw)));
+                return;
+            }
+
             // 相对链接（如 ../maps/x.md#锚点）：聊天场景没有基目录，没有可解析的参照系，跳过；
             // 文本文件窗给出文件目录后，基于它解析——相对 Uri 直接访问 IsFile 会抛
             // "not supported for a relative URI"，所以先看 IsAbsoluteUri。
             if (string.IsNullOrEmpty(LinkBaseDirectory))
             {
-                Log.Warning($"Skip relative link without base directory: {href.OriginalString}");
+                Log.Warning($"Skip relative link without base directory: {raw}");
                 return;
             }
 
-            // 锚点（#标题）不是路径的一部分，先剥掉再拼盘，否则 File.Exists 会把
-            // "x.md#锚点" 整个当文件名
-            string relative = href.OriginalString;
-            int hash = relative.IndexOf('#');
-            if (hash >= 0) relative = relative[..hash];
-
-            string full = Path.GetFullPath(Path.Combine(LinkBaseDirectory, relative));
+            string full = Path.GetFullPath(Path.Combine(LinkBaseDirectory, StripAnchor(raw)));
             OpenLocalFile(full);
         }
         catch (Exception ex)
@@ -335,6 +339,30 @@ public partial class SimpleMarkdownViewer : UserControl
     private void OpenLocalFile(string path)
     {
         FileOpener.Open(path);
+    }
+
+    /// <summary>不带 scheme 的裸本地绝对路径：/…、~/…、盘符 C:\… 或 C:/…。带 scheme 的早已分流，到不了这里</summary>
+    private static bool IsRootedLocalPath(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return false;
+        if (s[0] is '/' or '~') return true;
+        return s.Length >= 2 && char.IsAsciiLetter(s[0]) && s[1] == ':';
+    }
+
+    /// <summary>展开 ~ 为用户主目录（Path.GetFullPath 不展开波浪号）</summary>
+    private static string ExpandHome(string s)
+    {
+        if (s == "~") return Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (s.StartsWith("~/", StringComparison.Ordinal))
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), s[2..]);
+        return s;
+    }
+
+    /// <summary>剥掉 #锚点：它不是路径的一部分，否则 File.Exists 会把 "x.md#锚点" 整个当文件名</summary>
+    private static string StripAnchor(string s)
+    {
+        int hash = s.IndexOf('#');
+        return hash >= 0 ? s[..hash] : s;
     }
 
     public void ForceSetText(string raw)
