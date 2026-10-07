@@ -135,4 +135,40 @@ public class WebFetchReaderTests
         Assert.True(exact.IsExact);
         Assert.False(extracted.IsExact);
     }
+
+    /// <summary>
+    /// Direct 抽取 HTML 正文后交给 MarkdownCleaner:标题、段落、链接、列表保留结构,
+    /// 而不是 TextContent 式的段落粘连纯文本。
+    /// </summary>
+    [Fact]
+    public void DirectReader_CleanMarkup_PreservesStructure()
+    {
+        string markdown = DirectPageReader.CleanMarkup(
+            "<h2>标题</h2><p>第一段<b>加粗</b>。</p><p>第二段<a href=\"https://x.com\">链接</a>。</p><ul><li>甲</li><li>乙</li></ul>");
+
+        Assert.Contains("## 标题", markdown);
+        Assert.Contains("第一段**加粗**。\n\n第二段", markdown);
+        Assert.Contains("[链接](https://x.com)", markdown);
+        Assert.Contains("- 甲", markdown);
+        Assert.Contains("- 乙", markdown);
+    }
+
+    /// <summary>
+    /// 最坏形态:一行压缩且以普通文本开头。块级标签先断开,段落仍然分开,文本行不被毁。
+    /// </summary>
+    [Fact]
+    public void DirectReader_CleanMarkup_SingleLineMixedHtml_SplitsBlocks()
+    {
+        string markdown = DirectPageReader.CleanMarkup("开头的文字<p>第一段</p><p>第二段</p>");
+
+        Assert.Contains("开头的文字", markdown);
+        Assert.Contains("第一段\n\n第二段", markdown);
+    }
+
+    /// <summary>纯文本没有标签,Clean 原样放行——不会把正文毁掉</summary>
+    [Fact]
+    public void DirectReader_CleanMarkup_PlainText_PassesThrough()
+    {
+        Assert.Equal("hello world", DirectPageReader.CleanMarkup("hello world"));
+    }
 }

@@ -11,6 +11,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using AngleSharp;
 using AngleSharp.Dom;
+using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.AI.Execution.Tools.WebTools;
 
@@ -161,8 +162,20 @@ internal sealed partial class DirectPageReader : IPageReader
                          ?? doc.QuerySelectorAll("section, div")
                              .MaxBy(e => e.QuerySelectorAll("p").Count);
 
-        string raw = root?.TextContent ?? doc.Body?.TextContent ?? "";
-        return MultiNewlineRegex().Replace(raw.Trim(), "\n\n");
+        // 取保留标签的 HTML 而不是 TextContent:后者把段落/标题/列表边界全丢,
+        // 正文粘连成一坨。交给 CleanMarkup 转成结构化的 markdown。
+        string raw = root?.InnerHtml ?? doc.Body?.InnerHtml ?? "";
+        return CleanMarkup(raw);
+    }
+
+    /// <summary>
+    /// 把保留标签的 HTML 正文整理成 markdown。块级标签先断开成行,让 <see cref="MarkdownCleaner"/>
+    /// 按块处理(标题/列表/链接/粗斜体保留,段落不粘连)——即使整页压缩成一行也有效。
+    /// </summary>
+    internal static string CleanMarkup(string html)
+    {
+        string broken = BlockTagBreakPattern().Replace(html, "\n$0");
+        return MarkdownCleaner.Clean(broken);
     }
 
     // ── 截断流 ────────────────────────────────────────────────
@@ -205,6 +218,6 @@ internal sealed partial class DirectPageReader : IPageReader
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
-    [GeneratedRegex(@"\n{3,}", RegexOptions.Compiled)]
-    private static partial Regex MultiNewlineRegex();
+    [GeneratedRegex(@"(?<!\A)</?(p|div|li|ul|ol|table|tr|center|section|details|summary|blockquote|pre)\b[^>]*>", RegexOptions.IgnoreCase)]
+    private static partial Regex BlockTagBreakPattern();
 }

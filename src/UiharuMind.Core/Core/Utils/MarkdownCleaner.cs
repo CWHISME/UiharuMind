@@ -97,7 +97,7 @@ public static partial class MarkdownCleaner
     [GeneratedRegex(@"<!--.*?-->", RegexOptions.Singleline)]
     private static partial Regex HtmlCommentPattern();
 
-    [GeneratedRegex(@"^\s*</?[a-zA-Z][a-zA-Z0-9]*(\s[^>]*)?/?>")]
+    [GeneratedRegex(@"^\s*</?[a-zA-Z][a-zA-Z0-9-]*(\s[^>]*)?/?>")]
     private static partial Regex HtmlBlockStartPattern();
 
     [GeneratedRegex(@"<h([1-6])\b[^>]*>(.*?)</h\1>", RegexOptions.Singleline | RegexOptions.IgnoreCase)]
@@ -127,7 +127,7 @@ public static partial class MarkdownCleaner
     [GeneratedRegex(@"<br\s*/?>", RegexOptions.IgnoreCase)]
     private static partial Regex HtmlLineBreakPattern();
 
-    [GeneratedRegex(@"</?[a-zA-Z][a-zA-Z0-9]*(\s[^>]*)?/?>")]
+    [GeneratedRegex(@"</?[a-zA-Z][a-zA-Z0-9-]*(\s[^>]*)?/?>")]
     private static partial Regex HtmlTagPattern();
 
     [GeneratedRegex(@"\s+")]

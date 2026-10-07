@@ -36,4 +36,25 @@ public class MarkdownCleanerTests
         const string markdown = "# Title\n\n- a\n- b\n\n```html\n<div>x</div>\n```";
         Assert.Equal(markdown, MarkdownCleaner.Clean(markdown));
     }
+
+    /// <summary>
+    /// 带连字符的自定义元素(GitHub 的 turbo-frame/react-app/relative-time 等 Web Component)
+    /// 名字不在标准标签里,旧正则 <c>[a-zA-Z][a-zA-Z0-9]*</c> 匹配到连字符就断,标签原样漏出。
+    /// 元素名须允许连字符,标签删除、内容保留。
+    /// </summary>
+    [Fact]
+    public void CustomElementsWithHyphens_AreStripped()
+    {
+        const string html =
+            "<turbo-frame id=\"x\"><react-app app-name=\"issues-react\"><h1>标题</h1>" +
+            "<p>正文 <relative-time>on Oct 5</relative-time>。</p></react-app></turbo-frame>";
+
+        string cleaned = MarkdownCleaner.Clean(html);
+
+        Assert.DoesNotContain("<turbo-frame", cleaned);
+        Assert.DoesNotContain("<react-app", cleaned);
+        Assert.DoesNotContain("relative-time", cleaned);
+        Assert.Contains("# 标题", cleaned);
+        Assert.Contains("on Oct 5", cleaned);
+    }
 }
