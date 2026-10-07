@@ -1,5 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Linq;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -12,6 +15,7 @@ using UiharuMind.Shared.Utils;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.WorldSettings;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 
@@ -202,6 +206,77 @@ public partial class CharacterDraft : ObservableObject
     public string FirstGreetingReadonly =>
         string.IsNullOrEmpty(FirstGreeting) ? "无" : _draft.TryRender(FirstGreeting);
 
+    // ============ 世界设定 / 深度注入 / 备选开场白（ADR 0070） ============
+    /// <summary>备选开场白（alternate_greetings 除第一份外的其余份；第一份即 <see cref="FirstGreeting"/>）</summary>
+    public ObservableCollection<EditableTextItem> AlternateGreetings { get; }
+
+    /// <summary>深度注入正文（extensions.depth_prompt）。正文为空时视为没有深度注入（不落盘空对象）</summary>
+    public string DepthPromptText
+    {
+        get => _draft.DepthPrompt?.Prompt ?? "";
+        set
+        {
+            EnsureDepthPrompt().Prompt = value ?? "";
+            DropEmptyDepthPrompt();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasDepthPrompt));
+        }
+    }
+
+    /// <summary>深度注入深度：距历史末尾的条数，0 = 紧贴最后一条</summary>
+    public int DepthPromptDepth
+    {
+        get => _draft.DepthPrompt?.Depth ?? 0;
+        set
+        {
+            EnsureDepthPrompt().Depth = Math.Max(0, value);
+            DropEmptyDepthPrompt();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasDepthPrompt));
+        }
+    }
+
+    /// <summary>深度注入角色的下拉序号（0=system，1=user，2=assistant）</summary>
+    public int DepthPromptRoleIndex
+    {
+        get => _draft.DepthPrompt?.Role switch { "user" => 1, "assistant" => 2, _ => 0 };
+        set
+        {
+            EnsureDepthPrompt().Role = DepthPromptRoleOptions[Math.Clamp(value, 0, 2)].Value;
+            DropEmptyDepthPrompt();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasDepthPrompt));
+        }
+    }
+
+    /// <summary>深度注入目前有没有内容（有才显示「清除」按钮）</summary>
+    public bool HasDepthPrompt => _draft.DepthPrompt != null;
+
+    /// <summary>深度注入角色的可选项（值写回卡上的 role 字段）</summary>
+    public IReadOnlyList<DepthPromptRoleOption> DepthPromptRoleOptions { get; } =
+    [
+        new("system", Loc.Text(LangKey.DepthPromptRoleSystem)),
+        new("user", Loc.Text(LangKey.DepthPromptRoleUser)),
+        new("assistant", Loc.Text(LangKey.DepthPromptRoleAssistant)),
+    ];
+
+    /// <summary>世界设定条目（character_book 导入后即此）</summary>
+    public ObservableCollection<WorldSettingEntryItem> WorldSettingEntries { get; }
+
+    /// <summary>世界设定目前有没有条目（空态的判据，随集合变化通知）</summary>
+    public bool HasWorldSettingEntries => WorldSettingEntries.Count > 0;
+
+    /// <summary>每轮注入的 token 预算上限（UI 下限 100；低于下限被收进来，0 仅在直接读 JSON 时表示回落默认）</summary>
+    public int WorldSettingTokenBudget
+    {
+        get => _draft.WorldSetting.TokenBudget;
+        set
+        {
+            _draft.WorldSetting.TokenBudget = Math.Max(100, value);
+            OnPropertyChanged();
+        }
+    }
+
     public ChatPromptExecutionSettings ChatPromptExecutionSettings
     {
         get => _draft.Config.ExecutionSettings;
@@ -226,6 +301,16 @@ public partial class CharacterDraft : ObservableObject
         {
             _draft.MountAgents = SubAgents.Select(x => x.Id).ToList();
         };
+
+        AlternateGreetings = new ObservableCollection<EditableTextItem>(
+            _draft.AlternateGreetings.Select(text => new EditableTextItem(text)));
+        foreach (EditableTextItem item in AlternateGreetings) item.PropertyChanged += OnAlternateGreetingEdited;
+        AlternateGreetings.CollectionChanged += OnAlternateGreetingCollectionChanged;
+
+        WorldSettingEntries = new ObservableCollection<WorldSettingEntryItem>(
+            _draft.WorldSetting.Entries.Select(WorldSettingEntryItem.FromEntry));
+        foreach (WorldSettingEntryItem item in WorldSettingEntries) item.PropertyChanged += OnWorldSettingEntryEdited;
+        WorldSettingEntries.CollectionChanged += OnWorldSettingEntryCollectionChanged;
     }
 
     /// <summary>
@@ -252,6 +337,10 @@ public partial class CharacterDraft : ObservableObject
     public bool TryCommit()
     {
         if (!CheckCharacterNameValid()) return false;
+
+        // 空正文的深度注入不落盘：只调了角色/深度却没写字，写盘一个空对象只会触发无谓的装配重建
+        if (_draft.DepthPrompt is { } depthPrompt && string.IsNullOrWhiteSpace(depthPrompt.Prompt))
+            _draft.DepthPrompt = null;
 
         _draft.NormalizeParams();
         if (_origin == null)
@@ -314,6 +403,72 @@ public partial class CharacterDraft : ObservableObject
         SubAgents.Remove(item);
     }
 
+    // ---- 备选开场白 ----
+
+    [RelayCommand]
+    public void AddAlternateGreeting() => AlternateGreetings.Add(new EditableTextItem(""));
+
+    [RelayCommand]
+    public void RemoveAlternateGreeting(EditableTextItem item) => AlternateGreetings.Remove(item);
+
+    private void OnAlternateGreetingEdited(object? sender, PropertyChangedEventArgs e) => SyncAlternateGreetings();
+
+    private void OnAlternateGreetingCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems != null)
+            foreach (EditableTextItem item in e.NewItems) item.PropertyChanged += OnAlternateGreetingEdited;
+        if (e.OldItems != null)
+            foreach (EditableTextItem item in e.OldItems) item.PropertyChanged -= OnAlternateGreetingEdited;
+        SyncAlternateGreetings();
+    }
+
+    private void SyncAlternateGreetings() =>
+        _draft.AlternateGreetings = AlternateGreetings.Select(x => x.Text).ToList();
+
+    // ---- 世界设定 ----
+
+    [RelayCommand]
+    public void AddWorldSettingEntry() => WorldSettingEntries.Add(new WorldSettingEntryItem());
+
+    [RelayCommand]
+    public void RemoveWorldSettingEntry(WorldSettingEntryItem item) => WorldSettingEntries.Remove(item);
+
+    private void OnWorldSettingEntryEdited(object? sender, PropertyChangedEventArgs e) => SyncWorldSettingEntries();
+
+    private void OnWorldSettingEntryCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems != null)
+            foreach (WorldSettingEntryItem item in e.NewItems) item.PropertyChanged += OnWorldSettingEntryEdited;
+        if (e.OldItems != null)
+            foreach (WorldSettingEntryItem item in e.OldItems) item.PropertyChanged -= OnWorldSettingEntryEdited;
+        SyncWorldSettingEntries();
+        OnPropertyChanged(nameof(HasWorldSettingEntries));
+    }
+
+    private void SyncWorldSettingEntries() =>
+        _draft.WorldSetting.Entries = WorldSettingEntries.Select(x => x.ToEntry()).ToList();
+
+    // ---- 深度注入 ----
+
+    private DepthPromptInfo EnsureDepthPrompt() => _draft.DepthPrompt ??= new DepthPromptInfo();
+
+    /// <summary>正文为空时把整个深度注入对象丢掉（光调角色/深度不写字，等于没设）</summary>
+    private void DropEmptyDepthPrompt()
+    {
+        if (_draft.DepthPrompt is { } dp && string.IsNullOrWhiteSpace(dp.Prompt)) _draft.DepthPrompt = null;
+    }
+
+    [RelayCommand]
+    public void ClearDepthPrompt()
+    {
+        if (_draft.DepthPrompt == null) return;
+        _draft.DepthPrompt = null;
+        OnPropertyChanged(nameof(DepthPromptText));
+        OnPropertyChanged(nameof(DepthPromptDepth));
+        OnPropertyChanged(nameof(DepthPromptRoleIndex));
+        OnPropertyChanged(nameof(HasDepthPrompt));
+    }
+
     /// <summary>
     /// 把一段片段插到提示词开头。<b>插进来之后就是自己的文本</b>，可随意改——
     /// 旧做法是运行期挂载别的角色，模型收到的那段话在编辑页里一个字也看不见。
@@ -360,4 +515,97 @@ public sealed class MountedAgentItem
         string name = CharacterManager.Instance.GetCharacterData(characterId).CharacterName;
         return new MountedAgentItem(characterId, string.IsNullOrEmpty(name) ? characterId : name);
     }
+}
+
+/// <summary>
+/// 深度注入角色的下拉项：值写回卡上的 role 字段，界面上显示本地化文案
+/// </summary>
+/// <param name="Value">role 字段值</param>
+/// <param name="Label">下拉显示名</param>
+public sealed record DepthPromptRoleOption(string Value, string Label);
+
+/// <summary>
+/// 可编辑文本项：备选开场白列表的一项。字符串本身不可变、不能两向绑，包一层可变对象
+/// </summary>
+public sealed class EditableTextItem : ObservableObject
+{
+    private string _text;
+
+    public string Text
+    {
+        get => _text;
+        set => SetProperty(ref _text, value ?? "");
+    }
+
+    public EditableTextItem(string text) => _text = text ?? "";
+}
+
+/// <summary>
+/// 世界设定条目在编辑表单里的形态：关键词按分隔符拆、位置/顺序/常驻直接改。
+/// 只做显示与录入，真正跑注入的是 <see cref="WorldSettingEntry"/>（提交时经 <see cref="ToEntry"/> 落回草稿）
+/// </summary>
+public sealed class WorldSettingEntryItem : ObservableObject
+{
+    private string _keysText = "";
+    private bool _constant;
+    private int _positionIndex;
+    private int _order;
+    private string _content = "";
+
+    /// <summary>关键词，逗号/中文逗号/分号/换行分隔，提交时拆开</summary>
+    public string KeysText
+    {
+        get => _keysText;
+        set => SetProperty(ref _keysText, value ?? "");
+    }
+
+    /// <summary>常驻：不依赖关键词，每轮都注入</summary>
+    public bool Constant
+    {
+        get => _constant;
+        set => SetProperty(ref _constant, value);
+    }
+
+    /// <summary>注入位置下拉序号：0 = 角色人格前，1 = 角色人格后</summary>
+    public int PositionIndex
+    {
+        get => _positionIndex;
+        set => SetProperty(ref _positionIndex, value);
+    }
+
+    /// <summary>同位置内的注入顺序（小者在前）</summary>
+    public int Order
+    {
+        get => _order;
+        set => SetProperty(ref _order, value);
+    }
+
+    /// <summary>正文</summary>
+    public string Content
+    {
+        get => _content;
+        set => SetProperty(ref _content, value ?? "");
+    }
+
+    public static WorldSettingEntryItem FromEntry(WorldSettingEntry entry) => new()
+    {
+        KeysText = string.Join('\n', entry.Keys),
+        Constant = entry.Constant,
+        PositionIndex = entry.Position == EWorldSettingPosition.AfterCharacter ? 1 : 0,
+        Order = entry.Order,
+        Content = entry.Content,
+    };
+
+    public WorldSettingEntry ToEntry() => new()
+    {
+        Keys = SplitKeys(KeysText),
+        Constant = Constant,
+        Position = PositionIndex == 1 ? EWorldSettingPosition.AfterCharacter : EWorldSettingPosition.BeforeCharacter,
+        Order = Order,
+        Content = Content,
+    };
+
+    private static List<string> SplitKeys(string text) => text
+        .Split([',', '，', '\n', ';', '；'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .ToList();
 }

@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Memory;
+using UiharuMind.Core.AI.WorldSettings;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Utils;
 
@@ -185,6 +186,15 @@ public class CharacterData
     /// </summary>
     public string FirstGreeting { get; set; } = "";
 
+    /// <summary>多份开场白（角色卡 alternate_greetings）。第一份即 <see cref="FirstGreeting"/>；选取权在 UI，默认用第一份。</summary>
+    public List<string> AlternateGreetings { get; set; } = [];
+
+    /// <summary>深度注入（角色卡 extensions.depth_prompt）：把一段提示插到历史倒数第 Depth 条的位置；空则无。</summary>
+    public DepthPromptInfo? DepthPrompt { get; set; }
+
+    /// <summary>世界设定：关键词激活的设定条目集合（角色卡 character_book 导入后即此）。</summary>
+    public WorldSetting WorldSetting { get; set; } = new();
+
     /// <summary>
     /// 手写人格锚点：<see cref="GetPersonaCoda"/> 的显式写法，为空则回退到名 + 描述自动拼。
     /// 覆盖文件与内置卡 JSON 经 <c>Config.PromptConfig.anchor</c> 入库。
@@ -266,6 +276,8 @@ public class CharacterData
     {
         Template = ParamsValidReplacer(Template);
         FirstGreeting = ParamsValidReplacer(FirstGreeting);
+        for (int i = 0; i < AlternateGreetings.Count; i++)
+            AlternateGreetings[i] = ParamsValidReplacer(AlternateGreetings[i]);
     }
 
     public void Save()
@@ -341,6 +353,9 @@ public class CharacterData
         MountAgents = snapshot.MountAgents;
         CharacterIcon = snapshot.CharacterIcon;
         FirstGreeting = snapshot.FirstGreeting;
+        AlternateGreetings = snapshot.AlternateGreetings;
+        DepthPrompt = snapshot.DepthPrompt;
+        WorldSetting = snapshot.WorldSetting;
         _memory = null; //记忆库名可能变了，缓存作废
     }
 }

@@ -2623,6 +2623,90 @@ Allow them?</value>
     <data name="AgentCapabilityScenePrompt" xml:space="preserve">
         <value>Group scene</value>
     </data>
+    <data name="CharacterEditTabBasic" xml:space="preserve">
+        <value>Basic</value>
+    </data>
+    <data name="CharacterEditTabAgent" xml:space="preserve">
+        <value>Agent abilities</value>
+    </data>
+    <data name="CharacterEditTabStory" xml:space="preserve">
+        <value>Greeting &amp; world setting</value>
+    </data>
+    <data name="CharacterEditTabAdvanced" xml:space="preserve">
+        <value>Advanced</value>
+    </data>
+    <data name="CharacterDepthPromptTitle" xml:space="preserve">
+        <value>Depth prompt</value>
+    </data>
+    <data name="CharacterDepthPromptDesc" xml:space="preserve">
+        <value>Inserts a prompt at depth N from the end of the history fed to the model: 0 = right after the last message, 1 = before the last message. Only changes what the model sees; the session history is untouched.</value>
+    </data>
+    <data name="CharacterDepthPromptPlaceholder" xml:space="preserve">
+        <value>Prompt text to insert</value>
+    </data>
+    <data name="CharacterDepthPromptDepth" xml:space="preserve">
+        <value>Depth</value>
+    </data>
+    <data name="CharacterDepthPromptRole" xml:space="preserve">
+        <value>Role</value>
+    </data>
+    <data name="CharacterDepthPromptClear" xml:space="preserve">
+        <value>Clear</value>
+    </data>
+    <data name="DepthPromptRoleSystem" xml:space="preserve">
+        <value>System</value>
+    </data>
+    <data name="DepthPromptRoleUser" xml:space="preserve">
+        <value>User</value>
+    </data>
+    <data name="DepthPromptRoleAssistant" xml:space="preserve">
+        <value>Assistant</value>
+    </data>
+    <data name="CharacterAlternateGreetingsTitle" xml:space="preserve">
+        <value>Alternate greetings</value>
+    </data>
+    <data name="CharacterAlternateGreetingsDesc" xml:space="preserve">
+        <value>Extra greetings besides the default one above, populated when you import a character card. Sessions still start with the default greeting for now.</value>
+    </data>
+    <data name="CharacterAlternateGreetingsAdd" xml:space="preserve">
+        <value>Add greeting</value>
+    </data>
+    <data name="CharacterWorldSettingTitle" xml:space="preserve">
+        <value>World setting</value>
+    </data>
+    <data name="CharacterWorldSettingDesc" xml:space="preserve">
+        <value>Keyword-activated setting entries: the last few messages are scanned, matches are injected (always-on entries are always injected), capped by the per-turn token budget.</value>
+    </data>
+    <data name="CharacterWorldSettingEmpty" xml:space="preserve">
+        <value>No entries yet. Importing a card with an embedded book fills this in; or add entries manually.</value>
+    </data>
+    <data name="CharacterWorldSettingKeysPlaceholder" xml:space="preserve">
+        <value>Keywords, separated by commas, semicolons or newlines</value>
+    </data>
+    <data name="CharacterWorldSettingContentPlaceholder" xml:space="preserve">
+        <value>Entry content: the setting text injected once activated</value>
+    </data>
+    <data name="CharacterWorldSettingConstant" xml:space="preserve">
+        <value>Always on</value>
+    </data>
+    <data name="CharacterWorldSettingPosition" xml:space="preserve">
+        <value>Position</value>
+    </data>
+    <data name="CharacterWorldSettingPositionBefore" xml:space="preserve">
+        <value>Before character</value>
+    </data>
+    <data name="CharacterWorldSettingPositionAfter" xml:space="preserve">
+        <value>After character</value>
+    </data>
+    <data name="CharacterWorldSettingOrder" xml:space="preserve">
+        <value>Order</value>
+    </data>
+    <data name="CharacterWorldSettingAddEntry" xml:space="preserve">
+        <value>Add entry</value>
+    </data>
+    <data name="CharacterWorldSettingTokenBudget" xml:space="preserve">
+        <value>Token budget per turn</value>
+    </data>
     <data name="AgentCapabilityBasePrompt" xml:space="preserve">
         <value>Base layer</value>
     </data>

@@ -1,4 +1,5 @@
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.WorldSettings;
 using UiharuMind.Core.Core;
 
 namespace UiharuMind.Core.Tests.Character;
@@ -26,6 +27,13 @@ public class CharacterDataCopyFromTests
         RequiresVisionModel = true,
         CharacterIcon = "aWNvbg==",
         FirstGreeting = "开场白",
+        AlternateGreetings = ["开场白B", "开场白C"],
+        DepthPrompt = new DepthPromptInfo { Prompt = "深度提示", Depth = 2, Role = "system" },
+        WorldSetting = new WorldSetting
+        {
+            TokenBudget = 800,
+            Entries = [new WorldSettingEntry { Keys = ["学园都市"], Content = "第七学区", Constant = true }],
+        },
         MountAgents = ["sub-a", "sub-b"],
         CharacterName = "源角色",
         Description = "源描述",

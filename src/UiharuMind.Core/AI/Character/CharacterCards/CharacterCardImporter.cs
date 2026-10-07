@@ -1,3 +1,4 @@
+using UiharuMind.Core.AI.WorldSettings;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
@@ -25,8 +26,19 @@ public static class CharacterCardImporter
             CharacterName = data.Name ?? "",
             // 示例对话直接拼进提示词：它本来就只是提示词的一段，
             // 单独存一个字段的时候它折在高级选项里，等于"编辑页看不见却每轮都发出去"
-            Template = AppendDialogExample(data.Description ?? "", data.MesExample),
+            Template = AppendPostHistory(AppendDialogExample(data.Description ?? "", data.MesExample),
+                data.PostHistoryInstructions),
             FirstGreeting = data.FirstMes ?? "",
+            AlternateGreetings = data.AlternateGreetings ?? [],
+            DepthPrompt = data.Extensions?.DepthPrompt is { } depthPrompt
+                ? new DepthPromptInfo
+                {
+                    Prompt = depthPrompt.Prompt ?? "",
+                    Depth = depthPrompt.Depth ?? 0,
+                    Role = depthPrompt.Role ?? "",
+                }
+                : null,
+            WorldSetting = FromCharacterBook(data.CharacterBook),
             Description =
                 $"Ceator:{data.Creator ?? "*"}\n***\n\n{data.CreatorNotes ?? "*"}",
         };
@@ -40,12 +52,54 @@ public static class CharacterCardImporter
     }
 
     /// <summary>
+    /// 把角色卡内嵌的 character_book 映射成世界设定条目集合（起步版：keys / constant / insertion_order / position / content）。
+    /// 无书或书内无条目时返回空集合。
+    /// </summary>
+    private static WorldSetting FromCharacterBook(CharacterBook? book)
+    {
+        WorldSetting setting = new();
+        if (book?.Entries is not { Count: > 0 }) return setting;
+
+        for (int i = 0; i < book.Entries.Count; i++)
+        {
+            CharacterBookEntry entry = book.Entries[i];
+            if (entry.Enabled == false) continue;
+            setting.Entries.Add(new WorldSettingEntry
+            {
+                Keys = entry.Keys ?? [],
+                Constant = entry.Constant == true,
+                Position = (entry.Position ?? "") switch
+                {
+                    "after_char" => EWorldSettingPosition.AfterCharacter,
+                    _ => EWorldSettingPosition.BeforeCharacter,
+                },
+                Order = entry.InsertionOrder ?? i,
+                Content = entry.Content ?? "",
+            });
+        }
+
+        return setting;
+    }
+
+    /// <summary>
+    /// 把角色卡的 post_history_instructions 并入提示词末尾：它本来就是要发给模型的一段指令，
+    /// 不设独立字段——那种做法让它与人格锚机制重复（装配里既要它能生效又得防它干扰顺序）。空则原样返回。
+    /// </summary>
+    private static string AppendPostHistory(string template, string? postHistory)
+    {
+        if (string.IsNullOrWhiteSpace(postHistory)) return template;
+        string block = postHistory.Trim();
+        return string.IsNullOrWhiteSpace(template) ? block : $"{template.TrimEnd()}\n\n{block}";
+    }
+
+    /// <summary>
     /// 把角色卡的示例对话追加到提示词末尾
     /// </summary>
     /// <param name="template">卡上的角色描述</param>
     /// <param name="dialogExample">卡上的示例对话；为空则原样返回</param>
     /// <returns>拼接后的提示词</returns>
     private static string AppendDialogExample(string template, string? dialogExample)
+
     {
         if (string.IsNullOrWhiteSpace(dialogExample)) return template;
         string block = $"{DialogExampleHeader}\n{dialogExample}";

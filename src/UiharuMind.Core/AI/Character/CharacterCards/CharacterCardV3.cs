@@ -21,7 +21,7 @@ public class Data
     [JsonPropertyName("creator_notes")] public string? CreatorNotes { get; set; }
 
     [JsonPropertyName("alternate_greetings")]
-    public List<object>? AlternateGreetings { get; set; }
+    public List<string>? AlternateGreetings { get; set; }
 
     [JsonPropertyName("character_version")]
     public string? CharacterVersion { get; set; }
@@ -41,6 +41,9 @@ public class Data
 
     [JsonPropertyName("group_only_greetings")]
     public List<object>? GroupOnlyGreetings { get; set; }
+
+    [JsonPropertyName("character_book")]
+    public CharacterBook? CharacterBook { get; set; }
 }
 
 public class DepthPrompt
@@ -98,4 +101,36 @@ public class CharacterCard
     [JsonPropertyName("avatar")] public string? Avatar { get; set; }
 
     [JsonPropertyName("talkativeness")] public string? Talkativeness { get; set; }
+}
+
+public class CharacterBook
+{
+    [JsonPropertyName("name")] public string? Name { get; set; }
+
+    [JsonPropertyName("description")] public string? Description { get; set; }
+
+    [JsonPropertyName("scan_depth")] public int? ScanDepth { get; set; }
+
+    [JsonPropertyName("entries")] public List<CharacterBookEntry>? Entries { get; set; }
+}
+
+public class CharacterBookEntry
+{
+    [JsonPropertyName("keys")] public List<string>? Keys { get; set; }
+
+    [JsonPropertyName("secondary_keys")] public List<string>? SecondaryKeys { get; set; }
+
+    [JsonPropertyName("comment")] public string? Comment { get; set; }
+
+    [JsonPropertyName("content")] public string? Content { get; set; }
+
+    [JsonPropertyName("constant")] public bool? Constant { get; set; }
+
+    [JsonPropertyName("selective")] public bool? Selective { get; set; }
+
+    [JsonPropertyName("insertion_order")] public int? InsertionOrder { get; set; }
+
+    [JsonPropertyName("enabled")] public bool? Enabled { get; set; }
+
+    [JsonPropertyName("position")] public string? Position { get; set; }
 }

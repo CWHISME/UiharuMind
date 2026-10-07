@@ -2616,6 +2616,90 @@
     <data name="AgentCapabilityScenePrompt" xml:space="preserve">
         <value>群场景</value>
     </data>
+    <data name="CharacterEditTabBasic" xml:space="preserve">
+        <value>基础信息</value>
+    </data>
+    <data name="CharacterEditTabAgent" xml:space="preserve">
+        <value>智能体能力</value>
+    </data>
+    <data name="CharacterEditTabStory" xml:space="preserve">
+        <value>开场白与世界设定</value>
+    </data>
+    <data name="CharacterEditTabAdvanced" xml:space="preserve">
+        <value>高级</value>
+    </data>
+    <data name="CharacterDepthPromptTitle" xml:space="preserve">
+        <value>深度注入</value>
+    </data>
+    <data name="CharacterDepthPromptDesc" xml:space="preserve">
+        <value>把一段提示插到供给模型的历史倒数第 N 条的位置：0 = 紧贴最后一条，1 = 最后一条之前。只改模型看到的那份，不写进会话历史。</value>
+    </data>
+    <data name="CharacterDepthPromptPlaceholder" xml:space="preserve">
+        <value>要插入的提示正文</value>
+    </data>
+    <data name="CharacterDepthPromptDepth" xml:space="preserve">
+        <value>深度</value>
+    </data>
+    <data name="CharacterDepthPromptRole" xml:space="preserve">
+        <value>角色</value>
+    </data>
+    <data name="CharacterDepthPromptClear" xml:space="preserve">
+        <value>清除</value>
+    </data>
+    <data name="DepthPromptRoleSystem" xml:space="preserve">
+        <value>系统</value>
+    </data>
+    <data name="DepthPromptRoleUser" xml:space="preserve">
+        <value>用户</value>
+    </data>
+    <data name="DepthPromptRoleAssistant" xml:space="preserve">
+        <value>助手</value>
+    </data>
+    <data name="CharacterAlternateGreetingsTitle" xml:space="preserve">
+        <value>备选开场白</value>
+    </data>
+    <data name="CharacterAlternateGreetingsDesc" xml:space="preserve">
+        <value>除默认开场白外的更多份开场白，导入角色卡后自动填进来。现在从角色开始对话仍用默认开场白，选备用开场白的入口后续再加。</value>
+    </data>
+    <data name="CharacterAlternateGreetingsAdd" xml:space="preserve">
+        <value>添加开场白</value>
+    </data>
+    <data name="CharacterWorldSettingTitle" xml:space="preserve">
+        <value>世界设定</value>
+    </data>
+    <data name="CharacterWorldSettingDesc" xml:space="preserve">
+        <value>关键词激活的设定条目：最近几轮消息命中关键词即注入（常驻条目每轮都注入），整体受 token 预算约束。</value>
+    </data>
+    <data name="CharacterWorldSettingEmpty" xml:space="preserve">
+        <value>还没有条目。导入带 character_book 的角色卡会自动填进来，也可以点「添加条目」手动建。</value>
+    </data>
+    <data name="CharacterWorldSettingKeysPlaceholder" xml:space="preserve">
+        <value>关键词，多个用逗号/分号/换行分隔</value>
+    </data>
+    <data name="CharacterWorldSettingContentPlaceholder" xml:space="preserve">
+        <value>条目正文：命中后注入给模型的设定文本</value>
+    </data>
+    <data name="CharacterWorldSettingConstant" xml:space="preserve">
+        <value>常驻</value>
+    </data>
+    <data name="CharacterWorldSettingPosition" xml:space="preserve">
+        <value>位置</value>
+    </data>
+    <data name="CharacterWorldSettingPositionBefore" xml:space="preserve">
+        <value>角色前</value>
+    </data>
+    <data name="CharacterWorldSettingPositionAfter" xml:space="preserve">
+        <value>角色后</value>
+    </data>
+    <data name="CharacterWorldSettingOrder" xml:space="preserve">
+        <value>顺序</value>
+    </data>
+    <data name="CharacterWorldSettingAddEntry" xml:space="preserve">
+        <value>添加条目</value>
+    </data>
+    <data name="CharacterWorldSettingTokenBudget" xml:space="preserve">
+        <value>每轮注入上限（token）</value>
+    </data>
     <data name="AgentCapabilityBasePrompt" xml:space="preserve">
         <value>基座</value>
     </data>

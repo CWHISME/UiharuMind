@@ -15,6 +15,7 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat.Group.Away;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Harness;
+using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
@@ -22,6 +23,7 @@ using UiharuMind.Core.AI.Execution.Tools.Memory;
 using UiharuMind.Core.AI.Execution.Tools.Scheduler;
 using UiharuMind.Core.AI.Execution.Tools.Skills;
 using UiharuMind.Core.AI.Execution.Tools.WebTools;
+using UiharuMind.Core.AI.WorldSettings;
 
 namespace UiharuMind.Core.AI.Execution.Assembly;
 
@@ -73,7 +75,8 @@ internal static class AgentAssembler
             chatOptions.Instructions = AgentInstructionsComposer.AppendScene(chatOptions.Instructions,
                 profile.GroupScene);
             return BuildHandle(client,
-                AgentOptionsFactory.BuildPromptOnlyOptions(character, new SessionChatHistoryProvider(promptOnly: true),
+                AgentOptionsFactory.BuildPromptOnlyOptions(character,
+                    WrapDepthPrompt(new SessionChatHistoryProvider(promptOnly: true), character),
                     contextProviders, chatOptions,
                     plan.Compaction), null, inputEstimate: plan.InputEstimate);
         }
@@ -95,14 +98,15 @@ internal static class AgentAssembler
         string shellBinary = shellExecutor?.ResolvedShellBinary ?? string.Empty;
 
         // 历史落到自有会话文件,框架 blob 里只剩 todos/mode/审批与一个会话标识指针
-        HarnessAgentOptions options = AgentOptionsFactory.BuildAgentOptions(plan, new SessionChatHistoryProvider(), contextProviders,
+        HarnessAgentOptions options = AgentOptionsFactory.BuildAgentOptions(plan,
+            WrapDepthPrompt(new SessionChatHistoryProvider(), character), contextProviders,
             chatOptions, shellBinary, out IReadOnlyList<AgentPromptSegment> promptSegments);
         return BuildHandle(client, options, shellExecutor, plan.Mcp, toolEntries, promptSegments,
             plan.InputEstimate);
     }
 
     /// <summary>
-    /// 装配上下文 provider 链。目前只有一个知识库的被动注入提供者；
+    /// 装配上下文 provider 链：世界设定（关键词被动注入）与知识库（RAG 被动注入），各自独立单元；
     /// 框架记忆的注入块改写器已随框架文件记忆整体移除（ADR 0028）。
     /// </summary>
     /// <param name="plan">装配计划</param>
@@ -112,12 +116,20 @@ internal static class AgentAssembler
         CharacterData character = plan.Character;
         List<AIContextProvider> providers =
         [
+            // 世界设定在知识库之前：两者都以追加 User 消息注入，知识库要留在最末（最贴回答位）
+            new WorldSettingContextProvider(),
             new MemoryContextProvider(hasKnowledgeTool:
                 plan.IsAgentForm && plan.Config.EnableKnowledgeSearchTool),
         ];
 
         return providers;
     }
+
+    /// <summary>角色卡带着 depth_prompt 才套深度注入包装器；没有就是被包装的历史本身（零行为差）。</summary>
+    private static ChatHistoryProvider WrapDepthPrompt(ChatHistoryProvider history, CharacterData character) =>
+        character.DepthPrompt is { Prompt.Length: > 0 } depth
+            ? new DepthPromptHistoryProvider(history, depth)
+            : history;
 
     /// <summary>
     /// 装配 agent 档的工具集。挂哪些由角色的能力配置决定，与档位无关的判定（识图是否多余、

@@ -160,6 +160,9 @@ public sealed record AgentAssemblyFacts
     /// </summary>
     public string McpOnDemand { get; init; } = string.Empty;
 
+    /// <summary>深度注入（角色卡 depth_prompt）的 JSON 序列化形态；无则为空串。它属装配输入：卡上改深度注入要触发重建。</summary>
+    public string DepthPrompt { get; init; } = string.Empty;
+
     /// <summary>
     /// 从构建配置捕获事实（装配输入的常规入口）。
     /// 系统提示词在此重算——角色卡与会话参数的编辑因此天然被捕获。
@@ -259,6 +262,7 @@ public sealed record AgentAssemblyFacts
             McpRevision = isAgent ? inputs.McpRevision : 0,
             DisabledMcpServers = isAgent ? string.Join('\n', config.DisabledMcpServers) : string.Empty,
             McpOnDemand = isAgent ? inputs.McpOnDemand : string.Empty,
+            DepthPrompt = character.DepthPrompt is { } depthPrompt ? JsonSerializer.Serialize(depthPrompt) : "",
         };
     }
 }
