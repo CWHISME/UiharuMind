@@ -68,4 +68,52 @@ public class CharacterCardImporterTests
         Assert.Null(character.DepthPrompt);
         Assert.Empty(character.AlternateGreetings);
     }
+
+    [Fact]
+    public async Task Import_AlternateGreetingsWithJunk_DropsNonStrings()
+    {
+        // 乱写的卡：数组里混数字/对象/布尔，不该让整张导入失败
+        const string json = """
+        {
+          "spec": "chara_card_v2",
+          "data": {
+            "name": "乱写卡",
+            "alternate_greetings": ["正常开场白", 123, { "x": 1 }, true, "另一个"]
+          }
+        }
+        """;
+
+        CharacterData? character = await CharacterCardImporter.ImportToCharactorData(json);
+
+        Assert.NotNull(character);
+        Assert.Equal(["正常开场白", "另一个"], character.AlternateGreetings);
+    }
+
+    [Fact]
+    public async Task Import_CharacterBookDefaults_PositionAndOrder()
+    {
+        const string json = """
+        {
+          "spec": "chara_card_v2",
+          "data": {
+            "name": "默认值卡",
+            "character_book": {
+              "entries": [
+                { "keys": ["甲"], "content": "A", "position": "before_char" },
+                { "keys": ["乙"], "content": "B" }
+              ]
+            }
+          }
+        }
+        """;
+
+        CharacterData? character = await CharacterCardImporter.ImportToCharactorData(json);
+
+        Assert.NotNull(character);
+        // position 非 after_char 一律回落 before；insertion_order 缺省取索引 i
+        Assert.Equal(EWorldSettingPosition.BeforeCharacter, character.WorldSetting.Entries[0].Position);
+        Assert.Equal(0, character.WorldSetting.Entries[0].Order);
+        Assert.Equal(EWorldSettingPosition.BeforeCharacter, character.WorldSetting.Entries[1].Position);
+        Assert.Equal(1, character.WorldSetting.Entries[1].Order);
+    }
 }

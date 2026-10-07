@@ -21,7 +21,7 @@ public class Data
     [JsonPropertyName("creator_notes")] public string? CreatorNotes { get; set; }
 
     [JsonPropertyName("alternate_greetings")]
-    public List<string>? AlternateGreetings { get; set; }
+    public List<object>? AlternateGreetings { get; set; }
 
     [JsonPropertyName("character_version")]
     public string? CharacterVersion { get; set; }

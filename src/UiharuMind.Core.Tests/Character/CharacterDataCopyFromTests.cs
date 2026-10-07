@@ -66,10 +66,16 @@ public class CharacterDataCopyFromTests
         source.CharacterName = "改过的名字";
         source.Tools.EnableShellExecution = false;
         source.MountAgents.Add("sub-c");
+        source.AlternateGreetings.Add("sub-c");
+        source.DepthPrompt!.Prompt = "改了的深度";
+        source.WorldSetting.Entries[0].Content = "改了的设定";
 
         Assert.Equal("源角色", target.CharacterName);
         Assert.True(target.Tools.EnableShellExecution);
         Assert.Equal(2, target.MountAgents.Count);
+        Assert.Equal(2, target.AlternateGreetings.Count);
+        Assert.Equal("深度提示", target.DepthPrompt!.Prompt);
+        Assert.Equal("第七学区", target.WorldSetting.Entries[0].Content);
     }
 
     [Fact]

@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using UiharuMind.Core.AI.WorldSettings;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
@@ -29,7 +31,7 @@ public static class CharacterCardImporter
             Template = AppendPostHistory(AppendDialogExample(data.Description ?? "", data.MesExample),
                 data.PostHistoryInstructions),
             FirstGreeting = data.FirstMes ?? "",
-            AlternateGreetings = data.AlternateGreetings ?? [],
+            AlternateGreetings = CoerceGreetings(data.AlternateGreetings),
             DepthPrompt = data.Extensions?.DepthPrompt is { } depthPrompt
                 ? new DepthPromptInfo
                 {
@@ -90,6 +92,30 @@ public static class CharacterCardImporter
         if (string.IsNullOrWhiteSpace(postHistory)) return template;
         string block = postHistory.Trim();
         return string.IsNullOrWhiteSpace(template) ? block : $"{template.TrimEnd()}\n\n{block}";
+    }
+
+    /// <summary>
+    /// 把卡上的 alternate_greetings 收拢成字符串列表：规范上是字符串数组，
+    /// 但乱写的卡（数字/对象/布尔项）不该让整张导入失败——非字符串项丢弃。
+    /// </summary>
+    private static List<string> CoerceGreetings(List<object>? greetings)
+    {
+        if (greetings == null) return [];
+
+        List<string> result = [];
+        foreach (object? item in greetings)
+        {
+            // 本仓的 JsonOptions 带 UnknownTypeHandling=JsonNode，object 元素是 JsonValue 不是 string/JsonElement
+            string? text = item switch
+            {
+                string s => s,
+                JsonValue { } v when v.TryGetValue<string>(out string? s) => s,
+                _ => null,
+            };
+            if (text != null) result.Add(text);
+        }
+
+        return result;
     }
 
     /// <summary>
