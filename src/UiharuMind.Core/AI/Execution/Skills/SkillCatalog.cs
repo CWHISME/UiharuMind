@@ -447,10 +447,10 @@ public class SkillCatalog : Singleton<SkillCatalog>
 
         // 退出模型自选的技能不在框架 source 列表里,技能工具对它一律返回 not found。
         // 仍参与自选的技能恰恰相反——那几个工具是好用的,不该拦着不让用
-        if (!isModelInvocable)
-        {
-            sb.AppendLine("The skill tools cannot reach this skill — do not call them for it.");
-        }
+        // if (!isModelInvocable)
+        // {
+        //     sb.AppendLine("The skill tools cannot reach this skill — do not call them for it.");
+        // }
 
         return sb.ToString();
     }
