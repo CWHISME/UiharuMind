@@ -222,6 +222,15 @@
     <data name="AgentApprovalResolvedDenied" xml:space="preserve">
         <value>Denied</value>
     </data>
+    <data name="ToolResultUnansweredHint" xml:space="preserve">
+        <value>Nobody answered this approval, so the call never ran; send a message to have the model redo it.</value>
+    </data>
+    <data name="ToolResultWakeUnansweredHint" xml:space="preserve">
+        <value>This was an auto-woken turn with no open window, so the approval couldn't be shown and the call never ran; open the session and send a message to redo it.</value>
+    </data>
+    <data name="ToolResultRejectedHint" xml:space="preserve">
+        <value>This call was rejected and never ran.</value>
+    </data>
     <data name="AgentApproveOnce" xml:space="preserve">
         <value>Allow once</value>
     </data>

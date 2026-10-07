@@ -52,6 +52,14 @@ public static class ToolCallCancellation
         + " This tool call never ran: its approval request was not answered before the turn ended.";
 
     /// <summary>
+    /// 唤醒轮（没有打开的会话窗口）里审批无处可弹时补写的结果正文。
+    /// 与 <see cref="ApprovalUnansweredResultText"/> 同一件事的另一种成因，分开写正文，
+    /// 卡片才能解释「为什么没弹审批」，而不是笼统的「无人回应」。
+    /// </summary>
+    public const string WakeUnansweredResultText = Marker
+        + " This tool call never ran: it was an auto-woken turn with no open window to show its approval request.";
+
+    /// <summary>
     /// 框架给被拒调用写的结果正文开头：MEAI 拿到拒绝回应，下一轮开头就地转成
     /// 「Tool call invocation rejected. 原因」这条工具结果，随本轮落盘（ADR 0032 修订）
     /// </summary>
@@ -68,6 +76,32 @@ public static class ToolCallCancellation
         return text != null && (text.StartsWith(Marker, StringComparison.Ordinal)
                                 || text.StartsWith(FrameworkRejectionPrefix, StringComparison.Ordinal));
     }
+
+    /// <summary>
+    /// 这条结果是不是「审批始终没人回应」收口写的那一条（界面据此解释原因用）。
+    /// 判据取正文前缀——正文是落盘的唯一载体，<c>Exception</c> 存盘即丢。
+    /// </summary>
+    /// <param name="text">工具结果正文</param>
+    /// <returns>是收口结果为 true</returns>
+    public static bool IsApprovalUnanswered(string? text) =>
+        text?.StartsWith(ApprovalUnansweredResultText, StringComparison.Ordinal) == true;
+
+    /// <summary>
+    /// 这条结果是不是「唤醒轮无窗口、审批无处可弹」收口写的那一条（界面据此解释原因用）。
+    /// </summary>
+    /// <param name="text">工具结果正文</param>
+    /// <returns>是唤醒轮收口结果为 true</returns>
+    public static bool IsWakeUnanswered(string? text) =>
+        text?.StartsWith(WakeUnansweredResultText, StringComparison.Ordinal) == true;
+
+    /// <summary>
+    /// 这条结果是不是框架给被拒调用写的那一条（"Tool call invocation rejected. 原因"）。
+    /// 界面据此给通用拒绝解释；不细分原因——非用户拒绝的措辞细分只会误标。
+    /// </summary>
+    /// <param name="text">工具结果正文</param>
+    /// <returns>是被拒结果为 true</returns>
+    public static bool IsRejection(string? text) =>
+        text?.StartsWith(FrameworkRejectionPrefix, StringComparison.Ordinal) == true;
 
     /// <summary>
     /// 给会话末尾没等到结果的工具调用补上取消结果并落盘。

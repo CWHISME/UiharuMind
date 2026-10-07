@@ -371,6 +371,27 @@ public partial class ToolCallItem : ConversationItemBase
     /// <summary>结果的截断提示行文案</summary>
     public string ResultTruncationHint => ToolResultTruncation.FormatTruncationHint(_resultView);
 
+    /// <summary>
+    /// 失败原因的中文解释（派生自结果正文，不另存状态，重放、重启都在）。
+    /// 只解释「调用根本没跑」的三种：唤醒轮无窗口没弹审批、审批无人回应、被框架拒绝；
+    /// 英文原文照旧显示（证据），这一行说人话。拒绝不细分原因——非用户拒绝的措辞细分只会误标，
+    /// 原文已如实写明。成功的结果永远返回空串——正文恰好撞上标记文本的文件照常显示，不误报。
+    /// </summary>
+    public string ResultFailureHint
+    {
+        get
+        {
+            if (IsSuccess) return string.Empty;
+            if (ToolCallCancellation.IsWakeUnanswered(ResultText))
+                return Loc.Text(LangKey.ToolResultWakeUnansweredHint);
+            if (ToolCallCancellation.IsApprovalUnanswered(ResultText))
+                return Loc.Text(LangKey.ToolResultUnansweredHint);
+            if (ToolCallCancellation.IsRejection(ResultText))
+                return Loc.Text(LangKey.ToolResultRejectedHint);
+            return string.Empty;
+        }
+    }
+
     /// <summary>参数面板真正渲染的正文。参数原文此前<b>零截断</b>——一次 Write 带几百 KB 就直接进排版</summary>
     public string ArgumentsDisplayText => _argumentsView.DisplayText;
 
@@ -401,11 +422,13 @@ public partial class ToolCallItem : ConversationItemBase
         OnPropertyChanged(nameof(ResultDisplayText));
         OnPropertyChanged(nameof(IsResultTruncated));
         OnPropertyChanged(nameof(ResultTruncationHint));
+        OnPropertyChanged(nameof(ResultFailureHint));
         OnPropertyChanged(nameof(ResultHighlightSource));
     }
 
     partial void OnIsSuccessChanged(bool value)
     {
+        OnPropertyChanged(nameof(ResultFailureHint));
         OnPropertyChanged(nameof(ResultHighlightSource));
     }
 

@@ -186,4 +186,35 @@ public class ToolCallCancellationTests
         Assert.Equal(0, ToolCallCancellation.DropDuplicateResults(history));
         Assert.Equal(3, history.Count);
     }
+
+    //================= 结果正文的失败判据(界面解释原因用) =================
+
+    [Fact]
+    public void IsApprovalUnanswered_OnlyMatchesTheUnansweredClose()
+    {
+        Assert.True(ToolCallCancellation.IsApprovalUnanswered(ToolCallCancellation.ApprovalUnansweredResultText));
+        Assert.False(ToolCallCancellation.IsApprovalUnanswered(ToolCallCancellation.ResultText));
+        Assert.False(ToolCallCancellation.IsApprovalUnanswered("Tool call invocation rejected. User denied"));
+        Assert.False(ToolCallCancellation.IsApprovalUnanswered("Saved 'a.md' (3 lines)."));
+        Assert.False(ToolCallCancellation.IsApprovalUnanswered(null));
+    }
+
+    [Fact]
+    public void IsWakeUnanswered_OnlyMatchesWakeClose()
+    {
+        Assert.True(ToolCallCancellation.IsWakeUnanswered(ToolCallCancellation.WakeUnansweredResultText));
+        Assert.False(ToolCallCancellation.IsWakeUnanswered(ToolCallCancellation.ApprovalUnansweredResultText));
+        Assert.False(ToolCallCancellation.IsWakeUnanswered(ToolCallCancellation.ResultText));
+        Assert.False(ToolCallCancellation.IsWakeUnanswered(null));
+    }
+
+    [Fact]
+    public void IsRejection_OnlyMatchesFrameworkRejections()
+    {
+        Assert.True(ToolCallCancellation.IsRejection("Tool call invocation rejected. User denied"));
+        Assert.True(ToolCallCancellation.IsRejection("Tool call invocation rejected. Run stopped"));
+        Assert.False(ToolCallCancellation.IsRejection(ToolCallCancellation.ApprovalUnansweredResultText));
+        Assert.False(ToolCallCancellation.IsRejection(ToolCallCancellation.ResultText));
+        Assert.False(ToolCallCancellation.IsRejection(null));
+    }
 }

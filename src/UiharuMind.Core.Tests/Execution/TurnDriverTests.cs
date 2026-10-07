@@ -274,6 +274,26 @@ public class TurnDriverTests
     }
 
     [Fact]
+    public async Task Approval_WithoutResolver_UsesCustomUnansweredText()
+    {
+        // 唤醒轮无宿主时传专用正文,卡片据此解释「为什么没弹审批」而不是笼统的「无人回应」
+        ChatSession session = NewSession();
+        session.History.Add(Prompt());
+        session.History.Add(AssistantCall("c1"));
+
+        ToolApprovalRequestContent request = new("req-1", new FunctionCallContent("c1", "Shell", null));
+        StubRunner runner = new(Round(request), Round(new TextContent("不该跑到这里")));
+        TurnDriver driver = new(new FakeSink(), new TurnUsageLedger(),
+            unansweredResultText: ToolCallCancellation.WakeUnansweredResultText);
+
+        await driver.RunAsync(session, runner, Prompt(), resolver: null, externalCancellation: TestContext.Current.CancellationToken);
+
+        FunctionResultContent result = Assert.IsType<FunctionResultContent>(
+            Assert.Single(session.History[2].Contents));
+        Assert.Equal(ToolCallCancellation.WakeUnansweredResultText, result.Result);
+    }
+
+    [Fact]
     public async Task NoApproval_EndsAfterOneRound()
     {
         StubRunner runner = new(Round(new TextContent("说完了")), Round(new TextContent("不该跑到这里")));

@@ -215,6 +215,15 @@
     <data name="AgentApprovalResolvedDenied" xml:space="preserve">
         <value>已拒绝</value>
     </data>
+    <data name="ToolResultUnansweredHint" xml:space="preserve">
+        <value>审批始终无人回应，调用未执行；发句话让模型重做即可。</value>
+    </data>
+    <data name="ToolResultWakeUnansweredHint" xml:space="preserve">
+        <value>自动唤醒的一轮里没有打开的窗口，审批弹不出来，调用未执行；点进会话发句话可重做。</value>
+    </data>
+    <data name="ToolResultRejectedHint" xml:space="preserve">
+        <value>这次调用被拒绝，未执行。</value>
+    </data>
     <data name="AgentApproveOnce" xml:space="preserve">
         <value>本次允许</value>
     </data>

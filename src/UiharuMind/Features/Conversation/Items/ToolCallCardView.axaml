@@ -181,6 +181,10 @@
                             </MultiBinding>
                         </Border.IsVisible>
                         <StackPanel Spacing="4">
+                            <!-- 失败原因中文行:派生自结果正文(ToolCallItem.ResultFailureHint),只解释"调用没跑"
+                                 那几种审批收口;英文原文仍在下面(证据)。重放、重启都在 -->
+                            <TextBlock Classes="muted" Text="{Binding ResultFailureHint}" TextWrapping="Wrap"
+                                       IsVisible="{Binding ResultFailureHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                             <!-- 绑 ResultDisplayText 而不是 ResultText:上面那个 MaxHeight 只裁<b>视口</b>,
                                  不裁<b>文本布局</b>——整篇几十万字仍要每次布局重新断行重新量,而会话流没有
                                  虚拟化,于是流式回复的每一帧都在为一张早已跑完的卡片付这笔钱。

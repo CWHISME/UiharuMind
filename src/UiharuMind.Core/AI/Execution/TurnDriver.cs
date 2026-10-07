@@ -45,6 +45,7 @@ public sealed class TurnDriver : IDisposable
     private ITurnSink? _turnSink; //本轮的实际落点:自己的 sink 加上挂在这个会话上的观察者
     private readonly TurnUsageLedger _usage;
     private readonly Action<TurnNotice>? _notify;
+    private readonly string? _unansweredResultText; //审批未决收口的结果正文,null 用默认口径
 
     private CancellationTokenSource? _runCancellation;
     private ChatSession? _activeSession; //本轮的会话,退出收尾要靠它
@@ -96,11 +97,14 @@ public sealed class TurnDriver : IDisposable
     /// <param name="sink">渲染落点；无头执行传 null</param>
     /// <param name="usage">token 账本，跨轮累计。交接的水位判定读它，调用方也用它显示占用</param>
     /// <param name="notify">生命周期通知；不关心传 null</param>
-    public TurnDriver(ITurnSink? sink, TurnUsageLedger usage, Action<TurnNotice>? notify = null)
+    /// <param name="unansweredResultText">审批未决收口的结果正文；null 用默认「无人回应」口径</param>
+    public TurnDriver(ITurnSink? sink, TurnUsageLedger usage, Action<TurnNotice>? notify = null,
+        string? unansweredResultText = null)
     {
         _sink = sink;
         _usage = usage;
         _notify = notify;
+        _unansweredResultText = unansweredResultText;
         lock (_liveDrivers) _liveDrivers.Add(this);
     }
 
@@ -271,8 +275,7 @@ public sealed class TurnDriver : IDisposable
                 // (与 SubAgentTool 审批未决补写同一口径)
                 if (resolver == null)
                 {
-                    ToolCallCancellation.CloseUnansweredAtTail(session,
-                        ToolCallCancellation.ApprovalUnansweredResultText);
+                    CloseUnansweredApprovals(session);
                     break;
                 }
 
@@ -301,8 +304,7 @@ public sealed class TurnDriver : IDisposable
                 // 回应口一条都没给(无头审批被拒到上限就收口)时没有下一轮,那批调用只能在这里按未决收
                 if (nextMessages.Count == 0)
                 {
-                    ToolCallCancellation.CloseUnansweredAtTail(session,
-                        ToolCallCancellation.ApprovalUnansweredResultText);
+                    CloseUnansweredApprovals(session);
                 }
             }
 
@@ -583,6 +585,16 @@ public sealed class TurnDriver : IDisposable
         session.History.Add(session.CreateMessage(ChatRole.Assistant, text));
         session.SaveAppended(before);
         //落库后由调用方把界面条目与消息配对(Persisted 通知),气泡因此照常拿到编辑/重试/分叉
+    }
+
+    /// <summary>
+    /// 审批始终没人回应时按未决收口：补结果正文（无宿主的唤醒轮写专用正文，卡片据此解释原因）。
+    /// 两处收尾（无回应口、回应为空）共用同一段。
+    /// </summary>
+    private void CloseUnansweredApprovals(ChatSession session)
+    {
+        ToolCallCancellation.CloseUnansweredAtTail(session,
+            _unansweredResultText ?? ToolCallCancellation.ApprovalUnansweredResultText);
     }
 
     /// <summary>
