@@ -103,6 +103,54 @@ public static class GitHubReleaseAssetHelper
         }
     }
 
+    /// <summary>
+    /// 取最新正式版钉住的构建：正式版（如 v0.6.0）本身不带二进制包，
+    /// 包在它 nightly-tag.txt 指向的 b 构建里
+    /// </summary>
+    /// <param name="owner">仓库所有者</param>
+    /// <param name="repository">仓库名</param>
+    /// <param name="cancellationToken">取消</param>
+    /// <returns>钉住的构建；解析不到为 null</returns>
+    public static async Task<GitHubReleaseInfo?> GetStablePinnedReleaseAsync(
+        string owner,
+        string repository,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            GitHubReleaseInfo? stable = await GetLatestReleaseAsync(owner, repository, cancellationToken)
+                .ConfigureAwait(false);
+            if (stable == null) return null;
+            string? pinnedTag = ParseNightlyTag(await HttpClient.GetStringAsync(
+                    $"https://github.com/{owner}/{repository}/releases/download/{Uri.EscapeDataString(stable.TagName)}/nightly-tag.txt",
+                    cancellationToken).ConfigureAwait(false));
+            if (pinnedTag == null) return null;
+            return await GetReleaseByTagFromApiAsync(owner, repository, pinnedTag, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 解析 nightly-tag.txt 的内容：取第一行非空文本
+    /// </summary>
+    /// <param name="content">文件内容</param>
+    /// <returns>标签名；没有为 null</returns>
+    public static string? ParseNightlyTag(string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content)) return null;
+        foreach (string line in content.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            string tag = line.Trim();
+            if (!string.IsNullOrEmpty(tag)) return tag;
+        }
+
+        return null;
+    }
+
     public static GitHubReleaseAssetInfo? SelectPlatformAsset(
         IEnumerable<GitHubReleaseAssetInfo> assets,
         GitHubReleaseAssetSelectOptions? options = null)
@@ -151,6 +199,24 @@ public static class GitHubReleaseAssetHelper
         CancellationToken cancellationToken)
     {
         string url = $"https://api.github.com/repos/{owner}/{repository}/releases/latest";
+        using HttpResponseMessage response = await HttpClient.GetAsync(url, cancellationToken)
+            .ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+
+        await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var dto = await JsonSerializer.DeserializeAsync<GitHubReleaseDto>(
+            stream, JsonOptions, cancellationToken).ConfigureAwait(false);
+        return dto == null ? null : ToReleaseInfo(owner, repository, dto);
+    }
+
+    private static async Task<GitHubReleaseInfo?> GetReleaseByTagFromApiAsync(
+        string owner,
+        string repository,
+        string tag,
+        CancellationToken cancellationToken)
+    {
+        string url = $"https://api.github.com/repos/{owner}/{repository}/releases/tags/{Uri.EscapeDataString(tag)}";
         using HttpResponseMessage response = await HttpClient.GetAsync(url, cancellationToken)
             .ConfigureAwait(false);
         response.EnsureSuccessStatusCode();

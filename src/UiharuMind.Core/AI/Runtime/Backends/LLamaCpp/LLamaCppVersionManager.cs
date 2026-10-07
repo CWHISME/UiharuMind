@@ -23,8 +23,13 @@ public class LLamaCppVersionManager : ReleaseVersionManagerBase<VersionInfo>
     protected override string Owner => "ggml-org";
     protected override string Repository => "llama.cpp";
 
-    // llama.cpp 的 b 系列构建都标为预发布，正式版不带包
+    // llama.cpp 的 b 系列构建都标为预发布，正式版不带包：预览通道走最近可用，正式通道走正式版钉住的构建
     protected override bool IncludePrereleases => true;
+
+    /// <summary>
+    /// 正式版通道：跟随最新正式版钉住的构建（如 v0.6.0 → b11429），更新频率更低；默认关闭，保持预览版行为
+    /// </summary>
+    public bool PreferStableReleases { get; set; }
 
     /// <summary>
     /// 获取目录中本地引擎版本信息
@@ -61,6 +66,17 @@ public class LLamaCppVersionManager : ReleaseVersionManagerBase<VersionInfo>
     {
         await PullLatestVersionsAsync(path).ConfigureAwait(false);
         return SyncVersionManager();
+    }
+
+    protected override async Task<GitHubReleaseInfo?> ResolveRemoteReleaseAsync(
+        Func<GitHubReleaseInfo, bool> accept,
+        CancellationToken cancellationToken)
+    {
+        if (!PreferStableReleases)
+            return await base.ResolveRemoteReleaseAsync(accept, cancellationToken).ConfigureAwait(false);
+        GitHubReleaseInfo? pinned = await GitHubReleaseAssetHelper
+            .GetStablePinnedReleaseAsync(Owner, Repository, cancellationToken).ConfigureAwait(false);
+        return pinned != null && accept(pinned) ? pinned : null;
     }
 
     protected override void ConfigureLocalVersion(VersionInfo version, string versionDirectory)

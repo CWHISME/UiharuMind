@@ -115,6 +115,7 @@ internal sealed class LLamaCppRuntimeService
     {
         string path = Path.Combine(enginePath, "LLamaCpp");
         if (!Directory.Exists(path)) Directory.CreateDirectory(path);
+        _llamaCppVersionManager.PreferStableReleases = LLamaCppSettingConfig.Current.UseStableChannel;
         return await _llamaCppVersionManager.GetLatestVersion(path).ConfigureAwait(false);
     }
 }

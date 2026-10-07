@@ -4201,6 +4201,18 @@ Allow them?</value>
     <data name="LLamaCppUpdateQueued" xml:space="preserve">
         <value>Downloading {0}. It will be used once installed; progress is in the download area of Get models.</value>
     </data>
+    <data name="LLamaCppChannel" xml:space="preserve">
+        <value>Update channel</value>
+    </data>
+    <data name="LLamaCppChannelDesc" xml:space="preserve">
+        <value>Preview gets a new build almost daily. Stable only follows the build pinned by the latest stable release, so updates are less frequent. Takes effect on the next check for updates.</value>
+    </data>
+    <data name="LLamaCppChannelStable" xml:space="preserve">
+        <value>Stable</value>
+    </data>
+    <data name="LLamaCppChannelPreview" xml:space="preserve">
+        <value>Preview</value>
+    </data>
     <data name="SettingsEngineUpdateTip" xml:space="preserve">
         <value>A new llama.cpp version is available</value>
     </data>

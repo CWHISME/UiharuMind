@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Avalonia.Threading;
@@ -66,10 +67,18 @@ public partial class RuntimeEngineSettingData : ObservableObject
     /// <summary>下载源一节</summary>
     public DownloadSourceSettingsViewData DownloadSource { get; } = new();
 
+    /// <summary>引擎更新通道：预览版几乎天天有新构建，正式版只跟正式版钉住的构建</summary>
+    public IReadOnlyList<SettingChoice<bool>> EngineChannelOptions { get; } =
+    [
+        new(false, Loc.Text(LangKey.LLamaCppChannelPreview)),
+        new(true, Loc.Text(LangKey.LLamaCppChannelStable))
+    ];
+
     //上一次本地版本列表，用于更新时差分删除
     private List<VersionInfo> _lastAvailableVersions = new List<VersionInfo>();
 
     [ObservableProperty] private VersionInfo? _selectedVersion;
+    [ObservableProperty] private SettingChoice<bool> _selectedEngineChannel;
     [ObservableProperty] private bool _isCheckingForUpdate;
     [ObservableProperty] private string? _updatedResutInfo;
 
@@ -80,6 +89,7 @@ public partial class RuntimeEngineSettingData : ObservableObject
     public RuntimeEngineSettingData(IMessageService messageService)
     {
         _messageService = messageService;
+        _selectedEngineChannel = EngineChannelOptions.First(x => x.Value == LLamaCppSettingConfig.Current.UseStableChannel);
         RemoteDwnloadListViewModel = new DownloadListViewData(messageService)
         {
             DownloadCompletedHandler = OnRuntimeEngineDownloadCompleted,
@@ -198,6 +208,12 @@ public partial class RuntimeEngineSettingData : ObservableObject
         _lastAvailableVersions.AddRange(versions.VersionsList);
 
         SelectedVersion = LlmManager.Instance.CurrentRuntimeVersion;
+    }
+
+    partial void OnSelectedEngineChannelChanged(SettingChoice<bool> value)
+    {
+        LLamaCppSettingConfig.Current.UseStableChannel = value.Value;
+        LLamaCppSettingConfig.Current.Save();
     }
 
     partial void OnSelectedVersionChanged(VersionInfo? oldValue, VersionInfo? newValue)

@@ -44,13 +44,8 @@ public abstract class ReleaseVersionManagerBase<TVersion> where TVersion : Manag
     {
         await GetLocalVersionsAsync(rootDirectory, true, cancellationToken).ConfigureAwait(false);
 
-        GitHubReleaseInfo? release = IncludePrereleases
-            ? await GitHubReleaseAssetHelper
-                .FindLatestReleaseAsync(Owner, Repository, HasUsableAssets, cancellationToken)
-                .ConfigureAwait(false)
-            : await GitHubReleaseAssetHelper
-                .GetLatestReleaseAsync(Owner, Repository, cancellationToken)
-                .ConfigureAwait(false);
+        GitHubReleaseInfo? release = await ResolveRemoteReleaseAsync(HasUsableAssets, cancellationToken)
+            .ConfigureAwait(false);
         if (release == null) return Versions;
 
         LatestReleaseInfo = release;
@@ -80,6 +75,21 @@ public abstract class ReleaseVersionManagerBase<TVersion> where TVersion : Manag
     {
         return GitHubReleaseAssetHelper.SelectPlatformAssets(release.Assets, GetAssetSelectOptions())
             .Any(ShouldIncludeAsset);
+    }
+
+    /// <summary>
+    /// 决定去哪个发布拉包：默认预发布走最近可用、正式走 releases/latest
+    /// </summary>
+    /// <param name="accept">发布是否可用（通常是「有本平台的包」）</param>
+    /// <param name="cancellationToken">取消</param>
+    /// <returns>发布；找不到为 null</returns>
+    protected virtual Task<GitHubReleaseInfo?> ResolveRemoteReleaseAsync(
+        Func<GitHubReleaseInfo, bool> accept,
+        CancellationToken cancellationToken)
+    {
+        return IncludePrereleases
+            ? GitHubReleaseAssetHelper.FindLatestReleaseAsync(Owner, Repository, accept, cancellationToken)
+            : GitHubReleaseAssetHelper.GetLatestReleaseAsync(Owner, Repository, cancellationToken);
     }
 
     public async Task InstallArchiveAsync(

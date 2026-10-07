@@ -34,6 +34,11 @@ public class LLamaCppSettingConfig : TConfigBase<LLamaCppSettingConfig>
     public string? SelectedRuntimeVersion { get; set; }
 
     /// <summary>
+    /// 引擎更新通道：关为预览版（每天都有新构建），开为正式版（只跟正式版钉住的构建）
+    /// </summary>
+    public bool UseStableChannel { get; set; }
+
+    /// <summary>
     /// llama-server 专有的启动选项
     /// </summary>
     public LLamaCppServerOptions Server { get; set; } = new();

@@ -73,4 +73,10 @@ public class LLamaCppSettingsTests : IDisposable
     {
         Assert.Equal(expected, RuntimeEngineSettingData.LLamaCppReleaseUrl(name));
     }
+
+    [Fact]
+    public void EngineChannel_DefaultsToPreview()
+    {
+        Assert.False(new LLamaCppSettingConfig().UseStableChannel);
+    }
 }
