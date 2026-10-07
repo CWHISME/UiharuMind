@@ -192,8 +192,8 @@ public class CharacterData
     /// <summary>深度注入（角色卡 extensions.depth_prompt）：把一段提示插到历史倒数第 Depth 条的位置；空则无。</summary>
     public DepthPromptInfo? DepthPrompt { get; set; }
 
-    /// <summary>世界设定：关键词激活的设定条目集合（角色卡 character_book 导入后即此）。</summary>
-    public WorldSetting WorldSetting { get; set; } = new();
+    /// <summary>挂载的世界书（共享世界设定）名；空表示未挂载。角色间可共享同一本。</summary>
+    public string WorldSettingName { get; set; } = "";
 
     /// <summary>
     /// 手写人格锚点：<see cref="GetPersonaCoda"/> 的显式写法，为空则回退到名 + 描述自动拼。
@@ -355,7 +355,7 @@ public class CharacterData
         FirstGreeting = snapshot.FirstGreeting;
         AlternateGreetings = snapshot.AlternateGreetings;
         DepthPrompt = snapshot.DepthPrompt;
-        WorldSetting = snapshot.WorldSetting;
+        WorldSettingName = snapshot.WorldSettingName;
         _memory = null; //记忆库名可能变了，缓存作废
     }
 }

@@ -1,6 +1,9 @@
 using System;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Features.WorldBooks;
+using UiharuMind.Shared.WindowManagement;
 
 namespace UiharuMind.Features.Characters;
 
@@ -48,5 +51,29 @@ public partial class CharacterEditView : UserControl
             filter: character => character.IsAgent,
             excludedIds: data.SubAgentAndSelfIds);
         SubAgentPicker.DataContext = picker;
+    }
+
+    // ---- 世界书挂载（共享世界设定）：选择 / 编辑 / 解除，都在弹窗里做，不在角色卡里内联改共享书 ----
+
+    private void OnWorldBookChooseClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not CharacterDraft draft) return;
+
+        WorldBookWindows.ShowSelectWindow(UIManager.GetFocusWindow(),
+            name => draft.WorldSettingName = name, draft.WorldSettingName);
+    }
+
+    private void OnWorldBookEditClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not CharacterDraft draft || !draft.HasWorldSettingName) return;
+
+        WorldBookWindows.ShowEditorWindow(UIManager.GetFocusWindow(), draft.WorldSettingName);
+    }
+
+    private void OnWorldBookDetachClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not CharacterDraft draft) return;
+
+        draft.WorldSettingName = "";
     }
 }

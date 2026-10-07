@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -79,10 +81,25 @@ public partial class CharacterInfoViewData : ObservableObject
         OnPropertyChanged(nameof(KindName));
     }
 
-    [RelayCommand]
-    public void StartChat()
+    /// <summary>开场白选项：「开始对话」下拉里可选的每份开场白（默认开场白 + 备选）</summary>
+    public IReadOnlyList<string> GreetingOptions
     {
-        ChatSession session = SessionManager.Instance.StartNewSession(_characterData);
+        get
+        {
+            List<string> options = [];
+            if (!string.IsNullOrWhiteSpace(_characterData.FirstGreeting)) options.Add(_characterData.FirstGreeting);
+            options.AddRange(_characterData.AlternateGreetings.Where(g => !string.IsNullOrWhiteSpace(g)));
+            return options;
+        }
+    }
+
+    /// <summary>有备选开场白才显示下拉（只有默认一份就不必多一步点击）</summary>
+    public bool HasAlternateGreetings => _characterData.AlternateGreetings.Count > 0;
+
+    [RelayCommand]
+    public void StartChat(string? greeting = null)
+    {
+        ChatSession session = SessionManager.Instance.StartNewSession(_characterData, greeting);
         // 对话页已合并：agent 档与普通档同页，跳过去后直达对应类型并选中刚建的会话
         App.JumpToPage(MenuPages.MenuConversationKey);
         if (App.ViewModel is MainViewModel vm && vm.Content is ConversationPageData page)

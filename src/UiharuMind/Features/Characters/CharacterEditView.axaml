@@ -16,19 +16,12 @@
 
     <!-- 分页布局与模型页同构：不同关注点各占一页。提示词并入基础页（身份 + 人格内容是最常用的一面），
          智能体能力页只对 agent 形态显示；开场白对 agent 隐藏（ADR 0043 决策 2），世界设定对 agent 保留
-         （运行时会真注入，藏掉就是「看不见却每轮发」的反模式）。 -->
+         （运行时会真注入，藏掉就是「看不见却每轮发」的反模式）。分节卡片一律走共用件
+         SettingsSection/SettingsRow，与设置页、模型参数窗同一套。 -->
     <UserControl.Styles>
         <Style Selector="TextBox">
             <Setter Property="Padding" Value="10" />
             <Setter Property="TextWrapping" Value="Wrap" />
-        </Style>
-        <!-- 卡片视觉与模型页 model-card 对齐：SemiGrey0 底 + 1px SemiGrey2 描边 + 圆角 8 -->
-        <Style Selector="Border.edit-card">
-            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="8" />
-            <Setter Property="Padding" Value="14" />
         </Style>
         <!-- 世界设定条目内部的子卡：比外层深一档，表示「它是列表里的一项」 -->
         <Style Selector="Border.edit-card-inner">
@@ -37,10 +30,6 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="8" />
             <Setter Property="Padding" Value="10" />
-        </Style>
-        <Style Selector="TextBlock.card-title">
-            <Setter Property="FontSize" Value="15" />
-            <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
         </Style>
         <Style Selector="SelectableTextBlock">
             <Setter Property="Background" Value="Transparent" />
@@ -55,94 +44,114 @@
         <TabItem Header="{loc:Loc CharacterEditTabBasic}">
             <ScrollViewer BringIntoViewOnFocusChange="False">
                 <StackPanel Spacing="12" Margin="14">
-                    <Border Name="BasicInfoSection" Classes="edit-card">
-                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
-                            <Border Width="96" Height="132" CornerRadius="8" ClipToBounds="True"
-                                    BorderBrush="{DynamicResource SemiGrey2}"
-                                    BorderThickness="1">
-                                <Image Source="{Binding Icon}" Stretch="UniformToFill" RenderOptions.BitmapInterpolationMode="HighQuality" />
-                            </Border>
+                    <controls:SettingsSection Name="BasicInfoSection" Header="{loc:Loc EditorBasicInfo}">
+                        <controls:SettingsSection.Body>
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                                <Border Width="96" Height="132" CornerRadius="8" ClipToBounds="True"
+                                        VerticalAlignment="Top"
+                                        BorderBrush="{DynamicResource SemiGrey2}"
+                                        BorderThickness="1">
+                                    <Image Source="{Binding Icon}" Stretch="UniformToFill" RenderOptions.BitmapInterpolationMode="HighQuality" />
+                                </Border>
 
-                            <StackPanel Grid.Column="1" Spacing="8">
-                                <TextBlock Classes="card-title" Text="{loc:Loc EditorBasicInfo}" />
-                                <TextBox Text="{Binding Name}" PlaceholderText="{loc:Loc CharacterName}" />
-                                <TextBox Text="{Binding Works}"
-                                         PlaceholderText="{loc:Loc CharacterWorks}" />
-                                <TextBox Text="{Binding Description}"
-                                         PlaceholderText="{loc:Loc CharacterDesc}"
-                                         MinHeight="72"
-                                         AcceptsReturn="True" />
-                            </StackPanel>
-                        </Grid>
-                    </Border>
+                                <StackPanel Grid.Column="1" Spacing="10">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="{loc:Loc CharacterName}" />
+                                        <TextBox Text="{Binding Name}" PlaceholderText="{loc:Loc CharacterName}" />
+                                    </StackPanel>
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="{loc:Loc CharacterWorksLabel}" />
+                                        <TextBox Text="{Binding Works}"
+                                                 PlaceholderText="{loc:Loc CharacterWorks}" />
+                                    </StackPanel>
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="{loc:Loc CharacterDesc}" />
+                                        <TextBox Text="{Binding Description}"
+                                                 PlaceholderText="{loc:Loc CharacterDesc}"
+                                                 MinHeight="72"
+                                                 AcceptsReturn="True"
+                                                 VerticalContentAlignment="Top" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
+                        </controls:SettingsSection.Body>
+                    </controls:SettingsSection>
 
-                    <!-- 身份轴只有一根(ADR 0043):装不装 agent 那一套。它是「智能体能力」页的总开关 -->
-                    <Border Name="FunctionTypeSection" Classes="edit-card" IsEnabled="{Binding !IsBuiltIn}">
-                        <StackPanel Spacing="10">
-                            <TextBlock Classes="card-title" Text="{loc:Loc CharacterAgentCapabilityTitle}" />
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <ToggleSwitch IsChecked="{Binding IsAgent}" IsEnabled="{Binding !IsAgentLocked}" />
-                                <TextBlock VerticalAlignment="Center" Text="{loc:Loc CharacterEnableAgent}" />
-                                <controls:ThemedSvgIcon Width="16" Height="16" IconName="info"
-                                                        VerticalAlignment="Center">
-                                    <ToolTip.Tip>
-                                        <TextBlock Text="{loc:Loc CharacterKindDesc}" FontSize="14"
-                                                   MaxWidth="360" TextWrapping="Wrap" />
-                                    </ToolTip.Tip>
-                                </controls:ThemedSvgIcon>
+                    <!-- 身份轴只有一根(ADR 0043):装不装 agent 那一套。它是「智能体能力」页的总开关。
+                         内置角色不许改身份,整节直接收起,别留一张点不了的灰卡在那儿 -->
+                    <controls:SettingsSection Name="FunctionTypeSection"
+                                              Header="{loc:Loc CharacterAgentCapabilityTitle}"
+                                              IsVisible="{Binding !IsBuiltIn}"
+                                              IsEnabled="{Binding !IsBuiltIn}">
+                        <controls:SettingsSection.Body>
+                            <StackPanel Spacing="10">
+                                <controls:SettingsRow Header="{loc:Loc CharacterEnableAgent}"
+                                                      DividerVisible="False">
+                                    <controls:SettingsRow.Field>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <ToggleSwitch IsChecked="{Binding IsAgent}" IsEnabled="{Binding !IsAgentLocked}" />
+                                            <controls:ThemedSvgIcon Width="16" Height="16" IconName="info"
+                                                                    VerticalAlignment="Center">
+                                                <ToolTip.Tip>
+                                                    <TextBlock Text="{loc:Loc CharacterKindDesc}" FontSize="14"
+                                                               MaxWidth="360" TextWrapping="Wrap" />
+                                                </ToolTip.Tip>
+                                            </controls:ThemedSvgIcon>
+                                        </StackPanel>
+                                    </controls:SettingsRow.Field>
+                                </controls:SettingsRow>
+                                <!-- 锁住的原因留在行下:悬停提示用户未必会去看,而置灰的开关自己说不出为什么 -->
+                                <TextBlock Classes="muted" TextWrapping="Wrap" IsVisible="{Binding IsAgentLocked}"
+                                           Text="{Binding AgentLockedTip}" />
                             </StackPanel>
-                            <!-- 锁住的原因留在行上:悬停提示用户未必会去看,而置灰的开关自己说不出为什么 -->
-                            <TextBlock Classes="muted" TextWrapping="Wrap" IsVisible="{Binding IsAgentLocked}"
-                                       Text="{Binding AgentLockedTip}" />
-                        </StackPanel>
-                    </Border>
+                        </controls:SettingsSection.Body>
+                    </controls:SettingsSection>
 
-                    <Border Name="PromptSection" Classes="edit-card">
-                        <StackPanel Spacing="8">
-                            <TextBlock Classes="card-title"
-                                       IsVisible="{Binding IsChat}"
-                                       Text="{loc:Loc CharacterDesc}" />
-                            <TextBlock Classes="card-title"
-                                       IsVisible="{Binding !IsChat}"
-                                       Text="{loc:Loc SystemPrompt}" />
-                            <!-- 用户卡是单例、活引用:改了用户卡,所有开着这个开关的角色下一轮跟着变。
-                                 它决定提示词里拼不拼进用户卡,所以跟着提示词走;内置角色照旧不许改 -->
-                            <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsChat}"
-                                        IsEnabled="{Binding !IsBuiltIn}">
-                                <CheckBox IsChecked="{Binding InjectUserCard}"
-                                          Content="{loc:Loc CharacterInjectUserCard}" />
-                                <controls:ThemedSvgIcon Width="16" Height="16" IconName="info"
-                                                        VerticalAlignment="Center">
-                                    <ToolTip.Tip>
-                                        <TextBlock Text="{loc:Loc CharacterInjectUserCardDesc}" FontSize="14"
-                                                   MaxWidth="360" TextWrapping="Wrap" />
-                                    </ToolTip.Tip>
-                                </controls:ThemedSvgIcon>
+                    <!-- 提示词就是系统提示:两种形态下都是发给模型的那份,不再按形态换名
+                         (以前聊天态叫「角色描述」,和上面那个字段重名) -->
+                    <controls:SettingsSection Name="PromptSection" Header="{loc:Loc SystemPrompt}">
+                        <controls:SettingsSection.Body>
+                            <StackPanel Spacing="8">
+                                <!-- 用户卡是单例、活引用:改了用户卡,所有开着这个开关的角色下一轮跟着变。
+                                     它决定提示词里拼不拼进用户卡,所以跟着提示词走;内置角色照旧不许改 -->
+                                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsChat}"
+                                            IsEnabled="{Binding !IsBuiltIn}">
+                                    <CheckBox IsChecked="{Binding InjectUserCard}"
+                                              Content="{loc:Loc CharacterInjectUserCard}" />
+                                    <controls:ThemedSvgIcon Width="16" Height="16" IconName="info"
+                                                            VerticalAlignment="Center">
+                                        <ToolTip.Tip>
+                                            <TextBlock Text="{loc:Loc CharacterInjectUserCardDesc}" FontSize="14"
+                                                       MaxWidth="360" TextWrapping="Wrap" />
+                                        </ToolTip.Tip>
+                                    </controls:ThemedSvgIcon>
+                                </StackPanel>
+                                <TextBox Text="{Binding Template}"
+                                         MinHeight="180"
+                                         AcceptsReturn="True"
+                                         VerticalContentAlignment="Top" />
+                                <Expander IsExpanded="False">
+                                    <Expander.Header>
+                                        <TextBlock Classes="muted" Text="{loc:Loc CharacterRenderedPreview}" />
+                                    </Expander.Header>
+                                    <!-- 参数替换后的样子({{$char}}/{{$user}}/{{$lang}} 都已填好)。
+                                         这个能力原先藏在只读预览里,预览退役后它落在这儿 -->
+                                    <SelectableTextBlock Text="{Binding TemplateReadonly}" Margin="0,6,0,0" />
+                                </Expander>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Button Content="{loc:Loc SnippetInsert}">
+                                        <Button.Flyout>
+                                            <Flyout Placement="BottomEdgeAlignedLeft" Opening="OnSnippetPickerOpening">
+                                                <viewData:PromptSnippetPickerView Name="SnippetPicker" />
+                                            </Flyout>
+                                        </Button.Flyout>
+                                    </Button>
+                                    <TextBlock Classes="muted" Text="{loc:Loc SnippetInsertDesc}"
+                                               VerticalAlignment="Center" MaxWidth="380" TextWrapping="Wrap" />
+                                </StackPanel>
                             </StackPanel>
-                            <TextBox Text="{Binding Template}"
-                                     MinHeight="180"
-                                     AcceptsReturn="True" />
-                            <Expander IsExpanded="False">
-                                <Expander.Header>
-                                    <TextBlock Classes="muted" Text="{loc:Loc CharacterRenderedPreview}" />
-                                </Expander.Header>
-                                <!-- 参数替换后的样子({{$char}}/{{$user}}/{{$lang}} 都已填好)。
-                                     这个能力原先藏在只读预览里,预览退役后它落在这儿 -->
-                                <SelectableTextBlock Text="{Binding TemplateReadonly}" Margin="0,6,0,0" />
-                            </Expander>
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <Button Content="{loc:Loc SnippetInsert}">
-                                    <Button.Flyout>
-                                        <Flyout Placement="BottomEdgeAlignedLeft" Opening="OnSnippetPickerOpening">
-                                            <viewData:PromptSnippetPickerView Name="SnippetPicker" />
-                                        </Flyout>
-                                    </Button.Flyout>
-                                </Button>
-                                <TextBlock Classes="muted" Text="{loc:Loc SnippetInsertDesc}"
-                                           VerticalAlignment="Center" MaxWidth="380" TextWrapping="Wrap" />
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
+                        </controls:SettingsSection.Body>
+                    </controls:SettingsSection>
                 </StackPanel>
             </ScrollViewer>
         </TabItem>
@@ -151,10 +160,11 @@
         <TabItem Header="{loc:Loc CharacterEditTabAgent}" IsVisible="{Binding IsAgent}">
             <ScrollViewer BringIntoViewOnFocusChange="False">
                 <StackPanel Spacing="12" Margin="14">
-                    <Border Name="ToolsSection" Classes="edit-card" IsEnabled="{Binding !IsBuiltIn}">
-                        <StackPanel Spacing="10">
-                            <TextBlock Classes="card-title" Text="{loc:Loc CharacterToolsTitle}" />
-                            <TextBlock Classes="muted" Text="{loc:Loc CharacterToolsDesc}" TextWrapping="Wrap" />
+                    <controls:SettingsSection Name="ToolsSection"
+                                              Header="{loc:Loc CharacterToolsTitle}"
+                                              Description="{loc:Loc CharacterToolsDesc}"
+                                              IsEnabled="{Binding !IsBuiltIn}">
+                        <controls:SettingsSection.Body>
                             <ItemsControl ItemsSource="{Binding AgentTools.Toggles}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="viewData:AgentToolToggle">
@@ -181,227 +191,213 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                        </StackPanel>
-                    </Border>
+                        </controls:SettingsSection.Body>
+                    </controls:SettingsSection>
 
-                    <Border Name="SkillsSection" Classes="edit-card" IsEnabled="{Binding !IsBuiltIn}">
-                        <StackPanel Spacing="10">
-                            <TextBlock Classes="card-title" Text="{loc:Loc CharacterSkillsTitle}" />
-                            <TextBlock Classes="muted" Text="{loc:Loc CharacterSkillsDesc}" TextWrapping="Wrap" />
-                            <TextBlock Classes="muted" Text="{loc:Loc CharacterSkillsEmpty}"
-                                       IsVisible="{Binding AgentTools.HasNoSkills}" />
-                            <ItemsControl ItemsSource="{Binding AgentTools.Skills}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="viewData:AgentSkillToggle">
-                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,2">
-                                            <CheckBox IsChecked="{Binding IsEnabled}" IsEnabled="{Binding IsLoaded}" />
-                                            <StackPanel Grid.Column="1" Spacing="1">
-                                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                                    <TextBlock Text="{Binding Name}" />
-                                                    <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
-                                                               Text="{Binding TokenText}"
-                                                               ToolTip.Tip="{loc:Loc CharacterSkillTokenTip}" />
-                                                    <TextBlock FontSize="11" VerticalAlignment="Center"
-                                                               Foreground="{DynamicResource SemiBlue5}"
-                                                               IsVisible="{Binding IsUserInvokedOnly}"
-                                                               Text="{loc:Loc AgentSkillsUserInvoked}"
-                                                               ToolTip.Tip="{loc:Loc AgentSkillsUserInvokedTip}" />
-                                                    <TextBlock FontSize="11" VerticalAlignment="Center"
-                                                               Foreground="IndianRed"
-                                                               IsVisible="{Binding !IsLoaded}"
-                                                               Text="{loc:Loc AgentSkillsNotLoaded}" />
+                    <controls:SettingsSection Name="SkillsSection"
+                                              Header="{loc:Loc CharacterSkillsTitle}"
+                                              Description="{loc:Loc CharacterSkillsDesc}"
+                                              IsEnabled="{Binding !IsBuiltIn}">
+                        <controls:SettingsSection.Body>
+                            <StackPanel Spacing="10">
+                                <TextBlock Classes="muted" Text="{loc:Loc CharacterSkillsEmpty}"
+                                           IsVisible="{Binding AgentTools.HasNoSkills}" />
+                                <ItemsControl ItemsSource="{Binding AgentTools.Skills}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="viewData:AgentSkillToggle">
+                                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,2">
+                                                <CheckBox IsChecked="{Binding IsEnabled}" IsEnabled="{Binding IsLoaded}" />
+                                                <StackPanel Grid.Column="1" Spacing="1">
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                        <TextBlock Text="{Binding Name}" />
+                                                        <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
+                                                                   Text="{Binding TokenText}"
+                                                                   ToolTip.Tip="{loc:Loc CharacterSkillTokenTip}" />
+                                                        <TextBlock FontSize="11" VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource SemiBlue5}"
+                                                                   IsVisible="{Binding IsUserInvokedOnly}"
+                                                                   Text="{loc:Loc AgentSkillsUserInvoked}"
+                                                                   ToolTip.Tip="{loc:Loc AgentSkillsUserInvokedTip}" />
+                                                        <TextBlock FontSize="11" VerticalAlignment="Center"
+                                                                   Foreground="IndianRed"
+                                                                   IsVisible="{Binding !IsLoaded}"
+                                                                   Text="{loc:Loc AgentSkillsNotLoaded}" />
+                                                    </StackPanel>
+                                                    <TextBlock Classes="muted" Text="{Binding Description}"
+                                                               TextWrapping="Wrap" MaxLines="2" />
                                                 </StackPanel>
-                                                <TextBlock Classes="muted" Text="{Binding Description}"
-                                                           TextWrapping="Wrap" MaxLines="2" />
-                                            </StackPanel>
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-                    </Border>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </controls:SettingsSection.Body>
+                    </controls:SettingsSection>
 
-                    <Border Name="McpSection" Classes="edit-card" IsEnabled="{Binding !IsBuiltIn}">
-                        <StackPanel Spacing="10">
-                            <TextBlock Classes="card-title" Text="{loc:Loc CharacterMcpTitle}" />
-                            <TextBlock Classes="muted" Text="{loc:Loc CharacterMcpDesc}" TextWrapping="Wrap" />
-                            <TextBlock Classes="muted" Text="{loc:Loc CharacterMcpEmpty}"
-                                       IsVisible="{Binding AgentTools.HasNoMcpServers}" />
-                            <ItemsControl ItemsSource="{Binding AgentTools.McpServers}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="viewData:AgentMcpServerToggle">
-                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,2">
-                                            <CheckBox IsChecked="{Binding IsEnabled}" />
-                                            <StackPanel Grid.Column="1" Spacing="1">
-                                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                                    <TextBlock Text="{Binding Name}" />
-                                                    <TextBlock FontSize="11" VerticalAlignment="Center"
-                                                               Foreground="{DynamicResource SemiGrey5}"
-                                                               IsVisible="{Binding !IsOnDemand}"
-                                                               Text="{Binding ToolCount, StringFormat='{}{0} tools'}" />
-                                                    <TextBlock FontSize="11" VerticalAlignment="Center"
-                                                               Foreground="{DynamicResource SemiBlue5}"
-                                                               IsVisible="{Binding IsOnDemand}"
-                                                               Text="{loc:Loc AgentCapabilityMcpOnDemand}"
-                                                               ToolTip.Tip="{loc:Loc AgentMcpMountModeTip}" />
-                                                    <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
-                                                               Text="{Binding TokenText}"
-                                                               ToolTip.Tip="{loc:Loc CharacterCapabilityTokenTip}" />
-                                                    <TextBlock FontSize="11" VerticalAlignment="Center"
-                                                               Foreground="IndianRed"
-                                                               IsVisible="{Binding !IsHosted}"
-                                                               Text="{loc:Loc CharacterMcpNotHosted}"
-                                                               ToolTip.Tip="{loc:Loc CharacterMcpNotHostedTip}" />
+                    <controls:SettingsSection Name="McpSection"
+                                              Header="{loc:Loc CharacterMcpTitle}"
+                                              Description="{loc:Loc CharacterMcpDesc}"
+                                              IsEnabled="{Binding !IsBuiltIn}">
+                        <controls:SettingsSection.Body>
+                            <StackPanel Spacing="10">
+                                <TextBlock Classes="muted" Text="{loc:Loc CharacterMcpEmpty}"
+                                           IsVisible="{Binding AgentTools.HasNoMcpServers}" />
+                                <ItemsControl ItemsSource="{Binding AgentTools.McpServers}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="viewData:AgentMcpServerToggle">
+                                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,2">
+                                                <CheckBox IsChecked="{Binding IsEnabled}" />
+                                                <StackPanel Grid.Column="1" Spacing="1">
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                        <TextBlock Text="{Binding Name}" />
+                                                        <TextBlock FontSize="11" VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource SemiGrey5}"
+                                                                   IsVisible="{Binding !IsOnDemand}"
+                                                                   Text="{Binding ToolCount, StringFormat='{}{0} tools'}" />
+                                                        <TextBlock FontSize="11" VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource SemiBlue5}"
+                                                                   IsVisible="{Binding IsOnDemand}"
+                                                                   Text="{loc:Loc AgentCapabilityMcpOnDemand}"
+                                                                   ToolTip.Tip="{loc:Loc AgentMcpMountModeTip}" />
+                                                        <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
+                                                                   Text="{Binding TokenText}"
+                                                                   ToolTip.Tip="{loc:Loc CharacterCapabilityTokenTip}" />
+                                                        <TextBlock FontSize="11" VerticalAlignment="Center"
+                                                                   Foreground="IndianRed"
+                                                                   IsVisible="{Binding !IsHosted}"
+                                                                   Text="{loc:Loc CharacterMcpNotHosted}"
+                                                                   ToolTip.Tip="{loc:Loc CharacterMcpNotHostedTip}" />
+                                                    </StackPanel>
+                                                    <TextBlock Classes="muted" Text="{Binding Description}"
+                                                               TextWrapping="Wrap" MaxLines="2" />
                                                 </StackPanel>
-                                                <TextBlock Classes="muted" Text="{Binding Description}"
-                                                           TextWrapping="Wrap" MaxLines="2" />
-                                            </StackPanel>
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-                    </Border>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </controls:SettingsSection.Body>
+                    </controls:SettingsSection>
 
-                    <Border Name="SubAgentsSection" Classes="edit-card">
-                        <StackPanel Spacing="10">
-                            <TextBlock Classes="card-title" Text="{loc:Loc CharacterSubAgentsTitle}" />
-                            <TextBlock Classes="muted" Text="{loc:Loc CharacterSubAgentsDesc}" TextWrapping="Wrap" />
-                            <ItemsControl ItemsSource="{Binding SubAgents}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="viewData:MountedAgentItem">
-                                        <Border Background="{DynamicResource SemiBlue0}"
-                                                BorderBrush="{DynamicResource SemiBlue3}"
-                                                BorderThickness="1"
-                                                CornerRadius="10"
-                                                Padding="10,3,6,3" Margin="0,0,6,6">
-                                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center"
-                                                           Foreground="{DynamicResource SemiBlue7}" />
-                                                <ThemedIconButton Classes="message-action" IconName="trash-2"
-                                                                  VerticalAlignment="Center"
-                                                                  ToolTips="{loc:Loc CharacterSubAgentsRemove}"
-                                                                  Command="{Binding $parent[ItemsControl].((viewData:CharacterDraft)DataContext).RemoveSubAgentCommand}"
-                                                                  CommandParameter="{Binding}" />
-                                            </StackPanel>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <!-- 内联单选,选一个加一个;已挂的与自己(防递归)不在候选里 -->
-                            <Button Content="{loc:Loc AddBtn}" HorizontalAlignment="Left">
-                                <Button.Flyout>
-                                    <Flyout Placement="BottomEdgeAlignedLeft" Opening="OnSubAgentPickerOpening">
-                                        <viewData:CharacterPickerView Name="SubAgentPicker" />
-                                    </Flyout>
-                                </Button.Flyout>
-                            </Button>
-                        </StackPanel>
-                    </Border>
+                    <controls:SettingsSection Name="SubAgentsSection"
+                                              Header="{loc:Loc CharacterSubAgentsTitle}"
+                                              Description="{loc:Loc CharacterSubAgentsDesc}">
+                        <controls:SettingsSection.Body>
+                            <StackPanel Spacing="10">
+                                <ItemsControl ItemsSource="{Binding SubAgents}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="viewData:MountedAgentItem">
+                                            <Border Background="{DynamicResource SemiBlue0}"
+                                                    BorderBrush="{DynamicResource SemiBlue3}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="10"
+                                                    Padding="10,3,6,3" Margin="0,0,6,6">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource SemiBlue7}" />
+                                                    <ThemedIconButton Classes="message-action" IconName="trash-2"
+                                                                      VerticalAlignment="Center"
+                                                                      ToolTips="{loc:Loc CharacterSubAgentsRemove}"
+                                                                      Command="{Binding $parent[ItemsControl].((viewData:CharacterDraft)DataContext).RemoveSubAgentCommand}"
+                                                                      CommandParameter="{Binding}" />
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <!-- 内联单选,选一个加一个;已挂的与自己(防递归)不在候选里 -->
+                                <Button Content="{loc:Loc AddBtn}" HorizontalAlignment="Left">
+                                    <Button.Flyout>
+                                        <Flyout Placement="BottomEdgeAlignedLeft" Opening="OnSubAgentPickerOpening">
+                                            <viewData:CharacterPickerView Name="SubAgentPicker" />
+                                        </Flyout>
+                                    </Button.Flyout>
+                                </Button>
+                            </StackPanel>
+                        </controls:SettingsSection.Body>
+                    </controls:SettingsSection>
                 </StackPanel>
             </ScrollViewer>
         </TabItem>
 
-        <!-- 开场白对 agent 隐藏（agent 不发开场白）；世界设定对 agent 保留（运行时会真注入） -->
-        <TabItem Header="{loc:Loc CharacterEditTabStory}">
+        <!-- 开场白只对普通角色（agent 不发开场白，ADR 0043 决策 2） -->
+        <TabItem Header="{loc:Loc CharacterEditTabStory}" IsVisible="{Binding IsChat}">
             <ScrollViewer BringIntoViewOnFocusChange="False">
                 <StackPanel Spacing="12" Margin="14">
-                    <Border Name="GreetingSection" Classes="edit-card" IsVisible="{Binding IsChat}">
-                        <StackPanel Spacing="8">
-                            <TextBlock Classes="card-title" Text="{loc:Loc CharacterFirstGreeting}" />
-                            <TextBox Text="{Binding FirstGreeting}"
-                                     MinHeight="120"
-                                     AcceptsReturn="True" />
-                            <Expander IsExpanded="False">
-                                <Expander.Header>
-                                    <TextBlock Classes="muted" Text="{loc:Loc CharacterRenderedPreview}" />
-                                </Expander.Header>
-                                <SelectableTextBlock Text="{Binding FirstGreetingReadonly}" Margin="0,6,0,0" />
-                            </Expander>
+                    <controls:SettingsSection Name="GreetingSection"
+                                              Header="{loc:Loc CharacterFirstGreeting}"
+                                              Description="{loc:Loc CharacterFirstGreetingDesc}"
+                                              IsVisible="{Binding IsChat}">
+                        <controls:SettingsSection.Body>
+                            <StackPanel Spacing="8">
+                                <TextBox Text="{Binding FirstGreeting}"
+                                         MinHeight="120"
+                                         AcceptsReturn="True"
+                                         VerticalContentAlignment="Top" />
+                                <Expander IsExpanded="False">
+                                    <Expander.Header>
+                                        <TextBlock Classes="muted" Text="{loc:Loc CharacterRenderedPreview}" />
+                                    </Expander.Header>
+                                    <SelectableTextBlock Text="{Binding FirstGreetingReadonly}" Margin="0,6,0,0" />
+                                </Expander>
 
-                            <!-- 备选开场白（alternate_greetings）：第一份就是上面那个默认开场白，这里是其余份 -->
-                            <TextBlock Classes="card-title" Margin="0,10,0,0" Text="{loc:Loc CharacterAlternateGreetingsTitle}" />
-                            <TextBlock Classes="muted" Text="{loc:Loc CharacterAlternateGreetingsDesc}" TextWrapping="Wrap" />
-                            <ItemsControl ItemsSource="{Binding AlternateGreetings}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="viewData:EditableTextItem">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,2">
-                                            <TextBox Text="{Binding Text}" MinHeight="64" AcceptsReturn="True" />
-                                            <Button Grid.Column="1" Content="{loc:Loc Delete}" VerticalAlignment="Top"
-                                                    Command="{Binding $parent[ItemsControl].((viewData:CharacterDraft)DataContext).RemoveAlternateGreetingCommand}"
-                                                    CommandParameter="{Binding}" />
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <Button Content="{loc:Loc CharacterAlternateGreetingsAdd}" HorizontalAlignment="Left"
-                                    Command="{Binding AddAlternateGreetingCommand}" />
-                        </StackPanel>
-                    </Border>
-
-                    <!-- 世界设定（character_book）：关键词激活的设定条目，最近几轮消息命中即注入 -->
-                    <Border Name="WorldSettingSection" Classes="edit-card">
-                        <StackPanel Spacing="8">
-                            <TextBlock Classes="card-title" Text="{loc:Loc CharacterWorldSettingTitle}" />
-                            <TextBlock Classes="muted" Text="{loc:Loc CharacterWorldSettingDesc}" TextWrapping="Wrap" />
-                            <TextBlock Classes="muted" Text="{loc:Loc CharacterWorldSettingEmpty}"
-                                       IsVisible="{Binding !HasWorldSettingEntries}" TextWrapping="Wrap" />
-                            <ItemsControl ItemsSource="{Binding WorldSettingEntries}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="viewData:WorldSettingEntryItem">
-                                        <Border Classes="edit-card-inner" Margin="0,4">
-                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                                                <StackPanel Grid.Column="0" Spacing="6">
-                                                    <TextBox Text="{Binding KeysText}"
-                                                             PlaceholderText="{loc:Loc CharacterWorldSettingKeysPlaceholder}" />
-                                                    <TextBox Text="{Binding Content}" MinHeight="64" AcceptsReturn="True"
-                                                             PlaceholderText="{loc:Loc CharacterWorldSettingContentPlaceholder}" />
-                                                    <StackPanel Orientation="Horizontal" Spacing="18">
-                                                        <StackPanel Orientation="Horizontal" Spacing="4">
-                                                            <TextBlock Classes="muted" Text="{loc:Loc CharacterWorldSettingConstant}"
-                                                                       VerticalAlignment="Center" />
-                                                            <ToggleSwitch IsChecked="{Binding Constant}" MinWidth="0" />
-                                                        </StackPanel>
-                                                        <StackPanel Orientation="Horizontal" Spacing="4">
-                                                            <TextBlock Classes="muted" Text="{loc:Loc CharacterWorldSettingPosition}"
-                                                                       VerticalAlignment="Center" />
-                                                            <ComboBox SelectedIndex="{Binding PositionIndex}" MinWidth="92">
-                                                                <ComboBoxItem Content="{loc:Loc CharacterWorldSettingPositionBefore}" />
-                                                                <ComboBoxItem Content="{loc:Loc CharacterWorldSettingPositionAfter}" />
-                                                            </ComboBox>
-                                                        </StackPanel>
-                                                        <StackPanel Orientation="Horizontal" Spacing="4">
-                                                            <TextBlock Classes="muted" Text="{loc:Loc CharacterWorldSettingOrder}"
-                                                                       VerticalAlignment="Center" />
-                                                            <NumericUpDown Value="{Binding Order}" Minimum="0" Maximum="1999"
-                                                                           FormatString="0" MinWidth="72" />
-                                                        </StackPanel>
-                                                    </StackPanel>
-                                                </StackPanel>
+                                <!-- 备选开场白（alternate_greetings）：第一份就是上面那个默认开场白，这里是其余份 -->
+                                <TextBlock FontSize="14" Margin="0,10,0,0" Text="{loc:Loc CharacterAlternateGreetingsTitle}" />
+                                <TextBlock Classes="muted" Text="{loc:Loc CharacterAlternateGreetingsDesc}" TextWrapping="Wrap" />
+                                <ItemsControl ItemsSource="{Binding AlternateGreetings}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="viewData:EditableTextItem">
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,2">
+                                                <TextBox Text="{Binding Text}" MinHeight="64" AcceptsReturn="True"
+                                                         VerticalContentAlignment="Top" />
                                                 <Button Grid.Column="1" Content="{loc:Loc Delete}" VerticalAlignment="Top"
-                                                        Command="{Binding $parent[ItemsControl].((viewData:CharacterDraft)DataContext).RemoveWorldSettingEntryCommand}"
+                                                        Command="{Binding $parent[ItemsControl].((viewData:CharacterDraft)DataContext).RemoveAlternateGreetingCommand}"
                                                         CommandParameter="{Binding}" />
                                             </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="14">
-                                <Button Content="{loc:Loc CharacterWorldSettingAddEntry}" HorizontalAlignment="Left"
-                                        Command="{Binding AddWorldSettingEntryCommand}" />
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                    <TextBlock Classes="muted" Text="{loc:Loc CharacterWorldSettingTokenBudget}" VerticalAlignment="Center" />
-                                    <NumericUpDown Value="{Binding WorldSettingTokenBudget}" Minimum="100" Maximum="8000"
-                                                   Increment="100" FormatString="0" MinWidth="96" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <Button Content="{loc:Loc CharacterAlternateGreetingsAdd}" HorizontalAlignment="Left"
+                                        Command="{Binding AddAlternateGreetingCommand}" />
+                            </StackPanel>
+                        </controls:SettingsSection.Body>
+                    </controls:SettingsSection>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+
+        <!-- 世界设定对普通角色与智能体都生效（运行时会真注入，藏掉就是「看不见却每轮发」的反模式） -->
+        <TabItem Header="{loc:Loc CharacterEditTabWorldSetting}">
+            <ScrollViewer BringIntoViewOnFocusChange="False">
+                <StackPanel Spacing="12" Margin="14">
+                    <!-- 世界设定（character_book）：关键词激活的设定条目，最近几轮消息命中即注入 -->
+                    <controls:SettingsSection Name="WorldSettingSection"
+                                              Header="{loc:Loc CharacterWorldSettingTitle}"
+                                              Description="{loc:Loc CharacterWorldSettingSharedDesc}">
+                                                <controls:SettingsSection.Body>
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="muted" Text="{loc:Loc CharacterWorldSettingNotAttached}"
+                                           IsVisible="{Binding !HasWorldSettingName}" TextWrapping="Wrap" />
+                                <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding HasWorldSettingName}">
+                                    <controls:ThemedSvgIcon Width="14" Height="14" IconName="book" Opacity="0.7"
+                                                            VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding WorldSettingSummary}" VerticalAlignment="Center" />
                                 </StackPanel>
-                            </Grid>
-                        </StackPanel>
-                    </Border>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Button Content="{loc:Loc WorldBookChoose}" Click="OnWorldBookChooseClick" />
+                                    <Button Content="{loc:Loc WorldBookEdit}" IsVisible="{Binding HasWorldSettingName}"
+                                            Click="OnWorldBookEditClick" />
+                                    <Button Content="{loc:Loc WorldBookDetach}" IsVisible="{Binding HasWorldSettingName}"
+                                            Click="OnWorldBookDetachClick" />
+                                </StackPanel>
+                            </StackPanel>
+                        </controls:SettingsSection.Body>
+                    </controls:SettingsSection>
                 </StackPanel>
             </ScrollViewer>
         </TabItem>
@@ -411,54 +407,57 @@
                 <StackPanel Spacing="12" Margin="14">
                     <!-- 深度注入（extensions.depth_prompt）：把一段提示插到供给模型的历史倒数第 N 条的位置，
                          0 = 紧贴最后一条。只改模型看到的那份，不写进会话历史 -->
-                    <Border Name="DepthPromptSection" Classes="edit-card">
-                        <StackPanel Spacing="8">
-                            <TextBlock Classes="card-title" Text="{loc:Loc CharacterDepthPromptTitle}" />
-                            <TextBlock Classes="muted" Text="{loc:Loc CharacterDepthPromptDesc}" TextWrapping="Wrap" />
-                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
-                                <TextBox Text="{Binding DepthPromptText}" MinHeight="72" AcceptsReturn="True"
-                                         PlaceholderText="{loc:Loc CharacterDepthPromptPlaceholder}" />
-                                <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Top">
-                                    <TextBlock Classes="muted" Text="{loc:Loc CharacterDepthPromptDepth}" />
-                                    <NumericUpDown Value="{Binding DepthPromptDepth}" Minimum="0" Maximum="2000"
-                                                   FormatString="0" MinWidth="76" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="2" Spacing="4" VerticalAlignment="Top">
-                                    <TextBlock Classes="muted" Text="{loc:Loc CharacterDepthPromptRole}" />
-                                    <ComboBox ItemsSource="{Binding DepthPromptRoleOptions}"
-                                              SelectedIndex="{Binding DepthPromptRoleIndex}"
-                                              MinWidth="110">
-                                        <ComboBox.ItemTemplate>
-                                            <DataTemplate x:DataType="viewData:DepthPromptRoleOption">
-                                                <TextBlock Text="{Binding Label}" />
-                                            </DataTemplate>
-                                        </ComboBox.ItemTemplate>
-                                    </ComboBox>
-                                </StackPanel>
-                            </Grid>
-                            <Button Content="{loc:Loc CharacterDepthPromptClear}" HorizontalAlignment="Left"
-                                    IsVisible="{Binding HasDepthPrompt}"
-                                    Command="{Binding ClearDepthPromptCommand}" />
-                        </StackPanel>
-                    </Border>
+                    <controls:SettingsSection Name="DepthPromptSection"
+                                              Header="{loc:Loc CharacterDepthPromptTitle}"
+                                              Description="{loc:Loc CharacterDepthPromptDesc}">
+                        <controls:SettingsSection.Body>
+                            <StackPanel Spacing="8">
+                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                                    <TextBox Text="{Binding DepthPromptText}" MinHeight="72" AcceptsReturn="True"
+                                             VerticalContentAlignment="Top"
+                                             PlaceholderText="{loc:Loc CharacterDepthPromptPlaceholder}" />
+                                    <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Top">
+                                        <TextBlock Classes="muted" Text="{loc:Loc CharacterDepthPromptDepth}" />
+                                        <NumericUpDown Value="{Binding DepthPromptDepth}" Minimum="0" Maximum="2000"
+                                                       FormatString="0" MinWidth="76" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Spacing="4" VerticalAlignment="Top">
+                                        <TextBlock Classes="muted" Text="{loc:Loc CharacterDepthPromptRole}" />
+                                        <ComboBox ItemsSource="{Binding DepthPromptRoleOptions}"
+                                                  SelectedIndex="{Binding DepthPromptRoleIndex}"
+                                                  MinWidth="110">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate x:DataType="viewData:DepthPromptRoleOption">
+                                                    <TextBlock Text="{Binding Label}" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </Grid>
+                                <Button Content="{loc:Loc CharacterDepthPromptClear}" HorizontalAlignment="Left"
+                                        IsVisible="{Binding HasDepthPrompt}"
+                                        Command="{Binding ClearDepthPromptCommand}" />
+                            </StackPanel>
+                        </controls:SettingsSection.Body>
+                    </controls:SettingsSection>
 
-                    <Border Name="ParametersSection" Classes="edit-card">
-                        <StackPanel Spacing="8">
-                            <TextBlock Classes="card-title" Text="{loc:Loc ParameterSettings}" />
-                            <Grid ColumnDefinitions="*,Auto">
-                                <StackPanel Spacing="2" VerticalAlignment="Center">
-                                    <TextBlock Text="{loc:Loc RemoteModelOmitSamplingParamsLabel}" />
-                                    <TextBlock Text="{loc:Loc RemoteModelOmitSamplingParamsHint}" Classes="muted"
-                                               TextWrapping="Wrap" />
-                                </StackPanel>
-                                <ToggleSwitch Grid.Column="1" VerticalAlignment="Center"
-                                              IsChecked="{Binding ChatPromptExecutionSettings.OmitSamplingParams}" />
-                            </Grid>
-                            <settingViews:SettingPanelView SettingConfig="{Binding ChatPromptExecutionSettings}"
-                                                           IsTitleVisible="False"
-                                                           IsEnabled="{Binding !ChatPromptExecutionSettings.OmitSamplingParams}" />
-                        </StackPanel>
-                    </Border>
+                    <controls:SettingsSection Name="ParametersSection"
+                                              Header="{loc:Loc ParameterSettings}">
+                        <controls:SettingsSection.Body>
+                            <StackPanel Spacing="8">
+                                <controls:SettingsRow Header="{loc:Loc RemoteModelOmitSamplingParamsLabel}"
+                                                      Description="{loc:Loc RemoteModelOmitSamplingParamsHint}"
+                                                      DividerVisible="False">
+                                    <controls:SettingsRow.Field>
+                                        <ToggleSwitch IsChecked="{Binding ChatPromptExecutionSettings.OmitSamplingParams}" />
+                                    </controls:SettingsRow.Field>
+                                </controls:SettingsRow>
+                                <settingViews:SettingPanelView SettingConfig="{Binding ChatPromptExecutionSettings}"
+                                                               IsTitleVisible="False"
+                                                               IsEnabled="{Binding !ChatPromptExecutionSettings.OmitSamplingParams}" />
+                            </StackPanel>
+                        </controls:SettingsSection.Body>
+                    </controls:SettingsSection>
                 </StackPanel>
             </ScrollViewer>
         </TabItem>

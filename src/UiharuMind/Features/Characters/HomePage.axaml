@@ -79,13 +79,35 @@
 
                             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
                                 <!-- 新角色还没入库,「开始对话」与复制/删除都无从谈起 -->
-                                <Button IsVisible="{Binding !IsEditingNew}"
-                                        Command="{Binding CharacterListViewData.SelectedCharacter.StartChatCommand}">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <controls:ThemedSvgIcon Width="15" Height="15" IconName="message-circle-more" />
-                                        <TextBlock Text="{loc:Loc StartChat}" />
-                                    </StackPanel>
-                                </Button>
+                                <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding !IsEditingNew}">
+                                    <Button Command="{Binding CharacterListViewData.SelectedCharacter.StartChatCommand}">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <controls:ThemedSvgIcon Width="15" Height="15" IconName="message-circle-more" />
+                                            <TextBlock Text="{loc:Loc StartChat}" />
+                                        </StackPanel>
+                                    </Button>
+                                    <!-- 有备选开场白才给下拉：从角色起点开聊可选用哪一份开场白 -->
+                                    <Button IsVisible="{Binding CharacterListViewData.SelectedCharacter.HasAlternateGreetings}"
+                                            ToolTip.Tip="{loc:Loc CharacterGreetingPickerTip}" VerticalAlignment="Center"
+                                            Padding="6,2">
+                                        <Button.Flyout>
+                                            <Flyout Placement="BottomEdgeAlignedRight">
+                                                <ListBox ItemsSource="{Binding CharacterListViewData.SelectedCharacter.GreetingOptions}"
+                                                         MaxHeight="280" MinWidth="220">
+                                                    <ListBox.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Button Content="{Binding}" HorizontalAlignment="Stretch"
+                                                                    HorizontalContentAlignment="Left"
+                                                                    Command="{Binding $parent[ListBox].((pages:HomePageData)DataContext).CharacterListViewData.SelectedCharacter.StartChatCommand}"
+                                                                    CommandParameter="{Binding}" />
+                                                        </DataTemplate>
+                                                    </ListBox.ItemTemplate>
+                                                </ListBox>
+                                            </Flyout>
+                                        </Button.Flyout>
+                                        <controls:ThemedSvgIcon Width="13" Height="13" IconName="chevron-down" />
+                                    </Button>
+                                </StackPanel>
 
                                 <!-- 已入库的角色是「重置」(把草稿丢回已保存的样子),
                                      还没入库的才是「取消」(连占位项一起撤掉) -->

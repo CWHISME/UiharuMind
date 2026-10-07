@@ -541,10 +541,11 @@ public partial class SessionManager : Singleton<SessionManager>, IInitialize
     /// 新建并持久化一个会话
     /// </summary>
     /// <param name="characterData">所属角色</param>
+    /// <param name="greeting">显式开场白；null 回落角色卡默认</param>
     /// <returns>会话</returns>
-    public ChatSession StartNewSession(CharacterData characterData)
+    public ChatSession StartNewSession(CharacterData characterData, string? greeting = null)
     {
-        ChatSession session = new(characterData.CharacterName, characterData);
+        ChatSession session = new(characterData.CharacterName, characterData, greeting);
         Add(session);
         return session;
     }

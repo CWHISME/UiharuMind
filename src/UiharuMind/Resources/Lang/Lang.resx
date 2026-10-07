@@ -756,6 +756,9 @@
     <data name="CharacterFirstGreeting" xml:space="preserve">
         <value>First Greeting</value>
     </data>
+    <data name="CharacterFirstGreetingDesc" xml:space="preserve">
+        <value>The first thing the character says: write first-person lines or scene lines addressed to the user. Directives to the model ("you are...", "always...") belong in the prompt, not here.</value>
+    </data>
     <data name="AdvancedOptions" xml:space="preserve">
         <value>Advanced Options</value>
     </data>
@@ -1624,6 +1627,9 @@
     </data>
     <data name="CharacterWorks" xml:space="preserve">
         <value>Source work (e.g. A Certain Magical Index)</value>
+    </data>
+    <data name="CharacterWorksLabel" xml:space="preserve">
+        <value>Source work</value>
     </data>
     <data name="ImportCharacter" xml:space="preserve">
         <value>Import Character</value>
@@ -2630,7 +2636,10 @@ Allow them?</value>
         <value>Agent abilities</value>
     </data>
     <data name="CharacterEditTabStory" xml:space="preserve">
-        <value>Greeting &amp; world setting</value>
+        <value>Greetings</value>
+    </data>
+    <data name="CharacterEditTabWorldSetting" xml:space="preserve">
+        <value>World setting</value>
     </data>
     <data name="CharacterEditTabAdvanced" xml:space="preserve">
         <value>Advanced</value>
@@ -2666,13 +2675,46 @@ Allow them?</value>
         <value>Alternate greetings</value>
     </data>
     <data name="CharacterAlternateGreetingsDesc" xml:space="preserve">
-        <value>Extra greetings besides the default one above, populated when you import a character card. Sessions still start with the default greeting for now.</value>
+        <value>Extra greetings besides the default one above, populated when you import a character card. On the role page, the dropdown next to "Start chat" picks which greeting starts the conversation.</value>
     </data>
     <data name="CharacterAlternateGreetingsAdd" xml:space="preserve">
         <value>Add greeting</value>
     </data>
+    <data name="CharacterGreetingPickerTip" xml:space="preserve">
+        <value>Choose opening line</value>
+    </data>
     <data name="CharacterWorldSettingTitle" xml:space="preserve">
         <value>World setting</value>
+    </data>
+    <data name="CharacterWorldSettingSharedDesc" xml:space="preserve">
+        <value>World books are shared: one book can be attached to many characters. Choose or manage a book here; the entries live in the book, not in this character.</value>
+    </data>
+    <data name="CharacterWorldSettingNotAttached" xml:space="preserve">
+        <value>No world book attached yet. Pick one or create a new one.</value>
+    </data>
+    <data name="WorldBookSelectTitle" xml:space="preserve">
+        <value>Choose world book</value>
+    </data>
+    <data name="WorldBookNew" xml:space="preserve">
+        <value>New</value>
+    </data>
+    <data name="WorldBookNewPlaceholder" xml:space="preserve">
+        <value>New world book name</value>
+    </data>
+    <data name="WorldBookChoose" xml:space="preserve">
+        <value>Choose</value>
+    </data>
+    <data name="WorldBookEdit" xml:space="preserve">
+        <value>Edit this book</value>
+    </data>
+    <data name="WorldBookDetach" xml:space="preserve">
+        <value>Detach</value>
+    </data>
+    <data name="WorldBookEditorTitle" xml:space="preserve">
+        <value>World book editor</value>
+    </data>
+    <data name="WorldBookSaveClose" xml:space="preserve">
+        <value>Save &amp; close</value>
     </data>
     <data name="CharacterWorldSettingDesc" xml:space="preserve">
         <value>Keyword-activated setting entries: the last few messages are scanned, matches are injected (always-on entries are always injected), capped by the per-turn token budget.</value>

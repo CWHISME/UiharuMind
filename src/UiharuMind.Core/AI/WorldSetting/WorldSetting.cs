@@ -1,3 +1,5 @@
+using UiharuMind.Core.Core.Singletons;
+
 namespace UiharuMind.Core.AI.WorldSettings;
 
 /// <summary>
@@ -30,12 +32,15 @@ public sealed class WorldSettingEntry
 }
 
 /// <summary>
-/// 一份世界设定：条目集合与注入预算。挂在角色上（角色卡内嵌 character_book 导入后即此），
-/// 每轮由 <see cref="WorldSettingContextProvider"/> 按关键词激活注入。
+/// 一份世界书：条目集合与注入预算。共享实体，按名存取（Data/WorldBooks/*.json），
+/// 角色/会话按名挂载；每轮由 <see cref="WorldSettingContextProvider"/> 按关键词激活注入。
 /// 只存数据，选择与排版在 <see cref="WorldSettingSelector"/>。
 /// </summary>
-public sealed class WorldSetting
+public sealed class WorldSetting : IUniquieContainerItem
 {
+    /// <summary>世界书名字（文件名即名）。共享：多个角色可挂同一本。</summary>
+    public string Name { get; set; } = "";
+
     public List<WorldSettingEntry> Entries { get; set; } = [];
 
     /// <summary>一次注入的 token 预算，与知识库检索同款口径（<see cref="WorldSettingSelector.DefaultTokenBudget"/>）。</summary>

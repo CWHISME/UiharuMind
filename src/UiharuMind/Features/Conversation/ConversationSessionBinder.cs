@@ -53,7 +53,7 @@ public sealed class ConversationSessionBinder
     /// <returns>已挂接的会话本体</returns>
     public async Task<ChatSession> CreateAsync(CharacterData character, string titleSeed,
         string? workspacePath, int permissionModeIndex, CancellationToken cancellationToken,
-        string? sessionModelName = null, bool isAgentForm = true)
+        string? sessionModelName = null, bool isAgentForm = true, string? greeting = null)
     {
         ChatSession created = new()
         {
@@ -68,7 +68,7 @@ public sealed class ConversationSessionBinder
         // 懒建补开场白：与急建（带角色构造）同一语义——普通对话形态且有 FirstGreeting 就作为旁白
         // 写进历史，否则首轮发送建出的会话没有开场白、模型第一轮会自我重介绍（见 ADR 0016）。
         // agent 形态不发开场白（ADR 0043 决策 2）：编辑页连字段都藏了，创建入口也要同口径
-        if (!isAgentForm && !string.IsNullOrEmpty(character.FirstGreeting)) created.AddNarration(character);
+        if (!isAgentForm && !string.IsNullOrEmpty(greeting ?? character.FirstGreeting)) created.AddNarration(character, greeting);
         SessionManager.Instance.Add(created);
         ICharacterRunner runner = created.Runner;
         WatchBusy(runner); //必须在 AttachAsync 之前,预连就在它里面

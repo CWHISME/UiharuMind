@@ -206,7 +206,7 @@ public partial class CharacterDraft : ObservableObject
     public string FirstGreetingReadonly =>
         string.IsNullOrEmpty(FirstGreeting) ? "无" : _draft.TryRender(FirstGreeting);
 
-    // ============ 世界设定 / 深度注入 / 备选开场白（ADR 0070） ============
+    // ============ 世界书挂载 / 深度注入 / 备选开场白（ADR 0070） ============
     /// <summary>备选开场白（alternate_greetings 除第一份外的其余份；第一份即 <see cref="FirstGreeting"/>）</summary>
     public ObservableCollection<EditableTextItem> AlternateGreetings { get; }
 
@@ -260,22 +260,38 @@ public partial class CharacterDraft : ObservableObject
         new("assistant", Loc.Text(LangKey.DepthPromptRoleAssistant)),
     ];
 
-    /// <summary>世界设定条目（character_book 导入后即此）</summary>
-    public ObservableCollection<WorldSettingEntryItem> WorldSettingEntries { get; }
-
-    /// <summary>世界设定目前有没有条目（空态的判据，随集合变化通知）</summary>
-    public bool HasWorldSettingEntries => WorldSettingEntries.Count > 0;
-
-    /// <summary>每轮注入的 token 预算上限（UI 下限 100；低于下限被收进来，0 仅在直接读 JSON 时表示回落默认）</summary>
-    public int WorldSettingTokenBudget
+    /// <summary>挂载的世界书名（共享世界设定）；空 = 未挂载</summary>
+    public string WorldSettingName
     {
-        get => _draft.WorldSetting.TokenBudget;
+        get => _draft.WorldSettingName;
         set
         {
-            _draft.WorldSetting.TokenBudget = Math.Max(100, value);
+            _draft.WorldSettingName = value ?? "";
             OnPropertyChanged();
+            OnPropertyChanged(nameof(HasWorldSettingName));
+            OnPropertyChanged(nameof(WorldSettingSummary));
         }
     }
+
+    /// <summary>是否已挂载世界书</summary>
+    public bool HasWorldSettingName => !string.IsNullOrEmpty(_draft.WorldSettingName);
+
+    /// <summary>挂载概览：「名字 · N 条目 · 预算」；未挂载为空串</summary>
+    public string WorldSettingSummary
+    {
+        get
+        {
+            WorldSetting? book = AttachedWorldSetting;
+            return book == null ? "" : $"{book.Name} · {book.Entries.Count} 条目 · 预算 {book.TokenBudget}";
+        }
+    }
+
+    /// <summary>当前挂载的世界书（未挂载/找不到返回 null）</summary>
+    public WorldSetting? AttachedWorldSetting =>
+        string.IsNullOrEmpty(_draft.WorldSettingName)
+            ? null
+            : WorldSettingManager.Instance.Get(_draft.WorldSettingName);
+
 
     public ChatPromptExecutionSettings ChatPromptExecutionSettings
     {
@@ -306,11 +322,6 @@ public partial class CharacterDraft : ObservableObject
             _draft.AlternateGreetings.Select(text => new EditableTextItem(text)));
         foreach (EditableTextItem item in AlternateGreetings) item.PropertyChanged += OnAlternateGreetingEdited;
         AlternateGreetings.CollectionChanged += OnAlternateGreetingCollectionChanged;
-
-        WorldSettingEntries = new ObservableCollection<WorldSettingEntryItem>(
-            _draft.WorldSetting.Entries.Select(WorldSettingEntryItem.FromEntry));
-        foreach (WorldSettingEntryItem item in WorldSettingEntries) item.PropertyChanged += OnWorldSettingEntryEdited;
-        WorldSettingEntries.CollectionChanged += OnWorldSettingEntryCollectionChanged;
     }
 
     /// <summary>
@@ -424,29 +435,6 @@ public partial class CharacterDraft : ObservableObject
 
     private void SyncAlternateGreetings() =>
         _draft.AlternateGreetings = AlternateGreetings.Select(x => x.Text).ToList();
-
-    // ---- 世界设定 ----
-
-    [RelayCommand]
-    public void AddWorldSettingEntry() => WorldSettingEntries.Add(new WorldSettingEntryItem());
-
-    [RelayCommand]
-    public void RemoveWorldSettingEntry(WorldSettingEntryItem item) => WorldSettingEntries.Remove(item);
-
-    private void OnWorldSettingEntryEdited(object? sender, PropertyChangedEventArgs e) => SyncWorldSettingEntries();
-
-    private void OnWorldSettingEntryCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        if (e.NewItems != null)
-            foreach (WorldSettingEntryItem item in e.NewItems) item.PropertyChanged += OnWorldSettingEntryEdited;
-        if (e.OldItems != null)
-            foreach (WorldSettingEntryItem item in e.OldItems) item.PropertyChanged -= OnWorldSettingEntryEdited;
-        SyncWorldSettingEntries();
-        OnPropertyChanged(nameof(HasWorldSettingEntries));
-    }
-
-    private void SyncWorldSettingEntries() =>
-        _draft.WorldSetting.Entries = WorldSettingEntries.Select(x => x.ToEntry()).ToList();
 
     // ---- 深度注入 ----
 

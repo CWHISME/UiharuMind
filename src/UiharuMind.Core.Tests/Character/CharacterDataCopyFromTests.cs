@@ -29,11 +29,7 @@ public class CharacterDataCopyFromTests
         FirstGreeting = "开场白",
         AlternateGreetings = ["开场白B", "开场白C"],
         DepthPrompt = new DepthPromptInfo { Prompt = "深度提示", Depth = 2, Role = "system" },
-        WorldSetting = new WorldSetting
-        {
-            TokenBudget = 800,
-            Entries = [new WorldSettingEntry { Keys = ["学园都市"], Content = "第七学区", Constant = true }],
-        },
+        WorldSettingName = "书-a",
         MountAgents = ["sub-a", "sub-b"],
         CharacterName = "源角色",
         Description = "源描述",
@@ -68,14 +64,13 @@ public class CharacterDataCopyFromTests
         source.MountAgents.Add("sub-c");
         source.AlternateGreetings.Add("sub-c");
         source.DepthPrompt!.Prompt = "改了的深度";
-        source.WorldSetting.Entries[0].Content = "改了的设定";
 
         Assert.Equal("源角色", target.CharacterName);
         Assert.True(target.Tools.EnableShellExecution);
         Assert.Equal(2, target.MountAgents.Count);
         Assert.Equal(2, target.AlternateGreetings.Count);
         Assert.Equal("深度提示", target.DepthPrompt!.Prompt);
-        Assert.Equal("第七学区", target.WorldSetting.Entries[0].Content);
+        Assert.Equal("书-a", target.WorldSettingName);
     }
 
     [Fact]

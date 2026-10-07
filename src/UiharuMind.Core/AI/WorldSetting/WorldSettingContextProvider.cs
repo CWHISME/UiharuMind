@@ -42,7 +42,7 @@ internal sealed class WorldSettingContextProvider : AIContextProvider
         if (string.IsNullOrEmpty(sessionId)) return empty;
 
         ChatSession? session = SessionManager.Instance.Load(sessionId);
-        WorldSetting? setting = session?.CharacterData?.WorldSetting;
+        WorldSetting? setting = ResolveWorldSetting(session);
         if (setting is null || setting.Entries.Count == 0) return empty;
 
         string scanText = BuildScanText(session!.History, context.AIContext.Messages);
@@ -55,6 +55,13 @@ internal sealed class WorldSettingContextProvider : AIContextProvider
         // 必须是 User 而非 Tool：纯文本的 Tool 消息没有 tool_call_id，OpenAI 协议无法表达
         // （理由同 MemoryContextProvider）。追加在末位，紧贴模型要回答的位置。
         return new AIContext { Messages = [new ChatMessage(ChatRole.User, BlockHeader + block)] };
+    }
+
+    /// <summary>解析会话挂载的世界书：角色级 WorldSettingName → 管理器取书；未挂载返回 null</summary>
+    private static WorldSetting? ResolveWorldSetting(ChatSession? session)
+    {
+        string? name = session?.CharacterData?.WorldSettingName;
+        return string.IsNullOrEmpty(name) ? null : WorldSettingManager.Instance.Get(name);
     }
 
     /// <summary>把本轮外部输入与最近几条历史拼成扫描文本；本轮的提问还没落进历史时也要能触发。</summary>

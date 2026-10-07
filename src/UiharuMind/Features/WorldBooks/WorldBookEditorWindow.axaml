@@ -1,0 +1,90 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+        xmlns:viewData="clr-namespace:UiharuMind.Features.Characters"
+        mc:Ignorable="d" d:DesignWidth="520" d:DesignHeight="640"
+        x:Class="UiharuMind.Features.WorldBooks.WorldBookEditorWindow"
+        Title="{loc:Loc WorldBookEditorTitle}"
+        Width="520" Height="640"
+        WindowStartupLocation="CenterOwner">
+
+    <Window.Styles>
+        <Style Selector="TextBox">
+            <Setter Property="Padding" Value="10" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style Selector="Border.entry-card">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="10" />
+        </Style>
+    </Window.Styles>
+
+    <DockPanel Margin="16">
+        <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,10">
+            <TextBlock Text="{Binding BookName}" FontSize="16" FontWeight="SemiBold" />
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Classes="muted" Text="{loc:Loc CharacterWorldSettingTokenBudget}" VerticalAlignment="Center" />
+                <NumericUpDown Value="{Binding TokenBudget}" Minimum="100" Maximum="8000"
+                               Increment="100" FormatString="0" MinWidth="110" />
+            </StackPanel>
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right"
+                    Margin="0,10,0,0">
+            <Button Classes="Primary" Content="{loc:Loc WorldBookSaveClose}" Click="OnSaveCloseClick" />
+        </StackPanel>
+
+        <ScrollViewer>
+            <StackPanel Spacing="8">
+                <ItemsControl ItemsSource="{Binding Entries}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="viewData:WorldSettingEntryItem">
+                            <Border Classes="entry-card">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                    <StackPanel Grid.Column="0" Spacing="6">
+                                        <TextBox Text="{Binding KeysText}"
+                                                 PlaceholderText="{loc:Loc CharacterWorldSettingKeysPlaceholder}" />
+                                        <TextBox Text="{Binding Content}" MinHeight="64" AcceptsReturn="True"
+                                                 VerticalContentAlignment="Top"
+                                                 PlaceholderText="{loc:Loc CharacterWorldSettingContentPlaceholder}" />
+                                        <StackPanel Orientation="Horizontal" Spacing="18">
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="muted" Text="{loc:Loc CharacterWorldSettingConstant}"
+                                                           VerticalAlignment="Center" />
+                                                <ToggleSwitch IsChecked="{Binding Constant}" MinWidth="0" />
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="muted" Text="{loc:Loc CharacterWorldSettingPosition}"
+                                                           VerticalAlignment="Center" />
+                                                <ComboBox SelectedIndex="{Binding PositionIndex}" MinWidth="92">
+                                                    <ComboBoxItem Content="{loc:Loc CharacterWorldSettingPositionBefore}" />
+                                                    <ComboBoxItem Content="{loc:Loc CharacterWorldSettingPositionAfter}" />
+                                                </ComboBox>
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="muted" Text="{loc:Loc CharacterWorldSettingOrder}"
+                                                           VerticalAlignment="Center" />
+                                                <NumericUpDown Value="{Binding Order}" Minimum="0" Maximum="1999"
+                                                               FormatString="0" MinWidth="72" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Content="{loc:Loc Delete}" VerticalAlignment="Top"
+                                            Command="{Binding $parent[ItemsControl].((viewData:WorldBookEditorWindowModel)DataContext).RemoveEntryCommand}"
+                                            CommandParameter="{Binding}" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Button Content="{loc:Loc CharacterWorldSettingAddEntry}" HorizontalAlignment="Left"
+                        Command="{Binding AddEntryCommand}" />
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

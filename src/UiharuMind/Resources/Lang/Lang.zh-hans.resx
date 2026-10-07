@@ -749,6 +749,9 @@
     <data name="CharacterFirstGreeting" xml:space="preserve">
         <value>开场白</value>
     </data>
+    <data name="CharacterFirstGreetingDesc" xml:space="preserve">
+        <value>开场白是角色开口说的第一句台词：写第一人称（我……）或对用户说的场景话。给模型的指令（你是……、要遵守……）请写进「基础信息 → 提示词」，别放这里。</value>
+    </data>
     <data name="AdvancedOptions" xml:space="preserve">
         <value>高级选项</value>
     </data>
@@ -1617,6 +1620,9 @@
     </data>
     <data name="CharacterWorks" xml:space="preserve">
         <value>出自作品（同一作品的成员会在群聊里被放在一起介绍）</value>
+    </data>
+    <data name="CharacterWorksLabel" xml:space="preserve">
+        <value>出自作品</value>
     </data>
     <data name="ImportCharacter" xml:space="preserve">
         <value>导入角色</value>
@@ -2623,7 +2629,10 @@
         <value>智能体能力</value>
     </data>
     <data name="CharacterEditTabStory" xml:space="preserve">
-        <value>开场白与世界设定</value>
+        <value>开场白</value>
+    </data>
+    <data name="CharacterEditTabWorldSetting" xml:space="preserve">
+        <value>世界设定</value>
     </data>
     <data name="CharacterEditTabAdvanced" xml:space="preserve">
         <value>高级</value>
@@ -2659,13 +2668,46 @@
         <value>备选开场白</value>
     </data>
     <data name="CharacterAlternateGreetingsDesc" xml:space="preserve">
-        <value>除默认开场白外的更多份开场白，导入角色卡后自动填进来。现在从角色开始对话仍用默认开场白，选备用开场白的入口后续再加。</value>
+        <value>除默认开场白外的更多份开场白，导入角色卡后自动填进来。角色页「开始对话」旁的下拉可选用哪一份开场白开始。</value>
     </data>
     <data name="CharacterAlternateGreetingsAdd" xml:space="preserve">
         <value>添加开场白</value>
     </data>
+    <data name="CharacterGreetingPickerTip" xml:space="preserve">
+        <value>选择开场白</value>
+    </data>
     <data name="CharacterWorldSettingTitle" xml:space="preserve">
         <value>世界设定</value>
+    </data>
+    <data name="CharacterWorldSettingSharedDesc" xml:space="preserve">
+        <value>世界书是共享的：同一本可被多个角色挂载。条目住在书里、不在角色卡里；在这里选择或管理。</value>
+    </data>
+    <data name="CharacterWorldSettingNotAttached" xml:space="preserve">
+        <value>尚未挂载世界书。点「选择世界书」挑一本，或新建一本。</value>
+    </data>
+    <data name="WorldBookSelectTitle" xml:space="preserve">
+        <value>选择世界书</value>
+    </data>
+    <data name="WorldBookNew" xml:space="preserve">
+        <value>新建</value>
+    </data>
+    <data name="WorldBookNewPlaceholder" xml:space="preserve">
+        <value>新世界书名字</value>
+    </data>
+    <data name="WorldBookChoose" xml:space="preserve">
+        <value>选择</value>
+    </data>
+    <data name="WorldBookEdit" xml:space="preserve">
+        <value>编辑这本书</value>
+    </data>
+    <data name="WorldBookDetach" xml:space="preserve">
+        <value>解除挂载</value>
+    </data>
+    <data name="WorldBookEditorTitle" xml:space="preserve">
+        <value>世界书编辑</value>
+    </data>
+    <data name="WorldBookSaveClose" xml:space="preserve">
+        <value>保存并关闭</value>
     </data>
     <data name="CharacterWorldSettingDesc" xml:space="preserve">
         <value>关键词激活的设定条目：最近几轮消息命中关键词即注入（常驻条目每轮都注入），整体受 token 预算约束。</value>

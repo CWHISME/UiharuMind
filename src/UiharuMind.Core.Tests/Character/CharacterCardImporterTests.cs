@@ -42,11 +42,14 @@ public class CharacterCardImporterTests
         Assert.Equal(2, character.DepthPrompt.Depth);
         Assert.Equal("system", character.DepthPrompt.Role);
 
-        Assert.Equal(2, character.WorldSetting.Entries.Count);
-        WorldSettingEntry first = character.WorldSetting.Entries[0];
+        Assert.Equal("测试角色·世界书", character.WorldSettingName);
+        WorldSetting? book = WorldSettingManager.Instance.Get(character.WorldSettingName);
+        Assert.NotNull(book);
+        Assert.Equal(2, book.Entries.Count);
+        WorldSettingEntry first = book.Entries[0];
         Assert.Equal(["学园都市"], first.Keys);
         Assert.Equal(EWorldSettingPosition.BeforeCharacter, first.Position);
-        WorldSettingEntry second = character.WorldSetting.Entries[1];
+        WorldSettingEntry second = book.Entries[1];
         Assert.Equal(EWorldSettingPosition.AfterCharacter, second.Position);
         Assert.Equal(5, second.Order);
     }
@@ -64,7 +67,7 @@ public class CharacterCardImporterTests
         CharacterData? character = await CharacterCardImporter.ImportToCharactorData(json);
 
         Assert.NotNull(character);
-        Assert.Empty(character.WorldSetting.Entries);
+        Assert.Equal("", character.WorldSettingName);
         Assert.Null(character.DepthPrompt);
         Assert.Empty(character.AlternateGreetings);
     }
@@ -111,9 +114,11 @@ public class CharacterCardImporterTests
 
         Assert.NotNull(character);
         // position 非 after_char 一律回落 before；insertion_order 缺省取索引 i
-        Assert.Equal(EWorldSettingPosition.BeforeCharacter, character.WorldSetting.Entries[0].Position);
-        Assert.Equal(0, character.WorldSetting.Entries[0].Order);
-        Assert.Equal(EWorldSettingPosition.BeforeCharacter, character.WorldSetting.Entries[1].Position);
-        Assert.Equal(1, character.WorldSetting.Entries[1].Order);
+        WorldSetting? book = WorldSettingManager.Instance.Get("默认值卡·世界书");
+        Assert.NotNull(book);
+        Assert.Equal(EWorldSettingPosition.BeforeCharacter, book.Entries[0].Position);
+        Assert.Equal(0, book.Entries[0].Order);
+        Assert.Equal(EWorldSettingPosition.BeforeCharacter, book.Entries[1].Position);
+        Assert.Equal(1, book.Entries[1].Order);
     }
 }

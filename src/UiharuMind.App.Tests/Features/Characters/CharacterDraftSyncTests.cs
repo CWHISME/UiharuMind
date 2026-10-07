@@ -6,8 +6,8 @@ using UiharuMind.Features.Characters;
 namespace UiharuMind.App.Tests.Features.Characters;
 
 /// <summary>
-/// 钉住 CharacterDraft 新字段（世界设定 / 备选开场白 / 深度注入 / token 预算）与草稿本体的同步：
-/// 条目内编辑必须即时反映到 Subject（提交时那份），增删条目、空深度注入、预算下限都不得走样。
+/// 钉住 CharacterDraft 新字段（世界书挂载 / 备选开场白 / 深度注入）与草稿本体的同步：
+/// 挂载名必须即时反映到 Subject（提交时那份），空深度注入不落盘。
 /// </summary>
 public class CharacterDraftSyncTests
 {
@@ -15,39 +15,19 @@ public class CharacterDraftSyncTests
         CharacterDraft.ForNew(new CharacterData { CharacterName = "测试角色" }, new RecordingMessageService());
 
     [Fact]
-    public void WorldSettingEdit_SyncsToSubjectImmediately()
+    public void WorldSettingName_SyncsToSubject()
     {
         CharacterDraft draft = NewDraft();
-        draft.AddWorldSettingEntryCommand.Execute(null);
-        draft.WorldSettingEntries[0].KeysText = "学园都市，第七学区";
-        draft.WorldSettingEntries[0].Content = "中心地带";
-        draft.WorldSettingEntries[0].Constant = true;
-        draft.WorldSettingEntries[0].PositionIndex = 1;
-        draft.WorldSettingEntries[0].Order = 3;
+        Assert.False(draft.HasWorldSettingName);
+        Assert.Equal("", draft.WorldSettingSummary);
 
-        WorldSettingEntry entry = Assert.Single(draft.Subject.WorldSetting.Entries);
-        Assert.Equal(["学园都市", "第七学区"], entry.Keys);
-        Assert.Equal("中心地带", entry.Content);
-        Assert.True(entry.Constant);
-        Assert.Equal(EWorldSettingPosition.AfterCharacter, entry.Position);
-        Assert.Equal(3, entry.Order);
-    }
+        draft.WorldSettingName = "某世界书";
 
-    [Fact]
-    public void WorldSettingAddRemove_SyncsCountAndEmptyState()
-    {
-        CharacterDraft draft = NewDraft();
-        Assert.False(draft.HasWorldSettingEntries);
+        Assert.Equal("某世界书", draft.Subject.WorldSettingName);
+        Assert.True(draft.HasWorldSettingName);
 
-        draft.AddWorldSettingEntryCommand.Execute(null);
-
-        Assert.True(draft.HasWorldSettingEntries);
-        Assert.Single(draft.Subject.WorldSetting.Entries);
-
-        draft.RemoveWorldSettingEntryCommand.Execute(draft.WorldSettingEntries[0]);
-
-        Assert.Empty(draft.Subject.WorldSetting.Entries);
-        Assert.False(draft.HasWorldSettingEntries);
+        draft.WorldSettingName = "";
+        Assert.False(draft.HasWorldSettingName);
     }
 
     [Fact]
@@ -83,15 +63,5 @@ public class CharacterDraftSyncTests
         draft.DepthPromptText = "";
         Assert.Null(draft.Subject.DepthPrompt);
         Assert.False(draft.HasDepthPrompt);
-    }
-
-    [Fact]
-    public void TokenBudget_ClampedTo100()
-    {
-        CharacterDraft draft = NewDraft();
-
-        draft.WorldSettingTokenBudget = 50;
-
-        Assert.Equal(100, draft.Subject.WorldSetting.TokenBudget);
     }
 }

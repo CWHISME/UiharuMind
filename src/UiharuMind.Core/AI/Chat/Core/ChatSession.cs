@@ -579,7 +579,7 @@ public class ChatSession
     {
     }
 
-    public ChatSession(string title, CharacterData characterData)
+    public ChatSession(string title, CharacterData characterData, string? greeting = null)
     {
         _characterData = characterData;
         CharacterId = characterData.CharacterId;
@@ -588,10 +588,12 @@ public class ChatSession
         IsAgentForm = characterData.IsAgent;
         // agent 不发开场白（ADR 0043 决策 2，见 0016）：开场白是普通角色的人格旁白，
         // 智能体带着工具与任务能力，不需要自我介绍。副标题与历史同口径，否则列表副行
-        // 显示开场白、历史里却没有——同一份数据两处对不上
-        bool hasGreeting = !characterData.IsAgent && !string.IsNullOrEmpty(characterData.FirstGreeting);
-        Description = hasGreeting ? characterData.FirstGreeting : characterData.Description;
-        if (hasGreeting) AddNarration(characterData);
+        // 显示开场白、历史里却没有——同一份数据两处对不上。
+        // greeting 显式传入时优先它（角色页「开始对话」下拉选开场白）；null 回落卡上默认
+        string narration = greeting ?? characterData.FirstGreeting;
+        bool hasGreeting = !characterData.IsAgent && !string.IsNullOrEmpty(narration);
+        Description = hasGreeting ? narration : characterData.Description;
+        if (hasGreeting) AddNarration(characterData, narration);
     }
 
     /// <summary>
@@ -661,9 +663,10 @@ public class ChatSession
     /// 否则选角色后首轮发送建出的会话没有开场白，模型第一轮会自我重介绍。
     /// </summary>
     /// <param name="characterData">开场白所属角色（参数替换要用它）</param>
-    public void AddNarration(CharacterData characterData)
+    /// <param name="greeting">显式开场白正文；null 回落 <see cref="CharacterData.FirstGreeting"/></param>
+    public void AddNarration(CharacterData characterData, string? greeting = null)
     {
-        ChatMessage data = CreateMessage(ChatRole.Assistant, characterData.TryRender(characterData.FirstGreeting));
+        ChatMessage data = CreateMessage(ChatRole.Assistant, characterData.TryRender(greeting ?? characterData.FirstGreeting));
         data.AdditionalProperties ??= new AdditionalPropertiesDictionary();
         data.AdditionalProperties[ChatMessageAnnotations.Narration] = true;
 

@@ -40,7 +40,7 @@ public static class CharacterCardImporter
                     Role = depthPrompt.Role ?? "",
                 }
                 : null,
-            WorldSetting = FromCharacterBook(data.CharacterBook),
+            WorldSettingName = ImportCharacterBook(data.CharacterBook, data.Name ?? ""),
             Description =
                 $"Ceator:{data.Creator ?? "*"}\n***\n\n{data.CreatorNotes ?? "*"}",
         };
@@ -51,6 +51,20 @@ public static class CharacterCardImporter
         }
 
         return charactorData;
+    }
+
+    /// <summary>
+    /// 把角色卡内嵌的 character_book 落成（或并入）一份以角色命名的世界书并挂载。
+    /// 返回挂载名；无书或书内无条目返回空串。
+    /// </summary>
+    private static string ImportCharacterBook(CharacterBook? book, string characterName)
+    {
+        WorldSetting entries = FromCharacterBook(book);
+        if (entries.Entries.Count == 0) return "";
+
+        string bookName = $"{characterName}·世界书";
+        WorldSettingManager.Instance.Merge(bookName, entries.Entries);
+        return bookName;
     }
 
     /// <summary>

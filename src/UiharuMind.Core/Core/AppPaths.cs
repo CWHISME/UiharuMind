@@ -107,6 +107,9 @@ public static class AppPaths
         /// <summary>知识库向量库。归 Data 而非 Cache:重建依赖当初那个 embedding 模型还在</summary>
         public static readonly string MemoryEmbeddings = Path.Combine(Memory, "Embeddings");
 
+        /// <summary>世界书（共享世界设定，按名挂载）</summary>
+        public static readonly string WorldBooks = Path.Combine(Root, "WorldBooks");
+
         /// <summary>技能包</summary>
         public static readonly string Skills = Path.Combine(Root, "Skills");
 
