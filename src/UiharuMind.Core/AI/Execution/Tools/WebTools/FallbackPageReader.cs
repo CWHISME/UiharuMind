@@ -82,8 +82,9 @@ internal sealed class FallbackPageReader
             if (result.Content is { } text && text.Length >= (result.IsExact ? 1 : MinContentLength))
             {
                 ServiceCircuit.RecordSuccess(reader.Name);
+                string cleaned = SitePageCleaners.Clean(url, text);
                 Log.Debug($"[WebFetch] hit '{reader.Name}': {text.Length} chars from {url}");
-                return new PageContentCache.PageFetchOutcome(text, Cacheable: true);
+                return new PageContentCache.PageFetchOutcome(cleaned, Cacheable: true);
             }
 
             string reason = result.Error ?? $"no readable text ({result.Content?.Length ?? 0} chars)";
