@@ -441,6 +441,10 @@ public class GitHubPageCleanerTests
 
             [Readme](https://github.com/CWHISME/UiharuMind#readme-ov-file)
 
+            [Apache-2.0 license](https://github.com/CWHISME/UiharuMind#Apache-2.0-1-ov-file)
+
+            [Activity](https://github.com/CWHISME/UiharuMind/activity)
+
             ### Stars
 
             **8** stars
@@ -487,6 +491,10 @@ public class GitHubPageCleanerTests
         Assert.DoesNotContain("8** stars", cleaned);
         Assert.DoesNotContain("forks](https://github.com/CWHISME/UiharuMind/forks)", cleaned);
         Assert.DoesNotContain("Report repository", cleaned);
+        Assert.DoesNotContain("Permalink:", cleaned); // 标题锚点
+        Assert.DoesNotContain("[Readme]", cleaned); // About 侧栏导航
+        Assert.DoesNotContain("[Activity]", cleaned);
+        Assert.Contains("[Apache-2.0 license](https://github.com/CWHISME/UiharuMind#Apache-2.0-1-ov-file)", cleaned); // license 信息保留
         Assert.DoesNotContain("## Releases", cleaned);
         Assert.DoesNotContain("## Packages", cleaned);
         Assert.DoesNotContain("## Used by", cleaned);
@@ -503,6 +511,7 @@ public class GitHubPageCleanerTests
         Assert.Contains("UiharuMind 目前支持的功能有：", cleaned);
         Assert.Contains("## About", cleaned);
         Assert.Contains("UiharuMind 是一个开源的 AI 大模型工具。", cleaned);
+        Assert.Contains("[Apache-2.0 license](https://github.com/CWHISME/UiharuMind#Apache-2.0-1-ov-file)", cleaned);
     }
 
     /// <summary>非 GitHub 站点不套清理,正文原样返回</summary>

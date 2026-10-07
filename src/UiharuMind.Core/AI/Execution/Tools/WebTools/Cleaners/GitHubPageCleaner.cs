@@ -145,6 +145,13 @@ internal sealed partial class GitHubPageCleaner : ISitePageCleaner
                 || (paragraph.StartsWith("[", StringComparison.Ordinal)
                     && paragraph.Contains(" Commits](", StringComparison.Ordinal))
                 || paragraph.StartsWith("[Report repository]", StringComparison.Ordinal)
+                // About 侧栏导航链接:Readme/Activity/Permalink 无信息量;
+                // [Apache-2.0 license] 保留——它本身就是 license 信息的来源
+                || (paragraph.StartsWith("[Readme]", StringComparison.Ordinal)
+                    && paragraph.Contains("#readme-ov-file", StringComparison.Ordinal))
+                || (paragraph.StartsWith("[Activity]", StringComparison.Ordinal)
+                    && paragraph.Contains("/activity", StringComparison.Ordinal))
+                || paragraph.StartsWith("[Permalink:", StringComparison.Ordinal)
                 || (paragraph.StartsWith("**", StringComparison.Ordinal)
                     && paragraph.Length < 40
                     && (paragraph.EndsWith(" stars", StringComparison.Ordinal)
