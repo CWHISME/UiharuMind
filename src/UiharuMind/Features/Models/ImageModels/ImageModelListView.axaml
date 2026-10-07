@@ -9,35 +9,63 @@
              x:Class="UiharuMind.Features.Models.ImageModels.ImageModelListView"
              x:DataType="images:ImageModelListViewData">
 
+    <!-- 卡片、列表行、图标、行按钮直接复用模型页同一套（model-card / model-list / model-icon / row-action），
+         样式定义在 ModelPage.axaml，本视图只在模型页里使用 -->
     <DockPanel>
-        <StackPanel DockPanel.Dock="Top" Spacing="8">
-            <TextBlock Text="{loc:Loc ImageModelListHint}" Classes="muted" TextWrapping="Wrap" />
-            <Button Content="{loc:Loc AddBtn}" Command="{Binding AddCommand}" HorizontalAlignment="Left" />
-        </StackPanel>
+        <!-- 工具条：左边说明，右边添加生图模型（与对话模型页签的添加远程模型同式） -->
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,0,0,12">
+            <TextBlock Grid.Column="0" Text="{loc:Loc ImageModelListHint}" Classes="muted"
+                       VerticalAlignment="Center" TextWrapping="Wrap" />
+            <Button Grid.Column="1" Command="{Binding AddCommand}" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <controls:ThemedSvgIcon Width="14" Height="14" IconName="image" />
+                    <TextBlock Text="{loc:Loc AddBtn}" />
+                </StackPanel>
+            </Button>
+        </Grid>
 
-        <TextBlock DockPanel.Dock="Top" Margin="0,16,0,0" Classes="muted"
-                   Text="{loc:Loc ImageModelListEmpty}" IsVisible="{Binding !HasItems}" />
+        <Border Classes="model-card">
+            <Panel>
+                <!-- 空状态：与对话模型页签同式，居中图标加文字引去添加 -->
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10"
+                            Margin="24" IsVisible="{Binding !HasItems}">
+                    <controls:ThemedSvgIcon Width="32" Height="32" IconName="image" Opacity="0.5" />
+                    <TextBlock Text="{loc:Loc ImageModelListEmpty}" HorizontalAlignment="Center"
+                               FontWeight="SemiBold" />
+                    <TextBlock Text="{loc:Loc ImageModelListHint}" Classes="muted"
+                               HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
+                    <Button Classes="Primary" Content="{loc:Loc AddBtn}" Command="{Binding AddCommand}"
+                            HorizontalAlignment="Center" Margin="0,4,0,0" />
+                </StackPanel>
 
-        <ScrollViewer Margin="0,12,0,0" HorizontalScrollBarVisibility="Disabled">
-            <ItemsControl ItemsSource="{Binding Items}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="images:ImageModelItemViewData">
-                        <Border BorderBrush="{DynamicResource SemiGrey1}" CornerRadius="12" BorderThickness="1"
-                                Padding="12,8" Margin="0,0,0,8">
+                <ListBox Classes="model-list"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         ItemsSource="{Binding Items}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="images:ImageModelItemViewData">
                             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                                <!-- 序号即回退顺序 -->
-                                <TextBlock Text="{Binding Order}" FontSize="18" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource SemiGrey5}" />
-                                <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <SelectableTextBlock Text="{Binding Name}" />
+                                <Border Classes="model-icon">
+                                    <controls:ThemedSvgIcon Width="18" Height="18" IconName="image" />
+                                </Border>
+
+                                <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <!-- 序号即回退顺序 -->
+                                        <TextBlock Text="{Binding Order, StringFormat='{}{0}.'}" Classes="muted"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                         <controls:KindBadge Header="{loc:Loc ImageModelEditingBadge}"
                                                             BadgeBackground="Gold"
-                                                            IsVisible="{Binding SupportsEditing}" />
+                                                            IsVisible="{Binding SupportsEditing}"
+                                                            VerticalAlignment="Center" />
                                     </StackPanel>
-                                    <SelectableTextBlock Text="{Binding Detail}" FontSize="12" />
-                                    <SelectableTextBlock Text="{Binding Endpoint}" FontSize="12"
-                                                         Foreground="{DynamicResource SemiGrey6}" />
+                                    <!-- 接口格式 · 模型 id · 分辨率档 -->
+                                    <TextBlock Text="{Binding Detail}" Classes="muted" FontSize="12"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Endpoint}" Classes="muted" FontSize="12"
+                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Endpoint}" />
                                     <TextBlock Text="{Binding StatusText}" FontSize="12" TextWrapping="Wrap"
                                                Foreground="{DynamicResource SemiGreen6}"
                                                IsVisible="{Binding IsReady}" />
@@ -45,38 +73,33 @@
                                                Foreground="{DynamicResource MessageStatusErrorBrush}"
                                                IsVisible="{Binding !IsReady}" />
                                 </StackPanel>
-                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
+
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2"
                                             VerticalAlignment="Center">
-                                    <Button Classes="NoneStyle" Padding="6" Cursor="Hand"
-                                            ToolTip.Tip="{loc:Loc ImageModelMoveUp}"
-                                            IsEnabled="{Binding CanMoveUp}"
-                                            Command="{Binding $parent[ItemsControl].((images:ImageModelListViewData)DataContext).MoveUpCommand}"
-                                            CommandParameter="{Binding}">
-                                        <controls:ThemedSvgIcon Width="14" Height="14" IconName="chevron-down">
-                                            <controls:ThemedSvgIcon.RenderTransform>
-                                                <RotateTransform Angle="180" />
-                                            </controls:ThemedSvgIcon.RenderTransform>
-                                        </controls:ThemedSvgIcon>
-                                    </Button>
-                                    <Button Classes="NoneStyle" Padding="6" Cursor="Hand"
-                                            ToolTip.Tip="{loc:Loc ImageModelMoveDown}"
-                                            IsEnabled="{Binding CanMoveDown}"
-                                            Command="{Binding $parent[ItemsControl].((images:ImageModelListViewData)DataContext).MoveDownCommand}"
-                                            CommandParameter="{Binding}">
-                                        <controls:ThemedSvgIcon Width="14" Height="14" IconName="chevron-down" />
-                                    </Button>
-                                    <Button CornerRadius="15" Content="{loc:Loc ModifyBtn}"
-                                            Command="{Binding $parent[ItemsControl].((images:ImageModelListViewData)DataContext).EditCommand}"
-                                            CommandParameter="{Binding}" />
-                                    <Button CornerRadius="15" Content="{loc:Loc Delete}"
-                                            Command="{Binding $parent[ItemsControl].((images:ImageModelListViewData)DataContext).DeleteCommand}"
-                                            CommandParameter="{Binding}" />
+                                    <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="chevron-up"
+                                                      ToolTip.Tip="{loc:Loc ImageModelMoveUp}"
+                                                      IsEnabled="{Binding CanMoveUp}"
+                                                      CommandParameter="{Binding}"
+                                                      Command="{Binding $parent[ListBox].((images:ImageModelListViewData)DataContext).MoveUpCommand}" />
+                                    <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="chevron-down"
+                                                      ToolTip.Tip="{loc:Loc ImageModelMoveDown}"
+                                                      IsEnabled="{Binding CanMoveDown}"
+                                                      CommandParameter="{Binding}"
+                                                      Command="{Binding $parent[ListBox].((images:ImageModelListViewData)DataContext).MoveDownCommand}" />
+                                    <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="pencil"
+                                                      ToolTip.Tip="{loc:Loc ModifyBtn}"
+                                                      CommandParameter="{Binding}"
+                                                      Command="{Binding $parent[ListBox].((images:ImageModelListViewData)DataContext).EditCommand}" />
+                                    <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="trash-2"
+                                                      ToolTip.Tip="{loc:Loc Delete}"
+                                                      CommandParameter="{Binding}"
+                                                      Command="{Binding $parent[ListBox].((images:ImageModelListViewData)DataContext).DeleteCommand}" />
                                 </StackPanel>
                             </Grid>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Panel>
+        </Border>
     </DockPanel>
 </UserControl>

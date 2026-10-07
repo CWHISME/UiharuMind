@@ -148,7 +148,7 @@
                                                     <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center"
                                                                 IsVisible="{Binding IsRunning}">
                                                         <Border Classes="status-dot" Tag="Ready" />
-                                                        <TextBlock Text="{loc:Loc ModelListRunning}" FontSize="12"
+                                                        <TextBlock Text="{loc:Loc ModelListRunning}" FontSize="12" Classes="title-tweak"
                                                                    Foreground="{DynamicResource MessageStatusSuccessBrush}" />
                                                     </StackPanel>
                                                     <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center"
