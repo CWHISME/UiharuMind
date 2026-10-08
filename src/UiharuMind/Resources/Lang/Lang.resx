@@ -2983,6 +2983,9 @@ Allow them?</value>
     <data name="TextFileSaveFailed" xml:space="preserve">
         <value>Failed to save file</value>
     </data>
+    <data name="TextFileEncodingCannotStoreFormat" xml:space="preserve">
+        <value>Some characters can't be stored in {0} and would be saved as "?". Save as UTF-8 instead?</value>
+    </data>
     <data name="TextFileSaved" xml:space="preserve">
         <value>Saved</value>
     </data>

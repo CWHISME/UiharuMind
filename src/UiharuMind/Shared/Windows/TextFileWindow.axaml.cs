@@ -40,7 +40,7 @@ namespace UiharuMind.Shared.Windows;
 /// （<see cref="Controls.ChunkedMarkdownViewer"/>）叠在同一片区域，切模式只改可见性——
 /// 编辑 Document 不销毁，撤销栈与滚动位置跨预览切换保留（换 Document 会清撤销栈，见 LongTextView.ApplyText）。
 ///
-/// 保存走 <see cref="TextFileCodec"/>：原编码、原 BOM 写回，行尾不归一。
+/// 保存走 <see cref="TextFileCodec"/>：原编码、原 BOM 写回，行尾不归一；原编码存不下的字先问要不要改存 UTF-8。
 /// 关闭前未保存有三态确认（保存 / 不保存 / 取消，见 <see cref="EConfirmChoice"/>）。
 /// </summary>
 public partial class TextFileWindow : QuickWindowBase
@@ -269,10 +269,11 @@ public partial class TextFileWindow : QuickWindowBase
         // 空文档没有回写路径，保存即另存为（普通编辑器行为）
         if (_filePath == null) return await SaveAsAsync();
 
+        string text = TextView.Text ?? string.Empty;
+        if (!await EnsureEncodableAsync(text)) return false;
         try
         {
-            await TextFileCodec.WriteTextAsync(
-                _filePath, TextView.Text ?? string.Empty, _encoding, _hasBom, default);
+            await TextFileCodec.WriteTextAsync(_filePath, text, _encoding, _hasBom, default);
             _dirty = false;
             RefreshDirtyState();
             RefreshMenuStates();
@@ -287,17 +288,39 @@ public partial class TextFileWindow : QuickWindowBase
         }
     }
 
+    /// <summary>
+    /// 原编码存不下正文时（Big5、Shift-JIS 与单字节编码才会），先问要不要改存 UTF-8：
+    /// 不问就写，存不下的字会被静默写成「?」
+    /// </summary>
+    /// <param name="text">要保存的正文</param>
+    /// <returns>可以接着保存返回 true；用户不改编码返回 false</returns>
+    private async Task<bool> EnsureEncodableAsync(string text)
+    {
+        if (TextFileCodec.CanEncode(_encoding, text)) return true;
+
+        string message = string.Format(Loc.Text(LangKey.TextFileEncodingCannotStoreFormat), FormatEncodingDisplay());
+        if (!await MessageService.ConfirmAsync(message)) return false;
+
+        _encoding = Encoding.UTF8;
+        _hasBom = false;
+        UpdateStatusBar();
+        return true;
+    }
+
     /// <summary>另存为：空文档也能调，存完路径落定、标题与高亮跟着新扩展名走</summary>
     /// <returns>存成功返回 true；用户取消或失败返回 false</returns>
     private async Task<bool> SaveAsAsync()
     {
+        string text = TextView.Text ?? string.Empty;
+        if (!await EnsureEncodableAsync(text)) return false;
+
         string defaultName = _filePath == null ? "untitled.txt" : Path.GetFileName(_filePath);
         var uri = await App.FilesService.SaveFileAsync(this, defaultName);
         if (uri == null) return false; //用户取消
 
         try
         {
-            await TextFileCodec.WriteTextAsync(uri.LocalPath, TextView.Text ?? string.Empty, _encoding, _hasBom, default);
+            await TextFileCodec.WriteTextAsync(uri.LocalPath, text, _encoding, _hasBom, default);
         }
         catch (Exception ex)
         {

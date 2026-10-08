@@ -136,6 +136,24 @@ public class TextFileCodecTests
     }
 
     /// <summary>
+    /// 编辑窗保存前靠它决定要不要问「改存 UTF-8」：Shift-JIS 存不下 emoji、Big5 存不下简体、
+    /// windows-1252 存不下中文，不问就会被静默写成「?」
+    /// </summary>
+    [Theory]
+    [InlineData("shift_jis", "日本語😀", false)]
+    [InlineData("big5", "繁體简体", false)]
+    [InlineData("windows-1252", "café 中文", false)]
+    [InlineData("windows-1252", "café", true)]
+    [InlineData("gb18030", "简体😀", true)]
+    [InlineData("utf-8", "任何😀字符", true)]
+    public void CanEncode_SaysWhetherTheTextSurvivesTheEncoding(string encodingName, string text, bool expected)
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
+        Assert.Equal(expected, TextFileCodec.CanEncode(Encoding.GetEncoding(encodingName), text));
+    }
+
+    /// <summary>
     /// 纯 ASCII 文件按 UTF-8 记：从前记成 us-ascii，在编辑窗里打几个中文再保存就成了「??」
     /// </summary>
     [Fact]

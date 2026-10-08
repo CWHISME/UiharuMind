@@ -2976,6 +2976,9 @@
     <data name="TextFileSaveFailed" xml:space="preserve">
         <value>保存文件失败</value>
     </data>
+    <data name="TextFileEncodingCannotStoreFormat" xml:space="preserve">
+        <value>文中有 {0} 编码存不下的字符，按原编码保存会变成「?」。改用 UTF-8 保存吗？</value>
+    </data>
     <data name="TextFileSaved" xml:space="preserve">
         <value>已保存</value>
     </data>

@@ -71,7 +71,32 @@ public static class TextFileCodec
     }
 
     /// <summary>
+    /// 正文能不能用这个编码写下。UTF 系与 GB18030 能写任何字符；Big5、Shift-JIS 与单字节编码写不下的字符
+    /// 会被默认的替换策略静默写成 <c>?</c>，所以写之前要先问
+    /// </summary>
+    /// <param name="encoding">编码</param>
+    /// <param name="text">正文</param>
+    /// <returns>写得下为 true</returns>
+    public static bool CanEncode(Encoding encoding, string text)
+    {
+        if (encoding is UTF8Encoding or UnicodeEncoding or UTF32Encoding) return true;
+
+        Encoding strict = (Encoding)encoding.Clone();
+        strict.EncoderFallback = EncoderFallback.ExceptionFallback;
+        try
+        {
+            strict.GetByteCount(text);
+            return true;
+        }
+        catch (EncoderFallbackException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// 写一个文本文件：按原编码落盘；原文件带 BOM 时原样戴回。
+    /// 编码写不下的字会被替换成 <c>?</c>，调用方先用 <see cref="CanEncode"/> 问过。
     /// 行尾不归一——编辑输入什么就写什么。
     /// </summary>
     /// <param name="filePath">文件绝对路径</param>

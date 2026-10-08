@@ -108,27 +108,11 @@ internal readonly struct TextFileEnvelope
     }
 
     /// <summary>
-    /// 正文能不能用本文件的编码写下。UTF 系与 GB18030 能写任何字符；Big5、Shift-JIS 与单字节编码写不下的字符
-    /// 会被默认的替换策略静默写成 <c>?</c>，所以要先问
+    /// 正文能不能用本文件的编码写下（口径见 <see cref="TextFileCodec.CanEncode"/>）
     /// </summary>
     /// <param name="text">正文</param>
     /// <returns>写得下为 true</returns>
-    public bool CanEncode(string text)
-    {
-        if (Encoding is UTF8Encoding or UnicodeEncoding or UTF32Encoding) return true;
-
-        Encoding strict = (Encoding)Encoding.Clone();
-        strict.EncoderFallback = EncoderFallback.ExceptionFallback;
-        try
-        {
-            strict.GetByteCount(text);
-            return true;
-        }
-        catch (EncoderFallbackException)
-        {
-            return false;
-        }
-    }
+    public bool CanEncode(string text) => TextFileCodec.CanEncode(Encoding, text);
 
     /// <summary>
     /// 把正文转成落盘字节：编码与 BOM 按读入时的原样，行尾一个字节都不动
