@@ -308,6 +308,20 @@ public partial class CharacterDraft : ObservableObject
         }
     }
 
+    /// <summary>
+    /// 新回复自动朗读
+    /// </summary>
+    public bool AutoReadAloud
+    {
+        get => _draft.AutoReadAloud;
+        set
+        {
+            if (_draft.AutoReadAloud == value) return;
+            _draft.AutoReadAloud = value;
+            OnPropertyChanged();
+        }
+    }
+
     public ChatPromptExecutionSettings ChatPromptExecutionSettings
     {
         get => _draft.Config.ExecutionSettings;

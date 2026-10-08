@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using UiharuMind.App.Tests.TestDoubles;
 using UiharuMind.Core.AI.Audio;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Features.Audio;
 using UiharuMind.Shared.Services;
 using UiharuMind.Features.Conversation;
@@ -166,7 +167,8 @@ public class ReadAloudServiceTests
         _player.AutoFinish = true;
         SpeechStyle alice = new() { Voice = "alba", Speed = 0.8f, Instruction = "softly" };
         ObservableCollection<ConversationItemBase> items = [];
-        using ConversationReadAloud readAloud = new(items, service, id => id == "alice" ? alice : null);
+        using ConversationReadAloud readAloud = new(items, service, new CharacterSpeechStyles(
+            id => id == "alice" ? new CharacterData { CharacterId = id, Speech = alice } : null, _ => true, _ => true));
         TextConversationItem line = new(false) { CharacterId = "alice", Message = "Hello there.", IsDone = true };
         TextConversationItem user = new(true) { Message = "Hi.", IsDone = true };
         items.Add(line);

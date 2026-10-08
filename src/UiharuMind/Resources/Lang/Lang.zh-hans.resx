@@ -4608,6 +4608,12 @@
     <data name="CharacterVoiceTitle" xml:space="preserve">
         <value>朗读声音</value>
     </data>
+    <data name="CharacterAutoReadAloud" xml:space="preserve">
+        <value>新回复自动朗读</value>
+    </data>
+    <data name="CharacterAutoReadAloudDesc" xml:space="preserve">
+        <value>正在看的会话里，这个角色的每条新回复都用下面的声音念出来；连着几条按顺序念，点停止就不再往下念</value>
+    </data>
     <data name="CharacterVoiceDesc" xml:space="preserve">
         <value>朗读这个角色说的话时用的声音。群聊里每个角色各念各的；没设就跟语音模型页签里的默认走</value>
     </data>

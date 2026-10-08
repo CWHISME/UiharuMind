@@ -129,6 +129,11 @@ public class CharacterData
     public SpeechStyle? Speech { get; set; }
 
     /// <summary>
+    /// 新回复自动朗读（用 <see cref="Speech"/> 的声音）；群聊里只念开了的角色
+    /// </summary>
+    public bool AutoReadAloud { get; set; }
+
+    /// <summary>
     /// 角色名
     /// </summary>
     [JsonIgnore]
@@ -359,6 +364,7 @@ public class CharacterData
         Tools = snapshot.Tools;
         MountAgents = snapshot.MountAgents;
         Speech = snapshot.Speech;
+        AutoReadAloud = snapshot.AutoReadAloud;
         CharacterIcon = snapshot.CharacterIcon;
         FirstGreeting = snapshot.FirstGreeting;
         AlternateGreetings = snapshot.AlternateGreetings;

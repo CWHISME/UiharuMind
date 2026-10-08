@@ -49,7 +49,8 @@ public interface IReadAloudService
     /// <param name="text">文字（可以是 Markdown）</param>
     /// <param name="style">怎么念（角色的声音、试听指定的模型与音色）；null 用默认</param>
     /// <param name="preview">是试听：就要听指定的那个，失败也不换本地</param>
-    Task ToggleAsync(object owner, string text, SpeechStyle? style = null, bool preview = false);
+    /// <returns>念到了结尾为 true；被停、被打断、失败、没字可念为 false</returns>
+    Task<bool> ToggleAsync(object owner, string text, SpeechStyle? style = null, bool preview = false);
 
     /// <summary>
     /// 停
@@ -90,12 +91,12 @@ public sealed class ReadAloudService : IReadAloudService
 
     public event Action? StateChanged;
 
-    public async Task ToggleAsync(object owner, string text, SpeechStyle? style = null, bool preview = false)
+    public async Task<bool> ToggleAsync(object owner, string text, SpeechStyle? style = null, bool preview = false)
     {
         if (ReferenceEquals(owner, Owner))
         {
             Stop();
-            return;
+            return false;
         }
 
         Stop();
@@ -104,7 +105,7 @@ public sealed class ReadAloudService : IReadAloudService
         if (chunks.Count == 0)
         {
             _messages.ShowNotification(Loc.Text(LangKey.ReadAloudNothing));
-            return;
+            return false;
         }
 
         CancellationTokenSource session = new();
@@ -113,6 +114,7 @@ public sealed class ReadAloudService : IReadAloudService
         AudioSynthesisRequest request = new("", style?.Voice, Speed(style?.Speed), style?.Model,
             SpeechText.DetectLanguage(clean), style?.Instruction);
         Task<AudioSynthesisResult>? next = null;
+        bool finished = false;
         try
         {
             IAudioProvider tts = preview ? _tts(style?.Provider) : WithFallback(_tts(style?.Provider));
@@ -127,6 +129,8 @@ public sealed class ReadAloudService : IReadAloudService
                     // 被别处的播放（如试听）打断也算停
                     if (!await _player.PlayAsync(audio, session.Token)) break;
                 }
+
+                finished = i == chunks.Count - 1;
             }
         }
         catch (OperationCanceledException) when (session.IsCancellationRequested)
@@ -150,6 +154,8 @@ public sealed class ReadAloudService : IReadAloudService
 
             session.Dispose();
         }
+
+        return finished;
     }
 
     public void Stop()

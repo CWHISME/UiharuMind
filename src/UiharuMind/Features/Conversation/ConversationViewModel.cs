@@ -514,7 +514,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         CharacterSpeechStyles? speechStyles = null)
     {
         _messages = messages;
-        _readAloud = readAloud == null ? null : new ConversationReadAloud(Items, readAloud, speechStyles == null ? null : speechStyles.For);
+        _readAloud = readAloud == null ? null : new ConversationReadAloud(Items, readAloud, speechStyles);
         _mcpApproval = new WorkspaceMcpApprovalFlow(messages);
         // 用量排最前:后面几个子模型的构造期回调就可能刷它
         Usage = new ConversationUsageViewData(ContextLength, () => SessionModelLabel,
@@ -708,6 +708,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             IReadOnlyList<ChatMessage> history = session.History;
             if (fromIndex < 0 || fromIndex >= history.Count) return;
             _pager.AppendPersisted(history, fromIndex, ownTurn, streaming);
+            // 只念正在看的会话：后台跑着的会话不该突然出声
+            if (IsDisplayed) _readAloud?.ReadNew(history.Skip(fromIndex), _currentCharacter?.CharacterId);
             if (!ownTurn) Usage.Refresh(); //本轮的用量由 UsageObserved 逐块刷,这里重复一次只会抖
             Search.NotifyHistoryChanged();
         });

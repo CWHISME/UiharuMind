@@ -26,6 +26,13 @@ public sealed class CharacterSpeechStyles
     }
 
     /// <summary>
+    /// 这个角色的新回复要不要自动朗读
+    /// </summary>
+    /// <param name="characterId">角色 id</param>
+    /// <returns>开了为 true</returns>
+    public bool ReadsAloud(string? characterId) => characterId != null && _characters(characterId)?.AutoReadAloud == true;
+
+    /// <summary>
     /// 这个角色的声音
     /// </summary>
     /// <param name="characterId">角色 id；null 为不是角色说的</param>

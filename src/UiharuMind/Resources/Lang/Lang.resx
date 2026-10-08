@@ -4615,6 +4615,12 @@ Allow them?</value>
     <data name="CharacterVoiceTitle" xml:space="preserve">
         <value>Read-aloud voice</value>
     </data>
+    <data name="CharacterAutoReadAloud" xml:space="preserve">
+        <value>Read new replies aloud</value>
+    </data>
+    <data name="CharacterAutoReadAloudDesc" xml:space="preserve">
+        <value>In the conversation on screen, each new reply from this character is read aloud in the voice below. Several in a row are read in order; stopping skips the rest.</value>
+    </data>
     <data name="CharacterVoiceDesc" xml:space="preserve">
         <value>The voice used to read this character's lines aloud. In group chats each character uses its own. If not set, the default from the Voice models tab is used.</value>
     </data>
