@@ -20,6 +20,7 @@ using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Utils;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 
@@ -189,23 +190,28 @@ public partial class DownloadListViewData : ObservableObject
     [RelayCommand]
     protected async Task DeleteFile(DownloadableItemData version)
     {
+        if (!await MessageService.ConfirmAsync(GetDeleteConfirmMessage())) return;
+        string path = GetDeleteFilePath(version);
         try
         {
-            if (await MessageService.ConfirmAsync(GetDeleteConfirmMessage()))
+            // 引擎目录几百兆，别在界面线程上删
+            await Task.Run(() =>
             {
-                var path = GetDeleteFilePath(version);
                 if (File.Exists(path)) File.Delete(path);
                 if (Directory.Exists(path)) Directory.Delete(path, true);
-                version.RefreshDownloadedState();
-                RemoveItem(version);
-            }
-
-            OnDownloadFileChange?.Invoke();
+            });
         }
-        catch (Exception e)
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            Log.Error(e.Message);
+            // Windows 上正在跑的版本文件被占着，删不掉要让用户知道
+            Log.Error($"Delete {path} failed: {e.Message}");
+            MessageService.ShowNotification(Loc.Text(LangKey.EnginePackageDeleteFailed, e.Message),
+                severity: MessageSeverity.Error);
         }
+
+        version.RefreshDownloadedState();
+        if (!version.IsDownloaded) RemoveItem(version);
+        OnDownloadFileChange?.Invoke();
     }
 
 
@@ -264,10 +270,18 @@ public partial class DownloadListViewData : ObservableObject
         return DownloadCompletedHandler?.Invoke(version) ?? Task.CompletedTask;
     }
 
-    private async void OnDownloadCompleted(DownloadableItemData obj)
+    // 完成回调在下载线程上来：安装照旧在这条线程上做，之后要改界面绑着的集合，切回界面线程
+    private async void OnDownloadCompleted(DownloadableItemData item)
     {
-        await OnFileDownloadCompleted(obj);
+        try
+        {
+            await OnFileDownloadCompleted(item);
+        }
+        catch (Exception e)
+        {
+            Log.Error($"Handle downloaded {item.Name} failed: {e.Message}");
+        }
 
-        OnDownloadFileChange?.Invoke();
+        await UiDispatcher.InvokeAsync(() => OnDownloadFileChange?.Invoke());
     }
 }

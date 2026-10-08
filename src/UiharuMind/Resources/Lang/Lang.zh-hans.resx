@@ -3062,6 +3062,9 @@
     <data name="ConfirmDeleteRuntimeEngine" xml:space="preserve">
         <value>是否确认删除这个版本的运行程序？</value>
     </data>
+    <data name="EnginePackageDeleteFailed" xml:space="preserve">
+        <value>这个版本删除失败：{0}</value>
+    </data>
 
     <data name="CopyLink" xml:space="preserve">
         <value>复制链接</value>
