@@ -1,0 +1,6 @@
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"session.new","args":{"character":"BrowserDelegator","workspace":"{{WS_EMPTY}}"}}
+{"op":"session.post","args":{"text":"派两个子代理并行去做：一个打开 https://httpbin.org/forms/post ，名字填「白井黑子」、选大号、加洋葱后提交，回报回显里的 custname、size 和 topping；另一个打开 https://the-internet.herokuapp.com/dropdown 选 Option 2，回报页面上现在选中的是哪一项。两个都回来后汇总给我。"}}
+{"op":"session.wait","args":{"timeoutMinutes":15,"approvals":"once"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/delegate.md"}}
+{"op":"quit"}

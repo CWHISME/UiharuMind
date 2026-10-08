@@ -22,14 +22,20 @@ namespace UiharuMind.Core.AI.Execution.Tools.Browser;
 /// </summary>
 public sealed class PuppeteerBrowserHost : IBrowserHost
 {
-    private readonly SemaphoreSlim _gate = new(1, 1); //起浏览器、开标签页排队，免得并发调用各起一个
+    private static readonly TimeSpan IdleTabLifetime = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan SweepInterval = TimeSpan.FromMinutes(1);
+
+    private readonly SemaphoreSlim _gate = new(1, 1); //起浏览器、开标签页、回收排队，免得并发调用各起一个
     private readonly ConcurrentDictionary<string, PuppeteerTab> _tabs = new();
+    private readonly Timer _idleSweep; //闲置回收；留着引用，免得计时器被回收
     private readonly bool _headless;
     private IBrowser? _browser;
+    private IPage? _spare; //浏览器起来时自带的空白页：头一个会话用它，免得多出一个空窗口
 
     private PuppeteerBrowserHost(bool headless)
     {
         _headless = headless;
+        _idleSweep = new Timer(_ => _ = SweepIdleAsync(), null, SweepInterval, SweepInterval);
         AppDomain.CurrentDomain.ProcessExit += (_, _) => Shutdown();
     }
 
@@ -60,7 +66,13 @@ public sealed class PuppeteerBrowserHost : IBrowserHost
             if (_tabs.TryGetValue(sessionId, out existing) && !existing.IsClosed) return existing;
 
             IBrowser browser = await EnsureBrowserAsync();
-            PuppeteerTab tab = new(await browser.NewPageAsync());
+            // 一个会话一个窗口而不是标签页：Chrome 只给前台标签页跑渲染帧，后台标签页里等「位置稳定」永远等不到，
+            // 并行的子代理各自点不动（实测）。各开一个窗口，每个都是前台
+            IPage page = _spare is { IsClosed: false } spare
+                ? spare
+                : await browser.NewPageAsync(new CreatePageOptions { Type = CreatePageType.Window });
+            _spare = null;
+            PuppeteerTab tab = new(page);
             tab.Closed += () => _tabs.TryRemove(new KeyValuePair<string, PuppeteerTab>(sessionId, tab));
             _tabs[sessionId] = tab;
             return tab;
@@ -91,7 +103,41 @@ public sealed class PuppeteerBrowserHost : IBrowserHost
         // 用户把浏览器整个关了：标签页记录作废，下次调用重新起
         browser.Disconnected += (_, _) => _tabs.Clear();
         _browser = browser;
+        _spare = (await browser.PagesAsync()).FirstOrDefault(p => p.Url == "about:blank");
         return browser;
+    }
+
+    // 标签页闲着超过十分钟就关（子代理跑完的、会话删掉的都会剩下一个）；一个都不剩时浏览器也关——
+    // 登录态在档案里，下次用到再起，不白占内存
+    private async Task SweepIdleAsync()
+    {
+        try
+        {
+            foreach ((string sessionId, PuppeteerTab tab) in _tabs)
+            {
+                if (DateTime.UtcNow - tab.LastUsed < IdleTabLifetime) continue;
+                if (_tabs.TryRemove(new KeyValuePair<string, PuppeteerTab>(sessionId, tab))) await tab.CloseAsync();
+            }
+
+            if (!_tabs.IsEmpty || _browser is not { IsConnected: true }) return;
+            await _gate.WaitAsync();
+            try
+            {
+                if (_tabs.IsEmpty && _browser is { IsConnected: true } browser)
+                {
+                    _browser = null;
+                    await browser.CloseAsync();
+                }
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"[Browser] idle sweep failed: {e.Message}");
+        }
     }
 
     // 正常关浏览器才会把 cookie 写回档案，下次登录态还在

@@ -78,7 +78,7 @@ internal sealed partial class PuppeteerTab
                 await _page.EvaluateExpressionAsync($"window.scrollBy(0, {(up ? -1 : 1)} * window.innerHeight * 0.8)");
                 return up ? "Scrolled up." : "Scrolled down.";
             case EBrowserAction.Press when request.Target.Length == 0:
-                await _page.Keyboard.PressAsync(request.Value);
+                await PressKeysAsync(request.Value);
                 return $"Pressed {request.Value}.";
         }
 
@@ -123,7 +123,7 @@ internal sealed partial class PuppeteerTab
                     return $"{(wanted ? "Checked" : "Unchecked")} {Describe(node)}.";
                 case EBrowserAction.Press:
                     await handle.FocusAsync();
-                    await _page.Keyboard.PressAsync(value);
+                    await PressKeysAsync(value);
                     return $"Pressed {value} on {Describe(node)}.";
                 default:
                     throw new BrowserActionException($"Unsupported action: {action}.");
@@ -137,7 +137,7 @@ internal sealed partial class PuppeteerTab
 
     private AxNode Resolve(string target)
     {
-        string key = target.Trim();
+        string key = AxSnapshotSearch.NormalizeTarget(target);
         if (key.Length == 0)
         {
             throw new BrowserActionException("This action needs a target: a ref from the latest snapshot (e.g. e5).");
@@ -185,6 +185,57 @@ internal sealed partial class PuppeteerTab
         await handle.SelectAsync(values);
         return $"Selected \"{wanted}\" in {Describe(node)}.";
     }
+
+    // 模型给的按键五花八门（Ctrl+A、Cmd+Enter、esc）：统一成 Puppeteer 的键名，组合键按住修饰键再按、按完松开
+    private async Task PressKeysAsync(string keys)
+    {
+        string[] names = keys.Split('+', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Select(NormalizeKey).ToArray();
+        if (names.Length == 0)
+        {
+            throw new BrowserActionException("press needs a key, e.g. Enter, Tab, ArrowDown or Control+A.");
+        }
+
+        List<string> held = new();
+        try
+        {
+            foreach (string modifier in names[..^1])
+            {
+                await _page.Keyboard.DownAsync(modifier);
+                held.Add(modifier);
+            }
+
+            await _page.Keyboard.PressAsync(names[^1]);
+        }
+        catch (KeyNotFoundException)
+        {
+            throw new BrowserActionException($"Unknown key \"{keys}\". Use key names such as Enter, Tab, Escape, " +
+                                             "ArrowDown, Backspace, or a combination like Control+A.");
+        }
+        finally
+        {
+            for (int i = held.Count - 1; i >= 0; i--) await _page.Keyboard.UpAsync(held[i]);
+        }
+    }
+
+    private static string NormalizeKey(string key) => key.ToLowerInvariant() switch
+    {
+        "ctrl" or "control" => "Control",
+        "cmd" or "command" or "meta" or "win" or "super" => "Meta",
+        "alt" or "option" or "opt" => "Alt",
+        "shift" => "Shift",
+        "esc" or "escape" => "Escape",
+        "return" or "enter" => "Enter",
+        "del" or "delete" => "Delete",
+        "space" or "spacebar" => "Space",
+        "up" => "ArrowUp",
+        "down" => "ArrowDown",
+        "left" => "ArrowLeft",
+        "right" => "ArrowRight",
+        "pgup" => "PageUp",
+        "pgdn" => "PageDown",
+        _ => key.Length == 1 ? key : char.ToUpperInvariant(key[0]) + key[1..],
+    };
 
     private static string Describe(AxNode node) =>
         node.Name.Trim() is { Length: > 0 } name ? $"{node.Role} \"{name}\"" : node.Role;

@@ -35,6 +35,21 @@ public static class AxSnapshotSearch
     }
 
     /// <summary>
+    /// 把模型写来的目标规整成快照里的编号：快照里写的是 <c>[ref=e5]</c>，模型常照抄成 <c>ref=e5</c> 或带着方括号
+    /// </summary>
+    /// <param name="target">模型给的目标</param>
+    /// <returns>像编号的规整成 <c>e5</c>；其余（看得见的文字）只去掉首尾空白</returns>
+    public static string NormalizeTarget(string target)
+    {
+        string trimmed = target.Trim();
+        string bare = trimmed.Trim('[', ']').Trim();
+        if (bare.StartsWith("ref=", StringComparison.OrdinalIgnoreCase)) bare = bare[4..].Trim();
+        return bare.Length > 1 && (bare[0] == 'e' || bare[0] == 'E') && bare[1..].All(char.IsAsciiDigit)
+            ? "e" + bare[1..]
+            : trimmed;
+    }
+
+    /// <summary>
     /// 从快照文本里挑出含关键字的行（不分大小写），各带上下一行作参照，不相邻的段之间用省略号隔开
     /// </summary>
     /// <param name="snapshot">快照文本</param>

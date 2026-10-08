@@ -189,3 +189,15 @@ UIHARU_BROWSER_HEADLESS=1 SMOKE_MODEL=Agnes-2.5-Flash-无思考 src/scripts/smok
 - 动作参数用的是快照里的编号（`target` 为 `eN`），下拉框走 `select` 而不是去点选项
 - 维基那页超过快照预算时，结果里有落盘路径，模型用 `find` 或 `Read` 续读，而不是反复重拍整页
 - 审批卡（`report.json` 的 approvals）只出在 `BrowserNavigate` / `BrowserAct` 上，`BrowserSnapshot` 不问
+
+### browser-subagent：子代理并行用浏览器（ADR 0075）
+
+自带一张开着浏览器与委派的「浏览器派活员」卡。让它并行派两个子代理：一个填 httpbin 表单提交，一个在 the-internet 选下拉框，回来汇总。
+
+```bash
+UIHARU_BROWSER_HEADLESS=1 SMOKE_MODEL=Agnes-2.5-Flash-无思考 src/scripts/smoke/run.sh browser-subagent
+```
+
+- 真的派出了两个子代理，浏览器调用出在子会话里（`home/Logs/Log.txt` 里 `BrowserNavigate` / `BrowserAct` 的调用），不是主代理自己去做
+- 两个子代理各用各的标签页，互不踩编号：表单回显 `custname` 是白井黑子、`size` 是 large、`topping` 是 onion；下拉框回报 Option 2
+- 汇总里两份回报都在，引用的是回报原文

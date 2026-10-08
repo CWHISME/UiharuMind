@@ -992,6 +992,9 @@ public class SubAgentBoundaryTests
                 ShellTool = StubShellTool(),
                 McpTools = [AIFunctionFactory.Create(() => "", "probe_mcp")],
                 ImageModelsConfigured = true,
+                SessionId = "sub-session",
+                Browser = PuppeteerBrowserHost.Shared,
+                Character = new CharacterData { CharacterName = "Sub" },
             }));
 
         AgentToolScopeRule rule = AgentToolScopes.Of(EAgentToolScope.SubAgent);
@@ -1094,7 +1097,25 @@ public class SubAgentBoundaryTests
     /// <summary>
     /// 一个子会话的装配计划：匿名通用档，关掉 shell 免得测试真去解析本机 shell。
     /// </summary>
-    private static AgentAssemblyPlan NewSubSessionPlan()
+    /// <summary>
+    /// 匿名子代理的能力就是派活者那一份，走的是重开子会话时的真实装配路径：
+    /// 从前识图、生图判的是它那张身份卡（生图默认关），派活者开着生图它也拿不到；浏览器则是子代理那份名单漏了
+    /// </summary>
+    [Fact]
+    public void AnonymousSubSession_GetsTheParentsBrowserAndImageGeneration()
+    {
+        AgentAssemblyPlan plan = NewSubSessionPlan(
+            new AgentToolConfig { EnableShellExecution = false, EnableImageGeneration = true, EnableBrowser = true },
+            imageModelsConfigured: true);
+
+        List<string> names = ToolNamesOf(SubAgentAssembly.BuildSubSessionAssembly(plan).Options);
+
+        Assert.Contains(ImageGenerationTool.ToolName, names);
+        Assert.Contains(BrowserTools.SnapshotToolName, names);
+    }
+
+    private static AgentAssemblyPlan NewSubSessionPlan(AgentToolConfig? parentConfig = null,
+        bool imageModelsConfigured = false)
     {
         CharacterData character = new()
         {
@@ -1111,6 +1132,8 @@ public class SubAgentBoundaryTests
                 SubAgent = new SubAgentIdentity("parent-1", ESubAgentType.General, string.Empty),
             },
             WorkingDirectory = TestWorkingDirectory,
+            SubAgentParentConfig = parentConfig,
+            ImageModelsConfigured = imageModelsConfigured,
         };
     }
 

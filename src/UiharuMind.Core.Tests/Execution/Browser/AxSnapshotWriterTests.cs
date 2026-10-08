@@ -173,6 +173,19 @@ public class AxSnapshotWriterTests
         Assert.Null(AxSnapshotSearch.FindByText(root, "评论区"));
     }
 
+    /// <summary>快照里写的是 [ref=e5]，模型常照抄成 ref=e5 或带着方括号：都认成编号；看得见的文字原样</summary>
+    [Theory]
+    [InlineData("e5", "e5")]
+    [InlineData(" ref=e5 ", "e5")]
+    [InlineData("[ref=e12]", "e12")]
+    [InlineData("E7", "e7")]
+    [InlineData("Submit order", "Submit order")]
+    [InlineData("email", "email")]
+    public void Targets_AreNormalizedToRefs(string target, string expected)
+    {
+        Assert.Equal(expected, AxSnapshotSearch.NormalizeTarget(target));
+    }
+
     [Fact]
     public void FindLines_KeepsMatchesWithOneLineOfContext()
     {

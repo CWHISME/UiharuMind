@@ -25,6 +25,7 @@ internal sealed partial class PuppeteerTab
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly ConcurrentQueue<string> _notes = new();
     private readonly IPage _page;
+    private DateTime _lastUsed = DateTime.UtcNow;
     private AxNode? _tree;
     private IReadOnlyDictionary<string, AxNode> _refs = new Dictionary<string, AxNode>();
     private IReadOnlyDictionary<AxNode, AxNode> _pickerOptions =
@@ -46,6 +47,9 @@ internal sealed partial class PuppeteerTab
 
     /// <summary>页面是否已关</summary>
     public bool IsClosed => _page.IsClosed;
+
+    /// <summary>最后一次被调用的时刻（闲置回收看它）</summary>
+    public DateTime LastUsed => _lastUsed;
 
     /// <summary>
     /// 打开地址
@@ -99,15 +103,38 @@ internal sealed partial class PuppeteerTab
             return await CaptureAsync(note);
         }, cancellationToken);
 
+    /// <summary>
+    /// 关掉页面（闲置回收用）；正在跑的调用跑完再关
+    /// </summary>
+    /// <returns>关完为止</returns>
+    public async Task CloseAsync()
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            if (!_page.IsClosed) await _page.CloseAsync();
+        }
+        catch (PuppeteerException e)
+        {
+            Log.Debug($"[Browser] closing an idle tab failed: {e.Message}");
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     private async Task<T> RunAsync<T>(Func<Task<T>> work, CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken);
+        _lastUsed = DateTime.UtcNow;
         try
         {
             return await work();
         }
         finally
         {
+            _lastUsed = DateTime.UtcNow;
             _gate.Release();
         }
     }

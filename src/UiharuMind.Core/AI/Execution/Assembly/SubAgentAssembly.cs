@@ -16,6 +16,7 @@ using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution.Prompts;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Core.AI.Execution.Tools.Browser;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.Configs;
@@ -67,6 +68,15 @@ internal static class SubAgentAssembly
 
         /// <summary>配了生图模型</summary>
         public bool ImageModelsConfigured { get; init; }
+
+        /// <summary>子会话 id:浏览器一个会话一个标签页;派活前的探测里为空串</summary>
+        public string SessionId { get; init; } = string.Empty;
+
+        /// <summary>浏览器宿主;为 null 时不挂浏览器</summary>
+        public IBrowserHost? Browser { get; init; }
+
+        /// <summary>子会话的角色(配音不点名时用它的声音);为 null 时不挂配音</summary>
+        public CharacterData? Character { get; init; }
 
         /// <summary>继承自主代理的权限档,决定可变更工具挂不挂</summary>
         public EAgentPermissionMode PermissionMode { get; init; } = EAgentPermissionMode.ReadOnly;
@@ -199,6 +209,9 @@ internal static class SubAgentAssembly
             WorkingDirectory = plan.WorkingDirectory,
             ModelSupportsVision = plan.ModelSupportsVision,
             ImageModelsConfigured = plan.ImageModelsConfigured,
+            SessionId = profile.SessionId,
+            Browser = PuppeteerBrowserHost.Shared,
+            Character = plan.Character,
             PermissionMode = effectivePermission,
             WorkspaceInstructions = plan.WorkspaceInstructions,
             ShellTool = shellTool,
@@ -275,6 +288,9 @@ internal static class SubAgentAssembly
             WorkingDirectory = workingDirectory,
             ModelSupportsVision = plan.ModelSupportsVision,
             ImageModelsConfigured = plan.ImageModelsConfigured,
+            SessionId = profile.SessionId,
+            Browser = PuppeteerBrowserHost.Shared,
+            Character = plan.Character,
             PermissionMode = effectivePermission,
             WorkspaceInstructions = plan.WorkspaceInstructions,
             ShellTool = shellTool,
@@ -355,6 +371,9 @@ internal static class SubAgentAssembly
             ImageModelsConfigured = input.ImageModelsConfigured,
             Mcp = input.McpTools ?? [],
             Shell = input.ShellTool is { } shellTool ? _ => shellTool : null,
+            SessionId = input.SessionId,
+            Browser = input.Browser,
+            Character = input.Character,
         });
         List<AITool> tools = entries.Select(x => x.Tool).ToList();
         // 纪律段里指名的工具必须真的在这份工具集里(有不变量测试钉住),所以判据取装配结果而不是配置意图
