@@ -28,7 +28,8 @@ internal sealed class LLamaCppRuntimeBackend(
 
     public bool CanHandleChat(ILlmModel model)
     {
-        return model is GGufModelInfo;
+        // 音频模型归音频引擎（ADR 0071）；读不出头的旧模型照旧当对话处理
+        return model is GGufModelInfo info && info.Kind?.IsAudio() != true;
     }
 
     public bool CanHandleEmbedding(EmbeddingModelSettingConfig settings)

@@ -12,7 +12,41 @@ public enum ELocalModelKind
     /// <summary>
     /// 视觉投影（mmproj），是视觉模型的附件，不单独作为模型
     /// </summary>
-    Projector
+    Projector,
+
+    // 以下为 audio.cpp 的 GGUF（ADR 0071）。种类按整数缓存在模型配置里，新成员只能往后加
+
+    /// <summary>
+    /// 语音合成（TTS）
+    /// </summary>
+    SpeechSynthesis,
+
+    /// <summary>
+    /// 语音识别（ASR）
+    /// </summary>
+    SpeechRecognition,
+
+    /// <summary>
+    /// audio.cpp 的其他任务（VAD、音源分离、音乐生成等），暂不进任何列表
+    /// </summary>
+    OtherAudio
+}
+
+/// <summary>
+/// 种类的归属判断
+/// </summary>
+public static class LocalModelKindExtensions
+{
+    /// <summary>
+    /// 是否 audio.cpp 的模型：归音频引擎，不进 llama 引擎
+    /// </summary>
+    /// <param name="kind">种类</param>
+    /// <returns>是音频模型返回 true</returns>
+    public static bool IsAudio(this ELocalModelKind kind)
+    {
+        return kind is ELocalModelKind.SpeechSynthesis or ELocalModelKind.SpeechRecognition
+            or ELocalModelKind.OtherAudio;
+    }
 }
 
 /// <summary>
@@ -42,7 +76,27 @@ public static class LocalModelKindClassifier
     public static ELocalModelKind Classify(GGufHeader header)
     {
         string architecture = header.GetString("general.architecture");
+        if (string.Equals(architecture, AudioCppSpec.Architecture, StringComparison.OrdinalIgnoreCase))
+            return ClassifyAudioCpp(header);
+
         return Classify(architecture, header.GetInteger(architecture + ".pooling_type"));
+    }
+
+    /// <summary>
+    /// audio.cpp 自家打包的 GGUF：种类由内嵌 model_spec 的 category 决定；
+    /// 老包缺 category 时按 family 后缀 _tts / _asr 推断。llama 引擎读不了这类文件，认不出的也绝不归对话
+    /// </summary>
+    private static ELocalModelKind ClassifyAudioCpp(GGufHeader header)
+    {
+        AudioCppSpec.Info? spec = AudioCppSpec.TryParse(header.GetString("audiocpp.model_spec.json"));
+        string category = spec?.Category ?? AudioCppSpec.InferCategory(header.GetString("audiocpp.model_spec.family"));
+
+        return category switch
+        {
+            "tts" => ELocalModelKind.SpeechSynthesis,
+            "asr" => ELocalModelKind.SpeechRecognition,
+            _ => ELocalModelKind.OtherAudio
+        };
     }
 
     /// <summary>

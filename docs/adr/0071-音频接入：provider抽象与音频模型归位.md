@@ -1,0 +1,55 @@
+# 音频接入：provider 抽象与音频模型归位
+
+> **状态**：accepted，未实现（2026-10-07）。
+
+要给应用加语音能力，最省事的做法是往已有的 `IModelRuntimeBackend` 里再塞一路，或者干脆只接一个库（Edge TTS 或 audio.cpp）了事。
+两条都不选。前者的方法面是「问话」（`RunChatAsync`、嵌入会话），TTS/ASR 硬塞进去会让一个接口的语义分裂成两种东西；
+后者写不出可换的接口——**接口的形状靠两个实现才能验证，一个实现写出来必然漏**。
+
+决定：音频侧另起一套与文本侧**同构但不隶属**的抽象——`IAudioProvider`（`Id` / `DisplayName` / `Kind` / 能力位 /
+合成 / 听写）+ `AudioProviderRegistry`（按能力查），provider 分三类：**本地引擎**（要下二进制与模型、有进程生命周期）、
+**在线服务**（只发 HTTP）、**系统内置**（操作系统自带）。
+
+分类进术语而不是藏进实现，是因为三类的**用户可见代价**完全不同：下几百兆、填密钥（或什么都不填）、什么都不用做。
+二分法（本地 / 远程）会把「系统自带、零成本」和「要下 195MB 模型」归成一类，界面文案就写不准确。`IsLocal` 语义不变，
+差别体现在 `Kind`。
+
+## 音频模型归位：改既有模型层，不另起清单
+
+实测（拿 audio.cpp 的 PocketTTS 与 Moonshine 两个 GGUF 真文件喂我们的读取器）：它们是**标准 GGUF v3 容器**，
+`GGufMetadataReader.TryRead` 能解析、不抛异常，但读不出语义——那几个 kv 全在 `audiocpp.*` 命名空间
+（`weight_type`、`model_spec.family`、内嵌 `model_spec.json`），没有 `general.file_type`、`<arch>.context_length`
+这些 llama.cpp 的键。结果是 `ContextLength=0`、`Quantization=""`，种类被兜底判成**对话模型**，
+再被 llama 引擎 `CanHandleChat` 接管，加载必失败。
+
+决定：音频模型与文本模型**同住一个模型目录**，改既有模型层来容纳（种类扩展、`audiocpp.*` 元数据分支、
+`NeedsMetadata` 收敛、`CanHandleChat` 按种类分流——具体改法随实现进对应类型注释），
+而不是另起一套清单：另起意味着发现、下载、删除、列表、缓存五件事各重写一遍。
+
+代价：这是**修既有行为**不是纯新增——扫描、缓存、模型列表都会经过被改的代码，回归面独立，
+应与「模型页按任务分组」这类纯表现层改动分开提交。
+
+## 远程音频服务：单独登记，照生图模型先例
+
+远程 TTS/ASR 服务（要密钥的 OpenAI 兼容一类）**单独登记**，不进对话模型那张表——
+照 [ADR 0052](0052-生图模型单独登记，回退只认这一家用不了.md) 给生图模型定的先例，三条理由同样成立：
+对话模型命名空间的消费者太多（漏滤一处就是一个跑起来才报错的模型）、`ContextLength`/`ThinkingMode` 对音频无意义、
+`OpenAICompatibleHttpHandler` 本来就改不了 `/v1/audio/*` 的 URI。
+
+因此远程音频服务有自己的 `AudioServiceInfo`（类似 `ImageModelInfo`）：`Dialect`（OpenAI 兼容 / Edge TTS 等，
+一种格式一个适配器）、`Endpoint`、`ModelId`、`Voice`、`Format`、`Stream` 等音频专用字段；
+新建时从同家对话模型**复制**密钥预填，**不引用**（删掉对话模型时服务不能跟着坏）。
+免密钥的（Edge TTS）做成预置条目，用户零配置。
+
+## 后果
+
+- 本地 audio.cpp 走 sidecar 子进程 + HTTP，与 [ADR 0067](0067-本地推理只走llama-server，屏蔽LLamaSharp.md) 同一口径；
+  它同时具备合成与听写两种能力，所以「谁拥有进程、谁拥有设置」只有一处。
+- 引擎安装与下载那套机制（`ReleaseVersionManagerBase`、`DownloadQueue`、引擎安装器）连同模型下载设施一起复用，不重造；
+  二进制与模型都按需下载，不随包携带。
+- 免密钥的在线服务（Edge TTS 一类）打的是微软 Edge 朗读服务的非官方端点，**可失败是它的固有属性**：
+  降级路径写在 provider 契约里，调用方不必知道哪个 provider 有 SLA。
+- 播放与录音单独成一级（`IAudioPlayer` / `IAudioInput`）：边收边播、打断是逻辑不是界面，且各家的返回格式不同
+  （OpenAI 默认 mp3、audio.cpp 默认 wav），客户端要把「字节流 + 格式」抽象掉。
+- 第一个落地的远程 provider 选 NuGet `EdgeTtsSharp` 2.0.7（MIT、netstandard2.0、唯一依赖 System.Text.Json、
+  `GetAudioStream` 首个音频包到达即可播）。

@@ -49,7 +49,17 @@ public class GGufModelInfo : ILlmModel
     /// <summary>
     /// 缓存里的信息不全，需要重读文件头
     /// </summary>
-    [JsonIgnore] public bool NeedsMetadata => Kind == null || ContextLength <= 0;
+    [JsonIgnore]
+    public bool NeedsMetadata
+    {
+        get
+        {
+            if (Kind == null) return true;
+            // 音频模型没有上下文长度（audio.cpp 的 GGUF 恒为 0），否则每次扫描都重读文件头、都触发落盘
+            if (Kind.Value.IsAudio()) return false;
+            return ContextLength <= 0;
+        }
+    }
 
     [JsonInclude] private Dictionary<string, string> Infos { get; set; } = new Dictionary<string, string>(10);
 

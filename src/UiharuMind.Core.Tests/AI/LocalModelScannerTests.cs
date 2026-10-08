@@ -7,7 +7,9 @@ namespace UiharuMind.Core.Tests.AI;
 /// <summary>
 /// 对话与嵌入模型同住一个目录（ADR 0067），分流只靠文件头。
 /// 判错的后果：嵌入模型出现在对话选择器里，或知识库找不到嵌入模型。
+/// 与 <see cref="AudioCppGgufTests"/> 同 collection：都改全局模型目录配置，必须串行。
 /// </summary>
+[Collection("LocalModelSettingState")]
 public class LocalModelScannerTests : IDisposable
 {
     private readonly string _directory = Path.Combine(Path.GetTempPath(), $"uiharu-scan-{Guid.NewGuid():N}");

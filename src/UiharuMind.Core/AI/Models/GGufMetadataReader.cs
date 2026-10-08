@@ -38,12 +38,17 @@ public static class GGufMetadataReader
             string architecture = header.GetString("general.architecture");
             string prefix = string.IsNullOrWhiteSpace(architecture) ? "" : architecture + ".";
 
+            // audio.cpp 的 GGUF 没有 llama.cpp 那套键，量化看 audiocpp.weight_type（ADR 0071）
+            string quantization = string.Equals(architecture, AudioCppSpec.Architecture, StringComparison.OrdinalIgnoreCase)
+                ? header.GetString("audiocpp.weight_type")
+                : header.GetInteger("general.file_type")?.ToString(CultureInfo.InvariantCulture) ?? "";
+
             return new GGufMetadataInfo
             {
                 Architecture = architecture,
                 DisplayName = header.GetString("general.name"),
                 SizeLabel = header.GetString("general.size_label"),
-                Quantization = header.GetInteger("general.file_type")?.ToString(CultureInfo.InvariantCulture) ?? "",
+                Quantization = quantization,
                 ContextLength = GetInt(header, prefix + "context_length"),
                 EmbeddingLength = GetInt(header, prefix + "embedding_length"),
                 LayerCount = GetInt(header, prefix + "block_count"),
