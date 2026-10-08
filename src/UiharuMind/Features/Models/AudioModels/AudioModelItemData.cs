@@ -24,28 +24,31 @@ public partial class AudioModelItemData : ObservableObject
     private const string EnglishPreviewText = "Hello, this is a preview of this voice model.";
 
     private readonly AudioCppSettingConfig _settings;
+    private readonly List<string> _nativeVoices = []; //模型自带的，读到过的都留着
+    private IReadOnlyList<string> _libraryVoices = []; //音色库里的，会克隆的模型才列
     private bool _isFilling; //回填音色时不写设置
 
     [ObservableProperty] private bool _isDefault;
     [ObservableProperty] private VoiceOption? _selectedVoice;
     [ObservableProperty] private bool _isLoadingVoices;
     [ObservableProperty] private bool _isPreviewing;
+    [ObservableProperty] private bool _isLoaded;
 
     /// <param name="entry">扫描到的模型</param>
-    /// <param name="familyName">家族显示名；引擎没装、认不出时用家族 id</param>
+    /// <param name="family">所属家族（预置音色、语种、会不会克隆）；引擎没装、认不出时为 null</param>
     /// <param name="sizeBytes">gguf 文件大小</param>
-    /// <param name="builtinVoices">spec 里的预置音色（不必启动引擎就能选）</param>
-    /// <param name="languages">spec 里的语种（挑试听的句子）；引擎没装时为空</param>
     /// <param name="settings">语音引擎设置（存音色）</param>
-    public AudioModelItemData(AudioCppModelEntry entry, string familyName, long sizeBytes,
-        IReadOnlyList<string> builtinVoices, IReadOnlyList<string> languages, AudioCppSettingConfig settings)
+    public AudioModelItemData(AudioCppModelEntry entry, AudioCppFamily? family, long sizeBytes,
+        AudioCppSettingConfig settings)
     {
         _settings = settings;
-        Languages = languages;
+        Languages = family?.Languages ?? [];
         Entry = entry;
-        FamilyName = familyName;
+        FamilyName = family?.DisplayName ?? entry.Family;
+        CanClone = family?.CanClone == true;
+        CanDraw = CanClone && family!.BuiltinVoices.Count == 0 && !family.NeedsReference;
         SizeText = sizeBytes > 0 ? UiharuMind.Core.Core.Utils.GameUtils.FormatBytes(sizeBytes) : "";
-        FillVoices(builtinVoices);
+        FillVoices(family?.BuiltinVoices ?? []);
     }
 
     /// <summary>
@@ -76,6 +79,16 @@ public partial class AudioModelItemData : ObservableObject
 
     public string FamilyName { get; }
 
+    /// <summary>
+    /// 会照参考音频克隆：音色库里的音色都能用
+    /// </summary>
+    public bool CanClone { get; }
+
+    /// <summary>
+    /// 能抽卡：会克隆、没有自带音色、不给参考音频也念得出来
+    /// </summary>
+    public bool CanDraw { get; }
+
     public string SizeText { get; }
 
     /// <summary>
@@ -89,13 +102,33 @@ public partial class AudioModelItemData : ObservableObject
     public ObservableCollection<VoiceOption> Voices { get; } = [];
 
     /// <summary>
-    /// 并入从引擎读到的音色，保留当前选择
+    /// 并入从引擎读到的模型自带音色，保留当前选择
     /// </summary>
     /// <param name="voices">音色 id</param>
     public void FillVoices(IEnumerable<string> voices)
     {
+        foreach (string voice in voices)
+            if (voice.Length > 0 && !_nativeVoices.Contains(voice))
+                _nativeVoices.Add(voice);
+        RebuildVoices();
+    }
+
+    /// <summary>
+    /// 换上音色库的现状（会克隆的模型才列出来），保留当前选择
+    /// </summary>
+    /// <param name="names">音色库里的音色名</param>
+    public void SetLibraryVoices(IReadOnlyList<string> names)
+    {
+        if (!CanClone) return;
+        _libraryVoices = names;
+        RebuildVoices();
+    }
+
+    // 「默认」在前，然后是模型自带的、音色库的；设置里存着却已不在的也列上，免得选择被悄悄换掉
+    private void RebuildVoices()
+    {
         string? saved = _settings.TtsVoices.GetValueOrDefault(Name);
-        List<string> ids = Voices.Skip(1).Select(x => x.Id).Concat(voices).Append(saved ?? "")
+        List<string> ids = _nativeVoices.Concat(_libraryVoices).Append(saved ?? "")
             .Where(x => x.Length > 0).Distinct(StringComparer.Ordinal).ToList();
         _isFilling = true;
         Voices.Clear();

@@ -116,6 +116,9 @@ public static class AppPaths
         /// <summary>连点器脚本</summary>
         public static readonly string AutoClick = Path.Combine(Root, "AutoClick");
 
+        /// <summary>音色库：克隆用的参考音频与其文字</summary>
+        public static readonly string Voices = Path.Combine(Root, "Voices");
+
         private static readonly string ClipboardRoot = Path.Combine(Root, "Clipboard");
 
         /// <summary>

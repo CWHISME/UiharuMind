@@ -65,7 +65,7 @@ public class AudioCppEngineTests : IDisposable
         string path = Path.Combine(_directory, "server.json");
         AudioCppServerConfig.Write(path, 18099,
             [TtsModel(), new AudioCppModelEntry("asr", "moonshine_asr", "/m/m.gguf", "asr")],
-            new AudioCppServerOptions("metal", Threads: 2, IdleUnloadMs: 60000, MinFreeMemoryMb: 1024));
+            new AudioCppServerOptions("metal", Threads: 2, IdleUnloadMs: 60000, MinFreeMemoryMb: 1024, VoiceDir: "/voices"));
 
         using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(path));
         JsonElement root = doc.RootElement;
@@ -73,6 +73,7 @@ public class AudioCppEngineTests : IDisposable
         Assert.Equal("metal", root.GetProperty("backend").GetString());
         Assert.Equal(60000, root.GetProperty("idle_unload_ms").GetInt32());
         Assert.Equal(1024, root.GetProperty("min_free_memory_mb").GetInt32());
+        Assert.Equal("/voices", root.GetProperty("voice_dir").GetString());
         Assert.True(root.GetProperty("lazy_load").GetBoolean());
 
         JsonElement models = root.GetProperty("models");

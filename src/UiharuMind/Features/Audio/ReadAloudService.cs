@@ -23,7 +23,14 @@ public enum EReadAloudState
 }
 
 /// <summary>
-/// 朗读：同一时刻只念一段文字，再点同一个来源就停
+/// 指定这次用哪个模型、哪个音色念（如模型页的试听）；不指定就用默认模型、按语种挑
+/// </summary>
+/// <param name="Model">模型 id</param>
+/// <param name="Voice">音色 id</param>
+public sealed record ReadAloudOptions(string? Model = null, string? Voice = null);
+
+/// <summary>
+/// 朗读：同一时刻只念一段文字，再点同一个来源就停。消息朗读与模型试听都走这里，新的一段会立刻停掉旧的
 /// </summary>
 public interface IReadAloudService
 {
@@ -47,7 +54,8 @@ public interface IReadAloudService
     /// </summary>
     /// <param name="owner">来源，用来认「再点一次是停」</param>
     /// <param name="text">文字（可以是 Markdown）</param>
-    Task ToggleAsync(object owner, string text);
+    /// <param name="options">指定模型与音色；null 用默认</param>
+    Task ToggleAsync(object owner, string text, ReadAloudOptions? options = null);
 
     /// <summary>
     /// 停
@@ -81,7 +89,7 @@ public sealed class ReadAloudService : IReadAloudService
 
     public event Action? StateChanged;
 
-    public async Task ToggleAsync(object owner, string text)
+    public async Task ToggleAsync(object owner, string text, ReadAloudOptions? options = null)
     {
         if (ReferenceEquals(owner, Owner))
         {
@@ -106,11 +114,11 @@ public sealed class ReadAloudService : IReadAloudService
         try
         {
             IAudioProvider tts = _tts();
-            next = Synthesize(tts, chunks[0], language, session.Token);
+            next = Synthesize(tts, chunks[0], language, options, session.Token);
             for (int i = 0; i < chunks.Count; i++)
             {
                 AudioSynthesisResult audio = await next!; //循环里下一句总在：最后一句之前都排了
-                next = i + 1 < chunks.Count ? Synthesize(tts, chunks[i + 1], language, session.Token) : null;
+                next = i + 1 < chunks.Count ? Synthesize(tts, chunks[i + 1], language, options, session.Token) : null;
                 await using (audio.Audio)
                 {
                     SetState(owner, EReadAloudState.Speaking);
@@ -152,8 +160,9 @@ public sealed class ReadAloudService : IReadAloudService
     }
 
     private static Task<AudioSynthesisResult> Synthesize(IAudioProvider tts, string text, string? language,
-        CancellationToken token) =>
-        tts.SynthesizeAsync(new AudioSynthesisRequest(text, Language: language), token);
+        ReadAloudOptions? options, CancellationToken token) =>
+        tts.SynthesizeAsync(new AudioSynthesisRequest(text, options?.Voice, Model: options?.Model, Language: language),
+            token);
 
     // 停在半路时下一句可能已经在合成：等它出来把流关掉，异常也在这里看掉
     private static void Discard(Task<AudioSynthesisResult>? pending)

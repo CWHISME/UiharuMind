@@ -46,6 +46,35 @@ public static class WavEncoder
         return wav;
     }
 
+    /// <summary>
+    /// 读 WAV 文件头算时长：按块找 fmt 与 data，认不出返回 null
+    /// </summary>
+    /// <param name="wav">WAV 字节</param>
+    /// <returns>时长</returns>
+    public static TimeSpan? GetDuration(ReadOnlySpan<byte> wav)
+    {
+        if (wav.Length < 12 || !wav[..4].SequenceEqual("RIFF"u8) || !wav[8..12].SequenceEqual("WAVE"u8)) return null;
+        int byteRate = 0;
+        for (int offset = 12; offset + 8 <= wav.Length;)
+        {
+            ReadOnlySpan<byte> id = wav.Slice(offset, 4);
+            int size = BinaryPrimitives.ReadInt32LittleEndian(wav[(offset + 4)..]);
+            if (id.SequenceEqual("fmt "u8) && offset + 20 <= wav.Length)
+                byteRate = BinaryPrimitives.ReadInt32LittleEndian(wav[(offset + 16)..]);
+            else if (id.SequenceEqual("data"u8) && byteRate > 0)
+            {
+                // 流式写出的 WAV 常把 data 长度写成 0 或 -1，按实际剩下的字节算
+                int length = size <= 0 || offset + 8 + size > wav.Length ? wav.Length - offset - 8 : size;
+                return TimeSpan.FromSeconds(length / (double)byteRate);
+            }
+
+            if (size < 0) return null;
+            offset += 8 + size + (size & 1);
+        }
+
+        return null;
+    }
+
     private static void WriteHeader(Span<byte> wav, int dataLength, int sampleRate, int channels)
     {
         "RIFF"u8.CopyTo(wav);

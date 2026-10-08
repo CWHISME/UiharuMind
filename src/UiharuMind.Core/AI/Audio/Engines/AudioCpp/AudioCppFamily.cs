@@ -32,6 +32,16 @@ public sealed record AudioCppFamily(
     IReadOnlyList<AudioCppPackage> Packages)
 {
     /// <summary>
+    /// 会照参考音频克隆音色（能用音色库）
+    /// </summary>
+    public bool CanClone => Tasks.Contains("clone");
+
+    /// <summary>
+    /// 只会克隆：不给参考音频就念不了
+    /// </summary>
+    public bool NeedsReference => CanClone && !Tasks.Contains("tts");
+
+    /// <summary>
     /// 家族里有本应用推荐的包
     /// </summary>
     public bool IsRecommended => Packages.Any(x => AudioCppModelCatalog.Recommended.Contains(x.Id));

@@ -12,6 +12,7 @@ using UiharuMind.Core.AI.Engines;
 using UiharuMind.Core.AI.Runtime;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Features.Audio;
+using UiharuMind.Features.Models.AudioModels.Voices;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 
@@ -27,8 +28,7 @@ public partial class AudioModelListViewData : ObservableObject
     private readonly AudioCppEngine _engine;
     private readonly AudioCppPackageStore _store;
     private readonly Func<string, CancellationToken, Task<IReadOnlyList<string>>> _listVoices;
-    private readonly IAudioProvider _synthesizer;
-    private readonly IAudioPlayer _player;
+    private readonly IReadAloudService _readAloud;
     private readonly Action<string> _openFolder;
     private readonly Action _goToMarket;
     private readonly Action _openEngineSettings;
@@ -37,22 +37,26 @@ public partial class AudioModelListViewData : ObservableObject
     [ObservableProperty] private bool _hasEngine = true;
     [ObservableProperty] private bool _hasModels;
     [ObservableProperty] private bool _isLoaded;
+    [ObservableProperty] private string _engineStatusText = "";
+    [ObservableProperty] private bool _isEngineRunning;
 
     /// <param name="messageService">提示与确认</param>
     /// <param name="engine">语音引擎</param>
     /// <param name="store">模型包的删除</param>
     /// <param name="listVoices">列某个合成模型的音色（会按需拉起引擎）</param>
-    /// <param name="synthesizer">试听用的合成（按模型 id 指定模型）</param>
-    /// <param name="player">试听用的播放</param>
+    /// <param name="readAloud">试听（与消息朗读同一路：点试听会立刻停掉正在念的消息）</param>
     /// <param name="openFolder">打开目录</param>
     /// <param name="goToMarket">去「获取模型」的语音分类</param>
     /// <param name="openEngineSettings">去设置里的「本地模型（语音）」</param>
+    /// <param name="voices">音色库；null 不显示</param>
     public AudioModelListViewData(IMessageService messageService, AudioCppEngine engine, AudioCppPackageStore store,
-        Func<string, CancellationToken, Task<IReadOnlyList<string>>> listVoices, IAudioProvider synthesizer,
-        IAudioPlayer player, Action<string> openFolder, Action goToMarket, Action openEngineSettings)
+        Func<string, CancellationToken, Task<IReadOnlyList<string>>> listVoices, IReadAloudService readAloud,
+        Action<string> openFolder, Action goToMarket, Action openEngineSettings, VoiceLibraryViewData? voices = null)
     {
-        _synthesizer = synthesizer;
-        _player = player;
+        Voices = voices;
+        if (voices != null) voices.Refreshed += ApplyLibraryVoices;
+        _readAloud = readAloud;
+        readAloud.StateChanged += OnReadAloudChanged;
         _messageService = messageService;
         _engine = engine;
         _store = store;
@@ -73,6 +77,22 @@ public partial class AudioModelListViewData : ObservableObject
     public ObservableCollection<AudioModelItemData> AsrModels { get; } = [];
 
     public bool HasTtsModels => TtsModels.Count > 0;
+
+    /// <summary>
+    /// 音色库；没配为 null
+    /// </summary>
+    public VoiceLibraryViewData? Voices { get; }
+
+    /// <summary>
+    /// 有会克隆的合成模型时才显示音色库
+    /// </summary>
+    public bool ShowVoices => Voices != null && TtsModels.Any(x => x.CanClone);
+
+    /// <summary>
+    /// 能抽卡的模型，默认合成模型排最前
+    /// </summary>
+    public IReadOnlyList<VoiceDrawModel> DrawModels => TtsModels.Where(x => x.CanDraw)
+        .OrderByDescending(x => x.IsDefault).Select(x => new VoiceDrawModel(x.Name, x.FamilyName)).ToList();
 
     public bool HasAsrModels => AsrModels.Count > 0;
 
@@ -113,6 +133,9 @@ public partial class AudioModelListViewData : ObservableObject
             HasModels = TtsModels.Count + AsrModels.Count > 0;
             OnPropertyChanged(nameof(HasTtsModels));
             OnPropertyChanged(nameof(HasAsrModels));
+            OnPropertyChanged(nameof(ShowVoices));
+            if (Voices != null) Voices.Refresh();
+            await RefreshStatusAsync();
         }
         catch (Exception e)
         {
@@ -123,6 +146,24 @@ public partial class AudioModelListViewData : ObservableObject
             IsLoading = false;
             IsLoaded = true;
         }
+    }
+
+    /// <summary>
+    /// 刷新引擎状态与各模型「已加载」标记（只问已经跑着的引擎，不会把它拉起来）
+    /// </summary>
+    public async Task RefreshStatusAsync()
+    {
+        AudioCppEngineStatus status = await _engine.GetStatusAsync(CancellationToken.None);
+        IsEngineRunning = status.State == EAudioEngineRunState.Running;
+        EngineStatusText = status.State switch
+        {
+            EAudioEngineRunState.Starting => Loc.Text(LangKey.AudioEngineStatusStarting),
+            EAudioEngineRunState.Running => Loc.Text(LangKey.AudioEngineStatusRunning,
+                (status.Backend ?? "").ToUpperInvariant(), status.LoadedModels.Count, _engine.Settings.IdleUnloadMinutes),
+            _ => Loc.Text(LangKey.AudioEngineStatusStopped)
+        };
+        foreach (AudioModelItemData item in TtsModels.Concat(AsrModels))
+            item.IsLoaded = status.LoadedModels.Contains(item.Name);
     }
 
     partial void OnHasModelsChanged(bool value) => OnPropertyChanged(nameof(ShowEmpty));
@@ -161,34 +202,25 @@ public partial class AudioModelListViewData : ObservableObject
         }
     }
 
-    // 再点一下停；换一行试听会打断上一行（播放器同一时刻只放一段）
-    [RelayCommand]
+    // 再点一下停；换一行试听、或去念消息都会打断它。失败的提示由朗读服务出
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task Preview(AudioModelItemData item)
     {
-        if (item.IsPreviewing)
-        {
-            _player.Stop();
-            return;
-        }
+        string? voice = item.SelectedVoice is { Id.Length: > 0 } selected ? selected.Id : null;
+        await _readAloud.ToggleAsync(item, item.PreviewText, new ReadAloudOptions(item.Name, voice));
+        await RefreshStatusAsync();
+    }
 
-        item.IsPreviewing = true;
-        try
-        {
-            string? voice = item.SelectedVoice is { Id.Length: > 0 } selected ? selected.Id : null;
-            AudioSynthesisResult audio = await _synthesizer.SynthesizeAsync(
-                new AudioSynthesisRequest(item.PreviewText, voice, Model: item.Name), CancellationToken.None);
-            await using (audio.Audio) await _player.PlayAsync(audio, CancellationToken.None);
-        }
-        catch (Exception e) when (AudioErrorText.IsExpected(e))
-        {
-            Log.Warning($"Preview voice model failed: {item.Name}, {e.Message}");
-            _messageService.ShowNotification(Loc.Text(LangKey.AudioPreviewFailed, AudioErrorText.Describe(e)),
-                severity: MessageSeverity.Warning);
-        }
-        finally
-        {
-            item.IsPreviewing = false;
-        }
+    private void ApplyLibraryVoices()
+    {
+        IReadOnlyList<string> names = Voices?.Names ?? [];
+        foreach (AudioModelItemData item in TtsModels) item.SetLibraryVoices(names);
+    }
+
+    private void OnReadAloudChanged()
+    {
+        foreach (AudioModelItemData item in TtsModels)
+            item.IsPreviewing = ReferenceEquals(_readAloud.Owner, item) && _readAloud.State != EReadAloudState.Idle;
     }
 
     [RelayCommand]
@@ -217,6 +249,15 @@ public partial class AudioModelListViewData : ObservableObject
 
     [RelayCommand]
     private Task Refresh() => RefreshAsync();
+
+    // 停掉引擎：模型占的内存全部还回去，下次朗读、听写或试听时自动再起
+    [RelayCommand]
+    private async Task StopEngine()
+    {
+        _readAloud.Stop();
+        _engine.Stop();
+        await RefreshStatusAsync();
+    }
 
     [RelayCommand]
     private void GoToMarket() => _goToMarket();
@@ -247,8 +288,8 @@ public partial class AudioModelListViewData : ObservableObject
                      .OrderBy(x => x.Id, StringComparer.OrdinalIgnoreCase))
         {
             AudioCppFamily? family = families.GetValueOrDefault(model.Family);
-            target.Add(new AudioModelItemData(model, family?.DisplayName ?? model.Family, sizes.GetValueOrDefault(model.Id),
-                family?.BuiltinVoices ?? [], family?.Languages ?? [], _engine.Settings) { IsDefault = model.Id == defaultModel });
+            target.Add(new AudioModelItemData(model, family, sizes.GetValueOrDefault(model.Id), _engine.Settings)
+                { IsDefault = model.Id == defaultModel });
         }
     }
 

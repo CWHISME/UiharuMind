@@ -4,25 +4,20 @@ using SoundFlow.Enums;
 namespace UiharuMind.Core.AI.Audio;
 
 /// <summary>
-/// 用 SoundFlow 从默认麦克风录音：设备直接开成 16 kHz 单声道（miniaudio 负责转换），采样攒在内存里，停下时编成 WAV。
+/// 用 SoundFlow 从默认麦克风录音：设备直接开成要的采样率、单声道（miniaudio 负责转换），采样攒在内存里，停下时编成 WAV。
 /// 最长录 <see cref="MaxDuration"/>，超出的丢掉，免得忘了停把内存吃满
 /// </summary>
 public sealed class SoundFlowAudioRecorder : IAudioRecorder
 {
     /// <summary>
-    /// 采样率：语音识别模型普遍要 16 kHz
-    /// </summary>
-    public const int SampleRate = 16000;
-
-    /// <summary>
     /// 最长录多久
     /// </summary>
     public static readonly TimeSpan MaxDuration = TimeSpan.FromMinutes(10);
 
-    private static readonly int MaxSamples = (int)(SampleRate * MaxDuration.TotalSeconds);
-
     private readonly Lock _gate = new();
     private AudioCaptureDevice? _device;
+    private int _sampleRate = IAudioRecorder.SpeechSampleRate;
+    private int _maxSamples;
     private float[] _buffer = [];
     private int _length;
     private float _peak;
@@ -37,12 +32,12 @@ public sealed class SoundFlowAudioRecorder : IAudioRecorder
         }
     }
 
-    public void Start()
+    public void Start(int sampleRate = IAudioRecorder.SpeechSampleRate)
     {
         AudioCaptureDevice device;
         try
         {
-            device = SoundFlowRuntime.Engine.InitializeCaptureDevice(null, SoundFlowRuntime.FloatFormat(SampleRate, 1));
+            device = SoundFlowRuntime.Engine.InitializeCaptureDevice(null, SoundFlowRuntime.FloatFormat(sampleRate, 1));
         }
         catch (Exception e) when (e is not AudioDeviceException)
         {
@@ -58,7 +53,9 @@ public sealed class SoundFlowAudioRecorder : IAudioRecorder
             }
 
             _device = device;
-            _buffer = new float[SampleRate * 10];
+            _sampleRate = sampleRate;
+            _maxSamples = (int)(sampleRate * MaxDuration.TotalSeconds);
+            _buffer = new float[sampleRate * 10];
             _length = 0;
             _peak = 0;
         }
@@ -72,8 +69,8 @@ public sealed class SoundFlowAudioRecorder : IAudioRecorder
         if (!CloseDevice()) return null;
         lock (_gate)
         {
-            return new AudioRecording(WavEncoder.Encode(_buffer.AsSpan(0, _length), SampleRate, 1),
-                TimeSpan.FromSeconds(_length / (double)SampleRate), _peak);
+            return new AudioRecording(WavEncoder.Encode(_buffer.AsSpan(0, _length), _sampleRate, 1),
+                TimeSpan.FromSeconds(_length / (double)_sampleRate), _peak);
         }
     }
 
@@ -87,9 +84,9 @@ public sealed class SoundFlowAudioRecorder : IAudioRecorder
         lock (_gate)
         {
             if (_device == null) return;
-            int count = Math.Min(samples.Length, MaxSamples - _length);
+            int count = Math.Min(samples.Length, _maxSamples - _length);
             if (_length + count > _buffer.Length)
-                Array.Resize(ref _buffer, Math.Min(MaxSamples, Math.Max(_buffer.Length * 2, _length + count)));
+                Array.Resize(ref _buffer, Math.Min(_maxSamples, Math.Max(_buffer.Length * 2, _length + count)));
             samples[..count].CopyTo(_buffer.AsSpan(_length));
             _length += count;
             _peak = Math.Max(_peak, peak);

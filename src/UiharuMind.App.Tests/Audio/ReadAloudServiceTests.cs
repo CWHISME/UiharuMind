@@ -55,6 +55,29 @@ public class ReadAloudServiceTests
     }
 
     [Fact]
+    public async Task PreviewWhileReading_StopsTheReadingAtOnce_AndUsesItsModelAndVoice()
+    {
+        ReadAloudService service = new(() => _tts, _player, _messages);
+        object message = new();
+        object preview = new();
+
+        Task reading = service.ToggleAsync(message, "第一句。第二句。第三句。" + new string('长', 200));
+        await _player.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        _player.Reset();
+        Task previewing = service.ToggleAsync(preview, "Hello.", new ReadAloudOptions("pocket", "alba"));
+        await reading.WaitAsync(TimeSpan.FromSeconds(5)); //不排队：消息朗读当场停
+        await _player.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Same(preview, service.Owner);
+        AudioSynthesisRequest last = _tts.Requests[^1];
+        Assert.Equal(("pocket", "alba"), (last.Model, last.Voice));
+
+        await service.ToggleAsync(preview, "Hello."); //再点一次是停
+        await previewing.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(EReadAloudState.Idle, service.State);
+    }
+
+    [Fact]
     public async Task InterruptedByAnotherPlayback_DoesNotReadOn()
     {
         ReadAloudService service = new(() => _tts, _player, _messages);

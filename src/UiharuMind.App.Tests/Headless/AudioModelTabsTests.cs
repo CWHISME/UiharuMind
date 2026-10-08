@@ -9,8 +9,10 @@ using UiharuMind.Core.AI.Models.Sources;
 using UiharuMind.Core.AI.Runtime;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Core.DownloadHelper;
+using UiharuMind.Features.Audio;
 using UiharuMind.Features.Models;
 using UiharuMind.Features.Models.AudioModels;
+using UiharuMind.Features.Models.AudioModels.Voices;
 using UiharuMind.Features.Models.Downloads;
 using UiharuMind.Features.Models.Downloads.Audio;
 
@@ -221,7 +223,54 @@ public class AudioModelTabsTests : IDisposable
         });
     }
 
-    private ModelPageData Open(TestAudioEngine audio)
+    [Fact]
+    public void InstalledTab_CloneModels_ShowVoiceLibrary_InTheirVoicePicker()
+    {
+        HeadlessUi.RunAsync(async () =>
+        {
+            List<AudioCppModelEntry> models = [];
+            TestAudioEngine audio = new(scanModels: () => models);
+            string english = audio.Install("PocketTTS-GGUF/english", "pocket_tts_english_q8_0", "pocket-tts-english-q8_0.gguf");
+            models.Add(new AudioCppModelEntry("pocket-tts-english-q8_0", "pocket_tts", english, "tts", ModelFile: english));
+            VoiceLibrary library = new(Path.Combine(audio.ModelRoot, "..", "voices"));
+            library.Save("小雨", WavEncoder.Encode(new float[24000 * 6], 24000, 1), VoiceReferenceText.Chinese[0]);
+            VoiceLibraryViewData voices = new(library, audio.Settings, _messages, _player,
+                () => Task.FromResult<VoiceSample?>(null), _openedFolders.Add, action => action());
+            ModelPageData data = Open(audio, voices);
+            data.ShowAudioModels();
+            AudioModelListViewData list = data.AudioModels!;
+            await Settle(() => list.IsLoaded);
+
+            Assert.True(list.ShowVoices); //PocketTTS 会克隆
+            Assert.NotEmpty(Assert.Single(voices.Items).DurationText);
+            Assert.Equal(["", "alba", "小雨"], list.TtsModels[0].Voices.Select(x => x.Id));
+            Capture("audio-voices");
+        });
+    }
+
+    [Fact]
+    public void VoiceCreateWindow_RendersDraws()
+    {
+        HeadlessUi.RunAsync(async () =>
+        {
+            string root = Path.Combine(Path.GetTempPath(), $"uiharu-voice-window-{Guid.NewGuid():N}");
+            VoiceCreateViewData form = new(new VoiceCreateContext(new VoiceLibrary(root), _player, new FakeAudioRecorder(),
+                _messages, [new VoiceDrawModel("vox", "VoxCPM")],
+                (_, _, _) => Task.FromResult(new VoiceDraft(WavEncoder.Encode(new float[24000 * 7], 24000, 1),
+                    VoiceReferenceText.Chinese[0])),
+                null, _ => throw new NotSupportedException(), (_, _) => { }, action => action()));
+            await form.DrawCommand.ExecuteAsync(null);
+            await form.DrawCommand.ExecuteAsync(null);
+            _window = new VoiceCreateWindow { DataContext = form };
+            _window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(form.CanSave);
+            Capture("voice-create");
+        });
+    }
+
+    private ModelPageData Open(TestAudioEngine audio, VoiceLibraryViewData? voices = null)
     {
         _audio = audio;
         DownloadQueue queue = audio.Queue;
@@ -238,8 +287,9 @@ public class AudioModelTabsTests : IDisposable
                 AudioEngine = audio.Engine,
                 AudioStore = audio.Store
             }), queue, createAudioModels: page => new AudioModelListViewData(_messages, audio.Engine, audio.Store,
-            (_, _) => Task.FromResult<IReadOnlyList<string>>([]), _synthesizer, _player, _openedFolders.Add,
-            page.ShowAudioDownloads, () => { }));
+            (_, _) => Task.FromResult<IReadOnlyList<string>>([]),
+            new ReadAloudService(() => _synthesizer, _player, _messages), _openedFolders.Add,
+            page.ShowAudioDownloads, () => { }, voices));
         _window = new Window { Width = 1000, Height = 680, Content = new ModelPage { DataContext = data } };
         _window.Show();
         Dispatcher.UIThread.RunJobs();

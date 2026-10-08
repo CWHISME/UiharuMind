@@ -188,7 +188,7 @@
                                                       IsVisible="{Binding !IsReadingAloud}"
                                                       Command="{Binding ReadAloudCommand}"
                                                       ToolTips="{loc:Loc ReadAloud}" />
-                                    <ThemedIconButton Classes="message-action" IconName="stop"
+                                    <ThemedIconButton Classes="message-action" IconName="stop" CurrentColor="Red"
                                                       IsVisible="{Binding IsReadingAloud}"
                                                       Command="{Binding ReadAloudCommand}"
                                                       ToolTips="{loc:Loc ReadAloudStop}" />

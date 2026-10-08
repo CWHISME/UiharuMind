@@ -1,0 +1,70 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:voices="clr-namespace:UiharuMind.Features.Models.AudioModels.Voices"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             x:Class="UiharuMind.Features.Models.AudioModels.Voices.VoiceLibraryView"
+             x:DataType="voices:VoiceLibraryViewData">
+
+    <!-- 音色库：会克隆的模型共用；行样式沿用语音模型页签的 audio-row -->
+    <StackPanel>
+        <DockPanel Margin="14,12,14,6">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                <Button Classes="toolbar-link" Content="{loc:Loc ShowInExplorer}" Command="{Binding OpenFolderCommand}" />
+                <Button Classes="toolbar-link" Command="{Binding AddCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <controls:ThemedSvgIcon Width="13" Height="13" IconName="plus" />
+                        <TextBlock Text="{loc:Loc VoiceAdd}" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="{loc:Loc VoiceLibraryGroup}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <TextBlock Text="{loc:Loc VoiceLibraryHint}" Classes="muted" FontSize="12" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" ToolTip.Tip="{loc:Loc VoiceLibraryHint}" />
+            </StackPanel>
+        </DockPanel>
+
+        <TextBlock Text="{loc:Loc VoiceLibraryEmpty}" Classes="muted" FontSize="12" TextWrapping="Wrap"
+                   Margin="14,0,14,10" IsVisible="{Binding !HasItems}" />
+
+        <ItemsControl ItemsSource="{Binding Items}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="voices:VoiceItemData">
+                    <Border Classes="audio-row">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                            <Border Classes="model-icon">
+                                <controls:ThemedSvgIcon Width="18" Height="18" IconName="user" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                                <TextBlock FontWeight="SemiBold" TextTrimming="CharacterEllipsis">
+                                    <Run Text="{Binding Name}" />
+                                    <Run Text="{Binding DurationText, StringFormat='  {0}'}" FontWeight="Normal"
+                                         Foreground="{DynamicResource SemiGrey5}" FontSize="12" />
+                                </TextBlock>
+                                <TextBlock Text="{Binding Transcript}" Classes="muted" FontSize="12"
+                                           TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Transcript}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <Panel Width="28" Height="28">
+                                    <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="play"
+                                                      ToolTip.Tip="{loc:Loc VoicePlayReferenceTip}" IsVisible="{Binding !IsPlaying}"
+                                                      Command="{Binding $parent[ItemsControl].((voices:VoiceLibraryViewData)DataContext).PlayCommand}"
+                                                      CommandParameter="{Binding}" />
+                                    <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="stop" CurrentColor="Red"
+                                                      ToolTip.Tip="{loc:Loc AudioPreviewStopTip}" IsVisible="{Binding IsPlaying}"
+                                                      Command="{Binding $parent[ItemsControl].((voices:VoiceLibraryViewData)DataContext).PlayCommand}"
+                                                      CommandParameter="{Binding}" />
+                                </Panel>
+                                <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="trash-2"
+                                                  ToolTip.Tip="{loc:Loc Delete}"
+                                                  Command="{Binding $parent[ItemsControl].((voices:VoiceLibraryViewData)DataContext).DeleteCommand}"
+                                                  CommandParameter="{Binding}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </StackPanel>
+</UserControl>

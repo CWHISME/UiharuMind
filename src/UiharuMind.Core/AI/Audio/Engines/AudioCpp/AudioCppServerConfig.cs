@@ -34,12 +34,14 @@ public sealed record AudioCppModelEntry(
 /// <param name="MaxLoadedModels">同时驻留的模型数，超出按最久未用淘汰</param>
 /// <param name="IdleUnloadMs">模型闲置多久卸载</param>
 /// <param name="MinFreeMemoryMb">加载后主机与 GPU 各至少剩多少内存，不够拒绝加载（503）；0 不检查</param>
+/// <param name="VoiceDir">音色库目录（<see cref="VoiceLibrary"/>）；null 不配</param>
 public sealed record AudioCppServerOptions(
     string Backend,
     int Threads = 4,
     int MaxLoadedModels = 2,
     int IdleUnloadMs = 300000,
-    int MinFreeMemoryMb = 0);
+    int MinFreeMemoryMb = 0,
+    string? VoiceDir = null);
 
 /// <summary>
 /// audiocpp_server 由配置文件驱动（不是命令行参数）：端口分到后再写 server.json，形状照 hub 的 writeServerJSON 与实测配置
@@ -92,6 +94,7 @@ public static class AudioCppServerConfig
         writer.WriteNumber("max_loaded_models", options.MaxLoadedModels);
         writer.WriteNumber("idle_unload_ms", options.IdleUnloadMs);
         writer.WriteNumber("min_free_memory_mb", options.MinFreeMemoryMb);
+        if (!string.IsNullOrEmpty(options.VoiceDir)) writer.WriteString("voice_dir", options.VoiceDir);
         writer.WriteStartArray("models");
         foreach (AudioCppModelEntry model in models) WriteModel(writer, model);
         writer.WriteEndArray();

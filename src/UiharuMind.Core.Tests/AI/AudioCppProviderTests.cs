@@ -44,6 +44,26 @@ public class AudioCppProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task Status_OnlyAsksARunningEngine_AndListsLoadedModels()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "fake server is a shell script");
+        using AudioCppEngine engine = CreateEngine(installed: true);
+        using AudioCppProvider provider = new(engine);
+
+        Assert.Equal(EAudioEngineRunState.Stopped, (await engine.GetStatusAsync(CancellationToken.None)).State);
+        Assert.False(File.Exists(Path.Combine(_directory, "starts"))); //查状态不会把引擎拉起来
+
+        await (await provider.SynthesizeAsync(new AudioSynthesisRequest("hi"), CancellationToken.None)).Audio.DisposeAsync();
+        AudioCppEngineStatus status = await engine.GetStatusAsync(CancellationToken.None);
+        Assert.Equal(EAudioEngineRunState.Running, status.State);
+        Assert.Equal("metal", status.Backend);
+        Assert.Equal(["tts-a"], status.LoadedModels);
+
+        engine.Stop();
+        Assert.Equal(EAudioEngineRunState.Stopped, (await engine.GetStatusAsync(CancellationToken.None)).State);
+    }
+
+    [Fact]
     public async Task Synthesize_UsesVoiceChosenForThatModel()
     {
         Assert.SkipWhen(OperatingSystem.IsWindows(), "fake server is a shell script");
@@ -164,7 +184,7 @@ public class AudioCppProviderTests : IDisposable
         {
             string bin = Path.Combine(_directory, "bin");
             Directory.CreateDirectory(bin);
-            WriteFakeServer(Path.Combine(bin, AudioCppVersionManager.ServerExeName));
+            FakeAudioCppServer.Write(Path.Combine(bin, AudioCppVersionManager.ServerExeName), _directory);
             engine.UseVersion(new AudioCppVersion { Name = "audio-v0.9.1-bin-macos-arm64-metal", ExecutablePath = bin });
         }
 
@@ -179,39 +199,5 @@ public class AudioCppProviderTests : IDisposable
     {
         using StreamReader reader = new(stream);
         return await reader.ReadToEndAsync();
-    }
-
-    // 合成回「模型:音色」，听写回「模型 heard you」，每次启动在 starts 里记一行
-    private void WriteFakeServer(string path)
-    {
-        string counter = Path.Combine(_directory, "starts");
-        File.WriteAllText(path, $$"""
-            #!/bin/sh
-            echo x >> '{{counter}}'
-            exec python3 -c "
-            import http.server, json, sys, re
-            port = json.load(open(sys.argv[1]))['port']
-            class H(http.server.BaseHTTPRequestHandler):
-                def reply(self, code, body, kind='application/json'):
-                    self.send_response(code); self.send_header('Content-Type', kind); self.end_headers(); self.wfile.write(body)
-                def do_GET(self):
-                    if self.path == '/health': self.reply(200, b'{}')
-                    elif self.path.startswith('/v1/audio/voices'): self.reply(200, b'{\"voices\":[\"alba\",\"marius\"]}')
-                    else: self.reply(404, b'{}')
-                def do_POST(self):
-                    body = self.rfile.read(int(self.headers.get('Content-Length', 0)))
-                    if self.path == '/v1/audio/speech':
-                        req = json.loads(body)
-                        if not req.get('voice'): self.reply(500, b'{\"error\":\"requires a session voice\"}'); return
-                        self.reply(200, (req['model'] + ':' + req['voice']).encode(), 'audio/wav')
-                    elif self.path == '/v1/audio/transcriptions':
-                        model = re.search(rb'name=\"?model\"?\r\n(?:[^\r]+\r\n)*\r\n([^\r]+)', body).group(1).decode()
-                        self.reply(200, json.dumps({'text': model + ' heard you'}).encode())
-                    else: self.reply(404, b'{}')
-                def log_message(self, *a): pass
-            http.server.HTTPServer(('127.0.0.1', port), H).serve_forever()
-            " "$2"
-            """);
-        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
     }
 }

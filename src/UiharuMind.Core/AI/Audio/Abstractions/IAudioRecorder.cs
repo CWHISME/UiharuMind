@@ -1,10 +1,15 @@
 namespace UiharuMind.Core.AI.Audio;
 
 /// <summary>
-/// 录音（ADR 0071 的录音一级）：从默认麦克风录成语音识别要的 16 kHz 单声道
+/// 录音（ADR 0071 的录音一级）：从默认麦克风录成单声道，默认是语音识别要的 16 kHz
 /// </summary>
 public interface IAudioRecorder
 {
+    /// <summary>
+    /// 语音识别用的采样率
+    /// </summary>
+    const int SpeechSampleRate = 16000;
+
     /// <summary>
     /// 正在录
     /// </summary>
@@ -18,9 +23,10 @@ public interface IAudioRecorder
     /// <summary>
     /// 开始录
     /// </summary>
+    /// <param name="sampleRate">采样率：识别用 16 kHz，录克隆参考音频用更高的</param>
     /// <exception cref="AudioDeviceException">没有可用的麦克风</exception>
     /// <exception cref="InvalidOperationException">已经在录</exception>
-    void Start();
+    void Start(int sampleRate = SpeechSampleRate);
 
     /// <summary>
     /// 停止并取回录到的
@@ -37,7 +43,7 @@ public interface IAudioRecorder
 /// <summary>
 /// 一段录音
 /// </summary>
-/// <param name="Wav">16 kHz 单声道 PCM16 的 WAV</param>
+/// <param name="Wav">单声道 PCM16 的 WAV</param>
 /// <param name="Duration">时长</param>
 /// <param name="Peak">最大振幅（0..1）。几乎为 0 多半是没声音，或系统没给麦克风权限（macOS 拒绝时只会录到静音）</param>
 public sealed record AudioRecording(byte[] Wav, TimeSpan Duration, float Peak)

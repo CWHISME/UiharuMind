@@ -22,4 +22,20 @@ public class AudioModelTextTests
 
         Assert.Equal(expected, AudioModelText.PackageLabel(package, family));
     }
+
+    [Theory]
+    [InlineData(EAudioCppTask.Tts, new[] { "asr", "tts", "clone" }, "AudioCapAlsoAsr")]
+    [InlineData(EAudioCppTask.Asr, new[] { "asr", "tts" }, "AudioCapAlsoTts")]
+    [InlineData(EAudioCppTask.Tts, new[] { "tts" }, null)]
+    public void FeatureTags_MarkTheSecondAbility_First(EAudioCppTask task, string[] tasks, string? expectedKey)
+    {
+        AudioCppFamily family = new("f", task, "F", "", "supported", [], tasks, [], [], [], "", false, []);
+
+        IReadOnlyList<string> tags = AudioModelText.FeatureTags(family);
+
+        string alsoAsr = UiharuMind.Shared.Services.Loc.Text(UiharuMind.Generated.LangKey.AudioCapAlsoAsr);
+        string alsoTts = UiharuMind.Shared.Services.Loc.Text(UiharuMind.Generated.LangKey.AudioCapAlsoTts);
+        if (expectedKey == null) Assert.DoesNotContain(tags, x => x == alsoAsr || x == alsoTts);
+        else Assert.Equal(UiharuMind.Shared.Services.Loc.Text(expectedKey), tags[0]);
+    }
 }

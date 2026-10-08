@@ -69,7 +69,11 @@ public static class AudioModelText
     public static IReadOnlyList<string> FeatureTags(AudioCppFamily family)
     {
         HashSet<string> keys = new(family.Tasks.Concat(family.Modes).Concat(family.Capabilities), StringComparer.Ordinal);
-        return FeatureKeys.Where(x => keys.Contains(x.Key)).Select(x => Loc.Text(x.LangKey)).Distinct().ToList();
+        List<string> tags = FeatureKeys.Where(x => keys.Contains(x.Key)).Select(x => Loc.Text(x.LangKey)).Distinct().ToList();
+        // 主类之外还会另一件：放最前面。只是标出来——同一个模型当两用要在引擎里登记两次、加载两份
+        if (family.Task == EAudioCppTask.Tts && keys.Contains("asr")) tags.Insert(0, Loc.Text(LangKey.AudioCapAlsoAsr));
+        if (family.Task == EAudioCppTask.Asr && keys.Contains("tts")) tags.Insert(0, Loc.Text(LangKey.AudioCapAlsoTts));
+        return tags;
     }
 
     /// <summary>

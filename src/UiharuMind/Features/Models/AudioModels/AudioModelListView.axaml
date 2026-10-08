@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:models="clr-namespace:UiharuMind.Features.Models.AudioModels"
+             xmlns:voices="clr-namespace:UiharuMind.Features.Models.AudioModels.Voices"
              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              x:Class="UiharuMind.Features.Models.AudioModels.AudioModelListView"
@@ -56,6 +57,24 @@
             </Button>
         </Grid>
 
+        <!-- 引擎状态：在不在跑、加载了几个、多久自动卸载；跑着时可一键释放内存 -->
+        <Border DockPanel.Dock="Top" Classes="result-panel" Margin="0,0,0,12" Padding="12,6"
+                IsVisible="{Binding HasEngine}">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Classes="toolbar-link" Content="{loc:Loc AudioEngineRelease}"
+                        ToolTip.Tip="{loc:Loc AudioEngineReleaseTip}" VerticalAlignment="Center"
+                        IsVisible="{Binding IsEngineRunning}" Command="{Binding StopEngineCommand}" />
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Border Classes="status-dot" Tag="Ready" IsVisible="{Binding IsEngineRunning}"
+                            VerticalAlignment="Center" />
+                    <Border Classes="status-dot" Tag="Idle" IsVisible="{Binding !IsEngineRunning}"
+                            VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding EngineStatusText}" FontSize="12" VerticalAlignment="Center"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
         <!-- 有模型但没装引擎：模型用不了，引去设置 -->
         <Border DockPanel.Dock="Top" Classes="result-panel" Margin="0,0,0,12" Padding="12,8"
                 IsVisible="{Binding !HasEngine}">
@@ -103,6 +122,13 @@
                                                         <TextBlock Text="{loc:Loc AudioModelsDefaultTts}" FontSize="11"
                                                                    Foreground="White" />
                                                     </Border>
+                                                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"
+                                                                IsVisible="{Binding IsLoaded}"
+                                                                ToolTip.Tip="{loc:Loc AudioModelsLoadedTip}">
+                                                        <Border Classes="status-dot" Tag="Ready" VerticalAlignment="Center" />
+                                                        <TextBlock Text="{loc:Loc AudioModelsLoaded}" FontSize="11"
+                                                                   Foreground="{DynamicResource MessageStatusSuccessBrush}" />
+                                                    </StackPanel>
                                                     <Button Classes="toolbar-link set-default" Content="{loc:Loc AudioPackageSetDefault}"
                                                             ToolTip.Tip="{loc:Loc AudioPackageSetDefaultTip}"
                                                             IsVisible="{Binding !IsDefault}"
@@ -122,7 +148,7 @@
                                                                       IsVisible="{Binding !IsPreviewing}"
                                                                       Command="{Binding $parent[ItemsControl].((models:AudioModelListViewData)DataContext).PreviewCommand}"
                                                                       CommandParameter="{Binding}" />
-                                                    <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="stop"
+                                                    <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="stop" CurrentColor="Red"
                                                                       ToolTip.Tip="{loc:Loc AudioPreviewStopTip}"
                                                                       IsVisible="{Binding IsPreviewing}"
                                                                       Command="{Binding $parent[ItemsControl].((models:AudioModelListViewData)DataContext).PreviewCommand}"
@@ -158,6 +184,10 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
+                        <Panel IsVisible="{Binding ShowVoices}">
+                            <voices:VoiceLibraryView DataContext="{Binding Voices}" />
+                        </Panel>
+
                         <TextBlock Classes="group-header" Text="{loc:Loc AudioModelsAsrGroup}"
                                    IsVisible="{Binding HasAsrModels}" />
                         <ItemsControl ItemsSource="{Binding AsrModels}">
@@ -176,6 +206,13 @@
                                                         <TextBlock Text="{loc:Loc AudioModelsDefaultAsr}" FontSize="11"
                                                                    Foreground="White" />
                                                     </Border>
+                                                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"
+                                                                IsVisible="{Binding IsLoaded}"
+                                                                ToolTip.Tip="{loc:Loc AudioModelsLoadedTip}">
+                                                        <Border Classes="status-dot" Tag="Ready" VerticalAlignment="Center" />
+                                                        <TextBlock Text="{loc:Loc AudioModelsLoaded}" FontSize="11"
+                                                                   Foreground="{DynamicResource MessageStatusSuccessBrush}" />
+                                                    </StackPanel>
                                                     <Button Classes="toolbar-link set-default" Content="{loc:Loc AudioPackageSetDefault}"
                                                             ToolTip.Tip="{loc:Loc AudioPackageSetDefaultTip}"
                                                             IsVisible="{Binding !IsDefault}"

@@ -49,6 +49,33 @@ internal sealed class AudioCppEngineHost : IDisposable
     }
 
     /// <summary>
+    /// 在跑的服务的根地址；没在跑（或还在启动）为 null。只看不拉起
+    /// </summary>
+    public Uri? RunningBaseUri
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _starting is { IsCompletedSuccessfully: true } started && !started.Result.Completion.IsCompleted
+                    ? started.Result.BaseUri
+                    : null;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 正在启动（等就绪中）
+    /// </summary>
+    public bool IsStarting
+    {
+        get
+        {
+            lock (_gate) return _starting is { IsCompleted: false };
+        }
+    }
+
+    /// <summary>
     /// 停掉当前进程；下次使用会按新的启动描述重新拉起（换了模型、引擎时用）
     /// </summary>
     public void Restart()

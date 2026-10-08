@@ -59,9 +59,12 @@ internal sealed class FakeAudioRecorder : IAudioRecorder
 
     public event Action<float>? LevelChanged;
 
-    public void Start()
+    public int SampleRate { get; private set; }
+
+    public void Start(int sampleRate = IAudioRecorder.SpeechSampleRate)
     {
         if (FailToStart) throw new AudioDeviceException("no microphone");
+        SampleRate = sampleRate;
         IsRecording = true;
         LevelChanged?.Invoke(0.5f);
     }

@@ -19,7 +19,8 @@ public static class AudioErrorText
     /// <param name="e">异常</param>
     /// <returns>是为 true</returns>
     public static bool IsExpected(Exception e) => e is LocalEngineNotReadyException or LocalServerException
-        or AudioModelMissingException or AudioDeviceException or HttpRequestException or NotSupportedException;
+        or AudioModelMissingException or AudioVoiceRequiredException or AudioDeviceException or HttpRequestException
+        or NotSupportedException;
 
     /// <summary>
     /// 给用户看的一句话
@@ -33,6 +34,7 @@ public static class AudioErrorText
         AudioModelMissingException missing => Loc.Text(missing.Task == EAudioCppTask.Tts
             ? LangKey.AudioErrorNoTtsModel
             : LangKey.AudioErrorNoAsrModel),
+        AudioVoiceRequiredException => Loc.Text(LangKey.AudioErrorVoiceRequired),
         AudioServiceException { ErrorType: AudioServiceException.InsufficientMemory } memory =>
             Loc.Text(LangKey.AudioErrorMemory, memory.Message),
         AudioDeviceException device => Loc.Text(LangKey.AudioErrorDevice, device.Message),

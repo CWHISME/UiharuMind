@@ -4638,9 +4638,6 @@
     <data name="AudioPreviewStopTip" xml:space="preserve">
         <value>停止试听</value>
     </data>
-    <data name="AudioPreviewFailed" xml:space="preserve">
-        <value>试听失败：{0}</value>
-    </data>
     <data name="AudioErrorNoEngine" xml:space="preserve">
         <value>还没有安装 audio.cpp，到设置的「本地模型（语音）」里安装。</value>
     </data>
@@ -4712,5 +4709,164 @@
     </data>
     <data name="KeySelectionHoldInstruction" xml:space="preserve">
         <value>按下要用来「按住说话」的键。可以是单独的 Alt、Ctrl 这类键，会区分左右。</value>
+    </data>
+    <data name="AudioEngineStatusStopped" xml:space="preserve">
+        <value>语音引擎没在运行，朗读、听写或试听时会自动启动。</value>
+    </data>
+    <data name="AudioEngineStatusStarting" xml:space="preserve">
+        <value>语音引擎正在启动…</value>
+    </data>
+    <data name="AudioEngineStatusRunning" xml:space="preserve">
+        <value>语音引擎运行中（{0}）· 已加载 {1} 个模型 · 闲置 {2} 分钟自动卸载</value>
+    </data>
+    <data name="AudioEngineRelease" xml:space="preserve">
+        <value>释放内存</value>
+    </data>
+    <data name="AudioEngineReleaseTip" xml:space="preserve">
+        <value>停止语音引擎，模型占用的内存全部释放；下次使用时自动启动</value>
+    </data>
+    <data name="AudioModelsLoaded" xml:space="preserve">
+        <value>已加载</value>
+    </data>
+    <data name="AudioModelsLoadedTip" xml:space="preserve">
+        <value>已加载进内存，下次使用不用等</value>
+    </data>
+    <data name="AudioCapAlsoAsr" xml:space="preserve">
+        <value>也能识别</value>
+    </data>
+    <data name="AudioCapAlsoTts" xml:space="preserve">
+        <value>也能合成</value>
+    </data>
+    <data name="AudioErrorVoiceRequired" xml:space="preserve">
+        <value>这个模型只会照参考音频说话，请先在「语音模型」页的音色库里添加一个音色。</value>
+    </data>
+    <data name="VoiceLibraryGroup" xml:space="preserve">
+        <value>音色库</value>
+    </data>
+    <data name="VoiceLibraryHint" xml:space="preserve">
+        <value>会克隆的模型都能选用这里的音色</value>
+    </data>
+    <data name="VoiceLibraryEmpty" xml:space="preserve">
+        <value>还没有音色。会克隆的模型（如 VoxCPM）第一次朗读时会自动生成一个固定音色；也可以抽卡、录自己的声音或导入音频。</value>
+    </data>
+    <data name="VoiceAdd" xml:space="preserve">
+        <value>添加音色</value>
+    </data>
+    <data name="VoicePlayReferenceTip" xml:space="preserve">
+        <value>听参考音频</value>
+    </data>
+    <data name="VoiceDeleteConfirm" xml:space="preserve">
+        <value>删除音色「{0}」？选了它的模型会改回默认音色。</value>
+    </data>
+    <data name="VoiceSaved" xml:space="preserve">
+        <value>已存入音色库：{0}</value>
+    </data>
+    <data name="VoiceCreateTitle" xml:space="preserve">
+        <value>添加音色</value>
+    </data>
+    <data name="VoiceCreateHint" xml:space="preserve">
+        <value>存进音色库后，会克隆的模型都能用这个声音朗读。</value>
+    </data>
+    <data name="VoiceSourceDraw" xml:space="preserve">
+        <value>抽卡</value>
+    </data>
+    <data name="VoiceSourceRecord" xml:space="preserve">
+        <value>录音</value>
+    </data>
+    <data name="VoiceSourceImport" xml:space="preserve">
+        <value>导入音频</value>
+    </data>
+    <data name="VoiceDrawHint" xml:space="preserve">
+        <value>让模型不带参考随机念一句，每一抽都是不同的声音。满意哪一个就存下来，它会成为这个模型的音色。</value>
+    </data>
+    <data name="VoiceDrawNoModel" xml:space="preserve">
+        <value>本机没有能抽卡的模型：需要会克隆、又没有自带音色的语音合成模型，如 VoxCPM。</value>
+    </data>
+    <data name="VoiceDraw" xml:space="preserve">
+        <value>抽一个</value>
+    </data>
+    <data name="VoiceDrawing" xml:space="preserve">
+        <value>正在生成，第一次要先加载模型…</value>
+    </data>
+    <data name="VoiceDrawItem" xml:space="preserve">
+        <value>第 {0} 抽 · {1}</value>
+    </data>
+    <data name="VoiceDrawFailed" xml:space="preserve">
+        <value>抽卡失败：{0}</value>
+    </data>
+    <data name="VoiceDefaultDrawName" xml:space="preserve">
+        <value>{0} 第 {1} 抽</value>
+    </data>
+    <data name="VoiceRecordHint" xml:space="preserve">
+        <value>找个安静的地方，用平常的语气念下面这句话，念完点停止。5 到 15 秒最合适。</value>
+    </data>
+    <data name="VoiceRecordStart" xml:space="preserve">
+        <value>开始录音</value>
+    </data>
+    <data name="VoiceRecordStop" xml:space="preserve">
+        <value>停止</value>
+    </data>
+    <data name="VoiceRecorderBusy" xml:space="preserve">
+        <value>麦克风正被语音输入占用，稍后再试。</value>
+    </data>
+    <data name="VoiceDefaultRecordName" xml:space="preserve">
+        <value>我的声音</value>
+    </data>
+    <data name="VoiceImportHint" xml:space="preserve">
+        <value>支持 wav、mp3、flac，只取前 20 秒。最好只有一个人在说话、没有背景音乐。</value>
+    </data>
+    <data name="VoiceImportPick" xml:space="preserve">
+        <value>选择音频文件…</value>
+    </data>
+    <data name="VoiceImportFileType" xml:space="preserve">
+        <value>音频文件</value>
+    </data>
+    <data name="VoiceImportFailed" xml:space="preserve">
+        <value>读不了这个音频文件：{0}</value>
+    </data>
+    <data name="VoiceClipLabel" xml:space="preserve">
+        <value>参考音频</value>
+    </data>
+    <data name="VoiceSeconds" xml:space="preserve">
+        <value>{0} 秒</value>
+    </data>
+    <data name="VoiceClipSilent" xml:space="preserve">
+        <value>这段几乎没有声音，检查一下麦克风，或系统设置里是否允许本应用使用麦克风。</value>
+    </data>
+    <data name="VoiceClipTooShort" xml:space="preserve">
+        <value>不到 3 秒，克隆出来可能不像，建议 5 到 15 秒。</value>
+    </data>
+    <data name="VoiceClipTooLong" xml:space="preserve">
+        <value>超过 20 秒，有些模型会念得不稳，建议 5 到 15 秒。</value>
+    </data>
+    <data name="VoiceTranscriptLabel" xml:space="preserve">
+        <value>音频里念的文字</value>
+    </data>
+    <data name="VoiceTranscriptHint" xml:space="preserve">
+        <value>要和音频里说的一字不差，克隆才像。</value>
+    </data>
+    <data name="VoiceTranscribe" xml:space="preserve">
+        <value>自动识别</value>
+    </data>
+    <data name="VoiceTranscribeTip" xml:space="preserve">
+        <value>用本机的语音识别模型把参考音频转成文字</value>
+    </data>
+    <data name="VoiceTranscribeFailed" xml:space="preserve">
+        <value>识别文字失败：{0}</value>
+    </data>
+    <data name="VoiceNameLabel" xml:space="preserve">
+        <value>名字</value>
+    </data>
+    <data name="VoiceNameInvalid" xml:space="preserve">
+        <value>名字里没有能用的字。</value>
+    </data>
+    <data name="VoiceNameTaken" xml:space="preserve">
+        <value>已经有同名的音色了。</value>
+    </data>
+    <data name="VoiceSave" xml:space="preserve">
+        <value>存入音色库</value>
+    </data>
+    <data name="VoiceSaveFailed" xml:space="preserve">
+        <value>保存音色失败：{0}</value>
     </data>
 </root>

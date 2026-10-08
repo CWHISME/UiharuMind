@@ -104,7 +104,7 @@ public partial class App : Application, ILogger, IDisposable
             UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("app-services");
 
             // 朗读与听写共用一个 audio.cpp provider，第一次用才建：建它会碰语音引擎的单例与设置
-            Lazy<IAudioProvider> localAudio = new(() => new AudioCppProvider(AudioCppEngine.Shared));
+            Lazy<AudioCppProvider> localAudio = new(() => new AudioCppProvider(AudioCppEngine.Shared));
             Services = new ServiceCollection()
                 .AddSingleton(ScreensService)
                 .AddSingleton<IMessageService>(messages)
@@ -115,6 +115,8 @@ public partial class App : Application, ILogger, IDisposable
                 .AddSingleton<IAudioRecorder, SoundFlowAudioRecorder>()
                 .AddSingleton<IReadAloudService>(sp =>
                     new ReadAloudService(() => localAudio.Value, sp.GetRequiredService<IAudioPlayer>(), messages))
+                .AddSingleton(sp => new AudioServices(() => localAudio.Value, sp.GetRequiredService<IAudioPlayer>(),
+                    sp.GetRequiredService<IAudioRecorder>(), sp.GetRequiredService<IReadAloudService>()))
                 .AddSingleton<IDictationService>(sp => new DictationService(sp.GetRequiredService<IAudioRecorder>(),
                     () => localAudio.Value, messages, action => Dispatcher.UIThread.Post(action)))
                 .AddSingleton(sp => new DictationHotkey(InputManager.Instance, sp.GetRequiredService<IDictationService>(),

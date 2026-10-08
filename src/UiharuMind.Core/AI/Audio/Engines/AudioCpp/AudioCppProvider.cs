@@ -7,12 +7,14 @@ namespace UiharuMind.Core.AI.Audio;
 public sealed class AudioCppProvider : IAudioProvider, IDisposable
 {
     private readonly AudioCppEngine _engine;
+    private readonly AudioCppVoiceResolver _voices;
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(120) };
     private OpenAiCompatibleAudioClient? _client; //随 server 地址换，共用 _http，换掉不影响在途请求
 
     public AudioCppProvider(AudioCppEngine engine)
     {
         _engine = engine;
+        _voices = new AudioCppVoiceResolver(engine);
     }
 
     public string Id => "AudioCpp";
@@ -25,8 +27,10 @@ public sealed class AudioCppProvider : IAudioProvider, IDisposable
     public bool IsLocal => true;
 
     /// <summary>
-    /// 合成。没指定音色时用设置里给这个模型选的；也没选就取服务列出的第一个（有的模型不给音色直接报错）
+    /// 合成。没指定音色时用设置里给这个模型选的；也没选就取模型自带的第一个（有的模型不给音色直接报错）；
+    /// 会克隆却没自带音色的，第一次用时给它生成一个固定音色存进音色库
     /// </summary>
+    /// <exception cref="AudioVoiceRequiredException">模型只会克隆，音色库却是空的</exception>
     public async Task<AudioSynthesisResult> SynthesizeAsync(
         AudioSynthesisRequest request, CancellationToken cancellationToken)
     {
@@ -37,9 +41,7 @@ public sealed class AudioCppProvider : IAudioProvider, IDisposable
             ? _engine.ResolveModel(EAudioCppTask.Tts, request.Language)
             : FindModel(request.Model);
         OpenAiCompatibleAudioClient client = await GetClientAsync(model, cancellationToken).ConfigureAwait(false);
-        string? voice = request.Voice;
-        if (string.IsNullOrWhiteSpace(voice) && !_engine.Settings.TtsVoices.TryGetValue(model.Id, out voice))
-            voice = (await client.GetVoicesAsync(model.Id, cancellationToken).ConfigureAwait(false)).FirstOrDefault();
+        string? voice = await _voices.ResolveAsync(model, request.Voice, client, cancellationToken).ConfigureAwait(false);
         return await client.SynthesizeAsync(model.Id, request.Text, voice, EAudioFormat.Wav, cancellationToken)
             .ConfigureAwait(false);
     }
@@ -60,7 +62,7 @@ public sealed class AudioCppProvider : IAudioProvider, IDisposable
         GetVoicesAsync(_engine.ResolveModel(EAudioCppTask.Tts), cancellationToken);
 
     /// <summary>
-    /// 某个本地合成模型的音色（会按需拉起引擎）
+    /// 某个本地合成模型自带的音色，不含音色库（会按需拉起引擎）
     /// </summary>
     /// <param name="modelId">模型 id</param>
     /// <param name="cancellationToken">取消</param>
@@ -75,10 +77,24 @@ public sealed class AudioCppProvider : IAudioProvider, IDisposable
         _engine.GetModels(true).FirstOrDefault(x => x.Id == modelId) ??
         throw new AudioModelMissingException(EAudioCppTask.Tts);
 
+    /// <summary>
+    /// 抽一个音色：让模型不带参考音频、用随机种子念一句参考句。满意就存进音色库，之后照它克隆，声音就固定了
+    /// </summary>
+    /// <param name="modelId">会克隆的合成模型</param>
+    /// <param name="seed">随机种子：换一个就是另一个声音，同一个种子抽出来的一样</param>
+    /// <param name="cancellationToken">取消</param>
+    /// <returns>抽到的音色</returns>
+    public async Task<VoiceDraft> DrawVoiceAsync(string modelId, int seed, CancellationToken cancellationToken)
+    {
+        AudioCppModelEntry model = FindModel(modelId);
+        OpenAiCompatibleAudioClient client = await GetClientAsync(model, cancellationToken).ConfigureAwait(false);
+        return await _voices.DrawAsync(model, seed, client, cancellationToken).ConfigureAwait(false);
+    }
+
     private async Task<IReadOnlyList<string>> GetVoicesAsync(AudioCppModelEntry model, CancellationToken cancellationToken)
     {
         OpenAiCompatibleAudioClient client = await GetClientAsync(model, cancellationToken).ConfigureAwait(false);
-        return await client.GetVoicesAsync(model.Id, cancellationToken).ConfigureAwait(false);
+        return await _voices.ListNativeAsync(model, client, cancellationToken).ConfigureAwait(false);
     }
 
     public void Dispose()

@@ -43,4 +43,31 @@
     <Style Selector="TextBox.composer-input /template/ Panel">
         <Setter Property="Background" Value="Transparent" />
     </Style>
+
+    <!-- ============================= 分段切换（标记为 segmented 的横排 ListBox：获取模型的分类、添加音色的来源） ========================-->
+    <Style Selector="ListBox.segmented">
+        <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="3" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="ItemsPanel">
+            <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal" Spacing="2" />
+            </ItemsPanelTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="ListBox.segmented ListBoxItem">
+        <Setter Property="Padding" Value="12,4" />
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="ListBox.segmented ListBoxItem:selected">
+        <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+    </Style>
+    <Style Selector="ListBox.segmented ListBoxItem:selected TextBlock">
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
 </Styles>

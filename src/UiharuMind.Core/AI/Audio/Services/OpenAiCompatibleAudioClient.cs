@@ -37,11 +37,13 @@ public sealed class OpenAiCompatibleAudioClient : IDisposable
     }
 
     /// <summary>非流式合成：POST /v1/audio/speech，按 <paramref name="format"/> 显式指定 response_format</summary>
+    /// <param name="seed">随机种子（audio.cpp 的扩展字段）；null 不传</param>
     public async Task<AudioSynthesisResult> SynthesizeAsync(
-        string model, string text, string? voice, EAudioFormat format, CancellationToken cancellationToken)
+        string model, string text, string? voice, EAudioFormat format, CancellationToken cancellationToken,
+        int? seed = null)
     {
         using JsonDocument body = JsonDocument.Parse(
-            BuildSpeechJson(model, text, voice, format, stream: false));
+            BuildSpeechJson(model, text, voice, format, stream: false, seed));
         using HttpRequestMessage request = new(HttpMethod.Post, SpeechUrl());
         request.Content = new StringContent(body.RootElement.GetRawText(), Encoding.UTF8, "application/json");
         ApplyAuth(request);
@@ -201,7 +203,8 @@ public sealed class OpenAiCompatibleAudioClient : IDisposable
         }
     }
 
-    private string BuildSpeechJson(string model, string text, string? voice, EAudioFormat format, bool stream)
+    private string BuildSpeechJson(string model, string text, string? voice, EAudioFormat format, bool stream,
+        int? seed = null)
     {
         using MemoryStream buffer = new();
         using (Utf8JsonWriter writer = new(buffer))
@@ -212,6 +215,7 @@ public sealed class OpenAiCompatibleAudioClient : IDisposable
             if (!string.IsNullOrWhiteSpace(voice)) writer.WriteString("voice", voice);
             writer.WriteString("response_format", FormatName(format, stream));
             if (stream) writer.WriteBoolean("stream", true);
+            if (seed is { } value) writer.WriteNumber("seed", value);
             writer.WriteEndObject();
         }
 

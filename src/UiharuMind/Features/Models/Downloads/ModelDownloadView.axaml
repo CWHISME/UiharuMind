@@ -73,31 +73,6 @@
             <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
         </Style>
         <!-- 分类切换：分段按钮 -->
-        <Style Selector="ListBox.market-switch">
-            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="CornerRadius" Value="8" />
-            <Setter Property="Padding" Value="3" />
-            <Setter Property="HorizontalAlignment" Value="Left" />
-            <Setter Property="ItemsPanel">
-                <ItemsPanelTemplate>
-                    <StackPanel Orientation="Horizontal" Spacing="2" />
-                </ItemsPanelTemplate>
-            </Setter>
-        </Style>
-        <Style Selector="ListBox.market-switch ListBoxItem">
-            <Setter Property="Padding" Value="12,4" />
-            <Setter Property="Margin" Value="0" />
-            <Setter Property="CornerRadius" Value="6" />
-            <Setter Property="MinHeight" Value="0" />
-            <Setter Property="Cursor" Value="Hand" />
-        </Style>
-        <Style Selector="ListBox.market-switch ListBoxItem:selected">
-            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
-        </Style>
-        <Style Selector="ListBox.market-switch ListBoxItem:selected TextBlock">
-            <Setter Property="FontWeight" Value="SemiBold" />
-        </Style>
     </UserControl.Styles>
 
     <DockPanel Margin="0,14,0,0">
@@ -106,7 +81,7 @@
         <!-- 窄窗时详情盖在列表上（见后台代码），宽窗左右两栏。两栏内容都按当前分类的类型挑模板 -->
         <Grid x:Name="BodyGrid" ColumnDefinitions="1*,1.45*" ColumnSpacing="16">
             <DockPanel x:Name="ListPane" MinWidth="240">
-                <ListBox DockPanel.Dock="Top" Classes="market-switch" Margin="0,0,0,12"
+                <ListBox DockPanel.Dock="Top" Classes="segmented" Margin="0,0,0,12"
                          ItemsSource="{Binding Markets}" SelectedItem="{Binding SelectedMarket}">
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="downloads:IModelMarket">

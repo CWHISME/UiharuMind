@@ -1,0 +1,199 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:voices="clr-namespace:UiharuMind.Features.Models.AudioModels.Voices"
+        xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+        xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+        mc:Ignorable="d" d:DesignWidth="640" d:DesignHeight="620"
+        x:Class="UiharuMind.Features.Models.AudioModels.Voices.VoiceCreateWindow"
+        x:DataType="voices:VoiceCreateViewData"
+        Width="640"
+        Height="640"
+        MinWidth="520"
+        MinHeight="520"
+        WindowStartupLocation="CenterOwner"
+        Title="{loc:Loc VoiceCreateTitle}">
+
+    <Window.Styles>
+        <Style Selector="TextBlock.error">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource MessageStatusErrorBrush}" />
+        </Style>
+        <Style Selector="TextBlock.warning">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource MessageStatusWarningBrush}" />
+        </Style>
+        <Style Selector="ListBox.draws ListBoxItem">
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource SemiGrey0}">
+
+        <!-- 头部 -->
+        <Border Padding="18,15" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="50,*" ColumnSpacing="12">
+                <Border Width="50" Height="50" CornerRadius="8" Background="{DynamicResource SemiBlue0}">
+                    <controls:ThemedSvgIcon Width="24" Height="24" IconName="audio-lines" />
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
+                    <TextBlock Text="{loc:Loc VoiceCreateTitle}" FontSize="20" />
+                    <TextBlock Text="{loc:Loc VoiceCreateHint}" Classes="muted" TextWrapping="Wrap" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="18,14" Spacing="14">
+                <ListBox Classes="segmented" ItemsSource="{Binding Sources}"
+                         SelectedItem="{Binding SelectedSourceOption}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="voices:VoiceSourceOption">
+                            <TextBlock Text="{Binding Title}" FontSize="13" />
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- 抽卡：选模型、抽，抽到的排一列可回头挑 -->
+                <StackPanel Spacing="10" IsVisible="{Binding IsDrawSource}">
+                    <TextBlock Text="{loc:Loc VoiceDrawHint}" Classes="muted" TextWrapping="Wrap" />
+                    <TextBlock Text="{loc:Loc VoiceDrawNoModel}" Classes="warning" TextWrapping="Wrap"
+                               IsVisible="{Binding !CanDraw}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding CanDraw}">
+                        <ComboBox MinWidth="220" ItemsSource="{Binding DrawModels}" SelectedItem="{Binding SelectedDrawModel}"
+                                  DisplayMemberBinding="{ReflectionBinding DisplayName}" IsEnabled="{Binding !IsDrawing}" />
+                        <Button Classes="Primary" Command="{Binding DrawCommand}" IsEnabled="{Binding !IsDrawing}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <controls:ThemedSvgIcon Width="15" Height="15" IconName="dices" />
+                                <TextBlock Text="{loc:Loc VoiceDraw}" />
+                            </StackPanel>
+                        </Button>
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
+                                    IsVisible="{Binding IsDrawing}">
+                            <SpinnerIcon />
+                            <TextBlock Text="{loc:Loc VoiceDrawing}" Classes="muted" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </StackPanel>
+                    <ListBox Classes="draws" ItemsSource="{Binding Draws}" SelectedItem="{Binding SelectedDraw}"
+                             MaxHeight="180" IsVisible="{Binding Draws.Count}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="voices:VoiceDrawItem">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                    <Panel Width="26" Height="26">
+                                        <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="play"
+                                                          ToolTip.Tip="{loc:Loc AudioPreviewTip}" IsVisible="{Binding !IsPlaying}"
+                                                          Command="{Binding $parent[Window].((voices:VoiceCreateViewData)DataContext).PlayDrawCommand}"
+                                                          CommandParameter="{Binding}" />
+                                        <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="stop" CurrentColor="Red"
+                                                          ToolTip.Tip="{loc:Loc AudioPreviewStopTip}" IsVisible="{Binding IsPlaying}"
+                                                          Command="{Binding $parent[Window].((voices:VoiceCreateViewData)DataContext).PlayDrawCommand}"
+                                                          CommandParameter="{Binding}" />
+                                    </Panel>
+                                    <TextBlock Grid.Column="1" Text="{Binding Label}" VerticalAlignment="Center" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </StackPanel>
+
+                <!-- 录音：念一句给定的话 -->
+                <StackPanel Spacing="10" IsVisible="{Binding IsRecordSource}">
+                    <TextBlock Text="{loc:Loc VoiceRecordHint}" Classes="muted" TextWrapping="Wrap" />
+                    <Border Classes="result-panel" Padding="12,10">
+                        <SelectableTextBlock Text="{Binding RecordPrompt}" TextWrapping="Wrap" FontSize="15" />
+                    </Border>
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Button Classes="Primary" Command="{Binding ToggleRecordingCommand}" IsVisible="{Binding !IsRecording}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <controls:ThemedSvgIcon Width="15" Height="15" IconName="mic" />
+                                <TextBlock Text="{loc:Loc VoiceRecordStart}" />
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding ToggleRecordingCommand}" IsVisible="{Binding IsRecording}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <controls:ThemedSvgIcon Width="15" Height="15" IconName="stop" CurrentColor="Red" />
+                                <TextBlock Text="{loc:Loc VoiceRecordStop}" />
+                            </StackPanel>
+                        </Button>
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"
+                                    IsVisible="{Binding IsRecording}">
+                            <ProgressBar Width="120" Height="4" MinHeight="4" Maximum="1" Value="{Binding RecordLevel}" />
+                            <TextBlock Text="{Binding RecordTimeText}" Classes="muted" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- 导入：wav / mp3 / flac -->
+                <StackPanel Spacing="10" IsVisible="{Binding IsImportSource}">
+                    <TextBlock Text="{loc:Loc VoiceImportHint}" Classes="muted" TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Button Click="Import_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <controls:ThemedSvgIcon Width="15" Height="15" IconName="import" />
+                                <TextBlock Text="{loc:Loc VoiceImportPick}" />
+                            </StackPanel>
+                        </Button>
+                        <TextBlock Text="{Binding ImportedFileName}" Classes="muted" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" MaxWidth="320" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- 待存的这段：试听、文字、名字 -->
+                <Border Classes="result-panel" Padding="14,12" IsVisible="{Binding HasClip}">
+                    <StackPanel Spacing="10">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Panel Width="28" Height="28">
+                                <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="play"
+                                                  ToolTip.Tip="{loc:Loc AudioPreviewTip}" IsVisible="{Binding !IsPlayingClip}"
+                                                  Command="{Binding PlayClipCommand}" />
+                                <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="stop" CurrentColor="Red"
+                                                  ToolTip.Tip="{loc:Loc AudioPreviewStopTip}" IsVisible="{Binding IsPlayingClip}"
+                                                  Command="{Binding PlayClipCommand}" />
+                            </Panel>
+                            <TextBlock Text="{loc:Loc VoiceClipLabel}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding ClipInfo}" Classes="muted" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding ClipWarning}" Classes="warning" TextWrapping="Wrap"
+                                   IsVisible="{Binding ClipWarning.Length}" />
+
+                        <StackPanel Spacing="6">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6">
+                                    <SpinnerIcon IsVisible="{Binding IsTranscribing}" VerticalAlignment="Center" />
+                                    <Button Classes="toolbar-link" Content="{loc:Loc VoiceTranscribe}"
+                                            ToolTip.Tip="{loc:Loc VoiceTranscribeTip}"
+                                            IsVisible="{Binding CanTranscribe}" Command="{Binding TranscribeCommand}" />
+                                </StackPanel>
+                                <TextBlock Text="{loc:Loc VoiceTranscriptLabel}" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <TextBox Text="{Binding Transcript}" AcceptsReturn="False" TextWrapping="Wrap" MinHeight="56"
+                                     IsReadOnly="{Binding IsTranscribing}" />
+                            <TextBlock Text="{loc:Loc VoiceTranscriptHint}" Classes="muted" FontSize="12" TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="{loc:Loc VoiceNameLabel}" />
+                            <TextBox Text="{Binding Name}" />
+                            <TextBlock Classes="error" Text="{Binding NameError}" IsVisible="{Binding HasNameError}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- 底部按钮条 -->
+        <Border Grid.Row="2" Padding="14" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,1,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                <Button Content="{loc:Loc CancelBtn}" Click="Cancel_Click" />
+                <Button IsEnabled="{Binding CanSave}" Click="Save_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <controls:ThemedSvgIcon Width="15" Height="15" IconName="save" />
+                        <TextBlock Text="{loc:Loc VoiceSave}" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

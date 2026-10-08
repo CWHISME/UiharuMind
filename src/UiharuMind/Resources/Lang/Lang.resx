@@ -4645,9 +4645,6 @@ Allow them?</value>
     <data name="AudioPreviewStopTip" xml:space="preserve">
         <value>Stop preview</value>
     </data>
-    <data name="AudioPreviewFailed" xml:space="preserve">
-        <value>Preview failed: {0}</value>
-    </data>
     <data name="AudioErrorNoEngine" xml:space="preserve">
         <value>audio.cpp is not installed. Install it under Local Models (Voice) in settings.</value>
     </data>
@@ -4719,5 +4716,164 @@ Allow them?</value>
     </data>
     <data name="KeySelectionHoldInstruction" xml:space="preserve">
         <value>Press the key to hold while talking. A single key such as Alt or Ctrl works, and left and right are told apart.</value>
+    </data>
+    <data name="AudioEngineStatusStopped" xml:space="preserve">
+        <value>The voice engine is not running; it starts automatically for read-aloud, dictation, or previews.</value>
+    </data>
+    <data name="AudioEngineStatusStarting" xml:space="preserve">
+        <value>The voice engine is starting…</value>
+    </data>
+    <data name="AudioEngineStatusRunning" xml:space="preserve">
+        <value>Voice engine running ({0}) · {1} model(s) loaded · unloaded after {2} idle minutes</value>
+    </data>
+    <data name="AudioEngineRelease" xml:space="preserve">
+        <value>Free memory</value>
+    </data>
+    <data name="AudioEngineReleaseTip" xml:space="preserve">
+        <value>Stop the voice engine and free the memory its models use; it restarts automatically next time</value>
+    </data>
+    <data name="AudioModelsLoaded" xml:space="preserve">
+        <value>Loaded</value>
+    </data>
+    <data name="AudioModelsLoadedTip" xml:space="preserve">
+        <value>Loaded in memory, so the next use won't wait</value>
+    </data>
+    <data name="AudioCapAlsoAsr" xml:space="preserve">
+        <value>Also recognizes speech</value>
+    </data>
+    <data name="AudioCapAlsoTts" xml:space="preserve">
+        <value>Also synthesizes speech</value>
+    </data>
+    <data name="AudioErrorVoiceRequired" xml:space="preserve">
+        <value>This model can only speak by cloning a reference. Add a voice to the voice library on the Voice models tab first.</value>
+    </data>
+    <data name="VoiceLibraryGroup" xml:space="preserve">
+        <value>Voice library</value>
+    </data>
+    <data name="VoiceLibraryHint" xml:space="preserve">
+        <value>Models that can clone can use these voices</value>
+    </data>
+    <data name="VoiceLibraryEmpty" xml:space="preserve">
+        <value>No voices yet. Models that clone (such as VoxCPM) create a fixed voice the first time they read aloud. You can also draw one, record your own voice or import audio.</value>
+    </data>
+    <data name="VoiceAdd" xml:space="preserve">
+        <value>Add voice</value>
+    </data>
+    <data name="VoicePlayReferenceTip" xml:space="preserve">
+        <value>Play the reference audio</value>
+    </data>
+    <data name="VoiceDeleteConfirm" xml:space="preserve">
+        <value>Delete the voice "{0}"? Models using it will go back to their default voice.</value>
+    </data>
+    <data name="VoiceSaved" xml:space="preserve">
+        <value>Saved to the voice library: {0}</value>
+    </data>
+    <data name="VoiceCreateTitle" xml:space="preserve">
+        <value>Add voice</value>
+    </data>
+    <data name="VoiceCreateHint" xml:space="preserve">
+        <value>Once saved, any model that can clone can read aloud in this voice.</value>
+    </data>
+    <data name="VoiceSourceDraw" xml:space="preserve">
+        <value>Draw</value>
+    </data>
+    <data name="VoiceSourceRecord" xml:space="preserve">
+        <value>Record</value>
+    </data>
+    <data name="VoiceSourceImport" xml:space="preserve">
+        <value>Import audio</value>
+    </data>
+    <data name="VoiceDrawHint" xml:space="preserve">
+        <value>The model reads a sentence with no reference, so every draw is a different voice. Save the one you like and it becomes this model's voice.</value>
+    </data>
+    <data name="VoiceDrawNoModel" xml:space="preserve">
+        <value>No installed model can draw voices. You need a speech model that clones and has no built-in voices, such as VoxCPM.</value>
+    </data>
+    <data name="VoiceDraw" xml:space="preserve">
+        <value>Draw one</value>
+    </data>
+    <data name="VoiceDrawing" xml:space="preserve">
+        <value>Generating. The first time loads the model…</value>
+    </data>
+    <data name="VoiceDrawItem" xml:space="preserve">
+        <value>Draw {0} · {1}</value>
+    </data>
+    <data name="VoiceDrawFailed" xml:space="preserve">
+        <value>Draw failed: {0}</value>
+    </data>
+    <data name="VoiceDefaultDrawName" xml:space="preserve">
+        <value>{0} draw {1}</value>
+    </data>
+    <data name="VoiceRecordHint" xml:space="preserve">
+        <value>Find a quiet place, read the sentence below in your normal voice, then press Stop. 5 to 15 seconds works best.</value>
+    </data>
+    <data name="VoiceRecordStart" xml:space="preserve">
+        <value>Start recording</value>
+    </data>
+    <data name="VoiceRecordStop" xml:space="preserve">
+        <value>Stop</value>
+    </data>
+    <data name="VoiceRecorderBusy" xml:space="preserve">
+        <value>The microphone is in use by voice input. Try again in a moment.</value>
+    </data>
+    <data name="VoiceDefaultRecordName" xml:space="preserve">
+        <value>My voice</value>
+    </data>
+    <data name="VoiceImportHint" xml:space="preserve">
+        <value>Supports wav, mp3 and flac; only the first 20 seconds are used. One speaker and no background music works best.</value>
+    </data>
+    <data name="VoiceImportPick" xml:space="preserve">
+        <value>Choose an audio file…</value>
+    </data>
+    <data name="VoiceImportFileType" xml:space="preserve">
+        <value>Audio files</value>
+    </data>
+    <data name="VoiceImportFailed" xml:space="preserve">
+        <value>Could not read this audio file: {0}</value>
+    </data>
+    <data name="VoiceClipLabel" xml:space="preserve">
+        <value>Reference audio</value>
+    </data>
+    <data name="VoiceSeconds" xml:space="preserve">
+        <value>{0} s</value>
+    </data>
+    <data name="VoiceClipSilent" xml:space="preserve">
+        <value>This clip is almost silent. Check the microphone, or whether the system allows this app to use it.</value>
+    </data>
+    <data name="VoiceClipTooShort" xml:space="preserve">
+        <value>Under 3 seconds, so the clone may not sound alike. 5 to 15 seconds is recommended.</value>
+    </data>
+    <data name="VoiceClipTooLong" xml:space="preserve">
+        <value>Over 20 seconds, which makes some models unstable. 5 to 15 seconds is recommended.</value>
+    </data>
+    <data name="VoiceTranscriptLabel" xml:space="preserve">
+        <value>What the audio says</value>
+    </data>
+    <data name="VoiceTranscriptHint" xml:space="preserve">
+        <value>It must match the audio word for word for the clone to sound right.</value>
+    </data>
+    <data name="VoiceTranscribe" xml:space="preserve">
+        <value>Transcribe</value>
+    </data>
+    <data name="VoiceTranscribeTip" xml:space="preserve">
+        <value>Turn the reference audio into text with the local speech recognition model</value>
+    </data>
+    <data name="VoiceTranscribeFailed" xml:space="preserve">
+        <value>Transcription failed: {0}</value>
+    </data>
+    <data name="VoiceNameLabel" xml:space="preserve">
+        <value>Name</value>
+    </data>
+    <data name="VoiceNameInvalid" xml:space="preserve">
+        <value>The name has no usable characters.</value>
+    </data>
+    <data name="VoiceNameTaken" xml:space="preserve">
+        <value>A voice with this name already exists.</value>
+    </data>
+    <data name="VoiceSave" xml:space="preserve">
+        <value>Save to library</value>
+    </data>
+    <data name="VoiceSaveFailed" xml:space="preserve">
+        <value>Could not save the voice: {0}</value>
     </data>
 </root>

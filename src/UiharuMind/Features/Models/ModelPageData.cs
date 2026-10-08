@@ -23,6 +23,7 @@ using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
+using UiharuMind.Features.Models.AudioModels.Voices;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Core.AI;
@@ -32,6 +33,7 @@ using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Features.Models.AudioModels;
+using UiharuMind.Features.Audio;
 using UiharuMind.Features.Models.Downloads;
 using UiharuMind.Core.AI.Audio;
 using UiharuMind.Features.Models.ImageModels;
@@ -46,7 +48,7 @@ public partial class ModelPageData : PageDataBase
     private readonly IMessageService _messageService;
     private readonly Func<ModelPageData, ModelDownloadPageData> _createDownloads;
     private readonly Func<ModelPageData, AudioModelListViewData> _createAudioModels;
-    private readonly IAudioPlayer? _audioPlayer; //默认的语音模型页签试听用；测试自备页签数据时可不给
+    private readonly AudioServices? _audio; //默认的语音模型页签用；测试自备页签数据时可不给
     private readonly DownloadQueue? _downloadQueueSource; //null 走全局队列
     private readonly ObservableCollection<ModelRunningData>? _modelSources; //null 走 App.ModelService
     private bool _isWatchingSources;
@@ -84,7 +86,7 @@ public partial class ModelPageData : PageDataBase
         ModelSources.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasNoModels));
     }
     
-    public ModelPageData() : this(App.Services.GetRequiredService<IMessageService>(), audioPlayer: App.Services.GetRequiredService<IAudioPlayer>())
+    public ModelPageData() : this(App.Services.GetRequiredService<IMessageService>(), audio: App.Services.GetRequiredService<AudioServices>())
     {
     }
 
@@ -93,13 +95,13 @@ public partial class ModelPageData : PageDataBase
     /// <param name="downloadQueue">下载队列，默认全局</param>
     /// <param name="modelSources">对话模型列表，默认 App.ModelService 的</param>
     /// <param name="createAudioModels">建「语音模型」页签的数据，默认走共享的语音引擎</param>
-    /// <param name="audioPlayer">默认的语音模型页签试听用的播放</param>
+    /// <param name="audio">默认的语音模型页签要用的语音服务</param>
     public ModelPageData(IMessageService messageService,
         Func<ModelPageData, ModelDownloadPageData>? createDownloads = null, DownloadQueue? downloadQueue = null,
         ObservableCollection<ModelRunningData>? modelSources = null,
-        Func<ModelPageData, AudioModelListViewData>? createAudioModels = null, IAudioPlayer? audioPlayer = null)
+        Func<ModelPageData, AudioModelListViewData>? createAudioModels = null, AudioServices? audio = null)
     {
-        _audioPlayer = audioPlayer;
+        _audio = audio;
         _modelSources = modelSources;
         _messageService = messageService;
         _createDownloads = createDownloads ?? CreateDefaultDownloads;
@@ -151,12 +153,21 @@ public partial class ModelPageData : PageDataBase
 
     private static AudioModelListViewData CreateDefaultAudioModels(ModelPageData page)
     {
-        AudioCppProvider provider = new(AudioCppEngine.Shared);
-        return new AudioModelListViewData(page._messageService, AudioCppEngine.Shared, AudioCppPackageStore.Shared,
-            provider.GetVoicesAsync, provider,
-            page._audioPlayer ?? throw new InvalidOperationException("No audio player for the voice models tab."),
+        AudioServices audio = page._audio ?? throw new InvalidOperationException("No audio services for the voice models tab.");
+        AudioCppEngine engine = AudioCppEngine.Shared;
+        AudioModelListViewData? list = null;
+        VoiceLibraryViewData? voices = engine.Voices is { } library
+            ? new VoiceLibraryViewData(library, engine.Settings, page._messageService, audio.Player,
+                () => VoiceCreateWindow.ShowWindow(UIManager.GetRootWindow(),
+                    VoiceCreateWindow.CreateContext(library, audio, page._messageService, list?.DrawModels ?? [],
+                        list?.HasAsrModels == true)),
+                path => App.FilesService.OpenFolder(path), action => Dispatcher.UIThread.Post(action))
+            : null;
+        list = new AudioModelListViewData(page._messageService, engine, AudioCppPackageStore.Shared,
+            (model, token) => audio.LocalProvider().GetVoicesAsync(model, token), audio.ReadAloud,
             path => App.FilesService.OpenFolder(path), page.ShowAudioDownloads,
-            () => UIManager.ShowWindow<SettingsWindow>(window => window.ShowAudioEngineSettings()));
+            () => UIManager.ShowWindow<SettingsWindow>(window => window.ShowAudioEngineSettings()), voices);
+        return list;
     }
 
     private static ModelDownloadPageData CreateDefaultDownloads(ModelPageData page)

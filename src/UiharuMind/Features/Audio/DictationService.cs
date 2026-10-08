@@ -203,8 +203,8 @@ public sealed class DictationService : IDictationService
         {
             try
             {
-                byte[] silence = WavEncoder.Encode(new float[SoundFlowAudioRecorder.SampleRate / 5],
-                    SoundFlowAudioRecorder.SampleRate, 1);
+                byte[] silence = WavEncoder.Encode(new float[IAudioRecorder.SpeechSampleRate / 5],
+                    IAudioRecorder.SpeechSampleRate, 1);
                 using System.IO.MemoryStream audio = new(silence, false);
                 await _asr().TranscribeAsync(new AudioTranscriptionRequest(audio, EAudioFormat.Wav), CancellationToken.None)
                     .ConfigureAwait(false);
