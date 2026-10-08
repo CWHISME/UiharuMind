@@ -24,6 +24,7 @@ namespace UiharuMind.Features.Models.Downloads.Audio;
 public partial class AudioFamilyDetailData : ObservableObject, IDisposable
 {
     private readonly ModelDownloadContext _context;
+    private readonly AudioMarketServices _audio;
     private readonly Action _onInstalledChanged;
     private readonly CancellationTokenSource _cancellation = new();
 
@@ -32,8 +33,10 @@ public partial class AudioFamilyDetailData : ObservableObject, IDisposable
     /// <param name="context">共用依赖</param>
     /// <param name="family">家族</param>
     /// <param name="onInstalledChanged">装上了一个包（刷新列表上的已安装标记）</param>
-    public AudioFamilyDetailData(ModelDownloadContext context, AudioCppFamily family, Action onInstalledChanged)
+    public AudioFamilyDetailData(ModelDownloadContext context, AudioMarketServices audio, AudioCppFamily family,
+        Action onInstalledChanged)
     {
+        _audio = audio;
         _context = context;
         _onInstalledChanged = onInstalledChanged;
         Family = family;
@@ -107,7 +110,7 @@ public partial class AudioFamilyDetailData : ObservableObject, IDisposable
             {
                 try
                 {
-                    IReadOnlyList<ModelRepoFile> files = await _context.AudioStore.GetFilesAsync(row.Package, token);
+                    IReadOnlyList<ModelRepoFile> files = await _audio.Store.GetFilesAsync(row.Package, token);
                     await UiDispatcher.InvokeAsync(() =>
                     {
                         row.ApplyRemoteFiles(files);
@@ -137,14 +140,11 @@ public partial class AudioFamilyDetailData : ObservableObject, IDisposable
     /// </summary>
     public void RefreshStatuses()
     {
-        Dictionary<string, DownloadJob> jobs = _context.Queue.Jobs
-            .Where(x => x.State != EDownloadJobState.Completed)
-            .GroupBy(x => x.Request.DestinationPath, StringComparer.Ordinal)
-            .ToDictionary(x => x.Key, x => x.Last(), StringComparer.Ordinal);
-        string? defaultModel = _context.AudioDefaults.Resolve(Family.Task);
+        FileDownloadStates downloads = _context.SnapshotDownloads();
+        string? defaultModel = _audio.Defaults.Resolve(Family.Task);
         foreach (AudioPackageRowData row in Rows)
         {
-            row.ApplyStatus(ResolveStatus(row, jobs));
+            row.ApplyStatus(ResolveStatus(row, downloads));
             row.IsDefault = row.IsDownloaded && row.Package.ModelName == defaultModel;
         }
     }
@@ -156,9 +156,9 @@ public partial class AudioFamilyDetailData : ObservableObject, IDisposable
         try
         {
             AudioCppPackage package = row.Package;
-            await _context.AudioStore.EnqueueAsync(package, () =>
+            await _audio.Store.EnqueueAsync(package, () =>
             {
-                _context.AudioEngine.Models.OnPackageInstalled(package);
+                _audio.Engine.Models.OnPackageInstalled(package);
                 UiDispatcher.FireAndForget(() =>
                 {
                     RefreshStatuses();
@@ -183,7 +183,7 @@ public partial class AudioFamilyDetailData : ObservableObject, IDisposable
     {
         if (!row.CanSetDefault) return;
         bool isTts = row.Package.Task == EAudioCppTask.Tts;
-        _context.AudioDefaults.Use(row.Package.Task, row.Package.ModelName);
+        _audio.Defaults.Use(row.Package.Task, row.Package.ModelName);
         RefreshStatuses();
         _context.Messages.ShowNotification(Loc.Text(isTts ? LangKey.AudioDefaultSetTts : LangKey.AudioDefaultSetAsr,
             row.Package.ModelName), severity: MessageSeverity.Success);
@@ -193,9 +193,9 @@ public partial class AudioFamilyDetailData : ObservableObject, IDisposable
     private void OpenSourceSettings() => _context.OpenSourceSettings();
 
 
-    private QuantDownloadStatus ResolveStatus(AudioPackageRowData row, Dictionary<string, DownloadJob> jobs)
+    private QuantDownloadStatus ResolveStatus(AudioPackageRowData row, FileDownloadStates downloads)
     {
-        AudioCppPackageStore store = _context.AudioStore;
+        AudioCppPackageStore store = _audio.Store;
         if (store.IsInstalled(row.Package)) return new QuantDownloadStatus(EQuantDownloadState.Downloaded, 100);
 
         string directory = store.PackageDirectory(row.Package);
@@ -204,13 +204,7 @@ public partial class AudioFamilyDetailData : ObservableObject, IDisposable
         foreach (ModelRepoFile file in files)
         {
             if (row.Package.LocalPath(file.Path) is not { } local) continue;
-            string path = Path.Combine(directory, local);
-            if (File.Exists(path)) snapshots.Add(new QuantFileSnapshot(file.Size, true, null, file.Size));
-            else if (jobs.TryGetValue(path, out DownloadJob? job))
-                snapshots.Add(new QuantFileSnapshot(file.Size, false, job.State, job.Progress.ReceivedBytes));
-            else
-                snapshots.Add(new QuantFileSnapshot(file.Size, false, null,
-                    FileDownloader.ReadPartialProgress(path)?.ReceivedBytes ?? 0));
+            snapshots.Add(downloads.Of(Path.Combine(directory, local), file.Size));
         }
 
         // 文件都在但没有包标记（手放的、或标记还没写）：仍算没装好，避免误报可用

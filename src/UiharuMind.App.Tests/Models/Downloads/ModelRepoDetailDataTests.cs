@@ -46,9 +46,8 @@ public class ModelRepoDetailDataTests : IDisposable
         Downloader = new ModelRepoDownloader(_queue),
         ModelRoot = () => _root,
         LocalModels = () => _localModels,
-        EnsureEngine = () => Task.FromResult(_ensureEngine()),
         DeviceInfo = () => new RuntimeDeviceInfo(16 * GiB, 8 * GiB, 0, 0, 0, "", "", "", DateTimeOffset.Now)
-    }, source, "owner/repo");
+    }, new GgufMarketHooks { EnsureEngine = () => Task.FromResult(_ensureEngine()) }, source, "owner/repo");
 
     [Fact]
     public async Task Rows_AreSortedBySize_WithRecommendedPreselected()

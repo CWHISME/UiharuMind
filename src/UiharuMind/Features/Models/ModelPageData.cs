@@ -37,6 +37,7 @@ using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Features.Models.AudioModels;
 using UiharuMind.Features.Audio;
 using UiharuMind.Features.Models.Downloads;
+using UiharuMind.Features.Models.Downloads.Audio;
 using UiharuMind.Core.AI.Audio;
 using UiharuMind.Features.Models.ImageModels;
 using UiharuMind.Features.Settings;
@@ -179,13 +180,16 @@ public partial class ModelPageData : PageDataBase
 
     private static ModelDownloadPageData CreateDefaultDownloads(ModelPageData page)
     {
-        return new ModelDownloadPageData(new ModelDownloadContext(page._messageService, page.EnsureDownloadQueue(),
+        ModelDownloadContext context = new(page._messageService, page.EnsureDownloadQueue(),
             () => App.ModelService.LoadModelList(),
-            () => UIManager.ShowWindow<SettingsWindow>(window => window.ShowDownloadSourceSettings()))
+            () => UIManager.ShowWindow<SettingsWindow>(window => window.ShowDownloadSourceSettings()));
+        GgufMarketHooks gguf = new()
         {
             UseModel = name => App.ModelService.LoadModelWithRiskConfirmationAsync(name),
             HasCurrentModel = () => App.ModelService.CurModelRunningData != null
-        });
+        };
+        return new ModelDownloadPageData(context,
+            [new GgufMarketData(context, gguf), new AudioMarketData(context, AudioMarketServices.CreateShared())]);
     }
 
     /// <summary>
@@ -221,7 +225,7 @@ public partial class ModelPageData : PageDataBase
     /// </summary>
     public void ShowAudioDownloads()
     {
-        EnsureDownloads().ShowAudio();
+        EnsureDownloads().Show<AudioMarketData>();
         SelectedTabIndex = DownloadsTabIndex;
     }
 

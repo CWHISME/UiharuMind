@@ -80,17 +80,23 @@ public class ModelDownloadTabTests : IDisposable
         ]
     };
 
-    private ModelPageData CreatePage(FakeModelSource? source = null) => new(_messages, page => new ModelDownloadPageData(
-        new ModelDownloadContext(_messages, page.EnsureDownloadQueue(), () => Task.CompletedTask, () => { })
+    private ModelPageData CreatePage(FakeModelSource? source = null) => new(_messages, page =>
+    {
+        ModelDownloadContext context = new(_messages, page.EnsureDownloadQueue(), () => Task.CompletedTask, () => { })
         {
             CreateSource = () => source ?? _source,
             Queue = _queue,
             Downloader = new ModelRepoDownloader(_queue),
             ModelRoot = () => _root,
             LocalModels = () => new Dictionary<string, string> { ["Qwen3-8B-Q8_0"] = "/Models/Qwen3-8B-Q8_0.gguf" },
-            EnsureEngine = () => Task.FromResult((EEngineEnsureState.AlreadyInstalled, (EnginePackage?)null, (DownloadJob?)null)),
-        DeviceInfo = () => new RuntimeDeviceInfo(16 * GiB, 8 * GiB, 0, 0, 0, "", "", "", DateTimeOffset.Now)
-        }), _queue);
+            DeviceInfo = () => new RuntimeDeviceInfo(16 * GiB, 8 * GiB, 0, 0, 0, "", "", "", DateTimeOffset.Now)
+        };
+        GgufMarketHooks hooks = new()
+        {
+            EnsureEngine = () => Task.FromResult((EEngineEnsureState.AlreadyInstalled, (EnginePackage?)null, (DownloadJob?)null))
+        };
+        return new ModelDownloadPageData(context, [new GgufMarketData(context, hooks)]);
+    }, _queue);
 
     [Fact]
     public void Tab_IsBuiltOnFirstSelection_NotOnPageOpen()
@@ -116,21 +122,21 @@ public class ModelDownloadTabTests : IDisposable
             Assert.NotNull(data.Downloads);
             Assert.Single(page.GetVisualDescendants().OfType<ModelDownloadView>());
             Assert.Equal(1, _source.SearchCount);
-            Assert.Equal(4, data.Downloads!.Gguf.Results.Count);
+            Assert.Equal(4, data.Downloads!.Market<GgufMarketData>().Results.Count);
 
             // 截图：打开一个仓库，排一个下载让下载区露出来
-            data.Downloads.Gguf.SelectedItem = data.Downloads.Gguf.Results[0];
+            data.Downloads.Market<GgufMarketData>().SelectedItem = data.Downloads.Market<GgufMarketData>().Results[0];
             await Settle();
-            while (data.Downloads.Gguf.Detail!.IsLoading) await Settle();
-            await data.Downloads.Gguf.Detail.DownloadCommand.ExecuteAsync(data.Downloads.Gguf.Detail.Rows[0]);
+            while (data.Downloads.Market<GgufMarketData>().Detail!.IsLoading) await Settle();
+            await data.Downloads.Market<GgufMarketData>().Detail.DownloadCommand.ExecuteAsync(data.Downloads.Market<GgufMarketData>().Detail.Rows[0]);
             _queue.Pause(_queue.Jobs[0]);
             await Settle();
             Capture("model-download-wide");
 
-            data.Downloads.Gguf.Detail.ShowReadmeCommand.Execute(null);
+            data.Downloads.Market<GgufMarketData>().Detail.ShowReadmeCommand.Execute(null);
             for (int i = 0; i < 10; i++) await Settle();
             Capture("model-download-readme");
-            data.Downloads.Gguf.Detail.ShowFilesCommand.Execute(null);
+            data.Downloads.Market<GgufMarketData>().Detail.ShowFilesCommand.Execute(null);
 
             _window.Width = 560;
             await Settle();
@@ -151,7 +157,7 @@ public class ModelDownloadTabTests : IDisposable
             await Settle();
 
             Assert.Equal(ModelPageData.DownloadsTabIndex, data.SelectedTabIndex);
-            Assert.Equal("Embedding", data.Downloads!.Gguf.SearchText);
+            Assert.Equal("Embedding", data.Downloads!.Market<GgufMarketData>().SearchText);
             Assert.Equal(1, _source.SearchCount);
             Assert.Equal("Embedding", _source.LastQuery);
         });
@@ -173,7 +179,7 @@ public class ModelDownloadTabTests : IDisposable
             data.SelectedTabIndex = ModelPageData.DownloadsTabIndex;
             await Settle();
 
-            Assert.Equal(30, data.Downloads!.Gguf.Results.Count); //第一页撑满了列表，不会自己续
+            Assert.Equal(30, data.Downloads!.Market<GgufMarketData>().Results.Count); //第一页撑满了列表，不会自己续
             ScrollViewer viewer = page.GetVisualDescendants().OfType<ListBox>()
                 .Single(x => x.Name == "ResultList").GetVisualDescendants().OfType<ScrollViewer>().First();
             for (int i = 0; i < 2; i++)
@@ -182,8 +188,8 @@ public class ModelDownloadTabTests : IDisposable
                 await Settle();
             }
 
-            Assert.Equal(70, data.Downloads.Gguf.Results.Count);
-            Assert.Equal(70, data.Downloads.Gguf.Results.Select(x => x.Repository).Distinct().Count());
+            Assert.Equal(70, data.Downloads.Market<GgufMarketData>().Results.Count);
+            Assert.Equal(70, data.Downloads.Market<GgufMarketData>().Results.Select(x => x.Repository).Distinct().Count());
             Assert.Equal(3, source.SearchCount);
             viewer.Offset = viewer.Offset.WithY(viewer.Extent.Height);
             await Settle();
@@ -205,19 +211,19 @@ public class ModelDownloadTabTests : IDisposable
             _window.Show();
             data.SelectedTabIndex = ModelPageData.DownloadsTabIndex;
             await Settle();
-            Assert.Equal(new ModelRepoListItem("o/a", "1.8M", "download"), data.Downloads!.Gguf.Results.Single());
+            Assert.Equal(new ModelRepoListItem("o/a", "1.8M", "download"), data.Downloads!.Market<GgufMarketData>().Results.Single());
 
-            data.Downloads.Gguf.SelectedSort = data.Downloads.Gguf.SortOptions.Single(x => x.Sort == EModelSearchSort.Likes);
+            data.Downloads.Market<GgufMarketData>().SelectedSort = data.Downloads.Market<GgufMarketData>().SortOptions.Single(x => x.Sort == EModelSearchSort.Likes);
             await Settle();
             Assert.Equal(2, source.SearchCount);
             Assert.Equal(EModelSearchSort.Likes, source.LastSort);
-            Assert.Equal(new ModelRepoListItem("o/a", "42", "star"), data.Downloads.Gguf.Results.Single());
+            Assert.Equal(new ModelRepoListItem("o/a", "42", "star"), data.Downloads.Market<GgufMarketData>().Results.Single());
 
-            data.Downloads.Gguf.SelectedSort = data.Downloads.Gguf.SortOptions.Single(x => x.Sort == EModelSearchSort.Updated);
+            data.Downloads.Market<GgufMarketData>().SelectedSort = data.Downloads.Market<GgufMarketData>().SortOptions.Single(x => x.Sort == EModelSearchSort.Updated);
             await Settle();
-            Assert.Equal("clock", data.Downloads.Gguf.Results.Single().MetricIcon);
+            Assert.Equal("clock", data.Downloads.Market<GgufMarketData>().Results.Single().MetricIcon);
             Assert.Equal(UiharuMind.Shared.Services.Loc.Text(UiharuMind.Generated.LangKey.ModelRepoTimeHoursAgo, 3),
-                data.Downloads.Gguf.Results.Single().MetricText); //榜首常是当天的，要分得出先后
+                data.Downloads.Market<GgufMarketData>().Results.Single().MetricText); //榜首常是当天的，要分得出先后
             Capture("model-download-sort");
         });
     }

@@ -102,31 +102,26 @@
             </DockPanel>
 
             <Border x:Name="DetailPane" Grid.Column="1" Classes="download-card" Padding="18,16">
-                <ContentControl Content="{Binding SelectedMarket}">
-                    <ContentControl.DataTemplates>
-                        <DataTemplate DataType="downloads:GgufMarketData" x:DataType="downloads:GgufMarketData">
-                            <Panel>
-                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10"
-                                            IsVisible="{Binding !HasDetail}">
-                                    <controls:ThemedSvgIcon Width="28" Height="28" IconName="download" Opacity="0.35" />
-                                    <TextBlock Classes="muted" Text="{loc:Loc ModelDownloadPickRepo}" TextAlignment="Center" />
-                                </StackPanel>
-                                <downloads:ModelRepoDetailView DataContext="{Binding Detail}" IsVisible="{Binding $parent[Panel].((downloads:GgufMarketData)DataContext).HasDetail}" />
-                            </Panel>
-                        </DataTemplate>
-                        <DataTemplate DataType="audio:AudioMarketData" x:DataType="audio:AudioMarketData">
-                            <Panel>
-                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10"
-                                            IsVisible="{Binding !HasDetail}">
-                                    <controls:ThemedSvgIcon Width="28" Height="28" IconName="audio-lines" Opacity="0.35" />
-                                    <TextBlock Classes="muted" Text="{loc:Loc AudioMarketPickFamily}" TextAlignment="Center"
-                                               TextWrapping="Wrap" />
-                                </StackPanel>
-                                <audio:AudioFamilyDetailView DataContext="{Binding Detail}" IsVisible="{Binding $parent[Panel].((audio:AudioMarketData)DataContext).HasDetail}" />
-                            </Panel>
-                        </DataTemplate>
-                    </ContentControl.DataTemplates>
-                </ContentControl>
+                <Panel>
+                    <!-- 还没选：图标与提示由分类给 -->
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10"
+                                IsVisible="{Binding !SelectedMarket.HasDetail}">
+                        <controls:ThemedSvgIcon Width="28" Height="28" IconName="{Binding SelectedMarket.IconName}"
+                                                Opacity="0.35" />
+                        <TextBlock Classes="muted" Text="{Binding SelectedMarket.EmptyHint}" TextAlignment="Center"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ContentControl Content="{Binding SelectedMarket.Detail}">
+                        <ContentControl.DataTemplates>
+                            <DataTemplate DataType="downloads:ModelRepoDetailData">
+                                <downloads:ModelRepoDetailView />
+                            </DataTemplate>
+                            <DataTemplate DataType="audio:AudioFamilyDetailData">
+                                <audio:AudioFamilyDetailView />
+                            </DataTemplate>
+                        </ContentControl.DataTemplates>
+                    </ContentControl>
+                </Panel>
             </Border>
         </Grid>
     </DockPanel>

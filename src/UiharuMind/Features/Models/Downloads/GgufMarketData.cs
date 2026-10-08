@@ -22,6 +22,7 @@ public partial class GgufMarketData : ObservableObject, IModelMarket
     private static readonly TimeSpan SearchDelay = TimeSpan.FromMilliseconds(400);
 
     private readonly ModelDownloadContext _context;
+    private readonly GgufMarketHooks _hooks;
     private IModelSource _source;
     private string _sourceKey;
     private CancellationTokenSource? _searchCancellation;
@@ -43,8 +44,9 @@ public partial class GgufMarketData : ObservableObject, IModelMarket
     [NotifyPropertyChangedFor(nameof(HasDetail))]
     private ModelRepoDetailData? _detail;
 
-    public GgufMarketData(ModelDownloadContext context)
+    public GgufMarketData(ModelDownloadContext context, GgufMarketHooks hooks)
     {
+        _hooks = hooks;
         _context = context;
         _source = context.CreateSource();
         _sourceKey = ModelDownloadSourceInfo.Key();
@@ -56,6 +58,12 @@ public partial class GgufMarketData : ObservableObject, IModelMarket
     public string Title => Loc.Text(LangKey.ModelMarketGguf);
 
     public bool HasDetail => Detail != null;
+
+    public string IconName => "download";
+
+    public string EmptyHint => Loc.Text(LangKey.ModelDownloadPickRepo);
+
+    object? IModelMarket.Detail => Detail;
 
     /// <summary>
     /// 搜索结果
@@ -91,7 +99,7 @@ public partial class GgufMarketData : ObservableObject, IModelMarket
     public void OpenRepository(string repository)
     {
         Detail?.Dispose();
-        ModelRepoDetailData detail = new(_context, _source, repository);
+        ModelRepoDetailData detail = new(_context, _hooks, _source, repository);
         Detail = detail;
         _ = detail.LoadAsync();
     }
