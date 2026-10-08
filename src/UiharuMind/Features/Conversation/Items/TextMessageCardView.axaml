@@ -121,7 +121,7 @@
                         IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                     <StackPanel Spacing="4">
                         <!-- 绑 DisplayMessage 而不是 Message:旁白(子代理报告/离席回执)无内部滚动,
-                             超长只走截断 + 查看全文,全文一律去 FullTextWindow(与工具卡同一套做法,
+                             超长只走截断 + 查看全文,全文一律去文本窗的只读查看(与工具卡同一套做法,
                              见 ToolResultTruncation)。内嵌 ScrollViewer 会与会话流外层滚动打架,
                              而 MaxHeight 只裁视口不裁文本布局,排版成本一点没省 -->
                         <!-- 纯文本档的口径:用户与模型发言一致,只看页面级的纯文本开关,

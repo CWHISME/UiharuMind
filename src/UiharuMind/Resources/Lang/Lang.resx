@@ -2983,6 +2983,9 @@ Allow them?</value>
     <data name="TextFileSaveFailed" xml:space="preserve">
         <value>Failed to save file</value>
     </data>
+    <data name="TextFileEncodingCannotStoreFormat" xml:space="preserve">
+        <value>Some characters can't be stored in {0} and would be saved as "?". Save as UTF-8 instead?</value>
+    </data>
     <data name="TextFileSaved" xml:space="preserve">
         <value>Saved</value>
     </data>
@@ -3535,6 +3538,24 @@ Allow them?</value>
     </data>
     <data name="AgentGateDescSpeak" xml:space="preserve">
         <value>Lets the agent say things aloud in its read-aloud voice, choosing the tone line by line. It only makes sound while you are viewing the conversation; not mounted for group members.</value>
+    </data>
+    <data name="AgentSettingCapSpeechSynthesis" xml:space="preserve">
+        <value>Voice-over</value>
+    </data>
+    <data name="AgentGateDescSpeechSynthesis" xml:space="preserve">
+        <value>Lets the agent turn text into audio files (saved under audio in the draft folder), using a character's read-aloud voice by name, or its own. Nothing is played; for voice-overs and narration.</value>
+    </data>
+    <data name="AgentSettingCapTranscription" xml:space="preserve">
+        <value>Transcription</value>
+    </data>
+    <data name="AgentGateDescTranscription" xml:space="preserve">
+        <value>Lets the agent turn audio files in the workspace into text, optionally with timed subtitles (SRT), saved under transcripts in the draft folder. Uses the default voice input model or service; extract the audio from videos first.</value>
+    </data>
+    <data name="ToolAudioPlay" xml:space="preserve">
+        <value>Play this voice-over</value>
+    </data>
+    <data name="ToolAudioStop" xml:space="preserve">
+        <value>Stop</value>
     </data>
     <data name="AgentSettingCapBrowser" xml:space="preserve">
         <value>Use the browser</value>
@@ -5058,5 +5079,113 @@ Allow them?</value>
     </data>
     <data name="AudioServicePreviewStop" xml:space="preserve">
         <value>Stop</value>
+    </data>
+    <data name="AudioOptionsTitle" xml:space="preserve">
+        <value>Model parameters</value>
+    </data>
+    <data name="AudioOptionsHint" xml:space="preserve">
+        <value>Changes apply right away; preview to hear the difference. Leave a field empty or reset it to use the model's default.</value>
+    </data>
+    <data name="AudioOptionsTip" xml:space="preserve">
+        <value>Adjust this model's parameters</value>
+    </data>
+    <data name="AudioOptionsTuned" xml:space="preserve">
+        <value>Tuned</value>
+    </data>
+    <data name="AudioOptionsMore" xml:space="preserve">
+        <value>More parameters ({0})</value>
+    </data>
+    <data name="AudioOptionsMoreHeader" xml:space="preserve">
+        <value>Other parameters (descriptions from upstream)</value>
+    </data>
+    <data name="AudioOptionsResetAll" xml:space="preserve">
+        <value>Reset all</value>
+    </data>
+    <data name="AudioOptionsPreview" xml:space="preserve">
+        <value>Preview</value>
+    </data>
+    <data name="AudioOptionsDone" xml:space="preserve">
+        <value>Done</value>
+    </data>
+    <data name="AudioOptionModelDefault" xml:space="preserve">
+        <value>Model default</value>
+    </data>
+    <data name="AudioOptionDefaultIs" xml:space="preserve">
+        <value>Default {0}</value>
+    </data>
+    <data name="AudioOptionChoiceDefault" xml:space="preserve">
+        <value>Default ({0})</value>
+    </data>
+    <data name="AudioOptionSeed" xml:space="preserve">
+        <value>Seed</value>
+    </data>
+    <data name="AudioOptionSeedNote" xml:space="preserve">
+        <value>Fix a number to get the same result for the same text every time; empty means random.</value>
+    </data>
+    <data name="AudioOptionTemperature" xml:space="preserve">
+        <value>Temperature</value>
+    </data>
+    <data name="AudioOptionTemperatureNote" xml:space="preserve">
+        <value>Higher is livelier but more error-prone; lower is steadier.</value>
+    </data>
+    <data name="AudioOptionTopP" xml:space="preserve">
+        <value>Top P</value>
+    </data>
+    <data name="AudioOptionTopPNote" xml:space="preserve">
+        <value>Each step picks only from candidates covering this much probability; lower is steadier.</value>
+    </data>
+    <data name="AudioOptionTopK" xml:space="preserve">
+        <value>Top K</value>
+    </data>
+    <data name="AudioOptionTopKNote" xml:space="preserve">
+        <value>Each step picks only from this many most likely candidates; lower is steadier.</value>
+    </data>
+    <data name="AudioOptionSteps" xml:space="preserve">
+        <value>Steps</value>
+    </data>
+    <data name="AudioOptionStepsNote" xml:space="preserve">
+        <value>More steps give finer detail but take longer.</value>
+    </data>
+    <data name="AudioOptionGuidance" xml:space="preserve">
+        <value>Guidance</value>
+    </data>
+    <data name="AudioOptionGuidanceNote" xml:space="preserve">
+        <value>Higher follows the text and reference voice more closely; too high distorts.</value>
+    </data>
+    <data name="AudioOptionRepetition" xml:space="preserve">
+        <value>Repetition penalty</value>
+    </data>
+    <data name="AudioOptionRepetitionNote" xml:space="preserve">
+        <value>Raise it if speech stutters or repeats itself.</value>
+    </data>
+    <data name="AudioOptionMaxTokens" xml:space="preserve">
+        <value>Max length</value>
+    </data>
+    <data name="AudioOptionMaxTokensNote" xml:space="preserve">
+        <value>Raise it if long sentences get cut off.</value>
+    </data>
+    <data name="AudioOptionChunkSize" xml:space="preserve">
+        <value>Chunk size</value>
+    </data>
+    <data name="AudioOptionChunkSizeNote" xml:space="preserve">
+        <value>Long text is generated in pieces of this many characters.</value>
+    </data>
+    <data name="AudioOptionBeams" xml:space="preserve">
+        <value>Beam width</value>
+    </data>
+    <data name="AudioOptionBeamsNote" xml:space="preserve">
+        <value>Larger is more accurate but slower; 1 is fastest.</value>
+    </data>
+    <data name="AudioOptionContext" xml:space="preserve">
+        <value>Context</value>
+    </data>
+    <data name="AudioOptionContextNote" xml:space="preserve">
+        <value>Names and terms that will come up, to help recognize them correctly.</value>
+    </data>
+    <data name="AudioOptionHotwords" xml:space="preserve">
+        <value>Hotwords</value>
+    </data>
+    <data name="AudioOptionHotwordsNote" xml:space="preserve">
+        <value>Words to favor, separated by slashes or new lines.</value>
     </data>
 </root>

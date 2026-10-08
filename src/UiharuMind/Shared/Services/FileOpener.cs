@@ -127,7 +127,7 @@ public static class FileOpener
             // 超编辑上限但在查看上限内：只读查看，无回写路径。
             // 高亮按扩展名自动判定（超 256KB 高亮服务自行退化），标题带只读后缀说明为何不可存
             string title = Path.GetFileName(filePath) + Loc.Text(LangKey.TextFileReadOnlySuffix);
-            FullTextWindow.Show(title, result.Text, filePath);
+            TextFileWindow.ShowText(title, result.Text, filePath);
             return new RouteOutcome(null, true);
         }
 

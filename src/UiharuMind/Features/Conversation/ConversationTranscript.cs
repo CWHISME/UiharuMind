@@ -304,8 +304,10 @@ public sealed class ConversationTranscript : ITurnSink
         // 回放历史时 SubSessionStartedContent 早已随当时那一轮消失,
         // 入口只能从落了盘的结果文本里认回来
         if (!item.HasSubSession) item.SubSessionId = ToolCallItem.ParseSubSessionId(item.ResultText);
-        // 生图的产出同理:回放时图在盘上、路径在结果里
-        item.LoadResultImages(_pathsSource?.Invoke());
+        // 生图、配音的产出同理:回放时文件在盘上、路径在结果里
+        AgentPathResolver? paths = _pathsSource?.Invoke();
+        item.LoadResultImages(paths);
+        item.LoadResultAudio(paths);
     }
 
     /// <summary>

@@ -102,6 +102,12 @@ public sealed record AgentAssemblyFacts
     /// <summary>朗读工具挂没挂（群成员不挂）</summary>
     public bool Speak { get; init; }
 
+    /// <summary>配音工具挂没挂</summary>
+    public bool SpeechSynthesis { get; init; }
+
+    /// <summary>转写工具挂没挂</summary>
+    public bool Transcription { get; init; }
+
     /// <summary>浏览器工具开关</summary>
     public bool Browser { get; init; }
 
@@ -250,6 +256,8 @@ public sealed record AgentAssemblyFacts
             VisionTool = isAgent && config.EnableVisionTool,
             ImageGeneration = isAgent && config.EnableImageGeneration && inputs.ImageModelsConfigured,
             Speak = isAgent && config.EnableSpeak && inputs.GroupScene.Length == 0,
+            SpeechSynthesis = isAgent && config.EnableSpeechSynthesis,
+            Transcription = isAgent && config.EnableTranscription,
             Browser = isAgent && config.EnableBrowser,
             KnowledgeSearchTool = isAgent && config.EnableKnowledgeSearchTool,
             SubAgent = isAgent && config.EnableSubAgent,

@@ -17,7 +17,7 @@ namespace UiharuMind.Shared.Utils;
 /// （编码探测 + 控制字符占比），二进制走系统打开，不会真的被编辑。
 ///
 /// 两档上限：<see cref="MaxEditBytes"/> 内进可编辑窗，超编辑但在
-/// <see cref="MaxViewBytes"/> 内进只读查看（<see cref="FullTextWindow"/>），
+/// <see cref="MaxViewBytes"/> 内进只读查看（<see cref="Windows.TextFileWindow.ShowText"/>），
 /// 超查看才走系统打开——全量读盘与撤销栈都扛不住无上限的大文件。
 /// </summary>
 public static class TextFileOpenPolicy

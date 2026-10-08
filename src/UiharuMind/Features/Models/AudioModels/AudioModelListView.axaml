@@ -215,6 +215,8 @@
                                                         <TextBlock Text="{loc:Loc AudioModelsLoaded}" FontSize="11"
                                                                    Foreground="{DynamicResource MessageStatusSuccessBrush}" />
                                                     </StackPanel>
+                                                    <TextBlock Text="{loc:Loc AudioOptionsTuned}" Classes="muted" FontSize="11"
+                                                               VerticalAlignment="Center" IsVisible="{Binding IsTuned}" />
                                                     <Button Classes="toolbar-link set-default" Content="{loc:Loc AudioPackageSetDefault}"
                                                             ToolTip.Tip="{loc:Loc AudioPackageSetDefaultTip}"
                                                             IsVisible="{Binding !IsDefault}"
@@ -252,6 +254,14 @@
                                                                       ToolTip.Tip="{loc:Loc AudioLoadVoicesTip}"
                                                                       IsVisible="{Binding !IsLoadingVoices}"
                                                                       Command="{Binding $parent[ItemsControl].((models:AudioModelListViewData)DataContext).LoadVoicesCommand}"
+                                                                      CommandParameter="{Binding}" />
+                                                </Panel>
+                                                <Panel IsVisible="{Binding $parent[ItemsControl].((models:AudioModelListViewData)DataContext).CanTune}">
+                                                    <ThemedIconButton Classes="row-action" CornerRadius="6"
+                                                                      IconName="sliders-horizontal"
+                                                                      ToolTip.Tip="{loc:Loc AudioOptionsTip}"
+                                                                      IsVisible="{Binding HasOptions}"
+                                                                      Command="{Binding $parent[ItemsControl].((models:AudioModelListViewData)DataContext).OpenOptionsCommand}"
                                                                       CommandParameter="{Binding}" />
                                                 </Panel>
                                                 <ThemedIconButton Classes="row-action" CornerRadius="6"
@@ -302,6 +312,8 @@
                                                         <TextBlock Text="{loc:Loc AudioModelsLoaded}" FontSize="11"
                                                                    Foreground="{DynamicResource MessageStatusSuccessBrush}" />
                                                     </StackPanel>
+                                                    <TextBlock Text="{loc:Loc AudioOptionsTuned}" Classes="muted" FontSize="11"
+                                                               VerticalAlignment="Center" IsVisible="{Binding IsTuned}" />
                                                     <Button Classes="toolbar-link set-default" Content="{loc:Loc AudioPackageSetDefault}"
                                                             ToolTip.Tip="{loc:Loc AudioPackageSetDefaultTip}"
                                                             IsVisible="{Binding !IsDefault}"
@@ -315,6 +327,14 @@
                                             </StackPanel>
                                             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
                                                         VerticalAlignment="Center">
+                                                <Panel IsVisible="{Binding $parent[ItemsControl].((models:AudioModelListViewData)DataContext).CanTune}">
+                                                    <ThemedIconButton Classes="row-action" CornerRadius="6"
+                                                                      IconName="sliders-horizontal"
+                                                                      ToolTip.Tip="{loc:Loc AudioOptionsTip}"
+                                                                      IsVisible="{Binding HasOptions}"
+                                                                      Command="{Binding $parent[ItemsControl].((models:AudioModelListViewData)DataContext).OpenOptionsCommand}"
+                                                                      CommandParameter="{Binding}" />
+                                                </Panel>
                                                 <ThemedIconButton Classes="row-action" CornerRadius="6"
                                                                   IconName="square-arrow-out-up-right"
                                                                   ToolTip.Tip="{loc:Loc ModelListShowFileTip}"

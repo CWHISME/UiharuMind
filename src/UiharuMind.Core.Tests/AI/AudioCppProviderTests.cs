@@ -122,6 +122,37 @@ public class AudioCppProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task TunedOptions_GoWithEveryRequest_UnlessTheSpecNoLongerHasThem()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "fake server is a shell script");
+        string install = Path.Combine(_directory, "engine");
+        Directory.CreateDirectory(Path.Combine(install, "model_specs"));
+        File.WriteAllText(Path.Combine(install, "model_specs", "pocket_tts.json"), Spec("pocket_tts", "en")
+            .Replace("\"category\"", "\"options\":{\"request\":[{\"name\":\"temperature\",\"type\":\"float\"},{\"name\":\"instruct\",\"type\":\"string\"}]},\"category\""));
+        File.WriteAllText(Path.Combine(install, "model_specs", "moonshine_asr.json"), Spec("moonshine_asr", "en")
+            .Replace("\"tts\"", "\"asr\"")
+            .Replace("\"category\"", "\"options\":{\"request\":[{\"name\":\"num_beams\",\"type\":\"int\"}]},\"category\""));
+        _settings.ModelOptions["tts-a"] = new() { ["temperature"] = "0.3", ["renamed_upstream"] = "1" };
+        using AudioCppEngine engine = CreateEngine(installed: true, install);
+        using AudioCppProvider provider = new(engine);
+
+        AudioSynthesisResult tts = await provider.SynthesizeAsync(
+            new AudioSynthesisRequest("hello", Instruction: "softly"), CancellationToken.None);
+        Assert.Equal("tts-a:alba:temperature=0.3:instruct=softly", await ReadText(tts.Audio)); //spec 不认的不发
+
+        // 没改过参数的识别照旧上传；改过的落成临时文件交路径，用完删掉
+        AudioTranscriptionResult plain = await provider.TranscribeAsync(
+            new AudioTranscriptionRequest(new MemoryStream([1, 2, 3]), EAudioFormat.Wav), CancellationToken.None);
+        Assert.Equal("asr-a heard you", plain.Text);
+        _settings.ModelOptions["asr-a"] = new() { ["num_beams"] = "1" };
+        int leftovers = Directory.GetFiles(Path.GetTempPath(), "uiharu-asr-*.wav").Length;
+        AudioTranscriptionResult tuned = await provider.TranscribeAsync(
+            new AudioTranscriptionRequest(new MemoryStream([1, 2, 3]), EAudioFormat.Wav), CancellationToken.None);
+        Assert.Equal("asr-a heard file:num_beams=1", tuned.Text);
+        Assert.Equal(leftovers, Directory.GetFiles(Path.GetTempPath(), "uiharu-asr-*.wav").Length);
+    }
+
+    [Fact]
     public async Task NoEngineInstalled_FailsAsNotReady()
     {
         using AudioCppEngine engine = CreateEngine(installed: false);

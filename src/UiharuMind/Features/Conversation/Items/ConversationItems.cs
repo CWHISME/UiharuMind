@@ -38,7 +38,7 @@ namespace UiharuMind.Features.Conversation.Items;
 /// <summary>
 /// 思考过程条目(默认折叠,弱化展示)
 /// </summary>
-public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
+public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget, ILiveText
 {
     private readonly StringBuilder _buffer = new();
     private readonly object _bufferGate = new(); //追加来自推理线程,冲刷在 UI 线程,两边都要过锁
@@ -97,6 +97,10 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
     {
         _contentSubscribers.Remove(handler);
     }
+
+    string ILiveText.Subscribe(Action<string> onAppend) => SubscribeContent(onAppend);
+
+    void ILiveText.Unsubscribe(Action<string> onAppend) => UnsubscribeContent(onAppend);
 
     /// <summary>取缓冲全文快照(任意线程可调,取的是当下值)</summary>
     public string CurrentText
@@ -254,11 +258,11 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
         return $"{span.TotalSeconds:0.#}s";
     }
 
-    /// <summary>打开全文窗(卡片上的「查看全文」按钮)</summary>
+    /// <summary>打开全文(卡片上的「查看全文」按钮):文本窗只读跟读,跟着流走,默认按 Markdown 渲染</summary>
     [RelayCommand]
     private void ShowFullText()
     {
-        ThinkingDetailWindow.Show(this);
+        TextFileWindow.ShowLive(Loc.Text(LangKey.AgentThinking), this);
     }
 }
 
@@ -365,7 +369,7 @@ public partial class ToolCallItem : ConversationItemBase
     ///
     /// 曾经有过一个「就地展开全文」的开关，它是错的：会话流没有虚拟化，
     /// 把几十万字换进 <c>SelectableTextBlock</c> 等于当场冻住界面。全文现在一律去
-    /// <see cref="FullTextWindow"/>，那边的内核按行虚拟化。
+    /// <see cref="TextFileWindow.ShowText"/>（文本窗的只读查看），那边的内核按行虚拟化。
     /// </summary>
     public string ResultDisplayText => _resultView.DisplayText;
 
@@ -444,23 +448,26 @@ public partial class ToolCallItem : ConversationItemBase
         OnPropertyChanged(nameof(ArgumentsTruncationHint));
     }
 
-    /// <summary>把结果原文交给全文窗（非模态、可多开，与卡片各看各的）</summary>
+    /// <summary>把结果原文交给文本窗只读查看（非模态、可多开，与卡片各看各的）</summary>
     [RelayCommand]
     private void ShowFullResult()
     {
         // 语言来源与卡片同口径：回执（Saved/Applied 前缀）不是文件正文，不上色；
-        // 其余才是文件正文，按 FilePath 扩展名高亮
-        FullTextWindow.Show($"{ToolName} · {Loc.Text(LangKey.ToolFullTextResult)}", ResultText, ResultHighlightSource);
+        // 其余才是文件正文，按 FilePath 扩展名高亮，Read 读的是 Markdown 就直接进预览
+        TextFileWindow.ShowText($"{ToolName} · {Loc.Text(LangKey.ToolFullTextResult)}", ResultText,
+            ResultHighlightSource);
     }
 
-    /// <summary>把参数原文交给全文窗</summary>
+    /// <summary>把参数原文交给文本窗只读查看</summary>
     [RelayCommand]
     private void ShowFullArguments()
     {
         // 与结果同一个口径:语言只由"这次调用涉及哪个文件"决定,不按工具名也不按参数名分支——
         // Write 的正文在参数里(content),Read 的正文在结果里,新工具放哪都不用改这里。
-        // 开头那几行"filePath: …"在任何语法下都只是普通标识符,不上色但也不会乱
-        FullTextWindow.Show($"{ToolName} · {Loc.Text(LangKey.ToolFullTextArguments)}", ArgumentsJson, FilePath);
+        // 开头那几行"filePath: …"在任何语法下都只是普通标识符,不上色但也不会乱。
+        // 参数是「键: 值」清单不是文档,即使涉及 Markdown 文件也不默认预览(要看渲染手动切)
+        TextFileWindow.ShowText($"{ToolName} · {Loc.Text(LangKey.ToolFullTextArguments)}", ArgumentsJson,
+            FilePath, preview: false);
     }
 
     /// <summary>

@@ -176,9 +176,38 @@ public static class AudioCppModelCatalog
             packages,
             root.TryGetProperty("options", out JsonElement options) && options.ValueKind == JsonValueKind.Object &&
             options.TryGetProperty("request", out JsonElement request) && request.ValueKind == JsonValueKind.Array
-                ? request.EnumerateArray().Select(x => GetString(x, "name")).Where(x => x.Length > 0).ToList()
+                ? request.EnumerateArray().Select(ParseOption).OfType<AudioCppOption>().ToList()
                 : []);
     }
+
+    private static AudioCppOption? ParseOption(JsonElement option)
+    {
+        if (option.ValueKind != JsonValueKind.Object || GetString(option, "name") is not { Length: > 0 } name) return null;
+        EAudioCppOptionType type = GetString(option, "type") switch
+        {
+            "string" => EAudioCppOptionType.Text,
+            "int" => EAudioCppOptionType.Integer,
+            "float" => EAudioCppOptionType.Number,
+            "bool" => EAudioCppOptionType.Toggle,
+            "enum" => EAudioCppOptionType.Choice,
+            _ => EAudioCppOptionType.Other
+        };
+        string? fallback = option.TryGetProperty("default", out JsonElement value) ? value.ValueKind switch
+        {
+            JsonValueKind.String => value.GetString(),
+            JsonValueKind.Number => value.GetRawText(),
+            JsonValueKind.True => "true",
+            JsonValueKind.False => "false",
+            _ => null
+        } : null;
+        return new AudioCppOption(name, type, GetString(option, "description"), fallback,
+            GetNumber(option, "min"), GetNumber(option, "max"), GetStrings(option, "values"));
+    }
+
+    private static double? GetNumber(JsonElement element, string name) =>
+        element.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.Number
+            ? value.GetDouble()
+            : null;
 
     private static List<AudioCppPackage> ParsePackages(JsonElement root, JsonElement packages, string family,
         EAudioCppTask task, string status, List<string> languages, bool needsEspeak)

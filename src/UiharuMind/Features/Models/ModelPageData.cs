@@ -24,6 +24,7 @@ using UiharuMind.Resources.Lang;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Features.Models.AudioModels.Online;
+using UiharuMind.Features.Models.AudioModels.Options;
 using UiharuMind.Features.Models.AudioModels.Voices;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Utils;
@@ -171,7 +172,8 @@ public partial class ModelPageData : PageDataBase
             (model, token) => audio.LocalProvider().GetVoicesAsync(model, token), audio.ReadAloud,
             path => App.FilesService.OpenFolder(path), page.ShowAudioDownloads,
             () => UIManager.ShowWindow<SettingsWindow>(window => window.ShowAudioEngineSettings()), voices, online,
-            new AudioPreferencesViewData(AudioSettingConfig.Current));
+            new AudioPreferencesViewData(AudioSettingConfig.Current),
+            options => AudioModelOptionsWindow.ShowWindow(UIManager.GetRootWindow(), options));
         return list;
     }
 

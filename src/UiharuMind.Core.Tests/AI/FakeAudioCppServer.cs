@@ -3,7 +3,8 @@ namespace UiharuMind.Core.Tests.AI;
 /// <summary>
 /// 假 audiocpp_server：一个 shell 脚本起 python 迷你服务，读 server.json 的端口与 voice_dir。
 /// 合成回「模型:音色」（带了语速、模型参数再接「:speed=倍率」「:参数名=值」）；不给音色时，vox 开头的模型（照 VoxCPM：会克隆、没有自带音色）回「模型:auto:seed=种子:文字」，
-/// 其余照 pocket_tts 报 500。vox、echo 开头的没有自带音色。音色列表照真服务把 voice_dir 里的 wav 并进去；听写回「模型 heard you」；
+/// 其余照 pocket_tts 报 500。vox、echo 开头的没有自带音色。音色列表照真服务把 voice_dir 里的 wav 并进去；听写回「模型 heard you」，
+/// 带参数的听写（JSON 给本机路径）回「模型 heard file:参数名=值」（路径上没文件时 heard nothing）；
 /// 每次启动在 starts 里记一行
 /// </summary>
 internal static class FakeAudioCppServer
@@ -48,6 +49,11 @@ internal static class FakeAudioCppServer
                         elif req['model'].startswith('vox'):
                             self.reply(200, (req['model'] + ':auto:seed=' + str(req.get('seed')) + ':' + req['input']).encode(), 'audio/wav')
                         else: self.reply(500, b'{\"error\":\"requires a session voice\"}')
+                    elif self.path == '/v1/audio/transcriptions' and self.headers.get('Content-Type', '').startswith('application/json'):
+                        req = json.loads(body)
+                        heard = 'file' if os.path.isfile(req['audio']) else 'nothing'
+                        options = ''.join(':' + k + '=' + v for k, v in req.get('options', {}).items())
+                        self.reply(200, json.dumps({'text': req['model'] + ' heard ' + heard + options}).encode())
                     elif self.path == '/v1/audio/transcriptions':
                         model = re.search(rb'name=\"?model\"?\r\n(?:[^\r]+\r\n)*\r\n([^\r]+)', body).group(1).decode()
                         self.reply(200, json.dumps({'text': model + ' heard you'}).encode())

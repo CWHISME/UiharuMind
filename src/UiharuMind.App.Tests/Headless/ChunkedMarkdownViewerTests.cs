@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.LogicalTree;
 using Avalonia.Input.Raw;
 using Avalonia.Headless;
 using Avalonia.Threading;
@@ -143,4 +144,42 @@ public class ChunkedMarkdownViewerTests
     {
         Assert.True(MarkdownSelectionSnapshotShim.IsAvailable);
     }
+
+    /// <summary>
+    /// 流式追加（思考过程）只喂最后一段：前面的段不重建，整篇原文照样对得上
+    /// </summary>
+    [Fact]
+    public void Append_KeepsEarlierChunks_AndTracksTheWholeText() => HeadlessUi.Run(() =>
+    {
+        string text = string.Concat(Enumerable.Range(0, 200).Select(i => $"第 {i} 段正文，写长一点凑够字数，好让文档切成好几段。\n\n"));
+        ChunkedMarkdownViewer viewer = new() { MarkdownText = text };
+        List<SimpleMarkdownViewer> before = viewer.GetLogicalDescendants().OfType<SimpleMarkdownViewer>().ToList();
+
+        viewer.AppendText("追加的一句");
+
+        Assert.Equal(text + "追加的一句", viewer.MarkdownText);
+        Assert.Equal(before, viewer.GetLogicalDescendants().OfType<SimpleMarkdownViewer>().ToList());
+    });
+
+    /// <summary>从空白一点点长出来：最后一段过了两倍段长就重新切，前面切出来的段从此不再变</summary>
+    [Fact]
+    public void AppendingPastTwiceTheChunkSize_SplitsTheTail() => HeadlessUi.Run(() =>
+    {
+        ChunkedMarkdownViewer viewer = new();
+        string expected = string.Empty;
+        SimpleMarkdownViewer? firstAfterSplit = null; //头一次重切后的第一段：之后无论再长多少都不该换
+        for (int i = 0; i < 1000; i++)
+        {
+            string delta = $"第 {i} 段思考，边想边写，一句一句往外冒。\n\n";
+            viewer.AppendText(delta);
+            expected += delta;
+            List<SimpleMarkdownViewer> current = viewer.GetLogicalDescendants().OfType<SimpleMarkdownViewer>().ToList();
+            if (firstAfterSplit == null && current.Count > 1) firstAfterSplit = current[0];
+        }
+
+        List<SimpleMarkdownViewer> chunks = viewer.GetLogicalDescendants().OfType<SimpleMarkdownViewer>().ToList();
+        Assert.Equal(expected, viewer.MarkdownText);
+        Assert.True(chunks.Count > 3, $"只切出 {chunks.Count} 段");
+        Assert.Same(firstAfterSplit, chunks[0]);
+    });
 }

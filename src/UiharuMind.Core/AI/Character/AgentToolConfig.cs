@@ -39,6 +39,16 @@ public class AgentToolConfig
     public bool EnableSpeak { get; set; }
 
     /// <summary>
+    /// 启用配音工具(SynthesizeSpeech,用角色的声音把文字合成成音频文件)。默认关:本地合成占内存、在线合成可能花钱
+    /// </summary>
+    public bool EnableSpeechSynthesis { get; set; }
+
+    /// <summary>
+    /// 启用转写工具(TranscribeAudio,把音频文件转成文字、可出字幕)。默认关:本地识别占内存、在线识别可能花钱
+    /// </summary>
+    public bool EnableTranscription { get; set; }
+
+    /// <summary>
     /// 启用浏览器工具(BrowserSnapshot / BrowserNavigate / BrowserAct,驱动本机 Chrome 的专用档案)。
     /// 默认关:会替用户在网站上点按钮、填表单,要的在编辑页自己开
     /// </summary>
@@ -91,6 +101,8 @@ public class AgentToolConfig
             EnableVisionTool = EnableVisionTool && other.EnableVisionTool,
             EnableImageGeneration = EnableImageGeneration && other.EnableImageGeneration,
             EnableSpeak = EnableSpeak && other.EnableSpeak,
+            EnableSpeechSynthesis = EnableSpeechSynthesis && other.EnableSpeechSynthesis,
+            EnableTranscription = EnableTranscription && other.EnableTranscription,
             EnableBrowser = EnableBrowser && other.EnableBrowser,
             EnableKnowledgeSearchTool = EnableKnowledgeSearchTool && other.EnableKnowledgeSearchTool,
             EnableSubAgent = EnableSubAgent && other.EnableSubAgent,

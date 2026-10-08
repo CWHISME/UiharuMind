@@ -129,6 +129,26 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+            <!-- 配音产出：收起时也能放，与消息朗读同一路 -->
+            <Border IsVisible="{Binding HasResultAudio}" Margin="0,6,0,0" Padding="6,4" CornerRadius="6"
+                    HorizontalAlignment="Left" BorderThickness="1" BorderBrush="{DynamicResource SemiGrey3}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Panel Width="28" Height="28">
+                        <ThemedIconButton IconName="play" ToolTips="{loc:Loc ToolAudioPlay}"
+                                          Command="{Binding PlayResultAudioCommand}"
+                                          IsVisible="{Binding !IsReadingAloud}" />
+                        <ThemedIconButton IconName="stop" CurrentColor="Red" ToolTips="{loc:Loc ToolAudioStop}"
+                                          Command="{Binding PlayResultAudioCommand}"
+                                          IsVisible="{Binding IsReadingAloud}" />
+                    </Panel>
+                    <sh:ThemedSvgIcon Width="14" Height="14" IconName="audio-lines" Opacity="0.7"
+                                            VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding ResultAudioName}" VerticalAlignment="Center" FontSize="12"
+                               TextTrimming="CharacterEllipsis" MaxWidth="320" ToolTip.Tip="{Binding ResultAudioPath}" />
+                    <ThemedIconButton IconName="folder-open" ToolTips="{loc:Loc ShowInExplorer}"
+                                      Command="{Binding RevealResultAudioCommand}" />
+                </StackPanel>
+            </Border>
             <ExpandReveal IsOpen="{Binding IsExpanded}">
                 <StackPanel Spacing="6" Margin="0,6,0,0">
                     <!-- 有 diff 时不再堆参数原文:diff 已经把改动讲清楚了,而 Edit 的参数原文是一段
@@ -188,7 +208,7 @@
                             <!-- 绑 ResultDisplayText 而不是 ResultText:上面那个 MaxHeight 只裁<b>视口</b>,
                                  不裁<b>文本布局</b>——整篇几十万字仍要每次布局重新断行重新量,而会话流没有
                                  虚拟化,于是流式回复的每一帧都在为一张早已跑完的卡片付这笔钱。
-                                 卡片<b>只</b>拿得到头部那一小段,全文一律去 FullTextWindow
+                                 卡片<b>只</b>拿得到头部那一小段,全文一律去文本窗的只读查看
                                  (见 ToolResultTruncation 与 ADR 0012) -->
                             <!-- 180 而不是原来的 280:卡片是"扫一眼"的尺寸。
                                  单行大 JSON 折起来正好能把 280px 填满一整块,那是难看的主因 -->

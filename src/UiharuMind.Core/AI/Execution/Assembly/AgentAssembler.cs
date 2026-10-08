@@ -205,6 +205,16 @@ internal static class AgentAssembler
             Add(EAgentCapability.Speak, SpeakTool.Create(speechSink));
         }
 
+        if (config.EnableSpeechSynthesis)
+        {
+            Add(EAgentCapability.SpeechSynthesis, SynthesizeSpeechTool.Create(paths, plan.Profile.Character));
+        }
+
+        if (config.EnableTranscription)
+        {
+            Add(EAgentCapability.Transcription, TranscribeAudioTool.Create(paths));
+        }
+
         // 一个会话一个标签页；快照超长落进自己的草稿目录，模型按路径续读
         if (config.EnableBrowser)
         {

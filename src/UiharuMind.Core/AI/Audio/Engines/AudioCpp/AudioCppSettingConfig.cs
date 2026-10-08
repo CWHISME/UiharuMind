@@ -28,6 +28,11 @@ public class AudioCppSettingConfig : TConfigBase<AudioCppSettingConfig>
     public Dictionary<string, string> TtsVoices { get; set; } = new();
 
     /// <summary>
+    /// 各模型改过的请求参数（模型名 → 参数名 → 值）；没改的不存，由模型用默认
+    /// </summary>
+    public Dictionary<string, Dictionary<string, string>> ModelOptions { get; set; } = new();
+
+    /// <summary>
     /// 不用引擎包的 GPU 后端（Metal / Vulkan），一律跑 CPU。上游说 GPU 后端的模型覆盖不如 CUDA，个别模型加载报错时的退路
     /// </summary>
     public bool ForceCpu { get; set; }

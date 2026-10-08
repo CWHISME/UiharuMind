@@ -13,6 +13,7 @@ using UiharuMind.Core.AI.Runtime;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Features.Audio;
 using UiharuMind.Features.Models.AudioModels.Online;
+using UiharuMind.Features.Models.AudioModels.Options;
 using UiharuMind.Features.Models.AudioModels.Voices;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
@@ -33,6 +34,7 @@ public partial class AudioModelListViewData : ObservableObject
     private readonly Action<string> _openFolder;
     private readonly Action _goToMarket;
     private readonly Action _openEngineSettings;
+    private readonly Func<AudioModelOptionsViewData, Task>? _openOptions;
     private readonly Dictionary<EAudioCapability, string?> _defaultModels = new(); //引擎会用的本地模型（选了的，没选就第一个）
 
     [ObservableProperty] private bool _isLoading;
@@ -52,11 +54,15 @@ public partial class AudioModelListViewData : ObservableObject
     /// <param name="openEngineSettings">去设置里的「本地模型（语音）」</param>
     /// <param name="voices">音色库；null 不显示</param>
     /// <param name="online">在线服务；null 不显示</param>
+    /// <param name="preferences">语速与「改用本地」；null 不显示</param>
+    /// <param name="openOptions">打开某个模型的参数窗；null 不显示参数按钮</param>
     public AudioModelListViewData(IMessageService messageService, AudioCppEngine engine, AudioCppPackageStore store,
         Func<string, CancellationToken, Task<IReadOnlyList<string>>> listVoices, IReadAloudService readAloud,
         Action<string> openFolder, Action goToMarket, Action openEngineSettings, VoiceLibraryViewData? voices = null,
-        AudioServiceListViewData? online = null, AudioPreferencesViewData? preferences = null)
+        AudioServiceListViewData? online = null, AudioPreferencesViewData? preferences = null,
+        Func<AudioModelOptionsViewData, Task>? openOptions = null)
     {
+        _openOptions = openOptions;
         Preferences = preferences;
         Voices = voices;
         if (voices != null) voices.Refreshed += ApplyLibraryVoices;
@@ -84,6 +90,11 @@ public partial class AudioModelListViewData : ObservableObject
     public ObservableCollection<AudioModelItemData> AsrModels { get; } = [];
 
     public bool HasTtsModels => TtsModels.Count > 0;
+
+    /// <summary>
+    /// 显示各模型的参数按钮
+    /// </summary>
+    public bool CanTune => _openOptions != null;
 
     /// <summary>
     /// 语速与「改用本地」；没配为 null
@@ -256,6 +267,15 @@ public partial class AudioModelListViewData : ObservableObject
             Provider = AudioCppProvider.LocalId, Model = item.Name, Voice = voice
         }, preview: true);
         await RefreshStatusAsync();
+    }
+
+    // 参数窗：改了立刻生效，合成模型在窗里就能试听
+    [RelayCommand]
+    private Task OpenOptions(AudioModelItemData item)
+    {
+        if (_openOptions == null || !item.HasOptions) return Task.CompletedTask;
+        return _openOptions(new AudioModelOptionsViewData(item, item.Options, _engine.Settings,
+            item.IsTts ? () => PreviewCommand.ExecuteAsync(item) : null));
     }
 
     [RelayCommand]

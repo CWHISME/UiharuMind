@@ -24,8 +24,7 @@
                     <ThemedIconButton Classes="SimpleSolidButton" Click="OnStopButtonClick" IconName="stop"  CurrentColor="Red"/>
                 </StackPanel>
                 <ThemedIconButton Name="RegenerateButton" Click="OnRegenerateButtonClick" Classes="CircleButton" IconName="repeat" />
-                <Button Content="X" Classes="CircleButton" DockPanel.Dock="Right" HorizontalAlignment="Right"
-                        Click="CloseButton_Click" />
+                <ThemedIconButton Classes="WindowCloseButton" IconName="x" DockPanel.Dock="Right" HorizontalAlignment="Right" Click="CloseButton_Click" />
             </DockPanel>
         </Border>
         <!-- <TextBlock Grid.Row="1" Name="TokenTextBlock" TextAlignment="Left" /> -->

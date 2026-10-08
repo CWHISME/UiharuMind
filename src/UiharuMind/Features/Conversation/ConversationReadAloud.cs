@@ -145,6 +145,10 @@ public sealed class ConversationReadAloud : IDisposable
     {
         if (item is TextConversationItem)
             item.ReadAloudCallback = x => _service.ToggleAsync(x, x.Message, _styles?.For(x.CharacterId));
+        else if (item is ToolCallItem)
+            item.ReadAloudCallback = x => x is ToolCallItem { ResultAudioPath: { } path }
+                ? _service.PlayFileAsync(x, path)
+                : Task.CompletedTask;
     }
 
     private void OnStateChanged()

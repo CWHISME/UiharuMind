@@ -2976,6 +2976,9 @@
     <data name="TextFileSaveFailed" xml:space="preserve">
         <value>保存文件失败</value>
     </data>
+    <data name="TextFileEncodingCannotStoreFormat" xml:space="preserve">
+        <value>文中有 {0} 编码存不下的字符，按原编码保存会变成「?」。改用 UTF-8 保存吗？</value>
+    </data>
     <data name="TextFileSaved" xml:space="preserve">
         <value>已保存</value>
     </data>
@@ -3528,6 +3531,24 @@
     </data>
     <data name="AgentGateDescSpeak" xml:space="preserve">
         <value>让智能体用「朗读声音」里设的声音把一段话念给你听，每句可自己定语气。只在你正看着这个会话时出声；群成员不挂。</value>
+    </data>
+    <data name="AgentSettingCapSpeechSynthesis" xml:space="preserve">
+        <value>配音</value>
+    </data>
+    <data name="AgentGateDescSpeechSynthesis" xml:space="preserve">
+        <value>让智能体把文字合成成音频文件（存进草稿目录的 audio 下），按角色名用那个角色的朗读声音，不点就用自己的。不出声，适合配音、旁白。</value>
+    </data>
+    <data name="AgentSettingCapTranscription" xml:space="preserve">
+        <value>转写</value>
+    </data>
+    <data name="AgentGateDescTranscription" xml:space="preserve">
+        <value>让智能体把工作区里的音频文件转成文字，可出带时间轴的字幕（SRT），全文存进草稿目录的 transcripts 下。用语音输入默认的识别模型或服务；视频要先抽出音频。</value>
+    </data>
+    <data name="ToolAudioPlay" xml:space="preserve">
+        <value>播放这段配音</value>
+    </data>
+    <data name="ToolAudioStop" xml:space="preserve">
+        <value>停止</value>
     </data>
     <data name="AgentSettingCapBrowser" xml:space="preserve">
         <value>使用浏览器</value>
@@ -5051,5 +5072,113 @@
     </data>
     <data name="AudioServicePreviewStop" xml:space="preserve">
         <value>停止</value>
+    </data>
+    <data name="AudioOptionsTitle" xml:space="preserve">
+        <value>模型参数</value>
+    </data>
+    <data name="AudioOptionsHint" xml:space="preserve">
+        <value>改了立刻生效，试听就能听出差别；空着或还原就用模型自己的默认值。</value>
+    </data>
+    <data name="AudioOptionsTip" xml:space="preserve">
+        <value>调整这个模型的参数</value>
+    </data>
+    <data name="AudioOptionsTuned" xml:space="preserve">
+        <value>参数已改</value>
+    </data>
+    <data name="AudioOptionsMore" xml:space="preserve">
+        <value>更多参数（{0}）</value>
+    </data>
+    <data name="AudioOptionsMoreHeader" xml:space="preserve">
+        <value>其余参数（说明为上游原文）</value>
+    </data>
+    <data name="AudioOptionsResetAll" xml:space="preserve">
+        <value>全部还原</value>
+    </data>
+    <data name="AudioOptionsPreview" xml:space="preserve">
+        <value>试听</value>
+    </data>
+    <data name="AudioOptionsDone" xml:space="preserve">
+        <value>完成</value>
+    </data>
+    <data name="AudioOptionModelDefault" xml:space="preserve">
+        <value>模型默认</value>
+    </data>
+    <data name="AudioOptionDefaultIs" xml:space="preserve">
+        <value>默认 {0}</value>
+    </data>
+    <data name="AudioOptionChoiceDefault" xml:space="preserve">
+        <value>默认（{0}）</value>
+    </data>
+    <data name="AudioOptionSeed" xml:space="preserve">
+        <value>随机种子</value>
+    </data>
+    <data name="AudioOptionSeedNote" xml:space="preserve">
+        <value>固定一个数，同一句每次念得一样；空着每次随机。</value>
+    </data>
+    <data name="AudioOptionTemperature" xml:space="preserve">
+        <value>随机度</value>
+    </data>
+    <data name="AudioOptionTemperatureNote" xml:space="preserve">
+        <value>越高越有起伏，也越容易念错；越低越平稳。</value>
+    </data>
+    <data name="AudioOptionTopP" xml:space="preserve">
+        <value>候选比例</value>
+    </data>
+    <data name="AudioOptionTopPNote" xml:space="preserve">
+        <value>每步只在累计概率达到这个比例的候选里挑，调小更稳。</value>
+    </data>
+    <data name="AudioOptionTopK" xml:space="preserve">
+        <value>候选个数</value>
+    </data>
+    <data name="AudioOptionTopKNote" xml:space="preserve">
+        <value>每步只在最可能的这么多个候选里挑，调小更稳。</value>
+    </data>
+    <data name="AudioOptionSteps" xml:space="preserve">
+        <value>生成步数</value>
+    </data>
+    <data name="AudioOptionStepsNote" xml:space="preserve">
+        <value>越多越细致，也越慢。</value>
+    </data>
+    <data name="AudioOptionGuidance" xml:space="preserve">
+        <value>贴合强度</value>
+    </data>
+    <data name="AudioOptionGuidanceNote" xml:space="preserve">
+        <value>越高越贴合文字与参考音色，过高会失真。</value>
+    </data>
+    <data name="AudioOptionRepetition" xml:space="preserve">
+        <value>重复惩罚</value>
+    </data>
+    <data name="AudioOptionRepetitionNote" xml:space="preserve">
+        <value>出现卡顿、反复念同一处时调高。</value>
+    </data>
+    <data name="AudioOptionMaxTokens" xml:space="preserve">
+        <value>最长生成</value>
+    </data>
+    <data name="AudioOptionMaxTokensNote" xml:space="preserve">
+        <value>长句被截断时调大。</value>
+    </data>
+    <data name="AudioOptionChunkSize" xml:space="preserve">
+        <value>每段字数</value>
+    </data>
+    <data name="AudioOptionChunkSizeNote" xml:space="preserve">
+        <value>长文按这个长度分段生成。</value>
+    </data>
+    <data name="AudioOptionBeams" xml:space="preserve">
+        <value>束搜索宽度</value>
+    </data>
+    <data name="AudioOptionBeamsNote" xml:space="preserve">
+        <value>越大识别越准，也越慢；1 最快。</value>
+    </data>
+    <data name="AudioOptionContext" xml:space="preserve">
+        <value>识别提示</value>
+    </data>
+    <data name="AudioOptionContextNote" xml:space="preserve">
+        <value>写上会出现的人名、术语，帮它认对这些词。</value>
+    </data>
+    <data name="AudioOptionHotwords" xml:space="preserve">
+        <value>热词</value>
+    </data>
+    <data name="AudioOptionHotwordsNote" xml:space="preserve">
+        <value>优先识别的词，用斜杠或换行分隔。</value>
     </data>
 </root>
