@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.App.Tests.TestDoubles;
 using UiharuMind.Features.About;
 using UiharuMind.Features.Settings;
+using UiharuMind.Features.Settings.Engines;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
@@ -115,8 +116,8 @@ public class SettingsSearchTests : IDisposable
 
         return new SettingsWindow(
             ActivatorUtilities.CreateInstance<GeneralSettingViewModel>(services),
-            new RuntimeEngineSettingData(messages),
-            TestSettingsPages.Audio(messages),
+            [EngineSettingsPage.Text(new RuntimeEngineSettingData(messages)),
+             EngineSettingsPage.Audio(TestSettingsPages.Audio(messages))],
             new ShortcutSettingViewModel(),
             _ => new HelpPageData());
     }

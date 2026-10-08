@@ -4,6 +4,9 @@ using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
+using UiharuMind.Shared.Controls;
+using UiharuMind.Shared.Markup;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Windows;
@@ -17,15 +20,7 @@ namespace UiharuMind.Features.Settings;
 
 public partial class SettingsWindow : UiharuWindowBase
 {
-    private readonly GeneralSettingView _generalSettingView;
-    private readonly RuntimeEngineSettingView _runtimeEngineSettingView;
-    private readonly AudioEngineSettingView _audioEngineSettingView;
-    private readonly DownloadSourceSettingsView _downloadSourceSettingsView = new();
-    private readonly ShortcutSettingView _shortcutSettingView;
-    private readonly AgentSettingView _agentSettingView;
-    private readonly QuickToolSettingView _quickToolSettingView;
-    private readonly HelpPageData _helpPageData;
-    private readonly AboutPage _aboutPage = new();
+    private const string UpdateDotClass = "status-dot";
 
     private readonly List<SettingsPageEntry> _pages = [];
     private string _selectedTitleKey = "GeneralSetting";
@@ -35,8 +30,10 @@ public partial class SettingsWindow : UiharuWindowBase
     // UIManager 按 new() 建窗走这条：页数据与取页路径统一从 App.ViewModel 那份缓存拿，行为不变
     public SettingsWindow() : this(
         App.ViewModel.GetViewModel<GeneralSettingViewModel>(),
-        App.ViewModel.GetViewModel<SettingViewModel>().RuntimeEngineSettingData,
-        App.ViewModel.GetViewModel<SettingViewModel>().AudioEngineSettingData,
+        [
+            EngineSettingsPage.Text(App.ViewModel.GetViewModel<SettingViewModel>().RuntimeEngineSettingData),
+            EngineSettingsPage.Audio(App.ViewModel.GetViewModel<SettingViewModel>().AudioEngineSettingData)
+        ],
         App.ViewModel.GetViewModel<ShortcutSettingViewModel>(),
         App.ViewModel.GetPage)
     {
@@ -47,64 +44,97 @@ public partial class SettingsWindow : UiharuWindowBase
     /// 测试自备页数据与取页路径；生产路径仍走无参构造，两路渲染同一批页面。
     /// </summary>
     /// <param name="generalSetting">General 页数据</param>
-    /// <param name="runtimeEngineSetting">本地模型（文本）页数据</param>
-    /// <param name="audioEngineSetting">本地模型（语音）页数据</param>
+    /// <param name="enginePages">各本地引擎的页（排在「智能体」分组里）</param>
     /// <param name="shortcutSetting">Shortcut 页数据</param>
     /// <param name="getPage">取页路径（本窗只取 MenuHelpKey）</param>
     public SettingsWindow(
         GeneralSettingViewModel generalSetting,
-        RuntimeEngineSettingData runtimeEngineSetting,
-        AudioEngineSettingData audioEngineSetting,
+        IReadOnlyList<EngineSettingsPage> enginePages,
         ShortcutSettingViewModel shortcutSetting,
         Func<MenuPages, PageDataBase> getPage)
     {
-        _generalSettingView = new GeneralSettingView(generalSetting);
-        _runtimeEngineSettingView = new RuntimeEngineSettingView(runtimeEngineSetting);
-        _audioEngineSettingView = new AudioEngineSettingView(audioEngineSetting);
-        _shortcutSettingView = new ShortcutSettingView(shortcutSetting);
-        _agentSettingView = new AgentSettingView();
-        _quickToolSettingView = new QuickToolSettingView();
-        _helpPageData = (HelpPageData)getPage(MenuPages.MenuHelpKey);
         InitializeComponent();
         VersionText.Text = App.Version.ToString();
-        EngineUpdateDot.Bind(IsVisibleProperty,
-            new Binding(nameof(EngineVersionsViewData.HasUpdate)) { Source = runtimeEngineSetting.Engine });
-        AudioEngineUpdateDot.Bind(IsVisibleProperty,
-            new Binding(nameof(EngineVersionsViewData.HasUpdate)) { Source = audioEngineSetting.Engine });
         LocalizationManager.Instance.LanguageChanged += RefreshTitle;
 
         // 页表是本窗导航、标题、搜索三处的唯一真相源：加页只在这一个地方加一行
-        _pages.Add(new SettingsPageEntry(GeneralButton, _generalSettingView, "GeneralSetting"));
-        _pages.Add(new SettingsPageEntry(ShortcutsButton, _shortcutSettingView, "ShortcutsSetting"));
-        _pages.Add(new SettingsPageEntry(QuickToolButton, _quickToolSettingView, "QuickToolSetting"));
-        _pages.Add(new SettingsPageEntry(AgentButton, _agentSettingView, "AgentSetting"));
-        _pages.Add(new SettingsPageEntry(RuntimeButton, _runtimeEngineSettingView, "RuntimeEngineSetting"));
-        _pages.Add(new SettingsPageEntry(AudioRuntimeButton, _audioEngineSettingView, "AudioEngineSetting"));
-        _pages.Add(new SettingsPageEntry(DownloadSourceButton, _downloadSourceSettingsView, "DownloadSourceSetting"));
-        _pages.Add(new SettingsPageEntry(HelpButton, _helpPageData.View, "TrayMenuHelp"));
-        _pages.Add(new SettingsPageEntry(AboutButton, _aboutPage, "TrayMenuAbout"));
+        List<SettingsPageSpec> specs =
+        [
+            new("SettingsNavGroupApp", "GeneralButton", "settings", "GeneralSetting", new GeneralSettingView(generalSetting)),
+            new("SettingsNavGroupApp", "ShortcutsButton", "keyboard", "ShortcutsSetting", new ShortcutSettingView(shortcutSetting)),
+            new("SettingsNavGroupApp", "QuickToolButton", "message-circle-more", "QuickToolSetting", new QuickToolSettingView()),
+            new("SettingsNavGroupAgent", "AgentButton", "bot", "AgentSetting", new AgentSettingView()),
+            ..enginePages.Select(x => new SettingsPageSpec("SettingsNavGroupAgent", x.NavName, x.IconName, x.TitleKey,
+                x.View, x.Engine, x.UpdateTipKey)),
+            new("SettingsNavGroupAgent", "DownloadSourceButton", "download", "DownloadSourceSetting", new DownloadSourceSettingsView()),
+            new("SettingsNavGroupHelp", "HelpButton", "book-search", "TrayMenuHelp", ((HelpPageData)getPage(MenuPages.MenuHelpKey)).View),
+            new("SettingsNavGroupHelp", "AboutButton", "info", "TrayMenuAbout", new AboutPage())
+        ];
+        BuildNavigation(specs);
 
         RestoreWindowSize();
         Select(_pages[0]);
     }
 
-    private void OnGeneralClick(object? sender, RoutedEventArgs e) => SelectByButton(GeneralButton);
+    /// <summary>
+    /// 切到下载源页（模型页、语音页跳下载源设置走这条）
+    /// </summary>
+    public void ShowDownloadSourceSettings() => SelectByTitleKey("DownloadSourceSetting");
 
-    private void OnRuntimeClick(object? sender, RoutedEventArgs e) => SelectByButton(RuntimeButton);
+    /// <summary>直接切到「本地模型（语音）」页（模型页的语音模型页签跳过来时用）</summary>
+    public void ShowAudioEngineSettings() => SelectByTitleKey("AudioEngineSetting");
 
-    private void OnAudioRuntimeClick(object? sender, RoutedEventArgs e) => SelectByButton(AudioRuntimeButton);
+    /// <summary>
+    /// 按名字取左栏按钮（如 RuntimeButton）；没有为 null
+    /// </summary>
+    /// <param name="navName">按钮名</param>
+    internal Button? NavButton(string navName) => _pages.FirstOrDefault(x => x.NavButton.Name == navName)?.NavButton;
 
-    private void OnDownloadSourceClick(object? sender, RoutedEventArgs e) => SelectByButton(DownloadSourceButton);
+    // 按页表建左栏：同组的排在一个标题下，引擎页挂「有新版本」的点
+    private void BuildNavigation(IReadOnlyList<SettingsPageSpec> specs)
+    {
+        foreach (IGrouping<string, SettingsPageSpec> group in specs.GroupBy(x => x.GroupKey))
+        {
+            StackPanel panel = new() { Spacing = 2 };
+            TextBlock header = new() { Classes = { "SettingsNavGroup" } };
+            header.Bind(TextBlock.TextProperty, Localized(group.Key));
+            panel.Children.Add(header);
+            foreach (SettingsPageSpec spec in group)
+            {
+                Button button = CreateNavButton(spec);
+                panel.Children.Add(button);
+                _pages.Add(new SettingsPageEntry(button, spec.Page, spec.TitleKey));
+            }
 
-    private void OnShortcutsClick(object? sender, RoutedEventArgs e) => SelectByButton(ShortcutsButton);
+            NavHost.Children.Add(panel);
+        }
+    }
 
-    private void OnQuickToolClick(object? sender, RoutedEventArgs e) => SelectByButton(QuickToolButton);
+    private Button CreateNavButton(SettingsPageSpec spec)
+    {
+        TextBlock title = new();
+        title.Bind(TextBlock.TextProperty, Localized(spec.TitleKey));
+        StackPanel content = new()
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 10,
+            Children = { new ThemedSvgIcon { Width = 16, Height = 16, IconName = spec.IconName }, title }
+        };
+        if (spec.Engine != null)
+        {
+            Border dot = new() { Classes = { UpdateDotClass }, Tag = "Progress" };
+            dot.Bind(IsVisibleProperty, new Binding(nameof(EngineVersionsViewData.HasUpdate)) { Source = spec.Engine });
+            if (spec.UpdateTipKey != null) dot.Bind(ToolTip.TipProperty, Localized(spec.UpdateTipKey));
+            content.Children.Add(dot);
+        }
 
-    private void OnAgentClick(object? sender, RoutedEventArgs e) => SelectByButton(AgentButton);
+        Button button = new() { Name = spec.NavName, Classes = { "SettingsNavButton" }, Content = content };
+        button.Click += (_, _) => SelectByButton(button);
+        return button;
+    }
 
-    private void OnHelpClick(object? sender, RoutedEventArgs e) => SelectByButton(HelpButton);
-
-    private void OnAboutClick(object? sender, RoutedEventArgs e) => SelectByButton(AboutButton);
+    private static Binding Localized(string key) =>
+        new(nameof(LocalizedString.Value)) { Source = LocalizedString.Get(key, null) };
 
     private SettingsPageEntry? FindByButton(Button button) =>
         _pages.FirstOrDefault(page => page.NavButton == button);
@@ -114,14 +144,6 @@ public partial class SettingsWindow : UiharuWindowBase
     {
         if (FindByButton(button) is { } page) Select(page);
     }
-
-    /// <summary>
-    /// 切到下载源页（模型页、语音页跳下载源设置走这条）
-    /// </summary>
-    public void ShowDownloadSourceSettings() => SelectByButton(DownloadSourceButton);
-
-    /// <summary>直接切到「本地模型（语音）」页（模型页的语音模型页签跳过来时用）</summary>
-    public void ShowAudioEngineSettings() => SelectByButton(AudioRuntimeButton);
 
     /// <summary>按标题 key 切页（搜索结果跳转走这条）</summary>
     private void SelectByTitleKey(string titleKey)
@@ -174,6 +196,16 @@ public partial class SettingsWindow : UiharuWindowBase
         setting.Save();
     }
 }
+
+/// <summary>页表里的一行：分组、按钮名、图标、标题 key、页面，引擎页另带引擎卡（更新点）与它的说明</summary>
+internal sealed record SettingsPageSpec(
+    string GroupKey,
+    string NavName,
+    string IconName,
+    string TitleKey,
+    Control Page,
+    EngineVersionsViewData? Engine = null,
+    string? UpdateTipKey = null);
 
 /// <summary>设置窗口里的一页：导航按钮 + 页面内容 + 标题 key（标题、搜索共用）</summary>
 /// <param name="NavButton">左栏按钮</param>

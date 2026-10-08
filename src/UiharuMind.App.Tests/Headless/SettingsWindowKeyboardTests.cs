@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.App.Tests.TestDoubles;
 using UiharuMind.Features.About;
 using UiharuMind.Features.Settings;
+using UiharuMind.Features.Settings.Engines;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 
@@ -76,7 +77,7 @@ public class SettingsWindowKeyboardTests : IDisposable
             window.UpdateLayout();
             Dispatcher.UIThread.RunJobs();
 
-            window.FindControl<Button>("ShortcutsButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            window.NavButton("ShortcutsButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             window.UpdateLayout();
             Dispatcher.UIThread.RunJobs();
 
@@ -107,7 +108,7 @@ public class SettingsWindowKeyboardTests : IDisposable
             ContentControl settingsContent = window.FindControl<ContentControl>("SettingsContent")
                 ?? throw new InvalidOperationException("找不到 SettingsContent");
             object? before = settingsContent.Content;
-            Button helpButton = window.FindControl<Button>("HelpButton")
+            Button helpButton = window.NavButton("HelpButton")
                 ?? throw new InvalidOperationException("找不到 HelpButton");
             helpButton.Focus();
             window.KeyPress(Key.Enter, RawInputModifiers.None, default, "");
@@ -119,7 +120,7 @@ public class SettingsWindowKeyboardTests : IDisposable
 
     private static void CheckPage(SettingsWindow window, string buttonName, string pageName)
     {
-        window.FindControl<Button>(buttonName)!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        window.NavButton(buttonName)!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         window.UpdateLayout();
         Dispatcher.UIThread.RunJobs();
         CheckInteractiveFocusable(window, pageName);
@@ -158,8 +159,8 @@ public class SettingsWindowKeyboardTests : IDisposable
 
         return new SettingsWindow(
             ActivatorUtilities.CreateInstance<GeneralSettingViewModel>(services),
-            new RuntimeEngineSettingData(messages),
-            TestSettingsPages.Audio(messages),
+            [EngineSettingsPage.Text(new RuntimeEngineSettingData(messages)),
+             EngineSettingsPage.Audio(TestSettingsPages.Audio(messages))],
             new ShortcutSettingViewModel(),
             GetPageForHeadless);
     }
