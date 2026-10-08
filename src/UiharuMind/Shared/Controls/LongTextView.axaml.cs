@@ -230,6 +230,15 @@ public partial class LongTextView : UserControl
         if (string.IsNullOrEmpty(delta)) return;
         bool shouldFollow = FollowTail || IsAtBottom; //insert 前取样
         Editor.Document.Insert(Editor.Document.TextLength, delta);
+        // 只读档的文档内容是硬切过的副本，原文得单独跟着长：复制、另存为、切预览读的都是 Text。
+        // 可编辑档不用管，编辑器的改动会经 OnEditorTextChanged 回灌
+        if (!IsEditable)
+        {
+            _isSyncingText = true;
+            SetCurrentValue(TextProperty, (Text ?? string.Empty) + delta);
+            _isSyncingText = false;
+        }
+
         if (shouldFollow) ScrollToEnd();
     }
 

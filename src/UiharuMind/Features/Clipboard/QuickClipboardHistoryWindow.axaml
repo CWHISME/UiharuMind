@@ -16,9 +16,7 @@
         <StackPanel>
             <DockPanel LastChildFill="False">
                 <TextBlock VerticalAlignment="Center" Text="{loc:Loc ClipboardHistory}" FontSize="20" />
-                <Button Content="X" Classes="CircleButton" DockPanel.Dock="Right" HorizontalAlignment="Right"
-                        Padding="0,0,0,-2.5"
-                        Click="CloseButton_Click" />
+                <ThemedIconButton Classes="WindowCloseButton" IconName="x" DockPanel.Dock="Right" HorizontalAlignment="Right" Click="CloseButton_Click" />
             </DockPanel>
             <u:Divider Margin="0,3,0,5" />
         </StackPanel>

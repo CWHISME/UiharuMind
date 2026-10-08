@@ -44,7 +44,7 @@
 
     <Grid RowDefinitions="Auto,*">
 
-        <!-- 宿主自己有标题栏时（FullTextWindow）会关掉这排，把同样三个动作挂到标题栏上：
+        <!-- 宿主自己有标题栏时（TextFileWindow）会关掉这排，把同样三个动作挂到标题栏上：
              两条只有几十像素高的横带叠在一起，白吃两倍纵向空间 -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="2"
                     IsVisible="{Binding $parent[LongTextView].IsToolbarVisible}"
@@ -70,11 +70,13 @@
         <Border Grid.Row="1" Background="Transparent"
                 BorderBrush="{DynamicResource CodeBlockBorderBrush}"
                 BorderThickness="1" CornerRadius="6">
-            <!-- TextEditor 不吃文本样式，FontFamily 直接绑 MainFont：删了会回落到编辑器默认字体 -->
+            <!-- TextEditor 不吃文本样式，FontFamily 直接绑 MainFont：删了会回落到编辑器默认字体。
+                 LineNumbersMargin 是行号与正文之间那条点线的两侧留白，不设时行号紧贴正文 -->
             <edit:TextEditor Name="Editor"
                              Background="Transparent"
                              Foreground="{DynamicResource UiForegroundBrush}"
                              LineNumbersForeground="{DynamicResource SemiGrey5}"
+                             LineNumbersMargin="6,0,8,0"
                              FontFamily="{DynamicResource MainFont}"
                              FontSize="13"
                              Padding="8"

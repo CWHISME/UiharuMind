@@ -257,13 +257,14 @@ public partial class TextConversationItem : ConversationItemBase, IStreamFlushTa
     /// <summary>截断提示行文案(未截断时为空串,提示行不显示)</summary>
     public string TruncationHint => IsTruncated ? ToolResultTruncation.FormatTruncationHint(_view) : string.Empty;
 
-    /// <summary>打开全文窗(卡片上的「查看全文」按钮)。全文一律去独立窗口,理由同工具卡——
+    /// <summary>打开全文(卡片上的「查看全文」按钮)。全文一律去独立窗口,理由同工具卡——
     /// 会话流没有虚拟化,几十万字内联进气泡会当场冻住界面</summary>
     [RelayCommand]
     private void ShowFullText()
     {
-        // 与工具卡同一支笔:窗口标题就是「查看全文」,不另立资源
-        FullTextWindow.Show(Loc.Text(LangKey.ToolViewFullText), Message);
+        // 与工具卡同一支笔:窗口标题就是「查看全文」,不另立资源。
+        // 旁白(子代理报告/离席回执)在气泡里就是按 Markdown 渲染的,全文同样直接进预览
+        TextFileWindow.ShowText(Loc.Text(LangKey.ToolViewFullText), Message, preview: true);
     }
 
     /// <inheritdoc />

@@ -44,9 +44,11 @@ public static class UIManager
     /// <param name="onCreateCallback">仅当处于第一次创建时才会调用，后续打开时只会调用 action</param>
     /// <param name="isMulti">允许同时开启多个同一窗口</param>
     /// <param name="isActivate">是否同时激活(聚焦)窗口</param>
+    /// <param name="canReuse">缓存窗口能不能拿来复用（同一类窗口里分了几种用途时按业务身份挑）；为空则任何一个都行，
+    /// 都不行时按 <paramref name="isMulti"/> 新建</param>
     /// <typeparam name="T"></typeparam>
     public static void ShowWindow<T>(Action<T>? action = null, Action<T>? onCreateCallback = null, bool isMulti = false,
-        bool isActivate = true)
+        bool isActivate = true, Func<T, bool>? canReuse = null)
         where T : UiharuWindowBase, new()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -58,6 +60,7 @@ public static class UIManager
             {
                 if (!win.IsCacheWindow) continue;
                 if (win.IsVisible && isMulti) continue;
+                if (canReuse != null && !canReuse((T)win)) continue;
                 window = (T)win;
                 break;
             }

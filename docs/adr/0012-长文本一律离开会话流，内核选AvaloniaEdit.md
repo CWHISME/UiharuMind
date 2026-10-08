@@ -1,5 +1,10 @@
 # 长文本一律离开会话流，内核选 AvaloniaEdit
 
+> **全文窗与思考窗已并入文本窗（2026-10-08）**：只读查看改由 `TextFileWindow.ShowText` 承担，流式的思考过程由
+> `TextFileWindow.ShowLive` 跟读。当初分开放是怕性能——可编辑档不能硬切超长行；合并后只读内容照旧以只读档喂给编辑器
+> （`LongTextView` 硬切超长行、按行虚拟化），与原来同一条路，顺带有了 Markdown 预览与另存为。
+> 原文与预览两种看法收在 `TextDocumentView` 组件里，文档状态收在 `TextFileDocument`。下文的 `FullTextWindow` 均指现在的只读查看。
+
 工具卡片上的大文本（工具结果、参数原文）不再有「就地展开全文」这条路。卡片**只**拿得到
 一小段**预览**，**全文**一律在独立的 `FullTextWindow` 里看。
 

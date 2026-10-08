@@ -1,0 +1,18 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             x:Class="UiharuMind.Shared.Controls.TextDocumentView">
+
+    <!-- 原文与预览叠在同一片区域，切换只改可见性：编辑 Document 不销毁，撤销栈与滚动位置跨预览切换保留 -->
+    <Grid>
+        <controls:LongTextView Name="TextView" IsToolbarVisible="False" />
+        <ScrollViewer Name="PreviewHost" IsVisible="False" Background="Transparent"
+                      BorderBrush="{DynamicResource CodeBlockBorderBrush}"
+                      BorderThickness="1" CornerRadius="6">
+            <!-- 宽窗口下正文限宽居中：一行太长读着累 -->
+            <controls:ChunkedMarkdownViewer Name="MarkdownViewer" Margin="8" MaxWidth="900"
+                                            HorizontalAlignment="Center" />
+        </ScrollViewer>
+    </Grid>
+
+</UserControl>

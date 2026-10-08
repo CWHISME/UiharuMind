@@ -6,7 +6,7 @@ namespace UiharuMind.App.Tests.Conversation;
 /// 文本气泡的截断规则：只对<b>旁白类</b>（开场白 / 子代理后续报告）启用。
 ///
 /// 旁白是静态的「扫一眼」内容，语义与工具结果相同——超长时只把头部交给气泡排版，
-/// 全文去独立全文窗（<c>FullTextWindow</c>）。用户/助手消息是流式的、正在被阅读，
+/// 全文去文本窗的只读查看（<c>TextFileWindow.ShowText</c>）。用户/助手消息是流式的、正在被阅读，
 /// 截断会破坏阅读体验，因此即使超长也原样透传。
 /// </summary>
 public class TextConversationItemTruncationTests

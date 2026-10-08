@@ -25,6 +25,7 @@ public class ChunkedMarkdownViewer : UserControl
 
     private readonly StackPanel _panel = new();
     private string _markdownText = string.Empty;
+    private string _tailText = string.Empty; //最后一段的原文：流式追加只喂它，长到两倍段长再重新切
     private bool _isPlaintext = true;
     private string? _linkBaseDirectory;
     private bool _isWatchingDrag; //按下到松开期间盯着布局，有新段渲染出来就刷新拖选快照
@@ -82,10 +83,43 @@ public class ChunkedMarkdownViewer : UserControl
         }
     }
 
+    /// <summary>
+    /// 流式追加（思考过程这类边生成边看的正文）。整篇重建会闪，成本还随长度二次增长；
+    /// 这里增量只喂最后一段——<see cref="SimpleMarkdownViewer"/> 本就是为增量追加设计的。
+    /// 最后一段长到两倍段长时把它重新切一次，前面切出来的段从此不再变
+    /// </summary>
+    /// <param name="delta">新增的原文</param>
+    public void AppendText(string delta)
+    {
+        if (string.IsNullOrEmpty(delta)) return;
+        _markdownText += delta;
+        if (_panel.Children.Count == 0)
+        {
+            Rebuild();
+            return;
+        }
+
+        _tailText += delta;
+        if (_tailText.Length <= ChunkChars * 2)
+        {
+            ((SimpleMarkdownViewer)_panel.Children[^1]).AppendText(delta);
+            return;
+        }
+
+        _panel.Children.RemoveAt(_panel.Children.Count - 1);
+        AddChunks(_tailText);
+    }
+
     private void Rebuild()
     {
         _panel.Children.Clear();
-        foreach (string chunk in MarkdownChunker.Split(_markdownText, ChunkChars, MarkdownUpdateProducer.DefaultPipeline))
+        AddChunks(_markdownText);
+    }
+
+    private void AddChunks(string text)
+    {
+        _tailText = string.Empty;
+        foreach (string chunk in MarkdownChunker.Split(text, ChunkChars, MarkdownUpdateProducer.DefaultPipeline))
         {
             _panel.Children.Add(new SimpleMarkdownViewer
             {
@@ -93,6 +127,7 @@ public class ChunkedMarkdownViewer : UserControl
                 IsPlaintext = _isPlaintext,
                 LinkBaseDirectory = _linkBaseDirectory,
             });
+            _tailText = chunk;
         }
     }
 
