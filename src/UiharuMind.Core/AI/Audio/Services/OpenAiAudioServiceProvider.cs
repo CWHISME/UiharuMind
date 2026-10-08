@@ -35,7 +35,8 @@ public sealed class OpenAiAudioServiceProvider : IAudioProvider, IDisposable
         if (string.IsNullOrWhiteSpace(request.Text)) throw new ArgumentException("Text is required.", nameof(request));
         string? voice = !string.IsNullOrWhiteSpace(request.Voice) ? request.Voice
             : string.IsNullOrWhiteSpace(_service.Voice) ? null : _service.Voice;
-        return _client.SynthesizeAsync(_service.ModelId, request.Text, voice, _format, cancellationToken);
+        return _client.SynthesizeAsync(_service.ModelId, request.Text, voice, _format, cancellationToken,
+            speed: request.Speed);
     }
 
     public Task<AudioTranscriptionResult> TranscribeAsync(AudioTranscriptionRequest request,

@@ -29,7 +29,7 @@ public class AudioModelTextTests
     [InlineData(EAudioCppTask.Tts, new[] { "tts" }, null)]
     public void FeatureTags_MarkTheSecondAbility_First(EAudioCppTask task, string[] tasks, string? expectedKey)
     {
-        AudioCppFamily family = new("f", task, "F", "", "supported", [], tasks, [], [], [], "", false, []);
+        AudioCppFamily family = new("f", task, "F", "", "supported", [], tasks, [], [], [], "", false, [], []);
 
         IReadOnlyList<string> tags = AudioModelText.FeatureTags(family);
 

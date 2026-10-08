@@ -199,6 +199,18 @@ public sealed class AudioCppEngine : IDisposable
     }
 
     /// <summary>
+    /// 本机有没有这个任务、会这种语言的模型（spec 没列语种的当作会）
+    /// </summary>
+    /// <param name="task">任务</param>
+    /// <param name="language">语种代码；null 只看有没有</param>
+    /// <returns>有为 true</returns>
+    public bool HasModelFor(EAudioCppTask task, string? language = null)
+    {
+        string name = task.ToConfigName();
+        return GetModels().Any(x => x.Task == name && (language == null || Speaks(x, language) != false));
+    }
+
+    /// <summary>
     /// 引擎包自带的 model_specs 目录；没装引擎为 null
     /// </summary>
     public string? GetSpecsDirectory()

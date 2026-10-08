@@ -115,17 +115,20 @@ public partial class App : Application, ILogger, IDisposable
                 .AddSingleton<IAudioPlayer, SoundFlowAudioPlayer>()
                 .AddSingleton<IAudioRecorder, SoundFlowAudioRecorder>()
                 .AddSingleton(_ => new AudioRouter(() => localAudio.Value, AudioSettingConfig.Current,
-                    AudioServiceSettingConfig.Current, hasLocal: task => AudioCppEngine.Shared.GetModels()
-                        .Any(x => x.Task == (task == EAudioCapability.Tts ? EAudioCppTask.Tts : EAudioCppTask.Asr).ToConfigName())))
+                    AudioServiceSettingConfig.Current, hasLocal: (task, language) => AudioCppEngine.Shared.HasModelFor(
+                        task == EAudioCapability.Tts ? EAudioCppTask.Tts : EAudioCppTask.Asr, language)))
                 .AddSingleton<IReadAloudService>(sp => new ReadAloudService(
                     id => sp.GetRequiredService<AudioRouter>().Resolve(EAudioCapability.Tts, id),
-                    sp.GetRequiredService<IAudioPlayer>(), messages))
+                    sp.GetRequiredService<IAudioPlayer>(), messages,
+                    (failed, language) => sp.GetRequiredService<AudioRouter>().Fallback(EAudioCapability.Tts, failed, language),
+                    () => AudioSettingConfig.Current.ReadAloudSpeed))
                 .AddSingleton(sp => new AudioServices(() => localAudio.Value, sp.GetRequiredService<AudioRouter>,
                     sp.GetRequiredService<IAudioPlayer>(), sp.GetRequiredService<IAudioRecorder>(),
                     sp.GetRequiredService<IReadAloudService>()))
                 .AddSingleton<IDictationService>(sp => new DictationService(sp.GetRequiredService<IAudioRecorder>(),
                     () => sp.GetRequiredService<AudioRouter>().Resolve(EAudioCapability.Asr), messages,
-                    action => Dispatcher.UIThread.Post(action)))
+                    action => Dispatcher.UIThread.Post(action),
+                    (failed, language) => sp.GetRequiredService<AudioRouter>().Fallback(EAudioCapability.Asr, failed, language)))
                 .AddSingleton(sp => new DictationHotkey(InputManager.Instance, sp.GetRequiredService<IDictationService>(),
                     () => SettingConfig.Current, action => Dispatcher.UIThread.Post(action)))
                 .BuildServiceProvider();

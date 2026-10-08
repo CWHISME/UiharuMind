@@ -72,16 +72,23 @@ public sealed class ReadAloudService : IReadAloudService
     private readonly Func<string?, IAudioProvider> _tts;
     private readonly IAudioPlayer _player;
     private readonly IMessageService _messages;
+    private readonly Func<IAudioProvider, string?, IAudioProvider?>? _fallback;
+    private readonly Func<float>? _speed;
     private CancellationTokenSource? _session;
 
     /// <param name="tts">合成用的 provider：指定的 id → provider，null 为默认（每次念时现取，免得启动就碰语音引擎）</param>
     /// <param name="player">播放</param>
     /// <param name="messages">失败提示</param>
-    public ReadAloudService(Func<string?, IAudioProvider> tts, IAudioPlayer player, IMessageService messages)
+    /// <param name="fallback">默认的在线服务失败时换哪个（失败的、文字语种 → 备用，没有为 null）；null 不换</param>
+    /// <param name="speed">语速倍率（每次念时现取）；null 为原速</param>
+    public ReadAloudService(Func<string?, IAudioProvider> tts, IAudioPlayer player, IMessageService messages,
+        Func<IAudioProvider, string?, IAudioProvider?>? fallback = null, Func<float>? speed = null)
     {
         _tts = tts;
         _player = player;
         _messages = messages;
+        _fallback = fallback;
+        _speed = speed;
     }
 
     public object? Owner { get; private set; }
@@ -110,16 +117,17 @@ public sealed class ReadAloudService : IReadAloudService
         CancellationTokenSource session = new();
         _session = session;
         SetState(owner, EReadAloudState.Preparing);
-        string? language = SpeechText.DetectLanguage(clean);
+        AudioSynthesisRequest request = new("", options?.Voice, Speed(), options?.Model,
+            SpeechText.DetectLanguage(clean));
         Task<AudioSynthesisResult>? next = null;
         try
         {
-            IAudioProvider tts = _tts(options?.Provider);
-            next = Synthesize(tts, chunks[0], language, options, session.Token);
+            IAudioProvider tts = WithFallback(_tts(options?.Provider), options);
+            next = tts.SynthesizeAsync(request with { Text = chunks[0] }, session.Token);
             for (int i = 0; i < chunks.Count; i++)
             {
                 AudioSynthesisResult audio = await next!; //循环里下一句总在：最后一句之前都排了
-                next = i + 1 < chunks.Count ? Synthesize(tts, chunks[i + 1], language, options, session.Token) : null;
+                next = i + 1 < chunks.Count ? tts.SynthesizeAsync(request with { Text = chunks[i + 1] }, session.Token) : null;
                 await using (audio.Audio)
                 {
                     SetState(owner, EReadAloudState.Speaking);
@@ -160,10 +168,23 @@ public sealed class ReadAloudService : IReadAloudService
         SetState(null, EReadAloudState.Idle);
     }
 
-    private static Task<AudioSynthesisResult> Synthesize(IAudioProvider tts, string text, string? language,
-        ReadAloudOptions? options, CancellationToken token) =>
-        tts.SynthesizeAsync(new AudioSynthesisRequest(text, options?.Voice, Model: options?.Model, Language: language),
-            token);
+    private float? Speed()
+    {
+        float speed = Math.Clamp(_speed?.Invoke() ?? 1f, AudioSettingConfig.MinSpeed, AudioSettingConfig.MaxSpeed);
+        return speed == 1f ? null : speed;
+    }
+
+    // 念的是默认的在线服务（不是试听指定的）：失败时这一段剩下的改用本地模型，提示一句
+    private IAudioProvider WithFallback(IAudioProvider tts, ReadAloudOptions? options)
+    {
+        if (_fallback == null || tts.IsLocal || options?.Provider != null || options?.Model != null) return tts;
+        return new FallbackAudioProvider(tts, language => _fallback(tts, language), (failed, e) =>
+        {
+            Log.Warning($"Read aloud fell back to local: {e.Message}");
+            _messages.ShowNotification(Loc.Text(LangKey.ReadAloudFellBack, failed.DisplayName, AudioErrorText.Describe(e)),
+                severity: MessageSeverity.Warning);
+        });
+    }
 
     // 停在半路时下一句可能已经在合成：等它出来把流关掉，异常也在这里看掉
     private static void Discard(Task<AudioSynthesisResult>? pending)

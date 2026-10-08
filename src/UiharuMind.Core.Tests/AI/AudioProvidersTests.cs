@@ -173,7 +173,7 @@ public class AudioProvidersTests
         FakeProvider local = new("AudioCpp");
         bool hasLocalTts = false;
         using AudioRouter router = new(() => local, new AudioSettingConfig(), services, s => new FakeProvider(s.Id),
-            task => task == EAudioCapability.Tts ? hasLocalTts : true);
+            (task, _) => task == EAudioCapability.Tts ? hasLocalTts : true);
 
         Assert.Same(local, router.Resolve(EAudioCapability.Tts)); //一个在线服务都没有：还是本地，由它报缺模型
         services.ReplaceServices([Edge.Clone()]);
@@ -182,6 +182,46 @@ public class AudioProvidersTests
 
         hasLocalTts = true;
         Assert.Same(local, router.Resolve(EAudioCapability.Tts));
+    }
+
+    [Fact]
+    public void Router_FallbackForAFailedService_OnlyWhenTurnedOn_AndLocalSpeaksTheLanguage()
+    {
+        FakeProvider local = new("AudioCpp") { IsLocal = true };
+        FakeProvider online = new("service:Edge");
+        AudioSettingConfig settings = new();
+        bool hasLocalTts = true;
+        using AudioRouter router = new(() => local, settings, new AudioServiceSettingConfig(),
+            hasLocal: (task, language) => task == EAudioCapability.Tts && hasLocalTts && language != "ja");
+
+        Assert.Null(router.Fallback(EAudioCapability.Tts, online)); //默认关
+        settings.FallbackToLocal = true;
+        Assert.Same(local, router.Fallback(EAudioCapability.Tts, online, "zh"));
+        Assert.Null(router.Fallback(EAudioCapability.Tts, online, "ja")); //本地没有会日语的
+        Assert.Null(router.Fallback(EAudioCapability.Tts, local)); //本地自己失败的不再换
+        Assert.Null(router.Fallback(EAudioCapability.Asr, online));
+        hasLocalTts = false;
+        Assert.Null(router.Fallback(EAudioCapability.Tts, online));
+    }
+
+    [Fact]
+    public void OnlyNetworkFailures_FallBack()
+    {
+        using CancellationTokenSource stopped = new();
+        stopped.Cancel();
+
+        Assert.True(FallbackAudioProvider.IsNetworkFailure(new HttpRequestException("no route"), CancellationToken.None));
+        Assert.True(FallbackAudioProvider.IsNetworkFailure(new TaskCanceledException("timeout", new TimeoutException()),
+            CancellationToken.None));
+        Assert.True(FallbackAudioProvider.IsNetworkFailure(new TimeoutException(), CancellationToken.None));
+        Assert.True(FallbackAudioProvider.IsNetworkFailure(
+            new AudioServiceException("down", System.Net.HttpStatusCode.BadGateway, null), CancellationToken.None));
+        Assert.False(FallbackAudioProvider.IsNetworkFailure(
+            new AudioServiceException("bad key", System.Net.HttpStatusCode.Unauthorized, null), CancellationToken.None));
+        Assert.False(FallbackAudioProvider.IsNetworkFailure(
+            new AudioServiceException("slow down", System.Net.HttpStatusCode.TooManyRequests, null), CancellationToken.None));
+        Assert.False(FallbackAudioProvider.IsNetworkFailure(new NotSupportedException("no such voice"), CancellationToken.None));
+        Assert.False(FallbackAudioProvider.IsNetworkFailure(new OperationCanceledException(stopped.Token), stopped.Token));
     }
 
     private sealed class FakeEdgeGateway : IEdgeTtsGateway
@@ -233,7 +273,7 @@ public class AudioProvidersTests
         public string DisplayName => id;
         public EAudioProviderKind Kind => EAudioProviderKind.OnlineService;
         public IReadOnlySet<EAudioCapability> Capabilities { get; } = new HashSet<EAudioCapability>();
-        public bool IsLocal => false;
+        public bool IsLocal { get; init; }
 
         public Task<AudioSynthesisResult> SynthesizeAsync(AudioSynthesisRequest request, CancellationToken cancellationToken) =>
             throw new NotSupportedException();

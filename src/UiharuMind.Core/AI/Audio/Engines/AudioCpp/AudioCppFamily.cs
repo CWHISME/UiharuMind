@@ -16,6 +16,7 @@ namespace UiharuMind.Core.AI.Audio;
 /// <param name="RecommendedPackage">上游推荐的包 id；没给为空</param>
 /// <param name="NeedsEspeak">要系统装 eSpeak-ng</param>
 /// <param name="Packages">能下的 GGUF 包</param>
+/// <param name="RequestOptions">合成 / 识别请求能带的参数名（spec 的 options.request），如 speed、seed、temperature</param>
 public sealed record AudioCppFamily(
     string Family,
     EAudioCppTask Task,
@@ -29,8 +30,14 @@ public sealed record AudioCppFamily(
     IReadOnlyList<string> BuiltinVoices,
     string RecommendedPackage,
     bool NeedsEspeak,
-    IReadOnlyList<AudioCppPackage> Packages)
+    IReadOnlyList<AudioCppPackage> Packages,
+    IReadOnlyList<string> RequestOptions)
 {
+    /// <summary>
+    /// 合成时能变语速（不能的，server 收到非 1 的 speed 会报错）
+    /// </summary>
+    public bool AcceptsSpeed => RequestOptions.Contains("speed") || RequestOptions.Contains("speaking_rate");
+
     /// <summary>
     /// 会照参考音频克隆音色（能用音色库）
     /// </summary>

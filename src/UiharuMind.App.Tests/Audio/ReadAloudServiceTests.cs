@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using UiharuMind.App.Tests.TestDoubles;
 using UiharuMind.Core.AI.Audio;
 using UiharuMind.Features.Audio;
+using UiharuMind.Shared.Services;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Items;
 
@@ -101,6 +102,59 @@ public class ReadAloudServiceTests
         Assert.Equal(2, _messages.Notifications.Count);
         Assert.DoesNotContain("Exception", _messages.Notifications[0].Message);
         Assert.Equal(EReadAloudState.Idle, service.State);
+    }
+
+    [Fact]
+    public async Task DefaultOnlineServiceFails_TheRestIsReadLocally_AtTheChosenSpeed()
+    {
+        FakeAudioProvider online = new() { IsLocal = false, Error = new HttpRequestException("offline") };
+        List<string?> languages = [];
+        ReadAloudService service = new(_ => online, _player, _messages, (failed, language) =>
+        {
+            languages.Add(language);
+            return failed.IsLocal ? null : _tts;
+        }, () => 1.5f);
+        _player.AutoFinish = true;
+
+        await service.ToggleAsync(new object(), "你好。" + string.Concat(Enumerable.Repeat("这是第二段里比较长的一句话。", 8)));
+
+        Assert.Single(online.Requests); //失败一次就换，不再回头试
+        Assert.Equal(["zh"], languages); //按文字语种挑本地模型
+        Assert.True(_tts.Requests.Count >= 2);
+        Assert.Equal("你好。", _tts.Requests[0].Text[..3]); //失败的那句由本地补念
+        Assert.All(_tts.Requests, x => Assert.Equal(1.5f, x.Speed));
+        Assert.Equal(_tts.Requests.Count, _player.Played);
+        (string message, MessageSeverity severity) = Assert.Single(_messages.Notifications);
+        Assert.Contains("fake", message);
+        Assert.Equal(MessageSeverity.Warning, severity);
+    }
+
+    [Fact]
+    public async Task WrongKey_IsReported_NotHiddenByFallback()
+    {
+        FakeAudioProvider online = new()
+        {
+            IsLocal = false, Error = new AudioServiceException("bad key", System.Net.HttpStatusCode.Unauthorized, null)
+        };
+        ReadAloudService service = new(_ => online, _player, _messages, (_, _) => _tts);
+
+        await service.ToggleAsync(new object(), "Hello.");
+
+        Assert.Empty(_tts.Requests);
+        Assert.Single(_messages.Notifications);
+    }
+
+    [Fact]
+    public async Task PreviewOfAService_DoesNotFallBack_AndNormalSpeedIsNotSent()
+    {
+        FakeAudioProvider online = new() { IsLocal = false, Error = new HttpRequestException("offline") };
+        ReadAloudService service = new(_ => online, _player, _messages, (_, _) => _tts, () => 1f);
+
+        await service.ToggleAsync(new object(), "Hello.", new ReadAloudOptions(Provider: "service:x"));
+
+        Assert.Empty(_tts.Requests); //试听的就是这个服务，换了就不是在试它
+        Assert.Null(Assert.Single(online.Requests).Speed);
+        Assert.Single(_messages.Notifications);
     }
 
     [Fact]

@@ -50,7 +50,9 @@ public sealed record AudioSynthesisRequest(string Text, string? Voice = null, fl
     string? Language = null);
 
 /// <summary>一次合成结果：字节流 + 格式。流由调用方负责释放；Pcm16 时 <see cref="SampleRateHz"/> 必填</summary>
-public sealed record AudioSynthesisResult(Stream Audio, EAudioFormat Format, int? SampleRateHz = null);
+/// <param name="PlaybackSpeed">合成时没能变的语速，播放时补（变速不变调）；模型自己会变速的为 1</param>
+public sealed record AudioSynthesisResult(Stream Audio, EAudioFormat Format, int? SampleRateHz = null,
+    float PlaybackSpeed = 1f);
 
 /// <summary>一次听写请求：音频流 + 格式。流由调用方负责释放</summary>
 public sealed record AudioTranscriptionRequest(Stream Audio, EAudioFormat Format);

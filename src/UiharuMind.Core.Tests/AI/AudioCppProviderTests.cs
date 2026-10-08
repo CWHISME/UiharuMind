@@ -94,6 +94,30 @@ public class AudioCppProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task Speed_GoesToModelsThatTakeIt_OthersAreStretchedAtPlayback()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "fake server is a shell script");
+        string install = Path.Combine(_directory, "engine");
+        Directory.CreateDirectory(Path.Combine(install, "model_specs"));
+        File.WriteAllText(Path.Combine(install, "model_specs", "pocket_tts.json"), Spec("pocket_tts", "en"));
+        File.WriteAllText(Path.Combine(install, "model_specs", "kokoro_tts.json"),
+            Spec("kokoro_tts", "en").Replace("\"category\"", "\"options\":{\"request\":[{\"name\":\"speed\"}]},\"category\""));
+        _models.Add(new AudioCppModelEntry("tts-b", "kokoro_tts", "/models/b.gguf", "tts"));
+        using AudioCppEngine engine = CreateEngine(installed: true, install);
+        using AudioCppProvider provider = new(engine);
+
+        AudioSynthesisResult pocket = await provider.SynthesizeAsync(
+            new AudioSynthesisRequest("hello", Speed: 1.5f, Model: "tts-a"), CancellationToken.None);
+        Assert.Equal("tts-a:alba", await ReadText(pocket.Audio)); //不会变速的不传，否则 server 报错
+        Assert.Equal(1.5f, pocket.PlaybackSpeed);
+
+        AudioSynthesisResult kokoro = await provider.SynthesizeAsync(
+            new AudioSynthesisRequest("hello", Speed: 1.5f, Model: "tts-b"), CancellationToken.None);
+        Assert.Equal("tts-b:alba:speed=1.5", await ReadText(kokoro.Audio));
+        Assert.Equal(1f, kokoro.PlaybackSpeed);
+    }
+
+    [Fact]
     public async Task NoEngineInstalled_FailsAsNotReady()
     {
         using AudioCppEngine engine = CreateEngine(installed: false);
@@ -176,7 +200,7 @@ public class AudioCppProviderTests : IDisposable
         "\"package_defaults\":{\"download\":{\"kind\":\"huggingface_snapshot\",\"repo\":\"a/b\"}}," +
         "\"packages\":[{\"id\":\"" + family + "_q8\",\"format\":\"gguf\",\"target_directory\":\"D\",\"files\":[\"D/a.gguf\"]}]}";
 
-    private AudioCppEngine CreateEngine(bool installed)
+    private AudioCppEngine CreateEngine(bool installed, string? install = null)
     {
         AudioCppEngine engine = new(_settings, Path.Combine(_directory, "engines"),
             Path.Combine(_directory, "server.json"), () => _models.ToList());
@@ -185,7 +209,9 @@ public class AudioCppProviderTests : IDisposable
             string bin = Path.Combine(_directory, "bin");
             Directory.CreateDirectory(bin);
             FakeAudioCppServer.Write(Path.Combine(bin, AudioCppVersionManager.ServerExeName), _directory);
-            engine.UseVersion(new AudioCppVersion { Name = "audio-v0.9.1-bin-macos-arm64-metal", ExecutablePath = bin });
+            AudioCppVersion version = new() { Name = "audio-v0.9.1-bin-macos-arm64-metal", ExecutablePath = bin };
+            if (install != null) version.InstallDirectory = install;
+            engine.UseVersion(version);
         }
 
         return engine;

@@ -170,7 +170,8 @@ public partial class ModelPageData : PageDataBase
         list = new AudioModelListViewData(page._messageService, engine, AudioCppPackageStore.Shared,
             (model, token) => audio.LocalProvider().GetVoicesAsync(model, token), audio.ReadAloud,
             path => App.FilesService.OpenFolder(path), page.ShowAudioDownloads,
-            () => UIManager.ShowWindow<SettingsWindow>(window => window.ShowAudioEngineSettings()), voices, online);
+            () => UIManager.ShowWindow<SettingsWindow>(window => window.ShowAudioEngineSettings()), voices, online,
+            new AudioPreferencesViewData(AudioSettingConfig.Current));
         return list;
     }
 

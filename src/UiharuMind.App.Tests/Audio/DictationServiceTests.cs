@@ -53,6 +53,21 @@ public class DictationServiceTests
     }
 
     [Fact]
+    public async Task OnlineRecognizerFails_SameRecordingGoesToLocal()
+    {
+        FakeAudioProvider online = new() { IsLocal = false, Error = new HttpRequestException("offline") };
+        DictationService service = new(_recorder, () => online, _messages, action => action(),
+            (failed, _) => failed.IsLocal ? null : _asr);
+
+        Assert.True(service.Start(_target));
+        await service.StopAsync();
+
+        Assert.Equal(["你好世界"], _target.Inserted);
+        Assert.Equal(online.Transcriptions.Single(), _asr.Transcriptions.Single()); //同一段录音从头再识别
+        Assert.Single(_messages.Notifications);
+    }
+
+    [Fact]
     public async Task ShortOrSilentRecording_IsNotTranscribed()
     {
         _recorder.Recording = FakeAudioRecorder.Speech(TimeSpan.FromMilliseconds(100));

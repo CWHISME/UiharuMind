@@ -4603,6 +4603,21 @@ Allow them?</value>
     <data name="AudioModelsTtsGroup" xml:space="preserve">
         <value>Speech synthesis (read-aloud)</value>
     </data>
+    <data name="AudioSpeed" xml:space="preserve">
+        <value>Speed</value>
+    </data>
+    <data name="AudioSpeedTip" xml:space="preserve">
+        <value>How fast read-aloud and previews speak. Most local models cannot change speed themselves, so playback is sped up or slowed down without changing pitch.</value>
+    </data>
+    <data name="AudioSpeedReset" xml:space="preserve">
+        <value>Reset</value>
+    </data>
+    <data name="AudioFallbackToLocal" xml:space="preserve">
+        <value>Use a local model when the online service is unreachable</value>
+    </data>
+    <data name="AudioFallbackToLocalTip" xml:space="preserve">
+        <value>When the service cannot be reached, times out or returns a server error, the rest of this read-aloud or this dictation uses a local model that speaks the language. Wrong keys, no credit or rate limits are still reported instead. A local model can take several seconds to load the first time and sounds different from the online voice.</value>
+    </data>
     <data name="AudioModelsAsrGroup" xml:space="preserve">
         <value>Speech recognition (dictation)</value>
     </data>
@@ -4677,6 +4692,12 @@ Allow them?</value>
     </data>
     <data name="DictationFailed" xml:space="preserve">
         <value>Voice input failed: {0}</value>
+    </data>
+    <data name="ReadAloudFellBack" xml:space="preserve">
+        <value>"{0}" could not read aloud ({1}). Using a local model this time.</value>
+    </data>
+    <data name="DictationFellBack" xml:space="preserve">
+        <value>"{0}" could not recognize the speech ({1}). Using a local model this time.</value>
     </data>
     <data name="DictationSilent" xml:space="preserve">
         <value>No sound was recorded. Check that a microphone is connected and that UiharuMind is allowed to use it in system settings.</value>

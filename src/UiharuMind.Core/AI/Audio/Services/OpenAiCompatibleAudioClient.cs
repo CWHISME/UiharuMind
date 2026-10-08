@@ -38,12 +38,13 @@ public sealed class OpenAiCompatibleAudioClient : IDisposable
 
     /// <summary>非流式合成：POST /v1/audio/speech，按 <paramref name="format"/> 显式指定 response_format</summary>
     /// <param name="seed">随机种子（audio.cpp 的扩展字段）；null 不传</param>
+    /// <param name="speed">语速倍率；null 或 1 不传</param>
     public async Task<AudioSynthesisResult> SynthesizeAsync(
         string model, string text, string? voice, EAudioFormat format, CancellationToken cancellationToken,
-        int? seed = null)
+        int? seed = null, float? speed = null)
     {
         using JsonDocument body = JsonDocument.Parse(
-            BuildSpeechJson(model, text, voice, format, stream: false, seed));
+            BuildSpeechJson(model, text, voice, format, stream: false, seed, speed));
         using HttpRequestMessage request = new(HttpMethod.Post, SpeechUrl());
         request.Content = new StringContent(body.RootElement.GetRawText(), Encoding.UTF8, "application/json");
         ApplyAuth(request);
@@ -204,7 +205,7 @@ public sealed class OpenAiCompatibleAudioClient : IDisposable
     }
 
     private string BuildSpeechJson(string model, string text, string? voice, EAudioFormat format, bool stream,
-        int? seed = null)
+        int? seed = null, float? speed = null)
     {
         using MemoryStream buffer = new();
         using (Utf8JsonWriter writer = new(buffer))
@@ -216,6 +217,7 @@ public sealed class OpenAiCompatibleAudioClient : IDisposable
             writer.WriteString("response_format", FormatName(format, stream));
             if (stream) writer.WriteBoolean("stream", true);
             if (seed is { } value) writer.WriteNumber("seed", value);
+            if (speed is { } rate and not 1f) writer.WriteNumber("speed", Math.Round(rate, 2));
             writer.WriteEndObject();
         }
 

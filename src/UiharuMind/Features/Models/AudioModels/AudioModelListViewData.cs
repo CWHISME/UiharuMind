@@ -55,8 +55,9 @@ public partial class AudioModelListViewData : ObservableObject
     public AudioModelListViewData(IMessageService messageService, AudioCppEngine engine, AudioCppPackageStore store,
         Func<string, CancellationToken, Task<IReadOnlyList<string>>> listVoices, IReadAloudService readAloud,
         Action<string> openFolder, Action goToMarket, Action openEngineSettings, VoiceLibraryViewData? voices = null,
-        AudioServiceListViewData? online = null)
+        AudioServiceListViewData? online = null, AudioPreferencesViewData? preferences = null)
     {
+        Preferences = preferences;
         Voices = voices;
         if (voices != null) voices.Refreshed += ApplyLibraryVoices;
         Online = online;
@@ -83,6 +84,17 @@ public partial class AudioModelListViewData : ObservableObject
     public ObservableCollection<AudioModelItemData> AsrModels { get; } = [];
 
     public bool HasTtsModels => TtsModels.Count > 0;
+
+    /// <summary>
+    /// 语速与「改用本地」；没配为 null
+    /// </summary>
+    public AudioPreferencesViewData? Preferences { get; }
+
+    /// <summary>
+    /// 既有在线服务又有本地模型：「连不上时改用本地」才有意义
+    /// </summary>
+    public bool ShowFallbackOption => Preferences != null && (HasTtsModels || HasAsrModels) &&
+                                      Online?.TtsServices.Count + Online?.AsrServices.Count > 0;
 
     /// <summary>
     /// 在线服务；没配为 null
@@ -252,6 +264,7 @@ public partial class AudioModelListViewData : ObservableObject
         OnPropertyChanged(nameof(HasTts));
         OnPropertyChanged(nameof(HasAsr));
         OnPropertyChanged(nameof(HasAnything));
+        OnPropertyChanged(nameof(ShowFallbackOption));
         OnPropertyChanged(nameof(ShowEmpty));
     }
 

@@ -42,8 +42,12 @@ public sealed class AudioCppProvider : IAudioProvider, IDisposable
             : FindModel(request.Model);
         OpenAiCompatibleAudioClient client = await GetClientAsync(model, cancellationToken).ConfigureAwait(false);
         string? voice = await _voices.ResolveAsync(model, request.Voice, client, cancellationToken).ConfigureAwait(false);
-        return await client.SynthesizeAsync(model.Id, request.Text, voice, EAudioFormat.Wav, cancellationToken)
-            .ConfigureAwait(false);
+        // 多数模型不会变速（server 对非 1 的 speed 直接报错），交给播放时变速
+        float speed = request.Speed ?? 1f;
+        bool native = speed != 1f && _engine.GetFamily(model)?.AcceptsSpeed == true;
+        AudioSynthesisResult result = await client.SynthesizeAsync(model.Id, request.Text, voice, EAudioFormat.Wav,
+            cancellationToken, speed: native ? speed : null).ConfigureAwait(false);
+        return native || speed == 1f ? result : result with { PlaybackSpeed = speed };
     }
 
     public async Task<AudioTranscriptionResult> TranscribeAsync(

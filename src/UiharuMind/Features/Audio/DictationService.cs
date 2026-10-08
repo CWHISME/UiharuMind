@@ -99,19 +99,22 @@ public sealed class DictationService : IDictationService
     private readonly Func<IAudioProvider> _asr;
     private readonly IMessageService _messages;
     private readonly Action<Action> _post;
+    private readonly Func<IAudioProvider, string?, IAudioProvider?>? _fallback;
     private int _isLevelPending; //音量回调在音频线程上很密，合并成一次界面刷新
 
     /// <param name="recorder">录音</param>
     /// <param name="asr">识别用的 provider（第一次用才取）</param>
     /// <param name="messages">失败提示</param>
     /// <param name="post">切回界面线程</param>
+    /// <param name="fallback">在线服务识别失败时换哪个（失败的、文字语种 → 备用，没有为 null）；null 不换</param>
     public DictationService(IAudioRecorder recorder, Func<IAudioProvider> asr, IMessageService messages,
-        Action<Action> post)
+        Action<Action> post, Func<IAudioProvider, string?, IAudioProvider?>? fallback = null)
     {
         _recorder = recorder;
         _asr = asr;
         _messages = messages;
         _post = post;
+        _fallback = fallback;
         _recorder.LevelChanged += OnLevel;
     }
 
@@ -171,7 +174,7 @@ public sealed class DictationService : IDictationService
                 return;
             }
 
-            AudioTranscriptionResult result = await _asr().TranscribeAsync(recording.ToRequest(), CancellationToken.None);
+            AudioTranscriptionResult result = await WithFallback(_asr()).TranscribeAsync(recording.ToRequest(), CancellationToken.None);
             string text = result.Text.Trim();
             if (text.Length == 0) _messages.ShowNotification(Loc.Text(LangKey.DictationNothingHeard));
             else if (target.IsAvailable) target.Insert(text);
@@ -215,6 +218,18 @@ public sealed class DictationService : IDictationService
             {
                 Log.Debug($"Dictation prewarm failed: {e.Message}");
             }
+        });
+    }
+
+    // 在线识别失败时同一段录音交给本地模型再识别一次，提示一句
+    private IAudioProvider WithFallback(IAudioProvider asr)
+    {
+        if (_fallback == null || asr.IsLocal) return asr;
+        return new FallbackAudioProvider(asr, language => _fallback(asr, language), (failed, e) =>
+        {
+            Log.Warning($"Dictation fell back to local: {e.Message}");
+            _messages.ShowNotification(Loc.Text(LangKey.DictationFellBack, failed.DisplayName, AudioErrorText.Describe(e)),
+                severity: MessageSeverity.Warning);
         });
     }
 

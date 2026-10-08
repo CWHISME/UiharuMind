@@ -173,7 +173,11 @@ public static class AudioCppModelCatalog
             ui.ValueKind == JsonValueKind.Object ? GetStrings(ui, "builtin_voices") : [],
             ui.ValueKind == JsonValueKind.Object ? GetString(ui, "recommended_package") : "",
             needsEspeak,
-            packages);
+            packages,
+            root.TryGetProperty("options", out JsonElement options) && options.ValueKind == JsonValueKind.Object &&
+            options.TryGetProperty("request", out JsonElement request) && request.ValueKind == JsonValueKind.Array
+                ? request.EnumerateArray().Select(x => GetString(x, "name")).Where(x => x.Length > 0).ToList()
+                : []);
     }
 
     private static List<AudioCppPackage> ParsePackages(JsonElement root, JsonElement packages, string family,

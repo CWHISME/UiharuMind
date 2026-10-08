@@ -44,6 +44,17 @@ public class OpenAiCompatibleAudioClientTests : IDisposable
         Assert.Contains("\"voice\":\"alba\"", json);
         Assert.Contains("\"response_format\":\"wav\"", json);
         Assert.DoesNotContain("\"stream\"", json);
+        Assert.DoesNotContain("\"speed\"", json); //原速不传：不会变速的模型收到会报错
+    }
+
+    [Fact]
+    public async Task Synthesize_SendsSpeed_OnlyWhenNotNormal()
+    {
+        _server.SpeechMode = FakeAudioServer.EMode.Bytes;
+
+        await _client.SynthesizeAsync("m", "t", null, EAudioFormat.Mp3, CancellationToken.None, speed: 1.25f);
+
+        Assert.Contains("\"speed\":1.25", _server.LastSpeechJson!);
     }
 
     [Theory]

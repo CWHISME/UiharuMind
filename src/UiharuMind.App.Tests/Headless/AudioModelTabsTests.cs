@@ -269,7 +269,7 @@ public class AudioModelTabsTests : IDisposable
                 }
             ]);
             using AudioRouter router = new(() => _synthesizer, new AudioSettingConfig(), config, _ => _synthesizer,
-                task => task == EAudioCapability.Tts);
+                (task, _) => task == EAudioCapability.Tts);
             AudioServiceListViewData online = new(router, config, new ReadAloudService(_ => _synthesizer, _player, _messages),
                 _messages, (_, _) => Task.FromResult<AudioServiceInfo?>(null));
             ModelPageData data = Open(audio, online: online);
@@ -355,7 +355,7 @@ public class AudioModelTabsTests : IDisposable
             }), queue, createAudioModels: page => new AudioModelListViewData(_messages, audio.Engine, audio.Store,
             (_, _) => Task.FromResult<IReadOnlyList<string>>([]),
             new ReadAloudService(_ => _synthesizer, _player, _messages), _openedFolders.Add,
-            page.ShowAudioDownloads, () => { }, voices, online));
+            page.ShowAudioDownloads, () => { }, voices, online, new AudioPreferencesViewData(new AudioSettingConfig { ReadAloudSpeed = 1.3f })));
         _window = new Window { Width = 1000, Height = 680, Content = new ModelPage { DataContext = data } };
         _window.Show();
         Dispatcher.UIThread.RunJobs();

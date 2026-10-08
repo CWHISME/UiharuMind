@@ -32,7 +32,7 @@ public sealed class SoundFlowAudioPlayer : IAudioPlayer
             try
             {
                 byte[] bytes = await ReadAllAsync(audio, session.Token).ConfigureAwait(false);
-                return await PlayBytesAsync(bytes, session.Token).ConfigureAwait(false);
+                return await PlayBytesAsync(bytes, audio.PlaybackSpeed, session.Token).ConfigureAwait(false);
             }
             finally
             {
@@ -52,7 +52,7 @@ public sealed class SoundFlowAudioPlayer : IAudioPlayer
 
     public void Stop() => Cancel(Volatile.Read(ref _current));
 
-    private static async Task<bool> PlayBytesAsync(byte[] bytes, CancellationToken token)
+    private static async Task<bool> PlayBytesAsync(byte[] bytes, float speed, CancellationToken token)
     {
         AudioPlaybackDevice device;
         try
@@ -69,6 +69,8 @@ public sealed class SoundFlowAudioPlayer : IAudioPlayer
             using MemoryStream stream = new(bytes, false);
             using StreamDataProvider provider = new(SoundFlowRuntime.Engine, DeviceFormat, stream);
             using SoundPlayer player = new(SoundFlowRuntime.Engine, DeviceFormat, provider);
+            player.PlaybackSpeed = speed; //WSOLA 变速不变调
+
             TaskCompletionSource ended = new(TaskCreationOptions.RunContinuationsAsynchronously);
             player.PlaybackEnded += (_, _) => ended.TrySetResult();
             device.MasterMixer.AddComponent(player);

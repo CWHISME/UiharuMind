@@ -175,8 +175,23 @@
 
                 <ScrollViewer HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasAnything}">
                     <StackPanel>
-                        <TextBlock Classes="group-header" Text="{loc:Loc AudioModelsTtsGroup}"
-                                   IsVisible="{Binding HasTts}" />
+                        <!-- 朗读分组标题，右边是语速：改完点试听就能听到 -->
+                        <DockPanel IsVisible="{Binding HasTts}">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" Margin="0,8,14,2"
+                                        VerticalAlignment="Center" DataContext="{Binding Preferences}"
+                                        x:DataType="models:AudioPreferencesViewData"
+                                        IsVisible="{Binding Converter={x:Static ObjectConverters.IsNotNull}}"
+                                        ToolTip.Tip="{loc:Loc AudioSpeedTip}">
+                                <Button Classes="toolbar-link" Content="{loc:Loc AudioSpeedReset}"
+                                        IsVisible="{Binding IsSpeedChanged}" Command="{Binding ResetSpeedCommand}" />
+                                <TextBlock Text="{loc:Loc AudioSpeed}" Classes="muted" FontSize="12" VerticalAlignment="Center" />
+                                <Slider Width="140" Minimum="{Binding Minimum}" Maximum="{Binding Maximum}"
+                                        TickFrequency="0.1" IsSnapToTickEnabled="True" Value="{Binding Speed}"
+                                        VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding SpeedText}" FontSize="12" Width="36" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Classes="group-header" Text="{loc:Loc AudioModelsTtsGroup}" />
+                        </DockPanel>
                         <ItemsControl ItemsSource="{Binding TtsModels}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="models:AudioModelItemData">
@@ -317,6 +332,13 @@
                         </ItemsControl>
                         <ItemsControl ItemsSource="{Binding Online.AsrServices}"
                                       ItemTemplate="{StaticResource OnlineServiceRow}" />
+
+                        <!-- 默认关：开了会等本地加载、换声音、占内存，由用户自己决定 -->
+                        <CheckBox Margin="14,12" IsVisible="{Binding ShowFallbackOption}"
+                                  IsChecked="{Binding Preferences.FallbackToLocal}"
+                                  ToolTip.Tip="{loc:Loc AudioFallbackToLocalTip}">
+                            <TextBlock Text="{loc:Loc AudioFallbackToLocal}" FontSize="13" />
+                        </CheckBox>
                     </StackPanel>
                 </ScrollViewer>
             </Panel>

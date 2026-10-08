@@ -11,7 +11,7 @@ public sealed class AudioRouter : IDisposable
     private readonly AudioSettingConfig _settings;
     private readonly AudioServiceSettingConfig _services;
     private readonly Func<AudioServiceInfo, IAudioProvider> _create;
-    private readonly Func<EAudioCapability, bool> _hasLocal;
+    private readonly Func<EAudioCapability, string?, bool> _hasLocal;
     private readonly Lock _gate = new();
     private readonly Dictionary<AudioServiceInfo, IAudioProvider> _providers = new(ReferenceEqualityComparer.Instance);
 
@@ -19,11 +19,11 @@ public sealed class AudioRouter : IDisposable
     /// <param name="settings">「用哪个」</param>
     /// <param name="services">在线服务列表</param>
     /// <param name="create">按条目建 provider；null 走 <see cref="AudioServiceProviderFactory"/></param>
-    /// <param name="hasLocal">本地引擎有没有这个任务的模型；null 当作有</param>
+    /// <param name="hasLocal">本地引擎有没有这个任务的模型（给了语种还要会这种语言）；null 当作有</param>
     public AudioRouter(Func<IAudioProvider> local, AudioSettingConfig settings, AudioServiceSettingConfig services,
-        Func<AudioServiceInfo, IAudioProvider>? create = null, Func<EAudioCapability, bool>? hasLocal = null)
+        Func<AudioServiceInfo, IAudioProvider>? create = null, Func<EAudioCapability, string?, bool>? hasLocal = null)
     {
-        _hasLocal = hasLocal ?? (_ => true);
+        _hasLocal = hasLocal ?? ((_, _) => true);
         _local = local;
         _settings = settings;
         _services = services;
@@ -49,7 +49,7 @@ public sealed class AudioRouter : IDisposable
     /// <param name="task">合成 / 识别</param>
     public AudioServiceInfo? DefaultService(EAudioCapability task) =>
         FindService(PreferredId(task), task) ??
-        (_hasLocal(task) ? null : _services.Services.FirstOrDefault(x => x.Task == task && x.IsConfigured));
+        (_hasLocal(task, null) ? null : _services.Services.FirstOrDefault(x => x.Task == task && x.IsConfigured));
 
     /// <summary>
     /// 拿 provider
@@ -68,6 +68,16 @@ public sealed class AudioRouter : IDisposable
             return provider;
         }
     }
+
+    /// <summary>
+    /// 在线服务这次没成时退到哪：用户开了「改用本地」、本地引擎有会这种语言的模型，就是它
+    /// </summary>
+    /// <param name="task">合成 / 识别</param>
+    /// <param name="failed">失败的那个</param>
+    /// <param name="language">文字语种；null 不挑</param>
+    /// <returns>本地引擎；没开、失败的本来就是本地、或本地没合适的模型为 null</returns>
+    public IAudioProvider? Fallback(EAudioCapability task, IAudioProvider failed, string? language = null) =>
+        !_settings.FallbackToLocal || failed.IsLocal || !_hasLocal(task, language) ? null : _local();
 
     /// <summary>
     /// 默认改回本地引擎

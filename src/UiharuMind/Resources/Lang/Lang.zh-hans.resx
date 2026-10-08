@@ -4596,6 +4596,21 @@
     <data name="AudioModelsTtsGroup" xml:space="preserve">
         <value>语音合成（朗读）</value>
     </data>
+    <data name="AudioSpeed" xml:space="preserve">
+        <value>语速</value>
+    </data>
+    <data name="AudioSpeedTip" xml:space="preserve">
+        <value>朗读和试听的快慢。多数本地模型自己不会变速，改在播放时加快或放慢，音调不变</value>
+    </data>
+    <data name="AudioSpeedReset" xml:space="preserve">
+        <value>还原</value>
+    </data>
+    <data name="AudioFallbackToLocal" xml:space="preserve">
+        <value>在线服务连不上时，改用本地模型</value>
+    </data>
+    <data name="AudioFallbackToLocalTip" xml:space="preserve">
+        <value>连不上、超时或服务端出错时，这一次朗读剩下的句子、这次听写改用本机会说这种语言的模型。密钥错误、余额不足、请求太频繁照常提示，不换。本地模型首次加载要等几秒到十几秒，声音也会和在线的不同</value>
+    </data>
     <data name="AudioModelsAsrGroup" xml:space="preserve">
         <value>语音识别（听写）</value>
     </data>
@@ -4670,6 +4685,12 @@
     </data>
     <data name="DictationFailed" xml:space="preserve">
         <value>语音输入失败：{0}</value>
+    </data>
+    <data name="ReadAloudFellBack" xml:space="preserve">
+        <value>「{0}」没能朗读（{1}），这次改用本地模型。</value>
+    </data>
+    <data name="DictationFellBack" xml:space="preserve">
+        <value>「{0}」没能识别（{1}），这次改用本地模型。</value>
     </data>
     <data name="DictationSilent" xml:space="preserve">
         <value>没有录到声音。检查麦克风是否接好，以及系统设置里是否允许 UiharuMind 使用麦克风。</value>

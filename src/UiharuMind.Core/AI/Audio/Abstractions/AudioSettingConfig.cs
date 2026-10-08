@@ -9,9 +9,23 @@ namespace UiharuMind.Core.AI.Audio;
 /// </summary>
 public class AudioSettingConfig : TConfigBase<AudioSettingConfig>
 {
+    /// <summary>
+    /// 语速允许的范围
+    /// </summary>
+    public const float MinSpeed = 0.5f;
+
+    /// <inheritdoc cref="MinSpeed"/>
+    public const float MaxSpeed = 2f;
+
     /// <summary>合成默认用哪个 provider；空 = 第一个会合成的</summary>
     public string? PreferredTtsProviderId { get; set; }
 
     /// <summary>听写默认用哪个 provider；空 = 第一个会听写的</summary>
     public string? PreferredAsrProviderId { get; set; }
+
+    /// <summary>朗读语速倍率（试听也用它）</summary>
+    public float ReadAloudSpeed { get; set; } = 1f;
+
+    /// <summary>默认的在线服务连不上、超时时，这一次改用本地模型（默认关：会等本地加载、换声音、占内存）</summary>
+    public bool FallbackToLocal { get; set; }
 }
