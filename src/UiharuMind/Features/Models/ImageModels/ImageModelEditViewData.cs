@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.ImageGeneration;
 using UiharuMind.Core.AI.Models;
+using UiharuMind.Features.Models.Shared;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 
@@ -107,7 +108,7 @@ public partial class ImageModelEditViewData : ObservableObject
         ExtraBody = source.ExtraBody;
         // 编辑时只借预设的官网与模型 id 候选,不回填任何字段
         _selectedPreset = Presets.FirstOrDefault(p => p.Preset.Dialect == source.Dialect &&
-                                                      SameHost(p.Preset.Endpoint, source.Endpoint));
+                                                      ApiKeySources.SameHost(p.Preset.Endpoint, source.Endpoint));
         RebuildModelIdOptions();
     }
 
@@ -135,9 +136,7 @@ public partial class ImageModelEditViewData : ObservableObject
     public bool HasWebsite => WebsiteUrl.Length > 0;
 
     /// <summary>同一服务地址下、填了密钥的对话模型：一键沿用它的密钥</summary>
-    public IReadOnlyList<RemoteModelInfo> CopySources => _chatModels
-        .Where(m => !string.IsNullOrEmpty(m.ApiKey) && SameHost(m.ModelPath, Endpoint))
-        .ToList();
+    public IReadOnlyList<RemoteModelInfo> CopySources => ApiKeySources.Matching(_chatModels, Endpoint);
 
     /// <summary>有可沿用的密钥</summary>
     public bool HasCopySources => CopySources.Count > 0;
@@ -147,8 +146,7 @@ public partial class ImageModelEditViewData : ObservableObject
                                 _takenNames.Contains(Name.Trim(), StringComparer.OrdinalIgnoreCase);
 
     /// <summary>地址不是合法的 http(s) 绝对地址</summary>
-    public bool HasEndpointError => !Uri.TryCreate(Endpoint.Trim(), UriKind.Absolute, out Uri? uri) ||
-                                    uri.Scheme is not ("http" or "https");
+    public bool HasEndpointError => !ApiKeySources.IsHttpUrl(Endpoint);
 
     /// <summary>模型 id 为空</summary>
     public bool HasModelIdError => string.IsNullOrWhiteSpace(ModelId);
@@ -236,9 +234,4 @@ public partial class ImageModelEditViewData : ObservableObject
         int.TryParse(TimeoutText.Trim(), out int seconds) && seconds is >= MinTimeoutSeconds and <= MaxTimeoutSeconds
             ? seconds
             : null;
-
-    private static bool SameHost(string left, string right) =>
-        Uri.TryCreate(left.Trim(), UriKind.Absolute, out Uri? a) &&
-        Uri.TryCreate(right.Trim(), UriKind.Absolute, out Uri? b) &&
-        string.Equals(a.Host, b.Host, StringComparison.OrdinalIgnoreCase);
 }

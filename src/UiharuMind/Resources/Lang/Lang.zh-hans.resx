@@ -4869,4 +4869,100 @@
     <data name="VoiceSaveFailed" xml:space="preserve">
         <value>保存音色失败：{0}</value>
     </data>
+    <data name="AudioErrorUnauthorized" xml:space="preserve">
+        <value>服务拒绝了请求，多半是密钥不对或没有这个模型的权限。（{0}）</value>
+    </data>
+    <data name="AudioErrorRateLimited" xml:space="preserve">
+        <value>请求太频繁或额度用完了，稍后再试。（{0}）</value>
+    </data>
+    <data name="AudioErrorTimeout" xml:space="preserve">
+        <value>语音服务太久没有响应。</value>
+    </data>
+    <data name="AudioErrorNetwork" xml:space="preserve">
+        <value>连不上语音服务，检查一下网络。（{0}）</value>
+    </data>
+    <data name="AudioServiceAdd" xml:space="preserve">
+        <value>添加在线服务</value>
+    </data>
+    <data name="AudioServiceOnline" xml:space="preserve">
+        <value>在线</value>
+    </data>
+    <data name="AudioServiceVoiceAuto" xml:space="preserve">
+        <value>按语种自动挑音色</value>
+    </data>
+    <data name="AudioServiceDeleteConfirm" xml:space="preserve">
+        <value>删除在线服务「{0}」？</value>
+    </data>
+    <data name="AudioServiceTaskTts" xml:space="preserve">
+        <value>朗读（语音合成）</value>
+    </data>
+    <data name="AudioServiceTaskAsr" xml:space="preserve">
+        <value>听写（语音识别）</value>
+    </data>
+    <data name="AudioServicePreviewFailed" xml:space="preserve">
+        <value>试听失败：{0}</value>
+    </data>
+    <data name="AudioServicePresetCustom" xml:space="preserve">
+        <value>自定义（OpenAI 兼容）</value>
+    </data>
+    <data name="AudioServicePresetEdge" xml:space="preserve">
+        <value>Edge TTS · 免费朗读</value>
+    </data>
+    <data name="AudioServicePresetTts" xml:space="preserve">
+        <value>{0} · 朗读</value>
+    </data>
+    <data name="AudioServicePresetAsr" xml:space="preserve">
+        <value>{0} · 听写</value>
+    </data>
+    <data name="AudioServiceBrandSiliconFlow" xml:space="preserve">
+        <value>硅基流动</value>
+    </data>
+    <data name="AudioServiceWindowTitle" xml:space="preserve">
+        <value>在线语音服务</value>
+    </data>
+    <data name="AudioServiceCreateTitle" xml:space="preserve">
+        <value>添加在线语音服务</value>
+    </data>
+    <data name="AudioServiceEditTitle" xml:space="preserve">
+        <value>编辑在线语音服务</value>
+    </data>
+    <data name="AudioServiceCreateHint" xml:space="preserve">
+        <value>用在线服务朗读或听写，不用下载模型；要念的文字和录音会发给服务商。</value>
+    </data>
+    <data name="AudioServiceSelectPreset" xml:space="preserve">
+        <value>服务商</value>
+    </data>
+    <data name="AudioServiceEdgeHint" xml:space="preserve">
+        <value>微软 Edge 浏览器朗读用的服务：免费、不用密钥，音质也好。它不是公开接口，偶尔可能用不了。</value>
+    </data>
+    <data name="AudioServiceNameLabel" xml:space="preserve">
+        <value>名字</value>
+    </data>
+    <data name="AudioServiceNameError" xml:space="preserve">
+        <value>名字不能为空，也不能和别的服务重名。</value>
+    </data>
+    <data name="AudioServiceTaskLabel" xml:space="preserve">
+        <value>用途</value>
+    </data>
+    <data name="AudioServiceModelLabel" xml:space="preserve">
+        <value>模型</value>
+    </data>
+    <data name="AudioServiceModelError" xml:space="preserve">
+        <value>请填模型 id。</value>
+    </data>
+    <data name="AudioServicePreview" xml:space="preserve">
+        <value>试听</value>
+    </data>
+    <data name="AudioServiceVoiceHint" xml:space="preserve">
+        <value>可以从候选里挑，也能手输服务支持的音色 id。留空用默认，Edge TTS 会按文字语种自动挑。</value>
+    </data>
+    <data name="AudioServiceEndpointLabel" xml:space="preserve">
+        <value>服务地址</value>
+    </data>
+    <data name="AudioServiceEndpointHint" xml:space="preserve">
+        <value>填到 /v1 为止，接口路径会自动补上。</value>
+    </data>
+    <data name="AudioServicePreviewStop" xml:space="preserve">
+        <value>停止</value>
+    </data>
 </root>

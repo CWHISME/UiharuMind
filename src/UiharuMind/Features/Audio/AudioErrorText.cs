@@ -1,5 +1,8 @@
 using System;
+using System.Net;
 using System.Net.Http;
+using System.Net.WebSockets;
+using System.Threading.Tasks;
 using UiharuMind.Core.AI.Audio;
 using UiharuMind.Core.AI.Engines;
 using UiharuMind.Core.AI.Runtime;
@@ -20,7 +23,14 @@ public static class AudioErrorText
     /// <returns>是为 true</returns>
     public static bool IsExpected(Exception e) => e is LocalEngineNotReadyException or LocalServerException
         or AudioModelMissingException or AudioVoiceRequiredException or AudioDeviceException or HttpRequestException
-        or NotSupportedException;
+        or NotSupportedException or WebSocketException or TimeoutException || IsTimeout(e);
+
+    /// <summary>
+    /// HttpClient 超时：抛的是取消，里面包着 <see cref="TimeoutException"/>，要和用户主动停下分开
+    /// </summary>
+    /// <param name="e">异常</param>
+    /// <returns>是超时为 true</returns>
+    public static bool IsTimeout(Exception e) => e is TimeoutException or TaskCanceledException { InnerException: TimeoutException };
 
     /// <summary>
     /// 给用户看的一句话
@@ -38,6 +48,12 @@ public static class AudioErrorText
         AudioServiceException { ErrorType: AudioServiceException.InsufficientMemory } memory =>
             Loc.Text(LangKey.AudioErrorMemory, memory.Message),
         AudioDeviceException device => Loc.Text(LangKey.AudioErrorDevice, device.Message),
+        AudioServiceException { StatusCode: HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden } auth =>
+            Loc.Text(LangKey.AudioErrorUnauthorized, auth.Message),
+        AudioServiceException { StatusCode: HttpStatusCode.TooManyRequests or HttpStatusCode.PaymentRequired } limited =>
+            Loc.Text(LangKey.AudioErrorRateLimited, limited.Message),
+        _ when IsTimeout(e) => Loc.Text(LangKey.AudioErrorTimeout),
+        WebSocketException or HttpRequestException { StatusCode: null } => Loc.Text(LangKey.AudioErrorNetwork, e.Message),
         _ => e.Message
     };
 }

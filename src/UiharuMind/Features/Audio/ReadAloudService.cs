@@ -23,11 +23,12 @@ public enum EReadAloudState
 }
 
 /// <summary>
-/// 指定这次用哪个模型、哪个音色念（如模型页的试听）；不指定就用默认模型、按语种挑
+/// 指定这次用哪个模型、哪个音色念（如模型页的试听）；不指定就用默认的那个、本地模型再按语种挑
 /// </summary>
-/// <param name="Model">模型 id</param>
+/// <param name="Model">本地模型 id</param>
 /// <param name="Voice">音色 id</param>
-public sealed record ReadAloudOptions(string? Model = null, string? Voice = null);
+/// <param name="Provider">用哪个（在线服务的 id）；null 为默认</param>
+public sealed record ReadAloudOptions(string? Model = null, string? Voice = null, string? Provider = null);
 
 /// <summary>
 /// 朗读：同一时刻只念一段文字，再点同一个来源就停。消息朗读与模型试听都走这里，新的一段会立刻停掉旧的
@@ -68,15 +69,15 @@ public interface IReadAloudService
 /// </summary>
 public sealed class ReadAloudService : IReadAloudService
 {
-    private readonly Func<IAudioProvider> _tts;
+    private readonly Func<string?, IAudioProvider> _tts;
     private readonly IAudioPlayer _player;
     private readonly IMessageService _messages;
     private CancellationTokenSource? _session;
 
-    /// <param name="tts">合成用的 provider（第一次念时才取，免得启动就碰语音引擎）</param>
+    /// <param name="tts">合成用的 provider：指定的 id → provider，null 为默认（每次念时现取，免得启动就碰语音引擎）</param>
     /// <param name="player">播放</param>
     /// <param name="messages">失败提示</param>
-    public ReadAloudService(Func<IAudioProvider> tts, IAudioPlayer player, IMessageService messages)
+    public ReadAloudService(Func<string?, IAudioProvider> tts, IAudioPlayer player, IMessageService messages)
     {
         _tts = tts;
         _player = player;
@@ -113,7 +114,7 @@ public sealed class ReadAloudService : IReadAloudService
         Task<AudioSynthesisResult>? next = null;
         try
         {
-            IAudioProvider tts = _tts();
+            IAudioProvider tts = _tts(options?.Provider);
             next = Synthesize(tts, chunks[0], language, options, session.Token);
             for (int i = 0; i < chunks.Count; i++)
             {
@@ -127,7 +128,7 @@ public sealed class ReadAloudService : IReadAloudService
                 }
             }
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (session.IsCancellationRequested)
         {
         }
         catch (Exception e) when (AudioErrorText.IsExpected(e))

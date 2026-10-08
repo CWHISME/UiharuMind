@@ -12,6 +12,7 @@ using UiharuMind.Core.Core.DownloadHelper;
 using UiharuMind.Features.Audio;
 using UiharuMind.Features.Models;
 using UiharuMind.Features.Models.AudioModels;
+using UiharuMind.Features.Models.AudioModels.Online;
 using UiharuMind.Features.Models.AudioModels.Voices;
 using UiharuMind.Features.Models.Downloads;
 using UiharuMind.Features.Models.Downloads.Audio;
@@ -249,6 +250,70 @@ public class AudioModelTabsTests : IDisposable
     }
 
     [Fact]
+    public void InstalledTab_OnlineServices_ShareGroups_AndDefaultIsEitherLocalOrOnline()
+    {
+        HeadlessUi.RunAsync(async () =>
+        {
+            List<AudioCppModelEntry> models = [];
+            TestAudioEngine audio = new(scanModels: () => models);
+            string english = audio.Install("PocketTTS-GGUF/english", "pocket_tts_english_q8_0", "pocket-tts-english-q8_0.gguf");
+            models.Add(new AudioCppModelEntry("pocket-tts-english-q8_0", "pocket_tts", english, "tts", ModelFile: english));
+            AudioServiceSettingConfig config = new();
+            config.ReplaceServices(
+            [
+                new AudioServiceInfo { Name = "Edge TTS", Dialect = EAudioDialect.EdgeTts },
+                new AudioServiceInfo
+                {
+                    Name = "硅基流动 · 听写", Task = EAudioCapability.Asr, Endpoint = "https://api.siliconflow.cn/v1",
+                    ModelId = "FunAudioLLM/SenseVoiceSmall"
+                }
+            ]);
+            using AudioRouter router = new(() => _synthesizer, new AudioSettingConfig(), config, _ => _synthesizer,
+                task => task == EAudioCapability.Tts);
+            AudioServiceListViewData online = new(router, config, new ReadAloudService(_ => _synthesizer, _player, _messages),
+                _messages, (_, _) => Task.FromResult<AudioServiceInfo?>(null));
+            ModelPageData data = Open(audio, online: online);
+            data.ShowAudioModels();
+            AudioModelListViewData list = data.AudioModels!;
+            await Settle(() => list.IsLoaded);
+
+            AudioModelItemData pocket = Assert.Single(list.TtsModels);
+            AudioServiceItemData edge = Assert.Single(online.TtsServices);
+            Assert.True(pocket.IsDefault);
+            Assert.False(edge.IsDefault);
+            Assert.True(list.HasAsr); //本机没有识别模型，在线的也撑起听写分组
+            Assert.True(Assert.Single(online.AsrServices).IsDefault); //本地没模型：退到在线的
+            Capture("audio-online");
+
+            online.SetDefaultCommand.Execute(edge);
+            Assert.False(pocket.IsDefault);
+            Assert.True(online.TtsServices[0].IsDefault);
+
+            list.SetDefaultCommand.Execute(pocket);
+            Assert.True(pocket.IsDefault);
+            Assert.False(online.TtsServices[0].IsDefault);
+        });
+    }
+
+    [Fact]
+    public void AudioServiceEditWindow_Renders()
+    {
+        HeadlessUi.RunAsync(async () =>
+        {
+            AudioServiceEditViewData form = new(null, [], [], _ => Task.FromResult<IReadOnlyList<string>>([]),
+                (_, _) => Task.CompletedTask, _messages);
+            form.SelectedPreset = form.Presets.Single(x => x.Preset.Key == "siliconflow-tts");
+            _window = new AudioServiceEditWindow { DataContext = form };
+            _window.Show();
+            Dispatcher.UIThread.RunJobs();
+            await Task.Delay(20);
+
+            Assert.True(form.CanConfirm);
+            Capture("audio-service-edit");
+        });
+    }
+
+    [Fact]
     public void VoiceCreateWindow_RendersDraws()
     {
         HeadlessUi.RunAsync(async () =>
@@ -270,7 +335,8 @@ public class AudioModelTabsTests : IDisposable
         });
     }
 
-    private ModelPageData Open(TestAudioEngine audio, VoiceLibraryViewData? voices = null)
+    private ModelPageData Open(TestAudioEngine audio, VoiceLibraryViewData? voices = null,
+        AudioServiceListViewData? online = null)
     {
         _audio = audio;
         DownloadQueue queue = audio.Queue;
@@ -288,8 +354,8 @@ public class AudioModelTabsTests : IDisposable
                 AudioStore = audio.Store
             }), queue, createAudioModels: page => new AudioModelListViewData(_messages, audio.Engine, audio.Store,
             (_, _) => Task.FromResult<IReadOnlyList<string>>([]),
-            new ReadAloudService(() => _synthesizer, _player, _messages), _openedFolders.Add,
-            page.ShowAudioDownloads, () => { }, voices));
+            new ReadAloudService(_ => _synthesizer, _player, _messages), _openedFolders.Add,
+            page.ShowAudioDownloads, () => { }, voices, online));
         _window = new Window { Width = 1000, Height = 680, Content = new ModelPage { DataContext = data } };
         _window.Show();
         Dispatcher.UIThread.RunJobs();

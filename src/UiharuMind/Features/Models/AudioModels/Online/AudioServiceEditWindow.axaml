@@ -1,0 +1,173 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:online="clr-namespace:UiharuMind.Features.Models.AudioModels.Online"
+        xmlns:models="clr-namespace:UiharuMind.Core.AI.Models;assembly=UiharuMind.Core"
+        xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+        xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+        mc:Ignorable="d" d:DesignWidth="760" d:DesignHeight="560"
+        x:Class="UiharuMind.Features.Models.AudioModels.Online.AudioServiceEditWindow"
+        x:DataType="online:AudioServiceEditViewData"
+        Width="760"
+        Height="580"
+        MinWidth="640"
+        MinHeight="460"
+        WindowStartupLocation="CenterOwner"
+        Title="{loc:Loc AudioServiceWindowTitle}">
+
+    <Window.Styles>
+        <Style Selector="TextBlock.error">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource MessageStatusErrorBrush}" />
+        </Style>
+        <Style Selector="Button.copy-chip">
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="CornerRadius" Value="14" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource SemiGrey0}">
+
+        <!-- 头部 -->
+        <Border Padding="18,15" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="50,*" ColumnSpacing="12">
+                <Border Width="50" Height="50" CornerRadius="8" Background="{DynamicResource SemiBlue0}">
+                    <controls:ThemedSvgIcon Width="24" Height="24" IconName="globe" />
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
+                    <TextBlock Text="{loc:Loc AudioServiceCreateTitle}" FontSize="20" IsVisible="{Binding !IsEditMode}" />
+                    <TextBlock Text="{loc:Loc AudioServiceEditTitle}" FontSize="20" IsVisible="{Binding IsEditMode}" />
+                    <TextBlock Text="{loc:Loc AudioServiceCreateHint}" Classes="muted" TextWrapping="Wrap" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 主体：左侧服务商（仅新建）/ 右侧表单 -->
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*">
+            <Border Width="210" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,0,1,0"
+                    IsVisible="{Binding !IsEditMode}">
+                <Grid RowDefinitions="Auto,*">
+                    <TextBlock Text="{loc:Loc AudioServiceSelectPreset}" Margin="16,14,16,8" />
+                    <ListBox Grid.Row="1" Background="Transparent" ItemsSource="{Binding Presets}"
+                             SelectedItem="{Binding SelectedPreset}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="online:AudioServicePresetItem">
+                                <TextBlock Text="{Binding DisplayName}" FontSize="14" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+
+            <ScrollViewer Grid.Column="1">
+                <StackPanel Margin="18" Spacing="14">
+                    <TextBlock Text="{loc:Loc AudioServiceEdgeHint}" Classes="muted" TextWrapping="Wrap"
+                               IsVisible="{Binding IsEdge}" />
+
+                    <StackPanel Spacing="6" IsVisible="{Binding IsCompatible}">
+                        <TextBlock Text="{loc:Loc ApiKey}" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <TextBox Text="{Binding ApiKey}" PasswordChar="*" />
+                            <Button Grid.Column="1" VerticalAlignment="Stretch" Padding="14,0"
+                                    Click="OpenWebsite_Click" IsVisible="{Binding HasWebsite}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <controls:ThemedSvgIcon Width="14" Height="14" IconName="square-arrow-out-up-right" />
+                                    <TextBlock Text="{loc:Loc RemoteModelOpenWebsite}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- 同一服务地址下的对话模型：沿用它的密钥（只复制一次，不引用） -->
+                    <StackPanel Spacing="6" IsVisible="{Binding HasCopySources}">
+                        <TextBlock Text="{loc:Loc ImageModelCopyKeyFrom}" />
+                        <TextBlock Text="{loc:Loc ImageModelCopyKeyHint}" Classes="muted" TextWrapping="Wrap" />
+                        <ItemsControl ItemsSource="{Binding CopySources}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:RemoteModelInfo">
+                                    <Button Classes="copy-chip" Margin="0,0,8,8" Content="{Binding ModelName}"
+                                            Command="{Binding $parent[ItemsControl].((online:AudioServiceEditViewData)DataContext).CopyKeyFromCommand}"
+                                            CommandParameter="{Binding}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="{loc:Loc AudioServiceNameLabel}" />
+                        <TextBox Text="{Binding Name}" />
+                        <TextBlock Classes="error" Text="{loc:Loc AudioServiceNameError}" IsVisible="{Binding HasNameError}" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="6" IsVisible="{Binding CanChooseTask}">
+                        <TextBlock Text="{loc:Loc AudioServiceTaskLabel}" />
+                        <ComboBox ItemsSource="{Binding TaskOptions}" SelectedItem="{Binding SelectedTask}" MinWidth="200"
+                                  DisplayMemberBinding="{ReflectionBinding Label}" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="6" IsVisible="{Binding IsCompatible}">
+                        <TextBlock Text="{loc:Loc AudioServiceModelLabel}" />
+                        <ComboBox IsEditable="True" HorizontalAlignment="Stretch" ItemsSource="{Binding ModelId.Options}"
+                                  SelectedItem="{Binding ModelId.SelectedOption}" Text="{Binding ModelId.Text}"
+                                  IsVisible="{Binding ModelId.HasOptions}" />
+                        <TextBox Text="{Binding ModelId.Text}" IsVisible="{Binding !ModelId.HasOptions}" />
+                        <TextBlock Classes="error" Text="{loc:Loc AudioServiceModelError}" IsVisible="{Binding HasModelIdError}" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="6" IsVisible="{Binding IsTts}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="{loc:Loc AudioVoice}" VerticalAlignment="Center" />
+                            <SpinnerIcon IsVisible="{Binding IsLoadingVoices}" />
+                        </StackPanel>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <ComboBox IsEditable="True" HorizontalAlignment="Stretch" ItemsSource="{Binding Voice.Options}"
+                                      SelectedItem="{Binding Voice.SelectedOption}" Text="{Binding Voice.Text}"
+                                      IsVisible="{Binding Voice.HasOptions}" />
+                            <TextBox Text="{Binding Voice.Text}" IsVisible="{Binding !Voice.HasOptions}" />
+                            <Button Grid.Column="1" Command="{Binding PreviewCommand}" MinWidth="88">
+                                <Panel>
+                                    <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding !IsPreviewing}">
+                                        <controls:ThemedSvgIcon Width="14" Height="14" IconName="play" />
+                                        <TextBlock Text="{loc:Loc AudioServicePreview}" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsPreviewing}">
+                                        <controls:ThemedSvgIcon Width="14" Height="14" IconName="stop" CurrentColor="Red" />
+                                        <TextBlock Text="{loc:Loc AudioServicePreviewStop}" />
+                                    </StackPanel>
+                                </Panel>
+                            </Button>
+                        </Grid>
+                        <TextBlock Text="{loc:Loc AudioServiceVoiceHint}" Classes="muted" TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="6" IsVisible="{Binding IsCompatible}">
+                        <TextBlock Text="{loc:Loc AudioServiceEndpointLabel}" />
+                        <TextBox Text="{Binding Endpoint}" />
+                        <TextBlock Text="{loc:Loc AudioServiceEndpointHint}" Classes="muted" TextWrapping="Wrap" />
+                        <TextBlock Classes="error" Text="{loc:Loc ImageModelEndpointError}" IsVisible="{Binding HasEndpointError}" />
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- 底部按钮条 -->
+        <Border Grid.Row="2" Padding="14" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,1,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                <Button Content="{loc:Loc CancelBtn}" Click="Cancel_Click" />
+                <Button IsEnabled="{Binding CanConfirm}" Click="Confirm_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <controls:ThemedSvgIcon Width="15" Height="15" IconName="save" />
+                        <TextBlock Text="{loc:Loc CreateBtn}" IsVisible="{Binding !IsEditMode}" />
+                        <TextBlock Text="{loc:Loc SaveBtn}" IsVisible="{Binding IsEditMode}" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

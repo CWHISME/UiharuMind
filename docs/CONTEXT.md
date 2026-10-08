@@ -863,8 +863,8 @@ _Avoid_: 协议——对话侧只有 OpenAI 兼容一种协议，这个词会让
 
 出声或听写的那件东西，分**本地引擎 / 在线服务 / 系统内置**三类。
 分类本身就是术语的一部分：三类的**用户可见代价互不相同**（下几百兆 / 填密钥或什么都不填 / 什么都不用做）。
-体现为 `IAudioProvider`（`Kind` + 能力位 + 合成 / 听写）与 `AudioProviderRegistry`（按能力查），
-与文本侧的 `IModelRuntimeBackend` + `ModelRuntimeBackendRegistry` 同构，互不隶属（见 [ADR 0071](adr/0071-音频接入：provider抽象与音频模型归位.md)）。
+体现为 `IAudioProvider`（`Kind` + 能力位 + 合成 / 听写），朗读、听写各用哪个由 `AudioRouter` 记
+（本地引擎或某个在线服务，二选一）；与文本侧的 `IModelRuntimeBackend` 同构，互不隶属（见 [ADR 0071](adr/0071-音频接入：provider抽象与音频模型归位.md)）。
 
 ⚠️ 不要叫它「语音模型」——模型是它用的资源，不是它本身。
 ⚠️ 不要与**引擎版本**混淆：那是文本引擎的成品包。

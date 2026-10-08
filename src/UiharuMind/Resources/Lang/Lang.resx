@@ -4876,4 +4876,100 @@ Allow them?</value>
     <data name="VoiceSaveFailed" xml:space="preserve">
         <value>Could not save the voice: {0}</value>
     </data>
+    <data name="AudioErrorUnauthorized" xml:space="preserve">
+        <value>The service refused the request, most likely a wrong key or no access to this model. ({0})</value>
+    </data>
+    <data name="AudioErrorRateLimited" xml:space="preserve">
+        <value>Too many requests or out of quota. Try again later. ({0})</value>
+    </data>
+    <data name="AudioErrorTimeout" xml:space="preserve">
+        <value>The voice service took too long to respond.</value>
+    </data>
+    <data name="AudioErrorNetwork" xml:space="preserve">
+        <value>Could not reach the voice service. Check your network. ({0})</value>
+    </data>
+    <data name="AudioServiceAdd" xml:space="preserve">
+        <value>Add online service</value>
+    </data>
+    <data name="AudioServiceOnline" xml:space="preserve">
+        <value>Online</value>
+    </data>
+    <data name="AudioServiceVoiceAuto" xml:space="preserve">
+        <value>Voice by language</value>
+    </data>
+    <data name="AudioServiceDeleteConfirm" xml:space="preserve">
+        <value>Delete the online service "{0}"?</value>
+    </data>
+    <data name="AudioServiceTaskTts" xml:space="preserve">
+        <value>Read aloud (speech synthesis)</value>
+    </data>
+    <data name="AudioServiceTaskAsr" xml:space="preserve">
+        <value>Dictation (speech recognition)</value>
+    </data>
+    <data name="AudioServicePreviewFailed" xml:space="preserve">
+        <value>Preview failed: {0}</value>
+    </data>
+    <data name="AudioServicePresetCustom" xml:space="preserve">
+        <value>Custom (OpenAI compatible)</value>
+    </data>
+    <data name="AudioServicePresetEdge" xml:space="preserve">
+        <value>Edge TTS · free read-aloud</value>
+    </data>
+    <data name="AudioServicePresetTts" xml:space="preserve">
+        <value>{0} · read aloud</value>
+    </data>
+    <data name="AudioServicePresetAsr" xml:space="preserve">
+        <value>{0} · dictation</value>
+    </data>
+    <data name="AudioServiceBrandSiliconFlow" xml:space="preserve">
+        <value>SiliconFlow</value>
+    </data>
+    <data name="AudioServiceWindowTitle" xml:space="preserve">
+        <value>Online voice service</value>
+    </data>
+    <data name="AudioServiceCreateTitle" xml:space="preserve">
+        <value>Add an online voice service</value>
+    </data>
+    <data name="AudioServiceEditTitle" xml:space="preserve">
+        <value>Edit online voice service</value>
+    </data>
+    <data name="AudioServiceCreateHint" xml:space="preserve">
+        <value>Read aloud or dictate with an online service, no model download needed. The text and recordings are sent to the provider.</value>
+    </data>
+    <data name="AudioServiceSelectPreset" xml:space="preserve">
+        <value>Provider</value>
+    </data>
+    <data name="AudioServiceEdgeHint" xml:space="preserve">
+        <value>The service behind Microsoft Edge's read-aloud: free, no key, good quality. It is not a public API, so it may occasionally stop working.</value>
+    </data>
+    <data name="AudioServiceNameLabel" xml:space="preserve">
+        <value>Name</value>
+    </data>
+    <data name="AudioServiceNameError" xml:space="preserve">
+        <value>The name cannot be empty or the same as another service.</value>
+    </data>
+    <data name="AudioServiceTaskLabel" xml:space="preserve">
+        <value>Used for</value>
+    </data>
+    <data name="AudioServiceModelLabel" xml:space="preserve">
+        <value>Model</value>
+    </data>
+    <data name="AudioServiceModelError" xml:space="preserve">
+        <value>Enter a model id.</value>
+    </data>
+    <data name="AudioServicePreview" xml:space="preserve">
+        <value>Preview</value>
+    </data>
+    <data name="AudioServiceVoiceHint" xml:space="preserve">
+        <value>Pick a suggestion or type any voice id the service supports. Leave empty for the default; Edge TTS picks one by the text's language.</value>
+    </data>
+    <data name="AudioServiceEndpointLabel" xml:space="preserve">
+        <value>Endpoint</value>
+    </data>
+    <data name="AudioServiceEndpointHint" xml:space="preserve">
+        <value>Enter up to /v1; the API path is added automatically.</value>
+    </data>
+    <data name="AudioServicePreviewStop" xml:space="preserve">
+        <value>Stop</value>
+    </data>
 </root>

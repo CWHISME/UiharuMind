@@ -12,6 +12,7 @@ using UiharuMind.Core.AI.Engines;
 using UiharuMind.Core.AI.Runtime;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Features.Audio;
+using UiharuMind.Features.Models.AudioModels.Online;
 using UiharuMind.Features.Models.AudioModels.Voices;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
@@ -32,6 +33,7 @@ public partial class AudioModelListViewData : ObservableObject
     private readonly Action<string> _openFolder;
     private readonly Action _goToMarket;
     private readonly Action _openEngineSettings;
+    private readonly Dictionary<EAudioCapability, string?> _defaultModels = new(); //引擎会用的本地模型（选了的，没选就第一个）
 
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private bool _hasEngine = true;
@@ -49,12 +51,16 @@ public partial class AudioModelListViewData : ObservableObject
     /// <param name="goToMarket">去「获取模型」的语音分类</param>
     /// <param name="openEngineSettings">去设置里的「本地模型（语音）」</param>
     /// <param name="voices">音色库；null 不显示</param>
+    /// <param name="online">在线服务；null 不显示</param>
     public AudioModelListViewData(IMessageService messageService, AudioCppEngine engine, AudioCppPackageStore store,
         Func<string, CancellationToken, Task<IReadOnlyList<string>>> listVoices, IReadAloudService readAloud,
-        Action<string> openFolder, Action goToMarket, Action openEngineSettings, VoiceLibraryViewData? voices = null)
+        Action<string> openFolder, Action goToMarket, Action openEngineSettings, VoiceLibraryViewData? voices = null,
+        AudioServiceListViewData? online = null)
     {
         Voices = voices;
         if (voices != null) voices.Refreshed += ApplyLibraryVoices;
+        Online = online;
+        if (online != null) online.Changed += OnOnlineChanged;
         _readAloud = readAloud;
         readAloud.StateChanged += OnReadAloudChanged;
         _messageService = messageService;
@@ -79,6 +85,26 @@ public partial class AudioModelListViewData : ObservableObject
     public bool HasTtsModels => TtsModels.Count > 0;
 
     /// <summary>
+    /// 在线服务；没配为 null
+    /// </summary>
+    public AudioServiceListViewData? Online { get; }
+
+    /// <summary>
+    /// 朗读分组里有东西（本地模型或在线服务）
+    /// </summary>
+    public bool HasTts => HasTtsModels || Online?.TtsServices.Count > 0;
+
+    /// <summary>
+    /// 听写分组里有东西
+    /// </summary>
+    public bool HasAsr => HasAsrModels || Online?.AsrServices.Count > 0;
+
+    /// <summary>
+    /// 本地模型、在线服务至少有一个
+    /// </summary>
+    public bool HasAnything => HasTts || HasAsr;
+
+    /// <summary>
     /// 音色库；没配为 null
     /// </summary>
     public VoiceLibraryViewData? Voices { get; }
@@ -99,7 +125,7 @@ public partial class AudioModelListViewData : ObservableObject
     /// <summary>
     /// 一个模型都没有：显示空状态
     /// </summary>
-    public bool ShowEmpty => IsLoaded && !HasModels;
+    public bool ShowEmpty => IsLoaded && !HasAnything;
 
     /// <summary>
     /// 语音模型目录
@@ -128,12 +154,15 @@ public partial class AudioModelListViewData : ObservableObject
             });
 
             HasEngine = _engine.CurrentVersion != null;
-            Fill(TtsModels, models, families, sizes, EAudioCppTask.Tts, defaults.Tts);
-            Fill(AsrModels, models, families, sizes, EAudioCppTask.Asr, defaults.Asr);
+            _defaultModels[EAudioCapability.Tts] = defaults.Tts;
+            _defaultModels[EAudioCapability.Asr] = defaults.Asr;
+            Fill(TtsModels, models, families, sizes, EAudioCppTask.Tts);
+            Fill(AsrModels, models, families, sizes, EAudioCppTask.Asr);
             HasModels = TtsModels.Count + AsrModels.Count > 0;
             OnPropertyChanged(nameof(HasTtsModels));
             OnPropertyChanged(nameof(HasAsrModels));
             OnPropertyChanged(nameof(ShowVoices));
+            OnOnlineChanged();
             if (Voices != null) Voices.Refresh();
             await RefreshStatusAsync();
         }
@@ -170,6 +199,7 @@ public partial class AudioModelListViewData : ObservableObject
 
     partial void OnIsLoadedChanged(bool value) => OnPropertyChanged(nameof(ShowEmpty));
 
+    // 本地模型与在线服务二选一：设本地的就把默认改回本地引擎
     [RelayCommand]
     private void SetDefault(AudioModelItemData item)
     {
@@ -177,7 +207,9 @@ public partial class AudioModelListViewData : ObservableObject
         if (isTts) _engine.Settings.TtsModel = item.Name;
         else _engine.Settings.AsrModel = item.Name;
         _engine.Settings.Save();
-        foreach (AudioModelItemData model in isTts ? TtsModels : AsrModels) model.IsDefault = model == item;
+        _defaultModels[isTts ? EAudioCapability.Tts : EAudioCapability.Asr] = item.Name;
+        Online?.Router.UseLocal(isTts ? EAudioCapability.Tts : EAudioCapability.Asr);
+        RefreshLocalDefaults();
         _messageService.ShowNotification(Loc.Text(isTts ? LangKey.AudioDefaultSetTts : LangKey.AudioDefaultSetAsr,
             item.Name), severity: MessageSeverity.Success);
     }
@@ -209,6 +241,30 @@ public partial class AudioModelListViewData : ObservableObject
         string? voice = item.SelectedVoice is { Id.Length: > 0 } selected ? selected.Id : null;
         await _readAloud.ToggleAsync(item, item.PreviewText, new ReadAloudOptions(item.Name, voice));
         await RefreshStatusAsync();
+    }
+
+    [RelayCommand]
+    private Task AddService() => Online?.AddCommand.ExecuteAsync(null) ?? Task.CompletedTask;
+
+    private void OnOnlineChanged()
+    {
+        RefreshLocalDefaults();
+        OnPropertyChanged(nameof(HasTts));
+        OnPropertyChanged(nameof(HasAsr));
+        OnPropertyChanged(nameof(HasAnything));
+        OnPropertyChanged(nameof(ShowEmpty));
+    }
+
+    // 默认用在线服务时，本地模型都不标「默认」
+    private void RefreshLocalDefaults()
+    {
+        foreach ((EAudioCapability task, ObservableCollection<AudioModelItemData> items) in
+                 new[] { (EAudioCapability.Tts, TtsModels), (EAudioCapability.Asr, AsrModels) })
+        {
+            bool online = Online?.Router.DefaultService(task) != null;
+            string? model = _defaultModels.GetValueOrDefault(task);
+            foreach (AudioModelItemData item in items) item.IsDefault = !online && item.Name == model;
+        }
     }
 
     private void ApplyLibraryVoices()
@@ -279,8 +335,7 @@ public partial class AudioModelListViewData : ObservableObject
     }
 
     private void Fill(ObservableCollection<AudioModelItemData> target, IReadOnlyList<AudioCppModelEntry> models,
-        Dictionary<string, AudioCppFamily> families, Dictionary<string, long> sizes, EAudioCppTask task,
-        string? defaultModel)
+        Dictionary<string, AudioCppFamily> families, Dictionary<string, long> sizes, EAudioCppTask task)
     {
         string name = task.ToConfigName();
         target.Clear();
@@ -288,8 +343,7 @@ public partial class AudioModelListViewData : ObservableObject
                      .OrderBy(x => x.Id, StringComparer.OrdinalIgnoreCase))
         {
             AudioCppFamily? family = families.GetValueOrDefault(model.Family);
-            target.Add(new AudioModelItemData(model, family, sizes.GetValueOrDefault(model.Id), _engine.Settings)
-                { IsDefault = model.Id == defaultModel });
+            target.Add(new AudioModelItemData(model, family, sizes.GetValueOrDefault(model.Id), _engine.Settings));
         }
     }
 

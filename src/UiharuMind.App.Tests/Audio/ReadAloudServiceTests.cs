@@ -20,7 +20,7 @@ public class ReadAloudServiceTests
     [Fact]
     public async Task ReadsSentenceBySentence_WithDetectedLanguage_ThenGoesIdle()
     {
-        ReadAloudService service = new(() => _tts, _player, _messages);
+        ReadAloudService service = new(_ => _tts, _player, _messages);
         object owner = new();
         List<EReadAloudState> states = [];
         service.StateChanged += () => states.Add(service.State);
@@ -39,7 +39,7 @@ public class ReadAloudServiceTests
     [Fact]
     public async Task ToggleSameOwner_Stops()
     {
-        ReadAloudService service = new(() => _tts, _player, _messages);
+        ReadAloudService service = new(_ => _tts, _player, _messages);
         object owner = new();
 
         Task reading = service.ToggleAsync(owner, "Hello there. How are you today?");
@@ -57,7 +57,7 @@ public class ReadAloudServiceTests
     [Fact]
     public async Task PreviewWhileReading_StopsTheReadingAtOnce_AndUsesItsModelAndVoice()
     {
-        ReadAloudService service = new(() => _tts, _player, _messages);
+        ReadAloudService service = new(_ => _tts, _player, _messages);
         object message = new();
         object preview = new();
 
@@ -80,7 +80,7 @@ public class ReadAloudServiceTests
     [Fact]
     public async Task InterruptedByAnotherPlayback_DoesNotReadOn()
     {
-        ReadAloudService service = new(() => _tts, _player, _messages);
+        ReadAloudService service = new(_ => _tts, _player, _messages);
         _player.Interrupt = true; //第一句就被别的播放（如试听）顶掉
 
         await service.ToggleAsync(new object(), "One. Two. Three. " + new string('x', 300));
@@ -92,7 +92,7 @@ public class ReadAloudServiceTests
     [Fact]
     public async Task Failure_IsExplained_AndEmptyTextIsNoticed()
     {
-        ReadAloudService service = new(() => _tts, _player, _messages);
+        ReadAloudService service = new(_ => _tts, _player, _messages);
         _tts.Error = new AudioModelMissingException(EAudioCppTask.Tts);
 
         await service.ToggleAsync(new object(), "Hello.");
@@ -106,7 +106,7 @@ public class ReadAloudServiceTests
     [Fact]
     public async Task Conversation_MarksTheBubbleBeingRead()
     {
-        ReadAloudService service = new(() => _tts, _player, _messages);
+        ReadAloudService service = new(_ => _tts, _player, _messages);
         ObservableCollection<ConversationItemBase> items = [];
         using ConversationReadAloud readAloud = new(items, service);
         TextConversationItem first = ConversationItemFactory.CreateNarration(new Microsoft.Extensions.AI.ChatMessage(

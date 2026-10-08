@@ -196,13 +196,15 @@ public sealed class DictationService : IDictationService
         SetState(EDictationState.Idle, null);
     }
 
-    // 拿 0.2 秒静音识别一次：引擎没起就起、模型没载就载，等用户说完时多半已经就绪。失败不提示，真识别时再说
+    // 拿 0.2 秒静音识别一次：引擎没起就起、模型没载就载，等用户说完时多半已经就绪。失败不提示，真识别时再说。
+    // 在线服务不用预热，也不该为它白发一次（可能计费）
     private void Prewarm()
     {
         _ = Task.Run(async () =>
         {
             try
             {
+                if (!_asr().IsLocal) return;
                 byte[] silence = WavEncoder.Encode(new float[IAudioRecorder.SpeechSampleRate / 5],
                     IAudioRecorder.SpeechSampleRate, 1);
                 using System.IO.MemoryStream audio = new(silence, false);

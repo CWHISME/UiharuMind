@@ -23,6 +23,7 @@ using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
+using UiharuMind.Features.Models.AudioModels.Online;
 using UiharuMind.Features.Models.AudioModels.Voices;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Utils;
@@ -163,10 +164,13 @@ public partial class ModelPageData : PageDataBase
                         list?.HasAsrModels == true)),
                 path => App.FilesService.OpenFolder(path), action => Dispatcher.UIThread.Post(action))
             : null;
+        AudioServiceListViewData online = new(audio.Router(), AudioServiceSettingConfig.Current, audio.ReadAloud,
+            page._messageService, (source, takenNames) => AudioServiceEditWindow.ShowWindow(UIManager.GetRootWindow(),
+                source, takenNames, audio.Player, page._messageService));
         list = new AudioModelListViewData(page._messageService, engine, AudioCppPackageStore.Shared,
             (model, token) => audio.LocalProvider().GetVoicesAsync(model, token), audio.ReadAloud,
             path => App.FilesService.OpenFolder(path), page.ShowAudioDownloads,
-            () => UIManager.ShowWindow<SettingsWindow>(window => window.ShowAudioEngineSettings()), voices);
+            () => UIManager.ShowWindow<SettingsWindow>(window => window.ShowAudioEngineSettings()), voices, online);
         return list;
     }
 

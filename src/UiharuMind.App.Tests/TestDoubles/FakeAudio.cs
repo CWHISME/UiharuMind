@@ -25,7 +25,7 @@ internal sealed class FakeAudioProvider : IAudioProvider
 
     public IReadOnlySet<EAudioCapability> Capabilities { get; } = new HashSet<EAudioCapability> { EAudioCapability.Tts };
 
-    public bool IsLocal => true;
+    public bool IsLocal { get; set; } = true;
 
     public Task<AudioSynthesisResult> SynthesizeAsync(AudioSynthesisRequest request, CancellationToken cancellationToken)
     {

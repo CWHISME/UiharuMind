@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:models="clr-namespace:UiharuMind.Features.Models.AudioModels"
              xmlns:voices="clr-namespace:UiharuMind.Features.Models.AudioModels.Voices"
+             xmlns:online="clr-namespace:UiharuMind.Features.Models.AudioModels.Online"
              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              x:Class="UiharuMind.Features.Models.AudioModels.AudioModelListView"
@@ -26,6 +27,12 @@
             <Setter Property="FontSize" Value="11" />
             <Setter Property="CornerRadius" Value="9" />
         </Style>
+        <Style Selector="Border.online-badge">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="Padding" Value="7,1" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
         <Style Selector="Border.audio-row">
             <Setter Property="Padding" Value="14,10" />
             <Setter Property="BorderThickness" Value="0,0,0,1" />
@@ -36,6 +43,59 @@
             <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
         </Style>
     </UserControl.Styles>
+
+    <UserControl.Resources>
+        <!-- 在线服务一行：朗读、听写两组共用；试听只有朗读的有 -->
+        <DataTemplate x:Key="OnlineServiceRow" x:DataType="online:AudioServiceItemData">
+            <Border Classes="audio-row">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                    <Border Classes="model-icon">
+                        <controls:ThemedSvgIcon Width="18" Height="18" IconName="globe" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center" />
+                            <Border Classes="online-badge">
+                                <TextBlock Text="{loc:Loc AudioServiceOnline}" FontSize="11" />
+                            </Border>
+                            <Border Classes="default-badge" IsVisible="{Binding IsDefault}">
+                                <Panel>
+                                    <TextBlock Text="{loc:Loc AudioModelsDefaultTts}" FontSize="11" Foreground="White"
+                                               IsVisible="{Binding IsTts}" />
+                                    <TextBlock Text="{loc:Loc AudioModelsDefaultAsr}" FontSize="11" Foreground="White"
+                                               IsVisible="{Binding !IsTts}" />
+                                </Panel>
+                            </Border>
+                            <Button Classes="toolbar-link set-default" Content="{loc:Loc AudioPackageSetDefault}"
+                                    ToolTip.Tip="{loc:Loc AudioPackageSetDefaultTip}" IsVisible="{Binding !IsDefault}"
+                                    Command="{Binding $parent[UserControl].((models:AudioModelListViewData)DataContext).Online.SetDefaultCommand}"
+                                    CommandParameter="{Binding}" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding Detail}" Classes="muted" FontSize="12" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <Panel Width="28" Height="28" IsVisible="{Binding IsTts}">
+                            <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="play"
+                                              ToolTip.Tip="{loc:Loc AudioPreviewTip}" IsVisible="{Binding !IsPreviewing}"
+                                              Command="{Binding $parent[UserControl].((models:AudioModelListViewData)DataContext).Online.PreviewCommand}"
+                                              CommandParameter="{Binding}" />
+                            <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="stop" CurrentColor="Red"
+                                              ToolTip.Tip="{loc:Loc AudioPreviewStopTip}" IsVisible="{Binding IsPreviewing}"
+                                              Command="{Binding $parent[UserControl].((models:AudioModelListViewData)DataContext).Online.PreviewCommand}"
+                                              CommandParameter="{Binding}" />
+                        </Panel>
+                        <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="pencil" ToolTip.Tip="{loc:Loc Edit}"
+                                          Command="{Binding $parent[UserControl].((models:AudioModelListViewData)DataContext).Online.EditCommand}"
+                                          CommandParameter="{Binding}" />
+                        <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="trash-2" ToolTip.Tip="{loc:Loc Delete}"
+                                          Command="{Binding $parent[UserControl].((models:AudioModelListViewData)DataContext).Online.DeleteCommand}"
+                                          CommandParameter="{Binding}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </UserControl.Resources>
 
     <DockPanel Margin="0,14,0,0">
         <!-- 工具条：左边语音模型目录，右边去获取 -->
@@ -49,12 +109,20 @@
                 <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="refresh-cw"
                                   ToolTip.Tip="{loc:Loc ModelListRescanTip}" Command="{Binding RefreshCommand}" />
             </StackPanel>
-            <Button Grid.Column="2" Command="{Binding GoToMarketCommand}">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <controls:ThemedSvgIcon Width="14" Height="14" IconName="download" />
-                    <TextBlock Text="{loc:Loc AudioModelsGetMore}" />
-                </StackPanel>
-            </Button>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                <Button Command="{Binding AddServiceCommand}" IsVisible="{Binding Online, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <controls:ThemedSvgIcon Width="14" Height="14" IconName="globe" />
+                        <TextBlock Text="{loc:Loc AudioServiceAdd}" />
+                    </StackPanel>
+                </Button>
+                <Button Command="{Binding GoToMarketCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <controls:ThemedSvgIcon Width="14" Height="14" IconName="download" />
+                        <TextBlock Text="{loc:Loc AudioModelsGetMore}" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
         </Grid>
 
         <!-- 引擎状态：在不在跑、加载了几个、多久自动卸载；跑着时可一键释放内存 -->
@@ -98,14 +166,17 @@
                     <TextBlock Text="{loc:Loc AudioModelsEmptyTitle}" HorizontalAlignment="Center" FontWeight="SemiBold" />
                     <TextBlock Text="{loc:Loc AudioModelsEmptyHint}" Classes="muted" HorizontalAlignment="Center"
                                TextAlignment="Center" TextWrapping="Wrap" />
-                    <Button Classes="Primary" HorizontalAlignment="Center" Margin="0,4,0,0"
-                            Content="{loc:Loc AudioModelsGetMore}" Command="{Binding GoToMarketCommand}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" Margin="0,4,0,0">
+                        <Button Classes="Primary" Content="{loc:Loc AudioModelsGetMore}" Command="{Binding GoToMarketCommand}" />
+                        <Button Content="{loc:Loc AudioServiceAdd}" Command="{Binding AddServiceCommand}"
+                                IsVisible="{Binding Online, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                    </StackPanel>
                 </StackPanel>
 
-                <ScrollViewer HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasModels}">
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasAnything}">
                     <StackPanel>
                         <TextBlock Classes="group-header" Text="{loc:Loc AudioModelsTtsGroup}"
-                                   IsVisible="{Binding HasTtsModels}" />
+                                   IsVisible="{Binding HasTts}" />
                         <ItemsControl ItemsSource="{Binding TtsModels}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="models:AudioModelItemData">
@@ -184,12 +255,15 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
+                        <ItemsControl ItemsSource="{Binding Online.TtsServices}"
+                                      ItemTemplate="{StaticResource OnlineServiceRow}" />
+
                         <Panel IsVisible="{Binding ShowVoices}">
                             <voices:VoiceLibraryView DataContext="{Binding Voices}" />
                         </Panel>
 
                         <TextBlock Classes="group-header" Text="{loc:Loc AudioModelsAsrGroup}"
-                                   IsVisible="{Binding HasAsrModels}" />
+                                   IsVisible="{Binding HasAsr}" />
                         <ItemsControl ItemsSource="{Binding AsrModels}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="models:AudioModelItemData">
@@ -241,6 +315,8 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                        <ItemsControl ItemsSource="{Binding Online.AsrServices}"
+                                      ItemTemplate="{StaticResource OnlineServiceRow}" />
                     </StackPanel>
                 </ScrollViewer>
             </Panel>

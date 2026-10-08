@@ -40,6 +40,19 @@ public class DictationServiceTests
     }
 
     [Fact]
+    public async Task OnlineRecognizer_IsNotPrewarmed()
+    {
+        _asr.IsLocal = false;
+
+        Assert.True(_service.Start(_target));
+        await Task.Delay(100, TestContext.Current.CancellationToken);
+        await _service.StopAsync();
+
+        Assert.Equal(["你好世界"], _target.Inserted);
+        Assert.Single(_asr.Transcriptions); //只有真识别那一次，没为预热白发请求
+    }
+
+    [Fact]
     public async Task ShortOrSilentRecording_IsNotTranscribed()
     {
         _recorder.Recording = FakeAudioRecorder.Speech(TimeSpan.FromMilliseconds(100));
