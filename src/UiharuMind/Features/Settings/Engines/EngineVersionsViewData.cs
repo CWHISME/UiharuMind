@@ -92,7 +92,7 @@ public partial class EngineVersionsViewData : ObservableObject
     /// <summary>
     /// 卡片上的版本号；没装时说明一句
     /// </summary>
-    public string VersionText => SelectedVersion?.Name ?? Loc.Text(LangKey.LLamaCppNoEngine);
+    public string VersionText => SelectedVersion?.Name ?? Loc.Text(LangKey.EngineNotInstalled);
 
     /// <summary>
     /// 当前版本是本机推荐的变体
@@ -117,7 +117,7 @@ public partial class EngineVersionsViewData : ObservableObject
     /// <summary>
     /// 新版本提示
     /// </summary>
-    public string UpdateText => AvailableUpdate == null ? "" : Loc.Text(LangKey.LLamaCppUpdateAvailable, AvailableUpdate.Name);
+    public string UpdateText => AvailableUpdate == null ? "" : Loc.Text(LangKey.EngineUpdateAvailable, AvailableUpdate.Name);
 
     /// <summary>
     /// 有没有更新通道可选
@@ -129,8 +129,8 @@ public partial class EngineVersionsViewData : ObservableObject
     /// </summary>
     public IReadOnlyList<SettingChoice<bool>> ChannelOptions { get; } =
     [
-        new(false, Loc.Text(LangKey.LLamaCppChannelPreview)),
-        new(true, Loc.Text(LangKey.LLamaCppChannelStable))
+        new(false, Loc.Text(LangKey.EngineChannelPreview)),
+        new(true, Loc.Text(LangKey.EngineChannelStable))
     ];
 
     // 与模型下载自动装引擎同一条路：排进全局下载队列，装好后选中
@@ -139,7 +139,7 @@ public partial class EngineVersionsViewData : ObservableObject
     {
         if (AvailableUpdate is not { } version) return;
         DownloadJob job = _source.Enqueue(version);
-        _messageService.ShowNotification(Loc.Text(LangKey.LLamaCppUpdateQueued, version.Name));
+        _messageService.ShowNotification(Loc.Text(LangKey.EngineUpdateQueued, version.Name));
         EngineInstallFeedback.Watch(job, version.Name, _messageService);
     }
 

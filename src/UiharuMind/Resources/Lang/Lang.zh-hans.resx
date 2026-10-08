@@ -4125,19 +4125,19 @@
     <data name="LLamaCppDefaultSuffix" xml:space="preserve">
         <value>{0}（默认）</value>
     </data>
-    <data name="LLamaCppReleaseNotes" xml:space="preserve">
+    <data name="EngineReleaseNotes" xml:space="preserve">
         <value>发布说明</value>
     </data>
-    <data name="LLamaCppVersion" xml:space="preserve">
+    <data name="EngineVersion" xml:space="preserve">
         <value>引擎版本</value>
     </data>
     <data name="LLamaCppVersionDesc" xml:space="preserve">
         <value>下次加载模型时使用的 llama.cpp 构建。</value>
     </data>
-    <data name="LLamaCppUpdateResult" xml:space="preserve">
+    <data name="EngineUpdateResult" xml:space="preserve">
         <value>最新版本说明</value>
     </data>
-    <data name="LLamaCppNoEngine" xml:space="preserve">
+    <data name="EngineNotInstalled" xml:space="preserve">
         <value>未安装</value>
     </data>
     <data name="LLamaCppSectionCommon" xml:space="preserve">
@@ -4233,7 +4233,7 @@
     <data name="LLamaCppFitTargetDesc" xml:space="preserve">
         <value>按内存自动适配时，每个设备留出的空余。</value>
     </data>
-    <data name="LLamaCppLoadTimeout" xml:space="preserve">
+    <data name="EngineLoadTimeout" xml:space="preserve">
         <value>加载超时（秒）</value>
     </data>
     <data name="LLamaCppLoadTimeoutDesc" xml:space="preserve">
@@ -4359,25 +4359,25 @@
     <data name="ModelListEmptyHint" xml:space="preserve">
         <value>下载一个本地模型，或者添加远程模型（OpenAI 兼容等）。</value>
     </data>
-    <data name="LLamaCppUpdateAvailable" xml:space="preserve">
+    <data name="EngineUpdateAvailable" xml:space="preserve">
         <value>新版本 {0} 可用</value>
     </data>
-    <data name="LLamaCppUpdateNow" xml:space="preserve">
+    <data name="EngineUpdateNow" xml:space="preserve">
         <value>更新</value>
     </data>
-    <data name="LLamaCppUpdateQueued" xml:space="preserve">
+    <data name="EngineUpdateQueued" xml:space="preserve">
         <value>正在下载 {0}，装好后自动启用，进度见「获取模型」的下载区。</value>
     </data>
-    <data name="LLamaCppChannel" xml:space="preserve">
+    <data name="EngineChannel" xml:space="preserve">
         <value>更新通道</value>
     </data>
-    <data name="LLamaCppChannelDesc" xml:space="preserve">
+    <data name="EngineChannelDesc" xml:space="preserve">
         <value>预览版几乎每天都有新构建；正式版只跟随最新正式版钉住的构建，更新频率更低。下次检查更新时生效。</value>
     </data>
-    <data name="LLamaCppChannelStable" xml:space="preserve">
+    <data name="EngineChannelStable" xml:space="preserve">
         <value>正式版</value>
     </data>
-    <data name="LLamaCppChannelPreview" xml:space="preserve">
+    <data name="EngineChannelPreview" xml:space="preserve">
         <value>预览版</value>
     </data>
     <data name="SettingsEngineUpdateTip" xml:space="preserve">

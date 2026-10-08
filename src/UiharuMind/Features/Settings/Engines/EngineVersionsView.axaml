@@ -50,7 +50,7 @@
                         IsVisible="{Binding ReleaseUrl, Converter={x:Static ObjectConverters.IsNotNull}}"
                         Click="OnReleaseNotesClick">
                     <StackPanel Orientation="Horizontal" Spacing="4">
-                        <TextBlock Text="{loc:Loc LLamaCppReleaseNotes}" Classes="muted title-tweak-sm" FontSize="12"
+                        <TextBlock Text="{loc:Loc EngineReleaseNotes}" Classes="muted title-tweak-sm" FontSize="12"
                                    VerticalAlignment="Center" />
                         <controls:ThemedSvgIcon Width="12" Height="12" Opacity="0.6" VerticalAlignment="Center"
                                                 IconName="square-arrow-out-up-right" />
@@ -64,7 +64,7 @@
         <!-- 有新版本：一句提示加一个更新按钮 -->
         <Border Classes="update-banner" IsVisible="{Binding HasUpdate}">
             <DockPanel>
-                <Button DockPanel.Dock="Right" Classes="Primary" Content="{loc:Loc LLamaCppUpdateNow}"
+                <Button DockPanel.Dock="Right" Classes="Primary" Content="{loc:Loc EngineUpdateNow}"
                         Command="{Binding InstallUpdateCommand}" />
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <Border Classes="status-dot" Tag="Progress" />
@@ -78,7 +78,7 @@
             <TextBlock Text="{loc:Loc CheckingForUpdates}" VerticalAlignment="Center" />
         </StackPanel>
 
-        <controls:SettingsRow Header="{loc:Loc LLamaCppChannel}" Description="{loc:Loc LLamaCppChannelDesc}"
+        <controls:SettingsRow Header="{loc:Loc EngineChannel}" Description="{loc:Loc EngineChannelDesc}"
                               IsVisible="{Binding HasChannels}">
             <controls:SettingsRow.Field>
                 <ComboBox Width="300" ItemsSource="{Binding ChannelOptions}" SelectedItem="{Binding SelectedChannel}"
@@ -86,7 +86,7 @@
             </controls:SettingsRow.Field>
         </controls:SettingsRow>
 
-        <controls:SettingsRow Header="{loc:Loc LLamaCppVersion}" Description="{Binding VersionDescription}">
+        <controls:SettingsRow Header="{loc:Loc EngineVersion}" Description="{Binding VersionDescription}">
             <controls:SettingsRow.Field>
                 <ComboBox Width="300" ItemsSource="{Binding LocalVersions}" SelectedItem="{Binding SelectedVersion}"
                           VerticalAlignment="Center">
@@ -100,7 +100,7 @@
         </controls:SettingsRow>
 
         <!-- 检查更新的结果（发布说明）默认收起：内容长，多数时候不需要看 -->
-        <Expander Header="{loc:Loc LLamaCppUpdateResult}" HorizontalAlignment="Stretch"
+        <Expander Header="{loc:Loc EngineUpdateResult}" HorizontalAlignment="Stretch"
                   IsVisible="{Binding ReleaseInfo, Converter={x:Static ObjectConverters.IsNotNull}}">
             <ScrollViewer MaxHeight="260" HorizontalScrollBarVisibility="Disabled">
                 <controls:SimpleMarkdownViewer MarkdownText="{Binding ReleaseInfo}" IsPlaintext="False" Margin="4" />

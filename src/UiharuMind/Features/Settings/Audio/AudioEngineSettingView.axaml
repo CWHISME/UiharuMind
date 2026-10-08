@@ -66,7 +66,7 @@
                                                Value="{Binding MinFreeMemoryMb}" />
                             </controls:SettingsRow.Field>
                         </controls:SettingsRow>
-                        <controls:SettingsRow Header="{loc:Loc LLamaCppLoadTimeout}" Description="{loc:Loc AudioReadyTimeoutDesc}"
+                        <controls:SettingsRow Header="{loc:Loc EngineLoadTimeout}" Description="{loc:Loc AudioReadyTimeoutDesc}"
                                               DividerVisible="False">
                             <controls:SettingsRow.Field>
                                 <NumericUpDown Classes="runtime-field" Minimum="10" Maximum="600" Increment="10"

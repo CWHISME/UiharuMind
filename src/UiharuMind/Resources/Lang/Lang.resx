@@ -4132,19 +4132,19 @@ Allow them?</value>
     <data name="LLamaCppDefaultSuffix" xml:space="preserve">
         <value>{0} (default)</value>
     </data>
-    <data name="LLamaCppReleaseNotes" xml:space="preserve">
+    <data name="EngineReleaseNotes" xml:space="preserve">
         <value>Release notes</value>
     </data>
-    <data name="LLamaCppVersion" xml:space="preserve">
+    <data name="EngineVersion" xml:space="preserve">
         <value>Engine version</value>
     </data>
     <data name="LLamaCppVersionDesc" xml:space="preserve">
         <value>The llama.cpp build used the next time a model loads.</value>
     </data>
-    <data name="LLamaCppUpdateResult" xml:space="preserve">
+    <data name="EngineUpdateResult" xml:space="preserve">
         <value>Latest release notes</value>
     </data>
-    <data name="LLamaCppNoEngine" xml:space="preserve">
+    <data name="EngineNotInstalled" xml:space="preserve">
         <value>Not installed</value>
     </data>
     <data name="LLamaCppSectionCommon" xml:space="preserve">
@@ -4240,7 +4240,7 @@ Allow them?</value>
     <data name="LLamaCppFitTargetDesc" xml:space="preserve">
         <value>Memory left free on each device when fitting to memory.</value>
     </data>
-    <data name="LLamaCppLoadTimeout" xml:space="preserve">
+    <data name="EngineLoadTimeout" xml:space="preserve">
         <value>Load timeout (seconds)</value>
     </data>
     <data name="LLamaCppLoadTimeoutDesc" xml:space="preserve">
@@ -4366,25 +4366,25 @@ Allow them?</value>
     <data name="ModelListEmptyHint" xml:space="preserve">
         <value>Download a local model, or add a remote one (OpenAI-compatible and others).</value>
     </data>
-    <data name="LLamaCppUpdateAvailable" xml:space="preserve">
+    <data name="EngineUpdateAvailable" xml:space="preserve">
         <value>New version {0} is available</value>
     </data>
-    <data name="LLamaCppUpdateNow" xml:space="preserve">
+    <data name="EngineUpdateNow" xml:space="preserve">
         <value>Update</value>
     </data>
-    <data name="LLamaCppUpdateQueued" xml:space="preserve">
+    <data name="EngineUpdateQueued" xml:space="preserve">
         <value>Downloading {0}. It will be used once installed; progress is in the download area of Get models.</value>
     </data>
-    <data name="LLamaCppChannel" xml:space="preserve">
+    <data name="EngineChannel" xml:space="preserve">
         <value>Update channel</value>
     </data>
-    <data name="LLamaCppChannelDesc" xml:space="preserve">
+    <data name="EngineChannelDesc" xml:space="preserve">
         <value>Preview gets a new build almost daily. Stable only follows the build pinned by the latest stable release, so updates are less frequent. Takes effect on the next check for updates.</value>
     </data>
-    <data name="LLamaCppChannelStable" xml:space="preserve">
+    <data name="EngineChannelStable" xml:space="preserve">
         <value>Stable</value>
     </data>
-    <data name="LLamaCppChannelPreview" xml:space="preserve">
+    <data name="EngineChannelPreview" xml:space="preserve">
         <value>Preview</value>
     </data>
     <data name="SettingsEngineUpdateTip" xml:space="preserve">

@@ -209,7 +209,7 @@
                                                Value="{Binding Server.FitTargetMiB}" />
                             </controls:SettingsRow.Field>
                         </controls:SettingsRow>
-                        <controls:SettingsRow Header="{loc:Loc LLamaCppLoadTimeout}" Description="{loc:Loc LLamaCppLoadTimeoutDesc}">
+                        <controls:SettingsRow Header="{loc:Loc EngineLoadTimeout}" Description="{loc:Loc LLamaCppLoadTimeoutDesc}">
                             <controls:SettingsRow.Field>
                                 <NumericUpDown Classes="runtime-field" Minimum="30" Maximum="7200" Increment="30"
                                                Value="{Binding Server.LoadTimeoutSeconds}" />
