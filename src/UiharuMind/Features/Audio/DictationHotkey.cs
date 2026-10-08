@@ -7,7 +7,8 @@ namespace UiharuMind.Features.Audio;
 
 /// <summary>
 /// 按住说话：按下设置里那个键开录，松开就识别；不到 <see cref="DictationService.MinDuration"/> 的短按当误触取消。
-/// 只往最近获得焦点、且窗口在前台的去向送（目前即本应用的输入框）；键每次都从设置读，改了不必重启
+/// 先送本应用最近获得焦点、且窗口在前台的输入框；没有、且设置里开了「别的应用也能用」，就送当时在前台的别的应用。
+/// 键与开关每次都从设置读，改了不必重启
 /// </summary>
 public sealed class DictationHotkey : IDisposable
 {
@@ -16,6 +17,7 @@ public sealed class DictationHotkey : IDisposable
     private readonly Func<SettingConfig> _settings;
     private readonly Action<Action> _post;
     private readonly Func<TimeSpan> _clock;
+    private readonly IDictationTarget? _otherApps;
     private TimeSpan _pressedAt;
     private bool _isHolding; //这一路是按住说话开的（不是按钮开的）
 
@@ -23,8 +25,10 @@ public sealed class DictationHotkey : IDisposable
     /// <param name="service">听写服务</param>
     /// <param name="settings">取设置</param>
     /// <param name="post">切回界面线程（钩子在后台线程上回调）</param>
+    /// <param name="otherApps">别的应用在前台时的去向；null 不支持</param>
     public DictationHotkey(InputManager input, IDictationService service, Func<SettingConfig> settings,
-        Action<Action> post) : this(service, settings, post, () => TimeSpan.FromMilliseconds(Environment.TickCount64))
+        Action<Action> post, IDictationTarget? otherApps = null)
+        : this(service, settings, post, () => TimeSpan.FromMilliseconds(Environment.TickCount64), otherApps)
     {
         _input = input;
         input.EventOnKeyDown += OnKeyDown;
@@ -35,8 +39,9 @@ public sealed class DictationHotkey : IDisposable
     /// 不挂钩子（测试直接喂按键）
     /// </summary>
     internal DictationHotkey(IDictationService service, Func<SettingConfig> settings, Action<Action> post,
-        Func<TimeSpan> clock)
+        Func<TimeSpan> clock, IDictationTarget? otherApps = null)
     {
+        _otherApps = otherApps;
         _service = service;
         _settings = settings;
         _post = post;
@@ -55,8 +60,7 @@ public sealed class DictationHotkey : IDisposable
         if (!IsHoldKey(key)) return;
         _post(() =>
         {
-            if (_service.FocusedTarget is not { IsAvailable: true } target) return;
-            if (!_service.Start(target)) return;
+            if (PickTarget() is not { } target || !_service.Start(target)) return;
             _isHolding = true;
             _pressedAt = _clock();
         });
@@ -72,6 +76,12 @@ public sealed class DictationHotkey : IDisposable
             if (_clock() - _pressedAt < DictationService.MinDuration) _service.Cancel();
             else _ = _service.StopAsync();
         });
+    }
+
+    private IDictationTarget? PickTarget()
+    {
+        if (_service.FocusedTarget is { IsAvailable: true } focused) return focused;
+        return _settings().DictationInOtherApps && _otherApps is { IsAvailable: true } other ? other : null;
     }
 
     private bool IsHoldKey(KeyCode key)

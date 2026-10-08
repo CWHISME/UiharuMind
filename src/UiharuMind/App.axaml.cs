@@ -130,11 +130,17 @@ public partial class App : Application, ILogger, IDisposable
                     () => sp.GetRequiredService<AudioRouter>().Resolve(EAudioCapability.Asr), messages,
                     action => Dispatcher.UIThread.Post(action),
                     (failed, language) => sp.GetRequiredService<AudioRouter>().Fallback(EAudioCapability.Asr, failed, language)))
+                .AddSingleton(_ => new ForegroundAppDictationTarget(() => desktop.Windows.Any(x => x.IsActive),
+                    new ForegroundPaster(new AvaloniaPasteboard(DummyWindow.Clipboard!), Clipboard.IgnoreChangesFor,
+                        () => InputSimulateManager.Instance.SendPaste()).PasteAsync))
                 .AddSingleton(sp => new DictationHotkey(InputManager.Instance, sp.GetRequiredService<IDictationService>(),
-                    () => SettingConfig.Current, action => Dispatcher.UIThread.Post(action)))
+                    () => SettingConfig.Current, action => Dispatcher.UIThread.Post(action),
+                    sp.GetRequiredService<ForegroundAppDictationTarget>()))
                 .BuildServiceProvider();
-            // 按住说话挂在全局键盘钩子上，随应用起
+            // 按住说话挂在全局键盘钩子上，随应用起；在别的应用里听写时屏幕下方有悬浮提示
             Services.GetRequiredService<DictationHotkey>();
+            DictationIndicatorWindow.Attach(Services.GetRequiredService<IDictationService>(),
+                Services.GetRequiredService<ForegroundAppDictationTarget>());
             UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("di-container");
             DummyWindow.InitializeMainViewModel(Services.GetRequiredService<MainViewModel>());
             UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("main-viewmodel");

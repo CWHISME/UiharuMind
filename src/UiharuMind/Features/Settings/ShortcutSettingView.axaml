@@ -87,23 +87,33 @@
             <!-- 按住说话：单独一节，键可以是单独的修饰键（区分左右），与上面的组合键不冲突检测 -->
             <controls:SettingsSection Header="{loc:Loc ShortcutDictationSection}">
                 <controls:SettingsSection.Body>
-                    <controls:SettingsRow Header="{loc:Loc ShortcutDictationHold}"
-                                          Description="{loc:Loc ShortcutDictationHoldDesc}"
-                                          ResetCommand="{Binding ResetDictationHoldKeyCommand}"
-                                          ResetVisible="{Binding IsDictationHoldKeyNotDefault}"
-                                          DividerVisible="False">
-                        <controls:SettingsRow.Field>
-                            <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                                <ToggleSwitch IsChecked="{Binding DictationHoldEnabled}" VerticalAlignment="Center" />
-                                <Button Content="{Binding DictationHoldKeyText}"
-                                        Click="OnDictationHoldKeyClick"
-                                        IsEnabled="{Binding DictationHoldEnabled}"
-                                        Width="160"
-                                        HorizontalContentAlignment="Center"
-                                        VerticalAlignment="Center" />
-                            </StackPanel>
-                        </controls:SettingsRow.Field>
-                    </controls:SettingsRow>
+                    <StackPanel>
+                        <controls:SettingsRow Header="{loc:Loc ShortcutDictationHold}"
+                                              Description="{loc:Loc ShortcutDictationHoldDesc}"
+                                              ResetCommand="{Binding ResetDictationHoldKeyCommand}"
+                                              ResetVisible="{Binding IsDictationHoldKeyNotDefault}">
+                            <controls:SettingsRow.Field>
+                                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                                    <ToggleSwitch IsChecked="{Binding DictationHoldEnabled}" VerticalAlignment="Center" />
+                                    <Button Content="{Binding DictationHoldKeyText}"
+                                            Click="OnDictationHoldKeyClick"
+                                            IsEnabled="{Binding DictationHoldEnabled}"
+                                            Width="160"
+                                            HorizontalContentAlignment="Center"
+                                            VerticalAlignment="Center" />
+                                </StackPanel>
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <!-- 默认关：会临时借用剪贴板、往别的应用按粘贴键，由用户自己决定 -->
+                        <controls:SettingsRow Header="{loc:Loc ShortcutDictationOtherApps}"
+                                              Description="{loc:Loc ShortcutDictationOtherAppsDesc}"
+                                              DividerVisible="False">
+                            <controls:SettingsRow.Field>
+                                <ToggleSwitch IsChecked="{Binding DictationInOtherApps}" IsEnabled="{Binding DictationHoldEnabled}"
+                                              VerticalAlignment="Center" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                    </StackPanel>
                 </controls:SettingsSection.Body>
             </controls:SettingsSection>
 

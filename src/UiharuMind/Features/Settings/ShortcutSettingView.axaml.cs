@@ -85,6 +85,7 @@ public partial class ShortcutSettingViewModel : ViewModelBase
     [ObservableProperty] private string _statusText = string.Empty;
     [ObservableProperty] private string _dictationHoldKey = string.Empty;
     [ObservableProperty] private bool _dictationHoldEnabled;
+    [ObservableProperty] private bool _dictationInOtherApps;
 
     // 「值≠出厂值」才显示单项恢复默认按钮（SettingsRow 可见性绑定用）；出厂值引用 SettingConfig 常量
     public bool IsCaptureScreenShortcutNotDefault => CaptureScreenShortcut != SettingConfig.DefaultCaptureScreenShortcut;
@@ -155,6 +156,7 @@ public partial class ShortcutSettingViewModel : ViewModelBase
         setting.QuickAutoClickShortcut = ShortcutGestureParser.Normalize(QuickAutoClickShortcut);
         setting.DictationHoldKey = DictationHoldKey;
         setting.DictationHoldEnabled = DictationHoldEnabled;
+        setting.DictationInOtherApps = DictationInOtherApps;
         setting.Save();
 
         LoadFromConfig();
@@ -173,6 +175,7 @@ public partial class ShortcutSettingViewModel : ViewModelBase
         QuickAutoClickShortcut = SettingConfig.DefaultQuickAutoClickShortcut;
         DictationHoldKey = SettingConfig.DefaultDictationHoldKey;
         DictationHoldEnabled = true;
+        DictationInOtherApps = false;
         Apply();
     }
 
@@ -230,6 +233,7 @@ public partial class ShortcutSettingViewModel : ViewModelBase
         QuickAutoClickShortcut = setting.QuickAutoClickShortcut;
         DictationHoldKey = setting.DictationHoldKey;
         DictationHoldEnabled = setting.DictationHoldEnabled;
+        DictationInOtherApps = setting.DictationInOtherApps;
     }
 
     private void RefreshStatusLanguage()

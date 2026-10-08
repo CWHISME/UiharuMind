@@ -1,7 +1,7 @@
 namespace UiharuMind.Features.Audio;
 
 /// <summary>
-/// 听写出来的文字送去哪：本应用的输入框（插到光标处）；以后在别的应用里用，就是「粘贴到前台应用」另一种去向
+/// 听写出来的文字送去哪：本应用的输入框（插到光标处，<see cref="TextBoxDictationTarget"/>），或当时在前台的别的应用（粘贴进去，<see cref="ForegroundAppDictationTarget"/>）
 /// </summary>
 public interface IDictationTarget
 {

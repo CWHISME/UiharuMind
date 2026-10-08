@@ -1,0 +1,27 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:audio="clr-namespace:UiharuMind.Features.Audio"
+        xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+        xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+        x:Class="UiharuMind.Features.Audio.DictationIndicatorWindow"
+        x:DataType="audio:DictationIndicatorViewData"
+        SizeToContent="WidthAndHeight"
+        Title="{loc:Loc DictationIndicatorListening}">
+
+    <Border Background="{DynamicResource SemiGrey0}" CornerRadius="20" Padding="16,9" Margin="8"
+            BorderThickness="1.5" BorderBrush="{DynamicResource SemiBlue5}"
+            BoxShadow="0 4 16 0 #33000000">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+            <Panel Width="18" Height="18" VerticalAlignment="Center">
+                <controls:ThemedSvgIcon Width="18" Height="18" IconName="mic" IsVisible="{Binding IsRecording}" />
+                <SpinnerIcon IsVisible="{Binding IsTranscribing}" />
+            </Panel>
+            <TextBlock Text="{loc:Loc DictationIndicatorListening}" FontSize="13" VerticalAlignment="Center"
+                       Foreground="{DynamicResource SemiGrey9}" IsVisible="{Binding IsRecording}" />
+            <TextBlock Text="{loc:Loc DictationIndicatorTranscribing}" FontSize="13" VerticalAlignment="Center"
+                       Foreground="{DynamicResource SemiGrey9}" IsVisible="{Binding IsTranscribing}" />
+            <ProgressBar Width="72" Height="4" MinHeight="4" Minimum="0" Maximum="100" Value="{Binding Level}"
+                         VerticalAlignment="Center" IsVisible="{Binding IsRecording}" />
+        </StackPanel>
+    </Border>
+</Window>
