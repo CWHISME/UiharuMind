@@ -190,6 +190,12 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private CharacterData SessionCharacter =>
         _currentCharacter ?? CharacterManager.Instance.GetCharacterData(NewSessionCharacterId);
 
+    /// <summary>输入框旁的「自动朗读」开关可见：接了朗读、不是群壳（群里各成员在角色卡上各自开）</summary>
+    public bool CanToggleAutoReadAloud => _readAloud != null && !IsGroupSession;
+
+    /// <summary>本会话角色的新回复自动朗读（存在角色卡上，随会话切换刷新）</summary>
+    public bool AutoReadAloud => SessionCharacter.AutoReadAloud;
+
     /// <summary>输入框的模式切换是否可见(agent 会话且计划模式门控开启);随会话切换刷新</summary>
     public bool IsModeSwitchVisible => IsAgentSession && SessionCharacter.Tools.EnableAgentMode;
 
@@ -400,6 +406,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         }
 
         if (newValue != null) newValue.SpeakersChanged += NotifyBusyChanged;
+        OnPropertyChanged(nameof(CanToggleAutoReadAloud));
     }
 
     partial void OnGroupMemberChanged(GroupMemberSessionViewData? oldValue, GroupMemberSessionViewData? newValue)
@@ -1481,7 +1488,19 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         OnPropertyChanged(nameof(IsAgentSession));
         OnPropertyChanged(nameof(IsModeSwitchVisible));
         OnPropertyChanged(nameof(IsTodoListVisible));
+        OnPropertyChanged(nameof(AutoReadAloud));
         Tray.NotifyVisionStateChanged();
+    }
+
+    // 开关存在角色卡上：同一个角色的别的会话、角色编辑里都跟着变。关掉时正在自动念的也停
+    [RelayCommand]
+    private void ToggleAutoReadAloud()
+    {
+        CharacterData character = SessionCharacter;
+        character.AutoReadAloud = !character.AutoReadAloud;
+        CharacterManager.Instance.SaveCharacterData(character);
+        OnPropertyChanged(nameof(AutoReadAloud));
+        if (!character.AutoReadAloud) _readAloud?.StopAuto();
     }
 
     private void ApplyMode()

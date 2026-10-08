@@ -12,7 +12,7 @@ namespace UiharuMind.App.Tests.Audio;
 
 /// <summary>
 /// 新回复自动朗读：只念开了的角色、按各自的声音、连着几条按顺序念；群里按每条的发言人；
-/// 用户、旁白、化身代发不念；被停后排着的不再念；别处在念就等它念完
+/// 用户、旁白、化身代发不念；被停后排着的不再念；关掉自动朗读只停自动念的；别处在念就等它念完
 /// </summary>
 public class AutoReadAloudTests
 {
@@ -76,6 +76,27 @@ public class AutoReadAloudTests
         await Task.Delay(100, TestContext.Current.CancellationToken);
 
         Assert.Single(_tts.Requests);
+    }
+
+    [Fact]
+    public async Task TurningAutoReadOff_StopsTheAutoReading_ButNotAManualOne()
+    {
+        _readAloud.ReadNew([Assistant("One."), Assistant("Two.")], "alice");
+        await _player.Started.WaitAsync(TimeSpan.FromSeconds(5));
+
+        _readAloud.StopAuto();
+        await WaitFor(() => _service.State == EReadAloudState.Idle);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+        Assert.Single(_tts.Requests); //第二条没再念
+
+        TextConversationItem manual = new(true) { Message = "Mine.", IsDone = true };
+        _items.Add(manual);
+        Task reading = manual.ReadAloudCommand.ExecuteAsync(null);
+        await WaitFor(() => _service.State != EReadAloudState.Idle);
+        _readAloud.StopAuto();
+        Assert.Same(manual, _service.Owner); //手点的不动
+        _service.Stop();
+        await reading.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [Fact]

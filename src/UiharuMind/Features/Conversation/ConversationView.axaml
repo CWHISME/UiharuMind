@@ -618,6 +618,16 @@
                         <!-- 群发言只有文字:附件在群流水里没处放,也投递不到成员那里 -->
                         <ThemedIconButton IconName="paperclip" Command="{Binding Tray.AddAttachmentCommand}"
                                           IsVisible="{Binding !IsGroupSession}" />
+                        <!-- 新回复自动朗读：开关存在会话角色的角色卡上 -->
+                        <Panel IsVisible="{Binding CanToggleAutoReadAloud}">
+                            <ThemedIconButton IconName="volume-x" Command="{Binding ToggleAutoReadAloudCommand}"
+                                              ToolTips="{loc:Loc ConversationAutoReadAloudOff}"
+                                              IsVisible="{Binding !AutoReadAloud}" />
+                            <ThemedIconButton IconName="volume-2"
+                                              Command="{Binding ToggleAutoReadAloudCommand}"
+                                              ToolTips="{loc:Loc ConversationAutoReadAloudOn}"
+                                              IsVisible="{Binding AutoReadAloud}" />
+                        </Panel>
                         <!-- 语音输入：数据由后台代码在挂上界面时接（要取听写服务），无头测试里没有就一直藏着 -->
                         <Panel Name="DictationButton" IsVisible="False" x:DataType="audio:ComposerDictationViewData">
                             <ThemedIconButton IconName="mic" Command="{Binding ToggleCommand}"

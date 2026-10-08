@@ -4614,6 +4614,12 @@
     <data name="CharacterAutoReadAloudDesc" xml:space="preserve">
         <value>正在看的会话里，这个角色的每条新回复都用下面的声音念出来；连着几条按顺序念，点停止就不再往下念</value>
     </data>
+    <data name="ConversationAutoReadAloudOff" xml:space="preserve">
+        <value>新回复自动朗读：关（点一下打开，设置存在角色上）</value>
+    </data>
+    <data name="ConversationAutoReadAloudOn" xml:space="preserve">
+        <value>新回复自动朗读：开（点一下关闭）</value>
+    </data>
     <data name="CharacterVoiceDesc" xml:space="preserve">
         <value>朗读这个角色说的话时用的声音。群聊里每个角色各念各的；没设就跟语音模型页签里的默认走</value>
     </data>

@@ -25,6 +25,7 @@ public sealed class ConversationReadAloud : IDisposable
     private readonly Queue<(object Owner, string Text, SpeechStyle? Style)> _pending = new(); //等着自动念的
     private ConversationItemBase? _active; //上次标成在念的那一条
     private TaskCompletionSource? _idle; //等别处的朗读念完
+    private object? _autoOwner; //正在自动念的那一条
     private bool _isDraining;
 
     /// <param name="items">界面条目集合（与视图模型共用）</param>
@@ -73,6 +74,15 @@ public sealed class ConversationReadAloud : IDisposable
         if (_pending.Count > 0 && !_isDraining) _ = DrainAsync();
     }
 
+    /// <summary>
+    /// 不再自动念：丢掉排着的，正在自动念的也停（手点的不动）
+    /// </summary>
+    public void StopAuto()
+    {
+        _pending.Clear();
+        if (_autoOwner != null && ReferenceEquals(_service.Owner, _autoOwner)) _service.Stop();
+    }
+
     // 别处在念（手点的、试听）就等它念完；自动念的被停了，后面排着的也不念
     private async Task DrainAsync()
     {
@@ -87,7 +97,10 @@ public sealed class ConversationReadAloud : IDisposable
                     await _idle.Task;
                 }
 
-                if (!await _service.ToggleAsync(next.Owner, next.Text, next.Style)) _pending.Clear();
+                _autoOwner = next.Owner;
+                bool finished = await _service.ToggleAsync(next.Owner, next.Text, next.Style);
+                _autoOwner = null;
+                if (!finished) _pending.Clear();
             }
         }
         finally
