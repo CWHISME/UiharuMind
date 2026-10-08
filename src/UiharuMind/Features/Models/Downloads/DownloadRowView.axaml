@@ -1,0 +1,45 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:downloads="clr-namespace:UiharuMind.Features.Models.Downloads"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             x:Class="UiharuMind.Features.Models.Downloads.DownloadRowView"
+             x:DataType="downloads:DownloadRowDataBase"
+             x:Name="Root">
+    <!-- 样式（quant-row、quant-action…）在 ModelDownloadView 里，行只在那下面出现 -->
+    <Border Classes="quant-row" Classes.recommended="{Binding IsRecommended}">
+        <Grid ColumnDefinitions="Auto,*,72,Auto" ColumnSpacing="12">
+            <!-- 圆点只有 8px，套一层透明底放大悬停区 -->
+            <Panel Width="16" Height="24" Background="Transparent" ToolTip.Tip="{Binding RiskTip}">
+                <Border Classes="status-dot" Tag="{Binding RiskTag}" HorizontalAlignment="Center" />
+            </Panel>
+
+            <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="6" ToolTip.Tip="{Binding LabelTip}">
+                    <TextBlock Text="{Binding Label}" FontWeight="SemiBold" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                    <!-- 实底白字：KindBadge 写死深色字，暗色主题下读不清 -->
+                    <Border Background="{DynamicResource SemiBlue5}" CornerRadius="9" Padding="7,1"
+                            VerticalAlignment="Center" IsVisible="{Binding IsRecommended}">
+                        <TextBlock Text="{loc:Loc ModelDownloadRecommended}" FontSize="11" Foreground="White" />
+                    </Border>
+                    <ContentPresenter Content="{Binding #Root.Badges}" VerticalAlignment="Center" />
+                </StackPanel>
+                <!-- 状态行：下载相关时带一条细进度 -->
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <ProgressBar Value="{Binding Percent}" Maximum="100" Width="90"
+                                 Height="3" MinHeight="3" VerticalAlignment="Center"
+                                 IsVisible="{Binding ShowProgress}" />
+                    <TextBlock Text="{Binding StatusText}" Classes="muted" FontSize="12"
+                               ToolTip.Tip="{Binding StatusTip}" />
+                </StackPanel>
+            </StackPanel>
+
+            <TextBlock Grid.Column="2" Text="{Binding SizeText}" HorizontalAlignment="Right"
+                       VerticalAlignment="Center" FontSize="13"
+                       Foreground="{DynamicResource SemiGrey7}" />
+
+            <ContentPresenter Grid.Column="3" VerticalAlignment="Center" MinWidth="64"
+                              Content="{Binding #Root.Actions}" />
+        </Grid>
+    </Border>
+</UserControl>
