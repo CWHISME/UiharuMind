@@ -319,12 +319,14 @@ public partial class AudioModelListViewData : ObservableObject
     private async Task Delete(AudioModelItemData item)
     {
         if (!await _messageService.ConfirmAsync(Loc.Text(LangKey.AudioModelDeleteConfirm, item.Name))) return;
+        // 服务的模型表里有它，删完也得重起；先停，Windows 上才删得动它占着的文件
+        _engine.Stop();
         try
         {
             string file = item.Entry.ModelFile ?? item.Entry.Path;
             await Task.Run(() => _store.DeleteContaining(file));
         }
-        catch (IOException e)
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             _messageService.ShowNotification(e.Message, severity: MessageSeverity.Error);
         }

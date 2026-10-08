@@ -28,6 +28,7 @@ public sealed record ModelDownloadContext(
 {
     private AudioCppEngine? _audioEngine;
     private AudioCppPackageStore? _audioStore;
+    private LocalAudioDefaults? _audioDefaults;
 
     /// <summary>
     /// 当前设置对应的模型源
@@ -85,6 +86,15 @@ public sealed record ModelDownloadContext(
     {
         get => _audioEngine ??= AudioCppEngine.Shared;
         init => _audioEngine = value;
+    }
+
+    /// <summary>
+    /// 朗读 / 听写默认用本机哪个模型（与「语音模型」页签同一口径）
+    /// </summary>
+    public LocalAudioDefaults AudioDefaults
+    {
+        get => _audioDefaults ??= new LocalAudioDefaults(AudioEngine, AudioRouter.Shared);
+        init => _audioDefaults = value;
     }
 
     /// <summary>

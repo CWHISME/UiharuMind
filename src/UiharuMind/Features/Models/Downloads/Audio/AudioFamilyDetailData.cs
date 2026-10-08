@@ -141,7 +141,7 @@ public partial class AudioFamilyDetailData : ObservableObject, IDisposable
             .Where(x => x.State != EDownloadJobState.Completed)
             .GroupBy(x => x.Request.DestinationPath, StringComparer.Ordinal)
             .ToDictionary(x => x.Key, x => x.Last(), StringComparer.Ordinal);
-        string? defaultModel = DefaultModel(Family.Task);
+        string? defaultModel = _context.AudioDefaults.Resolve(Family.Task);
         foreach (AudioPackageRowData row in Rows)
         {
             row.ApplyStatus(ResolveStatus(row, jobs));
@@ -182,11 +182,8 @@ public partial class AudioFamilyDetailData : ObservableObject, IDisposable
     private void SetDefault(AudioPackageRowData row)
     {
         if (!row.CanSetDefault) return;
-        AudioCppSettingConfig settings = _context.AudioEngine.Settings;
         bool isTts = row.Package.Task == EAudioCppTask.Tts;
-        if (isTts) settings.TtsModel = row.Package.ModelName;
-        else settings.AsrModel = row.Package.ModelName;
-        settings.Save();
+        _context.AudioDefaults.Use(row.Package.Task, row.Package.ModelName);
         RefreshStatuses();
         _context.Messages.ShowNotification(Loc.Text(isTts ? LangKey.AudioDefaultSetTts : LangKey.AudioDefaultSetAsr,
             row.Package.ModelName), severity: MessageSeverity.Success);
@@ -195,18 +192,6 @@ public partial class AudioFamilyDetailData : ObservableObject, IDisposable
     [RelayCommand]
     private void OpenSourceSettings() => _context.OpenSourceSettings();
 
-    // 引擎实际会用的那个：设置里选的，没选或不在了就第一个；一个都没有为 null
-    private string? DefaultModel(EAudioCppTask task)
-    {
-        try
-        {
-            return _context.AudioEngine.ResolveModel(task).Id;
-        }
-        catch (AudioModelMissingException)
-        {
-            return null;
-        }
-    }
 
     private QuantDownloadStatus ResolveStatus(AudioPackageRowData row, Dictionary<string, DownloadJob> jobs)
     {

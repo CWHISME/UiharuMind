@@ -282,10 +282,10 @@ public sealed class AudioCppEngine : IDisposable
         if (CurrentVersion == null) await GetLocalVersionsAsync().ConfigureAwait(false);
         if (CurrentVersion == null) throw new LocalEngineNotReadyException();
 
-        lock (_gate)
-        {
-            if (_launchedModels.Count > 0 && !_launchedModels.Contains(model)) _host.Restart();
-        }
+        // 宿主起进程时持宿主锁再来取引擎锁（CreateLaunch），这里就不能反过来持引擎锁去碰宿主
+        bool stale;
+        lock (_gate) stale = _launchedModels.Count > 0 && !_launchedModels.Contains(model);
+        if (stale) _host.Restart();
 
         return await _host.GetBaseUriAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -333,8 +333,9 @@ public sealed class AudioCppEngine : IDisposable
     /// </summary>
     internal void UseVersion(AudioCppVersion? version)
     {
-        _host.Restart();
+        // 先换再重启：反过来的话，中间进来的请求会用旧版本把进程拉起来
         SetCurrentVersion(version);
+        _host.Restart();
     }
 
     /// <summary>
