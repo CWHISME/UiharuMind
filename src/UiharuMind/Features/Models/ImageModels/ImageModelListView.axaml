@@ -27,16 +27,12 @@
         <Border Classes="model-card">
             <Panel>
                 <!-- 空状态：与对话模型页签同式，居中图标加文字引去添加 -->
-                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10"
-                            Margin="24" IsVisible="{Binding !HasItems}">
-                    <controls:ThemedSvgIcon Width="32" Height="32" IconName="image" Opacity="0.5" />
-                    <TextBlock Text="{loc:Loc ImageModelListEmpty}" HorizontalAlignment="Center"
-                               FontWeight="SemiBold" />
-                    <TextBlock Text="{loc:Loc ImageModelListHint}" Classes="muted"
-                               HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
-                    <Button Classes="Primary" Content="{loc:Loc AddBtn}" Command="{Binding AddCommand}"
-                            HorizontalAlignment="Center" Margin="0,4,0,0" />
-                </StackPanel>
+                <controls:EmptyStateView IsVisible="{Binding !HasItems}" IconName="image"
+                                         Title="{loc:Loc ImageModelListEmpty}" Hint="{loc:Loc ImageModelListHint}">
+                    <controls:EmptyStateView.Actions>
+                        <Button Classes="Primary" Content="{loc:Loc AddBtn}" Command="{Binding AddCommand}" />
+                    </controls:EmptyStateView.Actions>
+                </controls:EmptyStateView>
 
                 <ListBox Classes="model-list"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"

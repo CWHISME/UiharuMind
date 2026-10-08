@@ -15,48 +15,33 @@
 
     <DockPanel Margin="0,14,0,0">
         <!-- 工具条：左边模型目录，右边添加远程模型 -->
-        <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="0,0,0,12">
-            <controls:ThemedSvgIcon Width="15" Height="15" IconName="folder-open" Opacity="0.7"
-                                    VerticalAlignment="Center" ToolTip.Tip="{loc:Loc ModelListFolderTip}" />
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                <TextBlock Text="{Binding ModelPath}" Classes="muted" VerticalAlignment="Center"
-                           TextTrimming="PrefixCharacterEllipsis" MaxWidth="420"
-                           ToolTip.Tip="{Binding ModelPath}" />
-                <Button Classes="toolbar-link" Content="{loc:Loc ModelPageChangeBtn}"
-                        Command="{Binding OpenChangeModelPathCommand}" />
-                <Button Classes="toolbar-link" Content="{loc:Loc ShowInExplorer}"
-                        Command="{Binding OpenModelFolderCommand}" />
-                <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="refresh-cw"
-                                  ToolTip.Tip="{loc:Loc ModelListRescanTip}"
-                                  Command="{Binding RefreshModelsCommand}" />
-            </StackPanel>
-            <Button Grid.Column="2" Command="{Binding CreateRemoteModelCommand}">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <controls:ThemedSvgIcon Width="14" Height="14" IconName="globe" />
-                    <TextBlock Text="{loc:Loc ModelListAddRemote}" />
-                </StackPanel>
-            </Button>
-        </Grid>
+        <pages:ModelFolderBar DockPanel.Dock="Top" Margin="0,0,0,12" Path="{Binding ModelPath}"
+                              ChangeCommand="{Binding OpenChangeModelPathCommand}"
+                              OpenCommand="{Binding OpenModelFolderCommand}"
+                              RefreshCommand="{Binding RefreshModelsCommand}">
+            <pages:ModelFolderBar.Actions>
+                <Button Command="{Binding CreateRemoteModelCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <controls:ThemedSvgIcon Width="14" Height="14" IconName="globe" />
+                        <TextBlock Text="{loc:Loc ModelListAddRemote}" />
+                    </StackPanel>
+                </Button>
+            </pages:ModelFolderBar.Actions>
+        </pages:ModelFolderBar>
 
         <Border Classes="model-card">
             <Panel>
                 <!-- 空状态：引去获取模型或添加远程模型 -->
-                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10"
-                            Margin="24" IsVisible="{Binding HasNoModels}">
-                    <controls:ThemedSvgIcon Width="32" Height="32" IconName="bot" Opacity="0.5" />
-                    <TextBlock Text="{loc:Loc ModelListEmptyTitle}" HorizontalAlignment="Center"
-                               FontWeight="SemiBold" />
-                    <TextBlock Text="{loc:Loc ModelListEmptyHint}" Classes="muted"
-                               HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
-                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center"
-                                Margin="0,4,0,0">
-                        <Button Classes="Primary"
-                                Content="{loc:Loc ModelPageDownloadsTab}"
-                                Command="{Binding GoToDownloadsCommand}" />
-                        <Button Content="{loc:Loc ModelListAddRemote}"
-                                Command="{Binding CreateRemoteModelCommand}" />
-                    </StackPanel>
-                </StackPanel>
+                <controls:EmptyStateView IsVisible="{Binding HasNoModels}" IconName="bot"
+                                         Title="{loc:Loc ModelListEmptyTitle}" Hint="{loc:Loc ModelListEmptyHint}">
+                    <controls:EmptyStateView.Actions>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Classes="Primary" Content="{loc:Loc ModelPageDownloadsTab}"
+                                    Command="{Binding GoToDownloadsCommand}" />
+                            <Button Content="{loc:Loc ModelListAddRemote}" Command="{Binding CreateRemoteModelCommand}" />
+                        </StackPanel>
+                    </controls:EmptyStateView.Actions>
+                </controls:EmptyStateView>
 
                 <!-- 右键菜单整表共用一份，右键时才建（见 OnModelListContextRequested） -->
                 <ListBox Classes="model-list"

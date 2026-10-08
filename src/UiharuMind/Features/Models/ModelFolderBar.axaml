@@ -1,0 +1,26 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             x:Class="UiharuMind.Features.Models.ModelFolderBar"
+             x:Name="Root">
+    <!-- 已装模型页签顶上那一条：左边模型目录（更改、打开、重新扫描），右边各页签自己的按钮 -->
+    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+        <controls:ThemedSvgIcon Width="15" Height="15" IconName="folder-open" Opacity="0.7"
+                                VerticalAlignment="Center" ToolTip.Tip="{loc:Loc ModelListFolderTip}" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+            <TextBlock Text="{Binding #Root.Path}" Classes="muted" VerticalAlignment="Center"
+                       TextTrimming="PrefixCharacterEllipsis" MaxWidth="420"
+                       ToolTip.Tip="{Binding #Root.Path}" />
+            <Button Classes="toolbar-link" Content="{loc:Loc ModelPageChangeBtn}"
+                    Command="{Binding #Root.ChangeCommand}"
+                    IsVisible="{Binding #Root.ChangeCommand, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <Button Classes="toolbar-link" Content="{loc:Loc ShowInExplorer}"
+                    Command="{Binding #Root.OpenCommand}" CommandParameter="{x:Null}" />
+            <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="refresh-cw"
+                              ToolTip.Tip="{loc:Loc ModelListRescanTip}"
+                              Command="{Binding #Root.RefreshCommand}" />
+        </StackPanel>
+        <ContentPresenter Grid.Column="2" Content="{Binding #Root.Actions}" />
+    </Grid>
+</UserControl>
