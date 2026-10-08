@@ -7,6 +7,11 @@ namespace UiharuMind.Core.AI.Audio;
 /// </summary>
 public sealed class AudioRouter : IDisposable
 {
+    private static readonly Lazy<AudioRouter> SharedInstance = new(() => new AudioRouter(() => AudioCppProvider.Shared,
+        AudioSettingConfig.Current, AudioServiceSettingConfig.Current,
+        hasLocal: (task, language) => AudioCppEngine.Shared.HasModelFor(
+            task == EAudioCapability.Tts ? EAudioCppTask.Tts : EAudioCppTask.Asr, language)));
+
     private readonly Func<IAudioProvider> _local;
     private readonly AudioSettingConfig _settings;
     private readonly AudioServiceSettingConfig _services;
@@ -30,6 +35,11 @@ public sealed class AudioRouter : IDisposable
         _create = create ?? AudioServiceProviderFactory.Create;
         services.ServicesChanged += DropStaleProviders;
     }
+
+    /// <summary>
+    /// 走应用档案的那一个（界面与智能体工具共用；第一次用才建）
+    /// </summary>
+    public static AudioRouter Shared => SharedInstance.Value;
 
     /// <summary>
     /// 默认换了

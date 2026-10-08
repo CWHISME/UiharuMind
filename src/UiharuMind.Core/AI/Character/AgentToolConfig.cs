@@ -38,6 +38,11 @@ public class AgentToolConfig
     /// </summary>
     public bool EnableSpeak { get; set; }
 
+    /// <summary>
+    /// 启用配音工具(SynthesizeSpeech,用角色的声音把文字合成成音频文件)。默认关:本地合成占内存、在线合成可能花钱
+    /// </summary>
+    public bool EnableSpeechSynthesis { get; set; }
+
     /// <summary>启用知识库检索工具(KnowledgeSearch,检索会话挂载的嵌入知识库)</summary>
     public bool EnableKnowledgeSearchTool { get; set; }
 
@@ -85,6 +90,7 @@ public class AgentToolConfig
             EnableVisionTool = EnableVisionTool && other.EnableVisionTool,
             EnableImageGeneration = EnableImageGeneration && other.EnableImageGeneration,
             EnableSpeak = EnableSpeak && other.EnableSpeak,
+            EnableSpeechSynthesis = EnableSpeechSynthesis && other.EnableSpeechSynthesis,
             EnableKnowledgeSearchTool = EnableKnowledgeSearchTool && other.EnableKnowledgeSearchTool,
             EnableSubAgent = EnableSubAgent && other.EnableSubAgent,
             EnableTodoList = EnableTodoList && other.EnableTodoList,

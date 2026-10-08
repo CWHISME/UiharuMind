@@ -204,6 +204,11 @@ internal static class AgentAssembler
             Add(EAgentCapability.Speak, SpeakTool.Create(speechSink));
         }
 
+        if (config.EnableSpeechSynthesis)
+        {
+            Add(EAgentCapability.SpeechSynthesis, SynthesizeSpeechTool.Create(paths, plan.Profile.Character));
+        }
+
         if (config.EnableKnowledgeSearchTool)
         {
             Add(EAgentCapability.KnowledgeSearch, KnowledgeTool.Create(plan.Profile.SessionKnowledgeSource));

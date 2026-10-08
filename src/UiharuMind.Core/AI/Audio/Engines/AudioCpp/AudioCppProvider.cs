@@ -6,10 +6,17 @@ namespace UiharuMind.Core.AI.Audio;
 /// </summary>
 public sealed class AudioCppProvider : IAudioProvider, IDisposable
 {
+    private static readonly Lazy<AudioCppProvider> SharedInstance = new(() => new AudioCppProvider(AudioCppEngine.Shared));
+
     private readonly AudioCppEngine _engine;
     private readonly AudioCppVoiceResolver _voices;
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(120) };
     private OpenAiCompatibleAudioClient? _client; //随 server 地址换，共用 _http，换掉不影响在途请求
+
+    /// <summary>
+    /// 走应用档案的那一个：朗读、听写、语音模型页签与智能体合成共用（第一次用才建）
+    /// </summary>
+    public static AudioCppProvider Shared => SharedInstance.Value;
 
     public AudioCppProvider(AudioCppEngine engine)
     {

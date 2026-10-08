@@ -102,6 +102,9 @@ public sealed record AgentAssemblyFacts
     /// <summary>朗读工具挂没挂（群成员不挂）</summary>
     public bool Speak { get; init; }
 
+    /// <summary>配音工具挂没挂</summary>
+    public bool SpeechSynthesis { get; init; }
+
     /// <summary>知识库检索工具开关</summary>
     public bool KnowledgeSearchTool { get; init; }
 
@@ -247,6 +250,7 @@ public sealed record AgentAssemblyFacts
             VisionTool = isAgent && config.EnableVisionTool,
             ImageGeneration = isAgent && config.EnableImageGeneration && inputs.ImageModelsConfigured,
             Speak = isAgent && config.EnableSpeak && inputs.GroupScene.Length == 0,
+            SpeechSynthesis = isAgent && config.EnableSpeechSynthesis,
             KnowledgeSearchTool = isAgent && config.EnableKnowledgeSearchTool,
             SubAgent = isAgent && config.EnableSubAgent,
             // 名字与描述一并入账:花名册固化的正是这两样,改名改描述模型也该重新看见

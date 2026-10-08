@@ -104,9 +104,8 @@ public partial class App : Application, ILogger, IDisposable
             MemoryService = new MemoryService();
             UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("app-services");
 
-            // 朗读与听写共用一个 audio.cpp provider，第一次用才建：建它会碰语音引擎的单例与设置；
-            // 用本地引擎还是在线服务由路由每次现查
-            Lazy<AudioCppProvider> localAudio = new(() => new AudioCppProvider(AudioCppEngine.Shared));
+            // 朗读、听写与智能体合成共用一个 audio.cpp provider 与路由（Core 的单例，第一次用才建：
+            // 建它会碰语音引擎的单例与设置）；用本地引擎还是在线服务由路由每次现查
             Services = new ServiceCollection()
                 .AddSingleton(ScreensService)
                 .AddSingleton<IMessageService>(messages)
@@ -115,9 +114,7 @@ public partial class App : Application, ILogger, IDisposable
                 .AddSingleton<SearchService>()
                 .AddSingleton<IAudioPlayer, SoundFlowAudioPlayer>()
                 .AddSingleton<IAudioRecorder, SoundFlowAudioRecorder>()
-                .AddSingleton(_ => new AudioRouter(() => localAudio.Value, AudioSettingConfig.Current,
-                    AudioServiceSettingConfig.Current, hasLocal: (task, language) => AudioCppEngine.Shared.HasModelFor(
-                        task == EAudioCapability.Tts ? EAudioCppTask.Tts : EAudioCppTask.Asr, language)))
+                .AddSingleton(_ => AudioRouter.Shared)
                 .AddSingleton<IReadAloudService>(sp => new ReadAloudService(
                     id => sp.GetRequiredService<AudioRouter>().Resolve(EAudioCapability.Tts, id),
                     sp.GetRequiredService<IAudioPlayer>(), messages,
@@ -126,7 +123,7 @@ public partial class App : Application, ILogger, IDisposable
                 .AddSingleton(sp => new CharacterSpeechStyles(id => CharacterManager.Instance.GetCharacterData(id),
                     id => sp.GetRequiredService<AudioRouter>().Services(EAudioCapability.Tts).Any(x => x.Id == id && x.IsConfigured),
                     model => AudioCppEngine.Shared.GetModels().Any(x => x.Id == model)))
-                .AddSingleton(sp => new AudioServices(() => localAudio.Value, sp.GetRequiredService<AudioRouter>,
+                .AddSingleton(sp => new AudioServices(() => AudioCppProvider.Shared, sp.GetRequiredService<AudioRouter>,
                     sp.GetRequiredService<IAudioPlayer>(), sp.GetRequiredService<IAudioRecorder>(),
                     sp.GetRequiredService<IReadAloudService>()))
                 .AddSingleton<IDictationService>(sp => new DictationService(sp.GetRequiredService<IAudioRecorder>(),

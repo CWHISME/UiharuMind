@@ -918,6 +918,8 @@ _Avoid_: 播放（那是播放器的事）、TTS（那是技术）
 连着几条排队念，被停就丢掉后面排着的，别处在念就等它念完。
 智能体可开「开口说话」能力（`AgentToolConfig.EnableSpeak`，默认关）：`Speak` 工具经会话的 `SpeechRequested`
 交给正在显示它的界面，用角色声音、这一句自带的语气念，与自动朗读同一队；念完才返回，没在看、被停就如实回报没出声。群成员不挂。
+「配音」能力（`EnableSpeechSynthesis`，默认关）：`SynthesizeSpeech` 工具按角色名取那个角色的朗读声音（不点用自己的），
+逐句合成拼成一个 24 kHz WAV 存进草稿目录的 `audio` 下，不出声；模型变不了的语速在文件里补。实现在 `SpeechFileSynthesizer`。
 类型：`SpeechStyle`、`CharacterSpeechStyles`
 _Avoid_: 角色音色（音色只是其中一项）
 

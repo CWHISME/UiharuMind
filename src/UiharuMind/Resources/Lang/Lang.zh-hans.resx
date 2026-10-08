@@ -3529,6 +3529,12 @@
     <data name="AgentGateDescSpeak" xml:space="preserve">
         <value>让智能体用「朗读声音」里设的声音把一段话念给你听，每句可自己定语气。只在你正看着这个会话时出声；群成员不挂。</value>
     </data>
+    <data name="AgentSettingCapSpeechSynthesis" xml:space="preserve">
+        <value>配音</value>
+    </data>
+    <data name="AgentGateDescSpeechSynthesis" xml:space="preserve">
+        <value>让智能体把文字合成成音频文件（存进草稿目录的 audio 下），按角色名用那个角色的朗读声音，不点就用自己的。不出声，适合配音、旁白。</value>
+    </data>
     <data name="ModelPageChatModelsTab" xml:space="preserve">
         <value>对话模型</value>
     </data>
