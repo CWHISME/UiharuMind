@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -12,6 +13,28 @@ using UiharuMind.Shared.Services;
 namespace UiharuMind.Features.Models.ImageModels;
 
 /// <summary>
+/// 生图模型页签里本地模型用的动作（开窗、删文件、跳页面），由组装处给
+/// </summary>
+/// <param name="OpenLocalEditor">打开本地模型的参数窗：模型、其他模型已用的名字 → 保存后的新实例</param>
+/// <param name="OpenDraw">打开画图窗口，默认选中这个模型（null 选第一个）</param>
+/// <param name="DeleteLocalFiles">删本地模型不再有人用的组件文件（停引擎、在后台删）</param>
+/// <param name="GoToMarket">去「获取模型」的生图分类</param>
+/// <param name="OpenEngineSettings">去设置的「本地模型（生图）」</param>
+public sealed record ImageModelListActions(
+    Func<ImageModelInfo, IReadOnlyCollection<string>, Task<ImageModelInfo?>> OpenLocalEditor,
+    Action<ImageModelInfo?> OpenDraw,
+    Func<ImageModelInfo, Task<IReadOnlyList<string>>> DeleteLocalFiles,
+    Action GoToMarket,
+    Action OpenEngineSettings)
+{
+    /// <summary>
+    /// 什么都不做（测试与没接本地生图时）
+    /// </summary>
+    public static ImageModelListActions None { get; } = new((_, _) => Task.FromResult<ImageModelInfo?>(null), _ => { },
+        _ => Task.FromResult<IReadOnlyList<string>>([]), () => { }, () => { });
+}
+
+/// <summary>
 /// 生图模型列表：增删改与排序。列表顺序即回退顺序（ADR 0052），每次改动立刻落盘，
 /// 下一次出图就按新的来——装配快照只记「有没有」，顺序与内容每次出图现读。
 /// </summary>
@@ -19,14 +42,18 @@ public partial class ImageModelListViewData : ObservableObject
 {
     private readonly IMessageService _messageService;
     private readonly Func<ImageModelInfo?, IReadOnlyCollection<string>, Task<ImageModelInfo?>> _openEditor;
+    private readonly ImageModelListActions _actions;
 
     /// <param name="messageService">删除确认</param>
-    /// <param name="openEditor">打开编辑框：待编辑的模型（null 为新建）、其他模型已用的名字 → 确认后的新实例</param>
+    /// <param name="openEditor">打开远程模型编辑框：待编辑的模型（null 为新建）、其他模型已用的名字 → 确认后的新实例</param>
+    /// <param name="actions">本地模型用的动作；null 都不做</param>
     public ImageModelListViewData(IMessageService messageService,
-        Func<ImageModelInfo?, IReadOnlyCollection<string>, Task<ImageModelInfo?>> openEditor)
+        Func<ImageModelInfo?, IReadOnlyCollection<string>, Task<ImageModelInfo?>> openEditor,
+        ImageModelListActions? actions = null)
     {
         _messageService = messageService;
         _openEditor = openEditor;
+        _actions = actions ?? ImageModelListActions.None;
         Refresh();
     }
 
@@ -48,6 +75,12 @@ public partial class ImageModelListViewData : ObservableObject
         OnPropertyChanged(nameof(HasItems));
     }
 
+    /// <summary>
+    /// 把一个模型加到列表末尾（获取模型里装好的本地模型走这里）
+    /// </summary>
+    /// <param name="model">模型</param>
+    public void Append(ImageModelInfo model) => Commit(models => models.Add(model));
+
     [RelayCommand]
     private async Task Add()
     {
@@ -60,7 +93,9 @@ public partial class ImageModelListViewData : ObservableObject
     [RelayCommand]
     private async Task Edit(ImageModelItemViewData item)
     {
-        ImageModelInfo? edited = await _openEditor(item.Model, NamesExcept(item.Model));
+        ImageModelInfo? edited = item.IsLocal
+            ? await _actions.OpenLocalEditor(item.Model, NamesExcept(item.Model))
+            : await _openEditor(item.Model, NamesExcept(item.Model));
         int index = Models.IndexOf(item.Model);
         if (edited == null || index < 0) return;
 
@@ -70,9 +105,38 @@ public partial class ImageModelListViewData : ObservableObject
     [RelayCommand]
     private async Task Delete(ImageModelItemViewData item)
     {
-        if (!await _messageService.ConfirmAsync(Loc.Text(LangKey.ImageModelDeleteConfirm, item.Name))) return;
+        if (!item.IsLocal)
+        {
+            if (!await _messageService.ConfirmAsync(Loc.Text(LangKey.ImageModelDeleteConfirm, item.Name))) return;
+            Commit(models => models.Remove(item.Model));
+            return;
+        }
+
+        if (!await _messageService.ConfirmAsync(Loc.Text(LangKey.ImageModelLocalDeleteConfirm, item.Name))) return;
+        try
+        {
+            // 先删文件再移出列表；按引用删时会排除它自己
+            await _actions.DeleteLocalFiles(item.Model);
+            _messageService.ShowNotification(Loc.Text(LangKey.ModelDeleteFilesDone, item.Name),
+                severity: MessageSeverity.Success);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            _messageService.ShowNotification(Loc.Text(LangKey.ModelDeleteFilesFailed, e.Message),
+                severity: MessageSeverity.Error);
+        }
+
         Commit(models => models.Remove(item.Model));
     }
+
+    [RelayCommand]
+    private void Draw(ImageModelItemViewData? item) => _actions.OpenDraw(item?.Model);
+
+    [RelayCommand]
+    private void GoToMarket() => _actions.GoToMarket();
+
+    [RelayCommand]
+    private void OpenEngineSettings() => _actions.OpenEngineSettings();
 
     [RelayCommand]
     private void MoveUp(ImageModelItemViewData item) => Move(item, -1);

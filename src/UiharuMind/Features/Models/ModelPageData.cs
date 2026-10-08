@@ -38,6 +38,8 @@ using UiharuMind.Features.Models.AudioModels;
 using UiharuMind.Features.Audio;
 using UiharuMind.Features.Models.Downloads;
 using UiharuMind.Features.Models.Downloads.Audio;
+using UiharuMind.Features.Models.Downloads.Image;
+using UiharuMind.Core.AI.ImageGeneration;
 using UiharuMind.Core.AI.Audio;
 using UiharuMind.Features.Models.ChatModels;
 using UiharuMind.Features.Models.ImageModels;
@@ -58,7 +60,8 @@ public partial class ModelPageData : PageDataBase
     private readonly AudioServices? _audio; //默认的语音模型页签用；测试自备页签数据时可不给
     private readonly DownloadQueue? _downloadQueueSource; //null 走全局队列
 
-    public ModelPageData() : this(App.Services.GetRequiredService<IMessageService>(), audio: App.Services.GetRequiredService<AudioServices>())
+    public ModelPageData() : this(App.Services.GetRequiredService<IMessageService>(), audio: App.Services.GetRequiredService<AudioServices>(),
+        createImageActions: CreateImageActions)
     {
     }
 
@@ -68,17 +71,20 @@ public partial class ModelPageData : PageDataBase
     /// <param name="modelSources">对话模型列表，默认 App.ModelService 的</param>
     /// <param name="createAudioModels">建「语音模型」页签的数据，默认走共享的语音引擎</param>
     /// <param name="audio">默认的语音模型页签要用的语音服务</param>
+    /// <param name="createImageActions">生图模型页签里本地模型用的动作；null 都不做</param>
     public ModelPageData(IMessageService messageService,
         Func<ModelPageData, ModelDownloadPageData>? createDownloads = null, DownloadQueue? downloadQueue = null,
         ObservableCollection<ModelRunningData>? modelSources = null,
-        Func<ModelPageData, AudioModelListViewData>? createAudioModels = null, AudioServices? audio = null)
+        Func<ModelPageData, AudioModelListViewData>? createAudioModels = null, AudioServices? audio = null,
+        Func<ModelPageData, ImageModelListActions>? createImageActions = null)
     {
         _audio = audio;
         _messageService = messageService;
         ChatModels = new ChatModelListViewData(messageService, () => SelectedTabIndex = DownloadsTabIndex, modelSources);
         _createDownloads = createDownloads ?? CreateDefaultDownloads;
         ImageModels = new ImageModelListViewData(messageService,
-            (source, takenNames) => ImageModelEditWindow.ShowWindow(UIManager.GetRootWindow(), source, takenNames));
+            (source, takenNames) => ImageModelEditWindow.ShowWindow(UIManager.GetRootWindow(), source, takenNames),
+            createImageActions?.Invoke(this));
         _downloadQueueSource = downloadQueue;
         _createAudioModels = createAudioModels ?? CreateDefaultAudioModels;
     }
@@ -165,9 +171,28 @@ public partial class ModelPageData : PageDataBase
             UseModel = name => App.ModelService.LoadModelWithRiskConfirmationAsync(name),
             HasCurrentModel = () => App.ModelService.CurModelRunningData != null
         };
+        ImageMarketServices image = new(SdCppEngine.Shared, LocalImageModelStore.Shared, ImageModelCatalog.BuiltIn,
+            () => ImageModelSettingConfig.Current.Models, page.ImageModels.Append,
+            model => ImageDrawWindow.ShowWindow(UIManager.GetRootWindow(), model),
+            url => _ = UIManager.GetRootWindow().Launcher.LaunchUriAsync(new Uri(url)));
         return new ModelDownloadPageData(context,
-            [new GgufMarketData(context, gguf), new AudioMarketData(context, AudioMarketServices.CreateShared())]);
+        [
+            new GgufMarketData(context, gguf), new AudioMarketData(context, AudioMarketServices.CreateShared()),
+            new ImageMarketData(context, image)
+        ]);
     }
+
+    private static ImageModelListActions CreateImageActions(ModelPageData page) => new(
+        (model, takenNames) => LocalImageModelEditWindow.ShowWindow(UIManager.GetRootWindow(), model, takenNames),
+        model => ImageDrawWindow.ShowWindow(UIManager.GetRootWindow(), model),
+        model =>
+        {
+            // 在跑的可能正是它，先停引擎再删
+            SdCppEngine.Shared.Stop();
+            return Task.Run(() => LocalImageModelStore.Shared.DeleteComponents(model));
+        },
+        page.ShowImageDownloads,
+        () => UIManager.ShowWindow<SettingsWindow>(window => window.ShowImageEngineSettings()));
 
     /// <summary>
     /// 切到生图模型页签。从 Agent 设置页跳过来时用
@@ -195,6 +220,15 @@ public partial class ModelPageData : PageDataBase
     {
         if (SelectedTabIndex == AudioModelsTabIndex) _ = EnsureAudioModels().RefreshAsync();
         else SelectedTabIndex = AudioModelsTabIndex;
+    }
+
+    /// <summary>
+    /// 切到「获取模型」的生图分类
+    /// </summary>
+    public void ShowImageDownloads()
+    {
+        EnsureDownloads().Show<ImageMarketData>();
+        SelectedTabIndex = DownloadsTabIndex;
     }
 
     /// <summary>

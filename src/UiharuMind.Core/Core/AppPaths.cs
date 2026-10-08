@@ -119,6 +119,9 @@ public static class AppPaths
         /// <summary>音色库：克隆用的参考音频与其文字</summary>
         public static readonly string Voices = Path.Combine(Root, "Voices");
 
+        /// <summary>画图窗口出的图（以后的图库从这里读）</summary>
+        public static readonly string Images = Path.Combine(Root, "Images");
+
         /// <summary>浏览器工具的专用档案（Chrome 用户数据目录）：用户在里面登录过的网站跨会话保留</summary>
         public static readonly string Browser = Path.Combine(Root, "Browser");
 

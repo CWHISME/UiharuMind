@@ -5212,4 +5212,268 @@ Allow them?</value>
     <data name="DictationIndicatorTranscribing" xml:space="preserve">
         <value>Transcribing…</value>
     </data>
+    <data name="ImageEngineSetting" xml:space="preserve">
+        <value>Local Models (Image)</value>
+    </data>
+    <data name="SettingsImageEngineUpdateTip" xml:space="preserve">
+        <value>A new stable-diffusion.cpp build is available</value>
+    </data>
+    <data name="ImageEngineTitle" xml:space="preserve">
+        <value>stable-diffusion.cpp runtime</value>
+    </data>
+    <data name="ImageEngineDesc" xml:space="preserve">
+        <value>Local image generation runs on stable-diffusion.cpp's sd-server. Pick or download its version here; downloadable image models are under Get models.</value>
+    </data>
+    <data name="ImageEngineVersionDesc" xml:space="preserve">
+        <value>The build used the next time an image is generated.</value>
+    </data>
+    <data name="ImageModelsTitle" xml:space="preserve">
+        <value>Image models</value>
+    </data>
+    <data name="ImageModelsDesc" xml:space="preserve">
+        <value>Local and online image models, in fallback order.</value>
+    </data>
+    <data name="ImageManageModels" xml:space="preserve">
+        <value>Models and order</value>
+    </data>
+    <data name="ImageManageModelsDesc" xml:space="preserve">
+        <value>Download local image models, set the fallback order and per-model parameters on the Image models tab of the model page.</value>
+    </data>
+    <data name="ImageManageModelsBtn" xml:space="preserve">
+        <value>Manage image models</value>
+    </data>
+    <data name="ImageRuntimeTitle" xml:space="preserve">
+        <value>Runtime</value>
+    </data>
+    <data name="ImageRuntimeDesc" xml:space="preserve">
+        <value>Changes take effect the next time an image is generated.</value>
+    </data>
+    <data name="ImageForceCpu" xml:space="preserve">
+        <value>CPU only</value>
+    </data>
+    <data name="ImageForceCpuDesc" xml:space="preserve">
+        <value>Skip Metal or Vulkan, for example when the GPU driver misbehaves. Much slower.</value>
+    </data>
+    <data name="ImageThreadsDesc" xml:space="preserve">
+        <value>CPU threads; 0 lets stable-diffusion.cpp decide (physical cores).</value>
+    </data>
+    <data name="ImageOffloadToCpu" xml:space="preserve">
+        <value>Keep weights in RAM</value>
+    </data>
+    <data name="ImageOffloadToCpuDesc" xml:space="preserve">
+        <value>Move weights into video memory only when needed. Lets large models run on small GPUs, but slower.</value>
+    </data>
+    <data name="ImageDiffusionFa" xml:space="preserve">
+        <value>Flash Attention</value>
+    </data>
+    <data name="ImageDiffusionFaDesc" xml:space="preserve">
+        <value>Saves video memory and is usually faster.</value>
+    </data>
+    <data name="ImageVaeTiling" xml:space="preserve">
+        <value>Tiled VAE decoding</value>
+    </data>
+    <data name="ImageVaeTilingDesc" xml:space="preserve">
+        <value>Decode large images in tiles to save memory.</value>
+    </data>
+    <data name="ImageIdleStop" xml:space="preserve">
+        <value>Stop when idle (minutes)</value>
+    </data>
+    <data name="ImageIdleStopDesc" xml:space="preserve">
+        <value>Stop the engine and free its memory after this long without generating. 0 keeps it running.</value>
+    </data>
+    <data name="ImageLoadTimeoutDesc" xml:space="preserve">
+        <value>How long to wait for the engine to start and read the model's weights.</value>
+    </data>
+    <data name="ImageGenerationTimeout" xml:space="preserve">
+        <value>Generation timeout (s)</value>
+    </data>
+    <data name="ImageGenerationTimeoutDesc" xml:space="preserve">
+        <value>Longest wait for one image, not counting loading. The engine is stopped when it runs out.</value>
+    </data>
+    <data name="ImageExtraArgs" xml:space="preserve">
+        <value>Extra arguments</value>
+    </data>
+    <data name="ImageExtraArgsDesc" xml:space="preserve">
+        <value>Appended last and win over the settings above.</value>
+    </data>
+    <data name="ImageModelLocalBadge" xml:space="preserve">
+        <value>Local</value>
+    </data>
+    <data name="ImageModelCustomCombo" xml:space="preserve">
+        <value>Custom</value>
+    </data>
+    <data name="ImageModelStateMissingFiles" xml:space="preserve">
+        <value>Model files are missing (deleted or still downloading)</value>
+    </data>
+    <data name="ImageModelLocalEngine" xml:space="preserve">
+        <value>Runs on this computer with stable-diffusion.cpp</value>
+    </data>
+    <data name="ImageTierLite" xml:space="preserve">
+        <value>Lower memory</value>
+    </data>
+    <data name="ImageTierBalanced" xml:space="preserve">
+        <value>Balanced</value>
+    </data>
+    <data name="ImageTierQuality" xml:space="preserve">
+        <value>Higher quality</value>
+    </data>
+    <data name="ImageModelTry" xml:space="preserve">
+        <value>Try it</value>
+    </data>
+    <data name="ImageDrawOpen" xml:space="preserve">
+        <value>Draw</value>
+    </data>
+    <data name="ImageModelGetLocal" xml:space="preserve">
+        <value>Get local models</value>
+    </data>
+    <data name="ImageModelEngineSettings" xml:space="preserve">
+        <value>Engine settings</value>
+    </data>
+    <data name="ImageModelLocalDeleteConfirm" xml:space="preserve">
+        <value>Delete the local model {0}? Its files that no other model uses are deleted too.</value>
+    </data>
+    <data name="LocalImageModelEditTitle" xml:space="preserve">
+        <value>Local image model</value>
+    </data>
+    <data name="LocalImageModelEditHint" xml:space="preserve">
+        <value>Generation parameters for this model. Reset brings back the values recommended for its family.</value>
+    </data>
+    <data name="LocalImageSteps" xml:space="preserve">
+        <value>Steps</value>
+    </data>
+    <data name="LocalImageCfg" xml:space="preserve">
+        <value>CFG scale</value>
+    </data>
+    <data name="LocalImageSampler" xml:space="preserve">
+        <value>Sampler</value>
+    </data>
+    <data name="LocalImageScheduler" xml:space="preserve">
+        <value>Scheduler</value>
+    </data>
+    <data name="LocalImageDefaultOption" xml:space="preserve">
+        <value>Default</value>
+    </data>
+    <data name="LocalImageBaseResolution" xml:space="preserve">
+        <value>Base size</value>
+    </data>
+    <data name="LocalImageBaseResolutionHint" xml:space="preserve">
+        <value>Images keep this area; the aspect ratio decides width and height.</value>
+    </data>
+    <data name="LocalImageNegativePrompt" xml:space="preserve">
+        <value>Negative prompt</value>
+    </data>
+    <data name="LocalImageComponents" xml:space="preserve">
+        <value>Files</value>
+    </data>
+    <data name="LocalImageResetRecommended" xml:space="preserve">
+        <value>Reset to recommended</value>
+    </data>
+    <data name="ImageDrawTitle" xml:space="preserve">
+        <value>Draw</value>
+    </data>
+    <data name="ImageDrawPromptPlaceholder" xml:space="preserve">
+        <value>Describe the picture…</value>
+    </data>
+    <data name="ImageDrawModel" xml:space="preserve">
+        <value>Model</value>
+    </data>
+    <data name="ImageDrawGenerate" xml:space="preserve">
+        <value>Generate</value>
+    </data>
+    <data name="ImageDrawStop" xml:space="preserve">
+        <value>Stop</value>
+    </data>
+    <data name="ImageDrawStarting" xml:space="preserve">
+        <value>Starting the engine and loading the model…</value>
+    </data>
+    <data name="ImageDrawQueued" xml:space="preserve">
+        <value>Waiting in line…</value>
+    </data>
+    <data name="ImageDrawStep" xml:space="preserve">
+        <value>Step {0} / {1}</value>
+    </data>
+    <data name="ImageDrawWaiting" xml:space="preserve">
+        <value>Generating… {0}s</value>
+    </data>
+    <data name="ImageDrawDone" xml:space="preserve">
+        <value>Done in {0}s</value>
+    </data>
+    <data name="ImageDrawFailed" xml:space="preserve">
+        <value>Failed: {0}</value>
+    </data>
+    <data name="ImageDrawStopped" xml:space="preserve">
+        <value>Stopped</value>
+    </data>
+    <data name="ImageDrawNoModel" xml:space="preserve">
+        <value>Add an image model first</value>
+    </data>
+    <data name="ImageDrawEmpty" xml:space="preserve">
+        <value>The picture shows up here</value>
+    </data>
+    <data name="ImageDrawPin" xml:space="preserve">
+        <value>Pin preview</value>
+    </data>
+    <data name="ImageDrawSaveAs" xml:space="preserve">
+        <value>Save as…</value>
+    </data>
+    <data name="ImageMarketPickFamily" xml:space="preserve">
+        <value>Pick a model on the left to see its sizes and download it.</value>
+    </data>
+    <data name="ImageMarketSearchHint" xml:space="preserve">
+        <value>Search image models</value>
+    </data>
+    <data name="ImageMarketNoResults" xml:space="preserve">
+        <value>No matching models</value>
+    </data>
+    <data name="ImageMarketNeedsEngine" xml:space="preserve">
+        <value>Local image generation needs the stable-diffusion.cpp engine (about 40 MB). Install it first; models can download at the same time.</value>
+    </data>
+    <data name="ImageInstallEngine" xml:space="preserve">
+        <value>Install engine</value>
+    </data>
+    <data name="ImageMarketEngineInstalling" xml:space="preserve">
+        <value>Installing the engine…</value>
+    </data>
+    <data name="ImageEngineNoPackage" xml:space="preserve">
+        <value>No stable-diffusion.cpp build for this computer was found</value>
+    </data>
+    <data name="ImageEngineQueued" xml:space="preserve">
+        <value>Downloading stable-diffusion.cpp {0}</value>
+    </data>
+    <data name="ImageEngineCheckFailed" xml:space="preserve">
+        <value>Couldn't check for stable-diffusion.cpp: {0}</value>
+    </data>
+    <data name="ImageFamilyUntested" xml:space="preserve">
+        <value>Untested</value>
+    </data>
+    <data name="ImageFamilyUntestedTip" xml:space="preserve">
+        <value>Set up from the stable-diffusion.cpp docs with its files checked, but not yet tried here.</value>
+    </data>
+    <data name="ImageFamilyTextToImage" xml:space="preserve">
+        <value>Text to image</value>
+    </data>
+    <data name="ImageFamilyEditing" xml:space="preserve">
+        <value>Edits images</value>
+    </data>
+    <data name="ImageFamilySummary" xml:space="preserve">
+        <value>{0} · from {1}</value>
+    </data>
+    <data name="ImageFamilyTiers" xml:space="preserve">
+        <value>Downloadable sizes</value>
+    </data>
+    <data name="ImageFamilyDoc" xml:space="preserve">
+        <value>stable-diffusion.cpp docs</value>
+    </data>
+    <data name="ImageFamilyBaseSize" xml:space="preserve">
+        <value>Base size {0}</value>
+    </data>
+    <data name="ImageModelReady" xml:space="preserve">
+        <value>{0} is ready and was added to the image model list</value>
+    </data>
+    <data name="ImageModelDownloadFailed" xml:space="preserve">
+        <value>Couldn't download {0}: {1}</value>
+    </data>
+    <data name="ImageFamilyInstalledTip" xml:space="preserve">
+        <value>A tier is installed on this machine</value>
+    </data>
 </root>

@@ -32,7 +32,8 @@ public partial class SettingsWindow : UiharuWindowBase
         App.ViewModel.GetViewModel<GeneralSettingViewModel>(),
         [
             EngineSettingsPage.Text(App.ViewModel.GetViewModel<SettingViewModel>().RuntimeEngineSettingData),
-            EngineSettingsPage.Audio(App.ViewModel.GetViewModel<SettingViewModel>().AudioEngineSettingData)
+            EngineSettingsPage.Audio(App.ViewModel.GetViewModel<SettingViewModel>().AudioEngineSettingData),
+            EngineSettingsPage.Image(App.ViewModel.GetViewModel<SettingViewModel>().ImageEngineSettingData)
         ],
         App.ViewModel.GetViewModel<ShortcutSettingViewModel>(),
         App.ViewModel.GetPage)
@@ -83,6 +84,9 @@ public partial class SettingsWindow : UiharuWindowBase
 
     /// <summary>直接切到「本地模型（语音）」页（模型页的语音模型页签跳过来时用）</summary>
     public void ShowAudioEngineSettings() => SelectByTitleKey("AudioEngineSetting");
+
+    /// <summary>直接切到「本地模型（生图）」页（模型页的生图模型页签跳过来时用）</summary>
+    public void ShowImageEngineSettings() => SelectByTitleKey("ImageEngineSetting");
 
     /// <summary>
     /// 按名字取左栏按钮（如 RuntimeButton）；没有为 null

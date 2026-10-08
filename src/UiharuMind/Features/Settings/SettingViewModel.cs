@@ -1,4 +1,5 @@
 using UiharuMind.Features.Settings.Audio;
+using UiharuMind.Features.Settings.Image;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Runtime.Backends;
@@ -15,4 +16,6 @@ public class SettingViewModel : ViewModelBase
     public RuntimeEngineSettingData RuntimeEngineSettingData { get; } = new();
 
     public AudioEngineSettingData AudioEngineSettingData { get; } = new();
+
+    public ImageEngineSettingData ImageEngineSettingData { get; } = new();
 }

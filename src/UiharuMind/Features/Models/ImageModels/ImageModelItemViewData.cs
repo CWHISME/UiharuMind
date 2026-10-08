@@ -24,6 +24,7 @@ public sealed class ImageModelItemViewData
         StatusText = status.State switch
         {
             EImageModelState.NotConfigured => Loc.Text(LangKey.ImageModelStateNotConfigured),
+            EImageModelState.MissingFiles => Loc.Text(LangKey.ImageModelStateMissingFiles),
             EImageModelState.Cooling => Loc.Text(LangKey.ImageModelStateCooling, status.LastError ?? string.Empty),
             _ => Loc.Text(LangKey.ImageModelStateReady),
         };
@@ -38,11 +39,16 @@ public sealed class ImageModelItemViewData
     /// <summary>名字</summary>
     public string Name => Model.Name;
 
-    /// <summary>接口格式 · 模型 id · 分辨率档</summary>
-    public string Detail => $"{Model.Dialect} · {Model.ModelId} · {Model.Resolution.ToTierLabel()}";
+    /// <summary>本机跑的</summary>
+    public bool IsLocal => Model.IsLocal;
 
-    /// <summary>服务地址</summary>
-    public string Endpoint => Model.Endpoint;
+    /// <summary>远程：接口格式 · 模型 id · 分辨率档；本地：家族 · 档位</summary>
+    public string Detail => Model.Local is { } local
+        ? ImageTierText.Origin(local)
+        : $"{Model.Dialect} · {Model.ModelId} · {Model.Resolution.ToTierLabel()}";
+
+    /// <summary>远程：服务地址；本地：在本机运行</summary>
+    public string Endpoint => IsLocal ? Loc.Text(LangKey.ImageModelLocalEngine) : Model.Endpoint;
 
     /// <summary>支持编辑</summary>
     public bool SupportsEditing => Model.SupportsEditing;

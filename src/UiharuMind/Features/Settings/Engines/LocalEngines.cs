@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using UiharuMind.Core.AI.Audio;
 using UiharuMind.Core.AI.Engines;
+using UiharuMind.Core.AI.ImageGeneration;
 using UiharuMind.Core.AI.Runtime.Backends;
 
 namespace UiharuMind.Features.Settings.Engines;
@@ -15,7 +16,8 @@ public static class LocalEngines
     /// <summary>
     /// 全部本地引擎（走应用档案的那一份）
     /// </summary>
-    public static IReadOnlyList<ILocalEngine> All => [LLamaCppEngine.Shared, AudioCppEngine.Shared.Distribution];
+    public static IReadOnlyList<ILocalEngine> All =>
+        [LLamaCppEngine.Shared, AudioCppEngine.Shared.Distribution, SdCppEngine.Shared.Distribution];
 
     /// <summary>
     /// 装过的引擎各去问一次有没有新版本；没装过的不去问 GitHub

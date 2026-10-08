@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using UiharuMind.Features.Settings.Audio;
+using UiharuMind.Features.Settings.Image;
 
 namespace UiharuMind.Features.Settings.Engines;
 
@@ -32,4 +33,10 @@ public sealed record EngineSettingsPage(
     public static EngineSettingsPage Audio(AudioEngineSettingData data) => new("AudioRuntimeButton",
         "AudioEngineSetting", "audio-lines", "SettingsAudioEngineUpdateTip", new AudioEngineSettingView(data),
         data.Engine);
+
+    /// <summary>
+    /// 本地模型（生图）
+    /// </summary>
+    public static EngineSettingsPage Image(ImageEngineSettingData data) => new("ImageRuntimeButton",
+        "ImageEngineSetting", "image", "SettingsImageEngineUpdateTip", new ImageEngineSettingView(data), data.Engine);
 }

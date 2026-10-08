@@ -23,15 +23,18 @@ public static class ModelDownloadSourceInfo
     /// <summary>
     /// 「源：…」文案
     /// </summary>
+    /// <param name="huggingFaceRepos">只认 HuggingFace 仓库名的分类：设成魔搭时实际走 hf-mirror</param>
     /// <returns>文案</returns>
-    public static string Label() => Loc.Text(LangKey.ModelDownloadSourceLabel, DisplayName());
+    public static string Label(bool huggingFaceRepos = false) =>
+        Loc.Text(LangKey.ModelDownloadSourceLabel, DisplayName(huggingFaceRepos));
 
-    private static string DisplayName()
+    private static string DisplayName(bool huggingFaceRepos)
     {
         DownloadSourceSettingConfig config = DownloadSourceSettingConfig.Current;
         return config.ModelSource switch
         {
             DownloadSourceSettingConfig.SourceHfMirror => "hf-mirror",
+            DownloadSourceSettingConfig.SourceModelScope when huggingFaceRepos => "hf-mirror",
             DownloadSourceSettingConfig.SourceModelScope => Loc.Text(LangKey.ModelSourceModelScope),
             DownloadSourceSettingConfig.SourceCustom when Uri.TryCreate(config.CustomEndpoint.Trim(), UriKind.Absolute,
                 out Uri? uri) => uri.Host,

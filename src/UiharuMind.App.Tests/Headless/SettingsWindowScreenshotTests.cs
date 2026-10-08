@@ -1,3 +1,4 @@
+using UiharuMind.Features.Settings.Image;
 using UiharuMind.Features.Settings.Audio;
 using UiharuMind.Core.AI.Runtime.Backends;
 using Avalonia;
@@ -54,6 +55,8 @@ public class SettingsWindowScreenshotTests : IDisposable
             AssertRuntimeSectionsRendered(window);
             ClickAndCapture(window, "AudioRuntimeButton", outDir, "audio");
             AssertAudioSectionsRendered(window);
+            ClickAndCapture(window, "ImageRuntimeButton", outDir, "image");
+            Assert.Single(window.GetVisualDescendants().OfType<ImageEngineSettingView>());
             ClickAndCapture(window, "DownloadSourceButton", outDir, "download-source");
             ClickAndCapture(window, "AgentButton", outDir, "agent");
             ClickAndCapture(window, "QuickToolButton", outDir, "quicktool");
@@ -143,7 +146,8 @@ public class SettingsWindowScreenshotTests : IDisposable
         return new SettingsWindow(
             ActivatorUtilities.CreateInstance<GeneralSettingViewModel>(services),
             [EngineSettingsPage.Text(new RuntimeEngineSettingData(messages)),
-             EngineSettingsPage.Audio(TestSettingsPages.Audio(messages))],
+             EngineSettingsPage.Audio(TestSettingsPages.Audio(messages)),
+             EngineSettingsPage.Image(TestSettingsPages.Image(messages))],
             new ShortcutSettingViewModel(),
             GetPageForHeadless);
     }

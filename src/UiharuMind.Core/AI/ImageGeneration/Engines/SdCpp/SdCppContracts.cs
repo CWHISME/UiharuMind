@@ -18,6 +18,27 @@ public sealed record SdCppSampling(
     float? DistilledGuidance = null);
 
 /// <summary>
+/// sd.cpp 认的采样器与调度器名（include/stable-diffusion.h），参数窗的下拉用
+/// </summary>
+public static class SdCppSamplers
+{
+    /// <summary>
+    /// 采样器
+    /// </summary>
+    public static IReadOnlyList<string> Samplers { get; } =
+    [
+        "euler", "euler_a", "heun", "dpm2", "dpm++2s_a", "dpm++2m", "dpm++2mv2", "ipndm", "ipndm_v", "lcm",
+        "ddim_trailing", "tcd", "res_multistep", "res_2s", "er_sde"
+    ];
+
+    /// <summary>
+    /// 调度器
+    /// </summary>
+    public static IReadOnlyList<string> Schedulers { get; } =
+        ["discrete", "karras", "exponential", "ays", "gits", "sgm_uniform", "simple", "smoothstep", "kl_optimal", "beta"];
+}
+
+/// <summary>
 /// 交给本地生图引擎的一次出图
 /// </summary>
 /// <param name="Prompt">提示词</param>

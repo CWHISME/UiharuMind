@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:downloads="clr-namespace:UiharuMind.Features.Models.Downloads"
              xmlns:audio="clr-namespace:UiharuMind.Features.Models.Downloads.Audio"
+             xmlns:image="clr-namespace:UiharuMind.Features.Models.Downloads.Image"
              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
@@ -97,6 +98,9 @@
                         <DataTemplate DataType="audio:AudioMarketData" x:DataType="audio:AudioMarketData">
                             <audio:AudioMarketListView />
                         </DataTemplate>
+                        <DataTemplate DataType="image:ImageMarketData" x:DataType="image:ImageMarketData">
+                            <image:ImageMarketListView />
+                        </DataTemplate>
                     </ContentControl.DataTemplates>
                 </ContentControl>
             </DockPanel>
@@ -118,6 +122,9 @@
                             </DataTemplate>
                             <DataTemplate DataType="audio:AudioFamilyDetailData">
                                 <audio:AudioFamilyDetailView />
+                            </DataTemplate>
+                            <DataTemplate DataType="image:ImageFamilyDetailData">
+                                <image:ImageFamilyDetailView />
                             </DataTemplate>
                         </ContentControl.DataTemplates>
                     </ContentControl>

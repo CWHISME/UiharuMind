@@ -99,4 +99,47 @@ public class ImageModelListViewDataTests : IDisposable
         list.MoveUpCommand.Execute(list.Items[0]);
         Assert.Equal(["b", "c", "a"], ConfiguredNames());
     }
+
+    [Fact]
+    public async Task LocalEntry_EditsInLocalEditor_AndDeleteRemovesFilesFirst()
+    {
+        ImageModelInfo local = new() { Name = "local", Dialect = EImageDialect.Local, Local = new LocalImageModel() };
+        ImageModelSettingConfig.Current.ReplaceModels([Model("a"), local]);
+        List<string> calls = [];
+        ImageModelListActions actions = ImageModelListActions.None with
+        {
+            OpenLocalEditor = (model, taken) =>
+            {
+                calls.Add($"edit {model.Name} [{string.Join(",", taken)}]");
+                return Task.FromResult<ImageModelInfo?>(new ImageModelInfo
+                    { Name = "local2", Dialect = EImageDialect.Local, Local = model.Local });
+            },
+            DeleteLocalFiles = model =>
+            {
+                calls.Add($"delete {model.Name} listed={ConfiguredNames().Contains(model.Name)}");
+                return Task.FromResult<IReadOnlyList<string>>([]);
+            }
+        };
+        ImageModelListViewData list = new(_messages, (_, _) => throw new InvalidOperationException("远程编辑框不该打开"), actions);
+
+        await list.EditCommand.ExecuteAsync(list.Items[1]);
+        Assert.Equal(["a", "local2"], ConfiguredNames());
+
+        _messages.ConfirmResult = true;
+        await list.DeleteCommand.ExecuteAsync(list.Items[1]);
+
+        Assert.Equal(["a"], ConfiguredNames());
+        Assert.Equal(["edit local [a]", "delete local2 listed=True"], calls);
+    }
+
+    [Fact]
+    public void Append_AddsToTheEnd()
+    {
+        ImageModelListViewData list = Create();
+
+        list.Append(Model("d"));
+
+        Assert.Equal(["a", "b", "c", "d"], ConfiguredNames());
+        Assert.Equal("d", list.Items[3].Name);
+    }
 }
