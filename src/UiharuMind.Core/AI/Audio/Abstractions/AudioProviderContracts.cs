@@ -45,7 +45,9 @@ public enum EAudioFormat
 /// <param name="Voice">provider 自己的音色 id（如 pocket 的 alba、Edge 的短名）；空 = provider 默认</param>
 /// <param name="Speed">语速倍率；provider 不支持时显式忽略（契约里声明，不报错）</param>
 /// <param name="Model">provider 自己的模型 id（试听某个非默认模型时用）；空 = provider 当前的默认</param>
-public sealed record AudioSynthesisRequest(string Text, string? Voice = null, float? Speed = null, string? Model = null);
+/// <param name="Language">文字的主要语种（如 zh）；provider 可据此换一个会说这种语言的模型，没有这个本事的忽略</param>
+public sealed record AudioSynthesisRequest(string Text, string? Voice = null, float? Speed = null, string? Model = null,
+    string? Language = null);
 
 /// <summary>一次合成结果：字节流 + 格式。流由调用方负责释放；Pcm16 时 <see cref="SampleRateHz"/> 必填</summary>
 public sealed record AudioSynthesisResult(Stream Audio, EAudioFormat Format, int? SampleRateHz = null);

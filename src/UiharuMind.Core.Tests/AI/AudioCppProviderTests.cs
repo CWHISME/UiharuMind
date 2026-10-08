@@ -125,6 +125,37 @@ public class AudioCppProviderTests : IDisposable
         Assert.Equal(Path.Combine(shared, "a-bf16.gguf"), AudioCppModels.ServerPath(Path.Combine(shared, "a-bf16.gguf")));
     }
 
+    [Theory]
+    [InlineData("pocket", "zh", "vox")] //选的不会中文，换会中文的
+    [InlineData("pocket", "en", "pocket")]
+    [InlineData("pocket", "ja", "pocket")] //谁都不会：还用选的
+    [InlineData("vox", "en", "vox")]
+    [InlineData("mystery", "zh", "mystery")] //spec 认不出的不当作「不会」
+    [InlineData("pocket", null, "pocket")]
+    public void ResolveModel_ByLanguage_PrefersChosenUnlessItCannotSpeakIt(string chosen, string? language, string expected)
+    {
+        string install = Path.Combine(_directory, "engine");
+        Directory.CreateDirectory(Path.Combine(install, "model_specs"));
+        File.WriteAllText(Path.Combine(install, "model_specs", "pocket_tts.json"), Spec("pocket_tts", "en", "de"));
+        File.WriteAllText(Path.Combine(install, "model_specs", "voxcpm1.json"), Spec("voxcpm1", "zh", "en"));
+        _models.Clear();
+        _models.AddRange([
+            new("pocket", "pocket_tts", "/m/p.gguf", "tts"), new("vox", "voxcpm1", "/m/v.gguf", "tts"),
+            new("mystery", "unknown_family", "/m/x.gguf", "tts")
+        ]);
+        _settings.TtsModel = chosen;
+        using AudioCppEngine engine = CreateEngine(installed: false);
+        engine.UseVersion(new AudioCppVersion { Name = "audio-v0.9.1-bin-macos-arm64-metal", InstallDirectory = install });
+
+        Assert.Equal(expected, engine.ResolveModel(EAudioCppTask.Tts, language).Id);
+    }
+
+    private static string Spec(string family, params string[] languages) =>
+        "{\"family\":\"" + family + "\",\"category\":\"tts\",\"languages\":[" +
+        string.Join(",", languages.Select(x => "\"" + x + "\"")) + "]," +
+        "\"package_defaults\":{\"download\":{\"kind\":\"huggingface_snapshot\",\"repo\":\"a/b\"}}," +
+        "\"packages\":[{\"id\":\"" + family + "_q8\",\"format\":\"gguf\",\"target_directory\":\"D\",\"files\":[\"D/a.gguf\"]}]}";
+
     private AudioCppEngine CreateEngine(bool installed)
     {
         AudioCppEngine engine = new(_settings, Path.Combine(_directory, "engines"),

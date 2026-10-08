@@ -171,7 +171,7 @@
             <Border Classes="message-actions" Grid.Row="1"
                     HorizontalAlignment="{Binding Alignment}">
                 <!-- 操作按钮悬停到本行时才实例化:
-                     每行 5 个 SVG 按钮的预构建/拆除是长会话切换成本的大头 -->
+                     每行 6 个 SVG 按钮的预构建/拆除是长会话切换成本的大头 -->
                 <HoverDeferredContent>
                     <HoverDeferredContent.ContentTemplate>
                         <DataTemplate x:DataType="items:TextConversationItem">
@@ -183,6 +183,16 @@
                                 <ThemedIconButton Classes="message-action" IconName="copy"
                                                   Command="{Binding CopyCommand}"
                                                   ToolTips="{loc:Loc Copy}" />
+                                <Panel IsVisible="{Binding CanReadAloud}">
+                                    <ThemedIconButton Classes="message-action" IconName="audio-lines"
+                                                      IsVisible="{Binding !IsReadingAloud}"
+                                                      Command="{Binding ReadAloudCommand}"
+                                                      ToolTips="{loc:Loc ReadAloud}" />
+                                    <ThemedIconButton Classes="message-action" IconName="stop"
+                                                      IsVisible="{Binding IsReadingAloud}"
+                                                      Command="{Binding ReadAloudCommand}"
+                                                      ToolTips="{loc:Loc ReadAloudStop}" />
+                                </Panel>
                                 <ThemedIconButton Classes="message-action" IconName="pencil"
                                                   IsVisible="{Binding CanEdit}"
                                                   Command="{Binding EditCommand}"

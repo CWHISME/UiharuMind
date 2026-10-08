@@ -39,6 +39,7 @@ public sealed class AudioCppEngine : IDisposable
     private readonly AudioCppEngineHost _host;
     private readonly Lock _gate = new();
     private IReadOnlyList<AudioCppModelEntry>? _models; //扫描缓存
+    private IReadOnlyList<AudioCppFamily>? _families; //在用引擎的 spec，换版本时清
     private IReadOnlyList<AudioCppModelEntry> _launchedModels = [];
 
     /// <param name="settings">引擎设置</param>
@@ -169,6 +170,22 @@ public sealed class AudioCppEngine : IDisposable
     }
 
     /// <summary>
+    /// 按文字语种挑模型：优先设置里选的；它明确不会这种语言（spec 里列了语种却没有它）时，
+    /// 换一个本机装了、会这种语言的。都不会就还用选的那个
+    /// </summary>
+    /// <param name="task">任务</param>
+    /// <param name="language">语种代码，如 zh；null 不挑</param>
+    /// <returns>模型条目</returns>
+    /// <exception cref="AudioModelMissingException">一个都没有</exception>
+    public AudioCppModelEntry ResolveModel(EAudioCppTask task, string? language)
+    {
+        AudioCppModelEntry preferred = ResolveModel(task);
+        if (language == null || Speaks(preferred, language) != false) return preferred;
+        string name = task.ToConfigName();
+        return GetModels().Where(x => x.Task == name).FirstOrDefault(x => Speaks(x, language) == true) ?? preferred;
+    }
+
+    /// <summary>
     /// 引擎包自带的 model_specs 目录；没装引擎为 null
     /// </summary>
     public string? GetSpecsDirectory()
@@ -192,8 +209,15 @@ public sealed class AudioCppEngine : IDisposable
     /// </summary>
     public IReadOnlyList<AudioCppFamily> GetFamilies()
     {
+        lock (_gate)
+        {
+            if (_families != null) return _families;
+        }
+
         string? specs = GetSpecsDirectory();
-        return specs == null ? [] : AudioCppModelCatalog.LoadFamilies(specs);
+        IReadOnlyList<AudioCppFamily> families = specs == null ? [] : AudioCppModelCatalog.LoadFamilies(specs);
+        lock (_gate) _families = families;
+        return families;
     }
 
     /// <summary>
@@ -250,9 +274,22 @@ public sealed class AudioCppEngine : IDisposable
         SetCurrentVersion(version);
     }
 
+    // 会不会这种语言：spec 没列语种（或认不出家族）为 null，不当作「不会」
+    private bool? Speaks(AudioCppModelEntry model, string language)
+    {
+        AudioCppFamily? family = GetFamilies().FirstOrDefault(x => x.Family == model.Family);
+        if (family == null || family.Languages.Count == 0) return null;
+        return family.Languages.Any(x => x.StartsWith(language, StringComparison.OrdinalIgnoreCase));
+    }
+
     private void SetCurrentVersion(AudioCppVersion? version)
     {
         bool changed = CurrentVersion?.Name != version?.Name;
+        lock (_gate)
+        {
+            if (changed) _families = null;
+        }
+
         CurrentVersion = version;
         if (changed) VersionChanged?.Invoke();
     }

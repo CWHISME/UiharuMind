@@ -34,7 +34,7 @@ public sealed class AudioCppProvider : IAudioProvider, IDisposable
             throw new ArgumentException("Text is required.", nameof(request));
 
         AudioCppModelEntry model = string.IsNullOrEmpty(request.Model)
-            ? _engine.ResolveModel(EAudioCppTask.Tts)
+            ? _engine.ResolveModel(EAudioCppTask.Tts, request.Language)
             : FindModel(request.Model);
         OpenAiCompatibleAudioClient client = await GetClientAsync(model, cancellationToken).ConfigureAwait(false);
         string? voice = request.Voice;

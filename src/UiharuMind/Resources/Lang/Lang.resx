@@ -4666,4 +4666,16 @@ Allow them?</value>
     <data name="AudioErrorDevice" xml:space="preserve">
         <value>No audio device available: {0}</value>
     </data>
+    <data name="ReadAloud" xml:space="preserve">
+        <value>Read aloud</value>
+    </data>
+    <data name="ReadAloudStop" xml:space="preserve">
+        <value>Stop reading</value>
+    </data>
+    <data name="ReadAloudFailed" xml:space="preserve">
+        <value>Read aloud failed: {0}</value>
+    </data>
+    <data name="ReadAloudNothing" xml:space="preserve">
+        <value>There is no text to read aloud in this message.</value>
+    </data>
 </root>

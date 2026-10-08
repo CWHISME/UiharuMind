@@ -24,6 +24,7 @@ using System.Threading;
 using System;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
+using UiharuMind.Features.Audio;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Execution;
@@ -282,6 +283,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private int _composerCaret = -1; //输入框光标（视图报上来）；-1 表示不知道，按末尾算
 
     private readonly IMessageService _messages; //弹提示与确认
+
+    private readonly ConversationReadAloud? _readAloud;
     private readonly WorkspaceMcpApprovalFlow _mcpApproval; //选定工作区时为项目级 MCP 要一次确认
     private readonly ConversationItemActions _itemActions; //气泡上的编辑/删除/分叉/重试
     private readonly ConversationHistoryRenderer _history; //把历史画进 Items(回放、续窗、落盘补渲染)
@@ -505,9 +508,11 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// 构造
     /// </summary>
     /// <param name="messages">弹提示与确认用的消息服务</param>
-    public ConversationViewModel(IMessageService messages)
+    /// <param name="readAloud">朗读；为空则气泡上没有朗读按钮</param>
+    public ConversationViewModel(IMessageService messages, IReadAloudService? readAloud = null)
     {
         _messages = messages;
+        _readAloud = readAloud == null ? null : new ConversationReadAloud(Items, readAloud);
         _mcpApproval = new WorkspaceMcpApprovalFlow(messages);
         // 用量排最前:后面几个子模型的构造期回调就可能刷它
         Usage = new ConversationUsageViewData(ContextLength, () => SessionModelLabel,
@@ -892,6 +897,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// </summary>
     public void Dispose()
     {
+        _readAloud?.Dispose();
         // 实例被弃用前把草稿落盘(静默,不动列表排序;没改就不写)。此后恢复靠会话头上的 ComposerDraft
         CurrentSession?.SaveDraft();
 

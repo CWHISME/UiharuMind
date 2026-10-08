@@ -12,6 +12,7 @@
 using System;
 using System.Linq;
 using UiharuMind.Core.AI.Audio;
+using UiharuMind.Features.Audio;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using System.IO;
@@ -108,6 +109,12 @@ public partial class App : Application, ILogger, IDisposable
                 .AddSingleton<MainViewModel>()
                 .AddSingleton<SearchService>()
                 .AddSingleton<IAudioPlayer, SoundFlowAudioPlayer>()
+                .AddSingleton<IReadAloudService>(sp =>
+                {
+                    // 第一次朗读才建 provider：建它会碰语音引擎的单例与设置
+                    Lazy<IAudioProvider> tts = new(() => new AudioCppProvider(AudioCppEngine.Shared));
+                    return new ReadAloudService(() => tts.Value, sp.GetRequiredService<IAudioPlayer>(), messages);
+                })
                 .BuildServiceProvider();
             UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("di-container");
             DummyWindow.InitializeMainViewModel(Services.GetRequiredService<MainViewModel>());

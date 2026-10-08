@@ -21,6 +21,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
+using UiharuMind.Features.Audio;
 using UiharuMind.Shared.Utils.Tools;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Core.Core.SimpleLog;
@@ -75,6 +76,14 @@ public abstract partial class ConversationItemBase : ObservableObject
     /// </summary>
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanBranch))]
     private Action<ConversationItemBase>? _branchCallback;
+
+    /// <summary>朗读回调(为空则隐藏朗读按钮)。再点一次是停，所以要允许并发执行</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanReadAloud))]
+    private Func<ConversationItemBase, Task>? _readAloudCallback;
+
+    /// <summary>这条正在朗读到哪一步</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(IsReadingAloud))]
+    private EReadAloudState _readAloudState;
 
     /// <summary>
     /// 条目被永久丢弃时释放它持有的大位图（切会话、删条目、重跑截断历史）。
@@ -146,6 +155,17 @@ public abstract partial class ConversationItemBase : ObservableObject
 
     /// <summary>是否可分叉</summary>
     public bool CanBranch => BranchCallback != null;
+
+    /// <summary>是否可朗读：流式还没出完时不给</summary>
+    public bool CanReadAloud => ReadAloudCallback != null && IsDone;
+
+    /// <summary>正在准备或正在念（按钮换成「停止」）</summary>
+    public bool IsReadingAloud => ReadAloudState != EReadAloudState.Idle;
+
+    partial void OnIsDoneChanged(bool value) => OnPropertyChanged(nameof(CanReadAloud));
+
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private Task ReadAloud() => ReadAloudCallback?.Invoke(this) ?? Task.CompletedTask;
 
     [RelayCommand]
     private void Copy()

@@ -4659,4 +4659,16 @@
     <data name="AudioErrorDevice" xml:space="preserve">
         <value>没有可用的音频设备：{0}</value>
     </data>
+    <data name="ReadAloud" xml:space="preserve">
+        <value>朗读</value>
+    </data>
+    <data name="ReadAloudStop" xml:space="preserve">
+        <value>停止朗读</value>
+    </data>
+    <data name="ReadAloudFailed" xml:space="preserve">
+        <value>朗读失败：{0}</value>
+    </data>
+    <data name="ReadAloudNothing" xml:space="preserve">
+        <value>这条消息没有可以朗读的文字。</value>
+    </data>
 </root>
