@@ -1,0 +1,117 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:downloads="clr-namespace:UiharuMind.Features.Models.Downloads"
+             xmlns:audio="clr-namespace:UiharuMind.Features.Models.Downloads.Audio"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             x:Class="UiharuMind.Features.Models.Downloads.Audio.AudioFamilyDetailView"
+             x:DataType="audio:AudioFamilyDetailData">
+
+    <DockPanel>
+        <!-- 标题：家族名为主，任务与版本数弱化 -->
+        <DockPanel DockPanel.Dock="Top">
+            <Button DockPanel.Dock="Left" Classes="NoneStyle drawer-back" Padding="4" Margin="-4,0,6,0"
+                    Cursor="Hand" VerticalAlignment="Top"
+                    Command="{Binding $parent[downloads:ModelDownloadView].((downloads:ModelDownloadPageData)DataContext).CloseDetailCommand}">
+                <controls:ThemedSvgIcon Width="18" Height="18" IconName="arrow-left" />
+            </Button>
+            <StackPanel Spacing="3">
+                <SelectableTextBlock Text="{Binding Title}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding SummaryText}" Classes="muted" FontSize="12" />
+            </StackPanel>
+        </DockPanel>
+
+        <ProgressBar DockPanel.Dock="Top" IsIndeterminate="True" Height="2" MinHeight="2" Margin="0,12,0,0"
+                     IsVisible="{Binding IsLoading}" />
+
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" Margin="0,12,0,0">
+            <StackPanel Spacing="12">
+                <ItemsControl ItemsSource="{Binding Tags}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="x:String">
+                            <Border Classes="feature-tag">
+                                <TextBlock Text="{Binding}" FontSize="11" />
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- 上游说明是英文原文，与「获取模型」里的仓库说明同一口径 -->
+                <SelectableTextBlock Text="{Binding Description}" TextWrapping="Wrap" FontSize="13" />
+                <StackPanel Spacing="4">
+                    <TextBlock Text="{Binding LanguagesText}" Classes="muted" FontSize="12" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding VoicesText}" Classes="muted" FontSize="12" TextWrapping="Wrap"
+                               ToolTip.Tip="{Binding AllVoicesText}"
+                               IsVisible="{Binding VoicesText, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                </StackPanel>
+
+                <Border Classes="result-panel" Padding="10,6" IsVisible="{Binding NeedsEspeak}">
+                    <TextBlock Text="{loc:Loc AudioNeedsEspeakTip}" TextWrapping="Wrap" FontSize="12" />
+                </Border>
+
+                <StackPanel Spacing="0">
+                    <TextBlock Text="{loc:Loc AudioFamilyPackages}" FontSize="13" FontWeight="SemiBold" Margin="2,4,0,6" />
+                    <Border Height="1" Background="{DynamicResource SemiGrey2}" />
+                    <ItemsControl x:Name="PackageList" ItemsSource="{Binding Rows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="audio:AudioPackageRowData">
+                                <Border Classes="quant-row" Classes.recommended="{Binding IsRecommended}">
+                                    <Grid ColumnDefinitions="Auto,*,72,Auto" ColumnSpacing="12">
+                                        <Panel Width="16" Height="24" Background="Transparent" ToolTip.Tip="{Binding RiskTip}">
+                                            <Border Classes="status-dot" Tag="{Binding RiskTag}" HorizontalAlignment="Center" />
+                                        </Panel>
+
+                                        <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" Spacing="6"
+                                                        ToolTip.Tip="{Binding Package.DisplayName}">
+                                                <TextBlock Text="{Binding Label}" FontWeight="SemiBold" VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <Border Background="{DynamicResource SemiBlue5}" CornerRadius="9" Padding="7,1"
+                                                        VerticalAlignment="Center" IsVisible="{Binding IsRecommended}">
+                                                    <TextBlock Text="{loc:Loc ModelDownloadRecommended}" FontSize="11"
+                                                               Foreground="White" />
+                                                </Border>
+                                                <Border Classes="feature-tag" Margin="0" IsVisible="{Binding IsDefault}">
+                                                    <TextBlock Text="{loc:Loc AudioPackageIsDefault}" FontSize="11" />
+                                                </Border>
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <ProgressBar Value="{Binding Percent}" Maximum="100" Width="90"
+                                                             Height="3" MinHeight="3" VerticalAlignment="Center"
+                                                             IsVisible="{Binding ShowProgress}" />
+                                                <TextBlock Text="{Binding StatusText}" Classes="muted" FontSize="12" />
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Column="2" Text="{Binding SizeText}" HorizontalAlignment="Right"
+                                                   VerticalAlignment="Center" FontSize="13"
+                                                   Foreground="{DynamicResource SemiGrey7}" />
+
+                                        <Panel Grid.Column="3" VerticalAlignment="Center" MinWidth="64">
+                                            <Button Classes="quant-action" Content="{Binding ActionText}"
+                                                    IsVisible="{Binding !IsDownloaded}"
+                                                    IsEnabled="{Binding CanDownload}"
+                                                    Command="{Binding $parent[ItemsControl].((audio:AudioFamilyDetailData)DataContext).DownloadCommand}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Classes="quant-action" Content="{loc:Loc AudioPackageSetDefault}"
+                                                    ToolTip.Tip="{loc:Loc AudioPackageSetDefaultTip}"
+                                                    IsVisible="{Binding IsDownloaded}"
+                                                    IsEnabled="{Binding CanSetDefault}"
+                                                    Command="{Binding $parent[ItemsControl].((audio:AudioFamilyDetailData)DataContext).SetDefaultCommand}"
+                                                    CommandParameter="{Binding}" />
+                                        </Panel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>

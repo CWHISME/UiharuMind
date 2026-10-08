@@ -39,6 +39,11 @@ public sealed class AudioCppPackageStore(
         AudioCppPackageSource.FromSettings);
 
     /// <summary>
+    /// 语音模型的根目录（模型目录下的 audio.cpp）
+    /// </summary>
+    public string RootDirectory => Path.Combine(modelRoot(), RootName);
+
+    /// <summary>
     /// 包在本地的目录
     /// </summary>
     public string PackageDirectory(AudioCppPackage package)

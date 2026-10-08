@@ -75,6 +75,43 @@ public class AudioCppPackageTests : IDisposable
     }
 
     [Fact]
+    public void ParseFamily_ReadsDescriptionCapabilitiesAndVoices_AndPicksDefaultPackage()
+    {
+        const string spec = """
+            {
+              "family": "kokoro_tts", "display_name": "Kokoro", "description": "Kokoro 82M.", "category": "tts",
+              "status": "community", "tasks": ["tts"], "modes": ["offline"], "languages": ["en-us", "zh"],
+              "capabilities": { "tts": ["built_in_voices", "long_form"], "clone": ["long_form"] },
+              "ui": { "recommended_package": "kokoro_82m_q8_0", "builtin_voices": ["af_heart", "zf_xiaobei"] },
+              "package_defaults": { "download": { "kind": "huggingface_snapshot", "repo": "audio-cpp/audio.cpp-gguf" } },
+              "packages": [
+                { "id": "kokoro_82m_f16", "default": true, "format": "gguf", "target_directory": "K", "files": ["K/f16.gguf"] },
+                { "id": "kokoro_82m_q8_0", "format": "gguf", "target_directory": "K", "files": ["K/q8.gguf"] }
+              ]
+            }
+            """;
+
+        AudioCppFamily family = AudioCppModelCatalog.ParseFamily(spec)!;
+
+        Assert.Equal("Kokoro", family.DisplayName);
+        Assert.Equal("Kokoro 82M.", family.Description);
+        Assert.Equal(["built_in_voices", "long_form"], family.Capabilities); //各任务下的细项合并去重
+        Assert.Equal(["af_heart", "zf_xiaobei"], family.BuiltinVoices);
+        Assert.False(family.IsRecommended);
+        Assert.Equal("kokoro_82m_q8_0", family.DefaultPackage!.Id); //上游推荐的优先于标了 default 的
+    }
+
+    [Fact]
+    public void Family_OwnRecommendationWinsOverUpstream()
+    {
+        AudioCppFamily family = AudioCppModelCatalog.ParseFamily(PocketSpec)!;
+
+        Assert.Equal("pocket_tts", family.DisplayName); //没给显示名用家族 id
+        Assert.True(family.IsRecommended);
+        Assert.Equal("pocket_tts_english_q8_0", family.DefaultPackage!.Id);
+    }
+
+    [Fact]
     public void LocalPath_StripsPrefix_AndRejectsEscapes()
     {
         AudioCppPackage pocket = AudioCppModelCatalog.Parse(PocketSpec)[0];

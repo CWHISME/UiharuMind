@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using UiharuMind.Core.AI.Audio;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Models.Sources;
 using UiharuMind.Core.AI.Runtime;
@@ -25,6 +26,9 @@ public sealed record ModelDownloadContext(
     Func<Task> RefreshLocalModels,
     Action OpenSourceSettings)
 {
+    private AudioCppEngine? _audioEngine;
+    private AudioCppPackageStore? _audioStore;
+
     /// <summary>
     /// 当前设置对应的模型源
     /// </summary>
@@ -73,4 +77,22 @@ public sealed record ModelDownloadContext(
     /// 当前已选了模型（在跑或在加载）
     /// </summary>
     public Func<bool> HasCurrentModel { get; init; } = () => true;
+
+    /// <summary>
+    /// 语音引擎（语音模型清单随它的 spec 走）。没切到语音分类就不碰共享实例
+    /// </summary>
+    public AudioCppEngine AudioEngine
+    {
+        get => _audioEngine ??= AudioCppEngine.Shared;
+        init => _audioEngine = value;
+    }
+
+    /// <summary>
+    /// 语音模型包的下载与删除
+    /// </summary>
+    public AudioCppPackageStore AudioStore
+    {
+        get => _audioStore ??= AudioCppPackageStore.Shared;
+        init => _audioStore = value;
+    }
 }

@@ -167,10 +167,10 @@ public class SettingsWindowScreenshotTests : IDisposable
             .Count(x => x.FindAncestorOfType<RuntimeEngineSettingView>() != null) >= 20, "本地模型页的设置行少了");
     }
 
-    // 本地模型（语音）页：引擎卡 / 语音模型 / 获取模型 / 运行参数；没装引擎时获取模型一节只有一句提示
+    // 本地模型（语音）页：引擎卡 / 语音模型入口 / 运行参数（模型的下载与默认在模型页）
     private static void AssertAudioSectionsRendered(SettingsWindow window)
     {
-        Assert.Equal(4, window.GetVisualDescendants().OfType<SettingsSection>()
+        Assert.Equal(3, window.GetVisualDescendants().OfType<SettingsSection>()
             .Count(x => x.FindAncestorOfType<AudioEngineSettingView>() != null));
         Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), x => x.Text == "audio.cpp");
     }

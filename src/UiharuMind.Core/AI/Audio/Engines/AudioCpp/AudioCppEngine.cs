@@ -71,6 +71,11 @@ public sealed class AudioCppEngine : IDisposable
     public string EngineRoot => _engineRoot;
 
     /// <summary>
+    /// 在用的引擎版本变了（装好、切换、删掉；可能在下载线程触发）。模型目录随引擎走，界面据此重列
+    /// </summary>
+    public event Action? VersionChanged;
+
+    /// <summary>
     /// 引擎设置
     /// </summary>
     public AudioCppSettingConfig Settings => _settings;
@@ -99,8 +104,8 @@ public sealed class AudioCppEngine : IDisposable
         Directory.CreateDirectory(_engineRoot);
         IReadOnlyList<AudioCppVersion> versions =
             await _versionManager.GetLocalVersionsAsync(_engineRoot).ConfigureAwait(false);
-        CurrentVersion = versions.FirstOrDefault(x => x.IsInstalled && x.Name == _settings.SelectedRuntimeVersion)
-                         ?? versions.FirstOrDefault(x => x.IsInstalled);
+        SetCurrentVersion(versions.FirstOrDefault(x => x.IsInstalled && x.Name == _settings.SelectedRuntimeVersion)
+                          ?? versions.FirstOrDefault(x => x.IsInstalled));
         return versions;
     }
 
@@ -183,6 +188,15 @@ public sealed class AudioCppEngine : IDisposable
     }
 
     /// <summary>
+    /// 在用引擎的模型家族（读它自带的 spec）；没装引擎为空
+    /// </summary>
+    public IReadOnlyList<AudioCppFamily> GetFamilies()
+    {
+        string? specs = GetSpecsDirectory();
+        return specs == null ? [] : AudioCppModelCatalog.LoadFamilies(specs);
+    }
+
+    /// <summary>
     /// 一个模型包装好了：重扫模型目录；这个任务还没选过模型就选上它
     /// </summary>
     /// <param name="package">装好的包</param>
@@ -232,8 +246,15 @@ public sealed class AudioCppEngine : IDisposable
     /// </summary>
     internal void UseVersion(AudioCppVersion? version)
     {
-        CurrentVersion = version;
         _host.Restart();
+        SetCurrentVersion(version);
+    }
+
+    private void SetCurrentVersion(AudioCppVersion? version)
+    {
+        bool changed = CurrentVersion?.Name != version?.Name;
+        CurrentVersion = version;
+        if (changed) VersionChanged?.Invoke();
     }
 
     public void Dispose()

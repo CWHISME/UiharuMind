@@ -4360,22 +4360,10 @@
         <value>语音模型</value>
     </data>
     <data name="AudioModelsDesc" xml:space="preserve">
-        <value>朗读与语音输入各用哪个本地模型。</value>
-    </data>
-    <data name="AudioTtsModel" xml:space="preserve">
-        <value>合成模型</value>
-    </data>
-    <data name="AudioTtsModelDesc" xml:space="preserve">
-        <value>朗读时用的语音合成模型。</value>
+        <value>朗读与语音输入用的本地模型。</value>
     </data>
     <data name="AudioVoice" xml:space="preserve">
         <value>音色</value>
-    </data>
-    <data name="AudioVoiceDesc" xml:space="preserve">
-        <value>合成模型自带的音色。「默认」用模型列出的第一个。</value>
-    </data>
-    <data name="AudioLoadVoices" xml:space="preserve">
-        <value>读取音色</value>
     </data>
     <data name="AudioLoadVoicesTip" xml:space="preserve">
         <value>会启动语音引擎，列出当前合成模型的音色</value>
@@ -4386,38 +4374,11 @@
     <data name="AudioVoicesLoadFailed" xml:space="preserve">
         <value>读取音色失败：{0}</value>
     </data>
-    <data name="AudioAsrModel" xml:space="preserve">
-        <value>识别模型</value>
-    </data>
-    <data name="AudioAsrModelDesc" xml:space="preserve">
-        <value>语音输入时用的语音识别模型。</value>
-    </data>
-    <data name="AudioNoModel" xml:space="preserve">
-        <value>还没有，可在下方获取</value>
-    </data>
-    <data name="AudioCatalogTitle" xml:space="preserve">
-        <value>获取语音模型</value>
-    </data>
-    <data name="AudioCatalogDesc" xml:space="preserve">
-        <value>模型包随在用的 audio.cpp 版本提供，从下载源里选的模型源下载。</value>
-    </data>
-    <data name="AudioCatalogNeedsEngine" xml:space="preserve">
-        <value>先在上方安装 audio.cpp，模型列表随引擎提供。</value>
-    </data>
-    <data name="AudioCatalogShowAll" xml:space="preserve">
-        <value>显示全部（{0} 个）</value>
-    </data>
-    <data name="AudioCatalogSourceLink" xml:space="preserve">
-        <value>下载源设置</value>
-    </data>
     <data name="AudioTaskTts" xml:space="preserve">
         <value>合成</value>
     </data>
     <data name="AudioTaskAsr" xml:space="preserve">
         <value>识别</value>
-    </data>
-    <data name="AudioNeedsEspeak" xml:space="preserve">
-        <value>需 eSpeak-ng</value>
     </data>
     <data name="AudioNeedsEspeakTip" xml:space="preserve">
         <value>这个模型要求系统装有 eSpeak-ng（预编译包不带），否则加载时会报错</value>
@@ -4508,5 +4469,152 @@
     </data>
     <data name="ModelRepoTimeDaysAgo" xml:space="preserve">
         <value>{0} 天前</value>
+    </data>
+    <data name="ModelPageAudioModelsTab" xml:space="preserve">
+        <value>语音模型</value>
+    </data>
+    <data name="ModelMarketGguf" xml:space="preserve">
+        <value>GGUF 仓库</value>
+    </data>
+    <data name="ModelMarketAudio" xml:space="preserve">
+        <value>语音模型</value>
+    </data>
+    <data name="AudioMarketSearchHint" xml:space="preserve">
+        <value>搜索语音模型，或输入语种如 zh</value>
+    </data>
+    <data name="AudioMarketFilterAll" xml:space="preserve">
+        <value>全部</value>
+    </data>
+    <data name="AudioMarketFilterTts" xml:space="preserve">
+        <value>语音合成</value>
+    </data>
+    <data name="AudioMarketFilterAsr" xml:space="preserve">
+        <value>语音识别</value>
+    </data>
+    <data name="AudioMarketNoResults" xml:space="preserve">
+        <value>没有匹配的语音模型。</value>
+    </data>
+    <data name="AudioMarketNeedsEngine" xml:space="preserve">
+        <value>语音模型由 audio.cpp 运行，可下载的模型清单也随它提供。先安装 audio.cpp（约 30 MB）。</value>
+    </data>
+    <data name="AudioMarketEngineInstalling" xml:space="preserve">
+        <value>正在下载 audio.cpp，装好后列出模型…</value>
+    </data>
+    <data name="AudioMarketPickFamily" xml:space="preserve">
+        <value>在左侧选一个模型，查看说明和可下载的版本。</value>
+    </data>
+    <data name="AudioFamilyInstalledTip" xml:space="preserve">
+        <value>本机已装其中的版本</value>
+    </data>
+    <data name="AudioFamilySummary" xml:space="preserve">
+        <value>{0} · {1} 个版本</value>
+    </data>
+    <data name="AudioFamilyLanguages" xml:space="preserve">
+        <value>语种：{0}</value>
+    </data>
+    <data name="AudioFamilyVoices" xml:space="preserve">
+        <value>预置音色：{0}</value>
+    </data>
+    <data name="AudioFamilyPackages" xml:space="preserve">
+        <value>可下载的版本</value>
+    </data>
+    <data name="AudioPackageIsDefault" xml:space="preserve">
+        <value>默认</value>
+    </data>
+    <data name="AudioPackageSetDefault" xml:space="preserve">
+        <value>设为默认</value>
+    </data>
+    <data name="AudioPackageSetDefaultTip" xml:space="preserve">
+        <value>朗读或听写默认用它</value>
+    </data>
+    <data name="AudioDefaultSetTts" xml:space="preserve">
+        <value>已将 {0} 设为朗读默认模型</value>
+    </data>
+    <data name="AudioDefaultSetAsr" xml:space="preserve">
+        <value>已将 {0} 设为听写默认模型</value>
+    </data>
+    <data name="AudioCapClone" xml:space="preserve">
+        <value>声音克隆</value>
+    </data>
+    <data name="AudioCapDesign" xml:space="preserve">
+        <value>音色设计</value>
+    </data>
+    <data name="AudioCapStreaming" xml:space="preserve">
+        <value>流式输出</value>
+    </data>
+    <data name="AudioCapPartial" xml:space="preserve">
+        <value>实时出字</value>
+    </data>
+    <data name="AudioCapLongForm" xml:space="preserve">
+        <value>长文本</value>
+    </data>
+    <data name="AudioCapTimestamps" xml:space="preserve">
+        <value>时间戳</value>
+    </data>
+    <data name="AudioCapVad" xml:space="preserve">
+        <value>自动分段</value>
+    </data>
+    <data name="AudioCapSpeakers" xml:space="preserve">
+        <value>区分说话人</value>
+    </data>
+    <data name="AudioCapMultiSpeaker" xml:space="preserve">
+        <value>多人对话</value>
+    </data>
+    <data name="AudioCapStyle" xml:space="preserve">
+        <value>风格控制</value>
+    </data>
+    <data name="AudioCapEmotion" xml:space="preserve">
+        <value>情绪控制</value>
+    </data>
+    <data name="AudioCapEdit" xml:space="preserve">
+        <value>语音编辑</value>
+    </data>
+    <data name="AudioCapVoiceConversion" xml:space="preserve">
+        <value>变声</value>
+    </data>
+    <data name="AudioCapSpeechToSpeech" xml:space="preserve">
+        <value>语音对话</value>
+    </data>
+    <data name="AudioCapAlign" xml:space="preserve">
+        <value>文本对齐</value>
+    </data>
+    <data name="AudioModelsGetMore" xml:space="preserve">
+        <value>获取语音模型</value>
+    </data>
+    <data name="AudioModelsOpenEngineSettings" xml:space="preserve">
+        <value>去设置</value>
+    </data>
+    <data name="AudioModelsNoEngine" xml:space="preserve">
+        <value>还没有安装 audio.cpp，下面的模型暂时用不了。</value>
+    </data>
+    <data name="AudioModelsEmptyTitle" xml:space="preserve">
+        <value>还没有语音模型</value>
+    </data>
+    <data name="AudioModelsEmptyHint" xml:space="preserve">
+        <value>朗读与听写要用本地语音模型，到「获取模型」的语音分类下载。</value>
+    </data>
+    <data name="AudioModelsTtsGroup" xml:space="preserve">
+        <value>语音合成（朗读）</value>
+    </data>
+    <data name="AudioModelsAsrGroup" xml:space="preserve">
+        <value>语音识别（听写）</value>
+    </data>
+    <data name="AudioModelsDefaultTts" xml:space="preserve">
+        <value>朗读默认</value>
+    </data>
+    <data name="AudioModelsDefaultAsr" xml:space="preserve">
+        <value>听写默认</value>
+    </data>
+    <data name="AudioManageModels" xml:space="preserve">
+        <value>模型、默认与音色</value>
+    </data>
+    <data name="AudioManageModelsDesc" xml:space="preserve">
+        <value>下载模型、选朗读与听写默认用哪个、挑音色，都在模型页的「语音模型」里。</value>
+    </data>
+    <data name="AudioManageModelsBtn" xml:space="preserve">
+        <value>管理语音模型</value>
+    </data>
+    <data name="AudioFamilyVoicesMore" xml:space="preserve">
+        <value>{0} 等 {1} 个</value>
     </data>
 </root>

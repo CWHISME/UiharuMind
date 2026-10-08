@@ -110,27 +110,27 @@ public class ModelDownloadTabTests : IDisposable
             Assert.Empty(page.GetVisualDescendants().OfType<ModelDownloadView>());
             Assert.Equal(0, _source.SearchCount);
 
-            data.SelectedTabIndex = 2;
+            data.SelectedTabIndex = ModelPageData.DownloadsTabIndex;
             await Settle();
 
             Assert.NotNull(data.Downloads);
             Assert.Single(page.GetVisualDescendants().OfType<ModelDownloadView>());
             Assert.Equal(1, _source.SearchCount);
-            Assert.Equal(4, data.Downloads!.Results.Count);
+            Assert.Equal(4, data.Downloads!.Gguf.Results.Count);
 
             // 截图：打开一个仓库，排一个下载让下载区露出来
-            data.Downloads.SelectedItem = data.Downloads.Results[0];
+            data.Downloads.Gguf.SelectedItem = data.Downloads.Gguf.Results[0];
             await Settle();
-            while (data.Downloads.Detail!.IsLoading) await Settle();
-            await data.Downloads.Detail.DownloadCommand.ExecuteAsync(data.Downloads.Detail.Rows[0]);
+            while (data.Downloads.Gguf.Detail!.IsLoading) await Settle();
+            await data.Downloads.Gguf.Detail.DownloadCommand.ExecuteAsync(data.Downloads.Gguf.Detail.Rows[0]);
             _queue.Pause(_queue.Jobs[0]);
             await Settle();
             Capture("model-download-wide");
 
-            data.Downloads.Detail.ShowReadmeCommand.Execute(null);
+            data.Downloads.Gguf.Detail.ShowReadmeCommand.Execute(null);
             for (int i = 0; i < 10; i++) await Settle();
             Capture("model-download-readme");
-            data.Downloads.Detail.ShowFilesCommand.Execute(null);
+            data.Downloads.Gguf.Detail.ShowFilesCommand.Execute(null);
 
             _window.Width = 560;
             await Settle();
@@ -150,8 +150,8 @@ public class ModelDownloadTabTests : IDisposable
             data.ShowDownloads("Embedding");
             await Settle();
 
-            Assert.Equal(2, data.SelectedTabIndex);
-            Assert.Equal("Embedding", data.Downloads!.SearchText);
+            Assert.Equal(ModelPageData.DownloadsTabIndex, data.SelectedTabIndex);
+            Assert.Equal("Embedding", data.Downloads!.Gguf.SearchText);
             Assert.Equal(1, _source.SearchCount);
             Assert.Equal("Embedding", _source.LastQuery);
         });
@@ -170,10 +170,10 @@ public class ModelDownloadTabTests : IDisposable
             ModelPage page = new() { DataContext = data };
             _window = new Window { Width = 1000, Height = 680, Content = page };
             _window.Show();
-            data.SelectedTabIndex = 2;
+            data.SelectedTabIndex = ModelPageData.DownloadsTabIndex;
             await Settle();
 
-            Assert.Equal(30, data.Downloads!.Results.Count); //第一页撑满了列表，不会自己续
+            Assert.Equal(30, data.Downloads!.Gguf.Results.Count); //第一页撑满了列表，不会自己续
             ScrollViewer viewer = page.GetVisualDescendants().OfType<ListBox>()
                 .Single(x => x.Name == "ResultList").GetVisualDescendants().OfType<ScrollViewer>().First();
             for (int i = 0; i < 2; i++)
@@ -182,8 +182,8 @@ public class ModelDownloadTabTests : IDisposable
                 await Settle();
             }
 
-            Assert.Equal(70, data.Downloads.Results.Count);
-            Assert.Equal(70, data.Downloads.Results.Select(x => x.Repository).Distinct().Count());
+            Assert.Equal(70, data.Downloads.Gguf.Results.Count);
+            Assert.Equal(70, data.Downloads.Gguf.Results.Select(x => x.Repository).Distinct().Count());
             Assert.Equal(3, source.SearchCount);
             viewer.Offset = viewer.Offset.WithY(viewer.Extent.Height);
             await Settle();
@@ -203,21 +203,21 @@ public class ModelDownloadTabTests : IDisposable
             ModelPageData data = CreatePage(source);
             _window = new Window { Width = 1000, Height = 680, Content = new ModelPage { DataContext = data } };
             _window.Show();
-            data.SelectedTabIndex = 2;
+            data.SelectedTabIndex = ModelPageData.DownloadsTabIndex;
             await Settle();
-            Assert.Equal(new ModelRepoListItem("o/a", "1.8M", "download"), data.Downloads!.Results.Single());
+            Assert.Equal(new ModelRepoListItem("o/a", "1.8M", "download"), data.Downloads!.Gguf.Results.Single());
 
-            data.Downloads.SelectedSort = data.Downloads.SortOptions.Single(x => x.Sort == EModelSearchSort.Likes);
+            data.Downloads.Gguf.SelectedSort = data.Downloads.Gguf.SortOptions.Single(x => x.Sort == EModelSearchSort.Likes);
             await Settle();
             Assert.Equal(2, source.SearchCount);
             Assert.Equal(EModelSearchSort.Likes, source.LastSort);
-            Assert.Equal(new ModelRepoListItem("o/a", "42", "star"), data.Downloads.Results.Single());
+            Assert.Equal(new ModelRepoListItem("o/a", "42", "star"), data.Downloads.Gguf.Results.Single());
 
-            data.Downloads.SelectedSort = data.Downloads.SortOptions.Single(x => x.Sort == EModelSearchSort.Updated);
+            data.Downloads.Gguf.SelectedSort = data.Downloads.Gguf.SortOptions.Single(x => x.Sort == EModelSearchSort.Updated);
             await Settle();
-            Assert.Equal("clock", data.Downloads.Results.Single().MetricIcon);
+            Assert.Equal("clock", data.Downloads.Gguf.Results.Single().MetricIcon);
             Assert.Equal(UiharuMind.Shared.Services.Loc.Text(UiharuMind.Generated.LangKey.ModelRepoTimeHoursAgo, 3),
-                data.Downloads.Results.Single().MetricText); //榜首常是当天的，要分得出先后
+                data.Downloads.Gguf.Results.Single().MetricText); //榜首常是当天的，要分得出先后
             Capture("model-download-sort");
         });
     }

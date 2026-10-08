@@ -3,20 +3,18 @@ using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Core.AI.Audio;
 using UiharuMind.Core.AI.Models.Sources;
+using UiharuMind.Core.AI.Runtime;
 using UiharuMind.Core.Core.Utils;
-using UiharuMind.Features.Models.Downloads;
-using UiharuMind.Generated;
-using UiharuMind.Shared.Services;
 
-namespace UiharuMind.Features.Settings.Audio;
+namespace UiharuMind.Features.Models.Downloads.Audio;
 
 /// <summary>
-/// 获取语音模型里的一行包
+/// 语音模型家族详情里的一行包（一个语种 / 精度）
 /// </summary>
-public partial class AudioPackageRowData(AudioCppPackage package) : ObservableObject
+/// <param name="package">包</param>
+/// <param name="familyName">家族显示名（用来缩短包名）</param>
+public partial class AudioPackageRowData(AudioCppPackage package, string familyName) : ObservableObject
 {
-    private const int MaxLanguagesShown = 6;
-
     [ObservableProperty] private string _sizeText = "—";
     [ObservableProperty] private string _statusText = "";
     [ObservableProperty] private string _actionText = "";
@@ -24,6 +22,10 @@ public partial class AudioPackageRowData(AudioCppPackage package) : ObservableOb
     [ObservableProperty] private bool _showProgress;
     [ObservableProperty] private bool _isDownloaded;
     [ObservableProperty] private int _percent;
+    [ObservableProperty] private string _riskTag = "Idle";
+    [ObservableProperty] private string _riskTip = "";
+    [ObservableProperty] private bool _isRecommended;
+    [ObservableProperty] private bool _isDefault;
 
     /// <summary>
     /// 包
@@ -35,38 +37,20 @@ public partial class AudioPackageRowData(AudioCppPackage package) : ObservableOb
     /// </summary>
     public IReadOnlyList<ModelRepoFile>? RemoteFiles { get; private set; }
 
-    public string Title => Package.DisplayName.Length > 0 ? Package.DisplayName : Package.Id;
-    public bool IsRecommended => AudioCppModelCatalog.Recommended.Contains(Package.Id);
-    public bool NeedsEspeak => Package.NeedsEspeak;
+    /// <summary>
+    /// 短名，如 English Q8_0
+    /// </summary>
+    public string Label { get; } = AudioModelText.PackageLabel(package, familyName);
 
     /// <summary>
-    /// 合成 / 识别
+    /// 已下载且不是默认：可以设为默认
     /// </summary>
-    public string TaskText => Loc.Text(Package.Task == EAudioCppTask.Tts ? LangKey.AudioTaskTts : LangKey.AudioTaskAsr);
-
-    /// <summary>
-    /// 语种（过多时截断）
-    /// </summary>
-    public string LanguagesText => Package.Languages.Count <= MaxLanguagesShown
-        ? string.Join(", ", Package.Languages)
-        : string.Join(", ", Package.Languages.Take(MaxLanguagesShown)) + " …";
-
-    /// <summary>
-    /// 上游成熟度：supported 不标，认得的翻成中文，其余原样标出来
-    /// </summary>
-    public string? MaturityText => Package.Status switch
-    {
-        "" or "supported" => null,
-        "experimental" => Loc.Text(LangKey.AudioMaturityExperimental),
-        "community" => Loc.Text(LangKey.AudioMaturityCommunity),
-        "testing" => Loc.Text(LangKey.AudioMaturityTesting),
-        "wip" => Loc.Text(LangKey.AudioMaturityWip),
-        _ => Package.Status
-    };
+    public bool CanSetDefault => IsDownloaded && !IsDefault;
 
     /// <summary>
     /// 记下仓库里的文件与总大小
     /// </summary>
+    /// <param name="files">包里的远端文件</param>
     public void ApplyRemoteFiles(IReadOnlyList<ModelRepoFile> files)
     {
         RemoteFiles = files;
@@ -76,6 +60,7 @@ public partial class AudioPackageRowData(AudioCppPackage package) : ObservableOb
     /// <summary>
     /// 套用下载状态
     /// </summary>
+    /// <param name="status">状态</param>
     public void ApplyStatus(QuantDownloadStatus status)
     {
         StatusText = status.StatusText;
@@ -85,4 +70,20 @@ public partial class AudioPackageRowData(AudioCppPackage package) : ObservableOb
         ShowProgress = status.ShowsProgress;
         Percent = status.Percent;
     }
+
+    /// <summary>
+    /// 按下载前估算刷新红黄绿点
+    /// </summary>
+    /// <param name="level">风险档位</param>
+    /// <param name="estimatedBytes">估算占用</param>
+    /// <param name="device">设备信息</param>
+    public void ApplyRisk(RuntimeLoadRiskLevel level, long estimatedBytes, RuntimeDeviceInfo device)
+    {
+        RiskTag = RuntimeRiskBadge.Tag(level);
+        RiskTip = RuntimeRiskBadge.Tip(estimatedBytes, device);
+    }
+
+    partial void OnIsDownloadedChanged(bool value) => OnPropertyChanged(nameof(CanSetDefault));
+
+    partial void OnIsDefaultChanged(bool value) => OnPropertyChanged(nameof(CanSetDefault));
 }

@@ -137,9 +137,7 @@ public partial class AgentSettingViewData : ViewModelBase
     [RelayCommand]
     private void ManageImageModels()
     {
-        App.ViewModel.JumpToPage(MenuPages.MenuModelKey);
-        if (App.ViewModel.Content is ModelPageData page) page.ShowImageModels();
-        UIManager.GetRootWindow().Activate();
+        App.ShowMainPage<ModelPageData>(MenuPages.MenuModelKey)?.ShowImageModels();
     }
 
     //================= 常规:变更即存 =================

@@ -1,0 +1,30 @@
+using System.ComponentModel;
+
+namespace UiharuMind.Features.Models.Downloads;
+
+/// <summary>
+/// 「获取模型」里的一个分类（GGUF 仓库、语音模型……）：左栏列表与右栏详情都由它出数据，下载区各分类共用。
+/// 视图按具体类型挑模板，新增一种本地模型只需加一个实现与它的两块视图
+/// </summary>
+public interface IModelMarket : INotifyPropertyChanged
+{
+    /// <summary>
+    /// 分类名
+    /// </summary>
+    string Title { get; }
+
+    /// <summary>
+    /// 右栏有详情（窄窗时据此把详情盖在列表上）
+    /// </summary>
+    bool HasDetail { get; }
+
+    /// <summary>
+    /// 被选中时调：首次加载；下载源等设置变了则重来
+    /// </summary>
+    void Activate();
+
+    /// <summary>
+    /// 关掉右栏详情
+    /// </summary>
+    void CloseDetail();
+}

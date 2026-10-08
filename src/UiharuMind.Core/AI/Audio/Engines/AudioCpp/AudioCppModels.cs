@@ -44,7 +44,8 @@ public static class AudioCppModels
 
             string family = ReadFamily(info.ModelPath);
             if (family.Length == 0) continue;
-            entries.Add(new AudioCppModelEntry(info.ModelName, family, ServerPath(info.ModelPath), task));
+            entries.Add(new AudioCppModelEntry(info.ModelName, family, ServerPath(info.ModelPath), task,
+                ModelFile: info.ModelPath));
         }
 
         return entries;

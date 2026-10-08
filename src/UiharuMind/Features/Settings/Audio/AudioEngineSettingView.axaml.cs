@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.VisualTree;
+using UiharuMind.Features.Models;
+using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.Features.Settings.Audio;
 
@@ -20,8 +21,9 @@ public partial class AudioEngineSettingView : UserControl
         DataContext = viewModel;
     }
 
-    private void OnDownloadSourceClick(object? sender, RoutedEventArgs e)
+    // 跳到主窗口模型页的「语音模型」页签
+    private void OnManageModelsClick(object? sender, RoutedEventArgs e)
     {
-        this.FindAncestorOfType<SettingsWindow>()?.ShowDownloadSourceSettings();
+        App.ShowMainPage<ModelPageData>(MenuPages.MenuModelKey)?.ShowAudioModels();
     }
 }

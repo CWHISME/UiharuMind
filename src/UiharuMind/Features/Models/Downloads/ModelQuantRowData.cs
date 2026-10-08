@@ -71,17 +71,8 @@ public partial class ModelQuantRowData(ModelRepoQuant quant, string mainFilePath
     /// <param name="device">设备信息</param>
     public void ApplyRisk(RuntimeLoadRiskLevel level, long estimatedBytes, RuntimeDeviceInfo device)
     {
-        RiskTag = level switch
-        {
-            RuntimeLoadRiskLevel.Low => "Ready",
-            RuntimeLoadRiskLevel.Warning => "Warning",
-            RuntimeLoadRiskLevel.Danger => "Error",
-            _ => "Idle"
-        };
-        RiskTip = device.HasMemoryInfo
-            ? Loc.Text(LangKey.ModelDownloadRiskTip, GameUtils.FormatBytes(estimatedBytes),
-                GameUtils.FormatBytes(device.TotalMemoryBytes))
-            : Loc.Text(LangKey.ModelRuntimeRiskUnknown);
+        RiskTag = RuntimeRiskBadge.Tag(level);
+        RiskTip = RuntimeRiskBadge.Tip(estimatedBytes, device);
     }
 
     /// <summary>

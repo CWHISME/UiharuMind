@@ -4367,22 +4367,10 @@ Allow them?</value>
         <value>Voice models</value>
     </data>
     <data name="AudioModelsDesc" xml:space="preserve">
-        <value>Which local model read-aloud and dictation use.</value>
-    </data>
-    <data name="AudioTtsModel" xml:space="preserve">
-        <value>Speech model</value>
-    </data>
-    <data name="AudioTtsModelDesc" xml:space="preserve">
-        <value>The text-to-speech model used for read-aloud.</value>
+        <value>Local models used for read-aloud and voice input.</value>
     </data>
     <data name="AudioVoice" xml:space="preserve">
         <value>Voice</value>
-    </data>
-    <data name="AudioVoiceDesc" xml:space="preserve">
-        <value>Voices that come with the speech model. "Default" uses the first one it lists.</value>
-    </data>
-    <data name="AudioLoadVoices" xml:space="preserve">
-        <value>Load voices</value>
     </data>
     <data name="AudioLoadVoicesTip" xml:space="preserve">
         <value>Starts the voice engine and lists the current speech model's voices</value>
@@ -4393,38 +4381,11 @@ Allow them?</value>
     <data name="AudioVoicesLoadFailed" xml:space="preserve">
         <value>Failed to load voices: {0}</value>
     </data>
-    <data name="AudioAsrModel" xml:space="preserve">
-        <value>Recognition model</value>
-    </data>
-    <data name="AudioAsrModelDesc" xml:space="preserve">
-        <value>The speech recognition model used for dictation.</value>
-    </data>
-    <data name="AudioNoModel" xml:space="preserve">
-        <value>None yet — get one below</value>
-    </data>
-    <data name="AudioCatalogTitle" xml:space="preserve">
-        <value>Get voice models</value>
-    </data>
-    <data name="AudioCatalogDesc" xml:space="preserve">
-        <value>Model packages come with the audio.cpp version in use and download from the model source chosen in Download Sources.</value>
-    </data>
-    <data name="AudioCatalogNeedsEngine" xml:space="preserve">
-        <value>Install audio.cpp above first; the model list comes with the engine.</value>
-    </data>
-    <data name="AudioCatalogShowAll" xml:space="preserve">
-        <value>Show all ({0})</value>
-    </data>
-    <data name="AudioCatalogSourceLink" xml:space="preserve">
-        <value>Download sources</value>
-    </data>
     <data name="AudioTaskTts" xml:space="preserve">
         <value>Speech</value>
     </data>
     <data name="AudioTaskAsr" xml:space="preserve">
         <value>Recognition</value>
-    </data>
-    <data name="AudioNeedsEspeak" xml:space="preserve">
-        <value>Needs eSpeak-ng</value>
     </data>
     <data name="AudioNeedsEspeakTip" xml:space="preserve">
         <value>This model needs eSpeak-ng installed on the system (not bundled); otherwise loading fails</value>
@@ -4515,5 +4476,152 @@ Allow them?</value>
     </data>
     <data name="ModelRepoTimeDaysAgo" xml:space="preserve">
         <value>{0} d ago</value>
+    </data>
+    <data name="ModelPageAudioModelsTab" xml:space="preserve">
+        <value>Voice models</value>
+    </data>
+    <data name="ModelMarketGguf" xml:space="preserve">
+        <value>GGUF repos</value>
+    </data>
+    <data name="ModelMarketAudio" xml:space="preserve">
+        <value>Voice models</value>
+    </data>
+    <data name="AudioMarketSearchHint" xml:space="preserve">
+        <value>Search voice models, or a language code like zh</value>
+    </data>
+    <data name="AudioMarketFilterAll" xml:space="preserve">
+        <value>All</value>
+    </data>
+    <data name="AudioMarketFilterTts" xml:space="preserve">
+        <value>Speech synthesis</value>
+    </data>
+    <data name="AudioMarketFilterAsr" xml:space="preserve">
+        <value>Speech recognition</value>
+    </data>
+    <data name="AudioMarketNoResults" xml:space="preserve">
+        <value>No matching voice models.</value>
+    </data>
+    <data name="AudioMarketNeedsEngine" xml:space="preserve">
+        <value>Voice models run on audio.cpp, which also provides the list of downloadable models. Install audio.cpp first (about 30 MB).</value>
+    </data>
+    <data name="AudioMarketEngineInstalling" xml:space="preserve">
+        <value>Downloading audio.cpp; models will be listed once it is installed…</value>
+    </data>
+    <data name="AudioMarketPickFamily" xml:space="preserve">
+        <value>Pick a model on the left to see its details and downloadable versions.</value>
+    </data>
+    <data name="AudioFamilyInstalledTip" xml:space="preserve">
+        <value>A version is installed on this computer</value>
+    </data>
+    <data name="AudioFamilySummary" xml:space="preserve">
+        <value>{0} · {1} version(s)</value>
+    </data>
+    <data name="AudioFamilyLanguages" xml:space="preserve">
+        <value>Languages: {0}</value>
+    </data>
+    <data name="AudioFamilyVoices" xml:space="preserve">
+        <value>Built-in voices: {0}</value>
+    </data>
+    <data name="AudioFamilyPackages" xml:space="preserve">
+        <value>Downloadable versions</value>
+    </data>
+    <data name="AudioPackageIsDefault" xml:space="preserve">
+        <value>Default</value>
+    </data>
+    <data name="AudioPackageSetDefault" xml:space="preserve">
+        <value>Set as default</value>
+    </data>
+    <data name="AudioPackageSetDefaultTip" xml:space="preserve">
+        <value>Use it for read-aloud or dictation by default</value>
+    </data>
+    <data name="AudioDefaultSetTts" xml:space="preserve">
+        <value>{0} is now the default read-aloud model</value>
+    </data>
+    <data name="AudioDefaultSetAsr" xml:space="preserve">
+        <value>{0} is now the default dictation model</value>
+    </data>
+    <data name="AudioCapClone" xml:space="preserve">
+        <value>Voice cloning</value>
+    </data>
+    <data name="AudioCapDesign" xml:space="preserve">
+        <value>Voice design</value>
+    </data>
+    <data name="AudioCapStreaming" xml:space="preserve">
+        <value>Streaming</value>
+    </data>
+    <data name="AudioCapPartial" xml:space="preserve">
+        <value>Live partial results</value>
+    </data>
+    <data name="AudioCapLongForm" xml:space="preserve">
+        <value>Long-form</value>
+    </data>
+    <data name="AudioCapTimestamps" xml:space="preserve">
+        <value>Timestamps</value>
+    </data>
+    <data name="AudioCapVad" xml:space="preserve">
+        <value>Auto segmentation</value>
+    </data>
+    <data name="AudioCapSpeakers" xml:space="preserve">
+        <value>Speaker turns</value>
+    </data>
+    <data name="AudioCapMultiSpeaker" xml:space="preserve">
+        <value>Multi-speaker</value>
+    </data>
+    <data name="AudioCapStyle" xml:space="preserve">
+        <value>Style control</value>
+    </data>
+    <data name="AudioCapEmotion" xml:space="preserve">
+        <value>Emotion control</value>
+    </data>
+    <data name="AudioCapEdit" xml:space="preserve">
+        <value>Speech editing</value>
+    </data>
+    <data name="AudioCapVoiceConversion" xml:space="preserve">
+        <value>Voice conversion</value>
+    </data>
+    <data name="AudioCapSpeechToSpeech" xml:space="preserve">
+        <value>Speech-to-speech</value>
+    </data>
+    <data name="AudioCapAlign" xml:space="preserve">
+        <value>Alignment</value>
+    </data>
+    <data name="AudioModelsGetMore" xml:space="preserve">
+        <value>Get voice models</value>
+    </data>
+    <data name="AudioModelsOpenEngineSettings" xml:space="preserve">
+        <value>Open settings</value>
+    </data>
+    <data name="AudioModelsNoEngine" xml:space="preserve">
+        <value>audio.cpp is not installed, so these models can't be used yet.</value>
+    </data>
+    <data name="AudioModelsEmptyTitle" xml:space="preserve">
+        <value>No voice models yet</value>
+    </data>
+    <data name="AudioModelsEmptyHint" xml:space="preserve">
+        <value>Read-aloud and dictation need a local voice model. Download one under Voice models in Get models.</value>
+    </data>
+    <data name="AudioModelsTtsGroup" xml:space="preserve">
+        <value>Speech synthesis (read-aloud)</value>
+    </data>
+    <data name="AudioModelsAsrGroup" xml:space="preserve">
+        <value>Speech recognition (dictation)</value>
+    </data>
+    <data name="AudioModelsDefaultTts" xml:space="preserve">
+        <value>Read-aloud default</value>
+    </data>
+    <data name="AudioModelsDefaultAsr" xml:space="preserve">
+        <value>Dictation default</value>
+    </data>
+    <data name="AudioManageModels" xml:space="preserve">
+        <value>Models, defaults and voices</value>
+    </data>
+    <data name="AudioManageModelsDesc" xml:space="preserve">
+        <value>Download models, pick the defaults for read-aloud and dictation, and choose voices on the Voice models tab of the model page.</value>
+    </data>
+    <data name="AudioManageModelsBtn" xml:space="preserve">
+        <value>Manage voice models</value>
+    </data>
+    <data name="AudioFamilyVoicesMore" xml:space="preserve">
+        <value>{0} and more ({1} in total)</value>
     </data>
 </root>

@@ -94,19 +94,27 @@ public static class AudioCppModelCatalog
     };
 
     /// <summary>
-    /// 读一个 model_specs 目录
+    /// 读一个 model_specs 目录里的全部包
     /// </summary>
     /// <param name="specsDirectory">目录</param>
     /// <returns>包列表；目录不存在为空</returns>
-    public static IReadOnlyList<AudioCppPackage> Load(string specsDirectory)
+    public static IReadOnlyList<AudioCppPackage> Load(string specsDirectory) =>
+        LoadFamilies(specsDirectory).SelectMany(x => x.Packages).ToList();
+
+    /// <summary>
+    /// 读一个 model_specs 目录，按家族分组
+    /// </summary>
+    /// <param name="specsDirectory">目录</param>
+    /// <returns>有可下 GGUF 包的家族；目录不存在为空</returns>
+    public static IReadOnlyList<AudioCppFamily> LoadFamilies(string specsDirectory)
     {
         if (!Directory.Exists(specsDirectory)) return [];
-        List<AudioCppPackage> packages = [];
+        List<AudioCppFamily> families = [];
         foreach (string file in Directory.EnumerateFiles(specsDirectory, "*.json").Order(StringComparer.Ordinal))
         {
             try
             {
-                packages.AddRange(Parse(File.ReadAllText(file)));
+                if (ParseFamily(File.ReadAllText(file)) is { Packages.Count: > 0 } family) families.Add(family);
             }
             catch (Exception e) when (e is JsonException or IOException or InvalidOperationException)
             {
@@ -114,15 +122,22 @@ public static class AudioCppModelCatalog
             }
         }
 
-        return packages;
+        return families;
     }
+
+    /// <summary>
+    /// 解析一份 spec 里的包
+    /// </summary>
+    /// <param name="json">spec 原文</param>
+    /// <returns>包列表</returns>
+    public static IReadOnlyList<AudioCppPackage> Parse(string json) => ParseFamily(json)?.Packages ?? [];
 
     /// <summary>
     /// 解析一份 spec：只要 tts / asr 家族的 GGUF 包（扫描器只认 GGUF），下载方式不认识的跳过
     /// </summary>
     /// <param name="json">spec 原文</param>
-    /// <returns>包列表</returns>
-    public static IReadOnlyList<AudioCppPackage> Parse(string json)
+    /// <returns>家族；不是 tts / asr 为 null</returns>
+    public static AudioCppFamily? ParseFamily(string json)
     {
         using JsonDocument doc = JsonDocument.Parse(json);
         JsonElement root = doc.RootElement;
@@ -132,12 +147,38 @@ public static class AudioCppModelCatalog
             "asr" => EAudioCppTask.Asr,
             _ => null
         };
-        if (task == null || !root.TryGetProperty("packages", out JsonElement packages)) return [];
+        if (task == null) return null;
 
         string family = GetString(root, "family");
         string status = GetString(root, "status");
         List<string> languages = GetStrings(root, "languages");
         bool needsEspeak = json.Contains("espeak", StringComparison.OrdinalIgnoreCase);
+        JsonElement ui = root.TryGetProperty("ui", out JsonElement uiElement) ? uiElement : default;
+        List<AudioCppPackage> packages = root.TryGetProperty("packages", out JsonElement packageArray)
+            ? ParsePackages(root, packageArray, family, task.Value, status, languages, needsEspeak)
+            : [];
+
+        return new AudioCppFamily(
+            family,
+            task.Value,
+            GetString(root, "display_name") is { Length: > 0 } name ? name : family,
+            GetString(root, "description"),
+            status,
+            languages,
+            GetStrings(root, "tasks"),
+            GetStrings(root, "modes"),
+            root.TryGetProperty("capabilities", out JsonElement capabilities) && capabilities.ValueKind == JsonValueKind.Object
+                ? capabilities.EnumerateObject().SelectMany(x => GetStrings(capabilities, x.Name)).Distinct().ToList()
+                : [],
+            ui.ValueKind == JsonValueKind.Object ? GetStrings(ui, "builtin_voices") : [],
+            ui.ValueKind == JsonValueKind.Object ? GetString(ui, "recommended_package") : "",
+            needsEspeak,
+            packages);
+    }
+
+    private static List<AudioCppPackage> ParsePackages(JsonElement root, JsonElement packages, string family,
+        EAudioCppTask task, string status, List<string> languages, bool needsEspeak)
+    {
         JsonElement? defaults = root.TryGetProperty("package_defaults", out JsonElement packageDefaults) &&
                                 packageDefaults.TryGetProperty("download", out JsonElement download)
             ? download
@@ -157,7 +198,7 @@ public static class AudioCppModelCatalog
             result.Add(new AudioCppPackage(
                 GetString(package, "id"),
                 family,
-                task.Value,
+                task,
                 GetString(package, "display_name"),
                 GetString(package, "precision"),
                 package.TryGetProperty("default", out JsonElement isDefault) && isDefault.ValueKind == JsonValueKind.True,

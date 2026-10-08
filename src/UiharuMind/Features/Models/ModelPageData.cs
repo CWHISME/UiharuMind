@@ -31,7 +31,9 @@ using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Features.Models.AudioModels;
 using UiharuMind.Features.Models.Downloads;
+using UiharuMind.Core.AI.Audio;
 using UiharuMind.Features.Models.ImageModels;
 using UiharuMind.Features.Settings;
 using UiharuMind.Core.Core.DownloadHelper;
@@ -43,6 +45,7 @@ public partial class ModelPageData : PageDataBase
 {
     private readonly IMessageService _messageService;
     private readonly Func<ModelPageData, ModelDownloadPageData> _createDownloads;
+    private readonly Func<ModelPageData, AudioModelListViewData> _createAudioModels;
     private readonly DownloadQueue? _downloadQueueSource; //null 走全局队列
     private readonly ObservableCollection<ModelRunningData>? _modelSources; //null 走 App.ModelService
     private bool _isWatchingSources;
@@ -88,9 +91,11 @@ public partial class ModelPageData : PageDataBase
     /// <param name="createDownloads">建「获取模型」页签的数据，默认走真实模型源与全局队列</param>
     /// <param name="downloadQueue">下载队列，默认全局</param>
     /// <param name="modelSources">对话模型列表，默认 App.ModelService 的</param>
+    /// <param name="createAudioModels">建「语音模型」页签的数据，默认走共享的语音引擎</param>
     public ModelPageData(IMessageService messageService,
         Func<ModelPageData, ModelDownloadPageData>? createDownloads = null, DownloadQueue? downloadQueue = null,
-        ObservableCollection<ModelRunningData>? modelSources = null)
+        ObservableCollection<ModelRunningData>? modelSources = null,
+        Func<ModelPageData, AudioModelListViewData>? createAudioModels = null)
     {
         _modelSources = modelSources;
         _messageService = messageService;
@@ -98,12 +103,20 @@ public partial class ModelPageData : PageDataBase
         ImageModels = new ImageModelListViewData(messageService,
             (source, takenNames) => ImageModelEditWindow.ShowWindow(UIManager.GetRootWindow(), source, takenNames));
         _downloadQueueSource = downloadQueue;
+        _createAudioModels = createAudioModels ?? CreateDefaultAudioModels;
     }
 
-    private const int DownloadsTabIndex = 2;
+    /// <summary>「语音模型」页签的序号</summary>
+    public const int AudioModelsTabIndex = 2;
+
+    /// <summary>「获取模型」页签的序号</summary>
+    public const int DownloadsTabIndex = 3;
 
     /// <summary>生图模型页签（ADR 0052）</summary>
     public ImageModelListViewData ImageModels { get; }
+
+    /// <summary>「语音模型」页签：第一次选中才建（会碰语音引擎与它的设置），扫盘也在选中时</summary>
+    [ObservableProperty] private AudioModelListViewData? _audioModels;
 
     /// <summary>
     /// 下载区（页签头的进行中数量也读它）。首帧之后才建：碰全局队列会连带初始化下载器，不该压在切页路径上
@@ -120,15 +133,26 @@ public partial class ModelPageData : PageDataBase
     /// <summary>「获取模型」页签：第一次选中才建，模型页首开不发网络请求</summary>
     [ObservableProperty] private ModelDownloadPageData? _downloads;
 
-    /// <summary>当前页签：0 对话模型，1 生图模型，2 获取模型</summary>
+    /// <summary>当前页签：0 对话模型，1 生图模型，2 语音模型，3 获取模型</summary>
     [ObservableProperty] private int _selectedTabIndex;
 
     partial void OnSelectedTabIndexChanged(int value)
     {
         if (value == DownloadsTabIndex) EnsureDownloads().Activate();
+        else if (value == AudioModelsTabIndex) _ = EnsureAudioModels().RefreshAsync();
     }
 
+    private AudioModelListViewData EnsureAudioModels() => AudioModels ??= _createAudioModels(this);
+
     private ModelDownloadPageData EnsureDownloads() => Downloads ??= _createDownloads(this);
+
+    private static AudioModelListViewData CreateDefaultAudioModels(ModelPageData page)
+    {
+        AudioCppProvider provider = new(AudioCppEngine.Shared);
+        return new AudioModelListViewData(page._messageService, AudioCppEngine.Shared, AudioCppPackageStore.Shared,
+            provider.GetVoicesAsync, path => App.FilesService.OpenFolder(path), page.ShowAudioDownloads,
+            () => UIManager.ShowWindow<SettingsWindow>(window => window.ShowAudioEngineSettings()));
+    }
 
     private static ModelDownloadPageData CreateDefaultDownloads(ModelPageData page)
     {
@@ -156,9 +180,25 @@ public partial class ModelPageData : PageDataBase
     /// <param name="search">预填的搜索词</param>
     public void ShowDownloads(string search)
     {
-        ModelDownloadPageData downloads = EnsureDownloads();
-        downloads.CloseDetailCommand.Execute(null);
-        downloads.SearchText = search;
+        EnsureDownloads().ShowSearch(search);
+        SelectedTabIndex = DownloadsTabIndex;
+    }
+
+    /// <summary>
+    /// 切到「语音模型」页签。从设置里的「本地模型（语音）」跳过来时用
+    /// </summary>
+    public void ShowAudioModels()
+    {
+        if (SelectedTabIndex == AudioModelsTabIndex) _ = EnsureAudioModels().RefreshAsync();
+        else SelectedTabIndex = AudioModelsTabIndex;
+    }
+
+    /// <summary>
+    /// 切到「获取模型」的语音分类
+    /// </summary>
+    public void ShowAudioDownloads()
+    {
+        EnsureDownloads().ShowAudio();
         SelectedTabIndex = DownloadsTabIndex;
     }
 
@@ -309,8 +349,9 @@ public partial class ModelPageData : PageDataBase
         base.OnEnable();
         // 熔断会随时间恢复,回到这一页时重刷一次生图模型的状态
         ImageModels.Refresh();
-        // 从设置页改完下载源回来要换源重搜
+        // 从设置页改完下载源回来要换源重搜；语音模型可能在设置里装了引擎、换了默认
         if (SelectedTabIndex == DownloadsTabIndex) Downloads?.Activate();
+        else if (SelectedTabIndex == AudioModelsTabIndex) _ = AudioModels?.RefreshAsync();
         // 骨架先行：首帧先不亮列表，下一拍再挂全集合并让引擎出画——
         // 否则 ListBox 一次性物化会卡在点击路径上（见 CurrentItems 注释）
         if (!IsListDataReady && !_isListSchedulePending)

@@ -212,6 +212,20 @@ public partial class App : Application, ILogger, IDisposable
         ViewModel.JumpToPage(page);
     }
 
+    /// <summary>
+    /// 把主窗口拉到前台（关着或藏着就先打开）再切页。从设置等别的窗口跳过来时用：
+    /// 只切页的话，主窗口不在时用户什么也看不到
+    /// </summary>
+    /// <param name="page">要去的页</param>
+    /// <typeparam name="T">页数据类型</typeparam>
+    /// <returns>切到的页数据；类型不符为 null</returns>
+    public static T? ShowMainPage<T>(MenuPages page) where T : class
+    {
+        DummyWindow.LaunchMainWindow();
+        JumpToPage(page);
+        return ViewModel.Content as T;
+    }
+
     // 普通日志只在应用内日志界面看，不再写控制台：请求体这类大正文每条都要再拼一整份、同步写 stdout
     public void Debug(string rawStr, LogItem message)
     {

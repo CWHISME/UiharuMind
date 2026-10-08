@@ -1,0 +1,85 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:audio="clr-namespace:UiharuMind.Features.Models.Downloads.Audio"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             x:Class="UiharuMind.Features.Models.Downloads.Audio.AudioMarketListView"
+             x:DataType="audio:AudioMarketData">
+
+    <DockPanel>
+        <Grid DockPanel.Dock="Top">
+            <TextBox Text="{Binding SearchText}" Padding="31,7,8,7"
+                     PlaceholderText="{loc:Loc AudioMarketSearchHint}" />
+            <controls:ThemedSvgIcon Width="15" Height="15" Margin="10,0,0,0" IconName="search"
+                                    HorizontalAlignment="Left" VerticalAlignment="Center"
+                                    IsHitTestVisible="False" />
+        </Grid>
+
+        <DockPanel DockPanel.Dock="Top" Margin="2,12,2,6">
+            <ComboBox DockPanel.Dock="Left" Classes="Small" VerticalAlignment="Center" Margin="0,0,8,0"
+                      ItemsSource="{Binding FilterOptions}" SelectedItem="{Binding SelectedFilter}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="audio:AudioTaskFilterOption">
+                        <TextBlock Text="{Binding Label}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <Button Classes="NoneStyle" Cursor="Hand" Padding="0" HorizontalAlignment="Right"
+                    ToolTip.Tip="{loc:Loc ModelDownloadSourceTip}"
+                    Command="{Binding OpenSourceSettingsCommand}">
+                <DockPanel>
+                    <controls:ThemedSvgIcon DockPanel.Dock="Right" Width="12" Height="12" Margin="4,0,0,0"
+                                            IconName="settings" Opacity="0.6" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding SourceLabel}" Classes="muted" FontSize="12" FontWeight="Normal"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                </DockPanel>
+            </Button>
+        </DockPanel>
+
+        <ProgressBar DockPanel.Dock="Top" IsIndeterminate="True" Height="2" MinHeight="2"
+                     Margin="0,0,0,4" IsVisible="{Binding IsLoading}" />
+        <TextBlock DockPanel.Dock="Top" Classes="muted" Margin="2,8" Text="{loc:Loc AudioMarketNoResults}"
+                   IsVisible="{Binding IsResultEmpty}" />
+
+        <!-- 没装引擎：模型清单随引擎提供，先引导安装 -->
+        <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="2,12" IsVisible="{Binding ShowEnginePrompt}">
+            <TextBlock Text="{loc:Loc AudioMarketNeedsEngine}" Classes="muted" TextWrapping="Wrap" />
+            <Panel HorizontalAlignment="Left">
+                <Button Classes="Primary" Content="{loc:Loc AudioInstallEngine}" Command="{Binding InstallEngineCommand}"
+                        IsVisible="{Binding !IsEngineQueued}" />
+                <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsEngineQueued}">
+                    <SpinnerIcon VerticalAlignment="Center" />
+                    <TextBlock Text="{loc:Loc AudioMarketEngineInstalling}" Classes="muted" VerticalAlignment="Center" />
+                </StackPanel>
+            </Panel>
+        </StackPanel>
+
+        <ListBox Classes="repo-list" ItemsSource="{Binding Families}" SelectedItem="{Binding SelectedFamily}"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="audio:AudioFamilyListItem">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <StackPanel Spacing="1">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                                <Border Background="{DynamicResource SemiBlue5}" CornerRadius="8" Padding="6,0"
+                                        VerticalAlignment="Center" IsVisible="{Binding IsRecommended}">
+                                    <TextBlock Text="{loc:Loc ModelDownloadRecommended}" FontSize="10" Foreground="White" />
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Text="{Binding SubText}" Classes="muted" FontSize="12"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding MaturityText}" Classes="muted" FontSize="11" VerticalAlignment="Center"
+                                       IsVisible="{Binding MaturityText, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                            <controls:ThemedSvgIcon Width="14" Height="14" IconName="check" Opacity="0.75"
+                                                    ToolTip.Tip="{loc:Loc AudioFamilyInstalledTip}"
+                                                    IsVisible="{Binding IsInstalled}" />
+                        </StackPanel>
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </DockPanel>
+</UserControl>

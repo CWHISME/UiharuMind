@@ -54,9 +54,26 @@ public sealed class AudioCppProvider : IAudioProvider, IDisposable
     /// <summary>
     /// 当前合成模型的音色
     /// </summary>
-    public async Task<IReadOnlyList<string>> GetVoicesAsync(CancellationToken cancellationToken)
+    public Task<IReadOnlyList<string>> GetVoicesAsync(CancellationToken cancellationToken) =>
+        GetVoicesAsync(_engine.ResolveModel(EAudioCppTask.Tts), cancellationToken);
+
+    /// <summary>
+    /// 某个本地合成模型的音色（会按需拉起引擎）
+    /// </summary>
+    /// <param name="modelId">模型 id</param>
+    /// <param name="cancellationToken">取消</param>
+    /// <returns>音色 id</returns>
+    /// <exception cref="AudioModelMissingException">本机没有这个模型</exception>
+    public Task<IReadOnlyList<string>> GetVoicesAsync(string modelId, CancellationToken cancellationToken)
     {
-        AudioCppModelEntry model = _engine.ResolveModel(EAudioCppTask.Tts);
+        AudioCppModelEntry model = _engine.GetModels().FirstOrDefault(x => x.Id == modelId) ??
+                                   _engine.GetModels(true).FirstOrDefault(x => x.Id == modelId) ??
+                                   throw new AudioModelMissingException(EAudioCppTask.Tts);
+        return GetVoicesAsync(model, cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<string>> GetVoicesAsync(AudioCppModelEntry model, CancellationToken cancellationToken)
+    {
         OpenAiCompatibleAudioClient client = await GetClientAsync(model, cancellationToken).ConfigureAwait(false);
         return await client.GetVoicesAsync(model.Id, cancellationToken).ConfigureAwait(false);
     }

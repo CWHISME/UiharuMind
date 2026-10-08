@@ -14,26 +14,6 @@
             <Setter Property="Increment" Value="1" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
-        <Style Selector="ComboBox.runtime-field">
-            <Setter Property="Width" Value="300" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-        </Style>
-        <Style Selector="Border.package-row">
-            <Setter Property="Padding" Value="10,10" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0,0,0,1" />
-            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey1}" />
-        </Style>
-        <Style Selector="Border.package-row:pointerover">
-            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
-        </Style>
-        <Style Selector="Border.tag">
-            <Setter Property="CornerRadius" Value="9" />
-            <Setter Property="Padding" Value="7,1" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
-        </Style>
     </UserControl.Styles>
 
     <ScrollViewer controls:SettingsScrollMemory.ScrollKey="AudioEngineSetting"
@@ -45,121 +25,15 @@
                 </controls:SettingsSection.Body>
             </controls:SettingsSection>
 
-            <!-- 合成 / 听写各用哪个模型：只列本机装了的 -->
+            <!-- 模型的下载、默认与音色都在模型页，这里只给入口 -->
             <controls:SettingsSection Header="{loc:Loc AudioModelsTitle}" Description="{loc:Loc AudioModelsDesc}">
                 <controls:SettingsSection.Body>
-                    <StackPanel DataContext="{Binding Models}" x:DataType="audio:AudioModelSelectionViewData">
-                        <controls:SettingsRow Header="{loc:Loc AudioTtsModel}" Description="{loc:Loc AudioTtsModelDesc}">
-                            <controls:SettingsRow.Field>
-                                <Panel>
-                                    <ComboBox Classes="runtime-field" ItemsSource="{Binding TtsModels}"
-                                              SelectedItem="{Binding SelectedTtsModel}" IsVisible="{Binding HasTtsModels}" />
-                                    <TextBlock Text="{loc:Loc AudioNoModel}" Classes="muted" VerticalAlignment="Center"
-                                               IsVisible="{Binding !HasTtsModels}" />
-                                </Panel>
-                            </controls:SettingsRow.Field>
-                        </controls:SettingsRow>
-                        <controls:SettingsRow Header="{loc:Loc AudioVoice}" Description="{loc:Loc AudioVoiceDesc}"
-                                              IsVisible="{Binding HasTtsModels}">
-                            <controls:SettingsRow.Field>
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <SpinnerIcon VerticalAlignment="Center" IsVisible="{Binding IsLoadingVoices}" />
-                                    <Button Content="{loc:Loc AudioLoadVoices}" Command="{Binding LoadVoicesCommand}"
-                                            ToolTip.Tip="{loc:Loc AudioLoadVoicesTip}" />
-                                    <ComboBox Width="200" VerticalAlignment="Center" ItemsSource="{Binding Voices}"
-                                              SelectedItem="{Binding SelectedVoice}"
-                                              DisplayMemberBinding="{ReflectionBinding DisplayName}" />
-                                </StackPanel>
-                            </controls:SettingsRow.Field>
-                        </controls:SettingsRow>
-                        <controls:SettingsRow Header="{loc:Loc AudioAsrModel}" Description="{loc:Loc AudioAsrModelDesc}"
-                                              DividerVisible="False">
-                            <controls:SettingsRow.Field>
-                                <Panel>
-                                    <ComboBox Classes="runtime-field" ItemsSource="{Binding AsrModels}"
-                                              SelectedItem="{Binding SelectedAsrModel}" IsVisible="{Binding HasAsrModels}" />
-                                    <TextBlock Text="{loc:Loc AudioNoModel}" Classes="muted" VerticalAlignment="Center"
-                                               IsVisible="{Binding !HasAsrModels}" />
-                                </Panel>
-                            </controls:SettingsRow.Field>
-                        </controls:SettingsRow>
-                    </StackPanel>
-                </controls:SettingsSection.Body>
-            </controls:SettingsSection>
-
-            <!-- 获取模型：包随在用引擎的 spec 走，没装引擎时只给一句提示 -->
-            <controls:SettingsSection Header="{loc:Loc AudioCatalogTitle}" Description="{loc:Loc AudioCatalogDesc}">
-                <controls:SettingsSection.Body>
-                    <StackPanel Spacing="8" DataContext="{Binding Catalog}" x:DataType="audio:AudioModelCatalogViewData">
-                        <DockPanel IsVisible="{Binding !HasCatalog}">
-                            <Button DockPanel.Dock="Right" Classes="Primary" Content="{loc:Loc AudioInstallEngine}"
-                                    Command="{Binding InstallEngineCommand}" />
-                            <TextBlock Text="{loc:Loc AudioCatalogNeedsEngine}" Classes="muted" TextWrapping="Wrap"
-                                       VerticalAlignment="Center" Margin="0,0,12,0" />
-                        </DockPanel>
-                        <DockPanel IsVisible="{Binding HasCatalog}">
-                            <Button DockPanel.Dock="Right" Classes="NoneStyle" Cursor="Hand" Padding="0"
-                                    Click="OnDownloadSourceClick">
-                                <TextBlock Text="{loc:Loc AudioCatalogSourceLink}" Classes="muted" FontSize="12" />
-                            </Button>
-                            <CheckBox Content="{Binding ShowAllText}" IsChecked="{Binding ShowAll}" />
-                        </DockPanel>
-                        <ItemsControl ItemsSource="{Binding Rows}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="audio:AudioPackageRowData">
-                                    <Border Classes="package-row">
-                                        <Grid ColumnDefinitions="*,80,Auto" ColumnSpacing="12">
-                                            <StackPanel Spacing="3" VerticalAlignment="Center">
-                                                <WrapPanel Orientation="Horizontal">
-                                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold"
-                                                               VerticalAlignment="Center" Margin="0,0,6,0" />
-                                                    <Border Background="{DynamicResource SemiBlue5}" CornerRadius="9"
-                                                            Padding="7,1" Margin="0,0,6,0" VerticalAlignment="Center"
-                                                            IsVisible="{Binding IsRecommended}">
-                                                        <TextBlock Text="{loc:Loc ModelDownloadRecommended}" FontSize="11"
-                                                                   Foreground="White" />
-                                                    </Border>
-                                                    <Border Classes="tag" Margin="0,0,6,0">
-                                                        <TextBlock Text="{Binding TaskText}" FontSize="11" />
-                                                    </Border>
-                                                    <Border Classes="tag" Margin="0,0,6,0"
-                                                            IsVisible="{Binding MaturityText, Converter={x:Static ObjectConverters.IsNotNull}}">
-                                                        <TextBlock Text="{Binding MaturityText}" FontSize="11" />
-                                                    </Border>
-                                                    <Border Classes="tag" IsVisible="{Binding NeedsEspeak}"
-                                                            ToolTip.Tip="{loc:Loc AudioNeedsEspeakTip}">
-                                                        <TextBlock Text="{loc:Loc AudioNeedsEspeak}" FontSize="11" />
-                                                    </Border>
-                                                </WrapPanel>
-                                                <TextBlock Text="{Binding LanguagesText}" Classes="muted" FontSize="12"
-                                                           TextTrimming="CharacterEllipsis" />
-                                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                                    <ProgressBar Value="{Binding Percent}" Maximum="100" Width="90"
-                                                                 Height="3" MinHeight="3" VerticalAlignment="Center"
-                                                                 IsVisible="{Binding ShowProgress}" />
-                                                    <TextBlock Text="{Binding StatusText}" Classes="muted" FontSize="12" />
-                                                </StackPanel>
-                                            </StackPanel>
-
-                                            <TextBlock Grid.Column="1" Text="{Binding SizeText}" HorizontalAlignment="Right"
-                                                       VerticalAlignment="Center" FontSize="13"
-                                                       Foreground="{DynamicResource SemiGrey7}" />
-
-                                            <Panel Grid.Column="2" VerticalAlignment="Center" MinWidth="64">
-                                                <Button Content="{Binding ActionText}" IsVisible="{Binding !IsDownloaded}"
-                                                        IsEnabled="{Binding CanDownload}"
-                                                        Command="{Binding $parent[ItemsControl].((audio:AudioModelCatalogViewData)DataContext).DownloadCommand}"
-                                                        CommandParameter="{Binding}" />
-                                                <Button Content="{loc:Loc Delete}" IsVisible="{Binding IsDownloaded}"
-                                                        Command="{Binding $parent[ItemsControl].((audio:AudioModelCatalogViewData)DataContext).DeleteCommand}"
-                                                        CommandParameter="{Binding}" />
-                                            </Panel>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
+                    <controls:SettingsRow Header="{loc:Loc AudioManageModels}" Description="{loc:Loc AudioManageModelsDesc}"
+                                          DividerVisible="False">
+                        <controls:SettingsRow.Field>
+                            <Button Content="{loc:Loc AudioManageModelsBtn}" Click="OnManageModelsClick" />
+                        </controls:SettingsRow.Field>
+                    </controls:SettingsRow>
                 </controls:SettingsSection.Body>
             </controls:SettingsSection>
 

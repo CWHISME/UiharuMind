@@ -1,5 +1,4 @@
 using UiharuMind.Core.AI.Audio;
-using UiharuMind.Core.Core.DownloadHelper;
 using UiharuMind.Features.Settings.Audio;
 using UiharuMind.Shared.Services;
 
@@ -20,8 +19,6 @@ internal static class TestSettingsPages
         string root = Path.Combine(Path.GetTempPath(), $"uiharu-audio-page-{Guid.NewGuid():N}");
         AudioCppEngine engine = new(new AudioCppSettingConfig(), Path.Combine(root, "engines"),
             Path.Combine(root, "server.json"), () => []);
-        DownloadQueue queue = new(new FileDownloader(new HttpClient()));
-        AudioCppPackageStore store = new(queue, () => Path.Combine(root, "models"), AudioCppPackageSource.FromSettings);
-        return new AudioEngineSettingData(messages, engine, store, queue, _ => { });
+        return new AudioEngineSettingData(messages, engine, _ => { });
     }
 }

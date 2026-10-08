@@ -14,6 +14,7 @@ namespace UiharuMind.Core.AI.Audio;
 /// <param name="LoadOptions">加载选项</param>
 /// <param name="SessionOptions">会话选项</param>
 /// <param name="DefaultVoice">默认音色</param>
+/// <param name="ModelFile">扫描到的 gguf 文件（<paramref name="Path"/> 可能是它所在目录）；不写进 server.json</param>
 public sealed record AudioCppModelEntry(
     string Id,
     string Family,
@@ -22,7 +23,8 @@ public sealed record AudioCppModelEntry(
     string Mode = "offline",
     IReadOnlyDictionary<string, string>? LoadOptions = null,
     IReadOnlyDictionary<string, string>? SessionOptions = null,
-    string? DefaultVoice = null);
+    string? DefaultVoice = null,
+    string? ModelFile = null);
 
 /// <summary>
 /// server.json 的顶层选项

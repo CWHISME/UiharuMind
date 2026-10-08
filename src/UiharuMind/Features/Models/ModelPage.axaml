@@ -11,6 +11,7 @@
               x:DataType="pages:ModelPageData"
              xmlns:images="clr-namespace:UiharuMind.Features.Models.ImageModels"
              xmlns:downloads="clr-namespace:UiharuMind.Features.Models.Downloads"
+             xmlns:audioModels="clr-namespace:UiharuMind.Features.Models.AudioModels"
                              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:core="clr-namespace:UiharuMind.Core.AI.Core;assembly=UiharuMind.Core">
 
@@ -211,6 +212,14 @@
             </TabItem>
             <TabItem Header="{loc:Loc ModelPageImageModelsTab}">
                 <images:ImageModelListView Margin="0,12,0,0" DataContext="{Binding ImageModels}" />
+            </TabItem>
+            <!-- 只列本机装了的；下载在「获取模型」的语音分类 -->
+            <TabItem Header="{loc:Loc ModelPageAudioModelsTab}" Content="{Binding AudioModels}">
+                <TabItem.ContentTemplate>
+                    <DataTemplate x:DataType="audioModels:AudioModelListViewData">
+                        <audioModels:AudioModelListView />
+                    </DataTemplate>
+                </TabItem.ContentTemplate>
             </TabItem>
             <!-- 内容绑数据而不是内联写视图：内联的会随页面构造 new 出来，这里要第一次选中才建 -->
             <TabItem Content="{Binding Downloads}">

@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:downloads="clr-namespace:UiharuMind.Features.Models.Downloads"
+             xmlns:audio="clr-namespace:UiharuMind.Features.Models.Downloads.Audio"
              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
@@ -43,89 +44,114 @@
         <Style Selector="downloads|ModelDownloadView.narrow Button.drawer-back">
             <Setter Property="IsVisible" Value="True" />
         </Style>
+        <!-- 详情里的下载行：表格式，行间细分隔线（参照 Jan），不给每行套框；推荐行淡蓝底。两个分类共用 -->
+        <Style Selector="Border.quant-row">
+            <Setter Property="Padding" Value="10,10" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey1}" />
+        </Style>
+        <Style Selector="Border.quant-row:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+        </Style>
+        <Style Selector="Border.quant-row.recommended">
+            <Setter Property="Background" Value="{DynamicResource SemiBlue0}" />
+        </Style>
+        <Style Selector="Button.quant-action">
+            <Setter Property="MinWidth" Value="64" />
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="Padding" Value="12,3" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="CornerRadius" Value="14" />
+        </Style>
+        <Style Selector="Border.feature-tag">
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="Padding" Value="7,1" />
+            <Setter Property="Margin" Value="0,0,6,4" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+        </Style>
+        <!-- 分类切换：分段按钮 -->
+        <Style Selector="ListBox.market-switch">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="3" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="ItemsPanel">
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" Spacing="2" />
+                </ItemsPanelTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="ListBox.market-switch ListBoxItem">
+            <Setter Property="Padding" Value="12,4" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="ListBox.market-switch ListBoxItem:selected">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+        </Style>
+        <Style Selector="ListBox.market-switch ListBoxItem:selected TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
     </UserControl.Styles>
 
     <DockPanel Margin="0,14,0,0">
         <downloads:DownloadQueueView DockPanel.Dock="Bottom" DataContext="{Binding Queue}" Margin="0,12,0,0" />
 
-        <!-- 窄窗时详情盖在列表上（见后台代码），宽窗左右两栏 -->
+        <!-- 窄窗时详情盖在列表上（见后台代码），宽窗左右两栏。两栏内容都按当前分类的类型挑模板 -->
         <Grid x:Name="BodyGrid" ColumnDefinitions="1*,1.45*" ColumnSpacing="16">
             <DockPanel x:Name="ListPane" MinWidth="240">
-                <!-- 放大镜叠在框内左侧，与会话列表的搜索框同式 -->
-                <Grid DockPanel.Dock="Top">
-                    <TextBox Text="{Binding SearchText}" Padding="31,7,8,7"
-                             PlaceholderText="{loc:Loc ModelDownloadSearchHint}" />
-                    <controls:ThemedSvgIcon Width="15" Height="15" Margin="10,0,0,0" IconName="search"
-                                            HorizontalAlignment="Left" VerticalAlignment="Center"
-                                            IsHitTestVisible="False" />
-                </Grid>
-
-                <!-- 排序优先占位，窄栏时让下载源那行去截断 -->
-                <DockPanel DockPanel.Dock="Top" Margin="2,12,2,6">
-                    <ComboBox DockPanel.Dock="Left" Classes="Small" VerticalAlignment="Center" Margin="0,0,8,0"
-                              ToolTip.Tip="{loc:Loc ModelSearchSortTip}"
-                              ItemsSource="{Binding SortOptions}" SelectedItem="{Binding SelectedSort}">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="downloads:ModelSearchSortOption">
-                                <TextBlock Text="{Binding Label}" />
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-                    <Button Classes="NoneStyle" Cursor="Hand" Padding="0" HorizontalAlignment="Right"
-                            ToolTip.Tip="{loc:Loc ModelDownloadSourceTip}"
-                            Command="{Binding OpenSourceSettingsCommand}">
-                        <DockPanel>
-                            <controls:ThemedSvgIcon DockPanel.Dock="Right" Width="12" Height="12" Margin="4,0,0,0"
-                                                    IconName="settings" Opacity="0.6" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding SourceLabel}" Classes="muted" FontSize="12" FontWeight="Normal"
-                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                        </DockPanel>
-                    </Button>
-                </DockPanel>
-
-                <ProgressBar DockPanel.Dock="Top" IsIndeterminate="True" Height="2" MinHeight="2"
-                             Margin="0,0,0,4" IsVisible="{Binding IsSearching}" />
-                <TextBlock DockPanel.Dock="Top" Classes="muted" TextWrapping="Wrap" Margin="2,8"
-                           Text="{Binding SearchError}"
-                           IsVisible="{Binding SearchError, Converter={x:Static ObjectConverters.IsNotNull}}" />
-                <TextBlock DockPanel.Dock="Top" Classes="muted" Margin="2,8"
-                           Text="{loc:Loc ModelDownloadNoResults}" IsVisible="{Binding IsResultEmpty}" />
-
-                <ProgressBar DockPanel.Dock="Bottom" IsIndeterminate="True" Height="2" MinHeight="2"
-                             Margin="0,4,0,0" IsVisible="{Binding IsLoadingMore}" />
-
-                <ListBox x:Name="ResultList" Classes="repo-list" ItemsSource="{Binding Results}"
-                         SelectedItem="{Binding SelectedItem}"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox DockPanel.Dock="Top" Classes="market-switch" Margin="0,0,0,12"
+                         ItemsSource="{Binding Markets}" SelectedItem="{Binding SelectedMarket}">
                     <ListBox.ItemTemplate>
-                        <DataTemplate x:DataType="downloads:ModelRepoListItem">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" ToolTip.Tip="{Binding Repository}">
-                                <StackPanel Spacing="1">
-                                    <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Text="{Binding Owner}" Classes="muted" FontSize="12"
-                                               TextTrimming="CharacterEllipsis" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="3"
-                                            VerticalAlignment="Center" Opacity="0.7">
-                                    <controls:ThemedSvgIcon Width="12" Height="12" IconName="{Binding MetricIcon}" />
-                                    <TextBlock Text="{Binding MetricText}" Classes="muted" FontSize="12" />
-                                </StackPanel>
-                            </Grid>
+                        <DataTemplate x:DataType="downloads:IModelMarket">
+                            <TextBlock Text="{Binding Title}" FontSize="13" />
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
+                <ContentControl Content="{Binding SelectedMarket}">
+                    <ContentControl.DataTemplates>
+                        <DataTemplate DataType="downloads:GgufMarketData" x:DataType="downloads:GgufMarketData">
+                            <downloads:GgufMarketListView />
+                        </DataTemplate>
+                        <DataTemplate DataType="audio:AudioMarketData" x:DataType="audio:AudioMarketData">
+                            <audio:AudioMarketListView />
+                        </DataTemplate>
+                    </ContentControl.DataTemplates>
+                </ContentControl>
             </DockPanel>
 
             <Border x:Name="DetailPane" Grid.Column="1" Classes="download-card" Padding="18,16">
-                <Panel>
-                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10"
-                                IsVisible="{Binding Detail, Converter={x:Static ObjectConverters.IsNull}}">
-                        <controls:ThemedSvgIcon Width="28" Height="28" IconName="download" Opacity="0.35" />
-                        <TextBlock Classes="muted" Text="{loc:Loc ModelDownloadPickRepo}" TextAlignment="Center" />
-                    </StackPanel>
-                    <downloads:ModelRepoDetailView DataContext="{Binding Detail}"
-                                                   IsVisible="{Binding $parent[UserControl].((downloads:ModelDownloadPageData)DataContext).Detail, Converter={x:Static ObjectConverters.IsNotNull}}" />
-                </Panel>
+                <ContentControl Content="{Binding SelectedMarket}">
+                    <ContentControl.DataTemplates>
+                        <DataTemplate DataType="downloads:GgufMarketData" x:DataType="downloads:GgufMarketData">
+                            <Panel>
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10"
+                                            IsVisible="{Binding !HasDetail}">
+                                    <controls:ThemedSvgIcon Width="28" Height="28" IconName="download" Opacity="0.35" />
+                                    <TextBlock Classes="muted" Text="{loc:Loc ModelDownloadPickRepo}" TextAlignment="Center" />
+                                </StackPanel>
+                                <downloads:ModelRepoDetailView DataContext="{Binding Detail}" IsVisible="{Binding $parent[Panel].((downloads:GgufMarketData)DataContext).HasDetail}" />
+                            </Panel>
+                        </DataTemplate>
+                        <DataTemplate DataType="audio:AudioMarketData" x:DataType="audio:AudioMarketData">
+                            <Panel>
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10"
+                                            IsVisible="{Binding !HasDetail}">
+                                    <controls:ThemedSvgIcon Width="28" Height="28" IconName="audio-lines" Opacity="0.35" />
+                                    <TextBlock Classes="muted" Text="{loc:Loc AudioMarketPickFamily}" TextAlignment="Center"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                                <audio:AudioFamilyDetailView DataContext="{Binding Detail}" IsVisible="{Binding $parent[Panel].((audio:AudioMarketData)DataContext).HasDetail}" />
+                            </Panel>
+                        </DataTemplate>
+                    </ContentControl.DataTemplates>
+                </ContentControl>
             </Border>
         </Grid>
     </DockPanel>

@@ -10,19 +10,6 @@
              x:DataType="downloads:ModelRepoDetailData">
 
     <UserControl.Styles>
-        <!-- 量化行：表格式，行间细分隔线（参照 Jan），不给每行套框；推荐行淡蓝底 -->
-        <Style Selector="Border.quant-row">
-            <Setter Property="Padding" Value="10,10" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0,0,0,1" />
-            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey1}" />
-        </Style>
-        <Style Selector="Border.quant-row:pointerover">
-            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
-        </Style>
-        <Style Selector="Border.quant-row.recommended">
-            <Setter Property="Background" Value="{DynamicResource SemiBlue0}" />
-        </Style>
         <Style Selector="Button.detail-tab">
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Padding" Value="0" />
@@ -42,13 +29,6 @@
         </Style>
         <Style Selector="Button.detail-tab.active Border.tab-underline">
             <Setter Property="Background" Value="{DynamicResource SemiBlue5}" />
-        </Style>
-        <Style Selector="Button.quant-action">
-            <Setter Property="MinWidth" Value="64" />
-            <Setter Property="MinHeight" Value="28" />
-            <Setter Property="Padding" Value="12,3" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="CornerRadius" Value="14" />
         </Style>
     </UserControl.Styles>
 

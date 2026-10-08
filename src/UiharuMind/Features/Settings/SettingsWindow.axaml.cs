@@ -120,6 +120,9 @@ public partial class SettingsWindow : UiharuWindowBase
     /// </summary>
     public void ShowDownloadSourceSettings() => SelectByButton(DownloadSourceButton);
 
+    /// <summary>直接切到「本地模型（语音）」页（模型页的语音模型页签跳过来时用）</summary>
+    public void ShowAudioEngineSettings() => SelectByButton(AudioRuntimeButton);
+
     /// <summary>按标题 key 切页（搜索结果跳转走这条）</summary>
     private void SelectByTitleKey(string titleKey)
     {
