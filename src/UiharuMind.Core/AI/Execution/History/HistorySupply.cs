@@ -68,7 +68,9 @@ internal static class HistorySupply
     public static async Task<IReadOnlyList<ChatMessage>> ForSideRequestAsync(IReadOnlyList<ChatMessage> full,
         ChatOptions? options, int contextLength, int fixedOverhead, CancellationToken cancellationToken)
     {
-        IReadOnlyList<ChatMessage> supplied = From(full, promptOnly: options?.Tools is not { Count: > 0 });
+        // 记忆清单与常规请求同样先投影再压缩(见 MemoryIndexProjectingChatClient 的位置)
+        IReadOnlyList<ChatMessage> supplied =
+            MemoryIndexProjection.Project(From(full, promptOnly: options?.Tools is not { Count: > 0 }));
         CompactionStrategy compaction =
             HistoryCompaction.Create(() => contextLength, TurnInputEstimate.Detached(fixedOverhead));
         IEnumerable<ChatMessage> compacted = await compaction.AsChatReducer()

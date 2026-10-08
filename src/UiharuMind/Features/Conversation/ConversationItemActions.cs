@@ -89,6 +89,10 @@ public sealed class ConversationItemActions
     public T Wire<T>(T item, ChatMessage source) where T : ConversationItemBase
     {
         item.SourceMessage = source;
+        // 记忆清单在开跑时才挂上(ADR 0076),实时气泡要到配上落盘那份时才折得进来。
+        // 群投递拆成几只气泡,不往每只上都挂
+        if (item is TextConversationItem { IsUser: true } user && !ChatMessageAnnotations.IsGroupDelivery(source))
+            ConversationItemFactory.ApplyInjected(user, source);
         // 群发言送达即不可改(ADR 0046 决策 6):改群流水改不到已经交出去的那几份;
         // 成员会话在骨架里只读。两处都只留来源,不挂任何改写历史的动作
         if (_host.Session is { IsGroup: true } or { IsGroupMember: true }) return item;
@@ -125,7 +129,13 @@ public sealed class ConversationItemActions
         for (int i = _items.Count - 1; i >= 0 && cursor >= 0; i--)
         {
             if (_items[i] is not TextConversationItem item) continue;
-            if (item.SourceMessage is { } source && persisted.Contains(source)) break; //再往前都是配好的
+            if (item.SourceMessage is { } source && persisted.Contains(source))
+            {
+                // 落盘的就是发送时那个实例时不会再走 Wire;记忆清单是开跑后才挂上它的(ADR 0076),在这里补显示
+                if (item.IsUser && !ChatMessageAnnotations.IsGroupDelivery(source))
+                    ConversationItemFactory.ApplyInjected(item, source);
+                break; //再往前都是配好的
+            }
 
             // 群投递一条拆成几只气泡（成员的在左、旁白居中），角色对不上 User，按角色配会配到别的消息上。
             // 按正文找落盘的那份，整组一起改指

@@ -1,0 +1,14 @@
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"session.new","args":{"character":"RationalAgent","workspace":"{{WS_REPO}}"}}
+{"op":"session.post","args":{"text":"帮我把下面两件事记进你的记忆，以后的会话要用：1. 我的偏好：回答先给结论，再给理由。2. 这个仓库跑测试不要用 dotnet test（测不出结果），要用 dotnet msbuild <测试项目> -t:Test。一个主题一份笔记，记完告诉我就行。"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"once"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/memory-write.md"}}
+{"op":"session.new","args":{"character":"RationalAgent","workspace":"{{WS_REPO}}"}}
+{"op":"session.post","args":{"text":"先不要调用任何工具，只凭你现在已经看到的内容回答：你的记忆里有哪些笔记？各记了什么？"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"once"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/memory-recall-1.md"}}
+{"op":"wait","args":{"ms":20000}}
+{"op":"session.post","args":{"text":"这个仓库跑测试该用什么命令？"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"once"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/memory-recall-2.md"}}
+{"op":"quit"}

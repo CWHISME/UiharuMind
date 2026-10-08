@@ -112,4 +112,47 @@ public class WireStreamedUserPairingTests
         Assert.Same(landed, reply.SourceMessage);
         Assert.Equal(ConversationItemFactory.TimestampText(saidAt), reply.Timestamp);
     }
+
+    private static ChatMessage WithMemoryList(ChatMessage message)
+    {
+        message.AdditionalProperties ??= new AdditionalPropertiesDictionary();
+        message.AdditionalProperties[ChatMessageAnnotations.MemoryIndexSnapshot] = "- a.md — 偏好";
+        return message;
+    }
+
+    /// <summary>
+    /// 记忆清单开跑时才挂到输入消息上（ADR 0076），实时气泡此前已经画好：
+    /// 落盘的是副本时，换接副本那一下把清单折进来
+    /// </summary>
+    [Fact]
+    public void AMemoryListAttachedAfterSending_ShowsOnceThePersistedCopyIsWired()
+    {
+        var (actions, items) = Create();
+        TextConversationItem bubble = UserBubble("开工");
+        bubble.SourceMessage = new ChatMessage(ChatRole.User, "开工");
+        items.Add(bubble);
+
+        actions.WireStreamed([WithMemoryList(new ChatMessage(ChatRole.User, "开工")), new(ChatRole.Assistant, "好")]);
+
+        Assert.Contains("- a.md — 偏好", bubble.InjectedText);
+    }
+
+    /// <summary>
+    /// 落盘的就是发送时那个实例（清单就挂在它身上）：它在历史里，配对在这里止步、不会再接一次，
+    /// 清单也得在这里补上
+    /// </summary>
+    [Fact]
+    public void AMemoryListAttachedAfterSending_ShowsWhenTheSentInstanceItselfIsPersisted()
+    {
+        var (actions, items) = Create();
+        ChatMessage sent = new(ChatRole.User, "开工");
+        TextConversationItem bubble = UserBubble("开工");
+        bubble.SourceMessage = sent;
+        items.Add(bubble);
+        items.Add(new TextConversationItem(false) { Message = "好" });
+
+        actions.WireStreamed([WithMemoryList(sent), new(ChatRole.Assistant, "好")]);
+
+        Assert.Contains("- a.md — 偏好", bubble.InjectedText);
+    }
 }

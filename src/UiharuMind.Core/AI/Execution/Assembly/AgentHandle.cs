@@ -87,6 +87,15 @@ public sealed class AgentHandle : IAsyncDisposable
     /// </summary>
     public TurnInputEstimate InputEstimate { get; }
 
+    /// <summary>
+    /// 记忆目录绝对路径；空串 = 本装配没有记忆段，不挂记忆清单（ADR 0076）。
+    /// 子代理与纯提示词档恒为空串
+    /// </summary>
+    public string MemoryDirectory { get; internal set; } = string.Empty;
+
+    /// <summary>记忆目录的简写（与系统提示记忆段同一种写法），清单里每份笔记按它写路径</summary>
+    public string MemoryToken { get; internal set; } = string.Empty;
+
     internal AgentHandle(AIAgent agent, ServiceCallSignalingChatClient serviceCalls, ShellExecutor? shellExecutor,
         ChatOptions? chatOptions = null, McpToolSet? mcp = null, IReadOnlyList<AgentToolEntry>? toolEntries = null,
         IReadOnlyList<AgentPromptSegment>? promptSegments = null,

@@ -32,8 +32,7 @@
                         <controls:SettingsRow Header="{loc:Loc AgentSettingGeneralSubAgentModel}"
                                               Description="{loc:Loc AgentSettingGeneralSubAgentModelDesc}"
                                               ResetCommand="{Binding ResetGeneralSubAgentModelCommand}"
-                                              ResetVisible="{Binding IsGeneralSubAgentModelNotDefault}"
-                                              DividerVisible="False">
+                                              ResetVisible="{Binding IsGeneralSubAgentModelNotDefault}">
                             <controls:SettingsRow.Field>
                                 <ComboBox ItemsSource="{Binding AvailableModels}"
                                           SelectedItem="{Binding GeneralSubAgentModel}"
@@ -45,6 +44,18 @@
                                         </DataTemplate>
                                     </ComboBox.ItemTemplate>
                                 </ComboBox>
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc AgentSettingMemoryIndexBudget}"
+                                              Description="{loc:Loc AgentSettingMemoryIndexBudgetDesc}"
+                                              ResetCommand="{Binding ResetMemoryIndexBudgetCommand}"
+                                              ResetVisible="{Binding IsMemoryIndexBudgetNotDefault}"
+                                              DividerVisible="False">
+                            <controls:SettingsRow.Field>
+                                <NumericUpDown Width="140" Increment="500" FormatString="0"
+                                               Minimum="{Binding MemoryIndexBudgetMin}"
+                                               Maximum="{Binding MemoryIndexBudgetMax}"
+                                               Value="{Binding MemoryIndexBudget}" />
                             </controls:SettingsRow.Field>
                         </controls:SettingsRow>
 

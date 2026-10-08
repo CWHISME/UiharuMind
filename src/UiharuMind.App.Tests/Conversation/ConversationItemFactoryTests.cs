@@ -1,4 +1,5 @@
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Features.Conversation.Composer;
 using UiharuMind.Features.Conversation.Items;
@@ -36,5 +37,23 @@ public class ConversationItemFactoryTests
         NamedSkillAnnotations.Mark(message, new SkillInvocation { SkillName = "readme", InjectedText = "注入全文" }, "/readme");
 
         Assert.Equal("/readme", ConversationItemFactory.UserMessageDisplayText("/readme", message));
+    }
+
+    /// <summary>记忆清单只挂在注解上（ADR 0076）：气泡仍是用户原话，清单折进注入区备查</summary>
+    [Fact]
+    public void ApplyInjected_MemorySnapshot_FoldsTheListBesideTheTypedText()
+    {
+        ChatMessage message = new(ChatRole.User, "开始干活");
+        message.AdditionalProperties = new AdditionalPropertiesDictionary
+        {
+            [ChatMessageAnnotations.MemoryIndexSnapshot] = "- a.md — 偏好\n- b.md — 踩坑",
+        };
+        TextConversationItem item = new(true);
+
+        ConversationItemFactory.ApplyInjected(item, message);
+
+        Assert.Equal("开始干活", ConversationItemFactory.UserMessageDisplayText("开始干活", message));
+        Assert.Contains("- b.md — 踩坑", item.InjectedText);
+        Assert.Contains("2", item.InjectedLabel);
     }
 }

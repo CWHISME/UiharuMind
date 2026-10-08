@@ -401,6 +401,12 @@
     <data name="AgentSettingGeneralSubAgentModelDesc" xml:space="preserve">
         <value>通用子代理负责实际修改任务。给它指定运行模型；留空则回退到主代理 模型。</value>
     </data>
+    <data name="AgentSettingMemoryIndexBudget" xml:space="preserve">
+        <value>记忆清单字数上限</value>
+    </data>
+    <data name="AgentSettingMemoryIndexBudgetDesc" xml:space="preserve">
+        <value>智能体在新会话开头、以及每次写完交接文档之后，会收到一份记忆清单（每份笔记的文件名与首行）。超过这个字数时只列最近修改的，并告诉它还有几份没列。</value>
+    </data>
     <data name="AgentSettingSubAgentFallbackHint" xml:space="preserve">
         <value>(未设置 — 回退到主代理 模型)</value>
     </data>
@@ -586,6 +592,9 @@
     </data>
     <data name="SkillInvocationInjected" xml:space="preserve">
         <value>已注入技能正文</value>
+    </data>
+    <data name="MemoryIndexAttached" xml:space="preserve">
+        <value>已附记忆清单（{0} 份）</value>
     </data>
     <data name="AgentSkillsReload" xml:space="preserve">
         <value>重新扫描</value>

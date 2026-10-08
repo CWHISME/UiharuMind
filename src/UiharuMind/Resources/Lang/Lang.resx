@@ -408,6 +408,12 @@
     <data name="AgentSettingGeneralSubAgentModelDesc" xml:space="preserve">
         <value>General sub-agents do actual modification tasks. Pick a model to run them on; leave empty to fall back to the main agent's model.</value>
     </data>
+    <data name="AgentSettingMemoryIndexBudget" xml:space="preserve">
+        <value>Memory list size limit</value>
+    </data>
+    <data name="AgentSettingMemoryIndexBudgetDesc" xml:space="preserve">
+        <value>At the start of a new session, and after each handoff document, the agent receives a memory list (file name and first line of every note). Past this many characters only the most recently modified notes are listed, and the agent is told how many were left out.</value>
+    </data>
     <data name="AgentSettingSubAgentFallbackHint" xml:space="preserve">
         <value>(Not set — falls back to the main agent model)</value>
     </data>
@@ -593,6 +599,9 @@
     </data>
     <data name="SkillInvocationInjected" xml:space="preserve">
         <value>Skill instructions injected</value>
+    </data>
+    <data name="MemoryIndexAttached" xml:space="preserve">
+        <value>Memory notes attached ({0})</value>
     </data>
     <data name="AgentSkillsReload" xml:space="preserve">
         <value>Rescan</value>

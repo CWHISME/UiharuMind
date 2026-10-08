@@ -73,6 +73,14 @@ public static class ChatMessageAnnotations
     public const string Knowledge = "_knowledge";
 
     /// <summary>
+    /// 记忆清单快照，值为清单正文（ADR 0076）。挂在一轮的输入消息上、<b>随它落盘</b>，
+    /// 正文仍是用户原话；清单只在发送时并进那条消息（<c>MemoryIndexProjection</c>），
+    /// 所以渲染、搜索、编辑、交接回忆读到的都还是原话。
+    /// 落盘往返后值会变成 <c>JsonElement</c>，读取一律经 <see cref="MemoryIndexSnapshotOf"/>。
+    /// </summary>
+    public const string MemoryIndexSnapshot = "_memoryIndex";
+
+    /// <summary>
     /// 旁白标记。目前唯一带此键的是<b>开场白</b>：它是一条货真价实的 assistant 消息，
     /// 要落盘、要供给模型（模型得知道自己已经开过场，否则首轮又自我介绍一遍），
     /// 只是渲染成居中的旁白而不是角色气泡。因此它落在「呈现」轴上。
@@ -390,6 +398,11 @@ public static class ChatMessageAnnotations
     /// <param name="message">消息</param>
     /// <returns>用户输入；不是点名调用消息为 null</returns>
     public static string? NamedSkillInputOf(ChatMessage message) => ReadString(message, NamedSkillInput);
+
+    /// <summary>读挂在消息上的记忆清单快照</summary>
+    /// <param name="message">消息</param>
+    /// <returns>清单正文；没挂为 null</returns>
+    public static string? MemoryIndexSnapshotOf(ChatMessage message) => ReadString(message, MemoryIndexSnapshot);
 
     /// <summary>读群发言的发言人角色标识。落盘往返后值是 <c>JsonElement</c>，一律经 <c>ToString</c></summary>
     /// <param name="message">消息</param>

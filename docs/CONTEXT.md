@@ -991,11 +991,14 @@ _Avoid_: 世界书、百科、lorebook
 
 **agent 自己写下**的跨会话笔记。按主题一个 `.md` 文件，落在工作区家目录的 `Memory/` 子目录
 （`Data/Agent/Workspaces/{工作区名}_{哈希}/Memory/`），模型用普通文件工具
-（Read/Write/Edit/Glob/Grep/shell）读写、自管内容；不设应用侧索引或注入，开场是否查看由模型
-自行判断（系统提示只给路径与用法）。没绑工作区的会话落 `NoWorkspace/{会话id8}/Memory/`，
+（Read/Write/Edit/Glob/Grep/shell）读写、自管内容。没绑工作区的会话落 `NoWorkspace/{会话id8}/Memory/`，
 随会话生灭。写记忆任何权限档放行，删除走 shell 需审批。体现为 `Memory/` 目录约定与系统提示
 记忆段（`AgentInstructionsComposer`）。见
 [ADR 0028](adr/0028-文件记忆退役，记忆改为工作区目录由模型自管.md)。
+
+**记忆清单**：每个供给窗口附一份「路径 — 首行摘要」，作为快照挂在本轮输入消息的注解上、发送时才并进正文
+（`MemoryIndex` / `MemoryIndexProjection`）。笔记的**首行即摘要**，超过 50 字截断。见
+[ADR 0076](adr/0076-记忆清单随本轮输入发送时投影，首行即摘要.md)。
 
 ⚠️ 不指**知识库**（Knowledge）。不要说「文件记忆」——框架 `FileMemoryProvider` 时代的词，
 已随 ADR 0028 移除，不再有回退档。
