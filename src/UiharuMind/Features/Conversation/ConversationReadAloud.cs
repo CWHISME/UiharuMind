@@ -14,15 +14,19 @@ namespace UiharuMind.Features.Conversation;
 
 /// <summary>
 /// 给会话里的文本气泡接上朗读，并把朗读服务的状态映回正在念的那一条；按说话的角色取声音。
-/// 开了「新回复自动朗读」的角色，新落盘的回复排队念（连着几条按顺序，被停就不再往下念）；
-/// 智能体用 Speak 工具开口也排进同一队。
+/// 开了「新回复自动朗读」的角色，回复边生成边念（攒够一句就念），别处来的新落盘回复排队念
+/// （连着几条按顺序，被停就不再往下念）；智能体用 Speak 工具开口也排进同一队。
 /// 朗读不改历史，所以不和编辑 / 删除那组动作放在一起；条目进集合即接，不等一轮结束
 /// </summary>
 public sealed class ConversationReadAloud : IDisposable
 {
+    private const int MaxLive = 16;
+
     private readonly ObservableCollection<ConversationItemBase> _items;
     private readonly IReadAloudService _service;
     private readonly CharacterSpeechStyles? _styles;
+    private readonly Func<bool>? _readsLive;
+    private readonly List<LiveSpeechSource> _live = []; //边生成边念的气泡，落盘时据此认出已经念过的
     private readonly Queue<PendingSpeech> _pending = new(); //等着念的（自动朗读、智能体开口）
     private ConversationItemBase? _active; //上次标成在念的那一条
     private TaskCompletionSource? _idle; //等别处的朗读念完
@@ -32,12 +36,14 @@ public sealed class ConversationReadAloud : IDisposable
     /// <param name="items">界面条目集合（与视图模型共用）</param>
     /// <param name="service">朗读服务</param>
     /// <param name="styles">角色的声音与自动朗读开关（念时现取，改了角色声音旧消息也跟着变）；null 一律用默认、不自动念</param>
+    /// <param name="readsLive">此刻能不能边生成边念（会话正显示着、不是群壳）；null 不边生成边念，只念落盘的</param>
     public ConversationReadAloud(ObservableCollection<ConversationItemBase> items, IReadAloudService service,
-        CharacterSpeechStyles? styles = null)
+        CharacterSpeechStyles? styles = null, Func<bool>? readsLive = null)
     {
         _items = items;
         _service = service;
         _styles = styles;
+        _readsLive = readsLive;
         foreach (ConversationItemBase item in items) Attach(item);
         items.CollectionChanged += OnItemsChanged;
         service.StateChanged += OnStateChanged;
@@ -49,10 +55,12 @@ public sealed class ConversationReadAloud : IDisposable
         _items.CollectionChanged -= OnItemsChanged;
         _service.StateChanged -= OnStateChanged;
         DropPending();
+        foreach (LiveSpeechSource live in _live) live.Dispose();
+        _live.Clear();
     }
 
     /// <summary>
-    /// 历史里新落了消息：说话的角色开了自动朗读的回复排队念。只认助手正文——旁白、后续报告、工具、化身代发都不念
+    /// 历史里新落了消息：说话的角色开了自动朗读的回复排队念，边生成边念过的跳过。只认助手正文——旁白、后续报告、工具、化身代发都不念
     /// </summary>
     /// <param name="messages">新落盘的消息</param>
     /// <param name="sessionCharacterId">会话的角色（群壳里按每条的发言人）</param>
@@ -65,7 +73,7 @@ public sealed class ConversationReadAloud : IDisposable
                 ConversationMessageOrigin.KindOf(message) != EHistoryItemKind.StreamContents ||
                 ChatMessageAnnotations.GroupAvatarPostOf(message) != null) continue;
             string? speaker = ChatMessageAnnotations.GroupSpeakerOf(message) ?? sessionCharacterId;
-            if (!_styles.ReadsAloud(speaker)) continue;
+            if (!_styles.ReadsAloud(speaker) || MatchLive(message.Text)) continue;
             // 有气泡就让气泡显示「在念」；还没配上就拿消息本身当来源
             object owner = _items.OfType<TextConversationItem>().LastOrDefault(x => ReferenceEquals(x.SourceMessage, message))
                            ?? (object)message;
@@ -115,7 +123,9 @@ public sealed class ConversationReadAloud : IDisposable
                 }
 
                 _autoOwner = next.Owner;
-                bool finished = await _service.ToggleAsync(next.Owner, next.Text, next.Style);
+                bool finished = next.Live != null
+                    ? await _service.ToggleAsync(next.Owner, next.Live.ReadAsync(), next.Style)
+                    : await _service.ToggleAsync(next.Owner, next.Text, next.Style);
                 _autoOwner = null;
                 next.Done?.TrySetResult(finished);
                 if (!finished) DropPending();
@@ -138,7 +148,45 @@ public sealed class ConversationReadAloud : IDisposable
         {
             Attach(item);
             if (ReferenceEquals(item, _service.Owner)) item.ReadAloudState = _service.State;
+            if (item is TextConversationItem text) ReadLive(text);
         }
+
+        // 摘掉的气泡（流完整条是空白的）、清空的会话：还在等字的别再等
+        if (e.Action is NotifyCollectionChangedAction.Remove or NotifyCollectionChangedAction.Reset
+            or NotifyCollectionChangedAction.Replace)
+            foreach (LiveSpeechSource live in _live.Where(x => !_items.Contains(x.Item)).ToList())
+            {
+                live.Dispose();
+                _live.Remove(live);
+            }
+    }
+
+    // 还没写完就进了集合的助手气泡就是正在流的（回放的都是收好尾才进来）
+    private void ReadLive(TextConversationItem item)
+    {
+        if (_styles == null || _readsLive?.Invoke() != true || item.IsDone || item.IsUser || item.IsNarration ||
+            !_styles.ReadsAloud(item.CharacterId)) return;
+        LiveSpeechSource live = new(item);
+        _live.Add(live);
+        if (_live.Count > MaxLive) _live.RemoveAt(0); //落盘没来的（中途失败）不一直留着
+        _pending.Enqueue(new PendingSpeech(item, "", _styles.For(item.CharacterId), Live: live));
+        if (!_isDraining) _ = DrainAsync();
+    }
+
+    // 落盘的这条是不是边生成边念过：它的正文包含念过的气泡（一条消息里思考与正文交替时会拆成几个气泡）。
+    // 认出来的就不再记着（可能还在念，不停它）
+    private bool MatchLive(string text)
+    {
+        if (_live.Count == 0) return false;
+        string clean = SpeechText.Clean(text);
+        List<LiveSpeechSource> spoken = _live.Where(x =>
+        {
+            x.Item.Flush(); //正文是节流刷新的，比对前先把缓冲冲上来
+            string said = SpeechText.Clean(x.Item.Message);
+            return said.Length > 0 && clean.Contains(said, StringComparison.Ordinal);
+        }).ToList();
+        foreach (LiveSpeechSource live in spoken) _live.Remove(live);
+        return spoken.Count > 0;
     }
 
     private void Attach(ConversationItemBase item)
@@ -162,6 +210,8 @@ public sealed class ConversationReadAloud : IDisposable
 }
 
 /// <summary>
-/// 排着等念的一段：来源（气泡或请求本身，用来认「在念」）、文字、声音；智能体开口的带个完成信号
+/// 排着等念的一段：来源（气泡或请求本身，用来认「在念」）、文字、声音；智能体开口的带个完成信号；
+/// 边生成边念的不给文字，给正在流的气泡
 /// </summary>
-internal sealed record PendingSpeech(object Owner, string Text, SpeechStyle? Style, TaskCompletionSource<bool>? Done = null);
+internal sealed record PendingSpeech(object Owner, string Text, SpeechStyle? Style,
+    TaskCompletionSource<bool>? Done = null, LiveSpeechSource? Live = null);

@@ -69,6 +69,44 @@ public static partial class SpeechText
     }
 
     /// <summary>
+    /// 还在流的文字已经能念到哪：最后一个句末之后的位置。没合上的代码块、思考块里不算（念的时候整块要去掉，得等它合上）；
+    /// 英文标点要等到后面的空白才算句末（免得把网址、小数、「1.」这类列表号切开）
+    /// </summary>
+    /// <param name="text">到目前为止的全文（原样，通常是 Markdown）</param>
+    /// <param name="from">已经交出去念的长度</param>
+    /// <returns>能念到的位置；还没有新的完整句子为 <paramref name="from"/></returns>
+    public static int CompleteLength(string text, int from)
+    {
+        int ready = from;
+        bool inFence = false;
+        bool inThink = false;
+        for (int i = 0; i < text.Length; i++)
+        {
+            if (!inThink && (At(text, i, "```") || At(text, i, "~~~")))
+            {
+                inFence = !inFence;
+                i += 2;
+                continue;
+            }
+
+            if (!inFence && At(text, i, "<think>")) inThink = true;
+            else if (inThink && At(text, i, "</think>")) inThink = false;
+            if (inFence || inThink || i < from) continue;
+
+            char c = text[i];
+            bool end = c is '。' or '！' or '？' or '；' or '…' or '\n' ||
+                       c is '.' or '!' or '?' or ';' && i + 1 < text.Length && char.IsWhiteSpace(text[i + 1]) &&
+                       !(c == '.' && i > 0 && char.IsAsciiDigit(text[i - 1]));
+            if (end) ready = i + 1;
+        }
+
+        return ready;
+    }
+
+    private static bool At(string text, int index, string token) =>
+        string.CompareOrdinal(text, index, token, 0, token.Length) == 0;
+
+    /// <summary>
     /// 粗判主要语种：汉字 → zh，假名 → ja，谚文 → ko，其余按拉丁字母算 en；没有文字为 null
     /// </summary>
     /// <param name="text">文字</param>

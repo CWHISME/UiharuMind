@@ -54,6 +54,15 @@ public interface IReadAloudService
     Task<bool> ToggleAsync(object owner, string text, SpeechStyle? style = null, bool preview = false);
 
     /// <summary>
+    /// 边来边念：段是陆续给的（如回复还在生成），念这段的同时取下一段去合成。它正在念就停
+    /// </summary>
+    /// <param name="owner">来源，用来认「再点一次是停」</param>
+    /// <param name="chunks">已整理好、切好的段；等下一段时这边就静着，段给完了才算念完</param>
+    /// <param name="style">怎么念；null 用默认</param>
+    /// <returns>段给完且都念了为 true（一段都没有也算）；被停、被打断、失败为 false</returns>
+    Task<bool> ToggleAsync(object owner, IAsyncEnumerable<string> chunks, SpeechStyle? style = null);
+
+    /// <summary>
     /// 放一个音频文件（如智能体配好的音）；它正在放就停。与朗读同一路，互相打断
     /// </summary>
     /// <param name="owner">来源（如工具卡），用来认「再点一次是停」</param>
@@ -117,28 +126,55 @@ public sealed class ReadAloudService : IReadAloudService
             return false;
         }
 
+        return await SpeakAsync(owner, Listed(chunks), SpeechText.DetectLanguage(clean), style, preview);
+    }
+
+    public Task<bool> ToggleAsync(object owner, IAsyncEnumerable<string> chunks, SpeechStyle? style = null)
+    {
+        if (ReferenceEquals(owner, Owner))
+        {
+            Stop();
+            return Task.FromResult(false);
+        }
+
+        Stop();
+        return SpeakAsync(owner, chunks, null, style, false);
+    }
+
+    // 合成下一段的同时播这一段；语种没给就按第一段判，之后整路不变（免得半路换模型、换声音）
+    private async Task<bool> SpeakAsync(object owner, IAsyncEnumerable<string> chunks, string? language,
+        SpeechStyle? style, bool preview)
+    {
         CancellationTokenSource session = Begin(owner, EReadAloudState.Preparing);
-        AudioSynthesisRequest request = new("", style?.Voice, Speed(style?.Speed), style?.Model,
-            SpeechText.DetectLanguage(clean), style?.Instruction);
-        Task<AudioSynthesisResult>? next = null;
+        IAsyncEnumerator<string> source = chunks.GetAsyncEnumerator(session.Token);
+        Task<AudioSynthesisResult?>? next = null;
         bool finished = false;
         try
         {
             IAudioProvider tts = preview ? _tts(style?.Provider) : WithFallback(_tts(style?.Provider));
-            next = tts.SynthesizeAsync(request with { Text = chunks[0] }, session.Token);
-            for (int i = 0; i < chunks.Count; i++)
+            AudioSynthesisRequest? request = null;
+
+            async Task<AudioSynthesisResult?> SynthesizeNextAsync()
             {
-                AudioSynthesisResult audio = await next!; //循环里下一句总在：最后一句之前都排了
-                next = i + 1 < chunks.Count ? tts.SynthesizeAsync(request with { Text = chunks[i + 1] }, session.Token) : null;
+                if (!await source.MoveNextAsync()) return null;
+                request ??= new AudioSynthesisRequest("", style?.Voice, Speed(style?.Speed), style?.Model,
+                    language ?? SpeechText.DetectLanguage(source.Current), style?.Instruction);
+                return await tts.SynthesizeAsync(request with { Text = source.Current }, session.Token);
+            }
+
+            next = SynthesizeNextAsync();
+            while (await next is { } audio)
+            {
+                next = SynthesizeNextAsync();
                 await using (audio.Audio)
                 {
                     SetState(owner, EReadAloudState.Speaking);
                     // 被别处的播放（如试听）打断也算停
                     if (!await _player.PlayAsync(audio, session.Token)) break;
                 }
-
-                finished = i == chunks.Count - 1;
             }
+
+            finished = next.IsCompletedSuccessfully && next.Result == null;
         }
         catch (OperationCanceledException) when (session.IsCancellationRequested)
         {
@@ -152,11 +188,18 @@ public sealed class ReadAloudService : IReadAloudService
         }
         finally
         {
-            Discard(next);
+            if (!finished) session.Cancel(); //半路停下：还在等字、在合成的下一段一并放弃
+            Discard(next, source);
             End(session);
         }
 
         return finished;
+    }
+
+    private static async IAsyncEnumerable<string> Listed(IReadOnlyList<string> chunks)
+    {
+        foreach (string chunk in chunks) yield return chunk;
+        await Task.CompletedTask;
     }
 
     public async Task<bool> PlayFileAsync(object owner, string path)
@@ -249,13 +292,14 @@ public sealed class ReadAloudService : IReadAloudService
         });
     }
 
-    // 停在半路时下一句可能已经在合成：等它出来把流关掉，异常也在这里看掉
-    private static void Discard(Task<AudioSynthesisResult>? pending)
+    // 停在半路时下一段可能还在等字或在合成：等它出来把流关掉、异常看掉，再关段的来源（等着取的时候不能关）
+    private static void Discard(Task<AudioSynthesisResult?>? pending, IAsyncEnumerator<string> source)
     {
-        pending?.ContinueWith(t =>
+        (pending ?? Task.FromResult<AudioSynthesisResult?>(null)).ContinueWith(async t =>
         {
-            if (t.IsCompletedSuccessfully) t.Result.Audio.Dispose();
+            if (t.IsCompletedSuccessfully) t.Result?.Audio.Dispose();
             else _ = t.Exception;
+            await source.DisposeAsync();
         }, TaskScheduler.Default);
     }
 
