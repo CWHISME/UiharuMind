@@ -92,7 +92,7 @@ public partial class AudioMarketData : ObservableObject, IModelMarket
 
         // 引擎装好或换了版本，模型清单跟着变
         if (!_isLoaded)
-            _context.AudioEngine.VersionChanged += () => UiDispatcher.FireAndForget(() => _ = ReloadAsync());
+            _context.AudioEngine.Distribution.VersionChanged += () => UiDispatcher.FireAndForget(() => _ = ReloadAsync());
         _sourceKey = key;
         SourceLabel = ModelDownloadSourceInfo.Label();
         _isLoaded = true;
@@ -117,12 +117,12 @@ public partial class AudioMarketData : ObservableObject, IModelMarket
             AudioCppEngine engine = _context.AudioEngine;
             (IReadOnlyList<AudioCppFamily> families, HashSet<string> installed) = await Task.Run(async () =>
             {
-                if (engine.CurrentVersion == null) await engine.GetLocalVersionsAsync().ConfigureAwait(false);
-                IReadOnlyList<AudioCppFamily> result = engine.GetFamilies();
+                if (engine.Distribution.CurrentVersion == null) await engine.Distribution.ScanAsync().ConfigureAwait(false);
+                IReadOnlyList<AudioCppFamily> result = engine.Models.GetFamilies();
                 return (result, InstalledFamilies(result));
             });
 
-            HasEngine = engine.CurrentVersion != null;
+            HasEngine = engine.Distribution.CurrentVersion != null;
             // 推荐的在前，其次上游标了 supported 的，再按名称
             _all = families
                 .Select(x => new AudioFamilyListItem(x) { IsInstalled = installed.Contains(x.Family) })
@@ -165,7 +165,7 @@ public partial class AudioMarketData : ObservableObject, IModelMarket
         IsEngineQueued = true;
         try
         {
-            var (state, version, job) = await Task.Run(() => _context.AudioEngine.Installer.EnsureQueuedAsync());
+            var (state, version, job) = await Task.Run(() => _context.AudioEngine.Distribution.Installer.EnsureQueuedAsync());
             switch (state)
             {
                 case EEngineEnsureState.NoPackage:

@@ -1,10 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using UiharuMind.Core.AI.Engines;
 using UiharuMind.Core.Core.DownloadHelper;
 
-namespace UiharuMind.Features.Settings.Engines;
+namespace UiharuMind.Core.AI.Engines;
 
 /// <summary>
 /// 拉一次远端版本的结果
@@ -14,28 +10,18 @@ namespace UiharuMind.Features.Settings.Engines;
 public sealed record EngineRemoteVersions(IReadOnlyList<EnginePackage> Versions, string? ReleaseInfo);
 
 /// <summary>
-/// 引擎版本卡背后的那个引擎：本机版本、远端版本、选中、安装、更新提示。
-/// 卡片只认这一层，llama.cpp、audio.cpp（以后的本地生图引擎）各实现一份
+/// 一种本地引擎的分发面：本机版本、远端版本、选中、安装、更新提示。
+/// 引擎版本卡、获取模型时自动装引擎、启动时检查更新都只认这一层
 /// </summary>
-public interface IEngineVersionSource
+public interface ILocalEngine
 {
     /// <summary>
-    /// 引擎名，卡片标题与提示里用
+    /// 引擎名，如 llama.cpp
     /// </summary>
-    string EngineName { get; }
+    string Name { get; }
 
     /// <summary>
-    /// 卡片标题前的图标（Assets/Icons 下的名字）
-    /// </summary>
-    string IconName { get; }
-
-    /// <summary>
-    /// 版本下拉的说明：选中的版本用在哪
-    /// </summary>
-    string VersionDescription { get; }
-
-    /// <summary>
-    /// 引擎包所在目录（打开目录按钮）
+    /// 引擎包所在目录
     /// </summary>
     string RootDirectory { get; }
 
@@ -50,14 +36,9 @@ public interface IEngineVersionSource
     EnginePackage? AvailableUpdate { get; }
 
     /// <summary>
-    /// 有没有更新通道可选（预览 / 正式）
+    /// 更新通道（预览 / 正式）；没有通道的引擎为 null
     /// </summary>
-    bool HasChannels { get; }
-
-    /// <summary>
-    /// 走正式通道；没有通道的引擎忽略
-    /// </summary>
-    bool UseStableChannel { get; set; }
+    IEngineUpdateChannels? Channels { get; }
 
     /// <summary>
     /// 装好了一个包（可能在下载线程上）
@@ -70,7 +51,12 @@ public interface IEngineVersionSource
     event Action? AvailableUpdateChanged;
 
     /// <summary>
-    /// 本机已装的版本
+    /// 在用的版本变了（装好、切换、删掉；可能在后台线程）
+    /// </summary>
+    event Action? VersionChanged;
+
+    /// <summary>
+    /// 本机已装的版本，顺带确定在用的那个
     /// </summary>
     Task<IReadOnlyList<EnginePackage>> GetLocalVersionsAsync();
 
@@ -80,7 +66,7 @@ public interface IEngineVersionSource
     Task<EngineRemoteVersions> PullRemoteVersionsAsync();
 
     /// <summary>
-    /// 选中一个版本
+    /// 选中一个版本并落盘
     /// </summary>
     void Select(EnginePackage version);
 
@@ -95,7 +81,29 @@ public interface IEngineVersionSource
     DownloadJob Enqueue(EnginePackage version);
 
     /// <summary>
+    /// 本机没有引擎、队列里也没有时，把推荐变体的最新包排进队列（会联网）
+    /// </summary>
+    Task<(EEngineEnsureState State, EnginePackage? Version, DownloadJob? Job)> EnsureQueuedAsync(
+        CancellationToken token = default);
+
+    /// <summary>
+    /// 拉一次远端看有没有新版本；拉不到不抛
+    /// </summary>
+    Task CheckForUpdateAsync();
+
+    /// <summary>
     /// 版本的发布页；认不出为 null
     /// </summary>
     string? ReleaseUrl(EnginePackage version);
+}
+
+/// <summary>
+/// 引擎的更新通道（预览 / 正式）
+/// </summary>
+public interface IEngineUpdateChannels
+{
+    /// <summary>
+    /// 走正式通道
+    /// </summary>
+    bool UseStableChannel { get; set; }
 }

@@ -2,6 +2,7 @@ using System;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI.Audio;
 using UiharuMind.Features.Settings.Engines;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Settings.Audio;
@@ -21,7 +22,8 @@ public sealed class AudioEngineSettingData
     /// <param name="openFolder">打开目录</param>
     public AudioEngineSettingData(IMessageService messageService, AudioCppEngine engine, Action<string> openFolder)
     {
-        Engine = new EngineVersionsViewData(new AudioCppEngineVersionSource(engine), messageService, openFolder);
+        Engine = new EngineVersionsViewData(engine.Distribution, "audio-lines", Loc.Text(LangKey.AudioEngineVersionDesc),
+            messageService, openFolder);
         Runtime = new AudioCppRuntimeSettingsViewData(engine);
     }
 

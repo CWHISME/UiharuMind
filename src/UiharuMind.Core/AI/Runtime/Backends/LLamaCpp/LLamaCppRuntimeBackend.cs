@@ -14,7 +14,7 @@ namespace UiharuMind.Core.AI.Runtime.Backends;
 
 internal sealed class LLamaCppRuntimeBackend(
     LLamaCppRuntimeService server,
-    Func<VersionInfo?> selectedVersionProvider) : IModelRuntimeBackend
+    Func<CancellationToken, Task<VersionInfo?>> currentVersion) : IModelRuntimeBackend
 {
     public const string BackendId = "LLamaCpp";
 
@@ -57,7 +57,8 @@ internal sealed class LLamaCppRuntimeBackend(
         Action<IChatClient>? onLoadOver,
         CancellationToken cancellationToken)
     {
-        VersionInfo version = selectedVersionProvider() ?? throw new LocalEngineNotReadyException();
+        VersionInfo version = await currentVersion(cancellationToken).ConfigureAwait(false) ??
+                              throw new LocalEngineNotReadyException();
 
         await server.Run(version, request.Model, request.Parameters, onLoading, onLoadOver, token: cancellationToken)
             .ConfigureAwait(false);
@@ -67,7 +68,8 @@ internal sealed class LLamaCppRuntimeBackend(
         EmbeddingRuntimeRequest request,
         CancellationToken cancellationToken)
     {
-        VersionInfo version = selectedVersionProvider() ?? throw new LocalEngineNotReadyException();
+        VersionInfo version = await currentVersion(cancellationToken).ConfigureAwait(false) ??
+                              throw new LocalEngineNotReadyException();
 
         return await LLamaCppEmbeddingSession.StartAsync(
             version,

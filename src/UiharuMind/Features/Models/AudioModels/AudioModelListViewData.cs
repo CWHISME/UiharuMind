@@ -166,9 +166,9 @@ public partial class AudioModelListViewData : ObservableObject
         {
             var (models, families, sizes, defaults) = await Task.Run(async () =>
             {
-                if (_engine.CurrentVersion == null) await _engine.GetLocalVersionsAsync().ConfigureAwait(false);
-                IReadOnlyList<AudioCppModelEntry> scanned = _engine.GetModels(true);
-                Dictionary<string, AudioCppFamily> byFamily = _engine.GetFamilies()
+                if (_engine.Distribution.CurrentVersion == null) await _engine.Distribution.ScanAsync().ConfigureAwait(false);
+                IReadOnlyList<AudioCppModelEntry> scanned = _engine.Models.GetModels(true);
+                Dictionary<string, AudioCppFamily> byFamily = _engine.Models.GetFamilies()
                     .GroupBy(x => x.Family, StringComparer.Ordinal)
                     .ToDictionary(x => x.Key, x => x.First(), StringComparer.Ordinal);
                 Dictionary<string, long> fileSizes = scanned.ToDictionary(x => x.Id, x => FileSize(x.ModelFile));
@@ -176,7 +176,7 @@ public partial class AudioModelListViewData : ObservableObject
                     (Tts: DefaultModel(EAudioCppTask.Tts), Asr: DefaultModel(EAudioCppTask.Asr)));
             });
 
-            HasEngine = _engine.CurrentVersion != null;
+            HasEngine = _engine.Distribution.CurrentVersion != null;
             _defaultModels[EAudioCapability.Tts] = defaults.Tts;
             _defaultModels[EAudioCapability.Asr] = defaults.Asr;
             Fill(TtsModels, models, families, sizes, EAudioCppTask.Tts);
@@ -364,7 +364,7 @@ public partial class AudioModelListViewData : ObservableObject
     {
         try
         {
-            return _engine.ResolveModel(task).Id;
+            return _engine.Models.Resolve(task).Id;
         }
         catch (AudioModelMissingException)
         {

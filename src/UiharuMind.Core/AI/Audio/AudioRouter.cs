@@ -9,7 +9,7 @@ public sealed class AudioRouter : IDisposable
 {
     private static readonly Lazy<AudioRouter> SharedInstance = new(() => new AudioRouter(() => AudioCppProvider.Shared,
         AudioSettingConfig.Current, AudioServiceSettingConfig.Current,
-        hasLocal: (task, language) => AudioCppEngine.Shared.HasModelFor(
+        hasLocal: (task, language) => AudioCppEngine.Shared.Models.HasModelFor(
             task == EAudioCapability.Tts ? EAudioCppTask.Tts : EAudioCppTask.Asr, language)));
 
     private readonly Func<IAudioProvider> _local;

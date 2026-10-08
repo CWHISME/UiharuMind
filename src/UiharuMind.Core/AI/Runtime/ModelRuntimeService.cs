@@ -17,7 +17,6 @@ namespace UiharuMind.Core.AI.Runtime;
 
 internal sealed class ModelRuntimeService
 {
-    private readonly Func<VersionInfo?> _selectedVersionProvider;
     private readonly Dictionary<string, ModelRunningData> _modelCache = new();
     private readonly List<string> _deleteCache = [];
     private readonly ModelRuntimeBackendRegistry _registry = new();
@@ -32,11 +31,10 @@ internal sealed class ModelRuntimeService
     public ModelRuntimeService(
         LLamaCppRuntimeService llamaCppServer,
         RemoteModelManager remoteModelManager,
-        Func<VersionInfo?> selectedVersionProvider)
+        Func<CancellationToken, Task<VersionInfo?>> currentLLamaCppVersion)
     {
-        _selectedVersionProvider = selectedVersionProvider;
         // LLamaSharp 已屏蔽（ADR 0067），代码留待移除
-        _registry.Register(new LLamaCppRuntimeBackend(llamaCppServer, _selectedVersionProvider));
+        _registry.Register(new LLamaCppRuntimeBackend(llamaCppServer, currentLLamaCppVersion));
         _registry.Register(new OpenAICompatibleRuntimeBackend(remoteModelManager));
     }
 

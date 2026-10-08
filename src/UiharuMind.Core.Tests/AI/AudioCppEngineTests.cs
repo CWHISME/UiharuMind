@@ -106,54 +106,6 @@ public class AudioCppEngineTests : IDisposable
         await server.Completion.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
     }
 
-    [Fact]
-    public async Task Host_ConcurrentRequests_StartOneProcess()
-    {
-        Assert.SkipWhen(OperatingSystem.IsWindows(), "fake server is a shell script");
-        string counter = Path.Combine(_directory, "starts");
-        using AudioCppEngineHost host = CreateHost(WriteScript($"echo x >> '{counter}'\nsleep 0.5"));
-
-        Uri[] uris = await Task.WhenAll(
-            host.GetBaseUriAsync(CancellationToken.None), host.GetBaseUriAsync(CancellationToken.None));
-
-        Assert.Equal(uris[0], uris[1]);
-        Assert.Single(File.ReadAllLines(counter));
-    }
-
-    [Fact]
-    public async Task Host_CancelledRequest_DoesNotKillTheServer()
-    {
-        // 用户打断一次朗读不能把下一次朗读拖进几秒的冷启动
-        Assert.SkipWhen(OperatingSystem.IsWindows(), "fake server is a shell script");
-        string counter = Path.Combine(_directory, "starts");
-        using AudioCppEngineHost host = CreateHost(WriteScript($"echo x >> '{counter}'\nsleep 0.5"));
-
-        using CancellationTokenSource cancelled = new(TimeSpan.FromMilliseconds(100));
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => host.GetBaseUriAsync(cancelled.Token));
-        await host.GetBaseUriAsync(CancellationToken.None);
-        await host.GetBaseUriAsync(CancellationToken.None);
-
-        Assert.Single(File.ReadAllLines(counter));
-    }
-
-    [Fact]
-    public async Task Host_Restart_StartsAFreshProcess()
-    {
-        Assert.SkipWhen(OperatingSystem.IsWindows(), "fake server is a shell script");
-        string counter = Path.Combine(_directory, "starts");
-        using AudioCppEngineHost host = CreateHost(WriteScript($"echo x >> '{counter}'"));
-
-        await host.GetBaseUriAsync(CancellationToken.None);
-        host.Restart();
-        await host.GetBaseUriAsync(CancellationToken.None);
-
-        Assert.Equal(2, File.ReadAllLines(counter).Length);
-    }
-
-    private AudioCppEngineHost CreateHost(string exe) => new(() => AudioCppServerConfig.Launch(
-        exe, Path.Combine(_directory, "server.json"), [TtsModel()], new AudioCppServerOptions("cpu"),
-        TimeSpan.FromSeconds(10)));
-
     private static AudioCppModelEntry TtsModel() => new(
         "pocket-tts", "pocket_tts", "/models/pocket.gguf", "tts",
         LoadOptions: new Dictionary<string, string> { ["language"] = "english" },

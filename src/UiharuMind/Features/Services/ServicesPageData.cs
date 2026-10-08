@@ -28,6 +28,7 @@ using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Features.Models;
 using UiharuMind.Core.AI;
+using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Embedding;
 using UiharuMind.Core.AI.Runtime;
@@ -142,10 +143,10 @@ public partial class ServicesPageData : PageDataBase
         ManagedEmbeddingModels.Count(x => x.Source == EmbeddingModelCandidateSource.BuiltIn));
 
     public string RuntimeVersionName =>
-        LlmManager.Instance.CurrentRuntimeVersion?.Name ?? Loc.Text(LangKey.ServicesNoRuntimeSelected);
+        LLamaCppEngine.Shared.CurrentVersion?.Name ?? Loc.Text(LangKey.ServicesNoRuntimeSelected);
 
     public string RuntimePath =>
-        LlmManager.Instance.CurrentRuntimeVersion?.InstallDirectory ??
+        LLamaCppEngine.Shared.CurrentVersion?.InstallDirectory ??
         AppPaths.External.Engine;
 
     public string RemoteModelCount =>

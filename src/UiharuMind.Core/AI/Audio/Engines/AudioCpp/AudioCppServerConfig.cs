@@ -51,7 +51,7 @@ public static class AudioCppServerConfig
     /// <summary>
     /// 日志与报错里的服务名
     /// </summary>
-    public const string ServerName = AudioCppVersionManager.ServerExeName;
+    public const string ServerName = AudioCppVersionManager.ExecutableName;
 
     /// <summary>
     /// 起 audiocpp_server 的方式

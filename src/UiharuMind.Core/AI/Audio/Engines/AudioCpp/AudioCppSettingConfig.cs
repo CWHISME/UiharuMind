@@ -1,3 +1,4 @@
+using UiharuMind.Core.AI.Engines;
 using UiharuMind.Core.Configs;
 
 namespace UiharuMind.Core.AI.Audio;
@@ -5,7 +6,7 @@ namespace UiharuMind.Core.AI.Audio;
 /// <summary>
 /// audio.cpp 引擎设置（照 LLamaCppSettingConfig 的口径）。改了启动相关项要让引擎重启才生效
 /// </summary>
-public class AudioCppSettingConfig : TConfigBase<AudioCppSettingConfig>
+public class AudioCppSettingConfig : TConfigBase<AudioCppSettingConfig>, IEngineVersionSelection
 {
     /// <summary>
     /// 选中的引擎版本名；空 = 用第一个装好的

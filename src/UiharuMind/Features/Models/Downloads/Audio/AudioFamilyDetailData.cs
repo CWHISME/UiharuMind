@@ -158,7 +158,7 @@ public partial class AudioFamilyDetailData : ObservableObject, IDisposable
             AudioCppPackage package = row.Package;
             await _context.AudioStore.EnqueueAsync(package, () =>
             {
-                _context.AudioEngine.OnPackageInstalled(package);
+                _context.AudioEngine.Models.OnPackageInstalled(package);
                 UiDispatcher.FireAndForget(() =>
                 {
                     RefreshStatuses();

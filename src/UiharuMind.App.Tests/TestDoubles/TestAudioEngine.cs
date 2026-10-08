@@ -68,7 +68,7 @@ internal sealed class TestAudioEngine : IDisposable
         {
             string version = Path.Combine(engines, "audio-v0.9.1-bin-macos-arm64-metal");
             Directory.CreateDirectory(Path.Combine(version, "model_specs"));
-            File.WriteAllText(Path.Combine(version, AudioCppVersionManager.ServerExeName), "");
+            File.WriteAllText(Path.Combine(version, AudioCppVersionManager.ExecutableName), "");
             File.WriteAllText(Path.Combine(version, "model_specs", "pocket_tts.json"), PocketSpec);
             File.WriteAllText(Path.Combine(version, "model_specs", "kokoro_tts.json"), KokoroSpec);
             File.WriteAllText(Path.Combine(version, "model_specs", "qwen3_asr.json"), QwenAsrSpec);

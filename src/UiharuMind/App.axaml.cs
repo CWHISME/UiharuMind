@@ -122,7 +122,7 @@ public partial class App : Application, ILogger, IDisposable
                     () => AudioSettingConfig.Current.ReadAloudSpeed))
                 .AddSingleton(sp => new CharacterSpeechStyles(id => CharacterManager.Instance.GetCharacterData(id),
                     id => sp.GetRequiredService<AudioRouter>().Services(EAudioCapability.Tts).Any(x => x.Id == id && x.IsConfigured),
-                    model => AudioCppEngine.Shared.GetModels().Any(x => x.Id == model)))
+                    model => AudioCppEngine.Shared.Models.GetModels().Any(x => x.Id == model)))
                 .AddSingleton(sp => new AudioServices(() => AudioCppProvider.Shared, sp.GetRequiredService<AudioRouter>,
                     sp.GetRequiredService<IAudioPlayer>(), sp.GetRequiredService<IAudioRecorder>(),
                     sp.GetRequiredService<IReadAloudService>()))
@@ -198,10 +198,7 @@ public partial class App : Application, ILogger, IDisposable
         _ = Task.Run(async () =>
         {
             await Task.Delay(TimeSpan.FromSeconds(30));
-            await UiharuMind.Core.AI.Runtime.Backends.LLamaCppEngineInstaller.Shared.CheckForUpdateAsync();
-            // 语音引擎没装过就不去问 GitHub
-            UiharuMind.Core.AI.Audio.AudioCppEngine audio = UiharuMind.Core.AI.Audio.AudioCppEngine.Shared;
-            if ((await audio.GetLocalVersionsAsync()).Any(x => x.IsInstalled)) await audio.Installer.CheckForUpdateAsync();
+            await UiharuMind.Features.Settings.Engines.LocalEngines.CheckForUpdatesAsync();
         });
         UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("update-check-kickoff");
         // 空闲内存回收:长轮次过后 GC 会占着一大片用过的空地不还,见 IdleMemoryReclaimer

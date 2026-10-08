@@ -18,6 +18,14 @@ public abstract class EnginePackage : ManagedVersionPackage
     public abstract bool IsRecommended { get; }
 
     /// <summary>
+    /// 包里某个可执行文件的完整路径（Windows 自动补 .exe）
+    /// </summary>
+    /// <param name="name">文件名，不含扩展名</param>
+    /// <returns>路径</returns>
+    public string GetExecutable(string name) =>
+        Path.Combine(ExecutablePath, OperatingSystem.IsWindows() ? name + ".exe" : name);
+
+    /// <summary>
     /// 推荐变体排前面，其余按版本
     /// </summary>
     public override int CompareTo(ManagedVersionPackage? other)

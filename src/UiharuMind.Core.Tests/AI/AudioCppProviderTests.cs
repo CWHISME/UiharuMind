@@ -182,8 +182,8 @@ public class AudioCppProviderTests : IDisposable
         AudioCppPackage asr = Package("asr-a", EAudioCppTask.Asr);
         _settings.TtsModel = "tts-a";
 
-        engine.OnPackageInstalled(asr);
-        engine.OnPackageInstalled(Package("tts-b", EAudioCppTask.Tts));
+        engine.Models.OnPackageInstalled(asr);
+        engine.Models.OnPackageInstalled(Package("tts-b", EAudioCppTask.Tts));
 
         Assert.Equal("asr-a", _settings.AsrModel);
         Assert.Equal("tts-a", _settings.TtsModel); // 选过的不动；tts-b 也不在模型目录里
@@ -224,9 +224,9 @@ public class AudioCppProviderTests : IDisposable
         ]);
         _settings.TtsModel = chosen;
         using AudioCppEngine engine = CreateEngine(installed: false);
-        engine.UseVersion(new AudioCppVersion { Name = "audio-v0.9.1-bin-macos-arm64-metal", InstallDirectory = install });
+        engine.Distribution.Use(new AudioCppVersion { Name = "audio-v0.9.1-bin-macos-arm64-metal", InstallDirectory = install });
 
-        Assert.Equal(expected, engine.ResolveModel(EAudioCppTask.Tts, language).Id);
+        Assert.Equal(expected, engine.Models.Resolve(EAudioCppTask.Tts, language).Id);
     }
 
     private static string Spec(string family, params string[] languages) =>
@@ -243,10 +243,10 @@ public class AudioCppProviderTests : IDisposable
         {
             string bin = Path.Combine(_directory, "bin");
             Directory.CreateDirectory(bin);
-            FakeAudioCppServer.Write(Path.Combine(bin, AudioCppVersionManager.ServerExeName), _directory);
+            FakeAudioCppServer.Write(Path.Combine(bin, AudioCppVersionManager.ExecutableName), _directory);
             AudioCppVersion version = new() { Name = "audio-v0.9.1-bin-macos-arm64-metal", ExecutablePath = bin };
             if (install != null) version.InstallDirectory = install;
-            engine.UseVersion(version);
+            engine.Distribution.Use(version);
         }
 
         return engine;

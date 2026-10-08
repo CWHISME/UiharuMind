@@ -14,11 +14,7 @@ public static class LLamaCppVariants
     /// </summary>
     /// <param name="packageName">如 llama-b11438-bin-win-vulkan-x64</param>
     /// <returns>是推荐变体返回 true</returns>
-    public static bool IsRecommended(string packageName)
-    {
-        OSPlatform? platform = EngineVariants.CurrentPlatform;
-        return platform != null && IsRecommended(packageName, platform.Value, RuntimeInformation.ProcessArchitecture);
-    }
+    public static bool IsRecommended(string packageName) => EngineVariants.IsRecommended(packageName, Marker);
 
     /// <summary>
     /// 指定平台下包名是否推荐变体
@@ -27,15 +23,12 @@ public static class LLamaCppVariants
     /// <param name="platform">操作系统</param>
     /// <param name="architecture">CPU 架构</param>
     /// <returns>是推荐变体返回 true</returns>
-    public static bool IsRecommended(string packageName, OSPlatform platform, Architecture architecture)
-    {
-        string? arch = EngineVariants.ArchitectureToken(architecture);
-        if (arch == null) return false;
+    public static bool IsRecommended(string packageName, OSPlatform platform, Architecture architecture) =>
+        EngineVariants.IsRecommended(packageName, platform, architecture, Marker);
 
-        string marker = platform == OSPlatform.OSX ? $"-bin-macos-{arch}"
-            : platform == OSPlatform.Windows ? $"-bin-win-vulkan-{arch}"
-            : platform == OSPlatform.Linux ? $"-bin-ubuntu-vulkan-{arch}"
-            : "";
-        return marker.Length > 0 && packageName.Contains(marker, StringComparison.OrdinalIgnoreCase);
-    }
+    private static string? Marker(OSPlatform platform, string arch) =>
+        platform == OSPlatform.OSX ? $"-bin-macos-{arch}"
+        : platform == OSPlatform.Windows ? $"-bin-win-vulkan-{arch}"
+        : platform == OSPlatform.Linux ? $"-bin-ubuntu-vulkan-{arch}"
+        : null;
 }
