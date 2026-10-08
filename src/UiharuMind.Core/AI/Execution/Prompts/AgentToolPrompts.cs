@@ -142,11 +142,10 @@ public static class AgentToolPrompts
     /// 反引号在提示词里专表工具名，有不变量测试按这条约定校验。
     /// </summary>
     public const string FileReadDefault =
-        "- 用 `Glob` 找文件，用 `Grep` 搜文本。\n" +
+        "- 项目中的文件工具都经过反复优化，优先用 `Glob` 找文件，用 `Grep` 搜文本（可指定目录或具体文件）。\n" +
         "- 已经知道关键词，就先用 `Grep` 带上 contextLines 搜一次——" +
-        "命中行加上它的上下文，往往就是你需要的全部。否则用 offset 和 limit 只 `Read` 需要的那一段。\n" +
-        "- 需要完整理解整个文件时，用 `Read` 传 limit=-1 一次读完。";
-
+        "命中行加上它的上下文，往往就是你需要的全部。否则只 `Read` 需要的那一段。";
+    
     /// <summary>
     /// 文件<b>修改</b>纪律默认正文。只在写工具真的在场时由 <see cref="BuildFileOperations"/> 附到「## 文件操作」段。
     ///
@@ -163,8 +162,8 @@ public static class AgentToolPrompts
     /// 有不变量测试按这条约定校验。
     /// </summary>
     public const string FileWriteDefault =
-        "- 要改一个文件，先 `Read` 它，而且要动的那一段要完整读完：oldString 必须与文件完全一致，" +
-        "`Edit` 才会成功。猜的代价比读的代价高。\n" +
+        // "- 要改一个文件，先 `Read` 它，而且要动的那一段要完整读完：oldString 必须与文件完全一致，" +
+        // "`Edit` 才会成功。猜的代价比读的代价高。\n" +
         "- 改动已有文件用 `Edit`。`Write` 只用来新建文件，或者整体替换掉一个文件。";
 
     /// <summary>

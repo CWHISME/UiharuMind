@@ -226,9 +226,10 @@ public class CharacterData
     public string GetPersonaCoda()
     {
         if (!string.IsNullOrWhiteSpace(PersonaAnchor)) return PersonaAnchor.Trim();
-        if (string.IsNullOrWhiteSpace(CharacterName)) return string.Empty;
-        if (string.IsNullOrWhiteSpace(Description)) return $"你是{CharacterName}。";
-        return $"你是{CharacterName}，{Description}";
+        return "";
+        // if (string.IsNullOrWhiteSpace(CharacterName)) return string.Empty;
+        // if (string.IsNullOrWhiteSpace(Description)) return $"你是{CharacterName}。";
+        // return $"你是{CharacterName}，{Description}";
     }
 
     /// <summary>
