@@ -22,7 +22,7 @@ public class SessionSearchTests
             new(ChatRole.Assistant, "avalonia 用的是两遍布局"),
         ];
 
-        List<SessionSearchHit> hits = SessionSearch.Find(history, "AVALONIA");
+        List<SessionSearchHit> hits = SessionSearch.Find(history, "AVALONIA", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal([0, 2], hits.Select(x => x.MessageIndex));
         Assert.All(hits, x => Assert.Equal(ESearchHitKind.Text, x.Kind));
@@ -33,13 +33,13 @@ public class SessionSearchTests
     [Fact]
     public void Find_SkipsApprovalResponses()
     {
-        Assert.Empty(SessionSearch.Find([ChatMessageDisplayTests.ApprovalResponse("同意写入")], "同意"));
+        Assert.Empty(SessionSearch.Find([ChatMessageDisplayTests.ApprovalResponse("同意写入")], "同意", cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public void Find_BlankQuery_ReturnsNothing()
     {
-        Assert.Empty(SessionSearch.Find([new ChatMessage(ChatRole.User, "随便")], "  "));
+        Assert.Empty(SessionSearch.Find([new ChatMessage(ChatRole.User, "随便")], "  ", cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -51,9 +51,9 @@ public class SessionSearchTests
             new(ChatRole.Assistant, "<think>缓存命中率</think>正文"),
         ];
 
-        Assert.Empty(SessionSearch.Find(history, "缓存"));
+        Assert.Empty(SessionSearch.Find(history, "缓存", cancellationToken: TestContext.Current.CancellationToken));
 
-        List<SessionSearchHit> hits = SessionSearch.Find(history, "缓存", new SessionSearchOptions(IncludeThinking: true));
+        List<SessionSearchHit> hits = SessionSearch.Find(history, "缓存", new SessionSearchOptions(IncludeThinking: true), TestContext.Current.CancellationToken);
         Assert.Equal([0, 1], hits.Select(x => x.MessageIndex));
         Assert.All(hits, x => Assert.Equal(ESearchHitKind.Thinking, x.Kind));
     }
@@ -64,7 +64,7 @@ public class SessionSearchTests
         List<ChatMessage> history =
             [new(ChatRole.Assistant, [new TextReasoningContent("缓存"), new TextContent("缓存已修")])];
 
-        SessionSearchHit hit = Assert.Single(SessionSearch.Find(history, "缓存", new SessionSearchOptions(true, true)));
+        SessionSearchHit hit = Assert.Single(SessionSearch.Find(history, "缓存", new SessionSearchOptions(true, true), TestContext.Current.CancellationToken));
 
         Assert.Equal(ESearchHitKind.Text, hit.Kind);
     }
@@ -78,9 +78,9 @@ public class SessionSearchTests
             new(ChatRole.Tool, [new FunctionResultContent("c1", "TurnUsageLedger.cs: LastCachedInput")]),
         ];
 
-        Assert.Empty(SessionSearch.Find(history, "LastCached"));
+        Assert.Empty(SessionSearch.Find(history, "LastCached", cancellationToken: TestContext.Current.CancellationToken));
 
-        List<SessionSearchHit> hits = SessionSearch.Find(history, "LastCached", new SessionSearchOptions(IncludeTools: true));
+        List<SessionSearchHit> hits = SessionSearch.Find(history, "LastCached", new SessionSearchOptions(IncludeTools: true), TestContext.Current.CancellationToken);
         Assert.Equal([0, 1], hits.Select(x => x.MessageIndex));
         Assert.All(hits, x => Assert.Equal(ESearchHitKind.Tool, x.Kind));
     }
@@ -91,8 +91,8 @@ public class SessionSearchTests
         ChatMessage knowledge = new(ChatRole.Tool, "检索到的片段：缓存");
         knowledge.AdditionalProperties = new() { [ChatMessageAnnotations.Knowledge] = true };
 
-        Assert.Empty(SessionSearch.Find([knowledge], "缓存"));
-        Assert.Single(SessionSearch.Find([knowledge], "缓存", new SessionSearchOptions(IncludeTools: true)));
+        Assert.Empty(SessionSearch.Find([knowledge], "缓存", cancellationToken: TestContext.Current.CancellationToken));
+        Assert.Single(SessionSearch.Find([knowledge], "缓存", new SessionSearchOptions(IncludeTools: true), TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public class SessionSearchTests
         ChatMessage echoed = new ChatMessage(ChatRole.User, "我问过缓存")
             .WithAgentRequestMessageSource(AgentRequestMessageSourceType.ChatHistory, "history");
 
-        SessionSearchHit hit = Assert.Single(SessionSearch.Find([injected, echoed], "缓存"));
+        SessionSearchHit hit = Assert.Single(SessionSearch.Find([injected, echoed], "缓存", cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Same(echoed, hit.Message);
     }
@@ -119,8 +119,8 @@ public class SessionSearchTests
             [ChatMessageAnnotations.NamedSkillInput] = "/review 缓存那块",
         };
 
-        Assert.Single(SessionSearch.Find([message], "缓存"));
-        Assert.Empty(SessionSearch.Find([message], "一大段说明"));
+        Assert.Single(SessionSearch.Find([message], "缓存", cancellationToken: TestContext.Current.CancellationToken));
+        Assert.Empty(SessionSearch.Find([message], "一大段说明", cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public class SessionSearchTests
     {
         ChatMessage note = HistoryHandoff.CreateNote("之前在修缓存统计");
 
-        Assert.Single(SessionSearch.Find([note], "缓存统计"));
+        Assert.Single(SessionSearch.Find([note], "缓存统计", cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]

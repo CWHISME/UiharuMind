@@ -97,6 +97,20 @@ public class AudioCppProviderTests : IDisposable
     }
 
     [Fact]
+    public void InstalledPackage_BecomesSelected_OnlyWhenNothingChosenYet()
+    {
+        using AudioCppEngine engine = CreateEngine(installed: false);
+        AudioCppPackage asr = Package("asr-a", EAudioCppTask.Asr);
+        _settings.TtsModel = "tts-a";
+
+        engine.OnPackageInstalled(asr);
+        engine.OnPackageInstalled(Package("tts-b", EAudioCppTask.Tts));
+
+        Assert.Equal("asr-a", _settings.AsrModel);
+        Assert.Equal("tts-a", _settings.TtsModel); // 选过的不动；tts-b 也不在模型目录里
+    }
+
+    [Fact]
     public void ServerPath_IsPackageDirectory_OnlyWhenItHoldsOneGguf()
     {
         string single = Path.Combine(_directory, "single");
@@ -125,6 +139,10 @@ public class AudioCppProviderTests : IDisposable
 
         return engine;
     }
+
+    private static AudioCppPackage Package(string modelName, EAudioCppTask task) => new(
+        modelName, "f", task, modelName, "q8_0", true, "supported", [], "D", "", [$"D/{modelName}.gguf"],
+        EAudioCppPackageHost.HuggingFace, "r/r", null, false);
 
     private static async Task<string> ReadText(Stream stream)
     {
@@ -163,6 +181,6 @@ public class AudioCppProviderTests : IDisposable
             http.server.HTTPServer(('127.0.0.1', port), H).serve_forever()
             " "$2"
             """);
-        File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
     }
 }

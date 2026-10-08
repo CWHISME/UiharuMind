@@ -242,7 +242,8 @@ public class GroupAwayControllerTests
         // 回执落进群流水，只给人看：读得回来，也不会投递给任何人
         await Until(() => _group.History.Any(x => ChatMessageAnnotations.GroupAwayReceiptOf(x) != null));
         ChatMessage note = _group.History.Last(x => ChatMessageAnnotations.GroupAwayReceiptOf(x) != null);
-        Assert.Equal(receipt, GroupAwayReceipt.FromJson(ChatMessageAnnotations.GroupAwayReceiptOf(note)!) with
+        GroupAwayReceipt stored = GroupAwayReceipt.FromJson(ChatMessageAnnotations.GroupAwayReceiptOf(note)!)!;
+        Assert.Equal(receipt, stored with
         {
             AvatarPostIndices = receipt.AvatarPostIndices, Approvals = receipt.Approvals, AvatarActions = receipt.AvatarActions,
         });

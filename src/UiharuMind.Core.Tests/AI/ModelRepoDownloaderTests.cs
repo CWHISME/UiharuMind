@@ -97,12 +97,14 @@ public class ModelRepoDownloaderTests : IDisposable
         public Task<IReadOnlyList<ModelRepoSummary>> SearchAsync(string query, int limit, CancellationToken token) =>
             throw new NotSupportedException();
 
-        public Task<IReadOnlyList<ModelRepoFile>> ListFilesAsync(string repository, CancellationToken token) =>
+        public Task<IReadOnlyList<ModelRepoFile>> ListFilesAsync(string repository, CancellationToken token,
+        string? revision = null) =>
             throw new NotSupportedException();
 
         public Task<string?> GetReadmeAsync(string repository, CancellationToken token) => Task.FromResult<string?>(null);
 
-        public DownloadRequest CreateDownload(string repository, ModelRepoFile file, string destinationPath) =>
+        public DownloadRequest CreateDownload(string repository, ModelRepoFile file, string destinationPath,
+        string? revision = null) =>
             new(url, destinationPath, 1, file.Sha256);
     }
 }

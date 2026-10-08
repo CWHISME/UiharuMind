@@ -29,9 +29,9 @@ public sealed class HuggingFaceModelSource(HttpClient httpClient, string endpoin
     }
 
     public async Task<IReadOnlyList<ModelRepoFile>> ListFilesAsync(string repository,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, string? revision = null)
     {
-        string url = $"{_endpoint}/api/models/{repository}/tree/{Revision}?recursive=true";
+        string url = $"{_endpoint}/api/models/{repository}/tree/{Uri.EscapeDataString(revision ?? Revision)}?recursive=true";
         List<TreeItem>? items = await GetJsonAsync<List<TreeItem>>(url, cancellationToken).ConfigureAwait(false);
         return items?.Where(x => x.Type == "file" && !string.IsNullOrEmpty(x.Path))
             .Select(x => new ModelRepoFile(x.Path!, x.Lfs?.Size ?? x.Size, x.Lfs?.Oid))
@@ -42,10 +42,12 @@ public sealed class HuggingFaceModelSource(HttpClient httpClient, string endpoin
         ModelReadme.FetchAsync(httpClient, $"{_endpoint}/{repository}/resolve/{Revision}/README.md", AuthHeaders(),
             cancellationToken);
 
-    public DownloadRequest CreateDownload(string repository, ModelRepoFile file, string destinationPath)
+    public DownloadRequest CreateDownload(string repository, ModelRepoFile file, string destinationPath,
+        string? revision = null)
     {
         string path = string.Join('/', file.Path.Split('/').Select(Uri.EscapeDataString));
-        return new DownloadRequest(new Uri($"{_endpoint}/{repository}/resolve/{Revision}/{path}"), destinationPath,
+        return new DownloadRequest(
+            new Uri($"{_endpoint}/{repository}/resolve/{Uri.EscapeDataString(revision ?? Revision)}/{path}"), destinationPath,
             1, file.Sha256, AuthHeaders());
     }
 

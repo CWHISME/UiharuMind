@@ -33,7 +33,7 @@ public class OpenAiCompatibleAudioClientTests : IDisposable
         AudioSynthesisResult synthesis = await _client.SynthesizeAsync("pocket-tts", "hello", "alba", EAudioFormat.Wav, CancellationToken.None);
 
         using MemoryStream read = new();
-        await synthesis.Audio.CopyToAsync(read);
+        await synthesis.Audio.CopyToAsync(read, TestContext.Current.CancellationToken);
         Assert.Equal(payload, read.ToArray());
         Assert.Equal(EAudioFormat.Wav, synthesis.Format);
         Assert.Equal("/v1/audio/speech", _server.LastPath);
@@ -106,7 +106,7 @@ public class OpenAiCompatibleAudioClientTests : IDisposable
         Assert.Equal(24000, result.SampleRateHz);
 
         using MemoryStream read = new();
-        await result.Audio.CopyToAsync(read);
+        await result.Audio.CopyToAsync(read, TestContext.Current.CancellationToken);
         Assert.Equal([1, 2, 3, 4, 5, 6, 7, 8, 9], read.ToArray());
     }
 
@@ -122,7 +122,7 @@ public class OpenAiCompatibleAudioClientTests : IDisposable
 
         DateTime start = DateTime.UtcNow;
         byte[] first = new byte[1];
-        int read = await result.Audio.ReadAsync(first);
+        int read = await result.Audio.ReadAsync(first, TestContext.Current.CancellationToken);
         double firstChunkMs = (DateTime.UtcNow - start).TotalMilliseconds;
 
         // 第一块在第一个事件（~600ms）就到了；若客户端等整段，1.2s 后才会有一字节
@@ -143,7 +143,7 @@ public class OpenAiCompatibleAudioClientTests : IDisposable
         InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
             using MemoryStream read = new();
-            await result.Audio.CopyToAsync(read);
+            await result.Audio.CopyToAsync(read, TestContext.Current.CancellationToken);
         });
         Assert.Contains("Audio stream error", ex.Message);
     }
@@ -159,7 +159,7 @@ public class OpenAiCompatibleAudioClientTests : IDisposable
             "gpt-4o-mini-tts", "hello", null, EAudioFormat.Mp3, EAudioStreamMode.Raw, null, CancellationToken.None);
 
         using MemoryStream read = new();
-        await result.Audio.CopyToAsync(read);
+        await result.Audio.CopyToAsync(read, TestContext.Current.CancellationToken);
         Assert.Equal(mp3, read.ToArray());
         Assert.Equal(EAudioFormat.Mp3, result.Format);
     }

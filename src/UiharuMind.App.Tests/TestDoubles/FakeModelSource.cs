@@ -31,7 +31,8 @@ internal sealed class FakeModelSource : IModelSource
         return Task.FromResult(SearchResults);
     }
 
-    public Task<IReadOnlyList<ModelRepoFile>> ListFilesAsync(string repository, CancellationToken token) =>
+    public Task<IReadOnlyList<ModelRepoFile>> ListFilesAsync(string repository, CancellationToken token,
+        string? revision = null) =>
         ListError != null ? Task.FromException<IReadOnlyList<ModelRepoFile>>(ListError) : Task.FromResult(Files);
 
     public Task<string?> GetReadmeAsync(string repository, CancellationToken token)
@@ -40,6 +41,7 @@ internal sealed class FakeModelSource : IModelSource
         return Task.FromResult(Readme);
     }
 
-    public DownloadRequest CreateDownload(string repository, ModelRepoFile file, string destinationPath) =>
+    public DownloadRequest CreateDownload(string repository, ModelRepoFile file, string destinationPath,
+        string? revision = null) =>
         new(new Uri("http://127.0.0.1:1/" + file.Path), destinationPath, 1, file.Sha256);
 }

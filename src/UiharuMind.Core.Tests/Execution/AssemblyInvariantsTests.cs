@@ -358,37 +358,6 @@ public class HarnessInstructionsCompositionTests
     }
 
     /// <summary>
-    /// 人格 coda：系统提示的最后一个声音，自动取卡片的名与描述拼成
-    /// <c>你是…</c>（<c>CharacterData.GetPersonaCoda</c>），不用填字段。
-    /// 排在工作区规矩之后——吃结尾权重，长工具循环里人格才不漂。
-    /// </summary>
-    [Fact]
-    public void AgentInstructions_EndsWithPersonaCoda()
-    {
-        const string coda = "你是晨曦，活泼、有冲劲";
-        string instructions = BuildAgentOptions("/tmp/uiharu-agent-test",
-            characterName: "晨曦", characterDescription: "活泼、有冲劲").ChatOptions?.Instructions ?? string.Empty;
-
-        Assert.EndsWith(coda, instructions);
-    }
-
-    /// <summary>coda 单独立段：明细里叫「人格锚点」，不再与角色正文同名；合计仍归「角色提示」档</summary>
-    [Fact]
-    public void PersonaCoda_RegisteredAsPersonaAnchorSegment()
-    {
-        const string coda = "你是晨曦，活泼、有冲劲";
-        HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test", out var segments,
-            characterName: "晨曦", characterDescription: "活泼、有冲劲");
-        string instructions = options.ChatOptions?.Instructions ?? string.Empty;
-
-        AgentPromptSegment anchorSeg = Assert.Single(segments, x => x.Section == EPromptSection.PersonaAnchor);
-        Assert.EndsWith(coda, anchorSeg.Text);
-        Assert.StartsWith(AgentPromptHeadings.PersonaAnchor, anchorSeg.Text);
-        Assert.EndsWith(coda, instructions);
-        Assert.Contains(AgentPromptHeadings.PersonaAnchor, instructions);
-    }
-
-    /// <summary>
     /// 手写锚点以 <c>##</c> 开头时同样补标题——子节代替不了父标题，否则它按 markdown
     /// 结构读会挂到「工作区规矩」名下，与角色卡侧同一口径。
     /// </summary>

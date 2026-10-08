@@ -174,7 +174,7 @@ public class SubAgentReceiptMarkerTests
     /// 用纯字母数字 ID：横杠（如 sendshort-0001）会被 [A-Za-z0-9]+ 拒之门外，测出来是假绿。
     /// </summary>
     [Fact]
-    public void AmbiguousRun_ErrorText_GetsNoEntry()
+    public async Task AmbiguousRun_ErrorText_GetsNoEntry()
     {
         string idA = "aaaa1111bbbb2222";
         string idB = "aaaa1111cccc3333";
@@ -190,9 +190,9 @@ public class SubAgentReceiptMarkerTests
                     Roster = [],
                 }).Single(x => x.Name == SubAgentTool.MessageToolName));
 
-            object? raw = messenger.InvokeAsync(
+            object? raw = await messenger.InvokeAsync(
                 new AIFunctionArguments { ["to"] = "[sub-session: aaaa1111]", ["message"] = "继续" },
-                TestContext.Current.CancellationToken).GetAwaiter().GetResult();
+                TestContext.Current.CancellationToken);
             string errorText = raw?.ToString() ?? string.Empty;
 
             Assert.Contains(idA, errorText); //是撞号列表，不是别的分支

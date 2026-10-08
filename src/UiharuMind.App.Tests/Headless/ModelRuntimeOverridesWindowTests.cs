@@ -38,7 +38,7 @@ public class ModelRuntimeOverridesWindowTests
             Directory.CreateDirectory(dir);
             using Bitmap frame = Avalonia.Headless.HeadlessWindowExtensions.CaptureRenderedFrame(window)
                                  ?? throw new InvalidOperationException("空帧");
-            frame.Save(Path.Combine(dir, "model-params.png"));
+            frame.Save(Path.Combine(dir, "model-params.png"), PngBitmapEncoderOptions.Default);
             window.Close();
         });
     }

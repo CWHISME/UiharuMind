@@ -14,7 +14,7 @@ public class GroupMemberTurnGateTests
     {
         PreemptibleTurn group = GroupMemberTurnGate.TryEnterPreemptible(_member, CancellationToken.None)!;
 
-        Task<IDisposable> privateTurn = GroupMemberTurnGate.EnterPrivateAsync(_member);
+        Task<IDisposable> privateTurn = GroupMemberTurnGate.EnterPrivateAsync(_member, TestContext.Current.CancellationToken);
 
         Assert.True(group.Token.IsCancellationRequested);
         Assert.False(privateTurn.IsCompleted);
@@ -32,7 +32,7 @@ public class GroupMemberTurnGateTests
     {
         using CancellationTokenSource groupStop = new();
         PreemptibleTurn group = GroupMemberTurnGate.TryEnterPreemptible(_member, groupStop.Token)!;
-        Task<IDisposable> privateTurn = GroupMemberTurnGate.EnterPrivateAsync(_member);
+        Task<IDisposable> privateTurn = GroupMemberTurnGate.EnterPrivateAsync(_member, TestContext.Current.CancellationToken);
 
         Assert.False(group.WasPreempted(completed: true));
         groupStop.Cancel();
@@ -49,14 +49,14 @@ public class GroupMemberTurnGateTests
         TaskCompletionSource resumed = new(TaskCreationOptions.RunContinuationsAsynchronously);
         GroupMemberTurnGate.ResumeAfter(_member, () => resumed.TrySetResult());
 
-        await Task.Delay(50);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
         Assert.False(resumed.Task.IsCompleted);
         held.Dispose();
-        await resumed.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await resumed.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
 
         TaskCompletionSource immediate = new(TaskCreationOptions.RunContinuationsAsynchronously);
         GroupMemberTurnGate.ResumeAfter(_member, () => immediate.TrySetResult());
-        await immediate.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await immediate.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
     }
 
     /// <summary>一个接回抛了，同一次放闸约的其它接回照样做</summary>
@@ -69,7 +69,7 @@ public class GroupMemberTurnGateTests
         GroupMemberTurnGate.ResumeAfter(_member, () => second.TrySetResult());
 
         held.Dispose();
-        await second.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await second.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
     }
 
     /// <summary>等闸时用户停下私聊：抛取消，闸不被它占着</summary>

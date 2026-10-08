@@ -125,7 +125,7 @@ public class GroupHostComboBoxTests : IDisposable
 
                 Assert.Equal(hostId, members.SelectedHost?.SessionId);
                 Assert.Equal(hostId, (combo.SelectedItem as GroupHostChoice)?.SessionId);
-                Assert.Single(members.Members.Where(x => x.IsHost));
+                Assert.Single(members.Members, x => x.IsHost);
             }
             finally
             {

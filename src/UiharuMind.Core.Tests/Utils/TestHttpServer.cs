@@ -13,6 +13,7 @@ internal sealed class TestHttpServer : IDisposable
     private long _bytesServed;
     private long _bytesRequested;
     private int _rangeRequests;
+    private int _requests = -1;
 
     public TestHttpServer(byte[] payload)
     {
@@ -28,6 +29,9 @@ internal sealed class TestHttpServer : IDisposable
     public bool SupportsRange { get; init; } = true;
     public int StatusCode { get; set; } = 200;
     public int BytesPerSecond { get; set; }
+
+    /// <summary>按请求序号（从 0 起，含探测请求）定这条连接的限速，连接建立时取一次；0 为不限，优先于 <see cref="BytesPerSecond"/></summary>
+    public Func<int, int>? BytesPerSecondByRequest { get; set; }
     public long BytesServed => Interlocked.Read(ref _bytesServed);
 
     /// <summary>各请求要的字节数之和（Range 的长度，不带 Range 为整个文件）。
@@ -93,6 +97,8 @@ internal sealed class TestHttpServer : IDisposable
                 context.Response.Headers["Content-Range"] = $"bytes {from}-{to}/{_payload.Length}";
             }
 
+            int requestIndex = Interlocked.Increment(ref _requests);
+            int bytesPerSecond = BytesPerSecondByRequest?.Invoke(requestIndex) ?? BytesPerSecond;
             Interlocked.Add(ref _bytesRequested, to - from + 1);
             context.Response.ContentLength64 = to - from + 1;
             Stream output = context.Response.OutputStream;
@@ -102,7 +108,7 @@ internal sealed class TestHttpServer : IDisposable
                 await output.WriteAsync(_payload.AsMemory((int)offset, chunk));
                 Interlocked.Add(ref _bytesServed, chunk);
                 offset += chunk;
-                if (BytesPerSecond > 0) await Task.Delay(chunk * 1000 / BytesPerSecond);
+                if (bytesPerSecond > 0) await Task.Delay(chunk * 1000 / bytesPerSecond);
             }
 
             context.Response.Close();

@@ -27,7 +27,7 @@ public class WorldSettingManager : UniquieContainerSingleton<WorldSettingManager
     /// </summary>
     public WorldSetting Merge(string name, IEnumerable<WorldSettingEntry> entries)
     {
-        WorldSetting book = Get(name);
+        WorldSetting? book = Get(name);
         if (book == null)
         {
             book = AddNewItem(name);

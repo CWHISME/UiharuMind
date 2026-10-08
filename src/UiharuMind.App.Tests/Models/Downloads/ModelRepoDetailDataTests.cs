@@ -153,7 +153,7 @@ public class ModelRepoDetailDataTests : IDisposable
         Assert.Equal(0, source.ReadmeCount);
 
         detail.ShowReadmeCommand.Execute(null);
-        for (int i = 0; i < 100 && detail.IsReadmeLoading; i++) await Task.Delay(10);
+        for (int i = 0; i < 100 && detail.IsReadmeLoading; i++) await Task.Delay(10, TestContext.Current.CancellationToken);
         detail.ShowFilesCommand.Execute(null);
         detail.ShowReadmeCommand.Execute(null);
 
@@ -169,7 +169,7 @@ public class ModelRepoDetailDataTests : IDisposable
         await detail.LoadAsync();
 
         detail.ShowReadmeCommand.Execute(null);
-        for (int i = 0; i < 100 && detail.IsReadmeLoading; i++) await Task.Delay(10);
+        for (int i = 0; i < 100 && detail.IsReadmeLoading; i++) await Task.Delay(10, TestContext.Current.CancellationToken);
 
         Assert.NotNull(detail.ReadmeStatus);
     }

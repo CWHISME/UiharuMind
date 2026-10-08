@@ -146,7 +146,7 @@ public class DefaultCharacterResourceTests
         foreach (CharacterData data in DefaultCharacterManager.Instance.All.Values)
         {
             if (!data.IsAgent || data.IsInternal) continue;
-            string template = data.Config.PromptConfig.Template;
+            string template = data.Config.PromptConfig.Template ?? string.Empty;
             hits.AddRange(groupPhrases.Where(template.Contains).Select(p => $"{data.CharacterId}:「{p}」"));
         }
 

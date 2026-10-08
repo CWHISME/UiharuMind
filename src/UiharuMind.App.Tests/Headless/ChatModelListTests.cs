@@ -72,6 +72,6 @@ public class ChatModelListTests
         window.UpdateLayout();
         using Bitmap frame = Avalonia.Headless.HeadlessWindowExtensions.CaptureRenderedFrame(window)
                              ?? throw new InvalidOperationException("空帧");
-        frame.Save(Path.Combine(dir, name + ".png"));
+        frame.Save(Path.Combine(dir, name + ".png"), PngBitmapEncoderOptions.Default);
     }
 }

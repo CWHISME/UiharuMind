@@ -69,7 +69,7 @@ public class BuiltInSkillTests
 
     /// <summary>正文取读取那一刻的事实，而且同步完成（目录的过滤谓词在同步上下文里读原文）</summary>
     [Fact]
-    public void Content_IsBuiltOnEveryRead_Synchronously()
+    public async Task Content_IsBuiltOnEveryRead_Synchronously()
     {
         int reads = 0;
         BuiltInSkill skill = new("uiharu-dev", "dev", () => $"read {++reads}");
@@ -78,8 +78,8 @@ public class BuiltInSkillTests
         ValueTask<string> second = skill.GetContentAsync(TestContext.Current.CancellationToken);
 
         Assert.True(first.IsCompletedSuccessfully);
-        Assert.Equal("read 1", first.Result);
-        Assert.Equal("read 2", second.Result);
+        Assert.Equal("read 1", await first);
+        Assert.Equal("read 2", await second);
         Assert.True(SkillCatalog.IsModelInvocable(skill)); //没有 frontmatter 声明，照常参与模型自选
         Assert.Equal(2, reads); //是否参与自选不读正文，否则每次列举都要付一次全文生成
     }

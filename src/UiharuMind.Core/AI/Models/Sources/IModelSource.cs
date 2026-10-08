@@ -41,8 +41,10 @@ public interface IModelSource
     /// </summary>
     /// <param name="repository">owner/repo</param>
     /// <param name="cancellationToken">取消</param>
+    /// <param name="revision">分支或提交；空为模型源的默认分支</param>
     /// <returns>文件列表</returns>
-    Task<IReadOnlyList<ModelRepoFile>> ListFilesAsync(string repository, CancellationToken cancellationToken);
+    Task<IReadOnlyList<ModelRepoFile>> ListFilesAsync(string repository, CancellationToken cancellationToken,
+        string? revision = null);
 
     /// <summary>
     /// 仓库的说明（README.md 原文）
@@ -58,6 +60,8 @@ public interface IModelSource
     /// <param name="repository">owner/repo</param>
     /// <param name="file">仓库里的文件</param>
     /// <param name="destinationPath">落盘路径</param>
+    /// <param name="revision">分支或提交；空为模型源的默认分支</param>
     /// <returns>下载请求</returns>
-    DownloadRequest CreateDownload(string repository, ModelRepoFile file, string destinationPath);
+    DownloadRequest CreateDownload(string repository, ModelRepoFile file, string destinationPath,
+        string? revision = null);
 }

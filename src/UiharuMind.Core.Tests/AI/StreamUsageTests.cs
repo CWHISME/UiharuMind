@@ -35,7 +35,7 @@ public class StreamUsageTests
         List<ChatResponseUpdate> output = await Collect(StreamUsage.KeepLast(Stream(
             Update(new TextContent("a")),
             Update(new TextContent("b"), Usage(10)),
-            Update(Usage(12)))));
+            Update(Usage(12))), TestContext.Current.CancellationToken));
 
         UsageContent usage = Assert.Single(output.SelectMany(u => u.Contents).OfType<UsageContent>());
         Assert.Equal(12, usage.Details.InputTokenCount);
@@ -47,7 +47,7 @@ public class StreamUsageTests
     {
         List<ChatResponseUpdate> output = await Collect(StreamUsage.KeepLast(Stream(
             Update(new TextContent("a")),
-            Update(new TextContent("b"), Usage(7)))));
+            Update(new TextContent("b"), Usage(7))), TestContext.Current.CancellationToken));
 
         List<AIContent> contents = output.SelectMany(u => u.Contents).ToList();
         Assert.Equal(7, Assert.Single(contents.OfType<UsageContent>()).Details.InputTokenCount);
@@ -69,7 +69,7 @@ public class StreamUsageTests
         List<ChatResponseUpdate> output = new();
         await Assert.ThrowsAsync<HttpIOException>(async () =>
         {
-            await foreach (ChatResponseUpdate update in StreamUsage.KeepLast(Failing())) output.Add(update);
+            await foreach (ChatResponseUpdate update in StreamUsage.KeepLast(Failing(), TestContext.Current.CancellationToken)) output.Add(update);
         });
 
         Assert.Equal(9, Assert.Single(output.SelectMany(u => u.Contents).OfType<UsageContent>()).Details.InputTokenCount);

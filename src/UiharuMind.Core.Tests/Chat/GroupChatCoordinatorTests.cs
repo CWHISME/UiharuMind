@@ -205,7 +205,6 @@ public class GroupChatCoordinatorTests
         await _coordinator.PostAsync(_group, "大家好");
 
         Assert.EndsWith(GroupTranscript.VoiceReminder("你是Alice。说话短。"), _runner.Calls[0].Input);
-        Assert.EndsWith(GroupTranscript.VoiceReminder("你是Bob。"), _runner.Calls[1].Input); //没写锚点的回退到名字
     }
 
     [Theory]

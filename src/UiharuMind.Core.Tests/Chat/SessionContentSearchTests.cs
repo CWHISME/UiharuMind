@@ -120,7 +120,7 @@ public class SessionContentSearchTests
         File("b", new ChatMessage(ChatRole.User, "缓存"));
 
         List<SessionContentMatch> matches = SessionContentSearch.Scan(["a", "b"],
-            id => id == "a" ? Throwing() : _files[id], "缓存", 3);
+            id => id == "a" ? Throwing() : _files[id], "缓存", 3, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(["b"], matches.Select(x => x.SessionId));
 

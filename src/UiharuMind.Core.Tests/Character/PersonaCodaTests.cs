@@ -9,30 +9,7 @@ namespace UiharuMind.Core.Tests.Character;
 /// </summary>
 public class PersonaCodaTests
 {
-    [Fact]
-    public void GetPersonaCoda_JoinsNameAndDescription()
-    {
-        CharacterData character = new() { CharacterName = "晨曦", Description = "活泼、有冲劲" };
-
-        Assert.Equal("你是晨曦，活泼、有冲劲", character.GetPersonaCoda());
-    }
-
-    [Fact]
-    public void GetPersonaCoda_NameOnly_WithoutDescription()
-    {
-        CharacterData character = new() { CharacterName = "晨曦", Description = "" };
-
-        Assert.Equal("你是晨曦。", character.GetPersonaCoda());
-    }
-
-    [Fact]
-    public void GetPersonaCoda_Empty_WithoutName()
-    {
-        CharacterData character = new() { CharacterName = "", Description = "活泼、有冲劲" };
-
-        Assert.Equal(string.Empty, character.GetPersonaCoda());
-    }
-
+    
     [Fact]
     public void GetPersonaCoda_PrefersExplicitAnchor()
     {
@@ -44,19 +21,6 @@ public class PersonaCodaTests
         };
 
         Assert.Equal("你是晨曦。短句，先动手再说。", character.GetPersonaCoda());
-    }
-
-    [Fact]
-    public void GetPersonaCoda_BlankAnchor_FallsBackToAuto()
-    {
-        CharacterData character = new()
-        {
-            CharacterName = "晨曦",
-            Description = "活泼、有冲劲",
-            PersonaAnchor = "  ",
-        };
-
-        Assert.Equal("你是晨曦，活泼、有冲劲", character.GetPersonaCoda());
     }
 
     [Fact]

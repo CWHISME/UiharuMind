@@ -251,7 +251,7 @@ public sealed class SessionCrossInstanceTests : IDisposable
     }
 
     [Fact]
-    public void OwnWrites_AreNeverMistakenForAnotherInstances_WhileOtherThreadsCheck()
+    public async Task OwnWrites_AreNeverMistakenForAnotherInstances_WhileOtherThreadsCheck()
     {
         //写完到记下指纹之间若被别的线程判旧(存会话头、Load 都会判),自己刚写的就被当成别人写的,
         //会话从此写不进盘(实机:一轮收尾追加完历史,紧接着的会话头保存被拒)
@@ -264,7 +264,7 @@ public sealed class SessionCrossInstanceTests : IDisposable
             {
                 if (_mine.IsStaleOnDisk(mine.SessionId)) Interlocked.Exchange(ref staleSeen, 1);
             }
-        });
+        }, TestContext.Current.CancellationToken);
 
         for (int i = 0; i < 300 && Volatile.Read(ref staleSeen) == 0; i++)
         {
@@ -274,7 +274,7 @@ public sealed class SessionCrossInstanceTests : IDisposable
         }
 
         stop.Cancel();
-        checker.Wait(TestContext.Current.CancellationToken);
+        await checker.WaitAsync(TestContext.Current.CancellationToken);
         Assert.Equal(0, staleSeen);
     }
 

@@ -5,6 +5,9 @@
 		<LangVersion>latest</LangVersion>
 		<!-- 生成器为 LangKey 枚举成员生成 XML 文档注释时使用的文案语言（Lang.zh-hans.resx）；不设则用 Lang.resx 默认文案 -->
 		<LangKeysCommentCulture>zh-hans</LangKeysCommentCulture>
+		<!-- AVLN3001: 带参构造的 TopLevel（WorldBook 两窗）只被代码 new、不经资源 URI 运行时加载，
+		     该警告是 Avalonia 已知假阳性（issue #11312，官方同意应可压制） -->
+		<NoWarn>$(NoWarn);AVLN3001</NoWarn>
 	</PropertyGroup>
 	
 	<ItemGroup>

@@ -177,7 +177,7 @@ public class ParallelGroupChatTests
         lease.Dispose();
         await WaitUntil(() => _delays.Count == 1); //接回排上 30 秒，但退群了，到点也不叫
         _delays[0].Due.SetResult();
-        await Task.Delay(200);
+        await Task.Delay(200, TestContext.Current.CancellationToken);
 
         Assert.Equal(1, _runner.CallsOf(_alice));
     }
@@ -199,7 +199,7 @@ public class ParallelGroupChatTests
         lease.Dispose();
         await WaitUntil(() => _delays.Count == 1); //接回排上 30 秒，但停群了，到点也不叫
         _delays[0].Due.SetResult();
-        await Task.Delay(200);
+        await Task.Delay(200, TestContext.Current.CancellationToken);
         Assert.Equal(1, _runner.CallsOf(_alice));
 
         await _coordinator.ContinueAsync(_group);

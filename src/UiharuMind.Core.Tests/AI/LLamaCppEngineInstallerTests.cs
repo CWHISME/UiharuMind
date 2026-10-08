@@ -76,7 +76,7 @@ public class LLamaCppEngineInstallerTests : IDisposable
         _remote = [Remote("b100", suffix!), Remote("b200", suffix!), Remote("b300", "-bin-unknown-platform")];
         LLamaCppEngineInstaller installer = Create();
 
-        var results = await Task.WhenAll(installer.EnsureQueuedAsync(), installer.EnsureQueuedAsync());
+        var results = await Task.WhenAll(installer.EnsureQueuedAsync(TestContext.Current.CancellationToken), installer.EnsureQueuedAsync(TestContext.Current.CancellationToken));
 
         Assert.Single(results, x => x.State == EEngineEnsureState.Queued);
         Assert.Single(results, x => x.State == EEngineEnsureState.AlreadyQueued);
@@ -106,7 +106,7 @@ public class LLamaCppEngineInstallerTests : IDisposable
         installer.Installed += x => installedEvent = x;
 
         DownloadJob job = installer.Enqueue(version, selectWhenInstalled: true);
-        for (int i = 0; i < 250 && job.State != EDownloadJobState.Completed; i++) await Task.Delay(20);
+        for (int i = 0; i < 250 && job.State != EDownloadJobState.Completed; i++) await Task.Delay(20, TestContext.Current.CancellationToken);
 
         Assert.Equal(EDownloadJobState.Completed, job.State);
         Assert.Equal([version], _installed);
@@ -128,7 +128,7 @@ public class LLamaCppEngineInstallerTests : IDisposable
         installer.AvailableUpdateChanged += () => changes++;
 
         Assert.Same(newer, await installer.CheckForUpdateAsync());
-        await installer.InstallAsync(newer);
+        await installer.InstallAsync(newer, TestContext.Current.CancellationToken);
 
         Assert.Null(installer.AvailableUpdate);
         Assert.Equal(2, changes);

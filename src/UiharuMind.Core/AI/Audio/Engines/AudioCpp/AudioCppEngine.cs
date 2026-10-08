@@ -154,6 +154,41 @@ public sealed class AudioCppEngine : IDisposable
     }
 
     /// <summary>
+    /// 引擎包自带的 model_specs 目录；没装引擎为 null
+    /// </summary>
+    public string? GetSpecsDirectory()
+    {
+        string? install = CurrentVersion?.InstallDirectory;
+        if (string.IsNullOrEmpty(install) || !Directory.Exists(install)) return null;
+        return Directory.EnumerateDirectories(install, "model_specs", SearchOption.AllDirectories).FirstOrDefault();
+    }
+
+    /// <summary>
+    /// 能下的语音模型包（读在用引擎自带的 spec）；没装引擎为空
+    /// </summary>
+    public IReadOnlyList<AudioCppPackage> GetCatalog()
+    {
+        string? specs = GetSpecsDirectory();
+        return specs == null ? [] : AudioCppModelCatalog.Load(specs);
+    }
+
+    /// <summary>
+    /// 一个模型包装好了：重扫模型目录；这个任务还没选过模型就选上它
+    /// </summary>
+    /// <param name="package">装好的包</param>
+    public void OnPackageInstalled(AudioCppPackage package)
+    {
+        IReadOnlyList<AudioCppModelEntry> models = GetModels(true);
+        if (models.All(x => x.Id != package.ModelName)) return;
+        bool isTts = package.Task == EAudioCppTask.Tts;
+        string? selected = isTts ? _settings.TtsModel : _settings.AsrModel;
+        if (!string.IsNullOrEmpty(selected) && models.Any(x => x.Id == selected)) return;
+        if (isTts) _settings.TtsModel = package.ModelName;
+        else _settings.AsrModel = package.ModelName;
+        _settings.Save();
+    }
+
+    /// <summary>
     /// 启动相关的设置改了（线程数、驻留数…），下次使用按新设置重启
     /// </summary>
     public void ApplySettings()

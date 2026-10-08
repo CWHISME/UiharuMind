@@ -98,7 +98,7 @@ public class LocalServerProcessTests : IDisposable
     {
         string path = Path.Combine(_directory, "fake-llama-server");
         File.WriteAllText(path, "#!/bin/sh\n" + body + "\n");
-        File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         return path;
     }
 }

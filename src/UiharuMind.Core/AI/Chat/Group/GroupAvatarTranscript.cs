@@ -102,7 +102,7 @@ public static class GroupAvatarTranscript
     {
         List<string> notes = [];
         string rest = text;
-        while (TryStripOneTrailingNote(ref rest, out string? note)) notes.Insert(0, note);
+        while (TryStripOneTrailingNote(ref rest, out string? note)) notes.Insert(0, note!);
         return (rest, notes);
     }
 

@@ -34,10 +34,10 @@ public sealed class ModelScopeModelSource(HttpClient httpClient, string? token) 
     }
 
     public async Task<IReadOnlyList<ModelRepoFile>> ListFilesAsync(string repository,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, string? revision = null)
     {
         using HttpRequestMessage request = CreateRequest(HttpMethod.Get,
-            $"{Endpoint}/api/v1/models/{repository}/repo/files?Revision={Revision}&Recursive=true");
+            $"{Endpoint}/api/v1/models/{repository}/repo/files?Revision={Uri.EscapeDataString(revision ?? Revision)}&Recursive=true");
         FilesResponse? response = await SendAsync<FilesResponse>(request, cancellationToken).ConfigureAwait(false);
         return response?.Data?.Files?
             .Where(x => x.Type == "blob" && !string.IsNullOrEmpty(x.Path))
@@ -49,10 +49,12 @@ public sealed class ModelScopeModelSource(HttpClient httpClient, string? token) 
         ModelReadme.FetchAsync(httpClient, $"{Endpoint}/models/{repository}/resolve/{Revision}/README.md", AuthHeaders(),
             cancellationToken);
 
-    public DownloadRequest CreateDownload(string repository, ModelRepoFile file, string destinationPath)
+    public DownloadRequest CreateDownload(string repository, ModelRepoFile file, string destinationPath,
+        string? revision = null)
     {
         string path = string.Join('/', file.Path.Split('/').Select(Uri.EscapeDataString));
-        return new DownloadRequest(new Uri($"{Endpoint}/models/{repository}/resolve/{Revision}/{path}"),
+        return new DownloadRequest(
+            new Uri($"{Endpoint}/models/{repository}/resolve/{Uri.EscapeDataString(revision ?? Revision)}/{path}"),
             destinationPath, 1, file.Sha256, AuthHeaders());
     }
 

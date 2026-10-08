@@ -52,7 +52,7 @@ public class WorldSettingSelectorTests
         WorldSettingSelection selection = WorldSettingSelector.Select(setting, "");
 
         Assert.False(selection.IsEmpty);
-        Assert.Empty(selection.BeforeCharacter.Where(e => e.Keys.Count > 0));
+        Assert.DoesNotContain(selection.BeforeCharacter, e => e.Keys.Count > 0);
     }
 
     [Fact]

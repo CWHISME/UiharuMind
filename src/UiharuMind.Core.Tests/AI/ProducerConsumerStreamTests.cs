@@ -11,14 +11,14 @@ public class ProducerConsumerStreamTests
     public async Task SmallReadBuffer_KeepsByteOrderAcrossChunks()
     {
         ProducerConsumerStream stream = new();
-        await stream.WriteAsync(new byte[] { 1, 2, 3, 4, 5 });
-        await stream.WriteAsync(new byte[] { 6, 7 });
+        await stream.WriteAsync(new byte[] { 1, 2, 3, 4, 5 }, TestContext.Current.CancellationToken);
+        await stream.WriteAsync(new byte[] { 6, 7 }, TestContext.Current.CancellationToken);
         stream.Complete();
 
         List<byte> read = [];
         byte[] buffer = new byte[2];
         int count;
-        while ((count = await stream.ReadAsync(buffer)) > 0) read.AddRange(buffer.Take(count));
+        while ((count = await stream.ReadAsync(buffer, TestContext.Current.CancellationToken)) > 0) read.AddRange(buffer.Take(count));
 
         Assert.Equal([1, 2, 3, 4, 5, 6, 7], read);
     }
@@ -27,12 +27,12 @@ public class ProducerConsumerStreamTests
     public async Task Fail_SurfacesAfterBufferedBytes()
     {
         ProducerConsumerStream stream = new();
-        await stream.WriteAsync(new byte[] { 1 });
+        await stream.WriteAsync(new byte[] { 1 }, TestContext.Current.CancellationToken);
         stream.Fail(new InvalidOperationException("boom"));
 
         byte[] buffer = new byte[4];
-        Assert.Equal(1, await stream.ReadAsync(buffer));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => stream.ReadAsync(buffer).AsTask());
+        Assert.Equal(1, await stream.ReadAsync(buffer, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => stream.ReadAsync(buffer, TestContext.Current.CancellationToken).AsTask());
     }
 
     [Fact]

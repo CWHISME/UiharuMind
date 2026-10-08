@@ -170,7 +170,7 @@ public class SpinnerIconTests : IDisposable
         using RenderTargetBitmap target = new(new PixelSize(HostSize, HostSize), new Vector(96, 96));
         target.Render(host);
         using MemoryStream stream = new();
-        target.Save(stream);
+        target.Save(stream, PngBitmapEncoderOptions.Default);
         return SKBitmap.Decode(stream.ToArray());
     }
 }

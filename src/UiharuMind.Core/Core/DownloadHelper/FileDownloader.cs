@@ -48,10 +48,17 @@ public sealed class FileDownloader(HttpClient httpClient)
     private static readonly TimeSpan IdleTimeout = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan ProgressInterval = TimeSpan.FromMilliseconds(200);
 
+    private readonly SlowConnectionGuard _slowGuard = new(SlowConnectionPolicy.Default);
+
+    internal FileDownloader(HttpClient httpClient, SlowConnectionPolicy slowPolicy) : this(httpClient)
+    {
+        _slowGuard = new SlowConnectionGuard(slowPolicy);
+    }
+
     /// <summary>
     /// 走系统代理、不限总时长（大文件），卡住由读超时兜底
     /// </summary>
-    public static FileDownloader Shared { get; } = new(new HttpClient { Timeout = Timeout.InfiniteTimeSpan });
+    public static FileDownloader Shared { get; } = new(CreateSharedClient());
 
     /// <summary>
     /// 下载到目标路径；目标已存在视为已完成
@@ -217,19 +224,30 @@ public sealed class FileDownloader(HttpClient httpClient)
         Action checkpoint,
         CancellationToken token)
     {
-        for (int attempt = 1;; attempt++)
+        int slowReconnects = 0;
+        for (int attempt = 1;;)
         {
             try
             {
-                await DownloadSegmentAsync(request, handle, segment, hash, meter, checkpoint, token)
+                // 重连到上限后不再测速，慢也接着下
+                SlowConnectionGuard.ConnectionWatch? watch = slowReconnects < _slowGuard.MaxReconnects
+                    ? _slowGuard.Watch(request.Url.Host, slowReconnects > 0)
+                    : null;
+                await DownloadSegmentAsync(request, handle, segment, hash, meter, checkpoint, watch, token)
                     .ConfigureAwait(false);
                 return;
+            }
+            catch (SlowConnectionException)
+            {
+                slowReconnects++;
+                Log.Debug($"Download connection slowed down, reconnecting ({slowReconnects}): {request.Url.Host}");
             }
             catch (Exception e) when (attempt < MaxAttempts && !token.IsCancellationRequested &&
                                       e is HttpRequestException or IOException or TimeoutException)
             {
                 Log.Warning($"Download segment retry {attempt}: {e.Message}");
                 await Task.Delay(TimeSpan.FromSeconds(attempt * 2), token).ConfigureAwait(false);
+                attempt++;
             }
         }
     }
@@ -241,6 +259,7 @@ public sealed class FileDownloader(HttpClient httpClient)
         IncrementalHash? hash,
         ProgressMeter meter,
         Action checkpoint,
+        SlowConnectionGuard.ConnectionWatch? watch,
         CancellationToken token)
     {
         if (segment.IsComplete) return;
@@ -268,6 +287,7 @@ public sealed class FileDownloader(HttpClient httpClient)
                 segment.Done += read;
                 meter.Add(read);
                 sinceCheckpoint += read;
+                watch?.Add(read);
                 if (sinceCheckpoint < StateSaveIntervalBytes) continue;
                 checkpoint();
                 sinceCheckpoint = 0;
@@ -357,5 +377,13 @@ public sealed class FileDownloader(HttpClient httpClient)
                 progress.Report(new DownloadProgress(received, _total, speed));
             }
         }
+    }
+
+    // ModelScope 的 CDN 拒绝不带 User-Agent 的请求（403 UA ACL）
+    private static HttpClient CreateSharedClient()
+    {
+        HttpClient client = new() { Timeout = Timeout.InfiniteTimeSpan };
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("UiharuMind");
+        return client;
     }
 }

@@ -143,12 +143,12 @@ public class SessionListViewTests
         (Window window, SessionListView view, _) = Show();
         ListBoxItem row = Rows(view)[1];
         double heightBefore = row.Bounds.Height;
-        Assert.Empty(view.GetVisualDescendants().OfType<Button>().Where(x => x.Classes.Contains("session-delete")));
+        Assert.DoesNotContain(view.GetVisualDescendants().OfType<Button>(), x => x.Classes.Contains("session-delete"));
 
         window.MouseMove(CenterOf(row, window));
         Settle(window);
 
-        Button delete = Assert.Single(view.GetVisualDescendants().OfType<Button>().Where(x => x.Classes.Contains("session-delete")));
+        Button delete = Assert.Single(view.GetVisualDescendants().OfType<Button>(), x => x.Classes.Contains("session-delete"));
         Assert.Same(row, delete.FindAncestorOfType<ListBoxItem>());
         Assert.Equal(heightBefore, row.Bounds.Height, 1); //悬停不许让整行长高、列表跟着跳
         window.Close();

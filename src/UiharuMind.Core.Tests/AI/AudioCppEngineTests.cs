@@ -87,7 +87,7 @@ public class AudioCppEngineTests : IDisposable
             Assert.Equal(server.Port, doc.RootElement.GetProperty("port").GetInt32());
 
         cts.Cancel();
-        await server.Completion.WaitAsync(TimeSpan.FromSeconds(5));
+        await server.Completion.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -160,7 +160,7 @@ public class AudioCppEngineTests : IDisposable
             http.server.HTTPServer(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
             " "$PORT"
             """);
-        File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         return path;
     }
 }
