@@ -102,6 +102,43 @@ public class AudioCppPackageTests : IDisposable
     }
 
     [Fact]
+    public void RequestOptions_KeepTypeDefaultAndRange_TunableHidesWhatOthersManage_CommonFirst()
+    {
+        const string spec = """
+            {
+              "family": "voxcpm1", "category": "tts", "tasks": ["tts", "clone"],
+              "options": { "request": [
+                { "name": "text_chunk_mode", "type": "enum", "values": ["default", "tag_aware"], "default": "tag_aware", "required": false, "description": "Chunking." },
+                { "name": "retry_badcase", "type": "bool", "default": true, "required": false, "description": "Retry." },
+                { "name": "num_inference_steps", "type": "int", "default": 50, "required": false, "description": "Steps." },
+                { "name": "temperature", "type": "float", "default": 0.7, "min": 0, "max": 2, "required": false, "description": "Temp." },
+                { "name": "seed", "type": "int", "min": 0, "required": false, "description": "Seed." },
+                { "name": "speed", "type": "float", "default": 1.0, "required": false, "description": "Speed." },
+                { "name": "prompt_text", "type": "string", "required": false, "description": "Prompt." },
+                { "name": "flow_noise_path", "type": "path", "required": false, "description": "Noise." },
+                { "name": "stream_frames_per_event", "type": "int", "required": false, "description": "Stream." }
+              ] },
+              "packages": []
+            }
+            """;
+
+        AudioCppFamily family = AudioCppModelCatalog.ParseFamily(spec)!;
+
+        AudioCppOption temperature = family.RequestOptions.Single(x => x.Name == "temperature");
+        Assert.Equal(EAudioCppOptionType.Number, temperature.Type);
+        Assert.Equal("0.7", temperature.Default);
+        Assert.Equal((0d, 2d), (temperature.Min, temperature.Max));
+        Assert.Equal("true", family.RequestOptions.Single(x => x.Name == "retry_badcase").Default);
+        Assert.Null(family.RequestOptions.Single(x => x.Name == "seed").Default);
+        Assert.Equal(["default", "tag_aware"], family.RequestOptions[0].Values);
+        Assert.True(family.AcceptsSpeed);
+
+        // 语速、参考文字归别处管；路径、流式的不给调；常用的按固定顺序在前，其余照 spec
+        Assert.Equal(["seed", "temperature", "num_inference_steps", "text_chunk_mode", "retry_badcase"],
+            AudioCppTunableOptions.For(family).Select(x => x.Name));
+    }
+
+    [Fact]
     public void Family_OwnRecommendationWinsOverUpstream()
     {
         AudioCppFamily family = AudioCppModelCatalog.ParseFamily(PocketSpec)!;

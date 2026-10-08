@@ -1,0 +1,112 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:options="clr-namespace:UiharuMind.Features.Models.AudioModels.Options"
+        xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+        xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+        mc:Ignorable="d" d:DesignWidth="640" d:DesignHeight="560"
+        x:Class="UiharuMind.Features.Models.AudioModels.Options.AudioModelOptionsWindow"
+        x:DataType="options:AudioModelOptionsViewData"
+        Width="640"
+        Height="600"
+        MinWidth="520"
+        MinHeight="400"
+        WindowStartupLocation="CenterOwner"
+        Title="{loc:Loc AudioOptionsTitle}">
+
+    <!-- 各类参数的编辑控件，由行里的 ContentControl 按类型取 -->
+    <Window.DataTemplates>
+        <DataTemplate DataType="options:NumberOptionData">
+            <NumericUpDown Width="150" Value="{Binding Number}" Minimum="{Binding Minimum}"
+                           Maximum="{Binding Maximum}" Increment="{Binding Increment}"
+                           FormatString="{Binding FormatString}" Watermark="{Binding Watermark}" />
+        </DataTemplate>
+        <DataTemplate DataType="options:ToggleOptionData">
+            <ToggleSwitch IsChecked="{Binding IsOn}" OnContent="" OffContent="" />
+        </DataTemplate>
+        <DataTemplate DataType="options:ChoiceOptionData">
+            <ComboBox Width="190" ItemsSource="{Binding Choices}" SelectedItem="{Binding Selected}"
+                      DisplayMemberBinding="{ReflectionBinding DisplayName}" />
+        </DataTemplate>
+        <DataTemplate DataType="options:TextOptionData">
+            <TextBox Width="190" Text="{Binding Text}" Watermark="{Binding Watermark}" />
+        </DataTemplate>
+    </Window.DataTemplates>
+
+    <Window.Resources>
+        <DataTemplate x:Key="OptionRow" x:DataType="options:AudioOptionItemData">
+            <Border Padding="18,10" BorderBrush="{DynamicResource SemiGrey1}" BorderThickness="0,0,0,1">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                    <StackPanel Spacing="3" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="{Binding Label}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding Name}" Classes="muted" FontSize="11" VerticalAlignment="Center"
+                                       IsVisible="{Binding ShowsName}" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding Note}" Classes="muted" FontSize="12" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <Button Classes="toolbar-link" Content="{loc:Loc AudioSpeedReset}"
+                                IsVisible="{Binding IsChanged}" Command="{Binding ResetCommand}" />
+                        <ContentControl Content="{Binding}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource SemiGrey0}">
+
+        <!-- 头部 -->
+        <Border Padding="18,15" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="50,*" ColumnSpacing="12">
+                <Border Width="50" Height="50" CornerRadius="8" Background="{DynamicResource SemiBlue0}">
+                    <controls:ThemedSvgIcon Width="24" Height="24" IconName="sliders-horizontal" />
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
+                    <TextBlock Text="{Binding Model.Name}" FontSize="20" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{loc:Loc AudioOptionsHint}" Classes="muted" FontSize="12" TextWrapping="Wrap" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="0,4,0,12">
+                <ItemsControl ItemsSource="{Binding Common}" ItemTemplate="{StaticResource OptionRow}" />
+                <Button Classes="toolbar-link" Margin="18,10" HorizontalAlignment="Left"
+                        IsVisible="{Binding CanShowMore}" Command="{Binding ExpandMoreCommand}">
+                    <TextBlock Text="{Binding MoreText}" />
+                </Button>
+                <StackPanel IsVisible="{Binding ShowMore}">
+                    <TextBlock Text="{loc:Loc AudioOptionsMoreHeader}" Classes="muted" FontSize="12" Margin="18,14,18,2"
+                               IsVisible="{Binding HasCommon}" />
+                    <ItemsControl ItemsSource="{Binding More}" ItemTemplate="{StaticResource OptionRow}" />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- 底部：全部还原、试听、完成 -->
+        <Border Grid.Row="2" Padding="14" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,1,0,0">
+            <DockPanel>
+                <Button DockPanel.Dock="Left" Content="{loc:Loc AudioOptionsResetAll}" IsEnabled="{Binding HasChanges}"
+                        Command="{Binding ResetAllCommand}" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                    <Button IsVisible="{Binding CanPreview}" Command="{Binding PreviewCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Panel>
+                                <controls:ThemedSvgIcon Width="14" Height="14" IconName="play"
+                                                        IsVisible="{Binding !Model.IsPreviewing}" />
+                                <controls:ThemedSvgIcon Width="14" Height="14" IconName="stop"
+                                                        IsVisible="{Binding Model.IsPreviewing}" />
+                            </Panel>
+                            <TextBlock Text="{loc:Loc AudioOptionsPreview}" IsVisible="{Binding !Model.IsPreviewing}" />
+                            <TextBlock Text="{loc:Loc AudioServicePreviewStop}" IsVisible="{Binding Model.IsPreviewing}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="Primary" Content="{loc:Loc AudioOptionsDone}" Click="Done_Click" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

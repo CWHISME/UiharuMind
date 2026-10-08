@@ -33,6 +33,7 @@ public partial class AudioModelItemData : ObservableObject
     [ObservableProperty] private bool _isLoadingVoices;
     [ObservableProperty] private bool _isPreviewing;
     [ObservableProperty] private bool _isLoaded;
+    [ObservableProperty] private bool _isTuned;
 
     /// <param name="entry">扫描到的模型</param>
     /// <param name="family">所属家族（预置音色、语种、会不会克隆）；引擎没装、认不出时为 null</param>
@@ -48,6 +49,8 @@ public partial class AudioModelItemData : ObservableObject
         CanClone = family?.CanClone == true;
         CanDraw = CanClone && family!.BuiltinVoices.Count == 0 && !family.NeedsReference;
         SizeText = sizeBytes > 0 ? UiharuMind.Core.Core.Utils.GameUtils.FormatBytes(sizeBytes) : "";
+        Options = family != null ? AudioCppTunableOptions.For(family) : [];
+        _isTuned = settings.ModelOptions.GetValueOrDefault(entry.Id) is { Count: > 0 };
         FillVoices(family?.BuiltinVoices ?? []);
     }
 
@@ -90,6 +93,13 @@ public partial class AudioModelItemData : ObservableObject
     public bool CanDraw { get; }
 
     public string SizeText { get; }
+
+    /// <summary>
+    /// 能调的参数（照模型 spec）；认不出家族时为空
+    /// </summary>
+    public IReadOnlyList<AudioCppOption> Options { get; }
+
+    public bool HasOptions => Options.Count > 0;
 
     /// <summary>
     /// 合成模型才有音色

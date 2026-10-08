@@ -58,10 +58,9 @@ public sealed class AudioCppProvider : IAudioProvider, IDisposable
         AudioCppFamily? family = _engine.GetFamily(model);
         float speed = request.Speed ?? 1f;
         bool native = speed != 1f && family?.AcceptsSpeed == true;
-        Dictionary<string, string>? options = !string.IsNullOrWhiteSpace(request.Instruction) &&
-                                              family?.InstructionOption is { } option
-            ? new Dictionary<string, string> { [option] = request.Instruction }
-            : null;
+        Dictionary<string, string> options = TunedOptions(model, family);
+        if (!string.IsNullOrWhiteSpace(request.Instruction) && family?.InstructionOption is { } option)
+            options[option] = request.Instruction;
         AudioSynthesisResult result = await client.SynthesizeAsync(model.Id, request.Text, voice, EAudioFormat.Wav,
             cancellationToken, speed: native ? speed : null, options: options).ConfigureAwait(false);
         return native || speed == 1f ? result : result with { PlaybackSpeed = speed };
@@ -72,8 +71,34 @@ public sealed class AudioCppProvider : IAudioProvider, IDisposable
     {
         AudioCppModelEntry model = _engine.ResolveModel(EAudioCppTask.Asr);
         OpenAiCompatibleAudioClient client = await GetClientAsync(model, cancellationToken).ConfigureAwait(false);
-        return await client.TranscribeAsync(model.Id, request.Audio, request.Format, cancellationToken)
-            .ConfigureAwait(false);
+        Dictionary<string, string> options = TunedOptions(model, _engine.GetFamily(model));
+        if (options.Count == 0)
+            return await client.TranscribeAsync(model.Id, request.Audio, request.Format, cancellationToken)
+                .ConfigureAwait(false);
+
+        // 上传录音的请求不带参数，改过参数的落成临时文件、把路径交给本机的 server
+        string path = Path.Combine(Path.GetTempPath(), $"uiharu-asr-{Guid.NewGuid():N}.wav");
+        try
+        {
+            await using (FileStream file = File.Create(path))
+                await request.Audio.CopyToAsync(file, cancellationToken).ConfigureAwait(false);
+            return await client.TranscribeFileAsync(model.Id, path, options, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    // 用户在参数窗里改过的；spec 已不认的（引擎升级后改了名）不发，免得 server 整个请求报错
+    private Dictionary<string, string> TunedOptions(AudioCppModelEntry model, AudioCppFamily? family)
+    {
+        Dictionary<string, string> options = new(StringComparer.Ordinal);
+        if (family == null || _engine.Settings.ModelOptions.GetValueOrDefault(model.Id) is not { } tuned) return options;
+        foreach ((string name, string value) in tuned)
+            if (family.Accepts(name))
+                options[name] = value;
+        return options;
     }
 
     /// <summary>

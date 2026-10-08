@@ -16,7 +16,7 @@ namespace UiharuMind.Core.AI.Audio;
 /// <param name="RecommendedPackage">上游推荐的包 id；没给为空</param>
 /// <param name="NeedsEspeak">要系统装 eSpeak-ng</param>
 /// <param name="Packages">能下的 GGUF 包</param>
-/// <param name="RequestOptions">合成 / 识别请求能带的参数名（spec 的 options.request），如 speed、seed、temperature</param>
+/// <param name="RequestOptions">合成 / 识别请求能带的参数（spec 的 options.request），如 speed、seed、temperature</param>
 public sealed record AudioCppFamily(
     string Family,
     EAudioCppTask Task,
@@ -31,19 +31,26 @@ public sealed record AudioCppFamily(
     string RecommendedPackage,
     bool NeedsEspeak,
     IReadOnlyList<AudioCppPackage> Packages,
-    IReadOnlyList<string> RequestOptions)
+    IReadOnlyList<AudioCppOption> RequestOptions)
 {
     /// <summary>
     /// 合成时能变语速（不能的，server 收到非 1 的 speed 会报错）
     /// </summary>
-    public bool AcceptsSpeed => RequestOptions.Contains("speed") || RequestOptions.Contains("speaking_rate");
+    public bool AcceptsSpeed => Accepts("speed") || Accepts("speaking_rate");
 
     /// <summary>
     /// 听语气描述的那个参数名（各家叫法不一）；不听为 null
     /// </summary>
     public string? InstructionOption =>
-        RequestOptions.Contains("instruction") ? "instruction" :
-        RequestOptions.Contains("instruct") ? "instruct" : null;
+        Accepts("instruction") ? "instruction" :
+        Accepts("instruct") ? "instruct" : null;
+
+    /// <summary>
+    /// 请求认不认这个参数（server 对不认的直接报错）
+    /// </summary>
+    /// <param name="name">参数名</param>
+    /// <returns>认为 true</returns>
+    public bool Accepts(string name) => RequestOptions.Any(x => x.Name == name);
 
     /// <summary>
     /// 会照参考音频克隆音色（能用音色库）

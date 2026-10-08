@@ -926,6 +926,12 @@ _Avoid_: 播放（那是播放器的事）、TTS（那是技术）
 类型：`SpeechStyle`、`CharacterSpeechStyles`
 _Avoid_: 角色音色（音色只是其中一项）
 
+### 模型参数（Model Options）
+
+本地语音模型自己的请求参数（种子、温度、扩散步数、识别提示……），在「语音模型」页签每个模型的参数窗里改，照模型 spec 生成，
+按模型存（`AudioCppSettingConfig.ModelOptions`），之后这个模型的每次合成、识别都带上。与朗读声音无关：换角色不变，换模型不跟。
+_Avoid_: 朗读参数（语速、语气在朗读声音里）
+
 ### 语音输入（Dictation）
 
 按住说话 → 文本，落进输入框，发不发由用户决定。

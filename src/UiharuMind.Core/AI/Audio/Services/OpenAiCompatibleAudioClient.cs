@@ -73,6 +73,30 @@ public sealed class OpenAiCompatibleAudioClient : IDisposable
         request.Content = form;
         ApplyAuth(request);
 
+        return await SendTranscriptionAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// 听写一个本机文件并带模型专有参数（audio.cpp 的扩展：JSON 请求给文件路径。上传文件的那种请求它不认 options）
+    /// </summary>
+    /// <param name="model">模型 id</param>
+    /// <param name="path">WAV 文件的绝对路径，server 与调用方须在同一台机器</param>
+    /// <param name="options">模型专有参数</param>
+    /// <param name="cancellationToken">取消</param>
+    /// <returns>识别结果</returns>
+    public async Task<AudioTranscriptionResult> TranscribeFileAsync(string model, string path,
+        IReadOnlyDictionary<string, string> options, CancellationToken cancellationToken)
+    {
+        using HttpRequestMessage request = new(HttpMethod.Post, TranscriptionUrl());
+        request.Content = new StringContent(JsonSerializer.Serialize(new { model, audio = path, options }),
+            Encoding.UTF8, "application/json");
+        ApplyAuth(request);
+        return await SendTranscriptionAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<AudioTranscriptionResult> SendTranscriptionAsync(HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
         using HttpResponseMessage response = await _http.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken)
             .ConfigureAwait(false);
         await EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
