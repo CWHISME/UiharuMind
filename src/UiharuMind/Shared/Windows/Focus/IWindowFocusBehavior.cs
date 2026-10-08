@@ -21,4 +21,8 @@ public interface IWindowFocusBehavior
     /// <summary>关闭或隐藏之前。</summary>
     /// <param name="window">目标窗口</param>
     void PrepareClose(UiharuWindowBase window);
+
+    /// <summary>确定真关（没进缓存、没被取消）之后、原生窗口销毁之前。</summary>
+    /// <param name="window">目标窗口</param>
+    void BeforeDestroy(UiharuWindowBase window);
 }

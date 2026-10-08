@@ -20,4 +20,8 @@ public class DefaultWindowFocusBehavior : IWindowFocusBehavior
     public void PrepareClose(UiharuWindowBase window)
     {
     }
+
+    public void BeforeDestroy(UiharuWindowBase window)
+    {
+    }
 }
