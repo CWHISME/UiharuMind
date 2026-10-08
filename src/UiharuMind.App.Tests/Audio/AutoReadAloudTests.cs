@@ -12,7 +12,8 @@ namespace UiharuMind.App.Tests.Audio;
 
 /// <summary>
 /// 新回复自动朗读：只念开了的角色、按各自的声音、连着几条按顺序念；群里按每条的发言人；
-/// 用户、旁白、化身代发不念；被停后排着的不再念；关掉自动朗读只停自动念的；别处在念就等它念完
+/// 用户、旁白、化身代发不念；被停后排着的不再念；关掉自动朗读只停自动念的；别处在念就等它念完；
+/// 智能体开口排进同一队、用角色声音配它给的语气，没念完如实回报
 /// </summary>
 public class AutoReadAloudTests
 {
@@ -97,6 +98,34 @@ public class AutoReadAloudTests
         Assert.Same(manual, _service.Owner); //手点的不动
         _service.Stop();
         await reading.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task AgentSpeech_UsesTheCharactersVoiceWithItsOwnTone_AndQueuesBehindAutoRead()
+    {
+        _readAloud.ReadNew([Assistant("Reply.")], "alice");
+        Task<bool> spoken = _readAloud.SpeakAsync(new SpeechRequest("Psst.", "whispering"), "alice");
+        Task<bool> plain = _readAloud.SpeakAsync(new SpeechRequest("Hello."), "quiet");
+        _player.FinishAll = true;
+        _player.Release();
+
+        Assert.True(await spoken.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.True(await plain.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.Equal([("Reply.", "a", null), ("Psst.", "a", "whispering"), ("Hello.", null, null)],
+            _tts.Requests.Select(x => (x.Text, x.Voice, x.Instruction)));
+    }
+
+    [Fact]
+    public async Task AgentSpeech_StoppedOrDropped_ReportsNotHeard()
+    {
+        Task<bool> first = _readAloud.SpeakAsync(new SpeechRequest("One."), "alice");
+        Task<bool> second = _readAloud.SpeakAsync(new SpeechRequest("Two."), "alice");
+        await _player.Started.WaitAsync(TimeSpan.FromSeconds(5));
+
+        _service.Stop();
+
+        Assert.False(await first.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.False(await second.WaitAsync(TimeSpan.FromSeconds(5))); //排着的一并作废，智能体不会干等
     }
 
     [Fact]

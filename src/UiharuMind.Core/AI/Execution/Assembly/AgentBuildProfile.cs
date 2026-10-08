@@ -16,6 +16,7 @@ using UiharuMind.Core.Configs;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.ToolCall;
+using UiharuMind.Core.AI.Audio;
 
 namespace UiharuMind.Core.AI.Execution.Assembly;
 
@@ -128,6 +129,11 @@ public class AgentBuildProfile
     public Func<bool>? IsAttendedSource { get; init; }
 
     /// <summary>
+    /// 把一段话交给界面念（<c>Speak</c> 工具）；没有会话（编辑页预演）为 null，不挂这个工具
+    /// </summary>
+    public Func<SpeechRequest, Task<bool>>? SpeechSink { get; init; }
+
+    /// <summary>
     /// 实际生效的能力配置。群成员不委派（ADR 0046 修订）：群里的话是说给全群的，
     /// 派出去的子代理群里看不见、群视图停不了，它的报告还会被当成用户的话。
     /// 快照与装配都经这一处，判据不会两边漂移
@@ -204,6 +210,7 @@ public class AgentBuildProfile
             SessionShellApprovalSource = sessionShellApprovalSource,
             IsAttendedSource = isAttendedSource,
             SubSessionStarted = subSessionStarted,
+            SpeechSink = session.RequestSpeechAsync,
         };
     }
 

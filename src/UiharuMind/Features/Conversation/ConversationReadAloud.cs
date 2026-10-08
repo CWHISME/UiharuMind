@@ -14,7 +14,8 @@ namespace UiharuMind.Features.Conversation;
 
 /// <summary>
 /// 给会话里的文本气泡接上朗读，并把朗读服务的状态映回正在念的那一条；按说话的角色取声音。
-/// 开了「新回复自动朗读」的角色，新落盘的回复排队念（连着几条按顺序，被停就不再往下念）。
+/// 开了「新回复自动朗读」的角色，新落盘的回复排队念（连着几条按顺序，被停就不再往下念）；
+/// 智能体用 Speak 工具开口也排进同一队。
 /// 朗读不改历史，所以不和编辑 / 删除那组动作放在一起；条目进集合即接，不等一轮结束
 /// </summary>
 public sealed class ConversationReadAloud : IDisposable
@@ -22,7 +23,7 @@ public sealed class ConversationReadAloud : IDisposable
     private readonly ObservableCollection<ConversationItemBase> _items;
     private readonly IReadAloudService _service;
     private readonly CharacterSpeechStyles? _styles;
-    private readonly Queue<(object Owner, string Text, SpeechStyle? Style)> _pending = new(); //等着自动念的
+    private readonly Queue<PendingSpeech> _pending = new(); //等着念的（自动朗读、智能体开口）
     private ConversationItemBase? _active; //上次标成在念的那一条
     private TaskCompletionSource? _idle; //等别处的朗读念完
     private object? _autoOwner; //正在自动念的那一条
@@ -47,7 +48,7 @@ public sealed class ConversationReadAloud : IDisposable
     {
         _items.CollectionChanged -= OnItemsChanged;
         _service.StateChanged -= OnStateChanged;
-        _pending.Clear();
+        DropPending();
     }
 
     /// <summary>
@@ -68,10 +69,26 @@ public sealed class ConversationReadAloud : IDisposable
             // 有气泡就让气泡显示「在念」；还没配上就拿消息本身当来源
             object owner = _items.OfType<TextConversationItem>().LastOrDefault(x => ReferenceEquals(x.SourceMessage, message))
                            ?? (object)message;
-            _pending.Enqueue((owner, message.Text, _styles.For(speaker)));
+            _pending.Enqueue(new PendingSpeech(owner, message.Text, _styles.For(speaker)));
         }
 
         if (_pending.Count > 0 && !_isDraining) _ = DrainAsync();
+    }
+
+    /// <summary>
+    /// 智能体开口：用这个角色的声音、请求里给的语气（没给用角色卡上的），排在自动朗读后面念
+    /// </summary>
+    /// <param name="request">念什么、什么语气</param>
+    /// <param name="characterId">说话的角色</param>
+    /// <returns>念到了结尾为 true；被停、失败为 false</returns>
+    public Task<bool> SpeakAsync(SpeechRequest request, string? characterId)
+    {
+        SpeechStyle? style = _styles?.For(characterId);
+        if (request.Instruction != null) style = (style ?? new SpeechStyle()) with { Instruction = request.Instruction };
+        PendingSpeech speech = new(request, request.Text, style, new TaskCompletionSource<bool>());
+        _pending.Enqueue(speech);
+        if (!_isDraining) _ = DrainAsync();
+        return speech.Done!.Task;
     }
 
     /// <summary>
@@ -79,7 +96,7 @@ public sealed class ConversationReadAloud : IDisposable
     /// </summary>
     public void StopAuto()
     {
-        _pending.Clear();
+        DropPending();
         if (_autoOwner != null && ReferenceEquals(_service.Owner, _autoOwner)) _service.Stop();
     }
 
@@ -89,7 +106,7 @@ public sealed class ConversationReadAloud : IDisposable
         _isDraining = true;
         try
         {
-            while (_pending.TryDequeue(out (object Owner, string Text, SpeechStyle? Style) next))
+            while (_pending.TryDequeue(out PendingSpeech? next))
             {
                 if (_service.State != EReadAloudState.Idle)
                 {
@@ -100,13 +117,19 @@ public sealed class ConversationReadAloud : IDisposable
                 _autoOwner = next.Owner;
                 bool finished = await _service.ToggleAsync(next.Owner, next.Text, next.Style);
                 _autoOwner = null;
-                if (!finished) _pending.Clear();
+                next.Done?.TrySetResult(finished);
+                if (!finished) DropPending();
             }
         }
         finally
         {
             _isDraining = false;
         }
+    }
+
+    private void DropPending()
+    {
+        while (_pending.TryDequeue(out PendingSpeech? dropped)) dropped.Done?.TrySetResult(false);
     }
 
     private void OnItemsChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -133,3 +156,8 @@ public sealed class ConversationReadAloud : IDisposable
         if (_service.State == EReadAloudState.Idle) _idle?.TrySetResult();
     }
 }
+
+/// <summary>
+/// 排着等念的一段：来源（气泡或请求本身，用来认「在念」）、文字、声音；智能体开口的带个完成信号
+/// </summary>
+internal sealed record PendingSpeech(object Owner, string Text, SpeechStyle? Style, TaskCompletionSource<bool>? Done = null);

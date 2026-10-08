@@ -34,6 +34,9 @@ public enum EAgentCapability
     /// <summary>生图与改图(委托生图模型)</summary>
     ImageGeneration,
 
+    /// <summary>朗读(用角色的声音念给用户听)</summary>
+    Speak,
+
     /// <summary>知识库检索</summary>
     KnowledgeSearch,
 

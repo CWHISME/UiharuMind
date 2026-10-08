@@ -198,6 +198,12 @@ internal static class AgentAssembler
                 EndAwayTool.Create(() => GroupAwayController.Instance.IsInfiniteByAvatar(avatarId)));
         }
 
+        // 群成员不挂：用户看的是群壳，成员会话不在界面上，念了也没人接
+        if (config.EnableSpeak && !plan.Profile.IsGroupMember && plan.Profile.SpeechSink is { } speechSink)
+        {
+            Add(EAgentCapability.Speak, SpeakTool.Create(speechSink));
+        }
+
         if (config.EnableKnowledgeSearchTool)
         {
             Add(EAgentCapability.KnowledgeSearch, KnowledgeTool.Create(plan.Profile.SessionKnowledgeSource));

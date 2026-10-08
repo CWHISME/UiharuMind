@@ -24,6 +24,7 @@ using System.Threading;
 using System;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
+using UiharuMind.Core.AI.Audio;
 using UiharuMind.Features.Audio;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Shell;
@@ -578,7 +579,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         // 登记在册的才放行审批请求——嵌套审批的卡只该在子窗口弹,普通会话的观察窗弹出来也没人听
         _signalHandlers = new SessionSignalHandlers(_turns.ResolveApprovalsAsync, OnSessionHistoryAppended,
             OnSessionHistoryReplaced, OnObservedTurnEnded,
-            new LiveObserverSink(_transcript, _approvalAdopter.AllowsObservedApproval), _transcript);
+            new LiveObserverSink(_transcript, _approvalAdopter.AllowsObservedApproval), _transcript,
+            OnSpeechRequested);
         _driver.StateChanged += OnDriverStateChanged;
         PendingWork.Changed += OnPendingWorkChanged;
         SessionManager.Instance.Running.StateChanged += OnSessionRunStateChanged;
@@ -1491,6 +1493,12 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         OnPropertyChanged(nameof(AutoReadAloud));
         Tray.NotifyVisionStateChanged();
     }
+
+    // 智能体要开口：只在界面正看着这个会话时念，用会话角色的声音、它这一句给的语气
+    private Task<bool> OnSpeechRequested(SpeechRequest request) =>
+        Dispatcher.UIThread.InvokeAsync(() => IsDisplayed && _readAloud != null
+            ? _readAloud.SpeakAsync(request, SessionCharacter.CharacterId)
+            : Task.FromResult(false));
 
     // 开关存在角色卡上：同一个角色的别的会话、角色编辑里都跟着变。关掉时正在自动念的也停
     [RelayCommand]

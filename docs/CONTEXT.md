@@ -916,6 +916,8 @@ _Avoid_: 播放（那是播放器的事）、TTS（那是技术）
 群聊里各念各的。没设、或指的服务与模型已不在，就跟默认走。
 角色另有「新回复自动朗读」开关（`CharacterData.AutoReadAloud`）：只念正在看的会话里新落盘的助手正文，
 连着几条排队念，被停就丢掉后面排着的，别处在念就等它念完。
+智能体可开「开口说话」能力（`AgentToolConfig.EnableSpeak`，默认关）：`Speak` 工具经会话的 `SpeechRequested`
+交给正在显示它的界面，用角色声音、这一句自带的语气念，与自动朗读同一队；念完才返回，没在看、被停就如实回报没出声。群成员不挂。
 类型：`SpeechStyle`、`CharacterSpeechStyles`
 _Avoid_: 角色音色（音色只是其中一项）
 

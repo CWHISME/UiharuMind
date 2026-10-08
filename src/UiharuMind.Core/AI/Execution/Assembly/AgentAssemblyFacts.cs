@@ -99,6 +99,9 @@ public sealed record AgentAssemblyFacts
     /// <summary>生图工具挂没挂：角色开着且配了生图模型（新增第一个生图模型即触发重建）</summary>
     public bool ImageGeneration { get; init; }
 
+    /// <summary>朗读工具挂没挂（群成员不挂）</summary>
+    public bool Speak { get; init; }
+
     /// <summary>知识库检索工具开关</summary>
     public bool KnowledgeSearchTool { get; init; }
 
@@ -243,6 +246,7 @@ public sealed record AgentAssemblyFacts
             ScheduledTasks = isAgent && config.EnableScheduledTasks,
             VisionTool = isAgent && config.EnableVisionTool,
             ImageGeneration = isAgent && config.EnableImageGeneration && inputs.ImageModelsConfigured,
+            Speak = isAgent && config.EnableSpeak && inputs.GroupScene.Length == 0,
             KnowledgeSearchTool = isAgent && config.EnableKnowledgeSearchTool,
             SubAgent = isAgent && config.EnableSubAgent,
             // 名字与描述一并入账:花名册固化的正是这两样,改名改描述模型也该重新看见

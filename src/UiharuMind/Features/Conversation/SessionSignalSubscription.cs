@@ -8,7 +8,9 @@
  ****************************************************************************/
 
 using System;
+using System.Threading.Tasks;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Audio;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
 
@@ -23,13 +25,15 @@ namespace UiharuMind.Features.Conversation;
 /// <param name="TurnEnded">观察的那一轮结束了</param>
 /// <param name="LiveSink">实时内容流的落点</param>
 /// <param name="LiveIdentity">落点的身份：自己驱动时按它去重，不会渲染两遍</param>
+/// <param name="SpeechRequested">智能体要开口（Speak 工具）；来自工具线程。null 不接</param>
 public sealed record SessionSignalHandlers(
     ApprovalResolver ResolveApprovals,
     Action<int> HistoryAppended,
     Action<int, ChatMessage> HistoryReplaced,
     Action TurnEnded,
     ITurnSink LiveSink,
-    object LiveIdentity);
+    object LiveIdentity,
+    Func<SpeechRequest, Task<bool>>? SpeechRequested = null);
 
 /// <summary>
 /// 视图挂在一个会话上的全部信号：钉住历史、唤醒轮审批、历史追加与替换、实时内容流与轮末。
@@ -63,6 +67,7 @@ public sealed class SessionSignalSubscription : IDisposable
         // 这一轮跑到一半才挂上来也补得齐(尚未落盘的那一段会当场补发)
         _liveObservation = session.LiveTurn.Observe(handlers.LiveSink, handlers.LiveIdentity);
         session.LiveTurn.TurnEnded += handlers.TurnEnded;
+        if (handlers.SpeechRequested != null) session.SpeechRequested += handlers.SpeechRequested;
     }
 
     /// <summary>摘掉全部信号（重复调用无害）</summary>
@@ -74,6 +79,7 @@ public sealed class SessionSignalSubscription : IDisposable
         _session.HistoryAppended -= _handlers.HistoryAppended;
         _session.HistoryMessageReplaced -= _handlers.HistoryReplaced;
         _session.LiveTurn.TurnEnded -= _handlers.TurnEnded;
+        if (_handlers.SpeechRequested != null) _session.SpeechRequested -= _handlers.SpeechRequested;
         _liveObservation.Dispose();
         _pin.Dispose();
     }

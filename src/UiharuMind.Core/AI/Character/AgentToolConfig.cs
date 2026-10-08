@@ -33,6 +33,11 @@ public class AgentToolConfig
     /// </summary>
     public bool EnableImageGeneration { get; set; }
 
+    /// <summary>
+    /// 启用朗读工具(Speak,用角色的声音把一段话念给用户听)。默认关:会突然出声,要的在编辑页自己开
+    /// </summary>
+    public bool EnableSpeak { get; set; }
+
     /// <summary>启用知识库检索工具(KnowledgeSearch,检索会话挂载的嵌入知识库)</summary>
     public bool EnableKnowledgeSearchTool { get; set; }
 
@@ -79,6 +84,7 @@ public class AgentToolConfig
             EnableScheduledTasks = EnableScheduledTasks && other.EnableScheduledTasks,
             EnableVisionTool = EnableVisionTool && other.EnableVisionTool,
             EnableImageGeneration = EnableImageGeneration && other.EnableImageGeneration,
+            EnableSpeak = EnableSpeak && other.EnableSpeak,
             EnableKnowledgeSearchTool = EnableKnowledgeSearchTool && other.EnableKnowledgeSearchTool,
             EnableSubAgent = EnableSubAgent && other.EnableSubAgent,
             EnableTodoList = EnableTodoList && other.EnableTodoList,

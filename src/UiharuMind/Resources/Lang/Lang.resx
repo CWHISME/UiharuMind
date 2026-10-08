@@ -3530,6 +3530,12 @@ Allow them?</value>
     <data name="AgentGateDescImageGeneration" xml:space="preserve">
         <value>Lets the agent generate or edit images with the image models configured on the Models page, trying them in list order. Only mounted when at least one image model is configured.</value>
     </data>
+    <data name="AgentSettingCapSpeak" xml:space="preserve">
+        <value>Speak aloud</value>
+    </data>
+    <data name="AgentGateDescSpeak" xml:space="preserve">
+        <value>Lets the agent say things aloud in its read-aloud voice, choosing the tone line by line. It only makes sound while you are viewing the conversation; not mounted for group members.</value>
+    </data>
     <data name="ModelPageChatModelsTab" xml:space="preserve">
         <value>Chat models</value>
     </data>

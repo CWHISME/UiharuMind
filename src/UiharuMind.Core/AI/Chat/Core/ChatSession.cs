@@ -22,6 +22,7 @@ using UiharuMind.Core.AI.Memory;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Core.AI.Audio;
 
 namespace UiharuMind.Core.AI.Chat;
 
@@ -328,6 +329,28 @@ public class ChatSession
     /// ⚠️ <b>可能来自后台线程</b>（子代理与定时任务都不在 UI 线程上），订阅方自行 marshal。
     /// </summary>
     public event Action<int>? HistoryAppended;
+
+    /// <summary>
+    /// 智能体想把一段话念给用户听（<c>Speak</c> 工具）。正在显示这个会话的界面接手、念完返回 true；
+    /// 没人接（没在看）就是没出声。⚠️ 来自工具调用的线程，订阅方自行 marshal
+    /// </summary>
+    public event Func<SpeechRequest, Task<bool>>? SpeechRequested;
+
+    /// <summary>
+    /// 请界面把这段话念出来
+    /// </summary>
+    /// <param name="request">念什么、什么语气</param>
+    /// <returns>有界面接手且念到了结尾为 true</returns>
+    public async Task<bool> RequestSpeechAsync(SpeechRequest request)
+    {
+        foreach (Func<SpeechRequest, Task<bool>> handler in
+                 SpeechRequested?.GetInvocationList().Cast<Func<SpeechRequest, Task<bool>>>() ?? [])
+        {
+            if (await handler(request).ConfigureAwait(false)) return true;
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// 框架完成了<b>一次服务调用</b>并把它的请求与响应落进了历史。

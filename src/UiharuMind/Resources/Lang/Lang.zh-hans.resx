@@ -3523,6 +3523,12 @@
     <data name="AgentGateDescImageGeneration" xml:space="preserve">
         <value>让智能体用模型页配置的生图模型出图、改图，按列表顺序回退。至少配了一个生图模型才会挂载。</value>
     </data>
+    <data name="AgentSettingCapSpeak" xml:space="preserve">
+        <value>开口说话</value>
+    </data>
+    <data name="AgentGateDescSpeak" xml:space="preserve">
+        <value>让智能体用「朗读声音」里设的声音把一段话念给你听，每句可自己定语气。只在你正看着这个会话时出声；群成员不挂。</value>
+    </data>
     <data name="ModelPageChatModelsTab" xml:space="preserve">
         <value>对话模型</value>
     </data>
