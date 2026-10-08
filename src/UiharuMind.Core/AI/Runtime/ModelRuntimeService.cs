@@ -81,6 +81,7 @@ internal sealed class ModelRuntimeService
         Action? onLoaded = null)
     {
         if (runningData.IsRunning) return true;
+        if (runningData.IsLoading) return false; //别人正在拉起它，再起一份就是双跑
 
         CancellationToken token = runningData.BeginLoading();
         bool loaded = false;
@@ -89,12 +90,11 @@ internal sealed class ModelRuntimeService
         {
             await Run(runningData.ModelInfo, loadingPercent =>
             {
-                runningData.UpdateLoading(loadingPercent);
+                runningData.UpdateLoading(loadingPercent, token);
                 onLoading?.Invoke(loadingPercent);
             }, chatClient =>
             {
-                runningData.CompleteLoading(chatClient, runtimeContextSize);
-                loaded = true;
+                loaded = runningData.CompleteLoading(chatClient, runtimeContextSize, token);
                 onLoaded?.Invoke();
             }, token, parameters => runtimeContextSize = parameters.ContextSize).ConfigureAwait(false);
 
@@ -108,12 +108,12 @@ internal sealed class ModelRuntimeService
         {
             Log.Error(e.Message);
             if (loaded) runningData.FailRunning(e);
-            else runningData.FailLoading(e);
+            else runningData.FailLoading(e, token);
             return false;
         }
         finally
         {
-            if (!loaded && runningData.LastError == null) runningData.FailLoading();
+            if (!loaded && runningData.LastError == null) runningData.FailLoading(loadToken: token);
         }
     }
 
