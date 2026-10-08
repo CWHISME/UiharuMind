@@ -3538,6 +3538,12 @@
     <data name="AgentGateDescSpeechSynthesis" xml:space="preserve">
         <value>让智能体把文字合成成音频文件（存进草稿目录的 audio 下），按角色名用那个角色的朗读声音，不点就用自己的。不出声，适合配音、旁白。</value>
     </data>
+    <data name="ToolAudioPlay" xml:space="preserve">
+        <value>播放这段配音</value>
+    </data>
+    <data name="ToolAudioStop" xml:space="preserve">
+        <value>停止</value>
+    </data>
     <data name="ModelPageChatModelsTab" xml:space="preserve">
         <value>对话模型</value>
     </data>

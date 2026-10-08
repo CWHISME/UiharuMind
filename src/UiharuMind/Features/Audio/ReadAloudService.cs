@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -51,6 +52,14 @@ public interface IReadAloudService
     /// <param name="preview">是试听：就要听指定的那个，失败也不换本地</param>
     /// <returns>念到了结尾为 true；被停、被打断、失败、没字可念为 false</returns>
     Task<bool> ToggleAsync(object owner, string text, SpeechStyle? style = null, bool preview = false);
+
+    /// <summary>
+    /// 放一个音频文件（如智能体配好的音）；它正在放就停。与朗读同一路，互相打断
+    /// </summary>
+    /// <param name="owner">来源（如工具卡），用来认「再点一次是停」</param>
+    /// <param name="path">wav / mp3 文件</param>
+    /// <returns>放到了结尾为 true；被停、被打断、失败为 false</returns>
+    Task<bool> PlayFileAsync(object owner, string path);
 
     /// <summary>
     /// 停
@@ -108,9 +117,7 @@ public sealed class ReadAloudService : IReadAloudService
             return false;
         }
 
-        CancellationTokenSource session = new();
-        _session = session;
-        SetState(owner, EReadAloudState.Preparing);
+        CancellationTokenSource session = Begin(owner, EReadAloudState.Preparing);
         AudioSynthesisRequest request = new("", style?.Voice, Speed(style?.Speed), style?.Model,
             SpeechText.DetectLanguage(clean), style?.Instruction);
         Task<AudioSynthesisResult>? next = null;
@@ -146,16 +153,52 @@ public sealed class ReadAloudService : IReadAloudService
         finally
         {
             Discard(next);
-            if (_session == session)
-            {
-                _session = null;
-                SetState(null, EReadAloudState.Idle);
-            }
-
-            session.Dispose();
+            End(session);
         }
 
         return finished;
+    }
+
+    public async Task<bool> PlayFileAsync(object owner, string path)
+    {
+        if (ReferenceEquals(owner, Owner))
+        {
+            Stop();
+            return false;
+        }
+
+        Stop();
+        EAudioFormat? format = Path.GetExtension(path).ToLowerInvariant() switch
+        {
+            ".wav" => EAudioFormat.Wav,
+            ".mp3" => EAudioFormat.Mp3,
+            _ => null
+        };
+        CancellationTokenSource session = Begin(owner, EReadAloudState.Speaking);
+        try
+        {
+            if (format == null) throw new NotSupportedException($"Cannot play '{Path.GetFileName(path)}'.");
+            byte[] bytes = await File.ReadAllBytesAsync(path, session.Token);
+            await using MemoryStream stream = new(bytes, false);
+            return await _player.PlayAsync(new AudioSynthesisResult(stream, format.Value), session.Token);
+        }
+        catch (OperationCanceledException) when (session.IsCancellationRequested)
+        {
+            return false;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or AudioDeviceException
+                                      or NotSupportedException)
+        {
+            Log.Warning($"Play audio file failed: {e.Message}");
+            if (_session == session)
+                _messages.ShowNotification(Loc.Text(LangKey.ReadAloudFailed, AudioErrorText.Describe(e)),
+                    severity: MessageSeverity.Warning);
+            return false;
+        }
+        finally
+        {
+            End(session);
+        }
     }
 
     public void Stop()
@@ -168,6 +211,26 @@ public sealed class ReadAloudService : IReadAloudService
     }
 
     // 指定了（角色自己的语速）用指定的，否则跟全局
+    private CancellationTokenSource Begin(object owner, EReadAloudState state)
+    {
+        CancellationTokenSource session = new();
+        _session = session;
+        SetState(owner, state);
+        return session;
+    }
+
+    // 还是这一路就回到空闲（被新的一路顶掉的不动状态）
+    private void End(CancellationTokenSource session)
+    {
+        if (_session == session)
+        {
+            _session = null;
+            SetState(null, EReadAloudState.Idle);
+        }
+
+        session.Dispose();
+    }
+
     private float? Speed(float? own)
     {
         float speed = Math.Clamp(own ?? _speed?.Invoke() ?? 1f, AudioSettingConfig.MinSpeed, AudioSettingConfig.MaxSpeed);

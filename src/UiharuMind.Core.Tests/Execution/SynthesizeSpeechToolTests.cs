@@ -36,6 +36,7 @@ public sealed class SynthesizeSpeechToolTests : IDisposable
 
         Assert.StartsWith("Saved: ", result);
         Assert.Contains("Alice", result);
+        Assert.Equal("$DRAFT/audio/", SynthesizeSpeechTool.ParseSavedPaths(result).Single()[..13]); //卡片据此找文件
         Assert.All(_requests, x =>
         {
             Assert.Equal(AudioCppProvider.LocalId, x.Provider);

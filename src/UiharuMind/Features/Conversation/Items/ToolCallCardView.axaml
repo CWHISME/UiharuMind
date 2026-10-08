@@ -129,6 +129,26 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+            <!-- 配音产出：收起时也能放，与消息朗读同一路 -->
+            <Border IsVisible="{Binding HasResultAudio}" Margin="0,6,0,0" Padding="6,4" CornerRadius="6"
+                    HorizontalAlignment="Left" BorderThickness="1" BorderBrush="{DynamicResource SemiGrey3}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Panel Width="28" Height="28">
+                        <ThemedIconButton IconName="play" ToolTips="{loc:Loc ToolAudioPlay}"
+                                          Command="{Binding PlayResultAudioCommand}"
+                                          IsVisible="{Binding !IsReadingAloud}" />
+                        <ThemedIconButton IconName="stop" CurrentColor="Red" ToolTips="{loc:Loc ToolAudioStop}"
+                                          Command="{Binding PlayResultAudioCommand}"
+                                          IsVisible="{Binding IsReadingAloud}" />
+                    </Panel>
+                    <sh:ThemedSvgIcon Width="14" Height="14" IconName="audio-lines" Opacity="0.7"
+                                            VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding ResultAudioName}" VerticalAlignment="Center" FontSize="12"
+                               TextTrimming="CharacterEllipsis" MaxWidth="320" ToolTip.Tip="{Binding ResultAudioPath}" />
+                    <ThemedIconButton IconName="folder-open" ToolTips="{loc:Loc ShowInExplorer}"
+                                      Command="{Binding RevealResultAudioCommand}" />
+                </StackPanel>
+            </Border>
             <ExpandReveal IsOpen="{Binding IsExpanded}">
                 <StackPanel Spacing="6" Margin="0,6,0,0">
                     <!-- 有 diff 时不再堆参数原文:diff 已经把改动讲清楚了,而 Edit 的参数原文是一段

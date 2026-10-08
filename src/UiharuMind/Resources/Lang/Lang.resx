@@ -3545,6 +3545,12 @@ Allow them?</value>
     <data name="AgentGateDescSpeechSynthesis" xml:space="preserve">
         <value>Lets the agent turn text into audio files (saved under audio in the draft folder), using a character's read-aloud voice by name, or its own. Nothing is played; for voice-overs and narration.</value>
     </data>
+    <data name="ToolAudioPlay" xml:space="preserve">
+        <value>Play this voice-over</value>
+    </data>
+    <data name="ToolAudioStop" xml:space="preserve">
+        <value>Stop</value>
+    </data>
     <data name="ModelPageChatModelsTab" xml:space="preserve">
         <value>Chat models</value>
     </data>

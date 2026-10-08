@@ -18,6 +18,9 @@ public static class SynthesizeSpeechTool
     /// <summary>草稿目录下放配音的子目录</summary>
     public const string AudioFolder = "audio";
 
+    // 结果里文件那一行，工具卡据此找音频；写与读都在本类
+    private const string SavedPrefix = "Saved: ";
+
     /// <summary>
     /// 创建配音 AIFunction
     /// </summary>
@@ -47,6 +50,13 @@ public static class SynthesizeSpeechTool
             "Nothing is played aloud. For several speakers, call once per line and join the files yourself.");
     }
 
+    /// <summary>
+    /// 从结果里取出存好的文件（工具卡上放音用）
+    /// </summary>
+    /// <param name="result">工具结果原文</param>
+    /// <returns>可移植路径，按出现顺序</returns>
+    public static IReadOnlyList<string> ParseSavedPaths(string? result) => ToolResultLines.Parse(result, SavedPrefix);
+
     private static async Task<string> SynthesizeAsync(AgentPathResolver paths, CharacterData self,
         SpeechFileSynthesizer synthesizer, Func<IEnumerable<CharacterData>> characters, string text, string? voice,
         string? tone, float? speed, CancellationToken cancellationToken)
@@ -75,7 +85,10 @@ public static class SynthesizeSpeechTool
         try
         {
             SpeechFile file = await synthesizer.SynthesizeAsync(text, style, path, cancellationToken).ConfigureAwait(false);
-            return $"Saved: {paths.ToPortable(file.Path)} ({file.Duration.TotalSeconds:0.0} s, voice of {speaker.CharacterName}).";
+            // 工具卡上能直接放，正文不必再贴路径
+            return $"{SavedPrefix}{paths.ToPortable(file.Path)}\n" +
+                   $"{file.Duration.TotalSeconds:0.0} s, voice of {speaker.CharacterName}. " +
+                   "The user can play it on this tool's card; no need to repeat the path unless asked.";
         }
         catch (Exception e) when (e is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
