@@ -33,7 +33,9 @@ public sealed class AudioCppProvider : IAudioProvider, IDisposable
         if (string.IsNullOrWhiteSpace(request.Text))
             throw new ArgumentException("Text is required.", nameof(request));
 
-        AudioCppModelEntry model = _engine.ResolveModel(EAudioCppTask.Tts);
+        AudioCppModelEntry model = string.IsNullOrEmpty(request.Model)
+            ? _engine.ResolveModel(EAudioCppTask.Tts)
+            : FindModel(request.Model);
         OpenAiCompatibleAudioClient client = await GetClientAsync(model, cancellationToken).ConfigureAwait(false);
         string? voice = request.Voice;
         if (string.IsNullOrWhiteSpace(voice) && !_engine.Settings.TtsVoices.TryGetValue(model.Id, out voice))
@@ -64,13 +66,14 @@ public sealed class AudioCppProvider : IAudioProvider, IDisposable
     /// <param name="cancellationToken">取消</param>
     /// <returns>音色 id</returns>
     /// <exception cref="AudioModelMissingException">本机没有这个模型</exception>
-    public Task<IReadOnlyList<string>> GetVoicesAsync(string modelId, CancellationToken cancellationToken)
-    {
-        AudioCppModelEntry model = _engine.GetModels().FirstOrDefault(x => x.Id == modelId) ??
-                                   _engine.GetModels(true).FirstOrDefault(x => x.Id == modelId) ??
-                                   throw new AudioModelMissingException(EAudioCppTask.Tts);
-        return GetVoicesAsync(model, cancellationToken);
-    }
+    public Task<IReadOnlyList<string>> GetVoicesAsync(string modelId, CancellationToken cancellationToken) =>
+        GetVoicesAsync(FindModel(modelId), cancellationToken);
+
+    // 缓存里没有就重扫一次（可能刚下完）
+    private AudioCppModelEntry FindModel(string modelId) =>
+        _engine.GetModels().FirstOrDefault(x => x.Id == modelId) ??
+        _engine.GetModels(true).FirstOrDefault(x => x.Id == modelId) ??
+        throw new AudioModelMissingException(EAudioCppTask.Tts);
 
     private async Task<IReadOnlyList<string>> GetVoicesAsync(AudioCppModelEntry model, CancellationToken cancellationToken)
     {

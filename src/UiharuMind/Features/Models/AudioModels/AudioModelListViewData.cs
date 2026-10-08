@@ -11,6 +11,7 @@ using UiharuMind.Core.AI.Audio;
 using UiharuMind.Core.AI.Engines;
 using UiharuMind.Core.AI.Runtime;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Features.Audio;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 
@@ -26,6 +27,8 @@ public partial class AudioModelListViewData : ObservableObject
     private readonly AudioCppEngine _engine;
     private readonly AudioCppPackageStore _store;
     private readonly Func<string, CancellationToken, Task<IReadOnlyList<string>>> _listVoices;
+    private readonly IAudioProvider _synthesizer;
+    private readonly IAudioPlayer _player;
     private readonly Action<string> _openFolder;
     private readonly Action _goToMarket;
     private readonly Action _openEngineSettings;
@@ -39,13 +42,17 @@ public partial class AudioModelListViewData : ObservableObject
     /// <param name="engine">语音引擎</param>
     /// <param name="store">模型包的删除</param>
     /// <param name="listVoices">列某个合成模型的音色（会按需拉起引擎）</param>
+    /// <param name="synthesizer">试听用的合成（按模型 id 指定模型）</param>
+    /// <param name="player">试听用的播放</param>
     /// <param name="openFolder">打开目录</param>
     /// <param name="goToMarket">去「获取模型」的语音分类</param>
     /// <param name="openEngineSettings">去设置里的「本地模型（语音）」</param>
     public AudioModelListViewData(IMessageService messageService, AudioCppEngine engine, AudioCppPackageStore store,
-        Func<string, CancellationToken, Task<IReadOnlyList<string>>> listVoices, Action<string> openFolder,
-        Action goToMarket, Action openEngineSettings)
+        Func<string, CancellationToken, Task<IReadOnlyList<string>>> listVoices, IAudioProvider synthesizer,
+        IAudioPlayer player, Action<string> openFolder, Action goToMarket, Action openEngineSettings)
     {
+        _synthesizer = synthesizer;
+        _player = player;
         _messageService = messageService;
         _engine = engine;
         _store = store;
@@ -143,16 +150,44 @@ public partial class AudioModelListViewData : ObservableObject
         {
             item.FillVoices(await _listVoices(item.Name, CancellationToken.None));
         }
-        catch (Exception e) when (e is LocalEngineNotReadyException or LocalServerException or AudioModelMissingException
-                                      or System.Net.Http.HttpRequestException)
+        catch (Exception e) when (AudioErrorText.IsExpected(e))
         {
-            string detail = e is LocalServerException server ? server.Detail : e.Message;
-            _messageService.ShowNotification(Loc.Text(LangKey.AudioVoicesLoadFailed, detail),
+            _messageService.ShowNotification(Loc.Text(LangKey.AudioVoicesLoadFailed, AudioErrorText.Describe(e)),
                 severity: MessageSeverity.Warning);
         }
         finally
         {
             item.IsLoadingVoices = false;
+        }
+    }
+
+    // 再点一下停；换一行试听会打断上一行（播放器同一时刻只放一段）
+    [RelayCommand]
+    private async Task Preview(AudioModelItemData item)
+    {
+        if (item.IsPreviewing)
+        {
+            _player.Stop();
+            return;
+        }
+
+        item.IsPreviewing = true;
+        try
+        {
+            string? voice = item.SelectedVoice is { Id.Length: > 0 } selected ? selected.Id : null;
+            AudioSynthesisResult audio = await _synthesizer.SynthesizeAsync(
+                new AudioSynthesisRequest(item.PreviewText, voice, Model: item.Name), CancellationToken.None);
+            await using (audio.Audio) await _player.PlayAsync(audio, CancellationToken.None);
+        }
+        catch (Exception e) when (AudioErrorText.IsExpected(e))
+        {
+            Log.Warning($"Preview voice model failed: {item.Name}, {e.Message}");
+            _messageService.ShowNotification(Loc.Text(LangKey.AudioPreviewFailed, AudioErrorText.Describe(e)),
+                severity: MessageSeverity.Warning);
+        }
+        finally
+        {
+            item.IsPreviewing = false;
         }
     }
 
@@ -213,7 +248,7 @@ public partial class AudioModelListViewData : ObservableObject
         {
             AudioCppFamily? family = families.GetValueOrDefault(model.Family);
             target.Add(new AudioModelItemData(model, family?.DisplayName ?? model.Family, sizes.GetValueOrDefault(model.Id),
-                family?.BuiltinVoices ?? [], _engine.Settings) { IsDefault = model.Id == defaultModel });
+                family?.BuiltinVoices ?? [], family?.Languages ?? [], _engine.Settings) { IsDefault = model.Id == defaultModel });
         }
     }
 

@@ -48,6 +48,8 @@
       <PackageReference Include="ScreenCapture.NET.DX11" Version="3.0.0" />
       <PackageReference Include="SharpCompress" Version="1.0.0" />
       <PackageReference Include="SharpHook" Version="8.0.0" />
+      <!-- 播放与录音（ADR 0071）：MIT，miniaudio 原生库三端都随包带 -->
+      <PackageReference Include="SoundFlow" Version="1.4.1" />
       <!-- Avalonia.FreeDesktop 已传递引入同一版本，这里显式声明是因为 Core 不引用 Avalonia，
            而 Wayland 下的截图必须经 xdg-desktop-portal 的 D-Bus 接口 -->
       <PackageReference Include="Tmds.DBus.Protocol" Version="0.95.1" />

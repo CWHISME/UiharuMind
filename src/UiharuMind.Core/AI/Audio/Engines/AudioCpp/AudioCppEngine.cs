@@ -276,12 +276,17 @@ public sealed class AudioCppEngine : IDisposable
 
         string exe = Path.Combine(version.ExecutablePath,
             AudioCppVersionManager.ServerExeName + (OperatingSystem.IsWindows() ? ".exe" : ""));
-        AudioCppServerOptions options = new(
-            AudioCppVariants.GetBackend(version.Name),
-            Math.Max(1, _settings.Threads),
-            Math.Max(1, _settings.MaxLoadedModels),
-            Math.Max(1, _settings.IdleUnloadMinutes) * 60_000);
-        return AudioCppServerConfig.Launch(exe, _configPath, models, options,
+        return AudioCppServerConfig.Launch(exe, _configPath, models, BuildServerOptions(version.Name, _settings),
             TimeSpan.FromSeconds(Math.Max(10, _settings.ReadyTimeoutSeconds)));
     }
+
+    /// <summary>
+    /// 设置 → server.json 顶层选项：后端随引擎包变体，设置可强制 CPU；数值兜住下限
+    /// </summary>
+    internal static AudioCppServerOptions BuildServerOptions(string packageName, AudioCppSettingConfig settings) => new(
+        settings.ForceCpu ? "cpu" : AudioCppVariants.GetBackend(packageName),
+        Math.Max(1, settings.Threads),
+        Math.Max(1, settings.MaxLoadedModels),
+        Math.Max(1, settings.IdleUnloadMinutes) * 60_000,
+        Math.Max(0, settings.MinFreeMemoryMb));
 }

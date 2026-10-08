@@ -46,6 +46,7 @@ public partial class ModelPageData : PageDataBase
     private readonly IMessageService _messageService;
     private readonly Func<ModelPageData, ModelDownloadPageData> _createDownloads;
     private readonly Func<ModelPageData, AudioModelListViewData> _createAudioModels;
+    private readonly IAudioPlayer? _audioPlayer; //默认的语音模型页签试听用；测试自备页签数据时可不给
     private readonly DownloadQueue? _downloadQueueSource; //null 走全局队列
     private readonly ObservableCollection<ModelRunningData>? _modelSources; //null 走 App.ModelService
     private bool _isWatchingSources;
@@ -83,7 +84,7 @@ public partial class ModelPageData : PageDataBase
         ModelSources.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasNoModels));
     }
     
-    public ModelPageData() : this(App.Services.GetRequiredService<IMessageService>())
+    public ModelPageData() : this(App.Services.GetRequiredService<IMessageService>(), audioPlayer: App.Services.GetRequiredService<IAudioPlayer>())
     {
     }
 
@@ -92,11 +93,13 @@ public partial class ModelPageData : PageDataBase
     /// <param name="downloadQueue">下载队列，默认全局</param>
     /// <param name="modelSources">对话模型列表，默认 App.ModelService 的</param>
     /// <param name="createAudioModels">建「语音模型」页签的数据，默认走共享的语音引擎</param>
+    /// <param name="audioPlayer">默认的语音模型页签试听用的播放</param>
     public ModelPageData(IMessageService messageService,
         Func<ModelPageData, ModelDownloadPageData>? createDownloads = null, DownloadQueue? downloadQueue = null,
         ObservableCollection<ModelRunningData>? modelSources = null,
-        Func<ModelPageData, AudioModelListViewData>? createAudioModels = null)
+        Func<ModelPageData, AudioModelListViewData>? createAudioModels = null, IAudioPlayer? audioPlayer = null)
     {
+        _audioPlayer = audioPlayer;
         _modelSources = modelSources;
         _messageService = messageService;
         _createDownloads = createDownloads ?? CreateDefaultDownloads;
@@ -150,7 +153,9 @@ public partial class ModelPageData : PageDataBase
     {
         AudioCppProvider provider = new(AudioCppEngine.Shared);
         return new AudioModelListViewData(page._messageService, AudioCppEngine.Shared, AudioCppPackageStore.Shared,
-            provider.GetVoicesAsync, path => App.FilesService.OpenFolder(path), page.ShowAudioDownloads,
+            provider.GetVoicesAsync, provider,
+            page._audioPlayer ?? throw new InvalidOperationException("No audio player for the voice models tab."),
+            path => App.FilesService.OpenFolder(path), page.ShowAudioDownloads,
             () => UIManager.ShowWindow<SettingsWindow>(window => window.ShowAudioEngineSettings()));
     }
 

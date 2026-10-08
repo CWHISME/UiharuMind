@@ -12,6 +12,8 @@ public partial class AudioCppRuntimeSettingsViewData : ObservableObject
     private readonly AudioCppEngine _engine;
     private readonly SettingsWriteBack _writeBack;
 
+    [ObservableProperty] private bool _forceCpu;
+    [ObservableProperty] private decimal _minFreeMemoryMb;
     [ObservableProperty] private decimal _threads;
     [ObservableProperty] private decimal _maxLoadedModels;
     [ObservableProperty] private decimal _idleUnloadMinutes;
@@ -25,6 +27,8 @@ public partial class AudioCppRuntimeSettingsViewData : ObservableObject
         AudioCppSettingConfig settings = engine.Settings;
         using (_writeBack.BeginLoad())
         {
+            ForceCpu = settings.ForceCpu;
+            MinFreeMemoryMb = settings.MinFreeMemoryMb;
             Threads = settings.Threads;
             MaxLoadedModels = settings.MaxLoadedModels;
             IdleUnloadMinutes = settings.IdleUnloadMinutes;
@@ -32,6 +36,8 @@ public partial class AudioCppRuntimeSettingsViewData : ObservableObject
         }
     }
 
+    partial void OnForceCpuChanged(bool value) => _writeBack.Save();
+    partial void OnMinFreeMemoryMbChanged(decimal value) => _writeBack.Save();
     partial void OnThreadsChanged(decimal value) => _writeBack.Save();
     partial void OnMaxLoadedModelsChanged(decimal value) => _writeBack.Save();
     partial void OnIdleUnloadMinutesChanged(decimal value) => _writeBack.Save();
@@ -40,6 +46,8 @@ public partial class AudioCppRuntimeSettingsViewData : ObservableObject
     private void Apply()
     {
         AudioCppSettingConfig settings = _engine.Settings;
+        settings.ForceCpu = ForceCpu;
+        settings.MinFreeMemoryMb = (int)MinFreeMemoryMb;
         settings.Threads = (int)Threads;
         settings.MaxLoadedModels = (int)MaxLoadedModels;
         settings.IdleUnloadMinutes = (int)IdleUnloadMinutes;

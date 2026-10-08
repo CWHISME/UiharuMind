@@ -21,22 +21,27 @@ public sealed record VoiceOption(string Id, string DisplayName);
 /// </summary>
 public partial class AudioModelItemData : ObservableObject
 {
+    private const string EnglishPreviewText = "Hello, this is a preview of this voice model.";
+
     private readonly AudioCppSettingConfig _settings;
     private bool _isFilling; //回填音色时不写设置
 
     [ObservableProperty] private bool _isDefault;
     [ObservableProperty] private VoiceOption? _selectedVoice;
     [ObservableProperty] private bool _isLoadingVoices;
+    [ObservableProperty] private bool _isPreviewing;
 
     /// <param name="entry">扫描到的模型</param>
     /// <param name="familyName">家族显示名；引擎没装、认不出时用家族 id</param>
     /// <param name="sizeBytes">gguf 文件大小</param>
     /// <param name="builtinVoices">spec 里的预置音色（不必启动引擎就能选）</param>
+    /// <param name="languages">spec 里的语种（挑试听的句子）；引擎没装时为空</param>
     /// <param name="settings">语音引擎设置（存音色）</param>
     public AudioModelItemData(AudioCppModelEntry entry, string familyName, long sizeBytes,
-        IReadOnlyList<string> builtinVoices, AudioCppSettingConfig settings)
+        IReadOnlyList<string> builtinVoices, IReadOnlyList<string> languages, AudioCppSettingConfig settings)
     {
         _settings = settings;
+        Languages = languages;
         Entry = entry;
         FamilyName = familyName;
         SizeText = sizeBytes > 0 ? UiharuMind.Core.Core.Utils.GameUtils.FormatBytes(sizeBytes) : "";
@@ -49,6 +54,25 @@ public partial class AudioModelItemData : ObservableObject
     public AudioCppModelEntry Entry { get; }
 
     public string Name => Entry.Id;
+
+    /// <summary>
+    /// 语种代码
+    /// </summary>
+    public IReadOnlyList<string> Languages { get; }
+
+    /// <summary>
+    /// 试听念的句子：模型会说界面语言就用界面语言，否则念英文（大多数模型都会）
+    /// </summary>
+    public string PreviewText
+    {
+        get
+        {
+            string language = LocalizationManager.Instance.CurrentCulture.TwoLetterISOLanguageName;
+            return Languages.Any(x => x.StartsWith(language, StringComparison.OrdinalIgnoreCase))
+                ? Loc.Text(LangKey.AudioPreviewText)
+                : EnglishPreviewText;
+        }
+    }
 
     public string FamilyName { get; }
 

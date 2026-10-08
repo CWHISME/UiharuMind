@@ -4624,4 +4624,46 @@ Allow them?</value>
     <data name="AudioFamilyVoicesMore" xml:space="preserve">
         <value>{0} and more ({1} in total)</value>
     </data>
+    <data name="AudioForceCpu" xml:space="preserve">
+        <value>CPU only</value>
+    </data>
+    <data name="AudioForceCpuDesc" xml:space="preserve">
+        <value>Skip GPU backends such as Metal or Vulkan. Upstream GPU support doesn't cover every model; turn this on if a model fails to load or sounds wrong. It will be slower.</value>
+    </data>
+    <data name="AudioMinFreeMemory" xml:space="preserve">
+        <value>Keep free after loading (MB)</value>
+    </data>
+    <data name="AudioMinFreeMemoryDesc" xml:space="preserve">
+        <value>Refuse to load a model if less than this much memory or GPU memory would be left. 0 disables the check.</value>
+    </data>
+    <data name="AudioPreviewText" xml:space="preserve">
+        <value>Hello, this is a preview of this voice model.</value>
+    </data>
+    <data name="AudioPreviewTip" xml:space="preserve">
+        <value>Preview (starts the voice engine the first time)</value>
+    </data>
+    <data name="AudioPreviewStopTip" xml:space="preserve">
+        <value>Stop preview</value>
+    </data>
+    <data name="AudioPreviewFailed" xml:space="preserve">
+        <value>Preview failed: {0}</value>
+    </data>
+    <data name="AudioErrorNoEngine" xml:space="preserve">
+        <value>audio.cpp is not installed. Install it under Local Models (Voice) in settings.</value>
+    </data>
+    <data name="AudioErrorServer" xml:space="preserve">
+        <value>The voice engine failed to start: {0}</value>
+    </data>
+    <data name="AudioErrorNoTtsModel" xml:space="preserve">
+        <value>No speech synthesis model yet. Download one under Voice models in Get models.</value>
+    </data>
+    <data name="AudioErrorNoAsrModel" xml:space="preserve">
+        <value>No speech recognition model yet. Download one under Voice models in Get models.</value>
+    </data>
+    <data name="AudioErrorMemory" xml:space="preserve">
+        <value>Not enough memory, so the model was not loaded. Close other apps or lower "Keep free after loading" in settings. ({0})</value>
+    </data>
+    <data name="AudioErrorDevice" xml:space="preserve">
+        <value>No audio device available: {0}</value>
+    </data>
 </root>

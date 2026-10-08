@@ -23,5 +23,8 @@
 	<string>1.0</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<!-- 语音输入要麦克风：没有这条说明，打包后的应用一碰麦克风就会被系统直接终止 -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>UiharuMind 用麦克风做语音输入，录音只交给本机或你配置的语音识别服务。</string>
 </dict>
 </plist>

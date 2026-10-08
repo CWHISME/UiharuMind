@@ -258,7 +258,7 @@ public sealed class OpenAiCompatibleAudioClient : IDisposable
     {
         if (response.IsSuccessStatusCode) return;
         string body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        throw new HttpRequestException($"Audio request failed: {(int)response.StatusCode} {body}");
+        throw AudioServiceException.FromResponse(response.StatusCode, body);
     }
 
     private static async Task<byte[]> ReadAllAsync(Stream stream, CancellationToken cancellationToken)

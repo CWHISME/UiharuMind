@@ -27,6 +27,8 @@ public class AudioModelTabsTests : IDisposable
     private const long GiB = 1L << 30;
     private readonly RecordingMessageService _messages = new();
     private readonly List<string> _openedFolders = [];
+    private readonly FakeAudioProvider _synthesizer = new();
+    private readonly RecordingAudioPlayer _player = new();
     private TestAudioEngine? _audio;
     private Window? _window;
 
@@ -171,6 +173,38 @@ public class AudioModelTabsTests : IDisposable
     }
 
     [Fact]
+    public void InstalledTab_Preview_SynthesizesWithThatModelAndVoice_AndExplainsFailures()
+    {
+        HeadlessUi.RunAsync(async () =>
+        {
+            TestAudioEngine audio = new(scanModels: () =>
+                [new AudioCppModelEntry("pocket-tts-english-q8_0", "pocket_tts", "/m", "tts", ModelFile: "/m/p.gguf")]);
+            ModelPageData data = Open(audio);
+            data.ShowAudioModels();
+            await Settle(() => data.AudioModels!.IsLoaded);
+            AudioModelItemData item = Assert.Single(data.AudioModels!.TtsModels);
+            item.SelectedVoice = item.Voices.Single(x => x.Id == "alba");
+
+            await data.AudioModels.PreviewCommand.ExecuteAsync(item);
+
+            AudioSynthesisRequest request = Assert.Single(_synthesizer.Requests);
+            Assert.Equal("pocket-tts-english-q8_0", request.Model); //试听的是这一行，不是默认模型
+            Assert.Equal("alba", request.Voice);
+            Assert.StartsWith("Hello", request.Text); //PocketTTS 只会英语之类，不念界面语言
+            Assert.Equal(EAudioFormat.Wav, Assert.Single(_player.Played).Format);
+            Assert.False(item.IsPreviewing);
+
+            // 内存保护拒绝加载：翻成人话，不甩英文原文的 503
+            _synthesizer.Error = AudioServiceException.FromResponse(System.Net.HttpStatusCode.ServiceUnavailable,
+                """{"error":{"message":"estimated 0.30 GiB exceeds available","type":"insufficient_memory"}}""");
+            await data.AudioModels.PreviewCommand.ExecuteAsync(item);
+            (string message, _) = _messages.Notifications.Last();
+            Assert.Contains("estimated 0.30 GiB", message);
+            Assert.DoesNotContain("503", message);
+        });
+    }
+
+    [Fact]
     public void InstalledTab_Empty_LeadsToTheVoiceMarket()
     {
         HeadlessUi.RunAsync(async () =>
@@ -204,7 +238,8 @@ public class AudioModelTabsTests : IDisposable
                 AudioEngine = audio.Engine,
                 AudioStore = audio.Store
             }), queue, createAudioModels: page => new AudioModelListViewData(_messages, audio.Engine, audio.Store,
-            (_, _) => Task.FromResult<IReadOnlyList<string>>([]), _openedFolders.Add, page.ShowAudioDownloads, () => { }));
+            (_, _) => Task.FromResult<IReadOnlyList<string>>([]), _synthesizer, _player, _openedFolders.Add,
+            page.ShowAudioDownloads, () => { }));
         _window = new Window { Width = 1000, Height = 680, Content = new ModelPage { DataContext = data } };
         _window.Show();
         Dispatcher.UIThread.RunJobs();

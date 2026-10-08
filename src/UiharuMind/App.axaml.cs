@@ -11,6 +11,7 @@
 
 using System;
 using System.Linq;
+using UiharuMind.Core.AI.Audio;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using System.IO;
@@ -106,6 +107,7 @@ public partial class App : Application, ILogger, IDisposable
                 .AddSingleton<ApplicationUpdateService>()
                 .AddSingleton<MainViewModel>()
                 .AddSingleton<SearchService>()
+                .AddSingleton<IAudioPlayer, SoundFlowAudioPlayer>()
                 .BuildServiceProvider();
             UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("di-container");
             DummyWindow.InitializeMainViewModel(Services.GetRequiredService<MainViewModel>());

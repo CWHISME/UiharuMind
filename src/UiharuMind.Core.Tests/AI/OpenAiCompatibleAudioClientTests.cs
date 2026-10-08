@@ -66,10 +66,11 @@ public class OpenAiCompatibleAudioClientTests : IDisposable
         _server.ErrorStatus = 400;
         _server.ErrorBody = "{\"error\":\"bad voice\"}";
 
-        HttpRequestException ex = await Assert.ThrowsAsync<HttpRequestException>(() =>
+        AudioServiceException ex = await Assert.ThrowsAsync<AudioServiceException>(() =>
             _client.SynthesizeAsync("m", "t", null, EAudioFormat.Wav, CancellationToken.None));
 
         Assert.Contains("bad voice", ex.Message);
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, ex.StatusCode); //仍是 HttpRequestException，旧的 catch 照样接得住
     }
 
     [Fact]

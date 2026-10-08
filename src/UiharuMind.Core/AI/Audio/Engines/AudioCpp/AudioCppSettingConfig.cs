@@ -28,6 +28,16 @@ public class AudioCppSettingConfig : TConfigBase<AudioCppSettingConfig>
     public Dictionary<string, string> TtsVoices { get; set; } = new();
 
     /// <summary>
+    /// 不用引擎包的 GPU 后端（Metal / Vulkan），一律跑 CPU。上游说 GPU 后端的模型覆盖不如 CUDA，个别模型加载报错时的退路
+    /// </summary>
+    public bool ForceCpu { get; set; }
+
+    /// <summary>
+    /// 加载模型后至少要剩多少内存（MB），不够就拒绝加载；0 = 不检查
+    /// </summary>
+    public int MinFreeMemoryMb { get; set; }
+
+    /// <summary>
     /// CPU 线程数
     /// </summary>
     public int Threads { get; set; } = 4;

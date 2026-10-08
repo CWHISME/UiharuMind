@@ -45,19 +45,34 @@ public class AudioCppEngineTests : IDisposable
         Assert.Equal(backend, AudioCppVariants.GetBackend(package));
     }
 
+    [Theory]
+    [InlineData(false, "metal")]
+    [InlineData(true, "cpu")] //Metal 跑不动某个模型时的退路
+    public void ServerOptions_BackendFollowsVariant_UnlessForcedToCpu(bool forceCpu, string backend)
+    {
+        AudioCppSettingConfig settings = new() { ForceCpu = forceCpu, MinFreeMemoryMb = -5, IdleUnloadMinutes = 2 };
+
+        AudioCppServerOptions options = AudioCppEngine.BuildServerOptions("audio-v0.9.1-bin-macos-arm64-metal", settings);
+
+        Assert.Equal(backend, options.Backend);
+        Assert.Equal(0, options.MinFreeMemoryMb); //负数按不检查
+        Assert.Equal(120_000, options.IdleUnloadMs);
+    }
+
     [Fact]
     public void WriteConfig_ContainsPortModelsAndVoicePreset()
     {
         string path = Path.Combine(_directory, "server.json");
         AudioCppServerConfig.Write(path, 18099,
             [TtsModel(), new AudioCppModelEntry("asr", "moonshine_asr", "/m/m.gguf", "asr")],
-            new AudioCppServerOptions("metal", Threads: 2, IdleUnloadMs: 60000));
+            new AudioCppServerOptions("metal", Threads: 2, IdleUnloadMs: 60000, MinFreeMemoryMb: 1024));
 
         using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(path));
         JsonElement root = doc.RootElement;
         Assert.Equal(18099, root.GetProperty("port").GetInt32());
         Assert.Equal("metal", root.GetProperty("backend").GetString());
         Assert.Equal(60000, root.GetProperty("idle_unload_ms").GetInt32());
+        Assert.Equal(1024, root.GetProperty("min_free_memory_mb").GetInt32());
         Assert.True(root.GetProperty("lazy_load").GetBoolean());
 
         JsonElement models = root.GetProperty("models");

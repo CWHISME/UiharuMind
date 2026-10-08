@@ -4617,4 +4617,46 @@
     <data name="AudioFamilyVoicesMore" xml:space="preserve">
         <value>{0} 等 {1} 个</value>
     </data>
+    <data name="AudioForceCpu" xml:space="preserve">
+        <value>只用 CPU</value>
+    </data>
+    <data name="AudioForceCpuDesc" xml:space="preserve">
+        <value>不用 Metal / Vulkan 等显卡加速。上游的显卡后端对部分模型支持不全，某个模型加载报错或声音异常时可以打开试试，速度会慢一些。</value>
+    </data>
+    <data name="AudioMinFreeMemory" xml:space="preserve">
+        <value>加载后至少保留内存（MB）</value>
+    </data>
+    <data name="AudioMinFreeMemoryDesc" xml:space="preserve">
+        <value>加载模型后内存或显存剩不到这么多就拒绝加载，免得把系统拖慢。0 表示不检查。</value>
+    </data>
+    <data name="AudioPreviewText" xml:space="preserve">
+        <value>你好，这是这个语音模型的试听效果。</value>
+    </data>
+    <data name="AudioPreviewTip" xml:space="preserve">
+        <value>试听（第一次会启动语音引擎）</value>
+    </data>
+    <data name="AudioPreviewStopTip" xml:space="preserve">
+        <value>停止试听</value>
+    </data>
+    <data name="AudioPreviewFailed" xml:space="preserve">
+        <value>试听失败：{0}</value>
+    </data>
+    <data name="AudioErrorNoEngine" xml:space="preserve">
+        <value>还没有安装 audio.cpp，到设置的「本地模型（语音）」里安装。</value>
+    </data>
+    <data name="AudioErrorServer" xml:space="preserve">
+        <value>语音引擎没能启动：{0}</value>
+    </data>
+    <data name="AudioErrorNoTtsModel" xml:space="preserve">
+        <value>还没有语音合成模型，到「获取模型」的语音分类下载。</value>
+    </data>
+    <data name="AudioErrorNoAsrModel" xml:space="preserve">
+        <value>还没有语音识别模型，到「获取模型」的语音分类下载。</value>
+    </data>
+    <data name="AudioErrorMemory" xml:space="preserve">
+        <value>内存不足，模型没有加载。可以关掉别的程序，或调低设置里的「加载后至少保留内存」。（{0}）</value>
+    </data>
+    <data name="AudioErrorDevice" xml:space="preserve">
+        <value>没有可用的音频设备：{0}</value>
+    </data>
 </root>

@@ -40,6 +40,11 @@
             <controls:SettingsSection Header="{loc:Loc AudioRuntimeTitle}" Description="{loc:Loc AudioRuntimeDesc}">
                 <controls:SettingsSection.Body>
                     <StackPanel DataContext="{Binding Runtime}" x:DataType="audio:AudioCppRuntimeSettingsViewData">
+                        <controls:SettingsRow Header="{loc:Loc AudioForceCpu}" Description="{loc:Loc AudioForceCpuDesc}">
+                            <controls:SettingsRow.Field>
+                                <ToggleSwitch IsChecked="{Binding ForceCpu}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
                         <controls:SettingsRow Header="{loc:Loc ModelRuntimeThreads}" Description="{loc:Loc AudioThreadsDesc}">
                             <controls:SettingsRow.Field>
                                 <NumericUpDown Classes="runtime-field" Minimum="1" Maximum="512" Value="{Binding Threads}" />
@@ -53,6 +58,12 @@
                         <controls:SettingsRow Header="{loc:Loc AudioIdleUnload}" Description="{loc:Loc AudioIdleUnloadDesc}">
                             <controls:SettingsRow.Field>
                                 <NumericUpDown Classes="runtime-field" Minimum="1" Maximum="1440" Value="{Binding IdleUnloadMinutes}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc AudioMinFreeMemory}" Description="{loc:Loc AudioMinFreeMemoryDesc}">
+                            <controls:SettingsRow.Field>
+                                <NumericUpDown Classes="runtime-field" Minimum="0" Maximum="65536" Increment="512"
+                                               Value="{Binding MinFreeMemoryMb}" />
                             </controls:SettingsRow.Field>
                         </controls:SettingsRow>
                         <controls:SettingsRow Header="{loc:Loc LLamaCppLoadTimeout}" Description="{loc:Loc AudioReadyTimeoutDesc}"
