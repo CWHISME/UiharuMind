@@ -4671,4 +4671,46 @@
     <data name="ReadAloudNothing" xml:space="preserve">
         <value>这条消息没有可以朗读的文字。</value>
     </data>
+    <data name="DictationFailed" xml:space="preserve">
+        <value>语音输入失败：{0}</value>
+    </data>
+    <data name="DictationSilent" xml:space="preserve">
+        <value>没有录到声音。检查麦克风是否接好，以及系统设置里是否允许 UiharuMind 使用麦克风。</value>
+    </data>
+    <data name="DictationNothingHeard" xml:space="preserve">
+        <value>没听清，再说一次试试。</value>
+    </data>
+    <data name="DictationTargetGone" xml:space="preserve">
+        <value>输入框已经关掉了，识别结果：{0}</value>
+    </data>
+    <data name="DictationMicTip" xml:space="preserve">
+        <value>语音输入：点一下开始说，再点一下结束</value>
+    </data>
+    <data name="DictationMicHoldTip" xml:space="preserve">
+        <value>语音输入：点一下开始说，再点一下结束；也可以按住 {0} 说话</value>
+    </data>
+    <data name="DictationRecordingTip" xml:space="preserve">
+        <value>正在听，点一下结束</value>
+    </data>
+    <data name="DictationTranscribingTip" xml:space="preserve">
+        <value>正在识别…</value>
+    </data>
+    <data name="DictationKeyLeft" xml:space="preserve">
+        <value>左 {0}</value>
+    </data>
+    <data name="DictationKeyRight" xml:space="preserve">
+        <value>右 {0}</value>
+    </data>
+    <data name="ShortcutDictationSection" xml:space="preserve">
+        <value>语音输入</value>
+    </data>
+    <data name="ShortcutDictationHold" xml:space="preserve">
+        <value>按住说话</value>
+    </data>
+    <data name="ShortcutDictationHoldDesc" xml:space="preserve">
+        <value>窗口在前台时按住这个键说话，松开后把识别出的文字填进输入框。不到 0.3 秒的短按不算。</value>
+    </data>
+    <data name="KeySelectionHoldInstruction" xml:space="preserve">
+        <value>按下要用来「按住说话」的键。可以是单独的 Alt、Ctrl 这类键，会区分左右。</value>
+    </data>
 </root>

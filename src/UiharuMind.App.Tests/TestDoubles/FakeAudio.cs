@@ -9,6 +9,12 @@ internal sealed class FakeAudioProvider : IAudioProvider
 {
     public List<AudioSynthesisRequest> Requests { get; } = [];
 
+    /// <summary>听写过的音频（字节）</summary>
+    public List<byte[]> Transcriptions { get; } = [];
+
+    /// <summary>听写回的文字</summary>
+    public string TranscribedText { get; set; } = "";
+
     public Exception? Error { get; set; }
 
     public string Id => "fake";
@@ -29,8 +35,49 @@ internal sealed class FakeAudioProvider : IAudioProvider
             EAudioFormat.Wav));
     }
 
-    public Task<AudioTranscriptionResult> TranscribeAsync(AudioTranscriptionRequest request, CancellationToken cancellationToken) =>
-        throw new NotSupportedException();
+    public async Task<AudioTranscriptionResult> TranscribeAsync(AudioTranscriptionRequest request,
+        CancellationToken cancellationToken)
+    {
+        using MemoryStream buffer = new();
+        await request.Audio.CopyToAsync(buffer, cancellationToken);
+        lock (Transcriptions) Transcriptions.Add(buffer.ToArray());
+        if (Error != null) throw Error;
+        return new AudioTranscriptionResult(TranscribedText);
+    }
+}
+
+/// <summary>
+/// 不碰麦克风的录音：停下时交出给定的那段；可设成打不开麦克风
+/// </summary>
+internal sealed class FakeAudioRecorder : IAudioRecorder
+{
+    public AudioRecording Recording { get; set; } = Speech(TimeSpan.FromSeconds(1));
+
+    public bool FailToStart { get; set; }
+
+    public bool IsRecording { get; private set; }
+
+    public event Action<float>? LevelChanged;
+
+    public void Start()
+    {
+        if (FailToStart) throw new AudioDeviceException("no microphone");
+        IsRecording = true;
+        LevelChanged?.Invoke(0.5f);
+    }
+
+    public AudioRecording? Stop()
+    {
+        if (!IsRecording) return null;
+        IsRecording = false;
+        return Recording;
+    }
+
+    public void Cancel() => IsRecording = false;
+
+    /// <summary>一段有声音的录音</summary>
+    public static AudioRecording Speech(TimeSpan duration, float peak = 0.4f) =>
+        new(WavEncoder.Encode(new float[(int)(16000 * duration.TotalSeconds)], 16000, 1), duration, peak);
 }
 
 /// <summary>

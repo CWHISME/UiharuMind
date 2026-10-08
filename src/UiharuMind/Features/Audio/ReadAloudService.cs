@@ -109,7 +109,7 @@ public sealed class ReadAloudService : IReadAloudService
             next = Synthesize(tts, chunks[0], language, session.Token);
             for (int i = 0; i < chunks.Count; i++)
             {
-                AudioSynthesisResult audio = await next;
+                AudioSynthesisResult audio = await next!; //循环里下一句总在：最后一句之前都排了
                 next = i + 1 < chunks.Count ? Synthesize(tts, chunks[i + 1], language, session.Token) : null;
                 await using (audio.Audio)
                 {

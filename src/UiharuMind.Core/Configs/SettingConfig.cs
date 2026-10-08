@@ -25,6 +25,11 @@ public class SettingConfig : TConfigBase<SettingConfig>
     public const string DefaultQuickTranslationShortcut = "Alt+Shift+Q";
     public const string DefaultQuickAutoClickShortcut = "Alt+Shift+G";
 
+    /// <summary>
+    /// 按住说话的出厂键：macOS 右 Option；别处右 Ctrl——Windows 上右 Alt 常是 AltGr（打 @、€ 用），单按 Alt 还会把焦点切到菜单栏
+    /// </summary>
+    public static string DefaultDictationHoldKey => OperatingSystem.IsMacOS() ? "VcRightAlt" : "VcRightControl";
+
     /// <summary>剪贴板历史保留天数的出厂值：0 = 不清理</summary>
     public const int FactoryDefaultClipboardRetentionDays = 0;
 
@@ -105,6 +110,16 @@ public class SettingConfig : TConfigBase<SettingConfig>
             Save();
         }
     }
+
+    /// <summary>
+    /// 按住说话用的键（KeyCode 名，区分左右，可以是单独的修饰键）
+    /// </summary>
+    public string DictationHoldKey { get; set; } = DefaultDictationHoldKey;
+
+    /// <summary>
+    /// 是否启用按住说话
+    /// </summary>
+    public bool DictationHoldEnabled { get; set; } = true;
 
     private string _captureScreenShortcut = DefaultCaptureScreenShortcut;
     private string _quickStartChatShortcut = DefaultQuickStartChatShortcut;

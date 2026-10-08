@@ -14,6 +14,7 @@ namespace UiharuMind.Features.Settings;
 public partial class KeySelectionWindow : Window
 {
     private readonly bool _allowModifiers;
+    private readonly bool _acceptModifierAlone; //按住说话：单独的 Alt、Ctrl 也算一个键，区分左右
     private IDisposable? _shortcutSuspendScope;
 
     public KeySelectionWindow()
@@ -21,12 +22,14 @@ public partial class KeySelectionWindow : Window
     {
     }
 
-    private KeySelectionWindow(bool allowModifiers)
+    private KeySelectionWindow(bool allowModifiers, bool acceptModifierAlone = false)
     {
         _allowModifiers = allowModifiers;
+        _acceptModifierAlone = acceptModifierAlone;
         InitializeComponent();
-        InstructionText.Text = Loc.Text(
-            allowModifiers ? LangKey.KeySelectionShortcutInstruction : LangKey.KeySelectionSingleInstruction);
+        InstructionText.Text = Loc.Text(acceptModifierAlone
+            ? LangKey.KeySelectionHoldInstruction
+            : allowModifiers ? LangKey.KeySelectionShortcutInstruction : LangKey.KeySelectionSingleInstruction);
     }
 
     public static Task<KeySelectionResult?> ShowShortcutDialog(Window owner)
@@ -37,6 +40,16 @@ public partial class KeySelectionWindow : Window
     public static Task<KeySelectionResult?> ShowSingleKeyDialog(Window owner)
     {
         return new KeySelectionWindow(false).ShowDialog<KeySelectionResult?>(owner);
+    }
+
+    /// <summary>
+    /// 选一个「按住」用的键：第一个按下的键就是它，单独的修饰键也算
+    /// </summary>
+    /// <param name="owner">父窗口</param>
+    /// <returns>选中的键；取消为 null</returns>
+    public static Task<KeySelectionResult?> ShowHoldKeyDialog(Window owner)
+    {
+        return new KeySelectionWindow(false, true).ShowDialog<KeySelectionResult?>(owner);
     }
 
     protected override void OnOpened(EventArgs e)
@@ -63,6 +76,12 @@ public partial class KeySelectionWindow : Window
             if (keyCode == KeyCode.VcEscape)
             {
                 Close(null);
+                return;
+            }
+
+            if (_acceptModifierAlone)
+            {
+                Close(new KeySelectionResult(keyCode, []));
                 return;
             }
 

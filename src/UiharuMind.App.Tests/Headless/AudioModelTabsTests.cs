@@ -47,8 +47,8 @@ public class AudioModelTabsTests : IDisposable
             data.ShowAudioDownloads();
             await Settle(() => data.Downloads!.Audio is { IsLoading: false, ShowEnginePrompt: true });
 
-            Assert.True(data.Downloads.Audio.ShowEnginePrompt);
-            Assert.Empty(data.Downloads.Audio.Families);
+            Assert.True(data.Downloads!.Audio.ShowEnginePrompt);
+            Assert.Empty(data.Downloads!.Audio.Families);
             Assert.Single(_window!.GetVisualDescendants().OfType<AudioMarketListView>());
         });
     }

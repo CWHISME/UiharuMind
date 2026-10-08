@@ -11,6 +11,7 @@
 
 using System;
 using System.Linq;
+using UiharuMind.Core.Input;
 using UiharuMind.Core.AI.Audio;
 using UiharuMind.Features.Audio;
 using System.Threading.Tasks;
@@ -102,6 +103,8 @@ public partial class App : Application, ILogger, IDisposable
             MemoryService = new MemoryService();
             UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("app-services");
 
+            // 朗读与听写共用一个 audio.cpp provider，第一次用才建：建它会碰语音引擎的单例与设置
+            Lazy<IAudioProvider> localAudio = new(() => new AudioCppProvider(AudioCppEngine.Shared));
             Services = new ServiceCollection()
                 .AddSingleton(ScreensService)
                 .AddSingleton<IMessageService>(messages)
@@ -109,13 +112,16 @@ public partial class App : Application, ILogger, IDisposable
                 .AddSingleton<MainViewModel>()
                 .AddSingleton<SearchService>()
                 .AddSingleton<IAudioPlayer, SoundFlowAudioPlayer>()
+                .AddSingleton<IAudioRecorder, SoundFlowAudioRecorder>()
                 .AddSingleton<IReadAloudService>(sp =>
-                {
-                    // 第一次朗读才建 provider：建它会碰语音引擎的单例与设置
-                    Lazy<IAudioProvider> tts = new(() => new AudioCppProvider(AudioCppEngine.Shared));
-                    return new ReadAloudService(() => tts.Value, sp.GetRequiredService<IAudioPlayer>(), messages);
-                })
+                    new ReadAloudService(() => localAudio.Value, sp.GetRequiredService<IAudioPlayer>(), messages))
+                .AddSingleton<IDictationService>(sp => new DictationService(sp.GetRequiredService<IAudioRecorder>(),
+                    () => localAudio.Value, messages, action => Dispatcher.UIThread.Post(action)))
+                .AddSingleton(sp => new DictationHotkey(InputManager.Instance, sp.GetRequiredService<IDictationService>(),
+                    () => SettingConfig.Current, action => Dispatcher.UIThread.Post(action)))
                 .BuildServiceProvider();
+            // 按住说话挂在全局键盘钩子上，随应用起
+            Services.GetRequiredService<DictationHotkey>();
             UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("di-container");
             DummyWindow.InitializeMainViewModel(Services.GetRequiredService<MainViewModel>());
             UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("main-viewmodel");

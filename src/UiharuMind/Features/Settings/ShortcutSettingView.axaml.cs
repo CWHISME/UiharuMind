@@ -10,6 +10,7 @@ using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Input;
 using UiharuMind.Generated;
+using UiharuMind.Features.Audio;
 
 namespace UiharuMind.Features.Settings;
 
@@ -59,6 +60,13 @@ public partial class ShortcutSettingView : UserControl
         viewModel.QuickAutoClickShortcut = await CaptureShortcut(viewModel.QuickAutoClickShortcut);
     }
 
+    private async void OnDictationHoldKeyClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ShortcutSettingViewModel viewModel || TopLevel.GetTopLevel(this) is not Window owner) return;
+        if (await KeySelectionWindow.ShowHoldKeyDialog(owner) is { } result)
+            viewModel.DictationHoldKey = result.MainKeyCode.ToString();
+    }
+
     private async Task<string> CaptureShortcut(string fallback)
     {
         if (TopLevel.GetTopLevel(this) is not Window owner) return fallback;
@@ -75,6 +83,8 @@ public partial class ShortcutSettingViewModel : ViewModelBase
     [ObservableProperty] private string _quickTranslationShortcut = string.Empty;
     [ObservableProperty] private string _quickAutoClickShortcut = string.Empty;
     [ObservableProperty] private string _statusText = string.Empty;
+    [ObservableProperty] private string _dictationHoldKey = string.Empty;
+    [ObservableProperty] private bool _dictationHoldEnabled;
 
     // 「值≠出厂值」才显示单项恢复默认按钮（SettingsRow 可见性绑定用）；出厂值引用 SettingConfig 常量
     public bool IsCaptureScreenShortcutNotDefault => CaptureScreenShortcut != SettingConfig.DefaultCaptureScreenShortcut;
@@ -88,6 +98,17 @@ public partial class ShortcutSettingViewModel : ViewModelBase
     partial void OnClipboardHistoryShortcutChanged(string value) => OnPropertyChanged(nameof(IsClipboardHistoryShortcutNotDefault));
     partial void OnQuickTranslationShortcutChanged(string value) => OnPropertyChanged(nameof(IsQuickTranslationShortcutNotDefault));
     partial void OnQuickAutoClickShortcutChanged(string value) => OnPropertyChanged(nameof(IsQuickAutoClickShortcutNotDefault));
+
+    /// <summary>按住说话那个键给人看的名字</summary>
+    public string DictationHoldKeyText => DictationKeyText.Describe(DictationKeyText.Parse(DictationHoldKey));
+
+    public bool IsDictationHoldKeyNotDefault => DictationHoldKey != SettingConfig.DefaultDictationHoldKey;
+
+    partial void OnDictationHoldKeyChanged(string value)
+    {
+        OnPropertyChanged(nameof(DictationHoldKeyText));
+        OnPropertyChanged(nameof(IsDictationHoldKeyNotDefault));
+    }
 
     public ShortcutSettingViewModel()
     {
@@ -132,6 +153,8 @@ public partial class ShortcutSettingViewModel : ViewModelBase
         setting.ClipboardHistoryShortcut = ShortcutGestureParser.Normalize(ClipboardHistoryShortcut);
         setting.QuickTranslationShortcut = ShortcutGestureParser.Normalize(QuickTranslationShortcut);
         setting.QuickAutoClickShortcut = ShortcutGestureParser.Normalize(QuickAutoClickShortcut);
+        setting.DictationHoldKey = DictationHoldKey;
+        setting.DictationHoldEnabled = DictationHoldEnabled;
         setting.Save();
 
         LoadFromConfig();
@@ -148,6 +171,8 @@ public partial class ShortcutSettingViewModel : ViewModelBase
         ClipboardHistoryShortcut = SettingConfig.DefaultClipboardHistoryShortcut;
         QuickTranslationShortcut = SettingConfig.DefaultQuickTranslationShortcut;
         QuickAutoClickShortcut = SettingConfig.DefaultQuickAutoClickShortcut;
+        DictationHoldKey = SettingConfig.DefaultDictationHoldKey;
+        DictationHoldEnabled = true;
         Apply();
     }
 
@@ -182,6 +207,13 @@ public partial class ShortcutSettingViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void ResetDictationHoldKey()
+    {
+        DictationHoldKey = SettingConfig.DefaultDictationHoldKey;
+        Apply();
+    }
+
+    [RelayCommand]
     private void ResetQuickAutoClickShortcut()
     {
         QuickAutoClickShortcut = SettingConfig.DefaultQuickAutoClickShortcut;
@@ -196,6 +228,8 @@ public partial class ShortcutSettingViewModel : ViewModelBase
         ClipboardHistoryShortcut = setting.ClipboardHistoryShortcut;
         QuickTranslationShortcut = setting.QuickTranslationShortcut;
         QuickAutoClickShortcut = setting.QuickAutoClickShortcut;
+        DictationHoldKey = setting.DictationHoldKey;
+        DictationHoldEnabled = setting.DictationHoldEnabled;
     }
 
     private void RefreshStatusLanguage()

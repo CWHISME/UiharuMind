@@ -24,6 +24,9 @@ using UiharuMind.Shared.Controls;
 using UiharuMind.Shared.Diagnostics;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Utils;
+using UiharuMind.Features.Audio;
+using UiharuMind.Core.Core;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace UiharuMind.Features.Conversation;
 
@@ -85,6 +88,8 @@ public partial class ConversationView : UserControl
     private ConversationViewModel? _viewModel;
     private readonly ViewerThumbDrag _thumbDrag;
     private bool _isLoadingEarlier; //正在续一窗更早的消息(防抖)
+    private TextBoxDictationTarget? _dictationTarget;
+    private ComposerDictationViewData? _dictation;
 
     public ConversationView()
     {
@@ -119,6 +124,38 @@ public partial class ConversationView : UserControl
         InputBox.PropertyChanged += OnInputBoxPropertyChanged; //@ 补全要知道光标在哪
         // Ctrl/⌘+F 打开会话内搜索。隧道阶段拦:焦点在输入框里时也得认
         AddHandler(KeyDownEvent, OnViewKeyDown, RoutingStrategies.Tunnel);
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        AttachDictation();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        DetachDictation();
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    // 输入框就是听写的去向：按钮与按住说话都往这里填。无头测试没有服务容器，按钮就不出现
+    private void AttachDictation()
+    {
+        if (_dictation != null || App.Services?.GetService<IDictationService>() is not { } service) return;
+        _dictationTarget = new TextBoxDictationTarget(InputBox, service);
+        _dictation = new ComposerDictationViewData(service, _dictationTarget, () => SettingConfig.Current);
+        DictationButton.DataContext = _dictation;
+        DictationButton.IsVisible = true;
+    }
+
+    private void DetachDictation()
+    {
+        _dictation?.Dispose();
+        _dictationTarget?.Dispose();
+        _dictation = null;
+        _dictationTarget = null;
+        DictationButton.DataContext = null;
+        DictationButton.IsVisible = false;
     }
 
     private void OnViewKeyDown(object? sender, KeyEventArgs e)

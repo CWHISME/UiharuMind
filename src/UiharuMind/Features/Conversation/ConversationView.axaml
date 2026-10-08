@@ -1,5 +1,6 @@
 ﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:audio="clr-namespace:UiharuMind.Features.Audio"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:u="https://irihi.tech/ursa"
@@ -617,6 +618,21 @@
                         <!-- 群发言只有文字:附件在群流水里没处放,也投递不到成员那里 -->
                         <ThemedIconButton IconName="paperclip" Command="{Binding Tray.AddAttachmentCommand}"
                                           IsVisible="{Binding !IsGroupSession}" />
+                        <!-- 语音输入：数据由后台代码在挂上界面时接（要取听写服务），无头测试里没有就一直藏着 -->
+                        <Panel Name="DictationButton" IsVisible="False" x:DataType="audio:ComposerDictationViewData">
+                            <ThemedIconButton IconName="mic" Command="{Binding ToggleCommand}"
+                                              ToolTips="{Binding Tooltip}" IsVisible="{Binding IsIdle}" />
+                            <ThemedIconButton IconName="mic" CurrentColor="Red" Command="{Binding ToggleCommand}"
+                                              ToolTips="{Binding Tooltip}" IsVisible="{Binding IsRecording}" />
+                            <Panel Width="28" Height="28" Background="Transparent" ToolTip.Tip="{Binding Tooltip}"
+                                   IsVisible="{Binding IsTranscribing}">
+                                <SpinnerIcon HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Panel>
+                            <!-- 录音时的音量条：贴在图标底下 -->
+                            <ProgressBar Height="2" MinHeight="2" MinWidth="0" Width="18" Maximum="1" Value="{Binding Level}"
+                                         VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,1"
+                                         IsHitTestVisible="False" IsVisible="{Binding IsRecording}" />
+                        </Panel>
                         <ThemedIconButton IconName="settings">
                             <ThemedIconButton.Flyout>
                                 <Flyout Placement="Top">
