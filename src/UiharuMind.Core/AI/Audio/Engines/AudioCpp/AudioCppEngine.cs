@@ -66,6 +66,11 @@ public sealed class AudioCppEngine : IDisposable
     public static AudioCppEngine Shared => SharedInstance.Value;
 
     /// <summary>
+    /// 引擎包目录
+    /// </summary>
+    public string EngineRoot => _engineRoot;
+
+    /// <summary>
     /// 引擎设置
     /// </summary>
     public AudioCppSettingConfig Settings => _settings;
@@ -79,6 +84,11 @@ public sealed class AudioCppEngine : IDisposable
     /// 在用的引擎版本；没装为 null
     /// </summary>
     public AudioCppVersion? CurrentVersion { get; private set; }
+
+    /// <summary>
+    /// 最近一次拉到的发布说明；没拉过为 null
+    /// </summary>
+    public string? ReleaseInfoText => _versionManager.ReleaseInfoText;
 
     /// <summary>
     /// 本机已装的版本，顺带确定在用的那个

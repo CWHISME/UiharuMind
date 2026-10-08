@@ -42,6 +42,7 @@ public class SettingsWindowResetVisibilityTests : IDisposable
             var window = new SettingsWindow(
                 generalVm,
                 new RuntimeEngineSettingData(messages),
+                TestSettingsPages.Audio(messages),
                 shortcutVm,
                 GetPageForHeadless);
             _window = window;

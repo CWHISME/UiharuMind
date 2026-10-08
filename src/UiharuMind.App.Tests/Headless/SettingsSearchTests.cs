@@ -116,6 +116,7 @@ public class SettingsSearchTests : IDisposable
         return new SettingsWindow(
             ActivatorUtilities.CreateInstance<GeneralSettingViewModel>(services),
             new RuntimeEngineSettingData(messages),
+            TestSettingsPages.Audio(messages),
             new ShortcutSettingViewModel(),
             _ => new HelpPageData());
     }

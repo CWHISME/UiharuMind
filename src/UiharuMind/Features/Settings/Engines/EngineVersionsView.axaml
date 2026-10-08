@@ -1,0 +1,112 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:engines="clr-namespace:UiharuMind.Features.Settings.Engines"
+             xmlns:settings="clr-namespace:UiharuMind.Features.Settings"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             x:Class="UiharuMind.Features.Settings.Engines.EngineVersionsView"
+             x:DataType="engines:EngineVersionsViewData">
+
+    <UserControl.Styles>
+        <Style Selector="Border.update-banner">
+            <Setter Property="Background" Value="{DynamicResource SemiBlue0}" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="12,6,6,6" />
+        </Style>
+        <Style Selector="Border.engine-badge">
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="6,1" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </UserControl.Styles>
+
+    <!-- 当前用的哪个版本一眼看到（报加载失败时得说得清是哪个构建），下面是版本管理 -->
+    <StackPanel Spacing="10">
+        <!-- 标题左、操作右：窄宽度下版本徽标省略，不断按钮 -->
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,4,0,2">
+            <!-- 标题区自身左对齐收起：推荐徽标跟在版本徽标后面，不飘到操作按钮那边 -->
+            <Grid Name="EngineHeaderTitle" ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8"
+                  VerticalAlignment="Center" HorizontalAlignment="Left">
+                <controls:ThemedSvgIcon Width="18" Height="18" IconName="{Binding IconName}" Opacity="0.7"
+                                        VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding EngineName}" FontSize="15" FontWeight="SemiBold"
+                           VerticalAlignment="Center" />
+                <Border Grid.Column="2" Classes="engine-badge" HorizontalAlignment="Left">
+                    <TextBlock Name="EngineVersionBadgeText" Text="{Binding VersionText}" Classes="mono" FontSize="12"
+                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding VersionText}" />
+                </Border>
+                <Border Name="EngineRecommendBadge" Grid.Column="3" Background="{DynamicResource SemiBlue5}"
+                        CornerRadius="9" Padding="7,1" VerticalAlignment="Center"
+                        IsVisible="{Binding IsRecommended}">
+                    <TextBlock Text="{loc:Loc ModelDownloadRecommended}" FontSize="11" Foreground="White" />
+                </Border>
+            </Grid>
+            <StackPanel Name="EngineHeaderActions" Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                        VerticalAlignment="Center">
+                <Button Classes="NoneStyle" Cursor="Hand" Padding="0" VerticalAlignment="Center"
+                        IsVisible="{Binding ReleaseUrl, Converter={x:Static ObjectConverters.IsNotNull}}"
+                        Click="OnReleaseNotesClick">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="{loc:Loc LLamaCppReleaseNotes}" Classes="muted title-tweak-sm" FontSize="12"
+                                   VerticalAlignment="Center" />
+                        <controls:ThemedSvgIcon Width="12" Height="12" Opacity="0.6" VerticalAlignment="Center"
+                                                IconName="square-arrow-out-up-right" />
+                    </StackPanel>
+                </Button>
+                <Button Content="{loc:Loc OpenDirectory}" Command="{Binding OpenFolderCommand}" />
+                <Button Content="{loc:Loc CheckUpdate}" Command="{Binding CheckUpdateCommand}" />
+            </StackPanel>
+        </Grid>
+
+        <!-- 有新版本：一句提示加一个更新按钮 -->
+        <Border Classes="update-banner" IsVisible="{Binding HasUpdate}">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Classes="Primary" Content="{loc:Loc LLamaCppUpdateNow}"
+                        Command="{Binding InstallUpdateCommand}" />
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Border Classes="status-dot" Tag="Progress" />
+                    <TextBlock Text="{Binding UpdateText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <StackPanel Orientation="Horizontal" IsVisible="{Binding IsCheckingForUpdate}">
+            <SpinnerIcon VerticalAlignment="Center" Margin="0,0,6,0" />
+            <TextBlock Text="{loc:Loc CheckingForUpdates}" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <controls:SettingsRow Header="{loc:Loc LLamaCppChannel}" Description="{loc:Loc LLamaCppChannelDesc}"
+                              IsVisible="{Binding HasChannels}">
+            <controls:SettingsRow.Field>
+                <ComboBox Width="300" ItemsSource="{Binding ChannelOptions}" SelectedItem="{Binding SelectedChannel}"
+                          DisplayMemberBinding="{ReflectionBinding DisplayName}" VerticalAlignment="Center" />
+            </controls:SettingsRow.Field>
+        </controls:SettingsRow>
+
+        <controls:SettingsRow Header="{loc:Loc LLamaCppVersion}" Description="{Binding VersionDescription}">
+            <controls:SettingsRow.Field>
+                <ComboBox Width="300" ItemsSource="{Binding LocalVersions}" SelectedItem="{Binding SelectedVersion}"
+                          VerticalAlignment="Center">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </controls:SettingsRow.Field>
+        </controls:SettingsRow>
+
+        <!-- 检查更新的结果（发布说明）默认收起：内容长，多数时候不需要看 -->
+        <Expander Header="{loc:Loc LLamaCppUpdateResult}" HorizontalAlignment="Stretch"
+                  IsVisible="{Binding ReleaseInfo, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <ScrollViewer MaxHeight="260" HorizontalScrollBarVisibility="Disabled">
+                <controls:SimpleMarkdownViewer MarkdownText="{Binding ReleaseInfo}" IsPlaintext="False" Margin="4" />
+            </ScrollViewer>
+        </Expander>
+
+        <settings:DownloadListView DataContext="{Binding Packages}" />
+    </StackPanel>
+</UserControl>

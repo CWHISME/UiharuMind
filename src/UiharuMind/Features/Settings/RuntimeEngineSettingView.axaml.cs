@@ -16,7 +16,7 @@ using Avalonia.Markup.Xaml;
 namespace UiharuMind.Features.Settings;
 
 /// <summary>
-/// 展示运行时引擎设置
+/// 本地模型（文本）页
 /// </summary>
 public partial class RuntimeEngineSettingView : UserControl
 {
@@ -32,11 +32,5 @@ public partial class RuntimeEngineSettingView : UserControl
     {
         InitializeComponent();
         DataContext = viewModel;
-    }
-
-    private void OnReleaseNotesClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (DataContext is RuntimeEngineSettingData { EngineReleaseUrl: { } url })
-            _ = TopLevel.GetTopLevel(this)?.Launcher.LaunchUriAsync(new System.Uri(url));
     }
 }

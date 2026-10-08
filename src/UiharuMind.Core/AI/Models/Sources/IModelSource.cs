@@ -15,7 +15,30 @@ public sealed record ModelRepoFile(string Path, long Size, string? Sha256);
 /// </summary>
 /// <param name="Repository">owner/repo</param>
 /// <param name="Downloads">下载量</param>
-public sealed record ModelRepoSummary(string Repository, long Downloads);
+/// <param name="Likes">点赞（魔搭是收藏）数</param>
+/// <param name="LastModified">最后更新时间，模型源没给为 null</param>
+/// <param name="CreatedAt">创建时间，模型源没给为 null</param>
+public sealed record ModelRepoSummary(string Repository, long Downloads, long Likes = 0,
+    DateTimeOffset? LastModified = null, DateTimeOffset? CreatedAt = null);
+
+/// <summary>
+/// 搜索排序
+/// </summary>
+public enum EModelSearchSort
+{
+    Downloads,
+    Trending,
+    Likes,
+    Updated,
+    Created
+}
+
+/// <summary>
+/// 搜索结果的一页
+/// </summary>
+/// <param name="Items">这一页的仓库</param>
+/// <param name="NextCursor">下一页的游标（各模型源自定，原样传回）；没有更多为 null</param>
+public sealed record ModelSearchPage(IReadOnlyList<ModelRepoSummary> Items, string? NextCursor);
 
 /// <summary>
 /// 模型源：从哪拿模型文件（见 CONTEXT「模型源」）。只管拿文件，不参与问话
@@ -31,10 +54,13 @@ public interface IModelSource
     /// 搜索仓库（尽量只要带 GGUF 的）
     /// </summary>
     /// <param name="query">关键词</param>
-    /// <param name="limit">条数上限</param>
+    /// <param name="sort">排序</param>
+    /// <param name="limit">每页条数</param>
+    /// <param name="cursor">上一页给的 <see cref="ModelSearchPage.NextCursor"/>；第一页为 null</param>
     /// <param name="cancellationToken">取消</param>
-    /// <returns>按下载量排序的仓库</returns>
-    Task<IReadOnlyList<ModelRepoSummary>> SearchAsync(string query, int limit, CancellationToken cancellationToken);
+    /// <returns>按 <paramref name="sort"/> 排好的一页仓库</returns>
+    Task<ModelSearchPage> SearchAsync(string query, EModelSearchSort sort, int limit, string? cursor,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// 列出仓库里所有文件（递归）

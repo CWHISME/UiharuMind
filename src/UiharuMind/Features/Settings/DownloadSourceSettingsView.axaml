@@ -9,6 +9,9 @@
              x:Class="UiharuMind.Features.Settings.DownloadSourceSettingsView"
              x:DataType="vm:DownloadSourceSettingsViewData">
 
+    <!-- 本地模型（文本 / 语音）与引擎包共用这一份下载源，单独成页 -->
+    <ScrollViewer controls:SettingsScrollMemory.ScrollKey="DownloadSourceSetting"
+                  HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
     <controls:SettingsSection Header="{loc:Loc DownloadSourceSection}"
                               Description="{loc:Loc DownloadSourceSectionDesc}">
         <controls:SettingsSection.Body>
@@ -67,4 +70,5 @@
             </StackPanel>
         </controls:SettingsSection.Body>
     </controls:SettingsSection>
+    </ScrollViewer>
 </UserControl>

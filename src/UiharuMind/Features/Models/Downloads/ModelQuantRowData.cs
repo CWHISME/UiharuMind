@@ -91,27 +91,11 @@ public partial class ModelQuantRowData(ModelRepoQuant quant, string mainFilePath
     public void ApplyStatus(QuantDownloadStatus status)
     {
         Status = status;
-        StatusText = status.State switch
-        {
-            EQuantDownloadState.Queued => Loc.Text(LangKey.ModelDownloadStateQueued),
-            EQuantDownloadState.Downloading => Loc.Text(LangKey.ModelDownloadStateDownloading, status.Percent),
-            EQuantDownloadState.Paused => Loc.Text(LangKey.ModelDownloadStatePausedPercent, status.Percent),
-            EQuantDownloadState.Failed => Loc.Text(LangKey.ModelDownloadStateFailedShort),
-            EQuantDownloadState.Partial => Loc.Text(LangKey.ModelDownloadStatePartial, status.Percent),
-            EQuantDownloadState.Downloaded => Loc.Text(LangKey.ModelDownloadStateDownloaded),
-            EQuantDownloadState.NameConflict => Loc.Text(LangKey.ModelDownloadStateNameConflict),
-            _ => Loc.Text(LangKey.ModelDownloadStateNotDownloaded)
-        };
-        ActionText = status.State switch
-        {
-            EQuantDownloadState.Paused or EQuantDownloadState.Partial => Loc.Text(LangKey.ModelDownloadResume),
-            EQuantDownloadState.Failed => Loc.Text(LangKey.ModelDownloadRetry),
-            _ => Loc.Text(LangKey.ModelDownloadAction)
-        };
+        StatusText = status.StatusText;
+        ActionText = status.ActionText;
         CanDownload = status.CanDownload;
         IsDownloaded = status.State == EQuantDownloadState.Downloaded;
-        ShowProgress = status.State is EQuantDownloadState.Downloading or EQuantDownloadState.Paused
-            or EQuantDownloadState.Partial or EQuantDownloadState.Queued;
+        ShowProgress = status.ShowsProgress;
         Percent = status.Percent;
     }
 }

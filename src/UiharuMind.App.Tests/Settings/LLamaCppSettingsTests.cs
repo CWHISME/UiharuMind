@@ -1,3 +1,4 @@
+using UiharuMind.Features.Settings.Engines;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Configs;
 using UiharuMind.Features.Settings;
@@ -71,7 +72,7 @@ public class LLamaCppSettingsTests : IDisposable
     [InlineData("custom-build", null)]
     public void ReleaseUrl_FromBuildTag(string name, string? expected)
     {
-        Assert.Equal(expected, RuntimeEngineSettingData.LLamaCppReleaseUrl(name));
+        Assert.Equal(expected, LLamaCppEngineVersionSource.ReleaseUrl(name));
     }
 
     [Fact]

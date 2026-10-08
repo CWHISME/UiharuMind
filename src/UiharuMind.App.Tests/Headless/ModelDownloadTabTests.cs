@@ -80,10 +80,10 @@ public class ModelDownloadTabTests : IDisposable
         ]
     };
 
-    private ModelPageData CreatePage() => new(_messages, page => new ModelDownloadPageData(
+    private ModelPageData CreatePage(FakeModelSource? source = null) => new(_messages, page => new ModelDownloadPageData(
         new ModelDownloadContext(_messages, page.EnsureDownloadQueue(), () => Task.CompletedTask, () => { })
         {
-            CreateSource = () => _source,
+            CreateSource = () => source ?? _source,
             Queue = _queue,
             Downloader = new ModelRepoDownloader(_queue),
             ModelRoot = () => _root,
@@ -154,6 +154,71 @@ public class ModelDownloadTabTests : IDisposable
             Assert.Equal("Embedding", data.Downloads!.SearchText);
             Assert.Equal(1, _source.SearchCount);
             Assert.Equal("Embedding", _source.LastQuery);
+        });
+    }
+
+    [Fact]
+    public void ScrollingToBottom_LoadsNextPage_UntilNoMore()
+    {
+        HeadlessUi.RunAsync(async () =>
+        {
+            FakeModelSource source = new()
+            {
+                SearchResults = Enumerable.Range(0, 70).Select(i => new ModelRepoSummary($"o/tts-{i}", 1000 - i)).ToList()
+            };
+            ModelPageData data = CreatePage(source);
+            ModelPage page = new() { DataContext = data };
+            _window = new Window { Width = 1000, Height = 680, Content = page };
+            _window.Show();
+            data.SelectedTabIndex = 2;
+            await Settle();
+
+            Assert.Equal(30, data.Downloads!.Results.Count); //第一页撑满了列表，不会自己续
+            ScrollViewer viewer = page.GetVisualDescendants().OfType<ListBox>()
+                .Single(x => x.Name == "ResultList").GetVisualDescendants().OfType<ScrollViewer>().First();
+            for (int i = 0; i < 2; i++)
+            {
+                viewer.Offset = viewer.Offset.WithY(viewer.Extent.Height);
+                await Settle();
+            }
+
+            Assert.Equal(70, data.Downloads.Results.Count);
+            Assert.Equal(70, data.Downloads.Results.Select(x => x.Repository).Distinct().Count());
+            Assert.Equal(3, source.SearchCount);
+            viewer.Offset = viewer.Offset.WithY(viewer.Extent.Height);
+            await Settle();
+            Assert.Equal(3, source.SearchCount); //没有更多就不再请求
+        });
+    }
+
+    [Fact]
+    public void ChangingSort_SearchesAgain_AndShowsMatchingMetric()
+    {
+        HeadlessUi.RunAsync(async () =>
+        {
+            FakeModelSource source = new()
+            {
+                SearchResults = [new ModelRepoSummary("o/a", 1_820_000, 42, DateTimeOffset.Now.AddHours(-3).AddMinutes(-5))]
+            };
+            ModelPageData data = CreatePage(source);
+            _window = new Window { Width = 1000, Height = 680, Content = new ModelPage { DataContext = data } };
+            _window.Show();
+            data.SelectedTabIndex = 2;
+            await Settle();
+            Assert.Equal(new ModelRepoListItem("o/a", "1.8M", "download"), data.Downloads!.Results.Single());
+
+            data.Downloads.SelectedSort = data.Downloads.SortOptions.Single(x => x.Sort == EModelSearchSort.Likes);
+            await Settle();
+            Assert.Equal(2, source.SearchCount);
+            Assert.Equal(EModelSearchSort.Likes, source.LastSort);
+            Assert.Equal(new ModelRepoListItem("o/a", "42", "star"), data.Downloads.Results.Single());
+
+            data.Downloads.SelectedSort = data.Downloads.SortOptions.Single(x => x.Sort == EModelSearchSort.Updated);
+            await Settle();
+            Assert.Equal("clock", data.Downloads.Results.Single().MetricIcon);
+            Assert.Equal(UiharuMind.Shared.Services.Loc.Text(UiharuMind.Generated.LangKey.ModelRepoTimeHoursAgo, 3),
+                data.Downloads.Results.Single().MetricText); //榜首常是当天的，要分得出先后
+            Capture("model-download-sort");
         });
     }
 

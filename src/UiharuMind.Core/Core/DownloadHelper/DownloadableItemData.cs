@@ -27,6 +27,7 @@ public class DownloadableItemData : INotifyPropertyChanged, IDisposable
     private readonly IDownloadable _target;
 
     private DownloadJob? _job;
+    private bool _ownsJob; //自己点下载开的任务：列表清掉时要停；别处排的（安装器、更新横幅）只跟着看
     private double _downloadProgress;
     private string? _downloadInfo;
     private string? _errorMessage;
@@ -145,6 +146,8 @@ public class DownloadableItemData : INotifyPropertyChanged, IDisposable
         _target = target;
         DownloadFilePath = ResolveDownloadFilePath();
         if (initDownloadSize) InitFileSize();
+        DownloadQueue.Shared.JobsChanged += AdoptQueuedJob;
+        AdoptQueuedJob();
     }
 
     /// <summary>
@@ -165,7 +168,27 @@ public class DownloadableItemData : INotifyPropertyChanged, IDisposable
         _job = DownloadQueue.Shared.Enqueue(Name, new DownloadRequest(
             new Uri(ModelSources.ApplyGitHubProxy(DownloadUrl)), DownloadFilePath, _target.SegmentCount,
             _target.Sha256));
+        _ownsJob = true;
         _job.PropertyChanged += OnJobChanged;
+    }
+
+    // 别处把同一个包排进了队列（如「安装引擎」按钮、模型下载自动装引擎）：跟上它的进度，不另起一份
+    private void AdoptQueuedJob()
+    {
+        if (_disposed || _job is { State: not (EDownloadJobState.Completed or EDownloadJobState.Failed) }) return;
+        DownloadJob? job = DownloadQueue.Shared.Jobs.FirstOrDefault(x =>
+            x != _job &&
+            (x.State is EDownloadJobState.Queued or EDownloadJobState.Running or EDownloadJobState.Paused) &&
+            string.Equals(x.Request.DestinationPath, DownloadFilePath, StringComparison.Ordinal));
+        if (job == null) return;
+
+        if (_job != null) _job.PropertyChanged -= OnJobChanged;
+        _job = job;
+        _ownsJob = false;
+        job.PropertyChanged += OnJobChanged;
+        IsDownloaded = false;
+        IsDownloading = job.State != EDownloadJobState.Paused;
+        UpdateDownloadProgress(job.Progress);
     }
 
     private void OnJobChanged(object? sender, PropertyChangedEventArgs e)
@@ -322,10 +345,11 @@ public class DownloadableItemData : INotifyPropertyChanged, IDisposable
             if (disposing)
             {
                 // 与旧实现一致：列表清掉即停下；已下部分保留，再点下载接着下
+                DownloadQueue.Shared.JobsChanged -= AdoptQueuedJob;
                 if (_job != null)
                 {
                     _job.PropertyChanged -= OnJobChanged;
-                    DownloadQueue.Shared.Pause(_job);
+                    if (_ownsJob) DownloadQueue.Shared.Pause(_job);
                 }
             }
 

@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UiharuMind.Core.Core.DownloadHelper;
+using UiharuMind.Generated;
+using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Models.Downloads;
 
@@ -41,6 +43,37 @@ public readonly record struct QuantDownloadStatus(EQuantDownloadState State, int
     /// </summary>
     public bool CanDownload => State is EQuantDownloadState.NotDownloaded or EQuantDownloadState.Paused
         or EQuantDownloadState.Failed or EQuantDownloadState.Partial;
+
+    /// <summary>
+    /// 状态行的文字
+    /// </summary>
+    public string StatusText => State switch
+    {
+        EQuantDownloadState.Queued => Loc.Text(LangKey.ModelDownloadStateQueued),
+        EQuantDownloadState.Downloading => Loc.Text(LangKey.ModelDownloadStateDownloading, Percent),
+        EQuantDownloadState.Paused => Loc.Text(LangKey.ModelDownloadStatePausedPercent, Percent),
+        EQuantDownloadState.Failed => Loc.Text(LangKey.ModelDownloadStateFailedShort),
+        EQuantDownloadState.Partial => Loc.Text(LangKey.ModelDownloadStatePartial, Percent),
+        EQuantDownloadState.Downloaded => Loc.Text(LangKey.ModelDownloadStateDownloaded),
+        EQuantDownloadState.NameConflict => Loc.Text(LangKey.ModelDownloadStateNameConflict),
+        _ => Loc.Text(LangKey.ModelDownloadStateNotDownloaded)
+    };
+
+    /// <summary>
+    /// 下载按钮上的字：继续 / 重试 / 下载
+    /// </summary>
+    public string ActionText => State switch
+    {
+        EQuantDownloadState.Paused or EQuantDownloadState.Partial => Loc.Text(LangKey.ModelDownloadResume),
+        EQuantDownloadState.Failed => Loc.Text(LangKey.ModelDownloadRetry),
+        _ => Loc.Text(LangKey.ModelDownloadAction)
+    };
+
+    /// <summary>
+    /// 该带一条进度
+    /// </summary>
+    public bool ShowsProgress => State is EQuantDownloadState.Downloading or EQuantDownloadState.Paused
+        or EQuantDownloadState.Partial or EQuantDownloadState.Queued;
 
     /// <summary>
     /// 把各文件的样子合成量化的状态。下载项的状态优先于磁盘上的残留

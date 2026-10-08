@@ -18,20 +18,39 @@ public sealed class ModelScopeModelSource(HttpClient httpClient, string? token) 
 
     public string Id => SourceId;
 
-    public async Task<IReadOnlyList<ModelRepoSummary>> SearchAsync(string query, int limit,
+    public async Task<ModelSearchPage> SearchAsync(string query, EModelSearchSort sort, int limit, string? cursor,
         CancellationToken cancellationToken)
     {
+        int page = int.TryParse(cursor, out int number) && number > 1 ? number : 1;
         using HttpRequestMessage request = CreateRequest(HttpMethod.Put, $"{Endpoint}/api/v1/dolphin/models");
         // 魔搭搜索没有可用的 GGUF 过滤条件（libraries 条件会被忽略），关键词里带上 GGUF 才收得住
         string name = query.Contains("gguf", StringComparison.OrdinalIgnoreCase) ? query : $"{query} GGUF";
-        request.Content = JsonContent.Create(new SearchRequest(limit, 1, "Default", "", [], name));
+        // 排序都交给服务端，翻页才接得上
+        request.Content = JsonContent.Create(new SearchRequest(limit, page, SortKey(sort), "", [], name));
         SearchResponse? response = await SendAsync<SearchResponse>(request, cancellationToken).ConfigureAwait(false);
-        return response?.Data?.Model?.Models?
+        SearchModels? models = response?.Data?.Model;
+        List<ModelRepoSummary> items = models?.Models?
             .Where(x => !string.IsNullOrEmpty(x.Path) && !string.IsNullOrEmpty(x.Name))
-            .Select(x => new ModelRepoSummary($"{x.Path}/{x.Name}", x.Downloads))
-            .OrderByDescending(x => x.Downloads) //魔搭的默认排序不是下载量，接口口径要按下载量
+            .Select(x => new ModelRepoSummary($"{x.Path}/{x.Name}", x.Downloads, x.Stars,
+                FromUnixSeconds(x.LastUpdatedTime), FromUnixSeconds(x.CreatedTime)))
             .ToList() ?? [];
+        int fetched = (page - 1) * limit + (models?.Models?.Count ?? 0);
+        bool hasMore = models?.Models?.Count == limit && (models.TotalCount is not { } total || fetched < total);
+        return new ModelSearchPage(items, hasMore ? (page + 1).ToString() : null);
     }
+
+    // 魔搭没有「近期热门」，拿它的默认（综合）排序顶上
+    private static string SortKey(EModelSearchSort sort) => sort switch
+    {
+        EModelSearchSort.Trending => "Default",
+        EModelSearchSort.Likes => "StarsCount",
+        EModelSearchSort.Updated => "GmtModified",
+        EModelSearchSort.Created => "GmtCreated",
+        _ => "DownloadsCount"
+    };
+
+    private static DateTimeOffset? FromUnixSeconds(long seconds) =>
+        seconds > 0 ? DateTimeOffset.FromUnixTimeSeconds(seconds) : null;
 
     public async Task<IReadOnlyList<ModelRepoFile>> ListFilesAsync(string repository,
         CancellationToken cancellationToken, string? revision = null)
@@ -98,6 +117,7 @@ public sealed class ModelScopeModelSource(HttpClient httpClient, string? token) 
     private sealed class SearchModels
     {
         public List<SearchItem>? Models { get; set; }
+        public int? TotalCount { get; set; }
     }
 
     // Path 是作者，Name 是仓库名
@@ -106,6 +126,9 @@ public sealed class ModelScopeModelSource(HttpClient httpClient, string? token) 
         public string? Path { get; set; }
         public string? Name { get; set; }
         public long Downloads { get; set; }
+        public long Stars { get; set; }
+        public long CreatedTime { get; set; }
+        public long LastUpdatedTime { get; set; }
     }
 
     private sealed class FilesResponse

@@ -137,6 +137,16 @@ public partial class DownloadListViewData : ObservableObject
     }
 
     /// <summary>
+    /// 按名字取一行
+    /// </summary>
+    /// <param name="itemName">名字</param>
+    /// <returns>那一行；没有为 null</returns>
+    public DownloadableItemData? Find(string itemName)
+    {
+        return DownloadableItemsDictionary.GetValueOrDefault(itemName);
+    }
+
+    /// <summary>
     /// 添加一个可以下载的对象
     /// </summary>
     /// <param name="item"></param>

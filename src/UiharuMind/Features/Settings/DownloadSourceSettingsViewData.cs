@@ -17,7 +17,7 @@ namespace UiharuMind.Features.Settings;
 public sealed record ModelSourceOption(string Key, string DisplayName);
 
 /// <summary>
-/// 「本地模型」页的下载源一节：模型源、自定义地址、两个令牌、GitHub 代理前缀，变更即存
+/// 下载源页（本地模型文本 / 语音与引擎包共用）：模型源、自定义地址、两个令牌、GitHub 代理前缀，变更即存
 /// </summary>
 public partial class DownloadSourceSettingsViewData : ObservableObject
 {

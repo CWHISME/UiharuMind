@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,25 +13,7 @@ using UiharuMind.Shared.Services;
 namespace UiharuMind.Features.Models.Downloads;
 
 /// <summary>
-/// 列表里的一个仓库
-/// </summary>
-/// <param name="Repository">owner/repo</param>
-/// <param name="DownloadsText">下载量</param>
-public sealed record ModelRepoListItem(string Repository, string DownloadsText)
-{
-    /// <summary>
-    /// 仓库名（不含作者）
-    /// </summary>
-    public string Name => Repository[(Repository.IndexOf('/') + 1)..];
-
-    /// <summary>
-    /// 作者
-    /// </summary>
-    public string Owner => Repository.Contains('/') ? Repository[..Repository.IndexOf('/')] : "";
-}
-
-/// <summary>
-/// 「获取模型」页签：左边搜仓库，右边看仓库详情，底部下载区。
+/// 「获取模型」页签：左边搜仓库（滚到底续下一页），右边看仓库详情，底部下载区。
 /// 第一次选中页签才建出来，网络请求也从那时才发
 /// </summary>
 public partial class ModelDownloadPageData : ObservableObject
@@ -44,12 +27,17 @@ public partial class ModelDownloadPageData : ObservableObject
     private CancellationTokenSource? _searchCancellation;
     private bool _hasSearched;
     private string _resultsQuery = ""; //当前结果是按哪个词搜出来的
+    private EModelSearchSort _resultsSort; //当前结果的排序，续页沿用
+    private string? _nextCursor; //下一页游标，没有更多为 null
+    private readonly HashSet<string> _listed = new(StringComparer.OrdinalIgnoreCase); //已列出的仓库，翻页时去重
 
     [ObservableProperty] private string _searchText = "";
     [ObservableProperty] private bool _isSearching;
+    [ObservableProperty] private bool _isLoadingMore;
     [ObservableProperty] private string? _searchError;
     [ObservableProperty] private bool _isResultEmpty;
     [ObservableProperty] private string _sourceLabel = "";
+    [ObservableProperty] private ModelSearchSortOption _selectedSort;
     [ObservableProperty] private ModelRepoListItem? _selectedItem;
     [ObservableProperty] private ModelRepoDetailData? _detail;
 
@@ -58,6 +46,8 @@ public partial class ModelDownloadPageData : ObservableObject
         _context = context;
         _source = context.CreateSource();
         _sourceKey = SourceKey();
+        SortOptions = ModelSearchSortOption.CreateAll();
+        _selectedSort = SortOptions[0];
         SourceLabel = Loc.Text(LangKey.ModelDownloadSourceLabel, SourceDisplayName());
     }
 
@@ -67,11 +57,9 @@ public partial class ModelDownloadPageData : ObservableObject
     public ObservableCollection<ModelRepoListItem> Results { get; } = [];
 
     /// <summary>
-    /// 列表上方的小标题：按当前结果的来路，空搜索搜出来的是热门仓库
+    /// 排序选项
     /// </summary>
-    public string ListCaption => Loc.Text(string.IsNullOrWhiteSpace(_resultsQuery)
-        ? LangKey.ModelDownloadPopularCaption
-        : LangKey.ModelDownloadResultsCaption);
+    public ModelSearchSortOption[] SortOptions { get; }
 
     /// <summary>
     /// 下载区
@@ -107,6 +95,15 @@ public partial class ModelDownloadPageData : ObservableObject
         _ = detail.LoadAsync();
     }
 
+    /// <summary>
+    /// 续取下一页（列表滚到底时调）；正在搜、正在取或没有更多时什么也不做
+    /// </summary>
+    public void LoadNextPage()
+    {
+        if (IsSearching || IsLoadingMore || _nextCursor == null || _searchCancellation == null) return;
+        _ = LoadNextPageAsync(_nextCursor, _searchCancellation);
+    }
+
     partial void OnSearchTextChanged(string value)
     {
         if (!_hasSearched) return;
@@ -119,6 +116,13 @@ public partial class ModelDownloadPageData : ObservableObject
         }
 
         _ = SearchAsync(value, SearchDelay);
+    }
+
+    // 换排序立刻重搜；搜索框里是仓库引用时按空关键词列
+    partial void OnSelectedSortChanged(ModelSearchSortOption value)
+    {
+        if (!_hasSearched) return;
+        _ = SearchAsync(ModelRepoReference.TryParse(SearchText, out _) ? "" : SearchText, TimeSpan.Zero);
     }
 
     partial void OnSelectedItemChanged(ModelRepoListItem? value)
@@ -148,15 +152,16 @@ public partial class ModelDownloadPageData : ObservableObject
             IsSearching = true;
             SearchError = null;
             IModelSource source = _source;
-            var results = await Task.Run(() => source.SearchAsync(query.Trim(), SearchLimit, cancellation.Token),
-                cancellation.Token);
+            EModelSearchSort sort = SelectedSort.Sort;
+            ModelSearchPage page = await Task.Run(
+                () => source.SearchAsync(query.Trim(), sort, SearchLimit, null, cancellation.Token), cancellation.Token);
             if (cancellation.IsCancellationRequested) return;
 
             _resultsQuery = query;
-            OnPropertyChanged(nameof(ListCaption));
+            _resultsSort = sort;
             Results.Clear();
-            foreach (ModelRepoSummary summary in results)
-                Results.Add(new ModelRepoListItem(summary.Repository, FormatDownloads(summary.Downloads)));
+            _listed.Clear();
+            AppendPage(page);
             IsResultEmpty = Results.Count == 0;
         }
         catch (OperationCanceledException)
@@ -167,6 +172,7 @@ public partial class ModelDownloadPageData : ObservableObject
         {
             Log.Warning($"Model search failed: {e.Message}");
             Results.Clear();
+            _nextCursor = null;
             IsResultEmpty = false;
             SearchError = Loc.Text(LangKey.ModelDownloadSearchFailed, e.Message);
         }
@@ -174,12 +180,40 @@ public partial class ModelDownloadPageData : ObservableObject
         if (_searchCancellation == cancellation) IsSearching = false;
     }
 
-    private static string FormatDownloads(long downloads) => downloads switch
+    // 续页失败不清已有结果，只记日志；留着游标，下次滚到底再试
+    private async Task LoadNextPageAsync(string cursor, CancellationTokenSource cancellation)
     {
-        >= 1_000_000 => $"{downloads / 1_000_000.0:0.#}M",
-        >= 1_000 => $"{downloads / 1_000.0:0.#}K",
-        _ => downloads.ToString()
-    };
+        IsLoadingMore = true;
+        try
+        {
+            IModelSource source = _source;
+            string query = _resultsQuery.Trim();
+            EModelSearchSort sort = _resultsSort;
+            ModelSearchPage page = await Task.Run(
+                () => source.SearchAsync(query, sort, SearchLimit, cursor, cancellation.Token), cancellation.Token);
+            if (!cancellation.IsCancellationRequested) AppendPage(page);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Model search next page failed: {e.Message}");
+        }
+        finally
+        {
+            IsLoadingMore = false;
+        }
+    }
+
+    private void AppendPage(ModelSearchPage page)
+    {
+        DateTimeOffset now = DateTimeOffset.Now;
+        foreach (ModelRepoSummary summary in page.Items)
+            if (_listed.Add(summary.Repository))
+                Results.Add(ModelRepoListItem.From(summary, _resultsSort, now));
+        _nextCursor = page.NextCursor;
+    }
 
     private static string SourceKey()
     {

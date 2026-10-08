@@ -94,7 +94,8 @@ public class ModelRepoDownloaderTests : IDisposable
     {
         public string Id => "fake";
 
-        public Task<IReadOnlyList<ModelRepoSummary>> SearchAsync(string query, int limit, CancellationToken token) =>
+        public Task<ModelSearchPage> SearchAsync(string query, EModelSearchSort sort, int limit, string? cursor,
+            CancellationToken token) =>
             throw new NotSupportedException();
 
         public Task<IReadOnlyList<ModelRepoFile>> ListFilesAsync(string repository, CancellationToken token,

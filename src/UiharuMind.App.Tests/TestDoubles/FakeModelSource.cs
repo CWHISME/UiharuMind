@@ -4,7 +4,7 @@ using UiharuMind.Core.Core.DownloadHelper;
 namespace UiharuMind.App.Tests.TestDoubles;
 
 /// <summary>
-/// 不联网的模型源：搜索与列文件返回给定数据，或抛给定异常
+/// 不联网的模型源：搜索（按 limit 分页，游标是偏移）与列文件返回给定数据，或抛给定异常
 /// </summary>
 internal sealed class FakeModelSource : IModelSource
 {
@@ -24,11 +24,18 @@ internal sealed class FakeModelSource : IModelSource
 
     public string? LastQuery { get; private set; }
 
-    public Task<IReadOnlyList<ModelRepoSummary>> SearchAsync(string query, int limit, CancellationToken token)
+    public EModelSearchSort? LastSort { get; private set; }
+
+    public Task<ModelSearchPage> SearchAsync(string query, EModelSearchSort sort, int limit, string? cursor,
+        CancellationToken token)
     {
         SearchCount++;
         LastQuery = query;
-        return Task.FromResult(SearchResults);
+        LastSort = sort;
+        int offset = cursor == null ? 0 : int.Parse(cursor);
+        int next = offset + limit;
+        return Task.FromResult(new ModelSearchPage(SearchResults.Skip(offset).Take(limit).ToList(),
+            next < SearchResults.Count ? next.ToString() : null));
     }
 
     public Task<IReadOnlyList<ModelRepoFile>> ListFilesAsync(string repository, CancellationToken token,

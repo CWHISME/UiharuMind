@@ -10,6 +10,7 @@
  ****************************************************************************/
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using System.IO;
@@ -166,6 +167,9 @@ public partial class App : Application, ILogger, IDisposable
         {
             await Task.Delay(TimeSpan.FromSeconds(30));
             await UiharuMind.Core.AI.Runtime.Backends.LLamaCppEngineInstaller.Shared.CheckForUpdateAsync();
+            // 语音引擎没装过就不去问 GitHub
+            UiharuMind.Core.AI.Audio.AudioCppEngine audio = UiharuMind.Core.AI.Audio.AudioCppEngine.Shared;
+            if ((await audio.GetLocalVersionsAsync()).Any(x => x.IsInstalled)) await audio.Installer.CheckForUpdateAsync();
         });
         UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("update-check-kickoff");
         // 空闲内存回收:长轮次过后 GC 会占着一大片用过的空地不还,见 IdleMemoryReclaimer

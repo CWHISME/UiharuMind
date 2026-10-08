@@ -1,5 +1,3 @@
-using Avalonia.LogicalTree;
-using Avalonia.Threading;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,6 +8,8 @@ using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Features.About;
+using UiharuMind.Features.Settings.Audio;
+using UiharuMind.Features.Settings.Engines;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 
@@ -19,6 +19,8 @@ public partial class SettingsWindow : UiharuWindowBase
 {
     private readonly GeneralSettingView _generalSettingView;
     private readonly RuntimeEngineSettingView _runtimeEngineSettingView;
+    private readonly AudioEngineSettingView _audioEngineSettingView;
+    private readonly DownloadSourceSettingsView _downloadSourceSettingsView = new();
     private readonly ShortcutSettingView _shortcutSettingView;
     private readonly AgentSettingView _agentSettingView;
     private readonly QuickToolSettingView _quickToolSettingView;
@@ -34,6 +36,7 @@ public partial class SettingsWindow : UiharuWindowBase
     public SettingsWindow() : this(
         App.ViewModel.GetViewModel<GeneralSettingViewModel>(),
         App.ViewModel.GetViewModel<SettingViewModel>().RuntimeEngineSettingData,
+        App.ViewModel.GetViewModel<SettingViewModel>().AudioEngineSettingData,
         App.ViewModel.GetViewModel<ShortcutSettingViewModel>(),
         App.ViewModel.GetPage)
     {
@@ -44,17 +47,20 @@ public partial class SettingsWindow : UiharuWindowBase
     /// 测试自备页数据与取页路径；生产路径仍走无参构造，两路渲染同一批页面。
     /// </summary>
     /// <param name="generalSetting">General 页数据</param>
-    /// <param name="runtimeEngineSetting">Runtime 页数据</param>
+    /// <param name="runtimeEngineSetting">本地模型（文本）页数据</param>
+    /// <param name="audioEngineSetting">本地模型（语音）页数据</param>
     /// <param name="shortcutSetting">Shortcut 页数据</param>
     /// <param name="getPage">取页路径（本窗只取 MenuHelpKey）</param>
     public SettingsWindow(
         GeneralSettingViewModel generalSetting,
         RuntimeEngineSettingData runtimeEngineSetting,
+        AudioEngineSettingData audioEngineSetting,
         ShortcutSettingViewModel shortcutSetting,
         Func<MenuPages, PageDataBase> getPage)
     {
         _generalSettingView = new GeneralSettingView(generalSetting);
         _runtimeEngineSettingView = new RuntimeEngineSettingView(runtimeEngineSetting);
+        _audioEngineSettingView = new AudioEngineSettingView(audioEngineSetting);
         _shortcutSettingView = new ShortcutSettingView(shortcutSetting);
         _agentSettingView = new AgentSettingView();
         _quickToolSettingView = new QuickToolSettingView();
@@ -62,7 +68,9 @@ public partial class SettingsWindow : UiharuWindowBase
         InitializeComponent();
         VersionText.Text = App.Version.ToString();
         EngineUpdateDot.Bind(IsVisibleProperty,
-            new Binding(nameof(RuntimeEngineSettingData.HasEngineUpdate)) { Source = runtimeEngineSetting });
+            new Binding(nameof(EngineVersionsViewData.HasUpdate)) { Source = runtimeEngineSetting.Engine });
+        AudioEngineUpdateDot.Bind(IsVisibleProperty,
+            new Binding(nameof(EngineVersionsViewData.HasUpdate)) { Source = audioEngineSetting.Engine });
         LocalizationManager.Instance.LanguageChanged += RefreshTitle;
 
         // 页表是本窗导航、标题、搜索三处的唯一真相源：加页只在这一个地方加一行
@@ -71,6 +79,8 @@ public partial class SettingsWindow : UiharuWindowBase
         _pages.Add(new SettingsPageEntry(QuickToolButton, _quickToolSettingView, "QuickToolSetting"));
         _pages.Add(new SettingsPageEntry(AgentButton, _agentSettingView, "AgentSetting"));
         _pages.Add(new SettingsPageEntry(RuntimeButton, _runtimeEngineSettingView, "RuntimeEngineSetting"));
+        _pages.Add(new SettingsPageEntry(AudioRuntimeButton, _audioEngineSettingView, "AudioEngineSetting"));
+        _pages.Add(new SettingsPageEntry(DownloadSourceButton, _downloadSourceSettingsView, "DownloadSourceSetting"));
         _pages.Add(new SettingsPageEntry(HelpButton, _helpPageData.View, "TrayMenuHelp"));
         _pages.Add(new SettingsPageEntry(AboutButton, _aboutPage, "TrayMenuAbout"));
 
@@ -81,6 +91,10 @@ public partial class SettingsWindow : UiharuWindowBase
     private void OnGeneralClick(object? sender, RoutedEventArgs e) => SelectByButton(GeneralButton);
 
     private void OnRuntimeClick(object? sender, RoutedEventArgs e) => SelectByButton(RuntimeButton);
+
+    private void OnAudioRuntimeClick(object? sender, RoutedEventArgs e) => SelectByButton(AudioRuntimeButton);
+
+    private void OnDownloadSourceClick(object? sender, RoutedEventArgs e) => SelectByButton(DownloadSourceButton);
 
     private void OnShortcutsClick(object? sender, RoutedEventArgs e) => SelectByButton(ShortcutsButton);
 
@@ -102,15 +116,9 @@ public partial class SettingsWindow : UiharuWindowBase
     }
 
     /// <summary>
-    /// 切到「本地模型」页并把下载源一节滚进视野（模型页跳下载源设置走这条）
+    /// 切到下载源页（模型页、语音页跳下载源设置走这条）
     /// </summary>
-    public void ShowDownloadSourceSettings()
-    {
-        SelectByButton(RuntimeButton);
-        // 切页后那一节才挂进可视树，等这一轮布局走完再滚
-        Dispatcher.UIThread.Post(() => _runtimeEngineSettingView.GetLogicalDescendants()
-            .OfType<DownloadSourceSettingsView>().FirstOrDefault()?.BringIntoView());
-    }
+    public void ShowDownloadSourceSettings() => SelectByButton(DownloadSourceButton);
 
     /// <summary>按标题 key 切页（搜索结果跳转走这条）</summary>
     private void SelectByTitleKey(string titleKey)

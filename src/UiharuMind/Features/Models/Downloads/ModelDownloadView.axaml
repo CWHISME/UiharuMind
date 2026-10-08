@@ -60,19 +60,27 @@
                                             IsHitTestVisible="False" />
                 </Grid>
 
+                <!-- 排序优先占位，窄栏时让下载源那行去截断 -->
                 <DockPanel DockPanel.Dock="Top" Margin="2,12,2,6">
-                    <Button DockPanel.Dock="Right" Classes="NoneStyle" Cursor="Hand" Padding="0"
+                    <ComboBox DockPanel.Dock="Left" Classes="Small" VerticalAlignment="Center" Margin="0,0,8,0"
+                              ToolTip.Tip="{loc:Loc ModelSearchSortTip}"
+                              ItemsSource="{Binding SortOptions}" SelectedItem="{Binding SelectedSort}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="downloads:ModelSearchSortOption">
+                                <TextBlock Text="{Binding Label}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button Classes="NoneStyle" Cursor="Hand" Padding="0" HorizontalAlignment="Right"
                             ToolTip.Tip="{loc:Loc ModelDownloadSourceTip}"
                             Command="{Binding OpenSourceSettingsCommand}">
-                        <StackPanel Orientation="Horizontal" Spacing="4">
-                            <TextBlock Text="{Binding SourceLabel}" Classes="muted" FontSize="12"
-                                       FontWeight="Normal" VerticalAlignment="Center" />
-                            <controls:ThemedSvgIcon Width="12" Height="12" IconName="settings" Opacity="0.6"
-                                                    VerticalAlignment="Center" />
-                        </StackPanel>
+                        <DockPanel>
+                            <controls:ThemedSvgIcon DockPanel.Dock="Right" Width="12" Height="12" Margin="4,0,0,0"
+                                                    IconName="settings" Opacity="0.6" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding SourceLabel}" Classes="muted" FontSize="12" FontWeight="Normal"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        </DockPanel>
                     </Button>
-                    <TextBlock Text="{Binding ListCaption}" Classes="muted" FontSize="12" VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis" Margin="0,0,8,0" />
                 </DockPanel>
 
                 <ProgressBar DockPanel.Dock="Top" IsIndeterminate="True" Height="2" MinHeight="2"
@@ -83,7 +91,11 @@
                 <TextBlock DockPanel.Dock="Top" Classes="muted" Margin="2,8"
                            Text="{loc:Loc ModelDownloadNoResults}" IsVisible="{Binding IsResultEmpty}" />
 
-                <ListBox Classes="repo-list" ItemsSource="{Binding Results}" SelectedItem="{Binding SelectedItem}"
+                <ProgressBar DockPanel.Dock="Bottom" IsIndeterminate="True" Height="2" MinHeight="2"
+                             Margin="0,4,0,0" IsVisible="{Binding IsLoadingMore}" />
+
+                <ListBox x:Name="ResultList" Classes="repo-list" ItemsSource="{Binding Results}"
+                         SelectedItem="{Binding SelectedItem}"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="downloads:ModelRepoListItem">
@@ -95,8 +107,8 @@
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="3"
                                             VerticalAlignment="Center" Opacity="0.7">
-                                    <controls:ThemedSvgIcon Width="12" Height="12" IconName="download" />
-                                    <TextBlock Text="{Binding DownloadsText}" Classes="muted" FontSize="12" />
+                                    <controls:ThemedSvgIcon Width="12" Height="12" IconName="{Binding MetricIcon}" />
+                                    <TextBlock Text="{Binding MetricText}" Classes="muted" FontSize="12" />
                                 </StackPanel>
                             </Grid>
                         </DataTemplate>

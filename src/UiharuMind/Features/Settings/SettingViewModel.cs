@@ -1,3 +1,4 @@
+using UiharuMind.Features.Settings.Audio;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Runtime.Backends;
@@ -12,4 +13,6 @@ public class SettingViewModel : ViewModelBase
     public QuickToolSetting QuickToolSettingConfig => ConfigManager.Instance.QuickToolSetting;
 
     public RuntimeEngineSettingData RuntimeEngineSettingData { get; } = new();
+
+    public AudioEngineSettingData AudioEngineSettingData { get; } = new();
 }

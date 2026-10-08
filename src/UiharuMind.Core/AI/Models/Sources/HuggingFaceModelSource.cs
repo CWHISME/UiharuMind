@@ -19,13 +19,48 @@ public sealed class HuggingFaceModelSource(HttpClient httpClient, string endpoin
 
     public string Id => SourceId;
 
-    public async Task<IReadOnlyList<ModelRepoSummary>> SearchAsync(string query, int limit,
+    public async Task<ModelSearchPage> SearchAsync(string query, EModelSearchSort sort, int limit, string? cursor,
         CancellationToken cancellationToken)
     {
-        string url = $"{_endpoint}/api/models?search={Uri.EscapeDataString(query)}&filter=gguf&sort=downloads&limit={limit}";
-        List<SearchItem>? items = await GetJsonAsync<List<SearchItem>>(url, cancellationToken).ConfigureAwait(false);
-        return items?.Where(x => !string.IsNullOrEmpty(x.Id)).Select(x => new ModelRepoSummary(x.Id!, x.Downloads))
-            .ToList() ?? [];
+        // 默认字段里没有 lastModified，要 expand；一旦 expand 就只回列出的字段（id 总在）
+        string url = $"{_endpoint}/api/models?search={Uri.EscapeDataString(query)}&filter=gguf&sort={SortKey(sort)}" +
+                     $"&limit={limit}&expand[]=downloads&expand[]=likes&expand[]=lastModified&expand[]=createdAt";
+        if (!string.IsNullOrEmpty(cursor)) url += $"&cursor={cursor}";
+        using HttpResponseMessage response = await SendAsync(url, cancellationToken).ConfigureAwait(false);
+        await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        List<SearchItem>? items = await JsonSerializer.DeserializeAsync<List<SearchItem>>(stream,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return new ModelSearchPage(
+            items?.Where(x => !string.IsNullOrEmpty(x.Id))
+                .Select(x => new ModelRepoSummary(x.Id!, x.Downloads, x.Likes, x.LastModified, x.CreatedAt)).ToList() ?? [],
+            ReadNextCursor(response));
+    }
+
+    private static string SortKey(EModelSearchSort sort) => sort switch
+    {
+        EModelSearchSort.Trending => "trendingScore",
+        EModelSearchSort.Likes => "likes",
+        EModelSearchSort.Updated => "lastModified",
+        EModelSearchSort.Created => "createdAt",
+        _ => "downloads"
+    };
+
+    // 从 Link 头的 rel="next" 里取 cursor 参数（保持转义原样）。镜像会把接口重定向回官方，只取游标、地址自己拼
+    private static string? ReadNextCursor(HttpResponseMessage response)
+    {
+        if (!response.Headers.TryGetValues("Link", out IEnumerable<string>? values)) return null;
+        foreach (string link in values.SelectMany(x => x.Split(',')))
+        {
+            if (!link.Contains("rel=\"next\"", StringComparison.Ordinal)) continue;
+            int start = link.IndexOf('<');
+            int end = link.IndexOf('>', start + 1);
+            if (start < 0 || end < 0 || !Uri.TryCreate(link[(start + 1)..end], UriKind.Absolute, out Uri? uri)) continue;
+            foreach (string pair in uri.Query.TrimStart('?').Split('&'))
+                if (pair.StartsWith("cursor=", StringComparison.Ordinal) && pair.Length > "cursor=".Length)
+                    return pair["cursor=".Length..];
+        }
+
+        return null;
     }
 
     public async Task<IReadOnlyList<ModelRepoFile>> ListFilesAsync(string repository,
@@ -56,19 +91,36 @@ public sealed class HuggingFaceModelSource(HttpClient httpClient, string endpoin
 
     private async Task<T?> GetJsonAsync<T>(string url, CancellationToken token)
     {
+        using HttpResponseMessage response = await SendAsync(url, token).ConfigureAwait(false);
+        await using Stream stream = await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false);
+        return await JsonSerializer.DeserializeAsync<T>(stream, cancellationToken: token).ConfigureAwait(false);
+    }
+
+    private async Task<HttpResponseMessage> SendAsync(string url, CancellationToken token)
+    {
         using HttpRequestMessage request = new(HttpMethod.Get, url);
         foreach ((string key, string value) in AuthHeaders() ?? [])
             request.Headers.TryAddWithoutValidation(key, value);
-        using HttpResponseMessage response = await httpClient.SendAsync(request, token).ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
-        await using Stream stream = await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false);
-        return await JsonSerializer.DeserializeAsync<T>(stream, cancellationToken: token).ConfigureAwait(false);
+        HttpResponseMessage response = await httpClient.SendAsync(request, token).ConfigureAwait(false);
+        try
+        {
+            response.EnsureSuccessStatusCode();
+            return response;
+        }
+        catch
+        {
+            response.Dispose();
+            throw;
+        }
     }
 
     private sealed class SearchItem
     {
         [JsonPropertyName("id")] public string? Id { get; set; }
         [JsonPropertyName("downloads")] public long Downloads { get; set; }
+        [JsonPropertyName("likes")] public long Likes { get; set; }
+        [JsonPropertyName("lastModified")] public DateTimeOffset? LastModified { get; set; }
+        [JsonPropertyName("createdAt")] public DateTimeOffset? CreatedAt { get; set; }
     }
 
     private sealed class TreeItem

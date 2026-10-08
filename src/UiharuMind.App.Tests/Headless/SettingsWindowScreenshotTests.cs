@@ -1,3 +1,4 @@
+using UiharuMind.Features.Settings.Audio;
 using UiharuMind.Core.AI.Runtime.Backends;
 using Avalonia;
 using UiharuMind.Core.Configs;
@@ -50,6 +51,9 @@ public class SettingsWindowScreenshotTests : IDisposable
 
             ClickAndCapture(window, "RuntimeButton", outDir, "runtime");
             AssertRuntimeSectionsRendered(window);
+            ClickAndCapture(window, "AudioRuntimeButton", outDir, "audio");
+            AssertAudioSectionsRendered(window);
+            ClickAndCapture(window, "DownloadSourceButton", outDir, "download-source");
             ClickAndCapture(window, "AgentButton", outDir, "agent");
             ClickAndCapture(window, "QuickToolButton", outDir, "quicktool");
             ClickAndCapture(window, "ShortcutsButton", outDir, "shortcut");
@@ -60,7 +64,7 @@ public class SettingsWindowScreenshotTests : IDisposable
     }
 
     [Fact]
-    public void JumpToDownloadSource_ScrollsSectionIntoView()
+    public void JumpToDownloadSource_OpensItsOwnPage()
     {
         HeadlessUi.Run(() =>
         {
@@ -77,12 +81,13 @@ public class SettingsWindowScreenshotTests : IDisposable
             DownloadSourceSettingsView section = window.GetVisualDescendants().OfType<DownloadSourceSettingsView>().Single();
             Point? topLeft = section.TranslatePoint(new Point(0, 0), window);
             Assert.True(topLeft is { } p && p.Y >= 0 && p.Y < window.Bounds.Height, $"下载源一节不在视野内：{topLeft}");
-            Capture(window, SettingsShotsDir(), "runtime-download-source");
+            Assert.Contains("selected", window.FindControl<Button>("DownloadSourceButton")!.Classes);
+            Capture(window, SettingsShotsDir(), "download-source-jump");
 
             // 滚动位置是全局记忆（关窗时也会记一次），先关窗再清，不然同类里后跑的截图从半页开始
             window.Close();
             _window = null;
-            ConfigManager.Instance.Setting.SettingsScrollPositions.Remove("RuntimeEngineSetting");
+            ConfigManager.Instance.Setting.SettingsScrollPositions.Remove("DownloadSourceSetting");
         });
     }
 
@@ -136,6 +141,7 @@ public class SettingsWindowScreenshotTests : IDisposable
         return new SettingsWindow(
             ActivatorUtilities.CreateInstance<GeneralSettingViewModel>(services),
             new RuntimeEngineSettingData(messages),
+            TestSettingsPages.Audio(messages),
             new ShortcutSettingViewModel(),
             GetPageForHeadless);
     }
@@ -150,15 +156,23 @@ public class SettingsWindowScreenshotTests : IDisposable
         Capture(window, outDir, pageName);
     }
 
-    // 本地模型页按 Jan 的口径分节：引擎卡 + 常用 / 性能 / 内存与缓存 / 高级 + 下载源，每节都得真渲染出来
+    // 本地模型（文本）页按 Jan 的口径分节：引擎卡 + 常用 / 性能 / 内存与缓存 / 高级，每节都得真渲染出来（下载源已单独成页）
     private static void AssertRuntimeSectionsRendered(SettingsWindow window)
     {
         List<SettingsSection> sections = window.GetVisualDescendants().OfType<SettingsSection>()
             .Where(x => x.FindAncestorOfType<RuntimeEngineSettingView>() != null)
             .ToList();
-        Assert.True(sections.Count >= 6, $"本地模型页应有至少 6 节，实际 {sections.Count}");
+        Assert.True(sections.Count >= 5, $"本地模型页应有至少 5 节，实际 {sections.Count}");
         Assert.True(window.GetVisualDescendants().OfType<SettingsRow>()
             .Count(x => x.FindAncestorOfType<RuntimeEngineSettingView>() != null) >= 20, "本地模型页的设置行少了");
+    }
+
+    // 本地模型（语音）页：引擎卡 / 语音模型 / 获取模型 / 运行参数；没装引擎时获取模型一节只有一句提示
+    private static void AssertAudioSectionsRendered(SettingsWindow window)
+    {
+        Assert.Equal(4, window.GetVisualDescendants().OfType<SettingsSection>()
+            .Count(x => x.FindAncestorOfType<AudioEngineSettingView>() != null));
+        Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), x => x.Text == "audio.cpp");
     }
 
     private static void Capture(SettingsWindow window, string outDir, string pageName)

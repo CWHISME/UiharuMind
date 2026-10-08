@@ -628,7 +628,7 @@
         <value>{0} running sessions were skipped.</value>
     </data>
     <data name="RuntimeEngineSetting" xml:space="preserve">
-        <value>Local Models</value>
+        <value>Local Models (Text)</value>
     </data>
     <data name="CurrentEngineTypeSetting" xml:space="preserve">
         <value>Current Engine Type:</value>
@@ -3865,7 +3865,7 @@ Allow them?</value>
         <value>Model "{0}" failed to run</value>
     </data>
     <data name="ModelRunFailedNoEngine" xml:space="preserve">
-        <value>No llama.cpp engine is available yet. Download or select a version in Settings → Local Models.</value>
+        <value>No llama.cpp engine is available yet. Download or select a version in Settings → Local Models (Text).</value>
     </data>
     <data name="ModelPageDownloadsTab" xml:space="preserve">
         <value>Get models</value>
@@ -3969,12 +3969,6 @@ Allow them?</value>
     <data name="ModelDownloadCompleted" xml:space="preserve">
         <value>{0} finished downloading</value>
     </data>
-    <data name="ModelDownloadPopularCaption" xml:space="preserve">
-        <value>Popular GGUF repositories</value>
-    </data>
-    <data name="ModelDownloadResultsCaption" xml:space="preserve">
-        <value>Search results</value>
-    </data>
     <data name="ModelDownloadSummary" xml:space="preserve">
         <value>{0} quantizations</value>
     </data>
@@ -4042,7 +4036,7 @@ Allow them?</value>
         <value>Engine {0} failed to install: {1}</value>
     </data>
     <data name="ModelDownloadEngineNoPackage" xml:space="preserve">
-        <value>No engine package for this computer was found. Download one in Settings → Local Models.</value>
+        <value>No engine package for this computer was found. Download one in Settings → Local Models (Text).</value>
     </data>
     <data name="ModelDownloadEngineCheckFailed" xml:space="preserve">
         <value>Could not get the engine package list: {0}. The model still downloads; install an engine later in settings.</value>
@@ -4350,5 +4344,176 @@ Allow them?</value>
     </data>
     <data name="SettingsEngineUpdateTip" xml:space="preserve">
         <value>A new llama.cpp version is available</value>
+    </data>
+    <data name="AudioEngineSetting" xml:space="preserve">
+        <value>Local Models (Voice)</value>
+    </data>
+    <data name="DownloadSourceSetting" xml:space="preserve">
+        <value>Download Sources</value>
+    </data>
+    <data name="SettingsAudioEngineUpdateTip" xml:space="preserve">
+        <value>A new audio.cpp version is available</value>
+    </data>
+    <data name="AudioEngineTitle" xml:space="preserve">
+        <value>audio.cpp runtime</value>
+    </data>
+    <data name="AudioEngineDesc" xml:space="preserve">
+        <value>Read-aloud and dictation run on audio.cpp's audiocpp_server. Pick or download its version here; the downloadable voice models come with it.</value>
+    </data>
+    <data name="AudioEngineVersionDesc" xml:space="preserve">
+        <value>The audio.cpp build used the next time voice features run.</value>
+    </data>
+    <data name="AudioModelsTitle" xml:space="preserve">
+        <value>Voice models</value>
+    </data>
+    <data name="AudioModelsDesc" xml:space="preserve">
+        <value>Which local model read-aloud and dictation use.</value>
+    </data>
+    <data name="AudioTtsModel" xml:space="preserve">
+        <value>Speech model</value>
+    </data>
+    <data name="AudioTtsModelDesc" xml:space="preserve">
+        <value>The text-to-speech model used for read-aloud.</value>
+    </data>
+    <data name="AudioVoice" xml:space="preserve">
+        <value>Voice</value>
+    </data>
+    <data name="AudioVoiceDesc" xml:space="preserve">
+        <value>Voices that come with the speech model. "Default" uses the first one it lists.</value>
+    </data>
+    <data name="AudioLoadVoices" xml:space="preserve">
+        <value>Load voices</value>
+    </data>
+    <data name="AudioLoadVoicesTip" xml:space="preserve">
+        <value>Starts the voice engine and lists the current speech model's voices</value>
+    </data>
+    <data name="AudioVoiceDefault" xml:space="preserve">
+        <value>Default</value>
+    </data>
+    <data name="AudioVoicesLoadFailed" xml:space="preserve">
+        <value>Failed to load voices: {0}</value>
+    </data>
+    <data name="AudioAsrModel" xml:space="preserve">
+        <value>Recognition model</value>
+    </data>
+    <data name="AudioAsrModelDesc" xml:space="preserve">
+        <value>The speech recognition model used for dictation.</value>
+    </data>
+    <data name="AudioNoModel" xml:space="preserve">
+        <value>None yet — get one below</value>
+    </data>
+    <data name="AudioCatalogTitle" xml:space="preserve">
+        <value>Get voice models</value>
+    </data>
+    <data name="AudioCatalogDesc" xml:space="preserve">
+        <value>Model packages come with the audio.cpp version in use and download from the model source chosen in Download Sources.</value>
+    </data>
+    <data name="AudioCatalogNeedsEngine" xml:space="preserve">
+        <value>Install audio.cpp above first; the model list comes with the engine.</value>
+    </data>
+    <data name="AudioCatalogShowAll" xml:space="preserve">
+        <value>Show all ({0})</value>
+    </data>
+    <data name="AudioCatalogSourceLink" xml:space="preserve">
+        <value>Download sources</value>
+    </data>
+    <data name="AudioTaskTts" xml:space="preserve">
+        <value>Speech</value>
+    </data>
+    <data name="AudioTaskAsr" xml:space="preserve">
+        <value>Recognition</value>
+    </data>
+    <data name="AudioNeedsEspeak" xml:space="preserve">
+        <value>Needs eSpeak-ng</value>
+    </data>
+    <data name="AudioNeedsEspeakTip" xml:space="preserve">
+        <value>This model needs eSpeak-ng installed on the system (not bundled); otherwise loading fails</value>
+    </data>
+    <data name="AudioModelInstalled" xml:space="preserve">
+        <value>{0} installed</value>
+    </data>
+    <data name="AudioModelDownloadFailed" xml:space="preserve">
+        <value>Failed to download {0}: {1}</value>
+    </data>
+    <data name="AudioModelDeleteConfirm" xml:space="preserve">
+        <value>Delete {0}? Its downloaded files will be removed.</value>
+    </data>
+    <data name="AudioRuntimeTitle" xml:space="preserve">
+        <value>Runtime</value>
+    </data>
+    <data name="AudioRuntimeDesc" xml:space="preserve">
+        <value>Changes take effect when the engine restarts on next voice use.</value>
+    </data>
+    <data name="AudioThreadsDesc" xml:space="preserve">
+        <value>CPU threads used by audiocpp_server.</value>
+    </data>
+    <data name="AudioMaxLoadedModels" xml:space="preserve">
+        <value>Models kept loaded</value>
+    </data>
+    <data name="AudioMaxLoadedModelsDesc" xml:space="preserve">
+        <value>When exceeded, the least recently used model is unloaded.</value>
+    </data>
+    <data name="AudioIdleUnload" xml:space="preserve">
+        <value>Idle unload (minutes)</value>
+    </data>
+    <data name="AudioIdleUnloadDesc" xml:space="preserve">
+        <value>Unload a model from memory after this long unused; it reloads on next use.</value>
+    </data>
+    <data name="AudioReadyTimeoutDesc" xml:space="preserve">
+        <value>Max seconds to wait for the engine to start. First Metal initialization is slow.</value>
+    </data>
+    <data name="AudioInstallEngine" xml:space="preserve">
+        <value>Install audio.cpp</value>
+    </data>
+    <data name="AudioEngineQueued" xml:space="preserve">
+        <value>{0} is queued for download and will be enabled once installed.</value>
+    </data>
+    <data name="AudioEngineNoPackage" xml:space="preserve">
+        <value>No audio.cpp package fits this computer.</value>
+    </data>
+    <data name="AudioEngineCheckFailed" xml:space="preserve">
+        <value>Couldn't fetch the audio.cpp package list: {0}</value>
+    </data>
+    <data name="AudioMaturityExperimental" xml:space="preserve">
+        <value>Experimental</value>
+    </data>
+    <data name="AudioMaturityCommunity" xml:space="preserve">
+        <value>Community</value>
+    </data>
+    <data name="AudioMaturityTesting" xml:space="preserve">
+        <value>Testing</value>
+    </data>
+    <data name="AudioMaturityWip" xml:space="preserve">
+        <value>In development</value>
+    </data>
+    <data name="ModelSearchSortDownloads" xml:space="preserve">
+        <value>Most downloads</value>
+    </data>
+    <data name="ModelSearchSortTrending" xml:space="preserve">
+        <value>Trending</value>
+    </data>
+    <data name="ModelSearchSortLikes" xml:space="preserve">
+        <value>Most likes</value>
+    </data>
+    <data name="ModelSearchSortUpdated" xml:space="preserve">
+        <value>Recently updated</value>
+    </data>
+    <data name="ModelSearchSortCreated" xml:space="preserve">
+        <value>Newest</value>
+    </data>
+    <data name="ModelSearchSortTip" xml:space="preserve">
+        <value>Sort</value>
+    </data>
+    <data name="ModelRepoTimeJustNow" xml:space="preserve">
+        <value>just now</value>
+    </data>
+    <data name="ModelRepoTimeMinutesAgo" xml:space="preserve">
+        <value>{0} min ago</value>
+    </data>
+    <data name="ModelRepoTimeHoursAgo" xml:space="preserve">
+        <value>{0} h ago</value>
+    </data>
+    <data name="ModelRepoTimeDaysAgo" xml:space="preserve">
+        <value>{0} d ago</value>
     </data>
 </root>

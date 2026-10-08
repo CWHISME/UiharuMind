@@ -1,3 +1,4 @@
+using UiharuMind.Features.Settings.Engines;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -45,6 +46,7 @@ public class RuntimeEngineHeaderLayoutTests : IDisposable
                 SettingsWindow window = new(
                     ActivatorUtilities.CreateInstance<GeneralSettingViewModel>(services),
                     data,
+                    TestSettingsPages.Audio(messages),
                     new ShortcutSettingViewModel(),
                     GetPageForHeadless);
                 _window = window;
@@ -54,7 +56,7 @@ public class RuntimeEngineHeaderLayoutTests : IDisposable
                 // 构造里有个异步回填（本地版本读完会重设选中），必须在它跑完后再指定，否则会被盖掉
                 string? suffix = new[] { "-bin-macos-arm64", "-bin-macos-x64", "-bin-win-vulkan-x64", "-bin-ubuntu-vulkan-x64" }
                     .FirstOrDefault(x => LLamaCppVariants.IsRecommended("llama-b1" + x + ".zip"));
-                data.SelectedVersion = new VersionInfo
+                data.Engine.SelectedVersion = new VersionInfo
                     { Name = $"llama-b11443{suffix ?? "-bin-macos-arm64"}" };
                 window.FindControl<Button>("RuntimeButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
@@ -63,14 +65,14 @@ public class RuntimeEngineHeaderLayoutTests : IDisposable
                 Dispatcher.UIThread.RunJobs();
                 window.UpdateLayout();
 
-                Grid title = window.GetVisualDescendants().OfType<RuntimeEngineSettingView>().Single()
+                Grid title = window.GetVisualDescendants().OfType<EngineVersionsView>().Single()
                     .FindControl<Grid>("EngineHeaderTitle")
                     ?? throw new InvalidOperationException("找不到引擎卡标题区");
-                StackPanel actions = window.GetVisualDescendants().OfType<RuntimeEngineSettingView>().Single()
+                StackPanel actions = window.GetVisualDescendants().OfType<EngineVersionsView>().Single()
                     .FindControl<StackPanel>("EngineHeaderActions")
                     ?? throw new InvalidOperationException("找不到引擎卡按钮区");
                 // 探针要量徽标文字本尊：容器 Bounds 量不到溢出的文字（Grid/StackPanel 溢出时 Bounds 不变）
-                TextBlock badge = window.GetVisualDescendants().OfType<RuntimeEngineSettingView>().Single()
+                TextBlock badge = window.GetVisualDescendants().OfType<EngineVersionsView>().Single()
                     .FindControl<TextBlock>("EngineVersionBadgeText")
                     ?? throw new InvalidOperationException("找不到版本徽标文字");
                 Point titleOrigin = title.TranslatePoint(new Point(0, 0), window)!.Value;
@@ -94,7 +96,7 @@ public class RuntimeEngineHeaderLayoutTests : IDisposable
                 window.UpdateLayout();
                 Dispatcher.UIThread.RunJobs();
                 window.UpdateLayout();
-                Border recommend = window.GetVisualDescendants().OfType<RuntimeEngineSettingView>().Single()
+                Border recommend = window.GetVisualDescendants().OfType<EngineVersionsView>().Single()
                     .FindControl<Border>("EngineRecommendBadge")
                     ?? throw new InvalidOperationException("找不到推荐徽标");
                 Assert.True(recommend.IsVisible, "最挤的用例里推荐徽标应该可见");

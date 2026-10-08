@@ -9,6 +9,7 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using UiharuMind.Core.AI.Audio;
 using System;
 using System.Collections.Generic;
 using Avalonia.Threading;
@@ -59,6 +60,8 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
         _services = services;
         LLamaCppEngineInstaller.Shared.AvailableUpdateChanged += () =>
             Dispatcher.UIThread.Post(() => OnPropertyChanged(nameof(HasEngineUpdate)));
+        AudioCppEngine.Shared.Installer.AvailableUpdateChanged += () =>
+            Dispatcher.UIThread.Post(() => OnPropertyChanged(nameof(HasEngineUpdate)));
         Dispatcher.UIThread.Post(() =>
         {
             // Receive(MenuKeys.MenuMainKey);
@@ -68,9 +71,10 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
     }
 
     /// <summary>
-    /// llama.cpp 有新版本：设置入口上挂个点
+    /// 本地引擎（llama.cpp / audio.cpp）有新版本：设置入口上挂个点
     /// </summary>
-    public bool HasEngineUpdate => LLamaCppEngineInstaller.Shared.AvailableUpdate != null;
+    public bool HasEngineUpdate => LLamaCppEngineInstaller.Shared.AvailableUpdate != null ||
+                                   AudioCppEngine.Shared.Installer.AvailableUpdate != null;
 
     [RelayCommand]
     private void OpenSetting()

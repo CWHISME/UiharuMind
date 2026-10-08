@@ -65,7 +65,7 @@ public class ModelSourceTests
         StubHandler handler = new("[]");
         HuggingFaceModelSource source = new(new HttpClient(handler), "https://huggingface.co", " ");
 
-        await source.SearchAsync("qwen", 5, TestContext.Current.CancellationToken);
+        await source.SearchAsync("qwen", EModelSearchSort.Downloads, 5, null, TestContext.Current.CancellationToken);
 
         Assert.Null(handler.LastRequest!.Headers.Authorization);
         Assert.Contains("filter=gguf", handler.LastRequest.RequestUri!.Query);
@@ -79,11 +79,97 @@ public class ModelSourceTests
 
         ModelRepoFile file = Assert.Single(await files.ListFilesAsync("unsloth/Qwen3-0.6B-GGUF",
             TestContext.Current.CancellationToken));
-        ModelRepoSummary repo = Assert.Single(await search.SearchAsync("qwen", 5,
-            TestContext.Current.CancellationToken));
+        ModelRepoSummary repo = Assert.Single((await search.SearchAsync("qwen", EModelSearchSort.Downloads, 5, null,
+            TestContext.Current.CancellationToken)).Items);
 
         Assert.Equal(new ModelRepoFile("Qwen3-0.6B-BF16.gguf", 1198182848, "f9c9f1d3"), file);
         Assert.Equal(new ModelRepoSummary("unsloth/Qwen3.8-27B-GGUF", 383829), repo);
+    }
+
+    [Fact]
+    public async Task HuggingFace_Search_TakesCursorFromLinkHeader_AndSendsItBackOnOwnEndpoint()
+    {
+        // 镜像把接口重定向回官方，Link 里是官方地址；续页仍要发到镜像
+        StubHandler handler = new("""[{"id":"o/a","downloads":3}]""")
+        {
+            Link = "<https://huggingface.co/api/models?search=tts&limit=1&cursor=eyJh%3D%3D>; rel=\"next\""
+        };
+        HuggingFaceModelSource source = new(new HttpClient(handler), "https://hf-mirror.com", null);
+
+        ModelSearchPage first = await source.SearchAsync("tts", EModelSearchSort.Downloads, 1, null, TestContext.Current.CancellationToken);
+        Assert.Equal("eyJh%3D%3D", first.NextCursor);
+        Assert.Equal(new ModelRepoSummary("o/a", 3), Assert.Single(first.Items));
+
+        handler.Link = null;
+        ModelSearchPage last = await source.SearchAsync("tts", EModelSearchSort.Downloads, 1, first.NextCursor, TestContext.Current.CancellationToken);
+        string url = handler.LastRequest!.RequestUri!.OriginalString;
+        Assert.StartsWith("https://hf-mirror.com/api/models?search=tts&filter=gguf&sort=downloads&limit=1&", url);
+        Assert.EndsWith("&cursor=eyJh%3D%3D", url);
+        Assert.Null(last.NextCursor);
+    }
+
+    [Theory]
+    [InlineData(null, 1, 3, "2")] //整页且没到总数：还有下一页
+    [InlineData("2", 2, 3, null)] //到总数了
+    [InlineData(null, 1, null, "2")] //没给总数：整页就当还有
+    public async Task ModelScope_Search_PagesByNumber_SortedByDownloadsOnServer(string? cursor, int page,
+        int? total, string? expectedNext)
+    {
+        string totalField = total == null ? "" : $",\"TotalCount\":{total}";
+        string json = "{\"Data\":{\"Model\":{\"Models\":[{\"Path\":\"o\",\"Name\":\"a\",\"Downloads\":1}," +
+                      "{\"Path\":\"o\",\"Name\":\"b\",\"Downloads\":1}]" + totalField + "}}}";
+        StubHandler handler = new(json);
+        ModelScopeModelSource source = new(new HttpClient(handler), null);
+
+        ModelSearchPage result = await source.SearchAsync("tts", EModelSearchSort.Downloads, 2, cursor, TestContext.Current.CancellationToken);
+
+        string body = handler.LastBody!;
+        Assert.Contains($"\"pageNumber\":{page}", body);
+        Assert.Contains("\"sortBy\":\"DownloadsCount\"", body);
+        Assert.Equal(expectedNext, result.NextCursor);
+    }
+
+    [Theory]
+    [InlineData(EModelSearchSort.Downloads, "sort=downloads", "\"DownloadsCount\"")]
+    [InlineData(EModelSearchSort.Trending, "sort=trendingScore", "\"Default\"")] //魔搭没有近期热门，用综合
+    [InlineData(EModelSearchSort.Likes, "sort=likes", "\"StarsCount\"")]
+    [InlineData(EModelSearchSort.Updated, "sort=lastModified", "\"GmtModified\"")]
+    [InlineData(EModelSearchSort.Created, "sort=createdAt", "\"GmtCreated\"")]
+    public async Task Search_MapsSortToEachSource(EModelSearchSort sort, string hfQuery, string msSortBy)
+    {
+        StubHandler hf = new("[]");
+        StubHandler ms = new("{}");
+
+        await new HuggingFaceModelSource(new HttpClient(hf), "https://huggingface.co", null)
+            .SearchAsync("tts", sort, 5, null, TestContext.Current.CancellationToken);
+        await new ModelScopeModelSource(new HttpClient(ms), null)
+            .SearchAsync("tts", sort, 5, null, TestContext.Current.CancellationToken);
+
+        Assert.Contains(hfQuery, hf.LastRequest!.RequestUri!.Query);
+        Assert.Contains($"\"sortBy\":{msSortBy}", ms.LastBody);
+    }
+
+    [Fact]
+    public async Task Search_ReadsLikesAndDates()
+    {
+        // HF 的 lastModified 不在默认字段里，要 expand 才回
+        StubHandler hf = new("""
+            [{"id":"o/a","downloads":3,"likes":7,"lastModified":"2026-10-08T04:31:02.000Z","createdAt":"2026-10-05T16:18:18.000Z"}]
+            """);
+        StubHandler ms = new("""
+            {"Data":{"Model":{"Models":[{"Path":"o","Name":"a","Downloads":3,"Stars":7,"CreatedTime":1791426060,"LastUpdatedTime":0}]}}}
+            """);
+
+        ModelRepoSummary hfRepo = Assert.Single((await new HuggingFaceModelSource(new HttpClient(hf),
+            "https://huggingface.co", null).SearchAsync("a", EModelSearchSort.Likes, 5, null,
+            TestContext.Current.CancellationToken)).Items);
+        ModelRepoSummary msRepo = Assert.Single((await new ModelScopeModelSource(new HttpClient(ms), null)
+            .SearchAsync("a", EModelSearchSort.Likes, 5, null, TestContext.Current.CancellationToken)).Items);
+
+        Assert.Contains("expand[]=lastModified", hf.LastRequest!.RequestUri!.OriginalString);
+        Assert.Equal(new ModelRepoSummary("o/a", 3, 7, DateTimeOffset.Parse("2026-10-08T04:31:02Z"),
+            DateTimeOffset.Parse("2026-10-05T16:18:18Z")), hfRepo);
+        Assert.Equal(new ModelRepoSummary("o/a", 3, 7, null, DateTimeOffset.FromUnixTimeSeconds(1791426060)), msRepo);
     }
 
     [Theory]
@@ -139,14 +225,21 @@ public class ModelSourceTests
     {
         public HttpRequestMessage? LastRequest { get; private set; }
 
+        public string? Link { get; set; }
+
+        public string? LastBody { get; private set; }
+
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
             LastRequest = request;
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            LastBody = request.Content?.ReadAsStringAsync(cancellationToken).GetAwaiter().GetResult();
+            HttpResponseMessage response = new(HttpStatusCode.OK)
             {
                 Content = new StringContent(json, Encoding.UTF8, "application/json")
-            });
+            };
+            if (Link != null) response.Headers.TryAddWithoutValidation("Link", Link);
+            return Task.FromResult(response);
         }
     }
 }

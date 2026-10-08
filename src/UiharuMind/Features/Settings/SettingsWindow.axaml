@@ -104,6 +104,24 @@
                                         ToolTip.Tip="{loc:Loc SettingsEngineUpdateTip}" />
                             </StackPanel>
                         </Button>
+                        <Button Name="AudioRuntimeButton"
+                                 Classes="SettingsNavButton"
+                                 Click="OnAudioRuntimeClick">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <controls:ThemedSvgIcon Width="16" Height="16" IconName="audio-lines" />
+                                <TextBlock Text="{loc:Loc AudioEngineSetting}" />
+                                <Border x:Name="AudioEngineUpdateDot" Classes="status-dot" Tag="Progress" IsVisible="False"
+                                        ToolTip.Tip="{loc:Loc SettingsAudioEngineUpdateTip}" />
+                            </StackPanel>
+                        </Button>
+                        <Button Name="DownloadSourceButton"
+                                 Classes="SettingsNavButton"
+                                 Click="OnDownloadSourceClick">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <controls:ThemedSvgIcon Width="16" Height="16" IconName="download" />
+                                <TextBlock Text="{loc:Loc DownloadSourceSetting}" />
+                            </StackPanel>
+                        </Button>
                     </StackPanel>
 
                     <StackPanel Spacing="2">

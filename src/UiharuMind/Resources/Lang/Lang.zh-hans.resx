@@ -621,7 +621,7 @@
         <value>已跳过 {0} 个正在运行的会话。</value>
     </data>
     <data name="RuntimeEngineSetting" xml:space="preserve">
-        <value>本地模型</value>
+        <value>本地模型（文本）</value>
     </data>
     <data name="CurrentEngineTypeSetting" xml:space="preserve">
         <value>当前执行后端：</value>
@@ -3858,7 +3858,7 @@
         <value>模型「{0}」运行失败</value>
     </data>
     <data name="ModelRunFailedNoEngine" xml:space="preserve">
-        <value>还没有可用的 llama.cpp 引擎。请到「设置 → 本地模型」下载或选择一个版本。</value>
+        <value>还没有可用的 llama.cpp 引擎。请到「设置 → 本地模型（文本）」下载或选择一个版本。</value>
     </data>
     <data name="ModelPageDownloadsTab" xml:space="preserve">
         <value>获取模型</value>
@@ -3962,12 +3962,6 @@
     <data name="ModelDownloadCompleted" xml:space="preserve">
         <value>{0} 下载完成</value>
     </data>
-    <data name="ModelDownloadPopularCaption" xml:space="preserve">
-        <value>热门 GGUF 仓库</value>
-    </data>
-    <data name="ModelDownloadResultsCaption" xml:space="preserve">
-        <value>搜索结果</value>
-    </data>
     <data name="ModelDownloadSummary" xml:space="preserve">
         <value>{0} 个量化版本</value>
     </data>
@@ -4035,7 +4029,7 @@
         <value>引擎 {0} 安装失败：{1}</value>
     </data>
     <data name="ModelDownloadEngineNoPackage" xml:space="preserve">
-        <value>没有找到适合这台电脑的引擎包，请到「设置 → 本地模型」里手动下载。</value>
+        <value>没有找到适合这台电脑的引擎包，请到「设置 → 本地模型（文本）」里手动下载。</value>
     </data>
     <data name="ModelDownloadEngineCheckFailed" xml:space="preserve">
         <value>没能取到引擎包列表：{0}。模型照常下载，引擎可稍后到设置里安装。</value>
@@ -4343,5 +4337,176 @@
     </data>
     <data name="SettingsEngineUpdateTip" xml:space="preserve">
         <value>llama.cpp 有新版本</value>
+    </data>
+    <data name="AudioEngineSetting" xml:space="preserve">
+        <value>本地模型（语音）</value>
+    </data>
+    <data name="DownloadSourceSetting" xml:space="preserve">
+        <value>下载源</value>
+    </data>
+    <data name="SettingsAudioEngineUpdateTip" xml:space="preserve">
+        <value>audio.cpp 有新版本</value>
+    </data>
+    <data name="AudioEngineTitle" xml:space="preserve">
+        <value>audio.cpp 运行包</value>
+    </data>
+    <data name="AudioEngineDesc" xml:space="preserve">
+        <value>朗读与语音输入由 audio.cpp 的 audiocpp_server 运行。这里选择或下载它的版本，可下的语音模型随版本提供。</value>
+    </data>
+    <data name="AudioEngineVersionDesc" xml:space="preserve">
+        <value>下次使用语音时用的 audio.cpp 构建。</value>
+    </data>
+    <data name="AudioModelsTitle" xml:space="preserve">
+        <value>语音模型</value>
+    </data>
+    <data name="AudioModelsDesc" xml:space="preserve">
+        <value>朗读与语音输入各用哪个本地模型。</value>
+    </data>
+    <data name="AudioTtsModel" xml:space="preserve">
+        <value>合成模型</value>
+    </data>
+    <data name="AudioTtsModelDesc" xml:space="preserve">
+        <value>朗读时用的语音合成模型。</value>
+    </data>
+    <data name="AudioVoice" xml:space="preserve">
+        <value>音色</value>
+    </data>
+    <data name="AudioVoiceDesc" xml:space="preserve">
+        <value>合成模型自带的音色。「默认」用模型列出的第一个。</value>
+    </data>
+    <data name="AudioLoadVoices" xml:space="preserve">
+        <value>读取音色</value>
+    </data>
+    <data name="AudioLoadVoicesTip" xml:space="preserve">
+        <value>会启动语音引擎，列出当前合成模型的音色</value>
+    </data>
+    <data name="AudioVoiceDefault" xml:space="preserve">
+        <value>默认</value>
+    </data>
+    <data name="AudioVoicesLoadFailed" xml:space="preserve">
+        <value>读取音色失败：{0}</value>
+    </data>
+    <data name="AudioAsrModel" xml:space="preserve">
+        <value>识别模型</value>
+    </data>
+    <data name="AudioAsrModelDesc" xml:space="preserve">
+        <value>语音输入时用的语音识别模型。</value>
+    </data>
+    <data name="AudioNoModel" xml:space="preserve">
+        <value>还没有，可在下方获取</value>
+    </data>
+    <data name="AudioCatalogTitle" xml:space="preserve">
+        <value>获取语音模型</value>
+    </data>
+    <data name="AudioCatalogDesc" xml:space="preserve">
+        <value>模型包随在用的 audio.cpp 版本提供，从下载源里选的模型源下载。</value>
+    </data>
+    <data name="AudioCatalogNeedsEngine" xml:space="preserve">
+        <value>先在上方安装 audio.cpp，模型列表随引擎提供。</value>
+    </data>
+    <data name="AudioCatalogShowAll" xml:space="preserve">
+        <value>显示全部（{0} 个）</value>
+    </data>
+    <data name="AudioCatalogSourceLink" xml:space="preserve">
+        <value>下载源设置</value>
+    </data>
+    <data name="AudioTaskTts" xml:space="preserve">
+        <value>合成</value>
+    </data>
+    <data name="AudioTaskAsr" xml:space="preserve">
+        <value>识别</value>
+    </data>
+    <data name="AudioNeedsEspeak" xml:space="preserve">
+        <value>需 eSpeak-ng</value>
+    </data>
+    <data name="AudioNeedsEspeakTip" xml:space="preserve">
+        <value>这个模型要求系统装有 eSpeak-ng（预编译包不带），否则加载时会报错</value>
+    </data>
+    <data name="AudioModelInstalled" xml:space="preserve">
+        <value>{0} 已安装</value>
+    </data>
+    <data name="AudioModelDownloadFailed" xml:space="preserve">
+        <value>{0} 下载失败：{1}</value>
+    </data>
+    <data name="AudioModelDeleteConfirm" xml:space="preserve">
+        <value>删除 {0}？已下载的文件会一并删除。</value>
+    </data>
+    <data name="AudioRuntimeTitle" xml:space="preserve">
+        <value>运行参数</value>
+    </data>
+    <data name="AudioRuntimeDesc" xml:space="preserve">
+        <value>改动后，下次使用语音时重启引擎生效。</value>
+    </data>
+    <data name="AudioThreadsDesc" xml:space="preserve">
+        <value>audiocpp_server 使用的 CPU 线程数。</value>
+    </data>
+    <data name="AudioMaxLoadedModels" xml:space="preserve">
+        <value>同时驻留的模型数</value>
+    </data>
+    <data name="AudioMaxLoadedModelsDesc" xml:space="preserve">
+        <value>超出时卸载最久没用的那个。</value>
+    </data>
+    <data name="AudioIdleUnload" xml:space="preserve">
+        <value>闲置卸载（分钟）</value>
+    </data>
+    <data name="AudioIdleUnloadDesc" xml:space="preserve">
+        <value>模型多久没用就从内存卸载，下次使用时再加载。</value>
+    </data>
+    <data name="AudioReadyTimeoutDesc" xml:space="preserve">
+        <value>启动引擎时等待就绪的最长秒数。Metal 首次初始化较慢。</value>
+    </data>
+    <data name="AudioInstallEngine" xml:space="preserve">
+        <value>安装 audio.cpp</value>
+    </data>
+    <data name="AudioEngineQueued" xml:space="preserve">
+        <value>已把 {0} 排进下载队列，装好后自动启用。</value>
+    </data>
+    <data name="AudioEngineNoPackage" xml:space="preserve">
+        <value>没有找到适合这台电脑的 audio.cpp 包。</value>
+    </data>
+    <data name="AudioEngineCheckFailed" xml:space="preserve">
+        <value>没能取到 audio.cpp 包列表：{0}</value>
+    </data>
+    <data name="AudioMaturityExperimental" xml:space="preserve">
+        <value>实验</value>
+    </data>
+    <data name="AudioMaturityCommunity" xml:space="preserve">
+        <value>社区</value>
+    </data>
+    <data name="AudioMaturityTesting" xml:space="preserve">
+        <value>测试中</value>
+    </data>
+    <data name="AudioMaturityWip" xml:space="preserve">
+        <value>开发中</value>
+    </data>
+    <data name="ModelSearchSortDownloads" xml:space="preserve">
+        <value>下载最多</value>
+    </data>
+    <data name="ModelSearchSortTrending" xml:space="preserve">
+        <value>近期热门</value>
+    </data>
+    <data name="ModelSearchSortLikes" xml:space="preserve">
+        <value>点赞最多</value>
+    </data>
+    <data name="ModelSearchSortUpdated" xml:space="preserve">
+        <value>最近更新</value>
+    </data>
+    <data name="ModelSearchSortCreated" xml:space="preserve">
+        <value>最新发布</value>
+    </data>
+    <data name="ModelSearchSortTip" xml:space="preserve">
+        <value>排序</value>
+    </data>
+    <data name="ModelRepoTimeJustNow" xml:space="preserve">
+        <value>刚刚</value>
+    </data>
+    <data name="ModelRepoTimeMinutesAgo" xml:space="preserve">
+        <value>{0} 分钟前</value>
+    </data>
+    <data name="ModelRepoTimeHoursAgo" xml:space="preserve">
+        <value>{0} 小时前</value>
+    </data>
+    <data name="ModelRepoTimeDaysAgo" xml:space="preserve">
+        <value>{0} 天前</value>
     </data>
 </root>

@@ -1,0 +1,27 @@
+using UiharuMind.Core.AI.Audio;
+using UiharuMind.Core.Core.DownloadHelper;
+using UiharuMind.Features.Settings.Audio;
+using UiharuMind.Shared.Services;
+
+namespace UiharuMind.App.Tests.TestDoubles;
+
+/// <summary>
+/// 设置窗口测试要的页数据：语音页接一个只在临时目录里、扫不到模型的引擎，不碰真实档案与网络
+/// </summary>
+internal static class TestSettingsPages
+{
+    /// <summary>
+    /// 一份隔离的本地模型（语音）页数据
+    /// </summary>
+    /// <param name="messages">提示与确认</param>
+    /// <returns>页数据</returns>
+    public static AudioEngineSettingData Audio(IMessageService messages)
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"uiharu-audio-page-{Guid.NewGuid():N}");
+        AudioCppEngine engine = new(new AudioCppSettingConfig(), Path.Combine(root, "engines"),
+            Path.Combine(root, "server.json"), () => []);
+        DownloadQueue queue = new(new FileDownloader(new HttpClient()));
+        AudioCppPackageStore store = new(queue, () => Path.Combine(root, "models"), AudioCppPackageSource.FromSettings);
+        return new AudioEngineSettingData(messages, engine, store, queue, _ => { });
+    }
+}
