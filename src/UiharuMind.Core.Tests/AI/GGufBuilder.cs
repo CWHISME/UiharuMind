@@ -29,6 +29,13 @@ internal sealed class GGufBuilder
         foreach (int item in items) w.Write(item);
     });
 
+    public GGufBuilder UInt8Array(string key, byte[] items) => Kv(key, 9, w =>
+    {
+        w.Write(0u);
+        w.Write((ulong)items.Length);
+        w.Write(items);
+    });
+
     public GGufBuilder Tensor(string name, params ulong[] dims)
     {
         _tensors.Add(w =>

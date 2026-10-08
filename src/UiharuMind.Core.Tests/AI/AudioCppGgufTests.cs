@@ -75,6 +75,36 @@ public class AudioCppGgufTests : IDisposable
     }
 
     [Fact]
+    public void LegacySpec_WithoutFamily_FallsBackToFamilyKey()
+    {
+        // kokoro 的老包：内嵌 spec 只有 sources 等字段，family 只在单独的键里
+        string path = Path.Combine(_directory, "kokoro.gguf");
+        new GGufBuilder()
+            .String("general.architecture", "audiocpp")
+            .String("audiocpp.model_spec.family", "kokoro_tts")
+            .String("audiocpp.model_spec.json", "{\"sources\":[]}")
+            .Tensor("w", 8)
+            .WriteTo(path);
+
+        Assert.Equal(ELocalModelKind.SpeechSynthesis, LocalModelKindClassifier.Classify(GGufHeaderReader.Read(path)));
+    }
+
+    [Fact]
+    public void HugeEmbeddedByteArray_StillReadable()
+    {
+        // kokoro 把 38MB 的伴生文件塞进元数据里的字节数组，超过字符串数组的个数上限也得能跳过
+        string path = Path.Combine(_directory, "embedded.gguf");
+        new GGufBuilder()
+            .String("general.architecture", "audiocpp")
+            .String("audiocpp.model_spec.family", "kokoro_tts")
+            .UInt8Array("audiocpp.embedded_files.data", new byte[(1 << 24) + 1])
+            .Tensor("w", 8)
+            .WriteTo(path);
+
+        Assert.Equal(ELocalModelKind.SpeechSynthesis, GGufMetadataReader.TryRead(path)?.Kind);
+    }
+
+    [Fact]
     public void UnknownAudioCategory_IsNeverChat()
     {
         // VAD、音源分离这类 audio.cpp 模型 llama 引擎读不了，归到对话就会在加载时失败

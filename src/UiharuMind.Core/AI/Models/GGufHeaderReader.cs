@@ -219,17 +219,20 @@ public static class GGufHeaderReader
         };
     }
 
-    // 词表等大数组只跳过；嵌套数组 llama.cpp 不支持，按非法处理
+    // 词表等大数组只跳过；嵌套数组 llama.cpp 不支持，按非法处理。
+    // 定长元素的数组不限个数（audio.cpp 会把几十兆的伴生文件整个塞进一个字节数组），越界由 Skip 按剩余字节判
     private static void SkipArray(BinaryReader reader)
     {
         EValueType itemType = (EValueType)reader.ReadUInt32();
-        ulong count = ReadCount(reader, MaxArrayCount);
         if (itemType == EValueType.String)
         {
-            for (ulong i = 0; i < count; i++)
+            ulong strings = ReadCount(reader, MaxArrayCount);
+            for (ulong i = 0; i < strings; i++)
                 SkipString(reader);
             return;
         }
+
+        ulong count = ReadCount(reader, ulong.MaxValue / 8);
 
         int itemSize = itemType switch
         {
@@ -247,7 +250,7 @@ public static class GGufHeaderReader
         Stream stream = reader.BaseStream;
         if (stream.CanSeek)
         {
-            if (stream.Position + (long)bytes > stream.Length) throw new EndOfStreamException();
+            if (bytes > (ulong)(stream.Length - stream.Position)) throw new EndOfStreamException();
             stream.Seek((long)bytes, SeekOrigin.Current);
             return;
         }

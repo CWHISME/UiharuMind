@@ -40,6 +40,15 @@ internal static class AudioCppSpec
     }
 
     /// <summary>
+    /// 从文件头读模型家族（server.json 的 family）：先看内嵌 spec，老包退到单独的 family 键
+    /// </summary>
+    internal static string ReadFamily(GGufHeader header)
+    {
+        Info? spec = TryParse(header.GetString("audiocpp.model_spec.json"));
+        return spec is { Family.Length: > 0 } ? spec.Family : header.GetString("audiocpp.model_spec.family");
+    }
+
+    /// <summary>
     /// 老包 spec 没有 category 字段，按 family 名后缀推断（pocket_tts / moonshine_asr）
     /// </summary>
     internal static string InferCategory(string family)

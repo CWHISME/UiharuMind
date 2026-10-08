@@ -89,7 +89,10 @@ public static class LocalModelKindClassifier
     private static ELocalModelKind ClassifyAudioCpp(GGufHeader header)
     {
         AudioCppSpec.Info? spec = AudioCppSpec.TryParse(header.GetString("audiocpp.model_spec.json"));
-        string category = spec?.Category ?? AudioCppSpec.InferCategory(header.GetString("audiocpp.model_spec.family"));
+        // 老包内嵌的 spec 可能连 family 都没有（kokoro 实测如此），这时退到单独的 family 键推断
+        string category = spec is { Category.Length: > 0 }
+            ? spec.Category
+            : AudioCppSpec.InferCategory(AudioCppSpec.ReadFamily(header));
 
         return category switch
         {
