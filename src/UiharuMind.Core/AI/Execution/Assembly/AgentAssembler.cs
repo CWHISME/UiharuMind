@@ -209,6 +209,11 @@ internal static class AgentAssembler
             Add(EAgentCapability.SpeechSynthesis, SynthesizeSpeechTool.Create(paths, plan.Profile.Character));
         }
 
+        if (config.EnableTranscription)
+        {
+            Add(EAgentCapability.Transcription, TranscribeAudioTool.Create(paths));
+        }
+
         if (config.EnableKnowledgeSearchTool)
         {
             Add(EAgentCapability.KnowledgeSearch, KnowledgeTool.Create(plan.Profile.SessionKnowledgeSource));

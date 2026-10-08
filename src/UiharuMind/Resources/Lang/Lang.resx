@@ -3545,6 +3545,12 @@ Allow them?</value>
     <data name="AgentGateDescSpeechSynthesis" xml:space="preserve">
         <value>Lets the agent turn text into audio files (saved under audio in the draft folder), using a character's read-aloud voice by name, or its own. Nothing is played; for voice-overs and narration.</value>
     </data>
+    <data name="AgentSettingCapTranscription" xml:space="preserve">
+        <value>Transcription</value>
+    </data>
+    <data name="AgentGateDescTranscription" xml:space="preserve">
+        <value>Lets the agent turn audio files in the workspace into text, optionally with timed subtitles (SRT), saved under transcripts in the draft folder. Uses the default voice input model or service; extract the audio from videos first.</value>
+    </data>
     <data name="ToolAudioPlay" xml:space="preserve">
         <value>Play this voice-over</value>
     </data>

@@ -43,6 +43,11 @@ public class AgentToolConfig
     /// </summary>
     public bool EnableSpeechSynthesis { get; set; }
 
+    /// <summary>
+    /// 启用转写工具(TranscribeAudio,把音频文件转成文字、可出字幕)。默认关:本地识别占内存、在线识别可能花钱
+    /// </summary>
+    public bool EnableTranscription { get; set; }
+
     /// <summary>启用知识库检索工具(KnowledgeSearch,检索会话挂载的嵌入知识库)</summary>
     public bool EnableKnowledgeSearchTool { get; set; }
 
@@ -91,6 +96,7 @@ public class AgentToolConfig
             EnableImageGeneration = EnableImageGeneration && other.EnableImageGeneration,
             EnableSpeak = EnableSpeak && other.EnableSpeak,
             EnableSpeechSynthesis = EnableSpeechSynthesis && other.EnableSpeechSynthesis,
+            EnableTranscription = EnableTranscription && other.EnableTranscription,
             EnableKnowledgeSearchTool = EnableKnowledgeSearchTool && other.EnableKnowledgeSearchTool,
             EnableSubAgent = EnableSubAgent && other.EnableSubAgent,
             EnableTodoList = EnableTodoList && other.EnableTodoList,

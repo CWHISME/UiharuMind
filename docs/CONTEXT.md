@@ -920,6 +920,9 @@ _Avoid_: 播放（那是播放器的事）、TTS（那是技术）
 交给正在显示它的界面，用角色声音、这一句自带的语气念，与自动朗读同一队；念完才返回，没在看、被停就如实回报没出声。群成员不挂。
 「配音」能力（`EnableSpeechSynthesis`，默认关）：`SynthesizeSpeech` 工具按角色名取那个角色的朗读声音（不点用自己的），
 逐句合成拼成一个 24 kHz WAV 存进草稿目录的 `audio` 下，不出声；模型变不了的语速在文件里补。实现在 `SpeechFileSynthesizer`。
+「转写」能力（`EnableTranscription`，默认关）：`TranscribeAudio` 工具用听写的默认识别把音频文件转成文字，可出 SRT；
+按停顿切段逐段识别（`SpeechSegmenter`，够了下限遇到 0.3 秒停顿就切），段的起止就是字幕时间轴，与用哪家识别无关。
+全文存进草稿目录的 `transcripts` 下，结果只回摘录。实现在 `AudioFileTranscriber`。
 类型：`SpeechStyle`、`CharacterSpeechStyles`
 _Avoid_: 角色音色（音色只是其中一项）
 

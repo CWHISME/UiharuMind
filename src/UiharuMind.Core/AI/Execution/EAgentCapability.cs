@@ -40,6 +40,9 @@ public enum EAgentCapability
     /// <summary>配音(合成语音文件)</summary>
     SpeechSynthesis,
 
+    /// <summary>转写(音频转文字、字幕)</summary>
+    Transcription,
+
     /// <summary>知识库检索</summary>
     KnowledgeSearch,
 

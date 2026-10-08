@@ -73,6 +73,9 @@ public sealed class AgentToolViewData
         Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapSpeechSynthesis), Loc.Text(LangKey.AgentGateDescSpeechSynthesis),
             () => tools.EnableSpeechSynthesis, v => tools.EnableSpeechSynthesis = v,
             Tokens(EAgentCapability.SpeechSynthesis)));
+        Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapTranscription), Loc.Text(LangKey.AgentGateDescTranscription),
+            () => tools.EnableTranscription, v => tools.EnableTranscription = v,
+            Tokens(EAgentCapability.Transcription)));
         Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapKnowledgeSearchTool), Loc.Text(LangKey.AgentGateDescKnowledgeSearch),
             () => tools.EnableKnowledgeSearchTool, v => tools.EnableKnowledgeSearchTool = v,
             Tokens(EAgentCapability.KnowledgeSearch)));

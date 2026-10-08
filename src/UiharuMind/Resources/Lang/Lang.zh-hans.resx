@@ -3538,6 +3538,12 @@
     <data name="AgentGateDescSpeechSynthesis" xml:space="preserve">
         <value>让智能体把文字合成成音频文件（存进草稿目录的 audio 下），按角色名用那个角色的朗读声音，不点就用自己的。不出声，适合配音、旁白。</value>
     </data>
+    <data name="AgentSettingCapTranscription" xml:space="preserve">
+        <value>转写</value>
+    </data>
+    <data name="AgentGateDescTranscription" xml:space="preserve">
+        <value>让智能体把工作区里的音频文件转成文字，可出带时间轴的字幕（SRT），全文存进草稿目录的 transcripts 下。用语音输入默认的识别模型或服务；视频要先抽出音频。</value>
+    </data>
     <data name="ToolAudioPlay" xml:space="preserve">
         <value>播放这段配音</value>
     </data>

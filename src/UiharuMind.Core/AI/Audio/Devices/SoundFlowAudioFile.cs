@@ -56,6 +56,43 @@ public static class SoundFlowAudioFile
     }
 
     /// <summary>
+    /// 把一个音频文件解码成单声道浮点采样（按需重采样），边解边收，不按上限预分配
+    /// </summary>
+    /// <param name="path">文件（wav / mp3 / flac）</param>
+    /// <param name="sampleRate">要的采样率</param>
+    /// <param name="maxDuration">最多解这么长</param>
+    /// <returns>采样；超过上限时只有开头、Truncated 为 true</returns>
+    /// <exception cref="NotSupportedException">格式不支持或解不了</exception>
+    public static (float[] Samples, bool Truncated) DecodeFile(string path, int sampleRate, TimeSpan maxDuration)
+    {
+        string format = Path.GetExtension(path).TrimStart('.').ToLowerInvariant();
+        if (!Extensions.Contains(format)) throw new NotSupportedException($"Unsupported audio format '{format}'.");
+
+        using FileStream stream = File.OpenRead(path);
+        ISoundDecoder decoder;
+        try
+        {
+            decoder = SoundFlowRuntime.Engine.CreateDecoder(stream, format, SoundFlowRuntime.FloatFormat(sampleRate, 1));
+        }
+        catch (Exception e) when (e is not NotSupportedException and not AudioDeviceException)
+        {
+            throw new NotSupportedException($"Cannot decode '{path}': {e.Message}", e);
+        }
+
+        using (decoder)
+        {
+            long limit = (long)(sampleRate * maxDuration.TotalSeconds);
+            List<float> samples = [];
+            float[] chunk = new float[sampleRate];
+            int read;
+            while (samples.Count < limit && (read = decoder.Decode(chunk)) > 0)
+                samples.AddRange(chunk.AsSpan(0, (int)Math.Min(read, limit - samples.Count)));
+            bool truncated = samples.Count >= limit && decoder.Decode(chunk) > 0;
+            return (samples.ToArray(), truncated);
+        }
+    }
+
+    /// <summary>
     /// 把一段合成结果整段解码成单声道浮点采样（按需重采样）
     /// </summary>
     /// <param name="audio">合成结果（流读完即可，释放仍归调用方）</param>
