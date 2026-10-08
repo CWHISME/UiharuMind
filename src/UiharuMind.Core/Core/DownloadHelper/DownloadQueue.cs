@@ -21,15 +21,17 @@ public enum EDownloadJobState
 /// </summary>
 public sealed class DownloadJob : INotifyPropertyChanged
 {
+    private readonly List<Func<CancellationToken, Task>> _onDownloaded = []; //同一个文件可能被几处排进来，各自的处理都要跑
     private EDownloadJobState _state = EDownloadJobState.Queued;
     private DownloadProgress _progress;
     private Exception? _error;
+    private bool _handled; //落盘后的处理已跑完
 
     internal DownloadJob(string name, DownloadRequest request, Func<CancellationToken, Task>? onDownloaded)
     {
         Name = name;
         Request = request;
-        OnDownloaded = onDownloaded;
+        AddOnDownloaded(onDownloaded);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -71,8 +73,43 @@ public sealed class DownloadJob : INotifyPropertyChanged
         internal set => Set(ref _error, value);
     }
 
-    internal Func<CancellationToken, Task>? OnDownloaded { get; }
     internal CancellationTokenSource? Cancellation { get; set; }
+
+    /// <summary>
+    /// 再挂一个落盘后的处理
+    /// </summary>
+    /// <returns>挂上了为 true；处理已跑完（马上就完成）为 false，调用方自己跑</returns>
+    internal bool AddOnDownloaded(Func<CancellationToken, Task>? onDownloaded)
+    {
+        if (onDownloaded == null) return true;
+        lock (_onDownloaded)
+        {
+            if (_handled) return false;
+            _onDownloaded.Add(onDownloaded);
+            return true;
+        }
+    }
+
+    // 跑的过程中又挂进来的也跑到
+    internal async Task RunOnDownloadedAsync(CancellationToken token)
+    {
+        for (int i = 0;; i++)
+        {
+            Func<CancellationToken, Task> handler;
+            lock (_onDownloaded)
+            {
+                if (i >= _onDownloaded.Count)
+                {
+                    _handled = true;
+                    return;
+                }
+
+                handler = _onDownloaded[i];
+            }
+
+            await handler(token).ConfigureAwait(false);
+        }
+    }
 
     private void Set<T>(ref T field, T value, [CallerMemberName] string? name = null)
     {
@@ -130,6 +167,7 @@ public sealed class DownloadQueue(FileDownloader downloader)
             if (existing != null)
             {
                 if (existing.State == EDownloadJobState.Paused) existing.State = EDownloadJobState.Queued;
+                if (!existing.AddOnDownloaded(onDownloaded)) RunLate(existing, onDownloaded!);
                 job = existing;
             }
             else
@@ -236,7 +274,7 @@ public sealed class DownloadQueue(FileDownloader downloader)
         {
             await downloader.DownloadAsync(job.Request, new InlineProgress(p => job.Progress = p), token)
                 .ConfigureAwait(false);
-            if (job.OnDownloaded != null) await job.OnDownloaded(token).ConfigureAwait(false);
+            await job.RunOnDownloadedAsync(token).ConfigureAwait(false);
             job.State = EDownloadJobState.Completed;
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -257,6 +295,22 @@ public sealed class DownloadQueue(FileDownloader downloader)
             job.Cancellation?.Dispose();
             job.Cancellation = null;
         }
+    }
+
+    // 排进来时那一项刚处理完、还没标完成：文件已经在了，直接跑这一份
+    private static void RunLate(DownloadJob job, Func<CancellationToken, Task> onDownloaded)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await onDownloaded(CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                Log.Warning($"Post-download handler failed: {job.Name}, {e.Message}");
+            }
+        });
     }
 
     // Progress<T> 会抓同步上下文投递，下载线程上直接回调即可，界面层自己切线程

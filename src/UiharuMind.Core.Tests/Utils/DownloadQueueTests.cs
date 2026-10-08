@@ -112,6 +112,29 @@ public class DownloadQueueTests : IDisposable
         Assert.True(fileExistedInCallback);
     }
 
+    [Fact]
+    public async Task SameFileQueuedTwice_RunsBothHandlers()
+    {
+        using TestHttpServer server = new(_payload) { BytesPerSecond = 2 * 1024 * 1024 };
+        int handled = 0;
+
+        DownloadJob first = _queue.Enqueue("a", Request(server, "a.bin"), _ =>
+        {
+            Interlocked.Increment(ref handled);
+            return Task.CompletedTask;
+        });
+        DownloadJob second = _queue.Enqueue("a", Request(server, "a.bin"), _ =>
+        {
+            Interlocked.Increment(ref handled);
+            return Task.CompletedTask;
+        });
+        server.BytesPerSecond = 0;
+
+        Assert.Same(first, second);
+        await WaitFor(() => first.State == EDownloadJobState.Completed);
+        Assert.Equal(2, handled);
+    }
+
     private DownloadRequest Request(TestHttpServer server, string fileName) =>
         new(server.Url, Path.Combine(_directory, fileName));
 
