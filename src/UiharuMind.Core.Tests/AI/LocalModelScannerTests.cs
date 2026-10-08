@@ -57,6 +57,20 @@ public class LocalModelScannerTests : IDisposable
             Repository = "owner/multi",
             Models = [new ManifestModel { Files = [new ManifestFile { Path = "multi-Q8_0.gguf" }], Projector = "mmproj-F32.gguf" }]
         }.Save(multi);
+
+        // 生图：sd.cpp 自己转的扩散模型头里没有架构；第三方转的写着 flux；当文本编码器下的 LLM 在清单里标了只作组件
+        new GGufBuilder().Tensor("model.diffusion_model.x", 4).WriteTo(Path.Combine(_directory, "z-image-turbo-Q4_K.gguf"));
+        new GGufBuilder().String("general.architecture", "flux").WriteTo(Path.Combine(_directory, "flux1-kontext-Q4_K_S.gguf"));
+        string encoder = Path.Combine(_directory, "unsloth", "qwen3-4b");
+        Directory.CreateDirectory(encoder);
+        new GGufBuilder().String("general.architecture", "qwen3").UInt32("qwen3.context_length", 4096)
+            .WriteTo(Path.Combine(encoder, "Qwen3-4B-Q4_K_M.gguf"));
+        new ModelManifest
+        {
+            Source = "huggingface",
+            Repository = "unsloth/qwen3-4b",
+            Models = [new ManifestModel { Files = [new ManifestFile { Path = "Qwen3-4B-Q4_K_M.gguf" }], ComponentOnly = true }]
+        }.Save(encoder);
     }
 
     public void Dispose()
@@ -82,6 +96,17 @@ public class LocalModelScannerTests : IDisposable
             .Select(x => x.Info.ModelName).Order().ToArray();
 
         Assert.Equal(["big-Q4_K_M", "broken-f", "chat-a", "multi-Q8_0", "vision-g"], chat);
+    }
+
+    [Fact]
+    public void ImageModels_AreNotChat_AndComponentOnlyLlmIsHiddenFromChat()
+    {
+        IReadOnlyList<LocalModelEntry> all = LocalModelScanner.Scan(force: true);
+
+        Assert.Equal(ELocalModelKind.Unknown, all.Single(x => x.Info.ModelName == "z-image-turbo-Q4_K").Info.Kind);
+        Assert.Equal(ELocalModelKind.ImageDiffusion, all.Single(x => x.Info.ModelName == "flux1-kontext-Q4_K_S").Info.Kind);
+        Assert.True(all.Single(x => x.Info.ModelName == "Qwen3-4B-Q4_K_M").Info.IsComponentOnly);
+        Assert.DoesNotContain(LocalModelScanner.Scan(ELocalModelKind.Chat), x => x.Info.ModelName == "Qwen3-4B-Q4_K_M");
     }
 
     [Fact]

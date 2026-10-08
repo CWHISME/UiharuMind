@@ -29,7 +29,17 @@ public enum ELocalModelKind
     /// <summary>
     /// audio.cpp 的其他任务（VAD、音源分离、音乐生成等），暂不进任何列表
     /// </summary>
-    OtherAudio
+    OtherAudio,
+
+    /// <summary>
+    /// 头里没写架构，认不出是什么（stable-diffusion.cpp 转出的扩散模型就是这样），不进任何列表
+    /// </summary>
+    Unknown,
+
+    /// <summary>
+    /// 生图扩散模型：第三方转的 GGUF 头里写着 flux、sdxl 一类架构，归生图引擎
+    /// </summary>
+    ImageDiffusion
 }
 
 /// <summary>
@@ -46,6 +56,16 @@ public static class LocalModelKindExtensions
     {
         return kind is ELocalModelKind.SpeechSynthesis or ELocalModelKind.SpeechRecognition
             or ELocalModelKind.OtherAudio;
+    }
+
+    /// <summary>
+    /// 是否 llama.cpp 跑得了的（对话、嵌入、重排）：没有上下文长度的种类不必反复重读文件头
+    /// </summary>
+    /// <param name="kind">种类</param>
+    /// <returns>是返回 true</returns>
+    public static bool IsLanguageModel(this ELocalModelKind kind)
+    {
+        return kind is ELocalModelKind.Chat or ELocalModelKind.Embedding or ELocalModelKind.Reranker;
     }
 }
 
@@ -66,6 +86,24 @@ public static class LocalModelKindClassifier
         "xlm-roberta",
         "mpnet",
         "t5encoder"
+    };
+
+    // ComfyUI-GGUF 一类工具给扩散模型写的架构名；stable-diffusion.cpp 自己转的不写，落到 Unknown
+    private static readonly HashSet<string> DiffusionArchitectures = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "flux",
+        "sd1",
+        "sdxl",
+        "sd3",
+        "aura",
+        "hidream",
+        "cosmos",
+        "ltxv",
+        "hyvid",
+        "wan",
+        "lumina2",
+        "qwen_image",
+        "chroma"
     };
 
     /// <summary>
@@ -110,6 +148,8 @@ public static class LocalModelKindClassifier
     /// <returns>模型种类</returns>
     public static ELocalModelKind Classify(string architecture, long? poolingType)
     {
+        if (string.IsNullOrWhiteSpace(architecture)) return ELocalModelKind.Unknown;
+        if (DiffusionArchitectures.Contains(architecture)) return ELocalModelKind.ImageDiffusion;
         if (string.Equals(architecture, "clip", StringComparison.OrdinalIgnoreCase)) return ELocalModelKind.Projector;
         if (poolingType == RankPooling) return ELocalModelKind.Reranker;
         // 与对话模型同架构的嵌入模型（如 Qwen3-Embedding）只能靠 pooling_type 认出来
