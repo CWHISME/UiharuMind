@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Glacier.Grep;
+using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.AI.Execution.Files;
 
@@ -171,7 +172,8 @@ public sealed class SimpleGrepper
             await EngineGate.WaitAsync(ct).ConfigureAwait(false);
             try
             {
-                matches = await new SearchEngine(searchRoot).SearchAsync(
+                // GBK、UTF-16 这些文件转成 UTF-8 再搜，编码口径与 Read/Edit 同一份
+                matches = await new SearchEngine(searchRoot) { Decoder = TextEncodingDetector.TranscodeToUtf8 }.SearchAsync(
                     query: effective,
                     isRegex: isRegex,
                     caseSensitive: caseSensitive,

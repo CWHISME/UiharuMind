@@ -11,7 +11,8 @@ namespace UiharuMind.Features.Conversation.Items;
 
 /// <summary>
 /// 生图工具的卡片直接显示产出的图（ADR 0052）：图不交回模型，模型忘了贴图用户也看得到；
-/// 看图工具显示模型看到的那份预览（ADR 0053）。卡片收起时照样显示，看图不该要先展开一张工具卡。
+/// Read 看图显示模型看到的那份预览（ADR 0053），与投影同一个判据：参数里的路径是图片。
+/// 卡片收起时照样显示，看图不该要先展开一张工具卡。
 /// </summary>
 public partial class ToolCallItem
 {
@@ -44,7 +45,7 @@ public partial class ToolCallItem
         IReadOnlyList<string> produced = ToolName switch
         {
             ImageGenerationTool.ToolName => ImageGenerationTool.ParseSavedPaths(ResultText),
-            ViewImageTool.ToolName => ViewImageTool.ParsePreviewPaths(ResultText),
+            FileToolNames.Read when ImagePreview.IsImagePath(FilePath) => ImagePreview.ParsePreviewPaths(ResultText),
             _ => [],
         };
         if (produced.Count == 0) return;

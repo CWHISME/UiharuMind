@@ -51,18 +51,33 @@ public sealed class ToolCallResultImagesTests : IDisposable
         Assert.False(item.HasResultImages);
     });
 
-    /// <summary>ViewImage 的卡片显示模型看到的那份预览（ADR 0053）</summary>
+    /// <summary>Read 看图的卡片显示模型看到的那份预览（ADR 0053）</summary>
     [Fact]
     public void ViewedImage_ShowsThePreviewTheModelSaw() => HeadlessUi.RunAsync(async () =>
     {
         WritePng("images/previews/ab12.png", 640, 480);
-        ToolCallItem item = Finished(ViewImageTool.ToolName,
-            "Attached: cat.png\nPreview: $DRAFT/images/previews/ab12.png\nThe images follow in the next message.");
+        ToolCallItem item = Finished(FileToolNames.Read,
+            "Attached: cat.png\nPreview: $DRAFT/images/previews/ab12.png\nThe image follows in the next message.");
+        item.FilePath = "cat.png";
 
         await item.LoadResultImagesAsync(Paths);
 
         Assert.Equal(Path.Combine(_root, "draft", "images", "previews", "ab12.png"),
             Assert.Single(item.ResultImages).FilePath);
+        Assert.Null(item.ResultHighlightSource); //预览路径不是正文，不按图片扩展名上色
+    });
+
+    /// <summary>与投影同一个判据：读的不是图片，正文里写着 Preview: 也不当图显示</summary>
+    [Fact]
+    public void TextReadWhoseContentLooksLikeAPreview_ShowsNothing() => HeadlessUi.RunAsync(async () =>
+    {
+        WritePng("images/previews/ab12.png", 64, 64);
+        ToolCallItem item = Finished(FileToolNames.Read, "Preview: $DRAFT/images/previews/ab12.png");
+        item.FilePath = "notes.md";
+
+        await item.LoadResultImagesAsync(Paths);
+
+        Assert.False(item.HasResultImages);
     });
 
     /// <summary>解码在后台：条目在解完之前就被裁掉（释放），晚到的图不能再挂上去</summary>

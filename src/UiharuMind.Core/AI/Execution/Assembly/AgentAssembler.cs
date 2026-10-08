@@ -81,9 +81,9 @@ internal static class AgentAssembler
                     plan.Compaction), null, inputEstimate: plan.InputEstimate);
         }
 
-        // 挂了 ViewImage 才投影它的图:关掉识图开关就停发看过的图,模型只剩路径文本。
+        // Read 会附图才投影:关掉识图开关就停发看过的图,模型只剩路径文本。
         // 投影挂在压缩里面,工具组折叠了图就跟着不发(ADR 0053)
-        if (plan.MountViewImage) client = new ViewImageProjectingChatClient(client, plan.CreatePathResolver(null));
+        if (plan.ReadAttachesImages) client = new ImagePreviewProjectingChatClient(client, plan.CreatePathResolver(null));
 
         // ShellEnvironment 带草稿目录简写与(受管 Python 就绪时的)venv 激活,见 AgentAssemblyPlan
         LocalShellExecutor? shellExecutor = plan.Config.EnableShellExecution
@@ -170,15 +170,11 @@ internal static class AgentAssembler
             }
         }
 
-        // 识图工具只在当前模型自己看不了图时才挂:视觉模型直接收图,AnalyzeImage 是多余的绕路。
+        // 识图工具只在当前模型自己看不了图时才挂:视觉模型经 Read 直接看图,AnalyzeImage 是多余的绕路。
         // 该判定进装配快照,切换视觉/非视觉模型时下一次挂接自动重建
         if (plan.MountVisionTool)
         {
             Add(EAgentCapability.VisionTool, VisionTool.Create(paths));
-        }
-        else if (plan.MountViewImage)
-        {
-            Add(EAgentCapability.VisionTool, ViewImageTool.Create(paths));
         }
 
         // 生图只看配置:角色开着、且至少配了一个生图模型,连不连得通不看(ADR 0052)
@@ -216,7 +212,10 @@ internal static class AgentAssembler
 
         if (config.EnableFileAccess)
         {
-            foreach (AITool tool in new PermissiveFileAccessTools(paths).Create())
+            EReadImageMode imageMode = plan.ReadAttachesImages ? EReadImageMode.Attach
+                : plan.MountVisionTool ? EReadImageMode.PointToAnalyzeImage
+                : EReadImageMode.None;
+            foreach (AITool tool in new PermissiveFileAccessTools(paths, imageMode: imageMode).Create())
             {
                 Add(EAgentCapability.FileAccess, tool);
             }

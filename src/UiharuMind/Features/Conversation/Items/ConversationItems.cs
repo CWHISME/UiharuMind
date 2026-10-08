@@ -346,7 +346,11 @@ public partial class ToolCallItem : ConversationItemBase
         get
         {
             string path = FilePath;
-            return IsFileContentTool(ToolName) && IsSuccess && !string.IsNullOrEmpty(path) ? path : null;
+            // Read 看图的结果是预览路径不是正文，按图片扩展名上色只会得到一片乱色
+            return IsFileContentTool(ToolName) && IsSuccess && !string.IsNullOrEmpty(path)
+                   && !ImagePreview.IsImagePath(path)
+                ? path
+                : null;
         }
     }
 
@@ -862,7 +866,7 @@ public static class AgentContentFormatter
         // 兜底：以后新增文件工具先有个像样的图标，而不是扳手
         if (FileToolNames.All.Contains(toolName)) return "file-text";
         if (toolName is "load_skill" or "read_skill_resource" or "run_skill_script" or LoadSkillTool.ToolName) return "sparkles";
-        if (toolName is VisionTool.ToolName or ViewImageTool.ToolName) return "eye";
+        if (toolName == VisionTool.ToolName) return "eye";
         if (toolName == SchedulerTools.ToolName) return "clock";
         // 旧历史里委派工具叫 SendMessage(ADR 0065 之前);群发言工具也叫这个名字,一并用机器人图标
         if (toolName is SubAgentTool.ToolName or SubAgentTool.MessageToolName) return "bot";

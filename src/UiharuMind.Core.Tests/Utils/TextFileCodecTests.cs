@@ -135,12 +135,26 @@ public class TextFileCodecTests
         Assert.Equal("FileMissing", read.ErrorCode);
     }
 
-    /// <summary>空文件算纯文本（真文本里确实可能有一字没有的文件）</summary>
+    /// <summary>
+    /// 纯 ASCII 文件按 UTF-8 记：从前记成 us-ascii，在编辑窗里打几个中文再保存就成了「??」
+    /// </summary>
     [Fact]
-    public void LooksLikePlainText_EmptyIsFineNullByteIsNot()
+    public async Task AsciiFile_IsReadAsUtf8_SoChineseTypedLaterSurvivesTheSave()
     {
-        Assert.True(TextFileCodec.LooksLikePlainText(string.Empty));
-        Assert.True(TextFileCodec.LooksLikePlainText("第一行\nsecond line\n"));
-        Assert.False(TextFileCodec.LooksLikePlainText("ab\u0000cd"));
+        string path = NewTempPath();
+        try
+        {
+            await File.WriteAllBytesAsync(path, "int a = 1;\n"u8.ToArray(), TestContext.Current.CancellationToken);
+
+            TextFileReadResult read = await TextFileCodec.ReadTextAsync(path, TestContext.Current.CancellationToken);
+            await TextFileCodec.WriteTextAsync(path, "int a = 1; // 中文\n", read.Encoding!, read.HasBom,
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal("int a = 1; // 中文\n", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 }

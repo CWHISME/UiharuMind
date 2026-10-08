@@ -9,7 +9,6 @@
 
 using System.Collections.Concurrent;
 using System.ComponentModel;
-using System.Text;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Harness;
@@ -34,29 +33,28 @@ namespace UiharuMind.Core.AI.Execution.Files;
 /// 五个工具:Read / Write / Edit / Glob / Grep。
 /// Glob 采用 Meziantou.Framework.Globbing 实现递归路径枚举;Grep 采用 Glacier.Grep 高性能检索引擎
 /// (它自带 .gitignore/.ignore/.rgignore 的层级排除,对齐 ripgrep 行为)。
-/// 编辑语义(唯一匹配/重叠检测/保守 fuzzy/落盘保真)全在 <see cref="FileEditPlanner"/>,
-/// Grep 结果整形在 <see cref="GrepResultShaper"/>;本类只负责路径解析、限幅与落盘;Write 覆盖前经 <see cref="IFileBackupStore"/> 自动备份。
+/// 读(编码探测/分流看图/附注)全在 <see cref="FileReader"/>,编辑语义(唯一匹配/重叠检测/保守 fuzzy/落盘保真)
+/// 全在 <see cref="FileEditPlanner"/>,Grep 结果整形在 <see cref="GrepResultShaper"/>;
+/// 本类只负责工具面、写入与落盘;Write 覆盖前经 <see cref="IFileBackupStore"/> 自动备份。
 /// 写工具各包一层 ApprovalRequiredAIFunction,沿用 MFA 的审批管线。
 /// </summary>
 internal sealed class PermissiveFileAccessTools
 {
     // —— 输出限幅:工具输出直接进模型上下文,编码会话的上下文大头是工具结果而非对话。
-    //    Grep 的限幅在 GrepResultShaper;Glob 在 SimpleGlobber 内限 300 条;shell 由框架截断。——
-    internal const int DefaultReadLineLimit = 2000; //未显式传 limit 时的行数上限
-
-    /// <summary>
-    /// Read 单次返回的总量上限，按 <b>UTF-8 字节</b>算而不是字符：中文约 1~1.5 字符/token，
-    /// 按字符算实际能放进标称值三四倍的 token。与 Grep 的正文预算同口径；要全文走 <c>limit=-1</c>。
-    /// </summary>
-    internal const int MaxReadTotalBytes = 32 * 1024;
-
-    internal const int MaxReadLineChars = 2000; //单行截断(压缩产物一行可达数百 KB)
+    //    Read 的限幅在 FileReader;Grep 的在 GrepResultShaper;Glob 在 SimpleGlobber 内限 300 条;shell 由框架截断。——
 
     /// <summary>Edit 回给模型的 diff 行数上限（与审批卡片共用，见 <c>FileEditPlanner.DefaultMaxDiffLines</c>）</summary>
     internal const int MaxEditDiffLines = FileEditPlanner.DefaultMaxDiffLines;
 
     /// <summary>Edit diff 单行长度上限（minified JSON 一行可达几十 KB，行数上限拦不住）</summary>
     internal const int MaxEditDiffLineChars = FileEditPlanner.DefaultMaxDiffLineChars;
+
+    // 描述只写契约;何时读全文、何时先 Grep 再切片是策略,归文件纪律段(AgentToolPrompts.FileReadDefault)
+    private const string ReadDescription =
+        "Read a file's raw content. By default returns at most 2000 lines or 32KB per call, "
+        + "whichever comes first; a trailing notice gives the offset to continue from.";
+
+    private const string ReadImagesDescription = " PNG, JPEG and WebP files are shown to you as images."; //只有视觉模型的装配才说
 
     private const string SearchPathDescription = //Glob 与 Grep 的 path 参数共用
         "Omit to search the whole working directory. "
@@ -85,21 +83,32 @@ internal sealed class PermissiveFileAccessTools
         => _fileLocks[(uint)StringComparer.OrdinalIgnoreCase.GetHashCode(path) % _fileLocks.Length];
 
     private readonly AgentPathResolver _paths;
+    private readonly FileReader _reader;
     private readonly SimpleGlobber _glob;
     private readonly SimpleGrepper _grepper;
     private readonly IFileBackupStore _backupStore; //组合持有:Write 覆盖前备份用,可注入
+    private readonly EReadImageMode _imageMode; //决定 Read 的描述提不提图片
 
     public PermissiveFileAccessTools(string workspaceRoot, IFileBackupStore? backupStore = null)
         : this(new AgentPathResolver(workspaceRoot), backupStore)
     {
     }
 
-    public PermissiveFileAccessTools(AgentPathResolver paths, IFileBackupStore? backupStore = null)
+    /// <summary>
+    /// 构造文件工具集
+    /// </summary>
+    /// <param name="paths">路径口径</param>
+    /// <param name="backupStore">Write 覆盖前的备份；null 用默认目录</param>
+    /// <param name="imageMode">Read 读到图片时怎么办，由装配按模型与识图开关定</param>
+    public PermissiveFileAccessTools(AgentPathResolver paths, IFileBackupStore? backupStore = null,
+        EReadImageMode imageMode = EReadImageMode.None)
     {
         _paths = paths;
+        _reader = new FileReader(paths, imageMode, ImagePreview.Downscaler);
         _glob = new SimpleGlobber(paths);
         _grepper = new SimpleGrepper(paths);
         _backupStore = backupStore ?? new FileBackupStore();
+        _imageMode = imageMode;
         Directory.CreateDirectory(paths.WorkspaceRoot);
     }
 
@@ -107,7 +116,8 @@ internal sealed class PermissiveFileAccessTools
     {
         var tools = new List<AITool>
         {
-            AIFunctionFactory.Create(Read, ToolOptions(FileToolNames.Read)),
+            AIFunctionFactory.Create(Read, ToolOptions(FileToolNames.Read,
+                _imageMode == EReadImageMode.Attach ? ReadDescription + ReadImagesDescription : ReadDescription)),
             AIFunctionFactory.Create(Glob, ToolOptions(FileToolNames.Glob)),
             AIFunctionFactory.Create(Grep, ToolOptions(FileToolNames.Grep)),
         };
@@ -124,7 +134,8 @@ internal sealed class PermissiveFileAccessTools
 
         // 宽容口径:fileGlobs 是 string[],而模型常给一个标量字符串,
         // 从前那会死在反序列化上并回一句它看不懂的框架异常(见 ToolJson)
-        static AIFunctionFactoryOptions ToolOptions(string name) => ToolJson.CreateFactoryOptions(name);
+        static AIFunctionFactoryOptions ToolOptions(string name, string? description = null) =>
+            ToolJson.CreateFactoryOptions(name, description);
     }
 
     [Description("Find files by glob pattern.")]
@@ -197,62 +208,13 @@ internal sealed class PermissiveFileAccessTools
         return GrepResultShaper.Shape(outcome, pattern);
     }
 
-    // 描述只写契约;何时读全文、何时先 Grep 再切片是策略,归文件纪律段(AgentToolPrompts.FileReadDefault)
-    [Description("Read a file's raw content. By default returns at most 2000 lines or 32KB per call, "
-                 + "whichever comes first; a trailing notice gives the offset to continue from.")]
     internal Task<string> Read(
         [Description("File path, absolute or relative to the working directory.")] string filePath,
-        [Description("1-based starting line.")] int offset = 1,
+        [Description("1-based starting line. Negative counts from the end: -100 reads the last 100 lines.")]
+        int offset = 1,
         [Description("Max lines to return. Pass -1 to read the whole file (no byte cap).")] int? limit = null,
         CancellationToken cancellationToken = default)
-    {
-        if (!_paths.TryResolve(filePath, out string full, out string pathError)) return Task.FromResult(pathError);
-        if (!File.Exists(full)) return Task.FromResult($"File '{filePath}' not found.");
-
-        if (offset < 1) offset = 1;
-        // limit=-1:全文读模式,绕过字节上限,读完整个文件
-        // 其余:不传 limit 时套默认窗口,总量另设保险——
-        // 编码会话一次误读大文件就是几万 token,截断必须由工具侧兜底
-        bool fullFile = limit == -1;
-        int effectiveLimit = fullFile ? int.MaxValue : Math.Max(1, limit ?? DefaultReadLineLimit);
-
-        var lines = new List<string>();
-        bool hasMore = false;
-        int totalBytes = 0;
-        using var reader = new StreamReader(full, Encoding.UTF8);
-        for (int current = 1; current < offset; current++)
-        {
-            if (reader.ReadLine() is null) break;
-        }
-
-        string? line;
-        while ((line = reader.ReadLine()) is not null)
-        {
-            if (!fullFile && (lines.Count >= effectiveLimit || totalBytes >= MaxReadTotalBytes))
-            {
-                hasMore = true;
-                break;
-            }
-
-            if (line.Length > MaxReadLineChars) line = ToolOutputTruncation.TruncateLine(line, MaxReadLineChars);
-            totalBytes += Encoding.UTF8.GetByteCount(line) + 1;
-            lines.Add(line);
-        }
-
-        if (lines.Count == 0) return Task.FromResult($"File '{filePath}' is empty or offset is beyond its end.");
-
-        string content = string.Join('\n', lines);
-        if (!hasMore) return Task.FromResult(content);
-
-        int nextOffset = offset + lines.Count;
-        // 带上文件总大小:光说"续读 offset=31",模型不知道是再翻一页就完还是要翻六十页,
-        // 也就无从判断该继续翻还是改用 `Grep` 定位。总行数会更贴(offset/limit 按行算),
-        // 但那要读到文件末尾才知道——正好违背这个工具存在的意义;文件大小是 O(1) 的代理值
-        string size = GameUtils.FormatBytes(new FileInfo(full).Length);
-        return Task.FromResult(
-            $"{content}\n…[truncated: showing lines {offset}–{nextOffset - 1} of a {size} file; "
-            + $"continue with offset={nextOffset}]");
-    }
+        => _reader.ReadAsync(filePath, offset, limit, cancellationToken);
 
     [Description("Create a new file, or replace an existing one wholesale. Use 'Edit' for partial changes.")]
     internal async Task<string> Write(
@@ -271,21 +233,30 @@ internal sealed class PermissiveFileAccessTools
             byte[]? originalBytes = null; //已有文件才有,顺手读来做备份与信封
             if (File.Exists(full)) originalBytes = await File.ReadAllBytesAsync(full, ct).ConfigureAwait(false);
 
-            // 覆盖已有文件时沿用它的 BOM 与行尾风格;新建文件则是无 BOM + 模型给的 \n。
-            // 不这么做的话,让模型重写一个 CRLF 文件会顺手把整份文件的行尾改掉
+            // 覆盖已有文件时沿用它的编码、BOM 与行尾风格;新建文件则是无 BOM 的 UTF-8 + 模型给的 \n。
+            // 不这么做的话,让模型重写一个 CRLF 或 GBK 文件会顺手把整份文件的行尾或编码改掉
             TextFileEnvelope envelope = originalBytes is null
                 ? TextFileEnvelope.FromText(string.Empty)
                 : TextFileEnvelope.FromBytes(originalBytes);
+            string body = envelope.ConvertNewLines(content);
+
+            // 原编码写不下新内容(Big5、Shift-JIS、单字节编码才会)就改存 UTF-8 并说出来:
+            // 整份替换的意图是明确的,不像 Edit 那样只改一小段却把整个文件换了编码
+            string encodingNote = string.Empty;
+            if (!envelope.CanEncode(body))
+            {
+                encodingNote = $" Saved as UTF-8: {envelope.EncodingName} can't store some of the new characters.";
+                envelope = envelope.ToUtf8();
+            }
 
             string? backupPath = null; //新建文件无备份
             if (originalBytes is not null)
                 backupPath = await _backupStore.BackupAsync(full, originalBytes, ct).ConfigureAwait(false);
 
-            await SaveAsync(full, envelope, envelope.ConvertNewLines(content), ct).ConfigureAwait(false);
+            await SaveAsync(full, envelope, body, ct).ConfigureAwait(false);
             int lines = content.Split('\n').Length;
-            return backupPath is null
-                ? $"{FileToolNames.WriteSucceededPrefix}{filePath}' ({lines} lines)."
-                : $"{FileToolNames.WriteSucceededPrefix}{filePath}' ({lines} lines). Previous version backed up to '{backupPath}'.";
+            string backupNote = backupPath is null ? string.Empty : $" Previous version backed up to '{backupPath}'.";
+            return $"{FileToolNames.WriteSucceededPrefix}{filePath}' ({lines} lines).{encodingNote}{backupNote}";
         }
         finally
         {
@@ -328,7 +299,7 @@ internal sealed class PermissiveFileAccessTools
         }
     }
 
-    // 统一落盘:BOM 与行尾按信封原样还原。先写同目录临时文件再 rename 替换(跨文件系统会失去原子性),
+    // 统一落盘:编码、BOM 与行尾按信封原样还原。先写同目录临时文件再 rename 替换(跨文件系统会失去原子性),
     // 读方永远看到完整的旧或新内容,所以 Read/Grep 不进锁;不 fsync,不保证断电后在盘。
     // 固有代价:rename 会断开硬链接(其它链接仍指向旧 inode),vim 式原子写的通病
     private static async Task SaveAsync(string full, TextFileEnvelope envelope, string content, CancellationToken ct)

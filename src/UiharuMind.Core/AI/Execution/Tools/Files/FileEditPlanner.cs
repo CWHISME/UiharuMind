@@ -160,6 +160,14 @@ public static class FileEditPlanner
     {
         if (edits is not { Count: > 0 }) return FileEditPlan.Failed("edits must contain at least one entry.");
 
+        // 坏字节解码时已成了替换字符，写回去就把没碰到的部分也改了
+        if (!envelope.IsLossless)
+        {
+            return FileEditPlan.Failed(
+                $"'{label}' can't be edited safely: its bytes don't decode cleanly as {envelope.EncodingName} "
+                + "(unknown or mixed encoding), so saving would also change the parts you didn't touch.");
+        }
+
         string text = envelope.Text;
         List<Line> lines = SplitLines(text);
         List<Match> matches = new(edits.Count);
@@ -207,6 +215,14 @@ public static class FileEditPlanner
         {
             return FileEditPlan.Failed(
                 $"No change: the edits produced content identical to '{label}'.");
+        }
+
+        // 改一小段不该顺带换掉整个文件的编码，写不下就让模型换字符
+        if (!envelope.CanEncode(newText))
+        {
+            return FileEditPlan.Failed(
+                $"The new text has characters that {envelope.EncodingName} can't store, "
+                + $"and '{label}' is saved as {envelope.EncodingName}. Use characters it supports.");
         }
 
         return FileEditPlan.Success(newText, BuildDiff(text, lines, matches), envelope);

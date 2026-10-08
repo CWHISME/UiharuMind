@@ -219,7 +219,7 @@ public static class HistoryCompaction
     {
         (int imageBytes, long imageTokens, int imageCount) = ImagePayloadOf(messages);
         // 发送时才投影进去的图(ADR 0053):字节不在这组里,按结果里记下的预览尺寸计
-        (int projectedCount, long projectedTokens) = ViewImageProjection.EstimateProjectedImages(messages);
+        (int projectedCount, long projectedTokens) = ImagePreviewProjection.EstimateProjectedImages(messages);
         // 不含图片的组原样采用框架的数:那一侧的估算本来就够准,也不必假设它是怎么算出来的
         if (imageCount + projectedCount == 0) return groupTokenCount;
 

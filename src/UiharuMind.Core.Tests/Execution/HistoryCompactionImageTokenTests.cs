@@ -1,5 +1,6 @@
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.Tests.Utils;
 
@@ -16,6 +17,9 @@ namespace UiharuMind.Core.Tests.Execution;
 public class HistoryCompactionImageTokenTests
 {
     private const string ImageType = "image/png";
+
+    private static FunctionCallContent ImageRead(string callId) =>
+        new(callId, FileToolNames.Read, new Dictionary<string, object?> { ["filePath"] = "cat.png" });
 
     [Fact]
     public void PerImageCeiling_IsDerivedFromMaxEdge()
@@ -50,13 +54,13 @@ public class HistoryCompactionImageTokenTests
         Assert.True(corrected < groupTokens / 10, "修正后应当降一个量级");
     }
 
-    /// <summary>ViewImage 的图在发送时才投影进请求（ADR 0053），压缩看不见字节，只能按预览行数补上界</summary>
+    /// <summary>Read 看的图在发送时才投影进请求（ADR 0053），压缩看不见字节，只能按预览行数补上界</summary>
     [Fact]
-    public void ViewImageResults_CountTheirProjectedImages()
+    public void ImageReads_CountTheirProjectedImages()
     {
         List<ChatMessage> messages =
         [
-            new(ChatRole.Assistant, [new FunctionCallContent("c1", ViewImageTool.ToolName)]),
+            new(ChatRole.Assistant, [ImageRead("c1")]),
             new(ChatRole.Tool, [new FunctionResultContent("c1", "Preview: $DRAFT/a.png\nPreview: $DRAFT/b.png")]),
         ];
 
@@ -97,11 +101,11 @@ public class HistoryCompactionImageTokenTests
     }
 
     [Fact]
-    public void ViewImageResults_UseThePreviewSizeTheToolRecorded()
+    public void ImageReads_UseThePreviewSizeTheToolRecorded()
     {
         List<ChatMessage> messages =
         [
-            new(ChatRole.Assistant, [new FunctionCallContent("c1", ViewImageTool.ToolName)]),
+            new(ChatRole.Assistant, [ImageRead("c1")]),
             new(ChatRole.Tool, [new FunctionResultContent("c1",
                 "Preview: $DRAFT/a.png\nPreview size: 256x256\nPreview: $DRAFT/b.png")]),
         ];

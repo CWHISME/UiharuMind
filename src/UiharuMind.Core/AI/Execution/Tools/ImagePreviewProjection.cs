@@ -7,17 +7,18 @@ using UiharuMind.Core.Core.Utils;
 namespace UiharuMind.Core.AI.Execution;
 
 /// <summary>
-/// 把 <see cref="ViewImageTool"/> 结果里的预览图投影成一条 user 消息，插在那一串 tool 消息之后（ADR 0053）。
+/// 把 Read 看图结果里的预览图投影成一条 user 消息，插在那一串 tool 消息之后（ADR 0053）。
 /// 只改发出去的那份，历史不动——于是渲染、裁剪、编辑重试、删除闭包都不必认识一种新消息。
+/// 哪些调用算看图由 <see cref="ImagePreview.IsImageRead"/> 按参数里的路径判定，不看结果文本。
 /// </summary>
-public static class ViewImageProjection
+public static class ImagePreviewProjection
 {
     /// <summary>
     /// 投影一次请求的消息
     /// </summary>
     /// <param name="messages">将要发出的消息（历史 + 本轮）</param>
     /// <param name="resolver">解析预览路径（草稿目录简写）</param>
-    /// <returns>投影后的消息；没有 ViewImage 结果时原样返回同一实例</returns>
+    /// <returns>投影后的消息；没有看图结果时原样返回同一实例</returns>
     public static IReadOnlyList<ChatMessage> Project(IReadOnlyList<ChatMessage> messages, AgentPathResolver resolver)
     {
         HashSet<string> viewCalls = ViewCallsIn(messages);
@@ -55,11 +56,11 @@ public static class ViewImageProjection
         HashSet<string> viewCalls = ViewCallsIn(messages);
         if (viewCalls.Count == 0) return (0, 0);
 
-        List<ViewImageTool.PreviewEntry> previews = messages
+        List<ImagePreview.PreviewEntry> previews = messages
             .Where(m => m.Role == ChatRole.Tool)
             .SelectMany(m => m.Contents.OfType<FunctionResultContent>())
             .Where(r => viewCalls.Contains(r.CallId))
-            .SelectMany(r => ViewImageTool.ParsePreviews(TextOf(r)))
+            .SelectMany(r => ImagePreview.ParsePreviews(TextOf(r)))
             .ToList();
         long tokens = previews.Sum(p => (long)(p.Width > 0
             ? InlineImageLimits.EstimateTokens(p.Width, p.Height)
@@ -70,18 +71,18 @@ public static class ViewImageProjection
     private static HashSet<string> ViewCallsIn(IReadOnlyList<ChatMessage> messages) => messages
         .Where(m => m.Role == ChatRole.Assistant)
         .SelectMany(m => m.Contents.OfType<FunctionCallContent>())
-        .Where(c => c.Name == ViewImageTool.ToolName)
+        .Where(ImagePreview.IsImageRead)
         .Select(c => c.CallId)
         .ToHashSet();
 
     private static IEnumerable<string> PreviewsIn(ChatMessage toolMessage, HashSet<string> viewCalls) => toolMessage
         .Contents.OfType<FunctionResultContent>()
         .Where(r => viewCalls.Contains(r.CallId))
-        .SelectMany(r => ViewImageTool.ParsePreviewPaths(TextOf(r)));
+        .SelectMany(r => ImagePreview.ParsePreviewPaths(TextOf(r)));
 
     private static ChatMessage BuildImageMessage(List<string> previews, AgentPathResolver resolver)
     {
-        StringBuilder text = new("[Images attached by ViewImage]");
+        StringBuilder text = new("[Images attached by Read]");
         List<AIContent> images = new();
         foreach (string preview in previews)
         {
@@ -113,15 +114,15 @@ public static class ViewImageProjection
 /// <summary>
 /// 挂在最内层（压缩之后）的投影客户端：工具组被折叠，结果没了，图也就跟着不发
 /// </summary>
-internal sealed class ViewImageProjectingChatClient(IChatClient innerClient, AgentPathResolver resolver)
+internal sealed class ImagePreviewProjectingChatClient(IChatClient innerClient, AgentPathResolver resolver)
     : DelegatingChatClient(innerClient)
 {
     public override Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages,
         ChatOptions? options = null, CancellationToken cancellationToken = default) =>
-        base.GetResponseAsync(ViewImageProjection.Project(messages.ToList(), resolver), options, cancellationToken);
+        base.GetResponseAsync(ImagePreviewProjection.Project(messages.ToList(), resolver), options, cancellationToken);
 
     public override IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages,
         ChatOptions? options = null, CancellationToken cancellationToken = default) =>
-        base.GetStreamingResponseAsync(ViewImageProjection.Project(messages.ToList(), resolver), options,
+        base.GetStreamingResponseAsync(ImagePreviewProjection.Project(messages.ToList(), resolver), options,
             cancellationToken);
 }

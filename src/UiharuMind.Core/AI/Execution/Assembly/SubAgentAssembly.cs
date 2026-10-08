@@ -63,8 +63,8 @@ internal static class SubAgentAssembly
         /// <summary>识图工具是否可挂(开关开且当前模型不自带视觉)</summary>
         public bool VisionToolAvailable { get; init; } = true;
 
-        /// <summary>看图工具是否可挂(开关开且当前模型自带视觉)</summary>
-        public bool ViewImageAvailable { get; init; }
+        /// <summary>Read 能否附图给模型看(开关开且当前模型自带视觉)</summary>
+        public bool ReadAttachesImages { get; init; }
 
         /// <summary>生图工具是否可挂(主代理那一侧挂上了)</summary>
         public bool ImageGenerationAvailable { get; init; }
@@ -140,7 +140,7 @@ internal static class SubAgentAssembly
         // 模型走会话覆写(派活时已把解析结果钉在子会话上,见 SubAgentTool.ResolveSubAgentModelName)——
         // 与主代理同一条解析链,于是界面显示的模型与实际问话的那个<b>由构造保证一致</b>
         IChatClient client = new LazyChatClient(plan.Profile.SessionModelSource);
-        if (plan.MountViewImage) client = new ViewImageProjectingChatClient(client, plan.CreatePathResolver(null));
+        if (plan.ReadAttachesImages) client = new ImagePreviewProjectingChatClient(client, plan.CreatePathResolver(null));
         return AgentAssembler.BuildHandle(client, assembled.Options, assembled.Shell);
     }
 
@@ -199,7 +199,7 @@ internal static class SubAgentAssembly
             Name = identity.AgentName,
             WorkingDirectory = plan.WorkingDirectory,
             VisionToolAvailable = plan.MountVisionTool,
-            ViewImageAvailable = plan.MountViewImage,
+            ReadAttachesImages = plan.ReadAttachesImages,
             ImageGenerationAvailable = plan.MountImageGeneration,
             PermissionMode = effectivePermission,
             WorkspaceInstructions = plan.WorkspaceInstructions,
@@ -276,7 +276,7 @@ internal static class SubAgentAssembly
             Name = name,
             WorkingDirectory = workingDirectory,
             VisionToolAvailable = plan.MountVisionTool,
-            ViewImageAvailable = plan.MountViewImage,
+            ReadAttachesImages = plan.ReadAttachesImages,
             ImageGenerationAvailable = plan.MountImageGeneration,
             PermissionMode = effectivePermission,
             WorkspaceInstructions = plan.WorkspaceInstructions,
@@ -353,10 +353,17 @@ internal static class SubAgentAssembly
         // 与主代理同一份路径口径:共用那间草稿目录,简写的写法跟子代理自己的 shell 走(子代理不带记忆)
         AgentPathResolver paths = new(input.WorkingDirectory, outputRoom, shellBinary: input.ShellBinary);
 
+        bool hasVision = canMutate && config.EnableVisionTool && input.VisionToolAvailable;
         List<AITool> tools = new();
         if (config.EnableFileAccess)
         {
-            tools.AddRange(new PermissiveFileAccessTools(paths).Create(disableWriteTools: !canMutate));
+            // 看图只是读,探索档也给(投影随 ReadAttachesImages 挂在子会话客户端上);
+            // 指向 AnalyzeImage 要它真的挂着,跟 hasVision 走
+            EReadImageMode imageMode = config.EnableVisionTool && input.ReadAttachesImages ? EReadImageMode.Attach
+                : hasVision ? EReadImageMode.PointToAnalyzeImage
+                : EReadImageMode.None;
+            tools.AddRange(new PermissiveFileAccessTools(paths, imageMode: imageMode)
+                .Create(disableWriteTools: !canMutate));
         }
 
         // 探索档与「恒定只读」同源(产品决定而非技术限制):它干的是工作区内的初级调研,
@@ -368,17 +375,12 @@ internal static class SubAgentAssembly
             tools.Add(WebFetchTool.Create());
         }
 
-        bool hasVision = canMutate && config.EnableVisionTool && input.VisionToolAvailable;
         // 与 hasVision 同一口径:纪律段里指名的工具必须真的在这份工具集里(有不变量测试钉住),
         // 所以判据取"装配结果"而不是"配置意图"——shell 只在完全自动档随 ShellTool 挂上
         bool hasShell = canMutate && input.ShellTool != null;
         if (hasVision)
         {
             tools.Add(VisionTool.Create(paths));
-        }
-        else if (canMutate && config.EnableVisionTool && input.ViewImageAvailable)
-        {
-            tools.Add(ViewImageTool.Create(paths));
         }
 
         // 生图要写草稿目录:探索档恒定只读,与联网同一口径不挂
