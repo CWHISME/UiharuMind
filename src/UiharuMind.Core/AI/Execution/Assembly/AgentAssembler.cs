@@ -13,7 +13,6 @@ using Microsoft.Agents.AI.Tools.Shell;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat.Group.Away;
-using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Harness;
 using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Execution.Mcp;
@@ -21,9 +20,7 @@ using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
 using UiharuMind.Core.AI.Execution.Tools.Browser;
 using UiharuMind.Core.AI.Execution.Tools.Memory;
-using UiharuMind.Core.AI.Execution.Tools.Scheduler;
 using UiharuMind.Core.AI.Execution.Tools.Skills;
-using UiharuMind.Core.AI.Execution.Tools.WebTools;
 using UiharuMind.Core.AI.WorldSettings;
 
 namespace UiharuMind.Core.AI.Execution.Assembly;
@@ -133,11 +130,8 @@ internal static class AgentAssembler
             : history;
 
     /// <summary>
-    /// 装配 agent 档的工具集。挂哪些由角色的能力配置决定，与档位无关的判定（识图是否多余、
-    /// 子代理是否有能力可用）已经在 plan 里算好。
-    ///
-    /// 每个工具连同<b>它属于哪一档能力</b>一并登记（见 <see cref="AgentToolEntry"/>）：
-    /// 角色编辑页要按开关显示占用，而事后靠名字表反推归属，工具一改名就静默错位。
+    /// 主代理这一侧的工具集：从装配计划里备好资源，挂哪些交给 <see cref="AgentToolsetBuilder"/>——
+    /// 与子代理同一份装配，场合（群成员、化身、定时运行）由 <see cref="AgentToolScopes"/> 说话。
     /// </summary>
     /// <param name="plan">装配计划</param>
     /// <param name="client">模型客户端（子代理与主代理共用同一惰性客户端）</param>
@@ -146,126 +140,41 @@ internal static class AgentAssembler
     private static List<AgentToolEntry> BuildTools(AgentAssemblyPlan plan, IChatClient client,
         LocalShellExecutor? shellExecutor)
     {
-        AgentToolConfig config = plan.Config;
-        List<AgentToolEntry> tools = new();
-        // 文件工具与识图共用一份路径口径,草稿目录简写的写法跟 shell 走
-        AgentPathResolver paths = plan.CreatePathResolver(shellExecutor?.ResolvedShellBinary);
-
-        void Add(EAgentCapability capability, AITool tool) => tools.Add(new AgentToolEntry(capability, tool));
-
-        if (shellExecutor != null)
+        AgentBuildProfile profile = plan.Profile;
+        EAgentToolScope scope = AgentToolScopes.ScopeOf(profile);
+        AgentToolResources resources = new()
         {
+            // 文件工具与识图共用一份路径口径,草稿目录简写的写法跟 shell 走
+            Paths = plan.CreatePathResolver(shellExecutor?.ResolvedShellBinary),
+            SessionId = profile.SessionId,
+            OutputRoomDirectory = plan.OutputRoomDirectory,
+            ModelSupportsVision = plan.ModelSupportsVision,
+            ImageModelsConfigured = plan.ImageModelsConfigured,
+            Mcp = plan.Mcp.Tools,
             // 1.16:shell 作为普通工具挂载,默认名即 run_shell、默认自包审批,预授权规则按名匹配不变
-            // 后台任务跟 shell 同开同关(子代理不走这条装配)。群成员跑完由群调度叫他在群里开口;
-            // 化身不挂:它不在名单里,群叫不醒它,在群外起的一轮又进不了群;
-            // 定时运行不挂:一次性运行跑完就收工,不该留下活得比它久、跑完还要叫醒它的进程
-            bool backgroundTasks = !plan.Profile.IsGroupAvatar && !plan.Profile.IsScheduledRun;
-            Add(EAgentCapability.Shell, ShellExecutorFactory.CreateTool(shellExecutor, backgroundTasks));
-            if (backgroundTasks)
-            {
-                IBackgroundTaskReportSink sink = plan.Profile.IsGroupMember
-                    ? GroupMemberReportSink.Instance
-                    : SessionReportSink.Instance;
-                Add(EAgentCapability.Shell, BackgroundTaskTool.Create(plan.Profile.SessionId,
-                    CreateBackgroundTaskLaunch(plan, shellExecutor), sink));
-            }
-        }
-
-        // 识图工具只在当前模型自己看不了图时才挂:视觉模型经 Read 直接看图,AnalyzeImage 是多余的绕路。
-        // 该判定进装配快照,切换视觉/非视觉模型时下一次挂接自动重建
-        if (plan.MountVisionTool)
-        {
-            Add(EAgentCapability.VisionTool, VisionTool.Create(paths));
-        }
-
-        // 生图只看配置:角色开着、且至少配了一个生图模型,连不连得通不看(ADR 0052)
-        if (plan.MountImageGeneration)
-        {
-            Add(EAgentCapability.ImageGeneration, ImageGenerationTool.Create(paths));
-        }
-
-        // 委派:工具集与权限档都从主代理派生,全部能力都关掉时不挂载。
-        // 两把:CreateAgent 新开、SendMessage 续聊(ADR 0065),档位差异已退役
-        if (config.EnableSubAgent && SubAgentAssembly.TryCreateTools(plan, client) is { } delegationTools)
-        {
-            foreach (AITool tool in delegationTools) Add(EAgentCapability.SubAgent, tool);
-        }
-
-        if (plan.Profile.IsGroupMember) Add(EAgentCapability.GroupPost, GroupPostTool.Create(plan.Profile.SessionId));
-        if (plan.Profile.IsGroupAvatar)
-        {
-            string avatarId = plan.Profile.SessionId;
-            Add(EAgentCapability.GroupAway,
-                EndAwayTool.Create(() => GroupAwayController.Instance.IsInfiniteByAvatar(avatarId)));
-        }
-
-        // 群成员不挂：用户看的是群壳，成员会话不在界面上，念了也没人接
-        if (config.EnableSpeak && !plan.Profile.IsGroupMember && plan.Profile.SpeechSink is { } speechSink)
-        {
-            Add(EAgentCapability.Speak, SpeakTool.Create(speechSink));
-        }
-
-        if (config.EnableSpeechSynthesis)
-        {
-            Add(EAgentCapability.SpeechSynthesis, SynthesizeSpeechTool.Create(paths, plan.Profile.Character));
-        }
-
-        if (config.EnableTranscription)
-        {
-            Add(EAgentCapability.Transcription, TranscribeAudioTool.Create(paths));
-        }
-
-        // 一个会话一个标签页；快照超长落进自己的草稿目录，模型按路径续读
-        if (config.EnableBrowser)
-        {
-            string spillDirectory = Path.Combine(
-                plan.OutputRoomDirectory.Length > 0 ? plan.OutputRoomDirectory : Path.GetTempPath(), "browser");
-            foreach (AITool tool in BrowserTools.Create(PuppeteerBrowserHost.Shared, plan.Profile.SessionId, spillDirectory))
-            {
-                Add(EAgentCapability.Browser, tool);
-            }
-        }
-
-        if (config.EnableKnowledgeSearchTool)
-        {
-            Add(EAgentCapability.KnowledgeSearch, KnowledgeTool.Create(plan.Profile.SessionKnowledgeSource));
-        }
-
-        if (config.EnableScheduledTasks)
-        {
-            Add(EAgentCapability.ScheduledTasks, SchedulerTools.CreateScheduledTaskTool(plan.Profile.WorkspacePath));
-        }
-
-        foreach (AITool mcpTool in plan.Mcp.Tools) Add(EAgentCapability.Mcp, mcpTool);
-
-        if (config.EnableFileAccess)
-        {
-            EReadImageMode imageMode = plan.ReadAttachesImages ? EReadImageMode.Attach
-                : plan.MountVisionTool ? EReadImageMode.PointToAnalyzeImage
-                : EReadImageMode.None;
-            foreach (AITool tool in new PermissiveFileAccessTools(paths, imageMode: imageMode).Create())
-            {
-                Add(EAgentCapability.FileAccess, tool);
-            }
-        }
-
-        if (config.EnableWebSearch)
-        {
-            Add(EAgentCapability.WebSearch, WebSearchTool.Create());
-            Add(EAgentCapability.WebSearch, WebFetchTool.Create());
-        }
-
-        // 技能模型可见性总闸关闭时,框架的 load_skill 不挂,由自建同名工具顶上:
-        // 模型仍能按名加载广告列表内的技能(被动技能),主动技能正文引用它们才不落空。
-        // 广告列表仍不注入——省 token 的初衷不破,模型只加载它从正文里得知的技能名
-        if (plan.DisableSkillsProvider && plan.SkillsSource is { } skillsSource)
-        {
-            Add(EAgentCapability.Skills, LoadSkillTool.Create(skillsSource,
-                hasFileTools: config.EnableFileAccess, hasShell: shellExecutor != null,
-                builtIns: plan.BuiltInSkills));
-        }
-
-        return tools;
+            Shell = shellExecutor == null
+                ? null
+                : hasBackgroundTasks => ShellExecutorFactory.CreateTool(shellExecutor, hasBackgroundTasks),
+            // 群成员跑完由群调度叫他在群里开口,其余回到发起的会话
+            BackgroundTasks = shellExecutor == null
+                ? null
+                : () => BackgroundTaskTool.Create(profile.SessionId, CreateBackgroundTaskLaunch(plan, shellExecutor),
+                    scope == EAgentToolScope.GroupMember ? GroupMemberReportSink.Instance : SessionReportSink.Instance),
+            // 委派:工具集与权限档都从主代理派生,全部能力都关掉时不挂载。两把:CreateAgent 新开、SendMessage 续聊(ADR 0065)
+            Delegation = () => SubAgentAssembly.TryCreateTools(plan, client),
+            Browser = PuppeteerBrowserHost.Shared,
+            SpeechSink = profile.SpeechSink,
+            Character = profile.Character,
+            KnowledgeSource = profile.SessionKnowledgeSource,
+            WorkspacePath = profile.WorkspacePath,
+            AwayIsInfinite = () => GroupAwayController.Instance.IsInfiniteByAvatar(profile.SessionId),
+            // 广告列表仍不注入——省 token 的初衷不破,模型只加载它从正文里得知的技能名
+            LoadSkill = plan.DisableSkillsProvider && plan.SkillsSource is { } skillsSource
+                ? () => LoadSkillTool.Create(skillsSource, hasFileTools: plan.Config.EnableFileAccess,
+                    hasShell: shellExecutor != null, builtIns: plan.BuiltInSkills)
+                : null,
+        };
+        return AgentToolsetBuilder.Build(plan.Config, scope, resources);
     }
 
     // 与这个会话的 Shell 同一个 shell、目录与环境;日志放在草稿目录下,模型按 $DRAFT 就找得到

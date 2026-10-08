@@ -7,6 +7,7 @@ using UiharuMind.Core.AI.Execution.Prompts;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Core.AI.Execution.Tools.Browser;
 using UiharuMind.Core.AI.Execution.Tools.WebTools;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Configs;
@@ -949,12 +950,60 @@ public class SubAgentBoundaryTests
     public void SubAgentTools_IncludeImageGeneration_OnlyWhenParentHasItAndNotExplorer()
     {
         SubAgentAssembly.SubAgentAssemblyInput available =
-            NewInput(new AgentToolConfig { EnableImageGeneration = true }) with { ImageGenerationAvailable = true };
+            NewInput(new AgentToolConfig { EnableImageGeneration = true }) with { ImageModelsConfigured = true };
 
         Assert.DoesNotContain(ImageGenerationTool.ToolName, ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(NewInput())));
         Assert.Contains(ImageGenerationTool.ToolName, ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(available)));
         Assert.DoesNotContain(ImageGenerationTool.ToolName, ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(
             available with { SubAgentProfile = SubAgentProfile.Explorer })));
+    }
+
+    /// <summary>
+    /// 场合表允许子代理用的每一档，开着、资源备齐时子代理都真的挂上了；不允许的一档也不多挂。
+    /// 从前子代理另写一份工具名单，主代理新加的能力（浏览器、配音、转写）都漏了它，没有任何地方报错——
+    /// 现在名单只有场合表一份，这条盯的是「表里允许了，子代理那边却没把资源备齐」
+    /// </summary>
+    [Fact]
+    public void SubAgentTools_FollowTheScopeTable()
+    {
+        Dictionary<EAgentCapability, string> representative = new()
+        {
+            [EAgentCapability.FileAccess] = FileToolNames.Read,
+            [EAgentCapability.Shell] = CharacterRunnerFactory.ShellToolName,
+            [EAgentCapability.WebSearch] = WebSearchTool.ToolName,
+            [EAgentCapability.VisionTool] = VisionTool.ToolName,
+            [EAgentCapability.ImageGeneration] = ImageGenerationTool.ToolName,
+            [EAgentCapability.Mcp] = "probe_mcp",
+            [EAgentCapability.SpeechSynthesis] = SynthesizeSpeechTool.ToolName,
+            [EAgentCapability.Transcription] = TranscribeAudioTool.ToolName,
+            [EAgentCapability.Browser] = BrowserTools.SnapshotToolName,
+            [EAgentCapability.KnowledgeSearch] = KnowledgeTool.ToolName,
+            [EAgentCapability.ScheduledTasks] = SchedulerTools.ToolName,
+        };
+        AgentToolConfig everything = new()
+        {
+            EnableImageGeneration = true, EnableSpeak = true, EnableSpeechSynthesis = true,
+            EnableTranscription = true, EnableBrowser = true, EnableKnowledgeSearchTool = true,
+            EnableScheduledTasks = true,
+        };
+        List<string> names = ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(
+            NewInput(everything, EAgentPermissionMode.FullAuto) with
+            {
+                ShellTool = StubShellTool(),
+                McpTools = [AIFunctionFactory.Create(() => "", "probe_mcp")],
+                ImageModelsConfigured = true,
+            }));
+
+        AgentToolScopeRule rule = AgentToolScopes.Of(EAgentToolScope.SubAgent);
+        foreach ((EAgentCapability capability, string toolName) in representative)
+        {
+            if (rule.Allows(capability)) Assert.Contains(toolName, names);
+            else Assert.DoesNotContain(toolName, names);
+        }
+
+        // 表里新允许了一档却没给代表工具名，上面这段就会悄悄漏验它
+        Assert.All(rule.Allowed, capability => Assert.True(representative.ContainsKey(capability),
+            $"场合表允许子代理用 {capability}，但这条测试没有它的代表工具名"));
     }
 
     /// <summary>

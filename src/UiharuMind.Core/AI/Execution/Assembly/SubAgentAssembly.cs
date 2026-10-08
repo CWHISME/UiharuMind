@@ -17,7 +17,6 @@ using UiharuMind.Core.AI.Execution.Prompts;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Files;
-using UiharuMind.Core.AI.Execution.Tools.WebTools;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.Configs;
 
@@ -60,14 +59,14 @@ internal static class SubAgentAssembly
         /// <summary>文件工具的根目录</summary>
         public required string WorkingDirectory { get; init; }
 
-        /// <summary>识图工具是否可挂(开关开且当前模型不自带视觉)</summary>
-        public bool VisionToolAvailable { get; init; } = true;
+        /// <summary>
+        /// 当前模型自带视觉:Read 直接附图;看不了图时识图另挂 AnalyzeImage。
+        /// 只给模型事实,开关一律看 <see cref="Config"/>——匿名子代理那张身份卡上的 Tools 不参与计算
+        /// </summary>
+        public bool ModelSupportsVision { get; init; }
 
-        /// <summary>Read 能否附图给模型看(开关开且当前模型自带视觉)</summary>
-        public bool ReadAttachesImages { get; init; }
-
-        /// <summary>生图工具是否可挂(主代理那一侧挂上了)</summary>
-        public bool ImageGenerationAvailable { get; init; }
+        /// <summary>配了生图模型</summary>
+        public bool ImageModelsConfigured { get; init; }
 
         /// <summary>继承自主代理的权限档,决定可变更工具挂不挂</summary>
         public EAgentPermissionMode PermissionMode { get; init; } = EAgentPermissionMode.ReadOnly;
@@ -198,9 +197,8 @@ internal static class SubAgentAssembly
             Persona = persona,
             Name = identity.AgentName,
             WorkingDirectory = plan.WorkingDirectory,
-            VisionToolAvailable = plan.MountVisionTool,
-            ReadAttachesImages = plan.ReadAttachesImages,
-            ImageGenerationAvailable = plan.MountImageGeneration,
+            ModelSupportsVision = plan.ModelSupportsVision,
+            ImageModelsConfigured = plan.ImageModelsConfigured,
             PermissionMode = effectivePermission,
             WorkspaceInstructions = plan.WorkspaceInstructions,
             ShellTool = shellTool,
@@ -275,9 +273,8 @@ internal static class SubAgentAssembly
             Persona = persona,
             Name = name,
             WorkingDirectory = workingDirectory,
-            VisionToolAvailable = plan.MountVisionTool,
-            ReadAttachesImages = plan.ReadAttachesImages,
-            ImageGenerationAvailable = plan.MountImageGeneration,
+            ModelSupportsVision = plan.ModelSupportsVision,
+            ImageModelsConfigured = plan.ImageModelsConfigured,
             PermissionMode = effectivePermission,
             WorkspaceInstructions = plan.WorkspaceInstructions,
             ShellTool = shellTool,
@@ -330,70 +327,38 @@ internal static class SubAgentAssembly
     }
 
     /// <summary>
-    /// 子代理装配选项(纯函数,不碰单例)。不变量,均由测试钉住:
-    /// 工具集<b>不含子代理工具自身</b>(无限递归);不含主代理特有的那批
-    /// (技能/定时任务/记忆检索——子代理拿的是一份任务书,不需要再自己装载指令或排定时任务);
-    /// <b>探索档恒定只读</b>(产品决定:调研不该顺手改东西)。其余档位挂什么由能力配置定、
-    /// 能不能动手由 <see cref="ApprovalModeMapper"/> 定——与主代理同一口径,
-    /// 因为子代理现在跑自己的 <c>TurnDriver</c>,审批请求冒到派活者这一轮的回应口(ADR 0021)。
+    /// 子代理装配选项(纯函数,不碰单例)。工具与主代理同一份装配(<see cref="AgentToolsetBuilder"/>),
+    /// 比主代理少的那几档(委派、技能、定时任务、知识库、朗读、后台任务)只写在场合表里(<see cref="AgentToolScopes"/>);
+    /// 旧探索档只读。能不能动手由 <see cref="ApprovalModeMapper"/> 定——与主代理同一口径,
+    /// 因为子代理跑自己的 <c>TurnDriver</c>,审批请求冒到派活者这一轮的回应口(ADR 0021)。不变量均由测试钉住。
     /// </summary>
     /// <param name="input">装配输入</param>
     /// <returns>框架选项;无任何能力启用时为 null</returns>
     internal static HarnessAgentOptions? BuildSubAgentOptions(SubAgentAssemblyInput input)
     {
         AgentToolConfig config = input.Config;
-        // 子代理现在有审批通道了(它跑自己的 TurnDriver,请求冒到派活者这一轮的回应口),
-        // 于是「非完全自动档必须只读」那条硬裁剪解除——挂什么由能力配置定,
-        // 能不能动手由 ApprovalModeMapper 定,与主代理完全同一口径(见 ADR 0021)。
-        //
-        // 唯一仍然恒定只读的是<b>探索档</b>:那是产品决定而不是技术限制
-        // (调研就该只读,免得一次"看一眼"顺手改了东西)。
-        bool canMutate = !input.SubAgentProfile.ForceReadOnly;
+        // 新派的子代理只有一种;探索档只为重建存量子会话而留,仍恒定只读
+        EAgentToolScope scope = input.SubAgentProfile.ForceReadOnly
+            ? EAgentToolScope.LegacyExplorer
+            : EAgentToolScope.SubAgent;
+        bool canMutate = !AgentToolScopes.Of(scope).ReadOnlyFiles;
         string outputRoom = AgentOutputLayout.GetRoomAbsolutePath(input.OutputFolderName);
         // 与主代理同一份路径口径:共用那间草稿目录,简写的写法跟子代理自己的 shell 走(子代理不带记忆)
         AgentPathResolver paths = new(input.WorkingDirectory, outputRoom, shellBinary: input.ShellBinary);
 
-        bool hasVision = canMutate && config.EnableVisionTool && input.VisionToolAvailable;
-        List<AITool> tools = new();
-        if (config.EnableFileAccess)
+        // 挂哪些与主代理同一份装配(AgentToolsetBuilder):子代理比主代理少的那几档只写在场合表里
+        List<AgentToolEntry> entries = AgentToolsetBuilder.Build(config, scope, new AgentToolResources
         {
-            // 看图只是读,探索档也给(投影随 ReadAttachesImages 挂在子会话客户端上);
-            // 指向 AnalyzeImage 要它真的挂着,跟 hasVision 走
-            EReadImageMode imageMode = config.EnableVisionTool && input.ReadAttachesImages ? EReadImageMode.Attach
-                : hasVision ? EReadImageMode.PointToAnalyzeImage
-                : EReadImageMode.None;
-            tools.AddRange(new PermissiveFileAccessTools(paths, imageMode: imageMode)
-                .Create(disableWriteTools: !canMutate));
-        }
-
-        // 探索档与「恒定只读」同源(产品决定而非技术限制):它干的是工作区内的初级调研,
-        // 不挂联网——Glob/Grep/Read 三个只读文件工具就是它的全部
-        bool hasWeb = canMutate && config.EnableWebSearch;
-        if (hasWeb)
-        {
-            tools.Add(WebSearchTool.Create());
-            tools.Add(WebFetchTool.Create());
-        }
-
-        // 与 hasVision 同一口径:纪律段里指名的工具必须真的在这份工具集里(有不变量测试钉住),
-        // 所以判据取"装配结果"而不是"配置意图"——shell 只在完全自动档随 ShellTool 挂上
-        bool hasShell = canMutate && input.ShellTool != null;
-        if (hasVision)
-        {
-            tools.Add(VisionTool.Create(paths));
-        }
-
-        // 生图要写草稿目录:探索档恒定只读,与联网同一口径不挂
-        if (canMutate && config.EnableImageGeneration && input.ImageGenerationAvailable)
-        {
-            tools.Add(ImageGenerationTool.Create(paths));
-        }
-
-        if (canMutate)
-        {
-            if (input.ShellTool != null) tools.Add(input.ShellTool);
-            if (input.McpTools != null) tools.AddRange(input.McpTools);
-        }
+            Paths = paths,
+            OutputRoomDirectory = outputRoom,
+            ModelSupportsVision = input.ModelSupportsVision,
+            ImageModelsConfigured = input.ImageModelsConfigured,
+            Mcp = input.McpTools ?? [],
+            Shell = input.ShellTool is { } shellTool ? _ => shellTool : null,
+        });
+        List<AITool> tools = entries.Select(x => x.Tool).ToList();
+        // 纪律段里指名的工具必须真的在这份工具集里(有不变量测试钉住),所以判据取装配结果而不是配置意图
+        bool hasShell = entries.Any(x => x.Capability == EAgentCapability.Shell);
 
         if (tools.Count == 0) return null;
 
