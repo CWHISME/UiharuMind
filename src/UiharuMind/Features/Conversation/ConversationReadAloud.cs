@@ -2,6 +2,7 @@ using System;
 using System.Collections.Specialized;
 using System.Collections.ObjectModel;
 using System.Linq;
+using UiharuMind.Core.AI.Audio;
 using UiharuMind.Features.Audio;
 using UiharuMind.Features.Conversation.Items;
 
@@ -15,14 +16,18 @@ public sealed class ConversationReadAloud : IDisposable
 {
     private readonly ObservableCollection<ConversationItemBase> _items;
     private readonly IReadAloudService _service;
+    private readonly Func<string?, SpeechStyle?>? _styleOf;
     private ConversationItemBase? _active; //上次标成在念的那一条
 
     /// <param name="items">界面条目集合（与视图模型共用）</param>
     /// <param name="service">朗读服务</param>
-    public ConversationReadAloud(ObservableCollection<ConversationItemBase> items, IReadAloudService service)
+    /// <param name="styleOf">角色 id → 它的声音（念时现取，改了角色声音旧消息也跟着变）；null 一律用默认</param>
+    public ConversationReadAloud(ObservableCollection<ConversationItemBase> items, IReadAloudService service,
+        Func<string?, SpeechStyle?>? styleOf = null)
     {
         _items = items;
         _service = service;
+        _styleOf = styleOf;
         foreach (ConversationItemBase item in items) Attach(item);
         items.CollectionChanged += OnItemsChanged;
         service.StateChanged += OnStateChanged;
@@ -46,7 +51,8 @@ public sealed class ConversationReadAloud : IDisposable
 
     private void Attach(ConversationItemBase item)
     {
-        if (item is TextConversationItem) item.ReadAloudCallback = x => _service.ToggleAsync(x, x.Message);
+        if (item is TextConversationItem)
+            item.ReadAloudCallback = x => _service.ToggleAsync(x, x.Message, _styleOf?.Invoke(x.CharacterId));
     }
 
     private void OnStateChanged()

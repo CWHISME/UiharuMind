@@ -69,6 +69,13 @@ public sealed class AudioServiceInfo
     [JsonIgnore]
     public string Id => IdPrefix + Name;
 
+    /// <summary>
+    /// 听语气描述：OpenAI 只有 gpt-4o 系的合成模型认 instructions（tts-1 不认），别家兼容服务说不准就不发
+    /// </summary>
+    [JsonIgnore]
+    public bool AcceptsInstructions => Dialect == EAudioDialect.OpenAICompatible && Task == EAudioCapability.Tts &&
+                                       ModelId.StartsWith("gpt-4o", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>能用了：Edge TTS 什么都不用填；兼容接口要地址与模型 id，密钥可空（自托管的常常不鉴权）</summary>
     [JsonIgnore]
     public bool IsConfigured => Dialect == EAudioDialect.EdgeTts ||

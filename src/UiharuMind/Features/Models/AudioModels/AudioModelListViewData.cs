@@ -251,7 +251,10 @@ public partial class AudioModelListViewData : ObservableObject
     private async Task Preview(AudioModelItemData item)
     {
         string? voice = item.SelectedVoice is { Id.Length: > 0 } selected ? selected.Id : null;
-        await _readAloud.ToggleAsync(item, item.PreviewText, new ReadAloudOptions(item.Name, voice));
+        await _readAloud.ToggleAsync(item, item.PreviewText, new SpeechStyle
+        {
+            Provider = AudioCppProvider.LocalId, Model = item.Name, Voice = voice
+        }, preview: true);
         await RefreshStatusAsync();
     }
 

@@ -13,6 +13,7 @@ using System;
 using System.Linq;
 using UiharuMind.Core.Input;
 using UiharuMind.Core.AI.Audio;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Features.Audio;
 using System.Threading.Tasks;
 using System.Diagnostics;
@@ -122,6 +123,9 @@ public partial class App : Application, ILogger, IDisposable
                     sp.GetRequiredService<IAudioPlayer>(), messages,
                     (failed, language) => sp.GetRequiredService<AudioRouter>().Fallback(EAudioCapability.Tts, failed, language),
                     () => AudioSettingConfig.Current.ReadAloudSpeed))
+                .AddSingleton(sp => new CharacterSpeechStyles(id => CharacterManager.Instance.GetCharacterData(id),
+                    id => sp.GetRequiredService<AudioRouter>().Services(EAudioCapability.Tts).Any(x => x.Id == id && x.IsConfigured),
+                    model => AudioCppEngine.Shared.GetModels().Any(x => x.Id == model)))
                 .AddSingleton(sp => new AudioServices(() => localAudio.Value, sp.GetRequiredService<AudioRouter>,
                     sp.GetRequiredService<IAudioPlayer>(), sp.GetRequiredService<IAudioRecorder>(),
                     sp.GetRequiredService<IReadAloudService>()))

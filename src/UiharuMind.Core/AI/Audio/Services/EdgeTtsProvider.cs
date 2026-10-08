@@ -52,6 +52,18 @@ public sealed class EdgeTtsProvider : IAudioProvider
     public static string DefaultVoiceFor(string? language) =>
         DefaultVoices.GetValueOrDefault(language ?? "zh") ?? DefaultVoices["zh"];
 
+    /// <summary>
+    /// 三百来个音色排个序：指定语种的排前面，其次英文，再按名字
+    /// </summary>
+    /// <param name="voices">音色短名</param>
+    /// <param name="language">优先的语种代码，如 zh</param>
+    /// <returns>排好的</returns>
+    public static IReadOnlyList<string> SortVoices(IEnumerable<string> voices, string language) => voices
+        .OrderBy(x => x.StartsWith(language + "-", StringComparison.OrdinalIgnoreCase) ? 0
+            : x.StartsWith("en-", StringComparison.OrdinalIgnoreCase) ? 1 : 2)
+        .ThenBy(x => x, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
     public async Task<AudioSynthesisResult> SynthesizeAsync(
         AudioSynthesisRequest request, CancellationToken cancellationToken)
     {

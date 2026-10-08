@@ -121,6 +121,7 @@ public static class ConversationItemFactory
                 ? "Agent"
                 : character!.CharacterName,
             SenderColor = Avalonia.Media.Brushes.DeepSkyBlue,
+            CharacterId = character?.CharacterId,
             Icon = character == null
                 ? IconUtils.DefaultCharIcon
                 : IconUtils.GetCharacterBitmapOrDefault(character),

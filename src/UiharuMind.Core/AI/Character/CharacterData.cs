@@ -7,6 +7,7 @@ using UiharuMind.Core.AI.Memory;
 using UiharuMind.Core.AI.WorldSettings;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Core.AI.Audio;
 
 namespace UiharuMind.Core.AI.Character;
 
@@ -121,6 +122,11 @@ public class CharacterData
     /// 装配时按身份过滤而非信任存档——名单里的角色可能已经翻回普通角色。
     /// </summary>
     public List<string> MountAgents { get; set; } = [];
+
+    /// <summary>
+    /// 朗读这个角色的话用的声音（哪个模型、音色、语速、语气）；null 跟默认
+    /// </summary>
+    public SpeechStyle? Speech { get; set; }
 
     /// <summary>
     /// 角色名
@@ -352,6 +358,7 @@ public class CharacterData
         RequiresVisionModel = snapshot.RequiresVisionModel;
         Tools = snapshot.Tools;
         MountAgents = snapshot.MountAgents;
+        Speech = snapshot.Speech;
         CharacterIcon = snapshot.CharacterIcon;
         FirstGreeting = snapshot.FirstGreeting;
         AlternateGreetings = snapshot.AlternateGreetings;

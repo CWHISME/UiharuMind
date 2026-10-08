@@ -65,7 +65,8 @@ public class ReadAloudServiceTests
         Task reading = service.ToggleAsync(message, "第一句。第二句。第三句。" + new string('长', 200));
         await _player.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
         _player.Reset();
-        Task previewing = service.ToggleAsync(preview, "Hello.", new ReadAloudOptions("pocket", "alba"));
+        Task previewing = service.ToggleAsync(preview, "Hello.", new SpeechStyle { Model = "pocket", Voice = "alba" },
+            preview: true);
         await reading.WaitAsync(TimeSpan.FromSeconds(5)); //不排队：消息朗读当场停
         await _player.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
@@ -150,11 +151,33 @@ public class ReadAloudServiceTests
         FakeAudioProvider online = new() { IsLocal = false, Error = new HttpRequestException("offline") };
         ReadAloudService service = new(_ => online, _player, _messages, (_, _) => _tts, () => 1f);
 
-        await service.ToggleAsync(new object(), "Hello.", new ReadAloudOptions(Provider: "service:x"));
+        await service.ToggleAsync(new object(), "Hello.", new SpeechStyle { Provider = "service:x" },
+            preview: true);
 
         Assert.Empty(_tts.Requests); //试听的就是这个服务，换了就不是在试它
         Assert.Null(Assert.Single(online.Requests).Speed);
         Assert.Single(_messages.Notifications);
+    }
+
+    [Fact]
+    public async Task CharacterLine_IsReadInItsVoice_OthersInTheDefault()
+    {
+        ReadAloudService service = new(_ => _tts, _player, _messages, speed: () => 1.2f);
+        _player.AutoFinish = true;
+        SpeechStyle alice = new() { Voice = "alba", Speed = 0.8f, Instruction = "softly" };
+        ObservableCollection<ConversationItemBase> items = [];
+        using ConversationReadAloud readAloud = new(items, service, id => id == "alice" ? alice : null);
+        TextConversationItem line = new(false) { CharacterId = "alice", Message = "Hello there.", IsDone = true };
+        TextConversationItem user = new(true) { Message = "Hi.", IsDone = true };
+        items.Add(line);
+        items.Add(user);
+
+        await line.ReadAloudCommand.ExecuteAsync(null);
+        await user.ReadAloudCommand.ExecuteAsync(null);
+
+        AudioSynthesisRequest spoken = _tts.Requests[0];
+        Assert.Equal(("alba", 0.8f, "softly"), (spoken.Voice, spoken.Speed, spoken.Instruction)); //角色自己的语速盖过全局
+        Assert.Equal((null, 1.2f), (_tts.Requests[1].Voice, _tts.Requests[1].Speed));
     }
 
     [Fact]

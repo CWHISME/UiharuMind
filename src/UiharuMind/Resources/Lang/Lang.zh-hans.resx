@@ -4605,6 +4605,48 @@
     <data name="AudioSpeedReset" xml:space="preserve">
         <value>还原</value>
     </data>
+    <data name="CharacterVoiceTitle" xml:space="preserve">
+        <value>朗读声音</value>
+    </data>
+    <data name="CharacterVoiceDesc" xml:space="preserve">
+        <value>朗读这个角色说的话时用的声音。群聊里每个角色各念各的；没设就跟语音模型页签里的默认走</value>
+    </data>
+    <data name="CharacterVoiceSource" xml:space="preserve">
+        <value>用哪个</value>
+    </data>
+    <data name="CharacterVoiceFollowDefault" xml:space="preserve">
+        <value>跟随默认</value>
+    </data>
+    <data name="CharacterVoiceMissing" xml:space="preserve">
+        <value>{0}（已不在）</value>
+    </data>
+    <data name="CharacterVoiceVoiceDesc" xml:space="preserve">
+        <value>可从候选里选，也可手输；空着用模型默认的音色</value>
+    </data>
+    <data name="CharacterVoiceVoicePlaceholder" xml:space="preserve">
+        <value>模型默认</value>
+    </data>
+    <data name="CharacterVoiceListVoicesTip" xml:space="preserve">
+        <value>列出这个模型自带的音色（会启动语音引擎）</value>
+    </data>
+    <data name="CharacterVoiceSpeedDesc" xml:space="preserve">
+        <value>不单独设就跟全局语速</value>
+    </data>
+    <data name="CharacterVoiceOwnSpeed" xml:space="preserve">
+        <value>单独设</value>
+    </data>
+    <data name="CharacterVoiceInstruction" xml:space="preserve">
+        <value>语气描述</value>
+    </data>
+    <data name="CharacterVoiceInstructionDesc" xml:space="preserve">
+        <value>用一句话描述怎么说，只有部分模型会照做（如 OpenAI 的 gpt-4o-mini-tts、支持指令的本地模型）</value>
+    </data>
+    <data name="CharacterVoiceInstructionPlaceholder" xml:space="preserve">
+        <value>如：温柔、语速稍慢，带点笑意</value>
+    </data>
+    <data name="CharacterVoiceInstructionIgnored" xml:space="preserve">
+        <value>选的这个不听语气描述，朗读时会忽略这一项</value>
+    </data>
     <data name="AudioFallbackToLocal" xml:space="preserve">
         <value>在线服务连不上时，改用本地模型</value>
     </data>

@@ -266,7 +266,6 @@ public partial class AudioServiceEditViewData : ObservableObject
         if (preset.Dialect == EAudioDialect.EdgeTts) _ = LoadEdgeVoicesAsync();
     }
 
-    // Edge 有三百来个音色：界面语言的排前面，其次英文
     private async Task LoadEdgeVoicesAsync()
     {
         IsLoadingVoices = true;
@@ -274,11 +273,7 @@ public partial class AudioServiceEditViewData : ObservableObject
         {
             IReadOnlyList<string> voices = await _edgeVoices(_lifetime.Token);
             string language = LocalizationManager.Instance.CurrentCulture.TwoLetterISOLanguageName;
-            if (IsEdge)
-                Voice.SetOptions(voices
-                    .OrderBy(x => x.StartsWith(language + "-", StringComparison.OrdinalIgnoreCase) ? 0
-                        : x.StartsWith("en-", StringComparison.OrdinalIgnoreCase) ? 1 : 2)
-                    .ThenBy(x => x, StringComparer.OrdinalIgnoreCase));
+            if (IsEdge) Voice.SetOptions(EdgeTtsProvider.SortVoices(voices, language));
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {

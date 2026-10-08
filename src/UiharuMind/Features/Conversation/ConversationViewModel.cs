@@ -509,10 +509,12 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// </summary>
     /// <param name="messages">弹提示与确认用的消息服务</param>
     /// <param name="readAloud">朗读；为空则气泡上没有朗读按钮</param>
-    public ConversationViewModel(IMessageService messages, IReadAloudService? readAloud = null)
+    /// <param name="speechStyles">角色的朗读声音；为空一律用默认</param>
+    public ConversationViewModel(IMessageService messages, IReadAloudService? readAloud = null,
+        CharacterSpeechStyles? speechStyles = null)
     {
         _messages = messages;
-        _readAloud = readAloud == null ? null : new ConversationReadAloud(Items, readAloud);
+        _readAloud = readAloud == null ? null : new ConversationReadAloud(Items, readAloud, speechStyles == null ? null : speechStyles.For);
         _mcpApproval = new WorkspaceMcpApprovalFlow(messages);
         // 用量排最前:后面几个子模型的构造期回调就可能刷它
         Usage = new ConversationUsageViewData(ContextLength, () => SessionModelLabel,

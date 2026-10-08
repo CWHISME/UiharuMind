@@ -94,14 +94,14 @@ public class AudioCppProviderTests : IDisposable
     }
 
     [Fact]
-    public async Task Speed_GoesToModelsThatTakeIt_OthersAreStretchedAtPlayback()
+    public async Task SpeedAndInstruction_GoToModelsThatTakeThem_SpeedIsOtherwiseStretchedAtPlayback()
     {
         Assert.SkipWhen(OperatingSystem.IsWindows(), "fake server is a shell script");
         string install = Path.Combine(_directory, "engine");
         Directory.CreateDirectory(Path.Combine(install, "model_specs"));
         File.WriteAllText(Path.Combine(install, "model_specs", "pocket_tts.json"), Spec("pocket_tts", "en"));
         File.WriteAllText(Path.Combine(install, "model_specs", "kokoro_tts.json"),
-            Spec("kokoro_tts", "en").Replace("\"category\"", "\"options\":{\"request\":[{\"name\":\"speed\"}]},\"category\""));
+            Spec("kokoro_tts", "en").Replace("\"category\"", "\"options\":{\"request\":[{\"name\":\"speed\"},{\"name\":\"instruct\"}]},\"category\""));
         _models.Add(new AudioCppModelEntry("tts-b", "kokoro_tts", "/models/b.gguf", "tts"));
         using AudioCppEngine engine = CreateEngine(installed: true, install);
         using AudioCppProvider provider = new(engine);
@@ -112,9 +112,13 @@ public class AudioCppProviderTests : IDisposable
         Assert.Equal(1.5f, pocket.PlaybackSpeed);
 
         AudioSynthesisResult kokoro = await provider.SynthesizeAsync(
-            new AudioSynthesisRequest("hello", Speed: 1.5f, Model: "tts-b"), CancellationToken.None);
-        Assert.Equal("tts-b:alba:speed=1.5", await ReadText(kokoro.Audio));
+            new AudioSynthesisRequest("hello", Speed: 1.5f, Model: "tts-b", Instruction: "whisper"), CancellationToken.None);
+        Assert.Equal("tts-b:alba:speed=1.5:instruct=whisper", await ReadText(kokoro.Audio)); //语气描述按它的叫法给
         Assert.Equal(1f, kokoro.PlaybackSpeed);
+
+        AudioSynthesisResult plain = await provider.SynthesizeAsync(
+            new AudioSynthesisRequest("hello", Model: "tts-a", Instruction: "whisper"), CancellationToken.None);
+        Assert.Equal("tts-a:alba", await ReadText(plain.Audio)); //不听指令的不发
     }
 
     [Fact]

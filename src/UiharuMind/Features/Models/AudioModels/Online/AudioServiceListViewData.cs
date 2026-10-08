@@ -147,7 +147,8 @@ public partial class AudioServiceListViewData : ObservableObject
     // 再点一下停；与消息朗读、本地模型试听互相打断。失败的提示由朗读服务出
     [RelayCommand(AllowConcurrentExecutions = true)]
     private Task Preview(AudioServiceItemData item) =>
-        _readAloud.ToggleAsync(item, Loc.Text(LangKey.AudioPreviewText), new ReadAloudOptions(Provider: item.Info.Id));
+        _readAloud.ToggleAsync(item, Loc.Text(LangKey.AudioPreviewText), new SpeechStyle { Provider = item.Info.Id },
+            preview: true);
 
     private void Commit(Action<List<AudioServiceInfo>> change)
     {

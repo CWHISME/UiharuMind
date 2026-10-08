@@ -39,6 +39,13 @@ public sealed record AudioCppFamily(
     public bool AcceptsSpeed => RequestOptions.Contains("speed") || RequestOptions.Contains("speaking_rate");
 
     /// <summary>
+    /// 听语气描述的那个参数名（各家叫法不一）；不听为 null
+    /// </summary>
+    public string? InstructionOption =>
+        RequestOptions.Contains("instruction") ? "instruction" :
+        RequestOptions.Contains("instruct") ? "instruct" : null;
+
+    /// <summary>
     /// 会照参考音频克隆音色（能用音色库）
     /// </summary>
     public bool CanClone => Tasks.Contains("clone");

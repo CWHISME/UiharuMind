@@ -28,6 +28,7 @@ namespace UiharuMind.Features.Conversation.Pages;
 public partial class ConversationPageData : ConversationPageDataBase
 {
     private readonly IReadAloudService _readAloud; //新开的会话都接上朗读
+    private readonly CharacterSpeechStyles _speechStyles; //气泡按说话的角色取声音
 
     protected override Control CreateView => new ConversationPage();
 
@@ -86,14 +87,15 @@ public partial class ConversationPageData : ConversationPageDataBase
         ? ERightPaneKind.Agent
         : IsEmptyState ? ERightPaneKind.NewSession : ERightPaneKind.Chat;
 
-    public ConversationPageData() : this(App.Services.GetRequiredService<IMessageService>(), App.Services.GetRequiredService<IReadAloudService>())
+    public ConversationPageData() : this(App.Services.GetRequiredService<IMessageService>(), App.Services.GetRequiredService<IReadAloudService>(), App.Services.GetRequiredService<CharacterSpeechStyles>())
     {
     }
 
-    private ConversationPageData(IMessageService messages, IReadAloudService readAloud)
+    private ConversationPageData(IMessageService messages, IReadAloudService readAloud, CharacterSpeechStyles speechStyles)
         : base(EConversationType.Agent, messages)
     {
         _readAloud = readAloud;
+        _speechStyles = speechStyles;
         // 与 ChatInfoView 构造自取的是同一个全局单例（App.ViewModel 按类型缓存）——
         // 页面 SetSession 要能反映到视图上，两者必须同一份
         ChatInfo = App.ViewModel.GetViewModel<ChatInfoModel>();
@@ -188,7 +190,7 @@ public partial class ConversationPageData : ConversationPageDataBase
 
     protected override ConversationViewModel CreateConversation()
     {
-        ConversationViewModel conversation = new(Messages, _readAloud);
+        ConversationViewModel conversation = new(Messages, _readAloud, _speechStyles);
         if (CurrentType == EConversationType.Chat)
         {
             // 普通对话：继承上一个空会话的角色（同类才继承，跨类型不污染），否则回默认角色；

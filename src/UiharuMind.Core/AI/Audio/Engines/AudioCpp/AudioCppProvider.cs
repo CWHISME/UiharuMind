@@ -17,7 +17,12 @@ public sealed class AudioCppProvider : IAudioProvider, IDisposable
         _voices = new AudioCppVoiceResolver(engine);
     }
 
-    public string Id => "AudioCpp";
+    /// <summary>
+    /// 本地引擎的 provider id（<see cref="SpeechStyle.Provider"/> 指定用本地时填它）
+    /// </summary>
+    public const string LocalId = "AudioCpp";
+
+    public string Id => LocalId;
     public string DisplayName => "audio.cpp";
     public EAudioProviderKind Kind => EAudioProviderKind.LocalEngine;
 
@@ -42,11 +47,16 @@ public sealed class AudioCppProvider : IAudioProvider, IDisposable
             : FindModel(request.Model);
         OpenAiCompatibleAudioClient client = await GetClientAsync(model, cancellationToken).ConfigureAwait(false);
         string? voice = await _voices.ResolveAsync(model, request.Voice, client, cancellationToken).ConfigureAwait(false);
-        // 多数模型不会变速（server 对非 1 的 speed 直接报错），交给播放时变速
+        // 多数模型不会变速（server 对非 1 的 speed 直接报错），交给播放时变速；语气描述只给听得懂的
+        AudioCppFamily? family = _engine.GetFamily(model);
         float speed = request.Speed ?? 1f;
-        bool native = speed != 1f && _engine.GetFamily(model)?.AcceptsSpeed == true;
+        bool native = speed != 1f && family?.AcceptsSpeed == true;
+        Dictionary<string, string>? options = !string.IsNullOrWhiteSpace(request.Instruction) &&
+                                              family?.InstructionOption is { } option
+            ? new Dictionary<string, string> { [option] = request.Instruction }
+            : null;
         AudioSynthesisResult result = await client.SynthesizeAsync(model.Id, request.Text, voice, EAudioFormat.Wav,
-            cancellationToken, speed: native ? speed : null).ConfigureAwait(false);
+            cancellationToken, speed: native ? speed : null, options: options).ConfigureAwait(false);
         return native || speed == 1f ? result : result with { PlaybackSpeed = speed };
     }
 

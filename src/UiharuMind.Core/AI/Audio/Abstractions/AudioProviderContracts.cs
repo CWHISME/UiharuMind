@@ -46,8 +46,9 @@ public enum EAudioFormat
 /// <param name="Speed">语速倍率；provider 不支持时显式忽略（契约里声明，不报错）</param>
 /// <param name="Model">provider 自己的模型 id（试听某个非默认模型时用）；空 = provider 当前的默认</param>
 /// <param name="Language">文字的主要语种（如 zh）；provider 可据此换一个会说这种语言的模型，没有这个本事的忽略</param>
+/// <param name="Instruction">语气描述（如「低声、有点难过」）；只有会听指令的模型用，其余忽略</param>
 public sealed record AudioSynthesisRequest(string Text, string? Voice = null, float? Speed = null, string? Model = null,
-    string? Language = null);
+    string? Language = null, string? Instruction = null);
 
 /// <summary>一次合成结果：字节流 + 格式。流由调用方负责释放；Pcm16 时 <see cref="SampleRateHz"/> 必填</summary>
 /// <param name="PlaybackSpeed">合成时没能变的语速，播放时补（变速不变调）；模型自己会变速的为 1</param>

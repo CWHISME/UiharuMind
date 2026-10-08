@@ -12,6 +12,7 @@ using UiharuMind.Resources.Lang;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
+using UiharuMind.Core.AI.Audio;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
@@ -292,6 +293,20 @@ public partial class CharacterDraft : ObservableObject
             ? null
             : WorldSettingManager.Instance.Get(_draft.WorldSettingName);
 
+
+    /// <summary>
+    /// 朗读这个角色的话用的声音；null 跟默认
+    /// </summary>
+    public SpeechStyle? Speech
+    {
+        get => _draft.Speech;
+        set
+        {
+            if (_draft.Speech == value) return;
+            _draft.Speech = value;
+            OnPropertyChanged();
+        }
+    }
 
     public ChatPromptExecutionSettings ChatPromptExecutionSettings
     {

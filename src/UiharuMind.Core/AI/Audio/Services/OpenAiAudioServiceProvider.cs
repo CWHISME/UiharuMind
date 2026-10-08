@@ -36,7 +36,7 @@ public sealed class OpenAiAudioServiceProvider : IAudioProvider, IDisposable
         string? voice = !string.IsNullOrWhiteSpace(request.Voice) ? request.Voice
             : string.IsNullOrWhiteSpace(_service.Voice) ? null : _service.Voice;
         return _client.SynthesizeAsync(_service.ModelId, request.Text, voice, _format, cancellationToken,
-            speed: request.Speed);
+            speed: request.Speed, instructions: _service.AcceptsInstructions ? request.Instruction : null);
     }
 
     public Task<AudioTranscriptionResult> TranscribeAsync(AudioTranscriptionRequest request,

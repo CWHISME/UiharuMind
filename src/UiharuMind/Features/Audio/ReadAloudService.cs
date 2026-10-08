@@ -23,14 +23,6 @@ public enum EReadAloudState
 }
 
 /// <summary>
-/// 指定这次用哪个模型、哪个音色念（如模型页的试听）；不指定就用默认的那个、本地模型再按语种挑
-/// </summary>
-/// <param name="Model">本地模型 id</param>
-/// <param name="Voice">音色 id</param>
-/// <param name="Provider">用哪个（在线服务的 id）；null 为默认</param>
-public sealed record ReadAloudOptions(string? Model = null, string? Voice = null, string? Provider = null);
-
-/// <summary>
 /// 朗读：同一时刻只念一段文字，再点同一个来源就停。消息朗读与模型试听都走这里，新的一段会立刻停掉旧的
 /// </summary>
 public interface IReadAloudService
@@ -55,8 +47,9 @@ public interface IReadAloudService
     /// </summary>
     /// <param name="owner">来源，用来认「再点一次是停」</param>
     /// <param name="text">文字（可以是 Markdown）</param>
-    /// <param name="options">指定模型与音色；null 用默认</param>
-    Task ToggleAsync(object owner, string text, ReadAloudOptions? options = null);
+    /// <param name="style">怎么念（角色的声音、试听指定的模型与音色）；null 用默认</param>
+    /// <param name="preview">是试听：就要听指定的那个，失败也不换本地</param>
+    Task ToggleAsync(object owner, string text, SpeechStyle? style = null, bool preview = false);
 
     /// <summary>
     /// 停
@@ -97,7 +90,7 @@ public sealed class ReadAloudService : IReadAloudService
 
     public event Action? StateChanged;
 
-    public async Task ToggleAsync(object owner, string text, ReadAloudOptions? options = null)
+    public async Task ToggleAsync(object owner, string text, SpeechStyle? style = null, bool preview = false)
     {
         if (ReferenceEquals(owner, Owner))
         {
@@ -117,12 +110,12 @@ public sealed class ReadAloudService : IReadAloudService
         CancellationTokenSource session = new();
         _session = session;
         SetState(owner, EReadAloudState.Preparing);
-        AudioSynthesisRequest request = new("", options?.Voice, Speed(), options?.Model,
-            SpeechText.DetectLanguage(clean));
+        AudioSynthesisRequest request = new("", style?.Voice, Speed(style?.Speed), style?.Model,
+            SpeechText.DetectLanguage(clean), style?.Instruction);
         Task<AudioSynthesisResult>? next = null;
         try
         {
-            IAudioProvider tts = WithFallback(_tts(options?.Provider), options);
+            IAudioProvider tts = preview ? _tts(style?.Provider) : WithFallback(_tts(style?.Provider));
             next = tts.SynthesizeAsync(request with { Text = chunks[0] }, session.Token);
             for (int i = 0; i < chunks.Count; i++)
             {
@@ -168,16 +161,17 @@ public sealed class ReadAloudService : IReadAloudService
         SetState(null, EReadAloudState.Idle);
     }
 
-    private float? Speed()
+    // 指定了（角色自己的语速）用指定的，否则跟全局
+    private float? Speed(float? own)
     {
-        float speed = Math.Clamp(_speed?.Invoke() ?? 1f, AudioSettingConfig.MinSpeed, AudioSettingConfig.MaxSpeed);
+        float speed = Math.Clamp(own ?? _speed?.Invoke() ?? 1f, AudioSettingConfig.MinSpeed, AudioSettingConfig.MaxSpeed);
         return speed == 1f ? null : speed;
     }
 
-    // 念的是默认的在线服务（不是试听指定的）：失败时这一段剩下的改用本地模型，提示一句
-    private IAudioProvider WithFallback(IAudioProvider tts, ReadAloudOptions? options)
+    // 在线服务念（不是试听）：连不上时这一段剩下的改用本地模型，提示一句
+    private IAudioProvider WithFallback(IAudioProvider tts)
     {
-        if (_fallback == null || tts.IsLocal || options?.Provider != null || options?.Model != null) return tts;
+        if (_fallback == null || tts.IsLocal) return tts;
         return new FallbackAudioProvider(tts, language => _fallback(tts, language), (failed, e) =>
         {
             Log.Warning($"Read aloud fell back to local: {e.Message}");

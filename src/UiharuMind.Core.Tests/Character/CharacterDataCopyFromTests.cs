@@ -31,6 +31,7 @@ public class CharacterDataCopyFromTests
         DepthPrompt = new DepthPromptInfo { Prompt = "深度提示", Depth = 2, Role = "system" },
         WorldSettingName = "书-a",
         MountAgents = ["sub-a", "sub-b"],
+        Speech = new UiharuMind.Core.AI.Audio.SpeechStyle { Provider = "service:Edge", Voice = "v", Speed = 1.2f, Instruction = "轻声" },
         CharacterName = "源角色",
         Description = "源描述",
         Works = "源作品",

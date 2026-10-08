@@ -1,0 +1,83 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:voice="clr-namespace:UiharuMind.Features.Characters.Voice"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             x:Class="UiharuMind.Features.Characters.Voice.CharacterVoiceView">
+
+    <!-- 外层数据上下文是角色草稿；里面这份由后台代码按草稿建 -->
+    <controls:SettingsSection Header="{loc:Loc CharacterVoiceTitle}" Description="{loc:Loc CharacterVoiceDesc}">
+        <controls:SettingsSection.Body>
+            <StackPanel Name="Body" x:DataType="voice:CharacterVoiceViewData">
+                <controls:SettingsRow Header="{loc:Loc CharacterVoiceSource}">
+                    <controls:SettingsRow.Field>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <ComboBox Width="260" ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSource}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="voice:CharacterVoiceSource">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Detail}" Classes="muted" FontSize="12"
+                                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <Panel Width="28" Height="28">
+                                <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="play"
+                                                  ToolTip.Tip="{loc:Loc AudioPreviewTip}" IsVisible="{Binding !IsPreviewing}"
+                                                  Command="{Binding PreviewCommand}" />
+                                <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="stop" CurrentColor="Red"
+                                                  ToolTip.Tip="{loc:Loc AudioPreviewStopTip}" IsVisible="{Binding IsPreviewing}"
+                                                  Command="{Binding PreviewCommand}" />
+                            </Panel>
+                        </StackPanel>
+                    </controls:SettingsRow.Field>
+                </controls:SettingsRow>
+
+                <controls:SettingsRow Header="{loc:Loc AudioVoice}" Description="{loc:Loc CharacterVoiceVoiceDesc}"
+                                      IsVisible="{Binding CanChooseVoice}">
+                    <controls:SettingsRow.Field>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <ComboBox Width="260" IsEditable="True" ItemsSource="{Binding Voice.Options}"
+                                      SelectedItem="{Binding Voice.SelectedOption}" Text="{Binding Voice.Text}"
+                                      PlaceholderText="{loc:Loc CharacterVoiceVoicePlaceholder}" />
+                            <Panel Width="28" Height="28" IsVisible="{Binding CanListVoices}">
+                                <SpinnerIcon VerticalAlignment="Center" HorizontalAlignment="Center"
+                                             IsVisible="{Binding IsLoadingVoices}" />
+                                <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="refresh-cw"
+                                                  ToolTip.Tip="{loc:Loc CharacterVoiceListVoicesTip}"
+                                                  IsVisible="{Binding !IsLoadingVoices}"
+                                                  Command="{Binding LoadVoicesCommand}" />
+                            </Panel>
+                        </StackPanel>
+                    </controls:SettingsRow.Field>
+                </controls:SettingsRow>
+
+                <controls:SettingsRow Header="{loc:Loc AudioSpeed}" Description="{loc:Loc CharacterVoiceSpeedDesc}">
+                    <controls:SettingsRow.Field>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <CheckBox Content="{loc:Loc CharacterVoiceOwnSpeed}" IsChecked="{Binding HasOwnSpeed}" />
+                            <Slider Width="140" Minimum="{Binding MinSpeed}" Maximum="{Binding MaxSpeed}"
+                                    TickFrequency="0.1" IsSnapToTickEnabled="True" Value="{Binding Speed}"
+                                    IsEnabled="{Binding HasOwnSpeed}" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding SpeedText}" Width="36" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </controls:SettingsRow.Field>
+                </controls:SettingsRow>
+
+                <controls:SettingsRow Header="{loc:Loc CharacterVoiceInstruction}"
+                                      Description="{loc:Loc CharacterVoiceInstructionDesc}" DividerVisible="False">
+                    <controls:SettingsRow.Field>
+                        <StackPanel Spacing="4" Width="300">
+                            <TextBox Text="{Binding Instruction}"
+                                     PlaceholderText="{loc:Loc CharacterVoiceInstructionPlaceholder}" />
+                            <TextBlock Text="{loc:Loc CharacterVoiceInstructionIgnored}" Classes="muted" FontSize="12"
+                                       TextWrapping="Wrap" IsVisible="{Binding IsInstructionIgnored}" />
+                        </StackPanel>
+                    </controls:SettingsRow.Field>
+                </controls:SettingsRow>
+            </StackPanel>
+        </controls:SettingsSection.Body>
+    </controls:SettingsSection>
+</UserControl>

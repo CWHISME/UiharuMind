@@ -52,9 +52,13 @@ public class OpenAiCompatibleAudioClientTests : IDisposable
     {
         _server.SpeechMode = FakeAudioServer.EMode.Bytes;
 
-        await _client.SynthesizeAsync("m", "t", null, EAudioFormat.Mp3, CancellationToken.None, speed: 1.25f);
+        await _client.SynthesizeAsync("m", "t", null, EAudioFormat.Mp3, CancellationToken.None, speed: 1.25f,
+            instructions: "低声", options: new Dictionary<string, string> { ["instruct"] = "低声" });
 
-        Assert.Contains("\"speed\":1.25", _server.LastSpeechJson!);
+        string json = _server.LastSpeechJson!;
+        Assert.Contains("\"speed\":1.25", json);
+        Assert.Contains("\"instructions\":", json);
+        Assert.Contains("\"options\":{\"instruct\":", json);
     }
 
     [Theory]

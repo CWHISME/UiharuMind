@@ -5,6 +5,7 @@
              xmlns:u="https://irihi.tech/ursa"
              xmlns:settingViews="clr-namespace:UiharuMind.Features.Settings"
              xmlns:viewData="clr-namespace:UiharuMind.Features.Characters"
+             xmlns:voice="clr-namespace:UiharuMind.Features.Characters.Voice"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
               mc:Ignorable="d" d:DesignWidth="620" d:DesignHeight="720"
               x:Class="UiharuMind.Features.Characters.CharacterEditView"
@@ -440,6 +441,9 @@
                             </StackPanel>
                         </controls:SettingsSection.Body>
                     </controls:SettingsSection>
+
+                    <!-- 朗读这个角色的话用的声音 -->
+                    <voice:CharacterVoiceView />
 
                     <controls:SettingsSection Name="ParametersSection"
                                               Header="{loc:Loc ParameterSettings}">
