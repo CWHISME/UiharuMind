@@ -38,6 +38,12 @@ public class AgentToolConfig
     /// </summary>
     public bool EnableSpeak { get; set; }
 
+    /// <summary>
+    /// 启用浏览器工具(BrowserSnapshot / BrowserNavigate / BrowserAct,驱动本机 Chrome 的专用档案)。
+    /// 默认关:会替用户在网站上点按钮、填表单,要的在编辑页自己开
+    /// </summary>
+    public bool EnableBrowser { get; set; }
+
     /// <summary>启用知识库检索工具(KnowledgeSearch,检索会话挂载的嵌入知识库)</summary>
     public bool EnableKnowledgeSearchTool { get; set; }
 
@@ -85,6 +91,7 @@ public class AgentToolConfig
             EnableVisionTool = EnableVisionTool && other.EnableVisionTool,
             EnableImageGeneration = EnableImageGeneration && other.EnableImageGeneration,
             EnableSpeak = EnableSpeak && other.EnableSpeak,
+            EnableBrowser = EnableBrowser && other.EnableBrowser,
             EnableKnowledgeSearchTool = EnableKnowledgeSearchTool && other.EnableKnowledgeSearchTool,
             EnableSubAgent = EnableSubAgent && other.EnableSubAgent,
             EnableTodoList = EnableTodoList && other.EnableTodoList,

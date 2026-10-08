@@ -19,6 +19,7 @@ using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
+using UiharuMind.Core.AI.Execution.Tools.Browser;
 using UiharuMind.Core.AI.Execution.Tools.Memory;
 using UiharuMind.Core.AI.Execution.Tools.Scheduler;
 using UiharuMind.Core.AI.Execution.Tools.Skills;
@@ -202,6 +203,17 @@ internal static class AgentAssembler
         if (config.EnableSpeak && !plan.Profile.IsGroupMember && plan.Profile.SpeechSink is { } speechSink)
         {
             Add(EAgentCapability.Speak, SpeakTool.Create(speechSink));
+        }
+
+        // 一个会话一个标签页；快照超长落进自己的草稿目录，模型按路径续读
+        if (config.EnableBrowser)
+        {
+            string spillDirectory = Path.Combine(
+                plan.OutputRoomDirectory.Length > 0 ? plan.OutputRoomDirectory : Path.GetTempPath(), "browser");
+            foreach (AITool tool in BrowserTools.Create(PuppeteerBrowserHost.Shared, plan.Profile.SessionId, spillDirectory))
+            {
+                Add(EAgentCapability.Browser, tool);
+            }
         }
 
         if (config.EnableKnowledgeSearchTool)

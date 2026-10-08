@@ -3529,6 +3529,12 @@
     <data name="AgentGateDescSpeak" xml:space="preserve">
         <value>让智能体用「朗读声音」里设的声音把一段话念给你听，每句可自己定语气。只在你正看着这个会话时出声；群成员不挂。</value>
     </data>
+    <data name="AgentSettingCapBrowser" xml:space="preserve">
+        <value>使用浏览器</value>
+    </data>
+    <data name="AgentGateDescBrowser" xml:space="preserve">
+        <value>让智能体在你装的 Chrome 里打开网页、点按钮、填表单，用的是一份单独的档案，你在里面登录过的网站会一直保持登录。打开网页和页面操作按权限档审批，查看当前页面不问。</value>
+    </data>
     <data name="ModelPageChatModelsTab" xml:space="preserve">
         <value>对话模型</value>
     </data>

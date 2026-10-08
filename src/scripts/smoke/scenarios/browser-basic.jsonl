@@ -1,0 +1,14 @@
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"session.new","args":{"character":"BrowserTester","workspace":"{{WS_EMPTY}}"}}
+{"op":"session.post","args":{"text":"打开 https://httpbin.org/forms/post ，帮我订一份大号披萨：名字张三，电话 13800000000，邮箱 zhang@example.com，加培根和洋葱，备注写「门口放下就行」，然后提交。提交后把页面回显的表单数据跟我核对一遍。"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"once"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/form.md"}}
+{"op":"session.new","args":{"character":"BrowserTester","workspace":"{{WS_EMPTY}}"}}
+{"op":"session.post","args":{"text":"在中文维基百科搜一下「白井黑子」，告诉我她的能力叫什么、是几级能力者、上的哪所学校。"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"once"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/wiki.md"}}
+{"op":"session.new","args":{"character":"BrowserTester","workspace":"{{WS_EMPTY}}"}}
+{"op":"session.post","args":{"text":"打开 https://the-internet.herokuapp.com/ ，先进 Dropdown 那个示例选 Option 2；再回到首页进 Form Authentication，用 tomsmith / SuperSecretPassword! 登录。告诉我两处页面最后各显示了什么。"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"once"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/herokuapp.md"}}
+{"op":"quit"}

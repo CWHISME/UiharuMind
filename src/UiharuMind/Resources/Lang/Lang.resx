@@ -3536,6 +3536,12 @@ Allow them?</value>
     <data name="AgentGateDescSpeak" xml:space="preserve">
         <value>Lets the agent say things aloud in its read-aloud voice, choosing the tone line by line. It only makes sound while you are viewing the conversation; not mounted for group members.</value>
     </data>
+    <data name="AgentSettingCapBrowser" xml:space="preserve">
+        <value>Use the browser</value>
+    </data>
+    <data name="AgentGateDescBrowser" xml:space="preserve">
+        <value>Lets the agent open pages, click and fill in forms in your installed Chrome, using a separate profile; sites you sign into there stay signed in. Opening pages and acting on them follow the permission level; reading the current page does not ask.</value>
+    </data>
     <data name="ModelPageChatModelsTab" xml:space="preserve">
         <value>Chat models</value>
     </data>

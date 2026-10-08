@@ -40,6 +40,8 @@ mkdir -p "$out/home" "$out/ws-empty" "$out/ws-repo" "$out/ws-docs"
 [ "${SMOKE_FRESH:-}" = "1" ] || cp -R "$config" "$out/home/Config"
 cp "$REPO_ROOT/AGENTS.md" "$REPO_ROOT/README.md" "$out/ws-repo/"
 cp -R "$REPO_ROOT/docs/." "$out/ws-docs/"
+# 场景自带的档案文件（如只为这个场景准备的角色卡）：scenarios/<场景名>.home/ 原样叠进隔离档案
+[ -d "$SCRIPT_DIR/scenarios/$scenario.home" ] && cp -R "$SCRIPT_DIR/scenarios/$scenario.home/." "$out/home/"
 
 if [ -n "${SMOKE_CONTEXT:-}" ]; then
     command -v jq > /dev/null || { echo "SMOKE_CONTEXT 需要 jq" >&2; exit 1; }

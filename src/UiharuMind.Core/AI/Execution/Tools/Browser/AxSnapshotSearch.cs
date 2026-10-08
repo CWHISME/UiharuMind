@@ -1,0 +1,75 @@
+/****************************************************************************
+ * Copyright (c) 2024 CWHISME
+ *
+ * UiharuMind v0.0.1
+ *
+ * https://wangjiaying.top
+ * https://github.com/CWHISME/UiharuMind
+ ****************************************************************************/
+
+using System.Text;
+
+namespace UiharuMind.Core.AI.Execution.Tools.Browser;
+
+/// <summary>
+/// 在快照里找东西：按看得见的文字找节点（给没编号的元素兜底），按关键字挑行（省得整页重读）
+/// </summary>
+public static class AxSnapshotSearch
+{
+    /// <summary>
+    /// 按看得见的文字找节点，给没有编号的元素（div 做的按钮）兜底：先整句相等、再包含，
+    /// 同等匹配里可操作的元素优先；树根（名字是页面标题）不算
+    /// </summary>
+    /// <param name="root">最近一份快照的树</param>
+    /// <param name="text">要找的文字</param>
+    /// <returns>命中的节点；没有为 null</returns>
+    public static AxNode? FindByText(AxNode root, string text)
+    {
+        string wanted = AxRoles.Flatten(text);
+        if (wanted.Length == 0) return null;
+
+        List<AxNode> nodes = new();
+        foreach (AxNode child in root.Children) Collect(child, nodes);
+        return Pick(nodes, n => string.Equals(AxRoles.Flatten(n.Name), wanted, StringComparison.OrdinalIgnoreCase))
+               ?? Pick(nodes, n => AxRoles.Flatten(n.Name).Contains(wanted, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// 从快照文本里挑出含关键字的行（不分大小写），各带上下一行作参照，不相邻的段之间用省略号隔开
+    /// </summary>
+    /// <param name="snapshot">快照文本</param>
+    /// <param name="keyword">关键字</param>
+    /// <returns>挑出的行；一行都没有时返回一句说明</returns>
+    public static string FindLines(string snapshot, string keyword)
+    {
+        string[] lines = snapshot.Split('\n');
+        SortedSet<int> keep = new();
+        for (int i = 0; i < lines.Length; i++)
+        {
+            if (!lines[i].Contains(keyword, StringComparison.OrdinalIgnoreCase)) continue;
+            for (int j = Math.Max(0, i - 1); j <= Math.Min(lines.Length - 1, i + 1); j++) keep.Add(j);
+        }
+
+        if (keep.Count == 0) return $"(no line contains \"{keyword}\")";
+
+        StringBuilder result = new();
+        int previous = -1;
+        foreach (int index in keep)
+        {
+            if (previous >= 0 && index > previous + 1) result.AppendLine("…");
+            result.AppendLine(lines[index].TrimEnd('\r'));
+            previous = index;
+        }
+
+        return result.ToString().TrimEnd();
+    }
+
+    private static void Collect(AxNode node, List<AxNode> into)
+    {
+        if (node.Name.Length > 0 && !AxRoles.IsSkipped(node)) into.Add(node);
+        foreach (AxNode child in node.Children) Collect(child, into);
+    }
+
+    private static AxNode? Pick(List<AxNode> nodes, Func<AxNode, bool> match) =>
+        nodes.FirstOrDefault(n => AxRoles.IsActionable(n) && match(n)) ?? nodes.FirstOrDefault(match);
+}

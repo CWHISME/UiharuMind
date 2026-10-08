@@ -12,6 +12,7 @@ using System.Text.RegularExpressions;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Files;
+using UiharuMind.Core.AI.Execution.Tools.Browser;
 
 namespace UiharuMind.Core.AI.Execution;
 
@@ -102,10 +103,11 @@ public static class ApprovalModeMapper
         };
 
         // 全放行,但越界写入除外——定时任务是代码写死的档位,用户没机会为它选,
-        // 而无人值守下越界写入没人拦就真的没人拦了
+        // 而无人值守下越界写入没人拦就真的没人拦了。浏览器打开本机/内网地址同理(BrowserRisk)
         rules.Add(context => new ValueTask<bool>(
             modeSource() == EAgentPermissionMode.FullAuto &&
-            !IsOutOfWorkspaceWrite(context.FunctionCallContent, paths, room)));
+            !IsOutOfWorkspaceWrite(context.FunctionCallContent, paths, room) &&
+            !BrowserRisk.RequiresApprovalInAllModes(context.FunctionCallContent)));
 
         // 自动编辑:工作区内的写入放行。这一档曾经<b>一条规则都不加</b>,于是与只读档行为完全一致:
         // 枚举注释写着"文件读写自动放行",实际每次编辑都弹卡。更要命的是定时任务写死用这一档而

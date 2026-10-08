@@ -46,6 +46,8 @@
       </PackageReference>
       <PackageReference Include="Microsoft.Extensions.AI" Version="10.10.0" />
       <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.10.0" />
+      <!-- 浏览器工具：纯托管 CDP 客户端，驱动用户已装的 Chrome，不随包带 Node 与浏览器 -->
+      <PackageReference Include="PuppeteerSharp" Version="25.12.0" />
       <PackageReference Include="ScreenCapture.NET.DX11" Version="3.0.0" />
       <PackageReference Include="SharpCompress" Version="1.0.0" />
       <PackageReference Include="SharpHook" Version="8.0.0" />

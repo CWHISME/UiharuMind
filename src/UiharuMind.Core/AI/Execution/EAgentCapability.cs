@@ -37,6 +37,9 @@ public enum EAgentCapability
     /// <summary>朗读(用角色的声音念给用户听)</summary>
     Speak,
 
+    /// <summary>浏览器(观察、导航、动作)</summary>
+    Browser,
+
     /// <summary>知识库检索</summary>
     KnowledgeSearch,
 

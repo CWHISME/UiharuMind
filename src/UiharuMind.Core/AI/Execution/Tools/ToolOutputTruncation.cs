@@ -170,4 +170,10 @@ internal readonly record struct ToolOutputBudget(int MaxBytes, int HeadBytes, in
     /// 一次性读一遍、之后基本不再重发（模型记得住），所以放宽的代价远小于日志类结果。
     /// </summary>
     public static readonly ToolOutputBudget Catalog = new(32 * 1024, 24 * 1024, 8 * 1024);
+
+    /// <summary>
+    /// 浏览器快照：12KB，头 10KB + 尾 2KB。每一步动作都回一份、都进历史，比 MCP 更频繁；
+    /// 页面从上往下读，开头是导航与正文，结尾多是页脚。多出来的落盘，模型用 find 或按行号续读。
+    /// </summary>
+    public static readonly ToolOutputBudget Snapshot = new(12 * 1024, 10 * 1024, 2 * 1024);
 }

@@ -100,7 +100,14 @@ internal static class ToolResultSpill
         return $"{prefix}_{hash}{extension}";
     }
 
-    private static string Save(string text, string directory, string fileStem)
+    /// <summary>
+    /// 把全文写进目录（不存在会创建），文件名带内容哈希
+    /// </summary>
+    /// <param name="text">全文</param>
+    /// <param name="directory">目录</param>
+    /// <param name="fileStem">文件名的可读前缀</param>
+    /// <returns>写下的路径</returns>
+    internal static string Save(string text, string directory, string fileStem)
     {
         Directory.CreateDirectory(directory);
         string path = Path.Combine(directory, FileNameFor(fileStem, text));

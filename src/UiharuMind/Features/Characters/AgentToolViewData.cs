@@ -70,6 +70,9 @@ public sealed class AgentToolViewData
         Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapSpeak), Loc.Text(LangKey.AgentGateDescSpeak),
             () => tools.EnableSpeak, v => tools.EnableSpeak = v,
             Tokens(EAgentCapability.Speak)));
+        Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapBrowser), Loc.Text(LangKey.AgentGateDescBrowser),
+            () => tools.EnableBrowser, v => tools.EnableBrowser = v,
+            Tokens(EAgentCapability.Browser)));
         Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapKnowledgeSearchTool), Loc.Text(LangKey.AgentGateDescKnowledgeSearch),
             () => tools.EnableKnowledgeSearchTool, v => tools.EnableKnowledgeSearchTool = v,
             Tokens(EAgentCapability.KnowledgeSearch)));
