@@ -104,6 +104,31 @@ public static class GitHubReleaseAssetHelper
     }
 
     /// <summary>
+    /// 按 tag 取一个发布；API 限流时退到网页附件列表
+    /// </summary>
+    /// <param name="owner">仓库所有者</param>
+    /// <param name="repository">仓库名</param>
+    /// <param name="tag">发布 tag</param>
+    /// <param name="cancellationToken">取消</param>
+    /// <returns>发布；取不到为 null</returns>
+    public static async Task<GitHubReleaseInfo?> GetReleaseByTagAsync(
+        string owner,
+        string repository,
+        string tag,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await GetReleaseByTagFromApiAsync(owner, repository, tag, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            return await GetReleaseFromExpandedAssetsAsync(owner, repository, tag,
+                $"https://github.com/{owner}/{repository}/releases/tag/{tag}", cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
     /// 取最新正式版钉住的构建：正式版（如 v0.6.0）本身不带二进制包，
     /// 包在它 nightly-tag.txt 指向的 b 构建里
     /// </summary>

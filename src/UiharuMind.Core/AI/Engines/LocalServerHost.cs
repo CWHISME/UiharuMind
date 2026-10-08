@@ -57,7 +57,7 @@ public sealed class LocalServerHost : IEngineRuntime, IDisposable
     public const int FailuresBeforeCooldown = 3;
 
     private readonly Func<LocalServerLaunch> _createLaunch;
-    private readonly TimeSpan? _idleTimeout;
+    private readonly Func<TimeSpan?> _idleTimeout;
     private readonly TimeSpan _cooldown;
     private readonly TimeProvider _time;
     private readonly Lock _gate = new();
@@ -77,6 +77,16 @@ public sealed class LocalServerHost : IEngineRuntime, IDisposable
     /// <param name="cooldown">连着失败后冷却多久；null 为 30 秒</param>
     /// <param name="time">时钟；null 用系统时钟</param>
     public LocalServerHost(Func<LocalServerLaunch> createLaunch, TimeSpan? idleTimeout = null,
+        TimeSpan? cooldown = null, TimeProvider? time = null)
+        : this(createLaunch, () => idleTimeout, cooldown, time)
+    {
+    }
+
+    /// <param name="createLaunch">每次启动时取当时的启动描述</param>
+    /// <param name="idleTimeout">每次用完时取闲置多久自动停（随设置变）；返回 null 不停</param>
+    /// <param name="cooldown">连着失败后冷却多久；null 为 30 秒</param>
+    /// <param name="time">时钟；null 用系统时钟</param>
+    public LocalServerHost(Func<LocalServerLaunch> createLaunch, Func<TimeSpan?> idleTimeout,
         TimeSpan? cooldown = null, TimeProvider? time = null)
     {
         _createLaunch = createLaunch;
@@ -159,7 +169,6 @@ public sealed class LocalServerHost : IEngineRuntime, IDisposable
     /// <returns>释放即用完</returns>
     public IDisposable BeginUse()
     {
-        if (_idleTimeout == null) return NoopUse.Instance;
         lock (_gate)
         {
             _activeUses++;
@@ -291,11 +300,12 @@ public sealed class LocalServerHost : IEngineRuntime, IDisposable
     {
         lock (_gate)
         {
-            if (--_activeUses > 0 || _idleTimeout == null || _disposed.IsCancellationRequested) return;
+            if (--_activeUses > 0 || _disposed.IsCancellationRequested) return;
             _idleTimer?.Dispose();
+            _idleTimer = null;
+            if (_idleTimeout() is not { } idle) return;
             int generation = _generation;
-            _idleTimer = _time.CreateTimer(_ => StopIfIdle(generation), null, _idleTimeout.Value,
-                Timeout.InfiniteTimeSpan);
+            _idleTimer = _time.CreateTimer(_ => StopIfIdle(generation), null, idle, Timeout.InfiniteTimeSpan);
         }
     }
 
@@ -340,15 +350,6 @@ public sealed class LocalServerHost : IEngineRuntime, IDisposable
         public void Dispose()
         {
             if (Interlocked.Exchange(ref _disposed, 1) == 0) host.EndUse();
-        }
-    }
-
-    private sealed class NoopUse : IDisposable
-    {
-        public static readonly NoopUse Instance = new();
-
-        public void Dispose()
-        {
         }
     }
 }

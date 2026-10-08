@@ -38,9 +38,10 @@ public sealed class EngineDistribution<TPackage> : ILocalEngine where TPackage :
     /// <param name="selection">选中的版本存在哪</param>
     /// <param name="releaseUrl">按版本名拼发布页；认不出为 null</param>
     /// <param name="channels">更新通道；没有为 null</param>
+    /// <param name="isVetted">哪些版本可以提示更新、自动装；null 全认</param>
     public EngineDistribution(string name, string rootDirectory, EngineVersionManager<TPackage> versions,
         DownloadQueue queue, IEngineVersionSelection selection, Func<string, string?> releaseUrl,
-        IEngineUpdateChannels? channels = null)
+        IEngineUpdateChannels? channels = null, Func<TPackage, bool>? isVetted = null)
     {
         Name = name;
         RootDirectory = rootDirectory;
@@ -49,7 +50,7 @@ public sealed class EngineDistribution<TPackage> : ILocalEngine where TPackage :
         _selection = selection;
         _releaseUrl = releaseUrl;
         Installer = new EngineInstaller<TPackage>(name, queue, rootDirectory,
-            () => ScanAsync(), () => PullLatestVersionsAsync(), InstallArchiveAsync, Select);
+            () => ScanAsync(), () => PullLatestVersionsAsync(), InstallArchiveAsync, Select, isVetted);
         Installer.Installed += _ => Installed?.Invoke();
         Installer.AvailableUpdateChanged += () => AvailableUpdateChanged?.Invoke();
     }
