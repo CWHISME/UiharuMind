@@ -29,11 +29,11 @@
         <Style Selector="Button.SettingsNavButton:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource SemiGrey2}" />
         </Style>
-        <Style Selector="Button.SettingsNavButton:selected">
+        <Style Selector="Button.SettingsNavButton.selected">
             <Setter Property="Background" Value="{DynamicResource SemiBlue5}" />
             <Setter Property="Foreground" Value="White" />
         </Style>
-        <Style Selector="Button.SettingsNavButton:selected /template/ ContentPresenter">
+        <Style Selector="Button.SettingsNavButton.selected /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource SemiBlue5}" />
         </Style>
         <!-- 分组标题：给左栏入口立结构 -->
