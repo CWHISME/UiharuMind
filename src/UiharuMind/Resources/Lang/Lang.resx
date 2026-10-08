@@ -3069,6 +3069,9 @@ Allow them?</value>
     <data name="ConfirmDeleteRuntimeEngine" xml:space="preserve">
         <value>Are you sure?</value>
     </data>
+    <data name="EnginePackageDeleteFailed" xml:space="preserve">
+        <value>Couldn't delete this version: {0}</value>
+    </data>
 
     <data name="CopyLink" xml:space="preserve">
         <value>Copy link</value>

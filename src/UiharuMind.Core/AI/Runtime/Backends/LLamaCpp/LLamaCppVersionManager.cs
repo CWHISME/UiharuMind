@@ -18,8 +18,6 @@ namespace UiharuMind.Core.AI.Runtime.Backends;
 
 public class LLamaCppVersionManager : ReleaseVersionManagerBase<VersionInfo>
 {
-    private readonly VersionManager _versionManager = new VersionManager();
-
     protected override string Owner => "ggml-org";
     protected override string Repository => "llama.cpp";
 
@@ -44,18 +42,20 @@ public class LLamaCppVersionManager : ReleaseVersionManagerBase<VersionInfo>
         string path,
         string? internalPath)
     {
-        await GetLocalVersionsAsync(path).ConfigureAwait(false);
-        if (!string.IsNullOrWhiteSpace(internalPath) && Directory.Exists(internalPath))
+        await ExclusiveAsync(async () =>
         {
-            await ScanLocalVersionsAsync(
-                    internalPath,
-                    Versions,
-                    false,
-                    version => version.IsNotAllowDelete = true)
-                .ConfigureAwait(false);
-        }
+            await ScanLocalVersionsAsync(path, Versions, Versions.Count > 0).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(internalPath) && Directory.Exists(internalPath))
+            {
+                await ScanLocalVersionsAsync(
+                        internalPath,
+                        Versions,
+                        false,
+                        version => version.IsNotAllowDelete = true)
+                    .ConfigureAwait(false);
+            }
+        }, CancellationToken.None).ConfigureAwait(false);
 
-        SortVersions();
         return SyncVersionManager();
     }
 
@@ -120,16 +120,16 @@ public class LLamaCppVersionManager : ReleaseVersionManagerBase<VersionInfo>
         return $"{title}\n\n{body}".TrimEnd();
     }
 
+    // 每次给一份新的：界面拿着上一份遍历时，这边不能就地清空重填
     private VersionManager SyncVersionManager()
     {
-        _versionManager.RemoveAllVersions();
-        _versionManager.ReleaseDate = ReleaseInfoText;
+        VersionManager versionManager = new() { ReleaseDate = ReleaseInfoText };
         foreach (VersionInfo version in VersionsList)
         {
-            _versionManager.AddVersion(version, false);
+            versionManager.AddVersion(version, false);
         }
 
-        _versionManager.Sort();
-        return _versionManager;
+        versionManager.Sort();
+        return versionManager;
     }
 }

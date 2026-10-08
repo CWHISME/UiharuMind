@@ -155,21 +155,33 @@ public class ModelRunningData : INotifyPropertyChanged
         return _cts.Token;
     }
 
-    public void UpdateLoading(float loadingPercent)
+    public void UpdateLoading(float loadingPercent, CancellationToken loadToken = default)
     {
+        if (IsStale(loadToken)) return;
         LoadingPercent = loadingPercent;
     }
 
-    public void CompleteLoading(IChatClient chatClient, int runtimeContextSize = 0)
+    /// <param name="loadToken"><see cref="BeginLoading"/> 给的那个；已被停掉或被新一次加载接手时，客户端直接释放</param>
+    /// <returns>装上了为 true</returns>
+    public bool CompleteLoading(IChatClient chatClient, int runtimeContextSize = 0, CancellationToken loadToken = default)
     {
+        if (IsStale(loadToken))
+        {
+            (chatClient as IDisposable)?.Dispose();
+            return false;
+        }
+
         _chatClient = chatClient;
         _runtimeContextSize = runtimeContextSize;
         _isLoaded = true;
         LoadingPercent = 1;
+        return true;
     }
 
-    public void FailLoading(Exception? error = null)
+    /// <param name="loadToken"><see cref="BeginLoading"/> 给的那个；已被新一次加载接手时不动它的状态</param>
+    public void FailLoading(Exception? error = null, CancellationToken loadToken = default)
     {
+        if (IsStale(loadToken)) return;
         LastError = error;
         if (!_isLoaded)
         {
@@ -203,4 +215,6 @@ public class ModelRunningData : INotifyPropertyChanged
         _cts = null;
     }
 
+    // 不是当前这次加载（被停了，或换成了新的一次）
+    private bool IsStale(CancellationToken loadToken) => loadToken.CanBeCanceled && _cts?.Token != loadToken;
 }

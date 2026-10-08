@@ -53,7 +53,8 @@ public sealed record LocalServerLaunch(
 }
 
 /// <summary>
-/// 一个本地引擎服务进程（sidecar）：自选空闲端口，轮询就绪探针，起不来时带上日志尾巴如实失败。
+/// 一个本地引擎服务进程（sidecar）：自选空闲端口，轮询就绪探针，起不来时带上日志尾巴如实失败；
+/// 随本进程退出（<see cref="ChildProcessBinding"/>），崩溃也不留残留。
 /// llama-server、audiocpp_server 共用，引擎间的差别只在 <see cref="LocalServerLaunch"/>。
 /// </summary>
 public sealed class LocalServerProcess
@@ -162,8 +163,7 @@ public sealed class LocalServerProcess
         int lineCount = 0;
         try
         {
-            await foreach (CommandEvent cmdEvent in Cli.Wrap(_launch.ExecutablePath)
-                               .WithArguments(args)
+            await foreach (CommandEvent cmdEvent in ChildProcessBinding.Wrap(_launch.ExecutablePath, args)
                                .WithEnvironmentVariables(
                                    _launch.Environment?.ToDictionary(x => x.Key, x => (string?)x.Value) ??
                                    new Dictionary<string, string?>())
@@ -175,6 +175,7 @@ public sealed class LocalServerProcess
                 {
                     case StartedCommandEvent started:
                         processId = started.ProcessId;
+                        ChildProcessBinding.OnStarted(processId);
                         ProcessHelper.Track(processId);
                         break;
                     case StandardOutputCommandEvent stdOut:

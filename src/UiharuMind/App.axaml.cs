@@ -170,9 +170,6 @@ public partial class App : Application, ILogger, IDisposable
         // Process.GetCurrentProcess().Exited += OnExit;
         AppDomain.CurrentDomain.ProcessExit += OnExit;
 
-        //强行清理可能残留的进程
-        // 别的实例还开着时,残留的 llama-server 可能正是它在用的本地模型
-        if (UiharuMind.Core.Core.Diagnostics.UncleanExitGuard.CountOtherAlive() == 0) ProcessHelper.ForceClearAllProcesses();
         UiharuMind.Core.AI.Chat.SessionManager.Instance.WatchExternalChanges();
         UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("clear-stale-processes");
 

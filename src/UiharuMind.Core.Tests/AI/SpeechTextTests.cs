@@ -51,6 +51,21 @@ public class SpeechTextTests
     }
 
     [Theory]
+    [InlineData("好的。我来看", 0, 3)] //句末之后才算完
+    [InlineData("好的。我来看", 3, 3)] //交出去的不再算
+    [InlineData("Hello there. How", 0, 12)]
+    [InlineData("Hello there.", 0, 0)] //英文句号要等到后面的空白
+    [InlineData("1. 第一步", 0, 0)] //列表号不是句末
+    [InlineData("见 https://a.com/x?q=1 这里", 0, 0)]
+    [InlineData("先看代码：\n```\nx = 1;\ny = 2;\n", 0, 6)] //代码块没合上前不往里切
+    [InlineData("先看代码：\n```\nx = 1;\n```\n然后", 0, 21)]
+    [InlineData("<think>想一想。\n</think>答案是", 0, 0)]
+    public void CompleteLength_CutsAfterTheLastFinishedSentence(string text, int from, int expected)
+    {
+        Assert.Equal(expected, SpeechText.CompleteLength(text, from));
+    }
+
+    [Theory]
     [InlineData("今天天气不错，我们去公园吧。", "zh")]
     [InlineData("用 Python 写一个 hello world 程序。", "zh")] //中文夹英文仍算中文
     [InlineData("The quick brown fox jumps over the lazy dog.", "en")]

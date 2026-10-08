@@ -351,7 +351,9 @@ public class AudioModelTabsTests : IDisposable
                 EnsureEngine = () => Task.FromResult((EEngineEnsureState.AlreadyInstalled, (VersionInfo?)null, (DownloadJob?)null)),
                 DeviceInfo = () => new RuntimeDeviceInfo(16 * GiB, 8 * GiB, 0, 0, 0, "", "", "", DateTimeOffset.Now),
                 AudioEngine = audio.Engine,
-                AudioStore = audio.Store
+                AudioStore = audio.Store,
+                AudioDefaults = new LocalAudioDefaults(audio.Engine, new AudioRouter(
+                    () => throw new NotSupportedException(), new AudioSettingConfig(), new AudioServiceSettingConfig()))
             }), queue, createAudioModels: page => new AudioModelListViewData(_messages, audio.Engine, audio.Store,
             (_, _) => Task.FromResult<IReadOnlyList<string>>([]),
             new ReadAloudService(_ => _synthesizer, _player, _messages), _openedFolders.Add,

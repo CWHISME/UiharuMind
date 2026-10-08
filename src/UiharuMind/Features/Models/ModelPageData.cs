@@ -228,8 +228,10 @@ public partial class ModelPageData : PageDataBase
     [RelayCommand]
     private async Task OpenChangeModelPath()
     {
-        ModelSettingConfig.Current.LocalModelPath = await App.FilesService.OpenSelectFolderAsync(ModelSettingConfig.Current.LocalModelPath)!;
-        ModelPath = ModelSettingConfig.Current.LocalModelPath;
+        string selected = await App.FilesService.OpenSelectFolderAsync(ModelSettingConfig.Current.LocalModelPath);
+        if (string.IsNullOrEmpty(selected)) return; //取消选择
+        ModelSettingConfig.Current.LocalModelPath = selected;
+        ModelPath = selected;
         ModelSettingConfig.Current.Save();
     }
 

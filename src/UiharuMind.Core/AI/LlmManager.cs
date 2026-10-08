@@ -157,7 +157,8 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
         if (string.IsNullOrEmpty(modelName))
             modelName = GetPreferredModelName(false);
         if (string.IsNullOrEmpty(modelName)) return;
-        if (CurrentRunningModel != null && CurrentRunningModel.ModelName == modelName && CurrentRunningModel.IsRunning) return;
+        if (CurrentRunningModel != null && CurrentRunningModel.ModelName == modelName &&
+            (CurrentRunningModel.IsRunning || CurrentRunningModel.IsLoading)) return;
         if (_cacheModels.TryGetValue(modelName, out var runningInfo))
         {
             SetCurrentRunningModel(runningInfo);
@@ -171,13 +172,14 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
                     loadedCallbackInvoked = true;
                     OnCurrentModelLoaded?.Invoke();
                 }).ConfigureAwait(false);
-                if (!loaded) SetCurrentRunningModel(null);
+                // 加载中被换成了别的模型时，当前模型已不是它，不能把新选的清掉
+                if (!loaded && CurrentRunningModel == runningInfo) SetCurrentRunningModel(null);
                 if (runningInfo.LastError != null) OnModelRunFailed?.Invoke(modelName, runningInfo.LastError);
             }
             catch (Exception e)
             {
                 Log.Error(e.Message);
-                SetCurrentRunningModel(null);
+                if (CurrentRunningModel == runningInfo) SetCurrentRunningModel(null);
             }
             finally
             {
@@ -271,7 +273,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
                 return false;
             }
 
-            if (modelRunning.ChatClient == null)
+            if (modelRunning.ChatClient == null && !modelRunning.IsLoading)
             {
                 // 就绪后必须再通知一次。上面那次 OnCurrentModelChanged 是在模型「刚被选中、
                 // 还没跑起来」时发的,界面那一刻读到的 IsRunning 仍是 false;
@@ -303,7 +305,9 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     private void SetCurrentRunningModel(ModelRunningData? value, bool stopPrevious = true)
     {
         if (value == _curModelRunningData) return;
-        if (stopPrevious && _curModelRunningData?.IsRunning == true) _curModelRunningData.StopRunning();
+        // 还在加载的也要停，否则它加载完会无主驻留、再也卸不掉
+        if (stopPrevious && _curModelRunningData is { IsRunning: true } or { IsLoading: true })
+            _curModelRunningData.StopRunning();
         _curModelRunningData = value;
         OnCurrentModelChanged?.Invoke(value);
     }

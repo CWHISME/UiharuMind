@@ -522,7 +522,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         CharacterSpeechStyles? speechStyles = null)
     {
         _messages = messages;
-        _readAloud = readAloud == null ? null : new ConversationReadAloud(Items, readAloud, speechStyles);
+        // 群壳里的回复是成员落盘后贴进来的，按落盘念；单聊正看着时边生成边念
+        _readAloud = readAloud == null ? null
+            : new ConversationReadAloud(Items, readAloud, speechStyles, () => IsDisplayed && !IsGroupSession);
         _mcpApproval = new WorkspaceMcpApprovalFlow(messages);
         // 用量排最前:后面几个子模型的构造期回调就可能刷它
         Usage = new ConversationUsageViewData(ContextLength, () => SessionModelLabel,

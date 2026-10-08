@@ -15,7 +15,6 @@ using System.Runtime.InteropServices.JavaScript;
 using System.Text;
 using CliWrap;
 using CliWrap.EventStream;
-using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 
@@ -45,10 +44,9 @@ public static class ProcessHelper
             // 尝试获取进程
             using var process = FindProcessById(processId);
             if (process == null) return;
-            // 强行终止进程
-            process.Kill();
-            process.WaitForExit(); // 等待进程完全退出
-            Console.WriteLine($"Process {processId} terminated.");
+            // 连子进程一起杀（sidecar 外面包着看门的 sh），退出路径上不无限等
+            process.Kill(true);
+            process.WaitForExit(TimeSpan.FromSeconds(3));
         })).ToList();
 
         // 等待所有任务完成
@@ -56,17 +54,6 @@ public static class ProcessHelper
 
         // 清空任务列表
         ProcessIds.Clear();
-    }
-
-    /// <summary>
-    /// 强行清理本地运行的服务
-    /// </summary>
-    public static void ForceClearAllProcesses()
-    {
-        foreach (var process in System.Diagnostics.Process.GetProcessesByName(LLamaCppSettingConfig.ServerExeName))
-        {
-            if (!ProcessIds.ContainsKey(process.Id)) process.Kill();
-        }
     }
 
     private static System.Diagnostics.Process? FindProcessById(int processId)
