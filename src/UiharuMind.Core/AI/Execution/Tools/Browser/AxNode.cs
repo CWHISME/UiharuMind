@@ -38,6 +38,9 @@ public sealed record AxNode(string Role, string Name)
     /// <summary>标题层级；不是标题为 0</summary>
     public int Level { get; init; }
 
+    /// <summary>是否密码框：快照里标出来、值不给看，动作层也不往里打字（密码只经用户的手）</summary>
+    public bool Secret { get; init; }
+
     /// <summary>子节点</summary>
     public IReadOnlyList<AxNode> Children { get; init; } = [];
 

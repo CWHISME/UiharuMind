@@ -1,5 +1,6 @@
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.ToolCall;
+using UiharuMind.Core.AI.Execution.Tools.Browser;
 using UiharuMind.Features.Conversation.Items;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
@@ -37,5 +38,124 @@ public class ApprovalCardResolutionTests
         Assert.True(card.IsResolved);
         Assert.Equal(Loc.Text(LangKey.AgentApprovalResolvedOnce), card.ResolvedText);
         Assert.True(card.Response.IsCompleted);
+    }
+
+    private static ToolApprovalRequestContent Browser(string tool, params (string Key, object? Value)[] args) =>
+        new("r1", new FunctionCallContent("c1", tool, args.ToDictionary(x => x.Key, x => x.Value)));
+
+    /// <summary>接管要的是用户的手：不给「本会话允许」，别的入口传来 session 也只按这一次算</summary>
+    [Fact]
+    public void HandoffCard_NeverGrantsStandingApproval()
+    {
+        ApprovalRequestItem card = new(Browser(BrowserTools.HandoffToolName, ("task", "登录 GitHub")),
+            sessionId: "s1", browser: new FakeBrowser());
+
+        card.ResolveCommand.Execute("session");
+
+        ToolApprovalResponseContent response = Assert.Single(card.Response.Result.Contents.OfType<ToolApprovalResponseContent>());
+        Assert.True(response.Approved);
+        Assert.True(card.IsBrowserHandoff);
+        Assert.False(card.CanApproveForSession);
+        Assert.Equal(Loc.Text(LangKey.BrowserHandoffResolvedDone), card.ResolvedText);
+    }
+
+    [Fact]
+    public void CancelledHandoff_SaysCancelled()
+    {
+        ApprovalRequestItem card = new(Browser(BrowserTools.HandoffToolName, ("task", "登录")), sessionId: "s1",
+            browser: new FakeBrowser());
+
+        card.ResolveCommand.Execute("deny");
+
+        Assert.Equal(Loc.Text(LangKey.BrowserHandoffResolvedCancelled), card.ResolvedText);
+    }
+
+    /// <summary>打不开浏览器（没装 Chrome、档案被占）说在卡上，不冲到界面线程；无窗口运行也如实说</summary>
+    [Fact]
+    public async Task ShowBrowser_ReportsFailuresOnTheCard()
+    {
+        ApprovalRequestItem broken = new(Browser(BrowserTools.HandoffToolName, ("task", "登录")), sessionId: "s1",
+            browser: new FakeBrowser { ShowFailure = new InvalidOperationException("Chrome not found") });
+        ApprovalRequestItem headless = new(Browser(BrowserTools.HandoffToolName, ("task", "登录")), sessionId: "s1",
+            browser: new FakeBrowser { CanShow = false });
+
+        await broken.ShowBrowserCommand.ExecuteAsync(null);
+        await headless.ShowBrowserCommand.ExecuteAsync(null);
+
+        Assert.Equal(Loc.Text(LangKey.BrowserHandoffShowFailed, "Chrome not found"), broken.ShowBrowserStatus);
+        Assert.Equal(Loc.Text(LangKey.BrowserHandoffNoWindow), headless.ShowBrowserStatus);
+    }
+
+    /// <summary>浏览器调用按会话的快照说人话；晚开的窗口补画早已决出的卡时退回原始参数（页面早往下走了）</summary>
+    [Fact]
+    public void BrowserCalls_AreDescribed_UntilRedrawnAfterTheDecision()
+    {
+        ApprovalRequestItem card = new(Browser(BrowserTools.ActToolName, ("action", "click"), ("target", "e2")),
+            sessionId: "s1", browser: new FakeBrowser());
+
+        Assert.True(card.IsDescribed);
+        Assert.StartsWith(Loc.Text(LangKey.BrowserCallClick,
+            Loc.Text(LangKey.BrowserElementNamed, Loc.Text(LangKey.BrowserRoleButton), "Go")), card.ArgumentSummary);
+
+        card.UseRecordedArguments();
+
+        Assert.False(card.IsDescribed);
+        Assert.Contains("e2", card.ArgumentSummary);
+    }
+
+    /// <summary>别的卡不碰浏览器宿主：从没用过浏览器的人不该为它起计时器</summary>
+    [Fact]
+    public void OtherTools_LeaveTheBrowserAlone()
+    {
+        FakeBrowser browser = new();
+
+        ApprovalRequestItem card = new(Request(), sessionId: "s1", browser: browser);
+
+        Assert.False(card.IsDescribed);
+        Assert.Equal(0, browser.Calls);
+    }
+
+    private sealed class FakeBrowser : IBrowserHost
+    {
+        public int Calls { get; private set; }
+
+        public bool CanShow { get; init; } = true;
+
+        public Exception? ShowFailure { get; init; }
+
+        public bool HasWindow => CanShow;
+
+        public Task<BrowserPageView> NavigateAsync(string sessionId, string url, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<BrowserPageView> SnapshotAsync(string sessionId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<BrowserPageView> ActAsync(string sessionId, BrowserActionRequest request,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<BrowserTextView> ReadTextAsync(string sessionId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<BrowserScreenshot> ScreenshotAsync(string sessionId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<bool> ShowAsync(string sessionId)
+        {
+            Calls++;
+            return ShowFailure != null ? Task.FromException<bool>(ShowFailure) : Task.FromResult(CanShow);
+        }
+
+        public BrowserElement? PeekElement(string sessionId, string target)
+        {
+            Calls++;
+            return target == "e2" ? new BrowserElement("button", "Go", false) : null;
+        }
+
+        public string? PeekUrl(string sessionId)
+        {
+            Calls++;
+            return "https://example.com/";
+        }
     }
 }

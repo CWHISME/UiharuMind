@@ -92,7 +92,7 @@ public sealed partial class GroupApprovalViewData
     {
         MemberSessionId = member.SessionId;
         MemberName = member.CharacterData.CharacterName;
-        Card = new ApprovalRequestItem(request, AgentBuildProfile.PathResolverOf(member))
+        Card = new ApprovalRequestItem(request, AgentBuildProfile.PathResolverOf(member), member.SessionId)
         {
             RememberShellPatternCallback = member.AddSessionApprovedShellPattern,
         };

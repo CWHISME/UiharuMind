@@ -7,7 +7,7 @@ namespace UiharuMind.Core.Tests.Execution.Browser;
 
 /// <summary>
 /// 浏览器工具在三档里的审批：看页面不问，导航与动作跟 shell 同一列；
-/// 打开本机、内网与非 http(s) 地址是贯穿三档的硬规则，完全自动也要用户点一次
+/// 打开本机、内网与非 http(s) 地址、接管是贯穿三档的硬规则，完全自动也要用户点一次
 /// </summary>
 public class BrowserApprovalTests
 {
@@ -45,6 +45,19 @@ public class BrowserApprovalTests
     public async Task LocalNavigation_IsNeverAutoApproved(string url)
     {
         Assert.False(await ApprovedAsync(EAgentPermissionMode.FullAuto, Navigate(url)));
+    }
+
+    /// <summary>接管等的是用户的手：完全自动也得等他点「完成了」</summary>
+    [Theory]
+    [InlineData(EAgentPermissionMode.ReadOnly)]
+    [InlineData(EAgentPermissionMode.AutoEdit)]
+    [InlineData(EAgentPermissionMode.FullAuto)]
+    public async Task Handoff_AlwaysWaitsForTheUser(EAgentPermissionMode mode)
+    {
+        FunctionCallContent handoff = new("c3", BrowserTools.HandoffToolName,
+            new Dictionary<string, object?> { ["task"] = "登录 GitHub" });
+
+        Assert.False(await ApprovedAsync(mode, handoff));
     }
 
     [Theory]

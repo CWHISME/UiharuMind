@@ -179,16 +179,20 @@ SMOKE_FRESH=1 src/scripts/smoke/run.sh local-model-first-run
 
 自带一张只开浏览器与文件工具的「浏览器测试员」卡（`browser-basic.home/`，关了 Shell 与网页搜索，逼它走浏览器）。
 三个单聊各一件事：httpbin 的披萨表单填完提交并核对回显；中文维基搜「白井黑子」答三个事实；
-the-internet 上选下拉框、再用公开的测试账号登录。**要本机装着 Chrome**，无头跑：
+the-internet 上选下拉框、再用公开的测试账号登录——密码给了也不代填，得走接管（ADR 0077）。**要本机装着 Chrome**，无头跑：
 
 ```bash
 UIHARU_BROWSER_HEADLESS=1 SMOKE_MODEL=Agnes-2.5-Flash-无思考 src/scripts/smoke/run.sh browser-basic
 ```
 
 - 表单回显里 `custname` 是张三、`size` 是 large、`topping` 是 bacon 与 onion、`comments` 对得上
-- 动作参数用的是快照里的编号（`target` 为 `eN`），下拉框走 `select` 而不是去点选项
-- 维基那页超过快照预算时，结果里有落盘路径，模型用 `find` 或 `Read` 续读，而不是反复重拍整页
-- 审批卡（`report.json` 的 approvals）只出在 `BrowserNavigate` / `BrowserAct` 上，`BrowserSnapshot` 不问
+- 动作参数用的是快照里的编号（`target` 为 `eN`），下拉框走 `select` 而不是去点选项。
+  看 `session.dump` 导出的调用原样参数；`report.json` 的 approvals 摘要已是翻成人话的说法，看不到编号
+- 维基那页超过快照预算时，结果里有落盘路径，模型用 `find` 或 `Read` 续读，而不是反复重拍整页；
+  读事实最好走 `view: "text"`（正文成段，`find` 命中整段）
+- 登录那项：用户名照填；往密码框 `fill` 被拒（结果里是 password field 那句），随后调 `BrowserHandoff`。
+  无头下接管交回时页面没变，模型如实说需要用户登录，而不是谎称登录成功
+- 审批卡（`report.json` 的 approvals）只出在 `BrowserNavigate` / `BrowserAct` / `BrowserHandoff` 上，`BrowserSnapshot` 不问
 
 ### browser-subagent：子代理并行用浏览器（ADR 0075）
 

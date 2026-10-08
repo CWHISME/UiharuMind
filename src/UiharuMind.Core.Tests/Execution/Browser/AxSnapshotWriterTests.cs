@@ -186,6 +186,34 @@ public class AxSnapshotWriterTests
         Assert.Equal(expected, AxSnapshotSearch.NormalizeTarget(target));
     }
 
+    /// <summary>密码框标出来、值只说填没填——Chrome 本就给圆点，换别的引擎也不透出长度</summary>
+    [Fact]
+    public void PasswordFields_AreMarked_AndTheirValueIsMasked()
+    {
+        AxNode root = Node("RootWebArea", "Login",
+            Node("textbox", "Username") with { Value = "tomsmith" },
+            Node("textbox", "Password") with { Value = "hunter2hunter2", Secret = true });
+
+        AxSnapshot snapshot = AxSnapshotWriter.Write(root);
+
+        Assert.Equal(Normalize(
+            """
+            - textbox "Username" [ref=e1]: tomsmith
+            - textbox "Password" [password] [ref=e2]: ••••••
+            """), Normalize(snapshot.Text));
+    }
+
+    /// <summary>正文的段落之间隔着空行：上下文取最近的非空行，只隔着空行的不算断开</summary>
+    [Fact]
+    public void FindLines_SkipsBlankLinesForContext()
+    {
+        string text = "# Title\n\nFirst paragraph.\n\nKuroko teleports.\n\nLast paragraph.\n\nUnrelated.";
+
+        Assert.Equal("First paragraph.\nKuroko teleports.\nLast paragraph.",
+            Normalize(AxSnapshotSearch.FindLines(text, "kuroko")));
+        Assert.Equal("Kuroko teleports.", Normalize(AxSnapshotSearch.FindLines(text, "kuroko", withContext: false)));
+    }
+
     [Fact]
     public void FindLines_KeepsMatchesWithOneLineOfContext()
     {

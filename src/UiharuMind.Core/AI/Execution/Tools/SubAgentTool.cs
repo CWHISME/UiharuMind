@@ -20,6 +20,7 @@ using UiharuMind.Core.Configs;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.ToolCall;
+using UiharuMind.Core.AI.Execution.Tools.Browser;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Execution.Tools;
@@ -122,6 +123,15 @@ public static class SubAgentTool
     /// </summary>
     internal static bool ShouldAutoApproveNestedApprovals(bool attended, int permissionModeIndex) =>
         attended && permissionModeIndex == (int)EAgentPermissionMode.FullAuto;
+
+    /// <summary>
+    /// 完全自动档下这条嵌套审批放不放行。接管（BrowserHandoff）例外：它等的是用户的手，不是许可，
+    /// 自动批了等于替用户谎称「做完了」——照常登记，等用户去子会话窗口点
+    /// </summary>
+    /// <param name="request">嵌套审批请求</param>
+    /// <returns>放行的理由；不放行为 null</returns>
+    internal static string? FullAutoApprovalFor(ToolApprovalRequestContent request) =>
+        request.ToolCall is FunctionCallContent { Name: BrowserTools.HandoffToolName } ? null : FullAutoApprovalReason;
 
     /// <summary>
     /// 一次委派要用到的全部上下文。子会话的字段几乎全部从派活者继承——
@@ -466,7 +476,7 @@ public static class SubAgentTool
             MaxDeniedApprovalRounds, timeoutSource.Token,
             () => BackgroundSubAgentDispatcher.Notifier?.Invoke(
                 ESubAgentNotice.ApprovalWaiting, session.SessionId),
-            autoApprove: fullAuto ? _ => FullAutoApprovalReason : null,
+            autoApprove: fullAuto ? FullAutoApprovalFor : null,
             onAutoApproved: call =>
             {
                 lock (autoApprovedCalls) autoApprovedCalls.Add(NestedApprovalResolver.Describe(call));

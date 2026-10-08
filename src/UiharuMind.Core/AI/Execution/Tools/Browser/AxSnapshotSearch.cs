@@ -50,19 +50,24 @@ public static class AxSnapshotSearch
     }
 
     /// <summary>
-    /// 从快照文本里挑出含关键字的行（不分大小写），各带上下一行作参照，不相邻的段之间用省略号隔开
+    /// 从快照或正文里挑出含关键字的行（不分大小写），各带上下最近的一行非空行作参照
+    /// （正文的段落之间隔着空行），不相邻的段之间用省略号隔开
     /// </summary>
-    /// <param name="snapshot">快照文本</param>
+    /// <param name="snapshot">快照或正文</param>
     /// <param name="keyword">关键字</param>
+    /// <param name="withContext">是否捎带上下各一行；正文一行就是一整段，不必捎带</param>
     /// <returns>挑出的行；一行都没有时返回一句说明</returns>
-    public static string FindLines(string snapshot, string keyword)
+    public static string FindLines(string snapshot, string keyword, bool withContext = true)
     {
         string[] lines = snapshot.Split('\n');
         SortedSet<int> keep = new();
         for (int i = 0; i < lines.Length; i++)
         {
             if (!lines[i].Contains(keyword, StringComparison.OrdinalIgnoreCase)) continue;
-            for (int j = Math.Max(0, i - 1); j <= Math.Min(lines.Length - 1, i + 1); j++) keep.Add(j);
+            keep.Add(i);
+            if (!withContext) continue;
+            if (NearestText(lines, i, -1) is int above) keep.Add(above);
+            if (NearestText(lines, i, 1) is int below) keep.Add(below);
         }
 
         if (keep.Count == 0) return $"(no line contains \"{keyword}\")";
@@ -71,12 +76,33 @@ public static class AxSnapshotSearch
         int previous = -1;
         foreach (int index in keep)
         {
-            if (previous >= 0 && index > previous + 1) result.AppendLine("…");
+            if (previous >= 0 && HasTextBetween(lines, previous, index)) result.AppendLine("…");
             result.AppendLine(lines[index].TrimEnd('\r'));
             previous = index;
         }
 
         return result.ToString().TrimEnd();
+    }
+
+    private static int? NearestText(string[] lines, int from, int step)
+    {
+        for (int i = from + step; i >= 0 && i < lines.Length; i += step)
+        {
+            if (lines[i].Trim().Length > 0) return i;
+        }
+
+        return null;
+    }
+
+    // 中间隔着的只是空行（段落间距）不算断开
+    private static bool HasTextBetween(string[] lines, int from, int to)
+    {
+        for (int i = from + 1; i < to; i++)
+        {
+            if (lines[i].Trim().Length > 0) return true;
+        }
+
+        return false;
     }
 
     private static void Collect(AxNode node, List<AxNode> into)

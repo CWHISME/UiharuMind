@@ -2,6 +2,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Core.AI.Execution.Tools.Browser;
 
 namespace UiharuMind.Core.Tests.Execution;
 
@@ -140,5 +141,18 @@ public class NestedApprovalResolverTests
         bool attended, int modeIndex, bool expected)
     {
         Assert.Equal(expected, SubAgentTool.ShouldAutoApproveNestedApprovals(attended, modeIndex));
+    }
+
+    /// <summary>完全自动档放行嵌套审批，接管除外：它等的是用户的手，自动批了等于替用户谎称做完了</summary>
+    [Fact]
+    public void FullAuto_StillWaitsForTheUserOnBrowserHandoff()
+    {
+        ToolApprovalRequestContent handoff = new("r1", new FunctionCallContent("c1", BrowserTools.HandoffToolName,
+            new Dictionary<string, object?> { ["task"] = "登录 GitHub" }));
+        ToolApprovalRequestContent click = new("r2", new FunctionCallContent("c2", BrowserTools.ActToolName,
+            new Dictionary<string, object?> { ["action"] = "click", ["target"] = "e1" }));
+
+        Assert.Null(SubAgentTool.FullAutoApprovalFor(handoff));
+        Assert.NotNull(SubAgentTool.FullAutoApprovalFor(click));
     }
 }

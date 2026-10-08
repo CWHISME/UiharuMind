@@ -236,6 +236,132 @@
     <data name="AgentDeny" xml:space="preserve">
         <value>拒绝</value>
     </data>
+    <data name="BrowserCallClick" xml:space="preserve">
+        <value>点击{0}</value>
+    </data>
+    <data name="BrowserCallFill" xml:space="preserve">
+        <value>在{0}里填入「{1}」</value>
+    </data>
+    <data name="BrowserCallSelect" xml:space="preserve">
+        <value>在{0}里选「{1}」</value>
+    </data>
+    <data name="BrowserCallCheck" xml:space="preserve">
+        <value>勾选{0}</value>
+    </data>
+    <data name="BrowserCallUncheck" xml:space="preserve">
+        <value>取消勾选{0}</value>
+    </data>
+    <data name="BrowserCallPress" xml:space="preserve">
+        <value>在{0}里按 {1}</value>
+    </data>
+    <data name="BrowserCallPressPage" xml:space="preserve">
+        <value>按 {0}</value>
+    </data>
+    <data name="BrowserCallHover" xml:space="preserve">
+        <value>把鼠标移到{0}上</value>
+    </data>
+    <data name="BrowserCallScrollUp" xml:space="preserve">
+        <value>向上滚动页面</value>
+    </data>
+    <data name="BrowserCallScrollDown" xml:space="preserve">
+        <value>向下滚动页面</value>
+    </data>
+    <data name="BrowserCallBack" xml:space="preserve">
+        <value>后退到上一页</value>
+    </data>
+    <data name="BrowserCallNavigate" xml:space="preserve">
+        <value>打开 {0}</value>
+    </data>
+    <data name="BrowserCallSite" xml:space="preserve">
+        <value>所在网站：{0}</value>
+    </data>
+    <data name="BrowserElementNamed" xml:space="preserve">
+        <value>{0}「{1}」</value>
+    </data>
+    <data name="BrowserElementRaw" xml:space="preserve">
+        <value>「{0}」</value>
+    </data>
+    <data name="BrowserElementUnnamed" xml:space="preserve">
+        <value>{0}</value>
+    </data>
+    <data name="BrowserHandoffShowFailed" xml:space="preserve">
+        <value>浏览器打不开：{0}</value>
+    </data>
+    <data name="BrowserRoleButton" xml:space="preserve">
+        <value>按钮</value>
+    </data>
+    <data name="BrowserRoleLink" xml:space="preserve">
+        <value>链接</value>
+    </data>
+    <data name="BrowserRoleTextbox" xml:space="preserve">
+        <value>输入框</value>
+    </data>
+    <data name="BrowserRolePassword" xml:space="preserve">
+        <value>密码框</value>
+    </data>
+    <data name="BrowserRoleSearchbox" xml:space="preserve">
+        <value>搜索框</value>
+    </data>
+    <data name="BrowserRoleCombobox" xml:space="preserve">
+        <value>下拉框</value>
+    </data>
+    <data name="BrowserRoleListbox" xml:space="preserve">
+        <value>列表框</value>
+    </data>
+    <data name="BrowserRoleOption" xml:space="preserve">
+        <value>选项</value>
+    </data>
+    <data name="BrowserRoleCheckbox" xml:space="preserve">
+        <value>复选框</value>
+    </data>
+    <data name="BrowserRoleRadio" xml:space="preserve">
+        <value>单选项</value>
+    </data>
+    <data name="BrowserRoleSwitch" xml:space="preserve">
+        <value>开关</value>
+    </data>
+    <data name="BrowserRoleSlider" xml:space="preserve">
+        <value>滑块</value>
+    </data>
+    <data name="BrowserRoleSpinbutton" xml:space="preserve">
+        <value>数字框</value>
+    </data>
+    <data name="BrowserRoleMenuitem" xml:space="preserve">
+        <value>菜单项</value>
+    </data>
+    <data name="BrowserRoleTab" xml:space="preserve">
+        <value>选项卡</value>
+    </data>
+    <data name="BrowserRoleTreeitem" xml:space="preserve">
+        <value>树节点</value>
+    </data>
+    <data name="BrowserRoleElement" xml:space="preserve">
+        <value>元素</value>
+    </data>
+    <data name="BrowserHandoffTitle" xml:space="preserve">
+        <value>请你接手浏览器</value>
+    </data>
+    <data name="BrowserHandoffHint" xml:space="preserve">
+        <value>先点「切到浏览器」，在那个窗口里做完，回来点「完成了，继续」。</value>
+    </data>
+    <data name="BrowserHandoffShow" xml:space="preserve">
+        <value>切到浏览器</value>
+    </data>
+    <data name="BrowserHandoffDone" xml:space="preserve">
+        <value>完成了，继续</value>
+    </data>
+    <data name="BrowserHandoffCancel" xml:space="preserve">
+        <value>取消</value>
+    </data>
+    <data name="BrowserHandoffResolvedDone" xml:space="preserve">
+        <value>已交回给智能体</value>
+    </data>
+    <data name="BrowserHandoffResolvedCancelled" xml:space="preserve">
+        <value>已取消</value>
+    </data>
+    <data name="BrowserHandoffNoWindow" xml:space="preserve">
+        <value>浏览器在无窗口模式下运行，没有窗口可切。</value>
+    </data>
     <data name="AgentWorkspaceNone" xml:space="preserve">
         <value>未绑定目录</value>
     </data>

@@ -43,6 +43,61 @@ internal sealed class BrowserResultFormatter(string spillDirectory)
     public string AfterNavigation(BrowserPageView view) => Full(view);
 
     /// <summary>
+    /// 用户接管完交回之后：整页（他做了什么只有页面知道）
+    /// </summary>
+    /// <param name="view">交回时的页面</param>
+    /// <returns>工具结果</returns>
+    public string AfterHandoff(BrowserPageView view) => Full(view);
+
+    /// <summary>
+    /// 正文：带 find 只给命中的段落；超出预算时全文落盘、内联开头，并先指 find——
+    /// 通用的「用 Read 接着读」会把模型引去整份读进来（实测一次多花六万 token）
+    /// </summary>
+    /// <param name="view">正文</param>
+    /// <param name="find">关键字，可空</param>
+    /// <returns>工具结果</returns>
+    public string Text(BrowserTextView view, string? find)
+    {
+        // 正文一行就是一整段，本身就是上下文，不再捎带前后段
+        string text = ReadableText.Tidy(view.Text);
+        bool finding = find is { Length: > 0 } && text.Length > 0;
+        string body = text.Length == 0
+            ? "(no main text found on this page; use the outline view)"
+            : finding ? AxSnapshotSearch.FindLines(text, find!, withContext: false) : text;
+        string full = Compose(view.Notes, view.Title, view.Url, body);
+        int fullBytes = Encoding.UTF8.GetByteCount(full);
+        ToolOutputBudget budget = ToolOutputBudget.Snapshot;
+        if (fullBytes <= budget.MaxBytes) return full;
+
+        // 不给尾巴：正文的尾巴多是参考文献、分类、页脚
+        string shown = HeadLines(full, budget.HeadBytes);
+        string saved = SaveOrSay(full, "BrowserText");
+        int nextLine = shown.Split('\n').Length + 1;
+        return finding
+            ? $"{shown}\n\n---\n*[Many paragraphs mention \"{find}\": showing the first " +
+              $"{Encoding.UTF8.GetByteCount(shown)} of {fullBytes} bytes. Try a more specific word; all matches are " +
+              $"{saved} (Read from line {nextLine} to see the rest).]*"
+            : $"{shown}\n\n---\n*[Long page: showing the first {Encoding.UTF8.GetByteCount(shown)} of {fullBytes} bytes. " +
+              $"To find something, call {BrowserTools.SnapshotToolName} with view \"text\" and find — it returns just the " +
+              $"paragraphs that mention it. The full text is {saved} (Read from line {nextLine} to keep reading).]*";
+    }
+
+    /// <summary>
+    /// 截图：存进草稿目录，结果只给路径与怎么看——图本身由 Read 的投影带上（ADR 0073），不进这条结果
+    /// </summary>
+    /// <param name="shot">截图</param>
+    /// <param name="lookHint">怎么看（Read 它 / 交给 AnalyzeImage）</param>
+    /// <returns>工具结果</returns>
+    public string Screenshot(BrowserScreenshot shot, string lookHint)
+    {
+        Directory.CreateDirectory(spillDirectory);
+        string path = Path.Combine(spillDirectory, ToolResultSpill.FileNameFor("BrowserScreenshot", shot.Jpeg, ".jpg"));
+        File.WriteAllBytes(path, shot.Jpeg);
+        return Compose(shot.Notes, shot.Title, shot.Url,
+            $"Screenshot of the visible part of the page saved to {path}. {lookHint}");
+    }
+
+    /// <summary>
     /// 主动重拍：带 find 只给命中的行；紧跟着上一份且一模一样就只说没变，否则整页
     /// </summary>
     /// <param name="view">当前页面</param>
@@ -88,21 +143,26 @@ internal sealed class BrowserResultFormatter(string spillDirectory)
         string compact = Compose(view, view.CompactSnapshot);
         bool cut = Encoding.UTF8.GetByteCount(compact) > budget.HeadBytes;
         string shown = cut ? HeadLines(compact, budget.HeadBytes) : compact;
-        string saved;
-        try
-        {
-            saved = "saved to " + ToolResultSpill.Save(full, spillDirectory, "BrowserSnapshot");
-        }
-        catch (Exception e)
-        {
-            Log.Warning($"[Browser] snapshot spill failed: {e.Message}");
-            saved = "could not be saved";
-        }
+        string saved = SaveOrSay(full, "BrowserSnapshot");
 
         return $"{shown}\n\n---\n*[Long page: navigation, sidebars and footers are collapsed" +
                (cut ? " and the rest of the page is cut" : string.Empty) +
                $". The full snapshot ({fullBytes} bytes, same refs) is {saved}; search it with Grep or Read, " +
                $"or call {BrowserTools.SnapshotToolName} with find.]*";
+    }
+
+    // 落盘失败也不丢这次结果，只是说存不下
+    private string SaveOrSay(string text, string fileStem)
+    {
+        try
+        {
+            return "saved to " + ToolResultSpill.Save(text, spillDirectory, fileStem);
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"[Browser] spill failed ({fileStem}): {e.Message}");
+            return "could not be saved";
+        }
     }
 
     private void Remember(BrowserPageView view)
@@ -112,12 +172,14 @@ internal sealed class BrowserResultFormatter(string spillDirectory)
         _lastAt = DateTime.UtcNow;
     }
 
-    private static string Compose(BrowserPageView view, string body)
+    private static string Compose(BrowserPageView view, string body) => Compose(view.Notes, view.Title, view.Url, body);
+
+    private static string Compose(IReadOnlyList<string> notes, string title, string url, string body)
     {
         StringBuilder text = new();
-        foreach (string note in view.Notes) text.AppendLine(note);
-        text.Append("Page: ").AppendLine(view.Title.Length > 0 ? view.Title : "(untitled)");
-        text.Append("URL: ").AppendLine(view.Url);
+        foreach (string note in notes) text.AppendLine(note);
+        text.Append("Page: ").AppendLine(title.Length > 0 ? title : "(untitled)");
+        text.Append("URL: ").AppendLine(url);
         text.AppendLine();
         text.Append(body.Length > 0 ? body : "(the page has no readable content)");
         return text.ToString();

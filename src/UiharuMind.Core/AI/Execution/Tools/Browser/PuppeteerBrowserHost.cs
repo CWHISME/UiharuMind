@@ -23,6 +23,7 @@ namespace UiharuMind.Core.AI.Execution.Tools.Browser;
 public sealed class PuppeteerBrowserHost : IBrowserHost
 {
     private static readonly TimeSpan IdleTabLifetime = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan HandedOverLifetime = TimeSpan.FromHours(2); //接管卡挂着没人理，也不能永远占着
     private static readonly TimeSpan SweepInterval = TimeSpan.FromMinutes(1);
 
     private readonly SemaphoreSlim _gate = new(1, 1); //起浏览器、开标签页、回收排队，免得并发调用各起一个
@@ -55,6 +56,42 @@ public sealed class PuppeteerBrowserHost : IBrowserHost
     public async Task<BrowserPageView> ActAsync(string sessionId, BrowserActionRequest request,
         CancellationToken cancellationToken) =>
         await (await GetTabAsync(sessionId)).ActAsync(request, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<BrowserTextView> ReadTextAsync(string sessionId, CancellationToken cancellationToken) =>
+        await (await GetTabAsync(sessionId)).ReadTextAsync(cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<BrowserScreenshot> ScreenshotAsync(string sessionId, CancellationToken cancellationToken) =>
+        await (await GetTabAsync(sessionId)).ScreenshotAsync(cancellationToken);
+
+    /// <inheritdoc />
+    public bool HasWindow => !_headless;
+
+    /// <inheritdoc />
+    /// <remarks>这个会话还没开过页面就先开一个空白窗口：接管可能正是「请你先登录 X」。
+    /// 拿到的标签页恰好刚被关掉（用户关了窗口）就再开一个</remarks>
+    public async Task<bool> ShowAsync(string sessionId)
+    {
+        if (_headless) return false;
+        for (int attempt = 0; attempt < 2; attempt++)
+        {
+            if (await (await GetTabAsync(sessionId)).ShowAsync()) return true;
+        }
+
+        return false;
+    }
+
+    /// <inheritdoc />
+    public BrowserElement? PeekElement(string sessionId, string target) =>
+        OpenTab(sessionId)?.Peek(target) is { } node ? new BrowserElement(node.Role, node.Name.Trim(), node.Secret) : null;
+
+    /// <inheritdoc />
+    public string? PeekUrl(string sessionId) => OpenTab(sessionId)?.Url;
+
+    // 只认已经开着的，不为回查新开页面
+    private PuppeteerTab? OpenTab(string sessionId) =>
+        _tabs.TryGetValue(sessionId, out PuppeteerTab? tab) && !tab.IsClosed ? tab : null;
 
     private async Task<PuppeteerTab> GetTabAsync(string sessionId)
     {
@@ -107,7 +144,7 @@ public sealed class PuppeteerBrowserHost : IBrowserHost
         return browser;
     }
 
-    // 标签页闲着超过十分钟就关（子代理跑完的、会话删掉的都会剩下一个）；一个都不剩时浏览器也关——
+    // 标签页闲着超过十分钟就关（子代理跑完的、会话删掉的都会剩下一个），接管中的放宽到两小时；一个都不剩时浏览器也关——
     // 登录态在档案里，下次用到再起，不白占内存
     private async Task SweepIdleAsync()
     {
@@ -115,7 +152,9 @@ public sealed class PuppeteerBrowserHost : IBrowserHost
         {
             foreach ((string sessionId, PuppeteerTab tab) in _tabs)
             {
-                if (DateTime.UtcNow - tab.LastUsed < IdleTabLifetime) continue;
+                // 用户正在里面接手（登录、过二次验证）的不回收，哪怕已经过了十分钟
+                TimeSpan lifetime = tab.IsHandedOver ? HandedOverLifetime : IdleTabLifetime;
+                if (DateTime.UtcNow - tab.LastUsed < lifetime) continue;
                 if (_tabs.TryRemove(new KeyValuePair<string, PuppeteerTab>(sessionId, tab))) await tab.CloseAsync();
             }
 

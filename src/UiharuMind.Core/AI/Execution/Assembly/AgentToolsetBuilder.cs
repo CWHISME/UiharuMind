@@ -110,6 +110,11 @@ internal static class AgentToolsetBuilder
         // 识图只在当前模型自己看不了图时挂：视觉模型经 Read 直接看图，AnalyzeImage 是多余的绕路
         bool mountVision = Mounts(EAgentCapability.VisionTool, config.EnableVisionTool) && !resources.ModelSupportsVision;
         if (mountVision) Add(EAgentCapability.VisionTool, VisionTool.Create(paths));
+        bool mountFiles = Mounts(EAgentCapability.FileAccess, config.EnableFileAccess);
+        // 视觉模型读到图就附上；否则指向 AnalyzeImage（它真的挂着才指）；都不成立就如实说看不了
+        EReadImageMode imageMode = config.EnableVisionTool && resources.ModelSupportsVision ? EReadImageMode.Attach
+            : mountVision ? EReadImageMode.PointToAnalyzeImage
+            : EReadImageMode.None;
 
         // 生图只看配置：开着、且至少配了一个生图模型，连不连得通不看（ADR 0052）
         if (Mounts(EAgentCapability.ImageGeneration, config.EnableImageGeneration) && resources.ImageModelsConfigured)
@@ -143,12 +148,14 @@ internal static class AgentToolsetBuilder
             Add(EAgentCapability.Transcription, TranscribeAudioTool.Create(paths));
         }
 
-        // 一个会话一个标签页；快照超长落进会话自己的草稿目录，模型按路径续读
+        // 一个会话一个标签页；快照超长、截图落进会话自己的草稿目录，模型按路径续读。
+        // 截图得看得了：视觉模型要有 Read 才看得见，非视觉模型要有 AnalyzeImage
         if (Mounts(EAgentCapability.Browser, config.EnableBrowser) && resources.Browser is { } browser)
         {
             string spillDirectory = Path.Combine(
                 resources.OutputRoomDirectory.Length > 0 ? resources.OutputRoomDirectory : Path.GetTempPath(), "browser");
-            foreach (AITool tool in BrowserTools.Create(browser, resources.SessionId, spillDirectory))
+            EReadImageMode screenshots = imageMode == EReadImageMode.Attach && !mountFiles ? EReadImageMode.None : imageMode;
+            foreach (AITool tool in BrowserTools.Create(browser, resources.SessionId, spillDirectory, screenshots))
             {
                 Add(EAgentCapability.Browser, tool);
             }
@@ -169,12 +176,8 @@ internal static class AgentToolsetBuilder
             foreach (AITool tool in resources.Mcp) Add(EAgentCapability.Mcp, tool);
         }
 
-        if (Mounts(EAgentCapability.FileAccess, config.EnableFileAccess))
+        if (mountFiles)
         {
-            // 视觉模型读到图就附上；否则指向 AnalyzeImage（它真的挂着才指）；都不成立就如实说看不了
-            EReadImageMode imageMode = config.EnableVisionTool && resources.ModelSupportsVision ? EReadImageMode.Attach
-                : mountVision ? EReadImageMode.PointToAnalyzeImage
-                : EReadImageMode.None;
             foreach (AITool tool in new PermissiveFileAccessTools(paths, imageMode: imageMode)
                          .Create(disableWriteTools: rule.ReadOnlyFiles))
             {

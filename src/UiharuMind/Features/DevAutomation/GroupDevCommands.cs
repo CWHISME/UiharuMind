@@ -197,7 +197,7 @@ internal sealed class GroupWaitCommand : IAsyncDevCommand
 
     public string Name => "group.wait";
 
-    public string Usage => "等若干个群跑完这一波。groups（群名数组）、timeoutMinutes、approvals（deny / once）";
+    public string Usage => "等若干个群跑完这一波。groups（群名数组）、timeoutMinutes、approvals（deny / once；浏览器接管卡上 once 即「完成了，继续」、deny 即取消）";
 
     public async Task<object?> ExecuteAsync(JsonElement args)
     {

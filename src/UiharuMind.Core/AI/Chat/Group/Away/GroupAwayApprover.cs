@@ -2,6 +2,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.ToolCall;
+using UiharuMind.Core.AI.Execution.Tools.Browser;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Chat.Group.Away;
@@ -94,6 +95,13 @@ public sealed class GroupAwayApprover
         if (ApprovalModeMapper.IsOutOfWorkspaceWrite(call, AgentBuildProfile.PathResolverOf(party.Requester)))
         {
             return new GroupAwayApprovalVerdict(false, "越界写入：离席中不替用户点，留给用户本人");
+        }
+
+        if (BrowserRisk.RequiresApprovalInAllModes(call))
+        {
+            return new GroupAwayApprovalVerdict(false, call.Name == BrowserTools.HandoffToolName
+                ? "接管浏览器：用户离席，没人能接手"
+                : "打开本机或内网地址：离席中不替用户点，留给用户本人");
         }
 
         if (party.Requester.SessionId == party.Avatar.SessionId) return new GroupAwayApprovalVerdict(true, "化身自己的操作");

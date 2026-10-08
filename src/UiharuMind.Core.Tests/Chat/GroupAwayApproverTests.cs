@@ -4,6 +4,7 @@ using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Chat.Group.Away;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Tools.Browser;
 
 namespace UiharuMind.Core.Tests.Chat;
 
@@ -43,6 +44,34 @@ public class GroupAwayApproverTests
         Assert.False(Approved(responses));
         Assert.Empty(_asked);
         Assert.Contains("越界写入", Assert.Single(_ledger).Reason);
+    }
+
+    /// <summary>接管要用户的手：离席中没人能接，化身自己的也一样，不必问它</summary>
+    [Fact]
+    public async Task BrowserHandoff_IsDeniedWithoutAsking_EvenForTheAvatarItself()
+    {
+        FunctionCallContent handoff = new("c1", BrowserTools.HandoffToolName,
+            new Dictionary<string, object?> { ["task"] = "登录 GitHub" });
+
+        IReadOnlyList<ChatMessage> responses = await Resolve(_avatar, handoff);
+
+        Assert.False(Approved(responses));
+        Assert.Empty(_asked);
+        Assert.Contains("没人能接手", Assert.Single(_ledger).Reason);
+    }
+
+    /// <summary>打开本机、内网地址与越界写入同一个口径：离席中不替用户点</summary>
+    [Fact]
+    public async Task LocalNavigation_IsDeniedWithoutAsking()
+    {
+        FunctionCallContent navigate = new("c1", BrowserTools.NavigateToolName,
+            new Dictionary<string, object?> { ["url"] = "http://192.168.1.1" });
+
+        IReadOnlyList<ChatMessage> responses = await Resolve(_member, navigate);
+
+        Assert.False(Approved(responses));
+        Assert.Empty(_asked);
+        Assert.Contains("本机或内网", Assert.Single(_ledger).Reason);
     }
 
     [Fact]

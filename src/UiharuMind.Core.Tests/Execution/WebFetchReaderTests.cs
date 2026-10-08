@@ -171,4 +171,39 @@ public class WebFetchReaderTests
     {
         Assert.Equal("hello world", DirectPageReader.CleanMarkup("hello world"));
     }
+
+    /// <summary>时间线、论坛这类页面一条帖子一个 article：没有 main 时要读到每一条，不能只给第一条</summary>
+    [Fact]
+    public async Task Extraction_ReadsEveryArticleOfATimeline()
+    {
+        string html = "<html><body><header><a href='/'>Site name</a></header><div id='feed'>" +
+                      "<article><p>First post about kuroko.</p></article>" +
+                      "<article><p>Second post about misaka.</p></article>" +
+                      "<article><p>Third post about uiharu.</p><article><p>A reply.</p></article></article>" +
+                      "</div></body></html>";
+
+        string text = await DirectPageReader.ExtractTextAsync(html, CancellationToken.None);
+
+        Assert.Contains("First post", text);
+        Assert.Contains("Second post", text);
+        Assert.Contains("Third post", text);
+        Assert.DoesNotContain("Site name", text);
+    }
+
+    /// <summary>文章自己的 header 装着标题，留下；页眉、main 里的整页标题栏（维基的语言列表）是噪音</summary>
+    [Fact]
+    public async Task Extraction_KeepsOnlyTheArticlesOwnHeader()
+    {
+        string html = "<html><body><header>Site banner</header><main>" +
+                      "<header><ul><li>English</li><li>Español</li></ul></header><article>" +
+                      "<header><h1>The real title</h1></header><p>Body text of the article.</p>" +
+                      "</article></main></body></html>";
+
+        string text = await DirectPageReader.ExtractTextAsync(html, CancellationToken.None);
+
+        Assert.Contains("The real title", text);
+        Assert.Contains("Body text", text);
+        Assert.DoesNotContain("Site banner", text);
+        Assert.DoesNotContain("Español", text);
+    }
 }

@@ -566,7 +566,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _transcript = new ConversationTranscript(Items, () => ConversationItemFactory.CreateAssistant(_currentCharacter),
             pattern => CurrentSession?.AddSessionApprovedShellPattern(pattern),
             SessionPaths,
-            createUserItems: _history.CreateUserItems);
+            createUserItems: _history.CreateUserItems,
+            sessionIdSource: () => CurrentSession?.SessionId);
         // 用量不经转录器转发:运行侧看得见同一条内容流,由它记账并写回会话本体,
         // 这里只负责把数字刷到界面上(UsageObserved 通知)
         _transcript.HousekeepingToolCalled += () => _ = RefreshTodosAsync();

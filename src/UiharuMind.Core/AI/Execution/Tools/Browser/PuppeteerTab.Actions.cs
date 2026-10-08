@@ -23,6 +23,33 @@ internal sealed partial class PuppeteerTab
     private const int ActionTimeoutMs = 10_000;
     private const int NavigationGraceMs = 700; //动作之后这么久里没起跳，就当它不跳转
 
+    // 密码框的认法。跨 iframe 的元素 instanceof 认不出来，按标签名判；头一次认出就在元素上做个记号——
+    // 点了「显示密码」切成明文后照样认得；autocomplete 写着 password、或用 CSS 把字遮成圆点的也算
+    private const string IsPasswordScript =
+        """
+        e => {
+            if (e.localName !== 'input') return false;
+            if (e.type === 'password') e.__uiharuSecret = true;
+            return e.__uiharuSecret === true || /password/i.test(e.autocomplete || '') ||
+                (getComputedStyle(e).webkitTextSecurity || 'none') !== 'none';
+        }
+        """;
+
+    // 真正的焦点：顺着 Shadow DOM 与同源 iframe 往里找（组件库的登录框常在 Shadow DOM 里）；跨源的看不进去，当不是
+    private const string FocusIsPasswordScript =
+        "() => { const secret = " + IsPasswordScript + """
+        ;
+            let e = document.activeElement;
+            for (;;) {
+                const inner = e && ((e.shadowRoot && e.shadowRoot.activeElement) ||
+                    (e.contentDocument && e.contentDocument.activeElement));
+                if (!inner) break;
+                e = inner;
+            }
+            return !!e && secret(e);
+        }
+        """;
+
     // 点链接、提交表单、回车搜索都可能跳转：动作前就挂上导航等待，动作后一小会儿里主框架起跳了就等新页面就绪，
     // 不然拍到的是半路上的空页
     private async Task<string> PerformAndWaitAsync(BrowserActionRequest request)
@@ -78,7 +105,13 @@ internal sealed partial class PuppeteerTab
                 await _page.EvaluateExpressionAsync($"window.scrollBy(0, {(up ? -1 : 1)} * window.innerHeight * 0.8)");
                 return up ? "Scrolled up." : "Scrolled down.";
             case EBrowserAction.Press when request.Target.Length == 0:
-                await PressKeysAsync(request.Value);
+                string[] keys = BrowserKeys.Parse(request.Value);
+                if (BrowserKeys.TypesText(keys) && await _page.EvaluateFunctionAsync<bool>(FocusIsPasswordScript))
+                {
+                    throw new BrowserActionException(PasswordRefusal("The focused field"));
+                }
+
+                await PressKeysAsync(keys, request.Value);
                 return $"Pressed {request.Value}.";
         }
 
@@ -112,6 +145,12 @@ internal sealed partial class PuppeteerTab
                     await locator.HoverAsync();
                     return $"Hovered {Describe(node)}.";
                 case EBrowserAction.Fill:
+                    // 清空不算输入密码，放行
+                    if (value.Length > 0 && await IsPasswordFieldAsync(handle, node))
+                    {
+                        throw new BrowserActionException(PasswordRefusal(Describe(node)));
+                    }
+
                     await locator.FillAsync(value);
                     return $"Filled {Describe(node)}.";
                 case EBrowserAction.Select:
@@ -122,8 +161,21 @@ internal sealed partial class PuppeteerTab
                     if (node.Checked == "true" != wanted) await locator.ClickAsync();
                     return $"{(wanted ? "Checked" : "Unchecked")} {Describe(node)}.";
                 case EBrowserAction.Press:
+                    string[] keys = BrowserKeys.Parse(value);
+                    bool typesText = BrowserKeys.TypesText(keys);
+                    if (typesText && await IsPasswordFieldAsync(handle, node))
+                    {
+                        throw new BrowserActionException(PasswordRefusal(Describe(node)));
+                    }
+
                     await handle.FocusAsync();
-                    await PressKeysAsync(value);
+                    // 目标聚焦不了（文字、标签）时焦点还在原处，字会打进那里：再看一眼真正的焦点
+                    if (typesText && await _page.EvaluateFunctionAsync<bool>(FocusIsPasswordScript))
+                    {
+                        throw new BrowserActionException(PasswordRefusal("The focused field"));
+                    }
+
+                    await PressKeysAsync(keys, value);
                     return $"Pressed {value} on {Describe(node)}.";
                 default:
                     throw new BrowserActionException($"Unsupported action: {action}.");
@@ -143,16 +195,10 @@ internal sealed partial class PuppeteerTab
             throw new BrowserActionException("This action needs a target: a ref from the latest snapshot (e.g. e5).");
         }
 
-        if (_refs.TryGetValue(key, out AxNode? byRef)) return byRef;
-        if (RefPattern().IsMatch(key))
-        {
-            throw new BrowserActionException(
-                $"No {key} in the latest snapshot. Refs are renumbered every time a snapshot is taken.");
-        }
-
-        // 没有编号的元素（div 做的按钮）按看得见的文字找
-        if (_tree != null && AxSnapshotSearch.FindByText(_tree, key) is { } byText) return byText;
-        throw new BrowserActionException($"Nothing on the page shows the text \"{key}\".");
+        if (Lookup(key) is { } node) return node;
+        throw new BrowserActionException(RefPattern().IsMatch(key)
+            ? $"No {key} in the latest snapshot. Refs are renumbered every time a snapshot is taken."
+            : $"Nothing on the page shows the text \"{key}\".");
     }
 
     private static async Task<string> SelectAsync(IElementHandle handle, AxNode node, string wanted)
@@ -186,11 +232,9 @@ internal sealed partial class PuppeteerTab
         return $"Selected \"{wanted}\" in {Describe(node)}.";
     }
 
-    // 模型给的按键五花八门（Ctrl+A、Cmd+Enter、esc）：统一成 Puppeteer 的键名，组合键按住修饰键再按、按完松开
-    private async Task PressKeysAsync(string keys)
+    // 组合键按住修饰键再按主键，按完松开
+    private async Task PressKeysAsync(string[] names, string written)
     {
-        string[] names = keys.Split('+', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .Select(NormalizeKey).ToArray();
         if (names.Length == 0)
         {
             throw new BrowserActionException("press needs a key, e.g. Enter, Tab, ArrowDown or Control+A.");
@@ -209,7 +253,7 @@ internal sealed partial class PuppeteerTab
         }
         catch (KeyNotFoundException)
         {
-            throw new BrowserActionException($"Unknown key \"{keys}\". Use key names such as Enter, Tab, Escape, " +
+            throw new BrowserActionException($"Unknown key \"{written}\". Use key names such as Enter, Tab, Escape, " +
                                              "ArrowDown, Backspace, or a combination like Control+A.");
         }
         finally
@@ -218,24 +262,14 @@ internal sealed partial class PuppeteerTab
         }
     }
 
-    private static string NormalizeKey(string key) => key.ToLowerInvariant() switch
-    {
-        "ctrl" or "control" => "Control",
-        "cmd" or "command" or "meta" or "win" or "super" => "Meta",
-        "alt" or "option" or "opt" => "Alt",
-        "shift" => "Shift",
-        "esc" or "escape" => "Escape",
-        "return" or "enter" => "Enter",
-        "del" or "delete" => "Delete",
-        "space" or "spacebar" => "Space",
-        "up" => "ArrowUp",
-        "down" => "ArrowDown",
-        "left" => "ArrowLeft",
-        "right" => "ArrowRight",
-        "pgup" => "PageUp",
-        "pgdn" => "PageDown",
-        _ => key.Length == 1 ? key : char.ToUpperInvariant(key[0]) + key[1..],
-    };
+    // 快照时已标过的直接认；没标到的（快照之后才换成密码框）当场再问一次页面
+    private static async Task<bool> IsPasswordFieldAsync(IElementHandle handle, AxNode node) =>
+        node.Secret || await handle.EvaluateFunctionAsync<bool>(IsPasswordScript);
+
+    // 用户给过密码也不代填：密码只经用户的手，模型改用接管
+    private static string PasswordRefusal(string field) =>
+        $"{field} is a password field, and passwords are never typed for the user, even one they gave you. " +
+        $"Call {BrowserTools.HandoffToolName} so the user types it in the browser window themselves.";
 
     private static string Describe(AxNode node) =>
         node.Name.Trim() is { Length: > 0 } name ? $"{node.Role} \"{name}\"" : node.Role;

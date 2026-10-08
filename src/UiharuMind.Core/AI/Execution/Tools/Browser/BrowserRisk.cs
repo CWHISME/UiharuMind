@@ -16,8 +16,12 @@ namespace UiharuMind.Core.AI.Execution.Tools.Browser;
 
 /// <summary>
 /// 浏览器调用里<b>任何权限档都要用户点一次</b>的那几类，是浏览器版的「越界写入贯穿三档」：
-/// 目前是导航到本机、内网与非 http(s) 地址——它们够得着用户网络里本不对外的东西（路由器后台、本地服务）。
-/// 只看地址字面，不解析 DNS：解析到内网的公网域名拦不住，与越界写入不解析软链同一个取舍。
+/// <list type="bullet">
+/// <item>导航到本机、内网与非 http(s) 地址——它们够得着用户网络里本不对外的东西（路由器后台、本地服务）。
+/// 只看地址字面，不解析 DNS：解析到内网的公网域名拦不住，与越界写入不解析软链同一个取舍。</item>
+/// <item>接管：那张卡就是「请你接手」，点「完成了」之前没有可放行的——它等的是用户的手，不是许可。</item>
+/// </list>
+/// 往密码框打字不在这里：它不问，工具当场拒（见 <c>PuppeteerTab.Actions</c>），点过「本会话允许」也拦得住。
 /// </summary>
 internal static class BrowserRisk
 {
@@ -25,12 +29,13 @@ internal static class BrowserRisk
     /// 这次调用是否在完全自动档下也要审批
     /// </summary>
     /// <param name="call">工具调用</param>
-    /// <returns>要审批为 true；不是浏览器导航、或没给地址（参数绑定当场失败，什么也打不开）为 false</returns>
-    public static bool RequiresApprovalInAllModes(FunctionCallContent call)
+    /// <returns>要审批为 true；不是浏览器调用、或导航没给地址（参数绑定当场失败，什么也打不开）为 false</returns>
+    public static bool RequiresApprovalInAllModes(FunctionCallContent call) => call.Name switch
     {
-        if (call.Name != BrowserTools.NavigateToolName) return false;
-        return ExtractUrl(call.Arguments) is { Length: > 0 } url && IsLocalTarget(url);
-    }
+        BrowserTools.HandoffToolName => true,
+        BrowserTools.NavigateToolName => ExtractUrl(call.Arguments) is { Length: > 0 } url && IsLocalTarget(url),
+        _ => false,
+    };
 
     /// <summary>
     /// 地址是否指向本机、内网或非 http(s)

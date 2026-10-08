@@ -46,6 +46,7 @@ public sealed class ConversationTranscript : ITurnSink
     private readonly Func<ChatMessage, IReadOnlyList<TextConversationItem>> _createUserItems;
     private readonly Action<string>? _rememberShellPattern;
     private readonly Func<AgentPathResolver?>? _pathsSource; //审批卡片预演 diff 要用它解析路径
+    private readonly Func<string?>? _sessionIdSource; //审批卡片说清浏览器动作、接管切窗口要认会话
     private readonly ThinkTagStreamParser _thinkParser = new();
     private readonly List<ApprovalRequestItem> _pending = new(); //待决审批(可被整体取消)
     private readonly List<ApprovalRequestItem> _round = new(); //本轮新增审批(供运行循环回应)
@@ -102,13 +103,15 @@ public sealed class ConversationTranscript : ITurnSink
     /// 那时工具调用与它的结果落在<b>不同批</b>里，只认本批的话结果永远配不上调用，
     /// 卡片会一直停在「历史里没有这次调用的结果」，直到整份回放才对上。
     /// </param>
+    /// <param name="sessionIdSource">当前会话 id 来源：浏览器调用的审批卡按它的标签页把编号翻成元素</param>
     public ConversationTranscript(
         IList<ConversationItemBase> target,
         Func<TextConversationItem> createAssistantItem,
         Action<string>? rememberShellPattern = null,
         Func<AgentPathResolver?>? pathsSource = null,
         IReadOnlyList<ConversationItemBase>? renderedBefore = null,
-        Func<ChatMessage, IReadOnlyList<TextConversationItem>>? createUserItems = null)
+        Func<ChatMessage, IReadOnlyList<TextConversationItem>>? createUserItems = null,
+        Func<string?>? sessionIdSource = null)
     {
         _target = target;
         _renderedBefore = renderedBefore;
@@ -117,6 +120,7 @@ public sealed class ConversationTranscript : ITurnSink
         _createUserItems = createUserItems ?? (_ => []);
         _rememberShellPattern = rememberShellPattern;
         _pathsSource = pathsSource;
+        _sessionIdSource = sessionIdSource;
     }
 
     // [诊断探针] 界面绑定集合必须在 UI 线程写入:Avalonia 的弱事件簿记不是线程安全的,
@@ -201,7 +205,7 @@ public sealed class ConversationTranscript : ITurnSink
 
             case ToolApprovalRequestContent approvalRequest:
                 ThinkingBoundary.Dispatch(approvalRequest, _thinkParser, AppendText, AppendThinking, CloseSegment);
-                ApprovalRequestItem approvalItem = new(approvalRequest, _pathsSource?.Invoke())
+                ApprovalRequestItem approvalItem = new(approvalRequest, _pathsSource?.Invoke(), _sessionIdSource?.Invoke())
                 {
                     RememberShellPatternCallback = pattern => _rememberShellPattern?.Invoke(pattern),
                 };

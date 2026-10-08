@@ -243,6 +243,132 @@
     <data name="AgentDeny" xml:space="preserve">
         <value>Deny</value>
     </data>
+    <data name="BrowserCallClick" xml:space="preserve">
+        <value>Click {0}</value>
+    </data>
+    <data name="BrowserCallFill" xml:space="preserve">
+        <value>Type “{1}” into {0}</value>
+    </data>
+    <data name="BrowserCallSelect" xml:space="preserve">
+        <value>Choose “{1}” in {0}</value>
+    </data>
+    <data name="BrowserCallCheck" xml:space="preserve">
+        <value>Check {0}</value>
+    </data>
+    <data name="BrowserCallUncheck" xml:space="preserve">
+        <value>Uncheck {0}</value>
+    </data>
+    <data name="BrowserCallPress" xml:space="preserve">
+        <value>Press {1} in {0}</value>
+    </data>
+    <data name="BrowserCallPressPage" xml:space="preserve">
+        <value>Press {0}</value>
+    </data>
+    <data name="BrowserCallHover" xml:space="preserve">
+        <value>Hover over {0}</value>
+    </data>
+    <data name="BrowserCallScrollUp" xml:space="preserve">
+        <value>Scroll the page up</value>
+    </data>
+    <data name="BrowserCallScrollDown" xml:space="preserve">
+        <value>Scroll the page down</value>
+    </data>
+    <data name="BrowserCallBack" xml:space="preserve">
+        <value>Go back to the previous page</value>
+    </data>
+    <data name="BrowserCallNavigate" xml:space="preserve">
+        <value>Open {0}</value>
+    </data>
+    <data name="BrowserCallSite" xml:space="preserve">
+        <value>Site: {0}</value>
+    </data>
+    <data name="BrowserElementNamed" xml:space="preserve">
+        <value>the “{1}” {0}</value>
+    </data>
+    <data name="BrowserElementRaw" xml:space="preserve">
+        <value>“{0}”</value>
+    </data>
+    <data name="BrowserElementUnnamed" xml:space="preserve">
+        <value>the {0}</value>
+    </data>
+    <data name="BrowserHandoffShowFailed" xml:space="preserve">
+        <value>Couldn't open the browser: {0}</value>
+    </data>
+    <data name="BrowserRoleButton" xml:space="preserve">
+        <value>button</value>
+    </data>
+    <data name="BrowserRoleLink" xml:space="preserve">
+        <value>link</value>
+    </data>
+    <data name="BrowserRoleTextbox" xml:space="preserve">
+        <value>text box</value>
+    </data>
+    <data name="BrowserRolePassword" xml:space="preserve">
+        <value>password box</value>
+    </data>
+    <data name="BrowserRoleSearchbox" xml:space="preserve">
+        <value>search box</value>
+    </data>
+    <data name="BrowserRoleCombobox" xml:space="preserve">
+        <value>drop-down</value>
+    </data>
+    <data name="BrowserRoleListbox" xml:space="preserve">
+        <value>list box</value>
+    </data>
+    <data name="BrowserRoleOption" xml:space="preserve">
+        <value>option</value>
+    </data>
+    <data name="BrowserRoleCheckbox" xml:space="preserve">
+        <value>checkbox</value>
+    </data>
+    <data name="BrowserRoleRadio" xml:space="preserve">
+        <value>radio button</value>
+    </data>
+    <data name="BrowserRoleSwitch" xml:space="preserve">
+        <value>switch</value>
+    </data>
+    <data name="BrowserRoleSlider" xml:space="preserve">
+        <value>slider</value>
+    </data>
+    <data name="BrowserRoleSpinbutton" xml:space="preserve">
+        <value>number box</value>
+    </data>
+    <data name="BrowserRoleMenuitem" xml:space="preserve">
+        <value>menu item</value>
+    </data>
+    <data name="BrowserRoleTab" xml:space="preserve">
+        <value>tab</value>
+    </data>
+    <data name="BrowserRoleTreeitem" xml:space="preserve">
+        <value>tree item</value>
+    </data>
+    <data name="BrowserRoleElement" xml:space="preserve">
+        <value>element</value>
+    </data>
+    <data name="BrowserHandoffTitle" xml:space="preserve">
+        <value>Take over the browser</value>
+    </data>
+    <data name="BrowserHandoffHint" xml:space="preserve">
+        <value>Click “Show browser”, do it in that window, then come back and click “Done, continue”.</value>
+    </data>
+    <data name="BrowserHandoffShow" xml:space="preserve">
+        <value>Show browser</value>
+    </data>
+    <data name="BrowserHandoffDone" xml:space="preserve">
+        <value>Done, continue</value>
+    </data>
+    <data name="BrowserHandoffCancel" xml:space="preserve">
+        <value>Cancel</value>
+    </data>
+    <data name="BrowserHandoffResolvedDone" xml:space="preserve">
+        <value>Handed back to the agent</value>
+    </data>
+    <data name="BrowserHandoffResolvedCancelled" xml:space="preserve">
+        <value>Cancelled</value>
+    </data>
+    <data name="BrowserHandoffNoWindow" xml:space="preserve">
+        <value>This browser runs without a window, so there is nothing to show.</value>
+    </data>
     <data name="AgentWorkspaceNone" xml:space="preserve">
         <value>No workspace</value>
     </data>

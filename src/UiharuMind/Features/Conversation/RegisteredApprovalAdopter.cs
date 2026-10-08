@@ -73,6 +73,8 @@ public sealed class RegisteredApprovalAdopter : IDisposable
     {
         // 先取结果再认领：已经决出的（晚打开的窗口补画出来的卡）认领不到，但结果查得到
         if (SessionApprovalRegistry.Instance.DecisionOf(sessionId, item.Request) is not { } decision) return;
+        // 早已决出的是补画的卡：那一步之后页面已经往下走了，按此刻的快照翻浏览器编号会说错
+        if (decision.IsCompleted) item.UseRecordedArguments();
         SessionApprovalRegistry.Instance.TryAdopt(sessionId, item.Request, item.Response);
         decision.ContinueWith(done => Dispatcher.UIThread.Post(() => item.MarkDecidedElsewhere(done.Result)),
             CancellationToken.None, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);

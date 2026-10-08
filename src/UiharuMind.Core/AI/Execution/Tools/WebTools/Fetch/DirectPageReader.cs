@@ -115,6 +115,21 @@ internal sealed partial class DirectPageReader : IPageReader
             : PageReadResult.Fail("no readable text");
     }
 
+    /// <summary>
+    /// 从一份现成的 HTML 里抽正文并整理成 Markdown：去掉脚本、导航、页眉页脚，取正文主体。
+    /// 浏览器读正文用它——那份 HTML 是脚本跑完之后的，这里读不出的 JS 渲染页在那边读得出
+    /// </summary>
+    /// <param name="html">页面 HTML</param>
+    /// <param name="ct">取消令牌</param>
+    /// <returns>正文；页面没有可读正文时为空串</returns>
+    internal static async Task<string> ExtractTextAsync(string html, CancellationToken ct)
+    {
+        using IBrowsingContext context = BrowsingContext.New(Configuration.Default);
+        using IDocument doc = await context.OpenAsync(v => v.Content(html), ct).ConfigureAwait(false);
+        StripNoise(doc);
+        return Extract(doc);
+    }
+
     /// <summary>页面自带的 AI 客户端指引（<c>meta[name=ai-instructions]</c>），不少 SPA 用它指路 REST API</summary>
     private static string? ExtractAiInstructions(IDocument doc)
     {
@@ -146,7 +161,12 @@ internal sealed partial class DirectPageReader : IPageReader
         //并选择器，一次性移除，减少 DOM 遍历次数
         string selector = string.Join(",", NoiseTags);
         foreach (IElement node in doc.QuerySelectorAll(selector).ToList())
+        {
+            // 文章自己的 header 装着标题与署名，留下；页眉、站点导航才是噪音。只认 article 的：
+            // main 里的 header 常是整页的标题栏（维基的语言列表就在里面，热门条目两百多行）
+            if (node.LocalName == "header" && node.Closest("article") != null) continue;
             node.Remove();
+        }
 
         foreach (IElement el in doc.QuerySelectorAll("*")
                      .Where(e => e.TagName is not ("IMG" or "BR" or "HR")
@@ -158,7 +178,8 @@ internal sealed partial class DirectPageReader : IPageReader
     // ── 正文提取 ──────────────────────────────────────────────
     private static string Extract(IDocument doc)
     {
-        IElement? root = doc.QuerySelector("article, main, [role='main']")
+        IElement? root = doc.QuerySelector("main, [role='main']")
+                         ?? ArticleRoot(doc)
                          ?? doc.QuerySelectorAll("section, div")
                              .MaxBy(e => e.QuerySelectorAll("p").Count);
 
@@ -166,6 +187,21 @@ internal sealed partial class DirectPageReader : IPageReader
         // 正文粘连成一坨。交给 CleanMarkup 转成结构化的 markdown。
         string raw = root?.InnerHtml ?? doc.Body?.InnerHtml ?? "";
         return CleanMarkup(raw);
+    }
+
+    /// <summary>
+    /// 没有 main 时按 article 找正文：只有一篇就是它；好几篇（时间线、论坛、评论区，脚本渲染后的页面里常见）
+    /// 取它们共同的祖先——只给第一篇，读到的就只是第一条帖子。套在别的 article 里的（评论）不算一篇
+    /// </summary>
+    private static IElement? ArticleRoot(IDocument doc)
+    {
+        List<IElement> articles = doc.QuerySelectorAll("article")
+            .Where(a => a.ParentElement?.Closest("article") == null).ToList();
+        if (articles.Count <= 1) return articles.FirstOrDefault();
+
+        IElement? common = articles[0].ParentElement;
+        while (common != null && !articles.All(a => common.Contains(a))) common = common.ParentElement;
+        return common;
     }
 
     /// <summary>

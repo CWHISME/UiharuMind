@@ -426,21 +426,45 @@
                                 <Grid ColumnDefinitions="Auto,*,Auto" Margin="2,0,2,4">
                                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6"
                                                 VerticalAlignment="Center">
-                                        <TextBlock Text="🔐" FontSize="11" VerticalAlignment="Center" />
+                                        <TextBlock Text="🔐" FontSize="11" VerticalAlignment="Center"
+                                                   IsVisible="{Binding !Card.IsBrowserHandoff}" />
+                                        <TextBlock Text="🙋" FontSize="11" VerticalAlignment="Center"
+                                                   IsVisible="{Binding Card.IsBrowserHandoff}" />
                                         <TextBlock FontSize="11" VerticalAlignment="Center"
                                                    Text="{Binding MemberName}" />
                                         <TextBlock Classes="mono" FontSize="11" VerticalAlignment="Center"
+                                                   IsVisible="{Binding !Card.IsBrowserHandoff}"
                                                    Text="{Binding Card.ToolName}" />
+                                        <TextBlock FontSize="11" VerticalAlignment="Center"
+                                                   IsVisible="{Binding Card.IsBrowserHandoff}"
+                                                   Text="{loc:Loc BrowserHandoffTitle}" />
                                     </StackPanel>
-                                    <TextBlock Grid.Column="1" Classes="muted mono" FontSize="11" Margin="6,0"
-                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                                               Text="{Binding Summary}" ToolTip.Tip="{Binding Card.ArgumentSummary}" />
+                                    <!-- 「切到浏览器」没切成时，那句说明顶替摘要：这一行没地方再加 -->
+                                    <Panel Grid.Column="1" Margin="6,0" VerticalAlignment="Center">
+                                        <TextBlock Classes="muted" Classes.mono="{Binding !Card.IsDescribed}"
+                                                   FontSize="11" TextTrimming="CharacterEllipsis"
+                                                   IsVisible="{Binding !Card.ShowBrowserStatus.Length}"
+                                                   Text="{Binding Summary}" ToolTip.Tip="{Binding Card.ArgumentSummary}" />
+                                        <TextBlock Classes="muted" FontSize="11" TextTrimming="CharacterEllipsis"
+                                                   IsVisible="{Binding !!Card.ShowBrowserStatus.Length}"
+                                                   Text="{Binding Card.ShowBrowserStatus}"
+                                                   ToolTip.Tip="{Binding Card.ShowBrowserStatus}" />
+                                    </Panel>
                                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
                                         <Button Classes="Small" CornerRadius="6"
+                                                IsVisible="{Binding Card.IsBrowserHandoff}"
+                                                Command="{Binding Card.ShowBrowserCommand}"
+                                                Content="{loc:Loc BrowserHandoffShow}" />
+                                        <Button Classes="Small" CornerRadius="6"
+                                                IsVisible="{Binding Card.IsBrowserHandoff}"
+                                                Command="{Binding Card.ResolveCommand}" CommandParameter="once"
+                                                Content="{loc:Loc BrowserHandoffDone}" />
+                                        <Button Classes="Small" CornerRadius="6"
+                                                IsVisible="{Binding !Card.IsBrowserHandoff}"
                                                 Command="{Binding Card.ResolveCommand}" CommandParameter="once"
                                                 Content="{loc:Loc AgentApproveOnce}" />
                                         <Button Classes="Small" CornerRadius="6"
-                                                IsVisible="{Binding !Card.CanRememberCommandPattern}"
+                                                IsVisible="{Binding Card.CanApproveForSession}"
                                                 Command="{Binding Card.ResolveCommand}" CommandParameter="session"
                                                 Content="{loc:Loc AgentApproveSession}" />
                                         <Button Classes="Small" CornerRadius="6"
@@ -449,8 +473,13 @@
                                                 Content="{loc:Loc AgentApproveSessionCommand}"
                                                 ToolTip.Tip="{Binding Card.SuggestedCommandPattern}" />
                                         <Button Classes="Small" CornerRadius="6" Foreground="IndianRed"
+                                                IsVisible="{Binding !Card.IsBrowserHandoff}"
                                                 Command="{Binding Card.ResolveCommand}" CommandParameter="deny"
                                                 Content="{loc:Loc AgentDeny}" />
+                                        <Button Classes="Small" CornerRadius="6" Foreground="IndianRed"
+                                                IsVisible="{Binding Card.IsBrowserHandoff}"
+                                                Command="{Binding Card.ResolveCommand}" CommandParameter="deny"
+                                                Content="{loc:Loc BrowserHandoffCancel}" />
                                         <Button Classes="Small" CornerRadius="6"
                                                 Command="{Binding OpenCommand}"
                                                 Content="{loc:Loc GroupApprovalOpen}" />

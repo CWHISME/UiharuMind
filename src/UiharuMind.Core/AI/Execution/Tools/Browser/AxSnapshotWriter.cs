@@ -32,6 +32,7 @@ public static class AxSnapshotWriter
     private const int MaxNameLength = 120;
     private const int MaxTextLength = 4000; //正文按段给足；整页超预算由落盘兜
     private const string TextPrefix = "- text: ";
+    private const string SecretMask = "••••••";
 
     /// <summary>
     /// 写一份快照
@@ -52,6 +53,7 @@ public static class AxSnapshotWriter
         line.Append(node.Role);
         if (name.Length > 0) line.Append(" \"").Append(name).Append('"');
         if (node.Level > 0) line.Append(" [level=").Append(node.Level).Append(']');
+        if (node.Secret) line.Append(" [password]");
         if (node.Checked == "true") line.Append(" [checked]");
         else if (node.Checked == "mixed") line.Append(" [checked=mixed]");
         if (node.Selected) line.Append(" [selected]");
@@ -59,7 +61,8 @@ public static class AxSnapshotWriter
         if (node.Expanded is { } expanded) line.Append(expanded ? " [expanded]" : " [collapsed]");
         if (node.Disabled) line.Append(" [disabled]");
         if (refId != null) line.Append(" [ref=").Append(refId).Append(']');
-        if (value.Length > 0) line.Append(": ").Append(value);
+        // 密码只说填没填：Chrome 本就给圆点，长度也不必透出去
+        if (value.Length > 0) line.Append(": ").Append(node.Secret ? SecretMask : value);
         return line.ToString();
     }
 

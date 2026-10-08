@@ -41,7 +41,74 @@ public interface IBrowserHost
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>动作之后的页面</returns>
     Task<BrowserPageView> ActAsync(string sessionId, BrowserActionRequest request, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 读会话标签页的正文（Markdown），不编号：读文章、文档、搜索结果用，比快照短得多
+    /// </summary>
+    /// <param name="sessionId">会话 id</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>正文</returns>
+    Task<BrowserTextView> ReadTextAsync(string sessionId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 截会话标签页看得见的那一屏
+    /// </summary>
+    /// <param name="sessionId">会话 id</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>截图</returns>
+    Task<BrowserScreenshot> ScreenshotAsync(string sessionId, CancellationToken cancellationToken);
+
+    /// <summary>有没有窗口给用户看；无头运行时没有，接管无从谈起</summary>
+    bool HasWindow { get; }
+
+    /// <summary>
+    /// 把会话的浏览器窗口切到最前，交给用户接手：此后闲置回收跳过它、页面弹窗留给用户，直到智能体再动这个标签页
+    /// </summary>
+    /// <param name="sessionId">会话 id</param>
+    /// <returns>切成为 true；没有窗口（无头运行）为 false</returns>
+    Task<bool> ShowAsync(string sessionId);
+
+    /// <summary>
+    /// 按会话最近一份快照把目标翻回元素，<b>不碰页面</b>：审批卡据此说清这一步动的是什么
+    /// </summary>
+    /// <param name="sessionId">会话 id</param>
+    /// <param name="target">编号或看得见的文字</param>
+    /// <returns>元素；会话没开过页面、或翻不出为 null</returns>
+    BrowserElement? PeekElement(string sessionId, string target);
+
+    /// <summary>
+    /// 会话标签页此刻的地址，不碰页面
+    /// </summary>
+    /// <param name="sessionId">会话 id</param>
+    /// <returns>地址；没开过页面为 null</returns>
+    string? PeekUrl(string sessionId);
 }
+
+/// <summary>
+/// 页面上的一个元素，给人看的那几样
+/// </summary>
+/// <param name="Role">角色（button、link、textbox…）</param>
+/// <param name="Name">可访问名称</param>
+/// <param name="Secret">是否密码框</param>
+public sealed record BrowserElement(string Role, string Name, bool Secret);
+
+/// <summary>
+/// 页面的正文
+/// </summary>
+/// <param name="Url">地址</param>
+/// <param name="Title">标题</param>
+/// <param name="Text">正文（Markdown）；页面没有可读正文时为空串</param>
+/// <param name="Notes">顺带发生的事（弹窗被关掉了）</param>
+public sealed record BrowserTextView(string Url, string Title, string Text, IReadOnlyList<string> Notes);
+
+/// <summary>
+/// 页面的截图
+/// </summary>
+/// <param name="Url">地址</param>
+/// <param name="Title">标题</param>
+/// <param name="Jpeg">JPEG 数据</param>
+/// <param name="Notes">顺带发生的事</param>
+public sealed record BrowserScreenshot(string Url, string Title, byte[] Jpeg, IReadOnlyList<string> Notes);
 
 /// <summary>
 /// 页面在某一刻的样子
