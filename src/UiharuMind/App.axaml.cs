@@ -141,6 +141,7 @@ public partial class App : Application, ILogger, IDisposable
             Services.GetRequiredService<DictationHotkey>();
             DictationIndicatorWindow.Attach(Services.GetRequiredService<IDictationService>(),
                 Services.GetRequiredService<ForegroundAppDictationTarget>());
+            MacInputDiagnostics.Install(); //输入法候选框偶尔不出来，查明原因用
             UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("di-container");
             DummyWindow.InitializeMainViewModel(Services.GetRequiredService<MainViewModel>());
             UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("main-viewmodel");

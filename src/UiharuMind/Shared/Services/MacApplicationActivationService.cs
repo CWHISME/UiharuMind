@@ -30,6 +30,7 @@ public static class MacApplicationActivationService
             TryTransformProcessType(isRegular);
             MacNative.SendBoolRetLong(app, MacNative.Selector("setActivationPolicy:"), policy);
             _currentPolicy = policy;
+            Log.Debug($"IME diag: activation policy -> {(isRegular ? "regular" : "accessory")}"); //见 MacInputDiagnostics
         }
         catch (Exception e)
         {
