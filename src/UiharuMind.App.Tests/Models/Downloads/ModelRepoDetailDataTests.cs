@@ -21,7 +21,7 @@ public class ModelRepoDetailDataTests : IDisposable
     private readonly DownloadQueue _queue = new(new FileDownloader(new HttpClient()));
     private IReadOnlyDictionary<string, string> _localModels = new Dictionary<string, string>();
     private int _openSettingsCount;
-    private Func<(EEngineEnsureState, VersionInfo?, DownloadJob?)> _ensureEngine =
+    private Func<(EEngineEnsureState, EnginePackage?, DownloadJob?)> _ensureEngine =
         () => (EEngineEnsureState.AlreadyInstalled, null, null);
 
     public void Dispose()

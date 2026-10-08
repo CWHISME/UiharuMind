@@ -88,7 +88,7 @@ public class ModelDownloadTabTests : IDisposable
             Downloader = new ModelRepoDownloader(_queue),
             ModelRoot = () => _root,
             LocalModels = () => new Dictionary<string, string> { ["Qwen3-8B-Q8_0"] = "/Models/Qwen3-8B-Q8_0.gguf" },
-            EnsureEngine = () => Task.FromResult((EEngineEnsureState.AlreadyInstalled, (VersionInfo?)null, (DownloadJob?)null)),
+            EnsureEngine = () => Task.FromResult((EEngineEnsureState.AlreadyInstalled, (EnginePackage?)null, (DownloadJob?)null)),
         DeviceInfo = () => new RuntimeDeviceInfo(16 * GiB, 8 * GiB, 0, 0, 0, "", "", "", DateTimeOffset.Now)
         }), _queue);
 

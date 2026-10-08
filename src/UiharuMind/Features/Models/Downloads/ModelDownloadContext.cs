@@ -61,8 +61,8 @@ public sealed record ModelDownloadContext(
     /// <summary>
     /// 本机没有引擎时把推荐包排在模型前面（会联网，别在界面线程等）
     /// </summary>
-    public Func<Task<(EEngineEnsureState State, VersionInfo? Version, DownloadJob? Job)>> EnsureEngine { get; init; } =
-        () => LLamaCppEngine.Shared.Installer.EnsureQueuedAsync();
+    public Func<Task<(EEngineEnsureState State, EnginePackage? Version, DownloadJob? Job)>> EnsureEngine { get; init; } =
+        () => ((ILocalEngine)LLamaCppEngine.Shared).EnsureQueuedAsync();
 
     /// <summary>
     /// 本机设备信息

@@ -1,3 +1,4 @@
+using UiharuMind.Features.Settings.Engines;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -254,38 +255,9 @@ public partial class ModelRepoDetailData : ObservableObject, IDisposable
     private Task UseModel(ModelQuantRowData row) => _context.UseModel(row.Quant.Name);
 
     // 本机没有引擎时不问，直接把推荐包一起排进去；拉不到包也不拦着下模型
-    private async Task EnsureEngineAsync()
-    {
-        try
-        {
-            var (state, version, job) = await Task.Run(_context.EnsureEngine);
-            if (state == EEngineEnsureState.NoPackage)
-            {
-                _context.Messages.ShowNotification(Loc.Text(LangKey.ModelDownloadEngineNoPackage), severity: MessageSeverity.Warning);
-                return;
-            }
-
-            if (state != EEngineEnsureState.Queued || version == null || job == null) return;
-            _context.Messages.ShowNotification(Loc.Text(LangKey.ModelDownloadEngineQueued, version.Name));
-            job.PropertyChanged += (_, e) =>
-            {
-                if (e.PropertyName != nameof(DownloadJob.State)) return;
-                if (job.State == EDownloadJobState.Completed)
-                    UiDispatcher.FireAndForget(() => _context.Messages.ShowNotification(
-                        Loc.Text(LangKey.ModelDownloadEngineInstalled, version.Name), severity: MessageSeverity.Success));
-                else if (job.State == EDownloadJobState.Failed)
-                    UiDispatcher.FireAndForget(() => _context.Messages.ShowNotification(
-                        Loc.Text(LangKey.ModelDownloadEngineFailed, version.Name, job.Error?.Message ?? ""),
-                        severity: MessageSeverity.Error));
-            };
-        }
-        catch (Exception e)
-        {
-            Log.Warning($"Ensure runtime engine failed: {e.Message}");
-            _context.Messages.ShowNotification(Loc.Text(LangKey.ModelDownloadEngineCheckFailed, e.Message),
-                severity: MessageSeverity.Warning);
-        }
-    }
+    private Task EnsureEngineAsync() => EngineInstallFeedback.EnsureAsync(_context.EnsureEngine, _context.Messages,
+        new EngineEnsureTexts(LangKey.ModelDownloadEngineNoPackage, LangKey.ModelDownloadEngineQueued,
+            LangKey.ModelDownloadEngineCheckFailed));
 
     [RelayCommand]
     private void OpenSourceSettings() => _context.OpenSourceSettings();

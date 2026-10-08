@@ -1,3 +1,4 @@
+using UiharuMind.Features.Settings.Engines;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -163,41 +164,13 @@ public partial class AudioMarketData : ObservableObject, IModelMarket
     private async Task InstallEngine()
     {
         IsEngineQueued = true;
-        try
-        {
-            var (state, version, job) = await Task.Run(() => _context.AudioEngine.Distribution.Installer.EnsureQueuedAsync());
-            switch (state)
-            {
-                case EEngineEnsureState.NoPackage:
-                    IsEngineQueued = false;
-                    _context.Messages.ShowNotification(Loc.Text(LangKey.AudioEngineNoPackage), severity: MessageSeverity.Warning);
-                    return;
-                case EEngineEnsureState.AlreadyInstalled:
-                    await ReloadAsync();
-                    return;
-                case EEngineEnsureState.Queued when version != null && job != null:
-                    _context.Messages.ShowNotification(Loc.Text(LangKey.AudioEngineQueued, version.Name));
-                    job.PropertyChanged += (_, e) =>
-                    {
-                        if (e.PropertyName != nameof(DownloadJob.State) || job.State != EDownloadJobState.Failed) return;
-                        UiDispatcher.FireAndForget(() =>
-                        {
-                            IsEngineQueued = false;
-                            _context.Messages.ShowNotification(
-                                Loc.Text(LangKey.ModelDownloadEngineFailed, version.Name, job.Error?.Message ?? ""),
-                                severity: MessageSeverity.Error);
-                        });
-                    };
-                    return;
-            }
-        }
-        catch (Exception e)
-        {
-            IsEngineQueued = false;
-            Log.Warning($"Ensure audio.cpp engine failed: {e.Message}");
-            _context.Messages.ShowNotification(Loc.Text(LangKey.AudioEngineCheckFailed, e.Message),
-                severity: MessageSeverity.Warning);
-        }
+        ILocalEngine engine = _context.AudioEngine.Distribution;
+        EEngineEnsureState? state = await EngineInstallFeedback.EnsureAsync(() => engine.EnsureQueuedAsync(),
+            _context.Messages,
+            new EngineEnsureTexts(LangKey.AudioEngineNoPackage, LangKey.AudioEngineQueued, LangKey.AudioEngineCheckFailed),
+            () => IsEngineQueued = false);
+        if (state == EEngineEnsureState.AlreadyInstalled) await ReloadAsync();
+        else if (state != EEngineEnsureState.Queued) IsEngineQueued = false;
     }
 
     [RelayCommand]

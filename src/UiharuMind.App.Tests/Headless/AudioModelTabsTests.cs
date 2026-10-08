@@ -348,7 +348,7 @@ public class AudioModelTabsTests : IDisposable
                 Downloader = new ModelRepoDownloader(queue),
                 ModelRoot = () => audio.ModelRoot,
                 LocalModels = () => new Dictionary<string, string>(),
-                EnsureEngine = () => Task.FromResult((EEngineEnsureState.AlreadyInstalled, (VersionInfo?)null, (DownloadJob?)null)),
+                EnsureEngine = () => Task.FromResult((EEngineEnsureState.AlreadyInstalled, (EnginePackage?)null, (DownloadJob?)null)),
                 DeviceInfo = () => new RuntimeDeviceInfo(16 * GiB, 8 * GiB, 0, 0, 0, "", "", "", DateTimeOffset.Now),
                 AudioEngine = audio.Engine,
                 AudioStore = audio.Store,

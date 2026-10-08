@@ -140,17 +140,7 @@ public partial class EngineVersionsViewData : ObservableObject
         if (AvailableUpdate is not { } version) return;
         DownloadJob job = _source.Enqueue(version);
         _messageService.ShowNotification(Loc.Text(LangKey.LLamaCppUpdateQueued, version.Name));
-        job.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName != nameof(DownloadJob.State)) return;
-            if (job.State == EDownloadJobState.Completed)
-                UiDispatcher.FireAndForget(() => _messageService.ShowNotification(
-                    Loc.Text(LangKey.ModelDownloadEngineInstalled, version.Name), severity: MessageSeverity.Success));
-            else if (job.State == EDownloadJobState.Failed)
-                UiDispatcher.FireAndForget(() => _messageService.ShowNotification(
-                    Loc.Text(LangKey.ModelDownloadEngineFailed, version.Name, job.Error?.Message ?? ""),
-                    severity: MessageSeverity.Error));
-        };
+        EngineInstallFeedback.Watch(job, version.Name, _messageService);
     }
 
     [RelayCommand]
