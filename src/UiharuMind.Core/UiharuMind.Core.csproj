@@ -71,4 +71,10 @@
     <!-- 用 fork 的子模块：原包的扫描停不下来、忽略规则只认引擎根往下 -->
     <ProjectReference Include="..\ThirdParty\Glacier.Grep\src\Glacier.Grep\Glacier.Grep.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- 内置的可下载生图模型（照 sd.cpp 文档转写） -->
+    <EmbeddedResource Include="AI\ImageGeneration\Local\image-models.json"
+                      LogicalName="UiharuMind.Core.AI.ImageGeneration.Local.image-models.json" />
+  </ItemGroup>
+
 </Project>

@@ -15,9 +15,22 @@ public static class ImageSizing
     /// <param name="maxEdge">单边上限</param>
     /// <returns>宽高</returns>
     public static (int Width, int Height) ToPixels(ImageAspectRatio ratio, EImageResolution resolution,
+        int multiple, int minEdge, int maxEdge) =>
+        ToPixels(ratio, resolution.SquareEdge(), multiple, minEdge, maxEdge);
+
+    /// <summary>
+    /// 按面积不变换算宽高（面积取基准边长的平方），再对齐到倍数并夹进上下限
+    /// </summary>
+    /// <param name="ratio">比例</param>
+    /// <param name="squareEdge">基准边长</param>
+    /// <param name="multiple">宽高须是它的倍数</param>
+    /// <param name="minEdge">单边下限</param>
+    /// <param name="maxEdge">单边上限</param>
+    /// <returns>宽高</returns>
+    public static (int Width, int Height) ToPixels(ImageAspectRatio ratio, int squareEdge,
         int multiple, int minEdge, int maxEdge)
     {
-        double area = Math.Pow(resolution.SquareEdge(), 2);
+        double area = Math.Pow(squareEdge, 2);
         double width = Math.Sqrt(area * ratio.Value);
         double height = width / ratio.Value;
 

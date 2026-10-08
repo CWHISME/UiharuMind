@@ -47,6 +47,7 @@ public sealed class ModelRepoDownloader(DownloadQueue queue)
     /// <param name="quant">主模型</param>
     /// <param name="projector">一起下的视觉投影，不要为 null</param>
     /// <param name="onCompleted">全部文件齐了之后调一次（在下载线程上）</param>
+    /// <param name="componentOnly">只作生图组件下载：清单里标出来，不进对话模型列表</param>
     /// <returns>排进去的下载项；全都已有时为空</returns>
     public IReadOnlyList<DownloadJob> Enqueue(
         IModelSource source,
@@ -54,7 +55,8 @@ public sealed class ModelRepoDownloader(DownloadQueue queue)
         string modelRoot,
         ModelRepoQuant quant,
         ModelRepoQuant? projector,
-        Func<Task>? onCompleted = null)
+        Func<Task>? onCompleted = null,
+        bool componentOnly = false)
     {
         string directory = RepoDirectory(modelRoot, repository);
         List<ModelRepoFile> files = [..quant.Files, ..projector?.Files ?? []];
@@ -67,7 +69,7 @@ public sealed class ModelRepoDownloader(DownloadQueue queue)
             jobs.Add(queue.Enqueue(Path.GetFileName(path), source.CreateDownload(repository, file, path),
                 async _ =>
                 {
-                    RecordInManifest(source.Id, repository, directory, quant, projector);
+                    RecordInManifest(source.Id, repository, directory, quant, projector, componentOnly);
                     if (onCompleted == null || !files.All(x => File.Exists(FilePath(directory, x)))) return;
                     if (Interlocked.Exchange(ref completed, 1) == 0) await onCompleted().ConfigureAwait(false);
                 }));
@@ -76,9 +78,10 @@ public sealed class ModelRepoDownloader(DownloadQueue queue)
         return jobs;
     }
 
-    // 以磁盘为准重写这个量化的条目：已落盘的文件才记，分片按片序
+    // 以磁盘为准重写这个量化的条目：已落盘的文件才记，分片按片序。
+    // 「只作组件」只在新建条目时标；用户另把它当对话模型下载就清掉
     private static void RecordInManifest(string sourceId, string repository, string directory,
-        ModelRepoQuant quant, ModelRepoQuant? projector)
+        ModelRepoQuant quant, ModelRepoQuant? projector, bool componentOnly)
     {
         lock (ManifestGate)
         {
@@ -89,8 +92,12 @@ public sealed class ModelRepoDownloader(DownloadQueue queue)
             ManifestModel? model = manifest.Models.FirstOrDefault(x => x.Files.Any(f => names.Contains(f.Path)));
             if (model == null)
             {
-                model = new ManifestModel();
+                model = new ManifestModel { ComponentOnly = componentOnly };
                 manifest.Models.Add(model);
+            }
+            else if (!componentOnly)
+            {
+                model.ComponentOnly = false;
             }
 
             model.Files = Downloaded(directory, quant).ToList();
