@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using UiharuMind.Core.Core.SimpleLog;
@@ -19,10 +20,20 @@ namespace UiharuMind.Shared.Services;
 /// Avalonia 用同一份源码编出了 <c>AvnWindow</c> 与 <c>AvnPanel</c>（native 里靠 IS_NSPANEL 分支），
 /// 两者 ivar 布局一致，所以能直接换类；拿不到 AvnPanel 就原样返回，调用方退回普通窗口行为。
 /// </para>
+/// <para>
+/// ⚠️ 真关之前必须 <see cref="RestoreWindowClass"/> 换回原类。Show 之后 AppKit 已经在窗口上登记了观察者
+/// （窗口的类此时常是 KVO 动态生成的子类），换类把这份登记弄丢了，销毁时注销不掉就抛 NSRangeException
+/// 中止进程（「Cannot remove an observer … _windowLayerContext … from AvnPanel」，独立复现过：换类后关窗必崩，换回再关不崩）。
+/// 只隐藏不关的窗口不受影响。
+/// </para>
 /// </summary>
 public static class MacPanelWindowService
 {
     private const ulong NonactivatingPanelStyleMask = 1UL << 7;
+
+    private static readonly ConditionalWeakTable<Window, OriginalClass> Originals = new(); //换类前的原类，销毁前换回
+
+    private sealed record OriginalClass(IntPtr Handle);
 
     /// <summary>
     /// 把窗口转成 nonactivating panel。须在 Show 之后调用（此前拿不到原生句柄）。
@@ -41,8 +52,12 @@ public static class MacPanelWindowService
             var nsWindow = handle.Handle;
             var panelClass = MacNative.GetClass("AvnPanel");
             if (panelClass == IntPtr.Zero) return false;
-            if (MacNative.GetObjectClass(nsWindow) != panelClass && MacNative.SetObjectClass(nsWindow, panelClass) == IntPtr.Zero)
-                return false;
+            var currentClass = MacNative.GetObjectClass(nsWindow);
+            if (currentClass != panelClass)
+            {
+                if (MacNative.SetObjectClass(nsWindow, panelClass) == IntPtr.Zero) return false;
+                Originals.AddOrUpdate(window, new OriginalClass(currentClass));
+            }
 
             var styleMask = MacNative.SendULongRet(nsWindow, MacNative.Selector("styleMask"));
             MacNative.SendULong(nsWindow, MacNative.Selector("setStyleMask:"), styleMask | NonactivatingPanelStyleMask);
@@ -52,6 +67,31 @@ public static class MacPanelWindowService
         {
             Log.Warning($"Failed to convert window to macOS panel: {e.Message}");
             return false;
+        }
+    }
+
+    /// <summary>
+    /// 把转过 panel 的窗口换回原来的类（真关、原生窗口销毁之前调；见类注释）。没转过的什么都不做
+    /// </summary>
+    /// <param name="window">要关的窗口</param>
+    public static void RestoreWindowClass(Window window)
+    {
+        if (!PlatformUtils.IsMacOS || !Originals.TryGetValue(window, out OriginalClass? original)) return;
+        Originals.Remove(window);
+
+        try
+        {
+            var handle = window.TryGetPlatformHandle();
+            if (handle == null || handle.Handle == IntPtr.Zero) return;
+
+            var nsWindow = handle.Handle;
+            var styleMask = MacNative.SendULongRet(nsWindow, MacNative.Selector("styleMask"));
+            MacNative.SendULong(nsWindow, MacNative.Selector("setStyleMask:"), styleMask & ~NonactivatingPanelStyleMask);
+            MacNative.SetObjectClass(nsWindow, original.Handle);
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Failed to restore macOS window class: {e.Message}");
         }
     }
 

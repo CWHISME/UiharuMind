@@ -87,6 +87,19 @@ public class InputSimulateManager : Singleton<InputSimulateManager>, IInitialize
         }
     }
 
+    /// <summary>
+    /// 往前台应用发一次「粘贴」：macOS 是 Cmd+V，别处 Ctrl+V
+    /// </summary>
+    /// <returns>按完松开后完成</returns>
+    public async Task SendPaste()
+    {
+        KeyCode modifier = OperatingSystem.IsMacOS() ? KeyCode.VcLeftMeta : KeyCode.VcLeftControl;
+        SimulateKeyPress(modifier);
+        await Task.Delay(20);
+        await SendKeyPress(KeyCode.VcV, 20);
+        SimulateKeyRelease(modifier);
+    }
+
     public void SimulateKeyPress(KeyCode keyCode)
     {
         try

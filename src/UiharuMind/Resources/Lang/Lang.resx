@@ -5191,4 +5191,16 @@ Allow them?</value>
     <data name="AudioOptionHotwordsNote" xml:space="preserve">
         <value>Words to favor, separated by slashes or new lines.</value>
     </data>
+    <data name="ShortcutDictationOtherApps" xml:space="preserve">
+        <value>Use in other apps</value>
+    </data>
+    <data name="ShortcutDictationOtherAppsDesc" xml:space="preserve">
+        <value>Hold to talk while another app is in front and the recognized text is pasted into it. The clipboard is borrowed briefly and restored afterwards, without entering clipboard history. On macOS this needs Accessibility permission.</value>
+    </data>
+    <data name="DictationIndicatorListening" xml:space="preserve">
+        <value>Listening, release to finish</value>
+    </data>
+    <data name="DictationIndicatorTranscribing" xml:space="preserve">
+        <value>Transcribing…</value>
+    </data>
 </root>

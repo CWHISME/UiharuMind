@@ -50,6 +50,14 @@ public class MacWindowFocusBehavior : IWindowFocusBehavior
 
     public void PrepareClose(UiharuWindowBase window) => MacWindowFocusGuard.SuppressKeyHandoff(window);
 
+    // 换过类的窗口带着换类前的观察者登记，按 panel 销毁时 AppKit 注销不掉会中止进程，销毁前换回去
+    public void BeforeDestroy(UiharuWindowBase window)
+    {
+        if (!_isNonactivatingPanel) return;
+        _isNonactivatingPanel = false;
+        MacPanelWindowService.RestoreWindowClass(window);
+    }
+
     /// <summary>
     /// 临时把窗口抬到 floating 层压过前台应用。
     /// macOS 不让后台应用的普通层窗口排到前台应用之前（orderFrontRegardless 与自激活都试过，

@@ -121,6 +121,11 @@ public class SettingConfig : TConfigBase<SettingConfig>
     /// </summary>
     public bool DictationHoldEnabled { get; set; } = true;
 
+    /// <summary>
+    /// 按住说话在别的应用里也能用：识别出的文字粘贴进当时在前台的应用（借用剪贴板，粘完还原）
+    /// </summary>
+    public bool DictationInOtherApps { get; set; }
+
     private string _captureScreenShortcut = DefaultCaptureScreenShortcut;
     private string _quickStartChatShortcut = DefaultQuickStartChatShortcut;
     private string _clipboardHistoryShortcut = DefaultClipboardHistoryShortcut;

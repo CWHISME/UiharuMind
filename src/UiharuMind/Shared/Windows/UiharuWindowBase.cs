@@ -162,6 +162,7 @@ public abstract class UiharuWindowBase : Window
         }
 
         base.OnClosing(e);
+        if (!e.Cancel) _focusBehavior.BeforeDestroy(this);
     }
 
     public virtual void SafeClose()

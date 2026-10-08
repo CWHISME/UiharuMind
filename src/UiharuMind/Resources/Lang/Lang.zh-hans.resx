@@ -5184,4 +5184,16 @@
     <data name="AudioOptionHotwordsNote" xml:space="preserve">
         <value>优先识别的词，用斜杠或换行分隔。</value>
     </data>
+    <data name="ShortcutDictationOtherApps" xml:space="preserve">
+        <value>在别的应用里也能用</value>
+    </data>
+    <data name="ShortcutDictationOtherAppsDesc" xml:space="preserve">
+        <value>别的应用在前台时按住说话，识别出的文字粘贴进那个应用。会临时借用剪贴板，粘贴后还原，不进剪贴板历史；macOS 需要辅助功能权限。</value>
+    </data>
+    <data name="DictationIndicatorListening" xml:space="preserve">
+        <value>正在听，松开结束</value>
+    </data>
+    <data name="DictationIndicatorTranscribing" xml:space="preserve">
+        <value>识别中…</value>
+    </data>
 </root>

@@ -67,6 +67,7 @@ public class ClipboardService : IDisposable
 
     private bool _isSelfCopying;
     private string? _lastRecordedText; //上一条记进历史的文本,只用于去重
+    private DateTime _ignoreChangesUntil; //这之前的剪贴板变化是自己借用造成的,不记历史
 
     public bool IsSelfCopying
     {
@@ -113,6 +114,13 @@ public class ClipboardService : IDisposable
             Log.Error(e.Message);
         }
     }
+
+    /// <summary>
+    /// 接下来这段时间的剪贴板变化不记历史（自己临时借用剪贴板时用：放进去、粘完再还原，这两下都不是用户复制的）。
+    /// 按时间而不是按次数：轮询式的监控可能把两次变化合成一次报
+    /// </summary>
+    /// <param name="duration">多久</param>
+    public void IgnoreChangesFor(TimeSpan duration) => _ignoreChangesUntil = DateTime.UtcNow + duration;
 
     public async Task<string?> GetFromClipboard()
     {
@@ -293,6 +301,7 @@ public class ClipboardService : IDisposable
 
     private void OnSystemClipboardChanged()
     {
+        if (DateTime.UtcNow < _ignoreChangesUntil) return;
         if (_isSelfCopying)
         {
             _isSelfCopying = false;
