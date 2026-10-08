@@ -2,7 +2,13 @@ namespace UiharuMind.Core.Core.Utils;
 
 public abstract class ReleaseVersionManagerBase<TVersion> where TVersion : ManagedVersionPackage, new()
 {
+    /// <summary>
+    /// 工作列表，只在 <see cref="ExclusiveAsync"/> 里改；对外给的是 <see cref="VersionsList"/> 快照
+    /// </summary>
     protected readonly List<TVersion> Versions = [];
+
+    private readonly SemaphoreSlim _sync = new(1, 1); //扫描与拉取互斥：设置页、启动检查更新、装引擎会同时来
+    private TVersion[] _snapshot = [];
 
     protected abstract string Owner { get; }
     protected abstract string Repository { get; }
@@ -14,61 +20,75 @@ public abstract class ReleaseVersionManagerBase<TVersion> where TVersion : Manag
 
     public string? ReleaseInfoText { get; protected set; }
     public GitHubReleaseInfo? LatestReleaseInfo { get; protected set; }
-    public IReadOnlyList<TVersion> VersionsList => Versions;
 
-    public async Task<IReadOnlyList<TVersion>> GetLocalVersionsAsync(
+    /// <summary>
+    /// 最近一次扫描或拉取的结果（快照，调用方随便遍历）
+    /// </summary>
+    public IReadOnlyList<TVersion> VersionsList => Volatile.Read(ref _snapshot);
+
+    public Task<IReadOnlyList<TVersion>> GetLocalVersionsAsync(
         string rootDirectory,
         bool forceNew = false,
         CancellationToken cancellationToken = default)
     {
-        await GetLocalVersionsAsync(rootDirectory, Versions, forceNew || Versions.Count > 0, cancellationToken)
-            .ConfigureAwait(false);
-
-        return Versions;
+        return ExclusiveAsync(() => ScanLocalVersionsAsync(rootDirectory, Versions, forceNew || Versions.Count > 0,
+            null, cancellationToken), cancellationToken);
     }
 
-    public async Task<IReadOnlyList<TVersion>> GetLocalVersionsAsync(
-        string rootDirectory,
-        List<TVersion> versions,
-        bool clearVersions = false,
-        CancellationToken cancellationToken = default)
-    {
-        await ScanLocalVersionsAsync(rootDirectory, versions, clearVersions, null, cancellationToken)
-            .ConfigureAwait(false);
-        return versions;
-    }
-
-    public async Task<IReadOnlyList<TVersion>> PullLatestVersionsAsync(
+    public Task<IReadOnlyList<TVersion>> PullLatestVersionsAsync(
         string rootDirectory,
         CancellationToken cancellationToken = default)
     {
-        await GetLocalVersionsAsync(rootDirectory, true, cancellationToken).ConfigureAwait(false);
-
-        GitHubReleaseInfo? release = await ResolveRemoteReleaseAsync(HasUsableAssets, cancellationToken)
-            .ConfigureAwait(false);
-        if (release == null) return Versions;
-
-        LatestReleaseInfo = release;
-        ReleaseInfoText = CreateReleaseInfoText(release);
-        IReadOnlyList<GitHubReleaseAssetInfo> assets = GitHubReleaseAssetHelper.SelectPlatformAssets(
-            release.Assets,
-            GetAssetSelectOptions());
-
-        foreach (GitHubReleaseAssetInfo asset in assets)
+        return ExclusiveAsync(async () =>
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (!ShouldIncludeAsset(asset)) continue;
+            await ScanLocalVersionsAsync(rootDirectory, Versions, true, null, cancellationToken).ConfigureAwait(false);
 
-            TVersion version = CreateVersionFromAssetCore(release, asset, rootDirectory);
-            TVersion? existing = Versions.FirstOrDefault(x => x.Name == version.Name);
-            if (existing is { IsInstalled: true }) continue;
+            GitHubReleaseInfo? release = await ResolveRemoteReleaseAsync(HasUsableAssets, cancellationToken)
+                .ConfigureAwait(false);
+            if (release == null) return;
 
-            ValidateAndRefresh(version);
-            AddOrReplaceVersion(version);
+            LatestReleaseInfo = release;
+            ReleaseInfoText = CreateReleaseInfoText(release);
+            IReadOnlyList<GitHubReleaseAssetInfo> assets = GitHubReleaseAssetHelper.SelectPlatformAssets(
+                release.Assets,
+                GetAssetSelectOptions());
+
+            foreach (GitHubReleaseAssetInfo asset in assets)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!ShouldIncludeAsset(asset)) continue;
+
+                TVersion version = CreateVersionFromAssetCore(release, asset, rootDirectory);
+                TVersion? existing = Versions.FirstOrDefault(x => x.Name == version.Name);
+                if (existing is { IsInstalled: true }) continue;
+
+                ValidateAndRefresh(version);
+                AddOrReplaceVersion(version);
+            }
+        }, cancellationToken);
+    }
+
+    /// <summary>
+    /// 独占地改工作列表，完了排序并发布快照
+    /// </summary>
+    /// <param name="body">改列表的活</param>
+    /// <param name="cancellationToken">取消</param>
+    /// <returns>新快照</returns>
+    protected async Task<IReadOnlyList<TVersion>> ExclusiveAsync(Func<Task> body, CancellationToken cancellationToken)
+    {
+        await _sync.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await body().ConfigureAwait(false);
+            SortVersions();
+            TVersion[] snapshot = Versions.ToArray();
+            Volatile.Write(ref _snapshot, snapshot);
+            return snapshot;
         }
-
-        SortVersions();
-        return Versions;
+        finally
+        {
+            _sync.Release();
+        }
     }
 
     private bool HasUsableAssets(GitHubReleaseInfo release)
