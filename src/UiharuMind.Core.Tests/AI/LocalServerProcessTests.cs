@@ -1,3 +1,4 @@
+using UiharuMind.Core.AI.Engines;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Runtime;
 using UiharuMind.Core.AI.Runtime.Backends;
@@ -5,14 +6,14 @@ using UiharuMind.Core.AI.Runtime.Backends;
 namespace UiharuMind.Core.Tests.AI;
 
 /// <summary>
-/// llama-server 起不来时必须如实失败、带上日志尾巴。
+/// 本地引擎服务起不来时必须如实失败、带上日志尾巴。
 /// 旧实现看到 "error" 开头的日志就把失败的进程标成已加载，用户只看到一个永远不回话的模型。
 /// </summary>
-public class LlamaServerProcessTests : IDisposable
+public class LocalServerProcessTests : IDisposable
 {
     private readonly string _directory = Path.Combine(Path.GetTempPath(), $"uiharu-server-{Guid.NewGuid():N}");
 
-    public LlamaServerProcessTests()
+    public LocalServerProcessTests()
     {
         Directory.CreateDirectory(_directory);
     }
@@ -28,8 +29,8 @@ public class LlamaServerProcessTests : IDisposable
         Assert.SkipWhen(OperatingSystem.IsWindows(), "fake server is a shell script");
         string exe = WriteScript("echo 'load_tensors: loading'\necho 'error: failed to load model' >&2\nexit 3");
 
-        LlamaServerException error = await Assert.ThrowsAsync<LlamaServerException>(() =>
-            LlamaServerProcess.StartAsync(exe, [], TimeSpan.FromSeconds(10), null, CancellationToken.None));
+        LocalServerException error = await Assert.ThrowsAsync<LocalServerException>(() =>
+            LocalServerProcess.StartAsync(Launch(exe, TimeSpan.FromSeconds(10)), null, CancellationToken.None));
 
         Assert.Contains("exit code 3", error.Message);
         Assert.Contains("failed to load model", error.LogTail);
@@ -42,8 +43,8 @@ public class LlamaServerProcessTests : IDisposable
         Assert.SkipWhen(OperatingSystem.IsWindows(), "fake server is a shell script");
         string exe = WriteScript("echo 'still loading'\nsleep 30");
 
-        LlamaServerException error = await Assert.ThrowsAsync<LlamaServerException>(() =>
-            LlamaServerProcess.StartAsync(exe, [], TimeSpan.FromMilliseconds(600), null, CancellationToken.None));
+        LocalServerException error = await Assert.ThrowsAsync<LocalServerException>(() =>
+            LocalServerProcess.StartAsync(Launch(exe, TimeSpan.FromMilliseconds(600)), null, CancellationToken.None));
 
         Assert.Contains("not ready", error.Message);
     }
@@ -51,15 +52,15 @@ public class LlamaServerProcessTests : IDisposable
     [Fact]
     public async Task MissingExecutable_Fails()
     {
-        await Assert.ThrowsAsync<LlamaServerException>(() =>
-            LlamaServerProcess.StartAsync(Path.Combine(_directory, "nope"), [], TimeSpan.FromSeconds(1), null,
+        await Assert.ThrowsAsync<LocalServerException>(() =>
+            LocalServerProcess.StartAsync(Launch(Path.Combine(_directory, "nope"), TimeSpan.FromSeconds(1)), null,
                 CancellationToken.None));
     }
 
     [Fact]
     public void FreePort_IsUsable()
     {
-        Assert.InRange(LlamaServerProcess.FindFreePort(), 1, 65535);
+        Assert.InRange(LocalServerProcess.FindFreePort(), 1, 65535);
     }
 
     [Fact]
@@ -81,6 +82,17 @@ public class LlamaServerProcessTests : IDisposable
         Assert.Contains("--jinja", args);
         Assert.DoesNotContain("--port", args); //端口由进程自选
     }
+
+    [Fact]
+    public void LlamaLaunch_AppendsHostAndAssignedPort()
+    {
+        LocalServerLaunch launch = LLamaCppServerArgs.Launch("/bin/llama-server", ["-m", "a.gguf"], TimeSpan.FromSeconds(1));
+
+        Assert.Equal(["-m", "a.gguf", "--host", "127.0.0.1", "--port", "4321"], launch.BuildArguments(4321));
+    }
+
+    private static LocalServerLaunch Launch(string exe, TimeSpan readyTimeout) =>
+        new("fake-server", exe, _ => [], readyTimeout);
 
     private string WriteScript(string body)
     {

@@ -10,6 +10,7 @@
  ****************************************************************************/
 
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Engines;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Configs;
@@ -21,9 +22,13 @@ namespace UiharuMind.Core.AI.Runtime.Backends;
 
 internal sealed class LLamaCppRuntimeService
 {
-
     private readonly LLamaCppVersionManager _llamaCppVersionManager = new();
-    
+
+    /// <summary>
+    /// 下载的 llama.cpp 引擎包放这里
+    /// </summary>
+    public static string EngineRoot => Path.Combine(AppPaths.External.Engine, "LLamaCpp");
+
     public VersionInfo? CurrentVersion { get; private set; }
 
     public LLamaCppRuntimeService()
@@ -49,7 +54,7 @@ internal sealed class LLamaCppRuntimeService
 
     public async Task<VersionManager> GetLocalVersions()
     {
-        VersionManager versions = await GetLocalVersions(AppPaths.External.Engine)
+        VersionManager versions = await GetLocalVersionsCore()
             .ConfigureAwait(false);
         if (versions.VersionsList.FindIndex(x => x.Name == LLamaCppSettingConfig.Current.SelectedRuntimeVersion) < 0)
         {
@@ -70,13 +75,13 @@ internal sealed class LLamaCppRuntimeService
 
     public async Task<VersionManager> PullLatestVersion()
     {
-        return await PullLatestVersion(AppPaths.External.Engine).ConfigureAwait(false);
+        return await PullLatestVersionCore().ConfigureAwait(false);
     }
 
     /// <summary>
     /// 起一个对话用的 llama-server，就绪后回调对话客户端，然后陪跑到进程结束
     /// </summary>
-    /// <exception cref="LlamaServerException">起不来，或没被要求停却退出了</exception>
+    /// <exception cref="LocalServerException">起不来，或没被要求停却退出了</exception>
     public async Task Run(
         VersionInfo version,
         ILlmModel model,
@@ -86,34 +91,35 @@ internal sealed class LLamaCppRuntimeService
         CancellationToken token = default)
     {
         if (string.IsNullOrEmpty(model.ModelPath))
-            throw new LlamaServerException($"Model '{model.ModelName}' has no file path.");
+            throw new LocalServerException($"Model '{model.ModelName}' has no file path.");
 
         LLamaCppSettingConfig config = LLamaCppSettingConfig.Current;
         string serverPath = config.GetExeServerPath(version.ExecutablePath) ?? "";
-        LlamaServerProcess server = await LlamaServerProcess.StartAsync(
-                serverPath, LLamaCppServerArgs.Build(model, parameters, config.Server),
-                TimeSpan.FromSeconds(Math.Max(30, config.Server.LoadTimeoutSeconds)), onLoading, token,
-                LLamaCppServerArgs.ParseEnvironment(config.Server.EnvironmentVariables))
+        LocalServerProcess server = await LocalServerProcess.StartAsync(
+                LLamaCppServerArgs.Launch(serverPath, LLamaCppServerArgs.Build(model, parameters, config.Server),
+                    TimeSpan.FromSeconds(Math.Max(30, config.Server.LoadTimeoutSeconds)),
+                    LLamaCppServerArgs.ParseEnvironment(config.Server.EnvironmentVariables)),
+                onLoading, token)
             .ConfigureAwait(false);
         onLoadOver?.Invoke(OpenAICompatibleChatClient.Create(
             new OpenAICompatibleHttpHandler(port: server.Port), model, "UiharuMind", "None"));
         await server.Completion.ConfigureAwait(false);
         if (!token.IsCancellationRequested)
-            throw new LlamaServerException(
+            throw new LocalServerException(
                 $"llama-server exited unexpectedly (exit code {server.ExitCode}).", server.LogTail);
     }
 
-    private async Task<VersionManager> GetLocalVersions(string enginePath)
+    private async Task<VersionManager> GetLocalVersionsCore()
     {
-        string path = Path.Combine(enginePath, "LLamaCpp");
+        string path = EngineRoot;
         if (!Directory.Exists(path)) Directory.CreateDirectory(path);
         string internalPath = Path.Combine(LLamaCppSettingConfig.Current.DefaultRuntimePath, "LLamaCpp");
         return await _llamaCppVersionManager.GetLocalVersions(path, internalPath).ConfigureAwait(false);
     }
 
-    private async Task<VersionManager> PullLatestVersion(string enginePath)
+    private async Task<VersionManager> PullLatestVersionCore()
     {
-        string path = Path.Combine(enginePath, "LLamaCpp");
+        string path = EngineRoot;
         if (!Directory.Exists(path)) Directory.CreateDirectory(path);
         _llamaCppVersionManager.PreferStableReleases = LLamaCppSettingConfig.Current.UseStableChannel;
         return await _llamaCppVersionManager.GetLatestVersion(path).ConfigureAwait(false);

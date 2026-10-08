@@ -18,6 +18,7 @@ using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
+using UiharuMind.Core.AI.Engines;
 
 namespace UiharuMind.Features.Models.Downloads;
 

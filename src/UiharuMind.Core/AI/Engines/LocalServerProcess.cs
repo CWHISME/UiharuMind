@@ -5,12 +5,12 @@ using CliWrap.EventStream;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 
-namespace UiharuMind.Core.AI.Runtime.Backends;
+namespace UiharuMind.Core.AI.Engines;
 
 /// <summary>
-/// llama-server 出错：起不来（提前退出、就绪超时、找不到可执行文件）或跑着跑着退出了
+/// 本地引擎服务出错：起不来（提前退出、就绪超时、找不到可执行文件）或跑着跑着退出了
 /// </summary>
-public sealed class LlamaServerException(string message, string logTail = "") : Exception(message)
+public sealed class LocalServerException(string message, string logTail = "") : Exception(message)
 {
     /// <summary>
     /// 进程最后几行输出，供用户判断原因（显存不够、文件损坏、驱动问题…）
@@ -24,22 +24,52 @@ public sealed class LlamaServerException(string message, string logTail = "") : 
 }
 
 /// <summary>
-/// 一个 llama-server 进程：自选空闲端口，轮询 /health 判就绪，起不来时带上日志尾巴如实失败。
-/// 对话与嵌入共用。
+/// 怎么起一个本地引擎服务
 /// </summary>
-internal sealed class LlamaServerProcess
+/// <param name="ServerName">日志与报错里的名字，如 llama-server</param>
+/// <param name="ExecutablePath">可执行文件</param>
+/// <param name="BuildArguments">按分到的端口生成启动参数（逐项传入，不需要自己加引号）</param>
+/// <param name="ReadyTimeout">就绪超时</param>
+public sealed record LocalServerLaunch(
+    string ServerName,
+    string ExecutablePath,
+    Func<int, IReadOnlyList<string>> BuildArguments,
+    TimeSpan ReadyTimeout)
+{
+    /// <summary>
+    /// 额外环境变量
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? Environment { get; init; }
+
+    /// <summary>
+    /// 就绪探针路径，返回 200 即就绪
+    /// </summary>
+    public string HealthPath { get; init; } = "health";
+
+    /// <summary>
+    /// 加载阶段大约输出的行数，只用来估个进度
+    /// </summary>
+    public float ExpectedLogLines { get; init; } = 128f;
+}
+
+/// <summary>
+/// 一个本地引擎服务进程（sidecar）：自选空闲端口，轮询就绪探针，起不来时带上日志尾巴如实失败。
+/// llama-server、audiocpp_server 共用，引擎间的差别只在 <see cref="LocalServerLaunch"/>。
+/// </summary>
+public sealed class LocalServerProcess
 {
     private const int LogTailLines = 12;
-    private const float ProgressLogLines = 128f; // 加载阶段大约输出的行数，只用来估个进度
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(250);
     private static readonly HttpClient HealthClient = new() { Timeout = TimeSpan.FromSeconds(2) };
 
+    private readonly LocalServerLaunch _launch;
     private readonly Queue<string> _logTail = new();
     private readonly Lock _logGate = new();
     private int _exitCode = -1;
 
-    private LlamaServerProcess(int port)
+    private LocalServerProcess(LocalServerLaunch launch, int port)
     {
+        _launch = launch;
         Port = port;
     }
 
@@ -64,38 +94,42 @@ internal sealed class LlamaServerProcess
     public int ExitCode => _exitCode;
 
     /// <summary>
-    /// 启动并等到 /health 返回 200
+    /// 最后几行输出
     /// </summary>
-    /// <param name="executablePath">llama-server 可执行文件</param>
-    /// <param name="arguments">除 host/port 外的参数，逐项传入，不需要自己加引号</param>
-    /// <param name="readyTimeout">就绪超时</param>
+    public string LogTail
+    {
+        get
+        {
+            lock (_logGate) return string.Join('\n', _logTail);
+        }
+    }
+
+    /// <summary>
+    /// 启动并等到就绪探针返回 200
+    /// </summary>
+    /// <param name="launch">怎么起</param>
     /// <param name="onProgress">加载进度（按日志行数估算）</param>
     /// <param name="lifetimeToken">取消即结束进程</param>
-    /// <param name="environment">额外环境变量</param>
     /// <returns>已就绪的服务</returns>
-    /// <exception cref="LlamaServerException">进程提前退出或超时</exception>
-    public static async Task<LlamaServerProcess> StartAsync(
-        string executablePath,
-        IReadOnlyList<string> arguments,
-        TimeSpan readyTimeout,
+    /// <exception cref="LocalServerException">进程提前退出或超时</exception>
+    public static async Task<LocalServerProcess> StartAsync(
+        LocalServerLaunch launch,
         Action<float>? onProgress,
-        CancellationToken lifetimeToken,
-        IReadOnlyDictionary<string, string>? environment = null)
+        CancellationToken lifetimeToken)
     {
-        if (!File.Exists(executablePath))
-            throw new LlamaServerException($"llama-server executable not found: {executablePath}");
+        if (!File.Exists(launch.ExecutablePath))
+            throw new LocalServerException($"{launch.ServerName} executable not found: {launch.ExecutablePath}");
 
-        LlamaServerProcess server = new(FindFreePort());
+        LocalServerProcess server = new(launch, FindFreePort());
         CancellationTokenSource lifetime = CancellationTokenSource.CreateLinkedTokenSource(lifetimeToken);
-        List<string> args = [..arguments, "--host", "127.0.0.1", "--port", server.Port.ToString()];
-        Log.Debug($"Start llama-server: {string.Join(' ', args)}");
+        IReadOnlyList<string> args = launch.BuildArguments(server.Port);
+        Log.Debug($"Start {launch.ServerName}: {string.Join(' ', args)}");
 
-        server.Completion = Task.Run(() => server.RunAsync(executablePath, args, environment, onProgress, lifetime.Token),
-            CancellationToken.None);
+        server.Completion = Task.Run(() => server.RunAsync(args, onProgress, lifetime.Token), CancellationToken.None);
 
         try
         {
-            await server.WaitUntilReadyAsync(readyTimeout, lifetime.Token).ConfigureAwait(false);
+            await server.WaitUntilReadyAsync(lifetime.Token).ConfigureAwait(false);
             onProgress?.Invoke(1f);
             return server;
         }
@@ -122,21 +156,17 @@ internal sealed class LlamaServerProcess
         return ((IPEndPoint)listener.LocalEndpoint).Port;
     }
 
-    private async Task RunAsync(
-        string executablePath,
-        IReadOnlyList<string> args,
-        IReadOnlyDictionary<string, string>? environment,
-        Action<float>? onProgress,
-        CancellationToken token)
+    private async Task RunAsync(IReadOnlyList<string> args, Action<float>? onProgress, CancellationToken token)
     {
         int processId = 0;
         int lineCount = 0;
         try
         {
-            await foreach (CommandEvent cmdEvent in Cli.Wrap(executablePath)
+            await foreach (CommandEvent cmdEvent in Cli.Wrap(_launch.ExecutablePath)
                                .WithArguments(args)
-                               .WithEnvironmentVariables(environment?.ToDictionary(x => x.Key, x => (string?)x.Value) ??
-                                                         new Dictionary<string, string?>())
+                               .WithEnvironmentVariables(
+                                   _launch.Environment?.ToDictionary(x => x.Key, x => (string?)x.Value) ??
+                                   new Dictionary<string, string?>())
                                .WithValidation(CommandResultValidation.None)
                                .ListenAsync(token)
                                .ConfigureAwait(false))
@@ -156,7 +186,7 @@ internal sealed class LlamaServerProcess
                     case ExitedCommandEvent exited:
                         _exitCode = exited.ExitCode;
                         if (!token.IsCancellationRequested)
-                            Log.Warning($"llama-server exited with code {exited.ExitCode}. {LogTail}");
+                            Log.Warning($"{_launch.ServerName} exited with code {exited.ExitCode}. {LogTail}");
                         break;
                 }
             }
@@ -167,7 +197,7 @@ internal sealed class LlamaServerProcess
         catch (Exception e)
         {
             OnLog(e.Message, lineCount, null);
-            Log.Error($"llama-server failed: {e.Message}");
+            Log.Error($"{_launch.ServerName} failed: {e.Message}");
         }
         finally
         {
@@ -187,33 +217,23 @@ internal sealed class LlamaServerProcess
 
         // 每 16 行报一次，封顶 0.95，真正的 1 留给就绪
         if (onProgress != null && lineCount % 16 == 0)
-            onProgress(Math.Min(0.95f, lineCount / ProgressLogLines));
+            onProgress(Math.Min(0.95f, lineCount / _launch.ExpectedLogLines));
     }
 
-    /// <summary>
-    /// 最后几行输出
-    /// </summary>
-    public string LogTail
+    private async Task WaitUntilReadyAsync(CancellationToken token)
     {
-        get
-        {
-            lock (_logGate) return string.Join('\n', _logTail);
-        }
-    }
-
-    private async Task WaitUntilReadyAsync(TimeSpan timeout, CancellationToken token)
-    {
+        TimeSpan timeout = _launch.ReadyTimeout;
         DateTime deadline = DateTime.UtcNow + timeout;
-        Uri healthUri = new(BaseUri, "health");
+        Uri healthUri = new(BaseUri, _launch.HealthPath);
         while (true)
         {
             token.ThrowIfCancellationRequested();
             if (Completion.IsCompleted)
-                throw new LlamaServerException(
-                    $"llama-server exited before it was ready (exit code {_exitCode}).", LogTail);
+                throw new LocalServerException(
+                    $"{_launch.ServerName} exited before it was ready (exit code {_exitCode}).", LogTail);
             if (DateTime.UtcNow > deadline)
-                throw new LlamaServerException(
-                    $"llama-server was not ready within {timeout.TotalSeconds:0}s.", LogTail);
+                throw new LocalServerException(
+                    $"{_launch.ServerName} was not ready within {timeout.TotalSeconds:0}s.", LogTail);
 
             if (await IsHealthyAsync(healthUri, token).ConfigureAwait(false)) return;
             await Task.WhenAny(Task.Delay(PollInterval, token), Completion).ConfigureAwait(false);

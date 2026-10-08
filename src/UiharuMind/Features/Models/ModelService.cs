@@ -25,6 +25,7 @@ using UiharuMind.Core.AI.Models;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
+using UiharuMind.Core.AI.Engines;
 
 namespace UiharuMind.Features.Models;
 
@@ -110,7 +111,7 @@ public partial class ModelService : ObservableObject
         string message = error switch
         {
             LocalEngineNotReadyException => Loc.Text(LangKey.ModelRunFailedNoEngine),
-            LlamaServerException serverError => serverError.Detail,
+            LocalServerException serverError => serverError.Detail,
             _ => error.Message
         };
         _messages.ShowNotification(message, string.Format(Loc.Text(LangKey.ModelRunFailedTitle), modelName),

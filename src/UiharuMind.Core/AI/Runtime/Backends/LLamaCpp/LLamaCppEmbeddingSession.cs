@@ -9,6 +9,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using UiharuMind.Core.AI.Embedding;
+using UiharuMind.Core.AI.Engines;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Core.SimpleLog;
 
@@ -57,10 +58,9 @@ public sealed class LLamaCppEmbeddingSession : IEmbeddingSession
         using CancellationTokenRegistration startupCancel = cancellationToken.Register(serverCts.Cancel);
         try
         {
-            LlamaServerProcess server = await LlamaServerProcess.StartAsync(
-                    config.GetExeServerPath(version.ExecutablePath) ?? "",
-                    BuildArguments(modelPath, parameters),
-                    ReadyTimeout,
+            LocalServerProcess server = await LocalServerProcess.StartAsync(
+                    LLamaCppServerArgs.Launch(config.GetExeServerPath(version.ExecutablePath) ?? "",
+                        BuildArguments(modelPath, parameters), ReadyTimeout),
                     null,
                     serverCts.Token)
                 .ConfigureAwait(false);

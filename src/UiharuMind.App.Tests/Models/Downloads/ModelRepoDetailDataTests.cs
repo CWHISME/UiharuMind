@@ -6,6 +6,7 @@ using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Core.DownloadHelper;
 using UiharuMind.Features.Models.Downloads;
 using UiharuMind.Shared.Services;
+using UiharuMind.Core.AI.Engines;
 
 namespace UiharuMind.App.Tests.Models.Downloads;
 

@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using UiharuMind.Core.AI.Engines;
 
 namespace UiharuMind.Core.AI.Runtime.Backends;
 
@@ -15,10 +16,7 @@ public static class LLamaCppVariants
     /// <returns>是推荐变体返回 true</returns>
     public static bool IsRecommended(string packageName)
     {
-        OSPlatform? platform = OperatingSystem.IsMacOS() ? OSPlatform.OSX
-            : OperatingSystem.IsWindows() ? OSPlatform.Windows
-            : OperatingSystem.IsLinux() ? OSPlatform.Linux
-            : null;
+        OSPlatform? platform = EngineVariants.CurrentPlatform;
         return platform != null && IsRecommended(packageName, platform.Value, RuntimeInformation.ProcessArchitecture);
     }
 
@@ -31,12 +29,7 @@ public static class LLamaCppVariants
     /// <returns>是推荐变体返回 true</returns>
     public static bool IsRecommended(string packageName, OSPlatform platform, Architecture architecture)
     {
-        string? arch = architecture switch
-        {
-            Architecture.Arm64 => "arm64",
-            Architecture.X64 => "x64",
-            _ => null
-        };
+        string? arch = EngineVariants.ArchitectureToken(architecture);
         if (arch == null) return false;
 
         string marker = platform == OSPlatform.OSX ? $"-bin-macos-{arch}"

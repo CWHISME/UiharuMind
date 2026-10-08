@@ -8,6 +8,7 @@ using UiharuMind.Core.AI.Runtime;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Core.DownloadHelper;
 using UiharuMind.Shared.Services;
+using UiharuMind.Core.AI.Engines;
 
 namespace UiharuMind.Features.Models.Downloads;
 

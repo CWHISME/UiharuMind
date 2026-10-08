@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Core.DownloadHelper;
 using UiharuMind.Core.Tests.Utils;
+using UiharuMind.Core.AI.Engines;
 
 namespace UiharuMind.Core.Tests.AI;
 

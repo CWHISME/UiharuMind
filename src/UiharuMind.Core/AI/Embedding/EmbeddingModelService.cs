@@ -14,6 +14,7 @@ using UiharuMind.Core.AI;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
+using UiharuMind.Core.AI.Engines;
 
 namespace UiharuMind.Core.AI.Embedding;
 
@@ -65,7 +66,7 @@ public class EmbeddingModelService : Singleton<EmbeddingModelService>
         catch (Exception e)
         {
             Log.Error($"Embedding model startup failed: {e.Message}");
-            _lastError = e is LlamaServerException serverError ? serverError.Detail : e.Message;
+            _lastError = e is LocalServerException serverError ? serverError.Detail : e.Message;
             NotifyStateChanged();
             throw new EmbeddingRuntimeException("Embedding model startup failed.", e);
         }

@@ -9,6 +9,7 @@ using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Core.DownloadHelper;
 using UiharuMind.Features.Models;
 using UiharuMind.Features.Models.Downloads;
+using UiharuMind.Core.AI.Engines;
 
 namespace UiharuMind.App.Tests.Headless;
 

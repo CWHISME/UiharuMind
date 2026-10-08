@@ -9,28 +9,17 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
-using UiharuMind.Core.Core.Utils;
+using UiharuMind.Core.AI.Engines;
 
 namespace UiharuMind.Core.AI.Runtime.Backends;
 
-public class VersionInfo : ManagedVersionPackage
+/// <summary>
+/// 一份 llama.cpp 引擎包
+/// </summary>
+public class VersionInfo : EnginePackage
 {
-    /// <summary>
-    /// llama.cpp 服务端可执行文件所在目录；与安装根目录分开，避免嵌套包覆盖安装路径。
-    /// </summary>
-    public string ExecutablePath { get; set; } = string.Empty;
-
     /// <summary>
     /// 是否本机的推荐变体
     /// </summary>
-    public bool IsRecommended => LLamaCppVariants.IsRecommended(Name);
-
-    /// <summary>
-    /// 推荐变体排前面，其余按版本
-    /// </summary>
-    public override int CompareTo(ManagedVersionPackage? other)
-    {
-        if (other is VersionInfo info && info.IsRecommended != IsRecommended) return IsRecommended ? -1 : 1;
-        return base.CompareTo(other);
-    }
+    public override bool IsRecommended => LLamaCppVariants.IsRecommended(Name);
 }

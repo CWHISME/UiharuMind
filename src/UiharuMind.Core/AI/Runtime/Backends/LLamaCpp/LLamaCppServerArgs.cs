@@ -1,4 +1,5 @@
 using System.Text;
+using UiharuMind.Core.AI.Engines;
 using UiharuMind.Core.AI.Models;
 
 namespace UiharuMind.Core.AI.Runtime.Backends;
@@ -8,6 +9,29 @@ namespace UiharuMind.Core.AI.Runtime.Backends;
 /// </summary>
 public static class LLamaCppServerArgs
 {
+    /// <summary>
+    /// 日志与报错里的服务名
+    /// </summary>
+    public const string ServerName = "llama-server";
+
+    /// <summary>
+    /// 起 llama-server 的方式：参数之后补上 host/port
+    /// </summary>
+    /// <param name="executablePath">llama-server 可执行文件</param>
+    /// <param name="arguments">除 host/port 外的参数</param>
+    /// <param name="readyTimeout">就绪超时</param>
+    /// <param name="environment">额外环境变量</param>
+    /// <returns>启动描述</returns>
+    public static LocalServerLaunch Launch(string executablePath, IReadOnlyList<string> arguments, TimeSpan readyTimeout,
+        IReadOnlyDictionary<string, string>? environment = null)
+    {
+        return new LocalServerLaunch(ServerName, executablePath,
+            port => [..arguments, "--host", "127.0.0.1", "--port", port.ToString()], readyTimeout)
+        {
+            Environment = environment
+        };
+    }
+
     /// <summary>
     /// 对话服务参数（不含 host/port）。等于 llama-server 默认值的项不传
     /// </summary>
