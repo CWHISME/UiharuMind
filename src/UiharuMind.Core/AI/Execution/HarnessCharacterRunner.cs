@@ -242,6 +242,12 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
             AgentSession session = _session;
             ChatSession? attached = _attachedSession;
 
+            // 供给窗口里还没有记忆清单时,给本轮输入挂上一份快照,发送时才并进正文(ADR 0076)
+            IReadOnlyList<ChatMessage> input = messages as IReadOnlyList<ChatMessage> ?? messages.ToList();
+            if (attached != null && handle.MemoryDirectory.Length > 0)
+                MemoryIndex.TryAnchor(attached.History, input, handle.MemoryDirectory, handle.MemoryToken,
+                    AgentSettingConfig.Current.MemoryIndexBudget);
+
             // 消息边界由落盘那一刻给出:框架每完成一次服务调用就落一次盘。
             // 它只用来分消息,不用来定插话气泡的位置——实测落盘会晚于下一次调用的
             // 首条内容十几秒(上一次工具跑了十分钟那种),照它定位就把插话排到了回复中间
@@ -260,7 +266,7 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
                 try
                 {
                     await foreach (AgentResponseUpdate update in handle.Agent
-                                       .RunStreamingAsync(messages, session, cancellationToken: pumpSource.Token)
+                                       .RunStreamingAsync(input, session, cancellationToken: pumpSource.Token)
                                        .ConfigureAwait(false))
                     {
                         foreach (AIContent content in update.Contents) channel.Writer.TryWrite(content);

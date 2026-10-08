@@ -9,34 +9,49 @@
              x:Class="UiharuMind.Features.Models.ImageModels.ImageModelListView"
              x:DataType="images:ImageModelListViewData">
 
-    <!-- 卡片、列表行、图标、行按钮直接复用模型页同一套（model-card / model-list / model-icon / row-action），
-         样式定义在 ModelPage.axaml，本视图只在模型页里使用 -->
+    <!-- 卡片、列表行、图标、行按钮复用模型页同一套（model-card / model-list / model-icon / row-action，见 Themes） -->
     <DockPanel>
-        <!-- 工具条：左边说明，右边添加生图模型（与对话模型页签的添加远程模型同式） -->
+        <!-- 工具条：左边说明与引擎设置，右边画图、获取本地模型、添加在线模型 -->
         <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,0,0,12">
-            <TextBlock Grid.Column="0" Text="{loc:Loc ImageModelListHint}" Classes="muted"
-                       VerticalAlignment="Center" TextWrapping="Wrap" />
-            <Button Grid.Column="1" Command="{Binding AddCommand}" VerticalAlignment="Center">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <controls:ThemedSvgIcon Width="14" Height="14" IconName="image" />
-                    <TextBlock Text="{loc:Loc AddBtn}" />
-                </StackPanel>
-            </Button>
+            <StackPanel Spacing="2" VerticalAlignment="Center">
+                <TextBlock Text="{loc:Loc ImageModelListHint}" Classes="muted" TextWrapping="Wrap" />
+                <Button Classes="toolbar-link" HorizontalAlignment="Left" Content="{loc:Loc ImageModelEngineSettings}"
+                        Command="{Binding OpenEngineSettingsCommand}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Button Command="{Binding DrawCommand}" CommandParameter="{x:Null}" IsEnabled="{Binding HasItems}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <controls:ThemedSvgIcon Width="14" Height="14" IconName="sparkles" />
+                        <TextBlock Text="{loc:Loc ImageDrawOpen}" />
+                    </StackPanel>
+                </Button>
+                <Button Command="{Binding GoToMarketCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <controls:ThemedSvgIcon Width="14" Height="14" IconName="download" />
+                        <TextBlock Text="{loc:Loc ImageModelGetLocal}" />
+                    </StackPanel>
+                </Button>
+                <Button Command="{Binding AddCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <controls:ThemedSvgIcon Width="14" Height="14" IconName="globe" />
+                        <TextBlock Text="{loc:Loc AddBtn}" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
         </Grid>
 
         <Border Classes="model-card">
             <Panel>
                 <!-- 空状态：与对话模型页签同式，居中图标加文字引去添加 -->
-                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10"
-                            Margin="24" IsVisible="{Binding !HasItems}">
-                    <controls:ThemedSvgIcon Width="32" Height="32" IconName="image" Opacity="0.5" />
-                    <TextBlock Text="{loc:Loc ImageModelListEmpty}" HorizontalAlignment="Center"
-                               FontWeight="SemiBold" />
-                    <TextBlock Text="{loc:Loc ImageModelListHint}" Classes="muted"
-                               HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
-                    <Button Classes="Primary" Content="{loc:Loc AddBtn}" Command="{Binding AddCommand}"
-                            HorizontalAlignment="Center" Margin="0,4,0,0" />
-                </StackPanel>
+                <controls:EmptyStateView IsVisible="{Binding !HasItems}" IconName="image"
+                                         Title="{loc:Loc ImageModelListEmpty}" Hint="{loc:Loc ImageModelListHint}">
+                    <controls:EmptyStateView.Actions>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Classes="Primary" Content="{loc:Loc ImageModelGetLocal}" Command="{Binding GoToMarketCommand}" />
+                            <Button Content="{loc:Loc AddBtn}" Command="{Binding AddCommand}" />
+                        </StackPanel>
+                    </controls:EmptyStateView.Actions>
+                </controls:EmptyStateView>
 
                 <ListBox Classes="model-list"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -56,6 +71,10 @@
                                                    VerticalAlignment="Center" />
                                         <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
                                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        <controls:KindBadge Header="{loc:Loc ImageModelLocalBadge}"
+                                                            BadgeBackground="LightGreen"
+                                                            IsVisible="{Binding IsLocal}"
+                                                            VerticalAlignment="Center" />
                                         <controls:KindBadge Header="{loc:Loc ImageModelEditingBadge}"
                                                             BadgeBackground="Gold"
                                                             IsVisible="{Binding SupportsEditing}"
@@ -76,6 +95,10 @@
 
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2"
                                             VerticalAlignment="Center">
+                                    <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="sparkles"
+                                                      ToolTip.Tip="{loc:Loc ImageModelTry}"
+                                                      CommandParameter="{Binding}"
+                                                      Command="{Binding $parent[ListBox].((images:ImageModelListViewData)DataContext).DrawCommand}" />
                                     <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="chevron-up"
                                                       ToolTip.Tip="{loc:Loc ImageModelMoveUp}"
                                                       IsEnabled="{Binding CanMoveUp}"

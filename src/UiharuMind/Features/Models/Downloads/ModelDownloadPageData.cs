@@ -2,12 +2,12 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using UiharuMind.Features.Models.Downloads.Audio;
+using System.Linq;
 
 namespace UiharuMind.Features.Models.Downloads;
 
 /// <summary>
-/// 「获取模型」页签：顶部切分类（GGUF 仓库 / 语音模型），左栏列表、右栏详情由分类提供，底部下载区共用。
+/// 「获取模型」页签：顶部切分类（GGUF 仓库、语音模型……），左栏列表、右栏详情由分类提供，底部下载区共用。
 /// 第一次选中页签才建出来，网络请求也从那时才发
 /// </summary>
 public partial class ModelDownloadPageData : ObservableObject
@@ -19,26 +19,15 @@ public partial class ModelDownloadPageData : ObservableObject
     [NotifyPropertyChangedFor(nameof(HasDetail))]
     private IModelMarket _selectedMarket;
 
-    public ModelDownloadPageData(ModelDownloadContext context)
+    /// <param name="context">各分类共用的依赖</param>
+    /// <param name="markets">分类，第一个默认选中</param>
+    public ModelDownloadPageData(ModelDownloadContext context, IReadOnlyList<IModelMarket> markets)
     {
         _context = context;
-        Gguf = new GgufMarketData(context);
-        Audio = new AudioMarketData(context);
-        Markets = [Gguf, Audio];
-        _selectedMarket = Gguf;
-        Gguf.PropertyChanged += OnMarketPropertyChanged;
-        Audio.PropertyChanged += OnMarketPropertyChanged;
+        Markets = markets;
+        _selectedMarket = markets[0];
+        foreach (IModelMarket market in markets) market.PropertyChanged += OnMarketPropertyChanged;
     }
-
-    /// <summary>
-    /// GGUF 仓库（llama.cpp 用）
-    /// </summary>
-    public GgufMarketData Gguf { get; }
-
-    /// <summary>
-    /// 语音模型（audio.cpp 用）
-    /// </summary>
-    public AudioMarketData Audio { get; }
 
     /// <summary>
     /// 全部分类
@@ -56,6 +45,19 @@ public partial class ModelDownloadPageData : ObservableObject
     public bool HasDetail => SelectedMarket.HasDetail;
 
     /// <summary>
+    /// 取某个分类
+    /// </summary>
+    /// <typeparam name="TMarket">分类类型</typeparam>
+    /// <returns>分类</returns>
+    public TMarket Market<TMarket>() where TMarket : IModelMarket => Markets.OfType<TMarket>().First();
+
+    /// <summary>
+    /// 切到某个分类
+    /// </summary>
+    /// <typeparam name="TMarket">分类类型</typeparam>
+    public void Show<TMarket>() where TMarket : IModelMarket => SelectedMarket = Market<TMarket>();
+
+    /// <summary>
     /// 页签被选中时调：交给当前分类首次加载或按新设置重来
     /// </summary>
     public void Activate()
@@ -70,15 +72,11 @@ public partial class ModelDownloadPageData : ObservableObject
     /// <param name="search">搜索词</param>
     public void ShowSearch(string search)
     {
-        SelectedMarket = Gguf;
-        Gguf.CloseDetail();
-        Gguf.SearchText = search;
+        GgufMarketData gguf = Market<GgufMarketData>();
+        SelectedMarket = gguf;
+        gguf.CloseDetail();
+        gguf.SearchText = search;
     }
-
-    /// <summary>
-    /// 切到语音模型
-    /// </summary>
-    public void ShowAudio() => SelectedMarket = Audio;
 
     partial void OnSelectedMarketChanged(IModelMarket value)
     {

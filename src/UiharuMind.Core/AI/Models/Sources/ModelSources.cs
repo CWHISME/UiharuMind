@@ -31,6 +31,19 @@ public static class ModelSources
     }
 
     /// <summary>
+    /// 下 HuggingFace 上的仓库用哪个源：按设置走；选了 ModelScope 时仓库名对不上，退到 hf-mirror
+    /// </summary>
+    /// <param name="config">下载源设置，默认取当前</param>
+    /// <returns>模型源</returns>
+    public static IModelSource CreateForHuggingFaceRepos(DownloadSourceSettingConfig? config = null)
+    {
+        config ??= DownloadSourceSettingConfig.Current;
+        if (config.ModelSource != DownloadSourceSettingConfig.SourceModelScope) return Create(config);
+        return new HuggingFaceModelSource(SharedClient, DownloadSourceSettingConfig.HfMirrorEndpoint,
+            config.HuggingFaceToken.Trim());
+    }
+
+    /// <summary>
     /// 给 GitHub 发布包下载地址套上代理前缀；不是 GitHub 地址或没设代理原样返回
     /// </summary>
     /// <param name="url">下载地址</param>

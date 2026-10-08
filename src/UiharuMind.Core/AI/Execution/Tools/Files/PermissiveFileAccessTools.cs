@@ -256,7 +256,8 @@ internal sealed class PermissiveFileAccessTools
             await SaveAsync(full, envelope, body, ct).ConfigureAwait(false);
             int lines = content.Split('\n').Length;
             string backupNote = backupPath is null ? string.Empty : $" Previous version backed up to '{backupPath}'.";
-            return $"{FileToolNames.WriteSucceededPrefix}{filePath}' ({lines} lines).{encodingNote}{backupNote}";
+            return $"{FileToolNames.WriteSucceededPrefix}{filePath}' ({lines} lines).{encodingNote}{backupNote}" +
+                   MemoryListLine(full, body);
         }
         finally
         {
@@ -291,12 +292,26 @@ internal sealed class PermissiveFileAccessTools
             await SaveAsync(full, plan.Envelope, plan.NewText, ct).ConfigureAwait(false);
 
             string diff = FileEditPlanner.RenderDiff(plan.Diff, MaxEditDiffLines, MaxEditDiffLineChars);
-            return $"{FileToolNames.EditSucceededPrefix}{edits.Count} edit(s) to '{filePath}'.\n{diff}";
+            return $"{FileToolNames.EditSucceededPrefix}{edits.Count} edit(s) to '{filePath}'." +
+                   $"{MemoryListLine(full, plan.NewText)}\n{diff}";
         }
         finally
         {
             fileLock.Release();
         }
+    }
+
+    // 写的是记忆笔记时报出它在记忆清单里的样子(ADR 0076):首行空着、只是个标题、改了正文没改首行,当场看得见
+    private string MemoryListLine(string full, string text)
+    {
+        if (!full.EndsWith(".md", StringComparison.OrdinalIgnoreCase) || _paths.RelativeToMemory(full) is not { } name)
+            return string.Empty;
+
+        string summary = MemoryIndex.SummaryOf(text);
+        string path = $"{_paths.MemoryToken}/{name}";
+        return summary.Length > 0
+            ? $"\nShown in the memory list as: {path} — {summary}"
+            : $"\nShown in the memory list as: {path} (the first line is empty, so there is no summary)";
     }
 
     // 统一落盘:编码、BOM 与行尾按信封原样还原。先写同目录临时文件再 rename 替换(跨文件系统会失去原子性),

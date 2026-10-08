@@ -17,6 +17,7 @@ using UiharuMind.Shared.Utils;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Features.Conversation.Composer;
 
@@ -56,6 +57,34 @@ public static class ConversationItemFactory
     }
 
     /// <summary>
+    /// 把随消息进入模型、气泡里不显示的内容折进用户气泡。
+    /// 回放建气泡与实时气泡配上落盘消息时都走这里——记忆清单在开跑时才挂上，实时气泡要等配对才看得到
+    /// </summary>
+    /// <param name="item">用户气泡</param>
+    /// <param name="source">来源消息</param>
+    public static void ApplyInjected(TextConversationItem item, ChatMessage source)
+    {
+        List<string> labels = new();
+        List<string> texts = new();
+
+        // 点名调用:显示文本已由 UserMessageDisplayText 定为用户敲的那一行,消息正文是注入的技能全文
+        if (ChatMessageAnnotations.NamedSkillInputOf(source) != null)
+        {
+            labels.Add(Loc.Text(LangKey.SkillInvocationInjected));
+            texts.Add(source.Text);
+        }
+
+        if (ChatMessageAnnotations.MemoryIndexSnapshotOf(source) is { } memoryList)
+        {
+            labels.Add(Loc.Text(LangKey.MemoryIndexAttached, MemoryIndex.CountEntries(memoryList)));
+            texts.Add(MemoryIndexProjection.Block(memoryList));
+        }
+
+        item.InjectedLabel = string.Join(" · ", labels);
+        item.InjectedText = string.Join("\n\n", texts);
+    }
+
+    /// <summary>
     /// 用户气泡
     /// </summary>
     /// <param name="text">显示文本</param>
@@ -76,12 +105,7 @@ public static class ConversationItemFactory
             Timestamp = TimestampText(source?.CreatedAt ?? DateTimeOffset.Now),
         };
 
-        // 点名调用:显示文本已由 UserMessageDisplayText 定为用户敲的那一行,
-        // 消息正文是注入的技能全文,折叠起来备查
-        if (source != null && ChatMessageAnnotations.NamedSkillInputOf(source) is { } typedLine)
-        {
-            item.InjectedText = source.Text;
-        }
+        if (source != null) ApplyInjected(item, source);
 
         // 优先显示**真正发出去的那一份**(消息里的 DataContent):它是缩放重编码之后的结果,
         // 界面因此所见即所得——模型看到什么,你就看到什么。

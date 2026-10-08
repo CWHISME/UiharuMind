@@ -9,10 +9,13 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
+using UiharuMind.Core.AI.Engines;
+using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Features.Settings.Engines;
 using UiharuMind.Shared.Data;
 using UiharuMind.Generated;
@@ -33,10 +36,18 @@ public partial class RuntimeEngineSettingData : ObservableObject
     }
 
     public RuntimeEngineSettingData(IMessageService messageService)
+        : this(messageService, LLamaCppEngine.Shared, path => App.FilesService.OpenFolder(path))
+    {
+    }
+
+    /// <param name="messageService">提示与确认</param>
+    /// <param name="engine">文本引擎</param>
+    /// <param name="openFolder">打开目录</param>
+    public RuntimeEngineSettingData(IMessageService messageService, ILocalEngine engine, Action<string> openFolder)
     {
         _messageService = messageService;
-        Engine = new EngineVersionsViewData(new LLamaCppEngineVersionSource(), messageService,
-            path => App.FilesService.OpenFolder(path));
+        Engine = new EngineVersionsViewData(engine, "terminal", Loc.Text(LangKey.LLamaCppVersionDesc), messageService,
+            openFolder);
     }
 
     /// <summary>

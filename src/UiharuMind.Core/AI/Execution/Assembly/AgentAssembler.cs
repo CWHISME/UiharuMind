@@ -13,6 +13,7 @@ using Microsoft.Agents.AI.Tools.Shell;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat.Group.Away;
+using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Harness;
 using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Execution.Mcp;
@@ -99,8 +100,12 @@ internal static class AgentAssembler
         HarnessAgentOptions options = AgentOptionsFactory.BuildAgentOptions(plan,
             WrapDepthPrompt(new SessionChatHistoryProvider(), character), contextProviders,
             chatOptions, shellBinary, out IReadOnlyList<AgentPromptSegment> promptSegments);
-        return BuildHandle(client, options, shellExecutor, plan.Mcp, toolEntries, promptSegments,
+        AgentHandle handle = BuildHandle(client, options, shellExecutor, plan.Mcp, toolEntries, promptSegments,
             plan.InputEstimate);
+        // 与系统提示的记忆段同一判据:plan 里的记忆目录只在开了文件工具时非空
+        handle.MemoryDirectory = plan.MemoryDirectory;
+        handle.MemoryToken = AgentPathResolver.ShorthandFor(AgentPathResolver.MemoryVariable, shellBinary);
+        return handle;
     }
 
     /// <summary>
@@ -204,7 +209,9 @@ internal static class AgentAssembler
         // 将插件库内部日志(含工具执行失败的真实异常)转发到 UiharuMind 日志
         MfaLoggerFactory loggerFactory = new();
         IServiceProvider services = new MfaServiceProvider(loggerFactory);
-        ServiceCallSignalingChatClient serviceCalls = new(MoveCompactionToLeaf(client, options));
+        // 记忆清单在压缩外面并进消息(ADR 0076):压缩按真实大小算,旁路请求也按同一顺序投影
+        ServiceCallSignalingChatClient serviceCalls =
+            new(new MemoryIndexProjectingChatClient(MoveCompactionToLeaf(client, options)));
         AIAgent agent = serviceCalls.AsHarnessAgent(options, loggerFactory, services);
 
         // [MFA绕坑] 绕:工具异常只回给模型一句"Error: Function failed." 因:框架管道内部构造 FunctionInvokingChatClient,选项不外露 删除条件:HarnessAgentOptions 暴露该开关

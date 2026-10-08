@@ -29,14 +29,14 @@
         <Style Selector="Button.SettingsNavButton:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource SemiGrey2}" />
         </Style>
-        <Style Selector="Button.SettingsNavButton:selected">
+        <Style Selector="Button.SettingsNavButton.selected">
             <Setter Property="Background" Value="{DynamicResource SemiBlue5}" />
             <Setter Property="Foreground" Value="White" />
         </Style>
-        <Style Selector="Button.SettingsNavButton:selected /template/ ContentPresenter">
+        <Style Selector="Button.SettingsNavButton.selected /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource SemiBlue5}" />
         </Style>
-        <!-- 分组标题：给左栏 7 个入口立结构 -->
+        <!-- 分组标题：给左栏入口立结构 -->
         <Style Selector="TextBlock.SettingsNavGroup">
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
@@ -55,95 +55,8 @@
                            FontSize="15"
                            Margin="4,4,4,16" />
 
-                <StackPanel Grid.Row="1" Spacing="18">
-                    <StackPanel Spacing="2">
-                        <TextBlock Classes="SettingsNavGroup" Text="{loc:Loc SettingsNavGroupApp}" />
-                        <Button Name="GeneralButton"
-                                Classes="SettingsNavButton"
-                                Click="OnGeneralClick">
-                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                <controls:ThemedSvgIcon Width="16" Height="16" IconName="settings" />
-                                <TextBlock Text="{loc:Loc GeneralSetting}" />
-                            </StackPanel>
-                        </Button>
-                        <Button Name="ShortcutsButton"
-                                Classes="SettingsNavButton"
-                                Click="OnShortcutsClick">
-                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                <controls:ThemedSvgIcon Width="16" Height="16" IconName="keyboard" />
-                                <TextBlock Text="{loc:Loc ShortcutsSetting}" />
-                            </StackPanel>
-                        </Button>
-                        <Button Name="QuickToolButton"
-                                Classes="SettingsNavButton"
-                                Click="OnQuickToolClick">
-                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                <controls:ThemedSvgIcon Width="16" Height="16" IconName="message-circle-more" />
-                                <TextBlock Text="{loc:Loc QuickToolSetting}" />
-                            </StackPanel>
-                        </Button>
-                    </StackPanel>
-
-                    <StackPanel Spacing="2">
-                        <TextBlock Classes="SettingsNavGroup" Text="{loc:Loc SettingsNavGroupAgent}" />
-                        <Button Name="AgentButton"
-                                 Classes="SettingsNavButton"
-                                 Click="OnAgentClick">
-                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                <controls:ThemedSvgIcon Width="16" Height="16" IconName="bot" />
-                                <TextBlock Text="{loc:Loc AgentSetting}" />
-                            </StackPanel>
-                        </Button>
-                        <Button Name="RuntimeButton"
-                                 Classes="SettingsNavButton"
-                                 Click="OnRuntimeClick">
-                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                <controls:ThemedSvgIcon Width="16" Height="16" IconName="terminal" />
-                                <TextBlock Text="{loc:Loc RuntimeEngineSetting}" />
-                                <Border x:Name="EngineUpdateDot" Classes="status-dot" Tag="Progress" IsVisible="False"
-                                        ToolTip.Tip="{loc:Loc SettingsEngineUpdateTip}" />
-                            </StackPanel>
-                        </Button>
-                        <Button Name="AudioRuntimeButton"
-                                 Classes="SettingsNavButton"
-                                 Click="OnAudioRuntimeClick">
-                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                <controls:ThemedSvgIcon Width="16" Height="16" IconName="audio-lines" />
-                                <TextBlock Text="{loc:Loc AudioEngineSetting}" />
-                                <Border x:Name="AudioEngineUpdateDot" Classes="status-dot" Tag="Progress" IsVisible="False"
-                                        ToolTip.Tip="{loc:Loc SettingsAudioEngineUpdateTip}" />
-                            </StackPanel>
-                        </Button>
-                        <Button Name="DownloadSourceButton"
-                                 Classes="SettingsNavButton"
-                                 Click="OnDownloadSourceClick">
-                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                <controls:ThemedSvgIcon Width="16" Height="16" IconName="download" />
-                                <TextBlock Text="{loc:Loc DownloadSourceSetting}" />
-                            </StackPanel>
-                        </Button>
-                    </StackPanel>
-
-                    <StackPanel Spacing="2">
-                        <TextBlock Classes="SettingsNavGroup" Text="{loc:Loc SettingsNavGroupHelp}" />
-                        <Button Name="HelpButton"
-                                Classes="SettingsNavButton"
-                                Click="OnHelpClick">
-                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                <controls:ThemedSvgIcon Width="16" Height="16" IconName="book-search" />
-                                <TextBlock Text="{loc:Loc TrayMenuHelp}" />
-                            </StackPanel>
-                        </Button>
-                        <Button Name="AboutButton"
-                                Classes="SettingsNavButton"
-                                Click="OnAboutClick">
-                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                <controls:ThemedSvgIcon Width="16" Height="16" IconName="info" />
-                                <TextBlock Text="{loc:Loc TrayMenuAbout}" />
-                            </StackPanel>
-                        </Button>
-                    </StackPanel>
-                </StackPanel>
+                <!-- 导航按页表生成（见后台代码），加页不改这里 -->
+                <StackPanel Name="NavHost" Grid.Row="1" Spacing="18" />
 
                 <StackPanel Grid.Row="2" Margin="4,12,4,4">
                     <TextBlock Text="UiharuMind"

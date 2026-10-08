@@ -1,0 +1,120 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:images="clr-namespace:UiharuMind.Features.Models.ImageModels"
+        xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+        xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+        x:Class="UiharuMind.Features.Models.ImageModels.LocalImageModelEditWindow"
+        x:DataType="images:LocalImageModelEditViewData"
+        Width="640"
+        Height="640"
+        MinWidth="520"
+        MinHeight="480"
+        WindowStartupLocation="CenterOwner"
+        Title="{loc:Loc LocalImageModelEditTitle}">
+
+    <Window.Styles>
+        <Style Selector="TextBlock.error">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource MessageStatusErrorBrush}" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource SemiGrey0}">
+        <!-- 头部：图标 + 标题 + 来历 -->
+        <Border Padding="18,15" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="50,*" ColumnSpacing="12">
+                <Border Width="50" Height="50" CornerRadius="8" Background="{DynamicResource SemiBlue0}">
+                    <controls:ThemedSvgIcon Width="24" Height="24" IconName="image" />
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
+                    <TextBlock Text="{loc:Loc LocalImageModelEditTitle}" FontSize="20" />
+                    <TextBlock Text="{Binding Origin}" Classes="muted" />
+                    <TextBlock Text="{loc:Loc LocalImageModelEditHint}" Classes="muted" TextWrapping="Wrap" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="20,16" Spacing="14">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="{loc:Loc ImageModelNameLabel}" />
+                    <TextBox Text="{Binding Name}" />
+                    <TextBlock Classes="error" Text="{loc:Loc ImageModelNameError}" IsVisible="{Binding HasNameError}" />
+                </StackPanel>
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="{loc:Loc LocalImageSteps}" />
+                        <NumericUpDown Minimum="1" Maximum="150" Increment="1" FormatString="0" Value="{Binding Steps}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Spacing="6">
+                        <TextBlock Text="{loc:Loc LocalImageCfg}" />
+                        <NumericUpDown Minimum="0" Maximum="30" Increment="0.5" FormatString="0.0" Value="{Binding CfgScale}" />
+                    </StackPanel>
+                </Grid>
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="{loc:Loc LocalImageSampler}" />
+                        <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding SamplerOptions}"
+                                  SelectedItem="{Binding Sampler}"
+                                  DisplayMemberBinding="{ReflectionBinding DisplayName}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Spacing="6">
+                        <TextBlock Text="{loc:Loc LocalImageScheduler}" />
+                        <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding SchedulerOptions}"
+                                  SelectedItem="{Binding Scheduler}"
+                                  DisplayMemberBinding="{ReflectionBinding DisplayName}" />
+                    </StackPanel>
+                </Grid>
+
+                <StackPanel Spacing="6">
+                    <TextBlock Text="{loc:Loc LocalImageBaseResolution}" />
+                    <ComboBox Width="160" ItemsSource="{Binding ResolutionOptions}" SelectedItem="{Binding BaseResolution}"
+                                  DisplayMemberBinding="{ReflectionBinding DisplayName}" />
+                    <TextBlock Text="{loc:Loc LocalImageBaseResolutionHint}" Classes="muted" TextWrapping="Wrap" />
+                </StackPanel>
+
+                <StackPanel Spacing="6">
+                    <TextBlock Text="{loc:Loc LocalImageNegativePrompt}" />
+                    <TextBox Text="{Binding NegativePrompt}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="56" />
+                </StackPanel>
+
+                <CheckBox Content="{loc:Loc ImageModelSupportsEditing}" IsChecked="{Binding SupportsEditing}" />
+
+                <!-- 组件只读：换组件是另装一个 -->
+                <StackPanel Spacing="6">
+                    <TextBlock Text="{loc:Loc LocalImageComponents}" />
+                    <ItemsControl ItemsSource="{Binding Components}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="images:LocalImageComponentLine">
+                                <Grid ColumnDefinitions="110,*,Auto" ColumnSpacing="6" Margin="0,2">
+                                    <TextBlock Text="{Binding Flag}" Classes="muted" FontSize="12" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Path}" FontSize="12" Classes="muted"
+                                               TextTrimming="PrefixCharacterEllipsis" ToolTip.Tip="{Binding Path}" />
+                                    <TextBlock Grid.Column="2" Classes="error" Text="✗" IsVisible="{Binding !Exists}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2" Padding="14" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,1,0,0">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <Button Content="{loc:Loc LocalImageResetRecommended}" Command="{Binding ResetRecommendedCommand}"
+                        IsVisible="{Binding CanReset}" />
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                    <Button Content="{loc:Loc CancelBtn}" Click="Cancel_Click" />
+                    <Button IsEnabled="{Binding CanConfirm}" Click="Confirm_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <controls:ThemedSvgIcon Width="15" Height="15" IconName="save" />
+                            <TextBlock Text="{loc:Loc SaveBtn}" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

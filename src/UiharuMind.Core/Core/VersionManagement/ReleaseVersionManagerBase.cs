@@ -43,27 +43,30 @@ public abstract class ReleaseVersionManagerBase<TVersion> where TVersion : Manag
         {
             await ScanLocalVersionsAsync(rootDirectory, Versions, true, null, cancellationToken).ConfigureAwait(false);
 
-            GitHubReleaseInfo? release = await ResolveRemoteReleaseAsync(HasUsableAssets, cancellationToken)
+            IReadOnlyList<GitHubReleaseInfo> releases = await ResolveRemoteReleasesAsync(HasUsableAssets, cancellationToken)
                 .ConfigureAwait(false);
-            if (release == null) return;
+            if (releases.Count == 0) return;
 
-            LatestReleaseInfo = release;
-            ReleaseInfoText = CreateReleaseInfoText(release);
-            IReadOnlyList<GitHubReleaseAssetInfo> assets = GitHubReleaseAssetHelper.SelectPlatformAssets(
-                release.Assets,
-                GetAssetSelectOptions());
-
-            foreach (GitHubReleaseAssetInfo asset in assets)
+            LatestReleaseInfo = releases[0];
+            ReleaseInfoText = CreateReleaseInfoText(releases[0]);
+            foreach (GitHubReleaseInfo release in releases)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (!ShouldIncludeAsset(asset)) continue;
+                IReadOnlyList<GitHubReleaseAssetInfo> assets = GitHubReleaseAssetHelper.SelectPlatformAssets(
+                    release.Assets,
+                    GetAssetSelectOptions());
 
-                TVersion version = CreateVersionFromAssetCore(release, asset, rootDirectory);
-                TVersion? existing = Versions.FirstOrDefault(x => x.Name == version.Name);
-                if (existing is { IsInstalled: true }) continue;
+                foreach (GitHubReleaseAssetInfo asset in assets)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!ShouldIncludeAsset(asset)) continue;
 
-                ValidateAndRefresh(version);
-                AddOrReplaceVersion(version);
+                    TVersion version = CreateVersionFromAssetCore(release, asset, rootDirectory);
+                    TVersion? existing = Versions.FirstOrDefault(x => x.Name == version.Name);
+                    if (existing is { IsInstalled: true }) continue;
+
+                    ValidateAndRefresh(version);
+                    AddOrReplaceVersion(version);
+                }
             }
         }, cancellationToken);
     }
@@ -95,6 +98,20 @@ public abstract class ReleaseVersionManagerBase<TVersion> where TVersion : Manag
     {
         return GitHubReleaseAssetHelper.SelectPlatformAssets(release.Assets, GetAssetSelectOptions())
             .Any(ShouldIncludeAsset);
+    }
+
+    /// <summary>
+    /// 去哪几个发布拉包，第一个的说明作为发布说明；默认只拉 <see cref="ResolveRemoteReleaseAsync"/> 那一个
+    /// </summary>
+    /// <param name="accept">发布是否可用（通常是「有本平台的包」）</param>
+    /// <param name="cancellationToken">取消</param>
+    /// <returns>发布；一个都没有为空</returns>
+    protected virtual async Task<IReadOnlyList<GitHubReleaseInfo>> ResolveRemoteReleasesAsync(
+        Func<GitHubReleaseInfo, bool> accept,
+        CancellationToken cancellationToken)
+    {
+        GitHubReleaseInfo? release = await ResolveRemoteReleaseAsync(accept, cancellationToken).ConfigureAwait(false);
+        return release == null ? [] : [release];
     }
 
     /// <summary>

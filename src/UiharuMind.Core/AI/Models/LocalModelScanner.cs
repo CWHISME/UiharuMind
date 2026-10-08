@@ -45,8 +45,9 @@ public static class LocalModelScanner
     /// <returns>该种类的本地模型</returns>
     public static IReadOnlyList<LocalModelEntry> Scan(ELocalModelKind kind, bool force = false)
     {
-        // 读不出头的文件当对话模型列出来，加载时如实报错，好过悄悄消失
-        return Scan(force).Where(x => (x.Info.Kind ?? ELocalModelKind.Chat) == kind).ToList();
+        // 读不出头的文件当对话模型列出来，加载时如实报错，好过悄悄消失；只作生图组件的不列
+        return Scan(force).Where(x => !x.Info.IsComponentOnly && (x.Info.Kind ?? ELocalModelKind.Chat) == kind)
+            .ToList();
     }
 
     private static bool ScanDirectory(
@@ -143,17 +144,18 @@ public static class LocalModelScanner
         info.FileSizeBytes = size;
     }
 
-    // 清单里写明的视觉投影优先于按目录猜
+    // 清单里写明的视觉投影优先于按目录猜；只作生图组件的按清单标出来
     private static void ApplyManifests(List<GGufModelInfo> models)
     {
         foreach (IGrouping<string, GGufModelInfo> group in models
                      .GroupBy(x => Path.GetDirectoryName(x.ModelPath) ?? "", StringComparer.Ordinal))
         {
             ModelManifest? manifest = ModelManifest.TryLoad(group.Key);
-            if (manifest == null) continue;
             foreach (GGufModelInfo model in group)
             {
-                string? projector = manifest.FindModel(Path.GetFileName(model.ModelPath))?.Projector;
+                ManifestModel? entry = manifest?.FindModel(Path.GetFileName(model.ModelPath));
+                model.IsComponentOnly = entry?.ComponentOnly == true;
+                string? projector = entry?.Projector;
                 if (string.IsNullOrEmpty(projector)) continue;
                 string projectorPath = Path.Combine(group.Key, projector);
                 if (File.Exists(projectorPath)) model.ModelProjPath = projectorPath;

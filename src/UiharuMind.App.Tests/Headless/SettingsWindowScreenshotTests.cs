@@ -1,3 +1,4 @@
+using UiharuMind.Features.Settings.Image;
 using UiharuMind.Features.Settings.Audio;
 using UiharuMind.Core.AI.Runtime.Backends;
 using Avalonia;
@@ -11,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.App.Tests.TestDoubles;
 using UiharuMind.Features.About;
 using UiharuMind.Features.Settings;
+using UiharuMind.Features.Settings.Engines;
 using UiharuMind.Shared.Controls;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
@@ -53,6 +55,8 @@ public class SettingsWindowScreenshotTests : IDisposable
             AssertRuntimeSectionsRendered(window);
             ClickAndCapture(window, "AudioRuntimeButton", outDir, "audio");
             AssertAudioSectionsRendered(window);
+            ClickAndCapture(window, "ImageRuntimeButton", outDir, "image");
+            Assert.Single(window.GetVisualDescendants().OfType<ImageEngineSettingView>());
             ClickAndCapture(window, "DownloadSourceButton", outDir, "download-source");
             ClickAndCapture(window, "AgentButton", outDir, "agent");
             ClickAndCapture(window, "QuickToolButton", outDir, "quicktool");
@@ -81,7 +85,7 @@ public class SettingsWindowScreenshotTests : IDisposable
             DownloadSourceSettingsView section = window.GetVisualDescendants().OfType<DownloadSourceSettingsView>().Single();
             Point? topLeft = section.TranslatePoint(new Point(0, 0), window);
             Assert.True(topLeft is { } p && p.Y >= 0 && p.Y < window.Bounds.Height, $"下载源一节不在视野内：{topLeft}");
-            Assert.Contains("selected", window.FindControl<Button>("DownloadSourceButton")!.Classes);
+            Assert.Contains("selected", window.NavButton("DownloadSourceButton")!.Classes);
             Capture(window, SettingsShotsDir(), "download-source-jump");
 
             // 滚动位置是全局记忆（关窗时也会记一次），先关窗再清，不然同类里后跑的截图从半页开始
@@ -105,23 +109,24 @@ public class SettingsWindowScreenshotTests : IDisposable
             Dispatcher.UIThread.RunJobs();
             try
             {
-                LLamaCppEngineInstaller.Shared.ApplyVersions(
+                LLamaCppEngine.Shared.Installer.ApplyVersions(
                 [
                     new VersionInfo { Name = $"llama-b100{suffix}", Version = new Version(100, 0), IsInstalled = true },
                     new VersionInfo { Name = $"llama-b200{suffix}", Version = new Version(200, 0), DownloadUrl = "http://127.0.0.1:1/x.zip" }
                 ]);
                 Dispatcher.UIThread.RunJobs();
-                window.FindControl<Button>("RuntimeButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                window.NavButton("RuntimeButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Dispatcher.UIThread.RunJobs();
                 window.UpdateLayout();
 
-                Assert.True(window.FindControl<Border>("EngineUpdateDot")!.IsVisible);
+                Assert.True(window.NavButton("RuntimeButton")!.GetVisualDescendants().OfType<Border>()
+                    .Single(x => x.Classes.Contains("status-dot")).IsVisible);
                 Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), x => x.Text?.Contains("b200") == true);
                 Capture(window, SettingsShotsDir(), "runtime-engine-update");
             }
             finally
             {
-                LLamaCppEngineInstaller.Shared.ApplyVersions([]);
+                LLamaCppEngine.Shared.Installer.ApplyVersions([]);
                 window.Close();
                 _window = null;
                 ConfigManager.Instance.Setting.SettingsScrollPositions.Remove("RuntimeEngineSetting");
@@ -140,15 +145,16 @@ public class SettingsWindowScreenshotTests : IDisposable
 
         return new SettingsWindow(
             ActivatorUtilities.CreateInstance<GeneralSettingViewModel>(services),
-            new RuntimeEngineSettingData(messages),
-            TestSettingsPages.Audio(messages),
+            [EngineSettingsPage.Text(new RuntimeEngineSettingData(messages)),
+             EngineSettingsPage.Audio(TestSettingsPages.Audio(messages)),
+             EngineSettingsPage.Image(TestSettingsPages.Image(messages))],
             new ShortcutSettingViewModel(),
             GetPageForHeadless);
     }
 
     private static void ClickAndCapture(SettingsWindow window, string buttonName, string outDir, string pageName)
     {
-        Button button = window.FindControl<Button>(buttonName)
+        Button button = window.NavButton(buttonName)
             ?? throw new InvalidOperationException($"找不到导航按钮 {buttonName}");
         button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         window.UpdateLayout();

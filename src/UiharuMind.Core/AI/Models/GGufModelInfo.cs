@@ -55,11 +55,17 @@ public class GGufModelInfo : ILlmModel
         get
         {
             if (Kind == null) return true;
-            // 音频模型没有上下文长度（audio.cpp 的 GGUF 恒为 0），否则每次扫描都重读文件头、都触发落盘
-            if (Kind.Value.IsAudio()) return false;
+            // 音频、生图、认不出的都没有上下文长度，否则每次扫描都重读文件头、都触发落盘
+            if (!Kind.Value.IsLanguageModel()) return false;
             return ContextLength <= 0;
         }
     }
+
+    /// <summary>
+    /// 只作为生图组件下载的（见模型清单），不进对话、嵌入列表；每次扫描按清单重设
+    /// </summary>
+    [JsonIgnore]
+    public bool IsComponentOnly { get; set; }
 
     [JsonInclude] private Dictionary<string, string> Infos { get; set; } = new Dictionary<string, string>(10);
 

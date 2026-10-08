@@ -21,7 +21,7 @@ public class ModelRepoDetailDataTests : IDisposable
     private readonly DownloadQueue _queue = new(new FileDownloader(new HttpClient()));
     private IReadOnlyDictionary<string, string> _localModels = new Dictionary<string, string>();
     private int _openSettingsCount;
-    private Func<(EEngineEnsureState, VersionInfo?, DownloadJob?)> _ensureEngine =
+    private Func<(EEngineEnsureState, EnginePackage?, DownloadJob?)> _ensureEngine =
         () => (EEngineEnsureState.AlreadyInstalled, null, null);
 
     public void Dispose()
@@ -46,9 +46,8 @@ public class ModelRepoDetailDataTests : IDisposable
         Downloader = new ModelRepoDownloader(_queue),
         ModelRoot = () => _root,
         LocalModels = () => _localModels,
-        EnsureEngine = () => Task.FromResult(_ensureEngine()),
         DeviceInfo = () => new RuntimeDeviceInfo(16 * GiB, 8 * GiB, 0, 0, 0, "", "", "", DateTimeOffset.Now)
-    }, source, "owner/repo");
+    }, new GgufMarketHooks { EnsureEngine = () => Task.FromResult(_ensureEngine()) }, source, "owner/repo");
 
     [Fact]
     public async Task Rows_AreSortedBySize_WithRecommendedPreselected()

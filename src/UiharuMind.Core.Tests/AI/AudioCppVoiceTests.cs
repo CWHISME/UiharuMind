@@ -159,11 +159,11 @@ public class AudioCppVoiceTests : IDisposable
         File.WriteAllText(Path.Combine(specs, "echo_tts.json"), Spec("echo_tts", "Echo", ["clone"], ["en"]));
         string bin = Path.Combine(_directory, "bin");
         Directory.CreateDirectory(bin);
-        FakeAudioCppServer.Write(Path.Combine(bin, AudioCppVersionManager.ServerExeName), _directory);
+        FakeAudioCppServer.Write(Path.Combine(bin, AudioCppVersionManager.ExecutableName), _directory);
 
         AudioCppEngine engine = new(_settings, Path.Combine(_directory, "engines"), Path.Combine(_directory, "server.json"),
             () => [model], _library);
-        engine.UseVersion(new AudioCppVersion
+        engine.Distribution.Use(new AudioCppVersion
         {
             Name = "audio-v0.9.1-bin-macos-arm64-metal", ExecutablePath = bin, InstallDirectory = install
         });

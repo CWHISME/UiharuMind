@@ -39,6 +39,7 @@ public sealed class HeadlessTestApp : Application
         Styles.Add(Include("avares://UiharuMind/Assets/Themes/CustomFontStyle.axaml"));
         Styles.Add(Include("avares://UiharuMind/Assets/Themes/CustomInputStyle.axaml"));
         Styles.Add(Include("avares://UiharuMind/Assets/Themes/CustomStatusStyle.axaml"));
+        Styles.Add(Include("avares://UiharuMind/Assets/Themes/CustomModelListStyle.axaml"));
         Styles.Add(Include("avares://UiharuMind/Assets/Themes/CustomPopupStyle.axaml"));
         Styles.Add(Include("avares://UiharuMind/Assets/ThemeColors.axaml"));
         Styles.Add(new SemiTheme());

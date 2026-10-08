@@ -59,7 +59,7 @@ public sealed class LLamaCppEmbeddingSession : IEmbeddingSession
         try
         {
             LocalServerProcess server = await LocalServerProcess.StartAsync(
-                    LLamaCppServerArgs.Launch(config.GetExeServerPath(version.ExecutablePath) ?? "",
+                    LLamaCppServerArgs.Launch(version.GetExecutable(LLamaCppSettingConfig.ServerExeName),
                         BuildArguments(modelPath, parameters), ReadyTimeout),
                     null,
                     serverCts.Token)

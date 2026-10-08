@@ -31,7 +31,7 @@ public sealed class LocalAudioDefaults(AudioCppEngine engine, AudioRouter router
         if (router.DefaultService(ToCapability(task)) != null) return null;
         try
         {
-            return engine.ResolveModel(task).Id;
+            return engine.Models.Resolve(task).Id;
         }
         catch (AudioModelMissingException)
         {

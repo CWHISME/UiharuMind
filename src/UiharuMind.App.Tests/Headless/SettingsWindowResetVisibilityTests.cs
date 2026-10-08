@@ -7,6 +7,7 @@ using UiharuMind.App.Tests.TestDoubles;
 using UiharuMind.Core.Core;
 using UiharuMind.Features.About;
 using UiharuMind.Features.Settings;
+using UiharuMind.Features.Settings.Engines;
 using UiharuMind.Shared.Controls;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
@@ -41,8 +42,8 @@ public class SettingsWindowResetVisibilityTests : IDisposable
             var shortcutVm = new ShortcutSettingViewModel();
             var window = new SettingsWindow(
                 generalVm,
-                new RuntimeEngineSettingData(messages),
-                TestSettingsPages.Audio(messages),
+                [EngineSettingsPage.Text(new RuntimeEngineSettingData(messages)),
+                 EngineSettingsPage.Audio(TestSettingsPages.Audio(messages))],
                 shortcutVm,
                 GetPageForHeadless);
             _window = window;
@@ -67,7 +68,7 @@ public class SettingsWindowResetVisibilityTests : IDisposable
             Dispatcher.UIThread.RunJobs();
             Assert.True(VisibleResetButtons(window) == 0, "剪贴板保留天数改回出厂值后按钮应消失");
 
-            window.FindControl<Button>("ShortcutsButton")!
+            window.NavButton("ShortcutsButton")!
                 .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             window.UpdateLayout();
             Dispatcher.UIThread.RunJobs();

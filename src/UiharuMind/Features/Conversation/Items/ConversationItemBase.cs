@@ -299,10 +299,12 @@ public partial class TextConversationItem : ConversationItemBase, IStreamFlushTa
     public double ImageThumbSize => _imageCount > 1 ? 160 : 320;
 
     /// <summary>
-    /// 实际进入模型的正文，与 <see cref="ConversationItemBase.Message"/> 不同时才有值。
-    /// 目前只有点名调用会用到：气泡显示 <c>/技能名 参数</c> 那一行，注入的技能正文折在这里。
+    /// 气泡之外随这条消息进入模型的内容，折叠起来备查：点名调用的技能正文、附上的记忆清单（ADR 0076）。
     /// </summary>
     [ObservableProperty] private string _injectedText = string.Empty;
+
+    /// <summary>折叠开关上的说明，交代 <see cref="InjectedText"/> 里是什么</summary>
+    [ObservableProperty] private string _injectedLabel = string.Empty;
 
     /// <summary>注入正文是否展开</summary>
     [ObservableProperty] private bool _isInjectedTextExpanded;

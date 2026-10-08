@@ -45,8 +45,7 @@ public class RuntimeEngineHeaderLayoutTests : IDisposable
 
                 SettingsWindow window = new(
                     ActivatorUtilities.CreateInstance<GeneralSettingViewModel>(services),
-                    data,
-                    TestSettingsPages.Audio(messages),
+                    [EngineSettingsPage.Text(data), EngineSettingsPage.Audio(TestSettingsPages.Audio(messages))],
                     new ShortcutSettingViewModel(),
                     GetPageForHeadless);
                 _window = window;
@@ -58,7 +57,7 @@ public class RuntimeEngineHeaderLayoutTests : IDisposable
                     .FirstOrDefault(x => LLamaCppVariants.IsRecommended("llama-b1" + x + ".zip"));
                 data.Engine.SelectedVersion = new VersionInfo
                     { Name = $"llama-b11443{suffix ?? "-bin-macos-arm64"}" };
-                window.FindControl<Button>("RuntimeButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                window.NavButton("RuntimeButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
                 window.Width = window.MinWidth;
                 window.UpdateLayout();

@@ -15,11 +15,7 @@ public static class AudioCppVariants
     /// </summary>
     /// <param name="packageName">包名</param>
     /// <returns>是推荐变体返回 true</returns>
-    public static bool IsRecommended(string packageName)
-    {
-        OSPlatform? platform = EngineVariants.CurrentPlatform;
-        return platform != null && IsRecommended(packageName, platform.Value, RuntimeInformation.ProcessArchitecture);
-    }
+    public static bool IsRecommended(string packageName) => EngineVariants.IsRecommended(packageName, Marker, true);
 
     /// <summary>
     /// 指定平台下包名是否推荐变体
@@ -28,18 +24,8 @@ public static class AudioCppVariants
     /// <param name="platform">操作系统</param>
     /// <param name="architecture">CPU 架构</param>
     /// <returns>是推荐变体返回 true</returns>
-    public static bool IsRecommended(string packageName, OSPlatform platform, Architecture architecture)
-    {
-        string? arch = EngineVariants.ArchitectureToken(architecture);
-        if (arch == null) return false;
-
-        string marker = platform == OSPlatform.OSX ? $"-bin-macos-{arch}-metal"
-            : platform == OSPlatform.Windows ? $"-bin-windows-{arch}-cpu"
-            : platform == OSPlatform.Linux ? $"-bin-ubuntu-{arch}-cpu"
-            : "";
-        // 以变体结尾：cpu 不能把 cpu-portable 也认进来
-        return marker.Length > 0 && packageName.EndsWith(marker, StringComparison.OrdinalIgnoreCase);
-    }
+    public static bool IsRecommended(string packageName, OSPlatform platform, Architecture architecture) =>
+        EngineVariants.IsRecommended(packageName, platform, architecture, Marker, true);
 
     /// <summary>
     /// 包对应的 server 后端（server.json 的 backend）
@@ -53,4 +39,10 @@ public static class AudioCppVariants
         if (packageName.Contains("-cuda", StringComparison.OrdinalIgnoreCase)) return "cuda";
         return "cpu";
     }
+
+    private static string? Marker(OSPlatform platform, string arch) =>
+        platform == OSPlatform.OSX ? $"-bin-macos-{arch}-metal"
+        : platform == OSPlatform.Windows ? $"-bin-windows-{arch}-cpu"
+        : platform == OSPlatform.Linux ? $"-bin-ubuntu-{arch}-cpu"
+        : null;
 }

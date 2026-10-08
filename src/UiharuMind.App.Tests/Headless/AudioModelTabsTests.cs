@@ -48,10 +48,10 @@ public class AudioModelTabsTests : IDisposable
         {
             ModelPageData data = Open(new TestAudioEngine(installEngine: false));
             data.ShowAudioDownloads();
-            await Settle(() => data.Downloads!.Audio is { IsLoading: false, ShowEnginePrompt: true });
+            await Settle(() => data.Downloads!.Market<AudioMarketData>() is { IsLoading: false, ShowEnginePrompt: true });
 
-            Assert.True(data.Downloads!.Audio.ShowEnginePrompt);
-            Assert.Empty(data.Downloads!.Audio.Families);
+            Assert.True(data.Downloads!.Market<AudioMarketData>().ShowEnginePrompt);
+            Assert.Empty(data.Downloads!.Market<AudioMarketData>().Families);
             Assert.Single(_window!.GetVisualDescendants().OfType<AudioMarketListView>());
         });
     }
@@ -63,7 +63,7 @@ public class AudioModelTabsTests : IDisposable
         {
             ModelPageData data = Open(new TestAudioEngine());
             data.ShowAudioDownloads();
-            AudioMarketData market = data.Downloads!.Audio;
+            AudioMarketData market = data.Downloads!.Market<AudioMarketData>();
             await Settle(() => market.Families.Count == 3);
 
             // 推荐的在前，其次 supported，社区的最后
@@ -109,7 +109,7 @@ public class AudioModelTabsTests : IDisposable
             TestAudioEngine audio = new();
             ModelPageData data = Open(audio);
             data.ShowAudioDownloads();
-            AudioMarketData market = data.Downloads!.Audio;
+            AudioMarketData market = data.Downloads!.Market<AudioMarketData>();
             await Settle(() => market.Families.Count == 3);
             market.SelectedFamily = market.Families[0];
             await Settle(() => market.Detail is { IsLoading: false });
@@ -218,9 +218,9 @@ public class AudioModelTabsTests : IDisposable
             Assert.True(data.AudioModels!.ShowEmpty);
 
             data.AudioModels.GoToMarketCommand.Execute(null);
-            await Settle(() => data.Downloads?.Audio.Families.Count == 3);
+            await Settle(() => data.Downloads?.Market<AudioMarketData>().Families.Count == 3);
             Assert.Equal(ModelPageData.DownloadsTabIndex, data.SelectedTabIndex);
-            Assert.Same(data.Downloads!.Audio, data.Downloads.SelectedMarket);
+            Assert.Same(data.Downloads!.Market<AudioMarketData>(), data.Downloads.SelectedMarket);
         });
     }
 
@@ -340,21 +340,27 @@ public class AudioModelTabsTests : IDisposable
     {
         _audio = audio;
         DownloadQueue queue = audio.Queue;
-        ModelPageData data = new(_messages, page => new ModelDownloadPageData(
-            new ModelDownloadContext(_messages, page.EnsureDownloadQueue(), () => Task.CompletedTask, () => { })
+        ModelPageData data = new(_messages, page =>
+        {
+            ModelDownloadContext context = new(_messages, page.EnsureDownloadQueue(), () => Task.CompletedTask, () => { })
             {
                 CreateSource = () => audio.Source,
                 Queue = queue,
                 Downloader = new ModelRepoDownloader(queue),
                 ModelRoot = () => audio.ModelRoot,
                 LocalModels = () => new Dictionary<string, string>(),
-                EnsureEngine = () => Task.FromResult((EEngineEnsureState.AlreadyInstalled, (VersionInfo?)null, (DownloadJob?)null)),
-                DeviceInfo = () => new RuntimeDeviceInfo(16 * GiB, 8 * GiB, 0, 0, 0, "", "", "", DateTimeOffset.Now),
-                AudioEngine = audio.Engine,
-                AudioStore = audio.Store,
-                AudioDefaults = new LocalAudioDefaults(audio.Engine, new AudioRouter(
-                    () => throw new NotSupportedException(), new AudioSettingConfig(), new AudioServiceSettingConfig()))
-            }), queue, createAudioModels: page => new AudioModelListViewData(_messages, audio.Engine, audio.Store,
+                DeviceInfo = () => new RuntimeDeviceInfo(16 * GiB, 8 * GiB, 0, 0, 0, "", "", "", DateTimeOffset.Now)
+            };
+            GgufMarketHooks gguf = new()
+            {
+                EnsureEngine = () => Task.FromResult((EEngineEnsureState.AlreadyInstalled, (EnginePackage?)null, (DownloadJob?)null))
+            };
+            AudioMarketServices services = new(audio.Engine, audio.Store, new LocalAudioDefaults(audio.Engine,
+                new AudioRouter(() => throw new NotSupportedException(), new AudioSettingConfig(),
+                    new AudioServiceSettingConfig())));
+            return new ModelDownloadPageData(context,
+                [new GgufMarketData(context, gguf), new AudioMarketData(context, services)]);
+        }, queue, createAudioModels: page => new AudioModelListViewData(_messages, audio.Engine, audio.Store,
             (_, _) => Task.FromResult<IReadOnlyList<string>>([]),
             new ReadAloudService(_ => _synthesizer, _player, _messages), _openedFolders.Add,
             page.ShowAudioDownloads, () => { }, voices, online, new AudioPreferencesViewData(new AudioSettingConfig { ReadAloudSpeed = 1.3f })));

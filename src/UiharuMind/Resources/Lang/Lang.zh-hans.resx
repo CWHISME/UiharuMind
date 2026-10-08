@@ -527,6 +527,12 @@
     <data name="AgentSettingGeneralSubAgentModelDesc" xml:space="preserve">
         <value>通用子代理负责实际修改任务。给它指定运行模型；留空则回退到主代理 模型。</value>
     </data>
+    <data name="AgentSettingMemoryIndexBudget" xml:space="preserve">
+        <value>记忆清单字数上限</value>
+    </data>
+    <data name="AgentSettingMemoryIndexBudgetDesc" xml:space="preserve">
+        <value>智能体在新会话开头、以及每次写完交接文档之后，会收到一份记忆清单（每份笔记的文件名与首行）。超过这个字数时只列最近修改的，并告诉它还有几份没列。</value>
+    </data>
     <data name="AgentSettingSubAgentFallbackHint" xml:space="preserve">
         <value>(未设置 — 回退到主代理 模型)</value>
     </data>
@@ -712,6 +718,9 @@
     </data>
     <data name="SkillInvocationInjected" xml:space="preserve">
         <value>已注入技能正文</value>
+    </data>
+    <data name="MemoryIndexAttached" xml:space="preserve">
+        <value>已附记忆清单（{0} 份）</value>
     </data>
     <data name="AgentSkillsReload" xml:space="preserve">
         <value>重新扫描</value>
@@ -4242,19 +4251,19 @@
     <data name="LLamaCppDefaultSuffix" xml:space="preserve">
         <value>{0}（默认）</value>
     </data>
-    <data name="LLamaCppReleaseNotes" xml:space="preserve">
+    <data name="EngineReleaseNotes" xml:space="preserve">
         <value>发布说明</value>
     </data>
-    <data name="LLamaCppVersion" xml:space="preserve">
+    <data name="EngineVersion" xml:space="preserve">
         <value>引擎版本</value>
     </data>
     <data name="LLamaCppVersionDesc" xml:space="preserve">
         <value>下次加载模型时使用的 llama.cpp 构建。</value>
     </data>
-    <data name="LLamaCppUpdateResult" xml:space="preserve">
+    <data name="EngineUpdateResult" xml:space="preserve">
         <value>最新版本说明</value>
     </data>
-    <data name="LLamaCppNoEngine" xml:space="preserve">
+    <data name="EngineNotInstalled" xml:space="preserve">
         <value>未安装</value>
     </data>
     <data name="LLamaCppSectionCommon" xml:space="preserve">
@@ -4350,7 +4359,7 @@
     <data name="LLamaCppFitTargetDesc" xml:space="preserve">
         <value>按内存自动适配时，每个设备留出的空余。</value>
     </data>
-    <data name="LLamaCppLoadTimeout" xml:space="preserve">
+    <data name="EngineLoadTimeout" xml:space="preserve">
         <value>加载超时（秒）</value>
     </data>
     <data name="LLamaCppLoadTimeoutDesc" xml:space="preserve">
@@ -4476,25 +4485,25 @@
     <data name="ModelListEmptyHint" xml:space="preserve">
         <value>下载一个本地模型，或者添加远程模型（OpenAI 兼容等）。</value>
     </data>
-    <data name="LLamaCppUpdateAvailable" xml:space="preserve">
+    <data name="EngineUpdateAvailable" xml:space="preserve">
         <value>新版本 {0} 可用</value>
     </data>
-    <data name="LLamaCppUpdateNow" xml:space="preserve">
+    <data name="EngineUpdateNow" xml:space="preserve">
         <value>更新</value>
     </data>
-    <data name="LLamaCppUpdateQueued" xml:space="preserve">
+    <data name="EngineUpdateQueued" xml:space="preserve">
         <value>正在下载 {0}，装好后自动启用，进度见「获取模型」的下载区。</value>
     </data>
-    <data name="LLamaCppChannel" xml:space="preserve">
+    <data name="EngineChannel" xml:space="preserve">
         <value>更新通道</value>
     </data>
-    <data name="LLamaCppChannelDesc" xml:space="preserve">
+    <data name="EngineChannelDesc" xml:space="preserve">
         <value>预览版几乎每天都有新构建；正式版只跟随最新正式版钉住的构建，更新频率更低。下次检查更新时生效。</value>
     </data>
-    <data name="LLamaCppChannelStable" xml:space="preserve">
+    <data name="EngineChannelStable" xml:space="preserve">
         <value>正式版</value>
     </data>
-    <data name="LLamaCppChannelPreview" xml:space="preserve">
+    <data name="EngineChannelPreview" xml:space="preserve">
         <value>预览版</value>
     </data>
     <data name="SettingsEngineUpdateTip" xml:space="preserve">
@@ -5321,5 +5330,269 @@
     </data>
     <data name="DictationIndicatorTranscribing" xml:space="preserve">
         <value>识别中…</value>
+    </data>
+    <data name="ImageEngineSetting" xml:space="preserve">
+        <value>本地模型（生图）</value>
+    </data>
+    <data name="SettingsImageEngineUpdateTip" xml:space="preserve">
+        <value>stable-diffusion.cpp 有新版本</value>
+    </data>
+    <data name="ImageEngineTitle" xml:space="preserve">
+        <value>stable-diffusion.cpp 运行程序</value>
+    </data>
+    <data name="ImageEngineDesc" xml:space="preserve">
+        <value>本地生图由 stable-diffusion.cpp 的 sd-server 运行。在这里选择或下载它的版本；可下载的生图模型在「获取模型」里。</value>
+    </data>
+    <data name="ImageEngineVersionDesc" xml:space="preserve">
+        <value>下次出图时使用的版本。</value>
+    </data>
+    <data name="ImageModelsTitle" xml:space="preserve">
+        <value>生图模型</value>
+    </data>
+    <data name="ImageModelsDesc" xml:space="preserve">
+        <value>本地与在线的生图模型，按回退顺序排列。</value>
+    </data>
+    <data name="ImageManageModels" xml:space="preserve">
+        <value>模型与顺序</value>
+    </data>
+    <data name="ImageManageModelsDesc" xml:space="preserve">
+        <value>在模型页的「生图模型」页签里下载本地模型、调整回退顺序和各模型的参数。</value>
+    </data>
+    <data name="ImageManageModelsBtn" xml:space="preserve">
+        <value>管理生图模型</value>
+    </data>
+    <data name="ImageRuntimeTitle" xml:space="preserve">
+        <value>运行参数</value>
+    </data>
+    <data name="ImageRuntimeDesc" xml:space="preserve">
+        <value>改动在下次出图时生效。</value>
+    </data>
+    <data name="ImageForceCpu" xml:space="preserve">
+        <value>只用 CPU</value>
+    </data>
+    <data name="ImageForceCpuDesc" xml:space="preserve">
+        <value>不走 Metal 或 Vulkan（比如显卡驱动有问题时），会慢很多。</value>
+    </data>
+    <data name="ImageThreadsDesc" xml:space="preserve">
+        <value>CPU 线程数，填 0 交给 stable-diffusion.cpp（按物理核数）。</value>
+    </data>
+    <data name="ImageOffloadToCpu" xml:space="preserve">
+        <value>权重放内存</value>
+    </data>
+    <data name="ImageOffloadToCpuDesc" xml:space="preserve">
+        <value>用到哪块才搬进显存，显存小的机器也能跑大模型，但会更慢。</value>
+    </data>
+    <data name="ImageDiffusionFa" xml:space="preserve">
+        <value>Flash Attention</value>
+    </data>
+    <data name="ImageDiffusionFaDesc" xml:space="preserve">
+        <value>省显存，多数情况下也更快。</value>
+    </data>
+    <data name="ImageVaeTiling" xml:space="preserve">
+        <value>VAE 分块解码</value>
+    </data>
+    <data name="ImageVaeTilingDesc" xml:space="preserve">
+        <value>大图分块解码，省内存。</value>
+    </data>
+    <data name="ImageIdleStop" xml:space="preserve">
+        <value>闲置后停止（分钟）</value>
+    </data>
+    <data name="ImageIdleStopDesc" xml:space="preserve">
+        <value>这么久没有出图就停掉引擎、还回内存；填 0 一直开着。</value>
+    </data>
+    <data name="ImageLoadTimeoutDesc" xml:space="preserve">
+        <value>启动引擎并读入模型权重最多等多久。</value>
+    </data>
+    <data name="ImageGenerationTimeout" xml:space="preserve">
+        <value>出图超时（秒）</value>
+    </data>
+    <data name="ImageGenerationTimeoutDesc" xml:space="preserve">
+        <value>一张图最多等多久（不含加载），超时会停掉引擎。</value>
+    </data>
+    <data name="ImageExtraArgs" xml:space="preserve">
+        <value>额外启动参数</value>
+    </data>
+    <data name="ImageExtraArgsDesc" xml:space="preserve">
+        <value>排在最后，与上面的设置冲突时以它为准。</value>
+    </data>
+    <data name="ImageModelLocalBadge" xml:space="preserve">
+        <value>本地</value>
+    </data>
+    <data name="ImageModelCustomCombo" xml:space="preserve">
+        <value>自定义组合</value>
+    </data>
+    <data name="ImageModelStateMissingFiles" xml:space="preserve">
+        <value>缺组件文件（被删了或还没下完）</value>
+    </data>
+    <data name="ImageModelLocalEngine" xml:space="preserve">
+        <value>在本机由 stable-diffusion.cpp 运行</value>
+    </data>
+    <data name="ImageTierLite" xml:space="preserve">
+        <value>省内存</value>
+    </data>
+    <data name="ImageTierBalanced" xml:space="preserve">
+        <value>均衡</value>
+    </data>
+    <data name="ImageTierQuality" xml:space="preserve">
+        <value>高质量</value>
+    </data>
+    <data name="ImageModelTry" xml:space="preserve">
+        <value>试画</value>
+    </data>
+    <data name="ImageDrawOpen" xml:space="preserve">
+        <value>画图</value>
+    </data>
+    <data name="ImageModelGetLocal" xml:space="preserve">
+        <value>获取本地模型</value>
+    </data>
+    <data name="ImageModelEngineSettings" xml:space="preserve">
+        <value>引擎设置</value>
+    </data>
+    <data name="ImageModelLocalDeleteConfirm" xml:space="preserve">
+        <value>删除本地模型「{0}」？没有别的模型在用的组件文件会一起删掉。</value>
+    </data>
+    <data name="LocalImageModelEditTitle" xml:space="preserve">
+        <value>本地生图模型</value>
+    </data>
+    <data name="LocalImageModelEditHint" xml:space="preserve">
+        <value>这个模型的出图参数。「恢复推荐」取回它所属家族的推荐值。</value>
+    </data>
+    <data name="LocalImageSteps" xml:space="preserve">
+        <value>步数</value>
+    </data>
+    <data name="LocalImageCfg" xml:space="preserve">
+        <value>CFG</value>
+    </data>
+    <data name="LocalImageSampler" xml:space="preserve">
+        <value>采样器</value>
+    </data>
+    <data name="LocalImageScheduler" xml:space="preserve">
+        <value>调度器</value>
+    </data>
+    <data name="LocalImageDefaultOption" xml:space="preserve">
+        <value>默认</value>
+    </data>
+    <data name="LocalImageBaseResolution" xml:space="preserve">
+        <value>基准边长</value>
+    </data>
+    <data name="LocalImageBaseResolutionHint" xml:space="preserve">
+        <value>出图面积取它的平方，宽高按比例换算。</value>
+    </data>
+    <data name="LocalImageNegativePrompt" xml:space="preserve">
+        <value>负向提示词</value>
+    </data>
+    <data name="LocalImageComponents" xml:space="preserve">
+        <value>组件文件</value>
+    </data>
+    <data name="LocalImageResetRecommended" xml:space="preserve">
+        <value>恢复推荐</value>
+    </data>
+    <data name="ImageDrawTitle" xml:space="preserve">
+        <value>画图</value>
+    </data>
+    <data name="ImageDrawPromptPlaceholder" xml:space="preserve">
+        <value>描述想要的画面…</value>
+    </data>
+    <data name="ImageDrawModel" xml:space="preserve">
+        <value>模型</value>
+    </data>
+    <data name="ImageDrawGenerate" xml:space="preserve">
+        <value>生成</value>
+    </data>
+    <data name="ImageDrawStop" xml:space="preserve">
+        <value>停止</value>
+    </data>
+    <data name="ImageDrawStarting" xml:space="preserve">
+        <value>正在启动引擎、读入模型…</value>
+    </data>
+    <data name="ImageDrawQueued" xml:space="preserve">
+        <value>排队中…</value>
+    </data>
+    <data name="ImageDrawStep" xml:space="preserve">
+        <value>第 {0} / {1} 步</value>
+    </data>
+    <data name="ImageDrawWaiting" xml:space="preserve">
+        <value>生成中… {0} 秒</value>
+    </data>
+    <data name="ImageDrawDone" xml:space="preserve">
+        <value>{0} 秒画完</value>
+    </data>
+    <data name="ImageDrawFailed" xml:space="preserve">
+        <value>没画出来：{0}</value>
+    </data>
+    <data name="ImageDrawStopped" xml:space="preserve">
+        <value>已停止</value>
+    </data>
+    <data name="ImageDrawNoModel" xml:space="preserve">
+        <value>先添加一个生图模型</value>
+    </data>
+    <data name="ImageDrawEmpty" xml:space="preserve">
+        <value>画好的图显示在这里</value>
+    </data>
+    <data name="ImageDrawPin" xml:space="preserve">
+        <value>钉住预览</value>
+    </data>
+    <data name="ImageDrawSaveAs" xml:space="preserve">
+        <value>另存为…</value>
+    </data>
+    <data name="ImageMarketPickFamily" xml:space="preserve">
+        <value>在左边选一个模型，看各档大小并下载。</value>
+    </data>
+    <data name="ImageMarketSearchHint" xml:space="preserve">
+        <value>搜索生图模型</value>
+    </data>
+    <data name="ImageMarketNoResults" xml:space="preserve">
+        <value>没有匹配的模型</value>
+    </data>
+    <data name="ImageMarketNeedsEngine" xml:space="preserve">
+        <value>本地生图要先装 stable-diffusion.cpp 引擎（约 40 MB）。可以先装引擎，模型同时下载。</value>
+    </data>
+    <data name="ImageInstallEngine" xml:space="preserve">
+        <value>安装引擎</value>
+    </data>
+    <data name="ImageMarketEngineInstalling" xml:space="preserve">
+        <value>正在安装引擎…</value>
+    </data>
+    <data name="ImageEngineNoPackage" xml:space="preserve">
+        <value>没找到本机能用的 stable-diffusion.cpp 包</value>
+    </data>
+    <data name="ImageEngineQueued" xml:space="preserve">
+        <value>正在下载 stable-diffusion.cpp {0}</value>
+    </data>
+    <data name="ImageEngineCheckFailed" xml:space="preserve">
+        <value>查不了 stable-diffusion.cpp：{0}</value>
+    </data>
+    <data name="ImageFamilyUntested" xml:space="preserve">
+        <value>未测试</value>
+    </data>
+    <data name="ImageFamilyUntestedTip" xml:space="preserve">
+        <value>按 stable-diffusion.cpp 文档配置，文件已核对，还没在这里实际出过图。</value>
+    </data>
+    <data name="ImageFamilyTextToImage" xml:space="preserve">
+        <value>文生图</value>
+    </data>
+    <data name="ImageFamilyEditing" xml:space="preserve">
+        <value>可改图</value>
+    </data>
+    <data name="ImageFamilySummary" xml:space="preserve">
+        <value>{0} · 最小 {1}</value>
+    </data>
+    <data name="ImageFamilyTiers" xml:space="preserve">
+        <value>可下载的档位</value>
+    </data>
+    <data name="ImageFamilyDoc" xml:space="preserve">
+        <value>stable-diffusion.cpp 文档</value>
+    </data>
+    <data name="ImageFamilyBaseSize" xml:space="preserve">
+        <value>基准边长 {0}</value>
+    </data>
+    <data name="ImageModelReady" xml:space="preserve">
+        <value>{0} 已就绪，加进了生图模型列表</value>
+    </data>
+    <data name="ImageModelDownloadFailed" xml:space="preserve">
+        <value>{0} 下载失败：{1}</value>
+    </data>
+    <data name="ImageFamilyInstalledTip" xml:space="preserve">
+        <value>本机已装其中一档</value>
     </data>
 </root>

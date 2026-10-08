@@ -243,6 +243,14 @@ public sealed record AgentPathResolver
         return close > 1 && !path.AsSpan(1, close - 1).ContainsAnyExcept(VariableNameChars);
     }
 
+    /// <summary>
+    /// 路径落在记忆目录里时给出相对路径
+    /// </summary>
+    /// <param name="fullPath">已解析的绝对路径</param>
+    /// <returns>相对路径（正斜杠）；不在记忆目录里或没有记忆目录为 null</returns>
+    public string? RelativeToMemory(string fullPath) =>
+        MemoryRoot.Length == 0 ? null : RelativeWithin(MemoryRoot, fullPath);
+
     /// 落在 root 之内时给相对路径（正斜杠，恰是 root 本身为 "."），之外为 null
     private static string? RelativeWithin(string root, string full)
     {

@@ -18,6 +18,9 @@ public enum EImageDialect
 
     /// <summary>Agnes：生成与编辑同一路径，尺寸写档位 + 比例</summary>
     Agnes,
+
+    /// <summary>本机的生图引擎（stable-diffusion.cpp）：组件与参数见 <see cref="ImageModelInfo.Local"/></summary>
+    Local,
 }
 
 /// <summary>
@@ -48,6 +51,9 @@ public sealed class ImageModelInfo
     /// <summary>单次请求超时（秒）。出图慢，Agnes 建议 60~360</summary>
     public int TimeoutSeconds { get; set; } = 360;
 
+    /// <summary>本地模型的组件与参数；远程的为 null</summary>
+    public LocalImageModel? Local { get; set; }
+
     /// <summary>
     /// 并进请求正文顶层的私有参数（JSON 对象文本，如 <c>{"watermark": false}</c>），同名键覆盖我们的取值
     /// </summary>
@@ -70,9 +76,18 @@ public sealed class ImageModelInfo
         set => _encryptedApiKey = AesEncryptionUtils.EncryptString(value);
     }
 
-    /// <summary>地址与模型 id 都填了。密钥可空——自托管的兼容服务常常不鉴权</summary>
+    /// <summary>
+    /// 远程的：地址与模型 id 都填了（密钥可空，自托管的兼容服务常常不鉴权）；本地的：有组件。
+    /// 本地组件文件在不在不归这里管——那要碰磁盘
+    /// </summary>
     [JsonIgnore]
-    public bool IsConfigured => !string.IsNullOrWhiteSpace(Endpoint) && !string.IsNullOrWhiteSpace(ModelId);
+    public bool IsConfigured => Dialect == EImageDialect.Local
+        ? Local is { Components.Count: > 0 }
+        : !string.IsNullOrWhiteSpace(Endpoint) && !string.IsNullOrWhiteSpace(ModelId);
+
+    /// <summary>本机跑的</summary>
+    [JsonIgnore]
+    public bool IsLocal => Dialect == EImageDialect.Local;
 
     /// <summary>
     /// 解析私有参数

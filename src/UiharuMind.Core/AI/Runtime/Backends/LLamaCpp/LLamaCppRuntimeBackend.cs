@@ -14,7 +14,7 @@ namespace UiharuMind.Core.AI.Runtime.Backends;
 
 internal sealed class LLamaCppRuntimeBackend(
     LLamaCppRuntimeService server,
-    Func<VersionInfo?> selectedVersionProvider) : IModelRuntimeBackend
+    Func<CancellationToken, Task<VersionInfo?>> currentVersion) : IModelRuntimeBackend
 {
     public const string BackendId = "LLamaCpp";
 
@@ -28,8 +28,8 @@ internal sealed class LLamaCppRuntimeBackend(
 
     public bool CanHandleChat(ILlmModel model)
     {
-        // 音频模型归音频引擎（ADR 0071）；读不出头的旧模型照旧当对话处理
-        return model is GGufModelInfo info && info.Kind?.IsAudio() != true;
+        // 音频、生图模型归各自的引擎（ADR 0071）；读不出头的旧模型照旧当对话处理
+        return model is GGufModelInfo { Kind: null or ELocalModelKind.Chat };
     }
 
     public bool CanHandleEmbedding(EmbeddingModelSettingConfig settings)
@@ -57,7 +57,8 @@ internal sealed class LLamaCppRuntimeBackend(
         Action<IChatClient>? onLoadOver,
         CancellationToken cancellationToken)
     {
-        VersionInfo version = selectedVersionProvider() ?? throw new LocalEngineNotReadyException();
+        VersionInfo version = await currentVersion(cancellationToken).ConfigureAwait(false) ??
+                              throw new LocalEngineNotReadyException();
 
         await server.Run(version, request.Model, request.Parameters, onLoading, onLoadOver, token: cancellationToken)
             .ConfigureAwait(false);
@@ -67,7 +68,8 @@ internal sealed class LLamaCppRuntimeBackend(
         EmbeddingRuntimeRequest request,
         CancellationToken cancellationToken)
     {
-        VersionInfo version = selectedVersionProvider() ?? throw new LocalEngineNotReadyException();
+        VersionInfo version = await currentVersion(cancellationToken).ConfigureAwait(false) ??
+                              throw new LocalEngineNotReadyException();
 
         return await LLamaCppEmbeddingSession.StartAsync(
             version,

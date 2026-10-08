@@ -45,7 +45,7 @@ internal sealed class AudioCppVoiceResolver
         IReadOnlyList<string> native = await ListNativeAsync(model, client, cancellationToken).ConfigureAwait(false);
         if (native.Count > 0) return native[0];
 
-        AudioCppFamily? family = _engine.GetFamily(model);
+        AudioCppFamily? family = _engine.Models.GetFamily(model);
         VoiceLibrary? library = _engine.Voices;
         if (family is not { CanClone: true } || library == null) return null;
         if (family.NeedsReference)
@@ -71,7 +71,7 @@ internal sealed class AudioCppVoiceResolver
     public async Task<VoiceDraft> DrawAsync(AudioCppModelEntry model, int seed,
         OpenAiCompatibleAudioClient client, CancellationToken cancellationToken)
     {
-        string text = VoiceReferenceText.ForDraw(_engine.GetFamily(model)?.Languages ?? [], seed);
+        string text = VoiceReferenceText.ForDraw(_engine.Models.GetFamily(model)?.Languages ?? [], seed);
         byte[] wav = await SynthesizeAsync(model, text, seed, client, cancellationToken).ConfigureAwait(false);
         return new VoiceDraft(wav, text);
     }

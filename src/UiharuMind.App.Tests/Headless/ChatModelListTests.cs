@@ -8,6 +8,7 @@ using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Configs.RemoteAI;
 using UiharuMind.Features.Models;
+using UiharuMind.Features.Models.ChatModels;
 
 namespace UiharuMind.App.Tests.Headless;
 
@@ -47,9 +48,9 @@ public class ChatModelListTests
             ModelPageData data = new(new RecordingMessageService(), modelSources: models);
             Window window = new() { Width = 960, Height = 560, Content = new ModelPage { DataContext = data } };
             window.Show();
-            data.IsListDataReady = true;
+            data.ChatModels.IsListDataReady = true;
             Dispatcher.UIThread.RunJobs();
-            Assert.True(data.HasNoModels);
+            Assert.True(data.ChatModels.HasNoModels);
             Capture(window, "chat-models-empty");
 
             models.Add(Remote("DeepSeek-V4"));
@@ -58,7 +59,7 @@ public class ChatModelListTests
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
-            Assert.False(data.HasNoModels);
+            Assert.False(data.ChatModels.HasNoModels);
             Assert.Equal(3, window.GetVisualDescendants().OfType<ListBoxItem>().Count());
             Capture(window, "chat-models");
             window.Close();

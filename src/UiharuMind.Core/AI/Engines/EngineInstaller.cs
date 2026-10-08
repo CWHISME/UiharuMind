@@ -32,6 +32,7 @@ public enum EEngineEnsureState
 /// <param name="pullVersions">拉取远端版本（含本机已有的）</param>
 /// <param name="install">解压校验一个已下好的包</param>
 /// <param name="select">选中一个版本</param>
+/// <param name="isVetted">哪些版本可以提示更新、自动装（上游变动频繁的引擎只认验证过的）；null 全认</param>
 public class EngineInstaller<TPackage>(
     string engineName,
     DownloadQueue queue,
@@ -39,7 +40,8 @@ public class EngineInstaller<TPackage>(
     Func<Task<IReadOnlyList<TPackage>>> localVersions,
     Func<Task<IReadOnlyList<TPackage>>> pullVersions,
     Func<TPackage, CancellationToken, Task> install,
-    Action<TPackage> select) where TPackage : EnginePackage
+    Action<TPackage> select,
+    Func<TPackage, bool>? isVetted = null) where TPackage : EnginePackage
 {
     private readonly SemaphoreSlim _ensureGate = new(1, 1); //连点两个量化时只排一次
     private TPackage? _availableUpdate;
@@ -81,7 +83,7 @@ public class EngineInstaller<TPackage>(
     /// 按一份版本列表（含本机已装的）更新「有没有新版本」，手动检查更新拉到的列表也走这里
     /// </summary>
     /// <param name="versions">版本列表</param>
-    public void ApplyVersions(IEnumerable<TPackage> versions) => SetAvailableUpdate(PickUpdate(versions));
+    public void ApplyVersions(IEnumerable<TPackage> versions) => SetAvailableUpdate(PickUpdate(Vetted(versions)));
 
     /// <summary>
     /// 挑出比已装的都新的推荐包。一个都没装时不算更新（那是 <see cref="EnsureQueuedAsync"/> 的事）
@@ -114,7 +116,7 @@ public class EngineInstaller<TPackage>(
                 return (EEngineEnsureState.AlreadyInstalled, null, null);
             if (queue.Jobs.Any(IsActiveEngineJob)) return (EEngineEnsureState.AlreadyQueued, null, null);
 
-            TPackage? version = (await pullVersions().ConfigureAwait(false))
+            TPackage? version = Vetted(await pullVersions().ConfigureAwait(false))
                 .Where(x => x.IsRecommended && !x.IsInstalled && !string.IsNullOrEmpty(x.DownloadUrl))
                 .OrderByDescending(x => x.Version)
                 .FirstOrDefault();
@@ -156,6 +158,9 @@ public class EngineInstaller<TPackage>(
         if (_availableUpdate != null && version.Version >= _availableUpdate.Version) SetAvailableUpdate(null);
         Installed?.Invoke(version);
     }
+
+    private IEnumerable<TPackage> Vetted(IEnumerable<TPackage> versions) =>
+        isVetted == null ? versions : versions.Where(x => x.IsInstalled || isVetted(x));
 
     private void SetAvailableUpdate(TPackage? update)
     {

@@ -50,12 +50,12 @@ public sealed class AudioCppProvider : IAudioProvider, IDisposable
             throw new ArgumentException("Text is required.", nameof(request));
 
         AudioCppModelEntry model = string.IsNullOrEmpty(request.Model)
-            ? _engine.ResolveModel(EAudioCppTask.Tts, request.Language)
+            ? _engine.Models.Resolve(EAudioCppTask.Tts, request.Language)
             : FindModel(request.Model);
         OpenAiCompatibleAudioClient client = await GetClientAsync(model, cancellationToken).ConfigureAwait(false);
         string? voice = await _voices.ResolveAsync(model, request.Voice, client, cancellationToken).ConfigureAwait(false);
         // 多数模型不会变速（server 对非 1 的 speed 直接报错），交给播放时变速；语气描述只给听得懂的
-        AudioCppFamily? family = _engine.GetFamily(model);
+        AudioCppFamily? family = _engine.Models.GetFamily(model);
         float speed = request.Speed ?? 1f;
         bool native = speed != 1f && family?.AcceptsSpeed == true;
         Dictionary<string, string> options = TunedOptions(model, family);
@@ -69,9 +69,9 @@ public sealed class AudioCppProvider : IAudioProvider, IDisposable
     public async Task<AudioTranscriptionResult> TranscribeAsync(
         AudioTranscriptionRequest request, CancellationToken cancellationToken)
     {
-        AudioCppModelEntry model = _engine.ResolveModel(EAudioCppTask.Asr);
+        AudioCppModelEntry model = _engine.Models.Resolve(EAudioCppTask.Asr);
         OpenAiCompatibleAudioClient client = await GetClientAsync(model, cancellationToken).ConfigureAwait(false);
-        Dictionary<string, string> options = TunedOptions(model, _engine.GetFamily(model));
+        Dictionary<string, string> options = TunedOptions(model, _engine.Models.GetFamily(model));
         if (options.Count == 0)
             return await client.TranscribeAsync(model.Id, request.Audio, request.Format, cancellationToken)
                 .ConfigureAwait(false);
@@ -105,7 +105,7 @@ public sealed class AudioCppProvider : IAudioProvider, IDisposable
     /// 当前合成模型的音色
     /// </summary>
     public Task<IReadOnlyList<string>> GetVoicesAsync(CancellationToken cancellationToken) =>
-        GetVoicesAsync(_engine.ResolveModel(EAudioCppTask.Tts), cancellationToken);
+        GetVoicesAsync(_engine.Models.Resolve(EAudioCppTask.Tts), cancellationToken);
 
     /// <summary>
     /// 某个本地合成模型自带的音色，不含音色库（会按需拉起引擎）
@@ -119,8 +119,8 @@ public sealed class AudioCppProvider : IAudioProvider, IDisposable
 
     // 缓存里没有就重扫一次（可能刚下完）
     private AudioCppModelEntry FindModel(string modelId) =>
-        _engine.GetModels().FirstOrDefault(x => x.Id == modelId) ??
-        _engine.GetModels(true).FirstOrDefault(x => x.Id == modelId) ??
+        _engine.Models.GetModels().FirstOrDefault(x => x.Id == modelId) ??
+        _engine.Models.GetModels(true).FirstOrDefault(x => x.Id == modelId) ??
         throw new AudioModelMissingException(EAudioCppTask.Tts);
 
     /// <summary>

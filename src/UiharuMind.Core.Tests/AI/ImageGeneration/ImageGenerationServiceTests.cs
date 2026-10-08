@@ -68,6 +68,27 @@ public class ImageGenerationServiceTests
         Assert.Equal((first, "HTTP 503"), (skipped.Name, skipped.Reason));
     }
 
+    [Fact]
+    public async Task LocalModelMissingFiles_IsSkippedWithoutAsking_AndTheNextOneDraws()
+    {
+        string local = Unique("local");
+        string remote = Unique("remote");
+        ImageModelInfo localModel = new()
+        {
+            Name = local, Dialect = EImageDialect.Local,
+            Local = new LocalImageModel { Components = [new LocalImageComponent { Flag = "diffusion-model", Path = "/gone.gguf" }] }
+        };
+        ScriptedDialect dialect = new(new() { [remote] = Drew(Png) });
+        ImageGenerationService service = new(() => [localModel, Model(remote)], _ => dialect,
+            (_, _) => throw new InvalidOperationException("unexpected download"), m => m.IsLocal);
+
+        ImageGenerationReport report = await Generate(service);
+
+        Assert.Equal(remote, report.ModelName);
+        Assert.Equal([remote], dialect.Asked);
+        Assert.Empty(report.Skipped); //缺文件不算这一家用不了，不进熔断
+    }
+
     [Theory]
     [InlineData(EImageFailureKind.Rejected)]
     [InlineData(EImageFailureKind.MaybeCharged)]

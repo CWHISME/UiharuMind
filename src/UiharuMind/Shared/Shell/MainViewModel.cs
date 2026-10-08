@@ -9,7 +9,9 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
-using UiharuMind.Core.AI.Audio;
+using System.Linq;
+using UiharuMind.Core.AI.Engines;
+using UiharuMind.Features.Settings.Engines;
 using System;
 using System.Collections.Generic;
 using Avalonia.Threading;
@@ -58,10 +60,9 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
     public MainViewModel(IServiceProvider services)
     {
         _services = services;
-        LLamaCppEngineInstaller.Shared.AvailableUpdateChanged += () =>
-            Dispatcher.UIThread.Post(() => OnPropertyChanged(nameof(HasEngineUpdate)));
-        AudioCppEngine.Shared.Installer.AvailableUpdateChanged += () =>
-            Dispatcher.UIThread.Post(() => OnPropertyChanged(nameof(HasEngineUpdate)));
+        foreach (ILocalEngine engine in LocalEngines.All)
+            engine.AvailableUpdateChanged += () =>
+                Dispatcher.UIThread.Post(() => OnPropertyChanged(nameof(HasEngineUpdate)));
         Dispatcher.UIThread.Post(() =>
         {
             // Receive(MenuKeys.MenuMainKey);
@@ -71,10 +72,9 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
     }
 
     /// <summary>
-    /// 本地引擎（llama.cpp / audio.cpp）有新版本：设置入口上挂个点
+    /// 有本地引擎出了新版本：设置入口上挂个点
     /// </summary>
-    public bool HasEngineUpdate => LLamaCppEngineInstaller.Shared.AvailableUpdate != null ||
-                                   AudioCppEngine.Shared.Installer.AvailableUpdate != null;
+    public bool HasEngineUpdate => LocalEngines.All.Any(x => x.AvailableUpdate != null);
 
     [RelayCommand]
     private void OpenSetting()

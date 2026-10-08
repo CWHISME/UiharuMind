@@ -41,7 +41,7 @@ public class LLamaCppEngineInstallerTests : IDisposable
 
     private static Version BuildVersion(string build) => new(int.Parse(build[1..]), 0);
 
-    private LLamaCppEngineInstaller Create() => new(_queue, _root,
+    private EngineInstaller<VersionInfo> Create() => new("llama.cpp", _queue, _root,
         () => Task.FromResult(_local),
         async () =>
         {
@@ -74,7 +74,7 @@ public class LLamaCppEngineInstallerTests : IDisposable
         string? suffix = RecommendedSuffix();
         Assert.SkipWhen(suffix == null, "本机平台没有推荐变体");
         _remote = [Remote("b100", suffix!), Remote("b200", suffix!), Remote("b300", "-bin-unknown-platform")];
-        LLamaCppEngineInstaller installer = Create();
+        EngineInstaller<VersionInfo> installer = Create();
 
         var results = await Task.WhenAll(installer.EnsureQueuedAsync(TestContext.Current.CancellationToken), installer.EnsureQueuedAsync(TestContext.Current.CancellationToken));
 
@@ -101,7 +101,7 @@ public class LLamaCppEngineInstallerTests : IDisposable
     {
         using TestHttpServer server = new(RandomNumberGenerator.GetBytes(4096));
         VersionInfo version = Remote("b100", "-bin-any", server.Url);
-        LLamaCppEngineInstaller installer = Create();
+        EngineInstaller<VersionInfo> installer = Create();
         VersionInfo? installedEvent = null;
         installer.Installed += x => installedEvent = x;
 
@@ -123,7 +123,7 @@ public class LLamaCppEngineInstallerTests : IDisposable
         installed.IsInstalled = true;
         VersionInfo newer = Remote("b120", suffix);
         _remote = [installed, Remote("b110", suffix), newer, Remote("b130", "-bin-unknown-variant")];
-        LLamaCppEngineInstaller installer = Create();
+        EngineInstaller<VersionInfo> installer = Create();
         int changes = 0;
         installer.AvailableUpdateChanged += () => changes++;
 
@@ -142,7 +142,7 @@ public class LLamaCppEngineInstallerTests : IDisposable
         VersionInfo installed = Remote("b120", suffix);
         installed.IsInstalled = true;
 
-        Assert.Null(LLamaCppEngineInstaller.PickUpdate([Remote("b120", suffix)]));
-        Assert.Null(LLamaCppEngineInstaller.PickUpdate([installed, Remote("b110", suffix)]));
+        Assert.Null(EngineInstaller<VersionInfo>.PickUpdate([Remote("b120", suffix)]));
+        Assert.Null(EngineInstaller<VersionInfo>.PickUpdate([installed, Remote("b110", suffix)]));
     }
 }

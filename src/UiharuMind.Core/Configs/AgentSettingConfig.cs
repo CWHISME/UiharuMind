@@ -29,6 +29,7 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     public const int FactoryDefaultAwayBackoffStartSeconds = 60;
     public const int FactoryDefaultAwayBackoffMaxMinutes = 30;
     public const int FactoryDefaultAwayStopDelayMinutes = 5;
+    public const int FactoryDefaultMemoryIndexBudget = 4000;
     public const string FactoryDefaultPythonInterpreterPath = "";
     public const string FactoryDefaultFirecrawlApiKey = "";
     public const string FactoryDefaultTavilyApiKey = "";
@@ -112,6 +113,12 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
 
     /// <summary>离席中用户按了停止（没关离席）后，等多少分钟再唤醒化身</summary>
     public int AwayStopDelayMinutes { get; set; } = FactoryDefaultAwayStopDelayMinutes;
+
+    /// <summary>
+    /// 记忆清单的字数上限（ADR 0076）：超出时保留最近修改的、写明还有几份没列。
+    /// 只作用于之后新挂的清单，已挂上的快照不变
+    /// </summary>
+    public int MemoryIndexBudget { get; set; } = FactoryDefaultMemoryIndexBudget;
 
     /// <summary>
     /// 把一个工作目录记为最近使用:置顶、去重、裁尾,并立即落盘。列表操作见 <see cref="RecentPathList"/>。

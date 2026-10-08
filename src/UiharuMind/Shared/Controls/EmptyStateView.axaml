@@ -1,0 +1,15 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             x:Class="UiharuMind.Shared.Controls.EmptyStateView"
+             x:Name="Root"
+             HorizontalAlignment="Center"
+             VerticalAlignment="Center">
+    <StackPanel Spacing="10" Margin="24">
+        <controls:ThemedSvgIcon Width="32" Height="32" IconName="{Binding #Root.IconName}" Opacity="0.5" />
+        <TextBlock Text="{Binding #Root.Title}" HorizontalAlignment="Center" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding #Root.Hint}" Classes="muted" HorizontalAlignment="Center"
+                   TextAlignment="Center" TextWrapping="Wrap" />
+        <ContentPresenter Content="{Binding #Root.Actions}" HorizontalAlignment="Center" Margin="0,4,0,0" />
+    </StackPanel>
+</UserControl>

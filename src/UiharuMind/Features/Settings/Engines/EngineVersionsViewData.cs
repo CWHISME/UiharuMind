@@ -19,11 +19,11 @@ using UiharuMind.Shared.Utils;
 namespace UiharuMind.Features.Settings.Engines;
 
 /// <summary>
-/// 引擎版本卡：在用哪个版本、有没有新版本、可下的包与发布说明。具体是哪个引擎由 <see cref="IEngineVersionSource"/> 决定
+/// 引擎版本卡：在用哪个版本、有没有新版本、可下的包与发布说明。具体是哪个引擎由 <see cref="ILocalEngine"/> 决定
 /// </summary>
 public partial class EngineVersionsViewData : ObservableObject
 {
-    private readonly IEngineVersionSource _source;
+    private readonly ILocalEngine _source;
     private readonly IMessageService _messageService;
     private readonly Action<string> _openFolder;
     private readonly List<EnginePackage> _lastLocalVersions = []; //上一次本地版本，刷新时差分删除
@@ -34,14 +34,19 @@ public partial class EngineVersionsViewData : ObservableObject
     [ObservableProperty] private string? _releaseInfo;
 
     /// <param name="source">哪个引擎</param>
+    /// <param name="iconName">标题前的图标（Assets/Icons 下的名字）</param>
+    /// <param name="versionDescription">版本下拉的说明：选中的版本用在哪</param>
     /// <param name="messageService">提示</param>
     /// <param name="openFolder">打开目录（界面外壳的系统调用）</param>
-    public EngineVersionsViewData(IEngineVersionSource source, IMessageService messageService, Action<string> openFolder)
+    public EngineVersionsViewData(ILocalEngine source, string iconName, string versionDescription,
+        IMessageService messageService, Action<string> openFolder)
     {
         _source = source;
         _messageService = messageService;
         _openFolder = openFolder;
-        _selectedChannel = ChannelOptions.First(x => x.Value == source.UseStableChannel);
+        IconName = iconName;
+        VersionDescription = versionDescription;
+        _selectedChannel = ChannelOptions.First(x => x.Value == (source.Channels?.UseStableChannel ?? true));
         Packages = new DownloadListViewData(messageService)
         {
             DownloadCompletedHandler = OnPackageDownloaded,
@@ -62,17 +67,17 @@ public partial class EngineVersionsViewData : ObservableObject
     /// <summary>
     /// 引擎名
     /// </summary>
-    public string EngineName => _source.EngineName;
+    public string EngineName => _source.Name;
 
     /// <summary>
     /// 标题前的图标
     /// </summary>
-    public string IconName => _source.IconName;
+    public string IconName { get; }
 
     /// <summary>
     /// 版本下拉的说明
     /// </summary>
-    public string VersionDescription => _source.VersionDescription;
+    public string VersionDescription { get; }
 
     /// <summary>
     /// 本机已装的版本
@@ -87,7 +92,7 @@ public partial class EngineVersionsViewData : ObservableObject
     /// <summary>
     /// 卡片上的版本号；没装时说明一句
     /// </summary>
-    public string VersionText => SelectedVersion?.Name ?? Loc.Text(LangKey.LLamaCppNoEngine);
+    public string VersionText => SelectedVersion?.Name ?? Loc.Text(LangKey.EngineNotInstalled);
 
     /// <summary>
     /// 当前版本是本机推荐的变体
@@ -112,20 +117,20 @@ public partial class EngineVersionsViewData : ObservableObject
     /// <summary>
     /// 新版本提示
     /// </summary>
-    public string UpdateText => AvailableUpdate == null ? "" : Loc.Text(LangKey.LLamaCppUpdateAvailable, AvailableUpdate.Name);
+    public string UpdateText => AvailableUpdate == null ? "" : Loc.Text(LangKey.EngineUpdateAvailable, AvailableUpdate.Name);
 
     /// <summary>
     /// 有没有更新通道可选
     /// </summary>
-    public bool HasChannels => _source.HasChannels;
+    public bool HasChannels => _source.Channels != null;
 
     /// <summary>
     /// 更新通道：预览版几乎天天有新构建，正式版只跟正式版钉住的构建
     /// </summary>
     public IReadOnlyList<SettingChoice<bool>> ChannelOptions { get; } =
     [
-        new(false, Loc.Text(LangKey.LLamaCppChannelPreview)),
-        new(true, Loc.Text(LangKey.LLamaCppChannelStable))
+        new(false, Loc.Text(LangKey.EngineChannelPreview)),
+        new(true, Loc.Text(LangKey.EngineChannelStable))
     ];
 
     // 与模型下载自动装引擎同一条路：排进全局下载队列，装好后选中
@@ -134,18 +139,8 @@ public partial class EngineVersionsViewData : ObservableObject
     {
         if (AvailableUpdate is not { } version) return;
         DownloadJob job = _source.Enqueue(version);
-        _messageService.ShowNotification(Loc.Text(LangKey.LLamaCppUpdateQueued, version.Name));
-        job.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName != nameof(DownloadJob.State)) return;
-            if (job.State == EDownloadJobState.Completed)
-                UiDispatcher.FireAndForget(() => _messageService.ShowNotification(
-                    Loc.Text(LangKey.ModelDownloadEngineInstalled, version.Name), severity: MessageSeverity.Success));
-            else if (job.State == EDownloadJobState.Failed)
-                UiDispatcher.FireAndForget(() => _messageService.ShowNotification(
-                    Loc.Text(LangKey.ModelDownloadEngineFailed, version.Name, job.Error?.Message ?? ""),
-                    severity: MessageSeverity.Error));
-        };
+        _messageService.ShowNotification(Loc.Text(LangKey.EngineUpdateQueued, version.Name));
+        EngineInstallFeedback.Watch(job, version.Name, _messageService);
     }
 
     [RelayCommand]
@@ -196,7 +191,10 @@ public partial class EngineVersionsViewData : ObservableObject
         ReleaseInfo = remote.ReleaseInfo;
     }
 
-    partial void OnSelectedChannelChanged(SettingChoice<bool> value) => _source.UseStableChannel = value.Value;
+    partial void OnSelectedChannelChanged(SettingChoice<bool> value)
+    {
+        if (_source.Channels != null) _source.Channels.UseStableChannel = value.Value;
+    }
 
     partial void OnSelectedVersionChanged(EnginePackage? oldValue, EnginePackage? newValue)
     {

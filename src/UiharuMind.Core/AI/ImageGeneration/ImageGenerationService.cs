@@ -17,6 +17,7 @@ public sealed class ImageGenerationService
     private readonly Func<IReadOnlyList<ImageModelInfo>> _models;
     private readonly Func<EImageDialect, IImageDialect> _dialects;
     private readonly Func<string, CancellationToken, Task<byte[]>> _download;
+    private readonly Func<ImageModelInfo, bool> _isMissingFiles;
 
     /// <summary>读全局生图模型列表的那一条</summary>
     public static ImageGenerationService Shared { get; } =
@@ -25,12 +26,15 @@ public sealed class ImageGenerationService
     /// <param name="models">生图模型列表来源，每次调用现取</param>
     /// <param name="dialects">接口格式 → 适配器</param>
     /// <param name="download">下载结果图</param>
+    /// <param name="isMissingFiles">本地模型缺不缺组件文件；null 按当前模型目录查磁盘</param>
     internal ImageGenerationService(Func<IReadOnlyList<ImageModelInfo>> models,
-        Func<EImageDialect, IImageDialect> dialects, Func<string, CancellationToken, Task<byte[]>> download)
+        Func<EImageDialect, IImageDialect> dialects, Func<string, CancellationToken, Task<byte[]>> download,
+        Func<ImageModelInfo, bool>? isMissingFiles = null)
     {
         _models = models;
         _dialects = dialects;
         _download = download;
+        _isMissingFiles = isMissingFiles ?? IsMissingFiles;
     }
 
     /// <summary>至少配了一个生图模型。只看配置不看连通——装配期据此决定挂不挂工具</summary>
@@ -44,6 +48,7 @@ public sealed class ImageGenerationService
     public static ImageModelStatus StatusOf(ImageModelInfo model)
     {
         if (!model.IsConfigured) return new ImageModelStatus(EImageModelState.NotConfigured, null);
+        if (IsMissingFiles(model)) return new ImageModelStatus(EImageModelState.MissingFiles, null);
 
         string key = CircuitKey(model);
         return ServiceCircuit.IsTripped(key, out _)
@@ -102,10 +107,37 @@ public sealed class ImageGenerationService
         return Failed(null, new ImageFailure(EImageFailureKind.Unavailable, message), skipped);
     }
 
+    /// <summary>
+    /// 指定一个生图模型出图，不回退（画图窗口里用户选了谁就是谁，试的就是它）；本地模型带进度
+    /// </summary>
+    /// <param name="model">生图模型</param>
+    /// <param name="request">出图请求</param>
+    /// <param name="progress">本地模型的进度；null 不报</param>
+    /// <param name="ct">取消令牌</param>
+    /// <returns>结果，失败不抛异常</returns>
+    public async Task<ImageGenerationReport> GenerateWithAsync(ImageModelInfo model, ImageRequest request,
+        IProgress<SdCppProgress>? progress, CancellationToken ct)
+    {
+        if (IneligibleReason(model, request) is { } reason)
+            return Failed(model.Name, new ImageFailure(EImageFailureKind.Unavailable, reason), []);
+
+        ImageOutcome outcome = model.IsLocal
+            ? await LocalImageDialect.Shared.GenerateAsync(model, request, progress, ct).ConfigureAwait(false)
+            : await _dialects(model.Dialect).GenerateAsync(model, request, ct).ConfigureAwait(false);
+        return outcome.Failure != null
+            ? Failed(model.Name, outcome.Failure, [])
+            : await MaterializeAsync(model.Name, outcome, [], ct).ConfigureAwait(false);
+    }
+
+    // 本地模型的组件文件在不在
+    private static bool IsMissingFiles(ImageModelInfo model) =>
+        model.IsLocal && LocalImageModels.MissingFiles(model, LocalImageModels.ModelRoot).Count > 0;
+
     // 不算回退的跳过：这一家压根不该接这一单
-    private static string? IneligibleReason(ImageModelInfo model, ImageRequest request)
+    private string? IneligibleReason(ImageModelInfo model, ImageRequest request)
     {
         if (!model.IsConfigured) return "not configured";
+        if (_isMissingFiles(model)) return "local model files are missing";
         return request.IsEdit && !model.SupportsEditing ? "does not support editing" : null;
     }
 

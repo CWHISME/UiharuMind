@@ -31,8 +31,6 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     private readonly RemoteModelManager _remoteModelManager = new();
     private readonly ModelRuntimeService _runtimeService;
 
-    public VersionInfo? CurrentRuntimeVersion => _llamaCppRuntime.CurrentVersion;
-
     /// <summary>
     /// 已注册的本地引擎
     /// </summary>
@@ -72,7 +70,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
         _runtimeService = new ModelRuntimeService(
             _llamaCppRuntime,
             _remoteModelManager,
-            () => _llamaCppRuntime.CurrentVersion);
+            token => LLamaCppEngine.Shared.EnsureCurrentAsync(token));
     }
 
     //======================callbacks======================
@@ -109,8 +107,8 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
 
     public void OnInitialize()
     {
-        // if (UiharuCoreManager.Instance.IsWindows) SetupTestWin();
-        // else SetupTest();
+        // 先在后台认出在用的引擎版本，界面上的版本名不必等到第一次加载模型
+        _ = LLamaCppEngine.Shared.ScanAsync();
     }
 
     /// <summary>
@@ -310,31 +308,6 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
             _curModelRunningData.StopRunning();
         _curModelRunningData = value;
         OnCurrentModelChanged?.Invoke(value);
-    }
-
-    public Task<VersionManager> GetLocalRuntimeVersions()
-    {
-        return _llamaCppRuntime.GetLocalVersions();
-    }
-
-    public Task<VersionManager> PullLatestRuntimeVersion()
-    {
-        return _llamaCppRuntime.PullLatestVersion();
-    }
-
-    /// <summary>
-    /// 安装已下好的引擎包：解压到安装目录并校验，成功后删掉压缩包
-    /// </summary>
-    /// <param name="version">引擎版本（压缩包已落在 PackageFilePath）</param>
-    /// <param name="token">取消</param>
-    public Task InstallRuntimeVersionAsync(VersionInfo version, CancellationToken token = default)
-    {
-        return _llamaCppRuntime.InstallArchiveAsync(version, token);
-    }
-
-    public void SetSelectedRuntimeVersion(VersionInfo? version)
-    {
-        _llamaCppRuntime.SetSelectedVersion(version);
     }
 
     // public void SaveLLamaCppConfig()

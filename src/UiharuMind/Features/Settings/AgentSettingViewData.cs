@@ -48,6 +48,15 @@ public partial class AgentSettingViewData : ViewModelBase
     /// </summary>
     [ObservableProperty] private ModelRunningData? _generalSubAgentModel;
 
+    /// <summary>记忆清单字数上限（ADR 0076）。数值框绑的是 decimal，存回去取整</summary>
+    [ObservableProperty] private decimal _memoryIndexBudget;
+
+    /// <summary>记忆清单字数上限可设范围，与 Core 夹值同一处</summary>
+    public decimal MemoryIndexBudgetMin => MemoryIndex.MinListBudget;
+
+    /// <summary>记忆清单字数上限可设范围，与 Core 夹值同一处</summary>
+    public decimal MemoryIndexBudgetMax => MemoryIndex.MaxListBudget;
+
     // 从前这里还有「探索型子代理模型」。ADR 0044 归一委派工具之后，新的委派一律走通用档，
     // 这个选择器对新委派不再起任何作用，留着只会让人以为它还管用，故删。
     // 配置字段 AgentSettingConfig.ExplorerSubAgentModelName 本身保留——
@@ -70,6 +79,7 @@ public partial class AgentSettingViewData : ViewModelBase
     // 「值≠出厂值」才显示单项恢复默认按钮（SettingsRow 可见性绑定用）；出厂值引用 AgentSettingConfig 常量
     public bool IsDefaultPermissionModeNotDefault => DefaultPermissionModeIndex != AgentSettingConfig.FactoryDefaultPermissionModeIndex;
     public bool IsGeneralSubAgentModelNotDefault => GeneralSubAgentModel is not null; // null = 回退主代理，出厂态
+    public bool IsMemoryIndexBudgetNotDefault => MemoryIndexBudget != AgentSettingConfig.FactoryDefaultMemoryIndexBudget;
 
     //================= 受管 Python 环境 =================
     /// <summary>
@@ -110,6 +120,7 @@ public partial class AgentSettingViewData : ViewModelBase
         {
             AgentSettingConfig config = AgentSettingConfig.Current;
             DefaultPermissionModeIndex = config.DefaultPermissionModeIndex;
+            MemoryIndexBudget = Math.Clamp(config.MemoryIndexBudget, MemoryIndex.MinListBudget, MemoryIndex.MaxListBudget);
             ModelSkillsEnabled = config.ModelSkillsEnabled;
             LoadAvailableModels();
         }
@@ -149,6 +160,18 @@ public partial class AgentSettingViewData : ViewModelBase
         // 回填时 IsLoading 为真，不弹反馈；只有用户真的改了才提示
         if (!_writeBack.IsLoading) StatusText = Loc.Text(LangKey.ShortcutSavedTips);
     }
+
+    //================= 常规:记忆清单字数上限,变更即存,下一份新挂的清单起生效 =================
+    partial void OnMemoryIndexBudgetChanged(decimal value)
+    {
+        AgentSettingConfig.Current.MemoryIndexBudget = (int)value;
+        _writeBack.Save();
+        OnPropertyChanged(nameof(IsMemoryIndexBudgetNotDefault));
+        if (!_writeBack.IsLoading) StatusText = Loc.Text(LangKey.ShortcutSavedTips);
+    }
+
+    [RelayCommand]
+    private void ResetMemoryIndexBudget() => MemoryIndexBudget = AgentSettingConfig.FactoryDefaultMemoryIndexBudget;
 
     //================= 技能:变更即存 =================
     partial void OnModelSkillsEnabledChanged(bool value)

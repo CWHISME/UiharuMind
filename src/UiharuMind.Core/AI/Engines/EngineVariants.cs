@@ -18,6 +18,40 @@ public static class EngineVariants
         : null;
 
     /// <summary>
+    /// 本机是不是这个引擎的推荐变体
+    /// </summary>
+    /// <param name="packageName">包名（或由包名得到的版本名）</param>
+    /// <param name="marker">按系统与架构给出推荐变体在包名里的标记；不推荐任何变体为 null</param>
+    /// <param name="atEnd">标记必须在结尾（cpu 不能把 cpu-portable 也认进来）</param>
+    /// <returns>是推荐变体返回 true</returns>
+    public static bool IsRecommended(string packageName, Func<OSPlatform, string, string?> marker, bool atEnd = false)
+    {
+        OSPlatform? platform = CurrentPlatform;
+        return platform != null &&
+               IsRecommended(packageName, platform.Value, RuntimeInformation.ProcessArchitecture, marker, atEnd);
+    }
+
+    /// <summary>
+    /// 指定平台下是不是推荐变体
+    /// </summary>
+    /// <param name="packageName">包名</param>
+    /// <param name="platform">操作系统</param>
+    /// <param name="architecture">CPU 架构</param>
+    /// <param name="marker">按系统与架构给出推荐变体的标记</param>
+    /// <param name="atEnd">标记必须在结尾</param>
+    /// <returns>是推荐变体返回 true</returns>
+    public static bool IsRecommended(string packageName, OSPlatform platform, Architecture architecture,
+        Func<OSPlatform, string, string?> marker, bool atEnd = false)
+    {
+        string? arch = ArchitectureToken(architecture);
+        string? token = arch == null ? null : marker(platform, arch);
+        if (string.IsNullOrEmpty(token)) return false;
+        return atEnd
+            ? packageName.EndsWith(token, StringComparison.OrdinalIgnoreCase)
+            : packageName.Contains(token, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// 包名里的架构写法
     /// </summary>
     /// <param name="architecture">CPU 架构</param>

@@ -25,6 +25,9 @@ public enum EImageModelState
 
     /// <summary>连续「用不了」触发熔断，暂时跳过</summary>
     Cooling,
+
+    /// <summary>本地模型缺组件文件（被删了、还没下完）</summary>
+    MissingFiles,
 }
 
 /// <summary>

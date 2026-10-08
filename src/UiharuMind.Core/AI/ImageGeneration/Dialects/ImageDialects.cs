@@ -35,6 +35,7 @@ internal static class ImageDialects
         {
             EImageDialect.SenseNova => SenseNova,
             EImageDialect.Agnes => Agnes,
+            EImageDialect.Local => LocalImageDialect.Shared,
             _ => OpenAI,
         };
     }

@@ -45,9 +45,9 @@ public sealed record CharacterVoiceSource(
     {
         List<CharacterVoiceSource> result = [Default];
         string[] libraryVoices = library.List().Select(x => x.Name).ToArray();
-        foreach (AudioCppModelEntry model in engine.GetModels().Where(x => x.Task == EAudioCppTask.Tts.ToConfigName()))
+        foreach (AudioCppModelEntry model in engine.Models.GetModels().Where(x => x.Task == EAudioCppTask.Tts.ToConfigName()))
         {
-            AudioCppFamily? family = engine.GetFamily(model);
+            AudioCppFamily? family = engine.Models.GetFamily(model);
             IEnumerable<string> voices = (family?.CanClone == true ? libraryVoices : [])
                 .Concat(family?.BuiltinVoices ?? []);
             result.Add(new CharacterVoiceSource(AudioCppProvider.LocalId, model.Id, family?.DisplayName ?? model.Id,

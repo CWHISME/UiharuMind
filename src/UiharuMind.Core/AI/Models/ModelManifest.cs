@@ -88,6 +88,12 @@ public sealed class ManifestModel
     /// 配给它的视觉投影，相对仓库目录；没有为 null
     /// </summary>
     public string? Projector { get; set; }
+
+    /// <summary>
+    /// 只作为生图组件下载的（比如当文本编码器的 LLM）：不进对话模型列表。
+    /// 用户另把它当对话模型下载时清掉，删生图模型时也就不会删它
+    /// </summary>
+    public bool ComponentOnly { get; set; }
 }
 
 /// <summary>

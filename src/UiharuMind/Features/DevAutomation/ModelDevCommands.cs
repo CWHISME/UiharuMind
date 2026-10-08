@@ -61,7 +61,7 @@ internal sealed class ModelDownloadCommand : IAsyncDevCommand
 
         Stopwatch watch = Stopwatch.StartNew();
         ModelRepoDetailData? detail;
-        while ((detail = page.Downloads?.Gguf.Detail) == null || detail.Repository != repo || detail.IsLoading)
+        while ((detail = page.Downloads?.Market<GgufMarketData>().Detail) == null || detail.Repository != repo || detail.IsLoading)
         {
             if (watch.Elapsed > TimeSpan.FromMinutes(1)) throw new TimeoutException($"repository '{repo}' never loaded");
             await Task.Delay(200);

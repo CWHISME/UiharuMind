@@ -3,6 +3,7 @@ using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Features.Models;
+using UiharuMind.Features.Models.ChatModels;
 
 namespace UiharuMind.App.Tests.Models;
 
@@ -24,9 +25,9 @@ public class ModelDeleteTests : IDisposable
     {
         string builtIn = Path.Combine(ModelSettingConfig.Current.DefaultLocalModelPath, "embed.gguf");
 
-        Assert.False(ModelPageData.CanDeleteLocalModel(Local(builtIn)));
-        Assert.False(ModelPageData.CanDeleteLocalModel(new ModelRunningData(new RemoteModelInfo())));
-        Assert.True(ModelPageData.CanDeleteLocalModel(Local(Path.Combine(_directory, "m.gguf"))));
+        Assert.False(ChatModelListViewData.CanDeleteLocalModel(Local(builtIn)));
+        Assert.False(ChatModelListViewData.CanDeleteLocalModel(new ModelRunningData(new RemoteModelInfo())));
+        Assert.True(ChatModelListViewData.CanDeleteLocalModel(Local(Path.Combine(_directory, "m.gguf"))));
     }
 
     [Fact]
@@ -36,7 +37,7 @@ public class ModelDeleteTests : IDisposable
         await File.WriteAllTextAsync(path, "x", TestContext.Current.CancellationToken);
         RecordingMessageService messages = new() { ConfirmResult = false };
 
-        await new ModelPageData(messages).DeleteLocalModelCommand.ExecuteAsync(Local(path));
+        await new ChatModelListViewData(messages, () => { }).DeleteLocalModelCommand.ExecuteAsync(Local(path));
 
         Assert.Single(messages.Confirms);
         Assert.True(File.Exists(path));

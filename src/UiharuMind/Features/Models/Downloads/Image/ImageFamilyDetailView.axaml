@@ -1,0 +1,87 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:downloads="clr-namespace:UiharuMind.Features.Models.Downloads"
+             xmlns:image="clr-namespace:UiharuMind.Features.Models.Downloads.Image"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             x:Class="UiharuMind.Features.Models.Downloads.Image.ImageFamilyDetailView"
+             x:DataType="image:ImageFamilyDetailData">
+
+    <DockPanel>
+        <DockPanel DockPanel.Dock="Top">
+            <Button DockPanel.Dock="Left" Classes="NoneStyle drawer-back" Padding="4" Margin="-4,0,6,0"
+                    Cursor="Hand" VerticalAlignment="Top"
+                    Command="{Binding $parent[downloads:ModelDownloadView].((downloads:ModelDownloadPageData)DataContext).CloseDetailCommand}">
+                <controls:ThemedSvgIcon Width="18" Height="18" IconName="arrow-left" />
+            </Button>
+            <StackPanel Spacing="3">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <SelectableTextBlock Text="{Binding Title}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <Border Classes="feature-tag" Margin="0" ToolTip.Tip="{loc:Loc ImageFamilyUntestedTip}"
+                            IsVisible="{Binding IsUntested}">
+                        <TextBlock Text="{loc:Loc ImageFamilyUntested}" FontSize="11" />
+                    </Border>
+                </StackPanel>
+                <Button Classes="NoneStyle" Cursor="Hand" Padding="0" HorizontalAlignment="Left"
+                        Command="{Binding OpenDocCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="{loc:Loc ImageFamilyDoc}" Classes="muted" FontSize="12"
+                                   TextDecorations="Underline" VerticalAlignment="Center" />
+                        <controls:ThemedSvgIcon Width="11" Height="11" IconName="globe" Opacity="0.6"
+                                                VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </DockPanel>
+
+        <ProgressBar DockPanel.Dock="Top" IsIndeterminate="True" Height="2" MinHeight="2" Margin="0,12,0,0"
+                     IsVisible="{Binding IsLoading}" />
+
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" Margin="0,12,0,0">
+            <StackPanel Spacing="12">
+                <ItemsControl ItemsSource="{Binding Tags}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="x:String">
+                            <Border Classes="feature-tag">
+                                <TextBlock Text="{Binding}" FontSize="11" />
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <SelectableTextBlock Text="{Binding Description}" TextWrapping="Wrap" FontSize="13" />
+
+                <StackPanel Spacing="0">
+                    <TextBlock Text="{loc:Loc ImageFamilyTiers}" FontSize="13" FontWeight="SemiBold" Margin="2,4,0,6" />
+                    <Border Height="1" Background="{DynamicResource SemiGrey2}" />
+                    <ItemsControl x:Name="TierList" ItemsSource="{Binding Rows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="image:ImageTierRowData">
+                                <downloads:DownloadRowView>
+                                    <downloads:DownloadRowView.Actions>
+                                        <Panel>
+                                            <Button Classes="quant-action" Content="{Binding ActionText}"
+                                                    IsVisible="{Binding !IsDownloaded}"
+                                                    IsEnabled="{Binding CanDownload}"
+                                                    Command="{Binding $parent[ItemsControl].((image:ImageFamilyDetailData)DataContext).DownloadCommand}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Classes="quant-action" Content="{loc:Loc ImageModelTry}"
+                                                    IsVisible="{Binding IsDownloaded}"
+                                                    Command="{Binding $parent[ItemsControl].((image:ImageFamilyDetailData)DataContext).DrawCommand}"
+                                                    CommandParameter="{Binding}" />
+                                        </Panel>
+                                    </downloads:DownloadRowView.Actions>
+                                </downloads:DownloadRowView>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>

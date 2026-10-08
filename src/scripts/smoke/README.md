@@ -179,7 +179,7 @@ SMOKE_FRESH=1 src/scripts/smoke/run.sh local-model-first-run
 
 自带一张只开浏览器与文件工具的「浏览器测试员」卡（`browser-basic.home/`，关了 Shell 与网页搜索，逼它走浏览器）。
 三个单聊各一件事：httpbin 的披萨表单填完提交并核对回显；中文维基搜「白井黑子」答三个事实；
-the-internet 上选下拉框、再用公开的测试账号登录——密码给了也不代填，得走接管（ADR 0077）。**要本机装着 Chrome**，无头跑：
+the-internet 上选下拉框、再用公开的测试账号登录——密码给了也不代填，得走接管（ADR 0078）。**要本机装着 Chrome**，无头跑：
 
 ```bash
 UIHARU_BROWSER_HEADLESS=1 SMOKE_MODEL=Agnes-2.5-Flash-无思考 src/scripts/smoke/run.sh browser-basic
@@ -205,3 +205,14 @@ UIHARU_BROWSER_HEADLESS=1 SMOKE_MODEL=Agnes-2.5-Flash-无思考 src/scripts/smok
 - 真的派出了两个子代理，浏览器调用出在子会话里（`home/Logs/Log.txt` 里 `BrowserNavigate` / `BrowserAct` 的调用），不是主代理自己去做
 - 两个子代理各用各的标签页，互不踩编号：表单回显 `custname` 是白井黑子、`size` 是 large、`topping` 是 onion；下拉框回报 Option 2
 - 汇总里两份回报都在，引用的是回报原文
+
+### memory-index：记忆清单（ADR 0076）
+
+OP-01 在 `ws-repo` 记两条笔记（偏好、跑测试的命令）；同一工作区新开一个会话，先问「不调工具，你记忆里有什么」，再问跑测试的命令。
+
+- 写笔记那一场的 `Write` 结果里有一行 `Shown in the memory list as: $MEMORY/文件名 — 首行`，首行是一句能单独看懂的话而不只是标题
+- 新会话第一问没有任何工具调用，就答得出两份笔记的文件名与大意——清单随首条消息到了
+- 新会话第二问要读笔记时，`Read` 的路径就是清单里那条（`$MEMORY/…`），不去工作区里猜目录
+- 新会话的历史文件（`home/Data/Sessions/*.history.jsonl`）里只有第一条用户消息带 `_memoryIndex`，第二条没有；正文仍是用户原话
+- `home/Logs/Bodies.txt` 里两次请求的首条用户消息都以 `[记忆清单]` 开头、逐字一致（第二轮没有再并一份）
+- 用户气泡下方有「已附记忆清单（2 份）」，展开是清单全文

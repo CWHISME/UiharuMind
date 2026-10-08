@@ -1,3 +1,4 @@
+using UiharuMind.Features.Settings.Engines;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -29,6 +30,7 @@ public sealed record AudioTaskFilterOption(EAudioCppTask? Task, string Label);
 public partial class AudioMarketData : ObservableObject, IModelMarket
 {
     private readonly ModelDownloadContext _context;
+    private readonly AudioMarketServices _audio;
     private List<AudioFamilyListItem> _all = [];
     private bool _isLoaded;
     private string _sourceKey = "";
@@ -49,8 +51,9 @@ public partial class AudioMarketData : ObservableObject, IModelMarket
     [ObservableProperty] private bool _isResultEmpty;
     [ObservableProperty] private string _sourceLabel;
 
-    public AudioMarketData(ModelDownloadContext context)
+    public AudioMarketData(ModelDownloadContext context, AudioMarketServices audio)
     {
+        _audio = audio;
         _context = context;
         FilterOptions =
         [
@@ -65,6 +68,12 @@ public partial class AudioMarketData : ObservableObject, IModelMarket
     public string Title => Loc.Text(LangKey.ModelMarketAudio);
 
     public bool HasDetail => Detail != null;
+
+    public string IconName => "audio-lines";
+
+    public string EmptyHint => Loc.Text(LangKey.AudioMarketPickFamily);
+
+    object? IModelMarket.Detail => Detail;
 
     /// <summary>
     /// 筛选项
@@ -92,7 +101,7 @@ public partial class AudioMarketData : ObservableObject, IModelMarket
 
         // 引擎装好或换了版本，模型清单跟着变
         if (!_isLoaded)
-            _context.AudioEngine.VersionChanged += () => UiDispatcher.FireAndForget(() => _ = ReloadAsync());
+            _audio.Engine.Distribution.VersionChanged += () => UiDispatcher.FireAndForget(() => _ = ReloadAsync());
         _sourceKey = key;
         SourceLabel = ModelDownloadSourceInfo.Label();
         _isLoaded = true;
@@ -114,15 +123,15 @@ public partial class AudioMarketData : ObservableObject, IModelMarket
         IsLoading = true;
         try
         {
-            AudioCppEngine engine = _context.AudioEngine;
+            AudioCppEngine engine = _audio.Engine;
             (IReadOnlyList<AudioCppFamily> families, HashSet<string> installed) = await Task.Run(async () =>
             {
-                if (engine.CurrentVersion == null) await engine.GetLocalVersionsAsync().ConfigureAwait(false);
-                IReadOnlyList<AudioCppFamily> result = engine.GetFamilies();
+                if (engine.Distribution.CurrentVersion == null) await engine.Distribution.ScanAsync().ConfigureAwait(false);
+                IReadOnlyList<AudioCppFamily> result = engine.Models.GetFamilies();
                 return (result, InstalledFamilies(result));
             });
 
-            HasEngine = engine.CurrentVersion != null;
+            HasEngine = engine.Distribution.CurrentVersion != null;
             // 推荐的在前，其次上游标了 supported 的，再按名称
             _all = families
                 .Select(x => new AudioFamilyListItem(x) { IsInstalled = installed.Contains(x.Family) })
@@ -153,7 +162,7 @@ public partial class AudioMarketData : ObservableObject, IModelMarket
     {
         if (value == null || value.Family == Detail?.Family) return;
         Detail?.Dispose();
-        AudioFamilyDetailData detail = new(_context, value.Family, () => _ = RefreshInstalledAsync());
+        AudioFamilyDetailData detail = new(_context, _audio, value.Family, () => _ = RefreshInstalledAsync());
         Detail = detail;
         _ = detail.LoadAsync();
     }
@@ -163,41 +172,13 @@ public partial class AudioMarketData : ObservableObject, IModelMarket
     private async Task InstallEngine()
     {
         IsEngineQueued = true;
-        try
-        {
-            var (state, version, job) = await Task.Run(() => _context.AudioEngine.Installer.EnsureQueuedAsync());
-            switch (state)
-            {
-                case EEngineEnsureState.NoPackage:
-                    IsEngineQueued = false;
-                    _context.Messages.ShowNotification(Loc.Text(LangKey.AudioEngineNoPackage), severity: MessageSeverity.Warning);
-                    return;
-                case EEngineEnsureState.AlreadyInstalled:
-                    await ReloadAsync();
-                    return;
-                case EEngineEnsureState.Queued when version != null && job != null:
-                    _context.Messages.ShowNotification(Loc.Text(LangKey.AudioEngineQueued, version.Name));
-                    job.PropertyChanged += (_, e) =>
-                    {
-                        if (e.PropertyName != nameof(DownloadJob.State) || job.State != EDownloadJobState.Failed) return;
-                        UiDispatcher.FireAndForget(() =>
-                        {
-                            IsEngineQueued = false;
-                            _context.Messages.ShowNotification(
-                                Loc.Text(LangKey.ModelDownloadEngineFailed, version.Name, job.Error?.Message ?? ""),
-                                severity: MessageSeverity.Error);
-                        });
-                    };
-                    return;
-            }
-        }
-        catch (Exception e)
-        {
-            IsEngineQueued = false;
-            Log.Warning($"Ensure audio.cpp engine failed: {e.Message}");
-            _context.Messages.ShowNotification(Loc.Text(LangKey.AudioEngineCheckFailed, e.Message),
-                severity: MessageSeverity.Warning);
-        }
+        ILocalEngine engine = _audio.Engine.Distribution;
+        EEngineEnsureState? state = await EngineInstallFeedback.EnsureAsync(() => engine.EnsureQueuedAsync(),
+            _context.Messages,
+            new EngineEnsureTexts(LangKey.AudioEngineNoPackage, LangKey.AudioEngineQueued, LangKey.AudioEngineCheckFailed),
+            () => IsEngineQueued = false);
+        if (state == EEngineEnsureState.AlreadyInstalled) await ReloadAsync();
+        else if (state != EEngineEnsureState.Queued) IsEngineQueued = false;
     }
 
     [RelayCommand]
@@ -224,5 +205,5 @@ public partial class AudioMarketData : ObservableObject, IModelMarket
     }
 
     private HashSet<string> InstalledFamilies(IReadOnlyList<AudioCppFamily> families) =>
-        families.Where(x => x.Packages.Any(_context.AudioStore.IsInstalled)).Select(x => x.Family).ToHashSet();
+        families.Where(x => x.Packages.Any(_audio.Store.IsInstalled)).Select(x => x.Family).ToHashSet();
 }

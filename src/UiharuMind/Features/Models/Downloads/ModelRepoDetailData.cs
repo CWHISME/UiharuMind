@@ -1,3 +1,4 @@
+using UiharuMind.Features.Settings.Engines;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -28,6 +29,7 @@ namespace UiharuMind.Features.Models.Downloads;
 public partial class ModelRepoDetailData : ObservableObject, IDisposable
 {
     private readonly ModelDownloadContext _context;
+    private readonly GgufMarketHooks _hooks;
     private readonly IModelSource _source;
     private readonly CancellationTokenSource _cancellation = new();
     private RuntimeDeviceInfo? _device;
@@ -46,8 +48,10 @@ public partial class ModelRepoDetailData : ObservableObject, IDisposable
     [ObservableProperty] private string? _readmeStatus;
     private bool _isReadmeRequested; //说明第一次切过去才拉
 
-    public ModelRepoDetailData(ModelDownloadContext context, IModelSource source, string repository)
+    public ModelRepoDetailData(ModelDownloadContext context, GgufMarketHooks hooks, IModelSource source,
+        string repository)
     {
+        _hooks = hooks;
         _context = context;
         _source = source;
         Repository = repository;
@@ -169,21 +173,11 @@ public partial class ModelRepoDetailData : ObservableObject, IDisposable
     public void RefreshStatuses()
     {
         if (Rows.Count == 0) return;
-        Dictionary<string, DownloadJob> jobs = _context.Queue.Jobs
-            .Where(x => x.State != EDownloadJobState.Completed)
-            .GroupBy(x => x.Request.DestinationPath, StringComparer.Ordinal)
-            .ToDictionary(x => x.Key, x => x.Last(), StringComparer.Ordinal);
+        FileDownloadStates downloads = _context.SnapshotDownloads();
         foreach (ModelQuantRowData row in Rows)
         {
-            List<QuantFileSnapshot> files = row.Quant.Files.Select(file =>
-            {
-                string path = ModelRepoDownloader.FilePath(_repoDirectory, file);
-                if (File.Exists(path)) return new QuantFileSnapshot(file.Size, true, null, file.Size);
-                if (jobs.TryGetValue(path, out DownloadJob? job))
-                    return new QuantFileSnapshot(file.Size, false, job.State, job.Progress.ReceivedBytes);
-                long received = FileDownloader.ReadPartialProgress(path)?.ReceivedBytes ?? 0;
-                return new QuantFileSnapshot(file.Size, false, null, received);
-            }).ToList();
+            List<QuantFileSnapshot> files = row.Quant.Files
+                .Select(file => downloads.Of(ModelRepoDownloader.FilePath(_repoDirectory, file), file.Size)).ToList();
             row.ApplyStatus(QuantDownloadStatus.Resolve(files, row.ConflictPath != null));
         }
     }
@@ -241,51 +235,22 @@ public partial class ModelRepoDetailData : ObservableObject, IDisposable
             {
                 await _context.RefreshLocalModels();
                 // 还没选过模型（多半是第一次下）就直接用上，省得再去顶栏找
-                bool load = !_context.HasCurrentModel();
+                bool load = !_hooks.HasCurrentModel();
                 _context.Messages.ShowNotification(Loc.Text(load
                     ? LangKey.ModelDownloadCompletedLoading
                     : LangKey.ModelDownloadCompleted, name));
-                if (load) await _context.UseModel(name);
+                if (load) await _hooks.UseModel(name);
             }));
         RefreshStatuses();
     }
 
     [RelayCommand]
-    private Task UseModel(ModelQuantRowData row) => _context.UseModel(row.Quant.Name);
+    private Task UseModel(ModelQuantRowData row) => _hooks.UseModel(row.Quant.Name);
 
     // 本机没有引擎时不问，直接把推荐包一起排进去；拉不到包也不拦着下模型
-    private async Task EnsureEngineAsync()
-    {
-        try
-        {
-            var (state, version, job) = await Task.Run(_context.EnsureEngine);
-            if (state == EEngineEnsureState.NoPackage)
-            {
-                _context.Messages.ShowNotification(Loc.Text(LangKey.ModelDownloadEngineNoPackage), severity: MessageSeverity.Warning);
-                return;
-            }
-
-            if (state != EEngineEnsureState.Queued || version == null || job == null) return;
-            _context.Messages.ShowNotification(Loc.Text(LangKey.ModelDownloadEngineQueued, version.Name));
-            job.PropertyChanged += (_, e) =>
-            {
-                if (e.PropertyName != nameof(DownloadJob.State)) return;
-                if (job.State == EDownloadJobState.Completed)
-                    UiDispatcher.FireAndForget(() => _context.Messages.ShowNotification(
-                        Loc.Text(LangKey.ModelDownloadEngineInstalled, version.Name), severity: MessageSeverity.Success));
-                else if (job.State == EDownloadJobState.Failed)
-                    UiDispatcher.FireAndForget(() => _context.Messages.ShowNotification(
-                        Loc.Text(LangKey.ModelDownloadEngineFailed, version.Name, job.Error?.Message ?? ""),
-                        severity: MessageSeverity.Error));
-            };
-        }
-        catch (Exception e)
-        {
-            Log.Warning($"Ensure runtime engine failed: {e.Message}");
-            _context.Messages.ShowNotification(Loc.Text(LangKey.ModelDownloadEngineCheckFailed, e.Message),
-                severity: MessageSeverity.Warning);
-        }
-    }
+    private Task EnsureEngineAsync() => EngineInstallFeedback.EnsureAsync(_hooks.EnsureEngine, _context.Messages,
+        new EngineEnsureTexts(LangKey.ModelDownloadEngineNoPackage, LangKey.ModelDownloadEngineQueued,
+            LangKey.ModelDownloadEngineCheckFailed));
 
     [RelayCommand]
     private void OpenSourceSettings() => _context.OpenSourceSettings();

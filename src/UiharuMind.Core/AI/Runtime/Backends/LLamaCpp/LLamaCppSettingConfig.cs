@@ -14,22 +14,19 @@ using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Configs;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Core.AI.Models;
+using UiharuMind.Core.AI.Engines;
 using UiharuMind.Core.Configs;
 
 namespace UiharuMind.Core.AI.Runtime.Backends;
 
-public class LLamaCppSettingConfig : TConfigBase<LLamaCppSettingConfig>
+public class LLamaCppSettingConfig : TConfigBase<LLamaCppSettingConfig>, IEngineVersionSelection
 {
-    public const string ServerWinExeName = "llama-server.exe";
-    public const string LookupStatsWinExeName = "llama-lookup-stats.exe";
     public const string ServerExeName = "llama-server";
-    public const string LookupStatsExeName = "llama-lookup-stats";
 
-    
+    /// <summary>
+    /// 随应用附带的引擎目录（若有，其下 LLamaCpp 子目录里的引擎列出但不许删）
+    /// </summary>
     [JsonIgnore] public string DefaultRuntimePath { get; set; } = "./InternalRuntime";
-
-
-    public string? LLamaCppPath { get; set; }
 
     public string? SelectedRuntimeVersion { get; set; }
 
@@ -42,16 +39,4 @@ public class LLamaCppSettingConfig : TConfigBase<LLamaCppSettingConfig>
     /// llama-server 专有的启动选项
     /// </summary>
     public LLamaCppServerOptions Server { get; set; } = new();
-    
-    public string? GetExeLookupStatsPath(string? executablePath)
-    {
-        if (executablePath == null) return null;
-        return Path.Combine(executablePath, PlatformUtils.IsWindows ? LookupStatsWinExeName : LookupStatsExeName);
-    }
-
-    public string? GetExeServerPath(string? executablePath)
-    {
-        if (executablePath == null) return null;
-        return Path.Combine(executablePath, PlatformUtils.IsWindows ? ServerWinExeName : ServerExeName);
-    }
 }

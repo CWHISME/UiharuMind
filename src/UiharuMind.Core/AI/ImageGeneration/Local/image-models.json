@@ -1,0 +1,183 @@
+{
+  "engineBuild": "master-945-a1ded76",
+  "families": [
+    {
+      "id": "z-image-turbo",
+      "name": "Z-Image Turbo",
+      "description": {
+        "en": "6B text-to-image, 8 steps. Good at Chinese and English prompts and at rendering text in images.",
+        "zh-hans": "6B 文生图，8 步出图。中英文提示词都好用，擅长在图里写字。"
+      },
+      "doc": "https://github.com/leejet/stable-diffusion.cpp/blob/master/docs/z_image.md",
+      "recommended": true,
+      "tested": false,
+      "supportsEditing": false,
+      "baseResolution": 1024,
+      "sampling": { "steps": 8, "cfg": 1.0 },
+      "tiers": [
+        {
+          "id": "lite",
+          "components": [
+            { "flag": "diffusion-model", "repo": "leejet/Z-Image-Turbo-GGUF", "file": "z_image_turbo-Q3_K.gguf", "size": 3143559104, "sha256": "4b44bdaa7814f20d7cf144e3939bd93aa32f50660204dd0c2aea5c5376232980" },
+            { "flag": "vae", "repo": "Comfy-Org/z_image_turbo", "file": "split_files/vae/ae.safetensors", "size": 335304388, "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38" },
+            { "flag": "llm", "repo": "unsloth/Qwen3-4B-GGUF", "file": "Qwen3-4B-Q4_K_M.gguf", "size": 2497281312, "sha256": "f6f851777709861056efcdad3af01da38b31223a3ba26e61a4f8bf3a2195813a" }
+          ]
+        },
+        {
+          "id": "balanced",
+          "recommended": true,
+          "components": [
+            { "flag": "diffusion-model", "repo": "leejet/Z-Image-Turbo-GGUF", "file": "z_image_turbo-Q4_K.gguf", "size": 3864250304, "sha256": "14b375ab4f226bc5378f68f37e899ef3c2242b8541e61e2bc1aff40976086fbd" },
+            { "flag": "vae", "repo": "Comfy-Org/z_image_turbo", "file": "split_files/vae/ae.safetensors", "size": 335304388, "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38" },
+            { "flag": "llm", "repo": "unsloth/Qwen3-4B-GGUF", "file": "Qwen3-4B-Q4_K_M.gguf", "size": 2497281312, "sha256": "f6f851777709861056efcdad3af01da38b31223a3ba26e61a4f8bf3a2195813a" }
+          ]
+        },
+        {
+          "id": "quality",
+          "components": [
+            { "flag": "diffusion-model", "repo": "leejet/Z-Image-Turbo-GGUF", "file": "z_image_turbo-Q8_0.gguf", "size": 6577440704, "sha256": "df1c5baa86d1398c979495a6072dbcee79444fdb884a2445582ba0769c44e9a1" },
+            { "flag": "vae", "repo": "Comfy-Org/z_image_turbo", "file": "split_files/vae/ae.safetensors", "size": 335304388, "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38" },
+            { "flag": "llm", "repo": "unsloth/Qwen3-4B-GGUF", "file": "Qwen3-4B-Q8_0.gguf", "size": 4280405792, "sha256": "eed555233267a33c7e8ee31682762cc7751b3f6d224039086e0e846f05fffa5d" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "flux2-klein-4b",
+      "name": "FLUX.2 klein 4B",
+      "description": {
+        "en": "4B text-to-image and image editing in 4 steps. Give it reference images to edit.",
+        "zh-hans": "4B，文生图与改图都行，4 步出图。给参考图就是改图。"
+      },
+      "doc": "https://github.com/leejet/stable-diffusion.cpp/blob/master/docs/flux2.md",
+      "recommended": true,
+      "tested": false,
+      "supportsEditing": true,
+      "baseResolution": 1024,
+      "sampling": { "steps": 4, "cfg": 1.0, "sampler": "euler" },
+      "tiers": [
+        {
+          "id": "balanced",
+          "recommended": true,
+          "components": [
+            { "flag": "diffusion-model", "repo": "leejet/FLUX.2-klein-4B-GGUF", "file": "flux-2-klein-4b-Q4_0.gguf", "size": 2460378560, "sha256": "d1023499ef3f2f82ff7c50e6778495195c1b6cc34835741778868428111f9ff4" },
+            { "flag": "vae", "repo": "Comfy-Org/flux2-klein-4B", "file": "split_files/vae/flux2-vae.safetensors", "size": 336211292, "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3" },
+            { "flag": "llm", "repo": "unsloth/Qwen3-4B-GGUF", "file": "Qwen3-4B-Q4_K_M.gguf", "size": 2497281312, "sha256": "f6f851777709861056efcdad3af01da38b31223a3ba26e61a4f8bf3a2195813a" }
+          ]
+        },
+        {
+          "id": "quality",
+          "components": [
+            { "flag": "diffusion-model", "repo": "leejet/FLUX.2-klein-4B-GGUF", "file": "flux-2-klein-4b-Q8_0.gguf", "size": 4300629440, "sha256": "0bba6951258ec8f92d51114a8fa13e66828297bfff58a738f52729b3ef66fa28" },
+            { "flag": "vae", "repo": "Comfy-Org/flux2-klein-4B", "file": "split_files/vae/flux2-vae.safetensors", "size": 336211292, "sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3" },
+            { "flag": "llm", "repo": "unsloth/Qwen3-4B-GGUF", "file": "Qwen3-4B-Q8_0.gguf", "size": 4280405792, "sha256": "eed555233267a33c7e8ee31682762cc7751b3f6d224039086e0e846f05fffa5d" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "qwen-image-edit-2509",
+      "name": "Qwen-Image-Edit 2509",
+      "description": {
+        "en": "20B image editing with strong instruction following, good with Chinese text in images. Needs a lot of memory.",
+        "zh-hans": "20B 改图，听得懂复杂指令，改图里的中文字也稳。很吃内存。"
+      },
+      "doc": "https://github.com/leejet/stable-diffusion.cpp/blob/master/docs/qwen_image_edit.md",
+      "recommended": false,
+      "tested": false,
+      "supportsEditing": true,
+      "baseResolution": 1024,
+      "sampling": { "steps": 20, "cfg": 2.5, "sampler": "euler", "flowShift": 3.0 },
+      "tiers": [
+        {
+          "id": "lite",
+          "components": [
+            { "flag": "diffusion-model", "repo": "QuantStack/Qwen-Image-Edit-2509-GGUF", "file": "Qwen-Image-Edit-2509-Q3_K_M.gguf", "size": 9764502048, "sha256": "8fc24bbc4f818dd767f5219f38b8011bf1f2d196b9d1c3cab8df51f8e9f3bd43" },
+            { "flag": "vae", "repo": "Comfy-Org/Qwen-Image_ComfyUI", "file": "split_files/vae/qwen_image_vae.safetensors", "size": 253806246, "sha256": "a70580f0213e67967ee9c95f05bb400e8fb08307e017a924bf3441223e023d1f" },
+            { "flag": "llm", "repo": "mradermacher/Qwen2.5-VL-7B-Instruct-GGUF", "file": "Qwen2.5-VL-7B-Instruct.Q3_K_M.gguf", "size": 3808390144, "sha256": "c8b144227ad8dc36560f00adc13c08478638706dd10d9aac0034c9fa2d4be7d5" },
+            { "flag": "llm_vision", "repo": "mradermacher/Qwen2.5-VL-7B-Instruct-GGUF", "file": "Qwen2.5-VL-7B-Instruct.mmproj-Q8_0.gguf", "size": 853119712, "sha256": "2185ca0adf339f96845318c7b666f5d242f86bbace5657a89cb834785d0cea57" }
+          ]
+        },
+        {
+          "id": "balanced",
+          "recommended": true,
+          "components": [
+            { "flag": "diffusion-model", "repo": "QuantStack/Qwen-Image-Edit-2509-GGUF", "file": "Qwen-Image-Edit-2509-Q4_K_M.gguf", "size": 13065746976, "sha256": "08f27cdf3e760edef5136ab0afdb9d3ed7a2799bd730b8d5cd9ecb291d808425" },
+            { "flag": "vae", "repo": "Comfy-Org/Qwen-Image_ComfyUI", "file": "split_files/vae/qwen_image_vae.safetensors", "size": 253806246, "sha256": "a70580f0213e67967ee9c95f05bb400e8fb08307e017a924bf3441223e023d1f" },
+            { "flag": "llm", "repo": "mradermacher/Qwen2.5-VL-7B-Instruct-GGUF", "file": "Qwen2.5-VL-7B-Instruct.Q4_K_M.gguf", "size": 4683072512, "sha256": "0f00a930ba3108b6861ddadf74d8ebbd82e257c63eba728e62c3e8970f5eed94" },
+            { "flag": "llm_vision", "repo": "mradermacher/Qwen2.5-VL-7B-Instruct-GGUF", "file": "Qwen2.5-VL-7B-Instruct.mmproj-Q8_0.gguf", "size": 853119712, "sha256": "2185ca0adf339f96845318c7b666f5d242f86bbace5657a89cb834785d0cea57" }
+          ]
+        },
+        {
+          "id": "quality",
+          "components": [
+            { "flag": "diffusion-model", "repo": "QuantStack/Qwen-Image-Edit-2509-GGUF", "file": "Qwen-Image-Edit-2509-Q8_0.gguf", "size": 21761817120, "sha256": "f8f0773e56f94f7f4508ca15a5bc9acf1d6ca2863bebaba7a1b80fbf76198e02" },
+            { "flag": "vae", "repo": "Comfy-Org/Qwen-Image_ComfyUI", "file": "split_files/vae/qwen_image_vae.safetensors", "size": 253806246, "sha256": "a70580f0213e67967ee9c95f05bb400e8fb08307e017a924bf3441223e023d1f" },
+            { "flag": "llm", "repo": "mradermacher/Qwen2.5-VL-7B-Instruct-GGUF", "file": "Qwen2.5-VL-7B-Instruct.Q8_0.gguf", "size": 8098524160, "sha256": "577bfb3e41f93f00414e594c56a38bbe91207b3b636ab7faf343e34a20aa73ca" },
+            { "flag": "llm_vision", "repo": "mradermacher/Qwen2.5-VL-7B-Instruct-GGUF", "file": "Qwen2.5-VL-7B-Instruct.mmproj-Q8_0.gguf", "size": 853119712, "sha256": "2185ca0adf339f96845318c7b666f5d242f86bbace5657a89cb834785d0cea57" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "flux1-kontext-dev",
+      "name": "FLUX.1 Kontext [dev]",
+      "description": {
+        "en": "12B image editing: change parts of a picture by instruction while keeping the rest. Non-commercial license.",
+        "zh-hans": "12B 改图：按指令改图里的一部分，其余保持不变。非商用许可。"
+      },
+      "doc": "https://github.com/leejet/stable-diffusion.cpp/blob/master/docs/kontext.md",
+      "recommended": false,
+      "tested": false,
+      "supportsEditing": true,
+      "baseResolution": 1024,
+      "sampling": { "steps": 20, "cfg": 1.0, "sampler": "euler" },
+      "tiers": [
+        {
+          "id": "balanced",
+          "recommended": true,
+          "components": [
+            { "flag": "diffusion-model", "repo": "QuantStack/FLUX.1-Kontext-dev-GGUF", "file": "flux1-kontext-dev-Q4_K_M.gguf", "size": 6931817760, "sha256": "ebd4e92c44c47f104ad64e4353692f37addf06eb99420c9b459334d871c8b750" },
+            { "flag": "vae", "repo": "Comfy-Org/z_image_turbo", "file": "split_files/vae/ae.safetensors", "size": 335304388, "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38" },
+            { "flag": "clip_l", "repo": "comfyanonymous/flux_text_encoders", "file": "clip_l.safetensors", "size": 246144152, "sha256": "660c6f5b1abae9dc498ac2d21e1347d2abdb0cf6c0c0c8576cd796491d9a6cdd" },
+            { "flag": "t5xxl", "repo": "comfyanonymous/flux_text_encoders", "file": "t5xxl_fp8_e4m3fn.safetensors", "size": 4893934904, "sha256": "7d330da4816157540d6bb7838bf63a0f02f573fc48ca4d8de34bb0cbfd514f09" }
+          ]
+        },
+        {
+          "id": "quality",
+          "components": [
+            { "flag": "diffusion-model", "repo": "QuantStack/FLUX.1-Kontext-dev-GGUF", "file": "flux1-kontext-dev-Q8_0.gguf", "size": 12714452256, "sha256": "ff2ff71c3755c8ab394398a412252c23382a83138b65190b16e736d457b80f73" },
+            { "flag": "vae", "repo": "Comfy-Org/z_image_turbo", "file": "split_files/vae/ae.safetensors", "size": 335304388, "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38" },
+            { "flag": "clip_l", "repo": "comfyanonymous/flux_text_encoders", "file": "clip_l.safetensors", "size": 246144152, "sha256": "660c6f5b1abae9dc498ac2d21e1347d2abdb0cf6c0c0c8576cd796491d9a6cdd" },
+            { "flag": "t5xxl", "repo": "comfyanonymous/flux_text_encoders", "file": "t5xxl_fp16.safetensors", "size": 9787841024, "sha256": "6e480b09fae049a72d2a8c5fbccb8d3e92febeb233bbe9dfe7256958a9167635" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sdxl-base-1.0",
+      "name": "Stable Diffusion XL 1.0",
+      "description": {
+        "en": "Classic single-file model that runs on older machines. Prompts work best in English.",
+        "zh-hans": "经典的单文件模型，老机器也跑得动。提示词用英文效果最好。"
+      },
+      "doc": "https://github.com/leejet/stable-diffusion.cpp/blob/master/docs/sd.md",
+      "recommended": false,
+      "tested": false,
+      "supportsEditing": false,
+      "baseResolution": 1024,
+      "sampling": { "steps": 25, "cfg": 7.0, "sampler": "euler_a" },
+      "negativePrompt": "lowres, blurry, worst quality",
+      "tiers": [
+        {
+          "id": "balanced",
+          "recommended": true,
+          "components": [
+            { "flag": "model", "repo": "stabilityai/stable-diffusion-xl-base-1.0", "file": "sd_xl_base_1.0.safetensors", "size": 6938078334, "sha256": "31e35c80fc4829d14f90153f4c74cd59c90b779f6afe05a74cd6120b893f7e5b" },
+            { "flag": "vae", "repo": "madebyollin/sdxl-vae-fp16-fix", "file": "sdxl_vae.safetensors", "size": 334641162, "sha256": "235745af8d86bf4a4c1b5b4f529868b37019a10f7c0b2e79ad0abca3a22bc6e1" }
+          ]
+        }
+      ]
+    }
+  ]
+}

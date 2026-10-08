@@ -146,7 +146,7 @@
                     </StackPanel>
                 </Border>
 
-                <!-- 点名调用注入的技能正文:气泡显示的是 /技能名 那一行,正文折在这里备查 -->
+                <!-- 随消息进入模型、气泡里不显示的内容(技能正文、记忆清单),折在这里备查 -->
                 <StackPanel IsVisible="{Binding HasInjectedText}"
                             HorizontalAlignment="{Binding Alignment}">
                     <ToggleButton Classes="NoneStyle" Cursor="Hand"
@@ -154,7 +154,7 @@
                                   HorizontalAlignment="{Binding Alignment}"
                                   IsChecked="{Binding IsInjectedTextExpanded}">
                         <TextBlock Classes="muted" FontSize="11"
-                                   Text="{loc:Loc SkillInvocationInjected}" />
+                                   Text="{Binding InjectedLabel}" />
                     </ToggleButton>
                     <Border Classes="message-bubble" Margin="0,3,0,0" MaxHeight="260"
                             BorderBrush="{DynamicResource SemiGrey2}"
