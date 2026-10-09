@@ -1,3 +1,5 @@
+using UiharuMind.Shared.Services;
+using UiharuMind.Generated;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
@@ -58,5 +60,21 @@ public class ModelRuntimeOverridesWindowTests
 
         data.KvCacheType.Reset();
         Assert.Null(config.GetOverrides("m"));
+    }
+
+    [Fact]
+    public void FewGpuLayers_Warns()
+    {
+        ModelRuntimeSettingConfig config = new();
+        ModelRuntimeOverridesViewData data = new("m", config, () => { }, () => RuntimeLoadRisk.Low, false, 36,
+            () => "f16");
+
+        Assert.Equal("", data.GpuLayersWarning);
+        data.GpuLayers.Value = 1;
+        Assert.Equal(Loc.Text(LangKey.ModelParamsFewGpuLayers, 1, 36), data.GpuLayersWarning);
+        data.GpuLayers.Value = 30;
+        Assert.Equal("", data.GpuLayersWarning);
+        data.GpuLayers.Value = 0;
+        Assert.Equal("", data.GpuLayersWarning);
     }
 }

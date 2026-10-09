@@ -4465,6 +4465,9 @@ Allow them?</value>
     <data name="ModelParamsDone" xml:space="preserve">
         <value>Done</value>
     </data>
+    <data name="ModelParamsFewGpuLayers" xml:space="preserve">
+        <value>Only {0} of {1} layers are on the GPU; the rest run on the CPU and will be much slower. Choose Auto unless memory is tight.</value>
+    </data>
     <data name="ModelParamsGlobalSettings" xml:space="preserve">
         <value>Global settings…</value>
     </data>

@@ -89,6 +89,9 @@
         </controls:SettingsRow>
 
         <StackPanel Margin="0,10,0,0" Spacing="4">
+            <TextBlock Text="{Binding GpuLayersWarning}" TextWrapping="Wrap"
+                       Foreground="{DynamicResource MessageStatusWarningBrush}"
+                       IsVisible="{Binding GpuLayersWarning, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
             <TextBlock Text="{Binding EstimateText}" Classes="muted" TextWrapping="Wrap" />
             <TextBlock Text="{loc:Loc ModelParamsReloadHint}" Classes="muted" TextWrapping="Wrap"
                        Foreground="{DynamicResource MessageStatusWarningBrush}"

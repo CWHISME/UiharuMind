@@ -4458,6 +4458,9 @@
     <data name="ModelParamsDone" xml:space="preserve">
         <value>完成</value>
     </data>
+    <data name="ModelParamsFewGpuLayers" xml:space="preserve">
+        <value>只有 {0} / {1} 层在 GPU 上，其余在 CPU 跑，会慢不少。内存不紧的话选「自动」。</value>
+    </data>
     <data name="ModelParamsGlobalSettings" xml:space="preserve">
         <value>全局设置…</value>
     </data>
