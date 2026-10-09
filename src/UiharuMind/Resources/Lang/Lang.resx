@@ -4969,6 +4969,12 @@ Allow them?</value>
     <data name="AudioEngineStatusFailed" xml:space="preserve">
         <value>The voice engine failed to start: {0}</value>
     </data>
+    <data name="EngineStatusUsage" xml:space="preserve">
+        <value>using {0} GB · CPU {1}%</value>
+    </data>
+    <data name="EngineStatusMemory" xml:space="preserve">
+        <value>using {0} GB</value>
+    </data>
     <data name="AudioEngineStatusStarting" xml:space="preserve">
         <value>The voice engine is starting…</value>
     </data>

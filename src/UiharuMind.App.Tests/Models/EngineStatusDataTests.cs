@@ -34,6 +34,10 @@ public class EngineStatusDataTests
         Assert.Equal("running!", status.Text);
         Assert.True(status.IsRunning);
 
+        runtime.Usage = new EngineUsage(5L << 30, 12.4);
+        status.Refresh();
+        Assert.Equal($"running! · {Loc.Text(LangKey.EngineStatusUsage, "5.0", 12)}", status.Text);
+
         runtime.State = EEngineRunState.Failed;
         runtime.LastError = new LocalServerException("out of VRAM");
         status.Refresh();
@@ -58,6 +62,8 @@ public class EngineStatusDataTests
         public EEngineRunState State { get; set; }
         public LocalServerException? LastError { get; set; }
         public float LoadProgress { get; set; }
+        public EngineUsage? Usage { get; set; }
+        public EngineUsage? SampleUsage() => State == EEngineRunState.Running ? Usage : null;
         public int Stops { get; private set; }
         public event Action? StateChanged;
         public event Action? LoadProgressChanged;

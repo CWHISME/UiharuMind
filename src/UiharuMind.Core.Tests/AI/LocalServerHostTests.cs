@@ -218,6 +218,25 @@ public class LocalServerHostTests : IDisposable
         Assert.Contains("no progress", e.Message);
     }
 
+    [Fact]
+    public async Task SampleUsage_ReadsTheServerBehindTheWatchdog_CpuFromTheSecondSample()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "fake server is a shell script");
+        using LocalServerHost host = Host("");
+        Assert.Null(host.SampleUsage());
+
+        await host.GetBaseUriAsync(CancellationToken.None);
+        EngineUsage? first = host.SampleUsage();
+        await Task.Delay(200, TestContext.Current.CancellationToken);
+        EngineUsage? second = host.SampleUsage();
+
+        // 看门的 sh 只占一两 M，python 起的假服务要大得多：取到的是服务本身
+        Assert.True(first is { MemoryBytes: > 4 << 20, CpuPercent: null }, $"{first}");
+        Assert.NotNull(second?.CpuPercent);
+        host.Stop();
+        Assert.Null(host.SampleUsage());
+    }
+
     private int Starts() => File.Exists(_counter) ? File.ReadAllLines(_counter).Length : 0;
 
     // 先跑 prelude（计数、模拟加载耗时或失败），再在分到的端口上起只回 200 的服务

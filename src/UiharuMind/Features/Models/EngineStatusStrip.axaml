@@ -7,11 +7,12 @@
         <DockPanel>
             <ContentPresenter DockPanel.Dock="Right" Content="{Binding #Root.Actions}" VerticalAlignment="Center" />
             <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                <Border Classes="status-dot" Tag="Ready" IsVisible="{Binding #Root.IsRunning}"
+                <Border Classes="status-dot" Tag="Ready" IsVisible="{Binding #Root.Status.IsRunning, FallbackValue=False}"
                         VerticalAlignment="Center" />
-                <Border Classes="status-dot" Tag="Idle" IsVisible="{Binding !#Root.IsRunning}"
+                <Border Classes="status-dot" Tag="Idle" IsVisible="{Binding !#Root.Status.IsRunning, FallbackValue=True}"
                         VerticalAlignment="Center" />
-                <TextBlock Text="{Binding #Root.Text}" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding #Root.Status.Text, FallbackValue=''}" FontSize="12" VerticalAlignment="Center"
+                           TextWrapping="Wrap" />
             </StackPanel>
         </DockPanel>
     </Border>

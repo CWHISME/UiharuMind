@@ -40,8 +40,7 @@
 
         <!-- 有本地模型时：引擎在不在跑，释放内存、去引擎设置（与语音页签同一条） -->
         <pages:EngineStatusStrip DockPanel.Dock="Top" Margin="0,0,0,12" IsVisible="{Binding ShowEngineStatus}"
-                                 IsRunning="{Binding EngineStatus.IsRunning, FallbackValue=False}"
-                                 Text="{Binding EngineStatus.Text, FallbackValue=''}">
+                                 Status="{Binding EngineStatus}">
             <pages:EngineStatusStrip.Actions>
                 <StackPanel Orientation="Horizontal" Spacing="4">
                     <Button Classes="toolbar-link" Content="{loc:Loc AudioEngineRelease}"

@@ -1,4 +1,5 @@
 using UiharuMind.Core.AI.Runtime;
+using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Engines;
@@ -19,6 +20,13 @@ public enum EEngineRunState
 }
 
 /// <summary>
+/// 引擎进程此刻的实际占用
+/// </summary>
+/// <param name="MemoryBytes">内存（字节）</param>
+/// <param name="CpuPercent">占全部核心的百分比（0~100）；头一回取样还算不出为 null</param>
+public sealed record EngineUsage(long MemoryBytes, double? CpuPercent);
+
+/// <summary>
 /// 引擎进程的运行面：在不在跑、最近为什么起不来、停掉释放内存。界面的状态条只认这一层
 /// </summary>
 public interface IEngineRuntime
@@ -37,6 +45,11 @@ public interface IEngineRuntime
     /// 启动中的加载进度（0~1，按日志行数估）；不在启动为 0
     /// </summary>
     float LoadProgress { get; }
+
+    /// <summary>
+    /// 取一次在跑进程的实际占用（CPU 按与上次取样之间算）；没在跑为 null
+    /// </summary>
+    EngineUsage? SampleUsage();
 
     /// <summary>
     /// 状态变了（可能在后台线程）
@@ -83,6 +96,7 @@ public sealed class LocalServerHost : IEngineRuntime, IDisposable
     private string? _startingKey; //最近一次启动的指纹
     private Task _previousExit = Task.CompletedTask; //上一个被停掉的进程退出
     private float _loadProgress;
+    private (int ProcessId, TimeSpan CpuTime, long Ticks)? _lastSample; //上次取样，算 CPU 占比用
     private CancellationTokenSource? _serverLifetime;
     private int _generation; //每次拉起或停掉加一，等待方据此知道自己等的那次被换掉了
     private int _failures;
@@ -157,6 +171,26 @@ public sealed class LocalServerHost : IEngineRuntime, IDisposable
                     : null;
             }
         }
+    }
+
+    public EngineUsage? SampleUsage()
+    {
+        LocalServerProcess? server;
+        lock (_gate) server = _starting is { IsCompletedSuccessfully: true } started ? started.Result : null;
+        if (server?.ServerProcessId is not { } processId || ProcessUsage.TrySample(processId) is not { } sample)
+            return null;
+
+        long now = Environment.TickCount64;
+        double? cpu = null;
+        lock (_gate)
+        {
+            if (_lastSample is { } last && last.ProcessId == processId && now > last.Ticks)
+                cpu = Math.Clamp((sample.CpuTime - last.CpuTime).TotalMilliseconds / (now - last.Ticks)
+                    / Environment.ProcessorCount * 100, 0, 100);
+            _lastSample = (processId, sample.CpuTime, now);
+        }
+
+        return new EngineUsage(sample.MemoryBytes, cpu);
     }
 
     /// <summary>

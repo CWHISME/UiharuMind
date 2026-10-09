@@ -123,7 +123,7 @@
 
         <!-- 引擎状态：在不在跑、加载了几个、多久自动卸载；跑着时可一键释放内存 -->
         <pages:EngineStatusStrip DockPanel.Dock="Top" Margin="0,0,0,12" IsVisible="{Binding HasEngine}"
-                                 IsRunning="{Binding EngineStatus.IsRunning}" Text="{Binding EngineStatus.Text}">
+                                 Status="{Binding EngineStatus}">
             <pages:EngineStatusStrip.Actions>
                 <Button Classes="toolbar-link" Content="{loc:Loc AudioEngineRelease}"
                         ToolTip.Tip="{loc:Loc AudioEngineReleaseTip}"

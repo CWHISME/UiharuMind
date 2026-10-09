@@ -72,6 +72,8 @@ public sealed class LocalServerProcess
     private readonly Queue<string> _logTail = new();
     private readonly Lock _logGate = new();
     private int _exitCode = -1;
+    private int _launcherId; //直接拉起的进程：Windows 上就是服务本身，其余平台是看门的 /bin/sh
+    private int _serverId; //服务本身，用到才找
     private long _lastActivity = Environment.TickCount64; //最近一次输出：大模型冷启动慢，只要还在动就不算超时
 
     private LocalServerProcess(LocalServerLaunch launch, int port)
@@ -94,6 +96,33 @@ public sealed class LocalServerProcess
     /// 进程生命周期，进程退出或被取消时完成
     /// </summary>
     public Task Completion { get; private set; } = Task.CompletedTask;
+
+    /// <summary>
+    /// 服务进程本身的 Id（macOS / Linux 上隔着一层看门的 sh，第一次问时去找）；没起来或已退出为 null
+    /// </summary>
+    public int? ServerProcessId
+    {
+        get
+        {
+            if (Completion.IsCompleted || Volatile.Read(ref _launcherId) is not (> 0 and var launcher)) return null;
+            if (_serverId > 0) return _serverId;
+            if (OperatingSystem.IsWindows()) return _serverId = launcher;
+            // 看门脚本先起服务、再起读生命线的子 shell，跳过名叫 sh 的那个
+            foreach (int child in ProcessUsage.ChildrenOf(launcher))
+            {
+                try
+                {
+                    using System.Diagnostics.Process process = System.Diagnostics.Process.GetProcessById(child);
+                    if (process.ProcessName != "sh") return _serverId = child;
+                }
+                catch (ArgumentException)
+                {
+                }
+            }
+
+            return null;
+        }
+    }
 
     /// <summary>
     /// 退出码，未退出为 -1
@@ -181,6 +210,7 @@ public sealed class LocalServerProcess
                 {
                     case StartedCommandEvent started:
                         processId = started.ProcessId;
+                        Volatile.Write(ref _launcherId, processId);
                         ChildProcessBinding.OnStarted(processId);
                         ProcessHelper.Track(processId);
                         break;

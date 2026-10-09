@@ -17,8 +17,8 @@ namespace UiharuMind.Features.Models;
 public sealed record EngineStatusTexts(LangKey Starting, LangKey Stopped, LangKey Failed);
 
 /// <summary>
-/// 模型页签顶上的本地引擎状态（语音、生图共用）：在不在跑、启动到几成、为什么起不来，跑着时可一键释放内存。
-/// 跟着 <see cref="IEngineRuntime"/> 的事件走；「运行中」那句各引擎自己给（闲置多久停、加载了几个模型…）
+/// 模型页签顶上的本地引擎状态（语音、生图共用）：在不在跑、启动到几成、为什么起不来，跑着时的实际占用与 CPU，可一键释放内存。
+/// 起停跟着 <see cref="IEngineRuntime"/> 的事件走，占用要页签看得见时定时 <see cref="Refresh"/>；「运行中」那句各引擎自己给（闲置多久停、加载了几个模型…）
 /// </summary>
 public partial class EngineStatusData : ObservableObject
 {
@@ -47,13 +47,15 @@ public partial class EngineStatusData : ObservableObject
     }
 
     /// <summary>
-    /// 按进程当前状态重写说明
+    /// 按进程当前状态重写说明（跑着的顺带取一次占用）
     /// </summary>
     public void Refresh()
     {
         IsRunning = _runtime.State == EEngineRunState.Running;
         Text = _runtime.State switch
         {
+            EEngineRunState.Running when _runtime.SampleUsage() is { } usage =>
+                $"{_runningText()} · {UsageText(usage)}",
             EEngineRunState.Starting when _runtime.LoadProgress > 0 =>
                 $"{Loc.Text(_texts.Starting)} {(int)(_runtime.LoadProgress * 100)}%",
             EEngineRunState.Starting => Loc.Text(_texts.Starting),
@@ -61,6 +63,14 @@ public partial class EngineStatusData : ObservableObject
             EEngineRunState.Failed => Loc.Text(_texts.Failed, _runtime.LastError?.Message ?? ""),
             _ => Loc.Text(_texts.Stopped)
         };
+    }
+
+    private static string UsageText(EngineUsage usage)
+    {
+        string memory = (usage.MemoryBytes / (1024d * 1024 * 1024)).ToString("0.0");
+        return usage.CpuPercent is { } cpu
+            ? Loc.Text(LangKey.EngineStatusUsage, memory, (int)Math.Round(cpu))
+            : Loc.Text(LangKey.EngineStatusMemory, memory);
     }
 
     // 停掉引擎，模型占的内存全部还回去；下次用时自动再起

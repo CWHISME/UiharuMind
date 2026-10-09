@@ -216,13 +216,12 @@ public partial class AudioModelListViewData : ObservableObject
     }
 
     /// <summary>
-    /// 刷新引擎里已加载了哪些模型（只问已经跑着的引擎，不会把它拉起来）。进程起停由状态条自己跟着事件走，
+    /// 刷新引擎里已加载了哪些模型（只问已经跑着的引擎，不会把它拉起来）。进程起停与占用由状态条自己刷，
     /// 模型加载、闲置卸载在引擎里悄悄发生，所以页签看得见时轮询
     /// </summary>
     public async Task RefreshStatusAsync()
     {
         _loaded = await _engine.GetStatusAsync(CancellationToken.None);
-        EngineStatus.Refresh();
         foreach (AudioModelItemData item in TtsModels.Concat(AsrModels))
             item.IsLoaded = _loaded.LoadedModels.Contains(item.Name);
     }
