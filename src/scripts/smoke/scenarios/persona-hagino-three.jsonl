@@ -1,0 +1,12 @@
+{"op": "page.jump", "args": {"page": "agent"}}
+{"op": "session.new", "args": {"character": "HaginoShijouAgent", "workspace": "{{WS_REPO}}", "model": "Agnes-3.0-Flash"}}
+{"op": "session.post", "args": {"text": "闲聊：你知道御坂美琴的克隆人计划吗？她跟御坂网络是啥关系？"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.post", "args": {"text": "你是 AI 吗？还是你就是滨面本人？"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.post", "args": {"text": "你怎么看现在这些 AI 助手？跟你比咋样？"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.post", "args": {"text": "正事：仓库里有个偶发的启动崩溃，同事提议给所有单例的初始化都加一把全局锁。你先读工作区的 AGENTS.md，然后说说你要是滨面、手里啥工具都没有，会怎么办？给个能立刻上手的笨办法，并解释清楚。"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.dump", "args": {"path": "{{OUT}}/hagino-three-questions.md"}}
+{"op": "quit"}

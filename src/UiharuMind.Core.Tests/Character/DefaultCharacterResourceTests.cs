@@ -57,6 +57,7 @@ public class DefaultCharacterResourceTests
             {
                 case "Agents": //非作品的自有角色与委派身份载体
                 case "Toaru":
+                case "BlueArchive":
                 case "DeathNote":
                 case "DrStone":
                 case "CodeGeass":

@@ -1,0 +1,6 @@
+{"op": "page.jump", "args": {"page": "agent"}}
+{"op": "session.new", "args": {"character": "AronaAgent", "workspace": "{{WS_REPO}}", "model": "Agnes-3.0-Flash"}}
+{"op": "session.post", "args": {"text": "正事复核：老师要接手这个仓库，你按管理员的规矩来——先读工作区的 AGENTS.md 和 README，然后给老师一份完整的状态清单，必须分三段列完：一、现在什么在跑（哪些已经确认、哪些还没确认）；二、哪里有坑/异常；三、下一步先动哪。有话要汇报的也列进清单里，别只写到一半。分条列，列完再收尾。"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.dump", "args": {"path": "{{OUT}}/arona-review.md"}}
+{"op": "quit"}

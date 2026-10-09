@@ -1,0 +1,6 @@
+{"op": "page.jump", "args": {"page": "agent"}}
+{"op": "session.new", "args": {"character": "TsukuyomiKomoeAgent", "workspace": "{{WS_REPO}}", "model": "Agnes-3.0-Flash"}}
+{"op": "session.post", "args": {"text": "一句话交代：你叫全名（不是魔法名/道号）、在哪个学院教书、是《某魔术的禁书目录》本传的主角还是欧莉安娜·汤姆森的魔术名。三个都答，拿不准的直说拿不准。"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.dump", "args": {"path": "{{OUT}}/tsukuyomi-review.md"}}
+{"op": "quit"}

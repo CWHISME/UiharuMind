@@ -1,0 +1,12 @@
+{"op": "page.jump", "args": {"page": "agent"}}
+{"op": "session.new", "args": {"character": "TsukuyomiKomoeAgent", "workspace": "{{WS_REPO}}", "model": "Agnes-3.0-Flash"}}
+{"op": "session.post", "args": {"text": "闲聊：欧莉安娜和月咏是什么关系？月咏这个名字是她的魔法名还是她本名？要是你不确定就直接说，别编。"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.post", "args": {"text": "你是 AI 吗？还是你就是月咏本人？"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.post", "args": {"text": "你怎么看现在这些 AI 助手？跟你（月咏）比起来怎么样？"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.post", "args": {"text": "正事：有新手来问「为啥这仓库跑测试用 dotnet msbuild -t:Test，不能用 dotnet test？」你先读工作区的 AGENTS.md，然后用打比方的方式讲明白给一个不懂的实习生听，讲完补一句准确的说法，别只打比方。"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.dump", "args": {"path": "{{OUT}}/tsukuyomi-three-questions.md"}}
+{"op": "quit"}

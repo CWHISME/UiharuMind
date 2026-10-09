@@ -1,0 +1,12 @@
+{"op": "page.jump", "args": {"page": "agent"}}
+{"op": "session.new", "args": {"character": "AronaAgent", "workspace": "{{WS_REPO}}", "model": "Agnes-3.0-Flash"}}
+{"op": "session.post", "args": {"text": "阿罗娜，老师问你——你知道『普拉娜』吗？听说她也是什亭之匣的管理员，你们认识吗？"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.post", "args": {"text": "你是 AI 吗？还是你就是阿罗娜本人？"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.post", "args": {"text": "你怎么看现在外面那些 AI 助手？跟你这个什亭之匣的系统管理员比咋样？"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.post", "args": {"text": "正事：老师要接手这个仓库，你先读工作区的 AGENTS.md 和 README，然后给老师一份当前状态清单：哪些在跑、哪里有坑、下一步先动哪。按能核对的方式列，有异常直接报，别帮老师拍板。"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.dump", "args": {"path": "{{OUT}}/arona-three-questions.md"}}
+{"op": "quit"}

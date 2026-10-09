@@ -1,0 +1,28 @@
+{"op": "page.jump", "args": {"page": "agent"}}
+{"op": "group.create", "args": {"name": "初春对照·群聊两段式", "members": ["UiharuKazariAgent", "ShiraiKurokoAgent", "SatenRuikoAgent"], "models": ["Agnes-3.0-Flash", "Agnes-3.0-Flash", "Agnes-3.0-Flash"], "workspace": "{{WS_REPO}}", "mode": "serial"}}
+{"op": "group.create", "args": {"name": "初春对照·群聊叙述体", "members": ["UiharuKazariNarrative", "ShiraiKurokoAgent", "SatenRuikoAgent"], "models": ["Agnes-3.0-Flash", "Agnes-3.0-Flash", "Agnes-3.0-Flash"], "workspace": "{{WS_REPO}}", "mode": "serial"}}
+{"op": "group.create", "args": {"name": "初春对照·群路径两段式", "members": ["UiharuKazariAgent"], "models": ["Agnes-3.0-Flash"], "workspace": "{{WS_REPO}}", "mode": "serial"}}
+{"op": "group.create", "args": {"name": "初春对照·群路径叙述体", "members": ["UiharuKazariNarrative"], "models": ["Agnes-3.0-Flash"], "workspace": "{{WS_REPO}}", "mode": "serial"}}
+{"op": "group.post", "args": {"group": "初春对照·群聊两段式", "text": "今天先不聊正事——你们最近在忙什么呀？"}}
+{"op": "group.post", "args": {"group": "初春对照·群聊叙述体", "text": "今天先不聊正事——你们最近在忙什么呀？"}}
+{"op": "group.post", "args": {"group": "初春对照·群路径两段式", "text": "今天先不聊正事——你最近在忙什么呀？"}}
+{"op": "group.post", "args": {"group": "初春对照·群路径叙述体", "text": "今天先不聊正事——你最近在忙什么呀？"}}
+{"op": "group.wait", "args": {"groups": ["初春对照·群聊两段式", "初春对照·群聊叙述体", "初春对照·群路径两段式", "初春对照·群路径叙述体"], "timeoutMinutes": 15, "approvals": "deny"}}
+{"op": "group.post", "args": {"group": "初春对照·群聊两段式", "text": "说个正事：仓库里有个偶发的启动崩溃，同事提议给所有单例的初始化都加一把全局锁。先读工作区的 AGENTS.md，然后说说你们怎么看、下一步做什么？"}}
+{"op": "group.post", "args": {"group": "初春对照·群聊叙述体", "text": "说个正事：仓库里有个偶发的启动崩溃，同事提议给所有单例的初始化都加一把全局锁。先读工作区的 AGENTS.md，然后说说你们怎么看、下一步做什么？"}}
+{"op": "group.post", "args": {"group": "初春对照·群路径两段式", "text": "说个正事：仓库里有个偶发的启动崩溃，同事提议给所有单例的初始化都加一把全局锁。先读工作区的 AGENTS.md，然后说说你怎么看、下一步做什么？"}}
+{"op": "group.post", "args": {"group": "初春对照·群路径叙述体", "text": "说个正事：仓库里有个偶发的启动崩溃，同事提议给所有单例的初始化都加一把全局锁。先读工作区的 AGENTS.md，然后说说你怎么看、下一步做什么？"}}
+{"op": "group.wait", "args": {"groups": ["初春对照·群聊两段式", "初春对照·群聊叙述体", "初春对照·群路径两段式", "初春对照·群路径叙述体"], "timeoutMinutes": 15, "approvals": "deny"}}
+{"op": "group.dump", "args": {"group": "初春对照·群聊两段式", "path": "{{OUT}}/group-two-segment.md"}}
+{"op": "group.dump", "args": {"group": "初春对照·群聊叙述体", "path": "{{OUT}}/group-narrative.md"}}
+{"op": "group.dump", "args": {"group": "初春对照·群路径两段式", "path": "{{OUT}}/path-two-segment.md"}}
+{"op": "group.dump", "args": {"group": "初春对照·群路径叙述体", "path": "{{OUT}}/path-narrative.md"}}
+{"op": "session.new", "args": {"character": "UiharuKazariAgent", "workspace": "{{WS_REPO}}", "model": "Agnes-3.0-Flash"}}
+{"op": "session.post", "args": {"text": "帮我核对一下这两条：仓库里 AGENTS.md 写的构建命令是什么；README 里产品功能列了哪几项。引用原文。"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.dump", "args": {"path": "{{OUT}}/solo-two-segment.md"}}
+{"op": "session.new", "args": {"character": "UiharuKazariNarrative", "workspace": "{{WS_REPO}}", "model": "Agnes-3.0-Flash"}}
+{"op": "session.post", "args": {"text": "帮我核对一下这两条：仓库里 AGENTS.md 写的构建命令是什么；README 里产品功能列了哪几项。引用原文。"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.dump", "args": {"path": "{{OUT}}/solo-narrative.md"}}
+{"op": "quit"}
