@@ -62,7 +62,7 @@ public class SdCppSettingConfig : TConfigBase<SdCppSettingConfig>, IEngineVersio
     public int IdleStopMinutes { get; set; } = 10;
 
     /// <summary>
-    /// 启动加载权重最多等多少秒
+    /// 启动加载权重时多少秒没有新输出算起不来（按停滞算）
     /// </summary>
     public int LoadTimeoutSeconds { get; set; } = 300;
 

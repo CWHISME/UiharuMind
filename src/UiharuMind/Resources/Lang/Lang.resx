@@ -4367,10 +4367,10 @@ Allow them?</value>
         <value>Memory left free on each device when fitting to memory.</value>
     </data>
     <data name="EngineLoadTimeout" xml:space="preserve">
-        <value>Load timeout (seconds)</value>
+        <value>Load stall timeout (seconds)</value>
     </data>
     <data name="LLamaCppLoadTimeoutDesc" xml:space="preserve">
-        <value>Give up if the model is not ready in this time. Large models may need several minutes.</value>
+        <value>Gives up only when llama-server has printed nothing for this long while loading; a slow but progressing load keeps waiting.</value>
     </data>
     <data name="LLamaCppEnvironment" xml:space="preserve">
         <value>Environment variables</value>
@@ -4592,7 +4592,7 @@ Allow them?</value>
         <value>Unload a model from memory after this long unused; it reloads on next use.</value>
     </data>
     <data name="AudioReadyTimeoutDesc" xml:space="preserve">
-        <value>Max seconds to wait for the engine to start. First Metal initialization is slow.</value>
+        <value>Gives up only when the engine has printed nothing for this long while starting; a slow but progressing start keeps waiting.</value>
     </data>
     <data name="AudioInstallEngine" xml:space="preserve">
         <value>Install audio.cpp</value>
@@ -5423,7 +5423,7 @@ Allow them?</value>
         <value>Stop the engine and free its memory after this long without generating. 0 keeps it running.</value>
     </data>
     <data name="ImageLoadTimeoutDesc" xml:space="preserve">
-        <value>How long to wait for the engine to start and read the model's weights.</value>
+        <value>Gives up only when the engine has printed nothing for this long while reading the weights; a slow but progressing load keeps waiting.</value>
     </data>
     <data name="ImageGenerationTimeout" xml:space="preserve">
         <value>Generation timeout (s)</value>

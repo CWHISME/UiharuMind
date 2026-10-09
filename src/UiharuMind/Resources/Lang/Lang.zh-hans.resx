@@ -4360,10 +4360,10 @@
         <value>按内存自动适配时，每个设备留出的空余。</value>
     </data>
     <data name="EngineLoadTimeout" xml:space="preserve">
-        <value>加载超时（秒）</value>
+        <value>加载停滞超时（秒）</value>
     </data>
     <data name="LLamaCppLoadTimeoutDesc" xml:space="preserve">
-        <value>超过这个时间还没就绪就放弃。大模型首次加载可能要几分钟。</value>
+        <value>加载时 llama-server 这么久没有任何新输出才算起不来；慢但一直在动就接着等。</value>
     </data>
     <data name="LLamaCppEnvironment" xml:space="preserve">
         <value>环境变量</value>
@@ -4585,7 +4585,7 @@
         <value>模型多久没用就从内存卸载，下次使用时再加载。</value>
     </data>
     <data name="AudioReadyTimeoutDesc" xml:space="preserve">
-        <value>启动引擎时等待就绪的最长秒数。Metal 首次初始化较慢。</value>
+        <value>启动时这么久没有任何新输出才算起不来；慢但一直在动就接着等。</value>
     </data>
     <data name="AudioInstallEngine" xml:space="preserve">
         <value>安装 audio.cpp</value>
@@ -5416,7 +5416,7 @@
         <value>这么久没有出图就停掉引擎、还回内存；填 0 一直开着。</value>
     </data>
     <data name="ImageLoadTimeoutDesc" xml:space="preserve">
-        <value>启动引擎并读入模型权重最多等多久。</value>
+        <value>读入权重时这么久没有任何新输出才算起不来；慢但一直在动就接着等。</value>
     </data>
     <data name="ImageGenerationTimeout" xml:space="preserve">
         <value>出图超时（秒）</value>

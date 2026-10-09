@@ -29,7 +29,7 @@ public sealed class LocalServerException(string message, string logTail = "") : 
 /// <param name="ServerName">日志与报错里的名字，如 llama-server</param>
 /// <param name="ExecutablePath">可执行文件</param>
 /// <param name="BuildArguments">按分到的端口生成启动参数（逐项传入，不需要自己加引号）</param>
-/// <param name="ReadyTimeout">就绪超时</param>
+/// <param name="ReadyTimeout">就绪超时：按停滞算，启动日志还在动就接着等，这么久没新输出才算起不来</param>
 public sealed record LocalServerLaunch(
     string ServerName,
     string ExecutablePath,
@@ -72,6 +72,7 @@ public sealed class LocalServerProcess
     private readonly Queue<string> _logTail = new();
     private readonly Lock _logGate = new();
     private int _exitCode = -1;
+    private long _lastActivity = Environment.TickCount64; //最近一次输出：大模型冷启动慢，只要还在动就不算超时
 
     private LocalServerProcess(LocalServerLaunch launch, int port)
     {
@@ -214,6 +215,7 @@ public sealed class LocalServerProcess
     private void OnLog(string line, int lineCount, Action<float>? onProgress)
     {
         if (string.IsNullOrWhiteSpace(line)) return;
+        Volatile.Write(ref _lastActivity, Environment.TickCount64);
         Log.Debug(line);
         lock (_logGate)
         {
@@ -229,7 +231,7 @@ public sealed class LocalServerProcess
     private async Task WaitUntilReadyAsync(CancellationToken token)
     {
         TimeSpan timeout = _launch.ReadyTimeout;
-        DateTime deadline = DateTime.UtcNow + timeout;
+        Volatile.Write(ref _lastActivity, Environment.TickCount64);
         Uri healthUri = new(BaseUri, _launch.HealthPath);
         while (true)
         {
@@ -237,9 +239,9 @@ public sealed class LocalServerProcess
             if (Completion.IsCompleted)
                 throw new LocalServerException(
                     $"{_launch.ServerName} exited before it was ready (exit code {_exitCode}).", LogTail);
-            if (DateTime.UtcNow > deadline)
+            if (Environment.TickCount64 - Volatile.Read(ref _lastActivity) > (long)timeout.TotalMilliseconds)
                 throw new LocalServerException(
-                    $"{_launch.ServerName} was not ready within {timeout.TotalSeconds:0}s.", LogTail);
+                    $"{_launch.ServerName} made no progress for {timeout.TotalSeconds:0}s and was not ready.", LogTail);
 
             if (await IsHealthyAsync(healthUri, token).ConfigureAwait(false)) return;
             await Task.WhenAny(Task.Delay(PollInterval, token), Completion).ConfigureAwait(false);

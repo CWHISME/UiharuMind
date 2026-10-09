@@ -97,7 +97,7 @@ public sealed class LLamaCppServerOptions
     public bool SwaFull { get; set; }
 
     /// <summary>
-    /// 加载超时（秒）
+    /// 加载停滞超时（秒）：这么久没有新输出才算起不来
     /// </summary>
     public int LoadTimeoutSeconds { get; set; } = 600;
 

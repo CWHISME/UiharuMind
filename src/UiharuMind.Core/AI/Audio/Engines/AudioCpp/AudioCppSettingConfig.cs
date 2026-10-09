@@ -59,7 +59,7 @@ public class AudioCppSettingConfig : TConfigBase<AudioCppSettingConfig>, IEngine
     public int IdleUnloadMinutes { get; set; } = 5;
 
     /// <summary>
-    /// 启动等就绪的秒数（Metal 首次初始化较慢）
+    /// 启动时多少秒没有新输出算起不来（按停滞算，Metal 首次初始化较慢）
     /// </summary>
     public int ReadyTimeoutSeconds { get; set; } = 60;
 }

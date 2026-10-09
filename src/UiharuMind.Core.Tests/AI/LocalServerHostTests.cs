@@ -194,11 +194,35 @@ public class LocalServerHostTests : IDisposable
         Assert.Equal(0f, host.LoadProgress);
     }
 
+    [Fact]
+    public async Task SlowStartThatKeepsLogging_IsNotTimedOut()
+    {
+        // 就绪超时按停滞算：5 秒才起来，但一直有输出，3 秒的超时不该判它起不来
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "fake server is a shell script");
+        using LocalServerHost host = Host("for i in $(seq 1 20); do echo loading $i; sleep 0.25; done",
+            readyTimeout: TimeSpan.FromSeconds(3));
+
+        await host.GetBaseUriAsync(CancellationToken.None);
+
+        Assert.Equal(EEngineRunState.Running, host.State);
+    }
+
+    [Fact]
+    public async Task SilentStart_TimesOutOnStall()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "fake server is a shell script");
+        using LocalServerHost host = Host("sleep 8", readyTimeout: TimeSpan.FromSeconds(3));
+
+        LocalServerException e = await Assert.ThrowsAsync<LocalServerException>(() =>
+            host.GetBaseUriAsync(CancellationToken.None));
+        Assert.Contains("no progress", e.Message);
+    }
+
     private int Starts() => File.Exists(_counter) ? File.ReadAllLines(_counter).Length : 0;
 
     // 先跑 prelude（计数、模拟加载耗时或失败），再在分到的端口上起只回 200 的服务
     private LocalServerHost Host(string prelude, TimeSpan? idleTimeout = null, long estimatedMemory = 0,
-        long availableMemory = 0)
+        long availableMemory = 0, TimeSpan? readyTimeout = null)
     {
         string path = Path.Combine(_directory, $"fake-server-{Guid.NewGuid():N}");
         File.WriteAllText(path, $$"""
@@ -221,7 +245,7 @@ public class LocalServerHostTests : IDisposable
             AvailableMemoryBytes = availableMemory
         };
         return new LocalServerHost(() => new LocalServerLaunch("fake-server", path, port => [port.ToString()],
-            TimeSpan.FromSeconds(10)) { EstimatedMemoryBytes = estimatedMemory }, idleTimeout,
+            readyTimeout ?? TimeSpan.FromSeconds(10)) { EstimatedMemoryBytes = estimatedMemory }, idleTimeout,
             deviceInfo: () => device);
     }
 }
