@@ -6,7 +6,7 @@ namespace UiharuMind.Core.AI.ImageGeneration;
 
 /// <summary>
 /// 本地生图模型怎么出图：交给 stable-diffusion.cpp 引擎。失败照生图回退的口径分类（ADR 0052、0074）：
-/// 引擎没装、缺组件、起不来、崩溃、任务失败、超时都算「这一家用不了」——本地不花钱，换下一家只是多等；
+/// 引擎没装、缺组件、此刻内存不够、起不来、崩溃、任务失败、超时都算「这一家用不了」——本地不花钱，换下一家只是多等；
 /// 参数不合法算「请求本身不行」
 /// </summary>
 /// <param name="engine">引擎（第一次用才建）</param>
@@ -27,7 +27,7 @@ public sealed class LocalImageDialect(Func<SdCppEngine> engine, Func<string> mod
         try
         {
             IReadOnlyList<byte[]> images = await engine().GenerateAsync(LocalImageModels.ToSetup(model, modelRoot()),
-                LocalImageModels.ToRequest(local, request), progress, ct).ConfigureAwait(false);
+                LocalImageModels.ToRequest(local, request), progress, request.AllowMemoryRisk, ct).ConfigureAwait(false);
             return new ImageOutcome { Images = images.Select(x => new ImageOutput(x, null)).ToList() };
         }
         catch (SdCppRequestException e)
@@ -37,6 +37,10 @@ public sealed class LocalImageDialect(Func<SdCppEngine> engine, Func<string> mod
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             throw;
+        }
+        catch (EngineMemoryException e)
+        {
+            return ImageOutcome.MemoryRisk($"local image engine was not started: {e.Message}", e.Shortfall);
         }
         catch (LocalEngineNotReadyException)
         {

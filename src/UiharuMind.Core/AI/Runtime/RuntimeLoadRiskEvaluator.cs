@@ -101,6 +101,24 @@ public static class RuntimeLoadRiskEvaluator
         return SafeAdd(SafeAdd(modelBytes, projectorBytes), kvBytes);
     }
 
+    /// <summary>
+    /// 一份已估好的运行占用，下载前在这台机器上的风险（只看总内存）
+    /// </summary>
+    /// <param name="runtimeBytes">估的运行占用</param>
+    /// <param name="deviceInfo">设备信息</param>
+    /// <returns>风险档位；设备内存未知为 Unknown</returns>
+    public static RuntimeLoadRiskLevel ClassifyBeforeDownload(long runtimeBytes, RuntimeDeviceInfo deviceInfo) =>
+        deviceInfo.HasMemoryInfo ? ClassifyMemory(runtimeBytes, deviceInfo, false) : RuntimeLoadRiskLevel.Unknown;
+
+    /// <summary>
+    /// 一份已估好的运行占用，此刻加载的风险（连同可用内存）
+    /// </summary>
+    /// <param name="runtimeBytes">估的运行占用</param>
+    /// <param name="deviceInfo">设备信息</param>
+    /// <returns>风险档位；设备内存未知为 Unknown</returns>
+    public static RuntimeLoadRiskLevel ClassifyBeforeLoad(long runtimeBytes, RuntimeDeviceInfo deviceInfo) =>
+        deviceInfo.HasMemoryInfo ? ClassifyMemory(runtimeBytes, deviceInfo, true) : RuntimeLoadRiskLevel.Unknown;
+
     // 用内存占比分档，而不是写死上下文上限；Metal 统一内存也按系统内存保守提示
     private static RuntimeLoadRiskLevel ClassifyMemory(long estimatedTotal, RuntimeDeviceInfo deviceInfo,
         bool considerAvailable)

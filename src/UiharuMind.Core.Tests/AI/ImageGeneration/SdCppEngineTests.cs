@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using UiharuMind.Core.AI.Engines;
 using UiharuMind.Core.AI.ImageGeneration;
+using UiharuMind.Core.AI.Runtime;
 using UiharuMind.Core.Core.DownloadHelper;
 
 namespace UiharuMind.Core.Tests.AI.ImageGeneration;
@@ -79,6 +80,23 @@ public class SdCppEngineTests : IDisposable
         Assert.Equal(Convert.FromBase64String(Png), Assert.Single(images));
         Assert.Contains(reports, x => x is { Stage: EImageStage.Generating, Step: 1, TotalSteps: 2, Preview: not null });
         Assert.Contains("--diffusion-model", File.ReadAllText(_argsFile));
+        Assert.Equal(EEngineRunState.Running, engine.Runtime.State);
+    }
+
+    [Fact]
+    public async Task NotEnoughFreeMemory_DoesNotStart_UnlessAllowed()
+    {
+        // 权重粗估 + 工作区 2G，可用 1G：危险，不起；问过用户的照样起
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "fake server is a shell script");
+        using SdCppEngine engine = CreateEngine(availableMemory: 1L << 30);
+        SdCppModelSetup model = Model("z", ("diffusion-model", Touch("z.gguf")));
+
+        EngineMemoryException e = await Assert.ThrowsAsync<EngineMemoryException>(() => engine.GenerateAsync(model,
+            Request("a cat"), null, TestContext.Current.CancellationToken));
+        Assert.Equal(SdCppMemory.Estimate(model), e.Shortfall.EstimatedBytes);
+        Assert.Equal(EEngineRunState.Stopped, engine.Runtime.State);
+
+        await engine.GenerateAsync(model, Request("a cat"), null, true, TestContext.Current.CancellationToken);
         Assert.Equal(EEngineRunState.Running, engine.Runtime.State);
     }
 
@@ -256,7 +274,7 @@ public class SdCppEngineTests : IDisposable
 
     private int Starts() => File.Exists(_starts) ? File.ReadAllLines(_starts).Length : 0;
 
-    private SdCppEngine CreateEngine()
+    private SdCppEngine CreateEngine(long availableMemory = 64L << 30)
     {
         string bin = Path.Combine(_directory, "engines", "master-945-a1ded76-bin-Darwin-macOS-26.6.2-arm64");
         Directory.CreateDirectory(bin);
@@ -264,8 +282,13 @@ public class SdCppEngineTests : IDisposable
         File.WriteAllText(exe, FakeServerScript());
         if (!OperatingSystem.IsWindows())
             File.SetUnixFileMode(exe, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        RuntimeDeviceInfo device = RuntimeDeviceInfo.Empty with
+        {
+            TotalMemoryBytes = 64L << 30,
+            AvailableMemoryBytes = availableMemory
+        };
         SdCppEngine engine = new(new SdCppSettingConfig(), Path.Combine(_directory, "engines"),
-            new DownloadQueue(new FileDownloader(new HttpClient())));
+            new DownloadQueue(new FileDownloader(new HttpClient())), deviceInfo: () => device);
         engine.Distribution.Use(new SdCppVersion
             { Name = Path.GetFileName(bin), InstallDirectory = bin, ExecutablePath = bin, IsInstalled = true });
         return engine;

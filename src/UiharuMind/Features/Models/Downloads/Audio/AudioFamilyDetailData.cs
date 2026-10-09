@@ -114,9 +114,8 @@ public partial class AudioFamilyDetailData : ObservableObject, IDisposable
                     await UiDispatcher.InvokeAsync(() =>
                     {
                         row.ApplyRemoteFiles(files);
-                        long size = files.Sum(x => x.Size);
-                        row.ApplyRisk(RuntimeLoadRiskEvaluator.EstimateBeforeDownload(size, 0, device),
-                            RuntimeLoadRiskEvaluator.EstimateBytesBeforeDownload(size, 0), device);
+                        // 语音模型没有 KV 缓存，占用约等于文件大小
+                        row.ApplyRisk(files.Sum(x => x.Size), device);
                     });
                 }
                 catch (Exception e) when (e is not OperationCanceledException)

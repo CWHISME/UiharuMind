@@ -1,4 +1,5 @@
 using UiharuMind.Core.AI.Engines;
+using UiharuMind.Core.AI.Runtime;
 
 namespace UiharuMind.Core.Tests.AI;
 
@@ -130,10 +131,74 @@ public class LocalServerHostTests : IDisposable
         Assert.Equal(EEngineRunState.Stopped, host.State);
     }
 
+    [Fact]
+    public async Task LaunchKeyChange_ReplacesTheProcess_SameKeyReusesIt()
+    {
+        // 换了模型、版本或启动设置：下次用时换进程；没变就接着用
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "fake server is a shell script");
+        using LocalServerHost host = Host("");
+
+        Uri first = await host.GetBaseUriAsync("a", false, CancellationToken.None);
+        Assert.Equal(first, await host.GetBaseUriAsync("a", false, CancellationToken.None));
+        Assert.Equal(first, await host.GetBaseUriAsync(CancellationToken.None));
+        await host.GetBaseUriAsync("b", false, CancellationToken.None);
+
+        Assert.Equal(2, Starts());
+    }
+
+    [Fact]
+    public async Task NotEnoughFreeMemory_DoesNotStart_UnlessAllowed()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "fake server is a shell script");
+        using LocalServerHost host = Host("", estimatedMemory: 8L << 30, availableMemory: 4L << 30);
+
+        for (int i = 0; i < LocalServerHost.FailuresBeforeCooldown + 1; i++)
+        {
+            EngineMemoryException e = await Assert.ThrowsAsync<EngineMemoryException>(() =>
+                host.GetBaseUriAsync(null, false, CancellationToken.None));
+            Assert.Equal(4L << 30, e.Shortfall.AvailableBytes);
+        }
+
+        // 内存不够不算进程失败，不进冷却；问过用户的照样起
+        Assert.Equal(0, Starts());
+        Assert.Equal(EEngineRunState.Stopped, host.State);
+        await host.GetBaseUriAsync(null, true, CancellationToken.None);
+        Assert.Equal(1, Starts());
+    }
+
+    [Fact]
+    public async Task EnoughFreeMemory_Starts()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "fake server is a shell script");
+        using LocalServerHost host = Host("", estimatedMemory: 2L << 30, availableMemory: 12L << 30);
+
+        await host.GetBaseUriAsync(CancellationToken.None);
+
+        Assert.Equal(1, Starts());
+    }
+
+    [Fact]
+    public async Task Starting_ReportsLoadProgress_ThenResets()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "fake server is a shell script");
+        using LocalServerHost host = Host("for i in $(seq 1 64); do echo loading $i; done\nsleep 0.3");
+        List<float> seen = [];
+        host.LoadProgressChanged += () =>
+        {
+            lock (seen) seen.Add(host.LoadProgress);
+        };
+
+        await host.GetBaseUriAsync(CancellationToken.None);
+
+        lock (seen) Assert.Contains(seen, x => x is > 0f and < 1f);
+        Assert.Equal(0f, host.LoadProgress);
+    }
+
     private int Starts() => File.Exists(_counter) ? File.ReadAllLines(_counter).Length : 0;
 
     // 先跑 prelude（计数、模拟加载耗时或失败），再在分到的端口上起只回 200 的服务
-    private LocalServerHost Host(string prelude, TimeSpan? idleTimeout = null)
+    private LocalServerHost Host(string prelude, TimeSpan? idleTimeout = null, long estimatedMemory = 0,
+        long availableMemory = 0)
     {
         string path = Path.Combine(_directory, $"fake-server-{Guid.NewGuid():N}");
         File.WriteAllText(path, $$"""
@@ -150,7 +215,13 @@ public class LocalServerHostTests : IDisposable
             " "$1"
             """);
         File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        RuntimeDeviceInfo device = RuntimeDeviceInfo.Empty with
+        {
+            TotalMemoryBytes = 16L << 30,
+            AvailableMemoryBytes = availableMemory
+        };
         return new LocalServerHost(() => new LocalServerLaunch("fake-server", path, port => [port.ToString()],
-            TimeSpan.FromSeconds(10)), idleTimeout);
+            TimeSpan.FromSeconds(10)) { EstimatedMemoryBytes = estimatedMemory }, idleTimeout,
+            deviceInfo: () => device);
     }
 }

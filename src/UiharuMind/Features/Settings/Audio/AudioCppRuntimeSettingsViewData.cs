@@ -5,7 +5,7 @@ using UiharuMind.Shared.Utils;
 namespace UiharuMind.Features.Settings.Audio;
 
 /// <summary>
-/// audiocpp_server 的启动参数。改一项即落盘，并让引擎下次使用时按新参数重启
+/// audiocpp_server 的启动参数。改一项即落盘；启动参数变了，引擎下次使用时自己换进程，在用的不打断
 /// </summary>
 public partial class AudioCppRuntimeSettingsViewData : ObservableObject
 {
@@ -53,6 +53,5 @@ public partial class AudioCppRuntimeSettingsViewData : ObservableObject
         settings.IdleUnloadMinutes = (int)IdleUnloadMinutes;
         settings.ReadyTimeoutSeconds = (int)ReadyTimeoutSeconds;
         settings.Save();
-        _engine.ApplySettings();
     }
 }

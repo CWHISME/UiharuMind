@@ -186,7 +186,8 @@ public class ImageModelTabsTests : IDisposable
                 if (calls == 1) return Task.FromResult(new ImageGenerationReport { Images = [new GeneratedImage(png, "image/png")] });
                 token.Register(() => pending.TrySetCanceled(token));
                 return pending.Task;
-            }, new ImageDrawActions(_ => { }, _ => Task.CompletedTask, _ => { }, _ => { }), output);
+            }, new RecordingMessageService(), new ImageDrawActions(_ => { }, _ => Task.CompletedTask, _ => { }, _ => { }),
+                output);
 
             Assert.False(draw.GenerateCommand.CanExecute(null));
             draw.Prompt = "  a red fox ";
@@ -204,6 +205,41 @@ public class ImageModelTabsTests : IDisposable
             await second;
             Assert.False(draw.IsGenerating);
             Assert.False(draw.HasResult);
+            draw.Dispose();
+        });
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Draw_MemoryRisk_AsksThenRetriesAnyway(bool confirm)
+    {
+        HeadlessUi.RunAsync(async () =>
+        {
+            ImageModelInfo model = new() { Name = "local", Local = new LocalImageModel() };
+            RecordingMessageService messages = new() { ConfirmResult = confirm };
+            List<bool> attempts = [];
+            ImageDrawViewData draw = new([model], null, (_, request, _, _) =>
+            {
+                attempts.Add(request.AllowMemoryRisk);
+                return Task.FromResult(request.AllowMemoryRisk
+                    ? new ImageGenerationReport { Images = [new GeneratedImage(TinyPng(), "image/png")] }
+                    : new ImageGenerationReport
+                    {
+                        Failure = new ImageFailure(EImageFailureKind.Unavailable, "low memory")
+                        {
+                            MemoryShortfall = new EngineMemoryShortfall(12L << 30, 4L << 30)
+                        }
+                    });
+            }, messages, new ImageDrawActions(_ => { }, _ => Task.CompletedTask, _ => { }, _ => { }),
+                Path.Combine(_root, "images")) { Prompt = "fox" };
+
+            await draw.GenerateCommand.ExecuteAsync(null);
+
+            Assert.Equal(1, messages.ConfirmCount);
+            Assert.Contains("12.0", messages.LastConfirm);
+            Assert.Equal(confirm ? [false, true] : [false], attempts);
+            Assert.Equal(confirm, draw.HasResult);
             draw.Dispose();
         });
     }

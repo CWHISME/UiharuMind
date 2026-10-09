@@ -29,7 +29,6 @@ public sealed class EngineDistribution<TPackage> : IEngineDistribution where TPa
     private readonly Func<string, string?> _releaseUrl;
     private readonly Lock _gate = new();
     private TPackage? _current;
-    private bool _scanned; //扫过一次本机才知道在用哪个
 
     /// <param name="name">引擎名</param>
     /// <param name="rootDirectory">引擎包目录（各引擎的目录不能互相包含）</param>
@@ -99,18 +98,17 @@ public sealed class EngineDistribution<TPackage> : IEngineDistribution where TPa
         string? selected = _selection.SelectedRuntimeVersion;
         Use(versions.FirstOrDefault(x => x.IsInstalled && x.Name == selected)
             ?? versions.FirstOrDefault(x => x.IsInstalled));
-        _scanned = true;
         return versions;
     }
 
     /// <summary>
-    /// 在用的版本；还没扫过就先扫一次
+    /// 在用的版本；还没有就扫一次本机（刚装好、或还没扫过）
     /// </summary>
     /// <param name="cancellationToken">取消</param>
     /// <returns>版本；没装为 null</returns>
     public async Task<TPackage?> EnsureCurrentAsync(CancellationToken cancellationToken = default)
     {
-        if (!_scanned) await ScanAsync(cancellationToken).ConfigureAwait(false);
+        if (CurrentVersion == null) await ScanAsync(cancellationToken).ConfigureAwait(false);
         return CurrentVersion;
     }
 

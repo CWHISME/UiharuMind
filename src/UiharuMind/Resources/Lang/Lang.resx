@@ -5542,6 +5542,17 @@ Allow them?</value>
     <data name="ImageDrawStarting" xml:space="preserve">
         <value>Starting the engine and loading the model…</value>
     </data>
+    <data name="ImageDrawLoading" xml:space="preserve">
+        <value>Loading the model… {0}%</value>
+    </data>
+    <data name="ImageDrawMemoryRiskConfirm" xml:space="preserve">
+        <value>There may not be enough free memory to load this model right now: it needs about {0} GB and {1} GB is free. Loading it anyway can make the system swap heavily or even freeze.
+
+Load it anyway?</value>
+    </data>
+    <data name="ImageDrawMemoryRiskTitle" xml:space="preserve">
+        <value>Not enough free memory</value>
+    </data>
     <data name="ImageDrawQueued" xml:space="preserve">
         <value>Waiting in line…</value>
     </data>

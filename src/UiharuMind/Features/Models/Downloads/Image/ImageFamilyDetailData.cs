@@ -94,8 +94,7 @@ public partial class ImageFamilyDetailData : ObservableObject, IDisposable
         {
             RuntimeDeviceInfo device = await Task.Run(_context.DeviceInfo, _cancellation.Token);
             foreach (ImageTierRowData row in Rows)
-                row.ApplyRisk(RuntimeLoadRiskEvaluator.EstimateBeforeDownload(row.Tier.TotalSize, 0, device),
-                    RuntimeLoadRiskEvaluator.EstimateBytesBeforeDownload(row.Tier.TotalSize, 0), device);
+                row.ApplyRisk(SdCppMemory.Estimate(row.Tier.TotalSize), device);
         }
         catch (OperationCanceledException)
         {

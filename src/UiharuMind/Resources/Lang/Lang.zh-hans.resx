@@ -5535,6 +5535,17 @@
     <data name="ImageDrawStarting" xml:space="preserve">
         <value>正在启动引擎、读入模型…</value>
     </data>
+    <data name="ImageDrawLoading" xml:space="preserve">
+        <value>正在读入模型… {0}%</value>
+    </data>
+    <data name="ImageDrawMemoryRiskConfirm" xml:space="preserve">
+        <value>此刻可用内存可能不够装下这个模型：估计要 {0} GB，眼下可用 {1} GB。硬起可能让系统大量换页甚至卡死。
+
+仍然要加载吗？</value>
+    </data>
+    <data name="ImageDrawMemoryRiskTitle" xml:space="preserve">
+        <value>可用内存不足</value>
+    </data>
     <data name="ImageDrawQueued" xml:space="preserve">
         <value>排队中…</value>
     </data>

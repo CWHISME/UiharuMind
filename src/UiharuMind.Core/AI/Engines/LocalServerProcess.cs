@@ -50,6 +50,11 @@ public sealed record LocalServerLaunch(
     /// 加载阶段大约输出的行数，只用来估个进度
     /// </summary>
     public float ExpectedLogLines { get; init; } = 128f;
+
+    /// <summary>
+    /// 起来后大约占多少内存（字节），拉起前按此刻可用内存检查；0 为不估（启动时不加载模型的引擎）
+    /// </summary>
+    public long EstimatedMemoryBytes { get; init; }
 }
 
 /// <summary>

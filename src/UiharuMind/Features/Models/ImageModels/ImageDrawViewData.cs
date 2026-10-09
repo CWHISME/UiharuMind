@@ -40,6 +40,7 @@ public sealed record ImageDrawActions(Action<string> Copy, Func<string, Task> Sa
 public partial class ImageDrawViewData : ObservableObject, IDisposable
 {
     private readonly ImageDrawGenerator _generate;
+    private readonly IMessageService _messageService;
     private readonly ImageDrawActions _actions;
     private readonly string _outputDirectory;
     private readonly DispatcherTimer _clock = new() { Interval = TimeSpan.FromSeconds(1) }; //远程模型没有进度，报个用时
@@ -65,14 +66,16 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
     /// <param name="models">可选的生图模型</param>
     /// <param name="selected">默认选中的；null 选第一个</param>
     /// <param name="generate">出图</param>
+    /// <param name="messageService">内存不够时问要不要照样起</param>
     /// <param name="actions">画好之后的动作</param>
     /// <param name="outputDirectory">画好的图存哪</param>
     public ImageDrawViewData(IReadOnlyList<ImageModelInfo> models, ImageModelInfo? selected,
-        ImageDrawGenerator generate, ImageDrawActions actions, string outputDirectory)
+        ImageDrawGenerator generate, IMessageService messageService, ImageDrawActions actions, string outputDirectory)
     {
         Models = models;
         _selectedModel = selected != null && models.Contains(selected) ? selected : models.FirstOrDefault();
         _generate = generate;
+        _messageService = messageService;
         _actions = actions;
         _outputDirectory = outputDirectory;
         _statusText = models.Count == 0 ? Loc.Text(LangKey.ImageDrawNoModel) : "";
@@ -117,8 +120,13 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
         {
             // 在界面线程上建，进度回调就回到界面线程
             Progress<ImageProgress> progress = new(OnProgress);
-            ImageGenerationReport report = await _generate(model, new ImageRequest(Prompt.Trim(), [], SelectedRatio),
-                progress, _running.Token);
+            ImageRequest request = new(Prompt.Trim(), [], SelectedRatio);
+            ImageGenerationReport report = await _generate(model, request, progress, _running.Token);
+            // 本地引擎此刻内存不够没起：这里有人看着，问过再硬起
+            if (report.Failure?.MemoryShortfall is { } shortfall && await _messageService.ConfirmAsync(
+                    Loc.Text(LangKey.ImageDrawMemoryRiskConfirm, ToGb(shortfall.EstimatedBytes), ToGb(shortfall.AvailableBytes)),
+                    Loc.Text(LangKey.ImageDrawMemoryRiskTitle)))
+                report = await _generate(model, request with { AllowMemoryRisk = true }, progress, _running.Token);
             if (report.Failure != null || report.Images.Count == 0)
             {
                 StatusText = Loc.Text(LangKey.ImageDrawFailed, report.Failure?.Message ?? "");
@@ -175,6 +183,8 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
         using MemoryStream stream = new(progress.Preview);
         ReplaceImage(new Bitmap(stream));
     }
+
+    private static string ToGb(long bytes) => (bytes / (1024d * 1024 * 1024)).ToString("0.0");
 
     private void ShowImage(string path) => ReplaceImage(new Bitmap(path));
 

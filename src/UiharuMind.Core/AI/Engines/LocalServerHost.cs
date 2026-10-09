@@ -1,3 +1,4 @@
+using UiharuMind.Core.AI.Runtime;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Engines;
@@ -33,9 +34,19 @@ public interface IEngineRuntime
     LocalServerException? LastError { get; }
 
     /// <summary>
+    /// 启动中的加载进度（0~1，按日志行数估）；不在启动为 0
+    /// </summary>
+    float LoadProgress { get; }
+
+    /// <summary>
     /// 状态变了（可能在后台线程）
     /// </summary>
     event Action? StateChanged;
+
+    /// <summary>
+    /// 加载进度变了（后台线程）
+    /// </summary>
+    event Action? LoadProgressChanged;
 
     /// <summary>
     /// 停掉，释放内存；下次使用时按当时的启动描述再拉起
@@ -47,6 +58,8 @@ public interface IEngineRuntime
 /// 一个本地引擎服务的进程宿主：用到才拉起，并发请求共用同一次启动，退出了下次用自动重启。
 /// 进程寿命只归宿主，请求取消只放弃等待；被 <see cref="Stop"/> 打断的等待改等新的那次，不会收到取消。
 /// 连着起不来（或起来就崩）几次就冷却一阵，期间直接报最近的错。可选闲置自动停（<see cref="BeginUse"/> 计用量）。
+/// 调用方带上启动指纹（模型、版本、启动设置），和在跑的不一样就换进程；换进程先等旧的退干净再起，免得两份权重同时占内存。
+/// 启动描述估了占用的，拉起前按此刻可用内存检查，危险就不起（<see cref="EngineMemoryException"/>）。
 /// 启动描述在锁外取，取描述的回调可以放心去拿调用方自己的锁
 /// </summary>
 public sealed class LocalServerHost : IEngineRuntime, IDisposable
@@ -56,14 +69,20 @@ public sealed class LocalServerHost : IEngineRuntime, IDisposable
     /// </summary>
     public const int FailuresBeforeCooldown = 3;
 
+    private static readonly TimeSpan PreviousExitWait = TimeSpan.FromSeconds(15);
+
     private readonly Func<LocalServerLaunch> _createLaunch;
     private readonly Func<TimeSpan?> _idleTimeout;
     private readonly TimeSpan _cooldown;
     private readonly TimeProvider _time;
+    private readonly Func<RuntimeDeviceInfo> _deviceInfo;
     private readonly Lock _gate = new();
     private readonly CancellationTokenSource _disposed = new();
 
     private Task<LocalServerProcess>? _starting; //最近一次启动，成功后即为在跑的服务
+    private string? _startingKey; //最近一次启动的指纹
+    private Task _previousExit = Task.CompletedTask; //上一个被停掉的进程退出
+    private float _loadProgress;
     private CancellationTokenSource? _serverLifetime;
     private int _generation; //每次拉起或停掉加一，等待方据此知道自己等的那次被换掉了
     private int _failures;
@@ -76,9 +95,10 @@ public sealed class LocalServerHost : IEngineRuntime, IDisposable
     /// <param name="idleTimeout">闲置多久自动停；null 不停（由服务自己卸模型的引擎）</param>
     /// <param name="cooldown">连着失败后冷却多久；null 为 30 秒</param>
     /// <param name="time">时钟；null 用系统时钟</param>
+    /// <param name="deviceInfo">取此刻的内存；null 用本机的</param>
     public LocalServerHost(Func<LocalServerLaunch> createLaunch, TimeSpan? idleTimeout = null,
-        TimeSpan? cooldown = null, TimeProvider? time = null)
-        : this(createLaunch, () => idleTimeout, cooldown, time)
+        TimeSpan? cooldown = null, TimeProvider? time = null, Func<RuntimeDeviceInfo>? deviceInfo = null)
+        : this(createLaunch, () => idleTimeout, cooldown, time, deviceInfo)
     {
     }
 
@@ -86,16 +106,21 @@ public sealed class LocalServerHost : IEngineRuntime, IDisposable
     /// <param name="idleTimeout">每次用完时取闲置多久自动停（随设置变）；返回 null 不停</param>
     /// <param name="cooldown">连着失败后冷却多久；null 为 30 秒</param>
     /// <param name="time">时钟；null 用系统时钟</param>
+    /// <param name="deviceInfo">取此刻的内存；null 用本机的</param>
     public LocalServerHost(Func<LocalServerLaunch> createLaunch, Func<TimeSpan?> idleTimeout,
-        TimeSpan? cooldown = null, TimeProvider? time = null)
+        TimeSpan? cooldown = null, TimeProvider? time = null, Func<RuntimeDeviceInfo>? deviceInfo = null)
     {
         _createLaunch = createLaunch;
         _idleTimeout = idleTimeout;
         _cooldown = cooldown ?? TimeSpan.FromSeconds(30);
         _time = time ?? TimeProvider.System;
+        _deviceInfo = deviceInfo ?? (() => RuntimeDeviceInfoProvider.Capture(true));
     }
 
     public event Action? StateChanged;
+    public event Action? LoadProgressChanged;
+
+    public float LoadProgress => Volatile.Read(ref _loadProgress);
 
     public EEngineRunState State
     {
@@ -145,11 +170,24 @@ public sealed class LocalServerHost : IEngineRuntime, IDisposable
     /// <param name="cancellationToken">只取消这次等待</param>
     /// <returns>服务根地址</returns>
     /// <exception cref="LocalServerException">起不来，或正在冷却</exception>
-    public async Task<Uri> GetBaseUriAsync(CancellationToken cancellationToken)
+    public Task<Uri> GetBaseUriAsync(CancellationToken cancellationToken) =>
+        GetBaseUriAsync(null, false, cancellationToken);
+
+    /// <summary>
+    /// 服务根地址；没在跑就拉起，在跑的指纹不一样就换进程
+    /// </summary>
+    /// <param name="launchKey">要的启动指纹；null 为在跑的都行</param>
+    /// <param name="allowMemoryRisk">内存危险也照样起（问过用户的）</param>
+    /// <param name="cancellationToken">只取消这次等待</param>
+    /// <returns>服务根地址</returns>
+    /// <exception cref="LocalServerException">起不来，或正在冷却</exception>
+    /// <exception cref="EngineMemoryException">此刻内存不够，没起</exception>
+    public async Task<Uri> GetBaseUriAsync(string? launchKey, bool allowMemoryRisk,
+        CancellationToken cancellationToken)
     {
         while (true)
         {
-            (Task<LocalServerProcess> starting, int generation) = EnsureStarting();
+            (Task<LocalServerProcess> starting, int generation) = EnsureStarting(launchKey, allowMemoryRisk);
             try
             {
                 LocalServerProcess server = await starting.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -201,16 +239,25 @@ public sealed class LocalServerHost : IEngineRuntime, IDisposable
         }
     }
 
-    private (Task<LocalServerProcess> Starting, int Generation) EnsureStarting()
+    private (Task<LocalServerProcess> Starting, int Generation) EnsureStarting(string? launchKey,
+        bool allowMemoryRisk)
     {
         TaskCompletionSource<LocalServerProcess> pending;
         CancellationToken lifetime;
+        Task previousExit;
         int generation;
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed.IsCancellationRequested, this);
-            if (IsAlive(_starting)) return (_starting!, _generation);
-            if (_time.GetUtcNow() < _coolUntil && _lastError != null)
+            bool changed = launchKey != null && launchKey != _startingKey;
+            if (IsAlive(_starting) && !changed) return (_starting!, _generation);
+            if (changed)
+            {
+                // 换了模型、版本或设置：之前的失败不算数
+                _failures = 0;
+                _coolUntil = default;
+            }
+            else if (_time.GetUtcNow() < _coolUntil && _lastError != null)
                 throw new LocalServerException(_lastError.Message, _lastError.LogTail);
 
             StopCore();
@@ -218,25 +265,37 @@ public sealed class LocalServerHost : IEngineRuntime, IDisposable
             lifetime = _serverLifetime.Token;
             pending = new TaskCompletionSource<LocalServerProcess>(TaskCreationOptions.RunContinuationsAsynchronously);
             _starting = pending.Task;
+            _startingKey = launchKey ?? _startingKey;
+            previousExit = _previousExit;
             generation = _generation;
         }
 
         StateChanged?.Invoke();
-        _ = Task.Run(() => StartAsync(pending, lifetime, generation), CancellationToken.None);
+        _ = Task.Run(() => StartAsync(pending, lifetime, generation, allowMemoryRisk, previousExit),
+            CancellationToken.None);
         return (pending.Task, generation);
     }
 
     private async Task StartAsync(TaskCompletionSource<LocalServerProcess> pending, CancellationToken lifetime,
-        int generation)
+        int generation, bool allowMemoryRisk, Task previousExit)
     {
         LocalServerLaunch launch;
         try
         {
             launch = _createLaunch();
+            // 旧进程还占着内存：等它退干净再查、再起
+            await WaitPreviousExitAsync(previousExit, lifetime).ConfigureAwait(false);
+            if (!allowMemoryRisk) CheckMemory(launch);
+        }
+        catch (OperationCanceledException e) when (lifetime.IsCancellationRequested)
+        {
+            pending.TrySetCanceled(e.CancellationToken);
+            StateChanged?.Invoke();
+            return;
         }
         catch (Exception e)
         {
-            // 没装引擎、没有模型之类：不是进程的错，原样交给调用方，也不计失败
+            // 没装引擎、没有模型、内存不够之类：不是进程的错，原样交给调用方，也不计失败
             pending.TrySetException(e);
             StateChanged?.Invoke();
             return;
@@ -244,7 +303,8 @@ public sealed class LocalServerHost : IEngineRuntime, IDisposable
 
         try
         {
-            LocalServerProcess server = await LocalServerProcess.StartAsync(launch, null, lifetime)
+            SetLoadProgress(0f);
+            LocalServerProcess server = await LocalServerProcess.StartAsync(launch, SetLoadProgress, lifetime)
                 .ConfigureAwait(false);
             lock (_gate)
             {
@@ -266,7 +326,37 @@ public sealed class LocalServerHost : IEngineRuntime, IDisposable
             pending.TrySetException(error);
         }
 
+        SetLoadProgress(0f);
         StateChanged?.Invoke();
+    }
+
+    private static async Task WaitPreviousExitAsync(Task previousExit, CancellationToken lifetime)
+    {
+        if (previousExit.IsCompleted) return;
+        try
+        {
+            await previousExit.WaitAsync(PreviousExitWait, lifetime).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            Log.Warning("Previous local server did not exit in time; starting the new one anyway.");
+        }
+    }
+
+    // 只拦「危险」：「偏紧」照起，内存信息拿不到也照起
+    private void CheckMemory(LocalServerLaunch launch)
+    {
+        if (launch.EstimatedMemoryBytes <= 0) return;
+        RuntimeDeviceInfo device = _deviceInfo();
+        if (RuntimeLoadRiskEvaluator.ClassifyBeforeLoad(launch.EstimatedMemoryBytes, device) ==
+            RuntimeLoadRiskLevel.Danger)
+            throw new EngineMemoryException(launch.ServerName,
+                new EngineMemoryShortfall(launch.EstimatedMemoryBytes, device.AvailableMemoryBytes));
+    }
+
+    private void SetLoadProgress(float progress)
+    {
+        if (Interlocked.Exchange(ref _loadProgress, progress) != progress) LoadProgressChanged?.Invoke();
     }
 
     // 没被要求停却退出了：算一次失败
@@ -324,6 +414,7 @@ public sealed class LocalServerHost : IEngineRuntime, IDisposable
     // 调用方持锁
     private void StopCore()
     {
+        if (_starting is { IsCompletedSuccessfully: true } started) _previousExit = started.Result.Completion;
         _serverLifetime?.Cancel();
         _serverLifetime?.Dispose();
         _serverLifetime = null;

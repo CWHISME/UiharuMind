@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
+using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI.ImageGeneration;
 using UiharuMind.Core.Core;
 using UiharuMind.Shared.Services;
@@ -29,6 +30,7 @@ public partial class ImageDrawWindow : Window
         ImageDrawWindow window = new();
         ImageDrawViewData data = new(ImageModelSettingConfig.Current.Models, selected,
             ImageGenerationService.Shared.GenerateWithAsync,
+            App.Services.GetRequiredService<IMessageService>(),
             new ImageDrawActions(
                 path => App.Clipboard.CopyImageToClipboard(new Bitmap(path)),
                 path => App.FilesService.SaveImageAsync(new Bitmap(path), window, Path.GetFileName(path)),

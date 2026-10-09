@@ -1,3 +1,5 @@
+using UiharuMind.Core.AI.Engines;
+
 namespace UiharuMind.Core.AI.ImageGeneration;
 
 /// <summary>
@@ -20,7 +22,11 @@ public enum EImageFailureKind
 /// </summary>
 /// <param name="Kind">类别</param>
 /// <param name="Message">原因，原样给模型与日志</param>
-public sealed record ImageFailure(EImageFailureKind Kind, string Message);
+public sealed record ImageFailure(EImageFailureKind Kind, string Message)
+{
+    /// <summary>本地引擎因为此刻内存不够没起（差多少）；有人看着的入口据此问用户要不要照样起</summary>
+    public EngineMemoryShortfall? MemoryShortfall { get; init; }
+}
 
 /// <summary>
 /// 接口给回的一张图：字节或地址二选一。地址由回退链统一下载，接口格式不管落地。
@@ -49,4 +55,13 @@ public sealed class ImageOutcome
     /// <returns>失败结果</returns>
     public static ImageOutcome Fail(EImageFailureKind kind, string message) =>
         new() { Failure = new ImageFailure(kind, message) };
+
+    /// <summary>
+    /// 本地引擎此刻内存不够、没起：算这一家用不了
+    /// </summary>
+    /// <param name="message">原因</param>
+    /// <param name="shortfall">差多少</param>
+    /// <returns>失败结果</returns>
+    public static ImageOutcome MemoryRisk(string message, EngineMemoryShortfall shortfall) =>
+        new() { Failure = new ImageFailure(EImageFailureKind.Unavailable, message) { MemoryShortfall = shortfall } };
 }

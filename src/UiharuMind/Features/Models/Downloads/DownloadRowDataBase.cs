@@ -54,6 +54,14 @@ public abstract partial class DownloadRowDataBase : ObservableObject
     }
 
     /// <summary>
+    /// 按引擎自己估好的运行占用刷新红黄绿点（只看总内存，判断的是这台机器）
+    /// </summary>
+    /// <param name="runtimeBytes">估的运行占用</param>
+    /// <param name="device">设备信息</param>
+    public void ApplyRisk(long runtimeBytes, RuntimeDeviceInfo device) =>
+        ApplyRisk(RuntimeLoadRiskEvaluator.ClassifyBeforeDownload(runtimeBytes, device), runtimeBytes, device);
+
+    /// <summary>
     /// 套用下载状态
     /// </summary>
     /// <param name="status">状态</param>

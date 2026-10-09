@@ -16,6 +16,8 @@ public static class ImageProgressText
     /// <returns>说明；采样中还不知道总步数时为 null，沿用上一句</returns>
     public static string? Describe(ImageProgress progress) => progress.Stage switch
     {
+        EImageStage.Starting when progress.LoadProgress > 0 =>
+            Loc.Text(LangKey.ImageDrawLoading, (int)(progress.LoadProgress * 100)),
         EImageStage.Starting => Loc.Text(LangKey.ImageDrawStarting),
         EImageStage.Queued => Loc.Text(LangKey.ImageDrawQueued),
         _ when progress.TotalSteps > 0 => Loc.Text(LangKey.ImageDrawStep, progress.Step, progress.TotalSteps),

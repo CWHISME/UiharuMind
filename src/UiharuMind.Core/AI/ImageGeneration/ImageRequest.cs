@@ -15,4 +15,7 @@ public sealed record ImageRequest(string Prompt, IReadOnlyList<ImageInput> Image
 
     /// <summary>是编辑而非生成</summary>
     public bool IsEdit => Images.Count > 0;
+
+    /// <summary>本地引擎此刻内存不够也照样起（用户在画图窗口确认过）；智能体出图不带</summary>
+    public bool AllowMemoryRisk { get; init; }
 }

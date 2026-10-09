@@ -23,7 +23,6 @@ public sealed partial class SdCppEngine : IDisposable
     private readonly SemaphoreSlim _generation = new(1, 1);
     private readonly Lock _gate = new();
     private SdCppModelSetup? _requested; //下次起进程装哪个
-    private string? _launched; //在跑的进程按什么起的（程序与参数）：模型、版本或启动设置变了就换进程
     private string? _launchedKey; //在跑的进程装的模型
     private string? _unloadedKey; //正要删文件的模型：为它起的那次不再起
 
@@ -31,13 +30,15 @@ public sealed partial class SdCppEngine : IDisposable
     /// <param name="engineRoot">引擎包目录</param>
     /// <param name="queue">下载队列；null 用全局的</param>
     /// <param name="http">本机回环用的客户端；null 用共享的</param>
+    /// <param name="deviceInfo">取此刻的内存（拉起前检查）；null 用本机的</param>
     public SdCppEngine(SdCppSettingConfig settings, string engineRoot, DownloadQueue? queue = null,
-        HttpClient? http = null)
+        HttpClient? http = null, Func<RuntimeDeviceInfo>? deviceInfo = null)
     {
         _settings = settings;
         _client = new SdCppClient(http ?? Http);
         _host = new LocalServerHost(CreateLaunch,
-            () => settings.IdleStopMinutes > 0 ? TimeSpan.FromMinutes(settings.IdleStopMinutes) : null);
+            () => settings.IdleStopMinutes > 0 ? TimeSpan.FromMinutes(settings.IdleStopMinutes) : null,
+            deviceInfo: deviceInfo);
         Distribution = new EngineDistribution<SdCppVersion>("stable-diffusion.cpp", engineRoot,
             new SdCppVersionManager(), queue ?? DownloadQueue.Shared, settings, ReleaseUrl,
             isVetted: x => x.Version <= SdCppVersionManager.PinnedVersion);
@@ -87,21 +88,30 @@ public sealed partial class SdCppEngine : IDisposable
     }
 
     /// <summary>
+    /// 出一张图，此刻内存不够就不起（<see cref="EngineMemoryException"/>）
+    /// </summary>
+    public Task<IReadOnlyList<byte[]>> GenerateAsync(SdCppModelSetup model, SdCppImageRequest request,
+        IProgress<ImageProgress>? progress, CancellationToken cancellationToken) =>
+        GenerateAsync(model, request, progress, false, cancellationToken);
+
+    /// <summary>
     /// 出一张图：没在跑就起（换了模型就换进程），排队、采样、取图。进度在后台线程报
     /// </summary>
     /// <param name="model">模型</param>
     /// <param name="request">请求</param>
     /// <param name="progress">进度；null 不报</param>
+    /// <param name="allowMemoryRisk">此刻内存不够也照样起（问过用户的）</param>
     /// <param name="cancellationToken">取消：排队中的撤掉，在算的停进程（下次重新加载）</param>
     /// <returns>出好的图（PNG）</returns>
     /// <exception cref="SdCppModelMissingException">缺文件</exception>
     /// <exception cref="LocalEngineNotReadyException">没装引擎</exception>
+    /// <exception cref="EngineMemoryException">此刻内存不够，没起</exception>
     /// <exception cref="LocalServerException">起不来</exception>
     /// <exception cref="SdCppRequestException">参数不合法</exception>
     /// <exception cref="SdCppGenerationException">任务失败</exception>
     /// <exception cref="TimeoutException">超时</exception>
     public async Task<IReadOnlyList<byte[]>> GenerateAsync(SdCppModelSetup model, SdCppImageRequest request,
-        IProgress<ImageProgress>? progress, CancellationToken cancellationToken)
+        IProgress<ImageProgress>? progress, bool allowMemoryRisk, CancellationToken cancellationToken)
     {
         IReadOnlyList<string> missing = model.MissingFiles();
         if (missing.Count > 0) throw new SdCppModelMissingException(model.Name, missing);
@@ -115,8 +125,8 @@ public sealed partial class SdCppEngine : IDisposable
             if (missing.Count > 0) throw new SdCppModelMissingException(model.Name, missing);
 
             using IDisposable use = _host.BeginUse();
-            progress?.Report(new ImageProgress(EImageStage.Starting));
-            Uri server = await GetServerAsync(model, cancellationToken).ConfigureAwait(false);
+            Uri server = await GetServerAsync(model, progress, allowMemoryRisk, cancellationToken)
+                .ConfigureAwait(false);
             string id = await _client.SubmitAsync(server, request, _settings.VaeTiling, cancellationToken)
                 .ConfigureAwait(false);
             return await WaitForJobAsync(server, id, progress, cancellationToken).ConfigureAwait(false);
@@ -185,22 +195,29 @@ public sealed partial class SdCppEngine : IDisposable
         }
     }
 
-    private async Task<Uri> GetServerAsync(SdCppModelSetup model, CancellationToken cancellationToken)
+    private async Task<Uri> GetServerAsync(SdCppModelSetup model, IProgress<ImageProgress>? progress,
+        bool allowMemoryRisk, CancellationToken cancellationToken)
     {
-        if (Distribution.CurrentVersion == null) await Distribution.ScanAsync(cancellationToken).ConfigureAwait(false);
-        SdCppVersion version = Distribution.CurrentVersion ?? throw new LocalEngineNotReadyException();
-
-        string wanted = Fingerprint(BuildLaunch(version, model));
-        bool restart;
+        SdCppVersion version = await Distribution.EnsureCurrentAsync(cancellationToken).ConfigureAwait(false)
+                               ?? throw new LocalEngineNotReadyException();
         lock (_gate)
         {
-            restart = _launched != null && _launched != wanted;
             _requested = model;
             _unloadedKey = null;
         }
 
-        if (restart) _host.Stop();
-        return await _host.GetBaseUriAsync(cancellationToken).ConfigureAwait(false);
+        progress?.Report(new ImageProgress(EImageStage.Starting));
+        void OnLoad() => progress?.Report(new ImageProgress(EImageStage.Starting) { LoadProgress = _host.LoadProgress });
+        _host.LoadProgressChanged += OnLoad;
+        try
+        {
+            return await _host.GetBaseUriAsync(Fingerprint(BuildLaunch(version, model)), allowMemoryRisk,
+                cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _host.LoadProgressChanged -= OnLoad;
+        }
     }
 
     // 宿主在锁外调这里
@@ -214,13 +231,8 @@ public sealed partial class SdCppEngine : IDisposable
             if (model.Key == _unloadedKey)
                 throw new SdCppModelMissingException(model.Name, model.Components.Select(x => x.Path).ToList());
         }
-        LocalServerLaunch launch = BuildLaunch(version, model);
-        lock (_gate)
-        {
-            _launched = Fingerprint(launch);
-            _launchedKey = model.Key;
-        }
-        return launch;
+        lock (_gate) _launchedKey = model.Key;
+        return BuildLaunch(version, model) with { EstimatedMemoryBytes = SdCppMemory.Estimate(model) };
     }
 
     private LocalServerLaunch BuildLaunch(SdCppVersion version, SdCppModelSetup model) => SdCppServerArgs.Launch(

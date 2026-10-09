@@ -25,7 +25,7 @@ public sealed class AudioModelMissingException(EAudioCppTask task)
 /// <summary>
 /// audio.cpp 本地引擎，由三块拼成：分发（版本与安装，<see cref="Distribution"/>）、模型（<see cref="Models"/>）、
 /// 进程（按设置生成 server.json 并托管，<see cref="Runtime"/>）。
-/// 设置与模型目录是唯一事实来源，进程只是它们的投影——选了没在跑的模型、换了版本或改了启动项，就重启一次
+/// 设置与模型目录是唯一事实来源，进程只是它们的投影——选了没在跑的模型、换了版本或改了启动项，下次用时重启一次
 /// </summary>
 public sealed partial class AudioCppEngine : IDisposable
 {
@@ -104,11 +104,6 @@ public sealed partial class AudioCppEngine : IDisposable
     public VoiceLibrary? Voices { get; }
 
     /// <summary>
-    /// 启动相关的设置改了（线程数、驻留数…），下次使用按新设置重启
-    /// </summary>
-    public void ApplySettings() => _host.Stop();
-
-    /// <summary>
     /// 停掉引擎，释放模型占用的内存；下次使用时自动再拉起
     /// </summary>
     public void Stop() => _host.Stop();
@@ -123,14 +118,16 @@ public sealed partial class AudioCppEngine : IDisposable
     /// <exception cref="LocalServerException">起不来</exception>
     public async Task<Uri> GetServerAsync(AudioCppModelEntry model, CancellationToken cancellationToken)
     {
-        if (Distribution.CurrentVersion == null) await Distribution.ScanAsync(cancellationToken).ConfigureAwait(false);
-        if (Distribution.CurrentVersion == null) throw new LocalEngineNotReadyException();
+        AudioCppVersion version = await Distribution.EnsureCurrentAsync(cancellationToken).ConfigureAwait(false)
+                                  ?? throw new LocalEngineNotReadyException();
 
         bool stale;
         lock (_gate) stale = _launchedModels.Count > 0 && !_launchedModels.Contains(model);
         if (stale) _host.Stop();
 
-        return await _host.GetBaseUriAsync(cancellationToken).ConfigureAwait(false);
+        // 启动项（线程、驻留数…）改了，指纹跟着变，宿主下次用时换进程
+        string launchKey = $"{version.Name}\n{BuildServerOptions(version.Name, _settings, Voices?.Directory)}";
+        return await _host.GetBaseUriAsync(launchKey, false, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

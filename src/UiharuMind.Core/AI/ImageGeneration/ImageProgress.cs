@@ -22,4 +22,10 @@ public enum EImageStage
 /// <param name="Step">当前步（采样时）</param>
 /// <param name="TotalSteps">这一轮共几步</param>
 /// <param name="Preview">中间预览图（PNG）；没有为 null</param>
-public sealed record ImageProgress(EImageStage Stage, int Step = 0, int TotalSteps = 0, byte[]? Preview = null);
+public sealed record ImageProgress(EImageStage Stage, int Step = 0, int TotalSteps = 0, byte[]? Preview = null)
+{
+    /// <summary>
+    /// 起引擎时读权重的进度（0~1，按日志估）；不在起为 0
+    /// </summary>
+    public float LoadProgress { get; init; }
+}

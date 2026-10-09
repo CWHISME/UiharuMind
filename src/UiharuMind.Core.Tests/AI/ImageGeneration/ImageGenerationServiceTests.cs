@@ -1,3 +1,4 @@
+using UiharuMind.Core.AI.Engines;
 using UiharuMind.Core.AI.Character.PromptActions;
 using UiharuMind.Core.AI.ImageGeneration;
 using UiharuMind.Core.AI.ImageGeneration.Dialects;
@@ -231,6 +232,26 @@ public class ImageGenerationServiceTests
 
         Assert.Equal([backup], dialect.Asked);
         Assert.Contains("repeated failures", Assert.Single(report.Skipped).Reason);
+    }
+
+    [Fact]
+    public async Task LocalNotEnoughMemory_FallsBack_WithoutTrippingTheCircuit()
+    {
+        // 内存不够是此刻的事：换下一家，但不熔断，内存腾出来后下一单还先问它
+        string local = Unique("local");
+        string backup = Unique("backup");
+        var (service, dialect) = Build([Model(local), Model(backup)], new()
+        {
+            [local] = ImageOutcome.MemoryRisk("not enough memory", new EngineMemoryShortfall(12L << 30, 4L << 30)),
+            [backup] = Drew(Png),
+        });
+
+        for (int i = 0; i < 4; i++) await Generate(service);
+        dialect.Asked.Clear();
+        ImageGenerationReport report = await Generate(service);
+
+        Assert.Equal([local, backup], dialect.Asked);
+        Assert.Contains("not enough memory", Assert.Single(report.Skipped).Reason);
     }
 
     [Fact]

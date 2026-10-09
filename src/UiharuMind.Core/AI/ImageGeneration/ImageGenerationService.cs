@@ -88,7 +88,8 @@ public sealed class ImageGenerationService
                 .ConfigureAwait(false);
             if (outcome.Failure is { Kind: EImageFailureKind.Unavailable } unavailable)
             {
-                ServiceCircuit.RecordFailure(circuitKey, unavailable.Message);
+                // 内存不够是此刻的事，不该熔断这一家
+                if (unavailable.MemoryShortfall == null) ServiceCircuit.RecordFailure(circuitKey, unavailable.Message);
                 skipped.Add(new SkippedImageModel(model.Name, unavailable.Message));
                 Log.Warning($"[ImageGen] '{model.Name}' unavailable, falling back: {unavailable.Message}");
                 continue;
