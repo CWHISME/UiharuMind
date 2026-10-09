@@ -2,9 +2,12 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Files;
+using UiharuMind.Core.AI.ImageGeneration;
+using UiharuMind.Features.Models.ImageModels;
 using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Conversation.Items;
@@ -26,6 +29,18 @@ public partial class ToolCallItem
 
     /// <summary>有图可显示</summary>
     public bool HasResultImages => ResultImages.Count > 0;
+
+    /// <summary>生图跑到哪一步（本地模型才报）；跑完不再显示</summary>
+    [ObservableProperty] private string _progressText = string.Empty;
+
+    /// <summary>
+    /// 收到一条生图进度
+    /// </summary>
+    /// <param name="progress">进度</param>
+    public void ApplyImageProgress(ImageProgress progress)
+    {
+        if (IsRunning) ProgressText = ImageProgressText.Describe(progress) ?? ProgressText;
+    }
 
     /// <summary>
     /// 生图、看图成功后按结果里的路径载入缩略图，不等解码（见 <see cref="LoadResultImagesAsync"/>）

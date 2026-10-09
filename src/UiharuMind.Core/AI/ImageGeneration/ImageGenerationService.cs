@@ -60,9 +60,11 @@ public sealed class ImageGenerationService
     /// 出一次图
     /// </summary>
     /// <param name="request">出图请求</param>
+    /// <param name="progress">进度（本地模型才报）；null 不要</param>
     /// <param name="ct">取消令牌</param>
     /// <returns>结果，失败不抛异常</returns>
-    public async Task<ImageGenerationReport> GenerateAsync(ImageRequest request, CancellationToken ct)
+    public async Task<ImageGenerationReport> GenerateAsync(ImageRequest request, IProgress<ImageProgress>? progress,
+        CancellationToken ct)
     {
         List<SkippedImageModel> skipped = new();
         List<string> ineligible = new();
@@ -82,7 +84,7 @@ public sealed class ImageGenerationService
                 continue;
             }
 
-            ImageOutcome outcome = await _dialects(model.Dialect).GenerateAsync(model, request, null, ct)
+            ImageOutcome outcome = await _dialects(model.Dialect).GenerateAsync(model, request, progress, ct)
                 .ConfigureAwait(false);
             if (outcome.Failure is { Kind: EImageFailureKind.Unavailable } unavailable)
             {

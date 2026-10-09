@@ -17,6 +17,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Audio;
+using UiharuMind.Core.AI.ImageGeneration;
 
 namespace UiharuMind.Core.AI.Execution.Assembly;
 
@@ -120,6 +121,11 @@ public class AgentBuildProfile
     public Action<string, string>? SubSessionStarted { get; init; }
 
     /// <summary>
+    /// 生图进度交给界面（参数为工具调用标识与进度）。为空表示没有界面在看——见 <see cref="ToolCall.ImageProgressContent"/>
+    /// </summary>
+    public Action<string, ImageProgress>? ImageProgressReported { get; init; }
+
+    /// <summary>
     /// 本轮有没有人看着（界面在渲染）。无人值守（定时任务）为 false。
     /// 子代理的墙钟上限据此分档——有人看着就按得动停止，没人看着才需要兜底。
     ///
@@ -181,7 +187,8 @@ public class AgentBuildProfile
         Func<MemoryData?>? sessionKnowledgeSource = null,
         Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null,
         Func<bool>? isAttendedSource = null,
-        Action<string, string>? subSessionStarted = null)
+        Action<string, string>? subSessionStarted = null,
+        Action<string, ImageProgress>? imageProgressReported = null)
     {
         return new AgentBuildProfile
         {
@@ -210,6 +217,7 @@ public class AgentBuildProfile
             SessionShellApprovalSource = sessionShellApprovalSource,
             IsAttendedSource = isAttendedSource,
             SubSessionStarted = subSessionStarted,
+            ImageProgressReported = imageProgressReported,
             SpeechSink = session.RequestSpeechAsync,
         };
     }

@@ -28,16 +28,20 @@ public static class ImageGenerationTool
     /// 创建生图 AIFunction
     /// </summary>
     /// <param name="paths">路径解析口径(与文件工具同一份)</param>
+    /// <param name="progressSink">把进度交给界面(参数为工具调用标识与进度);没有界面在看为 null</param>
     /// <returns>工具实例</returns>
-    public static AITool Create(AgentPathResolver paths) => Create(paths, ImageGenerationService.Shared);
+    public static AITool Create(AgentPathResolver paths, Action<string, ImageProgress>? progressSink = null) =>
+        Create(paths, ImageGenerationService.Shared, progressSink);
 
     /// <summary>
     /// 创建生图 AIFunction
     /// </summary>
     /// <param name="paths">路径解析口径</param>
     /// <param name="service">生图回退链</param>
+    /// <param name="progressSink">把进度交给界面;null 不报</param>
     /// <returns>工具实例</returns>
-    internal static AITool Create(AgentPathResolver paths, ImageGenerationService service)
+    internal static AITool Create(AgentPathResolver paths, ImageGenerationService service,
+        Action<string, ImageProgress>? progressSink = null)
     {
         return AIFunctionFactory.Create(
             async ([Description("What the final image should look like. When editing, describe the desired " +
@@ -51,7 +55,8 @@ public static class ImageGenerationTool
                                  "or to keep the first input image's shape when editing.")]
                     string? aspectRatio = null,
                     CancellationToken cancellationToken = default) =>
-                await GenerateAsync(paths, service, prompt, images, aspectRatio, cancellationToken)
+                await GenerateAsync(paths, service, prompt, images, aspectRatio, ProgressOf(progressSink),
+                        cancellationToken)
                     .ConfigureAwait(false),
             ToolName,
             "Generate an image from a text prompt, or edit existing images. " +
@@ -65,8 +70,17 @@ public static class ImageGenerationTool
     /// <returns>路径，按产出顺序</returns>
     public static IReadOnlyList<string> ParseSavedPaths(string? result) => ToolResultLines.Parse(result, SavedPrefix);
 
+    // 按本次调用的标识把进度交出去;拿不到标识(不经框架直接调)就不报
+    private static IProgress<ImageProgress>? ProgressOf(Action<string, ImageProgress>? sink)
+    {
+        string? callId = FunctionInvokingChatClient.CurrentContext?.CallContent.CallId;
+        if (sink == null || string.IsNullOrEmpty(callId)) return null;
+        return new InlineProgress<ImageProgress>(p => sink(callId, p with { Preview = null }));
+    }
+
     private static async Task<string> GenerateAsync(AgentPathResolver paths, ImageGenerationService service,
-        string prompt, string[]? imagePaths, string? aspectRatio, CancellationToken ct)
+        string prompt, string[]? imagePaths, string? aspectRatio, IProgress<ImageProgress>? progress,
+        CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(prompt)) return "Error: prompt must not be empty.";
 
@@ -90,7 +104,7 @@ public static class ImageGenerationTool
         (List<ImageInput> inputs, string? inputError) = await LoadInputsAsync(paths, imagePaths, ct).ConfigureAwait(false);
         if (inputError != null) return inputError;
 
-        ImageGenerationReport report = await service.GenerateAsync(new ImageRequest(prompt.Trim(), inputs, ratio), ct)
+        ImageGenerationReport report = await service.GenerateAsync(new ImageRequest(prompt.Trim(), inputs, ratio), progress, ct)
             .ConfigureAwait(false);
         if (report.Failure != null) return DescribeFailure(report);
 

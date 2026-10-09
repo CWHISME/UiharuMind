@@ -164,13 +164,7 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
 
     private void OnProgress(ImageProgress progress)
     {
-        StatusText = progress.Stage switch
-        {
-            EImageStage.Starting => Loc.Text(LangKey.ImageDrawStarting),
-            EImageStage.Queued => Loc.Text(LangKey.ImageDrawQueued),
-            _ when progress.TotalSteps > 0 => Loc.Text(LangKey.ImageDrawStep, progress.Step, progress.TotalSteps),
-            _ => StatusText
-        };
+        StatusText = ImageProgressText.Describe(progress) ?? StatusText;
         if (progress.Preview == null) return;
         using MemoryStream stream = new(progress.Preview);
         ReplaceImage(new Bitmap(stream));

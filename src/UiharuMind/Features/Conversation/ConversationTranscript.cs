@@ -191,6 +191,10 @@ public sealed class ConversationTranscript : ITurnSink
 
                 break;
 
+            case ImageProgressContent image:
+                FindCall(image.CallId)?.ApplyImageProgress(image.Progress);
+                break;
+
             // 一次服务调用到此为止:之后的正文属于下一条助手消息,不能续进当前气泡
             case MessageBoundaryContent boundary:
                 ThinkingBoundary.Dispatch(boundary, _thinkParser, AppendText, AppendThinking, CloseSegment);

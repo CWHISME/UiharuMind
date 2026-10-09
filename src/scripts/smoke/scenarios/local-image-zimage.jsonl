@@ -1,0 +1,16 @@
+{"op":"image.download","args":{"family":"z-image-turbo"}}
+{"op":"model.wait","args":{"timeoutMinutes":240}}
+{"op":"image.list"}
+{"op":"image.draw","args":{"model":"Z-Image Turbo","prompt":"一只坐在月牙上的小狐狸，水彩风格，星空背景，角落写着「晚安」","timeoutMinutes":20,"copyTo":"{{OUT}}/draw.png"}}
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"session.new","args":{"character":"RationalAgent","workspace":"{{WS_EMPTY}}"}}
+{"op":"session.post","args":{"text":"画一张图：雨夜街角亮着灯的小书店，橱窗上写着「初春书屋」。"}}
+{"op":"wait","args":{"ms":60000}}
+{"op":"ui.capture","args":{"path":"{{OUT}}/card-1.png"}}
+{"op":"wait","args":{"ms":40000}}
+{"op":"ui.capture","args":{"path":"{{OUT}}/card-2.png"}}
+{"op":"session.wait","args":{"timeoutMinutes":20,"approvals":"once"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/agent.md"}}
+{"op":"ui.capture","args":{"path":"{{OUT}}/card-done.png"}}
+{"op":"image.list"}
+{"op":"quit"}

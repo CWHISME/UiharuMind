@@ -73,6 +73,17 @@
                                        Foreground="{DynamicResource SemiBlue5}"
                                        Text="{loc:Loc ToolCallAwaitingReport}"
                                        IsVisible="{Binding IsAwaitingReport}" />
+                            <!-- 生图跑到哪一步:本地出一张图要几分钟,只有转圈看不出是卡住还是在算 -->
+                            <TextBlock FontSize="11" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource SemiGrey5}"
+                                       Text="{Binding ProgressText}">
+                                <TextBlock.IsVisible>
+                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                        <Binding Path="IsRunning" />
+                                        <Binding Path="ProgressText" Converter="{x:Static StringConverters.IsNotNullOrEmpty}" />
+                                    </MultiBinding>
+                                </TextBlock.IsVisible>
+                            </TextBlock>
                             <SpinnerIcon Width="12" Height="12" VerticalAlignment="Center"
                                          IsVisible="{Binding IsRunning}" />
                             <SpinnerIcon Width="12" Height="12" VerticalAlignment="Center"

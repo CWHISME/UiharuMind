@@ -153,6 +153,62 @@ public sealed class ImageGenerationToolTests : IDisposable
         Assert.Equal(expected, ImageGenerationTool.BuildFileStem(prompt, new DateTime(2026, 10, 1, 9, 8, 7)));
     }
 
+    private sealed class ProgressDialect(ImageProgress report) : IImageDialect
+    {
+        public Task<ImageOutcome> GenerateAsync(ImageModelInfo model, ImageRequest request,
+            IProgress<ImageProgress>? progress, CancellationToken ct)
+        {
+            progress?.Report(report);
+            return Task.FromResult(new ImageOutcome { Images = [new ImageOutput(TestImages.Png(8, 8), null)] });
+        }
+    }
+
+    // 第一轮叫一次生图，第二轮收尾
+    private sealed class CallingClient : IChatClient
+    {
+        private int _turn;
+
+        public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null,
+            CancellationToken cancellationToken = default)
+        {
+            ChatMessage reply = _turn++ == 0
+                ? new ChatMessage(ChatRole.Assistant, [new FunctionCallContent("call-7", ImageGenerationTool.ToolName,
+                    new Dictionary<string, object?> { ["prompt"] = "a fox" })])
+                : new ChatMessage(ChatRole.Assistant, "done");
+            return Task.FromResult(new ChatResponse(reply));
+        }
+
+        public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages,
+            ChatOptions? options = null, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public void Dispose()
+        {
+        }
+    }
+
+    [Fact]
+    public async Task Progress_ReachesSinkWithCallId_WithoutPreview()
+    {
+        Directory.CreateDirectory(Workspace);
+        ImageModelInfo model = new() { Name = "painter", Endpoint = "https://example.com/v1", ModelId = "x" };
+        ProgressDialect dialect = new(new ImageProgress(EImageStage.Generating, 3, 8, [1, 2, 3]));
+        ImageGenerationService service = new(() => [model], _ => dialect, (_, _) => throw new InvalidOperationException());
+        List<(string CallId, ImageProgress Progress)> reports = [];
+        AITool tool = ImageGenerationTool.Create(new AgentPathResolver(Workspace, Draft), service,
+            (callId, progress) => reports.Add((callId, progress)));
+
+        using FunctionInvokingChatClient client = new(new CallingClient());
+        await client.GetResponseAsync([new ChatMessage(ChatRole.User, "draw")], new ChatOptions { Tools = [tool] },
+            TestContext.Current.CancellationToken);
+
+        (string callId, ImageProgress progress) = Assert.Single(reports);
+        Assert.Equal("call-7", callId);
+        Assert.Equal(new ImageProgress(EImageStage.Generating, 3, 8), progress);
+    }
+
     [Theory]
     [InlineData(true, true, true, true)]
     [InlineData(true, true, false, false)] //没配生图模型:一个 token 都不占

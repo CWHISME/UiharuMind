@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.Core.DownloadHelper;
 
@@ -272,7 +273,7 @@ public sealed class DownloadQueue(FileDownloader downloader)
         CancellationToken token = job.Cancellation!.Token;
         try
         {
-            await downloader.DownloadAsync(job.Request, new InlineProgress(p => job.Progress = p), token)
+            await downloader.DownloadAsync(job.Request, new InlineProgress<DownloadProgress>(p => job.Progress = p), token)
                 .ConfigureAwait(false);
             await job.RunOnDownloadedAsync(token).ConfigureAwait(false);
             job.State = EDownloadJobState.Completed;
@@ -311,11 +312,5 @@ public sealed class DownloadQueue(FileDownloader downloader)
                 Log.Warning($"Post-download handler failed: {job.Name}, {e.Message}");
             }
         });
-    }
-
-    // Progress<T> 会抓同步上下文投递，下载线程上直接回调即可，界面层自己切线程
-    private sealed class InlineProgress(Action<DownloadProgress> report) : IProgress<DownloadProgress>
-    {
-        public void Report(DownloadProgress value) => report(value);
     }
 }

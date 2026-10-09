@@ -9,6 +9,7 @@
 
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Audio;
+using UiharuMind.Core.AI.ImageGeneration;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Tools;
@@ -39,6 +40,9 @@ internal sealed record AgentToolResources
 
     /// <summary>配了生图模型（没配时生图一个 token 都不占）</summary>
     public bool ImageModelsConfigured { get; init; }
+
+    /// <summary>生图进度交给界面；没有界面在看为 null</summary>
+    public Action<string, ImageProgress>? ImageProgress { get; init; }
 
     /// <summary>MCP 工具：直挂的工具快照，或按需送达的两把元工具</summary>
     public IReadOnlyList<AITool> Mcp { get; init; } = [];
@@ -119,7 +123,7 @@ internal static class AgentToolsetBuilder
         // 生图只看配置：开着、且至少配了一个生图模型，连不连得通不看（ADR 0052）
         if (Mounts(EAgentCapability.ImageGeneration, config.EnableImageGeneration) && resources.ImageModelsConfigured)
         {
-            Add(EAgentCapability.ImageGeneration, ImageGenerationTool.Create(paths));
+            Add(EAgentCapability.ImageGeneration, ImageGenerationTool.Create(paths, resources.ImageProgress));
         }
 
         if (Mounts(EAgentCapability.SubAgent, config.EnableSubAgent) && resources.Delegation?.Invoke() is { } delegation)

@@ -155,6 +155,7 @@ internal static class AgentAssembler
             OutputRoomDirectory = plan.OutputRoomDirectory,
             ModelSupportsVision = plan.ModelSupportsVision,
             ImageModelsConfigured = plan.ImageModelsConfigured,
+            ImageProgress = profile.ImageProgressReported,
             Mcp = plan.Mcp.Tools,
             // 1.16:shell 作为普通工具挂载,默认名即 run_shell、默认自包审批,预授权规则按名匹配不变
             Shell = shellExecutor == null

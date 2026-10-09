@@ -125,7 +125,9 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
             // 闭包读字段:handle 跨轮次复用,而这两样每轮由 TurnDriver 交进来
             isAttendedSource: () => _turnAttended,
             subSessionStarted: (callId, subSessionId) => _activityChannel?.Writer
-                .TryWrite(new SubSessionStartedContent(callId, subSessionId)));
+                .TryWrite(new SubSessionStartedContent(callId, subSessionId)),
+            imageProgressReported: (callId, progress) => _activityChannel?.Writer
+                .TryWrite(new ImageProgressContent(callId, progress)));
 
         // MCP 工具是异步取回的,而快照与装配都从「此刻取得到什么」出发——所以等待必须在采集之前。
         // 放到这里而不是应用启动时:托管 server 的子进程因此只在真要用它的那一刻才起来,

@@ -65,7 +65,7 @@ public class ImageGenerationServiceTests
     }
 
     private static Task<ImageGenerationReport> Generate(ImageGenerationService service, bool edit = false) =>
-        service.GenerateAsync(new ImageRequest("cat", edit ? [new ImageInput(Png, "image/png")] : [], null),
+        service.GenerateAsync(new ImageRequest("cat", edit ? [new ImageInput(Png, "image/png")] : [], null), null,
             TestContext.Current.CancellationToken);
 
     [Fact]
