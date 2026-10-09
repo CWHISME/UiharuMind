@@ -84,6 +84,7 @@ public partial class ModelService : ObservableObject
         LlmManager.Instance.OnCurrentModelLoading += OnCurrentModelLoading;
         LlmManager.Instance.OnCurrentModelLoaded += OnCurrentModelLoaded;
         LlmManager.Instance.OnModelRunFailed += OnModelRunFailed;
+        LlmManager.Instance.OnModelContextReduced += OnModelContextReduced;
         ModelSettingConfig.Current.PropertyChanged += OnFavoriteModelConfigChanged;
         LoadModelListAsync();
     }
@@ -118,6 +119,10 @@ public partial class ModelService : ObservableObject
             MessageSeverity.Error);
         Refresh();
     }
+
+    private void OnModelContextReduced(string modelName, int from, int to) =>
+        _messages.ShowNotification(Loc.Text(LangKey.ModelContextReducedBody, from, to),
+            string.Format(Loc.Text(LangKey.ModelContextReducedTitle), modelName), MessageSeverity.Warning);
 
     [RelayCommand]
     public void EjectCurrentModel()

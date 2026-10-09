@@ -60,6 +60,12 @@ public sealed record LocalServerLaunch(
     public float ExpectedLogLines { get; init; } = 128f;
 
     /// <summary>
+    /// 按日志认加载阶段：某行标志着到了哪一步就返回那一步的进度（0~1），其余行返回 null。
+    /// 给了就不再按行数估，阶段之间按时间缓缓往前挪
+    /// </summary>
+    public Func<string, float?>? ProgressMilestone { get; init; }
+
+    /// <summary>
     /// 起来后大约占多少内存（字节），拉起前按此刻可用内存检查；0 为不估（启动时不加载模型的引擎）
     /// </summary>
     public long EstimatedMemoryBytes { get; init; }
@@ -90,6 +96,9 @@ public sealed class LocalServerProcess
     private int _serverId; //服务本身，用到才找
     private long _lastActivity = Environment.TickCount64; //最近一次输出：大模型冷启动慢，只要还在动就不算超时
     private (TimeSpan CpuTime, long Ticks)? _lastSample; //上次取样，算 CPU 占比用
+    private readonly Lock _progressGate = new();
+    private float _milestone; //最近认出的加载阶段
+    private float _progress; //报出去的进度，只增不减
 
     private LocalServerProcess(LocalServerLaunch launch, int port)
     {
@@ -201,7 +210,7 @@ public sealed class LocalServerProcess
 
         try
         {
-            await server.WaitUntilReadyAsync(lifetime.Token).ConfigureAwait(false);
+            await server.WaitUntilReadyAsync(onProgress, lifetime.Token).ConfigureAwait(false);
             onProgress?.Invoke(1f);
             return server;
         }
@@ -290,12 +299,33 @@ public sealed class LocalServerProcess
             if (_logTail.Count > LogTailLines) _logTail.Dequeue();
         }
 
+        if (onProgress == null) return;
+        if (_launch.ProgressMilestone is { } milestone)
+        {
+            if (milestone(line) is { } reached) Advance(reached, true, onProgress);
+        }
         // 每 16 行报一次，封顶 0.95，真正的 1 留给就绪
-        if (onProgress != null && lineCount % 16 == 0)
+        else if (lineCount % 16 == 0)
             onProgress(Math.Min(0.95f, lineCount / _launch.ExpectedLogLines));
     }
 
-    private async Task WaitUntilReadyAsync(CancellationToken token)
+    // 到了新阶段就跳到那一步；阶段内（读权重之类一行不打的长活）每次轮询往上一阶段之后约 0.15 处挪一点，越近越慢
+    private void Advance(float milestone, bool reached, Action<float> onProgress)
+    {
+        float next;
+        lock (_progressGate)
+        {
+            if (reached) _milestone = Math.Max(_milestone, Math.Min(0.95f, milestone));
+            float cap = Math.Min(0.95f, _milestone + 0.15f);
+            next = reached ? Math.Max(_progress, _milestone) : _progress + (cap - _progress) * 0.02f;
+            if (next <= _progress + 0.001f) return;
+            _progress = next;
+        }
+
+        onProgress(next);
+    }
+
+    private async Task WaitUntilReadyAsync(Action<float>? onProgress, CancellationToken token)
     {
         TimeSpan timeout = _launch.ReadyTimeout;
         Volatile.Write(ref _lastActivity, Environment.TickCount64);
@@ -311,6 +341,7 @@ public sealed class LocalServerProcess
                     $"{_launch.ServerName} made no progress for {timeout.TotalSeconds:0}s and was not ready.", LogTail);
 
             if (await IsHealthyAsync(healthUri, token).ConfigureAwait(false)) return;
+            if (onProgress != null && _launch.ProgressMilestone != null) Advance(0, false, onProgress);
             await Task.WhenAny(Task.Delay(PollInterval, token), Completion).ConfigureAwait(false);
         }
     }

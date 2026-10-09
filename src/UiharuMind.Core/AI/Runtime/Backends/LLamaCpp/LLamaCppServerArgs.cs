@@ -31,7 +31,7 @@ public static class LLamaCppServerArgs
         {
             Environment = environment,
             OutputObserver = outputObserver,
-            ExpectedLogLines = 240
+            ProgressMilestone = LLamaCppLoadProgress.Milestone
         };
     }
 

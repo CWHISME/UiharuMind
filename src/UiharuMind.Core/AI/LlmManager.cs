@@ -72,6 +72,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
             _llamaCppRuntime,
             _remoteModelManager,
             token => LLamaCppEngine.Distribution.EnsureCurrentAsync(token));
+        _runtimeService.ContextReduced += (name, from, to) => OnModelContextReduced?.Invoke(name, from, to);
     }
 
     //======================callbacks======================
@@ -105,6 +106,11 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     /// 经 <see cref="LoadModel"/> 加载的模型起不来或运行中崩溃（主动卸载不算）
     /// </summary>
     public event Action<string, Exception>? OnModelRunFailed;
+
+    /// <summary>
+    /// 本地模型加载时内存不够，上下文已减半重试：模型名、原上下文、减半后的上下文
+    /// </summary>
+    public event Action<string, int, int>? OnModelContextReduced;
 
     public void OnInitialize()
     {

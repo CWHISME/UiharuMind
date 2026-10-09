@@ -4058,6 +4058,12 @@
     <data name="ModelRunFailedTitle" xml:space="preserve">
         <value>模型「{0}」运行失败</value>
     </data>
+    <data name="ModelContextReducedTitle" xml:space="preserve">
+        <value>{0}：上下文已缩小</value>
+    </data>
+    <data name="ModelContextReducedBody" xml:space="preserve">
+        <value>按上下文 {0} 加载时内存不够，已改用 {1} 加载。可在模型的运行参数里把上下文调小，下次就不用先失败一次。</value>
+    </data>
     <data name="ModelRunFailedNoEngine" xml:space="preserve">
         <value>还没有可用的 llama.cpp 引擎。请到「设置 → 本地模型（文本）」下载或选择一个版本。</value>
     </data>

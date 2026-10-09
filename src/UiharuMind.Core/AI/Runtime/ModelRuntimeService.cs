@@ -25,6 +25,11 @@ internal sealed class ModelRuntimeService
     public IReadOnlyDictionary<string, ModelRunningData> ModelCache => _modelCache;
 
     /// <summary>
+    /// 加载时内存不够、上下文已减半重试：模型名、原上下文、减半后的上下文
+    /// </summary>
+    public event Action<string, int, int>? ContextReduced;
+
+    /// <summary>
     /// 已注册的本地引擎，多于一个时界面才让用户选
     /// </summary>
     public IReadOnlyList<IModelRuntimeBackend> LocalEngines => _registry.LocalEngines;
@@ -157,6 +162,7 @@ internal sealed class ModelRuntimeService
             Log.Warning($"{model.ModelName} ran out of memory at context {parameters.ContextSize}, " +
                         $"retrying with {smaller.ContextSize}.");
             onParametersResolved?.Invoke(smaller);
+            ContextReduced?.Invoke(model.ModelName, parameters.ContextSize, smaller.ContextSize);
             await backend.RunChatAsync(request with { Parameters = smaller }, onLoading, onLoadOver, token)
                 .ConfigureAwait(false);
         }

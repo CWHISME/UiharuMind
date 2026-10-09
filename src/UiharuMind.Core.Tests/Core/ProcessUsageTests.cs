@@ -72,8 +72,10 @@ public class SystemMemoryStatusTests
                         x.StartsWith("Pages speculative:"))
             .Sum(x => long.Parse(new string(x.Where(char.IsDigit).ToArray())));
 
-        // 两次读之间页数会动，差在 5% 以内算对上
+        // 两次读之间页数会动（并行跑别的测试时一次能差几百 MB），只验同一量级：差在 20% 或 512 MB 以内
         Assert.NotNull(direct);
-        Assert.InRange(direct.Value, pages * pageSize * 0.95, pages * pageSize * 1.05 + 64 * 1024 * 1024);
+        double expected = pages * pageSize;
+        double slack = Math.Max(expected * 0.2, 512d * 1024 * 1024);
+        Assert.InRange(direct.Value, expected - slack, expected + slack);
     }
 }

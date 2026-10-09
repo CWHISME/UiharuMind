@@ -4065,6 +4065,12 @@ Allow them?</value>
     <data name="ModelRunFailedTitle" xml:space="preserve">
         <value>Model "{0}" failed to run</value>
     </data>
+    <data name="ModelContextReducedTitle" xml:space="preserve">
+        <value>{0}: context reduced</value>
+    </data>
+    <data name="ModelContextReducedBody" xml:space="preserve">
+        <value>Not enough memory to load with a context of {0}, so it was loaded with {1}. Lower the context in the model parameters to skip the failed attempt next time.</value>
+    </data>
     <data name="ModelRunFailedNoEngine" xml:space="preserve">
         <value>No llama.cpp engine is available yet. Download or select a version in Settings → Local Models (Text).</value>
     </data>
