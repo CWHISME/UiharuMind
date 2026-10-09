@@ -220,34 +220,3 @@ internal static class McpCallResult
         return subtype.Length > 0 && subtype.All(char.IsAsciiLetterOrDigit) ? "." + subtype.ToLowerInvariant() : ".bin";
     }
 }
-
-/// <summary>
-/// 直挂 MCP 工具的结果整形层：让直挂与按需走同一套解包与超限落盘，
-/// 而不是只有 <c>McpCall</c> 一条路受益。除结果外一律透传给原工具。
-/// </summary>
-internal sealed class McpResultFunction : DelegatingAIFunction
-{
-    private readonly string _spillDirectory;
-    private readonly string _serverName;
-    private readonly AgentPathResolver? _paths;
-
-    /// <param name="innerFunction">原工具（可能已经是改过名的那个）</param>
-    /// <param name="spillDirectory">超限落盘的目录</param>
-    /// <param name="serverName">server 名，用作落盘文件名前缀的一部分</param>
-    /// <param name="paths">落盘目录是会话房间时的路径口径；null 写绝对路径</param>
-    public McpResultFunction(AIFunction innerFunction, string spillDirectory, string serverName,
-        AgentPathResolver? paths = null)
-        : base(innerFunction)
-    {
-        _spillDirectory = spillDirectory;
-        _serverName = serverName;
-        _paths = paths;
-    }
-
-    protected override async ValueTask<object?> InvokeCoreAsync(AIFunctionArguments arguments,
-        CancellationToken cancellationToken)
-    {
-        object? raw = await base.InvokeCoreAsync(arguments, cancellationToken).ConfigureAwait(false);
-        return McpCallResult.Normalize(raw, _spillDirectory, $"Mcp_{_serverName}_{Name}", _paths);
-    }
-}

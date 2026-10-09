@@ -53,8 +53,9 @@
                             Command="{Binding ResolveCommand}" CommandParameter="once"
                             Content="{loc:Loc AgentApproveOnce}" />
                     <Button CornerRadius="6"
+                            IsVisible="{Binding !AsksEveryTime}"
                             Command="{Binding ResolveCommand}" CommandParameter="session"
-                            Content="{loc:Loc AgentApproveSession}" />
+                            Content="{Binding SessionButtonText}" />
                     <Button CornerRadius="6"
                             IsVisible="{Binding CanRememberCommandPattern}"
                             Command="{Binding ResolveCommand}" CommandParameter="session-command"

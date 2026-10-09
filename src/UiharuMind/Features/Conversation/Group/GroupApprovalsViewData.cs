@@ -95,6 +95,7 @@ public sealed partial class GroupApprovalViewData
         Card = new ApprovalRequestItem(request, AgentBuildProfile.PathResolverOf(member), member.SessionId)
         {
             RememberShellPatternCallback = member.AddSessionApprovedShellPattern,
+            ApproveExtensionCallback = extension => member.SetSessionApprovedExtension(extension, true),
         };
         string summary = Card.ArgumentSummary.Trim();
         int lineEnd = summary.IndexOf('\n');

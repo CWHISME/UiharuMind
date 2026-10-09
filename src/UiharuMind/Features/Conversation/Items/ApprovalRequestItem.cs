@@ -15,6 +15,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools.Browser;
@@ -26,10 +27,14 @@ namespace UiharuMind.Features.Conversation.Items;
 
 /// <summary>
 /// 审批卡片:三态回应,决定以 ChatMessage 形式回传给运行循环。
-/// 浏览器调用按发起会话的页面说人话（<see cref="BrowserCallText"/>）；接管（BrowserHandoff）换成「请你接手」的样子
+/// 扩展调用（ADR 0079）按拆开的内层调用画：浏览器调用按发起会话的页面说人话（<see cref="BrowserCallText"/>），
+/// 接管（BrowserHandoff）换成「请你接手」的样子；「本会话允许」按扩展记，不按工具名
 /// </summary>
 public partial class ApprovalRequestItem : ConversationItemBase
 {
+    // 扩展「本会话允许」回应的理由前缀：回应本身只是一次 Once，别处的同一张卡靠它认出这是按扩展放行的
+    private const string ExtensionSessionReason = "User allowed this extension for the conversation: ";
+
     private readonly ToolApprovalRequestContent _request;
     private readonly string? _sessionId; //发起调用的会话：浏览器调用按它的标签页说清点的是什么、接管时切哪个窗口
     private readonly IBrowserHost? _browser; //只有浏览器调用才有
@@ -60,8 +65,11 @@ public partial class ApprovalRequestItem : ConversationItemBase
     {
         _request = request;
         _sessionId = sessionId;
-        if (request.ToolCall is FunctionCallContent call)
+        if (request.ToolCall is FunctionCallContent raw)
         {
+            FunctionCallContent call = ExtensionCalls.Unwrap(raw);
+            ExtensionName = ExtensionCalls.TryRead(raw, out ExtensionInvocation? invocation) ? invocation.Extension : null;
+            AsksEveryTime = ExtensionRisk.AlwaysAsks(raw);
             ToolName = call.Name;
             // 只有浏览器调用才碰宿主：别的卡不该把浏览器那套（闲置回收的计时器）拉起来
             _browser = BrowserTools.HasPreview(call.Name) ? browser ?? PuppeteerBrowserHost.Shared : null;
@@ -107,11 +115,29 @@ public partial class ApprovalRequestItem : ConversationItemBase
     /// </summary>
     public bool IsBrowserHandoff { get; }
 
-    /// <summary>是否提供工具级的"本会话允许"：shell 有更细的"同类命令"，接管不能整会话放行</summary>
-    public bool CanApproveForSession => !CanRememberCommandPattern && !IsBrowserHandoff;
+    /// <summary>扩展调用所属的扩展名；不是扩展调用为 null</summary>
+    public string? ExtensionName { get; }
+
+    /// <summary>每次都要问的那一类（接管、浏览器去本机地址）：不给「本会话允许」</summary>
+    public bool AsksEveryTime { get; }
+
+    /// <summary>
+    /// 是否提供"本会话允许"：shell 有更细的"同类命令"，每次都要问的不能整会话放行。
+    /// 扩展调用的这个按钮按扩展记（<see cref="ApproveExtensionCallback"/>），不交给框架按工具名记——
+    /// 那样一点就把 ExtensionCall 整个放行，连接管一起
+    /// </summary>
+    public bool CanApproveForSession => !CanRememberCommandPattern && !AsksEveryTime && !IsBrowserHandoff;
+
+    /// <summary>「本会话允许」按钮的字：扩展调用写明放行的是哪个扩展</summary>
+    public string SessionButtonText => ExtensionName != null
+        ? Loc.Text(LangKey.AgentApproveSessionExtension, ExtensionLabels.Of(ExtensionName))
+        : Loc.Text(LangKey.AgentApproveSession);
 
     /// <summary>用户点"记住同类命令"时回调(由会话侧写入并持久化)</summary>
     public Action<string>? RememberShellPatternCallback { get; set; }
+
+    /// <summary>用户在扩展卡上点"本会话允许"时回调，参数是扩展名(由会话侧写入并持久化)</summary>
+    public Action<string>? ApproveExtensionCallback { get; set; }
 
     /// <summary>用户决定完成后的回应消息</summary>
     public Task<ChatMessage> Response => _completion.Task;
@@ -122,7 +148,7 @@ public partial class ApprovalRequestItem : ConversationItemBase
     public void UseRecordedArguments()
     {
         if (!IsDescribed || _request.ToolCall is not FunctionCallContent call) return;
-        ArgumentSummary = AgentContentFormatter.SummarizeArguments(call);
+        ArgumentSummary = AgentContentFormatter.SummarizeArguments(ExtensionCalls.Unwrap(call));
         IsDescribed = false;
     }
 
@@ -135,7 +161,8 @@ public partial class ApprovalRequestItem : ConversationItemBase
         if (IsResolved) return;
         // 「本会话总是允许」是框架的包装类型，认不出 ToolApprovalResponseContent 的就是它
         ToolApprovalResponseContent? plain = response.Contents.OfType<ToolApprovalResponseContent>().FirstOrDefault();
-        ResolvedText = ResolvedLabel(plain == null ? "session" : plain.Approved ? "once" : "deny");
+        bool extensionSession = plain?.Reason?.StartsWith(ExtensionSessionReason, StringComparison.Ordinal) == true;
+        ResolvedText = ResolvedLabel(plain == null || extensionSession ? "session" : plain.Approved ? "once" : "deny");
         IsResolved = true;
         _completion.TrySetResult(response);
     }
@@ -161,8 +188,12 @@ public partial class ApprovalRequestItem : ConversationItemBase
     {
         if (IsResolved) return;
 
-        // 接管不许整会话放行：界面上没这个按钮，开发自动化之类的入口照样可能传进来
-        if (IsBrowserHandoff && decision is "session" or "session-command") decision = "once";
+        // 每次都要问的不许整会话放行：界面上没这个按钮，开发自动化之类的入口照样可能传进来
+        if (AsksEveryTime && decision is "session" or "session-command") decision = "once";
+
+        // 扩展的「本会话允许」:记进会话的扩展放行名单(后续这个扩展的一般命令由审批规则直接放行),本次按普通允许回应
+        bool extensionSession = decision == "session" && ExtensionName != null;
+        if (extensionSession) ApproveExtensionCallback?.Invoke(ExtensionName!);
 
         // "记住同类命令":先入会话放行清单(后续同类命令由审批规则直接放行),本次按普通允许回应
         if (decision == "session-command" && CanRememberCommandPattern)
@@ -172,6 +203,8 @@ public partial class ApprovalRequestItem : ConversationItemBase
 
         AIContent response = decision switch
         {
+            "session" when extensionSession => ToolApprovalResponseFactory.Create(_request, EApprovalDecision.Once,
+                ExtensionSessionReason + ExtensionName),
             "session" => ToolApprovalResponseFactory.Create(_request, EApprovalDecision.AlwaysInSession,
                 "User chose to always approve this tool"),
             "deny" => ToolApprovalResponseFactory.Create(_request, EApprovalDecision.Deny, "User denied"),
@@ -200,14 +233,15 @@ public partial class ApprovalRequestItem : ConversationItemBase
         }
     }
 
-    // 决定代号 → 卡片收起后那一行的文案（从前直接显示代号 once / deny）
+    // 决定代号 → 卡片收起后那一行的文案（从前直接显示代号 once / deny）；扩展放行的那句带上扩展名
     private string ResolvedLabel(string decision) => Loc.Text(decision switch
     {
         "deny" when IsBrowserHandoff => LangKey.BrowserHandoffResolvedCancelled,
         _ when IsBrowserHandoff => LangKey.BrowserHandoffResolvedDone,
+        "session" when ExtensionName != null => LangKey.AgentApprovalResolvedSessionExtension,
         "session" => LangKey.AgentApprovalResolvedSession,
         "session-command" => LangKey.AgentApprovalResolvedSessionCommand,
         "deny" => LangKey.AgentApprovalResolvedDenied,
         _ => LangKey.AgentApprovalResolvedOnce,
-    });
+    }, ExtensionName != null ? ExtensionLabels.Of(ExtensionName) : string.Empty);
 }

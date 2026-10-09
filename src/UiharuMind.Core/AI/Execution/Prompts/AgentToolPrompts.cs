@@ -8,7 +8,7 @@
  ****************************************************************************/
 
 using System.Text;
-using UiharuMind.Core.AI.Execution.Mcp;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.WebTools;
 
@@ -318,23 +318,23 @@ public static class AgentToolPrompts
         "- 没有挂载知识库时它会直说；这时如实告诉用户，不要靠猜。";
 
     /// <summary>
-    /// 按需 MCP server 名单（拼在「# MCP 服务器」段里，直挂 server 的自述之后）。
+    /// 扩展名单（「# 扩展」段正文，ADR 0079）。
     ///
-    /// ⚠️ <b>只放配置里就有的东西</b>：名字与用户填的一句话说明，<b>不写工具数、不写工具名</b>。
-    /// 后两者是运行时信息，写进来的话 server 第一次连上，系统提示就变一次，缓存前缀白白失效。
-    /// 想知道有哪些工具，模型自己调 <c>McpHelp</c>。
+    /// ⚠️ <b>只放配置里就有的东西</b>：名字与一句话说明，<b>不写状态、不写命令</b>。
+    /// 后两者是运行时信息，写进来的话 server 一连上系统提示就变一次，缓存前缀白白失效。
+    /// 想知道此刻能不能用、有哪些命令，模型自己调 <c>ExtensionHelp</c>。
     /// </summary>
-    /// <param name="servers">按需 server：名字与说明（说明可空）</param>
+    /// <param name="extensions">扩展：名字与说明（说明可空）</param>
     /// <returns>段落正文</returns>
-    public static string BuildMcpOnDemand(IReadOnlyList<(string Name, string Description)> servers)
+    public static string BuildExtensions(IReadOnlyList<(string Name, string Description)> extensions)
     {
         StringBuilder sb = new();
-        sb.Append("以下 MCP server 的工具不在你的工具列表里。要用时先调 `").Append(McpMetaTools.HelpName)
-            .Append("` 查看用法（只给 server 是列出它的工具，再给 tool 是看该工具的参数），")
-            .Append("再调 `").Append(McpMetaTools.CallName).Append("` 执行；连不上会在工具结果里说明。\n")
-            .Append("可调用的工具以 `").Append(McpMetaTools.HelpName)
-            .Append("` 列出的为准：server 自带的「列出工具」之类的工具，返回的名单可能包含没开放、调不了的。\n");
-        foreach ((string name, string description) in servers)
+        sb.Append("下面这些能力不在你的工具列表里。要用时先调 `").Append(ExtensionCalls.HelpName)
+            .Append("` 查用法（不带参数列出全部及能不能用，给扩展名列出它的命令，再给命令名看参数），")
+            .Append("再调 `").Append(ExtensionCalls.CallName).Append("` 执行。\n")
+            .Append("MCP server 是用户开着的应用，命令以 `").Append(ExtensionCalls.HelpName)
+            .Append("` 列出的为准：server 自带的「列出工具」之类的命令，返回的名单可能包含没开放、调不了的。\n");
+        foreach ((string name, string description) in extensions)
         {
             sb.Append("- ").Append(name);
             if (!string.IsNullOrWhiteSpace(description)) sb.Append("：").Append(description.Trim());

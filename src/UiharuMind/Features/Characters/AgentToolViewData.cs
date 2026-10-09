@@ -6,7 +6,9 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Mcp;
+using UiharuMind.Features.Conversation.Items;
 using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Generated;
@@ -28,7 +30,10 @@ public sealed class AgentToolViewData
     /// <summary>技能勾选项;技能包一个都没有时为空</summary>
     public ObservableCollection<AgentSkillToggle> Skills { get; } = new();
 
-    /// <summary>MCP server 勾选项;一个都没配时为空</summary>
+    /// <summary>内置扩展勾选项（浏览器、生图、音频，ADR 0079）</summary>
+    public ObservableCollection<AgentExtensionToggle> ExtensionToggles { get; } = new();
+
+    /// <summary>MCP server 勾选项;一个都没配时为空。与内置扩展同一份禁用名单</summary>
     public ObservableCollection<AgentMcpServerToggle> McpServers { get; } = new();
 
     /// <summary>技能列表为空(界面据此显示空态文案)</summary>
@@ -64,21 +69,9 @@ public sealed class AgentToolViewData
         Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapVisionTool), Loc.Text(LangKey.AgentGateDescVisionTool),
             () => tools.EnableVisionTool, v => tools.EnableVisionTool = v,
             Tokens(EAgentCapability.VisionTool)));
-        Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapImageGeneration), Loc.Text(LangKey.AgentGateDescImageGeneration),
-            () => tools.EnableImageGeneration, v => tools.EnableImageGeneration = v,
-            Tokens(EAgentCapability.ImageGeneration)));
         Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapSpeak), Loc.Text(LangKey.AgentGateDescSpeak),
             () => tools.EnableSpeak, v => tools.EnableSpeak = v,
             Tokens(EAgentCapability.Speak)));
-        Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapSpeechSynthesis), Loc.Text(LangKey.AgentGateDescSpeechSynthesis),
-            () => tools.EnableSpeechSynthesis, v => tools.EnableSpeechSynthesis = v,
-            Tokens(EAgentCapability.SpeechSynthesis)));
-        Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapTranscription), Loc.Text(LangKey.AgentGateDescTranscription),
-            () => tools.EnableTranscription, v => tools.EnableTranscription = v,
-            Tokens(EAgentCapability.Transcription)));
-        Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapBrowser), Loc.Text(LangKey.AgentGateDescBrowser),
-            () => tools.EnableBrowser, v => tools.EnableBrowser = v,
-            Tokens(EAgentCapability.Browser)));
         Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapKnowledgeSearchTool), Loc.Text(LangKey.AgentGateDescKnowledgeSearch),
             () => tools.EnableKnowledgeSearchTool, v => tools.EnableKnowledgeSearchTool = v,
             Tokens(EAgentCapability.KnowledgeSearch)));
@@ -94,12 +87,17 @@ public sealed class AgentToolViewData
         Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapAgentMode), Loc.Text(LangKey.AgentGateDescAgentMode),
             () => tools.EnableAgentMode, v => tools.EnableAgentMode = v));
 
-        // MCP server 名单是内存里的配置,同步取即可(工具数与占用取常驻缓存,不等网络)
+        ExtensionToggles.Add(new AgentExtensionToggle(BuiltinExtensions.Browser, Loc.Text(LangKey.ExtensionBrowserDesc), tools));
+        ExtensionToggles.Add(new AgentExtensionToggle(BuiltinExtensions.Image, Loc.Text(LangKey.ExtensionImageDesc), tools));
+        ExtensionToggles.Add(new AgentExtensionToggle(BuiltinExtensions.Audio, Loc.Text(LangKey.ExtensionAudioDesc), tools));
+
+        // MCP server 名单是内存里的配置,同步取即可。与内置扩展同名的被内置挡住、用不上,不列
+        // (列出来的话它与内置那一项共用黑名单里同一条,两个勾选框会联动)
         foreach (McpServerConfig server in McpManager.Instance.GetServers()
+                     .Where(x => BuiltinExtensions.Canonical(x.Name) == null)
                      .OrderBy(x => x.Name, StringComparer.Ordinal))
         {
-            McpServers.Add(new AgentMcpServerToggle(server,
-                McpManager.Instance.GetServerStatus(server.Name), tools));
+            McpServers.Add(new AgentMcpServerToggle(server, tools));
         }
 
         _ = LoadSkillsAsync(tools);
@@ -192,7 +190,7 @@ public static class CapabilityTokens
 /// 一个"按名字禁用"的勾选项：配置里存的是<b>禁用</b>清单，所以勾选即"从禁用清单里移除"。
 ///
 /// 技能与 MCP server 是同一套语义（见 <see cref="AgentToolConfig.DisabledSkills"/> 与
-/// <see cref="AgentToolConfig.DisabledMcpServers"/>），差别只在各自的展示字段上，
+/// <see cref="AgentToolConfig.DisabledExtensions"/>），差别只在各自的展示字段上，
 /// 因此这段读写收在此处一份，派生类只补自己那点信息。
 /// </summary>
 public abstract partial class AgentBlacklistToggle : ObservableObject
@@ -255,6 +253,25 @@ public sealed class AgentSkillToggle : AgentBlacklistToggle
 }
 
 /// <summary>
+/// 一个内置扩展勾选项（ADR 0079）。扩展不占工具列表，有风险的调用每次都要用户批，所以默认全给；
+/// 取消勾选只是不让这个智能体用它
+/// </summary>
+public sealed class AgentExtensionToggle : AgentBlacklistToggle
+{
+    /// <param name="name">扩展名</param>
+    /// <param name="description">一句话说明</param>
+    /// <param name="tools">角色的能力配置</param>
+    public AgentExtensionToggle(string name, string description, AgentToolConfig tools)
+        : base(name, description, tools.DisabledExtensions)
+    {
+        DisplayName = ExtensionLabels.Of(name);
+    }
+
+    /// <summary>显示名（浏览器 / 生图 / 音频）；黑名单里存的仍是 <see cref="AgentBlacklistToggle.Name"/></summary>
+    public string DisplayName { get; }
+}
+
+/// <summary>
 /// 一个 MCP server 勾选项。
 ///
 /// 勾选决定的是<b>本智能体能不能用它的工具</b>，与设置页那个「是否托管」是两码事：
@@ -266,23 +283,12 @@ public sealed class AgentMcpServerToggle : AgentBlacklistToggle
     /// <summary>server 当前是否托管中(界面据此提示"配了但没开")</summary>
     public bool IsHosted { get; }
 
-    /// <summary>已取回的工具数;未连上时为 0</summary>
-    public int ToolCount { get; }
-
-    /// <summary>按需送达（工具不进 tools，占用只剩名单里的一行）；界面据此换掉「N tools」</summary>
-    public bool IsOnDemand { get; }
-
-    public AgentMcpServerToggle(McpServerConfig server, McpServerStatus status, AgentToolConfig tools)
-        : base(server.Name, DescribeTransport(server), tools.DisabledMcpServers)
+    public AgentMcpServerToggle(McpServerConfig server, AgentToolConfig tools)
+        : base(server.Name, DescribeTransport(server), tools.DisabledExtensions)
     {
         IsHosted = server.IsEnabled;
-        ToolCount = status.ToolCount;
-        IsOnDemand = server.IsOnDemand;
-        // 直挂:没连上就算不出——schema 才是占用的主体,而 schema 得连上才有。此时显示「—」而不是 0。
-        // 按需:工具定义不进 tools,常驻的只有系统提示名单里那一行(名字 + 说明),与技能广告行同口径
-        EstimatedTokens = server.IsOnDemand
-            ? ToolTokenEstimator.EstimateText(server.Name) + ToolTokenEstimator.EstimateText(server.Description)
-            : status.EstimatedTokens;
+        // 工具定义不进 tools(ADR 0079),常驻的只有系统提示名单里那一行(名字 + 说明),与技能广告行同口径
+        EstimatedTokens = ToolTokenEstimator.EstimateText(server.Name) + ToolTokenEstimator.EstimateText(server.Description);
     }
 
     private static string DescribeTransport(McpServerConfig server)

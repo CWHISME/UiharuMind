@@ -188,7 +188,7 @@ internal sealed class GroupContinueCommand : IAsyncDevCommand
 }
 
 /// <summary>
-/// 等若干个群都跑完这一波。<c>args</c>：groups（群名数组）、timeoutMinutes、approvals（deny / once，默认 deny）。
+/// 等若干个群都跑完这一波。<c>args</c>：groups（群名数组）、timeoutMinutes、approvals（deny / once / session，默认 deny）。
 /// 期间冒出来的审批按 approvals 在待审批条上点掉，并记进报告——被要了什么本身就是观测量
 /// </summary>
 internal sealed class GroupWaitCommand : IAsyncDevCommand
@@ -197,7 +197,7 @@ internal sealed class GroupWaitCommand : IAsyncDevCommand
 
     public string Name => "group.wait";
 
-    public string Usage => "等若干个群跑完这一波。groups（群名数组）、timeoutMinutes、approvals（deny / once；浏览器接管卡上 once 即「完成了，继续」、deny 即取消）";
+    public string Usage => "等若干个群跑完这一波。groups（群名数组）、timeoutMinutes、approvals（deny / once / session；扩展卡上 session 即本会话允许该扩展，浏览器接管卡上 once 即「完成了，继续」、deny 即取消）";
 
     public async Task<object?> ExecuteAsync(JsonElement args)
     {

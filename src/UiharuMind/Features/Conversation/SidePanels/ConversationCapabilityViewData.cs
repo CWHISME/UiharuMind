@@ -18,6 +18,7 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.History;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Core.AI.Execution.Tools;
@@ -48,23 +49,13 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
     /// <summary>可用技能</summary>
     public ObservableCollection<CapabilityItem> Skills { get; } = new();
 
-    /// <summary>MCP server 分组</summary>
-    public ObservableCollection<McpServerGroupItem> McpServers { get; } = new();
-
     /// <summary>
-    /// MCP <b>预告</b>区：装配之前这个会话将会接入什么（见 <c>McpManager.GetPlannedServers</c>）。
-    ///
-    /// 与上面那个集合<b>刻意分开</b>：那个是装配产物（实况），这个是预测。混成一个列表的话，
-    /// 本类开头那句「数据源是装配产物本身，不是能力开关的二次推导」就废了，
-    /// 以后排查「面板说挂了但模型没有」会多一层。
+    /// MCP server 名单（见 <c>McpManager.GetPlannedServers</c>）：每个是一个扩展，工具不进请求（ADR 0079），
+    /// 这里报来源、状态与要执行的命令。没能用上的（待确认、被覆盖、被禁用）也列着，好让用户看见原因
     /// </summary>
     public ObservableCollection<McpPlannedServerItem> McpPlanned { get; } = new();
 
-    /// <summary>
-    /// 预告区是否显示。首轮发送前显示（那时实况是空的，否则新会话就是"不告而连"）；
-    /// 装配之后<b>只要还有没挂上的</b>就继续显示——待确认、被覆盖、被禁用的那些若在此时消失，
-    /// 用户就再也看不见「有东西因为没授权而没挂上」。
-    /// </summary>
+    /// <summary>MCP server 名单是否显示（一个都没配就不出）</summary>
     [ObservableProperty] private bool _hasMcpPlanned;
 
     /// <summary>每轮固定开销的估算合计：系统提示 + 工具定义 + 技能广告行</summary>
@@ -188,7 +179,7 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
         // 预告区要读工作区里的 .mcp.json,同样不在 UI 线程上做
         List<McpPlannedServer> planned = character != null && agent
             ? await Task.Run(() => McpManager.Instance.GetPlannedServers(
-                workspacePath, character.Tools.DisabledMcpServers))
+                workspacePath, character.Tools.DisabledExtensions))
             : new List<McpPlannedServer>();
 
         // 全局关闭模型可见性时不取:模型侧看不到技能,列表与统计一起归零
@@ -206,7 +197,6 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
         // 一次作废的刷新仍会把界面清成空的)
         Tools.Clear();
         Skills.Clear();
-        McpServers.Clear();
         McpPlanned.Clear();
         PromptSegments.Clear();
 
@@ -217,13 +207,8 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
             Tools.Add(new CapabilityItem(tool.Name, tool.Description, tool.EstimatedTokens));
         }
 
-        foreach (McpServerToolGroup group in snapshot.Mcp.Groups)
-        {
-            McpServers.Add(new McpServerGroupItem(group,
-                McpManager.Instance.GetServerStatus(group.ServerName, group.WorkspacePath)));
-        }
-
-        RefreshMcpPlanned(planned, mounted: snapshot.Mcp.Groups.Count);
+        foreach (McpPlannedServer server in planned) McpPlanned.Add(new McpPlannedServerItem(server));
+        HasMcpPlanned = McpPlanned.Count > 0;
 
         // 技能不进工具集(框架按需装载),所以另取一次;口径与点名调用那处一致。
         // 常驻的只有广告行(名字 + 描述):技能正文是按需装载的,
@@ -240,37 +225,11 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
         foreach (AgentPromptSegment segment in snapshot.PromptSegments)
         {
             PromptSegments.Add(new PromptSegmentItem(SectionLabel(segment.Section), segment.EstimatedTokens,
-                segment.Text, segment.CountsTowardTotal));
+                segment.Text));
         }
 
-        IsEmpty = Tools.Count == 0 && Skills.Count == 0 && McpServers.Count == 0 && McpPlanned.Count == 0;
+        IsEmpty = Tools.Count == 0 && Skills.Count == 0 && McpPlanned.Count == 0;
         RefreshSummary(snapshot, contextLength);
-    }
-
-    /// <summary>
-    /// 重建 MCP 预告区。
-    ///
-    /// 显示条件分两种情形，都不能省：
-    /// <list type="bullet">
-    /// <item><b>还没装配</b>（<paramref name="mounted"/> 为 0）——把整份将接入的名单摆出来。
-    /// 这是本区块存在的理由：智能体会话的执行者懒建，首轮发送前实况栏是空的，
-    /// 用户无从知道这个会话会自动连上什么。</item>
-    /// <item><b>已装配但有条目没挂上</b>——只留那些没挂上的。待确认、被同名覆盖、被禁用的那几条
-    /// 若在装配后消失，用户就再也看不见「有东西因为没授权而没挂上」。</item>
-    /// </list>
-    /// </summary>
-    /// <param name="planned">已在后台取好的预告名单（普通角色为空）</param>
-    /// <param name="mounted">实况区已有的分组数；0 表示还没装配过</param>
-    private void RefreshMcpPlanned(List<McpPlannedServer> planned, int mounted)
-    {
-        foreach (McpPlannedServer server in planned)
-        {
-            // 装配之后只留没挂上的:已经挂上的那些在实况区有更准的一份(含逐个工具与真实占用)
-            if (mounted > 0 && server.WillBeMounted) continue;
-            McpPlanned.Add(new McpPlannedServerItem(server));
-        }
-
-        HasMcpPlanned = McpPlanned.Count > 0;
     }
 
     /// <summary>
@@ -296,25 +255,13 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
             + snapshot.PromptTokensOf(EPromptSection.Scene);
         int workspaceTokens = snapshot.PromptTokensOf(EPromptSection.Workspace);
         // 工具纪律段并进「工具」这一档:那段正文是按能力开关派生的,关掉文件工具,
-        // 纪律里那一节和那几个工具定义一起消失——两者同生同死,拆成两行等于让人看两个数做一个决定
-        int toolTokens = Tools.Sum(x => x.EstimatedTokens) + snapshot.PromptTokensOf(EPromptSection.ToolDisciplines);
+        // 纪律里那一节和那几个工具定义一起消失——两者同生同死,拆成两行等于让人看两个数做一个决定。
+        // 扩展的两把元工具与名单段同理,合成「扩展」那一档(ADR 0079)
+        int extensionTokens = snapshot.BuiltInTools.Where(x => x.Capability == EAgentCapability.Extensions)
+            .Sum(x => x.EstimatedTokens) + snapshot.PromptTokensOf(EPromptSection.Extensions);
+        int toolTokens = snapshot.BuiltInTools.Where(x => x.Capability != EAgentCapability.Extensions)
+            .Sum(x => x.EstimatedTokens) + snapshot.PromptTokensOf(EPromptSection.ToolDisciplines);
         int skillTokens = Skills.Sum(x => x.EstimatedTokens);
-
-        // MCP 那一档:装配之后用实况(准),装配之前用预告(估)。
-        //
-        // <b>装配前必须给个数</b>,不能留 0。MCP 是这几档里最贵的一笔——两个 server 就可能是四万
-        // token,而本地模型的窗口常常只有 32K。此时卡片上写着「合计 1.6k」等于在撒谎:
-        // 四万 token 的东西正等着在你按下发送的那一刻挂上去。
-        // 顺带让下面那条压缩水位告警在首轮之前就能亮——那正是它最该亮的时候。
-        // 取自快照而不是把分组加起来:按需模式的固定开销（元工具定义 + 名单）挂在工具集上、不属于任何分组
-        int mcpTokens = snapshot.Mcp.EstimatedTokens + snapshot.Mcp.Groups.Sum(x => x.InstructionsEstimatedTokens);
-        bool mcpIsForecast = false;
-        if (mcpTokens == 0)
-        {
-            // 只算真会挂上的那些,且只算连过因而有账可依的(从未连过的 server 占多少是"不知道",不是 0)
-            mcpTokens = McpPlanned.Sum(x => x.ForecastTokens);
-            mcpIsForecast = mcpTokens > 0;
-        }
 
         Stats.Clear();
         AddStat(Loc.Text(LangKey.AgentCapabilityCharacterPrompt), characterTokens);
@@ -326,16 +273,14 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
         {
             AddStat(Loc.Text(LangKey.AgentCapabilitySkills), skillTokens, Loc.Text(LangKey.AgentCapabilitySkillResidentTip));
         }
-        // 估算的那一档要标出来:同一行数字,一个是实测一个是上次的账,不标就没法解释为什么会变
-        AddStat(mcpIsForecast ? Loc.Text(LangKey.AgentCapabilityMcpForecast) : "MCP", mcpTokens,
-            mcpIsForecast ? Loc.Text(LangKey.AgentCapabilityMcpForecastTip) : null);
+        AddStat(Loc.Text(LangKey.AgentCapabilityExtensions), extensionTokens);
         HasStats = Stats.Count > 0;
 
-        EstimatedTokens = characterTokens + workspaceTokens + toolTokens + skillTokens + mcpTokens;
+        EstimatedTokens = characterTokens + workspaceTokens + toolTokens + skillTokens + extensionTokens;
 
         TabHeader = IsEmpty
             ? Loc.Text(LangKey.AgentCapabilityTitle)
-            : $"{Loc.Text(LangKey.AgentCapabilityTitle)} {Tools.Count + Skills.Count + McpServers.Sum(x => x.Tools.Count)}";
+            : $"{Loc.Text(LangKey.AgentCapabilityTitle)} {Tools.Count + Skills.Count}";
         ToolsHeader = $"{Loc.Text(LangKey.AgentCapabilityTools)} {Tools.Count}";
         SkillsHeader = $"{Loc.Text(LangKey.AgentCapabilitySkills)} {Skills.Count}";
         HasPromptSegments = PromptSegments.Count > 0;
@@ -382,7 +327,7 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
             EPromptSection.PersonaAnchor => LangKey.AgentCapabilityPersonaAnchor,
             EPromptSection.Scene => LangKey.AgentCapabilityScenePrompt,
             EPromptSection.ToolDisciplines => LangKey.AgentCapabilityToolRules,
-            EPromptSection.Mcp => LangKey.AgentCapabilityPromptMcp,
+            EPromptSection.Extensions => LangKey.AgentCapabilityExtensions,
             _ => LangKey.AgentCapabilityWorkspaceRule,
         });
     }
@@ -395,7 +340,7 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
 
 /// <summary>
 /// 工作区卡片上的一行统计：一档占多少。
-/// 标签在此处就取好本地化文案而不是留 key 给界面——五档里有一档（MCP）根本没有 key
+/// 标签在此处就取好本地化文案而不是留 key 给界面
 /// </summary>
 /// <param name="Label">档名</param>
 /// <param name="TokenText">占用文案</param>
@@ -409,16 +354,10 @@ public sealed record CapabilityStatItem(string Label, string TokenText, string? 
 /// <param name="Label">段名</param>
 /// <param name="EstimatedTokens">估算占用</param>
 /// <param name="Text">该段发出去的原文</param>
-/// <param name="CountsTowardTotal">是否计入合计；MCP 自述为 false（已在 MCP 那一档里计过）</param>
-public sealed record PromptSegmentItem(string Label, int EstimatedTokens, string Text, bool CountsTowardTotal)
+public sealed record PromptSegmentItem(string Label, int EstimatedTokens, string Text)
 {
     /// <summary>占用文案。与工具行同一形状，单位在分节标题上说一次就够</summary>
     public string TokenText => $"~{EstimatedTokens}";
-
-    /// <summary>不计入合计时的说明；否则为 null</summary>
-    public string? Tip => CountsTowardTotal
-        ? null
-        : Loc.Text(LangKey.AgentCapabilityPromptNotCounted);
 }
 
 /// <summary>
@@ -434,51 +373,6 @@ public sealed record CapabilityItem(string Name, string Description, int Estimat
 
     /// <summary>token 标记文案。不带单位——单位在分节标题上说一次就够，右栏没有那个宽度重复它</summary>
     public string TokenText => $"~{EstimatedTokens}";
-}
-
-/// <summary>
-/// 一个 MCP server 在本会话里的展示条目
-/// </summary>
-public sealed class McpServerGroupItem
-{
-    /// <summary>server 名</summary>
-    public string Name { get; }
-
-    /// <summary>该 server 贡献的工具</summary>
-    public IReadOnlyList<CapabilityItem> Tools { get; }
-
-    /// <summary>连接状态与自述占用的合计文案</summary>
-    public string SummaryText { get; }
-
-    /// <summary>自述是否已注入(它同样占 token,不该藏着)</summary>
-    public bool InstructionsInjected { get; }
-
-    /// <summary>被改过名的工具存在时的提示(撞名消歧)</summary>
-    public bool HasRenamedTools { get; }
-
-    /// <summary>本 server 的估算 token 合计(工具定义 + 已注入的自述)</summary>
-    public int TotalEstimatedTokens { get; }
-
-    public McpServerGroupItem(McpServerToolGroup group, McpServerStatus status)
-    {
-        Name = group.ServerName;
-        Tools = group.Tools
-            .Select(x => new CapabilityItem(FormatToolName(x), x.Description, x.EstimatedTokens))
-            .ToList();
-        InstructionsInjected = group.InstructionsInjected;
-        HasRenamedTools = group.Tools.Any(x => x.IsRenamed);
-        TotalEstimatedTokens = group.TotalEstimatedTokens;
-        // 按需的组没有工具明细，「0 tools」会被读成这个 server 坏了；它的账在工具集的固定开销里
-        SummaryText = group.MountMode == EMcpMountMode.OnDemand
-            ? string.Format(Loc.Text(LangKey.AgentCapabilityMcpOnDemandSummary), status.State)
-            : $"{status.State} · {group.Tools.Count} tools · ~{group.TotalEstimatedTokens} tok";
-    }
-
-    /// 改过名的把原名一并写出来:否则用户在 server 文档里按原名找不到对应项
-    private static string FormatToolName(McpToolInfo tool)
-    {
-        return tool.IsRenamed ? $"{tool.Name}  ({tool.OriginalName})" : tool.Name;
-    }
 }
 
 /// <summary>
@@ -510,25 +404,12 @@ public sealed class McpPlannedServerItem
     /// 被覆盖的那条灰显。直接给数值而不是新造一个布尔转换器:整个项目还没有第二处要它
     public double Opacity => IsShadowed ? 0.45 : 1.0;
 
-    /// <summary>
-    /// 这一条预计会占的 token；<b>不会挂上的一律为 0</b>。
-    ///
-    /// 被覆盖的、没托管的、被角色禁的、待确认的都不该进合计——它们不会出现在下一轮的请求里，
-    /// 把它们算进去会让那个数虚高，而这一栏的用途正是「该关掉哪个」。
-    /// 从未连过的也为 0：那是「不知道」，不是 0，但拿不到就只能不计（面板上那条会显示状态而没有数）。
-    /// </summary>
-    public int ForecastTokens { get; }
-
     public McpPlannedServerItem(McpPlannedServer server)
     {
         Name = server.Name;
         CommandLine = server.CommandLine;
         NeedsApproval = server.NeedsApproval;
         IsShadowed = server.IsShadowed;
-        // 按需的工具定义不进请求，预告里不计（它的固定开销由工具集统一报）
-        ForecastTokens = server.WillBeMounted && server.MountMode == EMcpMountMode.Direct
-            ? server.EstimatedTokens ?? 0
-            : 0;
         OriginText = server.IsWorkspaceScoped
             ? string.Format(Loc.Text(LangKey.AgentCapabilityMcpFromProject),
                 Path.GetFileName(server.WorkspacePath!.TrimEnd(Path.DirectorySeparatorChar)))
@@ -544,24 +425,14 @@ public sealed class McpPlannedServerItem
     {
         LocalizationManager loc = LocalizationManager.Instance;
         if (server.IsShadowed) return loc.GetString("AgentCapabilityMcpShadowed");
+        if (BuiltinExtensions.Canonical(server.Name) != null) return loc.GetString("AgentCapabilityMcpNameTaken");
         if (server.NeedsApproval) return loc.GetString("AgentCapabilityMcpNeedsApproval");
         if (server.IsHostingOff) return loc.GetString("AgentCapabilityMcpHostingOff");
         if (server.IsDisabledByCharacter) return loc.GetString("AgentCapabilityMcpDisabledByCharacter");
 
-        if (server.MountMode == EMcpMountMode.OnDemand)
-        {
-            return string.Format(loc.GetString("AgentCapabilityMcpOnDemandSummary"), server.State);
-        }
-
-        // 连过又断开的报「上次的账」而不是 0:回收之后显示 0 个工具会被读成"这个 server 坏了"
-        if (server.State != EMcpConnectionState.Connected && server.LastToolCount.HasValue)
-        {
-            return string.Format(loc.GetString("AgentCapabilityMcpLastSeen"),
-                server.State, server.LastToolCount.Value, server.EstimatedTokens ?? 0);
-        }
-
+        // 工具不进请求（ADR 0079），不报占用；连过的报命令数，回收之后也照报上次的，免得被读成"坏了"
         return server.LastToolCount.HasValue
-            ? $"{server.State} · {server.LastToolCount.Value} tools · ~{server.EstimatedTokens ?? 0} tok"
+            ? string.Format(loc.GetString("AgentCapabilityMcpStatus"), server.State, server.LastToolCount.Value)
             : server.State.ToString();
     }
 }

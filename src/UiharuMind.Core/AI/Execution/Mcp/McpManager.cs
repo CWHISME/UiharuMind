@@ -38,13 +38,6 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
     public static string ConfigFilePath => AppPaths.Config.McpServers;
 
     /// <summary>
-    /// 装配前等 server 连上的上限。取得比一次普通请求还长是有意的：
-    /// 等一会儿换来「这一轮真的带着工具跑」，比让第一轮静默缺工具划算得多。
-    /// 而这笔等待每个进程只付一次——工具取回后就常驻缓存。
-    /// </summary>
-    private static readonly TimeSpan WarmupTimeout = TimeSpan.FromSeconds(3);
-
-    /// <summary>
     /// 零租约之后连接留存多久。
     ///
     /// <b>为什么不是「会话切走就断」</b>：工作区是<b>会话级</b>字段（<c>ChatSession.WorkspacePath</c>），
@@ -53,7 +46,7 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
     ///
     /// <b>也不是永不回收</b>：stdio server 意味着常驻子进程，试过五个项目就是五窝进程挂到应用退出。
     ///
-    /// 取一小时是因为在项目之间来回切是常态，而重连要付一次 <see cref="WarmupTimeout"/>。
+    /// 取一小时是因为在项目之间来回切是常态，而重连要让模型的下一次调用多等几秒。
     /// </summary>
     private static readonly TimeSpan IdleTimeout = TimeSpan.FromHours(1);
 
@@ -73,18 +66,16 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
     private readonly List<McpServerConfig> _servers = new(); //全局作用域那一份(McpServers.json)
     private readonly Dictionary<McpServerKey, McpServerRuntime> _runtimes = new(); //按(作用域,名字)索引
     private readonly McpTrustStore _trust = new(); //项目级配置的安全授权账本,自带锁
-    private readonly McpWorkspaceMountStore _mounts = new(); //项目级 server 的送达方式,自带锁
-    private readonly McpToolCatalogStore _catalogs = new(); //按需 server 的工具清单磁盘缓存
+    private readonly McpToolCatalogStore _catalogs = new(); //工具清单磁盘缓存(server 离线时帮助读它)
     private readonly Dictionary<string, int> _leases = new(StringComparer.Ordinal); //在途租约,键同索引键的作用域那一半
     private CancellationTokenSource? _reclaimCancellation; //空闲回收循环,首次连上时惰性启动
-    private int _revision; //工具集修订号
+    private int _revision; //配置修订号
 
     /// <summary>
-    /// 装配相关的修订号：配置增删改，以及<b>直挂</b> server 的工具集变化（取回、回收、命令被改）都会使其自增，
-    /// 装配快照据此感知 MCP 侧的变化（工具集与 server 自述都算在内）。
+    /// 配置修订号：增删改、托管开关、授权变化都会使其自增。
     ///
-    /// <b>按需 server 的连接事件不计入</b>：它们不进 <c>tools</c>，连上、断开、重连都不该改前缀。
-    /// 按需名单本身的变化由 <see cref="DescribeOnDemand"/> 单独入账。
+    /// <b>连接事件不计入</b>：MCP 工具不进 <c>tools</c>（ADR 0079），连上、断开、重连都不该改前缀。
+    /// 系统提示里那行名单的变化由 <see cref="DescribeUsable"/> 单独入账。
     /// </summary>
     public int Revision
     {
@@ -105,13 +96,12 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
     /// <summary>
     /// 从磁盘重新读入配置（用户直接改了配置文件时用）。
     ///
-    /// <b>不在此处预连</b>：那会让托管 server 的子进程随应用一起起来，而这个应用还有截图、
-    /// 剪贴板、快捷问答一堆与 MCP 无关的功能。连接推迟到真正要用的那一刻，见 <see cref="WarmupAsync"/>。
+    /// <b>不在此处连接</b>：那会让托管 server 的子进程随应用一起起来，而这个应用还有截图、
+    /// 剪贴板、快捷问答一堆与 MCP 无关的功能。连接推迟到模型第一次查或调它的那一刻。
     /// </summary>
     public void Reload()
     {
         _trust.Reload();
-        _mounts.Reload();
         McpServersFile file = SaveUtility.Load<McpServersFile>(AppPaths.Config.McpServers) ?? new McpServersFile();
         Dictionary<string, McpServerLocalState> states =
             SaveUtility.Load<Dictionary<string, McpServerLocalState>>(AppPaths.Config.McpServerStates) ?? new();
@@ -171,7 +161,6 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
                 LastToolCount = runtime.LastToolCount,
                 EstimatedTokens = runtime.EstimatedTokens,
                 Error = runtime.Error,
-                HasInstructions = runtime.Instructions.Length > 0,
             };
         }
     }
@@ -214,132 +203,59 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
     }
 
     /// <summary>
-    /// 解析出一次装配要用的 MCP 工具集与自述。<b>同步取缓存，绝不等待网络</b>；
-    /// 尚未取回工具的 server 在后台补连（受退避约束），完成后修订号自增，
-    /// 下一次挂接经装配快照差异自动重建。
+    /// 一次装配从 MCP 侧拿的东西：这一轮可用的 server 名单，与查、调它们的桥接。
+    /// <b>不连接、不等网络</b>：MCP 工具不进 <c>tools</c>（ADR 0079），模型第一次查或调某个 server 时才连
     /// </summary>
     /// <param name="workspacePath">
     /// 本次装配的工作区；项目级 <c>.mcp.json</c> 里的 server 据此并入（同名覆盖全局）。
     /// 空表示未绑定工作区，只有全局 server 参与。
     /// </param>
-    /// <param name="disabledServers">本角色禁用的 server 名单（能力层，见 ADR 0008）</param>
-    /// <param name="spillDirectory">
-    /// 按需 server 的超限结果落盘目录（会话自己的产出房间）；无会话时为空，退到缓存下的草稿目录
-    /// </param>
-    /// <returns>工具集、分组明细与自述</returns>
+    /// <param name="disabledServers">本角色禁用的扩展名单（能力层，见 ADR 0008）</param>
+    /// <param name="spillDirectory">超限结果的落盘目录（会话自己的产出房间）；无会话时为空，退到缓存下的草稿目录</param>
+    /// <returns>名单与桥接</returns>
     public McpToolSet Resolve(string? workspacePath = null, IEnumerable<string>? disabledServers = null,
         string spillDirectory = "")
     {
         List<string> disabledList = disabledServers?.ToList() ?? [];
         List<McpServerConfig> inPlay = InPlayServers(workspacePath, DisabledSet(disabledList));
-
-        List<ResolvedMcpServer> resolved = new();
-        List<McpOnDemandServer> onDemand = new();
-        lock (_lock)
-        {
-            foreach (McpServerConfig server in inPlay)
-            {
-                // 按需 server 不进 tools:既不用为它取工具,也不用为它起后台连接——用到时才连
-                if (server.IsOnDemand)
-                {
-                    onDemand.Add(new McpOnDemandServer
-                    {
-                        Name = server.Name,
-                        WorkspacePath = server.WorkspacePath,
-                        Description = server.Description,
-                    });
-                    continue;
-                }
-
-                McpServerRuntime runtime = GetRuntimeLocked(McpServerKey.Of(server));
-                if (runtime.Tools == null)
-                {
-                    KickRefreshLocked(server, force: false);
-                    continue;
-                }
-
-                resolved.Add(new ResolvedMcpServer(server, runtime.Tools, runtime.Instructions));
-            }
-        }
+        if (inPlay.Count == 0) return McpToolSet.Empty;
 
         string spill = spillDirectory.Length > 0 ? spillDirectory : AppPaths.Cache.Scratch;
-        // 落进会话房间时图片路径写成草稿目录简写,模型拿它直接喂 Read / GenerateImage;退到缓存时没有简写可用
+        // 落进会话房间时图片路径写成草稿目录简写,模型拿它直接喂 Read / 生图;退到缓存时没有简写可用
         AgentPathResolver? paths = spillDirectory.Length > 0 ? new AgentPathResolver(workspacePath, spillDirectory) : null;
-        IReadOnlyList<AIFunction>? metaTools = onDemand.Count == 0
-            ? null
-            : McpMetaTools.Create(new McpBridge(this, workspacePath, disabledList, spill, paths));
-        return McpToolSetBuilder.Build(resolved, onDemand, metaTools, spill, paths);
+        return new McpToolSet
+        {
+            Servers = inPlay.Select(x => new McpRosterServer
+            {
+                Name = x.Name,
+                WorkspacePath = x.WorkspacePath,
+                Description = x.Description,
+            }).ToList(),
+            Bridge = new McpBridge(this, workspacePath, disabledList, spill, paths),
+        };
     }
 
     /// <summary>
-    /// 等托管中、还没取回工具的 server 连上（<see cref="WarmupTimeout"/> 之内），装配前调。
-    ///
-    /// <b>不等的话第一次装配必然赶不上</b>：<see cref="Resolve"/> 撞见还没取到工具的 server 只能
-    /// 跳过它并在后台起连接。症状不是"慢一点"，而是<b>第一轮模型没有那些工具，而用户不知道为什么</b>——
-    /// 后一种糟得多。工具一旦取回就常驻缓存，所以这个等待每个进程只付一次。
-    ///
-    /// 超时不算错：那一轮照旧不带它走，后台连接继续，下一轮自然带上，
-    /// 而能力面板会把它显示成未连接。退避中（连过且失败过）的 server 不会拖住这里——
-    /// 它们的刷新任务早已结束，等于不等。
-    ///
-    /// <b>禁用名单与 <see cref="Resolve"/> 取同一份</b>：这一轮注定挂不上的 server，
-    /// 既不该为它拉起子进程，也不该为它等。分开传两份名单的话，两者迟早分叉——
-    /// 曾经这里压根不看名单，于是角色明明禁掉了某个 server，第一轮发送仍要为它等满超时，
-    /// 工具取回后再被 <see cref="Resolve"/> 原样丢掉。
+    /// 这个 MCP 工具有没有自己声明只读（<c>readOnlyHint</c>）。只认连上时取回的那份注解：
+    /// 没连过的 server 答不了，按「不是」算——第一次调用照常问用户（ADR 0079）。
+    /// server 按发起调用的会话的工作区认（项目级同名胜出）：全局那个 fs 声明的只读，不能拿来放行项目里另一个 fs
     /// </summary>
-    /// <param name="workspacePath">本次装配的工作区；与 <see cref="Resolve"/> 取同一个值</param>
-    /// <param name="disabledServers">本角色禁用的 server 名单（能力层，见 ADR 0008）</param>
-    /// <param name="waiting">
-    /// 真的要等时回调 <c>true</c>、等完回调 <c>false</c>；无需等待时<b>一次都不回调</b>。
-    /// 界面据此提示——这段等待发生在用户按下发送之后，可能长达十秒，不说一声就是十秒的"看着像卡死"。
-    ///
-    /// 刻意做成<b>逐次调用的回调</b>而不是这个单例上的一个状态：等待是<b>调用方那一轮</b>的事，
-    /// 而连接是全进程共享的。从前这里挂着一个全局 bool 加一个全局事件，
-    /// 于是后台定时任务触发的预连会点亮一个跟 MCP 毫无关系的会话的提示，
-    /// 两条链路并发时先结束的那个还会把另一个的提示掐灭。
-    /// </param>
-    /// <param name="cancellationToken">取消令牌</param>
-    public async Task WarmupAsync(string? workspacePath = null,
-        IEnumerable<string>? disabledServers = null,
-        Action<bool>? waiting = null,
-        CancellationToken cancellationToken = default)
+    /// <param name="serverName">server 名</param>
+    /// <param name="toolName">工具名（与声明逐字相同才算）</param>
+    /// <param name="workspacePath">发起调用的会话的工作区；空表示只有全局 server</param>
+    /// <returns>声明了只读为 true</returns>
+    public bool IsReadOnlyTool(string serverName, string toolName, string? workspacePath)
     {
-        // 只等直挂的:按需 server 不进第一轮的 tools,没有"缺工具"可言,用到时才连
-        List<McpServerConfig> inPlay = InPlayServers(workspacePath, DisabledSet(disabledServers))
-            .Where(x => !x.IsOnDemand).ToList();
-
-        List<Task> pending = new();
+        McpServerConfig? server = GetEffectiveServers(workspacePath).Select(x => x.Config)
+            .FirstOrDefault(x => string.Equals(x.Name, serverName.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (server == null) return false;
         lock (_lock)
         {
-            foreach (McpServerConfig server in inPlay)
-            {
-                McpServerRuntime runtime = GetRuntimeLocked(McpServerKey.Of(server));
-                if (runtime.Tools != null) continue; //已经取回,不必再等
-
-                KickRefreshLocked(server, force: false);
-                // 退避中的不会有新任务,而留在运行态上的是上一次那个已完成的任务——等它等于不等。
-                // 但那样 pending 非空会让预连提示白闪一帧,所以只把真正没跑完的算进来
-                if (runtime.RefreshTask is { IsCompleted: false } task) pending.Add(task);
-            }
-        }
-
-        if (pending.Count == 0) return;
-
-        waiting?.Invoke(true);
-        try
-        {
-            await Task.WhenAll(pending).WaitAsync(WarmupTimeout, cancellationToken).ConfigureAwait(false);
-        }
-        catch (TimeoutException)
-        {
-            Log.Warning($"MCP warmup timed out after {WarmupTimeout.TotalSeconds:0}s; " +
-                        "this turn runs without the slow servers' tools");
-        }
-        finally
-        {
-            waiting?.Invoke(false);
+            return _runtimes.TryGetValue(McpServerKey.Of(server), out McpServerRuntime? runtime) &&
+                   runtime.ReadOnlyTools?.Contains(toolName) == true;
         }
     }
+
 
     /// <summary>
     /// 连上<b>指定的一个</b> server 并取回工具，等待完成（设置页的测试连接）。
@@ -382,7 +298,7 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
     /// 本次装配<b>实际生效</b>的那份合并名单：全局配置并上该工作区 <c>.mcp.json</c> 的，
     /// 同名时项目级胜出，被顶掉的那条作为 <c>Shadowed</c> 一并带回。
     ///
-    /// 合并只在这一处做——装配、预连、能力面板三条路都从这里取，不各自算一遍。
+    /// 合并只在这一处做——装配、查找、能力面板几条路都从这里取，不各自算一遍。
     /// <b>要读盘，因此在锁外</b>（读的是工作区里的小 json，与装配读 AGENTS.md 同量级）。
     /// </summary>
     /// <param name="workspacePath">工作区路径；空表示只有全局作用域</param>
@@ -390,12 +306,6 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
     public List<EffectiveMcpServer> GetEffectiveServers(string? workspacePath)
     {
         List<McpServerConfig> workspaceServers = McpWorkspaceConfigLoader.Load(workspacePath);
-        // 项目级配置不带本机状态,送达方式从本机账本补上
-        foreach (McpServerConfig workspaceServer in workspaceServers)
-        {
-            workspaceServer.MountMode = _mounts.Get(workspaceServer.WorkspacePath, workspaceServer.Name);
-        }
-
         List<McpServerConfig> globalServers;
         lock (_lock)
         {
@@ -580,7 +490,6 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
                 runtime.Tools = null; //连接没了,工具就调不动了——留着等于给模型一批坏工具
                 runtime.Instructions = string.Empty;
                 runtime.State = EMcpConnectionState.Disconnected;
-                if (runtime.AffectsAssembly) _revision++;
                 Log.Debug($"MCP '{key}' reclaimed after {IdleTimeout.TotalMinutes:0} min idle");
             }
         }
@@ -624,9 +533,7 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
                     LastToolCount = runtime.LastToolCount,
                     EstimatedTokens = runtime.EstimatedTokens,
                     LastUsedUtc = DateTime.UtcNow,
-                    AffectsAssembly = !server.IsOnDemand,
                 };
-                if (!server.IsOnDemand) _revision++;
                 Log.Debug($"MCP '{key}' config changed; connection dropped and awaiting reconnect");
             }
         }
@@ -709,7 +616,6 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
             WorkspacePath = server.WorkspacePath,
             CommandLine = DescribeCommand(server),
             IsShadowed = isShadowed,
-            MountMode = server.MountMode,
             IsHostingOff = !server.IsEnabled,
             IsDisabledByCharacter = disabled.Contains(server.Name),
             NeedsApproval = !trusted,
@@ -728,8 +634,7 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
     ///
     /// <b>刻意做成被动查询而不是事件</b>：弹窗是 UI 的事、授权是 Core 的事，这条缝切在这里。
     /// Core 侧的不变式只有一句「没记录就不连」，它不关心记录怎么来的；
-    /// 而抛全局事件的做法这个仓库已经踩过——预连提示曾经因此点亮到一个跟 MCP 毫无关系的会话上
-    /// （见 <see cref="WarmupAsync"/> 的 waiting 参数注释）。
+    /// 而抛全局事件的做法这个仓库已经踩过——从前预连的提示就因此点亮到一个跟 MCP 毫无关系的会话上。
     /// </summary>
     /// <param name="workspacePath">工作区路径</param>
     /// <returns>待确认清单；无则空列表</returns>
@@ -827,9 +732,7 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
     /// 这一轮要不要管这个 server：<b>托管</b>开着（连接层，全局一份），
     /// 且没被本角色<b>禁用</b>（能力层，按角色，见 ADR 0008）。
     ///
-    /// <see cref="Resolve"/> 与 <see cref="WarmupAsync"/> 共用这一处：预连要等的与装配要挂的
-    /// 必须是同一批。曾经分开写，结果 <c>WarmupAsync</c> 只看托管——角色明明禁掉的 server
-    /// 照样被拉起子进程、照样等满超时，取回的工具再被 <see cref="Resolve"/> 原样丢掉。
+    /// 装配（<see cref="Resolve"/>）与按名查找共用这一处，两边不会各算一遍。
     /// </summary>
     /// <param name="server">server 配置</param>
     /// <param name="disabled">本角色禁用的 server 名单</param>
@@ -866,7 +769,7 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
         if (!force && DateTime.UtcNow < runtime.NextAttemptUtc) return;
 
         runtime.Refreshing = true;
-        // 任务留在运行态上:WarmupAsync 要等的就是它。丢掉句柄的话「等它连上」无从实现
+        // 任务留在运行态上:模型查、调时要等的就是它。丢掉句柄的话「等它连上」无从实现
         runtime.RefreshTask = Task.Run(() => RefreshServerAsync(server, CancellationToken.None));
     }
 
@@ -879,7 +782,6 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
             //手动路径进来时标记还没置上;后台路径由 KickRefreshLocked 置好,这里是幂等补一次
             McpServerRuntime runtime = GetRuntimeLocked(key);
             runtime.Refreshing = true;
-            runtime.AffectsAssembly = !server.IsOnDemand;
             if (runtime.Fingerprint.Length == 0) runtime.Fingerprint = fingerprint;
         }
 
@@ -888,6 +790,7 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
             McpClient client = await ConnectAsync(server, cancellationToken).ConfigureAwait(false);
             IReadOnlyList<AIFunction> tools = await client
                 .ListAgentToolsWithTasksAsync(options: null, cancellationToken: cancellationToken).ConfigureAwait(false);
+            HashSet<string> readOnly = await ReadOnlyToolsAsync(client, key, cancellationToken).ConfigureAwait(false);
 
             bool stale = false;
             McpToolCatalog? catalog = null;
@@ -903,6 +806,7 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
                 else
                 {
                     runtime.Tools = tools;
+                    runtime.ReadOnlyTools = readOnly;
                     runtime.LastToolCount = tools.Count;
                     runtime.LastUsedUtc = DateTime.UtcNow;
                     // 取回时就地算好:分词有代价,而状态是设置页与角色编辑页在 UI 线程上问的
@@ -914,19 +818,15 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
                     runtime.Error = null;
                     runtime.FailureCount = 0;
                     runtime.NextAttemptUtc = DateTime.MinValue;
-                    if (runtime.AffectsAssembly) _revision++;
 
-                    // 按需 server 离线时 McpHelp 读的就是这份;直挂的用不上
-                    if (server.IsOnDemand)
+                    // server 离线时帮助读的就是这份
+                    catalog = new McpToolCatalog
                     {
-                        catalog = new McpToolCatalog
-                        {
-                            Fingerprint = fingerprint,
-                            Instructions = runtime.Instructions,
-                            Tools = tools.Select(McpToolDescriptor.From).ToList(),
-                            CapturedUtc = DateTime.UtcNow,
-                        };
-                    }
+                        Fingerprint = fingerprint,
+                        Instructions = runtime.Instructions,
+                        Tools = tools.Select(McpToolDescriptor.From).ToList(),
+                        CapturedUtc = DateTime.UtcNow,
+                    };
                 }
             }
 
@@ -960,6 +860,25 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
             {
                 GetRuntimeLocked(key).Refreshing = false;
             }
+        }
+    }
+
+    // 框架包过的工具（任务感知那层）不透出协议注解,只读声明得另问一次清单。
+    // 问不到不算连接失败:少了它只是每次调用都问用户
+    private static async Task<HashSet<string>> ReadOnlyToolsAsync(McpClient client, McpServerKey key,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            IList<McpClientTool> tools = await client.ListToolsAsync(cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+            return tools.Where(x => x.ProtocolTool.Annotations?.ReadOnlyHint == true)
+                .Select(x => x.Name).ToHashSet(StringComparer.Ordinal);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            Log.Debug($"MCP '{key}' tool annotations unavailable: {e.Message}");
+            return [];
         }
     }
 
@@ -1043,17 +962,14 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
         public string? Error { get; set; }
         public bool Refreshing { get; set; }
 
-        /// 正在跑的那次刷新;WarmupAsync 据此等待。失败过的那次是已完成任务,等于不等
+        /// 正在跑的那次刷新;模型查、调时据此等待。失败过的那次是已完成任务,等于不等
         public Task? RefreshTask { get; set; }
 
         public int FailureCount { get; set; }
         public DateTime NextAttemptUtc { get; set; }
 
-        /// <summary>
-        /// 这份运行态上的连接事件是否会改变装配产物：直挂的会（工具进 tools），按需的不会。
-        /// 决定要不要为它自增修订号。由最近一次刷新按当时的送达方式标定。
-        /// </summary>
-        public bool AffectsAssembly { get; set; } = true;
+        /// 自己声明了只读（readOnlyHint）的工具名;没连上过为 null(审批按「不是只读」算)
+        public HashSet<string>? ReadOnlyTools { get; set; }
 
         /// 建立这份运行态时那条配置的可执行面指纹;变了就得整条作废(见 SyncFingerprints)
         public string Fingerprint { get; set; } = string.Empty;

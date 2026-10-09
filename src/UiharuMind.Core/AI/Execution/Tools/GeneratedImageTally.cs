@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Extensions;
 
 namespace UiharuMind.Core.AI.Execution;
 
@@ -31,7 +32,8 @@ internal sealed class GeneratedImageTally
     {
         switch (content)
         {
-            case FunctionCallContent { Name: ImageGenerationTool.ToolName } call:
+            // 生图走扩展（ADR 0079）：拆开看内层是不是生图
+            case FunctionCallContent call when ExtensionCalls.Unwrap(call).Name == ImageGenerationTool.ToolName:
                 _pendingCalls.Add(call.CallId);
                 return 0;
 

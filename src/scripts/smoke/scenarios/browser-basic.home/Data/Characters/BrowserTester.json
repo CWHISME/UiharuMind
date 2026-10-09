@@ -12,7 +12,6 @@
     "EnableFileAccess": true,
     "EnableShellExecution": false,
     "EnableWebSearch": false,
-    "EnableBrowser": true,
     "EnableSubAgent": false,
     "EnableVisionTool": false
   },

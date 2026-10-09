@@ -21,9 +21,11 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Core.AI.Execution.Tools.Browser;
 using UiharuMind.Core.AI.Execution.Tools.Scheduler;
 using UiharuMind.Core.AI.Execution.Tools.Skills;
 using UiharuMind.Core.AI.Execution.Tools.WebTools;
@@ -752,6 +754,12 @@ public static class AgentContentFormatter
         if (toolName == SchedulerTools.ToolName) return "clock";
         // 旧历史里委派工具叫 SendMessage(ADR 0065 之前);群发言工具也叫这个名字,一并用机器人图标
         if (toolName is SubAgentTool.ToolName or SubAgentTool.MessageToolName) return "bot";
+        // 扩展调用的卡按内层工具名画（ADR 0079）：浏览器、生图、音频各有其类
+        if (toolName is BrowserTools.SnapshotToolName or BrowserTools.NavigateToolName or BrowserTools.ActToolName
+            or BrowserTools.HandoffToolName) return "globe";
+        if (toolName == ImageGenerationTool.ToolName) return "image";
+        if (toolName is SynthesizeSpeechTool.ToolName or TranscribeAudioTool.ToolName) return "audio-lines";
+        if (toolName == ExtensionCalls.HelpName) return "search";
         return "wrench";
     }
 
@@ -781,6 +789,11 @@ public static class AgentContentFormatter
     public static string SummarizeArguments(FunctionCallContent call, string? workspaceRoot = null)
     {
         if (call.Arguments == null || call.Arguments.Count == 0) return string.Empty;
+        // 查扩展：扩展名在前，否则摘要只剩一个命令名，看不出查的是谁
+        if (call.Name == ExtensionCalls.HelpName)
+        {
+            return $"{ExtensionCalls.ReadString(call.Arguments, "extension")} {ExtensionCalls.ReadString(call.Arguments, "command")}".Trim();
+        }
 
         foreach (string key in PrimaryArgumentKeys)
         {

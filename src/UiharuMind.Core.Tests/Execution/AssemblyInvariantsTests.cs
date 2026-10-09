@@ -5,6 +5,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution.Prompts;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.Browser;
@@ -678,23 +679,38 @@ public class HarnessInstructionsCompositionTests
         Assert.Contains(segments, x => x.Section == EPromptSection.ToolDisciplines);
         Assert.Contains(segments, x => x.Section == EPromptSection.Workspace);
         Assert.Contains(segments, x => x.Section == EPromptSection.Base); //基座恒在册,能力面板要按段报占用
-        Assert.DoesNotContain(segments, x => x.Section == EPromptSection.Mcp); //本例没接 MCP
+        Assert.Contains(segments, x => x.Section == EPromptSection.Extensions); //内置扩展默认全给,名单恒在
     }
 
     /// <summary>
-    /// MCP 自述那一段登记在册但<b>不计入合计</b>：它已经在 MCP 那一档里算过一次。
-    /// 少了这条，接一个带长自述的 server 会让固定开销凭空翻倍。
+    /// 扩展名单（ADR 0079）：内置扩展与 MCP server 一并列出，只写名字与一句话说明——
+    /// 不写状态、不写命令，否则 server 一连上系统提示就变
     /// </summary>
     [Fact]
-    public void PromptSegments_ExcludeMcpNotesFromTheTotal()
+    public void ExtensionsSection_ListsBuiltinsAndServersByNameOnly()
     {
-        McpToolSet mcp = new() { Instructions = "## demo\nuse the demo server for demos." };
+        McpToolSet mcp = new() { Servers = [new McpRosterServer { Name = "unity", Description = "Unity 编辑器" }] };
 
         BuildAgentOptions("/tmp/uiharu-agent-test", out IReadOnlyList<AgentPromptSegment> segments, mcp: mcp);
 
-        AgentPromptSegment notes = Assert.Single(segments, x => x.Section == EPromptSection.Mcp);
-        Assert.False(notes.CountsTowardTotal);
-        Assert.All(segments.Where(x => x.Section != EPromptSection.Mcp), x => Assert.True(x.CountsTowardTotal));
+        string roster = Assert.Single(segments, x => x.Section == EPromptSection.Extensions).Text;
+        Assert.StartsWith(AgentPromptHeadings.Extensions, roster);
+        Assert.Contains("- browser：", roster);
+        Assert.Contains("- image：", roster);
+        Assert.Contains("- audio：", roster);
+        Assert.Contains("- unity：Unity 编辑器", roster);
+        Assert.Contains("ExtensionHelp", roster);
+    }
+
+    /// <summary>角色禁掉的扩展不进名单，全禁且没有 MCP 时整段不出</summary>
+    [Fact]
+    public void ExtensionsSection_LeavesOutDisabledOnes()
+    {
+        AgentToolConfig config = new() { DisabledExtensions = { "browser", "image", "audio" } };
+
+        BuildAgentOptions("/tmp/uiharu-agent-test", out IReadOnlyList<AgentPromptSegment> segments, config);
+
+        Assert.DoesNotContain(segments, x => x.Section == EPromptSection.Extensions);
     }
 
     /// <summary>记忆目录段(ADR 0028)出现时只给简写，并教模型先 Glob 再 Read</summary>
@@ -818,7 +834,7 @@ public class HarnessInstructionsCompositionTests
             FileToolNames.Read, FileToolNames.Write, FileToolNames.Edit, FileToolNames.Glob,
             FileToolNames.Grep, CharacterRunnerFactory.ShellToolName,
             WebSearchTool.ToolName, WebFetchTool.ToolName, VisionTool.ToolName, KnowledgeTool.ToolName,
-            SchedulerTools.ToolName, ImageGenerationTool.ToolName,
+            SchedulerTools.ToolName, ExtensionCalls.HelpName, ExtensionCalls.CallName,
             SubAgentTool.ToolName, SubAgentTool.MessageToolName,
         };
 
@@ -944,18 +960,16 @@ public class SubAgentBoundaryTests
     }
 
     /// <summary>
-    /// 生图随主代理那一侧挂没挂（配了生图模型才挂）；它要写草稿目录，探索档恒定只读，不挂
+    /// 扩展（生图、浏览器、音频与 MCP）随主代理那一侧给子代理；探索档恒定只读、不挂扩展（ADR 0079）
     /// </summary>
     [Fact]
-    public void SubAgentTools_IncludeImageGeneration_OnlyWhenParentHasItAndNotExplorer()
+    public void SubAgentTools_IncludeExtensions_ButNotForExplorer()
     {
-        SubAgentAssembly.SubAgentAssemblyInput available =
-            NewInput(new AgentToolConfig { EnableImageGeneration = true }) with { ImageModelsConfigured = true };
+        SubAgentAssembly.SubAgentAssemblyInput input = NewInput() with { Browser = PuppeteerBrowserHost.Shared };
 
-        Assert.DoesNotContain(ImageGenerationTool.ToolName, ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(NewInput())));
-        Assert.Contains(ImageGenerationTool.ToolName, ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(available)));
-        Assert.DoesNotContain(ImageGenerationTool.ToolName, ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(
-            available with { SubAgentProfile = SubAgentProfile.Explorer })));
+        Assert.Contains(ExtensionCalls.CallName, ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(input)));
+        Assert.DoesNotContain(ExtensionCalls.CallName, ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(
+            input with { SubAgentProfile = SubAgentProfile.Explorer })));
     }
 
     /// <summary>
@@ -972,25 +986,18 @@ public class SubAgentBoundaryTests
             [EAgentCapability.Shell] = CharacterRunnerFactory.ShellToolName,
             [EAgentCapability.WebSearch] = WebSearchTool.ToolName,
             [EAgentCapability.VisionTool] = VisionTool.ToolName,
-            [EAgentCapability.ImageGeneration] = ImageGenerationTool.ToolName,
-            [EAgentCapability.Mcp] = "probe_mcp",
-            [EAgentCapability.SpeechSynthesis] = SynthesizeSpeechTool.ToolName,
-            [EAgentCapability.Transcription] = TranscribeAudioTool.ToolName,
-            [EAgentCapability.Browser] = BrowserTools.SnapshotToolName,
+            [EAgentCapability.Extensions] = ExtensionCalls.CallName,
             [EAgentCapability.KnowledgeSearch] = KnowledgeTool.ToolName,
             [EAgentCapability.ScheduledTasks] = SchedulerTools.ToolName,
         };
         AgentToolConfig everything = new()
         {
-            EnableImageGeneration = true, EnableSpeak = true, EnableSpeechSynthesis = true,
-            EnableTranscription = true, EnableBrowser = true, EnableKnowledgeSearchTool = true,
-            EnableScheduledTasks = true,
+            EnableSpeak = true, EnableKnowledgeSearchTool = true, EnableScheduledTasks = true,
         };
         List<string> names = ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(
             NewInput(everything, EAgentPermissionMode.FullAuto) with
             {
                 ShellTool = StubShellTool(),
-                McpTools = [AIFunctionFactory.Create(() => "", "probe_mcp")],
                 ImageModelsConfigured = true,
                 SessionId = "sub-session",
                 Browser = PuppeteerBrowserHost.Shared,
@@ -1099,19 +1106,21 @@ public class SubAgentBoundaryTests
     /// </summary>
     /// <summary>
     /// 匿名子代理的能力就是派活者那一份，走的是重开子会话时的真实装配路径：
-    /// 从前识图、生图判的是它那张身份卡（生图默认关），派活者开着生图它也拿不到；浏览器则是子代理那份名单漏了
+    /// 派活者禁掉的扩展，子代理的名单里也没有（ADR 0079）
     /// </summary>
     [Fact]
-    public void AnonymousSubSession_GetsTheParentsBrowserAndImageGeneration()
+    public void AnonymousSubSession_FollowsTheParentsExtensions()
     {
         AgentAssemblyPlan plan = NewSubSessionPlan(
-            new AgentToolConfig { EnableShellExecution = false, EnableImageGeneration = true, EnableBrowser = true },
+            new AgentToolConfig { EnableShellExecution = false, DisabledExtensions = { "image" } },
             imageModelsConfigured: true);
 
-        List<string> names = ToolNamesOf(SubAgentAssembly.BuildSubSessionAssembly(plan).Options);
+        HarnessAgentOptions options = SubAgentAssembly.BuildSubSessionAssembly(plan).Options;
+        string instructions = options.ChatOptions?.Instructions ?? string.Empty;
 
-        Assert.Contains(ImageGenerationTool.ToolName, names);
-        Assert.Contains(BrowserTools.SnapshotToolName, names);
+        Assert.Contains(ExtensionCalls.CallName, ToolNamesOf(options));
+        Assert.Contains("- browser：", instructions);
+        Assert.DoesNotContain("- image：", instructions);
     }
 
     private static AgentAssemblyPlan NewSubSessionPlan(AgentToolConfig? parentConfig = null,
@@ -1648,6 +1657,8 @@ public class SubAgentBoundaryTests
             EnableFileAccess = false,
             EnableWebSearch = false,
             EnableVisionTool = false,
+            // 扩展默认全给（ADR 0079），要「全关」得把内置的也禁掉
+            DisabledExtensions = [..BuiltinExtensions.Names],
         };
 
         Assert.Null(SubAgentAssembly.BuildSubAgentOptions(NewInput(config)));
@@ -1800,8 +1811,8 @@ public class AssemblySnapshotTests
             case "vision-model": modelSupportsVision = true; break; //视觉↔非视觉模型切换触发重建
             case "subagent": changedConfig.EnableSubAgent = !changedConfig.EnableSubAgent; break;
             case "skills": changedConfig.DisabledSkills.Add("some-skill"); break;
-            //改完 MCP 名单不重建的话,回来仍按旧名单挂工具——与子智能体名单同一类坑
-            case "mcp-servers": changedConfig.DisabledMcpServers.Add("some-server"); break;
+            //改完扩展名单不重建的话,系统提示里还是旧名单——与子智能体名单同一类坑
+            case "mcp-servers": changedConfig.DisabledExtensions.Add("some-server"); break;
         }
 
         AgentAssemblyFacts changed = AgentAssemblyFacts.Capture(NewAgentCharacter(changedConfig),

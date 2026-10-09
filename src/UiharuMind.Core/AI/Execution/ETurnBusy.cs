@@ -28,9 +28,6 @@ public enum ETurnBusy
     /// <summary>不忙，或忙在不必单独说明的事情上（正常流式输出走 <c>IsRunning</c>）</summary>
     None,
 
-    /// <summary>装配前等 MCP server 连上（<b>预连</b>，见 <c>McpManager.WarmupAsync</c>）</summary>
-    ConnectingMcp,
-
     /// <summary>正在整理交接文档（多一次模型请求，见 <c>HistoryHandoff</c>）</summary>
     Compacting,
 }

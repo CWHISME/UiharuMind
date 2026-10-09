@@ -27,28 +27,22 @@ public sealed class AgentCapabilitySnapshot
     /// <summary>空快照（未挂接会话，或纯提示词档）</summary>
     public static readonly AgentCapabilitySnapshot Empty = new();
 
-    /// <summary>自建工具（MCP 之外的那些）</summary>
+    /// <summary>挂上的工具（含扩展的两把元工具）</summary>
     public IReadOnlyList<AgentToolInfo> BuiltInTools { get; init; } = [];
 
-    /// <summary>MCP 侧的工具与自述，按 server 分组</summary>
+    /// <summary>MCP 侧这次装配可用的 server 名单（右栏列 server 与连接状态用；工具不在 tools 里）</summary>
     public McpToolSet Mcp { get; init; } = McpToolSet.Empty;
 
     /// <summary>
-    /// 系统提示的分段清单（角色段、人格锚点、工具纪律、MCP 自述、工作区规矩），已带估算占用。
+    /// 系统提示的分段清单（角色段、人格锚点、工具纪律、扩展名单、工作区规矩），已带估算占用。
     /// 提示词与工具定义一样每轮完整重发，而它通常比工具还大——角色卡加一份 AGENTS.md
     /// 轻松几千 token，这笔账不摆出来，用户只会以为是工具太多
     /// </summary>
     public IReadOnlyList<AgentPromptSegment> PromptSegments { get; init; } = [];
 
-    /// <summary>
-    /// 每轮固定开销的估算合计：系统提示 + 工具定义（含 MCP 自述）。
-    /// MCP 自述那一段不从 <see cref="PromptSegments"/> 计入——它已在 <see cref="Mcp"/> 里算过
-    /// （见 <see cref="AgentPromptSegment.CountsTowardTotal"/>）
-    /// </summary>
+    /// <summary>每轮固定开销的估算合计：系统提示 + 工具定义</summary>
     public int EstimatedTokens =>
-        BuiltInTools.Sum(x => x.EstimatedTokens) + Mcp.EstimatedTokens
-        + Mcp.Groups.Sum(x => x.InstructionsEstimatedTokens)
-        + PromptSegments.Where(x => x.CountsTowardTotal).Sum(x => x.EstimatedTokens);
+        BuiltInTools.Sum(x => x.EstimatedTokens) + PromptSegments.Sum(x => x.EstimatedTokens);
 
     /// <summary>
     /// 取某一段系统提示的估算占用
@@ -104,7 +98,7 @@ public sealed class AgentCapabilitySnapshot
     /// 从一份已装配的工具集切出快照
     /// </summary>
     /// <param name="entries">装配好的工具，每项带能力归属</param>
-    /// <param name="mcp">同一次装配的 MCP 产物</param>
+    /// <param name="mcp">同一次装配的 MCP 名单</param>
     /// <param name="promptSegments">同一次装配登记的系统提示分段；在此统一分词</param>
     /// <returns>快照</returns>
     public static AgentCapabilitySnapshot Capture(IReadOnlyList<AgentToolEntry>? entries, McpToolSet mcp,
@@ -118,9 +112,6 @@ public sealed class AgentCapabilitySnapshot
         {
             int tokens = ToolTokenEstimator.Estimate(entry.Tool);
             byCapability[entry.Capability] = byCapability.GetValueOrDefault(entry.Capability) + tokens;
-
-            // MCP 那批已经在 mcp 里按 server 分好组,不再重复列进自建工具
-            if (entry.Capability == EAgentCapability.Mcp) continue;
             builtIn.Add(new AgentToolInfo
             {
                 Name = entry.Tool.Name,

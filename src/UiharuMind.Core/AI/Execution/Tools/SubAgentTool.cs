@@ -19,6 +19,7 @@ using UiharuMind.Core.AI.Execution.Prompts;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools.Browser;
 using UiharuMind.Core.Core.SimpleLog;
@@ -125,13 +126,14 @@ public static class SubAgentTool
         attended && permissionModeIndex == (int)EAgentPermissionMode.FullAuto;
 
     /// <summary>
-    /// 完全自动档下这条嵌套审批放不放行。接管（BrowserHandoff）例外：它等的是用户的手，不是许可，
-    /// 自动批了等于替用户谎称「做完了」——照常登记，等用户去子会话窗口点
+    /// 完全自动档下这条嵌套审批放不放行。扩展调用例外（ADR 0079）：完全自动档本就不放行它，
+    /// 走到这里的是没被会话放行的一般命令或硬问的（接管等的是用户的手，自动批了等于替用户谎称「做完了」）——
+    /// 照常登记，等用户去点
     /// </summary>
     /// <param name="request">嵌套审批请求</param>
     /// <returns>放行的理由；不放行为 null</returns>
     internal static string? FullAutoApprovalFor(ToolApprovalRequestContent request) =>
-        request.ToolCall is FunctionCallContent { Name: BrowserTools.HandoffToolName } ? null : FullAutoApprovalReason;
+        ExtensionCalls.IsCall(request.ToolCall as FunctionCallContent) ? null : FullAutoApprovalReason;
 
     /// <summary>
     /// 一次委派要用到的全部上下文。子会话的字段几乎全部从派活者继承——

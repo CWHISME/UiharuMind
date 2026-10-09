@@ -10,14 +10,15 @@
 using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Mcp;
 
 namespace UiharuMind.Core.Tests.Execution;
 
 /// <summary>
-/// 按需送达的端到端：真实的 <see cref="McpManager"/> 连一个手写的最小 stdio MCP server 桩。
-/// 钉的是这套设计的<b>核心承诺</b>——按需 server 的连接起落不改变装配相关的修订号
-/// （缓存前缀因此稳定），而直挂的会。没有 python3 的机器上跳过。
+/// MCP 经扩展送达的端到端（ADR 0079）：真实的 <see cref="McpManager"/> 连一个手写的最小 stdio MCP server 桩，
+/// 模型那一侧走 <c>ExtensionHelp</c> / <c>ExtensionCall</c>。钉的是<b>核心承诺</b>——
+/// 连接起落不改变配置修订号（缓存前缀因此稳定）。没有 python3 的机器上跳过。
 /// </summary>
 public class McpOnDemandIntegrationTests : IDisposable
 {
@@ -37,7 +38,7 @@ public class McpOnDemandIntegrationTests : IDisposable
                       "capabilities":{"tools":{}},"serverInfo":{"name":"stub","version":"1"},
                       "instructions":"Stub usage notes."}})
             elif m == "tools/list":
-                tools = [{"name":"echo","description":"Echo the text back.",
+                tools = [{"name":"echo","description":"Echo the text back.","annotations":{"readOnlyHint":True},
                           "inputSchema":{"type":"object","properties":{"text":{"type":"string"}},"required":["text"]}},
                          {"name":"structured","description":"Returns structured content.","inputSchema":{"type":"object"}}]
                 if os.path.exists(__file__ + ".late"):
@@ -86,14 +87,14 @@ public class McpOnDemandIntegrationTests : IDisposable
         }
     }
 
-    private McpServerConfig AddStub(string name, EMcpMountMode mode, params string[] extraArgs)
+    private McpServerConfig AddStub(string name, params string[] extraArgs)
     {
         Directory.CreateDirectory(_directory);
         string script = Path.Combine(_directory, "stub_server.py");
         File.WriteAllText(script, StubServer);
         McpServerConfig config = new()
         {
-            Name = name, Command = "python3", Args = [script, ..extraArgs], MountMode = mode, IsEnabled = true,
+            Name = name, Command = "python3", Args = [script, ..extraArgs], IsEnabled = true,
             Description = "stub for tests",
         };
         _manager.SaveServer(config);
@@ -101,62 +102,59 @@ public class McpOnDemandIntegrationTests : IDisposable
         return config;
     }
 
+    // 只挂 MCP 那一半：内置扩展另有测试
     private static AIFunction Named(McpToolSet set, string name) =>
-        (AIFunction)set.Tools.Single(x => x.Name == name);
+        (AIFunction)ExtensionMetaTools.Create(new ExtensionHub([], set.Bridge)).Single(x => x.Name == name);
+
+    private static AIFunctionArguments Ask(string extension, string? command = null, object? arguments = null)
+    {
+        AIFunctionArguments args = new() { ["extension"] = extension };
+        if (command != null) args["command"] = command;
+        if (arguments != null) args["arguments"] = JsonSerializer.SerializeToElement(arguments);
+        return args;
+    }
 
     [Fact]
-    public async Task OnDemand_ConnectsLazily_ServesHelpAndCall_WithoutTouchingRevision()
+    public async Task Server_ConnectsLazily_ServesHelpAndCall_WithoutTouchingRevision()
     {
         if (!HasPython()) Assert.Skip("python3 is not available");
         CancellationToken ct = TestContext.Current.CancellationToken;
-        McpServerConfig config = AddStub("stub-ondemand", EMcpMountMode.OnDemand);
+        McpServerConfig config = AddStub("stub-ondemand");
         int revisionBefore = _manager.Revision;
 
-        // 装配:不连接、不等待,只出元工具与名单
+        // 装配:不连接、不等待,只出名单与桥接
         McpToolSet set = _manager.Resolve(null, null, _directory);
-        Assert.Equal([McpMetaTools.HelpName, McpMetaTools.CallName], set.Tools.Select(x => x.Name));
-        Assert.Contains("stub-ondemand：stub for tests", set.Instructions);
+        Assert.Equal("stub-ondemand", Assert.Single(set.Servers).Name);
+        Assert.NotNull(set.Bridge);
         Assert.Equal(EMcpConnectionState.Disconnected, _manager.GetServerStatus("stub-ondemand").State);
 
-        // 第一次 McpHelp 才连
-        object? help = await Named(set, McpMetaTools.HelpName).InvokeAsync(
-            new AIFunctionArguments { ["server"] = "stub-ondemand" }, ct);
-        string helpText = Assert.IsType<string>(help);
+        // 不带参数:列出它,还没连
+        string all = Assert.IsType<string>(await Named(set, ExtensionCalls.HelpName).InvokeAsync(new AIFunctionArguments(), ct));
+        Assert.Contains("- stub-ondemand (MCP, not connected yet", all);
+
+        // 第一次查它才连
+        string helpText = Assert.IsType<string>(await Named(set, ExtensionCalls.HelpName).InvokeAsync(Ask("stub-ondemand"), ct));
         Assert.Contains("Stub usage notes.", helpText);
         Assert.Contains("- echo: Echo the text back.", helpText);
         Assert.Equal(EMcpConnectionState.Connected, _manager.GetServerStatus("stub-ondemand").State);
 
-        // 带 tool:完整 schema
-        string detail = Assert.IsType<string>(await Named(set, McpMetaTools.HelpName).InvokeAsync(
-            new AIFunctionArguments { ["server"] = "stub-ondemand", ["tool"] = "echo" }, ct));
+        // 带命令:完整 schema
+        string detail = Assert.IsType<string>(await Named(set, ExtensionCalls.HelpName).InvokeAsync(
+            Ask("stub-ondemand", "echo"), ct));
         Assert.Contains("\"required\":[\"text\"]", detail);
 
-        // McpCall 走通,参数对象以 JsonElement 传入
-        JsonElement args = JsonSerializer.SerializeToElement(new { text = "hi" });
-        object? called = await Named(set, McpMetaTools.CallName).InvokeAsync(
-            new AIFunctionArguments { ["server"] = "stub-ondemand", ["tool"] = "echo", ["arguments"] = args }, ct);
+        // 调用走通,参数对象以 JsonElement 传入
+        object? called = await Named(set, ExtensionCalls.CallName).InvokeAsync(
+            Ask("stub-ondemand", "echo", new { text = "hi" }), ct);
         Assert.Equal("echo:hi", called);
 
-        // 核心承诺:连上之后装配相关的修订号纹丝不动,前缀不会因此失效
+        // 核心承诺:连上之后修订号纹丝不动,前缀不会因此失效
         Assert.Equal(revisionBefore, _manager.Revision);
 
-        // 清单已缓存,离线时 McpHelp 还能读
+        // 清单已缓存,离线时帮助还能读;再列一次就报已连上
         Assert.NotNull(((IMcpServerHost)_manager).LoadCatalog(config));
-    }
-
-    [Fact]
-    public async Task Direct_ConnectionChangesRevision_UnlikeOnDemand()
-    {
-        if (!HasPython()) Assert.Skip("python3 is not available");
-        CancellationToken ct = TestContext.Current.CancellationToken;
-        AddStub("stub-direct", EMcpMountMode.Direct);
-        int revisionBefore = _manager.Revision;
-
-        await _manager.WarmupAsync(cancellationToken: ct);
-        McpToolSet set = _manager.Resolve();
-
-        Assert.Equal(["echo", "structured"], set.Tools.Select(x => x.Name));
-        Assert.True(_manager.Revision > revisionBefore, "直挂的工具取回必须触发重建，否则模型永远看不见新工具");
+        all = Assert.IsType<string>(await Named(set, ExtensionCalls.HelpName).InvokeAsync(new AIFunctionArguments(), ct));
+        Assert.Contains("- stub-ondemand (MCP, connected, 2 commands): stub for tests", all);
     }
 
     /// <summary>
@@ -168,12 +166,11 @@ public class McpOnDemandIntegrationTests : IDisposable
     {
         if (!HasPython()) Assert.Skip("python3 is not available");
         CancellationToken ct = TestContext.Current.CancellationToken;
-        AddStub("stub-silent", EMcpMountMode.OnDemand, "silent");
+        AddStub("stub-silent", "silent");
         McpToolSet set = _manager.Resolve(null, null, _directory);
 
         Stopwatch watch = Stopwatch.StartNew();
-        string help = Assert.IsType<string>(await Named(set, McpMetaTools.HelpName).InvokeAsync(
-            new AIFunctionArguments { ["server"] = "stub-silent" }, ct));
+        string help = Assert.IsType<string>(await Named(set, ExtensionCalls.HelpName).InvokeAsync(Ask("stub-silent"), ct));
         watch.Stop();
 
         Assert.Contains("- echo:", help);
@@ -186,50 +183,36 @@ public class McpOnDemandIntegrationTests : IDisposable
     {
         if (!HasPython()) Assert.Skip("python3 is not available");
         CancellationToken ct = TestContext.Current.CancellationToken;
-        AddStub("stub-late", EMcpMountMode.OnDemand);
+        AddStub("stub-late");
         McpToolSet set = _manager.Resolve(null, null, _directory);
-        AIFunction help = Named(set, McpMetaTools.HelpName);
-        AIFunction call = Named(set, McpMetaTools.CallName);
+        AIFunction help = Named(set, ExtensionCalls.HelpName);
+        AIFunction call = Named(set, ExtensionCalls.CallName);
 
-        string before = Assert.IsType<string>(await help.InvokeAsync(
-            new AIFunctionArguments { ["server"] = "stub-late" }, ct));
+        string before = Assert.IsType<string>(await help.InvokeAsync(Ask("stub-late"), ct));
         Assert.DoesNotContain("- late", before);
 
         File.WriteAllText(Path.Combine(_directory, "stub_server.py.late"), "");
 
-        object? called = await call.InvokeAsync(new AIFunctionArguments
-        {
-            ["server"] = "stub-late", ["tool"] = "late",
-            ["arguments"] = JsonSerializer.SerializeToElement(new { text = "x" }),
-        }, ct);
+        object? called = await call.InvokeAsync(Ask("stub-late", "late", new { text = "x" }), ct);
         Assert.Equal("late:x", called);
 
-        string after = Assert.IsType<string>(await help.InvokeAsync(
-            new AIFunctionArguments { ["server"] = "stub-late" }, ct));
+        string after = Assert.IsType<string>(await help.InvokeAsync(Ask("stub-late"), ct));
         Assert.Contains("- late", after);
     }
 
     /// <summary>
     /// 带结构化内容的结果：框架会把整个 CallToolResult 序列化，同一份数据在 content 与 structuredContent 里各一遍，
-    /// 且 content 里的 JSON 文本满是 \u0022 转义。模型应只看到一份干净的文本。两种送达方式都一样。
+    /// 且 content 里的 JSON 文本满是 \u0022 转义。模型应只看到一份干净的文本
     /// </summary>
-    [Theory]
-    [InlineData(EMcpMountMode.OnDemand)]
-    [InlineData(EMcpMountMode.Direct)]
-    public async Task StructuredResult_ReachesTheModelOnceAndUnescaped(EMcpMountMode mode)
+    [Fact]
+    public async Task StructuredResult_ReachesTheModelOnceAndUnescaped()
     {
         if (!HasPython()) Assert.Skip("python3 is not available");
         CancellationToken ct = TestContext.Current.CancellationToken;
-        AddStub("stub-structured", mode);
-        await _manager.WarmupAsync(cancellationToken: ct);
+        AddStub("stub-structured");
         McpToolSet set = _manager.Resolve(null, null, _directory);
 
-        object? result = mode == EMcpMountMode.OnDemand
-            ? await Named(set, McpMetaTools.CallName).InvokeAsync(new AIFunctionArguments
-            {
-                ["server"] = "stub-structured", ["tool"] = "structured",
-            }, ct)
-            : await Named(set, "structured").InvokeAsync(new AIFunctionArguments(), ct);
+        object? result = await Named(set, ExtensionCalls.CallName).InvokeAsync(Ask("stub-structured", "structured"), ct);
 
         string text = Assert.IsType<string>(result);
         Assert.Equal("""{"result": [{"name": "a"}, {"name": "b"}]}""", text);
@@ -238,21 +221,36 @@ public class McpOnDemandIntegrationTests : IDisposable
     }
 
     [Fact]
-    public async Task OnDemand_UnknownServerAndDisabledServer_AreToolResultsNotExceptions()
+    public async Task UnknownServerAndDisabledServer_AreToolResultsNotExceptions()
     {
         if (!HasPython()) Assert.Skip("python3 is not available");
         CancellationToken ct = TestContext.Current.CancellationToken;
-        AddStub("stub-blocked", EMcpMountMode.OnDemand);
+        AddStub("stub-blocked");
         McpToolSet set = _manager.Resolve(null, ["stub-blocked"], _directory);
 
-        // 唯一的按需 server 被角色禁掉:名单为空,元工具也就不挂
-        Assert.Empty(set.Tools);
+        // 唯一的 server 被角色禁掉:名单为空,也没有桥接
+        Assert.Empty(set.Servers);
+        Assert.Null(set.Bridge);
 
-        // 但若元工具是在禁用之前拿到的(旧快照),调用时仍按最新名单拒绝
-        McpToolSet before = _manager.Resolve(null, null, _directory);
+        // 但若桥接是在禁用之前拿到的(旧快照),调用时仍按最新名单拒绝
         McpBridge bridge = new(_manager, null, ["stub-blocked"], _directory);
         string refused = await bridge.HelpAsync("stub-blocked", null, ct);
         Assert.Contains("disabled for this agent", refused);
-        Assert.Equal(2, before.Tools.Count);
+    }
+
+    /// <summary>只读声明（readOnlyHint）要在连上时记下：审批据此放过只读的调用</summary>
+    [Fact]
+    public async Task ReadOnlyHint_IsRememberedOnConnect()
+    {
+        if (!HasPython()) Assert.Skip("python3 is not available");
+        CancellationToken ct = TestContext.Current.CancellationToken;
+        AddStub("stub-hints");
+        McpToolSet set = _manager.Resolve(null, null, _directory);
+        Assert.False(_manager.IsReadOnlyTool("stub-hints", "echo", null)); //没连过:按不是只读
+
+        await Named(set, ExtensionCalls.HelpName).InvokeAsync(Ask("stub-hints"), ct);
+
+        Assert.True(_manager.IsReadOnlyTool("stub-hints", "echo", null));
+        Assert.False(_manager.IsReadOnlyTool("stub-hints", "structured", null));
     }
 }

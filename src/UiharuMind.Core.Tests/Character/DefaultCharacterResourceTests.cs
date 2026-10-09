@@ -99,18 +99,12 @@ public class DefaultCharacterResourceTests
     }
 
     /// <summary>
-    /// 生图默认只给 OP-01：每次出图都可能花钱，其余内置卡与新建角色一律关，要用的在编辑页自己开
+    /// 扩展默认全给（ADR 0079）：不占工具列表、有风险的调用每次要用户批，内置卡不该再各自把它们关掉
     /// </summary>
     [Fact]
-    public void ImageGeneration_IsOnlyOnForRationalAgentByDefault()
+    public void BuiltInCards_DisableNoExtensions()
     {
-        string[] enabled = DefaultCharacterManager.Instance.All.Values
-            .Where(data => data.Tools.EnableImageGeneration)
-            .Select(data => data.CharacterId)
-            .ToArray();
-
-        Assert.Equal(["RationalAgent"], enabled);
-        Assert.False(new AgentToolConfig().EnableImageGeneration);
+        Assert.All(DefaultCharacterManager.Instance.All.Values, data => Assert.Empty(data.Tools.DisabledExtensions));
     }
 
     /// <summary>

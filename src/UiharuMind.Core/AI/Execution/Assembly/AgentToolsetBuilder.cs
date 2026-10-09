@@ -11,7 +11,9 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Audio;
 using UiharuMind.Core.AI.ImageGeneration;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Files;
+using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.Browser;
 using UiharuMind.Core.AI.Execution.Tools.Scheduler;
@@ -26,26 +28,26 @@ namespace UiharuMind.Core.AI.Execution.Assembly;
 /// </summary>
 internal sealed record AgentToolResources
 {
-    /// <summary>文件、识图、生图、配音、转写共用的路径口径</summary>
+    /// <summary>文件、识图与各扩展共用的路径口径</summary>
     public required AgentPathResolver Paths { get; init; }
 
     /// <summary>会话 id：浏览器一个会话一个标签页，群发言认它</summary>
     public string SessionId { get; init; } = string.Empty;
 
-    /// <summary>会话的产出房间（浏览器快照超长时落在这里）；空串退回临时目录</summary>
+    /// <summary>会话的产出房间（浏览器快照超长、截图落在这里）；空串退回临时目录</summary>
     public string OutputRoomDirectory { get; init; } = string.Empty;
 
     /// <summary>当前模型自带视觉：Read 直接附图；看不了图时识图另挂 AnalyzeImage</summary>
     public bool ModelSupportsVision { get; init; }
 
-    /// <summary>配了生图模型（没配时生图一个 token 都不占）</summary>
+    /// <summary>配了生图模型（没配时生图扩展照样列出，调用时说明去哪儿配）</summary>
     public bool ImageModelsConfigured { get; init; }
 
     /// <summary>生图进度交给界面；没有界面在看为 null</summary>
     public Action<string, ImageProgress>? ImageProgress { get; init; }
 
-    /// <summary>MCP 工具：直挂的工具快照，或按需送达的两把元工具</summary>
-    public IReadOnlyList<AITool> Mcp { get; init; } = [];
+    /// <summary>MCP：可用的 server 名单与查、调它们的桥接（每个 server 是一个扩展）</summary>
+    public McpToolSet Mcp { get; init; } = McpToolSet.Empty;
 
     /// <summary>造 shell 工具，参数是同一会话挂没挂后台任务；没开 shell 为 null</summary>
     public Func<bool, AITool>? Shell { get; init; }
@@ -62,7 +64,7 @@ internal sealed record AgentToolResources
     /// <summary>朗读的出口（界面念给用户听）；没有会话时为 null</summary>
     public Func<SpeechRequest, Task<bool>>? SpeechSink { get; init; }
 
-    /// <summary>配音不点名时用谁的声音</summary>
+    /// <summary>配音不点名时用谁的声音；没有时音频扩展只给转写</summary>
     public CharacterData? Character { get; init; }
 
     /// <summary>会话挂载的知识库</summary>
@@ -120,12 +122,6 @@ internal static class AgentToolsetBuilder
             : mountVision ? EReadImageMode.PointToAnalyzeImage
             : EReadImageMode.None;
 
-        // 生图只看配置：开着、且至少配了一个生图模型，连不连得通不看（ADR 0052）
-        if (Mounts(EAgentCapability.ImageGeneration, config.EnableImageGeneration) && resources.ImageModelsConfigured)
-        {
-            Add(EAgentCapability.ImageGeneration, ImageGenerationTool.Create(paths, resources.ImageProgress));
-        }
-
         if (Mounts(EAgentCapability.SubAgent, config.EnableSubAgent) && resources.Delegation?.Invoke() is { } delegation)
         {
             foreach (AITool tool in delegation) Add(EAgentCapability.SubAgent, tool);
@@ -142,29 +138,6 @@ internal static class AgentToolsetBuilder
             Add(EAgentCapability.Speak, SpeakTool.Create(speechSink));
         }
 
-        if (Mounts(EAgentCapability.SpeechSynthesis, config.EnableSpeechSynthesis) && resources.Character is { } self)
-        {
-            Add(EAgentCapability.SpeechSynthesis, SynthesizeSpeechTool.Create(paths, self));
-        }
-
-        if (Mounts(EAgentCapability.Transcription, config.EnableTranscription))
-        {
-            Add(EAgentCapability.Transcription, TranscribeAudioTool.Create(paths));
-        }
-
-        // 一个会话一个标签页；快照超长、截图落进会话自己的草稿目录，模型按路径续读。
-        // 截图得看得了：视觉模型要有 Read 才看得见，非视觉模型要有 AnalyzeImage
-        if (Mounts(EAgentCapability.Browser, config.EnableBrowser) && resources.Browser is { } browser)
-        {
-            string spillDirectory = Path.Combine(
-                resources.OutputRoomDirectory.Length > 0 ? resources.OutputRoomDirectory : Path.GetTempPath(), "browser");
-            EReadImageMode screenshots = imageMode == EReadImageMode.Attach && !mountFiles ? EReadImageMode.None : imageMode;
-            foreach (AITool tool in BrowserTools.Create(browser, resources.SessionId, spillDirectory, screenshots))
-            {
-                Add(EAgentCapability.Browser, tool);
-            }
-        }
-
         if (Mounts(EAgentCapability.KnowledgeSearch, config.EnableKnowledgeSearchTool))
         {
             Add(EAgentCapability.KnowledgeSearch, KnowledgeTool.Create(resources.KnowledgeSource));
@@ -175,9 +148,16 @@ internal static class AgentToolsetBuilder
             Add(EAgentCapability.ScheduledTasks, SchedulerTools.CreateScheduledTaskTool(resources.WorkspacePath));
         }
 
-        if (rule.Allows(EAgentCapability.Mcp))
+        if (rule.Allows(EAgentCapability.Extensions))
         {
-            foreach (AITool tool in resources.Mcp) Add(EAgentCapability.Mcp, tool);
+            IReadOnlyList<BuiltinExtension> builtins = Builtins(config, resources, imageMode, mountFiles);
+            if (builtins.Count > 0 || resources.Mcp.Bridge != null)
+            {
+                foreach (AITool tool in ExtensionMetaTools.Create(new ExtensionHub(builtins, resources.Mcp.Bridge)))
+                {
+                    Add(EAgentCapability.Extensions, tool);
+                }
+            }
         }
 
         if (mountFiles)
@@ -203,5 +183,52 @@ internal static class AgentToolsetBuilder
         }
 
         return tools;
+    }
+
+    /// <summary>
+    /// 这次装配列出的内置扩展：角色没禁的都给（ADR 0079），缺前提的照样列出、调用时说明原因。
+    /// 系统提示里那行名单与这里同一个判据（见 <see cref="ListedBuiltins"/>）
+    /// </summary>
+    private static IReadOnlyList<BuiltinExtension> Builtins(AgentToolConfig config, AgentToolResources resources,
+        EReadImageMode imageMode, bool mountFiles)
+    {
+        List<BuiltinExtension> builtins = new();
+        HashSet<string> listed = ListedBuiltins(config).ToHashSet();
+        AgentPathResolver paths = resources.Paths;
+
+        // 一个会话一个标签页；快照超长、截图落进会话自己的草稿目录，模型按路径续读。
+        // 截图得看得了：视觉模型要有 Read 才看得见，非视觉模型要有 AnalyzeImage
+        if (listed.Contains(BuiltinExtensions.Browser) && resources.Browser == null)
+        {
+            // 名单照写（与系统提示同一判据），调用时如实说用不了，免得名单与帮助各说各的
+            builtins.Add(BuiltinExtensions.Unavailable(BuiltinExtensions.Browser, "No browser is available here."));
+        }
+        else if (listed.Contains(BuiltinExtensions.Browser))
+        {
+            string spillDirectory = Path.Combine(
+                resources.OutputRoomDirectory.Length > 0 ? resources.OutputRoomDirectory : Path.GetTempPath(), "browser");
+            EReadImageMode screenshots = imageMode == EReadImageMode.Attach && !mountFiles ? EReadImageMode.None : imageMode;
+            builtins.Add(BuiltinExtensions.CreateBrowser(resources.Browser!, resources.SessionId, spillDirectory, screenshots));
+        }
+
+        // 生图只看配置：至少配了一个生图模型，连不连得通不看（ADR 0052）
+        if (listed.Contains(BuiltinExtensions.Image))
+        {
+            builtins.Add(BuiltinExtensions.CreateImage(paths, resources.ImageProgress, resources.ImageModelsConfigured));
+        }
+
+        if (listed.Contains(BuiltinExtensions.Audio)) builtins.Add(BuiltinExtensions.CreateAudio(paths, resources.Character));
+        return builtins;
+    }
+
+    /// <summary>
+    /// 角色没禁的内置扩展名（系统提示的名单与这里同一个判据）
+    /// </summary>
+    /// <param name="config">生效能力</param>
+    /// <returns>扩展名，按名单顺序</returns>
+    internal static IEnumerable<string> ListedBuiltins(AgentToolConfig config)
+    {
+        HashSet<string> disabled = new(config.DisabledExtensions, StringComparer.OrdinalIgnoreCase);
+        return BuiltinExtensions.Names.Where(name => !disabled.Contains(name));
     }
 }

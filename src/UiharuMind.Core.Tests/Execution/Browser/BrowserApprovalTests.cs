@@ -1,41 +1,56 @@
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Tools.Browser;
 using UiharuMind.Core.Tests.Agent;
+using UiharuMind.Core.Tests.Execution.Extensions;
 
 namespace UiharuMind.Core.Tests.Execution.Browser;
 
 /// <summary>
-/// 浏览器工具在三档里的审批：看页面不问，导航与动作跟 shell 同一列；
-/// 打开本机、内网与非 http(s) 地址、接管是贯穿三档的硬规则，完全自动也要用户点一次
+/// 浏览器在三档里的审批（ADR 0079，经 ExtensionCall）：看页面不问；导航与动作三档都问，本会话放行过浏览器就不问；
+/// 打开本机、内网与非 http(s) 地址、接管永远问，本会话放行也不算
 /// </summary>
 public class BrowserApprovalTests
 {
     private const string Root = "/tmp/uiharu-ws";
 
-    private static FunctionCallContent Navigate(string url) => new("c1", BrowserTools.NavigateToolName,
-        new Dictionary<string, object?> { ["url"] = url });
+    private static FunctionCallContent Navigate(string url) =>
+        ExtensionCallOf.Make(BuiltinExtensions.Browser, BuiltinExtensions.BrowserNavigate, new { url });
 
-    private static FunctionCallContent Act(string action) => new("c2", BrowserTools.ActToolName,
-        new Dictionary<string, object?> { ["action"] = action, ["target"] = "e1" });
+    private static FunctionCallContent Act(string action) =>
+        ExtensionCallOf.Make(BuiltinExtensions.Browser, BuiltinExtensions.BrowserAct, new { action, target = "e1" });
 
-    private static Task<bool> ApprovedAsync(EAgentPermissionMode mode, FunctionCallContent call)
-        => ApprovalRuleProbe.IsApprovedAsync(ApprovalModeMapper.BuildRules(mode, Root), call);
+    private static Task<bool> ApprovedAsync(EAgentPermissionMode mode, FunctionCallContent call,
+        params string[] sessionApproved)
+        => ApprovalRuleProbe.IsApprovedAsync(ApprovalModeMapper.BuildRules(mode, Root,
+            sessionExtensionApprovalSource: () => sessionApproved), call);
 
-    [Fact]
-    public async Task FullAuto_ApprovesPublicNavigationAndActions()
+    [Theory]
+    [InlineData(EAgentPermissionMode.ReadOnly)]
+    [InlineData(EAgentPermissionMode.FullAuto)]
+    public async Task Snapshot_NeverAsks(EAgentPermissionMode mode)
     {
-        Assert.True(await ApprovedAsync(EAgentPermissionMode.FullAuto, Navigate("https://example.com")));
-        Assert.True(await ApprovedAsync(EAgentPermissionMode.FullAuto, Act("click")));
+        Assert.True(await ApprovedAsync(mode,
+            ExtensionCallOf.Make(BuiltinExtensions.Browser, BuiltinExtensions.BrowserSnapshot)));
     }
 
     [Theory]
     [InlineData(EAgentPermissionMode.ReadOnly)]
     [InlineData(EAgentPermissionMode.AutoEdit)]
-    public async Task BelowFullAuto_NavigationAndActionsAsk(EAgentPermissionMode mode)
+    [InlineData(EAgentPermissionMode.FullAuto)]
+    public async Task NavigationAndActions_AskInEveryMode(EAgentPermissionMode mode)
     {
         Assert.False(await ApprovedAsync(mode, Navigate("https://example.com")));
         Assert.False(await ApprovedAsync(mode, Act("fill")));
+    }
+
+    [Fact]
+    public async Task SessionApproval_LetsNavigationAndActionsThrough()
+    {
+        Assert.True(await ApprovedAsync(EAgentPermissionMode.ReadOnly, Navigate("https://example.com"), "browser"));
+        Assert.True(await ApprovedAsync(EAgentPermissionMode.ReadOnly, Act("click"), "*"));
+        Assert.False(await ApprovedAsync(EAgentPermissionMode.ReadOnly, Act("click"), "image")); //放行的是别的扩展
     }
 
     [Theory]
@@ -44,20 +59,20 @@ public class BrowserApprovalTests
     [InlineData("file:///etc/passwd")]
     public async Task LocalNavigation_IsNeverAutoApproved(string url)
     {
-        Assert.False(await ApprovedAsync(EAgentPermissionMode.FullAuto, Navigate(url)));
+        Assert.False(await ApprovedAsync(EAgentPermissionMode.FullAuto, Navigate(url), "*", "browser"));
     }
 
-    /// <summary>接管等的是用户的手：完全自动也得等他点「完成了」</summary>
+    /// <summary>接管等的是用户的手：完全自动、放行过浏览器也得等他点「完成了」</summary>
     [Theory]
     [InlineData(EAgentPermissionMode.ReadOnly)]
     [InlineData(EAgentPermissionMode.AutoEdit)]
     [InlineData(EAgentPermissionMode.FullAuto)]
     public async Task Handoff_AlwaysWaitsForTheUser(EAgentPermissionMode mode)
     {
-        FunctionCallContent handoff = new("c3", BrowserTools.HandoffToolName,
-            new Dictionary<string, object?> { ["task"] = "登录 GitHub" });
+        FunctionCallContent handoff = ExtensionCallOf.Make(BuiltinExtensions.Browser, BuiltinExtensions.BrowserHandoff,
+            new { task = "登录 GitHub" });
 
-        Assert.False(await ApprovedAsync(mode, handoff));
+        Assert.False(await ApprovedAsync(mode, handoff, "*", "browser"));
     }
 
     [Theory]

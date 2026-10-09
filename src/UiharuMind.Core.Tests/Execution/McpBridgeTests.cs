@@ -124,7 +124,7 @@ public class McpBridgeTests : IDisposable
         string text = await Bridge(host).HelpAsync("github", null, TestContext.Current.CancellationToken);
 
         Assert.Contains("Truncated", text);
-        Assert.Single(Directory.GetFiles(_spillDirectory, "McpHelp_github_*.txt"));
+        Assert.Single(Directory.GetFiles(_spillDirectory, "ExtensionHelp_github_*.txt"));
     }
 
     /// <summary>
@@ -152,11 +152,10 @@ public class McpBridgeTests : IDisposable
     //================= 查找失败要说清楚 =================
 
     [Theory]
-    [InlineData("MountedDirectly", "mounted directly")]
     [InlineData("DisabledByCharacter", "disabled for this agent")]
     [InlineData("NeedsApproval", "not been approved")]
     [InlineData("HostingOff", "turned off")]
-    [InlineData("NotFound", "Unknown MCP server")]
+    [InlineData("NotFound", "Unknown extension")]
     public async Task Refusals_ExplainWhyTheServerCannotBeUsed(string statusName, string expected)
     {
         EMcpLookupStatus status = Enum.Parse<EMcpLookupStatus>(statusName);
@@ -172,13 +171,13 @@ public class McpBridgeTests : IDisposable
     }
 
     [Fact]
-    public async Task UnknownServer_ListsAvailableOnes()
+    public async Task UnknownServer_PointsToTheFullList()
     {
         FakeHost host = new() { Lookup = new McpServerLookup(EMcpLookupStatus.NotFound, null, ["unity", "github"]) };
 
         string text = await Bridge(host).HelpAsync("gitlab", null, TestContext.Current.CancellationToken);
 
-        Assert.Contains("unity, github", text);
+        Assert.Contains("ExtensionHelp with no arguments", text);
     }
 
     [Fact]
@@ -186,10 +185,10 @@ public class McpBridgeTests : IDisposable
     {
         McpBridge bridge = Bridge(new FakeHost());
 
-        Assert.Contains("`server` is required", await bridge.HelpAsync(" ", null, TestContext.Current.CancellationToken));
-        Assert.Contains("`server` is required",
+        Assert.Contains("`extension` is required", await bridge.HelpAsync(" ", null, TestContext.Current.CancellationToken));
+        Assert.Contains("`extension` is required",
             Assert.IsType<string>(await bridge.CallAsync(null, "t", null, TestContext.Current.CancellationToken)));
-        Assert.Contains("`tool` is required",
+        Assert.Contains("`command` is required",
             Assert.IsType<string>(await bridge.CallAsync("github", "", null, TestContext.Current.CancellationToken)));
     }
 
@@ -329,7 +328,7 @@ public class McpBridgeTests : IDisposable
 
         Assert.Contains("no callable tool 'editor-application-get-state'", text);
         Assert.Contains("(10 tools are exposed)", text);
-        Assert.DoesNotContain("Similar callable tools", text); //只因都含 get 的不算相似
+        Assert.DoesNotContain("Similar callable commands", text); //只因都含 get 的不算相似
         Assert.Contains("turned off on the server side", text);
         Assert.Contains("do not retry", text);
         Assert.DoesNotContain("tests-run", text);
@@ -375,11 +374,11 @@ public class McpBridgeTests : IDisposable
         string text = Assert.IsType<string>(
             await Bridge(host).CallAsync("unity", typed, null, TestContext.Current.CancellationToken));
 
-        Assert.Contains("Similar callable tools: gameobject-create", text);
+        Assert.Contains("Similar callable commands: gameobject-create", text);
     }
 
     [Fact]
-    public async Task Call_MissingToolWithNothingSimilar_OnlyPointsToMcpHelp()
+    public async Task Call_MissingToolWithNothingSimilar_OnlyPointsToTheHelp()
     {
         FakeHost host = FakeHost.Connected("unity",
             "", Enumerable.Range(0, 12).Select(i => Tool($"alpha-{i}", () => "ok")).ToArray());
@@ -387,8 +386,8 @@ public class McpBridgeTests : IDisposable
         string text = Assert.IsType<string>(await Bridge(host).CallAsync("unity", "zzz", null,
             TestContext.Current.CancellationToken));
 
-        Assert.DoesNotContain("Similar callable tools", text);
-        Assert.Contains("McpHelp", text);
+        Assert.DoesNotContain("Similar callable commands", text);
+        Assert.Contains("ExtensionHelp", text);
     }
 
     [Fact]
@@ -427,7 +426,7 @@ public class McpBridgeTests : IDisposable
         Assert.Contains("row 0 ", text);
         Assert.Contains("row 19999 ", text); //尾部
         Assert.Contains("full content saved to", text);
-        string saved = Assert.Single(Directory.GetFiles(_spillDirectory, "McpCall_github_dump_*.txt"));
+        string saved = Assert.Single(Directory.GetFiles(_spillDirectory, "ExtensionCall_github_dump_*.txt"));
         Assert.Equal(huge, File.ReadAllText(saved));
     }
 
@@ -496,5 +495,7 @@ public class McpBridgeTests : IDisposable
         }
 
         public McpToolCatalog? LoadCatalog(McpServerConfig server) => Catalog;
+
+        public IReadOnlyList<McpServerBrief> List(string? workspacePath, IEnumerable<string>? disabledServers) => [];
     }
 }

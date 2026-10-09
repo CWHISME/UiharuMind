@@ -121,6 +121,7 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
             sessionModelSource: () => _attachedSession?.ChatModelRunningData,
             sessionKnowledgeSource: () => _attachedSession?.Memory,
             sessionShellApprovalSource: () => _attachedSession?.SnapshotSessionApprovedShellPatterns(),
+            sessionExtensionApprovalSource: () => _attachedSession?.SnapshotSessionApprovedExtensions(),
             // 同样闭包读字段:handle 会跨轮次复用,而通道每轮新建
             // 闭包读字段:handle 跨轮次复用,而这两样每轮由 TurnDriver 交进来
             isAttendedSource: () => _turnAttended,
@@ -128,21 +129,6 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
                 .TryWrite(new SubSessionStartedContent(callId, subSessionId)),
             imageProgressReported: (callId, progress) => _activityChannel?.Writer
                 .TryWrite(new ImageProgressContent(callId, progress)));
-
-        // MCP 工具是异步取回的,而快照与装配都从「此刻取得到什么」出发——所以等待必须在采集之前。
-        // 放到这里而不是应用启动时:托管 server 的子进程因此只在真要用它的那一刻才起来,
-        // 而这个应用还有截图、剪贴板、快捷问答一堆与 MCP 无关的功能(见 McpManager.WarmupAsync)
-        if (profile.Character.IsAgent)
-        {
-            // 名单与下面 Resolve 用的是同一份:这一轮挂不上的 server 不值得为它起进程、也不值得等。
-            // 忙碌态只在真的要等时才亮(回调由 WarmupAsync 决定发不发),否则每次装配都会闪一帧
-            await McpManager.Instance.WarmupAsync(
-                    profile.WorkspacePath,
-                    profile.Character.Tools.DisabledMcpServers,
-                    isWaiting => SetBusy(isWaiting ? ETurnBusy.ConnectingMcp : ETurnBusy.None),
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
 
         AgentAssemblyFacts snapshot = AgentAssemblyFacts.Capture(profile);
         if (_handle != null && snapshot.Equals(_lastSnapshot)) return;

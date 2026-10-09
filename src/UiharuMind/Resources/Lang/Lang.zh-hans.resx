@@ -2563,44 +2563,14 @@
     <data name="AgentMcpEnabledTip" xml:space="preserve">
         <value>只决定要不要为它拉起进程／建立连接。哪些智能体能用它的工具，在角色编辑页里按角色配。</value>
     </data>
-    <data name="AgentMcpInjectInstructions" xml:space="preserve">
-        <value>注入 server 自述</value>
-    </data>
-    <data name="AgentMcpInjectInstructionsTip" xml:space="preserve">
-        <value>server 可以附一段说明，讲它那套工具该怎么配合使用。这段要占上下文——关掉则保留工具、不要说明。</value>
-    </data>
-    <data name="AgentMcpMountMode" xml:space="preserve">
-        <value>送达方式</value>
-    </data>
-    <data name="AgentMcpMountModeOnDemand" xml:space="preserve">
-        <value>按需（推荐）</value>
-    </data>
-    <data name="AgentMcpMountModeDirect" xml:space="preserve">
-        <value>直挂</value>
-    </data>
-    <data name="AgentMcpMountModeTip" xml:space="preserve">
-        <value>这个 server 的工具怎么送到模型手里。按需：工具定义不进请求，模型用 McpHelp 查、用 McpCall 调，中途连上或断开都不会让提示缓存失效。直挂：每个工具定义随每次请求发送——适合工具少而天天用的 server。</value>
-    </data>
     <data name="AgentMcpDescription" xml:space="preserve">
         <value>一句话说明</value>
     </data>
     <data name="AgentMcpDescriptionTip" xml:space="preserve">
-        <value>按需模式下写进系统提示的一行说明，让模型知道什么时候该去查这个 server。</value>
+        <value>写进系统提示扩展名单的一行说明，让模型知道什么时候该去查这个 server。</value>
     </data>
     <data name="AgentMcpDescriptionPlaceholder" xml:space="preserve">
         <value>例如：GitHub 的 issue 与 PR</value>
-    </data>
-    <data name="AgentMcpWorkspaceServersTip" xml:space="preserve">
-        <value>项目级 server 来自项目里的 .mcp.json。送达方式是这台机器的偏好，不会写回那个文件。</value>
-    </data>
-    <data name="AgentMcpWorkspaceDirectTip" xml:space="preserve">
-        <value>让这个 server 的工具随每次请求直接发送，而不是按需查找。</value>
-    </data>
-    <data name="AgentCapabilityMcpOnDemand" xml:space="preserve">
-        <value>按需</value>
-    </data>
-    <data name="AgentCapabilityMcpOnDemandSummary" xml:space="preserve">
-        <value>按需 · {0} · 用到时才查工具</value>
     </data>
     <data name="AgentMcpAdvancedTitle" xml:space="preserve">
         <value>配置文件与项目级授权</value>
@@ -2618,10 +2588,10 @@
         <value>技能目录：</value>
     </data>
     <data name="CharacterMcpTitle" xml:space="preserve">
-        <value>MCP server</value>
+        <value>扩展</value>
     </data>
     <data name="CharacterMcpDesc" xml:space="preserve">
-        <value>本智能体可以用哪些已托管的 MCP server。取消勾选只对这个智能体隐藏它的工具，别的智能体照用。</value>
+        <value>不在工具列表里的能力：模型用到时才去查，会改东西或花钱的调用默认先问你。上面是内置的，下面是已托管的 MCP server。取消勾选只对这个智能体隐藏，别的智能体照用。</value>
     </data>
     <data name="CharacterMcpEmpty" xml:space="preserve">
         <value>还没有配置 MCP server。在「设置 → 智能体 → MCP」里添加。</value>
@@ -2652,20 +2622,11 @@
 
 注意它说的是「下一轮要发出去多少」，而底部那条「上下文」是「最近一次请求实际吃进去多少」——两者不是同一个时刻。刚接上一个 MCP server、或刚换了角色而还没发过话时，这里会先大起来，下一轮发送后底部才跟上。</value>
     </data>
-    <data name="AgentCapabilityMcpInstructions" xml:space="preserve">
-        <value>已注入 server 自述</value>
-    </data>
-    <data name="AgentCapabilityMcpRenamed" xml:space="preserve">
-        <value>为消歧改过名</value>
-    </data>
-    <data name="AgentCapabilityMcpRenamedTip" xml:space="preserve">
-        <value>另一个 server 也有同名工具，所以双方都加了 server 前缀。括号里是原名。</value>
-    </data>
     <data name="AgentCapabilityMcpPlanned" xml:space="preserve">
-        <value>将会接入</value>
+        <value>MCP server</value>
     </data>
     <data name="AgentCapabilityMcpPlannedTip" xml:space="preserve">
-        <value>这个会话即将接入什么，首轮发送之前就摆在这里。它是预告——上面那一栏才是实际挂上的。没能挂上的条目会留在这里，好让你看见原因。</value>
+        <value>每个 MCP server 是一个扩展：工具不进请求，模型用到时才查、才连。用不上的条目也列在这里，好让你看见原因。</value>
     </data>
     <data name="AgentCapabilityMcpFromProject" xml:space="preserve">
         <value>项目级 · {0}/.mcp.json</value>
@@ -2684,9 +2645,6 @@
     </data>
     <data name="AgentCapabilityMcpDisabledByCharacter" xml:space="preserve">
         <value>本角色已禁用</value>
-    </data>
-    <data name="AgentCapabilityMcpLastSeen" xml:space="preserve">
-        <value>{0} · 上次 {1} 个工具 · ~{2} tok</value>
     </data>
     <data name="AgentMcpApprovalTitle" xml:space="preserve">
         <value>这个项目要启动 MCP server</value>
@@ -2708,12 +2666,6 @@
     </data>
     <data name="AgentMcpTrustRevoke" xml:space="preserve">
         <value>撤销</value>
-    </data>
-    <data name="AgentCapabilityMcpForecast" xml:space="preserve">
-        <value>MCP（预估）</value>
-    </data>
-    <data name="AgentCapabilityMcpForecastTip" xml:space="preserve">
-        <value>本会话尚未装配，此数按这些 server 上次连上时报的工具定义估算；首轮发送之后换成实测值。不会挂上的（被覆盖、未托管、本角色已禁用、待确认）不计入。</value>
     </data>
     <data name="AgentCapabilityEditHint" xml:space="preserve">
         <value>只读。要改这个智能体能用什么，去角色编辑页。</value>
@@ -2744,9 +2696,6 @@
     </data>
     <data name="AgentCapabilitySkillResidentTip" xml:space="preserve">
         <value>常驻上下文的只有技能的名字与描述，正文是按需装载的——所以这个数字小是正常的。</value>
-    </data>
-    <data name="AgentMcpConnecting" xml:space="preserve">
-        <value>正在连接 MCP server…</value>
     </data>
     <data name="AgentCapabilityCharacterPrompt" xml:space="preserve">
         <value>角色提示</value>
@@ -2886,17 +2835,11 @@
     <data name="AgentCapabilityToolRules" xml:space="preserve">
         <value>工具纪律</value>
     </data>
-    <data name="AgentCapabilityPromptMcp" xml:space="preserve">
-        <value>MCP 自述</value>
-    </data>
     <data name="AgentCapabilityPrompt" xml:space="preserve">
         <value>系统提示</value>
     </data>
     <data name="AgentCapabilityPromptTip" xml:space="preserve">
         <value>本会话真正发出去的那段系统提示，按装配时的分段拆开。点一段看全文——模型读到的就是这些字。</value>
-    </data>
-    <data name="AgentCapabilityPromptNotCounted" xml:space="preserve">
-        <value>已经算在 MCP 那一档里了，不重复计入合计。</value>
     </data>
     <data name="CharacterCapabilityTokenTip" xml:space="preserve">
         <value>这一档的工具定义每轮占多少上下文（粗估）。显示「—」表示算不出：从角色库进来没有正在跑的会话，而没连上的 MCP server 还没有 schema。</value>
@@ -3688,41 +3631,17 @@
 · 项目级 MCP 与记忆随工作区一起换</value>
     </data>
 
-    <data name="AgentSettingCapImageGeneration" xml:space="preserve">
-        <value>生图工具</value>
-    </data>
-    <data name="AgentGateDescImageGeneration" xml:space="preserve">
-        <value>让智能体用模型页配置的生图模型出图、改图，按列表顺序回退。至少配了一个生图模型才会挂载。</value>
-    </data>
     <data name="AgentSettingCapSpeak" xml:space="preserve">
         <value>开口说话</value>
     </data>
     <data name="AgentGateDescSpeak" xml:space="preserve">
         <value>让智能体用「朗读声音」里设的声音把一段话念给你听，每句可自己定语气。只在你正看着这个会话时出声；群成员不挂。</value>
     </data>
-    <data name="AgentSettingCapSpeechSynthesis" xml:space="preserve">
-        <value>配音</value>
-    </data>
-    <data name="AgentGateDescSpeechSynthesis" xml:space="preserve">
-        <value>让智能体把文字合成成音频文件（存进草稿目录的 audio 下），按角色名用那个角色的朗读声音，不点就用自己的。不出声，适合配音、旁白。</value>
-    </data>
-    <data name="AgentSettingCapTranscription" xml:space="preserve">
-        <value>转写</value>
-    </data>
-    <data name="AgentGateDescTranscription" xml:space="preserve">
-        <value>让智能体把工作区里的音频文件转成文字，可出带时间轴的字幕（SRT），全文存进草稿目录的 transcripts 下。用语音输入默认的识别模型或服务；视频要先抽出音频。</value>
-    </data>
     <data name="ToolAudioPlay" xml:space="preserve">
         <value>播放这段配音</value>
     </data>
     <data name="ToolAudioStop" xml:space="preserve">
         <value>停止</value>
-    </data>
-    <data name="AgentSettingCapBrowser" xml:space="preserve">
-        <value>使用浏览器</value>
-    </data>
-    <data name="AgentGateDescBrowser" xml:space="preserve">
-        <value>让智能体在你装的 Chrome 里打开网页、点按钮、填表单，用的是一份单独的档案，你在里面登录过的网站会一直保持登录。打开网页和页面操作按权限档审批，查看当前页面不问。</value>
     </data>
     <data name="ModelPageChatModelsTab" xml:space="preserve">
         <value>对话模型</value>
@@ -5798,5 +5717,44 @@
     </data>
     <data name="ImageFamilyInstalledTip" xml:space="preserve">
         <value>本机已装其中一档</value>
+    </data>
+    <data name="AgentCapabilityMcpStatus" xml:space="preserve">
+        <value>{0} · {1} 个命令</value>
+    </data>
+    <data name="AgentCapabilityExtensions" xml:space="preserve">
+        <value>扩展</value>
+    </data>
+    <data name="ExtensionBrowserDesc" xml:space="preserve">
+        <value>操作一个真实的 Chrome 窗口：打开网页、点按钮、填表、读正文、截图。登录与密码交给你自己来。</value>
+    </data>
+    <data name="ExtensionImageDesc" xml:space="preserve">
+        <value>用设置里的生图模型生成或修改图片，每次出图都可能花钱。</value>
+    </data>
+    <data name="ExtensionAudioDesc" xml:space="preserve">
+        <value>用角色的声音把文字配成音频文件，或把音频转写成文字、字幕。</value>
+    </data>
+    <data name="AgentApproveSessionExtension" xml:space="preserve">
+        <value>本会话总是允许{0}</value>
+    </data>
+    <data name="AgentApprovalResolvedSessionExtension" xml:space="preserve">
+        <value>已允许{0}（本会话）</value>
+    </data>
+    <data name="ChatExtensionsApproved" xml:space="preserve">
+        <value>本会话扩展不再询问</value>
+    </data>
+    <data name="ChatExtensionsApprovedTooltip" xml:space="preserve">
+        <value>这个会话里，扩展里本该先问你的命令（浏览网页、生图、MCP 工具）不再询问。把浏览器交给你、打开本机或内网地址仍然每次都问。</value>
+    </data>
+    <data name="ExtensionNameBrowser" xml:space="preserve">
+        <value>浏览器</value>
+    </data>
+    <data name="ExtensionNameImage" xml:space="preserve">
+        <value>生图</value>
+    </data>
+    <data name="ExtensionNameAudio" xml:space="preserve">
+        <value>音频</value>
+    </data>
+    <data name="AgentCapabilityMcpNameTaken" xml:space="preserve">
+        <value>被同名的内置扩展挡住了，到设置里给这个 server 改个名</value>
     </data>
 </root>

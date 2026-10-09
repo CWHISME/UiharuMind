@@ -12,7 +12,7 @@ using Microsoft.Extensions.AI;
 namespace UiharuMind.Core.AI.Execution;
 
 /// <summary>
-/// 一个工具属于哪一档能力开关。除 <see cref="GroupPost"/>、<see cref="GroupAway"/> 外与 <c>AgentToolConfig</c> 的 <c>Enable*</c> 一一对应。
+/// 一个工具属于哪一档能力开关。除 <see cref="GroupPost"/>、<see cref="GroupAway"/>、<see cref="Extensions"/> 外与 <c>AgentToolConfig</c> 的 <c>Enable*</c> 一一对应。
 ///
 /// 存在的理由是<b>把占用算到开关头上</b>：角色编辑页要显示「关掉这一档能省多少 token」，
 /// 而一档能力可能挂好几个工具（文件访问一次挂七个）。
@@ -31,20 +31,8 @@ public enum EAgentCapability
     /// <summary>识图(委托视觉模型)</summary>
     VisionTool,
 
-    /// <summary>生图与改图(委托生图模型)</summary>
-    ImageGeneration,
-
     /// <summary>朗读(用角色的声音念给用户听)</summary>
     Speak,
-
-    /// <summary>配音(合成语音文件)</summary>
-    SpeechSynthesis,
-
-    /// <summary>转写(音频转文字、字幕)</summary>
-    Transcription,
-
-    /// <summary>浏览器(观察、导航、动作)</summary>
-    Browser,
 
     /// <summary>知识库检索</summary>
     KnowledgeSearch,
@@ -58,8 +46,8 @@ public enum EAgentCapability
     /// <summary>技能按名加载(仅总闸关闭时由自建 load_skill 挂出,见 LoadSkillTool)</summary>
     Skills,
 
-    /// <summary>MCP server 提供的工具</summary>
-    Mcp,
+    /// <summary>扩展：不在工具列表里、先查后调的能力（内置的浏览器、生图、音频与 MCP server，ADR 0079）</summary>
+    Extensions,
 
     /// <summary>群发言(群成员 agent 形态必挂，不对应开关)</summary>
     GroupPost,

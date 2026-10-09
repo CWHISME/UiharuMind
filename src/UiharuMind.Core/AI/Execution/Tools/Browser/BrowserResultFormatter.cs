@@ -78,7 +78,7 @@ internal sealed class BrowserResultFormatter(string spillDirectory)
               $"{Encoding.UTF8.GetByteCount(shown)} of {fullBytes} bytes. Try a more specific word; all matches are " +
               $"{saved} (Read from line {nextLine} to see the rest).]*"
             : $"{shown}\n\n---\n*[Long page: showing the first {Encoding.UTF8.GetByteCount(shown)} of {fullBytes} bytes. " +
-              $"To find something, call {BrowserTools.SnapshotToolName} with view \"text\" and find — it returns just the " +
+              $"To find something, call {BrowserTools.SnapshotMention} with view \"text\" and find — it returns just the " +
               $"paragraphs that mention it. The full text is {saved} (Read from line {nextLine} to keep reading).]*";
     }
 
@@ -148,7 +148,7 @@ internal sealed class BrowserResultFormatter(string spillDirectory)
         return $"{shown}\n\n---\n*[Long page: navigation, sidebars and footers are collapsed" +
                (cut ? " and the rest of the page is cut" : string.Empty) +
                $". The full snapshot ({fullBytes} bytes, same refs) is {saved}; search it with Grep or Read, " +
-               $"or call {BrowserTools.SnapshotToolName} with find.]*";
+               $"or call {BrowserTools.SnapshotMention} with find.]*";
     }
 
     // 落盘失败也不丢这次结果，只是说存不下

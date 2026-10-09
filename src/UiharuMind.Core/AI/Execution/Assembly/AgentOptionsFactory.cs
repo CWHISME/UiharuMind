@@ -11,6 +11,7 @@ using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Compaction;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Skills;
 
@@ -117,7 +118,7 @@ internal static class AgentOptionsFactory
         AgentToolConfig config = plan.Config;
         chatOptions.Instructions = AgentInstructionsComposer.Compose(chatOptions.Instructions,
             plan.Profile.GroupScene, config,
-            plan.WorkingDirectory, plan.WorkspaceInstructions, plan.Mcp.Instructions,
+            plan.WorkingDirectory, plan.WorkspaceInstructions, ExtensionRoster.Section(config, plan.Mcp),
             shellBinary, plan.PythonInterpreterPath, plan.OutputRoomDirectory, plan.MemoryDirectory,
             character.GetPersonaCoda(), out promptSegments);
 
@@ -149,7 +150,8 @@ internal static class AgentOptionsFactory
                 // 会话自己的产出房间视为界内:测试脚本与中间文件有地方去,就不必为它们弹审批
                 AgentOutputLayout.GetRoomAbsolutePath(plan.Profile.OutputFolderName),
                 // 记忆目录:任何权限档可写(ADR 0028)。范围只认 Memory/ 这一格,与房间豁免互不重叠
-                plan.MemoryDirectory),
+                plan.MemoryDirectory,
+                plan.Profile.SessionExtensionApprovalSource),
         };
         options.ChatOptions = chatOptions;
         return options;

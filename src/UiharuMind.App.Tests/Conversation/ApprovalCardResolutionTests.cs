@@ -1,4 +1,7 @@
+using System.Text.Json;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools.Browser;
 using UiharuMind.Features.Conversation.Items;
@@ -40,8 +43,74 @@ public class ApprovalCardResolutionTests
         Assert.True(card.Response.IsCompleted);
     }
 
+    // 浏览器经扩展调用（ADR 0079）：卡片拆开画，认的还是原工具名
     private static ToolApprovalRequestContent Browser(string tool, params (string Key, object? Value)[] args) =>
-        new("r1", new FunctionCallContent("c1", tool, args.ToDictionary(x => x.Key, x => x.Value)));
+        Extension(BuiltinExtensions.Browser, BuiltinExtensions.CanonicalCommand(BuiltinExtensions.Browser, tool)!, args);
+
+    private static ToolApprovalRequestContent Extension(string extension, string command,
+        params (string Key, object? Value)[] args) =>
+        new("r1", new FunctionCallContent("c1", ExtensionCalls.CallName, new Dictionary<string, object?>
+        {
+            ["extension"] = extension,
+            ["command"] = command,
+            ["arguments"] = JsonSerializer.SerializeToElement(args.ToDictionary(x => x.Key, x => x.Value)),
+        }));
+
+    /// <summary>扩展卡的「本会话允许」按扩展记，本次按普通允许回应——交给框架按工具名记就把整个 ExtensionCall 放行了</summary>
+    [Fact]
+    public void ExtensionCard_SessionApproval_IsRememberedPerExtension()
+    {
+        List<string> approved = new();
+        ApprovalRequestItem card = new(Extension(BuiltinExtensions.Image, BuiltinExtensions.ImageGenerate, ("prompt", "a cat")))
+        {
+            ApproveExtensionCallback = approved.Add,
+        };
+
+        card.ResolveCommand.Execute("session");
+
+        Assert.Equal(ImageGenerationTool.ToolName, card.ToolName);
+        Assert.Equal(["image"], approved);
+        Assert.Contains(Loc.Text(LangKey.ExtensionNameImage), card.SessionButtonText);
+        ToolApprovalResponseContent response = Assert.Single(card.Response.Result.Contents.OfType<ToolApprovalResponseContent>());
+        Assert.True(response.Approved);
+        Assert.Equal(Loc.Text(LangKey.AgentApprovalResolvedSessionExtension, Loc.Text(LangKey.ExtensionNameImage)),
+            card.ResolvedText);
+    }
+
+    /// <summary>同一次扩展放行在另一处（群待审批条、子会话窗口）先点了：这张也说「本会话允许」，不说「本次」</summary>
+    [Fact]
+    public void ExtensionSessionApproval_DecidedElsewhere_KeepsItsLabel()
+    {
+        ToolApprovalRequestContent request = Extension(BuiltinExtensions.Image, BuiltinExtensions.ImageGenerate, ("prompt", "a"));
+        ApprovalRequestItem clicked = new(request);
+        ApprovalRequestItem elsewhere = new(request);
+
+        clicked.ResolveCommand.Execute("session");
+        elsewhere.MarkDecidedElsewhere(clicked.Response.Result);
+
+        Assert.Equal(clicked.ResolvedText, elsewhere.ResolvedText);
+        Assert.Equal(Loc.Text(LangKey.AgentApprovalResolvedSessionExtension, Loc.Text(LangKey.ExtensionNameImage)),
+            elsewhere.ResolvedText);
+    }
+
+    /// <summary>每次都要问的（打开本机地址）不给「本会话允许」，传来 session 也只按这一次算、不记</summary>
+    [Fact]
+    public void LocalNavigationCard_CannotBeApprovedForTheSession()
+    {
+        List<string> approved = new();
+        ApprovalRequestItem card = new(Browser(BrowserTools.NavigateToolName, ("url", "http://192.168.1.1")),
+            sessionId: "s1", browser: new FakeBrowser())
+        {
+            ApproveExtensionCallback = approved.Add,
+        };
+
+        card.ResolveCommand.Execute("session");
+
+        Assert.True(card.AsksEveryTime);
+        Assert.False(card.CanApproveForSession);
+        Assert.Empty(approved);
+        Assert.Equal(Loc.Text(LangKey.AgentApprovalResolvedOnce), card.ResolvedText);
+    }
 
     /// <summary>接管要的是用户的手：不给「本会话允许」，别的入口传来 session 也只按这一次算</summary>
     [Fact]

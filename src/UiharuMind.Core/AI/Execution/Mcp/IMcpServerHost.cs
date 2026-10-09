@@ -12,18 +12,15 @@ using Microsoft.Extensions.AI;
 namespace UiharuMind.Core.AI.Execution.Mcp;
 
 /// <summary>
-/// 按需 server 的查找结果。不是 <c>Found</c> 时，<see cref="McpServerLookup.Available"/> 用来给模型报"有哪些可用"。
+/// server 的查找结果。不是 <c>Found</c> 时，<see cref="McpServerLookup.Available"/> 用来给模型报"有哪些可用"。
 /// </summary>
 internal enum EMcpLookupStatus
 {
-    /// <summary>可用：托管开着、已授权、未被角色禁用、且是按需送达</summary>
+    /// <summary>可用：托管开着、已授权、未被角色禁用</summary>
     Found,
 
     /// <summary>名单里没有这个名字</summary>
     NotFound,
-
-    /// <summary>这个 server 是直挂的，工具就在工具列表里，不该走 McpCall</summary>
-    MountedDirectly,
 
     /// <summary>被本角色的黑名单禁用（能力层）</summary>
     DisabledByCharacter,
@@ -37,7 +34,7 @@ internal enum EMcpLookupStatus
 
 /// <param name="Status">查找结论</param>
 /// <param name="Server">命中时的配置</param>
-/// <param name="Available">当前可用的按需 server 名，给未命中时的报错用</param>
+/// <param name="Available">当前可用的 server 名，给未命中时的报错用</param>
 internal sealed record McpServerLookup(
     EMcpLookupStatus Status,
     McpServerConfig? Server,
@@ -62,18 +59,26 @@ internal sealed class McpServerConnection
 }
 
 /// <summary>
-/// 按名字找按需 server 并说清没找到的原因。纯函数：合并后的名单、角色禁用名单与授权判据都从参数进来，
+/// 列给模型看的一个 server：名字、用户写的说明、此刻的连接状态
+/// </summary>
+/// <param name="Name">server 名</param>
+/// <param name="Description">一句话说明；项目级 server 恒为空</param>
+/// <param name="Status">连接状态</param>
+internal sealed record McpServerBrief(string Name, string Description, McpServerStatus Status);
+
+/// <summary>
+/// 按名字找 server 并说清没找到的原因。纯函数：合并后的名单、角色禁用名单与授权判据都从参数进来，
 /// 于是"为什么用不了"这套分支可以不碰磁盘和单例就单测。
 /// </summary>
 internal static class McpServerFinder
 {
     /// <summary>
-    /// 可用于按需调用：按需送达 + 托管开着 + 未被角色禁用 + 已授权。
+    /// 可用：托管开着 + 未被角色禁用 + 已授权。
     /// 装配（写进名单）与调用（查找）共用这一处，两边不会各算一遍。
     /// </summary>
-    public static bool IsUsableOnDemand(McpServerConfig server, HashSet<string> disabled,
+    public static bool IsUsable(McpServerConfig server, HashSet<string> disabled,
         Func<McpServerConfig, bool> isTrusted) =>
-        server.IsOnDemand && McpManager.IsInPlay(server, disabled) && isTrusted(server);
+        McpManager.IsInPlay(server, disabled) && isTrusted(server);
 
     /// <summary>
     /// 查找。
@@ -87,7 +92,7 @@ internal static class McpServerFinder
         Func<McpServerConfig, bool> isTrusted, string serverName)
     {
         List<string> available = effective
-            .Where(x => IsUsableOnDemand(x, disabled, isTrusted)).Select(x => x.Name).ToList();
+            .Where(x => IsUsable(x, disabled, isTrusted)).Select(x => x.Name).ToList();
 
         string wanted = serverName.Trim();
         McpServerConfig? hit = effective.FirstOrDefault(x =>
@@ -98,7 +103,6 @@ internal static class McpServerFinder
             !hit.IsEnabled ? EMcpLookupStatus.HostingOff
             : disabled.Contains(hit.Name) ? EMcpLookupStatus.DisabledByCharacter
             : !isTrusted(hit) ? EMcpLookupStatus.NeedsApproval
-            : !hit.IsOnDemand ? EMcpLookupStatus.MountedDirectly
             : EMcpLookupStatus.Found;
         return new McpServerLookup(status, status == EMcpLookupStatus.Found ? hit : null, available);
     }
@@ -111,7 +115,15 @@ internal static class McpServerFinder
 internal interface IMcpServerHost
 {
     /// <summary>
-    /// 按名字找一个<b>按需</b> server，并把没找到的原因说清楚。
+    /// 这一轮可用的 server 与各自此刻的连接状态（不连接，只读运行态）
+    /// </summary>
+    /// <param name="workspacePath">会话的工作区；空表示只有全局 server</param>
+    /// <param name="disabledServers">本角色禁用的扩展名单</param>
+    /// <returns>名单</returns>
+    IReadOnlyList<McpServerBrief> List(string? workspacePath, IEnumerable<string>? disabledServers);
+
+    /// <summary>
+    /// 按名字找一个 server，并把没找到的原因说清楚。
     /// 合并、授权、角色禁用的判据与装配同源，不在这里另算一遍。
     /// </summary>
     /// <param name="workspacePath">会话的工作区；空表示只有全局 server</param>

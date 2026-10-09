@@ -73,9 +73,6 @@ public static class AppPaths
         /// <summary>MCP 服务器的本地启停状态</summary>
         public static readonly string McpServerStates = Path.Combine(McpRoot, "McpServerStates.json");
 
-        /// <summary>项目级 MCP server 的送达方式（本机偏好，按工作区 × 名字，不进项目的 .mcp.json）</summary>
-        public static readonly string McpWorkspaceMounts = Path.Combine(McpRoot, "McpWorkspaceMounts.json");
-
         /// <summary>
         /// 配置类的落盘位置,文件名即类名。加一个配置类不需要在这里登记。
         /// </summary>
@@ -186,7 +183,7 @@ public static class AppPaths
         public static readonly string FetchedPages = Path.Combine(Root, "FetchedPages");
 
         /// <summary>
-        /// 按需 MCP server 的工具清单缓存：server 离线时 McpHelp 仍可读。
+        /// MCP server 的工具清单缓存：server 离线时 ExtensionHelp 仍可读。
         /// 可再生（重连即重写）、用户可随手删。
         /// </summary>
         public static readonly string McpToolCatalogs = Path.Combine(Root, "McpToolCatalogs");

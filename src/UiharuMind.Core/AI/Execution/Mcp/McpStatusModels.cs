@@ -12,7 +12,7 @@ namespace UiharuMind.Core.AI.Execution.Mcp;
 /// <summary>
 /// 预告名单里的一条：这个会话<b>将会</b>（或本该、却没能）接入的一个 server。
 ///
-/// 与 <see cref="McpServerToolGroup"/> 的分工：那个是<b>实况</b>（装配之后真挂上了什么），
+/// 与 <see cref="McpToolSet"/> 的分工：那个是<b>实况</b>（装配时可用的名单），
 /// 这个是<b>预告</b>（装配之前的预测）。两者不合并，界面上也分区呈现。
 /// </summary>
 public sealed class McpPlannedServer
@@ -35,9 +35,6 @@ public sealed class McpPlannedServer
     /// </summary>
     public bool IsShadowed { get; init; }
 
-    /// <summary>送达方式（直挂 / 按需）</summary>
-    public EMcpMountMode MountMode { get; init; }
-
     /// <summary>连接层关着（<c>IsEnabled</c> 为 false，见 ADR 0008）</summary>
     public bool IsHostingOff { get; init; }
 
@@ -55,9 +52,6 @@ public sealed class McpPlannedServer
 
     /// <summary>上次算出的工具定义估算 token；从未连过为 null</summary>
     public int? EstimatedTokens { get; init; }
-
-    /// <summary>这一轮真的会挂上去（三道闸门都过了，且已连上）</summary>
-    public bool WillBeMounted => !IsShadowed && !IsHostingOff && !IsDisabledByCharacter && !NeedsApproval;
 }
 
 /// <summary>
@@ -105,7 +99,4 @@ public sealed class McpServerStatus
 
     /// <summary>失败原因；成功或未连接时为 null</summary>
     public string? Error { get; init; }
-
-    /// <summary>server 是否给了自述</summary>
-    public bool HasInstructions { get; init; }
 }

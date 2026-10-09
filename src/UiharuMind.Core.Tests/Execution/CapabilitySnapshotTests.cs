@@ -40,35 +40,15 @@ public class CapabilitySnapshotTests
             snapshot.EstimatedTokens);
     }
 
-    /// <summary>
-    /// MCP 自述只计一次。它既是系统提示里的一段，又挂在 MCP 分组的 <c>InstructionsEstimatedTokens</c> 上，
-    /// 把两边都加进合计的话，接一个带长自述的 server 会让固定开销凭空翻倍。
-    /// </summary>
+    /// <summary>扩展名单那一段照常计入合计：MCP 的工具不进请求（ADR 0079），没有另一处在算它</summary>
     [Fact]
-    public void Capture_DoesNotCountMcpNotesTwice()
+    public void Capture_CountsTheExtensionRoster()
     {
-        const int notesTokens = 120;
-        McpToolSet mcp = new()
-        {
-            Instructions = "## demo\nuse the demo server.",
-            Groups =
-            [
-                new McpServerToolGroup
-                {
-                    ServerName = "demo",
-                    Tools = [],
-                    InstructionsInjected = true,
-                    InstructionsEstimatedTokens = notesTokens,
-                },
-            ],
-        };
+        AgentCapabilitySnapshot snapshot = AgentCapabilitySnapshot.Capture([], McpToolSet.Empty,
+            [new AgentPromptSegment(EPromptSection.Extensions, "# 扩展\n\n- unity：Unity 编辑器")]);
 
-        AgentCapabilitySnapshot snapshot = AgentCapabilitySnapshot.Capture([], mcp,
-            [new AgentPromptSegment(EPromptSection.Mcp, mcp.Instructions)]);
-
-        //自述那一段仍然登记在册(提示词明细要能看到它),但只从 MCP 分组那一侧计入合计
-        Assert.Single(snapshot.PromptSegments);
-        Assert.Equal(notesTokens, snapshot.EstimatedTokens);
+        Assert.True(snapshot.EstimatedTokens > 0);
+        Assert.Equal(snapshot.PromptTokensOf(EPromptSection.Extensions), snapshot.EstimatedTokens);
     }
 
     /// <summary>

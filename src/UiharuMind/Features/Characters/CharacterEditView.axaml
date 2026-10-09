@@ -241,6 +241,21 @@
                                               IsEnabled="{Binding !IsBuiltIn}">
                         <controls:SettingsSection.Body>
                             <StackPanel Spacing="10">
+                                <!-- 内置扩展与 MCP server 同一份禁用名单(ADR 0079) -->
+                                <ItemsControl ItemsSource="{Binding AgentTools.ExtensionToggles}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="viewData:AgentExtensionToggle">
+                                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,2">
+                                                <CheckBox IsChecked="{Binding IsEnabled}" />
+                                                <StackPanel Grid.Column="1" Spacing="1">
+                                                    <TextBlock Text="{Binding DisplayName}" />
+                                                    <TextBlock Classes="muted" Text="{Binding Description}"
+                                                               TextWrapping="Wrap" MaxLines="2" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                                 <TextBlock Classes="muted" Text="{loc:Loc CharacterMcpEmpty}"
                                            IsVisible="{Binding AgentTools.HasNoMcpServers}" />
                                 <ItemsControl ItemsSource="{Binding AgentTools.McpServers}">
@@ -252,14 +267,7 @@
                                                     <controls:CenteredStackPanel Spacing="6">
                                                         <TextBlock Text="{Binding Name}" />
                                                         <TextBlock FontSize="11" VerticalAlignment="Center"
-                                                                   Foreground="{DynamicResource SemiGrey5}"
-                                                                   IsVisible="{Binding !IsOnDemand}"
-                                                                   Text="{Binding ToolCount, StringFormat='{}{0} tools'}" />
-                                                        <TextBlock FontSize="11" VerticalAlignment="Center"
-                                                                   Foreground="{DynamicResource SemiBlue5}"
-                                                                   IsVisible="{Binding IsOnDemand}"
-                                                                   Text="{loc:Loc AgentCapabilityMcpOnDemand}"
-                                                                   ToolTip.Tip="{loc:Loc AgentMcpMountModeTip}" />
+                                                                   Foreground="{DynamicResource SemiBlue5}" Text="MCP" />
                                                         <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
                                                                    Text="{Binding TokenText}"
                                                                    ToolTip.Tip="{loc:Loc CharacterCapabilityTokenTip}" />

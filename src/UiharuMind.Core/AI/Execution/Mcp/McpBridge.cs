@@ -15,9 +15,9 @@ using UiharuMind.Core.AI.Execution.Files;
 namespace UiharuMind.Core.AI.Execution.Mcp;
 
 /// <summary>
-/// 按需 MCP 的<b>核心</b>：查（Help）与调（Call），与"怎么送到模型手里"无关。
-/// 现在的载体是两个固定元工具（<see cref="McpMetaTools"/>）；以后若要加 shell 命令的壳，
-/// 只需另写一层薄壳调用同一个核心，本类一行都不用改（见 ADR 0051）。
+/// MCP 的<b>核心</b>：列、查（Help）与调（Call），与"怎么送到模型手里"无关。
+/// 现在的载体是扩展的两把元工具（<c>ExtensionHelp</c> / <c>ExtensionCall</c>，ADR 0079），
+/// 每个 server 在那里是一个扩展，它的工具就是扩展的命令。
 ///
 /// 一个实例绑定<b>一次装配的上下文</b>（工作区、角色禁用名单、落盘目录）。
 /// 名单是装配时固化的快照：配置一变装配就会重建，不会用到过期的。
@@ -28,8 +28,7 @@ namespace UiharuMind.Core.AI.Execution.Mcp;
 internal sealed class McpBridge
 {
     /// <summary>
-    /// 等 server 连上的上限。比装配期的预连（3 秒）宽松，
-    /// 因为此刻模型已经明确要用这个 server，等一会儿比立刻失败划算。
+    /// 等 server 连上的上限：此刻模型已经明确要用这个 server，等一会儿比立刻失败划算。
     /// </summary>
     public static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(10);
 
@@ -55,6 +54,12 @@ internal sealed class McpBridge
     }
 
     /// <summary>
+    /// 这一轮可用的 server 与各自此刻的连接状态（不连接）
+    /// </summary>
+    /// <returns>名单</returns>
+    public IReadOnlyList<McpServerBrief> List() => _host.List(_workspacePath, _disabledServers);
+
+    /// <summary>
     /// 查 server 或工具。
     /// </summary>
     /// <param name="server">server 名</param>
@@ -63,7 +68,7 @@ internal sealed class McpBridge
     /// <returns>给模型的文本</returns>
     public async Task<string> HelpAsync(string? server, string? tool, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(server)) return "Parameter `server` is required.";
+        if (string.IsNullOrWhiteSpace(server)) return "Parameter `extension` is required.";
 
         McpServerLookup lookup = _host.Find(_workspacePath, _disabledServers, server);
         if (lookup.Server == null) return Refusal(server, lookup);
@@ -93,7 +98,7 @@ internal sealed class McpBridge
             instructions = catalog.Instructions;
             note = $"Note: the server is not connected ({connection.Error ?? "unknown error"}); " +
                    $"this is the tool list cached at {catalog.CapturedUtc:yyyy-MM-dd HH:mm} UTC. " +
-                   "McpCall will fail until it is back.";
+                   "Calls will fail until it is back.";
         }
 
         string text;
@@ -117,7 +122,7 @@ internal sealed class McpBridge
                 : McpHelpFormatter.RenderTool(config.Name, found, note);
         }
 
-        return ToolResultSpill.Limit(text, _spillDirectory, $"McpHelp_{config.Name}", ToolOutputBudget.Catalog);
+        return ToolResultSpill.Limit(text, _spillDirectory, $"ExtensionHelp_{config.Name}", ToolOutputBudget.Catalog);
     }
 
     /// <summary>
@@ -131,8 +136,8 @@ internal sealed class McpBridge
     public async Task<object> CallAsync(string? server, string? tool,
         IReadOnlyDictionary<string, JsonElement>? arguments, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(server)) return "Parameter `server` is required.";
-        if (string.IsNullOrWhiteSpace(tool)) return "Parameter `tool` is required.";
+        if (string.IsNullOrWhiteSpace(server)) return "Parameter `extension` is required.";
+        if (string.IsNullOrWhiteSpace(tool)) return "Parameter `command` is required.";
 
         McpServerLookup lookup = _host.Find(_workspacePath, _disabledServers, server);
         if (lookup.Server == null) return Refusal(server, lookup);
@@ -143,7 +148,7 @@ internal sealed class McpBridge
         if (!connection.IsConnected)
         {
             return $"MCP server '{config.Name}' is not connected: {connection.Error ?? "unknown error"}. " +
-                   "It is retried on every call; McpHelp still shows its last known tools.";
+                   "It is retried on every call; ExtensionHelp still shows its last known commands.";
         }
 
         AIFunction? function = McpHelpFormatter.FindByName(connection.Tools, x => x.Name, tool);
@@ -160,7 +165,7 @@ internal sealed class McpBridge
             AIFunctionArguments callArguments = new(
                 arguments?.ToDictionary(x => x.Key, object? (x) => x.Value) ?? new Dictionary<string, object?>());
             object? raw = await function.InvokeAsync(callArguments, cancellationToken).ConfigureAwait(false);
-            return McpCallResult.Normalize(raw, _spillDirectory, $"McpCall_{config.Name}_{function.Name}", _paths);
+            return McpCallResult.Normalize(raw, _spillDirectory, $"ExtensionCall_{config.Name}_{function.Name}", _paths);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -184,24 +189,22 @@ internal sealed class McpBridge
     /// <summary>
     /// "没有这个工具"的报错。常见原因不是拼错，而是这个工具在 server 端被关掉了
     /// （Unity MCP 就能逐个开关，且它的"列出工具"会照列被关的），所以要明说这一点、
-    /// 并让模型别再重试——重试的每一次都是白付一轮。完整清单在 McpHelp 里，这里只给最像的几个。
+    /// 并让模型别再重试——重试的每一次都是白付一轮。完整清单在帮助里，这里只给最像的几个。
     /// </summary>
     private static string UnknownTool(string serverName, string tool, IEnumerable<string> available)
     {
         List<string> names = available.ToList();
         string suggestions = McpHelpFormatter.SuggestNames(names, tool);
         string hint = suggestions.Length > 0
-            ? $" Similar callable tools: {suggestions}."
+            ? $" Similar callable commands: {suggestions}."
             : string.Empty;
         return $"MCP server '{serverName}' has no callable tool '{tool}' ({names.Count} tools are exposed).{hint} " +
                "It may be turned off on the server side; do not retry it, tell the user to enable it there. " +
-               "McpHelp with `server` lists every callable tool.";
+               $"ExtensionHelp with extension \"{serverName}\" lists every callable command.";
     }
 
     private static string Refusal(string requested, McpServerLookup lookup) => lookup.Status switch
     {
-        EMcpLookupStatus.MountedDirectly =>
-            $"MCP server '{requested}' is mounted directly; call its tools by their own names instead.",
         EMcpLookupStatus.DisabledByCharacter =>
             $"MCP server '{requested}' is disabled for this agent.",
         EMcpLookupStatus.NeedsApproval =>
@@ -209,6 +212,6 @@ internal sealed class McpBridge
             "by the user yet, so it cannot be used.",
         EMcpLookupStatus.HostingOff =>
             $"MCP server '{requested}' is turned off in the app's settings.",
-        _ => $"Unknown MCP server '{requested}'. Available servers: {McpHelpFormatter.ListNames(lookup.Available)}.",
+        _ => $"Unknown extension '{requested}'. ExtensionHelp with no arguments lists every extension.",
     };
 }

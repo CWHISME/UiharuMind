@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace UiharuMind.Core.AI.Character;
 
 /// <summary>
@@ -28,31 +30,9 @@ public class AgentToolConfig
     public bool EnableVisionTool { get; set; } = true;
 
     /// <summary>
-    /// 启用生图工具(GenerateImage,委托生图模型出图、改图)。默认关:每次出图都可能花钱,
-    /// 内置卡里只有 OP-01 在卡上打开,其余要用的在编辑页自己开
-    /// </summary>
-    public bool EnableImageGeneration { get; set; }
-
-    /// <summary>
     /// 启用朗读工具(Speak,用角色的声音把一段话念给用户听)。默认关:会突然出声,要的在编辑页自己开
     /// </summary>
     public bool EnableSpeak { get; set; }
-
-    /// <summary>
-    /// 启用配音工具(SynthesizeSpeech,用角色的声音把文字合成成音频文件)。默认关:本地合成占内存、在线合成可能花钱
-    /// </summary>
-    public bool EnableSpeechSynthesis { get; set; }
-
-    /// <summary>
-    /// 启用转写工具(TranscribeAudio,把音频文件转成文字、可出字幕)。默认关:本地识别占内存、在线识别可能花钱
-    /// </summary>
-    public bool EnableTranscription { get; set; }
-
-    /// <summary>
-    /// 启用浏览器工具(BrowserSnapshot / BrowserNavigate / BrowserAct,驱动本机 Chrome 的专用档案)。
-    /// 默认关:会替用户在网站上点按钮、填表单,要的在编辑页自己开
-    /// </summary>
-    public bool EnableBrowser { get; set; }
 
     /// <summary>启用知识库检索工具(KnowledgeSearch,检索会话挂载的嵌入知识库)</summary>
     public bool EnableKnowledgeSearchTool { get; set; }
@@ -73,16 +53,22 @@ public class AgentToolConfig
     public List<string> DisabledSkills { get; set; } = new();
 
     /// <summary>
-    /// 本智能体禁用的 MCP server 名。
-    ///
-    /// MCP 工具此前是全局无差别下发的——只要 server 托管着，每个智能体都吃下它的全部工具，
-    /// 是本类"按角色配能力"这条规矩下唯一的例外。收进来之后，
-    /// <c>McpServerConfig.IsEnabled</c> 退回到纯连接层（要不要托管这个进程），
-    /// 能力层只有这一份名单说话，因此不构成 ADR 0003 反对的两层 AND（见 ADR 0008）。
+    /// 本智能体禁用的扩展名（ADR 0079）：内置扩展（browser、image、audio）与 MCP server 同一份名单。
     ///
     /// 取<b>黑名单</b>而非白名单，与 <see cref="DisabledSkills"/> 同形：空名单即全给。
+    /// 扩展不占工具列表、每次有风险的调用都要用户批，所以默认全给；
+    /// MCP server 的「托管」（<c>McpServerConfig.IsEnabled</c>）仍是纯连接层，能力层只有这一份名单说话（ADR 0008）。
     /// </summary>
-    public List<string> DisabledMcpServers { get; set; } = new();
+    public List<string> DisabledExtensions { get; set; } = new();
+
+    /// <summary>旧档案里的 MCP 禁用名单：读进来并进 <see cref="DisabledExtensions"/>，不再写出</summary>
+    [JsonPropertyName("DisabledMcpServers")]
+    [JsonInclude]
+    private List<string>? LegacyDisabledMcpServers
+    {
+        get => null;
+        set => DisabledExtensions = DisabledExtensions.Union(value ?? [], StringComparer.OrdinalIgnoreCase).ToList();
+    }
 
     /// <summary>
     /// 与另一份配置取交集（逐项与）。用于子智能体：委派出去的那一个<b>不能比派活的这一个能力更大</b>，
@@ -99,20 +85,16 @@ public class AgentToolConfig
             EnableWebSearch = EnableWebSearch && other.EnableWebSearch,
             EnableScheduledTasks = EnableScheduledTasks && other.EnableScheduledTasks,
             EnableVisionTool = EnableVisionTool && other.EnableVisionTool,
-            EnableImageGeneration = EnableImageGeneration && other.EnableImageGeneration,
             EnableSpeak = EnableSpeak && other.EnableSpeak,
-            EnableSpeechSynthesis = EnableSpeechSynthesis && other.EnableSpeechSynthesis,
-            EnableTranscription = EnableTranscription && other.EnableTranscription,
-            EnableBrowser = EnableBrowser && other.EnableBrowser,
             EnableKnowledgeSearchTool = EnableKnowledgeSearchTool && other.EnableKnowledgeSearchTool,
             EnableSubAgent = EnableSubAgent && other.EnableSubAgent,
             EnableTodoList = EnableTodoList && other.EnableTodoList,
             EnableAgentMode = EnableAgentMode && other.EnableAgentMode,
             // 禁用清单取并集:任一侧禁掉的技能都不该出现
             DisabledSkills = DisabledSkills.Union(other.DisabledSkills, StringComparer.OrdinalIgnoreCase).ToList(),
-            // 同理:父代理禁掉的 server,不能靠委派给子代理绕回来
-            DisabledMcpServers = DisabledMcpServers
-                .Union(other.DisabledMcpServers, StringComparer.OrdinalIgnoreCase).ToList(),
+            // 同理:父代理禁掉的扩展,不能靠委派给子代理绕回来
+            DisabledExtensions = DisabledExtensions
+                .Union(other.DisabledExtensions, StringComparer.OrdinalIgnoreCase).ToList(),
         };
     }
 
@@ -125,7 +107,7 @@ public class AgentToolConfig
         AgentToolConfig copy = (AgentToolConfig)MemberwiseClone();
         copy.EnableSubAgent = false;
         copy.DisabledSkills = [..DisabledSkills];
-        copy.DisabledMcpServers = [..DisabledMcpServers];
+        copy.DisabledExtensions = [..DisabledExtensions];
         return copy;
     }
 }

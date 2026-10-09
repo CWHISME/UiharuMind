@@ -15,6 +15,7 @@ using Avalonia.Threading;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools;
@@ -45,6 +46,7 @@ public sealed class ConversationTranscript : ITurnSink
     private readonly Func<TextConversationItem> _createAssistantItem;
     private readonly Func<ChatMessage, IReadOnlyList<TextConversationItem>> _createUserItems;
     private readonly Action<string>? _rememberShellPattern;
+    private readonly Action<string>? _approveExtension; //「本会话允许某个扩展」的落点
     private readonly Func<AgentPathResolver?>? _pathsSource; //审批卡片预演 diff 要用它解析路径
     private readonly Func<string?>? _sessionIdSource; //审批卡片说清浏览器动作、接管切窗口要认会话
     private readonly ThinkTagStreamParser _thinkParser = new();
@@ -104,6 +106,7 @@ public sealed class ConversationTranscript : ITurnSink
     /// 卡片会一直停在「历史里没有这次调用的结果」，直到整份回放才对上。
     /// </param>
     /// <param name="sessionIdSource">当前会话 id 来源：浏览器调用的审批卡按它的标签页把编号翻成元素</param>
+    /// <param name="approveExtension">扩展卡上「本会话允许」的落点（参数是扩展名）</param>
     public ConversationTranscript(
         IList<ConversationItemBase> target,
         Func<TextConversationItem> createAssistantItem,
@@ -111,7 +114,8 @@ public sealed class ConversationTranscript : ITurnSink
         Func<AgentPathResolver?>? pathsSource = null,
         IReadOnlyList<ConversationItemBase>? renderedBefore = null,
         Func<ChatMessage, IReadOnlyList<TextConversationItem>>? createUserItems = null,
-        Func<string?>? sessionIdSource = null)
+        Func<string?>? sessionIdSource = null,
+        Action<string>? approveExtension = null)
     {
         _target = target;
         _renderedBefore = renderedBefore;
@@ -121,6 +125,7 @@ public sealed class ConversationTranscript : ITurnSink
         _rememberShellPattern = rememberShellPattern;
         _pathsSource = pathsSource;
         _sessionIdSource = sessionIdSource;
+        _approveExtension = approveExtension;
     }
 
     // [诊断探针] 界面绑定集合必须在 UI 线程写入:Avalonia 的弱事件簿记不是线程安全的,
@@ -163,16 +168,18 @@ public sealed class ConversationTranscript : ITurnSink
                 // CallId 唯一：已有这张卡（观察中途挂上来，历史回放已画过）就不再画第二张，结果照常回写到它上面
                 if (!string.IsNullOrEmpty(call.CallId) && FindCall(call.CallId) != null) break;
 
+                // 扩展调用按内层那次画（ADR 0079）：生图缩略图、配音播放、浏览器卡都认原工具名
+                FunctionCallContent shown = ExtensionCalls.Unwrap(call);
                 _target.Add(new ToolCallItem
                 {
-                    CallId = call.CallId,
-                    ToolName = call.Name,
-                    IconName = AgentContentFormatter.GetToolIconName(call.Name),
-                    ArgumentSummary = AgentContentFormatter.SummarizeArguments(call, _pathsSource?.Invoke()?.WorkspaceRoot),
-                    FilePath = AgentContentFormatter.GetFilePath(call),
-                    ArgumentsJson = call.Arguments == null
+                    CallId = shown.CallId,
+                    ToolName = shown.Name,
+                    IconName = AgentContentFormatter.GetToolIconName(shown.Name),
+                    ArgumentSummary = AgentContentFormatter.SummarizeArguments(shown, _pathsSource?.Invoke()?.WorkspaceRoot),
+                    FilePath = AgentContentFormatter.GetFilePath(shown),
+                    ArgumentsJson = shown.Arguments == null
                         ? string.Empty
-                        : string.Join("\n", call.Arguments.Select(x => $"{x.Key}: {x.Value}")),
+                        : string.Join("\n", shown.Arguments.Select(x => $"{x.Key}: {x.Value}")),
                 });
                 break;
 
@@ -212,6 +219,7 @@ public sealed class ConversationTranscript : ITurnSink
                 ApprovalRequestItem approvalItem = new(approvalRequest, _pathsSource?.Invoke(), _sessionIdSource?.Invoke())
                 {
                     RememberShellPatternCallback = pattern => _rememberShellPattern?.Invoke(pattern),
+                    ApproveExtensionCallback = extension => _approveExtension?.Invoke(extension),
                 };
                 _target.Add(approvalItem);
                 _pending.Add(approvalItem);

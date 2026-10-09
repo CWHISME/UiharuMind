@@ -1,6 +1,8 @@
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
+using System.Text.Json;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Features.Conversation;
@@ -47,6 +49,31 @@ public class ConversationTranscriptTests
             default:
                 return item.Message;
         }
+    }
+
+    /// <summary>
+    /// 扩展调用按内层那次画卡（ADR 0079）：工具名是原工具的、参数是命令自己的，CallId 不变——
+    /// 生图缩略图、配音播放与结果回写都认它们
+    /// </summary>
+    [Fact]
+    public void ExtensionCall_IsDrawnAsItsInnerCall()
+    {
+        var (transcript, items) = Create();
+
+        transcript.Apply(new FunctionCallContent("c7", ExtensionCalls.CallName, new Dictionary<string, object?>
+        {
+            ["extension"] = "image",
+            ["command"] = "generate",
+            ["arguments"] = JsonSerializer.SerializeToElement(new { prompt = "a cat" }),
+        }));
+        transcript.Apply(new FunctionResultContent("c7", "Saved: $DRAFT/images/cat.png"));
+
+        ToolCallItem card = Assert.IsType<ToolCallItem>(Assert.Single(items));
+        Assert.Equal(ImageGenerationTool.ToolName, card.ToolName);
+        Assert.Equal("c7", card.CallId);
+        Assert.Contains("prompt: a cat", card.ArgumentsJson);
+        Assert.Equal("image", card.IconName);
+        Assert.False(card.IsRunning);
     }
 
     [Fact]

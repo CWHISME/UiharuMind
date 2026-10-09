@@ -54,17 +54,15 @@ internal sealed class AgentAssemblyPlan
     /// <summary>当前模型是否自带视觉。决定识图工具挂不挂——视觉模型直接收图，那工具是绕路</summary>
     public bool ModelSupportsVision { get; init; }
 
-    /// <summary>至少配了一个生图模型。只看配置不看连通（ADR 0052），与 <see cref="AgentAssemblyFacts.ImageGeneration"/> 同一判据</summary>
+    /// <summary>至少配了一个生图模型。只看配置不看连通（ADR 0052），与 <see cref="AgentAssemblyFacts.ImageModelsConfigured"/> 同一判据</summary>
     public bool ImageModelsConfigured { get; init; }
 
     /// <summary>挂载的子智能体（已按档位过滤并排除自己，见 <see cref="CharacterRunnerFactory.ResolveMountedAgents"/>）</summary>
     public IReadOnlyList<CharacterData> MountedAgents { get; init; } = [];
 
     /// <summary>
-    /// MCP 侧的产物：工具集、server 自述与分组明细，取自装配时刻的那一份常驻缓存，
-    /// 且已按角色的 <c>DisabledMcpServers</c> 过滤。
-    /// 主代理与子代理用<b>同一份</b>——子代理原先在派活回调里现取，两者可能拿到不同的工具集，
-    /// 而 MCP 侧变化本就由 <see cref="AgentAssemblyFacts.McpRevision"/> 触发重建
+    /// MCP 侧的产物：可用的 server 名单与桥接，已按角色的 <c>DisabledExtensions</c> 过滤。
+    /// 主代理与子代理用<b>同一份</b>；名单变化由 <see cref="AgentAssemblyFacts.McpRoster"/> 触发重建
     /// </summary>
     public McpToolSet Mcp { get; init; } = McpToolSet.Empty;
 
@@ -169,9 +167,6 @@ internal sealed class AgentAssemblyPlan
     /// </summary>
     public bool ReadAttachesImages => VisionFallback.HasFallback(IsAgentForm, Config) && ModelSupportsVision;
 
-    /// <summary>生图工具是否该挂：agent 形态、角色开着、且配了生图模型——没配时一个 token 都不占</summary>
-    public bool MountImageGeneration => IsAgentForm && Config.EnableImageGeneration && ImageModelsConfigured;
-
     /// <summary>
     /// 从构建配置解析出装配所需的全部事实。<b>这是唯一读单例与磁盘的地方</b>。
     /// </summary>
@@ -237,7 +232,7 @@ internal sealed class AgentAssemblyPlan
             MountedAgents = config.EnableSubAgent
                 ? CharacterRunnerFactory.ResolveMountedAgents(profile.Character)
                 : [],
-            Mcp = McpManager.Instance.Resolve(profile.WorkspacePath, config.DisabledMcpServers, outputRoom),
+            Mcp = McpManager.Instance.Resolve(profile.WorkspacePath, config.DisabledExtensions, outputRoom),
             SkillsSource = SkillCatalog.Instance.BuildSkillsSource(config.DisabledSkills),
             BuiltInSkills = disableSkillsProvider
                 ? SkillCatalog.Instance.AvailableBuiltIns(config.DisabledSkills)

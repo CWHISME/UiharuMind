@@ -11,8 +11,9 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Files;
-using UiharuMind.Core.AI.Execution.Tools.Browser;
+using UiharuMind.Core.AI.Execution.Mcp;
 
 namespace UiharuMind.Core.AI.Execution;
 
@@ -40,6 +41,7 @@ public enum EAgentPermissionMode
 ///
 /// 一条贯穿三档的硬规则:<b>工作区外的写入永不自动放行</b>，唯一的例外是会话自己的产出房间
 /// （<c>approvedWriteRoot</c>，程序管辖、有界、随会话删除——与"磁盘任何地方"不是一回事）。
+/// 扩展调用（<c>ExtensionCall</c>）不归档位管，逐条按风险判（ADR 0079，见 <see cref="ExtensionRisk"/>）。
 /// 用户点一次现成的"本会话允许"之后框架自己会把该工具整会话放行,所以这里不需要任何额外状态。
 /// 它是有意做成"减法"而非"加一条否决规则"的——框架的 AutoApprovalRules 是<b>或</b>语义,
 /// 任一条返回 true 即放行,加否决规则拦不住 <c>AllToolsAutoApprovalRule</c>,
@@ -63,14 +65,17 @@ public static class ApprovalModeMapper
     /// 空串表示无豁免(老行为)。只认这一间,不认整棵产出树</param>
     /// <param name="memoryWriteRoot">记忆目录绝对路径(ADR 0028):落在里面的<b>写</b>入
     /// 任何权限档自动放行;空串表示无豁免。范围只认 <c>Memory/</c> 这一格,删除不在此列(走 shell)</param>
+    /// <param name="sessionExtensionApprovalSource">本会话放行过的扩展名来源(审批卡「本会话允许」与输入框设置写入,
+    /// <see cref="ExtensionCalls.AllExtensions"/> 代表全部),可空</param>
     /// <returns>规则列表</returns>
     public static List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> BuildRules(
         EAgentPermissionMode mode, string workspaceRoot = "",
         IReadOnlyList<string>? preAuthorizedShellPatterns = null,
         Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null,
-        string approvedWriteRoot = "", string memoryWriteRoot = "") =>
+        string approvedWriteRoot = "", string memoryWriteRoot = "",
+        Func<IReadOnlyList<string>?>? sessionExtensionApprovalSource = null) =>
         BuildRules(() => mode, workspaceRoot, preAuthorizedShellPatterns, sessionShellApprovalSource,
-            approvedWriteRoot, memoryWriteRoot);
+            approvedWriteRoot, memoryWriteRoot, sessionExtensionApprovalSource);
 
     /// <summary>
     /// 同上，但档位每次判断时现取：用户中途改档（或群改档推给成员），下一条调用就按新档来，
@@ -82,12 +87,14 @@ public static class ApprovalModeMapper
     /// <param name="sessionShellApprovalSource">会话级放行的 shell 命令模式来源,可空</param>
     /// <param name="approvedWriteRoot">会话自己的产出房间绝对路径</param>
     /// <param name="memoryWriteRoot">记忆目录绝对路径</param>
+    /// <param name="sessionExtensionApprovalSource">本会话放行过的扩展名来源,可空</param>
     /// <returns>规则列表</returns>
     public static List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> BuildRules(
         Func<EAgentPermissionMode> modeSource, string workspaceRoot = "",
         IReadOnlyList<string>? preAuthorizedShellPatterns = null,
         Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null,
-        string approvedWriteRoot = "", string memoryWriteRoot = "")
+        string approvedWriteRoot = "", string memoryWriteRoot = "",
+        Func<IReadOnlyList<string>?>? sessionExtensionApprovalSource = null)
     {
         // 产出房间就是草稿目录:简写 $DRAFT / $MEMORY 按它们展开,与工具执行时落到同一处
         AgentPathResolver paths = new(workspaceRoot, approvedWriteRoot, memoryWriteRoot);
@@ -103,11 +110,16 @@ public static class ApprovalModeMapper
         };
 
         // 全放行,但越界写入除外——定时任务是代码写死的档位,用户没机会为它选,
-        // 而无人值守下越界写入没人拦就真的没人拦了。浏览器打开本机/内网地址同理(BrowserRisk)
+        // 而无人值守下越界写入没人拦就真的没人拦了。扩展调用也除外:它不归档位管,由下一条逐条判
         rules.Add(context => new ValueTask<bool>(
             modeSource() == EAgentPermissionMode.FullAuto &&
-            !IsOutOfWorkspaceWrite(context.FunctionCallContent, paths, room) &&
-            !BrowserRisk.RequiresApprovalInAllModes(context.FunctionCallContent)));
+            !ExtensionCalls.IsCall(context.FunctionCallContent) &&
+            !IsOutOfWorkspaceWrite(context.FunctionCallContent, paths, room)));
+
+        // 扩展:只读的三档都不问;一般的本会话放行过这个扩展就不问;硬问的(接管、浏览器去本机地址)永远问
+        rules.Add(context => new ValueTask<bool>(
+            IsApprovedExtensionCall(context.FunctionCallContent, sessionExtensionApprovalSource,
+                (server, tool) => McpManager.Instance.IsReadOnlyTool(server, tool, workspaceRoot))));
 
         // 自动编辑:工作区内的写入放行。这一档曾经<b>一条规则都不加</b>,于是与只读档行为完全一致:
         // 枚举注释写着"文件读写自动放行",实际每次编辑都弹卡。更要命的是定时任务写死用这一档而
@@ -139,6 +151,23 @@ public static class ApprovalModeMapper
 
         return rules;
     }
+
+    /// <summary>
+    /// 这次扩展调用能不能不问用户（ADR 0079）
+    /// </summary>
+    /// <param name="call">工具调用</param>
+    /// <param name="sessionApprovalSource">本会话放行过的扩展名来源,可空</param>
+    /// <param name="mcpReadOnly">MCP 工具是否声明了只读(按发起会话的工作区认 server)</param>
+    /// <returns>放行为 true；不是扩展调用为 false</returns>
+    internal static bool IsApprovedExtensionCall(FunctionCallContent call,
+        Func<IReadOnlyList<string>?>? sessionApprovalSource, Func<string, string, bool> mcpReadOnly) =>
+        ExtensionRisk.Classify(call, mcpReadOnly) switch
+        {
+            EExtensionRisk.ReadOnly => true,
+            EExtensionRisk.Standard => ExtensionCalls.TryRead(call, out ExtensionInvocation? invocation) &&
+                                       ExtensionRisk.IsApproved(sessionApprovalSource?.Invoke(), invocation.Extension),
+            _ => false,
+        };
 
     /// <summary>
     /// 从一条 shell 命令派生"同类命令"的放行模式:取前两个词加通配
@@ -247,7 +276,9 @@ public static class ApprovalModeMapper
     /// </summary>
     private static bool IsUnderMemory(FunctionCallContent functionCall, AgentPathResolver paths, string memoryRoot)
     {
-        if (paths.WorkspaceRoot.Length == 0) return false;
+        // 只认写工具:规则是「或」语义,不看工具名的话,任何调用顺手带一个指向记忆目录的 filePath 就整条放行
+        // (shell、扩展调用的接管都算在内)
+        if (!IsMutatingFileTool(functionCall) || paths.WorkspaceRoot.Length == 0) return false;
 
         //路径非法:宁可当不在记忆里,让用户看一眼
         return paths.TryResolve(ExtractFilePath(functionCall.Arguments), out string full) && IsUnder(full, memoryRoot);

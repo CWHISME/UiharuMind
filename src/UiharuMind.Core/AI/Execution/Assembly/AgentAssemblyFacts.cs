@@ -96,20 +96,11 @@ public sealed record AgentAssemblyFacts
     /// <summary>识图工具开关</summary>
     public bool VisionTool { get; init; }
 
-    /// <summary>生图工具挂没挂：角色开着且配了生图模型（新增第一个生图模型即触发重建）</summary>
-    public bool ImageGeneration { get; init; }
+    /// <summary>配了生图模型：生图扩展能不能用随它变（新增第一个生图模型即触发重建）</summary>
+    public bool ImageModelsConfigured { get; init; }
 
     /// <summary>朗读工具挂没挂（群成员不挂）</summary>
     public bool Speak { get; init; }
-
-    /// <summary>配音工具挂没挂</summary>
-    public bool SpeechSynthesis { get; init; }
-
-    /// <summary>转写工具挂没挂</summary>
-    public bool Transcription { get; init; }
-
-    /// <summary>浏览器工具开关</summary>
-    public bool Browser { get; init; }
 
     /// <summary>知识库检索工具开关</summary>
     public bool KnowledgeSearchTool { get; init; }
@@ -156,21 +147,20 @@ public sealed record AgentAssemblyFacts
     public string BuiltInSkills { get; init; } = string.Empty;
 
     /// <summary>
-    /// MCP 侧修订号(见 <see cref="McpManager.Revision"/>)。工具集与 server 自述<b>都</b>由它捕获——
-    /// 自述随工具同一次取回、同一次自增，故不必再单列一个字段。
-    /// 与工作区说明的差别在此：那个是磁盘文件，没有修订号可依，只能把内容本身入账。
+    /// MCP 侧配置修订号(见 <see cref="McpManager.Revision"/>)：增删改、托管、授权变化。
+    /// 连接事件不计入——MCP 工具不进 tools（ADR 0079）
     /// </summary>
     public int McpRevision { get; init; }
 
-    /// <summary>禁用的 MCP server 名(换行拼接)；过滤在装配时固化，故属装配输入</summary>
-    public string DisabledMcpServers { get; init; } = string.Empty;
+    /// <summary>禁用的扩展名(换行拼接)；过滤在装配时固化，故属装配输入</summary>
+    public string DisabledExtensions { get; init; } = string.Empty;
 
     /// <summary>
-    /// 按需 MCP server 的名单签名（名字 + 说明，见 <see cref="McpManager.DescribeOnDemand"/>）。
-    /// 系统提示里那份名单与元工具的挂载都由它决定，所以必须入账。
-    /// 只含配置信息，因此按需 server 的连接起落不会让它变——这正是缓存前缀稳定的来源。
+    /// MCP server 名单签名（名字 + 说明，见 <see cref="McpManager.DescribeUsable"/>）。
+    /// 系统提示里那份扩展名单由它决定，所以必须入账。
+    /// 只含配置信息，因此连接起落不会让它变——这正是缓存前缀稳定的来源。
     /// </summary>
-    public string McpOnDemand { get; init; } = string.Empty;
+    public string McpRoster { get; init; } = string.Empty;
 
     /// <summary>深度注入（角色卡 depth_prompt）的 JSON 序列化形态；无则为空串。它属装配输入：卡上改深度注入要触发重建。</summary>
     public string DepthPrompt { get; init; } = string.Empty;
@@ -212,8 +202,8 @@ public sealed record AgentAssemblyFacts
                 : string.Empty,
             IsAgentForm = isAgentForm,
             GroupScene = profile.GroupScene,
-            McpOnDemand = isAgentForm
-                ? McpManager.Instance.DescribeOnDemand(profile.WorkspacePath, profile.Tools.DisabledMcpServers)
+            McpRoster = isAgentForm
+                ? McpManager.Instance.DescribeUsable(profile.WorkspacePath, profile.Tools.DisabledExtensions)
                 : string.Empty,
             ImageModelsConfigured = ImageGenerationService.Shared.HasConfiguredModel,
         });
@@ -254,11 +244,8 @@ public sealed record AgentAssemblyFacts
             WebSearch = isAgent && config.EnableWebSearch,
             ScheduledTasks = isAgent && config.EnableScheduledTasks,
             VisionTool = isAgent && config.EnableVisionTool,
-            ImageGeneration = isAgent && config.EnableImageGeneration && inputs.ImageModelsConfigured,
+            ImageModelsConfigured = isAgent && inputs.ImageModelsConfigured,
             Speak = isAgent && config.EnableSpeak && inputs.GroupScene.Length == 0,
-            SpeechSynthesis = isAgent && config.EnableSpeechSynthesis,
-            Transcription = isAgent && config.EnableTranscription,
-            Browser = isAgent && config.EnableBrowser,
             KnowledgeSearchTool = isAgent && config.EnableKnowledgeSearchTool,
             SubAgent = isAgent && config.EnableSubAgent,
             // 名字与描述一并入账:花名册固化的正是这两样,改名改描述模型也该重新看见
@@ -276,8 +263,8 @@ public sealed record AgentAssemblyFacts
             // 只在清单关着时入账：开着时清单由框架每轮现取，内置技能的增减不必重建
             BuiltInSkills = isAgent && !inputs.ModelSkillsEnabled ? inputs.BuiltInSkills : string.Empty,
             McpRevision = isAgent ? inputs.McpRevision : 0,
-            DisabledMcpServers = isAgent ? string.Join('\n', config.DisabledMcpServers) : string.Empty,
-            McpOnDemand = isAgent ? inputs.McpOnDemand : string.Empty,
+            DisabledExtensions = isAgent ? string.Join('\n', config.DisabledExtensions) : string.Empty,
+            McpRoster = isAgent ? inputs.McpRoster : string.Empty,
             DepthPrompt = character.DepthPrompt is { } depthPrompt ? JsonSerializer.Serialize(depthPrompt) : "",
         };
     }

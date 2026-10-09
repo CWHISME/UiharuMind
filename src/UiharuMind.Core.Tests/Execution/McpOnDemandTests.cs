@@ -12,6 +12,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Prompts;
@@ -21,8 +22,8 @@ using UiharuMind.Core.Core;
 namespace UiharuMind.Core.Tests.Execution;
 
 /// <summary>
-/// 按需送达（ADR 0051）的配置层不变量：元工具恒定、名单只含配置信息、
-/// 送达方式怎么落盘、查找的分支、以及超限结果怎么落盘。都不碰单例与网络。
+/// MCP 经扩展送达（ADR 0051、0079）的配置层不变量：参数宽容、查找的分支、本机状态怎么落盘、
+/// 工具清单缓存、以及超限结果怎么落盘。都不碰单例与网络。
 /// </summary>
 public class McpOnDemandTests : IDisposable
 {
@@ -31,97 +32,6 @@ public class McpOnDemandTests : IDisposable
     public void Dispose()
     {
         if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);
-    }
-
-    private static McpOnDemandServer OnDemand(string name, string description = "") =>
-        new() { Name = name, Description = description };
-
-    private static IReadOnlyList<AIFunction> MetaTools() =>
-        McpMetaTools.Create(new McpBridge(new NullHost(), null, [], Path.GetTempPath()));
-
-    //================= 元工具恒定 + 名单只含配置 =================
-
-    [Fact]
-    public void OnDemand_MountsBothMetaToolsAndNothingElse()
-    {
-        McpToolSet set = McpToolSetBuilder.Build([], [OnDemand("github")], MetaTools());
-
-        Assert.Equal([McpMetaTools.HelpName, McpMetaTools.CallName], set.Tools.Select(x => x.Name));
-    }
-
-    /// <summary>缓存前缀稳定的根：工具定义与 server 是否连上、有多少工具毫无关系</summary>
-    [Fact]
-    public void MetaToolDefinitions_AreIdenticalAcrossBuilds()
-    {
-        string first = Describe(MetaTools());
-        string second = Describe(MetaTools());
-
-        Assert.Equal(first, second);
-
-        static string Describe(IReadOnlyList<AIFunction> tools) => string.Join('\n',
-            tools.Select(x => $"{x.Name}|{x.Description}|{x.JsonSchema.GetRawText()}"));
-    }
-
-    [Fact]
-    public void Roster_HasNamesAndDescriptionsButNoToolsOrCounts()
-    {
-        McpToolSet set = McpToolSetBuilder.Build([], [OnDemand("github", "GitHub 仓库与 issue"), OnDemand("unity")],
-            MetaTools());
-
-        Assert.Contains("- github：GitHub 仓库与 issue", set.Instructions);
-        Assert.Contains("- unity", set.Instructions);
-        Assert.Contains(McpMetaTools.HelpName, set.Instructions);
-        Assert.Contains(McpMetaTools.CallName, set.Instructions);
-    }
-
-    /// <summary>防的是实机那次：模型信了 server 自带"列出工具"里被关掉的名字。以 McpHelp 为准要写进提示</summary>
-    [Fact]
-    public void Roster_TellsTheModelMcpHelpIsTheAuthorityOnCallableTools()
-    {
-        McpToolSet set = McpToolSetBuilder.Build([], [OnDemand("unity")], MetaTools());
-
-        Assert.Contains("以 `McpHelp` 列出的为准", set.Instructions);
-    }
-
-    [Fact]
-    public void Roster_IsIndependentOfWhichToolsExist()
-    {
-        // 同一份按需名单，直挂部分怎么变都不影响名单那一段
-        string bare = McpToolSetBuilder.Build([], [OnDemand("github", "desc")], MetaTools()).Instructions;
-        McpToolSet mixed = McpToolSetBuilder.Build(
-            [new ResolvedMcpServer(new McpServerConfig { Name = "unity", MountMode = EMcpMountMode.Direct },
-                [AIFunctionFactory.Create(() => "ok", "read_scene", "d")], "")],
-            [OnDemand("github", "desc")], MetaTools());
-
-        Assert.EndsWith(bare, mixed.Instructions);
-    }
-
-    [Fact]
-    public void OnDemand_GroupsCarryNoToolsAndAreMarked()
-    {
-        McpToolSet set = McpToolSetBuilder.Build([], [OnDemand("github")], MetaTools());
-
-        McpServerToolGroup group = Assert.Single(set.Groups);
-        Assert.Equal(EMcpMountMode.OnDemand, group.MountMode);
-        Assert.Empty(group.Tools);
-        Assert.Equal(0, group.EstimatedTokens);
-    }
-
-    /// <summary>按需省的是工具定义，但两个元工具加名单是恒定开销，账上必须看得见</summary>
-    [Fact]
-    public void OnDemand_CountsFixedOverheadInTotal()
-    {
-        McpToolSet set = McpToolSetBuilder.Build([], [OnDemand("github", "desc")], MetaTools());
-
-        Assert.True(set.EstimatedTokens > 0);
-    }
-
-    [Fact]
-    public void NoOnDemandServers_LeavesToolSetUntouched()
-    {
-        McpToolSet set = McpToolSetBuilder.Build([], [], MetaTools());
-
-        Assert.Same(McpToolSet.Empty, set);
     }
 
     //================= 参数宽容 =================
@@ -134,17 +44,17 @@ public class McpOnDemandTests : IDisposable
         AIFunctionArguments asString = new() { ["arguments"] = "{\"q\":\"a\",\"n\":2}" };
         AIFunctionArguments doubleEncoded = new() { ["arguments"] = JsonSerializer.SerializeToElement("{\"q\":\"a\"}") };
 
-        Assert.Equal("a", McpMetaTools.ReadObject(asObject, "arguments")!["q"].GetString());
-        Assert.Equal(2, McpMetaTools.ReadObject(asString, "arguments")!["n"].GetInt32());
-        Assert.Equal("a", McpMetaTools.ReadObject(doubleEncoded, "arguments")!["q"].GetString());
+        Assert.Equal("a", ExtensionCalls.ReadObject(asObject, "arguments")!["q"].GetString());
+        Assert.Equal(2, ExtensionCalls.ReadObject(asString, "arguments")!["n"].GetInt32());
+        Assert.Equal("a", ExtensionCalls.ReadObject(doubleEncoded, "arguments")!["q"].GetString());
     }
 
     [Fact]
     public void ReadObject_GarbageOrMissing_IsNullNotAnException()
     {
-        Assert.Null(McpMetaTools.ReadObject(new AIFunctionArguments { ["arguments"] = "not json" }, "arguments"));
-        Assert.Null(McpMetaTools.ReadObject(new AIFunctionArguments(), "arguments"));
-        Assert.Null(McpMetaTools.ReadObject(new AIFunctionArguments { ["arguments"] = 42 }, "arguments"));
+        Assert.Null(ExtensionCalls.ReadObject(new AIFunctionArguments { ["arguments"] = "not json" }, "arguments"));
+        Assert.Null(ExtensionCalls.ReadObject(new AIFunctionArguments(), "arguments"));
+        Assert.Null(ExtensionCalls.ReadObject(new AIFunctionArguments { ["arguments"] = 42 }, "arguments"));
     }
 
     [Fact]
@@ -157,23 +67,22 @@ public class McpOnDemandTests : IDisposable
             ["c"] = JsonSerializer.SerializeToElement((string?)null),
         };
 
-        Assert.Equal("plain", McpMetaTools.ReadString(args, "a"));
-        Assert.Equal("element", McpMetaTools.ReadString(args, "b"));
-        Assert.Null(McpMetaTools.ReadString(args, "c"));
-        Assert.Null(McpMetaTools.ReadString(args, "missing"));
+        Assert.Equal("plain", ExtensionCalls.ReadString(args, "a"));
+        Assert.Equal("element", ExtensionCalls.ReadString(args, "b"));
+        Assert.Null(ExtensionCalls.ReadString(args, "c"));
+        Assert.Null(ExtensionCalls.ReadString(args, "missing"));
     }
 
     //================= 查找分支 =================
 
-    private static McpServerConfig Server(string name, EMcpMountMode mode = EMcpMountMode.OnDemand,
-        bool enabled = true) => new() { Name = name, MountMode = mode, IsEnabled = enabled };
+    private static McpServerConfig Server(string name, bool enabled = true) => new() { Name = name, IsEnabled = enabled };
 
     private static McpServerLookup Find(string name, IReadOnlyList<McpServerConfig> servers,
         string[]? disabled = null, Func<McpServerConfig, bool>? trusted = null) =>
         McpServerFinder.Find(servers, McpManager.DisabledSet(disabled), trusted ?? (_ => true), name);
 
     [Fact]
-    public void Find_UsableOnDemandServer_IsFoundIgnoringCase()
+    public void Find_UsableServer_IsFoundIgnoringCase()
     {
         McpServerLookup lookup = Find(" GITHUB ", [Server("github")]);
 
@@ -188,99 +97,58 @@ public class McpOnDemandTests : IDisposable
         Assert.Equal(EMcpLookupStatus.HostingOff, Find("github", [Server("github", enabled: false)]).Status);
         Assert.Equal(EMcpLookupStatus.DisabledByCharacter, Find("github", [Server("github")], ["github"]).Status);
         Assert.Equal(EMcpLookupStatus.NeedsApproval, Find("github", [Server("github")], trusted: _ => false).Status);
-        Assert.Equal(EMcpLookupStatus.MountedDirectly,
-            Find("github", [Server("github", EMcpMountMode.Direct)]).Status);
     }
 
     [Fact]
-    public void Find_AvailableListsOnlyUsableOnDemandServers()
+    public void Find_AvailableListsOnlyUsableServers()
     {
         McpServerLookup lookup = Find("nope", [
-            Server("a"), Server("direct", EMcpMountMode.Direct), Server("off", enabled: false),
+            Server("a"), Server("off", enabled: false),
             Server("blocked"), Server("untrusted"),
         ], ["blocked"], x => x.Name != "untrusted");
 
         Assert.Equal(["a"], lookup.Available);
     }
 
-    //================= 送达方式的落盘 =================
+    //================= 本机状态的落盘 =================
 
     [Fact]
-    public void LocalState_DefaultsToOnDemand_SoOldConfigsFlipWithoutMigration()
+    public void Description_RoundTripsThroughLocalStateNotTheStandardFile()
     {
-        McpServersFile file = new() { McpServers = { ["github"] = new McpServerEntry { Command = "npx" } } };
-
-        McpServerConfig config = Assert.Single(file.ToConfigs(new Dictionary<string, McpServerLocalState>()));
-
-        Assert.Equal(EMcpMountMode.OnDemand, config.MountMode);
-        Assert.Equal(string.Empty, config.Description);
-    }
-
-    [Fact]
-    public void ModeAndDescription_RoundTripThroughLocalStateNotTheStandardFile()
-    {
-        McpServerConfig config = new()
-        {
-            Name = "unity", Command = "uvx", MountMode = EMcpMountMode.Direct, Description = "Unity 编辑器",
-        };
+        McpServerConfig config = new() { Name = "unity", Command = "uvx", Description = "Unity 编辑器" };
 
         var (standard, states) = McpServersFile.FromConfigs([config]);
         McpServerConfig restored = Assert.Single(standard.ToConfigs(states));
 
-        Assert.Equal(EMcpMountMode.Direct, restored.MountMode);
         Assert.Equal("Unity 编辑器", restored.Description);
         // 标准文件保持生态标准形状，不被本项目特有字段污染
-        string json = JsonSerializer.Serialize(standard);
-        Assert.DoesNotContain("Direct", json);
-        Assert.DoesNotContain("Unity 编辑器", json);
+        Assert.DoesNotContain("Unity 编辑器", JsonSerializer.Serialize(standard));
+    }
+
+    /// <summary>旧本机状态里的送达方式与自述开关（ADR 0079 退役）读进来不出错，也不再写出去</summary>
+    [Fact]
+    public void RetiredLocalStateFields_AreIgnored()
+    {
+        Dictionary<string, McpServerLocalState> states = JsonSerializer.Deserialize<Dictionary<string, McpServerLocalState>>(
+            """{"unity":{"IsEnabled":false,"InjectInstructions":false,"MountMode":1,"Description":"d"}}""",
+            SaveUtility.JsonOptions)!;
+        McpServersFile file = new() { McpServers = { ["unity"] = new McpServerEntry { Command = "npx" } } };
+
+        McpServerConfig config = Assert.Single(file.ToConfigs(states));
+
+        Assert.False(config.IsEnabled);
+        Assert.Equal("d", config.Description);
+        Assert.DoesNotContain("MountMode", JsonSerializer.Serialize(McpServersFile.FromConfigs([config]).Item2));
     }
 
     [Fact]
-    public void Fingerprint_IgnoresMountModeAndDescription()
+    public void Fingerprint_IgnoresDescription()
     {
         McpServerConfig a = new() { Name = "x", Command = "npx" };
         McpServerConfig b = a.Clone();
-        b.MountMode = EMcpMountMode.Direct;
         b.Description = "changed";
 
         Assert.Equal(McpServerFingerprint.Of(a), McpServerFingerprint.Of(b));
-    }
-
-    //================= 项目级送达方式账本 =================
-
-    [Fact]
-    public void WorkspaceMountStore_OnlyRemembersNonDefaultAndSurvivesReload()
-    {
-        string file = Path.Combine(_directory, "mounts.json");
-        string workspace = Path.Combine(_directory, "proj");
-        McpWorkspaceMountStore store = new(file);
-
-        Assert.Equal(EMcpMountMode.OnDemand, store.Get(workspace, "unity"));
-        Assert.True(store.Set(workspace, "unity", EMcpMountMode.Direct));
-        Assert.False(store.Set(workspace, "unity", EMcpMountMode.Direct)); //没变不落盘
-
-        McpWorkspaceMountStore reloaded = new(file);
-        reloaded.Reload();
-        Assert.Equal(EMcpMountMode.Direct, reloaded.Get(workspace, "UNITY"));
-        Assert.Equal(EMcpMountMode.OnDemand, reloaded.Get(Path.Combine(_directory, "other"), "unity"));
-
-        Assert.True(reloaded.Set(workspace, "unity", EMcpMountMode.OnDemand)); //改回默认即删除记录
-        McpWorkspaceMountStore again = new(file);
-        again.Reload();
-        Assert.Equal(EMcpMountMode.OnDemand, again.Get(workspace, "unity"));
-    }
-
-    [Fact]
-    public void WorkspaceMountStore_UnreadableFile_IsTreatedAsEmpty()
-    {
-        string file = Path.Combine(_directory, "broken.json");
-        Directory.CreateDirectory(_directory);
-        File.WriteAllText(file, "{ not json");
-        McpWorkspaceMountStore store = new(file);
-
-        store.Reload();
-
-        Assert.Equal(EMcpMountMode.OnDemand, store.Get(_directory, "x"));
     }
 
     //================= 工具清单缓存 =================
@@ -576,35 +444,6 @@ public class McpOnDemandTests : IDisposable
     }
 
     [Fact]
-    public async Task DirectTools_GetTheSameResultShaping()
-    {
-        AIFunction raw = new RawJsonTool("""{"content":[{"type":"text","text":"ok"}],"structuredContent":{"x":1}}""");
-
-        McpToolSet set = McpToolSetBuilder.Build(
-            [new ResolvedMcpServer(new McpServerConfig { Name = "s", MountMode = EMcpMountMode.Direct }, [raw], "")],
-            spillDirectory: _directory);
-
-        AIFunction mounted = (AIFunction)Assert.Single(set.Tools);
-        Assert.Equal("raw", mounted.Name);
-        Assert.Equal("ok", await mounted.InvokeAsync(new AIFunctionArguments(), TestContext.Current.CancellationToken));
-    }
-
-    private sealed class RawJsonTool : AIFunction
-    {
-        private static readonly JsonElement Schema = JsonDocument.Parse("""{"type":"object"}""").RootElement.Clone();
-        private readonly JsonElement _result;
-
-        public RawJsonTool(string json) => _result = Result(json);
-
-        public override string Name => "raw";
-        public override string Description => "raw";
-        public override JsonElement JsonSchema => Schema;
-
-        protected override ValueTask<object?> InvokeCoreAsync(AIFunctionArguments arguments,
-            CancellationToken cancellationToken) => ValueTask.FromResult<object?>(_result);
-    }
-
-    [Fact]
     public void NormalizeResult_HandlesTheRawShapesTheFrameworkProduces()
     {
         Assert.Equal("(empty result)", McpCallResult.Normalize(null, _directory, "s"));
@@ -618,7 +457,7 @@ public class McpOnDemandTests : IDisposable
     //================= 装配事实 =================
 
     [Fact]
-    public void Facts_OnDemandRosterChangeTriggersRebuild_ButOnlyForAgents()
+    public void Facts_McpRosterChangeTriggersRebuild_ButOnlyForAgents()
     {
         CharacterData agent = new() { CharacterName = "a", IsAgent = true };
 
@@ -632,33 +471,18 @@ public class McpOnDemandTests : IDisposable
     }
 
     [Fact]
-    public void Facts_DirectRevision_IsIndependentOfOnDemandSignature()
+    public void Facts_ConfigRevision_IsIndependentOfRosterSignature()
     {
         CharacterData agent = new() { CharacterName = "a", IsAgent = true };
 
         Assert.NotEqual(Capture(agent, "", revision: 1), Capture(agent, "", revision: 2));
     }
 
-    private static AgentAssemblyFacts Capture(CharacterData character, string onDemand, int revision = 0) =>
+    private static AgentAssemblyFacts Capture(CharacterData character, string roster, int revision = 0) =>
         AgentAssemblyFacts.Capture(character,
             new AgentAssemblyInputs
             {
                 Instructions = "prompt", WorkspacePath = "/ws", Permission = EAgentPermissionMode.ReadOnly,
-                McpRevision = revision, McpOnDemand = onDemand,
+                McpRevision = revision, McpRoster = roster,
             });
-
-    /// 不会被调用的宿主：这里只看元工具的定义，不执行
-    private sealed class NullHost : IMcpServerHost
-    {
-        public McpServerLookup Find(string? workspacePath, IEnumerable<string>? disabledServers, string serverName) =>
-            new(EMcpLookupStatus.NotFound, null, []);
-
-        public Task<McpServerConnection> ConnectAsync(McpServerConfig server, TimeSpan timeout,
-            CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<McpServerConnection> RefreshToolsAsync(McpServerConfig server, TimeSpan timeout,
-            CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public McpToolCatalog? LoadCatalog(McpServerConfig server) => null;
-    }
 }

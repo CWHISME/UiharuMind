@@ -13,10 +13,10 @@ using UiharuMind.Core.AI.Execution.Tools;
 namespace UiharuMind.Core.AI.Execution.Mcp;
 
 /// <summary>
-/// <c>McpHelp</c> 的渲染：纯函数，模型看到的文本形态在这里钉死。
+/// <c>ExtensionHelp</c> 的渲染：纯函数，模型看到的文本形态在这里钉死。内置扩展与 MCP server 共用。
 ///
-/// 两层输出对应渐进披露：只带 server → 自述 + 工具名与一行说明；
-/// 再带 tool → 该工具的完整描述与参数 schema。100 个工具的 server 不会一次灌满上下文。
+/// 两层输出对应渐进披露：只带扩展名 → 用法说明 + 命令名与一行说明；
+/// 再带命令名 → 该命令的完整描述与参数 schema。100 个工具的 server 不会一次灌满上下文。
 /// </summary>
 internal static class McpHelpFormatter
 {
@@ -33,11 +33,11 @@ internal static class McpHelpFormatter
     private const int MaxSuggestClose = 5;
 
     /// <summary>
-    /// 渲染 server 概览。
+    /// 渲染扩展概览。
     /// </summary>
-    /// <param name="serverName">server 名</param>
-    /// <param name="instructions">server 自述；空则省略</param>
-    /// <param name="tools">工具定义</param>
+    /// <param name="serverName">扩展名</param>
+    /// <param name="instructions">用法说明（MCP 即 server 自述）；空则省略</param>
+    /// <param name="tools">命令定义</param>
     /// <param name="note">前置说明（如"离线，以下来自缓存"）；空则省略</param>
     /// <returns>给模型的文本</returns>
     public static string RenderServer(string serverName, string instructions,
@@ -51,7 +51,7 @@ internal static class McpHelpFormatter
             sb.Append('\n').Append(instructions.Trim()).Append('\n');
         }
 
-        sb.Append("\nTools (").Append(tools.Count).Append("):\n");
+        sb.Append("\nCommands (").Append(tools.Count).Append("):\n");
         foreach (McpToolDescriptor tool in tools)
         {
             sb.Append("- ").Append(tool.Name);
@@ -62,17 +62,17 @@ internal static class McpHelpFormatter
 
         if (tools.Count > 0)
         {
-            sb.Append("\nCall McpHelp with `server` and `tool` for a tool's full parameters.");
+            sb.Append("\nCall ExtensionHelp with `extension` and `command` for a command's full parameters.");
         }
 
         return sb.ToString().TrimEnd();
     }
 
     /// <summary>
-    /// 渲染单个工具的详情。
+    /// 渲染单条命令的详情。
     /// </summary>
-    /// <param name="serverName">server 名</param>
-    /// <param name="tool">工具定义</param>
+    /// <param name="serverName">扩展名</param>
+    /// <param name="tool">命令定义</param>
     /// <param name="note">前置说明；空则省略</param>
     /// <returns>给模型的文本</returns>
     public static string RenderTool(string serverName, McpToolDescriptor tool, string? note = null)
@@ -121,7 +121,7 @@ internal static class McpHelpFormatter
     /// 只认拼写近似（忽略大小写与 <c>-</c>/<c>_</c> 分隔符后相等，或编辑距离很小）。
     /// 曾经按名字分段重合打分，结果 <c>editor-application-get-state</c> 被建议了一串只因含 <c>get</c>
     /// 的无关工具——真实原因往往是这个工具压根没开放，此时"相似"的建议只会误导。
-    /// 完整清单在 McpHelp 里，这里不再重复倒一遍。
+    /// 完整清单在帮助里，这里不再重复倒一遍。
     /// </summary>
     /// <param name="names">全部可调用的名字</param>
     /// <param name="query">模型给的名字</param>

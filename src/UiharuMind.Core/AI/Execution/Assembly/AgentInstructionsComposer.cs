@@ -25,12 +25,12 @@ internal static class AgentInstructionsComposer
     internal const string ReadWorkspaceRulesFirst = "本会话第一次调用工具之前，先 `Read` 它读完全文；读过就不用再读。";
 
     /// 按固定顺序拼出 agent 档的整段系统提示：
-    /// 基座(所有角色共用、系统锁定) → 角色段(人格 + 用户卡 + 对话模板) → 群场景(群成员才有) → 工具纪律与工作目录 → MCP server 自述 → 工作区规矩 → 人格 coda(末尾回锚)。
+    /// 基座(所有角色共用、系统锁定) → 角色段(人格 + 用户卡 + 对话模板) → 群场景(群成员才有) → 工具纪律与工作目录 → 扩展名单 → 工作区规矩 → 人格 coda(末尾回锚)。
     /// 角色段(人格)标题由装配层在卡无自带标题时补上（见 CharacterSection）；卡自带标题则归卡所有。
     /// <returns>整段系统提示</returns>
     internal static string Compose(string? characterPrompt, string groupScene, AgentToolConfig config,
         string workingDirectory, string workspaceInstructions,
-        string mcpInstructions, string shellBinary, string pythonInterpreter,
+        string extensionsSection, string shellBinary, string pythonInterpreter,
         string outputRoomDirectory, string memoryDirectory,
         string personaCoda, out IReadOnlyList<AgentPromptSegment> segments)
     {
@@ -43,9 +43,9 @@ internal static class AgentInstructionsComposer
         AppendSection(sb, BuildToolDisciplines(config, workingDirectory, shellBinary,
                 pythonInterpreter, outputRoomDirectory, memoryDirectory),
             EPromptSection.ToolDisciplines, registry);
-        if (mcpInstructions.Length > 0)
+        if (extensionsSection.Length > 0)
         {
-            AppendSection(sb, McpSection(mcpInstructions), EPromptSection.Mcp, registry);
+            AppendSection(sb, extensionsSection, EPromptSection.Extensions, registry);
         }
 
         if (workspaceInstructions.Length > 0)
@@ -142,16 +142,6 @@ internal static class AgentInstructionsComposer
         if (hashes == trimmed.Length) return true;
         char next = trimmed[hashes];
         return next == ' ' || next == '\t' || next == '\n' || next == '\r';
-    }
-
-    /// <summary>
-    /// MCP server 自述段（主代理与子代理逐字共用）
-    /// </summary>
-    /// <param name="mcpInstructions">已按 server 分节的自述正文</param>
-    /// <returns>整段文本</returns>
-    internal static string McpSection(string mcpInstructions)
-    {
-        return $"{AgentPromptHeadings.Mcp}\n\n{mcpInstructions}";
     }
 
     /// <summary>

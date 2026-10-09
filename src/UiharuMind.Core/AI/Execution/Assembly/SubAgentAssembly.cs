@@ -18,6 +18,7 @@ using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.Browser;
 using UiharuMind.Core.AI.Execution.Files;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.Configs;
 
@@ -93,17 +94,17 @@ internal static class SubAgentAssembly
         /// <summary>实际解析出来的 shell 可执行路径;没挂 shell 则为 null</summary>
         public string? ShellBinary { get; init; }
 
-        /// <summary>MCP 工具集(完全自动档才挂;它们可能改东西,较低档位下会卡在无人回应的审批上)</summary>
-        public IReadOnlyList<AITool>? McpTools { get; init; }
-
-        /// <summary>MCP server 自述(与主代理同一份),随工具一起给</summary>
-        public string McpInstructions { get; init; } = string.Empty;
+        /// <summary>MCP 名单与桥接(与主代理同一份);探索档不给扩展,为空</summary>
+        public McpToolSet Mcp { get; init; } = McpToolSet.Empty;
 
         /// <summary>无人值守 shell 预授权模式(与主代理同源)</summary>
         public IReadOnlyList<string>? PreAuthorizedShellPatterns { get; init; }
 
         /// <summary>会话级 shell 放行模式来源(与主代理同源)</summary>
         public Func<IReadOnlyList<string>?>? SessionShellApprovalSource { get; init; }
+
+        /// <summary>会话放行过的扩展名来源(派活者那个会话的,ADR 0079)</summary>
+        public Func<IReadOnlyList<string>?>? SessionExtensionApprovalSource { get; init; }
 
         /// <summary>历史压缩策略(与主代理同一份);为 null 则不压缩</summary>
         public CompactionStrategy? Compaction { get; init; }
@@ -198,7 +199,7 @@ internal static class SubAgentAssembly
             ? ShellExecutorFactory.Create(plan.WorkingDirectory, plan.ShellEnvironment)
             : null;
         AITool? shellTool = shellExecutor == null ? null : ShellExecutorFactory.CreateTool(shellExecutor);
-        IReadOnlyList<AITool>? mcpTools = canMutate ? plan.Mcp.Tools : null;
+        McpToolSet mcp = canMutate ? plan.Mcp : McpToolSet.Empty;
 
         SubAgentAssemblyInput input = new()
         {
@@ -216,10 +217,10 @@ internal static class SubAgentAssembly
             WorkspaceInstructions = plan.WorkspaceInstructions,
             ShellTool = shellTool,
             ShellBinary = shellExecutor?.ResolvedShellBinary,
-            McpTools = mcpTools,
-            McpInstructions = mcpTools == null ? string.Empty : plan.Mcp.Instructions,
+            Mcp = mcp,
             PreAuthorizedShellPatterns = profile.PreAuthorizedShellPatterns,
             SessionShellApprovalSource = profile.SessionShellApprovalSource,
+            SessionExtensionApprovalSource = profile.SessionExtensionApprovalSource,
             SubAgentProfile = subProfile,
             Role = identity.Role,
             Sampling = plan.Character.Config.ExecutionSettings,
@@ -278,7 +279,7 @@ internal static class SubAgentAssembly
             : profile.PermissionMode;
         bool fullAuto = effectivePermission == EAgentPermissionMode.FullAuto;
 
-        SubAgentAssemblyInput Probe(AITool? shellTool, string? shellBinary, IReadOnlyList<AITool>? mcpTools,
+        SubAgentAssemblyInput Probe(AITool? shellTool, string? shellBinary, McpToolSet mcp,
             AgentToolConfig effectiveConfig, string persona, string name) => new()
         {
             Compaction = plan.Compaction,
@@ -295,16 +296,15 @@ internal static class SubAgentAssembly
             WorkspaceInstructions = plan.WorkspaceInstructions,
             ShellTool = shellTool,
             ShellBinary = shellBinary,
-            McpTools = mcpTools,
-            // 自述绑在工具上:没给工具就不该给用法,那只是白占上下文
-            McpInstructions = mcpTools == null ? string.Empty : plan.Mcp.Instructions,
+            Mcp = mcp,
             PreAuthorizedShellPatterns = profile.PreAuthorizedShellPatterns,
             SessionShellApprovalSource = profile.SessionShellApprovalSource,
+            SessionExtensionApprovalSource = profile.SessionExtensionApprovalSource,
             SubAgentProfile = subProfile,
         };
 
         // 先探一次:全部能力都关掉时不挂载(shell/MCP 不参与这个判定,它们只在完全自动档才有)
-        if (BuildSubAgentOptions(Probe(null, null, null, config, string.Empty, string.Empty)) == null) return null;
+        if (BuildSubAgentOptions(Probe(null, null, McpToolSet.Empty, config, string.Empty, string.Empty)) == null) return null;
 
         IReadOnlyList<CharacterData> mounted = plan.MountedAgents;
         List<SubAgentChoice> roster = mounted
@@ -369,7 +369,7 @@ internal static class SubAgentAssembly
             OutputRoomDirectory = outputRoom,
             ModelSupportsVision = input.ModelSupportsVision,
             ImageModelsConfigured = input.ImageModelsConfigured,
-            Mcp = input.McpTools ?? [],
+            Mcp = input.Mcp,
             Shell = input.ShellTool is { } shellTool ? _ => shellTool : null,
             SessionId = input.SessionId,
             Browser = input.Browser,
@@ -401,13 +401,14 @@ internal static class SubAgentAssembly
             AutoApprovalRules = ApprovalModeMapper.BuildRules(input.PermissionMode,
                 input.WorkingDirectory, input.PreAuthorizedShellPatterns, input.SessionShellApprovalSource,
                 // 子会话沿用派活者的房间(见 AgentBuildProfile),豁免同一间
-                outputRoom),
+                outputRoom, sessionExtensionApprovalSource: input.SessionExtensionApprovalSource),
         };
         ChatOptions subOptions = input.Sampling?.ToChatOptions() ?? new ChatOptions();
         subOptions.Instructions = BuildSubAgentInstructions(config, hasShell,
             input.ShellBinary ?? string.Empty, canMutate, input.PythonOutputDirectory,
             input.WorkingDirectory, outputRoom,
-            input.WorkspaceInstructions, input.McpInstructions,
+            input.WorkspaceInstructions,
+            entries.Any(x => x.Capability == EAgentCapability.Extensions) ? ExtensionRoster.Section(config, input.Mcp) : string.Empty,
             input.Persona, input.Role);
         subOptions.Tools = tools;
         options.ChatOptions = subOptions;
@@ -466,12 +467,12 @@ internal static class SubAgentAssembly
     /// <param name="workingDirectory">文件与 shell 工具的根目录</param>
     /// <param name="outputRoomDirectory">草稿目录(派活者会话的房间)绝对路径；空串则不写该段</param>
     /// <param name="workspaceInstructions">工作区说明文件内容(只取有无,有则给指针,不拼正文)</param>
-    /// <param name="mcpInstructions">MCP server 自述（与主代理同一份）</param>
+    /// <param name="extensionsSection">扩展名单段（挂了扩展的元工具才有）</param>
     /// <returns>提示词</returns>
     private static string BuildSubAgentInstructions(AgentToolConfig config, bool hasShell,
         string shellBinary, bool canMutate, string pythonOutputDirectory,
         string workingDirectory, string outputRoomDirectory,
-        string workspaceInstructions, string mcpInstructions,
+        string workspaceInstructions, string extensionsSection,
         string persona = "", string role = "")
     {
         bool named = persona.Length > 0;
@@ -507,9 +508,8 @@ internal static class SubAgentAssembly
 
         list.Section(true, AgentPromptHeadings.SubAgentCollaboration, SubAgentPrompts.Collaboration);
 
-        // 挂了 MCP 工具就得给对应的自述:只给签名不给用法,子代理照样不会用
-        list.Raw(canMutate && mcpInstructions.Length > 0,
-            AgentInstructionsComposer.McpSection(mcpInstructions));
+        // 挂了扩展的元工具就得给名单:不知道有什么,子代理想不到去查
+        list.Raw(extensionsSection.Length > 0, extensionsSection);
         list.Raw(workspaceInstructions.Length > 0,
             AgentInstructionsComposer.WorkspacePointerSection(
                 WorkspaceInstructionsLoader.ResolveFileName(workingDirectory)));

@@ -466,7 +466,7 @@
                                         <Button Classes="Small" CornerRadius="6"
                                                 IsVisible="{Binding Card.CanApproveForSession}"
                                                 Command="{Binding Card.ResolveCommand}" CommandParameter="session"
-                                                Content="{loc:Loc AgentApproveSession}" />
+                                                Content="{Binding Card.SessionButtonText}" />
                                         <Button Classes="Small" CornerRadius="6"
                                                 IsVisible="{Binding Card.CanRememberCommandPattern}"
                                                 Command="{Binding Card.ResolveCommand}" CommandParameter="session-command"
@@ -691,6 +691,14 @@
                                                       IsChecked="{Binding IsPlaintext}">
                                                 <ToolTip.Tip>
                                                     <TextBlock Text="{loc:Loc ChatPlaintextTooltip}" />
+                                                </ToolTip.Tip>
+                                            </CheckBox>
+                                            <!-- 按会话存:勾的是这一个会话,不是全局 -->
+                                            <CheckBox Content="{loc:Loc ChatExtensionsApproved}"
+                                                      IsChecked="{Binding ExtensionsApproved}"
+                                                      IsVisible="{Binding CanApproveExtensions}">
+                                                <ToolTip.Tip>
+                                                    <TextBlock Text="{loc:Loc ChatExtensionsApprovedTooltip}" />
                                                 </ToolTip.Tip>
                                             </CheckBox>
                                         </StackPanel>

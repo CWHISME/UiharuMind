@@ -13,8 +13,5 @@
       "top_p": 1
     }
   },
-  "Tools": {
-    "EnableImageGeneration": true
-  },
   "FirstGreeting": ""
 }

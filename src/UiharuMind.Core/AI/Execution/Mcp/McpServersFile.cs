@@ -61,8 +61,6 @@ internal sealed class McpServersFile
             states[config.Name] = new McpServerLocalState
             {
                 IsEnabled = config.IsEnabled,
-                InjectInstructions = config.InjectInstructions,
-                MountMode = config.MountMode,
                 Description = config.Description,
             };
         }
@@ -104,8 +102,6 @@ internal sealed class McpServerEntry
             EnvironmentVariables = Env ?? new Dictionary<string, string>(),
             Headers = Headers ?? new Dictionary<string, string>(),
             IsEnabled = state.IsEnabled,
-            InjectInstructions = state.InjectInstructions,
-            MountMode = state.MountMode,
             Description = state.Description,
         };
     }
@@ -150,12 +146,6 @@ public sealed class McpServerLocalState
     /// <summary>是否托管此 server</summary>
     public bool IsEnabled { get; set; } = true;
 
-    /// <summary>是否注入 server 自述（直挂模式才有意义；按需模式的自述由 McpHelp 返回）</summary>
-    public bool InjectInstructions { get; set; } = true;
-
-    /// <summary>送达方式；缺项即按需，老配置不迁移（见 ADR 0051）</summary>
-    public EMcpMountMode MountMode { get; set; } = EMcpMountMode.OnDemand;
-
-    /// <summary>一句话说明，按需模式下写进系统提示</summary>
+    /// <summary>一句话说明，写进系统提示的扩展名单</summary>
     public string Description { get; set; } = string.Empty;
 }

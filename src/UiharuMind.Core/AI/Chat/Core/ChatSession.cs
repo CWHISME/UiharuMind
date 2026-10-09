@@ -499,6 +499,45 @@ public class ChatSession
         }
     }
 
+    /// <summary>
+    /// 本会话放行过的扩展名（ADR 0079）：审批卡上点「本会话允许」记一个，输入框设置里勾「扩展不再询问」
+    /// 记 <c>*</c>（全部）。只管一般级的扩展调用，硬问的（接管、浏览器去本机地址）照问。
+    /// 随会话持久化；审批规则每次执行现取现用，变化无需重建装配
+    /// </summary>
+    public List<string> SessionApprovedExtensions { get; set; } = [];
+
+    /// <summary>
+    /// 放行或收回一个扩展并立即持久化
+    /// </summary>
+    /// <param name="extension">扩展名；<c>*</c> 代表全部</param>
+    /// <param name="approved">放行为 true，收回为 false</param>
+    public void SetSessionApprovedExtension(string extension, bool approved)
+    {
+        if (string.IsNullOrWhiteSpace(extension)) return;
+        lock (SessionApprovedExtensions)
+        {
+            int index = SessionApprovedExtensions.FindIndex(x =>
+                string.Equals(x, extension, StringComparison.OrdinalIgnoreCase));
+            if (approved == index >= 0) return;
+            if (approved) SessionApprovedExtensions.Add(extension);
+            else SessionApprovedExtensions.RemoveAt(index);
+        }
+
+        SaveMeta();
+    }
+
+    /// <summary>
+    /// 会话放行扩展名的线程安全快照（审批规则读取用）
+    /// </summary>
+    /// <returns>名单副本</returns>
+    public IReadOnlyList<string> SnapshotSessionApprovedExtensions()
+    {
+        lock (SessionApprovedExtensions)
+        {
+            return SessionApprovedExtensions.ToArray();
+        }
+    }
+
     /// <summary>所属角色</summary>
     [JsonIgnore]
     public CharacterData CharacterData =>

@@ -31,7 +31,6 @@ public class TurnBusyLabelTests
     /// </summary>
     private static readonly Dictionary<ETurnBusy, string> Keys = new()
     {
-        [ETurnBusy.ConnectingMcp] = "AgentMcpConnecting",
         [ETurnBusy.Compacting] = "HandoffWriting",
     };
 

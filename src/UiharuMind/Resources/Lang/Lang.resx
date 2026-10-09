@@ -2570,44 +2570,14 @@
     <data name="AgentMcpEnabledTip" xml:space="preserve">
         <value>Whether to run/connect this server at all. Which agents may use its tools is set per character, in the character editor.</value>
     </data>
-    <data name="AgentMcpInjectInstructions" xml:space="preserve">
-        <value>Inject server instructions</value>
-    </data>
-    <data name="AgentMcpInjectInstructionsTip" xml:space="preserve">
-        <value>Servers may ship a usage guide describing how their tools work together. It costs context — turn this off to keep the tools but drop the guide.</value>
-    </data>
-    <data name="AgentMcpMountMode" xml:space="preserve">
-        <value>Delivery</value>
-    </data>
-    <data name="AgentMcpMountModeOnDemand" xml:space="preserve">
-        <value>On demand (recommended)</value>
-    </data>
-    <data name="AgentMcpMountModeDirect" xml:space="preserve">
-        <value>Direct</value>
-    </data>
-    <data name="AgentMcpMountModeTip" xml:space="preserve">
-        <value>How this server's tools reach the model. On demand: tool definitions stay out of the request; the model looks them up with McpHelp and runs them with McpCall, so connecting or disconnecting never invalidates the prompt cache. Direct: every tool definition is sent with every request — best for a few tools used constantly.</value>
-    </data>
     <data name="AgentMcpDescription" xml:space="preserve">
         <value>Description</value>
     </data>
     <data name="AgentMcpDescriptionTip" xml:space="preserve">
-        <value>One line shown to the model in the system prompt for on-demand servers, so it knows when to look this server up.</value>
+        <value>One line shown to the model in the system prompt's extension list, so it knows when to look this server up.</value>
     </data>
     <data name="AgentMcpDescriptionPlaceholder" xml:space="preserve">
         <value>e.g. GitHub issues and pull requests</value>
-    </data>
-    <data name="AgentMcpWorkspaceServersTip" xml:space="preserve">
-        <value>Project servers come from the project's .mcp.json. Delivery is a per-machine preference and is not written back to that file.</value>
-    </data>
-    <data name="AgentMcpWorkspaceDirectTip" xml:space="preserve">
-        <value>Send this server's tools directly with every request instead of looking them up on demand.</value>
-    </data>
-    <data name="AgentCapabilityMcpOnDemand" xml:space="preserve">
-        <value>On demand</value>
-    </data>
-    <data name="AgentCapabilityMcpOnDemandSummary" xml:space="preserve">
-        <value>On demand · {0} · tools are looked up when used</value>
     </data>
     <data name="AgentMcpAdvancedTitle" xml:space="preserve">
         <value>Config file and project-level permissions</value>
@@ -2625,10 +2595,10 @@
         <value>Skills folder:</value>
     </data>
     <data name="CharacterMcpTitle" xml:space="preserve">
-        <value>MCP servers</value>
+        <value>Extensions</value>
     </data>
     <data name="CharacterMcpDesc" xml:space="preserve">
-        <value>Which hosted MCP servers this agent may use. Unchecking one hides its tools from this agent only — it stays available to the others.</value>
+        <value>Capabilities kept out of the tool list: the model looks one up when it needs it, and by default every call that can change something or cost money asks you first. Built-in ones come first, then hosted MCP servers. Unchecking one hides it from this agent only.</value>
     </data>
     <data name="CharacterMcpEmpty" xml:space="preserve">
         <value>No MCP server configured yet. Add one under Settings → Agent → MCP.</value>
@@ -2659,20 +2629,11 @@
 
 Note this is what the *next* turn will send, while the "Context" readout at the bottom is what the *last* request actually consumed. They are two different moments: right after attaching an MCP server or switching characters, this number grows first and the bottom one catches up on the next send.</value>
     </data>
-    <data name="AgentCapabilityMcpInstructions" xml:space="preserve">
-        <value>server instructions injected</value>
-    </data>
-    <data name="AgentCapabilityMcpRenamed" xml:space="preserve">
-        <value>renamed to avoid a clash</value>
-    </data>
-    <data name="AgentCapabilityMcpRenamedTip" xml:space="preserve">
-        <value>Another server offers a tool by the same name, so both got a server prefix. The original name is shown in brackets.</value>
-    </data>
     <data name="AgentCapabilityMcpPlanned" xml:space="preserve">
-        <value>Will be connected</value>
+        <value>MCP servers</value>
     </data>
     <data name="AgentCapabilityMcpPlannedTip" xml:space="preserve">
-        <value>What this session is about to connect, shown before the first send. This is a forecast — the section above is what actually got mounted. Entries that could not be mounted stay here so you can see why.</value>
+        <value>Each MCP server is an extension: its tools stay out of the request, and the model looks them up and connects only when it needs them. Entries that cannot be used are listed too, so you can see why.</value>
     </data>
     <data name="AgentCapabilityMcpFromProject" xml:space="preserve">
         <value>project · {0}/.mcp.json</value>
@@ -2691,9 +2652,6 @@ Note this is what the *next* turn will send, while the "Context" readout at the 
     </data>
     <data name="AgentCapabilityMcpDisabledByCharacter" xml:space="preserve">
         <value>disabled for this character</value>
-    </data>
-    <data name="AgentCapabilityMcpLastSeen" xml:space="preserve">
-        <value>{0} · last seen {1} tools · ~{2} tok</value>
     </data>
     <data name="AgentMcpApprovalTitle" xml:space="preserve">
         <value>This project wants to start MCP servers</value>
@@ -2715,12 +2673,6 @@ Allow them?</value>
     </data>
     <data name="AgentMcpTrustRevoke" xml:space="preserve">
         <value>Revoke</value>
-    </data>
-    <data name="AgentCapabilityMcpForecast" xml:space="preserve">
-        <value>MCP (forecast)</value>
-    </data>
-    <data name="AgentCapabilityMcpForecastTip" xml:space="preserve">
-        <value>Estimated from what these servers reported last time they connected, because this session has not assembled yet. It becomes a measured figure after the first send. Servers that will not be mounted — overridden, not hosted, disabled for this character, or awaiting confirmation — are excluded.</value>
     </data>
     <data name="AgentCapabilityEditHint" xml:space="preserve">
         <value>Read-only. To change what this agent may use, edit the character.</value>
@@ -2751,9 +2703,6 @@ Allow them?</value>
     </data>
     <data name="AgentCapabilitySkillResidentTip" xml:space="preserve">
         <value>Only the skill's name and description stay in context. The body loads on demand, so this number is small on purpose.</value>
-    </data>
-    <data name="AgentMcpConnecting" xml:space="preserve">
-        <value>Connecting MCP servers…</value>
     </data>
     <data name="AgentCapabilityCharacterPrompt" xml:space="preserve">
         <value>Persona</value>
@@ -2893,17 +2842,11 @@ Allow them?</value>
     <data name="AgentCapabilityToolRules" xml:space="preserve">
         <value>Tool rules</value>
     </data>
-    <data name="AgentCapabilityPromptMcp" xml:space="preserve">
-        <value>MCP notes</value>
-    </data>
     <data name="AgentCapabilityPrompt" xml:space="preserve">
         <value>System prompt</value>
     </data>
     <data name="AgentCapabilityPromptTip" xml:space="preserve">
         <value>The system prompt actually sent this session, split into the sections it was assembled from. Click one to read what the model reads.</value>
-    </data>
-    <data name="AgentCapabilityPromptNotCounted" xml:space="preserve">
-        <value>Already counted under MCP, so it is not added to the total twice.</value>
     </data>
     <data name="CharacterCapabilityTokenTip" xml:space="preserve">
         <value>Rough context cost of this capability's tool definitions, per turn. Shown as — when it can't be known: opening this editor from the character library has no live session, and an MCP server that hasn't connected has no schemas yet.</value>
@@ -3695,41 +3638,17 @@ Allow them?</value>
 · Project MCP servers and memory follow the new workspace</value>
     </data>
 
-    <data name="AgentSettingCapImageGeneration" xml:space="preserve">
-        <value>Image generation</value>
-    </data>
-    <data name="AgentGateDescImageGeneration" xml:space="preserve">
-        <value>Lets the agent generate or edit images with the image models configured on the Models page, trying them in list order. Only mounted when at least one image model is configured.</value>
-    </data>
     <data name="AgentSettingCapSpeak" xml:space="preserve">
         <value>Speak aloud</value>
     </data>
     <data name="AgentGateDescSpeak" xml:space="preserve">
         <value>Lets the agent say things aloud in its read-aloud voice, choosing the tone line by line. It only makes sound while you are viewing the conversation; not mounted for group members.</value>
     </data>
-    <data name="AgentSettingCapSpeechSynthesis" xml:space="preserve">
-        <value>Voice-over</value>
-    </data>
-    <data name="AgentGateDescSpeechSynthesis" xml:space="preserve">
-        <value>Lets the agent turn text into audio files (saved under audio in the draft folder), using a character's read-aloud voice by name, or its own. Nothing is played; for voice-overs and narration.</value>
-    </data>
-    <data name="AgentSettingCapTranscription" xml:space="preserve">
-        <value>Transcription</value>
-    </data>
-    <data name="AgentGateDescTranscription" xml:space="preserve">
-        <value>Lets the agent turn audio files in the workspace into text, optionally with timed subtitles (SRT), saved under transcripts in the draft folder. Uses the default voice input model or service; extract the audio from videos first.</value>
-    </data>
     <data name="ToolAudioPlay" xml:space="preserve">
         <value>Play this voice-over</value>
     </data>
     <data name="ToolAudioStop" xml:space="preserve">
         <value>Stop</value>
-    </data>
-    <data name="AgentSettingCapBrowser" xml:space="preserve">
-        <value>Use the browser</value>
-    </data>
-    <data name="AgentGateDescBrowser" xml:space="preserve">
-        <value>Lets the agent open pages, click and fill in forms in your installed Chrome, using a separate profile; sites you sign into there stay signed in. Opening pages and acting on them follow the permission level; reading the current page does not ask.</value>
     </data>
     <data name="ModelPageChatModelsTab" xml:space="preserve">
         <value>Chat models</value>
@@ -5805,5 +5724,44 @@ Allow them?</value>
     </data>
     <data name="ImageFamilyInstalledTip" xml:space="preserve">
         <value>A tier is installed on this machine</value>
+    </data>
+    <data name="AgentCapabilityMcpStatus" xml:space="preserve">
+        <value>{0} · {1} commands</value>
+    </data>
+    <data name="AgentCapabilityExtensions" xml:space="preserve">
+        <value>Extensions</value>
+    </data>
+    <data name="ExtensionBrowserDesc" xml:space="preserve">
+        <value>Drives a real Chrome window: opens pages, clicks, fills forms, reads text, takes screenshots. Sign-ins and passwords are handed to you.</value>
+    </data>
+    <data name="ExtensionImageDesc" xml:space="preserve">
+        <value>Generates or edits images with the image models set in Settings. Each image may cost money.</value>
+    </data>
+    <data name="ExtensionAudioDesc" xml:space="preserve">
+        <value>Voices text into an audio file in a character's voice, and transcribes audio into text or subtitles.</value>
+    </data>
+    <data name="AgentApproveSessionExtension" xml:space="preserve">
+        <value>Always allow {0} (session)</value>
+    </data>
+    <data name="AgentApprovalResolvedSessionExtension" xml:space="preserve">
+        <value>Approved {0} for this session</value>
+    </data>
+    <data name="ChatExtensionsApproved" xml:space="preserve">
+        <value>Don't ask for extensions (this session)</value>
+    </data>
+    <data name="ChatExtensionsApprovedTooltip" xml:space="preserve">
+        <value>Extension commands that would normally ask you first (browsing, generating images, MCP tools) run without asking in this session. Handing the browser to you and opening local or intranet addresses still ask every time.</value>
+    </data>
+    <data name="ExtensionNameBrowser" xml:space="preserve">
+        <value>Browser</value>
+    </data>
+    <data name="ExtensionNameImage" xml:space="preserve">
+        <value>Image generation</value>
+    </data>
+    <data name="ExtensionNameAudio" xml:space="preserve">
+        <value>Audio</value>
+    </data>
+    <data name="AgentCapabilityMcpNameTaken" xml:space="preserve">
+        <value>Hidden: a built-in extension has the same name; rename this server in settings</value>
     </data>
 </root>

@@ -77,8 +77,8 @@ public sealed class TurnDriver : IDisposable
 
     /// <summary>
     /// 这一轮卡在什么具名的事情上（界面据此提示，避免看起来像卡住）。
-    /// 驱动这一层只会是 <see cref="ETurnBusy.Compacting"/>——预连发生在执行者内部，
-    /// 由 <c>ICharacterRunner.Busy</c> 说，两者由渲染方合并成一处提示。
+    /// 驱动这一层只会是 <see cref="ETurnBusy.Compacting"/>；执行者内部的等待由 <c>ICharacterRunner.Busy</c> 说，
+    /// 两者由渲染方合并成一处提示。
     /// </summary>
     public ETurnBusy Busy
     {

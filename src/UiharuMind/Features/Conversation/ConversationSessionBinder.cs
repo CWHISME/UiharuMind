@@ -30,7 +30,7 @@ public sealed class ConversationSessionBinder
 
     private readonly Action _onBusyChanged;
 
-    /// <param name="onBusyChanged">执行者忙碌态变化(预连、整理交接文档等具名等待)</param>
+    /// <param name="onBusyChanged">执行者忙碌态变化(整理交接文档等具名等待)</param>
     public ConversationSessionBinder(Action onBusyChanged)
     {
         _onBusyChanged = onBusyChanged;
@@ -71,7 +71,7 @@ public sealed class ConversationSessionBinder
         if (!isAgentForm && !string.IsNullOrEmpty(greeting ?? character.FirstGreeting)) created.AddNarration(character, greeting);
         SessionManager.Instance.Add(created);
         ICharacterRunner runner = created.Runner;
-        WatchBusy(runner); //必须在 AttachAsync 之前,预连就在它里面
+        WatchBusy(runner); //必须在 AttachAsync 之前,装配就在它里面
         await runner.AttachAsync(created, cancellationToken);
         return created;
     }
@@ -97,8 +97,7 @@ public sealed class ConversationSessionBinder
             session.WorkspacePath = workspacePath;
             session.PermissionModeIndex = permissionModeIndex;
         }
-        // 回调要在 AttachAsync **之前**挂上:装配就发生在它里面,预连也在那儿,
-        // 挂在后面的话第一次等待(恰好是唯一会等满十秒的那次)一声不响
+        // 回调要在 AttachAsync **之前**挂上:装配就发生在它里面,挂在后面的话第一次等待一声不响
         ICharacterRunner runner = session.Runner;
         WatchBusy(runner);
         await runner.AttachAsync(session, cancellationToken);

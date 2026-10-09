@@ -2,7 +2,8 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools;
-using UiharuMind.Core.AI.Execution.Tools.Browser;
+using UiharuMind.Core.AI.Execution.Extensions;
+using UiharuMind.Core.Tests.Execution.Extensions;
 
 namespace UiharuMind.Core.Tests.Execution;
 
@@ -143,16 +144,22 @@ public class NestedApprovalResolverTests
         Assert.Equal(expected, SubAgentTool.ShouldAutoApproveNestedApprovals(attended, modeIndex));
     }
 
-    /// <summary>完全自动档放行嵌套审批，接管除外：它等的是用户的手，自动批了等于替用户谎称做完了</summary>
+    /// <summary>
+    /// 完全自动档放行嵌套审批，扩展调用除外（ADR 0079）：完全自动档本就不放行它，
+    /// 接管等的是用户的手，自动批了等于替用户谎称做完了
+    /// </summary>
     [Fact]
-    public void FullAuto_StillWaitsForTheUserOnBrowserHandoff()
+    public void FullAuto_StillWaitsForTheUserOnExtensionCalls()
     {
-        ToolApprovalRequestContent handoff = new("r1", new FunctionCallContent("c1", BrowserTools.HandoffToolName,
-            new Dictionary<string, object?> { ["task"] = "登录 GitHub" }));
-        ToolApprovalRequestContent click = new("r2", new FunctionCallContent("c2", BrowserTools.ActToolName,
-            new Dictionary<string, object?> { ["action"] = "click", ["target"] = "e1" }));
+        ToolApprovalRequestContent handoff = new("r1", ExtensionCallOf.Make(BuiltinExtensions.Browser,
+            BuiltinExtensions.BrowserHandoff, new { task = "登录 GitHub" }));
+        ToolApprovalRequestContent click = new("r2", ExtensionCallOf.Make(BuiltinExtensions.Browser,
+            BuiltinExtensions.BrowserAct, new { action = "click", target = "e1" }));
+        ToolApprovalRequestContent write = new("r3", new FunctionCallContent("c3", "Write",
+            new Dictionary<string, object?> { ["filePath"] = "/elsewhere/a.txt" }));
 
         Assert.Null(SubAgentTool.FullAutoApprovalFor(handoff));
-        Assert.NotNull(SubAgentTool.FullAutoApprovalFor(click));
+        Assert.Null(SubAgentTool.FullAutoApprovalFor(click));
+        Assert.NotNull(SubAgentTool.FullAutoApprovalFor(write));
     }
 }

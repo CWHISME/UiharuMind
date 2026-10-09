@@ -114,7 +114,7 @@ internal sealed class SessionPostCommand : IDevCommand
 }
 
 /// <summary>
-/// 等当前会话这一轮（含后台子代理、轮末的交接文档）跑完。<c>args</c>：timeoutMinutes、approvals（deny / once，默认 deny）、
+/// 等当前会话这一轮（含后台子代理、轮末的交接文档）跑完。<c>args</c>：timeoutMinutes、approvals（deny / once / session，默认 deny）、
 /// foreground（true 时只等主会话自己这一轮，不等后台子代理——要趁对方还在干活时插话就靠它）。
 /// 期间冒出来的审批卡按 approvals 点掉并记进报告——被要了什么本身就是观测量
 /// </summary>
@@ -124,7 +124,7 @@ internal sealed class SessionWaitCommand : IAsyncDevCommand
 
     public string Name => "session.wait";
 
-    public string Usage => "等当前显示的会话这一轮跑完（默认连后台子代理一起等）。timeoutMinutes、approvals（deny / once；浏览器接管卡上 once 即「完成了，继续」、deny 即取消）、foreground（true 只等主会话这一轮）";
+    public string Usage => "等当前显示的会话这一轮跑完（默认连后台子代理一起等）。timeoutMinutes、approvals（deny / once / session；扩展卡上 session 即本会话允许该扩展，浏览器接管卡上 once 即「完成了，继续」、deny 即取消）、foreground（true 只等主会话这一轮）";
 
     public async Task<object?> ExecuteAsync(JsonElement args)
     {

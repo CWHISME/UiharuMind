@@ -91,9 +91,6 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     /// <b>走的就是真装配那条路</b>，不另写一份"预估"：固定开销要能与首轮发送之后显示的数对得上，
     /// 而两份各自演算的代码迟早分叉——那时面板会在用户发出第一句话的瞬间跳一下数字，
     /// 且没人说得清哪个是对的。代价是白建一次 agent 对象，只在首轮之前发生。
-    ///
-    /// <b>与首轮同样会预连 MCP</b>：工具是异步取回的，不等就只能报出一份缺了 MCP 的开销，
-    /// 而 MCP 恰是这几档里最贵的一笔。顺带首轮发送时那次预连已经完成，不必再等。
     /// </summary>
     /// <param name="profile">构建配置</param>
     /// <param name="cancellationToken">取消令牌</param>
@@ -110,13 +107,8 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
                 profile.GroupScene);
         }
 
-        // 名单与装配用的是同一份,理由同 HarnessCharacterRunner.EnsureHandleAsync
-        await McpManager.Instance.WarmupAsync(profile.WorkspacePath,
-                profile.Character.Tools.DisabledMcpServers, cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
-
         // 装配输入没变就给上一次那份。判据与「要不要重建 agent」是同一个,所以角色卡改了、
-        // 工作区换了、MCP 连上了都会自然失效。在空态与已有会话之间来回切是常态,
+        // 工作区换了、MCP 名单变了都会自然失效。在空态与已有会话之间来回切是常态,
         // 不缓存的话每回都要白建一次 agent、并为整份 AGENTS.md 与所有工具 schema 重新分词
         AgentAssemblyFacts facts = AgentAssemblyFacts.Capture(profile);
         lock (_previewLock)

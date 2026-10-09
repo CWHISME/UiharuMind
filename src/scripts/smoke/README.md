@@ -175,9 +175,10 @@ SMOKE_FRESH=1 src/scripts/smoke/run.sh local-model-first-run
 - `current` 是刚下的模型且 running 为 true（还没选过模型时下完会顺手加载）
 - 流水里有 assistant 的回复，不是 `Model … is not running`
 
-### browser-basic：浏览器工具三件事
+### browser-basic：浏览器三件事
 
-自带一张只开浏览器与文件工具的「浏览器测试员」卡（`browser-basic.home/`，关了 Shell 与网页搜索，逼它走浏览器）。
+自带一张只开文件工具的「浏览器测试员」卡（`browser-basic.home/`，关了 Shell 与网页搜索，逼它走浏览器）。
+浏览器是扩展（ADR 0079）：模型先 `ExtensionHelp` 查、再 `ExtensionCall` 调 `browser` 的命令。
 三个单聊各一件事：httpbin 的披萨表单填完提交并核对回显；中文维基搜「白井黑子」答三个事实；
 the-internet 上选下拉框、再用公开的测试账号登录——密码给了也不代填，得走接管（ADR 0078）。**要本机装着 Chrome**，无头跑：
 
@@ -186,17 +187,19 @@ UIHARU_BROWSER_HEADLESS=1 SMOKE_MODEL=Agnes-2.5-Flash-无思考 src/scripts/smok
 ```
 
 - 表单回显里 `custname` 是张三、`size` 是 large、`topping` 是 bacon 与 onion、`comments` 对得上
-- 动作参数用的是快照里的编号（`target` 为 `eN`），下拉框走 `select` 而不是去点选项。
+- 第一次用浏览器前调过 `ExtensionHelp`（不带参数或带 `browser`），之后的调用 `extension` 是 `browser`、`command` 是命令名
+- 动作参数用的是快照里的编号（`arguments.target` 为 `eN`），下拉框走 `select` 而不是去点选项。
   看 `session.dump` 导出的调用原样参数；`report.json` 的 approvals 摘要已是翻成人话的说法，看不到编号
 - 维基那页超过快照预算时，结果里有落盘路径，模型用 `find` 或 `Read` 续读，而不是反复重拍整页；
-  读事实最好走 `view: "text"`（正文成段，`find` 命中整段）
-- 登录那项：用户名照填；往密码框 `fill` 被拒（结果里是 password field 那句），随后调 `BrowserHandoff`。
+  读事实最好走 `snapshot` 的 `view: "text"`（正文成段，`find` 命中整段）
+- 登录那项：用户名照填；往密码框 `fill` 被拒（结果里是 password field 那句），随后调 `browser.handoff`。
   无头下接管交回时页面没变，模型如实说需要用户登录，而不是谎称登录成功
-- 审批卡（`report.json` 的 approvals）只出在 `BrowserNavigate` / `BrowserAct` / `BrowserHandoff` 上，`BrowserSnapshot` 不问
+- 审批卡（`report.json` 的 approvals）只出在 `navigate` / `act` / `handoff` 上（卡上的工具名是拆开后的
+  `BrowserNavigate` / `BrowserAct` / `BrowserHandoff`），`snapshot` 与 `ExtensionHelp` 不问
 
 ### browser-subagent：子代理并行用浏览器（ADR 0075）
 
-自带一张开着浏览器与委派的「浏览器派活员」卡。让它并行派两个子代理：一个填 httpbin 表单提交，一个在 the-internet 选下拉框，回来汇总。
+自带一张开着委派的「浏览器派活员」卡（浏览器是扩展，默认就有）。让它并行派两个子代理：一个填 httpbin 表单提交，一个在 the-internet 选下拉框，回来汇总。
 
 ```bash
 UIHARU_BROWSER_HEADLESS=1 SMOKE_MODEL=Agnes-2.5-Flash-无思考 src/scripts/smoke/run.sh browser-subagent

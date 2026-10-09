@@ -54,8 +54,8 @@ public sealed record AgentAssemblyInputs
     /// <summary>群场景段正文；不是群成员为空串</summary>
     public string GroupScene { get; init; } = string.Empty;
 
-    /// <summary>按需 MCP 名单签名（<see cref="McpManager.DescribeOnDemand"/>）</summary>
-    public string McpOnDemand { get; init; } = string.Empty;
+    /// <summary>MCP server 名单签名（<see cref="McpManager.DescribeUsable"/>）</summary>
+    public string McpRoster { get; init; } = string.Empty;
 
     /// <summary>至少配了一个生图模型</summary>
     public bool ImageModelsConfigured { get; init; }

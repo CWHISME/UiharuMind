@@ -31,7 +31,7 @@ internal static class ToolResultSpill
     /// </summary>
     /// <param name="text">工具输出全文</param>
     /// <param name="directory">落盘目录；不存在会创建</param>
-    /// <param name="fileStem">文件名的可读前缀（如 <c>McpCall_github_search</c>）</param>
+    /// <param name="fileStem">文件名的可读前缀（如 <c>ExtensionCall_github_search</c>）</param>
     /// <param name="budget">体量预算；缺省用 MCP 结果的紧凑档</param>
     /// <returns>给模型的最终文本</returns>
     public static string Limit(string text, string directory, string fileStem, ToolOutputBudget? budget = null)

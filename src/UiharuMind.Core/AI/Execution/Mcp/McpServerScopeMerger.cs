@@ -29,7 +29,7 @@ public readonly record struct EffectiveMcpServer(McpServerConfig Config, McpServ
 ///
 /// <b>纯函数，不碰单例、不读盘</b>——覆盖这类"错一次就静默走偏"的规则值得单测。
 /// <see cref="McpManager"/> 只管连接与运行态，怎么并是这里的事
-/// （与 <see cref="McpToolSetBuilder"/> 同一分工）。
+/// （纯函数，不碰单例）。
 /// </summary>
 internal static class McpServerScopeMerger
 {
@@ -38,7 +38,7 @@ internal static class McpServerScopeMerger
     ///
     /// 理由与生态一致（越靠近工作区的越具体），且用户写进项目里的通常就是要针对这个项目。
     /// 由此得到一条推论，别处都靠它：<b>合并之后，一个名字在任一时刻只对应一个生效的 server</b>——
-    /// 所以角色那份 <c>DisabledMcpServers</c> 按名字存就够，不必也不该带上作用域。
+    /// 所以角色那份 <c>DisabledExtensions</c> 按名字存就够，不必也不该带上作用域。
     /// </summary>
     /// <param name="globalServers">全局配置（<c>McpServers.json</c>）</param>
     /// <param name="workspaceServers">项目级配置（工作区的 <c>.mcp.json</c>）</param>

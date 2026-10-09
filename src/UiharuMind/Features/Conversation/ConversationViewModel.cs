@@ -30,6 +30,7 @@ using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.ToolCall;
@@ -88,6 +89,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     [ObservableProperty] private bool _scrollToEnd;
     [ObservableProperty] private SendMode _senderMode = SendMode.User;
     [ObservableProperty] private bool _isPlaintext;
+    private bool _draftExtensionsApproved; //还没建会话时勾的「扩展不再询问」，建会话那一刻写进去
+    private ChatSessionMeta? _currentMeta;
     [ObservableProperty] private bool _isAutoCollapseThinking;
 
     [ObservableProperty] private bool _isSessionLoading; //会话切换构建中(空状态覆盖层此间不显示,避免闪烁)
@@ -164,7 +167,16 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     [ObservableProperty] private bool _hasTodos;
 
     /// <summary>当前会话元数据(未开始首轮前为空)</summary>
-    public ChatSessionMeta? CurrentMeta { get; private set; }
+    public ChatSessionMeta? CurrentMeta
+    {
+        get => _currentMeta;
+        private set
+        {
+            _currentMeta = value;
+            // 「扩展不再询问」存在会话上，换会话（含回到空态）就换了那一份
+            OnPropertyChanged(nameof(ExtensionsApproved));
+        }
+    }
 
     /// <summary>无会话时首轮发送创建新会话所用的角色;agent 页默认主代理,聊天页由页面壳指定</summary>
     public string NewSessionCharacterId { get; set; } = nameof(DefaultCharacter.ChenXiAgent);
@@ -261,6 +273,28 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
     /// <summary>权限档能不能在这里改：群成员跟群走，只在群视图设</summary>
     public bool IsPermissionEditable => !IsGroupMemberSession;
+
+    /// <summary>
+    /// 本会话扩展调用不再询问（ADR 0079）：一般级的扩展命令直接放行，接管与浏览器去本机地址照问。
+    /// 存在会话上，与审批卡上「本会话允许某个扩展」同一份名单（<c>*</c> 代表全部）；群壳上勾的对全体成员生效。
+    /// 还没建会话时记成草稿，建会话那一刻写进去；选着会话而本体不在（文件坏了、正在装载）时读作未勾、写也不落
+    /// </summary>
+    public bool ExtensionsApproved
+    {
+        get => CurrentMeta == null
+            ? _draftExtensionsApproved
+            : CurrentSession?.SnapshotSessionApprovedExtensions().Contains(ExtensionCalls.AllExtensions) == true;
+        set
+        {
+            if (value == ExtensionsApproved) return;
+            if (CurrentMeta == null) _draftExtensionsApproved = value;
+            else CurrentSession?.SetSessionApprovedExtension(ExtensionCalls.AllExtensions, value);
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>「扩展不再询问」能不能在这里勾：群成员跟群走，在群视图里勾</summary>
+    public bool CanApproveExtensions => IsAgentSession && !IsGroupMemberSession;
 
     /// <summary>发送身份对应的图标名(user/bot)</summary>
     public string SenderIconName => ConversationModeLabels.SenderIcon(SenderMode == SendMode.User);
@@ -475,11 +509,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     }
 
     /// <summary>
-    /// 本会话此刻卡在什么具名的事情上。两个来源合并成一处：整理交接文档在驱动那一层，
-    /// 等 MCP server 连上（预连）在执行者那一层。
-    ///
-    /// 驱动优先：交接文档只会在一轮跑完之后开始，那时预连早已结束，两者实际不会同时为真；
-    /// 万一同时为真，正在发请求的那件事更该说。
+    /// 本会话此刻卡在什么具名的事情上。两个来源合并成一处：驱动那一层（整理交接文档）
+    /// 与执行者那一层（MCP 预连退役后暂时没有，ADR 0079）；驱动优先，正在发请求的那件事更该说。
     /// </summary>
     public ETurnBusy Busy => _driver.Busy != ETurnBusy.None
         ? _driver.Busy
@@ -498,7 +529,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
             return Busy switch
             {
-                ETurnBusy.ConnectingMcp => Loc.Text(LangKey.AgentMcpConnecting),
                 ETurnBusy.Compacting => Loc.Text(LangKey.HandoffWriting),
                 _ => string.Empty,
             };
@@ -567,7 +597,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             pattern => CurrentSession?.AddSessionApprovedShellPattern(pattern),
             SessionPaths,
             createUserItems: _history.CreateUserItems,
-            sessionIdSource: () => CurrentSession?.SessionId);
+            sessionIdSource: () => CurrentSession?.SessionId,
+            approveExtension: extension => CurrentSession?.SetSessionApprovedExtension(extension, true));
         // 用量不经转录器转发:运行侧看得见同一条内容流,由它记账并写回会话本体,
         // 这里只负责把数字刷到界面上(UsageObserved 通知)
         _transcript.HousekeepingToolCalled += () => _ = RefreshTodosAsync();
@@ -858,7 +889,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         OnPropertyChanged(nameof(HasBackgroundWorkOnly));
     }
 
-    /// 忙碌态可能从后台线程上抛(预连在装配线程上),而绑定要求属性变更在 UI 线程上发生
+    /// 忙碌态可能从后台线程上抛(装配在后台线程上),而绑定要求属性变更在 UI 线程上发生
     private void NotifyBusyChanged()
     {
         Dispatcher.UIThread.Post(() =>
@@ -1464,6 +1495,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 NewSessionIsAgentForm ? Workspace.Path : null, PermissionModeIndex, cancellationToken,
                 SessionModel.TakeDraft(), NewSessionIsAgentForm);
 
+            if (_draftExtensionsApproved) created.SetSessionApprovedExtension(ExtensionCalls.AllExtensions, true);
+            _draftExtensionsApproved = false;
             CurrentMeta = created.ToMeta();
             Title = CurrentMeta.Title;
             SessionModel.Refresh(); //首轮新建的会话（尤其懒建页）此前无元数据，面板据此现身
@@ -1491,6 +1524,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private void NotifyCharacterKindChanged()
     {
         OnPropertyChanged(nameof(IsAgentSession));
+        OnPropertyChanged(nameof(CanApproveExtensions));
         OnPropertyChanged(nameof(IsModeSwitchVisible));
         OnPropertyChanged(nameof(IsTodoListVisible));
         OnPropertyChanged(nameof(AutoReadAloud));
@@ -1574,6 +1608,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         if (Group != null) InputPlaceholderKey = LangKey.GroupInputTips; //群里是对全群说话,不是给谁派任务
         OnPropertyChanged(nameof(IsGroupMemberSession));
         OnPropertyChanged(nameof(IsPermissionEditable));
+        OnPropertyChanged(nameof(CanApproveExtensions));
         OnPropertyChanged(nameof(PermissionTooltip));
         NotifyCharacterKindChanged();
         OnPropertyChanged(nameof(SessionModelLabel));
@@ -1612,6 +1647,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             _isLoadingSession = false;
         }
 
+        OnPropertyChanged(nameof(ExtensionsApproved));
+
         // 每个悬挂点都要问一次:这次装载还算不算数(被更新的切换取代 / 已经不在界面上了)
         bool Abandoned()
         {
@@ -1641,7 +1678,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             ChatSession? body = externallyDriven
                 ? SessionManager.Instance.Load(meta.SessionId)
                 : await AttachAsync(meta, CancellationToken.None);
-            // 墙上时间:里面有真正的 await(预连、装配),不等于 UI 线程被占这么久。
+            // 墙上时间:里面有真正的 await(装配),不等于 UI 线程被占这么久。
             // 与 ui-stall 的间隔对照才说明问题——两个数接近就说明它是在 UI 线程上同步跑的
             StartupPhaseProbe.End("conversation/attach-wall", attachBegin);
             if (Abandoned()) return;

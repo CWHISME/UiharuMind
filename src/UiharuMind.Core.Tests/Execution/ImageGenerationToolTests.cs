@@ -209,28 +209,20 @@ public sealed class ImageGenerationToolTests : IDisposable
         Assert.Equal(new ImageProgress(EImageStage.Generating, 3, 8), progress);
     }
 
+    /// <summary>生图扩展能不能用随「配没配生图模型」变：配了第一个模型就该重建，普通角色不装工具、不入账</summary>
     [Theory]
-    [InlineData(true, true, true, true)]
-    [InlineData(true, true, false, false)] //没配生图模型:一个 token 都不占
-    [InlineData(true, false, true, false)] //角色关掉了
-    [InlineData(false, true, true, false)] //普通角色不装工具
-    public void Mount_RequiresAgentToggleAndConfiguredModel(bool isAgent, bool enabled, bool configured, bool expected)
+    [InlineData(true, true, true)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    public void Facts_TrackConfiguredImageModels_ForAgentsOnly(bool isAgent, bool configured, bool expected)
     {
-        CharacterData character = new()
-        {
-            CharacterId = "a", IsAgent = isAgent, Tools = new AgentToolConfig { EnableImageGeneration = enabled },
-        };
-        AgentAssemblyPlan plan = new()
-        {
-            Profile = new AgentBuildProfile { Character = character }, ImageModelsConfigured = configured,
-        };
+        CharacterData character = new() { CharacterId = "a", IsAgent = isAgent };
         AgentAssemblyFacts facts = AgentAssemblyFacts.Capture(character,
             new AgentAssemblyInputs
             {
                 Permission = EAgentPermissionMode.AutoEdit, ImageModelsConfigured = configured,
             });
 
-        Assert.Equal(expected, plan.MountImageGeneration);
-        Assert.Equal(expected, facts.ImageGeneration); //重建判据与挂载判据同一口径
+        Assert.Equal(expected, facts.ImageModelsConfigured);
     }
 }

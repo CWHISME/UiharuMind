@@ -269,7 +269,7 @@ internal sealed partial class PuppeteerTab
     // 用户给过密码也不代填：密码只经用户的手，模型改用接管
     private static string PasswordRefusal(string field) =>
         $"{field} is a password field, and passwords are never typed for the user, even one they gave you. " +
-        $"Call {BrowserTools.HandoffToolName} so the user types it in the browser window themselves.";
+        $"Call {BrowserTools.HandoffMention} so the user types it in the browser window themselves.";
 
     private static string Describe(AxNode node) =>
         node.Name.Trim() is { Length: > 0 } name ? $"{node.Role} \"{name}\"" : node.Role;

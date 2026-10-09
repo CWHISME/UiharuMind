@@ -33,7 +33,7 @@ internal static class McpTransportFactory
         },
         // SDK 默认先发一个 server/discover 探测最新协议版本，再退回 initialize。
         // 不认识这个方法的 server（Unity MCP 就是）会直接吞掉它，于是每次新连接白等满 5 秒——
-        // 实测首次 McpHelp 6 秒。本地与局域网 server 的响应远快于 2 秒；
+        // 实测首次查 server 6 秒。本地与局域网 server 的响应远快于 2 秒；
         // 万一是很慢的远程 server 误判，后果也只是走 initialize 握手，与今天绝大多数 server 一致
         DiscoverProbeTimeout = TimeSpan.FromSeconds(2),
     };

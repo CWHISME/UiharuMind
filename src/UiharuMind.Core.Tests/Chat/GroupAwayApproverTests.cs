@@ -4,7 +4,8 @@ using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Chat.Group.Away;
 using UiharuMind.Core.AI.Execution;
-using UiharuMind.Core.AI.Execution.Tools.Browser;
+using UiharuMind.Core.AI.Execution.Extensions;
+using UiharuMind.Core.Tests.Execution.Extensions;
 
 namespace UiharuMind.Core.Tests.Chat;
 
@@ -50,8 +51,8 @@ public class GroupAwayApproverTests
     [Fact]
     public async Task BrowserHandoff_IsDeniedWithoutAsking_EvenForTheAvatarItself()
     {
-        FunctionCallContent handoff = new("c1", BrowserTools.HandoffToolName,
-            new Dictionary<string, object?> { ["task"] = "登录 GitHub" });
+        FunctionCallContent handoff = ExtensionCallOf.Make(BuiltinExtensions.Browser, BuiltinExtensions.BrowserHandoff,
+            new { task = "登录 GitHub" });
 
         IReadOnlyList<ChatMessage> responses = await Resolve(_avatar, handoff);
 
@@ -64,8 +65,8 @@ public class GroupAwayApproverTests
     [Fact]
     public async Task LocalNavigation_IsDeniedWithoutAsking()
     {
-        FunctionCallContent navigate = new("c1", BrowserTools.NavigateToolName,
-            new Dictionary<string, object?> { ["url"] = "http://192.168.1.1" });
+        FunctionCallContent navigate = ExtensionCallOf.Make(BuiltinExtensions.Browser, BuiltinExtensions.BrowserNavigate,
+            new { url = "http://192.168.1.1" });
 
         IReadOnlyList<ChatMessage> responses = await Resolve(_member, navigate);
 

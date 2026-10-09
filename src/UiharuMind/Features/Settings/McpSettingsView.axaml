@@ -109,18 +109,6 @@
                                 </controls:SettingsRow.Field>
                             </controls:SettingsRow>
 
-                            <!-- 送达方式：第三个与「托管、可用」正交的问题（ADR 0051） -->
-                            <controls:SettingsRow Header="{loc:Loc AgentMcpMountMode}"
-                                                  ToolTip.Tip="{loc:Loc AgentMcpMountModeTip}">
-                                <controls:SettingsRow.Field>
-                                    <ComboBox SelectedIndex="{Binding MountModeIndex}" MinWidth="160"
-                                              ToolTip.Tip="{loc:Loc AgentMcpMountModeTip}">
-                                        <ComboBoxItem Content="{loc:Loc AgentMcpMountModeOnDemand}" />
-                                        <ComboBoxItem Content="{loc:Loc AgentMcpMountModeDirect}" />
-                                    </ComboBox>
-                                </controls:SettingsRow.Field>
-                            </controls:SettingsRow>
-
                             <controls:SettingsRow Header="{loc:Loc AgentMcpDescription}"
                                                   ToolTip.Tip="{loc:Loc AgentMcpDescriptionTip}">
                                 <controls:SettingsRow.Field>
@@ -130,18 +118,10 @@
                             </controls:SettingsRow>
 
                             <controls:SettingsRow Header="{loc:Loc AgentMcpEnabled}"
-                                                  ToolTip.Tip="{loc:Loc AgentMcpEnabledTip}">
-                                <controls:SettingsRow.Field>
-                                    <ToggleSwitch IsChecked="{Binding SelectedServer.IsEnabled}" />
-                                </controls:SettingsRow.Field>
-                            </controls:SettingsRow>
-
-                            <controls:SettingsRow Header="{loc:Loc AgentMcpInjectInstructions}"
-                                                  ToolTip.Tip="{loc:Loc AgentMcpInjectInstructionsTip}"
-                                                  IsVisible="{Binding IsDirectMount}"
+                                                  ToolTip.Tip="{loc:Loc AgentMcpEnabledTip}"
                                                   DividerVisible="False">
                                 <controls:SettingsRow.Field>
-                                    <ToggleSwitch IsChecked="{Binding SelectedServer.InjectInstructions}" />
+                                    <ToggleSwitch IsChecked="{Binding SelectedServer.IsEnabled}" />
                                 </controls:SettingsRow.Field>
                             </controls:SettingsRow>
 
@@ -217,22 +197,12 @@
                                                     Content="{loc:Loc AgentMcpTrustRevoke}"
                                                     Command="{Binding RevokeCommand}" />
                                         </Grid>
-                                        <!-- 该项目 .mcp.json 里的 server：送达方式只在这里改（面板是只读的） -->
+                                        <!-- 该项目 .mcp.json 里的 server：授权批的就是它们 -->
                                         <ItemsControl ItemsSource="{Binding Servers}" IsVisible="{Binding HasServers}"
-                                                      Margin="12,0,0,0"
-                                                      ToolTip.Tip="{loc:Loc AgentMcpWorkspaceServersTip}">
+                                                      Margin="12,0,0,0">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="settings:McpWorkspaceServerItem">
-                                                    <!-- 开关自己的两个状态就是当前的送达方式（关 = 按需，开 = 直挂），
-                                                         不在旁边另放固定文字 -->
-                                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                                        <ToggleSwitch IsChecked="{Binding IsDirect}"
-                                                                      OnContent="{loc:Loc AgentMcpMountModeDirect}"
-                                                                      OffContent="{loc:Loc AgentCapabilityMcpOnDemand}"
-                                                                      ToolTip.Tip="{loc:Loc AgentMcpWorkspaceDirectTip}" />
-                                                        <TextBlock Classes="muted" VerticalAlignment="Center"
-                                                                   Text="{Binding Name}" />
-                                                    </StackPanel>
+                                                    <TextBlock Classes="muted" Text="{Binding Name}" />
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>

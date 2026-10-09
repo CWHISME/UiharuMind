@@ -27,8 +27,8 @@ public enum EPromptSection
     /// <summary>工具纪律段（含工作目录那一小节）</summary>
     ToolDisciplines,
 
-    /// <summary>MCP server 自述</summary>
-    Mcp,
+    /// <summary>扩展名单（ADR 0079）：不在工具列表里、先查后调的那些能力的名字与一句话说明</summary>
+    Extensions,
 
     /// <summary>工作区规矩（项目的 AGENTS.md / CLAUDE.md）</summary>
     Workspace,
@@ -50,10 +50,4 @@ public sealed record AgentPromptSegment(EPromptSection Section, string Text)
 {
     /// <summary>估算 token；装配时为 0，切快照时填</summary>
     public int EstimatedTokens { get; init; }
-
-    /// <summary>
-    /// 是否计入固定开销合计。MCP 自述恒为 <c>false</c>——它已经在 MCP 那一档里计过一次，
-    /// 再计一遍就是双计。它仍然登记在册，因为「模型现在到底看得见什么」要求它出现在提示词明细里
-    /// </summary>
-    public bool CountsTowardTotal => Section != EPromptSection.Mcp;
 }

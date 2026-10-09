@@ -45,7 +45,7 @@ public sealed class McpToolDescriptor
 
 /// <summary>
 /// 一个 server 的工具清单快照：上次连上时取回的定义与自述。
-/// 按需模式的 <c>McpHelp</c> 在 server 离线时读它，让模型至少看得见"有什么"，
+/// <c>ExtensionHelp</c> 在 server 离线时读它，让模型至少看得见"有什么"，
 /// 再决定要不要等、要不要换路。
 /// </summary>
 public sealed class McpToolCatalog

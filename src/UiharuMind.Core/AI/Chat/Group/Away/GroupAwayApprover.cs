@@ -1,6 +1,7 @@
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools.Browser;
 using UiharuMind.Core.Core.SimpleLog;
@@ -97,9 +98,11 @@ public sealed class GroupAwayApprover
             return new GroupAwayApprovalVerdict(false, "越界写入：离席中不替用户点，留给用户本人");
         }
 
-        if (BrowserRisk.RequiresApprovalInAllModes(call))
+        // 扩展调用拆开再给化身看：「BrowserAct 点 e21」比一层 ExtensionCall 好判断
+        FunctionCallContent inner = ExtensionCalls.Unwrap(call);
+        if (ExtensionRisk.AlwaysAsks(call))
         {
-            return new GroupAwayApprovalVerdict(false, call.Name == BrowserTools.HandoffToolName
+            return new GroupAwayApprovalVerdict(false, inner.Name == BrowserTools.HandoffToolName
                 ? "接管浏览器：用户离席，没人能接手"
                 : "打开本机或内网地址：离席中不替用户点，留给用户本人");
         }
@@ -108,7 +111,7 @@ public sealed class GroupAwayApprover
 
         try
         {
-            GroupAwayApprovalAsk ask = new(party.Avatar, _historyOf(party.Group), party.RequesterName, call);
+            GroupAwayApprovalAsk ask = new(party.Avatar, _historyOf(party.Group), party.RequesterName, inner);
             return await _judge(ask, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception e) when (e is not OperationCanceledException || !cancellationToken.IsCancellationRequested)

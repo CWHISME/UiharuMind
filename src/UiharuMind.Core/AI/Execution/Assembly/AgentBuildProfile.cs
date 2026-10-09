@@ -14,6 +14,7 @@ using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Memory;
 using UiharuMind.Core.Configs;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Audio;
@@ -110,6 +111,12 @@ public class AgentBuildProfile
     public Func<IReadOnlyList<string>?>? SessionShellApprovalSource { get; init; }
 
     /// <summary>
+    /// 本会话放行过的扩展名来源（审批规则每次执行时解析，ADR 0079）。定时运行恒为「全部」：
+    /// 任务是用户自己排的，无人值守时问了也没人点；硬问的照旧拒
+    /// </summary>
+    public Func<IReadOnlyList<string>?>? SessionExtensionApprovalSource { get; init; }
+
+    /// <summary>
     /// 权限档来源（审批规则每次判断时现取；中途改档下一条调用即生效）。为 null 时用 <see cref="PermissionMode"/>
     /// </summary>
     public Func<EAgentPermissionMode>? PermissionModeSource { get; init; }
@@ -162,17 +169,6 @@ public class AgentBuildProfile
     }
 
     /// <summary>
-    /// 从会话构造。<b>「会话的哪些字段进装配」只有这一处定义</b>——
-    /// 快照与装配都从产出的 profile 出发，因此这里漏一个字段，两边会一起漏，
-    /// 而不会像从前那样一边读到、另一边读不到（子智能体名单就是这么漏的）。
-    /// </summary>
-    /// <param name="session">会话</param>
-    /// <param name="sessionModelSource">会话级模型来源</param>
-    /// <param name="sessionKnowledgeSource">会话级知识库来源</param>
-    /// <param name="sessionShellApprovalSource">会话级 shell 放行模式来源</param>
-    /// <param name="isAttendedSource">本轮有没有人看着</param>
-    /// <returns>构建配置</returns>
-    /// <summary>
     /// 本会话的产出目录名（相对 <c>AgentOutputLayout.RootPath</c>）；无会话时为空串。
     ///
     /// 只带名字不带完整路径，是因为<b>建目录是副作用</b>，只允许发生在
@@ -182,13 +178,26 @@ public class AgentBuildProfile
     /// </summary>
     public string OutputFolderName { get; init; } = string.Empty;
 
+    /// <summary>
+    /// 从会话构造。<b>「会话的哪些字段进装配」只有这一处定义</b>——
+    /// 快照与装配都从产出的 profile 出发，因此这里漏一个字段，两边会一起漏，
+    /// 而不会像从前那样一边读到、另一边读不到（子智能体名单就是这么漏的）。
+    /// </summary>
+    /// <param name="session">会话</param>
+    /// <param name="sessionModelSource">会话级模型来源</param>
+    /// <param name="sessionKnowledgeSource">会话级知识库来源</param>
+    /// <param name="sessionShellApprovalSource">会话级 shell 放行模式来源</param>
+    /// <param name="isAttendedSource">本轮有没有人看着</param>
+    /// <param name="sessionExtensionApprovalSource">会话放行过的扩展名来源</param>
+    /// <returns>构建配置</returns>
     public static AgentBuildProfile FromSession(ChatSession session,
         Func<ModelRunningData?>? sessionModelSource = null,
         Func<MemoryData?>? sessionKnowledgeSource = null,
         Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null,
         Func<bool>? isAttendedSource = null,
         Action<string, string>? subSessionStarted = null,
-        Action<string, ImageProgress>? imageProgressReported = null)
+        Action<string, ImageProgress>? imageProgressReported = null,
+        Func<IReadOnlyList<string>?>? sessionExtensionApprovalSource = null)
     {
         return new AgentBuildProfile
         {
@@ -215,10 +224,31 @@ public class AgentBuildProfile
             SessionModelSource = sessionModelSource,
             SessionKnowledgeSource = sessionKnowledgeSource,
             SessionShellApprovalSource = sessionShellApprovalSource,
+            SessionExtensionApprovalSource = session.IsScheduledRun
+                ? static () => [ExtensionCalls.AllExtensions]
+                : WithInheritedApprovals(session, sessionExtensionApprovalSource),
             IsAttendedSource = isAttendedSource,
             SubSessionStarted = subSessionStarted,
             ImageProgressReported = imageProgressReported,
             SpeechSink = session.RequestSpeechAsync,
+        };
+    }
+
+    // 子会话沿用派活者那个会话放行过的扩展：用户在主会话里点过「本会话允许 browser」，派出去的子代理不该再问一遍。
+    // 群成员沿用群壳的：与权限档同一口径跟群走，群视图里勾的「扩展不再询问」才对成员生效
+    private static Func<IReadOnlyList<string>?>? WithInheritedApprovals(ChatSession session,
+        Func<IReadOnlyList<string>?>? own)
+    {
+        string? inheritedFrom = session.IsSubSession ? session.ParentSessionId : session.GroupId;
+        if (inheritedFrom == null) return own;
+        return () =>
+        {
+            ChatSession? from = SessionManager.Instance.GetLoaded(inheritedFrom);
+            // 定时运行的「全部」不落在名单里（见 FromSession），它派出去的子代理要单独补上
+            IReadOnlyList<string> inherited = from is { IsScheduledRun: true }
+                ? [ExtensionCalls.AllExtensions]
+                : from?.SnapshotSessionApprovedExtensions() ?? [];
+            return [..own?.Invoke() ?? [], ..inherited];
         };
     }
 

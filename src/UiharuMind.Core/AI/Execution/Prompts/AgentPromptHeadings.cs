@@ -62,8 +62,8 @@ public static class AgentPromptHeadings
     /// <summary>群场景段（ADR 0048）：群成员才有，紧跟人格段</summary>
     public const string Scene = "# 场景";
 
-    /// <summary>MCP server 自述段（主代理与子代理共用）</summary>
-    public const string Mcp = "# MCP 服务器";
+    /// <summary>扩展名单段（主代理与子代理共用，ADR 0079）</summary>
+    public const string Extensions = "# 扩展";
 
     /// <summary>工作区规矩段（主代理与子代理共用）</summary>
     public const string Workspace = "# 工作区规矩（来自项目的 AGENTS.md）";

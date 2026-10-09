@@ -54,27 +54,25 @@ internal sealed record AgentToolScopeRule(
 /// <summary>
 /// 场合表：哪个场合用得上哪几档能力。<b>挂不挂一个工具，只有这张表和能力开关说话</b>——
 /// 主代理、群成员、化身、定时运行、子代理都经 <see cref="AgentToolsetBuilder"/> 装配，不再各写一份工具名单。
-/// 从前子代理那份另写，新加的能力（浏览器、配音、转写）都漏了它，而没有任何地方会报错。
+/// 从前子代理那份另写，新加的能力（当时的浏览器、配音、转写）都漏了它，而没有任何地方会报错。
 /// </summary>
 internal static class AgentToolScopes
 {
     private static readonly AgentToolScopeRule MainRule = new(new HashSet<EAgentCapability>
     {
         EAgentCapability.FileAccess, EAgentCapability.Shell, EAgentCapability.WebSearch,
-        EAgentCapability.VisionTool, EAgentCapability.ImageGeneration, EAgentCapability.Mcp,
-        EAgentCapability.Speak, EAgentCapability.SpeechSynthesis, EAgentCapability.Transcription,
-        EAgentCapability.Browser, EAgentCapability.KnowledgeSearch, EAgentCapability.ScheduledTasks,
-        EAgentCapability.SubAgent, EAgentCapability.Skills,
+        EAgentCapability.VisionTool, EAgentCapability.Extensions, EAgentCapability.Speak,
+        EAgentCapability.KnowledgeSearch, EAgentCapability.ScheduledTasks, EAgentCapability.SubAgent,
+        EAgentCapability.Skills,
     }, BackgroundTasks: true);
 
     // 子代理拿的是一份任务书：不再往下委派（递归）、不自己装载技能、不排定时任务、
     // 没有会话挂载的知识库可检索、不开口朗读（用户看的是派活的那个会话）、不起后台任务。
-    // 其余与主代理一样——浏览器各开各的标签页，配音、转写落进共用的草稿目录
+    // 其余与主代理一样——扩展里的浏览器各开各的标签页，配音、转写落进共用的草稿目录
     private static readonly AgentToolScopeRule SubAgentRule = new(new HashSet<EAgentCapability>
     {
         EAgentCapability.FileAccess, EAgentCapability.Shell, EAgentCapability.WebSearch,
-        EAgentCapability.VisionTool, EAgentCapability.ImageGeneration, EAgentCapability.Mcp,
-        EAgentCapability.SpeechSynthesis, EAgentCapability.Transcription, EAgentCapability.Browser,
+        EAgentCapability.VisionTool, EAgentCapability.Extensions,
     }, BackgroundTasks: false);
 
     private static readonly AgentToolScopeRule GroupMemberRule =

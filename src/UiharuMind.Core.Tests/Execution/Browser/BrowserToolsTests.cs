@@ -151,14 +151,15 @@ public class BrowserToolsTests
 
     /// <summary>接管的执行发生在用户点「完成了」之后：交回整页，说清是用户动过的</summary>
     [Fact]
-    public async Task Handoff_IsBehindApproval_AndReturnsThePageAsTheUserLeftIt()
+    public async Task Handoff_ReturnsThePageAsTheUserLeftIt()
     {
         IReadOnlyList<AITool> tools = Create(new FakeHost());
 
         string result = await InvokeAsync(tools, BrowserTools.HandoffToolName,
             new AIFunctionArguments { ["task"] = "登录 GitHub" });
 
-        Assert.IsType<ApprovalRequiredAIFunction>(tools.Single(t => t.Name == BrowserTools.HandoffToolName));
+        // 不在这一层包审批：浏览器只经 ExtensionCall 调，审批在那一层逐条判（ADR 0079）
+        Assert.IsNotType<ApprovalRequiredAIFunction>(tools.Single(t => t.Name == BrowserTools.HandoffToolName));
         Assert.StartsWith("The user took over the browser and handed it back.", result);
         Assert.Contains("- button \"Go\" [ref=e2]", result);
     }

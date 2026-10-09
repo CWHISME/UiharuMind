@@ -16,7 +16,7 @@
 
     <!-- 能力 / Todo / 定时任务 页签 -->
     <UserControl.Resources>
-        <!-- 工具/技能/MCP 工具三处共用一行:名字占满并省略,token 靠右对齐成一列。
+        <!-- 工具/技能两处共用一行:名字占满并省略,token 靠右对齐成一列。
              token 紧跟在变长的名字后面时,长名字会把数字顶出右边界,而且数字对不齐等于没法比 -->
         <DataTemplate x:Key="CapabilityRow" x:DataType="panels:CapabilityItem">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" Margin="0,1">
@@ -32,8 +32,7 @@
         <DataTemplate x:Key="PromptSegmentRow" x:DataType="panels:PromptSegmentItem">
             <!-- text-row 是全局样式(CustomButtonStyle.axaml):无 hover 底色、无最小尺寸,
                  行高与上下那些纯文本行对得上 -->
-            <Button Classes="text-row" HorizontalAlignment="Stretch" Margin="0,1"
-                    ToolTip.Tip="{Binding Tip}">
+            <Button Classes="text-row" HorizontalAlignment="Stretch" Margin="0,1">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
                     <TextBlock Grid.Column="0" FontSize="12" TextTrimming="CharacterEllipsis"
                                Text="{Binding Label}" />
@@ -64,7 +63,7 @@
 
                 <TabControl Padding="0"
                             SelectedIndex="{Binding SelectedSidePanelIndex, Mode=TwoWay}">
-                    <!-- 能力:本会话实际挂上的工具/技能/MCP。只读,要改去角色编辑页 -->
+                    <!-- 能力:本会话实际挂上的工具/技能/扩展。只读,要改去角色编辑页 -->
                     <!-- 标题带计数:不点开也知道里面有没有东西,"默认选哪个"因此无关紧要。
                          这一个的计数要跨三个集合求和,axaml 算不了,故在 VM 里拼好 -->
                     <TabItem Header="{Binding Conversation.Capabilities.TabHeader}" FontSize="13">
@@ -92,40 +91,8 @@
                                                   ItemTemplate="{StaticResource PromptSegmentRow}" />
                                 </StackPanel>
 
-                                <!-- MCP 排在提示词之后:它是这一栏里唯一会"今天有明天没"的部分。
-                                     每个 server 就是一个分节,与「系统提示 / 工具 / 技能」同构——
-                                     此前它是一张带底色的圆角卡片,而这一栏其余部分都是平铺的分节:
-                                     同一个列表里一半是卡片一半是清单,会被读成两类东西,而它们不是。
-                                     server 名当分节标题,连计数与占用一并由 SummaryText 交代 -->
-                                <ItemsControl ItemsSource="{Binding Conversation.Capabilities.McpServers}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="panels:McpServerGroupItem">
-                                            <StackPanel Spacing="2" Margin="0,4,0,0">
-                                                <TextBlock Classes="capability-section"
-                                                           Text="{Binding Name}" TextWrapping="Wrap" />
-                                                <TextBlock Classes="muted" FontSize="10"
-                                                           Text="{Binding SummaryText}" TextWrapping="Wrap" />
-                                                <TextBlock Classes="muted" FontSize="10"
-                                                           IsVisible="{Binding InstructionsInjected}"
-                                                           Text="{loc:Loc AgentCapabilityMcpInstructions}" />
-                                                <TextBlock Classes="muted" FontSize="10"
-                                                           Foreground="{DynamicResource SemiBlue5}"
-                                                           IsVisible="{Binding HasRenamedTools}"
-                                                           Text="{loc:Loc AgentCapabilityMcpRenamed}"
-                                                           ToolTip.Tip="{loc:Loc AgentCapabilityMcpRenamedTip}" />
-                                                <ItemsControl ItemsSource="{Binding Tools}"
-                                                              ItemTemplate="{StaticResource CapabilityRow}" />
-                                            </StackPanel>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-
-                                <!-- MCP 预告区:装配之前这个会话将会接入什么。
-                                     与上面那个实况区刻意分开——那个的数据源是装配产物,这个是预测。
-                                     混成一个列表就等于让"面板显示的是真相"这条保证作废。
-                                     首轮发送前显示整份名单(执行者懒建,那时实况区是空的,
-                                     否则新会话就是不告而连);装配之后只留没挂上的那些,
-                                     待确认/被覆盖/被禁用的若在此时消失,用户就再也看不见原因 -->
+                                <!-- MCP server:每个是一个扩展,工具不进请求(ADR 0079),这里只报来源、状态与要执行的命令。
+                                     没挂上的(待确认/被覆盖/被禁用)也列着,否则用户看不见「有东西因为没授权而没用上」 -->
                                 <StackPanel Spacing="2"
                                             IsVisible="{Binding Conversation.Capabilities.HasMcpPlanned}">
                                     <TextBlock Classes="capability-section" Margin="0,4,0,2"

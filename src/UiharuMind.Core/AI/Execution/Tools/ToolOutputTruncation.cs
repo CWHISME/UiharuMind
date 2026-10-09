@@ -3,7 +3,7 @@ using System.Text;
 namespace UiharuMind.Core.AI.Execution.Tools;
 
 /// <summary>
-/// 工具输出超限时的截断与返回文案（WebFetch、McpCall 等共用）。纯函数,便于单测。
+/// 工具输出超限时的截断与返回文案（WebFetch、扩展调用等共用）。纯函数,便于单测。
 ///
 /// 口径与 Read/Grep 一致:按 <b>UTF-8 字节</b>算,而不是字符——中文一个字符三字节,
 /// 按字符算会放进三四倍 token(Read 曾因此改过口径,见 PermissiveFileAccessTools)。
@@ -164,7 +164,7 @@ internal readonly record struct ToolOutputBudget(int MaxBytes, int HeadBytes, in
     public static readonly ToolOutputBudget Compact = new(8 * 1024, 4 * 1024, 4 * 1024);
 
     /// <summary>
-    /// McpHelp 的工具清单：32KB，头 24KB + 尾 8KB（约能容纳一百八十个工具）。
+    /// ExtensionHelp 的命令清单：32KB，头 24KB + 尾 8KB（约能容纳一百八十个工具）。
     /// 清单是模型<b>发现</b>工具的唯一入口——被截断时丢掉的恰恰是中间那批，它们从此无从发现。
     /// 实测 Unity MCP 全开的 73 个工具约 12.8KB，按 <see cref="Compact"/> 的 8KB 会有近三十个消失。
     /// 一次性读一遍、之后基本不再重发（模型记得住），所以放宽的代价远小于日志类结果。

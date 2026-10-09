@@ -26,7 +26,7 @@ public enum EMcpTransportType
 ///
 /// <b>本类只管「连接」，不管「谁能用」</b>：<see cref="IsEnabled"/> 决定这个 server 要不要托管
 /// ——stdio 意味着拉起一个子进程，是实打实的全局资源开销；而哪个智能体能用它的工具，
-/// 由角色自带的 <c>AgentToolConfig.DisabledMcpServers</c> 独家说了算（见 ADR 0008）。
+/// 由角色自带的 <c>AgentToolConfig.DisabledExtensions</c> 独家说了算（见 ADR 0008）。
 /// 两者不是同一个问题的两个闸，因此不构成 ADR 0003 反对的那种「两层 AND」。
 /// </summary>
 public class McpServerConfig
@@ -70,25 +70,10 @@ public class McpServerConfig
     public bool IsEnabled { get; set; } = true;
 
     /// <summary>
-    /// 是否把 server 自述(MCP initialize 响应里的 instructions)拼进系统提示。
-    /// 那段文本长度由 server 决定，本地小模型的窗口吃不消时可单独关掉而仍保留它的工具。
-    /// </summary>
-    public bool InjectInstructions { get; set; } = true;
-
-    /// <summary>
-    /// 送达方式（直挂 / 按需），第三个与托管、可用正交的问题，见 ADR 0051。
-    /// 本机偏好：全局 server 存在本机状态文件里，项目级 server 存在 <see cref="McpWorkspaceMountStore"/>。
-    /// </summary>
-    public EMcpMountMode MountMode { get; set; } = EMcpMountMode.OnDemand;
-
-    /// <summary>
-    /// 一句话说明，按需模式下写进系统提示，让模型知道什么时候该去查这个 server。
+    /// 一句话说明，写进系统提示的扩展名单，让模型知道什么时候该去查这个 server。
     /// 只有全局 server 有：项目级配置是入库共享的标准形状，不带本机状态。
     /// </summary>
     public string Description { get; set; } = string.Empty;
-
-    /// <summary>是否按需送达</summary>
-    public bool IsOnDemand => MountMode == EMcpMountMode.OnDemand;
 
     /// <summary>
     /// 浅拷贝一份。集合成员（参数、环境变量、请求头）与原对象共享，
