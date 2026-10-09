@@ -31,6 +31,10 @@ public static class ModelMetadataService
             ContextLength = model.ContextLength,
             EmbeddingLength = model.EmbeddingLength,
             LayerCount = model.LayerCount,
+            HeadCount = model.AttentionHeadCount,
+            KvHeadCount = model.AttentionHeadCountKv,
+            KeyLength = model.AttentionKeyLength,
+            ValueLength = model.AttentionValueLength,
             FileSizeBytes = model.FileSizeBytes
         };
     }
@@ -47,6 +51,10 @@ public static class ModelMetadataService
             ContextLength = metadata.ContextLength,
             EmbeddingLength = metadata.EmbeddingLength,
             LayerCount = metadata.LayerCount,
+            HeadCount = metadata.AttentionHeadCount,
+            KvHeadCount = metadata.AttentionHeadCountKv,
+            KeyLength = metadata.AttentionKeyLength,
+            ValueLength = metadata.AttentionValueLength,
             FileSizeBytes = metadata.FileSizeBytes
         };
     }

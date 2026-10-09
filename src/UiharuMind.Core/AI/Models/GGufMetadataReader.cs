@@ -20,6 +20,8 @@ public sealed class GGufMetadataInfo
     public int LayerCount { get; init; }
     public int AttentionHeadCount { get; init; }
     public int AttentionHeadCountKv { get; init; }
+    public int AttentionKeyLength { get; init; }
+    public int AttentionValueLength { get; init; }
     public ulong ParameterCount { get; init; }
     public ulong FileSizeBytes { get; init; }
     public ELocalModelKind Kind { get; init; }
@@ -54,6 +56,8 @@ public static class GGufMetadataReader
                 LayerCount = GetInt(header, prefix + "block_count"),
                 AttentionHeadCount = GetInt(header, prefix + "attention.head_count"),
                 AttentionHeadCountKv = GetInt(header, prefix + "attention.head_count_kv"),
+                AttentionKeyLength = GetInt(header, prefix + "attention.key_length"),
+                AttentionValueLength = GetInt(header, prefix + "attention.value_length"),
                 ParameterCount = header.ParameterCount,
                 FileSizeBytes = (ulong)new FileInfo(modelPath).Length,
                 Kind = LocalModelKindClassifier.Classify(header),

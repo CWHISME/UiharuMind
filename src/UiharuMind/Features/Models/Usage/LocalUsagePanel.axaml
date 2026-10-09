@@ -1,0 +1,46 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:usage="clr-namespace:UiharuMind.Features.Models.Usage"
+             x:Class="UiharuMind.Features.Models.Usage.LocalUsagePanel"
+             x:DataType="usage:LocalUsageData">
+    <!-- 资源读数点开的明细：整机余量与 CPU，各本地模型一行、可逐个停 -->
+    <StackPanel Width="360" Spacing="10" Margin="4">
+        <TextBlock Text="{loc:Loc LocalUsageMachineTitle}" FontWeight="SemiBold" />
+        <StackPanel Spacing="6">
+            <TextBlock Text="{Binding MemoryLine}" FontSize="12" />
+            <ProgressBar Minimum="0" Maximum="1" Value="{Binding MemoryUsedRatio}" Height="6"
+                         MinHeight="6" CornerRadius="3" />
+            <TextBlock Text="{Binding SwapLine}" FontSize="12"
+                       IsVisible="{Binding SwapLine, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <TextBlock Text="{Binding CpuLine}" FontSize="12"
+                       IsVisible="{Binding CpuLine, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <TextBlock Text="{loc:Loc LocalUsageLowMemory}" FontSize="12" TextWrapping="Wrap"
+                       Foreground="{DynamicResource MessageStatusWarningBrush}"
+                       IsVisible="{Binding IsMemoryLow}" />
+        </StackPanel>
+        <Separator />
+        <TextBlock Text="{loc:Loc LocalUsageEnginesTitle}" FontWeight="SemiBold" />
+        <TextBlock Text="{loc:Loc LocalUsageNoEngines}" Classes="muted" FontSize="12"
+                   IsVisible="{Binding !HasRows}" />
+        <ItemsControl ItemsSource="{Binding Rows}" IsVisible="{Binding HasRows}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Spacing="6" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="usage:LocalUsageRow">
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+                        <TextBlock Grid.Column="1" Text="{Binding StateText}" Classes="muted" FontSize="12"
+                                   VerticalAlignment="Center" />
+                        <Button Grid.Column="2" Classes="toolbar-link"
+                                Content="{loc:Loc LocalUsageStop}" Command="{Binding StopCommand}" />
+                    </Grid>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </StackPanel>
+</UserControl>

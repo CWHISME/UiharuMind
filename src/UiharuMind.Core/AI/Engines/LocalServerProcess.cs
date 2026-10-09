@@ -71,10 +71,12 @@ public sealed class LocalServerProcess
     private readonly LocalServerLaunch _launch;
     private readonly Queue<string> _logTail = new();
     private readonly Lock _logGate = new();
+    private readonly Lock _sampleGate = new();
     private int _exitCode = -1;
     private int _launcherId; //直接拉起的进程：Windows 上就是服务本身，其余平台是看门的 /bin/sh
     private int _serverId; //服务本身，用到才找
     private long _lastActivity = Environment.TickCount64; //最近一次输出：大模型冷启动慢，只要还在动就不算超时
+    private (TimeSpan CpuTime, long Ticks)? _lastSample; //上次取样，算 CPU 占比用
 
     private LocalServerProcess(LocalServerLaunch launch, int port)
     {
@@ -122,6 +124,27 @@ public sealed class LocalServerProcess
 
             return null;
         }
+    }
+
+    /// <summary>
+    /// 取一次服务进程的实际占用（CPU 按与上次取样之间算）
+    /// </summary>
+    /// <returns>占用；没起来或已退出为 null</returns>
+    public EngineUsage? SampleUsage()
+    {
+        if (ServerProcessId is not { } processId || ProcessUsage.TrySample(processId) is not { } sample) return null;
+
+        long now = Environment.TickCount64;
+        double? cpu = null;
+        lock (_sampleGate)
+        {
+            if (_lastSample is { } last && now > last.Ticks)
+                cpu = Math.Clamp((sample.CpuTime - last.CpuTime).TotalMilliseconds / (now - last.Ticks)
+                    / Environment.ProcessorCount * 100, 0, 100);
+            _lastSample = (sample.CpuTime, now);
+        }
+
+        return new EngineUsage(sample.MemoryBytes, cpu);
     }
 
     /// <summary>

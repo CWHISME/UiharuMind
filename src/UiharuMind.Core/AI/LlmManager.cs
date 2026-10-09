@@ -9,6 +9,7 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using UiharuMind.Core.AI.Engines;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Embedding;
 using UiharuMind.Core.AI.Models;
@@ -200,6 +201,13 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
             ? _runtimeService.AnalyzeChatLoadRisk(runningInfo.ModelInfo)
             : RuntimeLoadRisk.Low;
     }
+
+    /// <summary>
+    /// 取一次本地模型服务进程的实际占用
+    /// </summary>
+    /// <param name="modelName">模型名</param>
+    /// <returns>占用；远程模型或没在跑为 null</returns>
+    public EngineUsage? SampleUsage(string modelName) => _llamaCppRuntime.SampleUsage(modelName);
 
     /// <summary>
     /// 全局有效模型：选过就是当前那个；还没选过时取发请求时会自动挑的那个（与 <c>LazyChatClient</c> 同一判据）。

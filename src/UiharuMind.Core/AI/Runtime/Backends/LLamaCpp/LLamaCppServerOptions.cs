@@ -1,3 +1,5 @@
+using UiharuMind.Core.AI.Engines;
+
 namespace UiharuMind.Core.AI.Runtime.Backends;
 
 /// <summary>
@@ -25,6 +27,38 @@ public sealed class LLamaCppServerOptions
     /// KV 缓存可选类型
     /// </summary>
     public static readonly string[] CacheTypes = ["f16", "bf16", "f32", "q8_0", "q5_1", "q5_0", "iq4_nl", "q4_1", "q4_0"];
+
+    /// <summary>
+    /// 实际传给 llama-server 的 KV 缓存类型：额外参数里写了 -ctk/-ctv 的以它为准（排在后面，覆盖设置项）
+    /// </summary>
+    /// <param name="forValue">false 取 K，true 取 V</param>
+    /// <returns>类型名</returns>
+    public string EffectiveCacheType(bool forValue)
+    {
+        string result = forValue ? CacheTypeV : CacheTypeK;
+        string[] flags = forValue ? ["-ctv", "--cache-type-v"] : ["-ctk", "--cache-type-k"];
+        IReadOnlyList<string> extra = EngineArguments.Split(ExtraArguments);
+        for (int i = 0; i < extra.Count - 1; i++)
+            if (flags.Contains(extra[i]))
+                result = extra[i + 1];
+        return result;
+    }
+
+    /// <summary>
+    /// KV 缓存类型每个元素占几字节（量化按 ggml 的块大小算，如 q8_0 每 32 个元素 34 字节）
+    /// </summary>
+    /// <param name="cacheType">类型名</param>
+    /// <returns>字节数；不认识的按 f16</returns>
+    public static double CacheTypeBytes(string? cacheType) => cacheType?.ToLowerInvariant() switch
+    {
+        "f32" => 4,
+        "q8_0" => 34 / 32d,
+        "q5_1" => 24 / 32d,
+        "q5_0" => 22 / 32d,
+        "q4_1" => 20 / 32d,
+        "q4_0" or "iq4_nl" => 18 / 32d,
+        _ => 2
+    };
 
     /// <summary>
     /// 按设备内存自动调整未设置的参数（--fit）

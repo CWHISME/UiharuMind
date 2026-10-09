@@ -37,6 +37,12 @@ public class EmbeddingModelService : Singleton<EmbeddingModelService>
     public DateTime? LastStartedAt => _lastStartedAt;
     public string LastError => _session?.LastError is { Length: > 0 } sessionError ? sessionError : _lastError;
 
+    /// <summary>
+    /// 本机嵌入服务此刻的实际占用
+    /// </summary>
+    /// <returns>占用；没在跑或不是本机服务为 null</returns>
+    public EngineUsage? SampleUsage() => _session?.SampleUsage();
+
     public async Task<IEmbeddingSession> GetSessionAsync(CancellationToken cancellationToken = default)
     {
         await _sessionLock.WaitAsync(cancellationToken).ConfigureAwait(false);

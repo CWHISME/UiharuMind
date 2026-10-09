@@ -9,6 +9,7 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System.Collections.Concurrent;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Engines;
 using UiharuMind.Core.AI.Models;
@@ -25,6 +26,16 @@ namespace UiharuMind.Core.AI.Runtime.Backends;
 /// </summary>
 internal sealed class LLamaCppRuntimeService
 {
+    private readonly ConcurrentDictionary<string, LocalServerProcess> _servers = new(); //按模型名，就绪后到退出前
+
+    /// <summary>
+    /// 取一次某模型服务进程的实际占用
+    /// </summary>
+    /// <param name="modelName">模型名</param>
+    /// <returns>占用；没在跑为 null</returns>
+    public EngineUsage? SampleUsage(string modelName) =>
+        _servers.TryGetValue(modelName, out LocalServerProcess? server) ? server.SampleUsage() : null;
+
     /// <summary>
     /// 起一个对话用的 llama-server，就绪后回调对话客户端，然后陪跑到进程结束
     /// </summary>
@@ -48,9 +59,18 @@ internal sealed class LLamaCppRuntimeService
                     LLamaCppServerArgs.ParseEnvironment(config.Server.EnvironmentVariables)),
                 onLoading, token)
             .ConfigureAwait(false);
-        onLoadOver?.Invoke(OpenAICompatibleChatClient.Create(
-            new OpenAICompatibleHttpHandler(port: server.Port), model, "UiharuMind", "None"));
-        await server.Completion.ConfigureAwait(false);
+        _servers[model.ModelName] = server;
+        try
+        {
+            onLoadOver?.Invoke(OpenAICompatibleChatClient.Create(
+                new OpenAICompatibleHttpHandler(port: server.Port), model, "UiharuMind", "None"));
+            await server.Completion.ConfigureAwait(false);
+        }
+        finally
+        {
+            _servers.TryRemove(new KeyValuePair<string, LocalServerProcess>(model.ModelName, server));
+        }
+
         if (!token.IsCancellationRequested)
             throw new LocalServerException(
                 $"llama-server exited unexpectedly (exit code {server.ExitCode}).", server.LogTail);

@@ -5590,6 +5590,54 @@ Allow them?</value>
     <data name="LocalHolderAudioEngine" xml:space="preserve">
         <value>voice engine</value>
     </data>
+    <data name="LocalHolderEmbedding" xml:space="preserve">
+        <value>knowledge base embedding</value>
+    </data>
+    <data name="LocalHolderImageEngine" xml:space="preserve">
+        <value>image engine</value>
+    </data>
+    <data name="LocalUsageSummary" xml:space="preserve">
+        <value>{0} / {1} GB free · CPU {2}%</value>
+    </data>
+    <data name="LocalUsageSummaryMemory" xml:space="preserve">
+        <value>{0} / {1} GB free</value>
+    </data>
+    <data name="LocalUsageTip" xml:space="preserve">
+        <value>Free memory and CPU on this machine; click for each local model's usage</value>
+    </data>
+    <data name="LocalUsageMachineTitle" xml:space="preserve">
+        <value>This machine</value>
+    </data>
+    <data name="LocalUsageMemoryLine" xml:space="preserve">
+        <value>Memory: {0} GB free of {1} GB</value>
+    </data>
+    <data name="LocalUsageCpuLine" xml:space="preserve">
+        <value>CPU: {0}%</value>
+    </data>
+    <data name="LocalUsageSwapLine" xml:space="preserve">
+        <value>{0} GB compressed · {1} GB swap</value>
+    </data>
+    <data name="LocalUsageSwapOnlyLine" xml:space="preserve">
+        <value>{0} GB swap</value>
+    </data>
+    <data name="LocalUsageEnginesTitle" xml:space="preserve">
+        <value>Local models</value>
+    </data>
+    <data name="LocalUsageNoEngines" xml:space="preserve">
+        <value>No local model is running</value>
+    </data>
+    <data name="LocalUsageLoading" xml:space="preserve">
+        <value>loading {0}%</value>
+    </data>
+    <data name="LocalUsageRunning" xml:space="preserve">
+        <value>running</value>
+    </data>
+    <data name="LocalUsageStop" xml:space="preserve">
+        <value>Stop</value>
+    </data>
+    <data name="LocalUsageLowMemory" xml:space="preserve">
+        <value>Memory is running low. Loading a large model may be blocked; stop the ones you are not using first.</value>
+    </data>
     <data name="ImageDrawQueued" xml:space="preserve">
         <value>Waiting in line…</value>
     </data>

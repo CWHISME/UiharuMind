@@ -25,6 +25,7 @@ internal static class ModelDevCommands
         new ModelDownloadCommand(),
         new ModelWaitCommand(),
         new ModelListCommand(),
+        new ModelLoadCommand(),
     ];
 
     // 与点左栏「模型」同一条路
@@ -141,5 +142,31 @@ internal sealed class ModelListCommand : IDevCommand
             .Where(x => !localOnly || !x.IsRemoteModel)
             .Select(ModelDevCommands.Describe)
             .ToList();
+    }
+}
+
+/// <summary>在对话页模型栏里选中并加载一个模型（与点下拉框同一条路，含加载前的风险确认）</summary>
+internal sealed class ModelLoadCommand : IAsyncDevCommand
+{
+    public string Name => "model.load";
+
+    public string Usage => "选中并加载一个对话模型，等它跑起来或失败。model（模型名，必填）、timeoutMinutes（默认 5）";
+
+    public async Task<object?> ExecuteAsync(JsonElement args)
+    {
+        string name = GroupDevCommands.StringOr(args, "model") ?? throw new ArgumentException("model is required");
+        TimeSpan timeout = TimeSpan.FromMinutes(GroupDevCommands.IntOr(args, "timeoutMinutes", 5));
+        // 加载的任务陪跑到模型卸载，不能等它；看模型状态
+        Task<bool> loading = App.ModelService.LoadModelWithRiskConfirmationAsync(name);
+        Stopwatch watch = Stopwatch.StartNew();
+        ModelRunningData? model = App.ModelService.ModelSources.FirstOrDefault(x => x.ModelName == name);
+        while (watch.Elapsed < timeout && !loading.IsCompleted && model is not { IsRunning: true })
+            await Task.Delay(500);
+        return new
+        {
+            running = model?.IsRunning ?? false,
+            error = model?.LastError?.Message,
+            elapsedSeconds = (int)watch.Elapsed.TotalSeconds
+        };
     }
 }

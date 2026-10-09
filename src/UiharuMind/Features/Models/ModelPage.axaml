@@ -13,6 +13,7 @@
              xmlns:chat="clr-namespace:UiharuMind.Features.Models.ChatModels"
              xmlns:downloads="clr-namespace:UiharuMind.Features.Models.Downloads"
              xmlns:audioModels="clr-namespace:UiharuMind.Features.Models.AudioModels"
+             xmlns:usage="clr-namespace:UiharuMind.Features.Models.Usage"
                              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:core="clr-namespace:UiharuMind.Core.AI.Core;assembly=UiharuMind.Core">
 
@@ -21,7 +22,7 @@
     </Design.DataContext>
 
     <!-- 与角色页同一圈留白；页签本身就是页头，不另放大标题（其他页都没有） -->
-    <DockPanel Margin="12,6,12,12">
+    <Panel Margin="12,6,12,12">
         <!-- 生图模型单独一张表(ADR 0052):不进对话模型列表,也就不出现在任何对话模型选择器里 -->
         <TabControl SelectedIndex="{Binding SelectedTabIndex}">
             <TabItem Header="{loc:Loc ModelPageChatModelsTab}">
@@ -58,6 +59,8 @@
                 </TabItem.ContentTemplate>
             </TabItem>
         </TabControl>
-    </DockPanel>
+        <!-- 页签行右边的空处：整机余量，点开看各本地模型占用 -->
+        <usage:LocalUsageIndicator HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,0,0" />
+    </Panel>
 
 </UserControl>

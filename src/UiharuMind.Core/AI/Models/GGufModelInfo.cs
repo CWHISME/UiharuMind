@@ -38,6 +38,8 @@ public class GGufModelInfo : ILlmModel
     public int LayerCount { get; set; }
     public int AttentionHeadCount { get; set; }
     public int AttentionHeadCountKv { get; set; }
+    public int AttentionKeyLength { get; set; }
+    public int AttentionValueLength { get; set; }
     public ulong ParameterCount { get; set; }
     public ulong FileSizeBytes { get; set; }
 
@@ -99,6 +101,8 @@ public class GGufModelInfo : ILlmModel
         LayerCount = metadata.LayerCount;
         AttentionHeadCount = metadata.AttentionHeadCount;
         AttentionHeadCountKv = metadata.AttentionHeadCountKv;
+        AttentionKeyLength = metadata.AttentionKeyLength;
+        AttentionValueLength = metadata.AttentionValueLength;
         ParameterCount = metadata.ParameterCount;
         FileSizeBytes = metadata.FileSizeBytes;
         Kind = metadata.Kind;

@@ -21,27 +21,26 @@ public sealed class LLamaCppEmbeddingSession : IEmbeddingSession
 
     private readonly HttpClient _httpClient;
     private readonly CancellationTokenSource _serverCts;
-    private readonly Task _serverTask;
+    private readonly LocalServerProcess _server;
     private readonly SemaphoreSlim _generationLock = new(1, 1);
     private bool _disposed;
 
     private LLamaCppEmbeddingSession(
         string modelPath,
-        Uri endpoint,
-        CancellationTokenSource serverCts,
-        Task serverTask)
+        LocalServerProcess server,
+        CancellationTokenSource serverCts)
     {
         ModelPath = modelPath;
         _serverCts = serverCts;
-        _serverTask = serverTask;
-        _httpClient = new HttpClient { BaseAddress = new Uri(endpoint, "v1/embeddings") };
+        _server = server;
+        _httpClient = new HttpClient { BaseAddress = new Uri(server.BaseUri, "v1/embeddings") };
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "None");
     }
 
     public string BackendName => LLamaCppRuntimeBackend.BackendId;
     public string ModelPath { get; }
     public int Dimensions { get; private set; }
-    public bool IsRunning => !_disposed && !_serverTask.IsCompleted;
+    public bool IsRunning => !_disposed && !_server.Completion.IsCompleted;
     public string LastError { get; private set; } = "";
 
     public static async Task<LLamaCppEmbeddingSession> StartAsync(
@@ -64,7 +63,7 @@ public sealed class LLamaCppEmbeddingSession : IEmbeddingSession
                     null,
                     serverCts.Token)
                 .ConfigureAwait(false);
-            return new LLamaCppEmbeddingSession(modelPath, server.BaseUri, serverCts, server.Completion);
+            return new LLamaCppEmbeddingSession(modelPath, server, serverCts);
         }
         catch
         {
@@ -72,6 +71,8 @@ public sealed class LLamaCppEmbeddingSession : IEmbeddingSession
             throw;
         }
     }
+
+    public EngineUsage? SampleUsage() => IsRunning ? _server.SampleUsage() : null;
 
     public async Task<ReadOnlyMemory<float>> GenerateEmbeddingAsync(
         string text, CancellationToken cancellationToken = default)

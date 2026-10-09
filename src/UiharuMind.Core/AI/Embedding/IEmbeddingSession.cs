@@ -9,6 +9,8 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using UiharuMind.Core.AI.Engines;
+
 namespace UiharuMind.Core.AI.Embedding;
 
 public interface IEmbeddingSession : IDisposable
@@ -18,6 +20,12 @@ public interface IEmbeddingSession : IDisposable
     int Dimensions { get; }
     bool IsRunning { get; }
     string LastError { get; }
+
+    /// <summary>
+    /// 本机服务进程此刻的实际占用
+    /// </summary>
+    /// <returns>占用；远程或进程内的会话为 null</returns>
+    EngineUsage? SampleUsage() => null;
 
     Task<ReadOnlyMemory<float>> GenerateEmbeddingAsync(
         string text, CancellationToken cancellationToken = default);

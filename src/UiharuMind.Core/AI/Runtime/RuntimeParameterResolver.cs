@@ -16,10 +16,14 @@ public enum RuntimeDeviceMode
     Auto
 }
 
+/// <param name="KvBytesK">KV 缓存 K 每个元素占几字节（f16 为 2，q8_0 约 1）</param>
+/// <param name="KvBytesV">KV 缓存 V 每个元素占几字节</param>
 public sealed record RuntimeParameterPolicy(
     RuntimeDeviceMode DeviceMode,
     bool CanUseGpu,
-    bool HasReliableDeviceMemory);
+    bool HasReliableDeviceMemory,
+    double KvBytesK = 2,
+    double KvBytesV = 2);
 
 public static class RuntimeParameterResolver
 {

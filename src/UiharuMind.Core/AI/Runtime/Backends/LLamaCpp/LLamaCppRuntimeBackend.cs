@@ -39,10 +39,13 @@ internal sealed class LLamaCppRuntimeBackend(
 
     public RuntimeParameterPolicy CreateParameterPolicy(ModelRuntimeSettingConfig settings)
     {
+        LLamaCppServerOptions server = LLamaCppSettingConfig.Current.Server;
         return new RuntimeParameterPolicy(
             settings.GpuLayers == 0 ? RuntimeDeviceMode.Cpu : RuntimeDeviceMode.Auto,
             settings.GpuLayers != 0,
-            false);
+            false,
+            LLamaCppServerOptions.CacheTypeBytes(server.EffectiveCacheType(false)),
+            LLamaCppServerOptions.CacheTypeBytes(server.EffectiveCacheType(true)));
     }
 
     public Task<IReadOnlyDictionary<string, ILlmModel>> DiscoverModelsAsync(

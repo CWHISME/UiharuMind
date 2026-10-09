@@ -23,7 +23,11 @@ public partial class EngineStatusStrip : UserControl
     public EngineStatusStrip()
     {
         InitializeComponent();
-        _refresh.Tick += (_, _) => Status?.Refresh();
+        // 页面切走时视图仍在视觉树里，只是藏着
+        _refresh.Tick += (_, _) =>
+        {
+            if (IsEffectivelyVisible) Status?.Refresh();
+        };
     }
 
     /// <summary>

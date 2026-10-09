@@ -7,13 +7,14 @@
              xmlns:common="clr-namespace:UiharuMind.Shared.Controls"
               mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
               x:Class="UiharuMind.Features.Conversation.Pages.ModelSelectComboBoxView"
-                             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
+                             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:usage="clr-namespace:UiharuMind.Features.Models.Usage">
 
     <Design.DataContext>
         <services:ModelService />
     </Design.DataContext>
 
-    <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="6">
+    <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="6">
 
         <!-- 左边的按钮或文字 -->
         <TextBlock Grid.Column="0" Text="Models" VerticalAlignment="Center" />
@@ -64,7 +65,11 @@
             <!-- <ProgressBar VerticalAlignment="Bottom" CornerRadius="0" Margin="0,0,0,4" IsIndeterminate="True" IsVisible="{Binding IsLoading}" /> -->
         </Panel>
 
-        <ThemedIconButton Grid.Column="2" VerticalAlignment="Center" IconName="settings"  ToolTips="{loc:Loc ModelRuntimeQuickSettings}">
+        <!-- 当前模型是本地且在跑时，它的实际占用；点开看整机与各本地模型 -->
+        <usage:LocalUsageIndicator Grid.Column="2" ShowsModel="True" VerticalAlignment="Center"
+                                   ModelName="{Binding CurModelRunningData.ModelName, FallbackValue={x:Null}}" />
+
+        <ThemedIconButton Grid.Column="3" VerticalAlignment="Center" IconName="settings"  ToolTips="{loc:Loc ModelRuntimeQuickSettings}">
             <ThemedIconButton.Flyout>
                 <Flyout Placement="BottomEdgeAlignedRight">
                     <Border Width="540"
@@ -78,7 +83,7 @@
         </ThemedIconButton>
 
         <!-- 右边的按钮或文字 -->
-        <Button Grid.Column="3" Content="{loc:Loc EjectModel}" VerticalAlignment="Center"
+        <Button Grid.Column="4" Content="{loc:Loc EjectModel}" VerticalAlignment="Center"
                 Command="{Binding EjectCurrentModel}"
                 IsEnabled="{Binding CurIsRunning}" />
     </Grid>

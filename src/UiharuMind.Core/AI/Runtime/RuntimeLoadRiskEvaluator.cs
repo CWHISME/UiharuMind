@@ -28,7 +28,7 @@ public static class RuntimeLoadRiskEvaluator
         long modelBytes = metadata.FileSizeBytes > 0
             ? checked((long)Math.Min(metadata.FileSizeBytes, long.MaxValue))
             : new FileInfo(model.ModelPath).Length;
-        long kvBytes = EstimateKvCacheBytes(metadata, parameters.ContextSize);
+        long kvBytes = EstimateKvCacheBytes(metadata, parameters.ContextSize, policy.KvBytesK, policy.KvBytesV);
         long computeBytes = EstimateComputeBytes(metadata, parameters);
         long estimatedTotal = SafeAdd(modelBytes, SafeAdd(kvBytes, computeBytes));
         List<string> warnings = [];
@@ -132,11 +132,23 @@ public static class RuntimeLoadRiskEvaluator
         return RuntimeLoadRiskLevel.Low;
     }
 
-    private static long EstimateKvCacheBytes(ModelMetadata metadata, int contextSize)
+    // 每层每个 token 存 KV 头数 ×（K 维 + V 维）个元素，元素大小看 KV 缓存类型（与 ollama 同式）。
+    // GQA 模型 KV 头远少于注意力头，按嵌入维度算会多估好几倍（16 头只有 2 个 KV 头的就是 8 倍）；头数读不到时退回按全头算
+    internal static long EstimateKvCacheBytes(ModelMetadata metadata, int contextSize, double bytesK = 2,
+        double bytesV = 2)
     {
         int layers = metadata.LayerCount > 0 ? metadata.LayerCount : 32;
         int embedding = metadata.EmbeddingLength > 0 ? metadata.EmbeddingLength : 4096;
-        double bytes = (double)Math.Max(1, contextSize) * layers * embedding * 2 * 2;
+        double perLayer = embedding * (bytesK + bytesV);
+        if (metadata is { HeadCount: > 0, KvHeadCount: > 0 })
+        {
+            int headDim = embedding / metadata.HeadCount;
+            int keyLength = metadata.KeyLength > 0 ? metadata.KeyLength : headDim;
+            int valueLength = metadata.ValueLength > 0 ? metadata.ValueLength : headDim;
+            perLayer = metadata.KvHeadCount * (keyLength * bytesK + valueLength * bytesV);
+        }
+
+        double bytes = (double)Math.Max(1, contextSize) * layers * perLayer;
         return bytes >= long.MaxValue ? long.MaxValue : (long)bytes;
     }
 

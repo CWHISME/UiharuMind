@@ -2,6 +2,7 @@ using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Engines;
+using UiharuMind.Features.Models.Usage;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
@@ -55,7 +56,7 @@ public partial class EngineStatusData : ObservableObject
         Text = _runtime.State switch
         {
             EEngineRunState.Running when _runtime.SampleUsage() is { } usage =>
-                $"{_runningText()} · {UsageText(usage)}",
+                $"{_runningText()} · {LocalUsageRow.UsageText(usage)}",
             EEngineRunState.Starting when _runtime.LoadProgress > 0 =>
                 $"{Loc.Text(_texts.Starting)} {(int)(_runtime.LoadProgress * 100)}%",
             EEngineRunState.Starting => Loc.Text(_texts.Starting),
@@ -63,14 +64,6 @@ public partial class EngineStatusData : ObservableObject
             EEngineRunState.Failed => Loc.Text(_texts.Failed, _runtime.LastError?.Message ?? ""),
             _ => Loc.Text(_texts.Stopped)
         };
-    }
-
-    private static string UsageText(EngineUsage usage)
-    {
-        string memory = (usage.MemoryBytes / (1024d * 1024 * 1024)).ToString("0.0");
-        return usage.CpuPercent is { } cpu
-            ? Loc.Text(LangKey.EngineStatusUsage, memory, (int)Math.Round(cpu))
-            : Loc.Text(LangKey.EngineStatusMemory, memory);
     }
 
     // 停掉引擎，模型占的内存全部还回去；下次用时自动再起

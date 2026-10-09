@@ -1,5 +1,4 @@
 using UiharuMind.Core.AI.Runtime;
-using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Engines;
@@ -96,7 +95,6 @@ public sealed class LocalServerHost : IEngineRuntime, IDisposable
     private string? _startingKey; //最近一次启动的指纹
     private Task _previousExit = Task.CompletedTask; //上一个被停掉的进程退出
     private float _loadProgress;
-    private (int ProcessId, TimeSpan CpuTime, long Ticks)? _lastSample; //上次取样，算 CPU 占比用
     private CancellationTokenSource? _serverLifetime;
     private int _generation; //每次拉起或停掉加一，等待方据此知道自己等的那次被换掉了
     private int _failures;
@@ -177,20 +175,7 @@ public sealed class LocalServerHost : IEngineRuntime, IDisposable
     {
         LocalServerProcess? server;
         lock (_gate) server = _starting is { IsCompletedSuccessfully: true } started ? started.Result : null;
-        if (server?.ServerProcessId is not { } processId || ProcessUsage.TrySample(processId) is not { } sample)
-            return null;
-
-        long now = Environment.TickCount64;
-        double? cpu = null;
-        lock (_gate)
-        {
-            if (_lastSample is { } last && last.ProcessId == processId && now > last.Ticks)
-                cpu = Math.Clamp((sample.CpuTime - last.CpuTime).TotalMilliseconds / (now - last.Ticks)
-                    / Environment.ProcessorCount * 100, 0, 100);
-            _lastSample = (processId, sample.CpuTime, now);
-        }
-
-        return new EngineUsage(sample.MemoryBytes, cpu);
+        return server?.SampleUsage();
     }
 
     /// <summary>
