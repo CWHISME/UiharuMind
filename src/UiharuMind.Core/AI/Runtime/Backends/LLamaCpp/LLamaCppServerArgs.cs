@@ -50,7 +50,6 @@ public static class LLamaCppServerArgs
             "-m", model.ModelPath,
             "--no-webui",
             "--alias", Path.GetFileNameWithoutExtension(model.ModelPath),
-            "-to", "0",
             "-c", parameters.ContextSize.ToString(),
             "-b", parameters.BatchSize.ToString(),
             "-ub", parameters.UBatchSize.ToString(),

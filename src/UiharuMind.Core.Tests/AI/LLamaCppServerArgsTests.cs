@@ -26,6 +26,8 @@ public class LLamaCppServerArgsTests
         Assert.DoesNotContain("-cram", args);
         Assert.DoesNotContain("--load-mode", args);
         Assert.Equal("8192", args[args.IndexOf("-c") + 1]);
+        // 读写超时用默认的 3600 秒；-to 0 是立刻超时，请求体比请求头晚到一点就空 400
+        Assert.DoesNotContain("-to", args);
     }
 
     [Fact]

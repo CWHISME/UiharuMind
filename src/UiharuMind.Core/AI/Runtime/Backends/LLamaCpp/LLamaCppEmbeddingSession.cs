@@ -141,7 +141,6 @@ public sealed class LLamaCppEmbeddingSession : IEmbeddingSession
             "-m", modelPath,
             "--no-webui",
             "--alias", Path.GetFileNameWithoutExtension(modelPath),
-            "-to", "0",
             "--embedding",
             "--pooling", "mean",
             "--ctx-size", Math.Max(1, parameters.ContextSize).ToString(),
