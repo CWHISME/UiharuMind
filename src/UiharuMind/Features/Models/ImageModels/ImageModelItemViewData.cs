@@ -1,4 +1,5 @@
 using UiharuMind.Core.AI.ImageGeneration;
+using UiharuMind.Features.Models.Shared;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 
@@ -13,11 +14,13 @@ public sealed class ImageModelItemViewData
     /// <param name="index">在回退顺序里的位置（从 0 起）</param>
     /// <param name="count">列表总数</param>
     /// <param name="familyName">本地条目从可下载列表装的家族名；其余为 null</param>
-    public ImageModelItemViewData(ImageModelInfo model, int index, int count, string? familyName = null)
+    /// <param name="sizeBytes">本地组件占的磁盘；0 不显示</param>
+    public ImageModelItemViewData(ImageModelInfo model, int index, int count, string? familyName = null,
+        long sizeBytes = 0)
     {
         Model = model;
         Detail = model.Local is { } local
-            ? ImageTierText.Origin(familyName, local.Tier)
+            ? ModelSizeText.Join(ImageTierText.Origin(familyName, local.Tier), sizeBytes)
             : $"{model.Dialect} · {model.ModelId} · {model.Resolution.ToTierLabel()}";
         Order = index + 1;
         CanMoveUp = index > 0;
@@ -46,7 +49,7 @@ public sealed class ImageModelItemViewData
     /// <summary>本机跑的</summary>
     public bool IsLocal => Model.IsLocal;
 
-    /// <summary>远程：接口格式 · 模型 id · 分辨率档；本地：家族 · 档位</summary>
+    /// <summary>远程：接口格式 · 模型 id · 分辨率档；本地：家族 · 档位 · 大小</summary>
     public string Detail { get; }
 
     /// <summary>远程：服务地址；本地：在本机运行</summary>
@@ -55,7 +58,7 @@ public sealed class ImageModelItemViewData
     /// <summary>支持编辑</summary>
     public bool SupportsEditing => Model.SupportsEditing;
 
-    /// <summary>可以接单</summary>
+    /// <summary>可以接单（就绪不另显示，只显示出问题的状态）</summary>
     public bool IsReady { get; }
 
     /// <summary>状态说明</summary>

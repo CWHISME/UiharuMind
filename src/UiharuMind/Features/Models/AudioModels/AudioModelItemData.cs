@@ -48,7 +48,8 @@ public partial class AudioModelItemData : ObservableObject
         FamilyName = family?.DisplayName ?? entry.Family;
         CanClone = family?.CanClone == true;
         CanDraw = CanClone && family!.BuiltinVoices.Count == 0 && !family.NeedsReference;
-        SizeText = sizeBytes > 0 ? UiharuMind.Core.Core.Utils.GameUtils.FormatBytes(sizeBytes) : "";
+        SizeBytes = sizeBytes;
+        SizeText = Shared.ModelSizeText.Format(sizeBytes);
         Options = family != null ? AudioCppTunableOptions.For(family) : [];
         _isTuned = settings.ModelOptions.GetValueOrDefault(entry.Id) is { Count: > 0 };
         FillVoices(family?.BuiltinVoices ?? []);
@@ -93,6 +94,11 @@ public partial class AudioModelItemData : ObservableObject
     public bool CanDraw { get; }
 
     public string SizeText { get; }
+
+    /// <summary>
+    /// gguf 文件大小（字节）
+    /// </summary>
+    public long SizeBytes { get; }
 
     /// <summary>
     /// 能调的参数（照模型 spec）；认不出家族时为空

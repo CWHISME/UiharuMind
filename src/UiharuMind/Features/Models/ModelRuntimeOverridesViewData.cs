@@ -95,6 +95,7 @@ public partial class ModelRuntimeOverridesViewData : ObservableObject
     private bool _syncingGpuMode; //层数与取法互相回填时防重入
     private int _lastCustomGpuLayers;
     private readonly bool _hasLayerCount; //读得到模型层数才判「GPU 层太少」
+    private const int FallbackMaxContextSize = 1048576;
 
     [ObservableProperty] private SettingChoice<EGpuLayerMode> _selectedGpuLayerMode;
 
@@ -105,8 +106,10 @@ public partial class ModelRuntimeOverridesViewData : ObservableObject
     /// <param name="isRunning">模型正在运行</param>
     /// <param name="maxGpuLayers">模型层数，切到指定层数时的初值</param>
     /// <param name="globalKvCacheType">引擎设置里的 KV 缓存类型；不给取 llama.cpp 设置</param>
+    /// <param name="trainedContextLength">模型元数据里的训练上下文长度，作上下文输入上限；读不到给 0</param>
     public ModelRuntimeOverridesViewData(string modelName, ModelRuntimeSettingConfig config, Action save,
-        Func<RuntimeLoadRisk> analyzeRisk, bool isRunning, int maxGpuLayers, Func<string>? globalKvCacheType = null)
+        Func<RuntimeLoadRisk> analyzeRisk, bool isRunning, int maxGpuLayers, Func<string>? globalKvCacheType = null,
+        int trainedContextLength = 0)
     {
         globalKvCacheType ??= () => LLamaCppSettingConfig.Current.Server.EffectiveCacheType(false);
         ModelName = modelName;
@@ -115,6 +118,7 @@ public partial class ModelRuntimeOverridesViewData : ObservableObject
         _analyzeRisk = analyzeRisk;
         IsRunning = isRunning;
         MaxGpuLayers = Math.Max(1, maxGpuLayers);
+        MaxContextSize = trainedContextLength > 0 ? trainedContextLength : FallbackMaxContextSize;
 
         ModelRuntimeOverrides? overrides = config.GetOverrides(modelName);
         ContextSize = new OverridableIntSetting(() => _config.ContextSize, overrides?.ContextSize, FormatAuto);
@@ -157,6 +161,11 @@ public partial class ModelRuntimeOverridesViewData : ObservableObject
     /// 层数输入上限
     /// </summary>
     public int MaxGpuLayers { get; }
+
+    /// <summary>
+    /// 上下文输入上限：模型元数据声明的训练长度，读不到时放宽到 1M
+    /// </summary>
+    public int MaxContextSize { get; }
 
     /// <summary>
     /// 上下文长度

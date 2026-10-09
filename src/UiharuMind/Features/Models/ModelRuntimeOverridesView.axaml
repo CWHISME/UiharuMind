@@ -25,7 +25,7 @@
                               ResetVisible="{Binding ContextSize.IsOverridden}"
                               ResetToolTip="{loc:Loc ModelParamsResetTip}">
             <controls:SettingsRow.Field>
-                <NumericUpDown Classes="runtime-field" Minimum="0" Maximum="1048576" Increment="1024"
+                <NumericUpDown Classes="runtime-field" Minimum="0" Maximum="{Binding MaxContextSize}" Increment="1024"
                                Value="{Binding ContextSize.Value}" />
             </controls:SettingsRow.Field>
         </controls:SettingsRow>

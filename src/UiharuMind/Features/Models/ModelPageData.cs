@@ -187,7 +187,9 @@ public partial class ModelPageData : PageDataBase
         LocalImageModelStore.Shared.DeleteAsync,
         page.ShowImageDownloads,
         () => UIManager.ShowWindow<SettingsWindow>(window => window.ShowImageEngineSettings()),
-        ImageEngineStatus.Create(SdCppEngine.Shared));
+        ImageEngineStatus.Create(SdCppEngine.Shared),
+        LocalImageModelStore.Shared.IsInstalled,
+        model => LocalImageModels.SizeOnDisk(model, LocalImageModels.ModelRoot));
 
     /// <summary>
     /// 切到生图模型页签。从 Agent 设置页跳过来时用

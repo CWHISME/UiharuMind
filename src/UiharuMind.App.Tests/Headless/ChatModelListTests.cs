@@ -60,7 +60,9 @@ public class ChatModelListTests
             window.UpdateLayout();
 
             Assert.False(data.ChatModels.HasNoModels);
-            Assert.Equal(3, window.GetVisualDescendants().OfType<ListBoxItem>().Count());
+            // 各页签内容常驻，只数对话页签里的
+            Assert.Equal(3, window.GetVisualDescendants().OfType<ChatModelListView>().Single()
+                .GetVisualDescendants().OfType<ListBoxItem>().Count());
             Capture(window, "chat-models");
             window.Close();
         });

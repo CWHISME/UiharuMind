@@ -6,8 +6,11 @@
         </Border>
     </Design.PreviewWith>
 
-    <!-- Add Styles Here -->
-    
+    <!-- 数字框超出范围时夹到上下限；默认会拒收这次输入、退回上一个值，看起来像吞掉了最后一个字 -->
+    <Style Selector="NumericUpDown">
+        <Setter Property="ClipValueToMinMax" Value="True" />
+    </Style>
+
     <!-- ============================= 输入区域修改(标记为 composer-input 的，主要用于聊天信息时的发送输入区域) ========================-->
     <Style Selector="TextBox.composer-input">
         <Setter Property="Background" Value="Transparent" />

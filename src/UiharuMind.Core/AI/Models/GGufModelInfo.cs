@@ -83,6 +83,7 @@ public class GGufModelInfo : ILlmModel
             List<string> parts = [];
             if (!string.IsNullOrWhiteSpace(Architecture)) parts.Add(Architecture);
             if (!string.IsNullOrWhiteSpace(SizeLabel)) parts.Add(SizeLabel);
+            if (FileSizeBytes > 0) parts.Add(UiharuMind.Core.Core.Utils.GameUtils.FormatBytes((long)FileSizeBytes));
             if (ContextLength > 0) parts.Add($"{ContextLength:N0} ctx");
             if (LayerCount > 0) parts.Add($"{LayerCount} layers");
             return parts.Count == 0 ? "" : string.Join(" · ", parts);

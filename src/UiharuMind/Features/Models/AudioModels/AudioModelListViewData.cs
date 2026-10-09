@@ -375,9 +375,15 @@ public partial class AudioModelListViewData : ObservableObject
         Dictionary<string, AudioCppFamily> families, Dictionary<string, long> sizes, EAudioCppTask task)
     {
         string name = task.ToConfigName();
+        List<AudioCppModelEntry> wanted = models.Where(x => x.Task == name)
+            .OrderBy(x => x.Id, StringComparer.OrdinalIgnoreCase).ToList();
+        // 扫出来没变就留着原条目：每次切回页签都重建会让整列重排版，下拉框、试听状态也跟着丢
+        // 家族名一并比：引擎装上后才认得出家族（音色、会不会克隆随之变）
+        if (target.Select(x => (x.Entry.Id, x.FamilyName, x.SizeBytes)).SequenceEqual(wanted.Select(x =>
+                (x.Id, families.GetValueOrDefault(x.Family)?.DisplayName ?? x.Family, sizes.GetValueOrDefault(x.Id)))))
+            return;
         target.Clear();
-        foreach (AudioCppModelEntry model in models.Where(x => x.Task == name)
-                     .OrderBy(x => x.Id, StringComparer.OrdinalIgnoreCase))
+        foreach (AudioCppModelEntry model in wanted)
         {
             AudioCppFamily? family = families.GetValueOrDefault(model.Family);
             target.Add(new AudioModelItemData(model, family, sizes.GetValueOrDefault(model.Id), _engine.Settings));

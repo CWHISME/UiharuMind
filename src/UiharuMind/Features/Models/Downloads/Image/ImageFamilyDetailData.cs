@@ -175,13 +175,9 @@ public partial class ImageFamilyDetailData : ObservableObject, IDisposable
     private ImageModelInfo? FindEntry(ImageCatalogTier tier) => _image.Models()
         .FirstOrDefault(x => x.Local is { } local && local.Family == Family.Id && local.Tier == tier.Id);
 
-    // 名字：家族名，多档都装了再带上档位
     private ImageModelInfo AddEntry(ImageCatalogTier tier)
     {
-        HashSet<string> taken = _image.Models().Select(x => x.Name).ToHashSet(StringComparer.Ordinal);
-        string name = taken.Contains(Family.Name) ? $"{Family.Name} ({ImageTierText.Label(tier.Id)})" : Family.Name;
-        for (int i = 2; taken.Contains(name); i++) name = $"{Family.Name} ({ImageTierText.Label(tier.Id)} {i})";
-        ImageModelInfo entry = LocalImageModels.Create(Family, tier, name);
+        ImageModelInfo entry = LocalImageEntries.Create(Family, tier, _image.Models().Select(x => x.Name));
         _image.AddModel(entry);
         return entry;
     }

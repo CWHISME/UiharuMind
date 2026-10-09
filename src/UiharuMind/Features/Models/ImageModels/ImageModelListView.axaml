@@ -97,14 +97,11 @@
                                                             IsVisible="{Binding SupportsEditing}"
                                                             VerticalAlignment="Center" />
                                     </controls:CenteredStackPanel>
-                                    <!-- 接口格式 · 模型 id · 分辨率档 -->
+                                    <!-- 远程：接口格式 · 模型 id · 分辨率档；本地：家族 · 档位 · 大小 -->
                                     <TextBlock Text="{Binding Detail}" Classes="muted" FontSize="12"
                                                TextTrimming="CharacterEllipsis" />
                                     <TextBlock Text="{Binding Endpoint}" Classes="muted" FontSize="12"
                                                TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Endpoint}" />
-                                    <TextBlock Text="{Binding StatusText}" FontSize="12" TextWrapping="Wrap"
-                                               Foreground="{DynamicResource SemiGreen6}"
-                                               IsVisible="{Binding IsReady}" />
                                     <TextBlock Text="{Binding StatusText}" FontSize="12" TextWrapping="Wrap"
                                                Foreground="{DynamicResource MessageStatusErrorBrush}"
                                                IsVisible="{Binding !IsReady}" />

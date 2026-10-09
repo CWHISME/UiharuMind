@@ -85,6 +85,17 @@ public static class LocalImageModels
         model.Local == null ? [] : ToSetup(model, modelRoot).MissingFiles();
 
     /// <summary>
+    /// 组件文件在本机一共占多大（同一文件只算一次，缺的不算）
+    /// </summary>
+    /// <param name="model">生图模型（本地的）</param>
+    /// <param name="modelRoot">模型目录</param>
+    /// <returns>字节数；不是本地模型或一个都没有为 0</returns>
+    public static long SizeOnDisk(ImageModelInfo model, string modelRoot) => model.Local == null
+        ? 0
+        : model.Local.Components.Select(x => x.Resolve(modelRoot)).Distinct()
+            .Select(x => new FileInfo(x)).Where(x => x.Exists).Sum(x => x.Length);
+
+    /// <summary>
     /// 把出图请求换成引擎的请求：宽高按比例保持基准面积，改图没给比例就跟主图
     /// </summary>
     /// <param name="local">本地模型</param>

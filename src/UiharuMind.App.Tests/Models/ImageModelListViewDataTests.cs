@@ -142,4 +142,31 @@ public class ImageModelListViewDataTests : IDisposable
         Assert.Equal(["a", "b", "c", "d"], ConfiguredNames());
         Assert.Equal("d", list.Items[3].Name);
     }
+
+    [Fact]
+    public void Construct_AdoptsInstalledTiersNotListed_AndHidesReadyStatus()
+    {
+        ImageCatalogSampling sampling = new(8, 1f);
+        ImageCatalogComponent encoder = new("llm", "acme/encoder", "encoder.gguf", 1, null);
+        ImageCatalogFamily turbo = new("turbo", "Turbo", new Dictionary<string, string>(), "https://example.com", true,
+            true, false, 1024, sampling,
+            [
+                new ImageCatalogTier("lite", [new("diffusion-model", "acme/turbo", "turbo-q3.gguf", 1, null), encoder]),
+                new ImageCatalogTier("balanced", [new("diffusion-model", "acme/turbo", "turbo-q8.gguf", 1, null), encoder])
+            ]);
+        ImageModelListActions actions = ImageModelListActions.None with
+        {
+            IsTierInstalled = tier => tier.Id == "balanced",
+            SizeOnDisk = model => model.IsLocal ? 3L << 30 : 0
+        };
+
+        ImageModelListViewData list = new(_messages, (_, _) => Task.FromResult(_editorResult), actions,
+            new ImageModelCatalog("test", [turbo]));
+        ImageModelListViewData again = new(_messages, (_, _) => Task.FromResult(_editorResult), actions,
+            new ImageModelCatalog("test", [turbo]));
+
+        Assert.Equal(["a", "b", "c", "Turbo"], ConfiguredNames());
+        Assert.Equal(4, again.Items.Count);
+        Assert.EndsWith("3 GB", list.Items[3].Detail);
+    }
 }

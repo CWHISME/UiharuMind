@@ -21,13 +21,17 @@ namespace UiharuMind.Features.Models.ImageModels;
 /// <param name="GoToMarket">去「获取模型」的生图分类</param>
 /// <param name="OpenEngineSettings">去设置的「本地模型（生图）」</param>
 /// <param name="EngineStatus">本地引擎的状态条；null 不显示</param>
+/// <param name="IsTierInstalled">某一档的组件都在本机：打开页签时据此补回没登记的本地模型；null 不补</param>
+/// <param name="SizeOnDisk">本地模型的组件占多大；null 不显示</param>
 public sealed record ImageModelListActions(
     Func<ImageModelInfo, IReadOnlyCollection<string>, Task<ImageModelInfo?>> OpenLocalEditor,
     Action<ImageModelInfo?> OpenDraw,
     Func<ImageModelInfo, Task<IReadOnlyList<string>>> DeleteLocalFiles,
     Action GoToMarket,
     Action OpenEngineSettings,
-    EngineStatusData? EngineStatus = null)
+    EngineStatusData? EngineStatus = null,
+    Func<ImageCatalogTier, bool>? IsTierInstalled = null,
+    Func<ImageModelInfo, long>? SizeOnDisk = null)
 {
     /// <summary>
     /// 什么都不做（测试与没接本地生图时）
@@ -59,6 +63,7 @@ public partial class ImageModelListViewData : ObservableObject
         _openEditor = openEditor;
         _actions = actions ?? ImageModelListActions.None;
         _catalog = catalog ?? ImageModelCatalog.BuiltIn;
+        AdoptInstalled();
         Refresh();
     }
 
@@ -86,7 +91,8 @@ public partial class ImageModelListViewData : ObservableObject
     {
         Items.Clear();
         for (int i = 0; i < Models.Count; i++)
-            Items.Add(new ImageModelItemViewData(Models[i], i, Models.Count, FamilyName(Models[i])));
+            Items.Add(new ImageModelItemViewData(Models[i], i, Models.Count, FamilyName(Models[i]),
+                _actions.SizeOnDisk?.Invoke(Models[i]) ?? 0));
         OnPropertyChanged(nameof(HasItems));
         OnPropertyChanged(nameof(ShowEngineStatus));
     }
@@ -167,6 +173,14 @@ public partial class ImageModelListViewData : ObservableObject
         if (from < 0 || to < 0 || to >= Models.Count) return;
 
         Commit(models => (models[from], models[to]) = (models[to], models[from]));
+    }
+
+    // 只在建页签时补：删条目后组件在后台删，Refresh 时补会把刚删的又加回来
+    private void AdoptInstalled()
+    {
+        if (_actions.IsTierInstalled is not { } isInstalled) return;
+        IReadOnlyList<ImageModelInfo> found = LocalImageEntries.FindUnlisted(_catalog, Models, isInstalled);
+        if (found.Count > 0) ImageModelSettingConfig.Current.ReplaceModels([..Models, ..found]);
     }
 
     private IReadOnlyCollection<string> NamesExcept(ImageModelInfo? self) =>

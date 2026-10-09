@@ -15,6 +15,7 @@
              xmlns:audioModels="clr-namespace:UiharuMind.Features.Models.AudioModels"
              xmlns:usage="clr-namespace:UiharuMind.Features.Models.Usage"
                              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:converters="clr-namespace:UiharuMind.Shared.Converters"
              xmlns:core="clr-namespace:UiharuMind.Core.AI.Core;assembly=UiharuMind.Core">
 
     <Design.DataContext>
@@ -23,25 +24,14 @@
 
     <!-- 与角色页同一圈留白；页签本身就是页头，不另放大标题（其他页都没有） -->
     <Panel Margin="12,6,12,12">
-        <!-- 生图模型单独一张表(ADR 0052):不进对话模型列表,也就不出现在任何对话模型选择器里 -->
-        <TabControl SelectedIndex="{Binding SelectedTabIndex}">
-            <TabItem Header="{loc:Loc ModelPageChatModelsTab}">
-                <chat:ChatModelListView DataContext="{Binding ChatModels}" />
-            </TabItem>
-            <TabItem Header="{loc:Loc ModelPageImageModelsTab}">
-                <images:ImageModelListView DataContext="{Binding ImageModels}" />
-            </TabItem>
-            <!-- 只列本机装了的；下载在「获取模型」的语音分类 -->
-            <TabItem Header="{loc:Loc ModelPageAudioModelsTab}" Content="{Binding AudioModels}">
-                <TabItem.ContentTemplate>
-                    <DataTemplate x:DataType="audioModels:AudioModelListViewData">
-                        <audioModels:AudioModelListView />
-                    </DataTemplate>
-                </TabItem.ContentTemplate>
-            </TabItem>
-            <!-- 内容绑数据而不是内联写视图：内联的会随页面构造 new 出来，这里要第一次选中才建 -->
-            <TabItem Content="{Binding Downloads}">
-                <TabItem.Header>
+        <!-- 生图模型单独一张表(ADR 0052):不进对话模型列表,也就不出现在任何对话模型选择器里。
+             页签头与内容分开放：内容建出来就常驻、只切可见性，切页签不再整棵摘下重挂（重套样式与模板约 80ms） -->
+        <DockPanel>
+            <TabStrip DockPanel.Dock="Top" SelectedIndex="{Binding SelectedTabIndex}">
+                <TabStripItem Content="{loc:Loc ModelPageChatModelsTab}" />
+                <TabStripItem Content="{loc:Loc ModelPageImageModelsTab}" />
+                <TabStripItem Content="{loc:Loc ModelPageAudioModelsTab}" />
+                <TabStripItem>
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <TextBlock Text="{loc:Loc ModelPageDownloadsTab}" VerticalAlignment="Center" />
                         <Border Background="{DynamicResource SemiBlue5}" CornerRadius="8" Padding="5,0" MinWidth="16"
@@ -51,14 +41,35 @@
                                        HorizontalAlignment="Center" />
                         </Border>
                     </StackPanel>
-                </TabItem.Header>
-                <TabItem.ContentTemplate>
-                    <DataTemplate x:DataType="downloads:ModelDownloadPageData">
-                        <downloads:ModelDownloadView />
-                    </DataTemplate>
-                </TabItem.ContentTemplate>
-            </TabItem>
-        </TabControl>
+                </TabStripItem>
+            </TabStrip>
+            <Panel>
+                <!-- 可见性放在外层：视图自己换了 DataContext，绑在它身上就找不到页签序号 -->
+                <Panel IsVisible="{Binding SelectedTabIndex, Converter={x:Static converters:IndexEqualsConverter.Instance}, ConverterParameter=0}">
+                    <chat:ChatModelListView DataContext="{Binding ChatModels}" />
+                </Panel>
+                <Panel IsVisible="{Binding SelectedTabIndex, Converter={x:Static converters:IndexEqualsConverter.Instance}, ConverterParameter=1}">
+                    <images:ImageModelListView DataContext="{Binding ImageModels}" />
+                </Panel>
+                <!-- 只列本机装了的；下载在「获取模型」的语音分类。后两页绑数据而不是内联写视图：第一次选中才建 -->
+                <ContentControl Content="{Binding AudioModels}"
+                                IsVisible="{Binding SelectedTabIndex, Converter={x:Static converters:IndexEqualsConverter.Instance}, ConverterParameter=2}">
+                    <ContentControl.ContentTemplate>
+                        <DataTemplate x:DataType="audioModels:AudioModelListViewData">
+                            <audioModels:AudioModelListView />
+                        </DataTemplate>
+                    </ContentControl.ContentTemplate>
+                </ContentControl>
+                <ContentControl Content="{Binding Downloads}"
+                                IsVisible="{Binding SelectedTabIndex, Converter={x:Static converters:IndexEqualsConverter.Instance}, ConverterParameter=3}">
+                    <ContentControl.ContentTemplate>
+                        <DataTemplate x:DataType="downloads:ModelDownloadPageData">
+                            <downloads:ModelDownloadView />
+                        </DataTemplate>
+                    </ContentControl.ContentTemplate>
+                </ContentControl>
+            </Panel>
+        </DockPanel>
         <!-- 页签行右边的空处：整机余量，点开看各本地模型占用 -->
         <usage:LocalUsageIndicator HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,0,0" />
     </Panel>

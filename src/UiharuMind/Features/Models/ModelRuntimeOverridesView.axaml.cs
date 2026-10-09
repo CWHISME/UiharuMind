@@ -25,8 +25,9 @@ public partial class ModelRuntimeOverridesView : UserControl
     {
         ModelRuntimeSettingConfig config = ModelRuntimeSettingConfig.Current;
         string name = model.ModelName;
+        GGufModelInfo? gguf = model.ModelInfo as GGufModelInfo;
         return new ModelRuntimeOverridesViewData(name, config, config.Save,
             () => LlmManager.Instance.AnalyzeLoadRisk(name), model.IsRunning,
-            (model.ModelInfo as GGufModelInfo)?.LayerCount ?? 0);
+            gguf?.LayerCount ?? 0, trainedContextLength: gguf?.ContextLength ?? 0);
     }
 }
