@@ -25,16 +25,16 @@
             ConverterParameter=-10}"
             BorderBrush="{DynamicResource SemiOrange5}" BorderThickness="1.5">
         <StackPanel Spacing="8">
-            <controls:BaselineStackPanel Spacing="8" IsVisible="{Binding !IsBrowserHandoff}">
+            <controls:CenteredStackPanel Spacing="8" IsVisible="{Binding !IsBrowserHandoff}">
                 <TextBlock Text="🔐" FontSize="13" />
                 <TextBlock Text="{loc:Loc AgentApprovalTitle}" />
                 <TextBlock Classes="mono" VerticalAlignment="Center" Text="{Binding ToolName}" />
-            </controls:BaselineStackPanel>
+            </controls:CenteredStackPanel>
             <!-- 接管：不是要许可，是要用户的手。在浏览器里做完回来点「完成了」，工具才往下走 -->
-            <controls:BaselineStackPanel Spacing="8" IsVisible="{Binding IsBrowserHandoff}">
+            <controls:CenteredStackPanel Spacing="8" IsVisible="{Binding IsBrowserHandoff}">
                 <TextBlock Text="🙋" FontSize="13" />
                 <TextBlock Text="{loc:Loc BrowserHandoffTitle}" />
-            </controls:BaselineStackPanel>
+            </controls:CenteredStackPanel>
             <Border Classes="result-panel"
                     IsVisible="{Binding ArgumentSummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                 <SelectableTextBlock Classes.mono="{Binding !IsDescribed}" Text="{Binding ArgumentSummary}"

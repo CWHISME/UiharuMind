@@ -547,14 +547,14 @@
                                     <controls:CircleAvatar Width="24" Height="24" VerticalAlignment="Center"
                                                            Source="{Binding Icon}" IsVisible="{Binding HasIcon}" />
                                     <StackPanel Grid.Column="1" Spacing="1">
-                                        <controls:BaselineStackPanel Spacing="6">
+                                        <controls:CenteredStackPanel Spacing="6">
                                             <TextBlock Text="{Binding Label}" />
                                             <TextBlock FontSize="11" VerticalAlignment="Center"
                                                        Foreground="{DynamicResource SemiBlue5}"
                                                        IsVisible="{Binding HasTag}"
                                                        Text="{Binding Tag}"
                                                        ToolTip.Tip="{Binding TagTip}" />
-                                        </controls:BaselineStackPanel>
+                                        </controls:CenteredStackPanel>
                                         <TextBlock FontSize="11" Foreground="{DynamicResource SemiGrey5}"
                                                    Text="{Binding Description}"
                                                    IsVisible="{Binding HasDescription}"

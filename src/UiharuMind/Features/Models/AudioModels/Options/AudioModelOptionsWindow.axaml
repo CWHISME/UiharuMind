@@ -39,11 +39,11 @@
             <Border Padding="18,10" BorderBrush="{DynamicResource SemiGrey1}" BorderThickness="0,0,0,1">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
                     <StackPanel Spacing="3" VerticalAlignment="Center">
-                        <controls:BaselineStackPanel Spacing="8">
+                        <controls:CenteredStackPanel Spacing="8">
                             <TextBlock Text="{Binding Label}" FontWeight="SemiBold" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding Name}" Classes="muted" FontSize="11" VerticalAlignment="Center"
                                        IsVisible="{Binding ShowsName}" />
-                        </controls:BaselineStackPanel>
+                        </controls:CenteredStackPanel>
                         <TextBlock Text="{Binding Note}" Classes="muted" FontSize="12" TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">

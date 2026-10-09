@@ -41,12 +41,12 @@
                         <controls:ThemedSvgIcon Width="14" Height="14" IconName="chevron-up"
                                                 IsVisible="{Binding !IsExpanded}" />
                     </Panel>
-                    <controls:BaselineStackPanel Spacing="8">
+                    <controls:CenteredStackPanel Spacing="8">
                         <controls:ThemedSvgIcon Width="14" Height="14" IconName="download" VerticalAlignment="Center" />
                         <TextBlock Text="{loc:Loc ModelDownloadQueueTitle}" FontWeight="SemiBold"
                                    VerticalAlignment="Center" />
                         <TextBlock Text="{Binding Summary}" Classes="muted" FontSize="12" VerticalAlignment="Center" />
-                    </controls:BaselineStackPanel>
+                    </controls:CenteredStackPanel>
                 </DockPanel>
             </Button>
 

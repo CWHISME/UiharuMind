@@ -187,7 +187,7 @@
                                                 <controls:ThemedSvgIcon Width="18" Height="18" IconName="audio-lines" />
                                             </Border>
                                             <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
-                                                <controls:BaselineStackPanel Spacing="8">
+                                                <controls:CenteredStackPanel Spacing="8">
                                                     <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
                                                                TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                                     <Border Classes="default-badge" IsVisible="{Binding IsDefault}">
@@ -207,7 +207,7 @@
                                                             IsVisible="{Binding !IsDefault}"
                                                             Command="{Binding $parent[ItemsControl].((models:AudioModelListViewData)DataContext).SetDefaultCommand}"
                                                             CommandParameter="{Binding}" />
-                                                </controls:BaselineStackPanel>
+                                                </controls:CenteredStackPanel>
                                                 <TextBlock Classes="muted" FontSize="12" TextTrimming="CharacterEllipsis">
                                                     <Run Text="{Binding FamilyName}" />
                                                     <Run Text="{Binding SizeText, StringFormat='  ·  {0}'}" />
@@ -283,7 +283,7 @@
                                                 <controls:ThemedSvgIcon Width="18" Height="18" IconName="mic" />
                                             </Border>
                                             <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
-                                                <controls:BaselineStackPanel Spacing="8">
+                                                <controls:CenteredStackPanel Spacing="8">
                                                     <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
                                                                TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                                     <Border Classes="default-badge" IsVisible="{Binding IsDefault}">
@@ -303,7 +303,7 @@
                                                             IsVisible="{Binding !IsDefault}"
                                                             Command="{Binding $parent[ItemsControl].((models:AudioModelListViewData)DataContext).SetDefaultCommand}"
                                                             CommandParameter="{Binding}" />
-                                                </controls:BaselineStackPanel>
+                                                </controls:CenteredStackPanel>
                                                 <TextBlock Classes="muted" FontSize="12" TextTrimming="CharacterEllipsis">
                                                     <Run Text="{Binding FamilyName}" />
                                                     <Run Text="{Binding SizeText, StringFormat='  ·  {0}'}" />

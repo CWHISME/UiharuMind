@@ -203,11 +203,11 @@
                                 <DataTemplate x:DataType="vm:SkillGroupItem">
                                     <Expander Margin="0,2" IsExpanded="True" HorizontalAlignment="Stretch">
                                         <Expander.Header>
-                                            <controls:BaselineStackPanel Spacing="6">
+                                            <controls:CenteredStackPanel Spacing="6">
                                                 <TextBlock Text="{Binding Name}" />
                                                 <TextBlock Classes="muted" VerticalAlignment="Center"
                                                            Text="{Binding SkillCount}" />
-                                            </controls:BaselineStackPanel>
+                                            </controls:CenteredStackPanel>
                                         </Expander.Header>
                                         <ItemsControl ItemsSource="{Binding Categories}">
                                             <ItemsControl.ItemTemplate>
@@ -225,7 +225,7 @@
                                                                             BorderThickness="0,0,0,1"
                                                                             BorderBrush="{DynamicResource SemiGrey2}">
                                                                         <StackPanel Spacing="2">
-                                                                            <controls:BaselineStackPanel Spacing="6">
+                                                                            <controls:CenteredStackPanel Spacing="6">
                                                                                 <!-- 技能名要能复制：派活/排障时点名 offset 等全靠原文 -->
                                                                                 <SelectableTextBlock Text="{Binding Name}" />
                                                                                 <!-- 只读标记:模型自选由 SKILL.md 自己声明,用户不能覆盖 -->
@@ -238,7 +238,7 @@
                                                                                            Foreground="IndianRed"
                                                                                            IsVisible="{Binding !IsLoaded}"
                                                                                            Text="{loc:Loc AgentSkillsNotLoaded}" />
-                                                                            </controls:BaselineStackPanel>
+                                                                            </controls:CenteredStackPanel>
                                                                             <SelectableTextBlock Classes="muted"
                                                                                            Text="{Binding Description}" TextWrapping="Wrap"
                                                                                            IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />

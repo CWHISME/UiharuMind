@@ -18,11 +18,11 @@
                     </StackPanel>
                 </Button>
             </StackPanel>
-            <controls:BaselineStackPanel Spacing="8">
+            <controls:CenteredStackPanel Spacing="8">
                 <TextBlock Text="{loc:Loc VoiceLibraryGroup}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" />
                 <TextBlock Text="{loc:Loc VoiceLibraryHint}" Classes="muted" FontSize="12" VerticalAlignment="Center"
                            TextTrimming="CharacterEllipsis" ToolTip.Tip="{loc:Loc VoiceLibraryHint}" />
-            </controls:BaselineStackPanel>
+            </controls:CenteredStackPanel>
         </DockPanel>
 
         <TextBlock Text="{loc:Loc VoiceLibraryEmpty}" Classes="muted" FontSize="12" TextWrapping="Wrap"

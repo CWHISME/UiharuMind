@@ -67,8 +67,8 @@
               RowDefinitions="Auto,18" Background="Transparent"
               HorizontalAlignment="{Binding Alignment}">
             <StackPanel HorizontalAlignment="{Binding Alignment}">
-                <!-- 名字、时间、标记字号不一，按基线对齐，小字才不往上飘 -->
-                <common:BaselineStackPanel Spacing="8" HorizontalAlignment="{Binding Alignment}">
+                <!-- 名字、时间、标记字号不一，按整行居中，小字才不往上飘 -->
+                <common:CenteredStackPanel Spacing="8" HorizontalAlignment="{Binding Alignment}">
                     <TextBlock Text="{Binding SenderName}"
                                IsVisible="{Binding ShowSenderName}"
                                Foreground="{DynamicResource SemiGrey7}" />
@@ -78,7 +78,7 @@
                                Foreground="{DynamicResource SemiBlue5}"
                                IsVisible="{Binding IsPostedToGroup}"
                                Text="{loc:Loc GroupPostedTag}" />
-                </common:BaselineStackPanel>
+                </common:CenteredStackPanel>
 
                 <!-- 多模态消息里的图片(粘贴/附加的图) -->
                 <Border Classes="message-bubble" Margin="0,5,0,0" Padding="4"

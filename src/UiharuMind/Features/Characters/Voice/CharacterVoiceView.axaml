@@ -24,11 +24,11 @@
                             <ComboBox Width="260" ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSource}">
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate x:DataType="voice:CharacterVoiceSource">
-                                        <controls:BaselineStackPanel Spacing="6">
+                                        <controls:CenteredStackPanel Spacing="6">
                                             <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Text="{Binding Detail}" Classes="muted" FontSize="12"
                                                        TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                                        </controls:BaselineStackPanel>
+                                        </controls:CenteredStackPanel>
                                     </DataTemplate>
                                 </ComboBox.ItemTemplate>
                             </ComboBox>

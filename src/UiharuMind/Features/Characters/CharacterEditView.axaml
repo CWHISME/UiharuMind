@@ -169,7 +169,7 @@
                             <ItemsControl ItemsSource="{Binding AgentTools.Toggles}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="viewData:AgentToolToggle">
-                                        <controls:BaselineStackPanel Spacing="8" Margin="0,2">
+                                        <controls:CenteredStackPanel Spacing="8" Margin="0,2">
                                             <ToggleSwitch IsChecked="{Binding IsEnabled}" MinWidth="0" />
                                             <TextBlock Text="{Binding Name}" VerticalAlignment="Center"
                                                        ToolTip.Tip="{Binding Description}" />
@@ -188,7 +188,7 @@
                                             <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
                                                        Text="{Binding Note}" IsVisible="{Binding HasNote}"
                                                        TextWrapping="NoWrap" />
-                                        </controls:BaselineStackPanel>
+                                        </controls:CenteredStackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -209,7 +209,7 @@
                                             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,2">
                                                 <CheckBox IsChecked="{Binding IsEnabled}" IsEnabled="{Binding IsLoaded}" />
                                                 <StackPanel Grid.Column="1" Spacing="1">
-                                                    <controls:BaselineStackPanel Spacing="6">
+                                                    <controls:CenteredStackPanel Spacing="6">
                                                         <TextBlock Text="{Binding Name}" />
                                                         <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
                                                                    Text="{Binding TokenText}"
@@ -223,7 +223,7 @@
                                                                    Foreground="IndianRed"
                                                                    IsVisible="{Binding !IsLoaded}"
                                                                    Text="{loc:Loc AgentSkillsNotLoaded}" />
-                                                    </controls:BaselineStackPanel>
+                                                    </controls:CenteredStackPanel>
                                                     <TextBlock Classes="muted" Text="{Binding Description}"
                                                                TextWrapping="Wrap" MaxLines="2" />
                                                 </StackPanel>
@@ -249,7 +249,7 @@
                                             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,2">
                                                 <CheckBox IsChecked="{Binding IsEnabled}" />
                                                 <StackPanel Grid.Column="1" Spacing="1">
-                                                    <controls:BaselineStackPanel Spacing="6">
+                                                    <controls:CenteredStackPanel Spacing="6">
                                                         <TextBlock Text="{Binding Name}" />
                                                         <TextBlock FontSize="11" VerticalAlignment="Center"
                                                                    Foreground="{DynamicResource SemiGrey5}"
@@ -268,7 +268,7 @@
                                                                    IsVisible="{Binding !IsHosted}"
                                                                    Text="{loc:Loc CharacterMcpNotHosted}"
                                                                    ToolTip.Tip="{loc:Loc CharacterMcpNotHostedTip}" />
-                                                    </controls:BaselineStackPanel>
+                                                    </controls:CenteredStackPanel>
                                                     <TextBlock Classes="muted" Text="{Binding Description}"
                                                                TextWrapping="Wrap" MaxLines="2" />
                                                 </StackPanel>

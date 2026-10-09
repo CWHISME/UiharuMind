@@ -136,13 +136,13 @@
                                             <DataTemplate x:DataType="panels:McpPlannedServerItem">
                                                 <StackPanel Spacing="1" Margin="0,2,0,0"
                                                             Opacity="{Binding Opacity}">
-                                                    <controls:BaselineStackPanel Spacing="6">
+                                                    <controls:CenteredStackPanel Spacing="6">
                                                         <TextBlock FontSize="11" Text="{Binding Name}"
                                                                    TextTrimming="CharacterEllipsis" />
                                                         <TextBlock Classes="muted" FontSize="10"
                                                                    VerticalAlignment="Center"
                                                                    Text="{Binding OriginText}" />
-                                                    </controls:BaselineStackPanel>
+                                                    </controls:CenteredStackPanel>
                                                     <!-- 待确认用醒目色:它挡着一个本该可用的能力,且只差用户一下 -->
                                                     <TextBlock FontSize="10" TextWrapping="Wrap"
                                                                Text="{Binding StatusText}"
