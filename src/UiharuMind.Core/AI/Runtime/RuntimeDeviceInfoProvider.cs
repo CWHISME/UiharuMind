@@ -112,6 +112,10 @@ public static class RuntimeDeviceInfoProvider
         }
 
         long available = (freePages + inactivePages + speculativePages) * pageSize;
+        // 上面不含文件缓存与可压缩的内存，16G 的机器常只剩两三 G，按它判会把跑得动的模型拦下；
+        // 内核自己的估计（memorystatus_level，可用百分比，内存压力就看它）把这些算进去，取两者大的
+        long level = TryReadMacSysctlInt64("kern.memorystatus_level");
+        if (level is > 0 and <= 100) available = Math.Max(available, total / 100 * level);
         return (total, available);
     }
 
