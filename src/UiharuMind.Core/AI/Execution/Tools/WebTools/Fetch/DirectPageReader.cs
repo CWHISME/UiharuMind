@@ -11,6 +11,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using AngleSharp;
 using AngleSharp.Dom;
+using AngleSharp.Io;
 using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.AI.Execution.Tools.WebTools;
@@ -48,6 +49,12 @@ internal sealed partial class DirectPageReader : IPageReader
         "application/x-yaml", "application/javascript", "application/x-ndjson"
     ];
 
+    static DirectPageReader()
+    {
+        // GBK、Big5 这类代码页编码默认不在 .NET 里，响应头声明了也解不了
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+    }
+
     public string Name => "Direct";
 
     public async Task<PageReadResult> ReadAsync(string url, CancellationToken ct)
@@ -61,7 +68,8 @@ internal sealed partial class DirectPageReader : IPageReader
         string mediaType = resp.Content.Headers.ContentType?.MediaType ?? "";
         Stream body = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
 
-        if (IsMarkup(mediaType)) return await ReadMarkupAsync(body, ct).ConfigureAwait(false);
+        if (IsMarkup(mediaType))
+            return await ReadMarkupAsync(body, resp.Content.Headers.ContentType?.ToString(), ct).ConfigureAwait(false);
 
         if (IsPlainText(mediaType))
         {
@@ -95,12 +103,24 @@ internal sealed partial class DirectPageReader : IPageReader
         }
     }
 
-    private static async Task<PageReadResult> ReadMarkupAsync(Stream body, CancellationToken ct)
+    /// <summary>
+    /// 解析 HTML 响应体。响应头声明的编码要带给解析器：只在响应头写 charset、页内没 meta 的 GBK 页，
+    /// 不带就按 UTF-8 读成乱码
+    /// </summary>
+    /// <param name="body">响应体</param>
+    /// <param name="contentType">响应头 Content-Type 原文；没有为 null</param>
+    /// <param name="ct">取消令牌</param>
+    /// <returns>读取结果</returns>
+    internal static async Task<PageReadResult> ReadMarkupAsync(Stream body, string? contentType, CancellationToken ct)
     {
         BoundedStream stream = new(body, ResponseSizeCap);
         // 每次请求创建新的 Context，确保线程安全（多 agent 同时调的话）
         using IBrowsingContext context = BrowsingContext.New(Configuration.Default);
-        using IDocument doc = await context.OpenAsync(v => v.Content(stream), ct).ConfigureAwait(false);
+        using IDocument doc = await context.OpenAsync(v =>
+        {
+            v.Content(stream);
+            if (contentType != null) v.Header(HeaderNames.ContentType, contentType);
+        }, ct).ConfigureAwait(false);
 
         StripNoise(doc);
         string text = Extract(doc);

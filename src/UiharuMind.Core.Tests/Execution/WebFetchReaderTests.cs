@@ -1,3 +1,4 @@
+using System.Text;
 using UiharuMind.Core.AI.Execution.Tools.WebTools;
 
 namespace UiharuMind.Core.Tests.Execution;
@@ -205,5 +206,19 @@ public class WebFetchReaderTests
         Assert.Contains("Body text", text);
         Assert.DoesNotContain("Site banner", text);
         Assert.DoesNotContain("Español", text);
+    }
+
+    /// <summary>编码只在响应头声明、页内没有 meta 的 GBK 页：要按响应头解码，不能当 UTF-8 读成乱码</summary>
+    [Fact]
+    public async Task Markup_DecodesWithCharsetFromResponseHeader()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance); //造 GBK 字节用，不依赖哪个测试先跑
+        string paragraph = string.Concat(Enumerable.Repeat("初春饰利是风纪委员第一七七支部的成员。", 10));
+        byte[] gbk = Encoding.GetEncoding("gbk").GetBytes($"<html><body><p>{paragraph}</p></body></html>");
+
+        PageReadResult result = await DirectPageReader.ReadMarkupAsync(
+            new MemoryStream(gbk), "text/html; charset=gbk", CancellationToken.None);
+
+        Assert.Contains("风纪委员", result.Content);
     }
 }
