@@ -324,6 +324,9 @@ public partial class ToolCallItem : ConversationItemBase
 
     /// <summary>本次调用涉及的文件路径（没有则为空）。只用来给全文窗按扩展名挑语法高亮</summary>
     [ObservableProperty] private string _filePath = string.Empty;
+
+    /// <summary>调用参数里的 offset（没有为 1）。Read 的全文窗据此让行号对上原文件</summary>
+    public int ReadOffset { get; init; } = 1;
     [ObservableProperty] private bool _isRunning = true;
     [ObservableProperty] private bool _isSuccess = true;
 
@@ -454,8 +457,12 @@ public partial class ToolCallItem : ConversationItemBase
     {
         // 语言来源与卡片同口径：回执（Saved/Applied 前缀）不是文件正文，不上色；
         // 其余才是文件正文，按 FilePath 扩展名高亮，Read 读的是 Markdown 就直接进预览
+        // Read 片段的行号从它在原文件里的位置数起，才对得上 Edit 失败提示里的行号
+        int firstLine = IsFileContentTool(ToolName) && IsSuccess
+            ? ReadTruncationNote.FirstLineOf(ReadOffset, ResultText)
+            : 1;
         TextFileWindow.ShowText($"{ToolName} · {Loc.Text(LangKey.ToolFullTextResult)}", ResultText,
-            ResultHighlightSource);
+            ResultHighlightSource, firstLineNumber: firstLine);
     }
 
     /// <summary>把参数原文交给文本窗只读查看</summary>
@@ -818,6 +825,19 @@ public static class AgentContentFormatter
         }
 
         return string.Empty;
+    }
+
+    /// <summary>
+    /// 取 Read 的 offset 参数，供全文窗对齐行号；没有或不是整数时为 1
+    /// </summary>
+    /// <param name="call">工具调用</param>
+    /// <returns>offset</returns>
+    public static int GetReadOffset(FunctionCallContent call)
+    {
+        return call.Arguments != null && call.Arguments.TryGetValue("offset", out object? value)
+                                      && int.TryParse(value?.ToString(), out int offset)
+            ? offset
+            : 1;
     }
 
     /// <summary>数组参数的元素个数;不是数组则为 0</summary>

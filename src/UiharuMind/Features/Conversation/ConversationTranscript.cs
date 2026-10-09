@@ -170,6 +170,7 @@ public sealed class ConversationTranscript : ITurnSink
                     IconName = AgentContentFormatter.GetToolIconName(call.Name),
                     ArgumentSummary = AgentContentFormatter.SummarizeArguments(call, _pathsSource?.Invoke()?.WorkspaceRoot),
                     FilePath = AgentContentFormatter.GetFilePath(call),
+                    ReadOffset = AgentContentFormatter.GetReadOffset(call),
                     ArgumentsJson = call.Arguments == null
                         ? string.Empty
                         : string.Join("\n", call.Arguments.Select(x => $"{x.Key}: {x.Value}")),

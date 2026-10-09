@@ -48,9 +48,10 @@ internal sealed class TextFileDocument
     /// </summary>
     /// <param name="title">标题（如「Read · 结果」）</param>
     /// <param name="sourceName">来源文件名或路径：决定高亮、行号与默认预览；为空不高亮</param>
+    /// <param name="firstLineNumber">首行在原文件里的行号（片段从中间读起时）</param>
     /// <returns>文档</returns>
-    public static TextFileDocument ReadOnly(string title, string? sourceName) =>
-        new(null, sourceName, title, true, Encoding.UTF8, false);
+    public static TextFileDocument ReadOnly(string title, string? sourceName, int firstLineNumber = 1) =>
+        new(null, sourceName, title, true, Encoding.UTF8, false) { FirstLineNumber = firstLineNumber };
 
     /// <summary>回写路径；空文档与只读文本为 null</summary>
     public string? FilePath { get; private set; }
@@ -60,6 +61,9 @@ internal sealed class TextFileDocument
 
     /// <summary>只读文本的标题</summary>
     public string? DisplayName { get; }
+
+    /// <summary>首行显示的行号：只读片段对上原文件行号，其余为 1</summary>
+    public int FirstLineNumber { get; private init; } = 1;
 
     /// <summary>只读：不可编辑，保存只能导出副本</summary>
     public bool IsReadOnly { get; }

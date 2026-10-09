@@ -142,6 +142,21 @@ public sealed class TextFileWindowTests : IDisposable
         Assert.False(MenuItemNamed(window, "SaveMenuItem").IsEnabled);
     });
 
+    /// <summary>Read 片段的行号从它在原文件里的位置数起；复用窗口换别的文本要回到 1</summary>
+    [Fact]
+    public void ReadFragment_LineNumbersStartAtItsFileLine() => HeadlessUi.Run(() =>
+    {
+        TextFileWindow window = NewWindow();
+
+        window.SetTextSource("Read · 结果", "a\nb\n", "x.cs", null, firstLineNumber: 60);
+        Assert.Equal(60, Editor(window).FirstLineNumber);
+        SafeLineNumberMargin margin = Editor(window).GetVisualDescendants().OfType<SafeLineNumberMargin>().Single();
+        Assert.Equal(60, margin.FirstLineNumber);
+
+        window.SetTextSource("Shell · 结果", "output", null, null);
+        Assert.Equal(1, margin.FirstLineNumber);
+    });
+
     /// <summary>参数是「键: 值」清单不是文档：即使涉及 Markdown 文件也不默认预览</summary>
     [Fact]
     public void ArgumentsOfAMarkdownWrite_StayAsText() => HeadlessUi.Run(() =>
