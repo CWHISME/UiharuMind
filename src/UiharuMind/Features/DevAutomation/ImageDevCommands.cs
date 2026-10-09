@@ -124,13 +124,14 @@ internal sealed class ImageListCommand : IDevCommand
 
 /// <summary>
 /// 在生图模型页签点某一行的「试画」，在画图窗口里填提示词画一张，画完关窗。
-/// <c>args</c>：model（生图模型名）、prompt、timeoutMinutes（默认 20，到了点停止）、copyTo（把图另拷一份到这个路径）
+/// <c>args</c>：model（生图模型名）、prompt、timeoutMinutes（默认 20，到了点停止）、copyTo（把图另拷一份到这个路径）、
+/// memoryRisk（本地引擎说内存不够时：refuse 默认，照实失败；allow 点窗口里的「仍然加载」）
 /// </summary>
 internal sealed class ImageDrawCommand : IAsyncDevCommand
 {
     public string Name => "image.draw";
 
-    public string Usage => "在生图模型页签点某一行的「试画」，填提示词画一张后关窗（本地模型会起引擎）。model、prompt、timeoutMinutes（默认 20，到了点停止）、copyTo（另拷一份到这个文件路径，如工作区里，好让会话接着改它）";
+    public string Usage => "在生图模型页签点某一行的「试画」，填提示词画一张后关窗（本地模型会起引擎）。model、prompt、timeoutMinutes（默认 20，到了点停止）、copyTo（另拷一份到这个文件路径，如工作区里，好让会话接着改它）、memoryRisk（本地引擎说此刻内存不够时：refuse 默认照实失败，allow 点窗口里的「仍然加载」）";
 
     public async Task<object?> ExecuteAsync(JsonElement args)
     {
@@ -147,14 +148,16 @@ internal sealed class ImageDrawCommand : IAsyncDevCommand
         ImageDrawWindow window = await ImageDevCommands.WaitForDrawWindow();
         ImageDrawViewData draw = (ImageDrawViewData)window.DataContext!;
         draw.Prompt = prompt;
+        bool allowMemoryRisk = GroupDevCommands.StringOr(args, "memoryRisk") == "allow";
         Stopwatch watch = Stopwatch.StartNew();
-        Task run = draw.GenerateCommand.ExecuteAsync(null);
-        if (await Task.WhenAny(run, Task.Delay(timeout)) != run) draw.StopCommand.Execute(null);
-        await run;
+        await RunAsync(draw, draw.GenerateCommand.ExecuteAsync(null), timeout - watch.Elapsed);
+        string? memoryRisk = draw.MemoryRiskText;
+        if (memoryRisk != null && allowMemoryRisk)
+            await RunAsync(draw, draw.GenerateAnywayCommand.ExecuteAsync(null), timeout - watch.Elapsed);
         if (draw.ResultPath == null)
         {
             window.Close();
-            throw new InvalidOperationException($"no image: {draw.StatusText}");
+            throw new InvalidOperationException($"no image: {draw.MemoryRiskText ?? draw.StatusText}");
         }
 
         string? copy = null;
@@ -169,11 +172,20 @@ internal sealed class ImageDrawCommand : IAsyncDevCommand
         {
             model = draw.SelectedModel?.Name,
             status = draw.StatusText,
+            memoryRisk,
             path = draw.ResultPath,
             copy,
             seconds = (int)watch.Elapsed.TotalSeconds
         };
         window.Close();
         return result;
+    }
+
+    // 到点没画完就点停止
+    private static async Task RunAsync(ImageDrawViewData draw, Task run, TimeSpan timeout)
+    {
+        if (await Task.WhenAny(run, Task.Delay(timeout > TimeSpan.Zero ? timeout : TimeSpan.Zero)) != run)
+            draw.StopCommand.Execute(null);
+        await run;
     }
 }

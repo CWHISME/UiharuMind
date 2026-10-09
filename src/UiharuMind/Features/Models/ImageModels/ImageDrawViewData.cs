@@ -40,12 +40,12 @@ public sealed record ImageDrawActions(Action<string> Copy, Func<string, Task> Sa
 public partial class ImageDrawViewData : ObservableObject, IDisposable
 {
     private readonly ImageDrawGenerator _generate;
-    private readonly IMessageService _messageService;
     private readonly ImageDrawActions _actions;
     private readonly string _outputDirectory;
     private readonly DispatcherTimer _clock = new() { Interval = TimeSpan.FromSeconds(1) }; //远程模型没有进度，报个用时
     private readonly Stopwatch _elapsed = new();
     private CancellationTokenSource? _running;
+    private (ImageModelInfo Model, ImageRequest Request)? _refused; //因为内存不够没起的那次，「仍然加载」照它再来
 
     [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(GenerateCommand))]
     private string _prompt = "";
@@ -58,6 +58,9 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
 
     [ObservableProperty] private ImageAspectRatio _selectedRatio = ImageAspectRatio.Square;
     [ObservableProperty] private string _statusText = "";
+
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasMemoryRisk))]
+    private string? _memoryRiskText;
     [ObservableProperty] private Bitmap? _image;
 
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasResult))]
@@ -66,16 +69,14 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
     /// <param name="models">可选的生图模型</param>
     /// <param name="selected">默认选中的；null 选第一个</param>
     /// <param name="generate">出图</param>
-    /// <param name="messageService">内存不够时问要不要照样起</param>
     /// <param name="actions">画好之后的动作</param>
     /// <param name="outputDirectory">画好的图存哪</param>
     public ImageDrawViewData(IReadOnlyList<ImageModelInfo> models, ImageModelInfo? selected,
-        ImageDrawGenerator generate, IMessageService messageService, ImageDrawActions actions, string outputDirectory)
+        ImageDrawGenerator generate, ImageDrawActions actions, string outputDirectory)
     {
         Models = models;
         _selectedModel = selected != null && models.Contains(selected) ? selected : models.FirstOrDefault();
         _generate = generate;
-        _messageService = messageService;
         _actions = actions;
         _outputDirectory = outputDirectory;
         _statusText = models.Count == 0 ? Loc.Text(LangKey.ImageDrawNoModel) : "";
@@ -97,6 +98,11 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
     /// </summary>
     public bool HasResult => ResultPath != null;
 
+    /// <summary>
+    /// 本地引擎因为此刻内存不够没起，等用户决定要不要照样加载
+    /// </summary>
+    public bool HasMemoryRisk => MemoryRiskText != null;
+
     public void Dispose()
     {
         _clock.Stop();
@@ -107,9 +113,18 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
     private bool CanGenerate() => !IsGenerating && SelectedModel != null && !string.IsNullOrWhiteSpace(Prompt);
 
     [RelayCommand(CanExecute = nameof(CanGenerate))]
-    private async Task Generate()
+    private Task Generate() => RunAsync(SelectedModel!, new ImageRequest(Prompt.Trim(), [], SelectedRatio));
+
+    // 内存不够的那次，用户看过提示后照样加载
+    [RelayCommand]
+    private Task GenerateAnyway() => _refused is { } refused && !IsGenerating
+        ? RunAsync(refused.Model, refused.Request with { AllowMemoryRisk = true })
+        : Task.CompletedTask;
+
+    private async Task RunAsync(ImageModelInfo model, ImageRequest request)
     {
-        ImageModelInfo model = SelectedModel!;
+        _refused = null;
+        MemoryRiskText = null;
         IsGenerating = true;
         ResultPath = null;
         _elapsed.Restart();
@@ -120,13 +135,17 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
         {
             // 在界面线程上建，进度回调就回到界面线程
             Progress<ImageProgress> progress = new(OnProgress);
-            ImageRequest request = new(Prompt.Trim(), [], SelectedRatio);
             ImageGenerationReport report = await _generate(model, request, progress, _running.Token);
-            // 本地引擎此刻内存不够没起：这里有人看着，问过再硬起
-            if (report.Failure?.MemoryShortfall is { } shortfall && await _messageService.ConfirmAsync(
-                    Loc.Text(LangKey.ImageDrawMemoryRiskConfirm, ToGb(shortfall.EstimatedBytes), ToGb(shortfall.AvailableBytes)),
-                    Loc.Text(LangKey.ImageDrawMemoryRiskTitle)))
-                report = await _generate(model, request with { AllowMemoryRisk = true }, progress, _running.Token);
+            // 本地引擎此刻内存不够没起：窗口里说清楚差多少，用户自己决定要不要硬起
+            if (report.Failure?.MemoryShortfall is { } shortfall)
+            {
+                _refused = (model, request);
+                MemoryRiskText = Loc.Text(LangKey.ImageDrawMemoryRisk, ToGb(shortfall.EstimatedBytes),
+                    ToGb(shortfall.AvailableBytes));
+                StatusText = "";
+                return;
+            }
+
             if (report.Failure != null || report.Images.Count == 0)
             {
                 StatusText = Loc.Text(LangKey.ImageDrawFailed, report.Failure?.Message ?? "");

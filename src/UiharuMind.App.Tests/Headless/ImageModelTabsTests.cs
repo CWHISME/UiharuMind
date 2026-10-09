@@ -186,8 +186,7 @@ public class ImageModelTabsTests : IDisposable
                 if (calls == 1) return Task.FromResult(new ImageGenerationReport { Images = [new GeneratedImage(png, "image/png")] });
                 token.Register(() => pending.TrySetCanceled(token));
                 return pending.Task;
-            }, new RecordingMessageService(), new ImageDrawActions(_ => { }, _ => Task.CompletedTask, _ => { }, _ => { }),
-                output);
+            }, new ImageDrawActions(_ => { }, _ => Task.CompletedTask, _ => { }, _ => { }), output);
 
             Assert.False(draw.GenerateCommand.CanExecute(null));
             draw.Prompt = "  a red fox ";
@@ -209,15 +208,12 @@ public class ImageModelTabsTests : IDisposable
         });
     }
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void Draw_MemoryRisk_AsksThenRetriesAnyway(bool confirm)
+    [Fact]
+    public void Draw_MemoryRisk_ShowsTheShortfall_AndLoadAnywayRetries()
     {
         HeadlessUi.RunAsync(async () =>
         {
             ImageModelInfo model = new() { Name = "local", Local = new LocalImageModel() };
-            RecordingMessageService messages = new() { ConfirmResult = confirm };
             List<bool> attempts = [];
             ImageDrawViewData draw = new([model], null, (_, request, _, _) =>
             {
@@ -231,15 +227,18 @@ public class ImageModelTabsTests : IDisposable
                             MemoryShortfall = new EngineMemoryShortfall(12L << 30, 4L << 30)
                         }
                     });
-            }, messages, new ImageDrawActions(_ => { }, _ => Task.CompletedTask, _ => { }, _ => { }),
+            }, new ImageDrawActions(_ => { }, _ => Task.CompletedTask, _ => { }, _ => { }),
                 Path.Combine(_root, "images")) { Prompt = "fox" };
 
             await draw.GenerateCommand.ExecuteAsync(null);
+            Assert.True(draw.HasMemoryRisk);
+            Assert.Contains("12.0", draw.MemoryRiskText);
+            Assert.False(draw.HasResult);
 
-            Assert.Equal(1, messages.ConfirmCount);
-            Assert.Contains("12.0", messages.LastConfirm);
-            Assert.Equal(confirm ? [false, true] : [false], attempts);
-            Assert.Equal(confirm, draw.HasResult);
+            await draw.GenerateAnywayCommand.ExecuteAsync(null);
+            Assert.Equal([false, true], attempts);
+            Assert.False(draw.HasMemoryRisk);
+            Assert.True(draw.HasResult);
             draw.Dispose();
         });
     }

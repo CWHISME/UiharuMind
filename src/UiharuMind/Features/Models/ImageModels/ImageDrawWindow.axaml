@@ -52,22 +52,31 @@
             </Panel>
         </Border>
 
-        <!-- 状态 + 画好之后的动作 -->
+        <!-- 状态 + 画好之后的动作；本地引擎内存不够没起时，说清楚差多少并给「仍然加载」 -->
         <Border Grid.Row="2" Padding="16,10" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,1,0,0">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <TextBlock Text="{Binding StatusText}" Classes="muted" VerticalAlignment="Center"
-                           TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding StatusText}" />
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" IsVisible="{Binding HasResult}">
-                    <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="copy"
-                                      ToolTip.Tip="{loc:Loc Copy}" Command="{Binding CopyCommand}" />
-                    <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="save"
-                                      ToolTip.Tip="{loc:Loc ImageDrawSaveAs}" Command="{Binding SaveAsCommand}" />
-                    <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="eye"
-                                      ToolTip.Tip="{loc:Loc ImageDrawPin}" Command="{Binding PinCommand}" />
-                    <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="folder-open"
-                                      ToolTip.Tip="{loc:Loc ShowInExplorer}" Command="{Binding OpenFolderCommand}" />
-                </StackPanel>
-            </Grid>
+            <StackPanel Spacing="8">
+                <Border Classes="result-panel" Padding="12,8" IsVisible="{Binding HasMemoryRisk}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <TextBlock Text="{Binding MemoryRiskText}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Content="{loc:Loc ImageDrawLoadAnyway}" VerticalAlignment="Center"
+                                Command="{Binding GenerateAnywayCommand}" />
+                    </Grid>
+                </Border>
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <TextBlock Text="{Binding StatusText}" Classes="muted" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding StatusText}" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" IsVisible="{Binding HasResult}">
+                        <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="copy"
+                                          ToolTip.Tip="{loc:Loc Copy}" Command="{Binding CopyCommand}" />
+                        <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="save"
+                                          ToolTip.Tip="{loc:Loc ImageDrawSaveAs}" Command="{Binding SaveAsCommand}" />
+                        <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="eye"
+                                          ToolTip.Tip="{loc:Loc ImageDrawPin}" Command="{Binding PinCommand}" />
+                        <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="folder-open"
+                                          ToolTip.Tip="{loc:Loc ShowInExplorer}" Command="{Binding OpenFolderCommand}" />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
         </Border>
     </Grid>
 </Window>
