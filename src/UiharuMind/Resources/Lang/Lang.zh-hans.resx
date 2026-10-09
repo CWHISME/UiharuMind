@@ -5022,6 +5022,9 @@
     <data name="LocalUsageModelOfTotalMemory" xml:space="preserve">
         <value>{0} / {1} GB</value>
     </data>
+    <data name="LocalUsageModelOfTotal" xml:space="preserve">
+        <value>{0} / {1} GB · CPU {2}%</value>
+    </data>
     <data name="AudioEngineStatusStarting" xml:space="preserve">
         <value>语音引擎正在启动…</value>
     </data>

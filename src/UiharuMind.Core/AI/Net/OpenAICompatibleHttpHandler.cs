@@ -81,7 +81,7 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
                   $"content-type: {response.Content?.Headers.ContentType?.MediaType ?? "(null)"}" +
                   (_isChatCompletions ? "" : " (not sanitized)"),
             ELogCategory.LlmResponse);
-        await LogFailureAsync(response, cancellationToken);
+        await LogFailureAsync(response, request.RequestUri, cancellationToken);
         return await SanitizeResponseAsync(response, cancellationToken);
     }
 
@@ -99,13 +99,16 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
     /// 请求标识则是找厂商开工单时要给的。
     /// </summary>
     /// <param name="response">服务端响应</param>
+    /// <param name="uri">请求地址：本地模型看端口对不对得上在跑的那个服务</param>
     /// <param name="cancellationToken">取消标记</param>
-    private static async Task LogFailureAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    private static async Task LogFailureAsync(HttpResponseMessage response, Uri? uri,
+        CancellationToken cancellationToken)
     {
         if (response.IsSuccessStatusCode) return;
 
         string? diagnostics = FormatDiagnosticHeaders(response);
-        string head = $"OpenAI-compatible request failed: {(int)response.StatusCode} {response.ReasonPhrase}";
+        string head = $"OpenAI-compatible request failed: {(int)response.StatusCode} {response.ReasonPhrase} " +
+                      $"({uri?.GetLeftPart(UriPartial.Path)})";
         if (diagnostics != null) head += " | " + diagnostics;
 
         byte[] body = await ReadBodyAsync(response, cancellationToken);

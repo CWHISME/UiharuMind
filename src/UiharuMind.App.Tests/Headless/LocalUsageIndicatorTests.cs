@@ -38,7 +38,7 @@ public sealed class LocalUsageIndicatorTests
         Dispatcher.UIThread.RunJobs();
 
         Assert.Equal(Loc.Text(LangKey.LocalUsageSummary, "9.0", "16.0", 12), Readout(machine).Text);
-        Assert.Equal(Loc.Text(LangKey.LocalUsageModelOfTotalMemory, "5.0", "16.0"), Readout(model).Text);
+        Assert.Equal(Loc.Text(LangKey.LocalUsageModelOfTotal, "5.0", "16.0", 3), Readout(model).Text);
         Assert.Equal(Readout(machine).Text, Readout(other).Text);
         Capture(window, "local-usage-indicator");
 

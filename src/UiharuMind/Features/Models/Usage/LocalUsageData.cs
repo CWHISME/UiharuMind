@@ -167,7 +167,7 @@ public partial class LocalUsageData : ObservableObject
         modelName == null ? null : Rows.FirstOrDefault(x => x.Kind == ELocalEngineKind.Chat && x.Name == modelName);
 
     /// <summary>
-    /// 某个对话模型的读数「x / 整机总量 GB」，只给数字，CPU 等在明细里；独立显卡上另带显存，照 <see cref="LocalUsageRow.UsageText"/>
+    /// 某个对话模型的读数「x / 整机总量 GB · CPU n%」，与整机读数同一格式；独立显卡上另带显存，照 <see cref="LocalUsageRow.UsageText"/>
     /// </summary>
     /// <param name="modelName">模型名</param>
     /// <returns>没在跑或还没读到占用为 null</returns>
@@ -175,7 +175,11 @@ public partial class LocalUsageData : ObservableObject
     {
         if (RowOf(modelName)?.Usage is not { } usage) return null;
         if (usage.GpuMemoryBytes != null || _totalMemoryBytes <= 0) return LocalUsageRow.UsageText(usage);
-        return Loc.Text(LangKey.LocalUsageModelOfTotalMemory, Gb(usage.MemoryBytes), Gb(_totalMemoryBytes));
+        string memory = Gb(usage.MemoryBytes);
+        string total = Gb(_totalMemoryBytes);
+        return usage.CpuPercent is { } cpu
+            ? Loc.Text(LangKey.LocalUsageModelOfTotal, memory, total, (int)Math.Round(cpu))
+            : Loc.Text(LangKey.LocalUsageModelOfTotalMemory, memory, total);
     }
 
     /// <summary>
