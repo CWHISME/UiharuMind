@@ -5549,7 +5549,7 @@ Allow them?</value>
         <value>References</value>
     </data>
     <data name="ImageDrawAddReference" xml:space="preserve">
-        <value>Add reference images (or drop them onto this window). The first one is the image to edit.</value>
+        <value>Add reference images (or drop them onto this window, or paste with Cmd/Ctrl+V). The first one is the image to edit.</value>
     </data>
     <data name="ImageDrawEditResult" xml:space="preserve">
         <value>Keep editing this image</value>

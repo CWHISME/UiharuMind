@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using UiharuMind.Core.AI.ImageGeneration;
@@ -18,6 +20,9 @@ namespace UiharuMind.Features.Models.ImageModels;
 /// </summary>
 public partial class ImageDrawWindow : Window
 {
+    // 粘贴参考图落盘到系统临时目录：只服务本窗的出图，混进画好的图库（AppPaths.Data.Images）会污染图库
+    private static readonly string PasteDirectory = Path.Combine(Path.GetTempPath(), "UiharuMind", "DrawPaste");
+
     /// <summary>构造窗口（经 <see cref="ShowWindow"/> 打开）</summary>
     public ImageDrawWindow()
     {
@@ -26,6 +31,9 @@ public partial class ImageDrawWindow : Window
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DropEvent, OnDrop);
+        // 整窗接粘贴：Tunnel 阶段先截获。只在提示词输入框里生效——剪贴板有图就加参考图；
+        // 不置 Handled，剪贴板是文本时输入框照常粘贴；焦点在别处不响应
+        AddHandler(KeyDownEvent, OnKeyDownPreview, RoutingStrategies.Tunnel);
     }
 
     /// <summary>
@@ -68,5 +76,20 @@ public partial class ImageDrawWindow : Window
             .OfType<string>().ToList();
         e.Handled = true;
         await data.References.AddAsync(paths);
+    }
+
+    private async void OnKeyDownPreview(object? sender, KeyEventArgs e)
+    {
+        if (e.Handled) return;
+        bool command = e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta);
+        if (!command || e.Key != Key.V) return;
+        if (DataContext is not ImageDrawViewData data || data.IsGenerating) return;
+        // 只在提示词输入框里粘贴图片；TextBox 的聚焦元素可能是 TextBox 自身或模板里的 TextPresenter
+        if (FocusManager?.GetFocusedElement() is not TextBox and not TextPresenter) return;
+
+        // 不置 Handled：剪贴板是文本时输入框照常粘贴；这里是图片时加参考图
+        using Bitmap? bitmap = await App.Clipboard.GetImageFromClipboard();
+        if (bitmap == null || !IsVisible) return;
+        await data.References.AddPastedBitmapAsync(bitmap, PasteDirectory);
     }
 }

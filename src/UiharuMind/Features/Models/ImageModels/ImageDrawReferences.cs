@@ -9,16 +9,20 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Character.PromptActions;
 using UiharuMind.Core.AI.ImageGeneration;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Shared.Utils;
 
 namespace UiharuMind.Features.Models.ImageModels;
 
 /// <summary>
-/// 一张参考图：存路径，出图时才读字节；界面只攥一张小缩略图
+/// 一张参考图：存路径，出图时才读字节；界面只攥一张小缩略图。
+/// 粘贴产生的（<c>IsPasted</c>）文件是临时落盘的，移除/关窗时删除；拖放进来的文件属于用户，不碰。
 /// </summary>
 /// <param name="Path">文件路径</param>
 /// <param name="Thumbnail">缩略图</param>
-public sealed record ImageDrawReference(string Path, Bitmap Thumbnail)
+/// <param name="IsPasted">是否粘贴产生的临时文件（移除/关窗时删除）</param>
+public sealed record ImageDrawReference(string Path, Bitmap Thumbnail, bool IsPasted = false)
 {
     /// <summary>文件名（悬停提示）</summary>
     public string FileName => System.IO.Path.GetFileName(Path);
@@ -58,8 +62,9 @@ public partial class ImageDrawReferences : ObservableObject, IDisposable
     /// </summary>
     /// <param name="paths">文件路径</param>
     /// <param name="asFirst">放到最前（拿画好的那张接着改）</param>
+    /// <param name="isPasted">粘贴产生的临时文件，移除/关窗时删除</param>
     /// <returns>加完时完成</returns>
-    public async Task AddAsync(IEnumerable<string> paths, bool asFirst = false)
+    public async Task AddAsync(IEnumerable<string> paths, bool asFirst = false, bool isPasted = false)
     {
         List<string> fresh = paths.Where(IsImageFile).Distinct()
             .Where(p => Items.All(x => x.Path != p) && File.Exists(p)).ToList();
@@ -82,8 +87,33 @@ public partial class ImageDrawReferences : ObservableObject, IDisposable
                 continue; //扩展名是图、内容不是：跳过
             }
 
-            Items.Insert(index++, new ImageDrawReference(path, thumbnail));
+            Items.Insert(index++, new ImageDrawReference(path, thumbnail, isPasted));
             NotifyChanged();
+        }
+    }
+
+    /// <summary>
+    /// 把剪贴板粘贴来的图加为参考图：编码 PNG 落盘到给定目录（画图窗用系统临时目录，
+    /// 与画好的图库目录分开，不污染图库），再走文件路径的常规链路。追加到末尾，与拖放一致；
+    /// 文件标记 <c>IsPasted</c>，移除该参考图或窗口关闭时删除。
+    /// </summary>
+    /// <param name="bitmap">粘贴图，本方法只借用（编码后即弃），调用方负责释放</param>
+    /// <param name="directory">落盘目录</param>
+    /// <returns>是否成功加入</returns>
+    public async Task<bool> AddPastedBitmapAsync(Bitmap bitmap, string directory)
+    {
+        try
+        {
+            Directory.CreateDirectory(directory);
+            string path = Path.Combine(directory, $"pasted_{DateTime.Now:yyyyMMdd_HHmmssfff}.png");
+            await File.WriteAllBytesAsync(path, bitmap.BitmapToBytes());
+            await AddAsync([path], isPasted: true);
+            return Items.Any(x => x.Path == path);
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Paste reference image failed: {e.Message}");
+            return false;
         }
     }
 
@@ -118,7 +148,22 @@ public partial class ImageDrawReferences : ObservableObject, IDisposable
     {
         if (!Items.Remove(item)) return;
         item.Thumbnail.Dispose();
+        DeletePastedFile(item);
         NotifyChanged();
+    }
+
+    // 粘贴参考图的文件是临时落盘的，移除/关窗时删掉；拖放进来的文件属于用户，不碰
+    private static void DeletePastedFile(ImageDrawReference item)
+    {
+        if (!item.IsPasted) return;
+        try
+        {
+            if (File.Exists(item.Path)) File.Delete(item.Path);
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Delete pasted reference image failed: {e.Message}");
+        }
     }
 
     private void NotifyChanged()
@@ -130,7 +175,12 @@ public partial class ImageDrawReferences : ObservableObject, IDisposable
 
     public void Dispose()
     {
-        foreach (ImageDrawReference item in Items) item.Thumbnail.Dispose();
+        foreach (ImageDrawReference item in Items)
+        {
+            item.Thumbnail.Dispose();
+            DeletePastedFile(item);
+        }
+
         Items.Clear();
     }
 }

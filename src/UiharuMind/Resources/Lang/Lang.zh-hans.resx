@@ -5542,7 +5542,7 @@
         <value>参考图</value>
     </data>
     <data name="ImageDrawAddReference" xml:space="preserve">
-        <value>添加参考图（也可以直接拖进窗口）。第一张是要改的图，其余作参考</value>
+        <value>添加参考图（可拖入窗口，或直接 Ctrl+V 粘贴）。第一张是要改的图，其余作参考</value>
     </data>
     <data name="ImageDrawEditResult" xml:space="preserve">
         <value>以这张为底继续改</value>
