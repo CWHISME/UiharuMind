@@ -5601,6 +5601,15 @@
     <data name="ImageFamilyEditing" xml:space="preserve">
         <value>可改图</value>
     </data>
+    <data name="ImageMarketFilterAll" xml:space="preserve">
+        <value>全部</value>
+    </data>
+    <data name="ImageMarketFilterEditing" xml:space="preserve">
+        <value>可改图</value>
+    </data>
+    <data name="ImageMarketFilterTextOnly" xml:space="preserve">
+        <value>仅文生图</value>
+    </data>
     <data name="ImageFamilySummary" xml:space="preserve">
         <value>{0} · 最小 {1}</value>
     </data>

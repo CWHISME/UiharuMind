@@ -15,6 +15,13 @@ using UiharuMind.Shared.Utils;
 namespace UiharuMind.Features.Models.Downloads.Image;
 
 /// <summary>
+/// 生图分类左上的筛选项：全部 / 可改图 / 仅文生图
+/// </summary>
+/// <param name="Editing">要不要能改图；null 不筛</param>
+/// <param name="Label">显示文字</param>
+public sealed record ImageCapabilityFilterOption(bool? Editing, string Label);
+
+/// <summary>
 /// 「获取模型」的生图分类：可下载的本地生图模型来自内置列表（照 sd.cpp 文档转写），推荐的排前面，
 /// 没实际出过图的标「未测试」。没装引擎时引导先装
 /// </summary>
@@ -30,6 +37,7 @@ public partial class ImageMarketData : ObservableObject, IModelMarket
 
     [ObservableProperty] private ImageFamilyListItem? _selectedFamily;
     [ObservableProperty] private string _searchText = "";
+    [ObservableProperty] private ImageCapabilityFilterOption _selectedFilter;
     [ObservableProperty] private string _sourceLabel = ModelDownloadSourceInfo.Label(true);
 
     /// <param name="context">各分类共用的依赖</param>
@@ -38,6 +46,13 @@ public partial class ImageMarketData : ObservableObject, IModelMarket
     {
         _context = context;
         _image = image;
+        FilterOptions =
+        [
+            new ImageCapabilityFilterOption(null, Loc.Text(LangKey.ImageMarketFilterAll)),
+            new ImageCapabilityFilterOption(true, Loc.Text(LangKey.ImageMarketFilterEditing)),
+            new ImageCapabilityFilterOption(false, Loc.Text(LangKey.ImageMarketFilterTextOnly))
+        ];
+        _selectedFilter = FilterOptions[0];
         string language = ImageMarketServices.Language;
         _all = image.Catalog.Families
             .OrderByDescending(x => x.Recommended)
@@ -73,6 +88,11 @@ public partial class ImageMarketData : ObservableObject, IModelMarket
     public ObservableCollection<ImageFamilyListItem> Families { get; } = [];
 
     /// <summary>
+    /// 筛选项（与语音分类的「合成 / 识别」同一个位置）
+    /// </summary>
+    public ImageCapabilityFilterOption[] FilterOptions { get; }
+
+    /// <summary>
     /// 搜不到
     /// </summary>
     public bool IsResultEmpty => Families.Count == 0;
@@ -93,6 +113,8 @@ public partial class ImageMarketData : ObservableObject, IModelMarket
     }
 
     partial void OnSearchTextChanged(string value) => ApplyFilter();
+
+    partial void OnSelectedFilterChanged(ImageCapabilityFilterOption value) => ApplyFilter();
 
     partial void OnSelectedFamilyChanged(ImageFamilyListItem? value)
     {
@@ -117,7 +139,10 @@ public partial class ImageMarketData : ObservableObject, IModelMarket
     {
         string query = SearchText.Trim();
         Families.Clear();
-        foreach (ImageFamilyListItem item in _all.Where(x => x.Matches(query))) Families.Add(item);
+        foreach (ImageFamilyListItem item in _all.Where(x =>
+                     (SelectedFilter.Editing == null || x.Family.SupportsEditing == SelectedFilter.Editing) &&
+                     x.Matches(query)))
+            Families.Add(item);
         OnPropertyChanged(nameof(IsResultEmpty));
     }
 }

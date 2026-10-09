@@ -5608,6 +5608,15 @@ Allow them?</value>
     <data name="ImageFamilyEditing" xml:space="preserve">
         <value>Edits images</value>
     </data>
+    <data name="ImageMarketFilterAll" xml:space="preserve">
+        <value>All</value>
+    </data>
+    <data name="ImageMarketFilterEditing" xml:space="preserve">
+        <value>Can edit</value>
+    </data>
+    <data name="ImageMarketFilterTextOnly" xml:space="preserve">
+        <value>Text-to-image only</value>
+    </data>
     <data name="ImageFamilySummary" xml:space="preserve">
         <value>{0} · from {1}</value>
     </data>

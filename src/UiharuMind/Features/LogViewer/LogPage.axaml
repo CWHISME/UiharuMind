@@ -5,5 +5,6 @@
              xmlns:common="clr-namespace:UiharuMind.Features.LogViewer"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Features.LogViewer.LogPage">
-    <common:LogView Margin="0,0,0,5" />
+    <!-- 与模型页、角色页同一圈留白 -->
+    <common:LogView Margin="12,6,12,12" />
 </UserControl>

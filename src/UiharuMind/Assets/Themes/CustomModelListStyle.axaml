@@ -5,8 +5,9 @@
         模型页各页签（对话、生图、语音模型）与「获取模型」共用的列表样式。
         原先写在 ModelPage 里，别的页签单独挂载（如无头测试）时样式就丢了
     -->
-    <!-- 与「获取模型」同一套：卡片里放列表，行间细分隔线，悬停铺整行底色 -->
-    <Style Selector="Border.model-card">
+    <!-- 与「获取模型」同一套：卡片里放列表，行间细分隔线，悬停铺整行底色。
+         page-card 是同一张卡给模型页以外的页面用（如日志页） -->
+    <Style Selector="Border.model-card, Border.page-card">
         <Setter Property="CornerRadius" Value="8" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />

@@ -20,7 +20,7 @@
 
     <Grid RowDefinitions="Auto,*,Auto,200" Background="Transparent">
         <!-- toolbar -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="10,4">
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="0,4,0,10">
             <ComboBox SelectedIndex="{Binding MinLevelIndex}" MinWidth="110" VerticalAlignment="Center"
                       ToolTip.Tip="{loc:Loc LogFilterLevelTip}">
                 <ComboBoxItem Content="{loc:Loc LogFilterLevelAll}" />
@@ -39,27 +39,29 @@
         </StackPanel>
 
         <!-- log items: 最新的在最顶上 -->
-        <ListBox Grid.Row="1" Name="LogList" ItemsSource="{Binding Items}"
-                 SelectedItem="{Binding SelectedEntry}"
-                 SelectionMode="Single" Background="Transparent"
-                 AutoScrollToSelectedItem="False">
-            <ListBox.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <VirtualizingStackPanel />
-                </ItemsPanelTemplate>
-            </ListBox.ItemsPanel>
-            <ListBox.ItemTemplate>
-                <DataTemplate x:DataType="log:LogIndexEntry">
-                    <StackPanel Orientation="Horizontal" Spacing="8" Background="Transparent">
-                        <TextBlock Text="{Binding Time, StringFormat='[{0:yyyy-MM-dd HH:mm:ss}]'}"
-                                   VerticalAlignment="Center" Foreground="Gray" />
-                        <TextBlock Text="{Binding Preview}" MaxLines="1" TextTrimming="CharacterEllipsis"
-                                   VerticalAlignment="Center" Background="Transparent"
-                                   Foreground="{Binding LogType, Converter={StaticResource LogLevelToColorConverter}}" />
-                    </StackPanel>
-                </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>
+        <Border Grid.Row="1" Classes="page-card">
+            <ListBox Name="LogList" ItemsSource="{Binding Items}"
+                     SelectedItem="{Binding SelectedEntry}"
+                     SelectionMode="Single" Background="Transparent"
+                     AutoScrollToSelectedItem="False">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="log:LogIndexEntry">
+                        <StackPanel Orientation="Horizontal" Spacing="8" Background="Transparent">
+                            <TextBlock Text="{Binding Time, StringFormat='[{0:yyyy-MM-dd HH:mm:ss}]'}"
+                                       VerticalAlignment="Center" Foreground="Gray" />
+                            <TextBlock Text="{Binding Preview}" MaxLines="1" TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center" Background="Transparent"
+                                       Foreground="{Binding LogType, Converter={StaticResource LogLevelToColorConverter}}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
 
         <!-- 回到顶部：页面内普通按钮，随页面可见性一起隐藏，不会像 Ursa 的 ScrollTo
              (adorner 挂在窗口级层上)那样在切页后残留叠在其他页上。

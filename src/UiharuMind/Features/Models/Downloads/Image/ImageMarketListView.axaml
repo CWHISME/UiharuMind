@@ -16,8 +16,19 @@
                                     IsHitTestVisible="False" />
         </Grid>
 
-        <downloads:DownloadSourceButton DockPanel.Dock="Top" Margin="2,12,2,6" HorizontalAlignment="Right" Label="{Binding SourceLabel}"
-                                       Command="{Binding OpenSourceSettingsCommand}" />
+        <!-- 与语音分类同一行：左边按能力筛，右边下载源 -->
+        <DockPanel DockPanel.Dock="Top" Margin="2,12,2,6">
+            <ComboBox DockPanel.Dock="Left" Classes="Small" VerticalAlignment="Center" Margin="0,0,8,0"
+                      ItemsSource="{Binding FilterOptions}" SelectedItem="{Binding SelectedFilter}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="image:ImageCapabilityFilterOption">
+                        <TextBlock Text="{Binding Label}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <downloads:DownloadSourceButton HorizontalAlignment="Right" Label="{Binding SourceLabel}"
+                                           Command="{Binding OpenSourceSettingsCommand}" />
+        </DockPanel>
 
         <TextBlock DockPanel.Dock="Top" Classes="muted" Margin="2,8" Text="{loc:Loc ImageMarketNoResults}"
                    IsVisible="{Binding IsResultEmpty}" />

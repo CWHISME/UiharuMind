@@ -15,17 +15,25 @@
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Margin" Value="14,12,14,6" />
         </Style>
+        <!-- 与 KindBadge（远程、视觉等徽标）同一个尺寸：18 高、左右 8、12 号字 -->
         <Style Selector="Border.default-badge">
             <Setter Property="Background" Value="{DynamicResource SemiBlue5}" />
             <Setter Property="CornerRadius" Value="9" />
-            <Setter Property="Padding" Value="7,1" />
+            <Setter Property="Height" Value="18" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border.default-badge TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="White" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
         <!-- 与「默认」徽标同高，切换时行高不跳 -->
         <Style Selector="Button.set-default">
-            <Setter Property="Padding" Value="7,1" />
+            <Setter Property="Padding" Value="8,0" />
             <Setter Property="MinHeight" Value="0" />
-            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Height" Value="18" />
+            <Setter Property="FontSize" Value="12" />
             <Setter Property="CornerRadius" Value="9" />
         </Style>
         <Style Selector="Border.audio-row">
@@ -54,9 +62,9 @@
                             <controls:ModelStateBadges IsRemote="True" VerticalAlignment="Center" />
                             <Border Classes="default-badge" IsVisible="{Binding IsDefault}">
                                 <Panel>
-                                    <TextBlock Text="{loc:Loc AudioModelsDefaultTts}" FontSize="11" Foreground="White"
+                                    <TextBlock Text="{loc:Loc AudioModelsDefaultTts}" Classes="line-tight"
                                                IsVisible="{Binding IsTts}" />
-                                    <TextBlock Text="{loc:Loc AudioModelsDefaultAsr}" FontSize="11" Foreground="White"
+                                    <TextBlock Text="{loc:Loc AudioModelsDefaultAsr}" Classes="line-tight"
                                                IsVisible="{Binding !IsTts}" />
                                 </Panel>
                             </Border>
@@ -183,8 +191,7 @@
                                                     <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
                                                                TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                                     <Border Classes="default-badge" IsVisible="{Binding IsDefault}">
-                                                        <TextBlock Text="{loc:Loc AudioModelsDefaultTts}" FontSize="11"
-                                                                   Foreground="White" />
+                                                        <TextBlock Text="{loc:Loc AudioModelsDefaultTts}" Classes="line-tight" />
                                                     </Border>
                                                     <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"
                                                                 IsVisible="{Binding IsLoaded}"
@@ -280,8 +287,7 @@
                                                     <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
                                                                TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                                     <Border Classes="default-badge" IsVisible="{Binding IsDefault}">
-                                                        <TextBlock Text="{loc:Loc AudioModelsDefaultAsr}" FontSize="11"
-                                                                   Foreground="White" />
+                                                        <TextBlock Text="{loc:Loc AudioModelsDefaultAsr}" Classes="line-tight" />
                                                     </Border>
                                                     <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"
                                                                 IsVisible="{Binding IsLoaded}"

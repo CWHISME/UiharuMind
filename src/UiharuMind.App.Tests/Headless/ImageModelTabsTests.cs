@@ -73,6 +73,11 @@ public class ImageModelTabsTests : IDisposable
             market.SearchText = "nothing-like-this";
             Assert.True(market.IsResultEmpty);
             market.SearchText = "";
+            market.SelectedFilter = market.FilterOptions.Single(x => x.Editing == true);
+            Assert.Equal(["Editor"], market.Families.Select(x => x.Title));
+            market.SelectedFilter = market.FilterOptions.Single(x => x.Editing == false);
+            Assert.Equal(["Turbo"], market.Families.Select(x => x.Title));
+            market.SelectedFilter = market.FilterOptions[0];
             Capture("image-market");
         });
     }
