@@ -63,11 +63,10 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
         foreach (IEngineDistribution engine in LocalEngines.All)
             engine.AvailableUpdateChanged += () =>
                 Dispatcher.UIThread.Post(() => OnPropertyChanged(nameof(HasEngineUpdate)));
+        // 默认页排在空闲时才落：这之前已经有人跳过页（开发脚本第一步、托盘点进某页）就不盖掉它
         Dispatcher.UIThread.Post(() =>
         {
-            // Receive(MenuKeys.MenuMainKey);
-            // OnPropertyChanged();
-            JumpToPage(MenuPages.MenuAgentKey);
+            if (Content == null) JumpToPage(MenuPages.MenuAgentKey);
         }, DispatcherPriority.ApplicationIdle);
     }
 
