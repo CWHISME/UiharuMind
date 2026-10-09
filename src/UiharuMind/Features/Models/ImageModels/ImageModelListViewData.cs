@@ -27,7 +27,7 @@ public sealed record ImageModelListActions(
     Func<ImageModelInfo, Task<IReadOnlyList<string>>> DeleteLocalFiles,
     Action GoToMarket,
     Action OpenEngineSettings,
-    ImageEngineStatusData? EngineStatus = null)
+    EngineStatusData? EngineStatus = null)
 {
     /// <summary>
     /// 什么都不做（测试与没接本地生图时）
@@ -69,7 +69,7 @@ public partial class ImageModelListViewData : ObservableObject
     public bool HasItems => Items.Count > 0;
 
     /// <summary>本地引擎的状态</summary>
-    public ImageEngineStatusData? EngineStatus => _actions.EngineStatus;
+    public EngineStatusData? EngineStatus => _actions.EngineStatus;
 
     /// <summary>列表里有本地模型时才显示引擎状态条</summary>
     public bool ShowEngineStatus => EngineStatus != null && Items.Any(x => x.IsLocal);

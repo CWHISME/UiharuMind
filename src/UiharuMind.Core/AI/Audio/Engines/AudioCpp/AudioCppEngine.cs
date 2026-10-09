@@ -131,14 +131,12 @@ public sealed partial class AudioCppEngine : IDisposable
     }
 
     /// <summary>
-    /// 引擎在不在跑、用什么后端、哪些模型已加载。只在已经跑着时去问服务，不会为了查状态把引擎拉起来
+    /// 跑着的引擎用什么后端、哪些模型已加载。只在已经跑着时去问服务，不会为了查状态把引擎拉起来
     /// </summary>
     /// <param name="cancellationToken">取消</param>
     /// <returns>状态</returns>
     public async Task<AudioCppEngineStatus> GetStatusAsync(CancellationToken cancellationToken)
     {
-        if (_host.IsStarting)
-            return new AudioCppEngineStatus(EAudioEngineRunState.Starting, _launchedBackend, new HashSet<string>());
         if (_host.RunningBaseUri is not { } baseUri) return AudioCppEngineStatus.Stopped;
         HashSet<string> loaded = new(StringComparer.Ordinal);
         try
@@ -160,7 +158,7 @@ public sealed partial class AudioCppEngine : IDisposable
             Log.Debug($"Query audio.cpp status failed: {e.Message}");
         }
 
-        return new AudioCppEngineStatus(EAudioEngineRunState.Running, _launchedBackend, loaded);
+        return new AudioCppEngineStatus(_launchedBackend, loaded);
     }
 
     public void Dispose()

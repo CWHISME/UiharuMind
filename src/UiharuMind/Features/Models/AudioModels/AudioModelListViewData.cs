@@ -36,13 +36,12 @@ public partial class AudioModelListViewData : ObservableObject
     private readonly Action _openEngineSettings;
     private readonly Func<AudioModelOptionsViewData, Task>? _openOptions;
     private readonly Dictionary<EAudioCapability, string?> _defaultModels = new(); //引擎会用的本地模型（选了的，没选就第一个）
+    private AudioCppEngineStatus _loaded = AudioCppEngineStatus.Stopped; //最近一次问到的后端与已加载模型
 
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private bool _hasEngine = true;
     [ObservableProperty] private bool _hasModels;
     [ObservableProperty] private bool _isLoaded;
-    [ObservableProperty] private string _engineStatusText = "";
-    [ObservableProperty] private bool _isEngineRunning;
 
     /// <param name="messageService">提示与确认</param>
     /// <param name="engine">语音引擎</param>
@@ -77,7 +76,23 @@ public partial class AudioModelListViewData : ObservableObject
         _openFolder = openFolder;
         _goToMarket = goToMarket;
         _openEngineSettings = openEngineSettings;
+        EngineStatus = new EngineStatusData(engine.Runtime,
+            new EngineStatusTexts(LangKey.AudioEngineStatusStarting, LangKey.AudioEngineStatusStopped,
+                LangKey.AudioEngineStatusFailed),
+            () => Loc.Text(LangKey.AudioEngineStatusRunning, (_loaded.Backend ?? "").ToUpperInvariant(),
+                _loaded.LoadedModels.Count, _engine.Settings.IdleUnloadMinutes),
+            () =>
+            {
+                _readAloud.Stop();
+                _engine.Stop();
+                _ = RefreshStatusAsync();
+            });
     }
+
+    /// <summary>
+    /// 引擎状态条
+    /// </summary>
+    public EngineStatusData EngineStatus { get; }
 
     /// <summary>
     /// 语音合成（朗读）模型
@@ -201,21 +216,15 @@ public partial class AudioModelListViewData : ObservableObject
     }
 
     /// <summary>
-    /// 刷新引擎状态与各模型「已加载」标记（只问已经跑着的引擎，不会把它拉起来）
+    /// 刷新引擎里已加载了哪些模型（只问已经跑着的引擎，不会把它拉起来）。进程起停由状态条自己跟着事件走，
+    /// 模型加载、闲置卸载在引擎里悄悄发生，所以页签看得见时轮询
     /// </summary>
     public async Task RefreshStatusAsync()
     {
-        AudioCppEngineStatus status = await _engine.GetStatusAsync(CancellationToken.None);
-        IsEngineRunning = status.State == EAudioEngineRunState.Running;
-        EngineStatusText = status.State switch
-        {
-            EAudioEngineRunState.Starting => Loc.Text(LangKey.AudioEngineStatusStarting),
-            EAudioEngineRunState.Running => Loc.Text(LangKey.AudioEngineStatusRunning,
-                (status.Backend ?? "").ToUpperInvariant(), status.LoadedModels.Count, _engine.Settings.IdleUnloadMinutes),
-            _ => Loc.Text(LangKey.AudioEngineStatusStopped)
-        };
+        _loaded = await _engine.GetStatusAsync(CancellationToken.None);
+        EngineStatus.Refresh();
         foreach (AudioModelItemData item in TtsModels.Concat(AsrModels))
-            item.IsLoaded = status.LoadedModels.Contains(item.Name);
+            item.IsLoaded = _loaded.LoadedModels.Contains(item.Name);
     }
 
     partial void OnHasModelsChanged(bool value) => OnPropertyChanged(nameof(ShowEmpty));
@@ -343,15 +352,6 @@ public partial class AudioModelListViewData : ObservableObject
 
     [RelayCommand]
     private Task Refresh() => RefreshAsync();
-
-    // 停掉引擎：模型占的内存全部还回去，下次朗读、听写或试听时自动再起
-    [RelayCommand]
-    private async Task StopEngine()
-    {
-        _readAloud.Stop();
-        _engine.Stop();
-        await RefreshStatusAsync();
-    }
 
     [RelayCommand]
     private void GoToMarket() => _goToMarket();

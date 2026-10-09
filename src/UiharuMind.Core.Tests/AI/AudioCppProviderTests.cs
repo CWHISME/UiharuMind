@@ -1,3 +1,4 @@
+using UiharuMind.Core.AI.Engines;
 using UiharuMind.Core.AI.Audio;
 using UiharuMind.Core.AI.Runtime;
 
@@ -50,17 +51,18 @@ public class AudioCppProviderTests : IDisposable
         using AudioCppEngine engine = CreateEngine(installed: true);
         using AudioCppProvider provider = new(engine);
 
-        Assert.Equal(EAudioEngineRunState.Stopped, (await engine.GetStatusAsync(CancellationToken.None)).State);
+        Assert.Equal(AudioCppEngineStatus.Stopped, await engine.GetStatusAsync(CancellationToken.None));
         Assert.False(File.Exists(Path.Combine(_directory, "starts"))); //查状态不会把引擎拉起来
 
         await (await provider.SynthesizeAsync(new AudioSynthesisRequest("hi"), CancellationToken.None)).Audio.DisposeAsync();
         AudioCppEngineStatus status = await engine.GetStatusAsync(CancellationToken.None);
-        Assert.Equal(EAudioEngineRunState.Running, status.State);
+        Assert.Equal(EEngineRunState.Running, engine.Runtime.State);
         Assert.Equal("metal", status.Backend);
         Assert.Equal(["tts-a"], status.LoadedModels);
 
         engine.Stop();
-        Assert.Equal(EAudioEngineRunState.Stopped, (await engine.GetStatusAsync(CancellationToken.None)).State);
+        Assert.Equal(EEngineRunState.Stopped, engine.Runtime.State);
+        Assert.Equal(AudioCppEngineStatus.Stopped, await engine.GetStatusAsync(CancellationToken.None));
     }
 
     [Fact]
