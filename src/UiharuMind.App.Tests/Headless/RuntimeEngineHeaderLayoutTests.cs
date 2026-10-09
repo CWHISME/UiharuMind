@@ -17,7 +17,7 @@ namespace UiharuMind.App.Tests.Headless;
 
 /// <summary>
 /// 本地模型页引擎卡头：标题（徽标）左、操作按钮右。窄窗口下版本徽标应该省略，
-/// 不能跟按钮叠在一起（DockPanel 时代这里会重叠）。按窗口最小宽度验收。
+/// 不能跟按钮叠在一起（DockPanel 时代这里会重叠）；标题放不下时按钮换行。按窗口最小宽度验收。
 /// </summary>
 [Collection(HeadlessCollection.Name)]
 public class RuntimeEngineHeaderLayoutTests : IDisposable
@@ -83,9 +83,13 @@ public class RuntimeEngineHeaderLayoutTests : IDisposable
                 // 先保证真渲染出来了，不然下面的不重叠断言是空转通过
                 Assert.True(title.Bounds.Width > 100, $"标题区没渲染出来：{title.Bounds.Width}");
                 Assert.True(actions.Bounds.Width > 100, $"按钮区没渲染出来：{actions.Bounds.Width}");
-                Assert.True(titleRight <= actionsOrigin.X + 0.5,
+                // 版本是这张卡要一眼看到的东西：可以省略，不能被挤没
+                Assert.True(badge.Bounds.Width > 40, $"版本徽标被挤没了：{badge.Bounds.Width}");
+                // 同一行时左右不叠；放不下时按钮换到标题下面
+                bool wrapped = actionsOrigin.Y >= titleOrigin.Y + title.Bounds.Height - 0.5;
+                Assert.True(wrapped || titleRight <= actionsOrigin.X + 0.5,
                     $"标题区右缘 {titleRight} 压住了按钮区左缘 {actionsOrigin.X}");
-                Assert.True(badgeRight <= actionsOrigin.X + 0.5,
+                Assert.True(wrapped || badgeRight <= actionsOrigin.X + 0.5,
                     $"版本徽标右缘 {badgeRight} 压住了按钮区左缘 {actionsOrigin.X}");
                 Assert.True(actionsRight <= window.Bounds.Width + 0.5,
                     $"按钮区右缘 {actionsRight} 超出了窗口 {window.Bounds.Width}");
