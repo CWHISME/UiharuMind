@@ -45,7 +45,7 @@ public partial class ImageDrawWindow : Window
                 path => App.FilesService.OpenFolder(Path.GetDirectoryName(path) ?? path),
                 () => App.FilesService.SelectFilesAsync(window, Loc.Text(LangKey.ImageDrawReferences),
                     "*.png", "*.jpg", "*.jpeg", "*.webp")),
-            AppPaths.Data.Images);
+            AppPaths.Data.Images, LocalMemoryHolders.Current);
         window.DataContext = data;
         window.Closed += (_, _) => data.Dispose();
         // 主窗口收在托盘时不挂父窗口，否则 Show 直接抛

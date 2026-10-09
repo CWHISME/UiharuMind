@@ -102,8 +102,11 @@
                 <Border Classes="result-panel" Padding="12,8" IsVisible="{Binding HasMemoryRisk}">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                         <TextBlock Text="{Binding MemoryRiskText}" TextWrapping="Wrap" VerticalAlignment="Center" />
-                        <Button Grid.Column="1" Content="{loc:Loc ImageDrawLoadAnyway}" VerticalAlignment="Center"
-                                Command="{Binding GenerateAnywayCommand}" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <Button Classes="Primary" Content="{Binding ReleaseOthersText}"
+                                    IsVisible="{Binding CanReleaseOthers}" Command="{Binding ReleaseOthersAndGenerateCommand}" />
+                            <Button Content="{loc:Loc ImageDrawLoadAnyway}" Command="{Binding GenerateAnywayCommand}" />
+                        </StackPanel>
                     </Grid>
                 </Border>
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">

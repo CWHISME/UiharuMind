@@ -54,10 +54,13 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
     private readonly ImageDrawGenerator _generate;
     private readonly ImageDrawActions _actions;
     private readonly string _outputDirectory;
+    private readonly Func<IReadOnlyList<LocalMemoryHolder>> _memoryHolders;
+    private readonly TimeSpan _releaseSettle;
     private readonly DispatcherTimer _clock = new() { Interval = TimeSpan.FromSeconds(1) }; //远程模型没有进度，报个用时
     private readonly Stopwatch _elapsed = new();
     private CancellationTokenSource? _running;
     private (ImageModelInfo Model, ImageRequest Request)? _refused; //因为内存不够没起的那次，「仍然加载」照它再来
+    private IReadOnlyList<LocalMemoryHolder> _holders = []; //那一刻在跑、可以先放掉的其他本地模型
 
     [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(GenerateCommand))]
     private string _prompt = "";
@@ -74,6 +77,9 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
 
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasMemoryRisk))]
     private string? _memoryRiskText;
+
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanReleaseOthers))]
+    private string? _releaseOthersText;
     [ObservableProperty] private Bitmap? _image;
 
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasResult))]
@@ -84,14 +90,19 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
     /// <param name="generate">出图</param>
     /// <param name="actions">画好之后的动作</param>
     /// <param name="outputDirectory">画好的图存哪</param>
+    /// <param name="memoryHolders">此刻在跑的其他本地模型（内存不够时给「先放掉再加载」）；null 不给</param>
+    /// <param name="releaseSettle">放掉之后等系统收回内存多久；null 为 2 秒</param>
     public ImageDrawViewData(IReadOnlyList<ImageModelInfo> models, ImageModelInfo? selected,
-        ImageDrawGenerator generate, ImageDrawActions actions, string outputDirectory)
+        ImageDrawGenerator generate, ImageDrawActions actions, string outputDirectory,
+        Func<IReadOnlyList<LocalMemoryHolder>>? memoryHolders = null, TimeSpan? releaseSettle = null)
     {
         Models = models;
         _selectedModel = selected != null && models.Contains(selected) ? selected : models.FirstOrDefault();
         _generate = generate;
         _actions = actions;
         _outputDirectory = outputDirectory;
+        _memoryHolders = memoryHolders ?? (() => []);
+        _releaseSettle = releaseSettle ?? TimeSpan.FromSeconds(2);
         _statusText = models.Count == 0 ? Loc.Text(LangKey.ImageDrawNoModel) : "";
         _clock.Tick += (_, _) => StatusText = Loc.Text(LangKey.ImageDrawWaiting, (int)_elapsed.Elapsed.TotalSeconds);
         Ratios = [new ImageRatioOption(null, Loc.Text(LangKey.ImageDrawRatioAuto)),
@@ -136,6 +147,11 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
     /// </summary>
     public bool HasMemoryRisk => MemoryRiskText != null;
 
+    /// <summary>
+    /// 内存不够时，有别的本地模型在跑、可以先放掉
+    /// </summary>
+    public bool CanReleaseOthers => ReleaseOthersText != null;
+
     public void Dispose()
     {
         _clock.Stop();
@@ -156,10 +172,24 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
         ? RunAsync(refused.Model, refused.Request with { AllowMemoryRisk = true })
         : Task.CompletedTask;
 
+    // 先放掉别的本地模型（对话模型、语音引擎），等系统收回内存，再照常加载（仍按此刻内存查）
+    [RelayCommand]
+    private async Task ReleaseOthersAndGenerate()
+    {
+        if (_refused is not { } refused || IsGenerating) return;
+        foreach (LocalMemoryHolder holder in _holders) holder.Release();
+        MemoryRiskText = null;
+        ReleaseOthersText = null;
+        StatusText = Loc.Text(LangKey.ImageDrawReleasing);
+        await Task.Delay(_releaseSettle);
+        await RunAsync(refused.Model, refused.Request);
+    }
+
     private async Task RunAsync(ImageModelInfo model, ImageRequest request)
     {
         _refused = null;
         MemoryRiskText = null;
+        ReleaseOthersText = null;
         IsGenerating = true;
         ResultPath = null;
         _elapsed.Restart();
@@ -188,6 +218,10 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
             if (report.Failure?.MemoryShortfall is { } shortfall)
             {
                 _refused = (model, request);
+                _holders = _memoryHolders();
+                ReleaseOthersText = _holders.Count == 0
+                    ? null
+                    : Loc.Text(LangKey.ImageDrawReleaseOthers, string.Join("、", _holders.Select(x => x.Name)));
                 MemoryRiskText = Loc.Text(LangKey.ImageDrawMemoryRisk, ToGb(shortfall.EstimatedBytes),
                     ToGb(shortfall.AvailableBytes));
                 StatusText = "";

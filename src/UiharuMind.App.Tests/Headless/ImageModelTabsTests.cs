@@ -291,6 +291,44 @@ public class ImageModelTabsTests : IDisposable
         });
     }
 
+    [Fact]
+    public void Draw_MemoryRisk_OffersToFreeOtherLocalModels_ThenLoadsNormally()
+    {
+        HeadlessUi.RunAsync(async () =>
+        {
+            ImageModelInfo model = new() { Name = "local", Local = new LocalImageModel() };
+            int calls = 0;
+            int released = 0;
+            List<bool> attempts = [];
+            ImageDrawViewData draw = new([model], null, (_, request, _, _) =>
+            {
+                attempts.Add(request.AllowMemoryRisk);
+                return Task.FromResult(++calls > 1
+                    ? new ImageGenerationReport { Images = [new GeneratedImage(TinyPng(), "image/png")] }
+                    : new ImageGenerationReport
+                    {
+                        Failure = new ImageFailure(EImageFailureKind.Unavailable, "low memory")
+                        {
+                            MemoryShortfall = new EngineMemoryShortfall(12L << 30, 4L << 30)
+                        }
+                    });
+            }, new ImageDrawActions(_ => { }, _ => Task.CompletedTask, _ => { }, _ => { }, () => Task.FromResult<IReadOnlyList<string>>([])),
+                Path.Combine(_root, "images"), () => [new LocalMemoryHolder("qwen", () => released++)],
+                TimeSpan.Zero) { Prompt = "fox" };
+
+            await draw.GenerateCommand.ExecuteAsync(null);
+            Assert.True(draw.CanReleaseOthers);
+            Assert.Contains("qwen", draw.ReleaseOthersText);
+
+            await draw.ReleaseOthersAndGenerateCommand.ExecuteAsync(null);
+            Assert.Equal(1, released);
+            Assert.Equal([false, false], attempts); //放掉之后照常查内存，不硬起
+            Assert.True(draw.HasResult);
+            Assert.False(draw.CanReleaseOthers);
+            draw.Dispose();
+        });
+    }
+
     private ModelPageData Open(bool installEngine = true)
     {
         string engines = Path.Combine(_root, "engines");

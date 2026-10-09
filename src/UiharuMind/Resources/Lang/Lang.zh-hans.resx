@@ -5574,6 +5574,15 @@
     <data name="ImageDrawLoadAnyway" xml:space="preserve">
         <value>仍然加载</value>
     </data>
+    <data name="ImageDrawReleaseOthers" xml:space="preserve">
+        <value>先释放 {0} 再加载</value>
+    </data>
+    <data name="ImageDrawReleasing" xml:space="preserve">
+        <value>正在释放内存…</value>
+    </data>
+    <data name="LocalHolderAudioEngine" xml:space="preserve">
+        <value>语音引擎</value>
+    </data>
     <data name="ImageDrawQueued" xml:space="preserve">
         <value>排队中…</value>
     </data>

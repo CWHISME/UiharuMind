@@ -5581,6 +5581,15 @@ Allow them?</value>
     <data name="ImageDrawLoadAnyway" xml:space="preserve">
         <value>Load anyway</value>
     </data>
+    <data name="ImageDrawReleaseOthers" xml:space="preserve">
+        <value>Free {0} and load</value>
+    </data>
+    <data name="ImageDrawReleasing" xml:space="preserve">
+        <value>Freeing memory…</value>
+    </data>
+    <data name="LocalHolderAudioEngine" xml:space="preserve">
+        <value>voice engine</value>
+    </data>
     <data name="ImageDrawQueued" xml:space="preserve">
         <value>Waiting in line…</value>
     </data>
