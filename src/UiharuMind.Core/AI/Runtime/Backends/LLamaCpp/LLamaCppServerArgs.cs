@@ -21,14 +21,17 @@ public static class LLamaCppServerArgs
     /// <param name="arguments">除 host/port 外的参数</param>
     /// <param name="readyTimeout">就绪超时</param>
     /// <param name="environment">额外环境变量</param>
+    /// <param name="outputObserver">逐行看输出</param>
     /// <returns>启动描述</returns>
     public static LocalServerLaunch Launch(string executablePath, IReadOnlyList<string> arguments, TimeSpan readyTimeout,
-        IReadOnlyDictionary<string, string>? environment = null)
+        IReadOnlyDictionary<string, string>? environment = null, Action<string>? outputObserver = null)
     {
         return new LocalServerLaunch(ServerName, executablePath,
             port => [..arguments, "--host", "127.0.0.1", "--port", port.ToString()], readyTimeout)
         {
-            Environment = environment
+            Environment = environment,
+            OutputObserver = outputObserver,
+            ExpectedLogLines = 240
         };
     }
 
@@ -70,8 +73,10 @@ public static class LLamaCppServerArgs
         if (options.ThreadsBatch > 0) args.AddRange(["-tb", options.ThreadsBatch.ToString()]);
         if (options.Parallel > 0) args.AddRange(["-np", options.Parallel.ToString()]);
         if (!options.ContinuousBatching) args.Add("--no-cont-batching");
-        if (options.CacheTypeK != LLamaCppServerOptions.DefaultCacheType) args.AddRange(["-ctk", options.CacheTypeK]);
-        if (options.CacheTypeV != LLamaCppServerOptions.DefaultCacheType) args.AddRange(["-ctv", options.CacheTypeV]);
+        string cacheK = parameters.KvCacheType ?? options.CacheTypeK;
+        string cacheV = parameters.KvCacheType ?? options.CacheTypeV;
+        if (cacheK != LLamaCppServerOptions.DefaultCacheType) args.AddRange(["-ctk", cacheK]);
+        if (cacheV != LLamaCppServerOptions.DefaultCacheType) args.AddRange(["-ctv", cacheV]);
         if (options.LoadMode != LLamaCppServerOptions.DefaultLoadMode) args.AddRange(["--load-mode", options.LoadMode]);
         if (options.NoKvOffload) args.Add("--no-kv-offload");
         if (options.CpuMoeLayers > 0) args.AddRange(["-ncmoe", options.CpuMoeLayers.ToString()]);
@@ -80,9 +85,17 @@ public static class LLamaCppServerArgs
         if (options.ContextShift) args.Add("--context-shift");
         if (options.SwaFull) args.Add("--swa-full");
 
-        args.AddRange(EngineArguments.Split(options.ExtraArguments));
+        IReadOnlyList<string> extra = EngineArguments.Split(options.ExtraArguments);
+        // 默认档不打加载细节；各设备缓冲多大（独立显卡的显存占用）要到 4 档才有，推理时每轮多二三十行
+        if (!extra.Any(IsVerbosityArgument)) args.AddRange(["-lv", "4"]);
+        args.AddRange(extra);
         return args;
     }
+
+    private static bool IsVerbosityArgument(string arg) =>
+        arg is "-lv" or "--verbosity" or "--log-verbosity" or "-v" or "--verbose" or "--log-verbose" ||
+        arg.StartsWith("--verbosity=", StringComparison.Ordinal) ||
+        arg.StartsWith("--log-verbosity=", StringComparison.Ordinal);
 
     /// <summary>
     /// 解析环境变量设置：KEY=VALUE，以分号或换行分隔；无效项跳过

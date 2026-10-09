@@ -4470,6 +4470,9 @@
     <data name="ModelParamsResetTip" xml:space="preserve">
         <value>改回跟随全局</value>
     </data>
+    <data name="ModelParamsKvCacheType" xml:space="preserve">
+        <value>KV 缓存类型</value>
+    </data>
     <data name="ModelParamsResetAll" xml:space="preserve">
         <value>全部跟随全局</value>
     </data>
@@ -4997,6 +5000,12 @@
     </data>
     <data name="EngineStatusMemory" xml:space="preserve">
         <value>占用 {0} GB</value>
+    </data>
+    <data name="EngineStatusUsageGpu" xml:space="preserve">
+        <value>占用 {0} GB · 显存 {1} GB · CPU {2}%</value>
+    </data>
+    <data name="EngineStatusMemoryGpu" xml:space="preserve">
+        <value>占用 {0} GB · 显存 {1} GB</value>
     </data>
     <data name="AudioEngineStatusStarting" xml:space="preserve">
         <value>语音引擎正在启动…</value>
@@ -5633,6 +5642,9 @@
     </data>
     <data name="LocalUsageMemoryLine" xml:space="preserve">
         <value>内存：可用 {0} GB，共 {1} GB</value>
+    </data>
+    <data name="LocalUsageGpuLine" xml:space="preserve">
+        <value>显存：可用 {0} GB，共 {1} GB（{2}）</value>
     </data>
     <data name="LocalUsageCpuLine" xml:space="preserve">
         <value>CPU：{0}%</value>

@@ -44,8 +44,8 @@ internal sealed class LLamaCppRuntimeBackend(
             settings.GpuLayers == 0 ? RuntimeDeviceMode.Cpu : RuntimeDeviceMode.Auto,
             settings.GpuLayers != 0,
             false,
-            LLamaCppServerOptions.CacheTypeBytes(server.EffectiveCacheType(false)),
-            LLamaCppServerOptions.CacheTypeBytes(server.EffectiveCacheType(true)));
+            LLamaCppServerOptions.CacheTypeBytes(server.EffectiveCacheType(false, settings.KvCacheType)),
+            LLamaCppServerOptions.CacheTypeBytes(server.EffectiveCacheType(true, settings.KvCacheType)));
     }
 
     public Task<IReadOnlyDictionary<string, ILlmModel>> DiscoverModelsAsync(

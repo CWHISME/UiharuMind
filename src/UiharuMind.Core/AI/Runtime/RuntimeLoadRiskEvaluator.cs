@@ -12,6 +12,7 @@ public static class RuntimeLoadRiskEvaluator
 {
     private const long MiB = 1024L * 1024L;
     private const int DefaultDownloadContextSize = 8192; // 与本地模型的上下文兜底一致
+    private const long GpuReserveBytes = 1024 * MiB; //显存留的余量，与 llama-server --fit 默认目标一致
 
     public static RuntimeLoadRisk Evaluate(
         ILlmModel model,
@@ -46,7 +47,9 @@ public static class RuntimeLoadRiskEvaluator
                 warnings);
         }
 
-        RuntimeLoadRiskLevel level = ClassifyMemory(estimatedTotal, deviceInfo, true);
+        RuntimeLoadRiskLevel level = deviceInfo.HasDedicatedGpuMemory && parameters.GpuLayers != 0
+            ? ClassifyWithGpu(estimatedTotal, metadata, parameters, deviceInfo, warnings)
+            : ClassifyMemory(estimatedTotal, deviceInfo, true);
         if (level == RuntimeLoadRiskLevel.Danger)
             warnings.Add("Estimated runtime memory is close to or above available memory.");
         else if (level == RuntimeLoadRiskLevel.Warning)
@@ -130,6 +133,29 @@ public static class RuntimeLoadRiskEvaluator
         if (availableRatio >= 0.9 || totalRatio >= 0.85) return RuntimeLoadRiskLevel.Danger;
         if (availableRatio >= 0.65 || totalRatio >= 0.6) return RuntimeLoadRiskLevel.Warning;
         return RuntimeLoadRiskLevel.Low;
+    }
+
+    // 独立显卡：显存放得下的部分不占内存，放不下的层由 llama-server 的 --fit 挪回 CPU，只拿挪回来的那份去比内存。
+    // 手动指定层数时 --fit 不改它，超出显存就是起不来
+    private static RuntimeLoadRiskLevel ClassifyWithGpu(long estimatedTotal, ModelMetadata metadata,
+        RuntimeResolvedParameters parameters, RuntimeDeviceInfo deviceInfo, List<string> warnings)
+    {
+        long gpuBudget = Math.Max(0, deviceInfo.GpuAvailableMemoryBytes - GpuReserveBytes);
+        bool explicitLayers = parameters.GpuLayers > 0;
+        int layers = metadata.LayerCount > 0 ? metadata.LayerCount : 32;
+        long deviceNeed = explicitLayers
+            ? (long)(estimatedTotal * Math.Min(1.0, (double)parameters.GpuLayers / layers))
+            : estimatedTotal;
+        if (explicitLayers && deviceNeed > deviceInfo.GpuAvailableMemoryBytes)
+        {
+            warnings.Add("The explicit GPU layer count needs more VRAM than is free.");
+            return RuntimeLoadRiskLevel.Danger;
+        }
+
+        RuntimeLoadRiskLevel level = ClassifyMemory(estimatedTotal - Math.Min(deviceNeed, gpuBudget), deviceInfo, true);
+        if (deviceNeed <= gpuBudget) return level;
+        warnings.Add("The model does not fully fit in free VRAM; some layers will run on the CPU, which is slower.");
+        return level == RuntimeLoadRiskLevel.Low ? RuntimeLoadRiskLevel.Warning : level;
     }
 
     // 每层每个 token 存 KV 头数 ×（K 维 + V 维）个元素，元素大小看 KV 缓存类型（与 ollama 同式）。

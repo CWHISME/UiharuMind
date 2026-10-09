@@ -23,7 +23,8 @@ public enum EEngineRunState
 /// </summary>
 /// <param name="MemoryBytes">内存（字节）</param>
 /// <param name="CpuPercent">占全部核心的百分比（0~100）；头一回取样还算不出为 null</param>
-public sealed record EngineUsage(long MemoryBytes, double? CpuPercent);
+/// <param name="GpuMemoryBytes">独立显卡上的显存（不在 <paramref name="MemoryBytes"/> 里）；统一内存或读不到为 null</param>
+public sealed record EngineUsage(long MemoryBytes, double? CpuPercent, long? GpuMemoryBytes = null);
 
 /// <summary>
 /// 引擎进程的运行面：在不在跑、最近为什么起不来、停掉释放内存。界面的状态条只认这一层

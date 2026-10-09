@@ -65,6 +65,13 @@ public class ModelRuntimeSettingConfig : TConfigBase<ModelRuntimeSettingConfig>
     public bool? FlashAttention { get; set; }
 
     /// <summary>
+    /// 这个模型自己定的 KV 缓存类型（K、V 同用），null 跟随引擎设置。只出现在 <see cref="ForModel"/> 的副本上，不落盘
+    /// </summary>
+    [JsonIgnore]
+    [SettingConfigIgnoreDisplay]
+    public string? KvCacheType { get; init; }
+
+    /// <summary>
     /// 各本地模型自己的运行参数，按模型名
     /// </summary>
     [SettingConfigIgnoreDisplay]
@@ -106,7 +113,8 @@ public class ModelRuntimeSettingConfig : TConfigBase<ModelRuntimeSettingConfig>
             BatchSize = overrides.BatchSize ?? BatchSize,
             UBatchSize = overrides.UBatchSize ?? UBatchSize,
             Threads = overrides.Threads ?? Threads,
-            FlashAttention = FlashAttention
+            FlashAttention = FlashAttention,
+            KvCacheType = overrides.KvCacheType
         };
     }
 }

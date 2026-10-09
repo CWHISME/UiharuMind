@@ -35,6 +35,11 @@ public sealed record RuntimeResolvedParameters(
     IReadOnlyList<string>? Warnings = null)
 {
     public IReadOnlyList<string> Warnings { get; init; } = Warnings ?? [];
+
+    /// <summary>
+    /// 这个模型自己定的 KV 缓存类型（K、V 同用），null 跟随引擎设置
+    /// </summary>
+    public string? KvCacheType { get; init; }
 }
 
 public readonly record struct RuntimeParameterRequest(
@@ -65,10 +70,16 @@ public sealed record RuntimeDeviceInfo(
     string CpuName,
     string GpuName,
     string GpuMemoryNote,
-    DateTimeOffset CapturedAt)
+    DateTimeOffset CapturedAt,
+    bool IsUnifiedMemory = false)
 {
     public bool HasMemoryInfo => TotalMemoryBytes > 0 && AvailableMemoryBytes > 0;
     public bool HasGpuMemoryInfo => GpuTotalMemoryBytes > 0 || GpuAvailableMemoryBytes > 0;
+
+    /// <summary>
+    /// 有独立显存（Apple Silicon 这类统一内存不算）
+    /// </summary>
+    public bool HasDedicatedGpuMemory => !IsUnifiedMemory && GpuTotalMemoryBytes > 0;
 
     /// <summary>尚未完成采集时的占位值。采集要跑外部进程,不该为了拿初值而阻塞调用方</summary>
     public static RuntimeDeviceInfo Empty { get; } =

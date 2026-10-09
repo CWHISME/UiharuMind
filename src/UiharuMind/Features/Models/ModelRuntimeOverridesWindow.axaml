@@ -95,11 +95,21 @@
                                   Description="{Binding Threads.StatusText}"
                                   ResetCommand="{Binding Threads.ResetCommand}"
                                   ResetVisible="{Binding Threads.IsOverridden}"
-                                  ResetToolTip="{loc:Loc ModelParamsResetTip}"
-                                  DividerVisible="False">
+                                  ResetToolTip="{loc:Loc ModelParamsResetTip}">
                 <controls:SettingsRow.Field>
                     <NumericUpDown Classes="runtime-field" Minimum="0" Maximum="512"
                                    Value="{Binding Threads.Value}" />
+                </controls:SettingsRow.Field>
+            </controls:SettingsRow>
+            <controls:SettingsRow Header="{loc:Loc ModelParamsKvCacheType}"
+                                  Description="{Binding KvCacheType.StatusText}"
+                                  ResetCommand="{Binding KvCacheType.ResetCommand}"
+                                  ResetVisible="{Binding KvCacheType.IsOverridden}"
+                                  ResetToolTip="{loc:Loc ModelParamsResetTip}"
+                                  DividerVisible="False">
+                <controls:SettingsRow.Field>
+                    <ComboBox Classes="runtime-field" ItemsSource="{Binding KvCacheTypeOptions}"
+                              SelectedIndex="{Binding KvCacheType.Value}" />
                 </controls:SettingsRow.Field>
             </controls:SettingsRow>
 

@@ -6,6 +6,7 @@
 
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Runtime;
@@ -23,15 +24,21 @@ public static class RuntimeDeviceInfoProvider
     private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(1);
     private static readonly object CacheLock = new();
     private static RuntimeDeviceInfo? _cached;
+
+    private static readonly GpuDeviceProbe Gpu = new(() =>
+        LLamaCppEngine.Distribution.CurrentVersion?.GetExecutable(LLamaCppSettingConfig.ServerExeName));
     private static long _cachedAtTimestamp;
 
     /// <summary>
     /// 采集设备信息。默认返回 1 秒内的缓存值，避免高频调用打爆外部进程。
     /// </summary>
     /// <param name="forceRefresh">true 时忽略缓存强制重采</param>
+    /// <param name="waitForGpu">显存读数过期时当场重取（要起一次 llama-server，零点几秒到一两秒），加载前判风险用；
+    /// 否则先用上次的、后台重取</param>
     /// <returns>设备信息</returns>
-    public static RuntimeDeviceInfo Capture(bool forceRefresh = false)
+    public static RuntimeDeviceInfo Capture(bool forceRefresh = false, bool waitForGpu = false)
     {
+        if (waitForGpu) forceRefresh = true;
         if (!forceRefresh)
         {
             lock (CacheLock)
@@ -44,7 +51,7 @@ public static class RuntimeDeviceInfoProvider
             }
         }
 
-        RuntimeDeviceInfo info = CaptureCore();
+        RuntimeDeviceInfo info = CaptureCore(waitForGpu);
         lock (CacheLock)
         {
             _cached = info;
@@ -54,10 +61,10 @@ public static class RuntimeDeviceInfoProvider
         return info;
     }
 
-    private static RuntimeDeviceInfo CaptureCore()
+    private static RuntimeDeviceInfo CaptureCore(bool waitForGpu)
     {
         (long total, long available) = CaptureMemory();
-        RuntimeGpuMemoryInfo gpu = CaptureGpuMemory(total, available);
+        RuntimeGpuMemoryInfo gpu = CaptureGpuMemory(total, available, waitForGpu);
         return new RuntimeDeviceInfo(
             total,
             available,
@@ -67,7 +74,8 @@ public static class RuntimeDeviceInfoProvider
             CaptureCpuName(),
             gpu.Name,
             gpu.Note,
-            DateTimeOffset.Now);
+            DateTimeOffset.Now,
+            gpu.IsUnified);
     }
 
     private static (long Total, long Available) CaptureMemory()
@@ -197,52 +205,29 @@ public static class RuntimeDeviceInfoProvider
         return RuntimeInformation.OSDescription;
     }
 
-    private static RuntimeGpuMemoryInfo CaptureGpuMemory(long systemTotalBytes, long systemAvailableBytes)
+    private static RuntimeGpuMemoryInfo CaptureGpuMemory(long systemTotalBytes, long systemAvailableBytes,
+        bool waitForGpu)
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            // Apple Silicon/Metal 使用统一内存；系统没有稳定轻量的独立 GPU 可用显存 API。
+            // Apple Silicon/Metal 使用统一内存，显存就是系统内存
             return new RuntimeGpuMemoryInfo(
                 systemTotalBytes,
                 systemAvailableBytes,
                 "Metal / unified memory",
-                "Shared with system memory");
+                "Shared with system memory",
+                true);
         }
 
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ||
-            RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            RuntimeGpuMemoryInfo? nvidia = TryCaptureNvidiaSmi();
-            if (nvidia != null) return nvidia;
-        }
-
-        return new RuntimeGpuMemoryInfo(0, 0, "", "Unknown");
-    }
-
-    private static RuntimeGpuMemoryInfo? TryCaptureNvidiaSmi()
-    {
-        try
-        {
-            string output = RunCommand(
-                "nvidia-smi",
-                "--query-gpu=name,memory.total,memory.free --format=csv,noheader,nounits");
-            string firstLine = output.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
-            if (string.IsNullOrWhiteSpace(firstLine)) return null;
-
-            string[] parts = firstLine.Split(',', StringSplitOptions.TrimEntries);
-            if (parts.Length < 3) return null;
-            long totalMiB = long.TryParse(parts[1], out long parsedTotal) ? parsedTotal : 0;
-            long freeMiB = long.TryParse(parts[2], out long parsedFree) ? parsedFree : 0;
-            return new RuntimeGpuMemoryInfo(
-                totalMiB * 1024 * 1024,
-                freeMiB * 1024 * 1024,
-                parts[0],
-                "NVIDIA");
-        }
-        catch
-        {
-            return null;
-        }
+        // 多卡时 llama.cpp 默认按层分摊到各卡，合起来算
+        IReadOnlyList<GpuDevice> devices = Gpu.Devices(waitForGpu);
+        if (devices.Count == 0) return new RuntimeGpuMemoryInfo(0, 0, "", "Unknown", false);
+        return new RuntimeGpuMemoryInfo(
+            devices.Sum(x => x.TotalBytes),
+            devices.Sum(x => x.FreeBytes),
+            string.Join(" + ", devices.Select(x => x.Name).Distinct()),
+            string.Join(", ", devices.Select(x => x.Id)),
+            false);
     }
 
     private static long TryReadMacSysctlInt64(string name)
@@ -287,7 +272,8 @@ public static class RuntimeDeviceInfoProvider
         long TotalBytes,
         long AvailableBytes,
         string Name,
-        string Note);
+        string Note,
+        bool IsUnified);
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
     private struct MEMORYSTATUSEX

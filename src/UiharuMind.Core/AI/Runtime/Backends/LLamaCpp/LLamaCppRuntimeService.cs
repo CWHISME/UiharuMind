@@ -26,15 +26,19 @@ namespace UiharuMind.Core.AI.Runtime.Backends;
 /// </summary>
 internal sealed class LLamaCppRuntimeService
 {
-    private readonly ConcurrentDictionary<string, LocalServerProcess> _servers = new(); //按模型名，就绪后到退出前
+    private readonly ConcurrentDictionary<string, RunningServer> _servers = new(); //按模型名，就绪后到退出前
 
     /// <summary>
-    /// 取一次某模型服务进程的实际占用
+    /// 取一次某模型服务进程的实际占用；独立显卡上的显存按加载日志算（macOS 统一内存已在进程占用里）
     /// </summary>
     /// <param name="modelName">模型名</param>
     /// <returns>占用；没在跑为 null</returns>
-    public EngineUsage? SampleUsage(string modelName) =>
-        _servers.TryGetValue(modelName, out LocalServerProcess? server) ? server.SampleUsage() : null;
+    public EngineUsage? SampleUsage(string modelName)
+    {
+        if (!_servers.TryGetValue(modelName, out RunningServer? running) ||
+            running.Process.SampleUsage() is not { } usage) return null;
+        return OperatingSystem.IsMacOS() ? usage : usage with { GpuMemoryBytes = running.Buffers.DeviceBytes };
+    }
 
     /// <summary>
     /// 起一个对话用的 llama-server，就绪后回调对话客户端，然后陪跑到进程结束
@@ -53,13 +57,15 @@ internal sealed class LLamaCppRuntimeService
 
         LLamaCppSettingConfig config = LLamaCppSettingConfig.Current;
         string serverPath = version.GetExecutable(LLamaCppSettingConfig.ServerExeName);
+        LLamaCppBufferTally buffers = new();
         LocalServerProcess server = await LocalServerProcess.StartAsync(
                 LLamaCppServerArgs.Launch(serverPath, LLamaCppServerArgs.Build(model, parameters, config.Server),
                     TimeSpan.FromSeconds(Math.Max(30, config.Server.LoadTimeoutSeconds)),
-                    LLamaCppServerArgs.ParseEnvironment(config.Server.EnvironmentVariables)),
+                    LLamaCppServerArgs.ParseEnvironment(config.Server.EnvironmentVariables), buffers.Observe),
                 onLoading, token)
             .ConfigureAwait(false);
-        _servers[model.ModelName] = server;
+        RunningServer running = new(server, buffers);
+        _servers[model.ModelName] = running;
         try
         {
             onLoadOver?.Invoke(OpenAICompatibleChatClient.Create(
@@ -68,11 +74,13 @@ internal sealed class LLamaCppRuntimeService
         }
         finally
         {
-            _servers.TryRemove(new KeyValuePair<string, LocalServerProcess>(model.ModelName, server));
+            _servers.TryRemove(new KeyValuePair<string, RunningServer>(model.ModelName, running));
         }
 
         if (!token.IsCancellationRequested)
             throw new LocalServerException(
                 $"llama-server exited unexpectedly (exit code {server.ExitCode}).", server.LogTail);
     }
+
+    private sealed record RunningServer(LocalServerProcess Process, LLamaCppBufferTally Buffers);
 }

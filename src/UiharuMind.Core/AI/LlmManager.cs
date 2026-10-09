@@ -192,13 +192,19 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
         else Log.Error($"load model error， {modelName} not found in cache.");
     }
 
-    public RuntimeLoadRisk AnalyzeLoadRisk(string? modelName)
+    /// <summary>
+    /// 估本地模型此刻加载的风险
+    /// </summary>
+    /// <param name="modelName">模型名，空为首选模型</param>
+    /// <param name="fresh">显存读数过期就当场重取（会阻塞零点几秒），加载前确认用</param>
+    /// <returns>风险；远程模型为低</returns>
+    public RuntimeLoadRisk AnalyzeLoadRisk(string? modelName, bool fresh = false)
     {
         if (string.IsNullOrEmpty(modelName))
             modelName = GetPreferredModelName(false);
         if (string.IsNullOrEmpty(modelName)) return RuntimeLoadRisk.Low;
         return _cacheModels.TryGetValue(modelName, out var runningInfo)
-            ? _runtimeService.AnalyzeChatLoadRisk(runningInfo.ModelInfo)
+            ? _runtimeService.AnalyzeChatLoadRisk(runningInfo.ModelInfo, fresh)
             : RuntimeLoadRisk.Low;
     }
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Runtime;
+using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Generated;
@@ -84,7 +85,7 @@ public partial class OverridableIntSetting : ObservableObject
 }
 
 /// <summary>
-/// 某个本地模型自己的运行参数（上下文、GPU 层数、批大小、线程），改动随手落盘，下次加载生效
+/// 某个本地模型自己的运行参数（上下文、GPU 层数、批大小、线程、KV 缓存类型），改动随手落盘，下次加载生效
 /// </summary>
 public partial class ModelRuntimeOverridesViewData : ObservableObject
 {
@@ -102,9 +103,11 @@ public partial class ModelRuntimeOverridesViewData : ObservableObject
     /// <param name="analyzeRisk">按当前生效参数估算加载风险</param>
     /// <param name="isRunning">模型正在运行</param>
     /// <param name="maxGpuLayers">模型层数，切到指定层数时的初值</param>
+    /// <param name="globalKvCacheType">引擎设置里的 KV 缓存类型；不给取 llama.cpp 设置</param>
     public ModelRuntimeOverridesViewData(string modelName, ModelRuntimeSettingConfig config, Action save,
-        Func<RuntimeLoadRisk> analyzeRisk, bool isRunning, int maxGpuLayers)
+        Func<RuntimeLoadRisk> analyzeRisk, bool isRunning, int maxGpuLayers, Func<string>? globalKvCacheType = null)
     {
+        globalKvCacheType ??= () => LLamaCppSettingConfig.Current.Server.EffectiveCacheType(false);
         ModelName = modelName;
         _config = config;
         _save = save;
@@ -118,10 +121,15 @@ public partial class ModelRuntimeOverridesViewData : ObservableObject
         BatchSize = new OverridableIntSetting(() => _config.BatchSize, overrides?.BatchSize, FormatAuto);
         UBatchSize = new OverridableIntSetting(() => _config.UBatchSize, overrides?.UBatchSize, FormatAuto);
         Threads = new OverridableIntSetting(() => _config.Threads, overrides?.Threads, FormatAuto);
+        // 类型名按下标存进整数行，下拉框直接绑下标
+        KvCacheType = new OverridableIntSetting(() => CacheTypeIndex(globalKvCacheType()),
+            overrides?.KvCacheType is { } cacheType ? CacheTypeIndex(cacheType) : null,
+            x => LLamaCppServerOptions.CacheTypes[x]);
 
         _lastCustomGpuLayers = GpuLayers.Value > 0 ? GpuLayers.Value : MaxGpuLayers;
         _selectedGpuLayerMode = GpuLayerModeOptions[(int)ModeOf(GpuLayers.Value)];
-        foreach (OverridableIntSetting setting in new[] { ContextSize, GpuLayers, BatchSize, UBatchSize, Threads })
+        foreach (OverridableIntSetting setting in new[]
+                     { ContextSize, GpuLayers, BatchSize, UBatchSize, Threads, KvCacheType })
             setting.Changed += OnSettingChanged;
         GpuLayers.PropertyChanged += (_, e) =>
         {
@@ -172,6 +180,16 @@ public partial class ModelRuntimeOverridesViewData : ObservableObject
     /// CPU 线程
     /// </summary>
     public OverridableIntSetting Threads { get; }
+
+    /// <summary>
+    /// KV 缓存类型（值是 <see cref="KvCacheTypeOptions"/> 的下标）
+    /// </summary>
+    public OverridableIntSetting KvCacheType { get; }
+
+    /// <summary>
+    /// KV 缓存类型可选项
+    /// </summary>
+    public IReadOnlyList<string> KvCacheTypeOptions => LLamaCppServerOptions.CacheTypes;
 
     /// <summary>
     /// GPU 层数的三种取法
@@ -225,6 +243,7 @@ public partial class ModelRuntimeOverridesViewData : ObservableObject
         BatchSize.Reset();
         UBatchSize.Reset();
         Threads.Reset();
+        KvCacheType.Reset();
     }
 
     private void OnSettingChanged()
@@ -235,11 +254,15 @@ public partial class ModelRuntimeOverridesViewData : ObservableObject
             GpuLayers = GpuLayers.OverrideValue,
             BatchSize = BatchSize.OverrideValue is { } batch ? Math.Max(0, batch) : null,
             UBatchSize = UBatchSize.OverrideValue is { } uBatch ? Math.Max(0, uBatch) : null,
-            Threads = Threads.OverrideValue is { } threads ? Math.Max(0, threads) : null
+            Threads = Threads.OverrideValue is { } threads ? Math.Max(0, threads) : null,
+            KvCacheType = KvCacheType.OverrideValue is >= 0 and var cacheType ? LLamaCppServerOptions.CacheTypes[cacheType] : null
         });
         _save();
         OnPropertyChanged(nameof(EstimateText));
     }
+
+    private static int CacheTypeIndex(string cacheType) =>
+        Math.Max(0, Array.IndexOf(LLamaCppServerOptions.CacheTypes, cacheType.ToLowerInvariant()));
 
     private static EGpuLayerMode ModeOf(int gpuLayers) => gpuLayers switch
     {

@@ -56,16 +56,21 @@ public sealed class LocalUsageRow(LocalEngineEntry entry, EngineUsage? usage, Ac
     });
 
     /// <summary>
-    /// 「占用 5.2 GB · CPU 3%」
+    /// 「占用 5.2 GB · CPU 3%」，独立显卡上还有「显存 x GB」
     /// </summary>
     /// <param name="usage">占用</param>
     /// <returns>文案</returns>
     public static string UsageText(EngineUsage usage)
     {
         string memory = LocalUsageData.Gb(usage.MemoryBytes);
-        return usage.CpuPercent is { } cpu
-            ? Loc.Text(LangKey.EngineStatusUsage, memory, (int)Math.Round(cpu))
-            : Loc.Text(LangKey.EngineStatusMemory, memory);
+        int? cpu = usage.CpuPercent is { } value ? (int)Math.Round(value) : null;
+        return (usage.GpuMemoryBytes is { } gpuBytes ? LocalUsageData.Gb(gpuBytes) : null, cpu) switch
+        {
+            ({ } gpu, { } percent) => Loc.Text(LangKey.EngineStatusUsageGpu, memory, gpu, percent),
+            ({ } gpu, null) => Loc.Text(LangKey.EngineStatusMemoryGpu, memory, gpu),
+            (null, { } percent) => Loc.Text(LangKey.EngineStatusUsage, memory, percent),
+            _ => Loc.Text(LangKey.EngineStatusMemory, memory)
+        };
     }
 }
 
@@ -95,6 +100,7 @@ public partial class LocalUsageData : ObservableObject
     [ObservableProperty] private string _summary = "";
     [ObservableProperty] private string _memoryLine = "";
     [ObservableProperty] private string _cpuLine = "";
+    [ObservableProperty] private string _gpuLine = "";
     [ObservableProperty] private double _memoryUsedRatio;
     [ObservableProperty] private string _swapLine = "";
     [ObservableProperty] private ESystemMemoryPressure _pressure;
@@ -189,6 +195,10 @@ public partial class LocalUsageData : ObservableObject
                 : Loc.Text(LangKey.LocalUsageSummaryMemory, available, total);
         MemoryLine = device.HasMemoryInfo ? Loc.Text(LangKey.LocalUsageMemoryLine, available, total) : "";
         CpuLine = cpuPercent is { } line ? Loc.Text(LangKey.LocalUsageCpuLine, line) : "";
+        GpuLine = device.HasDedicatedGpuMemory
+            ? Loc.Text(LangKey.LocalUsageGpuLine, Gb(device.GpuAvailableMemoryBytes), Gb(device.GpuTotalMemoryBytes),
+                device.GpuName)
+            : "";
         MemoryUsedRatio = device.TotalMemoryBytes > 0
             ? 1 - (double)device.AvailableMemoryBytes / device.TotalMemoryBytes
             : 0;

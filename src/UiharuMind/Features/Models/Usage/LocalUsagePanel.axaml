@@ -13,6 +13,8 @@
                          MinHeight="6" CornerRadius="3" />
             <TextBlock Text="{Binding SwapLine}" FontSize="12"
                        IsVisible="{Binding SwapLine, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <TextBlock Text="{Binding GpuLine}" FontSize="12" TextWrapping="Wrap"
+                       IsVisible="{Binding GpuLine, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
             <TextBlock Text="{Binding CpuLine}" FontSize="12"
                        IsVisible="{Binding CpuLine, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
             <TextBlock Text="{loc:Loc LocalUsageLowMemory}" FontSize="12" TextWrapping="Wrap"

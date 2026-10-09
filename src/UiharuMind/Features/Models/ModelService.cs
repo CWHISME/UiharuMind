@@ -170,7 +170,7 @@ public partial class ModelService : ObservableObject
     {
         if (isRemoteModel) return true;
 
-        RuntimeLoadRisk risk = await Task.Run(() => LlmManager.Instance.AnalyzeLoadRisk(modelName));
+        RuntimeLoadRisk risk = await Task.Run(() => LlmManager.Instance.AnalyzeLoadRisk(modelName, true));
         if (!risk.RequiresConfirmation) return true;
 
         string message = string.Format(

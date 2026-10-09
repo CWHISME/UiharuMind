@@ -29,13 +29,15 @@ public sealed class LLamaCppServerOptions
     public static readonly string[] CacheTypes = ["f16", "bf16", "f32", "q8_0", "q5_1", "q5_0", "iq4_nl", "q4_1", "q4_0"];
 
     /// <summary>
-    /// 实际传给 llama-server 的 KV 缓存类型：额外参数里写了 -ctk/-ctv 的以它为准（排在后面，覆盖设置项）
+    /// 实际传给 llama-server 的 KV 缓存类型：额外参数里写了 -ctk/-ctv 的以它为准（排在后面，覆盖设置项），
+    /// 其次是模型自己定的，最后是这里的设置
     /// </summary>
     /// <param name="forValue">false 取 K，true 取 V</param>
+    /// <param name="modelCacheType">模型自己定的类型，没有为 null</param>
     /// <returns>类型名</returns>
-    public string EffectiveCacheType(bool forValue)
+    public string EffectiveCacheType(bool forValue, string? modelCacheType = null)
     {
-        string result = forValue ? CacheTypeV : CacheTypeK;
+        string result = modelCacheType ?? (forValue ? CacheTypeV : CacheTypeK);
         string[] flags = forValue ? ["-ctv", "--cache-type-v"] : ["-ctk", "--cache-type-k"];
         IReadOnlyList<string> extra = EngineArguments.Split(ExtraArguments);
         for (int i = 0; i < extra.Count - 1; i++)

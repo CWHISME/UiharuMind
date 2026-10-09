@@ -12,10 +12,18 @@ namespace UiharuMind.Core.AI.Engines;
 /// </summary>
 public sealed class LocalServerException(string message, string logTail = "") : Exception(message)
 {
+    private static readonly string[] OutOfMemoryMarks = //各后端分配失败的说法：CUDA/HIP、Vulkan、Metal、CPU
+        ["out of memory", "failed to allocate", "unable to allocate", "ErrorOutOfDeviceMemory", "insufficient memory"];
+
     /// <summary>
     /// 进程最后几行输出，供用户判断原因（显存不够、文件损坏、驱动问题…）
     /// </summary>
     public string LogTail { get; } = logTail;
+
+    /// <summary>
+    /// 日志里有内存或显存不够的迹象
+    /// </summary>
+    public bool IsOutOfMemory => OutOfMemoryMarks.Any(x => LogTail.Contains(x, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// 原因加日志尾巴，直接给用户看
@@ -55,6 +63,11 @@ public sealed record LocalServerLaunch(
     /// 起来后大约占多少内存（字节），拉起前按此刻可用内存检查；0 为不估（启动时不加载模型的引擎）
     /// </summary>
     public long EstimatedMemoryBytes { get; init; }
+
+    /// <summary>
+    /// 每行输出都给它看一眼（在读输出的线程上调，别做重活）
+    /// </summary>
+    public Action<string>? OutputObserver { get; init; }
 }
 
 /// <summary>
@@ -64,7 +77,7 @@ public sealed record LocalServerLaunch(
 /// </summary>
 public sealed class LocalServerProcess
 {
-    private const int LogTailLines = 12;
+    private const int LogTailLines = 16;
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(250);
     private static readonly HttpClient HealthClient = new() { Timeout = TimeSpan.FromSeconds(2) };
 
@@ -270,6 +283,7 @@ public sealed class LocalServerProcess
         if (string.IsNullOrWhiteSpace(line)) return;
         Volatile.Write(ref _lastActivity, Environment.TickCount64);
         Log.Debug(line);
+        _launch.OutputObserver?.Invoke(line);
         lock (_logGate)
         {
             _logTail.Enqueue(line);

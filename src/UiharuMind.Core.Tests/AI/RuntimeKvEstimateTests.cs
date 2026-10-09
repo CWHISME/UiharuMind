@@ -56,4 +56,19 @@ public class RuntimeKvEstimateTests
         Assert.Equal("q4_0", options.EffectiveCacheType(true));
         Assert.Equal(18 / 32d, LLamaCppServerOptions.CacheTypeBytes(options.EffectiveCacheType(true)));
     }
+
+    [Fact]
+    public void ModelCacheType_BetweenSettingAndExtraArguments()
+    {
+        LLamaCppServerOptions options = new() { CacheTypeK = "q8_0", CacheTypeV = "q8_0", ExtraArguments = "-ctv f16" };
+        GGufModelInfo model = new() { ModelName = "m", ModelPath = "/models/m.gguf" };
+        RuntimeResolvedParameters parameters = new(8192, 2048, 512, -1, 0, null, false, "") { KvCacheType = "q4_0" };
+
+        List<string> args = [..LLamaCppServerArgs.Build(model, parameters, options)];
+
+        Assert.Equal("q4_0", options.EffectiveCacheType(false, "q4_0"));
+        Assert.Equal("f16", options.EffectiveCacheType(true, "q4_0"));
+        Assert.Equal("q4_0", args[args.IndexOf("-ctk") + 1]);
+        Assert.Equal("f16", args[args.LastIndexOf("-ctv") + 1]);
+    }
 }

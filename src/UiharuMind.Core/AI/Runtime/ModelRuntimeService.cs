@@ -7,6 +7,7 @@
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Embedding;
+using UiharuMind.Core.AI.Engines;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Configs;
@@ -137,12 +138,33 @@ internal sealed class ModelRuntimeService
         onParametersResolved?.Invoke(parameters);
         RuntimeLoadRisk risk = model is RemoteModelInfo
             ? RuntimeLoadRisk.Low
-            : RuntimeLoadRiskEvaluator.Evaluate(model, metadata, parameters, policy, RuntimeDeviceInfoProvider.Capture());
+            : RuntimeLoadRiskEvaluator.Evaluate(model, metadata, parameters, policy,
+                RuntimeDeviceInfoProvider.Capture(waitForGpu: true));
         ModelRuntimeRequest request = new(model, settings, metadata, parameters, risk);
-        await backend.RunChatAsync(request, onLoading, onLoadOver, token).ConfigureAwait(false);
+        bool loaded = false;
+        try
+        {
+            await backend.RunChatAsync(request, onLoading, client =>
+            {
+                loaded = true;
+                onLoadOver?.Invoke(client);
+            }, token).ConfigureAwait(false);
+        }
+        // 估算再准也有漏的（别的程序突然占了内存、驱动另有开销），加载时分配失败就把上下文减半再试一次
+        catch (LocalServerException e) when (!loaded && !token.IsCancellationRequested && e.IsOutOfMemory &&
+                                             RuntimeParameterResolver.HalveContext(parameters) is { } smaller)
+        {
+            Log.Warning($"{model.ModelName} ran out of memory at context {parameters.ContextSize}, " +
+                        $"retrying with {smaller.ContextSize}.");
+            onParametersResolved?.Invoke(smaller);
+            await backend.RunChatAsync(request with { Parameters = smaller }, onLoading, onLoadOver, token)
+                .ConfigureAwait(false);
+        }
     }
 
-    public RuntimeLoadRisk AnalyzeChatLoadRisk(ILlmModel model)
+    /// <param name="model">模型</param>
+    /// <param name="fresh">显存读数过期就当场重取（会阻塞零点几秒），加载前确认用；界面上随手显示的不必</param>
+    public RuntimeLoadRisk AnalyzeChatLoadRisk(ILlmModel model, bool fresh = false)
     {
         ModelRuntimeSettingConfig settings = ModelRuntimeSettingConfig.Current.ForModel(model.ModelName);
         IModelRuntimeBackend? backend = _registry.FindChatBackend(model, GetPreferredChatBackendId(model));
@@ -151,7 +173,8 @@ internal sealed class ModelRuntimeService
         ModelMetadata metadata = ModelMetadataService.Read(model);
         RuntimeParameterPolicy policy = backend.CreateParameterPolicy(settings);
         RuntimeResolvedParameters parameters = RuntimeParameterResolver.Resolve(settings, metadata, policy);
-        return RuntimeLoadRiskEvaluator.Evaluate(model, metadata, parameters, policy, RuntimeDeviceInfoProvider.Capture());
+        return RuntimeLoadRiskEvaluator.Evaluate(model, metadata, parameters, policy,
+            RuntimeDeviceInfoProvider.Capture(waitForGpu: fresh));
     }
 
     // 本地模型按用户选的引擎优先，没选或那个引擎没注册就落到第一个能跑的

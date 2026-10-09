@@ -30,6 +30,7 @@ public static class RuntimeParameterResolver
     private const int FallbackContextSize = 4096;
     private const int DefaultBatchSize = 2048; //与 llama-server 默认一致
     private const int DefaultUBatchSize = 512;
+    private const int MinRetryContextSize = 2048; //内存不够重试时上下文最小减到这里
 
     public static RuntimeResolvedParameters Resolve(
         ModelRuntimeSettingConfig settings,
@@ -81,7 +82,26 @@ public static class RuntimeParameterResolver
             adjusted,
             reason,
             request,
-            warnings);
+            warnings) { KvCacheType = settings.KvCacheType };
+    }
+
+    /// <summary>
+    /// 内存不够起不来时上下文减半再试；KV 缓存与上下文成正比，减半就省一半
+    /// </summary>
+    /// <param name="parameters">起不来的那组参数</param>
+    /// <returns>减半后的参数；已经不能再小为 null</returns>
+    public static RuntimeResolvedParameters? HalveContext(RuntimeResolvedParameters parameters)
+    {
+        int half = parameters.ContextSize / 2 / 256 * 256;
+        if (half < MinRetryContextSize) return null;
+        return parameters with
+        {
+            ContextSize = half,
+            BatchSize = Math.Min(parameters.BatchSize, half),
+            UBatchSize = Math.Min(parameters.UBatchSize, half),
+            WasAdjusted = true,
+            AdjustmentReason = $"Context halved from {parameters.ContextSize} after running out of memory."
+        };
     }
 
     private static int ResolveAutoContext(int modelContext, RuntimeParameterPolicy policy)

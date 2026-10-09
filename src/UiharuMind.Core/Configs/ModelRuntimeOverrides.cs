@@ -33,9 +33,14 @@ public sealed class ModelRuntimeOverrides
     public int? Threads { get; set; }
 
     /// <summary>
+    /// KV 缓存类型（K、V 同用），null 跟随引擎设置
+    /// </summary>
+    public string? KvCacheType { get; set; }
+
+    /// <summary>
     /// 全部跟随全局
     /// </summary>
     [JsonIgnore]
     public bool IsEmpty => ContextSize == null && GpuLayers == null && BatchSize == null && UBatchSize == null &&
-                           Threads == null;
+                           Threads == null && KvCacheType == null;
 }
