@@ -218,7 +218,7 @@ public sealed class SdCppEngine : IDisposable
                 throw new SdCppModelMissingException(model.Name, model.Components.Select(x => x.Path).ToList());
         }
         lock (_gate) _launchedKey = model.Key;
-        return BuildLaunch(version, model) with { EstimatedMemoryBytes = SdCppMemory.Estimate(model) };
+        return BuildLaunch(version, model) with { EstimatedMemoryBytes = SdCppMemory.Estimate(model, _settings.MemoryMap) };
     }
 
     private LocalServerLaunch BuildLaunch(SdCppVersion version, SdCppModelSetup model) => SdCppServerArgs.Launch(

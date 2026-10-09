@@ -84,6 +84,14 @@ public class SdCppEngineTests : IDisposable
     }
 
     [Fact]
+    public void MemoryEstimate_CountsMappedWeightsAsAQuarter_PlusWorkspace()
+    {
+        const long gb = 1L << 30;
+        Assert.Equal(10 * gb, SdCppMemory.Estimate(8 * gb));
+        Assert.Equal(4 * gb, SdCppMemory.Estimate(8 * gb, memoryMap: true));
+    }
+
+    [Fact]
     public async Task NotEnoughFreeMemory_DoesNotStart_UnlessAllowed()
     {
         // 权重粗估 + 工作区 2G，可用 1G：危险，不起；问过用户的照样起
@@ -93,7 +101,7 @@ public class SdCppEngineTests : IDisposable
 
         EngineMemoryException e = await Assert.ThrowsAsync<EngineMemoryException>(() => engine.GenerateAsync(model,
             Request("a cat"), null, TestContext.Current.CancellationToken));
-        Assert.Equal(SdCppMemory.Estimate(model), e.Shortfall.EstimatedBytes);
+        Assert.Equal(SdCppMemory.Estimate(model, engine.Settings.MemoryMap), e.Shortfall.EstimatedBytes);
         Assert.Equal(EEngineRunState.Stopped, engine.Runtime.State);
 
         await engine.GenerateAsync(model, Request("a cat"), null, true, TestContext.Current.CancellationToken);
