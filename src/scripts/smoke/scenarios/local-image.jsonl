@@ -1,0 +1,11 @@
+{"op":"image.download","args":{"family":"flux2-klein-4b"}}
+{"op":"model.wait","args":{"timeoutMinutes":240}}
+{"op":"image.list"}
+{"op":"image.draw","args":{"model":"FLUX.2 klein 4B","prompt":"A small fox sitting on a crescent moon, watercolor style, starry night sky","timeoutMinutes":20,"copyTo":"{{WS_EMPTY}}/klein.png"}}
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"session.new","args":{"character":"RationalAgent","workspace":"{{WS_EMPTY}}"}}
+{"op":"session.post","args":{"text":"把工作区里的 klein.png 改一下：狐狸换成蓝色的，其他保持不变。"}}
+{"op":"session.wait","args":{"timeoutMinutes":20,"approvals":"once"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/edit.md"}}
+{"op":"image.list"}
+{"op":"quit"}

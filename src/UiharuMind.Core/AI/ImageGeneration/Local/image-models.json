@@ -51,7 +51,7 @@
       },
       "doc": "https://github.com/leejet/stable-diffusion.cpp/blob/master/docs/flux2.md",
       "recommended": true,
-      "tested": false,
+      "tested": true,
       "supportsEditing": true,
       "baseResolution": 1024,
       "sampling": { "steps": 4, "cfg": 1.0, "sampler": "euler" },

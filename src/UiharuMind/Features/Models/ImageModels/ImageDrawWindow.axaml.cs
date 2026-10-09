@@ -37,6 +37,8 @@ public partial class ImageDrawWindow : Window
             AppPaths.Data.Images);
         window.DataContext = data;
         window.Closed += (_, _) => data.Dispose();
-        window.Show(owner);
+        // 主窗口收在托盘时不挂父窗口，否则 Show 直接抛
+        if (owner.IsVisible) window.Show(owner);
+        else window.Show();
     }
 }

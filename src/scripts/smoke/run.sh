@@ -16,6 +16,8 @@
 #   SMOKE_APP=路径    用这份产物跑（隐含不编译）。对照实验时把几个版本的产物各拷一份，轮流指过去
 #   SMOKE_CONTEXT=N   把副本里每个远程模型的上下文上限改成 N（用户填的值优先于预设表，三条压缩水位随之等比缩小），
 #                     长会话场景（如 handoff-cache）不必真把 1M 跑满；本地模型按实际加载值算，不受影响
+#   SMOKE_TIMEOUT_MINUTES=N  整场最多跑多久，默认 120，到点连本地引擎一起杀
+#   SMOKE_MIN_FREE_PERCENT=N 系统空闲内存（kern.memorystatus_level）跌破它就同样杀掉，默认 12
 #   SMOKE_MODEL=名字  主会话、子代理、群成员都用这个模型：注入到每个 session.new，按人数给每个 group.create 填满 models（没写的群成员也不再走卡上默认），
 #                     并把副本里两档子代理默认模型改成它（子代理不跟主会话走，没点名时用设置页配的那档）。
 #                     专门比模型的场景（如 persona-model-ab）别设它，会把对照组抹平
@@ -71,7 +73,26 @@ fi
 
 echo "输出目录：$out"
 # 脚本末步 quit 会直接结束进程：退出码不作数、bash 那句「Killed: 9」也吞掉，成败看报告
-( UIHARU_HOME="$out/home" "$APP" --dev-script "$out/scenario.jsonl" --dev-report "$out/report.json" > "$out/app.log" 2>&1 || true ) 2>/dev/null
+UIHARU_HOME="$out/home" "$APP" --dev-script "$out/scenario.jsonl" --dev-report "$out/report.json" > "$out/app.log" 2>&1 &
+app_pid=$!
+# 看门狗：超时或系统空闲内存跌破下限就连子进程（本地引擎）一起杀掉。本地生图曾把 16G 机器换页换到内核看门狗重启
+deadline=$(( $(date +%s) + ${SMOKE_TIMEOUT_MINUTES:-120} * 60 ))
+while kill -0 "$app_pid" 2> /dev/null; do
+    reason=""
+    [ "$(date +%s)" -ge "$deadline" ] && reason="超时"
+    level=$(sysctl -n kern.memorystatus_level 2> /dev/null || echo 100)
+    [ "$level" -lt "${SMOKE_MIN_FREE_PERCENT:-12}" ] && reason="空闲内存只剩 $level%"
+    if [ -n "$reason" ]; then
+        echo "看门狗：$reason，结束应用与本地引擎" | tee -a "$out/app.log" >&2
+        # 引擎装在隔离档案里，按路径认，不碰别的实例起的引擎
+        pkill -9 -f "$out/home/" 2> /dev/null || true
+        kill -9 "$app_pid" 2> /dev/null || true
+        break
+    fi
+    sleep 5
+done
+wait "$app_pid" 2> /dev/null || true
+pkill -9 -f "$out/home/" 2> /dev/null || true
 
 if [ ! -f "$out/report.json" ]; then
     echo "没有生成报告，看 $out/app.log" >&2
