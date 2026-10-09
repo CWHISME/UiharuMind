@@ -178,6 +178,21 @@ public class SdCppEngineTests : IDisposable
     }
 
     [Fact]
+    public async Task UnloadingTheModelBeingStarted_FailsAsMissingFiles_InsteadOfRestarting()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "fake server is a shell script");
+        using SdCppEngine engine = CreateEngine();
+        SdCppModelSetup model = Model("a", ("diffusion-model", Touch("a.gguf")));
+        Task<IReadOnlyList<byte[]>> run = engine.GenerateAsync(model, Request("x"), null, TestContext.Current.CancellationToken);
+        while (engine.Runtime.State != EEngineRunState.Starting && !run.IsCompleted) await Task.Delay(1);
+        Assert.False(run.IsCompleted, "server came up before it could be unloaded");
+
+        engine.UnloadIfLoaded(model);
+
+        await Assert.ThrowsAsync<SdCppModelMissingException>(() => run);
+    }
+
+    [Fact]
     public async Task RejectedAndFailedJobs_AreReportedAsSuch()
     {
         Assert.SkipWhen(OperatingSystem.IsWindows(), "fake server is a shell script");

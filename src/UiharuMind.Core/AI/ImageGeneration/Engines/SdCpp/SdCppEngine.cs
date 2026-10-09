@@ -25,6 +25,7 @@ public sealed partial class SdCppEngine : IDisposable
     private SdCppModelSetup? _requested; //下次起进程装哪个
     private string? _launched; //在跑的进程按什么起的（程序与参数）：模型、版本或启动设置变了就换进程
     private string? _launchedKey; //在跑的进程装的模型
+    private string? _unloadedKey; //正要删文件的模型：为它起的那次不再起
 
     /// <param name="settings">引擎设置</param>
     /// <param name="engineRoot">引擎包目录</param>
@@ -78,8 +79,8 @@ public sealed partial class SdCppEngine : IDisposable
         lock (_gate)
         {
             loaded = _launchedKey == model.Key || _requested?.Key == model.Key;
-            // 正在为它起的那次别再拿要删的文件重起：清掉请求，等着的那次直接失败
-            if (_requested?.Key == model.Key) _requested = null;
+            // 正在为它起的那次别再拿要删的文件重起，按缺组件失败（方言层归为这一家用不了）
+            if (_requested?.Key == model.Key) _unloadedKey = model.Key;
         }
 
         if (loaded) _host.Stop();
@@ -109,6 +110,10 @@ public sealed partial class SdCppEngine : IDisposable
         await _generation.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            // 排队期间可能被删了
+            missing = model.MissingFiles();
+            if (missing.Count > 0) throw new SdCppModelMissingException(model.Name, missing);
+
             using IDisposable use = _host.BeginUse();
             progress?.Report(new ImageProgress(EImageStage.Starting));
             Uri server = await GetServerAsync(model, cancellationToken).ConfigureAwait(false);
@@ -191,6 +196,7 @@ public sealed partial class SdCppEngine : IDisposable
         {
             restart = _launched != null && _launched != wanted;
             _requested = model;
+            _unloadedKey = null;
         }
 
         if (restart) _host.Stop();
@@ -202,7 +208,12 @@ public sealed partial class SdCppEngine : IDisposable
     {
         SdCppVersion version = Distribution.CurrentVersion ?? throw new LocalEngineNotReadyException();
         SdCppModelSetup model;
-        lock (_gate) model = _requested ?? throw new InvalidOperationException("No image model was requested.");
+        lock (_gate)
+        {
+            model = _requested ?? throw new InvalidOperationException("No image model was requested.");
+            if (model.Key == _unloadedKey)
+                throw new SdCppModelMissingException(model.Name, model.Components.Select(x => x.Path).ToList());
+        }
         LocalServerLaunch launch = BuildLaunch(version, model);
         lock (_gate)
         {
