@@ -16,6 +16,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using AvaloniaEdit;
 using AvaloniaEdit.Document;
+using AvaloniaEdit.Editing;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Utils;
@@ -66,6 +67,7 @@ public partial class TextFileWindow : QuickWindowBase
         };
         DocumentView.PreviewChanged += (_, preview) => PreviewButton.IsChecked = preview;
         DocumentView.TextView.Editor.TextArea.Caret.PositionChanged += (_, _) => UpdateCaretStatus();
+        DocumentView.TextView.Editor.TextArea.SelectionChanged += (_, _) => UpdateCaretStatus();
         // 全局偏好：别的文本窗改了设置，这个还开着的窗口跟着变。
         // 进缓存只是隐藏，订阅保留；被缓存淘汰真关时在 OnClosed 退订，否则设置单例会把整扇窗连同预览树钉住
         _setting.PropertyChanged += OnGlobalSettingChanged;
@@ -364,8 +366,17 @@ public partial class TextFileWindow : QuickWindowBase
         if (CaretButton == null) return;
         CaretButton.IsVisible = !_document.IsReadOnly;
         if (_document.IsReadOnly) return;
-        TextViewPosition caret = DocumentView.TextView.Editor.TextArea.Caret.Position;
-        CaretTextBlock.Text = Loc.Text(LangKey.TextFileStatusCaretFormat, caret.Line, caret.Column);
+        TextArea area = DocumentView.TextView.Editor.TextArea;
+        string text = Loc.Text(LangKey.TextFileStatusCaretFormat, area.Caret.Line, area.Caret.Column);
+        Selection selection = area.Selection;
+        if (!selection.IsEmpty)
+        {
+            // 起点是按下的那头、终点是光标那头，往上拖时终点在前
+            int lines = Math.Abs(selection.EndPosition.Line - selection.StartPosition.Line) + 1;
+            text += Loc.Text(LangKey.TextFileStatusSelectionFormat, selection.Length, lines);
+        }
+
+        CaretTextBlock.Text = text;
     }
 
     /// <summary>按第一行的行尾报换行符（编辑器原样保留行尾，新敲的换行也跟着文档已有的走）；只有一行时不报</summary>

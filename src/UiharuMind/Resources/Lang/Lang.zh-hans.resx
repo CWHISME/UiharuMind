@@ -3057,6 +3057,9 @@
     <data name="TextFileStatusCaretFormat" xml:space="preserve">
         <value>行 {0}，列 {1}</value>
     </data>
+    <data name="TextFileStatusSelectionFormat" xml:space="preserve">
+        <value>（{0} 字符，{1} 行）</value>
+    </data>
     <data name="TextFileStatusChars" xml:space="preserve">
         <value>字符</value>
     </data>

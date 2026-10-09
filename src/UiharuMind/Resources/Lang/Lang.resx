@@ -3064,6 +3064,9 @@ Allow them?</value>
     <data name="TextFileStatusCaretFormat" xml:space="preserve">
         <value>Ln {0}, Col {1}</value>
     </data>
+    <data name="TextFileStatusSelectionFormat" xml:space="preserve">
+        <value> ({0} chars, {1} lines)</value>
+    </data>
     <data name="TextFileStatusChars" xml:space="preserve">
         <value>chars</value>
     </data>

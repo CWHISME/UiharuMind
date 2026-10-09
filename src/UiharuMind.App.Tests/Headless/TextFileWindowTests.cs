@@ -301,6 +301,28 @@ public sealed class TextFileWindowTests : IDisposable
         Assert.False(window.FindControl<Button>("CaretButton")!.IsVisible);
     });
 
+    /// <summary>选中文字时行列后面跟上选了多少字符、跨几行</summary>
+    [Fact]
+    public void Selection_IsCountedInTheCaretReadout() => HeadlessUi.RunAsync(async () =>
+    {
+        TextFileWindow window = await OpenFile("select.cs", "abc\ndef\nghi\n");
+        AvaloniaEdit.TextEditor editor = Editor(window).Editor;
+
+        editor.Select(1, 6); //"bc\ndef"
+
+        string readout = window.FindControl<TextBlock>("CaretTextBlock")!.Text!;
+        Assert.EndsWith(Loc.Text(LangKey.TextFileStatusSelectionFormat, 6, 2), readout);
+
+        // 往上拖：起点在后、终点在前
+        editor.TextArea.Selection = AvaloniaEdit.Editing.Selection.Create(editor.TextArea, 7, 1);
+        Assert.EndsWith(Loc.Text(LangKey.TextFileStatusSelectionFormat, 6, 2),
+            window.FindControl<TextBlock>("CaretTextBlock")!.Text);
+
+        editor.Select(0, 0);
+        Assert.Equal(Loc.Text(LangKey.TextFileStatusCaretFormat, editor.TextArea.Caret.Line, editor.TextArea.Caret.Column),
+            window.FindControl<TextBlock>("CaretTextBlock")!.Text);
+    });
+
     private sealed class FakeLiveText(string initial) : ILiveText
     {
         private readonly List<Action<string>> _subscribers = new();
