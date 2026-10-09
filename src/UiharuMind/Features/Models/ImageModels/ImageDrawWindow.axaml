@@ -18,6 +18,50 @@
             <StackPanel Spacing="10">
                 <TextBox Text="{Binding Prompt}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" MaxHeight="160"
                          PlaceholderText="{loc:Loc ImageDrawPromptPlaceholder}" />
+                <!-- 参考图：有就是改图，第一张是要改的那张 -->
+                <StackPanel Orientation="Horizontal" Spacing="8" IsEnabled="{Binding !IsGenerating}">
+                    <ItemsControl ItemsSource="{Binding References.Items}" IsVisible="{Binding References.HasItems}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="8" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="images:ImageDrawReference">
+                                <Panel Width="56" Height="56" ToolTip.Tip="{Binding FileName}">
+                                    <Border CornerRadius="6" ClipToBounds="True" BorderThickness="1"
+                                            BorderBrush="{DynamicResource SemiGrey3}">
+                                        <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                                    </Border>
+                                    <Button Classes="NoneStyle" Cursor="Hand" Padding="0" Margin="0,3,3,0" MinHeight="0" MinWidth="0"
+                                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                                            ToolTip.Tip="{loc:Loc ImageDrawRemoveReference}"
+                                            Command="{Binding $parent[ItemsControl].((images:ImageDrawViewData)DataContext).References.RemoveCommand}"
+                                            CommandParameter="{Binding}">
+                                        <!-- 底色画在 Border 上：NoneStyle 的模板不画按钮背景，深色图上光一个叉看不见 -->
+                                        <Border Width="16" Height="16" CornerRadius="8" BorderThickness="1"
+                                                Background="{DynamicResource SemiGrey0}"
+                                                BorderBrush="{DynamicResource SemiGrey3}">
+                                            <controls:ThemedSvgIcon Width="9" Height="9" IconName="x" />
+                                        </Border>
+                                    </Button>
+                                </Panel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Button Width="56" Height="56" Padding="0" CornerRadius="6" Cursor="Hand"
+                            Background="Transparent" BorderThickness="1" BorderBrush="{DynamicResource SemiGrey3}"
+                            ToolTip.Tip="{loc:Loc ImageDrawAddReference}"
+                            Command="{Binding AddReferencesCommand}" IsVisible="{Binding References.CanAdd}">
+                        <controls:ThemedSvgIcon Width="18" Height="18" IconName="plus" Opacity="0.6" />
+                    </Button>
+                    <TextBlock Text="{loc:Loc ImageDrawAddReference}" Classes="muted" FontSize="12"
+                               VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="320"
+                               IsVisible="{Binding !References.HasItems}" />
+                </StackPanel>
+                <TextBlock Text="{Binding CannotEditHint}" FontSize="12" TextWrapping="Wrap"
+                           Foreground="{DynamicResource SemiOrange5}"
+                           IsVisible="{Binding CannotEditHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                 <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
                     <TextBlock Text="{loc:Loc ImageDrawModel}" VerticalAlignment="Center" />
                     <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding Models}"
@@ -66,6 +110,8 @@
                     <TextBlock Text="{Binding StatusText}" Classes="muted" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding StatusText}" />
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" IsVisible="{Binding HasResult}">
+                        <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="image-edit"
+                                          ToolTip.Tip="{loc:Loc ImageDrawEditResult}" Command="{Binding EditResultCommand}" />
                         <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="copy"
                                           ToolTip.Tip="{loc:Loc Copy}" Command="{Binding CopyCommand}" />
                         <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="save"

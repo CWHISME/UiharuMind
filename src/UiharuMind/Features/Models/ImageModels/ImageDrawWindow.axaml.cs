@@ -1,9 +1,14 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform.Storage;
 using UiharuMind.Core.AI.ImageGeneration;
 using UiharuMind.Core.Core;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Models.ImageModels;
@@ -17,6 +22,10 @@ public partial class ImageDrawWindow : Window
     public ImageDrawWindow()
     {
         InitializeComponent();
+        // 整窗接拖放：拖进来的图当参考图
+        DragDrop.SetAllowDrop(this, true);
+        AddHandler(DragDrop.DragOverEvent, OnDragOver);
+        AddHandler(DragDrop.DropEvent, OnDrop);
     }
 
     /// <summary>
@@ -33,12 +42,31 @@ public partial class ImageDrawWindow : Window
                 path => App.Clipboard.CopyImageToClipboard(new Bitmap(path)),
                 path => App.FilesService.SaveImageAsync(new Bitmap(path), window, Path.GetFileName(path)),
                 FileOpener.OpenPreviewImage,
-                path => App.FilesService.OpenFolder(Path.GetDirectoryName(path) ?? path)),
+                path => App.FilesService.OpenFolder(Path.GetDirectoryName(path) ?? path),
+                () => App.FilesService.SelectFilesAsync(window, Loc.Text(LangKey.ImageDrawReferences),
+                    "*.png", "*.jpg", "*.jpeg", "*.webp")),
             AppPaths.Data.Images);
         window.DataContext = data;
         window.Closed += (_, _) => data.Dispose();
         // 主窗口收在托盘时不挂父窗口，否则 Show 直接抛
         if (owner.IsVisible) window.Show(owner);
         else window.Show();
+    }
+
+    private void OnDragOver(object? sender, DragEventArgs e)
+    {
+        if (!e.DataTransfer.Formats.Any(f => f == DataFormat.File)) return;
+        e.DragEffects = DragDropEffects.Copy;
+        e.Handled = true;
+    }
+
+    private async void OnDrop(object? sender, DragEventArgs e)
+    {
+        if (DataContext is not ImageDrawViewData data || data.IsGenerating) return;
+        List<string> paths = e.DataTransfer.Items
+            .Select(x => (x.TryGetRaw(DataFormat.File) as IStorageItem)?.TryGetLocalPath())
+            .OfType<string>().ToList();
+        e.Handled = true;
+        await data.References.AddAsync(paths);
     }
 }

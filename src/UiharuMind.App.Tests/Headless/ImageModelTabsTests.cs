@@ -186,11 +186,11 @@ public class ImageModelTabsTests : IDisposable
                 if (calls == 1) return Task.FromResult(new ImageGenerationReport { Images = [new GeneratedImage(png, "image/png")] });
                 token.Register(() => pending.TrySetCanceled(token));
                 return pending.Task;
-            }, new ImageDrawActions(_ => { }, _ => Task.CompletedTask, _ => { }, _ => { }), output);
+            }, new ImageDrawActions(_ => { }, _ => Task.CompletedTask, _ => { }, _ => { }, () => Task.FromResult<IReadOnlyList<string>>([])), output);
 
             Assert.False(draw.GenerateCommand.CanExecute(null));
             draw.Prompt = "  a red fox ";
-            draw.SelectedRatio = new ImageAspectRatio(16, 9);
+            draw.SelectedRatio = draw.Ratios.Single(x => x.Value == new ImageAspectRatio(16, 9));
             await draw.GenerateCommand.ExecuteAsync(null);
 
             Assert.True(draw.HasResult);
@@ -227,7 +227,7 @@ public class ImageModelTabsTests : IDisposable
                             MemoryShortfall = new EngineMemoryShortfall(12L << 30, 4L << 30)
                         }
                     });
-            }, new ImageDrawActions(_ => { }, _ => Task.CompletedTask, _ => { }, _ => { }),
+            }, new ImageDrawActions(_ => { }, _ => Task.CompletedTask, _ => { }, _ => { }, () => Task.FromResult<IReadOnlyList<string>>([])),
                 Path.Combine(_root, "images")) { Prompt = "fox" };
 
             await draw.GenerateCommand.ExecuteAsync(null);
@@ -239,6 +239,54 @@ public class ImageModelTabsTests : IDisposable
             Assert.Equal([false, true], attempts);
             Assert.False(draw.HasMemoryRisk);
             Assert.True(draw.HasResult);
+            draw.Dispose();
+        });
+    }
+
+    [Fact]
+    public void Draw_WithReferences_EditsOnlyWithEditingModel_AndCanContinueFromResult()
+    {
+        HeadlessUi.RunAsync(async () =>
+        {
+            ImageModelInfo painter = new() { Name = "painter", Endpoint = "https://x", ModelId = "m", SupportsEditing = false };
+            ImageModelInfo editor = new() { Name = "editor", Endpoint = "https://x", ModelId = "e" };
+            string output = Path.Combine(_root, "images");
+            Directory.CreateDirectory(_root);
+            byte[] png = TinyPng();
+            string reference = Path.Combine(_root, "ref.png");
+            File.WriteAllBytes(reference, png);
+            List<ImageRequest> requests = [];
+            ImageDrawViewData draw = new([painter, editor], painter, (_, request, _, _) =>
+                {
+                    requests.Add(request);
+                    return Task.FromResult(new ImageGenerationReport { Images = [new GeneratedImage(png, "image/png")] });
+                },
+                new ImageDrawActions(_ => { }, _ => Task.CompletedTask, _ => { }, _ => { },
+                    () => Task.FromResult<IReadOnlyList<string>>([reference, Path.Combine(_root, "notes.txt")])),
+                output);
+            draw.Prompt = "make it blue";
+            Assert.Null(draw.SelectedRatio.Value); //默认自动：有参考图跟第一张的形状
+
+            await draw.AddReferencesCommand.ExecuteAsync(null);
+            Assert.Equal(reference, Assert.Single(draw.References.Items).Path); //不是图的跳过
+            Assert.False(draw.GenerateCommand.CanExecute(null)); //选的模型不能改图
+            Assert.Contains("painter", draw.CannotEditHint);
+
+            draw.SelectedModel = editor;
+            Assert.Equal("", draw.CannotEditHint);
+            await draw.GenerateCommand.ExecuteAsync(null);
+            ImageRequest edit = Assert.Single(requests);
+            Assert.True(edit.IsEdit);
+            Assert.Null(edit.AspectRatio);
+
+            await draw.EditResultCommand.ExecuteAsync(null);
+            Assert.Equal([draw.ResultPath!, reference], draw.References.Items.Select(x => x.Path));
+
+            draw.References.RemoveCommand.Execute(draw.References.Items[0]);
+            draw.References.RemoveCommand.Execute(draw.References.Items[0]);
+            Assert.False(draw.References.HasItems);
+            draw.SelectedModel = painter;
+            Assert.True(draw.GenerateCommand.CanExecute(null));
             draw.Dispose();
         });
     }

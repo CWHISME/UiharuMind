@@ -10,6 +10,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using UiharuMind.Core.AI.Character.PromptActions;
 using UiharuMind.Core.AI.ImageGeneration;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Generated;
@@ -30,11 +31,22 @@ public delegate Task<ImageGenerationReport> ImageDrawGenerator(ImageModelInfo mo
 /// <param name="SaveAs">另存为</param>
 /// <param name="Pin">钉住预览</param>
 /// <param name="OpenFolder">打开所在目录</param>
+/// <param name="PickImages">挑几张参考图，返回路径；取消为空</param>
 public sealed record ImageDrawActions(Action<string> Copy, Func<string, Task> SaveAs, Action<string> Pin,
-    Action<string> OpenFolder);
+    Action<string> OpenFolder, Func<Task<IReadOnlyList<string>>> PickImages);
 
 /// <summary>
-/// 画图窗口：只填提示词、挑一个生图模型，画好的存进档案的图片目录（以后的图库从这里读）。
+/// 出图比例的一个选项
+/// </summary>
+/// <param name="Value">比例；null 为自动（没参考图出方图，有参考图跟第一张的形状）</param>
+/// <param name="Label">显示名</param>
+public sealed record ImageRatioOption(ImageAspectRatio? Value, string Label)
+{
+    public override string ToString() => Label;
+}
+
+/// <summary>
+/// 画图窗口：填提示词、挑一个生图模型，带参考图就是改图；画好的存进档案的图片目录（以后的图库从这里读）。
 /// 选了谁就是谁，不回退——这里试的就是它
 /// </summary>
 public partial class ImageDrawViewData : ObservableObject, IDisposable
@@ -51,12 +63,13 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
     private string _prompt = "";
 
     [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(GenerateCommand))]
+    [NotifyPropertyChangedFor(nameof(CannotEditHint))]
     private ImageModelInfo? _selectedModel;
 
     [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(GenerateCommand))]
     private bool _isGenerating;
 
-    [ObservableProperty] private ImageAspectRatio _selectedRatio = ImageAspectRatio.Square;
+    [ObservableProperty] private ImageRatioOption _selectedRatio;
     [ObservableProperty] private string _statusText = "";
 
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasMemoryRisk))]
@@ -81,6 +94,14 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
         _outputDirectory = outputDirectory;
         _statusText = models.Count == 0 ? Loc.Text(LangKey.ImageDrawNoModel) : "";
         _clock.Tick += (_, _) => StatusText = Loc.Text(LangKey.ImageDrawWaiting, (int)_elapsed.Elapsed.TotalSeconds);
+        Ratios = [new ImageRatioOption(null, Loc.Text(LangKey.ImageDrawRatioAuto)),
+            ..ImageAspectRatio.Supported.Select(r => new ImageRatioOption(r, r.ToString()))];
+        _selectedRatio = Ratios[0];
+        References.Changed += () =>
+        {
+            GenerateCommand.NotifyCanExecuteChanged();
+            OnPropertyChanged(nameof(CannotEditHint));
+        };
     }
 
     /// <summary>
@@ -89,9 +110,21 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
     public IReadOnlyList<ImageModelInfo> Models { get; }
 
     /// <summary>
-    /// 可选的出图比例（各家都支持的那几种，宽高由引擎按模型基准边长换算）
+    /// 可选的出图比例：自动 + 各家都支持的那几种（宽高由引擎按模型基准边长换算）
     /// </summary>
-    public IReadOnlyList<ImageAspectRatio> Ratios => ImageAspectRatio.Supported;
+    public IReadOnlyList<ImageRatioOption> Ratios { get; }
+
+    /// <summary>
+    /// 参考图：有就是改图
+    /// </summary>
+    public ImageDrawReferences References { get; } = new();
+
+    /// <summary>
+    /// 带了参考图、选的模型却不能改图时的提示；能出图为空串
+    /// </summary>
+    public string CannotEditHint => References.HasItems && SelectedModel is { SupportsEditing: false } model
+        ? Loc.Text(LangKey.ImageDrawCannotEdit, model.Name)
+        : "";
 
     /// <summary>
     /// 画好了一张
@@ -108,12 +141,14 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
         _clock.Stop();
         _running?.Cancel();
         Image?.Dispose();
+        References.Dispose();
     }
 
-    private bool CanGenerate() => !IsGenerating && SelectedModel != null && !string.IsNullOrWhiteSpace(Prompt);
+    private bool CanGenerate() => !IsGenerating && SelectedModel != null && !string.IsNullOrWhiteSpace(Prompt)
+                                  && (!References.HasItems || SelectedModel.SupportsEditing);
 
     [RelayCommand(CanExecute = nameof(CanGenerate))]
-    private Task Generate() => RunAsync(SelectedModel!, new ImageRequest(Prompt.Trim(), [], SelectedRatio));
+    private Task Generate() => RunAsync(SelectedModel!, new ImageRequest(Prompt.Trim(), [], SelectedRatio.Value));
 
     // 内存不够的那次，用户看过提示后照样加载
     [RelayCommand]
@@ -133,6 +168,19 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
         if (!model.IsLocal) _clock.Start();
         try
         {
+            // 参考图出图时才读；「仍然加载」重试的那次已经带着
+            if (request.Images.Count == 0 && References.HasItems)
+            {
+                (List<ImageInput> inputs, string? unreadable) = await References.LoadAsync();
+                if (unreadable != null)
+                {
+                    StatusText = Loc.Text(LangKey.ImageDrawReferenceUnreadable, unreadable);
+                    return;
+                }
+
+                request = request with { Images = inputs };
+            }
+
             // 在界面线程上建，进度回调就回到界面线程
             Progress<ImageProgress> progress = new(OnProgress);
             ImageGenerationReport report = await _generate(model, request, progress, _running.Token);
@@ -169,6 +217,13 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
             IsGenerating = false;
         }
     }
+
+    [RelayCommand]
+    private async Task AddReferences() => await References.AddAsync(await _actions.PickImages());
+
+    // 拿画好的这张接着改：放到最前，它就是要改的那张
+    [RelayCommand]
+    private Task EditResult() => ResultPath != null ? References.AddAsync([ResultPath], asFirst: true) : Task.CompletedTask;
 
     // 在算的停不下来，取消会停掉本地引擎（下次重新加载）
     [RelayCommand]

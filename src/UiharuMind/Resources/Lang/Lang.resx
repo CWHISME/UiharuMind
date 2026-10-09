@@ -5536,6 +5536,27 @@ Allow them?</value>
     <data name="ImageDrawRatio" xml:space="preserve">
         <value>Aspect</value>
     </data>
+    <data name="ImageDrawRatioAuto" xml:space="preserve">
+        <value>Auto</value>
+    </data>
+    <data name="ImageDrawReferences" xml:space="preserve">
+        <value>References</value>
+    </data>
+    <data name="ImageDrawAddReference" xml:space="preserve">
+        <value>Add reference images (or drop them onto this window). The first one is the image to edit.</value>
+    </data>
+    <data name="ImageDrawEditResult" xml:space="preserve">
+        <value>Keep editing this image</value>
+    </data>
+    <data name="ImageDrawRemoveReference" xml:space="preserve">
+        <value>Remove</value>
+    </data>
+    <data name="ImageDrawCannotEdit" xml:space="preserve">
+        <value>{0} cannot edit images. Pick a model that supports editing, or remove the references.</value>
+    </data>
+    <data name="ImageDrawReferenceUnreadable" xml:space="preserve">
+        <value>Cannot read reference image {0}. It may have been moved or deleted.</value>
+    </data>
     <data name="ImageDrawGenerate" xml:space="preserve">
         <value>Generate</value>
     </data>

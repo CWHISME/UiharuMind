@@ -5529,6 +5529,27 @@
     <data name="ImageDrawRatio" xml:space="preserve">
         <value>比例</value>
     </data>
+    <data name="ImageDrawRatioAuto" xml:space="preserve">
+        <value>自动</value>
+    </data>
+    <data name="ImageDrawReferences" xml:space="preserve">
+        <value>参考图</value>
+    </data>
+    <data name="ImageDrawAddReference" xml:space="preserve">
+        <value>添加参考图（也可以直接拖进窗口）。第一张是要改的图，其余作参考</value>
+    </data>
+    <data name="ImageDrawEditResult" xml:space="preserve">
+        <value>以这张为底继续改</value>
+    </data>
+    <data name="ImageDrawRemoveReference" xml:space="preserve">
+        <value>移除</value>
+    </data>
+    <data name="ImageDrawCannotEdit" xml:space="preserve">
+        <value>{0} 不能改图，换一个支持改图的模型，或去掉参考图</value>
+    </data>
+    <data name="ImageDrawReferenceUnreadable" xml:space="preserve">
+        <value>读不了参考图 {0}，可能已被移走或删除</value>
+    </data>
     <data name="ImageDrawGenerate" xml:space="preserve">
         <value>生成</value>
     </data>

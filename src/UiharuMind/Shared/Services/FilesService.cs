@@ -113,6 +113,23 @@ public class FilesService //: IStorageFolder
         return files;
     }
 
+    /// <summary>
+    /// 一次挑多个文件
+    /// </summary>
+    /// <param name="owner">父窗口</param>
+    /// <param name="filterName">筛选名</param>
+    /// <param name="patterns">扩展名模式，如 *.png</param>
+    /// <returns>挑中的本地路径；取消为空</returns>
+    public async Task<IReadOnlyList<string>> SelectFilesAsync(Window owner, string filterName, params string[] patterns)
+    {
+        IReadOnlyList<IStorageFile> files = await owner.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            AllowMultiple = true,
+            FileTypeFilter = [new FilePickerFileType(filterName) { Patterns = patterns }],
+        });
+        return files.Select(x => x.TryGetLocalPath()).OfType<string>().ToList();
+    }
+
     public async Task<Uri?> SaveFileAsync(Window owner, string defaultName)
     {
         var file = await owner.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions()

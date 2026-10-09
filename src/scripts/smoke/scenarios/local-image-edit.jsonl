@@ -1,0 +1,5 @@
+{"op":"image.download","args":{"family":"flux2-klein-4b"}}
+{"op":"model.wait","args":{"timeoutMinutes":240}}
+{"op":"image.draw","args":{"model":"FLUX.2 klein 4B","prompt":"A small fox sitting on a crescent moon, watercolor style, starry night sky","timeoutMinutes":20,"copyTo":"{{OUT}}/draw.png"}}
+{"op":"image.draw","args":{"model":"FLUX.2 klein 4B","prompt":"Make the fox blue, keep everything else unchanged","images":["{{OUT}}/draw.png"],"timeoutMinutes":20,"copyTo":"{{OUT}}/edit.png"}}
+{"op":"quit"}
