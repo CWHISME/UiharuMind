@@ -47,8 +47,38 @@ public partial class TextFileWindow
             e.Handled = true;
             return;
         }
+        if (e.Key == Key.G && cmd != 0 && CaretButton.IsVisible)
+        {
+            CaretButton.Flyout!.ShowAt(CaretButton);
+            e.Handled = true;
+            return;
+        }
 
         base.OnKeyDown(e);
+    }
+
+    private void GoToLineFlyout_Opened(object? sender, EventArgs e)
+    {
+        int lineCount = DocumentView.TextView.Editor.Document?.LineCount ?? 1;
+        GoToLineBox.Watermark = Loc.Text(LangKey.TextFileGoToLineHintFormat, lineCount);
+        GoToLineBox.Text = string.Empty;
+        GoToLineBox.Focus();
+    }
+
+    private void GoToLineBox_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            CaretButton.Flyout!.Hide();
+            e.Handled = true;
+            return;
+        }
+        if (e.Key != Key.Enter) return;
+
+        e.Handled = true;
+        if (!int.TryParse(GoToLineBox.Text?.Trim(), out int line)) return;
+        CaretButton.Flyout!.Hide();
+        DocumentView.GoToLine(line);
     }
 
     /// <summary>整窗拖放（对照 ConversationView）：只在文件拖放时介入并亮起蒙版</summary>

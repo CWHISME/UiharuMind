@@ -71,15 +71,45 @@
             </TextBlock>
         </DockPanel>
 
-        <!-- 原文与 Markdown 预览：看法的切换、定位与跟底都在组件里 -->
-        <controls:TextDocumentView Name="DocumentView" Grid.Row="1" />
+        <DockPanel Grid.Row="1">
+            <!-- 磁盘上的文件被外部改了或删了（智能体改了正开着的文件）：有未保存改动时才停下来问，
+                 没改动的直接重新载入、不出这条 -->
+            <Border Name="DiskChangeBar" DockPanel.Dock="Top" IsVisible="False" Margin="0,0,0,6"
+                    Padding="10,6" CornerRadius="6" BorderThickness="1"
+                    BorderBrush="{DynamicResource SemiOrange5}" Background="{DynamicResource SemiOrange1}">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" Margin="12,0,0,0">
+                        <Button Name="ReloadFromDiskButton" Classes="Small Primary"
+                                Content="{loc:Loc TextFileDiskReload}" Click="ReloadFromDiskButton_Click" />
+                        <Button Classes="Small Tertiary" Content="{loc:Loc TextFileDiskKeepMine}"
+                                Click="KeepMineButton_Click" />
+                    </StackPanel>
+                    <TextBlock Name="DiskChangeText" FontSize="13" VerticalAlignment="Center"
+                               TextWrapping="Wrap" />
+                </DockPanel>
+            </Border>
+            <!-- 原文与 Markdown 预览：看法的切换、定位与跟底都在组件里 -->
+            <controls:TextDocumentView Name="DocumentView" />
+        </DockPanel>
 
         <!-- 底部状态栏：左路径（只读文本是它的来源）、右编码 / 行数 / 字符数 / 文件大小。
              编辑区自带细框定界，这里不再另画分隔线，字色走主题灰 -->
-        <Grid Grid.Row="2" Margin="0,6,0,-5" ColumnDefinitions="*,Auto">
+        <Grid Grid.Row="2" Margin="0,6,0,-5" ColumnDefinitions="*,Auto,Auto">
             <TextBlock Name="PathTextBlock" FontSize="12" Foreground="{DynamicResource SemiGrey5}"
                        VerticalAlignment="Center" TextTrimming="PathSegmentEllipsis" />
-            <TextBlock Name="StatusTextBlock" Grid.Column="1" FontSize="12"
+            <!-- 光标行列：点它或 Ctrl+G 跳到行。只读文本喂给编辑器的是硬切过的副本，行号对不上原文，不显示 -->
+            <Button Name="CaretButton" Grid.Column="1" Classes="NoneStyle" Cursor="Hand"
+                    Margin="12,0,0,0" VerticalAlignment="Center" Focusable="False"
+                    ToolTip.Tip="{loc:Loc TextFileGoToLine}">
+                <TextBlock Name="CaretTextBlock" FontSize="12" FontWeight="Normal" VerticalAlignment="Center"
+                           Foreground="{DynamicResource SemiGrey5}" />
+                <Button.Flyout>
+                    <Flyout Placement="TopEdgeAlignedRight" Opened="GoToLineFlyout_Opened">
+                        <TextBox Name="GoToLineBox" Width="180" KeyDown="GoToLineBox_KeyDown" />
+                    </Flyout>
+                </Button.Flyout>
+            </Button>
+            <TextBlock Name="StatusTextBlock" Grid.Column="2" FontSize="12"
                        Foreground="{DynamicResource SemiGrey5}"
                        VerticalAlignment="Center" Margin="12,0,0,0" />
         </Grid>

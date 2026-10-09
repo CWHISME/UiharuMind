@@ -1,4 +1,5 @@
 using System;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
 
@@ -59,6 +60,20 @@ public partial class TextDocumentView : UserControl
     }
 
     /// <summary>
+    /// 原地换掉可编辑档的全文，两种看法都留在原来的位置（外部改了文件、重新载入时用）
+    /// </summary>
+    /// <param name="text">新全文</param>
+    public void ReplaceText(string text)
+    {
+        TextView.ReplaceText(text);
+        if (!IsPreview) return;
+
+        Vector offset = PreviewHost.Offset;
+        ShowPreview(true);
+        Dispatcher.UIThread.Post(() => PreviewHost.Offset = offset, DispatcherPriority.ApplicationIdle);
+    }
+
+    /// <summary>
     /// 切预览或原文。切到预览时渲染最新的原文，太长的退化成纯文本档
     /// </summary>
     /// <param name="preview">是否看预览</param>
@@ -88,6 +103,20 @@ public partial class TextDocumentView : UserControl
     {
         ShowPreview(false);
         Dispatcher.UIThread.Post(TextView.OpenSearch, DispatcherPriority.ApplicationIdle);
+    }
+
+    /// <summary>
+    /// 跳到某一行并把焦点交给编辑器（Ctrl+G）。预览态先切回原文，等布局落地再跳
+    /// </summary>
+    /// <param name="lineNumber">1 起算的行号，越界按首尾夹取</param>
+    public void GoToLine(int lineNumber)
+    {
+        ShowPreview(false);
+        Dispatcher.UIThread.Post(() =>
+        {
+            TextView.ScrollToLine(lineNumber);
+            TextView.Editor.Focus();
+        }, DispatcherPriority.ApplicationIdle);
     }
 
     /// <summary>

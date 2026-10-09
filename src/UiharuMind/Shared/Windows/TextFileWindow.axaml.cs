@@ -14,6 +14,8 @@ using System.Text;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
+using AvaloniaEdit;
+using AvaloniaEdit.Document;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Utils;
@@ -35,7 +37,7 @@ namespace UiharuMind.Shared.Windows;
 ///
 /// 分工：这份文档是什么（来源、编码、改没改）归 <see cref="TextFileDocument"/>；原文与预览两种看法、
 /// 定位与跟底归 <see cref="TextDocumentView"/>；本文件只管装载与显示，保存在 <c>TextFileWindow.Saving.cs</c>，
-/// 按钮、菜单、快捷键与拖放在 <c>TextFileWindow.Actions.cs</c>。
+/// 按钮、菜单、快捷键与拖放在 <c>TextFileWindow.Actions.cs</c>，磁盘上被外部改了的处理在 <c>TextFileWindow.Watching.cs</c>。
 ///
 /// 保存走 <see cref="TextFileCodec"/>：原编码、原 BOM 写回，行尾不归一；原编码存不下的字先问要不要改存 UTF-8。
 /// 关闭前未保存有三态确认（保存 / 不保存 / 取消，见 <see cref="EConfirmChoice"/>）。
@@ -63,6 +65,7 @@ public partial class TextFileWindow : QuickWindowBase
             UpdateStatusBar();
         };
         DocumentView.PreviewChanged += (_, preview) => PreviewButton.IsChecked = preview;
+        DocumentView.TextView.Editor.TextArea.Caret.PositionChanged += (_, _) => UpdateCaretStatus();
         // 全局偏好：别的文本窗改了设置，这个还开着的窗口跟着变。
         // 进缓存只是隐藏，订阅保留；被缓存淘汰真关时在 OnClosed 退订，否则设置单例会把整扇窗连同预览树钉住
         _setting.PropertyChanged += OnGlobalSettingChanged;
@@ -73,6 +76,7 @@ public partial class TextFileWindow : QuickWindowBase
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
         AddHandler(DragDrop.DropEvent, OnDrop);
+        Activated += OnWindowActivated;
     }
 
     public override void Awake()
@@ -240,6 +244,7 @@ public partial class TextFileWindow : QuickWindowBase
         ApplyGlobalSettings();
         DocumentView.Load(text, isEditable: !document.IsReadOnly, preview, lineNumber);
         _suppressDirty = false;
+        ResetDiskTracking();
 
         UpdateTitle();
         RefreshDirtyState();
@@ -339,7 +344,10 @@ public partial class TextFileWindow : QuickWindowBase
             : view.Editor.Document?.LineCount ?? 0;
         int chars = view.Text?.Length ?? 0;
         string counts = $"{lines} {Loc.Text(LangKey.TextFileStatusLines)} · {chars} {Loc.Text(LangKey.TextFileStatusChars)}";
-        string text = _document.IsReadOnly ? counts : $"{_document.EncodingDisplay} · {counts}";
+        string? lineEnding = _document.IsReadOnly ? null : GetLineEndingName(view.Editor.Document);
+        string text = _document.IsReadOnly ? counts
+            : lineEnding == null ? $"{_document.EncodingDisplay} · {counts}"
+            : $"{_document.EncodingDisplay} · {lineEnding} · {counts}";
         if (_document.FilePath != null)
         {
             long size = 0;
@@ -348,6 +356,25 @@ public partial class TextFileWindow : QuickWindowBase
         }
 
         StatusTextBlock.Text = text;
+        UpdateCaretStatus();
+    }
+
+    private void UpdateCaretStatus()
+    {
+        if (CaretButton == null) return;
+        CaretButton.IsVisible = !_document.IsReadOnly;
+        if (_document.IsReadOnly) return;
+        TextViewPosition caret = DocumentView.TextView.Editor.TextArea.Caret.Position;
+        CaretTextBlock.Text = Loc.Text(LangKey.TextFileStatusCaretFormat, caret.Line, caret.Column);
+    }
+
+    /// <summary>按第一行的行尾报换行符（编辑器原样保留行尾，新敲的换行也跟着文档已有的走）；只有一行时不报</summary>
+    private static string? GetLineEndingName(TextDocument? document)
+    {
+        if (document == null || document.LineCount < 2) return null;
+        DocumentLine first = document.GetLineByNumber(1);
+        if (first.DelimiterLength == 2) return "CRLF";
+        return document.GetCharAt(first.EndOffset) == '\r' ? "CR" : "LF";
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)
@@ -369,12 +396,14 @@ public partial class TextFileWindow : QuickWindowBase
         base.OnPreClose();
         // 缓存窗口只是隐藏、不释放——跟读的源条目可能已随会话切换被丢弃，必须退订
         StopLive();
+        StopWatchingDisk();
     }
 
     protected override void OnClosed(EventArgs e)
     {
         _setting.PropertyChanged -= OnGlobalSettingChanged;
         StopLive();
+        StopWatchingDisk();
         base.OnClosed(e);
     }
 }

@@ -3048,6 +3048,15 @@
     <data name="TextFileStatusLines" xml:space="preserve">
         <value>行</value>
     </data>
+    <data name="TextFileGoToLine" xml:space="preserve">
+        <value>跳到行（Ctrl+G）</value>
+    </data>
+    <data name="TextFileGoToLineHintFormat" xml:space="preserve">
+        <value>行号，1–{0}</value>
+    </data>
+    <data name="TextFileStatusCaretFormat" xml:space="preserve">
+        <value>行 {0}，列 {1}</value>
+    </data>
     <data name="TextFileStatusChars" xml:space="preserve">
         <value>字符</value>
     </data>
@@ -3119,6 +3128,24 @@
     </data>
     <data name="TextFileFileMissing" xml:space="preserve">
         <value>文件不存在</value>
+    </data>
+    <data name="TextFileDiskChanged" xml:space="preserve">
+        <value>文件在磁盘上被改过了，这里还有未保存的改动。</value>
+    </data>
+    <data name="TextFileDiskDeleted" xml:space="preserve">
+        <value>文件在磁盘上被删除了，保存会重新创建它。</value>
+    </data>
+    <data name="TextFileDiskReload" xml:space="preserve">
+        <value>重新载入</value>
+    </data>
+    <data name="TextFileDiskKeepMine" xml:space="preserve">
+        <value>保留我的</value>
+    </data>
+    <data name="TextFileDiskOverwriteConfirm" xml:space="preserve">
+        <value>文件在你打开后被改过了，要用这里的内容覆盖吗？</value>
+    </data>
+    <data name="TextFileDiskReloadFailed" xml:space="preserve">
+        <value>重新载入失败：</value>
     </data>
     <data name="TextFileReadOnlySuffix" xml:space="preserve">
         <value>（只读）</value>

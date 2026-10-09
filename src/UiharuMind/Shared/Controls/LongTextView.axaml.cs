@@ -451,6 +451,24 @@ public partial class LongTextView : UserControl
     }
 
     /// <summary>
+    /// 原地换掉可编辑档的全文（磁盘上的文件被外部改了、重新载入时用）：光标与滚动位置留在原处，
+    /// 换前的内容进撤销栈，按一下撤销就能拿回来
+    /// </summary>
+    /// <param name="text">新全文</param>
+    public void ReplaceText(string text)
+    {
+        TextDocument document = Editor.Document;
+        TextLocation caret = Editor.TextArea.Caret.Location;
+        double verticalOffset = Editor.VerticalOffset;
+        document.Replace(0, document.TextLength, text);
+
+        int line = Math.Min(caret.Line, document.LineCount);
+        int column = Math.Min(caret.Column, document.GetLineByNumber(line).Length + 1);
+        Editor.CaretOffset = document.GetOffset(line, column);
+        ProgrammaticScroll(() => Editor.ScrollToVerticalOffset(verticalOffset));
+    }
+
+    /// <summary>
     /// 复制全文。复制的是原始 <see cref="Text"/> 而非文档内容——
     /// 只读档的文档里带着 <see cref="LongLineWrapper"/> 硬切进去的换行，那不该进剪贴板
     /// </summary>

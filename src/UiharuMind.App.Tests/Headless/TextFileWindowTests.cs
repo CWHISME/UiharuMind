@@ -231,6 +231,76 @@ public sealed class TextFileWindowTests : IDisposable
         Assert.False(window.FindControl<ThemedIconToggleButton>("PreviewButton")!.IsChecked);
     });
 
+    /// <summary>智能体改了正开着、没动过的文件：原地重新载入，不算改动、不出提示</summary>
+    [Fact]
+    public void ExternalChange_ReloadsACleanDocumentInPlace() => HeadlessUi.RunAsync(async () =>
+    {
+        TextFileWindow window = await OpenFile("clean.cs", "class A {}\n");
+        await File.WriteAllTextAsync(Path.Combine(_dir, "clean.cs"), "class A { int b; }\n");
+
+        await window.CheckDiskChangeAsync();
+
+        Assert.Equal("class A { int b; }\n", Editor(window).Text);
+        Assert.False(MenuItemNamed(window, "SaveMenuItem").IsEnabled);
+        Assert.False(window.FindControl<Border>("DiskChangeBar")!.IsVisible);
+    });
+
+    /// <summary>有未保存改动时不替人做主：留着编辑器里的内容，出提示让人选</summary>
+    [Fact]
+    public void ExternalChange_OnADirtyDocument_AsksInsteadOfReloading() => HeadlessUi.RunAsync(async () =>
+    {
+        TextFileWindow window = await OpenFile("dirty.cs", "class A {}\n");
+        Editor(window).Editor.Document.Insert(0, "// mine\n");
+        await File.WriteAllTextAsync(Path.Combine(_dir, "dirty.cs"), "class A { int theirs; }\n");
+
+        await window.CheckDiskChangeAsync();
+
+        Assert.StartsWith("// mine", Editor(window).Text);
+        Assert.True(window.FindControl<Border>("DiskChangeBar")!.IsVisible);
+        Assert.True(window.FindControl<Button>("ReloadFromDiskButton")!.IsVisible);
+    });
+
+    [Fact]
+    public void FileDeletedOnDisk_KeepsTheTextAndSaysSo() => HeadlessUi.RunAsync(async () =>
+    {
+        TextFileWindow window = await OpenFile("gone.cs", "class A {}\n");
+        File.Delete(Path.Combine(_dir, "gone.cs"));
+
+        await window.CheckDiskChangeAsync();
+
+        Assert.Equal("class A {}\n", Editor(window).Text);
+        Assert.True(window.FindControl<Border>("DiskChangeBar")!.IsVisible);
+        Assert.False(window.FindControl<Button>("ReloadFromDiskButton")!.IsVisible);
+    });
+
+    [Fact]
+    public void StatusBar_ShowsTheFilesLineEnding() => HeadlessUi.RunAsync(async () =>
+    {
+        TextFileWindow crlf = await OpenFile("crlf.cs", "class A\r\n{\r\n}\r\n");
+        TextFileWindow lf = await OpenFile("lf.cs", "class A\n{\n}\n");
+
+        Assert.Contains(" · CRLF · ", crlf.FindControl<TextBlock>("StatusTextBlock")!.Text);
+        Assert.Contains(" · LF · ", lf.FindControl<TextBlock>("StatusTextBlock")!.Text);
+    });
+
+    /// <summary>跳到行后光标行列跟着变；只读文本的编辑器里是硬切过的副本，行号对不上原文，不显示</summary>
+    [Fact]
+    public void GoToLine_MovesTheCaret_AndTheReadoutFollows() => HeadlessUi.RunAsync(async () =>
+    {
+        TextFileWindow window = await OpenFile("goto.cs", "a\nb\nc\nd\n");
+        Dispatcher.UIThread.RunJobs();
+
+        View(window).GoToLine(3);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(3, Editor(window).Editor.TextArea.Caret.Line);
+        Assert.Equal(Loc.Text(LangKey.TextFileStatusCaretFormat, 3, 1),
+            window.FindControl<TextBlock>("CaretTextBlock")!.Text);
+
+        window.SetTextSource("Shell · 结果", "output", null, null);
+        Assert.False(window.FindControl<Button>("CaretButton")!.IsVisible);
+    });
+
     private sealed class FakeLiveText(string initial) : ILiveText
     {
         private readonly List<Action<string>> _subscribers = new();

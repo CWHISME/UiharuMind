@@ -33,9 +33,11 @@ public partial class TextFileWindow
 
         string text = DocumentView.TextView.Text ?? string.Empty;
         if (!await EnsureEncodableAsync(text)) return false;
+        if (!await ConfirmOverwriteDiskChangeAsync(_document.FilePath)) return false;
         try
         {
             await TextFileCodec.WriteTextAsync(_document.FilePath, text, _document.Encoding, _document.HasBom, default);
+            OnSavedToDisk();
             _document.IsDirty = false;
             RefreshDirtyState();
             RefreshMenuStates();
@@ -96,6 +98,7 @@ public partial class TextFileWindow
         if (!_document.IsReadOnly)
         {
             _document.MoveTo(uri.LocalPath);
+            ResetDiskTracking();
             DocumentView.LinkBaseDirectory = _document.LinkBaseDirectory;
             ApplyGlobalSettings(); //扩展名可能变了，高亮按新路径重算
             RefreshDirtyState();
