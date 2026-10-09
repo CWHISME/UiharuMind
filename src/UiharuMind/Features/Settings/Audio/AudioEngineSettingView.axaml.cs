@@ -1,29 +1,27 @@
-using Avalonia.Controls;
-using Avalonia.Interactivity;
 using UiharuMind.Features.Models;
+using UiharuMind.Features.Settings.Engines;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.Features.Settings.Audio;
 
 /// <summary>
-/// 本地模型（语音）页
+/// 本地模型（语音）页：骨架见 <see cref="LocalEngineSettingView"/>，这里只给文案与运行参数
 /// </summary>
-public partial class AudioEngineSettingView : UserControl
+public sealed class AudioEngineSettingView : LocalEngineSettingView
 {
+    private static readonly LocalEngineSettingTexts Texts = new(LangKey.AudioEngineTitle, LangKey.AudioEngineDesc,
+        LangKey.AudioModelsTitle, LangKey.AudioModelsDesc, LangKey.AudioManageModels, LangKey.AudioManageModelsDesc,
+        LangKey.AudioManageModelsBtn, LangKey.AudioRuntimeTitle, LangKey.AudioRuntimeDesc);
+
     public AudioEngineSettingView() : this(App.ViewModel.GetViewModel<SettingViewModel>().AudioEngineSettingData)
     {
     }
 
     /// <param name="viewModel">页数据（无头测试自备）</param>
-    public AudioEngineSettingView(AudioEngineSettingData viewModel)
+    public AudioEngineSettingView(AudioEngineSettingData viewModel) : base(Texts, "AudioEngineSetting", viewModel.Engine,
+        new AudioCppRuntimeSettingsView { DataContext = viewModel.Runtime },
+        () => App.ShowMainPage<ModelPageData>(MenuPages.MenuModelKey)?.ShowAudioModels())
     {
-        InitializeComponent();
-        DataContext = viewModel;
-    }
-
-    // 跳到主窗口模型页的「语音模型」页签
-    private void OnManageModelsClick(object? sender, RoutedEventArgs e)
-    {
-        App.ShowMainPage<ModelPageData>(MenuPages.MenuModelKey)?.ShowAudioModels();
     }
 }

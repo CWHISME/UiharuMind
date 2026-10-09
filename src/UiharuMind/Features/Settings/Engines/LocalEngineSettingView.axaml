@@ -1,0 +1,38 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:engines="clr-namespace:UiharuMind.Features.Settings.Engines"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             x:Class="UiharuMind.Features.Settings.Engines.LocalEngineSettingView">
+
+    <UserControl.Styles>
+        <Style Selector="NumericUpDown.runtime-field">
+            <Setter Property="Width" Value="180" />
+            <Setter Property="FormatString" Value="0" />
+            <Setter Property="Increment" Value="1" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </UserControl.Styles>
+
+    <!-- 语音、生图引擎页的骨架：引擎卡、去模型页管模型的入口、运行参数（各引擎自己的行），文案由页面给 -->
+    <ScrollViewer x:Name="Scroller" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="22">
+            <controls:SettingsSection x:Name="EngineSection">
+                <controls:SettingsSection.Body>
+                    <engines:EngineVersionsView x:Name="EngineCard" />
+                </controls:SettingsSection.Body>
+            </controls:SettingsSection>
+
+            <controls:SettingsSection x:Name="ModelsSection">
+                <controls:SettingsSection.Body>
+                    <controls:SettingsRow x:Name="ManageModelsRow" DividerVisible="False">
+                        <controls:SettingsRow.Field>
+                            <Button x:Name="ManageModelsButton" Click="OnManageModelsClick" />
+                        </controls:SettingsRow.Field>
+                    </controls:SettingsRow>
+                </controls:SettingsSection.Body>
+            </controls:SettingsSection>
+
+            <controls:SettingsSection x:Name="RuntimeSection" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

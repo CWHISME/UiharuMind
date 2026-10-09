@@ -1,0 +1,43 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:audio="clr-namespace:UiharuMind.Features.Settings.Audio"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             x:Class="UiharuMind.Features.Settings.Audio.AudioCppRuntimeSettingsView"
+             x:DataType="audio:AudioCppRuntimeSettingsViewData">
+    <StackPanel>
+        <controls:SettingsRow Header="{loc:Loc AudioForceCpu}" Description="{loc:Loc AudioForceCpuDesc}">
+            <controls:SettingsRow.Field>
+                <ToggleSwitch IsChecked="{Binding ForceCpu}" />
+            </controls:SettingsRow.Field>
+        </controls:SettingsRow>
+        <controls:SettingsRow Header="{loc:Loc ModelRuntimeThreads}" Description="{loc:Loc AudioThreadsDesc}">
+            <controls:SettingsRow.Field>
+                <NumericUpDown Classes="runtime-field" Minimum="1" Maximum="512" Value="{Binding Threads}" />
+            </controls:SettingsRow.Field>
+        </controls:SettingsRow>
+        <controls:SettingsRow Header="{loc:Loc AudioMaxLoadedModels}" Description="{loc:Loc AudioMaxLoadedModelsDesc}">
+            <controls:SettingsRow.Field>
+                <NumericUpDown Classes="runtime-field" Minimum="1" Maximum="16" Value="{Binding MaxLoadedModels}" />
+            </controls:SettingsRow.Field>
+        </controls:SettingsRow>
+        <controls:SettingsRow Header="{loc:Loc AudioIdleUnload}" Description="{loc:Loc AudioIdleUnloadDesc}">
+            <controls:SettingsRow.Field>
+                <NumericUpDown Classes="runtime-field" Minimum="1" Maximum="1440" Value="{Binding IdleUnloadMinutes}" />
+            </controls:SettingsRow.Field>
+        </controls:SettingsRow>
+        <controls:SettingsRow Header="{loc:Loc AudioMinFreeMemory}" Description="{loc:Loc AudioMinFreeMemoryDesc}">
+            <controls:SettingsRow.Field>
+                <NumericUpDown Classes="runtime-field" Minimum="0" Maximum="65536" Increment="512"
+                               Value="{Binding MinFreeMemoryMb}" />
+            </controls:SettingsRow.Field>
+        </controls:SettingsRow>
+        <controls:SettingsRow Header="{loc:Loc EngineLoadTimeout}" Description="{loc:Loc AudioReadyTimeoutDesc}"
+                              DividerVisible="False">
+            <controls:SettingsRow.Field>
+                <NumericUpDown Classes="runtime-field" Minimum="10" Maximum="600" Increment="10"
+                               Value="{Binding ReadyTimeoutSeconds}" />
+            </controls:SettingsRow.Field>
+        </controls:SettingsRow>
+    </StackPanel>
+</UserControl>

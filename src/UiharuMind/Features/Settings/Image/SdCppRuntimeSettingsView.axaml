@@ -1,0 +1,68 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:image="clr-namespace:UiharuMind.Features.Settings.Image"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             x:Class="UiharuMind.Features.Settings.Image.SdCppRuntimeSettingsView"
+             x:DataType="image:SdCppRuntimeSettingsViewData">
+    <StackPanel>
+        <controls:SettingsRow Header="{loc:Loc ImageForceCpu}" Description="{loc:Loc ImageForceCpuDesc}">
+            <controls:SettingsRow.Field>
+                <ToggleSwitch IsChecked="{Binding ForceCpu}" />
+            </controls:SettingsRow.Field>
+        </controls:SettingsRow>
+        <controls:SettingsRow Header="{loc:Loc ImageOffloadToCpu}" Description="{loc:Loc ImageOffloadToCpuDesc}">
+            <controls:SettingsRow.Field>
+                <ToggleSwitch IsChecked="{Binding OffloadToCpu}" />
+            </controls:SettingsRow.Field>
+        </controls:SettingsRow>
+        <controls:SettingsRow Header="{loc:Loc ImageDiffusionFa}" Description="{loc:Loc ImageDiffusionFaDesc}">
+            <controls:SettingsRow.Field>
+                <ToggleSwitch IsChecked="{Binding DiffusionFlashAttention}" />
+            </controls:SettingsRow.Field>
+        </controls:SettingsRow>
+        <controls:SettingsRow Header="{loc:Loc ImageVaeTiling}" Description="{loc:Loc ImageVaeTilingDesc}">
+            <controls:SettingsRow.Field>
+                <ToggleSwitch IsChecked="{Binding VaeTiling}" />
+            </controls:SettingsRow.Field>
+        </controls:SettingsRow>
+        <controls:SettingsRow Header="{loc:Loc ImageClipOnCpu}" Description="{loc:Loc ImageClipOnCpuDesc}">
+            <controls:SettingsRow.Field>
+                <ToggleSwitch IsChecked="{Binding ClipOnCpu}" />
+            </controls:SettingsRow.Field>
+        </controls:SettingsRow>
+        <controls:SettingsRow Header="{loc:Loc ImageMemoryMap}" Description="{loc:Loc ImageMemoryMapDesc}">
+            <controls:SettingsRow.Field>
+                <ToggleSwitch IsChecked="{Binding MemoryMap}" />
+            </controls:SettingsRow.Field>
+        </controls:SettingsRow>
+        <controls:SettingsRow Header="{loc:Loc ModelRuntimeThreads}" Description="{loc:Loc ImageThreadsDesc}">
+            <controls:SettingsRow.Field>
+                <NumericUpDown Classes="runtime-field" Minimum="0" Maximum="512" Value="{Binding Threads}" />
+            </controls:SettingsRow.Field>
+        </controls:SettingsRow>
+        <controls:SettingsRow Header="{loc:Loc ImageIdleStop}" Description="{loc:Loc ImageIdleStopDesc}">
+            <controls:SettingsRow.Field>
+                <NumericUpDown Classes="runtime-field" Minimum="0" Maximum="1440" Value="{Binding IdleStopMinutes}" />
+            </controls:SettingsRow.Field>
+        </controls:SettingsRow>
+        <controls:SettingsRow Header="{loc:Loc EngineLoadTimeout}" Description="{loc:Loc ImageLoadTimeoutDesc}">
+            <controls:SettingsRow.Field>
+                <NumericUpDown Classes="runtime-field" Minimum="30" Maximum="3600" Increment="30"
+                               Value="{Binding LoadTimeoutSeconds}" />
+            </controls:SettingsRow.Field>
+        </controls:SettingsRow>
+        <controls:SettingsRow Header="{loc:Loc ImageGenerationTimeout}" Description="{loc:Loc ImageGenerationTimeoutDesc}">
+            <controls:SettingsRow.Field>
+                <NumericUpDown Classes="runtime-field" Minimum="30" Maximum="7200" Increment="30"
+                               Value="{Binding GenerationTimeoutSeconds}" />
+            </controls:SettingsRow.Field>
+        </controls:SettingsRow>
+        <controls:SettingsRow Header="{loc:Loc ImageExtraArgs}" Description="{loc:Loc ImageExtraArgsDesc}"
+                              DividerVisible="False">
+            <controls:SettingsRow.Field>
+                <TextBox Width="260" Text="{Binding ExtraArguments, UpdateSourceTrigger=LostFocus}" />
+            </controls:SettingsRow.Field>
+        </controls:SettingsRow>
+    </StackPanel>
+</UserControl>

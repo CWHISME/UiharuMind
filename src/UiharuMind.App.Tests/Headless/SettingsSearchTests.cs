@@ -42,6 +42,14 @@ public class SettingsSearchTests : IDisposable
             SetKeyword(searchBox, Loc.Text(LangKey.ShortcutsSetting));
             Assert.Contains(SearchHits(resultList), hit => hit.PageTitleKey == "ShortcutsSetting");
 
+            // 本地引擎页：骨架里代码绑的行（管理模型）与插进来的运行参数行，页没打开过也要搜得到
+            SetKeyword(searchBox, Loc.Text(LangKey.AudioManageModels));
+            Assert.Contains(SearchHits(resultList),
+                hit => hit.PageTitleKey == "AudioEngineSetting" && hit.Row.Header == Loc.Text(LangKey.AudioManageModels));
+            SetKeyword(searchBox, Loc.Text(LangKey.AudioMaxLoadedModels));
+            Assert.Contains(SearchHits(resultList),
+                hit => hit.PageTitleKey == "AudioEngineSetting" && hit.Row.Header == Loc.Text(LangKey.AudioMaxLoadedModels));
+
             // TODO(白露迁完 Agent): 补「TabControl 未选中 Tab 里的行」断言，
             // 现在 Agent 页还没用 SettingsRow，索引里自然没有它
         });
