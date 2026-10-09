@@ -94,6 +94,7 @@ public partial class ModelRuntimeOverridesViewData : ObservableObject
     private readonly Func<RuntimeLoadRisk> _analyzeRisk;
     private bool _syncingGpuMode; //层数与取法互相回填时防重入
     private int _lastCustomGpuLayers;
+    private readonly bool _hasLayerCount; //读得到模型层数才判「GPU 层太少」
 
     [ObservableProperty] private SettingChoice<EGpuLayerMode> _selectedGpuLayerMode;
 
@@ -126,6 +127,7 @@ public partial class ModelRuntimeOverridesViewData : ObservableObject
             overrides?.KvCacheType is { } cacheType ? CacheTypeIndex(cacheType) : null,
             x => LLamaCppServerOptions.CacheTypes[x]);
 
+        _hasLayerCount = maxGpuLayers > 0;
         _lastCustomGpuLayers = GpuLayers.Value > 0 ? GpuLayers.Value : MaxGpuLayers;
         _selectedGpuLayerMode = GpuLayerModeOptions[(int)ModeOf(GpuLayers.Value)];
         foreach (OverridableIntSetting setting in new[]
@@ -207,6 +209,14 @@ public partial class ModelRuntimeOverridesViewData : ObservableObject
     public bool IsCustomGpuLayers => SelectedGpuLayerMode.Value == EGpuLayerMode.Custom;
 
     /// <summary>
+    /// 指定的 GPU 层数不到模型一半时的提醒（大部分层在 CPU 上跑，慢不少）；不需要提醒为空
+    /// </summary>
+    public string GpuLayersWarning =>
+        _hasLayerCount && GpuLayers.Value > 0 && GpuLayers.Value < MaxGpuLayers / 2
+            ? Loc.Text(LangKey.ModelParamsFewGpuLayers, GpuLayers.Value, MaxGpuLayers)
+            : "";
+
+    /// <summary>
     /// 按生效参数估算的占用与风险
     /// </summary>
     public string EstimateText
@@ -259,6 +269,7 @@ public partial class ModelRuntimeOverridesViewData : ObservableObject
         });
         _save();
         OnPropertyChanged(nameof(EstimateText));
+        OnPropertyChanged(nameof(GpuLayersWarning));
     }
 
     private static int CacheTypeIndex(string cacheType) =>

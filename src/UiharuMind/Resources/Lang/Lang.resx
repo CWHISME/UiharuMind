@@ -771,9 +771,6 @@
     <data name="CheckingForUpdates" xml:space="preserve">
         <value>Checking for updates...</value>
     </data>
-    <data name="ModelRuntimeChangeHint" xml:space="preserve">
-        <value>Changing runtime engine or parameters does not affect the currently running local model. Reload the model to apply changes.</value>
-    </data>
     <data name="ModelRuntimeSectionTitle" xml:space="preserve">
         <value>Local model runtime</value>
     </data>
@@ -821,21 +818,6 @@
     </data>
     <data name="ModelRuntimeQuickSettings" xml:space="preserve">
         <value>Local runtime settings</value>
-    </data>
-    <data name="ModelRuntimeEstimatedMemoryUsage" xml:space="preserve">
-        <value>Estimated memory usage</value>
-    </data>
-    <data name="ModelRuntimeBeta" xml:space="preserve">
-        <value>Beta</value>
-    </data>
-    <data name="ModelRuntimeTotalMemory" xml:space="preserve">
-        <value>Total</value>
-    </data>
-    <data name="ModelRuntimeContextLimitHint" xml:space="preserve">
-        <value>The model-supported maximum will be shown after the GGUF metadata is available.</value>
-    </data>
-    <data name="ModelRuntimeShowAdvancedSettings" xml:space="preserve">
-        <value>Show advanced settings</value>
     </data>
     <data name="Plaintext" xml:space="preserve">
         <value>Plaintext</value>
@@ -2180,12 +2162,6 @@
     <data name="ServicesEmbeddingStartFailed" xml:space="preserve">
         <value>Embedding startup failed</value>
     </data>
-    <data name="ModelRuntimeAvailableMemory" xml:space="preserve">
-        <value>Available</value>
-    </data>
-    <data name="ModelRuntimeRiskLevel" xml:space="preserve">
-        <value>Risk</value>
-    </data>
     <data name="ModelRuntimeRiskLow" xml:space="preserve">
         <value>Low</value>
     </data>
@@ -2197,9 +2173,6 @@
     </data>
     <data name="ModelRuntimeRiskUnknown" xml:space="preserve">
         <value>Unknown</value>
-    </data>
-    <data name="ModelRuntimeRiskDetailFormat" xml:space="preserve">
-        <value>Estimated total: {0}&#x0a;KV cache: {1}&#x0a;Reason: {2}</value>
     </data>
     <data name="ModelRuntimeLoadRiskConfirmTitle" xml:space="preserve">
         <value>Confirm local model load</value>
@@ -4410,6 +4383,9 @@ Allow them?</value>
     </data>
     <data name="ModelParamsDone" xml:space="preserve">
         <value>Done</value>
+    </data>
+    <data name="ModelParamsFewGpuLayers" xml:space="preserve">
+        <value>Only {0} of {1} layers are on the GPU; the rest run on the CPU and will be much slower. Choose Auto unless memory is tight.</value>
     </data>
     <data name="ModelParamsGlobalSettings" xml:space="preserve">
         <value>Global settings…</value>
