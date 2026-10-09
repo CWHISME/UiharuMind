@@ -4,11 +4,11 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:services="clr-namespace:UiharuMind.Features.Models"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
-             xmlns:common="clr-namespace:UiharuMind.Shared.Controls"
               mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
               x:Class="UiharuMind.Features.Conversation.Pages.ModelSelectComboBoxView"
                              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
-             xmlns:usage="clr-namespace:UiharuMind.Features.Models.Usage">
+             xmlns:usage="clr-namespace:UiharuMind.Features.Models.Usage"
+             xmlns:models="clr-namespace:UiharuMind.Features.Models">
 
     <Design.DataContext>
         <services:ModelService />
@@ -69,15 +69,10 @@
         <usage:LocalUsageIndicator Grid.Column="2" ShowsModel="True" VerticalAlignment="Center"
                                    ModelName="{Binding CurModelRunningData.ModelName, FallbackValue={x:Null}}" />
 
-        <ThemedIconButton Grid.Column="3" VerticalAlignment="Center" IconName="settings"  ToolTips="{loc:Loc ModelRuntimeQuickSettings}">
+        <ThemedIconButton Name="ParamsButton" Grid.Column="3" VerticalAlignment="Center" IconName="settings"  ToolTips="{loc:Loc ModelRuntimeQuickSettings}">
             <ThemedIconButton.Flyout>
-                <Flyout Placement="BottomEdgeAlignedRight">
-                    <Border Width="540"
-                            Height="460"
-                            Padding="0"
-                            ClipToBounds="True">
-                        <common:ModelRuntimeBasicSettingsView />
-                    </Border>
+                <Flyout Placement="BottomEdgeAlignedRight" Opened="OnParamsFlyoutOpened">
+                    <models:ModelQuickParamsView Name="QuickParams" GlobalSettingsRequested="OnGlobalSettingsRequested" />
                 </Flyout>
             </ThemedIconButton.Flyout>
         </ThemedIconButton>

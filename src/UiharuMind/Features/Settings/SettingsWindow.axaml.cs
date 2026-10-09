@@ -82,6 +82,9 @@ public partial class SettingsWindow : UiharuWindowBase
     /// </summary>
     public void ShowDownloadSourceSettings() => SelectByTitleKey("DownloadSourceSetting");
 
+    /// <summary>直接切到「本地模型（文本）」页（对话页模型栏的快捷参数跳过来时用）</summary>
+    public void ShowTextEngineSettings() => SelectByTitleKey("RuntimeEngineSetting");
+
     /// <summary>直接切到「本地模型（语音）」页（模型页的语音模型页签跳过来时用）</summary>
     public void ShowAudioEngineSettings() => SelectByTitleKey("AudioEngineSetting");
 

@@ -3,12 +3,14 @@ using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
+using UiharuMind.Generated;
+using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Models.Usage;
 
 /// <summary>
-/// 本机资源读数：默认显示整机可用内存与 CPU（模型页右上角）；<see cref="ShowsModel"/> 时只显示 <see cref="ModelName"/>
-/// 这个本地对话模型的占用，它没在跑就藏起来（对话页模型栏）。点开都是同一张明细。
+/// 本机资源读数：默认显示整机可用内存与 CPU（模型页右上角）；<see cref="ShowsModel"/> 时优先显示 <see cref="ModelName"/>
+/// 这个本地对话模型的占用，它没在跑就退回整机余量（对话页模型栏）。点开都是同一张明细。
 /// 看得见时每隔几秒刷一次，页面藏着（视图常驻、只切可见性）就不刷
 /// </summary>
 public partial class LocalUsageIndicator : UserControl
@@ -54,7 +56,7 @@ public partial class LocalUsageIndicator : UserControl
     }
 
     /// <summary>
-    /// 只显示 <see cref="ModelName"/> 的占用，而不是整机余量
+    /// 优先显示 <see cref="ModelName"/> 的占用，它没在跑才显示整机余量
     /// </summary>
     public bool ShowsModel
     {
@@ -112,12 +114,11 @@ public partial class LocalUsageIndicator : UserControl
     {
         LocalUsageData? data = Data;
         Panel.DataContext = data;
-        string text = data == null
-            ? ""
-            : ShowsModel
-                ? data.RowOf(ModelName)?.Usage is { } usage ? LocalUsageRow.UsageText(usage) : ""
-                : data.Summary;
+        // 当前模型不是本地在跑的（远程、还没加载）就退回整机余量，读数常驻
+        string? modelReadout = ShowsModel ? data?.ModelReadout(ModelName) : null;
+        string text = modelReadout ?? data?.Summary ?? "";
         Readout.Text = text;
+        ToolTip.SetTip(Trigger, Loc.Text(modelReadout != null ? LangKey.LocalUsageModelTip : LangKey.LocalUsageTip));
         Dot.Tag = data?.PressureTag ?? "Ready";
         Trigger.IsVisible = text.Length > 0;
     }

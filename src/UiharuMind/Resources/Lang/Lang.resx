@@ -4486,6 +4486,18 @@ Allow them?</value>
     <data name="ModelParamsDone" xml:space="preserve">
         <value>Done</value>
     </data>
+    <data name="ModelParamsGlobalSettings" xml:space="preserve">
+        <value>Global settings…</value>
+    </data>
+    <data name="ModelParamsNoModel" xml:space="preserve">
+        <value>No model selected</value>
+    </data>
+    <data name="ModelParamsNoModelDesc" xml:space="preserve">
+        <value>Select a local model to adjust its runtime parameters here.</value>
+    </data>
+    <data name="ModelParamsRemoteDesc" xml:space="preserve">
+        <value>Remote models run on the provider side and have no local runtime parameters.</value>
+    </data>
     <data name="ModelParamsEstimate" xml:space="preserve">
         <value>Estimated usage with these parameters: {0}, risk: {1}</value>
     </data>
@@ -5013,6 +5025,9 @@ Allow them?</value>
     </data>
     <data name="EngineStatusMemoryGpu" xml:space="preserve">
         <value>using {0} GB · VRAM {1} GB</value>
+    </data>
+    <data name="LocalUsageModelOfTotalMemory" xml:space="preserve">
+        <value>{0} / {1} GB</value>
     </data>
     <data name="AudioEngineStatusStarting" xml:space="preserve">
         <value>The voice engine is starting…</value>
@@ -5636,13 +5651,16 @@ Allow them?</value>
         <value>image engine</value>
     </data>
     <data name="LocalUsageSummary" xml:space="preserve">
-        <value>{0} / {1} GB free · CPU {2}%</value>
+        <value>{0} / {1} GB · CPU {2}%</value>
     </data>
     <data name="LocalUsageSummaryMemory" xml:space="preserve">
-        <value>{0} / {1} GB free</value>
+        <value>{0} / {1} GB</value>
     </data>
     <data name="LocalUsageTip" xml:space="preserve">
         <value>Free memory and CPU on this machine; click for each local model's usage</value>
+    </data>
+    <data name="LocalUsageModelTip" xml:space="preserve">
+        <value>Memory used by the current model / total memory. Click for details</value>
     </data>
     <data name="LocalUsageMachineTitle" xml:space="preserve">
         <value>This machine</value>

@@ -1,0 +1,25 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="clr-namespace:UiharuMind.Features.Models"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             x:Class="UiharuMind.Features.Models.ModelQuickParamsView">
+    <!-- 对话页模型栏齿轮点开：当前模型自己的运行参数，没改的项跟随全局；远程模型只给一句说明 -->
+    <Grid Width="520" RowDefinitions="Auto,Auto,Auto">
+        <StackPanel Margin="16,12,16,8" Spacing="3">
+            <TextBlock Name="ModelNameText" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+            <TextBlock Name="DescText" Classes="muted" TextWrapping="Wrap" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" MaxHeight="400" HorizontalScrollBarVisibility="Disabled">
+            <models:ModelRuntimeOverridesView Name="Rows" Margin="16,0,16,12" />
+        </ScrollViewer>
+
+        <Border Grid.Row="2" Padding="12,10" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,1,0,0">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <Button Name="ResetAllButton" Content="{loc:Loc ModelParamsResetAll}" />
+                <Button Grid.Column="2" Classes="toolbar-link" Content="{loc:Loc ModelParamsGlobalSettings}"
+                        Click="OnGlobalSettingsClick" />
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

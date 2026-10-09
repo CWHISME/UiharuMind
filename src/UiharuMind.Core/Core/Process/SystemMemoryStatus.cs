@@ -39,6 +39,7 @@ public static class SystemMemoryStatusReader
     private const int HostVmInfo64 = 4;
     private const int VmStatistics64Count = 38; //sizeof(vm_statistics64_data_t) / sizeof(integer_t)
     private const int CompressorPageCountIndex = 32; //compressor_page_count 在第 33 个 integer_t
+    private const int SpeculativeCountIndex = 23; //speculative_count；free/active/inactive 是前三个
     private static readonly Lazy<uint> MachHost = new(mach_host_self); //每次要一个会漏端口
 
     /// <summary>
@@ -73,9 +74,7 @@ public static class SystemMemoryStatusReader
 
         long pageSize = SysctlInt("hw.pagesize");
         long compressed = 0;
-        int[] info = new int[VmStatistics64Count];
-        int count = info.Length;
-        if (pageSize > 0 && host_statistics64(MachHost.Value, HostVmInfo64, info, ref count) == 0)
+        if (pageSize > 0 && ReadVmStatistics() is { } info)
             compressed = (uint)info[CompressorPageCountIndex] * pageSize;
 
         // xsw_usage：total、avail、used 三个 uint64 打头
@@ -86,6 +85,24 @@ public static class SystemMemoryStatusReader
             swapUsed = (long)BitConverter.ToUInt64(swap, 16);
 
         return new SystemMemoryStatus(pressure, compressed, swapUsed);
+    }
+
+    /// <summary>
+    /// macOS 的空闲 + 非活跃 + 预读页（字节），即 vm_stat 那三行之和；直接问内核，不起 vm_stat 进程
+    /// </summary>
+    /// <returns>读不到为 null</returns>
+    internal static long? ReadMacFreeInactiveSpeculative()
+    {
+        long pageSize = SysctlInt("hw.pagesize");
+        if (pageSize <= 0 || ReadVmStatistics() is not { } info) return null;
+        return ((long)(uint)info[0] + (uint)info[2] + (uint)info[SpeculativeCountIndex]) * pageSize;
+    }
+
+    private static int[]? ReadVmStatistics()
+    {
+        int[] info = new int[VmStatistics64Count];
+        int count = info.Length;
+        return host_statistics64(MachHost.Value, HostVmInfo64, info, ref count) == 0 ? info : null;
     }
 
     private static SystemMemoryStatus ReadLinux()
@@ -104,7 +121,12 @@ public static class SystemMemoryStatusReader
     private static long ParseKb(string line) =>
         long.Parse(line[(line.IndexOf(':') + 1)..].Replace("kB", "").Trim()) * 1024;
 
-    private static long SysctlInt(string name)
+    /// <summary>
+    /// 读一个整数 sysctl（macOS）
+    /// </summary>
+    /// <param name="name">名字，如 hw.memsize</param>
+    /// <returns>读不到为 0</returns>
+    internal static long SysctlInt(string name)
     {
         byte[] value = new byte[8];
         nint size = value.Length;

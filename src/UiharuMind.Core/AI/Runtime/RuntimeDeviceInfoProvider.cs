@@ -7,6 +7,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using UiharuMind.Core.AI.Runtime.Backends;
+using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Runtime;
@@ -99,30 +100,14 @@ public static class RuntimeDeviceInfoProvider
         }
     }
 
+    // 全走 sysctl / host_statistics64 系统调用：这里每几秒就被读数刷一次，原先每次起 sysctl×3 + vm_stat 四个子进程
     private static (long Total, long Available) CaptureMacMemory()
     {
-        long total = TryReadMacSysctlInt64("hw.memsize");
-        long pageSize = TryReadMacSysctlInt64("hw.pagesize");
-        if (pageSize <= 0) pageSize = 4096;
-
-        string vmStat = RunCommand("vm_stat", "");
-        long freePages = 0;
-        long inactivePages = 0;
-        long speculativePages = 0;
-        foreach (string line in vmStat.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            if (line.StartsWith("Pages free:", StringComparison.OrdinalIgnoreCase))
-                freePages = ParseVmStatPages(line);
-            else if (line.StartsWith("Pages inactive:", StringComparison.OrdinalIgnoreCase))
-                inactivePages = ParseVmStatPages(line);
-            else if (line.StartsWith("Pages speculative:", StringComparison.OrdinalIgnoreCase))
-                speculativePages = ParseVmStatPages(line);
-        }
-
-        long available = (freePages + inactivePages + speculativePages) * pageSize;
+        long total = SystemMemoryStatusReader.SysctlInt("hw.memsize");
+        long available = SystemMemoryStatusReader.ReadMacFreeInactiveSpeculative() ?? 0;
         // 上面不含文件缓存与可压缩的内存，16G 的机器常只剩两三 G，按它判会把跑得动的模型拦下；
         // 内核自己的估计（memorystatus_level，可用百分比，内存压力就看它）把这些算进去，取两者大的
-        long level = TryReadMacSysctlInt64("kern.memorystatus_level");
+        long level = SystemMemoryStatusReader.SysctlInt("kern.memorystatus_level");
         if (level is > 0 and <= 100) available = Math.Max(available, total / 100 * level);
         return (total, available);
     }
@@ -189,7 +174,7 @@ public static class RuntimeDeviceInfoProvider
         try
         {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                return RunCommand("sysctl", "-n machdep.cpu.brand_string").Trim();
+                return RunCommand("sysctl", "-n machdep.cpu.brand_string").Trim(); //只探一次
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
                 return File.ReadLines("/proc/cpuinfo")
                     .FirstOrDefault(x => x.StartsWith("model name", StringComparison.OrdinalIgnoreCase))
@@ -230,12 +215,6 @@ public static class RuntimeDeviceInfoProvider
             false);
     }
 
-    private static long TryReadMacSysctlInt64(string name)
-    {
-        string output = RunCommand("sysctl", $"-n {name}").Trim();
-        return long.TryParse(output, out long value) ? value : 0;
-    }
-
     private static string RunCommand(string fileName, string arguments)
     {
         using Process process = new()
@@ -254,12 +233,6 @@ public static class RuntimeDeviceInfoProvider
         string output = process.StandardOutput.ReadToEnd();
         process.WaitForExit(1500);
         return output;
-    }
-
-    private static long ParseVmStatPages(string line)
-    {
-        string number = new(line.Where(char.IsDigit).ToArray());
-        return long.TryParse(number, out long value) ? value : 0;
     }
 
     private static long ParseMemInfoKb(string line)

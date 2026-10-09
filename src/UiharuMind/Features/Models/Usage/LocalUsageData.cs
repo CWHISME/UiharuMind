@@ -108,6 +108,7 @@ public partial class LocalUsageData : ObservableObject
     [ObservableProperty] private bool _isMemoryLow;
     [ObservableProperty] private IReadOnlyList<LocalUsageRow> _rows = [];
     [ObservableProperty] private bool _hasRows;
+    private long _totalMemoryBytes; //整机内存，模型读数「x / 总量」用
 
     /// <param name="entries">在跑的本地模型进程（界面线程上取）</param>
     /// <param name="device">本机内存（后台线程上取）</param>
@@ -166,6 +167,18 @@ public partial class LocalUsageData : ObservableObject
         modelName == null ? null : Rows.FirstOrDefault(x => x.Kind == ELocalEngineKind.Chat && x.Name == modelName);
 
     /// <summary>
+    /// 某个对话模型的读数「x / 整机总量 GB」，只给数字，CPU 等在明细里；独立显卡上另带显存，照 <see cref="LocalUsageRow.UsageText"/>
+    /// </summary>
+    /// <param name="modelName">模型名</param>
+    /// <returns>没在跑或还没读到占用为 null</returns>
+    public string? ModelReadout(string? modelName)
+    {
+        if (RowOf(modelName)?.Usage is not { } usage) return null;
+        if (usage.GpuMemoryBytes != null || _totalMemoryBytes <= 0) return LocalUsageRow.UsageText(usage);
+        return Loc.Text(LangKey.LocalUsageModelOfTotalMemory, Gb(usage.MemoryBytes), Gb(_totalMemoryBytes));
+    }
+
+    /// <summary>
     /// 系统不给压力档时（Windows、Linux）按可用占总量分档：低于两成警告，低于一成严重
     /// </summary>
     /// <param name="available">可用（字节）</param>
@@ -185,6 +198,7 @@ public partial class LocalUsageData : ObservableObject
     private void Apply(RuntimeDeviceInfo device, double? cpu, SystemMemoryStatus status,
         IReadOnlyList<LocalEngineEntry> entries, EngineUsage?[] usages)
     {
+        _totalMemoryBytes = device.TotalMemoryBytes;
         string available = Gb(device.AvailableMemoryBytes);
         string total = Gb(device.TotalMemoryBytes);
         int? cpuPercent = cpu is { } value ? (int)Math.Round(value) : null;

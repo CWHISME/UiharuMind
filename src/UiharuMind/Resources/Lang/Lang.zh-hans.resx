@@ -4479,6 +4479,18 @@
     <data name="ModelParamsDone" xml:space="preserve">
         <value>完成</value>
     </data>
+    <data name="ModelParamsGlobalSettings" xml:space="preserve">
+        <value>全局设置…</value>
+    </data>
+    <data name="ModelParamsNoModel" xml:space="preserve">
+        <value>还没选模型</value>
+    </data>
+    <data name="ModelParamsNoModelDesc" xml:space="preserve">
+        <value>选一个本地模型后，可在这里调它的运行参数。</value>
+    </data>
+    <data name="ModelParamsRemoteDesc" xml:space="preserve">
+        <value>远程模型由服务方运行，没有本地运行参数。</value>
+    </data>
     <data name="ModelParamsEstimate" xml:space="preserve">
         <value>按这些参数估算占用 {0}，风险：{1}</value>
     </data>
@@ -5006,6 +5018,9 @@
     </data>
     <data name="EngineStatusMemoryGpu" xml:space="preserve">
         <value>占用 {0} GB · 显存 {1} GB</value>
+    </data>
+    <data name="LocalUsageModelOfTotalMemory" xml:space="preserve">
+        <value>{0} / {1} GB</value>
     </data>
     <data name="AudioEngineStatusStarting" xml:space="preserve">
         <value>语音引擎正在启动…</value>
@@ -5629,13 +5644,16 @@
         <value>生图引擎</value>
     </data>
     <data name="LocalUsageSummary" xml:space="preserve">
-        <value>可用 {0} / {1} GB · CPU {2}%</value>
+        <value>{0} / {1} GB · CPU {2}%</value>
     </data>
     <data name="LocalUsageSummaryMemory" xml:space="preserve">
-        <value>可用 {0} / {1} GB</value>
+        <value>{0} / {1} GB</value>
     </data>
     <data name="LocalUsageTip" xml:space="preserve">
-        <value>本机可用内存与 CPU，点开看各本地模型的占用</value>
+        <value>本机可用内存 / 总量与 CPU，点开看各本地模型的占用</value>
+    </data>
+    <data name="LocalUsageModelTip" xml:space="preserve">
+        <value>当前模型占用 / 本机内存总量，点开看明细</value>
     </data>
     <data name="LocalUsageMachineTitle" xml:space="preserve">
         <value>本机</value>

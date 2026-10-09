@@ -1,10 +1,7 @@
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
-using UiharuMind.Core.AI.Models;
-using UiharuMind.Core.Configs;
 
 namespace UiharuMind.Features.Models;
 
@@ -17,14 +14,7 @@ public partial class ModelRuntimeOverridesWindow : Window
     /// <param name="model">本地模型</param>
     public static Task ShowWindow(Window owner, ModelRunningData model)
     {
-        ModelRuntimeSettingConfig config = ModelRuntimeSettingConfig.Current;
-        string name = model.ModelName;
-        ModelRuntimeOverridesWindow window = new()
-        {
-            DataContext = new ModelRuntimeOverridesViewData(name, config, config.Save,
-                () => LlmManager.Instance.AnalyzeLoadRisk(name), model.IsRunning,
-                (model.ModelInfo as GGufModelInfo)?.LayerCount ?? 0)
-        };
+        ModelRuntimeOverridesWindow window = new() { DataContext = ModelRuntimeOverridesView.CreateData(model) };
         return window.ShowDialog(owner);
     }
 

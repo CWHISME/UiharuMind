@@ -4,7 +4,7 @@
              xmlns:usage="clr-namespace:UiharuMind.Features.Models.Usage"
              x:Class="UiharuMind.Features.Models.Usage.LocalUsageIndicator">
     <!-- 一小段读数（整机余量，或某个对话模型的占用），点开是整机与各本地模型的明细、可逐个停 -->
-    <Button Name="Trigger" Classes="text-row" Padding="4,2" ToolTip.Tip="{loc:Loc LocalUsageTip}">
+    <Button Name="Trigger" Classes="text-row" Padding="4,2">
         <StackPanel Orientation="Horizontal" Spacing="6">
             <Border Name="Dot" Classes="status-dot" Tag="Ready" />
             <TextBlock Name="Readout" Classes="muted" FontSize="12" VerticalAlignment="Center"

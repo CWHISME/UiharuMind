@@ -56,4 +56,24 @@ public class SystemMemoryStatusTests
         Assert.True(status.CompressedBytes >= 0 && status.SwapUsedBytes >= 0, $"{status}");
         if (OperatingSystem.IsMacOS()) Assert.NotEqual(ESystemMemoryPressure.Unknown, status.Pressure);
     }
+
+    [Fact]
+    public void MacFreePages_MatchVmStat()
+    {
+        if (!OperatingSystem.IsMacOS()) return;
+        long? direct = SystemMemoryStatusReader.ReadMacFreeInactiveSpeculative();
+
+        using System.Diagnostics.Process vmStat = System.Diagnostics.Process.Start(
+            new System.Diagnostics.ProcessStartInfo("vm_stat") { RedirectStandardOutput = true })!;
+        string output = vmStat.StandardOutput.ReadToEnd();
+        long pageSize = SystemMemoryStatusReader.SysctlInt("hw.pagesize");
+        long pages = output.Split('\n')
+            .Where(x => x.StartsWith("Pages free:") || x.StartsWith("Pages inactive:") ||
+                        x.StartsWith("Pages speculative:"))
+            .Sum(x => long.Parse(new string(x.Where(char.IsDigit).ToArray())));
+
+        // 两次读之间页数会动，差在 5% 以内算对上
+        Assert.NotNull(direct);
+        Assert.InRange(direct.Value, pages * pageSize * 0.95, pages * pageSize * 1.05 + 64 * 1024 * 1024);
+    }
 }

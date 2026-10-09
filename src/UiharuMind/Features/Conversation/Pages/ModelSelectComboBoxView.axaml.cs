@@ -16,7 +16,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Avalonia.Markup.Xaml;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
+using System;
 using UiharuMind.Features.Models;
+using UiharuMind.Features.Settings;
+using UiharuMind.Shared.WindowManagement;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.AI.Models;
@@ -29,6 +32,16 @@ public partial class ModelSelectComboBoxView : UserControl
     {
         InitializeComponent();
         DataContext = App.ModelService;
+    }
+
+    // 每次弹出都按此刻的当前模型重建，弹出期间换模型的少见情形下次弹出再对上
+    private void OnParamsFlyoutOpened(object? sender, EventArgs e) =>
+        QuickParams.Show(App.ModelService.CurModelRunningData);
+
+    private void OnGlobalSettingsRequested()
+    {
+        ParamsButton.Flyout?.Hide();
+        UIManager.ShowWindow<SettingsWindow>(window => window.ShowTextEngineSettings());
     }
 
     /// <summary>

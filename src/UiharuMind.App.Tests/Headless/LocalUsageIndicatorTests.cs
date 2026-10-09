@@ -19,7 +19,7 @@ public sealed class LocalUsageIndicatorTests
     private const long Gib = 1L << 30;
 
     [Fact]
-    public void Machine_ShowsSummary_Model_ShowsOnlyWhileRunning() => HeadlessUi.RunAsync(async () =>
+    public void Machine_ShowsSummary_Model_FallsBackToMachineWhenNotRunning() => HeadlessUi.RunAsync(async () =>
     {
         List<LocalEngineEntry> entries =
             [new(ELocalEngineKind.Chat, "qwen", null, () => new EngineUsage(5 * Gib, 3), () => { })];
@@ -38,8 +38,8 @@ public sealed class LocalUsageIndicatorTests
         Dispatcher.UIThread.RunJobs();
 
         Assert.Equal(Loc.Text(LangKey.LocalUsageSummary, "9.0", "16.0", 12), Readout(machine).Text);
-        Assert.Equal(Loc.Text(LangKey.EngineStatusUsage, "5.0", 3), Readout(model).Text);
-        Assert.False(other.FindControl<Button>("Trigger")!.IsVisible);
+        Assert.Equal(Loc.Text(LangKey.LocalUsageModelOfTotalMemory, "5.0", "16.0"), Readout(model).Text);
+        Assert.Equal(Readout(machine).Text, Readout(other).Text);
         Capture(window, "local-usage-indicator");
 
         // 点开是明细：整机一段、每个本地模型一行带停止
@@ -58,8 +58,8 @@ public sealed class LocalUsageIndicatorTests
         entries.Clear();
         await data.RefreshAsync(true);
         Dispatcher.UIThread.RunJobs();
-        Assert.False(model.FindControl<Button>("Trigger")!.IsVisible);
-        Assert.True(machine.FindControl<Button>("Trigger")!.IsVisible);
+        Assert.True(model.FindControl<Button>("Trigger")!.IsVisible);
+        Assert.Equal(Readout(machine).Text, Readout(model).Text);
         window.Close();
     });
 
