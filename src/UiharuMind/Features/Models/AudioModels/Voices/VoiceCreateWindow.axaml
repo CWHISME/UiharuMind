@@ -143,7 +143,7 @@
                 <!-- 待存的这段：试听、文字、名字 -->
                 <Border Classes="result-panel" Padding="14,12" IsVisible="{Binding HasClip}">
                     <StackPanel Spacing="10">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
+                        <controls:BaselineStackPanel Spacing="8">
                             <Panel Width="28" Height="28">
                                 <ThemedIconButton Classes="row-action" CornerRadius="6" IconName="play"
                                                   ToolTip.Tip="{loc:Loc AudioPreviewTip}" IsVisible="{Binding !IsPlayingClip}"
@@ -154,7 +154,7 @@
                             </Panel>
                             <TextBlock Text="{loc:Loc VoiceClipLabel}" FontWeight="SemiBold" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding ClipInfo}" Classes="muted" VerticalAlignment="Center" />
-                        </StackPanel>
+                        </controls:BaselineStackPanel>
                         <TextBlock Text="{Binding ClipWarning}" Classes="warning" TextWrapping="Wrap"
                                    IsVisible="{Binding ClipWarning.Length}" />
 

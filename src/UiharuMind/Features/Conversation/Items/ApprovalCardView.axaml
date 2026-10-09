@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:items="clr-namespace:UiharuMind.Features.Conversation.Items"
@@ -24,16 +25,16 @@
             ConverterParameter=-10}"
             BorderBrush="{DynamicResource SemiOrange5}" BorderThickness="1.5">
         <StackPanel Spacing="8">
-            <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding !IsBrowserHandoff}">
+            <controls:BaselineStackPanel Spacing="8" IsVisible="{Binding !IsBrowserHandoff}">
                 <TextBlock Text="🔐" FontSize="13" />
                 <TextBlock Text="{loc:Loc AgentApprovalTitle}" />
                 <TextBlock Classes="mono" VerticalAlignment="Center" Text="{Binding ToolName}" />
-            </StackPanel>
+            </controls:BaselineStackPanel>
             <!-- 接管：不是要许可，是要用户的手。在浏览器里做完回来点「完成了」，工具才往下走 -->
-            <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsBrowserHandoff}">
+            <controls:BaselineStackPanel Spacing="8" IsVisible="{Binding IsBrowserHandoff}">
                 <TextBlock Text="🙋" FontSize="13" />
                 <TextBlock Text="{loc:Loc BrowserHandoffTitle}" />
-            </StackPanel>
+            </controls:BaselineStackPanel>
             <Border Classes="result-panel"
                     IsVisible="{Binding ArgumentSummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                 <SelectableTextBlock Classes.mono="{Binding !IsDescribed}" Text="{Binding ArgumentSummary}"

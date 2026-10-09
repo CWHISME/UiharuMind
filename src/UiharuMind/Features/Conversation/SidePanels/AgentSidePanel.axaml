@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:conv="clr-namespace:UiharuMind.Features.Conversation"
@@ -135,13 +136,13 @@
                                             <DataTemplate x:DataType="panels:McpPlannedServerItem">
                                                 <StackPanel Spacing="1" Margin="0,2,0,0"
                                                             Opacity="{Binding Opacity}">
-                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <controls:BaselineStackPanel Spacing="6">
                                                         <TextBlock FontSize="11" Text="{Binding Name}"
                                                                    TextTrimming="CharacterEllipsis" />
                                                         <TextBlock Classes="muted" FontSize="10"
                                                                    VerticalAlignment="Center"
                                                                    Text="{Binding OriginText}" />
-                                                    </StackPanel>
+                                                    </controls:BaselineStackPanel>
                                                     <!-- 待确认用醒目色:它挡着一个本该可用的能力,且只差用户一下 -->
                                                     <TextBlock FontSize="10" TextWrapping="Wrap"
                                                                Text="{Binding StatusText}"

@@ -85,7 +85,7 @@
                                 </Border>
 
                                 <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <controls:BaselineStackPanel Spacing="8">
                                         <!-- 序号即回退顺序 -->
                                         <TextBlock Text="{Binding Order, StringFormat='{}{0}.'}" Classes="muted"
                                                    VerticalAlignment="Center" />
@@ -97,7 +97,7 @@
                                                             BadgeBackground="Gold"
                                                             IsVisible="{Binding SupportsEditing}"
                                                             VerticalAlignment="Center" />
-                                    </StackPanel>
+                                    </controls:BaselineStackPanel>
                                     <!-- 接口格式 · 模型 id · 分辨率档 -->
                                     <TextBlock Text="{Binding Detail}" Classes="muted" FontSize="12"
                                                TextTrimming="CharacterEllipsis" />

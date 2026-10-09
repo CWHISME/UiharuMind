@@ -22,11 +22,11 @@
                      SelectedItem="{Binding SelectedServer}">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="mcp:McpServerConfig">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
+                        <controls:BaselineStackPanel Spacing="6">
                             <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                             <TextBlock Text="●" FontSize="9" VerticalAlignment="Center"
                                        Foreground="Green" IsVisible="{Binding IsEnabled}" />
-                        </StackPanel>
+                        </controls:BaselineStackPanel>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>

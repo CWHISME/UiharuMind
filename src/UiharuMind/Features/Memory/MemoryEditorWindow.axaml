@@ -331,13 +331,13 @@
                                                                        Foreground="{DynamicResource SemiGrey7}" />
                                                             <TextBlock Text="{Binding Path}" TextTrimming="CharacterEllipsis"
                                                                        Classes="muted" />
-                                                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                                            <controls:BaselineStackPanel Spacing="10">
                                                                 <TextBlock Text="{Binding SizeText}" Classes="muted" />
                                                                 <TextBlock Text="{Binding EncodingText}" Classes="muted" />
                                                                 <TextBlock Text="{Binding ErrorText}"
                                                                            Foreground="{DynamicResource MemoryStatusDangerBrush}"
                                                                            IsVisible="{Binding !IsValid}" />
-                                                            </StackPanel>
+                                                            </controls:BaselineStackPanel>
                                                         </StackPanel>
                                                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5">
                                                             <ThemedIconButton Classes="icon-action"

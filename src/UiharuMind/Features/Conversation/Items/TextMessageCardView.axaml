@@ -67,18 +67,18 @@
               RowDefinitions="Auto,18" Background="Transparent"
               HorizontalAlignment="{Binding Alignment}">
             <StackPanel HorizontalAlignment="{Binding Alignment}">
-                <StackPanel Orientation="Horizontal" Spacing="8"
-                            HorizontalAlignment="{Binding Alignment}">
+                <!-- 名字、时间、标记字号不一，按基线对齐，小字才不往上飘 -->
+                <common:BaselineStackPanel Spacing="8" HorizontalAlignment="{Binding Alignment}">
                     <TextBlock Text="{Binding SenderName}"
                                IsVisible="{Binding ShowSenderName}"
                                Foreground="{DynamicResource SemiGrey7}" />
                     <TextBlock Classes="muted" Text="{Binding Timestamp}" />
                     <!-- 群成员会话：这条进了群。没挂的是调工具时顺手写的过程话或私聊回复，群里看不到 -->
-                    <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
+                    <TextBlock Classes="muted" FontSize="11"
                                Foreground="{DynamicResource SemiBlue5}"
                                IsVisible="{Binding IsPostedToGroup}"
                                Text="{loc:Loc GroupPostedTag}" />
-                </StackPanel>
+                </common:BaselineStackPanel>
 
                 <!-- 多模态消息里的图片(粘贴/附加的图) -->
                 <Border Classes="message-bubble" Margin="0,5,0,0" Padding="4"
