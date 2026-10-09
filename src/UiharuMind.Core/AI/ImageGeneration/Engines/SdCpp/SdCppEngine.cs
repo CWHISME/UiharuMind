@@ -23,6 +23,7 @@ public sealed partial class SdCppEngine : IDisposable
     private readonly SemaphoreSlim _generation = new(1, 1);
     private readonly Lock _gate = new();
     private SdCppModelSetup? _requested; //下次起进程装哪个
+    private string? _launched; //在跑的进程按什么起的（程序与参数）：模型、版本或启动设置变了就换进程
 
     /// <param name="settings">引擎设置</param>
     /// <param name="engineRoot">引擎包目录</param>
@@ -62,14 +63,20 @@ public sealed partial class SdCppEngine : IDisposable
     public SdCppSettingConfig Settings => _settings;
 
     /// <summary>
-    /// 启动相关的设置改了，下次出图按新设置重启
-    /// </summary>
-    public void ApplySettings() => _host.Stop();
-
-    /// <summary>
     /// 停掉，还回内存；下次出图自动再起
     /// </summary>
     public void Stop() => _host.Stop();
+
+    /// <summary>
+    /// 要删某个模型的文件前调：在跑的正是它就停掉（放开文件），装着别的模型不动
+    /// </summary>
+    /// <param name="model">模型</param>
+    public void Release(SdCppModelSetup model)
+    {
+        bool loaded;
+        lock (_gate) loaded = _requested?.Key == model.Key;
+        if (loaded) _host.Stop();
+    }
 
     /// <summary>
     /// 出一张图：没在跑就起（换了模型就换进程），排队、采样、取图。进度在后台线程报
@@ -86,17 +93,17 @@ public sealed partial class SdCppEngine : IDisposable
     /// <exception cref="SdCppGenerationException">任务失败</exception>
     /// <exception cref="TimeoutException">超时</exception>
     public async Task<IReadOnlyList<byte[]>> GenerateAsync(SdCppModelSetup model, SdCppImageRequest request,
-        IProgress<SdCppProgress>? progress, CancellationToken cancellationToken)
+        IProgress<ImageProgress>? progress, CancellationToken cancellationToken)
     {
         IReadOnlyList<string> missing = model.MissingFiles();
         if (missing.Count > 0) throw new SdCppModelMissingException(model.Name, missing);
 
-        progress?.Report(new SdCppProgress(ESdCppStage.Queued));
+        progress?.Report(new ImageProgress(EImageStage.Queued));
         await _generation.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             using IDisposable use = _host.BeginUse();
-            progress?.Report(new SdCppProgress(ESdCppStage.Starting));
+            progress?.Report(new ImageProgress(EImageStage.Starting));
             Uri server = await GetServerAsync(model, cancellationToken).ConfigureAwait(false);
             string id = await _client.SubmitAsync(server, request, _settings.VaeTiling, cancellationToken)
                 .ConfigureAwait(false);
@@ -127,7 +134,7 @@ public sealed partial class SdCppEngine : IDisposable
     }
 
     private async Task<IReadOnlyList<byte[]>> WaitForJobAsync(Uri server, string id,
-        IProgress<SdCppProgress>? progress, CancellationToken cancellationToken)
+        IProgress<ImageProgress>? progress, CancellationToken cancellationToken)
     {
         using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(Math.Max(30, _settings.GenerationTimeoutSeconds)));
         using CancellationTokenSource linked =
@@ -148,7 +155,7 @@ public sealed partial class SdCppEngine : IDisposable
                     case "cancelled":
                         throw new OperationCanceledException(job.ErrorMessage);
                     case "generating":
-                        progress?.Report(new SdCppProgress(ESdCppStage.Generating, job.Step, job.TotalSteps, job.Preview));
+                        progress?.Report(new ImageProgress(EImageStage.Generating, job.Step, job.TotalSteps, job.Preview));
                         break;
                 }
 
@@ -157,9 +164,8 @@ public sealed partial class SdCppEngine : IDisposable
         }
         catch (OperationCanceledException) when (linked.IsCancellationRequested)
         {
-            // 排队中的撤得掉；在算的撤不了，只能停进程
-            if (status == "queued") await _client.TryCancelAsync(server, id).ConfigureAwait(false);
-            else _host.Stop();
+            // 排队中的撤得掉；在算的撤不了，只能停进程。上次看到排队、这会儿可能已经开算，撤不掉也停
+            if (status != "queued" || !await _client.TryCancelAsync(server, id).ConfigureAwait(false)) _host.Stop();
             if (timeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
                 throw new TimeoutException(
                     $"Image was not ready within {_settings.GenerationTimeoutSeconds}s; the engine was stopped.");
@@ -170,16 +176,17 @@ public sealed partial class SdCppEngine : IDisposable
     private async Task<Uri> GetServerAsync(SdCppModelSetup model, CancellationToken cancellationToken)
     {
         if (Distribution.CurrentVersion == null) await Distribution.ScanAsync(cancellationToken).ConfigureAwait(false);
-        if (Distribution.CurrentVersion == null) throw new LocalEngineNotReadyException();
+        SdCppVersion version = Distribution.CurrentVersion ?? throw new LocalEngineNotReadyException();
 
-        bool switching;
+        string wanted = Fingerprint(BuildLaunch(version, model));
+        bool restart;
         lock (_gate)
         {
-            switching = _requested != null && _requested.Key != model.Key;
+            restart = _launched != null && _launched != wanted;
             _requested = model;
         }
 
-        if (switching) _host.Stop();
+        if (restart) _host.Stop();
         return await _host.GetBaseUriAsync(cancellationToken).ConfigureAwait(false);
     }
 
@@ -189,9 +196,17 @@ public sealed partial class SdCppEngine : IDisposable
         SdCppVersion version = Distribution.CurrentVersion ?? throw new LocalEngineNotReadyException();
         SdCppModelSetup model;
         lock (_gate) model = _requested ?? throw new InvalidOperationException("No image model was requested.");
-        return SdCppServerArgs.Launch(version.GetExecutable(SdCppVersionManager.ExecutableName),
-            SdCppServerArgs.Build(model, _settings), TimeSpan.FromSeconds(Math.Max(30, _settings.LoadTimeoutSeconds)));
+        LocalServerLaunch launch = BuildLaunch(version, model);
+        lock (_gate) _launched = Fingerprint(launch);
+        return launch;
     }
+
+    private LocalServerLaunch BuildLaunch(SdCppVersion version, SdCppModelSetup model) => SdCppServerArgs.Launch(
+        version.GetExecutable(SdCppVersionManager.ExecutableName), SdCppServerArgs.Build(model, _settings),
+        TimeSpan.FromSeconds(Math.Max(30, _settings.LoadTimeoutSeconds)));
+
+    private static string Fingerprint(LocalServerLaunch launch) =>
+        string.Join('\n', [launch.ExecutablePath, ..launch.BuildArguments(0), launch.ReadyTimeout.ToString()]);
 
     [GeneratedRegex(@"^(master-\d+-[0-9a-f]+)-bin-")]
     private static partial Regex TagPattern();

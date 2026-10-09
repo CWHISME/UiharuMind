@@ -85,7 +85,7 @@
                         <controls:SettingsRow Header="{loc:Loc ImageExtraArgs}" Description="{loc:Loc ImageExtraArgsDesc}"
                                               DividerVisible="False">
                             <controls:SettingsRow.Field>
-                                <TextBox Width="260" Text="{Binding ExtraArguments}" />
+                                <TextBox Width="260" Text="{Binding ExtraArguments, UpdateSourceTrigger=LostFocus}" />
                             </controls:SettingsRow.Field>
                         </controls:SettingsRow>
                     </StackPanel>

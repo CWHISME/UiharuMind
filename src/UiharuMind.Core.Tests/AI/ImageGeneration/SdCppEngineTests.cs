@@ -68,13 +68,13 @@ public class SdCppEngineTests : IDisposable
         Assert.SkipWhen(OperatingSystem.IsWindows(), "fake server is a shell script");
         using SdCppEngine engine = CreateEngine();
         SdCppModelSetup model = Model("z", ("diffusion-model", Touch("z.gguf")));
-        List<SdCppProgress> reports = [];
+        List<ImageProgress> reports = [];
 
         IReadOnlyList<byte[]> images = await engine.GenerateAsync(model, Request("a cat"),
             new SyncProgress(reports.Add), TestContext.Current.CancellationToken);
 
         Assert.Equal(Convert.FromBase64String(Png), Assert.Single(images));
-        Assert.Contains(reports, x => x is { Stage: ESdCppStage.Generating, Step: 1, TotalSteps: 2, Preview: not null });
+        Assert.Contains(reports, x => x is { Stage: EImageStage.Generating, Step: 1, TotalSteps: 2, Preview: not null });
         Assert.Contains("--diffusion-model", File.ReadAllText(_argsFile));
         Assert.Equal(EEngineRunState.Running, engine.Runtime.State);
     }
@@ -108,12 +108,68 @@ public class SdCppEngineTests : IDisposable
 
         Task<IReadOnlyList<byte[]>> run = engine.GenerateAsync(model, Request("slow"), new SyncProgress(x =>
         {
-            if (x.Stage == ESdCppStage.Generating) generating.TrySetResult();
+            if (x.Stage == EImageStage.Generating) generating.TrySetResult();
         }), cancel.Token);
         await generating.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         cancel.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
+        Assert.Equal(EEngineRunState.Stopped, engine.Runtime.State);
+    }
+
+    [Theory]
+    [InlineData("waiting", EEngineRunState.Running)] //还在排队：撤掉就好，进程留着
+    [InlineData("stuck", EEngineRunState.Stopped)] //上次看到排队、其实已开算：撤不掉就停进程
+    public async Task CancellingAQueuedJob_StopsTheProcessOnlyWhenTheCancelIsRefused(string prompt, EEngineRunState after)
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "fake server is a shell script");
+        using SdCppEngine engine = CreateEngine();
+        SdCppModelSetup model = Model("z", ("diffusion-model", Touch("z.gguf")));
+        using CancellationTokenSource cancel = new();
+
+        Task<IReadOnlyList<byte[]>> run = engine.GenerateAsync(model, Request(prompt), null, cancel.Token);
+        for (int i = 0; i < 100 && engine.Runtime.State != EEngineRunState.Running; i++)
+            await Task.Delay(50, TestContext.Current.CancellationToken);
+        await Task.Delay(700, TestContext.Current.CancellationToken); //至少查过一次状态
+        cancel.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
+        Assert.Equal(after, engine.Runtime.State);
+    }
+
+    [Fact]
+    public async Task ChangedLaunchSettings_ApplyOnTheNextImage_RequestSettingsDoNotRestart()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "fake server is a shell script");
+        using SdCppEngine engine = CreateEngine();
+        SdCppModelSetup model = Model("z", ("diffusion-model", Touch("z.gguf")));
+        CancellationToken token = TestContext.Current.CancellationToken;
+
+        await engine.GenerateAsync(model, Request("x"), null, token);
+        engine.Settings.VaeTiling = !engine.Settings.VaeTiling;
+        engine.Settings.GenerationTimeoutSeconds += 60;
+        await engine.GenerateAsync(model, Request("y"), null, token);
+        Assert.Equal(1, Starts());
+
+        engine.Settings.DiffusionFlashAttention = !engine.Settings.DiffusionFlashAttention;
+        Assert.Equal(EEngineRunState.Running, engine.Runtime.State); //改设置不打断在跑的
+        await engine.GenerateAsync(model, Request("z"), null, token);
+        Assert.Equal(2, Starts());
+    }
+
+    [Fact]
+    public async Task Release_StopsOnlyWhenThatModelIsLoaded()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "fake server is a shell script");
+        using SdCppEngine engine = CreateEngine();
+        SdCppModelSetup loaded = Model("a", ("diffusion-model", Touch("a.gguf")));
+        SdCppModelSetup other = Model("b", ("diffusion-model", Touch("b.gguf")));
+        await engine.GenerateAsync(loaded, Request("x"), null, TestContext.Current.CancellationToken);
+
+        engine.Release(other);
+        Assert.Equal(EEngineRunState.Running, engine.Runtime.State);
+
+        engine.Release(loaded);
         Assert.Equal(EEngineRunState.Stopped, engine.Runtime.State);
     }
 
@@ -132,6 +188,24 @@ public class SdCppEngineTests : IDisposable
         SdCppGenerationException failed = await Assert.ThrowsAsync<SdCppGenerationException>(() =>
             engine.GenerateAsync(model, Request("fail"), null, token));
         Assert.Equal("generation_failed", failed.Code);
+    }
+
+    [Fact]
+    public async Task Scan_RestoresTheExecuteBitTheZipLeftOut()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "unix permissions");
+        string bin = Path.Combine(_directory, "engines", "master-945-a1ded76-bin-Darwin-macOS-26.6.2-arm64");
+        Directory.CreateDirectory(bin);
+        string exe = Path.Combine(bin, SdCppVersionManager.ExecutableName);
+        File.WriteAllText(exe, "");
+        File.SetUnixFileMode(exe, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        using SdCppEngine engine = new(new SdCppSettingConfig(), Path.Combine(_directory, "engines"),
+            new DownloadQueue(new FileDownloader(new HttpClient())));
+
+        await engine.Distribution.ScanAsync(TestContext.Current.CancellationToken);
+
+        Assert.NotNull(engine.Distribution.CurrentVersion);
+        Assert.True(File.GetUnixFileMode(exe).HasFlag(UnixFileMode.UserExecute));
     }
 
     [Fact]
@@ -178,7 +252,8 @@ public class SdCppEngineTests : IDisposable
         return engine;
     }
 
-    // 只认用到的几个接口：prompt 为 bad 时 400、fail 时任务失败、slow 时一直在算，其余第一次查在算、第二次给图
+    // 只认用到的几个接口：prompt 为 bad 时 400、fail 时任务失败、slow 时一直在算、waiting 时一直排队（撤得掉）、
+    // stuck 时查着还是排队其实已开算（撤销回 409），其余第一次查在算、第二次给图
     private string FakeServerScript() => $$$"""
         #!/bin/sh
         echo x >> '{{{_starts}}}'
@@ -201,12 +276,19 @@ public class SdCppEngineTests : IDisposable
                 if self.path == '/sdcpp/v1/capabilities': return self.send(200, {'supported_modes': ['img_gen']})
                 job = jobs[self.path.rsplit('/', 1)[1]]
                 job['polls'] += 1
+                if job.get('cancelled'): return self.send(200, {'status': 'cancelled'})
+                if job['prompt'] in ('waiting', 'stuck'): return self.send(200, {'status': 'queued'})
                 if job['prompt'] == 'fail':
                     return self.send(200, {'status': 'failed', 'error': {'code': 'generation_failed', 'message': 'out of memory'}})
                 if job['prompt'] == 'slow' or job['polls'] == 1:
                     return self.send(200, {'status': 'generating', 'preview': {'pass': 1, 'step': 1, 'total_steps': 2, 'b64_json': PNG}})
                 self.send(200, {'status': 'completed', 'result': {'output_format': 'png', 'images': [{'index': 0, 'b64_json': PNG}]}})
             def do_POST(self):
+                if self.path.endswith('/cancel'):
+                    job = jobs[self.path.split('/')[-2]]
+                    if job['prompt'] == 'stuck': return self.send(409, {'error': {'code': 'job_not_cancellable', 'message': 'generating'}})
+                    job['cancelled'] = True
+                    return self.send(200, {'status': 'cancelled'})
                 body = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
                 if body['prompt'] == 'bad': return self.send(400, {'error': {'code': 'invalid_request', 'message': 'width must be a multiple of 8'}})
                 job_id = 'job_%d' % len(jobs)
@@ -218,8 +300,8 @@ public class SdCppEngineTests : IDisposable
         """;
 
     // Progress<T> 会抓同步上下文异步回调，测试里要同步收
-    private sealed class SyncProgress(Action<SdCppProgress> report) : IProgress<SdCppProgress>
+    private sealed class SyncProgress(Action<ImageProgress> report) : IProgress<ImageProgress>
     {
-        public void Report(SdCppProgress value) => report(value);
+        public void Report(ImageProgress value) => report(value);
     }
 }

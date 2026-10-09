@@ -48,9 +48,9 @@ public class AudioModelTabsTests : IDisposable
         {
             ModelPageData data = Open(new TestAudioEngine(installEngine: false));
             data.ShowAudioDownloads();
-            await Settle(() => data.Downloads!.Market<AudioMarketData>() is { IsLoading: false, ShowEnginePrompt: true });
+            await Settle(() => data.Downloads!.Market<AudioMarketData>() is { IsLoading: false, EnginePrompt.HasEngine: false });
 
-            Assert.True(data.Downloads!.Market<AudioMarketData>().ShowEnginePrompt);
+            Assert.False(data.Downloads!.Market<AudioMarketData>().EnginePrompt.HasEngine);
             Assert.Empty(data.Downloads!.Market<AudioMarketData>().Families);
             Assert.Single(_window!.GetVisualDescendants().OfType<AudioMarketListView>());
         });

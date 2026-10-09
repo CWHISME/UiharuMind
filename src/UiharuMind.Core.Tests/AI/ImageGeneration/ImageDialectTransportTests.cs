@@ -29,7 +29,7 @@ public class ImageDialectTransportTests
 
     private static Task<ImageOutcome> Run(StubHandler handler, ImageModelInfo? model = null) =>
         new SenseNovaImageDialect(new HttpClient(handler))
-            .GenerateAsync(model ?? Model(), new ImageRequest("cat", [], null), TestContext.Current.CancellationToken);
+            .GenerateAsync(model ?? Model(), new ImageRequest("cat", [], null), null, TestContext.Current.CancellationToken);
 
     private static StubHandler Respond(HttpStatusCode status, string body) =>
         new((_, _) => Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body) }));
@@ -94,7 +94,7 @@ public class ImageDialectTransportTests
         StubHandler handler = new((_, ct) => Task.FromCanceled<HttpResponseMessage>(ct));
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            new SenseNovaImageDialect(new HttpClient(handler)).GenerateAsync(Model(), new ImageRequest("cat", [], null), cts.Token));
+            new SenseNovaImageDialect(new HttpClient(handler)).GenerateAsync(Model(), new ImageRequest("cat", [], null), null, cts.Token));
     }
 
     [Fact]

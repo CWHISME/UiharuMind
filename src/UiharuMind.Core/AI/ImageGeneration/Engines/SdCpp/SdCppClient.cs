@@ -73,21 +73,24 @@ public sealed class SdCppClient(HttpClient http)
     }
 
     /// <summary>
-    /// 撤销任务（只有还在排队的撤得掉）；撤不掉不抛
+    /// 撤销任务（只有还在排队的撤得掉，已开算的回 409）；撤不掉不抛
     /// </summary>
     /// <param name="server">服务根地址</param>
     /// <param name="id">任务 id</param>
-    public async Task TryCancelAsync(Uri server, string id)
+    /// <returns>撤掉了</returns>
+    public async Task<bool> TryCancelAsync(Uri server, string id)
     {
         try
         {
             using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(3));
             using HttpResponseMessage response = await http.PostAsync(new Uri(server, $"sdcpp/v1/jobs/{id}/cancel"),
                 null, timeout.Token).ConfigureAwait(false);
+            return response.IsSuccessStatusCode;
         }
         catch (Exception e) when (e is HttpRequestException or OperationCanceledException)
         {
             Log.Debug($"Cancel sd-server job {id} failed: {e.Message}");
+            return false;
         }
     }
 

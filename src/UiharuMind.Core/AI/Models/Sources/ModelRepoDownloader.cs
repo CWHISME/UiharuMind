@@ -78,6 +78,55 @@ public sealed class ModelRepoDownloader(DownloadQueue queue)
         return jobs;
     }
 
+    /// <summary>
+    /// 队列里还没下完的文件（排着、在下、暂停、失败待重试）
+    /// </summary>
+    /// <returns>落盘路径</returns>
+    public IReadOnlyList<string> PendingPaths() =>
+        queue.Jobs.Where(x => x.State != EDownloadJobState.Completed).Select(x => x.Request.DestinationPath).ToList();
+
+    /// <summary>
+    /// 作为生图组件下过的量化，用户要拿它当对话模型：清单里去掉「只作组件」
+    /// </summary>
+    /// <param name="repoDirectory">仓库目录</param>
+    /// <param name="quant">量化</param>
+    /// <returns>改了清单（本来就不是组件为 false）</returns>
+    public static bool PromoteToChat(string repoDirectory, ModelRepoQuant quant)
+    {
+        lock (ManifestGate)
+        {
+            ModelManifest? manifest = ModelManifest.TryLoad(repoDirectory);
+            ManifestModel? model = manifest?.FindModel(Path.GetFileName(quant.Files[0].Path));
+            if (manifest == null || model is not { ComponentOnly: true }) return false;
+            model.ComponentOnly = false;
+            manifest.Save(repoDirectory);
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// 删一个只作生图组件的文件并从清单里去掉；清单里没有它、或它不只是组件（用户当对话模型下的、手放的）不删
+    /// </summary>
+    /// <param name="path">文件路径</param>
+    /// <returns>删了</returns>
+    public static bool DeleteComponent(string path)
+    {
+        string directory = Path.GetDirectoryName(path)!;
+        lock (ManifestGate)
+        {
+            ModelManifest? manifest = ModelManifest.TryLoad(directory);
+            ManifestModel? entry = manifest?.FindModel(Path.GetFileName(path));
+            if (manifest == null || entry is not { ComponentOnly: true } || !File.Exists(path)) return false;
+
+            File.Delete(path);
+            manifest.Models.Remove(entry);
+            if (manifest.Models.Count > 0 || manifest.Projectors.Count > 0) manifest.Save(directory);
+            else File.Delete(Path.Combine(directory, ModelManifest.FileName));
+            if (!Directory.EnumerateFileSystemEntries(directory).Any()) Directory.Delete(directory);
+            return true;
+        }
+    }
+
     // 以磁盘为准重写这个量化的条目：已落盘的文件才记，分片按片序。
     // 「只作组件」只在新建条目时标；用户另把它当对话模型下载就清掉
     private static void RecordInManifest(string sourceId, string repository, string directory,

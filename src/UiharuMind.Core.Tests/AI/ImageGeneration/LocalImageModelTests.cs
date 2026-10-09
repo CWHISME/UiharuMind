@@ -37,6 +37,8 @@ public class LocalImageModelTests : IDisposable
     {
         ImageModelCatalog catalog = ImageModelCatalog.BuiltIn;
 
+        // 清单对着钉住的那版引擎转写：挪了钉的版本就得重新核对清单
+        Assert.Equal(SdCppVersionManager.PinnedTag, catalog.EngineBuild);
         Assert.NotEmpty(catalog.Families);
         Assert.Contains(catalog.Families, x => x.Recommended);
         foreach (ImageCatalogFamily family in catalog.Families)
@@ -120,7 +122,7 @@ public class LocalImageModelTests : IDisposable
         Assert.True(store.IsInstalled(family.DefaultTier));
         Assert.True(ModelManifest.TryLoad(Path.Combine(_root, "own", "diffusion"))!.Models.Single().ComponentOnly);
 
-        IReadOnlyList<string> deleted = store.DeleteComponents(first);
+        IReadOnlyList<string> deleted = await store.DeleteAsync(first);
 
         Assert.Equal([Path.Combine(_root, "own", "diffusion", "a.gguf")], deleted);
         Assert.False(Directory.Exists(Path.Combine(_root, "own", "diffusion")));
@@ -138,15 +140,58 @@ public class LocalImageModelTests : IDisposable
         ImageRequest request = new("cat", [], null);
         CancellationToken token = TestContext.Current.CancellationToken;
 
-        ImageOutcome missing = await dialect.GenerateAsync(model, request, token);
+        ImageOutcome missing = await dialect.GenerateAsync(model, request, null, token);
         Assert.Equal(EImageFailureKind.Unavailable, missing.Failure!.Kind);
         Assert.Contains("missing files", missing.Failure.Message);
 
         Directory.CreateDirectory(Path.Combine(_root, "owner", "d"));
         await File.WriteAllTextAsync(Path.Combine(_root, "owner", "d", "d.gguf"), "", token);
-        ImageOutcome noEngine = await dialect.GenerateAsync(model, request, token);
+        ImageOutcome noEngine = await dialect.GenerateAsync(model, request, null, token);
         Assert.Equal(EImageFailureKind.Unavailable, noEngine.Failure!.Kind);
         Assert.Contains("not installed", noEngine.Failure.Message);
+    }
+
+    [Fact]
+    public void Delete_KeepsSharedComponentsThatATierStillDownloadingNeeds()
+    {
+        ImageCatalogFamily installed = Family("a", ("diffusion-model", "own/a", "a.gguf"), ("vae", "shared/vae", "ae.safetensors"));
+        ImageCatalogFamily downloading = Family("b", ("diffusion-model", "own/b", "b.gguf"), ("vae", "shared/vae", "ae.safetensors"));
+        WriteComponent("own/a", "a.gguf");
+        WriteComponent("shared/vae", "ae.safetensors");
+        ImageModelInfo model = LocalImageModels.Create(installed, installed.DefaultTier, "A");
+        LocalImageModelStore store = new(new ModelRepoDownloader(_queue), () => _root,
+            () => new FakeSource(new Uri("http://127.0.0.1:1/")), () => [model],
+            new ImageModelCatalog("x", [installed, downloading]));
+
+        // b 只排它自己缺的主模型；共用的 ae 早就在盘上，没人「引用」它，只有在下的那一档要它
+        Assert.Single(store.Enqueue(downloading.DefaultTier, () => Task.CompletedTask));
+        IReadOnlyList<string> deleted = store.DeleteComponents(model);
+
+        Assert.Equal([Path.Combine(_root, "own", "a", "a.gguf")], deleted);
+        Assert.True(File.Exists(Path.Combine(_root, "shared", "vae", "ae.safetensors")));
+    }
+
+    [Fact]
+    public void PromoteToChat_ClearsComponentOnlyOnce()
+    {
+        string directory = WriteComponent("owner/llm", "llm.gguf");
+        ModelRepoQuant quant = new("llm.gguf", "", [new ModelRepoFile("llm.gguf", 1, null)]);
+
+        Assert.True(ModelRepoDownloader.PromoteToChat(directory, quant));
+        Assert.False(ModelManifest.TryLoad(directory)!.Models.Single().ComponentOnly);
+        Assert.False(ModelRepoDownloader.PromoteToChat(directory, quant)); //本来就是对话模型了
+    }
+
+    // 假装作为生图组件下好了一个文件：文件 + 清单里标只作组件
+    private string WriteComponent(string repository, string fileName)
+    {
+        string directory = ModelRepoDownloader.RepoDirectory(_root, repository);
+        Directory.CreateDirectory(directory);
+        File.WriteAllBytes(Path.Combine(directory, fileName), _payload);
+        ModelManifest manifest = ModelManifest.TryLoad(directory) ?? new ModelManifest { Source = "fake", Repository = repository };
+        manifest.Models.Add(new ManifestModel { ComponentOnly = true, Files = [new ManifestFile { Path = fileName }] });
+        manifest.Save(directory);
+        return directory;
     }
 
     private static ImageCatalogFamily Family(string id, params (string Flag, string Repo, string File)[] components) =>

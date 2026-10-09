@@ -60,7 +60,7 @@ public class ImageModelTabsTests : IDisposable
             ModelPageData data = Open(installEngine: false);
             data.ShowImageDownloads();
             ImageMarketData market = data.Downloads!.Market<ImageMarketData>();
-            await Settle(() => market.ShowEnginePrompt);
+            await Settle(() => !market.EnginePrompt.HasEngine);
 
             Assert.Equal(["Turbo", "Editor"], market.Families.Select(x => x.Title));
             Assert.True(market.Families[0].IsRecommended);
@@ -90,7 +90,7 @@ public class ImageModelTabsTests : IDisposable
             ModelPageData data = Open();
             data.ShowImageDownloads();
             ImageMarketData market = data.Downloads!.Market<ImageMarketData>();
-            await Settle(() => !market.ShowEnginePrompt && market.Families.Count == 2);
+            await Settle(() => market.EnginePrompt.HasEngine && market.Families.Count == 2);
             Assert.True(market.Families[0].IsInstalled);
 
             market.SelectedFamily = market.Families[0];
@@ -125,7 +125,7 @@ public class ImageModelTabsTests : IDisposable
             ModelPageData data = Open();
             data.ShowImageDownloads();
             ImageMarketData market = data.Downloads!.Market<ImageMarketData>();
-            await Settle(() => !market.ShowEnginePrompt && market.Families.Count == 2);
+            await Settle(() => market.EnginePrompt.HasEngine && market.Families.Count == 2);
             market.SelectedFamily = market.Families[0];
             ImageFamilyDetailData detail = market.Detail!;
 
@@ -226,7 +226,7 @@ public class ImageModelTabsTests : IDisposable
                 LocalModels = () => new Dictionary<string, string>(),
                 DeviceInfo = () => new RuntimeDeviceInfo(16 * GiB, 8 * GiB, 0, 0, 0, "", "", "", DateTimeOffset.Now)
             };
-            ImageMarketServices image = new(_engine, store, catalog, () => ImageModelSettingConfig.Current.Models,
+            ImageMarketServices image = new(_engine.Distribution, store, catalog, () => ImageModelSettingConfig.Current.Models,
                 page.ImageModels.Append, _drawn.Add, _ => { });
             return new ModelDownloadPageData(context, [new ImageMarketData(context, image)]);
         }, _queue, createImageActions: _ => ImageModelListActions.None with { OpenDraw = _drawn.Add });

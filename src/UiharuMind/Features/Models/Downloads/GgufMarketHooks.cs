@@ -15,7 +15,7 @@ public sealed record GgufMarketHooks
     /// 本机没有引擎时把推荐包排在模型前面（会联网，别在界面线程等）
     /// </summary>
     public Func<Task<(EEngineEnsureState State, EnginePackage? Version, DownloadJob? Job)>> EnsureEngine { get; init; } =
-        () => ((ILocalEngine)LLamaCppEngine.Shared).EnsureQueuedAsync();
+        () => LLamaCppEngine.Distribution.EnsureQueuedAsync();
 
     /// <summary>
     /// 加载某个本地模型（与顶栏选模型同一条路，带风险确认）

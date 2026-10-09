@@ -44,7 +44,7 @@ public sealed class ImageModelItemViewData
 
     /// <summary>远程：接口格式 · 模型 id · 分辨率档；本地：家族 · 档位</summary>
     public string Detail => Model.Local is { } local
-        ? ImageTierText.Origin(local)
+        ? ImageTierText.Origin(ImageModelCatalog.BuiltIn.Find(local.Family)?.Name, local.Tier)
         : $"{Model.Dialect} · {Model.ModelId} · {Model.Resolution.ToTierLabel()}";
 
     /// <summary>远程：服务地址；本地：在本机运行</summary>

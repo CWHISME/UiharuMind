@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:downloads="clr-namespace:UiharuMind.Features.Models.Downloads"
              xmlns:image="clr-namespace:UiharuMind.Features.Models.Downloads.Image"
              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
@@ -15,36 +16,14 @@
                                     IsHitTestVisible="False" />
         </Grid>
 
-        <Button DockPanel.Dock="Top" Classes="NoneStyle" Cursor="Hand" Padding="0" Margin="2,12,2,6"
-                HorizontalAlignment="Right" ToolTip.Tip="{loc:Loc ModelDownloadSourceTip}"
-                Command="{Binding OpenSourceSettingsCommand}">
-            <DockPanel>
-                <controls:ThemedSvgIcon DockPanel.Dock="Right" Width="12" Height="12" Margin="4,0,0,0"
-                                        IconName="settings" Opacity="0.6" VerticalAlignment="Center" />
-                <TextBlock Text="{Binding SourceLabel}" Classes="muted" FontSize="12" FontWeight="Normal"
-                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-            </DockPanel>
-        </Button>
+        <downloads:DownloadSourceButton DockPanel.Dock="Top" Margin="2,12,2,6" HorizontalAlignment="Right" Label="{Binding SourceLabel}"
+                                       Command="{Binding OpenSourceSettingsCommand}" />
 
         <TextBlock DockPanel.Dock="Top" Classes="muted" Margin="2,8" Text="{loc:Loc ImageMarketNoResults}"
                    IsVisible="{Binding IsResultEmpty}" />
 
         <!-- 没装引擎：列表照常可看可下，顶上提示装引擎 -->
-        <Border DockPanel.Dock="Top" Classes="result-panel" Padding="10,8" Margin="0,0,0,8"
-                IsVisible="{Binding ShowEnginePrompt}">
-            <StackPanel Spacing="8">
-                <TextBlock Text="{loc:Loc ImageMarketNeedsEngine}" TextWrapping="Wrap" FontSize="12" />
-                <Panel HorizontalAlignment="Left">
-                    <Button Classes="Primary" Content="{loc:Loc ImageInstallEngine}"
-                            Command="{Binding InstallEngineCommand}" IsVisible="{Binding !IsEngineQueued}" />
-                    <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsEngineQueued}">
-                        <SpinnerIcon VerticalAlignment="Center" />
-                        <TextBlock Text="{loc:Loc ImageMarketEngineInstalling}" Classes="muted"
-                                   VerticalAlignment="Center" />
-                    </StackPanel>
-                </Panel>
-            </StackPanel>
-        </Border>
+        <downloads:EngineInstallPromptView DockPanel.Dock="Top" Margin="0,0,0,8" DataContext="{Binding EnginePrompt}" />
 
         <ListBox Classes="repo-list" ItemsSource="{Binding Families}" SelectedItem="{Binding SelectedFamily}"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">

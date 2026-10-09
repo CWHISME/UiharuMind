@@ -1,0 +1,22 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:downloads="clr-namespace:UiharuMind.Features.Models.Downloads"
+             x:Class="UiharuMind.Features.Models.Downloads.EngineInstallPromptView"
+             x:DataType="downloads:EngineInstallPromptData"
+             IsVisible="{Binding !HasEngine}">
+
+    <!-- 各分类的安装引导同一个样子：浅底卡片，说明 + 主按钮，排上之后换成转圈 -->
+    <Border Classes="result-panel" Padding="12,10">
+        <StackPanel Spacing="8">
+            <TextBlock Text="{Binding Texts.Hint}" TextWrapping="Wrap" FontSize="12" />
+            <Panel HorizontalAlignment="Left">
+                <Button Classes="Primary" Content="{Binding Texts.Action}" Command="{Binding InstallCommand}"
+                        IsVisible="{Binding !IsQueued}" />
+                <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsQueued}">
+                    <SpinnerIcon VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding Texts.Installing}" Classes="muted" VerticalAlignment="Center" />
+                </StackPanel>
+            </Panel>
+        </StackPanel>
+    </Border>
+</UserControl>

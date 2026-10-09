@@ -13,7 +13,7 @@ public sealed record EngineRemoteVersions(IReadOnlyList<EnginePackage> Versions,
 /// 一种本地引擎的分发面：本机版本、远端版本、选中、安装、更新提示。
 /// 引擎版本卡、获取模型时自动装引擎、启动时检查更新都只认这一层
 /// </summary>
-public interface ILocalEngine
+public interface IEngineDistribution
 {
     /// <summary>
     /// 引擎名，如 llama.cpp

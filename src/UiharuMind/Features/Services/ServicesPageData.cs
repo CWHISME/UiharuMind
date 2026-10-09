@@ -143,10 +143,10 @@ public partial class ServicesPageData : PageDataBase
         ManagedEmbeddingModels.Count(x => x.Source == EmbeddingModelCandidateSource.BuiltIn));
 
     public string RuntimeVersionName =>
-        LLamaCppEngine.Shared.CurrentVersion?.Name ?? Loc.Text(LangKey.ServicesNoRuntimeSelected);
+        LLamaCppEngine.Distribution.CurrentVersion?.Name ?? Loc.Text(LangKey.ServicesNoRuntimeSelected);
 
     public string RuntimePath =>
-        LLamaCppEngine.Shared.CurrentVersion?.InstallDirectory ??
+        LLamaCppEngine.Distribution.CurrentVersion?.InstallDirectory ??
         AppPaths.External.Engine;
 
     public string RemoteModelCount =>

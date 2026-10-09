@@ -245,7 +245,13 @@ public partial class ModelRepoDetailData : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private Task UseModel(ModelQuantRowData row) => _hooks.UseModel(row.Quant.Name);
+    private async Task UseModel(ModelQuantRowData row)
+    {
+        // 作为生图组件下过的，拿来聊天前先放出来，否则对话模型列表里没有它
+        string directory = ModelRepoDownloader.RepoDirectory(_context.ModelRoot(), Repository);
+        if (await Task.Run(() => ModelRepoDownloader.PromoteToChat(directory, row.Quant))) await _context.RefreshLocalModels();
+        await _hooks.UseModel(row.Quant.Name);
+    }
 
     // 本机没有引擎时不问，直接把推荐包一起排进去；拉不到包也不拦着下模型
     private Task EnsureEngineAsync() => EngineInstallFeedback.EnsureAsync(_hooks.EnsureEngine, _context.Messages,

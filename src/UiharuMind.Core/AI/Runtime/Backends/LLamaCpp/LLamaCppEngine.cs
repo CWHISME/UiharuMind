@@ -10,7 +10,7 @@ namespace UiharuMind.Core.AI.Runtime.Backends;
 /// </summary>
 public static partial class LLamaCppEngine
 {
-    private static readonly Lazy<EngineDistribution<VersionInfo>> SharedInstance =
+    private static readonly Lazy<EngineDistribution<VersionInfo>> DistributionInstance =
         new(() => Create(LLamaCppSettingConfig.Current, DownloadQueue.Shared, EngineRoot));
 
     /// <summary>
@@ -19,9 +19,9 @@ public static partial class LLamaCppEngine
     public static string EngineRoot => Path.Combine(AppPaths.External.Engine, "LLamaCpp");
 
     /// <summary>
-    /// 走应用档案与全局下载队列的那一份
+    /// 走应用档案与全局下载队列的那一份（与另两种引擎的 <c>Shared.Distribution</c> 对应）
     /// </summary>
-    public static EngineDistribution<VersionInfo> Shared => SharedInstance.Value;
+    public static EngineDistribution<VersionInfo> Distribution => DistributionInstance.Value;
 
     /// <summary>
     /// 建一份分发

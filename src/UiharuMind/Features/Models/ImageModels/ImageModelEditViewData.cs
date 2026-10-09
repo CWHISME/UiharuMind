@@ -118,8 +118,9 @@ public partial class ImageModelEditViewData : ObservableObject
     /// <summary>服务商预设</summary>
     public IReadOnlyList<ImageModelPresetItem> Presets { get; }
 
-    /// <summary>接口格式候选</summary>
-    public IReadOnlyList<EImageDialect> DialectOptions { get; } = Enum.GetValues<EImageDialect>();
+    /// <summary>接口格式候选（本地模型走自己的参数窗，不在这里选）</summary>
+    public IReadOnlyList<EImageDialect> DialectOptions { get; } =
+        Enum.GetValues<EImageDialect>().Where(x => x != EImageDialect.Local).ToList();
 
     /// <summary>分辨率档候选</summary>
     public IReadOnlyList<ImageResolutionOption> ResolutionOptions { get; } = Enum.GetValues<EImageResolution>()

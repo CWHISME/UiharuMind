@@ -21,7 +21,7 @@ namespace UiharuMind.Features.Models.ImageModels;
 /// 出一次图（指定模型、不回退，本地的带进度）
 /// </summary>
 public delegate Task<ImageGenerationReport> ImageDrawGenerator(ImageModelInfo model, ImageRequest request,
-    IProgress<SdCppProgress> progress, CancellationToken cancellationToken);
+    IProgress<ImageProgress> progress, CancellationToken cancellationToken);
 
 /// <summary>
 /// 画好之后对那张图做的事（界面外壳的系统调用）
@@ -110,7 +110,7 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
         try
         {
             // 在界面线程上建，进度回调就回到界面线程
-            Progress<SdCppProgress> progress = new(OnProgress);
+            Progress<ImageProgress> progress = new(OnProgress);
             ImageGenerationReport report = await _generate(model, new ImageRequest(Prompt.Trim(), [], null),
                 progress, _running.Token);
             if (report.Failure != null || report.Images.Count == 0)
@@ -162,12 +162,12 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
         if (ResultPath != null) _actions.OpenFolder(ResultPath);
     }
 
-    private void OnProgress(SdCppProgress progress)
+    private void OnProgress(ImageProgress progress)
     {
         StatusText = progress.Stage switch
         {
-            ESdCppStage.Starting => Loc.Text(LangKey.ImageDrawStarting),
-            ESdCppStage.Queued => Loc.Text(LangKey.ImageDrawQueued),
+            EImageStage.Starting => Loc.Text(LangKey.ImageDrawStarting),
+            EImageStage.Queued => Loc.Text(LangKey.ImageDrawQueued),
             _ when progress.TotalSteps > 0 => Loc.Text(LangKey.ImageDrawStep, progress.Step, progress.TotalSteps),
             _ => StatusText
         };

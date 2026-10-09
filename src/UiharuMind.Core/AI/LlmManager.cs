@@ -70,7 +70,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
         _runtimeService = new ModelRuntimeService(
             _llamaCppRuntime,
             _remoteModelManager,
-            token => LLamaCppEngine.Shared.EnsureCurrentAsync(token));
+            token => LLamaCppEngine.Distribution.EnsureCurrentAsync(token));
     }
 
     //======================callbacks======================
@@ -108,7 +108,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     public void OnInitialize()
     {
         // 先在后台认出在用的引擎版本，界面上的版本名不必等到第一次加载模型
-        _ = LLamaCppEngine.Shared.ScanAsync();
+        _ = LLamaCppEngine.Distribution.ScanAsync();
     }
 
     /// <summary>

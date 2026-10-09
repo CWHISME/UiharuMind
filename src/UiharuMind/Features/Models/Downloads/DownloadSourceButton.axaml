@@ -1,0 +1,17 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             x:Class="UiharuMind.Features.Models.Downloads.DownloadSourceButton"
+             x:Name="Root">
+    <!-- 各分类列表上方的「源：…」，点开下载源设置 -->
+    <Button Classes="NoneStyle" Cursor="Hand" Padding="0" ToolTip.Tip="{loc:Loc ModelDownloadSourceTip}"
+            Command="{Binding #Root.Command}">
+        <DockPanel>
+            <controls:ThemedSvgIcon DockPanel.Dock="Right" Width="12" Height="12" Margin="4,0,0,0"
+                                    IconName="settings" Opacity="0.6" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding #Root.Label}" Classes="muted" FontSize="12" FontWeight="Normal"
+                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+        </DockPanel>
+    </Button>
+</UserControl>

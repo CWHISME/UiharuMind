@@ -1,4 +1,3 @@
-using UiharuMind.Core.AI.ImageGeneration;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 
@@ -23,13 +22,11 @@ public static class ImageTierText
     };
 
     /// <summary>
-    /// 本地条目的来历：家族 · 档位；自定义组合就说自定义
+    /// 本地条目的来历：家族 · 档位；不是从可下载列表装的就说自定义
     /// </summary>
-    /// <param name="local">本地模型</param>
+    /// <param name="familyName">家族名；自定义组合为 null</param>
+    /// <param name="tierId">档位 id</param>
     /// <returns>说明</returns>
-    public static string Origin(LocalImageModel local)
-    {
-        if (ImageModelCatalog.BuiltIn.Find(local.Family) is not { } family) return Loc.Text(LangKey.ImageModelCustomCombo);
-        return $"{family.Name} · {Label(local.Tier)}";
-    }
+    public static string Origin(string? familyName, string? tierId) =>
+        familyName == null ? Loc.Text(LangKey.ImageModelCustomCombo) : $"{familyName} · {Label(tierId)}";
 }

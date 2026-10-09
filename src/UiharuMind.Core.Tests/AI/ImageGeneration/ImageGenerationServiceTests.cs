@@ -15,11 +15,31 @@ public class ImageGenerationServiceTests
     {
         public List<string> Asked { get; } = new();
 
-        public Task<ImageOutcome> GenerateAsync(ImageModelInfo model, ImageRequest request, CancellationToken ct)
+        public Task<ImageOutcome> GenerateAsync(ImageModelInfo model, ImageRequest request,
+            IProgress<ImageProgress>? progress, CancellationToken ct)
         {
             Asked.Add(model.Name);
             return Task.FromResult(outcomes[model.Name]);
         }
+    }
+
+    /// <summary>报一次进度再回给定结果的假适配器</summary>
+    private sealed class ProgressDialect(ImageProgress report, ImageOutcome outcome) : IImageDialect
+    {
+        public List<string> Asked { get; } = new();
+
+        public Task<ImageOutcome> GenerateAsync(ImageModelInfo model, ImageRequest request,
+            IProgress<ImageProgress>? progress, CancellationToken ct)
+        {
+            Asked.Add(model.Name);
+            progress?.Report(report);
+            return Task.FromResult(outcome);
+        }
+    }
+
+    private sealed class SyncProgress(Action<ImageProgress> report) : IProgress<ImageProgress>
+    {
+        public void Report(ImageProgress value) => report(value);
     }
 
     private static readonly byte[] Png = TestImages.Png(4, 4);
@@ -47,6 +67,25 @@ public class ImageGenerationServiceTests
     private static Task<ImageGenerationReport> Generate(ImageGenerationService service, bool edit = false) =>
         service.GenerateAsync(new ImageRequest("cat", edit ? [new ImageInput(Png, "image/png")] : [], null),
             TestContext.Current.CancellationToken);
+
+    [Fact]
+    public async Task GenerateWith_AsksOnlyThatModel_AndPassesProgressThrough()
+    {
+        string first = Unique("first");
+        string chosen = Unique("chosen");
+        ImageProgress reported = new(EImageStage.Generating, 1, 4);
+        ProgressDialect dialect = new(reported, ImageOutcome.Fail(EImageFailureKind.Unavailable, "engine crashed"));
+        ImageGenerationService service = new(() => [Model(first), Model(chosen)], _ => dialect,
+            (_, _) => throw new InvalidOperationException("unexpected download"));
+        List<ImageProgress> progress = [];
+
+        ImageGenerationReport report = await service.GenerateWithAsync(Model(chosen), new ImageRequest("cat", [], null),
+            new SyncProgress(progress.Add), TestContext.Current.CancellationToken);
+
+        Assert.Equal([chosen], dialect.Asked); //不回退：用不了就如实报，不去试别家
+        Assert.Equal((chosen, "engine crashed"), (report.ModelName, report.Failure!.Message));
+        Assert.Equal([reported], progress);
+    }
 
     [Fact]
     public async Task Unavailable_FallsBackAndSaysWhy()

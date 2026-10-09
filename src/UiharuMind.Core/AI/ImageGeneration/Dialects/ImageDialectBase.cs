@@ -16,9 +16,11 @@ public interface IImageDialect
     /// </summary>
     /// <param name="model">生图模型</param>
     /// <param name="request">出图请求</param>
+    /// <param name="progress">进度；报不出的（远程接口）不报，null 不要</param>
     /// <param name="ct">取消令牌；用户取消照常抛出，超时归为可能已扣费</param>
     /// <returns>结果，失败不抛异常</returns>
-    Task<ImageOutcome> GenerateAsync(ImageModelInfo model, ImageRequest request, CancellationToken ct);
+    Task<ImageOutcome> GenerateAsync(ImageModelInfo model, ImageRequest request, IProgress<ImageProgress>? progress,
+        CancellationToken ct);
 }
 
 /// <summary>
@@ -36,7 +38,8 @@ internal abstract class ImageDialectBase : IImageDialect
         _http = http;
     }
 
-    public async Task<ImageOutcome> GenerateAsync(ImageModelInfo model, ImageRequest request, CancellationToken ct)
+    public async Task<ImageOutcome> GenerateAsync(ImageModelInfo model, ImageRequest request,
+        IProgress<ImageProgress>? progress, CancellationToken ct)
     {
         // 私有参数写坏了是这一家的配置问题，换下一家
         if (!model.TryParseExtraBody(out JsonObject extra, out string? error))

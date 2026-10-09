@@ -22,7 +22,8 @@ public sealed class ImageGenerationToolTests : IDisposable
     {
         public ImageRequest? LastRequest { get; private set; }
 
-        public Task<ImageOutcome> GenerateAsync(ImageModelInfo model, ImageRequest request, CancellationToken ct)
+        public Task<ImageOutcome> GenerateAsync(ImageModelInfo model, ImageRequest request,
+            IProgress<ImageProgress>? progress, CancellationToken ct)
         {
             LastRequest = request;
             return Task.FromResult(outcome);

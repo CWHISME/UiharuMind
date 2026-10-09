@@ -41,13 +41,7 @@ public partial class AudioMarketData : ObservableObject, IModelMarket
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasDetail))]
     private AudioFamilyDetailData? _detail;
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowEnginePrompt))]
-    private bool _isLoading;
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowEnginePrompt))]
-    private bool _hasEngine = true;
-    [ObservableProperty] private bool _isEngineQueued;
+    [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private bool _isResultEmpty;
     [ObservableProperty] private string _sourceLabel;
 
@@ -63,6 +57,13 @@ public partial class AudioMarketData : ObservableObject, IModelMarket
         ];
         _selectedFilter = FilterOptions[0];
         _sourceLabel = ModelDownloadSourceInfo.Label();
+        EnginePrompt = new EngineInstallPromptData(audio.Engine.Distribution, context.Messages,
+            new EngineInstallPromptTexts(Loc.Text(LangKey.AudioMarketNeedsEngine), Loc.Text(LangKey.AudioInstallEngine),
+                Loc.Text(LangKey.AudioMarketEngineInstalling),
+                new EngineEnsureTexts(LangKey.AudioEngineNoPackage, LangKey.AudioEngineQueued,
+                    LangKey.AudioEngineCheckFailed)));
+        // 引擎装好或换了版本，模型清单跟着变
+        EnginePrompt.Changed += () => _ = ReloadAsync();
     }
 
     public string Title => Loc.Text(LangKey.ModelMarketAudio);
@@ -86,9 +87,9 @@ public partial class AudioMarketData : ObservableObject, IModelMarket
     public ObservableCollection<AudioFamilyListItem> Families { get; } = [];
 
     /// <summary>
-    /// 没装引擎：列表位置换成安装引导
+    /// 没装引擎时的安装引导（模型清单随引擎提供，列表位置换成它）
     /// </summary>
-    public bool ShowEnginePrompt => !HasEngine && !IsLoading;
+    public EngineInstallPromptData EnginePrompt { get; }
 
     public void Activate()
     {
@@ -99,9 +100,7 @@ public partial class AudioMarketData : ObservableObject, IModelMarket
             return;
         }
 
-        // 引擎装好或换了版本，模型清单跟着变
-        if (!_isLoaded)
-            _audio.Engine.Distribution.VersionChanged += () => UiDispatcher.FireAndForget(() => _ = ReloadAsync());
+        EnginePrompt.Watch();
         _sourceKey = key;
         SourceLabel = ModelDownloadSourceInfo.Label();
         _isLoaded = true;
@@ -131,7 +130,7 @@ public partial class AudioMarketData : ObservableObject, IModelMarket
                 return (result, InstalledFamilies(result));
             });
 
-            HasEngine = engine.Distribution.CurrentVersion != null;
+            await EnginePrompt.RefreshAsync();
             // 推荐的在前，其次上游标了 supported 的，再按名称
             _all = families
                 .Select(x => new AudioFamilyListItem(x) { IsInstalled = installed.Contains(x.Family) })
@@ -150,7 +149,7 @@ public partial class AudioMarketData : ObservableObject, IModelMarket
         finally
         {
             IsLoading = false;
-            IsResultEmpty = HasEngine && Families.Count == 0;
+            IsResultEmpty = EnginePrompt.HasEngine && Families.Count == 0;
         }
     }
 
@@ -167,20 +166,6 @@ public partial class AudioMarketData : ObservableObject, IModelMarket
         _ = detail.LoadAsync();
     }
 
-    // 本机没有引擎时一键装推荐包，与下载对话模型时自动装 llama.cpp 同一条路：排进全局队列，装好后选中
-    [RelayCommand]
-    private async Task InstallEngine()
-    {
-        IsEngineQueued = true;
-        ILocalEngine engine = _audio.Engine.Distribution;
-        EEngineEnsureState? state = await EngineInstallFeedback.EnsureAsync(() => engine.EnsureQueuedAsync(),
-            _context.Messages,
-            new EngineEnsureTexts(LangKey.AudioEngineNoPackage, LangKey.AudioEngineQueued, LangKey.AudioEngineCheckFailed),
-            () => IsEngineQueued = false);
-        if (state == EEngineEnsureState.AlreadyInstalled) await ReloadAsync();
-        else if (state != EEngineEnsureState.Queued) IsEngineQueued = false;
-    }
-
     [RelayCommand]
     private void OpenSourceSettings() => _context.OpenSourceSettings();
 
@@ -193,7 +178,7 @@ public partial class AudioMarketData : ObservableObject, IModelMarket
                      (SelectedFilter.Task == null || x.Family.Task == SelectedFilter.Task) && x.Matches(query)))
             Families.Add(item);
         if (selected != null && Families.Contains(selected)) SelectedFamily = selected;
-        IsResultEmpty = HasEngine && !IsLoading && Families.Count == 0;
+        IsResultEmpty = EnginePrompt.HasEngine && !IsLoading && Families.Count == 0;
     }
 
     private async Task RefreshInstalledAsync()

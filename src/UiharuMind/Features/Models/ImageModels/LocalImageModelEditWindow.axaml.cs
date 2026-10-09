@@ -29,7 +29,8 @@ public partial class LocalImageModelEditWindow : Window
     {
         LocalImageModelEditWindow window = new()
         {
-            DataContext = new LocalImageModelEditViewData(source, takenNames, LocalImageModels.ModelRoot)
+            DataContext = new LocalImageModelEditViewData(source, ImageModelCatalog.BuiltIn.Find(source.Local?.Family),
+                takenNames, LocalImageModels.ModelRoot)
         };
         return window.ShowDialog<ImageModelInfo?>(owner);
     }

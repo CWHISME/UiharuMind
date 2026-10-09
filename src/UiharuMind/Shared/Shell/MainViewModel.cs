@@ -60,7 +60,7 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
     public MainViewModel(IServiceProvider services)
     {
         _services = services;
-        foreach (ILocalEngine engine in LocalEngines.All)
+        foreach (IEngineDistribution engine in LocalEngines.All)
             engine.AvailableUpdateChanged += () =>
                 Dispatcher.UIThread.Post(() => OnPropertyChanged(nameof(HasEngineUpdate)));
         Dispatcher.UIThread.Post(() =>

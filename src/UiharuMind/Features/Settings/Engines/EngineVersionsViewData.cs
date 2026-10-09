@@ -19,11 +19,11 @@ using UiharuMind.Shared.Utils;
 namespace UiharuMind.Features.Settings.Engines;
 
 /// <summary>
-/// 引擎版本卡：在用哪个版本、有没有新版本、可下的包与发布说明。具体是哪个引擎由 <see cref="ILocalEngine"/> 决定
+/// 引擎版本卡：在用哪个版本、有没有新版本、可下的包与发布说明。具体是哪个引擎由 <see cref="IEngineDistribution"/> 决定
 /// </summary>
 public partial class EngineVersionsViewData : ObservableObject
 {
-    private readonly ILocalEngine _source;
+    private readonly IEngineDistribution _source;
     private readonly IMessageService _messageService;
     private readonly Action<string> _openFolder;
     private readonly List<EnginePackage> _lastLocalVersions = []; //上一次本地版本，刷新时差分删除
@@ -38,7 +38,7 @@ public partial class EngineVersionsViewData : ObservableObject
     /// <param name="versionDescription">版本下拉的说明：选中的版本用在哪</param>
     /// <param name="messageService">提示</param>
     /// <param name="openFolder">打开目录（界面外壳的系统调用）</param>
-    public EngineVersionsViewData(ILocalEngine source, string iconName, string versionDescription,
+    public EngineVersionsViewData(IEngineDistribution source, string iconName, string versionDescription,
         IMessageService messageService, Action<string> openFolder)
     {
         _source = source;

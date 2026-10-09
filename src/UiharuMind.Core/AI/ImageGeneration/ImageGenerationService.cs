@@ -82,7 +82,7 @@ public sealed class ImageGenerationService
                 continue;
             }
 
-            ImageOutcome outcome = await _dialects(model.Dialect).GenerateAsync(model, request, ct)
+            ImageOutcome outcome = await _dialects(model.Dialect).GenerateAsync(model, request, null, ct)
                 .ConfigureAwait(false);
             if (outcome.Failure is { Kind: EImageFailureKind.Unavailable } unavailable)
             {
@@ -108,22 +108,21 @@ public sealed class ImageGenerationService
     }
 
     /// <summary>
-    /// 指定一个生图模型出图，不回退（画图窗口里用户选了谁就是谁，试的就是它）；本地模型带进度
+    /// 指定一个生图模型出图，不回退（画图窗口里用户选了谁就是谁，试的就是它）
     /// </summary>
     /// <param name="model">生图模型</param>
     /// <param name="request">出图请求</param>
-    /// <param name="progress">本地模型的进度；null 不报</param>
+    /// <param name="progress">进度（本地模型才报）；null 不要</param>
     /// <param name="ct">取消令牌</param>
     /// <returns>结果，失败不抛异常</returns>
     public async Task<ImageGenerationReport> GenerateWithAsync(ImageModelInfo model, ImageRequest request,
-        IProgress<SdCppProgress>? progress, CancellationToken ct)
+        IProgress<ImageProgress>? progress, CancellationToken ct)
     {
         if (IneligibleReason(model, request) is { } reason)
             return Failed(model.Name, new ImageFailure(EImageFailureKind.Unavailable, reason), []);
 
-        ImageOutcome outcome = model.IsLocal
-            ? await LocalImageDialect.Shared.GenerateAsync(model, request, progress, ct).ConfigureAwait(false)
-            : await _dialects(model.Dialect).GenerateAsync(model, request, ct).ConfigureAwait(false);
+        ImageOutcome outcome = await _dialects(model.Dialect).GenerateAsync(model, request, progress, ct)
+            .ConfigureAwait(false);
         return outcome.Failure != null
             ? Failed(model.Name, outcome.Failure, [])
             : await MaterializeAsync(model.Name, outcome, [], ct).ConfigureAwait(false);

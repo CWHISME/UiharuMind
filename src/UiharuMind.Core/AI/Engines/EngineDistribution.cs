@@ -22,7 +22,7 @@ public interface IEngineVersionSelection
 /// 一种本地引擎的分发：本机装了哪些版本、在用哪个（选中的装着就用它，不然第一个装着的）、远端有什么、怎么下怎么装。
 /// 各引擎只给版本管理器、目录与选中存在哪；进程与模型不归这里
 /// </summary>
-public sealed class EngineDistribution<TPackage> : ILocalEngine where TPackage : EnginePackage, new()
+public sealed class EngineDistribution<TPackage> : IEngineDistribution where TPackage : EnginePackage, new()
 {
     private readonly EngineVersionManager<TPackage> _versions;
     private readonly IEngineVersionSelection _selection;
@@ -131,7 +131,7 @@ public sealed class EngineDistribution<TPackage> : ILocalEngine where TPackage :
     /// <summary>
     /// 解压校验一个已下好的包，成功后删掉压缩包
     /// </summary>
-    public Task InstallArchiveAsync(TPackage version, CancellationToken cancellationToken)
+    private Task InstallArchiveAsync(TPackage version, CancellationToken cancellationToken)
     {
         return _versions.InstallArchiveAsync(version, true, cancellationToken);
     }
@@ -148,10 +148,10 @@ public sealed class EngineDistribution<TPackage> : ILocalEngine where TPackage :
     }
 
     /// <summary>
-    /// 直接换用一个版本，不落盘（测试用）
+    /// 直接换用一个版本，不落盘（扫盘时与测试用）
     /// </summary>
     /// <param name="version">版本</param>
-    public void Use(TPackage? version)
+    internal void Use(TPackage? version)
     {
         bool changed;
         lock (_gate)
@@ -163,32 +163,37 @@ public sealed class EngineDistribution<TPackage> : ILocalEngine where TPackage :
         if (changed) VersionChanged?.Invoke();
     }
 
-    EnginePackage? ILocalEngine.CurrentVersion => CurrentVersion;
+    EnginePackage? IEngineDistribution.CurrentVersion => CurrentVersion;
 
-    async Task<IReadOnlyList<EnginePackage>> ILocalEngine.GetLocalVersionsAsync() =>
+    async Task<IReadOnlyList<EnginePackage>> IEngineDistribution.GetLocalVersionsAsync() =>
         await ScanAsync().ConfigureAwait(false);
 
-    async Task<EngineRemoteVersions> ILocalEngine.PullRemoteVersionsAsync()
+    async Task<EngineRemoteVersions> IEngineDistribution.PullRemoteVersionsAsync()
     {
         IReadOnlyList<TPackage> versions = await PullLatestVersionsAsync().ConfigureAwait(false);
         return new EngineRemoteVersions(versions, ReleaseInfoText);
     }
 
-    void ILocalEngine.Select(EnginePackage version) => Select((TPackage)version);
+    void IEngineDistribution.Select(EnginePackage version) => Select((TPackage)version);
 
-    Task ILocalEngine.InstallAsync(EnginePackage version) => Installer.InstallAsync((TPackage)version);
+    Task IEngineDistribution.InstallAsync(EnginePackage version) => Installer.InstallAsync((TPackage)version);
 
-    DownloadJob ILocalEngine.Enqueue(EnginePackage version) => Installer.Enqueue((TPackage)version, true);
+    DownloadJob IEngineDistribution.Enqueue(EnginePackage version) => Installer.Enqueue((TPackage)version, true);
 
-    async Task<(EEngineEnsureState State, EnginePackage? Version, DownloadJob? Job)> ILocalEngine.EnsureQueuedAsync(
-        CancellationToken token)
+    /// <summary>
+    /// 本机没有可用版本时把推荐包排进下载队列
+    /// </summary>
+    /// <param name="token">取消</param>
+    /// <returns>结果、排进去的版本与下载项</returns>
+    public async Task<(EEngineEnsureState State, EnginePackage? Version, DownloadJob? Job)> EnsureQueuedAsync(
+        CancellationToken token = default)
     {
         (EEngineEnsureState state, TPackage? version, DownloadJob? job) =
             await Installer.EnsureQueuedAsync(token).ConfigureAwait(false);
         return (state, version, job);
     }
 
-    Task ILocalEngine.CheckForUpdateAsync() => Installer.CheckForUpdateAsync();
+    Task IEngineDistribution.CheckForUpdateAsync() => Installer.CheckForUpdateAsync();
 
-    string? ILocalEngine.ReleaseUrl(EnginePackage version) => _releaseUrl(version.Name);
+    string? IEngineDistribution.ReleaseUrl(EnginePackage version) => _releaseUrl(version.Name);
 }

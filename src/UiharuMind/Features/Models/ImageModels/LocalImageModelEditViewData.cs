@@ -39,18 +39,20 @@ public partial class LocalImageModelEditViewData : ObservableObject
     [ObservableProperty] private bool _supportsEditing;
 
     /// <param name="source">要编辑的本地模型</param>
+    /// <param name="family">它在可下载列表里的家族（「恢复推荐」按它取）；自定义组合为 null</param>
     /// <param name="takenNames">其他生图模型已用的名字</param>
     /// <param name="modelRoot">模型目录（看组件在不在）</param>
-    public LocalImageModelEditViewData(ImageModelInfo source, IReadOnlyCollection<string> takenNames, string modelRoot)
+    public LocalImageModelEditViewData(ImageModelInfo source, ImageCatalogFamily? family,
+        IReadOnlyCollection<string> takenNames, string modelRoot)
     {
         _source = source;
         _takenNames = takenNames;
         LocalImageModel local = source.Local!;
-        _family = ImageModelCatalog.BuiltIn.Find(local.Family);
+        _family = family;
         _name = source.Name;
         _negativePrompt = local.NegativePrompt;
         _supportsEditing = source.SupportsEditing;
-        Origin = ImageTierText.Origin(local);
+        Origin = ImageTierText.Origin(family?.Name, local.Tier);
         Components = local.Components
             .Select(x => x.Resolve(modelRoot))
             .Zip(local.Components, (path, c) => new LocalImageComponentLine(c.Flag, path, File.Exists(path)))
@@ -105,32 +107,24 @@ public partial class LocalImageModelEditViewData : ObservableObject
     public bool CanConfirm => !HasNameError;
 
     /// <summary>
-    /// 按表单建新实例（组件沿用）
+    /// 按表单建新实例：原条目复制一份，只换表单里的几项
     /// </summary>
     /// <returns>新的生图模型</returns>
     public ImageModelInfo BuildResult()
     {
-        LocalImageModel source = _source.Local!;
+        LocalImageModel local = _source.Local!.Clone();
+        local.BaseResolution = BaseResolution.Value;
+        local.NegativePrompt = NegativePrompt.Trim();
+        local.Steps = (int)Steps;
+        local.CfgScale = (float)CfgScale;
+        local.Sampler = Sampler.Value;
+        local.Scheduler = Scheduler.Value;
         return new ImageModelInfo
         {
             Name = Name.Trim(),
             Dialect = EImageDialect.Local,
             SupportsEditing = SupportsEditing,
-            Local = new LocalImageModel
-            {
-                Family = source.Family,
-                Tier = source.Tier,
-                Components = source.Components,
-                ExtraArguments = source.ExtraArguments,
-                BaseResolution = BaseResolution.Value,
-                NegativePrompt = NegativePrompt.Trim(),
-                Steps = (int)Steps,
-                CfgScale = (float)CfgScale,
-                Sampler = Sampler.Value,
-                Scheduler = Scheduler.Value,
-                FlowShift = source.FlowShift,
-                DistilledGuidance = source.DistilledGuidance
-            }
+            Local = local
         };
     }
 

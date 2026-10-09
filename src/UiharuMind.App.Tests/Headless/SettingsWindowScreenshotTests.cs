@@ -109,7 +109,7 @@ public class SettingsWindowScreenshotTests : IDisposable
             Dispatcher.UIThread.RunJobs();
             try
             {
-                LLamaCppEngine.Shared.Installer.ApplyVersions(
+                LLamaCppEngine.Distribution.Installer.ApplyVersions(
                 [
                     new VersionInfo { Name = $"llama-b100{suffix}", Version = new Version(100, 0), IsInstalled = true },
                     new VersionInfo { Name = $"llama-b200{suffix}", Version = new Version(200, 0), DownloadUrl = "http://127.0.0.1:1/x.zip" }
@@ -126,7 +126,7 @@ public class SettingsWindowScreenshotTests : IDisposable
             }
             finally
             {
-                LLamaCppEngine.Shared.Installer.ApplyVersions([]);
+                LLamaCppEngine.Distribution.Installer.ApplyVersions([]);
                 window.Close();
                 _window = null;
                 ConfigManager.Instance.Setting.SettingsScrollPositions.Remove("RuntimeEngineSetting");

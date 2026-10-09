@@ -23,7 +23,6 @@ public partial class ImageMarketData : ObservableObject, IModelMarket
     private readonly ModelDownloadContext _context;
     private readonly ImageMarketServices _image;
     private readonly List<ImageFamilyListItem> _all;
-    private bool _isWatchingEngine;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasDetail))]
@@ -31,8 +30,6 @@ public partial class ImageMarketData : ObservableObject, IModelMarket
 
     [ObservableProperty] private ImageFamilyListItem? _selectedFamily;
     [ObservableProperty] private string _searchText = "";
-    [ObservableProperty] private bool _showEnginePrompt;
-    [ObservableProperty] private bool _isEngineQueued;
     [ObservableProperty] private string _sourceLabel = ModelDownloadSourceInfo.Label(true);
 
     /// <param name="context">各分类共用的依赖</param>
@@ -47,8 +44,18 @@ public partial class ImageMarketData : ObservableObject, IModelMarket
             .ThenByDescending(x => x.Tested)
             .Select(x => new ImageFamilyListItem(x, language))
             .ToList();
+        EnginePrompt = new EngineInstallPromptData(image.Engine, context.Messages,
+            new EngineInstallPromptTexts(Loc.Text(LangKey.ImageMarketNeedsEngine), Loc.Text(LangKey.ImageInstallEngine),
+                Loc.Text(LangKey.ImageMarketEngineInstalling),
+                new EngineEnsureTexts(LangKey.ImageEngineNoPackage, LangKey.ImageEngineQueued,
+                    LangKey.ImageEngineCheckFailed)));
         ApplyFilter();
     }
+
+    /// <summary>
+    /// 没装引擎时的安装引导（列表照常可看可下，顶上提示）
+    /// </summary>
+    public EngineInstallPromptData EnginePrompt { get; }
 
     public string Title => Loc.Text(LangKey.ImageModelsTitle);
 
@@ -72,14 +79,9 @@ public partial class ImageMarketData : ObservableObject, IModelMarket
 
     public void Activate()
     {
-        if (!_isWatchingEngine)
-        {
-            _isWatchingEngine = true;
-            _image.Engine.Distribution.VersionChanged += () => UiDispatcher.FireAndForget(() => _ = RefreshEngineAsync());
-        }
-
+        EnginePrompt.Watch();
         SourceLabel = ModelDownloadSourceInfo.Label(true);
-        _ = RefreshEngineAsync();
+        _ = EnginePrompt.RefreshAsync();
         RefreshInstalled();
     }
 
@@ -101,29 +103,8 @@ public partial class ImageMarketData : ObservableObject, IModelMarket
         _ = detail.LoadAsync();
     }
 
-    // 与下载对话模型时自动装 llama.cpp 同一条路：排进全局队列，装好后选中
-    [RelayCommand]
-    private async Task InstallEngine()
-    {
-        IsEngineQueued = true;
-        ILocalEngine engine = _image.Engine.Distribution;
-        EEngineEnsureState? state = await EngineInstallFeedback.EnsureAsync(() => engine.EnsureQueuedAsync(),
-            _context.Messages,
-            new EngineEnsureTexts(LangKey.ImageEngineNoPackage, LangKey.ImageEngineQueued, LangKey.ImageEngineCheckFailed),
-            () => IsEngineQueued = false);
-        if (state == EEngineEnsureState.AlreadyInstalled) await RefreshEngineAsync();
-        else if (state != EEngineEnsureState.Queued) IsEngineQueued = false;
-    }
-
     [RelayCommand]
     private void OpenSourceSettings() => _context.OpenSourceSettings();
-
-    private async Task RefreshEngineAsync()
-    {
-        SdCppVersion? current = await Task.Run(() => _image.Engine.Distribution.EnsureCurrentAsync());
-        ShowEnginePrompt = current == null;
-        if (current != null) IsEngineQueued = false;
-    }
 
     private void RefreshInstalled()
     {

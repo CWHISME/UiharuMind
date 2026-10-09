@@ -36,14 +36,14 @@ public partial class RuntimeEngineSettingData : ObservableObject
     }
 
     public RuntimeEngineSettingData(IMessageService messageService)
-        : this(messageService, LLamaCppEngine.Shared, path => App.FilesService.OpenFolder(path))
+        : this(messageService, LLamaCppEngine.Distribution, path => App.FilesService.OpenFolder(path))
     {
     }
 
     /// <param name="messageService">提示与确认</param>
     /// <param name="engine">文本引擎</param>
     /// <param name="openFolder">打开目录</param>
-    public RuntimeEngineSettingData(IMessageService messageService, ILocalEngine engine, Action<string> openFolder)
+    public RuntimeEngineSettingData(IMessageService messageService, IEngineDistribution engine, Action<string> openFolder)
     {
         _messageService = messageService;
         Engine = new EngineVersionsViewData(engine, "terminal", Loc.Text(LangKey.LLamaCppVersionDesc), messageService,

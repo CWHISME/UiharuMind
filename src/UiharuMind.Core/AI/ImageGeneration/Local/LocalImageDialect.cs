@@ -18,19 +18,8 @@ public sealed class LocalImageDialect(Func<SdCppEngine> engine, Func<string> mod
     /// </summary>
     public static LocalImageDialect Shared { get; } = new(() => SdCppEngine.Shared, () => LocalImageModels.ModelRoot);
 
-    public Task<ImageOutcome> GenerateAsync(ImageModelInfo model, ImageRequest request, CancellationToken ct) =>
-        GenerateAsync(model, request, null, ct);
-
-    /// <summary>
-    /// 出图，带进度（画图窗口要看步数与预览）
-    /// </summary>
-    /// <param name="model">生图模型（本地的）</param>
-    /// <param name="request">请求</param>
-    /// <param name="progress">进度；null 不报</param>
-    /// <param name="ct">取消</param>
-    /// <returns>结果，失败不抛</returns>
     public async Task<ImageOutcome> GenerateAsync(ImageModelInfo model, ImageRequest request,
-        IProgress<SdCppProgress>? progress, CancellationToken ct)
+        IProgress<ImageProgress>? progress, CancellationToken ct)
     {
         if (model.Local is not { } local)
             return ImageOutcome.Fail(EImageFailureKind.Unavailable, $"'{model.Name}' is not a local model");

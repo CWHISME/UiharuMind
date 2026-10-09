@@ -93,7 +93,7 @@ public partial class ImageModelListViewData : ObservableObject
     [RelayCommand]
     private async Task Edit(ImageModelItemViewData item)
     {
-        ImageModelInfo? edited = item.IsLocal
+        ImageModelInfo? edited = item.Model.Local != null
             ? await _actions.OpenLocalEditor(item.Model, NamesExcept(item.Model))
             : await _openEditor(item.Model, NamesExcept(item.Model));
         int index = Models.IndexOf(item.Model);

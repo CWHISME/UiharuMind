@@ -124,8 +124,7 @@ public partial class ImageFamilyDetailData : ObservableObject, IDisposable
     private async Task Download(ImageTierRowData row)
     {
         if (!row.CanDownload) return;
-        ILocalEngine engine = _image.Engine.Distribution;
-        await EngineInstallFeedback.EnsureAsync(() => engine.EnsureQueuedAsync(), _context.Messages,
+        await EngineInstallFeedback.EnsureAsync(() => _image.Engine.EnsureQueuedAsync(), _context.Messages,
             new EngineEnsureTexts(LangKey.ImageEngineNoPackage, LangKey.ImageEngineQueued, LangKey.ImageEngineCheckFailed));
         try
         {

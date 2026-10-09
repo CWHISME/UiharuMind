@@ -40,10 +40,20 @@ public abstract class EngineVersionManager<TPackage> : ReleaseVersionManagerBase
                      version.InstallDirectory, ServerExeName + "*", SearchOption.AllDirectories))
         {
             version.ExecutablePath = Path.GetDirectoryName(file)!;
+            EnsureExecutable(file);
             return ManagedVersionValidationResult.Valid;
         }
 
         return new ManagedVersionValidationResult(false, $"{ServerExeName} was not found.");
+    }
+
+    // 有的包压缩时没带权限位（sd.cpp 的 zip 就是），解出来不可执行，起进程报 126：补上可执行位
+    private static void EnsureExecutable(string file)
+    {
+        if (OperatingSystem.IsWindows()) return;
+        const UnixFileMode execute = UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute;
+        UnixFileMode mode = File.GetUnixFileMode(file);
+        if ((mode & UnixFileMode.UserExecute) == 0) File.SetUnixFileMode(file, mode | execute);
     }
 
     // 发布说明夹着 HTML（<details> 等），整理成 markdown 交给界面渲染

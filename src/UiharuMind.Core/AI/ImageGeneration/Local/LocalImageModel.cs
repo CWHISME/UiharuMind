@@ -32,6 +32,12 @@ public sealed class LocalImageComponent
     /// </summary>
     /// <param name="modelRoot">模型目录</param>
     /// <returns>绝对路径</returns>
+    /// <summary>
+    /// 复制一份
+    /// </summary>
+    /// <returns>副本</returns>
+    public LocalImageComponent Clone() => (LocalImageComponent)MemberwiseClone();
+
     public string Resolve(string modelRoot) => Path ?? ModelRepoDownloader.FilePath(
         ModelRepoDownloader.RepoDirectory(modelRoot, Repository ?? ""), new ModelRepoFile(File ?? "", 0, null));
 }
@@ -101,4 +107,16 @@ public sealed class LocalImageModel
     /// 蒸馏引导；null 交给 sd.cpp
     /// </summary>
     public float? DistilledGuidance { get; set; }
+
+    /// <summary>
+    /// 深拷一份：改参数在副本上改，生图模型列表写时复制
+    /// </summary>
+    /// <returns>副本</returns>
+    public LocalImageModel Clone()
+    {
+        LocalImageModel copy = (LocalImageModel)MemberwiseClone();
+        copy.Components = Components.Select(x => x.Clone()).ToList();
+        copy.ExtraArguments = [..ExtraArguments];
+        return copy;
+    }
 }

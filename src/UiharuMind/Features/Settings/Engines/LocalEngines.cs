@@ -16,15 +16,15 @@ public static class LocalEngines
     /// <summary>
     /// 全部本地引擎（走应用档案的那一份）
     /// </summary>
-    public static IReadOnlyList<ILocalEngine> All =>
-        [LLamaCppEngine.Shared, AudioCppEngine.Shared.Distribution, SdCppEngine.Shared.Distribution];
+    public static IReadOnlyList<IEngineDistribution> All =>
+        [LLamaCppEngine.Distribution, AudioCppEngine.Shared.Distribution, SdCppEngine.Shared.Distribution];
 
     /// <summary>
     /// 装过的引擎各去问一次有没有新版本；没装过的不去问 GitHub
     /// </summary>
     public static async Task CheckForUpdatesAsync()
     {
-        foreach (ILocalEngine engine in All)
+        foreach (IEngineDistribution engine in All)
         {
             if ((await engine.GetLocalVersionsAsync().ConfigureAwait(false)).Any(x => x.IsInstalled))
                 await engine.CheckForUpdateAsync().ConfigureAwait(false);

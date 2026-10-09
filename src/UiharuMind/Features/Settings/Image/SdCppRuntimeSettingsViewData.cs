@@ -6,7 +6,7 @@ using UiharuMind.Shared.Utils;
 namespace UiharuMind.Features.Settings.Image;
 
 /// <summary>
-/// sd-server 的启动参数与超时。改一项即落盘，引擎下次出图时按新参数重启
+/// sd-server 的启动参数与超时。改一项即落盘；启动参数变了，引擎下次出图时自己换进程，在算的不打断
 /// </summary>
 public partial class SdCppRuntimeSettingsViewData : ObservableObject
 {
@@ -66,6 +66,5 @@ public partial class SdCppRuntimeSettingsViewData : ObservableObject
         settings.GenerationTimeoutSeconds = (int)GenerationTimeoutSeconds;
         settings.ExtraArguments = ExtraArguments.Trim();
         settings.Save();
-        _engine.ApplySettings();
     }
 }

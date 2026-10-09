@@ -60,8 +60,7 @@ public partial class ModelPageData : PageDataBase
     private readonly AudioServices? _audio; //默认的语音模型页签用；测试自备页签数据时可不给
     private readonly DownloadQueue? _downloadQueueSource; //null 走全局队列
 
-    public ModelPageData() : this(App.Services.GetRequiredService<IMessageService>(), audio: App.Services.GetRequiredService<AudioServices>(),
-        createImageActions: CreateImageActions)
+    public ModelPageData() : this(App.Services.GetRequiredService<IMessageService>(), audio: App.Services.GetRequiredService<AudioServices>())
     {
     }
 
@@ -71,7 +70,7 @@ public partial class ModelPageData : PageDataBase
     /// <param name="modelSources">对话模型列表，默认 App.ModelService 的</param>
     /// <param name="createAudioModels">建「语音模型」页签的数据，默认走共享的语音引擎</param>
     /// <param name="audio">默认的语音模型页签要用的语音服务</param>
-    /// <param name="createImageActions">生图模型页签里本地模型用的动作；null 都不做</param>
+    /// <param name="createImageActions">生图模型页签里本地模型用的动作，默认开真实窗口、删真实文件</param>
     public ModelPageData(IMessageService messageService,
         Func<ModelPageData, ModelDownloadPageData>? createDownloads = null, DownloadQueue? downloadQueue = null,
         ObservableCollection<ModelRunningData>? modelSources = null,
@@ -84,7 +83,7 @@ public partial class ModelPageData : PageDataBase
         _createDownloads = createDownloads ?? CreateDefaultDownloads;
         ImageModels = new ImageModelListViewData(messageService,
             (source, takenNames) => ImageModelEditWindow.ShowWindow(UIManager.GetRootWindow(), source, takenNames),
-            createImageActions?.Invoke(this));
+            (createImageActions ?? CreateImageActions)(this));
         _downloadQueueSource = downloadQueue;
         _createAudioModels = createAudioModels ?? CreateDefaultAudioModels;
     }
@@ -171,7 +170,7 @@ public partial class ModelPageData : PageDataBase
             UseModel = name => App.ModelService.LoadModelWithRiskConfirmationAsync(name),
             HasCurrentModel = () => App.ModelService.CurModelRunningData != null
         };
-        ImageMarketServices image = new(SdCppEngine.Shared, LocalImageModelStore.Shared, ImageModelCatalog.BuiltIn,
+        ImageMarketServices image = new(SdCppEngine.Shared.Distribution, LocalImageModelStore.Shared, ImageModelCatalog.BuiltIn,
             () => ImageModelSettingConfig.Current.Models, page.ImageModels.Append,
             model => ImageDrawWindow.ShowWindow(UIManager.GetRootWindow(), model),
             url => _ = UIManager.GetRootWindow().Launcher.LaunchUriAsync(new Uri(url)));
@@ -185,12 +184,7 @@ public partial class ModelPageData : PageDataBase
     private static ImageModelListActions CreateImageActions(ModelPageData page) => new(
         (model, takenNames) => LocalImageModelEditWindow.ShowWindow(UIManager.GetRootWindow(), model, takenNames),
         model => ImageDrawWindow.ShowWindow(UIManager.GetRootWindow(), model),
-        model =>
-        {
-            // 在跑的可能正是它，先停引擎再删
-            SdCppEngine.Shared.Stop();
-            return Task.Run(() => LocalImageModelStore.Shared.DeleteComponents(model));
-        },
+        LocalImageModelStore.Shared.DeleteAsync,
         page.ShowImageDownloads,
         () => UIManager.ShowWindow<SettingsWindow>(window => window.ShowImageEngineSettings()));
 
