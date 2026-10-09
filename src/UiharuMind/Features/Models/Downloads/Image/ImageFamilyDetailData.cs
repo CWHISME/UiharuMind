@@ -27,6 +27,7 @@ public partial class ImageFamilyDetailData : ObservableObject, IDisposable
 {
     private readonly ModelDownloadContext _context;
     private readonly ImageMarketServices _image;
+    private readonly Func<Task> _ensureEngine;
     private readonly Action _onInstalledChanged;
     private readonly CancellationTokenSource _cancellation = new();
 
@@ -35,12 +36,14 @@ public partial class ImageFamilyDetailData : ObservableObject, IDisposable
     /// <param name="context">各分类共用的依赖</param>
     /// <param name="image">生图分类的依赖</param>
     /// <param name="family">家族</param>
+    /// <param name="ensureEngine">没装引擎就排上（与分类顶上的安装引导同一份状态）</param>
     /// <param name="onInstalledChanged">装好一档后（左栏的已装标记跟着刷）</param>
     public ImageFamilyDetailData(ModelDownloadContext context, ImageMarketServices image, ImageCatalogFamily family,
-        Action onInstalledChanged)
+        Func<Task> ensureEngine, Action onInstalledChanged)
     {
         _context = context;
         _image = image;
+        _ensureEngine = ensureEngine;
         _onInstalledChanged = onInstalledChanged;
         Family = family;
         Description = family.DescriptionFor(ImageMarketServices.Language);
@@ -124,8 +127,7 @@ public partial class ImageFamilyDetailData : ObservableObject, IDisposable
     private async Task Download(ImageTierRowData row)
     {
         if (!row.CanDownload) return;
-        await EngineInstallFeedback.EnsureAsync(() => _image.Engine.EnsureQueuedAsync(), _context.Messages,
-            new EngineEnsureTexts(LangKey.ImageEngineNoPackage, LangKey.ImageEngineQueued, LangKey.ImageEngineCheckFailed));
+        await _ensureEngine();
         try
         {
             IReadOnlyList<DownloadJob> jobs = _image.Store.Enqueue(row.Tier, () =>

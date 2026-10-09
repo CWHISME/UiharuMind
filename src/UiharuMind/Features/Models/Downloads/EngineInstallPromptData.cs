@@ -5,6 +5,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Engines;
 using UiharuMind.Features.Settings.Engines;
+using UiharuMind.Generated;
+using UiharuMind.Shared.Markup;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 
@@ -17,7 +19,7 @@ namespace UiharuMind.Features.Models.Downloads;
 /// <param name="Action">按钮字</param>
 /// <param name="Installing">排上之后、装好之前的说明</param>
 /// <param name="Ensure">排包结果的提示</param>
-public sealed record EngineInstallPromptTexts(string Hint, string Action, string Installing, EngineEnsureTexts Ensure);
+public sealed record EngineInstallPromptTexts(LangKey Hint, LangKey Action, LangKey Installing, EngineEnsureTexts Ensure);
 
 /// <summary>
 /// 「获取模型」里某个分类要的引擎没装时的安装引导：本机有没有、一键把推荐包排进全局队列、排上后转圈到装好。
@@ -80,8 +82,28 @@ public partial class EngineInstallPromptData : ObservableObject
         return hasEngine;
     }
 
+    /// <summary>
+    /// 引导语（跟着界面语言变）
+    /// </summary>
+    public LocalizedString Hint => LocalizedString.Get(Texts.Hint.ToString());
+
+    /// <summary>
+    /// 按钮字
+    /// </summary>
+    public LocalizedString Action => LocalizedString.Get(Texts.Action.ToString());
+
+    /// <summary>
+    /// 安装中的说明
+    /// </summary>
+    public LocalizedString Installing => LocalizedString.Get(Texts.Installing.ToString());
+
     [RelayCommand]
-    private async Task Install()
+    private Task Install() => EnsureQueuedAsync();
+
+    /// <summary>
+    /// 没装就把推荐包排进队列并提示；分类里别处（如点下载）要装引擎也走这里，好让引导卡一起转圈
+    /// </summary>
+    public async Task EnsureQueuedAsync()
     {
         IsQueued = true;
         EEngineEnsureState? state = await EngineInstallFeedback.EnsureAsync(() => _engine.EnsureQueuedAsync(),

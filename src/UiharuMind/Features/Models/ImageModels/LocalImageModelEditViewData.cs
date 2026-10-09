@@ -47,7 +47,8 @@ public partial class LocalImageModelEditViewData : ObservableObject
     {
         _source = source;
         _takenNames = takenNames;
-        LocalImageModel local = source.Local!;
+        // 接口格式是本地却没记组件的（手改过配置）按空条目编，存下就补全
+        LocalImageModel local = source.Local ?? new LocalImageModel();
         _family = family;
         _name = source.Name;
         _negativePrompt = local.NegativePrompt;
@@ -112,7 +113,7 @@ public partial class LocalImageModelEditViewData : ObservableObject
     /// <returns>新的生图模型</returns>
     public ImageModelInfo BuildResult()
     {
-        LocalImageModel local = _source.Local!.Clone();
+        LocalImageModel local = (_source.Local ?? new LocalImageModel()).Clone();
         local.BaseResolution = BaseResolution.Value;
         local.NegativePrompt = NegativePrompt.Trim();
         local.Steps = (int)Steps;

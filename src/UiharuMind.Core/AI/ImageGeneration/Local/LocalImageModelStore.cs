@@ -27,7 +27,7 @@ public sealed class LocalImageModelStore(
     /// </summary>
     public static LocalImageModelStore Shared { get; } = new(ModelRepoDownloader.Shared,
         () => LocalImageModels.ModelRoot, () => ModelSources.CreateForHuggingFaceRepos(),
-        () => ImageModelSettingConfig.Current.Models, release: setup => SdCppEngine.Shared.Release(setup));
+        () => ImageModelSettingConfig.Current.Models, release: setup => SdCppEngine.Shared.UnloadIfLoaded(setup));
 
     /// <summary>
     /// 组件在本机的落盘路径

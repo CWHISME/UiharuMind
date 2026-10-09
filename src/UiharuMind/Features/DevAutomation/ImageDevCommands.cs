@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using UiharuMind.Features.Models;
+using UiharuMind.Features.Models.Downloads;
 using UiharuMind.Features.Models.Downloads.Image;
 using UiharuMind.Features.Models.ImageModels;
 
@@ -87,15 +88,19 @@ internal sealed class ImageDownloadCommand : IAsyncDevCommand
                                ?? throw new InvalidOperationException(
                                    $"no tier '{tier ?? "recommended"}' in {family}: {string.Join(", ", detail.Rows.Select(x => x.Tier.Id))}");
         // 文件已在本机（多是别的档案下过）时界面上是「画一张」而不是下载：引擎从安装引导装，条目经「画一张」加进列表
-        if (!row.CanDownload)
+        if (row.Status.State == EQuantDownloadState.Downloaded)
         {
             if (!await market.EnginePrompt.RefreshAsync()) await market.EnginePrompt.InstallCommand.ExecuteAsync(null);
             detail.DrawCommand.Execute(row);
             (await ImageDevCommands.WaitForDrawWindow()).Close();
         }
-        else
+        else if (row.CanDownload)
         {
             await detail.DownloadCommand.ExecuteAsync(row);
+        }
+        else
+        {
+            throw new InvalidOperationException($"tier '{row.Tier.Id}' is {row.Status.State}, neither downloadable nor installed");
         }
 
         return new { family, tier = row.Tier.Id, size = row.SizeText, state = row.Status.State.ToString() };
@@ -146,9 +151,14 @@ internal sealed class ImageDrawCommand : IAsyncDevCommand
         Task run = draw.GenerateCommand.ExecuteAsync(null);
         if (await Task.WhenAny(run, Task.Delay(timeout)) != run) draw.StopCommand.Execute(null);
         await run;
+        if (draw.ResultPath == null)
+        {
+            window.Close();
+            throw new InvalidOperationException($"no image: {draw.StatusText}");
+        }
 
         string? copy = null;
-        if (draw.ResultPath != null && GroupDevCommands.StringOr(args, "copyTo") is { } target)
+        if (GroupDevCommands.StringOr(args, "copyTo") is { } target)
         {
             copy = Path.GetFullPath(target);
             Directory.CreateDirectory(Path.GetDirectoryName(copy)!);

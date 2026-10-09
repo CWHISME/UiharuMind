@@ -5394,6 +5394,18 @@
     <data name="ImageVaeTilingDesc" xml:space="preserve">
         <value>大图分块解码，省内存。</value>
     </data>
+    <data name="ImageClipOnCpu" xml:space="preserve">
+        <value>文本编码器放 CPU</value>
+    </data>
+    <data name="ImageClipOnCpuDesc" xml:space="preserve">
+        <value>文本编码器不占显存，内存吃紧时系统还能把它换出去；理解提示词会稍慢。内存不到 24 GB 的机器默认开。</value>
+    </data>
+    <data name="ImageMemoryMap" xml:space="preserve">
+        <value>内存映射读权重</value>
+    </data>
+    <data name="ImageMemoryMapDesc" xml:space="preserve">
+        <value>权重随用随从模型文件读，系统可随时回收，常驻内存小得多。内存不到 24 GB 的机器默认开。</value>
+    </data>
     <data name="ImageIdleStop" xml:space="preserve">
         <value>闲置后停止（分钟）</value>
     </data>

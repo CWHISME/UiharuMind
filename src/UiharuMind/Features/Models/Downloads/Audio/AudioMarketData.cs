@@ -58,8 +58,8 @@ public partial class AudioMarketData : ObservableObject, IModelMarket
         _selectedFilter = FilterOptions[0];
         _sourceLabel = ModelDownloadSourceInfo.Label();
         EnginePrompt = new EngineInstallPromptData(audio.Engine.Distribution, context.Messages,
-            new EngineInstallPromptTexts(Loc.Text(LangKey.AudioMarketNeedsEngine), Loc.Text(LangKey.AudioInstallEngine),
-                Loc.Text(LangKey.AudioMarketEngineInstalling),
+            new EngineInstallPromptTexts(LangKey.AudioMarketNeedsEngine, LangKey.AudioInstallEngine,
+                LangKey.AudioMarketEngineInstalling,
                 new EngineEnsureTexts(LangKey.AudioEngineNoPackage, LangKey.AudioEngineQueued,
                     LangKey.AudioEngineCheckFailed)));
         // 引擎装好或换了版本，模型清单跟着变

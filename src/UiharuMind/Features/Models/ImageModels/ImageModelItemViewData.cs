@@ -12,9 +12,13 @@ public sealed class ImageModelItemViewData
     /// <param name="model">生图模型</param>
     /// <param name="index">在回退顺序里的位置（从 0 起）</param>
     /// <param name="count">列表总数</param>
-    public ImageModelItemViewData(ImageModelInfo model, int index, int count)
+    /// <param name="familyName">本地条目从可下载列表装的家族名；其余为 null</param>
+    public ImageModelItemViewData(ImageModelInfo model, int index, int count, string? familyName = null)
     {
         Model = model;
+        Detail = model.Local is { } local
+            ? ImageTierText.Origin(familyName, local.Tier)
+            : $"{model.Dialect} · {model.ModelId} · {model.Resolution.ToTierLabel()}";
         Order = index + 1;
         CanMoveUp = index > 0;
         CanMoveDown = index < count - 1;
@@ -43,9 +47,7 @@ public sealed class ImageModelItemViewData
     public bool IsLocal => Model.IsLocal;
 
     /// <summary>远程：接口格式 · 模型 id · 分辨率档；本地：家族 · 档位</summary>
-    public string Detail => Model.Local is { } local
-        ? ImageTierText.Origin(ImageModelCatalog.BuiltIn.Find(local.Family)?.Name, local.Tier)
-        : $"{Model.Dialect} · {Model.ModelId} · {Model.Resolution.ToTierLabel()}";
+    public string Detail { get; }
 
     /// <summary>远程：服务地址；本地：在本机运行</summary>
     public string Endpoint => IsLocal ? Loc.Text(LangKey.ImageModelLocalEngine) : Model.Endpoint;

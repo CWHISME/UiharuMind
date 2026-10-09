@@ -45,8 +45,8 @@ public partial class ImageMarketData : ObservableObject, IModelMarket
             .Select(x => new ImageFamilyListItem(x, language))
             .ToList();
         EnginePrompt = new EngineInstallPromptData(image.Engine, context.Messages,
-            new EngineInstallPromptTexts(Loc.Text(LangKey.ImageMarketNeedsEngine), Loc.Text(LangKey.ImageInstallEngine),
-                Loc.Text(LangKey.ImageMarketEngineInstalling),
+            new EngineInstallPromptTexts(LangKey.ImageMarketNeedsEngine, LangKey.ImageInstallEngine,
+                LangKey.ImageMarketEngineInstalling,
                 new EngineEnsureTexts(LangKey.ImageEngineNoPackage, LangKey.ImageEngineQueued,
                     LangKey.ImageEngineCheckFailed)));
         ApplyFilter();
@@ -98,7 +98,7 @@ public partial class ImageMarketData : ObservableObject, IModelMarket
     {
         if (value == null || value.Family == Detail?.Family) return;
         Detail?.Dispose();
-        ImageFamilyDetailData detail = new(_context, _image, value.Family, RefreshInstalled);
+        ImageFamilyDetailData detail = new(_context, _image, value.Family, EnginePrompt.EnsureQueuedAsync, RefreshInstalled);
         Detail = detail;
         _ = detail.LoadAsync();
     }

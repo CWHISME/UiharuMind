@@ -39,6 +39,7 @@ config="${SMOKE_CONFIG:-$HOME/.uiharu/Config}"
 
 # 三个工作区：空目录；放了仓库规矩副本的目录（验「先读 AGENTS.md」「改文件落在哪」）；docs 副本（读得多、涨得快的长会话素材）
 mkdir -p "$out/home" "$out/ws-empty" "$out/ws-repo" "$out/ws-docs"
+out="$(cd "$out" && pwd)"
 [ "${SMOKE_FRESH:-}" = "1" ] || cp -R "$config" "$out/home/Config"
 cp "$REPO_ROOT/AGENTS.md" "$REPO_ROOT/README.md" "$out/ws-repo/"
 cp -R "$REPO_ROOT/docs/." "$out/ws-docs/"
@@ -76,6 +77,9 @@ echo "输出目录：$out"
 UIHARU_HOME="$out/home" "$APP" --dev-script "$out/scenario.jsonl" --dev-report "$out/report.json" > "$out/app.log" 2>&1 &
 app_pid=$!
 # 看门狗：超时或系统空闲内存跌破下限就连子进程（本地引擎）一起杀掉。本地生图曾把 16G 机器换页换到内核看门狗重启
+# 引擎装在隔离档案里，按这个路径认，不碰别的实例起的引擎（固定字符串匹配：先把路径里的正则字符转义）
+engines="$(printf '%s' "$out/home/External/Engine/" | sed 's/[][\\.*^$+?(){}|]/\\&/g')"
+killed=""
 deadline=$(( $(date +%s) + ${SMOKE_TIMEOUT_MINUTES:-120} * 60 ))
 while kill -0 "$app_pid" 2> /dev/null; do
     reason=""
@@ -84,18 +88,29 @@ while kill -0 "$app_pid" 2> /dev/null; do
     [ "$level" -lt "${SMOKE_MIN_FREE_PERCENT:-12}" ] && reason="空闲内存只剩 $level%"
     if [ -n "$reason" ]; then
         echo "看门狗：$reason，结束应用与本地引擎" | tee -a "$out/app.log" >&2
-        # 引擎装在隔离档案里，按路径认，不碰别的实例起的引擎
-        pkill -9 -f "$out/home/" 2> /dev/null || true
+        pkill -9 -f "$engines" 2> /dev/null || true
         kill -9 "$app_pid" 2> /dev/null || true
+        killed="$reason"
         break
     fi
     sleep 5
 done
 wait "$app_pid" 2> /dev/null || true
-pkill -9 -f "$out/home/" 2> /dev/null || true
+pkill -9 -f "$engines" 2> /dev/null || true
 
 if [ ! -f "$out/report.json" ]; then
     echo "没有生成报告，看 $out/app.log" >&2
+    exit 1
+fi
+
+if [ -n "$killed" ]; then
+    echo "看门狗中途结束了应用（$killed），见 $out/report.json" >&2
+    exit 1
+fi
+
+# 报告逐步落盘：应用中途崩了也有报告，只是没走到末步 quit
+if ! grep -q '"op": "quit"' "$out/report.json"; then
+    echo "应用没跑完场景就退出了，见 $out/app.log" >&2
     exit 1
 fi
 

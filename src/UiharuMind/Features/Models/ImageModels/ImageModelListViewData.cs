@@ -43,17 +43,20 @@ public partial class ImageModelListViewData : ObservableObject
     private readonly IMessageService _messageService;
     private readonly Func<ImageModelInfo?, IReadOnlyCollection<string>, Task<ImageModelInfo?>> _openEditor;
     private readonly ImageModelListActions _actions;
+    private readonly ImageModelCatalog _catalog;
 
     /// <param name="messageService">删除确认</param>
     /// <param name="openEditor">打开远程模型编辑框：待编辑的模型（null 为新建）、其他模型已用的名字 → 确认后的新实例</param>
     /// <param name="actions">本地模型用的动作；null 都不做</param>
+    /// <param name="catalog">可下载列表（本地条目显示家族名）；null 取内置</param>
     public ImageModelListViewData(IMessageService messageService,
         Func<ImageModelInfo?, IReadOnlyCollection<string>, Task<ImageModelInfo?>> openEditor,
-        ImageModelListActions? actions = null)
+        ImageModelListActions? actions = null, ImageModelCatalog? catalog = null)
     {
         _messageService = messageService;
         _openEditor = openEditor;
         _actions = actions ?? ImageModelListActions.None;
+        _catalog = catalog ?? ImageModelCatalog.BuiltIn;
         Refresh();
     }
 
@@ -65,13 +68,17 @@ public partial class ImageModelListViewData : ObservableObject
 
     private static List<ImageModelInfo> Models => ImageModelSettingConfig.Current.Models;
 
+    private string? FamilyName(ImageModelInfo model) =>
+        model.Local?.Family is { } family ? _catalog.Find(family)?.Name : null;
+
     /// <summary>
     /// 按配置重建列表。熔断会随时间恢复，切到这一页时重刷一次状态
     /// </summary>
     public void Refresh()
     {
         Items.Clear();
-        for (int i = 0; i < Models.Count; i++) Items.Add(new ImageModelItemViewData(Models[i], i, Models.Count));
+        for (int i = 0; i < Models.Count; i++)
+            Items.Add(new ImageModelItemViewData(Models[i], i, Models.Count, FamilyName(Models[i])));
         OnPropertyChanged(nameof(HasItems));
     }
 
@@ -93,7 +100,7 @@ public partial class ImageModelListViewData : ObservableObject
     [RelayCommand]
     private async Task Edit(ImageModelItemViewData item)
     {
-        ImageModelInfo? edited = item.Model.Local != null
+        ImageModelInfo? edited = item.IsLocal
             ? await _actions.OpenLocalEditor(item.Model, NamesExcept(item.Model))
             : await _openEditor(item.Model, NamesExcept(item.Model));
         int index = Models.IndexOf(item.Model);

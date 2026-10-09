@@ -5401,6 +5401,18 @@ Allow them?</value>
     <data name="ImageVaeTilingDesc" xml:space="preserve">
         <value>Decode large images in tiles to save memory.</value>
     </data>
+    <data name="ImageClipOnCpu" xml:space="preserve">
+        <value>Text encoder on CPU</value>
+    </data>
+    <data name="ImageClipOnCpuDesc" xml:space="preserve">
+        <value>Keeps the text encoder out of GPU memory so the system can still page it out when memory runs short. Prompt encoding is a little slower. On by default on machines with under 24 GB of memory.</value>
+    </data>
+    <data name="ImageMemoryMap" xml:space="preserve">
+        <value>Memory-map weights</value>
+    </data>
+    <data name="ImageMemoryMapDesc" xml:space="preserve">
+        <value>Reads weights from the model files on demand; the system can reclaim them, so far less memory stays resident. On by default on machines with under 24 GB of memory.</value>
+    </data>
     <data name="ImageIdleStop" xml:space="preserve">
         <value>Stop when idle (minutes)</value>
     </data>

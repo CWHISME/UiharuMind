@@ -60,6 +60,16 @@
                                 <ToggleSwitch IsChecked="{Binding VaeTiling}" />
                             </controls:SettingsRow.Field>
                         </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc ImageClipOnCpu}" Description="{loc:Loc ImageClipOnCpuDesc}">
+                            <controls:SettingsRow.Field>
+                                <ToggleSwitch IsChecked="{Binding ClipOnCpu}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="{loc:Loc ImageMemoryMap}" Description="{loc:Loc ImageMemoryMapDesc}">
+                            <controls:SettingsRow.Field>
+                                <ToggleSwitch IsChecked="{Binding MemoryMap}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
                         <controls:SettingsRow Header="{loc:Loc ModelRuntimeThreads}" Description="{loc:Loc ImageThreadsDesc}">
                             <controls:SettingsRow.Field>
                                 <NumericUpDown Classes="runtime-field" Minimum="0" Maximum="512" Value="{Binding Threads}" />

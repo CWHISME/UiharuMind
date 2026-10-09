@@ -18,6 +18,8 @@ public partial class SdCppRuntimeSettingsViewData : ObservableObject
     [ObservableProperty] private bool _offloadToCpu;
     [ObservableProperty] private bool _diffusionFlashAttention;
     [ObservableProperty] private bool _vaeTiling;
+    [ObservableProperty] private bool _clipOnCpu;
+    [ObservableProperty] private bool _memoryMap;
     [ObservableProperty] private decimal _idleStopMinutes;
     [ObservableProperty] private decimal _loadTimeoutSeconds;
     [ObservableProperty] private decimal _generationTimeoutSeconds;
@@ -36,6 +38,8 @@ public partial class SdCppRuntimeSettingsViewData : ObservableObject
             OffloadToCpu = settings.OffloadToCpu;
             DiffusionFlashAttention = settings.DiffusionFlashAttention;
             VaeTiling = settings.VaeTiling;
+            ClipOnCpu = settings.ClipOnCpu;
+            MemoryMap = settings.MemoryMap;
             IdleStopMinutes = settings.IdleStopMinutes;
             LoadTimeoutSeconds = settings.LoadTimeoutSeconds;
             GenerationTimeoutSeconds = settings.GenerationTimeoutSeconds;
@@ -48,6 +52,8 @@ public partial class SdCppRuntimeSettingsViewData : ObservableObject
     partial void OnOffloadToCpuChanged(bool value) => _writeBack.Save();
     partial void OnDiffusionFlashAttentionChanged(bool value) => _writeBack.Save();
     partial void OnVaeTilingChanged(bool value) => _writeBack.Save();
+    partial void OnClipOnCpuChanged(bool value) => _writeBack.Save();
+    partial void OnMemoryMapChanged(bool value) => _writeBack.Save();
     partial void OnIdleStopMinutesChanged(decimal value) => _writeBack.Save();
     partial void OnLoadTimeoutSecondsChanged(decimal value) => _writeBack.Save();
     partial void OnGenerationTimeoutSecondsChanged(decimal value) => _writeBack.Save();
@@ -61,6 +67,8 @@ public partial class SdCppRuntimeSettingsViewData : ObservableObject
         settings.OffloadToCpu = OffloadToCpu;
         settings.DiffusionFlashAttention = DiffusionFlashAttention;
         settings.VaeTiling = VaeTiling;
+        settings.ClipOnCpu = ClipOnCpu;
+        settings.MemoryMap = MemoryMap;
         settings.IdleStopMinutes = (int)IdleStopMinutes;
         settings.LoadTimeoutSeconds = (int)LoadTimeoutSeconds;
         settings.GenerationTimeoutSeconds = (int)GenerationTimeoutSeconds;

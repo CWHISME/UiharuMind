@@ -8,6 +8,14 @@ namespace UiharuMind.Core.AI.ImageGeneration;
 /// </summary>
 public class SdCppSettingConfig : TConfigBase<SdCppSettingConfig>, IEngineVersionSelection
 {
+    // 16G 的机器上全进显存跑 FLUX.2 klein 实测能把系统换页换到看门狗重启
+    private const long LowMemoryBytes = 24L * 1024 * 1024 * 1024;
+
+    /// <summary>
+    /// 本机内存不到 24G：省内存的几项默认打开
+    /// </summary>
+    public static bool IsLowMemoryMachine { get; } = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes is > 0 and < LowMemoryBytes;
+
     /// <summary>
     /// 选中的引擎版本名；空 = 用第一个装好的
     /// </summary>
@@ -34,9 +42,19 @@ public class SdCppSettingConfig : TConfigBase<SdCppSettingConfig>, IEngineVersio
     public bool DiffusionFlashAttention { get; set; } = true;
 
     /// <summary>
-    /// VAE 分块解码：大图省显存
+    /// VAE 分块解码：大图省显存。小内存机器默认开
     /// </summary>
-    public bool VaeTiling { get; set; }
+    public bool VaeTiling { get; set; } = IsLowMemoryMachine;
+
+    /// <summary>
+    /// 文本编码器放 CPU（--clip-on-cpu）：它占的那几 G 不再锁进显存，系统吃紧时能换出去。小内存机器默认开
+    /// </summary>
+    public bool ClipOnCpu { get; set; } = IsLowMemoryMachine;
+
+    /// <summary>
+    /// 内存映射读权重（--mmap）：权重页随用随读、可被系统回收，常驻小得多。小内存机器默认开
+    /// </summary>
+    public bool MemoryMap { get; set; } = IsLowMemoryMachine;
 
     /// <summary>
     /// 闲置几分钟后停掉进程、还回内存；0 为不停

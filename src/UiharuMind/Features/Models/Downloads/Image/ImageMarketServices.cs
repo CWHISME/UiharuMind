@@ -17,7 +17,7 @@ namespace UiharuMind.Features.Models.Downloads.Image;
 /// <param name="OpenDraw">打开画图窗口</param>
 /// <param name="OpenUrl">打开网页</param>
 public sealed record ImageMarketServices(
-    EngineDistribution<SdCppVersion> Engine,
+    IEngineDistribution Engine,
     LocalImageModelStore Store,
     ImageModelCatalog Catalog,
     Func<IReadOnlyList<ImageModelInfo>> Models,

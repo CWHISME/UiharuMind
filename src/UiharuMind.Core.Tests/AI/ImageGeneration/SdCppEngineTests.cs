@@ -33,12 +33,15 @@ public class SdCppEngineTests : IDisposable
     public void Args_PutComponentsFirst_ThenEngineSettings_ThenUserExtras()
     {
         SdCppModelSetup model = Model("z", ("diffusion-model", "/m/z.gguf"), ("vae", "/m/ae.safetensors"), ("llm", "/m/qwen 3.gguf"));
-        SdCppSettingConfig settings = new() { OffloadToCpu = true, Threads = 6, ExtraArguments = "--vae-tiling --fa" };
+        SdCppSettingConfig settings = new()
+        {
+            OffloadToCpu = true, ClipOnCpu = true, MemoryMap = true, Threads = 6, ExtraArguments = "--vae-tiling --fa"
+        };
 
         IReadOnlyList<string> args = SdCppServerArgs.Build(model with { ExtraArguments = ["--vae-format", "flux"] }, settings);
 
         Assert.Equal(["--diffusion-model", "/m/z.gguf", "--vae", "/m/ae.safetensors", "--llm", "/m/qwen 3.gguf",
-            "--vae-format", "flux", "--eager-load", "--diffusion-fa", "--offload-to-cpu", "-t", "6", "--vae-tiling", "--fa"], args);
+            "--vae-format", "flux", "--eager-load", "--diffusion-fa", "--offload-to-cpu", "--clip-on-cpu", "--mmap", "-t", "6", "--vae-tiling", "--fa"], args);
         Assert.Equal(["--listen-ip", "127.0.0.1", "--listen-port", "4321"],
             SdCppServerArgs.Launch("/bin/sd-server", [], TimeSpan.FromSeconds(1)).BuildArguments(4321));
     }
@@ -148,6 +151,7 @@ public class SdCppEngineTests : IDisposable
         await engine.GenerateAsync(model, Request("x"), null, token);
         engine.Settings.VaeTiling = !engine.Settings.VaeTiling;
         engine.Settings.GenerationTimeoutSeconds += 60;
+        engine.Settings.LoadTimeoutSeconds += 60; //加载超时不是进程参数
         await engine.GenerateAsync(model, Request("y"), null, token);
         Assert.Equal(1, Starts());
 
@@ -158,7 +162,7 @@ public class SdCppEngineTests : IDisposable
     }
 
     [Fact]
-    public async Task Release_StopsOnlyWhenThatModelIsLoaded()
+    public async Task UnloadIfLoaded_StopsOnlyWhenThatModelIsLoaded()
     {
         Assert.SkipWhen(OperatingSystem.IsWindows(), "fake server is a shell script");
         using SdCppEngine engine = CreateEngine();
@@ -166,10 +170,10 @@ public class SdCppEngineTests : IDisposable
         SdCppModelSetup other = Model("b", ("diffusion-model", Touch("b.gguf")));
         await engine.GenerateAsync(loaded, Request("x"), null, TestContext.Current.CancellationToken);
 
-        engine.Release(other);
+        engine.UnloadIfLoaded(other);
         Assert.Equal(EEngineRunState.Running, engine.Runtime.State);
 
-        engine.Release(loaded);
+        engine.UnloadIfLoaded(loaded);
         Assert.Equal(EEngineRunState.Stopped, engine.Runtime.State);
     }
 

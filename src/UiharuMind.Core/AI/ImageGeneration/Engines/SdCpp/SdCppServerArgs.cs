@@ -35,6 +35,8 @@ public static class SdCppServerArgs
         args.Add("--eager-load");
         if (settings.DiffusionFlashAttention) args.Add("--diffusion-fa");
         if (settings.OffloadToCpu) args.Add("--offload-to-cpu");
+        if (settings.ClipOnCpu) args.Add("--clip-on-cpu");
+        if (settings.MemoryMap) args.Add("--mmap");
         if (settings.ForceCpu) args.AddRange(["--backend", "cpu"]);
         if (settings.Threads > 0) args.AddRange(["-t", settings.Threads.ToString()]);
         args.AddRange(EngineArguments.Split(settings.ExtraArguments));

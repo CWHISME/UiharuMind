@@ -32,14 +32,14 @@ public sealed class LocalImageComponent
     /// </summary>
     /// <param name="modelRoot">模型目录</param>
     /// <returns>绝对路径</returns>
+    public string Resolve(string modelRoot) => Path ?? ModelRepoDownloader.FilePath(
+        ModelRepoDownloader.RepoDirectory(modelRoot, Repository ?? ""), new ModelRepoFile(File ?? "", 0, null));
+
     /// <summary>
     /// 复制一份
     /// </summary>
     /// <returns>副本</returns>
     public LocalImageComponent Clone() => (LocalImageComponent)MemberwiseClone();
-
-    public string Resolve(string modelRoot) => Path ?? ModelRepoDownloader.FilePath(
-        ModelRepoDownloader.RepoDirectory(modelRoot, Repository ?? ""), new ModelRepoFile(File ?? "", 0, null));
 }
 
 /// <summary>

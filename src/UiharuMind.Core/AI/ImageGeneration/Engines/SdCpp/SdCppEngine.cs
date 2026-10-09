@@ -24,6 +24,7 @@ public sealed partial class SdCppEngine : IDisposable
     private readonly Lock _gate = new();
     private SdCppModelSetup? _requested; //下次起进程装哪个
     private string? _launched; //在跑的进程按什么起的（程序与参数）：模型、版本或启动设置变了就换进程
+    private string? _launchedKey; //在跑的进程装的模型
 
     /// <param name="settings">引擎设置</param>
     /// <param name="engineRoot">引擎包目录</param>
@@ -68,13 +69,19 @@ public sealed partial class SdCppEngine : IDisposable
     public void Stop() => _host.Stop();
 
     /// <summary>
-    /// 要删某个模型的文件前调：在跑的正是它就停掉（放开文件），装着别的模型不动
+    /// 要删某个模型的文件前调：进程装着它、或正要为它起，就停掉（放开文件）；装着别的模型不动
     /// </summary>
     /// <param name="model">模型</param>
-    public void Release(SdCppModelSetup model)
+    public void UnloadIfLoaded(SdCppModelSetup model)
     {
         bool loaded;
-        lock (_gate) loaded = _requested?.Key == model.Key;
+        lock (_gate)
+        {
+            loaded = _launchedKey == model.Key || _requested?.Key == model.Key;
+            // 正在为它起的那次别再拿要删的文件重起：清掉请求，等着的那次直接失败
+            if (_requested?.Key == model.Key) _requested = null;
+        }
+
         if (loaded) _host.Stop();
     }
 
@@ -197,7 +204,11 @@ public sealed partial class SdCppEngine : IDisposable
         SdCppModelSetup model;
         lock (_gate) model = _requested ?? throw new InvalidOperationException("No image model was requested.");
         LocalServerLaunch launch = BuildLaunch(version, model);
-        lock (_gate) _launched = Fingerprint(launch);
+        lock (_gate)
+        {
+            _launched = Fingerprint(launch);
+            _launchedKey = model.Key;
+        }
         return launch;
     }
 
@@ -205,8 +216,9 @@ public sealed partial class SdCppEngine : IDisposable
         version.GetExecutable(SdCppVersionManager.ExecutableName), SdCppServerArgs.Build(model, _settings),
         TimeSpan.FromSeconds(Math.Max(30, _settings.LoadTimeoutSeconds)));
 
+    // 只看程序与参数：加载超时不是进程参数，改它不必重新加载权重
     private static string Fingerprint(LocalServerLaunch launch) =>
-        string.Join('\n', [launch.ExecutablePath, ..launch.BuildArguments(0), launch.ReadyTimeout.ToString()]);
+        string.Join('\n', [launch.ExecutablePath, ..launch.BuildArguments(0)]);
 
     [GeneratedRegex(@"^(master-\d+-[0-9a-f]+)-bin-")]
     private static partial Regex TagPattern();
