@@ -5523,6 +5523,9 @@
     <data name="ImageDrawModel" xml:space="preserve">
         <value>模型</value>
     </data>
+    <data name="ImageDrawRatio" xml:space="preserve">
+        <value>比例</value>
+    </data>
     <data name="ImageDrawGenerate" xml:space="preserve">
         <value>生成</value>
     </data>

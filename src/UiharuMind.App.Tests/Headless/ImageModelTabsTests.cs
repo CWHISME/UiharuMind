@@ -182,6 +182,7 @@ public class ImageModelTabsTests : IDisposable
             {
                 calls++;
                 Assert.Equal("a red fox", request.Prompt);
+                Assert.Equal(new ImageAspectRatio(16, 9), request.AspectRatio);
                 if (calls == 1) return Task.FromResult(new ImageGenerationReport { Images = [new GeneratedImage(png, "image/png")] });
                 token.Register(() => pending.TrySetCanceled(token));
                 return pending.Task;
@@ -189,6 +190,7 @@ public class ImageModelTabsTests : IDisposable
 
             Assert.False(draw.GenerateCommand.CanExecute(null));
             draw.Prompt = "  a red fox ";
+            draw.SelectedRatio = new ImageAspectRatio(16, 9);
             await draw.GenerateCommand.ExecuteAsync(null);
 
             Assert.True(draw.HasResult);

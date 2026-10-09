@@ -5530,6 +5530,9 @@ Allow them?</value>
     <data name="ImageDrawModel" xml:space="preserve">
         <value>Model</value>
     </data>
+    <data name="ImageDrawRatio" xml:space="preserve">
+        <value>Aspect</value>
+    </data>
     <data name="ImageDrawGenerate" xml:space="preserve">
         <value>Generate</value>
     </data>

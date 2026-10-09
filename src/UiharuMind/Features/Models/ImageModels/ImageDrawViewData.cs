@@ -55,6 +55,7 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
     [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(GenerateCommand))]
     private bool _isGenerating;
 
+    [ObservableProperty] private ImageAspectRatio _selectedRatio = ImageAspectRatio.Square;
     [ObservableProperty] private string _statusText = "";
     [ObservableProperty] private Bitmap? _image;
 
@@ -84,6 +85,11 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
     public IReadOnlyList<ImageModelInfo> Models { get; }
 
     /// <summary>
+    /// 可选的出图比例（各家都支持的那几种，宽高由引擎按模型基准边长换算）
+    /// </summary>
+    public IReadOnlyList<ImageAspectRatio> Ratios => ImageAspectRatio.Supported;
+
+    /// <summary>
     /// 画好了一张
     /// </summary>
     public bool HasResult => ResultPath != null;
@@ -111,7 +117,7 @@ public partial class ImageDrawViewData : ObservableObject, IDisposable
         {
             // 在界面线程上建，进度回调就回到界面线程
             Progress<ImageProgress> progress = new(OnProgress);
-            ImageGenerationReport report = await _generate(model, new ImageRequest(Prompt.Trim(), [], null),
+            ImageGenerationReport report = await _generate(model, new ImageRequest(Prompt.Trim(), [], SelectedRatio),
                 progress, _running.Token);
             if (report.Failure != null || report.Images.Count == 0)
             {

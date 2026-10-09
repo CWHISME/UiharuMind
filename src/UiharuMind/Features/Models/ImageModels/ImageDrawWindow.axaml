@@ -18,12 +18,15 @@
             <StackPanel Spacing="10">
                 <TextBox Text="{Binding Prompt}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" MaxHeight="160"
                          PlaceholderText="{loc:Loc ImageDrawPromptPlaceholder}" />
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
                     <TextBlock Text="{loc:Loc ImageDrawModel}" VerticalAlignment="Center" />
                     <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding Models}"
                               SelectedItem="{Binding SelectedModel}" IsEnabled="{Binding !IsGenerating}"
                               DisplayMemberBinding="{ReflectionBinding Name}" />
-                    <Panel Grid.Column="2">
+                    <TextBlock Grid.Column="2" Text="{loc:Loc ImageDrawRatio}" VerticalAlignment="Center" />
+                    <ComboBox Grid.Column="3" MinWidth="88" ItemsSource="{Binding Ratios}"
+                              SelectedItem="{Binding SelectedRatio}" IsEnabled="{Binding !IsGenerating}" />
+                    <Panel Grid.Column="4">
                         <Button Classes="Primary" Command="{Binding GenerateCommand}" IsVisible="{Binding !IsGenerating}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <controls:ThemedSvgIcon Width="15" Height="15" IconName="image" />
