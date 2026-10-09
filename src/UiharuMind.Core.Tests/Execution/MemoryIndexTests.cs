@@ -173,13 +173,36 @@ public sealed class MemoryIndexTests : IDisposable
             string edited = await tools.Edit(note, [new FileEdit { OldString = "正文", NewString = "新正文" }], ct);
             string elsewhere = await tools.Write(Path.Combine(workspace, "a.md"), "# 不是记忆", ct);
 
-            Assert.Contains("Shown in the memory list as: $MEMORY/pitfalls.md — 踩坑", written);
-            Assert.Contains("Shown in the memory list as: $MEMORY/pitfalls.md — 踩坑", edited);
-            Assert.DoesNotContain("memory list", elsewhere);
+            Assert.Contains("Shown in the memory index as: pitfalls.md — 踩坑", written);
+            Assert.Contains("Shown in the memory index as: pitfalls.md — 踩坑", edited);
+            Assert.DoesNotContain("memory index", elsewhere);
         }
         finally
         {
             Directory.Delete(workspace, recursive: true);
         }
+    }
+
+    [Fact]
+    public async Task Read_TheMemoryDirectory_ReturnsTheIndexWithoutPrefix()
+    {
+        Note("old.md", "# 偏好\n正文", minutesAgo: 10);
+        Note("sub/new.md", "踩坑\n正文", minutesAgo: 1);
+        FileReader reader = new(new AgentPathResolver(null, memoryRoot: _memory), EReadImageMode.None, null);
+
+        string index = await reader.ReadAsync("$MEMORY", 1, null, TestContext.Current.CancellationToken);
+
+        Assert.Equal("- sub/new.md — 踩坑\n- old.md — 偏好", index.ReplaceLineEndings("\n"));
+    }
+
+    [Fact]
+    public async Task Read_MissingMemoryDirectory_SaysNoNotes()
+    {
+        FileReader reader = new(new AgentPathResolver(null, memoryRoot: Path.Combine(_memory, "none")),
+            EReadImageMode.None, null);
+
+        string index = await reader.ReadAsync("$MEMORY/", 1, null, TestContext.Current.CancellationToken);
+
+        Assert.Contains("no notes", index);
     }
 }

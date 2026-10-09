@@ -1,5 +1,6 @@
 using System.Text;
 using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.AI.Execution.Files;
@@ -75,6 +76,7 @@ internal sealed class FileReader
     public async Task<string> ReadAsync(string filePath, int offset, int? limit, CancellationToken ct)
     {
         if (!_paths.TryResolve(filePath, out string full, out string pathError)) return pathError;
+        if (_paths.RelativeToMemory(full) == ".") return ReadMemoryIndex();
         if (Directory.Exists(full)) return $"'{filePath}' is a directory. Use `{FileToolNames.Glob}` to list its files.";
         if (!File.Exists(full)) return await NotFoundAsync(filePath, full, ct).ConfigureAwait(false);
 
@@ -86,6 +88,11 @@ internal sealed class FileReader
             ? await ReadWholeAsync(filePath, full, offset, limit, ct).ConfigureAwait(false)
             : ReadStreaming(filePath, full, size, offset, limit);
     }
+
+    // 读记忆目录本身 = 读记忆索引:每份笔记一行「文件名 — 首行摘要」
+    private string ReadMemoryIndex() =>
+        MemoryIndex.Build(_paths.MemoryRoot, string.Empty, AgentSettingConfig.Current.MemoryIndexBudget)
+        ?? "The memory directory has no notes yet.";
 
     private Task<string> ReadImageAsync(string filePath, string full, CancellationToken ct) => _imageMode switch
     {

@@ -811,7 +811,7 @@ public class HarnessInstructionsCompositionTests
     }
 
     /// <summary>
-    /// 主代理指令里凡反引号包裹的内容必须是已知工具名。
+    /// 主代理指令里凡反引号包裹的内容必须以已知工具名开头（允许写成完整调用，如 <c>Read $MEMORY</c>）。
     /// 子代理侧能按真实装配的工具集反向校验(见
     /// <c>SubAgentBoundaryTests.SubAgentInstructions_OnlyNameToolsThatExist</c>);
     /// 主代理侧装配真工具集要 chat client,所以退而求其次用「全量已知工具名」做反向校验——
@@ -842,8 +842,9 @@ public class HarnessInstructionsCompositionTests
         Assert.NotEmpty(mentioned); //反引号写法本身也要在,否则这条不变量会空转
         foreach (Match match in mentioned)
         {
-            Assert.True(known.Contains(match.Groups[1].Value),
-                $"主代理指令里反引号内容 `{match.Groups[1].Value}` 不是已知工具名");
+            string tool = match.Groups[1].Value.Split(' ')[0];
+            Assert.True(known.Contains(tool),
+                $"主代理指令里反引号内容 `{match.Groups[1].Value}` 不以已知工具名开头");
         }
     }
 

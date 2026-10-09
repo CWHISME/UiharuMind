@@ -301,17 +301,16 @@ internal sealed class PermissiveFileAccessTools
         }
     }
 
-    // 写的是记忆笔记时报出它在记忆清单里的样子(ADR 0076):首行空着、只是个标题、改了正文没改首行,当场看得见
+    // 写的是记忆笔记时报出它在记忆索引里的样子(ADR 0076):首行空着、只是个标题、改了正文没改首行,当场看得见
     private string MemoryListLine(string full, string text)
     {
         if (!full.EndsWith(".md", StringComparison.OrdinalIgnoreCase) || _paths.RelativeToMemory(full) is not { } name)
             return string.Empty;
 
         string summary = MemoryIndex.SummaryOf(text);
-        string path = $"{_paths.MemoryToken}/{name}";
         return summary.Length > 0
-            ? $"\nShown in the memory list as: {path} — {summary}"
-            : $"\nShown in the memory list as: {path} (the first line is empty, so there is no summary)";
+            ? $"\nShown in the memory index as: {name} — {summary}"
+            : $"\nShown in the memory index as: {name} (the first line is empty, so there is no summary)";
     }
 
     // 统一落盘:编码、BOM 与行尾按信封原样还原。先写同目录临时文件再 rename 替换(跨文件系统会失去原子性),

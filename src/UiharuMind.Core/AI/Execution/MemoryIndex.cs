@@ -78,7 +78,7 @@ public static class MemoryIndex
     /// 路径写成简写开头（<c>$MEMORY/a.md</c>），模型照抄就能 Read——只给文件名时它会自己猜目录（冒烟实测猜错）
     /// </summary>
     /// <param name="memoryDirectory">记忆目录绝对路径</param>
-    /// <param name="memoryToken">记忆目录简写</param>
+    /// <param name="memoryToken">记忆目录简写；空串时只写相对文件名（Read $MEMORY 的索引）</param>
     /// <param name="budget">整份清单的字数上限，夹在 <see cref="MinListBudget"/> 与 <see cref="MaxListBudget"/> 之间</param>
     /// <returns>清单正文；目录不存在或没有笔记时为 null</returns>
     public static string? Build(string memoryDirectory, string memoryToken, int budget)
@@ -106,7 +106,8 @@ public static class MemoryIndex
         int listed = 0;
         foreach (FileInfo file in files)
         {
-            string name = $"{memoryToken}/{Path.GetRelativePath(memoryDirectory, file.FullName).Replace('\\', '/')}";
+            string relative = Path.GetRelativePath(memoryDirectory, file.FullName).Replace('\\', '/');
+            string name = memoryToken.Length > 0 ? $"{memoryToken}/{relative}" : relative;
             string summary = SummaryOf(ReadHead(file.FullName));
             string line = summary.Length > 0 ? $"{EntryPrefix}{name} — {summary}" : $"{EntryPrefix}{name}";
             if (listed > 0 && list.Length + line.Length > budget) break;
