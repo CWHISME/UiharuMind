@@ -20,15 +20,15 @@
         <pages:ModelPageData />
     </Design.DataContext>
 
-    <DockPanel>
-        <TextBlock DockPanel.Dock="Top" Text="{loc:Loc ModelPageTitle}" FontSize="24" />
+    <!-- 与角色页同一圈留白；页签本身就是页头，不另放大标题（其他页都没有） -->
+    <DockPanel Margin="12,6,12,12">
         <!-- 生图模型单独一张表(ADR 0052):不进对话模型列表,也就不出现在任何对话模型选择器里 -->
         <TabControl SelectedIndex="{Binding SelectedTabIndex}">
             <TabItem Header="{loc:Loc ModelPageChatModelsTab}">
                 <chat:ChatModelListView DataContext="{Binding ChatModels}" />
             </TabItem>
             <TabItem Header="{loc:Loc ModelPageImageModelsTab}">
-                <images:ImageModelListView Margin="0,12,0,0" DataContext="{Binding ImageModels}" />
+                <images:ImageModelListView DataContext="{Binding ImageModels}" />
             </TabItem>
             <!-- 只列本机装了的；下载在「获取模型」的语音分类 -->
             <TabItem Header="{loc:Loc ModelPageAudioModelsTab}" Content="{Binding AudioModels}">

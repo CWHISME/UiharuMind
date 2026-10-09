@@ -5434,9 +5434,6 @@ Allow them?</value>
     <data name="ImageExtraArgsDesc" xml:space="preserve">
         <value>Appended last and win over the settings above.</value>
     </data>
-    <data name="ImageModelLocalBadge" xml:space="preserve">
-        <value>Local</value>
-    </data>
     <data name="ImageModelCustomCombo" xml:space="preserve">
         <value>Custom</value>
     </data>
@@ -5466,6 +5463,24 @@ Allow them?</value>
     </data>
     <data name="ImageModelEngineSettings" xml:space="preserve">
         <value>Engine settings</value>
+    </data>
+    <data name="ImageEngineStatusStopped" xml:space="preserve">
+        <value>The image engine is not running; it starts automatically when you generate an image.</value>
+    </data>
+    <data name="ImageEngineStatusStarting" xml:space="preserve">
+        <value>The image engine is starting and loading the model…</value>
+    </data>
+    <data name="ImageEngineStatusRunning" xml:space="preserve">
+        <value>Image engine running · stops after {0} idle minutes</value>
+    </data>
+    <data name="ImageEngineStatusRunningNoIdle" xml:space="preserve">
+        <value>Image engine running · keeps the model loaded</value>
+    </data>
+    <data name="ImageEngineStatusFailed" xml:space="preserve">
+        <value>The image engine failed to start: {0}</value>
+    </data>
+    <data name="ImageEngineReleaseTip" xml:space="preserve">
+        <value>Stop the image engine and free the memory its model uses; it restarts automatically next time</value>
     </data>
     <data name="ImageModelLocalDeleteConfirm" xml:space="preserve">
         <value>Delete the local model {0}? Its files that no other model uses are deleted too.</value>

@@ -5427,9 +5427,6 @@
     <data name="ImageExtraArgsDesc" xml:space="preserve">
         <value>排在最后，与上面的设置冲突时以它为准。</value>
     </data>
-    <data name="ImageModelLocalBadge" xml:space="preserve">
-        <value>本地</value>
-    </data>
     <data name="ImageModelCustomCombo" xml:space="preserve">
         <value>自定义组合</value>
     </data>
@@ -5459,6 +5456,24 @@
     </data>
     <data name="ImageModelEngineSettings" xml:space="preserve">
         <value>引擎设置</value>
+    </data>
+    <data name="ImageEngineStatusStopped" xml:space="preserve">
+        <value>生图引擎没在运行，出图时会自动启动。</value>
+    </data>
+    <data name="ImageEngineStatusStarting" xml:space="preserve">
+        <value>生图引擎正在启动、加载模型…</value>
+    </data>
+    <data name="ImageEngineStatusRunning" xml:space="preserve">
+        <value>生图引擎运行中 · 闲置 {0} 分钟自动停止</value>
+    </data>
+    <data name="ImageEngineStatusRunningNoIdle" xml:space="preserve">
+        <value>生图引擎运行中 · 模型常驻内存</value>
+    </data>
+    <data name="ImageEngineStatusFailed" xml:space="preserve">
+        <value>生图引擎起不来：{0}</value>
+    </data>
+    <data name="ImageEngineReleaseTip" xml:space="preserve">
+        <value>停止生图引擎，模型占用的内存全部释放；下次出图时自动启动</value>
     </data>
     <data name="ImageModelLocalDeleteConfirm" xml:space="preserve">
         <value>删除本地模型「{0}」？没有别的模型在用的组件文件会一起删掉。</value>

@@ -40,6 +40,7 @@ internal static class DevCommandRegistry
     [
         new JumpToPageCommand(),
         new UiSnapshotCommand(),
+        new UiCaptureCommand(),
         new SessionListCommand(),
         new SessionsListCommand(),
         new OpenSessionCommand(),
@@ -93,7 +94,8 @@ internal sealed class JumpToPageCommand : IDevCommand
     public string Name => "page.jump";
 
     public string Usage => "跳到某一页（主窗口跟着换）。page：agent / chat / character / model / log；" +
-                           "page 为 model 时可带 search（可为空串），切到「获取模型」并按它搜索（会联网）";
+                           "page 为 model 时可带 tab（chat / image / audio / downloads / image-downloads / audio-downloads）切页签，" +
+                           "或带 search（可为空串）切到「获取模型」并按它搜索（会联网）";
 
     public object? Execute(JsonElement args)
     {
@@ -118,9 +120,21 @@ internal sealed class JumpToPageCommand : IDevCommand
                 : EConversationType.Chat;
         }
 
-        if (page == "model" && GroupDevCommands.StringOr(args, "search") is { } search &&
-            App.ViewModel.Content is ModelPageData model)
-            model.ShowDownloads(search);
+        if (page == "model" && App.ViewModel.Content is ModelPageData model)
+        {
+            if (GroupDevCommands.StringOr(args, "search") is { } search) model.ShowDownloads(search);
+            switch (GroupDevCommands.StringOr(args, "tab"))
+            {
+                case null: break;
+                case "chat": model.SelectedTabIndex = 0; break;
+                case "image": model.ShowImageModels(); break;
+                case "audio": model.ShowAudioModels(); break;
+                case "downloads": model.SelectedTabIndex = ModelPageData.DownloadsTabIndex; break;
+                case "image-downloads": model.ShowImageDownloads(); break;
+                case "audio-downloads": model.ShowAudioDownloads(); break;
+                case var tab: throw new ArgumentException($"unknown model tab '{tab}'");
+            }
+        }
 
         return new { page };
     }

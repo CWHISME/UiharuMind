@@ -20,12 +20,14 @@ namespace UiharuMind.Features.Models.ImageModels;
 /// <param name="DeleteLocalFiles">删本地模型不再有人用的组件文件（停引擎、在后台删）</param>
 /// <param name="GoToMarket">去「获取模型」的生图分类</param>
 /// <param name="OpenEngineSettings">去设置的「本地模型（生图）」</param>
+/// <param name="EngineStatus">本地引擎的状态条；null 不显示</param>
 public sealed record ImageModelListActions(
     Func<ImageModelInfo, IReadOnlyCollection<string>, Task<ImageModelInfo?>> OpenLocalEditor,
     Action<ImageModelInfo?> OpenDraw,
     Func<ImageModelInfo, Task<IReadOnlyList<string>>> DeleteLocalFiles,
     Action GoToMarket,
-    Action OpenEngineSettings)
+    Action OpenEngineSettings,
+    ImageEngineStatusData? EngineStatus = null)
 {
     /// <summary>
     /// 什么都不做（测试与没接本地生图时）
@@ -66,6 +68,12 @@ public partial class ImageModelListViewData : ObservableObject
     /// <summary>有生图模型</summary>
     public bool HasItems => Items.Count > 0;
 
+    /// <summary>本地引擎的状态</summary>
+    public ImageEngineStatusData? EngineStatus => _actions.EngineStatus;
+
+    /// <summary>列表里有本地模型时才显示引擎状态条</summary>
+    public bool ShowEngineStatus => EngineStatus != null && Items.Any(x => x.IsLocal);
+
     private static List<ImageModelInfo> Models => ImageModelSettingConfig.Current.Models;
 
     private string? FamilyName(ImageModelInfo model) =>
@@ -80,6 +88,7 @@ public partial class ImageModelListViewData : ObservableObject
         for (int i = 0; i < Models.Count; i++)
             Items.Add(new ImageModelItemViewData(Models[i], i, Models.Count, FamilyName(Models[i])));
         OnPropertyChanged(nameof(HasItems));
+        OnPropertyChanged(nameof(ShowEngineStatus));
     }
 
     /// <summary>

@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:images="clr-namespace:UiharuMind.Features.Models.ImageModels"
+             xmlns:pages="clr-namespace:UiharuMind.Features.Models"
              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
@@ -10,14 +11,11 @@
              x:DataType="images:ImageModelListViewData">
 
     <!-- 卡片、列表行、图标、行按钮复用模型页同一套（model-card / model-list / model-icon / row-action，见 Themes） -->
-    <DockPanel>
-        <!-- 工具条：左边说明与引擎设置，右边画图、获取本地模型、添加在线模型 -->
+    <DockPanel Margin="0,14,0,0">
+        <!-- 工具条：左边回退说明，右边画图、获取本地模型、添加在线模型（与对话、语音页签同一行高） -->
         <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,0,0,12">
-            <StackPanel Spacing="2" VerticalAlignment="Center">
-                <TextBlock Text="{loc:Loc ImageModelListHint}" Classes="muted" TextWrapping="Wrap" />
-                <Button Classes="toolbar-link" HorizontalAlignment="Left" Content="{loc:Loc ImageModelEngineSettings}"
-                        Command="{Binding OpenEngineSettingsCommand}" />
-            </StackPanel>
+            <TextBlock Text="{loc:Loc ImageModelListHint}" Classes="muted" TextWrapping="Wrap"
+                       VerticalAlignment="Center" />
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                 <Button Command="{Binding DrawCommand}" CommandParameter="{x:Null}" IsEnabled="{Binding HasItems}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
@@ -40,6 +38,22 @@
             </StackPanel>
         </Grid>
 
+        <!-- 有本地模型时：引擎在不在跑，释放内存、去引擎设置（与语音页签同一条） -->
+        <pages:EngineStatusStrip DockPanel.Dock="Top" Margin="0,0,0,12" IsVisible="{Binding ShowEngineStatus}"
+                                 IsRunning="{Binding EngineStatus.IsRunning, FallbackValue=False}"
+                                 Text="{Binding EngineStatus.Text, FallbackValue=''}">
+            <pages:EngineStatusStrip.Actions>
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <Button Classes="toolbar-link" Content="{loc:Loc AudioEngineRelease}"
+                            ToolTip.Tip="{loc:Loc ImageEngineReleaseTip}"
+                            IsVisible="{Binding EngineStatus.IsRunning, FallbackValue=False}"
+                            Command="{Binding EngineStatus.ReleaseCommand, FallbackValue={x:Null}}" />
+                    <Button Classes="toolbar-link" Content="{loc:Loc ImageModelEngineSettings}"
+                            Command="{Binding OpenEngineSettingsCommand}" />
+                </StackPanel>
+            </pages:EngineStatusStrip.Actions>
+        </pages:EngineStatusStrip>
+
         <Border Classes="model-card">
             <Panel>
                 <!-- 空状态：与对话模型页签同式，居中图标加文字引去添加 -->
@@ -60,8 +74,14 @@
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="images:ImageModelItemViewData">
                             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                <!-- 与对话模型同一套：本地用种类图标、远程用地球加「远程」徽标 -->
                                 <Border Classes="model-icon">
-                                    <controls:ThemedSvgIcon Width="18" Height="18" IconName="image" />
+                                    <Panel>
+                                        <controls:ThemedSvgIcon Width="18" Height="18" IconName="image"
+                                                                IsVisible="{Binding IsLocal}" />
+                                        <controls:ThemedSvgIcon Width="18" Height="18" IconName="globe"
+                                                                IsVisible="{Binding !IsLocal}" />
+                                    </Panel>
                                 </Border>
 
                                 <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
@@ -71,10 +91,8 @@
                                                    VerticalAlignment="Center" />
                                         <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
                                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                                        <controls:KindBadge Header="{loc:Loc ImageModelLocalBadge}"
-                                                            BadgeBackground="LightGreen"
-                                                            IsVisible="{Binding IsLocal}"
-                                                            VerticalAlignment="Center" />
+                                        <controls:ModelStateBadges IsRemote="{Binding !IsLocal}"
+                                                                   VerticalAlignment="Center" />
                                         <controls:KindBadge Header="{loc:Loc ImageModelEditingBadge}"
                                                             BadgeBackground="Gold"
                                                             IsVisible="{Binding SupportsEditing}"

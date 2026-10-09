@@ -1,0 +1,18 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="UiharuMind.Features.Models.EngineStatusStrip"
+             x:Name="Root">
+    <!-- 已装模型页签里本地引擎的状态条：圆点 + 说明，右边放页签自己的链接（释放内存、引擎设置） -->
+    <Border Classes="result-panel" Padding="12,6">
+        <DockPanel>
+            <ContentPresenter DockPanel.Dock="Right" Content="{Binding #Root.Actions}" VerticalAlignment="Center" />
+            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Border Classes="status-dot" Tag="Ready" IsVisible="{Binding #Root.IsRunning}"
+                        VerticalAlignment="Center" />
+                <Border Classes="status-dot" Tag="Idle" IsVisible="{Binding !#Root.IsRunning}"
+                        VerticalAlignment="Center" />
+                <TextBlock Text="{Binding #Root.Text}" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" />
+            </StackPanel>
+        </DockPanel>
+    </Border>
+</UserControl>

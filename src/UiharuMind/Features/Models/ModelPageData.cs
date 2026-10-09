@@ -186,7 +186,8 @@ public partial class ModelPageData : PageDataBase
         model => ImageDrawWindow.ShowWindow(UIManager.GetRootWindow(), model),
         LocalImageModelStore.Shared.DeleteAsync,
         page.ShowImageDownloads,
-        () => UIManager.ShowWindow<SettingsWindow>(window => window.ShowImageEngineSettings()));
+        () => UIManager.ShowWindow<SettingsWindow>(window => window.ShowImageEngineSettings()),
+        new ImageEngineStatusData(SdCppEngine.Shared.Runtime, () => SdCppEngine.Shared.Settings.IdleStopMinutes));
 
     /// <summary>
     /// 切到生图模型页签。从 Agent 设置页跳过来时用
