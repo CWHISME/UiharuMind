@@ -74,9 +74,8 @@
                                                         BadgeBackground="{DynamicResource SemiOrange5}"
                                                         VerticalAlignment="Center"
                                                         IsVisible="{Binding IsHost}" />
-                                    <!-- 名下还有在跑的后台任务：名字旁挂蓝点，悬停看任务说明。
-                                         icon-tweak：字形视觉中心天然偏上，盒居中的圆点会低约 1px，上移 1px 对齐 -->
-                                    <Border Grid.Column="2" Classes="status-dot icon-tweak" Tag="Progress"
+                                    <!-- 名下还有在跑的后台任务：名字旁挂蓝点，悬停看任务说明。 -->
+                                    <Border Grid.Column="2" Classes="status-dot" Tag="Progress"
                                             VerticalAlignment="Center"
                                             IsVisible="{Binding HasBackgroundTask}"
                                             ToolTip.Tip="{Binding BackgroundTaskTip}" />

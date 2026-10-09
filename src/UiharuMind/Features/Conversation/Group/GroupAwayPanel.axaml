@@ -24,10 +24,10 @@
                                  IsVisible="{Binding IsAvatarRunning}" />
                     <Border Classes="status-dot" Tag="{Binding DotTag}" VerticalAlignment="Center"
                             IsVisible="{Binding !IsAvatarRunning}" />
-                    <TextBlock Grid.Column="1" Classes="title-tweak-sm" FontSize="12" VerticalAlignment="Center"
+                    <TextBlock Grid.Column="1" FontSize="12" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis"
                                Text="{Binding StatusLine}" ToolTip.Tip="{Binding StatusLine}" />
-                    <TextBlock Grid.Column="2" Classes="muted title-tweak-sm" FontSize="11" VerticalAlignment="Center"
+                    <TextBlock Grid.Column="2" Classes="muted" FontSize="11" VerticalAlignment="Center"
                                Text="{Binding CountdownLine}" IsVisible="{Binding HasCountdown}" />
                 </Grid>
                 <!-- 设置常在；离席中左边多一个停止（确认后结束离席） -->

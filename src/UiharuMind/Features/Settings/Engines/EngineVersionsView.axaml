@@ -50,7 +50,7 @@
                         IsVisible="{Binding ReleaseUrl, Converter={x:Static ObjectConverters.IsNotNull}}"
                         Click="OnReleaseNotesClick">
                     <StackPanel Orientation="Horizontal" Spacing="4">
-                        <TextBlock Text="{loc:Loc EngineReleaseNotes}" Classes="muted title-tweak-sm" FontSize="12"
+                        <TextBlock Text="{loc:Loc EngineReleaseNotes}" Classes="muted" FontSize="12"
                                    VerticalAlignment="Center" />
                         <controls:ThemedSvgIcon Width="12" Height="12" Opacity="0.6" VerticalAlignment="Center"
                                                 IconName="square-arrow-out-up-right" />

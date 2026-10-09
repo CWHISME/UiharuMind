@@ -1,5 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:converters="clr-namespace:UiharuMind.Shared.Converters">
     <Design.PreviewWith>
         <Border Padding="20">
             <!-- Add Controls for Previewer Here -->
@@ -10,8 +11,12 @@
     <!-- 类型选择器一律用 :is() 而不用裸类型名:裸类型按 StyleKey 精确匹配,
          子类(如 DiffTextBlock、MarkdownTextBlock)命中不了,字体又会飘一次。
          :is() 按继承匹配,新控件自动吃到 -->
+    <!-- 字形在行盒里天然偏上（成因见 TextOpticalOffsetConverter），按字号整体下移取整像素，
+         和居中排在旁边的图标、圆点对齐。纯渲染平移，不参与布局；不必再给单个 TextBlock 加 tweak -->
     <Style Selector=":is(TextBlock)">
         <Setter Property="FontFamily" Value="{StaticResource MainFont}" />
+        <Setter Property="RenderTransform"
+                Value="{Binding FontSize, RelativeSource={RelativeSource Self}, Converter={x:Static converters:TextOpticalOffsetConverter.Instance}}" />
     </Style>
     <Style Selector=":is(TextBox)">
         <Setter Property="FontFamily" Value="{StaticResource MainFont}" />
@@ -54,47 +59,16 @@
         <Setter Property="FontSize" Value="12" />
     </Style>
 
-    <!-- 折叠条标题行的文本垂直微调。字形视觉中心天然偏上(ascent>descent),
-         VerticalAlignment=Center 只居中行盒、管不了盒内文本——用 RenderTransform 平移
-         做纯视觉修正(不参与布局,数值可按字体微调) -->
-    <Style Selector="TextBlock.title-tweak">
-        <Setter Property="RenderTransform">
-            <Setter.Value>
-                <TranslateTransform Y="2" />
-            </Setter.Value>
-        </Setter>
-    </Style>
-
-    <!-- title-tweak 的小字号版:11px 文字与 12px 图标并排时,视觉偏差只有约 1px,
-         套 title-tweak 的 2px 会矫枉过正、让图标显得偏上(见待发插话行) -->
-    <Style Selector="TextBlock.title-tweak-sm">
-        <Setter Property="RenderTransform">
-            <Setter.Value>
-                <TranslateTransform Y="1" />
-            </Setter.Value>
-        </Setter>
-    </Style>
-
-    <!-- 单行文字在「固定高度容器里要视觉居中」的通用解法(比 title-tweak 更彻底):
+    <!-- 单行文字在「固定高度容器里要视觉居中」的通用解法:
          默认行高≈1.4×字号,字形按 ascent 排在行盒里偏上。让行盒收紧到字号本尊,
          字形即填满行盒——VerticalAlignment=Center 居中行盒时字形也跟着居中。
          LineHeight 绑定自身 FontSize,12/13/14 任何字号都各自匹配,不用手算。
          只对显式挂类的 TextBlock 生效,全局行距(多行正文)一概不动。
          需要就在 TextBlock 上加 class: line-tight -->
+    <!-- 行盒收紧后字形已居中，不再吃全局下移，否则徽标里的字会偏下 -->
     <Style Selector=":is(TextBlock).line-tight">
         <Setter Property="LineHeight" Value="{Binding FontSize, RelativeSource={RelativeSource Self}}" />
+        <Setter Property="RenderTransform" Value="{x:Null}" />
     </Style>
 
-    <!-- 图标与旁边文字并排时的垂直微调。与 title-tweak 同因:字形视觉中心天然偏上,
-         图标按自己的盒居中时也一样看着偏上——用 RenderTransform 上移 1px 对齐视觉中心。
-         纯视觉、不参与布局(不用负 Margin:它参与测量,会把所在行高带偏)。
-         用 :is 罩住 ThemedIconButton / ThemedSvgIcon / Border 及其子类(与 CustomButtonStyle 同一口径)。
-         需要就说一句挂 class: icon-tweak -->
-    <Style Selector=":is(ThemedIconButton).icon-tweak, :is(ThemedSvgIcon).icon-tweak, :is(Border).icon-tweak">
-        <Setter Property="RenderTransform">
-            <Setter.Value>
-                <TranslateTransform Y="-1" />
-            </Setter.Value>
-        </Setter>
-    </Style>
 </Styles>
