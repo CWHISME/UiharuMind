@@ -129,8 +129,9 @@ public static class UiAnimationUtils
     /// 否则控件会先瞬移回隐藏态再动画回来，看着像弹了一下</param>
     /// <param name="opacityChannel">透明度落到哪里。跟随窗要传原生窗口 alpha 的通道：
     /// 托管 Opacity 得等下一次渲染，赶不上原生的移动/显示（见 OverlayWindowService.TrySetNativeWindowAlpha）</param>
+    /// <param name="milliseconds">动画时长</param>
     public static void PlayVerticalRevealAnimation(Control? control, bool isShowed, Action? onCompleted = null,
-        bool fromHidden = true, OpacityChannel? opacityChannel = null)
+        bool fromHidden = true, OpacityChannel? opacityChannel = null, int milliseconds = VerticalRevealMilliseconds)
     {
         if (control == null)
         {
@@ -139,7 +140,7 @@ public static class UiAnimationUtils
         }
 
         _ = PlayRevealCoreAsync(control, isShowed, new Vector(0, VerticalRevealHiddenOffset),
-            VerticalRevealMilliseconds, resetOnShow: fromHidden, toggleHitTest: true, easeInOnHide: false,
+            milliseconds, resetOnShow: fromHidden, toggleHitTest: true, easeInOnHide: false,
             onCompleted, opacityChannel);
     }
 

@@ -31,6 +31,7 @@ using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Clipboard;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Core.Input;
 using UiharuMind.Features.Clipboard;
 using UiharuMind.Shared.Services;
 
@@ -68,6 +69,7 @@ public class ClipboardService : IDisposable
     private bool _isSelfCopying;
     private string? _lastRecordedText; //上一条记进历史的文本,只用于去重
     private DateTime _ignoreChangesUntil; //这之前的剪贴板变化是自己借用造成的,不记历史
+    private int _readQueued; //1 表示已排了一次读取,这期间再来的变化通知并进去
 
     public bool IsSelfCopying
     {
@@ -299,42 +301,57 @@ public class ClipboardService : IDisposable
         if (recorded) Dispatcher.UIThread.Post(() => OnClipboardChanged?.Invoke());
     }
 
+    // 监控可能在后台线程回调，判断统一放到 UI 线程；排队期间再来的通知并进同一次读取
     private void OnSystemClipboardChanged()
     {
-        if (DateTime.UtcNow < _ignoreChangesUntil) return;
-        if (_isSelfCopying)
-        {
-            _isSelfCopying = false;
-            return;
-        }
+        if (Interlocked.Exchange(ref _readQueued, 1) == 1) return;
+        Dispatcher.UIThread.Post(RecordSystemClipboard);
+    }
 
-        Dispatcher.UIThread.Post(async void () =>
+    private bool ConsumeSelfChange()
+    {
+        if (DateTime.UtcNow < _ignoreChangesUntil) return true;
+        if (!_isSelfCopying) return false;
+        _isSelfCopying = false;
+        return true;
+    }
+
+    private async void RecordSystemClipboard()
+    {
+        // 放行要在读之前，读的过程中再变还能排上下一次
+        Volatile.Write(ref _readQueued, 0);
+        if (ConsumeSelfChange()) return;
+
+        try
         {
-            try
+            // 来源应用先清空再写入，读早了只会读到空、不会读到旧内容，所以空了稍等再补读一次
+            var clipboardContent = await GetFromClipboard();
+            if (string.IsNullOrEmpty(clipboardContent))
             {
                 await Task.Delay(100);
-                var clipboardContent = await GetFromClipboard();
-                if (string.IsNullOrEmpty(clipboardContent))
-                {
-                    //是图片吗
-                    // var image = await GetImageFromClipboard();
-                    // if (image != null) OnClipboardImageChanged?.Invoke(image);
-                    return;
-                }
+                clipboardContent = await GetFromClipboard();
+            }
 
-                //排除一下相同项。比的是内存里记着的上一条,不回查数据库:
-                //系统剪贴板每变一次就查一次全文,纯属浪费
-                if (string.Equals(_lastRecordedText, clipboardContent, StringComparison.Ordinal)) return;
-                _lastRecordedText = clipboardContent;
-                History.AddText(clipboardContent);
-                OnClipboardStringChanged?.Invoke(clipboardContent);
-                OnClipboardChanged?.Invoke();
-            }
-            catch (Exception e)
+            if (string.IsNullOrEmpty(clipboardContent))
             {
-                Log.Warning(e.Message);
+                //是图片吗
+                // var image = await GetImageFromClipboard();
+                // if (image != null) OnClipboardImageChanged?.Invoke(image);
+                return;
             }
-        });
+
+            //排除一下相同项。比的是内存里记着的上一条,不回查数据库:
+            //系统剪贴板每变一次就查一次全文,纯属浪费
+            if (string.Equals(_lastRecordedText, clipboardContent, StringComparison.Ordinal)) return;
+            _lastRecordedText = clipboardContent;
+            History.AddText(clipboardContent);
+            OnClipboardStringChanged?.Invoke(clipboardContent);
+            OnClipboardChanged?.Invoke();
+        }
+        catch (Exception e)
+        {
+            Log.Warning(e.Message);
+        }
     }
 
     public void Dispose()
@@ -352,7 +369,7 @@ public class ClipboardService : IDisposable
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            return new MacClipboardMonitor(500);
+            return new MacClipboardMonitor(InputManager.Instance);
         }
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))

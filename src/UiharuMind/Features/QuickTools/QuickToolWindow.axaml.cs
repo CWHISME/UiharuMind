@@ -71,6 +71,9 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
     // 固定宽度窗口的初始宽度，足够放下各语言的菜单；实际展开更宽时再单向加宽
     private const double FixedWindowWidth = 480;
 
+    // 复制后要立刻能点，弹出比通用的纵向显隐更快
+    private const int PopupRevealMilliseconds = 120;
+
     private CardHoverMask? _hoverMask;
 
     public override void Awake()
@@ -129,7 +132,8 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
         if (Content is Control content)
         {
             UiAnimationUtils.PrepareVerticalRevealTarget(content, PopupOpacity);
-            UiAnimationUtils.PlayVerticalRevealAnimation(content, true, opacityChannel: PopupOpacity);
+            UiAnimationUtils.PlayVerticalRevealAnimation(content, true, opacityChannel: PopupOpacity,
+                milliseconds: PopupRevealMilliseconds);
         }
     }
 

@@ -21,16 +21,20 @@ namespace UiharuMind.Features.Clipboard;
 /// </summary>
 public class WindowsClipboardMonitor : IClipboardMonitor
 {
+    private static readonly TimeSpan DisposeTimeout = TimeSpan.FromSeconds(1);
+
     private readonly Thread _monitorThread;
+    private readonly ManualResetEventSlim _windowReady = new(); //窗口在监控线程上创建，建好前没处投递退出消息
     private IntPtr _windowHandle;
-    private bool _running;
+    private volatile bool _running = true;
+    private bool _disposed;
     private WndProcDelegate _wndProcDelegate = null!;
 
     public event Action? OnClipboardChanged;
 
     public WindowsClipboardMonitor()
     {
-        _monitorThread = new Thread(RunMessageLoop);
+        _monitorThread = new Thread(RunMessageLoop) { IsBackground = true };
 #pragma warning disable CA1416
         _monitorThread.SetApartmentState(ApartmentState.STA);
 #pragma warning restore CA1416
@@ -39,8 +43,6 @@ public class WindowsClipboardMonitor : IClipboardMonitor
 
     private void RunMessageLoop()
     {
-        _running = true;
-
         WndClassEx wndClass = new WndClassEx
         {
             cbSize = Marshal.SizeOf(typeof(WndClassEx))
@@ -56,6 +58,7 @@ public class WindowsClipboardMonitor : IClipboardMonitor
             0, 0, 0, 0, HWND_MESSAGE, IntPtr.Zero, wndClass.hInstance, IntPtr.Zero);
 
         AddClipboardFormatListener(_windowHandle);
+        _windowReady.Set();
 
         while (_running && GetMessage(out var msg, IntPtr.Zero, 0, 0))
         {
@@ -73,31 +76,36 @@ public class WindowsClipboardMonitor : IClipboardMonitor
         {
             OnClipboardChanged?.Invoke();
         }
+        else if (msg == WM_CLOSE)
+        {
+            PostQuitMessage(0);
+            return IntPtr.Zero;
+        }
 
         return DefWindowProc(hWnd, msg, wParam, lParam);
     }
 
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
         _running = false;
-        PostThreadMessage(_monitorThread.ManagedThreadId, WM_QUIT, IntPtr.Zero, IntPtr.Zero);
-        // 发送一个剪切板事件，确保 GetMessage 能够接收到这个事件
-        PostMessage(_windowHandle, WM_CLIPBOARDUPDATE, IntPtr.Zero, IntPtr.Zero);
-        _monitorThread.Join();
+        OnClipboardChanged = null;
+        // 消息窗口收到 WM_CLOSE 后投递 WM_QUIT，让 GetMessage 返回、循环退出。
+        // 句柄为空时 PostMessage 会投到调用线程自己的队列，所以必须先确认窗口建好了
+        if (_windowReady.Wait(DisposeTimeout) && _windowHandle != IntPtr.Zero)
+        {
+            PostMessage(_windowHandle, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+        }
 
-        //直接销毁似乎其实也可以
-        // DestroyWindow(_windowHandle);
+        // 超时说明线程还没走完，它之后还可能 Set，此时不能释放
+        if (_monitorThread.Join(DisposeTimeout)) _windowReady.Dispose();
         GC.SuppressFinalize(this);
-    }
-
-    ~WindowsClipboardMonitor()
-    {
-        Dispose();
     }
 
     private const int WM_CLIPBOARDUPDATE = 0x031D;
     private static readonly IntPtr HWND_MESSAGE = new IntPtr(-3);
-    private const int WM_QUIT = 0x0012;
+    private const int WM_CLOSE = 0x0010;
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool AddClipboardFormatListener(IntPtr hwnd);
@@ -127,8 +135,8 @@ public class WindowsClipboardMonitor : IClipboardMonitor
     [DllImport("user32.dll", SetLastError = true)]
     private static extern IntPtr DispatchMessage(ref Msg lpMsg);
 
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool PostThreadMessage(int idThread, uint msg, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")]
+    private static extern void PostQuitMessage(int nExitCode);
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern ushort RegisterClassEx(ref WndClassEx lpwcx);
