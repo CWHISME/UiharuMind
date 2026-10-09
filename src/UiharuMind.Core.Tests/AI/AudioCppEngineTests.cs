@@ -24,6 +24,14 @@ public class AudioCppEngineTests : IDisposable
     }
 
     [Theory]
+    [InlineData("audio-v0.9.1-bin-macos-arm64-metal", "https://github.com/0xShug0/audio.cpp/releases/tag/v0.9.1")]
+    [InlineData("custom-build", null)]
+    public void ReleaseUrl_FromReleaseTag(string name, string? expected)
+    {
+        Assert.Equal(expected, new AudioCppVersionManager().ReleaseUrl(name));
+    }
+
+    [Theory]
     [InlineData("audio-v0.9.1-bin-macos-arm64-metal", "OSX", Architecture.Arm64, true)]
     [InlineData("audio-v0.9.1-bin-macos-x64-metal", "OSX", Architecture.Arm64, false)]
     [InlineData("audio-v0.9.1-bin-windows-x64-cpu", "WINDOWS", Architecture.X64, true)]

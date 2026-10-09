@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using UiharuMind.Core.AI.Engines;
 using UiharuMind.Core.Core.Utils;
 
@@ -7,7 +8,7 @@ namespace UiharuMind.Core.AI.ImageGeneration;
 /// stable-diffusion.cpp（leejet/stable-diffusion.cpp）的版本管理，以 sd-server 存在为安装成功的判据。
 /// 上游每次推送都发一版、命令行参数常改，所以认一个验证过的发布（<see cref="PinnedTag"/>），最新的那版也列出来可以手动装
 /// </summary>
-public class SdCppVersionManager : EngineVersionManager<SdCppVersion>
+public partial class SdCppVersionManager : EngineVersionManager<SdCppVersion>
 {
     /// <summary>
     /// 服务端可执行文件名（不含扩展名）
@@ -33,6 +34,16 @@ public class SdCppVersionManager : EngineVersionManager<SdCppVersion>
     {
         return new GitHubReleaseAssetSelectOptions(NamePrefix: "sd-");
     }
+
+    // 版本名里的发布 tag（master-945-a1ded76-bin-… 里的 master-945-a1ded76）
+    protected override string? TagOf(string versionName)
+    {
+        Match match = TagPattern().Match(versionName);
+        return match.Success ? match.Groups[1].Value : null;
+    }
+
+    [GeneratedRegex(@"^(master-\d+-[0-9a-f]+)-bin-")]
+    private static partial Regex TagPattern();
 
     protected override bool ShouldIncludeAsset(GitHubReleaseAssetInfo asset)
     {

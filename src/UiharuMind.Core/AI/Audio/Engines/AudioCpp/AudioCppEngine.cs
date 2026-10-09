@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using UiharuMind.Core.AI.Engines;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Runtime;
@@ -27,7 +26,7 @@ public sealed class AudioModelMissingException(EAudioCppTask task)
 /// 进程（按设置生成 server.json 并托管，<see cref="Runtime"/>）。
 /// 设置与模型目录是唯一事实来源，进程只是它们的投影——选了没在跑的模型、换了版本或改了启动项，下次用时重启一次
 /// </summary>
-public sealed partial class AudioCppEngine : IDisposable
+public sealed class AudioCppEngine : IDisposable
 {
     private static readonly HttpClient StatusClient = new() { Timeout = TimeSpan.FromSeconds(3) }; //查状态用，本机回环
     private static readonly Lazy<AudioCppEngine> SharedInstance = new(() => new AudioCppEngine(
@@ -63,7 +62,7 @@ public sealed partial class AudioCppEngine : IDisposable
         _configPath = configPath;
         _host = new LocalServerHost(CreateLaunch);
         Distribution = new EngineDistribution<AudioCppVersion>("audio.cpp", engineRoot, new AudioCppVersionManager(),
-            queue ?? DownloadQueue.Shared, settings, ReleaseUrl);
+            queue ?? DownloadQueue.Shared, settings);
         Models = new AudioCppModelResolver(settings, () => Distribution.CurrentVersion, scanModels);
         // 先换再重启：spec 随版本换，在跑的进程换成新版本
         Distribution.VersionChanged += () =>
@@ -182,17 +181,6 @@ public sealed partial class AudioCppEngine : IDisposable
     }
 
     /// <summary>
-    /// 从版本名里认出发布号（audio-v0.9.1-bin-… 里的 v0.9.1），拼 GitHub 发布页
-    /// </summary>
-    /// <param name="versionName">版本名</param>
-    /// <returns>发布页；认不出为 null</returns>
-    public static string? ReleaseUrl(string versionName)
-    {
-        Match match = TagPattern().Match(versionName);
-        return match.Success ? $"https://github.com/0xShug0/audio.cpp/releases/tag/{match.Groups[1].Value}" : null;
-    }
-
-    /// <summary>
     /// 设置 → server.json 顶层选项：后端随引擎包变体，设置可强制 CPU；数值兜住下限
     /// </summary>
     internal static AudioCppServerOptions BuildServerOptions(string packageName, AudioCppSettingConfig settings,
@@ -203,7 +191,4 @@ public sealed partial class AudioCppEngine : IDisposable
         Math.Max(1, settings.IdleUnloadMinutes) * 60_000,
         Math.Max(0, settings.MinFreeMemoryMb),
         voiceDir);
-
-    [GeneratedRegex(@"^audio-(.+?)-bin-")]
-    private static partial Regex TagPattern();
 }

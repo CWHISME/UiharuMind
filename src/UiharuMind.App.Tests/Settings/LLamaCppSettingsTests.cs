@@ -72,7 +72,7 @@ public class LLamaCppSettingsTests : IDisposable
     [InlineData("custom-build", null)]
     public void ReleaseUrl_FromBuildTag(string name, string? expected)
     {
-        Assert.Equal(expected, LLamaCppEngine.ReleaseUrl(name));
+        Assert.Equal(expected, new LLamaCppVersionManager(() => false).ReleaseUrl(name));
     }
 
     [Fact]

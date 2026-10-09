@@ -26,7 +26,6 @@ public sealed class EngineDistribution<TPackage> : IEngineDistribution where TPa
 {
     private readonly EngineVersionManager<TPackage> _versions;
     private readonly IEngineVersionSelection _selection;
-    private readonly Func<string, string?> _releaseUrl;
     private readonly Lock _gate = new();
     private TPackage? _current;
 
@@ -35,19 +34,16 @@ public sealed class EngineDistribution<TPackage> : IEngineDistribution where TPa
     /// <param name="versions">版本管理器</param>
     /// <param name="queue">下载队列</param>
     /// <param name="selection">选中的版本存在哪</param>
-    /// <param name="releaseUrl">按版本名拼发布页；认不出为 null</param>
     /// <param name="channels">更新通道；没有为 null</param>
     /// <param name="isVetted">哪些版本可以提示更新、自动装；null 全认</param>
     public EngineDistribution(string name, string rootDirectory, EngineVersionManager<TPackage> versions,
-        DownloadQueue queue, IEngineVersionSelection selection, Func<string, string?> releaseUrl,
-        IEngineUpdateChannels? channels = null, Func<TPackage, bool>? isVetted = null)
+        DownloadQueue queue, IEngineVersionSelection selection, IEngineUpdateChannels? channels = null, Func<TPackage, bool>? isVetted = null)
     {
         Name = name;
         RootDirectory = rootDirectory;
         Channels = channels;
         _versions = versions;
         _selection = selection;
-        _releaseUrl = releaseUrl;
         Installer = new EngineInstaller<TPackage>(name, queue, rootDirectory,
             () => ScanAsync(), () => PullLatestVersionsAsync(), InstallArchiveAsync, Select, isVetted);
         Installer.Installed += _ => Installed?.Invoke();
@@ -193,5 +189,5 @@ public sealed class EngineDistribution<TPackage> : IEngineDistribution where TPa
 
     Task IEngineDistribution.CheckForUpdateAsync() => Installer.CheckForUpdateAsync();
 
-    string? IEngineDistribution.ReleaseUrl(EnginePackage version) => _releaseUrl(version.Name);
+    string? IEngineDistribution.ReleaseUrl(EnginePackage version) => _versions.ReleaseUrl(version.Name);
 }

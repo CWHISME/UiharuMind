@@ -5,7 +5,7 @@ namespace UiharuMind.Core.AI.Engines;
 
 /// <summary>
 /// 本地引擎的发布版本管理：拉 GitHub releases、筛本平台包、解压到引擎目录，以找到服务端程序为安装成功的判据。
-/// 各引擎只回答「仓库在哪、服务端叫什么、哪些包不列」
+/// 各引擎只回答「仓库在哪、服务端叫什么、哪些包不列、版本名里哪段是发布 tag」
 /// </summary>
 public abstract class EngineVersionManager<TPackage> : ReleaseVersionManagerBase<TPackage>
     where TPackage : EnginePackage, new()
@@ -14,6 +14,21 @@ public abstract class EngineVersionManager<TPackage> : ReleaseVersionManagerBase
     /// 服务端可执行文件名（不含扩展名）
     /// </summary>
     public abstract string ServerExeName { get; }
+
+    /// <summary>
+    /// 版本的 GitHub 发布页（按版本名里的发布 tag 拼）
+    /// </summary>
+    /// <param name="versionName">版本名</param>
+    /// <returns>发布页；认不出 tag 为 null</returns>
+    public string? ReleaseUrl(string versionName) =>
+        TagOf(versionName) is { } tag ? $"https://github.com/{Owner}/{Repository}/releases/tag/{tag}" : null;
+
+    /// <summary>
+    /// 从版本名里认出发布 tag
+    /// </summary>
+    /// <param name="versionName">版本名</param>
+    /// <returns>tag；认不出为 null</returns>
+    protected abstract string? TagOf(string versionName);
 
     /// <summary>
     /// 本机已装的版本（引擎目录里扫）

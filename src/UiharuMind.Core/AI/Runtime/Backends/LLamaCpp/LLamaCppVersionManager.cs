@@ -9,6 +9,7 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System.Text.RegularExpressions;
 using UiharuMind.Core.AI.Engines;
 using UiharuMind.Core.Core.Utils;
 
@@ -20,7 +21,7 @@ namespace UiharuMind.Core.AI.Runtime.Backends;
 /// </summary>
 /// <param name="preferStable">走正式通道：跟正式版钉住的构建，而不是最近一次预览构建</param>
 /// <param name="bundledRoot">随应用附带的引擎目录；没有为 null</param>
-public class LLamaCppVersionManager(Func<bool> preferStable, string? bundledRoot = null)
+public partial class LLamaCppVersionManager(Func<bool> preferStable, string? bundledRoot = null)
     : EngineVersionManager<VersionInfo>
 {
     public override string ServerExeName => LLamaCppSettingConfig.ServerExeName;
@@ -59,4 +60,14 @@ public class LLamaCppVersionManager(Func<bool> preferStable, string? bundledRoot
     {
         return new GitHubReleaseAssetSelectOptions(NamePrefix: "llama-");
     }
+
+    // 版本名里的构建号（llama-b11443-bin-macos-arm64 里的 b11443）
+    protected override string? TagOf(string versionName)
+    {
+        Match match = BuildTagPattern().Match(versionName);
+        return match.Success ? match.Value : null;
+    }
+
+    [GeneratedRegex(@"(?<![A-Za-z0-9])b\d+(?![A-Za-z0-9])")]
+    private static partial Regex BuildTagPattern();
 }

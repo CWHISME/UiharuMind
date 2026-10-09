@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using UiharuMind.Core.AI.Engines;
 using UiharuMind.Core.AI.Runtime;
 using UiharuMind.Core.Core;
@@ -10,7 +9,7 @@ namespace UiharuMind.Core.AI.ImageGeneration;
 /// stable-diffusion.cpp 本地生图引擎，由分发（版本与安装，<see cref="Distribution"/>）与进程（<see cref="Runtime"/>）拼成。
 /// sd-server 一个进程只装一个模型、一次只出一张：换模型就换进程，出图在这边排队；用完闲置一阵自动停，还回内存
 /// </summary>
-public sealed partial class SdCppEngine : IDisposable
+public sealed class SdCppEngine : IDisposable
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(500);
     private static readonly HttpClient Http = new() { Timeout = Timeout.InfiniteTimeSpan }; //本机回环，超时由各次的取消控制
@@ -40,7 +39,7 @@ public sealed partial class SdCppEngine : IDisposable
             () => settings.IdleStopMinutes > 0 ? TimeSpan.FromMinutes(settings.IdleStopMinutes) : null,
             deviceInfo: deviceInfo);
         Distribution = new EngineDistribution<SdCppVersion>("stable-diffusion.cpp", engineRoot,
-            new SdCppVersionManager(), queue ?? DownloadQueue.Shared, settings, ReleaseUrl,
+            new SdCppVersionManager(), queue ?? DownloadQueue.Shared, settings,
             isVetted: x => x.Version <= SdCppVersionManager.PinnedVersion);
         Distribution.VersionChanged += _host.Stop;
     }
@@ -142,19 +141,6 @@ public sealed partial class SdCppEngine : IDisposable
         _host.Dispose();
     }
 
-    /// <summary>
-    /// 从版本名里认出发布 tag（master-945-a1ded76-bin-… 里的 master-945-a1ded76），拼 GitHub 发布页
-    /// </summary>
-    /// <param name="versionName">版本名</param>
-    /// <returns>发布页；认不出为 null</returns>
-    public static string? ReleaseUrl(string versionName)
-    {
-        Match match = TagPattern().Match(versionName);
-        return match.Success
-            ? $"https://github.com/leejet/stable-diffusion.cpp/releases/tag/{match.Groups[1].Value}"
-            : null;
-    }
-
     private async Task<IReadOnlyList<byte[]>> WaitForJobAsync(Uri server, string id,
         IProgress<ImageProgress>? progress, CancellationToken cancellationToken)
     {
@@ -242,7 +228,4 @@ public sealed partial class SdCppEngine : IDisposable
     // 只看程序与参数：加载超时不是进程参数，改它不必重新加载权重
     private static string Fingerprint(LocalServerLaunch launch) =>
         string.Join('\n', [launch.ExecutablePath, ..launch.BuildArguments(0)]);
-
-    [GeneratedRegex(@"^(master-\d+-[0-9a-f]+)-bin-")]
-    private static partial Regex TagPattern();
 }

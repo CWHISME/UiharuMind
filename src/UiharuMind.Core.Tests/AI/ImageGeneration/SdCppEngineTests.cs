@@ -63,7 +63,7 @@ public class SdCppEngineTests : IDisposable
     {
         Assert.Equal(new Version(945, 0), ManagedVersionParse("master-945-a1ded76-bin-win-vulkan-x64"));
         Assert.Equal("https://github.com/leejet/stable-diffusion.cpp/releases/tag/master-945-a1ded76",
-            SdCppEngine.ReleaseUrl("master-945-a1ded76-bin-win-vulkan-x64"));
+            new SdCppVersionManager().ReleaseUrl("master-945-a1ded76-bin-win-vulkan-x64"));
     }
 
     [Fact]
