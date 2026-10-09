@@ -179,8 +179,124 @@ public class FileEditPlannerTests
         Assert.Contains("Closest match: line 1 (4/5 lines content-matched)", plan.Error);
         Assert.Contains("1-3 [ok] (3 lines)", plan.Error);
         Assert.Contains("4 [diff] 4", plan.Error);
+        Assert.Contains("oldString line 4: X", plan.Error);
         Assert.DoesNotContain("2 [ok]", plan.Error);
         Assert.Contains("line 4: expected 'X' but found '4'", plan.Error);
+    }
+
+    /// <summary>
+    /// 实机：要删的方法块后面多带了一行文件里没有的 [Fact]（以为后面还有个测试）。
+    /// 只报「line N: expected/found」时模型会对着重读的正文说服自己「明明一致」，得直说超出了实际文本，
+    /// 并在差异行旁摆出 oldString 自己那行
+    /// </summary>
+    [Fact]
+    public void MissingOldString_TrailingExtraLines_SaysOverrun()
+    {
+        const string method = "    [Fact]\n    public void Remove_DeletesPastedFile()\n    {\n"
+                              + "        string dir = NewTestDir();\n        DeleteDir(dir);\n    }\n\n";
+        FileEditPlan plan = Plan(method + "    private static string NewTestDir() =>\n        Path.Combine(x);\n",
+            (method + "    [Fact]\n    public void Other()", ""));
+
+        Assert.False(plan.Succeeded);
+        Assert.Contains("1-7 [ok] (7 lines)", plan.Error);
+        Assert.Contains("8 [diff]     private static string NewTestDir() =>", plan.Error);
+        Assert.Contains("oldString line 8:     [Fact]", plan.Error);
+        Assert.Contains("first 7 of 9 oldString lines match lines 1-7", plan.Error);
+        Assert.Contains("runs past the real text", plan.Error);
+    }
+
+    /// <summary>头部多带的行同理，说的是「起点早于实际文本」</summary>
+    [Fact]
+    public void MissingOldString_LeadingExtraLine_SaysStartsBefore()
+    {
+        FileEditPlan plan = Plan("int unrelatedValue = 0;\nalpha();\nbeta();\ngamma();\n",
+            ("// a comment that is not there\nalpha();\nbeta();\ngamma();", ""));
+
+        Assert.False(plan.Succeeded);
+        Assert.Contains("last 3 of 4 oldString lines match lines 2-4", plan.Error);
+        Assert.Contains("starts before the real text", plan.Error);
+    }
+
+    /// <summary>末行只是错字不算多带：仍走逐行 expected/found</summary>
+    [Fact]
+    public void MissingOldString_TrailingTypo_NotOverrun()
+    {
+        FileEditPlan plan = Plan("first\nsecond line here\nthird\n", ("first\nsecond lien here", "x"));
+
+        Assert.False(plan.Succeeded);
+        Assert.DoesNotContain("runs past", plan.Error);
+        Assert.Contains("line 2: expected 'second lien here' but found 'second line here'", plan.Error);
+    }
+
+    // 两个长得像的方法：中间多抄/漏抄一行时，等长窗口后半段错位，曾被另一个方法抢走
+    private const string TwinMethods =
+        "    [Fact]\n"
+        + "    public void Remove_DeletesPastedFile()\n"
+        + "    {\n"
+        + "        string dir = NewTestDir();\n"
+        + "        ImageDrawReferences references = new();\n"
+        + "        string path = references.Items[0].Path;\n"
+        + "        Assert.True(File.Exists(path));\n"
+        + "        references.RemoveCommand.Execute(references.Items[0]);\n"
+        + "        Assert.False(File.Exists(path));\n"
+        + "        DeleteDir(dir);\n"
+        + "    }\n"
+        + "\n"
+        + "    [Fact]\n"
+        + "    public void Remove_KeepsDroppedFile()\n"
+        + "    {\n"
+        + "        string dir = NewTestDir();\n"
+        + "        ImageDrawReferences references = new();\n"
+        + "        string dropped = references.Items[0].Path;\n"
+        + "        Assert.True(File.Exists(dropped));\n"
+        + "        references.RemoveCommand.Execute(references.Items[0]);\n"
+        + "        Assert.False(File.Exists(path));\n"
+        + "        DeleteDir(dir);\n"
+        + "    }\n";
+
+    private static string FirstTwin(Func<string[], IEnumerable<string>> mutate) =>
+        string.Join('\n', mutate(TwinMethods.Split('\n')[..11]));
+
+    /// <summary>中间多抄了一行：标成 [extra]，位置还是第 1 行那个方法</summary>
+    [Fact]
+    public void MissingOldString_ExtraLineInTheMiddle_MarksExtra()
+    {
+        FileEditPlan plan = Plan(TwinMethods,
+            (FirstTwin(l => l.Take(6).Append("        references.Refresh();").Concat(l.Skip(6))), "x"));
+
+        Assert.False(plan.Succeeded);
+        Assert.Contains("Closest match: line 1 (11/12 lines content-matched)", plan.Error);
+        Assert.Contains("1-6 [ok] (6 lines)", plan.Error);
+        Assert.Contains("[extra] oldString line 7:         references.Refresh();", plan.Error);
+        Assert.Contains("7-11 [ok] (5 lines)", plan.Error);
+        Assert.Contains("1 line that the file doesn't have", plan.Error);
+        Assert.DoesNotContain("runs past", plan.Error);
+    }
+
+    /// <summary>中间漏抄了一行：标成 [missing] 并给出文件里那行</summary>
+    [Fact]
+    public void MissingOldString_LineSkippedInTheMiddle_MarksMissing()
+    {
+        FileEditPlan plan = Plan(TwinMethods, (FirstTwin(l => l.Take(6).Concat(l.Skip(7))), "x"));
+
+        Assert.False(plan.Succeeded);
+        Assert.Contains("Closest match: line 1 (10/10 lines content-matched)", plan.Error);
+        Assert.Contains("7 [missing]         Assert.True(File.Exists(path));", plan.Error);
+        Assert.Contains("skips 1 line that the file has", plan.Error);
+    }
+
+    /// <summary>中间一行改写、行数不变：仍走等长窗口，逐行 expected/found</summary>
+    [Fact]
+    public void MissingOldString_ChangedLineInTheMiddle_StaysLineByLine()
+    {
+        FileEditPlan plan = Plan(TwinMethods,
+            (FirstTwin(l => l.Select((x, i) => i == 6 ? "        Assert.True(File.Exist(path));" : x)), "x"));
+
+        Assert.False(plan.Succeeded);
+        Assert.Contains("Closest match: line 1 (10/11 lines content-matched)", plan.Error);
+        Assert.Contains("7 [diff]         Assert.True(File.Exists(path));", plan.Error);
+        Assert.Contains("line 7: expected", plan.Error);
+        Assert.DoesNotContain("[extra]", plan.Error);
     }
 
     [Fact]

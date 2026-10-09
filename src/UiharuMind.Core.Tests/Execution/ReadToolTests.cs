@@ -53,6 +53,18 @@ public sealed class ReadToolTests : IDisposable
         Assert.EndsWith("…[truncated: showing lines 1–100 of 2500; continue with offset=101]", result);
     }
 
+    /// <summary>全文窗按结果推首行行号：截断附注为准（负 offset 也对），没截断用正 offset</summary>
+    [Fact]
+    public async Task FirstLineOf_MatchesTheFileLineNumbers()
+    {
+        string path = Save("big.txt", Lines(200));
+
+        Assert.Equal(60, ReadTruncationNote.FirstLineOf(60, await Read(path, offset: 60, limit: 40)));
+        Assert.Equal(151, ReadTruncationNote.FirstLineOf(-50, await Read(path, offset: -50, limit: 10)));
+        Assert.Equal(190, ReadTruncationNote.FirstLineOf(190, await Read(path, offset: 190)));
+        Assert.Equal(1, ReadTruncationNote.FirstLineOf(0, await Read(path, offset: 0, limit: 5)));
+    }
+
     [Fact]
     public async Task NegativeOffset_ReadsTheTail()
     {

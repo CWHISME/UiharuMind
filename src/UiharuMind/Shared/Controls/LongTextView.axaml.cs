@@ -56,6 +56,10 @@ public partial class LongTextView : UserControl
     public static readonly StyledProperty<bool> ShowLineNumbersProperty =
         AvaloniaProperty.Register<LongTextView, bool>(nameof(ShowLineNumbers), true);
 
+    /// <summary>首行显示的行号，默认 1（只读片段从原文件中间读起时对上原行号）</summary>
+    public static readonly StyledProperty<int> FirstLineNumberProperty =
+        AvaloniaProperty.Register<LongTextView, int>(nameof(FirstLineNumber), 1);
+
     /// <summary>是否显示自带工具条，默认显示</summary>
     public static readonly StyledProperty<bool> IsToolbarVisibleProperty =
         AvaloniaProperty.Register<LongTextView, bool>(nameof(IsToolbarVisible), true);
@@ -90,6 +94,13 @@ public partial class LongTextView : UserControl
     {
         get => GetValue(ShowLineNumbersProperty);
         set => SetValue(ShowLineNumbersProperty, value);
+    }
+
+    /// <summary>首行显示的行号，默认 1</summary>
+    public int FirstLineNumber
+    {
+        get => GetValue(FirstLineNumberProperty);
+        set => SetValue(FirstLineNumberProperty, value);
     }
 
     /// <summary>
@@ -320,6 +331,10 @@ public partial class LongTextView : UserControl
         {
             ApplyLineNumbersVisibility();
         }
+        else if (change.Property == FirstLineNumberProperty)
+        {
+            ApplyLineNumbersVisibility();
+        }
         else if (change.Property == SyntaxSourceNameProperty)
         {
             _syntax.Apply(SyntaxSourceName, Text);
@@ -379,7 +394,7 @@ public partial class LongTextView : UserControl
         line.Bind(Control.MarginProperty, Editor[!TextEditor.LineNumbersMarginProperty]);
     }
 
-    /// <summary>行号开关只切自建边距的可见性,不重建(重建会踩上游 Render 先于 Measure 的坑)。</summary>
+    /// <summary>行号开关与起始行号只改自建边距,不重建(重建会踩上游 Render 先于 Measure 的坑)。</summary>
     private void ApplyLineNumbersVisibility()
     {
         EnsureLineNumberMargins();
@@ -387,6 +402,7 @@ public partial class LongTextView : UserControl
         if (margins == null) return;
         foreach (var margin in margins)
         {
+            if (margin is SafeLineNumberMargin numbers) numbers.FirstLineNumber = FirstLineNumber;
             if (margin is SafeLineNumberMargin || DottedLineMargin.IsDottedLineMargin(margin))
                 margin.IsVisible = ShowLineNumbers;
         }

@@ -108,12 +108,6 @@ public static class FileEditPlanner
     /// <summary>hunk 内容超预算时头尾各保留的行数（尾部常是改动真正的落点）</summary>
     private const int SkeletonEdgeLines = 6;
 
-    /// <summary>NotFound 候选提示最多评多少行的块:再大就放弃(避免评分随块行数变慢)</summary>
-    private const int MaxHintBlockLines = 40;
-
-    /// <summary>NotFound 候选提示最多列出多少行,超出折叠</summary>
-    private const int MaxHintShownLines = 20;
-
     /// <summary>
     /// 从磁盘读文件并算一份编辑计划，不落盘
     /// </summary>
@@ -183,8 +177,8 @@ public static class FileEditPlanner
             switch (located.Kind)
             {
                 case ELocateResult.NotFound:
-                    return FileEditPlan.Failed(
-                        BuildNotFoundMessage(i, oldString, label, text, lines));
+                    return FileEditPlan.Failed(EditMissHint.Build(i, oldString, label,
+                        lines.Select(line => LineText(text, line)).ToArray()));
 
                 case ELocateResult.NotUnique:
                     // 归一歧义:多个命中里至少一个仅靠全角归一才匹配上——模型不知道"这两处"其实
@@ -511,206 +505,6 @@ public static class FileEditPlanner
 
     // ---- 定位 ----
 
-    /// <summary>
-    /// 组装 NotFound 话术:在标准提示后追加「最近的整块」候选,让模型一步修正而不是反复读抄。
-    ///
-    /// 块级滑窗而不是单行锚:oldString 按行切块、贴着文件逐窗比,取整块距离和最小的窗口。
-    /// 单行级评分会把「内容全等、只差缩进」的行输给远处一句内容相近的注释(实机见过),
-    /// 块级才回得到"我们俩都以为的同一个地方"。
-    /// 空白差异单列(内容同=代价 0),并在差异行上把 expected/found 与空白数差写出来——
-    /// 空白和内容是两种修法,混在一起说模型就只能重读。
-    /// 首句不再喊「Read the file again」:那会跟候选的存在目的(一步修正)打架,改成指路到 Closest match,
-    /// 只留「没有候选或定位不明确才小范围 Read」的出口。逐行预览里连续 [ok] 行折叠成摘要——
-    /// 那些行模型自己刚发过,原样返回纯属双倍浪费,差异行才值得逐行看。
-    /// </summary>
-    private static string BuildNotFoundMessage(int index, string oldString, string label,
-        string text, List<Line> lines)
-    {
-        string message = $"edits[{index}].oldString was not found in '{label}'. It must match the file exactly, "
-                         + "whitespace and line breaks included. Follow the Closest match hint below to fix the oldString; "
-                         + "only when there is no candidate or the location is unclear, Read a small range around the hint "
-                         + "— don't re-read the whole file.";
-
-        string[] anchors = oldString.Split('\n');
-        // 镜像 LocateByLineWindow:尾随换行产生的空末段只表示"连换行一起换",不参与评分
-        if (anchors.Length > 1 && anchors[^1].Length == 0) anchors = anchors[..^1];
-        // 超长行(算编辑距离不划算)与纯空块不做候选
-        if (anchors.Length == 0 || anchors.Length > MaxHintBlockLines
-            || anchors.Any(a => a.Length > 200) || anchors.All(a => a.Length == 0))
-        {
-            return message;
-        }
-
-        // 逐窗评分:内容同(Trim 后相等)→空白差,代价 0;否则按 TrimEnd 后的编辑距离计入。
-        // 窗口代价单调不减,一旦不小于当前最优即可早停
-        int bestStart = -1;
-        int bestCost = int.MaxValue;
-        var bestStates = new ELineMatchState[anchors.Length];
-        for (int start = 0; start + anchors.Length <= lines.Count; start++)
-        {
-            int cost = 0;
-            var states = new ELineMatchState[anchors.Length];
-            for (int i = 0; i < anchors.Length; i++)
-            {
-                string candidate = LineText(text, lines[start + i]).TrimEnd();
-                if (candidate.Length > 200)
-                {
-                    cost = int.MaxValue;
-                    break;
-                }
-
-                string anchorTrimmed = anchors[i].TrimEnd();
-                if (anchorTrimmed == candidate)
-                {
-                    states[i] = ELineMatchState.Exact;
-                    continue;
-                }
-
-                if (anchorTrimmed.Trim() == candidate.Trim())
-                {
-                    states[i] = ELineMatchState.Whitespace;
-                    continue;
-                }
-
-                states[i] = ELineMatchState.Diff;
-                cost += DamerauLevenshtein(anchorTrimmed, candidate);
-                if (cost >= bestCost) break; // 已不可能更好
-            }
-
-            if (cost >= bestCost) continue; // 同分保留更早的窗口
-            bestCost = cost;
-            bestStart = start;
-            bestStates = states;
-        }
-
-        if (bestStart < 0) return message;
-
-        // 阈值:整块距离和超过锚字符数一半才算"不够像"(近似,沿用单行口径,避免短行全相似误报)
-        int anchorChars = anchors.Sum(a => a.TrimEnd().Length);
-        if (bestCost > anchorChars / 2) return message;
-
-        int contentMatched = bestStates.Count(s => s != ELineMatchState.Diff);
-        int firstFix = Array.FindIndex(bestStates, s => s != ELineMatchState.Exact);
-
-        var sb = new StringBuilder();
-        sb.Append($" Closest match: line {bestStart + 1} ({contentMatched}/{anchors.Length} lines content-matched)");
-
-        // 连续 [ok](≥2 行)折叠成摘要行;[ws]/[diff] 逐行保留——差异行才是模型要改的地方
-        var hintLines = new List<string>();
-        int idx = 0;
-        while (idx < anchors.Length)
-        {
-            if (bestStates[idx] == ELineMatchState.Exact)
-            {
-                int runStart = idx;
-                while (idx < anchors.Length && bestStates[idx] == ELineMatchState.Exact) idx++;
-                int runLen = idx - runStart;
-                if (runLen >= 2)
-                {
-                    hintLines.Add($"{bestStart + runStart + 1}-{bestStart + idx} [ok] ({runLen} lines)");
-                    continue;
-                }
-
-                idx = runStart; // 单行 ok 不值得折,退回按单行输出
-            }
-
-            hintLines.Add($"{bestStart + idx + 1} [{KindLabel(bestStates[idx])}] "
-                          + Clamp(LineText(text, lines[bestStart + idx]).TrimEnd()));
-            idx++;
-        }
-
-        int shown = Math.Min(hintLines.Count, MaxHintShownLines);
-        for (int k = 0; k < shown; k++)
-        {
-            sb.Append($"\n   {hintLines[k]}");
-        }
-        if (hintLines.Count > shown)
-        {
-            sb.Append($"\n   …(+{hintLines.Count - shown} more lines)");
-        }
-
-        if (firstFix >= 0)
-        {
-            string found = LineText(text, lines[bestStart + firstFix]).TrimEnd();
-            sb.Append($"\nline {bestStart + firstFix + 1}: expected '{Clamp(anchors[firstFix].TrimEnd())}' "
-                      + $"but found '{Clamp(found)}'");
-            sb.Append(bestStates[firstFix] == ELineMatchState.Diff
-                ? " — content differs."
-                : DescribeWhitespaceDiff(anchors[firstFix].TrimEnd(), found));
-        }
-
-        return message + sb.ToString();
-
-        static string KindLabel(ELineMatchState state) => state switch
-        {
-            ELineMatchState.Exact => "ok",
-            ELineMatchState.Whitespace => "ws",
-            _ => "diff",
-        };
-    }
-
-    /// <summary>本地截断(不入依赖 ToolOutputTruncation.TruncateLine):只为控制话术长度</summary>
-    private static string Clamp(string s) => s.Length <= 120 ? s : s[..120] + " …[truncated]";
-
-    /// <summary>
-    /// 首空白差异的描述。尾空白已被 fuzzy 的 TrimEnd 吸收、走不到 NotFound,
-    /// 这里能看到的空白差只剩行首(以及行首空格 vs 制表符)。
-    /// </summary>
-    private static string DescribeWhitespaceDiff(string expected, string found)
-    {
-        int expLeading = expected.Length - expected.TrimStart().Length;
-        int fndLeading = found.Length - found.TrimStart().Length;
-
-        return expLeading == fndLeading
-            ? " — differs by whitespace only (spaces vs tabs)."
-            : $" — differs by whitespace only: leading whitespace {expLeading} vs {fndLeading}.";
-    }
-
-    /// <summary>
-    /// Damerau-Levenshtein 编辑距离,上限 <paramref name="max"/> 即提前剪枝(返回 max+1)。
-    /// 只需"够不够近",不需要精确距离。
-    /// </summary>
-    private static int DamerauLevenshtein(string a, string b, int max = 60)
-    {
-        int n = a.Length;
-        int m = b.Length;
-        if (Math.Abs(n - m) > max) return max + 1;
-        if (n == 0) return m;
-        if (m == 0) return n;
-
-        int[] prev = new int[m + 1];
-        int[] curr = new int[m + 1];
-        int[] prevPrev = new int[m + 1];
-        for (int j = 0; j <= m; j++) { prev[j] = j; curr[j] = j; }
-
-        int rowMin = 0;
-        for (int i = 1; i <= n; i++)
-        {
-            (prevPrev, prev, curr) = (prev, curr, prevPrev);
-            curr[0] = i;
-            rowMin = i;
-            for (int j = 1; j <= m; j++)
-            {
-                int cost = a[i - 1] == b[j - 1] ? 0 : 1;
-                int insert = prev[j] + 1;
-                int delete = curr[j - 1] + 1;
-                int sub = prev[j - 1] + cost;
-                int val = Math.Min(insert, Math.Min(delete, sub));
-                if (i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1])
-                {
-                    val = Math.Min(val, prevPrev[j - 2] + 1);
-                }
-
-                curr[j] = val;
-                if (val < rowMin) rowMin = val;
-            }
-
-            if (rowMin > max) return max + 1;
-        }
-
-        return curr[m];
-    }
-
     private static Location Locate(string text, List<Line> lines, string oldString)
     {
         // 精确：数全部出现次数（不重叠计数），多于一处就交回给模型加上下文
@@ -1005,9 +799,6 @@ public static class FileEditPlanner
         NotFound,
         NotUnique,
     }
-
-    /// <summary>NotFound 候选里 oldString 每行与文件行的比对结果</summary>
-    private enum ELineMatchState { Exact, Whitespace, Diff }
 
     /// <param name="Start">行首在原文里的偏移</param>
     /// <param name="ContentEnd">正文结束处（不含行终止符）</param>

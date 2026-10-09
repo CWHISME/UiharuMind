@@ -198,7 +198,7 @@ internal sealed class FileReader
             // 带上总量：光说"续读 offset=31"，模型不知道是再翻一页就完还是要翻六十页，
             // 也就无从判断该继续翻还是改用 Grep 定位
             int next = start + window.Count;
-            sb.Append($"\n…[truncated: showing lines {start}–{next - 1} of {total}; continue with offset={next}]");
+            sb.Append('\n').Append(ReadTruncationNote.Format(start, next - 1, total, next));
         }
 
         if (encodingNote != null) sb.Append('\n').Append(encodingNote);
