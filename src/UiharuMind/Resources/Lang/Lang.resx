@@ -3356,6 +3356,15 @@ Allow them?</value>
     <data name="GroupArtifactWorkspaceBadge" xml:space="preserve">
         <value>Workspace</value>
     </data>
+    <data name="SessionArtifactsTitle" xml:space="preserve">
+        <value>Session artifacts</value>
+    </data>
+    <data name="SessionArtifactsHint" xml:space="preserve">
+        <value>What this session has put on disk: files in its draft room, and workspace files it changed. Click to open, right-click to reveal.</value>
+    </data>
+    <data name="SessionArtifactsTab" xml:space="preserve">
+        <value>Artifacts</value>
+    </data>
     <data name="GroupMemberPrivateChat" xml:space="preserve">
         <value>Private chat</value>
     </data>

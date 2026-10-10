@@ -3349,6 +3349,15 @@
     <data name="GroupArtifactWorkspaceBadge" xml:space="preserve">
         <value>工作区</value>
     </data>
+    <data name="SessionArtifactsTitle" xml:space="preserve">
+        <value>本会话产物</value>
+    </data>
+    <data name="SessionArtifactsHint" xml:space="preserve">
+        <value>这次对话落了盘的东西：草稿目录里的文件，和改过的工作区文件。点开看，右键在文件夹中显示。</value>
+    </data>
+    <data name="SessionArtifactsTab" xml:space="preserve">
+        <value>产物</value>
+    </data>
     <data name="GroupMemberPrivateChat" xml:space="preserve">
         <value>私聊中</value>
     </data>

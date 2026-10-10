@@ -4,7 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using UiharuMind.Core.AI.Chat.Group;
 
-namespace UiharuMind.Features.Conversation.Group;
+namespace UiharuMind.Features.Conversation.Artifacts;
 
 /// <summary>
 /// 把新产物清单同步进 <see cref="ObservableCollection{T}"/>：
@@ -12,22 +12,22 @@ namespace UiharuMind.Features.Conversation.Group;
 /// 复用就不重建容器，重建才会带动控件树把订阅重挂一遍（实测 P2 的泄漏点：
 /// 每次重建每项都新建 4 个订阅，群一忙就在产物面板里越积越多）。
 /// </summary>
-public static class GroupArtifactListSync
+public static class ArtifactListSync
 {
     /// <summary>
     /// 以 <paramref name="artifacts"/>（须已按最近修改排序）为权威，把 <paramref name="items"/> 对齐到它
     /// </summary>
     /// <param name="items">产物列表（界面绑定的那一个）</param>
     /// <param name="artifacts">新的产物清单，最近改过的在前</param>
-    public static void Apply(ObservableCollection<GroupArtifactItem> items, IReadOnlyList<GroupArtifact> artifacts)
+    public static void Apply(ObservableCollection<ArtifactItem> items, IReadOnlyList<GroupArtifact> artifacts)
     {
-        Dictionary<string, GroupArtifactItem> current = new(GroupArtifacts.PathComparer);
-        foreach (GroupArtifactItem item in items) current[item.FullPath] = item;
+        Dictionary<string, ArtifactItem> current = new(GroupArtifacts.PathComparer);
+        foreach (ArtifactItem item in items) current[item.FullPath] = item;
 
-        List<GroupArtifactItem> next = new(artifacts.Count);
+        List<ArtifactItem> next = new(artifacts.Count);
         foreach (GroupArtifact artifact in artifacts)
         {
-            if (current.TryGetValue(artifact.FullPath, out GroupArtifactItem? existing))
+            if (current.TryGetValue(artifact.FullPath, out ArtifactItem? existing))
             {
                 current.Remove(artifact.FullPath); //进了 next，就不再当“该删的”
                 next.Add(existing);
@@ -37,15 +37,15 @@ public static class GroupArtifactListSync
             }
             else
             {
-                next.Add(new GroupArtifactItem(artifact));
+                next.Add(new ArtifactItem(artifact));
             }
         }
 
-        foreach (GroupArtifactItem stale in current.Values) items.Remove(stale);
+        foreach (ArtifactItem stale in current.Values) items.Remove(stale);
 
         for (int i = 0; i < next.Count; i++)
         {
-            GroupArtifactItem want = next[i];
+            ArtifactItem want = next[i];
             if (i < items.Count)
             {
                 if (ReferenceEquals(items[i], want)) continue;

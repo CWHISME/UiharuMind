@@ -8,6 +8,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
+using UiharuMind.Features.Conversation.Artifacts;
 using UiharuMind.Features.Conversation.Composer;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
@@ -24,7 +25,7 @@ public sealed class GroupShellViewData : ObservableObject, IDisposable
     private readonly ChatSession _group;
     private readonly GroupChangePrompts _prompts;
     private GroupMembersViewData _members;
-    private GroupArtifactsViewData _artifacts;
+    private ArtifactsViewData _artifacts;
 
     /// <summary>
     /// 构造并挂上发言人变化的通知。装载前这一圈可能已经在跑、信号早发完了，所以构造时先补标一次
@@ -36,7 +37,7 @@ public sealed class GroupShellViewData : ObservableObject, IDisposable
         _group = group;
         _prompts = new GroupChangePrompts(messages);
         _members = CreateMembers();
-        _artifacts = new GroupArtifactsViewData(group);
+        _artifacts = new ArtifactsViewData(new GroupArtifactSource(group));
         Approvals = new GroupApprovalsViewData(group);
         Away = group.IsAgentGroup ? new GroupAwayViewData(group, messages) : null;
         // 发言人变化（轮到谁 / 一轮结束）、名单变化、成员名下的后台任务增减都可能来自后台线程，处理里自行 marshal
@@ -62,7 +63,7 @@ public sealed class GroupShellViewData : ObservableObject, IDisposable
     public GroupAwayViewData? Away { get; }
 
     /// <summary>右栏产物区</summary>
-    public GroupArtifactsViewData Artifacts
+    public ArtifactsViewData Artifacts
     {
         get => _artifacts;
         private set => SetProperty(ref _artifacts, value);
@@ -158,7 +159,7 @@ public sealed class GroupShellViewData : ObservableObject, IDisposable
     public void OnWorkspaceChanged()
     {
         Artifacts.Dispose();
-        Artifacts = new GroupArtifactsViewData(_group);
+        Artifacts = new ArtifactsViewData(new GroupArtifactSource(_group));
         Members = CreateMembers();
     }
 

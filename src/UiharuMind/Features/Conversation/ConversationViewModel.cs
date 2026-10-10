@@ -51,6 +51,7 @@ using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Diagnostics;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Features.Conversation.Artifacts;
 using UiharuMind.Features.Conversation.Composer;
 using UiharuMind.Features.Conversation.Group;
 using UiharuMind.Features.Conversation.Items;
@@ -406,6 +407,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// <summary>群成员会话那一份（待接收的群发言、群投递渲染、权限跟群）；打开的不是成员会话为 null</summary>
     [ObservableProperty] private GroupMemberSessionViewData? _groupMember;
 
+    /// <summary>单聊智能体会话的右栏产物区；群壳（产物在 <see cref="Group"/> 里）与普通对话为 null</summary>
+    [ObservableProperty] private ArtifactsViewData? _artifacts;
+
     /// <summary>
     /// 本会话是不是群壳（ADR 0046）：输入框发的是群发言，气泡不给编辑/删除/重试（送达即不可改）
     /// </summary>
@@ -448,6 +452,16 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     {
         oldValue?.Dispose();
     }
+
+    partial void OnArtifactsChanged(ArtifactsViewData? oldValue, ArtifactsViewData? newValue)
+    {
+        oldValue?.Dispose();
+    }
+
+    private ArtifactsViewData? CreateSessionArtifacts(ChatSession? session) =>
+        session is { IsGroup: false } && CurrentMeta is { } meta && SessionManager.IsAgentSide(meta)
+            ? new ArtifactsViewData(new SessionArtifactSource(session))
+            : null;
 
     /// <summary>请页面在列表里选中某个会话（建完群要切过去，而新建不经列表选中）</summary>
     public event Action<string>? OpenSessionRequested;
@@ -957,6 +971,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _approvalAdopter.Dispose();
         Group?.Dispose();
         GroupMember?.Dispose();
+        Artifacts?.Dispose();
         _driver.StateChanged -= OnDriverStateChanged;
         PendingWork.Changed -= OnPendingWorkChanged;
         SessionManager.Instance.Running.StateChanged -= OnSessionRunStateChanged;
@@ -1162,8 +1177,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         if (CurrentMeta == null || _isLoadingSession) return;
         CurrentMeta.WorkspacePath = value;
         ConversationSessionBinder.PersistSettings(CurrentMeta);
-        // 群的草稿目录、成员预演都跟着工作区走
+        // 群的草稿目录、成员预演都跟着工作区走；单聊的草稿目录同理
         Group?.OnWorkspaceChanged();
+        if (Artifacts != null) Artifacts = CreateSessionArtifacts(CurrentSession);
     }
 
     /// 换了工作区:先把该项目的授权要到手,再无条件刷一次面板。
@@ -1606,6 +1622,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         // 晚一步右栏就先按单聊画出群壳的占位角色,再跳成群卡
         Group = loaded is { IsGroup: true } ? new GroupShellViewData(loaded, _messages) : null;
         if (Group != null) InputPlaceholderKey = LangKey.GroupInputTips; //群里是对全群说话,不是给谁派任务
+        Artifacts = CreateSessionArtifacts(loaded);
         OnPropertyChanged(nameof(IsGroupMemberSession));
         OnPropertyChanged(nameof(IsPermissionEditable));
         OnPropertyChanged(nameof(CanApproveExtensions));

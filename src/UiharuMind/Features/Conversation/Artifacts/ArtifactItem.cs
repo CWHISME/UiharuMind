@@ -6,10 +6,10 @@ using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Features.Conversation.Items;
 using UiharuMind.Shared.Services;
 
-namespace UiharuMind.Features.Conversation.Group;
+namespace UiharuMind.Features.Conversation.Artifacts;
 
 /// <summary>产物区的一行</summary>
-public sealed partial class GroupArtifactItem : ObservableObject
+public sealed partial class ArtifactItem : ObservableObject
 {
     private GroupArtifact _artifact;
 
@@ -17,12 +17,12 @@ public sealed partial class GroupArtifactItem : ObservableObject
     /// 包一件产物
     /// </summary>
     /// <param name="artifact">产物</param>
-    public GroupArtifactItem(GroupArtifact artifact)
+    public ArtifactItem(GroupArtifact artifact)
     {
         _artifact = artifact;
     }
 
-    /// <summary>包着的产物；增量刷新时由 <see cref="GroupArtifactListSync"/> 用展示字段比较判断盘上内容有没有变</summary>
+    /// <summary>包着的产物；增量刷新时由 <see cref="ArtifactListSync"/> 用展示字段比较判断盘上内容有没有变</summary>
     public GroupArtifact Artifact => _artifact;
 
     /// <summary>文件名</summary>

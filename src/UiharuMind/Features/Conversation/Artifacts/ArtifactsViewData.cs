@@ -15,41 +15,46 @@ using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Features.Conversation.Items;
 using UiharuMind.Shared.Services;
 
-namespace UiharuMind.Features.Conversation.Group;
+namespace UiharuMind.Features.Conversation.Artifacts;
 
 /// <summary>
-/// 右栏「本群产物」（方案 v6 §1.4 产出锚点）：群到底落了哪些盘，每条带路径。
-/// 收集是 Core 的纯函数（<see cref="GroupArtifacts"/>），这里只管什么时候刷——
-/// 草稿目录变了（文件监听）、成员跑完一次服务调用（写入的结果随下一次调用落盘）、成员一轮跑完。
+/// 右栏产物区（方案 v6 §1.4 产出锚点）：群或单聊到底落了哪些盘，每条带路径。
+/// 收集是 Core 的纯函数（<see cref="GroupArtifacts"/>），盯谁由 <see cref="IArtifactSource"/> 定，这里只管什么时候刷——
+/// 草稿目录变了（文件监听）、相关会话跑完一次服务调用（写入的结果随下一次调用落盘）、跑完一轮。
 /// 几路信号都合进一次防抖，收集在后台线程上做
 /// </summary>
-public sealed partial class GroupArtifactsViewData : ObservableObject, IDisposable
+public sealed partial class ArtifactsViewData : ObservableObject, IDisposable
 {
     private const int RefreshDelayMs = 400; //一阵写入合成一次刷新
 
-    private readonly ChatSession _group;
+    private readonly IArtifactSource _source;
     private readonly object _locker = new();
     private FileSystemWatcher? _watcher;
     private CancellationTokenSource? _pending;
     private bool _disposed;
 
     /// <summary>产物，最近改过的在前</summary>
-    public ObservableCollection<GroupArtifactItem> Items { get; } = new();
+    public ObservableCollection<ArtifactItem> Items { get; } = new();
 
-    /// <summary>群的草稿目录（全群共用那一间）</summary>
-    public string DraftRoom { get; }
+    /// <summary>草稿目录</summary>
+    public string DraftRoom => _source.DraftRoom;
+
+    /// <summary>面板标题</summary>
+    public string Title => _source.Title;
+
+    /// <summary>面板说明</summary>
+    public string Hint => _source.Hint;
 
     /// <summary>盘上还什么都没有</summary>
     [ObservableProperty] private bool _isEmpty = true;
 
     /// <summary>
-    /// 盯一个群的产物
+    /// 盯一个来源的产物
     /// </summary>
-    /// <param name="group">群壳会话</param>
-    public GroupArtifactsViewData(ChatSession group)
+    /// <param name="source">群或单聊会话</param>
+    public ArtifactsViewData(IArtifactSource source)
     {
-        _group = group;
-        DraftRoom = GroupArtifacts.DraftRoomOf(group);
+        _source = source;
         SessionManager.Instance.SessionUsageReported += OnMemberActivity;
         SessionManager.Instance.Running.StateChanged += OnMemberActivity;
         Watch();
@@ -82,7 +87,7 @@ public sealed partial class GroupArtifactsViewData : ObservableObject, IDisposab
     // 来自后台线程
     private void OnMemberActivity(string sessionId)
     {
-        if (_group.GroupMemberSessionIds.Contains(sessionId)) ScheduleRefresh();
+        if (_source.IsRelevant(sessionId)) ScheduleRefresh();
     }
 
     // 草稿目录还没建（没人写过）就先不盯，等第一次刷新时它出现了再挂上
@@ -135,7 +140,7 @@ public sealed partial class GroupArtifactsViewData : ObservableObject, IDisposab
             Dispatcher.UIThread.Post(() =>
             {
                 if (token.IsCancellationRequested) return;
-                GroupArtifactListSync.Apply(Items, artifacts);
+                ArtifactListSync.Apply(Items, artifacts);
                 IsEmpty = Items.Count == 0;
             });
         }
@@ -145,5 +150,5 @@ public sealed partial class GroupArtifactsViewData : ObservableObject, IDisposab
         }
     }
 
-    private IReadOnlyList<GroupArtifact> Collect() => GroupArtifacts.CollectFor(_group);
+    private IReadOnlyList<GroupArtifact> Collect() => _source.Collect();
 }

@@ -10,6 +10,7 @@
              xmlns:convs="clr-namespace:UiharuMind.Shared.Converters"
              xmlns:chars="clr-namespace:UiharuMind.Features.Characters"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:art="clr-namespace:UiharuMind.Features.Conversation.Artifacts"
              mc:Ignorable="d" d:DesignWidth="280" d:DesignHeight="420"
              x:Class="UiharuMind.Features.Conversation.SidePanels.AgentSidePanel"
              x:DataType="pages:ConversationPageData">
@@ -312,6 +313,20 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+                    <!-- 产物：本会话落了哪些盘，与群聊右栏同一个组件。放最后，不挪前面页签的下标 -->
+                    <TabItem FontSize="13">
+                        <TabItem.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <TextBlock Text="{loc:Loc SessionArtifactsTab}" />
+                                <TextBlock Text="{Binding Conversation.Artifacts.Items.Count}"
+                                           IsVisible="{Binding Conversation.Artifacts.Items.Count}" />
+                            </StackPanel>
+                        </TabItem.Header>
+                        <ScrollViewer Margin="0,6,0,0" HorizontalScrollBarVisibility="Disabled">
+                            <art:ArtifactsPanel DataContext="{Binding Conversation.Artifacts}"
+                                                IsVisible="{Binding Conversation.Artifacts, Converter={x:Static ObjectConverters.IsNotNull}}" />
                         </ScrollViewer>
                     </TabItem>
 

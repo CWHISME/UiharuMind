@@ -5,6 +5,7 @@
              xmlns:pages="clr-namespace:UiharuMind.Features.Conversation.Pages"
              xmlns:panels="clr-namespace:UiharuMind.Features.Conversation.SidePanels"
              xmlns:conv="clr-namespace:UiharuMind.Features.Conversation"
+             xmlns:art="clr-namespace:UiharuMind.Features.Conversation.Artifacts"
              xmlns:group="clr-namespace:UiharuMind.Features.Conversation.Group"
              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
@@ -61,7 +62,7 @@
                             <group:GroupAwayPanel DataContext="{Binding Conversation.Group.Away}" />
                         </Border>
                         <!-- 本群产物：群到底落了哪些盘（方案 v6 §1.4 产出锚点） -->
-                        <group:GroupArtifactsPanel DataContext="{Binding Conversation.Group.Artifacts}" />
+                        <art:ArtifactsPanel DataContext="{Binding Conversation.Group.Artifacts}" />
                     </StackPanel>
                 </ScrollViewer>
                 <Grid Grid.Row="2" IsVisible="{Binding !Conversation.IsGroupSession}">

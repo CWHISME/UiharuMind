@@ -61,6 +61,8 @@ BenchmarkDotNet.Artifacts/
 project.lock.json
 project.fragment.lock.json
 artifacts/
+# 上一行是构建输出目录；macOS 不分大小写会连带吞掉源码里的产物区目录
+!UiharuMind/Features/Conversation/Artifacts/
 
 # Tye
 .tye/

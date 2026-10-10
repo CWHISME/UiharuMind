@@ -265,6 +265,14 @@ public class AgentBuildProfile
             MemoryLayout.GetMemoryDirectory(workspace, folder));
     }
 
+    /// <summary>
+    /// 会话的草稿目录（产出落盘的那一间）：子代理落主会话那一间，群成员落群壳那一间
+    /// </summary>
+    /// <param name="session">会话</param>
+    /// <returns>绝对路径</returns>
+    public static string DraftRoomOf(ChatSession session) =>
+        AgentOutputLayout.GetRoomAbsolutePath(OutputFolderNameOf(session));
+
     private static string OutputFolderNameOf(ChatSession session) =>
         session.IsSubSession && session.ParentOutputFolderName is { Length: > 0 }
             ? session.ParentOutputFolderName

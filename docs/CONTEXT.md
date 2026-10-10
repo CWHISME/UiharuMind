@@ -251,7 +251,7 @@
 群右栏成员列表下面那一块：这个群**到底落了哪些盘**（方案 v6 §1.4「产出锚点」）。两个来源——
 **草稿目录**（全群共用那一间，直接列盘，谁放的都算）与**工作区**（成员会话里成功的 `Write` / `Edit`，
 按工具结果认「真写进去了」的那几次，见 `FileToolNames.IsSuccessfulWrite`）。每条带路径、谁写的、什么时候改的，
-点开看文件，右键在文件夹中显示。收集是 Core 纯函数 `GroupArtifacts.Collect`，刷新在 `GroupArtifactsViewData`。
+点开看文件，右键在文件夹中显示。收集是 Core 纯函数 `GroupArtifacts.Collect`，刷新在 `ArtifactsViewData`（单聊智能体会话右栏「产物」页签共用，来源换成 `SessionArtifactSource`）。
 
 ⚠️ 不看 git：那会把用户自己的改动也算进来。代价是**命令行改的工作区文件认不出来**（草稿目录里的照样列）。
 
