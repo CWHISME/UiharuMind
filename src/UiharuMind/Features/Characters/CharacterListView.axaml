@@ -58,7 +58,7 @@
                     <!-- 每次展开现填:选项来自筛选枚举,勾选状态现读视图模型。
                          填一次就固定住的写法会在改过筛选之后显示过期状态 -->
                     <MenuFlyout Placement="BottomEdgeAlignedRight" Opening="OnFilterMenuOpening">
-                        <!-- 两条筛选轴各自一个子菜单:档位与来源正交,合成一张互斥表
+                        <!-- 两条筛选轴各自一个子菜单：档位与来源正交,合成一张互斥表
                              就没有「我的智能体」这一格了 -->
                         <MenuItem Name="KindFilterMenuItem" Header="{loc:Loc CharacterFilterKind}" />
                         <MenuItem Name="OriginFilterMenuItem" Header="{loc:Loc CharacterFilterOrigin}" />
@@ -67,6 +67,10 @@
                         <MenuItem Header="{loc:Loc CharacterShowInternal}"
                                   ToggleType="CheckBox"
                                   IsChecked="{Binding IsDisplayAllCharacters, Mode=TwoWay}" />
+                        <!-- 与档位/来源正交的第三条轴：只看收藏 -->
+                        <MenuItem Header="{loc:Loc CharacterFavoriteFilter}"
+                                  ToggleType="CheckBox"
+                                  IsChecked="{Binding FavoriteFilter, Mode=TwoWay}" />
                     </MenuFlyout>
                 </ThemedIconButton.Flyout>
             </ThemedIconButton>
@@ -87,7 +91,7 @@
                             </ContextMenu>
                         </Border.ContextMenu>
 
-                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                             <controls:CircleAvatar Width="32" Height="32" VerticalAlignment="Center" Source="{Binding Icon}" />
 
                             <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
@@ -103,6 +107,14 @@
                                            TextTrimming="CharacterEllipsis"
                                            MaxLines="1" />
                             </StackPanel>
+
+                            <!-- 星标：点一下收藏/取消，收藏的顶到列表最前 -->
+                            <controls:ThemedIconButton Grid.Column="2" Classes="row-action" CornerRadius="6"
+                                                       IconName="star"
+                                                       CurrentColor="{Binding FavoriteColor}"
+                                                       ToolTip.Tip="{loc:Loc CharacterFavorite}"
+                                                       Command="{Binding ToggleFavoriteCommand}"
+                                                       VerticalAlignment="Center" />
                         </Grid>
                     </Border>
                 </DataTemplate>

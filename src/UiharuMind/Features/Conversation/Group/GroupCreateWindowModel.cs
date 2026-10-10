@@ -54,7 +54,8 @@ public partial class GroupCreateWindowModel : ObservableObject
                 string.IsNullOrEmpty(workspacePath) ? Loc.Text(LangKey.GroupCreateNoWorkspace) : workspacePath)
             : Loc.Text(LangKey.GroupCreateChatHint);
         // 预选的是用户正在聊的那一位，屏蔽了也照样列出（他本来就看得见），不然预选会静默落空
-        Picker = new GroupCandidatePicker(preselected);
+        // 智能体群挑人以智能体为主，候选排序里智能体在前；普通群保持普通在前
+        Picker = new GroupCandidatePicker(preselected, agentsFirst: isAgentGroup);
         Picker.PickedChanged += OnPickedChanged;
         Schedule = new GroupScheduleViewData(schedule?.Mode ?? EGroupScheduleMode.Serial,
             schedule?.StopPolicy ?? EGroupStopPolicy.Conservative);

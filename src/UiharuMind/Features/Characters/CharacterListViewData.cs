@@ -55,6 +55,22 @@ public partial class CharacterListViewData : ObservableObject
         }
     }
 
+    /// <summary>
+    /// 只看收藏开关。与 <see cref="KindFilter"/>、<see cref="OriginFilter"/> 正交，
+    /// 落进设置，重启后仍是这一档。
+    /// </summary>
+    public bool FavoriteFilter
+    {
+        get => ConfigManager.Instance.Setting.CharacterFavoriteFilter;
+        set
+        {
+            if (ConfigManager.Instance.Setting.CharacterFavoriteFilter == value) return;
+            ConfigManager.Instance.Setting.CharacterFavoriteFilter = value;
+            LoadCharacters();
+            OnPropertyChanged();
+        }
+    }
+
     /// <summary>搜索关键字：按名字与描述过滤，空则不过滤</summary>
     [ObservableProperty] private string _searchKeyword = string.Empty;
 
@@ -101,6 +117,7 @@ public partial class CharacterListViewData : ObservableObject
         CharacterManager.Instance.OnCharacterRemoved += OnCharacterRemoved;
         CharacterManager.Instance.OnCharacterUpdated += OnCharacterUpdated;
         CharacterVisibility.ShowShieldedChanged += LoadCharacters;
+        CharacterFavorites.Changed += LoadCharacters;
     }
 
     private void LoadCharacters()
@@ -115,9 +132,13 @@ public partial class CharacterListViewData : ObservableObject
             _characterChacheList.Add(item);
         }
 
-        // 同类内按存档时间倒序,普通角色在前、智能体在后
+        // 收藏最前，同类内按存档时间倒序,普通角色在前、智能体在后。
+        // 收藏是显式的常用标记，排在任何档位/时间轴前面；收藏项之间仍按下面的轴排，
+        // 因此一个普通角色收藏后不会被智能体档位的分区挤下去，只会顶到最前。
         _characterChacheList.Sort((x, y) =>
         {
+            int byFavorite = y.IsFavorite.CompareTo(x.IsFavorite);
+            if (byFavorite != 0) return byFavorite;
             bool xa = x.IsAgent, ya = y.IsAgent;
             if (xa != ya) return xa ? 1 : -1;
             // 内置卡没有存档时间(全是 0),不补这一刀它们的先后就取决于资源清单的枚举顺序,
@@ -155,6 +176,7 @@ public partial class CharacterListViewData : ObservableObject
         if (KindFilter == ECharacterKindFilter.Chat && !item.Data.IsChat()) return false;
         if (KindFilter == ECharacterKindFilter.Agent && !item.IsAgent) return false;
         if (!MatchesOrigin(item.IsBuiltIn)) return false;
+        if (FavoriteFilter && !item.IsFavorite) return false;
         if (item.Data.IsInternal && !IsDisplayAllCharacters) return false;
         if (!CharacterVisibility.PassesShield(item.Data)) return false;
 
@@ -282,5 +304,6 @@ public partial class CharacterListViewData : ObservableObject
         CharacterManager.Instance.OnCharacterRemoved -= OnCharacterRemoved;
         CharacterManager.Instance.OnCharacterUpdated -= OnCharacterUpdated;
         CharacterVisibility.ShowShieldedChanged -= LoadCharacters;
+        CharacterFavorites.Changed -= LoadCharacters;
     }
 }

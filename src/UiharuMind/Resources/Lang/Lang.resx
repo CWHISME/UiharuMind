@@ -2477,6 +2477,12 @@
     <data name="CharacterOriginMine" xml:space="preserve">
         <value>Mine</value>
     </data>
+    <data name="CharacterFavorite" xml:space="preserve">
+        <value>Favorite</value>
+    </data>
+    <data name="CharacterFavoriteFilter" xml:space="preserve">
+        <value>Favorites only</value>
+    </data>
     <data name="SnippetInsert" xml:space="preserve">
         <value>Insert snippet</value>
     </data>

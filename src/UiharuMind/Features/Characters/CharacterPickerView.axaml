@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:chars="clr-namespace:UiharuMind.Features.Characters"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="360"
              x:Class="UiharuMind.Features.Characters.CharacterPickerView"
              x:DataType="chars:CharacterPickerViewData">
@@ -23,7 +24,7 @@
                     <DataTemplate x:DataType="chars:CharacterPickerItem">
                         <Button Classes="picker-row" Command="{Binding PickCommand}"
                                 ToolTip.Tip="{Binding Description}">
-                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                                 <Border Grid.Column="0" Width="28" Height="28" CornerRadius="14"
                                         ClipToBounds="True" VerticalAlignment="Top">
                                     <Image Source="{Binding Icon}" Stretch="UniformToFill" RenderOptions.BitmapInterpolationMode="HighQuality" />
@@ -35,6 +36,10 @@
                                                TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
                                                Text="{Binding Description}" />
                                 </StackPanel>
+                                <!-- 只读星标：已收藏的角色排在前面（收藏在角色库左栏或群成员里切） -->
+                                <controls:ThemedSvgIcon Grid.Column="2" IconName="star" Width="14" Height="14"
+                                                        IsVisible="{Binding IsFavorite}"
+                                                        VerticalAlignment="Center" />
                             </Grid>
                         </Button>
                     </DataTemplate>

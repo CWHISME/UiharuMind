@@ -5,6 +5,7 @@ using System.Linq;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Core;
@@ -24,6 +25,7 @@ public partial class GroupCandidatePicker : ObservableObject
 {
     private readonly List<CharacterData> _picked = []; //勾选顺序即发言顺序
     private readonly List<GroupCandidate> _allCandidates;
+    private readonly bool _agentsFirst; //智能体群的挑人场景：智能体在前；普通群保持普通在前
 
     /// <summary>
     /// 档位筛选。枚举而非下标：下标那版把同一个值抄在常量、属性与 axaml 的 <c>Tag</c> 三处，
@@ -47,7 +49,7 @@ public partial class GroupCandidatePicker : ObservableObject
     /// <param name="excludedIds">不列的角色标识（已在群里的）；没有为 null</param>
     /// <param name="formerIds">曾在群里、已退出的角色标识（候选行挂徽章）；没有为 null</param>
     public GroupCandidatePicker(IReadOnlyList<CharacterData>? alwaysListed = null,
-        IReadOnlySet<string>? excludedIds = null, IReadOnlySet<string>? formerIds = null)
+        IReadOnlySet<string>? excludedIds = null, IReadOnlySet<string>? formerIds = null, bool agentsFirst = false)
     {
         // 成员模型的选项：默认「跟随全局」+ 当前模型清单，打开窗口时拍一张快照
         foreach (SessionModelOption option in SessionModelOption.SnapshotWithDefault(Loc.Text(LangKey.GroupModelFollowGlobal)))
@@ -56,18 +58,52 @@ public partial class GroupCandidatePicker : ObservableObject
         // 候选与建群时的校验同源(GroupChatSessions.CanJoin)：两类群都收所有非用户卡——
         // agent 卡进普通群以 chat 形态加入（不带工具，ADR 0050 决策 3）
         SessionModelOption followGlobal = ModelOptions[0];
+        _agentsFirst = agentsFirst;
         _allCandidates = CharacterManager.Instance.CharacterDataDictionary.Values
             .Where(x => !x.IsInternal && GroupChatSessions.CanJoin(x)
                         && excludedIds?.Contains(x.CharacterId) != true
                         && (CharacterVisibility.PassesShield(x) || alwaysListed?.Any(p => p.CharacterId == x.CharacterId) == true))
-            .OrderBy(x => x.IsAgent)
-            .ThenBy(x => x.CharacterName, StringComparer.CurrentCulture)
-            .Select(x => new GroupCandidate(x, OnCandidateToggled, ModelOptions)
+            .Select(x => new GroupCandidate(x, OnCandidateToggled, OnCandidateFavoriteToggled, ModelOptions)
             {
                 SelectedModelOption = followGlobal,
                 WasMember = formerIds?.Contains(x.CharacterId) == true,
             })
             .ToList();
+        _allCandidates.Sort(CompareCandidates);
+        ApplyFilter();
+    }
+
+    /// <summary>
+    /// 候选排序：收藏恒置顶（显式的常用标记，不看群类型），然后是档位轴——
+    /// 智能体群挑人以智能体为主（<see cref="_agentsFirst"/>）、普通群保持普通在前，
+    /// 组内按显示名。收藏变更后重排仍走这里，两处不会各说各话
+    /// </summary>
+    /// <param name="x">候选</param>
+    /// <param name="y">候选</param>
+    /// <returns>比较结果</returns>
+    private int CompareCandidates(GroupCandidate x, GroupCandidate y)
+    {
+        int byFavorite = y.IsFavorite.CompareTo(x.IsFavorite);
+        if (byFavorite != 0) return byFavorite;
+
+        int xa = KindRank(x.Data), ya = KindRank(y.Data);
+        int byKind = xa.CompareTo(ya);
+        return byKind != 0
+            ? byKind
+            : string.Compare(x.Name, y.Name, StringComparison.CurrentCulture);
+    }
+
+    /// <summary>档位排名的键：<see cref="_agentsFirst"/> 为真时智能体(0)在普通(1)前，否则反过来</summary>
+    /// <param name="character">角色</param>
+    /// <returns>排名键，小的在前</returns>
+    private int KindRank(CharacterData character) => _agentsFirst ? (character.IsAgent ? 0 : 1) : (character.IsAgent ? 1 : 0);
+
+    /// <summary>候选行的星标被点：切收藏并立刻重排（收藏的顶到最前），不必等下次开窗</summary>
+    /// <param name="candidate">点的那一行</param>
+    private void OnCandidateFavoriteToggled(GroupCandidate candidate)
+    {
+        CharacterFavorites.Toggle(candidate.Data.CharacterId);
+        _allCandidates.Sort(CompareCandidates);
         ApplyFilter();
     }
 
@@ -150,6 +186,7 @@ public partial class GroupCandidatePicker : ObservableObject
 public partial class GroupCandidate : ObservableObject
 {
     private readonly Action<GroupCandidate, bool> _toggled;
+    private readonly Action<GroupCandidate> _favoriteToggled;
 
     [ObservableProperty] private bool _isPicked;
 
@@ -160,12 +197,14 @@ public partial class GroupCandidate : ObservableObject
     /// </summary>
     /// <param name="data">角色</param>
     /// <param name="toggled">勾选变化时回报（要按勾选顺序排发言）</param>
+    /// <param name="favoriteToggled">星标被点时回报（切收藏 + 重排候选）</param>
     /// <param name="modelOptions">成员模型的选项（全窗口共享同一份）</param>
     public GroupCandidate(CharacterData data, Action<GroupCandidate, bool> toggled,
-        IReadOnlyList<SessionModelOption> modelOptions)
+        Action<GroupCandidate> favoriteToggled, IReadOnlyList<SessionModelOption> modelOptions)
     {
         Data = data;
         _toggled = toggled;
+        _favoriteToggled = favoriteToggled;
         ModelOptions = modelOptions;
     }
 
@@ -189,6 +228,16 @@ public partial class GroupCandidate : ObservableObject
 
     /// <summary>类别显示名（普通角色 / 智能体）</summary>
     public string KindName => CharacterKindPresentation.NameOf(Data);
+
+    /// <summary>是否已收藏（收藏置顶 <see cref="CharacterFavorites"/>)</summary>
+    public bool IsFavorite => CharacterFavorites.IsFavorite(Data.CharacterId);
+
+    /// <summary>星标颜色：已收藏金色，未收藏灰</summary>
+    public Color FavoriteColor => IsFavorite ? Colors.Gold : Colors.Gray;
+
+    /// <summary>切换收藏（候选行星标）</summary>
+    [RelayCommand]
+    private void ToggleFavorite() => _favoriteToggled(this);
 
     /// <summary>类别徽章底色</summary>
     public IBrush KindColor => CharacterKindPresentation.BrushOf(Data);

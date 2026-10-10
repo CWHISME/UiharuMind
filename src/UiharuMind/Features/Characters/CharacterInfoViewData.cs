@@ -52,6 +52,16 @@ public partial class CharacterInfoViewData : ObservableObject
     /// <summary>存档时间，列表排序用</summary>
     public long FileDateTime => _characterData.FileDateTime;
 
+    /// <summary>是否已收藏（收藏置顶 <see cref="CharacterFavorites"/>)</summary>
+    public bool IsFavorite => CharacterFavorites.IsFavorite(_characterData.CharacterId);
+
+    /// <summary>星标颜色：已收藏金色，未收藏灰</summary>
+    public Color FavoriteColor => IsFavorite ? Colors.Gold : Colors.Gray;
+
+    /// <summary>切换收藏（点击星标）</summary>
+    [RelayCommand]
+    private void ToggleFavorite() => CharacterFavorites.Toggle(_characterData.CharacterId);
+
     public string Name => _characterData.CharacterName;
 
     public Bitmap? Icon => IconUtils.GetCharacterBitmapOrDefault(_characterData);
@@ -79,6 +89,8 @@ public partial class CharacterInfoViewData : ObservableObject
         OnPropertyChanged(nameof(Template));
         OnPropertyChanged(nameof(IsAgent));
         OnPropertyChanged(nameof(KindName));
+        OnPropertyChanged(nameof(IsFavorite));
+        OnPropertyChanged(nameof(FavoriteColor));
     }
 
     /// <summary>开场白选项：「开始对话」下拉里可选的每份开场白（默认开场白 + 备选）</summary>

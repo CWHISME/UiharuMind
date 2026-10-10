@@ -69,7 +69,10 @@ public partial class CharacterPickerViewData : ObservableObject
             .Where(x => _filter == null || _filter(x))
             .Where(x => x.MatchesSearch(SearchText));
 
-        foreach (CharacterData character in candidates.OrderBy(x => x.CharacterName, StringComparer.CurrentCulture))
+        // 收藏顶到最前（与角色库左栏同一口径），然后按显示名
+        foreach (CharacterData character in candidates
+                     .OrderByDescending(x => CharacterFavorites.IsFavorite(x.CharacterId))
+                     .ThenBy(x => x.CharacterName, StringComparer.CurrentCulture))
         {
             Items.Add(new CharacterPickerItem(character, new RelayCommand(() => _onPicked(character))));
         }
@@ -102,6 +105,9 @@ public sealed record CharacterPickerItem(CharacterData Character, IRelayCommand 
 
     /// <summary>副行描述</summary>
     public string Description => Character.Description;
+
+    /// <summary>是否已收藏（只读展示：置顶排序的原因；这里的收藏在别处切）</summary>
+    public bool IsFavorite => CharacterFavorites.IsFavorite(Character.CharacterId);
 
     /// <summary>头像</summary>
     public Bitmap? Icon => IconUtils.GetCharacterBitmapOrDefault(Character);

@@ -35,7 +35,9 @@ public partial class GroupAddMembersWindowModel : ObservableObject
             .ToDictionary(x => x.Key, x => x.First().Meta.SessionModelName);
         // 退群的人照样列出，哪怕后来被屏蔽了：他就在这个群的历史里
         List<CharacterData> formerCharacters = roster.Former.Select(x => x.Character).ToList();
-        Picker = new GroupCandidatePicker(formerCharacters, present, formerModels.Keys.ToHashSet());
+        // 排序口径与建群一致：按群类型定档位轴（仅加人时的群类型就是建群时那个）
+        Picker = new GroupCandidatePicker(formerCharacters, present, formerModels.Keys.ToHashSet(),
+            agentsFirst: group.IsAgentGroup);
         Picker.PickedChanged += () => OnPropertyChanged(nameof(CanAdd));
         // 加回的人默认沿用他原来钉的模型
         if (preselected != null) Picker.Pick(preselected.CharacterId, formerModels.GetValueOrDefault(preselected.CharacterId));

@@ -2470,6 +2470,12 @@
     <data name="CharacterOriginMine" xml:space="preserve">
         <value>我建的</value>
     </data>
+    <data name="CharacterFavorite" xml:space="preserve">
+        <value>收藏</value>
+    </data>
+    <data name="CharacterFavoriteFilter" xml:space="preserve">
+        <value>只看收藏</value>
+    </data>
     <data name="SnippetInsert" xml:space="preserve">
         <value>插入片段</value>
     </data>

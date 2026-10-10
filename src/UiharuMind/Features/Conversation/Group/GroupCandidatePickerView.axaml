@@ -46,7 +46,7 @@
                             <!-- 整行可点：CheckBox 只占左列，内容用 Grid 约束宽度以便截断；
                                  模型下拉只在勾选后出现（未选行整行让给名字和描述）——点行勾选、
                                  点下拉只选模型，互不抢事件；行高由头像撑起，下拉显隐不跳布局 -->
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" Margin="4,5"
+                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Margin="4,5"
                                   VerticalAlignment="Center">
                                 <CheckBox IsChecked="{Binding IsPicked}"
                                           VerticalAlignment="Center"
@@ -79,7 +79,14 @@
                                         </StackPanel>
                                     </Grid>
                                 </CheckBox>
-                                <panels:SessionModelComboBox Grid.Column="1" ItemsSource="{Binding ModelOptions}"
+                                <!-- 星标独立成列（不在 CheckBox 里）：点它只切收藏，不会顺手勾选/取消该行 -->
+                                <controls:ThemedIconButton Grid.Column="1" Classes="row-action" CornerRadius="6"
+                                                           IconName="star"
+                                                           CurrentColor="{Binding FavoriteColor}"
+                                                           ToolTip.Tip="{loc:Loc CharacterFavorite}"
+                                                           Command="{Binding ToggleFavoriteCommand}"
+                                                           VerticalAlignment="Center" />
+                                <panels:SessionModelComboBox Grid.Column="2" ItemsSource="{Binding ModelOptions}"
                                                              SelectedItem="{Binding SelectedModelOption}"
                                                              IsVisible="{Binding IsPicked}"
                                                              Width="190" VerticalAlignment="Center" />

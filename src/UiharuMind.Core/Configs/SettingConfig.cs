@@ -220,6 +220,29 @@ public class SettingConfig : TConfigBase<SettingConfig>
         }
     }
 
+    private bool _characterFavoriteFilter;
+
+    /// <summary>
+    /// 角色列表是否只看收藏。与其他两条角色列表筛选一样落盘，重启后仍是这一档
+    /// </summary>
+    public bool CharacterFavoriteFilter
+    {
+        get => _characterFavoriteFilter;
+        set
+        {
+            if (_characterFavoriteFilter == value) return;
+            _characterFavoriteFilter = value;
+            Save();
+        }
+    }
+
+    /// <summary>
+    /// 收藏的角色标识列表。收藏意图与编辑、排序的读数都在这里，改动经
+    /// <see cref="UiharuMind.Core.AI.Character.CharacterFavorites"/>（落盘 + 广播）。
+    /// 列表顺序即收藏先后，排序只看「是不是收藏」、不看先后。
+    /// </summary>
+    public List<string> FavoriteCharacterIds { get; set; } = new();
+
     private double _settingsWindowWidth;
     private double _settingsWindowHeight;
 
