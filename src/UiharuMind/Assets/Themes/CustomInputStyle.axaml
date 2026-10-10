@@ -60,6 +60,18 @@
             </ItemsPanelTemplate>
         </Setter>
     </Style>
+    <!-- 撑满整行、各段等宽：段数固定且所在栏较宽时用，免得一小截缩在左边 -->
+    <Style Selector="ListBox.segmented.stretch">
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="ItemsPanel">
+            <ItemsPanelTemplate>
+                <UniformGrid Rows="1" ColumnSpacing="2" />
+            </ItemsPanelTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="ListBox.segmented.stretch ListBoxItem">
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
     <Style Selector="ListBox.segmented ListBoxItem">
         <Setter Property="Padding" Value="12,4" />
         <Setter Property="Margin" Value="0" />
