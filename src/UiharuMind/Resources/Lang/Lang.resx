@@ -4714,11 +4714,8 @@ Allow them?</value>
     <data name="AudioModelsGetMore" xml:space="preserve">
         <value>Get voice models</value>
     </data>
-    <data name="AudioModelsOpenEngineSettings" xml:space="preserve">
-        <value>Open settings</value>
-    </data>
     <data name="AudioModelsNoEngine" xml:space="preserve">
-        <value>audio.cpp is not installed, so these models can't be used yet.</value>
+        <value>The local engine (audio.cpp) is not installed, so the local models below can't be used yet.</value>
     </data>
     <data name="AudioModelsEmptyTitle" xml:space="preserve">
         <value>No voice models yet</value>
@@ -4919,10 +4916,10 @@ Allow them?</value>
         <value>Press the key to hold while talking. A single key such as Alt or Ctrl works, and left and right are told apart.</value>
     </data>
     <data name="AudioEngineStatusStopped" xml:space="preserve">
-        <value>The voice engine is not running; it starts automatically for read-aloud, dictation, or previews.</value>
+        <value>The local engine is not running; it starts automatically for read-aloud, dictation, or previews.</value>
     </data>
     <data name="AudioEngineStatusFailed" xml:space="preserve">
-        <value>The voice engine failed to start: {0}</value>
+        <value>The local engine failed to start: {0}</value>
     </data>
     <data name="EngineStatusUsage" xml:space="preserve">
         <value>using {0} GB · CPU {1}%</value>
@@ -4943,16 +4940,13 @@ Allow them?</value>
         <value>{0} / {1} GB · CPU {2}%</value>
     </data>
     <data name="AudioEngineStatusStarting" xml:space="preserve">
-        <value>The voice engine is starting…</value>
+        <value>The local engine is starting…</value>
     </data>
     <data name="AudioEngineStatusRunning" xml:space="preserve">
-        <value>Voice engine running ({0}) · {1} model(s) loaded · unloaded after {2} idle minutes</value>
+        <value>Local engine running ({0}) · {1} model(s) loaded · unloaded after {2} idle minutes</value>
     </data>
     <data name="AudioEngineRelease" xml:space="preserve">
         <value>Free memory</value>
-    </data>
-    <data name="AudioEngineReleaseTip" xml:space="preserve">
-        <value>Stop the voice engine and free the memory its models use; it restarts automatically next time</value>
     </data>
     <data name="AudioModelsLoaded" xml:space="preserve">
         <value>Loaded</value>
@@ -5437,26 +5431,20 @@ Allow them?</value>
     <data name="ImageModelGetLocal" xml:space="preserve">
         <value>Get local models</value>
     </data>
-    <data name="ImageModelEngineSettings" xml:space="preserve">
-        <value>Engine settings</value>
-    </data>
     <data name="ImageEngineStatusStopped" xml:space="preserve">
-        <value>The image engine is not running; it starts automatically when you generate an image.</value>
+        <value>The local engine is not running; it starts automatically when you generate an image.</value>
     </data>
     <data name="ImageEngineStatusStarting" xml:space="preserve">
-        <value>The image engine is starting and loading the model…</value>
+        <value>The local engine is starting and loading the model…</value>
     </data>
     <data name="ImageEngineStatusRunning" xml:space="preserve">
-        <value>Image engine running · stops after {0} idle minutes</value>
+        <value>Local engine running · stops after {0} idle minutes</value>
     </data>
     <data name="ImageEngineStatusRunningNoIdle" xml:space="preserve">
-        <value>Image engine running · keeps the model loaded</value>
+        <value>Local engine running · keeps the model loaded</value>
     </data>
     <data name="ImageEngineStatusFailed" xml:space="preserve">
-        <value>The image engine failed to start: {0}</value>
-    </data>
-    <data name="ImageEngineReleaseTip" xml:space="preserve">
-        <value>Stop the image engine and free the memory its model uses; it restarts automatically next time</value>
+        <value>The local engine failed to start: {0}</value>
     </data>
     <data name="ImageModelLocalDeleteConfirm" xml:space="preserve">
         <value>Delete the local model {0}? Its files that no other model uses are deleted too.</value>
@@ -5748,5 +5736,23 @@ Allow them?</value>
     </data>
     <data name="AgentCapabilityMcpNameTaken" xml:space="preserve">
         <value>Hidden: a built-in extension has the same name; rename this server in settings</value>
+    </data>
+    <data name="ChatEngineStatusStopped" xml:space="preserve">
+        <value>The local engine is not running; it loads automatically when a local model is used.</value>
+    </data>
+    <data name="ChatEngineStatusStarting" xml:space="preserve">
+        <value>The local engine is loading the model…</value>
+    </data>
+    <data name="ChatEngineStatusRunning" xml:space="preserve">
+        <value>Local engine running · {0} model(s) loaded</value>
+    </data>
+    <data name="ChatEngineStatusFailed" xml:space="preserve">
+        <value>The local engine failed to start: {0}</value>
+    </data>
+    <data name="LocalEngineReleaseTip" xml:space="preserve">
+        <value>Stop the local engine and free the memory its models use; it restarts automatically next time</value>
+    </data>
+    <data name="LocalEngineSettingsTip" xml:space="preserve">
+        <value>Local engine settings</value>
     </data>
 </root>

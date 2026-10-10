@@ -121,26 +121,8 @@
             </pages:ModelFolderBar.Actions>
         </pages:ModelFolderBar>
 
-        <!-- 引擎状态：在不在跑、加载了几个、多久自动卸载；跑着时可一键释放内存 -->
-        <pages:EngineStatusStrip DockPanel.Dock="Top" Margin="0,0,0,12" IsVisible="{Binding HasEngine}"
-                                 Status="{Binding EngineStatus}">
-            <pages:EngineStatusStrip.Actions>
-                <Button Classes="toolbar-link" Content="{loc:Loc AudioEngineRelease}"
-                        ToolTip.Tip="{loc:Loc AudioEngineReleaseTip}"
-                        IsVisible="{Binding EngineStatus.IsRunning}" Command="{Binding EngineStatus.ReleaseCommand}" />
-            </pages:EngineStatusStrip.Actions>
-        </pages:EngineStatusStrip>
-
-        <!-- 有模型但没装引擎：模型用不了，引去设置 -->
-        <Border DockPanel.Dock="Top" Classes="result-panel" Margin="0,0,0,12" Padding="12,8"
-                IsVisible="{Binding !HasEngine}">
-            <DockPanel>
-                <Button DockPanel.Dock="Right" Content="{loc:Loc AudioModelsOpenEngineSettings}"
-                        Command="{Binding OpenEngineSettingsCommand}" VerticalAlignment="Center" />
-                <TextBlock Text="{loc:Loc AudioModelsNoEngine}" TextWrapping="Wrap" VerticalAlignment="Center"
-                           Margin="0,0,12,0" />
-            </DockPanel>
-        </Border>
+        <!-- 引擎状态：装没装、在不在跑、加载了几个、多久自动卸载（三个已装模型页签同一条） -->
+        <pages:EngineStatusStrip DockPanel.Dock="Top" Margin="0,0,0,12" Status="{Binding EngineStatus}" />
 
         <Border Classes="model-card">
             <Panel>

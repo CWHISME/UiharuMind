@@ -33,7 +33,6 @@ public partial class AudioModelListViewData : ObservableObject
     private readonly IReadAloudService _readAloud;
     private readonly Action<string> _openFolder;
     private readonly Action _goToMarket;
-    private readonly Action _openEngineSettings;
     private readonly Func<AudioModelOptionsViewData, Task>? _openOptions;
     private readonly Dictionary<EAudioCapability, string?> _defaultModels = new(); //引擎会用的本地模型（选了的，没选就第一个）
     private AudioCppEngineStatus _loaded = AudioCppEngineStatus.Stopped; //最近一次问到的后端与已加载模型
@@ -75,10 +74,9 @@ public partial class AudioModelListViewData : ObservableObject
         _listVoices = listVoices;
         _openFolder = openFolder;
         _goToMarket = goToMarket;
-        _openEngineSettings = openEngineSettings;
         EngineStatus = new EngineStatusData(engine.Runtime,
             new EngineStatusTexts(LangKey.AudioEngineStatusStarting, LangKey.AudioEngineStatusStopped,
-                LangKey.AudioEngineStatusFailed),
+                LangKey.AudioEngineStatusFailed, LangKey.AudioModelsNoEngine),
             () => Loc.Text(LangKey.AudioEngineStatusRunning, (_loaded.Backend ?? "").ToUpperInvariant(),
                 _loaded.LoadedModels.Count, _engine.Settings.IdleUnloadMinutes),
             () =>
@@ -86,7 +84,9 @@ public partial class AudioModelListViewData : ObservableObject
                 _readAloud.Stop();
                 _engine.Stop();
                 _ = RefreshStatusAsync();
-            });
+            },
+            openEngineSettings,
+            () => HasEngine);
     }
 
     /// <summary>
@@ -192,6 +192,7 @@ public partial class AudioModelListViewData : ObservableObject
             });
 
             HasEngine = _engine.Distribution.CurrentVersion != null;
+            EngineStatus.Refresh();
             _defaultModels[EAudioCapability.Tts] = defaults.Tts;
             _defaultModels[EAudioCapability.Asr] = defaults.Asr;
             Fill(TtsModels, models, families, sizes, EAudioCppTask.Tts);
@@ -355,8 +356,6 @@ public partial class AudioModelListViewData : ObservableObject
     [RelayCommand]
     private void GoToMarket() => _goToMarket();
 
-    [RelayCommand]
-    private void OpenEngineSettings() => _openEngineSettings();
 
     // 引擎实际会用的那个：设置里选的，没选或不在了就第一个
     private string? DefaultModel(EAudioCppTask task)

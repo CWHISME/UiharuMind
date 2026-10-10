@@ -4707,11 +4707,8 @@
     <data name="AudioModelsGetMore" xml:space="preserve">
         <value>获取语音模型</value>
     </data>
-    <data name="AudioModelsOpenEngineSettings" xml:space="preserve">
-        <value>去设置</value>
-    </data>
     <data name="AudioModelsNoEngine" xml:space="preserve">
-        <value>还没有安装 audio.cpp，下面的模型暂时用不了。</value>
+        <value>本地引擎（audio.cpp）还没安装，下面的本地模型暂时用不了。</value>
     </data>
     <data name="AudioModelsEmptyTitle" xml:space="preserve">
         <value>还没有语音模型</value>
@@ -4912,10 +4909,10 @@
         <value>按下要用来「按住说话」的键。可以是单独的 Alt、Ctrl 这类键，会区分左右。</value>
     </data>
     <data name="AudioEngineStatusStopped" xml:space="preserve">
-        <value>语音引擎没在运行，朗读、听写或试听时会自动启动。</value>
+        <value>本地引擎没在运行，朗读、听写或试听时会自动启动。</value>
     </data>
     <data name="AudioEngineStatusFailed" xml:space="preserve">
-        <value>语音引擎起不来：{0}</value>
+        <value>本地引擎起不来：{0}</value>
     </data>
     <data name="EngineStatusUsage" xml:space="preserve">
         <value>占用 {0} GB · CPU {1}%</value>
@@ -4936,16 +4933,13 @@
         <value>{0} / {1} GB · CPU {2}%</value>
     </data>
     <data name="AudioEngineStatusStarting" xml:space="preserve">
-        <value>语音引擎正在启动…</value>
+        <value>本地引擎正在启动…</value>
     </data>
     <data name="AudioEngineStatusRunning" xml:space="preserve">
-        <value>语音引擎运行中（{0}）· 已加载 {1} 个模型 · 闲置 {2} 分钟自动卸载</value>
+        <value>本地引擎运行中（{0}）· 已加载 {1} 个模型 · 闲置 {2} 分钟自动卸载</value>
     </data>
     <data name="AudioEngineRelease" xml:space="preserve">
         <value>释放内存</value>
-    </data>
-    <data name="AudioEngineReleaseTip" xml:space="preserve">
-        <value>停止语音引擎，模型占用的内存全部释放；下次使用时自动启动</value>
     </data>
     <data name="AudioModelsLoaded" xml:space="preserve">
         <value>已加载</value>
@@ -5430,26 +5424,20 @@
     <data name="ImageModelGetLocal" xml:space="preserve">
         <value>获取本地模型</value>
     </data>
-    <data name="ImageModelEngineSettings" xml:space="preserve">
-        <value>引擎设置</value>
-    </data>
     <data name="ImageEngineStatusStopped" xml:space="preserve">
-        <value>生图引擎没在运行，出图时会自动启动。</value>
+        <value>本地引擎没在运行，出图时会自动启动。</value>
     </data>
     <data name="ImageEngineStatusStarting" xml:space="preserve">
-        <value>生图引擎正在启动、加载模型…</value>
+        <value>本地引擎正在启动、加载模型…</value>
     </data>
     <data name="ImageEngineStatusRunning" xml:space="preserve">
-        <value>生图引擎运行中 · 闲置 {0} 分钟自动停止</value>
+        <value>本地引擎运行中 · 闲置 {0} 分钟自动停止</value>
     </data>
     <data name="ImageEngineStatusRunningNoIdle" xml:space="preserve">
-        <value>生图引擎运行中 · 模型常驻内存</value>
+        <value>本地引擎运行中 · 模型常驻内存</value>
     </data>
     <data name="ImageEngineStatusFailed" xml:space="preserve">
-        <value>生图引擎起不来：{0}</value>
-    </data>
-    <data name="ImageEngineReleaseTip" xml:space="preserve">
-        <value>停止生图引擎，模型占用的内存全部释放；下次出图时自动启动</value>
+        <value>本地引擎起不来：{0}</value>
     </data>
     <data name="ImageModelLocalDeleteConfirm" xml:space="preserve">
         <value>删除本地模型「{0}」？没有别的模型在用的组件文件会一起删掉。</value>
@@ -5741,5 +5729,23 @@
     </data>
     <data name="AgentCapabilityMcpNameTaken" xml:space="preserve">
         <value>被同名的内置扩展挡住了，到设置里给这个 server 改个名</value>
+    </data>
+    <data name="ChatEngineStatusStopped" xml:space="preserve">
+        <value>本地引擎没在运行，用到本地模型时会自动加载。</value>
+    </data>
+    <data name="ChatEngineStatusStarting" xml:space="preserve">
+        <value>本地引擎正在加载模型…</value>
+    </data>
+    <data name="ChatEngineStatusRunning" xml:space="preserve">
+        <value>本地引擎运行中 · 已加载 {0} 个模型</value>
+    </data>
+    <data name="ChatEngineStatusFailed" xml:space="preserve">
+        <value>本地引擎起不来：{0}</value>
+    </data>
+    <data name="LocalEngineReleaseTip" xml:space="preserve">
+        <value>停止本地引擎，模型占用的内存全部释放；下次使用时自动启动</value>
+    </data>
+    <data name="LocalEngineSettingsTip" xml:space="preserve">
+        <value>本地引擎设置</value>
     </data>
 </root>

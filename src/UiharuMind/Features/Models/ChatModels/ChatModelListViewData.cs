@@ -50,13 +50,18 @@ public partial class ChatModelListViewData : ObservableObject
     /// <param name="messageService">提示与通知</param>
     /// <param name="goToDownloads">空状态里「去获取模型」</param>
     /// <param name="modelSources">对话模型列表，默认 App.ModelService 的</param>
+    /// <param name="engineStatus">本地引擎的状态条；null 不显示</param>
     public ChatModelListViewData(IMessageService messageService, Action goToDownloads,
-        ObservableCollection<ModelRunningData>? modelSources = null)
+        ObservableCollection<ModelRunningData>? modelSources = null, EngineStatusData? engineStatus = null)
     {
         _messageService = messageService;
         _goToDownloads = goToDownloads;
         _modelSources = modelSources;
+        EngineStatus = engineStatus;
     }
+
+    /// <summary>本地引擎的状态</summary>
+    public EngineStatusData? EngineStatus { get; }
 
     public ObservableCollection<ModelRunningData> ModelSources => _modelSources ?? App.ModelService.ModelSources;
 

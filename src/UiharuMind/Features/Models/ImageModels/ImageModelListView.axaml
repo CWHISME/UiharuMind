@@ -12,46 +12,35 @@
 
     <!-- 卡片、列表行、图标、行按钮复用模型页同一套（model-card / model-list / model-icon / row-action，见 Themes） -->
     <DockPanel Margin="0,14,0,0">
-        <!-- 工具条：左边回退说明，右边画图、获取本地模型、添加在线模型（与对话、语音页签同一行高） -->
-        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,0,0,12">
-            <TextBlock Text="{loc:Loc ImageModelListHint}" Classes="muted" TextWrapping="Wrap"
-                       VerticalAlignment="Center" />
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                <Button Command="{Binding DrawCommand}" CommandParameter="{x:Null}" IsEnabled="{Binding HasItems}">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <controls:ThemedSvgIcon Width="14" Height="14" IconName="sparkles" />
-                        <TextBlock Text="{loc:Loc ImageDrawOpen}" />
-                    </StackPanel>
-                </Button>
-                <Button Command="{Binding GoToMarketCommand}">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <controls:ThemedSvgIcon Width="14" Height="14" IconName="download" />
-                        <TextBlock Text="{loc:Loc ImageModelGetLocal}" />
-                    </StackPanel>
-                </Button>
-                <Button Command="{Binding AddCommand}">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <controls:ThemedSvgIcon Width="14" Height="14" IconName="globe" />
-                        <TextBlock Text="{loc:Loc AddBtn}" />
-                    </StackPanel>
-                </Button>
-            </StackPanel>
-        </Grid>
-
-        <!-- 有本地模型时：引擎在不在跑，释放内存、去引擎设置（与语音页签同一条） -->
-        <pages:EngineStatusStrip DockPanel.Dock="Top" Margin="0,0,0,12" IsVisible="{Binding ShowEngineStatus}"
-                                 Status="{Binding EngineStatus}">
-            <pages:EngineStatusStrip.Actions>
-                <StackPanel Orientation="Horizontal" Spacing="4">
-                    <Button Classes="toolbar-link" Content="{loc:Loc AudioEngineRelease}"
-                            ToolTip.Tip="{loc:Loc ImageEngineReleaseTip}"
-                            IsVisible="{Binding EngineStatus.IsRunning, FallbackValue=False}"
-                            Command="{Binding EngineStatus.ReleaseCommand, FallbackValue={x:Null}}" />
-                    <Button Classes="toolbar-link" Content="{loc:Loc ImageModelEngineSettings}"
-                            Command="{Binding OpenEngineSettingsCommand}" />
+        <!-- 工具条：左边本地模型目录，右边画图、获取本地模型、添加在线模型（与对话、语音页签同一条） -->
+        <pages:ModelFolderBar DockPanel.Dock="Top" Margin="0,0,0,12" Path="{Binding ModelRoot}"
+                              OpenCommand="{Binding OpenFolderCommand}" RefreshCommand="{Binding RescanCommand}">
+            <pages:ModelFolderBar.Actions>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Command="{Binding DrawCommand}" CommandParameter="{x:Null}" IsEnabled="{Binding HasItems}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <controls:ThemedSvgIcon Width="14" Height="14" IconName="sparkles" />
+                            <TextBlock Text="{loc:Loc ImageDrawOpen}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding GoToMarketCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <controls:ThemedSvgIcon Width="14" Height="14" IconName="download" />
+                            <TextBlock Text="{loc:Loc ImageModelGetLocal}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding AddCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <controls:ThemedSvgIcon Width="14" Height="14" IconName="globe" />
+                            <TextBlock Text="{loc:Loc AddBtn}" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
-            </pages:EngineStatusStrip.Actions>
-        </pages:EngineStatusStrip>
+            </pages:ModelFolderBar.Actions>
+        </pages:ModelFolderBar>
+
+        <pages:EngineStatusStrip DockPanel.Dock="Top" Margin="0,0,0,12" Status="{Binding EngineStatus}"
+                                 IsVisible="{Binding EngineStatus, Converter={x:Static ObjectConverters.IsNotNull}}" />
 
         <Border Classes="model-card">
             <Panel>

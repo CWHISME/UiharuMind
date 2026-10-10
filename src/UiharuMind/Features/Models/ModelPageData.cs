@@ -79,7 +79,13 @@ public partial class ModelPageData : PageDataBase
     {
         _audio = audio;
         _messageService = messageService;
-        ChatModels = new ChatModelListViewData(messageService, () => SelectedTabIndex = DownloadsTabIndex, modelSources);
+        // 测试自备模型列表时不接真实的 llama 进程
+        EngineStatusData? chatEngine = modelSources == null
+            ? ChatEngineStatus.Create(LlmManager.Instance,
+                () => UIManager.ShowWindow<SettingsWindow>(window => window.ShowTextEngineSettings()))
+            : null;
+        ChatModels = new ChatModelListViewData(messageService, () => SelectedTabIndex = DownloadsTabIndex, modelSources,
+            chatEngine);
         _createDownloads = createDownloads ?? CreateDefaultDownloads;
         ImageModels = new ImageModelListViewData(messageService,
             (source, takenNames) => ImageModelEditWindow.ShowWindow(UIManager.GetRootWindow(), source, takenNames),
@@ -186,10 +192,12 @@ public partial class ModelPageData : PageDataBase
         model => ImageDrawWindow.ShowWindow(UIManager.GetRootWindow(), model),
         LocalImageModelStore.Shared.DeleteAsync,
         page.ShowImageDownloads,
-        () => UIManager.ShowWindow<SettingsWindow>(window => window.ShowImageEngineSettings()),
-        ImageEngineStatus.Create(SdCppEngine.Shared),
+        ImageEngineStatus.Create(SdCppEngine.Shared,
+            () => UIManager.ShowWindow<SettingsWindow>(window => window.ShowImageEngineSettings())),
         LocalImageModelStore.Shared.IsInstalled,
-        model => LocalImageModels.SizeOnDisk(model, LocalImageModels.ModelRoot));
+        model => LocalImageModels.SizeOnDisk(model, LocalImageModels.ModelRoot),
+        LocalImageModels.ModelRoot,
+        path => App.FilesService.OpenFolder(path));
 
     /// <summary>
     /// 切到生图模型页签。从 Agent 设置页跳过来时用

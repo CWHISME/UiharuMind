@@ -19,25 +19,27 @@ namespace UiharuMind.Features.Models.ImageModels;
 /// <param name="OpenDraw">打开画图窗口，默认选中这个模型（null 选第一个）</param>
 /// <param name="DeleteLocalFiles">删本地模型不再有人用的组件文件（停引擎、在后台删）</param>
 /// <param name="GoToMarket">去「获取模型」的生图分类</param>
-/// <param name="OpenEngineSettings">去设置的「本地模型（生图）」</param>
 /// <param name="EngineStatus">本地引擎的状态条；null 不显示</param>
 /// <param name="IsTierInstalled">某一档的组件都在本机：打开页签时据此补回没登记的本地模型；null 不补</param>
 /// <param name="SizeOnDisk">本地模型的组件占多大；null 不显示</param>
+/// <param name="ModelRoot">本地模型目录；null 不显示目录条里的路径</param>
+/// <param name="OpenFolder">在文件管理器里打开目录</param>
 public sealed record ImageModelListActions(
     Func<ImageModelInfo, IReadOnlyCollection<string>, Task<ImageModelInfo?>> OpenLocalEditor,
     Action<ImageModelInfo?> OpenDraw,
     Func<ImageModelInfo, Task<IReadOnlyList<string>>> DeleteLocalFiles,
     Action GoToMarket,
-    Action OpenEngineSettings,
     EngineStatusData? EngineStatus = null,
     Func<ImageCatalogTier, bool>? IsTierInstalled = null,
-    Func<ImageModelInfo, long>? SizeOnDisk = null)
+    Func<ImageModelInfo, long>? SizeOnDisk = null,
+    string? ModelRoot = null,
+    Action<string>? OpenFolder = null)
 {
     /// <summary>
     /// 什么都不做（测试与没接本地生图时）
     /// </summary>
     public static ImageModelListActions None { get; } = new((_, _) => Task.FromResult<ImageModelInfo?>(null), _ => { },
-        _ => Task.FromResult<IReadOnlyList<string>>([]), () => { }, () => { });
+        _ => Task.FromResult<IReadOnlyList<string>>([]), () => { });
 }
 
 /// <summary>
@@ -76,8 +78,8 @@ public partial class ImageModelListViewData : ObservableObject
     /// <summary>本地引擎的状态</summary>
     public EngineStatusData? EngineStatus => _actions.EngineStatus;
 
-    /// <summary>列表里有本地模型时才显示引擎状态条</summary>
-    public bool ShowEngineStatus => EngineStatus != null && Items.Any(x => x.IsLocal);
+    /// <summary>本地模型目录</summary>
+    public string? ModelRoot => _actions.ModelRoot;
 
     private static List<ImageModelInfo> Models => ImageModelSettingConfig.Current.Models;
 
@@ -94,7 +96,6 @@ public partial class ImageModelListViewData : ObservableObject
             Items.Add(new ImageModelItemViewData(Models[i], i, Models.Count, FamilyName(Models[i]),
                 _actions.SizeOnDisk?.Invoke(Models[i]) ?? 0));
         OnPropertyChanged(nameof(HasItems));
-        OnPropertyChanged(nameof(ShowEngineStatus));
     }
 
     /// <summary>
@@ -158,7 +159,18 @@ public partial class ImageModelListViewData : ObservableObject
     private void GoToMarket() => _actions.GoToMarket();
 
     [RelayCommand]
-    private void OpenEngineSettings() => _actions.OpenEngineSettings();
+    private void OpenFolder()
+    {
+        if (ModelRoot != null) _actions.OpenFolder?.Invoke(ModelRoot);
+    }
+
+    // 补回目录里有、列表没登记的本地模型
+    [RelayCommand]
+    private void Rescan()
+    {
+        AdoptInstalled();
+        Refresh();
+    }
 
     [RelayCommand]
     private void MoveUp(ImageModelItemViewData item) => Move(item, -1);

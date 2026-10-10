@@ -29,6 +29,9 @@
             </pages:ModelFolderBar.Actions>
         </pages:ModelFolderBar>
 
+        <pages:EngineStatusStrip DockPanel.Dock="Top" Margin="0,0,0,12" Status="{Binding EngineStatus}"
+                                 IsVisible="{Binding EngineStatus, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
         <Border Classes="model-card">
             <Panel>
                 <!-- 空状态：引去获取模型或添加远程模型 -->

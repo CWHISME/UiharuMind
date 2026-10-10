@@ -6,15 +6,12 @@ using Avalonia.Threading;
 namespace UiharuMind.Features.Models;
 
 /// <summary>
-/// 已装模型页签里本地引擎的状态条（语音、生图同一个样子）。看得见时每隔几秒刷一次，占用与 CPU 跟着变
+/// 已装模型页签里本地引擎的状态条（对话、语音、生图同一个样子：右边固定是释放内存与引擎设置）。看得见时每隔几秒刷一次，占用与 CPU 跟着变
 /// </summary>
 public partial class EngineStatusStrip : UserControl
 {
     public static readonly StyledProperty<EngineStatusData?> StatusProperty =
         AvaloniaProperty.Register<EngineStatusStrip, EngineStatusData?>(nameof(Status));
-
-    public static readonly StyledProperty<object?> ActionsProperty =
-        AvaloniaProperty.Register<EngineStatusStrip, object?>(nameof(Actions));
 
     private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(3);
 
@@ -37,15 +34,6 @@ public partial class EngineStatusStrip : UserControl
     {
         get => GetValue(StatusProperty);
         set => SetValue(StatusProperty, value);
-    }
-
-    /// <summary>
-    /// 右侧的链接
-    /// </summary>
-    public object? Actions
-    {
-        get => GetValue(ActionsProperty);
-        set => SetValue(ActionsProperty, value);
     }
 
     // 只在页签看得见时刷（占用要现取，起停有事件）

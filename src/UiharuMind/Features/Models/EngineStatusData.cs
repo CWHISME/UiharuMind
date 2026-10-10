@@ -15,10 +15,11 @@ namespace UiharuMind.Features.Models;
 /// <param name="Starting">启动中</param>
 /// <param name="Stopped">没在跑</param>
 /// <param name="Failed">起不来（{0} 为原因）</param>
-public sealed record EngineStatusTexts(LangKey Starting, LangKey Stopped, LangKey Failed);
+/// <param name="NotInstalled">引擎还没装；null 为总是装着（用到时自动装）</param>
+public sealed record EngineStatusTexts(LangKey Starting, LangKey Stopped, LangKey Failed, LangKey? NotInstalled = null);
 
 /// <summary>
-/// 模型页签顶上的本地引擎状态（语音、生图共用）：在不在跑、启动到几成、为什么起不来，跑着时的实际占用与 CPU，可一键释放内存。
+/// 模型页签顶上的本地引擎状态（对话、语音、生图共用）：装没装、在不在跑、启动到几成、为什么起不来，跑着时的实际占用与 CPU，可一键释放内存、去引擎设置。
 /// 起停跟着 <see cref="IEngineRuntime"/> 的事件走，占用要页签看得见时定时 <see cref="Refresh"/>；「运行中」那句各引擎自己给（闲置多久停、加载了几个模型…）
 /// </summary>
 public partial class EngineStatusData : ObservableObject
@@ -27,6 +28,8 @@ public partial class EngineStatusData : ObservableObject
     private readonly EngineStatusTexts _texts;
     private readonly Func<string> _runningText;
     private readonly Action _release;
+    private readonly Action? _openSettings;
+    private readonly Func<bool>? _isInstalled;
 
     [ObservableProperty] private bool _isRunning;
     [ObservableProperty] private string _text = "";
@@ -35,17 +38,26 @@ public partial class EngineStatusData : ObservableObject
     /// <param name="texts">文案</param>
     /// <param name="runningText">运行中那句（现取）</param>
     /// <param name="release">释放内存；null 为停掉引擎</param>
+    /// <param name="openSettings">去引擎设置；null 不显示设置钮</param>
+    /// <param name="isInstalled">引擎装没装（现取）；null 为总是装着</param>
     public EngineStatusData(IEngineRuntime runtime, EngineStatusTexts texts, Func<string> runningText,
-        Action? release = null)
+        Action? release = null, Action? openSettings = null, Func<bool>? isInstalled = null)
     {
         _runtime = runtime;
         _texts = texts;
         _runningText = runningText;
         _release = release ?? runtime.Stop;
+        _openSettings = openSettings;
+        _isInstalled = isInstalled;
         _runtime.StateChanged += () => UiDispatcher.FireAndForget(Refresh);
         _runtime.LoadProgressChanged += () => UiDispatcher.FireAndForget(Refresh);
         Refresh();
     }
+
+    /// <summary>
+    /// 有引擎设置可去
+    /// </summary>
+    public bool HasSettings => _openSettings != null;
 
     /// <summary>
     /// 按进程当前状态重写说明（跑着的顺带取一次占用）
@@ -53,6 +65,12 @@ public partial class EngineStatusData : ObservableObject
     public void Refresh()
     {
         IsRunning = _runtime.State == EEngineRunState.Running;
+        if (_texts.NotInstalled is { } notInstalled && _isInstalled?.Invoke() == false)
+        {
+            Text = Loc.Text(notInstalled);
+            return;
+        }
+
         Text = _runtime.State switch
         {
             EEngineRunState.Running when _runtime.SampleUsage() is { } usage =>
@@ -73,4 +91,7 @@ public partial class EngineStatusData : ObservableObject
         _release();
         Refresh();
     }
+
+    [RelayCommand]
+    private void OpenSettings() => _openSettings?.Invoke();
 }
