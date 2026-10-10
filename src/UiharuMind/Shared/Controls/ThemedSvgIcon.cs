@@ -2,6 +2,7 @@ using System;
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Svg.Skia;
+using Avalonia.Threading;
 using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Shared.Controls;
@@ -15,6 +16,8 @@ public class ThemedSvgIcon : global::Avalonia.Svg.Skia.Svg
 
     // 防止递归的标志
     private bool _isUpdatingCurrentColor;
+
+    private bool _isPathScheduled; //路径已排到下一拍设
 
     public static readonly StyledProperty<string> IconNameProperty =
         AvaloniaProperty.Register<ThemedSvgIcon, string>(nameof(IconName));
@@ -45,7 +48,7 @@ public class ThemedSvgIcon : global::Avalonia.Svg.Skia.Svg
 
         if (change.Property == IconNameProperty)
         {
-            UpdateIconPath();
+            if (VisualRoot != null) ScheduleIconPath();
         }
         else if (change.Property == CurrentColorProperty && !_isUpdatingCurrentColor)
         {
@@ -58,8 +61,8 @@ public class ThemedSvgIcon : global::Avalonia.Svg.Skia.Svg
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        UpdateIconPath();
         UpdateCurrentColor();
+        ScheduleIconPath();
         if (Application.Current is { } app)
             app.ActualThemeVariantChanged += OnThemeChanged;
     }
@@ -78,7 +81,20 @@ public class ThemedSvgIcon : global::Avalonia.Svg.Skia.Svg
 
     private void OnIconNameChanged()
     {
-        UpdateIconPath();
+        if (VisualRoot != null) ScheduleIconPath();
+    }
+
+    // 库每改一次 Path / CurrentColor 都取消在途加载重来一遍，每次取消抛一串异常（挂调试器时是秒级卡顿）。
+    // 所以挂上界面后晚一拍才设路径：宿主模板里按选中态设颜色之类的都落定了，每个图标只加载一次
+    private void ScheduleIconPath()
+    {
+        if (_isPathScheduled) return;
+        _isPathScheduled = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _isPathScheduled = false;
+            if (VisualRoot != null) UpdateIconPath();
+        }, DispatcherPriority.Loaded);
     }
 
     private void UpdateIconPath()

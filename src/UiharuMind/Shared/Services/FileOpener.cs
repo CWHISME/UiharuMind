@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -39,6 +40,12 @@ namespace UiharuMind.Shared.Services;
 /// </summary>
 public static class FileOpener
 {
+    /// <summary>盘路径比较口径：macOS / Windows 不分大小写</summary>
+    public static readonly StringComparer PathComparer =
+        OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+
+    private static readonly HashSet<string> OpeningPaths = new(PathComparer); //读盘中的路径：连点时后几下直接丢掉
+
     private static IMessageService Messages => App.Services.GetRequiredService<IMessageService>();
 
     /// <summary>分流结果：文本（调用方展示）、已转交外部、失败（已报错）</summary>
@@ -55,14 +62,27 @@ public static class FileOpener
     /// <summary>打开一个文件（可等待版）。分流细节见 <see cref="RouteAsync"/>。</summary>
     public static async Task OpenAsync(string filePath, int? lineNumber = null)
     {
-        RouteOutcome outcome = await RouteAsync(filePath);
+        // 同一文件不重复开：已开着就抬到前面，还在读盘就忽略这次（连点）
+        filePath = Path.GetFullPath(filePath);
+        if (TextFileWindow.FocusIfOpen(filePath, lineNumber)) return;
+        if (!OpeningPaths.Add(filePath)) return;
+        RouteOutcome outcome;
+        try
+        {
+            outcome = await RouteAsync(filePath);
+        }
+        finally
+        {
+            OpeningPaths.Remove(filePath);
+        }
+
         if (outcome.Text == null) return; //已分流或已报错
 
         string text = outcome.Text.Text!;
         Encoding encoding = outcome.Text.Encoding!;
         bool hasBom = outcome.Text.HasBom;
         // 窗口可复用：每次打开都可能落在某个之前关掉的缓存实例上，装载统一放异步里做。
-        // 多开不设上限——多个文件并排对着看是文件搜索场景的常见需求。
+        // 多开不设上限——多个文件并排对着看是文件搜索场景的常见需求；同一文件只开一扇。
         UIManager.ShowWindow<TextFileWindow>(
             w => _ = w.LoadTextAsync(filePath, text, encoding, hasBom, lineNumber), isMulti: true);
     }

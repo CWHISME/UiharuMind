@@ -20,6 +20,8 @@ public partial class TextFileWindow
 {
     private FileChangeWatcher? _diskWatcher;
     private FileStamp _diskStamp; //与编辑器内容对得上的那份磁盘指纹
+    private int _watchVersion; //每停一次加一：后台挂好的监视回来时对不上就丢掉
+    private bool _isWatchStarting;
 
     /// <summary>换了文档：重新记指纹、收起提示、换着盯新路径</summary>
     private void ResetDiskTracking()
@@ -30,23 +32,43 @@ public partial class TextFileWindow
         StartWatchingDisk();
     }
 
+    // macOS 上挂 FileSystemWatcher 要同步等系统事件流起来（实测五六十毫秒），放后台挂，免得卡打开
     private void StartWatchingDisk()
     {
-        if (_diskWatcher != null || _document.FilePath == null) return;
-        try
+        if (_diskWatcher != null || _isWatchStarting || _document.FilePath is not { } path) return;
+        _isWatchStarting = true;
+        int version = _watchVersion;
+        Action onChanged = () => Dispatcher.UIThread.Post(() => _ = CheckDiskChangeAsync());
+        _ = Task.Run(() =>
         {
-            _diskWatcher = new FileChangeWatcher(_document.FilePath,
-                () => Dispatcher.UIThread.Post(() => _ = CheckDiskChangeAsync()));
-        }
-        catch (Exception e)
+            try
+            {
+                return new FileChangeWatcher(path, onChanged);
+            }
+            catch (Exception e)
+            {
+                // 目录没了或系统监视句柄用尽：不盯也照样能编辑，保存前的比对仍在
+                Log.Warning($"[TextFile] watch failed: {e.Message}");
+                return null;
+            }
+        }).ContinueWith(task => Dispatcher.UIThread.Post(() =>
         {
-            // 目录没了或系统监视句柄用尽：不盯也照样能编辑，保存前的比对仍在
-            Log.Warning($"[TextFile] watch failed: {e.Message}");
-        }
+            FileChangeWatcher? watcher = task.Result;
+            if (version != _watchVersion)
+            {
+                watcher?.Dispose();
+                return;
+            }
+
+            _isWatchStarting = false;
+            _diskWatcher = watcher;
+        }), TaskScheduler.Default);
     }
 
     private void StopWatchingDisk()
     {
+        _watchVersion++;
+        _isWatchStarting = false;
         _diskWatcher?.Dispose();
         _diskWatcher = null;
     }

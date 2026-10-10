@@ -13,7 +13,8 @@ namespace UiharuMind.Shared.Controls;
 /// 成本几乎全在 Avalonia 给每个控件挂树、套样式上，解析只占几十毫秒。
 ///
 /// 这里按顶层块切成若干段（<see cref="MarkdownChunker"/>），每段一个 <see cref="SimpleMarkdownViewer"/>，
-/// 借它「进视口才渲染、每帧只放行一个」的机制：打开时只建看得见的那一两段，其余先以纯文本占位。
+/// 借它「进视口才渲染、每帧只放行一个」的机制：打开时只建看得见的那一两段。
+/// 离视口远的段连纯文本也不排，只按字数估高占位（<see cref="MarkdownChunkSlot"/>）。
 ///
 /// 各段的渲染器靠容器上的 <see cref="MarkdownTextBlock.IsSelectionScopeProperty"/> 拼成一个选区（库取最外层的作用域），
 /// 跨段拖选与复制照常衔接。库只在按下时取一次块快照，拖动中途新渲染出来的段由
@@ -66,7 +67,7 @@ public class ChunkedMarkdownViewer : UserControl
         set
         {
             _isPlaintext = value;
-            foreach (SimpleMarkdownViewer viewer in Viewers()) viewer.IsPlaintext = value;
+            foreach (MarkdownChunkSlot slot in Slots()) slot.IsPlaintext = value;
         }
     }
 
@@ -102,7 +103,9 @@ public class ChunkedMarkdownViewer : UserControl
         _tailText += delta;
         if (_tailText.Length <= ChunkChars * 2)
         {
-            ((SimpleMarkdownViewer)_panel.Children[^1]).AppendText(delta);
+            MarkdownChunkSlot tail = (MarkdownChunkSlot)_panel.Children[^1];
+            tail.Activate();
+            tail.Viewer.AppendText(delta);
             return;
         }
 
@@ -121,12 +124,7 @@ public class ChunkedMarkdownViewer : UserControl
         _tailText = string.Empty;
         foreach (string chunk in MarkdownChunker.Split(text, ChunkChars, MarkdownUpdateProducer.DefaultPipeline))
         {
-            _panel.Children.Add(new SimpleMarkdownViewer
-            {
-                MarkdownText = chunk,
-                IsPlaintext = _isPlaintext,
-                LinkBaseDirectory = _linkBaseDirectory,
-            });
+            _panel.Children.Add(new MarkdownChunkSlot(chunk, _isPlaintext, _linkBaseDirectory));
             _tailText = chunk;
         }
     }
@@ -158,8 +156,10 @@ public class ChunkedMarkdownViewer : UserControl
 
     private int CountRealized() => Viewers().Count(v => v.IsMarkdownRealized);
 
-    private IEnumerable<SimpleMarkdownViewer> Viewers()
+    private IEnumerable<MarkdownChunkSlot> Slots()
     {
-        foreach (Control child in _panel.Children) yield return (SimpleMarkdownViewer)child;
+        foreach (Control child in _panel.Children) yield return (MarkdownChunkSlot)child;
     }
+
+    private IEnumerable<SimpleMarkdownViewer> Viewers() => Slots().Select(s => s.Viewer);
 }

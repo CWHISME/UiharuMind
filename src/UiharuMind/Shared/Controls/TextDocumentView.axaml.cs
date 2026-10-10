@@ -47,16 +47,29 @@ public partial class TextDocumentView : UserControl
     /// <param name="lineNumber">要定位的行；为空回顶</param>
     public void Load(string text, bool isEditable, bool preview, int? lineNumber)
     {
+        SetRawVisible(!preview);
         TextView.IsEditable = isEditable;
         TextView.FollowTail = false;
         TextView.Text = text;
-        MarkdownViewer.MarkdownText = string.Empty; //上一份的渲染段不留，预览按需重建
+        // 上一份的渲染段不留，预览按需重建；再开同一份没改过的文件则留着，省掉整篇重新渲染
+        if (MarkdownViewer.MarkdownText != text) MarkdownViewer.MarkdownText = string.Empty;
+        PreviewHost.Offset = default; //复用的窗口换了文档，预览从头看
         ShowPreview(preview);
 
         _pendingScrollHome = lineNumber is not > 0;
         _pendingScrollLine = lineNumber is > 0 ? lineNumber : null;
         // 复用的窗口换源时可能刚从隐藏恢复，立即滚动会打在无效布局上，拖到空闲时做
         Dispatcher.UIThread.Post(ApplyPendingScroll, DispatcherPriority.ApplicationIdle);
+    }
+
+    /// <summary>
+    /// 先定原文看不看得见再换正文、设语法：藏着的原文不装高亮（见 <see cref="LongTextView"/>），顺序反了就会白装一遍
+    /// </summary>
+    /// <param name="visible">原文是否可见</param>
+    public void SetRawVisible(bool visible)
+    {
+        TextView.IsVisible = visible;
+        PreviewHost.IsVisible = !visible;
     }
 
     /// <summary>

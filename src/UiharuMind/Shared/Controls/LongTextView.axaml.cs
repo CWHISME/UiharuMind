@@ -315,7 +315,7 @@ public partial class LongTextView : UserControl
         if (change.Property == TextProperty)
         {
             ApplyText();
-            _syntax.Apply(SyntaxSourceName, Text); //正文换了要重判大小闸门
+            ApplySyntax(); //正文换了要重判大小闸门
         }
         else if (change.Property == IsEditableProperty)
         {
@@ -335,9 +335,9 @@ public partial class LongTextView : UserControl
         {
             ApplyLineNumbersVisibility();
         }
-        else if (change.Property == SyntaxSourceNameProperty)
+        else if (change.Property == SyntaxSourceNameProperty || change.Property == IsVisibleProperty)
         {
-            _syntax.Apply(SyntaxSourceName, Text);
+            ApplySyntax();
         }
     }
 
@@ -345,7 +345,14 @@ public partial class LongTextView : UserControl
     {
         base.OnAttachedToVisualTree(e);
         if (Application.Current != null) Application.Current.ActualThemeVariantChanged += OnThemeChanged;
-        _syntax.Apply(SyntaxSourceName, Text);
+        ApplySyntax();
+    }
+
+    // 藏着时不高亮（Markdown 默认进预览，原文在底下藏着）：大文档首次装语法与整篇 tokenize 要几百毫秒，切到原文再装
+    private void ApplySyntax()
+    {
+        if (IsVisible) _syntax.Apply(SyntaxSourceName, Text);
+        else _syntax.Uninstall();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)

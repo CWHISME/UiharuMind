@@ -52,6 +52,7 @@ internal static class DevCommandRegistry
         ..SessionDevCommands.CreateAll(),
         ..ModelDevCommands.CreateAll(),
         ..ImageDevCommands.CreateAll(),
+        ..FileDevCommands.CreateAll(),
     ];
 
     /// <summary>按角色标识或显示名找角色（标识优先）</summary>

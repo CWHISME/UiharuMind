@@ -164,6 +164,27 @@ public partial class TextFileWindow : QuickWindowBase
     }
 
     /// <summary>
+    /// 这个文件已在某扇可见的编辑窗里开着就把那扇窗抬到前面（带行号则跳过去），不再另开一扇
+    /// </summary>
+    /// <param name="filePath">文件绝对路径</param>
+    /// <param name="lineNumber">要定位的行号</param>
+    /// <returns>找到并抬起了已开的窗口</returns>
+    public static bool FocusIfOpen(string filePath, int? lineNumber = null)
+    {
+        foreach (UiharuWindowBase win in UIManager.GetWindows<TextFileWindow>())
+        {
+            if (win is not TextFileWindow { IsVisible: true } window) continue;
+            if (window._document.FilePath is not { } openPath
+                || !FileOpener.PathComparer.Equals(Path.GetFullPath(openPath), filePath)) continue;
+            if (lineNumber is > 0) window.DocumentView.GoToLine(lineNumber.Value);
+            window.RequestShow();
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// 已分流好的文本装载：只剩三态确认 + 换源，不再读盘。
     /// 打开对话框/拖放走 <see cref="LoadFileAsync"/>（窗已在那，只管装）。
     /// </summary>
@@ -245,6 +266,7 @@ public partial class TextFileWindow : QuickWindowBase
         _suppressDirty = true;
         _document = document;
         DocumentView.LinkBaseDirectory = document.LinkBaseDirectory;
+        DocumentView.SetRawVisible(!preview);
         ApplyGlobalSettings();
         DocumentView.Load(text, isEditable: !document.IsReadOnly, preview, lineNumber);
         _suppressDirty = false;

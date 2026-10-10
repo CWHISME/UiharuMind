@@ -89,6 +89,8 @@ public abstract class UiharuWindowBase : Window
             UIManager.MarkWindowShown(this); //复用显示：占用的缓存名额放出来
 
             this.WindowState = WindowState.Normal;
+            // 排在本次换源之后显示即可。别用 ApplicationIdle：界面线程上只要还有分帧任务在排（预览渲染、语法高亮、
+            // 会话流刷新），它就一直轮不到，复用窗口要等好几秒才弹出来
             Dispatcher.UIThread.Post(() =>
             {
                 Show();
@@ -96,7 +98,7 @@ public abstract class UiharuWindowBase : Window
                 _focusBehavior.AfterShow(this);
                 UIManager.RefreshMacApplicationActivationPolicy();
                 if (isActivate && IsAllowFocusOnOpen) RequestFocus();
-            }, DispatcherPriority.ApplicationIdle);
+            }, DispatcherPriority.Normal);
         }
         // 
         // else

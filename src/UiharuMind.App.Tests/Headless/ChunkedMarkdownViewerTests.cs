@@ -43,6 +43,74 @@ public class ChunkedMarkdownViewerTests
     });
 
     /// <summary>
+    /// 离视口远的段连纯文本占位都不排：整篇排字量高度正是 200K 文档打开卡一两秒的原因
+    /// </summary>
+    [Fact]
+    public void Open_FarChunksStayOutOfLayout() => HeadlessUi.Run(() =>
+    {
+        string text = string.Concat(Enumerable.Range(0, 2000).Select(i => $"第 {i} 段正文，写长一点凑够字数，好让文档切成很多段。\n\n"));
+        ChunkedMarkdownViewer viewer = new();
+        Window window = new() { Width = 900, Height = 700, Content = new ScrollViewer { Content = viewer } };
+        window.Show();
+        viewer.MarkdownText = text;
+        viewer.IsPlaintext = false;
+        Settle(window);
+
+        List<SimpleMarkdownViewer> chunks = viewer.GetLogicalDescendants().OfType<SimpleMarkdownViewer>().ToList();
+        int laidOut = chunks.Count(c => c.IsVisible);
+        Assert.True(chunks.Count > 10, $"只切出 {chunks.Count} 段");
+        Assert.InRange(laidOut, 1, 3);
+        Assert.True(viewer.Bounds.Height > window.Height * 5, "估高占位没把滚动区撑开");
+        window.Close();
+    });
+
+    /// <summary>
+    /// 文本窗里预览居中限宽：未放出的段不能缩成零宽，否则永远判不进视口、整片空白
+    /// </summary>
+    [Fact]
+    public void CenteredLayout_StillReleasesVisibleChunks() => HeadlessUi.Run(() =>
+    {
+        string text = string.Concat(Enumerable.Range(0, 2000).Select(i => $"第 {i} 段正文，写长一点凑够字数，好让文档切成很多段。\n\n"));
+        ChunkedMarkdownViewer viewer = new() { MaxWidth = 900, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center };
+        ScrollViewer scroll = new() { Content = viewer };
+        Window window = new() { Width = 1200, Height = 700, Content = scroll };
+        window.Show();
+        viewer.MarkdownText = text;
+        viewer.IsPlaintext = false;
+        Settle(window);
+        Assert.Contains(viewer.GetLogicalDescendants().OfType<SimpleMarkdownViewer>(), c => c.IsVisible);
+
+        scroll.Offset = new Vector(0, viewer.Bounds.Height / 2);
+        Settle(window);
+        List<SimpleMarkdownViewer> chunks = viewer.GetLogicalDescendants().OfType<SimpleMarkdownViewer>().ToList();
+        Assert.Contains(chunks.Skip(chunks.Count / 4), c => c.IsVisible);
+        window.Close();
+    });
+
+    /// <summary>
+    /// 放出的段直接是排版后的样子，不先露一帧原文再跳（同聊天气泡的口径）
+    /// </summary>
+    [Fact]
+    public void ReleasedChunks_SkipRawPlaceholder() => HeadlessUi.Run(() =>
+    {
+        string text = string.Concat(Enumerable.Range(0, 2000).Select(i => $"## 第 {i} 节\n\n正文带 **粗体**，写长一点凑够字数。\n\n"));
+        ChunkedMarkdownViewer viewer = new();
+        ScrollViewer scroll = new() { Content = viewer };
+        Window window = new() { Width = 900, Height = 700, Content = scroll };
+        window.Show();
+        viewer.MarkdownText = text;
+        viewer.IsPlaintext = false;
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs(DispatcherPriority.Render);
+        window.UpdateLayout();
+
+        List<SimpleMarkdownViewer> shown = viewer.GetLogicalDescendants().OfType<SimpleMarkdownViewer>().Where(c => c.IsVisible).ToList();
+        Assert.NotEmpty(shown);
+        Assert.All(shown, c => Assert.True(c.IsMarkdownRealized));
+        window.Close();
+    });
+
+    /// <summary>
     /// 从一段拖到下一段，两段的文字块都要被选中——各段是独立渲染器，靠共享选区作用域衔接
     /// </summary>
     [Fact]
@@ -62,7 +130,7 @@ public class ChunkedMarkdownViewerTests
         }
 
         List<SimpleMarkdownViewer> chunks = viewer.GetVisualDescendants().OfType<SimpleMarkdownViewer>().ToList();
-        foreach (SimpleMarkdownViewer chunk in chunks) chunk.RealizeNow();
+        foreach (SimpleMarkdownViewer chunk in chunks) RealizeNow(chunk);
         window.UpdateLayout();
         Assert.True(chunks.Count >= 2, $"只切出 {chunks.Count} 段");
 
@@ -100,7 +168,7 @@ public class ChunkedMarkdownViewerTests
         // 第一段渲染好，把分界线停在视口底下一点：第二段此刻在视口外，队列不会去渲染它
         List<SimpleMarkdownViewer> chunks = viewer.GetVisualDescendants().OfType<SimpleMarkdownViewer>().ToList();
         Assert.True(chunks.Count >= 2, $"只切出 {chunks.Count} 段");
-        chunks[0].RealizeNow();
+        RealizeNow(chunks[0]);
         window.UpdateLayout();
         scroll.Offset = new Vector(0, chunks[1].Bounds.Y - window.Height - 20);
         Settle(window);
@@ -115,7 +183,7 @@ public class ChunkedMarkdownViewerTests
         Assert.False(chunks[1].IsMarkdownRealized);
 
         // 拖动中途第二段渲染出来，再继续拖进去
-        chunks[1].RealizeNow();
+        RealizeNow(chunks[1]);
         window.UpdateLayout();
         MarkdownTextBlock first = chunks[1].GetVisualDescendants().OfType<MarkdownTextBlock>().First();
         Point to = first.TranslatePoint(new Point(first.Bounds.Width / 2, first.Bounds.Height / 2), window)!.Value;
@@ -127,6 +195,13 @@ public class ChunkedMarkdownViewerTests
         window.MouseUp(to, MouseButton.Left);
         window.Close();
     });
+
+    // 段先放出（离视口远的段不参与布局）再渲染
+    private static void RealizeNow(SimpleMarkdownViewer chunk)
+    {
+        ((MarkdownChunkSlot)chunk.Parent!).Activate();
+        chunk.RealizeNow();
+    }
 
     private static void Settle(Window window)
     {

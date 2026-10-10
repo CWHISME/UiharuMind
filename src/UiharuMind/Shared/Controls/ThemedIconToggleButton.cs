@@ -5,11 +5,14 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Threading;
 
 namespace UiharuMind.Shared.Controls;
 
 public class ThemedIconToggleButton : ThemedIconButton
 {
+    private bool _isColorScheduled; //上色已排到下一拍
+
     public static readonly StyledProperty<bool?> IsCheckedProperty =
         AvaloniaProperty.Register<ThemedIconToggleButton, bool?>(
             nameof(IsChecked),
@@ -112,18 +115,37 @@ public class ThemedIconToggleButton : ThemedIconButton
         if (change.Property == IsCheckedProperty)
         {
             this.OnIsCheckedChanged(new RoutedEventArgs(IsCheckedChangedEvent));
-            UpdateIconColor();
+            ScheduleIconColor();
             UpdateBackground();
             UpdatePseudoClasses(IsChecked);
         }
         else if (change.Property == CheckedForegroundProperty)
         {
-            UpdateIconColor();
+            ScheduleIconColor();
         }
         else if (change.Property == CheckedBackgroundProperty)
         {
             UpdateBackground();
         }
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        UpdateIconColor();
+    }
+
+    // 晚一拍再上色：从界面摘下时模板绑定清空，会顺带改选中态与选中色，立即上色就会让图标重载一次 SVG、
+    // 随即被摘掉的那次加载被取消并抛一串异常（复用的文本窗换文件时，每个代码块都来一遍）
+    private void ScheduleIconColor()
+    {
+        if (_isColorScheduled) return;
+        _isColorScheduled = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _isColorScheduled = false;
+            if (VisualRoot != null) UpdateIconColor();
+        }, DispatcherPriority.Normal);
     }
 
     private void UpdateIconColor()
