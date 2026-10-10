@@ -399,6 +399,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private AgentPathResolver? SessionPaths() =>
         CurrentSession is { } session ? AgentBuildProfile.PathResolverOf(session) : null;
 
+    /// <summary>回复正文里简写与相对路径的解析口径（ADR 0080），随会话与工作区变</summary>
+    public AgentPathResolver? MarkdownPaths => SessionPaths();
+
     /// <summary>群壳那一份（右栏群卡、成员、产物、待审批条）；打开的不是群壳为 null</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsGroupSession), nameof(IsSenderSwitchVisible))]
@@ -1180,6 +1183,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         // 群的草稿目录、成员预演都跟着工作区走；单聊的草稿目录同理
         Group?.OnWorkspaceChanged();
         if (Artifacts != null) Artifacts = CreateSessionArtifacts(CurrentSession);
+        OnPropertyChanged(nameof(MarkdownPaths));
     }
 
     /// 换了工作区:先把该项目的授权要到手,再无条件刷一次面板。
@@ -1519,6 +1523,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             OnPropertyChanged(nameof(SessionModelLabel));
             NotifyCharacterKindChanged();
             MemoryPanel = new ConversationMemoryViewData(created);
+            OnPropertyChanged(nameof(MarkdownPaths));
             ApplyMode();
             SessionsChanged?.Invoke();
             return created;
@@ -1623,6 +1628,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         Group = loaded is { IsGroup: true } ? new GroupShellViewData(loaded, _messages) : null;
         if (Group != null) InputPlaceholderKey = LangKey.GroupInputTips; //群里是对全群说话,不是给谁派任务
         Artifacts = CreateSessionArtifacts(loaded);
+        OnPropertyChanged(nameof(MarkdownPaths));
         OnPropertyChanged(nameof(IsGroupMemberSession));
         OnPropertyChanged(nameof(IsPermissionEditable));
         OnPropertyChanged(nameof(CanApproveExtensions));

@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -132,7 +132,7 @@ internal static class SearchFailureRenderer
         }
 
         // 有最近存活祖先就点一句：让模型从"整个路径都不对"收敛到"断在某一段"，不猜候选。
-        // 不再回显工作目录：它在系统提示里已写明（BuildWorkingDirectory），resolved 又已隐含拼接基准。
+        // 不回显工作目录：resolved 已是拼好的绝对路径，隐含了拼接基准。
         string ancestor = string.IsNullOrEmpty(failure.NearestExistingDirectory)
             ? string.Empty
             : $" The nearest existing ancestor is \"{failure.NearestExistingDirectory}\".";

@@ -52,7 +52,7 @@ internal static class AgentInstructionsComposer
         {
             // 指针点名装配时实际存在的那个文件：装配方早知道是 AGENTS.md 还是 CLAUDE.md，
             // 含糊着写会逼模型先 Glob 消歧（还可能扫出嵌套目录里的同名说明文件）。
-            // 工作目录段已给绝对路径，这里只需点名文件名，模型零搜索直接 Read。
+            // 路径默认相对工作目录，这里只需点名文件名，模型零搜索直接 Read。
             AppendSection(sb,
                 WorkspacePointerSection(WorkspaceInstructionsLoader.ResolveFileName(workingDirectory)),
                 EPromptSection.Workspace, registry);
@@ -145,19 +145,6 @@ internal static class AgentInstructionsComposer
     }
 
     /// <summary>
-    /// 工作目录段。<b>两种装配形态共用这一段正文</b>，只有标题级别不同：
-    /// 主代理里它是 <c># 工具</c> 的一个分项（工作目录正是给那些工具用的根），
-    /// 子代理里没有那个外层，它自己就是一个顶级段。
-    /// </summary>
-    /// <param name="workingDirectory">工作目录绝对路径</param>
-    /// <param name="heading">标题级别前缀（<c>"#"</c> 或 <c>"##"</c>）</param>
-    /// <returns>整段文本</returns>
-    internal static string WorkingDirectorySection(string workingDirectory, string heading)
-    {
-        return $"{AgentPromptHeadings.WorkingDirectory(heading)}\n{AgentToolPrompts.BuildWorkingDirectory(workingDirectory)}";
-    }
-
-    /// <summary>
     /// 工作区规矩段：标题 + 截断后的正文。
     /// <b>当前无生产调用点</b>（主代理与子代理统一走 <see cref="WorkspacePointerSection"/>）：
     /// 保留为指针方案失效时的回退实现，截断语义由测试钉住。
@@ -200,7 +187,7 @@ internal static class AgentInstructionsComposer
 
     /// <summary>
     /// 工作区说明截断（纯函数，可单测）。短文本原样返回；超限按行截断并缀指路指针。
-    /// 指路不写绝对路径：工作目录段里已有绝对路径，模型按"工作目录下的 {fileName}"能找到。
+    /// 指路不写绝对路径：路径默认相对工作目录，模型按"工作目录下的 {fileName}"能找到。
     /// </summary>
     /// <param name="workspaceInstructions">工作区说明文件全文</param>
     /// <param name="fileName">实际存在的说明文件名；空串时用含糊的「AGENTS.md（或 CLAUDE.md）」</param>

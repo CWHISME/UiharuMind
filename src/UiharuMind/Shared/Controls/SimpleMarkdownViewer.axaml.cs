@@ -16,11 +16,13 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using Markdig;
 using Markdig.Syntax;
 using LiveMarkdown.Avalonia;
 using TextMateSharp.Grammars;
+using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
@@ -68,6 +70,8 @@ public partial class SimpleMarkdownViewer : UserControl
 
     private ObservableStringBuilder _markdownBuilder = new ObservableStringBuilder();
     private string _plainText = ""; //原文：纯文本块显示它；渲染器拿的是转义过的那份
+    private MarkdownPathMapper? _pathMapper; //会话的正文地址口径，见 MarkdownPaths
+    private Style? _pathImageStyle; //把本地图片加载器换成按会话映射的那份
 
     /// <summary>渲染器是否已接上内容（不再是纯文本占位）</summary>
     internal bool IsMarkdownRealized => _isRealized;
@@ -208,6 +212,23 @@ public partial class SimpleMarkdownViewer : UserControl
         }
     }
 
+    /// 正文里的简写与相对路径按会话解析（ADR 0080）：图片经哨兵基准 + 自家加载器，链接在点击时解析
+    private void ApplyPathResolver(AgentPathResolver? resolver)
+    {
+        _pathMapper = resolver == null ? null : MarkdownPathMapper.Create(resolver);
+        MarkdownTextRender.ImageBasePath = _pathMapper?.ImageBasePath;
+
+        if (_pathImageStyle != null) Styles.Remove(_pathImageStyle);
+        _pathImageStyle = null;
+        if (_pathMapper == null) return;
+
+        _pathImageStyle = new Style(x => x.OfType<Image>().Class("Link"))
+        {
+            Setters = { new Setter(AsyncImageLoader.HandlersProperty, MarkdownPathImageLoaderHandler.HandlersFor(_pathMapper)) },
+        };
+        Styles.Add(_pathImageStyle);
+    }
+
     private void ApplyDisplayMode()
     {
         bool plain = IsPlainTextShown;
@@ -222,6 +243,10 @@ public partial class SimpleMarkdownViewer : UserControl
         if (change.Property == MarkdownTextProperty)
         {
             ForceSetText(change.GetNewValue<string>());
+        }
+        else if (change.Property == MarkdownPaths.ResolverProperty)
+        {
+            ApplyPathResolver(change.GetNewValue<AgentPathResolver?>());
         }
         else if (change.Property == IsPlaintextProperty)
         {
@@ -302,7 +327,7 @@ public partial class SimpleMarkdownViewer : UserControl
                     return;
                 }
 
-                OpenLocalFile(href.LocalPath);
+                OpenLocalFile(_pathMapper?.MapLocalPath(href.LocalPath) ?? href.LocalPath);
                 return;
             }
 
@@ -312,7 +337,15 @@ public partial class SimpleMarkdownViewer : UserControl
             // 但语义是本地文件——不依赖基目录，聊天场景也照样点得开
             if (IsRootedLocalPath(raw))
             {
-                OpenLocalFile(ExpandHome(StripAnchor(raw)));
+                OpenLocalFile(ExpandHome(MarkdownPathMapper.StripAnchor(raw)));
+                return;
+            }
+
+            // 会话里的简写与工作区相对路径(ADR 0080)
+            if (_pathMapper != null)
+            {
+                if (_pathMapper.ResolveLink(raw) is { } resolved) OpenLocalFile(resolved);
+                else Log.Warning($"Skip unresolvable link: {raw}");
                 return;
             }
 
@@ -325,7 +358,7 @@ public partial class SimpleMarkdownViewer : UserControl
                 return;
             }
 
-            string full = Path.GetFullPath(Path.Combine(LinkBaseDirectory, StripAnchor(raw)));
+            string full = Path.GetFullPath(Path.Combine(LinkBaseDirectory, MarkdownPathMapper.StripAnchor(raw)));
             OpenLocalFile(full);
         }
         catch (Exception ex)
@@ -356,13 +389,6 @@ public partial class SimpleMarkdownViewer : UserControl
         if (s.StartsWith("~/", StringComparison.Ordinal))
             return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), s[2..]);
         return s;
-    }
-
-    /// <summary>剥掉 #锚点：它不是路径的一部分，否则 File.Exists 会把 "x.md#锚点" 整个当文件名</summary>
-    private static string StripAnchor(string s)
-    {
-        int hash = s.IndexOf('#');
-        return hash >= 0 ? s[..hash] : s;
     }
 
     public void ForceSetText(string raw)

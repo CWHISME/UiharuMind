@@ -43,19 +43,19 @@ internal static class ToolDisciplineSections
         /// <summary>知识库检索工具是否已装配</summary>
         public bool KnowledgeBase { get; init; }
 
-        /// <summary>工作目录绝对路径；空串则不写该段</summary>
+        /// <summary>工作目录绝对路径；空串则不写那一条。只看有没有，路径本身不进提示词</summary>
         public string WorkingDirectory { get; init; } = string.Empty;
 
-        /// <summary>草稿目录绝对路径；空串则不写该段</summary>
+        /// <summary>草稿目录绝对路径；空串则不写那一条。提示词里只出现简写</summary>
         public string OutputRoom { get; init; } = string.Empty;
 
-        /// <summary>记忆目录绝对路径；空串则不写该段。子代理没有记忆段——它拿的是一份任务书</summary>
+        /// <summary>记忆目录绝对路径；空串则不写那一条。子代理没有记忆段——它拿的是一份任务书</summary>
         public string Memory { get; init; } = string.Empty;
 
         /// <summary>实际解析出来的 shell 可执行路径；空串则不写那一句</summary>
         public string ShellBinary { get; init; } = string.Empty;
 
-        /// <summary>是否给子代理装配（只影响草稿目录段的措辞，见 <see cref="AgentToolPrompts.BuildOutputRoom"/>）</summary>
+        /// <summary>是否给子代理装配（只影响草稿目录段的措辞，见 <see cref="AgentToolPrompts.BuildDirectories"/>）</summary>
         public bool ForSubAgent { get; init; }
     }
 
@@ -75,23 +75,18 @@ internal static class ToolDisciplineSections
         PromptSectionList list = new();
 
         // 路径事实排在最前:后面每一段纪律都以"路径怎么写"为前提。
-        // 这条原则从前只在主代理侧成立,子代理把工作目录排在整段 shell 纪律之后
-        list.Section(facts.WorkingDirectory.Length > 0,
-            AgentPromptHeadings.WorkingDirectory("##"),
-            () => AgentToolPrompts.BuildWorkingDirectory(facts.WorkingDirectory));
-
-        // 草稿目录只在真有地方可写时出现:没有写工具又没有 shell 时,
-        // 说了也只是指一个写不进去的目录
-        list.Section(facts.OutputRoom.Length > 0 && (facts.FileWrite || facts.Shell),
-            AgentPromptHeadings.OutputRoom("##"),
-            () => AgentToolPrompts.BuildOutputRoom(facts.OutputRoom,
-                AgentPathResolver.ShorthandFor(AgentPathResolver.DraftVariable, facts.ShellBinary), facts.ForSubAgent));
-
+        // 草稿目录只在真有地方可写时出现(没有写工具又没有 shell 时,说了也只是指一个写不进去的目录);
         // 记忆靠 Read/Write/Edit/Glob 读写,没有专门的记忆工具(ADR 0028)
-        list.Section(facts.Memory.Length > 0 && facts.FileRead,
-            AgentPromptHeadings.Memory("##"),
-            () => AgentToolPrompts.BuildMemory(
-                AgentPathResolver.ShorthandFor(AgentPathResolver.MemoryVariable, facts.ShellBinary)));
+        bool hasWorkingDirectory = facts.WorkingDirectory.Length > 0;
+        string? draftToken = facts.OutputRoom.Length > 0 && (facts.FileWrite || facts.Shell)
+            ? AgentPathResolver.ShorthandFor(AgentPathResolver.DraftVariable, facts.ShellBinary)
+            : null;
+        string? memoryToken = facts.Memory.Length > 0 && facts.FileRead
+            ? AgentPathResolver.ShorthandFor(AgentPathResolver.MemoryVariable, facts.ShellBinary)
+            : null;
+        list.Section(hasWorkingDirectory || draftToken != null || memoryToken != null,
+            AgentPromptHeadings.Directories("##"),
+            () => AgentToolPrompts.BuildDirectories(hasWorkingDirectory, draftToken, memoryToken, facts.ForSubAgent));
 
         // 读、写同一段:段按 FileRead 出现,写那几条由 BuildFileOperations 只在写工具在场时附上。
         // 写工具在场蕴含读工具在场(主代理两者恒等;子代理 FileWrite = FileRead && canMutate),只判 FileRead 即可

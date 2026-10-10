@@ -471,8 +471,7 @@ public class HarnessInstructionsCompositionTests
         //每个二级段都在父标题之后,没有一个跑到外面去
         foreach (string section in new[]
                  {
-                     AgentPromptHeadings.WorkingDirectory("##"), AgentPromptHeadings.OutputRoom("##"),
-                     AgentPromptHeadings.Memory("##"), AgentPromptHeadings.Python, AgentPromptHeadings.KnowledgeBase,
+                     AgentPromptHeadings.Directories("##"), AgentPromptHeadings.Python, AgentPromptHeadings.KnowledgeBase,
                  })
         {
             int at = instructions.IndexOf(section, StringComparison.Ordinal);
@@ -540,8 +539,8 @@ public class HarnessInstructionsCompositionTests
         Assert.Contains(".py", instructions);
         Assert.True(
             instructions.IndexOf(AgentPromptHeadings.Python, StringComparison.Ordinal) >
-            instructions.IndexOf(AgentPromptHeadings.WorkingDirectory("##"), StringComparison.Ordinal),
-            "Python 段必须排在工作目录段之后——路径事实在前");
+            instructions.IndexOf(AgentPromptHeadings.Directories("##"), StringComparison.Ordinal),
+            "Python 段必须排在目录段之后——路径事实在前");
     }
 
     /// <summary>
@@ -561,45 +560,41 @@ public class HarnessInstructionsCompositionTests
     }
 
     /// <summary>
-    /// 产出的 <c>file://</c> 前缀由我们算好写进提示词，<b>不让模型自己拼 URI</b>——
-    /// Windows 上 <c>C:\a\b</c> 要变成 <c>file:///C:/a/b</c>，反斜杠与盘符两处都得改，
-    /// 拼错的表现是对话里一张图都不出现，而且完全看不出为什么。
-    /// 前缀住在通用草稿段（file/shell 独占的 agent 也要引用房间里的文件），
+    /// 草稿目录只给简写，回复正文也写简写（ADR 0080）：界面按会话解析，房间的绝对路径与 file URI 一次都不出现。
     /// 引用用裸图：渲染库给图片设了 HRef，点得开，不必再包一层链接。
     /// </summary>
     [Fact]
-    public void OutputRoom_GivesFileUriPrefix_AndBareImageFormat()
+    public void OutputRoom_TeachesShorthandLinks_WithoutAbsolutePath()
     {
         const string room = "/tmp/uiharu-room-test/ws/12345678";
 
         string instructions = BuildAgentOptions("/tmp/uiharu-agent-test", outputRoom: room)
             .ChatOptions?.Instructions ?? string.Empty;
 
-        Assert.Contains(AgentPromptHeadings.OutputRoom("##"), instructions);
-        Assert.Contains(new Uri(room + Path.DirectorySeparatorChar).AbsoluteUri, instructions);
-        Assert.Contains("![说明](", instructions);
-        Assert.Contains("[说明](同一前缀/文件名)", instructions); //别的文件套图片语法只会显示成坏图
+        Assert.Contains("草稿目录 $DRAFT", instructions);
+        Assert.Contains("![说明]($DRAFT/文件名)", instructions);
+        Assert.Contains("[说明]($DRAFT/文件名)", instructions); //别的文件套图片语法只会显示成坏图
         Assert.DoesNotContain("[![", instructions);
-        // 完整路径只在链接前缀里出现这一次，其余一律写简写
-        Assert.Equal(1, instructions.Split(room).Length - 1);
-        Assert.Contains("$DRAFT/文件名", instructions);
+        Assert.DoesNotContain(room, instructions);
+        Assert.DoesNotContain("file://", instructions);
+        // 文件内容里的简写不展开，脚本要读环境变量
+        Assert.Contains("os.environ[\"DRAFT\"]", instructions);
     }
 
-    /// <summary>无房间（无会话）时草稿段不出现：指一个不存在的目录比不说更糟</summary>
+    /// <summary>无房间（无会话）时草稿那一条不出现：指一个不存在的目录比不说更糟</summary>
     [Fact]
     public void OutputRoom_IsAbsent_WhenNoRoom()
     {
         string instructions = BuildAgentOptions("/tmp/uiharu-agent-test")
             .ChatOptions?.Instructions ?? string.Empty;
 
-        Assert.DoesNotContain(AgentPromptHeadings.OutputRoom("##"), instructions);
+        Assert.DoesNotContain("$DRAFT", instructions);
     }
 
     /// <summary>
     /// Python 段只讲环境与跑法，不再复述房间与引用格式（那是通用草稿段的事）——
     /// 同一个路径与同一套格式每轮印两遍是纯粹的固定开销。
-    /// 去重的本质：file URI 前缀整段只出现一次；旧复述句消失。
-    /// 无房间时（无会话的能力预览，不跑轮次）连前缀也没有——那条路本来也执行不了
+    /// 去重的本质：旧复述句消失，房间路径一次都不出现。
     /// </summary>
     [Theory]
     [InlineData(true)]
@@ -608,7 +603,6 @@ public class HarnessInstructionsCompositionTests
     {
         AgentToolConfig config = new() { EnableShellExecution = true, EnableFileAccess = true };
         const string room = "/tmp/uiharu-room-test/ws/12345678";
-        string roomUri = new Uri(room + Path.DirectorySeparatorChar).AbsoluteUri;
 
         string instructions = BuildAgentOptions("/tmp/uiharu-agent-test", config,
             pythonInterpreter: "/tmp/uiharu-python-test/bin/python",
@@ -618,7 +612,7 @@ public class HarnessInstructionsCompositionTests
         Assert.Contains(AgentPromptHeadings.Python, instructions);
         Assert.Contains(".py", instructions);
         Assert.DoesNotContain("写到这个目录", instructions);
-        Assert.Equal(roomKnown ? 1 : 0, instructions.Split(roomUri).Length - 1);
+        Assert.DoesNotContain(room, instructions);
     }
 
     /// <summary>
@@ -644,16 +638,17 @@ public class HarnessInstructionsCompositionTests
     /// 从没进过提示词，模型只能自己编。
     /// </summary>
     [Fact]
-    public void AgentInstructions_StateTheWorkingDirectory()
+    public void AgentInstructions_StateWorkingDirectoryWithoutAbsolutePath()
     {
         const string workingDirectory = "/tmp/uiharu-agent-test";
 
         HarnessAgentOptions options = BuildAgentOptions(workingDirectory);
         string instructions = options.ChatOptions?.Instructions ?? string.Empty;
 
-        Assert.Contains(workingDirectory, instructions);
-        // 文件操作段退役后不再有纪律段会吃掉工作目录段,这里钉标题本身还在
-        Assert.Contains(AgentPromptHeadings.WorkingDirectory("##"), instructions);
+        // 写了绝对路径模型就照抄它去操作(ADR 0080),只说以工作目录为基准、默认相对
+        Assert.DoesNotContain(workingDirectory, instructions);
+        Assert.Contains(AgentPromptHeadings.Directories("##"), instructions);
+        Assert.Contains("默认写相对路径", instructions);
     }
 
     /// <summary>
@@ -722,8 +717,7 @@ public class HarnessInstructionsCompositionTests
         string instructions = BuildAgentOptions("/tmp/uiharu-agent-test", memoryDirectory: memory)
             .ChatOptions?.Instructions ?? string.Empty;
 
-        Assert.Contains(AgentPromptHeadings.Memory("##"), instructions);
-        Assert.Contains("你的记忆目录是 $MEMORY", instructions);
+        Assert.Contains("记忆目录 $MEMORY", instructions);
         Assert.DoesNotContain(memory, instructions); //记忆从不给用户看，用不着完整路径
         Assert.Contains("`Glob`", instructions);
     }
@@ -735,7 +729,7 @@ public class HarnessInstructionsCompositionTests
         string instructions = BuildAgentOptions("/tmp/uiharu-agent-test")
             .ChatOptions?.Instructions ?? string.Empty;
 
-        Assert.DoesNotContain(AgentPromptHeadings.Memory("##"), instructions);
+        Assert.DoesNotContain("$MEMORY", instructions);
     }
 
     /// <summary>记忆段只指名真实在场的能力：shell 关掉时不提"删记忆走 Shell"</summary>
@@ -748,7 +742,7 @@ public class HarnessInstructionsCompositionTests
         string instructions = BuildAgentOptions("/tmp/uiharu-agent-test", config, memoryDirectory: memory)
             .ChatOptions?.Instructions ?? string.Empty;
 
-        Assert.Contains(AgentPromptHeadings.Memory("##"), instructions);
+        Assert.Contains("记忆目录 $MEMORY", instructions);
         Assert.DoesNotContain("删记忆文件走", instructions);
     }
 
@@ -1357,18 +1351,18 @@ public class SubAgentBoundaryTests
     }
 
     /// <summary>
-    /// 子代理必须被告知工作目录的绝对路径。这条曾经不成立：<c>workingDirectory</c> 只被拿去
-    /// 构造工具，从没进过任何提示词——于是模型自己编一个占位路径，实机见过
-    /// <c>Glob(pattern: "*.*", root: "/path/to/project")</c>，白烧一次工具调用。
-    /// 子代理比主代理更需要这段：它连一句用户原话都看不到，没有任何线索能反推出根在哪。
+    /// 子代理同样只被告知「以工作目录为基准、默认相对路径」，不给绝对路径（ADR 0080）。
+    /// 当初它编出 <c>Glob(pattern: "*.*", root: "/path/to/project")</c>，是因为提示词对路径只字未提；
+    /// 说清默认相对之后根在哪不必知道，写了绝对路径反倒会被照抄。
     /// </summary>
     [Fact]
-    public void SubAgentInstructions_StateTheWorkingDirectory()
+    public void SubAgentInstructions_StateWorkingDirectoryWithoutAbsolutePath()
     {
         string instructions = SubAgentAssembly
             .BuildSubAgentOptions(NewInput())!.ChatOptions!.Instructions!;
 
-        Assert.Contains(TestWorkingDirectory, instructions);
+        Assert.DoesNotContain(TestWorkingDirectory, instructions);
+        Assert.Contains("默认写相对路径", instructions);
     }
 
     /// <summary>
@@ -1383,8 +1377,7 @@ public class SubAgentBoundaryTests
                 NewInput(mode: EAgentPermissionMode.FullAuto) with { OutputFolderName = "ws-seg/12345678" })!
             .ChatOptions!.Instructions!;
 
-        Assert.Contains(AgentPromptHeadings.OutputRoom("#"), instructions);
-        Assert.Contains("你的草稿目录是 $DRAFT", instructions);
+        Assert.Contains("草稿目录 $DRAFT（与派活者共用）", instructions);
     }
 
     /// <summary>草稿目录段教的简写跟 shell 走：PowerShell 下写 $DRAFT 会静默展开成空串</summary>
@@ -1470,16 +1463,12 @@ public class SubAgentBoundaryTests
                 })!
             .ChatOptions!.Instructions!;
 
-        int workingDirectory = instructions.IndexOf(AgentPromptHeadings.WorkingDirectory("##"),
-            StringComparison.Ordinal);
-        Assert.True(workingDirectory >= 0, "子代理必须有工作目录段");
+        int directories = instructions.IndexOf(AgentPromptHeadings.Directories("##"), StringComparison.Ordinal);
+        Assert.True(directories >= 0, "子代理必须有目录段");
 
-        // 只断还活着的纪律段:草稿目录、Python 都排在工作目录之后
-        foreach (string section in new[] { AgentPromptHeadings.OutputRoom("##"), AgentPromptHeadings.Python })
-        {
-            int at = instructions.IndexOf(section, StringComparison.Ordinal);
-            Assert.True(at > workingDirectory, $"{section} 跑到了工作目录段之前");
-        }
+        // 只断还活着的纪律段:Python 排在目录段之后
+        Assert.True(instructions.IndexOf(AgentPromptHeadings.Python, StringComparison.Ordinal) > directories,
+            "Python 段跑到了目录段之前");
     }
 
     /// <summary>
@@ -1520,7 +1509,7 @@ public class SubAgentBoundaryTests
                 })!
             .ChatOptions!.Instructions!;
 
-        Assert.DoesNotContain(AgentPromptHeadings.OutputRoom("#"), instructions);
+        Assert.DoesNotContain("$DRAFT", instructions);
     }
 
     /// <summary>

@@ -9,6 +9,7 @@
 
 using System.Text;
 using UiharuMind.Core.AI.Execution.Extensions;
+using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.WebTools;
 
@@ -33,94 +34,68 @@ public static class AgentToolPrompts
     /// 唯一防线是让模型自己拆轮——所以挂在工具纪律段最前。
     /// </summary>
     public const string ConcurrentCalls =
-        "同一条回复里的多个工具调用会同时执行。彼此有先后依赖时(先写后读、先改后编译、同一文件多处修改)分成多轮，每轮只发不互相依赖的调用。";
+        "同一条回复里的多个工具调用会同时执行。";
 
     /// <summary>
-    /// 工作目录段：这一段是事实而非建议。
+    /// 目录段：工作目录、草稿目录、记忆目录合在一个标题下，三条各按装配条件出现。
     ///
-    /// 这段曾经不存在:工作目录只被拿去构造工具,从没进过任何提示词。
-    /// 后果是模型不知道根在哪,于是自己编一个占位路径(实机见过
-    /// <c>Glob(pattern: "*.*", root: "/path/to/project")</c>),白烧一次工具调用。
+    /// <b>不写任何绝对路径</b>（推翻 ADR 0017 里「写明工作目录」那一半，见 ADR 0080）：
+    /// 提示词里给了绝对路径，模型就照抄它去操作，与 <see cref="Files.AgentPathResolver.ToPortable"/>
+    /// 回显简写是同一个道理。根在哪不必知道——相对路径由工具拼，草稿与记忆是 shell 里已注入的环境变量，
+    /// 文件工具也认同名简写。从前那个编出 <c>/path/to/project</c> 的毛病，病根是没说路径默认相对，不是缺了绝对路径。
     ///
-    /// <b>2026-08 起明确表态「默认给相对路径」</b>，推翻了这里原先「刻意不表态相对还是绝对」
-    /// 的自我约束(理由与推翻理由都见 ADR 0017)。当初怕的是三处各说各的、互相矛盾，
-    /// 而矛盾已经消掉了：两个搜索工具的目录参数统一叫 directory，失败时还会回显解析后的绝对路径。
-    /// 此时缺一句明确默认，反倒才是模型乱编绝对路径的来源——
-    /// 绝对路径要求模型「知道」一个它其实不知道的前缀，相对路径它靠 `Glob` 就能查到。
-    /// 路径不加反引号:反引号在提示词里专表工具名,有不变量测试按这条约定校验。
-    /// </summary>
-    /// <param name="workingDirectory">文件与 shell 工具的根目录绝对路径</param>
-    /// <returns>提示词段落正文</returns>
-    public static string BuildWorkingDirectory(string workingDirectory)
-    {
-        return $"你的工作目录是 \"{workingDirectory}\"。\n" +
-               "路径默认给相对工作目录的相对路径；只有要碰工作目录之外的东西时才用绝对路径。";
-    }
-
-    /// <summary>
-    /// 草稿目录段：会话自己的产出房间。不是 Python 专用的——测试脚本（含 py 文件）、
-    /// 不该进项目的中间文件都放这里，不要散进项目里。
-    ///
-    /// 只教简写，完整路径只出现在给用户看的链接前缀里：简写在文件工具里由
-    /// <see cref="Files.AgentPathResolver"/> 展开，在 shell 里是同名环境变量，模型用不着手抄那条带两段哈希的路径。
-    /// 从前两者并列，完整路径一段里出现两次，提示词反倒比没有简写时更长。
-    /// 链接是例外：它要进历史长期有效，换了工作区简写就指到新房间了。
+    /// 正文里引用文件也写简写或相对路径：界面按会话解析成可加载、可点开的地址（ADR 0080），
+    /// 所以这里不再给 <c>file://</c> 前缀。正文的简写固定写 <c>$DRAFT</c>，与 shell 写法无关——
+    /// 那是给界面解析的，<c>%DRAFT%</c> 写进 markdown 地址会被当成百分号转义。
     /// 简写与目录名都不用反引号：反引号专表工具名。
     /// </summary>
-    /// <param name="roomDirectory">房间绝对路径（只用来拼给用户看的链接前缀）</param>
-    /// <param name="draftToken">草稿目录简写（随 shell 写法，见 <see cref="Files.AgentPathResolver.ShorthandFor"/>）</param>
+    /// <param name="hasWorkingDirectory">是否有工作目录（文件与 shell 工具的根）</param>
+    /// <param name="draftToken">草稿目录在命令行里的简写；null 表示不写草稿那一条</param>
+    /// <param name="memoryToken">记忆目录在命令行里的简写；null 表示不写记忆那一条</param>
     /// <param name="forSubAgent">
-    /// 是否给子代理用。子代理与派活者<b>共用同一间房</b>，但它的正文不进用户对话——
-    /// 交出去的是一份报告，展示归派活者。给它链接格式只会让它写出没人渲染的引用；
-    /// 派活者认得同一个简写，结论里写简写就能直接转引
+    /// 是否给子代理用。子代理与派活者<b>共用同一间草稿目录</b>，但它的正文不进用户对话——
+    /// 交出去的是一份报告，派活者认得同一个简写，结论里写简写就能直接转引
     /// </param>
-    /// <returns>提示词段落正文</returns>
-    public static string BuildOutputRoom(string roomDirectory, string draftToken, bool forSubAgent = false)
+    /// <returns>段落正文；三条都没有时为空串</returns>
+    public static string BuildDirectories(bool hasWorkingDirectory, string? draftToken, string? memoryToken,
+        bool forSubAgent = false)
     {
         StringBuilder sb = new();
-        sb.AppendLine(
-            $"你的草稿目录是 {draftToken}{(forSubAgent ? "（与派活者共用）" : string.Empty)}，免审批写入，" +
-            $"工具参数和命令行里都支持直接写 {draftToken}/文件名 进行操作。" +
-            "测试、验证用的临时脚本，以及不该进项目的中间文件（例如临时 git clone 的源码），都放这里，不要散进项目里。");
-
-        if (forSubAgent)
+        if (hasWorkingDirectory)
         {
-            sb.Append($"- 要给人看的文件（图表、导出的数据）同样放这里，结论里写出 {draftToken}/文件名，派活者认得。");
-            return sb.ToString().TrimEnd();
+            sb.AppendLine("命令和文件工具都以工作目录为基准，路径默认写相对路径；只有要碰工作目录之外的东西时才用绝对路径。");
         }
 
-        // 要给用户看的文件是这段的另一半:对话正文按 markdown 渲染,本地文件走 file:// 才加载得出来、点得开。
-        // 前缀直接给出,不让模型自己拼 URI(Windows 上 C:\a\b 要变成 file:///C:/a/b,反斜杠与盘符两处都得改)。
-        // 图片用裸图:渲染库给图片设了 HRef,点得开,不必再包一层链接;别的文件套图片语法只会显示成一张坏图。
-        // 「告诉用户在哪」也走链接:否则模型会把用户不认得、也点不开的简写写进正文。
-        // 要点明前缀就是简写的完整写法:实测没这半句时模型认不出两者是一处,多跑一次 echo $DRAFT 去查
-        string uriPrefix = ToFileUriPrefix(roomDirectory);
-        sb.Append(
-            "- 给用户看的文件也放这里，正文里用完整前缀引用（不认简写）：" +
-            $"图片写 ![说明]({uriPrefix}文件名)（这个前缀就是 {draftToken}/ 的完整写法），" +
-            "其他文件写 [说明](同一前缀/文件名)。告诉用户文件在哪也用这个格式。");
+        if (draftToken != null)
+        {
+            // 文件内容不展开:实机见过模型把 "$DRAFT/x.png" 写进 Python 脚本(含引号 heredoc 写完即跑),跑起来才发现是字面量
+            sb.Append($"- 草稿目录 {draftToken}{(forSubAgent ? "（与派活者共用）" : string.Empty)}：免审批写入。" +
+                      "测试、验证用的临时脚本，以及不该进项目的中间文件都可以放这里，不要散进项目。");
+            // 图片用裸图:渲染库给图片设了 HRef,点得开;别的文件套图片语法只会显示成一张坏图
+            sb.AppendLine(forSubAgent
+                ? "要给人看的文件（图表、导出的数据）同样放这里，结论里写出 $DRAFT/文件名，派活者认得。"
+                : "给用户看的文件也放这里，回复里图片写 ![]($DRAFT/文件名)，普通文件路径写 []($DRAFT/文件名)。");
+        }
+
+        if (memoryToken != null)
+        {
+            // 只交代事实不立规矩:首行会进索引,模型知道了这个代价,自然会把首行写成摘要、少记琐事
+            sb.AppendLine($"- 记忆目录 {memoryToken}：你在本工作区跨会话保留的笔记，按主题一个 .md 文件。" +
+                          $"`Read {memoryToken}` 会返回记忆索引，读全文用 {memoryToken}/文件名。" +
+                          "开始一件事前先看一眼索引，以前的你可能记过相关的东西。" +
+                          "索引里只看得到首行，" +
+                          "只写个标题的话，以后的你得打开文件才知道里面是什么。只记对话里的沉淀。");
+        }
+
+        string tokens = string.Join("、", new[] { draftToken, memoryToken }.Where(t => t != null));
+        if (tokens.Length > 0)
+        {
+            // 先介绍完目录再说简写怎么用
+            sb.AppendLine($"以上 {tokens} 是已注入的环境变量，文件工具的路径参数和命令行里直接写简写（如 {draftToken ?? memoryToken}/文件名），" +
+                          $"除脚本内容外，不必展开成完整路径。脚本内容里要用这个目录就读环境变量（如 Python 的 os.environ[\"{AgentPathResolver.DraftVariable}\"]）");
+        }
 
         return sb.ToString().TrimEnd();
-    }
-
-    /// <summary>
-    /// 记忆目录段（ADR 0028）：agent 在本工作区跨会话保留的笔记，落在工作区家目录的
-    /// <c>Memory/</c> 子目录，用普通文件工具读写——没有专门的记忆工具。
-    ///
-    /// 索引不注入，这里像 AGENTS.md 那样只给指针，模型 Read 记忆目录本身时现生成（ADR 0076）。
-    /// 只交代事实不立规矩：首行会进索引，
-    /// 模型知道了这个代价，自然会把首行写成摘要、少记琐事；代码/文档/git 以后能直接查，说出来比「不镜像 repo」好懂。
-    /// 只给简写不给完整路径：记忆从不给用户看，模型用不着那条带工作区哈希的路径（见 <see cref="BuildOutputRoom"/>）。
-    /// </summary>
-    /// <param name="memoryToken">记忆目录简写（随 shell 写法，见 <see cref="Files.AgentPathResolver.ShorthandFor"/>）</param>
-    /// <returns>提示词段落正文</returns>
-    public static string BuildMemory(string memoryToken)
-    {
-        return $"你的记忆目录是 {memoryToken}。这是你在本工作区跨会话保留的笔记，按主题一个 .md 文件。" +
-               $"`Read` 工具针对这个参数进行了特殊处理，直接调用 `Read {memoryToken}` 即可获取记忆索引，读全文用 {memoryToken}/文件名。" +
-               $"开始一件事前先看一眼索引，以前的你可能记过相关的东西。" +
-               "索引里只看得到首行，所以首行写成能单独看懂的一句话最有用（如「用户要回答先给结论再给理由」）；" +
-               "只写个标题的话，以后的你得打开文件才知道里面是什么。记对话里的沉淀（偏好、踩坑、用户给的可复用的重要信息）";
     }
 
     /// <summary>
@@ -135,7 +110,7 @@ public static class AgentToolPrompts
     /// 写那几条在 <see cref="FileWriteDefault"/>，由 <see cref="BuildFileOperations"/>
     /// 按条件附到同一段——只读装配只有这里读那几条，不指名 `Edit`/`Write`。
     ///
-    /// 这里<b>不再重复一句"不知道在哪就先搜"</b>：工作目录段结尾原先有同义的一句，
+    /// 这里<b>不再重复一句"不知道在哪就先搜"</b>：目录段结尾原先有同义的一句，
     /// 两段又是紧挨着发出去的，对小模型那不是强调而是噪声。留具体的那一句（点名了 `Glob`）。
     ///
     /// 也<b>不说 isRegex 怎么传</b>：非法正则已在工具边界自动降级为字面串搜索，结果里会说明，
@@ -214,7 +189,7 @@ public static class AgentToolPrompts
 
         // 工具名写在这条无条件的里:下两条会被文件工具缺席时整块跳过,
         // 而一节讲命令行的纪律却一次都不提 `Shell` 是说不通的
-        // 路径默认口径只在工作目录段表态一次(见 CONTEXT.md),这里只说命令的 cwd
+        // 路径默认口径只在目录段表态一次(见 CONTEXT.md),这里只说命令的 cwd
         sb.AppendLine("- 用 `Shell` 跑命令，命令在工作目录下执行。");
         
         // 这两条讲的是"这件事该归 Shell 还是归文件工具",没有文件工具时它们无从谈起,
@@ -294,22 +269,6 @@ public static class AgentToolPrompts
         }
 
         return sb.ToString();
-    }
-
-    /// 目录的 file:// 前缀(带尾斜杠)。让模型自己拼 URI 会在 Windows 上翻车——
-    /// C:\a\b 要变成 file:///C:/a/b,反斜杠与盘符两处都得改
-    private static string ToFileUriPrefix(string directory)
-    {
-        try
-        {
-            string full = Path.GetFullPath(directory);
-            if (!full.EndsWith(Path.DirectorySeparatorChar)) full += Path.DirectorySeparatorChar;
-            return new Uri(full).AbsoluteUri;
-        }
-        catch (Exception)
-        {
-            return string.Empty; //路径非法时退化成空前缀,总比抛在装配路上强
-        }
     }
 
     /// <summary>知识库检索工具纪律段默认正文。查询怎么写归参数说明，这里只管何时查、查不到怎么办</summary>

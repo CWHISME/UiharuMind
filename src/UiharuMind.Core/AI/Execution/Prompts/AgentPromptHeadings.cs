@@ -34,14 +34,8 @@ public static class AgentPromptHeadings
     /// </summary>
     public const string Character = "# 角色";
 
-    /// <summary>工作目录段的标题正文（不含级别前缀，见 <see cref="WorkingDirectory"/>）</summary>
-    public const string WorkingDirectoryName = "工作目录";
-
-    /// <summary>草稿目录段的标题正文（不含级别前缀，见 <see cref="OutputRoom"/>）</summary>
-    public const string OutputRoomName = "草稿目录";
-
-    /// <summary>记忆目录段的标题正文（不含级别前缀，见 <see cref="Memory"/>）</summary>
-    public const string MemoryName = "记忆";
+    /// <summary>目录段的标题正文（不含级别前缀，见 <see cref="Directories"/>）</summary>
+    public const string DirectoriesName = "目录";
 
     /// <summary>
     /// 文件工具纪律段（读 + 写，同一段标题下）。写那几条只在写工具在场时附上，
@@ -85,24 +79,10 @@ public static class AgentPromptHeadings
     public const string SubAgentCollaboration = "# 协作";
 
     /// <summary>
-    /// 工作目录段的标题。级别<b>随装配形态而变</b>：主代理里它是「# 工具」的分项，
+    /// 目录段的标题。级别<b>随装配形态而变</b>：主代理里它是「# 工具」的分项，
     /// 子代理里没有那层外壳，它自己就是顶级段。
     /// </summary>
     /// <param name="headingPrefix">级别前缀（<c>"#"</c> 或 <c>"##"</c>）</param>
     /// <returns>整行标题</returns>
-    public static string WorkingDirectory(string headingPrefix) => $"{headingPrefix} {WorkingDirectoryName}";
-
-    /// <summary>
-    /// 草稿目录段的标题。级别随装配形态而变，与 <see cref="WorkingDirectory"/> 同一道理
-    /// </summary>
-    /// <param name="headingPrefix">级别前缀（<c>"#"</c> 或 <c>"##"</c>）</param>
-    /// <returns>整行标题</returns>
-    public static string OutputRoom(string headingPrefix) => $"{headingPrefix} {OutputRoomName}";
-
-    /// <summary>
-    /// 记忆目录段的标题。级别随装配形态而变，与 <see cref="WorkingDirectory"/> 同一道理
-    /// </summary>
-    /// <param name="headingPrefix">级别前缀（<c>"#"</c> 或 <c>"##"</c>）</param>
-    /// <returns>整行标题</returns>
-    public static string Memory(string headingPrefix) => $"{headingPrefix} {MemoryName}";
+    public static string Directories(string headingPrefix) => $"{headingPrefix} {DirectoriesName}";
 }
