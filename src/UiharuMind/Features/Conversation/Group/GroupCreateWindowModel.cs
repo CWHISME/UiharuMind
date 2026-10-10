@@ -56,6 +56,8 @@ public partial class GroupCreateWindowModel : ObservableObject
         // 预选的是用户正在聊的那一位，屏蔽了也照样列出（他本来就看得见），不然预选会静默落空
         // 智能体群挑人以智能体为主，候选排序里智能体在前；普通群保持普通在前
         Picker = new GroupCandidatePicker(preselected, agentsFirst: isAgentGroup);
+        // 按成员模型记忆预填：上次这位成员建群钉的模型直接带出来，不用一个个手动选
+        Picker.PrefillFrom(GroupModelMemory.Get);
         Picker.PickedChanged += OnPickedChanged;
         Schedule = new GroupScheduleViewData(schedule?.Mode ?? EGroupScheduleMode.Serial,
             schedule?.StopPolicy ?? EGroupStopPolicy.Conservative);
@@ -87,6 +89,19 @@ public partial class GroupCreateWindowModel : ObservableObject
 
     /// <summary>已选成员，顺序即发言顺序</summary>
     public IReadOnlyList<CharacterData> Picked => Picker.Picked;
+
+    /// <summary>
+    /// 建群提交时把钉了模型的成员写进 <see cref="GroupModelMemory"/>：下次建群这位成员自动带出，
+    /// 不用再一个个手动选。跟随全局的成员不记也不清已有记忆（他可能只是这次不想钉）
+    /// </summary>
+    public void RememberPickedModels()
+    {
+        for (int i = 0; i < Picked.Count; i++)
+        {
+            string? modelName = Picker.PickedModelNames[i];
+            if (modelName != null) GroupModelMemory.Set(Picked[i].CharacterId, modelName);
+        }
+    }
 
     /// <summary>发言顺序的一行字</summary>
     public string SpeakingOrder => Picked.Count == 0

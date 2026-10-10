@@ -74,6 +74,24 @@ public partial class GroupCandidatePicker : ObservableObject
     }
 
     /// <summary>
+    /// 用建群面板的成员模型记忆（<see cref="GroupModelMemory"/>）预填候选行的模型下拉：
+    /// 有记忆的成员直接带出上次的模型，没记忆的保持「跟随全局」。
+    /// 记忆里的模型不在当前清单（已删/改名）时落回跟随全局，不显示缺失条。
+    /// <para>刻意只供建群调用（<c>GroupCreateWindowModel</c>）；加人那条有自己的恢复逻辑，不预填</para>
+    /// </summary>
+    /// <param name="preferredModelOf">成员角色 id → 记忆模型名；无记忆返回 null</param>
+    public void PrefillFrom(Func<string, string?> preferredModelOf)
+    {
+        foreach (GroupCandidate candidate in _allCandidates)
+        {
+            string? modelName = preferredModelOf(candidate.Data.CharacterId);
+            if (modelName == null) continue;
+            if (ModelOptions.FirstOrDefault(x => x.ModelName == modelName) is { } option)
+                candidate.SelectedModelOption = option;
+        }
+    }
+
+    /// <summary>
     /// 候选排序：收藏恒置顶（显式的常用标记，不看群类型），然后是档位轴——
     /// 智能体群挑人以智能体为主（<see cref="_agentsFirst"/>）、普通群保持普通在前，
     /// 组内按显示名。收藏变更后重排仍走这里，两处不会各说各话
