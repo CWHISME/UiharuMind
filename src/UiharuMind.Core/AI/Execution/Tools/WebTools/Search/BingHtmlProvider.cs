@@ -8,10 +8,11 @@ internal sealed class BingHtmlProvider : BaseSearchProvider
     public override string Name => "Bing HTML";
 
     public override Task<IReadOnlyList<SearchResultItem>> SearchAsync(
-        string query, int maxCount, CancellationToken ct)
+        string query, int offset, int count, CancellationToken ct)
     {
         string uri = $"https://www.bing.com/search?q={Uri.EscapeDataString(query)}&setlang=en";
-        return SendAndParseAsync(CreateRequest(HttpMethod.Get, uri), maxCount, ct);
+        if (offset > 0) uri += $"&first={offset + 1}";
+        return SendAndParseAsync(CreateRequest(HttpMethod.Get, uri), count, ct);
     }
 
     /// <summary>Bing 的拦截页有自己的特征</summary>

@@ -26,7 +26,7 @@ internal sealed class TavilySearchProvider : ISearchProvider
 
     public bool IsAvailable => !string.IsNullOrWhiteSpace(AgentSettingConfig.Current.TavilyApiKey);
 
-    public async Task<IReadOnlyList<SearchResultItem>> SearchAsync(string query, int maxCount, CancellationToken ct)
+    public async Task<IReadOnlyList<SearchResultItem>> SearchAsync(string query, int offset, int count, CancellationToken ct)
     {
         string apiKey = AgentSettingConfig.Current.TavilyApiKey;
         if (string.IsNullOrWhiteSpace(apiKey)) return [];
@@ -35,14 +35,15 @@ internal sealed class TavilySearchProvider : ISearchProvider
         using HttpRequestMessage request = new(HttpMethod.Post, Endpoint);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey.Trim());
         request.Content = new StringContent(
-            JsonSerializer.Serialize(new { query, max_results = maxCount }),
+            JsonSerializer.Serialize(new { query, max_results = offset + count }),
             Encoding.UTF8, "application/json");
 
         using HttpResponseMessage response =
             await WebShared.Http.SendAsync(request, ct).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
         string json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-        return Parse(json);
+        //没有原生偏移，多取再切片（服务端上限 20 条，翻过头就是空页，交给兜底链）
+        return Parse(json).Skip(offset).Take(count).ToList();
     }
 
     /// <summary>

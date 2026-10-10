@@ -12,6 +12,14 @@ public interface ISearchProvider
     /// </summary>
     bool IsAvailable => true;
 
+    /// <summary>
+    /// 搜一页结果
+    /// </summary>
+    /// <param name="query">查询词</param>
+    /// <param name="offset">跳过前多少条（翻页用）</param>
+    /// <param name="count">本页条数上限</param>
+    /// <param name="ct">取消令牌</param>
+    /// <returns>本页结果</returns>
     Task<IReadOnlyList<SearchResultItem>> SearchAsync(
-        string query, int maxCount, CancellationToken ct);
+        string query, int offset, int count, CancellationToken ct);
 }

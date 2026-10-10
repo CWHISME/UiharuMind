@@ -22,13 +22,29 @@ internal sealed class FallbackSearchEngine
         new BingHtmlProvider()
     };
 
+    private readonly SearchPageMemory _pages = new();
+
     /// <summary>链上的引擎,顺序即优先级</summary>
     public IReadOnlyList<ISearchProvider> Providers => _chain;
 
+    /// <summary>
+    /// 搜一页结果。翻页时优先回到出过前一页的引擎，换了引擎按前几页的地址去重
+    /// </summary>
+    /// <param name="query">查询词</param>
+    /// <param name="page">页码，从 1 起</param>
+    /// <param name="pageSize">每页条数</param>
+    /// <param name="ct">取消令牌</param>
+    /// <returns>本页结果；全链走空为空</returns>
     public async Task<IReadOnlyList<SearchResultItem>> SearchAsync(
-        string query, int maxCount, CancellationToken ct)
+        string query, int page, int pageSize, CancellationToken ct)
     {
-        foreach (var p in _chain)
+        int offset = (page - 1) * pageSize;
+        string? preferred = _pages.PreferredProvider(query, page);
+        IEnumerable<ISearchProvider> chain = preferred == null
+            ? _chain
+            : _chain.OrderBy(p => p.Name == preferred ? 0 : 1);
+
+        foreach (var p in chain)
         {
             if (!p.IsAvailable)
             {
@@ -44,11 +60,12 @@ internal sealed class FallbackSearchEngine
 
             try
             {
-                var r = await p.SearchAsync(query, maxCount, ct);
+                var r = _pages.ExcludeEarlierPages(query, page, await p.SearchAsync(query, offset, pageSize, ct));
                 if (r.Count > 0)
                 {
                     ServiceCircuit.RecordSuccess(p.Name);
-                    Log.Debug($"[WebSearch] hit '{p.Name}': {r.Count} results for \"{query}\"");
+                    _pages.Remember(query, page, p.Name, r);
+                    Log.Debug($"[WebSearch] hit '{p.Name}': {r.Count} results for \"{query}\" page {page}");
                     return r;
                 }
 

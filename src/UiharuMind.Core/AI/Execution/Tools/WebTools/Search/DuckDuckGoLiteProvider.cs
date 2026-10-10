@@ -8,11 +8,13 @@ internal sealed class DuckDuckGoLiteProvider : BaseSearchProvider
     public override string Name => "DDG Lite";
 
     public override Task<IReadOnlyList<SearchResultItem>> SearchAsync(
-        string query, int maxCount, CancellationToken ct)
+        string query, int offset, int count, CancellationToken ct)
     {
+        // s/dc 是 Lite 下一页表单带的偏移参数
         string url = $"https://lite.duckduckgo.com/lite/?q={Uri.EscapeDataString(query)}&kl=wt-wt";
+        if (offset > 0) url += $"&s={offset}&dc={offset + 1}";
         HttpRequestMessage req = CreateRequest(HttpMethod.Get, url);
-        return SendAndParseAsync(req, maxCount, ct);
+        return SendAndParseAsync(req, count, ct);
     }
 
     protected override IEnumerable<SearchResultItem> ParseResults(IDocument doc, int maxCount)

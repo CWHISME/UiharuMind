@@ -121,7 +121,7 @@ public static class WebSearchDiagnostics
         try
         {
             IReadOnlyList<SearchResultItem> items =
-                await provider.SearchAsync(ProbeQuery, 3, ct).ConfigureAwait(false);
+                await provider.SearchAsync(ProbeQuery, 0, 3, ct).ConfigureAwait(false);
             watch.Stop();
             return new WebProviderProbe(provider.Name, items.Count > 0, items.Count, watch.ElapsedMilliseconds,
                 items.Count > 0 ? null : "no results", FormatPreview(items));

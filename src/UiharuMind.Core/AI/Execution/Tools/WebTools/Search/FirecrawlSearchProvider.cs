@@ -19,14 +19,15 @@ internal sealed class FirecrawlSearchProvider : ISearchProvider
 {
     public string Name => "Firecrawl";
 
-    public async Task<IReadOnlyList<SearchResultItem>> SearchAsync(string query, int maxCount, CancellationToken ct)
+    public async Task<IReadOnlyList<SearchResultItem>> SearchAsync(string query, int offset, int count, CancellationToken ct)
     {
         //失败一律抛给兜底链:它负责记日志并落到下一环,这里再吞一次只会让日志出现两条
         string json = await FirecrawlClient
-            .PostAsync("search", new { query, limit = maxCount }, ct)
+            .PostAsync("search", new { query, limit = offset + count }, ct)
             .ConfigureAwait(false);
         FirecrawlClient.EnsureSuccess(json);
-        return Parse(json, maxCount);
+        //没有原生偏移，多取再切片
+        return Parse(json, offset + count).Skip(offset).ToList();
     }
 
     /// <summary>

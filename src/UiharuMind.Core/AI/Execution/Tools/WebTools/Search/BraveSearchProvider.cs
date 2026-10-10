@@ -24,13 +24,14 @@ internal sealed class BraveSearchProvider : ISearchProvider
 
     public bool IsAvailable => !string.IsNullOrWhiteSpace(AgentSettingConfig.Current.BraveSearchApiKey);
 
-    public async Task<IReadOnlyList<SearchResultItem>> SearchAsync(string query, int maxCount, CancellationToken ct)
+    public async Task<IReadOnlyList<SearchResultItem>> SearchAsync(string query, int offset, int count, CancellationToken ct)
     {
         string apiKey = AgentSettingConfig.Current.BraveSearchApiKey;
         if (string.IsNullOrWhiteSpace(apiKey)) return [];
 
         //失败一律抛给兜底链:它负责记日志并落到下一环
-        string url = $"{Endpoint}?q={Uri.EscapeDataString(query)}&count={maxCount}";
+        // Brave 的 offset 以页计，页大小即 count
+        string url = $"{Endpoint}?q={Uri.EscapeDataString(query)}&count={count}&offset={offset / count}";
         using HttpRequestMessage request = new(HttpMethod.Get, url);
         request.Headers.Add("X-Subscription-Token", apiKey.Trim());
         request.Headers.Accept.ParseAdd("application/json");
@@ -39,7 +40,7 @@ internal sealed class BraveSearchProvider : ISearchProvider
             await WebShared.Http.SendAsync(request, ct).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
         string json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-        return Parse(json, maxCount);
+        return Parse(json, count);
     }
 
     /// <summary>

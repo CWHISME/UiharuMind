@@ -27,7 +27,7 @@ internal abstract partial class BaseSearchProvider : ISearchProvider
     protected abstract Uri DefaultReferer { get; }
 
     public abstract Task<IReadOnlyList<SearchResultItem>> SearchAsync(
-        string query, int maxCount, CancellationToken ct);
+        string query, int offset, int count, CancellationToken ct);
 
     /// <summary>
     /// 起一个带拟人头的请求
