@@ -70,6 +70,7 @@ public class DefaultCharacterResourceTests
                 case "KinoNoTabi":
                 case "Oreimo":
                 case "HatarakuMaousama":
+                case "GhostInTheShell":
                     Assert.True(data.IsAgent, $"{id} 在 {folder}/ 下却不是智能体");
                     break;
                 case "Tools":

@@ -63,7 +63,6 @@ public class CharacterKindTests
     [InlineData("Assistant", false, false)]
     [InlineData("UiharuKazariAgent", true, false)]
     [InlineData("BaiLuAgent", true, false)]
-    [InlineData("KongoMitsukoAgent", true, false)]
     [InlineData("AcceleratorAgent", true, false)]
     [InlineData("ShokuhouMisakiAgent", true, false)]
     public void ContentCards_LandOnTheirDeclaredAxis(string id, bool isAgent, bool isUserCard)
