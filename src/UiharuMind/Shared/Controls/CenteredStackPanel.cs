@@ -10,6 +10,7 @@ namespace UiharuMind.Shared.Controls;
 /// 横排、字号不一的几段文字（名字 + 时间、标题 + 小字说明）与圆点、图标、徽标一律按整行竖直居中。
 /// 横排 StackPanel 默认把子项顶对齐，大小字并排时小字整个往上飘；按基线对齐又会让小字的视觉中心偏下。
 /// 各段文字的墨迹已由全局文字下移（TextOpticalOffsetConverter）居中在各自行盒里，行盒居中即视觉中心对齐
+/// 西文、路径这类有明显基线的大小字并排用 BaselineStackPanel：全局下移按中文墨迹量的，西文居中会差出基线
 /// </summary>
 public class CenteredStackPanel : Panel
 {

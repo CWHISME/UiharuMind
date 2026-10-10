@@ -55,13 +55,15 @@
                                        VerticalAlignment="Center" Margin="0,0,8,0" />
                         <!-- 刻意不给 Foreground:让它继承 ToggleButton 的蓝色。
                              展开变白那个 bug 由上面的 :checked 样式在源头解决 -->
-                        <TextBlock Grid.Column="1" FontSize="13"
-                                   VerticalAlignment="Center" Text="{Binding ToolName}"/>
-                        <!-- 摘要经常是路径：中间折叠比尾部截断好，文件名和“(N edits)”留在可见区 -->
-                        <TextBlock Grid.Column="2" Classes="mono muted" Margin="10,0,8,0"
-                                   VerticalAlignment="Center"
-                                   Text="{Binding ArgumentSummary}"
-                                   TextTrimming="PathSegmentEllipsis" />
+                        <!-- 工具名与摘要字号不同，按基线对齐 -->
+                        <sh:BaselineStackPanel Grid.Column="1" Grid.ColumnSpan="2" Spacing="10"
+                                               Margin="0,0,8,0" VerticalAlignment="Center">
+                            <TextBlock FontSize="13" Text="{Binding ToolName}"/>
+                            <!-- 摘要经常是路径：中间折叠比尾部截断好，文件名和“(N edits)”留在可见区 -->
+                            <TextBlock Classes="mono muted"
+                                       Text="{Binding ArgumentSummary}"
+                                       TextTrimming="PathSegmentEllipsis" />
+                        </sh:BaselineStackPanel>
                         <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8"
                                     VerticalAlignment="Center">
                             <!-- 这里曾经挂着「等待审批」。删了:审批是**报警**,而报警必须找得到人,
