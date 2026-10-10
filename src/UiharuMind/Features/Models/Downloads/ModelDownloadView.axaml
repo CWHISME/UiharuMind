@@ -12,13 +12,6 @@
              x:DataType="downloads:ModelDownloadPageData">
 
     <UserControl.Styles>
-        <!-- 与服务页同一套卡片：浅底、细框、8 圆角 -->
-        <Style Selector="Border.download-card">
-            <Setter Property="CornerRadius" Value="8" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
-            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
-        </Style>
         <Style Selector="ListBox.repo-list">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
@@ -105,7 +98,7 @@
                 </ContentControl>
             </DockPanel>
 
-            <Border x:Name="DetailPane" Grid.Column="1" Classes="download-card" Padding="18,16">
+            <Border x:Name="DetailPane" Grid.Column="1" Classes="model-card" Padding="18,16">
                 <Panel>
                     <!-- 还没选：图标与提示由分类给 -->
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10"

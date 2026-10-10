@@ -4647,7 +4647,7 @@
     <data name="AudioPackageIsDefault" xml:space="preserve">
         <value>默认</value>
     </data>
-    <data name="AudioPackageSetDefault" xml:space="preserve">
+    <data name="ModelSetDefault" xml:space="preserve">
         <value>设为默认</value>
     </data>
     <data name="AudioPackageSetDefaultTip" xml:space="preserve">
@@ -4938,7 +4938,7 @@
     <data name="AudioEngineStatusRunning" xml:space="preserve">
         <value>本地引擎运行中（{0}）· 已加载 {1} 个模型 · 闲置 {2} 分钟自动卸载</value>
     </data>
-    <data name="AudioEngineRelease" xml:space="preserve">
+    <data name="LocalEngineRelease" xml:space="preserve">
         <value>释放内存</value>
     </data>
     <data name="AudioModelsLoaded" xml:space="preserve">
@@ -5756,5 +5756,11 @@
     </data>
     <data name="ChatEngineReleaseConfirm" xml:space="preserve">
         <value>当前对话正在用本地模型「{0}」，释放内存会把它一起卸载，进行中的回复会中断。确定释放？</value>
+    </data>
+    <data name="ImageModelDefault" xml:space="preserve">
+        <value>默认</value>
+    </data>
+    <data name="ImageModelSetDefaultTip" xml:space="preserve">
+        <value>出图先用它；它用不了时按列表顺序换下一个</value>
     </data>
 </root>

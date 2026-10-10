@@ -4654,7 +4654,7 @@ Allow them?</value>
     <data name="AudioPackageIsDefault" xml:space="preserve">
         <value>Default</value>
     </data>
-    <data name="AudioPackageSetDefault" xml:space="preserve">
+    <data name="ModelSetDefault" xml:space="preserve">
         <value>Set as default</value>
     </data>
     <data name="AudioPackageSetDefaultTip" xml:space="preserve">
@@ -4945,7 +4945,7 @@ Allow them?</value>
     <data name="AudioEngineStatusRunning" xml:space="preserve">
         <value>Local engine running ({0}) · {1} model(s) loaded · unloaded after {2} idle minutes</value>
     </data>
-    <data name="AudioEngineRelease" xml:space="preserve">
+    <data name="LocalEngineRelease" xml:space="preserve">
         <value>Free memory</value>
     </data>
     <data name="AudioModelsLoaded" xml:space="preserve">
@@ -5763,5 +5763,11 @@ Allow them?</value>
     </data>
     <data name="ChatEngineReleaseConfirm" xml:space="preserve">
         <value>The current chat is using the local model "{0}". Freeing memory unloads it too and interrupts any reply in progress. Free memory?</value>
+    </data>
+    <data name="ImageModelDefault" xml:space="preserve">
+        <value>Default</value>
+    </data>
+    <data name="ImageModelSetDefaultTip" xml:space="preserve">
+        <value>Generate with this first; if it is unavailable, the next one in the list is tried</value>
     </data>
 </root>

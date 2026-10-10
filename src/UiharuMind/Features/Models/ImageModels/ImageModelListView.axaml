@@ -81,10 +81,19 @@
                                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                         <controls:ModelStateBadges IsRemote="{Binding !IsLocal}"
                                                                    VerticalAlignment="Center" />
+                                        <!-- 默认即回退顺序的第一个，样式与语音页签同一套 -->
+                                        <Border Classes="default-badge" IsVisible="{Binding IsDefault}"
+                                                ToolTip.Tip="{loc:Loc ImageModelListHint}">
+                                            <TextBlock Text="{loc:Loc ImageModelDefault}" Classes="line-tight" />
+                                        </Border>
                                         <controls:KindBadge Header="{loc:Loc ImageModelEditingBadge}"
                                                             BadgeBackground="Gold"
                                                             IsVisible="{Binding SupportsEditing}"
                                                             VerticalAlignment="Center" />
+                                        <Button Classes="toolbar-link set-default" Content="{loc:Loc ModelSetDefault}"
+                                                ToolTip.Tip="{loc:Loc ImageModelSetDefaultTip}" IsVisible="{Binding !IsDefault}"
+                                                CommandParameter="{Binding}"
+                                                Command="{Binding $parent[ListBox].((images:ImageModelListViewData)DataContext).SetDefaultCommand}" />
                                     </controls:CenteredStackPanel>
                                     <!-- 远程：接口格式 · 模型 id · 分辨率档；本地：家族 · 档位 · 大小 -->
                                     <TextBlock Text="{Binding Detail}" Classes="muted" FontSize="12"

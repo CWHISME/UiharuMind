@@ -32,6 +32,38 @@
     <Style Selector="ListBox.model-list ListBoxItem:selected">
         <Setter Property="Background" Value="{DynamicResource SemiBlue0}" />
     </Style>
+    <!-- 不进 ListBox 的分组列表（语音模型、音色库）用的行：与 model-list 的行同一几何，只悬停不选中 -->
+    <Style Selector="Border.model-row">
+        <Setter Property="Padding" Value="14,10" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey1}" />
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Border.model-row:pointerover">
+        <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+    </Style>
+    <!-- 「默认」徽标与「设为默认」：语音、生图页签共用 -->
+    <!-- 与 KindBadge（远程、视觉等徽标）同一个尺寸：18 高、左右 8、12 号字 -->
+    <Style Selector="Border.default-badge">
+        <Setter Property="Background" Value="{DynamicResource SemiBlue5}" />
+        <Setter Property="CornerRadius" Value="9" />
+        <Setter Property="Height" Value="18" />
+        <Setter Property="Padding" Value="8,0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.default-badge TextBlock">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <!-- 与「默认」徽标同高，切换时行高不跳 -->
+    <Style Selector="Button.set-default">
+        <Setter Property="Padding" Value="8,0" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="Height" Value="18" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="CornerRadius" Value="9" />
+    </Style>
     <Style Selector="Border.model-icon">
         <Setter Property="Width" Value="34" />
         <Setter Property="Height" Value="34" />

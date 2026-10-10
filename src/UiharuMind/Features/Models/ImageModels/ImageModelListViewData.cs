@@ -178,6 +178,20 @@ public partial class ImageModelListViewData : ObservableObject
     [RelayCommand]
     private void MoveDown(ImageModelItemViewData item) => Move(item, 1);
 
+    // 挪到第一个，其余保持原来的回退顺序
+    [RelayCommand]
+    private void SetDefault(ImageModelItemViewData item)
+    {
+        int from = Models.IndexOf(item.Model);
+        if (from <= 0) return;
+
+        Commit(models =>
+        {
+            models.RemoveAt(from);
+            models.Insert(0, item.Model);
+        });
+    }
+
     private void Move(ImageModelItemViewData item, int offset)
     {
         int from = Models.IndexOf(item.Model);

@@ -43,6 +43,9 @@ public sealed class ImageModelItemViewData
     /// <summary>回退顺序（从 1 起）</summary>
     public int Order { get; }
 
+    /// <summary>默认：出图先用它（列表第一个）</summary>
+    public bool IsDefault => Order == 1;
+
     /// <summary>名字</summary>
     public string Name => Model.Name;
 

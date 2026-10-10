@@ -15,42 +15,12 @@
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Margin" Value="14,12,14,6" />
         </Style>
-        <!-- 与 KindBadge（远程、视觉等徽标）同一个尺寸：18 高、左右 8、12 号字 -->
-        <Style Selector="Border.default-badge">
-            <Setter Property="Background" Value="{DynamicResource SemiBlue5}" />
-            <Setter Property="CornerRadius" Value="9" />
-            <Setter Property="Height" Value="18" />
-            <Setter Property="Padding" Value="8,0" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-        </Style>
-        <Style Selector="Border.default-badge TextBlock">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-        </Style>
-        <!-- 与「默认」徽标同高，切换时行高不跳 -->
-        <Style Selector="Button.set-default">
-            <Setter Property="Padding" Value="8,0" />
-            <Setter Property="MinHeight" Value="0" />
-            <Setter Property="Height" Value="18" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="CornerRadius" Value="9" />
-        </Style>
-        <Style Selector="Border.audio-row">
-            <Setter Property="Padding" Value="14,10" />
-            <Setter Property="BorderThickness" Value="0,0,0,1" />
-            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey1}" />
-            <Setter Property="Background" Value="Transparent" />
-        </Style>
-        <Style Selector="Border.audio-row:pointerover">
-            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
-        </Style>
     </UserControl.Styles>
 
     <UserControl.Resources>
         <!-- 在线服务一行：朗读、听写两组共用；试听只有朗读的有 -->
         <DataTemplate x:Key="OnlineServiceRow" x:DataType="online:AudioServiceItemData">
-            <Border Classes="audio-row">
+            <Border Classes="model-row">
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                     <Border Classes="model-icon">
                         <controls:ThemedSvgIcon Width="18" Height="18" IconName="globe" />
@@ -68,7 +38,7 @@
                                                IsVisible="{Binding !IsTts}" />
                                 </Panel>
                             </Border>
-                            <Button Classes="toolbar-link set-default" Content="{loc:Loc AudioPackageSetDefault}"
+                            <Button Classes="toolbar-link set-default" Content="{loc:Loc ModelSetDefault}"
                                     ToolTip.Tip="{loc:Loc AudioPackageSetDefaultTip}" IsVisible="{Binding !IsDefault}"
                                     Command="{Binding $parent[UserControl].((models:AudioModelListViewData)DataContext).Online.SetDefaultCommand}"
                                     CommandParameter="{Binding}" />
@@ -163,7 +133,7 @@
                         <ItemsControl ItemsSource="{Binding TtsModels}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="models:AudioModelItemData">
-                                    <Border Classes="audio-row">
+                                    <Border Classes="model-row">
                                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                                             <Border Classes="model-icon">
                                                 <controls:ThemedSvgIcon Width="18" Height="18" IconName="audio-lines" />
@@ -184,7 +154,7 @@
                                                     </StackPanel>
                                                     <TextBlock Text="{loc:Loc AudioOptionsTuned}" Classes="muted" FontSize="11"
                                                                VerticalAlignment="Center" IsVisible="{Binding IsTuned}" />
-                                                    <Button Classes="toolbar-link set-default" Content="{loc:Loc AudioPackageSetDefault}"
+                                                    <Button Classes="toolbar-link set-default" Content="{loc:Loc ModelSetDefault}"
                                                             ToolTip.Tip="{loc:Loc AudioPackageSetDefaultTip}"
                                                             IsVisible="{Binding !IsDefault}"
                                                             Command="{Binding $parent[ItemsControl].((models:AudioModelListViewData)DataContext).SetDefaultCommand}"
@@ -259,7 +229,7 @@
                         <ItemsControl ItemsSource="{Binding AsrModels}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="models:AudioModelItemData">
-                                    <Border Classes="audio-row">
+                                    <Border Classes="model-row">
                                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                                             <Border Classes="model-icon">
                                                 <controls:ThemedSvgIcon Width="18" Height="18" IconName="mic" />
@@ -280,7 +250,7 @@
                                                     </StackPanel>
                                                     <TextBlock Text="{loc:Loc AudioOptionsTuned}" Classes="muted" FontSize="11"
                                                                VerticalAlignment="Center" IsVisible="{Binding IsTuned}" />
-                                                    <Button Classes="toolbar-link set-default" Content="{loc:Loc AudioPackageSetDefault}"
+                                                    <Button Classes="toolbar-link set-default" Content="{loc:Loc ModelSetDefault}"
                                                             ToolTip.Tip="{loc:Loc AudioPackageSetDefaultTip}"
                                                             IsVisible="{Binding !IsDefault}"
                                                             Command="{Binding $parent[ItemsControl].((models:AudioModelListViewData)DataContext).SetDefaultCommand}"

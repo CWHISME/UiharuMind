@@ -6,7 +6,7 @@
              x:Class="UiharuMind.Features.Models.AudioModels.Voices.VoiceLibraryView"
              x:DataType="voices:VoiceLibraryViewData">
 
-    <!-- 音色库：会克隆的模型共用；行样式沿用语音模型页签的 audio-row -->
+    <!-- 音色库：会克隆的模型共用；行样式用 Themes 里的 model-row -->
     <StackPanel>
         <DockPanel Margin="14,12,14,6">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
@@ -31,7 +31,7 @@
         <ItemsControl ItemsSource="{Binding Items}">
             <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="voices:VoiceItemData">
-                    <Border Classes="audio-row">
+                    <Border Classes="model-row">
                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                             <Border Classes="model-icon">
                                 <controls:ThemedSvgIcon Width="18" Height="18" IconName="user" />
