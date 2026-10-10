@@ -74,7 +74,7 @@ public static class AgentToolPrompts
             // 图片用裸图:渲染库给图片设了 HRef,点得开;别的文件套图片语法只会显示成一张坏图
             sb.AppendLine(forSubAgent
                 ? "要给人看的文件（图表、导出的数据）同样放这里，结论里写出 $DRAFT/文件名，派活者认得。"
-                : "给用户看的文件也放这里，回复里图片写 ![]($DRAFT/文件名)，普通文件路径写 []($DRAFT/文件名)。");
+                : "给用户看的也可以放这里，回复里使用标准 Markdown 格式，如图片：![]($DRAFT/文件名)、文件：[]($DRAFT/文件名)。");
         }
 
         if (memoryToken != null)

@@ -24,7 +24,7 @@ namespace UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
 public static class BackgroundTaskTool
 {
     /// <summary>工具名。提示词里提到本工具时一律引用这个常量</summary>
-    public const string ToolName = "StartBackgroundTask";
+    public const string ToolName = "RunBackgroundTask";
 
     /// <summary>不传时的时间上限。历史里最长的后台任务约 30 分钟，一小时盖得住，又不至于让忘掉的进程挂一夜</summary>
     internal static readonly TimeSpan DefaultMaxRuntime = TimeSpan.FromHours(1);
