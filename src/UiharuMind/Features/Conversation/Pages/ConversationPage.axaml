@@ -53,8 +53,10 @@
                     <panels:ContextUsagePanel DataContext="{Binding Conversation.Usage.Context}" />
                 </Border>
                 <!-- 群壳：下块换成成员列表。能力/子代理/会话详情讲的都是「一个角色的会话」，群壳挂的是占位角色 -->
+                <!-- 焦点变化不自动滚（默认 true 会在点按半截露出的成员/产物行时把滚动条拽走） -->
                 <ScrollViewer Grid.Row="2" IsVisible="{Binding Conversation.IsGroupSession}"
-                              HorizontalScrollBarVisibility="Disabled">
+                              HorizontalScrollBarVisibility="Disabled"
+                              BringIntoViewOnFocusChange="False">
                     <StackPanel Spacing="10">
                         <group:GroupMembersPanel DataContext="{Binding Conversation.Group.Members}" />
                         <!-- 离席：只有智能体群有（ADR 0055）。显隐放外层：绑在面板自己身上会按它换过的 DataContext 去找 -->
