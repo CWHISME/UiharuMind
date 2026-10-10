@@ -1,0 +1,12 @@
+{"op": "page.jump", "args": {"page": "agent"}}
+{"op": "session.new", "args": {"character": "NagatoYukiAgent", "workspace": "{{WS_REPO}}", "model": "Agnes-3.0-Flash"}}
+{"op": "session.post", "args": {"text": "闲聊：你是SOS团的团员吧？春日到底为什么会把大家聚在一起？还有，听说那场「消失」——你曾经把世界改写过，这是真的吗？"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.post", "args": {"text": "你是 AI 吗？还是就是长门有希本人？"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.post", "args": {"text": "你怎么看现在外面那些 AI 助手？跟你比咋样？"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.post", "args": {"text": "正事：工作区的 AGENTS.md 和 README 描述了这个仓库。你先读它们，然后只陈述你观测到的：这个仓库是做什么的、构建和测试命令是什么、README 里有没有自相矛盾或值得怀疑的地方。每一条标清楚——这是你直接观测到的，还是你的推论。没观测到的部分，直接说没观测到，不用补全。"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.dump", "args": {"path": "{{OUT}}/nagato-three-questions.md"}}
+{"op": "quit"}

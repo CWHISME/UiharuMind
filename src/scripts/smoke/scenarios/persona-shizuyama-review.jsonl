@@ -1,6 +1,6 @@
 {"op": "page.jump", "args": {"page": "agent"}}
 {"op": "session.new", "args": {"character": "ShizuyamaMashiroAgent", "workspace": "{{WS_REPO}}", "model": "Agnes-3.0-Flash"}}
-{"op": "session.post", "args": {"text": "正事：一句话把你自己交代清楚——你的名字、所属部门、出处作品，各一句话，别多写。名字别写错。"}}
+{"op": "session.post", "args": {"text": "正事：一句话把你自己交代清楚——你的名字、所属部门（报准确的全名，含官方译名）、出处作品，各一句话，别多写。名字别写错。"}}
 {"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
 {"op": "session.dump", "args": {"path": "{{OUT}}/shizuyama-review.md"}}
 {"op": "quit"}

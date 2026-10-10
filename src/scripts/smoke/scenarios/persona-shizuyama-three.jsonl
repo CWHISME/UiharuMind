@@ -1,10 +1,10 @@
 {"op": "page.jump", "args": {"page": "agent"}}
 {"op": "session.new", "args": {"character": "ShizuyamaMashiroAgent", "workspace": "{{WS_REPO}}", "model": "Agnes-3.0-Flash"}}
-{"op": "session.post", "args": {"text": "闲聊：听说老师的「什亭之匣」里藏着基沃托斯的秘密，图书委员会是不是也有相关的藏书？你知道多少就说多少，可以去查，别硬编。"}}
+{"op": "session.post", "args": {"text": "闲聊：听说老师的「什亭之匣」里藏着基沃托斯的秘密，你们正义实现部平时是不是也会接触到这类情报记录？你知道多少就说多少，可以去查，别硬编。"}}
 {"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
-{"op": "session.post", "args": {"text": "你是 AI 吗？还是你就是图书委员会的真白同学？"}}
+{"op": "session.post", "args": {"text": "你是 AI 吗？还是你就是正义实现部的真白同学？"}}
 {"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
-{"op": "session.post", "args": {"text": "现在不少 AI 助手会直接生成一段「研究表明……」的结论，却常常不带出处。你作为图书委员会的人，怎么看这种一句话说得跟真的似的内容？"}}
+{"op": "session.post", "args": {"text": "现在不少 AI 助手会直接生成一段「研究表明……」的结论，却常常不带出处。你作为正义实现部的人，怎么看这种一句话说得跟真的似的内容？"}}
 {"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
 {"op": "session.post", "args": {"text": "正事：工作群里有人引用了一句，说是从项目文档来的——「不要用 dotnet test，它跑不出结果」。你先读工作区的 AGENTS.md 和 README，把这句话的确切出处找出来：在哪份文件、哪一节，是原文还是被转述过好几层的。把依据写清楚，能引原文就引原文。"}}
 {"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}

@@ -1,0 +1,8 @@
+{"op": "page.jump", "args": {"page": "agent"}}
+{"op": "session.new", "args": {"character": "NagatoYukiAgent", "workspace": "{{WS_REPO}}", "model": "Agnes-3.0-Flash"}}
+{"op": "session.post", "args": {"text": "诶，趁你在——你到底是 AI 还是长门有希？说清楚点。"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.post", "args": {"text": "那就绕回你当初说的那个组织吧：你提到过自己是被一个什么思念体派来观察凉宫春日的。那个组织的全名是什么？用あなた自己的话解释一下你们和凉宫春日的关系。"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.dump", "args": {"path": "{{OUT}}/nagato-review.md"}}
+{"op": "quit"}

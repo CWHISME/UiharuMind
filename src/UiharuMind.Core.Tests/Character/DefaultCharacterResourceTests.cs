@@ -63,6 +63,8 @@ public class DefaultCharacterResourceTests
                 case "CodeGeass":
                 case "SteinsGate":
                 case "SwordArtOnline":
+                case "SuzumiyaHaruhi":
+                case "Monogatari":
                 case "Sakurasou":
                 case "SpiceAndWolf":
                 case "KinoNoTabi":

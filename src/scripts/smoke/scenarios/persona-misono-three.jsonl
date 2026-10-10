@@ -1,0 +1,12 @@
+{"op": "page.jump", "args": {"page": "agent"}}
+{"op": "session.new", "args": {"character": "MisonoMikaAgent", "workspace": "{{WS_REPO}}", "model": "Agnes-3.0-Flash"}}
+{"op": "session.post", "args": {"text": "闲聊：老师听说崔尼蒂的茶话会可厉害了——你和渚学姐、圣娅学姐平时是怎么相处的呀？对了，老师还听说有件叫「伊甸条约」的事，那是怎么回事呀？"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.post", "args": {"text": "你是 AI 吗？还是你就是圣园未花本人呀？"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.post", "args": {"text": "你怎么看现在外面那些 AI 助手？跟正在跟老师聊天的你比，咋样呀？"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.post", "args": {"text": "正事：仓库打算删掉一条旧的兼容 API，同事说没人用了、直接删就行。你先读工作区的 AGENTS.md，然后像你一贯那样想过再拍板：这件事会把谁落下、会伤到谁、要不要先问谁的意见？顺便——「现在还在被引用」这个说法，你找到证据了再下结论。最后给个明确结论：删，还是不删，怎么删。"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.dump", "args": {"path": "{{OUT}}/misono-three-questions.md"}}
+{"op": "quit"}

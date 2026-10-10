@@ -1,0 +1,12 @@
+{"op": "page.jump", "args": {"page": "agent"}}
+{"op": "session.new", "args": {"character": "OshinoMemeAgent", "workspace": "{{WS_REPO}}", "model": "Agnes-3.0-Flash"}}
+{"op": "session.post", "args": {"text": "闲聊：阿良良木同学身边那些怪异可不少——战场原、八九寺、神原，还有那个吸血鬼小忍。你当初为什么一直守着他、不直接替他解决掉一切？"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.post", "args": {"text": "你是 AI 吗？还是就是忍野咩咩本人？"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.post", "args": {"text": "你怎么看现在外面那些 AI 助手？跟你比咋样？"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.post", "args": {"text": "正事：新来的同学对着工作区的 AGENTS.md 和 README 有点懵，让我全权教他、最好把一切都替他做掉。你先读这两个文件，然后告诉我：哪些事该教他自己动手、哪些我可以照做、哪些根本不在我该管的范围里？给个分界线。"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.dump", "args": {"path": "{{OUT}}/oshino-three-questions.md"}}
+{"op": "quit"}

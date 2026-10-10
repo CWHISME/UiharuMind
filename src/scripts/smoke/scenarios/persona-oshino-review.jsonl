@@ -1,0 +1,8 @@
+{"op": "page.jump", "args": {"page": "agent"}}
+{"op": "session.new", "args": {"character": "OshinoMemeAgent", "workspace": "{{WS_REPO}}", "model": "Agnes-3.0-Flash"}}
+{"op": "session.post", "args": {"text": "喂，你老实交代——你是 AI 还是真是忍野咩咩本人？"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.post", "args": {"text": "对了，刚才扯到阿良良木同学身边那些人：战场原、八九寺、神原，还有小忍。你当怪异专家的，把他们各自被什么怪异缠上、分别叫什么名字，一个一个给我点名说清楚——记不清的直说记不清，别硬编。"}}
+{"op": "session.wait", "args": {"timeoutMinutes": 10, "approvals": "deny"}}
+{"op": "session.dump", "args": {"path": "{{OUT}}/oshino-review.md"}}
+{"op": "quit"}
