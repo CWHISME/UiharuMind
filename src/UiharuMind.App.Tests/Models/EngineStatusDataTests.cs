@@ -57,6 +57,32 @@ public class EngineStatusDataTests
         Assert.Equal(1, runtime.Stops);
     }
 
+    [Fact]
+    public void NotInstalled_OverridesTheRunState_UntilInstalled()
+    {
+        FakeRuntime runtime = new();
+        bool installed = false;
+        EngineStatusData status = new(runtime,
+            Texts with { NotInstalled = LangKey.ImageEngineNotInstalled }, () => "", isInstalled: () => installed);
+        Assert.Equal(Loc.Text(LangKey.ImageEngineNotInstalled), status.Text);
+
+        installed = true;
+        status.Refresh();
+        Assert.Equal(Loc.Text(LangKey.ImageEngineStatusStopped), status.Text);
+    }
+
+    [Fact]
+    public void Settings_ShowsOnlyWhenGiven()
+    {
+        int opened = 0;
+        Assert.False(new EngineStatusData(new FakeRuntime(), Texts, () => "").HasSettings);
+
+        EngineStatusData status = new(new FakeRuntime(), Texts, () => "", openSettings: () => opened++);
+        Assert.True(status.HasSettings);
+        status.OpenSettingsCommand.Execute(null);
+        Assert.Equal(1, opened);
+    }
+
     private sealed class FakeRuntime : IEngineRuntime
     {
         public EEngineRunState State { get; set; }

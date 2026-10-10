@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Engines;
+using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Utils;
 
 namespace UiharuMind.Features.Models.ChatModels;
 
@@ -15,23 +18,37 @@ namespace UiharuMind.Features.Models.ChatModels;
 public static class ChatEngineStatus
 {
     private static readonly EngineStatusTexts Texts = new(LangKey.ChatEngineStatusStarting,
-        LangKey.ChatEngineStatusStopped, LangKey.ChatEngineStatusFailed);
+        LangKey.ChatEngineStatusStopped, LangKey.ChatEngineStatusFailed, LangKey.ChatEngineNotInstalled);
 
     /// <summary>
     /// 跟着本机对话模型进程的状态条：运行中那句说加载了几个模型，释放即全部卸载
     /// </summary>
     /// <param name="llm">模型管理</param>
+    /// <param name="distribution">llama.cpp 的安装</param>
+    /// <param name="messageService">释放会打断当前对话时先确认</param>
     /// <param name="openSettings">去引擎设置</param>
     /// <returns>状态条</returns>
-    public static EngineStatusData Create(LlmManager llm, Action openSettings)
+    public static EngineStatusData Create(LlmManager llm, EngineDistribution<VersionInfo> distribution,
+        IMessageService messageService, Action openSettings)
     {
         LlamaModelsRuntime runtime = new(llm);
-        return new EngineStatusData(runtime, Texts,
+        EngineStatusData status = new(runtime, Texts,
             () => Loc.Text(LangKey.ChatEngineStatusRunning, runtime.Active().Count(x => x.IsRunning)),
-            openSettings: openSettings);
+            () => _ = ReleaseAsync(llm, runtime, messageService),
+            openSettings, () => distribution.CurrentVersion != null);
+        distribution.VersionChanged += () => UiDispatcher.FireAndForget(status.Refresh);
+        return status;
     }
 
-    // 起停事件只有当前模型的，其余模型的变化靠状态条看得见时的定时刷新补上
+    // 当前对话用着的本地模型也会被卸掉，先问一声
+    private static async Task ReleaseAsync(LlmManager llm, LlamaModelsRuntime runtime, IMessageService messageService)
+    {
+        if (llm.CurrentRunningModel is { IsRemoteModel: false } current && (current.IsRunning || current.IsLoading) &&
+            !await messageService.ConfirmAsync(Loc.Text(LangKey.ChatEngineReleaseConfirm, current.ModelName)))
+            return;
+        runtime.Stop();
+    }
+
     private sealed class LlamaModelsRuntime : IEngineRuntime
     {
         private readonly LlmManager _llm;
@@ -39,17 +56,17 @@ public static class ChatEngineStatus
         public LlamaModelsRuntime(LlmManager llm)
         {
             _llm = llm;
-            _llm.OnCurrentModelStartLoading += () => StateChanged?.Invoke();
-            _llm.OnCurrentModelLoading += _ => LoadProgressChanged?.Invoke();
-            _llm.OnCurrentModelLoaded += () =>
+            _llm.OnAnyModelLoading += model =>
             {
-                LastError = null;
-                StateChanged?.Invoke();
+                if (!model.IsRemoteModel) LoadProgressChanged?.Invoke();
             };
-            _llm.OnCurrentModelChanged += _ => StateChanged?.Invoke();
-            _llm.OnModelRunFailed += (_, error) =>
+            _llm.OnAnyModelStateChanged += model =>
             {
-                LastError = error as LocalServerException ?? new LocalServerException(error.Message);
+                if (model.IsRemoteModel) return;
+                // 起不来的原因留到下一次有模型起来为止
+                if (model.IsRunning) LastError = null;
+                else if (!model.IsLoading && model.LastError is { } error)
+                    LastError = error as LocalServerException ?? new LocalServerException(error.Message);
                 StateChanged?.Invoke();
             };
         }
@@ -89,7 +106,6 @@ public static class ChatEngineStatus
         {
             foreach (string name in Active().Select(x => x.ModelName).ToList()) _llm.UnloadModel(name);
             LastError = null;
-            StateChanged?.Invoke();
         }
     }
 }

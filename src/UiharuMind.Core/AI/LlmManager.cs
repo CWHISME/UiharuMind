@@ -73,6 +73,8 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
             _remoteModelManager,
             token => LLamaCppEngine.Distribution.EnsureCurrentAsync(token));
         _runtimeService.ContextReduced += (name, from, to) => OnModelContextReduced?.Invoke(name, from, to);
+        _runtimeService.ModelStateChanged += model => OnAnyModelStateChanged?.Invoke(model);
+        _runtimeService.ModelLoadingChanged += model => OnAnyModelLoading?.Invoke(model);
     }
 
     //======================callbacks======================
@@ -82,10 +84,15 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     /// </summary>
     public event Action<ModelRunningData?>? OnCurrentModelChanged;
 
-    // /// <summary>
-    // /// 当任何模型的状态改变时回调
-    // /// </summary>
-    // public event Action<ModelRunningData?>? OnAnyModelStateChanged;
+    /// <summary>
+    /// 任一本地或远程对话模型开始加载、加载完成、失败或被卸载（可能在后台线程）
+    /// </summary>
+    public event Action<ModelRunningData>? OnAnyModelStateChanged;
+
+    /// <summary>
+    /// 任一对话模型的加载进度变了（后台线程）
+    /// </summary>
+    public event Action<ModelRunningData>? OnAnyModelLoading;
 
     /// <summary>
     /// 当前模型开始加载
@@ -254,6 +261,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
         if (_cacheModels.TryGetValue(modelName, out var runningInfo))
         {
             runningInfo.StopRunning();
+            OnAnyModelStateChanged?.Invoke(runningInfo);
         }
         else Log.Error($"unload model error， {modelName} not found in cache.");
 
@@ -325,7 +333,11 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
         if (value == _curModelRunningData) return;
         // 还在加载的也要停，否则它加载完会无主驻留、再也卸不掉
         if (stopPrevious && _curModelRunningData is { IsRunning: true } or { IsLoading: true })
+        {
             _curModelRunningData.StopRunning();
+            OnAnyModelStateChanged?.Invoke(_curModelRunningData);
+        }
+
         _curModelRunningData = value;
         OnCurrentModelChanged?.Invoke(value);
     }

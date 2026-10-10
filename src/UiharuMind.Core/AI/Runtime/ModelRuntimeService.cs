@@ -30,6 +30,16 @@ internal sealed class ModelRuntimeService
     public event Action<string, int, int>? ContextReduced;
 
     /// <summary>
+    /// 某个对话模型开始加载、加载完成或失败（后台线程）
+    /// </summary>
+    public event Action<ModelRunningData>? ModelStateChanged;
+
+    /// <summary>
+    /// 某个对话模型的加载进度变了（后台线程）
+    /// </summary>
+    public event Action<ModelRunningData>? ModelLoadingChanged;
+
+    /// <summary>
     /// 已注册的本地引擎，多于一个时界面才让用户选
     /// </summary>
     public IReadOnlyList<IModelRuntimeBackend> LocalEngines => _registry.LocalEngines;
@@ -88,6 +98,7 @@ internal sealed class ModelRuntimeService
         if (runningData.IsLoading) return false; //别人正在拉起它，再起一份就是双跑
 
         CancellationToken token = runningData.BeginLoading();
+        ModelStateChanged?.Invoke(runningData);
         bool loaded = false;
         int runtimeContextSize = 0; //本地模型的实际加载上下文,供历史预算按真实值开窗
         try
@@ -95,10 +106,12 @@ internal sealed class ModelRuntimeService
             await Run(runningData.ModelInfo, loadingPercent =>
             {
                 runningData.UpdateLoading(loadingPercent, token);
+                ModelLoadingChanged?.Invoke(runningData);
                 onLoading?.Invoke(loadingPercent);
             }, chatClient =>
             {
                 loaded = runningData.CompleteLoading(chatClient, runtimeContextSize, token);
+                ModelStateChanged?.Invoke(runningData);
                 onLoaded?.Invoke();
             }, token, parameters => runtimeContextSize = parameters.ContextSize).ConfigureAwait(false);
 
@@ -118,6 +131,7 @@ internal sealed class ModelRuntimeService
         finally
         {
             if (!loaded && runningData.LastError == null) runningData.FailLoading(loadToken: token);
+            if (!loaded) ModelStateChanged?.Invoke(runningData);
         }
     }
 

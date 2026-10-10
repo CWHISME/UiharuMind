@@ -4715,7 +4715,7 @@ Allow them?</value>
         <value>Get voice models</value>
     </data>
     <data name="AudioModelsNoEngine" xml:space="preserve">
-        <value>The local engine (audio.cpp) is not installed, so the local models below can't be used yet.</value>
+        <value>The local engine is not installed, so local voice models can't be used yet.</value>
     </data>
     <data name="AudioModelsEmptyTitle" xml:space="preserve">
         <value>No voice models yet</value>
@@ -5754,5 +5754,14 @@ Allow them?</value>
     </data>
     <data name="LocalEngineSettingsTip" xml:space="preserve">
         <value>Local engine settings</value>
+    </data>
+    <data name="ChatEngineNotInstalled" xml:space="preserve">
+        <value>The local engine is not installed, so local chat models can't be used yet.</value>
+    </data>
+    <data name="ImageEngineNotInstalled" xml:space="preserve">
+        <value>The local engine is not installed, so local image models can't be used yet.</value>
+    </data>
+    <data name="ChatEngineReleaseConfirm" xml:space="preserve">
+        <value>The current chat is using the local model "{0}". Freeing memory unloads it too and interrupts any reply in progress. Free memory?</value>
     </data>
 </root>

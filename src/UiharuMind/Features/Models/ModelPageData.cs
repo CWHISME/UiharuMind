@@ -81,7 +81,7 @@ public partial class ModelPageData : PageDataBase
         _messageService = messageService;
         // 测试自备模型列表时不接真实的 llama 进程
         EngineStatusData? chatEngine = modelSources == null
-            ? ChatEngineStatus.Create(LlmManager.Instance,
+            ? ChatEngineStatus.Create(LlmManager.Instance, LLamaCppEngine.Distribution, messageService,
                 () => UIManager.ShowWindow<SettingsWindow>(window => window.ShowTextEngineSettings()))
             : null;
         ChatModels = new ChatModelListViewData(messageService, () => SelectedTabIndex = DownloadsTabIndex, modelSources,
