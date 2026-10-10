@@ -10,6 +10,7 @@
 using System.ComponentModel;
 using System.Text;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Tools.Browser;
 
 namespace UiharuMind.Core.AI.Execution.Tools.WebTools;
 
@@ -21,7 +22,7 @@ public static class WebFetchTool
     /// <summary>工具名。提示词里提到本工具时一律引用这个常量</summary>
     public const string ToolName = "WebFetch";
 
-    private static readonly FallbackPageReader Reader = new();
+    private static readonly FallbackPageReader Reader = new(HeadlessPageRenderer.Shared);
 
     public static AITool Create() => AIFunctionFactory.Create(
         FetchAsync, ToolName,

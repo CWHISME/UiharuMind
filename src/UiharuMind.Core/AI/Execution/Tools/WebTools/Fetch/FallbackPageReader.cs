@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System.Text;
+using UiharuMind.Core.AI.Execution.Tools.Browser;
 using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Core.SimpleLog;
 
@@ -15,7 +16,7 @@ namespace UiharuMind.Core.AI.Execution.Tools.WebTools;
 
 /// <summary>
 /// 正文读取兜底链,与 <see cref="FallbackSearchEngine"/> 同构:
-/// 无 key 即可用、能吃 JS 渲染页与 PDF 的 Firecrawl 优先,自己直连的读取器殿后。
+/// 无 key 即可用、能吃 JS 渲染页与 PDF 的 Firecrawl 优先,其次直连、本机无头浏览器,llms.txt 托底。
 /// 抽取出的正文过短同样算失败——多半是拿到了空壳,继续下一环比交给模型一段噪音强。
 /// 结果走 <see cref="PageContentCache"/>,重复读同一个 URL 不会重复抓。
 /// </summary>
@@ -23,16 +24,23 @@ internal sealed class FallbackPageReader
 {
     private const int MinContentLength = 150;
 
-    private readonly IPageReader[] _chain =
-    {
-        new FirecrawlPageReader(),
-        // 直连，抓到的很可能是容比较乱
-        new DirectPageReader(),
-        //有的网站故意放 llms.txt 写一堆有的没的，因此只能放在最后走 DirectPageReader 也读不到的托底
-        new LlmstxtPageReader()
-    };
-
+    private readonly IPageReader[] _chain;
     private readonly PageContentCache _cache = new();
+
+    /// <param name="renderer">无头浏览器；测试换替身</param>
+    public FallbackPageReader(IHtmlRenderer renderer)
+    {
+        _chain =
+        [
+            new FirecrawlPageReader(),
+            // 直连，抓到的很可能是容比较乱
+            new DirectPageReader(),
+            // 直连拿到 JS 空壳时跑完脚本再抽；起浏览器贵，排在直连之后
+            new BrowserPageReader(renderer),
+            //有的网站故意放 llms.txt 写一堆有的没的，因此只能放在最后，浏览器也不可用或读不到时托底
+            new LlmstxtPageReader()
+        ];
+    }
 
     /// <summary>
     /// 依次尝试各读取器,返回第一份像样的正文
