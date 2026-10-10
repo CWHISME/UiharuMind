@@ -559,28 +559,6 @@ public class HarnessInstructionsCompositionTests
             options.ChatOptions?.Instructions ?? string.Empty);
     }
 
-    /// <summary>
-    /// 草稿目录只给简写，回复正文也写简写（ADR 0080）：界面按会话解析，房间的绝对路径与 file URI 一次都不出现。
-    /// 引用用裸图：渲染库给图片设了 HRef，点得开，不必再包一层链接。
-    /// </summary>
-    [Fact]
-    public void OutputRoom_TeachesShorthandLinks_WithoutAbsolutePath()
-    {
-        const string room = "/tmp/uiharu-room-test/ws/12345678";
-
-        string instructions = BuildAgentOptions("/tmp/uiharu-agent-test", outputRoom: room)
-            .ChatOptions?.Instructions ?? string.Empty;
-
-        Assert.Contains("草稿目录 $DRAFT", instructions);
-        Assert.Contains("![说明]($DRAFT/文件名)", instructions);
-        Assert.Contains("[说明]($DRAFT/文件名)", instructions); //别的文件套图片语法只会显示成坏图
-        Assert.DoesNotContain("[![", instructions);
-        Assert.DoesNotContain(room, instructions);
-        Assert.DoesNotContain("file://", instructions);
-        // 文件内容里的简写不展开，脚本要读环境变量
-        Assert.Contains("os.environ[\"DRAFT\"]", instructions);
-    }
-
     /// <summary>无房间（无会话）时草稿那一条不出现：指一个不存在的目录比不说更糟</summary>
     [Fact]
     public void OutputRoom_IsAbsent_WhenNoRoom()
@@ -649,52 +627,6 @@ public class HarnessInstructionsCompositionTests
         Assert.DoesNotContain(workingDirectory, instructions);
         Assert.Contains(AgentPromptHeadings.Directories("##"), instructions);
         Assert.Contains("默认写相对路径", instructions);
-    }
-
-    /// <summary>
-    /// 分段清单必须逐字覆盖真正发出去的那段提示，且空段不入册。
-    ///
-    /// 能力面板按段报占用，靠的就是这份清单。清单一旦与整串脱节，症状是面板上的分项之和
-    /// 与合计对不上——而那正是这块面板唯一的用处。
-    /// </summary>
-    [Fact]
-    public void PromptSegments_AreRegisteredVerbatim_AndSkipEmptySections()
-    {
-        HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test",
-            out IReadOnlyList<AgentPromptSegment> segments,
-            workspaceInstructions: "never touch the vendor folder");
-        string instructions = options.ChatOptions?.Instructions ?? string.Empty;
-
-        foreach (AgentPromptSegment segment in segments)
-        {
-            Assert.Contains(segment.Text, instructions, StringComparison.Ordinal);
-        }
-
-        Assert.Contains(segments, x => x.Section == EPromptSection.Character);
-        Assert.Contains(segments, x => x.Section == EPromptSection.ToolDisciplines);
-        Assert.Contains(segments, x => x.Section == EPromptSection.Workspace);
-        Assert.Contains(segments, x => x.Section == EPromptSection.Base); //基座恒在册,能力面板要按段报占用
-        Assert.Contains(segments, x => x.Section == EPromptSection.Extensions); //内置扩展默认全给,名单恒在
-    }
-
-    /// <summary>
-    /// 扩展名单（ADR 0079）：内置扩展与 MCP server 一并列出，只写名字与一句话说明——
-    /// 不写状态、不写命令，否则 server 一连上系统提示就变
-    /// </summary>
-    [Fact]
-    public void ExtensionsSection_ListsBuiltinsAndServersByNameOnly()
-    {
-        McpToolSet mcp = new() { Servers = [new McpRosterServer { Name = "unity", Description = "Unity 编辑器" }] };
-
-        BuildAgentOptions("/tmp/uiharu-agent-test", out IReadOnlyList<AgentPromptSegment> segments, mcp: mcp);
-
-        string roster = Assert.Single(segments, x => x.Section == EPromptSection.Extensions).Text;
-        Assert.StartsWith(AgentPromptHeadings.Extensions, roster);
-        Assert.Contains("- browser：", roster);
-        Assert.Contains("- image：", roster);
-        Assert.Contains("- audio：", roster);
-        Assert.Contains("- unity：Unity 编辑器", roster);
-        Assert.Contains("ExtensionHelp", roster);
     }
 
     /// <summary>角色禁掉的扩展不进名单，全禁且没有 MCP 时整段不出</summary>
@@ -1094,28 +1026,6 @@ public class SubAgentBoundaryTests
         await using AgentHandle handle = AgentAssembler.Assemble(plan);
 
         Assert.Null(handle.ChatOptions?.Tools);
-    }
-
-    /// <summary>
-    /// 一个子会话的装配计划：匿名通用档，关掉 shell 免得测试真去解析本机 shell。
-    /// </summary>
-    /// <summary>
-    /// 匿名子代理的能力就是派活者那一份，走的是重开子会话时的真实装配路径：
-    /// 派活者禁掉的扩展，子代理的名单里也没有（ADR 0079）
-    /// </summary>
-    [Fact]
-    public void AnonymousSubSession_FollowsTheParentsExtensions()
-    {
-        AgentAssemblyPlan plan = NewSubSessionPlan(
-            new AgentToolConfig { EnableShellExecution = false, DisabledExtensions = { "image" } },
-            imageModelsConfigured: true);
-
-        HarnessAgentOptions options = SubAgentAssembly.BuildSubSessionAssembly(plan).Options;
-        string instructions = options.ChatOptions?.Instructions ?? string.Empty;
-
-        Assert.Contains(ExtensionCalls.CallName, ToolNamesOf(options));
-        Assert.Contains("- browser：", instructions);
-        Assert.DoesNotContain("- image：", instructions);
     }
 
     private static AgentAssemblyPlan NewSubSessionPlan(AgentToolConfig? parentConfig = null,

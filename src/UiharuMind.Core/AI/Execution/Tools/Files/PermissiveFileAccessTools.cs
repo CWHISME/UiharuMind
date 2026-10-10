@@ -212,7 +212,7 @@ internal sealed class PermissiveFileAccessTools
         [Description("File path, absolute or relative to the working directory.")] string filePath,
         [Description("1-based starting line. Negative counts from the end: -100 reads the last 100 lines.")]
         int offset = 1,
-        [Description("Max lines to return. Pass -1 to read the whole file (no byte cap).")] int? limit = null,
+        [Description("Max lines to return.")] int? limit = null,
         CancellationToken cancellationToken = default)
         => _reader.ReadAsync(filePath, offset, limit, cancellationToken);
 

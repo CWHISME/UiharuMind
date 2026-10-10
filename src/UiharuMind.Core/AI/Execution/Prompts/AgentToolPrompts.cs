@@ -74,7 +74,7 @@ public static class AgentToolPrompts
             // 图片用裸图:渲染库给图片设了 HRef,点得开;别的文件套图片语法只会显示成一张坏图
             sb.AppendLine(forSubAgent
                 ? "要给人看的文件（图表、导出的数据）同样放这里，结论里写出 $DRAFT/文件名，派活者认得。"
-                : "给用户看的也可以放这里，回复里使用标准 Markdown 格式，如图片：![]($DRAFT/文件名)、文件：[]($DRAFT/文件名)。");
+                : "给用户看的也可以放这里，回复里使用标准 Markdown 格式，如图片：![可省略]($DRAFT/文件名)、文件：[可省略]($DRAFT/文件名)。");
         }
 
         if (memoryToken != null)
@@ -120,10 +120,9 @@ public static class AgentToolPrompts
     /// 反引号在提示词里专表工具名，有不变量测试按这条约定校验。
     /// </summary>
     public const string FileReadDefault =
-        "- 项目中的文件工具都经过反复优化，优先用 `Glob` 找文件，用 `Grep` 搜文本（可指定目录或具体文件），用 `Read` 读文件(自动处理编码等问题)。\n" +
+        "- 项目中的文件工具都经过反复优化，优先用 `Glob` 找文件，用 `Grep` 搜文本（可指定目录或具体文件），用 `Read` 读文件(自动处理编码等问题、传 limit=-1 可一次读完)。\n" +
         "- 已经知道关键词，就先用 `Grep` 带上 contextLines 搜一次——" +
         "命中行加上它的上下文，往往就是你需要的全部。否则只 `Read` 需要的那一段。";
-    
     /// <summary>
     /// 文件<b>修改</b>纪律默认正文。只在写工具真的在场时由 <see cref="BuildFileOperations"/> 附到「## 文件操作」段。
     ///
