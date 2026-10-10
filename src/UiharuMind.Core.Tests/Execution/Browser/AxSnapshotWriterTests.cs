@@ -34,6 +34,25 @@ public class AxSnapshotWriterTests
         Assert.Equal("Submit", snapshot.Refs["e2"].Name);
     }
 
+    /// <summary>没名字的图标按钮、链接带上描述或去处，有名字的不重复给</summary>
+    [Fact]
+    public void UnnamedActionableElements_ShowTheirDescriptionOrUrl()
+    {
+        AxNode root = Node("RootWebArea", "Profile",
+            Node("button") with { Description = "Show more activity" },
+            Node("link") with { Url = "https://jira.example.com/activity?rss" },
+            Node("link", "Home") with { Url = "https://jira.example.com/" });
+
+        AxSnapshot snapshot = AxSnapshotWriter.Write(root);
+
+        Assert.Equal(Normalize(
+            """
+            - button [description="Show more activity"] [ref=e1]
+            - link [url=https://jira.example.com/activity?rss] [ref=e2]
+            - link "Home" [ref=e3]
+            """), Normalize(snapshot.Text));
+    }
+
     /// <summary>无名容器不成行；只装着一段字的段落、列表项收成一行；链接里重复自己名字的那段字省掉</summary>
     [Fact]
     public void UnnamedContainers_AreFlattened_AndLoneTextIsInlined()

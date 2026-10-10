@@ -78,8 +78,10 @@ internal sealed class ExtensionHub
     public async Task<object?> CallAsync(string? extension, string? command,
         IReadOnlyDictionary<string, JsonElement>? arguments, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(extension)) return "Parameter `extension` is required.";
-        if (string.IsNullOrWhiteSpace(command)) return "Parameter `command` is required.";
+        if (string.IsNullOrWhiteSpace(extension) || string.IsNullOrWhiteSpace(command))
+        {
+            return MissingTopLevel(string.IsNullOrWhiteSpace(extension) ? "extension" : "command", arguments);
+        }
 
         BuiltinExtension? builtin = Find(extension);
         if (builtin == null)
@@ -97,10 +99,22 @@ internal sealed class ExtensionHub
         if (found == null) return UnknownCommand(builtin, command);
 
         string mention = BuiltinExtensions.Mention(builtin.Name, found.Name);
-        string lookUp = $"ExtensionHelp with extension \"{builtin.Name}\" and command \"{found.Name}\" shows its parameters.";
-        // 缺必填先在这里说：交给框架绑定的话，缺参数与命令跑起来出的错都是同一类异常，分不出该改参数还是别重试
-        List<string> missing = MissingRequired(found.Function.JsonSchema, arguments);
-        if (missing.Count > 0) return $"Invalid arguments for {mention}: missing {string.Join(", ", missing)}. {lookUp}";
+        JsonElement schema = found.Function.JsonSchema;
+        string lookUp = $"Parameters: {McpHelpFormatter.Signature(schema)}. ExtensionHelp with extension " +
+                        $"\"{builtin.Name}\" and command \"{found.Name}\" describes each one.";
+        // 缺必填先在这里说：交给框架绑定的话，缺参数与命令跑起来出的错都是同一类异常，分不出该改参数还是别重试。
+        // 多余的参数名一起报：猜成 ref/text 的模型只看「缺 action」会接着猜，看到「ref 不认识」才会去对签名
+        HashSet<string> required = McpHelpFormatter.RequiredOf(schema);
+        List<string> missing = required.Where(x => arguments?.ContainsKey(x) != true).ToList();
+        if (missing.Count > 0)
+        {
+            IReadOnlyCollection<string>? known = McpHelpFormatter.PropertyNames(schema);
+            List<string> unknown = known == null || arguments == null
+                ? []
+                : arguments.Keys.Where(x => !known.Contains(x)).ToList();
+            string extra = unknown.Count > 0 ? $"; unknown {string.Join(", ", unknown)}" : string.Empty;
+            return $"Invalid arguments for {mention}: missing {string.Join(", ", missing)}{extra}. {lookUp}";
+        }
 
         AIFunctionArguments callArguments = new(
             arguments?.ToDictionary(x => x.Key, object? (x) => x.Value) ?? new Dictionary<string, object?>());
@@ -123,12 +137,14 @@ internal sealed class ExtensionHub
         }
     }
 
-    private static List<string> MissingRequired(JsonElement schema, IReadOnlyDictionary<string, JsonElement>? arguments)
+    // 弱模型常把 command 塞进 arguments 里；只回「command 必填」它会去补里层那个，越改越远
+    private static string MissingTopLevel(string field, IReadOnlyDictionary<string, JsonElement>? arguments)
     {
-        if (schema.ValueKind != JsonValueKind.Object || !schema.TryGetProperty("required", out JsonElement required) ||
-            required.ValueKind != JsonValueKind.Array) return [];
-        return required.EnumerateArray().Select(x => x.GetString() ?? string.Empty)
-            .Where(x => x.Length > 0 && arguments?.ContainsKey(x) != true).ToList();
+        string misplaced = arguments != null && (arguments.ContainsKey("command") || arguments.ContainsKey("extension"))
+            ? " It was put inside `arguments`; `extension` and `command` go at the top level, and `arguments` holds " +
+              "only the command's own parameters."
+            : string.Empty;
+        return $"Parameter `{field}` is required.{misplaced} Example: {BuiltinExtensions.CallExample}";
     }
 
     // 内置在前、MCP 在后；状态只出现在这里（工具结果），不进系统提示
@@ -189,7 +205,7 @@ internal sealed class ExtensionHub
 
     private static string UnknownCommand(BuiltinExtension builtin, string command) =>
         $"The {builtin.Name} extension has no command '{command}'. " +
-        $"Its commands: {string.Join(", ", builtin.Commands.Select(x => x.Name))}.";
+        $"Its commands: {string.Join(", ", builtin.Commands.Select(x => $"{x.Name} {McpHelpFormatter.Signature(x.Function.JsonSchema)}"))}.";
 
     private static string Unknown(string extension) =>
         $"Unknown extension '{extension}'. ExtensionHelp with no arguments lists every extension.";

@@ -143,7 +143,7 @@ public class BrowserToolsTests
         string result = await InvokeAsync(tools, BrowserTools.SnapshotToolName,
             new AIFunctionArguments { ["view"] = "screenshot" });
 
-        Assert.StartsWith("[Error] This conversation cannot look at images", result);
+        Assert.StartsWith("[Error] Screenshots are off here", result);
         AIFunction snapshot = tools.OfType<AIFunction>().Single(t => t.Name == BrowserTools.SnapshotToolName);
         Assert.DoesNotContain("screenshot", snapshot.Description);
         Assert.DoesNotContain("screenshot", snapshot.JsonSchema.GetRawText());

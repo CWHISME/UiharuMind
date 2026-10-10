@@ -78,7 +78,7 @@ public class ExtensionTests
         string detail = await hub.HelpAsync("audio", "transcribe", TestContext.Current.CancellationToken);
 
         Assert.Contains("Usage notes.", overview);
-        Assert.Contains("- transcribe: Transcribe an audio file.", overview);
+        Assert.Contains("- transcribe {path, subtitles?}: Transcribe an audio file.", overview); //参数签名随概览给出
         Assert.DoesNotContain(TranscribeAudioTool.ToolName, overview);
         Assert.StartsWith("# audio.transcribe", detail);
         Assert.Contains("\"path\"", detail);
@@ -122,6 +122,49 @@ public class ExtensionTests
         Assert.Equal(["generate"], image.Commands.Select(x => x.Name));
         Assert.NotNull(image.Unavailable);
         Assert.Equal(["transcribe"], BuiltinExtensions.CreateAudio(Paths, null).Commands.Select(x => x.Name));
+    }
+
+    /// <summary>ExtensionCall 描述里那份速查是手写常量：每条内置命令的签名都得与它背后工具的 schema 对上</summary>
+    [Fact]
+    public void CallUsage_MatchesEveryBuiltinCommandSchema()
+    {
+        BuiltinExtension[] builtins =
+        [
+            BuiltinExtensions.CreateBrowser(PuppeteerBrowserHost.Shared, "s1", "/tmp/uiharu-spill", EReadImageMode.None),
+            BuiltinExtensions.CreateImage(Paths, null, configured: true),
+            BuiltinExtensions.CreateAudio(Paths, new CharacterData { CharacterName = "Me" }),
+        ];
+
+        foreach (BuiltinExtension builtin in builtins)
+        {
+            foreach (ExtensionCommand command in builtin.Commands)
+            {
+                string signature = McpHelpFormatter.Signature(command.Function.JsonSchema);
+                Assert.Contains($"{builtin.Name}.{command.Name} {signature}", BuiltinExtensions.CallUsage);
+            }
+        }
+    }
+
+    /// <summary>把 command 塞进 arguments 是弱模型的常见错：报错要指出放错了层，并给可照抄的写法</summary>
+    [Fact]
+    public async Task Call_CommandInsideArguments_SaysItBelongsAtTheTopLevel()
+    {
+        string text = (string)(await Hub(Echo()).CallAsync("audio", null,
+            Args(new { command = "transcribe", args = new { path = "a.wav" } }), TestContext.Current.CancellationToken))!;
+
+        Assert.Contains("put inside `arguments`", text);
+        Assert.Contains(BuiltinExtensions.CallExample, text);
+    }
+
+    /// <summary>参数名猜错（ref/text）时，除了缺什么，还要说哪些不认识、正确签名是什么</summary>
+    [Fact]
+    public async Task Call_WrongParameterNames_ListsUnknownOnesAndTheSignature()
+    {
+        string text = (string)(await Hub(Echo()).CallAsync("audio", "transcribe", Args(new { file = "a.wav" }),
+            TestContext.Current.CancellationToken))!;
+
+        Assert.Contains("missing path; unknown file", text);
+        Assert.Contains("Parameters: {path, subtitles?}", text);
     }
 
     //================= 拆开调用 =================

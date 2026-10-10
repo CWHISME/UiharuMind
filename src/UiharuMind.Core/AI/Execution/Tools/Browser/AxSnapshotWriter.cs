@@ -52,6 +52,11 @@ public static class AxSnapshotWriter
         StringBuilder line = new("- ");
         line.Append(node.Role);
         if (name.Length > 0) line.Append(" \"").Append(name).Append('"');
+        // 没名字的图标按钮、链接只剩一个编号，模型认不出是什么：给出描述或去处
+        else if (refId != null && Clip(node.Description, MaxNameLength) is { Length: > 0 } description)
+            line.Append(" [description=\"").Append(description).Append("\"]");
+        else if (refId != null && Clip(node.Url, MaxNameLength) is { Length: > 0 } url)
+            line.Append(" [url=").Append(url).Append(']');
         if (node.Level > 0) line.Append(" [level=").Append(node.Level).Append(']');
         if (node.Secret) line.Append(" [password]");
         if (node.Checked == "true") line.Append(" [checked]");

@@ -48,7 +48,7 @@ internal static class ExtensionMetaTools
             },
             "arguments": {
               "type": "object",
-              "description": "The command's arguments as a JSON object matching its parameters. Omit for commands without parameters.",
+              "description": "Only the command's own parameters, as a JSON object; `extension` and `command` never go in here. Omit for commands without parameters.",
               "additionalProperties": true
             }
           },
@@ -73,10 +73,11 @@ internal static class ExtensionMetaTools
             HelpSchema,
             (arguments, ct) => InvokeHelpAsync(hub, arguments, ct)),
         new ApprovalRequiredAIFunction(new MetaFunction(ExtensionCalls.CallName,
-            "Run an extension command. Look it up with ExtensionHelp first unless you already know its exact " +
-            "parameters. Commands that can change something or cost money ask the user first. Results and help " +
-            "refer to a command as extension.command (e.g. browser.snapshot). Large results are saved to a file " +
-            "and only the head and tail are returned; read the saved file for the rest.",
+            "Run an extension command. The built-in ones are listed below; for an MCP extension, look it up with " +
+            "ExtensionHelp first. Commands that can change something or cost money ask the user first. Results and " +
+            "help refer to a command as extension.command (e.g. browser.snapshot). Large results are saved to a " +
+            "file and only the head and tail are returned; read the saved file for the rest.\n\n" +
+            BuiltinExtensions.CallUsage,
             CallSchema,
             (arguments, ct) => InvokeCallAsync(hub, arguments, ct))),
     ];

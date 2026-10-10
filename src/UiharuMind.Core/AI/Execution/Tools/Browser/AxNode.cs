@@ -41,6 +41,12 @@ public sealed record AxNode(string Role, string Name)
     /// <summary>是否密码框：快照里标出来、值不给看，动作层也不往里打字（密码只经用户的手）</summary>
     public bool Secret { get; init; }
 
+    /// <summary>无障碍描述（aria-describedby、title）：没名字的图标按钮只能靠它认</summary>
+    public string Description { get; init; } = string.Empty;
+
+    /// <summary>链接地址：没名字的图标链接只能靠它认</summary>
+    public string Url { get; init; } = string.Empty;
+
     /// <summary>子节点</summary>
     public IReadOnlyList<AxNode> Children { get; init; } = [];
 

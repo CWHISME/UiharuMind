@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System.Text;
+using System.Text.Json;
 using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.AI.Execution.Mcp;
@@ -54,7 +55,7 @@ internal static class McpHelpFormatter
         sb.Append("\nCommands (").Append(tools.Count).Append("):\n");
         foreach (McpToolDescriptor tool in tools)
         {
-            sb.Append("- ").Append(tool.Name);
+            sb.Append("- ").Append(tool.Name).Append(' ').Append(Signature(tool.InputSchema));
             string summary = Summarize(tool.Description);
             if (summary.Length > 0) sb.Append(": ").Append(summary);
             sb.Append('\n');
@@ -86,7 +87,7 @@ internal static class McpHelpFormatter
         }
 
         sb.Append("\nParameters (JSON Schema):\n");
-        sb.Append(tool.InputSchema.ValueKind == System.Text.Json.JsonValueKind.Undefined
+        sb.Append(tool.InputSchema.ValueKind == JsonValueKind.Undefined
             ? "{}"
             : ToolTokenEstimator.CompactSchema(tool.InputSchema));
         return sb.ToString();
@@ -176,6 +177,44 @@ internal static class McpHelpFormatter
         string listed = string.Join(", ", all.Take(MaxListedNames));
         return all.Count > MaxListedNames ? $"{listed}, … ({all.Count - MaxListedNames} more)" : listed;
     }
+
+    /// <summary>
+    /// 参数签名：<c>{action, target?, value?}</c>，可选的带问号。概览里每条命令都带上，
+    /// 模型不必再查一次详情就知道参数叫什么（不带时弱模型会照常识猜 <c>ref</c>、<c>text</c>）
+    /// </summary>
+    /// <param name="schema">参数 schema</param>
+    /// <returns>签名；没有参数为 <c>{}</c></returns>
+    public static string Signature(JsonElement schema)
+    {
+        if (schema.ValueKind != JsonValueKind.Object || !schema.TryGetProperty("properties", out JsonElement properties) ||
+            properties.ValueKind != JsonValueKind.Object) return "{}";
+        HashSet<string> required = RequiredOf(schema);
+        IEnumerable<string> names = properties.EnumerateObject()
+            .Select(x => required.Contains(x.Name) ? x.Name : x.Name + "?");
+        return "{" + string.Join(", ", names) + "}";
+    }
+
+    /// <summary>
+    /// schema 里的参数名
+    /// </summary>
+    /// <param name="schema">参数 schema</param>
+    /// <returns>参数名；schema 没写 properties 时为 null（不知道有哪些，就别说谁多余）</returns>
+    public static IReadOnlyCollection<string>? PropertyNames(JsonElement schema) =>
+        schema.ValueKind == JsonValueKind.Object && schema.TryGetProperty("properties", out JsonElement properties) &&
+        properties.ValueKind == JsonValueKind.Object
+            ? properties.EnumerateObject().Select(x => x.Name).ToList()
+            : null;
+
+    /// <summary>
+    /// schema 里的必填参数名
+    /// </summary>
+    /// <param name="schema">参数 schema</param>
+    /// <returns>必填参数名</returns>
+    public static HashSet<string> RequiredOf(JsonElement schema) =>
+        schema.ValueKind == JsonValueKind.Object && schema.TryGetProperty("required", out JsonElement required) &&
+        required.ValueKind == JsonValueKind.Array
+            ? required.EnumerateArray().Select(x => x.GetString() ?? string.Empty).Where(x => x.Length > 0).ToHashSet()
+            : [];
 
     private static string Summarize(string description)
     {

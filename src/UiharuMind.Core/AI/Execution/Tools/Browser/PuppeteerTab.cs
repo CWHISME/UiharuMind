@@ -29,6 +29,7 @@ internal sealed partial class PuppeteerTab
     private DateTime _lastUsed = DateTime.UtcNow;
     private volatile bool _handedOver; //用户点了「切到浏览器」在里面操作：不回收、弹窗留给他，智能体再动手时结束
     private Dialog? _strandedDialog; //接管中弹出、用户没理的弹窗：智能体再动手前关掉，不然页面一直卡着
+    private IPage? _openedPage; //页面新开的标签页（target=_blank、window.open）：它抢走前台，本页就不出渲染帧、动作全超时
     private AxNode? _tree;
     private IReadOnlyDictionary<string, AxNode> _refs = new Dictionary<string, AxNode>();
     private IReadOnlyDictionary<AxNode, AxNode> _pickerOptions =
@@ -42,6 +43,7 @@ internal sealed partial class PuppeteerTab
     {
         _page = page;
         page.Dialog += (_, e) => OnDialog(e.Dialog);
+        page.Popup += (_, e) => _openedPage = e.PopupPage;
         page.Close += (_, _) => Closed?.Invoke();
     }
 
@@ -105,6 +107,7 @@ internal sealed partial class PuppeteerTab
         RunAsync(async () =>
         {
             string note = await PerformAndWaitAsync(request);
+            await ReclaimFrontAsync();
             await SettleAsync();
             return await CaptureAsync(note);
         }, cancellationToken);
@@ -138,6 +141,7 @@ internal sealed partial class PuppeteerTab
         try
         {
             if (Interlocked.Exchange(ref _strandedDialog, null) is { } stranded) await DismissStrandedAsync(stranded);
+            await ReclaimFrontAsync(); //页面脚本过后才开的新标签页
             return await work();
         }
         finally
@@ -145,6 +149,23 @@ internal sealed partial class PuppeteerTab
             _lastUsed = DateTime.UtcNow;
             _gate.Release();
         }
+    }
+
+    // 新标签页留着（可能是用户要看的内容、登录弹窗），本页拿回前台继续可操作，并告诉模型去处
+    private async Task ReclaimFrontAsync()
+    {
+        if (_handedOver || Interlocked.Exchange(ref _openedPage, null) is not { } opened) return;
+        try
+        {
+            await _page.BringToFrontAsync();
+        }
+        catch (PuppeteerException e)
+        {
+            Log.Debug($"[Browser] bringing the tab back to front failed: {e.Message}");
+        }
+
+        _notes.Enqueue($"That opened a new tab ({opened.Url}). It was left open; this tab is still the one you control. " +
+                       "Navigate here to that address if you need its content.");
     }
 
     private async Task<BrowserPageView> CaptureAsync(string? actionNote)
@@ -274,6 +295,8 @@ internal sealed partial class PuppeteerTab
         // 只有下拉框与带弹出菜单的元素才把 false 当收起
         Expanded = node.Expanded ? true : IsExpandable(node) ? false : null,
         Level = node.Level,
+        Description = node.Description ?? string.Empty,
+        Url = node.Url ?? string.Empty,
         Secret = secrets.Contains(node),
         Children = node.Children?.Select(child => ToAxNode(child, secrets)).ToArray() ?? [],
         Source = node,

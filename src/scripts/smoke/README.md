@@ -203,6 +203,21 @@ UIHARU_BROWSER_HEADLESS=1 SMOKE_MODEL=Agnes-2.5-Flash-无思考 src/scripts/smok
 - 审批卡（`report.json` 的 approvals）只出在 `navigate` / `act` / `handoff` 上（卡上的工具名是拆开后的
   `BrowserNavigate` / `BrowserAct` / `BrowserHandoff`），`snapshot` 与 `ExtensionHelp` 不问
 
+### browser-lazy：内容不在第一屏、点了会开新标签页
+
+和 browser-basic 用同一张卡。Hacker News 第二页第一条（得点页脚的 More），外加两个 `data:` 网址的自造页面
+（不依赖外部站点：the-internet 的无限滚动常因 503 加载不出 jscroll，滚多少次都是 unchanged，测不出东西）：
+一个往下滚才延迟追加条目的列表，问第 6 条；一个先点 `target=_blank` 链接、再点同页按钮的页面。
+
+```bash
+UIHARU_BROWSER_HEADLESS=1 SMOKE_MODEL=Agnes-2.5-Flash-无思考 src/scripts/smoke/run.sh browser-lazy
+```
+
+- HN：点 More（或直接导航 `?p=2`），而不是反复 scroll
+- 列表：第 6 条的 code word 是 fjord；scroll 之后大纲变长，没变长时不连着滚十几次
+- 新标签页：点链接后结果里有「opened a new tab」那句，随后点按钮不超时，按钮显示 Clicked 1 time(s)
+- `data:` 网址的导航每次都要审批（与本机地址同级）
+
 ### browser-subagent：子代理并行用浏览器（ADR 0075）
 
 自带一张开着委派的「浏览器派活员」卡（浏览器是扩展，默认就有）。让它并行派两个子代理：一个填 httpbin 表单提交，一个在 the-internet 选下拉框，回来汇总。

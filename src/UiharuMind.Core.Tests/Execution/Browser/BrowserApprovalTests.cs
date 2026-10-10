@@ -76,6 +76,7 @@ public class BrowserApprovalTests
     }
 
     [Theory]
+    [InlineData("data:text/html,<h1>hi</h1>")] //页面内容由调用方写定，与本机地址同样每次都问
     [InlineData("http://localhost:3000")]
     [InlineData("http://127.0.0.1:8080/admin")]
     [InlineData("http://10.0.0.5")]

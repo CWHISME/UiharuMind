@@ -45,7 +45,7 @@ public class McpBridgeTests : IDisposable
         string text = await Bridge(host).HelpAsync("github", null, TestContext.Current.CancellationToken);
 
         Assert.Contains("Use for GitHub.", text);
-        Assert.Contains("- search_code: Search code in repositories.", text);
+        Assert.Contains("- search_code {}: Search code in repositories.", text);
         Assert.DoesNotContain("Second line", text); //完整描述留给带 tool 的那一层
         Assert.Contains("- list_issues", text);
     }

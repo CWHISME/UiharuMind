@@ -71,6 +71,24 @@ public static class BuiltinExtensions
     /// <summary>音频：转写</summary>
     public const string AudioTranscribe = "transcribe";
 
+    /// <summary>一次调用的完整写法，报错与工具描述共用</summary>
+    public const string CallExample =
+        """{"extension": "browser", "command": "act", "arguments": {"action": "fill", "target": "e3", "value": "hello"}}""";
+
+    /// <summary>
+    /// 内置命令的速查，写进 <c>ExtensionCall</c> 的描述：模型不必先查三轮帮助就能直接调对。
+    /// 是常量（缓存前缀稳定），所以角色禁了的扩展也列着，调用时会如实说关了。
+    /// 与各工具 schema 的一致性由测试对照
+    /// </summary>
+    public const string CallUsage =
+        "Built-in commands (`?` = optional):\n" +
+        "- browser.navigate {url, view?} · browser.snapshot {view?, find?} · browser.act {action, target?, value?} " +
+        "· browser.handoff {task}. act's action is click | fill | select | check | uncheck | press | hover | scroll " +
+        "| back; target is a ref from the latest outline such as e5.\n" +
+        "- image.generate {prompt, images?, aspectRatio?}\n" +
+        "- audio.synthesize {text, voice?, tone?, speed?} · audio.transcribe {path, subtitles?}\n" +
+        "Example: " + CallExample;
+
     /// <summary>全部内置扩展名，按系统提示与帮助里的顺序</summary>
     public static readonly IReadOnlyList<string> Names = [Browser, Image, Audio];
 

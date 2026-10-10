@@ -135,7 +135,7 @@ public class McpOnDemandIntegrationTests : IDisposable
         // 第一次查它才连
         string helpText = Assert.IsType<string>(await Named(set, ExtensionCalls.HelpName).InvokeAsync(Ask("stub-ondemand"), ct));
         Assert.Contains("Stub usage notes.", helpText);
-        Assert.Contains("- echo: Echo the text back.", helpText);
+        Assert.Contains("- echo {text}: Echo the text back.", helpText);
         Assert.Equal(EMcpConnectionState.Connected, _manager.GetServerStatus("stub-ondemand").State);
 
         // 带命令:完整 schema
@@ -173,7 +173,7 @@ public class McpOnDemandIntegrationTests : IDisposable
         string help = Assert.IsType<string>(await Named(set, ExtensionCalls.HelpName).InvokeAsync(Ask("stub-silent"), ct));
         watch.Stop();
 
-        Assert.Contains("- echo:", help);
+        Assert.Contains("- echo {text}:", help);
         Assert.True(watch.Elapsed < TimeSpan.FromSeconds(4.5), $"first connect took {watch.Elapsed.TotalSeconds:0.0}s");
     }
 

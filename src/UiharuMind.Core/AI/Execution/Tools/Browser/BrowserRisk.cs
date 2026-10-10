@@ -46,7 +46,8 @@ internal static class BrowserRisk
     {
         string trimmed = url.Trim();
         if (!trimmed.Contains("://", StringComparison.Ordinal) &&
-            !trimmed.StartsWith("about:", StringComparison.OrdinalIgnoreCase))
+            !trimmed.StartsWith("about:", StringComparison.OrdinalIgnoreCase) &&
+            !trimmed.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
         {
             trimmed = "https://" + trimmed;
         }

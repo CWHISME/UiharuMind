@@ -94,6 +94,9 @@ public sealed class BrowserTools
             AIFunctionFactory.Create(tools.ActAsync, ActToolName,
                 "Act on the current page of this conversation's browser tab. The result already contains the " +
                 "updated snapshot (or just the lines that changed), so no separate snapshot is needed afterwards. " +
+                "The outline covers the whole page, not just what is on screen: scrolling changes it only on pages " +
+                "that load more as you scroll. When something is missing, click a \"more\" or \"next\" control, " +
+                "or navigate to a URL that lists exactly what you need (a search or filter page). " +
                 $"Fields marked [password] cannot be typed into: use {HandoffMention}. " +
                 ThirdPartyNotice),
             AIFunctionFactory.Create(tools.HandoffAsync, HandoffToolName,
@@ -159,8 +162,9 @@ public sealed class BrowserTools
                 _formatter.Text(await _host.ReadTextAsync(_sessionId, cancellationToken), find)),
             EView.Screenshot when _screenshots != EReadImageMode.None => RunAsync(async () =>
                 _formatter.Screenshot(await _host.ScreenshotAsync(_sessionId, cancellationToken), LookHint())),
-            EView.Screenshot => Task.FromResult("[Error] This conversation cannot look at images, so screenshots " +
-                                                "are not available. Use view \"outline\" or \"text\"."),
+            EView.Screenshot => Task.FromResult("[Error] Screenshots are off here: this agent can't view images " +
+                                                "(the model has no vision, or image viewing is turned off for it). " +
+                                                "Use view \"outline\" or \"text\"."),
             _ => Task.FromResult($"[Error] Unknown view \"{view}\". Use " +
                                  (_screenshots != EReadImageMode.None ? "outline, text or screenshot." : "outline or text.")),
         };
@@ -242,7 +246,8 @@ public sealed class BrowserTools
             string note = _host.HasWindow
                 ? "The user took over the browser and handed it back. Check the page to see whether it worked."
                 : "This browser runs without a window here, so nobody could take over; the page is as it was. " +
-                  "Handing off again will not change that.";
+                  "Handing off again, or working around it, will not change that: tell the user this step needs " +
+                  "them, report what you did get done, and stop.";
             return _formatter.AfterHandoff(view with { Notes = [note, .. view.Notes] });
         });
 
@@ -305,7 +310,8 @@ public sealed class BrowserTools
     {
         string trimmed = url.Trim();
         bool hasScheme = trimmed.Contains("://", StringComparison.Ordinal) ||
-                         trimmed.StartsWith("about:", StringComparison.OrdinalIgnoreCase);
+                         trimmed.StartsWith("about:", StringComparison.OrdinalIgnoreCase) ||
+                         trimmed.StartsWith("data:", StringComparison.OrdinalIgnoreCase);
         return hasScheme || trimmed.Length == 0 ? trimmed : "https://" + trimmed;
     }
 
