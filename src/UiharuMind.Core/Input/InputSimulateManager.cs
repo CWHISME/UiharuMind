@@ -136,6 +136,22 @@ public class InputSimulateManager : Singleton<InputSimulateManager>, IInitialize
         }
     }
 
+    /// <summary>
+    /// 不按键位直接打出一段字（中文也行）
+    /// </summary>
+    /// <param name="text">要打的字</param>
+    public void SendUnicodeText(string text)
+    {
+        try
+        {
+            _simulatorBackend.SendUnicodeText(text);
+        }
+        catch (Exception e)
+        {
+            Log.Error(e);
+        }
+    }
+
     public void Test()
     {
         SendMouseMove((short)(InputManager.MouseData.X + 20), (short)(InputManager.MouseData.Y + 20));

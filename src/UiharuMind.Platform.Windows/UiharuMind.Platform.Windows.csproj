@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!-- Windows 专用的平台层（ADR 0084）：桌面扩展的 UI Automation 实现与 Windows OCR。
+         Windows.Media.Ocr 要 -windows 目标框架，所以单独成项目；EnableWindowsTargeting 让 mac、Linux 上也能编。
+         只有 Desktop 在 Windows 上构建或发布时才引用它 -->
+    <PropertyGroup>
+        <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+        <EnableWindowsTargeting>true</EnableWindowsTargeting>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Interop.UIAutomationClient" Version="10.19041.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\UiharuMind\UiharuMind.csproj" />
+    </ItemGroup>
+
+</Project>

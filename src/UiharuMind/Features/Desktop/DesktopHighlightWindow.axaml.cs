@@ -26,7 +26,7 @@ namespace UiharuMind.Features.Desktop;
 public partial class DesktopHighlightWindow : UiharuWindowBase
 {
     private const int VisibleMs = 900;
-    private const int Margin = 4; //框比目标大一圈，不压住目标本身的字
+    private const int FrameMargin = 4; //框比目标大一圈，不压住目标本身的字
 
     private static DesktopHighlightWindow? _instance;
     private int _generation; //连着闪时只让最后一次去藏
@@ -59,9 +59,9 @@ public partial class DesktopHighlightWindow : UiharuWindowBase
     private void Flash(AxRect rect)
     {
         double scaling = PlatformUtils.IsMacOS ? 1 : App.ScreensService.Scaling;
-        Position = new PixelPoint((int)(rect.X - Margin), (int)(rect.Y - Margin));
-        Width = (rect.Width + Margin * 2) / scaling;
-        Height = (rect.Height + Margin * 2) / scaling;
+        Position = new PixelPoint((int)(rect.X - FrameMargin), (int)(rect.Y - FrameMargin));
+        Width = (rect.Width + FrameMargin * 2) / scaling;
+        Height = (rect.Height + FrameMargin * 2) / scaling;
         if (!IsVisible) Show();
 
         int generation = Interlocked.Increment(ref _generation);

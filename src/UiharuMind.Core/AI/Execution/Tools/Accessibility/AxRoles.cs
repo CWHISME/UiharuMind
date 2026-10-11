@@ -61,6 +61,22 @@ internal static partial class AxRoles
         string.Equals(node.Role, "StaticText", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(node.Role, "text", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// 去掉名字的回声：链接、按钮的名字由里面的几段字拼成（「Issues (161)」下挂着「Issues」「(」「161」「)」），
+    /// 名字里已有的字不再成行（桌面各平台读树共用）
+    /// </summary>
+    /// <param name="node">父节点</param>
+    /// <param name="children">它的子节点（就地删）</param>
+    /// <returns>同一个列表</returns>
+    public static List<AxNode> WithoutEchoes(AxNode node, List<AxNode> children)
+    {
+        string name = node.Name;
+        if (name.Trim().Length == 0) return children;
+        children.RemoveAll(child => child.Role == "text" && child.Children.Count == 0 && child.Name.Trim() is { Length: > 0 } text &&
+                                    (name.Contains(text, StringComparison.Ordinal) || text.All(char.IsPunctuation)));
+        return children;
+    }
+
     /// <summary>空白折成一个空格并去掉首尾</summary>
     public static string Flatten(string text) => text.Length == 0 ? text : WhitespaceRun().Replace(text, " ").Trim();
 

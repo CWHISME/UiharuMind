@@ -145,4 +145,5 @@ internal sealed class NullInputSimulatorBackend : IInputSimulatorBackend
     public void SimulateKeyPress(KeyCode keyCode) { }
     public void SimulateKeyRelease(KeyCode keyCode) { }
     public Task SendText(string text, int delayBetweenKeys = 50) => Task.CompletedTask;
+    public void SendUnicodeText(string text) { }
 }

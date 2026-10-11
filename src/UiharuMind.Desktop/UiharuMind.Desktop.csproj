@@ -14,6 +14,19 @@
     <RepositoryUrl>https://github.com/CWHISME/UiharuMind</RepositoryUrl>
   </PropertyGroup>
 
+  <!-- Windows 上构建或发布 win-* 时换成 -windows 目标框架，接上 Windows 平台层（桌面扩展的 UI Automation 与 OCR，ADR 0084）。
+       别的平台照旧 net10.0，不碰它 -->
+  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows')) Or $(RuntimeIdentifier.StartsWith('win'))">
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <UseWindowsPlatform>true</UseWindowsPlatform>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(UseWindowsPlatform)' == 'true'">
+    <ProjectReference Include="..\UiharuMind.Platform.Windows\UiharuMind.Platform.Windows.csproj" />
+  </ItemGroup>
+
   <!-- 发布口径：三个平台共用，脚本与 CI 都只需给 -r <RID>。
        不开 PublishTrimmed —— 全仓默认反射绑定（AvaloniaUseCompiledBindingsByDefault=false），
        裁剪会剪掉绑定要用的属性，且是静默的运行时失败。

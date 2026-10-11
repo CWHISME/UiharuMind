@@ -66,6 +66,11 @@ public class SharpHookInputSimulatorBackend : IInputSimulatorBackend
         _globalSimulator.SimulateKeyRelease(keyCode);
     }
 
+    public void SendUnicodeText(string text)
+    {
+        _globalSimulator.SimulateTextEntry(text);
+    }
+
     public async Task SendText(string text, int delayBetweenKeys = 50)
     {
         foreach (char c in text)

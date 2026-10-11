@@ -17,6 +17,9 @@ class Program
     public static void Main(string[] args)
     {
         if (TryRelaunchAsAdministrator(args)) return;
+#if WINDOWS
+        UiharuMind.Platform.Windows.WindowsPlatform.Install();
+#endif
 
         BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);

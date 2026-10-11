@@ -25,6 +25,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClassicDiagnostics.Avalonia
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Glacier.Grep", "ThirdParty\Glacier.Grep\src\Glacier.Grep\Glacier.Grep.csproj", "{9101794C-3AF9-4311-B598-FB5AD327FD57}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UiharuMind.Platform.Windows", "UiharuMind.Platform.Windows\UiharuMind.Platform.Windows.csproj", "{CE9683B4-1087-42DB-983E-C37A41C72989}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -167,6 +169,18 @@ Global
 		{9101794C-3AF9-4311-B598-FB5AD327FD57}.Release|x64.Build.0 = Release|Any CPU
 		{9101794C-3AF9-4311-B598-FB5AD327FD57}.Release|x86.ActiveCfg = Release|Any CPU
 		{9101794C-3AF9-4311-B598-FB5AD327FD57}.Release|x86.Build.0 = Release|Any CPU
+		{CE9683B4-1087-42DB-983E-C37A41C72989}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CE9683B4-1087-42DB-983E-C37A41C72989}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CE9683B4-1087-42DB-983E-C37A41C72989}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{CE9683B4-1087-42DB-983E-C37A41C72989}.Debug|x64.Build.0 = Debug|Any CPU
+		{CE9683B4-1087-42DB-983E-C37A41C72989}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CE9683B4-1087-42DB-983E-C37A41C72989}.Debug|x86.Build.0 = Debug|Any CPU
+		{CE9683B4-1087-42DB-983E-C37A41C72989}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CE9683B4-1087-42DB-983E-C37A41C72989}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CE9683B4-1087-42DB-983E-C37A41C72989}.Release|x64.ActiveCfg = Release|Any CPU
+		{CE9683B4-1087-42DB-983E-C37A41C72989}.Release|x64.Build.0 = Release|Any CPU
+		{CE9683B4-1087-42DB-983E-C37A41C72989}.Release|x86.ActiveCfg = Release|Any CPU
+		{CE9683B4-1087-42DB-983E-C37A41C72989}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

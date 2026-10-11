@@ -12,6 +12,8 @@
     <ItemGroup>
       <!-- 装配不变量测试需要访问 internal 装配函数 -->
       <InternalsVisibleTo Include="UiharuMind.Core.Tests" />
+      <!-- Windows 平台层与 macOS 那份同属桌面扩展的内部实现（ADR 0084），只是因目标框架另成项目 -->
+      <InternalsVisibleTo Include="UiharuMind.Platform.Windows" />
     </ItemGroup>
 
     <ItemGroup>

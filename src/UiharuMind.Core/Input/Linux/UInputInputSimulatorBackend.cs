@@ -146,6 +146,18 @@ internal sealed class UInputInputSimulatorBackend : IInputSimulatorBackend, IDis
         device.Sync();
     }
 
+    // uinput 只有键位：认得的字按键位打，其余跳过
+    public void SendUnicodeText(string text)
+    {
+        foreach (char c in text)
+        {
+            var keyCode = InputKeyCodeMapper.CharToKeyCode(c);
+            if (keyCode == KeyCode.VcUndefined) continue;
+            SimulateKeyPress(keyCode);
+            SimulateKeyRelease(keyCode);
+        }
+    }
+
     public async Task SendText(string text, int delayBetweenKeys = 50)
     {
         await WaitPhysicalModifiersReleased();

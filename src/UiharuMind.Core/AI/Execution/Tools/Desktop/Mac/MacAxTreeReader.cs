@@ -131,22 +131,12 @@ internal sealed class MacAxTreeReader
             // 关着的菜单不往下读：每个顶层菜单下都挂着整份菜单项，全读进来快照就淹了
             bool closedMenu = role == "AXMenuBarItem" && !node.Selected;
             IntPtr children = raw.Length > ChildrenIndex ? raw[ChildrenIndex] : IntPtr.Zero;
-            return closedMenu || !IsArray(children) ? node : node with { Children = WithoutEchoes(node, ReadChildren(children, role, depth + 1, webArea)) };
+            return closedMenu || !IsArray(children) ? node : node with { Children = AxRoles.WithoutEchoes(node, ReadChildren(children, role, depth + 1, webArea)) };
         }
         finally
         {
             CFRelease(batch);
         }
-    }
-
-    // 网页里链接、按钮的名字由里面的几段字拼成（「Issues (161)」下挂着「Issues」「(」「161」「)」）：名字里已有的字不再成行
-    private static List<AxNode> WithoutEchoes(AxNode node, List<AxNode> children)
-    {
-        string name = node.Name;
-        if (name.Trim().Length == 0) return children;
-        children.RemoveAll(child => child.Role == "text" && child.Children.Count == 0 && child.Name.Trim() is { Length: > 0 } text &&
-                                    (name.Contains(text, StringComparison.Ordinal) || text.All(char.IsPunctuation)));
-        return children;
     }
 
     private static AxNode Describe(string role, string subrole, string parentRole, object?[] values)
