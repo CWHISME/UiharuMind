@@ -22,10 +22,10 @@ public class DesktopHostTests
     {
         Children =
         [
-            new AxNode("button", "Save") { Bounds = new AxRect(110, 60, 40, 20) },
-            new AxNode("textbox", "Body") { Bounds = new AxRect(110, 100, 400, 300) },
-            new AxNode("textbox", "Password") { Secret = true, Bounds = new AxRect(110, 420, 200, 20) },
-            new AxNode("checkbox", "Wrap") { Checked = "true", Bounds = new AxRect(110, 450, 20, 20) },
+            new AxNode("button", "Save") { Bounds = new AxRect(110, 60, 40, 20), Source = "native" },
+            new AxNode("textbox", "Body") { Bounds = new AxRect(110, 100, 400, 300), Source = "native" },
+            new AxNode("textbox", "Password") { Secret = true, Bounds = new AxRect(110, 420, 200, 20), Source = "native" },
+            new AxNode("checkbox", "Wrap") { Checked = "true", Bounds = new AxRect(110, 450, 20, 20), Source = "native" },
         ],
     };
 

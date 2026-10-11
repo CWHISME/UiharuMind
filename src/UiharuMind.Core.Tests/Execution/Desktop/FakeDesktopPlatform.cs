@@ -24,6 +24,12 @@ internal sealed class FakeDesktopPlatform : IDesktopPlatform
 
     public string? Unavailable { get; set; }
 
+    public byte[] Picture { get; set; } = [1, 2, 3];
+
+    public string? CaptureRefusal { get; set; } //截图时报的错（没有屏幕录制授权）
+
+    public int Captures { get; private set; }
+
     public double SecondsSinceUserInput { get; set; } = 60;
 
     public void RequestAccess()
@@ -45,6 +51,12 @@ internal sealed class FakeDesktopPlatform : IDesktopPlatform
     }
 
     public void Input(DesktopWindowInfo window, DesktopInput input, bool real) => Inputs.Add((input, real));
+
+    public byte[] CaptureWindow(DesktopWindowInfo window)
+    {
+        Captures++;
+        return CaptureRefusal == null ? Picture : throw new AxActionException(CaptureRefusal);
+    }
 
     public bool Raise(DesktopWindowInfo window)
     {

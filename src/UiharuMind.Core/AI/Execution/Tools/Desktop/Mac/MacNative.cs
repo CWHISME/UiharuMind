@@ -356,6 +356,12 @@ internal static class MacNative
     public static extern IntPtr CGWindowListCopyWindowInfo(uint option, uint relativeToWindow);
 
     [DllImport(CoreGraphics)]
+    public static extern byte CGPreflightScreenCaptureAccess();
+
+    [DllImport(CoreGraphics)]
+    public static extern byte CGRequestScreenCaptureAccess();
+
+    [DllImport(CoreGraphics)]
     public static extern byte CGPreflightPostEventAccess();
 
     [DllImport(CoreGraphics)]

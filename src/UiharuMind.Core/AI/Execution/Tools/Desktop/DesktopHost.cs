@@ -134,17 +134,20 @@ public sealed partial class DesktopHost
     /// <param name="sessionId">会话 id（编号按会话记）</param>
     /// <param name="window">窗口编号、应用名或标题里的字</param>
     /// <param name="cancellationToken">取消令牌</param>
+    /// <param name="view">要不要看图：树太空时自动加 OCR 层；要截图时附上画了编号框的图</param>
     /// <returns>窗口此刻的样子</returns>
     /// <exception cref="AxActionException">找不到、在拒绝名单里、用不了</exception>
-    public async Task<DesktopView> SnapshotAsync(string sessionId, string window, CancellationToken cancellationToken)
+    public async Task<DesktopView> SnapshotAsync(string sessionId, string window, CancellationToken cancellationToken,
+        EDesktopView view = EDesktopView.Outline)
     {
         DesktopWindow target = await ResolveAsync(window, refresh: true, cancellationToken);
-        return await WithAppAsync(target, cancellationToken, () =>
+        return await WithAppAsync(target, cancellationToken, async () =>
         {
             WindowState state = _states.GetOrAdd((sessionId, target.Id), _ => new WindowState());
             List<string> notes = new();
             if (target.Info.Minimized) notes.Add("The window is minimized; what it shows may be incomplete.");
-            return Capture(target, state, notes);
+            AxNode tree = await Task.Run(() => _platform!.ReadWindow(target.Info, MaxNodes), cancellationToken);
+            return await ComposeAsync(target, state, tree, notes, view, cancellationToken);
         });
     }
 
@@ -201,14 +204,14 @@ public sealed partial class DesktopHost
         return found;
     }
 
-    // 同一应用的读与动排队；跨进程的调用会阻塞，放到线程池上
-    private async Task<T> WithAppAsync<T>(DesktopWindow window, CancellationToken cancellationToken, Func<T> work)
+    // 同一应用的读与动排队
+    private async Task<T> WithAppAsync<T>(DesktopWindow window, CancellationToken cancellationToken, Func<Task<T>> work)
     {
         SemaphoreSlim gate = _appGates.GetOrAdd(window.Info.Pid, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(cancellationToken);
         try
         {
-            return await Task.Run(work, cancellationToken);
+            return await work();
         }
         finally
         {
@@ -216,13 +219,17 @@ public sealed partial class DesktopHost
         }
     }
 
-    private DesktopView Capture(DesktopWindow window, WindowState state, IReadOnlyList<string> notes)
+    // 读好的树（需要时添上图里认出的字）写成快照，记作这个会话在这个窗口上看到的最近一份
+    private async Task<DesktopView> ComposeAsync(DesktopWindow window, WindowState state, AxNode tree,
+        IReadOnlyList<string> notes, EDesktopView view, CancellationToken cancellationToken)
     {
-        AxNode tree = _platform!.ReadWindow(window.Info, MaxNodes);
-        AxSnapshot snapshot = AxSnapshotWriter.Write(tree);
-        state.Tree = tree;
+        List<string> allNotes = [.. notes];
+        (AxNode withText, byte[]? picture) = await AddPictureAsync(window, tree, view, allNotes, cancellationToken);
+        AxSnapshot snapshot = AxSnapshotWriter.Write(withText);
+        state.Tree = withText;
         state.Refs = snapshot.Refs;
-        return new DesktopView(window, snapshot.Text, snapshot.CompactText, notes);
+        byte[]? marked = view == EDesktopView.Screenshot && picture != null ? Mark(picture, snapshot, window.Info.Bounds) : null;
+        return new DesktopView(window, snapshot.Text, snapshot.CompactText, allNotes) { Picture = marked };
     }
 
     private static IDesktopPlatform? CreateDefaultPlatform() => PlatformUtils.IsMacOS ? new MacDesktopPlatform() : null;
@@ -255,7 +262,24 @@ public sealed record DesktopWindow(string Id, DesktopWindowInfo Info, string? Bl
 /// <param name="Snapshot">完整快照</param>
 /// <param name="CompactSnapshot">精简版</param>
 /// <param name="Notes">这一步顺带发生的事</param>
-public sealed record DesktopView(DesktopWindow Window, string Snapshot, string CompactSnapshot, IReadOnlyList<string> Notes);
+public sealed record DesktopView(DesktopWindow Window, string Snapshot, string CompactSnapshot, IReadOnlyList<string> Notes)
+{
+    /// <summary>画了编号框的窗口截图（JPEG）；没要截图为 null</summary>
+    public byte[]? Picture { get; init; }
+}
+
+/// <summary>
+/// 快照要不要看图
+/// </summary>
+public enum EDesktopView
+{
+    /// <summary>只读无障碍树；树太空（自绘界面）时自动加上图里认出的字</summary>
+    Outline,
+    /// <summary>总是加上图里认出的字（树里有、但某块区域是画出来的）</summary>
+    Ocr,
+    /// <summary>另附一张画了编号框的截图</summary>
+    Screenshot,
+}
 
 /// <summary>
 /// 一次桌面调用给人看的样子（审批卡用）

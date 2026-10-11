@@ -29,6 +29,7 @@ internal sealed class MacDesktopPlatform : IDesktopPlatform
 
     private readonly ConcurrentDictionary<int, string> _bundleIds = new();
     private readonly ConcurrentDictionary<int, bool> _webAccessibilityEnabled = new();
+    private int _captureRequested; //请系统弹过屏幕录制授权框没有
     private readonly Lazy<IntPtr> _eventSource = new(() => CGEventSourceCreate(EventSourcePrivate)); //用到才建：建它就会触发「发送事件」的授权检查
 
     public MacDesktopPlatform()
@@ -160,6 +161,38 @@ internal sealed class MacDesktopPlatform : IDesktopPlatform
             case EDesktopInputKind.Scroll:
                 Scroll(window.Pid, input, real);
                 break;
+        }
+    }
+
+    /// <inheritdoc />
+    public byte[] CaptureWindow(DesktopWindowInfo window)
+    {
+        if (CGPreflightScreenCaptureAccess() == 0)
+        {
+            // 第一次请系统弹授权框；授了也要重启本应用才生效（系统的规矩）
+            if (Interlocked.Exchange(ref _captureRequested, 1) == 0) CGRequestScreenCaptureAccess();
+            throw new AxActionException("Reading the window's picture needs the Screen Recording permission, which the user " +
+                                        "has not allowed yet (System Settings → Privacy & Security → Screen Recording; " +
+                                        "the app must be restarted after allowing it).");
+        }
+
+        uint number = Handle(window).WindowNumber;
+        if (number == 0) throw new AxActionException("This window can't be captured: the system did not report it on screen.");
+        string path = Path.Combine(Path.GetTempPath(), $"uiharu-desktop-{Guid.NewGuid():N}.png");
+        try
+        {
+            // -l 只截这个窗口（压在上面的不截），-o 不带阴影，-x 不出声
+            ProcessStartInfo start = new("/usr/sbin/screencapture") { UseShellExecute = false };
+            foreach (string argument in new[] { "-x", "-o", "-t", "png", "-l", number.ToString(), path }) start.ArgumentList.Add(argument);
+            using Process process = Process.Start(start)!;
+            process.WaitForExit(10_000);
+            return File.Exists(path) && new FileInfo(path).Length > 0
+                ? File.ReadAllBytes(path)
+                : throw new AxActionException("Capturing the window failed (it may be minimized or on another Space).");
+        }
+        finally
+        {
+            File.Delete(path);
         }
     }
 

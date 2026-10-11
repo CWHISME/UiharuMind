@@ -143,6 +143,7 @@ public partial class App : Application, ILogger, IDisposable
             DictationIndicatorWindow.Attach(Services.GetRequiredService<IDictationService>(),
                 Services.GetRequiredService<ForegroundAppDictationTarget>());
             DesktopHighlightWindow.Attach(); //桌面扩展动手时框一下目标（ADR 0084）
+            UiharuMind.Core.AI.Execution.Tools.Desktop.DesktopHost.Shared.Vision = new DesktopVision(); //读不到界面结构时认图里的字
             MacInputDiagnostics.Install(); //输入法候选框偶尔不出来，查明原因用
             UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("di-container");
             DummyWindow.InitializeMainViewModel(Services.GetRequiredService<MainViewModel>());

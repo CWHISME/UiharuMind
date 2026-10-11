@@ -104,7 +104,7 @@ public static class BuiltinExtensions
         "- browser.navigate {url, view?} · browser.snapshot {view?, find?} · browser.act {action, target?, value?} " +
         "· browser.handoff {task}. act 的 action 取 click | fill | select | check | uncheck | press | hover | scroll " +
         "| back；target 是最近一份 outline 里的 ref，如 e5。\n" +
-        "- desktop.windows {} · desktop.snapshot {window, find?} · desktop.act {window, action, target?, value?, input?} " +
+        "- desktop.windows {} · desktop.snapshot {window, view?, find?} · desktop.act {window, action, target?, value?, input?} " +
         "· desktop.open {target} · desktop.handoff {window, task}. window 是 windows 列出的编号，如 w3。\n" +
         "- image.generate {prompt, images?, aspectRatio?}\n" +
         "- audio.synthesize {text, voice?, tone?, speed?} · audio.transcribe {path, subtitles?}\n" +
@@ -215,14 +215,15 @@ public static class BuiltinExtensions
     /// <param name="sessionId">会话 id</param>
     /// <param name="spillDirectory">快照超长落盘的目录</param>
     /// <param name="paths">路径口径：打开文件只认工作区与草稿目录</param>
+    /// <param name="screenshots">截图之后怎么看；看不了图为 None，不提供截图</param>
     /// <returns>扩展；系统不支持或没授权时照样列出、调用时说明原因</returns>
     internal static BuiltinExtension CreateDesktop(DesktopHost host, string sessionId, string spillDirectory,
-        AgentPathResolver? paths = null) =>
+        AgentPathResolver? paths = null, EReadImageMode screenshots = EReadImageMode.None) =>
         new(Desktop,
             "用户电脑上别的应用的窗口。先 windows 列出窗口（编号如 w3），再 snapshot 读它的界面（ref 如 e5），" +
             "然后按 ref 对它 act。windows 与 snapshot 从不问用户；act 与 open 除非用户已为本会话放行这个应用，否则会询问；" +
             "input \"real\"（真实鼠标键盘）与 handoff 总是等用户。密码管理、系统设置、终端与本应用自身的窗口不能碰。",
-            Bind(Desktop, DesktopTools.Create(host, sessionId, spillDirectory, paths)))
+            Bind(Desktop, DesktopTools.Create(host, sessionId, spillDirectory, paths, screenshots)))
         {
             // 没授权这类会变的原因不在装配时定死：用户中途授权了，下一次调用就能用（宿主每次调用现查）
             Unavailable = host.IsSupported ? null : host.Unavailable,

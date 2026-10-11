@@ -55,13 +55,16 @@ public sealed class DesktopTools
     private readonly DesktopHost _host;
     private readonly string _sessionId;
     private readonly AgentPathResolver? _paths; //打开文件只认工作区与草稿目录
+    private readonly EReadImageMode _screenshots;
     private readonly AxResultFormatter _formatter;
 
-    private DesktopTools(DesktopHost host, string sessionId, string spillDirectory, AgentPathResolver? paths)
+    private DesktopTools(DesktopHost host, string sessionId, string spillDirectory, AgentPathResolver? paths,
+        EReadImageMode screenshots)
     {
         _host = host;
         _sessionId = sessionId;
         _paths = paths;
+        _screenshots = screenshots;
         _formatter = new AxResultFormatter(spillDirectory, new AxResultWording("desktop", "DesktopSnapshot", "DesktopFind",
             "(the window shows nothing readable; it may draw its own interface)", (fullBytes, cut, saved) =>
                 "Large window" + (cut ? ": the snapshot is cut" : string.Empty) +
@@ -76,18 +79,24 @@ public sealed class DesktopTools
     /// <param name="sessionId">会话 id</param>
     /// <param name="spillDirectory">快照超长时落盘的目录</param>
     /// <param name="paths">路径口径：打开文件只认工作区与草稿目录；不给就只能启动应用</param>
+    /// <param name="screenshots">截图之后怎么看：视觉模型经 Read、否则经 AnalyzeImage；看不了图为 None，不提供截图</param>
     /// <returns>五把工具。不包审批：它们只经 <see cref="ExtensionCalls.CallName"/> 调，审批在那一层逐条判</returns>
     public static IReadOnlyList<AITool> Create(DesktopHost host, string sessionId, string spillDirectory,
-        AgentPathResolver? paths = null)
+        AgentPathResolver? paths = null, EReadImageMode screenshots = EReadImageMode.None)
     {
-        DesktopTools tools = new(host, sessionId, spillDirectory, paths);
+        DesktopTools tools = new(host, sessionId, spillDirectory, paths, screenshots);
+        bool canScreenshot = screenshots != EReadImageMode.None;
+        AIFunction snapshot = AIFunctionFactory.Create(tools.SnapshotAsync, SnapshotToolName,
+            "读取一个窗口的界面结构：带可操作 ref（如 e5）的无障碍快照，含应用的菜单栏。" +
+            "一旦对同一窗口拍了新快照，旧的 ref 就失效。界面是画出来的（游戏、画布）读不到结构时，" +
+            "会自动从窗口图像里认字，认出的行标为 ocr-text，同样带 ref；view \"ocr\" 强制认字。" +
+            (canScreenshot ? "view \"screenshot\" 另附一张截图，图上用框标出各个 ref，适合看图标、布局。" : string.Empty) +
+            ThirdPartyNotice);
         return
         [
             AIFunctionFactory.Create(tools.WindowsAsync, WindowsToolName,
                 "列出桌面上打开的窗口（含最小化的），前台的在前，每个带编号如 w3。编号在本应用运行期间不变。"),
-            AIFunctionFactory.Create(tools.SnapshotAsync, SnapshotToolName,
-                "读取一个窗口的界面结构：带可操作 ref（如 e5）的无障碍快照，含应用的菜单栏。" +
-                "一旦对同一窗口拍了新快照，旧的 ref 就失效。" + ThirdPartyNotice),
+            canScreenshot ? new ParameterDescriptionFunction(snapshot, "view", "outline（默认）、ocr 或 screenshot") : snapshot,
             AIFunctionFactory.Create(tools.ActAsync, ActToolName,
                 "在一个窗口里执行动作，结果已包含更新后的快照（或只含变动的行）。默认不移动鼠标、不抢前台；" +
                 "点了没反应时可改用 input \"real\" 用真实鼠标键盘（每次都要用户同意）。" +
@@ -117,10 +126,32 @@ public sealed class DesktopTools
     private Task<string> SnapshotAsync(
         [Description("窗口编号（如 w3），或应用名、标题里的字")]
         string window,
+        [Description("outline（默认）或 ocr")]
+        string view = "outline",
         [Description("可选词或短语：只留包含它的行，每行带上下文")]
         string? find = null,
-        CancellationToken cancellationToken = default) =>
-        RunAsync(async () => _formatter.Observe(ToView(await _host.SnapshotAsync(_sessionId, window, cancellationToken)), find));
+        CancellationToken cancellationToken = default)
+    {
+        EDesktopView? wanted = (view ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "" or "outline" or "tree" => EDesktopView.Outline,
+            "ocr" or "text" => EDesktopView.Ocr,
+            "screenshot" or "image" when _screenshots != EReadImageMode.None => EDesktopView.Screenshot,
+            _ => null,
+        };
+        if (wanted is not { } kind)
+        {
+            return Task.FromResult($"[Error] 不支持的 view \"{view}\"。用 " +
+                                   (_screenshots != EReadImageMode.None ? "outline、ocr 或 screenshot。" : "outline 或 ocr（本智能体看不了图）。"));
+        }
+
+        return RunAsync(async () =>
+        {
+            DesktopView seen = await _host.SnapshotAsync(_sessionId, window, cancellationToken, kind);
+            string result = _formatter.Observe(ToView(seen), find);
+            return seen.Picture is { } picture ? result + "\n\n" + SavePicture(picture) : result;
+        });
+    }
 
     private Task<string> ActAsync(
         [Description("窗口编号（如 w3），与拍快照时同一个")]
@@ -236,6 +267,18 @@ public sealed class DesktopTools
         }
 
         return full;
+    }
+
+    // 图存进草稿目录，结果只给路径与怎么看：图本身由 Read 的投影带上（ADR 0073），与浏览器截图同一口径
+    private string SavePicture(byte[] jpeg)
+    {
+        Directory.CreateDirectory(_formatter.SpillDirectory);
+        string path = Path.Combine(_formatter.SpillDirectory, ToolResultSpill.FileNameFor("DesktopScreenshot", jpeg, ".jpg"));
+        File.WriteAllBytes(path, jpeg);
+        string look = _screenshots == EReadImageMode.Attach
+            ? $"{FileToolNames.Read} it to look at it."
+            : $"Pass it to {VisionTool.ToolName} to look at it.";
+        return $"Screenshot of the window saved to {path}; each ref of this snapshot is boxed and labeled on it. {look}";
     }
 
     private bool IsAllowed(string full) =>

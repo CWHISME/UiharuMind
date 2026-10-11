@@ -51,7 +51,7 @@ public sealed partial class DesktopHost
             state.Round.Enter(state.Refs);
             Target target = Resolve(window, state, request);
             string? note = await PerformAsync(window, state, request, target, cancellationToken);
-            return await Task.Run(() => Settle(window, state, note), cancellationToken);
+            return await SettleAsync(window, state, note, cancellationToken);
         }
         finally
         {
@@ -141,7 +141,6 @@ public sealed partial class DesktopHost
     private async Task<string?> PerformAsync(DesktopWindow window, WindowState state, DesktopActionRequest request,
         Target target, CancellationToken cancellationToken)
     {
-        IDesktopPlatform platform = _platform!;
         AxNode? node = target.Node;
         switch (request.Action)
         {
@@ -159,7 +158,7 @@ public sealed partial class DesktopHost
 
             case EDesktopAction.Fill:
                 RefuseSecret(node, state, request);
-                if (!request.Real && node != null && await OnPlatformAsync(() => platform.TryPerform(node, EDesktopAction.Fill, request.Value))) return null;
+                if (!request.Real && node != null && await AccessibleAsync(node, EDesktopAction.Fill, request.Value)) return null;
                 await FocusAsync(window, target, request.Real, cancellationToken);
                 await InputAsync(window, new DesktopInput(EDesktopInputKind.SelectAll), request.Real, cancellationToken);
                 await TypeAsync(window, request.Value, request.Real, cancellationToken);
@@ -169,7 +168,7 @@ public sealed partial class DesktopHost
                 RefuseSecret(node, state, request);
                 // 先试在光标处插入（不经键盘，后台也行）：目标没给就落在快照里有焦点的那个
                 AxNode? into = node ?? (target.Point == null && state.Tree != null ? FocusedNode(state.Tree) : null);
-                if (!request.Real && into != null && await OnPlatformAsync(() => platform.TryPerform(into, EDesktopAction.Type, request.Value)))
+                if (!request.Real && into != null && await AccessibleAsync(into, EDesktopAction.Type, request.Value))
                 {
                     return null;
                 }
@@ -189,7 +188,7 @@ public sealed partial class DesktopHost
             case EDesktopAction.Select:
                 AxNode list = Required(node, request);
                 if (request.Value.Trim().Length == 0) throw new AxActionException("select needs value: the visible text of the option.");
-                if (!request.Real && await OnPlatformAsync(() => platform.TryPerform(list, EDesktopAction.Select, request.Value))) return null;
+                if (!request.Real && await AccessibleAsync(list, EDesktopAction.Select, request.Value)) return null;
                 throw new AxActionException($"Could not pick \"{request.Value}\" in {list.Label} directly. " +
                                             "Click it to open the list, then click the option.");
 
@@ -226,7 +225,7 @@ public sealed partial class DesktopHost
         if (!real && kind == EDesktopAction.Click && target.Node is { } node)
         {
             if (node.Bounds is { } bounds) Highlight?.Invoke(bounds);
-            if (await OnPlatformAsync(() => _platform!.TryPerform(node, EDesktopAction.Click, string.Empty))) return null;
+            if (await AccessibleAsync(node, EDesktopAction.Click, string.Empty)) return null;
         }
 
         (double x, double y) = PointOf(window, target, allowWindowCenter: false);
@@ -241,7 +240,7 @@ public sealed partial class DesktopHost
 
     private async Task FocusAsync(DesktopWindow window, Target target, bool real, CancellationToken cancellationToken)
     {
-        if (!real && target.Node is { } node && await OnPlatformAsync(() => _platform!.TryPerform(node, EDesktopAction.Focus, string.Empty)))
+        if (!real && target.Node is { } node && await AccessibleAsync(node, EDesktopAction.Focus, string.Empty))
         {
             return;
         }
@@ -319,33 +318,34 @@ public sealed partial class DesktopHost
         }
     }
 
-    // 动作后等界面稳下来：连着两次读到一样的就交，最多读几次
-    private DesktopView Settle(DesktopWindow window, WindowState state, string? note)
+    // 动作后等界面稳下来：连着两次读到一样的就交，最多读几次；稳了再看要不要认图里的字（只认一次，认字慢）
+    private async Task<DesktopView> SettleAsync(DesktopWindow window, WindowState state, string? note,
+        CancellationToken cancellationToken)
     {
         List<string> notes = note != null ? [note] : [];
-        DesktopView? previous = null;
-        for (int read = 0; read < SettleReads; read++)
+        AxNode? tree = null;
+        string previous = string.Empty;
+        try
         {
-            Thread.Sleep(SettleDelayMs);
-            DesktopView current;
-            try
+            for (int read = 0; read < SettleReads; read++)
             {
-                current = Capture(window, state, notes);
+                await Task.Delay(SettleDelayMs, cancellationToken);
+                tree = await Task.Run(() => _platform!.ReadWindow(window.Info, MaxNodes), cancellationToken);
+                string text = AxSnapshotWriter.Write(tree).Text;
+                if (read > 0 && text == previous) break;
+                previous = text;
             }
-            catch (DesktopWindowGoneException)
-            {
-                // 动作把窗口关了（点了关闭、保存后关窗）：如实说，它的编号作废
-                state.Tree = null;
-                state.Refs = new Dictionary<string, AxNode>();
-                return new DesktopView(window, string.Empty, string.Empty,
-                    [.. notes, $"{window.Id} closed after that step. Call {DesktopTools.WindowsMention} to see what is open now."]);
-            }
-
-            if (previous != null && previous.Snapshot == current.Snapshot) return current;
-            previous = current;
+        }
+        catch (DesktopWindowGoneException)
+        {
+            // 动作把窗口关了（点了关闭、保存后关窗）：如实说，它的编号作废
+            state.Tree = null;
+            state.Refs = new Dictionary<string, AxNode>();
+            return new DesktopView(window, string.Empty, string.Empty,
+                [.. notes, $"{window.Id} closed after that step. Call {DesktopTools.WindowsMention} to see what is open now."]);
         }
 
-        return previous!;
+        return await ComposeAsync(window, state, tree!, notes, EDesktopView.Outline, cancellationToken);
     }
 
     private (double X, double Y) PointOf(DesktopWindow window, Target target, bool allowWindowCenter)
@@ -379,6 +379,10 @@ public sealed partial class DesktopHost
     private static bool IsRef(string key) => key.Length > 1 && key[0] == 'e' && key[1..].All(char.IsAsciiDigit);
 
     private static Task<bool> OnPlatformAsync(Func<bool> work) => Task.Run(work);
+
+    // 第 1 级：图里认出的字（ocr-text）背后没有无障碍元素，直接交给按位置发事件
+    private Task<bool> AccessibleAsync(AxNode node, EDesktopAction action, string value) =>
+        node.Source == null ? Task.FromResult(false) : OnPlatformAsync(() => _platform!.TryPerform(node, action, value));
 
     [GeneratedRegex(@"^\s*\(?\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*\)?\s*$")]
     private static partial Regex CoordinatesPattern();

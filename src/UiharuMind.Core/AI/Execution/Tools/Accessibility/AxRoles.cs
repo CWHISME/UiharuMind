@@ -16,11 +16,15 @@ namespace UiharuMind.Core.AI.Execution.Tools.Accessibility;
 /// </summary>
 internal static partial class AxRoles
 {
+    /// <summary>从屏幕图上认出的一行字（桌面的 OCR 层）：没有无障碍元素可调，点它就是点它框的中心</summary>
+    public const string OcrText = "ocr-text";
+
     // 能点、能填、能选的角色才编号；标题、段落只读，编了号模型也无事可做
     private static readonly HashSet<string> Actionable = new(StringComparer.OrdinalIgnoreCase)
     {
         "button", "link", "textbox", "searchbox", "combobox", "listbox", "option", "checkbox", "radio",
         "switch", "slider", "spinbutton", "menuitem", "menuitemcheckbox", "menuitemradio", "tab", "treeitem",
+        OcrText,
     };
 
     // 没名字时本身不成行、子节点上提一层的容器

@@ -233,7 +233,7 @@ internal static class AgentToolsetBuilder
                 ? BuiltinExtensions.Unavailable(BuiltinExtensions.Desktop, "Desktop control is not available here.")
                 : BuiltinExtensions.CreateDesktop(resources.Desktop, resources.SessionId, Path.Combine(
                     resources.OutputRoomDirectory.Length > 0 ? resources.OutputRoomDirectory : Path.GetTempPath(), "desktop"),
-                    paths));
+                    paths, imageMode == EReadImageMode.Attach && !mountFiles ? EReadImageMode.None : imageMode));
         }
 
         // 生图只看配置：至少配了一个生图模型，连不连得通不看（ADR 0052）

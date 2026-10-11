@@ -69,6 +69,14 @@ public interface IDesktopPlatform
     void Input(DesktopWindowInfo window, DesktopInput input, bool real);
 
     /// <summary>
+    /// 截这个窗口（只截它，不截压在上面的别的窗口）
+    /// </summary>
+    /// <param name="window">窗口</param>
+    /// <returns>PNG 数据（视网膜屏上是两倍像素）</returns>
+    /// <exception cref="AxActionException">没有屏幕录制授权、截不了</exception>
+    byte[] CaptureWindow(DesktopWindowInfo window);
+
+    /// <summary>
     /// 把窗口提到最前（并激活它的应用）
     /// </summary>
     /// <param name="window">窗口</param>

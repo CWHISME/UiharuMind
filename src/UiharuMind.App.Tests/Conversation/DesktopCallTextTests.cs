@@ -127,6 +127,8 @@ public class DesktopCallTextTests
         {
         }
 
+        public byte[] CaptureWindow(DesktopWindowInfo window) => [];
+
         public bool Raise(DesktopWindowInfo window) => true;
 
         public void Open(string target, bool isFile)
