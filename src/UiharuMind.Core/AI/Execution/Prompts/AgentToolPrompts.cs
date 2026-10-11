@@ -124,6 +124,16 @@ public static class AgentToolPrompts
         "- 已经知道关键词，就先用 `Grep` 带上 contextLines 搜一次——" +
         "命中行加上它的上下文，往往就是你需要的全部。否则只 `Read` 需要的那一段。";
     /// <summary>
+    /// 没有 Glob 的只读装配（脑，ADR 0082）：只有 Grep/Read 时的读纪律。
+    /// 与 <see cref="FileReadDefault"/> 的差别只在找文件那一句不点名 `Glob`——
+    /// 提示语指名的工具必须真实存在（有不变量测试钉住）。
+    /// </summary>
+    public const string FileReadDefaultWithoutGlob =
+        "- 项目中的文件工具都经过反复优化，用 `Grep` 搜文本（可指定目录或具体文件），用 `Read` 读文件(自动处理编码等问题、传 limit=-1 可一次读完)。\n" +
+        "- 已经知道关键词，就先用 `Grep` 带上 contextLines 搜一次——" +
+        "命中行加上它的上下文，往往就是你需要的全部。否则只 `Read` 需要的那一段。";
+
+    /// <summary>
     /// 文件<b>修改</b>纪律默认正文。只在写工具真的在场时由 <see cref="BuildFileOperations"/> 附到「## 文件操作」段。
     ///
     /// 「先 `Read` 再改」留在这一侧而不是读那一侧：它是 <c>Edit</c> 的前置条件，
@@ -156,11 +166,12 @@ public static class AgentToolPrompts
     /// </summary>
     /// <param name="fileWriteMounted">写工具（Edit/Write）是否已装配</param>
     /// <returns>文件操作段正文</returns>
-    public static string BuildFileOperations(bool fileWriteMounted)
+    public static string BuildFileOperations(bool fileWriteMounted, bool fileGlob = true)
     {
+        string read = fileGlob ? FileReadDefault : FileReadDefaultWithoutGlob;
         return fileWriteMounted
-            ? FileReadDefault + "\n" + FileWriteDefault
-            : FileReadDefault;
+            ? read + "\n" + FileWriteDefault
+            : read;
     }
 
     /// <summary>

@@ -74,13 +74,10 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     public string PythonInterpreterPath { get; set; } = FactoryDefaultPythonInterpreterPath;
 
     /// <summary>
-    /// 探索型子代理使用的模型名(空 = 回退到主代理模型)。
-    ///
-    /// ⚠️ <b>仅为重建存量</b>（ADR 0044 阶段 2「就地封存」）：新的委派一律走通用档，
-    /// 这个值只在续跑<b>老的</b>只读子会话时还被读到。设置页那个选择器已经删掉——
-    /// 一个对新委派不起作用的控件留着只会误导。字段本身不删：删了存量重建就取不到模型。
+    /// 脑使用的模型名(空 = 回退到主代理模型)。脑同步、有界、只读地整理大文件与被截断的工具结果，
+    /// 配一个便宜的小模型正合适（ADR 0082）。
     /// </summary>
-    public string ExplorerSubAgentModelName { get; set; } = string.Empty;
+    public string BrainSubAgentModelName { get; set; } = string.Empty;
 
     /// <summary>
     /// 通用子代理使用的模型名(空 = 回退到主代理模型)。

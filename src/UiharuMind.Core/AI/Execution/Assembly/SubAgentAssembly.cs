@@ -171,9 +171,10 @@ internal static class SubAgentAssembly
         AgentBuildProfile profile = plan.Profile;
         SubAgentIdentity identity = profile.SubAgent
                                     ?? throw new InvalidOperationException("BuildFromPlan 只接受子会话的装配计划");
-        SubAgentProfile subProfile = identity.Type == ESubAgentType.Explorer
-            ? SubAgentProfile.Explorer
-            : SubAgentProfile.General;
+        // 墓碑档（Explorer）按脑装配：老只读子会话重建后仍是只读，语义升级进 Brain（ADR 0082）
+        SubAgentProfile subProfile = identity.Type == ESubAgentType.General
+            ? SubAgentProfile.General
+            : SubAgentProfile.Brain;
 
         EAgentPermissionMode effectivePermission = subProfile.ForceReadOnly
             ? EAgentPermissionMode.ReadOnly
@@ -239,7 +240,8 @@ internal static class SubAgentAssembly
             // 纯对话也走与正常装配同一份身份形状:人格(带标题) + # 角色 段;
             // 工具纪律等一律不拼——没有工具,拼了等于指挥模型调不存在的东西
             string personaSection = AgentInstructionsComposer.CharacterSection(persona);
-            string identitySection = BuildIdentitySection(named, input.Role, canMutate: false);
+            string identitySection = BuildIdentitySection(named, input.Role, canMutate: false,
+                brain: input.SubAgentProfile.IsBrain);
             List<string> fallbackParts = [];
             if (personaSection.Length > 0) fallbackParts.Add(personaSection);
             // 标题→正文单换行,与正常路径 list.Section 同一口径(身份段内部刻意不空行撑开)
@@ -317,6 +319,34 @@ internal static class SubAgentAssembly
     }
 
     /// <summary>
+    /// 创建脑工具（ADR 0082）。与委派同源：脑也是开一个真子会话，只是同步、有界、只读，
+    /// 装配按 <see cref="SubAgentProfile.Brain"/>（Grep/Read 无 Glob、轮次上限 30）。
+    /// 探一次装配：文件能力全关时脑挂不上（没有 Read/Grep 的脑毫无意义），返回 null。
+    /// </summary>
+    /// <param name="plan">主代理的装配计划（工作目录、工作区规矩与权限档由此继承）</param>
+    /// <returns>脑工具；无任何能力可用时为 null</returns>
+    public static AITool? TryCreateBrainTool(AgentAssemblyPlan plan)
+    {
+        SubAgentAssemblyInput probe = new()
+        {
+            Compaction = plan.Compaction,
+            Config = plan.Config,
+            Persona = string.Empty,
+            Name = string.Empty,
+            WorkingDirectory = plan.WorkingDirectory,
+            ModelSupportsVision = plan.ModelSupportsVision,
+            ImageModelsConfigured = plan.ImageModelsConfigured,
+            SessionId = plan.Profile.SessionId,
+            PermissionMode = EAgentPermissionMode.ReadOnly,
+            WorkspaceInstructions = plan.WorkspaceInstructions,
+            SubAgentProfile = SubAgentProfile.Brain,
+        };
+        if (BuildSubAgentOptions(probe) == null) return null;
+
+        return BrainTool.Create(BuildLaunchContext(plan, SubAgentProfile.Brain, []));
+    }
+
+    /// <summary>
     /// 组一份派活上下文。子会话的字段几乎全部从派活者继承，因此这里没有任何决策，
     /// 只有搬运——真正的装配发生在子会话自己挂接执行者的那一刻（<see cref="BuildFromPlan"/>）。
     /// </summary>
@@ -353,9 +383,9 @@ internal static class SubAgentAssembly
     internal static HarnessAgentOptions? BuildSubAgentOptions(SubAgentAssemblyInput input)
     {
         AgentToolConfig config = input.Config;
-        // 新派的子代理只有一种;探索档只为重建存量子会话而留,仍恒定只读
+        // 新派的子代理只有两种：通用（可改）与脑（ADR 0082，恒定只读）；墓碑档重建也走脑
         EAgentToolScope scope = input.SubAgentProfile.ForceReadOnly
-            ? EAgentToolScope.LegacyExplorer
+            ? EAgentToolScope.Brain
             : EAgentToolScope.SubAgent;
         bool canMutate = !AgentToolScopes.Of(scope).ReadOnlyFiles;
         string outputRoom = AgentOutputLayout.GetRoomAbsolutePath(input.OutputFolderName);
@@ -375,6 +405,11 @@ internal static class SubAgentAssembly
             Browser = input.Browser,
             Character = input.Character,
         });
+        // 脑不挂 Glob：脑是内容向的，Grep 定位 + Read 读内容即可，目录形状不关心（ADR 0082）
+        if (!input.SubAgentProfile.MountsGlob)
+        {
+            entries.RemoveAll(x => x.Tool.Name == FileToolNames.Glob);
+        }
         List<AITool> tools = entries.Select(x => x.Tool).ToList();
         // 纪律段里指名的工具必须真的在这份工具集里(有不变量测试钉住),所以判据取装配结果而不是配置意图
         bool hasShell = entries.Any(x => x.Capability == EAgentCapability.Shell);
@@ -392,8 +427,8 @@ internal static class SubAgentAssembly
         // 再给一份英文描述就是重复,还会把整段中文提示词带出英文。留空。
         options.Description = string.Empty;
         // 无人值守兜底:到顶即停止循环并把已有进展作为响应返回(框架不抛异常)。
-        // 子代理能改东西之后这条更承重
-        options.MaximumIterationsPerRequest = SubAgentTool.MaxIterations;
+        // 脑是有界活:内部工具轮压到 BrainTool.MaxIterations,到顶返回已得部分(ADR 0082)
+        options.MaximumIterationsPerRequest = input.SubAgentProfile.MaxIterations;
         // 审批中间件照挂,规则与主代理同源——档位语义只有一处定义(ApprovalModeMapper)。
         // 非完全自动档下这里不会被用到:那些档位挂的全是免审批的只读工具
         options.ToolApprovalAgentOptions = new ToolApprovalAgentOptions
@@ -409,7 +444,8 @@ internal static class SubAgentAssembly
             input.WorkingDirectory, outputRoom,
             input.WorkspaceInstructions,
             entries.Any(x => x.Capability == EAgentCapability.Extensions) ? ExtensionRoster.Section(config, input.Mcp) : string.Empty,
-            input.Persona, input.Role);
+            input.Persona, input.Role,
+            brain: input.SubAgentProfile.IsBrain);
         subOptions.Tools = tools;
         options.ChatOptions = subOptions;
         return options;
@@ -424,8 +460,9 @@ internal static class SubAgentAssembly
     /// <param name="named">是否点名的子智能体（persona 非空）</param>
     /// <param name="role">派活时给的一句话身份；空串则不写那一句</param>
     /// <param name="canMutate">是否挂了可变更工具（决定边界句取哪一档）</param>
+    /// <param name="brain">是否脑（ADR 0082）：追加脑纪律</param>
     /// <returns># 角色 段正文（不含标题）；可能为空串</returns>
-    private static string BuildIdentitySection(bool named, string role, bool canMutate)
+    private static string BuildIdentitySection(bool named, string role, bool canMutate, bool brain = false)
     {
         List<string> identity = [];
         if (!named) identity.Add(SubAgentPrompts.Role);
@@ -439,6 +476,8 @@ internal static class SubAgentAssembly
         // 边界句置空(见 SubAgentPrompts 注释):能力由工具集决定,规则由任务书指明。非空才入列。
         string? boundary = canMutate ? SubAgentPrompts.BoundaryCanMutate : SubAgentPrompts.BoundaryReadOnly;
         if (boundary.Length > 0) identity.Add(boundary);
+        // 脑的纪律是身份的一部分:只读 + 一段话总结 + 可被追问(ADR 0082)
+        if (brain) identity.Add(SubAgentPrompts.BrainDiscipline);
         return string.Join("\n", identity);
     }
 
@@ -468,12 +507,13 @@ internal static class SubAgentAssembly
     /// <param name="outputRoomDirectory">草稿目录(派活者会话的房间)绝对路径；空串则不写该段</param>
     /// <param name="workspaceInstructions">工作区说明文件内容(只取有无,有则给指针,不拼正文)</param>
     /// <param name="extensionsSection">扩展名单段（挂了扩展的元工具才有）</param>
+    /// <param name="brain">是不是脑（ADR 0082）：追加脑纪律，不给 Glob</param>
     /// <returns>提示词</returns>
     private static string BuildSubAgentInstructions(AgentToolConfig config, bool hasShell,
         string shellBinary, bool canMutate, string pythonOutputDirectory,
         string workingDirectory, string outputRoomDirectory,
         string workspaceInstructions, string extensionsSection,
-        string persona = "", string role = "")
+        string persona = "", string role = "", bool brain = false)
     {
         bool named = persona.Length > 0;
 
@@ -486,13 +526,15 @@ internal static class SubAgentAssembly
         list.Raw(named, AgentInstructionsComposer.CharacterSection(persona));
         // 身份段(# 角色)。点名的子智能体人格已是身份,不再跟一句"你是 UiharuMind 的一个代理"
         // ——那是跟人格抢身份;身份段内部用单换行:全是短句,空行撑开既费 token 又让它看着像五段独立的话
-        list.Section(true, AgentPromptHeadings.SubAgentRole, BuildIdentitySection(named, role, canMutate));
+        list.Section(true, AgentPromptHeadings.SubAgentRole, BuildIdentitySection(named, role, canMutate, brain));
 
         // 工具纪律与主代理共用同一张清单(段序、出现条件都在那一处定义)
         list.Raw(true, ToolDisciplineSections.Build(new ToolDisciplineSections.ToolDisciplineFacts
         {
             FileRead = config.EnableFileAccess,
-            // 探索档拿的是 disableWriteTools 裁过的那份:有 Glob/Grep/Read,没有 Edit/Write
+            // 只读档拿的是 disableWriteTools 裁过的那份:有 Glob/Grep/Read,没有 Edit/Write;
+            // 脑再裁一刀没有 Glob(ADR 0082)——纪律段点名了它而工具集里没有,违反不变量
+            FileGlob = !brain,
             FileWrite = config.EnableFileAccess && canMutate,
             Shell = hasShell,
             Python = hasShell && pythonOutputDirectory.Length > 0,

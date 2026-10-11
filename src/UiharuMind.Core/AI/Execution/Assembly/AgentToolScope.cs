@@ -30,8 +30,8 @@ public enum EAgentToolScope
     /// <summary>委派出去的子代理：拿的是一份任务书</summary>
     SubAgent,
 
-    /// <summary>旧版探索档子会话，只为重建存量而留：只读文件</summary>
-    LegacyExplorer,
+    /// <summary>脑（ADR 0082）：同步、有界、只读的整理助手，只给 Grep/Read</summary>
+    Brain,
 }
 
 /// <summary>
@@ -83,8 +83,8 @@ internal static class AgentToolScopes
 
     private static readonly AgentToolScopeRule ScheduledRunRule = MainRule with { BackgroundTasks = false };
 
-    // 调研不该顺手改东西：只给 Glob / Grep / Read
-    private static readonly AgentToolScopeRule LegacyExplorerRule =
+    // 脑拿的是一份整理任务：只给文件检索（Grep/Read，无 Glob——内容向，目录形状不关心），只读不改
+    private static readonly AgentToolScopeRule BrainRule =
         new(new HashSet<EAgentCapability> { EAgentCapability.FileAccess }, BackgroundTasks: false, ReadOnlyFiles: true);
 
     /// <summary>
@@ -99,7 +99,7 @@ internal static class AgentToolScopes
         EAgentToolScope.GroupAvatar => GroupAvatarRule,
         EAgentToolScope.ScheduledRun => ScheduledRunRule,
         EAgentToolScope.SubAgent => SubAgentRule,
-        EAgentToolScope.LegacyExplorer => LegacyExplorerRule,
+        EAgentToolScope.Brain => BrainRule,
         _ => throw new ArgumentOutOfRangeException(nameof(scope), scope, null),
     };
 

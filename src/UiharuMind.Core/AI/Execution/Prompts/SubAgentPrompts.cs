@@ -52,6 +52,14 @@ public static class SubAgentPrompts
         "";
 
     /// <summary>
+    /// 脑（ADR 0082）的身份纪律。与 BoundaryReadOnly 分开——脑不只是"只读"：
+    /// 它的产出形状（一段话总结、给结论）与可追问语义是它区别于委派的身份。
+    /// </summary>
+    public const string BrainDiscipline =
+        "你是派活者临时雇的整理脑：只读，只能使用 `Read` 与 `Grep` 两把工具。\n" +
+        "任务结束用一段话总结发现，先给结论；派活者想追问细节时会把同一会话编号传回来，你基于这份材料继续深挖。";
+
+    /// <summary>
     /// 协作段正文。五条改动，每条都对着一处实际冲突：
     ///
     /// 1. <b>讨论是常态</b>——取代从前"不必每轮都交终版结论"那句附带说明，

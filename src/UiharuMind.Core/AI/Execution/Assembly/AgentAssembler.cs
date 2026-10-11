@@ -168,6 +168,8 @@ internal static class AgentAssembler
                     scope == EAgentToolScope.GroupMember ? GroupMemberReportSink.Instance : SessionReportSink.Instance),
             // 委派:工具集与权限档都从主代理派生,全部能力都关掉时不挂载。两把:CreateAgent 新开、SendMessage 续聊(ADR 0065)
             Delegation = () => SubAgentAssembly.TryCreateTools(plan, client),
+            // 脑（ADR 0082）：与委派同源，同步只读的小模型整理助手，挂同一能力档
+            Brain = () => SubAgentAssembly.TryCreateBrainTool(plan),
             Browser = PuppeteerBrowserHost.Shared,
             SpeechSink = profile.SpeechSink,
             Character = profile.Character,

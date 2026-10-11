@@ -16,6 +16,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Generated;
+using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Conversation.SidePanels;
 
@@ -44,6 +46,15 @@ public partial class SubAgentListViewData : ObservableObject, IDisposable
 
     /// <summary>还有没有在跑的（面板标题据此显示计数）</summary>
     public bool HasRunning => RunningCount > 0;
+
+    /// <summary>名下脑会话数量（ADR 0082）：脑不列条目，只在页签内容顶部给一个数量提示</summary>
+    public int BrainCount { get; private set; }
+
+    /// <summary>有没有脑（显示顶部提示用）</summary>
+    public bool HasBrains => BrainCount > 0;
+
+    /// <summary>脑数量提示文案（如「脑 M 个」）；空串不显示</summary>
+    public string BrainCountText => HasBrains ? Loc.Text(LangKey.AgentSubAgentBrainCount, BrainCount) : string.Empty;
 
     /// <param name="parentSessionIdSource">当前展示会话的标识来源（窄依赖，不反向持有主壳）</param>
     public SubAgentListViewData(Func<string?> parentSessionIdSource)
@@ -81,8 +92,10 @@ public partial class SubAgentListViewData : ObservableObject, IDisposable
     {
         Items.Clear();
         List<ChatSessionMeta> subs = SessionManager.Instance.GetSubSessions(_parentSessionIdSource());
+        (List<ChatSessionMeta> delegations, int brainCount) = Partition(subs);
+        BrainCount = brainCount;
         int running = 0;
-        foreach (ChatSessionMeta meta in OrderItems(subs))
+        foreach (ChatSessionMeta meta in OrderItems(delegations))
         {
             SubSessionDisplayItem item = new(meta);
             if (item.IsRunning) running++;
@@ -93,10 +106,23 @@ public partial class SubAgentListViewData : ObservableObject, IDisposable
         OnPropertyChanged(nameof(Items));
         OnPropertyChanged(nameof(RunningCount));
         OnPropertyChanged(nameof(HasRunning));
+        OnPropertyChanged(nameof(BrainCount));
+        OnPropertyChanged(nameof(HasBrains));
+        OnPropertyChanged(nameof(BrainCountText));
 
         // 计时器跟着「有没有在跑」走：没有就不空转
         if (HasRunning) _tickTimer.Start();
         else _tickTimer.Stop();
+    }
+
+    /// <summary>
+    /// 脑与委派分开：脑不列条目（没名字、列出来是一串看不懂的，量大会刷屏），只计数量。
+    /// 纯函数，可单测（S7 seam）。
+    /// </summary>
+    public static (List<ChatSessionMeta> Delegations, int BrainCount) Partition(IEnumerable<ChatSessionMeta> subs)
+    {
+        List<ChatSessionMeta> all = [.. subs];
+        return (all.Where(x => !x.IsBrain).ToList(), all.Count(x => x.IsBrain));
     }
 
     /// <summary>

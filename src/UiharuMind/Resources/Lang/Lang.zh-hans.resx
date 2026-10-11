@@ -458,6 +458,9 @@
     <data name="AgentSubAgentEmpty" xml:space="preserve">
         <value>本会话还没派过子代理</value>
     </data>
+    <data name="AgentSubAgentBrainCount" xml:space="preserve">
+        <value>脑 {0} 个</value>
+    </data>
     <data name="SubAgentHandBackTip" xml:space="preserve">
         <value>把这个子代理最新的结论交回派它出来的那个会话，它下一轮会读到。</value>
     </data>
@@ -529,6 +532,12 @@
     </data>
     <data name="AgentSettingGeneralSubAgentModelDesc" xml:space="preserve">
         <value>通用子代理负责实际修改任务。给它指定运行模型；留空则回退到主代理 模型。</value>
+    </data>
+    <data name="AgentSettingBrainSubAgentModel" xml:space="preserve">
+        <value>脑模型</value>
+    </data>
+    <data name="AgentSettingBrainSubAgentModelDesc" xml:space="preserve">
+        <value>脑负责用只读助手整理大文件与被截断的工具结果。给它指定运行模型（配便宜小模型正合适）；留空则回退到主代理模型。</value>
     </data>
     <data name="AgentSettingMemoryIndexBudget" xml:space="preserve">
         <value>记忆清单字数上限</value>

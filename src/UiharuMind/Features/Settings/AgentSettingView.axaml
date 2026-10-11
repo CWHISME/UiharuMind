@@ -46,6 +46,24 @@
                                 </ComboBox>
                             </controls:SettingsRow.Field>
                         </controls:SettingsRow>
+                        <!-- 脑模型选择：同步只读整理助手配便宜小模型（ADR 0082），同样一行并在常规里 -->
+                        <controls:SettingsRow Header="{loc:Loc AgentSettingBrainSubAgentModel}"
+                                              Description="{loc:Loc AgentSettingBrainSubAgentModelDesc}"
+                                              ResetCommand="{Binding ResetBrainSubAgentModelCommand}"
+                                              ResetVisible="{Binding IsBrainSubAgentModelNotDefault}">
+                            <controls:SettingsRow.Field>
+                                <ComboBox ItemsSource="{Binding AvailableModels}"
+                                          SelectedItem="{Binding BrainSubAgentModel}"
+                                          PlaceholderText="{loc:Loc AgentSettingSubAgentFallbackHint}"
+                                          MinWidth="300">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
                         <controls:SettingsRow Header="{loc:Loc AgentSettingMemoryIndexBudget}"
                                               Description="{loc:Loc AgentSettingMemoryIndexBudgetDesc}"
                                               ResetCommand="{Binding ResetMemoryIndexBudgetCommand}"

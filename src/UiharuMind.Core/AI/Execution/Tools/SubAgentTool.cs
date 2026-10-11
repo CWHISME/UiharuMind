@@ -319,6 +319,28 @@ public static class SubAgentTool
     /// </summary>
     internal const string ParentInterjectionPrefix = "【发信人】";
 
+    /// <summary>
+    /// 从派活上下文建一个子会话。<b>委派（<see cref="Launch"/>）与脑（<see cref="BrainTool"/>）共用</b>——
+    /// 子会话字段几乎全部从派活者继承，差异只有类型、身份卡、标题与模型。两处各写一遍就会漂移。
+    /// </summary>
+    internal static ChatSession CreateSubSession(LaunchContext context, ESubAgentType type,
+        string characterId, string title, string description, string name, string role, string? modelName) =>
+        new()
+        {
+            CharacterId = characterId,
+            Title = title,
+            Description = description,
+            WorkspacePath = context.WorkspacePath,
+            PermissionModeIndex = context.PermissionModeIndex,
+            PreAuthorizedShellPatterns = context.PreAuthorizedShellPatterns,
+            ParentSessionId = context.ParentSessionId,
+            ParentOutputFolderName = context.ParentOutputFolderName,
+            SubAgentType = type,
+            SubAgentName = name,
+            SubAgentRole = role,
+            SessionModelName = modelName,
+        };
+
     private static string Launch(LaunchContext context, string task, string? agent, string? role = null,
         string? model = null)
     {
@@ -337,25 +359,14 @@ public static class SubAgentTool
 
         string? normalizedRole = NormalizeRole(role);
         ModelChoice modelChoice = ResolveSubAgentModelName(context.Profile, model);
-        ChatSession session = new()
-        {
+        ChatSession session = CreateSubSession(context, context.Profile.Type,
             // 匿名子代理用内置的身份角色,不沿用派活者的——否则子会话窗口会顶着派活者的
             // 名字和头像,看起来像在跟主代理说话。两档各有一张:探索档恒定只读、另配模型,
             // 顶同一个名字用户分不清这次委派能不能改东西。
             // 能力仍然直接取派活者那一份(不经交集,见 SubAgentAssembly.BuildFromPlan)
-            CharacterId = choice?.CharacterId ?? AnonymousCharacterOf(context.Profile.Type).ToString(),
-            Title = BuildTitle(task, normalizedRole),
-            Description = task,
-            WorkspacePath = context.WorkspacePath,
-            PermissionModeIndex = context.PermissionModeIndex,
-            PreAuthorizedShellPatterns = context.PreAuthorizedShellPatterns,
-            ParentSessionId = context.ParentSessionId,
-            ParentOutputFolderName = context.ParentOutputFolderName,
-            SubAgentType = context.Profile.Type,
-            SubAgentName = choice?.Name ?? string.Empty,
-            SubAgentRole = normalizedRole ?? string.Empty,
-            SessionModelName = modelChoice.Name,
-        };
+            choice?.CharacterId ?? AnonymousCharacterOf(context.Profile.Type).ToString(),
+            BuildTitle(task, normalizedRole), task,
+            choice?.Name ?? string.Empty, normalizedRole ?? string.Empty, modelChoice.Name);
         SessionManager.Instance.Add(session);
         NoteStarted(context, session.SessionId);
 
@@ -437,7 +448,7 @@ public static class SubAgentTool
     /// 把子会话标识交给界面。<b>必须在开跑之前</b>——"跑着的时候点开看看"正是这件事的重点，
     /// 而工具结果里那份标识要等跑完才有
     /// </summary>
-    private static void NoteStarted(LaunchContext context, string subSessionId)
+    internal static void NoteStarted(LaunchContext context, string subSessionId)
     {
         string callId = FunctionInvokingChatClient.CurrentContext?.CallContent.CallId ?? string.Empty;
         if (callId.Length > 0) context.SubSessionStarted?.Invoke(callId, subSessionId);
@@ -454,7 +465,27 @@ public static class SubAgentTool
         using CancellationTokenSource timeoutSource =
             CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutSource.CancelAfter(limit);
+        return await RunSubSessionTurnAsync(session, message, attended, limit, timeoutSource, cancellationToken)
+            .ConfigureAwait(false);
+    }
 
+    /// <summary>
+    /// 在子会话上跑一轮并把结论收成报告。<b>委派（后台）与脑（同步）共用同一份编排</b>：
+    /// 差异只有墙钟上限与审批解析器——脑只读、没有审批，传 <c>attended=false</c> 即得空解析器
+    /// （<see cref="NestedApprovalResolver.Create"/> 无人值守档返回 null）。
+    /// 脑那边由 <see cref="BrainTool"/> 调用，同步等它跑完，当场把报告作为工具结果返回。
+    /// </summary>
+    /// <param name="session">子会话（新建或读回）</param>
+    /// <param name="message">这一轮的任务/追问</param>
+    /// <param name="attended">有没有人看着（决定嵌套审批档；脑恒为 false）</param>
+    /// <param name="limit">墙钟上限（委派按人看分档，脑恒为 <see cref="BrainTool.Timeout"/>）</param>
+    /// <param name="timeoutSource">链到调用方令牌上的超时源，超时与外部停止由此区分</param>
+    /// <param name="parentToken">调用方令牌（外部停止时已取消，据此不吞取消）</param>
+    /// <returns>报告文本</returns>
+    internal static async Task<string> RunSubSessionTurnAsync(ChatSession session, string message,
+        bool attended, TimeSpan limit, CancellationTokenSource timeoutSource,
+        CancellationToken parentToken)
+    {
         SubAgentTurnSink turnSink = new();
         bool timedOut = false;
         bool stopped = false; //被用户/外部停掉。派活者的令牌回答不了,只有 TurnDriver 知道
@@ -527,7 +558,7 @@ public static class SubAgentTool
                     ToolCallCancellation.ApprovalUnansweredResultText);
             }
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (!parentToken.IsCancellationRequested)
         {
             // 撞在 TurnDriver 之外的取消(挂接阶段等)。分清是哪一种:只有本次委派自己的
             // 墙钟超时才算超时,否则是外部停止——两者在报告里的措辞完全不同,
@@ -549,7 +580,7 @@ public static class SubAgentTool
 
         // 不缀 [sub-session: …]:它作为来信正文交回,信头已带署名(SubAgentReportHandoff.BuildText)
         string report = turnSink.Report.Build(timedOut, limit,
-            stopped || cancellationToken.IsCancellationRequested, turnSink.SawUserInterjection);
+            stopped || parentToken.IsCancellationRequested, turnSink.SawUserInterjection);
         // 派活方中途插过话:报告里可能答了原任务之外的东西,主代理该知道这份结论不全是它要的。
         // 与用户插话分开交代——两者来源不同,混成一句会让主代理误判是谁改了方向。
         if (turnSink.SawParentInterjection)
@@ -575,7 +606,7 @@ public static class SubAgentTool
                       + "因你的会话运行在 FullAuto 模式而被自动放行："
                       + string.Join("; ", shown) + more + "。）";
         }
-        string outcome = timedOut ? "timed out" : stopped || cancellationToken.IsCancellationRequested ? "stopped" : "done";
+        string outcome = timedOut ? "timed out" : stopped || parentToken.IsCancellationRequested ? "stopped" : "done";
         Log.Debug($"Sub-agent turn {outcome}: session={session.SessionId} "
                   + $"elapsed={(Environment.TickCount64 - startedAt) / 1000}s report={report.Length} chars");
         return report;
@@ -595,7 +626,7 @@ public static class SubAgentTool
     /// <param name="profile">子代理档</param>
     /// <param name="requested">派活方这一趟点名的模型；空则用设置页配的那档默认</param>
     /// <returns>钉在子会话上的模型名，以及要随回执交代的那句话</returns>
-    private static ModelChoice ResolveSubAgentModelName(SubAgentProfile profile, string? requested = null)
+    internal static ModelChoice ResolveSubAgentModelName(SubAgentProfile profile, string? requested = null)
     {
         string? asked = NormalizeModel(requested);
         if (asked == null) return new ModelChoice(PinnableModelName(profile.ResolveModelName(AgentSettingConfig.Current)),
@@ -622,7 +653,7 @@ public static class SubAgentTool
     /// </summary>
     /// <param name="name">模型名；空白直接算不可钉</param>
     /// <returns>可钉时返回规范化后的模型名，否则 null</returns>
-    private static string? PinnableModelName(string? name)
+    internal static string? PinnableModelName(string? name)
     {
         if (string.IsNullOrWhiteSpace(name)) return null;
         if (!LlmManager.Instance.CacheModelDictionary.TryGetValue(name, out ModelRunningData? found)) return null;
@@ -642,20 +673,20 @@ public static class SubAgentTool
     /// <summary>派活时的模型决定</summary>
     /// <param name="Name">钉在子会话上的模型名；跟随派活者/全局时为 null</param>
     /// <param name="Notice">要随回执交代给派活方的那句话；无需交代时为空串</param>
-    private readonly record struct ModelChoice(string? Name, string Notice);
+    internal readonly record struct ModelChoice(string? Name, string Notice);
 
     /// <summary>
     /// 匿名委派用哪张身份卡。
     ///
-    /// ⚠️ 实际上<b>只会走到 General 那一支</b>：ADR 0044 之后新的委派一律是通用档
-    /// （<c>SubAgentProfile.General</c>）。Explorer 那一支保留是为了对称与存量语义清晰，
-    /// 不是活路径。
+    /// ⚠️ 实际上只会走到 General 与 Brain 两支：ADR 0044 之后新的委派一律是通用档
+    /// （<c>SubAgentProfile.General</c>）；脑（<c>SubAgentProfile.Brain</c>，ADR 0082）是同步只读档。
+    /// Explorer 那一支是墓碑，只为反序列化存量，不是活路径。
     /// </summary>
     private static DefaultCharacter AnonymousCharacterOf(ESubAgentType type) =>
         type == ESubAgentType.Explorer ? DefaultCharacter.LegacyExploreAgent : DefaultCharacter.AnonymousAgent;
 
     /// <summary>子会话标题:有 role 用 role,否则取任务首行,都截 40 字。标题纯显示、落盘、改不了名</summary>
-    private static string BuildTitle(string task, string? role = null) =>
+    internal static string BuildTitle(string task, string? role = null) =>
         Clip(string.IsNullOrWhiteSpace(role) ? task.Trim().Split('\n', 2)[0].Trim() : role);
 
     /// <summary>

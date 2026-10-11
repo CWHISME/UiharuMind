@@ -26,8 +26,16 @@ public enum ESubAgentType
     General,
 
     /// <summary>
-    /// 探索子代理：始终只读，配轻量模型（可在设置页 agent 专用页签里选）。
-    /// 适合初级调研任务（通览文件、搜代码、研究主题），避免用高级模型做低价值工作。
+    /// 脑（ADR 0082）：同步、有界、只读的小模型整理助手。恒定只读，配脑模型
+    /// （<c>AgentSettingConfig.BrainSubAgentModelName</c>），只挂 Grep/Read。
+    /// 任务是整理/总结大文件与被截断的工具结果，可被追问。
+    /// </summary>
+    Brain,
+
+    /// <summary>
+    /// <b>墓碑，只为反序列化存量</b>：老的探索子会话身上还钉着这个值，删掉会让盘上会话
+    /// 索引加载抛 JsonException（枚举按字符串序列化）。存量会话重建时按
+    /// <see cref="SubAgentProfile.Brain"/> 装配——只读语义原样延续。新会话永不产生此值。
     /// </summary>
     Explorer,
 }
@@ -46,9 +54,24 @@ public sealed record SubAgentProfile
     // 本 record 现在只剩「重建一次已存档的委派时要什么」：类型、只读与否、用哪个模型。
 
     /// <summary>
-    /// 是否强制只读。探索型始终只读；通用型继承主代理的权限档。
+    /// 脑系（脑 + 墓碑档 Explorer）：只读、右栏不列条目、存量重建按脑装配（ADR 0082）。
+    /// 谓词只此一处——ForceReadOnly 与 ChatSessionMeta.IsBrain 都从它来，语义变了不会只改一边。
     /// </summary>
-    public bool ForceReadOnly => Type == ESubAgentType.Explorer;
+    public static bool IsBrainLineage(ESubAgentType type) => type is ESubAgentType.Brain or ESubAgentType.Explorer;
+
+    /// <summary>
+    /// 是否强制只读。脑系恒定只读；通用型继承主代理的权限档。
+    /// </summary>
+    public bool ForceReadOnly => IsBrainLineage(Type);
+
+    /// <summary>脑不挂 Glob：内容向，目录形状不关心（ADR 0082）。通用档挂</summary>
+    public bool MountsGlob => Type != ESubAgentType.Brain;
+
+    /// <summary>内部工具轮上限：脑有界（<see cref="BrainTool.MaxIterations"/>），其余沿用委派上限</summary>
+    public int MaxIterations => Type == ESubAgentType.Brain ? BrainTool.MaxIterations : SubAgentTool.MaxIterations;
+
+    /// <summary>装配侧是否按脑处理。墓碑档在 <c>BuildSubSessionAssembly</c> 已映射到脑 profile，此处只见真脑</summary>
+    public bool IsBrain => Type == ESubAgentType.Brain;
 
     // 从前这里还有一个 RoleHint（「你只读：通览文件、搜代码…」/「你可以执行实际修改操作…」），
     // 与 SubAgentPrompts.BoundaryReadOnly / BoundaryCanMutate 近乎逐字同义，
@@ -64,7 +87,7 @@ public sealed record SubAgentProfile
     {
         return Type switch
         {
-            ESubAgentType.Explorer => config.ExplorerSubAgentModelName,
+            ESubAgentType.Brain => config.BrainSubAgentModelName,
             _ => config.GeneralSubAgentModelName,
         };
     }
@@ -73,10 +96,7 @@ public sealed record SubAgentProfile
     public static SubAgentProfile General { get; } = new() { Type = ESubAgentType.General };
 
     /// <summary>
-    /// 只读策略。<b>不再有任何新委派落到这一档</b>（ADR 0044 退役了 RunReadOnlyAgent），
-    /// 保留它<b>只为重建存量</b>：老的探索子会话身上还钉着 <c>ESubAgentType.Explorer</c>，
-    /// 重建时必须照旧只读——拔掉这一档，那些已存档的只读子会话恢复后会变成可写。
-    /// 彻底清除是 ADR 0044 的阶段 2。
+    /// 脑策略（ADR 0082）：同步、有界、只读的整理助手，配脑模型。
     /// </summary>
-    public static SubAgentProfile Explorer { get; } = new() { Type = ESubAgentType.Explorer };
+    public static SubAgentProfile Brain { get; } = new() { Type = ESubAgentType.Brain };
 }

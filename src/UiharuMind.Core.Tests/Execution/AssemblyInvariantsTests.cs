@@ -878,21 +878,21 @@ public class SubAgentBoundaryTests
     }
 
     /// <summary>
-    /// 探索档恒定只读，<b>与档位无关</b>。这是产品决定不是技术限制：
-    /// 一次"去看一眼"不该顺手改掉东西。
+    /// 脑恒定只读，<b>与档位无关</b>。这是产品决定不是技术限制：
+    /// 一次"帮我看看"不该顺手改掉东西。
     /// </summary>
     [Theory]
     [InlineData(EAgentPermissionMode.ReadOnly)]
     [InlineData(EAgentPermissionMode.AutoEdit)]
     [InlineData(EAgentPermissionMode.FullAuto)]
-    public void SubAgentTools_AreReadOnly_ForExplorer(EAgentPermissionMode mode)
+    public void SubAgentTools_AreReadOnly_ForBrain(EAgentPermissionMode mode)
     {
         List<string> names = ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(
-            NewInput(mode: mode) with { SubAgentProfile = SubAgentProfile.Explorer }));
+            NewInput(mode: mode) with { SubAgentProfile = SubAgentProfile.Brain }));
 
-        // 探索档的技能面钉死:Glob/Grep/Read 三件套之外,不挂联网、不挂写工具
+        // 脑的技能面钉死：Grep/Read 之外不挂 Glob（内容向，目录形状不关心）、不挂写工具、不挂联网
         Assert.Contains(FileToolNames.Read, names);
-        Assert.Contains(FileToolNames.Glob, names);
+        Assert.DoesNotContain(FileToolNames.Glob, names);
         Assert.Contains(FileToolNames.Grep, names);
         Assert.DoesNotContain(WebSearchTool.ToolName, names);
         Assert.DoesNotContain(WebFetchTool.ToolName, names);
@@ -903,16 +903,16 @@ public class SubAgentBoundaryTests
     }
 
     /// <summary>
-    /// 扩展（生图、浏览器、音频与 MCP）随主代理那一侧给子代理；探索档恒定只读、不挂扩展（ADR 0079）
+    /// 扩展（生图、浏览器、音频与 MCP）随主代理那一侧给子代理；脑恒定只读、不挂扩展（ADR 0079）
     /// </summary>
     [Fact]
-    public void SubAgentTools_IncludeExtensions_ButNotForExplorer()
+    public void SubAgentTools_IncludeExtensions_ButNotForBrain()
     {
         SubAgentAssembly.SubAgentAssemblyInput input = NewInput() with { Browser = PuppeteerBrowserHost.Shared };
 
         Assert.Contains(ExtensionCalls.CallName, ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(input)));
         Assert.DoesNotContain(ExtensionCalls.CallName, ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(
-            input with { SubAgentProfile = SubAgentProfile.Explorer })));
+            input with { SubAgentProfile = SubAgentProfile.Brain })));
     }
 
     /// <summary>
@@ -1115,6 +1115,49 @@ public class SubAgentBoundaryTests
 
         Assert.NotNull(options);
         Assert.Equal(SubAgentTool.MaxIterations, options!.MaximumIterationsPerRequest);
+    }
+
+    /// <summary>脑是有界活：内部工具轮压到 <see cref="BrainTool.MaxIterations"/>，到顶返回已得部分（ADR 0082）</summary>
+    [Fact]
+    public void Brain_HasTightIterationCap()
+    {
+        HarnessAgentOptions? options = SubAgentAssembly.BuildSubAgentOptions(
+            NewInput() with { SubAgentProfile = SubAgentProfile.Brain });
+
+        Assert.NotNull(options);
+        Assert.Equal(BrainTool.MaxIterations, options!.MaximumIterationsPerRequest);
+    }
+
+    /// <summary>脑挂在 SubAgent 能力档下：委派开它就开，能力归属登记为 SubAgent（编辑页开关显示用）</summary>
+    [Fact]
+    public void MainAgent_MountsBrainUnderSubAgentCapability()
+    {
+        AgentToolResources resources = new()
+        {
+            Paths = new AgentPathResolver(TestWorkingDirectory, ""),
+            Delegation = () => SubAgentTool.Create(new SubAgentTool.LaunchContext
+            {
+                ParentSessionId = "parent",
+                Profile = SubAgentProfile.General,
+                Roster = [],
+            }),
+            Brain = () => BrainTool.Create(new SubAgentTool.LaunchContext
+            {
+                ParentSessionId = "parent",
+                Profile = SubAgentProfile.Brain,
+                Roster = [],
+            }),
+        };
+
+        List<AgentToolEntry> entries = AgentToolsetBuilder.Build(
+            new AgentToolConfig { EnableSubAgent = true }, EAgentToolScope.Main, resources);
+
+        Assert.Contains(entries, x => x.Capability == EAgentCapability.SubAgent && x.Tool.Name == BrainTool.ToolName);
+        // 关闭委派能力档就一并关脑（同一档，不另开开关）
+        Assert.DoesNotContain(AgentToolsetBuilder.Build(
+                new AgentToolConfig { EnableSubAgent = false }, EAgentToolScope.Main,
+                new AgentToolResources { Paths = new AgentPathResolver(TestWorkingDirectory, "") }),
+            x => x.Tool.Name == BrainTool.ToolName);
     }
 
     /// <summary>
@@ -1406,17 +1449,20 @@ public class SubAgentBoundaryTests
     /// 文件操作段把写那几条按条件拼接之后，只读侧依然只有读那几条，不指名 `Edit`/`Write`。
     /// </summary>
     [Fact]
-    public void ExplorerSubAgent_GetsReadDisciplineButNotWriteDiscipline()
+    public void BrainSubAgent_GetsBrainDisciplineButNotWriteDiscipline()
     {
         string instructions = SubAgentAssembly.BuildSubAgentOptions(
                 NewInput(mode: EAgentPermissionMode.FullAuto) with
                 {
-                    SubAgentProfile = SubAgentProfile.Explorer,
+                    SubAgentProfile = SubAgentProfile.Brain,
                 })!
             .ChatOptions!.Instructions!;
 
         Assert.Contains(AgentPromptHeadings.Tools, instructions); //工具段必须在
-        // 文件操作段退役后读纪律也不在提示词里了(7a2dec2d),但「探索档不指名写工具」仍成立
+        Assert.Contains(SubAgentPrompts.BrainDiscipline, instructions); //脑纪律必须在身份段
+        // 工具侧已无 Glob（S4 钉住），纪律侧也必须不点名它——提示语指名的工具必须真实存在
+        Assert.DoesNotContain("`Glob`", instructions);
+        // 文件操作段退役后读纪律也不在提示词里了(7a2dec2d),但「脑不指名写工具」仍成立
         Assert.DoesNotContain("`Edit`", instructions);
         Assert.DoesNotContain("`Write`", instructions);
     }
@@ -1424,14 +1470,14 @@ public class SubAgentBoundaryTests
     private static AITool StubShellTool() => AIFunctionFactory.Create((string command) => command,
         new AIFunctionFactoryOptions { Name = CharacterRunnerFactory.ShellToolName });
 
-    /// <summary>探索档不认草稿目录：只读的它本来也写不进去</summary>
+    /// <summary>脑不认草稿目录：只读的它本来也写不进去</summary>
     [Fact]
-    public void SubAgentInstructions_OmitOutputRoom_ForExplorer()
+    public void SubAgentInstructions_OmitOutputRoom_ForBrain()
     {
         string instructions = SubAgentAssembly.BuildSubAgentOptions(
                 NewInput(mode: EAgentPermissionMode.FullAuto) with
                 {
-                    SubAgentProfile = SubAgentProfile.Explorer, OutputFolderName = "ws-seg/12345678",
+                    SubAgentProfile = SubAgentProfile.Brain, OutputFolderName = "ws-seg/12345678",
                 })!
             .ChatOptions!.Instructions!;
 

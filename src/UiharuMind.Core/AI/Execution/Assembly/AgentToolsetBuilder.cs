@@ -58,6 +58,9 @@ internal sealed record AgentToolResources
     /// <summary>造委派的两把工具；能力全关时返回 null</summary>
     public Func<IReadOnlyList<AITool>?>? Delegation { get; init; }
 
+    /// <summary>造脑工具（ADR 0082，同步只读整理助手）；能力全关时返回 null</summary>
+    public Func<AITool?>? Brain { get; init; }
+
     /// <summary>浏览器宿主</summary>
     public IBrowserHost? Browser { get; init; }
 
@@ -122,9 +125,16 @@ internal static class AgentToolsetBuilder
             : mountVision ? EReadImageMode.PointToAnalyzeImage
             : EReadImageMode.None;
 
-        if (Mounts(EAgentCapability.SubAgent, config.EnableSubAgent) && resources.Delegation?.Invoke() is { } delegation)
+        if (Mounts(EAgentCapability.SubAgent, config.EnableSubAgent))
         {
-            foreach (AITool tool in delegation) Add(EAgentCapability.SubAgent, tool);
+            if (resources.Delegation?.Invoke() is { } delegation)
+            {
+                foreach (AITool tool in delegation) Add(EAgentCapability.SubAgent, tool);
+            }
+
+            // 脑（ADR 0082）：与委派同源，同步只读的小模型整理助手。挂在同一能力档下——
+            // 关委派就关脑，子会话场合（SubAgent/Brain scope）自然不递归
+            if (resources.Brain?.Invoke() is { } brain) Add(EAgentCapability.SubAgent, brain);
         }
 
         if (rule.Allows(EAgentCapability.GroupPost)) Add(EAgentCapability.GroupPost, GroupPostTool.Create(resources.SessionId));

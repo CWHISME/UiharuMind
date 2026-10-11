@@ -131,6 +131,29 @@ public class SubAgentReceiptMarkerTests
         }
     }
 
+    /// <summary>脑回执也走同一契约：末行 <c>[sub-session: 短号]</c>，回放时卡片能挂「查看更多」入口（ADR 0082）</summary>
+    [Fact]
+    public void BrainReceipt_CarriesAParseableSubSessionMarker()
+    {
+        ChatSession brain = new()
+        {
+            SessionId = "aaaa1111bbbb2222",
+            ParentSessionId = "parent",
+            SubAgentType = ESubAgentType.Brain,
+        };
+        SessionManager.Instance.Add(brain);
+        try
+        {
+            string receipt = BrainTool.BuildReceipt(brain.SessionId, "总结：这是整理好的内容。");
+
+            Assert.Equal(brain.SessionId, ToolCallItem.ParseSubSessionId(receipt));
+        }
+        finally
+        {
+            SessionManager.Instance.Delete(brain.SessionId);
+        }
+    }
+
     /// <summary>
     /// 实时插话的回执与「已派出」是两种语义：插话不另起一轮、没有独立报告，
     /// 效果并入当前轮——不写清的话主代理会空等第二份报告。但标记行仍是最后一行，

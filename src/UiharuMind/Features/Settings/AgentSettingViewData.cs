@@ -48,6 +48,11 @@ public partial class AgentSettingViewData : ViewModelBase
     /// </summary>
     [ObservableProperty] private ModelRunningData? _generalSubAgentModel;
 
+    /// <summary>
+    /// 当前选中的脑模型（ADR 0082）。null = 回退到主代理模型。
+    /// </summary>
+    [ObservableProperty] private ModelRunningData? _brainSubAgentModel;
+
     /// <summary>记忆清单字数上限（ADR 0076）。数值框绑的是 decimal，存回去取整</summary>
     [ObservableProperty] private decimal _memoryIndexBudget;
 
@@ -57,10 +62,9 @@ public partial class AgentSettingViewData : ViewModelBase
     /// <summary>记忆清单字数上限可设范围，与 Core 夹值同一处</summary>
     public decimal MemoryIndexBudgetMax => MemoryIndex.MaxListBudget;
 
-    // 从前这里还有「探索型子代理模型」。ADR 0044 归一委派工具之后，新的委派一律走通用档，
-    // 这个选择器对新委派不再起任何作用，留着只会让人以为它还管用，故删。
-    // 配置字段 AgentSettingConfig.ExplorerSubAgentModelName 本身保留——
-    // 存量的只读子会话重建时仍照它取模型（就地封存，不迁移）。
+    // 从前这里还有「探索型子代理模型」。ADR 0044 归一委派工具之后它退役，设置页选择器删了；
+    // 如今由脑（ADR 0082）接走「只读轻量助手」的生态位，选择器换成脑模型那一行。
+    // 配置字段 ExplorerSubAgentModelName 已在 ADR 0082 一并退役；盘上旧值不迁移（墓碑式存量，见 CONTEXT.md）。
 
     //================= 联网搜索(能力开关已下沉到角色,见 ADR 0003) =================
     /// <summary>凭据与链路状态自成一块,见 <see cref="WebSearchSettingsViewData"/></summary>
@@ -79,6 +83,7 @@ public partial class AgentSettingViewData : ViewModelBase
     // 「值≠出厂值」才显示单项恢复默认按钮（SettingsRow 可见性绑定用）；出厂值引用 AgentSettingConfig 常量
     public bool IsDefaultPermissionModeNotDefault => DefaultPermissionModeIndex != AgentSettingConfig.FactoryDefaultPermissionModeIndex;
     public bool IsGeneralSubAgentModelNotDefault => GeneralSubAgentModel is not null; // null = 回退主代理，出厂态
+    public bool IsBrainSubAgentModelNotDefault => BrainSubAgentModel is not null; // 同上
     public bool IsMemoryIndexBudgetNotDefault => MemoryIndexBudget != AgentSettingConfig.FactoryDefaultMemoryIndexBudget;
 
     //================= 受管 Python 环境 =================
@@ -189,6 +194,15 @@ public partial class AgentSettingViewData : ViewModelBase
         if (!_writeBack.IsLoading) StatusText = Loc.Text(LangKey.ShortcutSavedTips);
     }
 
+    //================= 常规:脑模型,变更即存（ADR 0082） =================
+    partial void OnBrainSubAgentModelChanged(ModelRunningData? value)
+    {
+        AgentSettingConfig.Current.BrainSubAgentModelName = value?.ModelName ?? string.Empty;
+        _writeBack.Save();
+        OnPropertyChanged(nameof(IsBrainSubAgentModelNotDefault));
+        if (!_writeBack.IsLoading) StatusText = Loc.Text(LangKey.ShortcutSavedTips);
+    }
+
     /// <summary>
     /// 模型列表刷新后同步下拉。已选还活着就按名找回，找不到就回到跟随主代理模式；
     /// 全程包在回填作用域里，不会因为模型被删而把配置重写一遍。
@@ -204,17 +218,22 @@ public partial class AgentSettingViewData : ViewModelBase
 
         string? selectedName = GeneralSubAgentModel?.ModelName
             ?? AgentSettingConfig.Current.GeneralSubAgentModelName;
+        string? brainName = BrainSubAgentModel?.ModelName
+            ?? AgentSettingConfig.Current.BrainSubAgentModelName;
         RebuildAvailableModels();
         using (_writeBack.BeginLoad())
         {
             GeneralSubAgentModel = string.IsNullOrEmpty(selectedName)
                 ? null
                 : AvailableModels.FirstOrDefault(m => m.ModelName == selectedName);
+            BrainSubAgentModel = string.IsNullOrEmpty(brainName)
+                ? null
+                : AvailableModels.FirstOrDefault(m => m.ModelName == brainName);
         }
     }
 
     /// <summary>
-    /// 从 LlmManager 加载可用模型列表,并回填当前选中的通用子代理模型。
+    /// 从 LlmManager 加载可用模型列表,并回填当前选中的通用子代理模型与脑模型。
     /// 调用方需包在回填作用域里（构造里已包），否则回填赋值会误落盘。
     /// </summary>
     private void LoadAvailableModels()
@@ -225,6 +244,10 @@ public partial class AgentSettingViewData : ViewModelBase
         if (!string.IsNullOrWhiteSpace(config.GeneralSubAgentModelName))
         {
             GeneralSubAgentModel = AvailableModels.FirstOrDefault(m => m.ModelName == config.GeneralSubAgentModelName);
+        }
+        if (!string.IsNullOrWhiteSpace(config.BrainSubAgentModelName))
+        {
+            BrainSubAgentModel = AvailableModels.FirstOrDefault(m => m.ModelName == config.BrainSubAgentModelName);
         }
     }
 
@@ -250,6 +273,12 @@ public partial class AgentSettingViewData : ViewModelBase
     private void ResetGeneralSubAgentModel()
     {
         GeneralSubAgentModel = null; // 回退到主代理模型
+    }
+
+    [RelayCommand]
+    private void ResetBrainSubAgentModel()
+    {
+        BrainSubAgentModel = null; // 回退到主代理模型
     }
 
     //================= 技能(SKILL.md 目录,框架规范) =================

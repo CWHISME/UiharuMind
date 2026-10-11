@@ -86,6 +86,14 @@ public class ChatSessionMeta
     [JsonIgnore]
     public bool IsSubSession => !string.IsNullOrEmpty(ParentSessionId);
 
+    /// <summary>
+    /// 是不是脑会话（ADR 0082）。脑系谓词只有一处定义（<see cref="SubAgentProfile.IsBrainLineage"/>）：
+    /// 脑与墓碑档（Explorer）重建即按 Brain 装配，故同算——右栏「子代理」面板对两者都不列条目、只报数量；
+    /// 统一清理将来靠它找。算出来的，不入索引（理由同 <see cref="IsSubSession"/>）
+    /// </summary>
+    [JsonIgnore]
+    public bool IsBrain => SubAgentProfile.IsBrainLineage(SubAgentType);
+
     /// <summary>子会话装配成哪一种子代理（仅子会话有意义）</summary>
     public ESubAgentType SubAgentType { get; set; } = ESubAgentType.General;
 

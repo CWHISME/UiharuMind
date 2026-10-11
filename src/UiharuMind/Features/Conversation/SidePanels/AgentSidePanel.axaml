@@ -206,6 +206,10 @@
                         </TabItem.Header>
                         <ScrollViewer Margin="0,6,0,0">
                             <StackPanel>
+                                <!-- 脑不列条目（没名字、量大会刷屏），只在顶部给一个数量提示（ADR 0082） -->
+                                <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,6"
+                                           IsVisible="{Binding SubAgents.HasBrains}"
+                                           Text="{Binding SubAgents.BrainCountText}" />
                                 <TextBlock Classes="muted" TextWrapping="Wrap"
                                            IsVisible="{Binding !SubAgents.Items.Count}"
                                            Text="{loc:Loc AgentSubAgentEmpty}" />
