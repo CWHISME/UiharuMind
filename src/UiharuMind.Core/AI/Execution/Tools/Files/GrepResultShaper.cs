@@ -178,29 +178,28 @@ internal static class GrepResultShaper
         // 降级必须说:模型以为传的是正则,实际按字面搜的,不说它会把"少了几条命中"归错原因
         if (outcome.FellBackToLiteral)
         {
-            parts.Add($"\"{pattern}\" does not compile as a supported regular expression "
-                      + "(backreferences and lookarounds are not supported), "
-                      + "so it was searched as a literal string. "
-                      + "Pass isRegex false to do that on purpose.");
+            parts.Add($"\"{pattern}\" 编译不成受支持的正则"
+                      + "（backreference 与 lookahead 不被支持），已按字面串重搜。"
+                      + "刻意要按字面搜时请传 isRegex false。");
         }
         else if (!string.Equals(outcome.EffectiveQuery, pattern, StringComparison.Ordinal))
         {
-            parts.Add($"The pattern was normalised to \"{outcome.EffectiveQuery}\" "
-                      + "so that a leading wildcard means \"anything\".");
+            parts.Add($"模式已归一化为 \"{outcome.EffectiveQuery}\"——"
+                      + "前导通配符的意思是「任意内容」。");
         }
 
         // 0 命中要明说,与"没搜成"分开
         if (grouped.Files.Count == 0)
         {
-            parts.Add($"Searched \"{outcome.ResolvedDirectory}\" — 0 matches; "
-                      + "the path exists, nothing there matched.");
+            parts.Add($"已搜索 \"{outcome.ResolvedDirectory}\" —— 0 处命中；"
+                      + "路径存在，只是没有匹配的内容。");
         }
 
         if (grouped.DroppedMatches > 0)
         {
-            parts.Add($"Showing the first {MaxMatches} matches; {grouped.DroppedMatches} more "
-                      + $"across {grouped.DroppedFiles} file(s) were dropped. "
-                      + "Narrow the query, or scope it with fileGlobs/path.");
+            parts.Add($"只展示前 {MaxMatches} 处命中；另有 {grouped.DroppedMatches} 处、"
+                      + $"跨 {grouped.DroppedFiles} 个文件被丢弃。"
+                      + "收窄查询，或限定 fileGlobs/path 范围。");
         }
 
         return parts.Count == 0 ? null : string.Join(" ", parts);

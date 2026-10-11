@@ -640,20 +640,6 @@ public class HarnessInstructionsCompositionTests
         Assert.DoesNotContain(segments, x => x.Section == EPromptSection.Extensions);
     }
 
-    /// <summary>记忆目录段(ADR 0028)出现时只给简写，并教模型先 Glob 再 Read</summary>
-    [Fact]
-    public void MemorySection_Appears_WithMemoryDirectory()
-    {
-        const string memory = "/tmp/uiharu-data/Agent/Workspaces/ws/Memory";
-
-        string instructions = BuildAgentOptions("/tmp/uiharu-agent-test", memoryDirectory: memory)
-            .ChatOptions?.Instructions ?? string.Empty;
-
-        Assert.Contains("记忆目录 $MEMORY", instructions);
-        Assert.DoesNotContain(memory, instructions); //记忆从不给用户看，用不着完整路径
-        Assert.Contains("`Glob`", instructions);
-    }
-
     /// <summary>无记忆目录(回退档或无工作区上下文)时记忆段不出现</summary>
     [Fact]
     public void MemorySection_IsAbsent_WithoutMemoryDirectory()

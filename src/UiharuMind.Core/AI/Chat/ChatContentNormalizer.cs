@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.AI;
 
 namespace UiharuMind.Core.AI.Chat;
@@ -27,6 +28,10 @@ namespace UiharuMind.Core.AI.Chat;
 ///
 /// 流式侧在增量进入框架合并之前就丢掉空正文（思考段随之连续，框架自会并成一条）；
 /// 已经落盘的老会话则在读取时补一道，历史文件不动，下次整体存盘自然写回干净的形态。
+///
+/// 另一个成因是<b>工具结果的落盘往返</b>：字符串结果（Read/Grep/Glob/Write…）序列化存盘后再
+/// 读回，<see cref="FunctionResultContent.Result"/> 变成 <c>JsonElement{String}</c>，发给模型与界面时
+/// 会被整体再序列化（换行变 <c>\n</c> 字面量）或 ToString 成带引号文本——这里一并还原成字符串。
 /// </summary>
 public static class ChatContentNormalizer
 {
@@ -43,7 +48,8 @@ public static class ChatContentNormalizer
     };
 
     /// <summary>
-    /// 规整一条消息的内容：丢掉空正文/空思考，并把相邻的思考碎片并回一段。
+    /// 规整一条消息的内容：把工具结果的 <c>JsonElement{String}</c> 还原成字符串，
+    /// 丢掉空正文/空思考，并把相邻的思考碎片并回一段。
     /// 正文不做合并——框架的增量合并已经负责这件事，这里再并一次只会白丢
     /// <see cref="AIContent.AdditionalProperties"/>。
     /// </summary>
@@ -52,8 +58,9 @@ public static class ChatContentNormalizer
     public static bool Normalize(ChatMessage message)
     {
         IList<AIContent> contents = message.Contents;
-        if (contents.Count < 2) return false;
-        if (!NeedsNormalize(contents)) return false;
+        bool changed = RestoreStringResults(message);
+        if (contents.Count < 2) return changed;
+        if (!NeedsNormalize(contents)) return changed;
 
         List<AIContent> rebuilt = new(contents.Count);
         StringBuilder? reasoning = null;
@@ -74,6 +81,23 @@ public static class ChatContentNormalizer
         FlushReasoning(rebuilt, ref reasoning);
         message.Contents = rebuilt;
         return true;
+    }
+
+    /// <summary>落盘再读回的工具字符串结果从 <c>JsonElement{String}</c> 还原成 string（与 <see cref="ImagePreviewProjection"/> 同口径）</summary>
+    private static bool RestoreStringResults(ChatMessage message)
+    {
+        bool changed = false;
+        foreach (AIContent content in message.Contents)
+        {
+            if (content is not FunctionResultContent result) continue;
+            if (result.Result is JsonElement { ValueKind: JsonValueKind.String } element)
+            {
+                result.Result = element.GetString();
+                changed = true;
+            }
+        }
+
+        return changed;
     }
 
     private static void FlushReasoning(List<AIContent> target, ref StringBuilder? reasoning)

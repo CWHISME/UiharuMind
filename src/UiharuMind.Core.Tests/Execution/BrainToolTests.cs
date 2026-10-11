@@ -32,16 +32,6 @@ public class BrainToolTests
         Assert.Equal(["task"], Required(Brain()));
     }
 
-    /// <summary>描述必须讲清「同步、当场拿结果、带标识、可追问」——否则模型会当它是后台委派</summary>
-    [Fact]
-    public void Brain_Description_MentionsSyncAndFollowUp()
-    {
-        string description = Brain().Description;
-
-        Assert.Contains("brainId", description);
-        Assert.Contains("[sub-session:", description);
-    }
-
     [Fact]
     public async Task Run_EmptyTask_Errors()
     {

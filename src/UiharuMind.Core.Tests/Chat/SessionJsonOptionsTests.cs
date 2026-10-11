@@ -79,4 +79,22 @@ public class SessionJsonOptionsTests
         Assert.Contains("初春です", json);
         Assert.DoesNotContain("\\u", json);
     }
+
+    /// <summary>
+    /// 工具字符串结果（Read/Grep/Glob/Write…）落盘再读回必须是<b>真实换行</b>：
+    /// 不还原的话模型与界面拿到的是字面量 <c>\n</c> 挤成一行（HistoryJsonl 装载侧
+    /// <see cref="ChatContentNormalizer"/> 把 <c>JsonElement{String}</c> 还原成 string）。
+    /// </summary>
+    [Fact]
+    public void RoundTrip_FunctionResultString_KeepsRealNewlines()
+    {
+        var original = new ChatMessage(ChatRole.Tool, [new FunctionResultContent("c1", "line1\nline2\nline3")]);
+
+        string json = HistoryJsonl.SerializeLines([original]);
+        ChatMessage restored = Assert.Single(HistoryJsonl.Parse([json]));
+
+        FunctionResultContent result = Assert.IsType<FunctionResultContent>(Assert.Single(restored.Contents));
+        Assert.Equal("line1\nline2\nline3", result.Result);
+        Assert.DoesNotContain("\\n", (string)result.Result); //不是字面量 \n
+    }
 }

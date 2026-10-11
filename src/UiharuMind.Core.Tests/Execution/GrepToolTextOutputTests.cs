@@ -35,8 +35,8 @@ public class GrepToolTextOutputTests : IDisposable
         string result = await _tools.Grep("definitely-not-here", ct: TestContext.Current.CancellationToken);
 
         // 没有正文可分隔:直接给说明,不带分隔行、不以空行开头
-        Assert.StartsWith("Searched", result);
-        Assert.Contains("0 matches", result);
+        Assert.StartsWith("已搜索", result);
+        Assert.Contains("0 处命中", result);
         Assert.DoesNotContain("\n\n---", result);
     }
 
@@ -57,8 +57,8 @@ public class GrepToolTextOutputTests : IDisposable
         // "[" 在 .NET 正则里编译不过 → 降级字面串;降级必须说,不说模型会对"少了几条命中"推错
         string result = await _tools.Grep("[", isRegex: true, ct: TestContext.Current.CancellationToken);
 
-        Assert.Contains("does not compile", result);
-        Assert.Contains("searched as a literal string", result);
+        Assert.Contains("编译不成受支持的正则", result);
+        Assert.Contains("按字面串重搜", result);
     }
 
     [Fact]
@@ -66,7 +66,55 @@ public class GrepToolTextOutputTests : IDisposable
     {
         string result = await _tools.Grep("*Globber", isRegex: true, ct: TestContext.Current.CancellationToken);
 
-        Assert.Contains("normalised to", result);
+        Assert.Contains("模式已归一化为", result);
         Assert.Contains(".*Globber", result);
+    }
+
+    /// <summary>多文件命中时路径行就是文件边界:正文在文件之间只有一个换行,没有空行/分隔行</summary>
+    [Fact]
+    public async Task Grep_MultiFile_Body_UsesPathLineAsFileBoundary()
+    {
+        await File.WriteAllTextAsync(Path.Combine(_dir, "a.txt"), "needle one\n", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(_dir, "b.txt"), "needle two\n", TestContext.Current.CancellationToken);
+
+        string result = await _tools.Grep("needle", ct: TestContext.Current.CancellationToken);
+
+        // 文件路径独占一行(文件边界),下面接命中行;两个文件之间没有空行
+        Assert.Contains("a.txt\n1:needle one", result);
+        Assert.Contains("b.txt\n1:needle two", result);
+        Assert.DoesNotContain("needle one\n\n", result);
+        Assert.DoesNotContain("---", result); //无要说的说明时正文原样返回,没有分隔段
+    }
+
+    /// <summary>caseSensitive 参数恢复:传 true 时精确匹配(标准 grep/ripgrep 的 -s 语义),不传保持不区分</summary>
+    [Fact]
+    public async Task Grep_CaseSensitive_OnlyMatchesExactCase()
+    {
+        await File.WriteAllTextAsync(Path.Combine(_dir, "case.txt"), "Needle\nneedle\n",
+            TestContext.Current.CancellationToken);
+
+        string insensitive = await _tools.Grep("needle", ct: TestContext.Current.CancellationToken);
+        Assert.Contains("1:Needle", insensitive);
+        Assert.Contains("2:needle", insensitive);
+
+        string sensitive = await _tools.Grep("needle", caseSensitive: true, ct: TestContext.Current.CancellationToken);
+        Assert.DoesNotContain("Needle", sensitive);
+        Assert.Contains("2:needle", sensitive);
+    }
+
+    /// <summary>中文字符一字符三字节,会显著提前触发 32KB 字节预算——正文按 UTF-8 字节计,不是字符数</summary>
+    [Fact]
+    public async Task Grep_ChineseOverByteBudget_SwitchesToHitMap()
+    {
+        // 100 行 × (needle + 200 汉字) ≈ 61KB,远超 32KB 预算 → 整页换命中地图
+        await File.WriteAllLinesAsync(Path.Combine(_dir, "cn.txt"),
+            Enumerable.Range(1, 100).Select(i => "needle " + new string('测', 200)),
+            TestContext.Current.CancellationToken);
+
+        string result = await _tools.Grep("needle", ct: TestContext.Current.CancellationToken);
+
+        Assert.Contains("100 处命中，跨 1 个文件", result);
+        Assert.Contains("无法内联返回", result);
+        Assert.Contains("cn.txt: 100 处命中（第 1–100 行）", result);
     }
 }

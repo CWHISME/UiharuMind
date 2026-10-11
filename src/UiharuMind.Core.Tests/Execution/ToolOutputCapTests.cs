@@ -126,8 +126,8 @@ public class ToolOutputCapTests : IDisposable
         string[] lines = result.Split('\n');
         Assert.Equal(GrepResultShaper.MaxMatches + 1, lines.TakeWhile(line => line.Length > 0).Count());
         Assert.DoesNotContain("needle 300", result);
-        Assert.Contains("100 more", result);
-        Assert.Contains("Narrow the query", result);
+        Assert.Contains("另有 100 处", result);
+        Assert.Contains("收窄查询", result);
     }
 
     /// <summary>
@@ -182,7 +182,7 @@ public class ToolOutputCapTests : IDisposable
         Assert.Contains("处命中，跨", result);
         Assert.Contains("无法内联返回", result);
         Assert.Contains("---\n400 处命中，跨", result); //地图说明与正文模式同款分隔行(统一口径)
-        Assert.DoesNotContain("---\nShowing the first", result); //地图模式不再走 200 上限正文
+        Assert.DoesNotContain("---\n只展示前", result); //地图模式不再走 200 上限正文
     }
 
     /// <summary>地图按命中数降序取 Top 50:命中极度分散本身就是"搜宽了"的信号,看前 50 就够下判断</summary>

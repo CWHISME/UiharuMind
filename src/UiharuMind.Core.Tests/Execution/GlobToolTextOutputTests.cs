@@ -34,8 +34,8 @@ public class GlobToolTextOutputTests : IDisposable
         string result = await _tools.Glob("**/*.never", ct: TestContext.Current.CancellationToken);
 
         // 没有条目可分隔:直接给说明,不带分隔行、不以空行开头
-        Assert.StartsWith("Searched", result);
-        Assert.Contains("0 matches", result);
+        Assert.StartsWith("已搜索", result);
+        Assert.Contains("0 条命中", result);
         Assert.DoesNotContain("\n\n---", result);
     }
 
@@ -64,5 +64,21 @@ public class GlobToolTextOutputTests : IDisposable
         Assert.Contains("sub/b.txt", result);
         // 有命中、没截断 → 说明为 null,正文原样返回,没有分隔段
         Assert.DoesNotContain("---", result);
+    }
+
+    /// <summary>SimpleGlobber 的 300 条上限触发的截断说明:告诉模型被丢了多少、怎么收窄</summary>
+    [Fact]
+    public async Task Glob_OverLimit_ReportsTruncation()
+    {
+        for (int i = 0; i < 301; i++)
+        {
+            await File.WriteAllTextAsync(Path.Combine(_dir, $"f{i:D4}.txt"), "", TestContext.Current.CancellationToken);
+        }
+
+        string result = await _tools.Glob("*.txt", ct: TestContext.Current.CancellationToken);
+
+        Assert.StartsWith("[FILE] f0000.txt", result); //文件在前,字典序第一个是 f0000
+        Assert.Contains("---\n只展示前 300 条；更多条目被丢弃", result); //截断说明在分隔行后
+        Assert.Contains("收窄模式", result);
     }
 }

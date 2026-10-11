@@ -1,5 +1,3 @@
-using System.Text.Json;
-using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Files;
 
 namespace UiharuMind.Core.Tests.Agent;

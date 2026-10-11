@@ -135,10 +135,10 @@ internal sealed class PermissiveFileAccessTools
             ToolJson.CreateFactoryOptions(name, description);
     }
 
-    [Description("搜索文件")]
+    [Description("按 glob 模式查找文件，如 “**/*.c”。搜文件内容用 Grep")]
     internal async Task<string> Glob(
-        [Description("glob 匹配模式，如 “**/*.c”")] string pattern,
-        [Description("可选，工作目录的相对路径(也接受绝对路径)")] string? path = null,
+        [Description("匹配模式”")] string pattern,
+        [Description("可选，工作目录的相对路径(也接受非工作目录的绝对路径)")] string? path = null,
         CancellationToken ct = default)
     {
         GlobOutcome outcome = await _glob.SearchAsync(pattern, path, ct: ct).ConfigureAwait(false);
@@ -168,13 +168,12 @@ internal sealed class PermissiveFileAccessTools
     {
         if (outcome.Entries.Count == 0)
         {
-            return $"Searched \"{outcome.ResolvedDirectory}\" — 0 matches; the path exists, "
-                   + "nothing matched the pattern.";
+            return $"已搜索 \"{outcome.ResolvedDirectory}\" —— 0 条命中；"
+                   + "路径存在，只是没有匹配。";
         }
 
         return outcome.Truncated
-            ? $"Showing the first {outcome.Entries.Count} entries; more were dropped. "
-              + "Narrow the pattern or scope it with path."
+            ? $"只展示前 {outcome.Entries.Count} 条；更多条目被丢弃。收窄模式，或用 path 限定范围。"
             : null;
     }
 
@@ -185,22 +184,23 @@ internal sealed class PermissiveFileAccessTools
         [Description("可选，每处命中前后显示多少行上下文。")] int contextLines = 0,
         // 编译不过的正则会自动按字面串重搜并在 Notice 里说明,事前不必叮嘱
         [Description("可选，将匹配模式作为正则表达式处理")] bool isRegex = true,
-        // [Description("区分大小写的搜索。")] bool caseSensitive = false,
+        [Description("可选，区分大小写搜索。默认不区分（标准 grep/ripgrep 默认区分；需要精确匹配标识符时传 true）")]
+        bool caseSensitive = false,
         // 带路径或 **/ 前缀的 glob 在搜索器里已剥成裸文件名,不必再警告模型别这么写
         [Description("可选，按文件名的 glob 过滤，如 [\"*.cs\"]。只匹配文件名；按目录缩小范围用 path")]
         string[]? fileGlobs = null,
-        [Description("可选，工作目录的相对路径(也接受绝对路径)，需要缩小搜索范围时传指定目录或单个文件路径")] 
+        [Description("可选，工作目录的相对路径(也接受非工作目录的绝对路径)，需要缩小搜索范围时传指定目录或单个文件路径")] 
         string? path = null,
         CancellationToken ct = default)
     {
         GrepOutcome outcome = await _grepper
-            .SearchAsync(pattern, isRegex, false, contextLines, maxDepth: null, fileGlobs, path, ct)
+            .SearchAsync(pattern, isRegex, caseSensitive, contextLines, maxDepth: null, fileGlobs, path, ct)
             .ConfigureAwait(false);
         return GrepResultShaper.Shape(outcome, pattern);
     }
 
     internal Task<string> Read(
-        [Description("文件路径，工作目录的相对路径(也接受绝对路径)。自动处理编码等问题、传 head=-1 可一次读完")] string filePath,
+        [Description("文件路径，工作目录的相对路径(也接受其它目录的绝对路径)。自动处理编码等问题、传 head=-1 可一次读完")] string filePath,
         [Description("起始行号，1 起算。负数从末尾计：-100 读最后 100 行")]
         int offset = 1,
         [Description("从 offset 开始，最多返回的行数")]
@@ -210,7 +210,7 @@ internal sealed class PermissiveFileAccessTools
 
     [Description("新建文件，或整份替换已有文件，局部修改用 Edit")]
     internal async Task<string> Write(
-        [Description("文件路径，工作目录的相对路径(也接受绝对路径)")]
+        [Description("文件路径，工作目录的相对路径(也接受非工作目录的绝对路径)")]
         string filePath,
         [Description("完整的文件内容")] string content,
         CancellationToken ct = default)
@@ -261,7 +261,7 @@ internal sealed class PermissiveFileAccessTools
                  按精确文本替换修改已有文件。
                  """)]
     internal async Task<string> Edit(
-        [Description("文件路径，工作目录的相对路径(也接受绝对路径)。")]
+        [Description("文件路径，工作目录的相对路径(也接受非工作目录的绝对路径)。")]
         string filePath,
         [Description("要替换的条目。")] List<FileEdit> edits,
         CancellationToken ct = default)
