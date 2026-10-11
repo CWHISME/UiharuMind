@@ -52,4 +52,7 @@ public sealed record AxNode(string Role, string Name)
 
     /// <summary>引擎侧的原始节点，动作时据此找回元素；快照器不碰它</summary>
     public object? Source { get; init; }
+
+    /// <summary>写给模型看的称呼，如 <c>button "提交"</c>；没名字只剩角色</summary>
+    public string Label => Name.Trim() is { Length: > 0 } name ? $"{Role} \"{name}\"" : Role;
 }

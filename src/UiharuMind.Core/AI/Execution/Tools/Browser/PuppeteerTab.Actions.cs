@@ -61,6 +61,12 @@ internal sealed partial class PuppeteerTab
         });
         // 不跳转时它会一直等到超时：没人接的异常要吞掉
         _ = navigation.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+        // 点「上传」会弹系统的文件选择框：模型看不见、关不掉，框里还是用户的整个主目录（实测）。挂着它就不弹，由这里关掉
+        Task<FileChooser> chooser = _page.WaitForFileChooserAsync(new WaitForOptions
+        {
+            Timeout = ActionTimeoutMs + NavigationGraceMs,
+        });
+        _ = chooser.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
 
         TaskCompletionSource started = new(TaskCreationOptions.RunContinuationsAsynchronously);
         void OnRequest(object? sender, RequestEventArgs e)
@@ -85,12 +91,28 @@ internal sealed partial class PuppeteerTab
                 }
             }
 
+            if (chooser.IsCompletedSuccessfully) note += " " + await DismissFileChooserAsync(chooser.Result);
             return note;
         }
         finally
         {
             _page.Request -= OnRequest;
         }
+    }
+
+    private static async Task<string> DismissFileChooserAsync(FileChooser chooser)
+    {
+        try
+        {
+            await chooser.CancelAsync();
+        }
+        catch (PuppeteerException e)
+        {
+            Log.Debug($"[Browser] cancelling a file chooser failed: {e.Message}");
+        }
+
+        return "That opened a file picker, which was closed: this tool can't upload files. " +
+               "If the task needs a file uploaded, hand the browser over to the user for that step.";
     }
 
     private async Task<string> PerformAsync(BrowserActionRequest request)
@@ -130,7 +152,7 @@ internal sealed partial class PuppeteerTab
         if (node.Source is not SerializedAXNode source || await source.ElementHandleAsync() is not { } handle)
         {
             throw new BrowserActionException(
-                $"{Describe(node)} is no longer on the page. Take a new snapshot and use its refs.");
+                $"{node.Label} is no longer on the page. Take a new snapshot and use its refs.");
         }
 
         try
@@ -140,32 +162,32 @@ internal sealed partial class PuppeteerTab
             {
                 case EBrowserAction.Click:
                     await locator.ClickAsync();
-                    return $"Clicked {Describe(node)}.";
+                    return $"Clicked {node.Label}.";
                 case EBrowserAction.Hover:
                     await locator.HoverAsync();
-                    return $"Hovered {Describe(node)}.";
+                    return $"Hovered {node.Label}.";
                 case EBrowserAction.Fill:
                     // 清空不算输入密码，放行
                     if (value.Length > 0 && await IsPasswordFieldAsync(handle, node))
                     {
-                        throw new BrowserActionException(PasswordRefusal(Describe(node)));
+                        throw new BrowserActionException(PasswordRefusal(node.Label));
                     }
 
                     await locator.FillAsync(value);
-                    return $"Filled {Describe(node)}.";
+                    return $"Filled {node.Label}.";
                 case EBrowserAction.Select:
                     return await SelectAsync(handle, node, value);
                 case EBrowserAction.Check:
                 case EBrowserAction.Uncheck:
                     bool wanted = action == EBrowserAction.Check;
                     if (node.Checked == "true" != wanted) await locator.ClickAsync();
-                    return $"{(wanted ? "Checked" : "Unchecked")} {Describe(node)}.";
+                    return $"{(wanted ? "Checked" : "Unchecked")} {node.Label}.";
                 case EBrowserAction.Press:
                     string[] keys = BrowserKeys.Parse(value);
                     bool typesText = BrowserKeys.TypesText(keys);
                     if (typesText && await IsPasswordFieldAsync(handle, node))
                     {
-                        throw new BrowserActionException(PasswordRefusal(Describe(node)));
+                        throw new BrowserActionException(PasswordRefusal(node.Label));
                     }
 
                     await handle.FocusAsync();
@@ -176,7 +198,7 @@ internal sealed partial class PuppeteerTab
                     }
 
                     await PressKeysAsync(keys, value);
-                    return $"Pressed {value} on {Describe(node)}.";
+                    return $"Pressed {value} on {node.Label}.";
                 default:
                     throw new BrowserActionException($"Unsupported action: {action}.");
             }
@@ -195,10 +217,13 @@ internal sealed partial class PuppeteerTab
             throw new BrowserActionException("This action needs a target: a ref from the latest snapshot (e.g. e5).");
         }
 
-        if (Lookup(key) is { } node) return node;
-        throw new BrowserActionException(RefPattern().IsMatch(key)
-            ? $"No {key} in the latest snapshot. Refs are renumbered every time a snapshot is taken."
-            : $"Nothing on the page shows the text \"{key}\".");
+        if (RefPattern().IsMatch(key))
+        {
+            return AxRefReconciler.Find(_roundRefs, _refs, key) ?? throw new BrowserActionException(
+                $"No {key} in the latest snapshot. Refs are renumbered every time a snapshot is taken.");
+        }
+
+        return Lookup(key) ?? throw new BrowserActionException($"Nothing on the page shows the text \"{key}\".");
     }
 
     private static async Task<string> SelectAsync(IElementHandle handle, AxNode node, string wanted)
@@ -217,7 +242,7 @@ internal sealed partial class PuppeteerTab
         if (values == null)
         {
             throw new BrowserActionException(
-                $"{Describe(node)} is not a native drop-down: click it, then click the option in the new snapshot.");
+                $"{node.Label} is not a native drop-down: click it, then click the option in the new snapshot.");
         }
 
         if (values.Length == 0)
@@ -225,11 +250,11 @@ internal sealed partial class PuppeteerTab
             string[] labels = await handle.EvaluateFunctionAsync<string[]>(
                 "el => [...el.options].map(o => o.label.trim())");
             throw new BrowserActionException(
-                $"{Describe(node)} has no option \"{wanted}\". Options: {string.Join(" | ", labels)}");
+                $"{node.Label} has no option \"{wanted}\". Options: {string.Join(" | ", labels)}");
         }
 
         await handle.SelectAsync(values);
-        return $"Selected \"{wanted}\" in {Describe(node)}.";
+        return $"Selected \"{wanted}\" in {node.Label}.";
     }
 
     // 组合键按住修饰键再按主键，按完松开
@@ -270,9 +295,6 @@ internal sealed partial class PuppeteerTab
     private static string PasswordRefusal(string field) =>
         $"{field} is a password field, and passwords are never typed for the user, even one they gave you. " +
         $"Call {BrowserTools.HandoffMention} so the user types it in the browser window themselves.";
-
-    private static string Describe(AxNode node) =>
-        node.Name.Trim() is { Length: > 0 } name ? $"{node.Role} \"{name}\"" : node.Role;
 
     [GeneratedRegex(@"^e\d+$")]
     private static partial Regex RefPattern();

@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System.Collections.Concurrent;
+using Microsoft.Extensions.AI;
 using PuppeteerSharp;
 using PuppeteerSharp.PageAccessibility;
 using UiharuMind.Core.Core.SimpleLog;
@@ -32,6 +33,8 @@ internal sealed partial class PuppeteerTab
     private IPage? _openedPage; //页面新开的标签页（target=_blank、window.open）：它抢走前台，本页就不出渲染帧、动作全超时
     private AxNode? _tree;
     private IReadOnlyDictionary<string, AxNode> _refs = new Dictionary<string, AxNode>();
+    private object? _round; //当前这一轮（同一条回复里的调用）
+    private IReadOnlyDictionary<string, AxNode> _roundRefs = new Dictionary<string, AxNode>(); //这一轮开始时的编号表：模型写这条回复时看到的
     private IReadOnlyDictionary<AxNode, AxNode> _pickerOptions =
         new Dictionary<AxNode, AxNode>(ReferenceEqualityComparer.Instance);
 
@@ -138,6 +141,7 @@ internal sealed partial class PuppeteerTab
         await _gate.WaitAsync(cancellationToken);
         _lastUsed = DateTime.UtcNow;
         _handedOver = false; //智能体又动手了：接管到此为止
+        EnterRound();
         try
         {
             if (Interlocked.Exchange(ref _strandedDialog, null) is { } stranded) await DismissStrandedAsync(stranded);
@@ -149,6 +153,22 @@ internal sealed partial class PuppeteerTab
             _lastUsed = DateTime.UtcNow;
             _gate.Release();
         }
+    }
+
+    /// <summary>
+    /// 此刻这次工具调用属于哪一轮：同一条回复里的调用共享框架的同一份历史与同一个迭代号
+    /// </summary>
+    /// <returns>轮次标识（按值比较）；不在框架的工具调用里（开发脚本直调）为 null</returns>
+    internal static object? CurrentRound() =>
+        FunctionInvokingChatClient.CurrentContext is { } context ? (context.Messages, context.Iteration) : null;
+
+    // 谁先抢到锁谁记下开局的编号表（见 AxRefReconciler）；不在一轮里就每次自成一轮，编号照最近一份快照查
+    private void EnterRound()
+    {
+        object? round = CurrentRound();
+        if (round != null && Equals(round, _round)) return;
+        _round = round;
+        _roundRefs = _refs;
     }
 
     // 新标签页留着（可能是用户要看的内容、登录弹窗），本页拿回前台继续可操作，并告诉模型去处
