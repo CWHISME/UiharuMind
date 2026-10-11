@@ -59,7 +59,7 @@ public class McpBridgeTests : IDisposable
 
         Assert.Contains("# github.search_code", text);
         Assert.Contains("More detail.", text);
-        Assert.Contains("Parameters (JSON Schema)", text);
+        Assert.Contains("参数（JSON Schema）", text);
     }
 
     [Fact]
@@ -123,7 +123,7 @@ public class McpBridgeTests : IDisposable
 
         string text = await Bridge(host).HelpAsync("github", null, TestContext.Current.CancellationToken);
 
-        Assert.Contains("Truncated", text);
+        Assert.Contains("已截断", text);
         Assert.Single(Directory.GetFiles(_spillDirectory, "ExtensionHelp_github_*.txt"));
     }
 
@@ -142,7 +142,7 @@ public class McpBridgeTests : IDisposable
 
         Assert.True(System.Text.Encoding.UTF8.GetByteCount(text) > ToolOutputBudget.Compact.MaxBytes,
             "这个量级本来就会超过 MCP 结果的 8KB");
-        Assert.DoesNotContain("Truncated", text);
+        Assert.DoesNotContain("已截断", text);
         Assert.Contains("category-tool-name-00", text);
         Assert.Contains("category-tool-name-36", text); //中间的也在
         Assert.Contains("category-tool-name-72", text);
@@ -425,7 +425,7 @@ public class McpBridgeTests : IDisposable
 
         Assert.Contains("row 0 ", text);
         Assert.Contains("row 19999 ", text); //尾部
-        Assert.Contains("full content saved to", text);
+        Assert.Contains("全文存于", text);
         string saved = Assert.Single(Directory.GetFiles(_spillDirectory, "ExtensionCall_github_dump_*.txt"));
         Assert.Equal(huge, File.ReadAllText(saved));
     }

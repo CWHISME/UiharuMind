@@ -112,9 +112,9 @@ internal static class GrepResultShaper
             .Take(MaxMapFiles)
             .ToList();
 
-        string notice = $"{matches.Count} matches across {byFile.Count} file(s) — too broad to return inline. "
-                        + $"Showing the top {map.Count} files by hit count; `Read` the files below, "
-                        + "or narrow the query (fileGlobs/path) instead of re-searching with a broader term.";
+        string notice = $"{matches.Count} 处命中，跨 {byFile.Count} 个文件——太宽，无法内联返回。"
+                        + $"按命中数展示前 {map.Count} 个文件；`Read` 下面的文件，"
+                        + "或收窄查询（fileGlobs/path）而不是换更宽的词重搜。";
 
         return new GrepToolResult { Matches = [], Map = map, Notice = notice };
     }

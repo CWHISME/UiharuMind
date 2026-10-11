@@ -7,8 +7,12 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Runtime;
+using System.Runtime.InteropServices;
+using System.Text;
 using Microsoft.Agents.AI.Tools.Shell;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.AI.Execution.Assembly;
 
@@ -39,30 +43,46 @@ internal static class ShellExecutorFactory
         "DOTNET_DefaultDiagnosticPortSuspend",
     ];
 
-    // [MFA绕坑] 绕:从默认工具描述里剥掉这句 因:它写死在 LocalShellExecutor 私有的 BuildDefaultDescription 末尾,自动档与预授权下并不成立 删除条件:框架按审批配置决定是否输出
-    private const string ApprovalClaim = "The user reviews and approves every call.";
+    // [MFA绕坑] 绕:工具描述与参数说明自写中文,不取框架默认的英文文案 因:主力模型中文语料为主,
+    // 且框架文案写死的审批句在自动档下不成立;自写后随框架升级需人工核对行为(超时/截断口径)
+    // 删除条件:框架描述可配置语言或团队决定统一英文
 
     private static readonly string BackgroundTasksHint =
-        $"Commands expected to run over {CommandTimeout.TotalMinutes:0} minutes or never exit: use " +
-        Tools.BackgroundTasks.BackgroundTaskTool.ToolName + ".";
+        $"预期要跑超过 {CommandTimeout.TotalMinutes:0} 分钟或不会退出的命令：用 " +
+        Tools.BackgroundTasks.BackgroundTaskTool.ToolName + "。";
 
     /// <summary>
     /// 把执行器包成模型可调的 shell 工具（主代理与子代理共用）。
-    /// 审批是给用户看的机制，模型知道了也不改变行为（ADR 0017 第九节）；而自动档下那句还是假的，
-    /// 会让模型以为总有人替它把关破坏性命令。
+    /// 审批是给用户看的机制，模型知道了也不改变行为（ADR 0017 第九节）；描述自写中文，
+    /// 不取框架默认（其末尾写死的审批句在自动档下不成立，且英文对小模型不友好）。
     /// </summary>
     /// <param name="executor">shell 执行器</param>
     /// <param name="hasBackgroundTasks">同一会话是否挂了后台任务工具：挂了就把长命令指过去</param>
     /// <returns>需审批的 shell 工具</returns>
     public static AIFunction CreateTool(LocalShellExecutor executor, bool hasBackgroundTasks = false)
     {
-        string description = executor.AsAIFunction(CharacterRunnerFactory.ShellToolName).Description
-            .Replace(ApprovalClaim, string.Empty, StringComparison.Ordinal)
-            .TrimEnd();
-        if (hasBackgroundTasks) description += " " + BackgroundTasksHint;
+        string description = BuildDescription(executor);
         AIFunction gated = executor.AsAIFunction(CharacterRunnerFactory.ShellToolName, description);
+        // 框架的参数说明写死在方法签名里,只能靠 schema 改写层换文案(与浏览器组 view 参数同款)
+        gated = new ParameterDescriptionFunction(gated, "command",
+            "要执行的 shell 命令，本机 shell 语法。" +
+            (hasBackgroundTasks ? " " + BackgroundTasksHint : string.Empty));
         return new ApprovalRequiredAIFunction(new ShellHangGuardFunction(gated, CommandTimeout + HangGrace,
             hasBackgroundTasks ? ShellHangGuardFunction.HangNoticeWithBackgroundTasks : ShellHangGuardFunction.HangNotice));
+    }
+
+    private static string BuildDescription(LocalShellExecutor executor)
+    {
+        string os = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "Windows"
+            : RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "macOS"
+            : RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "Linux" : "POSIX";
+        string binary = executor.ResolvedShellBinary;
+        StringBuilder sb = new($"在本地机器上执行一条 shell 命令，返回它的标准输出、标准错误与退出码。操作系统：{os}");
+        // binary 读不到就整句省掉:宁可不说,也不能给模型一个错的 shell
+        if (binary.Length > 0) sb.Append($"。shell 可执行文件：'{binary}'");
+        sb.Append("。无状态模式：每次调用都开一个全新 shell，工作目录与环境变量不跨调用保留——需要状态就把相关步骤合成一条命令。")
+          .Append($"。单次调用超时：{CommandTimeout.TotalSeconds:0} 秒；输出过长时按首尾截断。");
+        return sb.ToString();
     }
 
     public static LocalShellExecutor Create(

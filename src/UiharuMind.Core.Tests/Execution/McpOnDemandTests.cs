@@ -248,7 +248,7 @@ public class McpOnDemandTests : IDisposable
         Assert.True(System.Text.Encoding.UTF8.GetByteCount(result) < 12 * 1024, "约 8KB 加一段说明");
         Assert.Contains("[0000] log line", result);
         Assert.Contains("[0799] log line", result); //最新的日志在末尾，必须留住
-        Assert.Contains("full content saved to", result);
+        Assert.Contains("全文存于", result);
         Assert.Equal(logs, File.ReadAllText(Assert.Single(Directory.GetFiles(_directory))));
     }
 
@@ -267,7 +267,7 @@ public class McpOnDemandTests : IDisposable
 
         Assert.Contains("12:0000", result);
         Assert.Contains("12:0399", result); //最新的日志在末尾，必须留住
-        Assert.DoesNotContain("tail omitted", result);
+        Assert.DoesNotContain("尾部已省略", result);
         string saved = File.ReadAllText(Assert.Single(Directory.GetFiles(_directory)));
         Assert.True(saved.Count(c => c == '\n') > 400, "落盘文件要能按行号续读");
         // 缩进只是排版，内容与原 JSON 等价

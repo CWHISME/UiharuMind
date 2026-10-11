@@ -38,22 +38,21 @@ public static class VisionTool
     public static AITool Create(AgentPathResolver paths)
     {
         return AIFunctionFactory.Create(
-            async ([Description("Absolute or workspace-relative paths of the image files.")] string[] imagePaths,
-                    [Description("The question to answer about the image(s).")] string question,
+            async ([Description("图片文件的绝对路径或相对工作区的路径。")] string[] imagePaths,
+                    [Description("要针对图片回答的问题。")] string question,
                     CancellationToken cancellationToken = default) =>
                 await AskVisionAsync(paths, imagePaths, question, cancellationToken).ConfigureAwait(false),
             ToolName,
-            "Analyze one or more image files by delegating to a vision-capable model: identify their content " +
-            "and answer questions about them. " +
-            "Pass multiple paths to compare images side by side. " +
-            "Never guess an image's content from its file name.");
+            "将一张或多张图片交给支持视觉的模型分析：识别其内容并回答相关问题。" +
+            "传入多个路径可并排对比图片。" +
+            "绝不要仅凭文件名猜测图片内容。");
     }
 
     private static async Task<string> AskVisionAsync(AgentPathResolver paths, string[] imagePaths, string question,
         CancellationToken cancellationToken)
     {
-        if (imagePaths is null or { Length: 0 }) return "Error: imagePaths must contain at least one path.";
-        if (imagePaths.Length > MaxImages) return $"Error: at most {MaxImages} images per call.";
+        if (imagePaths is null or { Length: 0 }) return "Error: imagePaths 至少要包含一个路径。";
+        if (imagePaths.Length > MaxImages) return $"Error: 单次最多 {MaxImages} 张图。";
 
         List<ImageInput> images = new();
         List<string> missing = new();
@@ -71,7 +70,7 @@ public static class VisionTool
 
         // 任一缺失就整体报错并列出全部缺失路径,让模型修正后重试;
         // 不搞「缺的跳过、剩的分析」——那会让模型误以为全部分析了
-        if (missing.Count > 0) return $"Error: image file not found: {string.Join(", ", missing)}";
+        if (missing.Count > 0) return $"Error: 找不到图片文件：{string.Join(", ", missing)}";
 
         ImageVisionPromptAction skill = new(images);
 
@@ -81,6 +80,6 @@ public static class VisionTool
             result.Append(delta);
         }
 
-        return result.Length == 0 ? "(vision model returned no answer)" : result.ToString();
+        return result.Length == 0 ? "(视觉模型未返回答案)" : result.ToString();
     }
 }

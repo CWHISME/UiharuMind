@@ -40,8 +40,8 @@ public sealed class TranscribeAudioToolTests : IDisposable
         string result = await Invoke("talk.wav", subtitles: true,
             [.. Speech(3), .. Silence(1), .. Speech(3), .. Silence(1), .. Speech(3)]);
 
-        Assert.StartsWith("Transcribed 11 s", result);
-        Assert.Contains("Subtitles: $DRAFT/transcripts/talk.srt", result);
+        Assert.StartsWith("已转写 11 秒音频。", result);
+        Assert.Contains("字幕: $DRAFT/transcripts/talk.srt", result);
         string srt = await File.ReadAllTextAsync(Path.Combine(_root, "draft", "transcripts", "talk.srt"),
             TestContext.Current.CancellationToken);
         Assert.StartsWith("1\n00:00:00,000 --> 00:00:0", srt);
@@ -65,7 +65,7 @@ public sealed class TranscribeAudioToolTests : IDisposable
     public async Task WrongFormatOrMissingFile_SaysWhatToDo()
     {
         Assert.Contains("ffmpeg", await Invoke("clip.mp4", subtitles: false, Speech(1)));
-        Assert.StartsWith("Error: file not found", await Invoke("nope.wav", subtitles: false, Speech(1), create: false));
+        Assert.StartsWith("Error: 找不到文件：", await Invoke("nope.wav", subtitles: false, Speech(1), create: false));
         Assert.Empty(_sentLengths);
     }
 

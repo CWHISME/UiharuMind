@@ -29,8 +29,8 @@ public class SpeakToolTests
             TestContext.Current.CancellationToken))?.ToString();
 
         Assert.Equal([new SpeechRequest("你好呀", "开心"), new SpeechRequest("再见")], requests);
-        Assert.Contains("Spoken", spoken);
-        Assert.Contains("Not spoken", missed);
+        Assert.Contains("已朗读", spoken);
+        Assert.Contains("未朗读", missed);
     }
 
     [Fact]

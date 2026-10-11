@@ -36,23 +36,22 @@ public static class SchedulerTools
         // 模型只给 delayMinutes 时会直接抛"缺少必填参数 fireAtIso"
         AIFunction function = AIFunctionFactory.Create(
             (
-                [Description("Short human readable task name.")]
+                [Description("简短、人类可读的任务名。")]
                 string displayName,
-                [Description("Task instruction for the agent to execute when fired.")]
+                [Description("任务触发时让智能体执行的指令。")]
                 string prompt,
-                [Description("Fire after N minutes from now.")]
+                [Description("从现在起 N 分钟后触发。")]
                 double? delayMinutes = null,
-                [Description("Absolute fire time (ISO 8601). Overrides delayMinutes.")]
+                [Description("绝对触发时间（ISO 8601）。优先于 delayMinutes。")]
                 string? fireAtIso = null,
-                [Description("Shell command glob patterns the task may run unattended, " +
-                             "e.g. [\"git add*\", \"git commit*\"]. List every command it will need: " +
-                             "anything else is denied at run time.")]
+                [Description("任务可无人值守运行的 shell 命令 glob 模式，" +
+                             "如 [\"git add*\", \"git commit*\"]。列出它需要的每一条命令：" +
+                             "其余命令在执行时会被拒绝。")]
                 string[]? preAuthorizedCommands = null
             ) => CreateTaskAsync(workspacePath, displayName, prompt, delayMinutes, fireAtIso, preAuthorizedCommands),
             // 宽容口径:preAuthorizedCommands 也是 string[],模型给标量字符串时照收(见 ToolJson)
             ToolJson.CreateFactoryOptions(ToolName,
-                "Schedule an agent task to run automatically at a future time " +
-                "(e.g. 'commit the repo in 30 minutes')."));
+                "安排一个智能体任务在未来某个时间自动运行（如「30 分钟后提交仓库」）。"));
 
         return new ApprovalRequiredAIFunction(function);
     }
@@ -61,12 +60,12 @@ public static class SchedulerTools
         double? delayMinutes, string? fireAtIso, string[]? preAuthorizedCommands)
     {
         if (string.IsNullOrWhiteSpace(displayName) || string.IsNullOrWhiteSpace(prompt))
-            return "Error: displayName and prompt are required.";
+            return "Error: displayName 和 prompt 都是必填的。";
 
         DateTimeOffset fireAt;
         if (!string.IsNullOrEmpty(fireAtIso))
         {
-            if (!DateTimeOffset.TryParse(fireAtIso, out fireAt)) return $"Error: invalid fireAtIso '{fireAtIso}'.";
+            if (!DateTimeOffset.TryParse(fireAtIso, out fireAt)) return $"Error: 无效的 fireAtIso '{fireAtIso}'。";
         }
         else if (delayMinutes is > 0)
         {
@@ -74,7 +73,7 @@ public static class SchedulerTools
         }
         else
         {
-            return "Error: provide either delayMinutes (> 0) or fireAtIso.";
+            return "Error: 请提供 delayMinutes（> 0）或 fireAtIso。";
         }
 
         ScheduledAgentTask task = new()
@@ -94,8 +93,8 @@ public static class SchedulerTools
             return $"Error: {e.Message}"; //非主实例不收定时任务(ADR 0064)
         }
 
-        return $"Scheduled task '{displayName}' (id {task.TaskId}) to fire at {fireAt:yyyy-MM-dd HH:mm:ss zzz}. " +
-               $"Permission mode: {task.PermissionMode} (the user can raise it to FullAuto in the task list). " +
-               $"Pre-authorized shell patterns: [{string.Join(", ", task.PreAuthorizedCommands)}]";
+        return $"已安排任务 '{displayName}'（id {task.TaskId}）于 {fireAt:yyyy-MM-dd HH:mm:ss zzz} 触发。" +
+               $"权限档：{task.PermissionMode}（用户可在任务列表里提升到 FullAuto）。" +
+               $"预授权的 shell 模式：[{string.Join(", ", task.PreAuthorizedCommands)}]";
     }
 }

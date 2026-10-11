@@ -64,7 +64,7 @@ public class ToolOutputCapTests : IDisposable
 
         string result = await _tools.Read(path, cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.Contains("…[truncated]", result);
+        Assert.Contains("…[已截断]", result);
         Assert.True(result.Length < 3000, $"单行截断后总长应远小于原文,实际 {result.Length}");
     }
 
@@ -193,8 +193,8 @@ public class ToolOutputCapTests : IDisposable
         Assert.Equal(400, entry.Hits); //地图给全量分布,不被 200 上限截短
         Assert.Equal(1, entry.FirstLine);
         Assert.Equal(400, entry.LastLine);
-        Assert.Contains("matches across", result.Notice);
-        Assert.Contains("too broad", result.Notice);
+        Assert.Contains("处命中，跨", result.Notice);
+        Assert.Contains("无法内联返回", result.Notice);
     }
 
     /// <summary>地图按命中数降序取 Top 50:命中极度分散本身就是"搜宽了"的信号,看前 50 就够下判断</summary>
@@ -215,7 +215,7 @@ public class ToolOutputCapTests : IDisposable
         Assert.NotNull(result.Map);
         Assert.Equal(GrepResultShaper.MaxMapFiles, result.Map.Count);
         Assert.All(result.Map, e => Assert.Equal(10, e.Hits));
-        Assert.Contains("600 matches across 60 file(s)", result.Notice);
+        Assert.Contains("600 处命中，跨 60 个文件", result.Notice);
     }
 
     [Fact]
@@ -223,6 +223,6 @@ public class ToolOutputCapTests : IDisposable
     {
         Assert.Equal("short", ToolOutputTruncation.TruncateLine("short", 10));
         string truncated = ToolOutputTruncation.TruncateLine(new string('a', 100), 10);
-        Assert.StartsWith("aaaaaaaaaa …[truncated]", truncated);
+        Assert.StartsWith("aaaaaaaaaa …[已截断]", truncated);
     }
 }

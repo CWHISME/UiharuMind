@@ -29,14 +29,14 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
 
     /// <summary>拒绝理由,会送给模型——说清是"无人值守"而不是"用户不同意",模型才不会反复请求</summary>
     private const string DenialReason =
-        "Unattended run: this action is not allowed by the task's permission mode and was not " +
-        "pre-authorized, so it was denied automatically. Do not retry it; work around it or stop.";
+        "无人值守执行：该动作不在任务权限档允许范围内、也没有预授权，已自动拒绝。" +
+        "不要重试；绕开它或停下。";
 
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
 
     private const string SecondaryRefusal =
-        "Scheduled tasks are managed by the UiharuMind instance that started first on this profile; " +
-        "this instance cannot schedule them. Ask the user to schedule it there.";
+        "定时任务由本档案上先启动的 UiharuMind 实例管理；" +
+        "当前实例无法登记。请用户去那边登记。";
 
     private readonly List<ScheduledAgentTask> _tasks = new();
     private readonly object _locker = new();

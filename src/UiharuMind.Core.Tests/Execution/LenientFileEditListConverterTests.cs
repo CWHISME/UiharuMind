@@ -85,7 +85,7 @@ public class LenientFileEditListConverterTests
     {
         // 模型把 edits 发成普通文本时,必须回一条能照着改的话术,而不是框架的裸 JsonException
         JsonException ex = Assert.Throws<JsonException>(() => Deserialize("\"replace foo with bar\""));
-        Assert.Contains("edits must be a JSON array of {oldString,newString} objects", ex.Message);
+        Assert.Contains("edits 必须是 {oldString,newString} 对象的 JSON 数组", ex.Message);
         Assert.Contains("replace foo with bar", ex.Message);
     }
 
@@ -96,13 +96,13 @@ public class LenientFileEditListConverterTests
         // ——用 Serialize 生成字面量，避免手写转义出错
         string scalarJson = JsonSerializer.Serialize("\"foo\""); // 值为 "foo" 的 JSON 字符串
         JsonException ex = Assert.Throws<JsonException>(() => Deserialize(scalarJson));
-        Assert.Contains("edits must be an array of {oldString,newString} objects", ex.Message);
+        Assert.Contains("edits 必须是 {oldString,newString} 对象的数组", ex.Message);
     }
 
     [Fact]
     public void ArrayWithNonObjectElement_ThrowsActionableMessage()
     {
         JsonException ex = Assert.Throws<JsonException>(() => Deserialize("[\"oops\",{\"oldString\":\"a\",\"newString\":\"b\"}]"));
-        Assert.Contains("Each edit must be an object", ex.Message);
+        Assert.Contains("每个 edit 必须是带 oldString 和 newString 的对象", ex.Message);
     }
 }

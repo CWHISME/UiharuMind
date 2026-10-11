@@ -43,17 +43,17 @@ public static class EndAwayTool
     public static AITool Create(Func<bool>? isInfinite = null)
     {
         return AIFunctionFactory.Create(
-            ([Description("\"done\" when the away goal is reached; \"needs_user\" when something must be decided by the user in person.")]
+            ([Description("离席目标达成时填 \"done\"；有必须由用户本人决定的事时填 \"needs_user\"。")]
                 string reason,
-                [Description("What the user should know when they come back: what was done, or exactly what is waiting for them.")]
+                [Description("用户回来时应当知道的事：完成了什么，或具体有什么在等他们。")]
                 string summary,
-                [Description("Optional closing words to say to the group before ending; leave empty when there is nothing to tell the group. " +
-                    "Anything written next to this call stays local, only this parameter reaches the group.")]
+                [Description("结束前可选地对群说几句告别话；没有要告诉群的就留空。" +
+                    "本调用旁边的任何文字都只留在本地，只有这个参数会到达群里。")]
                 string? say = null) => Acknowledge(reason, summary, isInfinite?.Invoke() == true),
             ToolName,
-            "End the user's away session. The group stops after this turn and the user is notified. " +
-            "Only for a reached goal or a decision the user must make in person. " +
-            "In infinite away mode this tool is disabled and returns an error.");
+            "结束用户的离席会话。本轮结束后群停止，并通知用户。" +
+            "只用于目标达成或必须由用户本人决定的事。" +
+            "无限离席模式下本工具被禁用，会返回错误。");
     }
 
     /// <summary>
@@ -80,11 +80,11 @@ public static class EndAwayTool
     private static string Acknowledge(string reason, string summary, bool infinite)
     {
         if (infinite)
-            return "Error: infinite away mode is on and only the user can end this session. " +
-                   "Do not call this tool again; re-analyze the current situation and continue with concrete next steps.";
+            return "Error: 无限离席模式已开启，只有用户能结束这个会话。" +
+                   "不要再调用本工具；重新分析当前情况并继续推进具体步骤。";
         return reason.Trim() is DoneValue or NeedsUserValue
-            ? "Away session will end after this turn. Do not say anything more to the group."
-            : $"Error: reason must be \"{DoneValue}\" or \"{NeedsUserValue}\".";
+            ? "离席会话将在本轮结束后结束。之后不要再对群说任何话。"
+            : $"Error: reason 必须是 \"{DoneValue}\" 或 \"{NeedsUserValue}\"。";
     }
 
     // 落盘往返后参数值是 JsonElement

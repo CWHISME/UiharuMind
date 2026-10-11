@@ -32,7 +32,7 @@ internal static class ToolOutputTruncation
     /// <returns>未超长原样返回，否则截断并带标记</returns>
     public static string TruncateLine(string text, int maxChars)
     {
-        return text.Length <= maxChars ? text : text[..maxChars] + " …[truncated]";
+        return text.Length <= maxChars ? text : text[..maxChars] + " …[已截断]";
     }
 
     /// <summary>
@@ -109,14 +109,14 @@ internal static class ToolOutputTruncation
         if (tailStartLine <= headLines + 1)
         {
             return $"{head}\n\n---\n"
-                   + $"*[Truncated — showing first {Encoding.UTF8.GetByteCount(head)} bytes ({headRegion}) of {totalBytes} bytes / {totalLines} lines; "
-                   + $"full content saved to {savedPath}; head and tail overlap (very long lines), tail omitted]*";
+                   + $"*[已截断 —— 仅展示前 {Encoding.UTF8.GetByteCount(head)} 字节（{headRegion}），共 {totalBytes} 字节 / {totalLines} 行；"
+                   + $"全文存于 {savedPath}；头尾重叠（极长行），尾部已省略]*";
         }
 
         return $"{head}\n\n---\n"
-               + $"*[Truncated — showing first {Encoding.UTF8.GetByteCount(head)} bytes ({headRegion}) and last {Encoding.UTF8.GetByteCount(tail)} bytes ({tailRegion}) of {totalBytes} bytes / {totalLines} lines; "
-               + $"full content saved to {savedPath}; continue with Read offset={headLines + 1}]*\n\n---\n\n"
-               + $"[TAIL — {tailRegion}]\n{tail}";
+               + $"*[已截断 —— 展示了前 {Encoding.UTF8.GetByteCount(head)} 字节（{headRegion}）和后 {Encoding.UTF8.GetByteCount(tail)} 字节（{tailRegion}），共 {totalBytes} 字节 / {totalLines} 行；"
+               + $"全文存于 {savedPath}；继续用 Read offset={headLines + 1} 读]*\n\n---\n\n"
+               + $"[尾部 — {tailRegion}]\n{tail}";
     }
 
     /// <summary>取前 budget 字节,不劈开多字节字符</summary>

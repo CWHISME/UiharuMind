@@ -227,8 +227,8 @@ public class ScheduledTaskPermissionTests
 
         ToolApprovalResponseContent response = Assert.IsType<ToolApprovalResponseContent>(
             Assert.Single(Assert.Single(responses).Contents));
-        Assert.Contains("Unattended run", response.Reason);
-        Assert.Contains("Do not retry", response.Reason);
+        Assert.Contains("无人值守执行", response.Reason);
+        Assert.Contains("不要重试", response.Reason);
     }
 
     /// <summary>

@@ -34,20 +34,20 @@ public static class SynthesizeSpeechTool
         Func<IEnumerable<CharacterData>> characters)
     {
         return AIFunctionFactory.Create(
-            async ([Description("The words to speak (plain text; Markdown marks are not read).")]
+            async ([Description("要合成的文字（纯文本；不识别 Markdown 标记）。")]
                     string text,
-                    [Description("Name of the character whose read-aloud voice to use. Omit for your own voice.")]
+                    [Description("使用哪个角色的朗读声音。省略则用你自己的声音。")]
                     string? voice = null,
-                    [Description("Optional tone, e.g. \"calm narration\". Only some voices follow it.")]
+                    [Description("可选语气，如「平静的旁白」。只有部分声音会遵循。")]
                     string? tone = null,
-                    [Description("Optional speed multiplier between 0.5 and 2. Omit for the voice's usual speed.")]
+                    [Description("可选的语速倍数，0.5 到 2 之间。省略则用该声音的默认语速。")]
                     float? speed = null,
                     CancellationToken cancellationToken = default) =>
                 await SynthesizeAsync(paths, self, synthesizer, characters, text, voice, tone, speed, cancellationToken)
                     .ConfigureAwait(false),
             ToolName,
-            "Turn text into a speech audio file (WAV) in a character's voice, e.g. for voice-overs. " +
-            "Nothing is played aloud. For several speakers, call once per line and join the files yourself.");
+            "把文字用某个角色的声音合成为语音音频文件（WAV），比如用于配音。" +
+            "不会出声播放。多角色配音时逐句调用一次、自行拼接文件。");
     }
 
     /// <summary>
@@ -61,14 +61,14 @@ public static class SynthesizeSpeechTool
         SpeechFileSynthesizer synthesizer, Func<IEnumerable<CharacterData>> characters, string text, string? voice,
         string? tone, float? speed, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(text)) return "Error: text must not be empty.";
+        if (string.IsNullOrWhiteSpace(text)) return "Error: 文本不能为空。";
         CharacterData? speaker = string.IsNullOrWhiteSpace(voice) ? self : Find(characters(), voice.Trim());
         if (speaker == null)
         {
             string known = string.Join(", ", characters().Where(x => x.Speech is { IsEmpty: false })
                 .Select(x => x.CharacterName).Where(x => x.Length > 0).Distinct().Order(StringComparer.Ordinal));
-            return $"Error: no character named '{voice}'." +
-                   (known.Length > 0 ? $" Characters with a voice set: {known}." : " No character has a voice set yet.");
+            return $"Error: 没有名为 '{voice}' 的角色。" +
+                   (known.Length > 0 ? $" 已设置声音的角色：{known}。" : " 还没有任何角色设置声音。");
         }
 
         SpeechStyle style = speaker.Speech ?? new SpeechStyle();
@@ -87,12 +87,12 @@ public static class SynthesizeSpeechTool
             SpeechFile file = await synthesizer.SynthesizeAsync(text, style, path, cancellationToken).ConfigureAwait(false);
             // 工具卡上能直接放，正文不必再贴路径
             return $"{SavedPrefix}{paths.ToPortable(file.Path)}\n" +
-                   $"{file.Duration.TotalSeconds:0.0} s, voice of {speaker.CharacterName}. " +
-                   "The user can play it on this tool's card; no need to repeat the path unless asked.";
+                   $"{file.Duration.TotalSeconds:0.0} 秒，{speaker.CharacterName} 的声音。" +
+                   "用户可以在本工具卡片上播放；除非被问起，不必重复路径。";
         }
         catch (Exception e) when (e is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
-            return $"Error: speech synthesis failed: {e.Message}\nTell the user to check the voice settings.";
+            return $"Error: 语音合成失败：{e.Message}\n告诉用户检查声音设置。";
         }
     }
 

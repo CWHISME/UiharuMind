@@ -51,15 +51,14 @@ internal sealed class PermissiveFileAccessTools
 
     // 描述只写契约;何时读全文、何时先 Grep 再切片是策略,归文件纪律段(AgentToolPrompts.FileReadDefault)
     private const string ReadDescription =
-        "Read a file's raw content. By default returns at most 2000 lines or 32KB per call, "
-        + "whichever comes first; a trailing notice gives the offset to continue from.";
+        "读取文件的原始内容。默认每次最多返回 2000 行或 32KB，以先达到的为准；"
+        + "末尾的附注会给出继续读取的 offset。";
 
-    private const string ReadImagesDescription = " PNG, JPEG and WebP files are shown to you as images."; //只有视觉模型的装配才说
+    private const string ReadImagesDescription = " PNG、JPEG 与 WebP 文件会以图片形式展示。"; //只有视觉模型的装配才说
 
     private const string SearchPathDescription = //Glob 与 Grep 的 path 参数共用
-        "Omit to search the whole working directory. "
-        + "Pass a subdirectory or a single file only to narrow the search; relative or absolute. "
-        + "Returned paths are relative to the working directory.";
+        "省略则搜索整个工作目录。仅在需要缩小搜索范围时传一个子目录或单个文件；相对或绝对路径均可。"
+        + "返回的路径相对于工作目录。";
 
     /// <summary>
     /// 同文件的"读→计划→写"互斥锁。<c>AllowConcurrentInvocation=true</c> 时同一轮的两个 Edit/Write
@@ -138,9 +137,9 @@ internal sealed class PermissiveFileAccessTools
             ToolJson.CreateFactoryOptions(name, description);
     }
 
-    [Description("Find files by glob pattern.")]
+    [Description("按 glob 模式查找文件。")]
     private async Task<GlobToolResult> Glob(
-        [Description("Glob pattern, e.g. \"**/*.cs\".")] string pattern,
+        [Description("Glob 模式，如 \"**/*.cs\"。")] string pattern,
         [Description(SearchPathDescription)] string? path = null,
         CancellationToken ct = default)
     {
@@ -188,16 +187,15 @@ internal sealed class PermissiveFileAccessTools
     }
 
     // 命中过多时怎么办只由地图的 Notice 说:它就贴在触发那一刻,描述里再写一遍是每轮白付
-    [Description("Search file contents. Respects .gitignore.")]
+    [Description("搜索文件内容。遵循 .gitignore。")]
     internal async Task<GrepToolResult> Grep(
-        [Description("Search pattern (ripgrep syntax).")] string pattern,
+        [Description("搜索模式（ripgrep 语法）。")] string pattern,
         // 编译不过的正则会自动按字面串重搜并在 Notice 里说明,事前不必叮嘱
-        [Description("Treat the pattern as a regular expression.")] bool isRegex = true,
-        [Description("Case-sensitive search.")] bool caseSensitive = false,
-        [Description("How many lines of context to show around each match.")] int contextLines = 0,
+        [Description("将模式作为正则表达式处理。")] bool isRegex = true,
+        [Description("区分大小写的搜索。")] bool caseSensitive = false,
+        [Description("每处命中前后显示多少行上下文。")] int contextLines = 0,
         // 带路径或 **/ 前缀的 glob 在搜索器里已剥成裸文件名,不必再警告模型别这么写
-        [Description("File-name globs, e.g. [\"*.cs\"]. Matched against the file name only; "
-                     + "scope by folder with path.")]
+        [Description("按文件名的 glob 过滤，如 [\"*.cs\"]。只匹配文件名；按目录缩小范围用 path。")]
         string[]? fileGlobs = null,
         [Description(SearchPathDescription)] string? path = null,
         CancellationToken ct = default)
@@ -209,18 +207,19 @@ internal sealed class PermissiveFileAccessTools
     }
 
     internal Task<string> Read(
-        [Description("File path, absolute or relative to the working directory.")] string filePath,
-        [Description("1-based starting line. Negative counts from the end: -100 reads the last 100 lines.")]
+        [Description("文件路径，绝对路径或相对于工作目录。")] string filePath,
+        [Description("起始行号，1 起算。负数从末尾计：-100 读最后 100 行。")]
         int offset = 1,
-        [Description("Max lines to return.")] int? limit = null,
+        [Description("最多返回的行数。")]
+        int? limit = null,
         CancellationToken cancellationToken = default)
         => _reader.ReadAsync(filePath, offset, limit, cancellationToken);
 
-    [Description("Create a new file, or replace an existing one wholesale. Use 'Edit' for partial changes.")]
+    [Description("新建文件，或整份替换已有文件。局部修改用 Edit。")]
     internal async Task<string> Write(
-        [Description("File path, absolute or relative to the working directory.")]
+        [Description("文件路径，绝对路径或相对于工作目录。")]
         string filePath,
-        [Description("Full file content.")] string content,
+        [Description("完整的文件内容。")] string content,
         CancellationToken ct = default)
     {
         if (!_paths.TryResolve(filePath, out string resolved, out string pathError)) return $"[Write failed] {pathError}";
@@ -266,17 +265,16 @@ internal sealed class PermissiveFileAccessTools
     }
 
     [Description("""
-                 Change an existing file by exact text replacement.
-                 - Put every change to one file in a single call, as multiple entries in `edits`.
-                 - Every oldString is matched against the file as it is now, not against
-                   your earlier entries in the same call.
-                 - Entries must not overlap: merge nearby changes into one entry, keep distant ones separate.
-                 - Nothing is written unless every entry applies; the error tells you what to fix.
+                 按精确文本替换修改已有文件。
+                 - 对同一文件的所有改动放进同一次调用，作为 `edits` 里的多条条目。
+                 - 每个 oldString 都对着文件当前的样子匹配，而不是你同一次调用里更早的条目。
+                 - 条目之间不得重叠：邻近的改动合并进一条，相距远的各自独立。
+                 - 只有全部条目都适用才会写入；出错信息会告诉你该修哪一条。
                  """)]
     internal async Task<string> Edit(
-        [Description("File path, absolute or relative to the working directory.")]
+        [Description("文件路径，绝对路径或相对于工作目录。")]
         string filePath,
-        [Description("The replacements to apply.")] List<FileEdit> edits,
+        [Description("要应用的替换条目。")] List<FileEdit> edits,
         CancellationToken ct = default)
     {
         if (!_paths.TryResolve(filePath, out string resolved, out string pathError)) return $"[Edit failed] {pathError}";

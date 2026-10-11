@@ -40,7 +40,7 @@ public class BrowserToolsTests
         string result = await InvokeAsync(Create(host), BrowserTools.ActToolName,
             new AIFunctionArguments { ["action"] = "press", ["target"] = "e2" });
 
-        Assert.StartsWith("[Error] press needs value", result);
+        Assert.StartsWith("[Error] press 需要 value", result);
         Assert.Empty(host.Actions);
     }
 
@@ -119,7 +119,7 @@ public class BrowserToolsTests
         string result = await InvokeAsync(Create(new FakeHost()), BrowserTools.SnapshotToolName,
             new AIFunctionArguments { ["view"] = "html" });
 
-        Assert.StartsWith("[Error] Unknown view", result);
+        Assert.StartsWith("[Error] 未知的 view", result);
     }
 
     [Theory]
@@ -143,7 +143,7 @@ public class BrowserToolsTests
         string result = await InvokeAsync(tools, BrowserTools.SnapshotToolName,
             new AIFunctionArguments { ["view"] = "screenshot" });
 
-        Assert.StartsWith("[Error] Screenshots are off here", result);
+        Assert.StartsWith("[Error] 这里不提供截图", result);
         AIFunction snapshot = tools.OfType<AIFunction>().Single(t => t.Name == BrowserTools.SnapshotToolName);
         Assert.DoesNotContain("screenshot", snapshot.Description);
         Assert.DoesNotContain("screenshot", snapshot.JsonSchema.GetRawText());
@@ -160,7 +160,7 @@ public class BrowserToolsTests
 
         // 不在这一层包审批：浏览器只经 ExtensionCall 调，审批在那一层逐条判（ADR 0079）
         Assert.IsNotType<ApprovalRequiredAIFunction>(tools.Single(t => t.Name == BrowserTools.HandoffToolName));
-        Assert.StartsWith("The user took over the browser and handed it back.", result);
+        Assert.StartsWith("用户接管了浏览器并交了回来。", result);
         Assert.Contains("- button \"Go\" [ref=e2]", result);
     }
 

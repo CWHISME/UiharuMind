@@ -66,7 +66,7 @@ public class SubAgentToolTests
     {
         string description = Launcher().Description;
 
-        Assert.Contains("same sub-agent", description);
+        Assert.Contains("同一位子代理", description);
         Assert.Contains(SubAgentTool.MessageToolName, description);
     }
 
@@ -90,7 +90,7 @@ public class SubAgentToolTests
 
         string result = await Invoke(launcher, new AIFunctionArguments { ["prompt"] = "看看", ["subagent_type"] = "reviewer" });
 
-        Assert.Contains("no one called 'reviewer'", result);
+        Assert.Contains("没有名为 'reviewer' 的人", result);
         Assert.Contains("Alice", result);
     }
 
@@ -146,7 +146,7 @@ public class SubAgentToolTests
         {
             string result = await Send("[sub-session: sendshort]");
 
-            Assert.DoesNotContain("no conversation", result);
+            Assert.DoesNotContain("没有 '", result);
             Assert.Contains(idA, result);
             Assert.Contains(idB, result);
         }
@@ -165,7 +165,7 @@ public class SubAgentToolTests
         SessionManager.Instance.Add(new ChatSession { SessionId = id, ParentSessionId = "someone-else" });
         try
         {
-            Assert.Contains("no conversation", await Send("sendothe"));
+            Assert.Contains("没有 'sendothe'", await Send("sendothe"));
         }
         finally
         {
@@ -186,7 +186,7 @@ public class SubAgentToolTests
         {
             string result = await Send("someone-made-up");
 
-            Assert.Contains("no conversation", result);
+            Assert.Contains("没有 '", result);
             Assert.Contains($"- [sub-session: {SubSessionIdAlias.Short(id)}] — 审查员", result);
         }
         finally

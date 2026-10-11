@@ -249,19 +249,19 @@ public static class GroupTranscript
     /// 补位轮的提示（ADR 0049 修订）：激进档一波静下来后，给还有没看过的发言的人各补一次，随投递附在末尾。
     /// 界面随每轮重锚一并摘掉，不画出来
     /// </summary>
-    public static string CatchUpHint => $"（这一波大家说完了，上面是你还没看过的：有新角度就说，没有就只回复「{PassReply}」。）";
+    public static string CatchUpHint => $"【这一波大家说完了，上面是你还没看过的：有新角度就说，没有就只回复「{PassReply}」。】";
 
     /// <summary>
     /// 群里那一轮被停或失败后，再被叫醒又没有新话时交给他的一句。他可能已在私聊里接着做完了——
     /// 那份结果群里没人看见，所以请他说一句
     /// </summary>
-    public const string ResumeNote = "（你上一轮在群里被打断了：接着做完；要是已经做完了，把结果跟大家说一句。）";
+    public const string ResumeNote = "【你上一轮在群里被打断了：接着做完；要是已经做完了，把结果跟大家说一句。】";
 
     /// <summary>
     /// 群里那一轮被用户私聊叫停、私聊结束后接回时，有没有新话都附上的一句（ADR 0063）。只给事实：
     /// 接着做、说结果、按私聊里的新意思改方向还是放下，由他看着自己的历史定。界面不画
     /// </summary>
-    public const string PrivateResumeNote = "【你上一轮在群里的活被用户私聊打断了。私聊里说的、做的，群里都看不到。】";
+    public const string PrivateResumeNote = "【你上一轮在群里的活被用户私聊打断了，最后一句回复是单独发给用户的，群里都看不到。】";
 
     /// <summary>
     /// 私聊后接回时叠在交代前面的一句：点破上一轮是私聊回复、没进群。
@@ -270,7 +270,7 @@ public static class GroupTranscript
     public const string PrivateReplyChannelNote = "【你上一轮是私聊回复，只用户可见，没进群。】";
 
     /// <summary>每轮重锚的开头：界面据此认出它、不画出来</summary>
-    public const string VoiceReminderOpening = "（说话前记着：";
+    public const string VoiceReminderOpening = "【说话前记着：";
 
     /// <summary>
     /// 每轮重锚（提案 v8 §7.4）：投递末尾贴一句本人的口吻。系统提示末尾的人格锚点到了长群聊里，
@@ -284,7 +284,7 @@ public static class GroupTranscript
     {
         string coda = personaCoda.Trim();
         if (coda.Length > 0 && !"。！？.!?".Contains(coda[^1])) coda += "。";
-        return $"{VoiceReminderOpening}{coda}群里照你自己的说话方式说。）";
+        return $"{VoiceReminderOpening}{coda}群里照你自己的说话方式说。】";
     }
 
     /// <summary>
@@ -292,7 +292,7 @@ public static class GroupTranscript
     /// 会照群聊口吻回（实测会 @ 人）。界面显示时摘掉
     /// </summary>
     public const string PrivateNote =
-        "（私聊：这句是用户单独对你说的，不在群里；你这一轮的回复只有用户看得到，不会发到群里。）";
+        "【私聊：这句是用户单独对你说的，你这一轮的回复将只发给用户，不会发到群里。】";
 
     /// <summary>给私聊正文加上私聊说明</summary>
     /// <param name="text">用户打的原话</param>
@@ -317,17 +317,16 @@ public static class GroupTranscript
         StringBuilder text = new();
         text.Append($"你在群聊「{scene.GroupName}」里。在场的有：{BuildRoster(scene.UserName, scene.Others)}。你是{scene.SelfName}。");
         if (scene.HostName == scene.SelfName)
-            text.Append("\n你是本群主持人：用户没有 @ 任何人时，先用 @名字 点名最合适的一两位来回应，而不是自己直接回答；要查的资料留到之后再查，别让大家干等。");
+            text.Append("\n你是本群主持人：你可以参与讨论、负责记录，但是一般情况下不要亲自动手干活。用户没有 @ 任何人时，先用 @名字 点名最合适的一两位来回应。");
         // else if (scene.HostName != null)
         //     text.Append($"\n本群主持人是{scene.HostName}。");
 
         // 规矩一条一行、一个意思只说一次：挤成长句连排时分不出主次；同一个意思分几条说，模型反而分不出哪条最要紧
         // 回复就是发言（ADR 0060 修订）：只经工具说话时，模型被用户直接问到就照常在正文里答，群里谁也看不见
         text.Append("\n\n- 格式：群里的发言会按「[名字]: 内容」交给你；你每次说完的正文就是你在群里说的话，" +
-                    "群里会自动标上你的名字，直接写正文就行。想请某位成员接话，写 @名字，只写名字、不带作品名。");
+                    "群里会自动标上你的名字，直接写正文就行。想请某位成员接话，写 @名字。");
         if (scene.HasGroupPostTool)
-            text.Append($"\n- 中途说话：事情做到一半想先说一句（比如先说接哪一块），调用 {GroupPostTool.ToolName}；" +
-                        "它发过的话，最后的正文里不必再说一遍。");
+            text.Append($"\n- 中途说话：事情做到一半想先说一句（比如先说接哪一块），调用 {GroupPostTool.ToolName}。");
         // 不给尺度，群里的话会被当成交付物写，一人写长报告、别人跟着学
         // 口吻交给各自的卡：「像平常聊天」实测把 OP-01 的协议、原作角色的口吻一并抹成同一种聊天腔
         text.Append("\n- 尺度：说你自己的看法，用你自己的说话方式；发到群聊的信息尽量简短，像普通聊天那样，不要长篇大论。");

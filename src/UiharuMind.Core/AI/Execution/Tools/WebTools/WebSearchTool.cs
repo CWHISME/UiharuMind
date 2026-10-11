@@ -17,14 +17,14 @@ public static class WebSearchTool
     public static AITool Create()
     {
         return AIFunctionFactory.Create(SearchAsync, ToolName,
-            $"Search the web for current information. Returns up to {PageSize} titles, URLs and summaries per page. " +
-            $"If the summary is insufficient, use {WebFetchTool.ToolName} on a specific URL. " +
-            "Later pages are usually less relevant; rephrasing the query often works better than paging deep.");
+            $"搜索网络获取最新信息。每页最多返回 {PageSize} 条标题、URL 和摘要。" +
+            $"若摘要不够，用 {WebFetchTool.ToolName} 抓取具体 URL。" +
+            "靠后的页面相关性通常更低；改写查询词往往比翻页更有效。");
     }
 
     private static async Task<string> SearchAsync(
-        [Description("Exact search query.")] string query,
-        [Description("Result page, 1-5 (default 1). Ask for the next page with the same query.")] int page = 1,
+        [Description("精确的搜索查询词。")] string query,
+        [Description("结果页码，1-5（默认 1）。同一查询要更多结果时请求下一页。")] int page = 1,
         CancellationToken ct = default)
     {
         page = Math.Clamp(page, 1, MaxPage);
@@ -33,22 +33,22 @@ public static class WebSearchTool
         {
             var items = await Engine.SearchAsync(query, page, PageSize, ct);
             if (items.Count == 0)
-                return page == 1 ? "No results found from any available engine." : $"No more results beyond page {page - 1}.";
+                return page == 1 ? "所有可用的搜索引擎都没找到结果。" : $"第 {page - 1} 页之后再没有更多结果。";
 
-            var sb = new StringBuilder($"Search results for \"{query}\" (page {page}):\n");
+            var sb = new StringBuilder($"「{query}」的搜索结果（第 {page} 页）：\n");
             for (int i = 0; i < items.Count; i++)
             {
                 var r = items[i];
                 sb.AppendLine($"{(page - 1) * PageSize + i + 1}. {r.Title}");
-                sb.AppendLine($"   URL: {r.Url}");
+                sb.AppendLine($"   链接: {r.Url}");
                 if (!string.IsNullOrWhiteSpace(r.Snippet))
-                    sb.AppendLine($"   Summary: {r.Snippet}");
+                    sb.AppendLine($"   摘要: {r.Snippet}");
                 sb.AppendLine();
             }
 
             sb.Append(items.Count == PageSize && page < MaxPage
-                ? $"More results: call again with page={page + 1}."
-                : "End of results.");
+                ? $"还有更多结果：用 page={page + 1} 再调一次。"
+                : "结果结束。");
             return sb.ToString();
         }
         catch (Exception ex)

@@ -30,6 +30,6 @@ public class ScheduleTaskToolTests
             TestContext.Current.CancellationToken);
 
         string text = result is JsonElement element ? element.GetString() ?? string.Empty : result?.ToString() ?? string.Empty;
-        Assert.Contains("provide either delayMinutes", text);
+        Assert.Contains("请提供 delayMinutes", text);
     }
 }

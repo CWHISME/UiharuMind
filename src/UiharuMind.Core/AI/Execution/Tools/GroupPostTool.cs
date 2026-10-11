@@ -34,20 +34,20 @@ public static class GroupPostTool
     public static AITool Create(string memberSessionId)
     {
         return AIFunctionFactory.Create(
-            ([Description("What you say to everyone in the chat group.")]
+            ([Description("你要在群里对大家说的话。")]
                 string content) => Post(memberSessionId, content),
             ToolName,
-            "Say something to the group mid-turn (e.g. what you take on before working). Your final reply is posted to the group as well, so don't repeat there what you already said with this tool.");
+            "在轮次中途对群说点什么（比如开工前说你要接哪一块）。你的最终回复同样会发到群里，所以不要在最终回复里重复已经用本工具说过的话。");
     }
 
     private static string Post(string memberSessionId, string content)
     {
-        if (string.IsNullOrWhiteSpace(content)) return "Error: content must not be empty.";
+        if (string.IsNullOrWhiteSpace(content)) return "Error: 内容不能为空。";
         if (GroupTranscript.IsPass(content))
-            return $"Error: not posted. To stay silent, don't call this tool; end your turn replying only {GroupTranscript.PassReply}.";
+            return $"Error: 未发送。想保持沉默就别调用本工具；结束本轮，只回复 {GroupTranscript.PassReply}。";
 
         return GroupChatCoordinator.Instance.TryPostFromMember(memberSessionId, content)
-            ? "Posted to the group."
-            : "Error: not posted. You are not speaking in a group right now.";
+            ? "已发到群里。"
+            : "Error: 未发送。你此刻不在群发言中。";
     }
 }

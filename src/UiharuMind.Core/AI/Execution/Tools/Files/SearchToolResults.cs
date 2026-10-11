@@ -105,17 +105,17 @@ internal static class SearchFailureRenderer
             ESearchFailureKind.PathNotFound => PathNotFound(failure),
             ESearchFailureKind.InvalidPath => failure.Detail,
             ESearchFailureKind.InvalidGlobPattern =>
-                $"Invalid glob pattern \"{failure.Pattern}\": {failure.Detail} "
-                + "Patterns look like \"**/*.cs\" or \"src/**/Foo*\".",
+                $"无效的 glob 模式 \"{failure.Pattern}\"：{failure.Detail} "
+                + "模式形如 \"**/*.cs\" 或 \"src/**/Foo*\"。",
             ESearchFailureKind.GlobHasNoWildcard =>
-                $"\"{failure.Pattern}\" has no wildcard, so there is nothing to glob, "
-                + $"and no file at that path under \"{failure.ResolvedDirectory}\". "
-                + $"To read a known path use `{FileToolNames.Read}`; "
-                + $"to find text inside files use `{literalToolName}`; "
-                + "to glob, put a wildcard in the pattern, e.g. \"**/"
-                + $"{Path.GetFileName(failure.Pattern)}\".",
+                $"\"{failure.Pattern}\" 没有通配符，所以无可 glob，"
+                + $"并且 \"{failure.ResolvedDirectory}\" 下没有这个路径。"
+                + $"读已知路径用 `{FileToolNames.Read}`；"
+                + $"在文件里找文字用 `{literalToolName}`；"
+                + "要 glob 就在模式里加通配符，如 \"**/"
+                + $"{Path.GetFileName(failure.Pattern)}\"。",
             ESearchFailureKind.EngineFailed =>
-                $"The search engine failed on \"{failure.Pattern}\": {failure.Detail}",
+                $"搜索引擎在处理 \"{failure.Pattern}\" 时失败：{failure.Detail}",
             _ => failure.Detail,
         };
     }
@@ -128,19 +128,17 @@ internal static class SearchFailureRenderer
     {
         if (string.IsNullOrWhiteSpace(failure.RequestedDirectory))
         {
-            return $"The working directory \"{failure.WorkingDirectory}\" does not exist.";
+            return $"工作目录 \"{failure.WorkingDirectory}\" 不存在。";
         }
 
         // 有最近存活祖先就点一句：让模型从"整个路径都不对"收敛到"断在某一段"，不猜候选。
         // 不回显工作目录：resolved 已是拼好的绝对路径，隐含了拼接基准。
         string ancestor = string.IsNullOrEmpty(failure.NearestExistingDirectory)
             ? string.Empty
-            : $" The nearest existing ancestor is \"{failure.NearestExistingDirectory}\".";
+            : $" 最近的存活祖先目录是 \"{failure.NearestExistingDirectory}\"。";
 
-        return $"Path not found. You passed path \"{failure.RequestedDirectory}\", "
-               + $"which resolves to \"{failure.ResolvedDirectory}\"."
+        return $"找不到路径。你传的路径 \"{failure.RequestedDirectory}\" 解析为 \"{failure.ResolvedDirectory}\"。"
                + ancestor
-               + " Pass a directory (search under it), a single file (search only that file), "
-               + "or omit path to search the whole working directory.";
+               + " 传目录（在其下搜索）、单文件（只搜该文件），或省略 path 搜索整个工作目录。";
     }
 }

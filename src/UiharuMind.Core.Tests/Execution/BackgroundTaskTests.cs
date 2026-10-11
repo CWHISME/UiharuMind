@@ -156,7 +156,7 @@ public class BackgroundTaskTests
 
         Assert.True(watch.Elapsed < TimeSpan.FromSeconds(1), $"工具没有立即返回，等了 {watch.Elapsed}");
         Assert.IsAssignableFrom<ApprovalRequiredAIFunction>(tool);
-        Assert.Contains("Started background task", result);
+        Assert.Contains("已启动后台任务", result);
         Assert.Contains(".log", result);
         BackgroundTaskOutcome outcome = await sink.Delivered.Task.WaitAsync(TimeSpan.FromSeconds(20),
             TestContext.Current.CancellationToken);

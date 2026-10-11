@@ -1533,7 +1533,7 @@ public class SubAgentBoundaryTests
 
         string report = accumulator.Build(timedOut: false);
 
-        Assert.Contains("not a conclusion", report);
+        Assert.Contains("不是结论", report);
         Assert.Contains("Checking the first file.", report);
     }
 
@@ -1546,7 +1546,7 @@ public class SubAgentBoundaryTests
         string report = accumulator.Build(timedOut: true);
 
         Assert.Contains("Partial findings.", report);
-        Assert.Contains("time limit", report);
+        Assert.Contains("时间上限", report);
     }
 
     [Fact]

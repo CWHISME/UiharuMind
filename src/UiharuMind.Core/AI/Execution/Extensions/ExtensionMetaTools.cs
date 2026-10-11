@@ -24,11 +24,11 @@ internal static class ExtensionMetaTools
           "properties": {
             "extension": {
               "type": "string",
-              "description": "Optional. An extension name; omit to list every extension and whether it is ready."
+              "description": "可选。扩展名；省略则列出全部扩展及其是否就绪。"
             },
             "command": {
               "type": "string",
-              "description": "Optional. A command of that extension; when given, returns its full description and parameters."
+              "description": "可选。该扩展的一条命令；给定时返回它的完整描述和参数。"
             }
           }
         }
@@ -40,15 +40,15 @@ internal static class ExtensionMetaTools
           "properties": {
             "extension": {
               "type": "string",
-              "description": "Extension name, as listed by ExtensionHelp."
+              "description": "扩展名，以 ExtensionHelp 列出的为准。"
             },
             "command": {
               "type": "string",
-              "description": "Command name, exactly as shown by ExtensionHelp."
+              "description": "命令名，与 ExtensionHelp 显示的完全一致。"
             },
             "arguments": {
               "type": "object",
-              "description": "Only the command's own parameters, as a JSON object; `extension` and `command` never go in here. Omit for commands without parameters.",
+              "description": "只放该命令自己的参数，JSON 对象；`extension` 和 `command` 绝不放在这里。无参数的命令可省略。",
               "additionalProperties": true
             }
           },
@@ -65,18 +65,16 @@ internal static class ExtensionMetaTools
     public static IReadOnlyList<AITool> Create(ExtensionHub hub) =>
     [
         new MetaFunction(ExtensionCalls.HelpName,
-            "Look up extensions: capabilities that are not in your tool list — built-in ones (a real browser, " +
-            "image generation, audio) and apps the user connected over MCP. With no arguments: every extension " +
-            "and whether it is ready. With `extension`: its usage notes and commands. With `extension` and " +
-            "`command`: that command's full description and parameters. The set is dynamic: an app the user " +
-            "starts later becomes available, so look again instead of assuming.",
+            "查询扩展：不在你的工具列表里的能力——内置的（真实浏览器、图像生成、音频）以及用户通过 MCP 连接的应用。" +
+            "不传参数：列出所有扩展及其就绪状态。传 `extension`：返回其用法说明和命令。" +
+            "传 `extension` 和 `command`：返回该命令的完整描述和参数。" +
+            "集合是动态的：用户后来启动的应用会变得可用，所以先查再假设。",
             HelpSchema,
             (arguments, ct) => InvokeHelpAsync(hub, arguments, ct)),
         new ApprovalRequiredAIFunction(new MetaFunction(ExtensionCalls.CallName,
-            "Run an extension command. The built-in ones are listed below; for an MCP extension, look it up with " +
-            "ExtensionHelp first. Commands that can change something or cost money ask the user first. Results and " +
-            "help refer to a command as extension.command (e.g. browser.snapshot). Large results are saved to a " +
-            "file and only the head and tail are returned; read the saved file for the rest.\n\n" +
+            "运行一条扩展命令。内置命令列在下面；MCP 扩展先查 ExtensionHelp。" +
+            "结果与帮助里命令写作 extension.command（如 browser.snapshot）。" +
+            "大结果会保存到文件，只返回头尾；其余读保存的文件。\n\n" +
             BuiltinExtensions.CallUsage,
             CallSchema,
             (arguments, ct) => InvokeCallAsync(hub, arguments, ct))),
@@ -94,7 +92,7 @@ internal static class ExtensionMetaTools
         Dictionary<string, JsonElement>? parsed = ExtensionCalls.ReadObject(arguments, "arguments");
         if (parsed == null && HasValue(arguments, "arguments"))
         {
-            return "Parameter `arguments` must be a JSON object, e.g. {\"url\": \"https://example.com\"}. Nothing was run.";
+            return "参数 `arguments` 必须是 JSON 对象，如 {\"url\": \"https://example.com\"}。什么都没运行。";
         }
 
         return await hub.CallAsync(ExtensionCalls.ReadString(arguments, "extension"),

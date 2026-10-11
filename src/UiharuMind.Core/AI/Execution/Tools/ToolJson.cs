@@ -108,8 +108,8 @@ public sealed class LenientFileEditListConverter : JsonConverter<List<FileEdit>>
             catch (JsonException ex)
             {
                 throw new JsonException(
-                    $"edits must be a JSON array of {{oldString,newString}} objects, a single such object, "
-                    + $"or a JSON string containing one of those. Got a non-JSON string: '{Preview(raw)}'.", ex);
+                    $"edits 必须是 {{oldString,newString}} 对象的 JSON 数组、单个这样的对象，"
+                    + $"或包含其中之一的 JSON 字符串。拿到的是非 JSON 字符串：'{Preview(raw)}'。", ex);
             }
 
             using (doc)
@@ -120,7 +120,7 @@ public sealed class LenientFileEditListConverter : JsonConverter<List<FileEdit>>
 
         if (reader.TokenType is not (JsonTokenType.StartObject or JsonTokenType.StartArray))
         {
-            throw new JsonException($"Expected an object or an array of edits, got {reader.TokenType}.");
+            throw new JsonException($"期望 edits 是对象或数组，拿到的是 {reader.TokenType}。");
         }
 
         using JsonDocument top = JsonDocument.ParseValue(ref reader);
@@ -152,8 +152,8 @@ public sealed class LenientFileEditListConverter : JsonConverter<List<FileEdit>>
         if (root.ValueKind != JsonValueKind.Array)
         {
             throw new JsonException(
-                $"edits must be an array of {{oldString,newString}} objects or a single such object, "
-                + $"got {root.ValueKind}.");
+                $"edits 必须是 {{oldString,newString}} 对象的数组或单个这样的对象，"
+                + $"拿到的是 {root.ValueKind}。");
         }
 
         List<FileEdit> edits = new(root.GetArrayLength());
@@ -169,7 +169,7 @@ public sealed class LenientFileEditListConverter : JsonConverter<List<FileEdit>>
     {
         if (element.ValueKind != JsonValueKind.Object)
         {
-            throw new JsonException($"Each edit must be an object with oldString and newString, got {element.ValueKind}.");
+            throw new JsonException($"每个 edit 必须是带 oldString 和 newString 的对象，拿到的是 {element.ValueKind}。");
         }
 
         return new FileEdit

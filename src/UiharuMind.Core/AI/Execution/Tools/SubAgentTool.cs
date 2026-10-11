@@ -107,8 +107,8 @@ public static class SubAgentTool
     /// 凭什么、用户去哪看——放行即落子,不说清等于偷偷改盘。
     /// </summary>
     private const string FullAutoApprovalReason =
-        "Auto-approved without asking: the delegating session runs in FullAuto mode. "
-        + "This decision is disclosed to the user in the run report.";
+        "未询问即自动放行：派活会话运行在 FullAuto 模式。"
+        + "这一决定会在运行报告里向用户说明。";
 
     /// <summary>
     /// 回执末行 <c>[sub-session: xxx]</c> 的宽容认法：<c>to</c> 里整行原样粘回来也认。
@@ -229,7 +229,7 @@ public static class SubAgentTool
     /// </summary>
     private static Task<string> SendAsync(LaunchContext context, string? to, string message)
     {
-        if (string.IsNullOrWhiteSpace(message)) return Task.FromResult("Error: message must not be empty.");
+        if (string.IsNullOrWhiteSpace(message)) return Task.FromResult("Error: 消息不能为空。");
 
         string? target = NormalizeTo(to);
         if (target == null)
@@ -256,9 +256,9 @@ public static class SubAgentTool
         // ToolCallItem.ParseSubSessionId 的正则（锚在末行末尾）会把这张报错卡误挂「查看过程」入口
         IEnumerable<string> lines = runs.Select(x =>
             $"- [sub-session: {x.SessionId}]" + (x.SubAgentName.Length > 0 ? $" ({x.SubAgentName})" : string.Empty));
-        return $"Error: '{target}' matches more than one earlier conversation:\n"
+        return $"Error: '{target}' 匹配了多个之前的会话：\n"
                + string.Join("\n", lines)
-               + "\nPass the full id of the one you mean as `to`.";
+               + "\n把你要的那位的完整 id 作为 `to` 传进来。";
     }
 
     /// <summary>
@@ -288,8 +288,8 @@ public static class SubAgentTool
     /// </summary>
     private static string UnknownRecipient(LaunchContext context, string? target)
     {
-        string error = (target == null ? "Error: `to` is empty. " : $"Error: no conversation '{target}'. ")
-                       + $"To start someone new, use `{ToolName}`.";
+        string error = (target == null ? "Error: `to` 为空。 " : $"Error: 没有 '{target}' 这个会话。 ")
+                       + $"要新开一位，用 `{ToolName}`。";
 
         List<ChatSessionMeta> earlier = SessionManager.Instance.GetSubSessions(context.ParentSessionId);
         if (earlier.Count == 0) return error;
@@ -299,7 +299,7 @@ public static class SubAgentTool
             string who = x.SubAgentName.Length > 0 ? x.SubAgentName : x.Title; //身份即会话标题
             return $"- [sub-session: {SubSessionIdAlias.Short(x.SessionId)}]" + (who.Length > 0 ? $" — {who}" : string.Empty);
         });
-        return error + "\nPeople you've already messaged in this session (pass the id as `to` to continue with them):\n"
+        return error + "\n本会话里你已联系过的人（把 id 传给 `to` 即可继续）：\n"
                + string.Join("\n", lines);
     }
 
@@ -308,8 +308,8 @@ public static class SubAgentTool
     /// (没挂就没有这个参数)。
     /// </summary>
     private static string UnknownSubagentType(LaunchContext context, string name) =>
-        $"Error: no one called '{name}'. Pick one of: {string.Join(", ", context.Roster.Select(x => x.Name))}, "
-        + "or leave `subagent_type` empty.";
+        $"Error: 没有名为 '{name}' 的人。选一个：{string.Join(", ", context.Roster.Select(x => x.Name))}, "
+        + "或留空 `subagent_type`。";
 
     /// <summary>
     /// 发信人插话的前缀。子代理提示词明确区分「用户在窗口说话」与「给它发消息的会话追问」，
@@ -322,7 +322,7 @@ public static class SubAgentTool
     private static string Launch(LaunchContext context, string task, string? agent, string? role = null,
         string? model = null)
     {
-        if (string.IsNullOrWhiteSpace(task)) return "Error: prompt must not be empty.";
+        if (string.IsNullOrWhiteSpace(task)) return "Error: 任务不能为空。";
 
         // 空 agent 走默认;点了名才进花名册挑选,挑不到才报错
         SubAgentChoice? choice = null;
@@ -364,15 +364,15 @@ public static class SubAgentTool
 
     private static async Task<string> ContinueAsync(LaunchContext context, string subSessionId, string message)
     {
-        if (string.IsNullOrWhiteSpace(subSessionId)) return "Error: subSession must not be empty.";
-        if (string.IsNullOrWhiteSpace(message)) return "Error: message must not be empty.";
+        if (string.IsNullOrWhiteSpace(subSessionId)) return "Error: 子会话不能为空。";
+        if (string.IsNullOrWhiteSpace(message)) return "Error: 消息不能为空。";
 
         ChatSession? session = SessionManager.Instance.Load(subSessionId);
-        if (session == null) return $"Error: no conversation '{subSessionId}'.";
+        if (session == null) return $"Error: 没有 '{subSessionId}' 这个会话。";
         // 只允许续自己派出去的那些:子会话是按派活者归属的,跨会话续跑等于绕过能力交集
         if (!string.Equals(session.ParentSessionId, context.ParentSessionId, StringComparison.Ordinal))
         {
-            return $"Error: '{subSessionId}' isn't someone you've messaged in this session.";
+            return $"Error: '{subSessionId}' 不是本会话里你联系过的人。";
         }
 
         NoteStarted(context, session.SessionId);
@@ -412,8 +412,8 @@ public static class SubAgentTool
     /// <param name="subSessionId">子会话标识</param>
     /// <returns>当场返回给模型的工具结果</returns>
     public static string BuildInjectedReceipt(string subSessionId) =>
-        "They got this mid-work and will fold it into the reply they're already writing — "
-        + "no separate reply for this one.\n"
+        "他干活途中收到了这条，会把它并入正在写的回复——"
+        + "不会再单独回一封。\n"
         + $"[sub-session: {SubSessionIdAlias.Short(subSessionId)}]";
 
     /// <summary>
@@ -554,15 +554,15 @@ public static class SubAgentTool
         // 与用户插话分开交代——两者来源不同,混成一句会让主代理误判是谁改了方向。
         if (turnSink.SawParentInterjection)
         {
-            report += "\n(note: you messaged them again while they worked, "
-                      + "so this reply may cover more than your first message.)";
+            report += "\n（注：你在他干活时又给他发过消息，"
+                      + "所以这份回复可能超出了你最初那条消息的内容。）";
         }
         if (unansweredClosed > 0)
         {
             // 有调用因审批未决根本没跑成,必须点名——否则主代理会把没干的活当成干完了
-            report += $"\n(note: {unansweredClosed} of their tool call(s) never ran - "
-                      + "the approvals were not answered before they stopped. "
-                      + "That part of the work was not done.)";
+            report += $"\n（注：他的 {unansweredClosed} 条工具调用从未执行——"
+                      + "审批在其停止前未被响应。"
+                      + "那部分工作没有完成。）";
         }
         if (autoApprovedCalls.Count > 0)
         {
@@ -570,10 +570,10 @@ public static class SubAgentTool
             // 只点名前几个——一轮写几十个文件时全列出来等于把报告撑成清单。
             string[] shown;
             lock (autoApprovedCalls) shown = autoApprovedCalls.Distinct().Take(5).ToArray();
-            string more = autoApprovedCalls.Count > shown.Length ? ", …" : string.Empty;
-            report += $"\n(note: {autoApprovedCalls.Count} action(s) that normally need approval "
-                      + "were auto-approved for them because your session runs in FullAuto mode: "
-                      + string.Join("; ", shown) + more + ".)";
+            string more = autoApprovedCalls.Count > shown.Length ? "，…" : string.Empty;
+            report += $"\n（注：{autoApprovedCalls.Count} 个通常需要审批的动作"
+                      + "因你的会话运行在 FullAuto 模式而被自动放行："
+                      + string.Join("; ", shown) + more + "。）";
         }
         string outcome = timedOut ? "timed out" : stopped || cancellationToken.IsCancellationRequested ? "stopped" : "done";
         Log.Debug($"Sub-agent turn {outcome}: session={session.SessionId} "
@@ -607,10 +607,10 @@ public static class SubAgentTool
         // 回退了就必须说。这是派活方唯一能知道"我指定的模型没生效"的渠道——
         // 模型名解析从不抛异常(查不到就静默回落全局),不说的话它会一直以为跑的是它点的那个
         string reason = LlmManager.Instance.CacheModelDictionary.ContainsKey(asked)
-            ? $"model '{asked}' is not running"
-            : $"there is no model named '{asked}'";
+            ? $"模型 '{asked}' 没有在运行"
+            : $"没有名为 '{asked}' 的模型";
         return new ModelChoice(PinnableModelName(profile.ResolveModelName(AgentSettingConfig.Current)),
-            $"Note: {reason}, so this run uses the default model instead.");
+            $"注：{reason}，所以这次运行改用默认模型。");
     }
 
     /// <summary>
@@ -802,17 +802,17 @@ public static class SubAgentTool
             {
                 // 收尾总结缺失(轮次到顶/超时/被截断):给出全程旁白,但要说清它不是结论,
                 // 否则主代理会把中间猜测当成子代理的判断
-                result.AppendLine("(They stopped before writing a final answer. "
-                                  + "Below is what they said along the way, not a conclusion.)");
+                result.AppendLine("（他没写出最终答案就停了。"
+                                  + "下面是他在过程中的话，不是结论。）");
                 result.Append(_allText.ToString().Trim());
             }
 
-            if (result.Length == 0) result.Append("(They wrote nothing back.)");
+            if (result.Length == 0) result.Append("（他什么也没回复。）");
 
             if (timedOut)
             {
                 result.AppendLine();
-                result.Append($"(They stopped: hit their {limit.TotalMinutes:0} minute time limit.)");
+                result.Append($"（他停住了：撞上 {limit.TotalMinutes:0} 分钟的时间上限。）");
             }
 
             // 被用户中止与超时是两回事:后者是意外,前者是**用户的决定**。
@@ -821,18 +821,18 @@ public static class SubAgentTool
             if (stoppedByUser)
             {
                 result.AppendLine();
-                result.Append("(The USER stopped them on purpose - their decision, not a failure. "
-                              + "Don't hand this to someone else or do the work yourself; "
-                              + "tell the user they were stopped and ask what they want next. "
-                              + "You can pick the conversation back up if they ask.)");
+                result.Append("（用户特意停了他——那是用户的决定，不是失败。"
+                              + "不要转交给别人，也不要自己替他做；"
+                              + "告诉用户他被停了，问接下来要做什么。"
+                              + "用户要是要求，你可以接着这段对话继续。）");
             }
 
             // 用户插话改变了这次委派的性质,主代理该知道自己拿到的不全是它自己要的东西
             if (userInterjected)
             {
                 result.AppendLine();
-                result.Append("(note: the user also talked to them directly while they worked, "
-                              + "so this reply may reflect directions you did not give.)");
+                result.Append("（注：用户在他干活时也直接跟他说过话，"
+                              + "所以这份回复可能反映了你没给过的方向。）");
             }
 
             return result.ToString();

@@ -33,7 +33,7 @@ public class VisionToolTests
     {
         string result = await Invoke(["/definitely/not/a.png", "/definitely/not/b.png"], "compare");
 
-        Assert.Contains("not found", result);
+        Assert.Contains("找不到图片文件", result);
         Assert.Contains("a.png", result);
         Assert.Contains("b.png", result);
     }
@@ -46,7 +46,7 @@ public class VisionToolTests
 
         string result = await Invoke(paths, "compare");
 
-        Assert.Contains("at most", result);
+        Assert.Contains("单次最多", result);
         Assert.Contains(VisionTool.MaxImages.ToString(), result);
     }
 
@@ -55,6 +55,6 @@ public class VisionToolTests
     {
         string result = await Invoke([], "what");
 
-        Assert.Contains("at least one", result);
+        Assert.Contains("至少要包含一个路径", result);
     }
 }

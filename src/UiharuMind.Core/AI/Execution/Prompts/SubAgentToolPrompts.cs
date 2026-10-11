@@ -36,16 +36,14 @@ public static class SubAgentToolPrompts
     /// <b>刻意不数工具</b>：对方的工具集随能力配置变，写死数量迟早与装配事实矛盾。
     /// </summary>
     public const string AgentDescription =
-        "Launch a sub-agent: someone who works on it in their own session and replies when done; " +
-        "they can ask you back in their reply. Use it for reading lots of material, a separable piece of implementation, " +
-        "a deep investigation, a review or second opinion, or when you're stuck.\n" +
-        "It runs in the background: you get a receipt now. " +
-        "Keep working on anything that doesn't depend on it; if everything left does, end your turn — " +
-        "you'll be woken when the reply lands.\n" +
-        "A reply doesn't close the topic: follow-ups on the same subject (reviewing a new fix, " +
-        "re-checking a conclusion, a narrower scope, even after a commit) go to the same sub-agent with `" +
-        SubAgentTool.MessageToolName + "`. Launch a new one only for a new subject — " +
-        "a new one knows nothing of earlier conversations.";
+        "新开一位子代理：让某人在他自己的会话里干活，做完把回复交回来；" +
+        "他可以在回复里反问。适合用于读大量材料、一段可拆分的实现、深度调查、评审或第二意见，或你卡住的时候。\n" +
+        "它在后台运行：你现在先收到一张回执。" +
+        "继续做任何不依赖它的活；如果剩下的都依赖它，就结束本轮——" +
+        "回复落地时会把你唤醒。\n" +
+        "一条回复并不关闭话题：同一主题的后续（评审新修复、复核结论、收窄范围，甚至提交之后）都用 `" +
+        SubAgentTool.MessageToolName + "` 发回同一位子代理。只有新主题才新开一位——" +
+        "新开的不了解之前的对话。";
 
     /// <summary>
     /// <c>prompt</c> 参数说明。
@@ -54,7 +52,7 @@ public static class SubAgentToolPrompts
     /// 对方根本看不懂的引用。压缩后 <c>HistoryHandoff.BuildSubSessionRoster</c> 也靠原文认出这次委派。
     /// </summary>
     public const string PromptParam =
-        "The task or question. They cannot see your conversation, so make it self-contained.";
+        "任务或问题。他看不到你们的对话，所以要把任务写完整、自包含。";
 
     /// <summary>
     /// <c>subagent_type</c> 参数说明，<b>按名单装配时拼</b>；只在挂了子角色时才有这个参数。
@@ -66,7 +64,7 @@ public static class SubAgentToolPrompts
     {
         IEnumerable<string> people = roster.Select(x =>
             x.Description.Length > 0 ? $"- {x.Name}: {x.Description}" : $"- {x.Name}");
-        return "Optional. One of the names below; leave empty for a general sub-agent.\n" + string.Join("\n", people);
+        return "可选。取下列名字之一；留空则用通用子代理。\n" + string.Join("\n", people);
     }
 
     /// <summary>
@@ -79,10 +77,10 @@ public static class SubAgentToolPrompts
     /// （见 <c>SubAgentPrompts.RoleOverPersona</c>）。
     /// </summary>
     public const string RoleParam =
-        "Optional short role (e.g. 'senior C# reviewer', 'devil's advocate'). " +
-        "Becomes the session title and their identity, setting what they focus on and how they weigh trade-offs. " +
-        "It changes perspective, not abilities. " +
-        "With a `subagent_type`, they keep their persona and this adds the emphasis.";
+        "可选的角色简述（如「资深 C# 评审」「唱反调的人」）。" +
+        "会成为会话标题和对方的身份，决定他关注什么、如何权衡取舍。" +
+        "它改变的是视角，不是能力。" +
+        "指定了 `subagent_type` 时，对方保留人格，这个参数补充侧重点。";
     
     /// <summary>
     /// <c>model</c> 参数说明。
@@ -95,22 +93,22 @@ public static class SubAgentToolPrompts
     /// 名字错了不会炸：解析不到就回退默认，并在回执里说一声。
     /// </summary>
     public const string ModelParam =
-        "Optional exact model name.";
+        "可选的精确模型名。";
 
     /// <summary>
     /// <see cref="SubAgentTool.MessageToolName"/> 的描述：给已经开过的那位续发一条，跑着时就是插话。
     /// </summary>
     public const string SendMessageDescription =
-        "Send a message to a sub-agent you already launched: a follow-up, a correction, or 'keep going'. " +
-        "If they're still working, they fold it into the reply they're already writing; either way you get one reply back.";
+        "给已经开过的那位子代理发一条消息：后续追问、纠正，或「继续」。" +
+        "如果他还在干活，会把它并入正在写的回复里；无论哪种，你都会收到一条回复。";
 
     /// <summary>
     /// <c>to</c> 参数说明。回执末行整行粘进来也认（<c>SubAgentTool.NormalizeTo</c>）。
     /// </summary>
     public const string ToParam =
-        "The id from an earlier [sub-session: …] line; if you can't find it, an error will list who you've talked to.";
+        "来自之前 [sub-session: …] 行的 id；找不到时，报错会列出你聊过的人。";
 
     /// <summary><c>message</c> 参数说明</summary>
     public const string MessageParam =
-        "Your message. They remember your earlier exchange, so no need to repeat it.";
+        "你的消息。他记得你们之前的对话，不必重复。";
 }

@@ -66,7 +66,7 @@ public class LoadSkillToolTests
 
         string result = await Invoke(Tool(source), "implement");
 
-        Assert.Contains("not found", result);
+        Assert.Contains("找不到技能", result);
         Assert.Contains("disable-model-invocation", result);
         // 被动技能仍可加载:过滤没有误伤
         Assert.Contains("tdd body", await Invoke(Tool(source), "tdd"));
@@ -78,7 +78,7 @@ public class LoadSkillToolTests
         AgentSkillsSource source = new AgentInMemorySkillsSource([Passive("tdd")]);
         string result = await Invoke(Tool(source), "nope");
 
-        Assert.Contains("not found", result);
+        Assert.Contains("找不到技能", result);
     }
 
     [Fact]
@@ -87,7 +87,7 @@ public class LoadSkillToolTests
         AgentSkillsSource source = new AgentInMemorySkillsSource([Passive("tdd")]);
         string result = await Invoke(Tool(source), " ");
 
-        Assert.Contains("empty", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("技能名不能为空", result);
     }
 
     [Fact]
@@ -95,7 +95,7 @@ public class LoadSkillToolTests
     {
         string result = await Invoke(Tool(null!), "tdd");
 
-        Assert.Contains("unavailable", result);
+        Assert.Contains("技能源不可用", result);
     }
 
     [Fact]
@@ -115,8 +115,8 @@ public class LoadSkillToolTests
             string result = await Invoke(Tool(source, hasFileTools: true, hasShell: true), "tdd");
 
             Assert.Contains("tdd body", result);
-            Assert.Contains("Skill directory:", result);
-            Assert.Contains("Use your file and shell tools", result);
+            Assert.Contains("技能目录：", result);
+            Assert.Contains("你的文件工具和 shell 工具", result);
         }
         finally
         {

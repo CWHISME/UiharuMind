@@ -35,26 +35,25 @@ public static class KnowledgeTool
     public static AITool Create(Func<MemoryData?>? knowledgeSource)
     {
         return AIFunctionFactory.Create(
-            async ([Description("A short, focused query, not the user's raw message. " +
-                                "It is a vector search: key terms work better than a full sentence.")]
+            async ([Description("简短聚焦的查询词，不是用户的原始消息。" +
+                                "这是向量检索：关键词比整句话更有效。")]
                     string query,
                     CancellationToken cancellationToken = default) =>
                 await SearchAsync(knowledgeSource, query).ConfigureAwait(false),
             ToolName,
-            "Search the knowledge base attached to this session (the user's documents, not your own notes) " +
-            "for passages relevant to the query.");
+            "在本会话绑定的知识库（用户的文档，不是你自己的笔记）中检索与查询词相关的段落。");
     }
 
     private static async Task<string> SearchAsync(Func<MemoryData?>? knowledgeSource, string query)
     {
         MemoryData? knowledge = knowledgeSource?.Invoke();
-        if (knowledge == null) return "No knowledge base is attached to this session.";
-        if (string.IsNullOrWhiteSpace(query)) return "Query must not be empty.";
+        if (knowledge == null) return "本会话没有绑定知识库。";
+        if (string.IsNullOrWhiteSpace(query)) return "查询词不能为空。";
 
         try
         {
             string snippets = await knowledge.GetLongTermMemory(query).ConfigureAwait(false);
-            return string.IsNullOrEmpty(snippets) ? "(no relevant passage found)" : snippets;
+            return string.IsNullOrEmpty(snippets) ? "(未找到相关段落)" : snippets;
         }
         catch (Exception e)
         {

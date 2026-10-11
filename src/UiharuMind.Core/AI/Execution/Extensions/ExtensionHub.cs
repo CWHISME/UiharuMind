@@ -57,7 +57,7 @@ internal sealed class ExtensionHub
         }
 
         List<McpToolDescriptor> commands = builtin.Commands.Select(Describe).ToList();
-        string? note = builtin.Unavailable is { } reason ? $"Not available right now: {reason}" : null;
+        string? note = builtin.Unavailable is { } reason ? $"当前不可用：{reason}" : null;
         if (string.IsNullOrWhiteSpace(command)) return McpHelpFormatter.RenderServer(builtin.Name, builtin.Guide, commands, note);
 
         string? name = BuiltinExtensions.CanonicalCommand(builtin.Name, command);
@@ -91,7 +91,7 @@ internal sealed class ExtensionHub
                 : Unknown(extension));
         }
 
-        if (builtin.Unavailable is { } reason) return $"The {builtin.Name} extension is not available: {reason}";
+        if (builtin.Unavailable is { } reason) return $"{builtin.Name} 扩展当前不可用：{reason}";
         // 与审批同一个解析（ExtensionCalls.TryRead）：执行这边若更宽容（比如模糊匹配 hand_off），
         // 审批按「没这条命令」判成一般级，执行却落到接管上——硬问就被绕过了
         string? name = BuiltinExtensions.CanonicalCommand(builtin.Name, command);
@@ -100,8 +100,8 @@ internal sealed class ExtensionHub
 
         string mention = BuiltinExtensions.Mention(builtin.Name, found.Name);
         JsonElement schema = found.Function.JsonSchema;
-        string lookUp = $"Parameters: {McpHelpFormatter.Signature(schema)}. ExtensionHelp with extension " +
-                        $"\"{builtin.Name}\" and command \"{found.Name}\" describes each one.";
+        string lookUp = $"参数：{McpHelpFormatter.Signature(schema)}。用 ExtensionHelp 传 extension " +
+                        $"\"{builtin.Name}\"、command \"{found.Name}\" 可查看每一项的说明。";
         // 缺必填先在这里说：交给框架绑定的话，缺参数与命令跑起来出的错都是同一类异常，分不出该改参数还是别重试。
         // 多余的参数名一起报：猜成 ref/text 的模型只看「缺 action」会接着猜，看到「ref 不认识」才会去对签名
         HashSet<string> required = McpHelpFormatter.RequiredOf(schema);
@@ -112,8 +112,8 @@ internal sealed class ExtensionHub
             List<string> unknown = known == null || arguments == null
                 ? []
                 : arguments.Keys.Where(x => !known.Contains(x)).ToList();
-            string extra = unknown.Count > 0 ? $"; unknown {string.Join(", ", unknown)}" : string.Empty;
-            return $"Invalid arguments for {mention}: missing {string.Join(", ", missing)}{extra}. {lookUp}";
+            string extra = unknown.Count > 0 ? $"；未知：{string.Join(", ", unknown)}" : string.Empty;
+            return $"无效参数（{mention}）：缺少 {string.Join(", ", missing)}{extra}。{lookUp}";
         }
 
         AIFunctionArguments callArguments = new(
@@ -129,11 +129,11 @@ internal sealed class ExtensionHub
         catch (JsonException e)
         {
             // 值的类型不对（字符串给成了对象之类）：照着帮助改一次就好
-            return $"Invalid arguments for {mention}: {e.Message} {lookUp}";
+            return $"无效参数（{mention}）：{e.Message} {lookUp}";
         }
         catch (Exception e)
         {
-            return $"{mention} failed: {e.Message}";
+            return $"{mention} 失败：{e.Message}";
         }
     }
 
@@ -141,21 +141,20 @@ internal sealed class ExtensionHub
     private static string MissingTopLevel(string field, IReadOnlyDictionary<string, JsonElement>? arguments)
     {
         string misplaced = arguments != null && (arguments.ContainsKey("command") || arguments.ContainsKey("extension"))
-            ? " It was put inside `arguments`; `extension` and `command` go at the top level, and `arguments` holds " +
-              "only the command's own parameters."
+            ? " 它被放进了 `arguments` 里；`extension` 和 `command` 应放在顶层，`arguments` 只装该命令自己的参数。"
             : string.Empty;
-        return $"Parameter `{field}` is required.{misplaced} Example: {BuiltinExtensions.CallExample}";
+        return $"参数 `{field}` 必填。{misplaced}示例：{BuiltinExtensions.CallExample}";
     }
 
     // 内置在前、MCP 在后；状态只出现在这里（工具结果），不进系统提示
     private string ListAll()
     {
-        StringBuilder sb = new("Extensions (call ExtensionHelp with `extension` for its commands):\n");
+        StringBuilder sb = new("扩展（用 ExtensionHelp 传 `extension` 查看其命令）：\n");
         foreach (BuiltinExtension builtin in _builtins)
         {
-            sb.Append("- ").Append(builtin.Name).Append(" (built-in");
-            if (builtin.Unavailable is { } reason) sb.Append(", not available: ").Append(reason);
-            sb.Append(")\n");
+            sb.Append("- ").Append(builtin.Name).Append("（内置");
+            if (builtin.Unavailable is { } reason) sb.Append("，不可用：").Append(reason);
+            sb.Append("）\n");
         }
 
         foreach (McpServerBrief server in _mcp?.List() ?? [])
@@ -163,27 +162,26 @@ internal sealed class ExtensionHub
             if (Find(server.Name) != null)
             {
                 sb.Append("- ").Append(server.Name)
-                    .Append(" (MCP, hidden: its name clashes with a built-in extension; the user can rename it in settings)\n");
+                    .Append("（MCP，已隐藏：名字与内置扩展冲突；用户可在设置里改名）\n");
                 continue;
             }
 
-            sb.Append("- ").Append(server.Name).Append(" (MCP, ").Append(Describe(server.Status)).Append(')');
-            if (!string.IsNullOrWhiteSpace(server.Description)) sb.Append(": ").Append(server.Description.Trim());
+            sb.Append("- ").Append(server.Name).Append("（MCP，").Append(Describe(server.Status)).Append('）');
+            if (!string.IsNullOrWhiteSpace(server.Description)) sb.Append("：").Append(server.Description.Trim());
             sb.Append('\n');
         }
 
-        if (_builtins.Count == 0 && _mcp == null) sb.Append("(none)\n");
-        sb.Append("MCP servers are apps the user runs; one that is offline now may come up later, so check again " +
-                  "rather than assuming it is gone.");
+        if (_builtins.Count == 0 && _mcp == null) sb.Append("（无）\n");
+        sb.Append("MCP server 是用户运行的应用；现在离线的那台可能稍后会再起来，所以再查一次，别以为它没了。");
         return sb.ToString();
     }
 
     private static string Describe(McpServerStatus status) => status.State switch
     {
-        EMcpConnectionState.Connected => $"connected, {status.ToolCount} commands",
-        EMcpConnectionState.Connecting => "connecting",
-        EMcpConnectionState.Failed => $"offline: {status.Error ?? "connection failed"}",
-        _ => "not connected yet; looking it up connects it",
+        EMcpConnectionState.Connected => $"已连接，{status.ToolCount} 条命令",
+        EMcpConnectionState.Connecting => "连接中",
+        EMcpConnectionState.Failed => $"离线：{status.Error ?? "连接失败"}",
+        _ => "尚未连接；查询时会建立连接",
     };
 
     private BuiltinExtension? Find(string name) => BuiltinExtensions.Canonical(name) is { } canonical
@@ -200,13 +198,13 @@ internal sealed class ExtensionHub
 
     // 内置扩展这次没装上（角色禁了，或这个场合没有）：说清楚，别让它去问 MCP 再得到一句「不认识」
     private static string? Disabled(string extension) => BuiltinExtensions.Canonical(extension) is { } name
-        ? $"The {name} extension is turned off for this agent."
+        ? $"{name} 扩展已为本智能体关闭。"
         : null;
 
     private static string UnknownCommand(BuiltinExtension builtin, string command) =>
-        $"The {builtin.Name} extension has no command '{command}'. " +
-        $"Its commands: {string.Join(", ", builtin.Commands.Select(x => $"{x.Name} {McpHelpFormatter.Signature(x.Function.JsonSchema)}"))}.";
+        $"{builtin.Name} 扩展没有 '{command}' 这条命令。" +
+        $"其命令：{string.Join(", ", builtin.Commands.Select(x => $"{x.Name} {McpHelpFormatter.Signature(x.Function.JsonSchema)}"))}。";
 
     private static string Unknown(string extension) =>
-        $"Unknown extension '{extension}'. ExtensionHelp with no arguments lists every extension.";
+        $"未知的扩展 '{extension}'。不带参数调用 ExtensionHelp 会列出所有扩展。";
 }

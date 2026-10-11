@@ -16,7 +16,7 @@ public static class GroupAvatarTranscript
     public const string NothingNew = "【群里这一阵没有新发言。】";
 
     /// <summary>离席回执在群流水里的正文（化身没留交代时）；界面另按回执画卡</summary>
-    public const string AwayEndedText = "（离席结束）";
+    public const string AwayEndedText = "【离席结束】";
 
     /// <summary>化身上一句开的那一波没人接话（空推）之后，下一次投递末尾的提示。模式无关：
     /// 无限还是普通由 InfiniteNote（每轮都带）与你的规则对应一节说，这里只给推法，收尾只做指针</summary>
@@ -42,7 +42,7 @@ public static class GroupAvatarTranscript
     public static string StoppedNote(string userName) => $"【{userName}{StoppedMarker}】";
 
     /// <summary>捎话的内层固定串：目标是用户原话、可能换行，剥离识别只凭它认；模板与识别共用这一份</summary>
-    internal const string KickoffMarker = "开启本次离席时捎给你的话，成员看不到，别原样转述：";
+    internal const string KickoffMarker = "开启本次离席时捎给你的话：";
 
     /// <summary>
     /// 开离席时捎给化身的第一句话，只随化身第一轮的投递交代（之后靠压缩的回查段留着），⛔ 不进群
@@ -54,7 +54,7 @@ public static class GroupAvatarTranscript
         $"【{userName}{KickoffMarker}{goal.Trim()}】";
 
     /// <summary>重要提醒的内层固定串：模板与剥离识别共用这一份，改文案只改这里</summary>
-    internal const string ReminderMarker = "离席前留的重要提醒，成员看不到，别原样转述：";
+    internal const string ReminderMarker = "重要提醒：";
 
     /// <summary>
     /// 开离席时只交代给化身的重要提醒，每一轮附在投递末尾（在没进展的提示之前），⛔ 不进群
@@ -249,7 +249,7 @@ public static class GroupAvatarTranscript
     public static string DeliveryAnchor(string logPath, bool kickoff, bool hasNew, int firstIndex, int lastIndex,
         int startLine, int endLine, int totalLines)
     {
-        string identity = "流水里「用户（化身）」是你以用户名义说的话，「用户」是用户真身。";
+        string identity = "流水里「用户（化身）」是你以用户名义说的话（只有你能区分出这一点），「用户」是用户真身。";
         string where;
         if (hasNew)
         {
@@ -289,11 +289,11 @@ public static class GroupAvatarTranscript
         string members = GroupTranscript.JoinMembers(scene.Members);
         text.Append($"你在群聊「{scene.GroupName}」里，替{scene.UserName}坐着。");
         if (members.Length > 0) text.Append($"在场的成员有：{members}。");
-        // if (scene.HostName != null) text.Append($"本群主持人是{scene.HostName}。");
+        if (scene.HostName != null) text.Append($"本群主持人是{scene.HostName}。");
 
         text.Append($"\n\n- 格式：群里的发言按「[名字]: 内容」交给你；你说完的正文会以{scene.UserName}的名义发到群里，" +
                     "直接写正文，不加前缀。想请某位成员接话，写 @名字，只写名字、不带作品名。");
-        text.Append($"\n- 尺度：发到群聊的信息尽量简短，像普通聊天那样，不要长篇大论。");
+        text.Append($"\n- 尺度：发到群聊的信息尽量简短，像普通聊天那样。");
         text.Append("\n- 一轮怎么算：调用工具时顺手写的话只留在你这里，群里看不到；要对大家说的，等工具用完再说。");
         if (scene.SharesDraftRoom)
             text.Append("\n- 草稿目录是全群共用的：文件名起得具体些，新建前先看有没有同名的，别盖掉别人的。");

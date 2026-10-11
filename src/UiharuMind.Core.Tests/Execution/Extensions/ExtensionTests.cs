@@ -65,8 +65,8 @@ public class ExtensionTests
 
         string text = await Hub(Echo(), image).HelpAsync(null, null, TestContext.Current.CancellationToken);
 
-        Assert.Contains("- audio (built-in)", text);
-        Assert.Contains("- image (built-in, not available: No image model is configured.)", text);
+        Assert.Contains("- audio（内置", text);
+        Assert.Contains("- image（内置，不可用：No image model is configured", text);
     }
 
     [Fact]
@@ -99,12 +99,12 @@ public class ExtensionTests
         ExtensionHub hub = Hub(Echo());
         CancellationToken ct = TestContext.Current.CancellationToken;
 
-        Assert.Contains("no command 'record'", (string)(await hub.CallAsync("audio", "record", null, ct))!);
-        Assert.Contains("Unknown extension 'video'", (string)(await hub.CallAsync("video", "play", null, ct))!);
-        Assert.Contains("turned off for this agent", (string)(await hub.CallAsync("browser", "snapshot", null, ct))!);
-        Assert.Contains("Invalid arguments for audio.transcribe",
+        Assert.Contains("没有 'record' 这条命令", (string)(await hub.CallAsync("audio", "record", null, ct))!);
+        Assert.Contains("未知的扩展 'video'", (string)(await hub.CallAsync("video", "play", null, ct))!);
+        Assert.Contains("扩展已为本智能体关闭", (string)(await hub.CallAsync("browser", "snapshot", null, ct))!);
+        Assert.Contains("无效参数（audio.transcribe",
             (string)(await hub.CallAsync("audio", "transcribe", null, ct))!); //缺必填 path
-        Assert.Contains("not available: busy",
+        Assert.Contains("当前不可用：busy",
             (string)(await Hub(Echo("busy")).CallAsync("audio", "transcribe", Args(new { path = "a" }), ct))!);
     }
 
@@ -152,7 +152,7 @@ public class ExtensionTests
         string text = (string)(await Hub(Echo()).CallAsync("audio", null,
             Args(new { command = "transcribe", args = new { path = "a.wav" } }), TestContext.Current.CancellationToken))!;
 
-        Assert.Contains("put inside `arguments`", text);
+        Assert.Contains("放进了 `arguments` 里", text);
         Assert.Contains(BuiltinExtensions.CallExample, text);
     }
 
@@ -163,8 +163,8 @@ public class ExtensionTests
         string text = (string)(await Hub(Echo()).CallAsync("audio", "transcribe", Args(new { file = "a.wav" }),
             TestContext.Current.CancellationToken))!;
 
-        Assert.Contains("missing path; unknown file", text);
-        Assert.Contains("Parameters: {path, subtitles?}", text);
+        Assert.Contains("缺少 path；未知：file", text);
+        Assert.Contains("参数：{path, subtitles?}", text);
     }
 
     //================= 拆开调用 =================
@@ -291,7 +291,7 @@ public class ExtensionTests
 
         object? result = await Hub(browser).CallAsync("browser", command, null, TestContext.Current.CancellationToken);
 
-        Assert.Contains("no command", Assert.IsType<string>(result));
+        Assert.Contains("这条命令", Assert.IsType<string>(result));
     }
 
     /// <summary>记忆目录那条规则只认写工具：调用里顺手带一个指向记忆目录的 filePath，不能把接管或 shell 放过去</summary>
@@ -326,7 +326,7 @@ public class ExtensionTests
             ["extension"] = "audio", ["command"] = "transcribe", ["arguments"] = "{not json",
         }, TestContext.Current.CancellationToken);
 
-        Assert.Contains("Nothing was run", Assert.IsType<string>(result));
+        Assert.Contains("什么都没运行", Assert.IsType<string>(result));
     }
 
     /// <summary>命令跑起来出的错不说成「参数不对」：那会诱导模型换参数重试，可能白花钱</summary>
@@ -340,6 +340,6 @@ public class ExtensionTests
         string result = Assert.IsType<string>(await Hub(failing).CallAsync("audio", "transcribe", Args(new { path = "a" }),
             TestContext.Current.CancellationToken));
 
-        Assert.Equal("audio.transcribe failed: Audio stream error", result);
+        Assert.Equal("audio.transcribe 失败：Audio stream error", result);
     }
 }

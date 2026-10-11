@@ -26,11 +26,11 @@ public static class WebFetchTool
 
     public static AITool Create() => AIFunctionFactory.Create(
         FetchAsync, ToolName,
-        "Read the main text of a web page, or the raw content of a plain-text/JSON/Markdown URL. " +
-        "Binary responses (PDF, archives, images, etc.) are automatically downloaded and the saved file path is returned.");
+        "读取网页正文，或纯文本/JSON/Markdown URL 的原始内容。" +
+        "二进制响应（PDF、压缩包、图片等）会自动下载，返回保存的文件路径。");
 
     private static async Task<string> FetchAsync(
-        [Description("Absolute URL of the page to read, including the scheme.")]
+        [Description("要读取页面的绝对 URL，需包含协议头（scheme）。")]
         string url,
         CancellationToken ct = default)
     {
@@ -46,7 +46,7 @@ public static class WebFetchTool
         }
         catch (OperationCanceledException)
         {
-            return "[Timeout] Request was cancelled.";
+            return "[Timeout] 请求已被取消。";
         }
     }
 }

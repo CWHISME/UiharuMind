@@ -119,7 +119,7 @@ public sealed class ReadImageTests : IDisposable
         AIFunction read = new PermissiveFileAccessTools(Paths(), imageMode: mode).Create()
             .OfType<AIFunction>().Single(tool => tool.Name == FileToolNames.Read);
 
-        Assert.Equal(mentioned, read.Description.Contains("image", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(mentioned, read.Description.Contains("图片", StringComparison.Ordinal));
     }
 
     /// <summary>与 AnalyzeImage 共用识图开关、按模型互斥：自带视觉的经 Read 自己看，看不了的转交</summary>

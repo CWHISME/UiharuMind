@@ -119,6 +119,6 @@ public class GroupAvatarNotesSplitTests
         Assert.Equal(new GroupDeliverySegment("Bob", "嗯。"), segments[0]);
         Assert.Null(segments[1].Speaker);
         Assert.Contains("私聊回复", segments[1].Body);
-        Assert.Contains("私聊里说的", segments[1].Body);
+        Assert.Contains("私聊打断了", segments[1].Body);
     }
 }

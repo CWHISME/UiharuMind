@@ -30,13 +30,13 @@ public class ToolOutputTruncationTests
 
         string result = ToolOutputTruncation.Format(text, SavedPath);
 
-        Assert.Contains("[TAIL — ", result);
-        Assert.Contains($"full content saved to {SavedPath}", result);
-        Assert.Contains("continue with Read offset=", result);
+        Assert.Contains("[尾部 — ", result);
+        Assert.Contains($"全文存于 {SavedPath}", result);
+        Assert.Contains("继续用 Read offset=", result);
         Assert.DoesNotContain("\uFFFD", result); //多字节字符没有被劈开
 
         // 行号锚点自洽:头说 lines 1–N,续读就是 offset=N+1
-        Match m = Regex.Match(result, @"lines 1–(\d+).*?continue with Read offset=(\d+)");
+        Match m = Regex.Match(result, @"lines 1–(\d+).*?继续用 Read offset=(\d+)");
         Assert.True(m.Success, $"应给出头行数与续读偏移,实际:{result}");
         Assert.Equal(int.Parse(m.Groups[1].Value) + 1, int.Parse(m.Groups[2].Value));
 
@@ -46,8 +46,8 @@ public class ToolOutputTruncationTests
 
         // 头尾各自在预算内
         string headPart = result[..result.IndexOf("\n\n---\n", StringComparison.Ordinal)];
-        int tailMarker = result.LastIndexOf("[TAIL — ", StringComparison.Ordinal);
-        string tailPart = result[(tailMarker + "[TAIL — ".Length)..];
+        int tailMarker = result.LastIndexOf("[尾部 — ", StringComparison.Ordinal);
+        string tailPart = result[(tailMarker + "[尾部 — ".Length)..];
         tailPart = tailPart[(tailPart.IndexOf('\n') + 1)..];
         Assert.True(Encoding.UTF8.GetByteCount(headPart) <= ToolOutputTruncation.HeadBudgetBytes,
             $"头超预算:{Encoding.UTF8.GetByteCount(headPart)}");
@@ -66,8 +66,8 @@ public class ToolOutputTruncationTests
 
         string result = ToolOutputTruncation.Format(text, SavedPath);
 
-        Assert.Contains("tail omitted", result);
-        Assert.DoesNotContain("[TAIL — ", result);
+        Assert.Contains("尾部已省略", result);
+        Assert.DoesNotContain("[尾部 — ", result);
         Assert.StartsWith("aaaa", result);
         Assert.True(Encoding.UTF8.GetByteCount(result) <= ToolOutputTruncation.MaxBytes,
             "退化返回仍应压在总量预算内");

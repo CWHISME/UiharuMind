@@ -208,9 +208,9 @@ public class GroupChatCoordinatorTests
     }
 
     [Theory]
-    [InlineData("你是Alice。", "（说话前记着：你是Alice。群里照你自己的说话方式说。）")]
-    [InlineData("你是Alice，爱查证", "（说话前记着：你是Alice，爱查证。群里照你自己的说话方式说。）")]
-    [InlineData("", "（说话前记着：群里照你自己的说话方式说。）")]
+    [InlineData("你是Alice。", "【说话前记着：你是Alice。群里照你自己的说话方式说。】")]
+    [InlineData("你是Alice，爱查证", "【说话前记着：你是Alice，爱查证。群里照你自己的说话方式说。】")]
+    [InlineData("", "【说话前记着：群里照你自己的说话方式说。】")]
     public void VoiceReminder_JoinsTheAnchorAndTheGroupScale(string coda, string expected)
     {
         Assert.Equal(expected, GroupTranscript.VoiceReminder(coda));
@@ -479,7 +479,7 @@ public class GroupChatCoordinatorTests
         object? result = await tool.InvokeAsync(new AIFunctionArguments { ["content"] = "[沉默]" },
             TestContext.Current.CancellationToken);
 
-        Assert.StartsWith("Error: not posted. To stay silent", result?.ToString());
+        Assert.StartsWith("Error: 未发送。想保持沉默", result?.ToString());
     }
 
     [Fact]

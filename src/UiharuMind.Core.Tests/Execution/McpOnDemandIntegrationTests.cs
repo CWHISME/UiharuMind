@@ -130,7 +130,7 @@ public class McpOnDemandIntegrationTests : IDisposable
 
         // 不带参数:列出它,还没连
         string all = Assert.IsType<string>(await Named(set, ExtensionCalls.HelpName).InvokeAsync(new AIFunctionArguments(), ct));
-        Assert.Contains("- stub-ondemand (MCP, not connected yet", all);
+        Assert.Contains("- stub-ondemand（MCP，尚未连接", all);
 
         // 第一次查它才连
         string helpText = Assert.IsType<string>(await Named(set, ExtensionCalls.HelpName).InvokeAsync(Ask("stub-ondemand"), ct));
@@ -154,7 +154,7 @@ public class McpOnDemandIntegrationTests : IDisposable
         // 清单已缓存,离线时帮助还能读;再列一次就报已连上
         Assert.NotNull(((IMcpServerHost)_manager).LoadCatalog(config));
         all = Assert.IsType<string>(await Named(set, ExtensionCalls.HelpName).InvokeAsync(new AIFunctionArguments(), ct));
-        Assert.Contains("- stub-ondemand (MCP, connected, 2 commands): stub for tests", all);
+        Assert.Contains("- stub-ondemand（MCP，已连接，2 条命令）：stub for tests", all);
     }
 
     /// <summary>

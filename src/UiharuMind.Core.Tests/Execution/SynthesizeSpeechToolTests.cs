@@ -69,7 +69,7 @@ public sealed class SynthesizeSpeechToolTests : IDisposable
     {
         string result = await Invoke(new AIFunctionArguments { ["text"] = "Hi.", ["voice"] = "Bob" });
 
-        Assert.StartsWith("Error: no character named 'Bob'", result);
+        Assert.StartsWith("Error: 没有名为 'Bob' 的角色。", result);
         Assert.Contains("Alice", result);
         Assert.DoesNotContain("Me", result); //没设声音的不列
         Assert.Empty(_requests);

@@ -21,19 +21,19 @@ public static class SpeakTool
     public static AITool Create(Func<SpeechRequest, Task<bool>> speak)
     {
         return AIFunctionFactory.Create(
-            async ([Description("What to say, as plain spoken words (no Markdown, code or URLs).")]
+            async ([Description("要朗读的内容，纯口语文字（不要 Markdown、代码或 URL）。")]
                     string text,
-                    [Description("Optional tone for this line, e.g. \"whispering, a little nervous\". " +
-                                 "Only some voices follow it; omit to use your usual voice.")]
+                    [Description("本句可选的语气，如「压低声音、略显紧张」。" +
+                                 "只有部分声音会遵循；省略则用你平时的声音。")]
                     string? tone = null) =>
-                string.IsNullOrWhiteSpace(text) ? "Nothing to say."
+                string.IsNullOrWhiteSpace(text) ? "没有要朗读的内容。"
                 : await speak(new SpeechRequest(text.Trim(), string.IsNullOrWhiteSpace(tone) ? null : tone.Trim()))
                     .ConfigureAwait(false)
-                    ? "Spoken aloud."
-                    : "Not spoken: the user is not viewing this conversation, stopped it, or playback failed. " +
-                      "Do not retry; carry on in text.",
+                    ? "已朗读。"
+                    : "未朗读：用户没在看这个会话、停止了它，或播放失败。" +
+                      "不要重试；改用文字继续。",
             ToolName,
-            "Say something aloud to the user through their speakers, in your own voice. " +
-            "Use it sparingly for lines that are meant to be heard; it returns after the line has been spoken.");
+            "用你自己的声音，通过用户的扬声器把话说出来。" +
+            "只对「需要被听见」的句子偶尔使用；说完这句话后返回。");
     }
 }

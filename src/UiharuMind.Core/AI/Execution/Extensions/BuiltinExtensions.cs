@@ -81,13 +81,13 @@ public static class BuiltinExtensions
     /// 与各工具 schema 的一致性由测试对照
     /// </summary>
     public const string CallUsage =
-        "Built-in commands (`?` = optional):\n" +
+        "内置命令（`?` = 可选）：\n" +
         "- browser.navigate {url, view?} · browser.snapshot {view?, find?} · browser.act {action, target?, value?} " +
-        "· browser.handoff {task}. act's action is click | fill | select | check | uncheck | press | hover | scroll " +
-        "| back; target is a ref from the latest outline such as e5.\n" +
+        "· browser.handoff {task}. act 的 action 取 click | fill | select | check | uncheck | press | hover | scroll " +
+        "| back；target 是最近一份 outline 里的 ref，如 e5。\n" +
         "- image.generate {prompt, images?, aspectRatio?}\n" +
         "- audio.synthesize {text, voice?, tone?, speed?} · audio.transcribe {path, subtitles?}\n" +
-        "Example: " + CallExample;
+        "示例：" + CallExample;
 
     /// <summary>全部内置扩展名，按系统提示与帮助里的顺序</summary>
     public static readonly IReadOnlyList<string> Names = [Browser, Image, Audio];
@@ -173,10 +173,10 @@ public static class BuiltinExtensions
     internal static BuiltinExtension CreateBrowser(IBrowserHost host, string sessionId, string spillDirectory,
         EReadImageMode screenshots) =>
         new(Browser,
-            "A real Chrome window with its own profile, one tab per conversation; sites the user signed into there " +
-            "stay signed in. Start with navigate (or snapshot to re-read the page that is already open), then act " +
-            "on elements by the refs in the latest outline. snapshot never asks the user; navigate and act ask " +
-            "unless the user allowed the browser for this conversation; handoff always waits for the user.",
+            "带独立配置文件的真实 Chrome 窗口，一个会话一个标签页；用户在那里登录过的站点保持登录。" +
+            "先 navigate（或 snapshot 重读已打开的页面），再按最新 outline 里的 ref 对元素 act。" +
+            "snapshot 从不问用户；navigate 和 act 除非用户已为本会话放行浏览器，否则会询问；" +
+            "handoff 总是等用户。",
             Bind(Browser, BrowserTools.Create(host, sessionId, spillDirectory, screenshots)));
 
     /// <summary>
@@ -188,12 +188,12 @@ public static class BuiltinExtensions
     /// <returns>扩展</returns>
     internal static BuiltinExtension CreateImage(AgentPathResolver paths, Action<string, ImageProgress>? progress,
         bool configured) =>
-        new(Image, "Generate an image from a prompt, or edit existing images by passing their paths.",
+        new(Image, "根据提示生成图像，或传入路径编辑已有图像。",
             Bind(Image, [ImageGenerationTool.Create(paths, progress)]))
         {
             Unavailable = configured
                 ? null
-                : "No image model is configured. Tell the user to add one under Settings → Image generation.",
+                : "未配置图像生成模型。告诉用户在「设置 → 图像生成」里添加一个。",
         };
 
     /// <summary>
@@ -208,9 +208,8 @@ public static class BuiltinExtensions
         if (self != null) tools.Add(SynthesizeSpeechTool.Create(paths, self));
         tools.Add(TranscribeAudioTool.Create(paths));
         return new BuiltinExtension(Audio,
-            "synthesize turns text into a WAV file in a character's voice (nothing is played aloud); " +
-            "transcribe turns an audio file into text, optionally with SRT subtitles. Results are saved under " +
-            "the draft folder.",
+            "synthesize 用角色的声音把文字合成 WAV 文件（不出声播放）；" +
+            "transcribe 把音频文件转成文字，可选带 SRT 字幕。结果保存在草稿目录下。",
             Bind(Audio, tools));
     }
 

@@ -30,26 +30,26 @@ public static class TranscribeAudioTool
     internal static AITool Create(AgentPathResolver paths, AudioFileTranscriber transcriber)
     {
         return AIFunctionFactory.Create(
-            async ([Description("Path of the audio file (wav, mp3 or flac).")]
+            async ([Description("音频文件的路径（wav、mp3 或 flac）。")]
                     string path,
-                    [Description("Also write SRT subtitles with segment timestamps.")]
+                    [Description("同时写出带分段时间戳的 SRT 字幕。")]
                     bool subtitles = false,
                     CancellationToken cancellationToken = default) =>
                 await TranscribeAsync(paths, transcriber, path, subtitles, cancellationToken).ConfigureAwait(false),
             ToolName,
-            "Transcribe speech in an audio file to text, optionally with SRT subtitles. " +
-            $"Handles up to {AudioFileTranscriber.MaxDuration.TotalMinutes:0} minutes. " +
-            "For video, extract the audio first (e.g. ffmpeg -i in.mp4 -vn -ac 1 out.wav).");
+            "把音频文件中的语音转写成文字，可选带 SRT 字幕。" +
+            $"最多处理 {AudioFileTranscriber.MaxDuration.TotalMinutes:0} 分钟。" +
+            "视频请先提取音频（如 ffmpeg -i in.mp4 -vn -ac 1 out.wav）。");
     }
 
     private static async Task<string> TranscribeAsync(AgentPathResolver paths, AudioFileTranscriber transcriber,
         string path, bool subtitles, CancellationToken cancellationToken)
     {
-        if (!paths.TryResolve(path, out string full) || !File.Exists(full)) return $"Error: file not found: {path}";
+        if (!paths.TryResolve(path, out string full) || !File.Exists(full)) return $"Error: 找不到文件：{path}";
         string extension = Path.GetExtension(full).TrimStart('.').ToLowerInvariant();
         if (!SoundFlowAudioFile.Extensions.Contains(extension))
-            return $"Error: '{Path.GetFileName(full)}' is not wav, mp3 or flac. Convert it first, " +
-                   "e.g. ffmpeg -i input -vn -ac 1 output.wav";
+            return $"Error: '{Path.GetFileName(full)}' 不是 wav、mp3 或 flac。请先转换，" +
+                   "如 ffmpeg -i input -vn -ac 1 output.wav";
 
         Transcript transcript;
         try
@@ -58,28 +58,28 @@ public static class TranscribeAudioTool
         }
         catch (Exception e) when (e is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
-            return $"Error: transcription failed: {e.Message}\nTell the user to check the speech recognition settings.";
+            return $"Error: 转写失败：{e.Message}\n告诉用户检查语音识别设置。";
         }
 
-        if (transcript.Segments.Count == 0) return "No speech was recognized in this file.";
+        if (transcript.Segments.Count == 0) return "未识别出该文件中的语音。";
 
         string directory = AgentOutputLayout.EnsureDraftSubdirectory(paths.DraftRoot, TranscriptsFolder);
         string stem = Path.GetFileNameWithoutExtension(full);
         string text = transcript.Text;
         string textFile = Unique(directory, stem, ".txt");
         await File.WriteAllTextAsync(textFile, text, cancellationToken).ConfigureAwait(false);
-        StringBuilder result = new($"Transcribed {transcript.Duration.TotalSeconds:0} s of audio.\n");
+        StringBuilder result = new($"已转写 {transcript.Duration.TotalSeconds:0} 秒音频。\n");
         if (transcript.Truncated)
-            result.Append($"Only the first {AudioFileTranscriber.MaxDuration.TotalMinutes:0} minutes were transcribed.\n");
-        result.Append("Text: ").Append(paths.ToPortable(textFile)).Append('\n');
+            result.Append($"只转写了前 {AudioFileTranscriber.MaxDuration.TotalMinutes:0} 分钟。\n");
+        result.Append("文本: ").Append(paths.ToPortable(textFile)).Append('\n');
         if (subtitles)
         {
             string srtFile = Unique(directory, stem, ".srt");
             await File.WriteAllTextAsync(srtFile, ToSrt(transcript.Segments), cancellationToken).ConfigureAwait(false);
-            result.Append("Subtitles: ").Append(paths.ToPortable(srtFile)).Append('\n');
+            result.Append("字幕: ").Append(paths.ToPortable(srtFile)).Append('\n');
         }
 
-        result.Append('\n').Append(text.Length <= ExcerptLength ? text : text[..ExcerptLength] + "\n[... see the text file for the rest]");
+        result.Append('\n').Append(text.Length <= ExcerptLength ? text : text[..ExcerptLength] + "\n[…其余见文本文件]");
         return result.ToString();
     }
 

@@ -52,7 +52,7 @@ internal static class McpHelpFormatter
             sb.Append('\n').Append(instructions.Trim()).Append('\n');
         }
 
-        sb.Append("\nCommands (").Append(tools.Count).Append("):\n");
+        sb.Append("\n命令（").Append(tools.Count).Append("）：\n");
         foreach (McpToolDescriptor tool in tools)
         {
             sb.Append("- ").Append(tool.Name).Append(' ').Append(Signature(tool.InputSchema));
@@ -63,7 +63,7 @@ internal static class McpHelpFormatter
 
         if (tools.Count > 0)
         {
-            sb.Append("\nCall ExtensionHelp with `extension` and `command` for a command's full parameters.");
+            sb.Append("\n用 ExtensionHelp 传 `extension` 和 `command` 可查看某条命令的完整参数。");
         }
 
         return sb.ToString().TrimEnd();
@@ -86,7 +86,7 @@ internal static class McpHelpFormatter
             sb.Append('\n').Append(tool.Description.Trim()).Append('\n');
         }
 
-        sb.Append("\nParameters (JSON Schema):\n");
+        sb.Append("\n参数（JSON Schema）：\n");
         sb.Append(tool.InputSchema.ValueKind == JsonValueKind.Undefined
             ? "{}"
             : ToolTokenEstimator.CompactSchema(tool.InputSchema));
@@ -173,9 +173,9 @@ internal static class McpHelpFormatter
     public static string ListNames(IEnumerable<string> names)
     {
         List<string> all = names.ToList();
-        if (all.Count == 0) return "(none)";
+        if (all.Count == 0) return "（无）";
         string listed = string.Join(", ", all.Take(MaxListedNames));
-        return all.Count > MaxListedNames ? $"{listed}, … ({all.Count - MaxListedNames} more)" : listed;
+        return all.Count > MaxListedNames ? $"{listed}, …（还有 {all.Count - MaxListedNames} 个）" : listed;
     }
 
     /// <summary>

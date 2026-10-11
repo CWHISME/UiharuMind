@@ -41,27 +41,27 @@ public static class BackgroundTaskTool
     public static AIFunction Create(string ownerSessionId, BackgroundTaskLaunch launch, IBackgroundTaskReportSink sink)
     {
         AIFunction function = AIFunctionFactory.Create(
-            ([Description("The shell command to run, same syntax as the Shell tool.")]
+            ([Description("要运行的 shell 命令，语法与 Shell 工具相同。")]
                 string command,
-                [Description("One short line saying what this task is; shown to the user.")]
+                [Description("一句话说明这个任务是什么；会显示给用户。")]
                 string description,
-                [Description("Optional time limit in seconds; the whole process tree is stopped when it is reached.")]
+                [Description("可选的时间上限（秒）；到达后整个进程树会被终止。")]
                 int? maxSeconds = null) => Start(ownerSessionId, launch, sink, command, description, maxSeconds),
             ToolName,
-            "Run a shell command in the background and return at once. " +
-            $"Shell already waits up to {ShellExecutorFactory.CommandTimeout.TotalMinutes:0} minutes and returns the output directly, " +
-            "so use this only for commands expected to run longer, or that never exit (servers, GUI apps; set maxSeconds). " +
-            "When it ends, the exit code and output tail come back to you as a message, so do not poll; " +
-            "read the returned log file to check progress. " +
-            $"Without maxSeconds it is stopped after {DefaultMaxRuntime.TotalSeconds:0} seconds. " +
-            "Do not add `&`, `nohup` or `open`: anything they detach can no longer be stopped or time-limited.");
+            "在后台运行一条 shell 命令并立即返回。" +
+            $"Shell 工具本身最多等待 {ShellExecutorFactory.CommandTimeout.TotalMinutes:0} 分钟并直接返回输出，" +
+            "所以本工具只用于预期要跑更久、或不会退出的命令（服务器、GUI 程序；请设 maxSeconds）。" +
+            "结束时退出码与输出末尾会以消息形式送回给你，所以不要轮询；" +
+            "读返回的日志文件查进度即可。" +
+            $"不传 maxSeconds 时会在 {DefaultMaxRuntime.TotalSeconds:0} 秒后停止。" +
+            "不要加 `&`、`nohup` 或 `open`：凡是被它们脱离的东西都无法再被停止或限时。");
         return new ApprovalRequiredAIFunction(function);
     }
 
     private static string Start(string ownerSessionId, BackgroundTaskLaunch launch, IBackgroundTaskReportSink sink,
         string command, string description, int? maxSeconds)
     {
-        if (string.IsNullOrWhiteSpace(command)) return "Error: command must not be empty.";
+        if (string.IsNullOrWhiteSpace(command)) return "Error: 命令不能为空。";
 
         TimeSpan maxRuntime = maxSeconds is > 0
             ? TimeSpan.FromSeconds(Math.Min(maxSeconds.Value, MaxAllowedRuntime.TotalSeconds))
@@ -71,14 +71,14 @@ public static class BackgroundTaskTool
         try
         {
             BackgroundTask task = BackgroundTaskRegistry.Start(ownerSessionId, command, shown, maxRuntime, launch, sink);
-            return $"Started background task {task.Id}. NO RESULT YET. " +
-                   $"Its result arrives on its own when it ends (time limit {maxRuntime.TotalSeconds:0}s); do not poll for it.\n" +
-                   $"Log: {task.LogPath}";
+            return $"已启动后台任务 {task.Id}。尚无结果。" +
+                   $"结束时会自动送回结果（时限 {maxRuntime.TotalSeconds:0} 秒）；不要轮询。\n" +
+                   $"日志：{task.LogPath}";
         }
         catch (Exception e)
         {
             Log.Warning($"Start background task failed: session={ownerSessionId}: {e.Message}");
-            return $"Error: could not start the task: {e.Message}";
+            return $"Error: 无法启动任务：{e.Message}";
         }
     }
 }

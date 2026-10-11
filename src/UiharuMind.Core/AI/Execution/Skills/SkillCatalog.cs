@@ -389,11 +389,11 @@ public class SkillCatalog : Singleton<SkillCatalog>
             string directory = (skill as AgentFileSkill)?.Path ?? string.Empty;
 
             StringBuilder sb = new();
-            sb.AppendLine($"# Skill: {skill.Frontmatter.Name}");
-            sb.AppendLine("The user invoked this skill explicitly. Follow its instructions for this task.");
+            sb.AppendLine($"# 技能：{skill.Frontmatter.Name}");
+            sb.AppendLine("用户显式调用了这个技能。按要求执行本任务。");
             if (directory.Length > 0)
             {
-                sb.AppendLine($"Skill directory: {directory}");
+                sb.AppendLine($"技能目录：{directory}");
                 sb.Append(BuildResourceAccessLine(tools.EnableFileAccess, tools.EnableShellExecution,
                     IsModelInvocable(skill)));
             }
@@ -433,16 +433,16 @@ public class SkillCatalog : Singleton<SkillCatalog>
 
         string? tools = (hasFileTools, hasShell) switch
         {
-            (true, true) => "your file and shell tools",
-            (true, false) => "your file tools",
+            (true, true) => "你的文件工具和 shell 工具",
+            (true, false) => "你的文件工具",
             (false, true) => $"`{CharacterRunnerFactory.ShellToolName}`",
             _ => null, //两样都关:附件与脚本根本取不到,不如什么都不承诺
         };
 
         if (tools != null)
         {
-            string what = hasShell ? "read its resources and run its scripts" : "read its resources";
-            sb.AppendLine($"Use {tools} to {what} from that directory.");
+            string what = hasShell ? "读取它的资源并运行它的脚本" : "读取它的资源";
+            sb.AppendLine($"用 {tools} 从那个目录{what}。");
         }
 
         // 退出模型自选的技能不在框架 source 列表里,技能工具对它一律返回 not found。

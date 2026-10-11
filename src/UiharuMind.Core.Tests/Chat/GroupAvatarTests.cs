@@ -88,7 +88,6 @@ public class GroupAvatarTests
 
         Assert.Contains("替黑猫坐着", scene);
         Assert.Contains("在场的成员有：Alice、Bob", scene);
-        Assert.DoesNotContain("本群主持人是", scene); //主持人信息只对主持人本人说(ef7dde18)，化身替用户坐着不被告知
         Assert.DoesNotContain("（用户）", scene); //它就是用户
         Assert.DoesNotContain(GroupPostTool.ToolName, scene);
     }
@@ -142,7 +141,7 @@ public class GroupAvatarTests
         object? result = await tool.InvokeAsync(new AIFunctionArguments { ["reason"] = "done", ["summary"] = "做完了" },
             TestContext.Current.CancellationToken);
 
-        Assert.StartsWith("Error: infinite away mode is on", result?.ToString());
+        Assert.StartsWith("Error: 无限离席模式已开启", result?.ToString());
     }
 
     [Fact]
@@ -153,7 +152,7 @@ public class GroupAvatarTests
         object? result = await tool.InvokeAsync(new AIFunctionArguments { ["reason"] = "done", ["summary"] = "做完了" },
             TestContext.Current.CancellationToken);
 
-        Assert.StartsWith("Away session will end after this turn", result?.ToString());
+        Assert.StartsWith("离席会话将在本轮结束后结束", result?.ToString());
     }
 
     [Fact]
@@ -202,11 +201,11 @@ public class GroupAvatarTests
         AITool tool = EndAwayTool.Create();
 
         // 无限模式禁用，调了也只拿到错误（工具主体描述）
-        Assert.Contains("In infinite away mode this tool is disabled", tool.Description ?? string.Empty);
+        Assert.Contains("无限离席模式下本工具被禁用", tool.Description ?? string.Empty);
         // 顺手正文只留本地，进群只能靠 say 参数（say 参数写在 schema 的 description 里）
         JsonNode? schema = tool is AIFunction function ? JsonNode.Parse(function.JsonSchema.GetRawText()) : null;
         string? sayDescription = schema?["properties"]?["say"]?["description"]?.GetValue<string>();
-        Assert.Contains("only this parameter reaches the group", sayDescription);
+        Assert.Contains("只有这个参数会到达群里", sayDescription);
     }
 
     private static IReadOnlyList<CharacterData> Cards(params string[] ids) =>

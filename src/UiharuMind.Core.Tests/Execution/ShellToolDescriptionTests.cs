@@ -21,7 +21,8 @@ public class ShellToolDescriptionTests
 
         Assert.Equal(CharacterRunnerFactory.ShellToolName, tool.Name);
         Assert.DoesNotContain("approves", tool.Description, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Shell:", tool.Description); //框架描述的其余部分(系统与 shell 种类)仍保留
+        // 描述自写中文后,平台信息改成中文锚点("操作系统："),不再是框架默认的 "Shell:"
+        Assert.Contains("操作系统：", tool.Description);
         Assert.IsAssignableFrom<ApprovalRequiredAIFunction>(tool);
     }
 

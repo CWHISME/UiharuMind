@@ -59,11 +59,11 @@ public static class LoadSkillTool
 
     private static string Describe(IReadOnlyList<BuiltInSkill>? builtIns)
     {
-        const string summary = "Loads the full content of a specific skill by name.";
+        const string summary = "按名字加载指定技能的完整内容。";
         if (builtIns is not { Count: > 0 }) return summary;
 
         StringBuilder sb = new(summary);
-        sb.Append(" Built-in skills of this app:");
+        sb.Append(" 本应用的内置技能：");
         foreach (BuiltInSkill skill in builtIns)
             sb.Append($"\n- {skill.Frontmatter.Name}: {SingleLine(skill.Frontmatter.Description)}");
         return sb.ToString();
@@ -81,9 +81,9 @@ public static class LoadSkillTool
     private static async Task<string> LoadAsync(AgentSkillsSource source, string skillName,
         bool hasFileTools, bool hasShell, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(skillName)) return "Error: Skill name cannot be empty.";
+        if (string.IsNullOrWhiteSpace(skillName)) return "Error: 技能名不能为空。";
         // null 源是装配错误;显式给出可读文案而不是让 NRE 的 message 漏进返回(测试钉住 unavailable)
-        if (source == null) return "Error: Skill source is unavailable.";
+        if (source == null) return "Error: 技能源不可用。";
 
         try
         {
@@ -95,9 +95,8 @@ public static class LoadSkillTool
                 string.Equals(x.Frontmatter.Name, skillName, StringComparison.OrdinalIgnoreCase));
             if (skill == null)
             {
-                return $"Error: Skill '{skillName}' not found. Only model-selectable skills can be " +
-                       $"loaded here; a skill declared disable-model-invocation must be triggered by " +
-                       $"the user typing /{skillName}.";
+                return $"Error: 找不到技能 '{skillName}'。这里只能加载参与模型自选的技能；" +
+                       $"声明了 disable-model-invocation 的技能必须由用户输入 /{skillName} 触发。";
             }
 
             string content = await skill.GetContentAsync(cancellationToken).ConfigureAwait(false);
@@ -112,7 +111,7 @@ public static class LoadSkillTool
             {
                 sb.AppendLine();
                 sb.AppendLine();
-                sb.AppendLine($"Skill directory: {directory}");
+                sb.AppendLine($"技能目录：{directory}");
                 sb.Append(SkillCatalog.BuildResourceAccessLine(hasFileTools, hasShell, isModelInvocable: true));
             }
 
@@ -121,7 +120,7 @@ public static class LoadSkillTool
         catch (Exception e)
         {
             Log.Warning($"Load skill '{skillName}' failed: {e.Message}");
-            return $"Error: Failed to load skill '{skillName}'. {e.Message}";
+            return $"Error: 加载技能 '{skillName}' 失败。{e.Message}";
         }
     }
 }

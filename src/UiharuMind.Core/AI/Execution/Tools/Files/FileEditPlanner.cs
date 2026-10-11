@@ -20,12 +20,11 @@ namespace UiharuMind.Core.AI.Execution.Files;
 public sealed class FileEdit
 {
     /// <summary>被替换的原文，必须在文件中唯一出现，且不得与同一次调用的其他编辑重叠</summary>
-    [Description("Exact text to replace; must occur exactly once in the file. "
-                 + "Keep it as small as it can be while still unique.")]
+    [Description("被替换的原文，必须在文件中恰好出现一次。在能保持唯一的前提下尽量短。")]
     public string OldString { get; set; } = string.Empty;
 
     /// <summary>替换后的文本（空串表示删掉这段）</summary>
-    [Description("Replacement text. An empty string deletes the matched text.")]
+    [Description("替换后的文本。空字符串表示删掉命中的那段。")]
     public string NewString { get; set; } = string.Empty;
 }
 
