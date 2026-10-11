@@ -280,7 +280,7 @@ public static class AgentToolPrompts
     ///
     /// ⚠️ <b>只放配置里就有的东西</b>：名字与一句话说明，<b>不写状态、不写命令</b>。
     /// 后两者是运行时信息，写进来的话 server 一连上系统提示就变一次，缓存前缀白白失效。
-    /// 想知道此刻能不能用、有哪些命令，模型自己调 <c>ExtensionHelp</c>。
+    /// 想知道此刻能不能用、有哪些命令，模型自己调 <see cref="ExtensionCalls.HelpName"/>。
     /// </summary>
     /// <param name="extensions">扩展：名字与说明（说明可空）</param>
     /// <returns>段落正文</returns>

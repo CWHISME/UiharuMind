@@ -23,16 +23,16 @@ public sealed record ExtensionInvocation(string Extension, string Command,
     IReadOnlyDictionary<string, JsonElement>? Arguments);
 
 /// <summary>
-/// 扩展的两把元工具（ADR 0079）叫什么，以及怎么把一次 <c>ExtensionCall</c> 拆开：
+/// 扩展的两把元工具（ADR 0079）叫什么，以及怎么把一次 <see cref="ExtensionCalls.CallName"/> 拆开：
 /// 审批规则按拆开的扩展与命令判风险，界面按拆开的内层工具画卡
 /// </summary>
 public static class ExtensionCalls
 {
     /// <summary>查询工具名。提示词里提到它时一律引用这个常量</summary>
-    public const string HelpName = "ExtensionHelp";
+    public const string HelpName = "ExHelp";
 
     /// <summary>调用工具名</summary>
-    public const string CallName = "ExtensionCall";
+    public const string CallName = "ExCall";
 
     /// <summary>会话放行名单里代表「全部扩展」的那一项（输入框设置里勾的那个）</summary>
     public const string AllExtensions = "*";

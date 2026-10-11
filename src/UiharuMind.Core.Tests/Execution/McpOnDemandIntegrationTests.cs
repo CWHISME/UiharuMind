@@ -17,7 +17,7 @@ namespace UiharuMind.Core.Tests.Execution;
 
 /// <summary>
 /// MCP 经扩展送达的端到端（ADR 0079）：真实的 <see cref="McpManager"/> 连一个手写的最小 stdio MCP server 桩，
-/// 模型那一侧走 <c>ExtensionHelp</c> / <c>ExtensionCall</c>。钉的是<b>核心承诺</b>——
+/// 模型那一侧走 <see cref="ExtensionCalls.HelpName"/> / <see cref="ExtensionCalls.CallName"/>。钉的是<b>核心承诺</b>——
 /// 连接起落不改变配置修订号（缓存前缀因此稳定）。没有 python3 的机器上跳过。
 /// </summary>
 public class McpOnDemandIntegrationTests : IDisposable

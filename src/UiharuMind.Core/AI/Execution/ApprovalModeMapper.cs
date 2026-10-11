@@ -41,7 +41,7 @@ public enum EAgentPermissionMode
 ///
 /// 一条贯穿三档的硬规则:<b>工作区外的写入永不自动放行</b>，唯一的例外是会话自己的产出房间
 /// （<c>approvedWriteRoot</c>，程序管辖、有界、随会话删除——与"磁盘任何地方"不是一回事）。
-/// 扩展调用（<c>ExtensionCall</c>）不归档位管，逐条按风险判（ADR 0079，见 <see cref="ExtensionRisk"/>）。
+/// 扩展调用（<see cref="ExtensionCalls.CallName"/>）不归档位管，逐条按风险判（ADR 0079，见 <see cref="ExtensionRisk"/>）。
 /// 用户点一次现成的"本会话允许"之后框架自己会把该工具整会话放行,所以这里不需要任何额外状态。
 /// 它是有意做成"减法"而非"加一条否决规则"的——框架的 AutoApprovalRules 是<b>或</b>语义,
 /// 任一条返回 true 即放行,加否决规则拦不住 <c>AllToolsAutoApprovalRule</c>,

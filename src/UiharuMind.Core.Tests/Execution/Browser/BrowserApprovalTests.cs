@@ -8,7 +8,7 @@ using UiharuMind.Core.Tests.Execution.Extensions;
 namespace UiharuMind.Core.Tests.Execution.Browser;
 
 /// <summary>
-/// 浏览器在三档里的审批（ADR 0079，经 ExtensionCall）：看页面不问；导航与动作三档都问，本会话放行过浏览器就不问；
+/// 浏览器在三档里的审批（ADR 0079，经 <see cref="ExtensionCalls.CallName"/>）：看页面不问；导航与动作三档都问，本会话放行过浏览器就不问；
 /// 打开本机、内网与非 http(s) 地址、接管永远问，本会话放行也不算
 /// </summary>
 public class BrowserApprovalTests

@@ -11,6 +11,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 
@@ -45,7 +46,7 @@ public sealed class McpToolDescriptor
 
 /// <summary>
 /// 一个 server 的工具清单快照：上次连上时取回的定义与自述。
-/// <c>ExtensionHelp</c> 在 server 离线时读它，让模型至少看得见"有什么"，
+/// <see cref="ExtensionCalls.HelpName"/> 在 server 离线时读它，让模型至少看得见"有什么"，
 /// 再决定要不要等、要不要换路。
 /// </summary>
 public sealed class McpToolCatalog

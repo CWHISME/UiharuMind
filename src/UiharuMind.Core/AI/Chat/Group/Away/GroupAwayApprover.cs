@@ -98,7 +98,7 @@ public sealed class GroupAwayApprover
             return new GroupAwayApprovalVerdict(false, "越界写入：离席中不替用户点，留给用户本人");
         }
 
-        // 扩展调用拆开再给化身看：「BrowserAct 点 e21」比一层 ExtensionCall 好判断
+        // 扩展调用拆开再给化身看：「BrowserAct 点 e21」比一层 ExtensionCalls.CallName 好判断
         FunctionCallContent inner = ExtensionCalls.Unwrap(call);
         if (ExtensionRisk.AlwaysAsks(call))
         {

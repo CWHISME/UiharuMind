@@ -7,6 +7,8 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using UiharuMind.Core.AI.Execution.Extensions;
+
 namespace UiharuMind.Core.Core;
 
 /// <summary>
@@ -183,7 +185,7 @@ public static class AppPaths
         public static readonly string FetchedPages = Path.Combine(Root, "FetchedPages");
 
         /// <summary>
-        /// MCP server 的工具清单缓存：server 离线时 ExtensionHelp 仍可读。
+        /// MCP server 的工具清单缓存：server 离线时 <see cref="ExtensionCalls.HelpName"/> 仍可读。
         /// 可再生（重连即重写）、用户可随手删。
         /// </summary>
         public static readonly string McpToolCatalogs = Path.Combine(Root, "McpToolCatalogs");

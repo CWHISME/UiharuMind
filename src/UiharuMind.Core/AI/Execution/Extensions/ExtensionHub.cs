@@ -100,7 +100,7 @@ internal sealed class ExtensionHub
 
         string mention = BuiltinExtensions.Mention(builtin.Name, found.Name);
         JsonElement schema = found.Function.JsonSchema;
-        string lookUp = $"参数：{McpHelpFormatter.Signature(schema)}。用 ExtensionHelp 传 extension " +
+        string lookUp = $"参数：{McpHelpFormatter.Signature(schema)}。用 {ExtensionCalls.HelpName} 传 extension " +
                         $"\"{builtin.Name}\"、command \"{found.Name}\" 可查看每一项的说明。";
         // 缺必填先在这里说：交给框架绑定的话，缺参数与命令跑起来出的错都是同一类异常，分不出该改参数还是别重试。
         // 多余的参数名一起报：猜成 ref/text 的模型只看「缺 action」会接着猜，看到「ref 不认识」才会去对签名
@@ -149,7 +149,7 @@ internal sealed class ExtensionHub
     // 内置在前、MCP 在后；状态只出现在这里（工具结果），不进系统提示
     private string ListAll()
     {
-        StringBuilder sb = new("扩展（用 ExtensionHelp 传 `extension` 查看其命令）：\n");
+        StringBuilder sb = new($"扩展（用 {ExtensionCalls.HelpName} 传 `extension` 查看其命令）：\n");
         foreach (BuiltinExtension builtin in _builtins)
         {
             sb.Append("- ").Append(builtin.Name).Append("（内置");
@@ -206,5 +206,5 @@ internal sealed class ExtensionHub
         $"其命令：{string.Join(", ", builtin.Commands.Select(x => $"{x.Name} {McpHelpFormatter.Signature(x.Function.JsonSchema)}"))}。";
 
     private static string Unknown(string extension) =>
-        $"未知的扩展 '{extension}'。不带参数调用 ExtensionHelp 会列出所有扩展。";
+        $"未知的扩展 '{extension}'。不带参数调用 {ExtensionCalls.HelpName} 会列出所有扩展。";
 }

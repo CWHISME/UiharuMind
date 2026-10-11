@@ -9,12 +9,13 @@
 
 using System.Text;
 using System.Text.Json;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.AI.Execution.Mcp;
 
 /// <summary>
-/// <c>ExtensionHelp</c> 的渲染：纯函数，模型看到的文本形态在这里钉死。内置扩展与 MCP server 共用。
+/// <see cref="ExtensionCalls.HelpName"/> 的渲染：纯函数，模型看到的文本形态在这里钉死。内置扩展与 MCP server 共用。
 ///
 /// 两层输出对应渐进披露：只带扩展名 → 用法说明 + 命令名与一行说明；
 /// 再带命令名 → 该命令的完整描述与参数 schema。100 个工具的 server 不会一次灌满上下文。
@@ -63,7 +64,7 @@ internal static class McpHelpFormatter
 
         if (tools.Count > 0)
         {
-            sb.Append("\n用 ExtensionHelp 传 `extension` 和 `command` 可查看某条命令的完整参数。");
+            sb.Append("\n用 ").Append(ExtensionCalls.HelpName).Append(" 传 `extension` 和 `command` 可查看某条命令的完整参数。");
         }
 
         return sb.ToString().TrimEnd();

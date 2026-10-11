@@ -34,17 +34,18 @@ internal static class ExtensionMetaTools
         }
         """;
 
-    private const string CallSchema = """
+    // 插值引用工具名常量（$$ 分隔符让 JSON 的花括号原样保留）；不能是 const，所以用 static
+    private static string CallSchema = $$"""
         {
           "type": "object",
           "properties": {
             "extension": {
               "type": "string",
-              "description": "扩展名，以 ExtensionHelp 列出的为准。"
+              "description": "扩展名，以 {{ExtensionCalls.HelpName}} 列出的为准。"
             },
             "command": {
               "type": "string",
-              "description": "命令名，与 ExtensionHelp 显示的完全一致。"
+              "description": "命令名，与 {{ExtensionCalls.HelpName}} 显示的完全一致。"
             },
             "arguments": {
               "type": "object",
@@ -72,7 +73,7 @@ internal static class ExtensionMetaTools
             HelpSchema,
             (arguments, ct) => InvokeHelpAsync(hub, arguments, ct)),
         new ApprovalRequiredAIFunction(new MetaFunction(ExtensionCalls.CallName,
-            "运行一条扩展命令。内置命令列在下面；MCP 扩展先查 ExtensionHelp。" +
+            "运行一条扩展命令。内置命令列在下面；MCP 扩展先查 " + ExtensionCalls.HelpName + "。" +
             "结果与帮助里命令写作 extension.command（如 browser.snapshot）。" +
             "大结果会保存到文件，只返回头尾；其余读保存的文件。\n\n" +
             BuiltinExtensions.CallUsage,

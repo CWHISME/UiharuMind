@@ -9,6 +9,7 @@
 
 using System.Text.Json;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Files;
 
@@ -16,7 +17,7 @@ namespace UiharuMind.Core.AI.Execution.Mcp;
 
 /// <summary>
 /// MCP 的<b>核心</b>：列、查（Help）与调（Call），与"怎么送到模型手里"无关。
-/// 现在的载体是扩展的两把元工具（<c>ExtensionHelp</c> / <c>ExtensionCall</c>，ADR 0079），
+/// 现在的载体是扩展的两把元工具（<see cref="ExtensionCalls.HelpName"/> / <see cref="ExtensionCalls.CallName"/>，ADR 0079），
 /// 每个 server 在那里是一个扩展，它的工具就是扩展的命令。
 ///
 /// 一个实例绑定<b>一次装配的上下文</b>（工作区、角色禁用名单、落盘目录）。
@@ -122,7 +123,7 @@ internal sealed class McpBridge
                 : McpHelpFormatter.RenderTool(config.Name, found, note);
         }
 
-        return ToolResultSpill.Limit(text, _spillDirectory, $"ExtensionHelp_{config.Name}", ToolOutputBudget.Catalog);
+        return ToolResultSpill.Limit(text, _spillDirectory, $"{ExtensionCalls.HelpName}_{config.Name}", ToolOutputBudget.Catalog);
     }
 
     /// <summary>
@@ -148,7 +149,7 @@ internal sealed class McpBridge
         if (!connection.IsConnected)
         {
             return $"MCP server '{config.Name}' is not connected: {connection.Error ?? "unknown error"}. " +
-                   "It is retried on every call; ExtensionHelp still shows its last known commands.";
+                   $"It is retried on every call; {ExtensionCalls.HelpName} still shows its last known commands.";
         }
 
         AIFunction? function = McpHelpFormatter.FindByName(connection.Tools, x => x.Name, tool);
@@ -165,7 +166,7 @@ internal sealed class McpBridge
             AIFunctionArguments callArguments = new(
                 arguments?.ToDictionary(x => x.Key, object? (x) => x.Value) ?? new Dictionary<string, object?>());
             object? raw = await function.InvokeAsync(callArguments, cancellationToken).ConfigureAwait(false);
-            return McpCallResult.Normalize(raw, _spillDirectory, $"ExtensionCall_{config.Name}_{function.Name}", _paths);
+            return McpCallResult.Normalize(raw, _spillDirectory, $"{ExtensionCalls.CallName}_{config.Name}_{function.Name}", _paths);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -200,7 +201,7 @@ internal sealed class McpBridge
             : string.Empty;
         return $"MCP server '{serverName}' has no callable tool '{tool}' ({names.Count} tools are exposed).{hint} " +
                "It may be turned off on the server side; do not retry it, tell the user to enable it there. " +
-               $"ExtensionHelp with extension \"{serverName}\" lists every callable command.";
+               $"{ExtensionCalls.HelpName} with extension \"{serverName}\" lists every callable command.";
     }
 
     private static string Refusal(string requested, McpServerLookup lookup) => lookup.Status switch
@@ -212,6 +213,6 @@ internal sealed class McpBridge
             "by the user yet, so it cannot be used.",
         EMcpLookupStatus.HostingOff =>
             $"MCP server '{requested}' is turned off in the app's settings.",
-        _ => $"Unknown extension '{requested}'. ExtensionHelp with no arguments lists every extension.",
+        _ => $"Unknown extension '{requested}'. {ExtensionCalls.HelpName} with no arguments lists every extension.",
     };
 }

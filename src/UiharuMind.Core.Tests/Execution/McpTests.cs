@@ -11,6 +11,7 @@ using System.Text.Json;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.Core;
 
@@ -143,12 +144,12 @@ public class McpTests
         List<AgentToolEntry> entries =
         [
             new(EAgentCapability.FileAccess, Tool("read_file")),
-            new(EAgentCapability.Extensions, Tool("ExtensionHelp")),
+            new(EAgentCapability.Extensions, Tool(ExtensionCalls.HelpName)),
         ];
 
         AgentCapabilitySnapshot snapshot = AgentCapabilitySnapshot.Capture(entries, McpToolSet.Empty);
 
-        Assert.Equal(["read_file", "ExtensionHelp"], snapshot.BuiltInTools.Select(x => x.Name));
+        Assert.Equal(["read_file", ExtensionCalls.HelpName], snapshot.BuiltInTools.Select(x => x.Name));
         Assert.True(snapshot.TokensByCapability[EAgentCapability.Extensions] > 0);
     }
 

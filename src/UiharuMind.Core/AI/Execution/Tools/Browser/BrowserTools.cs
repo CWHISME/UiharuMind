@@ -35,7 +35,7 @@ public sealed class BrowserTools
     /// <summary>接管工具名：把浏览器交给用户做只该由他做的事（登录、输密码、验证码），做完交回</summary>
     public const string HandoffToolName = "BrowserHandoff";
 
-    /// <summary>结果与描述里怎么指观察命令（经 ExtensionCall 调）</summary>
+    /// <summary>结果与描述里怎么指观察命令（经 <see cref="ExtensionCalls.CallName"/> 调）</summary>
     internal static readonly string SnapshotMention =
         BuiltinExtensions.Mention(BuiltinExtensions.Browser, BuiltinExtensions.BrowserSnapshot);
 
@@ -66,7 +66,7 @@ public sealed class BrowserTools
     /// <param name="sessionId">会话 id（一个会话一个标签页）</param>
     /// <param name="spillDirectory">快照超长时落盘、截图存放的目录</param>
     /// <param name="screenshots">截图之后怎么看：视觉模型经 Read、否则经 AnalyzeImage；看不了图为 None，不提供截图</param>
-    /// <returns>观察、导航、动作、接管四把工具。不包审批：它们只经 <c>ExtensionCall</c> 调，审批在那一层逐条判</returns>
+    /// <returns>观察、导航、动作、接管四把工具。不包审批：它们只经 <see cref="ExtensionCalls.CallName"/> 调，审批在那一层逐条判</returns>
     public static IReadOnlyList<AITool> Create(IBrowserHost host, string sessionId, string spillDirectory,
         EReadImageMode screenshots = EReadImageMode.None)
     {

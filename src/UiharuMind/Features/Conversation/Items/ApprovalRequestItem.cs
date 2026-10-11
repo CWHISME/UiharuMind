@@ -124,7 +124,7 @@ public partial class ApprovalRequestItem : ConversationItemBase
     /// <summary>
     /// 是否提供"本会话允许"：shell 有更细的"同类命令"，每次都要问的不能整会话放行。
     /// 扩展调用的这个按钮按扩展记（<see cref="ApproveExtensionCallback"/>），不交给框架按工具名记——
-    /// 那样一点就把 ExtensionCall 整个放行，连接管一起
+    /// 那样一点就把 <see cref="ExtensionCalls.CallName"/> 整个放行，连接管一起
     /// </summary>
     public bool CanApproveForSession => !CanRememberCommandPattern && !AsksEveryTime && !IsBrowserHandoff;
 

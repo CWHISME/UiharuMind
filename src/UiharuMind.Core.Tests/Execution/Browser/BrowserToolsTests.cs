@@ -158,7 +158,7 @@ public class BrowserToolsTests
         string result = await InvokeAsync(tools, BrowserTools.HandoffToolName,
             new AIFunctionArguments { ["task"] = "登录 GitHub" });
 
-        // 不在这一层包审批：浏览器只经 ExtensionCall 调，审批在那一层逐条判（ADR 0079）
+        // 不在这一层包审批：浏览器只经 ExtensionCalls.CallName 调，审批在那一层逐条判（ADR 0079）
         Assert.IsNotType<ApprovalRequiredAIFunction>(tools.Single(t => t.Name == BrowserTools.HandoffToolName));
         Assert.StartsWith("用户接管了浏览器并交了回来。", result);
         Assert.Contains("- button \"Go\" [ref=e2]", result);

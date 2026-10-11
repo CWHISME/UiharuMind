@@ -56,7 +56,7 @@ public class ApprovalCardResolutionTests
             ["arguments"] = JsonSerializer.SerializeToElement(args.ToDictionary(x => x.Key, x => x.Value)),
         }));
 
-    /// <summary>扩展卡的「本会话允许」按扩展记，本次按普通允许回应——交给框架按工具名记就把整个 ExtensionCall 放行了</summary>
+    /// <summary>扩展卡的「本会话允许」按扩展记，本次按普通允许回应——交给框架按工具名记就把整个 <see cref="ExtensionCalls.CallName"/> 放行了</summary>
     [Fact]
     public void ExtensionCard_SessionApproval_IsRememberedPerExtension()
     {

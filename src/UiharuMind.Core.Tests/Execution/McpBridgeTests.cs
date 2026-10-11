@@ -9,6 +9,7 @@
 
 using System.Text.Json;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Tools;
 
@@ -124,7 +125,7 @@ public class McpBridgeTests : IDisposable
         string text = await Bridge(host).HelpAsync("github", null, TestContext.Current.CancellationToken);
 
         Assert.Contains("已截断", text);
-        Assert.Single(Directory.GetFiles(_spillDirectory, "ExtensionHelp_github_*.txt"));
+        Assert.Single(Directory.GetFiles(_spillDirectory, $"{ExtensionCalls.HelpName}_github_*.txt"));
     }
 
     /// <summary>
@@ -177,7 +178,7 @@ public class McpBridgeTests : IDisposable
 
         string text = await Bridge(host).HelpAsync("gitlab", null, TestContext.Current.CancellationToken);
 
-        Assert.Contains("ExtensionHelp with no arguments", text);
+        Assert.Contains($"{ExtensionCalls.HelpName} with no arguments", text);
     }
 
     [Fact]
@@ -387,7 +388,7 @@ public class McpBridgeTests : IDisposable
             TestContext.Current.CancellationToken));
 
         Assert.DoesNotContain("Similar callable commands", text);
-        Assert.Contains("ExtensionHelp", text);
+        Assert.Contains(ExtensionCalls.HelpName, text);
     }
 
     [Fact]
@@ -426,7 +427,7 @@ public class McpBridgeTests : IDisposable
         Assert.Contains("row 0 ", text);
         Assert.Contains("row 19999 ", text); //尾部
         Assert.Contains("全文存于", text);
-        string saved = Assert.Single(Directory.GetFiles(_spillDirectory, "ExtensionCall_github_dump_*.txt"));
+        string saved = Assert.Single(Directory.GetFiles(_spillDirectory, $"{ExtensionCalls.CallName}_github_dump_*.txt"));
         Assert.Equal(huge, File.ReadAllText(saved));
     }
 

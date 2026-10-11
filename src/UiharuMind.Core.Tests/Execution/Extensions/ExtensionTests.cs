@@ -124,7 +124,7 @@ public class ExtensionTests
         Assert.Equal(["transcribe"], BuiltinExtensions.CreateAudio(Paths, null).Commands.Select(x => x.Name));
     }
 
-    /// <summary>ExtensionCall 描述里那份速查是手写常量：每条内置命令的签名都得与它背后工具的 schema 对上</summary>
+    /// <summary><see cref="ExtensionCalls.CallName"/> 描述里那份速查是手写常量：每条内置命令的签名都得与它背后工具的 schema 对上</summary>
     [Fact]
     public void CallUsage_MatchesEveryBuiltinCommandSchema()
     {

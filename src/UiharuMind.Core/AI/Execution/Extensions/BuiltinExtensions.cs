@@ -37,7 +37,7 @@ internal sealed record BuiltinExtension(string Name, string Guide, IReadOnlyList
 
 /// <summary>
 /// 内置扩展（ADR 0079）：名字、命令、各自背后的工具，以及给系统提示与帮助的一句话说明。
-/// 命令名与原工具名的对照只在这里，界面据此把 <c>ExtensionCall</c> 拆回原来那张卡
+/// 命令名与原工具名的对照只在这里，界面据此把 <see cref="ExtensionCalls.CallName"/> 拆回原来那张卡
 /// </summary>
 public static class BuiltinExtensions
 {
@@ -76,7 +76,7 @@ public static class BuiltinExtensions
         """{"extension": "browser", "command": "act", "arguments": {"action": "fill", "target": "e3", "value": "hello"}}""";
 
     /// <summary>
-    /// 内置命令的速查，写进 <c>ExtensionCall</c> 的描述：模型不必先查三轮帮助就能直接调对。
+    /// 内置命令的速查，写进 <see cref="ExtensionCalls.CallName"/> 的描述：模型不必先查三轮帮助就能直接调对。
     /// 是常量（缓存前缀稳定），所以角色禁了的扩展也列着，调用时会如实说关了。
     /// 与各工具 schema 的一致性由测试对照
     /// </summary>
