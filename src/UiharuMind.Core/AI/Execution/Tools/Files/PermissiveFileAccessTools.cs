@@ -187,7 +187,7 @@ internal sealed class PermissiveFileAccessTools
     }
 
     // 命中过多时怎么办只由地图的 Notice 说:它就贴在触发那一刻,描述里再写一遍是每轮白付
-    [Description("搜索文件内容。遵循 .gitignore。")]
+    [Description("搜索文件内容。")]
     internal async Task<GrepToolResult> Grep(
         [Description("搜索模式（ripgrep 语法）。")] string pattern,
         // 编译不过的正则会自动按字面串重搜并在 Notice 里说明,事前不必叮嘱
