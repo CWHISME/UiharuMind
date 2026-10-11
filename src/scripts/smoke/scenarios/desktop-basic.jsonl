@@ -1,0 +1,21 @@
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"session.new","args":{"character":"DesktopTester","workspace":"{{WS_EMPTY}}"}}
+{"op":"session.post","args":{"text":"用系统自带的计算器算 (123+456)×7，按计算器的按钮算，把计算器上最后显示的结果告诉我。"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"session"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/calculator.md"}}
+{"op":"session.post","args":{"text":"再给计算器窗口拍一份快照，view 用 ocr（强制从窗口图里认字），把认出的 ocr-text 原样列给我。"}}
+{"op":"session.wait","args":{"timeoutMinutes":5,"approvals":"session"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/calculator-ocr.md"}}
+{"op":"session.new","args":{"character":"DesktopTester","workspace":"{{WS_EMPTY}}"}}
+{"op":"session.post","args":{"text":"用系统自带的文本编辑器（mac 上是「文本编辑」，Windows 上是「记事本」）新建一个纯文本文档，写三行：第一行「桌面冒烟」，第二行「line two」，第三行「第三行 3」。存成工作区里的 desktop-note.txt，然后关掉那个窗口。"}}
+{"op":"session.wait","args":{"timeoutMinutes":15,"approvals":"session"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/editor.md"}}
+{"op":"session.new","args":{"character":"DesktopTester","workspace":"{{WS_EMPTY}}"}}
+{"op":"session.post","args":{"text":"在文件管理器（mac 上是访达，Windows 上是资源管理器）里打开工作区文件夹，告诉我窗口里列出了哪些文件。"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"session"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/files.md"}}
+{"op":"session.new","args":{"character":"DesktopTester","workspace":"{{WS_EMPTY}}"}}
+{"op":"session.post","args":{"text":"打开系统设置，把外观切成深色模式。"}}
+{"op":"session.wait","args":{"timeoutMinutes":5,"approvals":"session"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/settings.md"}}
+{"op":"quit"}
