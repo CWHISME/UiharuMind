@@ -1,0 +1,8 @@
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"session.new","args":{"character":"RationalAgent","workspace":"{{WS_DOCS}}"}}
+{"op":"session.post","args":{"text":"用 Brain 工具帮我总结工作区里的 CONTEXT.md（这是一份 74KB 的大术语表）。Brain 是同步只读的整理助手：当场返回整理好的内容，末尾带一行 [sub-session: ...] 标识，记得保留这个标识。请让它把「会话域」一节下的所有术语各用一句话整理出来。如果它没用上 Brain 工具，改用 Brain 重做一遍；不要用 Read 自己贴大段正文给我。"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"deny"}}
+{"op":"session.post","args":{"text":"用 Brain 工具带 brainId 追问我那个整理脑：在「委派」与「子会话」这两个术语之间，区别是什么？brainId 用它上次返回的 [sub-session: ...] 标识。"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"deny"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/brain.md"}}
+{"op":"quit"}

@@ -466,6 +466,19 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             ? new ArtifactsViewData(new SessionArtifactSource(session))
             : null;
 
+    /// <summary>
+    /// 首轮建出会话本体后的接线：元数据就位 + 补建产物区（空态下 <see cref="Artifacts"/> 为 null，
+    /// 不补则新会话的产物栏一直是空的，切走切回才靠重载出现）。
+    /// 单测经此进入——<see cref="EnsureSessionAsync"/> 里挂接执行者那步太重，不进单测。
+    /// </summary>
+    /// <param name="created">新建的会话本体</param>
+    internal void OnSessionCreated(ChatSession created)
+    {
+        CurrentMeta = created.ToMeta();
+        Title = CurrentMeta.Title;
+        Artifacts = CreateSessionArtifacts(created);
+    }
+
     /// <summary>请页面在列表里选中某个会话（建完群要切过去，而新建不经列表选中）</summary>
     public event Action<string>? OpenSessionRequested;
 
@@ -1517,8 +1530,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
             if (_draftExtensionsApproved) created.SetSessionApprovedExtension(ExtensionCalls.AllExtensions, true);
             _draftExtensionsApproved = false;
-            CurrentMeta = created.ToMeta();
-            Title = CurrentMeta.Title;
+            OnSessionCreated(created);
             SessionModel.Refresh(); //首轮新建的会话（尤其懒建页）此前无元数据，面板据此现身
             OnPropertyChanged(nameof(SessionModelLabel));
             NotifyCharacterKindChanged();

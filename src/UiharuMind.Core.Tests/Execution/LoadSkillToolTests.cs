@@ -98,10 +98,48 @@ public class LoadSkillToolTests
         Assert.Contains("技能源不可用", result);
     }
 
+    /// <summary>
+    /// 有附加文件的技能:注入里带目录、资源绝对路径与工具提示,模型照着清单一步到位。
+    /// </summary>
     [Fact]
-    public async Task FileSkill_AppendsDirectoryAndResourceHint()
+    public async Task FileSkill_WithResources_AppendsDirectoryAndToolHint()
     {
-        string root = Path.Combine(Path.GetTempPath(), "uiharu-load-skill-test");
+        string root = Path.Combine(Path.GetTempPath(), "uiharu-load-skill-test-with-resources");
+        if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        Directory.CreateDirectory(root);
+        try
+        {
+            string dir = Path.Combine(root, "tdd");
+            Directory.CreateDirectory(dir);
+            await File.WriteAllTextAsync(Path.Combine(dir, "SKILL.md"),
+                "---\nname: tdd\ndescription: d\n---\n\ntdd body", TestContext.Current.CancellationToken);
+            Directory.CreateDirectory(Path.Combine(dir, "refs"));
+            await File.WriteAllTextAsync(Path.Combine(dir, "refs", "notes.md"), "# notes",
+                TestContext.Current.CancellationToken);
+
+            AgentSkillsSource source = new AgentFileSkillsSource(root);
+            string result = await Invoke(Tool(source, hasFileTools: true, hasShell: true), "tdd");
+
+            Assert.Contains("tdd body", result);
+            Assert.Contains("技能目录：", result);
+            Assert.Contains("你的文件工具和 shell 工具", result);
+            Assert.Contains("无需重复读取技能目录中的 SKILL.md", result);
+            Assert.Contains("- 文件 refs/notes.md", result);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// 只有 SKILL.md 的技能没有可读资源:目录与工具提示都是噪音,一个都不该出现,
+    /// 只留「正文已完整、勿重复读取」的声明。
+    /// </summary>
+    [Fact]
+    public async Task FileSkill_OnlySkillMd_SkipsDirectoryAndToolHint()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "uiharu-load-skill-test-only-skill");
         if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
         Directory.CreateDirectory(root);
         try
@@ -115,13 +153,49 @@ public class LoadSkillToolTests
             string result = await Invoke(Tool(source, hasFileTools: true, hasShell: true), "tdd");
 
             Assert.Contains("tdd body", result);
-            Assert.Contains("技能目录：", result);
-            Assert.Contains("你的文件工具和 shell 工具", result);
+            Assert.Contains("无需重复读取技能目录中的 SKILL.md", result);
+            Assert.DoesNotContain("技能目录：", result);
+            Assert.DoesNotContain("你的文件工具和 shell 工具", result);
+            Assert.DoesNotContain("技能资源", result);
         }
         finally
         {
             if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
         }
+    }
+
+    /// <summary>
+    /// 清单里的资源/脚本输出相对技能目录的路径行(技能目录已在注入头给出),
+    /// agents/ 目录是 Claude Code 生态的元数据,应被过滤。
+    /// </summary>
+    [Fact]
+    public void BuildResourcePathLines_OutputsRelativePaths()
+    {
+        string content = """
+            正文
+
+            <available_resources>
+              <resource name="agents/openai.yaml"/>
+              <resource name="refs/notes.md"/>
+            </available_resources>
+
+            <available_scripts>
+              <script name="scripts/run.sh"/>
+            </available_scripts>
+            """;
+
+        string lines = SkillCatalog.BuildResourcePathLines(content);
+
+        Assert.DoesNotContain("agents", lines);
+        Assert.Contains("- 文件 refs/notes.md", lines);
+        Assert.Contains("- 脚本 scripts/run.sh", lines);
+    }
+
+    /// <summary>正文里没有清单块时不出资源行</summary>
+    [Fact]
+    public void BuildResourcePathLines_EmptyWithoutBlocks()
+    {
+        Assert.Equal(string.Empty, SkillCatalog.BuildResourcePathLines("plain body"));
     }
 
     /// <summary>

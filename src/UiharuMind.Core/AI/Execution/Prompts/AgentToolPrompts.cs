@@ -120,7 +120,7 @@ public static class AgentToolPrompts
     /// 反引号在提示词里专表工具名，有不变量测试按这条约定校验。
     /// </summary>
     public const string FileReadDefault =
-        "- 项目中的文件工具都经过反复优化，优先用 `Glob` 找文件，用 `Grep` 搜文本（可指定目录或具体文件），用 `Read` 读文件(自动处理编码等问题、传 limit=-1 可一次读完)。\n" +
+        "- 项目中的文件工具都经过反复优化，优先用 `Glob` 找文件，用 `Grep` 搜文本（可指定目录或具体文件），用 `Read` 读文件(自动处理编码等问题、传 head=-1 可一次读完)。\n" +
         "- 已经知道关键词，就先用 `Grep` 带上 contextLines 搜一次——" +
         "命中行加上它的上下文，往往就是你需要的全部。否则只 `Read` 需要的那一段。";
     /// <summary>
@@ -129,7 +129,7 @@ public static class AgentToolPrompts
     /// 提示语指名的工具必须真实存在（有不变量测试钉住）。
     /// </summary>
     public const string FileReadDefaultWithoutGlob =
-        "- 项目中的文件工具都经过反复优化，用 `Grep` 搜文本（可指定目录或具体文件），用 `Read` 读文件(自动处理编码等问题、传 limit=-1 可一次读完)。\n" +
+        "- 项目中的文件工具都经过反复优化，用 `Grep` 搜文本（可指定目录或具体文件），用 `Read` 读文件(自动处理编码等问题、传 head=-1 可一次读完)。\n" +
         "- 已经知道关键词，就先用 `Grep` 带上 contextLines 搜一次——" +
         "命中行加上它的上下文，往往就是你需要的全部。否则只 `Read` 需要的那一段。";
 

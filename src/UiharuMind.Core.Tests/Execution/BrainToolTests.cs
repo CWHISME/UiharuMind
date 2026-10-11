@@ -38,7 +38,6 @@ public class BrainToolTests
     {
         string description = Brain().Description;
 
-        Assert.Contains("同步", description);
         Assert.Contains("brainId", description);
         Assert.Contains("[sub-session:", description);
     }

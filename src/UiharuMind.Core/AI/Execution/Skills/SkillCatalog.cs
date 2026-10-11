@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.Agents.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Core;
@@ -368,6 +369,7 @@ public class SkillCatalog : Singleton<SkillCatalog>
     ///
     /// 另附技能目录绝对路径,并明确要求走文件与 shell 工具:退出模型自选的技能不在框架 source
     /// 列表里,<c>read_skill_resource</c> / <c>run_skill_script</c> 对它一律返回 not found。
+    /// 同时明令「正文已完整、勿重复读取 SKILL.md」——目录路径是模型重复读取的最大诱因。
     /// </summary>
     /// <param name="skillName">技能名</param>
     /// <param name="arguments">技能名之后用户写的参数,可为空</param>
@@ -393,8 +395,7 @@ public class SkillCatalog : Singleton<SkillCatalog>
             sb.AppendLine("用户显式调用了这个技能。按要求执行本任务。");
             if (directory.Length > 0)
             {
-                sb.AppendLine($"技能目录：{directory}");
-                sb.Append(BuildResourceAccessLine(tools.EnableFileAccess, tools.EnableShellExecution,
+                sb.Append(BuildResourceAccessLine(content, directory, tools.EnableFileAccess, tools.EnableShellExecution,
                     IsModelInvocable(skill)));
             }
 
@@ -419,17 +420,35 @@ public class SkillCatalog : Singleton<SkillCatalog>
     }
 
     /// <summary>
-    /// 交代技能的附件与脚本该怎么取。措辞<b>随实际启用的工具集裁剪</b>——
+    /// 交代技能的目录与附件/脚本取法。措辞<b>随实际启用的工具集裁剪</b>——
     /// 门控关掉的工具一个字都不提,否则就是在指挥一个不存在的工具
     /// (那正是被删掉的示范技能的毛病,不该在这里重犯一遍)。
+    /// 目录与资源/脚本行只在技能确实有附加文件时才出现:只有 SKILL.md 的技能
+    /// 给了也是噪音,模型会照着提示去找不存在的附件。
+    /// 正文已随本条内容完整提供,故明令不要重复读取 SKILL.md——模型常因看到目录路径
+    /// 就顺手把刚注入过的正文再读一遍,白白多一轮工具往返。
+    /// 清单里的资源/脚本直接给绝对路径:模型拿裸目录会把相对路径按工作目录解析,
+    /// 读错位置(实测把 agents/openai.yaml 读成 工作目录/agents/openai.yaml)。
     /// </summary>
+    /// <param name="content">框架 GetContentAsync 的返回(正文 + 追加的 available_resources/available_scripts)</param>
+    /// <param name="directory">技能目录绝对路径</param>
     /// <param name="hasFileTools">文件工具是否启用</param>
     /// <param name="hasShell">shell 工具是否启用</param>
     /// <param name="isModelInvocable">技能是否仍参与模型自选</param>
     /// <returns>提示行(可能为空串)</returns>
-    internal static string BuildResourceAccessLine(bool hasFileTools, bool hasShell, bool isModelInvocable)
+    internal static string BuildResourceAccessLine(string content, string directory, bool hasFileTools, bool hasShell,
+        bool isModelInvocable)
     {
         StringBuilder sb = new();
+
+        sb.AppendLine("本技能的完整正文已在本条内容中给出，无需重复读取技能目录中的 SKILL.md。");
+
+        string resources = BuildResourcePathLines(content);
+        if (resources.Length == 0) return sb.ToString();
+
+        sb.AppendLine($"技能目录：{directory}");
+        sb.AppendLine("技能资源（相对技能目录的路径，按需直接读取/运行）：");
+        sb.Append(resources);
 
         string? tools = (hasFileTools, hasShell) switch
         {
@@ -441,8 +460,8 @@ public class SkillCatalog : Singleton<SkillCatalog>
 
         if (tools != null)
         {
-            string what = hasShell ? "读取它的资源并运行它的脚本" : "读取它的资源";
-            sb.AppendLine($"用 {tools} 从那个目录{what}。");
+            string what = hasShell ? "读取上面列出的资源并运行脚本" : "读取上面列出的资源";
+            sb.AppendLine($"如正文需要，用 {tools} {what}；只处理上面列出的文件，不要翻看目录里的其它内容。");
         }
 
         // 退出模型自选的技能不在框架 source 列表里,技能工具对它一律返回 not found。
@@ -453,6 +472,43 @@ public class SkillCatalog : Singleton<SkillCatalog>
         // }
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// 把框架追加在正文尾部的 available_resources / available_scripts 清单解析成
+    /// 相对技能目录的路径行。技能目录已在注入头列出,相对路径省 token 且不丢信息;
+    /// 列头上写明「相对技能目录」,模型照目录拼接即可。
+    /// </summary>
+    /// <param name="content">框架 GetContentAsync 的返回(正文 + 追加清单)</param>
+    /// <returns>形如 "- 文件 x.yaml\n- 脚本 y.sh" 的行;清单为空时为空串</returns>
+    internal static string BuildResourcePathLines(string content)
+    {
+        StringBuilder sb = new();
+        AppendResourceBlock(sb, content, "available_resources", "resource", "文件");
+        AppendResourceBlock(sb, content, "available_scripts", "script", "脚本");
+        return sb.ToString();
+    }
+
+    private static void AppendResourceBlock(StringBuilder sb, string content,
+        string blockName, string tagName, string kind)
+    {
+        string open = $"<{blockName}>";
+        string close = $"</{blockName}>";
+        int start = content.IndexOf(open, StringComparison.Ordinal);
+        if (start < 0) return;
+        int end = content.IndexOf(close, start, StringComparison.Ordinal);
+        if (end < 0) return;
+        string block = content[start..(end + close.Length)];
+
+        foreach (Match match in Regex.Matches(block, $"<{tagName}\\s+name=\"([^\"]+)\""))
+        {
+            string name = match.Groups[1].Value;
+            if (string.IsNullOrWhiteSpace(name)) continue;
+            // agents/ 目录是 Claude Code 生态的「技能以 agent 身份调用」元数据,本应用不消费它,
+            // 模型读了也只拿到 display_name / policy 这类噪音——技能包几乎人手一个,注入一次白搭一段 token
+            if (name.Split('/').Any(segment => segment.Equals("agents", StringComparison.OrdinalIgnoreCase))) continue;
+            sb.AppendLine($"- {kind} {name}");
+        }
     }
 
     /// <summary>

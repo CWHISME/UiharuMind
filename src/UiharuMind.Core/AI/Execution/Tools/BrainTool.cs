@@ -32,13 +32,13 @@ public static class BrainTool
     public static readonly TimeSpan Timeout = TimeSpan.FromMinutes(5);
 
     /// <summary>脑的内部工具轮上限：有界活，到顶即停止循环并把已有进展作为响应返回（ADR 0082）</summary>
-    public const int MaxIterations = 30;
+    public const int MaxIterations = 128;
 
     /// <summary>返回的整理结果预算（UTF-8 字节）。超了自截断并注明可追问——拿截断去治截断没有意义（ADR 0082）</summary>
     public const int ReportBudgetBytes = 16 * 1024;
 
     /// <summary>截断附言：主代理据此知道还有细节可挖</summary>
-    public const string TruncationNote = "\n（整理结果较长已截断；更细可追问 brainId。）";
+    public const string TruncationNote = "\n【整理结果较长已截断；更细可通过 brainId 追问。】";
 
     /// <summary>
     /// 创建脑工具。上下文与委派同一形状（<see cref="SubAgentTool.LaunchContext"/>），

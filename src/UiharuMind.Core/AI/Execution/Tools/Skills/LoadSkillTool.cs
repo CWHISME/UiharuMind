@@ -104,15 +104,16 @@ public static class LoadSkillTool
 
             // 正文与框架 load_skill 一致;资源/脚本的取法走点名调用同款口径:
             // 框架的 read_skill_resource / run_skill_script 在总闸关闭时不挂,
-            // 模型只能用文件与 shell 工具自取,故把目录与取法附在末尾
+            // 模型只能用文件与 shell 工具自取,故把目录与取法附在末尾。
+            // 附带的声明明令不要重复读取 SKILL.md(正文已完整返回),与点名注入同款。
             StringBuilder sb = new();
             sb.Append(content.TrimEnd());
             if (directory.Length > 0)
             {
                 sb.AppendLine();
                 sb.AppendLine();
-                sb.AppendLine($"技能目录：{directory}");
-                sb.Append(SkillCatalog.BuildResourceAccessLine(hasFileTools, hasShell, isModelInvocable: true));
+                sb.Append(SkillCatalog.BuildResourceAccessLine(content, directory, hasFileTools, hasShell,
+                    isModelInvocable: true));
             }
 
             return sb.ToString();

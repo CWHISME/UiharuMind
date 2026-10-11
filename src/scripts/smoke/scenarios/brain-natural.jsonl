@@ -1,0 +1,8 @@
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"session.new","args":{"character":"RationalAgent","workspace":"{{WS_DOCS}}"}}
+{"op":"session.post","args":{"text":"工作区里有一份 CONTEXT.md，是一份 74KB 的术语表。请把「会话域」这一节讲给我听：下面的所有词条各用一句话说明。文件很大，你按自己觉得对的方式处理就行——重点是把内容讲明白，不要贴原文。"}}
+{"op":"session.wait","args":{"args":{"timeoutMinutes":12},"approvals":"deny"}}
+{"op":"session.post","args":{"text":"刚才那个大文件你怎么处理的？如果过程中用过带 [sub-session: ...] 标识的整理助手，就用它追问一下：委派和子会话的区别是什么？没用过的话，直接用一句话说明你的处理方式。"}}
+{"op":"session.wait","args":{"timeoutMinutes":12,"approvals":"deny"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/brain-natural.md"}}
+{"op":"quit"}
