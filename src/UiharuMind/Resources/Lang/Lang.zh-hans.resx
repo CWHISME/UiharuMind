@@ -260,6 +260,9 @@
     <data name="BrowserCallHover" xml:space="preserve">
         <value>把鼠标移到{0}上</value>
     </data>
+    <data name="BrowserCallUpload" xml:space="preserve">
+        <value>上传文件 {1}（经{0}）</value>
+    </data>
     <data name="BrowserCallScrollUp" xml:space="preserve">
         <value>向上滚动页面</value>
     </data>

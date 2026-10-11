@@ -89,4 +89,27 @@ public class PuppeteerTabLiveTests
         Assert.Contains(view.Notes, note => note.Contains(saved));
         Assert.Equal("a,b\n1,2\n", await File.ReadAllTextAsync(saved, TestContext.Current.CancellationToken));
     }
+
+    [Fact(Explicit = true)]
+    public async Task Live_Upload_HandsTheFileToTheButtonsPicker()
+    {
+        await using IBrowser browser = await LaunchAsync();
+        Directory.CreateDirectory(Scratch);
+        string file = Path.Combine(Scratch, "cv.pdf");
+        await File.WriteAllTextAsync(file, "cv", TestContext.Current.CancellationToken);
+        PuppeteerTab tab = new((await browser.PagesAsync())[0]);
+        const string html = "<button onclick=\"document.getElementById('f').click()\">上传附件</button>" +
+                            "<button>别的</button><input type=file id=f style='display:none' " +
+                            "onchange=\"document.title=this.files[0].name\">";
+        await tab.NavigateAsync("data:text/html;charset=utf-8," + Uri.EscapeDataString(html), CancellationToken.None);
+
+        BrowserPageView uploaded = await tab.ActAsync(new BrowserActionRequest(EBrowserAction.Upload, "上传附件", file),
+            CancellationToken.None);
+        BrowserActionException wrongTarget = await Assert.ThrowsAsync<BrowserActionException>(() =>
+            tab.ActAsync(new BrowserActionRequest(EBrowserAction.Upload, "别的", file), CancellationToken.None));
+
+        Assert.Equal("cv.pdf", uploaded.Title);
+        Assert.Contains(uploaded.Notes, note => note.StartsWith("Uploaded cv.pdf"));
+        Assert.Contains("did not open a file picker", wrongTarget.Message);
+    }
 }

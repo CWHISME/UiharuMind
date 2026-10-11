@@ -20,6 +20,8 @@ namespace UiharuMind.Core.AI.Execution.Tools.Browser;
 /// <item>导航到本机、内网与非 http(s) 地址——它们够得着用户网络里本不对外的东西（路由器后台、本地服务）。
 /// 只看地址字面，不解析 DNS：解析到内网的公网域名拦不住，与越界写入不解析软链同一个取舍。</item>
 /// <item>接管：那张卡就是「请你接手」，点「完成了」之前没有可放行的——它等的是用户的手，不是许可。</item>
+/// <item>上传：把本机文件交给第三方网站，送出去就收不回。文件只取工作区与草稿目录（见 <see cref="BrowserUploadFiles"/>），
+/// 卡上写清哪个文件、传到哪个网站。</item>
 /// </list>
 /// 往密码框打字不在这里：它不问，工具当场拒（见 <c>PuppeteerTab.Actions</c>），点过「本会话允许」也拦得住。
 /// </summary>
@@ -33,7 +35,9 @@ internal static class BrowserRisk
     public static bool RequiresApprovalInAllModes(FunctionCallContent call) => call.Name switch
     {
         BrowserTools.HandoffToolName => true,
-        BrowserTools.NavigateToolName => ExtractUrl(call.Arguments) is { Length: > 0 } url && IsLocalTarget(url),
+        BrowserTools.NavigateToolName => ExtractText(call.Arguments, "url") is { Length: > 0 } url && IsLocalTarget(url),
+        BrowserTools.ActToolName => string.Equals(ExtractText(call.Arguments, "action")?.Trim(), "upload",
+            StringComparison.OrdinalIgnoreCase),
         _ => false,
     };
 
@@ -90,9 +94,9 @@ internal static class BrowserRisk
         };
     }
 
-    private static string? ExtractUrl(IDictionary<string, object?>? arguments)
+    private static string? ExtractText(IDictionary<string, object?>? arguments, string name)
     {
-        if (arguments == null || !arguments.TryGetValue("url", out object? value)) return null;
+        if (arguments == null || !arguments.TryGetValue(name, out object? value)) return null;
         return value switch
         {
             string text => text,

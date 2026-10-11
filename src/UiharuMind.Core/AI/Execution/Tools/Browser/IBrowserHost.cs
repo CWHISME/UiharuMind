@@ -159,6 +159,8 @@ public enum EBrowserAction
     Scroll,
     /// <summary>后退</summary>
     Back,
+    /// <summary>上传：点目标弹出文件选择框，把文件交进去（值是换行分隔的绝对路径）</summary>
+    Upload,
 }
 
 /// <summary>

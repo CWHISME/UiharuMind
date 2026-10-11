@@ -49,10 +49,6 @@ public enum EAgentPermissionMode
 /// </summary>
 public static class ApprovalModeMapper
 {
-    /// <summary>路径比较口径:除 Linux 外文件系统通常不区分大小写</summary>
-    private static readonly StringComparison PathComparison =
-        OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
-
     /// <summary>
     /// 构建给定权限档的自动放行规则集
     /// </summary>
@@ -266,8 +262,8 @@ public static class ApprovalModeMapper
         //路径非法(含非法字符/过长)一样交给用户看一眼
         if (!paths.TryResolve(path, out string full)) return true;
 
-        if (IsUnder(full, paths.WorkspaceRoot)) return false;
-        return !IsUnder(full, approvedWriteRoot);
+        if (AgentPathResolver.IsUnder(full, paths.WorkspaceRoot)) return false;
+        return !AgentPathResolver.IsUnder(full, approvedWriteRoot);
     }
 
     /// <summary>
@@ -281,16 +277,8 @@ public static class ApprovalModeMapper
         if (!IsMutatingFileTool(functionCall) || paths.WorkspaceRoot.Length == 0) return false;
 
         //路径非法:宁可当不在记忆里,让用户看一眼
-        return paths.TryResolve(ExtractFilePath(functionCall.Arguments), out string full) && IsUnder(full, memoryRoot);
-    }
-
-    /// <summary>目标是否落在某根目录之下(含恰好就是它)。空根目录永远返回 false</summary>
-    private static bool IsUnder(string full, string root)
-    {
-        if (root.Length == 0) return false;
-        string trimmed = root.TrimEnd(Path.DirectorySeparatorChar);
-        return full.Equals(trimmed, PathComparison) ||
-               full.StartsWith(trimmed + Path.DirectorySeparatorChar, PathComparison);
+        return paths.TryResolve(ExtractFilePath(functionCall.Arguments), out string full) &&
+               AgentPathResolver.IsUnder(full, memoryRoot);
     }
 
     private static bool GlobMatch(string pattern, string input)

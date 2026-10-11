@@ -52,10 +52,13 @@ public sealed class BrowserTools
     private readonly string _sessionId;
     private readonly EReadImageMode _screenshots;
     private readonly BrowserResultFormatter _formatter;
+    private readonly AgentPathResolver? _paths; //上传从哪取文件；没有就不能上传
 
-    private BrowserTools(IBrowserHost host, string sessionId, string spillDirectory, EReadImageMode screenshots)
+    private BrowserTools(IBrowserHost host, string sessionId, string spillDirectory, EReadImageMode screenshots,
+        AgentPathResolver? paths)
     {
         _host = host;
+        _paths = paths;
         _sessionId = sessionId;
         _screenshots = screenshots;
         _formatter = new BrowserResultFormatter(spillDirectory);
@@ -69,11 +72,12 @@ public sealed class BrowserTools
     /// <param name="sessionId">会话 id（一个会话一个标签页）</param>
     /// <param name="spillDirectory">快照超长时落盘、截图存放的目录</param>
     /// <param name="screenshots">截图之后怎么看：视觉模型经 Read、否则经 AnalyzeImage；看不了图为 None，不提供截图</param>
+    /// <param name="paths">路径口径：上传只认工作区与草稿目录里的文件；不给就不能上传</param>
     /// <returns>观察、导航、动作、接管四把工具。不包审批：它们只经 <see cref="ExtensionCalls.CallName"/> 调，审批在那一层逐条判</returns>
     public static IReadOnlyList<AITool> Create(IBrowserHost host, string sessionId, string spillDirectory,
-        EReadImageMode screenshots = EReadImageMode.None)
+        EReadImageMode screenshots = EReadImageMode.None, AgentPathResolver? paths = null)
     {
-        BrowserTools tools = new(host, sessionId, spillDirectory, screenshots);
+        BrowserTools tools = new(host, sessionId, spillDirectory, screenshots, paths);
         bool canScreenshot = screenshots != EReadImageMode.None;
         AIFunction snapshot = AIFunctionFactory.Create(tools.SnapshotAsync, SnapshotToolName,
             "重新读取本会话浏览器标签页的当前页面。默认视图是 outline：带可操作 ref 的无障碍快照" +
@@ -200,13 +204,14 @@ public sealed class BrowserTools
     }
 
     private Task<string> ActAsync(
-        [Description("动作，取其一：click | fill | select | check | uncheck | press | hover | scroll | back")]
+        [Description("动作，取其一：click | fill | select | check | uncheck | press | hover | scroll | back | upload")]
         string action,
         [Description("来自最近快照的 ref，如 e5；没有 ref 的元素填它的可见文本。" +
                      "scroll、back 和整页级的 press 留空。")]
         string target = "",
         [Description("fill：要填入的文本（替换原有内容）；select：选项的可见标签；" +
-                     "press：按键名，如 Enter、Tab 或 ArrowDown；scroll：up 或 down。")]
+                     "press：按键名，如 Enter、Tab 或 ArrowDown；scroll：up 或 down；" +
+                     "upload：要上传的文件路径（工作区或草稿目录里的，多个用换行分隔），target 是上传按钮或文件框。")]
         string value = "",
         AIFunctionArguments? arguments = null,
         CancellationToken cancellationToken = default)
@@ -216,7 +221,7 @@ public sealed class BrowserTools
             char.IsDigit(name.FirstOrDefault()))
         {
             return Task.FromResult($"[Error] 未知的 action \"{action}\"。" +
-                                   "用其一：click, fill, select, check, uncheck, press, hover, scroll, back。");
+                                   "用其一：click, fill, select, check, uncheck, press, hover, scroll, back, upload。");
         }
 
         // 弱模型常把值写进以动作命名的参数（{"press":"Tab"}、{"scroll":"up"}）或 key / text：照收
@@ -226,6 +231,20 @@ public sealed class BrowserTools
         if (kind == EBrowserAction.Press && effectiveValue.Length == 0)
         {
             return Task.FromResult("[Error] press 需要 value：按键名，如 Enter、Tab 或 ArrowDown。");
+        }
+
+        if (kind == EBrowserAction.Upload)
+        {
+            if (_paths == null) return Task.FromResult("[Error] 这里不能上传文件。");
+            try
+            {
+                // 交给宿主的是解析好的绝对路径：审批卡上写的、执行时取的是同一批文件
+                effectiveValue = string.Join('\n', BrowserUploadFiles.Resolve(effectiveValue, _paths));
+            }
+            catch (BrowserActionException e)
+            {
+                return Task.FromResult($"[Error] {e.Message}");
+            }
         }
 
         BrowserActionRequest request = new(kind, target ?? string.Empty, effectiveValue);

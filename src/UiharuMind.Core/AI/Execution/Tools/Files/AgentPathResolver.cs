@@ -143,6 +143,21 @@ public sealed record AgentPathResolver
     }
 
     /// <summary>
+    /// 目标是否落在某根目录之下（含恰好就是它）。按字面比，不解析软链；除 Linux 外不分大小写
+    /// </summary>
+    /// <param name="fullPath">规范化的绝对路径</param>
+    /// <param name="root">根目录；空串永远返回 false</param>
+    /// <returns>在其下为 true</returns>
+    public static bool IsUnder(string fullPath, string root)
+    {
+        if (root.Length == 0) return false;
+        StringComparison comparison = OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+        string trimmed = root.TrimEnd(Path.DirectorySeparatorChar);
+        return fullPath.Equals(trimmed, comparison) ||
+               fullPath.StartsWith(trimmed + Path.DirectorySeparatorChar, comparison);
+    }
+
+    /// <summary>
     /// 同 <see cref="Resolve"/>，但解析不了时返回 false 而不抛（审批、预演这类只读判断用）
     /// </summary>
     /// <param name="path">模型给的路径；空视为解析不了</param>

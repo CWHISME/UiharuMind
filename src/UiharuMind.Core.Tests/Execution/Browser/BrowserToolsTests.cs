@@ -22,6 +22,37 @@ public class BrowserToolsTests
         BrowserTools.Create(host, "session", SpillDirectory, screenshots);
 
     [Fact]
+    public async Task Upload_HandsTheBrowserResolvedPaths_AndNeverFilesOutsideTheRoots()
+    {
+        string workspace = Path.Combine(SpillDirectory, "upload-ws-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(workspace);
+        File.WriteAllText(Path.Combine(workspace, "cv.pdf"), "cv");
+        FakeHost host = new();
+        IReadOnlyList<AITool> tools = BrowserTools.Create(host, "session", SpillDirectory,
+            paths: new AgentPathResolver(workspace));
+
+        string refused = await InvokeAsync(tools, BrowserTools.ActToolName,
+            new AIFunctionArguments { ["action"] = "upload", ["target"] = "e2", ["value"] = "/etc/hosts" });
+        await InvokeAsync(tools, BrowserTools.ActToolName,
+            new AIFunctionArguments { ["action"] = "upload", ["target"] = "e2", ["value"] = "cv.pdf" });
+
+        Assert.StartsWith("[Error]", refused);
+        Assert.Equal(Path.Combine(workspace, "cv.pdf"), host.Actions.Single().Value);
+    }
+
+    [Fact]
+    public async Task Upload_WithoutPathRules_IsUnavailable()
+    {
+        FakeHost host = new();
+
+        string result = await InvokeAsync(Create(host), BrowserTools.ActToolName,
+            new AIFunctionArguments { ["action"] = "upload", ["target"] = "e2", ["value"] = "cv.pdf" });
+
+        Assert.StartsWith("[Error]", result);
+        Assert.Empty(host.Actions);
+    }
+
+    [Fact]
     public async Task ValueWrittenUnderTheActionsName_IsAccepted()
     {
         FakeHost host = new();

@@ -208,7 +208,8 @@ internal static class AgentToolsetBuilder
             string spillDirectory = Path.Combine(
                 resources.OutputRoomDirectory.Length > 0 ? resources.OutputRoomDirectory : Path.GetTempPath(), "browser");
             EReadImageMode screenshots = imageMode == EReadImageMode.Attach && !mountFiles ? EReadImageMode.None : imageMode;
-            builtins.Add(BuiltinExtensions.CreateBrowser(resources.Browser!, resources.SessionId, spillDirectory, screenshots));
+            builtins.Add(BuiltinExtensions.CreateBrowser(resources.Browser!, resources.SessionId, spillDirectory, screenshots,
+                paths));
         }
 
         // 生图只看配置：至少配了一个生图模型，连不连得通不看（ADR 0052）

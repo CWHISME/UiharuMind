@@ -169,15 +169,16 @@ public static class BuiltinExtensions
     /// <param name="sessionId">会话 id</param>
     /// <param name="spillDirectory">快照超长落盘、截图存放的目录</param>
     /// <param name="screenshots">截图之后怎么看；看不了图为 None，不提供截图</param>
+    /// <param name="paths">路径口径：上传只认工作区与草稿目录里的文件；不给就不能上传</param>
     /// <returns>扩展</returns>
     internal static BuiltinExtension CreateBrowser(IBrowserHost host, string sessionId, string spillDirectory,
-        EReadImageMode screenshots) =>
+        EReadImageMode screenshots, AgentPathResolver? paths = null) =>
         new(Browser,
             "带独立配置文件的真实 Chrome 窗口，一个会话一个标签页；用户在那里登录过的站点保持登录。" +
             "先 navigate（或 snapshot 重读已打开的页面），再按最新 outline 里的 ref 对元素 act。" +
             "snapshot 从不问用户；navigate 和 act 除非用户已为本会话放行浏览器，否则会询问；" +
-            "handoff 总是等用户。",
-            Bind(Browser, BrowserTools.Create(host, sessionId, spillDirectory, screenshots)));
+            "handoff 和上传总是等用户。",
+            Bind(Browser, BrowserTools.Create(host, sessionId, spillDirectory, screenshots, paths)));
 
     /// <summary>
     /// 生图扩展

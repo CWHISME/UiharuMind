@@ -63,6 +63,7 @@ internal static class BrowserCallText
             "press" when preview.Target.Length == 0 => Loc.Text(LangKey.BrowserCallPressPage, value),
             "press" => Loc.Text(LangKey.BrowserCallPress, element, value),
             "hover" => Loc.Text(LangKey.BrowserCallHover, element),
+            "upload" => Loc.Text(LangKey.BrowserCallUpload, element, Files(preview.Value)),
             "scroll" => Loc.Text(string.Equals(preview.Value.Trim(), "up", StringComparison.OrdinalIgnoreCase)
                 ? LangKey.BrowserCallScrollUp
                 : LangKey.BrowserCallScrollDown),
@@ -102,6 +103,10 @@ internal static class BrowserCallText
         "treeitem" => LangKey.BrowserRoleTreeitem,
         _ => LangKey.BrowserRoleElement,
     };
+
+    // 文件给全路径不截断：传的是哪个文件正是这张卡要用户判断的
+    private static string Files(string value) =>
+        string.Join("、", value.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 
     // 只给站点：防钓鱼看的就是这一截，完整地址常是一长串百分号编码
     private static string SiteOf(string url) =>

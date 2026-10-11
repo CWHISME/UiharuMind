@@ -22,6 +22,7 @@ internal sealed partial class PuppeteerTab
 {
     private const int ActionTimeoutMs = 10_000;
     private const int NavigationGraceMs = 700; //动作之后这么久里没起跳，就当它不跳转
+    private const int UploadPickerWaitMs = 3000; //上传时点完目标，等文件选择框弹出的时长
 
     // 密码框的认法。跨 iframe 的元素 instanceof 认不出来，按标签名判；头一次认出就在元素上做个记号——
     // 点了「显示密码」切成明文后照样认得；autocomplete 写着 password、或用 CSS 把字遮成圆点的也算
@@ -91,6 +92,7 @@ internal sealed partial class PuppeteerTab
                 }
             }
 
+            if (request.Action == EBrowserAction.Upload) return await AcceptUploadAsync(chooser, request.Value, note);
             if (chooser.IsCompletedSuccessfully) note += " " + await DismissFileChooserAsync(chooser.Result);
             return note;
         }
@@ -98,6 +100,26 @@ internal sealed partial class PuppeteerTab
         {
             _page.Request -= OnRequest;
         }
+    }
+
+    // 上传就是点开选择框再把文件交进去；框弹得比点击返回晚一点，多等一会儿
+    private static async Task<string> AcceptUploadAsync(Task<FileChooser> chooser, string value, string clicked)
+    {
+        if (await Task.WhenAny(chooser, Task.Delay(UploadPickerWaitMs)) != chooser || !chooser.IsCompletedSuccessfully)
+        {
+            throw new BrowserActionException(
+                $"{clicked} It did not open a file picker: target the upload button or the file input itself.");
+        }
+
+        string[] files = value.Split('\n');
+        if (files.Length > 1 && !chooser.Result.IsMultiple)
+        {
+            await DismissFileChooserAsync(chooser.Result);
+            throw new BrowserActionException("This file picker takes a single file: upload one file per action.");
+        }
+
+        await chooser.Result.AcceptAsync(files);
+        return $"Uploaded {string.Join(", ", files.Select(Path.GetFileName))}. {clicked}";
     }
 
     private static async Task<string> DismissFileChooserAsync(FileChooser chooser)
@@ -161,6 +183,7 @@ internal sealed partial class PuppeteerTab
             switch (action)
             {
                 case EBrowserAction.Click:
+                case EBrowserAction.Upload:
                     await locator.ClickAsync();
                     return $"Clicked {node.Label}.";
                 case EBrowserAction.Hover:

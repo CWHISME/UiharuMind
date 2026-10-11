@@ -267,6 +267,9 @@
     <data name="BrowserCallHover" xml:space="preserve">
         <value>Hover over {0}</value>
     </data>
+    <data name="BrowserCallUpload" xml:space="preserve">
+        <value>Upload {1} via {0}</value>
+    </data>
     <data name="BrowserCallScrollUp" xml:space="preserve">
         <value>Scroll the page up</value>
     </data>

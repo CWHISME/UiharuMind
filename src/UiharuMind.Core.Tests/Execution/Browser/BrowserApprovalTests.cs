@@ -75,6 +75,18 @@ public class BrowserApprovalTests
         Assert.False(await ApprovedAsync(mode, handoff, "*", "browser"));
     }
 
+    /// <summary>上传把本机文件交给第三方网站，送出去收不回：放行过浏览器也每次问</summary>
+    [Theory]
+    [InlineData(EAgentPermissionMode.ReadOnly)]
+    [InlineData(EAgentPermissionMode.FullAuto)]
+    public async Task Upload_AlwaysAsks(EAgentPermissionMode mode)
+    {
+        FunctionCallContent upload = ExtensionCallOf.Make(BuiltinExtensions.Browser, BuiltinExtensions.BrowserAct,
+            new { action = "Upload", target = "e3", value = "report.pdf" });
+
+        Assert.False(await ApprovedAsync(mode, upload, "*", "browser"));
+    }
+
     [Theory]
     [InlineData("data:text/html,<h1>hi</h1>")] //页面内容由调用方写定，与本机地址同样每次都问
     [InlineData("http://localhost:3000")]

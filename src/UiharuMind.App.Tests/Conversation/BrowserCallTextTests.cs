@@ -32,6 +32,16 @@ public class BrowserCallTextTests
     }
 
     [Fact]
+    public void Upload_ShowsEveryFileInFull()
+    {
+        string text = BrowserCallText.Describe(Act("upload", new BrowserElement("button", "上传附件", false),
+            "/Users/me/project/cv.pdf\n/Users/me/project/cover.pdf"));
+
+        Assert.Equal(Loc.Text(LangKey.BrowserCallUpload, Named(LangKey.BrowserRoleButton, "上传附件"),
+            "/Users/me/project/cv.pdf、/Users/me/project/cover.pdf") + "\n" + Site, text);
+    }
+
+    [Fact]
     public void PasswordValues_AreMasked()
     {
         string text = BrowserCallText.Describe(Act("fill", new BrowserElement("textbox", "Password", true), "hunter2"));
