@@ -19,6 +19,7 @@ using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools.Browser;
+using UiharuMind.Core.AI.Execution.Tools.Desktop;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
@@ -27,8 +28,8 @@ namespace UiharuMind.Features.Conversation.Items;
 
 /// <summary>
 /// 审批卡片:三态回应,决定以 ChatMessage 形式回传给运行循环。
-/// 扩展调用（ADR 0079）按拆开的内层调用画：浏览器调用按发起会话的页面说人话（<see cref="BrowserCallText"/>），
-/// 接管（BrowserHandoff）换成「请你接手」的样子；「本会话允许」按扩展记，不按工具名
+/// 扩展调用（ADR 0079）按拆开的内层调用画：浏览器与桌面调用按发起会话的快照说人话（<see cref="BrowserCallText"/>、
+/// <see cref="DesktopCallText"/>），接管换成「请你接手」的样子；「本会话允许」按扩展记（桌面按应用记），不按工具名
 /// </summary>
 public partial class ApprovalRequestItem : ConversationItemBase
 {
@@ -38,6 +39,10 @@ public partial class ApprovalRequestItem : ConversationItemBase
     private readonly ToolApprovalRequestContent _request;
     private readonly string? _sessionId; //发起调用的会话：浏览器调用按它的标签页说清点的是什么、接管时切哪个窗口
     private readonly IBrowserHost? _browser; //只有浏览器调用才有
+    private readonly DesktopHost? _desktop; //只有桌面调用才有
+    private readonly string _handoffWindow = string.Empty; //桌面接管要切到的窗口
+    private readonly string? _approvalKey; //「本会话允许」记进放行名单的那一格
+    private readonly string _sessionLabel = string.Empty; //那一格给人看的名字：「桌面 · 文本编辑」
     private readonly TaskCompletionSource<ChatMessage> _completion =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -53,30 +58,47 @@ public partial class ApprovalRequestItem : ConversationItemBase
     /// <summary>决出后那一行的文案</summary>
     [ObservableProperty] private string _resolvedText = string.Empty;
 
-    /// <summary>接管卡上「切到浏览器」没切成时的说明；切成了为空</summary>
-    [ObservableProperty] private string _showBrowserStatus = string.Empty;
+    /// <summary>接管卡上「切到浏览器 / 窗口」没切成时的说明；切成了为空</summary>
+    [ObservableProperty] private string _handoffStatus = string.Empty;
 
     /// <param name="request">框架发来的审批请求</param>
     /// <param name="paths">会话工具的路径口径,用于把模型给的路径解析成真实文件以预演 diff;可空</param>
     /// <param name="sessionId">发起调用的会话:浏览器调用据此把 e21 翻成「按钮『提交订单』」;可空</param>
     /// <param name="browser">浏览器宿主;缺省时浏览器调用用全应用那一个(测试传假的)</param>
+    /// <param name="desktop">桌面宿主;缺省时桌面调用用全应用那一个</param>
     public ApprovalRequestItem(ToolApprovalRequestContent request, AgentPathResolver? paths = null,
-        string? sessionId = null, IBrowserHost? browser = null)
+        string? sessionId = null, IBrowserHost? browser = null, DesktopHost? desktop = null)
     {
         _request = request;
         _sessionId = sessionId;
         if (request.ToolCall is FunctionCallContent raw)
         {
             FunctionCallContent call = ExtensionCalls.Unwrap(raw);
-            ExtensionName = ExtensionCalls.TryRead(raw, out ExtensionInvocation? invocation) ? invocation.Extension : null;
             AsksEveryTime = ExtensionRisk.AlwaysAsks(raw);
             ToolName = call.Name;
             // 只有浏览器调用才碰宿主：别的卡不该把浏览器那套（闲置回收的计时器）拉起来
             _browser = BrowserTools.HasPreview(call.Name) ? browser ?? PuppeteerBrowserHost.Shared : null;
-            string? described = _browser != null ? BrowserCallText.Describe(call, _browser, sessionId) : null;
+            _desktop = DesktopTools.HasPreview(call.Name) ? desktop ?? DesktopHost.Shared : null;
+            if (ExtensionCalls.TryRead(raw, out ExtensionInvocation? invocation))
+            {
+                ExtensionName = invocation.Extension;
+                _approvalKey = ExtensionRisk.ApprovalKey(invocation, raw, _desktop);
+                _sessionLabel = ExtensionLabels.Of(invocation.Extension);
+            }
+
+            string? described = _browser != null ? BrowserCallText.Describe(call, _browser, sessionId)
+                : _desktop != null ? DesktopCallText.Describe(call, _desktop, sessionId)
+                : null;
             _argumentSummary = described ?? AgentContentFormatter.SummarizeArguments(call, paths?.WorkspaceRoot);
             _isDescribed = described != null;
             IsBrowserHandoff = call.Name == BrowserTools.HandoffToolName;
+            IsDesktopHandoff = call.Name == DesktopTools.HandoffToolName;
+            if (_desktop != null && call.Arguments?.TryGetValue("window", out object? window) == true)
+            {
+                _handoffWindow = window?.ToString() ?? string.Empty;
+                // 桌面按应用放行：按钮上写明放行的是哪个应用
+                if (_desktop.FindWindow(_handoffWindow) is { } found) _sessionLabel += " · " + found.Info.App;
+            }
             SuggestedCommandPattern = CharacterRunnerFactory.IsShellCommandTool(call.Name)
                 ? ApprovalModeMapper.DeriveCommandPattern(
                     ApprovalModeMapper.ExtractCommand(call.Arguments) ?? string.Empty)
@@ -115,6 +137,21 @@ public partial class ApprovalRequestItem : ConversationItemBase
     /// </summary>
     public bool IsBrowserHandoff { get; }
 
+    /// <summary>是不是「请你接手这个窗口」（桌面）</summary>
+    public bool IsDesktopHandoff { get; }
+
+    /// <summary>是不是接管卡（浏览器或桌面）：换成接手的样子</summary>
+    public bool IsHandoff => IsBrowserHandoff || IsDesktopHandoff;
+
+    /// <summary>接管卡的标题</summary>
+    public string HandoffTitle => Loc.Text(IsDesktopHandoff ? LangKey.DesktopHandoffTitle : LangKey.BrowserHandoffTitle);
+
+    /// <summary>接管卡的提示</summary>
+    public string HandoffHint => Loc.Text(IsDesktopHandoff ? LangKey.DesktopHandoffHint : LangKey.BrowserHandoffHint);
+
+    /// <summary>接管卡上「切过去」按钮的字</summary>
+    public string HandoffShowText => Loc.Text(IsDesktopHandoff ? LangKey.DesktopHandoffShow : LangKey.BrowserHandoffShow);
+
     /// <summary>扩展调用所属的扩展名；不是扩展调用为 null</summary>
     public string? ExtensionName { get; }
 
@@ -126,17 +163,17 @@ public partial class ApprovalRequestItem : ConversationItemBase
     /// 扩展调用的这个按钮按扩展记（<see cref="ApproveExtensionCallback"/>），不交给框架按工具名记——
     /// 那样一点就把 <see cref="ExtensionCalls.CallName"/> 整个放行，连接管一起
     /// </summary>
-    public bool CanApproveForSession => !CanRememberCommandPattern && !AsksEveryTime && !IsBrowserHandoff;
+    public bool CanApproveForSession => !CanRememberCommandPattern && !AsksEveryTime && !IsHandoff;
 
     /// <summary>「本会话允许」按钮的字：扩展调用写明放行的是哪个扩展</summary>
     public string SessionButtonText => ExtensionName != null
-        ? Loc.Text(LangKey.AgentApproveSessionExtension, ExtensionLabels.Of(ExtensionName))
+        ? Loc.Text(LangKey.AgentApproveSessionExtension, _sessionLabel)
         : Loc.Text(LangKey.AgentApproveSession);
 
     /// <summary>用户点"记住同类命令"时回调(由会话侧写入并持久化)</summary>
     public Action<string>? RememberShellPatternCallback { get; set; }
 
-    /// <summary>用户在扩展卡上点"本会话允许"时回调，参数是扩展名(由会话侧写入并持久化)</summary>
+    /// <summary>用户在扩展卡上点"本会话允许"时回调，参数是放行名单里的一格（多数扩展是扩展名，桌面带应用）(由会话侧写入并持久化)</summary>
     public Action<string>? ApproveExtensionCallback { get; set; }
 
     /// <summary>用户决定完成后的回应消息</summary>
@@ -193,7 +230,7 @@ public partial class ApprovalRequestItem : ConversationItemBase
 
         // 扩展的「本会话允许」:记进会话的扩展放行名单(后续这个扩展的一般命令由审批规则直接放行),本次按普通允许回应
         bool extensionSession = decision == "session" && ExtensionName != null;
-        if (extensionSession) ApproveExtensionCallback?.Invoke(ExtensionName!);
+        if (extensionSession) ApproveExtensionCallback?.Invoke(_approvalKey ?? ExtensionName!);
 
         // "记住同类命令":先入会话放行清单(后续同类命令由审批规则直接放行),本次按普通允许回应
         if (decision == "session-command" && CanRememberCommandPattern)
@@ -215,33 +252,40 @@ public partial class ApprovalRequestItem : ConversationItemBase
         _completion.TrySetResult(new ChatMessage(ChatRole.User, new[] { response }));
     }
 
-    // 接管时把发起会话的浏览器窗口切到最前。没装 Chrome、档案被另一个实例占着（ADR 0074）时说在卡上，
-    // 不让异常冲到界面线程
+    // 接管时把要用户接手的窗口切到最前：浏览器是发起会话的标签页，桌面是模型指的那个窗口。
+    // 没装 Chrome、档案被另一个实例占着（ADR 0074）时说在卡上，不让异常冲到界面线程
     [RelayCommand]
-    private async Task ShowBrowser()
+    private async Task ShowHandoffTarget()
     {
+        if (_desktop != null)
+        {
+            bool raised = await Task.Run(() => _desktop.Show(_handoffWindow));
+            HandoffStatus = raised ? string.Empty : Loc.Text(LangKey.DesktopHandoffNoWindow);
+            return;
+        }
+
         if (_sessionId == null || _browser == null) return;
         try
         {
             bool shown = await _browser.ShowAsync(_sessionId);
-            ShowBrowserStatus = shown ? string.Empty : Loc.Text(LangKey.BrowserHandoffNoWindow);
+            HandoffStatus = shown ? string.Empty : Loc.Text(LangKey.BrowserHandoffNoWindow);
         }
         catch (Exception e)
         {
             Log.Warning($"[Browser] could not show the window: {e.Message}");
-            ShowBrowserStatus = Loc.Text(LangKey.BrowserHandoffShowFailed, e.Message);
+            HandoffStatus = Loc.Text(LangKey.BrowserHandoffShowFailed, e.Message);
         }
     }
 
     // 决定代号 → 卡片收起后那一行的文案（从前直接显示代号 once / deny）；扩展放行的那句带上扩展名
     private string ResolvedLabel(string decision) => Loc.Text(decision switch
     {
-        "deny" when IsBrowserHandoff => LangKey.BrowserHandoffResolvedCancelled,
-        _ when IsBrowserHandoff => LangKey.BrowserHandoffResolvedDone,
+        "deny" when IsHandoff => LangKey.BrowserHandoffResolvedCancelled,
+        _ when IsHandoff => LangKey.BrowserHandoffResolvedDone,
         "session" when ExtensionName != null => LangKey.AgentApprovalResolvedSessionExtension,
         "session" => LangKey.AgentApprovalResolvedSession,
         "session-command" => LangKey.AgentApprovalResolvedSessionCommand,
         "deny" => LangKey.AgentApprovalResolvedDenied,
         _ => LangKey.AgentApprovalResolvedOnce,
-    }, ExtensionName != null ? ExtensionLabels.Of(ExtensionName) : string.Empty);
+    }, _sessionLabel);
 }

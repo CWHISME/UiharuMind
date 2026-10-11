@@ -22,7 +22,9 @@ namespace UiharuMind.Features.Conversation.Items;
 internal static class BrowserCallText
 {
     private const int MaxValueChars = 80; //填的字很长时只露个头，卡片不是看全文的地方
-    private const string SecretMask = "••••••";
+
+    /// <summary>密码框的值在卡上只给圆点</summary>
+    internal const string SecretMask = "••••••";
 
     /// <summary>
     /// 说清一次浏览器调用
@@ -51,7 +53,7 @@ internal static class BrowserCallText
 
     private static string DescribeAction(BrowserCallPreview preview)
     {
-        string element = ElementText(preview);
+        string element = ElementText(preview.Element, preview.Target);
         string value = preview.Element?.Secret == true ? SecretMask : Shorten(preview.Value);
         return preview.Action switch
         {
@@ -73,10 +75,15 @@ internal static class BrowserCallText
         };
     }
 
-    // 翻不回元素（编号过期、文字没对上）就照模型写的原样摆，不猜
-    private static string ElementText(BrowserCallPreview preview)
+    /// <summary>
+    /// 元素的说法：「按钮『保存』」；翻不回元素（编号过期、文字没对上）就照模型写的原样摆，不猜。桌面的卡也用这一份
+    /// </summary>
+    /// <param name="element">翻回的元素；翻不回为 null</param>
+    /// <param name="target">模型写的目标原样</param>
+    /// <returns>说法</returns>
+    internal static string ElementText(BrowserElement? element, string target)
     {
-        if (preview.Element is not { } element) return Loc.Text(LangKey.BrowserElementRaw, preview.Target);
+        if (element == null) return Loc.Text(LangKey.BrowserElementRaw, target);
 
         string role = Loc.Text(RoleKey(element));
         return element.Name.Length > 0
@@ -112,7 +119,12 @@ internal static class BrowserCallText
     private static string SiteOf(string url) =>
         Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) && uri.Host.Length > 0 ? uri.Host : url;
 
-    private static string Shorten(string text)
+    /// <summary>
+    /// 长文字只露个头
+    /// </summary>
+    /// <param name="text">文字</param>
+    /// <returns>压成一行、过长加省略号</returns>
+    internal static string Shorten(string text)
     {
         string flat = text.ReplaceLineEndings(" ").Trim();
         return flat.Length <= MaxValueChars ? flat : flat[..MaxValueChars] + "…";

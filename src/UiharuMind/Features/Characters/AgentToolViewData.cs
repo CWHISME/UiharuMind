@@ -88,6 +88,7 @@ public sealed class AgentToolViewData
             () => tools.EnableAgentMode, v => tools.EnableAgentMode = v));
 
         ExtensionToggles.Add(new AgentExtensionToggle(BuiltinExtensions.Browser, Loc.Text(LangKey.ExtensionBrowserDesc), tools));
+        ExtensionToggles.Add(new AgentExtensionToggle(BuiltinExtensions.Desktop, Loc.Text(LangKey.ExtensionDesktopDesc), tools));
         ExtensionToggles.Add(new AgentExtensionToggle(BuiltinExtensions.Image, Loc.Text(LangKey.ExtensionImageDesc), tools));
         ExtensionToggles.Add(new AgentExtensionToggle(BuiltinExtensions.Audio, Loc.Text(LangKey.ExtensionAudioDesc), tools));
 

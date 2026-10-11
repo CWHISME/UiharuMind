@@ -148,11 +148,11 @@ public class ApprovalCardResolutionTests
         ApprovalRequestItem headless = new(Browser(BrowserTools.HandoffToolName, ("task", "登录")), sessionId: "s1",
             browser: new FakeBrowser { CanShow = false });
 
-        await broken.ShowBrowserCommand.ExecuteAsync(null);
-        await headless.ShowBrowserCommand.ExecuteAsync(null);
+        await broken.ShowHandoffTargetCommand.ExecuteAsync(null);
+        await headless.ShowHandoffTargetCommand.ExecuteAsync(null);
 
-        Assert.Equal(Loc.Text(LangKey.BrowserHandoffShowFailed, "Chrome not found"), broken.ShowBrowserStatus);
-        Assert.Equal(Loc.Text(LangKey.BrowserHandoffNoWindow), headless.ShowBrowserStatus);
+        Assert.Equal(Loc.Text(LangKey.BrowserHandoffShowFailed, "Chrome not found"), broken.HandoffStatus);
+        Assert.Equal(Loc.Text(LangKey.BrowserHandoffNoWindow), headless.HandoffStatus);
     }
 
     /// <summary>浏览器调用按会话的快照说人话；晚开的窗口补画早已决出的卡时退回原始参数（页面早往下走了）</summary>

@@ -12,6 +12,7 @@ using System.Text.Json;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Files;
+using UiharuMind.Core.AI.Execution.Tools.Accessibility;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Execution.Tools.Browser;
@@ -241,7 +242,7 @@ public sealed class BrowserTools
                 // 交给宿主的是解析好的绝对路径：审批卡上写的、执行时取的是同一批文件
                 effectiveValue = string.Join('\n', BrowserUploadFiles.Resolve(effectiveValue, _paths));
             }
-            catch (BrowserActionException e)
+            catch (AxActionException e)
             {
                 return Task.FromResult($"[Error] {e.Message}");
             }
@@ -307,7 +308,7 @@ public sealed class BrowserTools
         {
             return await work();
         }
-        catch (BrowserActionException e)
+        catch (AxActionException e)
         {
             return $"[Error] {e.Message}";
         }

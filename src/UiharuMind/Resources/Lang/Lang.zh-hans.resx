@@ -5793,4 +5793,52 @@
     <data name="ImageModelSetDefaultTip" xml:space="preserve">
         <value>出图先用它；它用不了时按列表顺序换下一个</value>
     </data>
+    <data name="ExtensionNameDesktop" xml:space="preserve">
+        <value>桌面</value>
+    </data>
+    <data name="ExtensionDesktopDesc" xml:space="preserve">
+        <value>看、操作电脑上别的应用的窗口：读界面、点按钮、填字、按快捷键、启动应用。密码管理、系统设置与终端碰不了；动用真实鼠标键盘每次都问你。</value>
+    </data>
+    <data name="DesktopHandoffTitle" xml:space="preserve">
+        <value>请你接手这个窗口</value>
+    </data>
+    <data name="DesktopHandoffHint" xml:space="preserve">
+        <value>先点「切到窗口」，在那个窗口里做完，回来点「完成了，继续」。</value>
+    </data>
+    <data name="DesktopHandoffShow" xml:space="preserve">
+        <value>切到窗口</value>
+    </data>
+    <data name="DesktopHandoffNoWindow" xml:space="preserve">
+        <value>那个窗口已经不在了。</value>
+    </data>
+    <data name="DesktopCallWindow" xml:space="preserve">
+        <value>所在窗口：{0}「{1}」</value>
+    </data>
+    <data name="DesktopCallType" xml:space="preserve">
+        <value>在{0}里打字「{1}」</value>
+    </data>
+    <data name="DesktopCallTypeFocus" xml:space="preserve">
+        <value>在焦点处打字「{0}」</value>
+    </data>
+    <data name="DesktopCallDoubleClick" xml:space="preserve">
+        <value>双击{0}</value>
+    </data>
+    <data name="DesktopCallRightClick" xml:space="preserve">
+        <value>右键点击{0}</value>
+    </data>
+    <data name="DesktopCallFocus" xml:space="preserve">
+        <value>聚焦{0}</value>
+    </data>
+    <data name="DesktopCallOpenApp" xml:space="preserve">
+        <value>启动应用「{0}」</value>
+    </data>
+    <data name="DesktopCallOpenFile" xml:space="preserve">
+        <value>用默认应用打开 {0}</value>
+    </data>
+    <data name="DesktopCallReal" xml:space="preserve">
+        <value>会用真实的鼠标键盘：期间别动鼠标和键盘</value>
+    </data>
+    <data name="DesktopElementPoint" xml:space="preserve">
+        <value>窗口内的位置（{0}）</value>
+    </data>
 </root>

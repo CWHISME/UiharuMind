@@ -98,6 +98,23 @@ public sealed class PuppeteerBrowserHost : IBrowserHost
     /// <inheritdoc />
     public string? PeekUrl(string sessionId) => OpenTab(sessionId)?.Url;
 
+    /// <summary>
+    /// 这个进程是不是这里起的那个 Chrome（桌面扩展据此拒绝去动它，引导改用浏览器工具）
+    /// </summary>
+    /// <param name="pid">进程 id</param>
+    /// <returns>是为 true</returns>
+    public bool OwnsProcess(int pid)
+    {
+        try
+        {
+            return _browser is { IsConnected: true, Process: { } process } && process.Id == pid;
+        }
+        catch (InvalidOperationException)
+        {
+            return false; //进程已退出
+        }
+    }
+
     // 只认已经开着的，不为回查新开页面
     private PuppeteerTab? OpenTab(string sessionId) =>
         _tabs.TryGetValue(sessionId, out PuppeteerTab? tab) && !tab.IsClosed ? tab : null;

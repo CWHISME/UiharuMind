@@ -1,6 +1,6 @@
-using UiharuMind.Core.AI.Execution.Tools.Browser;
+using UiharuMind.Core.AI.Execution.Tools.Accessibility;
 
-namespace UiharuMind.Core.Tests.Execution.Browser;
+namespace UiharuMind.Core.Tests.Execution.Accessibility;
 
 /// <summary>
 /// 快照器是模型看网页的唯一窗口：编号给谁、哪些行省掉、哪些收成一行，直接决定 token 与点不点得中

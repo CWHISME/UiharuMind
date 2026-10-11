@@ -9,6 +9,7 @@
 
 using PuppeteerSharp;
 using PuppeteerSharp.Media;
+using UiharuMind.Core.AI.Execution.Tools.Accessibility;
 using UiharuMind.Core.AI.Execution.Tools.WebTools;
 using UiharuMind.Core.Core.SimpleLog;
 

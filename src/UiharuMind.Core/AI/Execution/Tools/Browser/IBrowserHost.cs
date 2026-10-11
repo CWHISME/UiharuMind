@@ -7,6 +7,8 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using UiharuMind.Core.AI.Execution.Tools.Accessibility;
+
 namespace UiharuMind.Core.AI.Execution.Tools.Browser;
 
 /// <summary>
@@ -164,7 +166,7 @@ public enum EBrowserAction
 }
 
 /// <summary>
-/// 写给模型看的动作失败原因（编号过期、找不到元素、选项不存在），工具门面原样交回
+/// 浏览器动作失败的原因（选项不存在、上传文件不在工作区），工具门面原样交回
 /// </summary>
 /// <param name="message">原因</param>
-public sealed class BrowserActionException(string message) : Exception(message);
+public sealed class BrowserActionException(string message) : AxActionException(message);

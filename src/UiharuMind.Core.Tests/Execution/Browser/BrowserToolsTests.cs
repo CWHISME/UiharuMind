@@ -1,5 +1,6 @@
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Files;
+using UiharuMind.Core.AI.Execution.Tools.Accessibility;
 using UiharuMind.Core.AI.Execution.Tools.Browser;
 
 namespace UiharuMind.Core.Tests.Execution.Browser;

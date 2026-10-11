@@ -9,7 +9,7 @@
 
 using System.Text.RegularExpressions;
 
-namespace UiharuMind.Core.AI.Execution.Tools.Browser;
+namespace UiharuMind.Core.AI.Execution.Tools.Accessibility;
 
 /// <summary>
 /// 无障碍角色的分类口径，快照器与按字查找共用一份

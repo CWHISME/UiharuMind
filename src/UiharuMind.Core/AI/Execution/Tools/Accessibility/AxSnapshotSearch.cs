@@ -9,7 +9,7 @@
 
 using System.Text;
 
-namespace UiharuMind.Core.AI.Execution.Tools.Browser;
+namespace UiharuMind.Core.AI.Execution.Tools.Accessibility;
 
 /// <summary>
 /// 在快照里找东西：按看得见的文字找节点（给没编号的元素兜底），按关键字挑行（省得整页重读）

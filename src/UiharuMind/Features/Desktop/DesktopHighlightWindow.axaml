@@ -1,0 +1,9 @@
+<Window
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    x:Class="UiharuMind.Features.Desktop.DesktopHighlightWindow"
+    Title="UiharuMind Desktop Highlight">
+
+    <!-- 智能体在别的应用里动手时框一下目标：第 1、2 级不动光标，不框的话用户看不出点了哪 -->
+    <Border BorderBrush="{DynamicResource SemiOrange5}" BorderThickness="3" CornerRadius="4" />
+</Window>

@@ -1,6 +1,6 @@
-using UiharuMind.Core.AI.Execution.Tools.Browser;
+using UiharuMind.Core.AI.Execution.Tools.Accessibility;
 
-namespace UiharuMind.Core.Tests.Execution.Browser;
+namespace UiharuMind.Core.Tests.Execution.Accessibility;
 
 /// <summary>
 /// 只给变了的行，前提是结构没变（编号才不会错位）；变得多了不如整页重给

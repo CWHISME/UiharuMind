@@ -1,0 +1,72 @@
+using UiharuMind.Core.AI.Execution.Tools.Accessibility;
+using UiharuMind.Core.AI.Execution.Tools.Desktop;
+
+namespace UiharuMind.Core.Tests.Execution.Desktop;
+
+/// <summary>
+/// 假平台：窗口与树由测试给，动作只记下来
+/// </summary>
+internal sealed class FakeDesktopPlatform : IDesktopPlatform
+{
+    public List<DesktopWindowInfo> Windows { get; } = new();
+
+    public Dictionary<string, AxNode> Trees { get; } = new(); //窗口标题 → 树
+
+    public HashSet<string> ClosedTitles { get; } = new();
+
+    public bool AccessibilityActionsWork { get; set; } = true;
+
+    public List<(string Node, EDesktopAction Action, string Value)> Performed { get; } = new();
+
+    public List<(DesktopInput Input, bool Real)> Inputs { get; } = new();
+
+    public List<string> Raised { get; } = new();
+
+    public string? Unavailable { get; set; }
+
+    public double SecondsSinceUserInput { get; set; } = 60;
+
+    public void RequestAccess()
+    {
+    }
+
+    public IReadOnlyList<DesktopWindowInfo> ListWindows() => Windows.ToList();
+
+    public bool SameWindow(DesktopWindowInfo a, DesktopWindowInfo b) => Equals(a.Handle, b.Handle);
+
+    public AxNode ReadWindow(DesktopWindowInfo window, int maxNodes) =>
+        ClosedTitles.Contains(window.Title) ? throw new DesktopWindowGoneException(window) : Trees[window.Title];
+
+    public bool TryPerform(AxNode node, EDesktopAction action, string value)
+    {
+        if (!AccessibilityActionsWork) return false;
+        Performed.Add((node.Name, action, value));
+        return true;
+    }
+
+    public void Input(DesktopWindowInfo window, DesktopInput input, bool real) => Inputs.Add((input, real));
+
+    public bool Raise(DesktopWindowInfo window)
+    {
+        Raised.Add(window.Title);
+        return true;
+    }
+
+    public void Open(string target, bool isFile)
+    {
+    }
+
+    /// <summary>
+    /// 加一个窗口
+    /// </summary>
+    public DesktopWindowInfo AddWindow(string app, string appId, string title, AxNode tree, AxRect? bounds = null)
+    {
+        DesktopWindowInfo info = new(Windows.Count + 100, app, appId, title, bounds ?? new AxRect(100, 50, 800, 600))
+        {
+            Handle = title,
+        };
+        Windows.Add(info);
+        Trees[title] = tree;
+        return info;
+    }
+}

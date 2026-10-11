@@ -25,15 +25,15 @@
             ConverterParameter=-10}"
             BorderBrush="{DynamicResource SemiOrange5}" BorderThickness="1.5">
         <StackPanel Spacing="8">
-            <controls:CenteredStackPanel Spacing="8" IsVisible="{Binding !IsBrowserHandoff}">
+            <controls:CenteredStackPanel Spacing="8" IsVisible="{Binding !IsHandoff}">
                 <TextBlock Text="🔐" FontSize="13" />
                 <TextBlock Text="{loc:Loc AgentApprovalTitle}" />
                 <TextBlock Classes="mono" VerticalAlignment="Center" Text="{Binding ToolName}" />
             </controls:CenteredStackPanel>
             <!-- 接管：不是要许可，是要用户的手。在浏览器里做完回来点「完成了」，工具才往下走 -->
-            <controls:CenteredStackPanel Spacing="8" IsVisible="{Binding IsBrowserHandoff}">
+            <controls:CenteredStackPanel Spacing="8" IsVisible="{Binding IsHandoff}">
                 <TextBlock Text="🙋" FontSize="13" />
-                <TextBlock Text="{loc:Loc BrowserHandoffTitle}" />
+                <TextBlock Text="{Binding HandoffTitle}" />
             </controls:CenteredStackPanel>
             <Border Classes="result-panel"
                     IsVisible="{Binding ArgumentSummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
@@ -48,7 +48,7 @@
                 </ScrollViewer>
             </Border>
             <StackPanel Spacing="8" IsVisible="{Binding !IsResolved}">
-                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding !IsBrowserHandoff}">
+                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding !IsHandoff}">
                     <Button CornerRadius="6"
                             Command="{Binding ResolveCommand}" CommandParameter="once"
                             Content="{loc:Loc AgentApproveOnce}" />
@@ -65,12 +65,12 @@
                             Command="{Binding ResolveCommand}" CommandParameter="deny"
                             Content="{loc:Loc AgentDeny}" />
                 </StackPanel>
-                <TextBlock Classes="muted" TextWrapping="Wrap" IsVisible="{Binding IsBrowserHandoff}"
-                           Text="{loc:Loc BrowserHandoffHint}" />
-                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsBrowserHandoff}">
+                <TextBlock Classes="muted" TextWrapping="Wrap" IsVisible="{Binding IsHandoff}"
+                           Text="{Binding HandoffHint}" />
+                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsHandoff}">
                     <Button CornerRadius="6"
-                            Command="{Binding ShowBrowserCommand}"
-                            Content="{loc:Loc BrowserHandoffShow}" />
+                            Command="{Binding ShowHandoffTargetCommand}"
+                            Content="{Binding HandoffShowText}" />
                     <Button CornerRadius="6"
                             Command="{Binding ResolveCommand}" CommandParameter="once"
                             Content="{loc:Loc BrowserHandoffDone}" />
@@ -79,8 +79,8 @@
                             Content="{loc:Loc BrowserHandoffCancel}" />
                 </StackPanel>
                 <TextBlock Classes="muted" TextWrapping="Wrap"
-                           IsVisible="{Binding ShowBrowserStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                           Text="{Binding ShowBrowserStatus}" />
+                           IsVisible="{Binding HandoffStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                           Text="{Binding HandoffStatus}" />
             </StackPanel>
             <TextBlock Classes="muted" IsVisible="{Binding IsResolved}"
                        Text="{Binding ResolvedText}" />

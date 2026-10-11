@@ -20,6 +20,7 @@ using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
 using UiharuMind.Core.AI.Execution.Tools.Browser;
+using UiharuMind.Core.AI.Execution.Tools.Desktop;
 using UiharuMind.Core.AI.Execution.Tools.Memory;
 using UiharuMind.Core.AI.Execution.Tools.Skills;
 using UiharuMind.Core.AI.WorldSettings;
@@ -171,6 +172,7 @@ internal static class AgentAssembler
             // 脑（ADR 0082）：与委派同源，同步只读的小模型整理助手，挂同一能力档
             Brain = () => SubAgentAssembly.TryCreateBrainTool(plan),
             Browser = PuppeteerBrowserHost.Shared,
+            Desktop = DesktopHost.Shared,
             SpeechSink = profile.SpeechSink,
             Character = profile.Character,
             KnowledgeSource = profile.SessionKnowledgeSource,

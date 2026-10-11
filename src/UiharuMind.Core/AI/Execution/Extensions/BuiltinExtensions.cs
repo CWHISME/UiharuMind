@@ -12,6 +12,7 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.Browser;
+using UiharuMind.Core.AI.Execution.Tools.Desktop;
 using UiharuMind.Core.AI.ImageGeneration;
 
 namespace UiharuMind.Core.AI.Execution.Extensions;
@@ -50,6 +51,9 @@ public static class BuiltinExtensions
     /// <summary>音频：配音成文件、转写</summary>
     public const string Audio = "audio";
 
+    /// <summary>桌面：看、动别的应用的窗口（ADR 0084）</summary>
+    public const string Desktop = "desktop";
+
     /// <summary>浏览器：重读当前页</summary>
     public const string BrowserSnapshot = "snapshot";
 
@@ -61,6 +65,21 @@ public static class BuiltinExtensions
 
     /// <summary>浏览器：交给用户</summary>
     public const string BrowserHandoff = "handoff";
+
+    /// <summary>桌面：列窗口</summary>
+    public const string DesktopWindows = "windows";
+
+    /// <summary>桌面：给窗口拍快照</summary>
+    public const string DesktopSnapshot = "snapshot";
+
+    /// <summary>桌面：在窗口里动手</summary>
+    public const string DesktopAct = "act";
+
+    /// <summary>桌面：启动应用、打开文件</summary>
+    public const string DesktopOpen = "open";
+
+    /// <summary>桌面：交给用户</summary>
+    public const string DesktopHandoff = "handoff";
 
     /// <summary>生图：生成或修改</summary>
     public const string ImageGenerate = "generate";
@@ -85,12 +104,14 @@ public static class BuiltinExtensions
         "- browser.navigate {url, view?} · browser.snapshot {view?, find?} · browser.act {action, target?, value?} " +
         "· browser.handoff {task}. act 的 action 取 click | fill | select | check | uncheck | press | hover | scroll " +
         "| back；target 是最近一份 outline 里的 ref，如 e5。\n" +
+        "- desktop.windows {} · desktop.snapshot {window, find?} · desktop.act {window, action, target?, value?, input?} " +
+        "· desktop.open {target} · desktop.handoff {window, task}. window 是 windows 列出的编号，如 w3。\n" +
         "- image.generate {prompt, images?, aspectRatio?}\n" +
         "- audio.synthesize {text, voice?, tone?, speed?} · audio.transcribe {path, subtitles?}\n" +
         "示例：" + CallExample;
 
     /// <summary>全部内置扩展名，按系统提示与帮助里的顺序</summary>
-    public static readonly IReadOnlyList<string> Names = [Browser, Image, Audio];
+    public static readonly IReadOnlyList<string> Names = [Browser, Desktop, Image, Audio];
 
     private static readonly Dictionary<string, IReadOnlyList<(string Command, string ToolName)>> Commands = new()
     {
@@ -98,6 +119,12 @@ public static class BuiltinExtensions
         [
             (BrowserSnapshot, BrowserTools.SnapshotToolName), (BrowserNavigate, BrowserTools.NavigateToolName),
             (BrowserAct, BrowserTools.ActToolName), (BrowserHandoff, BrowserTools.HandoffToolName),
+        ],
+        [Desktop] =
+        [
+            (DesktopWindows, DesktopTools.WindowsToolName), (DesktopSnapshot, DesktopTools.SnapshotToolName),
+            (DesktopAct, DesktopTools.ActToolName), (DesktopOpen, DesktopTools.OpenToolName),
+            (DesktopHandoff, DesktopTools.HandoffToolName),
         ],
         [Image] = [(ImageGenerate, ImageGenerationTool.ToolName)],
         [Audio] = [(AudioSynthesize, SynthesizeSpeechTool.ToolName), (AudioTranscribe, TranscribeAudioTool.ToolName)],
@@ -111,6 +138,7 @@ public static class BuiltinExtensions
     public static string Summary(string name) => name switch
     {
         Browser => "操作一个真实的 Chrome 窗口：打开网页、点按钮、填表、读正文、截图",
+        Desktop => "看、操作电脑上别的应用的窗口：读界面、点按钮、填字、按快捷键、启动应用",
         Image => "生成或修改图片",
         Audio => "用角色的声音配音成音频文件；把音频转写成文字或字幕",
         _ => string.Empty,
@@ -179,6 +207,26 @@ public static class BuiltinExtensions
             "snapshot 从不问用户；navigate 和 act 除非用户已为本会话放行浏览器，否则会询问；" +
             "handoff 和上传总是等用户。",
             Bind(Browser, BrowserTools.Create(host, sessionId, spillDirectory, screenshots, paths)));
+
+    /// <summary>
+    /// 桌面扩展：窗口编号全应用一份，快照按会话记
+    /// </summary>
+    /// <param name="host">桌面宿主</param>
+    /// <param name="sessionId">会话 id</param>
+    /// <param name="spillDirectory">快照超长落盘的目录</param>
+    /// <param name="paths">路径口径：打开文件只认工作区与草稿目录</param>
+    /// <returns>扩展；系统不支持或没授权时照样列出、调用时说明原因</returns>
+    internal static BuiltinExtension CreateDesktop(DesktopHost host, string sessionId, string spillDirectory,
+        AgentPathResolver? paths = null) =>
+        new(Desktop,
+            "用户电脑上别的应用的窗口。先 windows 列出窗口（编号如 w3），再 snapshot 读它的界面（ref 如 e5），" +
+            "然后按 ref 对它 act。windows 与 snapshot 从不问用户；act 与 open 除非用户已为本会话放行这个应用，否则会询问；" +
+            "input \"real\"（真实鼠标键盘）与 handoff 总是等用户。密码管理、系统设置、终端与本应用自身的窗口不能碰。",
+            Bind(Desktop, DesktopTools.Create(host, sessionId, spillDirectory, paths)))
+        {
+            // 没授权这类会变的原因不在装配时定死：用户中途授权了，下一次调用就能用（宿主每次调用现查）
+            Unavailable = host.IsSupported ? null : host.Unavailable,
+        };
 
     /// <summary>
     /// 生图扩展

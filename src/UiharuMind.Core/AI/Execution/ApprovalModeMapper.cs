@@ -161,7 +161,8 @@ public static class ApprovalModeMapper
         {
             EExtensionRisk.ReadOnly => true,
             EExtensionRisk.Standard => ExtensionCalls.TryRead(call, out ExtensionInvocation? invocation) &&
-                                       ExtensionRisk.IsApproved(sessionApprovalSource?.Invoke(), invocation.Extension),
+                                       ExtensionRisk.IsApproved(sessionApprovalSource?.Invoke(),
+                                           ExtensionRisk.ApprovalKey(invocation, call)),
             _ => false,
         };
 

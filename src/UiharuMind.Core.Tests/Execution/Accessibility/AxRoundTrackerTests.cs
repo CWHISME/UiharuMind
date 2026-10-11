@@ -1,12 +1,12 @@
 using Microsoft.Extensions.AI;
-using UiharuMind.Core.AI.Execution.Tools.Browser;
+using UiharuMind.Core.AI.Execution.Tools.Accessibility;
 
-namespace UiharuMind.Core.Tests.Execution.Browser;
+namespace UiharuMind.Core.Tests.Execution.Accessibility;
 
 /// <summary>
 /// 编号对账靠「同一条回复里的调用同属一轮」认开局快照：这条落在框架行为上，换框架版本时由这里报警
 /// </summary>
-public class BrowserRoundTests
+public class AxRoundTrackerTests
 {
     [Fact]
     public async Task CallsInOneReply_ShareARound_AndTheNextReplyStartsANewOne()
@@ -14,7 +14,7 @@ public class BrowserRoundTests
         List<(string CallId, object? Round)> seen = new();
         AITool tool = AIFunctionFactory.Create(() =>
         {
-            lock (seen) seen.Add((FunctionInvokingChatClient.CurrentContext!.CallContent.CallId, PuppeteerTab.CurrentRound()));
+            lock (seen) seen.Add((FunctionInvokingChatClient.CurrentContext!.CallContent.CallId, AxRoundTracker.Current()));
             return "ok";
         }, "probe");
 
@@ -34,7 +34,7 @@ public class BrowserRoundTests
     [Fact]
     public void OutsideAToolCall_ThereIsNoRound()
     {
-        Assert.Null(PuppeteerTab.CurrentRound());
+        Assert.Null(AxRoundTracker.Current());
     }
 
     // 按脚本逐条回复：每条是一批并行的工具调用，脚本用完就回一句话收尾

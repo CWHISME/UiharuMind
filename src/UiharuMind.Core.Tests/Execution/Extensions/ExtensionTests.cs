@@ -257,7 +257,7 @@ public class ExtensionTests
 
         IReadOnlyList<(string Name, string Description)> roster = ExtensionRoster.Of(config, mcp);
 
-        Assert.Equal(["browser", "audio", "unity"], roster.Select(x => x.Name));
+        Assert.Equal(["browser", "desktop", "audio", "unity"], roster.Select(x => x.Name));
         Assert.Equal(string.Empty, ExtensionRoster.Section(
             new AgentToolConfig { DisabledExtensions = [..BuiltinExtensions.Names] }, McpToolSet.Empty));
     }

@@ -17,6 +17,7 @@ using UiharuMind.Core.AI.Execution.Prompts;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.Browser;
+using UiharuMind.Core.AI.Execution.Tools.Desktop;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Mcp;
@@ -75,6 +76,9 @@ internal static class SubAgentAssembly
 
         /// <summary>浏览器宿主;为 null 时不挂浏览器</summary>
         public IBrowserHost? Browser { get; init; }
+
+        /// <summary>桌面宿主;为 null 时桌面扩展列出但用不了</summary>
+        public DesktopHost? Desktop { get; init; }
 
         /// <summary>子会话的角色(配音不点名时用它的声音);为 null 时不挂配音</summary>
         public CharacterData? Character { get; init; }
@@ -213,6 +217,7 @@ internal static class SubAgentAssembly
             ImageModelsConfigured = plan.ImageModelsConfigured,
             SessionId = profile.SessionId,
             Browser = PuppeteerBrowserHost.Shared,
+            Desktop = DesktopHost.Shared,
             Character = plan.Character,
             PermissionMode = effectivePermission,
             WorkspaceInstructions = plan.WorkspaceInstructions,
@@ -293,6 +298,7 @@ internal static class SubAgentAssembly
             ImageModelsConfigured = plan.ImageModelsConfigured,
             SessionId = profile.SessionId,
             Browser = PuppeteerBrowserHost.Shared,
+            Desktop = DesktopHost.Shared,
             Character = plan.Character,
             PermissionMode = effectivePermission,
             WorkspaceInstructions = plan.WorkspaceInstructions,
@@ -403,6 +409,7 @@ internal static class SubAgentAssembly
             Shell = input.ShellTool is { } shellTool ? _ => shellTool : null,
             SessionId = input.SessionId,
             Browser = input.Browser,
+            Desktop = input.Desktop,
             Character = input.Character,
         });
         // 脑不挂 Glob：脑是内容向的，Grep 定位 + Read 读内容即可，目录形状不关心（ADR 0082）

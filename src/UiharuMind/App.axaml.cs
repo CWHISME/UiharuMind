@@ -14,6 +14,7 @@ using System.Linq;
 using UiharuMind.Core.Input;
 using UiharuMind.Core.AI.Audio;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Features.Desktop;
 using UiharuMind.Features.Audio;
 using System.Threading.Tasks;
 using System.Diagnostics;
@@ -141,6 +142,7 @@ public partial class App : Application, ILogger, IDisposable
             Services.GetRequiredService<DictationHotkey>();
             DictationIndicatorWindow.Attach(Services.GetRequiredService<IDictationService>(),
                 Services.GetRequiredService<ForegroundAppDictationTarget>());
+            DesktopHighlightWindow.Attach(); //桌面扩展动手时框一下目标（ADR 0084）
             MacInputDiagnostics.Install(); //输入法候选框偶尔不出来，查明原因用
             UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("di-container");
             DummyWindow.InitializeMainViewModel(Services.GetRequiredService<MainViewModel>());

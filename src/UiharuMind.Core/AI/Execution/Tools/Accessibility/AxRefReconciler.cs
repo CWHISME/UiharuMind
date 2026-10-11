@@ -7,13 +7,13 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
-namespace UiharuMind.Core.AI.Execution.Tools.Browser;
+namespace UiharuMind.Core.AI.Execution.Tools.Accessibility;
 
 /// <summary>
 /// 编号对账：同一条回复里的几步是并行发出的，模型写的编号都出自它<b>看到的那份</b>快照；
 /// 可前面的步骤一动手就重拍、重新编号，后一步的 e21 未必还是原来那个，审批卡翻译的也还是旧的那个。
-/// 这里把模型看到的编号翻成此刻页面上的元素：结构没变照用；结构变了只认得回独一份的元素，认不准就拒，宁可让模型重拍。
-/// 纯函数，不碰浏览器。
+/// 这里把模型看到的编号翻成此刻的元素（网页与桌面窗口共用）：结构没变照用；结构变了只认得回独一份的元素，认不准就拒，宁可让模型重拍。
+/// 纯函数，不碰页面或窗口。
 /// </summary>
 public static class AxRefReconciler
 {
@@ -24,7 +24,7 @@ public static class AxRefReconciler
     /// <param name="current">此刻的编号表</param>
     /// <param name="refId">编号</param>
     /// <returns>此刻对应的元素；模型看到的快照里就没有这个编号为 null</returns>
-    /// <exception cref="BrowserActionException">结构变了，且元素已不在页上或认不准是哪一个</exception>
+    /// <exception cref="AxActionException">结构变了，且元素已不在了或认不准是哪一个</exception>
     public static AxNode? Find(IReadOnlyDictionary<string, AxNode> seen, IReadOnlyDictionary<string, AxNode> current,
         string refId)
     {
@@ -36,10 +36,10 @@ public static class AxRefReconciler
         AxNode[] matches = current.Values.Where(node => new Signature(node) == signature).Take(2).ToArray();
         if (matches.Length == 1 && seen.Values.Count(node => new Signature(node) == signature) == 1) return matches[0];
 
-        throw new BrowserActionException(matches.Length == 0
-            ? $"{wanted.Label} ({refId}) is no longer on the page: an earlier step in this reply changed it. " +
+        throw new AxActionException(matches.Length == 0
+            ? $"{wanted.Label} ({refId}) is no longer there: an earlier step in this reply changed it. " +
               "Take a new snapshot and use its refs."
-            : $"An earlier step in this reply changed the page, so {refId} ({wanted.Label}) can no longer be " +
+            : $"An earlier step in this reply changed what is shown, so {refId} ({wanted.Label}) can no longer be " +
               "matched for sure. Take a new snapshot and use its refs.");
     }
 

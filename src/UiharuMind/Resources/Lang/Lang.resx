@@ -5800,4 +5800,52 @@ Allow them?</value>
     <data name="ImageModelSetDefaultTip" xml:space="preserve">
         <value>Generate with this first; if it is unavailable, the next one in the list is tried</value>
     </data>
+    <data name="ExtensionNameDesktop" xml:space="preserve">
+        <value>Desktop</value>
+    </data>
+    <data name="ExtensionDesktopDesc" xml:space="preserve">
+        <value>Reads and operates other apps' windows: reads the interface, clicks, fills in text, presses shortcuts, opens apps. Password managers, system settings and terminals are off limits; using the real mouse and keyboard asks you every time.</value>
+    </data>
+    <data name="DesktopHandoffTitle" xml:space="preserve">
+        <value>Take over this window</value>
+    </data>
+    <data name="DesktopHandoffHint" xml:space="preserve">
+        <value>Click “Show window”, do it in that window, then come back and click “Done, continue”.</value>
+    </data>
+    <data name="DesktopHandoffShow" xml:space="preserve">
+        <value>Show window</value>
+    </data>
+    <data name="DesktopHandoffNoWindow" xml:space="preserve">
+        <value>That window is no longer open.</value>
+    </data>
+    <data name="DesktopCallWindow" xml:space="preserve">
+        <value>Window: “{1}” ({0})</value>
+    </data>
+    <data name="DesktopCallType" xml:space="preserve">
+        <value>Type “{1}” into {0}</value>
+    </data>
+    <data name="DesktopCallTypeFocus" xml:space="preserve">
+        <value>Type “{0}” where the cursor is</value>
+    </data>
+    <data name="DesktopCallDoubleClick" xml:space="preserve">
+        <value>Double-click {0}</value>
+    </data>
+    <data name="DesktopCallRightClick" xml:space="preserve">
+        <value>Right-click {0}</value>
+    </data>
+    <data name="DesktopCallFocus" xml:space="preserve">
+        <value>Focus {0}</value>
+    </data>
+    <data name="DesktopCallOpenApp" xml:space="preserve">
+        <value>Open the app “{0}”</value>
+    </data>
+    <data name="DesktopCallOpenFile" xml:space="preserve">
+        <value>Open {0} with its default app</value>
+    </data>
+    <data name="DesktopCallReal" xml:space="preserve">
+        <value>Uses the real mouse and keyboard: don't touch them meanwhile</value>
+    </data>
+    <data name="DesktopElementPoint" xml:space="preserve">
+        <value>the point ({0}) in the window</value>
+    </data>
 </root>

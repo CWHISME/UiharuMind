@@ -98,6 +98,12 @@ public sealed class GroupAwayApprover
             return new GroupAwayApprovalVerdict(false, "越界写入：离席中不替用户点，留给用户本人");
         }
 
+        // 动别的应用的窗口（ADR 0084）：离席中化身一律不批。只读的看窗口走不到这里（审批规则直接放行）
+        if (ExtensionCalls.TryRead(call, out ExtensionInvocation? invocation) && invocation.Extension == BuiltinExtensions.Desktop)
+        {
+            return new GroupAwayApprovalVerdict(false, "操作桌面上别的应用：离席中不替用户点，留给用户本人");
+        }
+
         // 扩展调用拆开再给化身看：「BrowserAct 点 e21」比一层 ExtensionCalls.CallName 好判断
         FunctionCallContent inner = ExtensionCalls.Unwrap(call);
         if (ExtensionRisk.AlwaysAsks(call))

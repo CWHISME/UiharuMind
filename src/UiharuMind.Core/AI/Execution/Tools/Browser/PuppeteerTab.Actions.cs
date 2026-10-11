@@ -11,6 +11,7 @@ using System.Text.RegularExpressions;
 using PuppeteerSharp;
 using PuppeteerSharp.Locators;
 using PuppeteerSharp.PageAccessibility;
+using UiharuMind.Core.AI.Execution.Tools.Accessibility;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Execution.Tools.Browser;
@@ -242,7 +243,7 @@ internal sealed partial class PuppeteerTab
 
         if (RefPattern().IsMatch(key))
         {
-            return AxRefReconciler.Find(_roundRefs, _refs, key) ?? throw new BrowserActionException(
+            return AxRefReconciler.Find(_round.Refs, _refs, key) ?? throw new BrowserActionException(
                 $"No {key} in the latest snapshot. Refs are renumbered every time a snapshot is taken.");
         }
 

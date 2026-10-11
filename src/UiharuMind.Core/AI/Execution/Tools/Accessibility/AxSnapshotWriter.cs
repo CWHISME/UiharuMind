@@ -9,7 +9,7 @@
 
 using System.Text;
 
-namespace UiharuMind.Core.AI.Execution.Tools.Browser;
+namespace UiharuMind.Core.AI.Execution.Tools.Accessibility;
 
 /// <summary>
 /// 一次快照的产物
@@ -65,6 +65,7 @@ public static class AxSnapshotWriter
         if (node.Pressed) line.Append(" [pressed]");
         if (node.Expanded is { } expanded) line.Append(expanded ? " [expanded]" : " [collapsed]");
         if (node.Disabled) line.Append(" [disabled]");
+        if (node.Focused) line.Append(" [focused]");
         if (refId != null) line.Append(" [ref=").Append(refId).Append(']');
         // 密码只说填没填：Chrome 本就给圆点，长度也不必透出去
         if (value.Length > 0) line.Append(": ").Append(node.Secret ? SecretMask : value);

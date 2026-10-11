@@ -7,7 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
-namespace UiharuMind.Core.AI.Execution.Tools.Browser;
+namespace UiharuMind.Core.AI.Execution.Tools.Accessibility;
 
 /// <summary>
 /// 与上一份交给模型的快照比对。填字、勾选、选下拉这类动作只改动一两行，每次重发整页是纯开销；

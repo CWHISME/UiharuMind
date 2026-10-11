@@ -16,6 +16,7 @@ using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.Browser;
+using UiharuMind.Core.AI.Execution.Tools.Desktop;
 using UiharuMind.Core.AI.Execution.Tools.Scheduler;
 using UiharuMind.Core.AI.Execution.Tools.WebTools;
 using UiharuMind.Core.AI.Memory;
@@ -63,6 +64,9 @@ internal sealed record AgentToolResources
 
     /// <summary>浏览器宿主</summary>
     public IBrowserHost? Browser { get; init; }
+
+    /// <summary>桌面宿主（ADR 0084）</summary>
+    public DesktopHost? Desktop { get; init; }
 
     /// <summary>朗读的出口（界面念给用户听）；没有会话时为 null</summary>
     public Func<SpeechRequest, Task<bool>>? SpeechSink { get; init; }
@@ -220,6 +224,16 @@ internal static class AgentToolsetBuilder
             EReadImageMode screenshots = imageMode == EReadImageMode.Attach && !mountFiles ? EReadImageMode.None : imageMode;
             builtins.Add(BuiltinExtensions.CreateBrowser(resources.Browser!, resources.SessionId, spillDirectory, screenshots,
                 paths));
+        }
+
+        // 桌面：系统不支持、没授权时照样列出，调用时如实说原因（扩展自带 Unavailable）
+        if (listed.Contains(BuiltinExtensions.Desktop))
+        {
+            builtins.Add(resources.Desktop == null
+                ? BuiltinExtensions.Unavailable(BuiltinExtensions.Desktop, "Desktop control is not available here.")
+                : BuiltinExtensions.CreateDesktop(resources.Desktop, resources.SessionId, Path.Combine(
+                    resources.OutputRoomDirectory.Length > 0 ? resources.OutputRoomDirectory : Path.GetTempPath(), "desktop"),
+                    paths));
         }
 
         // 生图只看配置：至少配了一个生图模型，连不连得通不看（ADR 0052）
