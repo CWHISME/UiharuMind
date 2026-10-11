@@ -5746,7 +5746,7 @@
         <value>本会话扩展不再询问</value>
     </data>
     <data name="ChatExtensionsApprovedTooltip" xml:space="preserve">
-        <value>这个会话里，扩展里本该先问你的命令（浏览网页、生图、MCP 工具）不再询问。把浏览器交给你、打开本机或内网地址仍然每次都问。</value>
+        <value>这个会话里，扩展里本该先问你的命令（浏览网页、操作别的应用的窗口、生图、MCP 工具）不再询问。用真实鼠标键盘要在卡片上按应用单独允许；把浏览器或窗口交给你、打开本机或内网地址仍然每次都问。</value>
     </data>
     <data name="ExtensionNameBrowser" xml:space="preserve">
         <value>浏览器</value>
@@ -5837,6 +5837,9 @@
     </data>
     <data name="DesktopCallReal" xml:space="preserve">
         <value>会用真实的鼠标键盘：期间别动鼠标和键盘</value>
+    </data>
+    <data name="DesktopSessionReal" xml:space="preserve">
+        <value>{0}（真实键鼠）</value>
     </data>
     <data name="DesktopElementPoint" xml:space="preserve">
         <value>窗口内的位置（{0}）</value>

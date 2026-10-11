@@ -11,7 +11,7 @@ namespace UiharuMind.App.Tests.Conversation;
 
 /// <summary>
 /// 桌面调用的审批卡（ADR 0084）：编号翻成「按钮『保存』」并写明所在窗口，密码只给圆点，真实键鼠另起一行提醒；
-/// 「本会话允许」按应用记；接管卡换成「请你接手这个窗口」
+/// 「本会话允许」按应用记，真实键鼠另记一格；接管卡换成「请你接手这个窗口」
 /// </summary>
 public class DesktopCallTextTests
 {
@@ -54,7 +54,24 @@ public class DesktopCallTextTests
 
         Assert.DoesNotContain("hunter2", card.ArgumentSummary);
         Assert.Contains(Loc.Text(LangKey.DesktopCallReal), card.ArgumentSummary);
-        Assert.False(card.CanApproveForSession);
+    }
+
+    [Fact]
+    public async Task RealInput_IsAllowedForTheSessionSeparately()
+    {
+        await SnapshotAsync();
+        List<string> approved = new();
+        ApprovalRequestItem card = new(Desktop(BuiltinExtensions.DesktopAct, ("window", "w1"), ("action", "click"),
+            ("target", "e1"), ("input", "real")), sessionId: "s1", desktop: _host)
+        {
+            ApproveExtensionCallback = approved.Add,
+        };
+
+        Assert.True(card.CanApproveForSession);
+        Assert.Contains(Loc.Text(LangKey.DesktopSessionReal, ""), card.SessionButtonText);
+        card.ResolveCommand.Execute("session");
+
+        Assert.Equal(["desktop:real com.apple.TextEdit"], approved);
     }
 
     /// <summary>「本会话允许」写明是哪个应用，记进名单的也是这个应用：放行记事本不连带放行别的</summary>

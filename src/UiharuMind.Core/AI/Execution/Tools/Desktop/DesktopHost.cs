@@ -221,13 +221,14 @@ public sealed partial class DesktopHost
 
     // 读好的树（需要时添上图里认出的字）写成快照，记作这个会话在这个窗口上看到的最近一份
     private async Task<DesktopView> ComposeAsync(DesktopWindow window, WindowState state, AxNode tree,
-        IReadOnlyList<string> notes, EDesktopView view, CancellationToken cancellationToken)
+        IReadOnlyList<string> notes, EDesktopView view, CancellationToken cancellationToken, byte[]? captured = null)
     {
         List<string> allNotes = [.. notes];
-        (AxNode withText, byte[]? picture) = await AddPictureAsync(window, tree, view, allNotes, cancellationToken);
+        (AxNode withText, byte[]? picture) = await AddPictureAsync(window, tree, view, allNotes, captured, cancellationToken);
         AxSnapshot snapshot = AxSnapshotWriter.Write(withText);
         state.Tree = withText;
         state.Refs = snapshot.Refs;
+        state.Picture = picture;
         byte[]? marked = view == EDesktopView.Screenshot && picture != null ? Mark(picture, snapshot, window.Info.Bounds) : null;
         return new DesktopView(window, snapshot.Text, snapshot.CompactText, allNotes) { Picture = marked };
     }
@@ -244,6 +245,8 @@ public sealed partial class DesktopHost
         public IReadOnlyDictionary<string, AxNode> Refs { get; set; } = new Dictionary<string, AxNode>();
 
         public AxRoundTracker Round { get; } = new();
+
+        public byte[]? Picture { get; set; } //那份快照截的窗口图：画出来的界面靠它判断动作后变没变
     }
 }
 

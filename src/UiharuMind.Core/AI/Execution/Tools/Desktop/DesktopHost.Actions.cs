@@ -23,7 +23,7 @@ public sealed partial class DesktopHost
     private const int SettleReads = 3;
     private const int ScrollLinesPerStep = 5;
     private const double UserIdleSeconds = 1.0; //用户刚动过键鼠就先等等，免得抢他的输入
-    private const int UserIdleWaitMs = 3000;
+    private const int UserIdleWaitMs = 10000; //刚在审批卡上点完「允许」手还在鼠标上，多等一会儿
     private const int TypingChunk = 24; //真实打字分段打，段间看用户有没有动
 
     private readonly SemaphoreSlim _realInput = new(1, 1); //真实键鼠全局只有一份
@@ -345,7 +345,8 @@ public sealed partial class DesktopHost
                 [.. notes, $"{window.Id} closed after that step. Call {DesktopTools.WindowsMention} to see what is open now."]);
         }
 
-        return await ComposeAsync(window, state, tree!, notes, EDesktopView.Outline, cancellationToken);
+        byte[]? picture = Vision != null && IsThin(tree!) ? await SettlePictureAsync(window, state.Picture, cancellationToken) : null;
+        return await ComposeAsync(window, state, tree!, notes, EDesktopView.Outline, cancellationToken, picture);
     }
 
     private (double X, double Y) PointOf(DesktopWindow window, Target target, bool allowWindowCenter)

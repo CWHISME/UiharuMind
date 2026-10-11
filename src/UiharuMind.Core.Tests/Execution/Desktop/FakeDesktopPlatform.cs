@@ -26,6 +26,8 @@ internal sealed class FakeDesktopPlatform : IDesktopPlatform
 
     public byte[] Picture { get; set; } = [1, 2, 3];
 
+    public Queue<byte[]> NextPictures { get; } = new(); //接下来几次截图依次给的画面，给完回到 Picture
+
     public string? CaptureRefusal { get; set; } //截图时报的错（没有屏幕录制授权）
 
     public int Captures { get; private set; }
@@ -55,7 +57,8 @@ internal sealed class FakeDesktopPlatform : IDesktopPlatform
     public byte[] CaptureWindow(DesktopWindowInfo window)
     {
         Captures++;
-        return CaptureRefusal == null ? Picture : throw new AxActionException(CaptureRefusal);
+        if (CaptureRefusal != null) throw new AxActionException(CaptureRefusal);
+        return NextPictures.TryDequeue(out byte[]? next) ? next : Picture;
     }
 
     public bool Raise(DesktopWindowInfo window)

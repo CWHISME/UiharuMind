@@ -24,6 +24,9 @@ public enum EExtensionRisk
     /// <summary>一般：三档都问，本会话放行过这个扩展就不问</summary>
     Standard,
 
+    /// <summary>逐项：三档都问，本会话只认为这一项单独放行过的，「扩展不再询问」不算（桌面的真实键鼠，按应用记）</summary>
+    PerScope,
+
     /// <summary>硬问：永远问，本会话放行也不算（接管、浏览器去本机或内网地址）</summary>
     AlwaysAsk,
 }
@@ -62,6 +65,7 @@ public static class ExtensionRisk
         {
             FunctionCallContent inner = ExtensionCalls.Unwrap(call);
             if (DesktopRisk.IsReadOnly(inner)) return EExtensionRisk.ReadOnly;
+            if (DesktopRisk.IsRealInput(inner)) return EExtensionRisk.PerScope;
             return DesktopRisk.RequiresApprovalInAllModes(inner) ? EExtensionRisk.AlwaysAsk : EExtensionRisk.Standard;
         }
 
@@ -82,7 +86,7 @@ public static class ExtensionRisk
 
     /// <summary>
     /// 「本会话允许」记在哪一格：多数扩展整个记；桌面按应用记（<c>desktop:com.apple.TextEdit</c>），
-    /// 放行记事本不连带放行微信
+    /// 放行记事本不连带放行微信；真实键鼠另记一格（<c>desktop:real com.apple.TextEdit</c>）
     /// </summary>
     /// <param name="invocation">拆开的扩展调用</param>
     /// <param name="call">原调用</param>
@@ -98,8 +102,9 @@ public static class ExtensionRisk
     /// </summary>
     /// <param name="approved">会话放行名单（<see cref="ExtensionCalls.AllExtensions"/> 代表全部）</param>
     /// <param name="key">放行的格子（见 <see cref="ApprovalKey"/>；多数扩展就是扩展名）</param>
+    /// <param name="coveredByAll">「全部」那一格算不算；逐项的（<see cref="EExtensionRisk.PerScope"/>）不算</param>
     /// <returns>覆盖为 true</returns>
-    public static bool IsApproved(IReadOnlyList<string>? approved, string key) =>
+    public static bool IsApproved(IReadOnlyList<string>? approved, string key, bool coveredByAll = true) =>
         approved is { Count: > 0 } && approved.Any(x =>
-            x == ExtensionCalls.AllExtensions || string.Equals(x, key, StringComparison.OrdinalIgnoreCase));
+            (coveredByAll && x == ExtensionCalls.AllExtensions) || string.Equals(x, key, StringComparison.OrdinalIgnoreCase));
 }

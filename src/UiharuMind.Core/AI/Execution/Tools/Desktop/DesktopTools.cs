@@ -86,12 +86,17 @@ public sealed class DesktopTools
     {
         DesktopTools tools = new(host, sessionId, spillDirectory, paths, screenshots);
         bool canScreenshot = screenshots != EReadImageMode.None;
+        // 扩展目录只列说明的第一行（截到 160 字），要紧的写在第一行
         AIFunction snapshot = AIFunctionFactory.Create(tools.SnapshotAsync, SnapshotToolName,
-            "读取一个窗口的界面结构：带可操作 ref（如 e5）的无障碍快照，含应用的菜单栏。" +
-            "一旦对同一窗口拍了新快照，旧的 ref 就失效。界面是画出来的（游戏、画布）读不到结构时，" +
-            "会自动从窗口图像里认字，认出的行标为 ocr-text，同样带 ref；view \"ocr\" 强制认字。" +
-            (canScreenshot ? "view \"screenshot\" 另附一张截图，图上用框标出各个 ref，适合看图标、布局。" : string.Empty) +
-            ThirdPartyNotice);
+            "读取一个窗口的界面：带 ref（如 e5）的无障碍快照；读不到结构时自动认窗口图里的字（ocr-text，同样带 ref）。" +
+            (canScreenshot
+                ? "view：outline（默认）、ocr、screenshot（另附一张框出各 ref 的截图，看图标、图片、排版时用）。"
+                : "view：outline（默认）或 ocr。") +
+            "\n一旦对同一窗口拍了新快照，旧的 ref 就失效。界面是画出来的（游戏、画布、自绘界面）读不到结构时自动认字；" +
+            "认出的每行带它中心在窗口里的位置，但看不到图片，也分不出哪行属于哪张卡片。" +
+            (screenshots == EReadImageMode.PointToAnalyzeImage
+                ? "截图要另交给看图的模型，一次十几到几十秒；认出的字随快照就有。"
+                : string.Empty) + ThirdPartyNotice);
         return
         [
             AIFunctionFactory.Create(tools.WindowsAsync, WindowsToolName,
@@ -99,7 +104,7 @@ public sealed class DesktopTools
             canScreenshot ? new ParameterDescriptionFunction(snapshot, "view", "outline（默认）、ocr 或 screenshot") : snapshot,
             AIFunctionFactory.Create(tools.ActAsync, ActToolName,
                 "在一个窗口里执行动作，结果已包含更新后的快照（或只含变动的行）。默认不移动鼠标、不抢前台；" +
-                "点了没反应时可改用 input \"real\" 用真实鼠标键盘（每次都要用户同意）。" +
+                "点了没反应时可改用 input \"real\" 用真实鼠标键盘（要用户同意，用户可为这个应用放行本会话）。" +
                 $"标记为 [password] 的字段不能输入：用 {HandoffMention}。" + ThirdPartyNotice),
             AIFunctionFactory.Create(tools.OpenAsync, OpenToolName,
                 "启动一个应用（按名字，如 TextEdit、Notepad、Calculator），或用默认应用打开工作区或草稿目录里的文件。" +
@@ -165,7 +170,7 @@ public sealed class DesktopTools
         [Description("fill：要填入的文字（替换原有内容）；type：要打的字（不清空）；select：选项的文字；" +
                      "press：按键，如 Enter、Tab、Cmd+S、Ctrl+A；scroll：up 或 down。")]
         string value = "",
-        [Description("留空（默认，不动鼠标）或 real：用真实鼠标键盘，会抢用户的输入，每次都要用户同意。")]
+        [Description("留空（默认，不动鼠标）或 real：用真实鼠标键盘，会抢用户的输入，要用户同意（用户可为这个应用放行本会话）。")]
         string input = "",
         CancellationToken cancellationToken = default)
     {

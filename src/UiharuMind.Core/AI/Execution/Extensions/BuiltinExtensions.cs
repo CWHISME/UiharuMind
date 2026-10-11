@@ -105,7 +105,10 @@ public static class BuiltinExtensions
         "· browser.handoff {task}. act 的 action 取 click | fill | select | check | uncheck | press | hover | scroll " +
         "| back；target 是最近一份 outline 里的 ref，如 e5。\n" +
         "- desktop.windows {} · desktop.snapshot {window, view?, find?} · desktop.act {window, action, target?, value?, input?} " +
-        "· desktop.open {target} · desktop.handoff {window, task}. window 是 windows 列出的编号，如 w3。\n" +
+        "· desktop.open {target} · desktop.handoff {window, task}. window 是 windows 列出的编号，如 w3；" +
+        "snapshot 的 view 取 outline | ocr | screenshot（screenshot 另附这个窗口的截图，图上框出各 ref）；" +
+        "act 的 action 取 click | double_click | right_click | fill | type | select | check | uncheck | press | focus | scroll，" +
+        "scroll 的 value 取 up | down。\n" +
         "- image.generate {prompt, images?, aspectRatio?}\n" +
         "- audio.synthesize {text, voice?, tone?, speed?} · audio.transcribe {path, subtitles?}\n" +
         "示例：" + CallExample;
@@ -222,7 +225,7 @@ public static class BuiltinExtensions
         new(Desktop,
             "用户电脑上别的应用的窗口。先 windows 列出窗口（编号如 w3），再 snapshot 读它的界面（ref 如 e5），" +
             "然后按 ref 对它 act。windows 与 snapshot 从不问用户；act 与 open 除非用户已为本会话放行这个应用，否则会询问；" +
-            "input \"real\"（真实鼠标键盘）与 handoff 总是等用户。密码管理、系统设置、终端与本应用自身的窗口不能碰。",
+            "input \"real\"（真实鼠标键盘）要用户为这个应用单独放行，handoff 总是等用户。密码管理、系统设置、终端与本应用自身的窗口不能碰。",
             Bind(Desktop, DesktopTools.Create(host, sessionId, spillDirectory, paths, screenshots)))
         {
             // 没授权这类会变的原因不在装配时定死：用户中途授权了，下一次调用就能用（宿主每次调用现查）

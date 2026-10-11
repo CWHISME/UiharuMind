@@ -159,7 +159,7 @@ internal sealed class MacDesktopPlatform : IDesktopPlatform
                 Type(window.Pid, input.Text, real);
                 break;
             case EDesktopInputKind.Scroll:
-                Scroll(window.Pid, input, real);
+                Scroll(window.Pid, handle.WindowNumber, input, real);
                 break;
         }
     }
@@ -346,11 +346,14 @@ internal sealed class MacDesktopPlatform : IDesktopPlatform
         }
     }
 
-    private void Scroll(int pid, DesktopInput input, bool real)
+    // 系统把滚轮发给指针下的窗口、不看事件里的位置：真实滚动先把指针挪过去
+    private void Scroll(int pid, uint windowNumber, DesktopInput input, bool real)
     {
+        CGPoint point = new(input.X, input.Y);
+        if (real) Post(pid, CGEventCreateMouseEvent(_eventSource.Value, EventMouseMoved, point, MouseButtonLeft), real, 0);
         IntPtr cgEvent = CGEventCreateScrollWheelEvent2(_eventSource.Value, ScrollUnitLine, 1, -input.ScrollLines, 0, 0);
-        CGEventSetLocation(cgEvent, new CGPoint(input.X, input.Y));
-        Post(pid, cgEvent, real, 0);
+        CGEventSetLocation(cgEvent, point);
+        Post(pid, cgEvent, real, windowNumber);
     }
 
     // 第 2 级投递给进程并写明窗口号（应用据此认出点的是哪个窗口，后台窗口也认）；第 3 级发到系统

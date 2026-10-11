@@ -98,6 +98,11 @@ public partial class ApprovalRequestItem : ConversationItemBase
                 _handoffWindow = window?.ToString() ?? string.Empty;
                 // 桌面按应用放行：按钮上写明放行的是哪个应用
                 if (_desktop.FindWindow(_handoffWindow) is { } found) _sessionLabel += " · " + found.Info.App;
+                // 真实键鼠与一般动作分开放行，按钮上也分开写
+                if (call.Arguments.TryGetValue("input", out object? input) && DesktopTools.IsReal(input?.ToString()))
+                {
+                    _sessionLabel = Loc.Text(LangKey.DesktopSessionReal, _sessionLabel);
+                }
             }
             SuggestedCommandPattern = CharacterRunnerFactory.IsShellCommandTool(call.Name)
                 ? ApprovalModeMapper.DeriveCommandPattern(
@@ -155,7 +160,7 @@ public partial class ApprovalRequestItem : ConversationItemBase
     /// <summary>扩展调用所属的扩展名；不是扩展调用为 null</summary>
     public string? ExtensionName { get; }
 
-    /// <summary>每次都要问的那一类（接管、浏览器去本机地址）：不给「本会话允许」</summary>
+    /// <summary>每次都要问的那一类（接管、浏览器去本机地址）：不给「本会话允许」。桌面真实键鼠不算，它按应用单独放行</summary>
     public bool AsksEveryTime { get; }
 
     /// <summary>

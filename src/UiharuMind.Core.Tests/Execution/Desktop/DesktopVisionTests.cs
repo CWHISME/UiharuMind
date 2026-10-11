@@ -41,12 +41,66 @@ public class DesktopVisionTests
         await _host.ListWindowsAsync(Token);
 
         DesktopView view = await _host.SnapshotAsync("s", "w1", Token);
-        Assert.Contains("- ocr-text \"Start\" [ref=e2]", view.Snapshot);
+        Assert.Contains("- ocr-text \"Start\" [ref=e2]: at 440,315", view.Snapshot); //带中心在窗口里的位置
 
         await _host.ActAsync("s", new DesktopActionRequest("w1", EDesktopAction.Click, "e2", "", false), Token);
         DesktopInput click = Assert.Single(_platform.Inputs).Input;
         Assert.Equal((540d, 365d), (click.X, click.Y)); //窗口原点 + 框中心
         Assert.Empty(_platform.Performed); //没有无障碍元素可调，不走第 1 级
+    }
+
+    /// <summary>画出来的界面动作后树不变：比截图，画面变了又稳住就收，不等满</summary>
+    [Fact]
+    public async Task AfterActing_APaintedWindowWaitsForThePictureToChangeAndSettle()
+    {
+        _platform.AddWindow("Game", "game", "Game", Canvas());
+        _vision.Lines.Add(new DesktopTextLine("Start", new AxRect(0.5, 0.5, 0.1, 0.05)));
+        await _host.ListWindowsAsync(Token);
+        await _host.SnapshotAsync("s", "w1", Token);
+        Assert.Equal(1, _platform.Captures);
+
+        _platform.NextPictures.Enqueue([1, 2, 3]); //页面还没换
+        _platform.NextPictures.Enqueue([4]);
+        _platform.NextPictures.Enqueue([5]);
+        _platform.NextPictures.Enqueue([5]);
+        _platform.Picture = [5];
+        await _host.ActAsync("s", new DesktopActionRequest("w1", EDesktopAction.Click, "e2", "", false), Token);
+
+        Assert.Equal(5, _platform.Captures);
+    }
+
+    [Fact]
+    public async Task AfterActing_AnUnchangedPictureIsAcceptedAfterAFewReads()
+    {
+        _platform.AddWindow("Game", "game", "Game", Canvas());
+        _vision.Lines.Add(new DesktopTextLine("Start", new AxRect(0.5, 0.5, 0.1, 0.05)));
+        await _host.ListWindowsAsync(Token);
+        await _host.SnapshotAsync("s", "w1", Token);
+
+        await _host.ActAsync("s", new DesktopActionRequest("w1", EDesktopAction.Click, "e2", "", false), Token);
+
+        Assert.Equal(1 + 5, _platform.Captures);
+    }
+
+    /// <summary>单个字符的行多是图标认错，丢掉；字母数字与箭头留着</summary>
+    [Fact]
+    public async Task SingleCharacterNoise_IsDropped()
+    {
+        _platform.AddWindow("Game", "game", "Game", Canvas());
+        foreach (string text in new[] { "•", "贝", "¢", "<", "A", "Fab" })
+        {
+            _vision.Lines.Add(new DesktopTextLine(text, new AxRect(0.1, 0.1, 0.1, 0.05)));
+        }
+        await _host.ListWindowsAsync(Token);
+
+        DesktopView view = await _host.SnapshotAsync("s", "w1", Token);
+
+        Assert.DoesNotContain("\"•\"", view.Snapshot);
+        Assert.DoesNotContain("\"贝\"", view.Snapshot);
+        Assert.DoesNotContain("\"¢\"", view.Snapshot);
+        Assert.Contains("ocr-text \"<\"", view.Snapshot);
+        Assert.Contains("ocr-text \"A\"", view.Snapshot);
+        Assert.Contains("ocr-text \"Fab\"", view.Snapshot);
     }
 
     [Fact]

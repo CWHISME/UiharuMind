@@ -112,7 +112,8 @@ public static class ApprovalModeMapper
             !ExtensionCalls.IsCall(context.FunctionCallContent) &&
             !IsOutOfWorkspaceWrite(context.FunctionCallContent, paths, room)));
 
-        // 扩展:只读的三档都不问;一般的本会话放行过这个扩展就不问;硬问的(接管、浏览器去本机地址)永远问
+        // 扩展:只读的三档都不问;一般的本会话放行过这个扩展就不问;逐项的(桌面真实键鼠)只认单独放行过的那一格;
+        // 硬问的(接管、浏览器去本机地址)永远问
         rules.Add(context => new ValueTask<bool>(
             IsApprovedExtensionCall(context.FunctionCallContent, sessionExtensionApprovalSource,
                 (server, tool) => McpManager.Instance.IsReadOnlyTool(server, tool, workspaceRoot))));
@@ -156,15 +157,15 @@ public static class ApprovalModeMapper
     /// <param name="mcpReadOnly">MCP 工具是否声明了只读(按发起会话的工作区认 server)</param>
     /// <returns>放行为 true；不是扩展调用为 false</returns>
     internal static bool IsApprovedExtensionCall(FunctionCallContent call,
-        Func<IReadOnlyList<string>?>? sessionApprovalSource, Func<string, string, bool> mcpReadOnly) =>
-        ExtensionRisk.Classify(call, mcpReadOnly) switch
-        {
-            EExtensionRisk.ReadOnly => true,
-            EExtensionRisk.Standard => ExtensionCalls.TryRead(call, out ExtensionInvocation? invocation) &&
-                                       ExtensionRisk.IsApproved(sessionApprovalSource?.Invoke(),
-                                           ExtensionRisk.ApprovalKey(invocation, call)),
-            _ => false,
-        };
+        Func<IReadOnlyList<string>?>? sessionApprovalSource, Func<string, string, bool> mcpReadOnly)
+    {
+        EExtensionRisk? risk = ExtensionRisk.Classify(call, mcpReadOnly);
+        if (risk == EExtensionRisk.ReadOnly) return true;
+        if (risk is not (EExtensionRisk.Standard or EExtensionRisk.PerScope)) return false;
+        return ExtensionCalls.TryRead(call, out ExtensionInvocation? invocation) &&
+               ExtensionRisk.IsApproved(sessionApprovalSource?.Invoke(), ExtensionRisk.ApprovalKey(invocation, call),
+                   coveredByAll: risk == EExtensionRisk.Standard);
+    }
 
     /// <summary>
     /// 从一条 shell 命令派生"同类命令"的放行模式:取前两个词加通配

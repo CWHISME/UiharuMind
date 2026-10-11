@@ -7,7 +7,8 @@ using UiharuMind.Core.Tests.Execution.Extensions;
 namespace UiharuMind.Core.Tests.Execution.Desktop;
 
 /// <summary>
-/// 桌面在三档里的审批（ADR 0084）：看不问；动手、打开三档都问，「本会话允许」只对当时那个应用；真实键鼠与接管永远问
+/// 桌面在三档里的审批（ADR 0084）：看不问；动手、打开三档都问，「本会话允许」只对当时那个应用；
+/// 真实键鼠只认为这个应用单独放行过的，「扩展不再询问」不算；接管永远问
 /// </summary>
 public class DesktopApprovalTests
 {
@@ -54,12 +55,27 @@ public class DesktopApprovalTests
     }
 
     [Fact]
-    public async Task RealInputAndHandoff_AlwaysAsk()
+    public async Task RealInput_IsApprovedOnlyByItsOwnPerAppEntry()
     {
-        Assert.False(await ApprovedAsync(EAgentPermissionMode.FullAuto, Act("w1", "real"), "*"));
-        Assert.True(ExtensionRisk.AlwaysAsks(Act("w1", "real")));
+        FunctionCallContent real = Act("w1", "real");
+        Assert.True(ExtensionCalls.TryRead(real, out ExtensionInvocation? invocation));
+        string key = ExtensionRisk.ApprovalKey(invocation, real);
+        string plainKey = ExtensionRisk.ApprovalKey(invocation, Act("w1"));
+
+        Assert.Equal(EExtensionRisk.PerScope, ExtensionRisk.Classify(real));
+        Assert.NotEqual(plainKey, key);
+        Assert.False(await ApprovedAsync(EAgentPermissionMode.FullAuto, real, "*"));
+        Assert.False(await ApprovedAsync(EAgentPermissionMode.FullAuto, real, plainKey)); //放行一般动作不连带真实键鼠
+        Assert.True(await ApprovedAsync(EAgentPermissionMode.ReadOnly, real, key));
+        Assert.False(await ApprovedAsync(EAgentPermissionMode.ReadOnly, Act("w2", "real"), key));
+    }
+
+    [Fact]
+    public void Handoff_AlwaysAsks()
+    {
         Assert.True(ExtensionRisk.AlwaysAsks(ExtensionCallOf.Make(BuiltinExtensions.Desktop, BuiltinExtensions.DesktopHandoff,
             new { window = "w1", task = "type the password" })));
+        Assert.False(ExtensionRisk.AlwaysAsks(Act("w1", "real")));
         Assert.False(ExtensionRisk.AlwaysAsks(Act("w1")));
     }
 }

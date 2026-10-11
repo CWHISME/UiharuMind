@@ -5753,7 +5753,7 @@ Allow them?</value>
         <value>Don't ask for extensions (this session)</value>
     </data>
     <data name="ChatExtensionsApprovedTooltip" xml:space="preserve">
-        <value>Extension commands that would normally ask you first (browsing, generating images, MCP tools) run without asking in this session. Handing the browser to you and opening local or intranet addresses still ask every time.</value>
+        <value>Extension commands that would normally ask you first (browsing, operating other apps' windows, generating images, MCP tools) run without asking in this session. Using the real mouse and keyboard is allowed per app on its card; handing a browser or window to you and opening local or intranet addresses still ask every time.</value>
     </data>
     <data name="ExtensionNameBrowser" xml:space="preserve">
         <value>Browser</value>
@@ -5844,6 +5844,9 @@ Allow them?</value>
     </data>
     <data name="DesktopCallReal" xml:space="preserve">
         <value>Uses the real mouse and keyboard: don't touch them meanwhile</value>
+    </data>
+    <data name="DesktopSessionReal" xml:space="preserve">
+        <value>{0} (real mouse and keyboard)</value>
     </data>
     <data name="DesktopElementPoint" xml:space="preserve">
         <value>the point ({0}) in the window</value>

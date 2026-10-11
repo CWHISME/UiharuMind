@@ -14,7 +14,7 @@ namespace UiharuMind.Core.AI.Execution.Tools.Desktop;
 
 /// <summary>
 /// 桌面调用的风险（ADR 0084）：列窗口、拍快照只读；动手、打开一般，「本会话允许」只对当时那个应用有效；
-/// 真实键鼠与接管硬问——前者抢用户的输入，后者等的是用户的手。
+/// 真实键鼠逐项——会抢用户的输入，只认为这个应用单独放行过的，「扩展不再询问」不算；接管硬问，等的是用户的手。
 /// 往密码框打字不在这里：工具当场拒（见 <see cref="DesktopHost"/>），点过「本会话允许」也拦得住
 /// </summary>
 internal static class DesktopRisk
@@ -32,15 +32,18 @@ internal static class DesktopRisk
     /// </summary>
     /// <param name="call">拆开后的调用</param>
     /// <returns>是为 true</returns>
-    public static bool RequiresApprovalInAllModes(FunctionCallContent call) => call.Name switch
-    {
-        DesktopTools.HandoffToolName => true,
-        DesktopTools.ActToolName => DesktopTools.IsReal(Text(call.Arguments, "input")),
-        _ => false,
-    };
+    public static bool RequiresApprovalInAllModes(FunctionCallContent call) => call.Name == DesktopTools.HandoffToolName;
 
     /// <summary>
-    /// 「本会话允许」记在哪一格：动手按应用（放行记事本不连带放行微信），打开按打开的东西
+    /// 用真实鼠标键盘的动作
+    /// </summary>
+    /// <param name="call">拆开后的调用</param>
+    /// <returns>是为 true</returns>
+    public static bool IsRealInput(FunctionCallContent call) =>
+        call.Name == DesktopTools.ActToolName && DesktopTools.IsReal(Text(call.Arguments, "input"));
+
+    /// <summary>
+    /// 「本会话允许」记在哪一格：动手按应用（放行记事本不连带放行微信），真实键鼠按应用另记，打开按打开的东西
     /// </summary>
     /// <param name="call">拆开后的调用</param>
     /// <param name="host">桌面宿主：按窗口编号认应用，不碰系统</param>
@@ -49,7 +52,8 @@ internal static class DesktopRisk
     {
         if (call.Name == DesktopTools.OpenToolName) return "open " + (Text(call.Arguments, "target") ?? string.Empty).Trim();
         string window = (Text(call.Arguments, "window") ?? string.Empty).Trim();
-        return host.FindWindow(window) is { } found ? found.Info.AppId : window;
+        string app = host.FindWindow(window) is { } found ? found.Info.AppId : window;
+        return IsRealInput(call) ? "real " + app : app;
     }
 
     private static string? Text(IDictionary<string, object?>? arguments, string name)
