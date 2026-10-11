@@ -24,12 +24,16 @@ public sealed partial class DesktopHost
     private const int ScrollLinesPerStep = 5;
     private const double UserIdleSeconds = 1.0; //用户刚动过键鼠就先等等，免得抢他的输入
     private const int UserIdleWaitMs = 10000; //刚在审批卡上点完「允许」手还在鼠标上，多等一会儿
+    private const int DefaultShowIdleWaitMs = 3000; //接管卡「切过去」最多等这么久（同步，跑在线程池上）；等不到就不抢用户手里的输入
     private const int TypingChunk = 24; //真实打字分段打，段间看用户有没有动
 
     private readonly SemaphoreSlim _realInput = new(1, 1); //真实键鼠全局只有一份
 
     /// <summary>动作后隔多久重读（测试调短）</summary>
     internal int SettleDelayMs { get; init; } = SettleStepMs;
+
+    /// <summary>「切过去」等用户停手的最长时间（测试调短）</summary>
+    internal int ShowIdleWaitMs { get; set; } = DefaultShowIdleWaitMs;
 
     /// <summary>
     /// 在窗口里做一个动作，做完重读快照
@@ -77,8 +81,27 @@ public sealed partial class DesktopHost
     /// </summary>
     /// <param name="window">窗口编号、应用名或标题里的字</param>
     /// <returns>做成为 true</returns>
-    public bool Show(string window) =>
-        _platform != null && Unavailable == null && FindWindow(window) is { Blocked: null } found && _platform.Raise(found.Info);
+    public bool Show(string window)
+    {
+        if (_platform == null || Unavailable != null || FindWindow(window) is not { Blocked: null } found) return false;
+        // 切过去会抢前台、Windows 上还会真按一下 Alt（TapAlt）：像真实键鼠一样先等用户停手，
+        // 免得用户刚在审批卡上点完「切过去」、手还在鼠标上，那下 Alt 落在他手里激活了菜单栏
+        if (!WaitForUserIdle(ShowIdleWaitMs)) return false;
+        return _platform.Raise(found.Info);
+    }
+
+    // 同步版等用户停手（Show 是同步接口，调用方把它放线程池）：等不到就算了，不抢手里的输入
+    private bool WaitForUserIdle(int maxWaitMs)
+    {
+        long deadline = Environment.TickCount64 + maxWaitMs;
+        while (_platform!.SecondsSinceUserInput < UserIdleSeconds)
+        {
+            if (Environment.TickCount64 >= deadline) return false;
+            Thread.Sleep(50);
+        }
+
+        return true;
+    }
 
     /// <summary>
     /// 启动应用或用默认应用打开文件，稍等后列出它的窗口
@@ -90,6 +113,18 @@ public sealed partial class DesktopHost
     public async Task<IReadOnlyList<DesktopWindow>> OpenAsync(string target, bool isFile, CancellationToken cancellationToken)
     {
         IDesktopPlatform platform = Platform();
+        // 名单内的应用不能开，长得像路径/URL 的不当应用名开（ADR 0084；见 DesktopPolicy.ValidateAppOpen）
+        if (!isFile && DesktopPolicy.ValidateAppOpen(target) is { } reason)
+        {
+            throw new AxActionException($"Cannot open \"{target}\": {reason}.");
+        }
+
+        // 文件分支同样拦 URL：isFile 直传时不能让 https://… 之类被平台层当真执行（Windows ShellExecute / macOS open -g）
+        if (isFile && DesktopPolicy.LooksLikeUri(target.Trim()))
+        {
+            throw new AxActionException($"Cannot open \"{target}\": that looks like a URL, not a file path.");
+        }
+
         await Task.Run(() => platform.Open(target, isFile), cancellationToken);
         string wanted = isFile ? Path.GetFileName(target) : target;
         for (int attempt = 0; attempt < 6; attempt++)

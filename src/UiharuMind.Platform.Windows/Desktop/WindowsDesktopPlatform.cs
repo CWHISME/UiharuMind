@@ -14,6 +14,7 @@ using System.Runtime.InteropServices;
 using Interop.UIAutomationClient;
 using UiharuMind.Core.AI.Execution.Tools.Accessibility;
 using UiharuMind.Core.AI.Execution.Tools.Desktop;
+using UiharuMind.Core.Core.SimpleLog;
 using static Interop.UIAutomationClient.UIA_ControlTypeIds;
 using static Interop.UIAutomationClient.UIA_PatternIds;
 using static UiharuMind.Platform.Windows.Desktop.WindowsNative;
@@ -356,7 +357,12 @@ internal sealed class WindowsDesktopPlatform : IDesktopPlatform
         Task task = Task.Run(action);
         try
         {
-            task.Wait(InvokeTimeoutMs);
+            if (!task.Wait(InvokeTimeoutMs))
+            {
+                // 超时当成成功是设计取舍（让模型看结果）；但按钮没弹模态框时这就是误报，留一条日志好排查
+                Log.Warning($"Desktop 控件 Invoke 超时（{InvokeTimeoutMs} ms）未返回，按成功处理；若对话框并未弹出，该步可能没生效。");
+            }
+
             return true;
         }
         catch (AggregateException e) when (e.InnerException is COMException)

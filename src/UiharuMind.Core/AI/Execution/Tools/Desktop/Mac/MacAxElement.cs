@@ -77,6 +77,26 @@ internal sealed class MacAxElement
     }
 
     /// <summary>
+    /// 读一个属性，连同 AX 错误码：区分「元素真没了」（<see cref="AxErrorInvalidUIElement"/>）
+    /// 和「应用忙/没响应」（AX 超时回 <see cref="AxErrorCannotComplete"/>）——判窗口关闭只认前者
+    /// </summary>
+    /// <param name="attribute">属性名</param>
+    /// <returns>错误码与值；出错时值为 null（出错时返回的句柄不属于我们，不释放）</returns>
+    public (int Error, object? Value) GetDetailed(string attribute)
+    {
+        int error = AXUIElementCopyAttributeValue(Handle, Cf(attribute), out IntPtr value);
+        if (error != AxSuccess) return (error, null);
+        try
+        {
+            return (AxSuccess, ToManaged(value));
+        }
+        finally
+        {
+            CFRelease(value);
+        }
+    }
+
+    /// <summary>
     /// 读一个元素型属性（如 AXFocusedWindow）
     /// </summary>
     /// <param name="attribute">属性名</param>

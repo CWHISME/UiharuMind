@@ -32,7 +32,7 @@ count="${PERF_SESSIONS:-4}"
 rounds="${PERF_ROUNDS:-3}"
 settle="${PERF_SETTLE_MS:-1500}"
 out="${1:-/tmp/uiharu-perf/switch-$(date +%Y%m%d-%H%M%S)}"
-[ -d "$source_home/Data/Sessions" ] || { echo "找不到档案：$source_home（用 PERF_SOURCE 指定）" >&2; exit 1; }
+[ -d "$source_home/Data/Sessions" ] || { echo "找不到档案：${source_home}（用 PERF_SOURCE 指定）" >&2; exit 1; }
 
 mkdir -p "$out/home"
 cp -R "$source_home/Config" "$out/home/Config"

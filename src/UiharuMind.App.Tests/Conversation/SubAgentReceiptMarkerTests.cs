@@ -105,8 +105,8 @@ public class SubAgentReceiptMarkerTests
         {
             string receipt = BackgroundSubAgentDispatcher.Dispatch(session, _ => Task.FromResult(string.Empty));
 
-            Assert.StartsWith("Sent to \"审查员\".", receipt); //名字加引号:角色过长被截成「…」时不会再接一个句号
-            Assert.Contains($"`{SubAgentTool.MessageToolName}` them meanwhile", receipt); //指名续聊工具：中途补充走它
+            Assert.StartsWith($"已发给 \"审查员\"。", receipt); //名字加引号:角色过长被截成「…」时不会再接一个句号
+            Assert.Contains($"`{SubAgentTool.MessageToolName}` 给他补充或纠正", receipt); //指名续聊工具：中途补充走它
         }
         finally
         {
@@ -123,7 +123,7 @@ public class SubAgentReceiptMarkerTests
         {
             string receipt = BackgroundSubAgentDispatcher.Dispatch(session, _ => Task.FromResult(string.Empty));
 
-            Assert.Contains("will write back once, when done", receipt);
+            Assert.Contains("做完会回一封", receipt);
         }
         finally
         {
@@ -234,7 +234,7 @@ public class SubAgentReceiptMarkerTests
     {
         string receipt = SubAgentTool.BuildInjectedReceipt("abc123");
 
-        Assert.Contains("no separate reply", receipt);
-        Assert.DoesNotContain("Dispatched", receipt);
+        Assert.Contains("不会再单独回一封", receipt);
+        Assert.DoesNotContain("已派出", receipt);
     }
 }

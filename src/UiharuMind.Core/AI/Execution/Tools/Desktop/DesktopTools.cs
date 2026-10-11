@@ -261,8 +261,13 @@ public sealed class DesktopTools
     private string? ResolveFile(string target)
     {
         string given = target.Trim();
-        bool looksLikePath = given.Contains('/') || given.Contains('\\') || given.StartsWith('$') || Path.HasExtension(given);
-        if (_paths == null || !looksLikePath) return null;
+        // 路径形状的 target 必须有路径解析器（工作区/草稿口径），否则不把任意路径原样当应用名开（ADR 0084）
+        if (DesktopPolicy.FileTargetError(given, _paths != null) is { } pathError)
+        {
+            throw new AxActionException($"Cannot open \"{given}\": {pathError}");
+        }
+
+        if (!DesktopPolicy.LooksLikePathTarget(given) || _paths == null) return null;
         if (!_paths.TryResolve(given, out string full, out string error)) throw new AxActionException($"Cannot open \"{given}\": {error}");
         if (!File.Exists(full) && !Directory.Exists(full)) throw new AxActionException($"Cannot open \"{given}\": no such file.");
         string real = File.ResolveLinkTarget(full, returnFinalTarget: true)?.FullName ?? full;

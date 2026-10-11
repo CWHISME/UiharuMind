@@ -119,6 +119,17 @@ UiharuMind.CLI app quit
 应用里的模型要驱动应用自己时，开发者模式下有内置技能 `uiharu-dev`（ADR 0061）：正文现生成，步骤清单取自各步骤的 `Usage`。
 新增或改了步骤，记得写 `Usage`——它同时是 `app.ops` 的回答与这份技能的内容。
 
+### 日常开发怎么跑（macOS）
+
+macOS 上用签名好的 .app 跑，别直接跑 bin 里的 exe：
+
+```bash
+src/Build/dev-run.sh   # = buildMac.sh && open src/Build/Output/UiharuMind.app
+```
+
+bin 里的裸 exe 是 ad-hoc 签名、TCC（辅助功能/屏幕录制）里没有它的授权记录，桌面扩展在断点调试那条路上查不到授权——**不是 bug**，是签名身份不同（[ADR 0029](docs/adr/0029-打包与发版，macOS签名必须用自签名证书.md)）。
+要断点调试：在 `src/Build/Output/UiharuMind.app` 上挂调试器；日常运行走 dev-run.sh。
+
 ## 打包与发版
 
 打包与发版的口径（版本号唯一来源、发布参数、构建脚本与 CI、macOS 签名）见

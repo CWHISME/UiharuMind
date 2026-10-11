@@ -13,7 +13,7 @@ copy_internal_asset() {
     local target_name="$2"
 
     if [ ! -d "$source_dir" ]; then
-        echo "跳过 $target_name：$source_dir 不存在" >&2
+        echo "跳过 ${target_name}：${source_dir} 不存在" >&2
         return 0
     fi
 

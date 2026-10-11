@@ -14,6 +14,8 @@ internal sealed class FakeDesktopPlatform : IDesktopPlatform
 
     public HashSet<string> ClosedTitles { get; } = new();
 
+    public HashSet<string> UnresponsiveTitles { get; } = new(); //应用卡住：读它时报错，但不是窗口关闭
+
     public bool AccessibilityActionsWork { get; set; } = true;
 
     public List<(string Node, EDesktopAction Action, string Value)> Performed { get; } = new();
@@ -21,6 +23,8 @@ internal sealed class FakeDesktopPlatform : IDesktopPlatform
     public List<(DesktopInput Input, bool Real)> Inputs { get; } = new();
 
     public List<string> Raised { get; } = new();
+
+    public List<(string Target, bool IsFile)> Opened { get; } = new();
 
     public string? Unavailable { get; set; }
 
@@ -43,7 +47,9 @@ internal sealed class FakeDesktopPlatform : IDesktopPlatform
     public bool SameWindow(DesktopWindowInfo a, DesktopWindowInfo b) => Equals(a.Handle, b.Handle);
 
     public AxNode ReadWindow(DesktopWindowInfo window, int maxNodes) =>
-        ClosedTitles.Contains(window.Title) ? throw new DesktopWindowGoneException(window) : Trees[window.Title];
+        ClosedTitles.Contains(window.Title) ? throw new DesktopWindowGoneException(window)
+        : UnresponsiveTitles.Contains(window.Title) ? throw new AxActionException($"{window.Title} is not responding right now; try again.")
+        : Trees[window.Title];
 
     public bool TryPerform(AxNode node, EDesktopAction action, string value)
     {
@@ -67,9 +73,7 @@ internal sealed class FakeDesktopPlatform : IDesktopPlatform
         return true;
     }
 
-    public void Open(string target, bool isFile)
-    {
-    }
+    public void Open(string target, bool isFile) => Opened.Add((target, isFile));
 
     /// <summary>
     /// 加一个窗口

@@ -41,7 +41,7 @@ template="$SCRIPT_DIR/scenarios/$scenario.jsonl"
 
 out="${2:-/tmp/uiharu-smoke/$scenario-$(date +%Y%m%d-%H%M%S)}"
 config="${SMOKE_CONFIG:-$HOME/.uiharu/Config}"
-[ "${SMOKE_FRESH:-}" = "1" ] || [ -d "$config" ] || { echo "找不到模型配置：$config（用 SMOKE_CONFIG 指定）" >&2; exit 1; }
+[ "${SMOKE_FRESH:-}" = "1" ] || [ -d "$config" ] || { echo "找不到模型配置：${config}（用 SMOKE_CONFIG 指定）" >&2; exit 1; }
 
 # 三个工作区：空目录；放了仓库规矩副本的目录（验「先读 AGENTS.md」「改文件落在哪」）；docs 副本（读得多、涨得快的长会话素材）
 mkdir -p "$out/home" "$out/ws-empty" "$out/ws-repo" "$out/ws-docs"
@@ -99,7 +99,7 @@ while kill -0 "$app_pid" 2> /dev/null; do
     level=$(sysctl -n kern.memorystatus_level 2> /dev/null || echo 100)
     [ "$level" -lt "${SMOKE_MIN_FREE_PERCENT:-12}" ] && reason="空闲内存只剩 $level%"
     if [ -n "$reason" ]; then
-        echo "看门狗：$reason，结束应用与本地引擎" | tee -a "$out/app.log" >&2
+        echo "看门狗：${reason}，结束应用与本地引擎" | tee -a "$out/app.log" >&2
         pkill -9 -f "$engines" 2> /dev/null || true
         # 经 open 起的应用不是 open 的子进程：按包路径另杀
         [[ "$APP" == *.app ]] && pkill -9 -f "$APP/Contents/MacOS/" 2> /dev/null || true
@@ -118,7 +118,7 @@ if [ ! -f "$out/report.json" ]; then
 fi
 
 if [ -n "$killed" ]; then
-    echo "看门狗中途结束了应用（$killed），见 $out/report.json" >&2
+    echo "看门狗中途结束了应用（${killed}），见 $out/report.json" >&2
     exit 1
 fi
 

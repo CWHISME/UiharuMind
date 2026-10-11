@@ -317,7 +317,7 @@ public static class GroupTranscript
         StringBuilder text = new();
         text.Append($"你在群聊「{scene.GroupName}」里。在场的有：{BuildRoster(scene.UserName, scene.Others)}。你是{scene.SelfName}。");
         if (scene.HostName == scene.SelfName)
-            text.Append("\n你是本群主持人：你可以参与讨论、负责记录，但是一般情况下不要亲自动手干活。用户没有 @ 任何人时，先用 @名字 点名最合适的一两位来回应。");
+            text.Append("\n你是本群主持人：你可以参与讨论、负责记录，但是一般情况下不要亲自动手干活。用户没有 @ 任何人时，先用 @名字 点名最合适的一两位来回应。要查的资料可以留着发言后再查，不要让大家干等着。");
         // else if (scene.HostName != null)
         //     text.Append($"\n本群主持人是{scene.HostName}。");
 

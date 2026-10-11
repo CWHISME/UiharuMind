@@ -165,6 +165,45 @@ public class DesktopHostTests
     }
 
     [Fact]
+    public async Task AnUnresponsiveApp_IsNotReportedAsClosed_AndKeepsItsWindow()
+    {
+        string window = await OpenNoteAsync();
+        await _host.SnapshotAsync("s", window, Token);
+
+        _platform.UnresponsiveTitles.Add("Note");
+
+        // 应用卡住不是窗口关闭：报「没响应」，不抛窗口关闭的错
+        AxActionException error = await Assert.ThrowsAsync<AxActionException>(() => _host.SnapshotAsync("s", window, Token));
+        Assert.Contains("not responding", error.Message);
+        Assert.DoesNotContain("closed", error.Message);
+
+        // 窗口还在列表里、编号没作废
+        Assert.NotNull(_host.FindWindow(window));
+        IReadOnlyList<DesktopWindow> listed = await _host.ListWindowsAsync(Token);
+        Assert.Contains(listed, listedWindow => listedWindow.Id == window);
+
+        // 恢复响应后同一编号还能拍快照
+        _platform.UnresponsiveTitles.Remove("Note");
+        DesktopView view = await _host.SnapshotAsync("s", window, Token);
+        Assert.NotEmpty(view.Snapshot);
+        Assert.Equal(window, view.Window.Id);
+    }
+
+    [Fact]
+    public async Task AWindowThatReallyCloses_IsDroppedFromListing_AndItsSnapshotIsGone()
+    {
+        string window = await OpenNoteAsync();
+        await _host.SnapshotAsync("s", window, Token);
+
+        // 系统里没了（Fake 的窗口列表移除它），再列一次：从 _windows 清掉、快照连同原生句柄一起丢
+        _platform.Windows.RemoveAll(info => info.Title == "Note");
+        IReadOnlyList<DesktopWindow> listed = await _host.ListWindowsAsync(Token);
+
+        Assert.Null(_host.FindWindow(window));
+        Assert.DoesNotContain(listed, listedWindow => listedWindow.Id == window);
+    }
+
+    [Fact]
     public async Task Peek_TranslatesARefFromTheSessionsLatestSnapshot()
     {
         string window = await OpenNoteAsync();
@@ -184,6 +223,31 @@ public class DesktopHostTests
 
         Assert.Contains("permission", error.Message);
         Assert.Contains("not supported", new DesktopHost(null).Unavailable);
+    }
+
+    [Fact]
+    public async Task Show_WaitsForTheUserToStop_BeforeRaisingTheWindow()
+    {
+        _host.ShowIdleWaitMs = 100; //测试调短
+        string window = await OpenNoteAsync();
+
+        _platform.SecondsSinceUserInput = 0.3; //用户正握着鼠标键盘
+        Assert.False(_host.Show(window));
+        Assert.Empty(_platform.Raised); //没抢前台，也没触发会真按 Alt 的那条路
+
+        _platform.SecondsSinceUserInput = 3; //用户停手了
+        Assert.True(_host.Show(window));
+        Assert.Equal(["Note"], _platform.Raised);
+    }
+
+    [Fact]
+    public async Task Show_RaisesTheWindow_WhenTheUserIsIdle()
+    {
+        string window = await OpenNoteAsync();
+        _platform.SecondsSinceUserInput = 2;
+
+        Assert.True(_host.Show(window));
+        Assert.Equal(["Note"], _platform.Raised);
     }
 
     private async Task<string> OpenNoteAsync()

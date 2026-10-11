@@ -45,7 +45,7 @@ sign_bundle() {
     if security find-identity -p codesigning 2>/dev/null | grep -qF "$SIGN_IDENTITY"; then
         codesign --force --deep --sign "$SIGN_IDENTITY" --timestamp=none "$bundle"
         codesign --verify --deep --strict "$bundle"
-        echo "已签名（$SIGN_IDENTITY）：$bundle"
+        echo "已签名（${SIGN_IDENTITY}）：${bundle}"
         return 0
     fi
 

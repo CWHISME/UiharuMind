@@ -19,7 +19,15 @@ namespace UiharuMind.Core.AI.Execution.Tools.Desktop.Mac;
 internal static class MacNative
 {
     public const int AxSuccess = 0;
-    public const int AxErrorCannotComplete = -25204;
+    public const int AxErrorFailure = -25200;
+    public const int AxErrorIllegalArgument = -25201;
+    public const int AxErrorInvalidUIElement = -25202; //元素真没了（窗口关闭、进程退出）
+    public const int AxErrorCannotComplete = -25204; //应用忙或无响应（AX 超时也回这个）
+    public const int AxErrorAttributeUnsupported = -25205;
+    public const int AxErrorActionUnsupported = -25206;
+    public const int AxErrorNotImplemented = -25208;
+    public const int AxErrorAPIDisabled = -25211; //辅助功能被禁用/被撤
+    public const int AxErrorNoValue = -25212;
 
     public const int AxValueCgPoint = 1;
     public const int AxValueCgSize = 2;

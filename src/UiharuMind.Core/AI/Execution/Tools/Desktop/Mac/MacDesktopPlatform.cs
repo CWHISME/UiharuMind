@@ -90,7 +90,18 @@ internal sealed class MacDesktopPlatform : IDesktopPlatform
     public AxNode ReadWindow(DesktopWindowInfo window, int maxNodes)
     {
         MacWindowHandle handle = Handle(window);
-        if (handle.Element.Get("AXRole") == null) throw new DesktopWindowGoneException(window);
+        (int error, _) = handle.Element.GetDetailed("AXRole");
+        // 只有元素真没了（窗口关了、进程退了）才算窗口关闭；应用卡住/超时（CannotComplete）或授权被撤是另一回事
+        if (error == AxErrorInvalidUIElement) throw new DesktopWindowGoneException(window);
+        if (error != AxSuccess)
+        {
+            throw new AxActionException(error == AxErrorAPIDisabled
+                ? $"{window.App} (\"{window.Title}\") can't be read: accessibility access to it was disabled. " +
+                  $"Ask the user to allow it in System Settings → Privacy & Security → Accessibility, then try again."
+                : $"{window.App} (\"{window.Title}\") is not responding right now; its window is still there, but its " +
+                  $"interface could not be read. Wait a moment and try again.");
+        }
+
         EnableWebAccessibility(window.Pid, handle.App);
         return MacAxTreeReader.Read(handle.Element, handle.App, window.Title, maxNodes);
     }

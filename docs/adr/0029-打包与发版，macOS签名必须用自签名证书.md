@@ -45,6 +45,12 @@
 8. **CI（`.github/workflows/`）**：`ci.yml` 在 push/PR 上构建加测试；`release.yml` 由
    `v*` tag 触发，先断言 tag 与 `<Version>` 一致，再在三平台上**调用 Build/ 脚本**
    （打包逻辑只有一份），产物加 `SHA256SUMS` 发成草稿 Release。
+9. **开发与冒烟统一用证书签名的 `.app` 跑**：TCC 按「签名主体 + bundle id」记授权，
+   **同一个 bundle id 下，ad-hoc 签名的裸 exe 与证书签名的 `.app` 是两个身份，授权互不共用**
+   （2026-10-11 冒烟实测：主实例跑 bin exe 勾过辅助功能/屏幕录制，签名 `.app` 依然查不到授权）。
+   日常开发用 `src/Build/dev-run.sh`（buildMac 后 `open` `.app`），别直接跑 bin 里的 exe；
+   bin 那条路是 ad-hoc、TCC 里没有记录，桌面扩展查不到授权——不是 bug。
+   断点调试要用桌面功能时，在 `src/Build/Output/UiharuMind.app` 上挂调试器。
 
 ## 取舍
 
