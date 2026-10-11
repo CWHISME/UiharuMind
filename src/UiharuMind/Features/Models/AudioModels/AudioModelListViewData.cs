@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Audio;
@@ -288,7 +289,13 @@ public partial class AudioModelListViewData : ObservableObject
     }
 
     [RelayCommand]
-    private Task AddService() => Online?.AddCommand.ExecuteAsync(null) ?? Task.CompletedTask;
+    private Task AddOnlineService() => Online?.AddCommand.ExecuteAsync(null) ?? Task.CompletedTask;
+
+    /// <summary>
+    /// 添加远程模型（在线语音服务）。没接在线服务列表时是 null，模型页工具条据此不显示这一条
+    /// </summary>
+    public ICommand? AddServiceCommand =>
+        Online == null ? null : AddOnlineServiceCommand;
 
     private void OnOnlineChanged()
     {

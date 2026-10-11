@@ -4001,6 +4001,9 @@
     <data name="ModelPageDownloadsTab" xml:space="preserve">
         <value>获取模型</value>
     </data>
+    <data name="ModelPageGetModelsBtn" xml:space="preserve">
+        <value>获取模型</value>
+    </data>
     <data name="ModelDownloadSearchHint" xml:space="preserve">
         <value>搜索 GGUF 模型，或粘贴 作者/仓库 与仓库链接</value>
     </data>
@@ -4734,9 +4737,6 @@
     <data name="AudioCapAlign" xml:space="preserve">
         <value>文本对齐</value>
     </data>
-    <data name="AudioModelsGetMore" xml:space="preserve">
-        <value>获取语音模型</value>
-    </data>
     <data name="AudioModelsNoEngine" xml:space="preserve">
         <value>本地引擎还没安装，本地语音模型暂时用不了。</value>
     </data>
@@ -5127,9 +5127,6 @@
     <data name="AudioErrorNetwork" xml:space="preserve">
         <value>连不上语音服务，检查一下网络。（{0}）</value>
     </data>
-    <data name="AudioServiceAdd" xml:space="preserve">
-        <value>添加在线服务</value>
-    </data>
     <data name="AudioServiceOnline" xml:space="preserve">
         <value>在线</value>
     </data>
@@ -5450,9 +5447,6 @@
     </data>
     <data name="ImageDrawOpen" xml:space="preserve">
         <value>画图</value>
-    </data>
-    <data name="ImageModelGetLocal" xml:space="preserve">
-        <value>获取本地模型</value>
     </data>
     <data name="ImageEngineStatusStopped" xml:space="preserve">
         <value>本地引擎没在运行，出图时会自动启动。</value>

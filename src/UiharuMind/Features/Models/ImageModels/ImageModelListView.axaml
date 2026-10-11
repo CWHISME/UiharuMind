@@ -12,30 +12,18 @@
 
     <!-- 卡片、列表行、图标、行按钮复用模型页同一套（model-card / model-list / model-icon / row-action，见 Themes） -->
     <DockPanel Margin="0,14,0,0">
-        <!-- 工具条：左边本地模型目录，右边画图、获取本地模型、添加在线模型（与对话、语音页签同一条） -->
+        <!-- 工具条：左边本地模型目录，右边画图是自己的，获取模型与添加远程模型由目录条统一下发 -->
         <pages:ModelFolderBar DockPanel.Dock="Top" Margin="0,0,0,12" Path="{Binding ModelRoot}"
-                              OpenCommand="{Binding OpenFolderCommand}" RefreshCommand="{Binding RescanCommand}">
+                              OpenCommand="{Binding OpenFolderCommand}" RefreshCommand="{Binding RescanCommand}"
+                              GetModelsCommand="{Binding GoToMarketCommand}"
+                              AddRemoteCommand="{Binding AddCommand}">
             <pages:ModelFolderBar.Actions>
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button Command="{Binding DrawCommand}" CommandParameter="{x:Null}" IsEnabled="{Binding HasItems}">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <controls:ThemedSvgIcon Width="14" Height="14" IconName="sparkles" />
-                            <TextBlock Text="{loc:Loc ImageDrawOpen}" />
-                        </StackPanel>
-                    </Button>
-                    <Button Command="{Binding GoToMarketCommand}">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <controls:ThemedSvgIcon Width="14" Height="14" IconName="download" />
-                            <TextBlock Text="{loc:Loc ImageModelGetLocal}" />
-                        </StackPanel>
-                    </Button>
-                    <Button Command="{Binding AddCommand}">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <controls:ThemedSvgIcon Width="14" Height="14" IconName="globe" />
-                            <TextBlock Text="{loc:Loc AddBtn}" />
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
+                <Button Command="{Binding DrawCommand}" CommandParameter="{x:Null}" IsEnabled="{Binding HasItems}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <controls:ThemedSvgIcon Width="14" Height="14" IconName="sparkles" />
+                        <TextBlock Text="{loc:Loc ImageDrawOpen}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
             </pages:ModelFolderBar.Actions>
         </pages:ModelFolderBar>
 
@@ -49,8 +37,8 @@
                                          Title="{loc:Loc ImageModelListEmpty}" Hint="{loc:Loc ImageModelListHint}">
                     <controls:EmptyStateView.Actions>
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button Classes="Primary" Content="{loc:Loc ImageModelGetLocal}" Command="{Binding GoToMarketCommand}" />
-                            <Button Content="{loc:Loc AddBtn}" Command="{Binding AddCommand}" />
+                            <Button Classes="Primary" Content="{loc:Loc ModelPageGetModelsBtn}" Command="{Binding GoToMarketCommand}" />
+                            <Button Content="{loc:Loc ModelListAddRemote}" Command="{Binding AddCommand}" />
                         </StackPanel>
                     </controls:EmptyStateView.Actions>
                 </controls:EmptyStateView>

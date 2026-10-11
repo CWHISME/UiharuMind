@@ -4,7 +4,7 @@
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              x:Class="UiharuMind.Features.Models.ModelFolderBar"
              x:Name="Root">
-    <!-- 已装模型页签顶上那一条：左边模型目录（更改、打开、重新扫描），右边各页签自己的按钮 -->
+    <!-- 已装模型页签顶上那一条：左边模型目录（更改、打开、重新扫描），右边先各页签自己的按钮，再是共用的获取模型与添加远程模型 -->
     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
         <controls:ThemedSvgIcon Width="15" Height="15" IconName="folder-open" Opacity="0.7"
                                 VerticalAlignment="Center" ToolTip.Tip="{loc:Loc ModelListFolderTip}" />
@@ -21,6 +21,24 @@
                               ToolTip.Tip="{loc:Loc ModelListRescanTip}"
                               Command="{Binding #Root.RefreshCommand}" />
         </StackPanel>
-        <ContentPresenter Grid.Column="2" Content="{Binding #Root.Actions}" />
+        <!-- 右边先放各页签自己的功能按钮（生图的画图），再是三个页签共用的两条：获取模型、添加远程模型。
+             共用的由这里统一下发：文案、顺序、长相全页一致，各页签只管自己的按钮 -->
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <ContentPresenter Content="{Binding #Root.Actions}" />
+            <Button Name="GetModels" Command="{Binding #Root.GetModelsCommand}"
+                    IsVisible="{Binding #Root.GetModelsCommand, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <controls:ThemedSvgIcon Width="14" Height="14" IconName="download" />
+                    <TextBlock Text="{loc:Loc ModelPageGetModelsBtn}" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+            <Button Name="AddRemote" Command="{Binding #Root.AddRemoteCommand}"
+                    IsVisible="{Binding #Root.AddRemoteCommand, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <controls:ThemedSvgIcon Width="14" Height="14" IconName="globe" />
+                    <TextBlock Text="{loc:Loc ModelListAddRemote}" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+        </StackPanel>
     </Grid>
 </UserControl>

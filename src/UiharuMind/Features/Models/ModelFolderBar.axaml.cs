@@ -5,7 +5,8 @@ using Avalonia.Controls;
 namespace UiharuMind.Features.Models;
 
 /// <summary>
-/// 已装模型页签顶上的目录条：模型目录、更改（可选）、在资源管理器中显示、重新扫描，右侧放页签自己的按钮
+/// 已装模型页签顶上的目录条：模型目录、更改（可选）、在资源管理器中显示、重新扫描，
+/// 右侧先放各页签自己的按钮，再是共用的两条——获取模型与添加远程模型（给了命令才显示）
 /// </summary>
 public partial class ModelFolderBar : UserControl
 {
@@ -20,6 +21,12 @@ public partial class ModelFolderBar : UserControl
 
     public static readonly StyledProperty<ICommand?> RefreshCommandProperty =
         AvaloniaProperty.Register<ModelFolderBar, ICommand?>(nameof(RefreshCommand));
+
+    public static readonly StyledProperty<ICommand?> GetModelsCommandProperty =
+        AvaloniaProperty.Register<ModelFolderBar, ICommand?>(nameof(GetModelsCommand));
+
+    public static readonly StyledProperty<ICommand?> AddRemoteCommandProperty =
+        AvaloniaProperty.Register<ModelFolderBar, ICommand?>(nameof(AddRemoteCommand));
 
     public static readonly StyledProperty<object?> ActionsProperty =
         AvaloniaProperty.Register<ModelFolderBar, object?>(nameof(Actions));
@@ -66,7 +73,25 @@ public partial class ModelFolderBar : UserControl
     }
 
     /// <summary>
-    /// 右侧按钮
+    /// 去「获取模型」页签；null 不显示。三个页签共用，排在 <see cref="Actions"/> 里的按钮右边
+    /// </summary>
+    public ICommand? GetModelsCommand
+    {
+        get => GetValue(GetModelsCommandProperty);
+        set => SetValue(GetModelsCommandProperty, value);
+    }
+
+    /// <summary>
+    /// 添加远程模型或在线服务；null 不显示。三个页签共用，排在 <see cref="GetModelsCommand"/> 右边
+    /// </summary>
+    public ICommand? AddRemoteCommand
+    {
+        get => GetValue(AddRemoteCommandProperty);
+        set => SetValue(AddRemoteCommandProperty, value);
+    }
+
+    /// <summary>
+    /// 这一页签自己的按钮（生图的画图），排在共用的两条左边
     /// </summary>
     public object? Actions
     {

@@ -4008,6 +4008,9 @@ Allow them?</value>
     <data name="ModelPageDownloadsTab" xml:space="preserve">
         <value>Get models</value>
     </data>
+    <data name="ModelPageGetModelsBtn" xml:space="preserve">
+        <value>Get models</value>
+    </data>
     <data name="ModelDownloadSearchHint" xml:space="preserve">
         <value>Search GGUF models, or paste owner/repo or a link</value>
     </data>
@@ -4741,9 +4744,6 @@ Allow them?</value>
     <data name="AudioCapAlign" xml:space="preserve">
         <value>Alignment</value>
     </data>
-    <data name="AudioModelsGetMore" xml:space="preserve">
-        <value>Get voice models</value>
-    </data>
     <data name="AudioModelsNoEngine" xml:space="preserve">
         <value>The local engine is not installed, so local voice models can't be used yet.</value>
     </data>
@@ -5134,9 +5134,6 @@ Allow them?</value>
     <data name="AudioErrorNetwork" xml:space="preserve">
         <value>Could not reach the voice service. Check your network. ({0})</value>
     </data>
-    <data name="AudioServiceAdd" xml:space="preserve">
-        <value>Add online service</value>
-    </data>
     <data name="AudioServiceOnline" xml:space="preserve">
         <value>Online</value>
     </data>
@@ -5457,9 +5454,6 @@ Allow them?</value>
     </data>
     <data name="ImageDrawOpen" xml:space="preserve">
         <value>Draw</value>
-    </data>
-    <data name="ImageModelGetLocal" xml:space="preserve">
-        <value>Get local models</value>
     </data>
     <data name="ImageEngineStatusStopped" xml:space="preserve">
         <value>The local engine is not running; it starts automatically when you generate an image.</value>
