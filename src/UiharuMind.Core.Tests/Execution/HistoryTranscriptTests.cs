@@ -73,11 +73,12 @@ public class HistoryTranscriptTests : IDisposable
         await File.WriteAllTextAsync(Path.Combine(_dir, "s.transcript.md"), transcript,
             TestContext.Current.CancellationToken);
 
-        GrepToolResult result = await new PermissiveFileAccessTools(_dir)
+        string result = await new PermissiveFileAccessTools(_dir)
             .Grep("vendor", ct: TestContext.Current.CancellationToken);
 
-        GrepFileHits file = Assert.Single(result.Matches);
-        Assert.Contains(file.Lines, line => line.Contains("vendor"));
+        // 正文是文本块:路径行 + 命中行
+        Assert.Contains("s.transcript.md", result);
+        Assert.Contains("vendor", result);
         Assert.All(transcript.Split('\n'), line => Assert.True(line.Length <= HistoryTranscript.WrapChars, line));
     }
 

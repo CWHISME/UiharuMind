@@ -281,14 +281,9 @@ public class SearchFailureVisibilityTests : IDisposable
         await File.WriteAllTextAsync(Path.Combine(_dir, "default.nix"), "x", TestContext.Current.CancellationToken);
 
         PermissiveFileAccessTools tools = new(_dir);
-        AIFunction glob = tools.Create().OfType<AIFunction>().Single(x => x.Name == FileToolNames.Glob);
-        object? raw = await glob.InvokeAsync(new AIFunctionArguments { ["pattern"] = "**/*" }, TestContext.Current.CancellationToken);
+        string result = await tools.Glob("**/*", ct: TestContext.Current.CancellationToken);
 
-        // InvokeAsync 回的是已序列化的 JsonElement(工具结果本来就是这样发给模型的),
-        // 顺带证明了带 Notice 的包装类型走反射序列化没问题
-        JsonElement json = Assert.IsType<JsonElement>(raw);
-        List<string> entries = json.GetProperty("entries").EnumerateArray()
-            .Select(x => x.GetString() ?? string.Empty).ToList();
+        List<string> entries = result.Split('\n').Where(line => line.Length > 0).ToList();
         int lastFile = entries.FindLastIndex(x => x.StartsWith("[FILE]", StringComparison.Ordinal));
         int firstDir = entries.FindIndex(x => x.StartsWith("[DIR]", StringComparison.Ordinal));
 

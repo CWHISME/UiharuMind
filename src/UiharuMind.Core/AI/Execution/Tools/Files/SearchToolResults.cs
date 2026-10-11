@@ -7,76 +7,52 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using UiharuMind.Core.AI.Execution.Tools;
+
 namespace UiharuMind.Core.AI.Execution.Files;
 
 /// <summary>
-/// 两个搜索工具回给模型的形状：命中与<b>说明</b>分成两个字段。
+/// 搜索工具回给模型的形状：<b>两个都是纯文本</b>（Glob 与 Grep 同口径）。
 ///
-/// 从前说明是混在命中列表里的假条目（<c>"[Error] ..."</c>、<c>FileName = "[truncated]"</c>），
-/// 模型于是分不清"这是一条命中"还是"这是一句话"——最糟的一种是引擎异常被包成假命中，
-/// 模型看到的是"有 1 条结果"。分成两个字段之后，"0 条命中"与"没搜成"在结构上就不同了。
+/// 结果要落历史、被序列化再读回，对象会在重放时变成 <c>JsonElement</c>，
+/// 其 ToString 吐出紧凑 JSON——换行变 <c>\n</c> 字面量、列表被逗号挤成一行，
+/// 模型与界面都读不出原来的行结构。字符串则还原成真实换行。
+///
+/// 正文与说明因此拼进同一段文本，用 <see cref="ToolResultText.AppendNotice"/> 的分隔行隔开。
+/// 失败、0 命中、自动降级、截断这些说明绝不混进条目本体——从前它是混在命中列表里的假条目
+/// （<c>"[Error] ..."</c>、<c>FileName = "[truncated]"</c>），模型分不清"这是一条命中"
+/// 还是"这是一句话"（ADR 0017）。"0 条命中"与"没搜成"在文本上依旧能区分。
 /// </summary>
-public sealed class GlobToolResult
-{
-    /// <summary>命中条目；没搜成时为空</summary>
-    public List<string> Entries { get; set; } = [];
 
-    /// <summary>给模型的说明：失败原因、0 命中、被截断。没有要说的就是 null</summary>
-    public string? Notice { get; set; }
+/// <summary>
+/// 搜索结果文本的公共拼接：把说明拼到条目后面，用分隔行隔开（同
+/// <see cref="ToolOutputTruncation"/> 头尾的惯例）。没有正文（0 命中）时不加分隔——
+/// 没有正文可分隔，直接给说明，免得开头空两行。
+/// </summary>
+internal static class ToolResultText
+{
+    /// <summary>把说明拼到正文后面，按工具结果的惯例用分隔行隔开；没有正文时原样给说明</summary>
+    public static string AppendNotice(string body, string? notice)
+    {
+        if (notice == null) return body;
+        return body.Length == 0 ? notice : body + "\n\n---\n" + notice;
+    }
 }
 
 /// <summary>
-/// 一个文件的一组命中行。
+/// 一个文件的一组命中行——<b>只作塑形中间结构</b>，不再跨模型边界序列化。
 ///
-/// 按文件分组让模型一眼数出「几个文件、各几处」，路径只出现一次，token 远省于铺平的一行一命中
-/// （同一文件命中越多越省）。行内容保持 grep 味：命中行 <c>行号: 内容</c>，上下文行 <c>行号- 内容</c>，
-/// 行号拿来发 <c>Read offset=</c> 依旧毫不费力。
+/// 模型读到的是 <see cref="GrepResultShaper"/> 渲成的文本：每文件路径单独一行、下面是
+/// 命中行与上下文行（命中 <c>行号: 内容</c>、上下文 <c>行号- 内容</c>，对齐 ripgrep），
+/// 行号拿来发 <c>Read offset=</c> 依旧毫不费力。分组、去重、行号排序全在这一层做。
 /// </summary>
-public sealed class GrepFileHits
+internal sealed class GrepFileHits
 {
     /// <summary>文件路径（相对工作区）</summary>
     public string File { get; set; } = string.Empty;
 
     /// <summary>命中行与其上下文，按行号升序</summary>
     public List<string> Lines { get; set; } = [];
-}
-
-/// <summary>
-/// 地图模式下的一个条目：告诉模型「被丢掉的命中分布在哪」。
-///
-/// 命中过多时正文会被整页换成这张地图——半截正文是按扫描序取的、没有相关度排序，
-/// 留着只会让模型锚定到运气好的文件上；地图则让模型直接对「哪些文件命中多」下判断：
-/// 定点 <c>Read</c>，或意识到这个词搜宽了、换更窄的关键词。
-/// </summary>
-public sealed class GrepMapEntry
-{
-    /// <summary>文件路径（相对工作区）</summary>
-    public string File { get; set; } = string.Empty;
-
-    /// <summary>该文件命中处数（一处命中连同其上下文行算一条）</summary>
-    public int Hits { get; set; }
-
-    /// <summary>命中行号区间 [FirstLine, LastLine]，拿来发 <c>Read offset=</c> 正好</summary>
-    public int FirstLine { get; set; }
-
-    /// <summary>命中行号区间上界</summary>
-    public int LastLine { get; set; }
-
-    /// <summary>首条命中片段（预览用，已按行截断）</summary>
-    public string Snippet { get; set; } = string.Empty;
-}
-
-/// <summary>文本搜索工具回给模型的形状，与 <see cref="GlobToolResult"/> 同构</summary>
-public sealed class GrepToolResult
-{
-    /// <summary>按文件分组的命中；没搜成时为空。地图模式下也为空（正文被整页换掉）</summary>
-    public List<GrepFileHits> Matches { get; set; } = [];
-
-    /// <summary>地图模式：命中过多时给的每文件命中分布，供定点 Read；正文模式为 null</summary>
-    public List<GrepMapEntry>? Map { get; set; }
-
-    /// <summary>给模型的说明：失败原因、自动降级、0 命中、被截断。没有要说的就是 null</summary>
-    public string? Notice { get; set; }
 }
 
 /// <summary>

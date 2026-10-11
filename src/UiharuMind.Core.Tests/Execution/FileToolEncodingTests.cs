@@ -139,10 +139,9 @@ public sealed class FileToolEncodingTests : IDisposable
     {
         Save("a.cs", Gb18030.GetBytes("// 返回默认值\nint a = 1;\n"));
 
-        GrepToolResult result = await _tools.Grep("默认值", ct: Ct);
+        string result = await _tools.Grep("默认值", ct: Ct);
 
-        GrepFileHits file = Assert.Single(result.Matches);
-        Assert.Contains(file.Lines, line => line.Contains("// 返回默认值"));
+        Assert.Contains("// 返回默认值", result);
     }
 
     /// <summary>UTF-16 的 NUL 从前让整个文件被当成二进制跳过</summary>
@@ -151,9 +150,8 @@ public sealed class FileToolEncodingTests : IDisposable
     {
         Save("a.txt", [0xFF, 0xFE, .. Encoding.Unicode.GetBytes("first\nthe needle here\n")]);
 
-        GrepToolResult result = await _tools.Grep("needle", ct: Ct);
+        string result = await _tools.Grep("needle", ct: Ct);
 
-        GrepFileHits file = Assert.Single(result.Matches);
-        Assert.Contains(file.Lines, line => line.Contains("the needle here"));
+        Assert.Contains("the needle here", result);
     }
 }

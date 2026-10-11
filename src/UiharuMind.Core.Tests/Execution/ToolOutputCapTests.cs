@@ -70,17 +70,17 @@ public class ToolOutputCapTests : IDisposable
 
     /// <summary>
     /// 总量上限按 UTF-8 字节算,而不是字符——中文一个字符三字节,按字符算会让中文文件
-    /// 实际放进三四倍于标称的 token。传 limit=4000 绕过行数限制,让 1MB 字节上限先生效。
+    /// 实际放进三四倍于标称的 token。传 head=4000 绕过行数限制,让 1MB 字节上限先生效。
     /// </summary>
     [Fact]
     public async Task Read_ChineseFile_IsCappedByBytesNotChars()
     {
         string path = Path.Combine(_dir, "chinese.md");
-        // 每行 100 个汉字 = 301 字节,4000 行约 1.2MB,传 limit=4000 绕过行数限制
+        // 每行 100 个汉字 = 301 字节,4000 行约 1.2MB,传 head=4000 绕过行数限制
         await File.WriteAllLinesAsync(path,
             Enumerable.Range(1, 4000).Select(_ => new string('测', 100)), TestContext.Current.CancellationToken);
 
-        string result = await _tools.Read(path, limit: 4000, cancellationToken: TestContext.Current.CancellationToken);
+        string result = await _tools.Read(path, head: 4000, cancellationToken: TestContext.Current.CancellationToken);
 
         string[] lines = result.Split('\n');
         Assert.Contains("continue with offset=", lines[^1]);
@@ -90,7 +90,7 @@ public class ToolOutputCapTests : IDisposable
     }
 
     /// <summary>
-    /// limit=-1 是全文读模式:绕过 1MB 字节上限,读完整个文件。
+    /// head=-1 是全文读模式:绕过 1MB 字节上限,读完整个文件。
     /// 用于需要完整理解文件以做重构的场景——分段读容易让模型忘了前面读了什么。
     /// </summary>
     [Fact]
@@ -101,7 +101,7 @@ public class ToolOutputCapTests : IDisposable
         await File.WriteAllLinesAsync(path,
             Enumerable.Range(1, 3000).Select(i => new string('x', 480) + i), TestContext.Current.CancellationToken);
 
-        string result = await _tools.Read(path, limit: -1, cancellationToken: TestContext.Current.CancellationToken);
+        string result = await _tools.Read(path, head: -1, cancellationToken: TestContext.Current.CancellationToken);
 
         // 全文读绕过字节上限,不应有截断提示
         Assert.DoesNotContain("[truncated", result);
@@ -110,7 +110,7 @@ public class ToolOutputCapTests : IDisposable
         Assert.Contains("3000", result);
         // 总字节应超过 1MB(证明绕过了字节上限)
         Assert.True(Encoding.UTF8.GetByteCount(result) > FileReader.MaxTotalBytes,
-            "limit=-1 应绕过字节上限,实际返回字节应超过上限");
+            "head=-1 应绕过字节上限,实际返回字节应超过上限");
     }
 
     [Fact]
@@ -119,15 +119,15 @@ public class ToolOutputCapTests : IDisposable
         string path = Path.Combine(_dir, "haystack.txt");
         await File.WriteAllLinesAsync(path, Enumerable.Range(1, 300).Select(i => $"needle {i}"), TestContext.Current.CancellationToken);
 
-        GrepToolResult result = await _tools.Grep("needle", ct: TestContext.Current.CancellationToken);
+        string result = await _tools.Grep("needle", ct: TestContext.Current.CancellationToken);
 
-        // 按文件分组:300 处命中来自同一文件 → 一组,但命中数仍封顶在 200
-        GrepFileHits file = Assert.Single(result.Matches);
-        Assert.Equal("haystack.txt", file.File);
-        Assert.Equal(GrepResultShaper.MaxMatches, file.Lines.Count);
-        Assert.NotNull(result.Notice);
-        Assert.Contains("100 more", result.Notice);
-        Assert.Contains("Narrow the query", result.Notice);
+        // 300 处命中来自同一文件 → 路径行 + 封顶 200 条命中行,后面的被丢;说明拼接在正文后面的分隔段里
+        Assert.StartsWith("haystack.txt\n", result);
+        string[] lines = result.Split('\n');
+        Assert.Equal(GrepResultShaper.MaxMatches + 1, lines.TakeWhile(line => line.Length > 0).Count());
+        Assert.DoesNotContain("needle 300", result);
+        Assert.Contains("100 more", result);
+        Assert.Contains("Narrow the query", result);
     }
 
     /// <summary>
@@ -140,12 +140,10 @@ public class ToolOutputCapTests : IDisposable
         string path = Path.Combine(_dir, "ctx.txt");
         await File.WriteAllLinesAsync(path, ["l1", "l2", "target", "l4", "l5"], TestContext.Current.CancellationToken);
 
-        GrepToolResult result = await _tools.Grep("target", contextLines: 1, ct: TestContext.Current.CancellationToken);
+        string result = await _tools.Grep("target", contextLines: 1, ct: TestContext.Current.CancellationToken);
 
-        // 组内行保持 grep 味:命中行 "N:content",上下文行 "N-content"(对齐 ripgrep)
-        GrepFileHits file = Assert.Single(result.Matches);
-        Assert.Equal("ctx.txt", file.File);
-        Assert.Equal(["2-l2", "3:target", "4-l4"], file.Lines);
+        // 正文保持 grep 味:路径行 + 命中行 "N:content"、上下文行 "N-content"(对齐 ripgrep)
+        Assert.Equal("ctx.txt\n2-l2\n3:target\n4-l4", result);
     }
 
     /// <summary>同一文件的多处命中,重叠上下文行只出现一次;行号升序</summary>
@@ -155,20 +153,10 @@ public class ToolOutputCapTests : IDisposable
         string path = Path.Combine(_dir, "dense.txt");
         await File.WriteAllLinesAsync(path, ["hit", "hit", "hit"], TestContext.Current.CancellationToken);
 
-        GrepToolResult result = await _tools.Grep("hit", contextLines: 2, ct: TestContext.Current.CancellationToken);
+        string result = await _tools.Grep("hit", contextLines: 2, ct: TestContext.Current.CancellationToken);
 
-        GrepFileHits file = Assert.Single(result.Matches);
-        Assert.Equal("dense.txt", file.File);
-        // 三处命中+重叠上下文去重后,行号仍是 1/2/3,按行号升序
-        Assert.Equal(3, file.Lines.Count);
-        Assert.Equal([1, 2, 3], file.Lines.Select(ParseLineNumber).ToArray());
-
-        static int ParseLineNumber(string s)
-        {
-            // 形如 "N:content"(命中)或 "N-content"(上下文),行号就是开头那串数字
-            int end = s.IndexOfAny([':', '-']);
-            return int.Parse(s[..end]);
-        }
+        // 三处命中 + 重叠上下文去重后,正文仍是 1/2/3 三行,按行号升序(路径行独占一行)
+        Assert.Equal("dense.txt\n1:hit\n2:hit\n3:hit", result);
     }
 
     /// <summary>
@@ -184,17 +172,17 @@ public class ToolOutputCapTests : IDisposable
         await File.WriteAllLinesAsync(path,
             Enumerable.Range(1, 400).Select(i => "needle " + new string('x', 280) + i), TestContext.Current.CancellationToken);
 
-        GrepToolResult result = await _tools.Grep("needle", ct: TestContext.Current.CancellationToken);
+        // 命中过多（正文超 32KB 字节预算）时不返半截正文，整页换成命中地图。
+        // 地图渲成文本行：每文件一行（命中数 + 行号区间），说明拼在后段。
+        // 半截正文按扫描序取、无相关度排序，留着只会让模型锚定到运气好的文件上；
+        // 地图给全量分布（不随 200 上限截短），模型据它定点 Read 或收窄重搜。
+        string result = await _tools.Grep("needle", ct: TestContext.Current.CancellationToken);
 
-        Assert.Empty(result.Matches); //正文整页换掉
-        Assert.NotNull(result.Map);
-        GrepMapEntry entry = Assert.Single(result.Map);
-        Assert.Equal("wide.txt", entry.File);
-        Assert.Equal(400, entry.Hits); //地图给全量分布,不被 200 上限截短
-        Assert.Equal(1, entry.FirstLine);
-        Assert.Equal(400, entry.LastLine);
-        Assert.Contains("处命中，跨", result.Notice);
-        Assert.Contains("无法内联返回", result.Notice);
+        Assert.Contains("wide.txt: 400 处命中（第 1–400 行）", result); //地图给全量分布,不被 200 上限截短
+        Assert.Contains("处命中，跨", result);
+        Assert.Contains("无法内联返回", result);
+        Assert.Contains("---\n400 处命中，跨", result); //地图说明与正文模式同款分隔行(统一口径)
+        Assert.DoesNotContain("---\nShowing the first", result); //地图模式不再走 200 上限正文
     }
 
     /// <summary>地图按命中数降序取 Top 50:命中极度分散本身就是"搜宽了"的信号,看前 50 就够下判断</summary>
@@ -209,13 +197,14 @@ public class ToolOutputCapTests : IDisposable
                 Enumerable.Range(1, 10).Select(i => "needle " + new string('y', 250) + i), TestContext.Current.CancellationToken);
         }
 
-        GrepToolResult result = await _tools.Grep("needle", ct: TestContext.Current.CancellationToken);
+        string result = await _tools.Grep("needle", ct: TestContext.Current.CancellationToken);
 
-        Assert.Empty(result.Matches);
-        Assert.NotNull(result.Map);
-        Assert.Equal(GrepResultShaper.MaxMapFiles, result.Map.Count);
-        Assert.All(result.Map, e => Assert.Equal(10, e.Hits));
-        Assert.Contains("600 处命中，跨 60 个文件", result.Notice);
+        Assert.Contains("600 处命中，跨 60 个文件", result);
+        // Top 50 按命中数降序,每文件一行文本;拿到的是保出来的 50 个文件名
+        // (过滤时匹配“: N 处命中（第”而不是“处命中”，避免把说明行“600 处命中，跨”也算进去)
+        string[] mapLines = result.Split('\n').Where(line => line.Contains("处命中（第")).ToArray();
+        Assert.Equal(GrepResultShaper.MaxMapFiles, mapLines.Length);
+        Assert.All(mapLines, line => Assert.Contains(": 10 处命中（第 ", line));
     }
 
     [Fact]
