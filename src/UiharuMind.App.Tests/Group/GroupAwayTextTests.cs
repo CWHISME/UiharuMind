@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using UiharuMind.Core.AI.Chat.Group.Away;
 using UiharuMind.Features.Conversation.Group;
 using UiharuMind.Generated;
@@ -38,6 +39,37 @@ public class GroupAwayTextTests
         Assert.Equal(Loc.Text(LangKey.GroupAwayReceiptDeniedFormat, "Bob", "Write /etc/hosts", "越界写入"), lines[3]);
         Assert.Equal(Loc.Text(LangKey.GroupAwayReceiptActionsFormat, "Edit src/a.cs"), lines[4]);
         Assert.Equal(Loc.Text(LangKey.GroupAwayReceiptSummaryFormat, "要不要推送等你定"), lines[5]);
+    }
+
+    [Fact]
+    public void Receipt_MultipleActions_OnePerLine()
+    {
+        DateTimeOffset start = DateTimeOffset.UnixEpoch;
+        GroupAwayReceipt receipt = new("g", "avatar", EGroupAwayEndReason.Done, "",
+            start, start.AddMinutes(10), 2, [], [],
+            ["Edit src/a.cs", "Read src/b.cs", "Grep docs"]);
+
+        string[] lines = GroupAwayReceiptText.Format(receipt).Split('\n');
+
+        Assert.Equal(Loc.Text(LangKey.GroupAwayReceiptActionsFormat, "Edit src/a.cs"), lines[2]);
+        Assert.Equal("Read src/b.cs", lines[3]);
+        Assert.Equal("Grep docs", lines[4]);
+    }
+
+    [Fact]
+    public void Receipt_TooManyActions_CapsTheListAndCountsTheRest()
+    {
+        DateTimeOffset start = DateTimeOffset.UnixEpoch;
+        string[] actions = Enumerable.Range(0, 15).Select(i => $"Read src/f{i}.cs").ToArray();
+        GroupAwayReceipt receipt = new("g", "avatar", EGroupAwayEndReason.Done, "",
+            start, start.AddMinutes(10), 2, [], [], actions);
+
+        string[] lines = GroupAwayReceiptText.Format(receipt).Split('\n');
+
+        Assert.Equal(Loc.Text(LangKey.GroupAwayReceiptActionsFormat, "Read src/f0.cs"), lines[2]);
+        for (int i = 1; i < 12; i++)
+            Assert.Equal($"Read src/f{i}.cs", lines[2 + i]);
+        Assert.Equal(Loc.Text(LangKey.GroupAwayReceiptActionsMoreFormat, 3), lines[14]);
     }
 
     [Fact]

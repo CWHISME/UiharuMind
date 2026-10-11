@@ -13,6 +13,9 @@ namespace UiharuMind.Features.Conversation.Group;
 /// </summary>
 public static class GroupAwayReceiptText
 {
+    /// <summary>回执卡上一行一条、最多展示多少条化身动作；更多的合并成一条计数行，避免几十上百次调用把卡片堆成密墙</summary>
+    private const int MaxAvatarActionsShown = 12;
+
     /// <summary>
     /// 通知用的短版：原因 + 用时/出手/发言。明细（驳回的审批、化身的交代）只在群里的回执卡上看，
     /// 通知栏放全文会把 toast 撑爆
@@ -40,7 +43,15 @@ public static class GroupAwayReceiptText
         }
 
         if (receipt.AvatarActions.Count > 0)
-            lines.Add(Loc.Text(LangKey.GroupAwayReceiptActionsFormat, string.Join("；", receipt.AvatarActions)));
+        {
+            // 一条一行而不是分号堆成一串：化身一次离席可能调几十上百次工具,
+            // 连成一行的可读性只有第一眼,叠几屏后就是密墙
+            List<string> actions = receipt.AvatarActions.Take(MaxAvatarActionsShown).ToList();
+            if (receipt.AvatarActions.Count > MaxAvatarActionsShown)
+                actions.Add(Loc.Text(LangKey.GroupAwayReceiptActionsMoreFormat,
+                    receipt.AvatarActions.Count - MaxAvatarActionsShown));
+            lines.Add(Loc.Text(LangKey.GroupAwayReceiptActionsFormat, string.Join("\n", actions)));
+        }
         if (!string.IsNullOrWhiteSpace(receipt.Summary))
             lines.Add(Loc.Text(LangKey.GroupAwayReceiptSummaryFormat, receipt.Summary.Trim()));
 

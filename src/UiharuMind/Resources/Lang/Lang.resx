@@ -3900,6 +3900,9 @@ Allow them?</value>
     <data name="GroupAwayReceiptActionsFormat" xml:space="preserve">
         <value>Avatar did: {0}</value>
     </data>
+    <data name="GroupAwayReceiptActionsMoreFormat" xml:space="preserve">
+        <value>… and {0} more</value>
+    </data>
     <data name="GroupAwayReceiptSummaryFormat" xml:space="preserve">
         <value>Note: {0}</value>
     </data>

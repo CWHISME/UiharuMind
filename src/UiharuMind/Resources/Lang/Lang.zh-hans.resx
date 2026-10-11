@@ -3893,6 +3893,9 @@
     <data name="GroupAwayReceiptActionsFormat" xml:space="preserve">
         <value>化身自己动手：{0}</value>
     </data>
+    <data name="GroupAwayReceiptActionsMoreFormat" xml:space="preserve">
+        <value>… 还有 {0} 条</value>
+    </data>
     <data name="GroupAwayReceiptSummaryFormat" xml:space="preserve">
         <value>交代：{0}</value>
     </data>
