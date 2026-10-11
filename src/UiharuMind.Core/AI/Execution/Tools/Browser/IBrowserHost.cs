@@ -77,6 +77,13 @@ public interface IBrowserHost
     BrowserElement? PeekElement(string sessionId, string target);
 
     /// <summary>
+    /// 指定会话的下载落到哪：页面上点出来的下载不进 Chrome 默认的下载目录，下完挪到这里并把路径告诉模型
+    /// </summary>
+    /// <param name="sessionId">会话 id</param>
+    /// <param name="directory">目录（不存在会在第一次下载时创建）</param>
+    void UseDownloadDirectory(string sessionId, string directory);
+
+    /// <summary>
     /// 会话标签页此刻的地址，不碰页面
     /// </summary>
     /// <param name="sessionId">会话 id</param>

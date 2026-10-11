@@ -71,6 +71,7 @@ internal sealed partial class PuppeteerTab
     public Task<BrowserPageView> NavigateAsync(string url, CancellationToken cancellationToken) => RunAsync(async () =>
     {
         string? note = null;
+        DateTime started = DateTime.UtcNow;
         try
         {
             // 只等文档就绪，不等 load：慢图、慢脚本、第三方统计会把 load 拖过超时，正文早就能看了
@@ -87,8 +88,15 @@ internal sealed partial class PuppeteerTab
             note = $"The page was still loading after {NavigationTimeoutMs / 1000} s; this is what it shows so far. " +
                    "Take a snapshot again in a moment.";
         }
+        catch (NavigationException e) when (e.Message.Contains("ERR_ABORTED", StringComparison.Ordinal))
+        {
+            // 地址本身是个文件：Chrome 把它当下载、导航中止，页面留在原处
+            if (!await DownloadStartsAsync(started)) throw;
+            note = "That address is a file download, so the page did not change.";
+        }
 
         await SettleAsync();
+        await WaitDownloadsAsync(started);
         return await CaptureAsync(note);
     }, cancellationToken);
 
@@ -109,9 +117,11 @@ internal sealed partial class PuppeteerTab
     public Task<BrowserPageView> ActAsync(BrowserActionRequest request, CancellationToken cancellationToken) =>
         RunAsync(async () =>
         {
+            DateTime started = DateTime.UtcNow;
             string note = await PerformAndWaitAsync(request);
             await ReclaimFrontAsync();
             await SettleAsync();
+            await WaitDownloadsAsync(started);
             return await CaptureAsync(note);
         }, cancellationToken);
 

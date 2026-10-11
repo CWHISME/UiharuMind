@@ -221,6 +221,10 @@ public class ApprovalCardResolutionTests
             return target == "e2" ? new BrowserElement("button", "Go", false) : null;
         }
 
+        public void UseDownloadDirectory(string sessionId, string directory)
+        {
+        }
+
         public string? PeekUrl(string sessionId)
         {
             Calls++;

@@ -25,9 +25,11 @@ public sealed class PuppeteerBrowserHost : IBrowserHost
     private static readonly TimeSpan IdleTabLifetime = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan HandedOverLifetime = TimeSpan.FromHours(2); //接管卡挂着没人理，也不能永远占着
     private static readonly TimeSpan SweepInterval = TimeSpan.FromMinutes(1);
+    private static readonly string DownloadStaging = Path.Combine(AppPaths.Cache.Root, "BrowserDownloads"); //下载先按 guid 落这里
 
     private readonly SemaphoreSlim _gate = new(1, 1); //起浏览器、开标签页、回收排队，免得并发调用各起一个
     private readonly ConcurrentDictionary<string, PuppeteerTab> _tabs = new();
+    private readonly ConcurrentDictionary<string, string> _downloadDirectories = new(); //会话 id → 下载目录
     private readonly Timer _idleSweep; //闲置回收；留着引用，免得计时器被回收
     private readonly bool _headless;
     private IBrowser? _browser;
@@ -87,6 +89,13 @@ public sealed class PuppeteerBrowserHost : IBrowserHost
         OpenTab(sessionId)?.Peek(target) is { } node ? new BrowserElement(node.Role, node.Name.Trim(), node.Secret) : null;
 
     /// <inheritdoc />
+    public void UseDownloadDirectory(string sessionId, string directory)
+    {
+        _downloadDirectories[sessionId] = directory;
+        if (_tabs.TryGetValue(sessionId, out PuppeteerTab? tab)) tab.DownloadDirectory = directory;
+    }
+
+    /// <inheritdoc />
     public string? PeekUrl(string sessionId) => OpenTab(sessionId)?.Url;
 
     // 只认已经开着的，不为回查新开页面
@@ -109,7 +118,7 @@ public sealed class PuppeteerBrowserHost : IBrowserHost
                 ? spare
                 : await browser.NewPageAsync(new CreatePageOptions { Type = CreatePageType.Window });
             _spare = null;
-            PuppeteerTab tab = new(page);
+            PuppeteerTab tab = new(page) { DownloadDirectory = _downloadDirectories.GetValueOrDefault(sessionId, string.Empty) };
             tab.Closed += () => _tabs.TryRemove(new KeyValuePair<string, PuppeteerTab>(sessionId, tab));
             _tabs[sessionId] = tab;
             return tab;
@@ -141,8 +150,14 @@ public sealed class PuppeteerBrowserHost : IBrowserHost
         browser.Disconnected += (_, _) => _tabs.Clear();
         _browser = browser;
         _spare = (await browser.PagesAsync()).FirstOrDefault(p => p.Url == "about:blank");
+        await PuppeteerDownloads.EnableAsync(browser, DownloadStaging, FindDownloadTab);
         return browser;
     }
+
+    // 认不出框架（新开的标签页里点出来的下载）就归最近动过手的会话
+    private PuppeteerTab? FindDownloadTab(string frameId) =>
+        _tabs.Values.FirstOrDefault(tab => tab.OwnsFrame(frameId)) ??
+        _tabs.Values.Where(tab => !tab.IsClosed).MaxBy(tab => tab.LastUsed);
 
     // 标签页闲着超过十分钟就关（子代理跑完的、会话删掉的都会剩下一个），接管中的放宽到两小时；一个都不剩时浏览器也关——
     // 登录态在档案里，下次用到再起，不白占内存

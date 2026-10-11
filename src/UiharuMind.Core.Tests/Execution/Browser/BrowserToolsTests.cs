@@ -216,6 +216,10 @@ public class BrowserToolsTests
         public BrowserElement? PeekElement(string sessionId, string target) =>
             AxSnapshotSearch.NormalizeTarget(target) == "e2" ? new BrowserElement("button", "Go", false) : null;
 
+        public void UseDownloadDirectory(string sessionId, string directory)
+        {
+        }
+
         public string? PeekUrl(string sessionId) => "https://example.com/";
 
         public Task<BrowserPageView> SnapshotAsync(string sessionId, CancellationToken cancellationToken) =>
