@@ -3343,6 +3343,15 @@
     <data name="GroupArtifactsEmpty" xml:space="preserve">
         <value>盘上还没有东西。</value>
     </data>
+    <data name="GroupArtifactsFilterDrafts" xml:space="preserve">
+        <value>只看草稿</value>
+    </data>
+    <data name="GroupArtifactsFilterAll" xml:space="preserve">
+        <value>查看全部</value>
+    </data>
+    <data name="GroupArtifactsDraftEmpty" xml:space="preserve">
+        <value>草稿目录还没有东西。</value>
+    </data>
     <data name="GroupArtifactOpen" xml:space="preserve">
         <value>打开</value>
     </data>

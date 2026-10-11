@@ -324,11 +324,14 @@
                                            IsVisible="{Binding Conversation.Artifacts.Items.Count}" />
                             </StackPanel>
                         </TabItem.Header>
-                        <!-- 焦点变化不自动滚：产物行点按半截会被默认 BringIntoViewOnFocusChange 拽走 -->
+                        <!-- 焦点变化不自动滚：产物行点按半截会被默认 BringIntoViewOnFocusChange 拽走。
+                             判空守卫必须挂在外层（继承页面 DataContext），不能与 DataContext 写在同一元素上——
+                             同一元素上的绑定按新的 DataContext 求值，空时守卫恒为真，面板带着空 DataContext
+                             裸奔：标题与说明全空、文件夹按钮点不了，只剩静态空文案 -->
                         <ScrollViewer Margin="0,6,0,0" HorizontalScrollBarVisibility="Disabled"
-                                      BringIntoViewOnFocusChange="False">
-                            <art:ArtifactsPanel DataContext="{Binding Conversation.Artifacts}"
-                                                IsVisible="{Binding Conversation.Artifacts, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                      BringIntoViewOnFocusChange="False"
+                                      IsVisible="{Binding Conversation.Artifacts, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <art:ArtifactsPanel DataContext="{Binding Conversation.Artifacts}" />
                         </ScrollViewer>
                     </TabItem>
 

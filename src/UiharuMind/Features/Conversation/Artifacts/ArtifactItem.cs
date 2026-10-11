@@ -13,6 +13,9 @@ public sealed partial class ArtifactItem : ObservableObject
 {
     private GroupArtifact _artifact;
 
+    /// <summary>筛选项下还显不显示；刷新复用实例，只翻这个开关</summary>
+    [ObservableProperty] private bool _matchesFilter = true;
+
     /// <summary>
     /// 包一件产物
     /// </summary>

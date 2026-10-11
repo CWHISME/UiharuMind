@@ -13,6 +13,7 @@ using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Features.Conversation.Items;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Conversation.Artifacts;
@@ -47,6 +48,17 @@ public sealed partial class ArtifactsViewData : ObservableObject, IDisposable
 
     /// <summary>盘上还什么都没有</summary>
     [ObservableProperty] private bool _isEmpty = true;
+
+    /// <summary>只看草稿目录（否则草稿 + 改过的工作区文件都列）</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FilterTip))]
+    private bool _draftOnly;
+
+    /// <summary>筛完一条不剩（盘上有东西，但全是工作区改的）</summary>
+    [ObservableProperty] private bool _isDraftEmpty;
+
+    /// <summary>筛选钮的悬停说明，随开关变</summary>
+    public string FilterTip => Loc.Text(DraftOnly ? LangKey.GroupArtifactsFilterAll : LangKey.GroupArtifactsFilterDrafts);
 
     /// <summary>
     /// 盯一个来源的产物
@@ -83,6 +95,8 @@ public sealed partial class ArtifactsViewData : ObservableObject, IDisposable
     /// <summary>立刻重读一遍</summary>
     [RelayCommand]
     private void Refresh() => ScheduleRefresh();
+
+    partial void OnDraftOnlyChanged(bool value) => ApplyFilter();
 
     // 来自后台线程
     private void OnMemberActivity(string sessionId)
@@ -141,7 +155,7 @@ public sealed partial class ArtifactsViewData : ObservableObject, IDisposable
             {
                 if (token.IsCancellationRequested) return;
                 ArtifactListSync.Apply(Items, artifacts);
-                IsEmpty = Items.Count == 0;
+                ApplyFilter();
             });
         }
         catch (OperationCanceledException)
@@ -151,4 +165,19 @@ public sealed partial class ArtifactsViewData : ObservableObject, IDisposable
     }
 
     private IReadOnlyList<GroupArtifact> Collect() => _source.Collect();
+
+    // 切换筛选项与每次刷新后都走这里：实例不重建，只翻每行的可见开关
+    private void ApplyFilter()
+    {
+        bool anyVisible = false;
+        foreach (ArtifactItem item in Items)
+        {
+            bool shown = !DraftOnly || item.IsDraft;
+            item.MatchesFilter = shown;
+            if (shown) anyVisible = true;
+        }
+
+        IsEmpty = Items.Count == 0;
+        IsDraftEmpty = DraftOnly && Items.Count > 0 && !anyVisible;
+    }
 }

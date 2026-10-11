@@ -3350,6 +3350,15 @@ Allow them?</value>
     <data name="GroupArtifactsEmpty" xml:space="preserve">
         <value>Nothing on disk yet.</value>
     </data>
+    <data name="GroupArtifactsFilterDrafts" xml:space="preserve">
+        <value>Drafts only</value>
+    </data>
+    <data name="GroupArtifactsFilterAll" xml:space="preserve">
+        <value>Show all</value>
+    </data>
+    <data name="GroupArtifactsDraftEmpty" xml:space="preserve">
+        <value>Nothing in the draft room yet.</value>
+    </data>
     <data name="GroupArtifactOpen" xml:space="preserve">
         <value>Open</value>
     </data>

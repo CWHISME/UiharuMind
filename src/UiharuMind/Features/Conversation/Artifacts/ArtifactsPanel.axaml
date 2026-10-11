@@ -12,23 +12,33 @@
     <!-- 产物区：群或单聊到底落了哪些盘。点开看文件，右键在文件夹中显示 -->
     <Border BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}" CornerRadius="8" Padding="8">
         <StackPanel Spacing="8">
-            <Grid ColumnDefinitions="*,Auto">
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
                 <TextBlock FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"
                            Text="{Binding Title}" />
                 <ThemedIconButton Grid.Column="1" Width="24" Height="24" VerticalAlignment="Center"
                                   IconName="folder-open"
                                   ToolTip.Tip="{Binding DraftRoom}"
                                   Command="{Binding OpenDraftRoomCommand}" />
+                <!-- 只看草稿 / 查看全部：翻行可见开关，不重建实例 -->
+                <ThemedIconToggleButton Grid.Column="2" Width="24" Height="24" VerticalAlignment="Center"
+                                        IconName="sliders-horizontal"
+                                        CheckedForeground="{DynamicResource SemiBlue5}"
+                                        IsChecked="{Binding DraftOnly, Mode=TwoWay}"
+                                        ToolTip.Tip="{Binding FilterTip}" />
             </Grid>
             <TextBlock Classes="muted" Text="{Binding Hint}" TextWrapping="Wrap" />
             <TextBlock Classes="muted" FontSize="11" IsVisible="{Binding IsEmpty}"
                        Text="{loc:Loc GroupArtifactsEmpty}" TextWrapping="Wrap" />
+            <TextBlock Classes="muted" FontSize="11" IsVisible="{Binding IsDraftEmpty}"
+                       Text="{loc:Loc GroupArtifactsDraftEmpty}" TextWrapping="Wrap" />
             <ItemsControl ItemsSource="{Binding Items}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="art:ArtifactItem">
                         <Button Classes="Tertiary" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                 Margin="0,1" Padding="6,4" Command="{Binding OpenCommand}"
-                                ToolTip.Tip="{Binding FullPath}">
+                                IsVisible="{Binding MatchesFilter}"
+                                ToolTip.Tip="{Binding FullPath}"
+                                ToolTip.Placement="Left">
                             <Button.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Header="{loc:Loc GroupArtifactOpen}" Command="{Binding OpenCommand}" />
