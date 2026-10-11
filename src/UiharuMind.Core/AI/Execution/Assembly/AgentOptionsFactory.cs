@@ -24,6 +24,15 @@ namespace UiharuMind.Core.AI.Execution.Assembly;
 internal static class AgentOptionsFactory
 {
     /// <summary>
+    /// 主代理单轮工具往返的数量上限。框架两个默认都是 40——<c>FunctionInvokingChatClient</c> 的
+    /// <c>MaximumIterationsPerRequest</c> 与 <c>ToolApprovalAgent</c> 的 <c>MaxAutoApprovalIterations</c>；
+    /// 撞上后长轮后半段的工具调用不再自动执行，而是转成审批请求弹卡（实测 66 个工具调用即触发）。
+    /// 设成 32768：现实任务不可能撞上（等于去掉数量限制），又保留失控兜底——主代理也跑无人值守
+    /// 定时任务，无头 FullAuto 下没有审批拒绝可依赖，不能真设无限。
+    /// </summary>
+    internal const int MaxIterationsPerRequest = 32768;
+
+    /// <summary>
     /// 三种形态共有的那五项口径，一处定义。
     ///
     /// <c>HarnessInstructions</c> 为空串：整段系统提示由我们自己按顺序拼，
@@ -141,6 +150,8 @@ internal static class AgentOptionsFactory
         // AgentAssembler.BuildTools),点名调用不依赖这一路
         options.DisableAgentSkillsProvider = plan.DisableSkillsProvider;
         options.AIContextProviders = contextProviders;
+        // 长轮后半段不弹卡:框架默认 40 次工具往返后剩余调用转成审批请求交给界面
+        options.MaximumIterationsPerRequest = MaxIterationsPerRequest;
         options.ToolApprovalAgentOptions = new ToolApprovalAgentOptions
         {
             AutoApprovalRules = ApprovalModeMapper.BuildRules(
@@ -152,6 +163,8 @@ internal static class AgentOptionsFactory
                 // 记忆目录:任何权限档可写(ADR 0028)。范围只认 Memory/ 这一格,与房间豁免互不重叠
                 plan.MemoryDirectory,
                 plan.Profile.SessionExtensionApprovalSource),
+            // 自动放行链同口径:默认 40 次后不再自动放行、剩余请求弹卡
+            MaxAutoApprovalIterations = MaxIterationsPerRequest,
         };
         options.ChatOptions = chatOptions;
         return options;

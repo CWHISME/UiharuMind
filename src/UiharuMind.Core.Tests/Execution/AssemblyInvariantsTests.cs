@@ -774,6 +774,22 @@ public class HarnessInstructionsCompositionTests
         }
     }
 
+    /// <summary>
+    /// 主代理不撞框架默认的 40 次工具往返上限:撞上后长轮后半段的剩余调用不再自动执行,
+    /// 而是转成审批请求弹卡(实测 66 个工具调用即触发)。两个上限都显式设大≈去掉数量限制,
+    /// 同时保留失控兜底(主代理也跑无人值守定时任务,不能真设无限)。
+    /// </summary>
+    [Fact]
+    public void MainAgent_IterationCaps_AreRaisedAboveFrameworkDefaults()
+    {
+        HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test");
+
+        Assert.Equal(AgentOptionsFactory.MaxIterationsPerRequest, options.MaximumIterationsPerRequest);
+        Assert.NotNull(options.ToolApprovalAgentOptions);
+        Assert.Equal(AgentOptionsFactory.MaxIterationsPerRequest,
+            options.ToolApprovalAgentOptions!.MaxAutoApprovalIterations);
+    }
+
     private sealed class StubHistoryProvider : ChatHistoryProvider
     {
         public override IReadOnlyList<string> StateKeys => [];
