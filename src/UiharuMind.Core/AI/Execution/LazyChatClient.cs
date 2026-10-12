@@ -50,7 +50,7 @@ public class LazyChatClient : IChatClient
         IReadOnlyList<ChatMessage> messageList = AsList(messages);
         LlmRequestContext.PendingReasoningSource = () => CollectReasoningByCallId(messageList);
 
-        IChatClient client = await ResolveAsync(cancellationToken).ConfigureAwait(false);
+        IChatClient client = (await ResolveAsync(cancellationToken).ConfigureAwait(false)).Client;
         ChatResponse response = await client.GetResponseAsync(messageList, options, cancellationToken)
             .ConfigureAwait(false);
 
@@ -84,7 +84,7 @@ public class LazyChatClient : IChatClient
         IReadOnlyList<ChatMessage> messageList = AsList(messages);
         LlmRequestContext.PendingReasoningSource = () => CollectReasoningByCallId(messageList);
 
-        IChatClient client = await ResolveAsync(cancellationToken).ConfigureAwait(false);
+        var (client, model) = await ResolveAsync(cancellationToken).ConfigureAwait(false);
         HashSet<string>? toolNames = CollectToolNames(options);
 
         // 流式中途被服务端掐断(HttpIOException: ResponseEnded)时重发整个请求再试几次。
@@ -98,7 +98,7 @@ public class LazyChatClient : IChatClient
         {
             bool retryable = false;
             await foreach (var (update, failure) in StreamOnceAsync(
-                               client, messageList, options, toolNames, cancellationToken).ConfigureAwait(false))
+                               client, messageList, options, toolNames, model.ModelName, cancellationToken).ConfigureAwait(false))
             {
                 if (failure != null)
                 {
@@ -130,7 +130,7 @@ public class LazyChatClient : IChatClient
     /// </summary>
     private async IAsyncEnumerable<(ChatResponseUpdate? Update, HttpIOException? Failure)> StreamOnceAsync(
         IChatClient client, IReadOnlyList<ChatMessage> messages, ChatOptions? options, HashSet<string>? toolNames,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
+        string? modelName, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         // 文本工具调用恢复:GLM 线格式的调用可能以纯文本漏进正文或思考通道
         // (服务端未翻译成结构化 tool_calls 时),在此转回 FunctionCallContent,
@@ -144,7 +144,7 @@ public class LazyChatClient : IChatClient
         int textChars = 0;
         StreamCompletionWatch watch = new();
         // 复读不归重试管：直接抛出，本轮按失败收口（已生成的部分照常落盘）
-        RepetitionLoopWatch loopWatch = new();
+        RepetitionLoopWatch loopWatch = new(modelName);
 
         IAsyncEnumerator<ChatResponseUpdate> enumerator = client
             .GetStreamingResponseAsync(messages, options, cancellationToken).GetAsyncEnumerator(cancellationToken);
@@ -406,9 +406,9 @@ public class LazyChatClient : IChatClient
     }
 
     /// <summary>
-    /// 解析当前模型客户端;远程模型启动中时限时等待就绪
+    /// 解析当前模型客户端与其归属;远程模型启动中时限时等待就绪
     /// </summary>
-    private async Task<IChatClient> ResolveAsync(CancellationToken cancellationToken)
+    private async Task<(IChatClient Client, ModelRunningData Model)> ResolveAsync(CancellationToken cancellationToken)
     {
         // 会话绑定的模型优先(如识图技能为临时会话解析的视觉模型),否则用全局当前模型
         ModelRunningData? model = _sessionModelSource?.Invoke() ?? LlmManager.Instance.CurrentRunningModel;
@@ -443,6 +443,6 @@ public class LazyChatClient : IChatClient
             await Task.Delay(200, cancellationToken).ConfigureAwait(false);
         }
 
-        return model.ChatClient ?? throw new InvalidOperationException("Model is not running.");
+        return (model.ChatClient ?? throw new InvalidOperationException("Model is not running."), model);
     }
 }

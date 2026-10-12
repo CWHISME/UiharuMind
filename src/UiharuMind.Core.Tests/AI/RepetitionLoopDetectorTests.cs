@@ -82,4 +82,21 @@ public class RepetitionLoopDetectorTests
                 watch.Observe(new ChatResponseUpdate(ChatRole.Assistant, [new TextReasoningContent("：**")]));
         });
     }
+
+    [Fact]
+    public void Watch_ExceptionShowsChannelAndFullUnit()
+    {
+        RepetitionLoopWatch watch = new("sensenova-6.8-flash-lite");
+        string unit = "Writing shell script logic... ";
+
+        RepetitionLoopException e = Assert.Throws<RepetitionLoopException>(() =>
+        {
+            for (int i = 0; i < 5000; i++)
+                watch.Observe(new ChatResponseUpdate(ChatRole.Assistant, [new TextReasoningContent(unit)]));
+        });
+
+        Assert.Contains("sensenova-6.8-flash-lite", e.Message);
+        Assert.Contains("思考", e.Message);
+        Assert.Contains(unit.Trim(), e.Message);
+    }
 }
