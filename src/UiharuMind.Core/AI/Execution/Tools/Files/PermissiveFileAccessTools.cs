@@ -41,7 +41,8 @@ namespace UiharuMind.Core.AI.Execution.Files;
 internal sealed class PermissiveFileAccessTools
 {
     // —— 输出限幅:工具输出直接进模型上下文,编码会话的上下文大头是工具结果而非对话。
-    //    Read 的限幅在 FileReader;Grep 的在 GrepResultShaper;Glob 在 SimpleGlobber 内限 300 条;shell 由框架截断。——
+    //    Read 的限幅在 FileReader;Grep 的在 GrepResultShaper;Glob 过宽时换目录统计(见
+    //    RenderDirectorySummary),不再罗列前 300 条路径;shell 由框架截断。——
 
     /// <summary>Edit 回给模型的 diff 行数上限（与审批卡片共用，见 <c>FileEditPlanner.DefaultMaxDiffLines</c>）</summary>
     internal const int MaxEditDiffLines = FileEditPlanner.DefaultMaxDiffLines;
@@ -141,11 +142,20 @@ internal sealed class PermissiveFileAccessTools
         [Description("可选，工作目录的相对路径(也接受非工作目录的绝对路径)")] string? path = null,
         CancellationToken ct = default)
     {
-        GlobOutcome outcome = await _glob.SearchAsync(pattern, path, ct: ct).ConfigureAwait(false);
+        GlobOutcome outcome = await _glob
+            .SearchAsync(pattern, path, collectStats: true, ct: ct)
+            .ConfigureAwait(false);
 
         if (outcome.Failure != null)
         {
             return SearchFailureRenderer.Render(outcome.Failure, FileToolNames.Grep);
+        }
+
+        // 过宽时不罗列前 300 条路径（几千 token），换按目录聚合的统计：
+        // 模型一眼看出命中集中在哪几个目录，再决定收窄方向，而不是扫读半截列表
+        if (outcome.Truncated)
+        {
+            return RenderDirectorySummary(outcome);
         }
 
         // 每个文件都标大小:纪律段要它别把大文件整个拉进来,这是判断依据(一条约 4 token,
@@ -164,6 +174,30 @@ internal sealed class PermissiveFileAccessTools
             : $"[FILE] {entry.Path} ({GameUtils.FormatBytes(entry.SizeBytes)})";
     }
 
+    /// <summary>
+    /// 命中过宽时渲染目录聚合统计（与 Grep 命中地图同思路，共用 <see cref="PathGrouping"/>）：
+    /// 不返半截列表——半截按扫描序/字典序取，无相关度排序，模型会锚定到运气好的前缀上；
+    /// 目录分布按全量命中统计（SimpleGlobber 一直数到统计上限），逐层上收到 ≤50 组，
+    /// 模型据此判断搜宽没搜宽、该往哪个目录收窄，比 300 条路径省下上千 token。
+    /// 注意：触顶（TotalHitsCapped）时分组也只覆盖前 statsCap 条命中，分布同样是下限——
+    /// 别把「分组总和 = 总数」当不变量。5000 条分布足够模型判断方向，这是有意的取舍。
+    /// internal 供测试直接验证横幅语义（触顶时 "N+" 而不是假精确的 "N"）。
+    /// </summary>
+    internal static string RenderDirectorySummary(GlobOutcome outcome)
+    {
+        List<PathGrouping.PathGroup> groups = PathGrouping.Group(
+            outcome.HitPaths.Select(path => (path, 1)).ToList());
+
+        string body = string.Join('\n', groups.Select(group => $"{group.Prefix}: {group.Total}"));
+        string countText = outcome.TotalHitsCapped
+            ? $"共 {outcome.TotalHits}+ 条命中"
+            : $"共 {outcome.TotalHits} 条命中";
+        string notice = $"{countText}，范围太宽；"
+                        + $"已按目录聚合为 {groups.Count} 组。"
+                        + $"{ToolResultText.NarrowGuidance}。";
+        return ToolResultText.AppendNotice(body, notice);
+    }
+
     private static string? BuildGlobNotice(GlobOutcome outcome)
     {
         if (outcome.Entries.Count == 0)
@@ -172,9 +206,11 @@ internal sealed class PermissiveFileAccessTools
                    + "路径存在，只是没有匹配。";
         }
 
-        return outcome.Truncated
-            ? $"搜索范围太宽，只展示前 {outcome.Entries.Count} 条；更多条目被丢弃。收窄模式，或用 path 限定范围。"
-            : $"共 {outcome.Entries.Count} 条命中";
+        // 未截断、有命中：条目本身就是全部事实，一行一条，行数即总数，
+        // 不再拼一句冗余的「共 N 条命中」让模型为分隔行与说明多付 token。
+        // 与 Grep 刻意不同：Grep 一条命中带上下文行，行数≠命中数，所以它保留
+        // 「共 N 处命中」；Glob 一行一条，数行就知道总数。
+        return null;
     }
 
     // 命中过多时怎么办只由地图的 Notice 说:它就贴在触发那一刻,描述里再写一遍是每轮白付

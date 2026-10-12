@@ -113,22 +113,24 @@ public class ToolOutputCapTests : IDisposable
             "head=-1 应绕过字节上限,实际返回字节应超过上限");
     }
 
+    /// <summary>
+    /// 命中超过 200 处上限时不再返半截正文（半截按扫描序取、无相关度排序，模型会锚定到
+    /// 运气好的文件上），整页换成命中地图：每文件一行（命中数 + 行号区间），按全量统计。
+    /// </summary>
     [Fact]
-    public async Task Grep_Matches_AreCappedWithSentinel()
+    public async Task Grep_OverMaxMatches_SwitchesToHitMap()
     {
         string path = Path.Combine(_dir, "haystack.txt");
         await File.WriteAllLinesAsync(path, Enumerable.Range(1, 300).Select(i => $"needle {i}"), TestContext.Current.CancellationToken);
 
         string result = await _tools.Grep("needle", ct: TestContext.Current.CancellationToken);
 
-        // 300 处命中来自同一文件 → 路径行 + 封顶 200 条命中行,后面的被丢;说明拼接在正文后面的分隔段里
-        Assert.StartsWith("haystack.txt\n", result);
-        string body = result.Split("\n\n---\n", 2)[0]; //分隔行前的才是正文,说明不算行数
-        Assert.Equal(GrepResultShaper.MaxMatches + 1, body.Split('\n').Count(line => line.Length > 0));
-        Assert.DoesNotContain("needle 300", result);
-        Assert.Contains("共 300 处命中", result); //总数统计:300 = 已展示 200 + 丢弃 100
-        Assert.Contains("另有 100 处", result);
-        Assert.Contains("收窄查询", result);
+        // 300 处命中全在同一文件 → 地图单行给全量分布（第 1–300 行），不返 200 行半截正文
+        Assert.StartsWith("haystack.txt: 300 处命中（第 1–300 行）", result);
+        Assert.Contains("300 处命中，跨 1 个文件", result);
+        Assert.Contains("太宽，无法内联返回", result);
+        Assert.DoesNotContain("needle 300", result); //地图无 snippet：没有命中行正文
+        Assert.DoesNotContain("---\n只展示前", result);
     }
 
     /// <summary>
@@ -189,26 +191,138 @@ public class ToolOutputCapTests : IDisposable
         Assert.DoesNotContain("---\n只展示前", result); //地图模式不再走 200 上限正文
     }
 
-    /// <summary>地图按命中数降序取 Top 50:命中极度分散本身就是"搜宽了"的信号,看前 50 就够下判断</summary>
+    /// <summary>文件数超上限时不再给文件级列表，按目录前缀聚合到 ≤ 上限（120 个文件全在根下 → 1 组）</summary>
     [Fact]
-    public async Task Grep_Map_IsTop50ByHits()
+    public async Task Grep_Map_TooManyFiles_GoesUpToDirectoryLevel()
     {
-        for (int f = 0; f < 60; f++)
+        for (int f = 0; f < 120; f++)
         {
-            string path = Path.Combine(_dir, $"f{f:D2}.txt");
-            // 10 处命中/文件 × 约 260 字节 = 200 上限封顶后正文约 52KB,触发地图模式
+            string path = Path.Combine(_dir, $"f{f:D3}.txt");
+            // 10 处命中/文件 × 约 260 字节 = 200 上限封顶后正文约 24KB,仍低于 32KB → 靠 200 上限触发地图
             await File.WriteAllLinesAsync(path,
                 Enumerable.Range(1, 10).Select(i => "needle " + new string('y', 250) + i), TestContext.Current.CancellationToken);
         }
 
         string result = await _tools.Grep("needle", ct: TestContext.Current.CancellationToken);
 
-        Assert.Contains("600 处命中，跨 60 个文件", result);
-        // Top 50 按命中数降序,每文件一行文本;拿到的是保出来的 50 个文件名
-        // (过滤时匹配“: N 处命中（第”而不是“处命中”，避免把说明行“600 处命中，跨”也算进去)
+        // 120 个文件全在搜索根下 → 逐层上收为 ".": 1200；没有文件级行号列表
+        Assert.Contains("1200 处命中，跨 120 个文件", result);
+        Assert.Contains(".: 1200", result);
+        Assert.Contains("已按目录聚合为 1 组", result);
+        Assert.DoesNotContain("处命中（第", result);
+    }
+
+    /// <summary>文件数在上限内时保持文件级地图（带行号区间），不升目录</summary>
+    [Fact]
+    public async Task Grep_Map_WithinFileLimit_StaysFileLevel()
+    {
+        for (int f = 0; f < 40; f++)
+        {
+            string path = Path.Combine(_dir, $"g{f:D2}.txt");
+            await File.WriteAllLinesAsync(path,
+                Enumerable.Range(1, 10).Select(i => "needle " + new string('y', 250) + i), TestContext.Current.CancellationToken);
+        }
+
+        string result = await _tools.Grep("needle", ct: TestContext.Current.CancellationToken);
+
         string[] mapLines = result.Split('\n').Where(line => line.Contains("处命中（第")).ToArray();
-        Assert.Equal(GrepResultShaper.MaxMapFiles, mapLines.Length);
-        Assert.All(mapLines, line => Assert.Contains(": 10 处命中（第 ", line));
+        Assert.Equal(40, mapLines.Length);
+        Assert.Contains("400 处命中，跨 40 个文件", result);
+        Assert.Contains("按命中数展示全部 40 个文件", result);
+        Assert.DoesNotContain("已按目录聚合", result);
+    }
+
+    /// <summary>一级目录仍超上限时逐层上收到父目录（120 子目录分 3 父 → 3 组）</summary>
+    [Fact]
+    public async Task Grep_Map_Hierarchy_GoesUpALevel()
+    {
+        for (int p = 0; p < 3; p++)
+        {
+            string parent = Path.Combine(_dir, $"dir{(char)('A' + p)}");
+            for (int s = 0; s < 40; s++)
+            {
+                Directory.CreateDirectory(Path.Combine(parent, $"sub{s:D2}"));
+                string path = Path.Combine(parent, $"sub{s:D2}", "f.txt");
+                await File.WriteAllLinesAsync(path,
+                    Enumerable.Range(1, 10).Select(i => "needle " + new string('y', 250) + i), TestContext.Current.CancellationToken);
+            }
+        }
+
+        string result = await _tools.Grep("needle", ct: TestContext.Current.CancellationToken);
+
+        // 一级 120 个子目录超限 → 上收到 3 个父目录，各 400 命中
+        string[] dirLines = result.Split('\n').Where(line => line.Contains(": 400")).ToArray();
+        Assert.Equal(3, dirLines.Length);
+        Assert.Contains("dirA: 400", result);
+        Assert.Contains("dirB: 400", result);
+        Assert.Contains("dirC: 400", result);
+        Assert.Contains("已按目录聚合为 3 组", result);
+        Assert.DoesNotContain("处命中（第", result);
+    }
+
+    /// <summary>地图模式的 notice 不能丢正则降级说明（命中过多时模型关键依赖它判断"少了几条"的原因）</summary>
+    [Fact]
+    public async Task Grep_Map_KeepsFallbackAndNormalizationNotes()
+    {
+        for (int f = 0; f < 20; f++)
+        {
+            string path = Path.Combine(_dir, $"n{f:D2}.txt");
+            // 20 文件 × 15 命中 = 300 处，超 200 上限触发地图（文件数 20 ≤ 100 保持文件级）
+            await File.WriteAllLinesAsync(path,
+                Enumerable.Range(1, 15).Select(i => "needle " + i), TestContext.Current.CancellationToken);
+        }
+
+        // 正则降级（backreference 不被支持）与 * 开头的归一化都要带到地图 notice 里
+        string fellBack = await _tools.Grep(@"needle\1", ct: TestContext.Current.CancellationToken);
+        Assert.Contains("已按字面串重搜", fellBack);
+
+        string normalized = await _tools.Grep("*needle", ct: TestContext.Current.CancellationToken);
+        Assert.Contains("模式已归一化为", normalized);
+    }
+
+    /// <summary>过宽的目录级地图输出必须压进 token 预算量级（≤ 50 组，不应出现数百行路径）</summary>
+    [Fact]
+    public async Task Grep_Map_StaysWithinOutputBudget()
+    {
+        for (int f = 0; f < 130; f++)
+        {
+            string path = Path.Combine(_dir, $"b{f:D3}.txt");
+            await File.WriteAllLinesAsync(path,
+                Enumerable.Range(1, 10).Select(i => "needle " + new string('z', 250) + i), TestContext.Current.CancellationToken);
+        }
+
+        string result = await _tools.Grep("needle", ct: TestContext.Current.CancellationToken);
+
+        // 130 个文件超过文件级上限 → 目录级；输出应远小于正文预算 32KB（组数 ≤ 50，一行约几十字节）
+        Assert.Contains("已按目录聚合", result);
+        Assert.True(Encoding.UTF8.GetByteCount(result) < GrepResultShaper.MaxOutputBytes,
+            $"地图输出超出预算：{Encoding.UTF8.GetByteCount(result)} bytes");
+        Assert.True(Encoding.UTF8.GetByteCount(result) < 8000,
+            $"地图输出偏大：{Encoding.UTF8.GetByteCount(result)} bytes");
+    }
+
+    /// <summary>文件级地图渲完仍超字节预算（超长路径）时降级到目录级，不硬塞超预算正文</summary>
+    [Fact]
+    public async Task Grep_FileLevelMap_OverByteBudget_FallsBackToDirectoryLevel()
+    {
+        // 100 个文件全在同一 Deep 目录（路径约 320+ 字符）→ 文件级 100 行逼近/超过 32KB → 降级
+        var deep = Path.Combine(_dir, new string('d', 40), new string('d', 40), new string('d', 40),
+            new string('d', 40), new string('d', 40), new string('d', 40), new string('d', 40));
+        Directory.CreateDirectory(deep);
+        for (int f = 0; f < 100; f++)
+        {
+            string path = Path.Combine(deep, $"f{f:D3}_long_name_to_inflate_path.txt");
+            await File.WriteAllLinesAsync(path,
+                Enumerable.Range(1, 10).Select(i => "needle " + i), TestContext.Current.CancellationToken);
+        }
+
+        string result = await _tools.Grep("needle", ct: TestContext.Current.CancellationToken);
+
+        // 1000 命中 > 200 → 地图；文件数 100 ≤ 100 走文件级，但超预算 → 目录级 1 组
+        Assert.Contains("已按目录聚合为 1 组", result);
+        Assert.DoesNotContain("处命中（第", result);
+        Assert.True(Encoding.UTF8.GetByteCount(result) < GrepResultShaper.MaxOutputBytes,
+            $"降级后仍超预算：{Encoding.UTF8.GetByteCount(result)} bytes");
     }
 
     [Fact]

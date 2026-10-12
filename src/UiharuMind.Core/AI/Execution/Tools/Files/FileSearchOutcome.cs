@@ -102,6 +102,27 @@ public sealed class GlobOutcome
     /// <summary>命中数达到上限被截断</summary>
     public bool Truncated { get; init; }
 
+    /// <summary>
+    /// 命中条目计数。仅 <c>collectStats=true</c>（模型工具侧）时为全量统计（直到遍历结束
+    /// 或统计上限）；<c>collectStats=false</c>（UI 快速搜索等）时只数到 maxResults 就停，
+    /// 界面侧不读这个字段。触顶（<see cref="TotalHitsCapped"/>=true）时是真实下限，
+    /// 渲染报给模型的是它而不是 Entries.Count，否则模型以为总共就 300 条。
+    /// </summary>
+    public int TotalHits { get; init; }
+
+    /// <summary>
+    /// 命中统计是否触到上限：<see cref="TotalHits"/> 只是真实下限（还有更多没数完）。
+    /// 仅在 <c>collectStats=true</c> 时有意义；false 时恒 false。
+    /// </summary>
+    public bool TotalHitsCapped { get; init; }
+
+    /// <summary>
+    /// 统计到的全量命中路径（到 <c>SimpleGlobber.StatsCap</c> 为止；截断时为下限）。
+    /// 过宽渲染用 <see cref="PathGrouping"/> 按目录前缀逐层聚合——只存一层父目录统计
+    /// （DirectoryCounts）的话，目录仍超上限时没法再往上一层。
+    /// </summary>
+    public IReadOnlyList<string> HitPaths { get; init; } = Array.Empty<string>();
+
     /// <summary>成功且有命中</summary>
     public bool HasHits => Failure == null && Entries.Count > 0;
 }

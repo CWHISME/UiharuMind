@@ -10,6 +10,11 @@ using Meziantou.Framework.Globbing;
 /// </summary>
 public sealed class SimpleGlobber
 {
+    /// <summary>目录统计上限：命中过宽时遍历不因 <see cref="maxResults"/> 提前停，而是继续数到全量
+    /// 或此上限，好让模型拿到真实的命中分布而不是字典序截断的前缀统计。
+    /// 巨型仓库里全量数完代价不小，设上限封顶最坏情况。</summary>
+    internal const int StatsCap = 5000;
+
     /// <summary>
     /// 任何搜索都不该进的目录。写成 <c>**/名字</c> 而不是 <c>**/名字/**</c>：
     /// 本库的 <c>**</c> 只匹配目录段，末尾的 <c>/**</c> 之后还要再有一个文件段才算命中，
@@ -45,12 +50,20 @@ public sealed class SimpleGlobber
     /// <param name="pattern">glob 表达式</param>
     /// <param name="path">搜索范围：目录或单个文件；绝对路径直接用，相对路径拼工作区，为空则用工作区根</param>
     /// <param name="maxResults">命中上限</param>
+    /// <param name="collectStats">
+    /// 命中过宽时是否继续遍历做全量目录统计（TotalHits/HitPaths）。模型工具侧（Glob）为 true：
+    /// 过宽渲染按目录聚合需要真实分布；界面快速搜索为 false：它只读 Entries，命中到上限就该停，
+    /// 不为用不上的统计多扫目录树。
+    /// </param>
+    /// <param name="statsCap">统计上限（仅 collectStats 时生效）；测试可传小值验证触顶语义</param>
     /// <param name="ct">取消令牌</param>
     /// <returns>命中条目与失败原因</returns>
     public async Task<GlobOutcome> SearchAsync(
         string pattern,
         string? path = null,
         int maxResults = 300,
+        bool collectStats = false,
+        int statsCap = StatsCap,
         CancellationToken ct = default)
     {
         if (!SearchRoot.TryResolve(_paths, path, out string target, out string pathError))
@@ -104,8 +117,8 @@ public sealed class SimpleGlobber
         bool dirsOnly = pattern.EndsWith('/');
 
         // 遍历是同步的,放到线程池上:界面的快速搜索在 UI 线程上调用,大目录树会把界面整个卡住
-        (List<GlobEntry> list, bool hitLimit) = await Task.Run(
-            () => Enumerate(glob, searchRoot, dirsOnly, AllowedDotSegments(pattern), maxResults, ct), ct)
+        (List<GlobEntry> list, bool hitLimit, int totalHits, List<string> hitPaths, bool statsCapped) = await Task.Run(
+            () => Enumerate(glob, searchRoot, dirsOnly, AllowedDotSegments(pattern), maxResults, collectStats, statsCap, ct), ct)
             .ConfigureAwait(false);
 
         if (isFileScope)
@@ -122,22 +135,45 @@ public sealed class SimpleGlobber
         }
 
         list.Sort((a, b) => string.CompareOrdinal(a.Path, b.Path));
-        return new GlobOutcome { Entries = list, ResolvedDirectory = target, Truncated = hitLimit };
+        return new GlobOutcome
+        {
+            Entries = list,
+            ResolvedDirectory = target,
+            Truncated = hitLimit,
+            TotalHits = totalHits,
+            TotalHitsCapped = statsCapped,
+            HitPaths = hitPaths,
+        };
     }
 
-    private (List<GlobEntry> List, bool HitLimit) Enumerate(Glob glob, string searchRoot, bool dirsOnly,
-        string[] allowedDotNames, int maxResults, CancellationToken ct)
+    private (List<GlobEntry> List, bool HitLimit, int TotalHits, List<string> HitPaths, bool StatsCapped)
+        Enumerate(Glob glob, string searchRoot, bool dirsOnly,
+            string[] allowedDotNames, int maxResults, bool collectStats, int statsCap, CancellationToken ct)
     {
         using var enumerator = new GlobEnum(glob, HardSkips, searchRoot, _paths, dirsOnly, allowedDotNames, ct);
         var list = new List<GlobEntry>(Math.Min(maxResults, 60));
+        List<string>? hitPaths = collectStats ? new List<string>(Math.Min(statsCap, 500)) : null;
+        int totalHits = 0;
+        bool statsCapped = false;
+
         while (enumerator.MoveNext())
         {
             ct.ThrowIfCancellationRequested();
-            list.Add(enumerator.Current!);
-            if (list.Count >= maxResults) return (list, true);
+            GlobEntry entry = enumerator.Current!;
+            totalHits++;
+            hitPaths?.Add(entry.Path);
+            if (list.Count < maxResults) list.Add(entry);
+
+            // 不收集统计（UI 快速搜索等）：命中到上限就停，别为用不上的分布多扫目录树
+            if (!collectStats && list.Count >= maxResults) break;
+            if (collectStats && totalHits >= statsCap)
+            {
+                statsCapped = true;
+                break;
+            }
         }
 
-        return (list, false);
+        return (list, list.Count >= maxResults || statsCapped, totalHits, hitPaths ?? [], statsCapped);
     }
 
     // pattern 里点开头的段(如 .uiharu、.git*):只有点名了的点目录/点文件才放行,其余照旧跳过

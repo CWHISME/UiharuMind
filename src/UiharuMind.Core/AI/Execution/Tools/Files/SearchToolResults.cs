@@ -31,6 +31,9 @@ namespace UiharuMind.Core.AI.Execution.Files;
 /// </summary>
 internal static class ToolResultText
 {
+    /// <summary>过宽提示里统一给模型的收窄指引（Glob/Grep 共用，措辞刻意一致，别各写一套）</summary>
+    public const string NarrowGuidance = "换更精确的匹配模式，或用 path 参数限定范围";
+
     /// <summary>把说明拼到正文后面，按工具结果的惯例用分隔行隔开；没有正文时原样给说明</summary>
     public static string AppendNotice(string body, string? notice)
     {

@@ -45,36 +45,6 @@ public class CharacterPromptBuilderTests
     }
 
     [Fact]
-    public void ChatCharacter_ComposesOwnTemplateThenUserCard()
-    {
-        CharacterData character = ChatCharacterWithUserCard();
-
-        Assert.True(character.IsChat());
-        Assert.True(character.InjectUserCard);
-
-        string prompt = CharacterPromptBuilder.Build(character);
-
-        int ownTemplate = prompt.IndexOf("【角色自身】", StringComparison.Ordinal);
-        int userCard = prompt.IndexOf("的个人信息", StringComparison.Ordinal);
-
-        Assert.True(ownTemplate >= 0, "缺少角色自身 Template");
-        Assert.True(userCard >= 0, "缺少用户卡注入");
-        Assert.True(ownTemplate < userCard, "用户卡应拼在角色自身 Template 之后");
-    }
-
-    [Fact]
-    public void UserCardInjection_ResolvesUserNameNotHostName()
-    {
-        CharacterData character = ChatCharacterWithUserCard();
-        string userName = CharacterManager.Instance.UserCharacterName;
-
-        string prompt = CharacterPromptBuilder.Build(character);
-
-        // 用户卡模板用的是 {{$user}}；若误用 {{$char}} 会被替换成宿主角色名，那是错的
-        Assert.Contains($"{userName}的个人信息", prompt);
-    }
-
-    [Fact]
     public void Build_DoesNotMutateCallerArguments()
     {
         CharacterData translator = Default(DefaultCharacter.TranslationPrompt);

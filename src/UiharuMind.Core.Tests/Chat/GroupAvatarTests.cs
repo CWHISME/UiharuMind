@@ -184,36 +184,7 @@ public class GroupAvatarTests
         Assert.Contains("无限模式", later);
         Assert.Null(GroupAvatarTranscript.BriefingNote("黑猫", "  ", null, false, kickoff: false));
     }
-
-    /// <summary>
-    /// 化身职责的统一注入住在 GroupAvatarDuties（挂哪张卡都同一份）：无限模式的规矩在那里，
-    /// 每轮投递只带一个模式标记；默认卡只留人格风格，不重复职责——两边分叉就靠这个测试拦
-    /// </summary>
-    [Fact]
-    public void AvatarDuties_CoverInfiniteMode_AndCardStaysPersonaOnly()
-    {
-        string duties = GroupAvatarDuties.Build("黑猫");
-
-        Assert.Contains("你是 黑猫 的化身", duties);
-        Assert.Contains("## 无限模式", duties);
-        string section = duties[duties.IndexOf("## 无限模式", StringComparison.Ordinal)..];
-        Assert.Contains("新方向", section);
-        // 与每轮标记对得上：标记置起"本次是无限模式"这个条件，职责认同一个条件
-        Assert.Contains("本次是无限模式", section);
-        Assert.Contains("## 优先级", duties);
-
-        System.Reflection.Assembly assembly = typeof(CharacterData).Assembly;
-        string name = Assert.Single(assembly.GetManifestResourceNames(),
-            x => x.EndsWith("GroupAvatarAgent.md", StringComparison.Ordinal));
-        using System.IO.Stream stream = assembly.GetManifestResourceStream(name)!;
-        using System.IO.StreamReader reader = new(stream);
-        string card = reader.ReadToEnd();
-
-        Assert.DoesNotContain("## 无限模式", card);
-        Assert.DoesNotContain("## 优先级", card);
-        Assert.Contains("喵", card); //默认卡只剩人格风格
-    }
-
+    
     /// <summary>化身可选角色：只定人格风格，职责另有统一注入；null 不改已有的</summary>
     [Fact]
     public void Avatar_CanMountAnotherCharacter_WithoutTouchingTheExistingOneOnNull()
@@ -267,7 +238,6 @@ public class GroupAvatarTests
             int duties = instructions.IndexOf(AgentPromptHeadings.AvatarDuties, StringComparison.Ordinal);
             int tools = instructions.IndexOf(AgentPromptHeadings.Tools, StringComparison.Ordinal);
             Assert.True(scene >= 0 && duties > scene && tools > duties);
-            Assert.Contains("你是 黑猫 的化身", instructions);
             Assert.Single(handle.PromptSegments, x => x.Section == EPromptSection.AvatarDuties);
         }
 

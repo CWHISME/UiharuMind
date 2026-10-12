@@ -66,9 +66,12 @@ public class GlobToolTextOutputTests : IDisposable
         Assert.DoesNotContain("---", result);
     }
 
-    /// <summary>SimpleGlobber 的 300 条上限触发的截断说明:告诉模型被丢了多少、怎么收窄</summary>
+    /// <summary>
+    /// SimpleGlobber 的 300 条上限触发过宽：不再罗列前 300 条路径（几千 token），
+    /// 换成按目录聚合的统计 + 过宽提示。统计基于全量命中（不是保下来的前缀）。
+    /// </summary>
     [Fact]
-    public async Task Glob_OverLimit_ReportsTruncation()
+    public async Task Glob_OverLimit_ReportsDirectoryCounts()
     {
         for (int i = 0; i < 301; i++)
         {
@@ -77,8 +80,131 @@ public class GlobToolTextOutputTests : IDisposable
 
         string result = await _tools.Glob("*.txt", ct: TestContext.Current.CancellationToken);
 
-        Assert.StartsWith("[FILE] f0000.txt", result); //文件在前,字典序第一个是 f0000
-        Assert.Contains("---\n只展示前 300 条；更多条目被丢弃", result); //截断说明在分隔行后
-        Assert.Contains("收窄模式", result);
+        // 过宽正文是目录统计行（根目录 "." 下 301 个文件），不是 [FILE] 路径列表
+        Assert.StartsWith(".: 301", result);
+        Assert.DoesNotContain("[FILE]", result);
+        Assert.Contains("范围太宽", result);
+        Assert.Contains("共 301 条命中", result);
+        Assert.Contains(ToolResultText.NarrowGuidance, result);
+    }
+
+    /// <summary>过宽时目录统计按命中数降序，且统计自全量（Top N 上限外仍有“前 N 个目录”的说明）</summary>
+    [Fact]
+    public async Task Glob_OverLimit_CountsPerDirectoryDescending()
+    {
+        Directory.CreateDirectory(Path.Combine(_dir, "sub1"));
+        Directory.CreateDirectory(Path.Combine(_dir, "sub2"));
+        for (int i = 0; i < 180; i++)
+        {
+            await File.WriteAllTextAsync(Path.Combine(_dir, "sub1", $"a{i:D3}.txt"), "", TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(Path.Combine(_dir, "sub2", $"b{i:D3}.txt"), "", TestContext.Current.CancellationToken);
+        }
+
+        string result = await _tools.Glob("**/*.txt", ct: TestContext.Current.CancellationToken);
+
+        // 360 条命中、两个目录各 180：降序展示目录统计，路径列表不出现
+        // （分隔行前的正文逐行取，排除分隔后的 notice 段与空行）
+        string[] statLines = result.Split('\n')
+            .TakeWhile(line => !line.StartsWith("---"))
+            .Where(line => line.Length > 0)
+            .ToArray();
+        Assert.Equal(2, statLines.Length);
+        Assert.Contains("sub1: 180", statLines);
+        Assert.Contains("sub2: 180", statLines);
+        Assert.Contains("共 360 条命中", result);
+        Assert.DoesNotContain("[FILE]", result);
+    }
+
+    /// <summary>一级目录仍超上限时逐层上收到父目录（360 命中、60 子目录分 3 父 → 3 组）</summary>
+    [Fact]
+    public async Task Glob_OverLimit_GoesUpALevel()
+    {
+        for (int p = 0; p < 3; p++)
+        {
+            string parent = Path.Combine(_dir, $"gdir{(char)('A' + p)}");
+            for (int s = 0; s < 20; s++)
+            {
+                string sub = Path.Combine(parent, $"sub{s:D2}");
+                Directory.CreateDirectory(sub);
+                for (int f = 0; f < 6; f++)
+                {
+                    await File.WriteAllTextAsync(Path.Combine(sub, $"f{f}.txt"), "", TestContext.Current.CancellationToken);
+                }
+            }
+        }
+
+        string result = await _tools.Glob("**/*.txt", ct: TestContext.Current.CancellationToken);
+
+        // 360 条命中（>300 上限）分布在 60 个不同子目录 → 一级 60 组超限 → 上收到 3 个父目录
+        string[] statLines = result.Split('\n')
+            .TakeWhile(line => !line.StartsWith("---"))
+            .Where(line => line.Length > 0)
+            .ToArray();
+        Assert.Equal(3, statLines.Length);
+        Assert.Contains("gdirA: 120", statLines);
+        Assert.Contains("gdirB: 120", statLines);
+        Assert.Contains("gdirC: 120", statLines);
+        Assert.Contains("已按目录聚合为 3 组", result);
+        Assert.DoesNotContain("[FILE]", result);
+    }
+
+    /// <summary>统计触顶（TotalHits 只是下限）时库层标志 + 渲染文案都应说"至少 N"而不是假精确</summary>
+    [Fact]
+    public async Task Glob_StatsCapped_ReportsAtLeast()
+    {
+        // 110 个文件，统计上限 100：TotalHits=100、TotalHitsCapped=true
+        var root = Directory.CreateTempSubdirectory("uiharu-capped-").FullName;
+        try
+        {
+            for (int i = 0; i < 110; i++)
+            {
+                await File.WriteAllTextAsync(Path.Combine(root, $"f{i:D3}.txt"), "", TestContext.Current.CancellationToken);
+            }
+
+            GlobOutcome outcome = await new SimpleGlobber(root)
+                .SearchAsync("*.txt", collectStats: true, statsCap: 100, ct: TestContext.Current.CancellationToken);
+
+            Assert.True(outcome.Truncated);
+            Assert.True(outcome.TotalHitsCapped);
+            Assert.Equal(100, outcome.TotalHits);
+
+            // 渲染层把触顶转成 "N+"，不让模型把 100 当成全量总数
+            string rendered = PermissiveFileAccessTools.RenderDirectorySummary(outcome);
+            Assert.Contains("共 100+ 条命中", rendered);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>未触顶时渲染仍是精确的"共 N 条命中"（过宽但统计没到上限）</summary>
+    [Fact]
+    public async Task Glob_StatsNotCapped_ReportsExactCount()
+    {
+        // 350 个文件（>300 触发过宽），统计上限 1000（不触顶）：TotalHits=350、TotalHitsCapped=false
+        var root = Directory.CreateTempSubdirectory("uiharu-exact-").FullName;
+        try
+        {
+            for (int i = 0; i < 350; i++)
+            {
+                await File.WriteAllTextAsync(Path.Combine(root, $"g{i:D3}.txt"), "", TestContext.Current.CancellationToken);
+            }
+
+            GlobOutcome outcome = await new SimpleGlobber(root)
+                .SearchAsync("*.txt", collectStats: true, statsCap: 1000, ct: TestContext.Current.CancellationToken);
+
+            Assert.True(outcome.Truncated);
+            Assert.False(outcome.TotalHitsCapped);
+            Assert.Equal(350, outcome.TotalHits);
+
+            string rendered = PermissiveFileAccessTools.RenderDirectorySummary(outcome);
+            Assert.Contains("共 350 条命中", rendered);
+            Assert.DoesNotContain("+", rendered);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 }
