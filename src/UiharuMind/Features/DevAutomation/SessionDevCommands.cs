@@ -36,6 +36,7 @@ internal static class SessionDevCommands
         new SessionPostCommand(),
         new SessionWaitCommand(),
         new SessionDumpCommand(),
+        new SessionInjectCommand(),
     ];
 
     internal static ConversationViewModel Active => _active ?? DevCommandRegistry.RequireConversationPage().Conversation;
