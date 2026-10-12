@@ -151,7 +151,8 @@ public class ChunkedMarkdownViewer : UserControl
         int realized = CountRealized();
         if (realized == _realizedCount) return;
         _realizedCount = realized;
-        MarkdownSelectionSnapshotShim.RefreshActive(_panel, Viewers().Select(v => v.Renderer));
+        // 物化一次再传：流式追加同线程改 Children，延迟枚举会在遍历中途撞上“集合已修改”
+        MarkdownSelectionSnapshotShim.RefreshActive(_panel, Viewers().Select(v => v.Renderer).ToList());
     }
 
     private int CountRealized() => Viewers().Count(v => v.IsMarkdownRealized);

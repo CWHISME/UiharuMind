@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using LiveMarkdown.Avalonia;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Shared.Controls;
 
@@ -41,8 +42,18 @@ public sealed class MarkdownPathImageLoaderHandler : AsyncImageLoaderHandler
     /// <inheritdoc/>
     public override Task<Stream> LoadAsync(Uri uri, CancellationToken cancellationToken)
     {
-        Stream stream = File.OpenRead(_mapper.MapLocalPath(uri.LocalPath));
-        return Task.FromResult(stream);
+        try
+        {
+            Stream stream = File.OpenRead(_mapper.MapLocalPath(uri.LocalPath));
+            return Task.FromResult(stream);
+        }
+        catch (Exception e)
+        {
+            // 地址来自不可信正文：缺文件、无权限、超长路径都只让这张图加载失败。
+            // 返回 faulted Task 而不是同步抛，合异步加载器的契约
+            Log.Warning($"Image load failed '{uri.LocalPath}': {e.Message}");
+            return Task.FromException<Stream>(e);
+        }
     }
 
     private static void ReloadWithMappedHandler(Image image, AvaloniaPropertyChangedEventArgs change)

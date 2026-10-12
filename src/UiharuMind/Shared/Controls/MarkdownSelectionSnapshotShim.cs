@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Avalonia;
@@ -41,11 +42,19 @@ internal static class MarkdownSelectionSnapshotShim
             return;
         }
 
-        foreach (MarkdownRenderer renderer in renderers)
+        try
         {
-            if (ScopeBlocksField!.GetValue(renderer) is null) continue;
-            ScopeBlocksField!.SetValue(renderer, CollectVisibleBlocks(scopeRoot).ToArray());
-            return;
+            foreach (MarkdownRenderer renderer in renderers)
+            {
+                if (ScopeBlocksField!.GetValue(renderer) is null) continue;
+                ScopeBlocksField!.SetValue(renderer, CollectVisibleBlocks(scopeRoot).ToArray());
+                return;
+            }
+        }
+        catch (Exception e)
+        {
+            // 反射 + 活树遍历：库改实现或布局中途树突变时不能把拖选搞炸，退回库原行为
+            Log.Warning($"Cross-chunk drag selection refresh failed: {e.Message}");
         }
     }
 

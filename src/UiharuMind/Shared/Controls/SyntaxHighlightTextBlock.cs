@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using LiveMarkdown.Avalonia;
 using TextMateSharp.Grammars;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Services.TextMate;
 
@@ -101,8 +102,32 @@ public sealed class SyntaxHighlightTextBlock : SelectableTextBlock
             inlines.Add(new Run(lines[i]));
         }
 
-        SyntaxHighlighting.Create(language).FormatInlines(inlines, GetCurrentTheme());
+        if (!TryFormatInlines(inlines, language, GetCurrentTheme()))
+        {
+            Inlines = null; // 高亮失败落回 Text 纯文本
+            return;
+        }
+
         Inlines = inlines;
+    }
+
+    /// <summary>
+    /// 高亮一把梭的可测版本：文本与语言名都来自不可信输出，失败返回 false，
+    /// 调用方落回 <see cref="Text"/> 纯文本，而不是把异常冒给布局系统
+    /// </summary>
+    /// <returns>高亮成功返回 true；失败返回 false（inlines 内容不定，调用方应丢弃）</returns>
+    internal static bool TryFormatInlines(InlineCollection inlines, string language, ThemeName theme)
+    {
+        try
+        {
+            SyntaxHighlighting.Create(language).FormatInlines(inlines, theme);
+            return true;
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Syntax highlight failed for '{language}': {e.Message}");
+            return false;
+        }
     }
 
     /// <summary>

@@ -36,4 +36,16 @@ public class MarkdownChunkerTests
         Assert.Single(Split("# 短文\n\n一段。", 4096));
         Assert.Empty(Split("", 4096));
     }
+
+    [Fact]
+    public void DeeplyNestedInput_FallsBackWithoutThrowing()
+    {
+        // 1000 层嵌套引用：Markdig 直接抛“too deeply nested”，预览不能跟着炸
+        string text = string.Concat(Enumerable.Repeat("> ", 1000)) + "x\n"
+            + string.Concat(Enumerable.Range(0, 50).Select(i => $"第 {i} 段凑长度。\n\n"));
+
+        List<string> chunks = Split(text, 200);
+
+        Assert.Equal(text, string.Concat(chunks));
+    }
 }

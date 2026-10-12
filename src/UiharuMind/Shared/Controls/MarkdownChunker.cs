@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using Markdig;
 using Markdig.Syntax;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Shared.Controls;
 
@@ -27,7 +29,19 @@ public static class MarkdownChunker
             return chunks;
         }
 
-        MarkdownDocument document = Markdown.Parse(text, pipeline);
+        MarkdownDocument document;
+        try
+        {
+            document = Markdown.Parse(text, pipeline);
+        }
+        catch (Exception e)
+        {
+            // 病态输入（如上千层嵌套引用/列表、超大表格）会触发 Markdig 的深度限制而抛异常。
+            // 这里只是找切块位置，预览绝不能跟着炸：退回不看语法的按行切分
+            Log.Warning($"Markdown chunking fell back to plain split: {e.Message}");
+            return SplitPlain(text, chunkChars);
+        }
+
         int chunkStart = 0;
         foreach (Block block in document)
         {
@@ -41,6 +55,33 @@ public static class MarkdownChunker
         }
 
         chunks.Add(text[chunkStart..]);
+        return chunks;
+    }
+
+    /// <summary>
+    /// 不看语法的兜底切分：攒够字数就在下一个换行处下刀。只保证拼回去等于原文，
+    /// 不保证代码围栏/表格不断开——走到这里时原文已是 Markdig 解析不动的病态输入，
+    /// 不炸比排得好看重要。单行超长（如巨型表格行）时硬切，避免切出巨型单段
+    /// </summary>
+    private static List<string> SplitPlain(string text, int chunkChars)
+    {
+        List<string> chunks = new();
+        int chunkStart = 0;
+        for (int i = 0; i < text.Length; i++)
+        {
+            bool cutAtNewline = text[i] == '\n' && i + 1 - chunkStart >= chunkChars;
+            bool cutLongLine = i + 1 - chunkStart >= chunkChars * 2;
+            if (!cutAtNewline && !cutLongLine) continue;
+
+            int cut = i + 1;
+            // 硬切别劈开代理项对
+            if (cutLongLine && !cutAtNewline && cut < text.Length
+                && char.IsHighSurrogate(text[i]) && char.IsLowSurrogate(text[i + 1])) cut++;
+            chunks.Add(text[chunkStart..cut]);
+            chunkStart = cut;
+        }
+
+        if (chunkStart < text.Length) chunks.Add(text[chunkStart..]);
         return chunks;
     }
 }

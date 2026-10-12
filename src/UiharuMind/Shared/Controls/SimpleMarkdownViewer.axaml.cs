@@ -64,6 +64,7 @@ public partial class SimpleMarkdownViewer : UserControl
 
     private bool _isPlaintextCache = true;
     private bool _isRealized; //渲染器是否已接上内容
+    private bool _seedFailed; //预解析失败：渲染器注定空白，继续显示纯文本而不是空白
     private bool _isQueued; //已在 PendingRealize 里排队
     private bool _viewportSeen; //收到过视口通知(没有的话由兜底直接放行)
     private Rect _lastViewport; //最近一次视口矩形(自身坐标系);切档时据此判断"现在看得见吗"
@@ -79,8 +80,8 @@ public partial class SimpleMarkdownViewer : UserControl
     /// <summary>内部的 markdown 渲染器</summary>
     internal MarkdownRenderer Renderer => MarkdownTextRender;
 
-    /// 纯文本块此刻是否顶在前面:纯文本档，或 markdown 档但渲染器还没接上
-    private bool IsPlainTextShown => _isPlaintextCache || !_isRealized;
+    /// 纯文本块此刻是否顶在前面:纯文本档，或 markdown 档但渲染器还没接上，或预解析已失败
+    private bool IsPlainTextShown => _isPlaintextCache || !_isRealized || _seedFailed;
 
     /// 此刻是否落在视口里。收到过视口通知才作数——没通知时那份矩形是空的，
     /// 而"没通知"要走的是兜底那条路，不是判定成看不见
@@ -207,7 +208,10 @@ public partial class SimpleMarkdownViewer : UserControl
         }
         catch (Exception e)
         {
-            // 预解析只为让第一帧高度就对,失败了让 builder 那条路照常兜住
+            // 预解析只为让第一帧高度就对,失败了让 builder 那条路照常兜住。
+            // 但渲染器那条路对同一份坏输入一样会失败（库里吞掉、不发布），所以这里再立一个
+            // 降级 flag：继续显示纯文本原文，而不是藏起原文又给出空白渲染器
+            _seedFailed = true;
             Log.Warning($"Markdown pre-parse failed: {e.Message}");
         }
     }
@@ -421,12 +425,23 @@ public partial class SimpleMarkdownViewer : UserControl
             _markdownBuilder.Append(text);
         }
 
-        if (IsPlainTextShown) PlainTextBlock.Text = raw;
+        // 全量换了内容：之前的种子结论作废，按未知重判（与 Realize 之前的状态一致）。
+        // 新内容若同样解析不动，渲染器依旧空白——与修前行为相同，没有更差
+        _seedFailed = false;
+        ApplyDisplayMode();
     }
 
     public void AppendText(string text)
     {
         if (string.IsNullOrEmpty(text)) return;
+        // 增量追加平时不转义（零成本 raw 拼）。delta 里出现 ]: 才可能是链接定义行，
+        // 那种罕见情况走全量转义：正确性由 Escape 的全文上下文保证
+        if (text.Contains("]:", StringComparison.Ordinal))
+        {
+            ForceSetText(_plainText + text);
+            return;
+        }
+
         _markdownBuilder.Append(text);
         _plainText += text;
         if (IsPlainTextShown) PlainTextBlock.Text = _plainText;

@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Avalonia.Input.Raw;
@@ -203,6 +204,17 @@ public class ChunkedMarkdownViewerTests
         chunk.RealizeNow();
     }
 
+    private static IEnumerable<Run> EnumerateRuns(InlineCollection inlines)
+    {
+        foreach (Inline inline in inlines)
+        {
+            if (inline is Run run) yield return run;
+            else if (inline is Span span)
+                foreach (Run nested in EnumerateRuns(span.Inlines))
+                    yield return nested;
+        }
+    }
+
     private static void Settle(Window window)
     {
         for (int i = 0; i < 5; i++)
@@ -212,6 +224,82 @@ public class ChunkedMarkdownViewerTests
             window.UpdateLayout();
         }
     }
+
+    /// <summary>
+    /// 预解析失败的段降级显示纯文本，而不是藏起原文又给出空白渲染器
+    /// （千层嵌套引用：切块走 SplitPlain 兜底，单段种子解析照样抛）
+    /// </summary>
+    [Fact]
+    public void SeedFailedChunk_FallsBackToPlaintext() => HeadlessUi.Run(() =>
+    {
+        string text = string.Concat(Enumerable.Repeat("> ", 1000)) + "x\n"
+            + string.Concat(Enumerable.Range(0, 400).Select(i => $"第 {i} 段正文凑长度。\n\n"));
+        ChunkedMarkdownViewer viewer = new();
+        Window window = new() { Width = 900, Height = 600, Content = new ScrollViewer { Content = viewer } };
+        window.Show();
+        viewer.MarkdownText = text;
+        viewer.IsPlaintext = false;
+        Settle(window);
+
+        List<SimpleMarkdownViewer> chunks = viewer.GetVisualDescendants().OfType<SimpleMarkdownViewer>().ToList();
+        Assert.True(chunks.Count > 1, $"只切出 {chunks.Count} 段");
+        SimpleMarkdownViewer first = chunks[0];
+        Assert.True(first.IsMarkdownRealized);
+        SelectableTextBlock plain = first.FindControl<SelectableTextBlock>("PlainTextBlock")!;
+        Assert.NotNull(plain);
+        Assert.True(plain.IsVisible);
+        Assert.False(first.Renderer.IsVisible);
+        window.Close();
+    });
+
+    /// <summary>
+    /// 流式追加中的 [名字]: 行不能被当链接定义吞掉（增量追加平时 raw 拼，
+    /// 含 ]: 的 delta 才走全量转义）
+    /// </summary>
+    [Fact]
+    public void Append_DefinitionLikeLine_IsRenderedNotSwallowed() => HeadlessUi.Run(() =>
+    {
+        ChunkedMarkdownViewer viewer = new();
+        Window window = new() { Width = 900, Height = 600, Content = new ScrollViewer { Content = viewer } };
+        window.Show();
+        viewer.MarkdownText = "开头一段。\n\n";
+        viewer.IsPlaintext = false;
+        viewer.AppendText("[阿笠博士]: 今天天气不错\n");
+        Settle(window);
+
+        // 库的文字块不走 Text 属性，文本在 Run 里：拼出来不断言结构
+        string rendered = string.Concat(viewer.GetVisualDescendants().OfType<MarkdownTextBlock>()
+            .SelectMany(b => EnumerateRuns(((TextBlock)b).Inlines))
+            .Select(r => r.Text));
+        Assert.Contains("阿笠博士", rendered);
+        window.Close();
+    });
+
+    /// <summary>
+    /// 垫片刷新永远不抛：快照非空时对着坏树刷新也只退回库原行为
+    /// </summary>
+    [Fact]
+    public void RefreshActive_NeverThrows_OnBrokenTree() => HeadlessUi.Run(() =>
+    {
+        ChunkedMarkdownViewer viewer = new() { MarkdownText = "第一段。\n\n第二段。\n\n" };
+        Window window = new() { Width = 900, Height = 600, Content = new ScrollViewer { Content = viewer } };
+        window.Show();
+        viewer.IsPlaintext = false;
+        Settle(window);
+
+        List<SimpleMarkdownViewer> chunks = viewer.GetVisualDescendants().OfType<SimpleMarkdownViewer>().ToList();
+        RealizeNow(chunks[0]);
+        window.UpdateLayout();
+        MarkdownTextBlock block = chunks[0].GetVisualDescendants().OfType<MarkdownTextBlock>().First();
+        Point p = block.TranslatePoint(new Point(5, 5), window)!.Value;
+        window.MouseDown(p, MouseButton.Left);
+
+        MarkdownSelectionSnapshotShim.RefreshActive(window, chunks.Select(c => c.Renderer).ToList());
+        MarkdownSelectionSnapshotShim.RefreshActive(null!, chunks.Select(c => c.Renderer).ToList());
+
+        window.MouseUp(p, MouseButton.Left);
+        window.Close();
+    });
 
     /// <summary>垫片靠反射取 LiveMarkdown 的私有成员。升级库后这里红了，说明垫片已静默失效：先看上游修没修，修了就删垫片</summary>
     [Fact]

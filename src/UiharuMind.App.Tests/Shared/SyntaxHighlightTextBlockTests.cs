@@ -74,6 +74,22 @@ public class SyntaxHighlightTextBlockTests
     }
 
     [Fact]
+    public void TryFormatInlines_KnownLanguage_ReturnsTrue()
+    {
+        var inlines = new InlineCollection();
+        inlines.Add(new Run("public class A { }"));
+
+        Assert.True(SyntaxHighlightTextBlock.TryFormatInlines(inlines, "cs", ThemeName.LightPlus));
+        Assert.Contains(EnumerateRuns(inlines), r => r.Text == "public" && r.Foreground is not null);
+    }
+
+    [Fact]
+    public void TryFormatInlines_NullCollection_ReturnsFalseWithoutThrowing()
+    {
+        Assert.False(SyntaxHighlightTextBlock.TryFormatInlines(null!, "cs", ThemeName.LightPlus));
+    }
+
+    [Fact]
     public void FormatInlines_UnknownLanguage_FallsBackToDefaultForeground()
     {
         // 认不出的名字也走 fallback 语法：整段一个 token、不产生结构色拆分——
