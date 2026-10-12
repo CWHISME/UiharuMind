@@ -21,8 +21,11 @@ internal sealed class RemoteModelManager
             if (config.Config is { ConfigType: not null } &&
                 config.Config.GetType().Name != config.Config.ConfigType)
             {
-                if (SaveUtility.LoadFromString(SaveUtility.SaveToString(config.Config),
-                        RemoteModelConfigRegistry.ResolveConfigType(config.Config.ConfigType)) is
+                // 存档类型与运行时类型不匹配：按注册表解析的目标类型重读一遍（source-gen，类型图在 SaveJsonContext）。
+                // 原反射路径按运行时类型序列化；四家配置均无子类专属新增属性，因此 base 类型图序列化与其等价——
+                // 该碰巧由 RemoteModelConfigRepairShapeTests 钉成显式断言。
+                if (SaveUtility.LoadFromString(SaveUtility.SaveToString<BaseRemoteModelConfig>(config.Config),
+                        RemoteModelConfigRegistry.ResolveConfigType(config.Config.ConfigType), SaveUtility.SaveJsonOptions) is
                     BaseRemoteModelConfig correct) config.Config = correct;
             }
 

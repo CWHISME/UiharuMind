@@ -67,7 +67,7 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
                 // 当角色卡解析必然抛 JsonException——每次启动都白抛一次
                 if (string.Equals(file, AppPaths.Data.PromptSnippets, StringComparison.OrdinalIgnoreCase)) continue;
 
-                var characterData = SaveUtility.Load<CharacterData>(file);
+                var characterData = SaveUtility.Load<CharacterData>(file, SaveUtility.SaveJsonOptions);
                 if (characterData != null)
                 {
                     try
@@ -190,7 +190,7 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
     /// <param name="characterData">角色数据</param>
     public void SaveCharacterData(CharacterData characterData)
     {
-        SaveUtility.Save(GetSavePath(characterData), characterData);
+        SaveUtility.Save(GetSavePath(characterData), characterData, SaveUtility.SaveJsonOptions);
         if (!characterData.IsUserCard)
             CharacterDataDictionary.TryAdd(characterData.CharacterId, characterData);
     }

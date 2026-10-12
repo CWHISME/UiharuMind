@@ -90,7 +90,7 @@ internal sealed class McpToolCatalogStore
         try
         {
             Directory.CreateDirectory(_directory);
-            SaveUtility.Save(PathFor(key), catalog);
+            SaveUtility.Save(PathFor(key), catalog, SaveUtility.SaveJsonOptions);
         }
         catch (Exception e)
         {
@@ -110,7 +110,7 @@ internal sealed class McpToolCatalogStore
         {
             string path = PathFor(key);
             if (!File.Exists(path)) return null;
-            McpToolCatalog? catalog = SaveUtility.Load<McpToolCatalog>(path);
+            McpToolCatalog? catalog = SaveUtility.Load<McpToolCatalog>(path, SaveUtility.SaveJsonOptions);
             return catalog != null && string.Equals(catalog.Fingerprint, fingerprint, StringComparison.Ordinal)
                 ? catalog
                 : null;

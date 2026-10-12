@@ -47,7 +47,7 @@ public abstract class UniquieContainerSingleton<TMgr, T> : Singleton<TMgr>, IIni
         if (!Directory.Exists(SaveRootPath)) return;
         foreach (string file in Directory.GetFiles(SaveRootPath, "*.json"))
         {
-            var item = SaveUtility.Load<T>(file);
+            var item = SaveUtility.Load<T>(file, SaveUtility.SaveJsonOptions);
             if (item != null)
             {
                 var fileName = Path.GetFileNameWithoutExtension(file);
@@ -136,7 +136,7 @@ public abstract class UniquieContainerSingleton<TMgr, T> : Singleton<TMgr>, IIni
         }
 
         string fileName = $"{chatSession.Name}.json";
-        SaveUtility.Save(Path.Combine(SaveRootPath, fileName), chatSession);
+        SaveUtility.Save(Path.Combine(SaveRootPath, fileName), chatSession, SaveUtility.SaveJsonOptions);
     }
 
     /// <summary>

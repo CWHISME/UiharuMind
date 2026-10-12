@@ -8,7 +8,7 @@ namespace UiharuMind.Core.AI.Models;
 /// 思考档位在枚举里的顺序就是 UI 下拉的显示顺序,调整顺序会导致按数字序列化的旧配置
 /// 错位(Light 插入 None 与 Medium 之间即是一例)——因此这里固定用字符串序列化。
 /// </summary>
-[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]
+[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<EThinkingMode>))]
 public enum EThinkingMode
 {
     Default,

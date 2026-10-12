@@ -15,7 +15,7 @@ internal sealed class DownloadState
 
     public static DownloadState? Load(string partPath)
     {
-        DownloadState? state = SaveUtility.Load<DownloadState>(PathFor(partPath), SaveUtility.JsonOptions);
+        DownloadState? state = SaveUtility.Load<DownloadState>(PathFor(partPath), SaveUtility.SaveJsonOptions);
         // 损坏或对不上总大小的进度不可信，当没有
         if (state == null || state.Segments.Count == 0 ||
             state.Segments.Sum(x => x.End - x.Start + 1) != state.TotalBytes ||
@@ -26,7 +26,7 @@ internal sealed class DownloadState
 
     public void Save(string partPath)
     {
-        SaveUtility.Save(PathFor(partPath), this, SaveUtility.JsonOptions);
+        SaveUtility.Save(PathFor(partPath), this, SaveUtility.SaveJsonOptions);
     }
 
     public static DownloadState Create(string url, long totalBytes, int segments)

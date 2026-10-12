@@ -61,10 +61,10 @@ public class AgentToolConfig
     /// </summary>
     public List<string> DisabledExtensions { get; set; } = new();
 
-    /// <summary>旧档案里的 MCP 禁用名单：读进来并进 <see cref="DisabledExtensions"/>，不再写出</summary>
+    /// <summary>旧档案里的 MCP 禁用名单：读进来并进 <see cref="DisabledExtensions"/>，不再写出
+    /// （public 让 source-gen 可见；getter 恒 null，WhenWritingNull 下不写出）</summary>
     [JsonPropertyName("DisabledMcpServers")]
-    [JsonInclude]
-    private List<string>? LegacyDisabledMcpServers
+    public List<string>? LegacyDisabledMcpServers
     {
         get => null;
         set => DisabledExtensions = DisabledExtensions.Union(value ?? [], StringComparer.OrdinalIgnoreCase).ToList();

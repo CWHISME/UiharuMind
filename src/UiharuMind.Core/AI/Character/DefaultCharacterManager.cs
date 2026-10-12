@@ -198,7 +198,7 @@ public class DefaultCharacterManager : Singleton<DefaultCharacterManager>, IInit
         foreach (string name in new[] { id }.Concat(BuiltInCharacterId.LegacyNamesOf(id)))
         {
             string path = Path.Combine(AppPaths.Data.CharacterOverrides, name + ".json");
-            if (File.Exists(path) && SaveUtility.Load<CharacterData>(path) is { } data)
+            if (File.Exists(path) && SaveUtility.Load<CharacterData>(path, SaveUtility.SaveJsonOptions) is { } data)
                 return data;
         }
 

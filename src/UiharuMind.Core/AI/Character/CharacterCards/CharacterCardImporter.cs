@@ -11,7 +11,7 @@ public static class CharacterCardImporter
 {
     public static CharacterCard Import(string json)
     {
-        var card = SaveUtility.LoadFromString<CharacterCard>(json);
+        var card = SaveUtility.LoadFromString<CharacterCard>(json, SaveUtility.SaveJsonOptions);
         return card;
     }
 

@@ -43,7 +43,7 @@ public class AutoClickManager : UniquieContainerSingleton<AutoClickManager, Auto
         if (!Directory.Exists(SaveRootPath)) return;
         foreach (var file in Directory.GetFiles(SaveRootPath, "*.json"))
         {
-            var item = SaveUtility.Load<AutoClickSession>(file);
+            var item = SaveUtility.Load<AutoClickSession>(file, SaveUtility.SaveJsonOptions);
             if (item == null || item.Version != AutoClickSession.CurrentVersion)
             {
                 Log.Debug($"Ignore legacy AutoClick session: {file}");

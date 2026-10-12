@@ -46,7 +46,7 @@ internal static class McpWorkspaceConfigLoader
 
         // 读坏一律按"没有项目级配置"处理,不抛不阻塞:这个文件由仓库作者控制,
         // 一份手写坏的 json 不该让整个会话起不来
-        McpServersFile? file = SaveUtility.Load<McpServersFile>(path);
+        McpServersFile? file = SaveUtility.Load<McpServersFile>(path, SaveUtility.SaveJsonOptions);
         if (file == null)
         {
             Log.Warning($"Read workspace MCP config '{path}' failed or malformed; treated as absent");

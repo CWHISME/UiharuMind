@@ -333,8 +333,8 @@ public class CharacterData
 
     public CharacterData DeepCopy()
     {
-        var tmpStr = SaveUtility.SaveToString(this);
-        return (SaveUtility.LoadFromString<CharacterData>(tmpStr));
+        var tmpStr = SaveUtility.SaveToString<CharacterData>(this);
+        return (SaveUtility.LoadFromString<CharacterData>(tmpStr, SaveUtility.SaveJsonOptions));
     }
 
     /// <summary>

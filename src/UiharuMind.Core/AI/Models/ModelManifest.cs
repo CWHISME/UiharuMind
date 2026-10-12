@@ -50,7 +50,7 @@ public sealed class ModelManifest
     /// <returns>清单；没有或损坏为 null</returns>
     public static ModelManifest? TryLoad(string directory)
     {
-        return SaveUtility.Load<ModelManifest>(Path.Combine(directory, FileName), SaveUtility.JsonOptions);
+        return SaveUtility.Load<ModelManifest>(Path.Combine(directory, FileName), SaveUtility.SaveJsonOptions);
     }
 
     /// <summary>
@@ -59,7 +59,7 @@ public sealed class ModelManifest
     /// <param name="directory">仓库目录</param>
     public void Save(string directory)
     {
-        SaveUtility.Save(Path.Combine(directory, FileName), this, SaveUtility.JsonOptions);
+        SaveUtility.Save(Path.Combine(directory, FileName), this, SaveUtility.SaveJsonOptions);
     }
 
     /// <summary>

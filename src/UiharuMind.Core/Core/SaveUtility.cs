@@ -12,6 +12,8 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+using UiharuMind.Core.AI.Character.CharacterCards;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 
@@ -29,6 +31,46 @@ public static class SaveUtility
         UnknownTypeHandling = JsonUnknownTypeHandling.JsonNode, // 忽略未知类型
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
+
+    /// <summary>
+    /// 有界类型的 source-gen 序列化配置（主题五 A2）：角色卡、记忆/世界书/自动点击、MCP 族、
+    /// PromptSnippet、ScheduledAgentTask、DownloadState、ModelManifest、远程模型配置族。
+    /// 与 <see cref="JsonOptions"/> 同口径（缩进/宽容读端/JsonNode 容错/中文不转义），
+    /// 但类型图来自 <see cref="SaveJsonContext"/>。
+    /// <b>ConfigBase 一族 11 个设置派生不走这里</b>——它们继续用反射 <see cref="JsonOptions"/>
+    /// （泛型化会把 <c>this</c> 静态推断成基类、派生字段静默丢，拍板否决该行为变化）。
+    /// </summary>
+    public static readonly JsonSerializerOptions SaveJsonOptions = CreateSourceGenOptions();
+
+    private static JsonSerializerOptions CreateSourceGenOptions()
+    {
+        JsonSerializerOptions options = new(SaveJsonContext.Default.Options)
+        {
+            WriteIndented = true,
+            AllowTrailingCommas = true,
+            ReadCommentHandling = JsonCommentHandling.Skip,
+            PropertyNameCaseInsensitive = true,
+            UnknownTypeHandling = JsonUnknownTypeHandling.JsonNode,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        };
+        // 单点 converter：只挂 CharacterCard.Data 的两个 List<object> 宽容字段，不全局动 object
+        options.TypeInfoResolver = options.TypeInfoResolver!.WithAddedModifier(ApplyObjectListConverters);
+        options.MakeReadOnly();
+        return options;
+    }
+
+    /// <summary>给 <see cref="Data.AlternateGreetings"/> / <see cref="Data.GroupOnlyGreetings"/> 挂单点 converter</summary>
+    private static void ApplyObjectListConverters(JsonTypeInfo typeInfo)
+    {
+        if (typeInfo.Type != typeof(Data)) return;
+        foreach (JsonPropertyInfo property in typeInfo.Properties)
+        {
+            if (property.Name is "alternate_greetings" or "group_only_greetings")
+            {
+                property.CustomConverter = new SaveObjectListJsonConverter();
+            }
+        }
+    }
 
     public static void Save()
     {
@@ -246,6 +288,12 @@ public static class SaveUtility
         return JsonSerializer.Serialize(target, JsonOptions);
     }
 
+    /// <summary>有界类型走 <see cref="SaveJsonOptions"/> 的写串（角色卡等；ConfigBase 一族继续走反射）</summary>
+    public static string SaveToString<T>(T target)
+    {
+        return JsonSerializer.Serialize(target, SaveJsonOptions);
+    }
+
     //=========================Load=================================
 
     public static T? Load<T>(string filePath) where T : class, new()
@@ -268,12 +316,46 @@ public static class SaveUtility
         return new T();
     }
 
+    /// <summary>
+    /// 用指定序列化配置读取（有界类型走 <see cref="SaveJsonOptions"/>，ConfigBase 一族继续走反射 <see cref="JsonOptions"/>）。
+    /// 容错语义与无 options 版一致：解析失败返回 <c>new T()</c>。
+    /// </summary>
+    public static T LoadFromString<T>(string jsonString, JsonSerializerOptions options) where T : new()
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<T>(jsonString, options) ?? new T();
+        }
+        catch (Exception e)
+        {
+            Log.Warning(e.ToString());
+        }
+
+        return new T();
+    }
+
     public static object? LoadFromString(string jsonString, Type? type)
     {
         if (type == null) return null;
         try
         {
             return JsonSerializer.Deserialize(jsonString, type, JsonOptions) ?? null;
+        }
+        catch (Exception e)
+        {
+            Log.Error(e.Message);
+        }
+
+        return null;
+    }
+
+    /// <summary>用指定序列化配置按运行时 Type 读取（远程模型配置修复用，Type 必须在 context 里有类型图）</summary>
+    public static object? LoadFromString(string jsonString, Type? type, JsonSerializerOptions options)
+    {
+        if (type == null) return null;
+        try
+        {
+            return JsonSerializer.Deserialize(jsonString, type, options) ?? null;
         }
         catch (Exception e)
         {

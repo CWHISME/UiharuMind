@@ -47,7 +47,7 @@ internal sealed class McpTrustStore
     public void Reload()
     {
         Dictionary<string, List<McpTrustRecord>> loaded =
-            SaveUtility.Load<Dictionary<string, List<McpTrustRecord>>>(AppPaths.Config.McpTrust)
+            SaveUtility.Load<Dictionary<string, List<McpTrustRecord>>>(AppPaths.Config.McpTrust, SaveUtility.SaveJsonOptions)
             ?? new Dictionary<string, List<McpTrustRecord>>(StringComparer.Ordinal);
 
         Dictionary<string, List<McpTrustRecord>> alive = new(StringComparer.Ordinal);
@@ -201,7 +201,7 @@ internal sealed class McpTrustStore
 
         try
         {
-            SaveUtility.Save(AppPaths.Config.McpTrust, snapshot);
+            SaveUtility.Save(AppPaths.Config.McpTrust, snapshot, SaveUtility.SaveJsonOptions);
         }
         catch (Exception e)
         {

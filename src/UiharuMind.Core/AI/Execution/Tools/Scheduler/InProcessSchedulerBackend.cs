@@ -56,7 +56,7 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
     public InProcessSchedulerBackend(bool primary)
     {
         _readOnly = !primary;
-        List<ScheduledAgentTask>? loaded = SaveUtility.Load<List<ScheduledAgentTask>>(AppPaths.Data.ScheduledAgentTasks);
+        List<ScheduledAgentTask>? loaded = SaveUtility.Load<List<ScheduledAgentTask>>(AppPaths.Data.ScheduledAgentTasks, SaveUtility.SaveJsonOptions);
         if (loaded != null) _tasks.AddRange(loaded);
         if (_readOnly)
         {
@@ -361,7 +361,7 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
     {
         lock (_locker)
         {
-            SaveUtility.Save(AppPaths.Data.ScheduledAgentTasks, _tasks);
+            SaveUtility.Save(AppPaths.Data.ScheduledAgentTasks, _tasks, SaveUtility.SaveJsonOptions);
         }
     }
 

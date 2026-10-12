@@ -102,9 +102,9 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
     public void Reload()
     {
         _trust.Reload();
-        McpServersFile file = SaveUtility.Load<McpServersFile>(AppPaths.Config.McpServers) ?? new McpServersFile();
+        McpServersFile file = SaveUtility.Load<McpServersFile>(AppPaths.Config.McpServers, SaveUtility.SaveJsonOptions) ?? new McpServersFile();
         Dictionary<string, McpServerLocalState> states =
-            SaveUtility.Load<Dictionary<string, McpServerLocalState>>(AppPaths.Config.McpServerStates) ?? new();
+            SaveUtility.Load<Dictionary<string, McpServerLocalState>>(AppPaths.Config.McpServerStates, SaveUtility.SaveJsonOptions) ?? new();
 
         List<McpServerConfig> configs = file.ToConfigs(states);
         List<McpClient> orphans = new();
@@ -947,8 +947,8 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
         }
 
         var (standard, states) = McpServersFile.FromConfigs(snapshot);
-        SaveUtility.Save(AppPaths.Config.McpServers, standard);
-        SaveUtility.Save(AppPaths.Config.McpServerStates, states);
+        SaveUtility.Save(AppPaths.Config.McpServers, standard, SaveUtility.SaveJsonOptions);
+        SaveUtility.Save(AppPaths.Config.McpServerStates, states, SaveUtility.SaveJsonOptions);
     }
 
     /// <summary>一个 server 的运行态。只在 <c>_lock</c> 内读写</summary>

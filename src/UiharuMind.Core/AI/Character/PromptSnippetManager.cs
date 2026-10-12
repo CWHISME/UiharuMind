@@ -42,7 +42,7 @@ public class PromptSnippetManager : Singleton<PromptSnippetManager>, IInitialize
     {
         if (File.Exists(SavePath))
         {
-            _snippets = SaveUtility.Load<List<PromptSnippet>>(SavePath) ?? new List<PromptSnippet>();
+            _snippets = SaveUtility.Load<List<PromptSnippet>>(SavePath, SaveUtility.SaveJsonOptions) ?? new List<PromptSnippet>();
             return;
         }
 
@@ -87,6 +87,6 @@ public class PromptSnippetManager : Singleton<PromptSnippetManager>, IInitialize
 
     private void Save()
     {
-        SaveUtility.Save(SavePath, _snippets);
+        SaveUtility.Save(SavePath, _snippets, SaveUtility.SaveJsonOptions);
     }
 }
