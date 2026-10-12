@@ -23,17 +23,38 @@ internal static class PathGrouping
     /// <summary>分组上限</summary>
     internal const int MaxGroups = 50;
 
-    /// <summary>一组聚合结果：标签（见类注释）与该组的权重合计</summary>
-    internal readonly record struct PathGroup(string Prefix, int Total);
-
-    private enum SlotKind
+    // 目录树顺序：逐段按 Ordinal 比较，前缀短的在前（见 TreeOrderKey）
+    private static readonly Comparer<string[]> TreeOrder = Comparer<string[]>.Create((a, b) =>
     {
+        for (int i = 0; i < Math.Min(a.Length, b.Length); i++)
+        {
+            int cmp = string.CompareOrdinal(a[i], b[i]);
+            if (cmp != 0) return cmp;
+        }
+
+        return a.Length.CompareTo(b.Length);
+    });
+
+    /// <summary>组的种类，决定标签形状（见类注释）</summary>
+    internal enum EGroupKind
+    {
+        /// <summary>整棵子树，标签 <c>src/A</c></summary>
         Subtree,
+
+        /// <summary>目录的直属文件（它的子目录另有组列出），标签 <c>src/A/*</c></summary>
         Direct,
+
+        /// <summary>
+        /// 子目录多到完整展开会超上限时，只单列高于平均的子目录，剩下的子目录连同直属文件
+        /// 并成这一组，标签 <c>src/A（其余）</c>。数值是「src/A 减去已单列部分」，不是整个 src/A
+        /// </summary>
         Rest,
     }
 
-    private readonly record struct Slot(DirNode Node, SlotKind Kind, int Weight);
+    /// <summary>一组聚合结果：标签、权重合计、路径条数（Grep 即文件数）与种类</summary>
+    internal readonly record struct PathGroup(string Prefix, int Total, int Count, EGroupKind Kind);
+
+    private readonly record struct Slot(DirNode Node, EGroupKind Kind, int Weight, int Count);
 
     private sealed class DirNode(string path)
     {
@@ -41,13 +62,15 @@ internal static class PathGrouping
         public readonly Dictionary<string, DirNode> Children = new(StringComparer.Ordinal);
         public int DirectWeight;
         public int SubtreeWeight;
+        public int DirectCount;
+        public int SubtreeCount;
     }
 
     /// <summary>
     /// 聚合，组数保证 ≤ <see cref="MaxGroups"/>（根目录数超过上限这种极端情况除外）。
     /// </summary>
     /// <param name="items">路径与权重（Grep 权重 = 该文件命中数；Glob 权重 = 1）</param>
-    /// <returns>聚合组，按权重降序再按标签字典序</returns>
+    /// <returns>聚合组，按目录树顺序（见 <see cref="TreeOrderKey"/>）</returns>
     internal static List<PathGroup> Group(IReadOnlyList<(string Path, int Weight)> items)
     {
         if (items.Count == 0) return [];
@@ -59,7 +82,7 @@ internal static class PathGrouping
         while (true)
         {
             List<Slot> candidates = slots
-                .Where(s => s.Kind == SlotKind.Subtree && s.Node.Children.Count > 0 && !frozen.Contains(s.Node))
+                .Where(s => s.Kind == EGroupKind.Subtree && s.Node.Children.Count > 0 && !frozen.Contains(s.Node))
                 .ToList();
             if (candidates.Count == 0) break;
 
@@ -84,10 +107,31 @@ internal static class PathGrouping
         }
 
         return slots
-            .Select(s => new PathGroup(Label(s), s.Weight))
-            .OrderByDescending(g => g.Total)
-            .ThenBy(g => g.Prefix, StringComparer.Ordinal)
+            .OrderBy(TreeOrderKey, TreeOrder)
+            .Select(s => new PathGroup(Label(s), s.Weight, s.Count, s.Kind))
             .ToList();
+    }
+
+    /// <summary>
+    /// 按目录树排，而不按权重：「其余」只有挨着被单列的兄弟才看得懂是相对谁而言，
+    /// 按权重排会把它们拆散。同一目录内：直属文件在前、子目录按名、「其余」在后
+    /// </summary>
+    private static string[] TreeOrderKey(Slot slot)
+    {
+        string path = slot.Node.Path;
+        string[] segments = path switch
+        {
+            "." => [],
+            "/" => [""],
+            _ => path.Split('/'),
+        };
+
+        return slot.Kind switch
+        {
+            EGroupKind.Direct => [.. segments, "\0"],
+            EGroupKind.Rest => [.. segments, "\uFFFF"],
+            _ => segments,
+        };
     }
 
     /// <summary>建目录树，返回虚拟顶点（其子节点是各路径根："."、"/"、"C:" 等）</summary>
@@ -109,6 +153,7 @@ internal static class PathGrouping
 
             DirNode node = top;
             node.SubtreeWeight += weight;
+            node.SubtreeCount++;
             for (int i = chain.Count - 1; i >= 0; i--)
             {
                 if (!node.Children.TryGetValue(chain[i], out DirNode? child))
@@ -119,9 +164,11 @@ internal static class PathGrouping
 
                 node = child;
                 node.SubtreeWeight += weight;
+                node.SubtreeCount++;
             }
 
             node.DirectWeight += weight;
+            node.DirectCount++;
         }
 
         return top;
@@ -132,9 +179,9 @@ internal static class PathGrouping
     {
         List<Slot> parts = node.Children.Values
             .Select(child => SkipPassThrough(child))
-            .Select(child => new Slot(child, SlotKind.Subtree, child.SubtreeWeight))
+            .Select(child => new Slot(child, EGroupKind.Subtree, child.SubtreeWeight, child.SubtreeCount))
             .ToList();
-        if (node.DirectWeight > 0) parts.Add(new Slot(node, SlotKind.Direct, node.DirectWeight));
+        if (node.DirectCount > 0) parts.Add(new Slot(node, EGroupKind.Direct, node.DirectWeight, node.DirectCount));
         return parts;
     }
 
@@ -149,19 +196,33 @@ internal static class PathGrouping
         List<Slot> parts = Expand(node);
         double average = (double)node.SubtreeWeight / parts.Count;
         List<Slot> heavy = parts
-            .Where(s => s.Kind == SlotKind.Subtree && s.Weight > average)
+            .Where(s => s.Kind == EGroupKind.Subtree && s.Weight > average)
             .OrderByDescending(s => s.Weight)
             .Take(budget - 1)
             .ToList();
         if (heavy.Count == 0) return null;
 
-        heavy.Add(new Slot(node, SlotKind.Rest, node.SubtreeWeight - heavy.Sum(s => s.Weight)));
+        heavy.Add(new Slot(node, EGroupKind.Rest,
+            node.SubtreeWeight - heavy.Sum(s => s.Weight), node.SubtreeCount - heavy.Sum(s => s.Count)));
         return heavy;
+    }
+
+    /// <summary>
+    /// 标签图例：只解释本次结果里实际出现的特殊标签，没有就返回 null
+    /// </summary>
+    /// <param name="groups">聚合结果</param>
+    /// <returns>一句说明，或 null</returns>
+    internal static string? DescribeLabels(IReadOnlyList<PathGroup> groups)
+    {
+        List<string> parts = [];
+        if (groups.Any(g => g.Kind == EGroupKind.Direct)) parts.Add("「目录/*」是该目录的直属文件");
+        if (groups.Any(g => g.Kind == EGroupKind.Rest)) parts.Add("「目录（其余）」是该目录下未单列出来的部分");
+        return parts.Count == 0 ? null : string.Join("，", parts) + "。";
     }
 
     private static DirNode SkipPassThrough(DirNode node)
     {
-        while (node.DirectWeight == 0 && node.Children.Count == 1)
+        while (node.DirectCount == 0 && node.Children.Count == 1)
         {
             node = node.Children.Values.First();
         }
@@ -177,8 +238,8 @@ internal static class PathGrouping
 
     private static string Label(Slot slot) => slot.Kind switch
     {
-        SlotKind.Direct => slot.Node.Path == "/" ? "/*" : slot.Node.Path + "/*",
-        SlotKind.Rest => slot.Node.Path + "（其余）",
+        EGroupKind.Direct => slot.Node.Path == "/" ? "/*" : slot.Node.Path + "/*",
+        EGroupKind.Rest => slot.Node.Path + "（其余）",
         _ => slot.Node.Path,
     };
 

@@ -41,8 +41,11 @@ namespace UiharuMind.Core.AI.Execution.Files;
 internal sealed class PermissiveFileAccessTools
 {
     // —— 输出限幅:工具输出直接进模型上下文,编码会话的上下文大头是工具结果而非对话。
-    //    Read 的限幅在 FileReader;Grep 的在 GrepResultShaper;Glob 过宽时换目录统计(见
-    //    RenderDirectorySummary),不再罗列前 300 条路径;shell 由框架截断。——
+    //    Read 的限幅在 FileReader;Grep 的在 GrepResultShaper;Glob 超过 MaxGlobEntries 换目录统计(见
+    //    RenderDirectorySummary);shell 由框架截断。——
+
+    /// <summary>Glob 内联列出的条目上限（一条约 15 token），超了换目录统计</summary>
+    internal const int MaxGlobEntries = 150;
 
     /// <summary>Edit 回给模型的 diff 行数上限（与审批卡片共用，见 <c>FileEditPlanner.DefaultMaxDiffLines</c>）</summary>
     internal const int MaxEditDiffLines = FileEditPlanner.DefaultMaxDiffLines;
@@ -138,12 +141,12 @@ internal sealed class PermissiveFileAccessTools
 
     [Description("按 glob 模式查找文件，如 “**/*.c”。搜文件内容用 Grep")]
     internal async Task<string> Glob(
-        [Description("匹配模式”")] string pattern,
+        [Description("匹配模式")] string pattern,
         [Description("可选，工作目录的相对路径(也接受非工作目录的绝对路径)")] string? path = null,
         CancellationToken ct = default)
     {
         GlobOutcome outcome = await _glob
-            .SearchAsync(pattern, path, collectStats: true, ct: ct)
+            .SearchAsync(pattern, path, MaxGlobEntries, collectStats: true, ct: ct)
             .ConfigureAwait(false);
 
         if (outcome.Failure != null)
@@ -151,7 +154,7 @@ internal sealed class PermissiveFileAccessTools
             return SearchFailureRenderer.Render(outcome.Failure, FileToolNames.Grep);
         }
 
-        // 过宽时不罗列前 300 条路径（几千 token），换按目录聚合的统计：
+        // 过宽时不罗列半截路径列表，换按目录聚合的统计：
         // 模型一眼看出命中集中在哪几个目录，再决定收窄方向，而不是扫读半截列表
         if (outcome.Truncated)
         {
@@ -160,7 +163,9 @@ internal sealed class PermissiveFileAccessTools
 
         // 每个文件都标大小:纪律段要它别把大文件整个拉进来,这是判断依据(一条约 4 token,
         // 误读一次大文件是上万 token)。只标超阈值的不行——没标注就分不清"小"和"没测"。
+        // 目录用末尾 "/" 标识(模型最熟的约定),不再给每行加 [FILE]/[DIR] 前缀。
         // 文件在前、目录在后:文件才是下一步 Read/Edit 的对象;按纯字典序两者会逐行交替,很难扫。
+        // 刻意按路径而不按修改时间排:同目录的文件挨在一起,模型扫得出结构。
         // 排序只在这一层做,界面那侧有自己的习惯(见 SearchService)
         return ToolResultText.AppendNotice(
             string.Join('\n', outcome.Entries
@@ -170,15 +175,16 @@ internal sealed class PermissiveFileAccessTools
             BuildGlobNotice(outcome));
 
         static string Render(GlobEntry entry) => entry.IsDirectory
-            ? $"[DIR]  {entry.Path}"
-            : $"[FILE] {entry.Path} ({GameUtils.FormatBytes(entry.SizeBytes)})";
+            ? $"{entry.Path}/"
+            : $"{entry.Path} ({GameUtils.FormatBytes(entry.SizeBytes)})";
     }
 
     /// <summary>
     /// 命中过宽时渲染目录聚合统计（与 Grep 命中地图同思路，共用 <see cref="PathGrouping"/>）：
     /// 不返半截列表——半截按扫描序/字典序取，无相关度排序，模型会锚定到运气好的前缀上；
-    /// 目录分布按全量命中统计（SimpleGlobber 一直数到统计上限），逐层上收到 ≤50 组，
-    /// 模型据此判断搜宽没搜宽、该往哪个目录收窄，比 300 条路径省下上千 token。
+    /// 目录分布按全量命中统计（SimpleGlobber 一直数到统计上限），聚合到 ≤50 组，
+    /// 模型据此判断搜宽没搜宽、该往哪个目录收窄，比罗列路径省下上千 token。
+    /// 开头先声明「这不是文件列表」：小模型容易从第一行就照着做。
     /// 注意：触顶（TotalHitsCapped）时分组也只覆盖前 statsCap 条命中，分布同样是下限——
     /// 别把「分组总和 = 总数」当不变量。5000 条分布足够模型判断方向，这是有意的取舍。
     /// internal 供测试直接验证横幅语义（触顶时 "N+" 而不是假精确的 "N"）。
@@ -188,12 +194,14 @@ internal sealed class PermissiveFileAccessTools
         List<PathGrouping.PathGroup> groups = PathGrouping.Group(
             outcome.HitPaths.Select(path => (path, 1)).ToList());
 
-        string body = string.Join('\n', groups.Select(group => $"{group.Prefix}: {group.Total}"));
+        string body = "命中过多，下面是按目录的分布，不是文件列表：\n"
+                      + string.Join('\n', groups.Select(group => $"{group.Prefix}: {group.Total} 条"));
         string countText = outcome.TotalHitsCapped
             ? $"共 {outcome.TotalHits}+ 条命中"
             : $"共 {outcome.TotalHits} 条命中";
         string notice = $"{countText}，范围太宽；"
                         + $"已按目录聚合为 {groups.Count} 组。"
+                        + PathGrouping.DescribeLabels(groups)
                         + $"{ToolResultText.NarrowGuidance}。";
         return ToolResultText.AppendNotice(body, notice);
     }
@@ -220,19 +228,21 @@ internal sealed class PermissiveFileAccessTools
         [Description("可选，每处命中前后显示多少行上下文。")] int contextLines = 0,
         // 编译不过的正则会自动按字面串重搜并在 Notice 里说明,事前不必叮嘱
         [Description("可选，将匹配模式作为正则表达式处理")] bool isRegex = true,
-        [Description("可选，区分大小写搜索。默认不区分（标准 grep/ripgrep 默认区分；需要精确匹配标识符时传 true）")]
+        [Description("可选，区分大小写。默认不区分；精确匹配标识符时传 true")]
         bool caseSensitive = false,
         // 带路径或 **/ 前缀的 glob 在搜索器里已剥成裸文件名,不必再警告模型别这么写
         [Description("可选，按文件名的 glob 过滤，如 [\"*.cs\"]。只匹配文件名；按目录缩小范围用 path")]
         string[]? fileGlobs = null,
         [Description("可选，工作目录的相对路径(也接受非工作目录的绝对路径)，需要缩小搜索范围时传指定目录或单个文件路径")] 
         string? path = null,
+        [Description("可选，只列出命中的文件（命中数与行号），不返回匹配内容。只想知道哪些文件提到了它时用")]
+        bool filesOnly = false,
         CancellationToken ct = default)
     {
         GrepOutcome outcome = await _grepper
-            .SearchAsync(pattern, isRegex, caseSensitive, contextLines, maxDepth: null, fileGlobs, path, ct)
+            .SearchAsync(pattern, isRegex, caseSensitive, filesOnly ? 0 : contextLines, maxDepth: null, fileGlobs, path, ct)
             .ConfigureAwait(false);
-        return GrepResultShaper.Shape(outcome, pattern);
+        return GrepResultShaper.Shape(outcome, pattern, filesOnly);
     }
 
     internal Task<string> Read(

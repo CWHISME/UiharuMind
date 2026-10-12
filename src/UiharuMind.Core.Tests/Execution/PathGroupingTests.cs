@@ -207,7 +207,7 @@ public class PathGroupingTests
 
         List<PathGrouping.PathGroup> groups = PathGrouping.Group(items);
 
-        Assert.Contains(groups, g => g.Prefix == "src/A/*" && g.Total == 3);
+        Assert.Contains(groups, g => g.Prefix == "src/A/*" && g.Total == 3 && g.Count == 1);
         Assert.Contains(groups, g => g.Prefix == "src/A/B" && g.Total == 2);
         Assert.Contains(groups, g => g.Prefix == "src/A/C" && g.Total == 1);
         Assert.Contains(groups, g => g.Prefix == "src/D" && g.Total == 4);
@@ -231,5 +231,31 @@ public class PathGroupingTests
 
         Assert.InRange(groups.Count, 2, PathGrouping.MaxGroups);
         Assert.Equal(items.Sum(x => x.Item2), groups.Sum(g => g.Total));
+    }
+
+    [Fact]
+    public void DescribeLabels_OnlyExplainsLabelsPresent()
+    {
+        List<PathGrouping.PathGroup> plain = PathGrouping.Group([("a/x.cs", 1), ("b/y.cs", 1)]);
+        Assert.Null(PathGrouping.DescribeLabels(plain));
+
+        List<PathGrouping.PathGroup> mixed = PathGrouping.Group([("a/x.cs", 1), ("a/b/y.cs", 1), ("c/z.cs", 1)]);
+        string? legend = PathGrouping.DescribeLabels(mixed);
+        Assert.NotNull(legend);
+        Assert.Contains("「目录/*」", legend);
+        Assert.DoesNotContain("其余", legend);
+    }
+
+    [Fact]
+    public void Group_Output_IsInTreeOrder_RestAfterItsSiblings()
+    {
+        // 「其余」紧跟在被单列的兄弟后面，直属文件排在本目录最前；不按权重排
+        List<(string, int)> items = [("lib/x.cs", 999), ("src/F.cs", 1)];
+        for (int i = 0; i < 30; i++) items.Add(("src/Dense/F.cs", 1));
+        for (int i = 0; i < 60; i++) items.Add(($"src/A{i:D2}/f.cs", 1));
+
+        List<string> order = PathGrouping.Group(items).Select(g => g.Prefix).ToList();
+
+        Assert.Equal(["lib", "src/Dense", "src（其余）"], order);
     }
 }

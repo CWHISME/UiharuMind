@@ -59,15 +59,16 @@ public class GlobToolTextOutputTests : IDisposable
 
         string result = await _tools.Glob("**/*.txt", ct: TestContext.Current.CancellationToken);
 
-        // 条目带类型前缀:文件可行动,格式 [FILE] path (size)
-        Assert.Contains("[FILE] a.txt (", result);
+        // 文件一行一条:path (size),不带类型前缀
+        Assert.StartsWith("a.txt (", result);
+        Assert.DoesNotContain("[FILE]", result);
         Assert.Contains("sub/b.txt", result);
         // 有命中、没截断 → 说明为 null,正文原样返回,没有分隔段
         Assert.DoesNotContain("---", result);
     }
 
     /// <summary>
-    /// SimpleGlobber 的 300 条上限触发过宽：不再罗列前 300 条路径（几千 token），
+    /// 超过内联上限触发过宽：不再罗列半截路径列表（几千 token），
     /// 换成按目录聚合的统计 + 过宽提示。统计基于全量命中（不是保下来的前缀）。
     /// </summary>
     [Fact]
@@ -80,17 +81,17 @@ public class GlobToolTextOutputTests : IDisposable
 
         string result = await _tools.Glob("*.txt", ct: TestContext.Current.CancellationToken);
 
-        // 过宽正文是目录统计行（根目录 "." 下 301 个文件），不是 [FILE] 路径列表
-        Assert.StartsWith(".: 301", result);
+        // 过宽正文先声明「不是文件列表」，再给目录统计行（根目录 "." 下 301 个文件）
+        Assert.StartsWith("命中过多，下面是按目录的分布，不是文件列表：\n.: 301 条", result);
         Assert.DoesNotContain("[FILE]", result);
         Assert.Contains("范围太宽", result);
         Assert.Contains("共 301 条命中", result);
         Assert.Contains(ToolResultText.NarrowGuidance, result);
     }
 
-    /// <summary>过宽时目录统计按命中数降序，且统计自全量（Top N 上限外仍有“前 N 个目录”的说明）</summary>
+    /// <summary>过宽时给目录统计，且统计自全量（不是内联上限内的前缀）</summary>
     [Fact]
-    public async Task Glob_OverLimit_CountsPerDirectoryDescending()
+    public async Task Glob_OverLimit_CountsPerDirectory()
     {
         Directory.CreateDirectory(Path.Combine(_dir, "sub1"));
         Directory.CreateDirectory(Path.Combine(_dir, "sub2"));
@@ -102,20 +103,17 @@ public class GlobToolTextOutputTests : IDisposable
 
         string result = await _tools.Glob("**/*.txt", ct: TestContext.Current.CancellationToken);
 
-        // 360 条命中、两个目录各 180：降序展示目录统计，路径列表不出现
+        // 360 条命中、两个目录各 180：展示目录统计，路径列表不出现
         // （分隔行前的正文逐行取，排除分隔后的 notice 段与空行）
-        string[] statLines = result.Split('\n')
-            .TakeWhile(line => !line.StartsWith("---"))
-            .Where(line => line.Length > 0)
-            .ToArray();
+        string[] statLines = StatLines(result);
         Assert.Equal(2, statLines.Length);
-        Assert.Contains("sub1: 180", statLines);
-        Assert.Contains("sub2: 180", statLines);
+        Assert.Contains("sub1: 180 条", statLines);
+        Assert.Contains("sub2: 180 条", statLines);
         Assert.Contains("共 360 条命中", result);
         Assert.DoesNotContain("[FILE]", result);
     }
 
-    /// <summary>一级目录仍超上限时逐层上收到父目录（360 命中、60 子目录分 3 父 → 3 组）</summary>
+    /// <summary>等重的父目录一起展开放不下时都不拆（360 命中、60 子目录分 3 父 → 3 组）</summary>
     [Fact]
     public async Task Glob_OverLimit_GoesUpALevel()
     {
@@ -135,15 +133,12 @@ public class GlobToolTextOutputTests : IDisposable
 
         string result = await _tools.Glob("**/*.txt", ct: TestContext.Current.CancellationToken);
 
-        // 360 条命中（>300 上限）分布在 60 个不同子目录 → 一级 60 组超限 → 上收到 3 个父目录
-        string[] statLines = result.Split('\n')
-            .TakeWhile(line => !line.StartsWith("---"))
-            .Where(line => line.Length > 0)
-            .ToArray();
+        // 360 条命中分布在 60 个不同子目录 → 3 个父目录一起展开要 60 组，超限 → 停在 3 组
+        string[] statLines = StatLines(result);
         Assert.Equal(3, statLines.Length);
-        Assert.Contains("gdirA: 120", statLines);
-        Assert.Contains("gdirB: 120", statLines);
-        Assert.Contains("gdirC: 120", statLines);
+        Assert.Contains("gdirA: 120 条", statLines);
+        Assert.Contains("gdirB: 120 条", statLines);
+        Assert.Contains("gdirC: 120 条", statLines);
         Assert.Contains("已按目录聚合为 3 组", result);
         Assert.DoesNotContain("[FILE]", result);
     }
@@ -207,4 +202,11 @@ public class GlobToolTextOutputTests : IDisposable
             Directory.Delete(root, recursive: true);
         }
     }
+
+    /// <summary>过宽结果的统计行：跳过开头的声明行，取到分隔行为止</summary>
+    private static string[] StatLines(string result) => result.Split('\n')
+        .Skip(1)
+        .TakeWhile(line => !line.StartsWith("---"))
+        .Where(line => line.Length > 0)
+        .ToArray();
 }

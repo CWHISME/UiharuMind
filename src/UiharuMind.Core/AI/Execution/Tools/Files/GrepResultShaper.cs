@@ -14,7 +14,7 @@ namespace UiharuMind.Core.AI.Execution.Files;
 
 /// <summary>
 /// 把 <see cref="GrepOutcome"/> 塑成回给模型的<b>纯文本</b>：按文件分组、渲成正文、
-/// 命中限幅、正文超预算整页换成命中地图、附带说明。纯转换，不碰文件系统。
+/// 命中限幅、正文超预算整页换成命中地图（<see cref="GrepHitMap"/>）、附带说明。纯转换，不碰文件系统。
 ///
 /// 刻意返回 string 而不是结构化对象：工具结果要落历史、被序列化再读回，对象会在重放时
 /// 变成 <c>JsonElement</c>，其 ToString 吐出的是紧凑 JSON（换行变 <c>\n</c> 字面量、全挤一行）；
@@ -24,55 +24,74 @@ namespace UiharuMind.Core.AI.Execution.Files;
 internal static class GrepResultShaper
 {
     internal const int MaxMatches = 200; //命中处上限(只限工具边界,界面文件搜索仍全量)
-    internal const int MaxLineChars = 500; //单行截断
-
-    /// <summary>正文输出预算，按 <b>UTF-8 字节</b>算（与 Read 同口径）。超了整页换成命中地图</summary>
-    internal const int MaxOutputBytes = 32 * 1024;
+    /// <summary>
+    /// 单行截断。截的是行尾，命中在截断点之后就看不见了，所以不能太小：
+    /// 历史转写按 400 字符折行（HistoryTranscript.WrapChars），命中可以落在行内任意位置
+    /// </summary>
+    internal const int MaxLineChars = 500;
 
     /// <summary>
-    /// 命中地图「文件级」的文件数上限：≤ 此数是文件级（每文件一行 + 行号区间，可直接 Read）；
-    /// 超过才升目录级。刻意高于 <see cref="PathGrouping.MaxGroups"/>（50）——文件级一行约 80 字符，
-    /// 100 行也不到 10KB，没必要在文件刚过 50 个的时候就丢行号入口。
+    /// 正文输出预算，按 <b>UTF-8 字节</b>算。超了整页换成命中地图。
+    /// 比 Read 的 32KB 小：一次搜索约 4–5k token，本地小模型的上下文经不起每次搜索吃掉近万
     /// </summary>
-    internal const int MaxFileMapEntries = 100;
+    internal const int MaxOutputBytes = 16 * 1024;
 
     /// <summary>
     /// 塑形一次搜索结果，返回给模型的纯文本
     /// </summary>
     /// <param name="outcome">搜索器的结构化结果</param>
     /// <param name="pattern">模型传入的原始表达式（用于说明降级与归一化）</param>
+    /// <param name="filesOnly">只要命中分布（文件 + 命中数 + 行号），不要匹配内容</param>
     /// <returns>回给模型的工具结果正文（失败、说明一律拼在同段文本里）</returns>
-    public static string Shape(GrepOutcome outcome, string pattern)
+    public static string Shape(GrepOutcome outcome, string pattern, bool filesOnly = false)
     {
         if (outcome.Failure != null)
         {
             return SearchFailureRenderer.Render(outcome.Failure, FileToolNames.Grep);
         }
 
+        if (outcome.Matches.Count == 0) return ToolResultText.AppendNotice("", BuildNotice(outcome, pattern, 0));
+        if (filesOnly) return ShapeFilesOnly(outcome, pattern);
+
         GroupedHits grouped = GroupByFile(outcome.Matches);
         string body = RenderBody(grouped.Files);
         bool tooWide = grouped.DroppedMatches > 0 || Encoding.UTF8.GetByteCount(body) > MaxOutputBytes;
-        if (tooWide)
-        {
-            // 命中过多：直接给分布地图（文件级或目录级），不再返半截正文——
-            // 半截按扫描序取、无相关度排序，模型会锚定到运气好的文件上（地图按全量统计）
-            (string mapBody, string mapNotice, int fileCount) = BuildHitMapText(outcome.Matches);
-            List<string> parts = QueryNotes(outcome, pattern);
-            parts.Add($"{outcome.Matches.Count} 处命中，跨 {fileCount} 个文件，范围太宽，无法内联返回；{mapNotice}");
-            return ToolResultText.AppendNotice(mapBody, string.Join(" ", parts));
-        }
+        if (!tooWide) return ToolResultText.AppendNotice(body, BuildNotice(outcome, pattern, grouped.Files.Count));
 
-        return ToolResultText.AppendNotice(body, BuildNotice(outcome, pattern, grouped));
+        // 命中过多：直接给分布地图，不再返半截正文——半截按扫描序取、无相关度排序，
+        // 模型会锚定到运气好的文件上（地图按全量统计）。地图开头先声明「这不是正文」，
+        // 小模型容易从第一行就照着做，放在末尾的说明它未必读到
+        GrepHitMap.Rendering map = GrepHitMap.Render(outcome.Matches, orderByPath: false, MaxOutputBytes);
+        List<string> parts = QueryNotes(outcome, pattern);
+        parts.Add($"{outcome.Matches.Count} 处命中，跨 {map.FileCount} 个文件，范围太宽，无法内联返回。");
+        parts.Add(map.IsDirectoryLevel
+            ? $"已按目录聚合为 {map.GroupCount} 组。{map.Legend}{ToolResultText.NarrowGuidance}。"
+            : $"可按行号 `Read` 上面的文件，或{ToolResultText.NarrowGuidance}。");
+        string header = map.IsDirectoryLevel
+            ? "命中过多，下面是按目录的命中分布，不是匹配内容："
+            : "命中过多，下面是按文件的命中分布，不是匹配内容：";
+        return ToolResultText.AppendNotice(header + "\n" + map.Body, string.Join(" ", parts));
     }
 
-    private readonly record struct GroupedHits(List<GrepFileHits> Files, int DroppedMatches, int DroppedFiles);
+    // 文件清单按路径排：同目录的文件挨在一起，模型扫得出结构
+    private static string ShapeFilesOnly(GrepOutcome outcome, string pattern)
+    {
+        GrepHitMap.Rendering map = GrepHitMap.Render(outcome.Matches, orderByPath: true, MaxOutputBytes);
+        List<string> parts = QueryNotes(outcome, pattern);
+        parts.Add($"共 {outcome.Matches.Count} 处命中，跨 {map.FileCount} 个文件。");
+        if (!map.IsDirectoryLevel) return ToolResultText.AppendNotice(map.Body, string.Join(" ", parts));
+
+        parts.Add($"文件太多，已按目录聚合为 {map.GroupCount} 组。{map.Legend}{ToolResultText.NarrowGuidance}。");
+        return ToolResultText.AppendNotice("文件过多，下面是按目录的命中分布：\n" + map.Body, string.Join(" ", parts));
+    }
+
+    private readonly record struct GroupedHits(List<GrepFileHits> Files, int DroppedMatches);
 
     // 限幅按"命中处"计(一处命中连同它的上下文行算一条)
     private static GroupedHits GroupByFile(IReadOnlyList<GrepMatchResult> matches)
     {
         var linesByFile = new Dictionary<string, SortedDictionary<int, PlacedLine>>(StringComparer.Ordinal);
         var fileOrder = new List<string>();
-        var droppedFiles = new HashSet<string>(StringComparer.Ordinal);
         int droppedMatches = 0;
         int taken = 0;
 
@@ -81,7 +100,6 @@ internal static class GrepResultShaper
             if (taken >= MaxMatches)
             {
                 droppedMatches++;
-                droppedFiles.Add(match.FileName);
                 continue;
             }
 
@@ -113,7 +131,7 @@ internal static class GrepResultShaper
             .OrderBy(file => file, StringComparer.Ordinal)
             .Select(file => new GrepFileHits { File = file, Lines = linesByFile[file].Values.Select(p => p.Text).ToList() })
             .ToList();
-        return new GroupedHits(files, droppedMatches, droppedFiles.Count);
+        return new GroupedHits(files, droppedMatches);
     }
 
     /// <summary>同一行只保留一条时的排放记录：是否命中行 + 渲染文本。命中行比上下文行优先</summary>
@@ -137,85 +155,14 @@ internal static class GrepResultShaper
         return sb.ToString();
     }
 
-    // 刻意不给正文:半截正文按扫描序取、无相关度排序,留着只会让模型锚定到运气好的文件上。
-    // 文件数 ≤ MaxFileMapEntries 时按文件列（每文件一行：命中数 + 行号区间），模型可直接按行号 Read；
-    // 文件数超过上限说明分布极散，文件级列表只会掩盖「命中到底在哪一片」，于是按目录前缀
-    // 逐层聚合（PathGrouping，与 Glob 过宽共用）——模型据此判断该往哪个目录收窄，再定点 Read。
-    // 地图按全量命中统计(不随 MaxMatches 截短)。这里渲成文本行而不是对象列表:对象跨历史边界
-    // 会被 JSON 序列化成紧凑的一坨,与 Shape 返回值用 string 是同一个理由。
-    // 说明经 Shape 统一拼（与正文模式共享 QueryNotes 的降级/归一化），本方法只回正文片段。
-    private static (string Body, string Notice, int FileCount) BuildHitMapText(IReadOnlyList<GrepMatchResult> matches)
-    {
-        List<IGrouping<string, GrepMatchResult>> byFile =
-            matches.GroupBy(match => match.FileName, StringComparer.Ordinal).ToList();
-
-        if (byFile.Count <= MaxFileMapEntries)
-        {
-            List<MapEntry> map = byFile
-                .Select(ToMapEntry)
-                .OrderByDescending(entry => entry.Hits)
-                .ThenBy(entry => entry.File, StringComparer.Ordinal)
-                .ToList();
-
-            StringBuilder sb = new(map.Count * 64);
-            foreach (MapEntry entry in map)
-            {
-                sb.Append(entry.File).Append(": ").Append(entry.Hits).Append(" 处命中（第 ")
-                  .Append(entry.FirstLine).Append("–").Append(entry.LastLine).Append(" 行）").Append('\n');
-            }
-
-            string fileBody = sb.ToString().TrimEnd('\n');
-            // 路径可能很长（工作区外绝对路径），文件级渲完仍超预算就降级到目录级。
-            // 先渲再量会白渲一次，但最多 100 行、几 KB，不值得为此预估长度
-            if (Encoding.UTF8.GetByteCount(fileBody) <= MaxOutputBytes)
-            {
-                return (fileBody,
-                    $"按命中数展示全部 {map.Count} 个文件。可根据行号 `Read` 上面的文件，或{ToolResultText.NarrowGuidance}。",
-                    byFile.Count);
-            }
-        }
-
-        // 文件太多或文件级超预算：按目录前缀逐层聚合到 ≤ 上限，不再给文件级列表
-        List<PathGrouping.PathGroup> groups = PathGrouping.Group(
-            byFile.Select(file => (file.Key, file.Count())).ToList());
-
-        StringBuilder dirSb = new(groups.Count * 64);
-        foreach (PathGrouping.PathGroup group in groups)
-        {
-            dirSb.Append(group.Prefix).Append(": ").Append(group.Total).Append('\n');
-        }
-
-        return (dirSb.ToString().TrimEnd('\n'),
-            $"已按目录聚合为 {groups.Count} 组。{ToolResultText.NarrowGuidance}。",
-            byFile.Count);
-    }
-
-    /// <summary>地图条目：文件、命中数、行号区间</summary>
-    private readonly record struct MapEntry(string File, int Hits, int FirstLine, int LastLine);
-
-    private static MapEntry ToMapEntry(IGrouping<string, GrepMatchResult> file)
-    {
-        List<int> matchLines = file
-            .SelectMany(match => match.MatchingLines)
-            .Where(line => line.IsMatch)
-            .Select(line => line.LineNumber)
-            .ToList();
-
-        return new MapEntry(
-            file.Key,
-            file.Count(),
-            matchLines.Count > 0 ? matchLines.Min() : int.MaxValue,
-            matchLines.Count > 0 ? matchLines.Max() : 0);
-    }
-
-    private static string? BuildNotice(GrepOutcome outcome, string pattern, GroupedHits grouped)
+    private static string? BuildNotice(GrepOutcome outcome, string pattern, int fileCount)
     {
         List<string> parts = QueryNotes(outcome, pattern);
 
-        if (grouped.Files.Count > 0)
+        if (fileCount > 0)
         {
             // 命中总数:让模型一眼知道这次搜到多少,不必数正文行数
-            parts.Add($"共 {outcome.Matches.Count} 处命中，跨 {grouped.Files.Count} 个文件。");
+            parts.Add($"共 {outcome.Matches.Count} 处命中，跨 {fileCount} 个文件。");
         }
         else
         {

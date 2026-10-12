@@ -282,8 +282,8 @@ public class SearchFailureVisibilityTests : IDisposable
         string result = await tools.Glob("**/*", ct: TestContext.Current.CancellationToken);
 
         List<string> entries = result.Split('\n').Where(line => line.Length > 0).ToList();
-        int lastFile = entries.FindLastIndex(x => x.StartsWith("[FILE]", StringComparison.Ordinal));
-        int firstDir = entries.FindIndex(x => x.StartsWith("[DIR]", StringComparison.Ordinal));
+        int lastFile = entries.FindLastIndex(x => !x.EndsWith('/'));
+        int firstDir = entries.FindIndex(x => x.EndsWith('/'));
 
         Assert.True(lastFile < firstDir,
             $"文件必须全部排在目录之前,实际:{string.Join(" | ", entries)}");

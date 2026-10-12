@@ -115,7 +115,7 @@ public class ToolOutputCapTests : IDisposable
 
     /// <summary>
     /// 命中超过 200 处上限时不再返半截正文（半截按扫描序取、无相关度排序，模型会锚定到
-    /// 运气好的文件上），整页换成命中地图：每文件一行（命中数 + 行号区间），按全量统计。
+    /// 运气好的文件上），整页换成命中地图：每文件一行（命中数 + 前几个行号），按全量统计。
     /// </summary>
     [Fact]
     public async Task Grep_OverMaxMatches_SwitchesToHitMap()
@@ -125,8 +125,8 @@ public class ToolOutputCapTests : IDisposable
 
         string result = await _tools.Grep("needle", ct: TestContext.Current.CancellationToken);
 
-        // 300 处命中全在同一文件 → 地图单行给全量分布（第 1–300 行），不返 200 行半截正文
-        Assert.StartsWith("haystack.txt: 300 处命中（第 1–300 行）", result);
+        // 300 处命中全在同一文件 → 先声明「不是正文」，再给全量分布，不返 200 行半截正文
+        Assert.StartsWith("命中过多，下面是按文件的命中分布，不是匹配内容：\nhaystack.txt: 300 处（行 1, 2, 3, 4, 5, …）", result);
         Assert.Contains("300 处命中，跨 1 个文件", result);
         Assert.Contains("太宽，无法内联返回", result);
         Assert.DoesNotContain("needle 300", result); //地图无 snippet：没有命中行正文
@@ -166,7 +166,7 @@ public class ToolOutputCapTests : IDisposable
     }
 
     /// <summary>
-    /// 命中过多(正文超过 32KB 字节预算)时不返半截正文,整页换成命中地图。
+    /// 命中过多(正文超过 16KB 字节预算)时不返半截正文,整页换成命中地图。
     /// 半截正文按扫描序取、无相关度排序,留着只会让模型锚定到运气好的文件上;
     /// 地图给全量分布(不随 200 上限截短),模型据它定点 Read 或收窄重搜。
     /// </summary>
@@ -174,17 +174,17 @@ public class ToolOutputCapTests : IDisposable
     public async Task Grep_OverByteBudget_SwitchesToHitMap()
     {
         string path = Path.Combine(_dir, "wide.txt");
-        // 400 处命中 × ~290 字节 = 约 116KB;200 上限封顶后正文仍有约 58KB,远超 32KB 预算
+        // 400 处命中 × ~290 字节 = 约 116KB;200 上限封顶后正文仍有约 58KB,远超 16KB 预算
         await File.WriteAllLinesAsync(path,
             Enumerable.Range(1, 400).Select(i => "needle " + new string('x', 280) + i), TestContext.Current.CancellationToken);
 
-        // 命中过多（正文超 32KB 字节预算）时不返半截正文，整页换成命中地图。
-        // 地图渲成文本行：每文件一行（命中数 + 行号区间），说明拼在后段。
+        // 命中过多（正文超 16KB 字节预算）时不返半截正文，整页换成命中地图。
+        // 地图渲成文本行：每文件一行（命中数 + 前几个行号），说明拼在后段。
         // 半截正文按扫描序取、无相关度排序，留着只会让模型锚定到运气好的文件上；
         // 地图给全量分布（不随 200 上限截短），模型据它定点 Read 或收窄重搜。
         string result = await _tools.Grep("needle", ct: TestContext.Current.CancellationToken);
 
-        Assert.Contains("wide.txt: 400 处命中（第 1–400 行）", result); //地图给全量分布,不被 200 上限截短
+        Assert.Contains("wide.txt: 400 处（行 1, 2, 3, 4, 5, …）", result); //地图给全量分布,不被 200 上限截短
         Assert.Contains("处命中，跨", result);
         Assert.Contains("无法内联返回", result);
         Assert.Contains("---\n400 处命中，跨", result); //地图说明与正文模式同款分隔行(统一口径)
@@ -198,7 +198,7 @@ public class ToolOutputCapTests : IDisposable
         for (int f = 0; f < 120; f++)
         {
             string path = Path.Combine(_dir, $"f{f:D3}.txt");
-            // 10 处命中/文件 × 约 260 字节 = 200 上限封顶后正文约 24KB,仍低于 32KB → 靠 200 上限触发地图
+            // 10 处命中/文件 × 约 260 字节,1200 处远超 200 上限 → 触发地图
             await File.WriteAllLinesAsync(path,
                 Enumerable.Range(1, 10).Select(i => "needle " + new string('y', 250) + i), TestContext.Current.CancellationToken);
         }
@@ -207,12 +207,13 @@ public class ToolOutputCapTests : IDisposable
 
         // 120 个文件全在搜索根下 → 逐层上收为 ".": 1200；没有文件级行号列表
         Assert.Contains("1200 处命中，跨 120 个文件", result);
-        Assert.Contains(".: 1200", result);
+        Assert.Contains("命中过多，下面是按目录的命中分布", result);
+        Assert.Contains(".: 1200 处 / 120 个文件", result);
         Assert.Contains("已按目录聚合为 1 组", result);
-        Assert.DoesNotContain("处命中（第", result);
+        Assert.DoesNotContain("（行 ", result);
     }
 
-    /// <summary>文件数在上限内时保持文件级地图（带行号区间），不升目录</summary>
+    /// <summary>文件数在上限内时保持文件级地图（带行号），不升目录</summary>
     [Fact]
     public async Task Grep_Map_WithinFileLimit_StaysFileLevel()
     {
@@ -225,10 +226,10 @@ public class ToolOutputCapTests : IDisposable
 
         string result = await _tools.Grep("needle", ct: TestContext.Current.CancellationToken);
 
-        string[] mapLines = result.Split('\n').Where(line => line.Contains("处命中（第")).ToArray();
+        string[] mapLines = result.Split('\n').Where(line => line.Contains(" 处（行 ")).ToArray();
         Assert.Equal(40, mapLines.Length);
         Assert.Contains("400 处命中，跨 40 个文件", result);
-        Assert.Contains("按命中数展示全部 40 个文件", result);
+        Assert.Contains("可按行号 `Read` 上面的文件", result);
         Assert.DoesNotContain("已按目录聚合", result);
     }
 
@@ -256,8 +257,9 @@ public class ToolOutputCapTests : IDisposable
         Assert.Contains("dirA: 400", result);
         Assert.Contains("dirB: 400", result);
         Assert.Contains("dirC: 400", result);
+        Assert.Contains("dirA: 400 处 / 40 个文件", result);
         Assert.Contains("已按目录聚合为 3 组", result);
-        Assert.DoesNotContain("处命中（第", result);
+        Assert.DoesNotContain("（行 ", result);
     }
 
     /// <summary>地图模式的 notice 不能丢正则降级说明（命中过多时模型关键依赖它判断"少了几条"的原因）</summary>

@@ -122,11 +122,11 @@ public class GrepToolTextOutputTests : IDisposable
         Assert.Contains("2:needle", sensitive);
     }
 
-    /// <summary>中文字符一字符三字节,会显著提前触发 32KB 字节预算——正文按 UTF-8 字节计,不是字符数</summary>
+    /// <summary>中文字符一字符三字节,会显著提前触发 16KB 字节预算——正文按 UTF-8 字节计,不是字符数</summary>
     [Fact]
     public async Task Grep_ChineseOverByteBudget_SwitchesToHitMap()
     {
-        // 100 行 × (needle + 200 汉字) ≈ 61KB,远超 32KB 预算 → 整页换命中地图
+        // 100 行 × (needle + 200 汉字) ≈ 61KB,远超 16KB 预算 → 整页换命中地图
         await File.WriteAllLinesAsync(Path.Combine(_dir, "cn.txt"),
             Enumerable.Range(1, 100).Select(i => "needle " + new string('测', 200)),
             TestContext.Current.CancellationToken);
@@ -135,6 +135,21 @@ public class GrepToolTextOutputTests : IDisposable
 
         Assert.Contains("100 处命中，跨 1 个文件", result);
         Assert.Contains("无法内联返回", result);
-        Assert.Contains("cn.txt: 100 处命中（第 1–100 行）", result);
+        Assert.Contains("cn.txt: 100 处（行 1, 2, 3, 4, 5, …）", result);
+    }
+
+    /// <summary>filesOnly：只给文件清单（按路径排、带命中数与行号），不给匹配内容</summary>
+    [Fact]
+    public async Task Grep_FilesOnly_ListsFilesByPathWithoutContent()
+    {
+        await File.WriteAllTextAsync(Path.Combine(_dir, "b.txt"), "x\nneedle two\nneedle three",
+            TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(_dir, "a.txt"), "needle one", TestContext.Current.CancellationToken);
+
+        string result = await _tools.Grep("needle", filesOnly: true, ct: TestContext.Current.CancellationToken);
+
+        Assert.StartsWith("a.txt: 1 处（行 1）\nb.txt: 2 处（行 2, 3）", result);
+        Assert.DoesNotContain("needle one", result);
+        Assert.Contains("---\n共 3 处命中，跨 2 个文件", result);
     }
 }
