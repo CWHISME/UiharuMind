@@ -147,7 +147,7 @@ public class ModelPageToolbarTests : IDisposable
 
     private void Capture(string name)
     {
-        string dir = Environment.GetEnvironmentVariable("MODEL_DOWNLOAD_SHOTS_DIR");
+        string? dir = Environment.GetEnvironmentVariable("MODEL_DOWNLOAD_SHOTS_DIR");
         if (dir == null) return;
         Directory.CreateDirectory(dir);
         _window!.UpdateLayout();

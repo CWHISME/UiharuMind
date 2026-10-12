@@ -45,7 +45,7 @@ internal sealed class UiCaptureCommand : IAsyncDevCommand
         using RenderTargetBitmap bitmap = new(size, new Vector(96 * scale, 96 * scale));
         bitmap.Render(window);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        bitmap.Save(path);
+        bitmap.Save(path, PngBitmapEncoderOptions.Default);
         return new { path, width = size.Width, height = size.Height };
     }
 }

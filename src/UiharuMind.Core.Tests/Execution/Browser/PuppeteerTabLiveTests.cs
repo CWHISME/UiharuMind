@@ -73,7 +73,7 @@ public class PuppeteerTabLiveTests
             byte[] body = Encoding.UTF8.GetBytes("a,b\n1,2\n");
             await context.Response.OutputStream.WriteAsync(body);
             context.Response.Close();
-        });
+        }, TestContext.Current.CancellationToken);
 
         await using IBrowser browser = await LaunchAsync();
         string directory = Path.Combine(Scratch, "nav-downloads");

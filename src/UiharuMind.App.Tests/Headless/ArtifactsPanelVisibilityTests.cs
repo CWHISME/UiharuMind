@@ -136,7 +136,7 @@ public class ArtifactsPanelVisibilityTests
                 Dictionary<string, bool> rowVisible = panel.GetVisualDescendants()
                     .OfType<Button>()
                     .Where(b => b.DataContext is ArtifactItem)
-                    .ToDictionary(b => ((ArtifactItem)b.DataContext).Name, b => b.IsVisible);
+                    .ToDictionary(b => ((ArtifactItem)b.DataContext!).Name, b => b.IsVisible);
                 Assert.True(rowVisible["a.md"]);
                 Assert.False(rowVisible["b.cs"]);
 

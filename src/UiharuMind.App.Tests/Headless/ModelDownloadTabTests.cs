@@ -125,18 +125,18 @@ public class ModelDownloadTabTests : IDisposable
             Assert.Equal(4, data.Downloads!.Market<GgufMarketData>().Results.Count);
 
             // 截图：打开一个仓库，排一个下载让下载区露出来
-            data.Downloads.Market<GgufMarketData>().SelectedItem = data.Downloads.Market<GgufMarketData>().Results[0];
+            data.Downloads!.Market<GgufMarketData>().SelectedItem = data.Downloads!.Market<GgufMarketData>().Results[0];
             await Settle();
-            while (data.Downloads.Market<GgufMarketData>().Detail!.IsLoading) await Settle();
-            await data.Downloads.Market<GgufMarketData>().Detail.DownloadCommand.ExecuteAsync(data.Downloads.Market<GgufMarketData>().Detail.Rows[0]);
+            while (data.Downloads!.Market<GgufMarketData>().Detail!.IsLoading) await Settle();
+            await data.Downloads!.Market<GgufMarketData>().Detail!.DownloadCommand.ExecuteAsync(data.Downloads!.Market<GgufMarketData>().Detail!.Rows[0]);
             _queue.Pause(_queue.Jobs[0]);
             await Settle();
             Capture("model-download-wide");
 
-            data.Downloads.Market<GgufMarketData>().Detail.ShowReadmeCommand.Execute(null);
+            data.Downloads!.Market<GgufMarketData>().Detail!.ShowReadmeCommand.Execute(null);
             for (int i = 0; i < 10; i++) await Settle();
             Capture("model-download-readme");
-            data.Downloads.Market<GgufMarketData>().Detail.ShowFilesCommand.Execute(null);
+            data.Downloads!.Market<GgufMarketData>().Detail!.ShowFilesCommand.Execute(null);
 
             _window.Width = 560;
             await Settle();

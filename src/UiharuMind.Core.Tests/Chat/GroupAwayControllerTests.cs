@@ -510,7 +510,7 @@ public class GroupAwayControllerTests
         while (DateTime.UtcNow < quietUntil)
         {
             Assert.Equal(1, AvatarCalls());
-            await Task.Delay(50);
+            await Task.Delay(50, TestContext.Current.CancellationToken);
         }
 
         _delays[1].Due.SetResult(); //兜底到点、后台还没完：仍不叫，再排下一次
@@ -649,7 +649,7 @@ public class GroupAwayControllerTests
         while (DateTime.UtcNow < quietUntil)
         {
             Assert.Equal(2, AvatarCalls());
-            await Task.Delay(50);
+            await Task.Delay(50, TestContext.Current.CancellationToken);
         }
     }
 

@@ -23,7 +23,7 @@ public class SessionModelResolutionTests
     public void RunningCandidate_UsesIt()
     {
         ModelRunningData running = StoppedLocal("m1");
-        running.CompleteLoading(new StubChatClient());
+        running.CompleteLoading(new StubChatClient(), loadToken: CancellationToken.None);
 
         Assert.Equal(SessionCandidateDecision.UseCandidate,
             DecideCandidate(running, StoppedLocal("m2")));

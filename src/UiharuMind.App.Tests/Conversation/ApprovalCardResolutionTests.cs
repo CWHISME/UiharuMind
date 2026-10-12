@@ -58,7 +58,7 @@ public class ApprovalCardResolutionTests
 
     /// <summary>扩展卡的「本会话允许」按扩展记，本次按普通允许回应——交给框架按工具名记就把整个 <see cref="ExtensionCalls.CallName"/> 放行了</summary>
     [Fact]
-    public void ExtensionCard_SessionApproval_IsRememberedPerExtension()
+    public async Task ExtensionCard_SessionApproval_IsRememberedPerExtension()
     {
         List<string> approved = new();
         ApprovalRequestItem card = new(Extension(BuiltinExtensions.Image, BuiltinExtensions.ImageGenerate, ("prompt", "a cat")))
@@ -71,7 +71,7 @@ public class ApprovalCardResolutionTests
         Assert.Equal(ImageGenerationTool.ToolName, card.ToolName);
         Assert.Equal(["image"], approved);
         Assert.Contains(Loc.Text(LangKey.ExtensionNameImage), card.SessionButtonText);
-        ToolApprovalResponseContent response = Assert.Single(card.Response.Result.Contents.OfType<ToolApprovalResponseContent>());
+        ToolApprovalResponseContent response = Assert.Single((await card.Response).Contents.OfType<ToolApprovalResponseContent>());
         Assert.True(response.Approved);
         Assert.Equal(Loc.Text(LangKey.AgentApprovalResolvedSessionExtension, Loc.Text(LangKey.ExtensionNameImage)),
             card.ResolvedText);
@@ -79,14 +79,14 @@ public class ApprovalCardResolutionTests
 
     /// <summary>同一次扩展放行在另一处（群待审批条、子会话窗口）先点了：这张也说「本会话允许」，不说「本次」</summary>
     [Fact]
-    public void ExtensionSessionApproval_DecidedElsewhere_KeepsItsLabel()
+    public async Task ExtensionSessionApproval_DecidedElsewhere_KeepsItsLabel()
     {
         ToolApprovalRequestContent request = Extension(BuiltinExtensions.Image, BuiltinExtensions.ImageGenerate, ("prompt", "a"));
         ApprovalRequestItem clicked = new(request);
         ApprovalRequestItem elsewhere = new(request);
 
         clicked.ResolveCommand.Execute("session");
-        elsewhere.MarkDecidedElsewhere(clicked.Response.Result);
+        elsewhere.MarkDecidedElsewhere(await clicked.Response);
 
         Assert.Equal(clicked.ResolvedText, elsewhere.ResolvedText);
         Assert.Equal(Loc.Text(LangKey.AgentApprovalResolvedSessionExtension, Loc.Text(LangKey.ExtensionNameImage)),
@@ -114,14 +114,14 @@ public class ApprovalCardResolutionTests
 
     /// <summary>接管要的是用户的手：不给「本会话允许」，别的入口传来 session 也只按这一次算</summary>
     [Fact]
-    public void HandoffCard_NeverGrantsStandingApproval()
+    public async Task HandoffCard_NeverGrantsStandingApproval()
     {
         ApprovalRequestItem card = new(Browser(BrowserTools.HandoffToolName, ("task", "登录 GitHub")),
             sessionId: "s1", browser: new FakeBrowser());
 
         card.ResolveCommand.Execute("session");
 
-        ToolApprovalResponseContent response = Assert.Single(card.Response.Result.Contents.OfType<ToolApprovalResponseContent>());
+        ToolApprovalResponseContent response = Assert.Single((await card.Response).Contents.OfType<ToolApprovalResponseContent>());
         Assert.True(response.Approved);
         Assert.True(card.IsBrowserHandoff);
         Assert.False(card.CanApproveForSession);

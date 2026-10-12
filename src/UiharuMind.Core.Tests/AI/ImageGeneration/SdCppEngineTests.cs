@@ -210,7 +210,7 @@ public class SdCppEngineTests : IDisposable
         using SdCppEngine engine = CreateEngine();
         SdCppModelSetup model = Model("a", ("diffusion-model", Touch("a.gguf")));
         Task<IReadOnlyList<byte[]>> run = engine.GenerateAsync(model, Request("x"), null, TestContext.Current.CancellationToken);
-        while (engine.Runtime.State != EEngineRunState.Starting && !run.IsCompleted) await Task.Delay(1);
+        while (engine.Runtime.State != EEngineRunState.Starting && !run.IsCompleted) await Task.Delay(1, TestContext.Current.CancellationToken);
         Assert.False(run.IsCompleted, "server came up before it could be unloaded");
 
         engine.UnloadIfLoaded(model);
@@ -243,14 +243,16 @@ public class SdCppEngineTests : IDisposable
         Directory.CreateDirectory(bin);
         string exe = Path.Combine(bin, SdCppVersionManager.ExecutableName);
         File.WriteAllText(exe, "");
-        File.SetUnixFileMode(exe, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        if (!OperatingSystem.IsWindows())
+            File.SetUnixFileMode(exe, UnixFileMode.UserRead | UnixFileMode.UserWrite);
         using SdCppEngine engine = new(new SdCppSettingConfig(), Path.Combine(_directory, "engines"),
             new DownloadQueue(new FileDownloader(new HttpClient())));
 
         await engine.Distribution.ScanAsync(TestContext.Current.CancellationToken);
 
         Assert.NotNull(engine.Distribution.CurrentVersion);
-        Assert.True(File.GetUnixFileMode(exe).HasFlag(UnixFileMode.UserExecute));
+        if (!OperatingSystem.IsWindows())
+            Assert.True(File.GetUnixFileMode(exe).HasFlag(UnixFileMode.UserExecute));
     }
 
     [Fact]

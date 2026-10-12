@@ -777,17 +777,8 @@
     <data name="RuntimeEngineSetting" xml:space="preserve">
         <value>Local Models (Text)</value>
     </data>
-    <data name="CurrentEngineTypeSetting" xml:space="preserve">
-        <value>Current Engine Type:</value>
-    </data>
     <data name="CheckingForUpdates" xml:space="preserve">
         <value>Checking for updates...</value>
-    </data>
-    <data name="ModelRuntimeSectionTitle" xml:space="preserve">
-        <value>Local model runtime</value>
-    </data>
-    <data name="ModelRuntimeSectionDesc" xml:space="preserve">
-        <value>Choose how local GGUF models run and tune the common parameters used by the next load.</value>
     </data>
     <data name="ModelRuntimeLLamaCppTitle" xml:space="preserve">
         <value>llama.cpp runtime package</value>
@@ -849,9 +840,6 @@
     <data name="QuickChatQuateTitle" xml:space="preserve">
         <value>Quate：</value>
     </data>
-    <data name="CreateRemoteModel" xml:space="preserve">
-        <value>Create Remote Model：</value>
-    </data>
     <data name="AddBtn" xml:space="preserve">
         <value>Add</value>
     </data>
@@ -888,9 +876,6 @@
     <data name="CharacterFirstGreetingDesc" xml:space="preserve">
         <value>The first thing the character says: write first-person lines or scene lines addressed to the user. Directives to the model ("you are...", "always...") belong in the prompt, not here.</value>
     </data>
-    <data name="AdvancedOptions" xml:space="preserve">
-        <value>Advanced Options</value>
-    </data>
     <data name="ParameterSettings" xml:space="preserve">
         <value>Parameter settings</value>
     </data>
@@ -914,14 +899,6 @@
     </data>
     <data name="SystemPrompt" xml:space="preserve">
         <value>SystemPrompt</value>
-    </data>
-    <data name="OptionalPromptParams" xml:space="preserve">
-        <value>Optional Prompt Params</value>
-    </data>
-    <data name="OptionalPromptParamsDesc" xml:space="preserve">
-        <value>{{$lang}}：replace by current language
-{{$user}}：replace by username
-{{$char}}：replace by character name</value>
     </data>
     <data name="Translation" xml:space="preserve">
         <value>Translation</value>
@@ -1024,12 +1001,6 @@
     </data>
     <data name="ModelPageChangeBtn" xml:space="preserve">
         <value>Change</value>
-    </data>
-    <data name="ModelPageLocalModelsFolder" xml:space="preserve">
-        <value>Local models folder: </value>
-    </data>
-    <data name="ModelPageTitle" xml:space="preserve">
-        <value>Model Viewer</value>
     </data>
     <data name="MemoryIndexUpdate" xml:space="preserve">
         <value>Update knowledge index</value>
@@ -2582,9 +2553,6 @@
     <data name="AgentMcpReload" xml:space="preserve">
         <value>Reload from file</value>
     </data>
-    <data name="AgentSkillsRootPath" xml:space="preserve">
-        <value>Skills folder:</value>
-    </data>
     <data name="CharacterMcpTitle" xml:space="preserve">
         <value>Extensions</value>
     </data>
@@ -2794,12 +2762,6 @@ Allow them?</value>
     <data name="WorldBookSaveClose" xml:space="preserve">
         <value>Save &amp; close</value>
     </data>
-    <data name="CharacterWorldSettingDesc" xml:space="preserve">
-        <value>Keyword-activated setting entries: the last few messages are scanned, matches are injected (always-on entries are always injected), capped by the per-turn token budget.</value>
-    </data>
-    <data name="CharacterWorldSettingEmpty" xml:space="preserve">
-        <value>No entries yet. Importing a card with an embedded book fills this in; or add entries manually.</value>
-    </data>
     <data name="CharacterWorldSettingKeysPlaceholder" xml:space="preserve">
         <value>Keywords, separated by commas, semicolons or newlines</value>
     </data>
@@ -2986,9 +2948,6 @@ Allow them?</value>
     <data name="FileSearchCtxOpenEditor" xml:space="preserve">
         <value>Open in Editor</value>
     </data>
-    <data name="TextFileMenuFile" xml:space="preserve">
-        <value>File</value>
-    </data>
     <data name="TextFileStatusLines" xml:space="preserve">
         <value>lines</value>
     </data>
@@ -3031,17 +2990,11 @@ Allow them?</value>
     <data name="TextFileUntitled" xml:space="preserve">
         <value>Untitled</value>
     </data>
-    <data name="TextFileMenuEdit" xml:space="preserve">
-        <value>Edit</value>
-    </data>
     <data name="TextFileMenuUndo" xml:space="preserve">
         <value>Undo</value>
     </data>
     <data name="TextFileMenuRedo" xml:space="preserve">
         <value>Redo</value>
-    </data>
-    <data name="TextFileMenuView" xml:space="preserve">
-        <value>View</value>
     </data>
     <data name="TextFileMenuPreview" xml:space="preserve">
         <value>Markdown Preview</value>
@@ -3792,9 +3745,6 @@ Allow them?</value>
         <value>Manage image models</value>
     </data>
 
-    <data name="ModelInfoReloaded" xml:space="preserve">
-        <value>Reloaded: {0}</value>
-    </data>
 
     <data name="RemoteModelDeleteConfirm" xml:space="preserve">
         <value>Delete remote model {0}?</value>

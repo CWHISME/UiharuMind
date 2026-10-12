@@ -60,7 +60,7 @@ public partial class TextFileWindow
     private void GoToLineFlyout_Opened(object? sender, EventArgs e)
     {
         int lineCount = DocumentView.TextView.Editor.Document?.LineCount ?? 1;
-        GoToLineBox.Watermark = Loc.Text(LangKey.TextFileGoToLineHintFormat, lineCount);
+        GoToLineBox.PlaceholderText = Loc.Text(LangKey.TextFileGoToLineHintFormat, lineCount);
         GoToLineBox.Text = string.Empty;
         GoToLineBox.Focus();
     }

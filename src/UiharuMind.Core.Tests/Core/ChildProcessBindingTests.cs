@@ -32,12 +32,12 @@ public class ChildProcessBindingTests : IDisposable
         CommandTask<CommandResult> run = ChildProcessBinding
             .Wrap("/bin/sh", ["-c", "echo $$ > \"$1\"; exec sleep 30", "child", pidFile], lifeline)
             .WithValidation(CommandResultValidation.None)
-            .ExecuteAsync();
+            .ExecuteAsync(TestContext.Current.CancellationToken);
         int pid = await ReadPidAsync(pidFile);
         Assert.True(IsAlive(pid));
 
         cut.SetResult();
-        await run.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await run.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
         Assert.False(IsAlive(pid));
     }
@@ -52,8 +52,8 @@ public class ChildProcessBindingTests : IDisposable
             .Wrap("/bin/sh", ["-c", "printf '%s|%s' \"$1\" \"$2\"; exit 7", "child", "a b", "it's"])
             .WithStandardOutputPipe(PipeTarget.ToStringBuilder(output))
             .WithValidation(CommandResultValidation.None)
-            .ExecuteAsync()
-            .Task.WaitAsync(TimeSpan.FromSeconds(5));
+            .ExecuteAsync(TestContext.Current.CancellationToken)
+            .Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
         Assert.Equal(7, result.ExitCode);
         Assert.Equal("a b|it's", output.ToString());

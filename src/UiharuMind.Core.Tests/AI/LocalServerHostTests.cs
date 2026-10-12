@@ -257,7 +257,7 @@ public class LocalServerHostTests : IDisposable
             http.server.HTTPServer(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
             " "$1"
             """);
-        File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         RuntimeDeviceInfo device = RuntimeDeviceInfo.Empty with
         {
             TotalMemoryBytes = 16L << 30,

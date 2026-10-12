@@ -49,7 +49,7 @@ public class AutoReadAloudTests
         _items.Add(bubble);
 
         _readAloud.ReadNew([bubble.SourceMessage!, new ChatMessage(ChatRole.User, "Hi."), narration, avatar, bobInGroup], "alice");
-        await _player.Started.WaitAsync(TimeSpan.FromSeconds(5));
+        await _player.Started.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         Assert.True(bubble.IsReadingAloud); //气泡配上了就显示「在念」
         _player.FinishAll = true;
         _player.Release();
@@ -71,7 +71,7 @@ public class AutoReadAloudTests
     public async Task Stopping_DropsTheRest()
     {
         _readAloud.ReadNew([Assistant("One."), Assistant("Two."), Assistant("Three.")], "alice");
-        await _player.Started.WaitAsync(TimeSpan.FromSeconds(5));
+        await _player.Started.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
         _service.Stop();
         await Task.Delay(100, TestContext.Current.CancellationToken);
@@ -83,7 +83,7 @@ public class AutoReadAloudTests
     public async Task TurningAutoReadOff_StopsTheAutoReading_ButNotAManualOne()
     {
         _readAloud.ReadNew([Assistant("One."), Assistant("Two.")], "alice");
-        await _player.Started.WaitAsync(TimeSpan.FromSeconds(5));
+        await _player.Started.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
         _readAloud.StopAuto();
         await WaitFor(() => _service.State == EReadAloudState.Idle);
@@ -97,7 +97,7 @@ public class AutoReadAloudTests
         _readAloud.StopAuto();
         Assert.Same(manual, _service.Owner); //手点的不动
         _service.Stop();
-        await reading.WaitAsync(TimeSpan.FromSeconds(5));
+        await reading.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -109,8 +109,8 @@ public class AutoReadAloudTests
         _player.FinishAll = true;
         _player.Release();
 
-        Assert.True(await spoken.WaitAsync(TimeSpan.FromSeconds(5)));
-        Assert.True(await plain.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.True(await spoken.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+        Assert.True(await plain.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
         Assert.Equal([("Reply.", "a", null), ("Psst.", "a", "whispering"), ("Hello.", null, null)],
             _tts.Requests.Select(x => (x.Text, x.Voice, x.Instruction)));
     }
@@ -120,12 +120,12 @@ public class AutoReadAloudTests
     {
         Task<bool> first = _readAloud.SpeakAsync(new SpeechRequest("One."), "alice");
         Task<bool> second = _readAloud.SpeakAsync(new SpeechRequest("Two."), "alice");
-        await _player.Started.WaitAsync(TimeSpan.FromSeconds(5));
+        await _player.Started.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
         _service.Stop();
 
-        Assert.False(await first.WaitAsync(TimeSpan.FromSeconds(5)));
-        Assert.False(await second.WaitAsync(TimeSpan.FromSeconds(5))); //排着的一并作废，智能体不会干等
+        Assert.False(await first.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+        Assert.False(await second.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken)); //排着的一并作废，智能体不会干等
     }
 
     [Fact]
@@ -134,7 +134,7 @@ public class AutoReadAloudTests
         TextConversationItem manual = new(true) { Message = "Mine.", IsDone = true };
         _items.Add(manual);
         Task reading = manual.ReadAloudCommand.ExecuteAsync(null);
-        await _player.Started.WaitAsync(TimeSpan.FromSeconds(5));
+        await _player.Started.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
         _readAloud.ReadNew([Assistant("Reply.")], "alice");
         await Task.Delay(50, TestContext.Current.CancellationToken);
@@ -142,7 +142,7 @@ public class AutoReadAloudTests
 
         _player.FinishAll = true;
         _player.Release();
-        await reading.WaitAsync(TimeSpan.FromSeconds(5));
+        await reading.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         await WaitFor(() => _tts.Requests.Count == 2);
         Assert.Equal("Reply.", _tts.Requests[1].Text);
     }

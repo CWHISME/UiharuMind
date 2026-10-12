@@ -45,6 +45,19 @@ public sealed class LangKeySourceGenerator : IIncrementalGenerator
         @"\b(?:GetString|Text)\(\s*""([A-Za-z_][A-Za-z0-9_]*)""",
         RegexOptions.CultureInvariant);
 
+    // 与任意资源 key 同名的 C# 字符串字面量：设置导航等把 key 存进 spec、经
+    // LocalizedString.Get / LocalizationManager.GetString 在运行时消费，字面量本身
+    // 不在 GetString/Text 调用里也能证明是活的（死 key 候选只针对完全没有字面量出现的）
+    private static readonly Regex AnyStringKeyUsagePattern = new(
+        @"""([A-Za-z_][A-Za-z0-9_]*)""",
+        RegexOptions.CultureInvariant);
+
+    // Text("前缀" + ...) 动态拼接：枚举值经名称分发到一族 key（如 LLamaCppLoadMode_ + 选项），
+    // 拼出来的 key 静态看不到——前缀开头的整个 key 族按活 key 处理
+    private static readonly Regex DynamicPrefixUsagePattern = new(
+        @"\b(?:GetString|Text)\(\s*""([A-Za-z_][A-Za-z0-9_]*)""\s*\+",
+        RegexOptions.CultureInvariant);
+
     /// <inheritdoc />
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
@@ -277,6 +290,26 @@ public sealed class LangKeySourceGenerator : IIncrementalGenerator
             foreach (Match match in StringKeyUsagePattern.Matches(text))
             {
                 usedKeys.Add(match.Groups[1].Value);
+            }
+
+            foreach (Match match in AnyStringKeyUsagePattern.Matches(text))
+            {
+                if (defaultKeys.Contains(match.Groups[1].Value))
+                {
+                    usedKeys.Add(match.Groups[1].Value);
+                }
+            }
+
+            foreach (Match match in DynamicPrefixUsagePattern.Matches(text))
+            {
+                string prefix = match.Groups[1].Value;
+                foreach (string key in defaultKeys)
+                {
+                    if (key.StartsWith(prefix, StringComparison.Ordinal))
+                    {
+                        usedKeys.Add(key);
+                    }
+                }
             }
         }
 

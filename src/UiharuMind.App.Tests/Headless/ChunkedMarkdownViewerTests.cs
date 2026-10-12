@@ -269,7 +269,7 @@ public class ChunkedMarkdownViewerTests
 
         // 库的文字块不走 Text 属性，文本在 Run 里：拼出来不断言结构
         string rendered = string.Concat(viewer.GetVisualDescendants().OfType<MarkdownTextBlock>()
-            .SelectMany(b => EnumerateRuns(((TextBlock)b).Inlines))
+            .SelectMany(b => EnumerateRuns(((TextBlock)b).Inlines!))
             .Select(r => r.Text));
         Assert.Contains("阿笠博士", rendered);
         window.Close();

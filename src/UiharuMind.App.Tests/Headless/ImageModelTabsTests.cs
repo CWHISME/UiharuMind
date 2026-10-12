@@ -397,7 +397,7 @@ public class ImageModelTabsTests : IDisposable
     {
         using WriteableBitmap bitmap = new(new PixelSize(2, 2), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
         using MemoryStream stream = new();
-        bitmap.Save(stream);
+        bitmap.Save(stream, PngBitmapEncoderOptions.Default);
         return stream.ToArray();
     }
 

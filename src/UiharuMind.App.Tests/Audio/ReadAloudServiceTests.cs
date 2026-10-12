@@ -45,12 +45,12 @@ public class ReadAloudServiceTests
         object owner = new();
 
         Task reading = service.ToggleAsync(owner, "Hello there. How are you today?");
-        await _player.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await _player.Started.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         Assert.Equal(EReadAloudState.Speaking, service.State);
         Assert.Same(owner, service.Owner);
 
         await service.ToggleAsync(owner, "Hello there. How are you today?");
-        await reading.WaitAsync(TimeSpan.FromSeconds(5));
+        await reading.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
         Assert.Equal(EReadAloudState.Idle, service.State);
         Assert.Equal(0, _player.Played); //没放完就停了
@@ -64,19 +64,19 @@ public class ReadAloudServiceTests
         object preview = new();
 
         Task reading = service.ToggleAsync(message, "第一句。第二句。第三句。" + new string('长', 200));
-        await _player.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await _player.Started.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         _player.Reset();
         Task previewing = service.ToggleAsync(preview, "Hello.", new SpeechStyle { Model = "pocket", Voice = "alba" },
             preview: true);
-        await reading.WaitAsync(TimeSpan.FromSeconds(5)); //不排队：消息朗读当场停
-        await _player.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await reading.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken); //不排队：消息朗读当场停
+        await _player.Started.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
         Assert.Same(preview, service.Owner);
         AudioSynthesisRequest last = _tts.Requests[^1];
         Assert.Equal(("pocket", "alba"), (last.Model, last.Voice));
 
         await service.ToggleAsync(preview, "Hello."); //再点一次是停
-        await previewing.WaitAsync(TimeSpan.FromSeconds(5));
+        await previewing.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         Assert.Equal(EReadAloudState.Idle, service.State);
     }
 
@@ -197,19 +197,19 @@ public class ReadAloudServiceTests
         Assert.True(first.CanReadAloud);
 
         Task reading = first.ReadAloudCommand.ExecuteAsync(null);
-        await _player.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await _player.Started.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         Assert.True(first.IsReadingAloud);
         Assert.False(second.IsReadingAloud);
 
         _player.Reset();
         Task next = second.ReadAloudCommand.ExecuteAsync(null); //念另一条：前一条按钮复原
-        await _player.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        await reading.WaitAsync(TimeSpan.FromSeconds(5));
+        await _player.Started.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await reading.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         Assert.False(first.IsReadingAloud);
         Assert.True(second.IsReadingAloud);
 
         service.Stop();
-        await next.WaitAsync(TimeSpan.FromSeconds(5));
+        await next.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         Assert.False(second.IsReadingAloud);
     }
 

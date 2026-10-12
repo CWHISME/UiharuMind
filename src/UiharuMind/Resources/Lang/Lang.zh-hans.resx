@@ -770,17 +770,8 @@
     <data name="RuntimeEngineSetting" xml:space="preserve">
         <value>本地模型（文本）</value>
     </data>
-    <data name="CurrentEngineTypeSetting" xml:space="preserve">
-        <value>当前执行后端：</value>
-    </data>
     <data name="CheckingForUpdates" xml:space="preserve">
         <value>正在检查更新...</value>
-    </data>
-    <data name="ModelRuntimeSectionTitle" xml:space="preserve">
-        <value>本地模型运行时</value>
-    </data>
-    <data name="ModelRuntimeSectionDesc" xml:space="preserve">
-        <value>选择本地 GGUF 模型的运行方式，并调整下次加载时使用的通用参数。</value>
     </data>
     <data name="ModelRuntimeLLamaCppTitle" xml:space="preserve">
         <value>llama.cpp 运行包</value>
@@ -842,9 +833,6 @@
     <data name="QuickChatQuateTitle" xml:space="preserve">
         <value>引用：</value>
     </data>
-    <data name="CreateRemoteModel" xml:space="preserve">
-        <value>添加远程模型：</value>
-    </data>
     <data name="AddBtn" xml:space="preserve">
         <value>添加</value>
     </data>
@@ -881,9 +869,6 @@
     <data name="CharacterFirstGreetingDesc" xml:space="preserve">
         <value>开场白是角色开口说的第一句台词：写第一人称（我……）或对用户说的场景话。给模型的指令（你是……、要遵守……）请写进「基础信息 → 提示词」，别放这里。</value>
     </data>
-    <data name="AdvancedOptions" xml:space="preserve">
-        <value>高级选项</value>
-    </data>
     <data name="ParameterSettings" xml:space="preserve">
         <value>参数设置</value>
     </data>
@@ -907,14 +892,6 @@
     </data>
     <data name="SystemPrompt" xml:space="preserve">
         <value>系统提示</value>
-    </data>
-    <data name="OptionalPromptParams" xml:space="preserve">
-        <value>可选参数</value>
-    </data>
-    <data name="OptionalPromptParamsDesc" xml:space="preserve">
-        <value>{{$lang}}：将会替换为当前语言。
-{{$user}}：将会替换为用户名。
-{{$char}}：将会替换为当前角色名。</value>
     </data>
     <data name="Translation" xml:space="preserve">
         <value>翻译</value>
@@ -1017,12 +994,6 @@
     </data>
     <data name="ModelPageChangeBtn" xml:space="preserve">
         <value>更换</value>
-    </data>
-    <data name="ModelPageLocalModelsFolder" xml:space="preserve">
-        <value>本地模型目录：</value>
-    </data>
-    <data name="ModelPageTitle" xml:space="preserve">
-        <value>模型管理</value>
     </data>
     <data name="MemoryIndexUpdate" xml:space="preserve">
         <value>更新知识库索引</value>
@@ -2575,9 +2546,6 @@
     <data name="AgentMcpReload" xml:space="preserve">
         <value>从文件重载</value>
     </data>
-    <data name="AgentSkillsRootPath" xml:space="preserve">
-        <value>技能目录：</value>
-    </data>
     <data name="CharacterMcpTitle" xml:space="preserve">
         <value>扩展</value>
     </data>
@@ -2787,12 +2755,6 @@
     <data name="WorldBookSaveClose" xml:space="preserve">
         <value>保存并关闭</value>
     </data>
-    <data name="CharacterWorldSettingDesc" xml:space="preserve">
-        <value>关键词激活的设定条目：最近几轮消息命中关键词即注入（常驻条目每轮都注入），整体受 token 预算约束。</value>
-    </data>
-    <data name="CharacterWorldSettingEmpty" xml:space="preserve">
-        <value>还没有条目。导入带 character_book 的角色卡会自动填进来，也可以点「添加条目」手动建。</value>
-    </data>
     <data name="CharacterWorldSettingKeysPlaceholder" xml:space="preserve">
         <value>关键词，多个用逗号/分号/换行分隔</value>
     </data>
@@ -2979,9 +2941,6 @@
     <data name="FileSearchCtxOpenEditor" xml:space="preserve">
         <value>用编辑器打开</value>
     </data>
-    <data name="TextFileMenuFile" xml:space="preserve">
-        <value>文件</value>
-    </data>
     <data name="TextFileStatusLines" xml:space="preserve">
         <value>行</value>
     </data>
@@ -3024,17 +2983,11 @@
     <data name="TextFileUntitled" xml:space="preserve">
         <value>未命名</value>
     </data>
-    <data name="TextFileMenuEdit" xml:space="preserve">
-        <value>编辑</value>
-    </data>
     <data name="TextFileMenuUndo" xml:space="preserve">
         <value>撤销</value>
     </data>
     <data name="TextFileMenuRedo" xml:space="preserve">
         <value>重做</value>
-    </data>
-    <data name="TextFileMenuView" xml:space="preserve">
-        <value>视图</value>
     </data>
     <data name="TextFileMenuPreview" xml:space="preserve">
         <value>Markdown 预览</value>
@@ -3785,9 +3738,6 @@
         <value>管理生图模型</value>
     </data>
 
-    <data name="ModelInfoReloaded" xml:space="preserve">
-        <value>已重新加载：{0}</value>
-    </data>
 
     <data name="RemoteModelDeleteConfirm" xml:space="preserve">
         <value>确定删除远程模型 {0} 吗？</value>

@@ -47,7 +47,7 @@ public sealed class MarkdownPathImageLoaderHandlerTests : IDisposable
         string draft = Path.Combine(_root, "draft");
         Directory.CreateDirectory(draft);
         string file = Path.Combine(draft, "a.png");
-        await File.WriteAllBytesAsync(file, [1, 2, 3]);
+        await File.WriteAllBytesAsync(file, [1, 2, 3], TestContext.Current.CancellationToken);
 
         var mapper = MarkdownPathMapper.Create(
             new AgentPathResolver(Path.Combine(_root, "workspace"), draft))!;

@@ -20,7 +20,7 @@
         <DataTemplate DataType="options:NumberOptionData">
             <NumericUpDown Width="150" Value="{Binding Number}" Minimum="{Binding Minimum}"
                            Maximum="{Binding Maximum}" Increment="{Binding Increment}"
-                           FormatString="{Binding FormatString}" Watermark="{Binding Watermark}" />
+                           FormatString="{Binding FormatString}" PlaceholderText="{Binding Watermark}" />
         </DataTemplate>
         <DataTemplate DataType="options:ToggleOptionData">
             <ToggleSwitch IsChecked="{Binding IsOn}" OnContent="" OffContent="" />
@@ -30,7 +30,7 @@
                       DisplayMemberBinding="{ReflectionBinding DisplayName}" />
         </DataTemplate>
         <DataTemplate DataType="options:TextOptionData">
-            <TextBox Width="190" Text="{Binding Text}" Watermark="{Binding Watermark}" />
+            <TextBox Width="190" Text="{Binding Text}" PlaceholderText="{Binding Watermark}" />
         </DataTemplate>
     </Window.DataTemplates>
 

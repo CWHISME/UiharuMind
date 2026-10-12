@@ -565,7 +565,7 @@ public class TurnDriverTests
 
         CapturingChatClient client = new("交接正文");
         ModelRunningData running = new(new GGufModelInfo { ModelName = "m1" });
-        running.CompleteLoading(client, runtimeContextSize: 65536);
+        running.CompleteLoading(client, runtimeContextSize: 65536, CancellationToken.None);
         session.ChatModelRunningData = running;
 
         TurnUsageLedger ledger = new() { ContextLength = 128_000 };
@@ -597,7 +597,7 @@ public class TurnDriverTests
         for (int i = 0; i < 5; i++) session.History.Add(Prompt($"第 {i} 条"));
         UsageDetails usage = new() { InputTokenCount = 90_000, OutputTokenCount = 800, CachedInputTokenCount = 85_000 };
         ModelRunningData running = new(new GGufModelInfo { ModelName = "m1" });
-        running.CompleteLoading(new CapturingChatClient("交接正文", usage), runtimeContextSize: 65536);
+        running.CompleteLoading(new CapturingChatClient("交接正文", usage), runtimeContextSize: 65536, CancellationToken.None);
         session.ChatModelRunningData = running;
 
         TurnInputEstimate estimate = new() { LastHistory = 70_000, LastRawHistory = 95_000 }; //上一次请求折过
@@ -624,7 +624,7 @@ public class TurnDriverTests
 
         CapturingChatClient client = new("交接正文");
         ModelRunningData running = new(new GGufModelInfo { ModelName = "m1" });
-        running.CompleteLoading(client, runtimeContextSize: 65536);
+        running.CompleteLoading(client, runtimeContextSize: 65536, CancellationToken.None);
         session.ChatModelRunningData = running;
         StubRunner runner = new()
         {
@@ -663,7 +663,7 @@ public class TurnDriverTests
 
         CapturingChatClient client = new("交接正文");
         ModelRunningData running = new(new GGufModelInfo { ModelName = "m1" });
-        running.CompleteLoading(client, runtimeContextSize: 65536);
+        running.CompleteLoading(client, runtimeContextSize: 65536, CancellationToken.None);
         session.ChatModelRunningData = running;
 
         TurnUsageLedger ledger = new() { ContextLength = 128_000 };
@@ -689,7 +689,7 @@ public class TurnDriverTests
 
         CapturingChatClient client = new(" \n "); //空产出
         ModelRunningData running = new(new GGufModelInfo { ModelName = "m1" });
-        running.CompleteLoading(client, runtimeContextSize: 65536);
+        running.CompleteLoading(client, runtimeContextSize: 65536, CancellationToken.None);
         session.ChatModelRunningData = running;
 
         TurnUsageLedger ledger = new() { ContextLength = 128_000 };
@@ -713,7 +713,7 @@ public class TurnDriverTests
 
         GatedChatClient client = new("交接正文");
         ModelRunningData running = new(new GGufModelInfo { ModelName = "m1" });
-        running.CompleteLoading(client, runtimeContextSize: 65536);
+        running.CompleteLoading(client, runtimeContextSize: 65536, CancellationToken.None);
         session.ChatModelRunningData = running;
 
         TurnUsageLedger ledger = new() { ContextLength = 128_000 };
@@ -740,7 +740,7 @@ public class TurnDriverTests
         for (int i = 0; i < 5; i++) session.History.Add(Prompt($"第 {i} 条"));
 
         ModelRunningData running = new(new GGufModelInfo { ModelName = "m1" });
-        running.CompleteLoading(new OceChatClient(), runtimeContextSize: 65536);
+        running.CompleteLoading(new OceChatClient(), runtimeContextSize: 65536, CancellationToken.None);
         session.ChatModelRunningData = running;
 
         TurnUsageLedger ledger = new() { ContextLength = 128_000 };

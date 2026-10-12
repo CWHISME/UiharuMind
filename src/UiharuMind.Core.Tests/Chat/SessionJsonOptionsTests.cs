@@ -95,6 +95,7 @@ public class SessionJsonOptionsTests
 
         FunctionResultContent result = Assert.IsType<FunctionResultContent>(Assert.Single(restored.Contents));
         Assert.Equal("line1\nline2\nline3", result.Result);
-        Assert.DoesNotContain("\\n", (string)result.Result); //不是字面量 \n
+        string resultText = Assert.IsType<string>(result.Result);
+        Assert.DoesNotContain("\\n", resultText); //不是字面量 \n
     }
 }

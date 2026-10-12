@@ -31,7 +31,7 @@ internal sealed class SearchPageMemory
     public string? PreferredProvider(string query, int page)
     {
         if (page <= 1 || !TryGet(query, out QueryPages? pages)) return null;
-        lock (pages)
+        lock (pages!)
         {
             return pages.Providers.TryGetValue(page - 1, out string? name) ? name : null;
         }
@@ -47,7 +47,7 @@ internal sealed class SearchPageMemory
     public IReadOnlyList<SearchResultItem> ExcludeEarlierPages(string query, int page, IReadOnlyList<SearchResultItem> items)
     {
         if (page <= 1 || !TryGet(query, out QueryPages? pages)) return items;
-        lock (pages)
+        lock (pages!)
         {
             HashSet<string> seen = pages.Urls.Where(p => p.Key < page).SelectMany(p => p.Value)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
