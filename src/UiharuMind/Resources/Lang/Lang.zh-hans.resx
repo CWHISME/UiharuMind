@@ -534,7 +534,7 @@
         <value>通用子代理负责实际修改任务。给它指定运行模型；留空则回退到主代理 模型。</value>
     </data>
     <data name="AgentSettingBrainSubAgentModel" xml:space="preserve">
-        <value>脑模型</value>
+        <value>整理模型</value>
     </data>
     <data name="AgentSettingBrainSubAgentModelDesc" xml:space="preserve">
         <value>脑负责用只读助手整理大文件与被截断的工具结果。给它指定运行模型（配便宜小模型正合适）；留空则回退到主代理模型。</value>

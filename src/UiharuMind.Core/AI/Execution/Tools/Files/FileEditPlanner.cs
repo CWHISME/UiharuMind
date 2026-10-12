@@ -170,7 +170,7 @@ public static class FileEditPlanner
         for (int i = 0; i < edits.Count; i++)
         {
             string oldString = edits[i].OldString ?? string.Empty;
-            if (oldString.Length == 0) return FileEditPlan.Failed($"edits[{i}].oldString must not be empty.");
+            if (oldString.Length == 0) return FileEditPlan.Failed($"edits[{i}].oldString must not be empty.Edit replaces existing text: oldString must be a snippet that actually appears in the file. To append to the end, Read the file's last lines and use the tail as oldString.");
 
             Location located = Locate(text, lines, oldString);
             switch (located.Kind)

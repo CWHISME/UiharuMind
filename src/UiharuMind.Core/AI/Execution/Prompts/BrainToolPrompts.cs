@@ -17,14 +17,14 @@ public static class BrainToolPrompts
     /// 它的全部政策都在这一把工具的 schema 上（对模型来说它就是这么用的）。
     /// </summary>
     public const string Description =
-        "所有可能给你的上下文造成大量污染的操作，都可以让副脑根据规则过滤一遍，使其代替自己将原材料整理成一份适合你理解的文本：针对需求搜索项目、总结大文件、给被截断的工具结果做摘要等等。\n" +
+        "让另一个模型将原材料整理成一份适合你理解的文本：总结大文件、做摘要、搜索指定目录内容并总结等等。\n" +
         "想基于同一份材料继续深挖，把返回的标识作为 brainId 再调本工具，它会记得之前的信息。";
 
     /// <summary>task 参数说明</summary>
     public const string TaskParam =
-        "任务或问题，直接写给它：文件路径、关键字，返回格式要求、重点是什么（副脑只能搜索关键字和读取文档）。";
+        "需求描述：文件路径、需求重点是什么(例如可要求返回查找内容的准确文件名、行号)。";
 
     /// <summary>brainId 参数说明</summary>
     public const string BrainIdParam =
-        "可选。传入之前返回的 [sub-session: …] 标识；给了 = 追问指定附脑。";
+        "可选。传入之前返回的 [sub-session: …] 标识；给了 = 追问。";
 }

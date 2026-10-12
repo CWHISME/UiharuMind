@@ -26,7 +26,7 @@ namespace UiharuMind.Core.AI.Execution.Tools;
 public static class BrainTool
 {
     /// <summary>工具名。提示词里提到本工具时一律引用这个常量,写死字面量迟早对不上</summary>
-    public const string ToolName = "Brain";
+    public const string ToolName = "Summary";
 
     /// <summary>脑的墙钟上限：有界活，到限返回已得部分/失败，可带 brainId 追问续跑（ADR 0082）</summary>
     public static readonly TimeSpan Timeout = TimeSpan.FromMinutes(5);

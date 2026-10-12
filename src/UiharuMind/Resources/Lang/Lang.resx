@@ -541,7 +541,7 @@
         <value>General sub-agents do actual modification tasks. Pick a model to run them on; leave empty to fall back to the main agent's model.</value>
     </data>
     <data name="AgentSettingBrainSubAgentModel" xml:space="preserve">
-        <value>Brain model</value>
+        <value>Summary model</value>
     </data>
     <data name="AgentSettingBrainSubAgentModelDesc" xml:space="preserve">
         <value>Brains summarize large files and truncated tool results with a read-only helper. Pick a small model to run them on; leave empty to fall back to the main agent's model.</value>
