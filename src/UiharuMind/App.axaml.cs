@@ -144,6 +144,9 @@ public partial class App : Application, ILogger, IDisposable
                 Services.GetRequiredService<ForegroundAppDictationTarget>());
             DesktopHighlightWindow.Attach(); //桌面扩展动手时框一下目标（ADR 0084）
             UiharuMind.Core.AI.Execution.Tools.Desktop.DesktopHost.Shared.Vision = new DesktopVision(); //读不到界面结构时认图里的字
+            // 会话删了把桌面快照（攥着原生句柄）一起清掉，别让它跨会话累积（ADR 0084）
+            UiharuMind.Core.AI.Chat.SessionManager.Instance.OnSessionRemoved +=
+                session => UiharuMind.Core.AI.Execution.Tools.Desktop.DesktopHost.Shared.ReleaseSession(session.SessionId);
             MacInputDiagnostics.Install(); //输入法候选框偶尔不出来，查明原因用
             UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("di-container");
             DummyWindow.InitializeMainViewModel(Services.GetRequiredService<MainViewModel>());

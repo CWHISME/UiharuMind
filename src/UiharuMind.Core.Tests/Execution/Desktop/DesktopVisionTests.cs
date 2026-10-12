@@ -41,7 +41,7 @@ public class DesktopVisionTests
         await _host.ListWindowsAsync(Token);
 
         DesktopView view = await _host.SnapshotAsync("s", "w1", Token);
-        Assert.Contains("- ocr-text \"Start\" [ref=e2]: at 440,315", view.Snapshot); //带中心在窗口里的位置
+        Assert.Contains("- ocr-text \"Start\" [ref=e2]: [col:1] at 440,315", view.Snapshot); //带列标注与中心位置
 
         await _host.ActAsync("s", new DesktopActionRequest("w1", EDesktopAction.Click, "e2", "", false), Token);
         DesktopInput click = Assert.Single(_platform.Inputs).Input;

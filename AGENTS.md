@@ -127,7 +127,11 @@ macOS 上用签名好的 .app 跑，别直接跑 bin 里的 exe：
 src/Build/dev-run.sh   # = buildMac.sh && open src/Build/Output/UiharuMind.app
 ```
 
-bin 里的裸 exe 是 ad-hoc 签名、TCC（辅助功能/屏幕录制）里没有它的授权记录，桌面扩展在断点调试那条路上查不到授权——**不是 bug**，是签名身份不同（[ADR 0029](docs/adr/0029-打包与发版，macOS签名必须用自签名证书.md)）。
+为什么：TCC（辅助功能/屏幕录制）把授权钉在「签名主体 + bundle id」上（`.app` 是证书签名 `com.cwhisme.uiharumind`），
+bin 里的裸 exe 是 ad-hoc 签名、身份不同——从终端/脚本裸跑它查不到授权，**不是 bug**（[ADR 0029](docs/adr/0029-打包与发版，macOS签名必须用自签名证书.md)）。
+例外：Rider 直接调试时进程的责任链落在 IDE 上，桌面权限走 Rider 的授权，所以开发调试这条路上桌面功能可用；
+冒烟脚本（src/scripts/smoke/run.sh）默认跑 `bin/Release` 裸 exe、责任进程是终端，桌面场景必须 `SMOKE_APP` 指向签名 `.app`，
+并先给 UiharuMind 勾辅助功能/屏幕录制授权（勾完重启应用生效）。desktop-basic 已实测全绿（2026-10-12）。
 要断点调试：在 `src/Build/Output/UiharuMind.app` 上挂调试器；日常运行走 dev-run.sh。
 
 ## 打包与发版

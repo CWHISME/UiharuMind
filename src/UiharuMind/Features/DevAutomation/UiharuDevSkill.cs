@@ -69,7 +69,8 @@ internal static class UiharuDevSkill
         text.AppendLine($"- 长等（`group.wait`、`group.away.wait`、`session.wait`）放进 `{BackgroundTaskTool.ToolName}`：" +
                         $"`{shell}` 单条命令有时限，后台任务跑完会叫醒你。中途看进度用 `group.dump` 导出来读。");
         text.AppendLine("- `page.jump`、`session.*` 作用在主窗口当前显示的那个会话上——你自己就在这个应用里，" +
-                        "调它们可能切走或打断你自己这个会话。`app.quit` 会把你自己也关掉。没有用户明说，这几步都别调。");
+                         "调它们可能切走或打断你自己这个会话。`app.quit` 会把你自己也关掉。没有用户明说，这几步都别调。");
+        text.AppendLine("- ⛔ **严禁**用 `Shell` 杀应用自己的进程（`pkill/kill/killall/taskkill` 指向 `UiharuMind.Desktop`、`open -W` 等它退出都算）");
         text.AppendLine("- 推送、删除、花钱这类收不回的事照常先问用户。");
         text.AppendLine();
         text.AppendLine("## 步骤");

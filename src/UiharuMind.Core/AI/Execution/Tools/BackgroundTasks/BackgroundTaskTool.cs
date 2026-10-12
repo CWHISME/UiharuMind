@@ -55,7 +55,7 @@ public static class BackgroundTaskTool
             "读返回的日志文件查进度即可。" +
             $"不传 maxSeconds 时会在 {DefaultMaxRuntime.TotalSeconds:0} 秒后停止。" +
             "不要加 `&`、`nohup` 或 `open`：凡是被它们脱离的东西都无法再被停止或限时。");
-        return new ApprovalRequiredAIFunction(function);
+        return new ApprovalRequiredAIFunction(new ShellSelfKillGuardFunction(function));
     }
 
     private static string Start(string ownerSessionId, BackgroundTaskLaunch launch, IBackgroundTaskReportSink sink,

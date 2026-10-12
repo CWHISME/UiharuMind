@@ -54,7 +54,7 @@ public static class GroupAvatarTranscript
         $"【{userName}{KickoffMarker}{goal.Trim()}】";
 
     /// <summary>重要提醒的内层固定串：模板与剥离识别共用这一份，改文案只改这里</summary>
-    internal const string ReminderMarker = "重要提醒：";
+    internal const string ReminderMarker = "用户提醒：";
 
     /// <summary>
     /// 开离席时只交代给化身的重要提醒，每一轮附在投递末尾（在没进展的提示之前），⛔ 不进群
@@ -249,7 +249,7 @@ public static class GroupAvatarTranscript
     public static string DeliveryAnchor(string logPath, bool kickoff, bool hasNew, int firstIndex, int lastIndex,
         int startLine, int endLine, int totalLines)
     {
-        string identity = "流水里「用户（化身）」是你以用户名义说的话（只有你能区分出这一点），「用户」是用户真身。";
+        string identity = "流水里「用户（化身）」是你以用户名义说的话，「用户」是用户真身。";
         string where;
         if (hasNew)
         {

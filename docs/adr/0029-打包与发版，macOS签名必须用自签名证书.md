@@ -46,10 +46,14 @@
    `v*` tag 触发，先断言 tag 与 `<Version>` 一致，再在三平台上**调用 Build/ 脚本**
    （打包逻辑只有一份），产物加 `SHA256SUMS` 发成草稿 Release。
 9. **开发与冒烟统一用证书签名的 `.app` 跑**：TCC 按「签名主体 + bundle id」记授权，
-   **同一个 bundle id 下，ad-hoc 签名的裸 exe 与证书签名的 `.app` 是两个身份，授权互不共用**
-   （2026-10-11 冒烟实测：主实例跑 bin exe 勾过辅助功能/屏幕录制，签名 `.app` 依然查不到授权）。
-   日常开发用 `src/Build/dev-run.sh`（buildMac 后 `open` `.app`），别直接跑 bin 里的 exe；
-   bin 那条路是 ad-hoc、TCC 里没有记录，桌面扩展查不到授权——不是 bug。
+   **同一个 bundle id 下，ad-hoc 签名的裸 exe 与证书签名的 `.app` 是两个身份，授权互不共用**。
+   从终端/脚本裸跑 bin exe（责任进程是终端、路径无授权记录），桌面扩展查不到授权——不是 bug；
+   Rider 调试是例外：调试器启动的进程，责任链最后落在 IDE 上，桌面权限走 IDE 的授权。
+   日常开发用 `src/Build/dev-run.sh`（buildMac 后 `open` `.app`）；冒烟桌面场景用
+   `SMOKE_APP=$PWD/src/Build/Output/UiharuMind.app src/scripts/smoke/run.sh desktop-basic`，
+   前提是系统设置里给 UiharuMind（`.app` 身份）勾过辅助功能与屏幕录制（勾完重启应用生效）。
+   desktop-basic 已实测全绿（2026-10-12：计算器 4053/3315、OCR、desktop-note.txt、访达列表、设置被拒）；
+   远程模型配额紧张（如 Agnes 429）会把冒烟拖得很长，可换模型或等限流低谷再跑。
    断点调试要用桌面功能时，在 `src/Build/Output/UiharuMind.app` 上挂调试器。
 
 ## 取舍

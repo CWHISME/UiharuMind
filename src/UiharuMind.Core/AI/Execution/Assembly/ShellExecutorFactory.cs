@@ -67,8 +67,8 @@ internal static class ShellExecutorFactory
         gated = new ParameterDescriptionFunction(gated, "command",
             "要执行的 shell 命令，本机 shell 语法。" +
             (hasBackgroundTasks ? " " + BackgroundTasksHint : string.Empty));
-        return new ApprovalRequiredAIFunction(new ShellHangGuardFunction(gated, CommandTimeout + HangGrace,
-            hasBackgroundTasks ? ShellHangGuardFunction.HangNoticeWithBackgroundTasks : ShellHangGuardFunction.HangNotice));
+        return new ApprovalRequiredAIFunction(new ShellSelfKillGuardFunction(new ShellHangGuardFunction(gated, CommandTimeout + HangGrace,
+            hasBackgroundTasks ? ShellHangGuardFunction.HangNoticeWithBackgroundTasks : ShellHangGuardFunction.HangNotice)));
     }
 
     private static string BuildDescription(LocalShellExecutor executor)

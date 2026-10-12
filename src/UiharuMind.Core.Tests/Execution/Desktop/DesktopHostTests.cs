@@ -215,6 +215,19 @@ public class DesktopHostTests
     }
 
     [Fact]
+    public async Task ReleaseSession_DropsThatSessionsSnapshots_KeepsOthers()
+    {
+        string window = await OpenNoteAsync();
+        await _host.SnapshotAsync("s2", window, Token); //两个会话各拍一份
+
+        _host.ReleaseSession("s");
+
+        // 被删会话的快照没了（Peek 翻不出目标），别的会话还在
+        Assert.Equal(string.Empty, _host.Peek("s", window, "e1")!.Role);
+        Assert.Equal("button", _host.Peek("s2", window, "e1")!.Role);
+    }
+
+    [Fact]
     public async Task Unavailable_SaysWhy()
     {
         _platform.Unavailable = "Accessibility permission has not been granted.";

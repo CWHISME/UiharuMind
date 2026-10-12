@@ -63,14 +63,8 @@ public sealed partial class DesktopHost
         }
 
         AxRect bounds = window.Info.Bounds;
-        AxNode screenText = new("group", "Text read from the window's picture")
-        {
-            Children = lines.Select(line => new AxNode(AxRoles.OcrText, line.Text)
-            {
-                Bounds = ToScreen(line.Box, bounds), Value = Position(line.Box, bounds),
-            }).ToList(),
-        };
-        notes.Add($"{lines.Count} lines were read from the window's picture (ocr-text, each with the x,y of its middle in the window); " +
+        AxNode screenText = ArrangeOcrLines(lines, bounds);
+        notes.Add($"{lines.Count} lines were read from the window's picture (ocr-text, each labelled [col:N] and at x,y); " +
                   "acting on one clicks its middle.");
         return (tree with { Children = [.. tree.Children, screenText] }, picture);
     }
@@ -124,12 +118,46 @@ public sealed partial class DesktopHost
         return text.Length > 1 || (text.Length == 1 && (char.IsAsciiLetterOrDigit(text[0]) || MeaningfulSymbols.Contains(text[0])));
     }
 
-    // 认出的字没有排版，给出中心在窗口里的位置：分得出侧栏与正文、同一行与上下行
+    // 认出的字没有排版：按 Y 排成行、行内按 X 排，给出 [col:N]（行内从左到右第 N 个）与中心位置：
+    // 能分得出「同一行里左边是侧栏、右边是正文」；跨行同列的全局列号属于第二档（单独排）
+    private static AxNode ArrangeOcrLines(List<DesktopTextLine> lines, AxRect window)
+    {
+        // 按 Y 排序，再按 Y 区间（窗口高的 15% 以内视为同一行）分组
+        List<(DesktopTextLine Line, int Col)> arranged = new();
+        double rowThreshold = window.Height * 0.15;
+        List<DesktopTextLine> byY = lines.OrderBy(l => l.Box.Y).ToList();
+        int rowStart = 0;
+        for (int i = 0; i <= byY.Count; i++)
+        {
+            bool newRow = i == byY.Count || (byY[i].Box.Y - byY[rowStart].Box.Y > rowThreshold);
+            if (newRow)
+            {
+                List<DesktopTextLine> row = byY.GetRange(rowStart, i - rowStart).OrderBy(l => l.Box.X).ToList();
+                for (int col = 0; col < row.Count; col++) arranged.Add((row[col], col + 1));
+                rowStart = i;
+            }
+        }
+
+        AxNode screenText = new("group", "Text read from the window's picture")
+        {
+            Children = arranged.Select(item => new AxNode(AxRoles.OcrText, item.Line.Text)
+            {
+                Bounds = ToScreen(item.Line.Box, window),
+                Value = $"[col:{item.Col}] at {Position(item.Line.Box, window)}",
+            }).ToList(),
+        };
+        return screenText;
+    }
+
     private static string Position(AxRect box, AxRect window) =>
-        $"at {Math.Round((box.X + box.Width / 2) * window.Width)},{Math.Round((box.Y + box.Height / 2) * window.Height)}";
+        $"{Math.Round((box.X + box.Width / 2) * window.Width)},{Math.Round((box.Y + box.Height / 2) * window.Height)}";
 
     private static AxRect ToScreen(AxRect box, AxRect window) =>
         new(window.X + box.X * window.Width, window.Y + box.Y * window.Height, box.Width * window.Width, box.Height * window.Height);
+
+    // 保留给 tests 与外部：单行位置（不带 col 标注）
+    internal static string Position(AxRect box, AxRect window, int col) =>
+        $"[col:{col}] at {Position(box, window)}";
 
     private static int Informative(AxNode node) => node.Role == "menubar" || WindowButtons.Contains(node.Name)
         ? 0

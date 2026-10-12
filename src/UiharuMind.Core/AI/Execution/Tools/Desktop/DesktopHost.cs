@@ -55,6 +55,15 @@ public sealed partial class DesktopHost
     /// <summary>动手前在目标上闪一下（界面挂上；没挂就不闪）：第 1、2 级不动光标，用户看不出点了哪</summary>
     public Action<AxRect>? Highlight { get; set; }
 
+    /// <summary>
+    /// 各会话名下拍过快照的窗口数（内存账观测口，只读；<see cref="ReleaseSession"/> 清完这条会降）
+    /// </summary>
+    public IReadOnlyDictionary<string, int> DesktopSnapshotStateCount =>
+        _states.Keys.GroupBy(key => key.Session).ToDictionary(x => x.Key, x => x.Count());
+
+    /// <summary>当前共记着几个应用的并发锁（观测口，只读；<see cref="ListWindowsAsync"/> 会清掉退出的 pid）</summary>
+    public int AppGateCount => _appGates.Count;
+
     /// <summary>这个系统有没有平台层（没授权也算有）</summary>
     public bool IsSupported => _platform != null;
 
@@ -101,6 +110,13 @@ public sealed partial class DesktopHost
             {
                 foreach ((string, string) key in _states.Keys.Where(key => key.Window == gone.Id)) _states.TryRemove(key, out _);
             }
+
+            // 退出的应用把它的锁也丢：锁是按 pid 记的，pid 会被复用（macOS 有回绕），
+            // 留着旧进程的锁会给新进程白排一次队——无害但语义脏。
+            // 已知竞态：会话线程刚 ResolveAsync 拿到 window（pid 已不在活列表）尚未进 WithAppAsync，
+            // 这行删掉它的 gate，随后 GetOrAdd 白建一个没人竞争的——下次 ListWindowsAsync 再清，自愈。
+            HashSet<int> alive = listed.Select(window => window.Info.Pid).ToHashSet();
+            foreach (int pid in _appGates.Keys.Where(pid => !alive.Contains(pid))) _appGates.TryRemove(pid, out _);
 
             _windows.Clear();
             _windows.AddRange(listed);
@@ -149,6 +165,18 @@ public sealed partial class DesktopHost
             AxNode tree = await Task.Run(() => _platform!.ReadWindow(target.Info, MaxNodes), cancellationToken);
             return await ComposeAsync(target, state, tree, notes, view, cancellationToken);
         });
+    }
+
+    /// <summary>
+    /// 会话删了：它名下各窗口拍过的快照（攥着原生句柄）一起丢。窗口关掉的清理在 <see cref="ListWindowsAsync"/>，两条路径互不顶替
+    /// </summary>
+    /// <param name="sessionId">被删会话的 id</param>
+    public void ReleaseSession(string sessionId)
+    {
+        foreach ((string session, string _) key in _states.Keys.Where(key => key.Session == sessionId))
+        {
+            _states.TryRemove(key, out _);
+        }
     }
 
     /// <summary>

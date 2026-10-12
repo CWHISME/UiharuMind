@@ -81,7 +81,7 @@ public static class AgentToolPrompts
         {
             // 只交代事实不立规矩:首行会进索引,模型知道了这个代价,自然会把首行写成摘要、少记琐事
             sb.AppendLine($"- 记忆目录 {memoryToken}：你在本工作区跨会话保留的笔记，按主题一个 .md 文件。" +
-                          $"`Read {memoryToken}` 会返回记忆索引，读全文用 {memoryToken}/文件名。" +
+                          $"`Read {memoryToken}` 会返回记忆索引，每份笔记的路径和首行（超过 {MemoryIndex.SummaryMaxLength} 字截断），读全文用 {memoryToken}/文件名。" +
                           "开始一件事前先看一眼索引，以前的你可能记过相关的东西。" +
                           "索引里只看得到首行，" +
                           "只写个标题的话，以后的你得打开文件才知道里面是什么。只记对话里的沉淀。");

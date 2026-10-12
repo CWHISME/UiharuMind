@@ -274,6 +274,8 @@ internal sealed class MemoryStatsCommand : IDevCommand
             loadedSessions = SessionManager.Instance.LoadedSessionCount,
             residentHistories = SessionManager.Instance.ResidentHistoryCount,
             gen2Collections = GC.CollectionCount(2),
+            desktopSnapshotStates = UiharuMind.Core.AI.Execution.Tools.Desktop.DesktopHost.Shared.DesktopSnapshotStateCount,
+            desktopAppGates = UiharuMind.Core.AI.Execution.Tools.Desktop.DesktopHost.Shared.AppGateCount,
         };
     }
 }
