@@ -238,10 +238,9 @@ public partial class RemoteModelEditViewData : ObservableObject
         _sourceInfo = remoteModelInfo;
         IsEditMode = remoteModelInfo != null;
 
-        var types = typeof(LlmManager).Assembly.GetTypesOfInterface(nameof(IRemoteModelConfig));
-        foreach (var type in types)
+        foreach (Type type in RemoteModelConfigRegistry.ProviderTypes)
         {
-            var defaultConfig = Activator.CreateInstance(type) as BaseRemoteModelConfig;
+            BaseRemoteModelConfig? defaultConfig = RemoteModelConfigRegistry.CreateDefault(type);
             Providers.Add(new ProviderItem
             {
                 Name = type.GetDescription(),
@@ -300,7 +299,7 @@ public partial class RemoteModelEditViewData : ObservableObject
     [RelayCommand]
     private void SelectCopySource(RemoteModelInfo source)
     {
-        if (Activator.CreateInstance(source.Config.GetType()) is not BaseRemoteModelConfig config) return;
+        if (RemoteModelConfigRegistry.CreateDefault(source.Config.GetType()) is not BaseRemoteModelConfig config) return;
         config.Port = source.Config.Port;
         _draftConfig = config;
         LoadValues(source.Config, source.ApiKey, source.ModelName + "-copy");
@@ -310,7 +309,7 @@ public partial class RemoteModelEditViewData : ObservableObject
     partial void OnSelectedProviderChanged(ProviderItem? value)
     {
         if (_suppressProviderReset || value == null) return;
-        if (Activator.CreateInstance(value.ConfigType) is not BaseRemoteModelConfig config) return;
+        if (RemoteModelConfigRegistry.CreateDefault(value.ConfigType) is not BaseRemoteModelConfig config) return;
         _draftConfig = config;
         LoadValues(config, "", config.ModelName ?? "");
         ApplyConfigTraits(config);

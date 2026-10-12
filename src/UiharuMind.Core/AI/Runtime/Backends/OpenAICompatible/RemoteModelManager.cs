@@ -22,8 +22,7 @@ internal sealed class RemoteModelManager
                 config.Config.GetType().Name != config.Config.ConfigType)
             {
                 if (SaveUtility.LoadFromString(SaveUtility.SaveToString(config.Config),
-                        GetType().Assembly
-                            .GetType(typeof(BaseRemoteModelConfig).Namespace + "." + config.Config.ConfigType)) is
+                        RemoteModelConfigRegistry.ResolveConfigType(config.Config.ConfigType)) is
                     BaseRemoteModelConfig correct) config.Config = correct;
             }
 

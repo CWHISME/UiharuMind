@@ -82,22 +82,14 @@ public static class ModelContextResolver
     private static Dictionary<string, int> BuildGlobalVariants()
     {
         Dictionary<string, int> map = new(StringComparer.OrdinalIgnoreCase);
-        foreach (Type type in typeof(BaseRemoteModelConfig).Assembly.GetTypes())
+        // 显式注册表替换整汇编扫描：顺序固定，先到先得，AOT/裁剪下不会丢类型
+        foreach (Type type in RemoteModelConfigRegistry.AllConfigTypes)
         {
-            if (type.IsAbstract || !type.IsSubclassOf(typeof(BaseRemoteModelConfig))) continue;
-
-            try
+            if (RemoteModelConfigRegistry.CreateDefault(type) is not BaseRemoteModelConfig config) continue;
+            foreach (KeyValuePair<string, RemoteModelIdVariant> pair in config.ModelIdVariants)
             {
-                if (Activator.CreateInstance(type) is not BaseRemoteModelConfig config) continue;
-                foreach (KeyValuePair<string, RemoteModelIdVariant> pair in config.ModelIdVariants)
-                {
-                    //先到先得:同一个 ModelId 在两家都声明过的话,谁先谁算,反正数值该一致
-                    if (pair.Value.ContextLength > 0) map.TryAdd(pair.Key, pair.Value.ContextLength);
-                }
-            }
-            catch (Exception e)
-            {
-                Log.Warning($"Collect model id variants from '{type.Name}' failed: {e.Message}");
+                //先到先得:同一个 ModelId 在两家都声明过的话,谁先谁算,反正数值该一致
+                if (pair.Value.ContextLength > 0) map.TryAdd(pair.Key, pair.Value.ContextLength);
             }
         }
 
