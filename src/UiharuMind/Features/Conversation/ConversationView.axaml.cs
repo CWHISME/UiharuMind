@@ -93,6 +93,7 @@ public partial class ConversationView : UserControl
 
     public ConversationView()
     {
+        long ctorBegin = global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Begin();
         InitializeComponent();
         _autoScrollHolder = new ScrollViewerAutoScrollHolder(Viewer);
         _cardViewport = new ConversationCardViewport(Viewer, MessageList);
@@ -124,6 +125,7 @@ public partial class ConversationView : UserControl
         InputBox.PropertyChanged += OnInputBoxPropertyChanged; //@ 补全要知道光标在哪
         // Ctrl/⌘+F 打开会话内搜索。隧道阶段拦:焦点在输入框里时也得认
         AddHandler(KeyDownEvent, OnViewKeyDown, RoutingStrategies.Tunnel);
+        global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.End("page/conversationview-ctor", ctorBegin);
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)

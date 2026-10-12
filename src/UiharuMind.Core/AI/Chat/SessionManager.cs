@@ -307,10 +307,16 @@ public partial class SessionManager : Singleton<SessionManager>, IInitialize
     {
         if (string.IsNullOrEmpty(sessionId)) return null;
 
+        // 探针分段（主题六 switch 异步化）：524ms 后台 load 的构成——读盘 vs 卸载写盘
+        long readBegin = UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Begin();
         ChatSession? loaded = ResolveLoaded(sessionId);
+        UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.End("sessionmanager/load-read", readBegin);
+
+        long unloadBegin = UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Begin();
         // 命中也走一遍:超出上限的那几个未必赶得上下一次未命中,而没超限时这一趟几乎不花钱。
         // 排在锁外:卸载要写盘、要放执行者
         UnloadColdHistories();
+        UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.End("sessionmanager/load-unload", unloadBegin);
         return loaded;
     }
 

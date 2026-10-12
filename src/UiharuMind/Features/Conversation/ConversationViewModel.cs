@@ -581,12 +581,15 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     public ConversationViewModel(IMessageService messages, IReadAloudService? readAloud = null,
         CharacterSpeechStyles? speechStyles = null, EConversationType conversationType = EConversationType.Agent)
     {
+        // 探针：page.jump 的 vm/ctor 桶在此拆段（主题六 Stage 1）。Begin/End 探针关着时不落日志
+        long ctorBegin = StartupPhaseProbe.Begin();
         _messages = messages;
         // 群壳里的回复是成员落盘后贴进来的，按落盘念；单聊正看着时边生成边念
         _readAloud = readAloud == null ? null
             : new ConversationReadAloud(Items, readAloud, speechStyles, () => IsDisplayed && !IsGroupSession);
         _mcpApproval = new WorkspaceMcpApprovalFlow(messages);
         // 用量排最前:后面几个子模型的构造期回调就可能刷它
+        long uiModelsBegin = StartupPhaseProbe.Begin();
         Usage = new ConversationUsageViewData(ContextLength, () => SessionModelLabel,
             () => CurrentSession?.TotalGeneratedImages ?? 0);
         Search = new ConversationSearchViewData(() => CurrentSession?.History);
@@ -602,6 +605,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             () => Group?.MentionTargets ?? []); //@ 补全只在群里有成员可点;成员非空即群壳,/ 补全自行收起
         Interjections = new InterjectionQueueViewData(() => CurrentRunner, () => InputText, text => InputText = text,
             Tray.Attachments);
+        StartupPhaseProbe.End("vm/sub:ui-models", uiModelsBegin);
         _binder = new ConversationSessionBinder(NotifyBusyChanged);
         _itemActions = new ConversationItemActions(Items, this, messages);
         _history = new ConversationHistoryRenderer(Items, _itemActions, () => _currentCharacter,
@@ -621,10 +625,12 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         var agentSetting = AgentSettingConfig.Current;
         // 工作目录选择器要在最早构造:它持有那份状态,后面几处都从它读。
         // 新会话不再带全局默认工作目录:未选时由选择器自己决定(空态),用户在会话内指定。
+        long workspaceBegin = StartupPhaseProbe.Begin();
         Workspace = new WorkspacePickerViewData(null, OnWorkspacePathChanged,
             path => Group?.ConfirmWorkspaceChangeAsync(path) ?? Task.FromResult(true));
         SessionModel = new SessionModelViewData(() => CurrentMeta, () => _isLoadingSession, OnSessionModelChanged);
         SessionModel.Refresh();
+        StartupPhaseProbe.End("vm/sub:workspace+sessionmodel", workspaceBegin);
 
         _transcript = new ConversationTranscript(Items, () => ConversationItemFactory.CreateAssistant(_currentCharacter),
             pattern => CurrentSession?.AddSessionApprovedShellPattern(pattern),
@@ -669,6 +675,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         // 工作目录卡上的项目色要跟随主题（与左侧列表条目同一套刷新手势，见 SessionListModel）
         if (Application.Current is { } app) app.ActualThemeVariantChanged += OnWorkspaceThemeVariantChanged;
         InputPlaceholder = Loc.Text(_inputPlaceholderKey);
+        StartupPhaseProbe.End("vm/ctor", ctorBegin);
     }
 
     /// <summary>
@@ -1636,10 +1643,51 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         CurrentMeta = meta;
         Title = meta?.Title ?? string.Empty;
         _currentCharacter = meta == null ? null : CharacterManager.Instance.GetCharacterData(meta.CharacterId);
-        // 本体在这里读进缓存,此后 CurrentSession 只查缓存(见 SessionManager.GetLoaded)
-        ChatSession? loaded = meta == null ? null : SessionManager.Instance.Load(meta.SessionId);
-        // 群壳这一份必须在第一个 await 之前就位:页面先调装载、再换绑实例,绑定在这之后立刻求值,
-        // 晚一步右栏就先按单聊画出群壳的占位角色,再跳成群卡
+        if (meta == null)
+        {
+            // 空态是有意收紧（主题六撤还原时重排）：新建会话实例、属性即构造初始值，
+            // null 会话不需要装配 Group/Artifacts/通知批次（MarkdownPaths/IsGroupMemberSession/
+            // ActiveCharacter* 等），直接清状态刷能力面板即可。并发切会话测试兜着这条
+            IsSessionLoading = false;
+            MemoryPanel?.Detach();
+            MemoryPanel = null;
+            GroupMember = null;
+            Usage.Refresh();
+            // 空态也要刷一次能力面板。这里曾经直接返回,于是新会话在首轮发送之前
+            // 整个「能力」页签一片空白——而恰恰是这个时候用户最需要知道
+            // 「这个会话会自动连上什么、要占多少」。没有执行者时由面板自己预演一次装配,
+            // 五档都报得出(见 ConversationCapabilityViewData.RefreshAsync)
+            await RefreshCapabilitiesAsync();
+            return;
+        }
+
+        IsSessionLoading = true; //load 挪后台后 UI 先显示加载中,不卡等待
+
+        // 每个悬挂点都要问一次:这次装载还算不算数(被更新的切换取代 / 已经不在界面上了)
+        bool Abandoned()
+        {
+            if (loadVersion != _loadVersion) return true;
+            if (IsDisplayed) return false;
+
+            // 装载中途被切走:剩下的活没人看,而它照样跟新会话抢主线程——
+            // 快速点会话列表时"整个列表都变迟钝"就有它一份。欠账记下,切回来再接着做
+            _deferredLoad = meta;
+            IsSessionLoading = false;
+            return true;
+        }
+
+        // 本体在这里读进缓存,此后 CurrentSession 只查缓存(见 SessionManager.GetLoaded)。
+        // load-session 曾尝试挪后台线程(主题六 switch 异步化),实测 Load 本身只有 ~50ms
+        // (load-read 7-59ms / load-unload <5ms),511ms 的墙钟是「回 UI 排队等首帧布局」——
+        // UI 单线程下无法解耦,严格可交互从 51ms 劣化到 ~500ms,验收不达,已撤(Task.Run→同步)。
+        // 保留分段打点:Load 构成可诊断
+        long loadSessionBegin = StartupPhaseProbe.Begin();
+        ChatSession? loaded = SessionManager.Instance.Load(meta.SessionId);
+        StartupPhaseProbe.End("conversation/load-session", loadSessionBegin);
+        if (Abandoned()) return;
+
+        // 群壳这一份必须在回 UI 后的第一个分帧 await 之前就位:页面先调装载、再换绑实例,
+        // 绑定在这之后立刻求值,晚一步右栏就先按单聊画出群壳的占位角色,再跳成群卡
         Group = loaded is { IsGroup: true } ? new GroupShellViewData(loaded, _messages) : null;
         if (Group != null) InputPlaceholderKey = LangKey.GroupInputTips; //群里是对全群说话,不是给谁派任务
         Artifacts = CreateSessionArtifacts(loaded);
@@ -1654,22 +1702,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         OnPropertyChanged(nameof(ActiveCharacterName));
         OnPropertyChanged(nameof(ActiveCharacterDescription));
         OnPropertyChanged(nameof(ActiveCharacterIcon));
-        if (meta == null)
-        {
-            IsSessionLoading = false;
-            MemoryPanel?.Detach();
-            MemoryPanel = null;
-            GroupMember = null;
-            Usage.Refresh();
-            // 空态也要刷一次能力面板。这里曾经直接返回,于是新会话在首轮发送之前
-            // 整个「能力」页签一片空白——而恰恰是这个时候用户最需要知道
-            // 「这个会话会自动连上什么、要占多少」。没有执行者时由面板自己预演一次装配,
-            // 五档都报得出(见 ConversationCapabilityViewData.RefreshAsync)
-            await RefreshCapabilitiesAsync();
-            return;
-        }
-
-        IsSessionLoading = true;
 
         // 加载是读取会话状态,抑制变更处理器的写回——
         // 否则每次切入都会对刚加载的会话做一次同步全量 JSON 保存,还刷新 UpdatedAt 扰动列表排序
@@ -1686,19 +1718,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         }
 
         OnPropertyChanged(nameof(ExtensionsApproved));
-
-        // 每个悬挂点都要问一次:这次装载还算不算数(被更新的切换取代 / 已经不在界面上了)
-        bool Abandoned()
-        {
-            if (loadVersion != _loadVersion) return true;
-            if (IsDisplayed) return false;
-
-            // 装载中途被切走:剩下的活没人看,而它照样跟新会话抢主线程——
-            // 快速点会话列表时"整个列表都变迟钝"就有它一份。欠账记下,切回来再接着做
-            _deferredLoad = meta;
-            IsSessionLoading = false;
-            return true;
-        }
 
         // 分帧:先让"清空旧会话"渲染出去,再构建新会话,把一次长冻结拆成两段短的
         await UiDispatcher.InvokeAsync(static () => { }, DispatcherPriority.Background);

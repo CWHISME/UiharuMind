@@ -7,6 +7,8 @@ public partial class ConversationPage : UserControl
 {
     public ConversationPage()
     {
+        long ctorBegin = global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Begin();
         InitializeComponent();
+        global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.End("page/conversation-page-ctor", ctorBegin);
     }
 }

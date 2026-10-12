@@ -133,6 +133,7 @@ public partial class SessionListModel : ObservableObject, IDisposable
     /// </summary>
     public void Sync()
     {
+        long syncBegin = global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Begin();
         SessionListItem? selected = SelectedSession;
         _suppressSelectionNotify = true;
         try
@@ -148,6 +149,7 @@ public partial class SessionListModel : ObservableObject, IDisposable
 
         // 再补一次:上面那次只兜住同步写回,而绑定也可能在本次调用返回之后才被打断
         _post(() => RestoreSelectionQuietly(selected));
+        global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.End("sessionlist/sync", syncBegin);
     }
 
     /// <summary>

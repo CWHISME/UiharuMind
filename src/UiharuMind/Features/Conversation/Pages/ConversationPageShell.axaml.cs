@@ -10,6 +10,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Threading;
 
 namespace UiharuMind.Features.Conversation.Pages;
 
@@ -62,10 +63,72 @@ public partial class ConversationPageShell : UserControl
         set => SetValue(ShowSessionAvatarProperty, value);
     }
 
+    // 探针：右栏首次物化（主题六 Stage 1）——右栏面板树是 layout 245ms 的候选块，只记一次
+    private bool _rightPaneProbed;
+    private long _rightPaneBegin;
+
+    // 主题六 B：右栏物化后置。Content 不绑定，属性变化排 Background 物化，首帧只出壳（空
+    // ContentPresenter 占位，宽度固定无位移）；面板树在空闲时物化，用户命中右栏则同步物化。
+    // 版本号作废过期排队（阿洛娜：切会话/页签时旧物化不能串到新会话）
+    private int _materializeVersion;
+    private bool _rightPaneMaterialized;
+
     public ConversationPageShell()
     {
         InitializeComponent();
         SizeChanged += OnSizeChanged;
+        _rightPaneBegin = global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Begin();
+        RightPaneHost.Loaded += OnRightPaneFirstLoaded;
+        RightPaneContentProperty.Changed.AddClassHandler<ConversationPageShell>((shell, e) => shell.OnRightPaneContentChanged(e));
+        RightPaneHost.PointerPressed += (_, _) => SyncMaterializeNow();
+    }
+
+    /// <summary>RightPaneContent 变了：排一次 Background 物化（带版本号，过期作废）</summary>
+    private void OnRightPaneContentChanged(AvaloniaPropertyChangedEventArgs e)
+    {
+        object? content = e.NewValue;
+        int version = ++_materializeVersion;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (version != _materializeVersion) return; //被更新的切换取代:旧物化作废
+            ApplyRightPaneContent(content);
+        }, DispatcherPriority.Background);
+    }
+
+    /// <summary>用户命中右栏但内容还没物化完：立即同步物化（等待策略，代价 200-400ms 实测量）</summary>
+    internal void SyncMaterializeNow()
+    {
+        if (_rightPaneMaterialized) return;
+        ++_materializeVersion; //作废还在排队的延迟任务
+        ApplyRightPaneContent(RightPaneContent);
+    }
+
+    private void ApplyRightPaneContent(object? content)
+    {
+        RightPaneHost.Content = content;
+        _rightPaneMaterialized = true;
+        ProbeRightPaneTree();
+    }
+
+    // 面板树物化完成的探针：Content 落地后第一次布局（right-pane-materialize 量的是壳 Loaded，
+    // B 后壳先出，面板树完成要单独量）。不退订：订阅挂在本控件上，生命周期一致；闭包标志保证只 End 一次
+    private void ProbeRightPaneTree()
+    {
+        long treeBegin = global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Begin();
+        bool done = false;
+        RightPaneHost.LayoutUpdated += (_, _) =>
+        {
+            if (done) return;
+            done = true;
+            global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.End("page/right-pane-tree", treeBegin);
+        };
+    }
+
+    private void OnRightPaneFirstLoaded(object? sender, global::Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_rightPaneProbed) return;
+        _rightPaneProbed = true;
+        global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.End("page/right-pane-materialize", _rightPaneBegin);
     }
 
     private void OnSizeChanged(object? sender, SizeChangedEventArgs e)

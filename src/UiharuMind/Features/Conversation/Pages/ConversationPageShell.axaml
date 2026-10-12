@@ -123,8 +123,7 @@
                 Classes="workspace-pane"
                 Width="{Binding RightPaneWidth, Mode=TwoWay}"
                 IsVisible="{Binding IsRightPaneOpen}">
-            <ContentPresenter HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
-                              Content="{Binding RightPaneContent, RelativeSource={RelativeSource AncestorType=pages:ConversationPageShell}}" />
+            <ContentPresenter x:Name="RightPaneHost" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
         </Border>
     </Grid>
 </UserControl>
