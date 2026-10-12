@@ -55,9 +55,9 @@ public class GroupAvatarTurnTests
         ChatMessage post = _group.History.Single(x => ChatMessageAnnotations.GroupAvatarPostOf(x) != null);
         Assert.Equal(ChatRole.User, post.Role);
         Assert.Equal(UserName, post.AuthorName);
-        // 它听到的是 Alice 的话，不含它自己的；Bob 听到的就是用户说的
+        // 它听到的是 Alice 的话，不含它自己的；Bob 听到的是化身代笔（带后缀），用户真身不带
         Assert.Contains("[Alice]: Alice 的第 1 次发言", _runner.Calls.Single(x => x.Member == _avatar).Input);
-        Assert.Contains($"[{UserName}]: @Bob 就用 Alice 的方案", _runner.Calls.Single(x => x.Member == _bob).Input);
+        Assert.Contains($"[{UserName}(化身)]: @Bob 就用 Alice 的方案", _runner.Calls.Single(x => x.Member == _bob).Input);
         Assert.Equal(_group.History.Count, _avatar.GroupCursor + 2); //它那句与 Bob 的回复都在游标之后
     }
 

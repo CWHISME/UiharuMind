@@ -528,7 +528,7 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
         string body = GroupTranscript.StripSpeakerPrefix(post.Text.Trim(), post.AuthorName);
         if (body.Length == 0) return;
 
-        string text = GroupTranscript.FormatInjection(post.AuthorName, body);
+        string text = GroupTranscript.FormatInjection(GroupTranscript.SpeakerOf(post), body);
         foreach (GroupMemberTurnState turn in episode.Run.Turns)
         {
             // 发言不回投给发送者本人。其余在跑的人都插：他们要看得到同伴实时说了什么（ADR 0049 第 12 条已撤）。

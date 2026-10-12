@@ -38,7 +38,7 @@ public static class GroupTranscript
         foreach ((ChatMessage post, string body) in Undelivered(groupLog, cursor, memberSessionId, injected))
         {
             text.Append(text.Length == 0 ? FeedHeader : "\n\n");
-            text.Append(FormatPost(post.AuthorName, body));
+            text.Append(FormatPost(SpeakerOf(post), body));
         }
 
         return text.Length == 0 ? null : text.ToString();
@@ -99,6 +99,23 @@ public static class GroupTranscript
             if (body.Length > 0) yield return (post, body);
         }
     }
+
+    /// <summary>
+    /// 化身替用户说的在投递与广播里的署名后缀：用户真身只写名，化身代笔的写成「名(化身)」。
+    /// 模型要分得清这句是本人拍的还是化身代拍的（ADR 0055 修订）；剥前缀、@ 路由认的仍是名字本体，不走这里
+    /// </summary>
+    public const string AvatarSpeakerSuffix = "(化身)";
+
+    /// <summary>
+    /// 一条群发言在投递与广播里署谁的名：化身替用户说的带 <see cref="AvatarSpeakerSuffix"/> 后缀，
+    /// 其余（用户真身、成员）原样。只管显示，身份判定一律看标记不看这个串
+    /// </summary>
+    /// <param name="post">群发言</param>
+    /// <returns>署名</returns>
+    public static string SpeakerOf(ChatMessage post) =>
+        string.IsNullOrEmpty(post.AuthorName) ? string.Empty
+        : ChatMessageAnnotations.GroupAvatarPostOf(post) != null ? post.AuthorName + AvatarSpeakerSuffix
+        : post.AuthorName;
 
     /// <summary>
     /// 一条群发言交给别人时的样子。结构化地知道是谁说的（是谁的那一轮），
@@ -317,7 +334,7 @@ public static class GroupTranscript
         StringBuilder text = new();
         text.Append($"你在群聊「{scene.GroupName}」里。在场的有：{BuildRoster(scene.UserName, scene.Others)}。你是{scene.SelfName}。");
         if (scene.HostName == scene.SelfName)
-            text.Append("\n你是本群主持人：你可以参与讨论、负责记录，但是一般情况下不要亲自动手干活。用户没有 @ 任何人时，先用 @名字 点名最合适的一两位来回应。要查的资料可以留着发言后再查，不要让大家干等着。");
+            text.Append("\n你是本群主持人：主要负责点名成员、活跃氛围、推进主题。因此一般情况下不要亲自动手干活（可以参与讨论、评审、记录）。用户没有 @ 任何人时，先用 @名字 点名最合适的一两位来回应，要查的资料可以留着点名后再查——你多干一分钟，全群就干等一分钟。");
         // else if (scene.HostName != null)
         //     text.Append($"\n本群主持人是{scene.HostName}。");
 

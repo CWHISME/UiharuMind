@@ -101,7 +101,7 @@ public static class AvatarApprovalJudge
         foreach (ChatMessage post in ask.GroupLog.TakeLast(RecentPosts))
         {
             if (post.Text.Trim().Length == 0 || ChatMessageAnnotations.GroupAwayReceiptOf(post) != null) continue;
-            text.Append(GroupTranscript.FormatPost(post.AuthorName, Clip(post.Text))).Append('\n');
+            text.Append(GroupTranscript.FormatPost(GroupTranscript.SpeakerOf(post), Clip(post.Text))).Append('\n');
         }
 
         string arguments = JsonSerializer.Serialize(ask.Call.Arguments);

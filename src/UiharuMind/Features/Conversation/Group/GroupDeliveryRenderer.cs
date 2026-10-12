@@ -60,6 +60,8 @@ public sealed class GroupDeliveryRenderer
         CharacterData user = CharacterManager.Instance.UserCharacterData;
         string userName = CharacterManager.Instance.UserCharacterName;
         speakers.TryAdd(userName, user);
+        // 化身代笔的署「名(化身)」：私聊窗里照旧画成用户气泡（与今天一致），模型侧自有区分
+        speakers.TryAdd(userName + GroupTranscript.AvatarSpeakerSuffix, user);
         return new GroupDeliveryRenderer(session.SessionId, speakers, userName);
     }
 
@@ -93,6 +95,9 @@ public sealed class GroupDeliveryRenderer
             {
                 null => new TextConversationItem(false, true) { Message = segment.Body },
                 _ when segment.Speaker == _userName => ConversationItemFactory.CreateUser(segment.Body),
+                // 化身代笔：与用户真身画成同一个右侧气泡（私聊窗里不另做标记，主群视图自有化身徽）
+                _ when segment.Speaker == _userName + GroupTranscript.AvatarSpeakerSuffix =>
+                    ConversationItemFactory.CreateUser(segment.Body),
                 _ => SpeakerItem(segment.Speaker, segment.Body),
             };
             item.Timestamp = timestamp;
