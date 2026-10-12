@@ -276,7 +276,7 @@ public sealed class FileOutlineTests : IDisposable
     }
 
     [Fact]
-    public async Task Read_AttachesOutline_OnlyWhenDefaultWindowTruncatesFromTheStart()
+    public async Task Read_AttachesOutline_WhenTruncatedFromTheStartOfAMuchLongerFile()
     {
         // 50 章各 50 行，共 2500 行，默认窗口 2000 行读不完
         string path = Path.Combine(_dir, "big.md");
@@ -288,13 +288,19 @@ public sealed class FileOutlineTests : IDisposable
 
         string first = await tools.Read(path, cancellationToken: ct);
         string paged = await tools.Read(path, 2001, cancellationToken: ct);
-        string withHead = await tools.Read(path, 1, 10, cancellationToken: ct);
+        string shallow = await tools.Read(path, 1, 80, cancellationToken: ct);
         string whole = await tools.Read(path, 1, -1, cancellationToken: ct);
 
+        // 文件不到所读两倍长：翻一页就完，不附
+        string shortPath = Path.Combine(_dir, "short.md");
+        await File.WriteAllLinesAsync(shortPath, Enumerable.Range(1, 30).Select(i => $"# 节{i}"), ct);
+        string nearlyAll = await tools.Read(shortPath, 1, 20, cancellationToken: ct);
+
         Assert.Contains("[2451–2500] # 第50章", first);
+        Assert.Contains("文件大纲", shallow); //自己传 head 浅读大文件，正需要大纲
         Assert.DoesNotContain("文件大纲", paged); //翻页时已经看过
-        Assert.DoesNotContain("文件大纲", withHead); //自己传 head 的不多付这份开销
         Assert.DoesNotContain("文件大纲", whole); //没截断不附
+        Assert.DoesNotContain("文件大纲", nearlyAll);
     }
 
     [Fact]

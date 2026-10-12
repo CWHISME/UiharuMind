@@ -199,6 +199,18 @@ SMOKE_MODEL=Agnes-2.5-Flash-无思考 src/scripts/smoke/run.sh file-outline
 - 用的是大纲或 Grep 的 `[位于 …]` 标注跳读，而不是从头一页页翻（Read 次数与 offset/head 是否只取那一段）
 - 第二问的注释落在 `UnloadHistory` 方法体第一行前，Edit 一次成功
 
+### research-project：研究一个陌生项目
+
+用「代码阅读员」卡（`research-project.home/`，只开文件工具）研究 `SMOKE_CODE_DIR` 指定的外部项目（拷进 `{{WS_CODE}}`，
+不含 `.git`、`node_modules`，只动副本）：说清它做什么、前后端与桌面端的分工与通信、核心流程在哪，带文件与行号。
+写操作的审批一律拒绝。
+
+```bash
+SMOKE_CODE_DIR=~/some/project SMOKE_MODEL=Agnes-2.5-Flash-无思考 src/scripts/smoke/run.sh research-project
+```
+
+看 `research.md` 与会话 history：大文件是否借大纲、Grep 的 `[位于 …]` 标注只读需要的段；结论里的行号是否对得上。
+
 ### browser-basic：浏览器三件事
 
 自带一张只开文件工具的「浏览器测试员」卡（`browser-basic.home/`，关了 Shell 与网页搜索，逼它走浏览器）。

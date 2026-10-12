@@ -1,0 +1,6 @@
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"session.new","args":{"character":"CodeReader","workspace":"{{WS_CODE}}"}}
+{"op":"session.post","args":{"text":"帮我研究一下工作区里的这个项目：它是做什么的；整体架构（前端、后端、桌面端各自负责什么，彼此怎么通信）；核心业务流程的代码在哪些文件里。结论请给出关键文件与行号作依据。"}}
+{"op":"session.wait","args":{"timeoutMinutes":15,"approvals":"deny"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/research.md"}}
+{"op":"quit"}

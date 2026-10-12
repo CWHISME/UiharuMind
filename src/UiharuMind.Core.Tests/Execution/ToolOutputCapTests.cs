@@ -40,7 +40,7 @@ public class ToolOutputCapTests : IDisposable
 
         string[] lines = result.Split('\n');
         Assert.Equal(FileReader.DefaultLineLimit + 1, lines.Length); //窗口 + 截断提示行
-        Assert.Equal("line1", lines[0]);
+        Assert.Equal("   1→line1", lines[0]);
         Assert.Contains($"offset={FileReader.DefaultLineLimit + 1}", lines[^1]);
     }
 
@@ -52,7 +52,7 @@ public class ToolOutputCapTests : IDisposable
 
         string result = await _tools.Read(path, offset: FileReader.DefaultLineLimit + 1, cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.StartsWith($"line{FileReader.DefaultLineLimit + 1}", result);
+        Assert.StartsWith($"{FileReader.DefaultLineLimit + 1}→line{FileReader.DefaultLineLimit + 1}", result);
         Assert.DoesNotContain("[已截断：", result); //剩余 500 行在窗口内,不应再截断
     }
 

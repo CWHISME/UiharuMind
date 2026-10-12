@@ -20,6 +20,7 @@
 #                     长会话场景（如 handoff-cache）不必真把 1M 跑满；本地模型按实际加载值算，不受影响
 #   SMOKE_TIMEOUT_MINUTES=N  整场最多跑多久，默认 120，到点连本地引擎一起杀
 #   SMOKE_MIN_FREE_PERCENT=N 系统空闲内存（kern.memorystatus_level）跌破它就同样杀掉，默认 12
+#   SMOKE_CODE_DIR=目录  把这个目录（不含 .git、node_modules）拷进 ws-code，研究外部项目的场景用；只动副本
 #   SMOKE_MODEL=名字  主会话、子代理、群成员都用这个模型：注入到每个 session.new，按人数给每个 group.create 填满 models（没写的群成员也不再走卡上默认），
 #                     并把副本里两档子代理默认模型改成它（子代理不跟主会话走，没点名时用设置页配的那档）。
 #                     专门比模型的场景（如 persona-model-ab）别设它，会把对照组抹平
@@ -57,6 +58,10 @@ if [ -f "$SCRIPT_DIR/scenarios/$scenario.files" ]; then
         mkdir -p "$out/ws-code/$(dirname "$rel")"
         cp "$REPO_ROOT/$rel" "$out/ws-code/$rel"
     done < "$SCRIPT_DIR/scenarios/$scenario.files"
+fi
+if [ -n "${SMOKE_CODE_DIR:-}" ]; then
+    [ -d "$SMOKE_CODE_DIR" ] || { echo "SMOKE_CODE_DIR 不是目录：$SMOKE_CODE_DIR" >&2; exit 1; }
+    rsync -a --exclude .git --exclude node_modules "$SMOKE_CODE_DIR/" "$out/ws-code/"
 fi
 # 场景自带的档案文件（如只为这个场景准备的角色卡）：scenarios/<场景名>.home/ 原样叠进隔离档案
 [ -d "$SCRIPT_DIR/scenarios/$scenario.home" ] && cp -R "$SCRIPT_DIR/scenarios/$scenario.home/." "$out/home/"

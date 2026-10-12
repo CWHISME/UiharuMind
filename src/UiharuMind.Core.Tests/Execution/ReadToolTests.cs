@@ -86,8 +86,8 @@ public sealed class ReadToolTests : IDisposable
     {
         string path = Save("log.txt", Lines(10));
 
-        Assert.Equal("line8\nline9\nline10", await Read(path, offset: -3));
-        Assert.StartsWith("line1\n", await Read(path, offset: -50)); //倒数超过总行数就从头读
+        Assert.Equal(" 8→line8\n 9→line9\n10→line10\n[已到文件末尾，共 10 行]", await Read(path, offset: -3));
+        Assert.StartsWith(" 1→line1\n", await Read(path, offset: -50)); //倒数超过总行数就从头读
     }
 
     [Fact]
@@ -111,7 +111,7 @@ public sealed class ReadToolTests : IDisposable
     {
         string path = Save("crlf.txt", "a\r\nb\r\nc");
 
-        Assert.Equal("a\nb\nc", await Read(path));
+        Assert.Equal("1→a\n2→b\n3→c\n[已到文件末尾，共 3 行]", await Read(path));
     }
 
     [Fact]

@@ -38,7 +38,7 @@ public static class ReadTruncationNote
         $"{Marker}{start}–{end} 行，{total}；续读传 offset={next}]";
 
     /// <summary>
-    /// 推算一次 Read 结果首行在原文件里的行号。有截断附注以附注为准（负 offset 也算得对）；
+    /// 推算一次 Read 结果首行在原文件里的行号（正文还不带「行号→」前缀的旧会话用；新结果直接看 <see cref="ReadLineNumbers"/>）。有截断附注以附注为准（负 offset 也算得对）；
     /// 否则用正 offset；负 offset 又没截断时无从得知，退回 1
     /// </summary>
     /// <param name="offset">调用时的 offset 参数</param>
@@ -57,7 +57,7 @@ public static class ReadTruncationNote
     }
 
     /// <summary>
-    /// 一次 Read 结果里原文占前几行。截断附注及其后的大纲、提示都不是原文，全文窗不给它们编行号
+    /// 一次 Read 结果里原文占前几行（同上，只为旧会话）。截断附注及其后的大纲、提示都不是原文，全文窗不给它们编行号
     /// </summary>
     /// <param name="resultText">Read 的结果原文</param>
     /// <returns>原文行数；没有截断附注时返回 0（整份都是原文）</returns>

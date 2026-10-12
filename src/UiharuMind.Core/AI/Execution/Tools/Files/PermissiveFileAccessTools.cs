@@ -55,7 +55,8 @@ internal sealed class PermissiveFileAccessTools
 
     // 描述只写契约;何时读全文、何时先 Grep 再切片是策略,归文件纪律段(AgentToolPrompts.FileReadDefault)
     private const string ReadDescription =
-        "读取文件的原始内容。代码与 Markdown 被截断时附文件大纲（各类型、函数、标题的起止行），据此传 offset 与 head 只读需要的段。";
+        "读取文件的原始内容。每行前的「行号→」是参照，不是文件内容，引用位置时直接用它，Edit 时不要带上。"
+        + "代码与 Markdown 被截断时附文件大纲（各类型、函数、标题的起止行），据此传 offset 与 head 只读需要的段。";
 
     private const string ReadImagesDescription = " PNG、JPEG 与 WebP 文件会以图片形式展示。"; //只有视觉模型的装配才说
 
@@ -308,7 +309,7 @@ internal sealed class PermissiveFileAccessTools
     }
 
     [Description("""
-                 按精确文本替换修改已有文件。
+                 按精确文本替换修改已有文件。oldString 与 newString 只写文件内容，不要带 Read 每行前的「行号→」。
                  """)]
     internal async Task<string> Edit(
         [Description("文件路径，工作目录的相对路径(也接受非工作目录的绝对路径)。")]
@@ -329,7 +330,8 @@ internal sealed class PermissiveFileAccessTools
             await SaveAsync(full, plan.Envelope, plan.NewText, ct).ConfigureAwait(false);
 
             string diff = FileEditPlanner.RenderDiff(plan.Diff, MaxEditDiffLines, MaxEditDiffLineChars);
-            return $"{FileToolNames.EditSucceededPrefix}{filePath}'（{edits.Count} 处编辑）。" +
+            string prefixNote = plan.StrippedLinePrefixes ? "参数里带了 Read 的行号前缀，已去掉后再匹配；以后不要带。" : "";
+            return $"{FileToolNames.EditSucceededPrefix}{filePath}'（{edits.Count} 处编辑）。{prefixNote}" +
                    $"{MemoryListLine(full, plan.NewText)}\n{diff}";
         }
         finally

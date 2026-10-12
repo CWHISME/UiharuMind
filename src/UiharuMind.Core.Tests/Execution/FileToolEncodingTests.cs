@@ -61,7 +61,7 @@ public sealed class FileToolEncodingTests : IDisposable
 
         string result = await _tools.Read(path, cancellationToken: Ct);
 
-        Assert.Equal("// 返回默认值\nint a = 1;\n[编码：gb18030]", result);
+        Assert.Equal("1→// 返回默认值\n2→int a = 1;\n[已到文件末尾，共 2 行]\n[编码：gb18030]", result);
     }
 
     [Fact]
@@ -71,7 +71,7 @@ public sealed class FileToolEncodingTests : IDisposable
 
         string result = await _tools.Read(path, cancellationToken: Ct);
 
-        Assert.Equal("第一行\nline two\n[编码：utf-16]", result);
+        Assert.Equal("1→第一行\n2→line two\n[已到文件末尾，共 2 行]\n[编码：utf-16]", result);
     }
 
     [Fact]

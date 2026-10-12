@@ -46,7 +46,7 @@ public class DraftShorthandToolTests : IDisposable
 
         Assert.True(File.Exists(Path.Combine(_draft, "probe.py")));
         Assert.False(Directory.Exists(Path.Combine(_workspace, "$DRAFT"))); //没当成相对路径散进工作区
-        Assert.Equal("print('hello')", await tools.Read("$DRAFT/probe.py", cancellationToken: ct));
+        Assert.Equal("1→print('hello')\n[已到文件末尾，共 1 行]", await tools.Read("$DRAFT/probe.py", cancellationToken: ct));
     }
 
     /// <summary>记忆目录同理：Write 按需建出目录，Glob 回来的也是简写</summary>

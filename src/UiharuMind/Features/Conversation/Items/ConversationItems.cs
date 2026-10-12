@@ -430,7 +430,9 @@ public partial class ToolCallItem : ConversationItemBase
         ResultDiffLines = DiffLineView.ParseToolResult(value, ToolName);
         // diff 那一支不用截断:Core 侧 PermissiveFileAccessTools.MaxEditDiffLines 已把它封死在 80 行,
         // 到不了阈值。截断只管纯文本那支
-        _resultView = HasResultDiff ? ToolResultTruncation.Empty : ToolResultTruncation.Build(value);
+        // Read 正文每行带「行号→」是给模型的，卡片里剥掉显示
+        _resultView = HasResultDiff ? ToolResultTruncation.Empty
+            : ToolResultTruncation.Build(IsFileContentTool(ToolName) ? ReadLineNumbers.Strip(value).Text : value);
         OnPropertyChanged(nameof(ResultDiffLines));
         OnPropertyChanged(nameof(HasResultDiff));
         OnPropertyChanged(nameof(ResultDisplayText));
@@ -460,14 +462,23 @@ public partial class ToolCallItem : ConversationItemBase
     {
         // 语言来源与卡片同口径：回执（已保存/已修改 开头）不是文件正文，不上色；
         // 其余才是文件正文，按 FilePath 扩展名高亮，Read 读的是 Markdown 就直接进预览
-        // Read 片段的行号从它在原文件里的位置数起，才对得上 Edit 失败提示里的行号；
-        // 末尾的截断附注与大纲不是原文，不编号
-        LineNumbering numbering = IsFileContentTool(ToolName) && IsSuccess
-            ? new LineNumbering(ReadTruncationNote.FirstLineOf(ReadOffset, ResultText),
-                ReadTruncationNote.ContentLineCount(ResultText))
-            : LineNumbering.Whole;
+        // Read 正文的「行号→」前缀剥掉，改由文本窗的行号栏显示：从前缀读出原文件行号，
+        // 末尾的截断附注与大纲不带前缀，不是原文，不编号
+        if (IsFileContentTool(ToolName) && IsSuccess)
+        {
+            ReadContent content = ReadLineNumbers.Strip(ResultText);
+            // 加前缀之前存下的旧会话没有前缀，照旧按调用的 offset 与截断附注推算
+            LineNumbering numbering = content.ContentLines > 0
+                ? new LineNumbering(content.FirstLine, content.ContentLines)
+                : new LineNumbering(ReadTruncationNote.FirstLineOf(ReadOffset, ResultText),
+                    ReadTruncationNote.ContentLineCount(ResultText));
+            TextFileWindow.ShowText($"{ToolName} · {Loc.Text(LangKey.ToolFullTextResult)}", content.Text,
+                ResultHighlightSource, numbering: numbering);
+            return;
+        }
+
         TextFileWindow.ShowText($"{ToolName} · {Loc.Text(LangKey.ToolFullTextResult)}", ResultText,
-            ResultHighlightSource, numbering: numbering);
+            ResultHighlightSource, numbering: LineNumbering.Whole);
     }
 
     /// <summary>把参数原文交给文本窗只读查看</summary>

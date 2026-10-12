@@ -36,8 +36,9 @@ public sealed class FileEdit
 public sealed class FileEditPlan
 {
     private FileEditPlan(string? error, string newText, IReadOnlyList<LineDiffEntry> diff,
-        TextFileEnvelope envelope)
+        TextFileEnvelope envelope, bool strippedLinePrefixes = false)
     {
+        StrippedLinePrefixes = strippedLinePrefixes;
         Error = error;
         NewText = newText;
         Diff = diff;
@@ -46,6 +47,9 @@ public sealed class FileEditPlan
 
     /// <summary>失败原因（中文，直接进模型上下文，也直接显示在审批卡片上）；成功时为 null</summary>
     public string? Error { get; }
+
+    /// <summary>是否剥掉过模型抄进参数的 Read 行号前缀（成功回执里说一声，下次别再带）</summary>
+    public bool StrippedLinePrefixes { get; }
 
     /// <summary>是否可以落盘</summary>
     public bool Succeeded => Error is null;
@@ -62,5 +66,5 @@ public sealed class FileEditPlan
     internal static FileEditPlan Failed(string error) => new(error, string.Empty, [], default);
 
     internal static FileEditPlan Success(string newText, IReadOnlyList<LineDiffEntry> diff,
-        TextFileEnvelope envelope) => new(null, newText, diff, envelope);
+        TextFileEnvelope envelope, bool strippedLinePrefixes = false) => new(null, newText, diff, envelope, strippedLinePrefixes);
 }

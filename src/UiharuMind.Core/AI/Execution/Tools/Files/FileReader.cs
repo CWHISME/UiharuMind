@@ -138,10 +138,11 @@ internal sealed class FileReader
         if (start > lines.Count) return $"offset {offset} 超出了 '{filePath}' 的末尾（共 {lines.Count} 行）。";
 
         (List<string> window, bool hasMore) = TakeWindow(lines.Skip(start - 1).Select(line => TextLines.Text(text, line)), limit);
-        // 只在不传 head、从头读、被截断时附大纲：此时模型还不知道文件长什么样；
-        // 带 offset 翻页时它已经看过了，自己传 head 的是有备而来，不该每次多付约 1k token。
+        // 只在从头读、被截断时附大纲：此时模型还不知道文件长什么样；带 offset 翻页时它已经看过了。
+        // 自己传了 head 的，文件至少是所读的两倍长才附：head=50 读 120 行的文件翻一页就完，不值约 1k token；
+        // head=80 读 1500 行的文件却正需要它（实测模型常这样浅读一段就停）。
         // 流式读的大文件（>8MB）不附——多是日志与生成物，为它多扫一遍不值，只提示可以要
-        string? outline = hasMore && start == 1 && limit == null
+        string? outline = hasMore && start == 1 && (limit == null || lines.Count >= window.Count * 2)
             ? FileOutline.Render(filePath, lines.Select(line => TextLines.Text(text, line)), shownThrough: window.Count)
             : null;
         return Render(window, start, hasMore, $"共 {lines.Count} 行", EncodingNote(decoded.Probe), outline, truncationHint);
@@ -207,8 +208,13 @@ internal sealed class FileReader
     private static string Render(List<string> window, int start, bool hasMore, string total, string? encodingNote,
         string? outline, string? truncationHint)
     {
-        StringBuilder sb = new(string.Join('\n', window));
-        if (hasMore)
+        StringBuilder sb = new(ReadLineNumbers.Format(window, start));
+        if (!hasMore)
+        {
+            // 读到末尾也说一声：模型据此确认看全了，不必再试探下一页
+            sb.Append("\n[已到文件末尾，共 ").Append(start + window.Count - 1).Append(" 行]");
+        }
+        else
         {
             // 带上总量：光说"续读 offset=31"，模型不知道是再翻一页就完还是要翻六十页，
             // 也就无从判断该继续翻还是改用 Grep 定位

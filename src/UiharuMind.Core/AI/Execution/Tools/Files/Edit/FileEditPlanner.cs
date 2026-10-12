@@ -101,12 +101,29 @@ public static class FileEditPlanner
 
         // 逐条定位。全部对着原文算，不是对着前几条的结果算——
         // 这条是模型最容易搞错的，纪律段与 schema 文案都明说了
+        bool strippedPrefixes = false;
         for (int i = 0; i < edits.Count; i++)
         {
             string oldString = edits[i].OldString ?? string.Empty;
+            string newString = edits[i].NewString ?? string.Empty;
+
             if (oldString.Length == 0) return FileEditPlan.Failed($"edits[{i}].oldString 不能为空。`{FileToolNames.Edit}` 替换的是已有文本：oldString 必须是文件里确实存在的一段。要追加到文件末尾，先 `{FileToolNames.Read}` 文件的最后几行，拿末尾那段作 oldString。");
 
             Location located = EditLocator.Locate(text, lines, oldString);
+
+            // 原样找不到，再看是不是连 Read 的「行号→」一起抄了过来：原文优先，真以「数字→」开头的内容不会被剥
+            if (located.Kind == ELocateResult.NotFound && ReadLineNumbers.TryStripCopied(oldString, out string bareOld))
+            {
+                Location bare = EditLocator.Locate(text, lines, bareOld);
+                if (bare.Kind != ELocateResult.NotFound)
+                {
+                    located = bare;
+                    oldString = bareOld;
+                    newString = ReadLineNumbers.StripEachCopied(newString);
+                    strippedPrefixes = true;
+                }
+            }
+
             switch (located.Kind)
             {
                 case ELocateResult.NotFound:
@@ -125,7 +142,7 @@ public static class FileEditPlanner
             }
 
             matches.Add(new EditMatch(i, located.Start, located.End,
-                envelope.ConvertNewLines(edits[i].NewString ?? string.Empty)));
+                envelope.ConvertNewLines(newString)));
         }
 
         matches.Sort((a, b) => a.Start.CompareTo(b.Start));
@@ -152,7 +169,7 @@ public static class FileEditPlanner
                 + "请改用它支持的字符。");
         }
 
-        return FileEditPlan.Success(newText, EditDiffBuilder.Build(text, lines, matches), envelope);
+        return FileEditPlan.Success(newText, EditDiffBuilder.Build(text, lines, matches), envelope, strippedPrefixes);
     }
 
     /// <summary>
