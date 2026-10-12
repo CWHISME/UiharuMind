@@ -11,7 +11,7 @@ namespace UiharuMind.Core.AI.Execution.Files;
 public readonly record struct ReadContent(string Text, int FirstLine, int ContentLines);
 
 /// <summary>
-/// Read 正文的行号前缀 <c>  82→</c>：工具这头加，Edit 与界面那头认、剥。
+/// Read 正文的行号前缀 <c>82→</c>：工具这头加，Edit 与界面那头认、剥。
 /// 带行号是为了让模型引用、跳读时不必自己数行（实测整份读完的文件，模型报的行号能偏十几行）；
 /// 用 <c>→</c> 而不是 <c>82:</c>，是不与 Grep 命中行 <c>行号:</c> 同形。
 /// </summary>
@@ -22,19 +22,26 @@ public static class ReadLineNumbers
     private static readonly Regex Prefix = new(@"^ *(\d+)→", RegexOptions.Compiled);
 
     /// <summary>
-    /// 给一段原文逐行加前缀，行号右对齐
+    /// 某行行号的前缀 <c>9→</c>（左对齐，不补空格）。预算与渲染都从这里取
+    /// </summary>
+    /// <param name="lineNo">行号</param>
+    /// <returns>行号前缀</returns>
+    public static string PrefixFor(int lineNo) => lineNo.ToString(CultureInfo.InvariantCulture) + Separator;
+
+    /// <summary>
+    /// 给一段原文逐行加前缀。行号左对齐：右对齐的补位空格要占 Read 的字节预算。
+    /// 剥前缀的正则仍容许前导空格，旧会话里右对齐的结果照样剥得动
     /// </summary>
     /// <param name="lines">原文各行</param>
     /// <param name="firstLine">首行在文件里的行号</param>
     /// <returns>带前缀的正文</returns>
     public static string Format(IReadOnlyList<string> lines, int firstLine)
     {
-        int width = (firstLine + lines.Count - 1).ToString(CultureInfo.InvariantCulture).Length;
         var sb = new StringBuilder();
         for (int i = 0; i < lines.Count; i++)
         {
             if (i > 0) sb.Append('\n');
-            sb.Append((firstLine + i).ToString(CultureInfo.InvariantCulture).PadLeft(width)).Append(Separator).Append(lines[i]);
+            sb.Append(PrefixFor(firstLine + i)).Append(lines[i]);
         }
 
         return sb.ToString();

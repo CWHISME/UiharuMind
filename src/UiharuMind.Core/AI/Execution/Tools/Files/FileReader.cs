@@ -34,9 +34,16 @@ internal sealed class FileReader
 
     /// <summary>
     /// 单次返回的总量上限，按 <b>UTF-8 字节</b>算而不是字符：中文约 1~1.5 字符/token，
-    /// 按字符算实际能放进标称值三四倍的 token。与 Grep 的正文预算同口径；要全文走 <c>limit=-1</c>。
+    /// 按字符算实际能放进标称值三四倍的 token。与 Grep 的正文预算同为 16KB（约 4–5k token，代码约四五百行）：
+    /// 本地小模型的上下文经不起一次读掉近万；截断时附大纲，按行号再读要的段。要全文走 <c>limit=-1</c>。
     /// </summary>
-    internal const int MaxTotalBytes = 32 * 1024;
+    internal const int MaxTotalBytes = 16 * 1024;
+
+    /// <summary>
+    /// 显式传了 head 时的总量上限：模型点名要几行就尽量给满（800 行代码约 30KB），
+    /// 只防弱模型随手传 head=4000 这类一次吃掉几万 token 的读法
+    /// </summary>
+    internal const int MaxExplicitBytes = 64 * 1024;
 
     /// <summary>单行截断（压缩产物一行可达数百 KB）</summary>
     internal const int MaxLineChars = 2000;
@@ -137,15 +144,15 @@ internal sealed class FileReader
         int start = StartLine(offset, lines.Count);
         if (start > lines.Count) return $"offset {offset} 超出了 '{filePath}' 的末尾（共 {lines.Count} 行）。";
 
-        (List<string> window, bool hasMore) = TakeWindow(lines.Skip(start - 1).Select(line => TextLines.Text(text, line)), limit);
+        ReadWindow window = TakeWindow(lines.Skip(start - 1).Select(line => TextLines.Text(text, line)), limit, start);
         // 只在从头读、被截断时附大纲：此时模型还不知道文件长什么样；带 offset 翻页时它已经看过了。
         // 自己传了 head 的，文件至少是所读的两倍长才附：head=50 读 120 行的文件翻一页就完，不值约 1k token；
         // head=80 读 1500 行的文件却正需要它（实测模型常这样浅读一段就停）。
         // 流式读的大文件（>8MB）不附——多是日志与生成物，为它多扫一遍不值，只提示可以要
-        string? outline = hasMore && start == 1 && (limit == null || lines.Count >= window.Count * 2)
-            ? FileOutline.Render(filePath, lines.Select(line => TextLines.Text(text, line)), shownThrough: window.Count)
+        string? outline = window.HasMore && start == 1 && (limit == null || lines.Count >= window.Lines.Count * 2)
+            ? FileOutline.Render(filePath, lines.Select(line => TextLines.Text(text, line)), shownThrough: window.Lines.Count)
             : null;
-        return Render(window, start, hasMore, $"共 {lines.Count} 行", EncodingNote(decoded.Probe), outline, truncationHint);
+        return Render(window, start, limit, $"共 {lines.Count} 行", EncodingNote(decoded.Probe), outline, truncationHint);
     }
 
     private static async Task<string> ReadOutlineAsync(string filePath, string full, CancellationToken ct)
@@ -171,57 +178,68 @@ internal sealed class FileReader
 
         int? total = offset < 0 ? TextFileLoader.StreamLines(full, probe).Count() : null;
         int start = StartLine(offset, total ?? 0);
-        (List<string> window, bool hasMore) = TakeWindow(TextFileLoader.StreamLines(full, probe).Skip(start - 1), limit);
-        if (window.Count == 0) return $"offset {offset} 超出了 '{filePath}' 的末尾。";
+        ReadWindow window = TakeWindow(TextFileLoader.StreamLines(full, probe).Skip(start - 1), limit, start);
+        if (window.Lines.Count == 0) return $"offset {offset} 超出了 '{filePath}' 的末尾。";
 
         string totalText = total is { } count
             ? $"共 {count} 行"
             : $"文件共 {GameUtils.FormatBytes(size)}，未统计行数";
         string? outlineHint = FileOutline.Supports(filePath) ? "要看文件结构可传 outline=true。" : null;
-        return Render(window, start, hasMore, totalText, EncodingNote(probe), outlineHint, truncationHint);
+        return Render(window, start, limit, totalText, EncodingNote(probe), outlineHint, truncationHint);
     }
 
     // 负数从末尾倒数：-100 是最后 100 行。0 与 1 一样从头读
     private static int StartLine(int offset, int total) =>
         offset < 0 ? Math.Max(1, total + offset + 1) : Math.Max(1, offset);
 
-    private static (List<string> Window, bool HasMore) TakeWindow(IEnumerable<string> lines, int? limit)
+    // ByteCapped：是字节上限而不是行数截的
+    private readonly record struct ReadWindow(List<string> Lines, bool HasMore, bool ByteCapped);
+
+    private static ReadWindow TakeWindow(IEnumerable<string> lines, int? limit, int startLine)
     {
         // limit=-1：全文读模式，绕过字节上限。其余不传 limit 时套默认窗口，总量另设保险——
-        // 编码会话一次误读大文件就是几万 token，截断必须由工具侧兜底
+        // 编码会话一次误读大文件就是几万 token，截断必须由工具侧兜底。
+        // 预算连行号前缀一起算：数的是模型真拿到的字节
         bool fullFile = limit == -1;
         int maxLines = fullFile ? int.MaxValue : Math.Max(1, limit ?? DefaultLineLimit);
+        int maxBytes = limit == null ? MaxTotalBytes : MaxExplicitBytes;
         List<string> window = new();
         int totalBytes = 0;
         foreach (string line in lines)
         {
-            if (!fullFile && (window.Count >= maxLines || totalBytes >= MaxTotalBytes)) return (window, true);
+            if (!fullFile && window.Count >= maxLines) return new ReadWindow(window, true, false);
+            if (!fullFile && totalBytes >= maxBytes) return new ReadWindow(window, true, true);
 
             string shown = line.Length > MaxLineChars ? ToolOutputTruncation.TruncateLine(line, MaxLineChars) : line;
-            totalBytes += Encoding.UTF8.GetByteCount(shown) + 1;
+            totalBytes += Encoding.UTF8.GetByteCount(ReadLineNumbers.PrefixFor(startLine + window.Count))
+                         + Encoding.UTF8.GetByteCount(shown) + 1;
             window.Add(shown);
         }
 
-        return (window, false);
+        return new ReadWindow(window, false, false);
     }
 
-    private static string Render(List<string> window, int start, bool hasMore, string total, string? encodingNote,
+    private static string Render(ReadWindow window, int start, int? limit, string total, string? encodingNote,
         string? outline, string? truncationHint)
     {
-        StringBuilder sb = new(ReadLineNumbers.Format(window, start));
-        if (!hasMore)
+        StringBuilder sb = new(ReadLineNumbers.Format(window.Lines, start));
+        if (!window.HasMore)
         {
             // 读到末尾也说一声：模型据此确认看全了，不必再试探下一页
-            sb.Append("\n[已到文件末尾，共 ").Append(start + window.Count - 1).Append(" 行]");
+            sb.Append("\n[已到文件末尾，共 ").Append(start + window.Lines.Count - 1).Append(" 行]");
         }
         else
         {
             // 带上总量：光说"续读 offset=31"，模型不知道是再翻一页就完还是要翻六十页，
             // 也就无从判断该继续翻还是改用 Grep 定位
-            int next = start + window.Count;
+            int next = start + window.Lines.Count;
             sb.Append('\n').Append(ReadTruncationNote.Format(start, next - 1, total, next));
+            // 点名要了 head 却没给满，得说清是上限截的，否则模型以为文件就到这里
+            if (limit > 0 && window.ByteCapped)
+                sb.Append($"\n[单次最多返回 {MaxExplicitBytes / 1024}KB，所传 head={limit} 没读满]");
             if (outline != null) sb.Append("\n\n").Append(outline);
-            if (truncationHint != null) sb.Append('\n').Append(truncationHint);
+            // 自己传了 head 就是在按段读，不必再指去处
+            if (truncationHint != null && limit == null) sb.Append('\n').Append(truncationHint);
         }
 
         if (encodingNote != null) sb.Append('\n').Append(encodingNote);

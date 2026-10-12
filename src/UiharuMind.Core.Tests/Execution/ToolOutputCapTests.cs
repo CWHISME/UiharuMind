@@ -34,14 +34,50 @@ public class ToolOutputCapTests : IDisposable
     public async Task Read_WithoutLimit_IsCappedWithContinuationHint()
     {
         string path = Path.Combine(_dir, "big.txt");
-        await File.WriteAllLinesAsync(path, Enumerable.Range(1, 2500).Select(i => $"line{i}"), TestContext.Current.CancellationToken);
+        // 空行：字节预算之内先撞上行数上限（带内容的 2000 行连前缀会先超 16KB）
+        await File.WriteAllLinesAsync(path, Enumerable.Repeat(string.Empty, 2500), TestContext.Current.CancellationToken);
 
         string result = await _tools.Read(path, cancellationToken: TestContext.Current.CancellationToken);
 
         string[] lines = result.Split('\n');
         Assert.Equal(FileReader.DefaultLineLimit + 1, lines.Length); //窗口 + 截断提示行
-        Assert.Equal("   1→line1", lines[0]);
+        Assert.Equal("1→", lines[0]); //前缀左对齐，不补空格
         Assert.Contains($"offset={FileReader.DefaultLineLimit + 1}", lines[^1]);
+    }
+
+    /// <summary>行号前缀计入字节预算：裸正文刚好放得下、加上前缀就超的文件，必须按字节截断</summary>
+    [Fact]
+    public async Task Read_ByteBudget_CountsLineNumberPrefix()
+    {
+        int lineCount = FileReader.DefaultLineLimit;
+        string line = new('x', FileReader.MaxTotalBytes / lineCount - 2); //裸正文连换行共 MaxTotalBytes - lineCount 字节
+        string path = Path.Combine(_dir, "short-lines.txt");
+        await File.WriteAllTextAsync(path, string.Join('\n', Enumerable.Repeat(line, lineCount)), TestContext.Current.CancellationToken);
+
+        string result = await _tools.Read(path, cancellationToken: TestContext.Current.CancellationToken);
+
+        string[] numbered = result.Split('\n').Where(l => l.Contains('→')).ToArray();
+        Assert.InRange(numbered.Length, 1, lineCount - 1);
+        Assert.Contains($"offset={numbered.Length + 1}", result);
+        Assert.True(numbered.Sum(l => Encoding.UTF8.GetByteCount(l) + 1) <= FileReader.MaxTotalBytes + Encoding.UTF8.GetByteCount(numbered[^1]) + 1,
+            "渲染后的正文超出预算一行以上");
+    }
+
+    /// <summary>显式 head 按点名的行数给满：800 行代码（约 40KB）超过默认 16KB，但在显式上限内</summary>
+    [Fact]
+    public async Task Read_ExplicitHead_IsHonoredBeyondDefaultBudget()
+    {
+        string path = Path.Combine(_dir, "code.cs");
+        await File.WriteAllLinesAsync(path, Enumerable.Range(1, 2000).Select(i => $"        var value{i} = Compute(value{i - 1});"),
+            TestContext.Current.CancellationToken);
+
+        string result = await _tools.Read(path, head: 800, cancellationToken: TestContext.Current.CancellationToken);
+
+        string[] lines = result.Split('\n');
+        Assert.True(Encoding.UTF8.GetByteCount(result) > FileReader.MaxTotalBytes, "素材应超过默认预算");
+        Assert.StartsWith("800→", lines[799]);
+        Assert.Contains("续读传 offset=801]", lines[800]);
+        Assert.DoesNotContain("没读满", result);
     }
 
     [Fact]
@@ -70,7 +106,7 @@ public class ToolOutputCapTests : IDisposable
 
     /// <summary>
     /// 总量上限按 UTF-8 字节算,而不是字符——中文一个字符三字节,按字符算会让中文文件
-    /// 实际放进三四倍于标称的 token。传 head=4000 绕过行数限制,让 1MB 字节上限先生效。
+    /// 实际放进三四倍于标称的 token。传 head=4000 绕过行数限制,让显式 head 的字节上限先生效,并说明没读满。
     /// </summary>
     [Fact]
     public async Task Read_ChineseFile_IsCappedByBytesNotChars()
@@ -83,9 +119,10 @@ public class ToolOutputCapTests : IDisposable
         string result = await _tools.Read(path, head: 4000, cancellationToken: TestContext.Current.CancellationToken);
 
         string[] lines = result.Split('\n');
-        Assert.Contains("续读传 offset=", lines[^1]);
-        Assert.True(lines.Length - 1 < 4000, $"应因字节上限提前截断,实际返回 {lines.Length - 1} 行");
-        Assert.True(Encoding.UTF8.GetByteCount(result) < FileReader.MaxTotalBytes * 2,
+        Assert.Contains("续读传 offset=", lines[^2]);
+        Assert.Equal($"[单次最多返回 {FileReader.MaxExplicitBytes / 1024}KB，所传 head=4000 没读满]", lines[^1]);
+        Assert.True(lines.Length - 2 < 4000, $"应因字节上限提前截断,实际返回 {lines.Length - 2} 行");
+        Assert.True(Encoding.UTF8.GetByteCount(result) < FileReader.MaxExplicitBytes + 1024,
             "截断后总字节应在上限量级内");
     }
 

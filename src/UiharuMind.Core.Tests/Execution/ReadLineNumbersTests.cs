@@ -9,15 +9,16 @@ namespace UiharuMind.Core.Tests.Execution;
 public sealed class ReadLineNumbersTests
 {
     [Fact]
-    public void Format_RightAlignsNumbers()
+    public void Format_LeftAlignsNumbers_NoPadding()
     {
-        Assert.Equal(" 9→a\n10→b", ReadLineNumbers.Format(["a", "b"], 9));
+        Assert.Equal("9→a\n10→b", ReadLineNumbers.Format(["a", "b"], 9));
+        Assert.Equal("100→x\n101→y", ReadLineNumbers.Format(["x", "y"], 100));
     }
 
     [Fact]
     public void Strip_ReturnsContentFirstLineAndCount_LeavingNotesAlone()
     {
-        ReadContent content = ReadLineNumbers.Strip(" 9→a\n10→b\n…[已截断：显示第 9–10 行，共 40 行；续读传 offset=11]");
+        ReadContent content = ReadLineNumbers.Strip("9→a\n10→b\n…[已截断：显示第 9–10 行，共 40 行；续读传 offset=11]");
 
         Assert.Equal("a\nb\n…[已截断：显示第 9–10 行，共 40 行；续读传 offset=11]", content.Text);
         Assert.Equal(9, content.FirstLine);
@@ -51,7 +52,7 @@ public sealed class ReadLineNumbersTests
     [Fact]
     public void TryStripCopied_RequiresConsecutiveNumbers()
     {
-        Assert.True(ReadLineNumbers.TryStripCopied(" 9→a\n10→b\n", out string stripped));
+        Assert.True(ReadLineNumbers.TryStripCopied("9→a\n10→b\n", out string stripped));
         Assert.Equal("a\nb\n", stripped);
         Assert.False(ReadLineNumbers.TryStripCopied("1→a\n3→b", out _));
         Assert.False(ReadLineNumbers.TryStripCopied("1→a\nb", out _));

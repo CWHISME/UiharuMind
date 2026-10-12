@@ -32,7 +32,7 @@ Read 读大文件被截断时，模型只拿到开头一页和一句「续读传
    - Grep 之后、读大纲之前文件被改，标注会错位且不报错。概率低，不为它做版本校验。
    - 为此大纲条目带结束行 `OutlineEntry.EndLine`：大括号闭合处、Markdown 下一个同级或更高级标题前、Python 按缩进。
 3. **截断附注后指一条去处**：脑工具挂载时追加「要整体理解这份文件，可交给 `Summary`，task 里写清要什么」。
-   没挂（含脑自己的子会话）不提。
+   没挂（含脑自己的子会话）不提。模型自己传了 head 也不提：那是在按段读，没读完不等于需要整体理解。
 4. **抽取器结构**（`Tools/Files/Outline/`）：
    - `OutlineEntry(Line, Depth, Text, EndLine)` + `IOutlineExtractor`（扩展名 → 单遍抽取）；`FileOutline` 按扩展名分派，
      预算、裁剪、渲染统一在这里。新增文件类型 = 实现抽取器 + 注册一行。

@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace UiharuMind.Core.AI.Execution.Files;
@@ -20,6 +21,51 @@ internal sealed partial class CppOutlineExtractor : BraceOutlineExtractor
     // 独占一行的 public: 不该把下一个声明的行号提前
     /// <inheritdoc />
     protected override bool IsNoiseLine(string code) => AccessLabels().Match(code).Length == code.Length;
+
+    /// <summary>
+    /// 构造函数初始化列表里的 brace-init（<c>_b{a}</c>、<c>Base&lt;T&gt;{a}</c>）是表达式不是开块：
+    /// 当成开块的话，配对的 <c>}</c> 会把条目 EndLine 钉在声明行，换行写的构造体整个漏出大纲。
+    /// 两条缺一不可：<c>{</c> 紧跟成员名或基类名，且处在 <c>)</c> 后的冒号段里。
+    /// 构造体的 <c>{</c> 前是上一个 mem-init 的 <c>)</c> 或 <c>}</c>，不满足就仍开块。
+    /// </summary>
+    protected override bool OpensInline(StringBuilder header) =>
+        BraceInitFollows(header) && InitializerColon().IsMatch(header.ToString());
+
+    // ) 之后的冒号（排除 ::），中间可隔 noexcept / noexcept(...)。继承列表（class B : A）、位域、三目都不满足
+    [GeneratedRegex(@"\)(?:\s*noexcept\b(?:\s*\([^)]*\))?)?\s*:(?!:)")]
+    private static partial Regex InitializerColon();
+
+    // { 前是名字（可带模板实参 Base<A<int>>），名字前是 : 或 ,
+    private static bool BraceInitFollows(StringBuilder header)
+    {
+        int i = SkipWhitespaceBack(header, header.Length - 1);
+        if (i >= 0 && header[i] == '>') i = SkipWhitespaceBack(header, SkipTemplateArgsBack(header, i));
+        if (i < 0 || !IsIdentifierChar(header[i])) return false;
+        while (i >= 0 && IsIdentifierChar(header[i])) i--;
+        i = SkipWhitespaceBack(header, i);
+        return i >= 0 && header[i] is ',' or ':';
+    }
+
+    private static int SkipWhitespaceBack(StringBuilder text, int i)
+    {
+        while (i >= 0 && char.IsWhiteSpace(text[i])) i--;
+        return i;
+    }
+
+    // i 指向收尾的 >，返回配对 < 之前的位置；不配对返回 -1
+    private static int SkipTemplateArgsBack(StringBuilder text, int i)
+    {
+        int depth = 0;
+        for (; i >= 0; i--)
+        {
+            if (text[i] == '>') depth++;
+            else if (text[i] == '<' && --depth == 0) return i - 1;
+        }
+
+        return -1;
+    }
+
+    private static bool IsIdentifierChar(char c) => char.IsLetterOrDigit(c) || c == '_';
 
     /// <inheritdoc />
     protected override Declaration Classify(string header, bool insideType, char terminator)

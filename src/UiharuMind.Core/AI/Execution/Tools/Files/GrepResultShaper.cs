@@ -32,7 +32,7 @@ internal static class GrepResultShaper
 
     /// <summary>
     /// 正文输出预算，按 <b>UTF-8 字节</b>算。超了整页换成命中地图。
-    /// 比 Read 的 32KB 小：一次搜索约 4–5k token，本地小模型的上下文经不起每次搜索吃掉近万
+    /// 与 Read 同为 16KB：一次搜索约 4–5k token，本地小模型的上下文经不起每次搜索吃掉近万
     /// </summary>
     internal const int MaxOutputBytes = 16 * 1024;
 

@@ -17,6 +17,7 @@ internal static class EditDiffRenderer
 
     /// <summary>
     /// 把 diff 渲染成给模型看的文本（`+`/`-`/空格 前缀 + 右对齐行号）。
+    /// 与 Read 不同仍右对齐：diff 只有几十行，补位代价可忽略，红绿行的正文列对齐才好比对。
     ///
     /// 两层压缩都只发生在渲染层，plan.Diff 保持完整数据：
     /// <list type="number">

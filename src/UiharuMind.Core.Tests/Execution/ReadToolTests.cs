@@ -55,18 +55,20 @@ public sealed class ReadToolTests : IDisposable
         Assert.DoesNotContain("Summary", result); //Summary 没挂就不提
     }
 
-    /// <summary>Summary 挂着时，截断附注后指一条去处：整体理解交给它，不一页页翻</summary>
+    /// <summary>Summary 挂着、且是工具自己截断时，截断附注后指一条去处：整体理解交给它，不一页页翻</summary>
     [Fact]
     public async Task TruncationNotice_PointsToSummary_WhenMounted()
     {
         string path = Save("big.txt", Lines(2500));
         var tools = new PermissiveFileAccessTools(new AgentPathResolver(_dir), offerSummary: true);
+        CancellationToken ct = TestContext.Current.CancellationToken;
 
-        string result = await tools.Read(path, 1, 100, cancellationToken: TestContext.Current.CancellationToken);
+        string result = await tools.Read(path, 1, null, cancellationToken: ct);
 
-        Assert.EndsWith($"续读传 offset=101]\n要整体理解这份文件，可交给 `{BrainTool.ToolName}`，task 里写清要什么。", result);
+        Assert.EndsWith($"]\n要整体理解这份文件，可交给 `{BrainTool.ToolName}`，task 里写清要什么。", result);
+        Assert.DoesNotContain(BrainTool.ToolName, await tools.Read(path, 1, 100, cancellationToken: ct)); //自己传了 head 是在按段读，不提
         Assert.DoesNotContain(BrainTool.ToolName, await tools.Read(Save("small.txt", Lines(3)), 1, null,
-            cancellationToken: TestContext.Current.CancellationToken)); //没截断不提
+            cancellationToken: ct)); //没截断不提
     }
 
     /// <summary>全文窗按结果推首行行号：截断附注为准（负 offset 也对），没截断用正 offset</summary>
@@ -86,8 +88,8 @@ public sealed class ReadToolTests : IDisposable
     {
         string path = Save("log.txt", Lines(10));
 
-        Assert.Equal(" 8→line8\n 9→line9\n10→line10\n[已到文件末尾，共 10 行]", await Read(path, offset: -3));
-        Assert.StartsWith(" 1→line1\n", await Read(path, offset: -50)); //倒数超过总行数就从头读
+        Assert.Equal("8→line8\n9→line9\n10→line10\n[已到文件末尾，共 10 行]", await Read(path, offset: -3));
+        Assert.StartsWith("1→line1\n", await Read(path, offset: -50)); //倒数超过总行数就从头读
     }
 
     [Fact]

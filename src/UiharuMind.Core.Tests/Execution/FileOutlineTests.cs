@@ -1,3 +1,4 @@
+using System.Text;
 using UiharuMind.Core.AI.Execution.Files;
 
 namespace UiharuMind.Core.Tests.Execution;
@@ -147,6 +148,70 @@ public sealed class FileOutlineTests : IDisposable
 
     private static List<OutlineEntry> Cpp(string code) =>
         new CppOutlineExtractor().Extract(code.Split('\n')).Select(entry => entry with { EndLine = 0 }).ToList();
+
+    /// <summary>构造器的 brace-init（_b{a}）是表达式不是开块：换行写 body 时 EndLine 必须到 body 的 }，而不是钉在声明行</summary>
+    [Fact]
+    public void Cpp_ConstructorBraceInit_EndsAtBodyNotInitializer()
+    {
+        List<OutlineEntry> entries = new CppOutlineExtractor().Extract(
+            """
+                struct Foo
+                {
+                    Foo(int a) : _a(a), _b{a}
+                    {
+                        touch(_a);
+                    }
+
+                    Foo() : _b{1} {}
+                private:
+                    int _a;
+                    int _b;
+                };
+                """.Split('\n')).ToList();
+
+        Assert.Equal(
+        [
+            new OutlineEntry(1, 0, "struct Foo", 12),
+            new OutlineEntry(3, 1, "Foo(int a)", 6),
+            new OutlineEntry(8, 1, "Foo()", 8),
+        ], entries);
+    }
+
+    /// <summary>嵌套 brace-init、冒号前的 noexcept、模板基类的 brace-init 都不能把构造体的 { 误判成内联</summary>
+    [Fact]
+    public void Cpp_ConstructorBraceInit_NestedNoexceptAndTemplateBase_StillEndsAtBody()
+    {
+        List<OutlineEntry> entries = new CppOutlineExtractor().Extract(
+            """
+                struct Baz : Base<int>
+                {
+                    Baz() : _m{1}, _v{A{2}}
+                    {
+                        use();
+                    }
+
+                    Baz(int x) noexcept : Base<int>{x}, _x{x}
+                    {
+                    }
+
+                    Baz(long x) noexcept(true) : ns::Base<std::vector<int>>{x}
+                    {
+                    }
+                private:
+                    int _m;
+                    std::vector<int> _v;
+                    int _x;
+                };
+                """.Split('\n')).ToList();
+
+        Assert.Equal(
+        [
+            new OutlineEntry(1, 0, "struct Baz : Base<int>", 19),
+            new OutlineEntry(3, 1, "Baz()", 6),
+            new OutlineEntry(8, 1, "Baz(int x) noexcept", 10),
+            new OutlineEntry(12, 1, "Baz(long x) noexcept(true)", 14),
+        ], entries);
+    }
 
     [Fact]
     public void Cpp_ListsTypesAndFunctions_NotFieldsOrBodies()
@@ -384,5 +449,70 @@ public sealed class FileOutlineTests : IDisposable
         Assert.DoesNotContain("命中过多", result);
         Assert.DoesNotContain("[位于", result);
         Assert.Contains("共 150 处命中", result);
+    }
+
+    /// <summary>
+    /// 换行口径的横切一致性：Grep（Glacier 引擎）与 Read/Outline（TextLines）的行号必须对得上，
+    /// 否则模型用 grep 行号去 Read 会跳错。一次覆盖 LF / CRLF 两种常见换行混用；
+    /// 老式 Mac 的 CR-only 是已知缺口，见下一个用例。
+    /// </summary>
+    [Fact]
+    public async Task CrossPath_LineNumbersAgree_OnMixedLfAndCrlf()
+    {
+        // 同一文件里混两种换行，每段一个方法、各一处命中：LF 段(3–6)、CRLF 段(7–10)
+        string path = Path.Combine(_dir, "mix.cs");
+        await File.WriteAllBytesAsync(path, Encoding.UTF8.GetBytes(
+            "class Mix\n{\n"
+            + "    void A()\n    {\n        HitA();\n    }\n"            // LF
+            + "    void B()\r\n    {\r\n        HitB();\r\n    }\r\n"    // CRLF
+            + "}\n"), TestContext.Current.CancellationToken);
+        var tools = new PermissiveFileAccessTools(_dir);
+        CancellationToken ct = TestContext.Current.CancellationToken;
+
+        string grep = await tools.Grep("Hit[A-B]", ct: ct);
+        string read = await tools.Read(path, cancellationToken: ct);
+        string outline = await tools.Read(path, outline: true, cancellationToken: ct);
+
+        // Grep（引擎）行号与 Read/Outline（TextLines）一致：命中行号 : 内容
+        Assert.Contains("5:        HitA();", grep);
+        Assert.Contains("9:        HitB();", grep);
+
+        // Read（TextLines）同一行的行号→ 前缀
+        Assert.Contains("5→        HitA();", read);
+        Assert.Contains("9→        HitB();", read);
+
+        // 大纲 [起–止] 覆盖 Grep 报告的行号
+        Assert.Contains("[3–6]   void A()", outline);
+        Assert.Contains("[7–10]   void B()", outline);
+        Assert.Contains("[1–11] class Mix", outline);
+    }
+
+    /// <summary>
+    /// 已知缺口：Glacier 引擎以 <c>\n</c> 拆行，老式 Mac 的 CR-only 换行被它并成一行，Grep 行号与 Read/Outline 错位。
+    /// 修要动 vendored 引擎的拆行、或调用侧按 \r 重建命中，待定。这里断言的是<b>现状</b>：
+    /// 哪天这条红了，说明口径变了（修好或更糟），按上一个用例的口径改写断言
+    /// </summary>
+    [Fact]
+    public async Task CrossPath_LineNumbers_CrOnly_KnownGap()
+    {
+        string path = Path.Combine(_dir, "cr.cs");
+        await File.WriteAllBytesAsync(path, Encoding.UTF8.GetBytes(
+            "class Cr\n{\n"
+            + "    void C()\r    {\r        HitC();\r    }\r"    // CR-only，HitC 在第 5 行
+            + "}\n"), TestContext.Current.CancellationToken);
+        var tools = new PermissiveFileAccessTools(_dir);
+        CancellationToken ct = TestContext.Current.CancellationToken;
+
+        string grep = await tools.Grep("HitC", ct: ct);
+        string read = await tools.Read(path, cancellationToken: ct);
+        string outline = await tools.Read(path, outline: true, cancellationToken: ct);
+
+        // Read/Outline（TextLines）认 \r，行号正确
+        Assert.Contains("5→        HitC();", read);
+        Assert.Contains("[3–6]   void C()", outline);
+
+        // Grep 把 3–6 行并成第 3 行报出来
+        Assert.Contains("3:    void C()\r    {\r        HitC();", grep);
+        Assert.DoesNotContain("5:", grep);
     }
 }
