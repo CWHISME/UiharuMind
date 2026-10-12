@@ -49,13 +49,23 @@ namespace UiharuMind.Features.Conversation;
 public sealed class ConversationItemWindowTrimmer
 {
     /// <summary>
-    /// 运行期条目上限。刻意<b>不分页面、不做设置项</b>：聊天页与 agent 页一轮的条目数
-    /// 差一个量级，但在探针给出「条目数 → 布局耗时」的实测曲线之前分档只是凭感觉造魔法数。
+    /// 运行期条目上限：普通对话档。
+    /// 分档依据（主题四探针）：聊天一轮就一问一答、条目≈消息数×~4，40 条够一屏有余；
+    /// 实测曲线（条目→布局耗时≈4–5ms/条、可视对象≈33/条、托管堆≈0.5MB/条）
+    /// 显示 40 条 ≈ 260ms/62MB 是单会话可接受峰值。
     /// </summary>
-    public const int DefaultMaxItems = 80;
+    public const int ChatMaxItems = 40;
 
     /// <summary>
-    /// 切走之后的条目上限，比 <see cref="DefaultMaxItems"/> 紧得多。
+    /// 运行期条目上限：智能体档。
+    /// agent 一轮可以跑几十次工具调用、堆出几百个条目（见 <see cref="MidTurnAnchorFactor"/>），
+    /// 同样按探针曲线取：160 条 ≈ 414ms/104MB 是峰值可接受档；聊天档的 40 对它太紧，
+    /// 会在正常长轮次上整轮不裁（锚点退不到用户消息），上限形同虚设。
+    /// </summary>
+    public const int AgentMaxItems = 160;
+
+    /// <summary>
+    /// 切走之后的条目上限，比 <see cref="AgentMaxItems"/> 紧得多。
     ///
     /// 切回一个缓存实例是<b>不走回放的</b>（它的 <c>Items</c> 就是后台攒出来的那一份），
     /// 于是切回的代价就是这些条目一次性重新实体化——非虚拟化列表里这是纯布局开销，
@@ -79,10 +89,11 @@ public sealed class ConversationItemWindowTrimmer
     /// 这正是「切回后台跑着的会话，条目依旧几百条」的由来：它不是没裁，是裁了也等于没裁。
     ///
     /// 所以留一道硬顶：用户锚点保下来的条目超过上限这么多倍时，改按消息起点切。
-    /// 取 2 而不是 1 是为了让正常长度的一轮永远走首选那条路——一轮不被切开仍是默认口径，
-    /// 从中间切只发生在「这一轮本身就比上限大一个量级」的时候。
+    /// 主题四探针把硬顶从 2 收紧到 1.5：2 倍在 agent 档允许 320 条（≈906ms/160MB），
+    /// 收紧后 agent 240 / 聊天 60，峰值更低；同时仍留给正常长度一轮的余量，
+    /// 只有一轮本身明显大过上限时才切开。
     /// </summary>
-    private const int MidTurnAnchorFactor = 2;
+    private const double MidTurnAnchorFactor = 1.5;
 
     private readonly IList<ConversationItemBase> _items;
     private readonly HistoryWindow _window;
@@ -102,14 +113,14 @@ public sealed class ConversationItemWindowTrimmer
         HistoryWindow window,
         Func<IReadOnlyList<ChatMessage>> historySource,
         Func<bool> canTrimSource,
-        int maxItems = DefaultMaxItems,
+        int maxItems = AgentMaxItems,
         int backgroundMaxItems = DefaultBackgroundMaxItems)
     {
         _items = items;
         _window = window;
         _historySource = historySource;
         _canTrimSource = canTrimSource;
-        _maxItems = maxItems > 0 ? maxItems : DefaultMaxItems;
+        _maxItems = maxItems > 0 ? maxItems : AgentMaxItems;
         _backgroundMaxItems = backgroundMaxItems > 0 ? backgroundMaxItems : DefaultBackgroundMaxItems;
     }
 

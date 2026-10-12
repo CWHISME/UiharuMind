@@ -16,6 +16,18 @@ namespace UiharuMind.App.Tests.Conversation;
 public class ConversationItemWindowTrimmerTests
 {
     /// <summary>
+    /// 主题四分档：聊天 40 / 智能体 160，钉死探针定的两个数。
+    /// 改这个数等于改长会话条目峰值（布局/内存），要让探针曲线重新说话，不能只改数字。
+    /// </summary>
+    [Fact]
+    public void TieredCaps_ChatBelowAgent_BothInUsableRange()
+    {
+        Assert.Equal(40, ConversationItemWindowTrimmer.ChatMaxItems);
+        Assert.Equal(160, ConversationItemWindowTrimmer.AgentMaxItems);
+        Assert.True(ConversationItemWindowTrimmer.ChatMaxItems < ConversationItemWindowTrimmer.AgentMaxItems);
+    }
+
+    /// <summary>
     /// 记录 ReleaseImages 调用的条目替身。
     ///
     /// 不用真的 <c>TextConversationItem</c> 加真位图：那要拉起 Avalonia 的图像后端，

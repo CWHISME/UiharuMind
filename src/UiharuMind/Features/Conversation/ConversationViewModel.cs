@@ -579,7 +579,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// <param name="readAloud">朗读；为空则气泡上没有朗读按钮</param>
     /// <param name="speechStyles">角色的朗读声音；为空一律用默认</param>
     public ConversationViewModel(IMessageService messages, IReadAloudService? readAloud = null,
-        CharacterSpeechStyles? speechStyles = null)
+        CharacterSpeechStyles? speechStyles = null, EConversationType conversationType = EConversationType.Agent)
     {
         _messages = messages;
         // 群壳里的回复是成员落盘后贴进来的，按落盘念；单聊正看着时边生成边念
@@ -608,7 +608,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             () => IsAutoCollapseThinking, () => GroupMember?.DeliveryRenderer, SessionPaths);
         _pager = new ConversationHistoryPager(Items, _history, () => CurrentRunner?.GetHistory() ?? [],
             () => IsDisplayed, () => IsStuckToBottomSource?.Invoke() ?? true,
-            () => CurrentSession?.LiveTurn.IsTurnRunning == true);
+            () => CurrentSession?.LiveTurn.IsTurnRunning == true,
+            conversationType == EConversationType.Chat
+                ? ConversationItemWindowTrimmer.ChatMaxItems
+                : ConversationItemWindowTrimmer.AgentMaxItems);
         _pager.PropertyChanged += (_, e) => OnPropertyChanged(e.PropertyName); //几个状态位原名转发给绑定
         _pager.ReturnedToLatest += () => ReturnedToLatest?.Invoke();
         SearchNavigator = new ConversationSearchNavigator(Items, _pager, () => CurrentSession?.History,

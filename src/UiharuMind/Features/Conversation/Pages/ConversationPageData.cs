@@ -190,7 +190,7 @@ public partial class ConversationPageData : ConversationPageDataBase
 
     protected override ConversationViewModel CreateConversation()
     {
-        ConversationViewModel conversation = new(Messages, _readAloud, _speechStyles);
+        ConversationViewModel conversation = new(Messages, _readAloud, _speechStyles, CurrentType);
         if (CurrentType == EConversationType.Chat)
         {
             // 普通对话：继承上一个空会话的角色（同类才继承，跨类型不污染），否则回默认角色；

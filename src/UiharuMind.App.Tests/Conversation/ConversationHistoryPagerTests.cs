@@ -40,7 +40,7 @@ public class ConversationHistoryPagerTests
         public bool IsDisplayed { get; set; } = true;
         public ConversationHistoryPager Pager { get; }
 
-        public Fixture(int messageCount)
+        public Fixture(int messageCount, int maxItems = ConversationItemWindowTrimmer.AgentMaxItems)
         {
             for (int i = 0; i < messageCount; i++)
             {
@@ -50,7 +50,7 @@ public class ConversationHistoryPagerTests
             ConversationItemActions actions = new(Items, new StubHost(), new RecordingMessageService());
             ConversationHistoryRenderer renderer = new(Items, actions, () => null, () => false, () => null, () => null);
             Pager = new ConversationHistoryPager(Items, renderer, () => History, () => IsDisplayed, () => true,
-                () => false);
+                () => false, maxItems);
         }
     }
 
@@ -248,6 +248,34 @@ public class ConversationHistoryPagerTests
 
         Assert.True(fixture.Items.Count <= ConversationItemWindowTrimmer.DefaultBackgroundMaxItems);
         Assert.True(fixture.Pager.HasEarlierMessages);
+    }
+
+    /// <summary>
+    /// 主题四分档：传给 Pager 的 maxItems 要真的进到裁剪里。
+    /// 30 条超过上限 25 时裁，低于 agent 默认 160 时不该裁——两条一起钉住「透传」而非「默认值碰巧对」。
+    /// </summary>
+    [Fact]
+    public void TrimToBudget_TrimsToTheConfiguredTier_NotTheDefault()
+    {
+        Fixture tight = new(30, maxItems: 25);
+        for (int i = 0; i < 30; i++)
+        {
+            TextConversationItem item = new(false) { SenderName = "助手", Message = $"m{i}" };
+            item.SourceMessage = tight.History[i];
+            tight.Items.Add(item);
+        }
+        tight.Pager.TrimToBudget();
+        Assert.True(tight.Items.Count < 30, $"上限 25 应当裁掉一部分，仍为 {tight.Items.Count}");
+
+        Fixture loose = new(30); //默认 agent 档 160
+        for (int i = 0; i < 30; i++)
+        {
+            TextConversationItem item = new(false) { SenderName = "助手", Message = $"m{i}" };
+            item.SourceMessage = loose.History[i];
+            loose.Items.Add(item);
+        }
+        loose.Pager.TrimToBudget();
+        Assert.Equal(30, loose.Items.Count);
     }
 
     [Fact]

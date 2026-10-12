@@ -66,7 +66,8 @@ public sealed partial class ConversationHistoryPager : ObservableObject
     /// <param name="isTurnRunning">有一轮正往这个会话流内容（回到最新时末尾那次工具调用的结果可能还在路上）</param>
     public ConversationHistoryPager(ObservableCollection<ConversationItemBase> items,
         ConversationHistoryRenderer renderer, Func<IReadOnlyList<ChatMessage>> historySource,
-        Func<bool> isDisplayed, Func<bool> isStuckToBottom, Func<bool> isTurnRunning)
+        Func<bool> isDisplayed, Func<bool> isStuckToBottom, Func<bool> isTurnRunning,
+        int maxItems = ConversationItemWindowTrimmer.AgentMaxItems)
     {
         _items = items;
         _renderer = renderer;
@@ -75,7 +76,7 @@ public sealed partial class ConversationHistoryPager : ObservableObject
         _isTurnRunning = isTurnRunning;
         // 不在界面上的实例没有会被抽走的视口,照裁——后台跑着的那个正是最该裁的
         _trimmer = new ConversationItemWindowTrimmer(items, Window, historySource,
-            () => !isDisplayed() || isStuckToBottom());
+            () => !isDisplayed() || isStuckToBottom(), maxItems);
     }
 
     /// <summary>
