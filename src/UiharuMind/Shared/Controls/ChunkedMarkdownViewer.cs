@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -23,10 +24,13 @@ namespace UiharuMind.Shared.Controls;
 public class ChunkedMarkdownViewer : UserControl
 {
     private const int ChunkChars = 4 * 1024; //一段的目标字数，约一两屏
+    private const int MaxParagraphChars = 2 * ChunkChars; //段落超过这么长就硬切成纯文本段（复读），整块渲染会冻住界面
 
     private readonly StackPanel _panel = new();
-    private string _markdownText = string.Empty;
-    private string _tailText = string.Empty; //最后一段的原文：流式追加只喂它，长到两倍段长再重新切
+    private readonly StringBuilder _markdown = new(); //整篇原文：流式追加不必每拍复制全文
+    private string? _markdownSnapshot; //整篇原文的字符串缓存，追加后作废、有人读时再生成
+    private string _tailText = string.Empty; //最后一段的原文：流式追加只喂它，长过 _tailSplitChars 再重新切
+    private int _tailSplitChars = ChunkChars * 2; //尾段切不开（单块）时翻倍，免得每拍都重切一次
     private bool _isPlaintext = true;
     private string? _linkBaseDirectory;
     private bool _isWatchingDrag; //按下到松开期间盯着布局，有新段渲染出来就刷新拖选快照
@@ -48,12 +52,13 @@ public class ChunkedMarkdownViewer : UserControl
     /// </summary>
     public string MarkdownText
     {
-        get => _markdownText;
+        get => _markdownSnapshot ??= _markdown.ToString();
         set
         {
             value ??= string.Empty;
-            if (value == _markdownText) return;
-            _markdownText = value;
+            if (value == MarkdownText) return;
+            _markdown.Clear().Append(value);
+            _markdownSnapshot = value;
             Rebuild();
         }
     }
@@ -93,7 +98,8 @@ public class ChunkedMarkdownViewer : UserControl
     public void AppendText(string delta)
     {
         if (string.IsNullOrEmpty(delta)) return;
-        _markdownText += delta;
+        _markdown.Append(delta);
+        _markdownSnapshot = null;
         if (_panel.Children.Count == 0)
         {
             Rebuild();
@@ -101,7 +107,7 @@ public class ChunkedMarkdownViewer : UserControl
         }
 
         _tailText += delta;
-        if (_tailText.Length <= ChunkChars * 2)
+        if (_tailText.Length <= _tailSplitChars)
         {
             MarkdownChunkSlot tail = (MarkdownChunkSlot)_panel.Children[^1];
             tail.Activate();
@@ -116,17 +122,20 @@ public class ChunkedMarkdownViewer : UserControl
     private void Rebuild()
     {
         _panel.Children.Clear();
-        AddChunks(_markdownText);
+        AddChunks(MarkdownText);
     }
 
     private void AddChunks(string text)
     {
         _tailText = string.Empty;
-        foreach (string chunk in MarkdownChunker.Split(text, ChunkChars, MarkdownUpdateProducer.DefaultPipeline))
+        foreach (MarkdownChunk chunk in MarkdownChunker.Split(text, ChunkChars, MaxParagraphChars,
+                     MarkdownUpdateProducer.DefaultPipeline))
         {
             _panel.Children.Add(new MarkdownChunkSlot(chunk, _isPlaintext, _linkBaseDirectory));
-            _tailText = chunk;
+            _tailText = chunk.Text;
         }
+
+        _tailSplitChars = Math.Max(ChunkChars * 2, _tailText.Length * 2);
     }
 
     private void OnPointerPressedTunnel(object? sender, PointerPressedEventArgs e)

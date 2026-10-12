@@ -6,7 +6,10 @@ namespace UiharuMind.App.Tests.Shared;
 public class MarkdownChunkerTests
 {
     private static List<string> Split(string text, int chunkChars) =>
-        MarkdownChunker.Split(text, chunkChars, MarkdownUpdateProducer.DefaultPipeline);
+        SplitChunks(text, chunkChars, int.MaxValue).Select(c => c.Text).ToList();
+
+    private static List<MarkdownChunk> SplitChunks(string text, int chunkChars, int maxParagraphChars) =>
+        MarkdownChunker.Split(text, chunkChars, maxParagraphChars, MarkdownUpdateProducer.DefaultPipeline);
 
     [Fact]
     public void Chunks_JoinBackToOriginal()
@@ -47,5 +50,34 @@ public class MarkdownChunkerTests
         List<string> chunks = Split(text, 200);
 
         Assert.Equal(text, string.Concat(chunks));
+    }
+
+    [Fact]
+    public void OversizedParagraph_IsCutAndMarked()
+    {
+        // 模型复读出的超长单段：整块渲染会冻住界面，须硬切成纯文本段，前后正常块不受牵连。
+        // 复读够长时整篇行内解析会撞嵌套深度上限抛异常，切段不能因此退回不分青红皂白的兜底
+        string loop = "复读开始" + string.Concat(Enumerable.Repeat("：**", 30000)) + "\n";
+        string text = "# 标题\n\n正常一段。\n\n" + loop + "\n结尾一段。\n";
+
+        List<MarkdownChunk> chunks = SplitChunks(text, 200, 1000);
+
+        Assert.Equal(text, string.Concat(chunks.Select(c => c.Text)));
+        List<MarkdownChunk> oversized = chunks.Where(c => c.IsOversizedBlock).ToList();
+        Assert.True(oversized.Count > 1);
+        Assert.All(oversized, c => Assert.True(c.Text.Length <= 2048, $"段长 {c.Text.Length}"));
+        Assert.Contains(chunks, c => !c.IsOversizedBlock && c.Text.Contains("正常一段"));
+        Assert.Contains(chunks, c => !c.IsOversizedBlock && c.Text.Contains("结尾一段"));
+    }
+
+    [Fact]
+    public void LongCodeFence_StaysWhole()
+    {
+        string fence = "```\n" + string.Concat(Enumerable.Range(0, 40).Select(i => $"var x{i} = {i};\n")) + "```\n";
+        string text = "开头一段。\n\n" + fence + "\n结尾一段。\n";
+
+        List<MarkdownChunk> chunks = SplitChunks(text, 50, 100);
+
+        Assert.Contains(chunks, c => !c.IsOversizedBlock && c.Text.Contains(fence));
     }
 }

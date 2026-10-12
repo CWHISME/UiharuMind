@@ -345,4 +345,53 @@ public class ChunkedMarkdownViewerTests
         Assert.True(chunks.Count > 3, $"只切出 {chunks.Count} 段");
         Assert.Same(firstAfterSplit, chunks[0]);
     });
+
+    /// <summary>
+    /// 模型复读出的几十万字单段（实测思考段 49 万字、一行里十几万个「**」）：切不开就整块渲染，打开当场冻住。
+    /// 超长单块要硬切成纯文本段，滚到底也只放出视口附近几段
+    /// </summary>
+    [Fact]
+    public void OversizedLoopParagraph_OpensAsPlaintextChunks() => HeadlessUi.Run(() =>
+    {
+        string text = "# 正常开头\n\n先想一想 **关键线索**。\n\n" + string.Concat(Enumerable.Repeat("：**", 160_000));
+        ChunkedMarkdownViewer viewer = new();
+        ScrollViewer scroll = new() { Content = viewer };
+        Window window = new() { Width = 900, Height = 700, Content = scroll };
+        window.Show();
+
+        System.Diagnostics.Stopwatch watch = System.Diagnostics.Stopwatch.StartNew();
+        viewer.MarkdownText = text;
+        viewer.IsPlaintext = false;
+        Settle(window);
+        scroll.ScrollToEnd();
+        Settle(window);
+        watch.Stop();
+
+        List<SimpleMarkdownViewer> chunks = viewer.GetLogicalDescendants().OfType<SimpleMarkdownViewer>().ToList();
+        Assert.True(chunks.Count > 50, $"只切出 {chunks.Count} 段");
+        Assert.True(chunks.Count(c => c.IsVisible) is >= 1 and <= 12,
+            $"放出 {chunks.Count(c => c.IsVisible)}/{chunks.Count} 段，用时 {watch.ElapsedMilliseconds}ms，可见：" +
+            string.Join(",", chunks.Select((c, i) => c.IsVisible ? i : -1).Where(i => i >= 0)));
+        Assert.True(chunks[^1].IsPlaintext, "复读段不该按 markdown 渲染");
+        Assert.True(watch.ElapsedMilliseconds < 1500, $"打开并滚到底用了 {watch.ElapsedMilliseconds}ms");
+        window.Close();
+    });
+
+    /// <summary>流式长出一个超长单段：尾段切不开时不能每拍都重切，过了单块上限要硬切成多段</summary>
+    [Fact]
+    public void AppendingOversizedParagraph_EventuallySplitsIntoPlaintextChunks() => HeadlessUi.Run(() =>
+    {
+        ChunkedMarkdownViewer viewer = new();
+        System.Text.StringBuilder expected = new();
+        for (int i = 0; i < 4000; i++)
+        {
+            string delta = string.Concat(Enumerable.Repeat("：**", 20));
+            viewer.AppendText(delta);
+            expected.Append(delta);
+        }
+
+        List<SimpleMarkdownViewer> chunks = viewer.GetLogicalDescendants().OfType<SimpleMarkdownViewer>().ToList();
+        Assert.Equal(expected.ToString(), viewer.MarkdownText);
+        Assert.True(chunks.Count > 10, $"只切出 {chunks.Count} 段");
+    });
 }

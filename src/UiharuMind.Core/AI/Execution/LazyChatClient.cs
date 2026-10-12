@@ -143,6 +143,8 @@ public class LazyChatClient : IChatClient
         int reasoningChars = 0;
         int textChars = 0;
         StreamCompletionWatch watch = new();
+        // 复读不归重试管：直接抛出，本轮按失败收口（已生成的部分照常落盘）
+        RepetitionLoopWatch loopWatch = new();
 
         IAsyncEnumerator<ChatResponseUpdate> enumerator = client
             .GetStreamingResponseAsync(messages, options, cancellationToken).GetAsyncEnumerator(cancellationToken);
@@ -175,6 +177,7 @@ public class LazyChatClient : IChatClient
                 {
                     DropEmptyTextContents(update);
                     watch.Observe(update);
+                    loopWatch.Observe(update);
                     yield return (update, null);
                     continue;
                 }
@@ -201,6 +204,7 @@ public class LazyChatClient : IChatClient
 
                 update.Contents = rebuilt;
                 watch.Observe(update);
+                loopWatch.Observe(update);
                 yield return (update, null);
             }
         }

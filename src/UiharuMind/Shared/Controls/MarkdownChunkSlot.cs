@@ -19,6 +19,7 @@ internal sealed class MarkdownChunkSlot : Decorator
     private const double NarrowCharFactor = 0.55;
 
     private readonly SimpleMarkdownViewer _viewer;
+    private readonly bool _isOversizedBlock; //超长单块硬切出来的段，始终按纯文本显示
     private bool _isPlaintext;
     private bool _isActive; //已决定放出（看得见的立即显示，预取的排在后台）
     private bool _isRevealed; //段内容已显示、参与布局
@@ -26,12 +27,13 @@ internal sealed class MarkdownChunkSlot : Decorator
     private Rect _lastViewport; //最近一次视口（自身坐标系）；尺寸变了要拿它重判
     private double _anchorHeight = -1; //放出时顶端已滚出视口：记下估高，布局后按实际高度差补回滚动偏移
 
-    public MarkdownChunkSlot(string text, bool isPlaintext, string? linkBaseDirectory)
+    public MarkdownChunkSlot(MarkdownChunk chunk, bool isPlaintext, string? linkBaseDirectory)
     {
+        _isOversizedBlock = chunk.IsOversizedBlock;
         _isPlaintext = isPlaintext;
         _viewer = new SimpleMarkdownViewer
         {
-            MarkdownText = text,
+            MarkdownText = chunk.Text,
             IsPlaintext = true, //未放出前渲染器不启动
             LinkBaseDirectory = linkBaseDirectory,
             IsVisible = false,
@@ -42,6 +44,8 @@ internal sealed class MarkdownChunkSlot : Decorator
 
     public SimpleMarkdownViewer Viewer => _viewer;
 
+    private bool ShowsPlaintext => _isPlaintext || _isOversizedBlock;
+
     public bool IsPlaintext
     {
         get => _isPlaintext;
@@ -49,8 +53,8 @@ internal sealed class MarkdownChunkSlot : Decorator
         {
             _isPlaintext = value;
             if (!_isRevealed) return;
-            _viewer.IsPlaintext = value;
-            if (!value) _viewer.RealizeNow();
+            _viewer.IsPlaintext = ShowsPlaintext;
+            if (!ShowsPlaintext) _viewer.RealizeNow();
         }
     }
 
@@ -67,7 +71,7 @@ internal sealed class MarkdownChunkSlot : Decorator
     {
         if (_isActive) return;
         _isActive = true;
-        if (isVisibleNow || _isPlaintext)
+        if (isVisibleNow || ShowsPlaintext)
         {
             Reveal();
             return;
@@ -87,8 +91,8 @@ internal sealed class MarkdownChunkSlot : Decorator
             LayoutUpdated += OnLayoutUpdatedAfterActivate;
         }
 
-        _viewer.IsPlaintext = _isPlaintext;
-        if (!_isPlaintext) _viewer.RealizeNow();
+        _viewer.IsPlaintext = ShowsPlaintext;
+        if (!ShowsPlaintext) _viewer.RealizeNow();
         _viewer.IsVisible = true;
         InvalidateMeasure();
     }
