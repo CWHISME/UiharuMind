@@ -33,6 +33,7 @@ public static class EmbeddedResourcesUtils
     /// <returns></returns>
     public static T ReadFromJson<T>(string fileName) where T : new()
     {
-        return SaveUtility.LoadFromString<T>(Read(fileName));
+        // 走 source-gen（AOT 卡点 #2）：当前调用方 T 全在有界类型图里（List<PromptSnippet>/CharacterData）
+        return SaveUtility.LoadFromString<T>(Read(fileName), SaveUtility.SaveJsonOptions);
     }
 }

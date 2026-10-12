@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using UiharuMind.Core.Core.DevControl;
@@ -85,7 +86,7 @@ public static class DevScriptRunner
 
     private static async Task RunAsync(string scriptPath, string reportPath)
     {
-        List<object> report = new();
+        List<JsonObject> report = new();
         DevStepExecutor executor = new();
 
         Log.Debug($"Dev script: running '{scriptPath}'.");
@@ -98,7 +99,7 @@ public static class DevScriptRunner
                 string line = lines[i].Trim();
                 if (line.Length == 0 || line.StartsWith("//", StringComparison.Ordinal)) continue;
 
-                (object entry, bool stop) = await RunStepAsync(i + 1, line, executor).ConfigureAwait(true);
+                (JsonObject entry, bool stop) = await RunStepAsync(i + 1, line, executor).ConfigureAwait(true);
                 report.Add(entry);
                 await WriteReportAsync(reportPath, report).ConfigureAwait(true); //逐步落盘：长脚本（跑真模型）中途就能看进度
                 if (stop)
@@ -110,7 +111,13 @@ public static class DevScriptRunner
         }
         catch (Exception e)
         {
-            report.Add(new { step = -1, op = "<script>", ok = false, error = $"{e.GetType().Name}: {e.Message}" });
+            report.Add(new JsonObject
+            {
+                ["step"] = -1,
+                ["op"] = "<script>",
+                ["ok"] = false,
+                ["error"] = $"{e.GetType().Name}: {e.Message}",
+            });
         }
 
         await WriteReportAsync(reportPath, report).ConfigureAwait(true);
@@ -121,33 +128,65 @@ public static class DevScriptRunner
     /// <param name="line">这一行 JSON</param>
     /// <param name="executor">执行器</param>
     /// <returns>报告条目，以及要不要就此停下</returns>
-    private static async Task<(object Entry, bool Stop)> RunStepAsync(int step, string line, DevStepExecutor executor)
+    private static async Task<(JsonObject Entry, bool Stop)> RunStepAsync(int step, string line, DevStepExecutor executor)
     {
         string op = "<unparsed>";
         try
         {
             using JsonDocument document = JsonDocument.Parse(line);
             op = document.RootElement.GetProperty("op").GetString() ?? string.Empty;
-            if (op == "quit") return (new { step, op, ok = true, elapsedMs = 0 }, true);
+            if (op == "quit") return (new JsonObject
+            {
+                ["step"] = step,
+                ["op"] = op,
+                ["ok"] = true,
+                ["elapsedMs"] = 0,
+            }, true);
 
             JsonElement args = document.RootElement.TryGetProperty("args", out JsonElement value) ? value : default;
             DevStepOutcome outcome = await executor.RunAsync(op, args).ConfigureAwait(true);
             // 一步失败不中止:后面的步骤往往还能说明问题,而报告里那条 error 已经把现场记下了
-            return outcome.Ok
-                ? (new { step, op, ok = true, elapsedMs = outcome.ElapsedMs, result = outcome.Result }, false)
-                : (new { step, op, ok = false, elapsedMs = outcome.ElapsedMs, error = outcome.Error }, false);
+            JsonObject entry = new()
+            {
+                ["step"] = step,
+                ["op"] = op,
+                ["ok"] = outcome.Ok,
+                ["elapsedMs"] = outcome.ElapsedMs,
+            };
+            if (outcome.Ok && outcome.Result != null) entry["result"] = ToNode(outcome.Result);
+            else if (!outcome.Ok && outcome.Error != null) entry["error"] = outcome.Error;
+            return (entry, false);
         }
         catch (Exception e)
         {
-            return (new { step, op, ok = false, elapsedMs = 0L, error = $"{e.GetType().Name}: {e.Message}" }, false);
+            return (new JsonObject
+            {
+                ["step"] = step,
+                ["op"] = op,
+                ["ok"] = false,
+                ["elapsedMs"] = 0L,
+                ["error"] = $"{e.GetType().Name}: {e.Message}",
+            }, false);
         }
     }
 
-    private static async Task WriteReportAsync(string reportPath, List<object> report)
+    /// <summary>dev 报告值转 JsonNode：只认 JsonNode/JsonElement/字符串，其它退化成文本（AOT 下无类型图，别走 STJ）</summary>
+    private static JsonNode? ToNode(object? value) => value switch
+    {
+        null => null,
+        JsonNode node => node,
+        JsonElement element => JsonNode.Parse(element.GetRawText()),
+        _ => JsonValue.Create(value.ToString()),
+    };
+
+    private static async Task WriteReportAsync(string reportPath, List<JsonObject> report)
     {
         try
         {
-            await File.WriteAllTextAsync(reportPath, JsonSerializer.Serialize(report, ReportOptions))
+            JsonArray array = new();
+            foreach (JsonObject entry in report) array.Add(entry.DeepClone()); // DeepClone：逐步落盘会反复 Add 同一节点，共享引用会撞父节点
+            // JsonNode 自序列化，不经过 STJ 类型图——AOT 下可用
+            await File.WriteAllTextAsync(reportPath, array.ToJsonString(new JsonSerializerOptions { WriteIndented = true }))
                 .ConfigureAwait(true);
             Log.Debug($"Dev script: report written to '{reportPath}' ({report.Count} steps).");
         }

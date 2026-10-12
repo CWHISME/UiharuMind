@@ -60,9 +60,8 @@ public sealed class ImageModelInfo
     public string ExtraBody { get; set; } = string.Empty;
 
     /// <summary>加密后的 ApiKey，序列化到配置文件时使用</summary>
-    [JsonInclude]
     [JsonPropertyName("ApiKey")]
-    private string EncryptedApiKey
+    public string EncryptedApiKey
     {
         get => _encryptedApiKey;
         set => _encryptedApiKey = value;

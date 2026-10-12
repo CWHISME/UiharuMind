@@ -1,14 +1,21 @@
 using System.Text.Json.Serialization;
+using UiharuMind.Core.AI.Audio;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Character.CharacterCards;
+using UiharuMind.Core.AI.Embedding;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Tools.Scheduler;
+using UiharuMind.Core.AI.ImageGeneration;
 using UiharuMind.Core.AI.Memory;
 using UiharuMind.Core.AI.Models;
+using UiharuMind.Core.AI.Models.Sources;
+using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.AI.WorldSettings;
 using UiharuMind.Core.AutoClick;
+using UiharuMind.Core.Configs;
 using UiharuMind.Core.Configs.RemoteAI;
 using UiharuMind.Core.Core.DownloadHelper;
+using UiharuMind.Core.RemoteOpenAI;
 
 namespace UiharuMind.Core.Core;
 
@@ -47,6 +54,28 @@ namespace UiharuMind.Core.Core;
 [JsonSerializable(typeof(RemoteSensenovaModelConfig))]
 [JsonSerializable(typeof(RemoteZhipuModelConfig))]
 [JsonSerializable(typeof(RemoteModelConfig))]
+// ConfigBase 一族（AOT 试编卡点 #2：AOT 下反射不存在，设置/记忆读写静默失效，需 source-gen）
+[JsonSerializable(typeof(SettingConfig))]
+[JsonSerializable(typeof(QuickToolSetting))]
+[JsonSerializable(typeof(QuickToolPromptSetting))]
+[JsonSerializable(typeof(ChatSettingConfig))]
+[JsonSerializable(typeof(ModelSettingConfig))]
+[JsonSerializable(typeof(ModelRuntimeSettingConfig))]
+[JsonSerializable(typeof(DebugSettingConfig))]
+[JsonSerializable(typeof(AgentSettingConfig))]
+[JsonSerializable(typeof(ChatPromptExecutionSettings))]
+[JsonSerializable(typeof(TextFileSettingConfig))]
+[JsonSerializable(typeof(GroupModelMemoryConfig))]
+[JsonSerializable(typeof(AutoClickSettingConfig))]
+[JsonSerializable(typeof(ImageModelSettingConfig))]
+[JsonSerializable(typeof(SdCppSettingConfig))]
+[JsonSerializable(typeof(EmbeddingModelSettingConfig))]
+[JsonSerializable(typeof(LLamaCppSettingConfig))]
+[JsonSerializable(typeof(RemoteModelSettingConfig))]
+[JsonSerializable(typeof(DownloadSourceSettingConfig))]
+[JsonSerializable(typeof(AudioCppSettingConfig))]
+[JsonSerializable(typeof(AudioSettingConfig))]
+[JsonSerializable(typeof(AudioServiceSettingConfig))]
 // 作为根类型出现过的泛型容器（Load/Save 直接传 List/Dictionary 的地方）
 [JsonSerializable(typeof(List<PromptSnippet>))]
 [JsonSerializable(typeof(List<ScheduledAgentTask>))]

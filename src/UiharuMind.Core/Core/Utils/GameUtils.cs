@@ -25,7 +25,8 @@ public static class GameUtils
     public static T Copy<T>(T obj) where T : new()
     {
         if (obj == null) return new T();
-        return SaveUtility.LoadFromString<T>(SaveUtility.SaveToString(obj));
+        // 走 source-gen（AOT 卡点 #2）：调用方 T 全在有界类型图里（MemoryData/WorldSetting/AutoClickSession）
+        return SaveUtility.LoadFromString<T>(SaveUtility.SaveToString<T>(obj), SaveUtility.SaveJsonOptions);
     }
 
     /// <summary>

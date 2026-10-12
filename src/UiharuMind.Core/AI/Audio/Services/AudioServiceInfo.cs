@@ -53,9 +53,8 @@ public sealed class AudioServiceInfo
     public int TimeoutSeconds { get; set; } = 60;
 
     /// <summary>加密后的 ApiKey，序列化到配置文件时使用（照 ImageModelInfo）</summary>
-    [JsonInclude]
     [JsonPropertyName("ApiKey")]
-    private string EncryptedApiKey { get; set; } = string.Empty;
+    public string EncryptedApiKey { get; set; } = string.Empty;
 
     /// <summary>运行时要用的明文密钥（内存里才有）；新建时从同家对话模型复制</summary>
     [JsonIgnore]

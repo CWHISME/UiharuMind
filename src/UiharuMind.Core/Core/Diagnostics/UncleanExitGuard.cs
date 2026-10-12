@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using UiharuMind.Core.Core.Instances;
 using UiharuMind.Core.Core.SimpleLog;
 
@@ -11,6 +12,15 @@ namespace UiharuMind.Core.Core.Diagnostics;
 /// <param name="DebuggerAttached">启动时是否挂着调试器——调试器「停止」就是直接杀进程，不算事故</param>
 /// <param name="PreservedLog">留档的日志副本；挂调试器或找不到日志时为 null</param>
 public sealed record UncleanExit(DateTime StartedAt, bool DebuggerAttached, string? PreservedLog);
+
+/// <summary>进程存活标记（UncleanExitGuard 专用）。文件级 internal：source-gen 生成器不处理私有嵌套 context</summary>
+internal sealed record UncleanExitMarker(int Pid, DateTime ProcessStart, DateTime StartedAt, bool DebuggerAttached, string? LogSession);
+
+/// <summary>AOT 下反射序列化禁用：标记类型有界，挂 source-gen context（AOT 试编卡点 #1）</summary>
+[JsonSerializable(typeof(UncleanExitMarker))]
+internal sealed partial class UncleanExitMarkerJsonContext : JsonSerializerContext
+{
+}
 
 /// <summary>
 /// 异常退出检测：启动时按进程留一个标记，正常退出时删掉。
@@ -31,7 +41,6 @@ public sealed class UncleanExitGuard
         _markerPath = markerPath;
     }
 
-    private sealed record Marker(int Pid, DateTime ProcessStart, DateTime StartedAt, bool DebuggerAttached, string? LogSession);
 
     /// <summary>
     /// 应用启动用：标记放 <c>run/instances</c>，留档放崩溃目录，查到的异常退出写进日志
@@ -75,8 +84,8 @@ public sealed class UncleanExitGuard
 
         using System.Diagnostics.Process self = System.Diagnostics.Process.GetCurrentProcess();
         string path = Path.Combine(markerDirectory, $"{self.Id}.json");
-        Marker marker = new(self.Id, self.StartTime, DateTime.Now, debuggerAttached, logSession);
-        TryWrite(path, JsonSerializer.Serialize(marker));
+        UncleanExitMarker marker = new(self.Id, self.StartTime, DateTime.Now, debuggerAttached, logSession);
+        TryWrite(path, JsonSerializer.Serialize(marker, UncleanExitMarkerJsonContext.Default.UncleanExitMarker));
         return new UncleanExitGuard(path);
     }
 
@@ -92,7 +101,7 @@ public sealed class UncleanExitGuard
         int count = 0;
         foreach (string path in Directory.EnumerateFiles(markerDirectory, "*.json"))
         {
-            Marker? marker = TryRead(path);
+            UncleanExitMarker? marker = TryRead(path);
             if (marker != null && marker.Pid != Environment.ProcessId && IsAlive(marker)) count++;
         }
         return count;
@@ -106,7 +115,7 @@ public sealed class UncleanExitGuard
         List<UncleanExit> found = new();
         foreach (string path in Directory.EnumerateFiles(markerDirectory, "*.json"))
         {
-            Marker? marker = TryRead(path);
+            UncleanExitMarker? marker = TryRead(path);
 
             if (marker != null && IsAlive(marker)) continue; //另一个还开着的实例
 
@@ -123,11 +132,11 @@ public sealed class UncleanExitGuard
         return found.OrderBy(exit => exit.StartedAt).ToList();
     }
 
-    private static Marker? TryRead(string path)
+    private static UncleanExitMarker? TryRead(string path)
     {
         try
         {
-            return JsonSerializer.Deserialize<Marker>(File.ReadAllText(path));
+            return JsonSerializer.Deserialize<UncleanExitMarker>(File.ReadAllText(path), UncleanExitMarkerJsonContext.Default.Options);
         }
         catch (Exception)
         {
@@ -135,7 +144,7 @@ public sealed class UncleanExitGuard
         }
     }
 
-    private static bool IsAlive(Marker marker)
+    private static bool IsAlive(UncleanExitMarker marker)
     {
         try
         {
@@ -150,7 +159,7 @@ public sealed class UncleanExitGuard
     }
 
     // 那次运行的主日志可能滚动过好几份,按从旧到新拼成一份
-    private static string? Preserve(string logDirectory, string preserveDirectory, Marker marker)
+    private static string? Preserve(string logDirectory, string preserveDirectory, UncleanExitMarker marker)
     {
         List<string> files = LogStore.FindSessionFiles(logDirectory, marker.LogSession!);
         if (files.Count == 0) return null;

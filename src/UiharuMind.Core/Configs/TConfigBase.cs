@@ -10,5 +10,5 @@ namespace UiharuMind.Core.Configs;
 public class TConfigBase<T> : ConfigBase where T : class, new()
 {
     public static T Current { get; set; } =
-        SaveUtility.Load<T>(AppPaths.Config.ForType(typeof(T).Name)) ?? new T();
+        SaveUtility.Load<T>(AppPaths.Config.ForType(typeof(T).Name), SaveUtility.SaveJsonOptions) ?? new T();
 }
