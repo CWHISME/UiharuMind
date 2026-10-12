@@ -94,7 +94,10 @@ internal static class GrepResultShaper
             }
         }
 
+        // 文件按路径字典序输出,不随扫描顺序变——输出稳定,模型逐文件扫读时
+        // 顺序可预期;每文件内的行号仍升序(Read offset 照常可用)
         List<GrepFileHits> files = fileOrder
+            .OrderBy(file => file, StringComparer.Ordinal)
             .Select(file => new GrepFileHits { File = file, Lines = linesByFile[file].Values.Select(p => p.Text).ToList() })
             .ToList();
         return new GroupedHits(files, droppedMatches, droppedFiles.Count);
@@ -140,7 +143,7 @@ internal static class GrepResultShaper
             .ToList();
 
         string notice = $"{matches.Count} 处命中，跨 {byFile.Count} 个文件——太宽，无法内联返回。"
-                        + $"按命中数展示前 {map.Count} 个文件；`Read` 下面的文件，"
+                        + $"按命中数展示前 {map.Count} 个文件；可根据行号 `Read` 上面的文件，"
                         + "或收窄查询（fileGlobs/path）而不是换更宽的词重搜。";
 
         StringBuilder sb = new(map.Count * 64);
@@ -174,6 +177,13 @@ internal static class GrepResultShaper
     private static string? BuildNotice(GrepOutcome outcome, string pattern, GroupedHits grouped)
     {
         List<string> parts = [];
+
+        // 命中总数:让模型一眼知道这次搜到多少,不必数正文行数。0 命中时不说
+        // (下面的"0 处命中"已含总数语义),避免两句话重复
+        if (grouped.Files.Count > 0)
+        {
+            parts.Add($"共 {outcome.Matches.Count} 处命中，跨 {grouped.Files.Count} 个文件。");
+        }
 
         // 降级必须说:模型以为传的是正则,实际按字面搜的,不说它会把"少了几条命中"归错原因
         if (outcome.FellBackToLiteral)

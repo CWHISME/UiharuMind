@@ -70,7 +70,8 @@ public class GrepToolTextOutputTests : IDisposable
         Assert.Contains(".*Globber", result);
     }
 
-    /// <summary>多文件命中时路径行就是文件边界:正文在文件之间只有一个换行,没有空行/分隔行</summary>
+    /// <summary>多文件命中时路径行就是文件边界:正文在文件之间只有一个换行,没有空行/分隔行;
+    /// 命中总数统计拼在分隔行后的说明段</summary>
     [Fact]
     public async Task Grep_MultiFile_Body_UsesPathLineAsFileBoundary()
     {
@@ -83,7 +84,26 @@ public class GrepToolTextOutputTests : IDisposable
         Assert.Contains("a.txt\n1:needle one", result);
         Assert.Contains("b.txt\n1:needle two", result);
         Assert.DoesNotContain("needle one\n\n", result);
-        Assert.DoesNotContain("---", result); //无要说的说明时正文原样返回,没有分隔段
+        // 命中总数在说明段,与正文用分隔行隔开
+        Assert.Contains("---\n共 2 处命中，跨 2 个文件", result);
+    }
+
+    /// <summary>多文件命中按文件路径字典序输出,不随扫描顺序变——输出稳定,逐文件扫读顺序可预期</summary>
+    [Fact]
+    public async Task Grep_MultiFile_Body_IsOrderedByFilePath()
+    {
+        // 故意逆字典序创建:z 先写、a 后写,让扫描顺序与字典序相反
+        await File.WriteAllTextAsync(Path.Combine(_dir, "z.txt"), "needle\n", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(_dir, "a.txt"), "needle\n", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(_dir, "m.txt"), "needle\n", TestContext.Current.CancellationToken);
+
+        string result = await _tools.Grep("needle", ct: TestContext.Current.CancellationToken);
+
+        int a = result.IndexOf("a.txt\n", StringComparison.Ordinal);
+        int m = result.IndexOf("m.txt\n", StringComparison.Ordinal);
+        int z = result.IndexOf("z.txt\n", StringComparison.Ordinal);
+        Assert.True(a >= 0 && m >= 0 && z >= 0, "三个文件都应命中");
+        Assert.True(a < m && m < z, $"正文应按文件路径字典序,实际位置:{a},{m},{z}");
     }
 
     /// <summary>caseSensitive 参数恢复:传 true 时精确匹配(标准 grep/ripgrep 的 -s 语义),不传保持不区分</summary>

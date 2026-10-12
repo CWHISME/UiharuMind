@@ -123,9 +123,10 @@ public class ToolOutputCapTests : IDisposable
 
         // 300 处命中来自同一文件 → 路径行 + 封顶 200 条命中行,后面的被丢;说明拼接在正文后面的分隔段里
         Assert.StartsWith("haystack.txt\n", result);
-        string[] lines = result.Split('\n');
-        Assert.Equal(GrepResultShaper.MaxMatches + 1, lines.TakeWhile(line => line.Length > 0).Count());
+        string body = result.Split("\n\n---\n", 2)[0]; //分隔行前的才是正文,说明不算行数
+        Assert.Equal(GrepResultShaper.MaxMatches + 1, body.Split('\n').Count(line => line.Length > 0));
         Assert.DoesNotContain("needle 300", result);
+        Assert.Contains("共 300 处命中", result); //总数统计:300 = 已展示 200 + 丢弃 100
         Assert.Contains("另有 100 处", result);
         Assert.Contains("收窄查询", result);
     }
@@ -142,8 +143,10 @@ public class ToolOutputCapTests : IDisposable
 
         string result = await _tools.Grep("target", contextLines: 1, ct: TestContext.Current.CancellationToken);
 
-        // 正文保持 grep 味:路径行 + 命中行 "N:content"、上下文行 "N-content"(对齐 ripgrep)
-        Assert.Equal("ctx.txt\n2-l2\n3:target\n4-l4", result);
+        // 正文保持 grep 味:路径行 + 命中行 "N:content"、上下文行 "N-content"(对齐 ripgrep);
+        // 总数统计拼在分隔行后的说明段,不污染正文
+        Assert.StartsWith("ctx.txt\n2-l2\n3:target\n4-l4", result);
+        Assert.Contains("共 1 处命中，跨 1 个文件", result);
     }
 
     /// <summary>同一文件的多处命中,重叠上下文行只出现一次;行号升序</summary>
@@ -156,7 +159,8 @@ public class ToolOutputCapTests : IDisposable
         string result = await _tools.Grep("hit", contextLines: 2, ct: TestContext.Current.CancellationToken);
 
         // 三处命中 + 重叠上下文去重后,正文仍是 1/2/3 三行,按行号升序(路径行独占一行)
-        Assert.Equal("dense.txt\n1:hit\n2:hit\n3:hit", result);
+        Assert.StartsWith("dense.txt\n1:hit\n2:hit\n3:hit", result);
+        Assert.Contains("共 3 处命中", result);
     }
 
     /// <summary>

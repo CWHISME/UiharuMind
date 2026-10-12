@@ -173,8 +173,8 @@ internal sealed class PermissiveFileAccessTools
         }
 
         return outcome.Truncated
-            ? $"只展示前 {outcome.Entries.Count} 条；更多条目被丢弃。收窄模式，或用 path 限定范围。"
-            : null;
+            ? $"搜索范围太宽，只展示前 {outcome.Entries.Count} 条；更多条目被丢弃。收窄模式，或用 path 限定范围。"
+            : $"共 {outcome.Entries.Count} 条命中";
     }
 
     // 命中过多时怎么办只由地图的 Notice 说:它就贴在触发那一刻,描述里再写一遍是每轮白付
