@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
@@ -72,7 +73,7 @@ public class SaveUtilityTests
         {
             SaveUtility.SaveUtf8(path, writer =>
             {
-                JsonSerializer.Serialize(writer, new { title = "世界观·白露" }, SessionJsonOptions.Index);
+                JsonSerializer.Serialize(writer, new ChatMessage(ChatRole.User, "世界观·白露"), SessionJsonOptions.Index);
             }, SessionJsonOptions.Index);
 
             string text = File.ReadAllText(path);
