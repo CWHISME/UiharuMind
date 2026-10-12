@@ -105,11 +105,11 @@ public partial class TextFileWindow : QuickWindowBase
     /// <param name="text">正文</param>
     /// <param name="sourceName">语言来源：决定高亮、行号与默认预览的文件名或路径；为空不高亮</param>
     /// <param name="preview">是否默认进 Markdown 预览；不给就看来源是不是 Markdown 文件</param>
-    /// <param name="firstLineNumber">首行在原文件里的行号（Read 从中间读起的片段）</param>
+    /// <param name="numbering">行号口径（Read 片段从中间读起、末尾带附注）；默认从 1 起全部编号</param>
     public static void ShowText(string title, string text, string? sourceName = null, bool? preview = null,
-        int firstLineNumber = 1)
+        LineNumbering numbering = default)
     {
-        UIManager.ShowWindow<TextFileWindow>(w => w.SetTextSource(title, text, sourceName, preview, firstLineNumber),
+        UIManager.ShowWindow<TextFileWindow>(w => w.SetTextSource(title, text, sourceName, preview, numbering),
             isMulti: true, canReuse: w => w._document.IsReadOnly);
     }
 
@@ -236,9 +236,10 @@ public partial class TextFileWindow : QuickWindowBase
     }
 
     /// <summary>装载只读文本。预览、复制、另存为拿到的都是原文，不是编辑器里硬切过的副本</summary>
-    internal void SetTextSource(string title, string text, string? sourceName, bool? preview, int firstLineNumber = 1)
+    internal void SetTextSource(string title, string text, string? sourceName, bool? preview,
+        LineNumbering numbering = default)
     {
-        TextFileDocument document = TextFileDocument.ReadOnly(title, sourceName, firstLineNumber);
+        TextFileDocument document = TextFileDocument.ReadOnly(title, sourceName, numbering);
         LoadDocument(document, text, preview ?? document.IsMarkdown, lineNumber: null);
     }
 
@@ -312,7 +313,7 @@ public partial class TextFileWindow : QuickWindowBase
         view.WordWrap = _setting.WordWrap;
         WordWrapButton.IsChecked = _setting.WordWrap;
         view.ShowLineNumbers = LineNumbersPreference;
-        view.FirstLineNumber = _document.FirstLineNumber;
+        view.LineNumbering = _document.LineNumbering;
         LineNumbersMenuItem.IsChecked = LineNumbersPreference;
         SyntaxMenuItem.IsChecked = _setting.SyntaxHighlight;
         view.SyntaxSourceName = _setting.SyntaxHighlight ? _document.LanguageSource : null;

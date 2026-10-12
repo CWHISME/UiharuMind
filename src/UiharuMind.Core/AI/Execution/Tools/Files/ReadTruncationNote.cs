@@ -17,8 +17,14 @@ namespace UiharuMind.Core.AI.Execution.Files;
 /// </summary>
 public static class ReadTruncationNote
 {
+    private const string Marker = "…[已截断：显示第 "; //附注开头；全文窗以它切开原文与附注
+
     private static readonly Regex ShownStart = new(@"\[已截断：显示第 (\d+)–",
         RegexOptions.Compiled | RegexOptions.RightToLeft);
+
+    // 独占一行的完整附注；原文里恰好含附注字样时，靠「附注前正好是它声明的行数」排除
+    private static readonly Regex NoteLine = new(@"^…\[已截断：显示第 (\d+)–(\d+) 行，[^\n]*；续读传 offset=\d+\]$",
+        RegexOptions.Compiled | RegexOptions.Multiline | RegexOptions.RightToLeft);
 
     /// <summary>
     /// 生成截断附注
@@ -29,7 +35,7 @@ public static class ReadTruncationNote
     /// <param name="next">续读用的 offset</param>
     /// <returns>附注正文（不含前导换行）</returns>
     public static string Format(int start, int end, string total, int next) =>
-        $"…[已截断：显示第 {start}–{end} 行，{total}；续读传 offset={next}]";
+        $"{Marker}{start}–{end} 行，{total}；续读传 offset={next}]";
 
     /// <summary>
     /// 推算一次 Read 结果首行在原文件里的行号。有截断附注以附注为准（负 offset 也算得对）；
@@ -48,5 +54,23 @@ public static class ReadTruncationNote
         }
 
         return Math.Max(1, offset);
+    }
+
+    /// <summary>
+    /// 一次 Read 结果里原文占前几行。截断附注及其后的大纲、提示都不是原文，全文窗不给它们编行号
+    /// </summary>
+    /// <param name="resultText">Read 的结果原文</param>
+    /// <returns>原文行数；没有截断附注时返回 0（整份都是原文）</returns>
+    public static int ContentLineCount(string resultText)
+    {
+        foreach (Match match in NoteLine.Matches(resultText))
+        {
+            int start = int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
+            int end = int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture);
+            int linesBefore = resultText.AsSpan(0, match.Index).Count('\n');
+            if (end >= start && linesBefore == end - start + 1) return linesBefore;
+        }
+
+        return 0;
     }
 }

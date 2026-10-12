@@ -148,13 +148,13 @@ public sealed class TextFileWindowTests : IDisposable
     {
         TextFileWindow window = NewWindow();
 
-        window.SetTextSource("Read · 结果", "a\nb\n", "x.cs", null, firstLineNumber: 60);
-        Assert.Equal(60, Editor(window).FirstLineNumber);
+        window.SetTextSource("Read · 结果", "a\nb\n", "x.cs", null, new LineNumbering(60, 2));
+        Assert.Equal(new LineNumbering(60, 2), Editor(window).LineNumbering);
         SafeLineNumberMargin margin = Editor(window).GetVisualDescendants().OfType<SafeLineNumberMargin>().Single();
-        Assert.Equal(60, margin.FirstLineNumber);
+        Assert.Equal(new LineNumbering(60, 2), margin.LineNumbering);
 
         window.SetTextSource("Shell · 结果", "output", null, null);
-        Assert.Equal(1, margin.FirstLineNumber);
+        Assert.True(margin.LineNumbering.IsWhole);
     });
 
     /// <summary>参数是「键: 值」清单不是文档：即使涉及 Markdown 文件也不默认预览</summary>

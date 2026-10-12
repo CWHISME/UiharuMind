@@ -31,6 +31,7 @@ using UiharuMind.Core.AI.Execution.Tools.Skills;
 using UiharuMind.Core.AI.Execution.Tools.WebTools;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Generated;
+using UiharuMind.Shared.Controls;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils.Tools;
 using UiharuMind.Shared.Windows;
@@ -459,12 +460,14 @@ public partial class ToolCallItem : ConversationItemBase
     {
         // 语言来源与卡片同口径：回执（已保存/已修改 开头）不是文件正文，不上色；
         // 其余才是文件正文，按 FilePath 扩展名高亮，Read 读的是 Markdown 就直接进预览
-        // Read 片段的行号从它在原文件里的位置数起，才对得上 Edit 失败提示里的行号
-        int firstLine = IsFileContentTool(ToolName) && IsSuccess
-            ? ReadTruncationNote.FirstLineOf(ReadOffset, ResultText)
-            : 1;
+        // Read 片段的行号从它在原文件里的位置数起，才对得上 Edit 失败提示里的行号；
+        // 末尾的截断附注与大纲不是原文，不编号
+        LineNumbering numbering = IsFileContentTool(ToolName) && IsSuccess
+            ? new LineNumbering(ReadTruncationNote.FirstLineOf(ReadOffset, ResultText),
+                ReadTruncationNote.ContentLineCount(ResultText))
+            : LineNumbering.Whole;
         TextFileWindow.ShowText($"{ToolName} · {Loc.Text(LangKey.ToolFullTextResult)}", ResultText,
-            ResultHighlightSource, firstLineNumber: firstLine);
+            ResultHighlightSource, numbering: numbering);
     }
 
     /// <summary>把参数原文交给文本窗只读查看</summary>

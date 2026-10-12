@@ -27,17 +27,16 @@ public sealed class SafeLineNumberMargin : LineNumberMargin
 {
     private const double FallbackFontSize = 13;
 
-    private int _firstLineNumber = 1; //首行显示的行号：只读片段（Read 从第 60 行读起）要对上原文件行号
+    private LineNumbering _numbering = LineNumbering.Whole; //只读片段（Read 从第 60 行读起、末尾带附注）要对上原文件行号
 
-    /// <summary>首行显示的行号，默认 1</summary>
-    public int FirstLineNumber
+    /// <summary>行号口径，默认从 1 起全部编号</summary>
+    public LineNumbering LineNumbering
     {
-        get => _firstLineNumber;
+        get => _numbering;
         set
         {
-            value = Math.Max(1, value);
-            if (_firstLineNumber == value) return;
-            _firstLineNumber = value;
+            if (_numbering == value) return;
+            _numbering = value;
             InvalidateMeasure();
             InvalidateVisual();
         }
@@ -51,7 +50,7 @@ public sealed class SafeLineNumberMargin : LineNumberMargin
         try
         {
             Size size = base.MeasureOverride(availableSize);
-            return _firstLineNumber == 1 ? size : new Size(MeasureNumber(LastLineNumber()).Width, size.Height);
+            return _numbering.IsWhole ? size : new Size(MeasureNumber(LastLineNumber()).Width, size.Height);
         }
         catch (ArgumentOutOfRangeException)
         {
@@ -71,7 +70,7 @@ public sealed class SafeLineNumberMargin : LineNumberMargin
         }
         try
         {
-            if (_firstLineNumber == 1) base.Render(drawingContext);
+            if (_numbering.IsWhole) base.Render(drawingContext);
             else RenderShifted(drawingContext);
         }
         catch (ArgumentOutOfRangeException)
@@ -80,13 +79,13 @@ public sealed class SafeLineNumberMargin : LineNumberMargin
         }
     }
 
-    private int LastLineNumber() => _firstLineNumber + Math.Max(1, Document?.LineCount ?? 1) - 1;
+    private int LastLineNumber() => _numbering.FirstLine + Math.Max(1, Document?.LineCount ?? 1) - 1;
 
     private FormattedText MeasureNumber(int number) =>
         new(number.ToString(CultureInfo.CurrentCulture), CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
             Typeface, EmSize, GetValue(TextBlock.ForegroundProperty));
 
-    // 复刻上游 Render，只把行号加上偏移
+    // 复刻上游 Render，行号加上偏移、附注行不编号
     private void RenderShifted(DrawingContext drawingContext)
     {
         var textView = TextView;
@@ -94,7 +93,8 @@ public sealed class SafeLineNumberMargin : LineNumberMargin
         double width = Bounds.Width;
         foreach (var line in textView.VisualLines)
         {
-            FormattedText text = MeasureNumber(line.FirstDocumentLine.LineNumber + _firstLineNumber - 1);
+            if (_numbering.NumberOf(line.FirstDocumentLine.LineNumber) is not { } number) continue;
+            FormattedText text = MeasureNumber(number);
             double y = line.GetTextLineVisualYPosition(line.TextLines[0], AvaloniaEdit.Rendering.VisualYPosition.TextTop);
             drawingContext.DrawText(text, new Point(width - text.Width, y - textView.VerticalOffset));
         }
