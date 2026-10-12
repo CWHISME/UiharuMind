@@ -32,6 +32,11 @@ using UiharuMind.Features.Conversation;
 using UiharuMind.Shared.Data;
 using UiharuMind.Features.Conversation.Pages;
 using UiharuMind.Shared.Diagnostics;
+using UiharuMind.Features.AutoClick;
+using UiharuMind.Features.Clipboard;
+using UiharuMind.Features.Conversation.SidePanels;
+using UiharuMind.Features.QuickTools;
+using UiharuMind.Features.Audio;
 
 using UiharuMind.Shared.WindowManagement;
 using UiharuMind.Core.AI.Runtime.Backends;
@@ -41,6 +46,39 @@ namespace UiharuMind.Shared.Shell;
 public partial class MainViewModel : ViewModelBase //, IRecipient<string>
 {
     private readonly IServiceProvider _services;
+
+    // 显式工厂字典：替代 ActivatorUtilities 动态构造（AOT/裁剪友好）。
+    // ViewModel 新增时在这里登记——这是 AOT 要的显式化，不是负担。
+    // internal 供 App.Tests 断言集合完整性（新增忘登记时测试红）。
+    internal static readonly Dictionary<Type, Func<IServiceProvider, ViewModelBase>> ViewModelFactories =
+        new()
+        {
+            [typeof(QuickAutoClickViewModel)] = _ => new QuickAutoClickViewModel(),
+            [typeof(ChatInfoModel)] = _ => new ChatInfoModel(),
+            [typeof(ClipboardHistoryViewModel)] = _ => new ClipboardHistoryViewModel(),
+            [typeof(LogViewModel)] = _ => new LogViewModel(),
+            [typeof(SearchViewModel)] = sp => new SearchViewModel(sp.GetRequiredService<SearchService>()),
+            [typeof(RadialMenuModel)] = _ => new RadialMenuModel(),
+            [typeof(SettingViewModel)] = _ => new SettingViewModel(),
+            [typeof(GeneralSettingViewModel)] = _ => new GeneralSettingViewModel(),
+            [typeof(ShortcutSettingViewModel)] = _ => new ShortcutSettingViewModel(),
+        };
+
+    // 页面数据工厂：键即 MenuPages，值按 ActivatorUtilities 实际解析的构造签名从 sp 显式取参。
+    // 未知键回落 MenuModelKey（与原 switch 的 default 分支一致）。
+    internal static readonly Dictionary<MenuPages, Func<IServiceProvider, PageDataBase>> PageFactories =
+        new()
+        {
+            [MenuPages.MenuConversationKey] = _ => new ConversationPageData(),
+            [MenuPages.MenuCharacterKey] = sp => new HomePageData(sp.GetRequiredService<IMessageService>()),
+            [MenuPages.MenuTranslateKey] = _ => new TranslatePageData(),
+            [MenuPages.MenuModelKey] = sp => new ModelPageData(sp.GetRequiredService<IMessageService>(),
+                audio: sp.GetRequiredService<AudioServices>()),
+            [MenuPages.MenuServicesKey] = sp => new ServicesPageData(sp.GetRequiredService<IMessageService>()),
+            [MenuPages.MenuLogKey] = _ => new LogPageData(),
+            [MenuPages.MenuHelpKey] = _ => new HelpPageData(),
+        };
+
     public MenuViewData Menus { get; set; } = new MenuViewData();
 
     // public Footer Footers { get; set; } = new Footer();
@@ -116,17 +154,9 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
         if (vmPage == null)
         {
             long vmCtorBegin = global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Begin();
-            vmPage = message switch
-            {
-                MenuPages.MenuConversationKey => ActivatorUtilities.CreateInstance<ConversationPageData>(_services),
-                MenuPages.MenuCharacterKey => ActivatorUtilities.CreateInstance<HomePageData>(_services),
-                MenuPages.MenuTranslateKey => ActivatorUtilities.CreateInstance<TranslatePageData>(_services),
-                MenuPages.MenuModelKey => ActivatorUtilities.CreateInstance<ModelPageData>(_services),
-                MenuPages.MenuServicesKey => ActivatorUtilities.CreateInstance<ServicesPageData>(_services),
-                MenuPages.MenuLogKey => ActivatorUtilities.CreateInstance<LogPageData>(_services),
-                MenuPages.MenuHelpKey => ActivatorUtilities.CreateInstance<HelpPageData>(_services),
-                _ => GetPage(MenuPages.MenuModelKey),
-            };
+            vmPage = PageFactories.TryGetValue(message, out var factory)
+                ? factory(_services)
+                : GetPage(MenuPages.MenuModelKey);
             global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.End($"page/vm-ctor:{message}", vmCtorBegin);
             _viewPageModels.Add(message, vmPage);
         }
@@ -144,7 +174,7 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
         _viewModels.TryGetValue(typeof(T), out var vm);
         if (vm == null)
         {
-            vm = ActivatorUtilities.CreateInstance<T>(_services);
+            vm = ViewModelFactories[typeof(T)](_services);
             _viewModels.Add(typeof(T), vm);
         }
 
