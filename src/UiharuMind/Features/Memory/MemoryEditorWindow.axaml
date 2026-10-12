@@ -5,7 +5,7 @@
         xmlns:common="clr-namespace:UiharuMind.Features.Memory"
         xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
         mc:Ignorable="d"
-        x:Class="UiharuMind.Features.Memory.MemoryEditorWindow"
+        x:Class="UiharuMind.Features.Memory.MemoryEditorWindow" x:DataType="common:MemoryEditorWindowModel"
         xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
         Width="1040"
         Height="740"
@@ -260,14 +260,14 @@
                                                         </StackPanel>
                                                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5">
                                                             <ThemedIconButton Classes="icon-action"
-                                                                     IsEnabled="{Binding !DataContext.IsBusy, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                                     Command="{Binding DataContext.EditTextCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                     IsEnabled="{Binding !((common:MemoryEditorWindowModel)DataContext).IsBusy, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                     Command="{Binding ((common:MemoryEditorWindowModel)DataContext).EditTextCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                                      CommandParameter="{Binding}"
                                                                      IconName="pencil" ToolTips="{loc:Loc Edit}">
                                                             </ThemedIconButton>
                                                             <ThemedIconButton Classes="icon-action"
-                                                                     IsEnabled="{Binding !DataContext.IsBusy, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                                     Command="{Binding DataContext.DeleteTextCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                     IsEnabled="{Binding !((common:MemoryEditorWindowModel)DataContext).IsBusy, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                     Command="{Binding ((common:MemoryEditorWindowModel)DataContext).DeleteTextCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                                      CommandParameter="{Binding}"
                                                                      IconName="trash-2" ToolTips="{loc:Loc Delete}">
                                                             </ThemedIconButton>
@@ -341,13 +341,13 @@
                                                         </StackPanel>
                                                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5">
                                                             <ThemedIconButton Classes="icon-action"
-                                                                     Command="{Binding DataContext.OpenFileFolderCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                     Command="{Binding ((common:MemoryEditorWindowModel)DataContext).OpenFileFolderCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                                      CommandParameter="{Binding}"
                                                                      IconName="square-arrow-out-up-right" ToolTips="{loc:Loc OpenDirectory}">
                                                             </ThemedIconButton>
                                                             <ThemedIconButton Classes="icon-action"
-                                                                     IsEnabled="{Binding !DataContext.IsBusy, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                                     Command="{Binding DataContext.DeleteFileCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                     IsEnabled="{Binding !((common:MemoryEditorWindowModel)DataContext).IsBusy, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                     Command="{Binding ((common:MemoryEditorWindowModel)DataContext).DeleteFileCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                                      CommandParameter="{Binding}"
                                                                      IconName="trash-2" ToolTips="{loc:Loc Delete}">
                                                             </ThemedIconButton>

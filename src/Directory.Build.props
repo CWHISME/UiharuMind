@@ -4,6 +4,6 @@
     <Version>0.1.0</Version>
     <Nullable>enable</Nullable>
     <AvaloniaVersion>12.1.2</AvaloniaVersion>
-    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
 </Project>

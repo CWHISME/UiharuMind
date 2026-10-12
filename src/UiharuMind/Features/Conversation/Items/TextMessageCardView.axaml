@@ -130,7 +130,7 @@
                              增量本来就一直在喂 markdown 的 builder,延后的只是显示 -->
                         <common:SimpleMarkdownViewer HorizontalAlignment="Left"
                                                      MarkdownText="{Binding DisplayMessage}"
-                                                     IsPlaintext="{Binding DataContext.IsPlaintext,
+                                                     IsPlaintext="{Binding ((conv:ConversationViewModel)DataContext).IsPlaintext,
                                                      RelativeSource={RelativeSource AncestorType=conv:ConversationView}}" />
                         <!-- 截断提示行。只对旁白类(子代理报告/离席回执)出现:普通气泡 IsTruncated 恒为 false -->
                         <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsTruncated}">

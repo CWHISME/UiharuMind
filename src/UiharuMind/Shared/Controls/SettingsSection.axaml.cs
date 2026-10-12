@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Threading;
 
 namespace UiharuMind.Shared.Controls;
 
@@ -77,7 +78,10 @@ public partial class SettingsSection : UserControl
             || change.Property == DescriptionProperty
             || change.Property == BodyProperty)
         {
-            UpdateChromeVisibility();
+            // 编译绑定后属性变更可能来自后台线程（如测试清理里 ReplaceModels 的回调）：
+            // UI 属性跨线程访问会抛 VerifyAccess。Headless 并行下 CheckAccess 不可靠，
+            // 统一 Post 到 UI 线程刷新可见性（IsVisible 不触发本回调，不会循环）
+            Dispatcher.UIThread.Post(UpdateChromeVisibility);
         }
     }
 

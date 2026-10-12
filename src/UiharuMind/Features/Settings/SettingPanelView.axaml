@@ -5,7 +5,7 @@
              xmlns:settingViews="clr-namespace:UiharuMind.Features.Settings"
              xmlns:u="https://irihi.tech/ursa"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="UiharuMind.Features.Settings.SettingPanelView">
+             x:Class="UiharuMind.Features.Settings.SettingPanelView" x:DataType="settingViews:SettingPanelView">
 
     <Design.DataContext>
         <settingViews:SettingPanelView />

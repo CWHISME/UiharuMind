@@ -3,6 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+        xmlns:settings="clr-namespace:UiharuMind.Features.Settings"
         mc:Ignorable="d" d:DesignWidth="960" d:DesignHeight="680"
         Width="960"
         Height="680"
@@ -111,7 +112,7 @@
                                  BorderThickness="0"
                                  SelectionChanged="OnSearchResultSelected">
                             <ListBox.ItemTemplate>
-                                <DataTemplate>
+                                <DataTemplate x:DataType="settings:SettingsSearchHit">
                                     <TextBlock Text="{Binding Display}" VerticalAlignment="Center" />
                                 </DataTemplate>
                             </ListBox.ItemTemplate>

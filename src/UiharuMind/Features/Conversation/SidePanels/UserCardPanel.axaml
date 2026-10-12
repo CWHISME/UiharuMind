@@ -7,7 +7,7 @@
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              xmlns:panels="clr-namespace:UiharuMind.Features.Conversation.SidePanels"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="UiharuMind.Features.Conversation.SidePanels.UserCardPanel">
+             x:Class="UiharuMind.Features.Conversation.SidePanels.UserCardPanel" x:DataType="panels:UserCardViewData">
 
     <Design.DataContext>
         <panels:UserCardViewData />

@@ -111,7 +111,7 @@
 
             <!-- 工作区段：只有智能体档有这概念，普通对话整段不出。与群卡共用同一个组件 -->
             <panels:WorkspacePickerView DataContext="{Binding Conversation.Workspace}"
-                                        IsVisible="{Binding IsAgentType}" />
+                                        IsVisible="{Binding ((pages:ConversationPageData)DataContext).IsAgentType, RelativeSource={RelativeSource AncestorType=StackPanel}}" />
         </StackPanel>
     </Border>
 </UserControl>

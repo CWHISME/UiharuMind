@@ -3,6 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+        xmlns:wb="clr-namespace:UiharuMind.Features.WorldBooks"
         mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="480"
         x:Class="UiharuMind.Features.WorldBooks.WorldBookSelectWindow"
         Title="{loc:Loc WorldBookSelectTitle}"
@@ -20,7 +21,7 @@
 
         <ListBox x:Name="BookList">
             <ListBox.ItemTemplate>
-                <DataTemplate>
+                <DataTemplate x:DataType="wb:WorldBookListItem">
                     <StackPanel Spacing="2" Margin="2">
                         <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
                         <TextBlock Classes="muted" FontSize="12" Text="{Binding Summary}" />

@@ -9,7 +9,7 @@
         Height="560"
         MinWidth="560"
         MinHeight="460"
-        x:Class="UiharuMind.Features.Characters.UserCardEditWindow"
+        x:Class="UiharuMind.Features.Characters.UserCardEditWindow" x:DataType="viewData:CharacterDraft"
         Title="{loc:Loc UserCardEditor}"
         xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
 

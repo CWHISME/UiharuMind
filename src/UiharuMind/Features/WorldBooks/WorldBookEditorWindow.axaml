@@ -4,8 +4,9 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
         xmlns:viewData="clr-namespace:UiharuMind.Features.Characters"
+        xmlns:wb="clr-namespace:UiharuMind.Features.WorldBooks"
         mc:Ignorable="d" d:DesignWidth="520" d:DesignHeight="640"
-        x:Class="UiharuMind.Features.WorldBooks.WorldBookEditorWindow"
+        x:Class="UiharuMind.Features.WorldBooks.WorldBookEditorWindow" x:DataType="wb:WorldBookEditorWindowModel"
         Title="{loc:Loc WorldBookEditorTitle}"
         Width="520" Height="640"
         WindowStartupLocation="CenterOwner">
@@ -75,7 +76,7 @@
                                         </StackPanel>
                                     </StackPanel>
                                     <Button Grid.Column="1" Content="{loc:Loc Delete}" VerticalAlignment="Top"
-                                            Command="{Binding $parent[ItemsControl].((viewData:WorldBookEditorWindowModel)DataContext).RemoveEntryCommand}"
+                                            Command="{Binding $parent[ItemsControl].((wb:WorldBookEditorWindowModel)DataContext).RemoveEntryCommand}"
                                             CommandParameter="{Binding}" />
                                 </Grid>
                             </Border>

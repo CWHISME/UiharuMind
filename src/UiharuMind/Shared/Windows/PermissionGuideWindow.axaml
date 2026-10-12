@@ -4,6 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
         xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+        xmlns:perm="clr-namespace:UiharuMind.Shared.Services.Permissions"
         mc:Ignorable="d" d:DesignWidth="480" d:DesignHeight="520"
         Width="480"
         MinWidth="400"
@@ -82,7 +83,7 @@
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
-                        <DataTemplate>
+                        <DataTemplate x:DataType="perm:PermissionItem">
                             <Border Classes="CardSection">
                                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
                                     <Border Width="36" Height="36" CornerRadius="8"

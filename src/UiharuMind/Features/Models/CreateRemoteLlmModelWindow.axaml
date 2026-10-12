@@ -6,7 +6,7 @@
         xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
         xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
         mc:Ignorable="d" d:DesignWidth="860" d:DesignHeight="620"
-        x:Class="UiharuMind.Features.Models.CreateRemoteLlmModelWindow"
+        x:Class="UiharuMind.Features.Models.CreateRemoteLlmModelWindow" x:DataType="common:RemoteModelEditViewData"
         Width="860"
         Height="620"
         MinWidth="760"
@@ -95,7 +95,7 @@
                                     <Button Classes="copy-chip" Margin="0,0,8,8"
                                             Content="{Binding ModelName}"
                                             ToolTip.Tip="{Binding ModelPath}"
-                                            Command="{Binding DataContext.SelectCopySourceCommand,RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            Command="{Binding ((common:RemoteModelEditViewData)DataContext).SelectCopySourceCommand,RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                             CommandParameter="{Binding}" />
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -176,7 +176,7 @@
                                   SelectedIndex="{Binding ThinkingModeIndex}"
                                   HorizontalAlignment="Stretch">
                             <ComboBox.ItemTemplate>
-                                <DataTemplate>
+                                <DataTemplate x:DataType="common:ThinkingModeOptionItem">
                                     <TextBlock Text="{Binding Display}" />
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>

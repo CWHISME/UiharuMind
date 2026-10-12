@@ -3,7 +3,7 @@
         xmlns:vm="clr-namespace:UiharuMind.Features.QuickTools"
         xmlns:icons="clr-namespace:UiharuMind.Shared.Controls"
         xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
-        x:Class="UiharuMind.Features.QuickTools.FileSearchWindow"
+        x:Class="UiharuMind.Features.QuickTools.FileSearchWindow" x:DataType="vm:SearchViewModel"
         Title="{loc:Loc FileSearchTitle}"
         Width="800" Height="600"
         WindowStartupLocation="CenterOwner"

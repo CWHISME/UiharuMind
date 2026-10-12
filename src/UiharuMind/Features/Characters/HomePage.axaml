@@ -6,7 +6,7 @@
              xmlns:common="clr-namespace:UiharuMind.Features.Characters"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
               mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="720"
-              x:Class="UiharuMind.Features.Characters.HomePage"
+              x:Class="UiharuMind.Features.Characters.HomePage" x:DataType="pages:HomePageData"
                              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
 
     <Design.DataContext>

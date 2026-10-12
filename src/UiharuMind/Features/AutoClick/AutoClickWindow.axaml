@@ -14,7 +14,7 @@
     MinWidth="980"
     MinHeight="640"
     Icon="/Assets/Icon.png"
-    x:Class="UiharuMind.Features.AutoClick.AutoClickWindow"
+    x:Class="UiharuMind.Features.AutoClick.AutoClickWindow" x:DataType="vm:QuickAutoClickViewModel"
     Title="{Binding WindowTitle}">
 
     <Design.DataContext>
@@ -190,7 +190,7 @@
                                     <Border.ContextMenu>
                                         <ContextMenu>
                                             <MenuItem Header="{loc:Loc AutoClickRenameSession}" Click="RenameSessionMenuItem_Click" />
-                                            <MenuItem Header="{loc:Loc AutoClickDuplicateSession}" Command="{Binding DataContext.DuplicateSessionCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" />
+                                            <MenuItem Header="{loc:Loc AutoClickDuplicateSession}" Command="{Binding ((vm:QuickAutoClickViewModel)DataContext).DuplicateSessionCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" />
                                             <MenuItem Header="{loc:Loc Delete}" Click="DeleteSessionMenuItem_Click" />
                                         </ContextMenu>
                                     </Border.ContextMenu>
