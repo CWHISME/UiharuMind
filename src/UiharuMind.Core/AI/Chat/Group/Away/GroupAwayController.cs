@@ -27,6 +27,7 @@ public sealed class GroupAwayController
     private readonly Func<DateTimeOffset> _now;
     private readonly Func<ChatSession, string> _artifactStamp;
     private readonly GroupAwayApprover _approver;
+    private readonly Func<ChatSession, bool> _hasBackgroundWork;
     private readonly object _sync = new();
     private readonly Dictionary<string, GroupAwaySession> _sessions = new(); //群 → 正在进行的离席
 
@@ -49,15 +50,18 @@ public sealed class GroupAwayController
     /// <param name="now">当前时刻；null 取本地时间</param>
     /// <param name="artifactStamp">本群产物的指纹（变了即有新产物）；null 按 <see cref="GroupArtifacts.CollectFor"/> 算</param>
     /// <param name="approver">离席期间的审批通道；null 请化身判</param>
+    /// <param name="hasBackgroundWork">成员还有后台工作没交回；null 按未了结的工作与待交附注查</param>
     public GroupAwayController(GroupChatCoordinator coordinator,
         Func<ChatSession, string?, string?, ChatSession>? ensureAvatar = null,
         Func<GroupAwaySettings>? settings = null,
         Func<TimeSpan, CancellationToken, Task>? delay = null,
         Func<DateTimeOffset>? now = null,
         Func<ChatSession, string>? artifactStamp = null,
-        GroupAwayApprover? approver = null)
+        GroupAwayApprover? approver = null,
+        Func<ChatSession, bool>? hasBackgroundWork = null)
     {
         _approver = approver ?? new GroupAwayApprover(historyOf: coordinator.HistorySnapshot);
+        _hasBackgroundWork = hasBackgroundWork ?? HasBackgroundWork;
         _coordinator = coordinator;
         _ensureAvatar = ensureAvatar ?? GroupAvatar.EnsureFor;
         _settings = settings ?? (() => GroupAwaySettings.From(AgentSettingConfig.Current));
@@ -295,7 +299,8 @@ public sealed class GroupAwayController
 
             bool newArtifacts = stamp != session.ArtifactStamp;
             session.ArtifactStamp = stamp;
-            // 进展 = 成员接了话或落了新产物：退避归零
+            // 进展 = 成员接了话或落了新产物：退避归零（等后台的计数不清：成员闲聊不代表后台交回了，
+            // 清了它，活跃群里后台一挂起就永远等不到超限那一下硬叫醒）
             if (summary.MemberPostCount > 0 || newArtifacts) session.BackoffLevel = 0;
             // 被用户停下的那一波不算「没有新产物」；无限模式没有空闲保险丝
             if (newArtifacts) session.IdleWaves = 0;
@@ -303,22 +308,86 @@ public sealed class GroupAwayController
                 fuse = EGroupAwayEndReason.IdleFuse;
         }
 
-        if (fuse is { } reason)
+        // 判据在 _sync 外现查：禁在锁内调（HasPendingNotes 拿 coordinator 的锁），
+        // coordinator 回调 away（EpisodeEnded/UserPosted/UserPostAppended）也都不持它自己的锁，顺序只有这一向
+        switch (GroupAwayWakePolicy.Decide(fuse != null, summary.Stopped, emptyPush, _hasBackgroundWork(summary.Group)))
         {
-            Finish(session, reason, string.Empty);
+            case EGroupAwayWake.FinishIdle when fuse is { } idle:
+                Finish(session, idle, string.Empty);
+                break;
+            case EGroupAwayWake.WaitStop:
+                Schedule(session, session.Settings.StopDelay, GroupAvatarTranscript.StoppedNote(UserName));
+                break;
+            case EGroupAwayWake.DeferBackground:
+                DeferWake(session, null);
+                break;
+            case EGroupAwayWake.BackoffEmpty:
+                NoProgress(session, GroupAvatarTranscript.EmptyPushNote);
+                break;
+            case EGroupAwayWake.WakeNow:
+            default:
+                // default 与 WakeNow 同路：Decide 只返回以上五种，这里是防御性兜底，走统一入口重判一次
+                RequestWake(session, null);
+                break;
         }
-        else if (summary.Stopped)
+    }
+
+    // 成员名下还有后台工作没了结（在跑的后台任务/子代理），或有已跑完、等着叫他开口的附注
+    private bool HasBackgroundWork(ChatSession group)
+    {
+        if (group.GroupMemberSessionIds.Any(PendingWork.Has)) return true;
+        return _coordinator.HasPendingNotes(group.SessionId);
+    }
+
+    // 想叫化身的统一入口（波末分发、化身跑完重判、延迟到点）：后台没交回就等，不直接开跑，
+    // 化身抢跑与成员交回波的竞态缝只剩判据与开跑之间这一步
+    private void RequestWake(GroupAwaySession session, string? note)
+    {
+        if (_hasBackgroundWork(session.Group))
         {
-            Schedule(session, session.Settings.StopDelay, GroupAvatarTranscript.StoppedNote(UserName));
+            DeferWake(session, note);
+            return;
         }
-        else if (emptyPush)
+
+        // 后台了结（或从没拖过）：等后台的计数清零，下次 defer 从头数
+        lock (_sync)
         {
-            NoProgress(session, GroupAvatarTranscript.EmptyPushNote);
+            if (!session.IsEnded) session.DeferCount = 0;
         }
-        else
+
+        Wake(session, note);
+    }
+
+    // 后台没交回：这次不叫化身，等成员交回的那一波收场时再叫，不让他抢先错序。
+    // 化身跑着就记下、跑完收尾重判；否则排一个短延迟兜底——成员交回波若因故没来
+    // （如附注波被私聊闸吞掉、一句没说就不发波末事件），到点重判；连续超限则硬叫醒一次
+    // （后台可能真卡死了：卡死后的迟发言好过一直静默，化身那轮自会按没进展退避）
+    private void DeferWake(GroupAwaySession session, string? note)
+    {
+        bool avatarRunning;
+        bool capped = false;
+        TimeSpan recheck;
+        lock (_sync)
         {
-            Wake(session, null);
+            if (session.IsEnded) return;
+            session.CarryNote(note);
+            avatarRunning = session.IsAvatarRunning;
+            if (avatarRunning) session.WakePending = true;
+            // 与空闲保险丝借同一上限：连续等后台太久，真卡死了也要醒一次，不额外加配置。
+            // 硬叫醒后计数清零，重新开始等——后台还不交回就再等一轮，不连着吵
+            else if (++session.DeferCount > session.Settings.MaxIdleWaves)
+            {
+                session.DeferCount = 0;
+                capped = true;
+            }
+            recheck = session.Settings.BackoffStart;
         }
+
+        Log.Debug($"Group away defers the avatar: {session.Group.SessionId} has pending background work.");
+        RaiseStatusChanged(session.Group.SessionId);
+        if (avatarRunning) return;
+        if (capped) Wake(session, note);
+        else Schedule(session, recheck, null);
     }
 
     // note 记进「带给下一轮的提示」：化身正在跑就留到它跑完再叫的那一轮，延迟唤醒排着的也一并带上
@@ -440,10 +509,10 @@ public sealed class GroupAwayController
             lock (_sync) session.KickoffDelivered = false;
         }
 
-        // 跑的期间又有一波收场：不论这一轮结局如何，立刻再看一眼
+        // 跑的期间又有一波收场：不论这一轮结局如何，立刻再看一眼（后台没交回就继续等，不硬叫）
         if (pending)
         {
-            Wake(session, NoteFor(turn.Result));
+            RequestWake(session, NoteFor(turn.Result));
             return;
         }
 
@@ -544,7 +613,7 @@ public sealed class GroupAwayController
             return;
         }
 
-        Wake(session, null);
+        RequestWake(session, null);
     }
 
     private void NoProgress(GroupAwaySession session, string? note)
@@ -593,7 +662,7 @@ public sealed class GroupAwayController
             return;
         }
 
-        Wake(session, null);
+        RequestWake(session, null);
     }
 
     // 标记结束、摘掉登记；化身正在跑就等它那一轮停稳再出回执（RunAvatarAsync 收尾时补出）

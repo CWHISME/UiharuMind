@@ -490,6 +490,169 @@ public class GroupAwayControllerTests
         Assert.Null(_away.StatusOf(_group.SessionId));
     }
 
+    /// <summary>成员后台没交回时波末不等化身：这次不叫，只排兜底重判；后台了结、兜底到点才叫</summary>
+    [Fact]
+    public async Task BackgroundWorkPending_DefersAvatarUntilSettled()
+    {
+        bool backgroundPending = true;
+        GroupAwayController away = new(_coordinator, (_, _, _) => _avatar, () => _settings, Delay, () => _now,
+            _ => _stamp, hasBackgroundWork: _ => backgroundPending);
+        _runner.Replies[_avatar.SessionId] = _ => ""; //首轮没写正文：停在退避上
+        Assert.True(away.Start(_group, "目标", null));
+        await Until(() => AvatarCalls() == 1);
+        await Until(() => _delays.Count == 1);
+
+        await _coordinator.PostAsync(_group, "开工");
+        await Until(() => _delays.Count == 2); //Defer：不叫化身，只排兜底重判（旧延迟一并顶掉）
+        Assert.Equal(1, AvatarCalls());
+        // 兜底没到点之前化身一直不该跑：窗口内轮询恒为 1，慢机上的滞后也不会假通过
+        DateTime quietUntil = DateTime.UtcNow.AddMilliseconds(500);
+        while (DateTime.UtcNow < quietUntil)
+        {
+            Assert.Equal(1, AvatarCalls());
+            await Task.Delay(50);
+        }
+
+        _delays[1].Due.SetResult(); //兜底到点、后台还没完：仍不叫，再排下一次
+        await Until(() => _delays.Count == 3);
+        Assert.Equal(1, AvatarCalls());
+
+        backgroundPending = false;
+        _delays[2].Due.SetResult(); //兜底到点、后台已了结：化身照常被叫
+        await Until(() => AvatarCalls() == 2);
+    }
+
+    /// <summary>后台一直不交回：兜底重判几次后硬叫醒一次，不让离席悄悄卡死</summary>
+    [Fact]
+    public async Task BackgroundWorkNeverSettles_FallsBackToBackoffWake()
+    {
+        _settings = Settings with { MaxIdleWaves = 2 };
+        _coordinator.EpisodeEnded += _ => _stamp = "same"; //后挂的覆盖前面那个：一直没有新产物
+        GroupAwayController away = new(_coordinator, (_, _, _) => _avatar, () => _settings, Delay, () => _now,
+            _ => _stamp, hasBackgroundWork: _ => true);
+        _runner.Replies[_avatar.SessionId] = _ => ""; //没写正文：每次都是 Silent，不连锁
+        Assert.True(away.Start(_group, "目标", null));
+        await Until(() => AvatarCalls() == 1);
+        await Until(() => _delays.Count == 1);
+
+        await _coordinator.ContinueAsync(_group); //空波收场：MemberPostCount 为 0，正好走 Defer
+        await Until(() => _delays.Count == 2);
+        Assert.Equal(1, AvatarCalls());
+
+        _delays[1].Due.SetResult(); //第一次兜底：还等（DeferCount=2，未超限）
+        await Until(() => _delays.Count == 3);
+        Assert.Equal(1, AvatarCalls());
+
+        _delays[2].Due.SetResult(); //第二次兜底：DeferCount=3 超限，硬叫醒一次（迟发言好过静默卡死）
+        await Until(() => AvatarCalls() == 2);
+        Assert.True(away.IsAway(_group.SessionId)); //只是出来看一眼，不是结束
+        Assert.Empty(_receipts);
+    }
+
+    /// <summary>化身跑着时波末 defer：只记 WakePending 不排延迟，跑完收尾重判，后台还在就继续等</summary>
+    [Fact]
+    public async Task AvatarRunning_DefersWithWakePending_ReevaluatesAfterTurn()
+    {
+        bool backgroundPending = true;
+        GroupAwayController away = new(_coordinator, (_, _, _) => _avatar, () => _settings, Delay, () => _now,
+            _ => _stamp, hasBackgroundWork: _ => backgroundPending);
+        TaskCompletionSource gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        _runner.During[_avatar.SessionId] = () => gate.Task; //化身首轮卡住：正在跑
+        _runner.Replies[_avatar.SessionId] = _ => ""; //放行后没写正文：Silent
+
+        Assert.True(away.Start(_group, "目标", null));
+        await Until(() => AvatarCalls() == 1);
+
+        await _coordinator.PostAsync(_group, "开工"); //成员波收场时化身还在跑：Defer 只记旗，不排延迟
+        Assert.Equal(1, AvatarCalls());
+        Assert.Empty(_delays);
+
+        gate.SetResult(); //化身跑完收尾：pending 走 RequestWake 重判，后台还在就排兜底
+        await Until(() => _delays.Count == 1);
+        Assert.Equal(1, AvatarCalls());
+
+        backgroundPending = false;
+        _delays[0].Due.SetResult();
+        await Until(() => AvatarCalls() == 2);
+        Assert.EndsWith(GroupAvatarTranscript.SilentNote, LastAvatarInput()); //跑完那轮的提示带过来了
+    }
+
+    /// <summary>用户停了波、成员后台又没交回：按停止口径固定延迟，不悄悄等后台</summary>
+    [Fact]
+    public async Task StoppedWave_WithBackgroundPending_TakesStopDelay()
+    {
+        GroupAwayController away = new(_coordinator, (_, _, _) => _avatar, () => _settings, Delay, () => _now,
+            _ => _stamp, hasBackgroundWork: _ => true);
+        _runner.Replies[_avatar.SessionId] = _ => ""; //没写正文
+        Assert.True(away.Start(_group, "目标", null));
+        await Until(() => AvatarCalls() == 1);
+        await Until(() => _delays.Count == 1);
+
+        _runner.During[_alice.SessionId] = () =>
+        {
+            _coordinator.Stop(_group.SessionId);
+            return Task.CompletedTask;
+        };
+        await _coordinator.PostAsync(_group, "开工");
+        await Until(() => _delays.Count == 2);
+        Assert.Equal(Settings.StopDelay, _delays[^1].Delay); //停止优先于等后台
+        Assert.Equal(1, AvatarCalls());
+    }
+
+    /// <summary>退避等着时后台刚起：延迟到点走统一入口重判，转 defer 排兜底，不硬叫</summary>
+    [Fact]
+    public async Task BackgroundStartsPendingMidWait_TimerFireDefers()
+    {
+        bool backgroundPending = false;
+        GroupAwayController away = new(_coordinator, (_, _, _) => _avatar, () => _settings, Delay, () => _now,
+            _ => _stamp, hasBackgroundWork: _ => backgroundPending);
+        _runner.Replies[_avatar.SessionId] = _ => ""; //没写正文
+        Assert.True(away.Start(_group, "目标", null));
+        await Until(() => AvatarCalls() == 1);
+        await Until(() => _delays.Count == 1);
+
+        backgroundPending = true;
+        _delays[0].Due.SetResult(); //退避到点、后台没完：转 defer，不叫化身
+        await Until(() => _delays.Count == 2);
+        Assert.Equal(1, AvatarCalls());
+
+        backgroundPending = false;
+        _delays[1].Due.SetResult();
+        await Until(() => AvatarCalls() == 2);
+    }
+
+    /// <summary>后台了结后计数清零：第二轮 defer 从头数，不会沿用上一轮的计数提前硬叫醒</summary>
+    [Fact]
+    public async Task DeferCount_ResetsAfterSettle_SecondDeferCountsFromScratch()
+    {
+        _settings = Settings with { MaxIdleWaves = 1 }; //defer 一次就到顶：计数不清零的话，第二轮直接硬叫醒
+        bool backgroundPending = true;
+        GroupAwayController away = new(_coordinator, (_, _, _) => _avatar, () => _settings, Delay, () => _now,
+            _ => _stamp, hasBackgroundWork: _ => backgroundPending);
+        _runner.Replies[_avatar.SessionId] = _ => ""; //没写正文
+        Assert.True(away.Start(_group, "目标", null));
+        await Until(() => AvatarCalls() == 1);
+        await Until(() => _delays.Count == 1);
+
+        await _coordinator.PostAsync(_group, "开工"); //DeferCount=1，未超限，排兜底
+        await Until(() => _delays.Count == 2);
+
+        backgroundPending = false;
+        _delays[1].Due.SetResult(); //了结：叫醒化身，计数清零
+        await Until(() => AvatarCalls() == 2);
+
+        backgroundPending = true;
+        await _coordinator.PostAsync(_group, "再开工"); //第二轮 defer 应从 1 数：排兜底，不硬叫醒
+        await Until(() => _delays.Count == 4);
+        Assert.Equal(2, AvatarCalls());
+        DateTime quietUntil = DateTime.UtcNow.AddMilliseconds(500);
+        while (DateTime.UtcNow < quietUntil)
+        {
+            Assert.Equal(2, AvatarCalls());
+            await Task.Delay(50);
+        }
+    }
+
     [Fact]
     public async Task UserPost_CancelsTheCountdown_AndHisWaveWakesTheAvatar()
     {

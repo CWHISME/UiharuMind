@@ -90,6 +90,9 @@ internal sealed class GroupAwaySession
     /// <summary>连续没进展的次数（退避的级数）</summary>
     public int BackoffLevel { get; set; }
 
+    /// <summary>连续等后台的次数：成员交回即清零，超限按没进展退避唤醒，不让离席悄悄卡死</summary>
+    public int DeferCount { get; set; }
+
     /// <summary>连续没有新产物的波数</summary>
     public int IdleWaves { get; set; }
 

@@ -40,6 +40,18 @@ public sealed partial class GroupChatCoordinator
         return true;
     }
 
+    /// <summary>
+    /// 这个群有没有还没交出去的成员附注（后台任务跑完了、等着叫他开口的）。
+    /// 离席据此决定波末要不要叫化身：有就等成员先说，不让化身抢先错序
+    /// </summary>
+    /// <param name="groupId">群壳会话标识</param>
+    /// <returns>有为 true</returns>
+    public bool HasPendingNotes(string groupId)
+    {
+        if (_load(groupId) is not { IsGroup: true } group) return false;
+        lock (_locker) return group.GroupMemberSessionIds.Any(_notes.ContainsKey);
+    }
+
     // 插进他正在跑的那一轮，等到封口或收尾才知道消费了没有。没插进去或被撤回的转回挂起，返回 false
     private async Task<bool> InjectNoteAsync(GroupMemberTurnState turn, ChatMessage note)
     {
