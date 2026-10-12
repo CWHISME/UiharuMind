@@ -55,7 +55,7 @@ internal sealed class PermissiveFileAccessTools
 
     // 描述只写契约;何时读全文、何时先 Grep 再切片是策略,归文件纪律段(AgentToolPrompts.FileReadDefault)
     private const string ReadDescription =
-        "读取文件的原始内容。";
+        "读取文件的原始内容。代码与 Markdown 被截断时附文件大纲（各类型、函数、标题的起止行），据此传 offset 与 head 只读需要的段。";
 
     private const string ReadImagesDescription = " PNG、JPEG 与 WebP 文件会以图片形式展示。"; //只有视觉模型的装配才说
 
@@ -223,7 +223,7 @@ internal sealed class PermissiveFileAccessTools
     }
 
     // 命中过多时怎么办只由地图的 Notice 说:它就贴在触发那一刻,描述里再写一遍是每轮白付
-    [Description("搜索文件内存在的指定内容")]
+    [Description("搜索文件内存在的指定内容。代码文件的命中前会标出所在结构，如 [位于 12–40] void Run()，可直接按这个范围 Read")]
     internal async Task<string> Grep(
         [Description("匹配模式（ripgrep 语法）")] string pattern,
         [Description("可选，每处命中前后显示多少行上下文。")] int contextLines = 0,
@@ -243,7 +243,8 @@ internal sealed class PermissiveFileAccessTools
         GrepOutcome outcome = await _grepper
             .SearchAsync(pattern, isRegex, caseSensitive, filesOnly ? 0 : contextLines, maxDepth: null, fileGlobs, path, ct)
             .ConfigureAwait(false);
-        return GrepResultShaper.Shape(outcome, pattern, filesOnly);
+        return GrepResultShaper.Shape(outcome, pattern, filesOnly,
+            file => _paths.TryResolve(file, out string full, out _) ? FileOutline.ExtractFile(full) : null);
     }
 
     internal Task<string> Read(
@@ -252,8 +253,10 @@ internal sealed class PermissiveFileAccessTools
         int offset = 1,
         [Description("从 offset 开始，最多返回的行数")]
         int? head = null,
+        [Description("可选，只返回文件大纲（类型、函数、标题及起止行），不返回正文。大文件先看结构，再按行号只读需要的段")]
+        bool outline = false,
         CancellationToken cancellationToken = default)
-        => _reader.ReadAsync(filePath, offset, head, cancellationToken);
+        => _reader.ReadAsync(filePath, offset, head, outline, cancellationToken);
 
     [Description("新建文件，或整份替换已有文件，局部修改用 Edit")]
     internal async Task<string> Write(

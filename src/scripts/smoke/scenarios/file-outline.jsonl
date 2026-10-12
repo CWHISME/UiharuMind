@@ -1,0 +1,8 @@
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"session.new","args":{"character":"CodeReader","workspace":"{{WS_CODE}}"}}
+{"op":"session.post","args":{"text":"src/UiharuMind/Features/Conversation/ConversationViewModel.cs 里，会话历史里某条消息被替换时，界面这边是哪个方法处理的？告诉我方法名、它的起止行号，以及它做了什么。"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"deny"}}
+{"op":"session.post","args":{"text":"在 src/UiharuMind.Core/AI/Chat/Core/ChatSession.cs 的 UnloadHistory 方法里，方法体的第一行前面加一行注释：// 冒烟：大纲定位"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"once"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/outline.md"}}
+{"op":"quit"}

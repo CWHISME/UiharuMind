@@ -40,7 +40,7 @@ public sealed class ReadToolTests : IDisposable
     }
 
     private Task<string> Read(string path, int offset = 1, int? limit = null) =>
-        _tools.Read(path, offset, limit, TestContext.Current.CancellationToken);
+        _tools.Read(path, offset, limit, cancellationToken: TestContext.Current.CancellationToken);
 
     private static string Lines(int count) => string.Join('\n', Enumerable.Range(1, count).Select(i => $"line{i}")) + "\n";
 
@@ -62,11 +62,11 @@ public sealed class ReadToolTests : IDisposable
         string path = Save("big.txt", Lines(2500));
         var tools = new PermissiveFileAccessTools(new AgentPathResolver(_dir), offerSummary: true);
 
-        string result = await tools.Read(path, 1, 100, TestContext.Current.CancellationToken);
+        string result = await tools.Read(path, 1, 100, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.EndsWith($"续读传 offset=101]\n要整体理解这份文件，可交给 `{BrainTool.ToolName}`，task 里写清要什么。", result);
         Assert.DoesNotContain(BrainTool.ToolName, await tools.Read(Save("small.txt", Lines(3)), 1, null,
-            TestContext.Current.CancellationToken)); //没截断不提
+            cancellationToken: TestContext.Current.CancellationToken)); //没截断不提
     }
 
     /// <summary>全文窗按结果推首行行号：截断附注为准（负 offset 也对），没截断用正 offset</summary>

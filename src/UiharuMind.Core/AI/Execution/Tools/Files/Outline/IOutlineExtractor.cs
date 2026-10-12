@@ -6,7 +6,16 @@ namespace UiharuMind.Core.AI.Execution.Files;
 /// <param name="Line">行号，1 起算（与 Read 的 offset 同口径，模型可直接跳读）</param>
 /// <param name="Depth">嵌套深度，0 为最外层；渲染按它缩进，超预算时先裁最深的层</param>
 /// <param name="Text">显示文本，如 <c>class Foo : Bar</c>、<c>## 安装</c></param>
-internal readonly record struct OutlineEntry(int Line, int Depth, string Text);
+/// <param name="EndLine">结构的最后一行（大括号闭合处、下一个同级标题前）；0 表示未知。Grep 靠它判断命中落在哪个结构里</param>
+internal readonly record struct OutlineEntry(int Line, int Depth, string Text, int EndLine = 0)
+{
+    /// <summary>
+    /// 某行是否落在这个结构里
+    /// </summary>
+    /// <param name="line">行号，1 起算</param>
+    /// <returns>是否包含</returns>
+    public bool Contains(int line) => line >= Line && line <= EndLine;
+}
 
 /// <summary>
 /// 某类文件的结构抽取器。只管「从行里认出结构」，预算、裁剪与渲染统一在 <see cref="FileOutline"/>。

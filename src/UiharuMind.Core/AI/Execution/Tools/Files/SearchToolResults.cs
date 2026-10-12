@@ -43,22 +43,6 @@ internal static class ToolResultText
 }
 
 /// <summary>
-/// 一个文件的一组命中行——<b>只作塑形中间结构</b>，不再跨模型边界序列化。
-///
-/// 模型读到的是 <see cref="GrepResultShaper"/> 渲成的文本：每文件路径单独一行、下面是
-/// 命中行与上下文行（命中 <c>行号: 内容</c>、上下文 <c>行号- 内容</c>，对齐 ripgrep），
-/// 行号拿来发 <c>Read offset=</c> 依旧毫不费力。分组、去重、行号排序全在这一层做。
-/// </summary>
-internal sealed class GrepFileHits
-{
-    /// <summary>文件路径（相对工作区）</summary>
-    public string File { get; set; } = string.Empty;
-
-    /// <summary>命中行与其上下文，按行号升序</summary>
-    public List<string> Lines { get; set; } = [];
-}
-
-/// <summary>
 /// 把结构化的失败原因渲染成给<b>模型</b>看的一段话。
 ///
 /// 措辞与提示词散文统一中文（ADR 0017 的口径）：面向中文语料为主的本地小模型，

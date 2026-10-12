@@ -36,14 +36,18 @@ internal static class GrepResultShaper
     /// </summary>
     internal const int MaxOutputBytes = 16 * 1024;
 
+    private const int MaxOutlinedFiles = 30; //标注所在结构要逐个读文件，命中文件多时只标前这么多个
+
     /// <summary>
     /// 塑形一次搜索结果，返回给模型的纯文本
     /// </summary>
     /// <param name="outcome">搜索器的结构化结果</param>
     /// <param name="pattern">模型传入的原始表达式（用于说明降级与归一化）</param>
     /// <param name="filesOnly">只要命中分布（文件 + 命中数 + 行号），不要匹配内容</param>
+    /// <param name="outlineOf">按命中文件的路径取大纲，用来标注命中所在的结构；null 不标注</param>
     /// <returns>回给模型的工具结果正文（失败、说明一律拼在同段文本里）</returns>
-    public static string Shape(GrepOutcome outcome, string pattern, bool filesOnly = false)
+    public static string Shape(GrepOutcome outcome, string pattern, bool filesOnly = false,
+        Func<string, IReadOnlyList<OutlineEntry>?>? outlineOf = null)
     {
         if (outcome.Failure != null)
         {
@@ -54,9 +58,20 @@ internal static class GrepResultShaper
         if (filesOnly) return ShapeFilesOnly(outcome, pattern);
 
         GroupedHits grouped = GroupByFile(outcome.Matches);
-        string body = RenderBody(grouped.Files);
+        string body = RenderBody(grouped.Files.Select(file => (file.File, file.Lines.Select(line => line.Text))));
         bool tooWide = grouped.DroppedMatches > 0 || Encoding.UTF8.GetByteCount(body) > MaxOutputBytes;
-        if (!tooWide) return ToolResultText.AppendNotice(body, BuildNotice(outcome, pattern, grouped.Files.Count));
+        if (!tooWide)
+        {
+            // 走不走地图只看正文本身；确定返回正文后再补标注，补完超预算就不补——标注不能把正文挤成地图
+            if (outlineOf != null && grouped.Files.Count <= MaxOutlinedFiles)
+            {
+                string annotated = RenderBody(grouped.Files.Select(file =>
+                    (file.File, AnnotateScopes(file.Lines, outlineOf(file.File)))));
+                if (Encoding.UTF8.GetByteCount(annotated) <= MaxOutputBytes) body = annotated;
+            }
+
+            return ToolResultText.AppendNotice(body, BuildNotice(outcome, pattern, grouped.Files.Count));
+        }
 
         // 命中过多：直接给分布地图，不再返半截正文——半截按扫描序取、无相关度排序，
         // 模型会锚定到运气好的文件上（地图按全量统计）。地图开头先声明「这不是正文」，
@@ -85,7 +100,10 @@ internal static class GrepResultShaper
         return ToolResultText.AppendNotice("文件过多，下面是按目录的命中分布：\n" + map.Body, string.Join(" ", parts));
     }
 
-    private readonly record struct GroupedHits(List<GrepFileHits> Files, int DroppedMatches);
+    /// <summary>一个文件去重排好的命中与上下文行</summary>
+    private readonly record struct FileLines(string File, List<PlacedLine> Lines);
+
+    private readonly record struct GroupedHits(List<FileLines> Files, int DroppedMatches);
 
     // 限幅按"命中处"计(一处命中连同它的上下文行算一条)
     private static GroupedHits GroupByFile(IReadOnlyList<GrepMatchResult> matches)
@@ -120,36 +138,65 @@ internal static class GrepResultShaper
                     && (existing.IsMatch || !line.IsMatch)) continue;
 
                 char separator = line.IsMatch ? ':' : '-';
-                lines[line.LineNumber] = new PlacedLine(line.IsMatch,
+                lines[line.LineNumber] = new PlacedLine(line.LineNumber, line.IsMatch,
                     $"{line.LineNumber}{separator}{ToolOutputTruncation.TruncateLine(line.Line, MaxLineChars)}");
             }
         }
 
         // 文件按路径字典序输出,不随扫描顺序变——输出稳定,模型逐文件扫读时
         // 顺序可预期;每文件内的行号仍升序(Read offset 照常可用)
-        List<GrepFileHits> files = fileOrder
+        List<FileLines> files = fileOrder
             .OrderBy(file => file, StringComparer.Ordinal)
-            .Select(file => new GrepFileHits { File = file, Lines = linesByFile[file].Values.Select(p => p.Text).ToList() })
+            .Select(file => new FileLines(file, linesByFile[file].Values.ToList()))
             .ToList();
         return new GroupedHits(files, droppedMatches);
     }
 
-    /// <summary>同一行只保留一条时的排放记录：是否命中行 + 渲染文本。命中行比上下文行优先</summary>
-    private readonly record struct PlacedLine(bool IsMatch, string Text);
+    /// <summary>同一行只保留一条时的排放记录：行号、是否命中行、渲染文本。命中行比上下文行优先</summary>
+    private readonly record struct PlacedLine(int LineNumber, bool IsMatch, string Text);
+
+    // 所在结构变了就插一行 [位于 起–止] 签名：模型不必为确认「这处命中在哪个方法里」再 Read 一次。
+    // 三种情况不标，标了只是重复或噪音：命中落在声明行本身（查定义）时标它的上一层；
+    // 声明行已作为命中或上下文显示出来；整份文件只有一个顶层结构（一个文件一个类，几乎每处命中都在它里面）
+    private static IEnumerable<string> AnnotateScopes(List<PlacedLine> lines, IReadOnlyList<OutlineEntry>? outline)
+    {
+        if (outline is not { Count: > 0 }) return lines.Select(line => line.Text).ToList();
+
+        int minDepth = outline.Min(entry => entry.Depth);
+        OutlineEntry? soleRoot = outline.Count(entry => entry.Depth == minDepth) == 1
+            ? outline.First(entry => entry.Depth == minDepth)
+            : null;
+        var shown = new HashSet<int>(lines.Select(line => line.LineNumber));
+        var result = new List<string>();
+        OutlineEntry? current = null;
+        foreach (PlacedLine line in lines)
+        {
+            OutlineEntry? scope = FileOutline.Enclosing(outline, line.LineNumber, excludeStartingHere: true);
+            if (scope is { } entry && scope != current && scope != soleRoot && !shown.Contains(entry.Line))
+            {
+                result.Add($"[位于 {FileOutline.FormatRange(entry)}] {entry.Text}");
+            }
+
+            current = scope;
+            result.Add(line.Text);
+        }
+
+        return result;
+    }
 
     /// <summary>
     /// 把分组后的命中组渲成一段文本：文件路径单独一行，下面接它的命中行与上下文行
     /// （命中 <c>行号: 内容</c>、上下文 <c>行号- 内容</c>）。路径行本身即文件边界。
     /// 每行末尾一个 <c>\n</c>，字节预算按整段渲完的文本算（与 Read 同口径）。
     /// </summary>
-    private static string RenderBody(List<GrepFileHits> files)
+    private static string RenderBody(IEnumerable<(string File, IEnumerable<string> Lines)> files)
     {
         var sb = new StringBuilder();
-        foreach (GrepFileHits file in files)
+        foreach ((string file, IEnumerable<string> lines) in files)
         {
             if (sb.Length > 0) sb.Append('\n');
-            sb.Append(file.File).Append('\n');
-            sb.Append(string.Join('\n', file.Lines));
+            sb.Append(file).Append('\n');
+            sb.AppendJoin('\n', lines);
         }
 
         return sb.ToString();

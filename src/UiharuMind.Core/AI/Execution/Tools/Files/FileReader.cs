@@ -72,14 +72,26 @@ internal sealed class FileReader
     }
 
     /// <summary>
-    /// 读一个文件
+    /// 读一个文件的正文
     /// </summary>
     /// <param name="filePath">模型给的路径</param>
     /// <param name="offset">起始行（从 1 起）；负数从文件末尾倒数</param>
     /// <param name="limit">最多几行；-1 读全文且不设字节上限</param>
     /// <param name="ct">取消令牌</param>
     /// <returns>工具结果</returns>
-    public async Task<string> ReadAsync(string filePath, int offset, int? limit, CancellationToken ct)
+    public Task<string> ReadAsync(string filePath, int offset, int? limit, CancellationToken ct) =>
+        ReadAsync(filePath, offset, limit, outline: false, ct);
+
+    /// <summary>
+    /// 读一个文件
+    /// </summary>
+    /// <param name="filePath">模型给的路径</param>
+    /// <param name="offset">起始行（从 1 起）；负数从文件末尾倒数</param>
+    /// <param name="limit">最多几行；-1 读全文且不设字节上限</param>
+    /// <param name="outline">只要文件大纲，不要正文</param>
+    /// <param name="ct">取消令牌</param>
+    /// <returns>工具结果</returns>
+    public async Task<string> ReadAsync(string filePath, int offset, int? limit, bool outline, CancellationToken ct)
     {
         if (!_paths.TryResolve(filePath, out string full, out string pathError)) return pathError;
         if (_paths.RelativeToMemory(full) == ".") return ReadMemoryIndex();
@@ -90,6 +102,12 @@ internal sealed class FileReader
         if (ImagePreview.IsImagePath(filePath)) return await ReadImageAsync(filePath, full, ct).ConfigureAwait(false);
 
         long size = new FileInfo(full).Length;
+        if (outline)
+        {
+            string result = await ReadOutlineAsync(filePath, full, size, ct).ConfigureAwait(false);
+            return offset != 1 || limit != null ? result + "\n[outline 模式只返回大纲，已忽略 offset 与 head]" : result;
+        }
+
         return size <= WholeFileBytes
             ? await ReadWholeAsync(filePath, full, offset, limit, _truncationHint, ct).ConfigureAwait(false)
             : ReadStreaming(filePath, full, size, offset, limit, _truncationHint);
@@ -123,24 +141,47 @@ internal sealed class FileReader
         if (start > lines.Count) return $"offset {offset} 超出了 '{filePath}' 的末尾（共 {lines.Count} 行）。";
 
         (List<string> window, bool hasMore) = TakeWindow(lines.Skip(start - 1).Select(range => text[range]), limit);
-        // 只在从头读、被截断时附大纲：此时模型还不知道文件长什么样；带 offset 翻页时它已经看过了。
-        // 流式读的大文件（>8MB）不附——多是日志与生成物，为它多扫一遍不值
-        string? outline = hasMore && start == 1 ? FileOutline.Render(filePath, lines.Select(range => text[range])) : null;
+        // 只在不传 head、从头读、被截断时附大纲：此时模型还不知道文件长什么样；
+        // 带 offset 翻页时它已经看过了，自己传 head 的是有备而来，不该每次多付约 1k token。
+        // 流式读的大文件（>8MB）不附——多是日志与生成物，为它多扫一遍不值，只提示可以要
+        string? outline = hasMore && start == 1 && limit == null
+            ? FileOutline.Render(filePath, lines.Select(range => text[range]), shownThrough: window.Count)
+            : null;
         return Render(window, start, hasMore, $"共 {lines.Count} 行", EncodingNote(probe), outline, truncationHint);
+    }
+
+    private static async Task<string> ReadOutlineAsync(string filePath, string full, long size, CancellationToken ct)
+    {
+        if (!FileOutline.Supports(filePath))
+        {
+            return $"'{filePath}' 的类型没有大纲（支持 {FileOutline.SupportedExtensions}）；去掉 outline 读正文，或用 `{FileToolNames.Grep}` 定位。";
+        }
+
+        IEnumerable<string> lines;
+        if (size <= WholeFileBytes)
+        {
+            byte[] bytes = await File.ReadAllBytesAsync(full, ct).ConfigureAwait(false);
+            TextEncodingProbe probe = TextEncodingDetector.Detect(bytes);
+            if (probe.Verdict == ETextEncodingVerdict.Binary) return BinaryNotice(filePath, bytes.Length);
+            string text = probe.Decode(bytes);
+            lines = SplitLines(text).Select(range => text[range]);
+        }
+        else
+        {
+            TextEncodingProbe probe = ProbeHead(full);
+            if (probe.Verdict == ETextEncodingVerdict.Binary) return BinaryNotice(filePath, size);
+            lines = ReadLines(full, probe);
+        }
+
+        return FileOutline.Render(filePath, lines, FileOutline.MaxRequestedEntries)
+               ?? $"'{filePath}' 里没有抽出结构（类型、函数或标题），去掉 outline 读正文。";
     }
 
     // 大文件不整份进内存：编码只看开头一段，总行数只在倒数读时才数（要多扫一遍）
     private static string ReadStreaming(string filePath, string full, long size, int offset, int? limit,
         string? truncationHint)
     {
-        byte[] head = new byte[SampleBytes];
-        int headLength;
-        using (FileStream stream = File.OpenRead(full))
-        {
-            headLength = stream.ReadAtLeast(head, head.Length, throwOnEndOfStream: false);
-        }
-
-        TextEncodingProbe probe = TextEncodingDetector.Detect(head.AsSpan(0, headLength), isComplete: false);
+        TextEncodingProbe probe = ProbeHead(full);
         if (probe.Verdict == ETextEncodingVerdict.Binary) return BinaryNotice(filePath, size);
 
         int? total = offset < 0 ? ReadLines(full, probe).Count() : null;
@@ -151,7 +192,20 @@ internal sealed class FileReader
         string totalText = total is { } count
             ? $"共 {count} 行"
             : $"文件共 {GameUtils.FormatBytes(size)}，未统计行数";
-        return Render(window, start, hasMore, totalText, EncodingNote(probe), null, truncationHint);
+        string? outlineHint = FileOutline.Supports(filePath) ? "要看文件结构可传 outline=true。" : null;
+        return Render(window, start, hasMore, totalText, EncodingNote(probe), outlineHint, truncationHint);
+    }
+
+    private static TextEncodingProbe ProbeHead(string full)
+    {
+        byte[] head = new byte[SampleBytes];
+        int headLength;
+        using (FileStream stream = File.OpenRead(full))
+        {
+            headLength = stream.ReadAtLeast(head, head.Length, throwOnEndOfStream: false);
+        }
+
+        return TextEncodingDetector.Detect(head.AsSpan(0, headLength), isComplete: false);
     }
 
     private static IEnumerable<string> ReadLines(string full, TextEncodingProbe probe)

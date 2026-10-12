@@ -49,6 +49,15 @@ out="$(cd "$out" && pwd)"
 [ "${SMOKE_FRESH:-}" = "1" ] || cp -R "$config" "$out/home/Config"
 cp "$REPO_ROOT/AGENTS.md" "$REPO_ROOT/README.md" "$out/ws-repo/"
 cp -R "$REPO_ROOT/docs/." "$out/ws-docs/"
+# 场景要的代码素材：scenarios/<场景名>.files 每行一个仓库内路径，按原目录结构拷进 ws-code
+mkdir -p "$out/ws-code"
+if [ -f "$SCRIPT_DIR/scenarios/$scenario.files" ]; then
+    while IFS= read -r rel; do
+        [ -z "$rel" ] && continue
+        mkdir -p "$out/ws-code/$(dirname "$rel")"
+        cp "$REPO_ROOT/$rel" "$out/ws-code/$rel"
+    done < "$SCRIPT_DIR/scenarios/$scenario.files"
+fi
 # 场景自带的档案文件（如只为这个场景准备的角色卡）：scenarios/<场景名>.home/ 原样叠进隔离档案
 [ -d "$SCRIPT_DIR/scenarios/$scenario.home" ] && cp -R "$SCRIPT_DIR/scenarios/$scenario.home/." "$out/home/"
 
@@ -60,7 +69,7 @@ if [ -n "${SMOKE_CONTEXT:-}" ]; then
 fi
 
 sed -e "s#{{OUT}}#$out#g" -e "s#{{REPO}}#$REPO_ROOT#g" -e "s#{{WS_EMPTY}}#$out/ws-empty#g" -e "s#{{WS_REPO}}#$out/ws-repo#g" \
-    -e "s#{{WS_DOCS}}#$out/ws-docs#g" "$template" > "$out/scenario.jsonl"
+    -e "s#{{WS_DOCS}}#$out/ws-docs#g" -e "s#{{WS_CODE}}#$out/ws-code#g" "$template" > "$out/scenario.jsonl"
 
 if [ -n "${SMOKE_MODEL:-}" ]; then
     command -v jq > /dev/null || { echo "SMOKE_MODEL 需要 jq" >&2; exit 1; }

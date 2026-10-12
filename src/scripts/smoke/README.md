@@ -182,6 +182,23 @@ SMOKE_FRESH=1 src/scripts/smoke/run.sh local-model-first-run
 - `current` 是刚下的模型且 running 为 true（还没选过模型时下完会顺手加载）
 - 流水里有 assistant 的回复，不是 `Model … is not running`
 
+### file-outline：大文件里定位与改动
+
+自带一张只开文件工具的「代码阅读员」卡（`file-outline.home/`，关了 Shell，逼它走 Read/Grep/Edit）。
+代码素材由 `file-outline.files` 列出、从仓库拷进 `{{WS_CODE}}`（任何场景都可以这样带素材，清单每行一个仓库内路径）。
+两件事：在 2000 多行的 `ConversationViewModel.cs` 里找出处理「历史消息被替换」的方法并说出起止行；
+在 `ChatSession.cs` 的 `UnloadHistory` 方法体开头加一行注释。
+
+```bash
+SMOKE_MODEL=Agnes-2.5-Flash-无思考 src/scripts/smoke/run.sh file-outline
+```
+
+看 `outline.md`：
+
+- 第一问答的是 `OnSessionHistoryReplaced`，起止行与原文件一致
+- 用的是大纲或 Grep 的 `[位于 …]` 标注跳读，而不是从头一页页翻（Read 次数与 offset/head 是否只取那一段）
+- 第二问的注释落在 `UnloadHistory` 方法体第一行前，Edit 一次成功
+
 ### browser-basic：浏览器三件事
 
 自带一张只开文件工具的「浏览器测试员」卡（`browser-basic.home/`，关了 Shell 与网页搜索，逼它走浏览器）。

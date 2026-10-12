@@ -1,0 +1,3 @@
+src/UiharuMind/Features/Conversation/ConversationViewModel.cs
+src/UiharuMind.Core/AI/Chat/Core/ChatSession.cs
+src/UiharuMind/Features/Conversation/ConversationHistoryRenderer.cs
