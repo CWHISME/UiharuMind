@@ -249,10 +249,12 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
         HasSkillSectionNote = skillsDisabled;
         SkillSectionNote = skillsDisabled ? Loc.Text(LangKey.AgentCapabilitySkillsDisabled) : string.Empty;
 
-        // 群场景段并进角色这一档：它说的是「我是谁、在哪、有谁在」，明细里单列
+        // 群场景段并进角色这一档：它说的是「我是谁、在哪、有谁在」，明细里单列。
+        // 化身职责段同样并进来：它说的是这个职责要守什么规矩，是角色人格之外的另一份人格输入
         int characterTokens = snapshot.PromptTokensOf(EPromptSection.Character)
             + snapshot.PromptTokensOf(EPromptSection.PersonaAnchor)
-            + snapshot.PromptTokensOf(EPromptSection.Scene);
+            + snapshot.PromptTokensOf(EPromptSection.Scene)
+            + snapshot.PromptTokensOf(EPromptSection.AvatarDuties);
         int workspaceTokens = snapshot.PromptTokensOf(EPromptSection.Workspace);
         // 工具纪律段并进「工具」这一档:那段正文是按能力开关派生的,关掉文件工具,
         // 纪律里那一节和那几个工具定义一起消失——两者同生同死,拆成两行等于让人看两个数做一个决定。
@@ -326,6 +328,7 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
             EPromptSection.Character => LangKey.AgentCapabilityCharacterPrompt,
             EPromptSection.PersonaAnchor => LangKey.AgentCapabilityPersonaAnchor,
             EPromptSection.Scene => LangKey.AgentCapabilityScenePrompt,
+            EPromptSection.AvatarDuties => LangKey.AgentCapabilityAvatarDuties,
             EPromptSection.ToolDisciplines => LangKey.AgentCapabilityToolRules,
             EPromptSection.Extensions => LangKey.AgentCapabilityExtensions,
             _ => LangKey.AgentCapabilityWorkspaceRule,

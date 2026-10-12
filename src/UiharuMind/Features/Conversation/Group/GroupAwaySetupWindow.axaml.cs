@@ -1,6 +1,8 @@
+using System;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using UiharuMind.Features.Characters;
 using UiharuMind.Shared.WindowManagement;
 
 namespace UiharuMind.Features.Conversation.Group;
@@ -52,5 +54,24 @@ public partial class GroupAwaySetupWindow : Window
         if (DataContext is not GroupAwayViewData away) return;
         away.UpdateCommand.Execute(null);
         // 不关窗：改完还能继续调（比如先改提醒再开无限模式）
+    }
+
+    /// <summary>
+    /// 展开前给化身角色选择器换一份数据：角色可能刚被新建/删除/改名。
+    /// 化身要动手（拍板、收尾），只收智能体卡；职责另有统一注入，这里只定人格风格
+    /// </summary>
+    private void OnAvatarCharacterPickerOpening(object? sender, EventArgs e)
+    {
+        if (DataContext is not GroupAwayViewData away) return;
+
+        Flyout? flyout = sender as Flyout; //Opening 的 sender 就是 Flyout 本身，拿它收起面板
+        AvatarCharacterPicker.DataContext = new CharacterPickerViewData(
+            character =>
+            {
+                away.PickAvatarCharacter(character);
+                flyout?.Hide();
+            },
+            filter: static character => character.IsAgent,
+            excludedIds: away.AvatarCharacterId is { } id ? [id] : []);
     }
 }

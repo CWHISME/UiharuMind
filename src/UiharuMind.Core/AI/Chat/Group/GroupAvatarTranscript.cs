@@ -4,7 +4,7 @@ using UiharuMind.Core.AI.Execution.Files;
 namespace UiharuMind.Core.AI.Chat.Group;
 
 /// <summary>
-/// 化身那一侧的文本（ADR 0055）：场景段、离席目标的标签。纯函数；化身的规矩本身在它的卡上（<c>GroupAvatarAgent.md</c>），
+/// 化身那一侧的文本（ADR 0055）：场景段、离席目标的标签。纯函数；化身的职责在统一注入（<c>GroupAvatarDuties</c>），
 /// 这里只放随群变的东西
 /// </summary>
 public static class GroupAvatarTranscript

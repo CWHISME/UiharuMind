@@ -2697,6 +2697,9 @@
     <data name="AgentCapabilityScenePrompt" xml:space="preserve">
         <value>群场景</value>
     </data>
+    <data name="AgentCapabilityAvatarDuties" xml:space="preserve">
+        <value>化身职责</value>
+    </data>
     <data name="CharacterEditTabBasic" xml:space="preserve">
         <value>基础信息</value>
     </data>
@@ -3832,6 +3835,18 @@
     </data>
     <data name="GroupAwayStart" xml:space="preserve">
         <value>开始离席</value>
+    </data>
+    <data name="GroupAwayAvatarCharacterLabel" xml:space="preserve">
+        <value>化身角色</value>
+    </data>
+    <data name="GroupAwayAvatarCharacterTip" xml:space="preserve">
+        <value>只决定人格与风格，化身职责另有统一注入。</value>
+    </data>
+    <data name="GroupAwayAvatarCharacterDefault" xml:space="preserve">
+        <value>默认化身</value>
+    </data>
+    <data name="GroupAwayAvatarCharacterReset" xml:space="preserve">
+        <value>恢复默认</value>
     </data>
     <data name="GroupAwayEnd" xml:space="preserve">
         <value>结束离席</value>

@@ -5,6 +5,7 @@ using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
+using UiharuMind.Core.AI.Execution.Prompts;
 using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.Tests.Chat;
@@ -171,12 +172,22 @@ public class GroupAvatarTests
     }
 
     /// <summary>
-    /// 无限模式的主体规矩住在化身卡里（系统提示头部、跨轮稳定），每轮投递只带一个模式标记：
-    /// 卡片改了这里跟着改，别让两边分叉
+    /// 化身职责的统一注入住在 GroupAvatarDuties（挂哪张卡都同一份）：无限模式的规矩在那里，
+    /// 每轮投递只带一个模式标记；默认卡只留人格风格，不重复职责——两边分叉就靠这个测试拦
     /// </summary>
     [Fact]
-    public void AvatarCard_CoversInfiniteMode()
+    public void AvatarDuties_CoverInfiniteMode_AndCardStaysPersonaOnly()
     {
+        string duties = GroupAvatarDuties.Build("黑猫");
+
+        Assert.Contains("你是 黑猫 的化身", duties);
+        Assert.Contains("## 无限模式", duties);
+        string section = duties[duties.IndexOf("## 无限模式", StringComparison.Ordinal)..];
+        Assert.Contains("新方向", section);
+        // 与每轮标记对得上：标记置起"本次是无限模式"这个条件，职责认同一个条件
+        Assert.Contains("本次是无限模式", section);
+        Assert.Contains("## 优先级", duties);
+
         System.Reflection.Assembly assembly = typeof(CharacterData).Assembly;
         string name = Assert.Single(assembly.GetManifestResourceNames(),
             x => x.EndsWith("GroupAvatarAgent.md", StringComparison.Ordinal));
@@ -184,11 +195,72 @@ public class GroupAvatarTests
         using System.IO.StreamReader reader = new(stream);
         string card = reader.ReadToEnd();
 
-        Assert.Contains("## 无限模式", card);
-        string section = card[card.IndexOf("## 无限模式", StringComparison.Ordinal)..];
-        Assert.Contains("新方向", section);
-        // 与每轮标记对得上：标记置起"本次是无限模式"这个条件，卡片认同一个条件
-        Assert.Contains("本次是无限模式", section);
+        Assert.DoesNotContain("## 无限模式", card);
+        Assert.DoesNotContain("## 优先级", card);
+        Assert.Contains("喵", card); //默认卡只剩人格风格
+    }
+
+    /// <summary>化身可选角色：只定人格风格，职责另有统一注入；null 不改已有的</summary>
+    [Fact]
+    public void Avatar_CanMountAnotherCharacter_WithoutTouchingTheExistingOneOnNull()
+    {
+        ChatSession group = GroupChatSessions.Create("g-avatar-role", true, Cards("a", "b"), "/tmp/g-avatar-role-ws");
+        try
+        {
+            ChatSession avatar = GroupAvatar.EnsureFor(group, "model-a", "alice");
+            Assert.Equal("alice", avatar.CharacterId);
+
+            ChatSession again = GroupAvatar.EnsureFor(group, "model-b", null);
+            Assert.Same(avatar, again);
+            Assert.Equal("alice", again.CharacterId); //null 不改已有的
+
+            GroupAvatar.EnsureFor(group, "model-b", "bob");
+            Assert.Equal("bob", avatar.CharacterId);
+        }
+        finally
+        {
+            SessionManager.Instance.Delete(group.SessionId);
+        }
+    }
+
+    /// <summary>化身的装配带职责段：跟在场景段之后、工具纪律之前；非化身没有这一段</summary>
+    [Fact]
+    public async Task Assembly_GivesTheAvatarDutiesSection_AfterScene()
+    {
+        static AgentAssemblyPlan Plan(bool isAvatar, string duties)
+        {
+            CharacterData character = new()
+            {
+                CharacterId = "avatar", IsAgent = true,
+                Tools = new AgentToolConfig
+                    { EnableShellExecution = false, EnableFileAccess = false, EnableWebSearch = false },
+            };
+            return new AgentAssemblyPlan
+            {
+                Profile = new AgentBuildProfile
+                {
+                    Character = character, SessionId = "avatar1", GroupScene = "场景正文",
+                    IsGroupAvatar = isAvatar, AvatarDuties = duties,
+                },
+                WorkingDirectory = Path.GetTempPath(),
+            };
+        }
+
+        await using (AgentHandle handle = AgentAssembler.Assemble(Plan(true, GroupAvatarDuties.Build("黑猫"))))
+        {
+            string instructions = handle.ChatOptions?.Instructions ?? string.Empty;
+            int scene = instructions.IndexOf(AgentPromptHeadings.Scene, StringComparison.Ordinal);
+            int duties = instructions.IndexOf(AgentPromptHeadings.AvatarDuties, StringComparison.Ordinal);
+            int tools = instructions.IndexOf(AgentPromptHeadings.Tools, StringComparison.Ordinal);
+            Assert.True(scene >= 0 && duties > scene && tools > duties);
+            Assert.Contains("你是 黑猫 的化身", instructions);
+            Assert.Single(handle.PromptSegments, x => x.Section == EPromptSection.AvatarDuties);
+        }
+
+        await using (AgentHandle handle = AgentAssembler.Assemble(Plan(false, string.Empty)))
+        {
+            Assert.DoesNotContain(handle.ChatOptions?.Instructions ?? string.Empty, AgentPromptHeadings.AvatarDuties);
+        }
     }
 
     /// <summary>

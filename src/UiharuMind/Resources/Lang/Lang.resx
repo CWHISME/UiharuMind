@@ -2704,6 +2704,9 @@ Allow them?</value>
     <data name="AgentCapabilityScenePrompt" xml:space="preserve">
         <value>Group scene</value>
     </data>
+    <data name="AgentCapabilityAvatarDuties" xml:space="preserve">
+        <value>Avatar duties</value>
+    </data>
     <data name="CharacterEditTabBasic" xml:space="preserve">
         <value>Basic</value>
     </data>
@@ -3839,6 +3842,18 @@ Allow them?</value>
     </data>
     <data name="GroupAwayStart" xml:space="preserve">
         <value>Go away</value>
+    </data>
+    <data name="GroupAwayAvatarCharacterLabel" xml:space="preserve">
+        <value>Avatar character</value>
+    </data>
+    <data name="GroupAwayAvatarCharacterTip" xml:space="preserve">
+        <value>Only sets the persona and style; the avatar duties are always injected separately.</value>
+    </data>
+    <data name="GroupAwayAvatarCharacterDefault" xml:space="preserve">
+        <value>Default avatar</value>
+    </data>
+    <data name="GroupAwayAvatarCharacterReset" xml:space="preserve">
+        <value>Reset</value>
     </data>
     <data name="GroupAwayEnd" xml:space="preserve">
         <value>End away</value>

@@ -80,7 +80,9 @@ public static class AvatarApprovalJudge
     private static string Instructions(ChatSession avatar)
     {
         string userName = CharacterManager.Instance.UserCharacterName;
+        // 化身的规矩与装配侧同一份（GroupAvatarDuties）：挂哪张角色卡，判审批都按这份职责来
         return CharacterPromptBuilder.Build(avatar.CharacterData) +
+               "\n\n" + GroupAvatarDuties.Build(userName) +
                $"\n\n## 现在要做的：替{userName}点一次审批\n" +
                "群里有成员要调用工具，等着批。批准的标准：这一步是在朝离席目标推进、改动落在工作区之内、出了错收得回来。" +
                "推送、大批删除、动外部账号、花钱这类收不回的操作，拒绝。\n" +

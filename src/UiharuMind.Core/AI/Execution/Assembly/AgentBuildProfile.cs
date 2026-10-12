@@ -84,6 +84,12 @@ public class AgentBuildProfile
     /// <summary>是不是群的化身会话（ADR 0055）：也有群场景段，但不往群里发言、多挂一把结束离席</summary>
     public bool IsGroupAvatar { get; init; }
 
+    /// <summary>
+    /// 化身职责的统一注入正文（ADR 0055 修订）；不是化身为空串。挂哪张角色卡只决定人格，
+    /// 职责一律这一份（<see cref="Group.GroupAvatarDuties"/>），随用户名变，所以也进装配快照
+    /// </summary>
+    public string AvatarDuties { get; init; } = string.Empty;
+
     /// <summary>是不是（在场的）群成员会话：挂群发言工具。化身不算——它说完的话由离席以用户的名义发</summary>
     public bool IsGroupMember => GroupScene.Length > 0 && !IsGroupAvatar;
 
@@ -216,6 +222,9 @@ public class AgentBuildProfile
             PromptArguments = session.CustomParams,
             GroupScene = GroupSceneSource.For(session),
             IsGroupAvatar = session.IsGroupAvatar,
+            AvatarDuties = session.IsGroupAvatar
+                ? GroupAvatarDuties.Build(CharacterManager.Instance.UserCharacterName)
+                : string.Empty,
             // 子会话的产出目录跟随派活者:派活时把主代理的目录名固化在子会话上,
             // 于是子代理的产出直接落主代理会话的目录(见 ChatSession.ParentOutputFolderName)。
             // 旧存档没有这个值,回退子会话自己的目录。
@@ -291,9 +300,10 @@ public class AgentBuildProfile
     /// <param name="permissionModeIndex">权限档序号（越界自动收进合法范围，同 <see cref="FromSession"/>）</param>
     /// <param name="isAgentForm">会话形态；null = 跟角色身份</param>
     /// <param name="groupScene">群场景段正文（群成员预估占用时带上）；否则空串</param>
+    /// <param name="avatarDuties">化身职责正文（化身预估占用时带上）；否则空串</param>
     /// <returns>构建配置</returns>
     public static AgentBuildProfile FromDraft(CharacterData character, string? workspacePath,
-        int permissionModeIndex, bool? isAgentForm = null, string groupScene = "")
+        int permissionModeIndex, bool? isAgentForm = null, string groupScene = "", string avatarDuties = "")
     {
         return new AgentBuildProfile
         {
@@ -302,6 +312,7 @@ public class AgentBuildProfile
             PermissionMode = (EAgentPermissionMode)Math.Clamp(permissionModeIndex, 0, 2),
             IsAgentForm = isAgentForm,
             GroupScene = groupScene,
+            AvatarDuties = avatarDuties,
         };
     }
 }

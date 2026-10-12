@@ -25,10 +25,12 @@ internal static class AgentInstructionsComposer
     internal const string ReadWorkspaceRulesFirst = "本会话第一次调用工具之前，先 `Read` 它读完全文；读过就不用再读。";
 
     /// 按固定顺序拼出 agent 档的整段系统提示：
-    /// 基座(所有角色共用、系统锁定) → 角色段(人格 + 用户卡 + 对话模板) → 群场景(群成员才有) → 工具纪律与工作目录 → 扩展名单 → 工作区规矩 → 人格 coda(末尾回锚)。
-    /// 角色段(人格)标题由装配层在卡无自带标题时补上（见 CharacterSection）；卡自带标题则归卡所有。
+    /// 基座(所有角色共用、系统锁定) → 角色段(人格 + 用户卡 + 对话模板) → 群场景(群成员才有) → 化身职责(化身才有) → 工具纪律与工作目录 → 扩展名单 → 工作区规矩 → 人格 coda(末尾回锚)。
+    /// 角色段(人格)标题由装配层在卡无自带标题时补上（见 CharacterSection）；卡自带时归卡所有。
+    /// 化身职责紧跟场景：先知道替谁坐着、在哪有谁在，再知道这个职责要守什么规矩，然后才是工具。
     /// <returns>整段系统提示</returns>
-    internal static string Compose(string? characterPrompt, string groupScene, AgentToolConfig config,
+    internal static string Compose(string? characterPrompt, string groupScene, string avatarDuties,
+        AgentToolConfig config,
         string workingDirectory, string workspaceInstructions,
         string extensionsSection, string shellBinary, string pythonInterpreter,
         string outputRoomDirectory, string memoryDirectory,
@@ -40,6 +42,7 @@ internal static class AgentInstructionsComposer
         AppendSection(sb, CharacterSection(characterPrompt), EPromptSection.Character, registry);
         // 场景紧跟人格：先知道自己是谁，再知道自己在哪、有谁在，然后才是工具
         AppendSection(sb, SceneSection(groupScene), EPromptSection.Scene, registry);
+        AppendSection(sb, AvatarDutiesSection(avatarDuties), EPromptSection.AvatarDuties, registry);
         AppendSection(sb, BuildToolDisciplines(config, workingDirectory, shellBinary,
                 pythonInterpreter, outputRoomDirectory, memoryDirectory),
             EPromptSection.ToolDisciplines, registry);
@@ -94,6 +97,18 @@ internal static class AgentInstructionsComposer
     {
         if (string.IsNullOrWhiteSpace(groupScene)) return string.Empty;
         return $"{AgentPromptHeadings.Scene}\n\n{groupScene.TrimEnd()}";
+    }
+
+    /// <summary>
+    /// 化身职责段：标题 + 职责正文（ADR 0055 修订）。化身恒是 agent 形态，不走纯提示词档，
+    /// 所以这里只有 agent 档的落点；职责正文的唯一出处是 <c>GroupAvatarDuties</c>
+    /// </summary>
+    /// <param name="avatarDuties">职责正文；空串不写该段</param>
+    /// <returns>标题 + 正文；正文为空时返回空串</returns>
+    internal static string AvatarDutiesSection(string? avatarDuties)
+    {
+        if (string.IsNullOrWhiteSpace(avatarDuties)) return string.Empty;
+        return $"{AgentPromptHeadings.AvatarDuties}\n\n{avatarDuties.TrimEnd()}";
     }
 
     /// <summary>

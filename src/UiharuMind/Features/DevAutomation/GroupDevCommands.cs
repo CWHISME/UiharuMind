@@ -282,14 +282,15 @@ internal sealed class GroupDumpCommand : IDevCommand
 }
 
 /// <summary>
-/// 开始离席：在右栏离席块里填捎话、重要提醒、选化身模型、点「开始离席」。<c>args</c>：group、goal（可省，不填就没有首轮那份）、
-/// reminder（可省，只给化身看）、model（模型名，省略跟随全局）、infinite（true 为无限模式，只有手动停止）
+/// 开始离席：在右栏离席块里填捎话、重要提醒、选化身模型与角色、点「开始离席」。<c>args</c>：group、goal（可省，不填就没有首轮那份）、
+/// reminder（可省，只给化身看）、model（模型名，省略跟随全局）、character（化身角色的标识或名字，省略为默认化身）、
+/// infinite（true 为无限模式，只有手动停止）
 /// </summary>
 internal sealed class GroupAwayStartCommand : IAsyncDevCommand
 {
     public string Name => "group.away.start";
 
-    public string Usage => "开始离席，化身替用户拍板。group、goal（捎话，可省）、reminder（只给化身看）、model（化身模型）、infinite（无限模式，只有手动停止）";
+    public string Usage => "开始离席，化身替用户拍板。group、goal（捎话，可省）、reminder（只给化身看）、model（化身模型）、character（化身角色的标识或名字，省略为默认化身）、infinite（无限模式，只有手动停止）";
 
     public async Task<object?> ExecuteAsync(JsonElement args)
     {
@@ -302,6 +303,11 @@ internal sealed class GroupAwayStartCommand : IAsyncDevCommand
         {
             away.ModelPicker.SelectedOption = away.ModelPicker.Options.FirstOrDefault(x => x.ModelName == model)
                                               ?? throw new ArgumentException($"model '{model}' not found");
+        }
+        if (GroupDevCommands.StringOr(args, "character") is { } character &&
+            !away.TryPickAvatarCharacter(character))
+        {
+            throw new ArgumentException($"character '{character}' not found");
         }
 
         away.StartCommand.Execute(null);

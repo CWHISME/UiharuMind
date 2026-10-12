@@ -55,6 +55,9 @@ public sealed record AgentAssemblyFacts
     /// <summary>群场景段正文（ADR 0048 决策 4）；改群名、名单、主持人经此触发重建。不是群成员为空串</summary>
     public string GroupScene { get; init; } = string.Empty;
 
+    /// <summary>化身职责正文（ADR 0055 修订）；改用户名经此触发重建。不是化身为空串</summary>
+    public string AvatarDuties { get; init; } = string.Empty;
+
     /// <summary>推理执行参数(温度等)的序列化形态</summary>
     public required string ExecutionSettings { get; init; }
 
@@ -202,6 +205,7 @@ public sealed record AgentAssemblyFacts
                 : string.Empty,
             IsAgentForm = isAgentForm,
             GroupScene = profile.GroupScene,
+            AvatarDuties = profile.AvatarDuties,
             McpRoster = isAgentForm
                 ? McpManager.Instance.DescribeUsable(profile.WorkspacePath, profile.Tools.DisabledExtensions)
                 : string.Empty,
@@ -227,6 +231,7 @@ public sealed record AgentAssemblyFacts
             SubAgentKey = inputs.SubAgentKey,
             Instructions = inputs.Instructions,
             GroupScene = inputs.GroupScene,
+            AvatarDuties = isAgent ? inputs.AvatarDuties : string.Empty,
             ExecutionSettings = JsonSerializer.Serialize(character.Config.ExecutionSettings),
             WorkspacePath = isAgent ? inputs.WorkspacePath : null,
             Permission = isAgent ? inputs.Permission : default,

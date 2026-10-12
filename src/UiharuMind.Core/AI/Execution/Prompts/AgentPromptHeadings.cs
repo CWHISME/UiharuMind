@@ -1,4 +1,4 @@
-﻿﻿/****************************************************************************
+﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -55,6 +55,9 @@ public static class AgentPromptHeadings
 
     /// <summary>群场景段（ADR 0048）：群成员才有，紧跟人格段</summary>
     public const string Scene = "# 场景";
+
+    /// <summary>化身职责段（ADR 0055 修订）：群的化身才有，跟在场景段之后、工具纪律之前</summary>
+    public const string AvatarDuties = "# 化身";
 
     /// <summary>扩展名单段（主代理与子代理共用，ADR 0079）</summary>
     public const string Extensions = "# 扩展";

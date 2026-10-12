@@ -4,7 +4,8 @@ namespace UiharuMind.Core.AI.Chat.Group;
 
 /// <summary>
 /// 群的化身会话（ADR 0055）：每群至多一份，第一次离席时建，之后跨离席保留，随群级联删除。
-/// 身份载体是内部智能体卡 <see cref="DefaultCharacter.GroupAvatarAgent"/>：卡上是化身的规矩，「用户是谁」靠注入用户卡
+/// 默认身份载体是内部智能体卡 <see cref="DefaultCharacter.GroupAvatarAgent"/>（只剩人格风格），开离席时可换别的可智能体卡；
+/// 化身的职责一律另有统一注入（<see cref="GroupAvatarDuties"/>），与挂哪张卡无关。「用户是谁」靠注入用户卡
 /// （用户卡本身开不了会话、也没有工具配置）。
 /// 挂 <see cref="ChatSession.GroupId"/> 但不进名单——在场名单、@ 与唤醒都看不到它
 /// </summary>
@@ -22,13 +23,15 @@ public static class GroupAvatar
         SessionManager.Instance.GetGroupMembers(groupId).FirstOrDefault(x => x.IsGroupAvatar);
 
     /// <summary>
-    /// 取群的化身会话，没有就建一份并落盘；每次离席开始时调用，顺带换上这次选的模型、游标至多补最近一段
+    /// 取群的化身会话，没有就建一份并落盘；每次离席开始时调用，顺带换上这次选的模型与角色、游标至多补最近一段。
+    /// 角色只决定人格与风格，化身的职责一律另有统一注入（<see cref="GroupAvatarDuties"/>），与挂哪张卡无关
     /// </summary>
     /// <param name="group">群壳会话（须是智能体群）</param>
     /// <param name="modelName">这次离席化身用的模型名；null 跟随全局</param>
+    /// <param name="characterId">这次离席化身挂的角色；null 为默认化身卡（不改已有的）</param>
     /// <returns>化身会话</returns>
     /// <exception cref="ArgumentException">不是智能体群</exception>
-    public static ChatSession EnsureFor(ChatSession group, string? modelName)
+    public static ChatSession EnsureFor(ChatSession group, string? modelName, string? characterId = null)
     {
         if (group is not { IsGroup: true, IsAgentGroup: true })
         {
@@ -39,12 +42,13 @@ public static class GroupAvatar
         {
             // 上次离席之后用户自己带群跑了多久都有可能：同样只补最近这一段
             existing.SessionModelName = modelName;
+            if (characterId != null) existing.CharacterId = characterId;
             existing.GroupCursor = Math.Max(existing.GroupCursor, BacklogCursor(group));
             existing.SaveMeta(touchUpdatedAt: false);
             return existing;
         }
 
-        ChatSession avatar = New(group, modelName);
+        ChatSession avatar = New(group, modelName, characterId);
         SessionManager.Instance.Add(avatar);
         return avatar;
     }
@@ -54,12 +58,13 @@ public static class GroupAvatar
     /// </summary>
     /// <param name="group">群壳会话</param>
     /// <param name="modelName">模型名；null 跟随全局</param>
+    /// <param name="characterId">化身挂的角色；null 为默认化身卡</param>
     /// <returns>化身会话</returns>
-    public static ChatSession New(ChatSession group, string? modelName) =>
+    public static ChatSession New(ChatSession group, string? modelName, string? characterId = null) =>
         // 不走带角色的构造：那会写入开场白
         new()
         {
-            CharacterId = nameof(DefaultCharacter.GroupAvatarAgent),
+            CharacterId = characterId ?? nameof(DefaultCharacter.GroupAvatarAgent),
             Title = $"{group.Title} · {CharacterManager.Instance.UserCharacterName}",
             Description = group.Title,
             GroupId = group.SessionId,

@@ -46,7 +46,7 @@ public class GroupAwayControllerTests
             CharacterId = nameof(DefaultCharacter.GroupAvatarAgent), GroupId = _group.SessionId,
             IsGroupAvatar = true, IsAgentForm = true, IsTransient = true,
         });
-        _away = new GroupAwayController(_coordinator, (_, _) => _avatar, () => _settings, Delay, () => _now,
+        _away = new GroupAwayController(_coordinator, (_, _, _) => _avatar, () => _settings, Delay, () => _now,
             _ => _stamp);
         _away.Ended += receipt =>
         {
@@ -119,6 +119,40 @@ public class GroupAwayControllerTests
         _delays[1].Due.SetResult();
         await Until(() => AvatarCalls() == 2);
         Assert.EndsWith(GroupAvatarTranscript.SilentNote, LastAvatarInput()); //没交出去的提示带回来了
+    }
+
+    /// <summary>化身跑着时用户在群里插话：立即插一句提醒它有新话，不等波末，也不另起一轮</summary>
+    [Fact]
+    public async Task UserPost_WhileAvatarRuns_InjectsImmediatelyWithoutANewTurn()
+    {
+        TaskCompletionSource gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        _runner.During[_avatar.SessionId] = () => gate.Task; //化身首轮卡住：正在跑
+        _runner.Replies[_avatar.SessionId] = _ => ""; //放行后没写正文：停在退避上，不连锁
+        _away.Start(_group, "目标", null);
+        await Until(() => AvatarCalls() == 1);
+
+        await _coordinator.PostAsync(_group, "先别拍，等我说完");
+        // 插话在落盘当时就进去了，不等波末；跑着的那一轮不算新一轮
+        Assert.Contains(_runner.Injected, x => x.Member == _avatar && x.Text.Contains("先别拍，等我说完"));
+        Assert.Equal(1, AvatarCalls());
+
+        gate.SetResult();
+        await Until(() => _delays.Count == 1);
+    }
+
+    /// <summary>化身闲着时用户发言：没轮可插就不插，用户那句自己开一波，波末那次投递照常带上</summary>
+    [Fact]
+    public async Task UserPost_WhileAvatarIdle_DoesNotInject()
+    {
+        _runner.Replies[_avatar.SessionId] = _ => ""; //没写正文：首轮 Silent，停在退避上
+        _away.Start(_group, "目标", null);
+        await Until(() => AvatarCalls() == 1);
+        await Until(() => _delays.Count == 1); //首轮跑完、闲下来
+        Assert.Empty(_runner.Injected);
+
+        await _coordinator.PostAsync(_group, "大家继续");
+        Assert.Empty(_runner.Injected); //没轮可插：等波末那次叫醒
+        await Until(() => AvatarCalls() == 2);
     }
 
     /// <summary>化身跑着时用户私聊它（ADR 0063）：叫停这一轮、不计出手次数；
@@ -629,6 +663,24 @@ public class GroupAwayControllerTests
     public void Update_WhenNotAway_ReturnsFalse()
     {
         Assert.False(_away.Update(_group.SessionId, "x", null, null));
+    }
+
+    /// <summary>开离席把模型与角色一起交代给化身：透传进取化身会话那一步</summary>
+    [Fact]
+    public void Start_PassesModelAndCharacterToAvatarEnsure()
+    {
+        string? model = null;
+        string? character = null;
+        GroupAwayController away = new(_coordinator, (group, m, c) =>
+        {
+            model = m;
+            character = c;
+            return _avatar;
+        }, () => _settings, Delay, () => _now, _ => _stamp);
+
+        Assert.True(away.Start(_group, "目标", "model-x", null, false, "alice"));
+        Assert.Equal("model-x", model);
+        Assert.Equal("alice", character);
     }
 
     [Fact]

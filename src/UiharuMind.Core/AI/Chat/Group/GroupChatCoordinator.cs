@@ -63,6 +63,13 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
     /// </summary>
     public event Action<string>? UserPosted;
 
+    /// <summary>
+    /// 用户真身往群里说了一句且已落盘（化身替用户说的不算）。参数：群、发言、群流水下标。
+    /// 离席据此往正在跑的化身那一轮里插一句提醒，不等波末。
+    /// ⚠️ 订阅方抛出只记日志
+    /// </summary>
+    public event Action<ChatSession, ChatMessage, int>? UserPostAppended;
+
     /// <summary>这个群此刻是不是在跑一波</summary>
     /// <param name="groupId">群壳会话标识</param>
     /// <returns>在跑为 true</returns>
@@ -107,10 +114,20 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
         lock (_locker) return group.History.ToList();
     }
 
+    /// <summary>
+    /// 往这个会话正在跑的那一轮里插一句（离席化身插用户新话用）：没在跑就排不进去
+    /// </summary>
+    /// <param name="session">成员或化身会话</param>
+    /// <param name="message">插进去的消息</param>
+    /// <returns>排进去了为 true</returns>
+    public Task<bool> TryInjectAsync(ChatSession session, ChatMessage message) =>
+        _runner.TryInjectAsync(session, message);
+
     // 用户发言（含化身替用户说的）落进群流水：群闲着就由它开一波，在跑就插进那一波
     private async Task PostUserMessageAsync(ChatSession group, ChatMessage post)
     {
         int index = Append(group, post);
+        NotifyUserPostAppended(group, post, index);
 
         while (true)
         {
@@ -396,6 +413,20 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
         catch (Exception e)
         {
             Log.Error($"Group episode-ended handler failed: {e}");
+        }
+    }
+
+    // 用户真身的发言才通报：化身替用户说的带 GroupAvatarPostOf 标记，不算
+    private void NotifyUserPostAppended(ChatSession group, ChatMessage post, int index)
+    {
+        if (post.Role != ChatRole.User || ChatMessageAnnotations.GroupAvatarPostOf(post) != null) return;
+        try
+        {
+            UserPostAppended?.Invoke(group, post, index);
+        }
+        catch (Exception e)
+        {
+            Log.Error($"Group user-post-appended handler failed: {e}");
         }
     }
 

@@ -21,7 +21,7 @@ namespace UiharuMind.Core.AI.Chat.Group.Away;
 public sealed class GroupAwayController
 {
     private readonly GroupChatCoordinator _coordinator;
-    private readonly Func<ChatSession, string?, ChatSession> _ensureAvatar;
+    private readonly Func<ChatSession, string?, string?, ChatSession> _ensureAvatar;
     private readonly Func<GroupAwaySettings> _settings;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay;
     private readonly Func<DateTimeOffset> _now;
@@ -50,7 +50,7 @@ public sealed class GroupAwayController
     /// <param name="artifactStamp">本群产物的指纹（变了即有新产物）；null 按 <see cref="GroupArtifacts.CollectFor"/> 算</param>
     /// <param name="approver">离席期间的审批通道；null 请化身判</param>
     public GroupAwayController(GroupChatCoordinator coordinator,
-        Func<ChatSession, string?, ChatSession>? ensureAvatar = null,
+        Func<ChatSession, string?, string?, ChatSession>? ensureAvatar = null,
         Func<GroupAwaySettings>? settings = null,
         Func<TimeSpan, CancellationToken, Task>? delay = null,
         Func<DateTimeOffset>? now = null,
@@ -66,6 +66,7 @@ public sealed class GroupAwayController
         _artifactStamp = artifactStamp ?? ArtifactStampOf;
         _coordinator.EpisodeEnded += OnEpisodeEnded;
         _coordinator.UserPosted += OnUserPosted;
+        _coordinator.UserPostAppended += OnUserPostAppended;
     }
 
     /// <summary>某个群的离席状态变了（开始、化身开跑/跑完、延迟唤醒排上/取消、结束）。⚠️ 可能来自后台线程</summary>
@@ -103,9 +104,10 @@ public sealed class GroupAwayController
     /// <param name="avatarModelName">化身这次用的模型；null 跟随全局</param>
     /// <param name="reminder">只给化身看的重要提醒（成员看不到）；null 或空白为没有</param>
     /// <param name="infinite">无限模式：只有用户手动能结束，保险丝全关、化身调结束工具报错</param>
+    /// <param name="avatarCharacterId">化身这次挂的角色；null 为默认化身卡（只定人格风格，职责另有统一注入）</param>
     /// <returns>开始了为 true；已经在离席为 false</returns>
     public bool Start(ChatSession group, string? goal, string? avatarModelName, string? reminder = null,
-        bool infinite = false)
+        bool infinite = false, string? avatarCharacterId = null)
     {
         GroupAwaySession session;
         lock (_sync)
@@ -114,7 +116,7 @@ public sealed class GroupAwayController
         }
 
         // 化身与产物指纹都在锁外取（读盘）；之后再确认一次没被别处抢先开
-        ChatSession avatar = _ensureAvatar(group, avatarModelName);
+        ChatSession avatar = _ensureAvatar(group, avatarModelName, avatarCharacterId);
         string stamp = SafeStamp(group);
         // 群流水文件：开离席时建/确认，写进全部历史（第三方视角，化身按锚点自己读，不灌正文）
         IReadOnlyList<ChatMessage> groupLog = _coordinator.HistorySnapshot(group);
@@ -241,6 +243,27 @@ public sealed class GroupAwayController
         bool cancelled;
         lock (_sync) cancelled = _sessions.GetValueOrDefault(groupId)?.CancelDelay() == true;
         if (cancelled) RaiseStatusChanged(groupId);
+    }
+
+    // 用户在群里插了话、化身正跑着：立即插一句提醒它有新话，不等波末。
+    // 化身闲着不另起一轮：用户那句自己会开一波，波末投递照常带上，没跑成的插话化身下一轮经流水读到
+    private void OnUserPostAppended(ChatSession group, ChatMessage post, int index)
+    {
+        ChatSession avatar;
+        lock (_sync)
+        {
+            if (_sessions.GetValueOrDefault(group.SessionId) is not { IsEnded: false, IsAvatarRunning: true, } session)
+                return;
+            avatar = session.Avatar;
+        }
+
+        string body = post.Text.Trim();
+        if (body.Length == 0) return;
+        bool seesImages = avatar.ChatModelRunningData?.IsVisionModel == true;
+        ChatMessage injection = GroupTranscript.DeliveryMessage(
+            GroupTranscript.FormatInjection(UserName, body),
+            seesImages ? GroupTranscript.ImagesOf(post) : []);
+        _coordinator.TryInjectAsync(avatar, injection).LogOnFault("inject the user post into the group avatar");
     }
 
     private void OnEpisodeEnded(GroupEpisodeSummary summary)

@@ -3,6 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:group="clr-namespace:UiharuMind.Features.Conversation.Group"
+        xmlns:chars="clr-namespace:UiharuMind.Features.Characters"
         xmlns:panels="clr-namespace:UiharuMind.Features.Conversation.SidePanels"
         xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
         xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
@@ -36,6 +37,25 @@
         <StackPanel Grid.Row="1" Margin="18" Spacing="12">
             <!-- 化身模型放最上：下拉朝下展开有足够空间，不会被窗口底边顶回去盖住上面的内容 -->
             <panels:SessionModelPanel DataContext="{Binding ModelPicker}" IsEnabled="{Binding IsIdle}" />
+            <!-- 化身角色：只定人格风格，化身职责另有统一注入；离席中不可改 -->
+            <StackPanel Spacing="4">
+                <TextBlock Text="{loc:Loc GroupAwayAvatarCharacterLabel}" ToolTip.Tip="{loc:Loc GroupAwayAvatarCharacterTip}" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <Button Grid.Column="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                            Content="{Binding AvatarCharacterName}" IsEnabled="{Binding IsIdle}">
+                        <Button.Flyout>
+                            <Flyout Placement="BottomEdgeAlignedLeft"
+                                    Opening="OnAvatarCharacterPickerOpening">
+                                <chars:CharacterPickerView Name="AvatarCharacterPicker" />
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+                    <Button Grid.Column="1" Content="{loc:Loc GroupAwayAvatarCharacterReset}"
+                            Command="{Binding ResetAvatarCharacterCommand}"
+                            IsVisible="{Binding HasCustomAvatarCharacter}"
+                            IsEnabled="{Binding IsIdle}" />
+                </Grid>
+            </StackPanel>
             <!-- 目标与提醒都只私下交代给化身，不进群 -->
             <StackPanel Spacing="4">
                 <TextBlock Text="{loc:Loc GroupAwayGoalLabel}" ToolTip.Tip="{loc:Loc GroupAwayGoalTip}" />

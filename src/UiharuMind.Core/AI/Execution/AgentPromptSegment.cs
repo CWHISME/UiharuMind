@@ -24,6 +24,9 @@ public enum EPromptSection
     /// <summary>群场景段（ADR 0048）：群名、在场名单、主持人与群里的说话规矩；只有群成员有</summary>
     Scene,
 
+    /// <summary>化身职责段（ADR 0055 修订）：替用户坐群要守的规矩；只有群的化身有，与挂哪张角色卡无关</summary>
+    AvatarDuties,
+
     /// <summary>工具纪律段（含工作目录那一小节）</summary>
     ToolDisciplines,
 

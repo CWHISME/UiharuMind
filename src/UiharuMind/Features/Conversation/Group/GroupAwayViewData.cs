@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Chat.Group.Away;
@@ -36,6 +37,8 @@ public sealed partial class GroupAwayViewData : ObservableObject, IDisposable
 
     [ObservableProperty] private bool _infinite; //无限模式：只有用户手动能结束
 
+    [ObservableProperty] private string? _avatarCharacterId; //化身挂的角色；null 为默认化身卡（只定人格风格，职责另有统一注入）
+
     /// <summary>
     /// 构造
     /// </summary>
@@ -63,6 +66,15 @@ public sealed partial class GroupAwayViewData : ObservableObject, IDisposable
 
     /// <summary>化身模型的选项（会话模型组件，空态草稿模式）</summary>
     public SessionModelViewData ModelPicker { get; }
+
+    /// <summary>化身角色的显示名；没选为默认化身</summary>
+    public string AvatarCharacterName => AvatarCharacterId is { } id &&
+        CharacterManager.Instance.CharacterDataDictionary.TryGetValue(id, out CharacterData? character)
+        ? character.CharacterName
+        : Loc.Text(LangKey.GroupAwayAvatarCharacterDefault);
+
+    /// <summary>化身挂了别的角色（恢复默认按钮据此显隐）</summary>
+    public bool HasCustomAvatarCharacter => AvatarCharacterId != null;
 
     /// <summary>在离席</summary>
     public bool IsAway => _status != null;
@@ -135,10 +147,42 @@ public sealed partial class GroupAwayViewData : ObservableObject, IDisposable
     {
         // 空态草稿：没选过为 null，即跟随全局
         string? model = ModelPicker.PeekDraft();
-        if (!_away.Start(_group, Goal, model, Reminder, Infinite)) return;
+        if (!_away.Start(_group, Goal, model, Reminder, Infinite, AvatarCharacterId)) return;
         Goal = string.Empty;
         Reminder = string.Empty;
         Infinite = false;
+    }
+
+    /// <summary>从角色选择器里定下化身挂的角色（只在没离席时可选）</summary>
+    /// <param name="character">选中的角色</param>
+    public void PickAvatarCharacter(CharacterData character)
+    {
+        AvatarCharacterId = character.CharacterId;
+    }
+
+    /// <summary>按标识或名字找一个智能体角色，定为化身挂的角色（开发脚本用）</summary>
+    /// <param name="reference">角色标识或显示名</param>
+    /// <returns>找到了为 true</returns>
+    public bool TryPickAvatarCharacter(string reference)
+    {
+        CharacterData? character = CharacterManager.Instance.CharacterDataDictionary.Values
+            .FirstOrDefault(x => x.IsAgent && (x.CharacterId == reference || x.CharacterName == reference));
+        if (character == null) return false;
+        AvatarCharacterId = character.CharacterId;
+        return true;
+    }
+
+    /// <summary>化身角色恢复默认</summary>
+    [RelayCommand]
+    private void ResetAvatarCharacter()
+    {
+        AvatarCharacterId = null;
+    }
+
+    partial void OnAvatarCharacterIdChanged(string? value)
+    {
+        OnPropertyChanged(nameof(AvatarCharacterName));
+        OnPropertyChanged(nameof(HasCustomAvatarCharacter));
     }
 
     /// <summary>打开离席设置弹窗（捎话、提醒、模型、无限模式都搬了进去）；离席中先对齐当前实际参数</summary>
@@ -159,6 +203,16 @@ public sealed partial class GroupAwayViewData : ObservableObject, IDisposable
         Goal = status.Goal;
         Reminder = status.Reminder ?? string.Empty;
         Infinite = status.IsInfinite;
+        // 离席中角色不可改：显示化身会话正在挂的那一张（默认卡显示为默认化身）
+        if (SessionManager.Instance.Load(status.AvatarSessionId) is { } avatar &&
+            avatar.CharacterId != nameof(DefaultCharacter.GroupAvatarAgent))
+        {
+            AvatarCharacterId = avatar.CharacterId;
+        }
+        else
+        {
+            AvatarCharacterId = null;
+        }
     }
 
     /// <summary>把弹窗里的捎话、提醒与无限模式写回正在进行的离席（提醒与无限模式下一轮生效）</summary>
