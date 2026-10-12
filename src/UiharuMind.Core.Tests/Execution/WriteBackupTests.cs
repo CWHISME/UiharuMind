@@ -36,7 +36,7 @@ public class WriteBackupTests : IDisposable
     {
         string result = await _tools.Write("new.txt", "hello\n", TestContext.Current.CancellationToken);
 
-        Assert.Equal("Saved 'new.txt' (2 lines).", result);
+        Assert.Equal("已保存 'new.txt'（2 行）。", result);
         Assert.Equal("hello\n", await File.ReadAllTextAsync(Path.Combine(_dir, "new.txt"), TestContext.Current.CancellationToken));
         Assert.False(Directory.Exists(_backupRoot));
     }
@@ -54,8 +54,8 @@ public class WriteBackupTests : IDisposable
         string result = await _tools.Write("target.txt", "new\n", TestContext.Current.CancellationToken);
 
         Assert.Equal("new\n", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
-        Assert.Contains("backed up to", result);
-        string backupPath = result[(result.IndexOf("backed up to '", StringComparison.Ordinal) + 14)..^2];
+        Assert.Contains("原版本已备份到 '", result);
+        string backupPath = result[(result.IndexOf("已备份到 '", StringComparison.Ordinal) + "已备份到 '".Length)..^2];
         Assert.True(File.Exists(backupPath), $"备份文件应存在:{backupPath}");
         Assert.Equal(original, await File.ReadAllBytesAsync(backupPath, TestContext.Current.CancellationToken));
     }

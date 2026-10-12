@@ -17,7 +17,7 @@ public class ResultHighlightSourceTests
         {
             ToolName = FileToolNames.Write,
             FilePath = "Foo.cs",
-            ResultText = "Saved 'Foo.cs' (3 lines).",
+            ResultText = "已保存 'Foo.cs'（3 行）。",
         };
 
         Assert.Null(item.ResultHighlightSource);
@@ -32,7 +32,7 @@ public class ResultHighlightSourceTests
         {
             ToolName = FileToolNames.Edit,
             FilePath = "Foo.cs",
-            ResultText = "Applied 2 edits to Foo.cs.",
+            ResultText = "已修改 'Foo.cs'（2 处编辑）。",
         };
 
         Assert.Null(item.ResultHighlightSource);

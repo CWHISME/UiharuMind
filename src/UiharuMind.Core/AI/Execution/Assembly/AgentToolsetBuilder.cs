@@ -129,6 +129,7 @@ internal static class AgentToolsetBuilder
             : mountVision ? EReadImageMode.PointToAnalyzeImage
             : EReadImageMode.None;
 
+        bool mountSummary = false;
         if (Mounts(EAgentCapability.SubAgent, config.EnableSubAgent))
         {
             if (resources.Delegation?.Invoke() is { } delegation)
@@ -138,7 +139,11 @@ internal static class AgentToolsetBuilder
 
             // 脑（ADR 0082）：与委派同源，同步只读的小模型整理助手。挂在同一能力档下——
             // 关委派就关脑，子会话场合（SubAgent/Brain scope）自然不递归
-            if (resources.Brain?.Invoke() is { } brain) Add(EAgentCapability.SubAgent, brain);
+            if (resources.Brain?.Invoke() is { } brain)
+            {
+                Add(EAgentCapability.SubAgent, brain);
+                mountSummary = true;
+            }
         }
 
         if (rule.Allows(EAgentCapability.GroupPost)) Add(EAgentCapability.GroupPost, GroupPostTool.Create(resources.SessionId));
@@ -176,7 +181,7 @@ internal static class AgentToolsetBuilder
 
         if (mountFiles)
         {
-            foreach (AITool tool in new PermissiveFileAccessTools(paths, imageMode: imageMode)
+            foreach (AITool tool in new PermissiveFileAccessTools(paths, imageMode: imageMode, offerSummary: mountSummary)
                          .Create(disableWriteTools: rule.ReadOnlyFiles))
             {
                 Add(EAgentCapability.FileAccess, tool);

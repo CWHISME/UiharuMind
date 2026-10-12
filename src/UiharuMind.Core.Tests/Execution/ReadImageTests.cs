@@ -105,7 +105,7 @@ public sealed class ReadImageTests : IDisposable
 
         string result = await Read("cat.png", EReadImageMode.None);
 
-        Assert.Contains("can't be viewed", result);
+        Assert.Contains("无法查看图片", result);
         Assert.DoesNotContain("`", result);
     }
 

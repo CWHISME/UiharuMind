@@ -81,7 +81,7 @@ public class AgentPathResolverTests
     public void Resolve_NameThatMerelyStartsLikeTheShorthand_IsNotExpanded()
     {
         Assert.False(WithDraft().TryResolve("$DRAFTS/a.py", out _, out string error));
-        Assert.Contains("don't expand", error);
+        Assert.Contains("文件工具不会展开它", error);
     }
 
     /// <summary>简写之后照常规范化：<c>..</c> 能走出草稿目录，审批据此判界外</summary>

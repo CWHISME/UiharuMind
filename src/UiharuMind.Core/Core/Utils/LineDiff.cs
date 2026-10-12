@@ -32,7 +32,7 @@ public enum ELineDiffKind
 
     /// <summary>
     /// 连续未变化行的折叠摘要行（<c>FileEditPlanner.RenderDiff</c> 的渲染期产物，plan.Diff 里不出现）。
-    /// 文本形如 <c>…(47 unchanged lines @ 12-58)…</c>，行号范围就在文本里，<see cref="LineDiffEntry.LineNumber"/> 留 0。
+    /// 文本形如 <c>…（第 12-58 行，共 47 行未改动，与你的 oldString 相同）…</c>，行号范围就在文本里，<see cref="LineDiffEntry.LineNumber"/> 留 0。
     /// 它不套前缀/行号列（与 <see cref="Hunk"/> 同待遇），UI 正则以 <c>…</c> 开头天然不命中、按灰色渲染。
     /// </summary>
     Collapsed,

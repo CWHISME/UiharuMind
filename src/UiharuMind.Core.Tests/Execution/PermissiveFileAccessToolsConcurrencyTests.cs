@@ -51,7 +51,7 @@ public class PermissiveFileAccessToolsConcurrencyTests : IDisposable
 
         string[] results = await Task.WhenAll(editA, editB);
 
-        Assert.All(results, r => Assert.DoesNotContain("[Edit failed]", r));
+        Assert.All(results, r => Assert.DoesNotContain("[编辑失败]", r));
         Assert.Equal("ALPHA\nbeta\ngamma\nDELTA\n", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
     }
 
@@ -91,12 +91,12 @@ public class PermissiveFileAccessToolsConcurrencyTests : IDisposable
         // 第一次 edit 故意失败（oldString 找不到）——锁必须在 finally 里释放
         string failed = await _tools.Edit("fail.txt",
             [new FileEdit { OldString = "does-not-exist", NewString = "x" }], TestContext.Current.CancellationToken);
-        Assert.Contains("[Edit failed]", failed);
+        Assert.Contains("[编辑失败]", failed);
 
         // 若失败路径没释放锁，这第二次会永久等待
         string ok = await _tools.Edit("fail.txt",
             [new FileEdit { OldString = "content", NewString = "CONTENT" }], TestContext.Current.CancellationToken);
-        Assert.DoesNotContain("[Edit failed]", ok);
+        Assert.DoesNotContain("[编辑失败]", ok);
         Assert.Equal("CONTENT\n", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
     }
 
@@ -116,7 +116,7 @@ public class PermissiveFileAccessToolsConcurrencyTests : IDisposable
         Task<string> editB = other.Edit(path, [new FileEdit { OldString = "three", NewString = "THREE" }], TestContext.Current.CancellationToken);
 
         string[] results = await Task.WhenAll(editA, editB);
-        Assert.All(results, r => Assert.DoesNotContain("[Edit failed]", r));
+        Assert.All(results, r => Assert.DoesNotContain("[编辑失败]", r));
         Assert.Equal("ONE\ntwo\nTHREE\n", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
     }
 
@@ -138,7 +138,7 @@ public class PermissiveFileAccessToolsConcurrencyTests : IDisposable
         Task<string> editB = _tools.Edit(upperPath, [new FileEdit { OldString = "second", NewString = "SECOND" }], TestContext.Current.CancellationToken);
 
         string[] results = await Task.WhenAll(editA, editB);
-        Assert.All(results, r => Assert.DoesNotContain("[Edit failed]", r));
+        Assert.All(results, r => Assert.DoesNotContain("[编辑失败]", r));
         Assert.Equal("FIRST\nSECOND\n", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
     }
 
@@ -159,7 +159,7 @@ public class PermissiveFileAccessToolsConcurrencyTests : IDisposable
 
         string result = await _tools.Edit(link, [new FileEdit { OldString = "original", NewString = "edited" }], TestContext.Current.CancellationToken);
 
-        Assert.DoesNotContain("[Edit failed]", result);
+        Assert.DoesNotContain("[编辑失败]", result);
         Assert.True(File.Exists(link) && new FileInfo(link).LinkTarget != null,
             "symlink 应保持为链接,不应被替换成普通文件");
         Assert.Equal("edited\n", await File.ReadAllTextAsync(target, TestContext.Current.CancellationToken));
@@ -185,7 +185,7 @@ public class PermissiveFileAccessToolsConcurrencyTests : IDisposable
         Task<string> editB = _tools.Edit(link, [new FileEdit { OldString = "three", NewString = "THREE" }], TestContext.Current.CancellationToken);
 
         string[] results = await Task.WhenAll(editA, editB);
-        Assert.All(results, r => Assert.DoesNotContain("[Edit failed]", r));
+        Assert.All(results, r => Assert.DoesNotContain("[编辑失败]", r));
         Assert.Equal("ONE\ntwo\nTHREE\n", await File.ReadAllTextAsync(target, TestContext.Current.CancellationToken));
     }
 
@@ -208,7 +208,7 @@ public class PermissiveFileAccessToolsConcurrencyTests : IDisposable
 
         string result = await _tools.Edit(path, [new FileEdit { OldString = "echo hi", NewString = "echo bye" }], TestContext.Current.CancellationToken);
 
-        Assert.DoesNotContain("[Edit failed]", result);
+        Assert.DoesNotContain("[编辑失败]", result);
         UnixFileMode expected = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
             | UnixFileMode.GroupRead | UnixFileMode.GroupExecute
             | UnixFileMode.OtherRead | UnixFileMode.OtherExecute;

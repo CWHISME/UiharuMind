@@ -101,7 +101,7 @@ public class DraftShorthandToolTests : IDisposable
         GlobOutcome glob = await new SimpleGlobber(_paths).SearchAsync("*.md", "$HOME", ct: ct);
         GrepOutcome grep = await new SimpleGrepper(_paths).SearchAsync("x", path: "$HOME", ct: ct);
 
-        Assert.StartsWith("[Write failed]", write);
+        Assert.StartsWith("[写入失败]", write);
         Assert.Contains("$DRAFT", read);
         Assert.Equal(ESearchFailureKind.InvalidPath, glob.Failure?.Kind);
         Assert.Equal(ESearchFailureKind.InvalidPath, grep.Failure?.Kind);

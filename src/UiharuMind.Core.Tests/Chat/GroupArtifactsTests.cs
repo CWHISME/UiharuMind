@@ -38,7 +38,7 @@ public sealed class GroupArtifactsTests : IDisposable
         Touch(_room, "chart.png"); //命令行画的图：列出来，但认不出是谁
         Touch(_room, ".DS_Store");
         List<ChatMessage> uiharu = [];
-        AddWrite(uiharu, "a", FileToolNames.Write, note, "Saved '171-挂点核对.md' (12 lines).");
+        AddWrite(uiharu, "a", FileToolNames.Write, note, "已保存 '171-挂点核对.md'（12 行）。");
 
         IReadOnlyList<GroupArtifact> artifacts = GroupArtifacts.Collect(_room, _workspace, [("初春饰利", Written(uiharu))]);
 
@@ -56,13 +56,13 @@ public sealed class GroupArtifactsTests : IDisposable
         string code = Touch(_workspace, "Code/A.cpp");
         Touch(_workspace, "Code/B.cpp");
         List<ChatMessage> mitsuko = [];
-        AddWrite(mitsuko, "1", FileToolNames.Edit, "Design/spec.md", "Applied 2 edit(s) to 'Design/spec.md'.\n-old\n+new");
-        AddWrite(mitsuko, "2", FileToolNames.Edit, "Code/B.cpp", "[Edit failed] oldString not found");
+        AddWrite(mitsuko, "1", FileToolNames.Edit, "Design/spec.md", "已修改 'Design/spec.md'（2 处编辑）。\n-old\n+new");
+        AddWrite(mitsuko, "2", FileToolNames.Edit, "Code/B.cpp", "[编辑失败] oldString 没有找到");
         AddWrite(mitsuko, "3", FileToolNames.Write, "Code/C.cpp", "Tool call invocation rejected. denied");
-        AddWrite(mitsuko, "4", FileToolNames.Write, "Code/Gone.cpp", "Saved 'Code/Gone.cpp' (3 lines).");
+        AddWrite(mitsuko, "4", FileToolNames.Write, "Code/Gone.cpp", "已保存 'Code/Gone.cpp'（3 行）。");
         List<ChatMessage> accelerator = [];
-        AddWrite(accelerator, "5", FileToolNames.Edit, code, "Applied 1 edit(s) to 'A.cpp'.");
-        AddWrite(mitsuko, "6", FileToolNames.Edit, code, "Applied 1 edit(s) to 'A.cpp'.");
+        AddWrite(accelerator, "5", FileToolNames.Edit, code, "已修改 'A.cpp'（1 处编辑）。");
+        AddWrite(mitsuko, "6", FileToolNames.Edit, code, "已修改 'A.cpp'（1 处编辑）。");
 
         IReadOnlyList<GroupArtifact> artifacts = GroupArtifacts.Collect(_room, _workspace,
             [("婚后光子", Written(mitsuko)), ("一方通行", Written(accelerator))]);

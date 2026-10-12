@@ -60,7 +60,7 @@ public sealed class GroupWrittenPathsTests : IDisposable
         _member.History.Add(new ChatMessage(ChatRole.Assistant,
             [new FunctionCallContent(callId, FileToolNames.Write, new Dictionary<string, object?> { ["filePath"] = relative })]));
         _member.History.Add(new ChatMessage(ChatRole.Tool,
-            [new FunctionResultContent(callId, $"Saved '{relative}' (1 lines).")]));
+            [new FunctionResultContent(callId, $"已保存 '{relative}'（1 行）。")]));
         _member.SaveAppended(before);
         return Path.Combine(_workspace, relative);
     }

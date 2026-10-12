@@ -45,7 +45,7 @@ public sealed class FileEditPlan
         Envelope = envelope;
     }
 
-    /// <summary>失败原因（英文，直接进模型上下文，也直接显示在审批卡片上）；成功时为 null</summary>
+    /// <summary>失败原因（中文，直接进模型上下文，也直接显示在审批卡片上）；成功时为 null</summary>
     public string? Error { get; }
 
     /// <summary>是否可以落盘</summary>
@@ -118,7 +118,7 @@ public static class FileEditPlanner
     public static async Task<FileEditPlan> PlanFileAsync(string absolutePath, string label,
         IReadOnlyList<FileEdit>? edits, CancellationToken ct = default)
     {
-        if (!File.Exists(absolutePath)) return FileEditPlan.Failed($"File '{label}' not found.");
+        if (!File.Exists(absolutePath)) return FileEditPlan.Failed($"找不到文件 '{label}'。");
 
         byte[] bytes = await File.ReadAllBytesAsync(absolutePath, ct).ConfigureAwait(false);
         return Plan(TextFileEnvelope.FromBytes(bytes), label, edits);
@@ -134,7 +134,7 @@ public static class FileEditPlanner
     /// <returns>编辑计划</returns>
     public static FileEditPlan PlanFile(string absolutePath, string label, IReadOnlyList<FileEdit>? edits)
     {
-        if (!File.Exists(absolutePath)) return FileEditPlan.Failed($"File '{label}' not found.");
+        if (!File.Exists(absolutePath)) return FileEditPlan.Failed($"找不到文件 '{label}'。");
 
         return Plan(TextFileEnvelope.FromBytes(File.ReadAllBytes(absolutePath)), label, edits);
     }
@@ -151,14 +151,14 @@ public static class FileEditPlanner
 
     internal static FileEditPlan Plan(TextFileEnvelope envelope, string label, IReadOnlyList<FileEdit>? edits)
     {
-        if (edits is not { Count: > 0 }) return FileEditPlan.Failed("edits must contain at least one entry.");
+        if (edits is not { Count: > 0 }) return FileEditPlan.Failed("edits 至少要有一条。");
 
         // 坏字节解码时已成了替换字符，写回去就把没碰到的部分也改了
         if (!envelope.IsLossless)
         {
             return FileEditPlan.Failed(
-                $"'{label}' can't be edited safely: its bytes don't decode cleanly as {envelope.EncodingName} "
-                + "(unknown or mixed encoding), so saving would also change the parts you didn't touch.");
+                $"'{label}' 无法安全编辑：它的字节按 {envelope.EncodingName} 解码不干净（编码未知或混用），"
+                + "保存时会把你没改的部分也一起改掉。");
         }
 
         string text = envelope.Text;
@@ -170,7 +170,7 @@ public static class FileEditPlanner
         for (int i = 0; i < edits.Count; i++)
         {
             string oldString = edits[i].OldString ?? string.Empty;
-            if (oldString.Length == 0) return FileEditPlan.Failed($"edits[{i}].oldString must not be empty.Edit replaces existing text: oldString must be a snippet that actually appears in the file. To append to the end, Read the file's last lines and use the tail as oldString.");
+            if (oldString.Length == 0) return FileEditPlan.Failed($"edits[{i}].oldString 不能为空。`{FileToolNames.Edit}` 替换的是已有文本：oldString 必须是文件里确实存在的一段。要追加到文件末尾，先 `{FileToolNames.Read}` 文件的最后几行，拿末尾那段作 oldString。");
 
             Location located = Locate(text, lines, oldString);
             switch (located.Kind)
@@ -183,11 +183,11 @@ public static class FileEditPlanner
                     // 归一歧义:多个命中里至少一个仅靠全角归一才匹配上——模型不知道"这两处"其实
                     // 只在标点上有差异,会误以为真有俩一模一样的块。必须点破,否则它加上下文永远加不对。
                     return FileEditPlan.Failed(located.NormalizedAmbiguity
-                        ? $"edits[{i}].oldString occurs {located.Count} times in '{label}' — "
-                          + "some matches differ only in full-width punctuation. Read the file and "
-                          + "add surrounding context that pins the exact one."
-                        : $"edits[{i}].oldString occurs {located.Count} times in '{label}'. "
-                          + "Add surrounding lines to it so that it matches exactly one place.");
+                        ? $"edits[{i}].oldString 在 '{label}' 中出现了 {located.Count} 次——"
+                          + $"其中有几处只在全角/半角标点上不同。先 `{FileToolNames.Read}` 文件，"
+                          + "再补上能锁定唯一那一处的上下文。"
+                        : $"edits[{i}].oldString 在 '{label}' 中出现了 {located.Count} 次。"
+                          + "给它补上前后几行，让它只匹配一处。");
             }
 
             matches.Add(new Match(i, located.Start, located.End,
@@ -199,23 +199,23 @@ public static class FileEditPlanner
         {
             if (matches[i - 1].End <= matches[i].Start) continue;
             return FileEditPlan.Failed(
-                $"edits[{matches[i - 1].Index}] and edits[{matches[i].Index}] overlap in '{label}'. "
-                + "Merge them into a single entry.");
+                $"edits[{matches[i - 1].Index}] 与 edits[{matches[i].Index}] 在 '{label}' 中重叠。"
+                + "把它们合并成一条。");
         }
 
         string newText = Apply(text, matches);
         if (newText == text)
         {
             return FileEditPlan.Failed(
-                $"No change: the edits produced content identical to '{label}'.");
+                $"没有改动：这些编辑后的内容与 '{label}' 原文完全相同。");
         }
 
         // 改一小段不该顺带换掉整个文件的编码，写不下就让模型换字符
         if (!envelope.CanEncode(newText))
         {
             return FileEditPlan.Failed(
-                $"The new text has characters that {envelope.EncodingName} can't store, "
-                + $"and '{label}' is saved as {envelope.EncodingName}. Use characters it supports.");
+                $"新文本里有 {envelope.EncodingName} 存不下的字符，而 '{label}' 是按 {envelope.EncodingName} 保存的。"
+                + "请改用它支持的字符。");
         }
 
         return FileEditPlan.Success(newText, BuildDiff(text, lines, matches), envelope);
@@ -234,7 +234,7 @@ public static class FileEditPlanner
     /// </summary>
     /// <param name="diff">diff 行</param>
     /// <param name="maxLines">最多渲染多少行，超出只给条数</param>
-    /// <param name="maxLineChars">单行长度上限，超出截断加 <c>…[truncated]</c></param>
+    /// <param name="maxLineChars">单行长度上限，超出截断加 <c>…[已截断]</c></param>
     /// <returns>diff 文本</returns>
     public static string RenderDiff(IReadOnlyList<LineDiffEntry> diff, int maxLines,
         int maxLineChars = DefaultMaxDiffLineChars)
@@ -346,7 +346,7 @@ public static class FileEditPlanner
                     }
                     if (middle > 0)
                     {
-                        sb.AppendLine($"…(+{middle} more lines)…");
+                        sb.AppendLine($"…（省略 {middle} 行）…");
                         blockShown++; //折叠行也占预算,否则多个骨架块会让总行数悄悄超出上限
                     }
                     blockOmitted = middle + content.Count - mustKeepLines.Count;
@@ -386,9 +386,9 @@ public static class FileEditPlanner
         if (omitted > 0)
         {
             sb.Append(omittedHunks > 0
-                ? $"…(+{omitted} more diff lines across {omittedHunks} hunk(s); "
-                  + "remaining hunks' coordinates are in the @@ headers above, use Read to inspect)"
-                : $"…(+{omitted} more diff lines)");
+                ? $"…（另有 {omitted} 行差异未显示，涉及 {omittedHunks} 个变更块；"
+                  + $"各块坐标见上方 @@ 头，需要时用 `{FileToolNames.Read}` 查看）"
+                : $"…（另有 {omitted} 行差异未显示）");
         }
 
         return sb.ToString().TrimEnd('\n', '\r');
@@ -495,12 +495,12 @@ public static class FileEditPlanner
         int firstLine = diff[start].LineNumber;
         int lastLine = diff[end - 1].LineNumber;
         return new LineDiffEntry(ELineDiffKind.Collapsed,
-            $"…({end - start} unchanged lines @ {firstLine}-{lastLine}, as in your oldString)…");
+            $"…（第 {firstLine}-{lastLine} 行，共 {end - start} 行未改动，与你的 oldString 相同）…");
     }
 
     /// <summary>diff 单行截断(与 Read/Grep 的 TruncateLine 同款口吻):minified JSON 一行可达几十 KB,行数上限拦不住它</summary>
     private static string ClampDiffLine(string text, int maxChars)
-        => text.Length <= maxChars ? text : text[..maxChars] + " …[truncated]";
+        => text.Length <= maxChars ? text : text[..maxChars] + " …[已截断]";
 
     // ---- 定位 ----
 

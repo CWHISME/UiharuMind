@@ -17,7 +17,7 @@ namespace UiharuMind.Core.AI.Execution.Files;
 /// </summary>
 public static class ReadTruncationNote
 {
-    private static readonly Regex ShownStart = new(@"\[truncated: showing lines (\d+)–",
+    private static readonly Regex ShownStart = new(@"\[已截断：显示第 (\d+)–",
         RegexOptions.Compiled | RegexOptions.RightToLeft);
 
     /// <summary>
@@ -25,11 +25,11 @@ public static class ReadTruncationNote
     /// </summary>
     /// <param name="start">首行行号</param>
     /// <param name="end">末行行号</param>
-    /// <param name="total">总行数（流式读时可能是「≥N」这类估计）</param>
+    /// <param name="total">总量说明，如「共 2500 行」；流式读没数行数时是文件大小</param>
     /// <param name="next">续读用的 offset</param>
     /// <returns>附注正文（不含前导换行）</returns>
     public static string Format(int start, int end, string total, int next) =>
-        $"…[truncated: showing lines {start}–{end} of {total}; continue with offset={next}]";
+        $"…[已截断：显示第 {start}–{end} 行，{total}；续读传 offset={next}]";
 
     /// <summary>
     /// 推算一次 Read 结果首行在原文件里的行号。有截断附注以附注为准（负 offset 也算得对）；

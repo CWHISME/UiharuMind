@@ -67,7 +67,7 @@ public class FileEditPlannerTests
         FileEditPlan plan = Plan("dup\ndup\n", ("dup", "x"));
 
         Assert.False(plan.Succeeded);
-        Assert.Contains("occurs 2 times", plan.Error);
+        Assert.Contains("出现了 2 次", plan.Error);
         Assert.Contains("edits[0]", plan.Error);
     }
 
@@ -78,7 +78,7 @@ public class FileEditPlannerTests
 
         Assert.False(plan.Succeeded);
         Assert.Contains("edits[1]", plan.Error);
-        Assert.Contains("was not found", plan.Error);
+        Assert.Contains("中没有找到", plan.Error);
     }
 
     // ---- NotFound 候选提示 ----
@@ -93,8 +93,8 @@ public class FileEditPlannerTests
         FileEditPlan plan = Plan("public void Send()  \n{\n}\n", ("public void SendMsg()\n{", "public void SendMsg()\n{\n    Log();\n}"));
 
         Assert.False(plan.Succeeded);
-        Assert.Contains("was not found", plan.Error);
-        Assert.Contains("line 1", plan.Error);
+        Assert.Contains("中没有找到", plan.Error);
+        Assert.Contains("第 1 行", plan.Error);
         Assert.Contains("public void Send()", plan.Error);
     }
 
@@ -108,9 +108,9 @@ public class FileEditPlannerTests
         FileEditPlan plan = Plan("a\n完全无关的一行\nc\n", ("zzzzz_qwerty_alpha\n{", "x"));
 
         Assert.False(plan.Succeeded);
-        Assert.Contains("was not found", plan.Error);
+        Assert.Contains("中没有找到", plan.Error);
         // 首句会提 Closest match 概念(指路用),但无候选时绝不能出现「具体第 N 行」的指向
-        Assert.DoesNotContain("Closest match: line", plan.Error);
+        Assert.DoesNotContain("最接近的匹配：第", plan.Error);
     }
 
     /// <summary>
@@ -130,10 +130,10 @@ public class FileEditPlannerTests
              + "        /// <summary>搜索根目录不存在</summary>\n        DirectoryNotFound,", "x"));
 
         Assert.False(plan.Succeeded);
-        Assert.Contains("Closest match: line 1 (5/5 lines content-matched)", plan.Error);
+        Assert.Contains("最接近的匹配：第 1 行（5/5 行内容一致）", plan.Error);
         Assert.Contains("[ws]", plan.Error);
-        Assert.Contains("line 1: expected", plan.Error);
-        Assert.Contains("leading whitespace 4 vs 0", plan.Error);
+        Assert.Contains("第 1 行：oldString 写的是", plan.Error);
+        Assert.Contains("行首空白 oldString 是 4 个，文件里是 0 个", plan.Error);
     }
 
     /// <summary>
@@ -146,9 +146,9 @@ public class FileEditPlannerTests
             ("first\nwrong\nthird", "x"));
 
         Assert.False(plan.Succeeded);
-        Assert.Contains("Closest match: line 1 (2/3 lines content-matched)", plan.Error);
-        Assert.Contains("line 2: expected 'wrong' but found 'second'", plan.Error);
-        Assert.Contains("content differs", plan.Error);
+        Assert.Contains("最接近的匹配：第 1 行（2/3 行内容一致）", plan.Error);
+        Assert.Contains("第 2 行：oldString 写的是 \'wrong\'，文件里是 \'second\'", plan.Error);
+        Assert.Contains("内容不同", plan.Error);
     }
 
     /// <summary>
@@ -161,8 +161,8 @@ public class FileEditPlannerTests
         FileEditPlan plan = Plan("first\nsecond\nthird\n", ("first\nsecon\n", "x"));
 
         Assert.False(plan.Succeeded);
-        Assert.Contains("Closest match: line 1 (1/2 lines content-matched)", plan.Error);
-        Assert.Contains("line 2: expected 'secon' but found 'second'", plan.Error);
+        Assert.Contains("最接近的匹配：第 1 行（1/2 行内容一致）", plan.Error);
+        Assert.Contains("第 2 行：oldString 写的是 \'secon\'，文件里是 \'second\'", plan.Error);
     }
 
     /// <summary>
@@ -176,12 +176,12 @@ public class FileEditPlannerTests
             ("1\n2\n3\nX\n5", "x"));
 
         Assert.False(plan.Succeeded);
-        Assert.Contains("Closest match: line 1 (4/5 lines content-matched)", plan.Error);
-        Assert.Contains("1-3 [ok] (3 lines)", plan.Error);
+        Assert.Contains("最接近的匹配：第 1 行（4/5 行内容一致）", plan.Error);
+        Assert.Contains("1-3 [ok]（3 行）", plan.Error);
         Assert.Contains("4 [diff] 4", plan.Error);
-        Assert.Contains("oldString line 4: X", plan.Error);
+        Assert.Contains("oldString 第 4 行：X", plan.Error);
         Assert.DoesNotContain("2 [ok]", plan.Error);
-        Assert.Contains("line 4: expected 'X' but found '4'", plan.Error);
+        Assert.Contains("第 4 行：oldString 写的是 \'X\'，文件里是 \'4\'", plan.Error);
     }
 
     /// <summary>
@@ -198,11 +198,11 @@ public class FileEditPlannerTests
             (method + "    [Fact]\n    public void Other()", ""));
 
         Assert.False(plan.Succeeded);
-        Assert.Contains("1-7 [ok] (7 lines)", plan.Error);
+        Assert.Contains("1-7 [ok]（7 行）", plan.Error);
         Assert.Contains("8 [diff]     private static string NewTestDir() =>", plan.Error);
-        Assert.Contains("oldString line 8:     [Fact]", plan.Error);
-        Assert.Contains("first 7 of 9 oldString lines match lines 1-7", plan.Error);
-        Assert.Contains("runs past the real text", plan.Error);
+        Assert.Contains("oldString 第 8 行：    [Fact]", plan.Error);
+        Assert.Contains("oldString 共 9 行，前 7 行与文件第 1-7 行完全一致", plan.Error);
+        Assert.Contains("超出了实际文本", plan.Error);
     }
 
     /// <summary>头部多带的行同理，说的是「起点早于实际文本」</summary>
@@ -213,8 +213,8 @@ public class FileEditPlannerTests
             ("// a comment that is not there\nalpha();\nbeta();\ngamma();", ""));
 
         Assert.False(plan.Succeeded);
-        Assert.Contains("last 3 of 4 oldString lines match lines 2-4", plan.Error);
-        Assert.Contains("starts before the real text", plan.Error);
+        Assert.Contains("oldString 共 4 行，后 3 行与文件第 2-4 行完全一致", plan.Error);
+        Assert.Contains("从实际文本之前就开始了", plan.Error);
     }
 
     /// <summary>末行只是错字不算多带：仍走逐行 expected/found</summary>
@@ -224,8 +224,8 @@ public class FileEditPlannerTests
         FileEditPlan plan = Plan("first\nsecond line here\nthird\n", ("first\nsecond lien here", "x"));
 
         Assert.False(plan.Succeeded);
-        Assert.DoesNotContain("runs past", plan.Error);
-        Assert.Contains("line 2: expected 'second lien here' but found 'second line here'", plan.Error);
+        Assert.DoesNotContain("超出了实际文本", plan.Error);
+        Assert.Contains("第 2 行：oldString 写的是 \'second lien here\'，文件里是 \'second line here\'", plan.Error);
     }
 
     // 两个长得像的方法：中间多抄/漏抄一行时，等长窗口后半段错位，曾被另一个方法抢走
@@ -265,12 +265,12 @@ public class FileEditPlannerTests
             (FirstTwin(l => l.Take(6).Append("        references.Refresh();").Concat(l.Skip(6))), "x"));
 
         Assert.False(plan.Succeeded);
-        Assert.Contains("Closest match: line 1 (11/12 lines content-matched)", plan.Error);
-        Assert.Contains("1-6 [ok] (6 lines)", plan.Error);
-        Assert.Contains("[extra] oldString line 7:         references.Refresh();", plan.Error);
-        Assert.Contains("7-11 [ok] (5 lines)", plan.Error);
-        Assert.Contains("1 line that the file doesn't have", plan.Error);
-        Assert.DoesNotContain("runs past", plan.Error);
+        Assert.Contains("最接近的匹配：第 1 行（11/12 行内容一致）", plan.Error);
+        Assert.Contains("1-6 [ok]（6 行）", plan.Error);
+        Assert.Contains("[extra] oldString 第 7 行：        references.Refresh();", plan.Error);
+        Assert.Contains("7-11 [ok]（5 行）", plan.Error);
+        Assert.Contains("多了 1 行文件里没有的", plan.Error);
+        Assert.DoesNotContain("超出了实际文本", plan.Error);
     }
 
     /// <summary>中间漏抄了一行：标成 [missing] 并给出文件里那行</summary>
@@ -280,9 +280,9 @@ public class FileEditPlannerTests
         FileEditPlan plan = Plan(TwinMethods, (FirstTwin(l => l.Take(6).Concat(l.Skip(7))), "x"));
 
         Assert.False(plan.Succeeded);
-        Assert.Contains("Closest match: line 1 (10/10 lines content-matched)", plan.Error);
+        Assert.Contains("最接近的匹配：第 1 行（10/10 行内容一致）", plan.Error);
         Assert.Contains("7 [missing]         Assert.True(File.Exists(path));", plan.Error);
-        Assert.Contains("skips 1 line that the file has", plan.Error);
+        Assert.Contains("漏了 1 行文件里有的", plan.Error);
     }
 
     /// <summary>中间一行改写、行数不变：仍走等长窗口，逐行 expected/found</summary>
@@ -293,9 +293,9 @@ public class FileEditPlannerTests
             (FirstTwin(l => l.Select((x, i) => i == 6 ? "        Assert.True(File.Exist(path));" : x)), "x"));
 
         Assert.False(plan.Succeeded);
-        Assert.Contains("Closest match: line 1 (10/11 lines content-matched)", plan.Error);
+        Assert.Contains("最接近的匹配：第 1 行（10/11 行内容一致）", plan.Error);
         Assert.Contains("7 [diff]         Assert.True(File.Exists(path));", plan.Error);
-        Assert.Contains("line 7: expected", plan.Error);
+        Assert.Contains("第 7 行：oldString 写的是", plan.Error);
         Assert.DoesNotContain("[extra]", plan.Error);
     }
 
@@ -305,7 +305,7 @@ public class FileEditPlannerTests
         FileEditPlan plan = Plan("a\n", ("", "x"));
 
         Assert.False(plan.Succeeded);
-        Assert.Contains("must not be empty", plan.Error);
+        Assert.Contains("不能为空", plan.Error);
     }
 
     [Fact]
@@ -314,7 +314,7 @@ public class FileEditPlannerTests
         FileEditPlan plan = Plan("abcdef\n", ("abcd", "X"), ("cdef", "Y"));
 
         Assert.False(plan.Succeeded);
-        Assert.Contains("overlap", plan.Error);
+        Assert.Contains("重叠", plan.Error);
         Assert.Contains("edits[0]", plan.Error);
         Assert.Contains("edits[1]", plan.Error);
     }
@@ -325,7 +325,7 @@ public class FileEditPlannerTests
         FileEditPlan plan = Plan("same\n", ("same", "same"));
 
         Assert.False(plan.Succeeded);
-        Assert.Contains("No change", plan.Error);
+        Assert.Contains("没有改动", plan.Error);
     }
 
     [Fact]
@@ -379,7 +379,7 @@ public class FileEditPlannerTests
         FileEditPlan plan = Plan("// \"quoted\"\nx\n", ("// “quoted”\nx\n", "y\n"));
 
         Assert.False(plan.Succeeded);
-        Assert.Contains("was not found", plan.Error);
+        Assert.Contains("中没有找到", plan.Error);
     }
 
     [Fact]
@@ -388,7 +388,7 @@ public class FileEditPlannerTests
         FileEditPlan plan = Plan("// a -- b\nx\n", ("// a — b\nx\n", "y\n"));
 
         Assert.False(plan.Succeeded);
-        Assert.Contains("was not found", plan.Error);
+        Assert.Contains("中没有找到", plan.Error);
     }
 
     /// <summary>
@@ -404,8 +404,8 @@ public class FileEditPlannerTests
             ("// 注意:会阻塞\nvoid Send()\n{\n", "x\n"));
 
         Assert.False(plan.Succeeded);
-        Assert.Contains("occurs 2 times", plan.Error);
-        Assert.Contains("differ only in full-width punctuation", plan.Error);
+        Assert.Contains("出现了 2 次", plan.Error);
+        Assert.Contains("只在全角/半角标点上不同", plan.Error);
     }
 
     /// <summary>普通的多处命中（无全角参与）保持原话术，不误导模型</summary>
@@ -415,7 +415,7 @@ public class FileEditPlannerTests
         FileEditPlan plan = Plan("same\nsame\n", ("same", "x"));
 
         Assert.False(plan.Succeeded);
-        Assert.Contains("occurs 2 times", plan.Error);
+        Assert.Contains("出现了 2 次", plan.Error);
         Assert.DoesNotContain("full-width", plan.Error);
     }
 
@@ -580,7 +580,7 @@ public class FileEditPlannerTests
         Assert.DoesNotContain("-11 old2", rendered); //块 2 中部折叠
         Assert.DoesNotContain(" 1 c1", rendered); //context 全让位
         Assert.DoesNotContain(" 10 c2", rendered);
-        Assert.Contains("+4 more diff lines across 2 hunk(s)", rendered); //两块都贡献了省略计数
+        Assert.Contains("另有 4 行差异未显示，涉及 2 个变更块", rendered); //两块都贡献了省略计数
     }
 
     /// <summary>
@@ -610,11 +610,11 @@ public class FileEditPlannerTests
         Assert.Contains("@@ -1,10 +1,10 @@", rendered);
         Assert.Contains("old2", rendered); //红绿行优先保留
         Assert.Contains("new2", rendered);
-        Assert.Contains("…(3 unchanged lines @ 3-5, as in your oldString)…", rendered); //尾部锚 3 行让位,中部折叠
+        Assert.Contains("…（第 3-5 行，共 3 行未改动，与你的 oldString 相同）…", rendered); //尾部锚 3 行让位,中部折叠
         Assert.Contains(" 1 c1", rendered); //剩余预算补 1 行 context 锚
         Assert.DoesNotContain("c6", rendered); //context 锚超出预算被省略
         Assert.DoesNotContain("c5", rendered); //中部行只在折叠摘要里
-        Assert.Contains("+3 more diff lines", rendered); //省略 3 行 context
+        Assert.Contains("另有 3 行差异未显示", rendered); //省略 3 行 context
     }
 
     /// <summary>
@@ -638,8 +638,8 @@ public class FileEditPlannerTests
         Assert.DoesNotContain("line10", rendered); //中部折叠
         Assert.Contains("line19", rendered); //尾部可见
         Assert.Contains("line20", rendered);
-        Assert.Contains("…(+16 more lines)…", rendered); //hunk 内折叠行
-        Assert.Contains("+16 more diff lines across 1 hunk(s)", rendered); //全局摘要
+        Assert.Contains("…（省略 16 行）…", rendered); //hunk 内折叠行
+        Assert.Contains("另有 16 行差异未显示，涉及 1 个变更块", rendered); //全局摘要
     }
 
     [Fact]
@@ -651,7 +651,7 @@ public class FileEditPlannerTests
 
         string rendered = FileEditPlanner.RenderDiff(diff, 3);
         Assert.Equal(4, rendered.Split('\n').Length); //3 行 + 折叠提示
-        Assert.Contains("+3 more diff lines", rendered);
+        Assert.Contains("另有 3 行差异未显示", rendered);
     }
 
     [Fact]
@@ -663,7 +663,7 @@ public class FileEditPlannerTests
         string rendered = FileEditPlanner.RenderDiff(diff, 4);
 
         Assert.Equal(5, rendered.Split('\n').Length); //4 行 + 折叠提示
-        Assert.Contains("+6 more diff lines", rendered);
+        Assert.Contains("另有 6 行差异未显示", rendered);
         Assert.StartsWith("+ 1 line1", rendered); //行号按最宽的那个右对齐
     }
 
@@ -674,12 +674,12 @@ public class FileEditPlannerTests
         List<LineDiffEntry> diff4 = Enumerable.Range(1, 4)
             .Select(i => new LineDiffEntry(ELineDiffKind.Context, $"c{i}", i)).ToList();
         string rendered4 = FileEditPlanner.RenderDiff(diff4, 80);
-        Assert.DoesNotContain("unchanged lines", rendered4);
+        Assert.DoesNotContain("行未改动", rendered4);
 
         List<LineDiffEntry> diff5 = Enumerable.Range(1, 5)
             .Select(i => new LineDiffEntry(ELineDiffKind.Context, $"c{i}", i)).ToList();
         string rendered5 = FileEditPlanner.RenderDiff(diff5, 80);
-        Assert.Contains("…(5 unchanged lines @ 1-5, as in your oldString)…", rendered5);
+        Assert.Contains("…（第 1-5 行，共 5 行未改动，与你的 oldString 相同）…", rendered5);
     }
 
     /// <summary>
@@ -707,7 +707,7 @@ public class FileEditPlannerTests
         Assert.Contains(" 1 l1", rendered); //头部锚保留
         Assert.Contains("-3 a", rendered); //红绿行原样
         Assert.Contains("+3 x", rendered);
-        Assert.Contains("…(2 unchanged lines @ 4-5, as in your oldString)…", rendered); //内部相同行折叠
+        Assert.Contains("…（第 4-5 行，共 2 行未改动，与你的 oldString 相同）…", rendered); //内部相同行折叠
         Assert.Contains(" 6 l6", rendered); //尾部锚 3 行保留
         Assert.Contains(" 7 l7", rendered);
         Assert.Contains(" 8 l8", rendered);
@@ -732,7 +732,7 @@ public class FileEditPlannerTests
 
         Assert.Contains(" 1 c1", rendered);
         Assert.Contains(" 2 c2", rendered); //1 行可折时不折,整体保留
-        Assert.DoesNotContain("unchanged lines", rendered);
+        Assert.DoesNotContain("行未改动", rendered);
     }
 
     /// <summary>
@@ -752,7 +752,7 @@ public class FileEditPlannerTests
 
         string rendered = FileEditPlanner.RenderDiff(diff, 80);
 
-        Assert.Contains("-1 " + new string('x', 240) + " …[truncated]", rendered); //行号列宽 1,无填充
+        Assert.Contains("-1 " + new string('x', 240) + " …[已截断]", rendered); //行号列宽 1,无填充
         Assert.Contains("+1 short", rendered);
         Assert.DoesNotContain(new string('x', 241), rendered); //超 240 的部分不进上下文
     }
@@ -796,6 +796,6 @@ public class FileEditPlannerTests
             [new FileEdit { OldString = "a", NewString = "b" }], TestContext.Current.CancellationToken);
 
         Assert.False(plan.Succeeded);
-        Assert.Contains("'src/Nope.cs' not found", plan.Error);
+        Assert.Contains("找不到文件 'src/Nope.cs'", plan.Error);
     }
 }

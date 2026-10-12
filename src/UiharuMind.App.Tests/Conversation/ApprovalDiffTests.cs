@@ -105,25 +105,25 @@ public class ApprovalDiffTests : IDisposable
         Assert.True(plan.Succeeded, plan.Error);
 
         // 与 Edit 工具返回给模型的正文逐字一致
-        string result = $"Applied 1 edit(s) to 'D.cs'.\n{FileEditPlanner.RenderDiff(plan.Diff, 80)}";
+        string result = $"已修改 'D.cs'（1 处编辑）。\n{FileEditPlanner.RenderDiff(plan.Diff, 80)}";
 
         var lines = DiffLineView.ParseToolResult(result, FileToolNames.Edit);
 
         Assert.Contains(lines, x => x.IsRemoved && x.Text.Contains("old"));
         Assert.Contains(lines, x => x.IsAdded && x.Text.Contains("new"));
-        Assert.Contains(lines, x => !x.IsAdded && !x.IsRemoved && x.Text.StartsWith("Applied 1 edit"));
+        Assert.Contains(lines, x => !x.IsAdded && !x.IsRemoved && x.Text.StartsWith("已修改 'D.cs'"));
         Assert.Equal(1, lines.Count(x => x.IsRemoved));
         Assert.Equal(1, lines.Count(x => x.IsAdded));
     }
 
     [Theory]
     [InlineData("")]
-    [InlineData("File 'x.cs' not found.")]
-    [InlineData("[Edit failed] edits[0].oldString was not found in 'x.cs'.")]
+    [InlineData("找不到文件 'x.cs'。")]
+    [InlineData("[编辑失败] edits[0].oldString 在 'x.cs' 中没有找到。")]
     [InlineData("l1\nl2\nl3")]
     public void NonEditResults_AreLeftAsPlainText(string resultText)
     {
-        // 非 Edit 工具的结果一律不解析（工具语义判断，不再靠 "Applied " 前缀）
+        // 非 Edit 工具的结果一律不解析（工具语义判断，不再靠「已修改」回执开头）
         Assert.Empty(DiffLineView.ParseToolResult(resultText, FileToolNames.Read));
     }
 
@@ -131,7 +131,7 @@ public class ApprovalDiffTests : IDisposable
     public void NonEditTool_EvenWithDiffShapedText_IsNotParsed()
     {
         // 工具语义优先于文本表现：Read 的结果即使第一行碰巧像回执（旧前缀方案会误伤），也不解析
-        string diffShaped = "Applied 1 edit(s) to 'D.cs'.\n- 3 old\n+ 3 new";
+        string diffShaped = "已修改 'D.cs'（1 处编辑）。\n- 3 old\n+ 3 new";
         Assert.Empty(DiffLineView.ParseToolResult(diffShaped, FileToolNames.Read));
     }
 
@@ -139,7 +139,7 @@ public class ApprovalDiffTests : IDisposable
     public void EditTool_FailureMessage_IsNotParsedAsDiff()
     {
         // Edit 结果没有 diff 行（失败消息）时按纯文本渲染
-        Assert.Empty(DiffLineView.ParseToolResult("[Edit failed] edits[0].oldString was not found.", FileToolNames.Edit));
+        Assert.Empty(DiffLineView.ParseToolResult("[编辑失败] edits[0].oldString 没有找到。", FileToolNames.Edit));
     }
 
     [Fact]
@@ -148,7 +148,7 @@ public class ApprovalDiffTests : IDisposable
         ToolCallItem item = new() { ToolName = FileToolNames.Edit };
         Assert.False(item.HasResultDiff);
 
-        item.ResultText = "Applied 1 edit(s) to 'x.cs'.\n- 3 old\n+ 3 new";
+        item.ResultText = "已修改 'x.cs'（1 处编辑）。\n- 3 old\n+ 3 new";
 
         Assert.True(item.HasResultDiff);
         Assert.Contains(item.ResultDiffLines, x => x.IsAdded && x.Text.Contains("new"));
@@ -188,33 +188,33 @@ public class ApprovalDiffTests : IDisposable
             [new FileEdit { OldString = oldString, NewString = newString }]);
         Assert.True(plan.Succeeded, plan.Error);
         string modelText = FileEditPlanner.RenderDiff(plan.Diff, FileEditPlanner.DefaultMaxDiffLines);
-        var modelView = DiffLineView.ParseToolResult($"Applied 1 edit(s) to 'Big.cs'.\n{modelText}", FileToolNames.Edit);
+        var modelView = DiffLineView.ParseToolResult($"已修改 'Big.cs'（1 处编辑）。\n{modelText}", FileToolNames.Edit);
 
-        Assert.Equal(approval.Count, modelView.Count); //两边各有一个头行(Applied / @ path),数量相等
+        Assert.Equal(approval.Count, modelView.Count); //两边各有一个头行(已修改 / @ path),数量相等
         for (int i = 1; i < modelView.Count; i++) //跳过各自头行,从 diff 行开始逐行对比
         {
             Assert.Equal(modelView[i].Prefix, approval[i].Prefix);
             Assert.Equal(modelView[i].Text, approval[i].Text);
         }
 
-        Assert.Contains(approval, x => !x.IsAdded && !x.IsRemoved && x.Text.Contains("unchanged lines"));
+        Assert.Contains(approval, x => !x.IsAdded && !x.IsRemoved && x.Text.Contains("行未改动"));
         Assert.True(approval.Count <= FileEditPlanner.DefaultMaxDiffLines + 1, "卡片不再比模型看得多");
     }
 
-    /// <summary>折叠行(…(N unchanged lines @ a-b)…)不匹配 diff 行正则,结果卡片上按灰色 context 展示</summary>
+    /// <summary>折叠行(…（第 a-b 行，共 N 行未改动…）…)不匹配 diff 行正则,结果卡片上按灰色 context 展示</summary>
     [Fact]
     public void CollapsedSummary_ShowsAsPlainContext_OnResultCard()
     {
-        string result = "Applied 1 edit(s) to 'B.cs'.\n"
+        string result = "已修改 'B.cs'（1 处编辑）。\n"
                         + "@@ -1,60 +1,60 @@\n"
-                        + "…(50 unchanged lines @ 1-50)…\n"
+                        + "…（第 1-50 行，共 50 行未改动，与你的 oldString 相同）…\n"
                         + "- 51 old\n"
                         + "+ 51 new\n"
                         + " 52 tail";
 
         var lines = DiffLineView.ParseToolResult(result, FileToolNames.Edit);
 
-        Assert.Contains(lines, x => !x.IsAdded && !x.IsRemoved && x.Text.Contains("unchanged lines"));
+        Assert.Contains(lines, x => !x.IsAdded && !x.IsRemoved && x.Text.Contains("行未改动"));
         Assert.Contains(lines, x => x.IsRemoved && x.Text.Contains("old"));
         Assert.Contains(lines, x => x.IsAdded && x.Text.Contains("new"));
         Assert.Contains(lines, x => x.Text.Contains("@@ -1,60")); //hunk 头同样按灰色保留

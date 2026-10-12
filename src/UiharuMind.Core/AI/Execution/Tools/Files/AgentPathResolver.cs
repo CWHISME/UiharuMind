@@ -111,7 +111,7 @@ public sealed record AgentPathResolver
 
             if (root.Length == 0)
             {
-                throw new ArgumentException($"'{path}' refers to ${variable}, but this session has no such directory.");
+                throw new ArgumentException($"'{path}' 用了 ${variable}，但本会话没有这个目录。");
             }
 
             return Path.GetFullPath(root + rest);
@@ -127,8 +127,8 @@ public sealed record AgentPathResolver
         if (StartsWithVariable(path))
         {
             string known = string.Join(", ", Shorthands.Where(x => x.Root.Length > 0).Select(x => x.Token));
-            throw new ArgumentException($"'{path}' starts with a variable that file tools don't expand. "
-                                        + (known.Length > 0 ? $"Use {known}, or an absolute path." : "Use an absolute path."));
+            throw new ArgumentException($"'{path}' 以变量开头，文件工具不会展开它。"
+                                        + (known.Length > 0 ? $"请改用 {known} 或绝对路径。" : "请改用绝对路径。"));
         }
 
         if (Path.IsPathRooted(path)) return Path.GetFullPath(path);
@@ -136,7 +136,7 @@ public sealed record AgentPathResolver
         string baseDirectory = relativeTo ?? WorkspaceRoot;
         if (baseDirectory.Length == 0)
         {
-            throw new ArgumentException($"Relative path '{path}' has no working directory to resolve against.");
+            throw new ArgumentException($"相对路径 '{path}' 无法解析：本会话没有工作目录。");
         }
 
         return Path.GetFullPath(Path.Combine(baseDirectory, path));
@@ -166,7 +166,7 @@ public sealed record AgentPathResolver
     public bool TryResolve(string? path, out string fullPath) => TryResolve(path, out fullPath, out _);
 
     /// <summary>
-    /// 同上，另给出解析不了的原因（英文，与工具 schema 同一层）。文件工具用它：
+    /// 同上，另给出解析不了的原因（中文，直接进模型上下文）。文件工具用它：
     /// 自建工具的失败一律回一句模型能照着改的话，不抛给框架
     /// </summary>
     /// <param name="path">模型给的路径；空视为解析不了</param>
@@ -179,7 +179,7 @@ public sealed record AgentPathResolver
         error = string.Empty;
         if (string.IsNullOrWhiteSpace(path))
         {
-            error = "The path is empty.";
+            error = "路径为空。";
             return false;
         }
 

@@ -173,8 +173,8 @@ public sealed class MemoryIndexTests : IDisposable
             string edited = await tools.Edit(note, [new FileEdit { OldString = "正文", NewString = "新正文" }], ct);
             string elsewhere = await tools.Write(Path.Combine(workspace, "a.md"), "# 不是记忆", ct);
 
-            Assert.Contains("Shown in the memory index as: pitfalls.md — 踩坑", written);
-            Assert.Contains("Shown in the memory index as: pitfalls.md — 踩坑", edited);
+            Assert.Contains("在记忆索引中显示为：pitfalls.md — 踩坑", written);
+            Assert.Contains("在记忆索引中显示为：pitfalls.md — 踩坑", edited);
             Assert.DoesNotContain("memory index", elsewhere);
         }
         finally
@@ -203,6 +203,6 @@ public sealed class MemoryIndexTests : IDisposable
 
         string index = await reader.ReadAsync("$MEMORY/", 1, null, TestContext.Current.CancellationToken);
 
-        Assert.Contains("no notes", index);
+        Assert.Contains("还没有笔记", index);
     }
 }

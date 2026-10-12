@@ -201,7 +201,7 @@ public class ToolResultTruncationTests
     public void DiffResults_AreLeftToTheDiffPath()
     {
         ToolCallItem item = new() { ToolName = "Edit" };
-        string diff = "Applied 1 edit(s) to 'x.cs'.\n"
+        string diff = "已修改 'x.cs'（1 处编辑）。\n"
                       + string.Join('\n', Enumerable.Range(0, 4000).Select(i => $"+{i,5} added line {i}"));
 
         item.ResultText = diff;

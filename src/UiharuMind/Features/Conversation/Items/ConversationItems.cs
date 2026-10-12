@@ -457,7 +457,7 @@ public partial class ToolCallItem : ConversationItemBase
     [RelayCommand]
     private void ShowFullResult()
     {
-        // 语言来源与卡片同口径：回执（Saved/Applied 前缀）不是文件正文，不上色；
+        // 语言来源与卡片同口径：回执（已保存/已修改 开头）不是文件正文，不上色；
         // 其余才是文件正文，按 FilePath 扩展名高亮，Read 读的是 Markdown 就直接进预览
         // Read 片段的行号从它在原文件里的位置数起，才对得上 Edit 失败提示里的行号
         int firstLine = IsFileContentTool(ToolName) && IsSuccess
@@ -581,7 +581,7 @@ public sealed class DiffLineView
     /// 拿 oldString 再去匹配必然落空。
     ///
     /// 入口判据：<b>只有 Edit 工具的结果才尝试解析</b>——结果形态由工具语义决定，
-    /// 不靠 "Applied " 文案前缀猜（回执文案变了不影响识别，见 ADR 0035）。
+    /// 不靠「已修改」回执开头猜（回执文案变了不影响识别，见 ADR 0035）。
     /// 非 diff 文本由解析器的 sawDiffLine 闸门挡掉，失败消息之类自然为空。
     /// </summary>
     /// <param name="resultText">工具结果正文</param>

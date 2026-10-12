@@ -50,6 +50,7 @@ internal sealed class FileReader
     private readonly SimpleGlobber _glob;
     private readonly EReadImageMode _imageMode;
     private readonly ImagePreview.ImageDownscaler? _downscaler;
+    private readonly string? _truncationHint; //截断时追加的去处提示；Summary 没挂时为 null
 
     /// <summary>
     /// 构造
@@ -57,12 +58,17 @@ internal sealed class FileReader
     /// <param name="paths">路径口径</param>
     /// <param name="imageMode">读到图片时怎么办</param>
     /// <param name="downscaler">看图的缩图器；null 原样复制</param>
-    public FileReader(AgentPathResolver paths, EReadImageMode imageMode, ImagePreview.ImageDownscaler? downscaler)
+    /// <param name="offerSummary">截断时是否提示可交给 Summary（它真的挂着才提）</param>
+    public FileReader(AgentPathResolver paths, EReadImageMode imageMode, ImagePreview.ImageDownscaler? downscaler,
+        bool offerSummary = false)
     {
         _paths = paths;
         _glob = new SimpleGlobber(paths);
         _imageMode = imageMode;
         _downscaler = downscaler;
+        // 大文件要「整体理解」时不该一页页翻：交给 Summary 带着意图去读，主会话只收结论。
+        // 不在 Read 里自动总结——Read 是 Edit 的原文来源，且它不知道模型读的目的
+        _truncationHint = offerSummary ? $"要整体理解这份文件，可交给 `{BrainTool.ToolName}`，task 里写清要什么。" : null;
     }
 
     /// <summary>
@@ -77,7 +83,7 @@ internal sealed class FileReader
     {
         if (!_paths.TryResolve(filePath, out string full, out string pathError)) return pathError;
         if (_paths.RelativeToMemory(full) == ".") return ReadMemoryIndex();
-        if (Directory.Exists(full)) return $"'{filePath}' is a directory. Use `{FileToolNames.Glob}` to list its files.";
+        if (Directory.Exists(full)) return $"'{filePath}' 是目录；列出其中的文件用 `{FileToolNames.Glob}`。";
         if (!File.Exists(full)) return await NotFoundAsync(filePath, full, ct).ConfigureAwait(false);
 
         // 只按扩展名分流：投影也只认参数里的扩展名，两边口径一致
@@ -85,25 +91,25 @@ internal sealed class FileReader
 
         long size = new FileInfo(full).Length;
         return size <= WholeFileBytes
-            ? await ReadWholeAsync(filePath, full, offset, limit, ct).ConfigureAwait(false)
-            : ReadStreaming(filePath, full, size, offset, limit);
+            ? await ReadWholeAsync(filePath, full, offset, limit, _truncationHint, ct).ConfigureAwait(false)
+            : ReadStreaming(filePath, full, size, offset, limit, _truncationHint);
     }
 
     // 读记忆目录本身 = 读记忆索引:每份笔记一行「文件名 — 首行摘要」
     private string ReadMemoryIndex() =>
         MemoryIndex.Build(_paths.MemoryRoot, string.Empty, AgentSettingConfig.Current.MemoryIndexBudget)
-        ?? "The memory directory has no notes yet.";
+        ?? "记忆目录里还没有笔记。";
 
     private Task<string> ReadImageAsync(string filePath, string full, CancellationToken ct) => _imageMode switch
     {
         EReadImageMode.Attach => ImagePreview.AttachAsync(_paths, filePath, full, _downscaler, ct),
         EReadImageMode.PointToAnalyzeImage => ImagePreview.DescribeAsync(filePath, full,
-            $"You can't see images yourself; ask `{VisionTool.ToolName}` about it.", ct),
-        _ => ImagePreview.DescribeAsync(filePath, full, "Images can't be viewed in this session.", ct),
+            $"你自己看不了图片，可以让 `{VisionTool.ToolName}` 帮你看。", ct),
+        _ => ImagePreview.DescribeAsync(filePath, full, "本会话无法查看图片。", ct),
     };
 
     private static async Task<string> ReadWholeAsync(string filePath, string full, int offset, int? limit,
-        CancellationToken ct)
+        string? truncationHint, CancellationToken ct)
     {
         byte[] bytes = await File.ReadAllBytesAsync(full, ct).ConfigureAwait(false);
         TextEncodingProbe probe = TextEncodingDetector.Detect(bytes);
@@ -111,17 +117,21 @@ internal sealed class FileReader
 
         string text = probe.Decode(bytes);
         List<Range> lines = SplitLines(text);
-        if (lines.Count == 0) return $"File '{filePath}' is empty.";
+        if (lines.Count == 0) return $"文件 '{filePath}' 是空的。";
 
         int start = StartLine(offset, lines.Count);
-        if (start > lines.Count) return $"offset {offset} is past the end of '{filePath}' ({lines.Count} lines).";
+        if (start > lines.Count) return $"offset {offset} 超出了 '{filePath}' 的末尾（共 {lines.Count} 行）。";
 
         (List<string> window, bool hasMore) = TakeWindow(lines.Skip(start - 1).Select(range => text[range]), limit);
-        return Render(window, start, hasMore, lines.Count.ToString(), EncodingNote(probe));
+        // 只在从头读、被截断时附大纲：此时模型还不知道文件长什么样；带 offset 翻页时它已经看过了。
+        // 流式读的大文件（>8MB）不附——多是日志与生成物，为它多扫一遍不值
+        string? outline = hasMore && start == 1 ? FileOutline.Render(filePath, lines.Select(range => text[range])) : null;
+        return Render(window, start, hasMore, $"共 {lines.Count} 行", EncodingNote(probe), outline, truncationHint);
     }
 
     // 大文件不整份进内存：编码只看开头一段，总行数只在倒数读时才数（要多扫一遍）
-    private static string ReadStreaming(string filePath, string full, long size, int offset, int? limit)
+    private static string ReadStreaming(string filePath, string full, long size, int offset, int? limit,
+        string? truncationHint)
     {
         byte[] head = new byte[SampleBytes];
         int headLength;
@@ -136,10 +146,12 @@ internal sealed class FileReader
         int? total = offset < 0 ? ReadLines(full, probe).Count() : null;
         int start = StartLine(offset, total ?? 0);
         (List<string> window, bool hasMore) = TakeWindow(ReadLines(full, probe).Skip(start - 1), limit);
-        if (window.Count == 0) return $"offset {offset} is past the end of '{filePath}'.";
+        if (window.Count == 0) return $"offset {offset} 超出了 '{filePath}' 的末尾。";
 
-        return Render(window, start, hasMore, total?.ToString() ?? $"a {GameUtils.FormatBytes(size)} file",
-            EncodingNote(probe));
+        string totalText = total is { } count
+            ? $"共 {count} 行"
+            : $"文件共 {GameUtils.FormatBytes(size)}，未统计行数";
+        return Render(window, start, hasMore, totalText, EncodingNote(probe), null, truncationHint);
     }
 
     private static IEnumerable<string> ReadLines(string full, TextEncodingProbe probe)
@@ -197,7 +209,8 @@ internal sealed class FileReader
         return (window, false);
     }
 
-    private static string Render(List<string> window, int start, bool hasMore, string total, string? encodingNote)
+    private static string Render(List<string> window, int start, bool hasMore, string total, string? encodingNote,
+        string? outline, string? truncationHint)
     {
         StringBuilder sb = new(string.Join('\n', window));
         if (hasMore)
@@ -206,6 +219,8 @@ internal sealed class FileReader
             // 也就无从判断该继续翻还是改用 Grep 定位
             int next = start + window.Count;
             sb.Append('\n').Append(ReadTruncationNote.Format(start, next - 1, total, next));
+            if (outline != null) sb.Append("\n\n").Append(outline);
+            if (truncationHint != null) sb.Append('\n').Append(truncationHint);
         }
 
         if (encodingNote != null) sb.Append('\n').Append(encodingNote);
@@ -215,21 +230,21 @@ internal sealed class FileReader
     // 只在不是 UTF-8 时说：模型若改用 Shell 或脚本动这个文件，得知道它是什么编码
     private static string? EncodingNote(TextEncodingProbe probe) => probe.Verdict switch
     {
-        ETextEncodingVerdict.Unknown => "[encoding not recognized; non-ASCII text may be garbled]",
+        ETextEncodingVerdict.Unknown => "[未能识别编码，非 ASCII 文字可能是乱码]",
         _ when probe.IsUtf8 => null,
-        _ => $"[encoding: {probe.Encoding!.WebName}]",
+        _ => $"[编码：{probe.Encoding!.WebName}]",
     };
 
     private static string BinaryNotice(string filePath, long size) =>
-        $"'{filePath}' is a binary file ({GameUtils.FormatBytes(size)}); its content can't be shown as text.";
+        $"'{filePath}' 是二进制文件（{GameUtils.FormatBytes(size)}），无法按文本显示。";
 
     private async Task<string> NotFoundAsync(string filePath, string full, CancellationToken ct)
     {
-        string missing = $"File '{filePath}' not found.";
+        string missing = $"找不到文件 '{filePath}'。";
         string name = Path.GetFileName(full);
         if (name.IndexOfAny(['*', '?']) >= 0)
         {
-            return $"{missing} filePath takes one exact path; use `{FileToolNames.Glob}` to match a pattern.";
+            return $"{missing}filePath 只接受一个确切路径；按模式匹配用 `{FileToolNames.Glob}`。";
         }
 
         // 只在工作区里找；名字里带 glob 元字符的不找，拼进模式会被当成通配
@@ -241,7 +256,7 @@ internal sealed class FileReader
         IReadOnlyList<string> sameName = await FindSameNameAsync(name, ct).ConfigureAwait(false);
         return sameName.Count == 0
             ? missing
-            : $"{missing} Files with the same name in the working directory:\n"
+            : $"{missing}工作目录里有这些同名文件：\n"
               + string.Join('\n', sameName.Select(path => "- " + path));
     }
 

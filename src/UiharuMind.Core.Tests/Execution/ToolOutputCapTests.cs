@@ -53,7 +53,7 @@ public class ToolOutputCapTests : IDisposable
         string result = await _tools.Read(path, offset: FileReader.DefaultLineLimit + 1, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.StartsWith($"line{FileReader.DefaultLineLimit + 1}", result);
-        Assert.DoesNotContain("[truncated", result); //剩余 500 行在窗口内,不应再截断
+        Assert.DoesNotContain("[已截断：", result); //剩余 500 行在窗口内,不应再截断
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public class ToolOutputCapTests : IDisposable
         string result = await _tools.Read(path, head: 4000, cancellationToken: TestContext.Current.CancellationToken);
 
         string[] lines = result.Split('\n');
-        Assert.Contains("continue with offset=", lines[^1]);
+        Assert.Contains("续读传 offset=", lines[^1]);
         Assert.True(lines.Length - 1 < 4000, $"应因字节上限提前截断,实际返回 {lines.Length - 1} 行");
         Assert.True(Encoding.UTF8.GetByteCount(result) < FileReader.MaxTotalBytes * 2,
             "截断后总字节应在上限量级内");
@@ -104,8 +104,8 @@ public class ToolOutputCapTests : IDisposable
         string result = await _tools.Read(path, head: -1, cancellationToken: TestContext.Current.CancellationToken);
 
         // 全文读绕过字节上限,不应有截断提示
-        Assert.DoesNotContain("[truncated", result);
-        Assert.DoesNotContain("continue with offset=", result);
+        Assert.DoesNotContain("[已截断：", result);
+        Assert.DoesNotContain("续读传 offset=", result);
         // 应包含最后一行
         Assert.Contains("3000", result);
         // 总字节应超过 1MB(证明绕过了字节上限)

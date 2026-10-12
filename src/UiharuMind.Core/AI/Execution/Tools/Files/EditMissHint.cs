@@ -39,10 +39,9 @@ internal static class EditMissHint
     /// <returns>给模型的话术</returns>
     public static string Build(int index, string oldString, string label, IReadOnlyList<string> fileLines)
     {
-        string message = $"edits[{index}].oldString was not found in '{label}'. It must match the file exactly, "
-                         + "whitespace and line breaks included. Follow the Closest match hint below to fix the oldString; "
-                         + "only when there is no candidate or the location is unclear, Read a small range around the hint "
-                         + "— don't re-read the whole file.";
+        string message = $"edits[{index}].oldString 在 '{label}' 中没有找到。它必须与文件完全一致，空白和换行也算在内。"
+                         + "照下面「最接近的匹配」修正 oldString；只有没给出候选或位置不明确时，"
+                         + $"才 `{FileToolNames.Read}` 提示位置附近的一小段——不要重读整个文件。";
 
         string[] anchors = oldString.Split('\n').Select(a => a.TrimEnd()).ToArray();
         // 镜像 LocateByLineWindow：尾随换行产生的空末段只表示「连换行一起换」，不参与评分
@@ -205,7 +204,7 @@ internal static class EditMissHint
         int firstFileLine = steps.First(s => s.File >= 0).File;
 
         var sb = new StringBuilder();
-        sb.Append($" Closest match: line {firstFileLine + 1} ({alignment.ContentMatched}/{anchors.Length} lines content-matched)");
+        sb.Append($" 最接近的匹配：第 {firstFileLine + 1} 行（{alignment.ContentMatched}/{anchors.Length} 行内容一致）");
 
         List<string> rows = BuildRows(steps, anchors, file);
         int shown = Math.Min(rows.Count, MaxShownRows);
@@ -214,7 +213,7 @@ internal static class EditMissHint
             sb.Append($"\n   {rows[k]}");
         }
 
-        if (rows.Count > shown) sb.Append($"\n   …(+{rows.Count - shown} more lines)");
+        if (rows.Count > shown) sb.Append($"\n   …（还有 {rows.Count - shown} 条未列出）");
 
         string? overrun = DescribeOverrun(steps, anchors, file);
         if (overrun != null) return sb.Append('\n').Append(overrun).ToString();
@@ -226,8 +225,8 @@ internal static class EditMissHint
         {
             string expected = anchors[firstFix.Anchor];
             string found = file[firstFix.File];
-            sb.Append($"\nline {firstFix.File + 1}: expected '{Clamp(expected)}' but found '{Clamp(found)}'");
-            sb.Append(firstFix.Kind == EStep.Diff ? " — content differs." : DescribeWhitespaceDiff(expected, found));
+            sb.Append($"\n第 {firstFix.File + 1} 行：oldString 写的是 '{Clamp(expected)}'，文件里是 '{Clamp(found)}'");
+            sb.Append(firstFix.Kind == EStep.Diff ? "——内容不同。" : DescribeWhitespaceDiff(expected, found));
         }
 
         return sb.ToString();
@@ -248,7 +247,7 @@ internal static class EditMissHint
                 int runLen = idx - runStart;
                 if (runLen >= 2)
                 {
-                    rows.Add($"{steps[runStart].File + 1}-{steps[idx - 1].File + 1} [ok] ({runLen} lines)");
+                    rows.Add($"{steps[runStart].File + 1}-{steps[idx - 1].File + 1} [ok]（{runLen} 行）");
                     continue;
                 }
 
@@ -260,9 +259,9 @@ internal static class EditMissHint
                 EStep.Exact => $"{step.File + 1} [ok] {Clamp(file[step.File])}",
                 EStep.Whitespace => $"{step.File + 1} [ws] {Clamp(file[step.File])}",
                 EStep.Diff => $"{step.File + 1} [diff] {Clamp(file[step.File])}\n"
-                              + $"      oldString line {step.Anchor + 1}: {Clamp(anchors[step.Anchor])}",
+                              + $"      oldString 第 {step.Anchor + 1} 行：{Clamp(anchors[step.Anchor])}",
                 EStep.Missing => $"{step.File + 1} [missing] {Clamp(file[step.File])}",
-                _ => $"[extra] oldString line {step.Anchor + 1}: {Clamp(anchors[step.Anchor])}",
+                _ => $"[extra] oldString 第 {step.Anchor + 1} 行：{Clamp(anchors[step.Anchor])}",
             });
             idx++;
         }
@@ -292,24 +291,27 @@ internal static class EditMissHint
         }
 
         int n = anchors.Length;
-        string noun = off == 1 ? "line is" : "lines are";
-        string pronoun = off == 1 ? "it" : "them";
+        string pronoun = off == 1 ? "这一行" : $"这 {off} 行";
         if (lastOff == steps.Count - 1)
         {
             int matchedEnd = steps[firstOff - 1].File + 1;
-            string next = matchedEnd < file.Length ? $"continues with '{Clamp(file[matchedEnd])}'" : "ends";
-            return $"The first {exact} of {n} oldString lines match lines {steps[0].File + 1}-{matchedEnd} exactly, "
-                   + $"but its last {off} {noun} not in the file: after line {matchedEnd} the file {next}. "
-                   + $"Your oldString runs past the real text — drop or correct {pronoun}.";
+            string next = matchedEnd < file.Length
+                ? $"第 {matchedEnd} 行之后文件接着是 '{Clamp(file[matchedEnd])}'"
+                : $"文件到第 {matchedEnd} 行就结束了";
+            return $"oldString 共 {n} 行，前 {exact} 行与文件第 {steps[0].File + 1}-{matchedEnd} 行完全一致，"
+                   + $"但最后 {off} 行文件里没有：{next}。"
+                   + $"你的 oldString 超出了实际文本——删掉或改正{pronoun}。";
         }
 
         if (firstOff == 0)
         {
             int matchedStart = steps[lastOff + 1].File + 1;
-            string before = matchedStart > 1 ? $"has '{Clamp(file[matchedStart - 2])}'" : "starts";
-            return $"The last {exact} of {n} oldString lines match lines {matchedStart}-{steps[^1].File + 1} exactly, "
-                   + $"but its first {off} {noun} not in the file: before line {matchedStart} the file {before}. "
-                   + $"Your oldString starts before the real text — drop or correct {pronoun}.";
+            string before = matchedStart > 1
+                ? $"第 {matchedStart} 行之前文件里是 '{Clamp(file[matchedStart - 2])}'"
+                : "第 1 行就是文件开头";
+            return $"oldString 共 {n} 行，后 {exact} 行与文件第 {matchedStart}-{steps[^1].File + 1} 行完全一致，"
+                   + $"但开头 {off} 行文件里没有：{before}。"
+                   + $"你的 oldString 从实际文本之前就开始了——删掉或改正{pronoun}。";
         }
 
         return null;
@@ -318,12 +320,10 @@ internal static class EditMissHint
     private static string DescribeGaps(Alignment alignment)
     {
         var parts = new List<string>();
-        if (alignment.Extra > 0) parts.Add($"has {Lines(alignment.Extra)} that the file doesn't have ([extra] — remove)");
-        if (alignment.Missing > 0) parts.Add($"skips {Lines(alignment.Missing)} that the file has ([missing] — add back)");
-        if (alignment.Diff > 0) parts.Add($"has {Lines(alignment.Diff)} with different content ([diff] — copy the file's text)");
-        return $"Your oldString {string.Join("; ", parts)}. Keep the [ok] lines as they are.";
-
-        static string Lines(int count) => count == 1 ? "1 line" : $"{count} lines";
+        if (alignment.Extra > 0) parts.Add($"多了 {alignment.Extra} 行文件里没有的（[extra]——删掉）");
+        if (alignment.Missing > 0) parts.Add($"漏了 {alignment.Missing} 行文件里有的（[missing]——补回）");
+        if (alignment.Diff > 0) parts.Add($"有 {alignment.Diff} 行内容不同（[diff]——照抄文件里的文本）");
+        return $"你的 oldString {string.Join("；", parts)}。[ok] 行保持原样。";
     }
 
     /// <summary>
@@ -336,12 +336,12 @@ internal static class EditMissHint
         int fndLeading = found.Length - found.TrimStart().Length;
 
         return expLeading == fndLeading
-            ? " — differs by whitespace only (spaces vs tabs)."
-            : $" — differs by whitespace only: leading whitespace {expLeading} vs {fndLeading}.";
+            ? "——只差空白：一边是空格，一边是制表符。"
+            : $"——只差空白：行首空白 oldString 是 {expLeading} 个，文件里是 {fndLeading} 个。";
     }
 
     /// <summary>本地截断（不入依赖 ToolOutputTruncation.TruncateLine）：只为控制话术长度</summary>
-    private static string Clamp(string s) => s.Length <= 120 ? s : s[..120] + " …[truncated]";
+    private static string Clamp(string s) => s.Length <= 120 ? s : s[..120] + " …[已截断]";
 
     #endregion
 

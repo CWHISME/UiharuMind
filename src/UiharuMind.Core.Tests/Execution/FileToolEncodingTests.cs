@@ -61,7 +61,7 @@ public sealed class FileToolEncodingTests : IDisposable
 
         string result = await _tools.Read(path, cancellationToken: Ct);
 
-        Assert.Equal("// 返回默认值\nint a = 1;\n[encoding: gb18030]", result);
+        Assert.Equal("// 返回默认值\nint a = 1;\n[编码：gb18030]", result);
     }
 
     [Fact]
@@ -71,7 +71,7 @@ public sealed class FileToolEncodingTests : IDisposable
 
         string result = await _tools.Read(path, cancellationToken: Ct);
 
-        Assert.Equal("第一行\nline two\n[encoding: utf-16]", result);
+        Assert.Equal("第一行\nline two\n[编码：utf-16]", result);
     }
 
     [Fact]
@@ -95,7 +95,7 @@ public sealed class FileToolEncodingTests : IDisposable
 
         string result = await Edit(path, "int a = 1;", "int a = 2;");
 
-        Assert.Contains("can't be edited safely", result);
+        Assert.Contains("无法安全编辑", result);
         Assert.Equal(original, await File.ReadAllBytesAsync(path, Ct));
     }
 
@@ -108,7 +108,7 @@ public sealed class FileToolEncodingTests : IDisposable
 
         string result = await Edit(path, "=> 42;", "=> 42; // 😀");
 
-        Assert.Contains("shift_jis can't store", result);
+        Assert.Contains("shift_jis 存不下", result);
         Assert.Equal(original, await File.ReadAllBytesAsync(path, Ct));
     }
 
@@ -130,7 +130,7 @@ public sealed class FileToolEncodingTests : IDisposable
 
         string result = await _tools.Write(path, "// 😀\n", Ct);
 
-        Assert.Contains("Saved as UTF-8", result);
+        Assert.Contains("已改存为 UTF-8", result);
         Assert.Equal(Encoding.UTF8.GetBytes("// 😀\n"), await File.ReadAllBytesAsync(path, Ct));
     }
 

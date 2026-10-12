@@ -101,11 +101,12 @@ internal sealed class PermissiveFileAccessTools
     /// <param name="paths">路径口径</param>
     /// <param name="backupStore">Write 覆盖前的备份；null 用默认目录</param>
     /// <param name="imageMode">Read 读到图片时怎么办，由装配按模型与识图开关定</param>
+    /// <param name="offerSummary">Read 截断时是否提示可交给 Summary，由装配按它是否挂载定</param>
     public PermissiveFileAccessTools(AgentPathResolver paths, IFileBackupStore? backupStore = null,
-        EReadImageMode imageMode = EReadImageMode.None)
+        EReadImageMode imageMode = EReadImageMode.None, bool offerSummary = false)
     {
         _paths = paths;
-        _reader = new FileReader(paths, imageMode, ImagePreview.Downscaler);
+        _reader = new FileReader(paths, imageMode, ImagePreview.Downscaler, offerSummary);
         _glob = new SimpleGlobber(paths);
         _grepper = new SimpleGrepper(paths);
         _backupStore = backupStore ?? new FileBackupStore();
@@ -261,7 +262,7 @@ internal sealed class PermissiveFileAccessTools
         [Description("完整的文件内容")] string content,
         CancellationToken ct = default)
     {
-        if (!_paths.TryResolve(filePath, out string resolved, out string pathError)) return $"[Write failed] {pathError}";
+        if (!_paths.TryResolve(filePath, out string resolved, out string pathError)) return $"[写入失败] {pathError}";
         // 写目标解析 symlink:锁与落盘都对着真实路径(否则链接被替换成普通文件)
         string full = ResolveWriteTarget(resolved);
         SemaphoreSlim fileLock = LockFor(full);
@@ -283,7 +284,7 @@ internal sealed class PermissiveFileAccessTools
             string encodingNote = string.Empty;
             if (!envelope.CanEncode(body))
             {
-                encodingNote = $" Saved as UTF-8: {envelope.EncodingName} can't store some of the new characters.";
+                encodingNote = $"已改存为 UTF-8：{envelope.EncodingName} 存不下部分新字符。";
                 envelope = envelope.ToUtf8();
             }
 
@@ -293,8 +294,8 @@ internal sealed class PermissiveFileAccessTools
 
             await SaveAsync(full, envelope, body, ct).ConfigureAwait(false);
             int lines = content.Split('\n').Length;
-            string backupNote = backupPath is null ? string.Empty : $" Previous version backed up to '{backupPath}'.";
-            return $"{FileToolNames.WriteSucceededPrefix}{filePath}' ({lines} lines).{encodingNote}{backupNote}" +
+            string backupNote = backupPath is null ? string.Empty : $"原版本已备份到 '{backupPath}'。";
+            return $"{FileToolNames.WriteSucceededPrefix}{filePath}'（{lines} 行）。{encodingNote}{backupNote}" +
                    MemoryListLine(full, body);
         }
         finally
@@ -312,7 +313,7 @@ internal sealed class PermissiveFileAccessTools
         [Description("要替换的条目。")] List<FileEdit> edits,
         CancellationToken ct = default)
     {
-        if (!_paths.TryResolve(filePath, out string resolved, out string pathError)) return $"[Edit failed] {pathError}";
+        if (!_paths.TryResolve(filePath, out string resolved, out string pathError)) return $"[编辑失败] {pathError}";
         // 写目标解析 symlink:锁与落盘都对着真实路径(否则链接被替换成普通文件)
         string full = ResolveWriteTarget(resolved);
         SemaphoreSlim fileLock = LockFor(full);
@@ -320,12 +321,12 @@ internal sealed class PermissiveFileAccessTools
         try
         {
             FileEditPlan plan = await FileEditPlanner.PlanFileAsync(full, filePath, edits, ct).ConfigureAwait(false);
-            if (!plan.Succeeded) return $"[Edit failed] {plan.Error}";
+            if (!plan.Succeeded) return $"[编辑失败] {plan.Error}";
 
             await SaveAsync(full, plan.Envelope, plan.NewText, ct).ConfigureAwait(false);
 
             string diff = FileEditPlanner.RenderDiff(plan.Diff, MaxEditDiffLines, MaxEditDiffLineChars);
-            return $"{FileToolNames.EditSucceededPrefix}{edits.Count} edit(s) to '{filePath}'." +
+            return $"{FileToolNames.EditSucceededPrefix}{filePath}'（{edits.Count} 处编辑）。" +
                    $"{MemoryListLine(full, plan.NewText)}\n{diff}";
         }
         finally
@@ -342,8 +343,8 @@ internal sealed class PermissiveFileAccessTools
 
         string summary = MemoryIndex.SummaryOf(text);
         return summary.Length > 0
-            ? $"\nShown in the memory index as: {name} — {summary}"
-            : $"\nShown in the memory index as: {name} (the first line is empty, so there is no summary)";
+            ? $"\n在记忆索引中显示为：{name} — {summary}"
+            : $"\n在记忆索引中显示为：{name}（首行为空，所以没有摘要）";
     }
 
     // 统一落盘:编码、BOM 与行尾按信封原样还原。先写同目录临时文件再 rename 替换(跨文件系统会失去原子性),

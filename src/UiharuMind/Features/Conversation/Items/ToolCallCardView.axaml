@@ -226,7 +226,7 @@
                             <!-- 180 而不是原来的 280:卡片是"扫一眼"的尺寸。
                                  单行大 JSON 折起来正好能把 280px 填满一整块,那是难看的主因 -->
                             <ScrollViewer MaxHeight="180" HorizontalScrollBarVisibility="Disabled">
-                                <!-- 回执类结果（Saved/Applied 前缀）不上色：同格式必须同观感，否则随扩展名忽有忽无
+                                <!-- 回执类结果（已保存/已修改 开头）不上色：同格式必须同观感，否则随扩展名忽有忽无
                                      像 bug。文件正文（Read 之类）才按 FilePath 扩展名上色 -->
                                 <sh:SyntaxHighlightTextBlock Classes="mono" Text="{Binding ResultDisplayText}"
                                                               SourceName="{Binding ResultHighlightSource}" TextWrapping="Wrap" />

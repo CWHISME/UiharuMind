@@ -195,7 +195,7 @@ public class ToolCallCancellationTests
         Assert.True(ToolCallCancellation.IsApprovalUnanswered(ToolCallCancellation.ApprovalUnansweredResultText));
         Assert.False(ToolCallCancellation.IsApprovalUnanswered(ToolCallCancellation.ResultText));
         Assert.False(ToolCallCancellation.IsApprovalUnanswered("Tool call invocation rejected. User denied"));
-        Assert.False(ToolCallCancellation.IsApprovalUnanswered("Saved 'a.md' (3 lines)."));
+        Assert.False(ToolCallCancellation.IsApprovalUnanswered("已保存 'a.md'（3 行）。"));
         Assert.False(ToolCallCancellation.IsApprovalUnanswered(null));
     }
 

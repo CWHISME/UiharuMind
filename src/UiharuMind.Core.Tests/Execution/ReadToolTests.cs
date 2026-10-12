@@ -1,4 +1,5 @@
 using UiharuMind.Core.AI.Execution.Files;
+using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.Tests.Execution;
 
@@ -50,7 +51,22 @@ public sealed class ReadToolTests : IDisposable
 
         string result = await Read(path, limit: 100);
 
-        Assert.EndsWith("…[truncated: showing lines 1–100 of 2500; continue with offset=101]", result);
+        Assert.EndsWith("…[已截断：显示第 1–100 行，共 2500 行；续读传 offset=101]", result);
+        Assert.DoesNotContain("Summary", result); //Summary 没挂就不提
+    }
+
+    /// <summary>Summary 挂着时，截断附注后指一条去处：整体理解交给它，不一页页翻</summary>
+    [Fact]
+    public async Task TruncationNotice_PointsToSummary_WhenMounted()
+    {
+        string path = Save("big.txt", Lines(2500));
+        var tools = new PermissiveFileAccessTools(new AgentPathResolver(_dir), offerSummary: true);
+
+        string result = await tools.Read(path, 1, 100, TestContext.Current.CancellationToken);
+
+        Assert.EndsWith($"续读传 offset=101]\n要整体理解这份文件，可交给 `{BrainTool.ToolName}`，task 里写清要什么。", result);
+        Assert.DoesNotContain(BrainTool.ToolName, await tools.Read(Save("small.txt", Lines(3)), 1, null,
+            TestContext.Current.CancellationToken)); //没截断不提
     }
 
     /// <summary>全文窗按结果推首行行号：截断附注为准（负 offset 也对），没截断用正 offset</summary>
@@ -79,7 +95,7 @@ public sealed class ReadToolTests : IDisposable
     {
         string path = Save("short.txt", Lines(10));
 
-        Assert.Equal($"offset 20 is past the end of '{path}' (10 lines).", await Read(path, offset: 20));
+        Assert.Equal($"offset 20 超出了 '{path}' 的末尾（共 10 行）。", await Read(path, offset: 20));
     }
 
     [Fact]
@@ -87,7 +103,7 @@ public sealed class ReadToolTests : IDisposable
     {
         string path = Save("empty.txt", string.Empty);
 
-        Assert.Equal($"File '{path}' is empty.", await Read(path));
+        Assert.Equal($"文件 '{path}' 是空的。", await Read(path));
     }
 
     [Fact]
@@ -105,7 +121,7 @@ public sealed class ReadToolTests : IDisposable
 
         string result = await Read("src");
 
-        Assert.Contains("is a directory", result);
+        Assert.Contains("是目录", result);
         Assert.Contains($"`{FileToolNames.Glob}`", result);
     }
 
@@ -117,7 +133,7 @@ public sealed class ReadToolTests : IDisposable
 
         string result = await Read("lib.dll");
 
-        Assert.Equal("'lib.dll' is a binary file (8 B); its content can't be shown as text.", result);
+        Assert.Equal("'lib.dll' 是二进制文件（8 B），无法按文本显示。", result);
     }
 
     /// <summary>实测找不到的大多是目录猜错了：同名文件就在工作区的别处</summary>
@@ -128,14 +144,14 @@ public sealed class ReadToolTests : IDisposable
 
         string result = await Read("Code/Laws/Public/Weight.h");
 
-        Assert.StartsWith("File 'Code/Laws/Public/Weight.h' not found.", result);
+        Assert.StartsWith("找不到文件 'Code/Laws/Public/Weight.h'。", result);
         Assert.Contains("- Code/Social/Public/Laws/Weight.h", result);
     }
 
     [Fact]
     public async Task MissingFile_WithoutNamesakes_IsJustNotFound()
     {
-        Assert.Equal("File 'nope.cs' not found.", await Read("nope.cs"));
+        Assert.Equal("找不到文件 'nope.cs'。", await Read("nope.cs"));
     }
 
     [Fact]
