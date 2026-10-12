@@ -96,7 +96,7 @@ public static class FileEditPlanner
         }
 
         string text = envelope.Text;
-        List<TextLine> lines = EditTextLines.Split(text);
+        List<TextLine> lines = TextLines.Split(text);
         List<EditMatch> matches = new(edits.Count);
 
         // 逐条定位。全部对着原文算，不是对着前几条的结果算——
@@ -111,7 +111,7 @@ public static class FileEditPlanner
             {
                 case ELocateResult.NotFound:
                     return FileEditPlan.Failed(EditMissHint.Build(i, oldString, label,
-                        lines.Select(line => EditTextLines.Text(text, line)).ToArray()));
+                        lines.Select(line => TextLines.Text(text, line)).ToArray()));
 
                 case ELocateResult.NotUnique:
                     // 归一歧义:多个命中里至少一个仅靠全角归一才匹配上——模型不知道"这两处"其实

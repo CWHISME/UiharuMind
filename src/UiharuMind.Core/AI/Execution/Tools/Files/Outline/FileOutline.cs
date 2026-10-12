@@ -1,5 +1,4 @@
 using System.Text;
-using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.AI.Execution.Files;
 
@@ -71,9 +70,8 @@ internal static class FileOutline
             var info = new FileInfo(fullPath);
             if (!info.Exists || info.Length > MaxLookupBytes) return null;
 
-            byte[] bytes = File.ReadAllBytes(fullPath);
-            TextEncodingProbe probe = TextEncodingDetector.Detect(bytes);
-            return probe.Verdict == ETextEncodingVerdict.Binary ? null : Extract(fullPath, ReadLines(probe.Decode(bytes)));
+            DecodedText decoded = TextFileLoader.ReadAll(fullPath);
+            return decoded.IsBinary ? null : Extract(fullPath, TextLines.Enumerate(decoded.Text));
         }
         catch (IOException)
         {
@@ -161,11 +159,4 @@ internal static class FileOutline
     /// <returns>范围文本</returns>
     internal static string FormatRange(OutlineEntry entry) =>
         entry.EndLine > entry.Line ? $"{entry.Line}–{entry.EndLine}" : entry.Line.ToString();
-
-    // 切行口径同 StreamReader.ReadLine，与 Read 的行号对得上
-    private static IEnumerable<string> ReadLines(string text)
-    {
-        using var reader = new StringReader(text);
-        while (reader.ReadLine() is { } line) yield return line;
-    }
 }

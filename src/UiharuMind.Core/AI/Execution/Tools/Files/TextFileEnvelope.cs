@@ -53,7 +53,7 @@ internal readonly struct TextFileEnvelope
     /// <summary>正文原样（已剥掉 BOM，行尾未做任何归一）</summary>
     public string Text { get; }
 
-    /// <summary>新插入文本使用的行尾：取文件第一处换行的风格，无换行时为 <c>\n</c></summary>
+    /// <summary>新插入文本使用的行尾：取文件第一处换行的风格（<c>\r\n</c>、<c>\n</c> 或老式 Mac 的 <c>\r</c>），无换行时为 <c>\n</c></summary>
     public string NewLine { get; }
 
     /// <summary>
@@ -133,8 +133,9 @@ internal readonly struct TextFileEnvelope
 
     private static TextFileEnvelope Create(Encoding encoding, bool hasBom, string text, bool isLossless)
     {
-        int lf = text.IndexOf('\n');
-        string newLine = lf > 0 && text[lf - 1] == '\r' ? "\r\n" : "\n";
+        int first = text.AsSpan().IndexOfAny('\r', '\n');
+        string newLine = first < 0 || text[first] == '\n' ? "\n"
+            : first + 1 < text.Length && text[first + 1] == '\n' ? "\r\n" : "\r";
         return new TextFileEnvelope(encoding, hasBom, text, newLine, isLossless);
     }
 }

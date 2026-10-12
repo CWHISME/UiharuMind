@@ -3,6 +3,9 @@ using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.AI.Execution.Files;
 
+/// <summary>一处已定位的编辑：原文区间 [Start, End) 换成 NewText；Index 是它在 edits 里的序号</summary>
+internal readonly record struct EditMatch(int Index, int Start, int End, string NewText);
+
 /// <summary>一组已定位的编辑对着原文生成行级 diff（带 hunk 头与上下文）</summary>
 internal static class EditDiffBuilder
 {
@@ -22,18 +25,18 @@ internal static class EditDiffBuilder
 
         while (index < matches.Count)
         {
-            int startLine = EditTextLines.IndexOf(lines, matches[index].Start);
-            int endLine = EditTextLines.IndexOf(lines, Math.Max(matches[index].Start, matches[index].End - 1));
+            int startLine = TextLines.IndexOf(lines, matches[index].Start);
+            int endLine = TextLines.IndexOf(lines, Math.Max(matches[index].Start, matches[index].End - 1));
             int last = index;
             int maxEnd = matches[index].End;
 
             // 相邻两块的上下文窗口若会重叠，就并成一块——否则同一行会在 diff 里出现两次
             while (last + 1 < matches.Count &&
-                   EditTextLines.IndexOf(lines, matches[last + 1].Start) - endLine <= ContextLines * 2)
+                   TextLines.IndexOf(lines, matches[last + 1].Start) - endLine <= ContextLines * 2)
             {
                 last++;
                 endLine = Math.Max(endLine,
-                    EditTextLines.IndexOf(lines, Math.Max(matches[last].Start, matches[last].End - 1)));
+                    TextLines.IndexOf(lines, Math.Max(matches[last].Start, matches[last].End - 1)));
                 maxEnd = Math.Max(maxEnd, matches[last].End);
             }
 
@@ -73,7 +76,7 @@ internal static class EditDiffBuilder
             // 前置上下文
             for (int c = Math.Max(0, startLine - ContextLines); c < startLine; c++)
             {
-                entries.Add(new LineDiffEntry(ELineDiffKind.Context, EditTextLines.Text(text, lines[c]), c + 1));
+                entries.Add(new LineDiffEntry(ELineDiffKind.Context, TextLines.Text(text, lines[c]), c + 1));
             }
 
             int oldNo = startLine + 1;
@@ -100,7 +103,7 @@ internal static class EditDiffBuilder
             // 后置上下文
             for (int c = endLine + 1; c < Math.Min(lines.Count, endLine + 1 + ContextLines); c++)
             {
-                entries.Add(new LineDiffEntry(ELineDiffKind.Context, EditTextLines.Text(text, lines[c]), c + 1));
+                entries.Add(new LineDiffEntry(ELineDiffKind.Context, TextLines.Text(text, lines[c]), c + 1));
             }
 
             index = last + 1;

@@ -119,6 +119,6 @@ public static class LineDiff
 
     private static string[] SplitLines(string text)
     {
-        return string.IsNullOrEmpty(text) ? [] : text.Replace("\r\n", "\n").Split('\n');
+        return string.IsNullOrEmpty(text) ? [] : text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
     }
 }
