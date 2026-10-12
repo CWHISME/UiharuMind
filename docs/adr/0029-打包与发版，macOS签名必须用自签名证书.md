@@ -9,9 +9,10 @@
   一旦有人另写一份，tag、包名、应用内版本就各说各话。
 - **发布参数不能每个脚本各抄一份。** 三平台打包参数不同，收在 csproj 里按 RID 生效后，
   脚本与 CI 只给 `-r <RID>`，打包参数只有一份，不会漂移。
-- **不能开 `PublishTrimmed` / NativeAOT。** 全仓默认反射绑定
+- **不上 `PublishTrimmed` / NativeAOT。** 全仓默认反射绑定
   （`AvaloniaUseCompiledBindingsByDefault=false`，90 个 axaml 只有 30 个有 `x:DataType`）
   加上反射 JSON，裁剪与 AOT 造成的不是编译期错误，而是**静默的运行时失败**——发出去才坏。
+  R2R 基线已实测到用户可感下限（§修订），AOT 增量收益换不掉前置工程，**关门，不排期**。
 - **macOS 签名不能用 ad-hoc。** TCC（辅助功能 / 屏幕录制授权）把权限钉在 app 的**指定要求**
   （Designated Requirement）上。ad-hoc 没有颁发者，系统退化成用 cdhash 当身份，而 cdhash
   每次编译都变——表现是「权限列表里条目还在，但权限已失效」。自签名证书的指定要求是
@@ -24,8 +25,7 @@
    从程序集读、`Info.plist` 由脚本填、CI 拿它校验 tag——都别再写第二份。
 2. **发布参数收在 `UiharuMind.Desktop.csproj`**（自包含、ReadyToRun、单文件），按 RID 生效；
    脚本与 CI 只需给 `-r <RID>`。
-3. **不开 `PublishTrimmed`，也不上 NativeAOT**。前置条件是先把编译绑定（`x:DataType`）与
-   JSON source-gen 做完，那之前别碰。
+3. **不上 `PublishTrimmed` / NativeAOT，ReadyToRun 是发布终点**（§修订）。
 4. **`UiharuMind/Build/` 下四脚本一张表**，共享部分在 `common.sh`（取版本、发布、签名、打包）：
 
    | 脚本 | 产物 |
@@ -76,3 +76,24 @@
 
 - [ADR 0027](0027-应用根搬到-uiharu.md)：`buildMacFull.sh` 的硬编码旧根随应用根搬迁
   同步更新，脚本细节以 `Build/` 为准。
+
+## §修订（2026-10-13）：AOT 关门，R2R 为终点
+
+R2R 基线实测（osx-arm64，5 样本，commit 732b6b15）：冷启动到首屏 p50 = 530ms、切会话
+p50 = 65ms，均到用户可感下限。NativeAOT 相对 R2R 的启动增量收益为社区经验值 100–200ms，
+代价是 145 个 axaml 补 `x:DataType` + 全仓 STJ source-gen + 反射装配三块前置，加长期
+升级/维护税。性价比为负，NativeAOT 关门，ReadyToRun 定为发布终点。
+
+由此撤销的是「为 AOT 才要做的」前置排期：
+
+- 74 个 axaml 的 `x:DataType`（编译绑定，纯为让 AOT 裁剪不剪属性）——不做了。
+- 反射清单 #5/#6/#7 字段反射、#8 设置面板反射渲染、#9 主题 Locale——全撤，不排。
+- 序列化清单 A3 外部 API source-gen——撤，不排。
+- A2 `SaveUtility` object 路由 source-gen（承重墙）——进后备，不进主排期。
+
+不撤、照跑的净收益项（与 AOT 无关）：
+
+- A1 会话持久化 source-gen（承重墙 + 旧存档形状护栏）——继续。
+- 远程模型配置显式注册表（#1/#2/#3）——已提交（732b6b15）。
+
+基线数据：[`docs/perf/2026-10-13-R2R基线启动与切会话实测.md`](../perf/2026-10-13-R2R基线启动与切会话实测.md)。
