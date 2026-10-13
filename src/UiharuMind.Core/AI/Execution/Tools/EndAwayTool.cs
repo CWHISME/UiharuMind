@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
 
 namespace UiharuMind.Core.AI.Execution.Tools;
@@ -42,18 +43,26 @@ public static class EndAwayTool
     /// <returns>工具实例</returns>
     public static AITool Create(Func<bool>? isInfinite = null)
     {
-        return AIFunctionFactory.Create(
-            ([Description("离席目标达成时填 \"done\"；有必须由用户本人决定的事时填 \"needs_user\"。")]
-                string reason,
-                [Description("用户回来时应当知道的事：完成了什么，或具体有什么在等他们。")]
-                string summary,
-                [Description("结束前可选地对群说几句告别话；没有要告诉群的就留空。" +
-                    "本调用旁边的任何文字都只留在本地，只有这个参数会到达群里。")]
-                string? say = null) => Acknowledge(reason, summary, isInfinite?.Invoke() == true),
-            ToolName,
+        // 手写 AotToolFunction（A2 全量扩展）：显式 schema + handler
+        return new AotToolFunction(ToolName,
             "结束用户的离席会话。本轮结束后群停止，并通知用户。" +
             "只用于目标达成或必须由用户本人决定的事。" +
-            "无限离席模式下本工具被禁用，会返回错误。");
+            "无限离席模式下本工具被禁用，会返回错误。",
+            AotToolFunction.SchemaFromNode(new JsonObject
+            {
+                ["type"] = "object",
+                ["properties"] = new JsonObject
+                {
+                    ["reason"] = new JsonObject { ["type"] = "string", ["description"] = "离席目标达成时填 \"done\"；有必须由用户本人决定的事时填 \"needs_user\"。" },
+                    ["summary"] = new JsonObject { ["type"] = "string", ["description"] = "用户回来时应当知道的事：完成了什么，或具体有什么在等他们。" },
+                    ["say"] = new JsonObject { ["type"] = "string", ["nullable"] = true, ["default"] = null, ["description"] = "结束前可选地对群说几句告别话；没有要告诉群的就留空。本调用旁边的任何文字都只留在本地，只有这个参数会到达群里。" },
+                },
+                ["required"] = new JsonArray(JsonValue.Create("reason"), JsonValue.Create("summary")),
+            }),
+            (args, ct) => Task.FromResult<object?>(
+                Acknowledge(AotToolFunction.Marshaller.String(args, "reason")!,
+                    AotToolFunction.Marshaller.String(args, "summary")!,
+                    isInfinite?.Invoke() == true)));
     }
 
     /// <summary>

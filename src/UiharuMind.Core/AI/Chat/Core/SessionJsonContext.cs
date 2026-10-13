@@ -24,6 +24,9 @@ namespace UiharuMind.Core.AI.Chat;
 [JsonSerializable(typeof(ChatSession))]
 [JsonSerializable(typeof(ChatSessionMeta))]
 [JsonSerializable(typeof(List<ChatSessionMeta>))]
+// AOT 下会话历史/工具参数里会序列化 string[]/List<string>（探针实锤：缺类型图直接抛，优香/普拉娜定位）
+[JsonSerializable(typeof(string[]))]
+[JsonSerializable(typeof(List<string>))]
 // AdditionalProperties 里实际承载的复杂对象（探针发现，反射模式下按运行时类型写，source-gen 需要类型图）
 [JsonSerializable(typeof(AgentRequestMessageSourceAttribution))]
 internal partial class SessionJsonContext : JsonSerializerContext

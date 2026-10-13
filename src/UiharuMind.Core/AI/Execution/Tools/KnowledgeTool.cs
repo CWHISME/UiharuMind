@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System.ComponentModel;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Memory;
 using UiharuMind.Core.Core.SimpleLog;
@@ -34,14 +35,20 @@ public static class KnowledgeTool
     /// <returns>工具实例</returns>
     public static AITool Create(Func<MemoryData?>? knowledgeSource)
     {
-        return AIFunctionFactory.Create(
-            async ([Description("简短聚焦的查询词，不是用户的原始消息。" +
-                                "这是向量检索：关键词比整句话更有效。")]
-                    string query,
-                    CancellationToken cancellationToken = default) =>
-                await SearchAsync(knowledgeSource, query).ConfigureAwait(false),
-            ToolName,
-            "在本会话绑定的知识库（用户的文档，不是你自己的笔记）中检索与查询词相关的段落。");
+        // 手写 AotToolFunction（A2 全量扩展）：显式 schema + handler
+        return new AotToolFunction(ToolName,
+            "在本会话绑定的知识库（用户的文档，不是你自己的笔记）中检索与查询词相关的段落。",
+            AotToolFunction.SchemaFromNode(new JsonObject
+            {
+                ["type"] = "object",
+                ["properties"] = new JsonObject
+                {
+                    ["query"] = new JsonObject { ["type"] = "string", ["description"] = "简短聚焦的查询词，不是用户的原始消息。这是向量检索：关键词比整句话更有效。" },
+                },
+                ["required"] = new JsonArray(JsonValue.Create("query")),
+            }),
+            async (args, ct) => await SearchAsync(knowledgeSource,
+                AotToolFunction.Marshaller.String(args, "query")!).ConfigureAwait(false));
     }
 
     private static async Task<string> SearchAsync(Func<MemoryData?>? knowledgeSource, string query)
