@@ -192,5 +192,7 @@ internal sealed class GroupAwaySession
     /// <summary>界面用的快照</summary>
     /// <returns>状态</returns>
     public GroupAwayStatus Snapshot() =>
-        new(Group.SessionId, Avatar.SessionId, StartedAt, AvatarTurns, IsAvatarRunning, _wakeAt, Goal, Reminder, IsInfinite);
+        new(Group.SessionId, Avatar.SessionId, StartedAt, AvatarTurns, IsAvatarRunning, _wakeAt, Goal, Reminder, IsInfinite,
+            // 等后台的计数非零 = 兜底重判排着：WakeAt 只是再看一眼的时刻，界面别写成“化身马上醒来”
+            WaitingBackground: DeferCount > 0);
 }

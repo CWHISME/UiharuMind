@@ -3822,6 +3822,9 @@
     <data name="GroupAwayCountdownFormat" xml:space="preserve">
         <value>化身 {0} 后醒来</value>
     </data>
+    <data name="GroupAwayWaitingBackground" xml:space="preserve">
+        <value>等成员后台任务交回，化身再看…</value>
+    </data>
     <data name="GroupAvatarSender" xml:space="preserve">
         <value>化身</value>
     </data>

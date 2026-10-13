@@ -112,10 +112,17 @@ public sealed partial class GroupAwayViewData : ObservableObject, IDisposable
         _ => Loc.Text(LangKey.GroupAwayStatusFormat, _status.AvatarTurns),
     };
 
-    /// <summary>延迟唤醒的倒计时；没在等为空</summary>
-    public string CountdownLine => _status?.WakeAt is { } wakeAt
-        ? Loc.Text(LangKey.GroupAwayCountdownFormat, CountdownText(wakeAt - _now()))
-        : string.Empty;
+    /// <summary>延迟唤醒的倒计时；没在等为空。等成员后台时显示等待文案——那是兜底重判的时刻，化身到点不一定出来</summary>
+    public string CountdownLine
+    {
+        get
+        {
+            if (_status?.WaitingBackground == true) return Loc.Text(LangKey.GroupAwayWaitingBackground);
+            return _status?.WakeAt is { } wakeAt
+                ? Loc.Text(LangKey.GroupAwayCountdownFormat, CountdownText(wakeAt - _now()))
+                : string.Empty;
+        }
+    }
 
     /// <summary>有没有倒计时（「立即唤醒」与倒计时行显隐）</summary>
     public bool HasCountdown => _status?.WakeAt != null;

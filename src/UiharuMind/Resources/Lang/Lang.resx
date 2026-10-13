@@ -3829,6 +3829,9 @@ Allow them?</value>
     <data name="GroupAwayCountdownFormat" xml:space="preserve">
         <value>Avatar wakes in {0}</value>
     </data>
+    <data name="GroupAwayWaitingBackground" xml:space="preserve">
+        <value>Waiting for a member's background work…</value>
+    </data>
     <data name="GroupAvatarSender" xml:space="preserve">
         <value>Avatar</value>
     </data>

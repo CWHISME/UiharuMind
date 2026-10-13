@@ -505,6 +505,7 @@ public class GroupAwayControllerTests
         await _coordinator.PostAsync(_group, "开工");
         await Until(() => _delays.Count == 2); //Defer：不叫化身，只排兜底重判（旧延迟一并顶掉）
         Assert.Equal(1, AvatarCalls());
+        Assert.True(away.StatusOf(_group.SessionId)?.WaitingBackground); //右栏不再画“化身马上醒来”
         // 兜底没到点之前化身一直不该跑：窗口内轮询恒为 1，慢机上的滞后也不会假通过
         DateTime quietUntil = DateTime.UtcNow.AddMilliseconds(500);
         while (DateTime.UtcNow < quietUntil)
@@ -520,6 +521,7 @@ public class GroupAwayControllerTests
         backgroundPending = false;
         _delays[2].Due.SetResult(); //兜底到点、后台已了结：化身照常被叫
         await Until(() => AvatarCalls() == 2);
+        Assert.False(away.StatusOf(_group.SessionId)?.WaitingBackground); //化身接管后不再等后台
     }
 
     /// <summary>后台一直不交回：兜底重判几次后硬叫醒一次，不让离席悄悄卡死</summary>
