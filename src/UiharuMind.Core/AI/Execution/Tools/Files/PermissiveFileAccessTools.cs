@@ -9,6 +9,8 @@
 
 using System.Collections.Concurrent;
 using System.ComponentModel;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Harness;
@@ -62,6 +64,14 @@ internal sealed class PermissiveFileAccessTools
 
     private const string SearchPathDescription = //Glob 与 Grep 的 path 参数共用
         "可选，省略则搜索整个工作目录。需要缩小搜索范围时传一个子目录或单个文件。";
+
+    private const string GlobDescription = "按 glob 模式查找文件，如 “**/*.c”。搜文件内容用 Grep";
+
+    private const string GrepDescription = "搜索文件内存在的指定内容。代码文件的命中前会标出所在结构，如 [位于 12–40] void Run()，可直接按这个范围 Read";
+
+    private const string WriteDescription = "新建文件，或整份替换已有文件，局部修改用 Edit";
+
+    private const string EditDescription = "按精确文本替换修改已有文件。oldString 与 newString 只写文件内容，不要带 Read 每行前的「行号→」。";
     
     /// <summary>
     /// 同文件的"读→计划→写"互斥锁。<c>AllowConcurrentInvocation=true</c> 时同一轮的两个 Edit/Write
@@ -119,19 +129,118 @@ internal sealed class PermissiveFileAccessTools
     {
         var tools = new List<AITool>
         {
-            AIFunctionFactory.Create(Read, ToolOptions(FileToolNames.Read,
-                _imageMode == EReadImageMode.Attach ? ReadDescription + ReadImagesDescription : ReadDescription)),
-            AIFunctionFactory.Create(Glob, ToolOptions(FileToolNames.Glob)),
-            AIFunctionFactory.Create(Grep, ToolOptions(FileToolNames.Grep)),
+            // A1 尖刺：文件工具 5 个全换手写 AotToolFunction（显式 schema + 通用 marshaller，零反射），
+            // 验证 AOT 装配可行性 + 量化每工具增量成本；A2 全量后其它工具族同套路
+            CreateReadTool(_imageMode == EReadImageMode.Attach ? ReadDescription + ReadImagesDescription : ReadDescription),
+            CreateGlobTool(),
+            CreateGrepTool(),
         };
 
         if (!disableWriteTools)
         {
-            tools.Add(Wrap(AIFunctionFactory.Create(Write, ToolOptions(FileToolNames.Write))));
-            tools.Add(Wrap(AIFunctionFactory.Create(Edit, ToolOptions(FileToolNames.Edit))));
+            tools.Add(Wrap(CreateWriteTool()));
+            tools.Add(Wrap(CreateEditTool()));
         }
 
         return tools;
+
+        static AIFunction SimpleTool(string name, string description, JsonNode schema,
+            Func<AIFunctionArguments, CancellationToken, Task<object?>> handler) =>
+            new AotToolFunction(name, description, AotToolFunction.SchemaFromNode(schema), handler);
+
+        AITool CreateGlobTool() => SimpleTool(FileToolNames.Glob, GlobDescription,
+            new JsonObject
+            {
+                ["type"] = "object",
+                ["properties"] = new JsonObject
+                {
+                    ["pattern"] = new JsonObject { ["type"] = "string", ["description"] = "匹配模式" },
+                    ["path"] = new JsonObject { ["type"] = "string", ["nullable"] = true, ["description"] = SearchPathDescription },
+                },
+                ["required"] = new JsonArray(JsonValue.Create("pattern")),
+            },
+            async (args, ct) => await Glob(AotToolFunction.Marshaller.String(args, "pattern")!, AotToolFunction.Marshaller.String(args, "path"), ct));
+
+        AITool CreateGrepTool() => SimpleTool(FileToolNames.Grep, GrepDescription,
+            new JsonObject
+            {
+                ["type"] = "object",
+                ["properties"] = new JsonObject
+                {
+                    ["pattern"] = new JsonObject { ["type"] = "string", ["description"] = "匹配模式（ripgrep 语法）" },
+                    ["contextLines"] = new JsonObject { ["type"] = "integer", ["default"] = 0, ["description"] = "可选，每处命中前后显示多少行上下文。" },
+                    ["isRegex"] = new JsonObject { ["type"] = "boolean", ["default"] = true, ["description"] = "可选，将匹配模式作为正则表达式处理" },
+                    ["caseSensitive"] = new JsonObject { ["type"] = "boolean", ["default"] = false, ["description"] = "可选，区分大小写" },
+                    ["filesOnly"] = new JsonObject { ["type"] = "boolean", ["default"] = false, ["description"] = "可选，只列出命中的文件" },
+                    ["fileGlobs"] = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string" }, ["nullable"] = true, ["description"] = "可选，按文件名过滤" },
+                    ["path"] = new JsonObject { ["type"] = "string", ["nullable"] = true, ["description"] = SearchPathDescription },
+                },
+                ["required"] = new JsonArray(JsonValue.Create("pattern")),
+            },
+            async (args, ct) => await Grep(AotToolFunction.Marshaller.String(args, "pattern")!,
+                AotToolFunction.Marshaller.Int(args, "contextLines", 0),
+                AotToolFunction.Marshaller.Bool(args, "isRegex", true),
+                AotToolFunction.Marshaller.Bool(args, "caseSensitive", false),
+                args.TryGetValue("fileGlobs", out object? fg) && fg != null
+                    ? ((JsonElement)fg).EnumerateArray().Select(x => x.GetString()).Where(s => s != null).ToArray()!
+                    : null,
+                AotToolFunction.Marshaller.String(args, "path"),
+                AotToolFunction.Marshaller.Bool(args, "filesOnly", false),
+                ct));
+
+        AIFunction CreateWriteTool() => SimpleTool(FileToolNames.Write, WriteDescription,
+            new JsonObject
+            {
+                ["type"] = "object",
+                ["properties"] = new JsonObject
+                {
+                    ["filePath"] = new JsonObject { ["type"] = "string", ["description"] = "文件路径，工作目录的相对路径(也接受非工作目录的绝对路径)" },
+                    ["content"] = new JsonObject { ["type"] = "string", ["description"] = "完整的文件内容" },
+                },
+                ["required"] = new JsonArray(JsonValue.Create("filePath"), JsonValue.Create("content")),
+            },
+            async (args, ct) => await Write(AotToolFunction.Marshaller.String(args, "filePath")!, AotToolFunction.Marshaller.String(args, "content")!, ct));
+
+        AIFunction CreateEditTool() => SimpleTool(FileToolNames.Edit, EditDescription,
+            new JsonObject
+            {
+                ["type"] = "object",
+                ["properties"] = new JsonObject
+                {
+                    ["filePath"] = new JsonObject { ["type"] = "string", ["description"] = "文件路径，工作目录的相对路径(也接受非工作目录的绝对路径)。" },
+                    ["edits"] = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "object" }, ["description"] = "要替换的条目。" },
+                },
+                ["required"] = new JsonArray(JsonValue.Create("filePath"), JsonValue.Create("edits")),
+            },
+            async (args, ct) => await Edit(AotToolFunction.Marshaller.String(args, "filePath")!,
+                AotToolFunction.Marshaller.FileEdits(args, "edits"), ct));
+
+        // A1 尖刺：Read 的手写 AOT 工具（schema 与 handler 在此，验证可行后 A2 可搬到公共工厂）
+        AITool CreateReadTool(string description)
+        {
+            JsonNode schema = new JsonObject
+            {
+                ["type"] = "object",
+                ["properties"] = new JsonObject
+                {
+                    ["filePath"] = new JsonObject { ["type"] = "string", ["description"] = "文件路径，工作目录的相对路径(也接受其它目录的绝对路径)。自动处理编码等问题、传 head=-1 可一次读完" },
+                    ["offset"] = new JsonObject { ["type"] = "integer", ["default"] = 1, ["description"] = "起始行号，1 起算。负数从末尾计：-100 读最后 100 行" },
+                    ["head"] = new JsonObject { ["type"] = "integer", ["nullable"] = true, ["default"] = null, ["description"] = "从 offset 开始，最多返回的行数" },
+                    ["outline"] = new JsonObject { ["type"] = "boolean", ["default"] = false, ["description"] = "可选，只返回文件大纲" },
+                },
+                ["required"] = new JsonArray(JsonValue.Create("filePath")),
+            };
+
+            return new AotToolFunction(FileToolNames.Read, description, AotToolFunction.SchemaFromNode(schema),
+                async (args, ct) =>
+                {
+                    string filePath = AotToolFunction.Marshaller.String(args, "filePath")!;
+                    int offset = AotToolFunction.Marshaller.Int(args, "offset", 1);
+                    int? head = AotToolFunction.Marshaller.NullableInt(args, "head");
+                    bool outline = AotToolFunction.Marshaller.Bool(args, "outline", false);
+                    return await _reader.ReadAsync(filePath, offset, head, outline, ct);
+                });
+        }
 
         static AITool Wrap(AIFunction function) => new ApprovalRequiredAIFunction(function);
 
