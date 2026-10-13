@@ -27,6 +27,10 @@
 
 set -euo pipefail
 
+# 默认模型：全冒烟统一用 Agnes-2.5-Flash-无思考（用户 2026-10-13 指定）。
+# 传 SMOKE_MODEL=''（空串）可关掉注入——比模型的对照场景（persona-model-ab）用它保持分组差异
+SMOKE_MODEL="${SMOKE_MODEL-Agnes-2.5-Flash-无思考}"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 DESKTOP_PROJECT="$REPO_ROOT/src/UiharuMind.Desktop/UiharuMind.Desktop.csproj"
