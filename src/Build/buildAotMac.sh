@@ -42,7 +42,11 @@ for dylib in "$AOT_PUBLISH_OUTPUT_DIRECTORY"/*.dylib; do
     [ -f "$dylib" ] && cp "$dylib" "$APP_NAME/Contents/MacOS/"
 done
 if [ -d "$AOT_PUBLISH_OUTPUT_DIRECTORY/runtimes" ]; then
-    cp -a "$AOT_PUBLISH_OUTPUT_DIRECTORY/runtimes" "$APP_NAME/Contents/MacOS/"
+    # 只拷这台机器要的 RID（osx-arm64）下的原生库：NuGet 会把全部 RID 的 llama.cpp 引擎
+    # （win/linux/osx-x64、rosetta2 等）都铺进 runtimes，整目录拷进 .app 会带进 88MB 没用重量
+    # （2026-10-14 实测：runtimes 总 94MB，osx-arm64 只要 5.8MB）。
+    mkdir -p "$APP_NAME/Contents/MacOS/runtimes"
+    cp -a "$AOT_PUBLISH_OUTPUT_DIRECTORY/runtimes/$TARGET_RUNTIME" "$APP_NAME/Contents/MacOS/runtimes/"
 fi
 
 sign_bundle "$APP_NAME"
