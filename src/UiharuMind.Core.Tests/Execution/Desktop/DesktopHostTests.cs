@@ -47,6 +47,96 @@ public class DesktopHostTests
     }
 
     [Fact]
+    public async Task AClosedDialog_ReopenedByTheSameApp_KeepsItsWindowId()
+    {
+        // TextEdit 的「打开」对话框：关掉再重开，AX 元素是新句柄，SameWindow 认不出——同 pid 同标题应复用旧编号
+        AddWindow("TextEdit", "com.apple.TextEdit", "打开", "h1");
+        await _host.ListWindowsAsync(Token);
+        string id = _host.FindWindow("TextEdit")!.Id;
+        await _host.SnapshotAsync("s", id, Token);
+
+        _platform.Windows.Clear(); //旧窗口关了
+        AddWindow("TextEdit", "com.apple.TextEdit", "打开", "h2");
+        IReadOnlyList<DesktopWindow> listed = await _host.ListWindowsAsync(Token);
+
+        Assert.Equal(id, listed[0].Id);
+        Assert.Equal("h2", (listed[0].Info.Handle as string));
+        // 旧句柄不在了：它名下拍过的快照（攥着旧句柄）要丢，免得拿旧的去动作
+        Assert.Equal(string.Empty, _host.Peek("s", id, "e1")!.Role);
+    }
+
+    [Fact]
+    public async Task TwoWindowsWithTheSameTitle_AreNotMistakenForOneAnother()
+    {
+        // 两个同 pid 同标题的窗口并存（两个访达都叫「extensions」）：不猜，各给新编号
+        AddWindow("Finder", "com.apple.finder", "extensions", "h1");
+        AddWindow("Finder", "com.apple.finder", "extensions", "h2");
+        IReadOnlyList<DesktopWindow> listed = await _host.ListWindowsAsync(Token);
+
+        Assert.Equal(2, listed.Count);
+        Assert.NotEqual(listed[0].Id, listed[1].Id);
+    }
+
+    [Fact]
+    public async Task SnapshotOfASystemDialogWindow_NotesHowToTypeAPath()
+    {
+        AddWindow("TextEdit", "com.apple.TextEdit", "存储", "h1");
+        await _host.ListWindowsAsync(Token);
+
+        DesktopView view = await _host.SnapshotAsync("s", "w1", Token);
+
+        string note = Assert.Single(view.Notes);
+        Assert.Contains("save dialog", note);
+        Assert.Contains("Cmd+Shift+G", note); //Fake 平台默认提示
+    }
+
+    [Fact]
+    public async Task DialogPathHint_ComesFromThePlatform_NotHardcoded()
+    {
+        // 职责分离：提示层只认「这是保存/打开面板」，键位由平台给——Windows 的提示就跟着平台走，不再焊死 Cmd+Shift+G
+        _platform.DialogPathHint = "fill the full path into the file name box, then Enter";
+        AddWindow("TextEdit", "com.apple.TextEdit", "存储", "h1");
+        await _host.ListWindowsAsync(Token);
+
+        DesktopView view = await _host.SnapshotAsync("s", "w1", Token);
+
+        string note = Assert.Single(view.Notes);
+        Assert.Contains("file name box", note);
+        Assert.DoesNotContain("Cmd+Shift+G", note);
+    }
+
+    [Fact]
+    public async Task SnapshotOfAnOpenDialogWindow_NotesHowToTypeAPath()
+    {
+        AddWindow("TextEdit", "com.apple.TextEdit", "打开", "h1");
+        await _host.ListWindowsAsync(Token);
+
+        DesktopView view = await _host.SnapshotAsync("s", "w1", Token);
+
+        string note = Assert.Single(view.Notes);
+        Assert.Contains("open dialog", note);
+        Assert.Contains("Cmd+Shift+G", note);
+    }
+
+    [Fact]
+    public async Task SnapshotOfAWindowWithASaveSheet_NotesHowToTypeAPath()
+    {
+        // 保存面板挂在文档窗口下（标题还是文档名）：靠树里的 dialog（AXSheet）认出
+        AxNode doc = new("window", "未命名")
+        {
+            Children = [new AxNode("dialog", "存储") { Children = [new AxNode("button", "存储")] }],
+        };
+        DesktopWindowInfo info = new(1, "TextEdit", "com.apple.TextEdit", "未命名", new AxRect(100, 50, 800, 600)) { Handle = "h1" };
+        _platform.Windows.Add(info);
+        _platform.Trees["未命名"] = doc;
+        await _host.ListWindowsAsync(Token);
+
+        DesktopView view = await _host.SnapshotAsync("s", "w1", Token);
+
+        Assert.Contains(view.Notes, note => note.Contains("save dialog (sheet)") && note.Contains("Cmd+Shift+G"));
+    }
+
+    [Fact]
     public async Task Click_UsesTheAccessibilityAction_WhenTheControlSupportsIt()
     {
         string window = await OpenNoteAsync();
@@ -269,5 +359,14 @@ public class DesktopHostTests
         await _host.ListWindowsAsync(Token);
         await _host.SnapshotAsync("s", "TextEdit", Token);
         return "w1";
+    }
+
+    // 加一个窗口，句柄可以指定（AddWindow 的句柄固定是标题，模拟「同标题但 AX 元素不同」要用它）
+    private DesktopWindowInfo AddWindow(string app, string appId, string title, string handle)
+    {
+        DesktopWindowInfo info = new(_platform.Windows.Count + 100, app, appId, title, new AxRect(100, 50, 800, 600)) { Handle = handle };
+        _platform.Windows.Add(info);
+        _platform.Trees[title] = Form();
+        return info;
     }
 }

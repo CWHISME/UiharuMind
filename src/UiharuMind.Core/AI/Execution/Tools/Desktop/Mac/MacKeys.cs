@@ -23,6 +23,13 @@ internal static class MacKeys
 
     public const ushort KeyA = 0;
 
+    // 修饰键自己的虚拟键码（发 down/up 事件用；真实键鼠时必须显式按下再松开，
+    // 只把 flags 挂在主键事件上会让系统认为修饰键一直按着）
+    public const ushort KeyCommand = 55;
+    public const ushort KeyShift = 56;
+    public const ushort KeyOption = 58;
+    public const ushort KeyControl = 59;
+
     private static readonly Dictionary<string, ushort> Named = new(StringComparer.OrdinalIgnoreCase)
     {
         ["Enter"] = 36, ["NumpadEnter"] = 76, ["Tab"] = 48, ["Space"] = 49, ["Backspace"] = 51, ["Escape"] = 53,
@@ -75,5 +82,29 @@ internal static class MacKeys
         }
 
         throw new AxActionException($"Unknown key \"{key}\". Use names like Enter, Tab, Escape, ArrowDown, F5, or a letter.");
+    }
+
+    /// <summary>
+    /// 修饰键按下的完整序列（键码 + 按下到这一步后的累计标志）：Cmd → Shift → Option → Control。
+    /// 真实键鼠时必须逐个显式 down、再逆序 up，只把 flags 挂在主键事件上会让系统以为修饰键一直按着
+    /// </summary>
+    /// <param name="flags">要按的修饰键</param>
+    /// <returns>按下顺序的键码与累计标志；释放顺序取反</returns>
+    public static IReadOnlyList<(ushort KeyCode, ulong Flags)> ModifierDowns(ulong flags)
+    {
+        List<(ushort, ulong)> downs = new();
+        ulong acc = 0;
+        void Add(ushort code, ulong flag)
+        {
+            if ((flags & flag) == 0) return;
+            acc |= flag;
+            downs.Add((code, acc));
+        }
+
+        Add(KeyCommand, FlagCommand);
+        Add(KeyShift, FlagShift);
+        Add(KeyOption, FlagOption);
+        Add(KeyControl, FlagControl);
+        return downs;
     }
 }

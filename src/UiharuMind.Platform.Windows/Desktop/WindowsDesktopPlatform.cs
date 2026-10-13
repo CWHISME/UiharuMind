@@ -45,6 +45,10 @@ internal sealed class WindowsDesktopPlatform : IDesktopPlatform
     public string? Unavailable => null;
 
     /// <inheritdoc />
+    public string? DialogPathHint =>
+        "fill the full path into the file name box, then Enter";
+
+    /// <inheritdoc />
     public void RequestAccess()
     {
     }

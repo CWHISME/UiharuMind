@@ -98,12 +98,22 @@ public sealed partial class DesktopHost
         IReadOnlyList<DesktopWindowInfo> found = await Task.Run(platform.ListWindows, cancellationToken);
         lock (_windowsGate)
         {
-            List<DesktopWindow> listed = found.Select(info =>
+            HashSet<string> usedIds = new();
+            List<DesktopWindow> listed = new();
+            foreach (DesktopWindowInfo info in found)
             {
-                DesktopWindow? known = _windows.FirstOrDefault(window => platform.SameWindow(window.Info, info));
-                string id = known?.Id ?? "w" + ++_lastWindowNumber;
-                return new DesktopWindow(id, info, DesktopPolicy.Blocked(info, _ownBrowser));
-            }).ToList();
+                DesktopWindow? known = _windows.FirstOrDefault(window => !usedIds.Contains(window.Id) && platform.SameWindow(window.Info, info));
+                string? replacedId = known == null ? ReplacementId(platform, info, found, usedIds) : null;
+                if (replacedId != null)
+                {
+                    // 编号被新元素接管了：旧窗口已关，它名下各会话的快照攥着旧原生句柄，一起丢
+                    foreach ((string, string) key in _states.Keys.Where(key => key.Window == replacedId)) _states.TryRemove(key, out _);
+                }
+
+                string id = known?.Id ?? replacedId ?? "w" + ++_lastWindowNumber;
+                usedIds.Add(id);
+                listed.Add(new DesktopWindow(id, info, DesktopPolicy.Blocked(info, _ownBrowser)));
+            }
 
             // 关掉的窗口连同各会话里它的快照一起丢：快照里攥着原生句柄
             foreach (DesktopWindow gone in _windows.Where(old => listed.All(now => now.Id != old.Id)))
@@ -162,7 +172,9 @@ public sealed partial class DesktopHost
             WindowState state = _states.GetOrAdd((sessionId, target.Id), _ => new WindowState());
             List<string> notes = new();
             if (target.Info.Minimized) notes.Add("The window is minimized; what it shows may be incomplete.");
+            if (SystemDialogNote(target.Info) is { } dialogNote) notes.Add(dialogNote);
             AxNode tree = await Task.Run(() => _platform!.ReadWindow(target.Info, MaxNodes), cancellationToken);
+            if (HasSheetDialog(tree) && SystemDialogNote(target.Info) == null) notes.Add(SheetDialogNote());
             return await ComposeAsync(target, state, tree, notes, view, cancellationToken);
         });
     }
@@ -198,6 +210,65 @@ public sealed partial class DesktopHost
 
         return new DesktopElementPreview(found.Info.App, found.Info.Title, node?.Role ?? string.Empty,
             node?.Name.Trim() ?? string.Empty, node?.Secret == true);
+    }
+
+    // 系统打开/存储对话框的标题（本地化）：标题命中时快照加一句，教模型怎么输完整路径
+    private static readonly HashSet<string> OpenDialogTitles = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "打开", "Open", "Open File", "导入", "Import",
+    };
+
+    private static readonly HashSet<string> SaveDialogTitles = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "存储", "存储为", "另存为", "导出", "Save", "Save As", "Export",
+    };
+
+    private string? SheetDialogNote()
+    {
+        string hint = _platform?.DialogPathHint ?? "type the full path where the dialog asks for it";
+        return $"The window shows a modal save dialog (sheet) attached to it. To save into a folder by typing " +
+               $"its path, {hint}.";
+    }
+
+    // 保存面板常以 sheet 挂在文档窗口下（窗口标题还是文档名，认不出）：树里有 AXSheet（dialog）就算
+    private static bool HasSheetDialog(AxNode node) =>
+        node.Role == "dialog" || node.Children.Any(HasSheetDialog);
+
+    private string? SystemDialogNote(DesktopWindowInfo info)
+    {
+        string title = info.Title.Trim();
+        string hint = _platform?.DialogPathHint ?? "type the full path where the dialog asks for it";
+        if (OpenDialogTitles.Contains(title))
+        {
+            return "This looks like the system open dialog, not a document window. To open a file at a typed " +
+                   $"path, {hint}.";
+        }
+
+        if (SaveDialogTitles.Contains(title))
+        {
+            return "This looks like the system save dialog: to save into a folder by typing its path, " +
+                   $"{hint}.";
+        }
+
+        return null;
+    }
+
+    // 关掉再重开的系统对话框（打开/存储面板）在 AX 里是新元素，SameWindow 认不出：
+    // 同 pid + 同标题、且旧窗口已不在这次列表里时按「替换」复用旧编号，免得模型手里的 refs 全作废。
+    // 只在两边都唯一时才复用（旧的同款只剩一个、新的同款也只剩一个）——两扇同名窗口并存时不猜
+    private string? ReplacementId(IDesktopPlatform platform, DesktopWindowInfo info,
+        IReadOnlyList<DesktopWindowInfo> found, HashSet<string> usedIds)
+    {
+        if (info.Title.Trim().Length == 0) return null;
+        DesktopWindow[] old = _windows.Where(window =>
+            !usedIds.Contains(window.Id) &&
+            window.Info.Pid == info.Pid &&
+            string.Equals(window.Info.Title, info.Title, StringComparison.Ordinal) &&
+            !found.Any(current => platform.SameWindow(window.Info, current))).ToArray();
+        if (old.Length != 1) return null;
+        int currentCount = found.Count(current =>
+            current.Pid == info.Pid && string.Equals(current.Title, info.Title, StringComparison.Ordinal));
+        return currentCount == 1 ? old[0].Id : null;
     }
 
     // 没授权时第一次被用到就请系统弹授权框（只弹一次，之后系统也不再弹），模型据报错去请用户点允许

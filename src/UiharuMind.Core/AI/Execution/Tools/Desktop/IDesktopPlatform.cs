@@ -87,6 +87,13 @@ public interface IDesktopPlatform
     double SecondsSinceUserInput { get; }
 
     /// <summary>
+    /// 这个平台上，在系统打开/保存对话框里输完整路径的办法（一句给模型看的操作提示）。
+    /// 平台无关的识别（“这是保存/打开面板”）由宿主做，键位这类平台特有的知识归这里：
+    /// macOS 的保存面板用 Cmd+Shift+G，Windows 的另存为对话框直接填完整路径。没有可说为 null
+    /// </summary>
+    string? DialogPathHint { get; }
+
+    /// <summary>
     /// 启动应用，或用默认应用打开文件
     /// </summary>
     /// <param name="target">应用名或文件的绝对路径</param>

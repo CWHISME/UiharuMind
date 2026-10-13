@@ -28,6 +28,9 @@ internal sealed class FakeDesktopPlatform : IDesktopPlatform
 
     public string? Unavailable { get; set; }
 
+    /// <summary>平台给的对话框输路径提示（模拟 macOS / Windows 的差别）</summary>
+    public string? DialogPathHint { get; set; } = "press Cmd+Shift+G, type the full path, then Enter";
+
     public byte[] Picture { get; set; } = [1, 2, 3];
 
     public Queue<byte[]> NextPictures { get; } = new(); //接下来几次截图依次给的画面，给完回到 Picture

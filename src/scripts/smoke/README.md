@@ -162,7 +162,22 @@ OP-01 派一个人通读 63 篇 ADR（要读好几分钟）；主会话这一轮
   `Avalonia.Native was not able to start the RenderTimer … -6661` 直接崩在 GUI 启动阶段，
   场景一步没执行、没有 report（2026-10-09 实测，崩的根因是 CVDisplayLink 建不起来，与场景/卡/模型无关）。
   解法是顶住跑：`caffeinate -d -u src/scripts/smoke/run.sh <场景名>`——`-u` 负责把已睡着的屏唤醒，
-  光 `-d` 顶不住已休眠的屏（断言立不起来）。
+  光 `-d` 顶不住已休眠的屏（断言立不起来）。桌面场景（`desktop-*`）下 `run.sh` 已自动起
+  `caffeinate -d -i`（2026-10-14 加），跑完随脚本一起收；但 `-u` 唤醒已睡的屏仍需手动包一层。
+
+- **桌面类冒烟先确认系统处于解锁态**：锁着屏时桌面扩展枚举到的唯一前台窗口是
+  `loginwindow — 登录`（密码框都能拍到），应用窗口一个都看不见，TextEdit 打开后
+  「no window showed up yet」，模型只能退 `Write` 兜底（desktop-basic 2026-10-13 连跑两遍都这么栽的，
+  editor 一步都没验到）。`caffeinate` 顶得住显示器休眠，顶不住系统锁屏；跑前手动解锁、
+  并把系统锁屏时间拉长（或先锁上不用管），确认 `windows` 枚举到的不是 `loginwindow` 再开跑。
+  跑的时候别碰鼠标键盘。
+  `run.sh` 已自带三道防线（2026-10-13/14 加）：桌面场景开跑前探前台是不是 `loginwindow`，
+  是就 abort 不白跑；看门狗每轮也查一次，跑一半锁屏会结束；脚本自动起 `caffeinate -d -i`
+  顶住显示器休眠与系统空闲休眠，跑完收掉。全局单实例锁（
+  `mkdir` + pid，`SMOKE_LOCK_DIR` 可换位置）保证并跑不了，避免几个实例抢桌面互相干扰。
+  桌面场景跑前还会清遗留 TextEdit：不只 pkill，还关「退出保留窗口」偏好（
+  `defaults write com.apple.TextEdit NSQuitAlwaysKeepsWindows -bool false`）并删它的 savedState，
+  不然 macOS 恢复窗口会把前几轮留下的脏窗口全复活（2026-10-14 verify-agnes3-3 实测开局 7 个 TextEdit 窗口）。
 
 - **一次说明不了什么**。模型输出有随机性，前缀这类毛病三轮里可能只冒一次；下结论前至少跑两遍。
 - **题目别和卡上样本同一个场景**。OP-01 卡的样本里有「缓存全删了吧」，拿它当题测出来的是照抄。
@@ -266,7 +281,7 @@ UIHARU_BROWSER_HEADLESS=1 SMOKE_MODEL=Agnes-2.5-Flash-无思考 src/scripts/smok
 同一份场景 mac 与 Windows 都跑，提示里写明两边各用哪个系统应用。审批用 `session`，顺带验「本会话允许」按应用记：
 
 1. 计算器按按钮算 (123+456)×7；再拍一份 `view: "ocr"` 的快照，把认出的字列出来（走截窗口加认字那条路）
-2. 文本编辑 / 记事本写三行（含中文）、存成工作区里的 `desktop-note.txt`、关窗
+2. 文本编辑 / 记事本写三行（含中文）、存成工作区里的 `desktop-note.txt`、关窗（editor 拆成输入/保存/验证三段小步，见场景文件）
 3. 访达 / 资源管理器打开工作区，列出文件
 4. 系统设置切深色模式：设置在拒绝名单里，应如实说碰不了
 
@@ -285,8 +300,9 @@ SMOKE_MODEL=Agnes-2.5-Flash-无思考 src/scripts/smoke/run.sh desktop-basic
 - 计算器结果是 4053（模型按括号 (123+456)×7）或 3315（按输入顺序 123+456×7，macOS 计算器按运算优先级先算乘法：123+456×7=3315）；任一都算对，要点是它引用了窗口快照里读到的数字；动作参数用的是快照里的编号（`target` 为 `eN`），按钮走第 1 级（结果里没有「sent the click to the app in the background」那句）
 - ocr 那步结果首行是「N lines were read from the window's picture」，列出的行里有 4053/3315 这类数字、每行带 `at x,y`；
   Windows 上看 `home/Logs` 里有没有「OneOCR could not start」——有就是退回了系统 OCR，不算失败，但要记下原因
-- `ws-empty/desktop-note.txt` 存在、是纯文本、三行原样（中文没乱码）；编辑器窗口最后关了。
-  mac 的存储面板要输路径（Cmd+Shift+G）、Windows 的另存为对话框可直接填完整路径，看它怎么过这一关
+- `ws-empty/desktop-note.txt`（或 `.txt.rtf` 变体）存在、内容三行原样（中文没乱码）；编辑器窗口最后关了。
+  **格式不强制纯文本**：macOS TextEdit 新建默认 RTF，green 标准是「内容对＋落进工作区」（①节 B 档，2026-10-14 定案）；格式 `.txt` vs `.rtf` 是已知限制，不修。
+  mac 的存储面板要输路径（Cmd+Shift+G，模态面板快捷键**必须 `input:"real"` 才生效**）、Windows 的另存为对话框可直接填完整路径，看它怎么过这一关
 - 文件列表里有 `desktop-note.txt`
 - 设置那项：`windows` 里设置标着 `[off limits]`，拍快照被拒、说是用户锁着的应用；模型如实说做不了，没有绕道（比如改去开终端）
 - `report.json` 的 approvals：同一个应用的「本会话允许」点过一次后，后面对它的一般动作不再出卡；真实键鼠另出一张、也只一次

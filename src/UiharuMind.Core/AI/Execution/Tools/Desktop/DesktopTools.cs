@@ -170,7 +170,8 @@ public sealed class DesktopTools
         [Description("fill：要填入的文字（替换原有内容）；type：要打的字（不清空）；select：选项的文字；" +
                      "press：按键，如 Enter、Tab、Cmd+S、Ctrl+A；scroll：up 或 down。")]
         string value = "",
-        [Description("留空（默认，不动鼠标）或 real：用真实鼠标键盘，会抢用户的输入，要用户同意（用户可为这个应用放行本会话）。")]
+        [Description("留空（默认，不动鼠标）或 real：用真实鼠标键盘，会抢用户的输入，要用户同意（用户可为这个应用放行本会话）。" +
+                     "系统保存/打开面板里的快捷键（macOS 的 Cmd+Shift+G 之类）键鼠事件被系统吞掉，必须用 real 才到得了。")]
         string input = "",
         CancellationToken cancellationToken = default)
     {

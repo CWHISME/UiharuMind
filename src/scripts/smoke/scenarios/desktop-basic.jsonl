@@ -7,9 +7,15 @@
 {"op":"session.wait","args":{"timeoutMinutes":5,"approvals":"session"}}
 {"op":"session.dump","args":{"path":"{{OUT}}/calculator-ocr.md"}}
 {"op":"session.new","args":{"character":"DesktopTester","workspace":"{{WS_EMPTY}}"}}
-{"op":"session.post","args":{"text":"用系统自带的文本编辑器（mac 上是「文本编辑」，Windows 上是「记事本」）新建一个纯文本文档，写三行：第一行「桌面冒烟」，第二行「line two」，第三行「第三行 3」。存成工作区里的 desktop-note.txt，然后关掉那个窗口。"}}
+{"op":"session.post","args":{"text":"用系统自带的文本编辑器（mac 上是「文本编辑」）新建一个文档，输入三行：第一行「桌面冒烟」，第二行「line two」，第三行「第三行 3」。只输入这三行，先不要保存。"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"session"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/editor-1-input.md"}}
+{"op":"session.post","args":{"text":"现在按 Cmd+S 调出保存面板。在面板里把文件名改成 desktop-note.txt，用 Cmd+Shift+G 输入完整路径 {{WS_EMPTY}} 跳转到工作区，然后点保存。做完后告诉我保存面板最终显示的路径和文件名。"}}
 {"op":"session.wait","args":{"timeoutMinutes":15,"approvals":"session"}}
-{"op":"session.dump","args":{"path":"{{OUT}}/editor.md"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/editor-2-save.md"}}
+{"op":"session.post","args":{"text":"请验证：用桌面扩展（访达窗口或桌面工具）确认 {{WS_EMPTY}} 里确实存在 desktop-note.txt，并读出它的内容确认是三行原文。文件必须真实存在才算完成；如果不存在，如实报告卡在哪一步，不要假装成功。"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"session"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/editor-3-verify.md"}}
 {"op":"session.new","args":{"character":"DesktopTester","workspace":"{{WS_EMPTY}}"}}
 {"op":"session.post","args":{"text":"在文件管理器（mac 上是访达，Windows 上是资源管理器）里打开工作区文件夹，告诉我窗口里列出了哪些文件。"}}
 {"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"session"}}

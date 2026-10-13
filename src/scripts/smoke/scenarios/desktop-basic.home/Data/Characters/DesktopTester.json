@@ -9,7 +9,7 @@
   "CharacterId": "DesktopTester",
   "IsAgent": true,
   "Tools": {
-    "EnableFileAccess": true,
+    "EnableFileAccess": false,
     "EnableShellExecution": false,
     "EnableWebSearch": false,
     "EnableSubAgent": false,

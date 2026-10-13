@@ -48,6 +48,57 @@ out="${2:-/tmp/uiharu-smoke/$scenario-$(date +%Y%m%d-%H%M%S)}"
 config="${SMOKE_CONFIG:-$HOME/.uiharu/Config}"
 [ "${SMOKE_FRESH:-}" = "1" ] || [ -d "$config" ] || { echo "找不到模型配置：${config}（用 SMOKE_CONFIG 指定）" >&2; exit 1; }
 
+# 桌面类冒烟互相抢真实键鼠，全局只许一个在跑（2026-10-13 三方 watcher 并跑抢桌面的教训）。
+# macOS 没有 flock，用 mkdir 原子锁 + pid 残留自愈：持有者还在就拒，被 kill -9 留下的旧锁清掉重拿。
+lock_dir="${SMOKE_LOCK_DIR:-/tmp/uiharu-smoke.lock}"
+if [ -d "$lock_dir" ]; then
+    holder="$(cat "$lock_dir/pid" 2>/dev/null || true)"
+    if [ -n "$holder" ] && kill -0 "$holder" 2>/dev/null; then
+        echo "已有另一个冒烟在跑（pid ${holder}）：并跑会抢桌面，等它跑完（或先 kill ${holder}）再开。" >&2
+        exit 1
+    fi
+    rm -rf "$lock_dir" # 残留锁：持有者已不在（被 kill -9 之类），清掉重拿
+fi
+mkdir "$lock_dir" && printf '%s\n' "$$" > "$lock_dir/pid"
+trap 'rm -rf "$lock_dir"' EXIT INT TERM
+
+# 桌面场景跑前必须确认屏幕解锁：锁屏时前台是 loginwindow，桌面扩展枚举不到应用窗口，全场景白跑
+# （2026-10-13 连跑两遍都这么栽的，见 README「读结果的口径」）。只在 macOS 与桌面场景上探。
+# lsappinfo front 只给 ASN，名字要从 info 里取；不需要辅助功能授权（Apple Events 那套在锁屏下可能不可用）。
+front_app_name() {
+    local asn
+    asn="$(lsappinfo front 2>/dev/null || true)"
+    [ -z "$asn" ] && { echo ""; return; }
+    lsappinfo info "$asn" 2>/dev/null | head -1 | awk '{print $1}' | tr -d '"'
+}
+
+if [[ "$scenario" == desktop-* ]] && [[ "$(uname -s)" == Darwin ]] && command -v lsappinfo > /dev/null; then
+    if [ "$(front_app_name)" = "loginwindow" ]; then
+        echo "屏幕锁着（前台是 loginwindow）：先解锁，桌面场景才看得到应用窗口，别白跑。解锁后再跑。" >&2
+        exit 1
+    fi
+fi
+
+# 桌面场景跑前清掉遗留的 TextEdit：失败留下的保存面板（未命名.rtf sheet）会一直挂在窗口列表里，
+# 模型每次都撞上它、去操作它而不是新建文档（2026-10-13 两轮验证实测 w8→w7 污染）。
+# 光 pkill 不够：macOS 的「恢复窗口」会在下次启动时把旧窗口全部复活（2026-10-14 verify-agnes3-3 实测
+# 开局 7 个 TextEdit 窗口）。所以先关「退出保留窗口」偏好、再删已存的 savedState、最后杀进程。
+# 只在 macOS 桌面场景做；会丢掉 TextEdit 未保存的内容——桌面场景本就要求桌面空着、别碰鼠标键盘。
+# 偏好改动是持久的：想恢复默认用 defaults delete com.apple.TextEdit NSQuitAlwaysKeepsWindows。
+if [[ "$scenario" == desktop-* ]] && [[ "$(uname -s)" == Darwin ]]; then
+    defaults write com.apple.TextEdit NSQuitAlwaysKeepsWindows -bool false 2> /dev/null || true
+    rm -rf "$HOME/Library/Saved Application State/com.apple.TextEdit.savedState" 2> /dev/null || true
+    # 前几轮存错的 desktop-note*.rtf/.txt（存到桌面默认位置而不是工作区）会干扰判读：
+    # 模型像 agnes3-1 那样开局就看到旧文件、或产物验证被它带偏（2026-10-14 实测桌面 464B .rtf）。
+    # 桌面与旧工作区各清一遍；只在桌面场景做，不碰用户自己的文档。
+    rm -f "$HOME/Desktop/desktop-note."* "$HOME/Desktop/desktop-note"* 2> /dev/null || true
+    # 旧冒烟工作区（上一轮的 ws-empty）里的 desktop-note* 同样清掉，免得模型开局在访达里看到旧文件
+    rm -f /tmp/uiharu-smoke/*/ws-empty/desktop-note* 2> /dev/null || true
+    if pkill -x "TextEdit" 2>/dev/null; then
+        echo "清掉遗留的 TextEdit（含恢复窗口，避免本轮被脏窗口污染）。" >&2
+    fi
+fi
+
 # 三个工作区：空目录；放了仓库规矩副本的目录（验「先读 AGENTS.md」「改文件落在哪」）；docs 副本（读得多、涨得快的长会话素材）
 mkdir -p "$out/home" "$out/ws-empty" "$out/ws-repo" "$out/ws-docs"
 out="$(cd "$out" && pwd)"
@@ -97,6 +148,14 @@ if [ "${SMOKE_NO_BUILD:-}" != "1" ] && [ -z "${SMOKE_APP:-}" ]; then
 fi
 
 echo "输出目录：$out"
+# macOS 桌面场景：自动顶住显示器休眠与系统空闲休眠，免得跑到一半屏幕灭了应用窗口消失（2026-10-14 两次白跑的教训）。
+# 只在 macOS 桌面场景起，跑完随脚本一起收。pre-flight 检查已挡了锁屏，caffeinate 管的是「别在跑的时候睡」。
+caffeinate_pid=""
+if [[ "$scenario" == desktop-* ]] && [[ "$(uname -s)" == Darwin ]] && command -v caffeinate > /dev/null; then
+    # -d 顶显示器休眠，-i 顶系统空闲休眠；时限给足看门狗 + 缓冲
+    caffeinate -d -i -t $(( ${SMOKE_TIMEOUT_MINUTES:-120} * 60 + 300 )) &
+    caffeinate_pid=$!
+fi
 # 脚本末步 quit 会直接结束进程：退出码不作数、bash 那句「Killed: 9」也吞掉，成败看报告
 if [[ "$APP" == *.app ]]; then
     # -W 等它退出，-n 另起一个实例（不碰正在用的那个）；环境变量与输出经 open 转交
@@ -116,6 +175,11 @@ while kill -0 "$app_pid" 2> /dev/null; do
     [ "$(date +%s)" -ge "$deadline" ] && reason="超时"
     level=$(sysctl -n kern.memorystatus_level 2> /dev/null || echo 100)
     [ "$level" -lt "${SMOKE_MIN_FREE_PERCENT:-12}" ] && reason="空闲内存只剩 $level%"
+    # 跑一半锁屏同白跑（同 README「读结果的口径」）：桌面场景中途一锁就结束，别拖到超时
+    if [[ "$scenario" == desktop-* ]] && [[ "$(uname -s)" == Darwin ]] && [ "$(front_app_name)" = "loginwindow" ]; then
+        reason="屏幕锁了（前台 loginwindow）"
+    fi
+
     if [ -n "$reason" ]; then
         echo "看门狗：${reason}，结束应用与本地引擎" | tee -a "$out/app.log" >&2
         pkill -9 -f "$engines" 2> /dev/null || true
@@ -129,6 +193,8 @@ while kill -0 "$app_pid" 2> /dev/null; do
 done
 wait "$app_pid" 2> /dev/null || true
 pkill -9 -f "$engines" 2> /dev/null || true
+# 收掉脚本自己起的 caffeinate（不影响别人手起的）
+[ -n "$caffeinate_pid" ] && kill "$caffeinate_pid" 2> /dev/null || true
 
 if [ ! -f "$out/report.json" ]; then
     echo "没有生成报告，看 $out/app.log" >&2

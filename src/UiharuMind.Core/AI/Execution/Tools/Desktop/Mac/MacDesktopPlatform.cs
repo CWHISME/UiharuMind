@@ -44,6 +44,10 @@ internal sealed class MacDesktopPlatform : IDesktopPlatform
           "Privacy & Security → Accessibility (enabling the desktop extension in Settings opens the prompt), then try again.";
 
     /// <inheritdoc />
+    public string? DialogPathHint =>
+        "press Cmd+Shift+G (with real input), type the full path, then Enter";
+
+    /// <inheritdoc />
     public void RequestAccess()
     {
         PromptForTrust();
@@ -316,12 +320,31 @@ internal sealed class MacDesktopPlatform : IDesktopPlatform
 
     private void Key(int pid, ushort keyCode, ulong flags, bool real)
     {
-        foreach (bool down in new[] { true, false })
+        if (real && flags != 0)
         {
-            IntPtr cgEvent = CGEventCreateKeyboardEvent(_eventSource.Value, keyCode, down ? (byte)1 : (byte)0);
-            CGEventSetFlags(cgEvent, flags);
-            Post(pid, cgEvent, real, 0);
+            // 真实键鼠：修饰键必须显式 down 再逆序 up。只把 flags 挂在主键事件上，
+            // 系统会认为修饰键一直按着（Cmd 卡住：点 Dock 变成「打开所在位置」）
+            IReadOnlyList<(ushort KeyCode, ulong Flags)> downs = MacKeys.ModifierDowns(flags);
+            foreach ((ushort code, ulong acc) in downs) PostKey(pid, code, down: true, acc, real);
+            foreach (bool down in new[] { true, false }) PostKey(pid, keyCode, down, flags, real);
+            for (int i = downs.Count - 1; i >= 0; i--)
+            {
+                // 松开后还按着的修饰键：前一个的累计（第一个松开的是 0）
+                ulong remaining = i > 0 ? downs[i - 1].Flags : 0;
+                PostKey(pid, downs[i].KeyCode, down: false, remaining, real);
+            }
+
+            return;
         }
+
+        foreach (bool down in new[] { true, false }) PostKey(pid, keyCode, down, flags, real);
+    }
+
+    private void PostKey(int pid, ushort keyCode, bool down, ulong flags, bool real)
+    {
+        IntPtr cgEvent = CGEventCreateKeyboardEvent(_eventSource.Value, keyCode, down ? (byte)1 : (byte)0);
+        CGEventSetFlags(cgEvent, flags);
+        Post(pid, cgEvent, real, 0);
     }
 
     // 不按键位打：直接带上要打的字，输入法、键盘布局都不碍事
