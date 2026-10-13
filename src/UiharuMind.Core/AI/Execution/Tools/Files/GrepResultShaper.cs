@@ -45,20 +45,21 @@ internal static class GrepResultShaper
     /// <param name="pattern">模型传入的原始表达式（用于说明降级与归一化）</param>
     /// <param name="filesOnly">只要命中分布（文件 + 命中数 + 行号），不要匹配内容</param>
     /// <param name="outlineOf">按命中文件的路径取大纲，用来标注命中所在的结构；null 不标注</param>
+    /// <param name="contextLines">调用方要的上下文行数；退成分布地图时据此说明上下文没给</param>
     /// <returns>回给模型的工具结果正文（失败、说明一律拼在同段文本里）</returns>
     public static string Shape(GrepOutcome outcome, string pattern, bool filesOnly = false,
-        Func<string, IReadOnlyList<OutlineEntry>?>? outlineOf = null)
+        Func<string, IReadOnlyList<OutlineEntry>?>? outlineOf = null, int contextLines = 0)
     {
         if (outcome.Failure != null)
         {
             return SearchFailureRenderer.Render(outcome.Failure, FileToolNames.Grep);
         }
 
-        if (outcome.Matches.Count == 0) return ToolResultText.AppendNotice("", BuildNotice(outcome, pattern, 0));
+        if (outcome.Matches.Count == 0) return BuildNotice(outcome, pattern, 0);
         if (filesOnly) return ShapeFilesOnly(outcome, pattern);
 
         GroupedHits grouped = GroupByFile(outcome.Matches);
-        string body = RenderBody(grouped.Files.Select(file => (file.File, file.Lines.Select(line => line.Text))));
+        string body = RenderBody(grouped.Files.Select(file => (file.File, SplitBlocks(file.Lines, null))));
         bool tooWide = grouped.DroppedMatches > 0 || Encoding.UTF8.GetByteCount(body) > MaxOutputBytes;
         if (!tooWide)
         {
@@ -66,26 +67,25 @@ internal static class GrepResultShaper
             if (outlineOf != null && grouped.Files.Count <= MaxOutlinedFiles)
             {
                 string annotated = RenderBody(grouped.Files.Select(file =>
-                    (file.File, AnnotateScopes(file.Lines, outlineOf(file.File)))));
+                    (file.File, SplitBlocks(file.Lines, outlineOf(file.File)))));
                 if (Encoding.UTF8.GetByteCount(annotated) <= MaxOutputBytes) body = annotated;
             }
 
-            return ToolResultText.AppendNotice(body, BuildNotice(outcome, pattern, grouped.Files.Count));
+            return ToolResultText.Compose(BuildNotice(outcome, pattern, grouped.Files.Count), body);
         }
 
         // 命中过多：直接给分布地图，不再返半截正文——半截按扫描序取、无相关度排序，
-        // 模型会锚定到运气好的文件上（地图按全量统计）。地图开头先声明「这不是正文」，
+        // 模型会锚定到运气好的文件上（地图按全量统计）。开头先声明「这不是正文」，
         // 小模型容易从第一行就照着做，放在末尾的说明它未必读到
         GrepHitMap.Rendering map = GrepHitMap.Render(outcome.Matches, orderByPath: false, MaxOutputBytes);
         List<string> parts = QueryNotes(outcome, pattern);
-        parts.Add($"{outcome.Matches.Count} 处命中，跨 {map.FileCount} 个文件，范围太宽，无法内联返回。");
-        parts.Add(map.IsDirectoryLevel
+        parts.Add($"{CountMatchLines(outcome.Matches)} 行命中，跨 {map.FileCount} 个文件，范围太宽，无法内联返回"
+                  + (map.IsDirectoryLevel ? "，下面是按目录的命中分布，不是匹配内容。" : "，下面是按文件的命中分布，不是匹配内容。"));
+        if (contextLines > 0) parts.Add($"所要的 {contextLines} 行上下文也一并略去。");
+        string guidance = map.IsDirectoryLevel
             ? $"已按目录聚合为 {map.GroupCount} 组。{map.Legend}{ToolResultText.NarrowGuidance}。"
-            : $"可按行号 `Read` 上面的文件，或{ToolResultText.NarrowGuidance}。");
-        string header = map.IsDirectoryLevel
-            ? "命中过多，下面是按目录的命中分布，不是匹配内容："
-            : "命中过多，下面是按文件的命中分布，不是匹配内容：";
-        return ToolResultText.AppendNotice(header + "\n" + map.Body, string.Join(" ", parts));
+            : $"可按行号 `Read` 上面的文件，或{ToolResultText.NarrowGuidance}。";
+        return ToolResultText.Compose(string.Join(" ", parts), map.Body, guidance);
     }
 
     // 文件清单按路径排：同目录的文件挨在一起，模型扫得出结构
@@ -93,11 +93,12 @@ internal static class GrepResultShaper
     {
         GrepHitMap.Rendering map = GrepHitMap.Render(outcome.Matches, orderByPath: true, MaxOutputBytes);
         List<string> parts = QueryNotes(outcome, pattern);
-        parts.Add($"共 {outcome.Matches.Count} 处命中，跨 {map.FileCount} 个文件。");
-        if (!map.IsDirectoryLevel) return ToolResultText.AppendNotice(map.Body, string.Join(" ", parts));
+        parts.Add($"共 {CountMatchLines(outcome.Matches)} 行命中，跨 {map.FileCount} 个文件。");
+        if (!map.IsDirectoryLevel) return ToolResultText.Compose(string.Join(" ", parts), map.Body);
 
-        parts.Add($"文件太多，已按目录聚合为 {map.GroupCount} 组。{map.Legend}{ToolResultText.NarrowGuidance}。");
-        return ToolResultText.AppendNotice("文件过多，下面是按目录的命中分布：\n" + map.Body, string.Join(" ", parts));
+        parts.Add("文件太多，下面是按目录的命中分布。");
+        return ToolResultText.Compose(string.Join(" ", parts), map.Body,
+            $"已按目录聚合为 {map.GroupCount} 组。{map.Legend}{ToolResultText.NarrowGuidance}。");
     }
 
     /// <summary>一个文件去重排好的命中与上下文行</summary>
@@ -155,70 +156,93 @@ internal static class GrepResultShaper
     /// <summary>同一行只保留一条时的排放记录：行号、是否命中行、渲染文本。命中行比上下文行优先</summary>
     private readonly record struct PlacedLine(int LineNumber, bool IsMatch, string Text);
 
-    // 所在结构变了就插一行 [位于 起–止] 签名：模型不必为确认「这处命中在哪个方法里」再 Read 一次。
+    // 每个连续块（路径行或 -- 之后）至多一行块头 [位于 起–止] 签名，标这块首个命中所在的结构：模型不必为确认
+    // 「这处命中在哪个方法里」再 Read 一次。块头只在块首，归属永远指向下面那块；与上一块同属一个结构就不重复。
     // 三种情况不标，标了只是重复或噪音：命中落在声明行本身（查定义）时标它的上一层；
     // 声明行已作为命中或上下文显示出来；整份文件只有一个顶层结构（一个文件一个类，几乎每处命中都在它里面）
-    private static IEnumerable<string> AnnotateScopes(List<PlacedLine> lines, IReadOnlyList<OutlineEntry>? outline)
+    private static List<Block> SplitBlocks(List<PlacedLine> lines, IReadOnlyList<OutlineEntry>? outline)
     {
-        if (outline is not { Count: > 0 }) return lines.Select(line => line.Text).ToList();
+        var blocks = new List<Block>();
+        int start = 0;
+        for (int i = 1; i <= lines.Count; i++)
+        {
+            if (i < lines.Count && lines[i].LineNumber == lines[i - 1].LineNumber + 1) continue;
+            blocks.Add(new Block(null, lines.GetRange(start, i - start)));
+            start = i;
+        }
+
+        if (outline is not { Count: > 0 }) return blocks;
 
         int minDepth = outline.Min(entry => entry.Depth);
         OutlineEntry? soleRoot = outline.Count(entry => entry.Depth == minDepth) == 1
             ? outline.First(entry => entry.Depth == minDepth)
             : null;
         var shown = new HashSet<int>(lines.Select(line => line.LineNumber));
-        var result = new List<string>();
         OutlineEntry? current = null;
-        foreach (PlacedLine line in lines)
+        for (int i = 0; i < blocks.Count; i++)
         {
-            OutlineEntry? scope = FileOutline.Enclosing(outline, line.LineNumber, excludeStartingHere: true);
+            PlacedLine anchor = blocks[i].Lines.FirstOrDefault(line => line.IsMatch, blocks[i].Lines[0]);
+            OutlineEntry? scope = FileOutline.Enclosing(outline, anchor.LineNumber, excludeStartingHere: true);
             if (scope is { } entry && scope != current && scope != soleRoot && !shown.Contains(entry.Line))
             {
-                result.Add($"[位于 {FileOutline.FormatRange(entry)}] {entry.Text}");
+                blocks[i] = blocks[i] with { Header = $"[位于 {FileOutline.FormatRange(entry)}] {entry.Text}" };
             }
 
             current = scope;
-            result.Add(line.Text);
         }
 
-        return result;
+        return blocks;
     }
 
+    /// <summary>一段行号连续的命中与上下文行，及其可选块头</summary>
+    private readonly record struct Block(string? Header, List<PlacedLine> Lines);
+
     /// <summary>
-    /// 把分组后的命中组渲成一段文本：文件路径单独一行，下面接它的命中行与上下文行
-    /// （命中 <c>行号: 内容</c>、上下文 <c>行号- 内容</c>）。路径行本身即文件边界。
-    /// 每行末尾一个 <c>\n</c>，字节预算按整段渲完的文本算（与 Read 同口径）。
+    /// 渲成 ripgrep <c>--heading</c> 的样子：文件路径单独一行，下面接命中行 <c>行号:</c> 与上下文行 <c>行号-</c>，
+    /// 行号不连续处单独一行 <c>--</c>。路径行本身即文件边界。字节预算按整段渲完的文本算（与 Read 同口径）。
     /// </summary>
-    private static string RenderBody(IEnumerable<(string File, IEnumerable<string> Lines)> files)
+    private static string RenderBody(IEnumerable<(string File, List<Block> Blocks)> files)
     {
         var sb = new StringBuilder();
-        foreach ((string file, IEnumerable<string> lines) in files)
+        foreach ((string file, List<Block> blocks) in files)
         {
             if (sb.Length > 0) sb.Append('\n');
-            sb.Append(file).Append('\n');
-            sb.AppendJoin('\n', lines);
+            sb.Append(file);
+            for (int i = 0; i < blocks.Count; i++)
+            {
+                if (i > 0) sb.Append("\n--");
+                if (blocks[i].Header != null) sb.Append('\n').Append(blocks[i].Header);
+                foreach (PlacedLine line in blocks[i].Lines) sb.Append('\n').Append(line.Text);
+            }
         }
 
         return sb.ToString();
     }
 
-    private static string? BuildNotice(GrepOutcome outcome, string pattern, int fileCount)
+    /// <summary>命中行数（同一行多处出现算一行，对齐 grep -c）</summary>
+    internal static int CountMatchLines(IEnumerable<GrepMatchResult> matches) =>
+        matches.SelectMany(match => match.MatchingLines.Where(line => line.IsMatch)
+                .Select(line => (match.FileName, line.LineNumber)))
+            .Distinct()
+            .Count();
+
+    private static string BuildNotice(GrepOutcome outcome, string pattern, int fileCount)
     {
         List<string> parts = QueryNotes(outcome, pattern);
 
         if (fileCount > 0)
         {
             // 命中总数:让模型一眼知道这次搜到多少,不必数正文行数
-            parts.Add($"共 {outcome.Matches.Count} 处命中，跨 {fileCount} 个文件。");
+            parts.Add($"共 {CountMatchLines(outcome.Matches)} 行命中，跨 {fileCount} 个文件。");
         }
         else
         {
             // 0 命中要明说,与"没搜成"分开
-            parts.Add($"已搜索 \"{outcome.ResolvedDirectory}\" —— 0 处命中；"
+            parts.Add($"已搜索 \"{outcome.ResolvedDirectory}\" —— 0 行命中；"
                       + "路径存在，只是没有匹配的内容。");
         }
 
-        return parts.Count == 0 ? null : string.Join(" ", parts);
+        return string.Join(" ", parts);
     }
 
     /// <summary>

@@ -111,7 +111,7 @@ public static class FileEditPlanner
 
             Location located = EditLocator.Locate(text, lines, oldString);
 
-            // 原样找不到，再看是不是连 Read 的「行号→」一起抄了过来：原文优先，真以「数字→」开头的内容不会被剥
+            // 原样找不到，再看是不是连 Read 的行号前缀一起抄了过来：原文优先，真以行号前缀开头的内容不会被剥
             if (located.Kind == ELocateResult.NotFound && ReadLineNumbers.TryStripCopied(oldString, out string bareOld))
             {
                 Location bare = EditLocator.Locate(text, lines, bareOld);

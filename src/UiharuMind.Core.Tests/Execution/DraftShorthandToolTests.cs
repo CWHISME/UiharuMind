@@ -46,7 +46,30 @@ public class DraftShorthandToolTests : IDisposable
 
         Assert.True(File.Exists(Path.Combine(_draft, "probe.py")));
         Assert.False(Directory.Exists(Path.Combine(_workspace, "$DRAFT"))); //没当成相对路径散进工作区
-        Assert.Equal("1→print('hello')\n[已到文件末尾，共 1 行]", await tools.Read("$DRAFT/probe.py", cancellationToken: ct));
+        Assert.Equal("1\tprint('hello')\n[已到文件末尾，共 1 行]", await tools.Read("$DRAFT/probe.py", cancellationToken: ct));
+    }
+
+    /// <summary>
+    /// 简写写进 glob 而不是 path（实机：Glob pattern "$DRAFT/*" 静默 0 命中，模型差点以为草稿目录是空的）：
+    /// 前缀拆出来当搜索根；Grep 的 fileGlobs 同理，不再被剥成裸文件名在整个工作区里搜
+    /// </summary>
+    [Fact]
+    public async Task ShorthandInsideGlobs_BecomesTheSearchRoot()
+    {
+        PermissiveFileAccessTools tools = new(_paths, new FileBackupStore(Path.Combine(_root, "backups")));
+        CancellationToken ct = TestContext.Current.CancellationToken;
+        await File.WriteAllTextAsync(Path.Combine(_draft, "note.md"), "needle", ct);
+        await File.WriteAllTextAsync(Path.Combine(_workspace, "other.md"), "needle", ct);
+
+        Assert.Contains("$DRAFT/note.md", await tools.Glob("$DRAFT/*", ct: ct));
+
+        string grep = await tools.Grep("needle", fileGlobs: ["$DRAFT/*.md"], ct: ct);
+        Assert.Contains("$DRAFT/note.md", grep);
+        Assert.DoesNotContain("other.md", grep);
+
+        // 同时传了 path 就不替模型挑
+        Assert.Contains("二选一", await tools.Glob("$DRAFT/*", "src", ct));
+        Assert.Contains("目录请放 path", await tools.Grep("needle", fileGlobs: ["$DRAFT/*.md"], path: ".", ct: ct));
     }
 
     /// <summary>记忆目录同理：Write 按需建出目录，Glob 回来的也是简写</summary>

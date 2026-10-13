@@ -55,7 +55,7 @@ internal sealed class PermissiveFileAccessTools
 
     // 描述只写契约;何时读全文、何时先 Grep 再切片是策略,归文件纪律段(AgentToolPrompts.FileReadDefault)
     private const string ReadDescription =
-        "读取文件的原始内容。每行前的「行号→」是参照，不是文件内容，引用位置时直接用它，Edit 时不要带上。"
+        "读取文件的原始内容。每行前的「行号+制表符」是参照，不是文件内容，引用位置时直接用它，Edit 时不要带上。"
         + "代码与 Markdown 被截断时附文件大纲（各类型、函数、标题的起止行），据此传 offset 与 head 只读需要的段。";
 
     private const string ReadImagesDescription = " PNG、JPEG 与 WebP 文件会以图片形式展示。"; //只有视觉模型的装配才说
@@ -164,12 +164,11 @@ internal sealed class PermissiveFileAccessTools
         // 文件在前、目录在后:文件才是下一步 Read/Edit 的对象;按纯字典序两者会逐行交替,很难扫。
         // 刻意按路径而不按修改时间排:同目录的文件挨在一起,模型扫得出结构。
         // 排序只在这一层做,界面那侧有自己的习惯(见 SearchService)
-        return ToolResultText.AppendNotice(
+        return ToolResultText.Compose(BuildGlobNotice(outcome),
             string.Join('\n', outcome.Entries
                 .OrderBy(x => x.IsDirectory)
                 .ThenBy(x => x.Path, StringComparer.Ordinal)
-                .Select(Render)),
-            BuildGlobNotice(outcome));
+                .Select(Render)));
 
         static string Render(GlobEntry entry) => entry.IsDirectory
             ? $"{entry.Path}/"
@@ -181,7 +180,7 @@ internal sealed class PermissiveFileAccessTools
     /// 不返半截列表——半截按扫描序/字典序取，无相关度排序，模型会锚定到运气好的前缀上；
     /// 目录分布按全量命中统计（SimpleGlobber 一直数到统计上限），聚合到 ≤50 组，
     /// 模型据此判断搜宽没搜宽、该往哪个目录收窄，比罗列路径省下上千 token。
-    /// 开头先声明「这不是文件列表」：小模型容易从第一行就照着做。
+    /// 第一行就声明「这不是文件列表」：小模型容易从第一行就照着做。
     /// 注意：触顶（TotalHitsCapped）时分组也只覆盖前 statsCap 条命中，分布同样是下限——
     /// 别把「分组总和 = 总数」当不变量。5000 条分布足够模型判断方向，这是有意的取舍。
     /// internal 供测试直接验证横幅语义（触顶时 "N+" 而不是假精确的 "N"）。
@@ -191,16 +190,15 @@ internal sealed class PermissiveFileAccessTools
         List<PathGrouping.PathGroup> groups = PathGrouping.Group(
             outcome.HitPaths.Select(path => (path, 1)).ToList());
 
-        string body = "命中过多，下面是按目录的分布，不是文件列表：\n"
-                      + string.Join('\n', groups.Select(group => $"{group.Prefix}: {group.Total} 条"));
         string countText = outcome.TotalHitsCapped
             ? $"共 {outcome.TotalHits}+ 条命中"
             : $"共 {outcome.TotalHits} 条命中";
-        string notice = $"{countText}，范围太宽；"
-                        + $"已按目录聚合为 {groups.Count} 组。"
-                        + PathGrouping.DescribeLabels(groups)
-                        + $"{ToolResultText.NarrowGuidance}。";
-        return ToolResultText.AppendNotice(body, notice);
+        string notice = $"{countText}，范围太宽，下面是按目录的分布，不是文件列表。";
+        string body = string.Join('\n', groups.Select(group => $"{group.Prefix}: {group.Total} 条"));
+        string guidance = $"已按目录聚合为 {groups.Count} 组。"
+                          + PathGrouping.DescribeLabels(groups)
+                          + $"{ToolResultText.NarrowGuidance}。";
+        return ToolResultText.Compose(notice, body, guidance);
     }
 
     private static string? BuildGlobNotice(GlobOutcome outcome)
@@ -214,7 +212,7 @@ internal sealed class PermissiveFileAccessTools
         // 未截断、有命中：条目本身就是全部事实，一行一条，行数即总数，
         // 不再拼一句冗余的「共 N 条命中」让模型为分隔行与说明多付 token。
         // 与 Grep 刻意不同：Grep 一条命中带上下文行，行数≠命中数，所以它保留
-        // 「共 N 处命中」；Glob 一行一条，数行就知道总数。
+        // 「共 N 行命中」；Glob 一行一条，数行就知道总数。
         return null;
     }
 
@@ -228,9 +226,9 @@ internal sealed class PermissiveFileAccessTools
         [Description("可选，区分大小写。默认不区分；精确匹配标识符时传 true")]
         bool caseSensitive = false,
         // 带路径或 **/ 前缀的 glob 在搜索器里已剥成裸文件名,不必再警告模型别这么写
-        [Description("可选，按文件名的 glob 过滤，如 [\"*.cs\"]。只匹配文件名；按目录缩小范围用 path")]
+        [Description("可选，按文件名的 glob 过滤，如 [\"*.cs\"]。只匹配文件名，与 path 同时生效")]
         string[]? fileGlobs = null,
-        [Description("可选，工作目录的相对路径(也接受非工作目录的绝对路径)，需要缩小搜索范围时传指定目录或单个文件路径")] 
+        [Description("可选，工作目录的相对路径(也接受非工作目录的绝对路径)，需要缩小搜索范围时传指定目录或单个文件路径。不传则搜整个工作目录")]
         string? path = null,
         [Description("可选，只列出命中的文件（命中数与行号），不返回匹配内容。只想知道哪些文件提到了它时用")]
         bool filesOnly = false,
@@ -240,7 +238,7 @@ internal sealed class PermissiveFileAccessTools
             .SearchAsync(pattern, isRegex, caseSensitive, filesOnly ? 0 : contextLines, maxDepth: null, fileGlobs, path, ct)
             .ConfigureAwait(false);
         return GrepResultShaper.Shape(outcome, pattern, filesOnly,
-            file => _paths.TryResolve(file, out string full, out _) ? FileOutline.ExtractFile(full) : null);
+            file => _paths.TryResolve(file, out string full, out _) ? FileOutline.ExtractFile(full) : null, contextLines);
     }
 
     internal Task<string> Read(
@@ -304,7 +302,7 @@ internal sealed class PermissiveFileAccessTools
     }
 
     [Description("""
-                 按精确文本替换修改已有文件。oldString 与 newString 只写文件内容，不要带 Read 每行前的「行号→」。
+                 按精确文本替换修改已有文件。oldString 与 newString 只写文件内容，不要带 Read 每行前的「行号+制表符」。
                  """)]
     internal async Task<string> Edit(
         [Description("文件路径，工作目录的相对路径(也接受非工作目录的绝对路径)。")]

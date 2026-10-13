@@ -82,7 +82,7 @@ public class GlobToolTextOutputTests : IDisposable
         string result = await _tools.Glob("*.txt", ct: TestContext.Current.CancellationToken);
 
         // 过宽正文先声明「不是文件列表」，再给目录统计行（根目录 "." 下 301 个文件）
-        Assert.StartsWith("命中过多，下面是按目录的分布，不是文件列表：\n.: 301 条", result);
+        Assert.StartsWith("共 301 条命中，范围太宽，下面是按目录的分布，不是文件列表。\n\n.: 301 条", result);
         Assert.DoesNotContain("[FILE]", result);
         Assert.Contains("范围太宽", result);
         Assert.Contains("共 301 条命中", result);
@@ -104,7 +104,7 @@ public class GlobToolTextOutputTests : IDisposable
         string result = await _tools.Glob("**/*.txt", ct: TestContext.Current.CancellationToken);
 
         // 360 条命中、两个目录各 180：展示目录统计，路径列表不出现
-        // （分隔行前的正文逐行取，排除分隔后的 notice 段与空行）
+        // （取说明与建议之间的统计段）
         string[] statLines = StatLines(result);
         Assert.Equal(2, statLines.Length);
         Assert.Contains("sub1: 180 条", statLines);
@@ -204,9 +204,6 @@ public class GlobToolTextOutputTests : IDisposable
     }
 
     /// <summary>过宽结果的统计行：跳过开头的声明行，取到分隔行为止</summary>
-    private static string[] StatLines(string result) => result.Split('\n')
-        .Skip(1)
-        .TakeWhile(line => !line.StartsWith("---"))
-        .Where(line => line.Length > 0)
-        .ToArray();
+    // 说明、统计、建议三段以空行分隔，取中间那段
+    private static string[] StatLines(string result) => result.Split("\n\n")[1].Split('\n');
 }

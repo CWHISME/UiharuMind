@@ -47,34 +47,34 @@ internal static class GrepHitMap
         }
 
         List<PathGrouping.PathGroup> groups = PathGrouping.Group(
-            byFile.Select(file => (file.Key, file.Count())).ToList());
+            byFile.Select(file => (file.Key, GrepResultShaper.CountMatchLines(file))).ToList());
         string dirBody = string.Join('\n',
-            groups.Select(group => $"{group.Prefix}: {group.Total} 处 / {group.Count} 个文件"));
+            groups.Select(group => $"{group.Prefix}: {group.Total} 行 / {group.Count} 个文件"));
         return new Rendering(dirBody, true, byFile.Count, groups.Count, PathGrouping.DescribeLabels(groups));
     }
 
     private static string RenderFiles(List<IGrouping<string, GrepMatchResult>> byFile, bool orderByPath)
     {
-        IEnumerable<IGrouping<string, GrepMatchResult>> ordered = orderByPath
-            ? byFile.OrderBy(file => file.Key, StringComparer.Ordinal)
-            : byFile.OrderByDescending(file => file.Count()).ThenBy(file => file.Key, StringComparer.Ordinal);
-
-        var sb = new StringBuilder(byFile.Count * 64);
-        foreach (IGrouping<string, GrepMatchResult> file in ordered)
-        {
-            List<int> lines = file
+        var files = byFile.Select(file => (File: file.Key, Lines: file
                 .SelectMany(match => match.MatchingLines)
                 .Where(line => line.IsMatch)
                 .Select(line => line.LineNumber)
                 .Distinct()
                 .Order()
-                .ToList();
+                .ToList()))
+            .ToList();
+        var ordered = orderByPath
+            ? files.OrderBy(file => file.File, StringComparer.Ordinal)
+            : files.OrderByDescending(file => file.Lines.Count).ThenBy(file => file.File, StringComparer.Ordinal);
 
+        var sb = new StringBuilder(byFile.Count * 64);
+        foreach ((string file, List<int> lines) in ordered)
+        {
             if (sb.Length > 0) sb.Append('\n');
-            sb.Append(file.Key).Append(": ").Append(file.Count()).Append(" 处");
+            sb.Append(file).Append(": ").Append(lines.Count).Append(" 行");
             if (lines.Count == 0) continue;
 
-            sb.Append("（行 ").AppendJoin(", ", lines.Take(MaxListedLines));
+            sb.Append('（').AppendJoin(", ", lines.Take(MaxListedLines));
             if (lines.Count > MaxListedLines) sb.Append(", …");
             sb.Append('）');
         }

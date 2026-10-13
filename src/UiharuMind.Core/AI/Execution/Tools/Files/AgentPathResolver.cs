@@ -250,7 +250,7 @@ public sealed record AgentPathResolver
     }
 
     /// 看着像变量的开头：<c>$NAME</c>、<c>${NAME}</c>、<c>$env:NAME</c>、<c>%NAME%</c>
-    private static bool StartsWithVariable(string path)
+    internal static bool StartsWithVariable(string path)
     {
         if (path.Length > 1 && path[0] == '$') return path[1] == '{' || char.IsAsciiLetter(path[1]) || path[1] == '_';
 

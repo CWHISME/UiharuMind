@@ -407,7 +407,32 @@ public sealed class FileOutlineTests : IDisposable
 
         string result = await tools.Grep("Hit\\(", ct: TestContext.Current.CancellationToken);
 
-        Assert.Contains("[位于 3–7] void Run()\n5:        Hit(1);\n6:        Hit(2);\n[位于 1–10] class B\n9:", result);
+        Assert.Contains("[位于 3–7] void Run()\n5:        Hit(1);\n6:        Hit(2);\n--\n[位于 1–10] class B\n9:", result);
+    }
+
+    /// <summary>块头只在块首；同一结构被 -- 切成两块时，后一块不重复块头</summary>
+    [Fact]
+    public async Task Grep_SameStructureAcrossGap_HeaderOnlyOnce()
+    {
+        await File.WriteAllTextAsync(Path.Combine(_dir, "e.cs"), """
+            class E
+            {
+                void Run()
+                {
+                    Hit(1);
+                    a();
+                    b();
+                    Hit(2);
+                }
+            }
+
+            class Other { }
+            """, TestContext.Current.CancellationToken);
+        var tools = new PermissiveFileAccessTools(_dir);
+
+        string result = await tools.Grep("Hit\\(", ct: TestContext.Current.CancellationToken);
+
+        Assert.Contains("e.cs\n[位于 3–9] void Run()\n5:        Hit(1);\n--\n8:        Hit(2);", result);
     }
 
     /// <summary>只有一个顶层类时不为它标（几乎每处命中都在它里面）；声明行已显示时不再重复标</summary>
@@ -430,7 +455,7 @@ public sealed class FileOutlineTests : IDisposable
         string result = await tools.Grep("_hit|Run", ct: TestContext.Current.CancellationToken);
 
         Assert.DoesNotContain("[位于", result);
-        Assert.Contains("3:    private int _hit;\n5:    void Run()\n7:        _hit++;", result);
+        Assert.Contains("3:    private int _hit;\n--\n5:    void Run()\n--\n7:        _hit++;", result);
     }
 
     /// <summary>标注加上去会超预算时整段不加，正文照常返回，不能被挤成命中地图</summary>
@@ -448,7 +473,7 @@ public sealed class FileOutlineTests : IDisposable
 
         Assert.DoesNotContain("命中过多", result);
         Assert.DoesNotContain("[位于", result);
-        Assert.Contains("共 150 处命中", result);
+        Assert.Contains("共 150 行命中", result);
     }
 
     /// <summary>
@@ -478,8 +503,8 @@ public sealed class FileOutlineTests : IDisposable
         Assert.Contains("9:        HitB();", grep);
 
         // Read（TextLines）同一行的行号→ 前缀
-        Assert.Contains("5→        HitA();", read);
-        Assert.Contains("9→        HitB();", read);
+        Assert.Contains("5\t        HitA();", read);
+        Assert.Contains("9\t        HitB();", read);
 
         // 大纲 [起–止] 覆盖 Grep 报告的行号
         Assert.Contains("[3–6]   void A()", outline);
@@ -508,7 +533,7 @@ public sealed class FileOutlineTests : IDisposable
         string outline = await tools.Read(path, outline: true, cancellationToken: ct);
 
         // Read/Outline（TextLines）认 \r，行号正确
-        Assert.Contains("5→        HitC();", read);
+        Assert.Contains("5\t        HitC();", read);
         Assert.Contains("[3–6]   void C()", outline);
 
         // Grep 把 3–6 行并成第 3 行报出来

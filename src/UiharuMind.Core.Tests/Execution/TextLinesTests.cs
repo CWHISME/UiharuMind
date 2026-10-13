@@ -59,7 +59,7 @@ public sealed class TextLinesTests : IDisposable
         FileEditPlan plan = FileEditPlanner.Plan(await File.ReadAllTextAsync(path, ct), "mac.txt",
             [new FileEdit { OldString = "two\nthree", NewString = "two\nnew\nthree" }]);
 
-        Assert.StartsWith("2→two\n", read);
+        Assert.StartsWith("2\ttwo\n", read);
         Assert.True(plan.Succeeded, plan.Error);
         Assert.Equal("one\rtwo\rnew\rthree\r", plan.NewText);
         Assert.Contains(plan.Diff, entry => entry.Text == "new" && entry.LineNumber == 3);

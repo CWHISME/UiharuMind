@@ -33,6 +33,33 @@ public static class SearchRoot
     }
 
     /// <summary>
+    /// glob 以简写（<c>$DRAFT</c>）、绝对路径或 <c>~</c> 开头时，把通配符之前的目录前缀拆出来当搜索根，
+    /// 余下的仍当 glob。引擎只认相对搜索根的表达式，不拆的话 <c>$DRAFT/*</c> 会被当成名叫 <c>$DRAFT</c>
+    /// 的子目录，静默 0 命中
+    /// </summary>
+    /// <param name="glob">模型给的 glob</param>
+    /// <param name="root">拆出的目录前缀，交给 <see cref="TryResolve"/> 解析</param>
+    /// <param name="rest">余下的 glob</param>
+    /// <returns>是否拆出了前缀</returns>
+    public static bool TrySplitRoot(string glob, out string root, out string rest)
+    {
+        root = string.Empty;
+        rest = glob;
+        if (string.IsNullOrEmpty(glob)) return false;
+        if (!AgentPathResolver.StartsWithVariable(glob) && glob[0] != '~' && !Path.IsPathRooted(glob)) return false;
+
+        int wildcard = glob.IndexOfAny(['*', '?', '{', '[']);
+        if (wildcard < 0) return false; //不带通配符的整条就是路径，按路径解析即可
+
+        int slash = glob.LastIndexOfAny(['/', '\\'], wildcard);
+        if (slash <= 0) return false;
+
+        root = glob[..slash];
+        rest = glob[(slash + 1)..];
+        return true;
+    }
+
+    /// <summary>
     /// 计算离 <paramref name="absolutePath"/> 最近的、存在于工作区内的祖先目录，
     /// 供搜索失败时回显「从哪一级起路径断掉」——<c>X 存在、X/Y 不存在</c> 比整条路径不算更能定位。
     ///

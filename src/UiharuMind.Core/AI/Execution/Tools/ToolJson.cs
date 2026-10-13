@@ -34,7 +34,8 @@ public sealed class LenientStringArrayConverter : JsonConverter<string[]>
         if (reader.TokenType == JsonTokenType.String)
         {
             string value = reader.GetString() ?? string.Empty;
-            return value.Length == 0 ? [] : SplitLoosely(value);
+            if (value.Length == 0) return [];
+            return TryParseEmbeddedArray(value) ?? SplitLoosely(value);
         }
 
         if (reader.TokenType != JsonTokenType.StartArray)
@@ -60,6 +61,30 @@ public sealed class LenientStringArrayConverter : JsonConverter<string[]>
         writer.WriteStartArray();
         foreach (string item in value) writer.WriteStringValue(item);
         writer.WriteEndArray();
+    }
+
+    // 整个数组被转义成一段 JSON 字符串（"[\"*.cs\"]"）：实机踩到过，按字面当 glob 只会静默 0 命中。
+    // 解析不成 JSON 的（如 glob 字符类 "[ab]"）原样交回
+    private static string[]? TryParseEmbeddedArray(string value)
+    {
+        string trimmed = value.Trim();
+        if (trimmed.Length < 2 || trimmed[0] != '[' || trimmed[^1] != ']') return null;
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(trimmed);
+            List<string> items = [];
+            foreach (JsonElement element in document.RootElement.EnumerateArray())
+            {
+                items.Add(element.ValueKind == JsonValueKind.String ? element.GetString() ?? string.Empty : element.ToString());
+            }
+
+            return items.ToArray();
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     /// <summary>

@@ -66,6 +66,18 @@ public sealed class SimpleGlobber
         int statsCap = StatsCap,
         CancellationToken ct = default)
     {
+        if (SearchRoot.TrySplitRoot(pattern, out string patternRoot, out string patternRest))
+        {
+            if (!string.IsNullOrWhiteSpace(path))
+            {
+                return Failed(ESearchFailureKind.InvalidPath, string.Empty, path, pattern,
+                    $"pattern \"{pattern}\" 已带目录前缀，又传了 path。二选一：目录放 path，pattern 只写其下的 glob。");
+            }
+
+            path = patternRoot;
+            pattern = patternRest;
+        }
+
         if (!SearchRoot.TryResolve(_paths, path, out string target, out string pathError))
         {
             return Failed(ESearchFailureKind.InvalidPath, string.Empty, path, pattern, pathError);

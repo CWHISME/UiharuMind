@@ -18,28 +18,30 @@ namespace UiharuMind.Core.AI.Execution.Files;
 /// 其 ToString 吐出紧凑 JSON——换行变 <c>\n</c> 字面量、列表被逗号挤成一行，
 /// 模型与界面都读不出原来的行结构。字符串则还原成真实换行。
 ///
-/// 正文与说明因此拼进同一段文本，用 <see cref="ToolResultText.AppendNotice"/> 的分隔行隔开。
+/// 正文与说明因此拼进同一段文本，按 <see cref="ToolResultText.Compose"/> 的排布。
 /// 失败、0 命中、自动降级、截断这些说明绝不混进条目本体——从前它是混在命中列表里的假条目
 /// （<c>"[Error] ..."</c>、<c>FileName = "[truncated]"</c>），模型分不清"这是一条命中"
 /// 还是"这是一句话"（ADR 0017）。"0 条命中"与"没搜成"在文本上依旧能区分。
 /// </summary>
 
 /// <summary>
-/// 搜索结果文本的公共拼接：把说明拼到条目后面，用分隔行隔开（同
-/// <see cref="ToolOutputTruncation"/> 头尾的惯例）。没有正文（0 命中）时不加分隔——
-/// 没有正文可分隔，直接给说明，免得开头空两行。
+/// 搜索结果文本的公共排布（Glob/Grep 同口径）：规模说明在前，正文居中，收窄建议殿后，段间空一行。
+/// 模型先知道搜到多少、是不是正文，再读条目
 /// </summary>
 internal static class ToolResultText
 {
     /// <summary>过宽提示里统一给模型的收窄指引（Glob/Grep 共用，措辞刻意一致，别各写一套）</summary>
     public const string NarrowGuidance = "换更精确的匹配模式，或用 path 参数限定范围";
 
-    /// <summary>把说明拼到正文后面，按工具结果的惯例用分隔行隔开；没有正文时原样给说明</summary>
-    public static string AppendNotice(string body, string? notice)
-    {
-        if (notice == null) return body;
-        return body.Length == 0 ? notice : body + "\n\n---\n" + notice;
-    }
+    /// <summary>
+    /// 按「说明、正文、建议」拼成一段，空的段跳过
+    /// </summary>
+    /// <param name="notice">规模与查询说明</param>
+    /// <param name="body">条目正文</param>
+    /// <param name="guidance">收窄建议</param>
+    /// <returns>拼好的工具结果</returns>
+    public static string Compose(string? notice, string body, string? guidance = null) =>
+        string.Join("\n\n", new[] { notice, body, guidance }.Where(part => !string.IsNullOrEmpty(part)));
 }
 
 /// <summary>

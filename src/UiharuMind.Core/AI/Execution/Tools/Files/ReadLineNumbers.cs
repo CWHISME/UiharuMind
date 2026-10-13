@@ -11,18 +11,18 @@ namespace UiharuMind.Core.AI.Execution.Files;
 public readonly record struct ReadContent(string Text, int FirstLine, int ContentLines);
 
 /// <summary>
-/// Read 正文的行号前缀 <c>82→</c>：工具这头加，Edit 与界面那头认、剥。
+/// Read 正文的行号前缀 <c>82\t</c>（cat -n 的样子）：工具这头加，Edit 与界面那头认、剥。
 /// 带行号是为了让模型引用、跳读时不必自己数行（实测整份读完的文件，模型报的行号能偏十几行）；
-/// 用 <c>→</c> 而不是 <c>82:</c>，是不与 Grep 命中行 <c>行号:</c> 同形。
+/// 用制表符而不是 <c>82:</c>，是不与 Grep 命中行 <c>行号:</c> 同形。旧会话里的 <c>82→</c> 照样认得。
 /// </summary>
 public static class ReadLineNumbers
 {
-    private const char Separator = '→';
+    private const char Separator = '\t';
 
-    private static readonly Regex Prefix = new(@"^ *(\d+)→", RegexOptions.Compiled);
+    private static readonly Regex Prefix = new(@"^ *(\d+)[\t→]", RegexOptions.Compiled);
 
     /// <summary>
-    /// 某行行号的前缀 <c>9→</c>（左对齐，不补空格）。预算与渲染都从这里取
+    /// 某行行号的前缀 <c>9\t</c>（左对齐，不补空格）。预算与渲染都从这里取
     /// </summary>
     /// <param name="lineNo">行号</param>
     /// <returns>行号前缀</returns>
@@ -70,7 +70,7 @@ public static class ReadLineNumbers
 
     /// <summary>
     /// 模型把 Read 的前缀抄进了 Edit 参数时剥掉。<b>每一行</b>都带前缀、且行号逐行加一（Read 抄来的样子）才算；
-    /// 调用方还须先按原样匹配、找不到才用剥过的，免得误伤真以「数字→」开头的原文
+    /// 调用方还须先按原样匹配、找不到才用剥过的，免得误伤真以「数字+制表符」开头的原文
     /// </summary>
     /// <param name="text">oldString 或 newString</param>
     /// <param name="stripped">剥掉前缀后的文本</param>

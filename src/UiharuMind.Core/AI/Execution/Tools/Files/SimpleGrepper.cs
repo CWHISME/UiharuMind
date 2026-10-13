@@ -97,22 +97,23 @@ public sealed class SimpleGrepper
         string? path = null,
         CancellationToken ct = default)
     {
-        if (!SearchRoot.TryResolve(_paths, path, out string target, out string pathError))
+        string? requestedPath = path;
+        if (!TryTakeGlobRoot(ref fileGlobs, ref path, out string globError)) return InvalidPath(globError);
+        if (!SearchRoot.TryResolve(_paths, path, out string target, out string pathError)) return InvalidPath(pathError);
+
+        GrepOutcome InvalidPath(string detail) => new()
         {
-            return new GrepOutcome
+            ResolvedDirectory = string.Empty,
+            EffectiveQuery = query,
+            Failure = new SearchFailure
             {
-                ResolvedDirectory = string.Empty,
-                EffectiveQuery = query,
-                Failure = new SearchFailure
-                {
-                    Kind = ESearchFailureKind.InvalidPath,
-                    RequestedDirectory = path,
-                    WorkingDirectory = _paths.WorkspaceRoot,
-                    Pattern = query,
-                    Detail = pathError,
-                },
-            };
-        }
+                Kind = ESearchFailureKind.InvalidPath,
+                RequestedDirectory = requestedPath,
+                WorkingDirectory = _paths.WorkspaceRoot,
+                Pattern = query,
+                Detail = detail,
+            },
+        };
 
         // 搜索范围只认两种东西：目录（递归搜）或单文件（只搜它）。
         // 模型把文件路径往 directory 塞、或发明 path 参数,都是同一个缺口的两漏
@@ -278,6 +279,33 @@ public sealed class SimpleGrepper
         {
             return false;
         }
+    }
+
+    // fileGlobs 带 $DRAFT、绝对路径前缀时，前缀改当搜索范围；否则会被 NormalizeFileGlobs 剥成裸文件名，
+    // 静默换成在整个工作区里搜。各条前缀不一致、或同时传了 path 时报错，不替模型挑
+    private static bool TryTakeGlobRoot(ref string[]? fileGlobs, ref string? path, out string error)
+    {
+        error = string.Empty;
+        if (fileGlobs == null) return true;
+
+        string? root = null;
+        string[] rests = new string[fileGlobs.Length];
+        for (int i = 0; i < fileGlobs.Length; i++)
+        {
+            if (!SearchRoot.TrySplitRoot(fileGlobs[i], out string globRoot, out rests[i])) continue;
+            if ((root != null && !string.Equals(root, globRoot, StringComparison.Ordinal)) || !string.IsNullOrWhiteSpace(path))
+            {
+                error = $"fileGlobs 带了目录前缀（\"{fileGlobs[i]}\"）。fileGlobs 只匹配文件名，目录请放 path。";
+                return false;
+            }
+
+            root = globRoot;
+        }
+
+        if (root == null) return true;
+        path = root;
+        fileGlobs = rests;
+        return true;
     }
 
     /// <summary>

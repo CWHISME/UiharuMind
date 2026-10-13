@@ -431,7 +431,7 @@ public partial class ToolCallItem : ConversationItemBase
         ResultDiffLines = DiffLineView.ParseToolResult(value, ToolName);
         // diff 那一支不用截断:Core 侧 PermissiveFileAccessTools.MaxEditDiffLines 已把它封死在 80 行,
         // 到不了阈值。截断只管纯文本那支
-        // Read 正文每行带「行号→」是给模型的，卡片里剥掉显示
+        // Read 正文每行带行号前缀是给模型的，卡片里剥掉显示
         _resultView = HasResultDiff ? ToolResultTruncation.Empty
             : ToolResultTruncation.Build(IsFileContentTool(ToolName) ? ReadLineNumbers.Strip(value).Text : value);
         OnPropertyChanged(nameof(ResultDiffLines));
@@ -463,7 +463,7 @@ public partial class ToolCallItem : ConversationItemBase
     {
         // 语言来源与卡片同口径：回执（已保存/已修改 开头）不是文件正文，不上色；
         // 其余才是文件正文，按 FilePath 扩展名高亮，Read 读的是 Markdown 就直接进预览
-        // Read 正文的「行号→」前缀剥掉，改由文本窗的行号栏显示：从前缀读出原文件行号，
+        // Read 正文的行号前缀剥掉，改由文本窗的行号栏显示：从前缀读出原文件行号，
         // 末尾的截断附注与大纲不带前缀，不是原文，不编号
         if (IsFileContentTool(ToolName) && IsSuccess)
         {

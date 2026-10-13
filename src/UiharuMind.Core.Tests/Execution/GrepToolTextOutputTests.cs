@@ -1,4 +1,6 @@
+using System.Text.Json;
 using UiharuMind.Core.AI.Execution.Files;
+using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.Tests.Execution;
 
@@ -36,7 +38,7 @@ public class GrepToolTextOutputTests : IDisposable
 
         // 没有正文可分隔:直接给说明,不带分隔行、不以空行开头
         Assert.StartsWith("已搜索", result);
-        Assert.Contains("0 处命中", result);
+        Assert.Contains("0 行命中", result);
         Assert.DoesNotContain("\n\n---", result);
     }
 
@@ -84,8 +86,45 @@ public class GrepToolTextOutputTests : IDisposable
         Assert.Contains("a.txt\n1:needle one", result);
         Assert.Contains("b.txt\n1:needle two", result);
         Assert.DoesNotContain("needle one\n\n", result);
-        // 命中总数在说明段,与正文用分隔行隔开
-        Assert.Contains("---\n共 2 处命中，跨 2 个文件", result);
+        // 命中总数在正文前,与正文空一行;正文与说明之间不再用 --- 分隔
+        Assert.StartsWith("共 2 行命中，跨 2 个文件。\n\na.txt", result);
+    }
+
+    /// <summary>
+    /// 对齐 grep：行号不连续处单独一行 --；计数按命中行（一行多处出现算一行）。
+    /// 曾按出现次数计，「共 9 处命中」却只见 3 个命中行，像是被截断
+    /// </summary>
+    [Fact]
+    public async Task Grep_GapsGetSeparator_AndCountsMatchingLines()
+    {
+        await File.WriteAllTextAsync(Path.Combine(_dir, "g.txt"), "x x x\n2\n3\n4\n5\nx\n", TestContext.Current.CancellationToken);
+
+        string result = await _tools.Grep("x", contextLines: 1, ct: TestContext.Current.CancellationToken);
+
+        Assert.StartsWith("共 2 行命中，跨 1 个文件。", result);
+        Assert.Contains("g.txt\n1:x x x\n2-2\n--\n5-5\n6:x", result);
+    }
+
+    /// <summary>退成分布地图时明说所要的上下文行没给，不静默丢掉</summary>
+    [Fact]
+    public async Task Grep_HitMap_SaysContextLinesWereDropped()
+    {
+        await File.WriteAllTextAsync(Path.Combine(_dir, "many.txt"), string.Join('\n', Enumerable.Repeat("x", 300)),
+            TestContext.Current.CancellationToken);
+
+        string result = await _tools.Grep("x", contextLines: 1, ct: TestContext.Current.CancellationToken);
+
+        Assert.Contains("所要的 1 行上下文也一并略去", result);
+    }
+
+    /// <summary>fileGlobs 整个被转义成 JSON 字符串传来时按数组收（实机踩过，按字面当 glob 静默 0 命中）</summary>
+    [Fact]
+    public void FileGlobs_AsEmbeddedJsonString_AreParsedAsArray()
+    {
+        var options = new JsonSerializerOptions { Converters = { new LenientStringArrayConverter() } };
+
+        Assert.Equal(["*.cs", "*.md"], JsonSerializer.Deserialize<string[]>("\"[\\\"*.cs\\\", \\\"*.md\\\"]\"", options));
+        Assert.Equal(["[ab]"], JsonSerializer.Deserialize<string[]>("\"[ab]\"", options)); //glob 字符类不误当 JSON
     }
 
     /// <summary>多文件命中按文件路径字典序输出,不随扫描顺序变——输出稳定,逐文件扫读顺序可预期</summary>
@@ -133,9 +172,9 @@ public class GrepToolTextOutputTests : IDisposable
 
         string result = await _tools.Grep("needle", ct: TestContext.Current.CancellationToken);
 
-        Assert.Contains("100 处命中，跨 1 个文件", result);
+        Assert.Contains("100 行命中，跨 1 个文件", result);
         Assert.Contains("无法内联返回", result);
-        Assert.Contains("cn.txt: 100 处（行 1, 2, 3, 4, 5, …）", result);
+        Assert.Contains("cn.txt: 100 行（1, 2, 3, 4, 5, …）", result);
     }
 
     /// <summary>filesOnly：只给文件清单（按路径排、带命中数与行号），不给匹配内容</summary>
@@ -148,8 +187,8 @@ public class GrepToolTextOutputTests : IDisposable
 
         string result = await _tools.Grep("needle", filesOnly: true, ct: TestContext.Current.CancellationToken);
 
-        Assert.StartsWith("a.txt: 1 处（行 1）\nb.txt: 2 处（行 2, 3）", result);
+        Assert.Contains("\n\na.txt: 1 行（1）\nb.txt: 2 行（2, 3）", result);
         Assert.DoesNotContain("needle one", result);
-        Assert.Contains("---\n共 3 处命中，跨 2 个文件", result);
+        Assert.StartsWith("共 3 行命中，跨 2 个文件", result);
     }
 }
