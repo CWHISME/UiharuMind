@@ -69,7 +69,7 @@ public class GGufModelInfo : ILlmModel
     [JsonIgnore]
     public bool IsComponentOnly { get; set; }
 
-    [JsonInclude] private Dictionary<string, string> Infos { get; set; } = new Dictionary<string, string>(10);
+    [JsonInclude] public Dictionary<string, string> Infos { get; set; } = new Dictionary<string, string>(10);
 
     /// <summary>
     /// 是否已扫描到信息

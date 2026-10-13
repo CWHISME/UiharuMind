@@ -80,6 +80,7 @@ namespace UiharuMind.Core.Core;
 [JsonSerializable(typeof(List<PromptSnippet>))]
 [JsonSerializable(typeof(List<ScheduledAgentTask>))]
 [JsonSerializable(typeof(List<McpTrustRecord>))]
+[JsonSerializable(typeof(List<string>))]
 [JsonSerializable(typeof(Dictionary<string, McpServerLocalState>))]
 [JsonSerializable(typeof(Dictionary<string, List<McpTrustRecord>>))]
 internal partial class SaveJsonContext : JsonSerializerContext

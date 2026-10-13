@@ -59,7 +59,9 @@ public partial class ChatParamsViewData : ObservableObject
 
     private static ChatPromptExecutionSettings CloneSettings(ChatPromptExecutionSettings source)
     {
-        return SaveUtility.LoadFromString<ChatPromptExecutionSettings>(SaveUtility.SaveToString(source));
+        // 走 source-gen（AOT 缺口 2）：类型已在 SaveJsonContext，SaveToString<T> 与 options 版 LoadFromString 都走 SaveJsonOptions
+        return SaveUtility.LoadFromString<ChatPromptExecutionSettings>(
+            SaveUtility.SaveToString<ChatPromptExecutionSettings>(source), SaveUtility.SaveJsonOptions);
     }
 
     /// <summary>

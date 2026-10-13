@@ -34,7 +34,7 @@ public class SearchService
     public SearchService()
     {
         // 历史记录
-        _searchHistory = SaveUtility.Load<List<string>>(AppPaths.Data.QuickSearchHistory) ??
+        _searchHistory = SaveUtility.Load<List<string>>(AppPaths.Data.QuickSearchHistory, SaveUtility.SaveJsonOptions) ??
                          new List<string>();
         _recentHistory = new RecentPathList(_searchHistory, 10);
 

@@ -29,7 +29,9 @@ internal sealed class ParameterDescriptionFunction : DelegatingAIFunction
         }
 
         parameter["description"] = description;
-        _schema = JsonSerializer.SerializeToElement(schema);
+        // JsonNode 自序列化（ToJsonString 不走 STJ 类型图）：AOT 下 JsonSerializer.SerializeToElement 反射禁用
+        using JsonDocument doc = JsonDocument.Parse(schema.ToJsonString());
+        _schema = doc.RootElement.Clone();
     }
 
     /// <inheritdoc />

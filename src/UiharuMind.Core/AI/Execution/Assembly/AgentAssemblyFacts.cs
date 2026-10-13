@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System.Text.Json;
+using UiharuMind.Core.Core;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Core.AI.Character;
@@ -232,7 +233,7 @@ public sealed record AgentAssemblyFacts
             Instructions = inputs.Instructions,
             GroupScene = inputs.GroupScene,
             AvatarDuties = isAgent ? inputs.AvatarDuties : string.Empty,
-            ExecutionSettings = JsonSerializer.Serialize(character.Config.ExecutionSettings),
+            ExecutionSettings = JsonSerializer.Serialize(character.Config.ExecutionSettings, SaveUtility.SaveJsonOptions),
             WorkspacePath = isAgent ? inputs.WorkspacePath : null,
             Permission = isAgent ? inputs.Permission : default,
             PreAuthorizedShellPatterns = isAgent && inputs.PreAuthorizedShellPatterns is { Count: > 0 }
@@ -270,7 +271,7 @@ public sealed record AgentAssemblyFacts
             McpRevision = isAgent ? inputs.McpRevision : 0,
             DisabledExtensions = isAgent ? string.Join('\n', config.DisabledExtensions) : string.Empty,
             McpRoster = isAgent ? inputs.McpRoster : string.Empty,
-            DepthPrompt = character.DepthPrompt is { } depthPrompt ? JsonSerializer.Serialize(depthPrompt) : "",
+            DepthPrompt = character.DepthPrompt is { } depthPrompt ? JsonSerializer.Serialize(depthPrompt, SaveUtility.SaveJsonOptions) : "",
         };
     }
 }
