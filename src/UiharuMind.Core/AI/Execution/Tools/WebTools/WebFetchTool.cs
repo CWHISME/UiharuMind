@@ -9,7 +9,9 @@
 
 using System.ComponentModel;
 using System.Text;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.Browser;
 
 namespace UiharuMind.Core.AI.Execution.Tools.WebTools;
@@ -24,10 +26,19 @@ public static class WebFetchTool
 
     private static readonly FallbackPageReader Reader = new(HeadlessPageRenderer.Shared);
 
-    public static AITool Create() => AIFunctionFactory.Create(
-        FetchAsync, ToolName,
+    public static AITool Create() => new AotToolFunction(ToolName,
         "读取网页正文，或纯文本/JSON/Markdown URL 的原始内容。" +
-        "二进制响应（PDF、压缩包、图片等）会自动下载，返回保存的文件路径。");
+        "二进制响应（PDF、压缩包、图片等）会自动下载，返回保存的文件路径。",
+        AotToolFunction.SchemaFromNode(new JsonObject
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject
+            {
+                ["url"] = new JsonObject { ["type"] = "string", ["description"] = "要读取页面的绝对 URL，需包含协议头（scheme）。" },
+            },
+            ["required"] = new JsonArray(JsonValue.Create("url")),
+        }),
+        async (args, ct) => await FetchAsync(AotToolFunction.Marshaller.String(args, "url")!, ct));
 
     private static async Task<string> FetchAsync(
         [Description("要读取页面的绝对 URL，需包含协议头（scheme）。")]

@@ -4,6 +4,7 @@ using UiharuMind.Core.AI.Audio;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Core.AI.Execution.Tools.WebTools;
 
 namespace UiharuMind.Core.Tests.Agent;
 
@@ -88,5 +89,23 @@ public class AotToolSchemaShapeTests
         Assert.True(HasType(Parameter(tool, "path"), "string"));
         Assert.True(HasType(Parameter(tool, "subtitles"), "boolean"));
         Assert.Contains("path", Schema(tool).GetProperty("required").EnumerateArray().Select(e => e.GetString()));
+    }
+
+    [Fact]
+    public void WebSearchTool_Schema_RequiresQuery_AdmitsPage()
+    {
+        var tool = WebSearchTool.Create();
+        Assert.True(HasType(Parameter(tool, "query"), "string"));
+        Assert.True(HasType(Parameter(tool, "page"), "integer"));
+        Assert.Contains("query", Schema(tool).GetProperty("required").EnumerateArray().Select(e => e.GetString()));
+        Assert.DoesNotContain("page", Schema(tool).GetProperty("required").EnumerateArray().Select(e => e.GetString()));
+    }
+
+    [Fact]
+    public void WebFetchTool_Schema_RequiresUrlString()
+    {
+        var tool = WebFetchTool.Create();
+        Assert.True(HasType(Parameter(tool, "url"), "string"));
+        Assert.Contains("url", Schema(tool).GetProperty("required").EnumerateArray().Select(e => e.GetString()));
     }
 }
