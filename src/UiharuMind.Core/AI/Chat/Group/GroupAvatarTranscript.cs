@@ -54,7 +54,7 @@ public static class GroupAvatarTranscript
         $"【{userName}{KickoffMarker}{goal.Trim()}】";
 
     /// <summary>重要提醒的内层固定串：模板与剥离识别共用这一份，改文案只改这里</summary>
-    internal const string ReminderMarker = "用户提醒：";
+    internal const string ReminderMarker = "提醒：";
 
     /// <summary>
     /// 开离席时只交代给化身的重要提醒，每一轮附在投递末尾（在没进展的提示之前），⛔ 不进群
@@ -69,7 +69,7 @@ public static class GroupAvatarTranscript
     /// 无限模式的标记：具体规矩在化身卡的无限模式一节（系统提示头部、跨轮稳定），
     /// 这里只指明本轮是无限模式——卡片本身不知道当前离席是不是无限模式
     /// </summary>
-    public const string InfiniteNote = "【本次是无限模式：按系统提示里的无限模式一节办。】";
+    public const string InfiniteNote = "【无限模式：开】";
 
     /// <summary>
     /// 一次离席私下交代给化身的话：捎话只在首轮带，提醒与无限模式每一轮都带
@@ -294,6 +294,7 @@ public static class GroupAvatarTranscript
         text.Append($"\n\n- 格式：群里的发言按「[名字]: 内容」交给你；你说完的正文会以{scene.UserName}的名义发到群里，" +
                     "直接写正文，不加前缀。想请某位成员接话，写 @名字，只写名字、不带作品名。");
         text.Append($"\n- 尺度：发到群聊的信息尽量简短，像普通聊天那样。");
+        if (scene.SharesDraftRoom) text.Append("材料长（清单、对比、摘录）就写成草稿目录里的文件，群里只说结论、附上路径。");
         text.Append("\n- 一轮怎么算：调用工具时顺手写的话只留在你这里，群里看不到；要对大家说的，等工具用完再说。");
         if (scene.SharesDraftRoom)
             text.Append("\n- 草稿目录是全群共用的：文件名起得具体些，新建前先看有没有同名的，别盖掉别人的。");
