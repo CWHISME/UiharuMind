@@ -91,6 +91,15 @@ internal sealed class AotToolFunction : AIFunction
             return value is float f ? f : ((JsonElement)value).GetSingle();
         }
 
+        /// <summary>string[] 参数（JSON 数组 → string[]；宽容：非数组返回 null）</summary>
+        public static string[]? StringArray(AIFunctionArguments args, string key)
+        {
+            if (!args.TryGetValue(key, out object? value) || value == null) return null;
+            JsonElement element = value is JsonElement e ? e : JsonElement.Parse(value.ToString()!);
+            if (element.ValueKind != JsonValueKind.Array) return null;
+            return element.EnumerateArray().Select(x => x.GetString()).Where(s => s != null).ToArray()!;
+        }
+
         public static bool Bool(AIFunctionArguments args, string key, bool defaultValue)
         {
             if (!args.TryGetValue(key, out object? value) || value == null) return defaultValue;

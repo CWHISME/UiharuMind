@@ -4,6 +4,7 @@ using UiharuMind.Core.AI.Audio;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Core.AI.Execution.Tools.Skills;
 using UiharuMind.Core.AI.Execution.Tools.WebTools;
 
 namespace UiharuMind.Core.Tests.Agent;
@@ -107,5 +108,14 @@ public class AotToolSchemaShapeTests
         var tool = WebFetchTool.Create();
         Assert.True(HasType(Parameter(tool, "url"), "string"));
         Assert.Contains("url", Schema(tool).GetProperty("required").EnumerateArray().Select(e => e.GetString()));
+    }
+
+    [Fact]
+    public void LoadSkillTool_Schema_RequiresSkillNameString()
+    {
+        // source 只在调用时用，构造可传 null（AgentSkillsSource 是 internal 抽象，测试不便实例化）
+        var tool = LoadSkillTool.Create(null!, false, false);
+        Assert.True(HasType(Parameter(tool, "skillName"), "string"));
+        Assert.Contains("skillName", Schema(tool).GetProperty("required").EnumerateArray().Select(e => e.GetString()));
     }
 }
