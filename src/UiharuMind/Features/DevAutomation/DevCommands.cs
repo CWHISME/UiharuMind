@@ -18,6 +18,7 @@ using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Chat.Group.Away;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Pages;
 using UiharuMind.Features.Conversation.SessionList;
@@ -199,7 +200,7 @@ internal sealed class SessionsListCommand : IDevCommand
 
     public string Name => "sessions.list";
 
-    public string Usage => "列出会话（默认最近 20 条，含群壳，isGroup 标记）。groups（只看群）、query（按标题过滤）、limit（条数，0 不限）";
+    public string Usage => "列出会话（默认最近 20 条，含群壳，isGroup 标记）。groups（只看群）、query（按标题过滤）、limit（条数，0 不限）；avatarActive（群是否开着离席化身，非群恒为 false）";
 
     public JsonNode? Execute(JsonElement args)
     {
@@ -215,6 +216,7 @@ internal sealed class SessionsListCommand : IDevCommand
         return DevJson.Array(metas, x => new JsonObject
         {
             ["id"] = x.SessionId, ["name"] = x.Title, ["isGroup"] = x.IsGroup, ["updatedAt"] = x.UpdatedAt,
+            ["avatarActive"] = x.IsGroup && GroupAwayController.Instance.IsAway(x.SessionId),
         });
     }
 }
