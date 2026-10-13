@@ -686,6 +686,13 @@ public sealed class DiffLineView
         if (!plan.Succeeded) return [];
 
         List<DiffLineView> lines = WithHeader(args);
+        // 部分写入照实标出：用户批准的是比请求少的改动
+        if (plan.IsPartial)
+        {
+            lines.Add(Context($"部分生效：{plan.AppliedEdits}/{plan.TotalEdits} 处编辑，"
+                              + $"{string.Join("、", plan.SkippedIndexes.Select(index => $"edits[{index}]"))} 匹配不上，不会写入"));
+        }
+
         // 与模型看到的是同一份：RenderDiff 的输出（折叠/均分预算/单行截断都在那一侧）。
         // 从前这边自己遍历 plan.Diff 渲染、上限 300，卡片比模型看得多——两处上限漂移，
         // 现在统一由 RenderDiff 决定，卡片与模型同文同源（模型侧改了格式，UI 不用另写一套）。

@@ -36,8 +36,13 @@ public sealed class FileEdit
 public sealed class FileEditPlan
 {
     private FileEditPlan(string? error, string newText, IReadOnlyList<LineDiffEntry> diff,
-        TextFileEnvelope envelope, bool strippedLinePrefixes = false)
+        TextFileEnvelope envelope, bool strippedLinePrefixes = false, int totalEdits = 0, int appliedEdits = 0,
+        string? skippedNote = null, IReadOnlyList<int>? skippedIndexes = null)
     {
+        SkippedIndexes = skippedIndexes ?? [];
+        TotalEdits = totalEdits;
+        AppliedEdits = appliedEdits;
+        SkippedNote = skippedNote;
         StrippedLinePrefixes = strippedLinePrefixes;
         Error = error;
         NewText = newText;
@@ -54,6 +59,21 @@ public sealed class FileEditPlan
     /// <summary>是否可以落盘</summary>
     public bool Succeeded => Error is null;
 
+    /// <summary>编辑总条数</summary>
+    public int TotalEdits { get; }
+
+    /// <summary>会生效的条数；少于 <see cref="TotalEdits"/> 即部分写入</summary>
+    public int AppliedEdits { get; }
+
+    /// <summary>部分写入时没生效条目的话术（对着写入后的新文本算，行号与落盘后的文件一致）；全部生效时为 null</summary>
+    public string? SkippedNote { get; }
+
+    /// <summary>没生效的条目序号（审批卡片据此照实标出）</summary>
+    public IReadOnlyList<int> SkippedIndexes { get; }
+
+    /// <summary>是否部分写入</summary>
+    public bool IsPartial => SkippedNote != null;
+
     /// <summary>变更的行级 diff（带行号，按变更块聚合，块之间的上下文已合并）</summary>
     public IReadOnlyList<LineDiffEntry> Diff { get; }
 
@@ -66,5 +86,7 @@ public sealed class FileEditPlan
     internal static FileEditPlan Failed(string error) => new(error, string.Empty, [], default);
 
     internal static FileEditPlan Success(string newText, IReadOnlyList<LineDiffEntry> diff,
-        TextFileEnvelope envelope, bool strippedLinePrefixes = false) => new(null, newText, diff, envelope, strippedLinePrefixes);
+        TextFileEnvelope envelope, bool strippedLinePrefixes, int totalEdits, int appliedEdits, string? skippedNote,
+        IReadOnlyList<int> skippedIndexes) =>
+        new(null, newText, diff, envelope, strippedLinePrefixes, totalEdits, appliedEdits, skippedNote, skippedIndexes);
 }

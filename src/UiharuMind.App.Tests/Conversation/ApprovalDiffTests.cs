@@ -44,6 +44,19 @@ public class ApprovalDiffTests : IDisposable
         });
     }
 
+    /// <summary>部分写入照实标在卡片上：用户批准的是比请求少的改动（ADR 0087）</summary>
+    [Fact]
+    public void PartialEdit_CardSaysWhichEntriesWillNotApply()
+    {
+        string path = Path.Combine(_dir, "P.cs");
+        File.WriteAllText(path, "a\nb\n");
+
+        var lines = DiffLineView.BuildForToolCall(EditCall(path, ("a", "A"), ("nowhere", "x")));
+
+        Assert.Contains(lines, x => x.Text.Contains("部分生效：1/2") && x.Text.Contains("edits[1]"));
+        Assert.Contains(lines, x => x.IsAdded && x.Text.Contains('A'));
+    }
+
     [Fact]
     public void EditCall_RendersRealDiffWithLineNumbers()
     {

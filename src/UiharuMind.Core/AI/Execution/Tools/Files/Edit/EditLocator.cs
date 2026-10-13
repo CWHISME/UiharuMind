@@ -8,9 +8,12 @@ internal enum ELocateResult
     NotUnique,
 }
 
-/// <summary>oldString 的定位结果；NotUnique 时 NormalizedAmbiguity 表示有命中只靠全角归一才对上</summary>
+/// <summary>
+/// oldString 的定位结果；NotUnique 时 NormalizedAmbiguity 表示有命中只靠全角归一才对上，
+/// Lines 是各处命中的起始行号（1 起算），让模型知道去哪几行补上下文
+/// </summary>
 internal readonly record struct Location(ELocateResult Kind, int Start, int End, int Count,
-    bool NormalizedAmbiguity = false);
+    bool NormalizedAmbiguity = false, IReadOnlyList<int>? Lines = null);
 
 /// <summary>
 /// 在原文里找 oldString：精确 → 整行窗口 TrimEnd → 受控全角归一，规则与边界见 <see cref="FileEditPlanner"/>
@@ -20,20 +23,22 @@ internal static class EditLocator
     internal static Location Locate(string text, List<TextLine> lines, string oldString)
     {
         // 精确：数全部出现次数（不重叠计数），多于一处就交回给模型加上下文
-        int count = 0;
-        int first = -1;
+        List<int> starts = [];
         int from = 0;
         while (from <= text.Length - oldString.Length)
         {
             int at = text.IndexOf(oldString, from, StringComparison.Ordinal);
             if (at < 0) break;
-            if (first < 0) first = at;
-            count++;
+            starts.Add(at);
             from = at + oldString.Length;
         }
 
-        if (count == 1) return new Location(ELocateResult.Found, first, first + oldString.Length, 1);
-        if (count > 1) return new Location(ELocateResult.NotUnique, -1, -1, count);
+        if (starts.Count == 1) return new Location(ELocateResult.Found, starts[0], starts[0] + oldString.Length, 1);
+        if (starts.Count > 1)
+        {
+            return new Location(ELocateResult.NotUnique, -1, -1, starts.Count,
+                Lines: starts.Select(start => LineOf(lines, start)).ToList());
+        }
 
         return LocateByLineWindow(text, lines, oldString);
     }
@@ -50,8 +55,7 @@ internal static class EditLocator
         int keyCount = consumesTerminator ? pieces.Length - 1 : pieces.Length;
         if (keyCount == 0) return new Location(ELocateResult.NotFound, -1, -1, 0);
 
-        int count = 0;
-        int firstLine = -1;
+        List<int> hitLines = [];
         bool sawNormalizedOnly = false; //至少一个命中窗口仅靠全角归一才匹配上
         for (int i = 0; i + keyCount <= lines.Count; i++)
         {
@@ -73,17 +77,37 @@ internal static class EditLocator
             }
 
             if (!hit) continue;
-            if (firstLine < 0) firstLine = i;
-            count++;
+            hitLines.Add(i);
             if (!exact) sawNormalizedOnly = true;
         }
 
-        if (count == 0) return new Location(ELocateResult.NotFound, -1, -1, 0);
-        if (count > 1) return new Location(ELocateResult.NotUnique, -1, -1, count, sawNormalizedOnly);
+        if (hitLines.Count == 0) return new Location(ELocateResult.NotFound, -1, -1, 0);
+        if (hitLines.Count > 1)
+        {
+            return new Location(ELocateResult.NotUnique, -1, -1, hitLines.Count, sawNormalizedOnly,
+                hitLines.Select(line => line + 1).ToList());
+        }
+
+        int firstLine = hitLines[0];
 
         TextLine last = lines[firstLine + keyCount - 1];
         return new Location(ELocateResult.Found, lines[firstLine].Start,
             consumesTerminator ? last.End : last.ContentEnd, 1);
+    }
+
+    // 字符偏移所在的行号（1 起算）
+    private static int LineOf(List<TextLine> lines, int offset)
+    {
+        int low = 0;
+        int high = lines.Count - 1;
+        while (low < high)
+        {
+            int mid = (low + high + 1) / 2;
+            if (lines[mid].Start <= offset) low = mid;
+            else high = mid - 1;
+        }
+
+        return low + 1;
     }
 
     /// <summary>

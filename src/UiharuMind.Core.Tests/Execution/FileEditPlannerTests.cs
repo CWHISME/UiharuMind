@@ -71,14 +71,50 @@ public class FileEditPlannerTests
         Assert.Contains("edits[0]", plan.Error);
     }
 
+    /// <summary>找不到只跳过那一条，其余照写（ADR 0087）</summary>
     [Fact]
-    public void MissingOldString_FailsAndNamesTheEntry()
+    public void MissingOldString_SkipsOnlyThatEntry()
     {
         FileEditPlan plan = Plan("a\nb\n", ("a", "A"), ("nowhere", "x"));
 
+        Assert.True(plan.Succeeded);
+        Assert.True(plan.IsPartial);
+        Assert.Equal("A\nb\n", plan.NewText);
+        Assert.Equal((1, 2), (plan.AppliedEdits, plan.TotalEdits));
+        Assert.Equal([1], plan.SkippedIndexes);
+        Assert.Contains("edits[1]", plan.SkippedNote);
+        Assert.Contains("中没有找到", plan.SkippedNote);
+    }
+
+    /// <summary>全部匹配不上仍整批失败，每条都报出来，不只报第一条</summary>
+    [Fact]
+    public void AllEntriesMiss_FailsAndListsEveryOne()
+    {
+        FileEditPlan plan = Plan("a\nb\n", ("x", "1"), ("y", "2"));
+
         Assert.False(plan.Succeeded);
+        Assert.Contains("edits[0]", plan.Error);
         Assert.Contains("edits[1]", plan.Error);
-        Assert.Contains("中没有找到", plan.Error);
+    }
+
+    /// <summary>多处命中列出各处行号，且按写入后的新文本算：前面插了行，行号跟着挪</summary>
+    [Fact]
+    public void NotUnique_ListsLinesOfTheWrittenText()
+    {
+        FileEditPlan plan = Plan("head\ndup\ndup\n", ("head", "head\nnew1\nnew2"), ("dup", "x"));
+
+        Assert.True(plan.IsPartial);
+        Assert.Contains("出现了 2 次（起始于第 4、5 行）", plan.SkippedNote);
+    }
+
+    /// <summary>重叠归不到某一条，仍整批不写</summary>
+    [Fact]
+    public void Overlap_StillFailsTheWholeBatch_EvenWithAMiss()
+    {
+        FileEditPlan plan = Plan("abc\n", ("abc", "1"), ("bc", "2"), ("nowhere", "3"));
+
+        Assert.False(plan.Succeeded);
+        Assert.Contains("重叠", plan.Error);
     }
 
     // ---- NotFound 候选提示 ----

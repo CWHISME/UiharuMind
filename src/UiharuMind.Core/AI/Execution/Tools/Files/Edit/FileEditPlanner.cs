@@ -98,16 +98,22 @@ public static class FileEditPlanner
         string text = envelope.Text;
         List<TextLine> lines = TextLines.Split(text);
         List<EditMatch> matches = new(edits.Count);
+        List<SkippedEdit> skipped = [];
 
-        // 逐条定位。全部对着原文算，不是对着前几条的结果算——
-        // 这条是模型最容易搞错的，纪律段与 schema 文案都明说了
+        // 逐条定位，全部对着原文算，不是对着前几条的结果算。这是部分写入的地基（ADR 0087）：
+        // 加上下面的重叠检测，没生效那条的 oldString 在写入后的文件里仍原样在，重发照旧命中。
+        // 改成顺序定位的话，没生效的条目可能已被前面的条目改掉
         bool strippedPrefixes = false;
         for (int i = 0; i < edits.Count; i++)
         {
             string oldString = edits[i].OldString ?? string.Empty;
             string newString = edits[i].NewString ?? string.Empty;
 
-            if (oldString.Length == 0) return FileEditPlan.Failed($"edits[{i}].oldString 不能为空。`{FileToolNames.Edit}` 替换的是已有文本：oldString 必须是文件里确实存在的一段。要追加到文件末尾，先 `{FileToolNames.Read}` 文件的最后几行，拿末尾那段作 oldString。");
+            if (oldString.Length == 0)
+            {
+                skipped.Add(new SkippedEdit(i, oldString, null));
+                continue;
+            }
 
             Location located = EditLocator.Locate(text, lines, oldString);
 
@@ -124,27 +130,20 @@ public static class FileEditPlanner
                 }
             }
 
-            switch (located.Kind)
+            // 找不到、多处命中只属于这一条，其余照写；失败话术等写入后对着新文本出，行号才与磁盘对得上
+            if (located.Kind != ELocateResult.Found)
             {
-                case ELocateResult.NotFound:
-                    return FileEditPlan.Failed(EditMissHint.Build(i, oldString, label,
-                        lines.Select(line => TextLines.Text(text, line)).ToArray()));
-
-                case ELocateResult.NotUnique:
-                    // 归一歧义:多个命中里至少一个仅靠全角归一才匹配上——模型不知道"这两处"其实
-                    // 只在标点上有差异,会误以为真有俩一模一样的块。必须点破,否则它加上下文永远加不对。
-                    return FileEditPlan.Failed(located.NormalizedAmbiguity
-                        ? $"edits[{i}].oldString 在 '{label}' 中出现了 {located.Count} 次——"
-                          + $"其中有几处只在全角/半角标点上不同。先 `{FileToolNames.Read}` 文件，"
-                          + "再补上能锁定唯一那一处的上下文。"
-                        : $"edits[{i}].oldString 在 '{label}' 中出现了 {located.Count} 次。"
-                          + "给它补上前后几行，让它只匹配一处。");
+                skipped.Add(new SkippedEdit(i, oldString, located));
+                continue;
             }
 
             matches.Add(new EditMatch(i, located.Start, located.End,
                 envelope.ConvertNewLines(newString)));
         }
 
+        if (matches.Count == 0) return FileEditPlan.Failed(DescribeSkipped(skipped, text, lines, label));
+
+        // 重叠、存不下的字符归不到某一条，仍整批不写
         matches.Sort((a, b) => a.Start.CompareTo(b.Start));
         for (int i = 1; i < matches.Count; i++)
         {
@@ -157,8 +156,9 @@ public static class FileEditPlanner
         string newText = Apply(text, matches);
         if (newText == text)
         {
-            return FileEditPlan.Failed(
-                $"没有改动：这些编辑后的内容与 '{label}' 原文完全相同。");
+            return FileEditPlan.Failed(skipped.Count > 0
+                ? DescribeSkipped(skipped, text, lines, label)
+                : $"没有改动：这些编辑后的内容与 '{label}' 原文完全相同。");
         }
 
         // 改一小段不该顺带换掉整个文件的编码，写不下就让模型换字符
@@ -169,7 +169,51 @@ public static class FileEditPlanner
                 + "请改用它支持的字符。");
         }
 
-        return FileEditPlan.Success(newText, EditDiffBuilder.Build(text, lines, matches), envelope, strippedPrefixes);
+        string? skippedNote = skipped.Count == 0 ? null : DescribeSkipped(skipped, newText, TextLines.Split(newText), label);
+        return FileEditPlan.Success(newText, EditDiffBuilder.Build(text, lines, matches), envelope, strippedPrefixes,
+            edits.Count, matches.Count, skippedNote, skipped.Select(edit => edit.Index).ToList());
+    }
+
+    /// <summary>没生效的一条：原话术所需的 oldString 与定位结果；oldString 为空时 Located 为 null</summary>
+    private readonly record struct SkippedEdit(int Index, string OldString, Location? Located);
+
+    // 没生效条目的话术，对着 text 出（部分写入时是写入后的新文本）
+    private static string DescribeSkipped(List<SkippedEdit> skipped, string text, List<TextLine> lines, string label)
+    {
+        string[]? fileLines = null;
+        return string.Join("\n\n", skipped.Select(edit =>
+        {
+            if (edit.Located is null)
+            {
+                return $"edits[{edit.Index}].oldString 不能为空。`{FileToolNames.Edit}` 替换的是已有文本：oldString 必须是文件里确实存在的一段。"
+                       + $"要追加到文件末尾，先 `{FileToolNames.Read}` 文件的最后几行，拿末尾那段作 oldString。";
+            }
+
+            Location now = EditLocator.Locate(text, lines, edit.OldString);
+            if (now.Kind == ELocateResult.NotUnique) return DescribeNotUnique(edit.Index, now, label);
+            if (now.Kind == ELocateResult.Found)
+            {
+                // 其余条目写入后它恰好唯一了：原样重发就能命中
+                return $"edits[{edit.Index}] 对着原文定位不上（{(edit.Located.Value.Kind == ELocateResult.NotUnique ? $"出现了 {edit.Located.Value.Count} 次" : "没有找到")}），未生效；"
+                       + "其余编辑写入后它在文件里恰好只有一处，原样重发即可。";
+            }
+
+            fileLines ??= lines.Select(line => TextLines.Text(text, line)).ToArray();
+            return EditMissHint.Build(edit.Index, edit.OldString, label, fileLines);
+        }));
+    }
+
+    // 归一歧义:多个命中里至少一个仅靠全角归一才匹配上——模型不知道"这两处"其实
+    // 只在标点上有差异,会误以为真有俩一模一样的块。必须点破,否则它加上下文永远加不对
+    private static string DescribeNotUnique(int index, Location located, string label)
+    {
+        string where = located.Lines is { Count: > 0 } starts ? $"（起始于第 {string.Join("、", starts)} 行）" : "";
+        return located.NormalizedAmbiguity
+            ? $"edits[{index}].oldString 在 '{label}' 中出现了 {located.Count} 次{where}——"
+              + $"其中有几处只在全角/半角标点上不同。先 `{FileToolNames.Read}` 这几行，"
+              + "再补上能锁定唯一那一处的上下文。"
+            : $"edits[{index}].oldString 在 '{label}' 中出现了 {located.Count} 次{where}。"
+              + "给它补上前后几行，让它只匹配一处。";
     }
 
     /// <summary>

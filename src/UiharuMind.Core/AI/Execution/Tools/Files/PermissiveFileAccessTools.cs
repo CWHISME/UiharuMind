@@ -303,6 +303,7 @@ internal sealed class PermissiveFileAccessTools
 
     [Description("""
                  按精确文本替换修改已有文件。oldString 与 newString 只写文件内容，不要带 Read 每行前的「行号+制表符」。
+                 找不到或匹配多处的条目单独跳过，其余照常写入。
                  """)]
     internal async Task<string> Edit(
         [Description("文件路径，工作目录的相对路径(也接受非工作目录的绝对路径)。")]
@@ -324,8 +325,12 @@ internal sealed class PermissiveFileAccessTools
 
             string diff = FileEditPlanner.RenderDiff(plan.Diff, MaxEditDiffLines, MaxEditDiffLineChars);
             string prefixNote = plan.StrippedLinePrefixes ? "参数里带了 Read 的行号前缀，已去掉后再匹配；以后不要带。" : "";
-            return $"{FileToolNames.EditSucceededPrefix}{filePath}'（{edits.Count} 处编辑）。{prefixNote}" +
-                   $"{MemoryListLine(full, plan.NewText)}\n{diff}";
+            // 部分写入时结论放最前、没生效的条目紧随其后：小模型只扫到 diff 会当成全成了，或把整批重发
+            string head = plan.IsPartial
+                ? $"{FileToolNames.EditSucceededPrefix}{filePath}'（部分成功：{plan.AppliedEdits}/{plan.TotalEdits} 处编辑）。"
+                  + $"以下条目没有生效，只需对它们重新 `{FileToolNames.Edit}`，已生效的不要重发：\n{plan.SkippedNote}\n\n已生效的改动："
+                : $"{FileToolNames.EditSucceededPrefix}{filePath}'（{edits.Count} 处编辑）。";
+            return $"{head}{prefixNote}{MemoryListLine(full, plan.NewText)}\n{diff}";
         }
         finally
         {
