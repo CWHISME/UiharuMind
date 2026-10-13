@@ -34,9 +34,10 @@
   <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
     <SelfContained>true</SelfContained>
     <PublishReadyToRun>true</PublishReadyToRun>
-    <!-- AOT 试编开关（临时）：PublishAot 放项目条件属性而非命令行全局——
-         命令行 -p:PublishAot=true 会传给 netstandard 的 Localization.Generator，NETSDK1207。
-         试编用 -p:PublishAotOverride=true 打开；结果出来后按事实决定去留 -->
+    <!-- AOT 并行发布通道（ADR 0029：R2R 仍是终点，AOT 是 buildAotMac.sh 的另一条通道）：
+         PublishAot 放项目条件属性而非命令行全局——命令行 -p:PublishAot=true 会传给 netstandard 的
+         Localization.Generator，NETSDK1207。buildAotMac.sh 经 -p:PublishAotOverride=true 打开；
+         通道已验绿（2026-10-14：构建 + brain 冒烟通过），开关保留给脚本用 -->
     <PublishAot Condition="'$(PublishAotOverride)' == 'true'">true</PublishAot>
   </PropertyGroup>
 
