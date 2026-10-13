@@ -13,13 +13,16 @@ using Microsoft.Extensions.AI;
 namespace UiharuMind.Core.AI.Chat;
 
 /// <summary>
-/// 思考段计时器：随 <see cref="UiharuMind.Core.AI.Execution.TurnDriver"/> 看同一条内容流，
-/// 轮末给本轮历史里缺统计的思考消息盖章（耗时 + 字数，速度由两数现算）。
+/// 本轮计时器：随 <see cref="UiharuMind.Core.AI.Execution.TurnDriver"/> 看同一条内容流，
+/// 轮末给本轮历史里缺统计的思考消息盖章（耗时 + 字数，速度由两数现算），
+/// 兼给每次工具调用盖耗时（调用发出到结果到达，记在装着调用的那条消息上）。
+///
+/// 计时只有这一处：同一把 <see cref="Stopwatch"/>、同一个到达顺序。界面只显示不写回——
+/// 从前界面用 <c>DateTime.Now</c> 另算一份再覆盖这里的值，两把尺互相打架，
+/// 那是速度暴涨与统计丢失的根源。
 ///
 /// 边界规则不自立：经 <see cref="ThinkingBoundary"/> 分发，与界面转录器同一份——
 /// 终结段时连解析器扣留的半截标签一起定夺，否则两边的 parser 会跨段错位。
-/// 界面侧的盖章保留——显示计时更贴合所见，轮末会覆盖这里的值；
-/// 这里是无界面轮次（子代理、定时任务、外驱观察）的兜底，兼界面配对失败时的回填。
 /// 只写缺统计的消息，已有值的不碰。
 /// </summary>
 public sealed class ThinkingStatsRecorder
@@ -32,6 +35,8 @@ public sealed class ThinkingStatsRecorder
     private long _segmentChars; //当前思考段的字数
     private TimeSpan _totalThinking; //本轮思考段耗时之和
     private long _totalThinkingChars; //本轮思考字数之和
+    private readonly Dictionary<string, TimeSpan> _toolStarted = new(); //调用发出时刻（相对 _clock），按 CallId
+    private readonly Dictionary<string, long> _toolDurations = new(); //已收齐的调用耗时毫秒，按 CallId
 
     /// <summary>本轮已累计的思考耗时</summary>
     public TimeSpan TotalThinking => _totalThinking + (_segmentOpen ? _clock.Elapsed - _segmentStart : TimeSpan.Zero);
@@ -41,11 +46,24 @@ public sealed class ThinkingStatsRecorder
 
     /// <summary>
     /// 喂入一段内容。由 <see cref="UiharuMind.Core.AI.Execution.TurnDriver"/> 在转发给渲染落点时顺带调用。
+    /// 思考走边界分发；工具调用按 <c>CallId</c> 记发出时刻、结果到达时结算
+    /// （含中间的审批等待——它是这次调用落地真实花掉的时间）。
     /// </summary>
     /// <param name="content">本轮内容流里的一段</param>
     public void NoteContent(AIContent content)
     {
         ThinkingBoundary.Dispatch(content, _thinkParser, _ => CloseSegment(), AddThinking, NoteSegmentClosed);
+        switch (content)
+        {
+            case FunctionCallContent call when !string.IsNullOrEmpty(call.CallId):
+                // 先到先得：同一 CallId 只记第一次发出（重试/重放不刷新起点）
+                _toolStarted.TryAdd(call.CallId, _clock.Elapsed);
+                break;
+            case FunctionResultContent result when !string.IsNullOrEmpty(result.CallId):
+                if (_toolStarted.Remove(result.CallId, out TimeSpan started))
+                    _toolDurations[result.CallId] = (long)(_clock.Elapsed - started).TotalMilliseconds;
+                break;
+        }
     }
 
     /// <summary>
@@ -57,19 +75,49 @@ public sealed class ThinkingStatsRecorder
     }
 
     /// <summary>
-    /// 给本轮新增且缺统计的思考消息盖章。先收尾未闭合的段（失败路径可能没走 CloseSegment），
-    /// 再按到达顺序把各段的真实耗时归到各自的消息上；段与消息对不上（取消截掉的半段没进历史、
-    /// 有消息已带统计被跳过）时才退回按字数比例分摊总耗时。
+    /// 给本轮新增且缺统计的思考消息盖章，并给收齐结果的工具调用盖耗时。先收尾未闭合的段
+    /// （失败路径可能没走 CloseSegment），再按到达顺序把各段的真实耗时归到各自的消息上；
+    /// 段与消息对不上（取消截掉的半段没进历史、有消息已带统计被跳过）时才退回按字数比例分摊总耗时。
     ///
     /// 不能一上来就按比例摊：一轮多次工具往返时各次思考的快慢差得很远，
     /// 摊下来是「想了半分钟的那条显示 3 秒、几秒的那条显示半分钟」。
+    ///
+    /// 工具耗时记在装着调用的那条消息上——工具卡按 <c>CallId</c> 回指的正是它，
+    /// 配对失败也不丢数。没收到结果的调用（取消/失败）没有耗时，不盖。
     /// </summary>
     /// <param name="history">会话历史（就地写）</param>
     /// <param name="fromIndex">本轮新增段的起始下标，该位置之前的消息不动</param>
-    /// <returns>被写上统计的消息数</returns>
+    /// <returns>被写上统计的消息数（思考与工具合计）</returns>
     public int Stamp(IList<ChatMessage> history, int fromIndex)
     {
         NoteSegmentClosed();
+        int stamped = StampThinking(history, fromIndex) + StampTools(history, fromIndex);
+        return stamped;
+    }
+
+    private int StampTools(IList<ChatMessage> history, int fromIndex)
+    {
+        if (_toolDurations.Count == 0) return 0;
+        int stamped = 0;
+        int start = Math.Clamp(fromIndex, 0, history.Count);
+        for (int i = start; i < history.Count; i++)
+        {
+            ChatMessage message = history[i];
+            foreach (FunctionCallContent call in message.Contents.OfType<FunctionCallContent>())
+            {
+                if (string.IsNullOrEmpty(call.CallId)) continue;
+                if (!_toolDurations.TryGetValue(call.CallId, out long ms)) continue;
+                if (ChatMessageAnnotations.TryReadToolDuration(message, out _)) continue;
+                ChatMessageAnnotations.WriteToolDuration(message, ms);
+                stamped++;
+            }
+        }
+
+        return stamped;
+    }
+
+    private int StampThinking(IList<ChatMessage> history, int fromIndex)
+    {
         if (_totalThinkingChars <= 0) return 0;
 
         int start = Math.Clamp(fromIndex, 0, history.Count);

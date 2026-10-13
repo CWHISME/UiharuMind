@@ -340,8 +340,10 @@ public sealed class ConversationHistoryRenderer
             }
 
             // 回放定格：命中存档读存档（冻结真耗时），未命中只留字数——
-            // 重建的 _startedAt 是打开会话那一刻，不定格就是统一 0.1s 的假耗时
+            // 重建卡片的计时起点是打开会话那一刻，不定格就是统一 0.1s 的假耗时
             ThinkingItem.FreezeReplayItems(buffer.Skip(before).OfType<ThinkingItem>().ToList(), message);
+            // 工具卡同理：耗时记在装着调用的那条消息上，正是此刻这条
+            ToolCallItem.FreezeReplayItems(buffer.Skip(before).OfType<ToolCallItem>().ToList(), message);
         }
 
         // 调用与它的结果是两条消息,开窗分批完全可能把它们切在两批里:不越过批边界找一次,

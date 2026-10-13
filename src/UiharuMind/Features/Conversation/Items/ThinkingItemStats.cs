@@ -26,20 +26,17 @@ namespace UiharuMind.Features.Conversation.Items;
 public partial class ThinkingItem
 {
     private EStatsSource _statsSource = EStatsSource.Live;
-    private TimeSpan _closedElapsed; //收尾那一刻的耗时,写回历史用它而不用 Now
+    private TimeSpan _closedElapsed; //收尾那一刻的耗时,回放对账用它而不用 Now
     private long _closedChars; //收尾那一刻的全文长度
     private DateTime _lastStatsAt = DateTime.MinValue; //上次刷标题统计的时刻,节流用
-    private static readonly TimeSpan MinLiveSpeedSpan = TimeSpan.FromSeconds(1); //流式中不满这么久不报速度
-    private static readonly TimeSpan MinFinalSpeedSpan = TimeSpan.FromMilliseconds(100); //定格后短于这个不报速度
 
     // 标题统计现在显示的是谁的数
     private enum EStatsSource
     {
-        Live, //还在流,本窗口计时
-        Timed, //收尾了,快照可信,还没写回历史
-        Stamped, //本窗口的快照已写回历史(显示值即存档值)
+        Live, //还在流,本窗口计时（provisional，轮末被存档覆盖）
+        Timed, //收尾了,快照是本窗口的（provisional，等存档覆盖）
         CharsOnly, //回放时没有存档,只定格字数
-        Persisted, //回放或旁观时读的存档
+        Persisted, //存档（回放读的，或本轮轮末认领的），唯一可信值
     }
 
     // 回放冻结:存档值已定,泵与收尾都不许重算
@@ -62,10 +59,10 @@ public partial class ThinkingItem
 
     /// <summary>
     /// 拼标题统计。纯函数：同一输入永远同一输出，可单测。
-    /// 还在流的时候 1 秒内不带速度：每拍重算，3 个字 / 0.1s 会跳出 30 字/秒这种瞬时值，下一拍又掉下去；
-    /// 定格之后（收尾、存档）数不再变，不满一秒也照算。只是短到 0.1s 以下不算——
-    /// 那多半是整段一个包到的，分母量的是包间隔，算出来的几万字/秒没有意义。
-    /// 速度取整数，1s 节拍下小数只会制造无效跳动。
+    /// 有字数、有时间就报速度，不设时长门槛——限速门只会把 burst 到达（整段一次到、
+    /// 分母极小）误判成极速，却修不好它；真正的分母来自 Core 计时器（到达时刻的单调时钟），
+    /// 显示侧只负责诚实呈现（耗时并排展示，读者自能判断）。
+    /// 速度取整数，小数在标题栏里只会制造无效跳动。
     /// </summary>
     /// <param name="elapsed">耗时</param>
     /// <param name="charCount">全文字符数</param>
@@ -75,7 +72,7 @@ public partial class ThinkingItem
     {
         string count = charCount.ToString("N0");
         string speedSuffix = string.Empty;
-        if (elapsed >= (isFinal ? MinFinalSpeedSpan : MinLiveSpeedSpan) && charCount > 0)
+        if (elapsed > TimeSpan.Zero && charCount > 0)
         {
             long speed = (long)Math.Round(charCount / elapsed.TotalSeconds);
             speedSuffix = string.Format(Loc.Text(LangKey.AgentThinkingSpeedFormat), speed.ToString("N0"));
@@ -87,7 +84,7 @@ public partial class ThinkingItem
 
     /// <summary>
     /// 定格存档值（回放命中统计时调用）。此后泵的延迟冲刷与收尾都不再重算——
-    /// 重建的 <see cref="_startedAt"/> 是打开会话那一刻，重算只会得到 0.1s 的假耗时。
+    /// 重建卡片的计时起点是打开会话那一刻，重算只会得到 0.1s 的假耗时。
     /// </summary>
     /// <param name="duration">存档耗时</param>
     /// <param name="chars">存档字数</param>
@@ -142,13 +139,16 @@ public partial class ThinkingItem
     }
 
     /// <summary>
-    /// 旁观别人那一轮的窗口（子会话窗口）在轮末接上驱动方落盘的统计。来源须已配好（对账先配对再调这里）。
+    /// 旁观别人那一轮的窗口（子会话窗口）在轮末认领驱动方落盘的统计；自己那一轮的卡
+    /// 在 <c>Persisted</c> 通知里走同一条——来源须已配好（对账先配对再调这里）。
     ///
-    /// 旁观窗口自己的计时不可信：中途打开时积压的内容是一口气补发的，计时从打开那一刻起算；
+    /// 只读不写：计时的唯一权威是随内容流看的 Core 计时器（轮末已盖进历史），
+    /// 这里只把存档读回来显示。本窗口自己的计时只是 provisional（中途打开时积压的内容
+    /// 是一口气补发的，计时从打开那一刻起算；live 卡的 wall-clock 含 UI 分发延迟）——
+    /// 拿它写回历史就是把假数盖到真数上，这正是从前速度与耗时对不上的根源。
     /// 本轮已落盘的那几条回放时驱动方还没盖章，只能定格成纯字数。驱动方轮末盖好的值写在
-    /// 同一批消息实例上，这里改读它。顺带把这些卡标成「已写回」——否则用户接着在这个窗口发话时，
-    /// 自己那一轮的盖章会把旁观计时当成本轮的值写回历史，覆盖掉正确的那份。
-    /// 自己那一轮的卡已写回过（显示值即存档值），不动。
+    /// 同一批消息实例上，这里改读它。
+    /// 已认领过存档的卡（显示值即存档值），不动。
     /// </summary>
     /// <param name="items">界面条目集合</param>
     /// <returns>改读存档的消息数</returns>
@@ -168,41 +168,6 @@ public partial class ThinkingItem
         return adopted;
     }
 
-    // 旁观窗口自己计的时(收尾了、没写回过),或回放时还没盖章、只定格了字数
+    // 本窗口自己计的 provisional（收尾了、还没认领存档），或回放时没命中存档只定了字数
     private bool NeedsPersistedStats => _statsSource is EStatsSource.Timed or EStatsSource.CharsOnly;
-
-    /// <summary>
-    /// 把本轮新收尾的思考段统计写回它们对应的历史消息（就地写，调用方负责落盘）。
-    ///
-    /// 只给真正装着思考内容的消息盖章：取消打断的思考段没进历史，它回落到的来源是猜的，
-    /// 盖上去等于把耗时记到别人账上。同一条消息有多段思考时合并（耗时与字数求和），
-    /// 删除/分叉/压缩改写历史时不会错位。
-    /// </summary>
-    /// <param name="items">界面条目集合</param>
-    /// <returns>被写上统计的消息数</returns>
-    public static int StampLiveItems(IEnumerable<ConversationItemBase> items)
-    {
-        int stamped = 0;
-        IEnumerable<IGrouping<ChatMessage, ThinkingItem>> groups = items.OfType<ThinkingItem>()
-            .Where(x => x._statsSource == EStatsSource.Timed && x.SourceMessage != null)
-            .GroupBy(x => x.SourceMessage!);
-        foreach (IGrouping<ChatMessage, ThinkingItem> group in groups)
-        {
-            ChatMessage message = group.Key;
-            if (!message.Contents.OfType<TextReasoningContent>().Any()) continue;
-            long durationMs = 0;
-            long chars = 0;
-            foreach (ThinkingItem thinking in group)
-            {
-                durationMs += (long)thinking._closedElapsed.TotalMilliseconds;
-                chars += thinking._closedChars;
-                thinking._statsSource = EStatsSource.Stamped;
-            }
-
-            ChatMessageAnnotations.WriteThinkingStats(message, durationMs, chars);
-            stamped++;
-        }
-
-        return stamped;
-    }
 }

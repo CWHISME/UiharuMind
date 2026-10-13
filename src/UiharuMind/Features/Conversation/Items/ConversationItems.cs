@@ -10,6 +10,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -46,7 +47,7 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget, IL
 {
     private readonly StringBuilder _buffer = new();
     private readonly object _bufferGate = new(); //追加来自推理线程,冲刷在 UI 线程,两边都要过锁
-    private readonly DateTime _startedAt = DateTime.Now; //本段思考开始时刻,收尾时用来算耗时
+    private readonly long _startTicks = Stopwatch.GetTimestamp(); //本段思考开始时刻(live provisional 显示用,单调时钟)
 
     /// <summary>
     /// 流式期间上屏的预览长度上限。展开的思考段每 150ms 把累积全文重设给 TextBlock,
@@ -147,10 +148,10 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget, IL
         Message = text;
         NotifyContentChanged(); //收尾补上最后一段增量;没有订阅者时零成本
         UpdateStats(fullLen, isFinal: true); //统计用全文长度,不随截断预览缩水
-        // 收尾快照:写回历史用此刻的值——条目驻留内存期间 Now 只会越涨越假
-        _closedElapsed = DateTime.Now - _startedAt;
+        // 收尾快照:provisional 显示用,轮末被存档覆盖——条目驻留内存期间 Now 只会越涨越假
+        _closedElapsed = LiveElapsed;
         _closedChars = fullLen;
-        if (_statsSource == EStatsSource.Live) _statsSource = EStatsSource.Timed; //再收一次尾不撤销已写回
+        if (_statsSource == EStatsSource.Live) _statsSource = EStatsSource.Timed; //再收一次尾不撤销已认领的存档
         IsPreviewTruncated = IsTruncated(fullLen); //超限的长思考收尾后仍保留「查看全文」入口
     }
 
@@ -172,10 +173,11 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget, IL
         Message = text;
         NotifyContentChanged();
         IsPreviewTruncated = IsTruncated(len);
-        // 统计节流:超过 1s 后标题数字 1s 一跳,50ms 跟着刷只会让它乱跳。
+        // 统计节流:超过 1s 后标题 1s 一跳,之前跟着刷只会让它乱跳。
         // 正文预览不受影响——它是头部锚定的,本来就不跳。
+        TimeSpan elapsed = LiveElapsed;
         DateTime now = DateTime.Now;
-        if (now - _startedAt >= TimeSpan.FromSeconds(1) && now - _lastStatsAt < TimeSpan.FromSeconds(1)) return;
+        if (elapsed >= TimeSpan.FromSeconds(1) && now - _lastStatsAt < TimeSpan.FromSeconds(1)) return;
         // 与 Flush 同样地锁外赋值:属性变更会引发绑定与布局,不该攥着锁做
         UpdateStats(len);
     }
@@ -245,17 +247,21 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget, IL
     /// <param name="charCount">缓冲里的字符数</param>
     private void UpdateStats(int charCount, bool isFinal = false)
     {
-        StatsText = FormatStats(DateTime.Now - _startedAt, charCount, isFinal);
+        StatsText = FormatStats(LiveElapsed, charCount, isFinal);
         _lastStatsAt = DateTime.Now;
     }
+
+    /// <summary>本段思考开始至今的耗时（live provisional 显示用；存档以历史里的为准）</summary>
+    private TimeSpan LiveElapsed => Stopwatch.GetElapsedTime(_startTicks);
 
     /// <summary>
     /// 耗时显示格式:1 分钟内给秒(带一位小数),1 小时内给分+秒,更久给时+分。
     /// 思考段短则几秒、长则几十分钟,统一给到秒级就够了。
+    /// 工具卡的耗时与它同一口径（<c>ToolCallItem</c> 复用这里，不另写一套）。
     /// </summary>
     /// <param name="span">耗时</param>
     /// <returns>显示文本</returns>
-    private static string FormatDuration(TimeSpan span)
+    internal static string FormatDuration(TimeSpan span)
     {
         if (span.TotalHours >= 1) return $"{(int)span.TotalHours}h {span.Minutes}m";
         if (span.TotalMinutes >= 1) return $"{(int)span.TotalMinutes}m {span.Seconds}s";

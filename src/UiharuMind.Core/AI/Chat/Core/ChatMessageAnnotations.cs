@@ -139,6 +139,14 @@ public static class ChatMessageAnnotations
     public const string ThinkingChars = "_thinkingChars";
 
     /// <summary>
+    /// 工具耗时标记：值为毫秒数，记在装着这次 <c>FunctionCallContent</c> 的那条消息上
+    /// （工具卡按 <c>CallId</c> 回指的正是它）。带此键的消息<b>要落盘、不供给模型判断</b>——
+    /// 呈现轴：回放时工具卡据此显示真实耗时。计时权威是随内容流看的
+    /// <c>ThinkingStatsRecorder</c>（同一把 <c>Stopwatch</c>），界面只显示不写回。
+    /// </summary>
+    public const string ToolDurationMs = "_toolDurationMs";
+
+    /// <summary>
     /// 群发言的发言人：值为角色标识。只出现在群流水里的 assistant 消息上——
     /// 群壳挂的是占位的空角色，不标的话整段群流水都画成同一个人的头像（ADR 0046）。
     /// </summary>
@@ -470,6 +478,34 @@ public static class ChatMessageAnnotations
         if (!TryGetInt64(message.AdditionalProperties, ThinkingDurationMs, out long ms)) return false;
         if (!TryGetInt64(message.AdditionalProperties, ThinkingChars, out chars)) return false;
         if (ms < 0 || chars < 0) return false;
+        duration = TimeSpan.FromMilliseconds(ms);
+        return true;
+    }
+
+    /// <summary>
+    /// 写一次工具调用的耗时（调用发出到结果到达）。就地写：调用方持有的是历史里的同一引用。
+    /// 只写缺值的消息，已有值的不碰——与思考统计同一口径。
+    /// </summary>
+    /// <param name="message">装着这次调用的那条消息</param>
+    /// <param name="durationMs">耗时毫秒</param>
+    public static void WriteToolDuration(ChatMessage message, long durationMs)
+    {
+        message.AdditionalProperties ??= new AdditionalPropertiesDictionary();
+        message.AdditionalProperties[ToolDurationMs] = durationMs;
+    }
+
+    /// <summary>
+    /// 读一次工具调用的耗时。落盘往返后值会变成 <c>JsonElement</c>，与思考统计同一套兼容。
+    /// </summary>
+    /// <param name="message">消息</param>
+    /// <param name="duration">耗时</param>
+    /// <returns>键齐全且合法返回 True</returns>
+    public static bool TryReadToolDuration(ChatMessage message, out TimeSpan duration)
+    {
+        duration = TimeSpan.Zero;
+        if (message.AdditionalProperties == null) return false;
+        if (!TryGetInt64(message.AdditionalProperties, ToolDurationMs, out long ms)) return false;
+        if (ms < 0) return false;
         duration = TimeSpan.FromMilliseconds(ms);
         return true;
     }

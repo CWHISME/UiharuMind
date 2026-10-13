@@ -54,4 +54,38 @@ public class ThinkingStatsAnnotationsTests
         Assert.Equal(TimeSpan.FromMilliseconds(2340), duration);
         Assert.Equal(567, chars);
     }
+
+    [Fact]
+    public void ToolDuration_WriteRead_RoundTrips()
+    {
+        ChatMessage message = new(ChatRole.Assistant,
+            [new FunctionCallContent("c1", "read_file")]);
+
+        ChatMessageAnnotations.WriteToolDuration(message, 3200);
+
+        Assert.True(ChatMessageAnnotations.TryReadToolDuration(message, out TimeSpan duration));
+        Assert.Equal(TimeSpan.FromMilliseconds(3200), duration);
+    }
+
+    [Fact]
+    public void ToolDuration_JsonRoundTrip_SurvivesAsJsonElement()
+    {
+        ChatMessage message = new(ChatRole.Assistant,
+            [new FunctionCallContent("c1", "read_file")]);
+        ChatMessageAnnotations.WriteToolDuration(message, 3200);
+
+        string json = JsonSerializer.Serialize(message, SessionJsonOptions.Default);
+        ChatMessage restored = JsonSerializer.Deserialize<ChatMessage>(json, SessionJsonOptions.Default)!;
+
+        Assert.True(ChatMessageAnnotations.TryReadToolDuration(restored, out TimeSpan duration));
+        Assert.Equal(TimeSpan.FromMilliseconds(3200), duration);
+    }
+
+    [Fact]
+    public void ToolDuration_MissingKey_ReturnsFalse()
+    {
+        ChatMessage message = new(ChatRole.Assistant, "答");
+
+        Assert.False(ChatMessageAnnotations.TryReadToolDuration(message, out _));
+    }
 }

@@ -325,6 +325,9 @@ public sealed class ConversationTranscript : ITurnSink
         AgentPathResolver? paths = _pathsSource?.Invoke();
         item.LoadResultImages(paths);
         item.LoadResultAudio(paths);
+        // live 才给 provisional 耗时：回放卡建完即收尾，起点是重建时刻，算了也是假数，
+        // 等渲染器按来源认领存档（ToolCallItem.FreezeReplayItems）
+        if (_isUiBound) item.FinishProvisionalDuration();
     }
 
     /// <summary>
@@ -364,10 +367,10 @@ public sealed class ConversationTranscript : ITurnSink
     /// <param name="note">写进卡片结果区的说明</param>
     public void StopRunningToolCalls(string note)
     {
-        StopRunningToolCalls(_target, note);
+        StopRunningToolCalls(_target, note, _isUiBound);
     }
 
-    private static void StopRunningToolCalls(IEnumerable<ConversationItemBase> items, string note)
+    private static void StopRunningToolCalls(IEnumerable<ConversationItemBase> items, string note, bool finishDuration)
     {
         foreach (ToolCallItem call in items.OfType<ToolCallItem>())
         {
@@ -376,6 +379,7 @@ public sealed class ConversationTranscript : ITurnSink
             call.IsRunning = false;
             call.IsSuccess = false;
             if (string.IsNullOrEmpty(call.ResultText)) call.ResultText = note;
+            if (finishDuration) call.FinishProvisionalDuration();
         }
     }
 

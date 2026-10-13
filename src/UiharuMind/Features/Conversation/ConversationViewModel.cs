@@ -1436,7 +1436,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
             case ETurnNotice.Persisted:
                 _itemActions.WireStreamed(CurrentRunner?.GetHistory() ?? []);
-                StampThinkingStats();
+                AdoptPersistedTimings();
                 // 裁剪必须排在回填之后:锚点就是回填出来的那些来源消息。
                 // 不在界面上的会话直接按首屏量级裁——它在后台可能还要跑很多轮,
                 // 每轮都只裁回运行期上限的话,切回去照样是一屏之外的条目在重新实体化
@@ -1512,14 +1512,14 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     }
 
     /// <summary>
-    /// 把本轮思考段的耗时写回历史并补存。落盘是追加式的，写回发生在行已上盘之后，
-    /// 因此这里是一次全量重写——一轮一次，只在真有思考段时触发。
-    /// 取消打断的那轮不走 Persisted，它的思考段本就没进历史，不盖。
+    /// 把驱动方盖进历史的耗时认回来（思考与工具同一条路）。只读不写：计时权威在 Core，
+    /// 存档轮末已落过盘，这里把各卡 live 的 provisional 换成存档值。
+    /// 取消打断的那轮不走 Persisted，它的思考段本就没进历史，不认领。
     /// </summary>
-    private void StampThinkingStats()
+    private void AdoptPersistedTimings()
     {
-        if (CurrentSession == null) return;
-        if (ThinkingItem.StampLiveItems(Items) > 0) CurrentSession.Save();
+        ThinkingItem.AdoptPersistedStats(Items);
+        ToolCallItem.AdoptPersistedDurations(Items);
     }
 
     //================= agent / 会话装配 =================
@@ -1949,8 +1949,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     void IConversationReconcileHost.SettleStreamedItems(IReadOnlyList<ChatMessage> history)
     {
         _itemActions.WireStreamed(history);
-        // 来源配好才认得出消息;旁观别人那一轮的思考卡此刻改读驱动方落盘的耗时
+        // 来源配好才认得出消息;旁观别人那一轮的思考卡与工具卡此刻改读驱动方落盘的耗时
         ThinkingItem.AdoptPersistedStats(Items);
+        ToolCallItem.AdoptPersistedDurations(Items);
     }
 
     /// <inheritdoc />

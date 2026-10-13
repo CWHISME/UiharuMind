@@ -7,16 +7,18 @@ using UiharuMind.Shared.Utils.Tools;
 namespace UiharuMind.App.Tests.Conversation;
 
 /// <summary>
-/// 思考统计：速度格式、回放冻结、写回历史。速度分母是总耗时、分子是全文长度——
+/// 思考统计：速度格式、回放冻结、认领存档。速度分母是总耗时、分子是全文长度——
 /// 与「统计用全文长度，不随截断缩水」同一口径，否则截断会把速度拉低。
+/// 计时权威在 Core（轮末盖进历史），这里只测显示与认领，不测写回。
 /// </summary>
 public class ThinkingItemStatsTests
 {
-    /// <summary>还在流的时候不满一秒不报速度：每拍重算，瞬时值会上下乱跳</summary>
+    /// <summary>还在流也不设限：有字数、有时间就报速度</summary>
     [Fact]
-    public void FormatStats_LiveSubSecond_HasNoSpeedSegment()
+    public void FormatStats_LiveSubSecond_HasSpeed()
     {
-        string expected = string.Format(Loc.Text("AgentThinkingStatsFormat"), "0.3s", "12", string.Empty);
+        string suffix = string.Format(Loc.Text("AgentThinkingSpeedFormat"), ((long)40).ToString("N0"));
+        string expected = string.Format(Loc.Text("AgentThinkingStatsFormat"), "0.3s", "12", suffix);
 
         Assert.Equal(expected, ThinkingItem.FormatStats(TimeSpan.FromMilliseconds(300), 12));
     }
@@ -31,11 +33,12 @@ public class ThinkingItemStatsTests
         Assert.Equal(expected, ThinkingItem.FormatStats(TimeSpan.FromMilliseconds(300), 12, isFinal: true));
     }
 
-    /// <summary>短到 0.1s 以下多半是整段一个包到的：分母是包间隔，速度没有意义</summary>
+    /// <summary>再短也照算：分母来自 Core 的单调时钟，诚实呈现，耗时并排可判断</summary>
     [Fact]
-    public void FormatStats_FinalButTooShort_HasNoSpeedSegment()
+    public void FormatStats_FinalButVeryShort_HasSpeed()
     {
-        string expected = string.Format(Loc.Text("AgentThinkingStatsFormat"), "0s", "12", string.Empty);
+        string suffix = string.Format(Loc.Text("AgentThinkingSpeedFormat"), ((long)300).ToString("N0"));
+        string expected = string.Format(Loc.Text("AgentThinkingStatsFormat"), "0s", "12", suffix);
 
         Assert.Equal(expected, ThinkingItem.FormatStats(TimeSpan.FromMilliseconds(40), 12, isFinal: true));
     }
@@ -117,8 +120,8 @@ public class ThinkingItemStatsTests
 
         Assert.Equal(1, ThinkingItem.AdoptPersistedStats([observed]));
         Assert.Equal(TimeSpan.FromSeconds(7), observed.ClosedElapsed);
-        // 接着在这个窗口自己发话时，本轮的盖章不能拿旁观计时盖掉存档
-        Assert.Equal(0, ThinkingItem.StampLiveItems([observed]));
+        // 认领过的卡不动：再调一次返回 0，存档也不被改写
+        Assert.Equal(0, ThinkingItem.AdoptPersistedStats([observed]));
         Assert.True(ChatMessageAnnotations.TryReadThinkingStats(message, out TimeSpan duration, out _));
         Assert.Equal(TimeSpan.FromSeconds(7), duration);
     }
@@ -137,69 +140,14 @@ public class ThinkingItemStatsTests
     }
 
     [Fact]
-    public void AdoptPersistedStats_LeavesOwnStampedCardsAlone()
+    public void AdoptPersistedStats_LeavesAdoptedCardsAlone()
     {
         ChatMessage message = new(ChatRole.Assistant, [new TextReasoningContent("想。")]);
         ThinkingItem own = Closed("想。", message);
-        ThinkingItem.StampLiveItems([own]);
+        ChatMessageAnnotations.WriteThinkingStats(message, 9000, 2);
 
+        Assert.Equal(1, ThinkingItem.AdoptPersistedStats([own]));
         Assert.Equal(0, ThinkingItem.AdoptPersistedStats([own]));
-    }
-
-    [Fact]
-    public void StampLiveItems_MergesSegmentsIntoOneMessage()
-    {
-        ChatMessage message = new(ChatRole.Assistant, [new TextReasoningContent("想。")]);
-        ThinkingItem first = new() { SourceMessage = message };
-        first.Append("一二");
-        first.Flush();
-        ThinkingItem second = new() { SourceMessage = message };
-        second.Append("三四五");
-        second.Flush();
-
-        int stamped = ThinkingItem.StampLiveItems(new ConversationItemBase[] { first, second });
-
-        Assert.Equal(1, stamped);
-        Assert.True(ChatMessageAnnotations.TryReadThinkingStats(message, out _, out long chars));
-        Assert.Equal(first.ClosedChars + second.ClosedChars, chars);
-    }
-
-    [Fact]
-    public void StampLiveItems_SkipsMessageWithoutReasoning()
-    {
-        // 取消打断的思考段没进历史，回落的来源是猜的——盖上去等于记到别人账上
-        ChatMessage message = new(ChatRole.Assistant, [new TextContent("正文")]);
-        ThinkingItem thinking = new() { SourceMessage = message };
-        thinking.Append("想。");
-        thinking.Flush();
-
-        Assert.Equal(0, ThinkingItem.StampLiveItems([thinking]));
-        Assert.False(ChatMessageAnnotations.TryReadThinkingStats(message, out _, out _));
-    }
-
-    [Fact]
-    public void StampLiveItems_SkipsUnwiredAndUnclosed()
-    {
-        ThinkingItem unwired = new();
-        unwired.Append("想。");
-        unwired.Flush();
-
-        ThinkingItem unclosed = new() { SourceMessage = new ChatMessage(ChatRole.Assistant, "答") };
-        unclosed.Append("想。");
-
-        Assert.Equal(0, ThinkingItem.StampLiveItems(new ConversationItemBase[] { unwired, unclosed }));
-    }
-
-    [Fact]
-    public void StampLiveItems_DoesNotStampTwice()
-    {
-        ChatMessage message = new(ChatRole.Assistant, [new TextReasoningContent("想。")]);
-        ThinkingItem thinking = new() { SourceMessage = message };
-        thinking.Append("想。");
-        thinking.Flush();
-
-        Assert.Equal(1, ThinkingItem.StampLiveItems([thinking]));
-        Assert.Equal(0, ThinkingItem.StampLiveItems([thinking]));
     }
 
     private static ThinkingItem Closed(string text, ChatMessage? source = null)

@@ -139,4 +139,48 @@ public class ThinkingStatsRecorderTests
         Assert.Equal(1, recorder.Stamp(history, 0));
         Assert.Equal(2, recorder.TotalThinkingChars);
     }
+
+    [Fact]
+    public void Stamp_ToolCall_StampsDurationOnCallMessage()
+    {
+        ThinkingStatsRecorder recorder = new();
+        recorder.NoteContent(new FunctionCallContent("c1", "read_file"));
+        recorder.NoteContent(new FunctionResultContent("c1", "正文"));
+        List<ChatMessage> history =
+            [new(ChatRole.Assistant, [new FunctionCallContent("c1", "read_file")])];
+
+        int stamped = recorder.Stamp(history, 0);
+
+        Assert.Equal(1, stamped);
+        Assert.True(ChatMessageAnnotations.TryReadToolDuration(history[0], out TimeSpan duration));
+        Assert.True(duration >= TimeSpan.Zero);
+    }
+
+    [Fact]
+    public void Stamp_ToolCallWithoutResult_StampsNothing()
+    {
+        // 取消/失败的调用没有结果：没有耗时，不盖（卡片只显示 live 计的 provisional）
+        ThinkingStatsRecorder recorder = new();
+        recorder.NoteContent(new FunctionCallContent("c1", "read_file"));
+        List<ChatMessage> history =
+            [new(ChatRole.Assistant, [new FunctionCallContent("c1", "read_file")])];
+
+        Assert.Equal(0, recorder.Stamp(history, 0));
+        Assert.False(ChatMessageAnnotations.TryReadToolDuration(history[0], out _));
+    }
+
+    [Fact]
+    public void Stamp_ToolCall_SkipsAlreadyStamped()
+    {
+        ThinkingStatsRecorder recorder = new();
+        recorder.NoteContent(new FunctionCallContent("c1", "read_file"));
+        recorder.NoteContent(new FunctionResultContent("c1", "正文"));
+        ChatMessage message = new(ChatRole.Assistant, [new FunctionCallContent("c1", "read_file")]);
+        ChatMessageAnnotations.WriteToolDuration(message, 5000);
+        List<ChatMessage> history = [message];
+
+        Assert.Equal(0, recorder.Stamp(history, 0));
+        Assert.True(ChatMessageAnnotations.TryReadToolDuration(history[0], out TimeSpan duration));
+        Assert.Equal(TimeSpan.FromMilliseconds(5000), duration); //旧值不被覆盖
+    }
 }
