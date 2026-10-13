@@ -1,5 +1,8 @@
 using System.Text.Json;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Audio;
+using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.Tests.Agent;
@@ -62,5 +65,28 @@ public class AotToolSchemaShapeTests
         var tool = KnowledgeTool.Create(null);
         Assert.True(HasType(Parameter(tool, "query"), "string"));
         Assert.Contains("query", Schema(tool).GetProperty("required").EnumerateArray().Select(e => e.GetString()));
+    }
+
+    [Fact]
+    public void SynthesizeSpeechTool_Schema_RequiresText_AdmitsVoiceToneSpeed()
+    {
+        var paths = new UiharuMind.Core.AI.Execution.Files.AgentPathResolver(Path.GetTempPath());
+        var tool = SynthesizeSpeechTool.Create(paths, new UiharuMind.Core.AI.Character.CharacterData(),
+            SpeechFileSynthesizer.Shared, Enumerable.Empty<CharacterData>);
+        Assert.True(HasType(Parameter(tool, "text"), "string"));
+        Assert.True(HasType(Parameter(tool, "voice"), "string") || HasType(Parameter(tool, "voice"), "null"));
+        Assert.True(HasType(Parameter(tool, "speed"), "number") || HasType(Parameter(tool, "speed"), "null"));
+        Assert.Contains("text", Schema(tool).GetProperty("required").EnumerateArray().Select(e => e.GetString()));
+        Assert.DoesNotContain("voice", Schema(tool).GetProperty("required").EnumerateArray().Select(e => e.GetString()));
+    }
+
+    [Fact]
+    public void TranscribeAudioTool_Schema_RequiresPath_AdmitsSubtitles()
+    {
+        var paths = new UiharuMind.Core.AI.Execution.Files.AgentPathResolver(Path.GetTempPath());
+        var tool = TranscribeAudioTool.Create(paths);
+        Assert.True(HasType(Parameter(tool, "path"), "string"));
+        Assert.True(HasType(Parameter(tool, "subtitles"), "boolean"));
+        Assert.Contains("path", Schema(tool).GetProperty("required").EnumerateArray().Select(e => e.GetString()));
     }
 }

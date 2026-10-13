@@ -1,8 +1,10 @@
 using System.ComponentModel;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Audio;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution.Files;
+using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.AI.Execution;
 
@@ -33,21 +35,28 @@ public static class SynthesizeSpeechTool
     internal static AITool Create(AgentPathResolver paths, CharacterData self, SpeechFileSynthesizer synthesizer,
         Func<IEnumerable<CharacterData>> characters)
     {
-        return AIFunctionFactory.Create(
-            async ([Description("要合成的文字（纯文本；不识别 Markdown 标记）。")]
-                    string text,
-                    [Description("使用哪个角色的朗读声音。省略则用你自己的声音。")]
-                    string? voice = null,
-                    [Description("可选语气，如「平静的旁白」。只有部分声音会遵循。")]
-                    string? tone = null,
-                    [Description("可选的语速倍数，0.5 到 2 之间。省略则用该声音的默认语速。")]
-                    float? speed = null,
-                    CancellationToken cancellationToken = default) =>
-                await SynthesizeAsync(paths, self, synthesizer, characters, text, voice, tone, speed, cancellationToken)
-                    .ConfigureAwait(false),
-            ToolName,
+        // 手写 AotToolFunction（A2 全量扩展）：显式 schema + handler
+        return new AotToolFunction(ToolName,
             "把文字用某个角色的声音合成为语音音频文件（WAV），比如用于配音。" +
-            "不会出声播放。多角色配音时逐句调用一次、自行拼接文件。");
+            "不会出声播放。多角色配音时逐句调用一次、自行拼接文件。",
+            AotToolFunction.SchemaFromNode(new JsonObject
+            {
+                ["type"] = "object",
+                ["properties"] = new JsonObject
+                {
+                    ["text"] = new JsonObject { ["type"] = "string", ["description"] = "要合成的文字（纯文本；不识别 Markdown 标记）。" },
+                    ["voice"] = new JsonObject { ["type"] = "string", ["nullable"] = true, ["default"] = null, ["description"] = "使用哪个角色的朗读声音。省略则用你自己的声音。" },
+                    ["tone"] = new JsonObject { ["type"] = "string", ["nullable"] = true, ["default"] = null, ["description"] = "可选语气，如「平静的旁白」。只有部分声音会遵循。" },
+                    ["speed"] = new JsonObject { ["type"] = "number", ["nullable"] = true, ["default"] = null, ["description"] = "可选的语速倍数，0.5 到 2 之间。省略则用该声音的默认语速。" },
+                },
+                ["required"] = new JsonArray(JsonValue.Create("text")),
+            }),
+            async (args, ct) => await SynthesizeAsync(paths, self, synthesizer, characters,
+                AotToolFunction.Marshaller.String(args, "text")!,
+                AotToolFunction.Marshaller.String(args, "voice"),
+                AotToolFunction.Marshaller.String(args, "tone"),
+                AotToolFunction.Marshaller.NullableFloat(args, "speed"),
+                ct).ConfigureAwait(false));
     }
 
     /// <summary>

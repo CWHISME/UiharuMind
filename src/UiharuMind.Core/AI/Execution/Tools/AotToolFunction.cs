@@ -85,6 +85,12 @@ internal sealed class AotToolFunction : AIFunction
             return value is int i ? i : ((JsonElement)value).GetInt32();
         }
 
+        public static float? NullableFloat(AIFunctionArguments args, string key)
+        {
+            if (!args.TryGetValue(key, out object? value) || value == null) return null;
+            return value is float f ? f : ((JsonElement)value).GetSingle();
+        }
+
         public static bool Bool(AIFunctionArguments args, string key, bool defaultValue)
         {
             if (!args.TryGetValue(key, out object? value) || value == null) return defaultValue;
