@@ -116,9 +116,19 @@ public sealed class SimpleGlobber
 
         bool dirsOnly = pattern.EndsWith('/');
 
+        // 搜索根之上、工作区之内的 ignore 规则也生效（与 grep 侧同口径）；
+        // 单文件是点名要搜的，不套上层规则。
+        // 栈的构造也在池里做：它读盘（Exists×3/文件），UI 线程不碰 IO
+        string? ignoreBoundary = isFileScope ? null : _paths.WorkspaceRoot;
+
         // 遍历是同步的,放到线程池上:界面的快速搜索在 UI 线程上调用,大目录树会把界面整个卡住
         (List<GlobEntry> list, bool hitLimit, int totalHits, List<string> hitPaths, bool statsCapped) = await Task.Run(
-            () => Enumerate(glob, searchRoot, dirsOnly, AllowedDotSegments(pattern), maxResults, collectStats, statsCap, ct), ct)
+            () =>
+            {
+                var ignores = new GlobIgnoreStack(searchRoot, ignoreBoundary);
+                return Enumerate(glob, searchRoot, dirsOnly, AllowedDotSegments(pattern),
+                    ignores, maxResults, collectStats, statsCap, ct);
+            }, ct)
             .ConfigureAwait(false);
 
         if (isFileScope)
@@ -148,9 +158,9 @@ public sealed class SimpleGlobber
 
     private (List<GlobEntry> List, bool HitLimit, int TotalHits, List<string> HitPaths, bool StatsCapped)
         Enumerate(Glob glob, string searchRoot, bool dirsOnly,
-            string[] allowedDotNames, int maxResults, bool collectStats, int statsCap, CancellationToken ct)
+            string[] allowedDotNames, GlobIgnoreStack ignores, int maxResults, bool collectStats, int statsCap, CancellationToken ct)
     {
-        using var enumerator = new GlobEnum(glob, HardSkips, searchRoot, _paths, dirsOnly, allowedDotNames, ct);
+        using var enumerator = new GlobEnum(glob, HardSkips, searchRoot, _paths, dirsOnly, allowedDotNames, ignores, ct);
         var list = new List<GlobEntry>(Math.Min(maxResults, 60));
         List<string>? hitPaths = collectStats ? new List<string>(Math.Min(statsCap, 500)) : null;
         int totalHits = 0;
@@ -220,7 +230,7 @@ public sealed class SimpleGlobber
     private static bool LooksLikeGlob(string s)
         => s.IndexOfAny(['*', '?', '{', '[']) >= 0 || s.Contains("**");
 
-    // ── 核心：零分配剪枝枚举 ──
+    // ── 核心：剪枝枚举（无 ignore 规则时跳过规则判定，只剩路径归一化，见 HasRules）──
     private sealed class GlobEnum : FileSystemEnumerator<GlobEntry>
     {
         private readonly Glob _glob;
@@ -229,10 +239,11 @@ public sealed class SimpleGlobber
         private readonly AgentPathResolver _paths; //输出路径按它写回,好让 Read 能直接吃
         private readonly bool _dirsOnly;
         private readonly string[] _allowedDotNames; //pattern 点名的点开头段,见 IsUnlistedDotEntry
+        private readonly GlobIgnoreStack _ignores; //层级 ignore 规则：条目过滤与下探剪枝都认它
         private readonly CancellationToken _ct; //命中稀少时 MoveNext 会在内部走很久不返回，取消只能在回调里认
 
         public GlobEnum(Glob glob, GlobCollection skip, string root, AgentPathResolver paths, bool dirsOnly,
-            string[] allowedDotNames, CancellationToken ct)
+            string[] allowedDotNames, GlobIgnoreStack ignores, CancellationToken ct)
             : base(root, new EnumerationOptions
             {
                 RecurseSubdirectories = true,
@@ -244,7 +255,7 @@ public sealed class SimpleGlobber
             })
         {
             _glob = glob; _skip = skip; _root = root; _paths = paths;
-            _dirsOnly = dirsOnly; _allowedDotNames = allowedDotNames; _ct = ct;
+            _dirsOnly = dirsOnly; _allowedDotNames = allowedDotNames; _ignores = ignores; _ct = ct;
         }
 
         protected override GlobEntry TransformEntry(ref FileSystemEntry e)
@@ -264,6 +275,9 @@ public sealed class SimpleGlobber
             if (IsHardSkipped(rel) || IsUnlistedDotEntry(ref e)) return false; //不下探已经挡住了里面的东西，这里挡的是这个目录自己
 
             bool isDir = e.Attributes.HasFlag(FileAttributes.Directory);
+            // 无规则时跳过归一化与判定：回退到纯 HardSkips/点规则/pattern 的零分配路径
+            if (_ignores.HasRules && _ignores.IsIgnored(GlobIgnoreStack.Normalize(Path.Join(e.Directory, e.FileName)), isDir)) return false;
+
             return !(_dirsOnly && !isDir) && _glob.IsMatch(rel);
         }
 
@@ -271,9 +285,12 @@ public sealed class SimpleGlobber
         {
             _ct.ThrowIfCancellationRequested();
             if (IsUnlistedDotEntry(ref e)) return false;
-            // 剪枝：被硬排除 or 不可能命中用户 pattern，直接不进目录
+            // 剪枝：被硬排除 or 被 ignore 规则排除 or 不可能命中用户 pattern，直接不进目录
             string rel = Path.GetRelativePath(_root, Path.Join(e.Directory, e.FileName)).Replace('\\', '/').TrimEnd('/');
-            return !IsHardSkipped(rel) && _glob.IsPartialMatch(rel.AsSpan());
+            if (IsHardSkipped(rel)) return false;
+            string normalized = GlobIgnoreStack.Normalize(Path.Join(e.Directory, e.FileName));
+            _ignores.EnterDirectory(normalized);
+            return !(_ignores.HasRules && _ignores.IsIgnored(normalized, true)) && _glob.IsPartialMatch(rel.AsSpan());
         }
 
         private bool IsUnlistedDotEntry(ref FileSystemEntry e)
