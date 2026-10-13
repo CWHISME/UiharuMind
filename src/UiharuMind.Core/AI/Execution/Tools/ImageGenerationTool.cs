@@ -1,6 +1,8 @@
 using System.ComponentModel;
 using System.Text;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Character.PromptActions;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.ImageGeneration;
@@ -43,22 +45,26 @@ public static class ImageGenerationTool
     internal static AITool Create(AgentPathResolver paths, ImageGenerationService service,
         Action<string, ImageProgress>? progressSink = null)
     {
-        return AIFunctionFactory.Create(
-            async ([Description("最终图像应该长什么样。编辑时，描述期望的结果和必须保持不变的部分。")]
-                    string prompt,
-                    [Description("要编辑的输入图片路径（最多 5 张）。第一张是要修改的图片，其余是参考图。" +
-                                 "要精修先前的结果，传它的保存路径。省略则从零生成。")]
-                    string[]? images = null,
-                    [Description("宽高比，取其一：1:1、3:4、4:3、16:9、9:16、2:3、3:2。省略则用 1:1，" +
-                                 "或编辑时保持第一张输入图的形状。")]
-                    string? aspectRatio = null,
-                    CancellationToken cancellationToken = default) =>
-                await GenerateAsync(paths, service, prompt, images, aspectRatio, ProgressOf(progressSink),
-                        cancellationToken)
-                    .ConfigureAwait(false),
-            ToolName,
+        // 手写 AotToolFunction（A2 全量扩展）：显式 schema + handler
+        return new AotToolFunction(ToolName,
             "根据文字提示生成图像，或编辑已有图像。" +
-            "结果保存为文件并展示给用户。最多需要几分钟。");
+            "结果保存为文件并展示给用户。最多需要几分钟。",
+            AotToolFunction.SchemaFromNode(new JsonObject
+            {
+                ["type"] = "object",
+                ["properties"] = new JsonObject
+                {
+                    ["prompt"] = new JsonObject { ["type"] = "string", ["description"] = "最终图像应该长什么样。编辑时，描述期望的结果和必须保持不变的部分。" },
+                    ["images"] = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string" }, ["nullable"] = true, ["default"] = null, ["description"] = "要编辑的输入图片路径（最多 5 张）。第一张是要修改的图片，其余是参考图。省略则从零生成。" },
+                    ["aspectRatio"] = new JsonObject { ["type"] = "string", ["nullable"] = true, ["default"] = null, ["description"] = "宽高比，取其一：1:1、3:4、4:3、16:9、9:16、2:3、3:2。省略则用 1:1。" },
+                },
+                ["required"] = new JsonArray(JsonValue.Create("prompt")),
+            }),
+            async (args, ct) => await GenerateAsync(paths, service,
+                AotToolFunction.Marshaller.String(args, "prompt")!,
+                AotToolFunction.Marshaller.StringArray(args, "images"),
+                AotToolFunction.Marshaller.String(args, "aspectRatio"),
+                ProgressOf(progressSink), ct).ConfigureAwait(false));
     }
 
     /// <summary>

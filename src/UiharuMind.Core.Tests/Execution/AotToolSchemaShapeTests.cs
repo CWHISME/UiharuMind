@@ -118,4 +118,26 @@ public class AotToolSchemaShapeTests
         Assert.True(HasType(Parameter(tool, "skillName"), "string"));
         Assert.Contains("skillName", Schema(tool).GetProperty("required").EnumerateArray().Select(e => e.GetString()));
     }
+
+    [Fact]
+    public void VisionTool_Schema_RequiresImagePathsAndQuestion()
+    {
+        var tool = VisionTool.Create(null!); // paths 只在调用时用
+        Assert.True(HasType(Parameter(tool, "imagePaths"), "array"));
+        Assert.True(HasType(Parameter(tool, "question"), "string"));
+        var required = Schema(tool).GetProperty("required").EnumerateArray().Select(e => e.GetString()).ToArray();
+        Assert.Contains("imagePaths", required);
+        Assert.Contains("question", required);
+    }
+
+    [Fact]
+    public void ImageGenerationTool_Schema_RequiresPrompt_AdmitsImagesAndAspect()
+    {
+        var tool = ImageGenerationTool.Create(null!, null!); // paths/service 只在调用时用
+        Assert.True(HasType(Parameter(tool, "prompt"), "string"));
+        Assert.True(HasType(Parameter(tool, "images"), "array") || HasType(Parameter(tool, "images"), "null"));
+        Assert.True(HasType(Parameter(tool, "aspectRatio"), "string") || HasType(Parameter(tool, "aspectRatio"), "null"));
+        Assert.Contains("prompt", Schema(tool).GetProperty("required").EnumerateArray().Select(e => e.GetString()));
+        Assert.DoesNotContain("images", Schema(tool).GetProperty("required").EnumerateArray().Select(e => e.GetString()));
+    }
 }
