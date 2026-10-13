@@ -20,7 +20,7 @@ namespace UiharuMind.Core.Core.DevControl;
 /// <param name="ElapsedMs">耗时</param>
 /// <param name="Result">结果，可为 null</param>
 /// <param name="Error">失败原因</param>
-public sealed record DevStepOutcome(bool Ok, long ElapsedMs, object? Result = null, string? Error = null);
+public sealed record DevStepOutcome(bool Ok, long ElapsedMs, JsonNode? Result = null, string? Error = null);
 
 /// <summary>
 /// 开发控制通道的服务端（ADR 0059）：本机 Unix socket，一行一个 JSON 请求，一行一个回复。
@@ -214,7 +214,7 @@ public sealed class DevControlServer : IDisposable
         DevStepOutcome outcome;
         if (op == "app.ping")
         {
-            outcome = new DevStepOutcome(true, 0, new { pid = Environment.ProcessId });
+            outcome = new DevStepOutcome(true, 0, new JsonObject { ["pid"] = Environment.ProcessId });
         }
         else
         {
@@ -229,16 +229,7 @@ public sealed class DevControlServer : IDisposable
             }
         }
 
-        string reply;
-        try
-        {
-            reply = Reply(id, outcome);
-        }
-        catch (Exception e)
-        {
-            // 结果序列化不了也得回一句，否则客户端干等
-            reply = Reply(id, new DevStepOutcome(false, outcome.ElapsedMs, Error: $"result not serializable: {e.GetType().Name}: {e.Message}"));
-        }
+        string reply = Reply(id, outcome);
 
         try
         {
@@ -299,7 +290,7 @@ public sealed class DevControlServer : IDisposable
             ["ok"] = outcome.Ok,
             ["elapsedMs"] = outcome.ElapsedMs,
         };
-        if (outcome.Ok) reply["result"] = outcome.Result == null ? null : JsonSerializer.SerializeToNode(outcome.Result, ReplyOptions);
+        if (outcome.Ok) reply["result"] = outcome.Result?.DeepClone();
         else reply["error"] = outcome.Error;
         return reply.ToJsonString(ReplyOptions);
     }

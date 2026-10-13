@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using UiharuMind.Features.Conversation;
@@ -22,7 +23,7 @@ internal sealed class SessionInjectCommand : IAsyncDevCommand
     public string Usage => "往当前显示的会话流式追加假条目（不调模型、不写历史），模拟直播累积。" +
                            "count、batch（每批条数，默认 8）、gapMs（批间等待毫秒，默认 300）";
 
-    public async Task<object?> ExecuteAsync(JsonElement args)
+    public async Task<JsonNode?> ExecuteAsync(JsonElement args)
     {
         int count = GroupDevCommands.IntOr(args, "count", 0);
         if (count <= 0) throw new ArgumentException("session.inject needs count > 0");
@@ -48,7 +49,7 @@ internal sealed class SessionInjectCommand : IAsyncDevCommand
             if (injected < count && gapMs > 0) await Task.Delay(gapMs);
         }
 
-        return new { injected };
+        return new JsonObject { ["injected"] = injected };
     }
 
     /// <summary>贴近真实一次回复的条目形态：用户消息 / 思考段 / 工具卡 / 助手正文</summary>

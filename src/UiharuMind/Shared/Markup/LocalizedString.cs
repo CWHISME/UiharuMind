@@ -5,6 +5,7 @@ using Avalonia.Threading;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Shared.Services;
+using Avalonia.Data;
 
 namespace UiharuMind.Shared.Markup;
 
@@ -82,6 +83,13 @@ public class LocalizedString : INotifyPropertyChanged
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>
+    /// 绑到 <see cref="Value"/> 的编译绑定：换语言跟着变，不依赖 DataContext。
+    /// 走 INPC 弱事件，控件回收不被源强持有
+    /// </summary>
+    /// <returns>绑定</returns>
+    public CompiledBinding CreateBinding() => CompiledBinding.Create<LocalizedString, string>(x => x.Value, this);
 
     private string? GetSettingValue()
     {

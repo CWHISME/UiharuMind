@@ -4,6 +4,7 @@ using System.Runtime.ExceptionServices;
 using System.Diagnostics;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Threading;
@@ -32,7 +33,7 @@ internal sealed class FileOpenCommand : IAsyncDevCommand
                            "frameMs（画出第一帧）、idleMs（后台分帧任务跑完）、打开后的文本窗数，" +
                            "以及期间抛过的首次异常（挂调试器时它们是秒级卡顿的常见来源）";
 
-    public async Task<object?> ExecuteAsync(JsonElement args)
+    public async Task<JsonNode?> ExecuteAsync(JsonElement args)
     {
         string path = DevCommandRegistry.RequireString(args, "path");
         // 挂着调试器时每个首次异常都要通知调试器，几个就能把打开拖到秒级，这里一并报出来
@@ -69,7 +70,11 @@ internal sealed class FileOpenCommand : IAsyncDevCommand
         AppDomain.CurrentDomain.FirstChanceException -= onException;
         Trace.Listeners.Remove(trace);
         int windows = UIManager.GetWindows<TextFileWindow>().Count(w => w.IsVisible);
-        return new { path, openMs, shownMs, frameMs, idleMs, windows, exceptions, traceLines = trace.Top() };
+        return new JsonObject
+        {
+            ["path"] = path, ["openMs"] = openMs, ["shownMs"] = shownMs, ["frameMs"] = frameMs, ["idleMs"] = idleMs,
+            ["windows"] = windows, ["exceptions"] = DevJson.Counts(exceptions), ["traceLines"] = trace.Top(),
+        };
     }
 }
 
@@ -80,11 +85,11 @@ internal sealed class FileCloseAllCommand : IDevCommand
 
     public string Usage => "关掉所有可见的文本窗（与点关闭按钮一样，窗口进缓存待复用），无参数";
 
-    public object? Execute(JsonElement args)
+    public JsonNode? Execute(JsonElement args)
     {
         List<TextFileWindow> windows = UIManager.GetWindows<TextFileWindow>().OfType<TextFileWindow>().Where(w => w.IsVisible).ToList();
         foreach (TextFileWindow window in windows) window.Close();
-        return new { closed = windows.Count };
+        return new JsonObject { ["closed"] = windows.Count };
     }
 }
 
@@ -105,14 +110,14 @@ internal sealed class CountingTraceListener : TraceListener
     }
 
     /// <summary>出现最多的前几种行与总数</summary>
-    public object Top()
+    public JsonObject Top()
     {
         lock (_lines)
         {
-            return new
+            return new JsonObject
             {
-                total = _lines.Values.Sum(),
-                top = _lines.OrderByDescending(x => x.Value).Take(8).Select(x => $"{x.Value}× {x.Key}").ToList(),
+                ["total"] = _lines.Values.Sum(),
+                ["top"] = DevJson.Array(_lines.OrderByDescending(x => x.Value).Take(8), x => $"{x.Value}× {x.Key}"),
             };
         }
     }

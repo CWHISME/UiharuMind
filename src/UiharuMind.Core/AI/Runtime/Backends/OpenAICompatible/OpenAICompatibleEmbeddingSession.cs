@@ -15,6 +15,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using UiharuMind.Core.AI.Embedding;
+using System.Text.Json.Nodes;
 
 namespace UiharuMind.Core.AI.Runtime.Backends;
 
@@ -91,8 +92,9 @@ public sealed class OpenAICompatibleEmbeddingSession : IEmbeddingSession
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var request = new EmbeddingRequest(_modelId, texts);
-        string requestJson = JsonSerializer.Serialize(request);
+        JsonArray input = new();
+        foreach (string text in texts) input.Add((JsonNode?)text);
+        string requestJson = new JsonObject { ["model"] = _modelId, ["input"] = input }.ToJsonString();
         using var content = new StringContent(requestJson, Encoding.UTF8, "application/json");
         using HttpResponseMessage response =
             await _httpClient.PostAsync("", content, cancellationToken).ConfigureAwait(false);
@@ -154,7 +156,7 @@ public sealed class OpenAICompatibleEmbeddingSession : IEmbeddingSession
         int fallbackIndex = 0;
         foreach (JsonElement item in data.EnumerateArray())
         {
-            float[]? vector = item.GetProperty("embedding").Deserialize<float[]>();
+            float[]? vector = EmbeddingVectorUtils.Read(item.GetProperty("embedding"));
             if (vector == null) throw new EmbeddingRuntimeException("Invalid embedding response.");
 
             EmbeddingVectorUtils.NormalizeInPlace(vector);
@@ -177,8 +179,4 @@ public sealed class OpenAICompatibleEmbeddingSession : IEmbeddingSession
                responseBody.Contains("increase the physical batch size", StringComparison.OrdinalIgnoreCase) ||
                responseBody.Contains("exceeds the available context size", StringComparison.OrdinalIgnoreCase);
     }
-
-    private sealed record EmbeddingRequest(
-        [property: JsonPropertyName("model")] string Model,
-        [property: JsonPropertyName("input")] IReadOnlyList<string> Input);
 }

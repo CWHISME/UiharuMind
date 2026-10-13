@@ -20,11 +20,8 @@ using UiharuMind.Core.RemoteOpenAI;
 namespace UiharuMind.Core.Core;
 
 /// <summary>
-/// SaveUtility 有界类型的 source-gen 序列化上下文（主题五 A2）。
-/// 范围是拍板确定的<b>有界类型</b>：角色卡、记忆/世界书/自动点击、MCP 族、
-/// PromptSnippet、ScheduledAgentTask、DownloadState、ModelManifest、远程模型配置族。
-/// <b>ConfigBase 一族 11 个设置派生不在里面</b>——<see cref="ConfigBase.Save"/> 走反射 object 路由
-/// （泛型化会把 T 静态推断成基类、派生字段静默丢，该行为变化被拍板否决；AOT 已关门，反射端可用）。
+/// 存档（<see cref="SaveUtility"/>）的 source-gen 序列化上下文，存档类型的唯一登记处：没登记的类型存取时直接抛。
+/// 设置一族经 <see cref="ConfigBase.Save"/> 按运行时类型写，派生类各自登记
 /// </summary>
 /// <remarks>
 /// <see cref="CharacterCard"/> 的 <c>List&lt;object&gt;</c> 字段（AlternateGreetings/GroupOnlyGreetings）
@@ -54,7 +51,7 @@ namespace UiharuMind.Core.Core;
 [JsonSerializable(typeof(RemoteSensenovaModelConfig))]
 [JsonSerializable(typeof(RemoteZhipuModelConfig))]
 [JsonSerializable(typeof(RemoteModelConfig))]
-// ConfigBase 一族（AOT 试编卡点 #2：AOT 下反射不存在，设置/记忆读写静默失效，需 source-gen）
+// 设置一族
 [JsonSerializable(typeof(SettingConfig))]
 [JsonSerializable(typeof(QuickToolSetting))]
 [JsonSerializable(typeof(QuickToolPromptSetting))]

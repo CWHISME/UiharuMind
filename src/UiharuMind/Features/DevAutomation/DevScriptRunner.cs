@@ -153,7 +153,7 @@ public static class DevScriptRunner
                 ["ok"] = outcome.Ok,
                 ["elapsedMs"] = outcome.ElapsedMs,
             };
-            if (outcome.Ok && outcome.Result != null) entry["result"] = ToNode(outcome.Result);
+            if (outcome.Ok && outcome.Result != null) entry["result"] = outcome.Result.DeepClone();
             else if (!outcome.Ok && outcome.Error != null) entry["error"] = outcome.Error;
             return (entry, false);
         }
@@ -169,15 +169,6 @@ public static class DevScriptRunner
             }, false);
         }
     }
-
-    /// <summary>dev 报告值转 JsonNode：只认 JsonNode/JsonElement/字符串，其它退化成文本（AOT 下无类型图，别走 STJ）</summary>
-    private static JsonNode? ToNode(object? value) => value switch
-    {
-        null => null,
-        JsonNode node => node,
-        JsonElement element => JsonNode.Parse(element.GetRawText()),
-        _ => JsonValue.Create(value.ToString()),
-    };
 
     private static async Task WriteReportAsync(string reportPath, List<JsonObject> report)
     {

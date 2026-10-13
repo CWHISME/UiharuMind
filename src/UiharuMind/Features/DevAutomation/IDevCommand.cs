@@ -8,7 +8,9 @@
  ****************************************************************************/
 
 using System;
+using System.Collections.Generic;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 
 namespace UiharuMind.Features.DevAutomation;
@@ -37,7 +39,7 @@ public interface IDevCommand
     /// </summary>
     /// <param name="args">脚本里的 <c>args</c>；没带时为 <c>undefined</c></param>
     /// <returns>写进报告的结果，可为 null</returns>
-    object? Execute(JsonElement args);
+    JsonNode? Execute(JsonElement args);
 }
 
 /// <summary>
@@ -45,17 +47,47 @@ public interface IDevCommand
 /// </summary>
 public interface IAsyncDevCommand : IDevCommand
 {
-    object? IDevCommand.Execute(JsonElement args) => throw new NotSupportedException($"'{Name}' is async");
+    JsonNode? IDevCommand.Execute(JsonElement args) => throw new NotSupportedException($"'{Name}' is async");
 
     /// <summary>
     /// 执行一步
     /// </summary>
     /// <param name="args">脚本里的 <c>args</c>；没带时为 <c>undefined</c></param>
     /// <returns>写进报告的结果，可为 null</returns>
-    Task<object?> ExecuteAsync(JsonElement args);
+    Task<JsonNode?> ExecuteAsync(JsonElement args);
 }
 
 /// <summary>一步的用法：步骤名与一行说明（含参数）</summary>
 /// <param name="Op">步骤名</param>
 /// <param name="Usage">做什么、带哪些参数</param>
 public sealed record DevStepUsage(string Op, string Usage);
+
+/// <summary>步骤结果的拼装：结果直接是 JSON 节点，报告与控制通道原样写出，不经序列化（AOT 下匿名对象写不出来）</summary>
+internal static class DevJson
+{
+    /// <summary>
+    /// 把一组条目逐个转成节点
+    /// </summary>
+    /// <param name="items">条目</param>
+    /// <param name="select">单条怎么写</param>
+    /// <typeparam name="T">条目类型</typeparam>
+    /// <returns>JSON 数组</returns>
+    public static JsonArray Array<T>(IEnumerable<T> items, Func<T, JsonNode?> select)
+    {
+        JsonArray array = new();
+        foreach (T item in items) array.Add(select(item));
+        return array;
+    }
+
+    /// <summary>
+    /// 把一张计数表写成对象
+    /// </summary>
+    /// <param name="counts">键与计数</param>
+    /// <returns>JSON 对象</returns>
+    public static JsonObject Counts(IEnumerable<KeyValuePair<string, int>> counts)
+    {
+        JsonObject result = new();
+        foreach ((string key, int count) in counts) result[key] = count;
+        return result;
+    }
+}

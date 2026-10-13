@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:images="clr-namespace:UiharuMind.Features.Models.ImageModels"
         xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+        xmlns:imageGen="clr-namespace:UiharuMind.Core.AI.ImageGeneration;assembly=UiharuMind.Core"
         xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
         x:Class="UiharuMind.Features.Models.ImageModels.ImageDrawWindow"
         x:DataType="images:ImageDrawViewData"
@@ -66,7 +67,7 @@
                     <TextBlock Text="{loc:Loc ImageDrawModel}" VerticalAlignment="Center" />
                     <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding Models}"
                               SelectedItem="{Binding SelectedModel}" IsEnabled="{Binding !IsGenerating}"
-                              DisplayMemberBinding="{ReflectionBinding Name}" />
+                              DisplayMemberBinding="{Binding Name, DataType=imageGen:ImageModelInfo}" />
                     <TextBlock Grid.Column="2" Text="{loc:Loc ImageDrawRatio}" VerticalAlignment="Center" />
                     <ComboBox Grid.Column="3" MinWidth="88" ItemsSource="{Binding Ratios}"
                               SelectedItem="{Binding SelectedRatio}" IsEnabled="{Binding !IsGenerating}" />

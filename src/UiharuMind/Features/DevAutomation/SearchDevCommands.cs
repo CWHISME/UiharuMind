@@ -10,6 +10,7 @@
 using System;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Items;
@@ -34,7 +35,7 @@ internal sealed class SessionSearchCommand : IAsyncDevCommand
 
     public string Usage => "在当前会话里搜索并跳转。query、steps、thinking、tools";
 
-    public async Task<object?> ExecuteAsync(JsonElement args)
+    public async Task<JsonNode?> ExecuteAsync(JsonElement args)
     {
         ConversationViewModel conversation = DevCommandRegistry.RequireConversationPage().Conversation;
         ConversationSearchViewData search = conversation.Search;
@@ -53,18 +54,18 @@ internal sealed class SessionSearchCommand : IAsyncDevCommand
 
         ConversationSearchHitRow? selected = search.SelectedIndex >= 0 ? search.Hits[search.SelectedIndex] : null;
         ConversationItemBase? target = selected == null ? null : conversation.SearchNavigator.Find(selected.Hit);
-        return new
+        return new JsonObject
         {
-            hits = search.Hits.Count,
-            status = search.StatusText,
-            selectedIndex = selected?.Hit.MessageIndex,
-            selectedKind = selected?.Hit.Kind.ToString(),
-            snippet = selected?.Snippet,
-            targetDrawn = target != null,
-            targetItem = target?.GetType().Name,
-            items = conversation.Items.Count,
-            hasEarlierMessages = conversation.HasEarlierMessages,
-            labels = search.Hits.Take(5).Select(x => $"{x.Label}: {x.Snippet}").ToList(),
+            ["hits"] = search.Hits.Count,
+            ["status"] = search.StatusText,
+            ["selectedIndex"] = selected?.Hit.MessageIndex,
+            ["selectedKind"] = selected?.Hit.Kind.ToString(),
+            ["snippet"] = selected?.Snippet,
+            ["targetDrawn"] = target != null,
+            ["targetItem"] = target?.GetType().Name,
+            ["items"] = conversation.Items.Count,
+            ["hasEarlierMessages"] = conversation.HasEarlierMessages,
+            ["labels"] = DevJson.Array(search.Hits.Take(5), x => $"{x.Label}: {x.Snippet}"),
         };
     }
 }
@@ -84,7 +85,7 @@ internal sealed class SessionsSearchCommand : IAsyncDevCommand
 
     public string Usage => "跨会话搜索。query、start、result、hit";
 
-    public async Task<object?> ExecuteAsync(JsonElement args)
+    public async Task<JsonNode?> ExecuteAsync(JsonElement args)
     {
         ConversationPageDataBase page = DevCommandRegistry.RequireConversationPage();
         SessionContentSearchViewData content = page.SessionList.ContentSearch;
@@ -111,20 +112,26 @@ internal sealed class SessionsSearchCommand : IAsyncDevCommand
         ConversationViewModel conversation = page.Conversation;
         ConversationSearchViewData search = conversation.Search;
         ConversationSearchHitRow? selected = search.SelectedIndex >= 0 ? search.Hits[search.SelectedIndex] : null;
-        return new
+        return new JsonObject
         {
-            header = content.HeaderText,
-            sessions = content.Results.Count,
-            scanMs,
-            top = content.Results.Take(5).Select(x => $"{x.Session.Name} ({x.CountText})").ToList(),
-            clicked = clicked == null ? null : new { clicked.SessionId, clicked.Reveal.MessageIndex, clicked.Snippet },
-            openedSession = conversation.CurrentMeta?.SessionId,
-            listSelected = page.SessionList.SelectedSession?.SessionId,
-            searchOpen = search.IsOpen,
-            searchStatus = search.StatusText,
-            selectedIndex = selected?.Hit.MessageIndex,
-            targetDrawn = selected != null && conversation.SearchNavigator.Find(selected.Hit) != null,
-            items = conversation.Items.Count,
+            ["header"] = content.HeaderText,
+            ["sessions"] = content.Results.Count,
+            ["scanMs"] = scanMs,
+            ["top"] = DevJson.Array(content.Results.Take(5), x => $"{x.Session.Name} ({x.CountText})"),
+            ["clicked"] = clicked == null
+                ? null
+                : new JsonObject
+                {
+                    ["SessionId"] = clicked.SessionId, ["MessageIndex"] = clicked.Reveal.MessageIndex,
+                    ["Snippet"] = clicked.Snippet,
+                },
+            ["openedSession"] = conversation.CurrentMeta?.SessionId,
+            ["listSelected"] = page.SessionList.SelectedSession?.SessionId,
+            ["searchOpen"] = search.IsOpen,
+            ["searchStatus"] = search.StatusText,
+            ["selectedIndex"] = selected?.Hit.MessageIndex,
+            ["targetDrawn"] = selected != null && conversation.SearchNavigator.Find(selected.Hit) != null,
+            ["items"] = conversation.Items.Count,
         };
     }
 }

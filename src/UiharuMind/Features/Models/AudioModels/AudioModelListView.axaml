@@ -167,7 +167,7 @@
                                                            VerticalAlignment="Center" />
                                                 <ComboBox Classes="Small" Width="130" VerticalAlignment="Center"
                                                           ItemsSource="{Binding Voices}" SelectedItem="{Binding SelectedVoice}"
-                                                          DisplayMemberBinding="{ReflectionBinding DisplayName}" />
+                                                          DisplayMemberBinding="{Binding DisplayName, DataType=models:VoiceOption}" />
                                                 <Panel Width="28" Height="28">
                                                     <SpinnerIcon VerticalAlignment="Center" HorizontalAlignment="Center"
                                                                  IsVisible="{Binding IsLoadingVoices}" />

@@ -12,6 +12,8 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Files;
+using System.Text.Json.Serialization.Metadata;
+using UiharuMind.Core.Core.Extensions;
 
 namespace UiharuMind.Core.AI.Execution.Tools;
 
@@ -189,13 +191,33 @@ public sealed class LenientFileEditListConverter : JsonConverter<List<FileEdit>>
 }
 
 /// <summary>
+/// 工具参数与返回值里框架默认口径之外的类型。AOT 下 <see cref="AIJsonUtilities.DefaultOptions"/>
+/// 只认框架自带的 source-gen 类型，缺了这里的声明，<see cref="AIFunctionFactory"/> 装配时就拿不到类型信息。
+/// 新工具用了新的参数或返回类型，在这里补一行。
+/// </summary>
+[JsonSerializable(typeof(string[]))]
+[JsonSerializable(typeof(List<FileEdit>))]
+[JsonSerializable(typeof(int?))]
+[JsonSerializable(typeof(float?))]
+[JsonSerializable(typeof(double?))]
+internal sealed partial class ToolJsonContext : JsonSerializerContext;
+
+/// <summary>
 /// 工具调用参数的序列化口径。<b>基于框架默认那份复制</b>再加转换器——
 /// 直接改 <see cref="AIJsonUtilities.DefaultOptions"/> 是全局改动，会波及所有工具与结构化输出。
 /// </summary>
 public static class ToolJson
 {
-    /// <summary>宽容口径：数组参数也接受标量字符串。其余行为与框架默认完全一致</summary>
-    public static JsonSerializerOptions Lenient { get; } = CreateLenient();
+    /// <summary>
+    /// 工具调用参数的紧凑写法：折叠历史、审批提示这类给模型看的地方用
+    /// </summary>
+    public static JsonTypeInfo<IDictionary<string, object?>> Arguments { get; } = CreateArgumentsInfo();
+
+    /// <summary>推 schema 用的口径：类型信息与 <see cref="Lenient"/> 相同，但不挂转换器</summary>
+    private static readonly JsonSerializerOptions SchemaInference = CreateOptions(withConverters: false);
+
+    /// <summary>宽容口径：数组参数也接受标量字符串。其余与框架默认的 source-gen 口径一致</summary>
+    public static JsonSerializerOptions Lenient { get; } = CreateOptions(withConverters: true);
 
     /// <summary>
     /// 工具参数的 schema 口径。挂了自定义转换器的类型 schema 生成器推不出结构，只会给无类型的空 schema
@@ -217,12 +239,29 @@ public static class ToolJson
         JsonSchemaCreateOptions = Schema,
     };
 
+    /// <summary>
+    /// 按 <see cref="CreateFactoryOptions"/> 的口径把委托包成工具。所有自建工具都从这里造，参数解析与 schema 才一致
+    /// </summary>
+    /// <param name="method">工具实现</param>
+    /// <param name="name">工具名</param>
+    /// <param name="description">工具说明；为空时取方法上的 Description</param>
+    /// <returns>工具函数</returns>
+    public static AIFunction CreateFunction(Delegate method, string name, string? description = null) =>
+        AIFunctionFactory.Create(method, CreateFactoryOptions(name, description));
+
+    private static JsonTypeInfo<IDictionary<string, object?>> CreateArgumentsInfo()
+    {
+        JsonSerializerOptions options = new(AIJsonUtilities.DefaultOptions) { WriteIndented = false };
+        options.MakeReadOnly();
+        return options.GetTypeInfo<IDictionary<string, object?>>();
+    }
+
     private static JsonNode RestoreConvertedSchema(AIJsonSchemaCreateContext context, JsonNode node)
     {
         Type type = context.TypeInfo.Type;
         if (node is not JsonObject original || !Lenient.Converters.Any(c => c.Type == type)) return node;
 
-        JsonElement inferred = AIJsonUtilities.CreateJsonSchema(type, serializerOptions: AIJsonUtilities.DefaultOptions);
+        JsonElement inferred = AIJsonUtilities.CreateJsonSchema(type, serializerOptions: SchemaInference);
         if (JsonNode.Parse(inferred.GetRawText()) is not JsonObject restored) return node;
 
         // 参数自己的 description/default 留在原节点上，推出来的结构里没有
@@ -242,11 +281,23 @@ public static class ToolJson
         return restored;
     }
 
-    private static JsonSerializerOptions CreateLenient()
+    /// <summary>
+    /// 只认 source-gen 类型：框架默认那份在非 AOT 下还挂着反射兜底（解析器链尾与枚举转换器），这里拿掉，
+    /// 让测试与 AOT 走同一条路，漏声明的类型在单元测试里就会炸，而不是等到 AOT 产物里
+    /// </summary>
+    private static JsonSerializerOptions CreateOptions(bool withConverters)
     {
         JsonSerializerOptions options = new(AIJsonUtilities.DefaultOptions);
-        options.Converters.Add(new LenientStringArrayConverter());
-        options.Converters.Add(new LenientFileEditListConverter());
+        options.TypeInfoResolverChain.Clear();
+        options.TypeInfoResolverChain.Add(ToolJsonContext.Default);
+        options.TypeInfoResolverChain.Add(AIJsonUtilities.DefaultOptions.TypeInfoResolverChain[0]);
+        options.Converters.Clear();
+        if (withConverters)
+        {
+            options.Converters.Add(new LenientStringArrayConverter());
+            options.Converters.Add(new LenientFileEditListConverter());
+        }
+
         options.MakeReadOnly();
         return options;
     }

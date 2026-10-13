@@ -30,6 +30,7 @@ using UiharuMind.Core.AI.Execution.Tools.Scheduler;
 using UiharuMind.Core.AI.Execution.Tools.Skills;
 using UiharuMind.Core.AI.Execution.Tools.WebTools;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Core.Core.Extensions;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Controls;
 using UiharuMind.Shared.Services;
@@ -671,8 +672,8 @@ public sealed class DiffLineView
         // 否则出现"卡片空白、落盘成功"的盲盒——违背"预览=执行"不变量。
         List<FileEdit>? edits = value switch
         {
-            JsonElement element => JsonSerializer.Deserialize<List<FileEdit>>(element.GetRawText(), ToolJson.Lenient),
-            string raw => JsonSerializer.Deserialize<List<FileEdit>>(raw, ToolJson.Lenient),
+            JsonElement element => JsonSerializer.Deserialize(element.GetRawText(), ToolJson.Lenient.GetTypeInfo<List<FileEdit>>()),
+            string raw => JsonSerializer.Deserialize(raw, ToolJson.Lenient.GetTypeInfo<List<FileEdit>>()),
             _ => null,
         };
         if (edits is not { Count: > 0 }) return [];

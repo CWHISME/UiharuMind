@@ -80,7 +80,7 @@ public sealed class BrowserTools
     {
         BrowserTools tools = new(host, sessionId, spillDirectory, screenshots, paths);
         bool canScreenshot = screenshots != EReadImageMode.None;
-        AIFunction snapshot = AIFunctionFactory.Create(tools.SnapshotAsync, SnapshotToolName,
+        AIFunction snapshot = ToolJson.CreateFunction(tools.SnapshotAsync, SnapshotToolName,
             "重新读取本会话浏览器标签页的当前页面。默认视图是 outline：带可操作 ref 的无障碍快照" +
             "（一旦拍了新快照，旧快照的 ref 就失效）。view \"text\" 只给页面正文的 Markdown，短得多，" +
             "适合读文章、文档和结果；它没有 ref。" +
@@ -92,18 +92,18 @@ public sealed class BrowserTools
             canScreenshot
                 ? new ParameterDescriptionFunction(snapshot, "view", "outline（默认）、text 或 screenshot")
                 : snapshot,
-            AIFunctionFactory.Create(tools.NavigateAsync, NavigateToolName,
+            ToolJson.CreateFunction(tools.NavigateAsync, NavigateToolName,
                 "在本会话的浏览器标签页打开一个 URL：一个带独立配置文件的真实 Chrome，用户在那里登录过的站点保持登录。" +
                 "返回页面大纲，可操作元素带 [ref=e5] 这样的 ref；或 view \"text\" 只给正文供阅读（无 ref）。" +
                 ThirdPartyNotice),
-            AIFunctionFactory.Create(tools.ActAsync, ActToolName,
+            ToolJson.CreateFunction(tools.ActAsync, ActToolName,
                 "在本会话浏览器标签页的当前页面上执行动作。结果已经包含更新后的快照（或只含变动的行），所以之后不必再单独拍快照。" +
                 "大纲覆盖整页，不只是屏幕上可见的部分：滚动只在「随滚动加载更多」的页面上会改变它。" +
                 "缺什么时，点 \"more\" 或 \"next\" 控件，" +
                 "或导航到一个正好列出所需内容的 URL（搜索或筛选页）。" +
                 $"标记为 [password] 的字段不能直接输入：用 {HandoffMention}。" +
                 ThirdPartyNotice),
-            AIFunctionFactory.Create(tools.HandoffAsync, HandoffToolName,
+            ToolJson.CreateFunction(tools.HandoffAsync, HandoffToolName,
                 "把本会话的浏览器窗口交给用户去做只有他们该做的事：登录、输入密码、过验证码、确认支付。" +
                 "等到他们交回，再把页面按原样返回。别在聊天里要密码；直接移交。"),
         ];

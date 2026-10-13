@@ -1,4 +1,3 @@
-using CommunityToolkit.VectorData.SqliteVec;
 using UiharuMind.Core.AI.Embedding;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
@@ -137,7 +136,7 @@ internal sealed class MemoryIndexBuilder
         List<MemoryChunkRecord> records, CancellationToken cancellationToken)
     {
         // 维度取自实际拿到的向量,而不是配置里声称的:两者不一致时以库里真实存的为准
-        SqliteCollection<string, MemoryChunkRecord> collection = await MemoryStore.CreateCollectionAsync(
+        MemoryChunkCollection collection = await MemoryChunkCollection.OpenAsync(
             _store.TemporaryDatabasePath, records[0].Embedding.Length, cancellationToken).ConfigureAwait(false);
         try
         {

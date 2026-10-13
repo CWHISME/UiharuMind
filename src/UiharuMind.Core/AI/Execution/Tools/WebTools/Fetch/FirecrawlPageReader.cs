@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace UiharuMind.Core.AI.Execution.Tools.WebTools;
 
@@ -39,13 +40,13 @@ internal sealed class FirecrawlPageReader : IPageReader
     {
         string json = await FirecrawlClient.PostAsync(
             "scrape",
-            new
+            new JsonObject
             {
-                url,
-                formats = new[] { "markdown" },
-                onlyMainContent = true,
-                timeout = ScrapeTimeoutMs,
-                maxAge = CacheMaxAgeMs
+                ["url"] = url,
+                ["formats"] = new JsonArray("markdown"),
+                ["onlyMainContent"] = true,
+                ["timeout"] = ScrapeTimeoutMs,
+                ["maxAge"] = CacheMaxAgeMs,
             },
             ct).ConfigureAwait(false);
         FirecrawlClient.EnsureSuccess(json); //业务错误(限额耗尽/服务异常)抛出来进熔断,而不是吞成"no data"落回直连链

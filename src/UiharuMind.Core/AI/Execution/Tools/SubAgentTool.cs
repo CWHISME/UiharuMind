@@ -188,7 +188,7 @@ public static class SubAgentTool
         {
             // 没挂子角色就没有 subagent_type:schema 里没有可填名字的地方,也就编不出名字
             // (ADR 0044 补注:弱模型见到「可以填名字」就自己造一个)
-            return AIFunctionFactory.Create(
+            return ToolJson.CreateFunction(
                 ([Description(SubAgentToolPrompts.PromptParam)]
                     string prompt,
                     [Description(SubAgentToolPrompts.RoleParam)]
@@ -200,7 +200,7 @@ public static class SubAgentTool
         }
 
         // subagent_type 的说明随名单装配时拼(SubAgentToolPrompts.BuildSubagentTypeParam),[Description] 只能写常量
-        AIFunction function = AIFunctionFactory.Create(
+        AIFunction function = ToolJson.CreateFunction(
             ([Description(SubAgentToolPrompts.PromptParam)]
                 string prompt,
                 string? subagent_type = null,
@@ -215,7 +215,7 @@ public static class SubAgentTool
     }
 
     private static AITool CreateMessage(LaunchContext context) =>
-        AIFunctionFactory.Create(
+        ToolJson.CreateFunction(
             ([Description(SubAgentToolPrompts.ToParam)]
                 string to,
                 [Description(SubAgentToolPrompts.MessageParam)]

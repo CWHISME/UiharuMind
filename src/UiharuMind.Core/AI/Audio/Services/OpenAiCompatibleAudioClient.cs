@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace UiharuMind.Core.AI.Audio;
 
@@ -88,8 +89,10 @@ public sealed class OpenAiCompatibleAudioClient : IDisposable
         IReadOnlyDictionary<string, string> options, CancellationToken cancellationToken)
     {
         using HttpRequestMessage request = new(HttpMethod.Post, TranscriptionUrl());
-        request.Content = new StringContent(JsonSerializer.Serialize(new { model, audio = path, options }),
-            Encoding.UTF8, "application/json");
+        JsonObject modelOptions = new();
+        foreach ((string key, string value) in options) modelOptions[key] = value;
+        JsonObject body = new() { ["model"] = model, ["audio"] = path, ["options"] = modelOptions };
+        request.Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
         ApplyAuth(request);
         return await SendTranscriptionAsync(request, cancellationToken).ConfigureAwait(false);
     }

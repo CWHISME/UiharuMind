@@ -27,7 +27,7 @@
         </DataTemplate>
         <DataTemplate DataType="options:ChoiceOptionData">
             <ComboBox Width="190" ItemsSource="{Binding Choices}" SelectedItem="{Binding Selected}"
-                      DisplayMemberBinding="{ReflectionBinding DisplayName}" />
+                      DisplayMemberBinding="{Binding DisplayName, DataType=options:AudioOptionChoice}" />
         </DataTemplate>
         <DataTemplate DataType="options:TextOptionData">
             <TextBox Width="190" Text="{Binding Text}" PlaceholderText="{Binding Watermark}" />

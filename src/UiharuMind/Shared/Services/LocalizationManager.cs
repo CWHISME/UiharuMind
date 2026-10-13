@@ -1,7 +1,6 @@
 using System;
 using System.ComponentModel;
 using System.Globalization;
-using System.Linq;
 using Avalonia;
 using Avalonia.Styling;
 using UiharuMind.Resources.Lang;
@@ -47,7 +46,7 @@ public class LocalizationManager : INotifyPropertyChanged
         CultureInfo.CurrentUICulture = cultureInfo;
         Lang.Culture = cultureInfo;
         LanguageUtils.CurCultureInfo = cultureInfo;
-        ApplyThemeLocale(cultureInfo.Name);
+        ApplyThemeLocale(cultureInfo);
 
         if (save && ConfigManager.Instance.Setting.LanguageCode != cultureInfo.Name)
         {
@@ -68,17 +67,15 @@ public class LocalizationManager : INotifyPropertyChanged
         return GetString(key.ToString());
     }
 
-    private static void ApplyThemeLocale(string locale)
+    // 主题自带的文案（消息框按钮等）跟着界面语言走。两套主题的 Locale 都是 CultureInfo，认不出的语言会退回中文
+    private static void ApplyThemeLocale(CultureInfo culture)
     {
         if (Application.Current == null) return;
 
-        foreach (var style in Application.Current.Styles.OfType<IStyle>())
+        foreach (IStyle style in Application.Current.Styles)
         {
-            var localeProperty = style.GetType().GetProperty("Locale");
-            if (localeProperty?.PropertyType == typeof(string) && localeProperty.CanWrite)
-            {
-                localeProperty.SetValue(style, locale);
-            }
+            if (style is Semi.Avalonia.SemiTheme semi) semi.Locale = culture;
+            else if (style is Ursa.Themes.Semi.UrsaSemiTheme ursa) ursa.Locale = culture;
         }
     }
 }

@@ -54,7 +54,7 @@ public class McpTests
                             }
                             """;
 
-        McpServersFile file = JsonSerializer.Deserialize<McpServersFile>(json, SaveUtility.JsonOptions)!;
+        McpServersFile file = JsonSerializer.Deserialize<McpServersFile>(json, SaveUtility.SaveJsonOptions)!;
         List<McpServerConfig> configs = file.ToConfigs(new Dictionary<string, McpServerLocalState>());
 
         McpServerConfig fs = configs.Single(x => x.Name == "filesystem");
@@ -78,7 +78,7 @@ public class McpTests
     [InlineData("{\"mcpServers\":{\"a\":{\"url\":\"https://x/mcp\"}}}", EMcpTransportType.Http)]
     public void MissingType_IsInferredFromUrl(string json, EMcpTransportType expected)
     {
-        McpServersFile file = JsonSerializer.Deserialize<McpServersFile>(json, SaveUtility.JsonOptions)!;
+        McpServersFile file = JsonSerializer.Deserialize<McpServersFile>(json, SaveUtility.SaveJsonOptions)!;
         Assert.Equal(expected, file.ToConfigs(new Dictionary<string, McpServerLocalState>())[0].TransportType);
     }
 
@@ -103,8 +103,8 @@ public class McpTests
         ];
 
         var (standard, states) = McpServersFile.FromConfigs(original);
-        string json = JsonSerializer.Serialize(standard, SaveUtility.JsonOptions);
-        McpServersFile reloaded = JsonSerializer.Deserialize<McpServersFile>(json, SaveUtility.JsonOptions)!;
+        string json = JsonSerializer.Serialize(standard, SaveUtility.SaveJsonOptions);
+        McpServersFile reloaded = JsonSerializer.Deserialize<McpServersFile>(json, SaveUtility.SaveJsonOptions)!;
         List<McpServerConfig> configs = reloaded.ToConfigs(states);
 
         McpServerConfig unity = configs.Single(x => x.Name == "unity");
@@ -126,7 +126,7 @@ public class McpTests
             new McpServerConfig { Name = "unity", Command = "npx", IsEnabled = false, Description = "Unity 编辑器" },
         ]);
 
-        string json = JsonSerializer.Serialize(standard, SaveUtility.JsonOptions);
+        string json = JsonSerializer.Serialize(standard, SaveUtility.SaveJsonOptions);
         Assert.DoesNotContain("IsEnabled", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Description", json, StringComparison.OrdinalIgnoreCase);
         // 另一种传输的残留字段也不该写出去

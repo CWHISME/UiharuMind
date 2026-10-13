@@ -58,6 +58,11 @@ public static class SessionJsonOptions
         };
         // 单点 converter：只挂 FunctionCallContent.Arguments（object 值写按运行时类型 / 读回 JsonElement），
         // 不全局动 object，避开 SaveUtility 那摊（用户拍板）。
+        // 链尾加框架的 source-gen 上下文（只要 [0] 那节，不要反射兜底，AOT 安全——与 ToolJson.CreateOptions 同口径）：
+        // FunctionResultContent.Result 是 object?，工具回结构化结果时里面装的是 JsonElement，
+        // SessionJsonContext 自己没登记它，靠框架这节提供类型图，否则落盘时以 $.Contents.Result 炸掉。
+        // 先加链再包 modifier，顺序不能反（WithAddedModifier 包的是当前整条链）。
+        options.TypeInfoResolverChain.Add(AIJsonUtilities.DefaultOptions.TypeInfoResolverChain[0]);
         options.TypeInfoResolver = options.TypeInfoResolver!.WithAddedModifier(ApplyArgumentsConverter);
         options.MakeReadOnly();
         return options;

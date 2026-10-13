@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using UiharuMind.Core.Core.DownloadHelper;
 
 namespace UiharuMind.Core.AI.Models.Sources;
@@ -10,7 +11,7 @@ namespace UiharuMind.Core.AI.Models.Sources;
 /// </summary>
 /// <param name="httpClient">HTTP 客户端</param>
 /// <param name="token">访问令牌，公开仓库不需要</param>
-public sealed class ModelScopeModelSource(HttpClient httpClient, string? token) : IModelSource
+public sealed partial class ModelScopeModelSource(HttpClient httpClient, string? token) : IModelSource
 {
     public const string SourceId = "modelscope";
     private const string Endpoint = "https://modelscope.cn";
@@ -26,8 +27,9 @@ public sealed class ModelScopeModelSource(HttpClient httpClient, string? token) 
         // 魔搭搜索没有可用的 GGUF 过滤条件（libraries 条件会被忽略），关键词里带上 GGUF 才收得住
         string name = query.Contains("gguf", StringComparison.OrdinalIgnoreCase) ? query : $"{query} GGUF";
         // 排序都交给服务端，翻页才接得上
-        request.Content = JsonContent.Create(new SearchRequest(limit, page, SortKey(sort), "", [], name));
-        SearchResponse? response = await SendAsync<SearchResponse>(request, cancellationToken).ConfigureAwait(false);
+        request.Content = JsonContent.Create(new SearchRequest(limit, page, SortKey(sort), "", [], name),
+            ModelScopeJsonContext.Default.SearchRequest);
+        SearchResponse? response = await SendAsync(request, ModelScopeJsonContext.Default.SearchResponse, cancellationToken).ConfigureAwait(false);
         SearchModels? models = response?.Data?.Model;
         List<ModelRepoSummary> items = models?.Models?
             .Where(x => !string.IsNullOrEmpty(x.Path) && !string.IsNullOrEmpty(x.Name))
@@ -57,7 +59,7 @@ public sealed class ModelScopeModelSource(HttpClient httpClient, string? token) 
     {
         using HttpRequestMessage request = CreateRequest(HttpMethod.Get,
             $"{Endpoint}/api/v1/models/{repository}/repo/files?Revision={Uri.EscapeDataString(revision ?? Revision)}&Recursive=true");
-        FilesResponse? response = await SendAsync<FilesResponse>(request, cancellationToken).ConfigureAwait(false);
+        FilesResponse? response = await SendAsync(request, ModelScopeJsonContext.Default.FilesResponse, cancellationToken).ConfigureAwait(false);
         return response?.Data?.Files?
             .Where(x => x.Type == "blob" && !string.IsNullOrEmpty(x.Path))
             .Select(x => new ModelRepoFile(x.Path!, x.Size, string.IsNullOrEmpty(x.Sha256) ? null : x.Sha256))
@@ -88,12 +90,12 @@ public sealed class ModelScopeModelSource(HttpClient httpClient, string? token) 
         return request;
     }
 
-    private async Task<T?> SendAsync<T>(HttpRequestMessage request, CancellationToken token)
+    private async Task<T?> SendAsync<T>(HttpRequestMessage request, JsonTypeInfo<T> typeInfo, CancellationToken token)
     {
         using HttpResponseMessage response = await httpClient.SendAsync(request, token).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
         await using Stream stream = await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false);
-        return await JsonSerializer.DeserializeAsync<T>(stream, cancellationToken: token).ConfigureAwait(false);
+        return await JsonSerializer.DeserializeAsync(stream, typeInfo, token).ConfigureAwait(false);
     }
 
     private sealed record SearchRequest(
@@ -148,4 +150,11 @@ public sealed class ModelScopeModelSource(HttpClient httpClient, string? token) 
         public long Size { get; set; }
         public string? Sha256 { get; set; }
     }
+
+    // 与 JsonContent.Create 的默认口径一致：请求体写小驼峰，响应读时不分大小写
+    [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+    [JsonSerializable(typeof(SearchRequest))]
+    [JsonSerializable(typeof(SearchResponse))]
+    [JsonSerializable(typeof(FilesResponse))]
+    private sealed partial class ModelScopeJsonContext : JsonSerializerContext;
 }

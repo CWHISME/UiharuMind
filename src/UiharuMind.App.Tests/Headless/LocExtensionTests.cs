@@ -1,10 +1,13 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Threading;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Shared.Markup;
+using Semi.Avalonia;
 using UiharuMind.Shared.Services;
+using Ursa.Themes.Semi;
 
 namespace UiharuMind.App.Tests.Headless;
 
@@ -41,6 +44,32 @@ public class LocExtensionTests
                 LocalizationManager.Instance.ApplyLanguage(original, save: false);
             }
         });
+    }
+
+    /// <summary>主题自带文案（消息框按钮等）跟着界面语言切：两套主题的 Locale 都要被设上</summary>
+    [Fact]
+    public void ApplyLanguage_SwitchesBothThemesLocale()
+    {
+        HeadlessUi.Run(() =>
+        {
+            string original = LocalizationManager.Instance.LanguageCode;
+            try
+            {
+                LocalizationManager.Instance.ApplyLanguage("en-US", save: false);
+                Assert.Equal("en-US", Theme<SemiTheme>().Locale?.Name);
+                Assert.Equal("en-US", Theme<UrsaSemiTheme>().Locale?.Name);
+
+                LocalizationManager.Instance.ApplyLanguage("zh-CN", save: false);
+                Assert.Equal("zh-CN", Theme<SemiTheme>().Locale?.Name);
+                Assert.Equal("zh-CN", Theme<UrsaSemiTheme>().Locale?.Name);
+            }
+            finally
+            {
+                LocalizationManager.Instance.ApplyLanguage(original, save: false);
+            }
+        });
+
+        static T Theme<T>() => Application.Current!.Styles.OfType<T>().Single();
     }
 
     [Fact]

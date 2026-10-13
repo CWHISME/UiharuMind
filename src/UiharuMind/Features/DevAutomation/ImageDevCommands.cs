@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -29,14 +30,14 @@ internal static class ImageDevCommands
         new ImageDrawCommand(),
     ];
 
-    internal static object Describe(ImageModelItemViewData item) => new
+    internal static JsonObject Describe(ImageModelItemViewData item) => new()
     {
-        name = item.Name,
-        local = item.IsLocal,
-        detail = item.Detail,
-        editing = item.SupportsEditing,
-        ready = item.IsReady,
-        status = item.StatusText
+        ["name"] = item.Name,
+        ["local"] = item.IsLocal,
+        ["detail"] = item.Detail,
+        ["editing"] = item.SupportsEditing,
+        ["ready"] = item.IsReady,
+        ["status"] = item.StatusText
     };
 
     internal static async Task<ImageDrawWindow> WaitForDrawWindow()
@@ -62,7 +63,7 @@ internal sealed class ImageDownloadCommand : IAsyncDevCommand
 
     public string Usage => "跳到「获取模型」的生图分类，选家族点某一档的下载，不等下完（会联网，引擎没装一起排上）。family（家族 id，如 z-image-turbo）、tier（lite / balanced / quality，省略取推荐）。文件已在本机时改点「画一张」把它加进生图模型（随即关窗）";
 
-    public async Task<object?> ExecuteAsync(JsonElement args)
+    public async Task<JsonNode?> ExecuteAsync(JsonElement args)
     {
         string family = DevCommandRegistry.RequireString(args, "family");
         string? tier = GroupDevCommands.StringOr(args, "tier");
@@ -103,7 +104,7 @@ internal sealed class ImageDownloadCommand : IAsyncDevCommand
             throw new InvalidOperationException($"tier '{row.Tier.Id}' is {row.Status.State}, neither downloadable nor installed");
         }
 
-        return new { family, tier = row.Tier.Id, size = row.SizeText, state = row.Status.State.ToString() };
+        return new JsonObject { ["family"] = family, ["tier"] = row.Tier.Id, ["size"] = row.SizeText, ["state"] = row.Status.State.ToString() };
     }
 }
 
@@ -114,11 +115,11 @@ internal sealed class ImageListCommand : IDevCommand
 
     public string Usage => "列出生图模型（按回退顺序：名字、是否本地、能否改图、状态）";
 
-    public object? Execute(JsonElement args)
+    public JsonNode? Execute(JsonElement args)
     {
         ModelPageData page = ModelDevCommands.JumpToModelPage();
         page.ShowImageModels();
-        return page.ImageModels.Items.Select(ImageDevCommands.Describe).ToList();
+        return DevJson.Array(page.ImageModels.Items, ImageDevCommands.Describe);
     }
 }
 
@@ -133,7 +134,7 @@ internal sealed class ImageDrawCommand : IAsyncDevCommand
 
     public string Usage => "在生图模型页签点某一行的「试画」，填提示词画一张后关窗（本地模型会起引擎）。model、prompt、images（参考图路径数组，带了就是改图）、timeoutMinutes（默认 20，到了点停止）、copyTo（另拷一份到这个文件路径，如工作区里，好让会话接着改它）、memoryRisk（本地引擎说此刻内存不够时：refuse 默认照实失败，allow 点窗口里的「仍然加载」，release 点「先释放别的本地模型再加载」）";
 
-    public async Task<object?> ExecuteAsync(JsonElement args)
+    public async Task<JsonNode?> ExecuteAsync(JsonElement args)
     {
         string model = DevCommandRegistry.RequireString(args, "model");
         string prompt = DevCommandRegistry.RequireString(args, "prompt");
@@ -180,14 +181,14 @@ internal sealed class ImageDrawCommand : IAsyncDevCommand
             File.Copy(draw.ResultPath, copy, true);
         }
 
-        object result = new
+        JsonObject result = new()
         {
-            model = draw.SelectedModel?.Name,
-            status = draw.StatusText,
-            memoryRisk,
-            path = draw.ResultPath,
-            copy,
-            seconds = (int)watch.Elapsed.TotalSeconds
+            ["model"] = draw.SelectedModel?.Name,
+            ["status"] = draw.StatusText,
+            ["memoryRisk"] = memoryRisk,
+            ["path"] = draw.ResultPath,
+            ["copy"] = copy,
+            ["seconds"] = (int)watch.Elapsed.TotalSeconds
         };
         window.Close();
         return result;

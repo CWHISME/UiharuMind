@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
@@ -125,7 +126,7 @@ internal sealed class GroupCreateCommand : IAsyncDevCommand
 
     public string Usage => "建智能体群并点开。name、members（角色标识或名字，顺序即发言顺序）、models（与成员一一对应）、workspace、mode（serial / parallel）、stop（conservative / aggressive）、host（成员下标，-1 无）、permission（权限档序号）";
 
-    public async Task<object?> ExecuteAsync(JsonElement args)
+    public async Task<JsonNode?> ExecuteAsync(JsonElement args)
     {
         string name = DevCommandRegistry.RequireString(args, "name");
         List<CharacterData> members = GroupDevCommands.Strings(args, "members").Select(DevCommandRegistry.ResolveCharacter).ToList();
@@ -148,7 +149,11 @@ internal sealed class GroupCreateCommand : IAsyncDevCommand
         int permission = GroupDevCommands.IntOr(args, "permission", -1);
         if (permission >= 0) conversation.PermissionModeIndex = permission; //与右栏权限档选择器同一个属性
 
-        return new { id = group.SessionId, members = members.Select(x => x.CharacterName), mode = mode.ToString(), openMs };
+        return new JsonObject
+        {
+            ["id"] = group.SessionId, ["members"] = DevJson.Array(members, x => x.CharacterName), ["mode"] = mode.ToString(),
+            ["openMs"] = openMs,
+        };
     }
 
 }
@@ -160,14 +165,14 @@ internal sealed class GroupPostCommand : IAsyncDevCommand
 
     public string Usage => "以用户的名义在群里说一句，不等跑完。group、text";
 
-    public async Task<object?> ExecuteAsync(JsonElement args)
+    public async Task<JsonNode?> ExecuteAsync(JsonElement args)
     {
         ChatSession group = GroupDevCommands.RequireGroup(args);
         string text = DevCommandRegistry.RequireString(args, "text");
         ConversationViewModel conversation = await GroupDevCommands.OpenAsync(group.SessionId);
         conversation.InputText = text;
         _ = conversation.SendMessageCommand.ExecuteAsync(null);
-        return new { group = group.Title, chars = text.Length };
+        return new JsonObject { ["group"] = group.Title, ["chars"] = text.Length };
     }
 }
 
@@ -178,12 +183,12 @@ internal sealed class GroupContinueCommand : IAsyncDevCommand
 
     public string Usage => "点群的「继续」，不等跑完。group";
 
-    public async Task<object?> ExecuteAsync(JsonElement args)
+    public async Task<JsonNode?> ExecuteAsync(JsonElement args)
     {
         ChatSession group = GroupDevCommands.RequireGroup(args);
         ConversationViewModel conversation = await GroupDevCommands.OpenAsync(group.SessionId);
         _ = conversation.ContinueGroupRoundCommand.ExecuteAsync(null);
-        return new { group = group.Title };
+        return new JsonObject { ["group"] = group.Title };
     }
 }
 
@@ -199,7 +204,7 @@ internal sealed class GroupWaitCommand : IAsyncDevCommand
 
     public string Usage => "等若干个群跑完这一波。groups（群名数组）、timeoutMinutes、approvals（deny / once / session；扩展卡上 session 即本会话允许该扩展，浏览器接管卡上 once 即「完成了，继续」、deny 即取消）";
 
-    public async Task<object?> ExecuteAsync(JsonElement args)
+    public async Task<JsonNode?> ExecuteAsync(JsonElement args)
     {
         List<ChatSession> groups = GroupDevCommands.Strings(args, "groups")
             .Select(GroupDevCommands.RequireGroup)
@@ -207,32 +212,37 @@ internal sealed class GroupWaitCommand : IAsyncDevCommand
         TimeSpan timeout = TimeSpan.FromMinutes(GroupDevCommands.IntOr(args, "timeoutMinutes", 30));
         string decision = GroupDevCommands.StringOr(args, "approvals") ?? "deny";
 
-        List<object> approvals = [];
+        JsonArray approvals = [];
         Stopwatch watch = Stopwatch.StartNew();
         int idlePolls = 0;
         while (idlePolls < IdlePollsToSettle)
         {
             if (watch.Elapsed > timeout)
             {
-                return new { timedOut = true, elapsedSeconds = (int)watch.Elapsed.TotalSeconds, approvals };
+                return new JsonObject { ["timedOut"] = true, ["elapsedSeconds"] = (int)watch.Elapsed.TotalSeconds, ["approvals"] = approvals };
             }
 
             await Task.Delay(TimeSpan.FromSeconds(2));
-            foreach (ChatSession group in groups) approvals.AddRange(ResolveApprovals(group, decision));
+            foreach (ChatSession group in groups)
+            foreach (JsonNode approval in ResolveApprovals(group, decision)) approvals.Add(approval);
             idlePolls = groups.Any(x => GroupChatCoordinator.Instance.IsRunning(x.SessionId)) ? 0 : idlePolls + 1;
         }
 
-        return new { timedOut = false, elapsedSeconds = (int)watch.Elapsed.TotalSeconds, approvals };
+        return new JsonObject { ["timedOut"] = false, ["elapsedSeconds"] = (int)watch.Elapsed.TotalSeconds, ["approvals"] = approvals };
     }
 
     // 与群视图输入框上方那条待审批条同一份视图数据，点的是同一个按钮
-    private static List<object> ResolveApprovals(ChatSession group, string decision)
+    private static List<JsonObject> ResolveApprovals(ChatSession group, string decision)
     {
         using GroupApprovalsViewData pending = new(group);
-        List<object> handled = [];
+        List<JsonObject> handled = [];
         foreach (GroupApprovalViewData item in pending.Items.ToList())
         {
-            handled.Add(new { group = group.Title, member = item.MemberName, tool = item.Card.ToolName, item.Summary, decision });
+            handled.Add(new JsonObject
+            {
+                ["group"] = group.Title, ["member"] = item.MemberName, ["tool"] = item.Card.ToolName, ["Summary"] = item.Summary,
+                ["decision"] = decision,
+            });
             item.Card.ResolveCommand.Execute(decision);
         }
 
@@ -249,7 +259,7 @@ internal sealed class GroupDumpCommand : IDevCommand
 
     public string Usage => "把群导成 markdown：流水、成员用量、产物。group、path";
 
-    public object? Execute(JsonElement args)
+    public JsonNode? Execute(JsonElement args)
     {
         ChatSession group = GroupDevCommands.RequireGroup(args);
         string path = DevCommandRegistry.RequireString(args, "path");
@@ -277,7 +287,7 @@ internal sealed class GroupDumpCommand : IDevCommand
         }
 
         File.WriteAllText(path, text.ToString());
-        return new { group = group.Title, posts = group.History.Count, artifacts = artifacts.Count, path };
+        return new JsonObject { ["group"] = group.Title, ["posts"] = group.History.Count, ["artifacts"] = artifacts.Count, ["path"] = path };
     }
 }
 
@@ -292,7 +302,7 @@ internal sealed class GroupAwayStartCommand : IAsyncDevCommand
 
     public string Usage => "开始离席，化身替用户拍板。group、goal（捎话，可省）、reminder（只给化身看）、model（化身模型）、character（化身角色的标识或名字，省略为默认化身）、infinite（无限模式，只有手动停止）";
 
-    public async Task<object?> ExecuteAsync(JsonElement args)
+    public async Task<JsonNode?> ExecuteAsync(JsonElement args)
     {
         ChatSession group = GroupDevCommands.RequireGroup(args);
         GroupAwayViewData away = await GroupDevCommands.AwayOf(group);
@@ -311,7 +321,11 @@ internal sealed class GroupAwayStartCommand : IAsyncDevCommand
         }
 
         away.StartCommand.Execute(null);
-        return new { group = group.Title, away = GroupAwayController.Instance.IsAway(group.SessionId), model = away.ModelPicker.SelectedOption?.DisplayName };
+        return new JsonObject
+        {
+            ["group"] = group.Title, ["away"] = GroupAwayController.Instance.IsAway(group.SessionId),
+            ["model"] = away.ModelPicker.SelectedOption?.DisplayName,
+        };
     }
 }
 
@@ -322,11 +336,11 @@ internal sealed class GroupAwayEndCommand : IAsyncDevCommand
 
     public string Usage => "结束离席。group";
 
-    public async Task<object?> ExecuteAsync(JsonElement args)
+    public async Task<JsonNode?> ExecuteAsync(JsonElement args)
     {
         ChatSession group = GroupDevCommands.RequireGroup(args);
         (await GroupDevCommands.AwayOf(group)).EndCommand.Execute(null);
-        return new { group = group.Title };
+        return new JsonObject { ["group"] = group.Title };
     }
 }
 
@@ -340,7 +354,7 @@ internal sealed class GroupAwayWaitCommand : IAsyncDevCommand
 
     public string Usage => "等离席结束，结果带回执。group、timeoutMinutes、skipDelays";
 
-    public async Task<object?> ExecuteAsync(JsonElement args)
+    public async Task<JsonNode?> ExecuteAsync(JsonElement args)
     {
         ChatSession group = GroupDevCommands.RequireGroup(args);
         GroupAwayViewData away = await GroupDevCommands.AwayOf(group);
@@ -366,10 +380,10 @@ internal sealed class GroupAwayWaitCommand : IAsyncDevCommand
         }
 
         GroupAwayReceipt? receipt = group.History.Select(GroupAwayReceipt.Of).LastOrDefault(x => x != null);
-        return new
+        return new JsonObject
         {
-            group = group.Title, timedOut, elapsedSeconds = (int)watch.Elapsed.TotalSeconds, skippedDelays = wakes,
-            receipt = receipt == null ? null : GroupAwayReceiptText.Format(receipt),
+            ["group"] = group.Title, ["timedOut"] = timedOut, ["elapsedSeconds"] = (int)watch.Elapsed.TotalSeconds,
+            ["skippedDelays"] = wakes, ["receipt"] = receipt == null ? null : GroupAwayReceiptText.Format(receipt),
         };
     }
 }

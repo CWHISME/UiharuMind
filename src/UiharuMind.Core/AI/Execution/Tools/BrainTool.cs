@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using System.Text;
-using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
@@ -48,22 +47,13 @@ public static class BrainTool
     /// <param name="context">派活上下文</param>
     /// <returns>工具实例</returns>
     public static AITool Create(SubAgentTool.LaunchContext context) =>
-        // 手写 AotToolFunction（A2 冒烟子集）：显式 schema + handler，绕开 AIFunctionFactory 反射
-        new AotToolFunction(BrainTool.ToolName, BrainToolPrompts.Description,
-            AotToolFunction.SchemaFromNode(new JsonObject
-            {
-                ["type"] = "object",
-                ["properties"] = new JsonObject
-                {
-                    ["task"] = new JsonObject { ["type"] = "string", ["description"] = BrainToolPrompts.TaskParam },
-                    ["brainId"] = new JsonObject { ["type"] = "string", ["nullable"] = true, ["description"] = BrainToolPrompts.BrainIdParam },
-                },
-                ["required"] = new JsonArray(JsonValue.Create("task")),
-            }),
-            async (args, ct) => await RunAsync(context,
-                AotToolFunction.Marshaller.String(args, "task")!,
-                AotToolFunction.Marshaller.String(args, "brainId"),
-                ct).ConfigureAwait(false));
+        ToolJson.CreateFunction(
+            async ([Description(BrainToolPrompts.TaskParam)] string task,
+                   [Description(BrainToolPrompts.BrainIdParam)] string? brainId = null,
+                   CancellationToken cancellationToken = default) =>
+                await RunAsync(context, task, brainId, cancellationToken).ConfigureAwait(false),
+            ToolName,
+            BrainToolPrompts.Description);
 
     /// <summary>
     /// 开新脑或追问：当场同步跑完，返回内容 + 标识。

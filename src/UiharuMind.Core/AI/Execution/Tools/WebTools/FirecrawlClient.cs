@@ -12,6 +12,7 @@ using System.Text;
 using System.Text.Json;
 using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Configs;
+using System.Text.Json.Nodes;
 
 namespace UiharuMind.Core.AI.Execution.Tools.WebTools;
 
@@ -31,7 +32,7 @@ internal static class FirecrawlClient
     /// <param name="payload">请求体,序列化为 JSON</param>
     /// <param name="ct">取消令牌</param>
     /// <returns>响应 JSON 字符串</returns>
-    public static async Task<string> PostAsync(string path, object payload, CancellationToken ct)
+    public static async Task<string> PostAsync(string path, JsonObject payload, CancellationToken ct)
     {
         using HttpRequestMessage request = new(HttpMethod.Post, BaseUrl + path);
 
@@ -41,7 +42,7 @@ internal static class FirecrawlClient
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey.Trim());
         }
 
-        request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+        request.Content = new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json");
 
         using HttpResponseMessage response = await WebShared.Http.SendAsync(request, ct).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();

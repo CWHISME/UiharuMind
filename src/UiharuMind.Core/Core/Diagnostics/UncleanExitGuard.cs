@@ -136,7 +136,7 @@ public sealed class UncleanExitGuard
     {
         try
         {
-            return JsonSerializer.Deserialize<UncleanExitMarker>(File.ReadAllText(path), UncleanExitMarkerJsonContext.Default.Options);
+            return JsonSerializer.Deserialize(File.ReadAllText(path), UncleanExitMarkerJsonContext.Default.UncleanExitMarker);
         }
         catch (Exception)
         {

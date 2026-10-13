@@ -8,6 +8,7 @@ using Avalonia.Threading;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.DevControl;
 using UiharuMind.Core.Core.SimpleLog;
+using System.Text.Json.Nodes;
 
 namespace UiharuMind.Features.DevAutomation;
 
@@ -92,7 +93,8 @@ public sealed class DevControlHost : IDisposable
         switch (op)
         {
             case "app.ops":
-                return new DevStepOutcome(true, 0, HostUsages.Concat(_executor.Usages).ToList());
+                return new DevStepOutcome(true, 0, DevJson.Array(HostUsages.Concat(_executor.Usages),
+                    x => new JsonObject { ["Op"] = x.Op, ["Usage"] = x.Usage }));
             case "app.quit":
                 _ = Task.Delay(QuitDelay).ContinueWith(_ => DevScriptRunner.QuitApp(), TaskScheduler.Default);
                 return new DevStepOutcome(true, 0);

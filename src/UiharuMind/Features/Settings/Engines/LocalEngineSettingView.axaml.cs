@@ -74,11 +74,7 @@ public partial class LocalEngineSettingView : UserControl
 
     // 与 {loc:Loc} 同一种绑定：换语言跟着变，不依赖 DataContext（设置搜索在页面没显示时也读得到）
     private static void BindText(AvaloniaObject target, AvaloniaProperty property, LangKey key) =>
-        target.Bind(property, new Binding
-        {
-            Source = LocalizedString.Get(key.ToString()),
-            Path = nameof(LocalizedString.Value)
-        });
+        target.Bind(property, LocalizedString.Get(key.ToString()).CreateBinding());
 
     private void OnManageModelsClick(object? sender, RoutedEventArgs e) => _manageModels();
 }

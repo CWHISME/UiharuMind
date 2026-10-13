@@ -12,8 +12,8 @@ namespace UiharuMind.Core.AI.Chat;
 /// 不需要手抄派生表。形状与语义由 <c>SessionJsonShapeGuardTests</c> 两层护栏兜底。
 /// </summary>
 /// <remarks>
-/// 只保留会话档案要用的类型。SaveUtility（A2，object 通用路由，未知类型容错）不在这里，
-/// 两摊口径独立，互不牵连（用户拍板，converter 单点不全局动 object，理由见该决策）。
+/// 只保留会话档案要用的类型。存档那摊在 SaveJsonContext，两摊口径独立，互不牵连
+/// （用户拍板，converter 单点不全局动 object，理由见该决策）。
 /// </remarks>
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,

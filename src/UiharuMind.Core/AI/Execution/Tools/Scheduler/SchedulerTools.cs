@@ -34,7 +34,7 @@ public static class SchedulerTools
     {
         // 二选一的时间参数与预授权都必须带默认值:无默认值的参数框架按必填处理,
         // 模型只给 delayMinutes 时会直接抛"缺少必填参数 fireAtIso"
-        AIFunction function = AIFunctionFactory.Create(
+        AIFunction function = ToolJson.CreateFunction(
             (
                 [Description("简短、人类可读的任务名。")]
                 string displayName,
@@ -49,9 +49,8 @@ public static class SchedulerTools
                              "其余命令在执行时会被拒绝。")]
                 string[]? preAuthorizedCommands = null
             ) => CreateTaskAsync(workspacePath, displayName, prompt, delayMinutes, fireAtIso, preAuthorizedCommands),
-            // 宽容口径:preAuthorizedCommands 也是 string[],模型给标量字符串时照收(见 ToolJson)
-            ToolJson.CreateFactoryOptions(ToolName,
-                "安排一个智能体任务在未来某个时间自动运行（如「30 分钟后提交仓库」）。"));
+            ToolName,
+            "安排一个智能体任务在未来某个时间自动运行（如「30 分钟后提交仓库」）。");
 
         return new ApprovalRequiredAIFunction(function);
     }

@@ -230,22 +230,6 @@ internal static class AgentAssembler
             // 同一回复内的多个工具调用并行执行(框架默认串行)。全局开、不按工具分档,
             // 依赖顺序的调用靠提示词让模型拆成多轮;子代理由此才能真的并发。见 ADR 0022 的修订段
             functionInvoker.AllowConcurrentInvocation = true;
-            // A1.5 尖刺：自定义 FunctionInvoker 接管工具调用，绕过 AIFunction.InvokeAsync
-            // 的返回值反射序列化（AOT 下 EmptyJsonTypeInfoResolver 禁用）。
-            // 我们的 AotToolFunction 走 InvokeDirect（handler 直调）；其它 AIFunction
-            // 暂时回落 InvokeAsync（AOT 下会炸，A2 全量换 AotToolFunction 后消失）。
-            // trace：打日志确认 agent 工具调用真的走这个 invoker。
-            functionInvoker.FunctionInvoker = (ctx, ct) =>
-            {
-                UiharuMind.Core.Core.SimpleLog.Log.Debug($"AOT invoker: {ctx.Function.Name}");
-                if (ctx.Function is UiharuMind.Core.AI.Execution.Tools.AotToolFunction aot)
-                {
-                    ctx.Terminate = false;
-                    return aot.InvokeDirect(ctx.Arguments, ct);
-                }
-
-                return ctx.Function.InvokeAsync(ctx.Arguments, ct);
-            };
         }
 
         // 选项此刻已装配完毕,记在句柄上供旁路请求(写交接文档)复用同一份

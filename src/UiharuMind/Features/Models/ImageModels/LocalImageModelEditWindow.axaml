@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:images="clr-namespace:UiharuMind.Features.Models.ImageModels"
         xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+        xmlns:data="clr-namespace:UiharuMind.Shared.Data"
         xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
         x:Class="UiharuMind.Features.Models.ImageModels.LocalImageModelEditWindow"
         x:DataType="images:LocalImageModelEditViewData"
@@ -58,20 +59,20 @@
                         <TextBlock Text="{loc:Loc LocalImageSampler}" />
                         <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding SamplerOptions}"
                                   SelectedItem="{Binding Sampler}"
-                                  DisplayMemberBinding="{ReflectionBinding DisplayName}" />
+                                  DisplayMemberBinding="{Binding DisplayName, DataType=data:ISettingChoice}" />
                     </StackPanel>
                     <StackPanel Grid.Column="1" Spacing="6">
                         <TextBlock Text="{loc:Loc LocalImageScheduler}" />
                         <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding SchedulerOptions}"
                                   SelectedItem="{Binding Scheduler}"
-                                  DisplayMemberBinding="{ReflectionBinding DisplayName}" />
+                                  DisplayMemberBinding="{Binding DisplayName, DataType=data:ISettingChoice}" />
                     </StackPanel>
                 </Grid>
 
                 <StackPanel Spacing="6">
                     <TextBlock Text="{loc:Loc LocalImageBaseResolution}" />
                     <ComboBox Width="160" ItemsSource="{Binding ResolutionOptions}" SelectedItem="{Binding BaseResolution}"
-                                  DisplayMemberBinding="{ReflectionBinding DisplayName}" />
+                                  DisplayMemberBinding="{Binding DisplayName, DataType=data:ISettingChoice}" />
                     <TextBlock Text="{loc:Loc LocalImageBaseResolutionHint}" Classes="muted" TextWrapping="Wrap" />
                 </StackPanel>
 

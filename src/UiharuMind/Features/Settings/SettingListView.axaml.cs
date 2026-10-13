@@ -128,10 +128,10 @@ public partial class SettingListView : UserControl
     /// </summary>
     private void RefreshResetView()
     {
-        if (SettingConfig == null) return;
+        if (_settingConfig == null) return;
         SettingContent.Children.Clear();
         _changeActions.Clear();
-        foreach (var property in SettingConfig.GetType().GetProperties())
+        foreach (var property in _settingConfig.GetType().GetProperties())
         {
             // var value = property.GetValue(SettingConfig);
             CreateControlForType(property.PropertyType, property);

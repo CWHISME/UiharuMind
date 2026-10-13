@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace UiharuMind.Core.AI.Execution.Tools.WebTools;
 
@@ -23,7 +24,7 @@ internal sealed class FirecrawlSearchProvider : ISearchProvider
     {
         //失败一律抛给兜底链:它负责记日志并落到下一环,这里再吞一次只会让日志出现两条
         string json = await FirecrawlClient
-            .PostAsync("search", new { query, limit = offset + count }, ct)
+            .PostAsync("search", new JsonObject { ["query"] = query, ["limit"] = offset + count }, ct)
             .ConfigureAwait(false);
         FirecrawlClient.EnsureSuccess(json);
         //没有原生偏移，多取再切片

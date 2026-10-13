@@ -130,7 +130,7 @@ public partial class SettingsWindow : UiharuWindowBase
         if (spec.Engine != null)
         {
             Border dot = new() { Classes = { UpdateDotClass }, Tag = "Progress" };
-            dot.Bind(IsVisibleProperty, new Binding(nameof(EngineVersionsViewData.HasUpdate)) { Source = spec.Engine });
+            dot.Bind(IsVisibleProperty, CompiledBinding.Create<EngineVersionsViewData, bool>(x => x.HasUpdate, spec.Engine));
             if (spec.UpdateTipKey != null) dot.Bind(ToolTip.TipProperty, Localized(spec.UpdateTipKey));
             content.Children.Add(dot);
         }
@@ -140,8 +140,7 @@ public partial class SettingsWindow : UiharuWindowBase
         return button;
     }
 
-    private static Binding Localized(string key) =>
-        new(nameof(LocalizedString.Value)) { Source = LocalizedString.Get(key, null) };
+    private static CompiledBinding Localized(string key) => LocalizedString.Get(key, null).CreateBinding();
 
     private SettingsPageEntry? FindByButton(Button button) =>
         _pages.FirstOrDefault(page => page.NavButton == button);

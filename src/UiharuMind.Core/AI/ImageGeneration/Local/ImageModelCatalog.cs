@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace UiharuMind.Core.AI.ImageGeneration;
 
@@ -102,8 +103,6 @@ public sealed record ImageModelCatalog(string EngineBuild, IReadOnlyList<ImageCa
 
     private static readonly Lazy<ImageModelCatalog> BuiltInInstance = new(LoadBuiltIn);
 
-    private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web);
-
     /// <summary>
     /// 内置的那份
     /// </summary>
@@ -122,7 +121,7 @@ public sealed record ImageModelCatalog(string EngineBuild, IReadOnlyList<ImageCa
     /// <param name="json">JSON 文本</param>
     /// <returns>清单</returns>
     public static ImageModelCatalog Parse(string json) =>
-        JsonSerializer.Deserialize<ImageModelCatalog>(json, Options)
+        JsonSerializer.Deserialize(json, ImageModelCatalogJsonContext.Default.ImageModelCatalog)
         ?? throw new InvalidDataException("Image model catalog is empty.");
 
     private static ImageModelCatalog LoadBuiltIn()
@@ -133,3 +132,7 @@ public sealed record ImageModelCatalog(string EngineBuild, IReadOnlyList<ImageCa
         return Parse(reader.ReadToEnd());
     }
 }
+
+[JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+[JsonSerializable(typeof(ImageModelCatalog))]
+internal sealed partial class ImageModelCatalogJsonContext : JsonSerializerContext;

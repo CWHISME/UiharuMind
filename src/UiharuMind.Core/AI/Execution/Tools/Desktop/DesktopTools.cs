@@ -9,7 +9,6 @@
 
 using System.ComponentModel;
 using System.Text;
-using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Files;
@@ -87,13 +86,8 @@ public sealed class DesktopTools
     {
         DesktopTools tools = new(host, sessionId, spillDirectory, paths, screenshots);
         bool canScreenshot = screenshots != EReadImageMode.None;
-
-        // A2 冒烟子集：5 个桌面工具手写 AotToolFunction（显式 schema + handler，绕开 AIFunctionFactory 反射）
-        static AIFunction Simple(string name, string description, JsonNode schema,
-            Func<AIFunctionArguments, CancellationToken, Task<object?>> handler) =>
-            new AotToolFunction(name, description, AotToolFunction.SchemaFromNode(schema), handler);
-
-        string snapshotDescription =
+        // 扩展目录只列说明的第一行（截到 160 字），要紧的写在第一行
+        AIFunction snapshot = ToolJson.CreateFunction(tools.SnapshotAsync, SnapshotToolName,
             "读取一个窗口的界面：带 ref（如 e5）的无障碍快照；读不到结构时自动认窗口图里的字（ocr-text，同样带 ref）。" +
             (canScreenshot
                 ? "view：outline（默认）、ocr、screenshot（另附一张框出各 ref 的截图，看图标、图片、排版时用）。"
@@ -102,77 +96,22 @@ public sealed class DesktopTools
             "认出的每行带它中心在窗口里的位置，但看不到图片，也分不出哪行属于哪张卡片。" +
             (screenshots == EReadImageMode.PointToAnalyzeImage
                 ? "截图要另交给看图的模型，一次十几到几十秒；认出的字随快照就有。"
-                : string.Empty) + ThirdPartyNotice;
-
+                : string.Empty) + ThirdPartyNotice);
         return
         [
-            Simple(WindowsToolName,
-                "列出桌面上打开的窗口（含最小化的），前台的在前，每个带编号如 w3。编号在本应用运行期间不变。",
-                new JsonObject { ["type"] = "object", ["properties"] = new JsonObject(), ["required"] = new JsonArray() },
-                async (args, ct) => await tools.WindowsAsync(ct)),
-            Simple(SnapshotToolName, snapshotDescription,
-                new JsonObject
-                {
-                    ["type"] = "object",
-                    ["properties"] = new JsonObject
-                    {
-                        ["window"] = new JsonObject { ["type"] = "string", ["description"] = "窗口编号（如 w3），或应用名、标题里的字" },
-                        ["view"] = new JsonObject { ["type"] = "string", ["default"] = "outline", ["description"] = canScreenshot ? "outline（默认）、ocr 或 screenshot" : "outline（默认）或 ocr" },
-                        ["find"] = new JsonObject { ["type"] = "string", ["nullable"] = true, ["description"] = "可选词或短语：只留包含它的行" },
-                    },
-                    ["required"] = new JsonArray(JsonValue.Create("window")),
-                },
-                async (args, ct) => await tools.SnapshotAsync(AotToolFunction.Marshaller.String(args, "window")!,
-                    AotToolFunction.Marshaller.String(args, "view") ?? "outline",
-                    AotToolFunction.Marshaller.String(args, "find"), ct)),
-            Simple(ActToolName,
+            ToolJson.CreateFunction(tools.WindowsAsync, WindowsToolName,
+                "列出桌面上打开的窗口（含最小化的），前台的在前，每个带编号如 w3。编号在本应用运行期间不变。"),
+            canScreenshot ? new ParameterDescriptionFunction(snapshot, "view", "outline（默认）、ocr 或 screenshot") : snapshot,
+            ToolJson.CreateFunction(tools.ActAsync, ActToolName,
                 "在一个窗口里执行动作，结果已包含更新后的快照（或只含变动的行）。默认不移动鼠标、不抢前台；" +
                 "点了没反应时可改用 input \"real\" 用真实鼠标键盘（要用户同意，用户可为这个应用放行本会话）。" +
-                $"标记为 [password] 的字段不能输入：用 {HandoffMention}。" + ThirdPartyNotice,
-                new JsonObject
-                {
-                    ["type"] = "object",
-                    ["properties"] = new JsonObject
-                    {
-                        ["window"] = new JsonObject { ["type"] = "string", ["description"] = "窗口编号（如 w3），与拍快照时同一个" },
-                        ["action"] = new JsonObject { ["type"] = "string", ["description"] = "动作，取其一：click | double_click | right_click | fill | type | select | check | uncheck | press | focus | scroll" },
-                        ["target"] = new JsonObject { ["type"] = "string", ["default"] = "", ["description"] = "最近快照里的 ref（如 e5）；没有 ref 时填看得见的文字，或窗口内坐标「x,y」。整窗的 press、type、scroll 留空。" },
-                        ["value"] = new JsonObject { ["type"] = "string", ["default"] = "", ["description"] = "fill：要填入的文字；type：要打的字；select：选项的文字；press：按键；scroll：up 或 down。" },
-                        ["input"] = new JsonObject { ["type"] = "string", ["default"] = "", ["description"] = "留空或 real：用真实鼠标键盘，要用户同意。" },
-                    },
-                    ["required"] = new JsonArray(JsonValue.Create("window"), JsonValue.Create("action")),
-                },
-                async (args, ct) => await tools.ActAsync(AotToolFunction.Marshaller.String(args, "window")!,
-                    AotToolFunction.Marshaller.String(args, "action")!,
-                    AotToolFunction.Marshaller.String(args, "target") ?? "",
-                    AotToolFunction.Marshaller.String(args, "value") ?? "",
-                    AotToolFunction.Marshaller.String(args, "input") ?? "", ct)),
-            Simple(OpenToolName,
-                "启动一个应用（按名字，如 TextEdit、Notepad、Calculator），或用默认应用打开工作区或草稿目录里的文件。返回打开后的窗口。",
-                new JsonObject
-                {
-                    ["type"] = "object",
-                    ["properties"] = new JsonObject
-                    {
-                        ["target"] = new JsonObject { ["type"] = "string", ["description"] = "应用名（如 TextEdit、Notepad），或工作区、草稿目录里文件的路径" },
-                    },
-                    ["required"] = new JsonArray(JsonValue.Create("target")),
-                },
-                async (args, ct) => await tools.OpenAsync(AotToolFunction.Marshaller.String(args, "target")!, ct)),
-            Simple(HandoffToolName,
-                "把一个窗口交给用户去做只有他们该做的事：输入密码、确认付款、做你做不了的操作。等他们交回，再把窗口按原样返回。",
-                new JsonObject
-                {
-                    ["type"] = "object",
-                    ["properties"] = new JsonObject
-                    {
-                        ["window"] = new JsonObject { ["type"] = "string", ["description"] = "窗口编号（如 w3）" },
-                        ["task"] = new JsonObject { ["type"] = "string", ["description"] = "让用户在这个窗口里做的事，用对话所用语言写给用户" },
-                    },
-                    ["required"] = new JsonArray(JsonValue.Create("window"), JsonValue.Create("task")),
-                },
-                async (args, ct) => await tools.HandoffAsync(AotToolFunction.Marshaller.String(args, "window")!,
-                    AotToolFunction.Marshaller.String(args, "task")!, ct)),
+                $"标记为 [password] 的字段不能输入：用 {HandoffMention}。" + ThirdPartyNotice),
+            ToolJson.CreateFunction(tools.OpenAsync, OpenToolName,
+                "启动一个应用（按名字，如 TextEdit、Notepad、Calculator），或用默认应用打开工作区或草稿目录里的文件。" +
+                "返回打开后的窗口。"),
+            ToolJson.CreateFunction(tools.HandoffAsync, HandoffToolName,
+                "把一个窗口交给用户去做只有他们该做的事：输入密码、确认付款、做你做不了的操作。" +
+                "等他们交回，再把窗口按原样返回。"),
         ];
     }
 

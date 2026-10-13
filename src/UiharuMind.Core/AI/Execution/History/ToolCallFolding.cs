@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Agents.AI.Compaction;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.AI.Execution.History;
 
@@ -42,7 +43,7 @@ internal static class ToolCallFolding
         {
             text.Append("\n- ").Append(call.Name);
             if (call.Arguments is { Count: > 0 } arguments)
-                text.Append(' ').Append(Clip(JsonSerializer.Serialize(arguments), ArgumentsChars));
+                text.Append(' ').Append(Clip(JsonSerializer.Serialize(arguments, ToolJson.Arguments), ArgumentsChars));
             if (results.TryGetValue(call.CallId, out string? result)) text.Append("：").Append(Preview(result));
         }
 

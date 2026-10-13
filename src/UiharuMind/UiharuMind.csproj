@@ -8,6 +8,9 @@
 		<!-- AVLN3001: 带参构造的 TopLevel（WorldBook 两窗）只被代码 new、不经资源 URI 运行时加载，
 		     该警告是 Avalonia 已知假阳性（issue #11312，官方同意应可压制） -->
 		<NoWarn>$(NoWarn);AVLN3001</NoWarn>
+		<!-- 反射与非 source-gen 序列化在编译期报警（IL2xxx/IL3xxx）：AOT 下这些地方会静默失效，别等到 AOT 产物里才撞上 -->
+		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+		<EnableAotAnalyzer>true</EnableAotAnalyzer>
 	</PropertyGroup>
 	
 	<ItemGroup>

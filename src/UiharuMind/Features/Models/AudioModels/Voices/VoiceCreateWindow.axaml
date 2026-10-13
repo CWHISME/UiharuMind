@@ -63,7 +63,7 @@
                                IsVisible="{Binding !CanDraw}" />
                     <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding CanDraw}">
                         <ComboBox MinWidth="220" ItemsSource="{Binding DrawModels}" SelectedItem="{Binding SelectedDrawModel}"
-                                  DisplayMemberBinding="{ReflectionBinding DisplayName}" IsEnabled="{Binding !IsDrawing}" />
+                                  DisplayMemberBinding="{Binding DisplayName, DataType=voices:VoiceDrawModel}" IsEnabled="{Binding !IsDrawing}" />
                         <Button Classes="Primary" Command="{Binding DrawCommand}" IsEnabled="{Binding !IsDrawing}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <controls:ThemedSvgIcon Width="15" Height="15" IconName="dices" />

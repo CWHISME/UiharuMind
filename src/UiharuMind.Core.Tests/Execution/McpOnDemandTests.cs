@@ -131,7 +131,7 @@ public class McpOnDemandTests : IDisposable
     {
         Dictionary<string, McpServerLocalState> states = JsonSerializer.Deserialize<Dictionary<string, McpServerLocalState>>(
             """{"unity":{"IsEnabled":false,"InjectInstructions":false,"MountMode":1,"Description":"d"}}""",
-            SaveUtility.JsonOptions)!;
+            SaveUtility.SaveJsonOptions)!;
         McpServersFile file = new() { McpServers = { ["unity"] = new McpServerEntry { Command = "npx" } } };
 
         McpServerConfig config = Assert.Single(file.ToConfigs(states));

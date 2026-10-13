@@ -32,7 +32,7 @@ internal sealed class AgnesImageDialect : ImageDialectBase
         if (request.IsEdit)
         {
             JsonArray images = new();
-            foreach (ImageInput image in request.Images) images.Add(ImageFormats.ToDataUrl(image.Bytes, image.MediaType));
+            foreach (ImageInput image in request.Images) images.Add((JsonNode?)ImageFormats.ToDataUrl(image.Bytes, image.MediaType));
             body["image"] = images;
         }
 

@@ -30,15 +30,11 @@ public sealed record GitHubReleaseAssetSelectOptions(
     bool MatchCurrentPlatform = true,
     bool MatchCurrentArchitecture = true);
 
-public static class GitHubReleaseAssetHelper
+public static partial class GitHubReleaseAssetHelper
 {
     private const int RecentReleaseCount = 20;
     private const int FeedTagLimit = 5; // 网页兜底逐个请求，少看几个
     private static readonly HttpClient HttpClient = CreateHttpClient();
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
 
     public static async Task<GitHubReleaseInfo?> GetLatestReleaseAsync(
         string owner,
@@ -80,8 +76,8 @@ public static class GitHubReleaseAssetHelper
             response.EnsureSuccessStatusCode();
             await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken)
                 .ConfigureAwait(false);
-            List<GitHubReleaseDto>? dtos = await JsonSerializer.DeserializeAsync<List<GitHubReleaseDto>>(
-                stream, JsonOptions, cancellationToken).ConfigureAwait(false);
+            List<GitHubReleaseDto>? dtos = await JsonSerializer.DeserializeAsync(
+                stream, ReleaseJsonContext.Default.ListGitHubReleaseDto, cancellationToken).ConfigureAwait(false);
             return dtos?.Select(dto => ToReleaseInfo(owner, repository, dto)).OfType<GitHubReleaseInfo>()
                 .FirstOrDefault(accept);
         }
@@ -230,8 +226,8 @@ public static class GitHubReleaseAssetHelper
 
         await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken)
             .ConfigureAwait(false);
-        var dto = await JsonSerializer.DeserializeAsync<GitHubReleaseDto>(
-            stream, JsonOptions, cancellationToken).ConfigureAwait(false);
+        var dto = await JsonSerializer.DeserializeAsync(
+            stream, ReleaseJsonContext.Default.GitHubReleaseDto, cancellationToken).ConfigureAwait(false);
         return dto == null ? null : ToReleaseInfo(owner, repository, dto);
     }
 
@@ -248,8 +244,8 @@ public static class GitHubReleaseAssetHelper
 
         await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken)
             .ConfigureAwait(false);
-        var dto = await JsonSerializer.DeserializeAsync<GitHubReleaseDto>(
-            stream, JsonOptions, cancellationToken).ConfigureAwait(false);
+        var dto = await JsonSerializer.DeserializeAsync(
+            stream, ReleaseJsonContext.Default.GitHubReleaseDto, cancellationToken).ConfigureAwait(false);
         return dto == null ? null : ToReleaseInfo(owner, repository, dto);
     }
 
@@ -432,4 +428,9 @@ public static class GitHubReleaseAssetHelper
         [JsonPropertyName("size")] public long Size { get; set; }
         [JsonPropertyName("digest")] public string? Digest { get; set; }
     }
+
+    [JsonSourceGenerationOptions(PropertyNameCaseInsensitive = true)]
+    [JsonSerializable(typeof(GitHubReleaseDto))]
+    [JsonSerializable(typeof(List<GitHubReleaseDto>))]
+    private sealed partial class ReleaseJsonContext : JsonSerializerContext;
 }

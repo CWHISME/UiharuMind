@@ -9,6 +9,7 @@ using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.Browser;
+using UiharuMind.Core.AI.Execution.Tools.Desktop;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Tests.Agent;
 
@@ -84,6 +85,18 @@ public class ExtensionTests
         Assert.Contains("\"path\"", detail);
     }
 
+    /// <summary>命令详情里的参数说明是给模型读的：中文要原样出来，不能是一串 \uXXXX</summary>
+    [Fact]
+    public async Task Help_Detail_KeepsNonAsciiDescriptionsReadable()
+    {
+        ExtensionHub hub = Hub(BuiltinExtensions.CreateAudio(Paths, null));
+
+        string detail = await hub.HelpAsync("audio", "transcribe", TestContext.Current.CancellationToken);
+
+        Assert.Contains("音频文件的路径", detail);
+        Assert.DoesNotContain("\\u", detail);
+    }
+
     [Fact]
     public async Task Call_BindsArgumentsAndRunsTheCommand()
     {
@@ -116,8 +129,10 @@ public class ExtensionTests
             EReadImageMode.None);
         BuiltinExtension audio = BuiltinExtensions.CreateAudio(Paths, new CharacterData { CharacterName = "Me" });
         BuiltinExtension image = BuiltinExtensions.CreateImage(Paths, null, configured: false);
+        BuiltinExtension desktop = BuiltinExtensions.CreateDesktop(new DesktopHost(null), "s1", "/tmp/uiharu-spill");
 
         Assert.Equal(["snapshot", "navigate", "act", "handoff"], browser.Commands.Select(x => x.Name));
+        Assert.Equal(["windows", "snapshot", "act", "open", "handoff"], desktop.Commands.Select(x => x.Name));
         Assert.Equal(["synthesize", "transcribe"], audio.Commands.Select(x => x.Name));
         Assert.Equal(["generate"], image.Commands.Select(x => x.Name));
         Assert.NotNull(image.Unavailable);
@@ -267,10 +282,10 @@ public class ExtensionTests
     public void LegacyDisabledMcpServers_AreReadIntoDisabledExtensions()
     {
         AgentToolConfig config = JsonSerializer.Deserialize<AgentToolConfig>(
-            """{"EnableBrowser":true,"DisabledMcpServers":["unity"]}""", SaveUtility.JsonOptions)!;
+            """{"EnableBrowser":true,"DisabledMcpServers":["unity"]}""", SaveUtility.SaveJsonOptions)!;
 
         Assert.Equal(["unity"], config.DisabledExtensions);
-        string json = JsonSerializer.Serialize(config, SaveUtility.JsonOptions);
+        string json = JsonSerializer.Serialize(config, SaveUtility.SaveJsonOptions);
         Assert.DoesNotContain("DisabledMcpServers", json);
         Assert.DoesNotContain("EnableBrowser", json);
     }

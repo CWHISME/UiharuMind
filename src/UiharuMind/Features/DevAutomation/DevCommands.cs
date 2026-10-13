@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -46,7 +47,6 @@ internal static class DevCommandRegistry
         new OpenSessionCommand(),
         new MemoryStatsCommand(),
         new FontDiagnosticsCommand(),
-        new AotSpikeCommand(),
         new SessionSearchCommand(),
         new SessionsSearchCommand(),
         ..GroupDevCommands.CreateAll(),
@@ -99,7 +99,7 @@ internal sealed class JumpToPageCommand : IDevCommand
                            "page 为 model 时可带 tab（chat / image / audio / downloads / image-downloads / audio-downloads）切页签，" +
                            "或带 search（可为空串）切到「获取模型」并按它搜索（会联网）";
 
-    public object? Execute(JsonElement args)
+    public JsonNode? Execute(JsonElement args)
     {
         string page = DevCommandRegistry.RequireString(args, "page");
         // 对话页已合并：agent/chat 都进同一个页面，再经切换器拨到对应类型区
@@ -138,7 +138,7 @@ internal sealed class JumpToPageCommand : IDevCommand
             }
         }
 
-        return new { page };
+        return new JsonObject { ["page"] = page };
     }
 }
 
@@ -151,24 +151,24 @@ internal sealed class UiSnapshotCommand : IDevCommand
 
     public string Usage => "当前界面的快照：页、会话、条目数、忙碌态";
 
-    public object? Execute(JsonElement args)
+    public JsonNode? Execute(JsonElement args)
     {
         if (DevCommandRegistry.CurrentConversationPage() is not { } page)
         {
-            return new { page = App.ViewModel.Content?.GetType().Name };
+            return new JsonObject { ["page"] = App.ViewModel.Content?.GetType().Name };
         }
 
         var conversation = page.Conversation;
-        return new
+        return new JsonObject
         {
-            page = page.GetType().Name,
-            sessionId = conversation.CurrentMeta?.SessionId,
-            title = conversation.Title,
-            items = conversation.Items.Count,
-            hasEarlierMessages = conversation.HasEarlierMessages,
-            isGenerating = conversation.IsGenerating,
-            isSessionLoading = conversation.IsSessionLoading,
-            sessionsInList = page.SessionList.Sessions.Count,
+            ["page"] = page.GetType().Name,
+            ["sessionId"] = conversation.CurrentMeta?.SessionId,
+            ["title"] = conversation.Title,
+            ["items"] = conversation.Items.Count,
+            ["hasEarlierMessages"] = conversation.HasEarlierMessages,
+            ["isGenerating"] = conversation.IsGenerating,
+            ["isSessionLoading"] = conversation.IsSessionLoading,
+            ["sessionsInList"] = page.SessionList.Sessions.Count,
         };
     }
 }
@@ -180,12 +180,10 @@ internal sealed class SessionListCommand : IDevCommand
 
     public string Usage => "列出当前会话页里的会话（id 与名字）";
 
-    public object? Execute(JsonElement args)
+    public JsonNode? Execute(JsonElement args)
     {
         ConversationPageDataBase page = DevCommandRegistry.RequireConversationPage();
-        return page.SessionList.Sessions
-            .Select(x => new { id = x.SessionId, name = x.Name })
-            .ToList();
+        return DevJson.Array(page.SessionList.Sessions, x => new JsonObject { ["id"] = x.SessionId, ["name"] = x.Name });
     }
 }
 
@@ -203,7 +201,7 @@ internal sealed class SessionsListCommand : IDevCommand
 
     public string Usage => "列出会话（默认最近 20 条，含群壳，isGroup 标记）。groups（只看群）、query（按标题过滤）、limit（条数，0 不限）";
 
-    public object? Execute(JsonElement args)
+    public JsonNode? Execute(JsonElement args)
     {
         int limit = GroupDevCommands.IntOr(args, "limit", DefaultLimit);
         bool groupsOnly = GroupDevCommands.BoolOr(args, "groups", false);
@@ -214,9 +212,10 @@ internal sealed class SessionsListCommand : IDevCommand
         if (query is not null) metas = metas.Where(x => x.Title.Contains(query, StringComparison.OrdinalIgnoreCase));
         if (limit > 0) metas = metas.Take(limit);
 
-        return metas
-            .Select(x => new { id = x.SessionId, name = x.Title, isGroup = x.IsGroup, updatedAt = x.UpdatedAt })
-            .ToList();
+        return DevJson.Array(metas, x => new JsonObject
+        {
+            ["id"] = x.SessionId, ["name"] = x.Title, ["isGroup"] = x.IsGroup, ["updatedAt"] = x.UpdatedAt,
+        });
     }
 }
 
@@ -230,7 +229,7 @@ internal sealed class OpenSessionCommand : IDevCommand
 
     public string Usage => "在会话页里打开某个会话（与左栏点一下同一条路）。id";
 
-    public object? Execute(JsonElement args)
+    public JsonNode? Execute(JsonElement args)
     {
         string sessionId = DevCommandRegistry.RequireString(args, "id");
         ConversationPageDataBase page = DevCommandRegistry.RequireConversationPage();
@@ -238,7 +237,7 @@ internal sealed class OpenSessionCommand : IDevCommand
                                ?? throw new ArgumentException($"session '{sessionId}' is not in this page's list");
 
         page.SessionList.SelectedSession = item;
-        return new { opened = sessionId };
+        return new JsonObject { ["opened"] = sessionId };
     }
 }
 
@@ -252,7 +251,7 @@ internal sealed class MemoryStatsCommand : IDevCommand
 
     public string Usage => "内存与驻留：托管堆、活对象、加载的会话与常驻历史。collect（true 时先强制回收）";
 
-    public object? Execute(JsonElement args)
+    public JsonNode? Execute(JsonElement args)
     {
         bool collect = args.ValueKind == JsonValueKind.Object &&
                        args.TryGetProperty("collect", out JsonElement value) &&
@@ -263,20 +262,20 @@ internal sealed class MemoryStatsCommand : IDevCommand
         // 活对象、已提交、碎片三个数要一起看:用户看到的那个「占用多少」是已提交那一档,
         // 而它减去活对象就是 IdleMemoryReclaimer 该还掉的部分
         GCMemoryInfo info = GC.GetGCMemoryInfo();
-        return new
+        return new JsonObject
         {
-            managedHeapMb = Math.Round(GC.GetTotalMemory(collect) / 1048576.0, 1),
+            ["managedHeapMb"] = Math.Round(GC.GetTotalMemory(collect) / 1048576.0, 1),
             // 上一次阻塞式全量回收存活下来的字节 = 活对象。managedHeapMb 不是它：实测可以比已提交还大
             // （开群 140MB > 已提交 118MB，同刻 dumpheap -live 84MB），拿它判泄漏会判错；不带 collect 时这个数是上一次全量回收的，可能偏旧
-            liveMb = Math.Round(GC.GetGCMemoryInfo(GCKind.FullBlocking).PromotedBytes / 1048576.0, 1),
-            committedMb = Math.Round(info.TotalCommittedBytes / 1048576.0, 1),
-            fragmentedMb = Math.Round(info.FragmentedBytes / 1048576.0, 1),
-            workingSetMb = Math.Round(Environment.WorkingSet / 1048576.0, 1),
-            loadedSessions = SessionManager.Instance.LoadedSessionCount,
-            residentHistories = SessionManager.Instance.ResidentHistoryCount,
-            gen2Collections = GC.CollectionCount(2),
-            desktopSnapshotStates = UiharuMind.Core.AI.Execution.Tools.Desktop.DesktopHost.Shared.DesktopSnapshotStateCount,
-            desktopAppGates = UiharuMind.Core.AI.Execution.Tools.Desktop.DesktopHost.Shared.AppGateCount,
+            ["liveMb"] = Math.Round(GC.GetGCMemoryInfo(GCKind.FullBlocking).PromotedBytes / 1048576.0, 1),
+            ["committedMb"] = Math.Round(info.TotalCommittedBytes / 1048576.0, 1),
+            ["fragmentedMb"] = Math.Round(info.FragmentedBytes / 1048576.0, 1),
+            ["workingSetMb"] = Math.Round(Environment.WorkingSet / 1048576.0, 1),
+            ["loadedSessions"] = SessionManager.Instance.LoadedSessionCount,
+            ["residentHistories"] = SessionManager.Instance.ResidentHistoryCount,
+            ["gen2Collections"] = GC.CollectionCount(2),
+            ["desktopSnapshotStates"] = DevJson.Counts(UiharuMind.Core.AI.Execution.Tools.Desktop.DesktopHost.Shared.DesktopSnapshotStateCount),
+            ["desktopAppGates"] = UiharuMind.Core.AI.Execution.Tools.Desktop.DesktopHost.Shared.AppGateCount,
         };
     }
 }
@@ -297,7 +296,7 @@ internal sealed class FontDiagnosticsCommand : IDevCommand
 
     public string Usage => "字体诊断：样本文字每段实际用到的字体。text、family";
 
-    public object? Execute(JsonElement args)
+    public JsonNode? Execute(JsonElement args)
     {
         string text = Arg(args, "text") ?? "修了什么 Bold 123";
         string? familyArg = Arg(args, "family");
@@ -305,11 +304,11 @@ internal sealed class FontDiagnosticsCommand : IDevCommand
             ? new FontFamily(familyArg)
             : Application.Current?.FindResource("MainFont") as FontFamily ?? FontFamily.Default;
 
-        return new
+        return new JsonObject
         {
-            family = family.ToString(),
-            normal = Describe(text, family, FontWeight.Normal),
-            bold = Describe(text, family, FontWeight.Bold),
+            ["family"] = family.ToString(),
+            ["normal"] = Describe(text, family, FontWeight.Normal),
+            ["bold"] = Describe(text, family, FontWeight.Bold),
         };
     }
 
@@ -318,27 +317,27 @@ internal sealed class FontDiagnosticsCommand : IDevCommand
             ? value.GetString()
             : null;
 
-    private static object Describe(string text, FontFamily family, FontWeight weight)
+    private static JsonObject Describe(string text, FontFamily family, FontWeight weight)
     {
         TextBlock block = new() { Text = text, FontFamily = family, FontWeight = weight, FontSize = 20 };
         block.Measure(new Size(2000, 2000));
 
-        List<object> runs = [];
+        JsonArray runs = [];
         foreach (TextLine line in block.TextLayout.TextLines)
         {
             foreach (TextRun run in line.TextRuns)
             {
                 if (run is not ShapedTextRun shaped) continue;
-                runs.Add(new
+                runs.Add((JsonNode)new JsonObject
                 {
-                    text = shaped.Text.Span.ToString(),
-                    typeface = shaped.GlyphRun.GlyphTypeface.FamilyName,
-                    weight = (int)shaped.GlyphRun.GlyphTypeface.Weight,
-                    simulations = shaped.GlyphRun.GlyphTypeface.FontSimulations.ToString(),
+                    ["text"] = shaped.Text.Span.ToString(),
+                    ["typeface"] = shaped.GlyphRun.GlyphTypeface.FamilyName,
+                    ["weight"] = (int)shaped.GlyphRun.GlyphTypeface.Weight,
+                    ["simulations"] = shaped.GlyphRun.GlyphTypeface.FontSimulations.ToString(),
                 });
             }
         }
 
-        return new { width = Math.Round(block.DesiredSize.Width, 1), runs };
+        return new JsonObject { ["width"] = Math.Round(block.DesiredSize.Width, 1), ["runs"] = runs };
     }
 }

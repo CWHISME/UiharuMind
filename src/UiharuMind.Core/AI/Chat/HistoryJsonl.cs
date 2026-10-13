@@ -12,6 +12,7 @@ using System.Text.Json;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.Core.Extensions;
 
 namespace UiharuMind.Core.AI.Chat;
 
@@ -42,7 +43,7 @@ public static class HistoryJsonl
         StringBuilder sb = new();
         foreach (ChatMessage message in messages)
         {
-            sb.Append(JsonSerializer.Serialize(message, LineOptions)).Append('\n');
+            sb.Append(JsonSerializer.Serialize(message, LineOptions.GetTypeInfo<ChatMessage>())).Append('\n');
         }
 
         return sb.ToString();
@@ -95,7 +96,7 @@ public static class HistoryJsonl
     private static ChatMessage? ParseLine(string line)
     {
         if (string.IsNullOrWhiteSpace(line)) return null;
-        ChatMessage? message = JsonSerializer.Deserialize<ChatMessage>(line, LineOptions);
+        ChatMessage? message = JsonSerializer.Deserialize(line, LineOptions.GetTypeInfo<ChatMessage>());
         if (message != null) ChatContentNormalizer.Normalize(message);
         return message;
     }

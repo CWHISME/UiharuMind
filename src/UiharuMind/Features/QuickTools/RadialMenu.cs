@@ -7,6 +7,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Media;
 using UiharuMind.Shared.Utils;
+using System.Windows.Input;
 
 namespace UiharuMind.Features.QuickTools
 {
@@ -79,9 +80,10 @@ namespace UiharuMind.Features.QuickTools
             {
                 var menuItem = new RadialMenuItem();
 
-                menuItem.Bind(RadialMenuItem.IconProperty, new Binding("Icon"));
-                menuItem.Bind(RadialMenuItem.TextProperty, new Binding("Text"));
-                menuItem.Bind(RadialMenuItem.CommandProperty, new Binding("ActionCommand"));
+                menuItem.Bind(RadialMenuItem.IconProperty, CompiledBinding.Create<MenuItemModel, string>(x => x.Icon));
+                menuItem.Bind(RadialMenuItem.TextProperty, CompiledBinding.Create<MenuItemModel, string>(x => x.Text));
+                menuItem.Bind(RadialMenuItem.CommandProperty,
+                    CompiledBinding.Create<MenuItemModel, ICommand>(x => x.ActionCommand));
                 menuItem.DataContext = item;
 
                 var geometry = PieSliceHelper.CreatePieSlice(

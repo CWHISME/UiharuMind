@@ -14,6 +14,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
+using System.Text.Json.Serialization.Metadata;
+using ModelContextProtocol;
 
 namespace UiharuMind.Core.AI.Execution.Mcp;
 
@@ -24,11 +26,7 @@ namespace UiharuMind.Core.AI.Execution.Mcp;
 /// </summary>
 internal sealed class PostOnlyHttpTransport : TransportBase
 {
-    /// 与 SDK 默认一致的序列化选项，仅补上 JsonRpcMessage 的转换器
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
-        Converters = { new JsonRpcMessage.Converter() },
-    };
+    private static readonly JsonTypeInfo<JsonRpcMessage> MessageInfo = McpJsonUtilities.DefaultOptions.GetTypeInfo<JsonRpcMessage>();
 
     private readonly HttpClient _httpClient;
     private readonly Uri _endpoint;
@@ -51,7 +49,7 @@ internal sealed class PostOnlyHttpTransport : TransportBase
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, _endpoint)
         {
-            Content = new StringContent(JsonSerializer.Serialize(message, SerializerOptions),
+            Content = new StringContent(JsonSerializer.Serialize(message, MessageInfo),
                 System.Text.Encoding.UTF8, "application/json"),
         };
         request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
@@ -89,7 +87,7 @@ internal sealed class PostOnlyHttpTransport : TransportBase
         if (string.IsNullOrWhiteSpace(payload))
             return;
 
-        JsonRpcMessage? reply = JsonSerializer.Deserialize<JsonRpcMessage>(payload, SerializerOptions);
+        JsonRpcMessage? reply = JsonSerializer.Deserialize(payload, MessageInfo);
         if (reply != null)
         {
             // WriteMessageAsync 只在 IsConnected 时才写入通道，必须先置为已连接

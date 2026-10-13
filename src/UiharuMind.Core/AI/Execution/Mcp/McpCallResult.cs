@@ -9,6 +9,7 @@
 
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Tools;
@@ -58,9 +59,15 @@ internal static class McpCallResult
             case IEnumerable<AIContent> contents:
                 return NormalizeContents(contents, spillDirectory, fileStem, paths);
             default:
-                return ToolResultSpill.Limit(JsonSerializer.Serialize(raw), spillDirectory, fileStem);
+                return ToolResultSpill.Limit(SerializeUnknown(raw), spillDirectory, fileStem);
         }
     }
+
+    // 认不出的结果形状：框架登记过的类型照写 JSON，其余（AOT 下没有类型信息）退成文本
+    private static string SerializeUnknown(object raw) =>
+        AIJsonUtilities.DefaultOptions.TryGetTypeInfo(raw.GetType(), out JsonTypeInfo? typeInfo)
+            ? JsonSerializer.Serialize(raw, typeInfo)
+            : raw.ToString() ?? string.Empty;
 
     /// <summary>
     /// 解包序列化的 CallToolResult。认不出形状（没有 content 数组）就退回原始文本，不丢信息。

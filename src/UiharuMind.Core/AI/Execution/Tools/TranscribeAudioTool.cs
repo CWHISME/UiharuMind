@@ -1,10 +1,9 @@
 using System.ComponentModel;
 using System.Text;
-using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Audio;
 using UiharuMind.Core.AI.Execution.Files;
-using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.AI.Execution;
 
@@ -31,25 +30,17 @@ public static class TranscribeAudioTool
 
     internal static AITool Create(AgentPathResolver paths, AudioFileTranscriber transcriber)
     {
-        // 手写 AotToolFunction（A2 全量扩展）：显式 schema + handler
-        return new AotToolFunction(ToolName,
+        return ToolJson.CreateFunction(
+            async ([Description("音频文件的路径（wav、mp3 或 flac）。")]
+                    string path,
+                    [Description("同时写出带分段时间戳的 SRT 字幕。")]
+                    bool subtitles = false,
+                    CancellationToken cancellationToken = default) =>
+                await TranscribeAsync(paths, transcriber, path, subtitles, cancellationToken).ConfigureAwait(false),
+            ToolName,
             "把音频文件中的语音转写成文字，可选带 SRT 字幕。" +
             $"最多处理 {AudioFileTranscriber.MaxDuration.TotalMinutes:0} 分钟。" +
-            "视频请先提取音频（如 ffmpeg -i in.mp4 -vn -ac 1 out.wav）。",
-            AotToolFunction.SchemaFromNode(new JsonObject
-            {
-                ["type"] = "object",
-                ["properties"] = new JsonObject
-                {
-                    ["path"] = new JsonObject { ["type"] = "string", ["description"] = "音频文件的路径（wav、mp3 或 flac）。" },
-                    ["subtitles"] = new JsonObject { ["type"] = "boolean", ["default"] = false, ["description"] = "同时写出带分段时间戳的 SRT 字幕。" },
-                },
-                ["required"] = new JsonArray(JsonValue.Create("path")),
-            }),
-            async (args, ct) => await TranscribeAsync(paths, transcriber,
-                AotToolFunction.Marshaller.String(args, "path")!,
-                AotToolFunction.Marshaller.Bool(args, "subtitles", false),
-                ct).ConfigureAwait(false));
+            "视频请先提取音频（如 ffmpeg -i in.mp4 -vn -ac 1 out.wav）。");
     }
 
     private static async Task<string> TranscribeAsync(AgentPathResolver paths, AudioFileTranscriber transcriber,

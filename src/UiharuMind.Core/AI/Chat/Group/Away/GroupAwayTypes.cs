@@ -108,11 +108,9 @@ public sealed record GroupAwayReceipt(string GroupId, string AvatarSessionId, EG
     IReadOnlyList<int> AvatarPostIndices, IReadOnlyList<GroupAwayApproval> Approvals,
     IReadOnlyList<string> AvatarActions)
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { Converters = { new JsonStringEnumConverter() } };
-
     /// <summary>序列化成 JSON（随群流水那条回执落盘）</summary>
     /// <returns>JSON</returns>
-    public string ToJson() => JsonSerializer.Serialize(this, JsonOptions);
+    public string ToJson() => JsonSerializer.Serialize(this, GroupAwayJsonContext.Default.GroupAwayReceipt);
 
     /// <summary>
     /// 从群流水里的一条读回执
@@ -131,7 +129,7 @@ public sealed record GroupAwayReceipt(string GroupId, string AvatarSessionId, EG
     {
         try
         {
-            return JsonSerializer.Deserialize<GroupAwayReceipt>(json, JsonOptions);
+            return JsonSerializer.Deserialize(json, GroupAwayJsonContext.Default.GroupAwayReceipt);
         }
         catch (JsonException)
         {
@@ -139,3 +137,8 @@ public sealed record GroupAwayReceipt(string GroupId, string AvatarSessionId, EG
         }
     }
 }
+
+
+[JsonSourceGenerationOptions(UseStringEnumConverter = true)]
+[JsonSerializable(typeof(GroupAwayReceipt))]
+internal sealed partial class GroupAwayJsonContext : JsonSerializerContext;

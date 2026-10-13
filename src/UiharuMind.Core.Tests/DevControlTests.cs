@@ -26,7 +26,8 @@ public sealed class DevControlTests : IDisposable
     }
 
     private static Task<DevStepOutcome> Echo(string op, JsonElement args) =>
-        Task.FromResult(new DevStepOutcome(true, 1, new { op, args = args.ValueKind == JsonValueKind.Undefined ? null : args.GetRawText() }));
+        Task.FromResult(new DevStepOutcome(true, 1,
+            new JsonObject { ["op"] = op, ["args"] = args.ValueKind == JsonValueKind.Undefined ? null : args.GetRawText() }));
 
     [Fact]
     public async Task Call_RoundTripsThroughTheHandler()
@@ -156,20 +157,6 @@ public sealed class DevControlTests : IDisposable
         Assert.Null(await reader.ReadLineAsync(TestContext.Current.CancellationToken));
     }
 
-    /// <summary>结果序列化不了也要回一句，客户端不能干等</summary>
-    [Fact]
-    public async Task UnserializableResult_ComesBackAsError()
-    {
-        using DevControlServer server = new(_endpoint, (_, _) => Task.FromResult(new DevStepOutcome(true, 0, new Cyclic())));
-        server.Start();
-
-        await using DevControlClient client = await DevControlClient.ConnectAsync(_endpoint, TestContext.Current.CancellationToken);
-        JsonObject reply = await client.CallAsync("x", token: TestContext.Current.CancellationToken);
-
-        Assert.False(reply["ok"]!.GetValue<bool>());
-        Assert.StartsWith("result not serializable", reply["error"]!.GetValue<string>());
-    }
-
     [Fact]
     public void SymlinkedRunDirectory_IsRefused()
     {
@@ -211,8 +198,4 @@ public sealed class DevControlTests : IDisposable
         Assert.Contains("not open", e.Message);
     }
 
-    private sealed class Cyclic
-    {
-        public Cyclic Self => this;
-    }
 }

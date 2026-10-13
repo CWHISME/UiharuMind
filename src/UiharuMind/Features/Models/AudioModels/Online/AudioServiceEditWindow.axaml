@@ -108,7 +108,7 @@
                     <StackPanel Spacing="6" IsVisible="{Binding CanChooseTask}">
                         <TextBlock Text="{loc:Loc AudioServiceTaskLabel}" />
                         <ComboBox ItemsSource="{Binding TaskOptions}" SelectedItem="{Binding SelectedTask}" MinWidth="200"
-                                  DisplayMemberBinding="{ReflectionBinding Label}" />
+                                  DisplayMemberBinding="{Binding Label, DataType=online:AudioTaskOption}" />
                     </StackPanel>
 
                     <StackPanel Spacing="6" IsVisible="{Binding IsCompatible}">

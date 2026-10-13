@@ -5,6 +5,7 @@ using UiharuMind.Core.AI.Character.CharacterCards;
 using UiharuMind.Core.AI.Memory;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
+using UiharuMind.Core.Core.Configs;
 
 namespace UiharuMind.Core.Tests.Utils;
 
@@ -37,7 +38,7 @@ public class SaveUtilitySourceGenGuardTests
         Assert.Equal("chara_card_v3", restored.Spec);
         Assert.Equal("测试", restored.Data?.Name);
         Assert.Equal("你好", restored.Data?.FirstMes);
-        // List<object> 宽容字段：还原成 JsonNode（SaveUtility.JsonOptions 带 UnknownTypeHandling=JsonNode，反射基线即 JsonValue）
+        // List<object> 宽容字段：还原成 JsonNode（SaveUtility.SaveJsonOptions 带 UnknownTypeHandling=JsonNode，反射基线即 JsonValue）
         Assert.NotNull(restored.Data?.AlternateGreetings);
         Assert.Equal(3, restored.Data!.AlternateGreetings!.Count);
         JsonValue first = Assert.IsAssignableFrom<JsonValue>(restored.Data.AlternateGreetings[0]);
@@ -102,9 +103,9 @@ public class SaveUtilitySourceGenGuardTests
         Assert.True(restored.IndexDirty);
     }
 
-    /// <summary>ConfigBase 一族走反射 object 路由（拍板），派生字段必须保留——防以后手滑切 source-gen 静默丢。</summary>
+    /// <summary>设置经基类保存（<see cref="ConfigBase.Save"/> 的路子）时按运行时类型写，派生字段不能丢</summary>
     [Fact]
-    public void ConfigBase_ObjectRoute_KeepsDerivedFields_AsReflection()
+    public void ConfigBase_SavedThroughBase_KeepsDerivedFields()
     {
         SettingConfig setting = new()
         {
@@ -116,7 +117,8 @@ public class SaveUtilitySourceGenGuardTests
         string path = Path.Combine(Path.GetTempPath(), $"save-config-guard-{Guid.NewGuid():N}.json");
         try
         {
-            SaveUtility.Save(path, setting);
+            ConfigBase asBase = setting;
+            SaveUtility.Save(path, asBase);
             SettingConfig? restored = SaveUtility.Load<SettingConfig>(path);
 
             Assert.NotNull(restored);

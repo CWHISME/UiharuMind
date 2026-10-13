@@ -1,5 +1,4 @@
 using System.Text;
-using CommunityToolkit.VectorData.SqliteVec;
 using Microsoft.Extensions.VectorData;
 using UiharuMind.Core.AI.Embedding;
 using UiharuMind.Core.Core.SimpleLog;
@@ -53,7 +52,7 @@ internal sealed class MemorySearcher : IDisposable
     private readonly Func<string> _nameProvider;
     private readonly Action<string> _errorReporter; //把"库开不了""维度不符"这类状态回传给门面落盘并刷 UI
 
-    private SqliteCollection<string, MemoryChunkRecord>? _collection;
+    private MemoryChunkCollection? _collection;
     private int? _embeddingDimensions;
     private bool _isVectorStoreUnavailable;
     private bool _disposed;
@@ -82,7 +81,7 @@ internal sealed class MemorySearcher : IDisposable
         if (_disposed || _isVectorStoreUnavailable || string.IsNullOrWhiteSpace(query)) return "";
 
         ReadOnlyMemory<float> queryEmbedding = await GenerateSearchEmbeddingAsync(session, query).ConfigureAwait(false);
-        SqliteCollection<string, MemoryChunkRecord>? collection =
+        MemoryChunkCollection? collection =
             await EnsureCollectionAsync(queryEmbedding.Length).ConfigureAwait(false);
         if (collection == null) return "";
 
@@ -91,11 +90,9 @@ internal sealed class MemorySearcher : IDisposable
         List<ScoredChunk> accepted = [];
         int usedTokens = 0;
         float? topSimilarity = null;
-        await foreach (VectorSearchResult<MemoryChunkRecord> result in collection.SearchAsync(
-                           queryEmbedding, CandidateCount,
-                           new VectorSearchOptions<MemoryChunkRecord> { IncludeVectors = false }))
+        await foreach ((MemoryChunkRecord record, double? score) in collection.SearchAsync(queryEmbedding, CandidateCount))
         {
-            float? similarity = ToSimilarity(result.Score);
+            float? similarity = ToSimilarity(score);
             if (accepted.Count == 0)
             {
                 // 首名都不够线,说明整个库与本次提问无关。
@@ -114,12 +111,12 @@ internal sealed class MemorySearcher : IDisposable
                 break; //相似度降序,后面只会更差
             }
 
-            int tokens = LlmTokenizer.CountTokens(result.Record.Text);
+            int tokens = LlmTokenizer.CountTokens(record.Text);
 
             // 第一块无论多大都收:预算比单块还小的时候,交一块总比交空手好
             if (accepted.Count > 0 && usedTokens + tokens > DefaultTokenBudget) break;
 
-            accepted.Add(new ScoredChunk(result.Record, similarity));
+            accepted.Add(new ScoredChunk(record, similarity));
             usedTokens += tokens;
             if (accepted.Count >= MaxChunkCount) break;
         }
@@ -183,7 +180,7 @@ internal sealed class MemorySearcher : IDisposable
         return text;
     }
 
-    private async Task<SqliteCollection<string, MemoryChunkRecord>?> EnsureCollectionAsync(int embeddingDimensions)
+    private async Task<MemoryChunkCollection?> EnsureCollectionAsync(int embeddingDimensions)
     {
         if (_isVectorStoreUnavailable) return null;
         if (_embeddingDimensions != null && _embeddingDimensions != embeddingDimensions)
@@ -197,7 +194,7 @@ internal sealed class MemorySearcher : IDisposable
         try
         {
             _embeddingDimensions = embeddingDimensions;
-            _collection = await MemoryStore.CreateCollectionAsync(
+            _collection = await MemoryChunkCollection.OpenAsync(
                 _store.DatabasePath, embeddingDimensions, CancellationToken.None).ConfigureAwait(false);
             return _collection;
         }

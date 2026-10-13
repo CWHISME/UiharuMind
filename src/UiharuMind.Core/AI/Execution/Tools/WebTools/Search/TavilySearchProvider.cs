@@ -11,6 +11,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using UiharuMind.Core.Configs;
+using System.Text.Json.Nodes;
 
 namespace UiharuMind.Core.AI.Execution.Tools.WebTools;
 
@@ -35,7 +36,7 @@ internal sealed class TavilySearchProvider : ISearchProvider
         using HttpRequestMessage request = new(HttpMethod.Post, Endpoint);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey.Trim());
         request.Content = new StringContent(
-            JsonSerializer.Serialize(new { query, max_results = offset + count }),
+            new JsonObject { ["query"] = query, ["max_results"] = offset + count }.ToJsonString(),
             Encoding.UTF8, "application/json");
 
         using HttpResponseMessage response =

@@ -19,6 +19,8 @@ using UiharuMind.Core.Core;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
+using UiharuMind.Core.Core.Extensions;
+using System.Text.Json.Serialization.Metadata;
 
 namespace UiharuMind.Core.AI.Chat;
 
@@ -699,11 +701,11 @@ public partial class SessionManager : Singleton<SessionManager>, IInitialize
     /// <returns>副本</returns>
     public ChatSession DeepCopy(ChatSession session)
     {
-        string json = JsonSerializer.Serialize(session, SessionJsonOptions.Default);
-        ChatSession copy = JsonSerializer.Deserialize<ChatSession>(json, SessionJsonOptions.Default)!;
+        JsonTypeInfo<ChatSession> sessionInfo = SessionJsonOptions.Default.GetTypeInfo<ChatSession>();
+        JsonTypeInfo<List<ChatMessage>> historyInfo = SessionJsonOptions.Default.GetTypeInfo<List<ChatMessage>>();
+        ChatSession copy = JsonSerializer.Deserialize(JsonSerializer.Serialize(session, sessionInfo), sessionInfo)!;
         // History 不随会话头序列化(JsonIgnore),单独往返一次拿到完全独立的副本
-        string history = JsonSerializer.Serialize(session.History, SessionJsonOptions.Default);
-        copy.History = JsonSerializer.Deserialize<List<ChatMessage>>(history, SessionJsonOptions.Default) ?? [];
+        copy.History = JsonSerializer.Deserialize(JsonSerializer.Serialize(session.History, historyInfo), historyInfo) ?? [];
         return copy;
     }
 

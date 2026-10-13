@@ -10,6 +10,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.AI.Execution.Extensions;
 
@@ -141,7 +142,7 @@ public static class ExtensionCalls
 
                 break;
             case IDictionary<string, object?> map:
-                element = JsonSerializer.SerializeToElement(map);
+                element = JsonSerializer.SerializeToElement(map, ToolJson.Arguments);
                 break;
             default:
                 return null;

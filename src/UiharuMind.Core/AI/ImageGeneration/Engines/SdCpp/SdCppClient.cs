@@ -108,7 +108,7 @@ public sealed class SdCppClient(HttpClient http)
         if (sampling.FlowShift is { } shift) sample["flow_shift"] = shift;
 
         JsonArray references = [];
-        foreach (byte[] image in request.ReferenceImages) references.Add(Convert.ToBase64String(image));
+        foreach (byte[] image in request.ReferenceImages) references.Add((JsonNode?)Convert.ToBase64String(image));
         return new JsonObject
         {
             ["prompt"] = request.Prompt,

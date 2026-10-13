@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:settingViewData="clr-namespace:UiharuMind.Features.Settings"
+             xmlns:data="clr-namespace:UiharuMind.Shared.Data"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:engines="clr-namespace:UiharuMind.Features.Settings.Engines"
@@ -65,7 +66,7 @@
                                     <ComboBox Classes="runtime-field"
                                               ItemsSource="{Binding RuntimeSettings.GpuLayerModeOptions}"
                                               SelectedItem="{Binding RuntimeSettings.SelectedGpuLayerMode}"
-                                              DisplayMemberBinding="{ReflectionBinding DisplayName}">
+                                              DisplayMemberBinding="{Binding DisplayName, DataType=data:ISettingChoice}">
                                     </ComboBox>
                                 </StackPanel>
                             </controls:SettingsRow.Field>
@@ -76,7 +77,7 @@
                                 <ComboBox Classes="runtime-field"
                                           ItemsSource="{Binding RuntimeSettings.FlashAttentionOptions}"
                                           SelectedItem="{Binding RuntimeSettings.SelectedFlashAttention}"
-                                          DisplayMemberBinding="{ReflectionBinding DisplayName}" />
+                                          DisplayMemberBinding="{Binding DisplayName, DataType=data:ISettingChoice}" />
                             </controls:SettingsRow.Field>
                         </controls:SettingsRow>
                         <controls:SettingsRow Header="{loc:Loc LLamaCppFit}" Description="{loc:Loc LLamaCppFitDesc}"
@@ -144,14 +145,14 @@
                             <controls:SettingsRow.Field>
                                 <ComboBox Classes="runtime-field" ItemsSource="{Binding Server.CacheTypeOptions}"
                                           SelectedItem="{Binding Server.CacheTypeK}"
-                                          DisplayMemberBinding="{ReflectionBinding DisplayName}" />
+                                          DisplayMemberBinding="{Binding DisplayName, DataType=data:ISettingChoice}" />
                             </controls:SettingsRow.Field>
                         </controls:SettingsRow>
                         <controls:SettingsRow Header="{loc:Loc LLamaCppCacheTypeV}" Description="{loc:Loc LLamaCppCacheTypeDesc}">
                             <controls:SettingsRow.Field>
                                 <ComboBox Classes="runtime-field" ItemsSource="{Binding Server.CacheTypeOptions}"
                                           SelectedItem="{Binding Server.CacheTypeV}"
-                                          DisplayMemberBinding="{ReflectionBinding DisplayName}" />
+                                          DisplayMemberBinding="{Binding DisplayName, DataType=data:ISettingChoice}" />
                             </controls:SettingsRow.Field>
                         </controls:SettingsRow>
                         <controls:SettingsRow Header="{loc:Loc LLamaCppCpuMoe}" Description="{loc:Loc LLamaCppCpuMoeDesc}">
@@ -169,7 +170,7 @@
                             <controls:SettingsRow.Field>
                                 <ComboBox Classes="runtime-field" ItemsSource="{Binding Server.LoadModeOptions}"
                                           SelectedItem="{Binding Server.LoadMode}"
-                                          DisplayMemberBinding="{ReflectionBinding DisplayName}" />
+                                          DisplayMemberBinding="{Binding DisplayName, DataType=data:ISettingChoice}" />
                             </controls:SettingsRow.Field>
                         </controls:SettingsRow>
                         <controls:SettingsRow Header="{loc:Loc LLamaCppCacheRam}" Description="{loc:Loc LLamaCppCacheRamDesc}">

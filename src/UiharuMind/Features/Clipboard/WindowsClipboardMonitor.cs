@@ -45,11 +45,11 @@ public class WindowsClipboardMonitor : IClipboardMonitor
     {
         WndClassEx wndClass = new WndClassEx
         {
-            cbSize = Marshal.SizeOf(typeof(WndClassEx))
+            cbSize = Marshal.SizeOf<WndClassEx>()
         };
         _wndProcDelegate = WindowProc;
         wndClass.lpfnWndProc = Marshal.GetFunctionPointerForDelegate(_wndProcDelegate);
-        wndClass.hInstance = Marshal.GetHINSTANCE(GetType().Module);
+        wndClass.hInstance = GetModuleHandle(null);
         wndClass.lpszClassName = "ClipboardMonitorWindow";
 
         ushort classAtom = RegisterClassEx(ref wndClass);
@@ -109,6 +109,9 @@ public class WindowsClipboardMonitor : IClipboardMonitor
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool AddClipboardFormatListener(IntPtr hwnd);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr GetModuleHandle(string? lpModuleName);
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool RemoveClipboardFormatListener(IntPtr hwnd);

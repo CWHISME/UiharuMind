@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Runtime.ExceptionServices;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using UiharuMind.Core.Core.DevControl;
@@ -76,7 +77,7 @@ internal sealed class DevStepExecutor
             // 报告就再也看不出「切一个长会话到底花了多久」
             long elapsedMs = watch.ElapsedMilliseconds;
             await Task.Delay(StepSettleDelay).ConfigureAwait(true);
-            return new DevStepOutcome(true, elapsedMs, result);
+            return new DevStepOutcome(true, elapsedMs, (JsonNode?)result);
         }
         catch (Exception e)
         {

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Core.DownloadHelper;
@@ -35,12 +36,12 @@ internal static class ModelDevCommands
         return (ModelPageData)App.ViewModel.Content!;
     }
 
-    internal static object Describe(ModelRunningData model) => new
+    internal static JsonObject Describe(ModelRunningData model) => new()
     {
-        name = model.ModelName,
-        path = model.ModelPath,
-        remote = model.IsRemoteModel,
-        running = model.IsRunning
+        ["name"] = model.ModelName,
+        ["path"] = model.ModelPath,
+        ["remote"] = model.IsRemoteModel,
+        ["running"] = model.IsRunning
     };
 }
 
@@ -54,7 +55,7 @@ internal sealed class ModelDownloadCommand : IAsyncDevCommand
 
     public string Usage => "跳到模型页，在「获取模型」里打开仓库并点下载，不等下完（会联网）。repo（owner/repo）、quant（量化名，省略取推荐）、projector（是否带视觉投影，默认 true）";
 
-    public async Task<object?> ExecuteAsync(JsonElement args)
+    public async Task<JsonNode?> ExecuteAsync(JsonElement args)
     {
         string repo = DevCommandRegistry.RequireString(args, "repo");
         ModelPageData page = ModelDevCommands.JumpToModelPage();
@@ -80,7 +81,11 @@ internal sealed class ModelDownloadCommand : IAsyncDevCommand
                                     $"no quant '{quant ?? "recommended"}' in {repo}: {string.Join(", ", detail.Rows.Select(x => x.Label))}");
         detail.IncludeProjector = GroupDevCommands.BoolOr(args, "projector", true);
         await detail.DownloadCommand.ExecuteAsync(row);
-        return new { repo, quant = row.Label, file = row.MainFilePath, size = row.SizeText, state = row.Status.State.ToString() };
+        return new JsonObject
+        {
+            ["repo"] = repo, ["quant"] = row.Label, ["file"] = row.MainFilePath, ["size"] = row.SizeText,
+            ["state"] = row.Status.State.ToString(),
+        };
     }
 }
 
@@ -93,7 +98,7 @@ internal sealed class ModelWaitCommand : IAsyncDevCommand
 
     public string Usage => "等下载区排着与在下的都结束（含下完顺手加载的模型），结果带每项状态、当前模型与本地模型列表。timeoutMinutes（默认 30）";
 
-    public async Task<object?> ExecuteAsync(JsonElement args)
+    public async Task<JsonNode?> ExecuteAsync(JsonElement args)
     {
         TimeSpan timeout = TimeSpan.FromMinutes(GroupDevCommands.IntOr(args, "timeoutMinutes", 30));
         Stopwatch watch = Stopwatch.StartNew();
@@ -112,18 +117,18 @@ internal sealed class ModelWaitCommand : IAsyncDevCommand
         // 完成回调里还要刷模型列表、装引擎、可能顺手加载，给它们一点时间，再等加载结束
         await Task.Delay(2000);
         while (App.ModelService.IsLoading && watch.Elapsed < timeout) await Task.Delay(500);
-        return new
+        return new JsonObject
         {
-            timedOut,
-            current = App.ModelService.CurModelRunningData is { } current ? ModelDevCommands.Describe(current) : null,
-            elapsedSeconds = (int)watch.Elapsed.TotalSeconds,
-            jobs = DownloadQueue.Shared.Jobs.Select(x => new
+            ["timedOut"] = timedOut,
+            ["current"] = App.ModelService.CurModelRunningData is { } current ? ModelDevCommands.Describe(current) : null,
+            ["elapsedSeconds"] = (int)watch.Elapsed.TotalSeconds,
+            ["jobs"] = DevJson.Array(DownloadQueue.Shared.Jobs, x => new JsonObject
             {
-                name = x.Name,
-                state = x.State.ToString(),
-                error = x.Error?.Message
-            }).ToList(),
-            models = App.ModelService.ModelSources.Where(x => !x.IsRemoteModel).Select(ModelDevCommands.Describe).ToList()
+                ["name"] = x.Name,
+                ["state"] = x.State.ToString(),
+                ["error"] = x.Error?.Message
+            }),
+            ["models"] = DevJson.Array(App.ModelService.ModelSources.Where(x => !x.IsRemoteModel), ModelDevCommands.Describe)
         };
     }
 }
@@ -135,13 +140,11 @@ internal sealed class ModelListCommand : IDevCommand
 
     public string Usage => "列出对话模型（名字、路径、是否远程、是否在跑）。local（true 只看本地）";
 
-    public object? Execute(JsonElement args)
+    public JsonNode? Execute(JsonElement args)
     {
         bool localOnly = GroupDevCommands.BoolOr(args, "local", false);
-        return App.ModelService.ModelSources
-            .Where(x => !localOnly || !x.IsRemoteModel)
-            .Select(ModelDevCommands.Describe)
-            .ToList();
+        return DevJson.Array(App.ModelService.ModelSources.Where(x => !localOnly || !x.IsRemoteModel),
+            ModelDevCommands.Describe);
     }
 }
 
@@ -152,7 +155,7 @@ internal sealed class ModelLoadCommand : IAsyncDevCommand
 
     public string Usage => "选中并加载一个对话模型，等它跑起来或失败。model（模型名，必填）、timeoutMinutes（默认 5）";
 
-    public async Task<object?> ExecuteAsync(JsonElement args)
+    public async Task<JsonNode?> ExecuteAsync(JsonElement args)
     {
         string name = GroupDevCommands.StringOr(args, "model") ?? throw new ArgumentException("model is required");
         TimeSpan timeout = TimeSpan.FromMinutes(GroupDevCommands.IntOr(args, "timeoutMinutes", 5));
@@ -162,11 +165,11 @@ internal sealed class ModelLoadCommand : IAsyncDevCommand
         ModelRunningData? model = App.ModelService.ModelSources.FirstOrDefault(x => x.ModelName == name);
         while (watch.Elapsed < timeout && !loading.IsCompleted && model is not { IsRunning: true })
             await Task.Delay(500);
-        return new
+        return new JsonObject
         {
-            running = model?.IsRunning ?? false,
-            error = model?.LastError?.Message,
-            elapsedSeconds = (int)watch.Elapsed.TotalSeconds
+            ["running"] = model?.IsRunning ?? false,
+            ["error"] = model?.LastError?.Message,
+            ["elapsedSeconds"] = (int)watch.Elapsed.TotalSeconds
         };
     }
 }

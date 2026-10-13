@@ -36,7 +36,7 @@ internal sealed class SenseNovaImageDialect : ImageDialectBase
         JsonArray images = new();
         foreach (ImageInput image in request.Images)
         {
-            images.Add(new JsonObject { ["image_url"] = ImageFormats.ToDataUrl(image.Bytes, image.MediaType) });
+            images.Add((JsonNode)new JsonObject { ["image_url"] = ImageFormats.ToDataUrl(image.Bytes, image.MediaType) });
         }
 
         body["images"] = images;

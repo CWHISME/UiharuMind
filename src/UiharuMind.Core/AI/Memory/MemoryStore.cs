@@ -1,26 +1,9 @@
 using System.Text;
-using CommunityToolkit.VectorData.SqliteVec;
-using Microsoft.Extensions.VectorData;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.AI.Memory;
-
-/// <summary>
-/// 索引库里的一条记录。属性名即列名(见 <see cref="MemoryStore.CreateCollectionAsync"/>),
-/// 改名或增删属性都会让既有索引对不上,必须同时抬 <see cref="MemoryData.CurrentIndexVersion"/>。
-/// </summary>
-internal sealed class MemoryChunkRecord
-{
-    public string Id { get; set; } = "";
-    public string SourceName { get; set; } = "";
-    public string SourceKind { get; set; } = "";
-    public string SourceId { get; set; } = "";
-    public int ChunkIndex { get; set; }
-    public string Text { get; set; } = "";
-    public ReadOnlyMemory<float> Embedding { get; set; }
-}
 
 /// <summary>
 /// 记忆索引在磁盘上的布局与库文件生命周期。
@@ -33,9 +16,6 @@ internal sealed class MemoryChunkRecord
 /// </summary>
 internal sealed class MemoryStore
 {
-    /// <summary>集合名。库里只有这一个集合，改它等于让所有既有索引失效</summary>
-    private const string CollectionName = "chunks";
-
     private const string BackupSuffix = ".backup";
     private const string UpdatingSuffix = ".updating.sqlite";
     private const string DatabaseSuffix = ".sqlite";
@@ -69,46 +49,6 @@ internal sealed class MemoryStore
     public static string GetDatabasePath(string name)
     {
         return Path.Combine(AppPaths.Data.MemoryEmbeddings, GetSafeFileName(name) + DatabaseSuffix);
-    }
-
-    /// <summary>
-    /// 打开(必要时创建)一个索引库集合
-    /// </summary>
-    /// <param name="databasePath">库文件路径</param>
-    /// <param name="embeddingDimensions">向量维度</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>可用的集合</returns>
-    public static async Task<SqliteCollection<string, MemoryChunkRecord>> CreateCollectionAsync(
-        string databasePath, int embeddingDimensions, CancellationToken cancellationToken)
-    {
-        string? directory = Path.GetDirectoryName(databasePath);
-        if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-
-        var definition = new VectorStoreCollectionDefinition
-        {
-            Properties =
-            {
-                new VectorStoreKeyProperty(nameof(MemoryChunkRecord.Id), typeof(string)),
-                new VectorStoreDataProperty(nameof(MemoryChunkRecord.SourceName), typeof(string)),
-                new VectorStoreDataProperty(nameof(MemoryChunkRecord.SourceKind), typeof(string)),
-                new VectorStoreDataProperty(nameof(MemoryChunkRecord.SourceId), typeof(string)) { IsIndexed = true },
-                new VectorStoreDataProperty(nameof(MemoryChunkRecord.ChunkIndex), typeof(int)),
-                new VectorStoreDataProperty(nameof(MemoryChunkRecord.Text), typeof(string)),
-                new VectorStoreVectorProperty(nameof(MemoryChunkRecord.Embedding), typeof(ReadOnlyMemory<float>),
-                    embeddingDimensions)
-                {
-                    DistanceFunction = DistanceFunction.CosineDistance,
-                    IndexKind = IndexKind.Flat
-                }
-            }
-        };
-
-        // 索引文件会被原子替换,关闭连接池可避免下次更新复用已被移动的旧文件句柄。
-        var store = new SqliteVectorStore($"Data Source={databasePath};Pooling=False", null);
-        SqliteCollection<string, MemoryChunkRecord> collection =
-            store.GetCollection<string, MemoryChunkRecord>(CollectionName, definition);
-        await collection.EnsureCollectionExistsAsync(cancellationToken).ConfigureAwait(false);
-        return collection;
     }
 
     /// <summary>

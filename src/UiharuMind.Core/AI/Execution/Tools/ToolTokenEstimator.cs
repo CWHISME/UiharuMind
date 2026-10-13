@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
 
@@ -99,9 +100,10 @@ public static class ToolTokenEstimator
     /// <returns>压缩后的 JSON 文本</returns>
     public static string CompactSchema(JsonElement schema)
     {
-        // 走 Utf8JsonWriter 而不是 JsonSerializer:默认就是压缩形态,且不牵扯反射序列化
+        // 走 Utf8JsonWriter 而不是 JsonSerializer:默认就是压缩形态,且不牵扯反射序列化。
+        // 编码器必须放宽：默认的会把中文说明全写成 \uXXXX，扩展帮助里模型读到的就是一串转义，token 也翻几倍
         using MemoryStream stream = new();
-        using (Utf8JsonWriter writer = new(stream))
+        using (Utf8JsonWriter writer = new(stream, new JsonWriterOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping }))
         {
             schema.WriteTo(writer);
         }

@@ -29,7 +29,7 @@ public class ModelSettingConfigTests
         var config = new ModelSettingConfig();
         config.ToggleFavorite("model-a");
 
-        string json = JsonSerializer.Serialize(config, SaveUtility.JsonOptions);
+        string json = JsonSerializer.Serialize(config, SaveUtility.SaveJsonOptions);
 
         Assert.Contains("\"FavoriteModels\"", json);
         Assert.Contains("model-a", json);

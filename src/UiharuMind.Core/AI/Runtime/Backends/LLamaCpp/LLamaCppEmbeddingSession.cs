@@ -12,6 +12,7 @@ using UiharuMind.Core.AI.Embedding;
 using UiharuMind.Core.AI.Engines;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Core.SimpleLog;
+using System.Text.Json.Nodes;
 
 namespace UiharuMind.Core.AI.Runtime.Backends;
 
@@ -83,8 +84,7 @@ public sealed class LLamaCppEmbeddingSession : IEmbeddingSession
         await _generationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var request = new EmbeddingRequest("UiharuMind", text);
-            string requestJson = JsonSerializer.Serialize(request);
+            string requestJson = new JsonObject { ["model"] = "UiharuMind", ["input"] = text }.ToJsonString();
             using var content = new StringContent(requestJson, Encoding.UTF8, "application/json");
             using HttpResponseMessage response =
                 await _httpClient.PostAsync("", content, cancellationToken).ConfigureAwait(false);
@@ -157,7 +157,7 @@ public sealed class LLamaCppEmbeddingSession : IEmbeddingSession
         using JsonDocument document = JsonDocument.Parse(responseJson);
         JsonElement root = document.RootElement;
         JsonElement embedding = root.GetProperty("data")[0].GetProperty("embedding");
-        float[]? vector = embedding.Deserialize<float[]>();
+        float[]? vector = EmbeddingVectorUtils.Read(embedding);
         return vector ?? throw new InvalidOperationException("Invalid llama.cpp embedding response.");
     }
 
@@ -169,8 +169,4 @@ public sealed class LLamaCppEmbeddingSession : IEmbeddingSession
                message.Contains("context", StringComparison.OrdinalIgnoreCase) &&
                message.Contains("overflow", StringComparison.OrdinalIgnoreCase);
     }
-
-    private sealed record EmbeddingRequest(
-        [property: JsonPropertyName("model")] string Model,
-        [property: JsonPropertyName("input")] string Input);
 }

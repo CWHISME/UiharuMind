@@ -8,7 +8,6 @@
  ****************************************************************************/
 
 using System.ComponentModel;
-using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat.Group;
 
@@ -34,20 +33,11 @@ public static class GroupPostTool
     /// <returns>工具实例</returns>
     public static AITool Create(string memberSessionId)
     {
-        // 手写 AotToolFunction（A2 全量扩展）：显式 schema + handler，绕开 AIFunctionFactory 反射
-        return new AotToolFunction(ToolName,
-            "在轮次中途对群说点什么（比如开工前说你要接哪一块）。你的最终回复同样会发到群里，所以不要在最终回复里重复已经用本工具说过的话。",
-            AotToolFunction.SchemaFromNode(new JsonObject
-            {
-                ["type"] = "object",
-                ["properties"] = new JsonObject
-                {
-                    ["content"] = new JsonObject { ["type"] = "string", ["description"] = "你要在群里对大家说的话。" },
-                },
-                ["required"] = new JsonArray(JsonValue.Create("content")),
-            }),
-            (args, ct) => Task.FromResult<object?>(
-                Post(memberSessionId, AotToolFunction.Marshaller.String(args, "content")!)));
+        return ToolJson.CreateFunction(
+            ([Description("你要在群里对大家说的话。")]
+                string content) => Post(memberSessionId, content),
+            ToolName,
+            "在轮次中途对群说点什么（比如开工前说你要接哪一块）。你的最终回复同样会发到群里，所以不要在最终回复里重复已经用本工具说过的话。");
     }
 
     private static string Post(string memberSessionId, string content)

@@ -1,8 +1,6 @@
 using System.ComponentModel;
 using System.Text;
-using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
-using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.AI.Execution.Tools.WebTools;
 
@@ -18,23 +16,10 @@ public static class WebSearchTool
 
     public static AITool Create()
     {
-        // 手写 AotToolFunction（A2 全量扩展）：显式 schema + handler
-        return new AotToolFunction(ToolName,
+        return ToolJson.CreateFunction(SearchAsync, ToolName,
             $"搜索网络获取最新信息。每页最多返回 {PageSize} 条标题、URL 和摘要。" +
             $"若摘要不够，用 {WebFetchTool.ToolName} 抓取具体 URL。" +
-            "靠后的页面相关性通常更低；改写查询词往往比翻页更有效。",
-            AotToolFunction.SchemaFromNode(new JsonObject
-            {
-                ["type"] = "object",
-                ["properties"] = new JsonObject
-                {
-                    ["query"] = new JsonObject { ["type"] = "string", ["description"] = "精确的搜索查询词。" },
-                    ["page"] = new JsonObject { ["type"] = "integer", ["default"] = 1, ["description"] = "结果页码，1-5（默认 1）。同一查询要更多结果时请求下一页。" },
-                },
-                ["required"] = new JsonArray(JsonValue.Create("query")),
-            }),
-            async (args, ct) => await SearchAsync(AotToolFunction.Marshaller.String(args, "query")!,
-                AotToolFunction.Marshaller.Int(args, "page", 1), ct));
+            "靠后的页面相关性通常更低；改写查询词往往比翻页更有效。");
     }
 
     private static async Task<string> SearchAsync(

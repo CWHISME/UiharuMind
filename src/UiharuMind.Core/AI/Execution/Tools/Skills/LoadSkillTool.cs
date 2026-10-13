@@ -8,8 +8,6 @@
  ****************************************************************************/
 
 using System.Text;
-using System.Text.Json.Nodes;
-using UiharuMind.Core.AI.Execution.Tools;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Skills;
@@ -51,20 +49,12 @@ public static class LoadSkillTool
     public static AITool Create(AgentSkillsSource source, bool hasFileTools, bool hasShell,
         IReadOnlyList<BuiltInSkill>? builtIns = null)
     {
-        // 手写 AotToolFunction（A2 全量扩展）：显式 schema + handler
-        return new AotToolFunction(ToolName, Describe(builtIns),
-            AotToolFunction.SchemaFromNode(new JsonObject
-            {
-                ["type"] = "object",
-                ["properties"] = new JsonObject
-                {
-                    ["skillName"] = new JsonObject { ["type"] = "string", ["description"] = "要加载的技能名" },
-                },
-                ["required"] = new JsonArray(JsonValue.Create("skillName")),
-            }),
-            async (args, ct) => await LoadAsync(source,
-                AotToolFunction.Marshaller.String(args, "skillName")!,
-                hasFileTools, hasShell, ct).ConfigureAwait(false));
+        return ToolJson.CreateFunction(
+            async (string skillName, CancellationToken cancellationToken = default) =>
+                await LoadAsync(source, skillName, hasFileTools, hasShell, cancellationToken)
+                    .ConfigureAwait(false),
+            ToolName,
+            Describe(builtIns));
     }
 
     private static string Describe(IReadOnlyList<BuiltInSkill>? builtIns)

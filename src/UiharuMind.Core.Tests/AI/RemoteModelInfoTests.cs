@@ -15,7 +15,7 @@ public class RemoteModelInfoTests
     {
         var info = new RemoteModelInfo { ApiKey = TestApiKey };
 
-        string json = JsonSerializer.Serialize(info, SaveUtility.JsonOptions);
+        string json = JsonSerializer.Serialize(info, SaveUtility.SaveJsonOptions);
 
         Assert.DoesNotContain(TestApiKey, json);
         Assert.Contains("\"ApiKey\"", json);
@@ -26,8 +26,8 @@ public class RemoteModelInfoTests
     {
         var info = new RemoteModelInfo { ApiKey = TestApiKey };
 
-        string json = JsonSerializer.Serialize(info, SaveUtility.JsonOptions);
-        var restored = JsonSerializer.Deserialize<RemoteModelInfo>(json, SaveUtility.JsonOptions);
+        string json = JsonSerializer.Serialize(info, SaveUtility.SaveJsonOptions);
+        var restored = JsonSerializer.Deserialize<RemoteModelInfo>(json, SaveUtility.SaveJsonOptions);
 
         Assert.Equal(TestApiKey, restored!.ApiKey);
     }

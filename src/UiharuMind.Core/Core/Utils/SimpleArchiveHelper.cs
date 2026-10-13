@@ -1,5 +1,6 @@
 using SharpCompress.Archives;
 using SharpCompress.Common;
+using SharpCompress.Common.Tar;
 using SharpCompress.Readers;
 using UiharuMind.Core.Core.SimpleLog;
 
@@ -198,26 +199,8 @@ public static class SimpleArchiveHelper
         File.SetUnixFileMode(destinationPath, unixMode);
     }
 
-    private static long? TryGetEntryMode(IArchiveEntry entry)
-    {
-        object? value;
-        try
-        {
-            value = entry.GetType().GetProperty("Mode")?.GetValue(entry);
-        }
-        catch
-        {
-            return null;
-        }
-
-        return value switch
-        {
-            long longValue => longValue,
-            int intValue => intValue,
-            short shortValue => shortValue,
-            _ => null
-        };
-    }
+    // 只有 tar 带 unix 权限位
+    private static long? TryGetEntryMode(IArchiveEntry entry) => entry is TarEntry tar ? tar.Mode : null;
 
     private static bool IsSamePath(string left, string right)
     {

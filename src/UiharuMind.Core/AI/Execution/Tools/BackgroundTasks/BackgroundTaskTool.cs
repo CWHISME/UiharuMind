@@ -40,7 +40,7 @@ public static class BackgroundTaskTool
     /// <returns>需审批的工具</returns>
     public static AIFunction Create(string ownerSessionId, BackgroundTaskLaunch launch, IBackgroundTaskReportSink sink)
     {
-        AIFunction function = AIFunctionFactory.Create(
+        AIFunction function = ToolJson.CreateFunction(
             ([Description("要运行的 shell 命令，语法与 Shell 工具相同。")]
                 string command,
                 [Description("一句话说明这个任务是什么；会显示给用户。")]

@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution.History;
+using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.AI.Chat.Group.Away;
 
@@ -104,7 +105,7 @@ public static class AvatarApprovalJudge
             text.Append(GroupTranscript.FormatPost(GroupTranscript.SpeakerOf(post), Clip(post.Text))).Append('\n');
         }
 
-        string arguments = JsonSerializer.Serialize(ask.Call.Arguments);
+        string arguments = JsonSerializer.Serialize(ask.Call.Arguments!, ToolJson.Arguments);
         if (arguments.Length > MaxArgumentChars) arguments = arguments[..MaxArgumentChars] + "…";
         text.Append($"\n{ask.RequesterName} 请求调用 {ask.Call.Name}，参数：\n{arguments}");
         return text.ToString();

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using UiharuMind.Core.Core.DownloadHelper;
 
 namespace UiharuMind.Core.AI.Models.Sources;
@@ -10,7 +11,7 @@ namespace UiharuMind.Core.AI.Models.Sources;
 /// <param name="httpClient">HTTP 客户端</param>
 /// <param name="endpoint">站点根地址，如 https://huggingface.co</param>
 /// <param name="token">访问令牌（受限仓库要），镜像也照发</param>
-public sealed class HuggingFaceModelSource(HttpClient httpClient, string endpoint, string? token) : IModelSource
+public sealed partial class HuggingFaceModelSource(HttpClient httpClient, string endpoint, string? token) : IModelSource
 {
     public const string SourceId = "huggingface";
     private const string Revision = "main";
@@ -28,7 +29,7 @@ public sealed class HuggingFaceModelSource(HttpClient httpClient, string endpoin
         if (!string.IsNullOrEmpty(cursor)) url += $"&cursor={cursor}";
         using HttpResponseMessage response = await SendAsync(url, cancellationToken).ConfigureAwait(false);
         await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        List<SearchItem>? items = await JsonSerializer.DeserializeAsync<List<SearchItem>>(stream,
+        List<SearchItem>? items = await JsonSerializer.DeserializeAsync(stream, HuggingFaceJsonContext.Default.ListSearchItem,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return new ModelSearchPage(
             items?.Where(x => !string.IsNullOrEmpty(x.Id))
@@ -67,7 +68,7 @@ public sealed class HuggingFaceModelSource(HttpClient httpClient, string endpoin
         CancellationToken cancellationToken, string? revision = null)
     {
         string url = $"{_endpoint}/api/models/{repository}/tree/{Uri.EscapeDataString(revision ?? Revision)}?recursive=true";
-        List<TreeItem>? items = await GetJsonAsync<List<TreeItem>>(url, cancellationToken).ConfigureAwait(false);
+        List<TreeItem>? items = await GetJsonAsync(url, HuggingFaceJsonContext.Default.ListTreeItem, cancellationToken).ConfigureAwait(false);
         return items?.Where(x => x.Type == "file" && !string.IsNullOrEmpty(x.Path))
             .Select(x => new ModelRepoFile(x.Path!, x.Lfs?.Size ?? x.Size, x.Lfs?.Oid))
             .ToList() ?? [];
@@ -89,11 +90,11 @@ public sealed class HuggingFaceModelSource(HttpClient httpClient, string endpoin
     private Dictionary<string, string>? AuthHeaders() =>
         string.IsNullOrWhiteSpace(token) ? null : new() { ["Authorization"] = $"Bearer {token}" };
 
-    private async Task<T?> GetJsonAsync<T>(string url, CancellationToken token)
+    private async Task<T?> GetJsonAsync<T>(string url, JsonTypeInfo<T> typeInfo, CancellationToken token)
     {
         using HttpResponseMessage response = await SendAsync(url, token).ConfigureAwait(false);
         await using Stream stream = await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false);
-        return await JsonSerializer.DeserializeAsync<T>(stream, cancellationToken: token).ConfigureAwait(false);
+        return await JsonSerializer.DeserializeAsync(stream, typeInfo, token).ConfigureAwait(false);
     }
 
     private async Task<HttpResponseMessage> SendAsync(string url, CancellationToken token)
@@ -137,4 +138,8 @@ public sealed class HuggingFaceModelSource(HttpClient httpClient, string endpoin
         [JsonPropertyName("oid")] public string? Oid { get; set; }
         [JsonPropertyName("size")] public long Size { get; set; }
     }
+
+    [JsonSerializable(typeof(List<SearchItem>))]
+    [JsonSerializable(typeof(List<TreeItem>))]
+    private sealed partial class HuggingFaceJsonContext : JsonSerializerContext;
 }

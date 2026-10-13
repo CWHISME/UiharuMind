@@ -1,14 +1,18 @@
 using System;
+using System.Reflection;
 using Avalonia.Controls;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using Ursa.Controls;
-using UiharuMind.Core.Core.Extensions;
 
 namespace UiharuMind.Shared.Windows;
 
 public class UiharuMessageBoxWindow : MessageBoxWindow
 {
+    // 非模态打开时 Avalonia 不公开 Close(result) 的结果，只能读这个私有字段；常量名的 GetField 能被 AOT 静态认出并保留
+    private static readonly FieldInfo? DialogResultField =
+        typeof(Window).GetField("_dialogResult", BindingFlags.Instance | BindingFlags.NonPublic);
+
     private Action<MessageBoxResult>? _callback;
 
     public UiharuMessageBoxWindow(MessageBoxButton messageBoxButton, Action<MessageBoxResult>? callback) : base(
@@ -33,7 +37,7 @@ public class UiharuMessageBoxWindow : MessageBoxWindow
     protected override void OnClosed(EventArgs e)
     {
         base.OnClosed(e);
-        MessageBoxResult? result = this.GetFieldValue<Object>("_dialogResult") as MessageBoxResult?;
+        MessageBoxResult? result = DialogResultField?.GetValue(this) as MessageBoxResult?;
         _callback?.Invoke(result ?? MessageBoxResult.None);
     }
 }

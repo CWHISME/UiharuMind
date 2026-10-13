@@ -15,30 +15,16 @@ using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using UiharuMind.Core.AI.Character.CharacterCards;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.Core.Extensions;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.Core;
 
 public static class SaveUtility
 {
-    public static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = true,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, // 忽略 JSON 中的 null 值
-        AllowTrailingCommas = true, // 允许尾随逗号
-        ReadCommentHandling = JsonCommentHandling.Skip, // 忽略注释
-        PropertyNameCaseInsensitive = true, // 属性名称不区分大小写
-        UnknownTypeHandling = JsonUnknownTypeHandling.JsonNode, // 忽略未知类型
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-    };
-
     /// <summary>
-    /// 有界类型的 source-gen 序列化配置（主题五 A2）：角色卡、记忆/世界书/自动点击、MCP 族、
-    /// PromptSnippet、ScheduledAgentTask、DownloadState、ModelManifest、远程模型配置族。
-    /// 与 <see cref="JsonOptions"/> 同口径（缩进/宽容读端/JsonNode 容错/中文不转义），
-    /// 但类型图来自 <see cref="SaveJsonContext"/>。
-    /// <b>ConfigBase 一族 11 个设置派生不走这里</b>——它们继续用反射 <see cref="JsonOptions"/>
-    /// （泛型化会把 <c>this</c> 静态推断成基类、派生字段静默丢，拍板否决该行为变化）。
+    /// 存档的序列化配置：缩进、宽容读端、未知类型读成 JsonNode、中文不转义。
+    /// 类型只来自 <see cref="SaveJsonContext"/>，没有反射兜底——新存档类型要在那里登记
     /// </summary>
     public static readonly JsonSerializerOptions SaveJsonOptions = CreateSourceGenOptions();
 
@@ -69,28 +55,6 @@ public static class SaveUtility
             {
                 property.CustomConverter = new SaveObjectListJsonConverter();
             }
-        }
-    }
-
-    public static void Save()
-    {
-        // File.WriteAllText("./SaveData/Setting.cfg", JsonSerializer.Serialize(Setting));
-        // Save("Setting.cfg", Setting);
-    }
-
-    public static void Save(string filePath, object target)
-    {
-        try
-        {
-            string? dir = Path.GetDirectoryName(filePath);
-            if (dir == null) return;
-            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-
-            WriteAtomic(filePath, JsonSerializer.Serialize(target, JsonOptions));
-        }
-        catch (Exception e)
-        {
-            Log.Error($"Save File Error:{e.Message},Path:{filePath}");
         }
     }
 
@@ -161,7 +125,7 @@ public static class SaveUtility
     /// <summary>
     /// 以 UTF-8 流式原子写盘：序列化直接写进文件流，不经过中间字符串。
     /// 大列表（如会话索引）整份重写时，不会把整份 JSON 抬进大对象堆。
-    /// 原子替换与并发语义同 <see cref="Save(string, object)"/>。
+    /// 原子替换与并发语义同 <see cref="Save(string, object, JsonSerializerOptions?)"/>。
     /// </summary>
     /// <param name="filePath">目标路径</param>
     /// <param name="write">在打开的 writer 上写内容（writer 由本方法管理，调用方写完即回）</param>
@@ -226,13 +190,12 @@ public static class SaveUtility
     }
 
     /// <summary>
-    /// 用指定序列化配置保存。会话存档需要 Microsoft.Extensions.AI 的 TypeInfoResolver
-    /// 才能正确写入多态 AIContent，不能复用通用配置。
+    /// 原子保存一个对象，按运行时类型序列化（设置一族经基类保存，派生字段也要写全）
     /// </summary>
     /// <param name="filePath">文件路径</param>
     /// <param name="target">对象</param>
-    /// <param name="options">序列化配置</param>
-    public static void Save(string filePath, object target, JsonSerializerOptions options)
+    /// <param name="options">序列化配置；省略为 <see cref="SaveJsonOptions"/>。会话存档要传自己那份（多态 AIContent）</param>
+    public static void Save(string filePath, object target, JsonSerializerOptions? options = null)
     {
         try
         {
@@ -240,7 +203,7 @@ public static class SaveUtility
             if (dir == null) return;
             if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
 
-            WriteAtomic(filePath, JsonSerializer.Serialize(target, options));
+            WriteAtomic(filePath, JsonSerializer.Serialize(target, (options ?? SaveJsonOptions).GetTypeInfo(target.GetType())));
         }
         catch (Exception e)
         {
@@ -253,15 +216,15 @@ public static class SaveUtility
     /// 调用方需要区分"文件不存在/已损坏"与"内容确实是空的"，才能决定是否走重建流程。
     /// </summary>
     /// <param name="filePath">文件路径</param>
-    /// <param name="options">序列化配置</param>
+    /// <param name="options">序列化配置；省略为 <see cref="SaveJsonOptions"/></param>
     /// <typeparam name="T">目标类型</typeparam>
     /// <returns>对象；文件缺失或解析失败为 null</returns>
-    public static T? Load<T>(string filePath, JsonSerializerOptions options) where T : class
+    public static T? Load<T>(string filePath, JsonSerializerOptions? options = null) where T : class
     {
         if (!File.Exists(filePath)) return null;
         try
         {
-            return JsonSerializer.Deserialize<T>(File.ReadAllText(filePath), options);
+            return JsonSerializer.Deserialize(File.ReadAllText(filePath), (options ?? SaveJsonOptions).GetTypeInfo<T>());
         }
         catch (Exception e)
         {
@@ -282,31 +245,32 @@ public static class SaveUtility
         }
     }
 
-    public static string SaveToString(object target)
+    /// <summary>
+    /// 序列化成字符串
+    /// </summary>
+    /// <param name="target">对象</param>
+    /// <param name="options">序列化配置；省略为 <see cref="SaveJsonOptions"/></param>
+    /// <typeparam name="T">按这个类型写</typeparam>
+    /// <returns>JSON 文本</returns>
+    public static string SaveToString<T>(T target, JsonSerializerOptions? options = null)
     {
-        // JsonSerializer.SerializeAsync(target, _options)
-        return JsonSerializer.Serialize(target, JsonOptions);
-    }
-
-    /// <summary>有界类型走 <see cref="SaveJsonOptions"/> 的写串（角色卡等；ConfigBase 一族继续走反射）</summary>
-    public static string SaveToString<T>(T target)
-    {
-        return JsonSerializer.Serialize(target, SaveJsonOptions);
+        return JsonSerializer.Serialize(target, (options ?? SaveJsonOptions).GetTypeInfo<T>());
     }
 
     //=========================Load=================================
 
-    public static T? Load<T>(string filePath) where T : class, new()
-    {
-        if (File.Exists(filePath)) return LoadFromString<T>(File.ReadAllText(filePath));
-        return null;
-    }
-
-    public static T LoadFromString<T>(string jsonString) where T : new()
+    /// <summary>
+    /// 从字符串读取，解析失败返回 <c>new T()</c>
+    /// </summary>
+    /// <param name="jsonString">JSON 文本</param>
+    /// <param name="options">序列化配置；省略为 <see cref="SaveJsonOptions"/></param>
+    /// <typeparam name="T">目标类型</typeparam>
+    /// <returns>对象</returns>
+    public static T LoadFromString<T>(string jsonString, JsonSerializerOptions? options = null) where T : new()
     {
         try
         {
-            return JsonSerializer.Deserialize<T>(jsonString, JsonOptions) ?? new T();
+            return JsonSerializer.Deserialize(jsonString, (options ?? SaveJsonOptions).GetTypeInfo<T>()) ?? new T();
         }
         catch (Exception e)
         {
@@ -317,45 +281,18 @@ public static class SaveUtility
     }
 
     /// <summary>
-    /// 用指定序列化配置读取（有界类型走 <see cref="SaveJsonOptions"/>，ConfigBase 一族继续走反射 <see cref="JsonOptions"/>）。
-    /// 容错语义与无 options 版一致：解析失败返回 <c>new T()</c>。
+    /// 按运行时类型从字符串读取（远程模型配置修复用）
     /// </summary>
-    public static T LoadFromString<T>(string jsonString, JsonSerializerOptions options) where T : new()
-    {
-        try
-        {
-            return JsonSerializer.Deserialize<T>(jsonString, options) ?? new T();
-        }
-        catch (Exception e)
-        {
-            Log.Warning(e.ToString());
-        }
-
-        return new T();
-    }
-
-    public static object? LoadFromString(string jsonString, Type? type)
+    /// <param name="jsonString">JSON 文本</param>
+    /// <param name="type">目标类型，须在序列化配置里登记</param>
+    /// <param name="options">序列化配置；省略为 <see cref="SaveJsonOptions"/></param>
+    /// <returns>对象；失败为 null</returns>
+    public static object? LoadFromString(string jsonString, Type? type, JsonSerializerOptions? options = null)
     {
         if (type == null) return null;
         try
         {
-            return JsonSerializer.Deserialize(jsonString, type, JsonOptions) ?? null;
-        }
-        catch (Exception e)
-        {
-            Log.Error(e.Message);
-        }
-
-        return null;
-    }
-
-    /// <summary>用指定序列化配置按运行时 Type 读取（远程模型配置修复用，Type 必须在 context 里有类型图）</summary>
-    public static object? LoadFromString(string jsonString, Type? type, JsonSerializerOptions options)
-    {
-        if (type == null) return null;
-        try
-        {
-            return JsonSerializer.Deserialize(jsonString, type, options) ?? null;
+            return JsonSerializer.Deserialize(jsonString, (options ?? SaveJsonOptions).GetTypeInfo(type));
         }
         catch (Exception e)
         {

@@ -7,6 +7,9 @@
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <!-- MAAI001: Microsoft.Agents.AI Harness 面为 Experimental API -->
         <NoWarn>$(NoWarn);MAAI001</NoWarn>
+        <!-- 反射与非 source-gen 序列化在编译期报警（IL2xxx/IL3xxx）：AOT 下这些地方会静默失效，别等到 AOT 产物里才撞上 -->
+        <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+        <EnableAotAnalyzer>true</EnableAotAnalyzer>
     </PropertyGroup>
 
     <ItemGroup>

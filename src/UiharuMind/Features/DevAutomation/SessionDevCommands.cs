@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Items;
 using UiharuMind.Features.Conversation.Pages;
@@ -58,7 +59,7 @@ internal sealed class SessionNewCommand : IAsyncDevCommand
 
     public string Usage => "在会话页新建会话（首轮发送时才真正建）。character、workspace、permission、model";
 
-    public async Task<object?> ExecuteAsync(JsonElement args)
+    public async Task<JsonNode?> ExecuteAsync(JsonElement args)
     {
         if (DevCommandRegistry.RequireConversationPage() is not ConversationPageData page)
             throw new InvalidOperationException("session.new needs the conversation page");
@@ -79,7 +80,7 @@ internal sealed class SessionNewCommand : IAsyncDevCommand
         }
 
         SessionDevCommands.Track(conversation);
-        return new { character = conversation.ActiveCharacterName, agentForm = conversation.IsAgentSession };
+        return new JsonObject { ["character"] = conversation.ActiveCharacterName, ["agentForm"] = conversation.IsAgentSession };
     }
 
     private static async Task WaitSettledAsync(ConversationPageDataBase page)
@@ -105,13 +106,13 @@ internal sealed class SessionPostCommand : IDevCommand
 
     public string Usage => "往当前显示的会话说一句，不等跑完。text";
 
-    public object? Execute(JsonElement args)
+    public JsonNode? Execute(JsonElement args)
     {
         string text = DevCommandRegistry.RequireString(args, "text");
         ConversationViewModel conversation = SessionDevCommands.Active;
         conversation.InputText = text;
         _ = conversation.SendMessageCommand.ExecuteAsync(null);
-        return new { chars = text.Length };
+        return new JsonObject { ["chars"] = text.Length };
     }
 }
 
@@ -128,7 +129,7 @@ internal sealed class SessionWaitCommand : IAsyncDevCommand
 
     public string Usage => "等当前显示的会话这一轮跑完（默认连后台子代理一起等）。timeoutMinutes、approvals（deny / once / session；扩展卡上 session 即本会话允许该扩展，浏览器接管卡上 once 即「完成了，继续」、deny 即取消）、foreground（true 只等主会话这一轮）";
 
-    public async Task<object?> ExecuteAsync(JsonElement args)
+    public async Task<JsonNode?> ExecuteAsync(JsonElement args)
     {
         TimeSpan timeout = TimeSpan.FromMinutes(GroupDevCommands.IntOr(args, "timeoutMinutes", 10));
         string decision = GroupDevCommands.StringOr(args, "approvals") ?? "deny";
@@ -136,26 +137,34 @@ internal sealed class SessionWaitCommand : IAsyncDevCommand
 
         ConversationViewModel conversation = SessionDevCommands.Active;
         ConversationPageDataBase page = DevCommandRegistry.RequireConversationPage();
-        List<object> approvals = [];
-        List<object> shownChanges = []; //这一轮跑着时界面换成了别的会话：用户那头就是「看着看着跳走了」
+        JsonArray approvals = [];
+        JsonArray shownChanges = []; //这一轮跑着时界面换成了别的会话：用户那头就是「看着看着跳走了」
         string? shownId = page.Conversation.CurrentMeta?.SessionId;
         Stopwatch watch = Stopwatch.StartNew();
         int idlePolls = 0;
         while (idlePolls < IdlePollsToSettle)
         {
             if (watch.Elapsed > timeout)
-                return new { timedOut = true, elapsedSeconds = (int)watch.Elapsed.TotalSeconds, approvals, shownChanges };
+                return new JsonObject
+                {
+                    ["timedOut"] = true, ["elapsedSeconds"] = (int)watch.Elapsed.TotalSeconds, ["approvals"] = approvals,
+                    ["shownChanges"] = shownChanges,
+                };
 
             await Task.Delay(TimeSpan.FromSeconds(1));
             if (page.Conversation.CurrentMeta?.SessionId is var nowShown && nowShown != shownId)
             {
-                shownChanges.Add(new { atSeconds = (int)watch.Elapsed.TotalSeconds, from = shownId, to = nowShown, running = conversation.CurrentMeta?.SessionId });
+                shownChanges.Add((JsonNode)new JsonObject
+                {
+                    ["atSeconds"] = (int)watch.Elapsed.TotalSeconds, ["from"] = shownId, ["to"] = nowShown,
+                    ["running"] = conversation.CurrentMeta?.SessionId,
+                });
                 shownId = nowShown;
             }
 
             foreach (ApprovalRequestItem card in conversation.Items.OfType<ApprovalRequestItem>().Where(x => !x.IsResolved).ToList())
             {
-                approvals.Add(new { tool = card.ToolName, summary = card.ArgumentSummary, decision });
+                approvals.Add((JsonNode)new JsonObject { ["tool"] = card.ToolName, ["summary"] = card.ArgumentSummary, ["decision"] = decision });
                 card.ResolveCommand.Execute(decision);
             }
 
@@ -169,7 +178,11 @@ internal sealed class SessionWaitCommand : IAsyncDevCommand
             idlePolls = busy ? 0 : idlePolls + 1;
         }
 
-        return new { timedOut = false, elapsedSeconds = (int)watch.Elapsed.TotalSeconds, approvals, shownChanges };
+        return new JsonObject
+        {
+            ["timedOut"] = false, ["elapsedSeconds"] = (int)watch.Elapsed.TotalSeconds, ["approvals"] = approvals,
+            ["shownChanges"] = shownChanges,
+        };
     }
 }
 
@@ -185,7 +198,7 @@ internal sealed class SessionDumpCommand : IDevCommand
 
     public string Usage => "把当前显示的会话导成 markdown（工具调用带原样参数）。path";
 
-    public object? Execute(JsonElement args)
+    public JsonNode? Execute(JsonElement args)
     {
         string path = DevCommandRegistry.RequireString(args, "path");
         ConversationViewModel conversation = SessionDevCommands.Active;
@@ -202,7 +215,7 @@ internal sealed class SessionDumpCommand : IDevCommand
 
         text.AppendLine($"输入 {session.TotalInputTokens} · 输出 {session.TotalOutputTokens}");
         File.WriteAllText(path, text.ToString());
-        return new { messages = session.History.Count, path };
+        return new JsonObject { ["messages"] = session.History.Count, ["path"] = path };
     }
 
     private static void AppendContent(StringBuilder text, AIContent content)
@@ -226,25 +239,6 @@ internal sealed class SessionDumpCommand : IDevCommand
         }
     }
 
-    /// <summary>工具参数转 JSON 文本：JsonNode 自序列化（AOT 下 JsonSerializer.Serialize 反射禁用）</summary>
-    private static string ToJson(IDictionary<string, object?>? arguments)
-    {
-        if (arguments == null || arguments.Count == 0) return "";
-        JsonObject obj = new();
-        foreach (KeyValuePair<string, object?> pair in arguments)
-        {
-            obj[pair.Key] = pair.Value switch
-            {
-                JsonElement element => JsonNode.Parse(element.GetRawText()),
-                string s => JsonValue.Create(s),
-                bool b => JsonValue.Create(b),
-                int i => JsonValue.Create(i),
-                double d => JsonValue.Create(d),
-                null => null,
-                _ => JsonValue.Create(pair.Value.ToString()),
-            };
-        }
-
-        return obj.ToJsonString();
-    }
+    private static string ToJson(IDictionary<string, object?>? arguments) =>
+        arguments is not { Count: > 0 } ? "" : JsonSerializer.Serialize(arguments, ToolJson.Arguments);
 }

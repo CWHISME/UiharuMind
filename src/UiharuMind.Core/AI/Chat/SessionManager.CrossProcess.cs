@@ -7,6 +7,8 @@ using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Instances;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.Core.Extensions;
+using System.Text.Json.Serialization.Metadata;
 
 namespace UiharuMind.Core.AI.Chat;
 
@@ -337,10 +339,11 @@ public partial class SessionManager
 
         if (FileStamp.Of(path) != _indexStamp) MergeIndexFromDisk(path);
         IReadOnlyList<ChatSessionMeta> metas = _metas.Values.ToList();
+        JsonTypeInfo<ChatSessionMeta> metaInfo = SessionJsonOptions.Index.GetTypeInfo<ChatSessionMeta>();
         bool saved = SaveUtility.SaveUtf8(path, writer =>
         {
             writer.WriteStartArray();
-            foreach (ChatSessionMeta meta in metas) JsonSerializer.Serialize(writer, meta, SessionJsonOptions.Index);
+            foreach (ChatSessionMeta meta in metas) JsonSerializer.Serialize(writer, meta, metaInfo);
             writer.WriteEndArray();
         }, SessionJsonOptions.Index);
         // 写失败时指纹保持旧值：下次指纹不一致会先 merge 再重写，静默自愈；别把失败当成已落盘

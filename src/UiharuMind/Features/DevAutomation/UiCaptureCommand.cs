@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -22,7 +23,7 @@ internal sealed class UiCaptureCommand : IAsyncDevCommand
 
     public string Usage => "把窗口当前的样子存成 PNG（只读）。path（输出文件）、window（标题含这段字的窗口，省略取主窗口）";
 
-    public async Task<object?> ExecuteAsync(JsonElement args)
+    public async Task<JsonNode?> ExecuteAsync(JsonElement args)
     {
         string path = Path.GetFullPath(DevCommandRegistry.RequireString(args, "path"));
         string? title = GroupDevCommands.StringOr(args, "window");
@@ -46,6 +47,6 @@ internal sealed class UiCaptureCommand : IAsyncDevCommand
         bitmap.Render(window);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         bitmap.Save(path, PngBitmapEncoderOptions.Default);
-        return new { path, width = size.Width, height = size.Height };
+        return new JsonObject { ["path"] = path, ["width"] = size.Width, ["height"] = size.Height };
     }
 }

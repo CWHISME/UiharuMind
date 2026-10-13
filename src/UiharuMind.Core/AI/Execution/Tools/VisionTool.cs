@@ -9,7 +9,6 @@
 
 using System.ComponentModel;
 using System.Text;
-using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Character.PromptActions;
@@ -39,25 +38,15 @@ public static class VisionTool
     /// <returns>工具实例</returns>
     public static AITool Create(AgentPathResolver paths)
     {
-        // 手写 AotToolFunction（A2 全量扩展）：显式 schema + handler
-        return new AotToolFunction(ToolName,
+        return ToolJson.CreateFunction(
+            async ([Description("图片文件的绝对路径或相对工作区的路径。")] string[] imagePaths,
+                    [Description("要针对图片回答的问题。")] string question,
+                    CancellationToken cancellationToken = default) =>
+                await AskVisionAsync(paths, imagePaths, question, cancellationToken).ConfigureAwait(false),
+            ToolName,
             "将一张或多张图片交给支持视觉的模型分析：识别其内容并回答相关问题。" +
             "传入多个路径可并排对比图片。" +
-            "绝不要仅凭文件名猜测图片内容。",
-            AotToolFunction.SchemaFromNode(new JsonObject
-            {
-                ["type"] = "object",
-                ["properties"] = new JsonObject
-                {
-                    ["imagePaths"] = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string" }, ["description"] = "图片文件的绝对路径或相对工作区的路径。" },
-                    ["question"] = new JsonObject { ["type"] = "string", ["description"] = "要针对图片回答的问题。" },
-                },
-                ["required"] = new JsonArray(JsonValue.Create("imagePaths"), JsonValue.Create("question")),
-            }),
-            async (args, ct) => await AskVisionAsync(paths,
-                AotToolFunction.Marshaller.StringArray(args, "imagePaths") ?? [],
-                AotToolFunction.Marshaller.String(args, "question")!,
-                ct).ConfigureAwait(false));
+            "绝不要仅凭文件名猜测图片内容。");
     }
 
     private static async Task<string> AskVisionAsync(AgentPathResolver paths, string[] imagePaths, string question,

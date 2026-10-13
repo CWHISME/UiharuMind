@@ -98,4 +98,27 @@ public class SessionJsonOptionsTests
         string resultText = Assert.IsType<string>(result.Result);
         Assert.DoesNotContain("\\n", resultText); //不是字面量 \n
     }
+
+    /// <summary>
+    /// 工具回结构化结果（<c>AIFunction.InvokeAsync</c> 给的是序列化好的 <see cref="JsonElement"/>）
+    /// 时，<see cref="FunctionResultContent.Result"/>（<c>object?</c>）落盘不能炸：
+    /// 缺了框架 source-gen 上下文的类型图，这里以 <c>Path: $.Contents.Result</c> 抛
+    /// <see cref="NotSupportedException"/>（实机对话几轮后必现，Rider 调试先踩到）。
+    /// </summary>
+    [Fact]
+    public void RoundTrip_FunctionResultJsonElement_Survives()
+    {
+        JsonElement structured = JsonSerializer.SerializeToElement(new { entries = new[] { "a" }, notice = "hi" });
+        var original = new ChatMessage(ChatRole.Tool, [new FunctionResultContent("c1", structured)]);
+
+        string json = JsonSerializer.Serialize(original, SessionJsonOptions.Default);
+        ChatMessage restored = JsonSerializer.Deserialize<ChatMessage>(json, SessionJsonOptions.Default)!;
+
+        FunctionResultContent result = Assert.IsType<FunctionResultContent>(Assert.Single(restored.Contents));
+        Assert.Equal("c1", result.CallId);
+        JsonElement element = Assert.IsType<JsonElement>(result.Result);
+        Assert.Equal(JsonValueKind.Object, element.ValueKind);
+        Assert.Equal("hi", element.GetProperty("notice").GetString());
+        Assert.Equal("a", element.GetProperty("entries")[0].GetString());
+    }
 }
