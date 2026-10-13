@@ -71,6 +71,25 @@ public static class GroupAvatarTranscript
     /// </summary>
     public const string InfiniteNote = "【无限模式：开】";
 
+    /// <summary>心跳状态行（无限模式 §8）的起止字符：整条以此包裹 = 状态行，程序不进群</summary>
+    public const char HeartbeatOpen = '⟦';
+
+    /// <summary>心跳状态行的结束字符</summary>
+    public const char HeartbeatClose = '⟧';
+
+    /// <summary>
+    /// 是不是一条完整的心跳状态行（无限模式 §8）：整条以 ⟦ 开头、⟧ 结尾。
+    /// 是则由程序拦下、不进群（留给用户与巡检），化身那轮其余的正文照常发。
+    /// 混在正文中间的心跳片段暂不剥——先只认整条，免得误吞正文
+    /// </summary>
+    /// <param name="text">化身的正文</param>
+    /// <returns>整条是心跳为 true</returns>
+    public static bool IsHeartbeatBody(string text)
+    {
+        string t = text.Trim();
+        return t.Length >= 2 && t[0] == HeartbeatOpen && t[^1] == HeartbeatClose;
+    }
+
     /// <summary>
     /// 一次离席私下交代给化身的话：捎话只在首轮带，提醒与无限模式每一轮都带
     /// （化身历史跨离席保留，提醒只靠第一轮那一次会分不清哪份作数；捎话是用户原话，压缩的回查段会原样留着）

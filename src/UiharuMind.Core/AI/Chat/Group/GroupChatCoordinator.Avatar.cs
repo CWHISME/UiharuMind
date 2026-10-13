@@ -69,6 +69,9 @@ public sealed partial class GroupChatCoordinator
             {
                 string body = GroupTranscript.StripSpeakerPrefix(text.Trim(), GroupSceneSource.SpeakerNameOf(avatar));
                 if (string.IsNullOrWhiteSpace(body)) return null;
+                // 无限模式心跳状态行（⟦…⟧ 整条）：不进群，留给用户与巡检；
+                // posted 不因此 +1，只心跳的一轮会被当 Silent 退避，下次催它说推进的话
+                if (GroupAvatarTranscript.IsHeartbeatBody(body)) return null;
 
                 ChatMessage post = group.CreateMessage(ChatRole.User, body, imageContents: null, createdAt);
                 ChatMessageAnnotations.MarkGroupAvatarPost(post, avatar.SessionId);
