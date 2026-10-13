@@ -54,7 +54,11 @@ public sealed partial class DesktopHost
         {
             state.Round.Enter(state.Refs);
             Target target = Resolve(window, state, request);
-            string? note = await PerformAsync(window, state, request, target, cancellationToken);
+            // ocr-text（纯靠认字编号的节点）没有无障碍元素可调，后台投递到不了自绘界面：默认走 real。
+            // 与模态面板快捷键同一个根——「树里没有的后台送不到」归平台决定，不靠模型试错（③ explore-canvas 实测）
+            bool real = request.Real || target.Node?.Role == AxRoles.OcrText;
+            DesktopActionRequest effective = real == request.Real ? request : request with { Real = true };
+            string? note = await PerformAsync(window, state, effective, target, cancellationToken);
             return await SettleAsync(window, state, note, cancellationToken);
         }
         finally

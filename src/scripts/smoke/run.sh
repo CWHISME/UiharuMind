@@ -81,12 +81,20 @@ fi
 
 # 桌面场景跑前清掉遗留的 TextEdit：失败留下的保存面板（未命名.rtf sheet）会一直挂在窗口列表里，
 # 模型每次都撞上它、去操作它而不是新建文档（2026-10-13 两轮验证实测 w8→w7 污染）。
-# 光 pkill 不够：macOS 的「恢复窗口」会在下次启动时把旧窗口全部复活（2026-10-14 verify-agnes3-3 实测
-# 开局 7 个 TextEdit 窗口）。所以先关「退出保留窗口」偏好、再删已存的 savedState、最后杀进程。
+# 顺序有讲究：先关「退出保留窗口」偏好防再写，再杀进程，等它死透后才删 savedState——
+# pkill 优雅退出时 TextEdit 会把窗口状态重新写回 savedState，删早了等于白删（2026-10-14 explore-plaintext 实测）。
 # 只在 macOS 桌面场景做；会丢掉 TextEdit 未保存的内容——桌面场景本就要求桌面空着、别碰鼠标键盘。
 # 偏好改动是持久的：想恢复默认用 defaults delete com.apple.TextEdit NSQuitAlwaysKeepsWindows。
 if [[ "$scenario" == desktop-* ]] && [[ "$(uname -s)" == Darwin ]]; then
     defaults write com.apple.TextEdit NSQuitAlwaysKeepsWindows -bool false 2> /dev/null || true
+    if pkill -x "TextEdit" 2>/dev/null; then
+        echo "杀遗留的 TextEdit…" >&2
+    fi
+    # 等进程死透（优雅退出要写回 savedState，得先等它写完），最多 3 秒
+    for _ in 1 2 3 4 5 6; do
+        pgrep -x "TextEdit" > /dev/null 2>&1 || break
+        sleep 0.5
+    done
     rm -rf "$HOME/Library/Saved Application State/com.apple.TextEdit.savedState" 2> /dev/null || true
     # 前几轮存错的 desktop-note*.rtf/.txt（存到桌面默认位置而不是工作区）会干扰判读：
     # 模型像 agnes3-1 那样开局就看到旧文件、或产物验证被它带偏（2026-10-14 实测桌面 464B .rtf）。
@@ -94,9 +102,6 @@ if [[ "$scenario" == desktop-* ]] && [[ "$(uname -s)" == Darwin ]]; then
     rm -f "$HOME/Desktop/desktop-note."* "$HOME/Desktop/desktop-note"* 2> /dev/null || true
     # 旧冒烟工作区（上一轮的 ws-empty）里的 desktop-note* 同样清掉，免得模型开局在访达里看到旧文件
     rm -f /tmp/uiharu-smoke/*/ws-empty/desktop-note* 2> /dev/null || true
-    if pkill -x "TextEdit" 2>/dev/null; then
-        echo "清掉遗留的 TextEdit（含恢复窗口，避免本轮被脏窗口污染）。" >&2
-    fi
 fi
 
 # 三个工作区：空目录；放了仓库规矩副本的目录（验「先读 AGENTS.md」「改文件落在哪」）；docs 副本（读得多、涨得快的长会话素材）

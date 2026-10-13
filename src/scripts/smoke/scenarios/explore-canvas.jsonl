@@ -1,0 +1,6 @@
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"session.new","args":{"character":"DesktopTester","workspace":"{{WS_CODE}}"}}
+{"op":"session.post","args":{"text":"用系统默认浏览器打开工作区里的 canvas-demo.html。文件在工作区子目录下，绝对路径是 {{WS_CODE}}/src/scripts/smoke/scenarios/assets/canvas-demo.html，用 desktop.open 以这个路径打开。给浏览器窗口拍一份 view 用 ocr 的快照（强制从窗口图里认字），把认出的 ocr-text 原样列给我（带 ref 编号和坐标），说明哪些是 Canvas 画面里认出来的。然后点 Canvas 里那个假按钮（用认出的 ref 或坐标），再拍一份 ocr 快照，告诉我状态文字从「未点击」变「已点击」没有。如果 Canvas 内部在树里读不到、只能靠认字，也要如实说明。"}}
+{"op":"session.wait","args":{"timeoutMinutes":15,"approvals":"session"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/explore.md"}}
+{"op":"quit"}

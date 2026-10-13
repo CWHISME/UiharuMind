@@ -1,0 +1,6 @@
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"session.new","args":{"character":"DesktopTester","workspace":"{{WS_EMPTY}}"}}
+{"op":"session.post","args":{"text":"打开系统自带的「文本编辑」（TextEdit），新建一个文档，输入三行：第一行「桌面冒烟」，第二行「line two」，第三行「第三行 3」。然后用「格式」菜单把文档转成纯文本文稿（Make Plain Text），再保存为 desktop-note.txt 到工作区 {{WS_EMPTY}}，关掉窗口。保存后请用桌面扩展（访达或桌面工具）验证文件真实存在、扩展名是 .txt；如果转纯文本或保存没走通，如实报告卡在哪一步，不要假装成功。"}}
+{"op":"session.wait","args":{"timeoutMinutes":20,"approvals":"session"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/explore.md"}}
+{"op":"quit"}

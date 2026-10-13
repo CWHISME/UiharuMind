@@ -30,6 +30,35 @@ public class DesktopHostTests
     };
 
     [Fact]
+    public async Task Click_OcrTextTarget_DefaultsToRealInput()
+    {
+        // 纯靠认字编号的 ocr-text 没有无障碍元素可调，后台投递到不了自绘界面：平台层默认走 real（③ explore-canvas 实测）
+        _platform.AddWindow("Canvas", "canvas", "Demo", new AxNode("window", "Demo")
+        {
+            Children = [new AxNode(AxRoles.OcrText, "点击我") { Bounds = new AxRect(200, 200, 60, 20), Source = null }],
+        });
+        await _host.ListWindowsAsync(Token);
+        await _host.SnapshotAsync("s", "w1", Token);
+
+        await _host.ActAsync("s", new DesktopActionRequest("w1", EDesktopAction.Click, "e1", "", false), Token);
+
+        (DesktopInput input, bool real) = Assert.Single(_platform.Inputs);
+        Assert.True(real); //未显式说 real 也默认走真实键鼠
+    }
+
+    [Fact]
+    public async Task Click_NormalTarget_DoesNotDefaultToRealInput()
+    {
+        // 有无障碍元素可调的普通元素：默认仍走后台（动作参数没提 real 就不抢用户输入）
+        string window = await OpenNoteAsync();
+
+        await _host.ActAsync("s", new DesktopActionRequest(window, EDesktopAction.Click, "e1", "", false), Token);
+
+        Assert.Equal(("Save", EDesktopAction.Click, ""), Assert.Single(_platform.Performed)); //第 1 级无障碍动作直接做
+        Assert.Empty(_platform.Inputs);
+    }
+
+    [Fact]
     public async Task WindowIds_AreReusedAcrossListings_AndOffLimitsAppsAreMarked()
     {
         _platform.AddWindow("TextEdit", "com.apple.TextEdit", "Note", Form());

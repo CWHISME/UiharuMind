@@ -1,0 +1,6 @@
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"session.new","args":{"character":"DesktopTester","workspace":"{{WS_EMPTY}}"}}
+{"op":"session.post","args":{"text":"打开系统自带的「国际象棋」（Chess），给棋盘窗口拍一份 view 用 ocr 的快照（强制从窗口图里认字），把认出的 ocr-text 原样列给我（带 ref 编号和坐标）。然后点棋盘中间区域的一个棋子（用快照里的 ref 或坐标），再拍一份 ocr 快照告诉我棋盘有没有变化。如果窗口树读不到任何结构、只能靠认字，也要如实说明。"}}
+{"op":"session.wait","args":{"timeoutMinutes":15,"approvals":"session"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/explore.md"}}
+{"op":"quit"}
