@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
@@ -215,7 +216,7 @@ internal sealed class SessionDumpCommand : IDevCommand
                 text.AppendLine(plain.Text.Trim()).AppendLine();
                 break;
             case FunctionCallContent call:
-                text.AppendLine($"- 调用 `{call.Name}`：`{JsonSerializer.Serialize(call.Arguments)}`");
+                text.AppendLine($"- 调用 `{call.Name}`：`{ToJson(call.Arguments)}`");
                 break;
             case FunctionResultContent result:
                 string body = result.Result?.ToString() ?? "";
@@ -223,5 +224,27 @@ internal sealed class SessionDumpCommand : IDevCommand
                 text.AppendLine($"- 结果：{body.Replace("\n", " ")}").AppendLine();
                 break;
         }
+    }
+
+    /// <summary>工具参数转 JSON 文本：JsonNode 自序列化（AOT 下 JsonSerializer.Serialize 反射禁用）</summary>
+    private static string ToJson(IDictionary<string, object?>? arguments)
+    {
+        if (arguments == null || arguments.Count == 0) return "";
+        JsonObject obj = new();
+        foreach (KeyValuePair<string, object?> pair in arguments)
+        {
+            obj[pair.Key] = pair.Value switch
+            {
+                JsonElement element => JsonNode.Parse(element.GetRawText()),
+                string s => JsonValue.Create(s),
+                bool b => JsonValue.Create(b),
+                int i => JsonValue.Create(i),
+                double d => JsonValue.Create(d),
+                null => null,
+                _ => JsonValue.Create(pair.Value.ToString()),
+            };
+        }
+
+        return obj.ToJsonString();
     }
 }

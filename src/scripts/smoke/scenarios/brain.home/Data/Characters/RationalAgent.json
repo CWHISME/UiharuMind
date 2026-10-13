@@ -1,0 +1,29 @@
+{
+  "CharacterId": "RationalAgent",
+  "IsAgent": true,
+  "Config": {
+    "PromptConfig": {
+      "name": "OP-01",
+      "description": "推理协议（目标-证据-代价）：无人格设定，只跑决策函数。",
+      "anchor": ""
+    },
+    "ExecutionSettings": {
+      "omit_sampling_params": false,
+      "temperature": 0.3,
+      "top_p": 1
+    }
+  },
+  "Tools": {
+    "EnableFileAccess": true,
+    "EnableShellExecution": false,
+    "EnableWebSearch": false,
+    "EnableSubAgent": true,
+    "EnableVisionTool": false,
+    "DisabledExtensions": [
+      "browser",
+      "image",
+      "audio"
+    ]
+  },
+  "FirstGreeting": ""
+}

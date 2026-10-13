@@ -172,7 +172,7 @@ internal sealed class PermissiveFileAccessTools
                     ["isRegex"] = new JsonObject { ["type"] = "boolean", ["default"] = true, ["description"] = "可选，将匹配模式作为正则表达式处理" },
                     ["caseSensitive"] = new JsonObject { ["type"] = "boolean", ["default"] = false, ["description"] = "可选，区分大小写" },
                     ["filesOnly"] = new JsonObject { ["type"] = "boolean", ["default"] = false, ["description"] = "可选，只列出命中的文件" },
-                    ["fileGlobs"] = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string" }, ["nullable"] = true, ["description"] = "可选，按文件名过滤" },
+                    ["fileGlobs"] = new JsonObject { ["type"] = new JsonArray(JsonValue.Create("array"), JsonValue.Create("null")), ["items"] = new JsonObject { ["type"] = "string" }, ["default"] = null, ["description"] = "可选，按文件名过滤" },
                     ["path"] = new JsonObject { ["type"] = "string", ["nullable"] = true, ["description"] = SearchPathDescription },
                 },
                 ["required"] = new JsonArray(JsonValue.Create("pattern")),
@@ -208,7 +208,21 @@ internal sealed class PermissiveFileAccessTools
                 ["properties"] = new JsonObject
                 {
                     ["filePath"] = new JsonObject { ["type"] = "string", ["description"] = "文件路径，工作目录的相对路径(也接受非工作目录的绝对路径)。" },
-                    ["edits"] = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "object" }, ["description"] = "要替换的条目。" },
+                    ["edits"] = new JsonObject
+                    {
+                        ["type"] = "array",
+                        ["items"] = new JsonObject
+                        {
+                            ["type"] = "object",
+                            ["properties"] = new JsonObject
+                            {
+                                ["oldString"] = new JsonObject { ["type"] = "string", ["description"] = "被替换的原文，必须在文件中唯一出现，且不得与同一次调用的其他编辑重叠。" },
+                                ["newString"] = new JsonObject { ["type"] = "string", ["description"] = "替换后的文本，空字符串表示删掉命中的那段。" },
+                            },
+                            ["required"] = new JsonArray(JsonValue.Create("oldString"), JsonValue.Create("newString")),
+                        },
+                        ["description"] = "要替换的条目。",
+                    },
                 },
                 ["required"] = new JsonArray(JsonValue.Create("filePath"), JsonValue.Create("edits")),
             },
