@@ -3,21 +3,23 @@ using UiharuMind.Core.AI.Chat.Group;
 namespace UiharuMind.Core.Tests.Chat;
 
 /// <summary>
-/// 无限模式心跳状态行（ADR 0055 §8）：整条以 ⟦…⟧ 包裹 = 状态行，由程序拦下、不进群。
-/// 先只认整条，混在正文中间的心跳片段不剥（免得误吞正文）
+/// 无限模式心跳状态行（ADR 0055 §8）：整行以 ⟦…⟧ 包裹 = 状态行，由程序剥掉、不进群。
+/// 只认「整行」，正文行（哪怕含半截 ⟦ 符号）不动，避免误吞
 /// </summary>
 public class GroupAvatarHeartbeatTests
 {
     [Theory]
-    [InlineData("⟦运行中｜锚点：x｜本轮 delta：有/无｜未决问题：0→1｜本轮手段：指派⟧", true)]
-    [InlineData("⟦ 状态行 ⟧", true)]
-    [InlineData("我建议 @Alice 做 X", false)]
-    [InlineData("⟦状态⟧ 接着做正文", false)] //混在正文里：暂不剥
-    [InlineData("", false)]
-    [InlineData("   ", false)]
-    [InlineData("⟦只开不闭", false)]
-    public void IsHeartbeatBody_OnlyWholeLineWrappedInHeartbeatBrackets(string text, bool expected)
+    [InlineData("⟦运行中｜锚点：x｜本轮 delta：有/无⟧", "")]
+    [InlineData("⟦ 状态行 ⟧", "")]
+    [InlineData("⟦运行中｜锚点：x⟧\n我们继续做 @Alice", "我们继续做 @Alice")]
+    [InlineData("先总结一下：……\n⟦运行中｜delta：有⟧\n@Alice 去做", "先总结一下：……\n@Alice 去做")]
+    [InlineData("我建议 @Alice 做 X", "我建议 @Alice 做 X")]
+    [InlineData("⟦状态⟧ 接着做正文", "⟦状态⟧ 接着做正文")] //半截符号在正文行里：不动
+    [InlineData("", "")]
+    [InlineData("   ", "   ")]
+    [InlineData("⟦只开不闭", "⟦只开不闭")]
+    public void WithoutHeartbeatLines_StripsOnlyWholeHeartbeatLines(string text, string expected)
     {
-        Assert.Equal(expected, GroupAvatarTranscript.IsHeartbeatBody(text));
+        Assert.Equal(expected, GroupAvatarTranscript.WithoutHeartbeatLines(text));
     }
 }

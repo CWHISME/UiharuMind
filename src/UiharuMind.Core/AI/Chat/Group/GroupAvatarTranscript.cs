@@ -71,22 +71,30 @@ public static class GroupAvatarTranscript
     /// </summary>
     public const string InfiniteNote = "【无限模式：开】";
 
-    /// <summary>心跳状态行（无限模式 §8）的起止字符：整条以此包裹 = 状态行，程序不进群</summary>
+    /// <summary>心跳状态行（无限模式 §8）的起止字符：整行以此包裹 = 状态行，程序不进群</summary>
     public const char HeartbeatOpen = '⟦';
 
     /// <summary>心跳状态行的结束字符</summary>
     public const char HeartbeatClose = '⟧';
 
     /// <summary>
-    /// 是不是一条完整的心跳状态行（无限模式 §8）：整条以 ⟦ 开头、⟧ 结尾。
-    /// 是则由程序拦下、不进群（留给用户与巡检），化身那轮其余的正文照常发。
-    /// 混在正文中间的心跳片段暂不剥——先只认整条，免得误吞正文
+    /// 剥掉正文里整行是心跳状态行（无限模式 §8，⟦…⟧）的行，返回剩余文本。
+    /// 整条都是心跳时返回空串（调用方据此不进群）。
+    /// 实测：化身在无限模式把「思考总结 ＋ 心跳 ＋ 正式发言」写在同一块里，
+    /// 只认整条会漏——心跳混着进了群。改为按行认：整行以 ⟦ 开头、⟧ 结尾才算，
+    /// 正文行（哪怕含半截 ⟦ 符号）不动，避免误吞
     /// </summary>
     /// <param name="text">化身的正文</param>
-    /// <returns>整条是心跳为 true</returns>
-    public static bool IsHeartbeatBody(string text)
+    /// <returns>剥掉心跳行后的正文；全是心跳则为空串</returns>
+    public static string WithoutHeartbeatLines(string text)
     {
-        string t = text.Trim();
+        IEnumerable<string> kept = text.Split('\n').Where(l => !IsHeartbeatLine(l));
+        return string.Join("\n", kept);
+    }
+
+    private static bool IsHeartbeatLine(string line)
+    {
+        string t = line.Trim();
         return t.Length >= 2 && t[0] == HeartbeatOpen && t[^1] == HeartbeatClose;
     }
 
