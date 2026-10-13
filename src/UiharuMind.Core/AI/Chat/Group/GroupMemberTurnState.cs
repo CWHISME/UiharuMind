@@ -106,18 +106,21 @@ internal sealed class GroupMemberTurnState
     }
 
     /// <summary>
-    /// 收尾：不再接插话，并把队列里还没被消费的撤回来——它们由游标在下一轮照常投递
+    /// 收尾：不再接插话，并把队列里还没被消费的撤回来。跑完的按精确口径算消费；
+    /// 没跑成的，一个都不算消费——打断时正在跑的那次调用作废了，已取走但没落盘的消息模型其实没看见，
+    /// 下次按游标照常重投（宁可重复，不丢话）。撤回动作照做，免得下次投递与队列里各来一遍
     /// </summary>
     /// <param name="runner">成员一轮的跑法</param>
-    /// <returns>插进去且确实被消费了的群流水下标</returns>
-    public async Task<IReadOnlySet<int>> CloseAsync(IGroupMemberTurnRunner runner)
+    /// <param name="completed">这一轮是否正常跑完；没跑成时已消费也不认，随游标重投</param>
+    /// <returns>插进去且确实被消费了的群流水下标；没跑成为空</returns>
+    public async Task<IReadOnlySet<int>> CloseAsync(IGroupMemberTurnRunner runner, bool completed)
     {
         await _gate.WaitAsync().ConfigureAwait(false);
         try
         {
             _accepting = false;
             await WithdrawPendingAsync(runner).ConfigureAwait(false);
-            return _injected.Select(x => x.Index).ToHashSet();
+            return completed ? _injected.Select(x => x.Index).ToHashSet() : new HashSet<int>();
         }
         finally
         {

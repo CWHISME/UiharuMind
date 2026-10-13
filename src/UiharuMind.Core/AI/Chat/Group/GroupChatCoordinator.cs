@@ -315,7 +315,7 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
                 }
             }
 
-            IReadOnlySet<int> consumedNow = await turn.CloseAsync(_runner);
+            IReadOnlySet<int> consumedNow = await turn.CloseAsync(_runner, completed);
             closed = true;
             lock (_locker)
             {
@@ -334,7 +334,7 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
         {
             // 兜中途抛出：登记了「在说」就一定摘掉，否则这一波里他一直算在说、广播还往一个没人消费的轮次里插。
             // 已插进去的先撤回（它们没被消费，游标之后照常投递），不然他下一轮会连同新投递一起冒出来
-            if (!closed) await turn.CloseAsync(_runner);
+            if (!closed) await turn.CloseAsync(_runner, completed: false);
             if (run.End(member.SessionId)) SpeakerChanged?.Invoke(group.SessionId);
         }
     }

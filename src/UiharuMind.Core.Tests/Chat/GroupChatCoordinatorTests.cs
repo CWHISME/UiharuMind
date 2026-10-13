@@ -86,6 +86,30 @@ public class GroupChatCoordinatorTests
     }
 
     /// <summary>
+    /// 跑着时插进来、还没来得及看的话：这一轮被打断没跑成，不算他听过，下次轮到他时按游标重投
+    /// （打断时正在跑的那次调用作废了，已取走但没落盘的消息模型其实没看见，宁可重复、不丢话）
+    /// </summary>
+    [Fact]
+    public async Task Serial_InterruptedMember_NextTurnRedeliversInjectedMidTurn()
+    {
+        _runner.During[_bob.SessionId] = async () =>
+        {
+            await _coordinator.PostAsync(_group, "中途的新话"); //波还跑着：插进 Bob 正在跑的那一轮
+            _coordinator.Stop(_group.SessionId); //随后整波被停：Bob 这一轮没跑成
+        };
+        await _coordinator.PostAsync(_group, "开工");
+        _runner.During.Remove(_bob.SessionId);
+        _runner.ClearCalls();
+
+        await _coordinator.ContinueAsync(_group);
+
+        // Alice 没被打断过：她按正常口径听到；Bob 那条被打断时只进了注入队列，重投回来
+        Assert.Contains("中途的新话", _runner.Calls[0].Input);
+        string bobInput = _runner.Calls.Last(x => x.Member.SessionId == _bob.SessionId).Input;
+        Assert.Contains("中途的新话", bobInput);
+    }
+
+    /// <summary>
     /// 附注（如他启动的后台任务跑完了）：群闲着时只叫他一个，附注排在新话之前，他说完照常进群
     /// </summary>
     [Fact]
