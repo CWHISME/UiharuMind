@@ -125,6 +125,8 @@ public class DesktopCallTextTests
 
         public double SecondsSinceUserInput => 60;
 
+        public string? DialogPathHint => null;
+
         public void RequestAccess()
         {
         }

@@ -223,7 +223,7 @@ public sealed partial class DesktopHost
         "存储", "存储为", "另存为", "导出", "Save", "Save As", "Export",
     };
 
-    private string? SheetDialogNote()
+    private string SheetDialogNote()
     {
         string hint = _platform?.DialogPathHint ?? "type the full path where the dialog asks for it";
         return $"The window shows a modal save dialog (sheet) attached to it. To save into a folder by typing " +
