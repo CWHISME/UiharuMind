@@ -92,6 +92,14 @@ public static class GroupAvatarTranscript
         return string.Join("\n", kept);
     }
 
+    /// <summary>
+    /// 正文里所有整行是心跳状态行（⟦…⟧）的行，按原顺序。调用方据此落心跳日志（<c>GroupHeartbeatLog</c>）
+    /// </summary>
+    /// <param name="text">化身的正文</param>
+    /// <returns>心跳行序列</returns>
+    public static IEnumerable<string> HeartbeatLinesOf(string text) =>
+        text.Split('\n').Where(IsHeartbeatLine);
+
     private static bool IsHeartbeatLine(string line)
     {
         string t = line.Trim();

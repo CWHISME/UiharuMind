@@ -22,4 +22,14 @@ public class GroupAvatarHeartbeatTests
     {
         Assert.Equal(expected, GroupAvatarTranscript.WithoutHeartbeatLines(text));
     }
+
+    [Theory]
+    [InlineData("⟦运行中｜锚点：x⟧\n我们继续做 @Alice", "⟦运行中｜锚点：x⟧")]
+    [InlineData("a\n⟦h1⟧\nb\n⟦h2⟧", "⟦h1⟧\n⟦h2⟧")]
+    [InlineData("没有心跳行", "")]
+    [InlineData("⟦状态⟧ 正文行不认", "")]
+    public void HeartbeatLinesOf_ExtractsOnlyWholeHeartbeatLinesInOrder(string text, string expectedJoined)
+    {
+        Assert.Equal(expectedJoined, string.Join("\n", GroupAvatarTranscript.HeartbeatLinesOf(text)));
+    }
 }

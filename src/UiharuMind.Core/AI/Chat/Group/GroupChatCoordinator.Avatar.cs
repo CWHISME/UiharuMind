@@ -1,5 +1,6 @@
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Core.AI.Chat.Group.Away;
 
 namespace UiharuMind.Core.AI.Chat.Group;
 
@@ -68,8 +69,10 @@ public sealed partial class GroupChatCoordinator
             Task? PostBody(string text, DateTimeOffset? createdAt)
             {
                 string body = GroupTranscript.StripSpeakerPrefix(text.Trim(), GroupSceneSource.SpeakerNameOf(avatar));
-                // 无限模式心跳状态行（⟦…⟧ 行）：按行剥掉、不进群，留给用户与巡检；
+                // 无限模式心跳状态行（⟦…⟧ 行）：不进群，逐条落心跳日志（留给用户与巡检）；
                 // posted 不因此 +1，只心跳的一轮会被当 Silent 退避，下次催它说推进的话
+                foreach (string heartbeat in GroupAvatarTranscript.HeartbeatLinesOf(body))
+                    GroupHeartbeatLog.Append(group, heartbeat);
                 body = GroupAvatarTranscript.WithoutHeartbeatLines(body);
                 if (string.IsNullOrWhiteSpace(body)) return null;
 

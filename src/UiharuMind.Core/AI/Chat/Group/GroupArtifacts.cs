@@ -2,6 +2,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.Files;
+using UiharuMind.Core.AI.Chat.Group.Away;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Chat.Group;
@@ -178,11 +179,12 @@ public static class GroupArtifacts
 
         try
         {
-            // 点开头的（.DS_Store、编辑器的临时文件）不是谁的产物；群流水文件是离席的簿记，也不进产物清单
-            // （它每波末都在变，列进来会污染「本群产物」指纹，使空闲保险丝与退避永不触发）
+            // 点开头的（.DS_Store、编辑器的临时文件）不是谁的产物；群流水与心跳日志是离席的簿记，也不进产物清单
+            // （它们每波末都在变，列进来会污染「本群产物」指纹，使空闲保险丝与退避永不触发）
             return Directory.EnumerateFiles(draftRoom, "*", SearchOption.AllDirectories)
                 .Where(x => !Path.GetFileName(x).StartsWith('.'))
                 .Where(x => !string.Equals(Path.GetFileName(x), GroupLogText.FileName, StringComparison.OrdinalIgnoreCase))
+                .Where(x => !string.Equals(Path.GetFileName(x), GroupHeartbeatLog.FileName, StringComparison.OrdinalIgnoreCase))
                 .ToList();
         }
         catch (Exception e)
