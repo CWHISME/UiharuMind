@@ -56,9 +56,10 @@ public static class AgentToolPrompts
     /// 是否给子代理用。子代理与派活者<b>共用同一间草稿目录</b>，但它的正文不进用户对话——
     /// 交出去的是一份报告，派活者认得同一个简写，结论里写简写就能直接转引
     /// </param>
+    /// <param name="shellMounted">是否挂了 `Shell`：删旧笔记只能走它（记忆写入免审批，删除不在豁免内）</param>
     /// <returns>段落正文；三条都没有时为空串</returns>
     public static string BuildDirectories(bool hasWorkingDirectory, string? draftToken, string? memoryToken,
-        bool forSubAgent = false)
+        bool forSubAgent = false, bool shellMounted = false)
     {
         StringBuilder sb = new();
         if (hasWorkingDirectory)
@@ -81,12 +82,15 @@ public static class AgentToolPrompts
         {
             // 只交代事实不立规矩:首行会进索引,模型知道了这个代价,自然会把首行写成摘要、少记琐事
             sb.AppendLine($"- 记忆目录 {memoryToken}：你在本工作区跨会话保留的笔记，按主题一个 .md 文件。" +
-                          $"`Read {memoryToken}` 会返回记忆索引，每份笔记的路径和首行（超过 {MemoryIndex.SummaryMaxLength} 字截断），读全文用 {memoryToken}/文件名。" +
+                          $"`Read {memoryToken}` 会返回记忆索引，每份笔记的路径、修改日期和首行（超过 {MemoryIndex.SummaryMaxLength} 字截断），读全文用 {memoryToken}/文件名。" +
                           "开始一件事前先看一眼索引，以前的你可能记过相关的东西。" +
                           "索引里只看得到首行，" +
                           "只写个标题的话，以后的你得打开文件才知道里面是什么。只记对话里的沉淀。" +
                           // 实机见过:拿过时的进度记忆当事实答给用户,被指出后才去翻 git log
-                          "记忆里带时间的状态（进度、计数、某事是否已做）说出口前先用 git log 或现场数据核一遍，过期的顺手删掉。");
+                          "记忆里带时间的状态（进度、计数、某事是否已做）说出口前先用 git log 或现场数据核一遍，过期的顺手删掉。" +
+                          // 实机见过:写了更正笔记却没改旧笔记,两份并存,下一个读到旧那份的又照着错(记忆是工作区内各成员共用的)
+                          $"推翻某条结论时，先 `Grep` {memoryToken} 找出还记着旧结论的笔记，把仍有用的内容并进更正后的笔记，" +
+                          (shellMounted ? "旧文件用 `Shell` 删掉。" : "旧笔记的首行改成「已过时，见 新笔记名」。"));
         }
 
         string tokens = string.Join("、", new[] { draftToken, memoryToken }.Where(t => t != null));

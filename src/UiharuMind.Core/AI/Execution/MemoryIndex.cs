@@ -18,7 +18,8 @@ using UiharuMind.Core.Core.Utils;
 namespace UiharuMind.Core.AI.Execution;
 
 /// <summary>
-/// 记忆清单（ADR 0076）：工作区记忆目录里每份笔记一行「文件名 — 首行摘要」。
+/// 记忆清单（ADR 0076）：工作区记忆目录里每份笔记一行「文件名 [修改日期] — 首行摘要」。
+/// 日期是认出过时笔记的主要信号：工作区里各成员共用一份记忆，旧结论被推翻后旧笔记常常没人改。
 ///
 /// 清单作为<b>快照</b>挂在本轮输入消息的注解上（<see cref="ChatMessageAnnotations.MemoryIndexSnapshot"/>），
 /// 发送时才由 <see cref="MemoryIndexProjection"/> 并进那条消息——历史里的正文仍是用户原话，
@@ -109,7 +110,8 @@ public static class MemoryIndex
             string relative = Path.GetRelativePath(memoryDirectory, file.FullName).Replace('\\', '/');
             string name = memoryToken.Length > 0 ? $"{memoryToken}/{relative}" : relative;
             string summary = SummaryOf(ReadHead(file.FullName));
-            string line = summary.Length > 0 ? $"{EntryPrefix}{name} — {summary}" : $"{EntryPrefix}{name}";
+            string head = $"{EntryPrefix}{name} [{file.LastWriteTime:yyyy-MM-dd}]";
+            string line = summary.Length > 0 ? $"{head} — {summary}" : head;
             if (listed > 0 && list.Length + line.Length > budget) break;
 
             list.AppendLine(line);

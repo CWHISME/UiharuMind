@@ -29,6 +29,8 @@ public sealed class MemoryIndexTests : IDisposable
         }
     }
 
+    private string Day(string name) => File.GetLastWriteTime(Path.Combine(_memory, name)).ToString("yyyy-MM-dd");
+
     private void Note(string name, string text, int minutesAgo = 0)
     {
         string path = Path.Combine(_memory, name);
@@ -46,7 +48,8 @@ public sealed class MemoryIndexTests : IDisposable
 
         string list = MemoryIndex.Build(_memory, Token, Budget)!;
 
-        Assert.Equal("- $MEMORY/sub/new.md — 审批误报的根因与修法\n- $MEMORY/old.md — 旧的标题", list.ReplaceLineEndings("\n"));
+        Assert.Equal($"- $MEMORY/sub/new.md [{Day("sub/new.md")}] — 审批误报的根因与修法\n- $MEMORY/old.md [{Day("old.md")}] — 旧的标题",
+            list.ReplaceLineEndings("\n"));
         Assert.Equal(2, MemoryIndex.CountEntries(list));
     }
 
@@ -105,7 +108,7 @@ public sealed class MemoryIndexTests : IDisposable
 
         Assert.True(MemoryIndex.TryAnchor([], [input], _memory, Token, Budget));
 
-        Assert.Equal("- $MEMORY/a.md — 偏好", ChatMessageAnnotations.MemoryIndexSnapshotOf(input));
+        Assert.Equal($"- $MEMORY/a.md [{Day("a.md")}] — 偏好", ChatMessageAnnotations.MemoryIndexSnapshotOf(input));
         Assert.Equal("开始干活", input.Text);
     }
 
@@ -192,7 +195,7 @@ public sealed class MemoryIndexTests : IDisposable
 
         string index = await reader.ReadAsync("$MEMORY", 1, null, TestContext.Current.CancellationToken);
 
-        Assert.Equal("- sub/new.md — 踩坑\n- old.md — 偏好", index.ReplaceLineEndings("\n"));
+        Assert.Equal($"- sub/new.md [{Day("sub/new.md")}] — 踩坑\n- old.md [{Day("old.md")}] — 偏好", index.ReplaceLineEndings("\n"));
     }
 
     [Fact]

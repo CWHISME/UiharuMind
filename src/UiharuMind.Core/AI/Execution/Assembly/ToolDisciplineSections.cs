@@ -89,7 +89,7 @@ internal static class ToolDisciplineSections
             : null;
         list.Section(hasWorkingDirectory || draftToken != null || memoryToken != null,
             AgentPromptHeadings.Directories("##"),
-            () => AgentToolPrompts.BuildDirectories(hasWorkingDirectory, draftToken, memoryToken, facts.ForSubAgent));
+            () => AgentToolPrompts.BuildDirectories(hasWorkingDirectory, draftToken, memoryToken, facts.ForSubAgent, facts.Shell));
 
         // shell 曾是唯一挂了工具却零指示的能力,缺口的表现是模型拿 Write 重写全文去做一次 mv。
         // 「文件系统操作用 Shell」那句刻意不写进文件纪律段:shell 可以被关掉,
