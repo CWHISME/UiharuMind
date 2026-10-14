@@ -7,6 +7,11 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -271,8 +276,49 @@ public static class ToolJson
     /// <param name="name">工具名</param>
     /// <param name="description">工具说明；为空时取方法上的 Description</param>
     /// <returns>工具函数</returns>
-    public static AIFunction CreateFunction(Delegate method, string name, string? description = null) =>
-        AIFunctionFactory.Create(method, CreateFactoryOptions(name, description));
+    public static AIFunction CreateFunction(Delegate method, string name, string? description = null)
+    {
+        EnsureAotSafe(method, name);
+        return AIFunctionFactory.Create(method, CreateFactoryOptions(name, description));
+    }
+
+    /// <summary>
+    /// 漏声明的 AOT 雷在开发期就炸：参数/返回类型既不在框架 source-gen、又没在 <see cref="ToolJsonContext"/>
+    /// 声明时，<see cref="SchemaInference"/>（剥了反射兜底、与 AOT 同路）取不到 metadata，这里直接抛。
+    /// 不抛的话 R2R 全绿、发 AOT 包才静默挂——就是 7115e9d2 撤手写工具要防的那种漂移。
+    /// </summary>
+    private static void EnsureAotSafe(Delegate method, string name)
+    {
+        MethodInfo body = method.Method;
+        List<Type> serializable =
+        [
+            .. body.GetParameters()
+                  .Where(p => p.ParameterType != typeof(CancellationToken)) //控制参不参与序列化
+                  .Select(p => p.ParameterType),
+        ];
+        Type ret = body.ReturnType;
+        // 异步返回值序列化的是内层 T：Task<T>（class，IsAssignableTo Task）与 ValueTask<T>（struct，只能按泛型定义认）
+        if (ret.IsGenericType
+            && (ret.IsAssignableTo(typeof(Task)) || ret.GetGenericTypeDefinition() == typeof(ValueTask<>)))
+        {
+            serializable.Add(ret.GenericTypeArguments[0]);
+        }
+        else if (ret != typeof(Task) && ret != typeof(ValueTask) && ret != typeof(void))
+        {
+            serializable.Add(ret); //裸 Task/ValueTask/void 无可序列化结果
+        }
+
+        foreach (Type type in serializable.Distinct())
+        {
+            if (!SchemaInference.TryGetTypeInfo(type, out _))
+            {
+                throw new InvalidOperationException(
+                    $"工具 '{name}' 的 {type.FullName} 既不在框架 source-gen 也没在 ToolJsonContext 声明——"
+                    + "AOT 产物会在此静默挂。去 ToolJsonContext 补一行 [JsonSerializable(typeof(...))]。" +
+                    "（确属控制参且不参与序列化，别加进 serializable。）");
+            }
+        }
+    }
 
     private static JsonTypeInfo<IDictionary<string, object?>> CreateArgumentsInfo()
     {
