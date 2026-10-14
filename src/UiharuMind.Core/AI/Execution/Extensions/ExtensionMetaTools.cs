@@ -69,7 +69,7 @@ internal static class ExtensionMetaTools
             "查询扩展：不在你的工具列表里的能力——内置的（真实浏览器、图像生成、音频）以及用户通过 MCP 连接的应用。" +
             "不传参数：列出所有扩展及其就绪状态。传 `extension`：返回其用法说明和命令。" +
             "传 `extension` 和 `command`：返回该命令的完整描述和参数。" +
-            "集合是动态的：用户后来启动的应用会变得可用，所以先查再假设。",
+            "集合是动态的：用户后来接入的 MCP 应用会出现在这里，名单里没有的先查一次再下结论。",
             HelpSchema,
             (arguments, ct) => InvokeHelpAsync(hub, arguments, ct)),
         new ApprovalRequiredAIFunction(new MetaFunction(ExtensionCalls.CallName,
@@ -90,14 +90,26 @@ internal static class ExtensionMetaTools
     private static async Task<object?> InvokeCallAsync(ExtensionHub hub, AIFunctionArguments arguments,
         CancellationToken cancellationToken)
     {
-        Dictionary<string, JsonElement>? parsed = ExtensionCalls.ReadObject(arguments, "arguments");
-        if (parsed == null && HasValue(arguments, "arguments"))
+        ExtensionCallParts parts = ExtensionCalls.ReadParts(arguments);
+        if (parts.Arguments == null && !parts.Unwrapped && HasValue(arguments, "arguments"))
         {
             return "参数 `arguments` 必须是 JSON 对象，如 {\"url\": \"https://example.com\"}。什么都没运行。";
         }
 
-        return await hub.CallAsync(ExtensionCalls.ReadString(arguments, "extension"),
-            ExtensionCalls.ReadString(arguments, "command"), parsed, cancellationToken).ConfigureAwait(false);
+        object? result = await hub.CallAsync(parts.Extension, parts.Command, parts.Arguments, cancellationToken)
+            .ConfigureAwait(false);
+        if (!parts.Unwrapped) return result;
+
+        // 照做了，但要让模型知道写法错了，下次写对
+        string notice = $"（注意：`extension`、`command` 应放在顶层，这次已按 {parts.Extension}.{parts.Command} 理解。）\n";
+        return result switch
+        {
+            string text => notice + text,
+            JsonElement { ValueKind: JsonValueKind.String } element => notice + element.GetString(),
+            IEnumerable<AIContent> contents => contents.Prepend(new TextContent(notice)).ToList(),
+            null => notice.TrimEnd(),
+            _ => notice + result,
+        };
     }
 
     private static bool HasValue(AIFunctionArguments arguments, string key) =>

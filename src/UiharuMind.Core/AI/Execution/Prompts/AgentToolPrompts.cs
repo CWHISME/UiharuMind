@@ -218,22 +218,18 @@ public static class AgentToolPrompts
         "- 没有挂载知识库时它会直说；这时如实告诉用户，不要靠猜。";
 
     /// <summary>
-    /// 扩展名单（「# 扩展」段正文，ADR 0079）。
+    /// 扩展名单（「# 扩展」段正文，ADR 0079）：只列用户接的 MCP 应用。
     ///
-    /// ⚠️ <b>只放配置里就有的东西</b>：名字与一句话说明，<b>不写状态、不写命令</b>。
+    /// 怎么查、怎么调<b>不在这里说</b>：<c>ExCall</c> 描述已写「MCP 扩展先查 ExHelp」，再写一遍就是两层各说一套。
+    /// ⚠️ <b>只放配置里就有的东西</b>：名字与一句话说明，<b>不写状态、不写命令</b>——
     /// 后两者是运行时信息，写进来的话 server 一连上系统提示就变一次，缓存前缀白白失效。
-    /// 想知道此刻能不能用、有哪些命令，模型自己调 <see cref="ExtensionCalls.HelpName"/>。
     /// </summary>
     /// <param name="extensions">扩展：名字与说明（说明可空）</param>
     /// <returns>段落正文</returns>
     public static string BuildExtensions(IReadOnlyList<(string Name, string Description)> extensions)
     {
         StringBuilder sb = new();
-        sb.Append("下面这些能力不在你的工具列表里。要用时先调 `").Append(ExtensionCalls.HelpName)
-            .Append("` 查用法（不带参数列出全部及能不能用，给扩展名列出它的命令，再给命令名看参数），")
-            .Append("再调 `").Append(ExtensionCalls.CallName).Append("` 执行。\n")
-            .Append("MCP server 是用户开着的应用，命令以 `").Append(ExtensionCalls.HelpName)
-            .Append("` 列出的为准：server 自带的「列出工具」之类的命令，返回的名单可能包含没开放、调不了的。\n");
+        sb.Append("用户通过 MCP 接入的应用：\n");
         foreach ((string name, string description) in extensions)
         {
             sb.Append("- ").Append(name);

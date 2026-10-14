@@ -24,6 +24,16 @@ public sealed record ExtensionInvocation(string Extension, string Command,
     IReadOnlyDictionary<string, JsonElement>? Arguments);
 
 /// <summary>
+/// 一次 <c>ExCall</c> 的三个顶层字段
+/// </summary>
+/// <param name="Extension">扩展名；没给为 null</param>
+/// <param name="Command">命令名；没给为 null</param>
+/// <param name="Arguments">命令的参数；没给或不是对象为 null</param>
+/// <param name="Unwrapped">是否从套进 <c>arguments</c> 的写法里拆出来的</param>
+public sealed record ExtensionCallParts(string? Extension, string? Command,
+    Dictionary<string, JsonElement>? Arguments, bool Unwrapped);
+
+/// <summary>
 /// 扩展的两把元工具（ADR 0079）叫什么，以及怎么把一次 <see cref="ExtensionCalls.CallName"/> 拆开：
 /// 审批规则按拆开的扩展与命令判风险，界面按拆开的内层工具画卡
 /// </summary>
@@ -55,8 +65,9 @@ public static class ExtensionCalls
     {
         invocation = null;
         if (!IsCall(call) || call!.Arguments is not { } arguments) return false;
-        string? extension = ReadString(arguments, "extension")?.Trim();
-        string? command = ReadString(arguments, "command")?.Trim();
+        ExtensionCallParts parts = ReadParts(arguments);
+        string? extension = parts.Extension?.Trim();
+        string? command = parts.Command?.Trim();
         if (string.IsNullOrEmpty(extension) || string.IsNullOrEmpty(command)) return false;
 
         // 内置扩展换成规范写法：审批记的名、界面认的名都按它，模型写 Browser 还是 browser 不该有两种结果
@@ -66,8 +77,38 @@ public static class ExtensionCalls
             command = BuiltinExtensions.CanonicalCommand(builtin, command) ?? command;
         }
 
-        invocation = new ExtensionInvocation(extension, command, ReadObject(arguments, "arguments"));
+        invocation = new ExtensionInvocation(extension, command, parts.Arguments);
         return true;
+    }
+
+    /// <summary>
+    /// 读三个顶层字段。宽容一种常见错法：整个调用又套进了 <c>arguments</c>
+    /// （<c>{"arguments": {"extension": …, "command": …, "arguments": {…}}}</c>），
+    /// 顶层缺扩展名或命令名而 <c>arguments</c> 里有时，从里面拆出来；内层没有 <c>arguments</c> 就把其余字段当参数。
+    /// 审批（<see cref="TryRead"/>）与执行共用这一份，两边看到的是同一次调用
+    /// </summary>
+    /// <param name="arguments">ExCall 的原始参数</param>
+    /// <returns>三个字段</returns>
+    public static ExtensionCallParts ReadParts(IDictionary<string, object?> arguments)
+    {
+        string? extension = ReadString(arguments, "extension");
+        string? command = ReadString(arguments, "command");
+        Dictionary<string, JsonElement>? inner = ReadObject(arguments, "arguments");
+        bool topComplete = !string.IsNullOrWhiteSpace(extension) && !string.IsNullOrWhiteSpace(command);
+        if (topComplete || inner == null || !(inner.ContainsKey("extension") || inner.ContainsKey("command")))
+        {
+            return new ExtensionCallParts(extension, command, inner, false);
+        }
+
+        Dictionary<string, object?> nested = inner.ToDictionary(x => x.Key, object? (x) => x.Value);
+        if (string.IsNullOrWhiteSpace(extension)) extension = ReadString(nested, "extension");
+        if (string.IsNullOrWhiteSpace(command)) command = ReadString(nested, "command");
+        Dictionary<string, JsonElement> rest = inner.Where(x => x.Key is not ("extension" or "command"))
+            .ToDictionary(x => x.Key, x => x.Value);
+        Dictionary<string, JsonElement>? commandArguments = inner.ContainsKey("arguments")
+            ? ReadObject(nested, "arguments")
+            : rest.Count > 0 ? rest : null;
+        return new ExtensionCallParts(extension, command, commandArguments, true);
     }
 
     /// <summary>

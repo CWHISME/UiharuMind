@@ -38,7 +38,7 @@ public class DesktopApprovalTests
     {
         Assert.False(await ApprovedAsync(mode, Act("w1")));
         Assert.False(await ApprovedAsync(mode,
-            ExtensionCallOf.Make(BuiltinExtensions.Desktop, BuiltinExtensions.DesktopOpen, new { target = "Calculator" })));
+            ExtensionCallOf.Make(BuiltinExtensions.Desktop, BuiltinExtensions.DesktopLaunch, new { target = "Calculator" })));
     }
 
     [Fact]

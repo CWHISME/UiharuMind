@@ -39,7 +39,7 @@ internal static class DesktopCallText
         string window = Text(arguments, "window");
         switch (call.Name)
         {
-            case DesktopTools.OpenToolName:
+            case DesktopTools.LaunchToolName:
                 string target = Text(arguments, "target").Trim();
                 bool isFile = target.Contains('/') || target.Contains('\\') || target.StartsWith('$');
                 return Loc.Text(isFile ? LangKey.DesktopCallOpenFile : LangKey.DesktopCallOpenApp, target);

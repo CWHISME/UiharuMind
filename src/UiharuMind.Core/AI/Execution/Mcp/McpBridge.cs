@@ -105,7 +105,9 @@ internal sealed class McpBridge
         string text;
         if (string.IsNullOrWhiteSpace(tool))
         {
-            text = McpHelpFormatter.RenderServer(config.Name, instructions, tools, note);
+            // 只在查这个 server 时说(原先每轮写在系统提示里):自带的「列出工具」返回的可能含没开放的
+            text = McpHelpFormatter.RenderServer(config.Name, instructions, tools, note) +
+                   "\n可调用的命令以这里为准：server 自带的「列出工具」之类命令，返回的名单可能包含没开放、调不了的。";
         }
         else
         {

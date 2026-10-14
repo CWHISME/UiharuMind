@@ -127,7 +127,7 @@ internal static class AgentOptionsFactory
         AgentToolConfig config = plan.Config;
         chatOptions.Instructions = AgentInstructionsComposer.Compose(chatOptions.Instructions,
             plan.Profile.GroupScene, plan.Profile.AvatarDuties, config,
-            plan.WorkingDirectory, plan.WorkspaceInstructions, ExtensionRoster.Section(config, plan.Mcp),
+            plan.WorkingDirectory, plan.WorkspaceInstructions, ExtensionRoster.Section(plan.Mcp),
             shellBinary, plan.PythonInterpreterPath, plan.OutputRoomDirectory, plan.MemoryDirectory,
             character.GetPersonaCoda(), out promptSegments);
 

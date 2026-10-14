@@ -450,7 +450,7 @@ internal static class SubAgentAssembly
             input.ShellBinary ?? string.Empty, canMutate, input.PythonOutputDirectory,
             input.WorkingDirectory, outputRoom,
             input.WorkspaceInstructions,
-            entries.Any(x => x.Capability == EAgentCapability.Extensions) ? ExtensionRoster.Section(config, input.Mcp) : string.Empty,
+            entries.Any(x => x.Capability == EAgentCapability.Extensions) ? ExtensionRoster.Section(input.Mcp) : string.Empty,
             input.Persona, input.Role,
             brain: input.SubAgentProfile.IsBrain);
         subOptions.Tools = tools;

@@ -206,7 +206,6 @@ internal static class AgentToolsetBuilder
 
     /// <summary>
     /// 这次装配列出的内置扩展：角色没禁的都给（ADR 0079），缺前提的照样列出、调用时说明原因。
-    /// 系统提示里那行名单与这里同一个判据（见 <see cref="ListedBuiltins"/>）
     /// </summary>
     private static IReadOnlyList<BuiltinExtension> Builtins(AgentToolConfig config, AgentToolResources resources,
         EReadImageMode imageMode, bool mountFiles)
@@ -219,7 +218,7 @@ internal static class AgentToolsetBuilder
         // 截图得看得了：视觉模型要有 Read 才看得见，非视觉模型要有 AnalyzeImage
         if (listed.Contains(BuiltinExtensions.Browser) && resources.Browser == null)
         {
-            // 名单照写（与系统提示同一判据），调用时如实说用不了，免得名单与帮助各说各的
+            // 照样列出，调用时如实说用不了，免得帮助与速查各说各的
             builtins.Add(BuiltinExtensions.Unavailable(BuiltinExtensions.Browser, "No browser is available here."));
         }
         else if (listed.Contains(BuiltinExtensions.Browser))
@@ -252,7 +251,7 @@ internal static class AgentToolsetBuilder
     }
 
     /// <summary>
-    /// 角色没禁的内置扩展名（系统提示的名单与这里同一个判据）
+    /// 角色没禁的内置扩展名
     /// </summary>
     /// <param name="config">生效能力</param>
     /// <returns>扩展名，按名单顺序</returns>

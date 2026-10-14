@@ -50,7 +50,7 @@ internal static class DesktopRisk
     /// <returns>格子的名字；认不出应用时用模型写的窗口</returns>
     public static string ApprovalScope(FunctionCallContent call, DesktopHost host)
     {
-        if (call.Name == DesktopTools.OpenToolName) return "open " + (Text(call.Arguments, "target") ?? string.Empty).Trim();
+        if (call.Name == DesktopTools.LaunchToolName) return "open " + (Text(call.Arguments, "target") ?? string.Empty).Trim();
         string window = (Text(call.Arguments, "window") ?? string.Empty).Trim();
         string app = host.FindWindow(window) is { } found ? found.Info.AppId : window;
         return IsRealInput(call) ? "real " + app : app;

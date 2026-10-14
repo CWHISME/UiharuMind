@@ -75,8 +75,8 @@ public static class BuiltinExtensions
     /// <summary>桌面：在窗口里动手</summary>
     public const string DesktopAct = "act";
 
-    /// <summary>桌面：启动应用、打开文件</summary>
-    public const string DesktopOpen = "open";
+    /// <summary>桌面：启动应用、打开文件。不叫 open：模型会读成「打开桌面扩展」，开局空参调用（冒烟里约一成）</summary>
+    public const string DesktopLaunch = "launch";
 
     /// <summary>桌面：交给用户</summary>
     public const string DesktopHandoff = "handoff";
@@ -105,7 +105,7 @@ public static class BuiltinExtensions
         "· browser.handoff {task}. act 的 action 取 click | fill | select | check | uncheck | press | hover | scroll " +
         "| back；target 是最近一份 outline 里的 ref，如 e5。\n" +
         "- desktop.windows {} · desktop.snapshot {window, view?, find?} · desktop.act {window, action, target?, value?, input?} " +
-        "· desktop.open {target} · desktop.handoff {window, task}. window 是 windows 列出的编号，如 w3；" +
+        "· desktop.launch {target} · desktop.handoff {window, task}. window 是 windows 列出的编号，如 w3；" +
         "snapshot 的 view 取 outline | ocr | screenshot（screenshot 另附这个窗口的截图，图上框出各 ref）；" +
         "act 的 action 取 click | double_click | right_click | fill | type | select | check | uncheck | press | focus | scroll，" +
         "scroll 的 value 取 up | down。\n" +
@@ -126,25 +126,11 @@ public static class BuiltinExtensions
         [Desktop] =
         [
             (DesktopWindows, DesktopTools.WindowsToolName), (DesktopSnapshot, DesktopTools.SnapshotToolName),
-            (DesktopAct, DesktopTools.ActToolName), (DesktopOpen, DesktopTools.OpenToolName),
+            (DesktopAct, DesktopTools.ActToolName), (DesktopLaunch, DesktopTools.LaunchToolName),
             (DesktopHandoff, DesktopTools.HandoffToolName),
         ],
         [Image] = [(ImageGenerate, ImageGenerationTool.ToolName)],
         [Audio] = [(AudioSynthesize, SynthesizeSpeechTool.ToolName), (AudioTranscribe, TranscribeAudioTool.ToolName)],
-    };
-
-    /// <summary>
-    /// 一句话说明（系统提示里那行名单用）
-    /// </summary>
-    /// <param name="name">扩展名</param>
-    /// <returns>说明</returns>
-    public static string Summary(string name) => name switch
-    {
-        Browser => "操作一个真实的 Chrome 窗口：打开网页、点按钮、填表、读正文、截图",
-        Desktop => "看、操作电脑上别的应用的窗口：读界面、点按钮、填字、按快捷键、启动应用",
-        Image => "生成或修改图片",
-        Audio => "用角色的声音配音成音频文件；把音频转写成文字或字幕",
-        _ => string.Empty,
     };
 
     /// <summary>
@@ -224,7 +210,7 @@ public static class BuiltinExtensions
         AgentPathResolver? paths = null, EReadImageMode screenshots = EReadImageMode.None) =>
         new(Desktop,
             "用户电脑上别的应用的窗口。先 windows 列出窗口（编号如 w3），再 snapshot 读它的界面（ref 如 e5），" +
-            "然后按 ref 对它 act。windows 与 snapshot 从不问用户；act 与 open 除非用户已为本会话放行这个应用，否则会询问；" +
+            "然后按 ref 对它 act。windows 与 snapshot 从不问用户；act 与 launch 除非用户已为本会话放行这个应用，否则会询问；" +
             "input \"real\"（真实鼠标键盘）要用户为这个应用单独放行，handoff 总是等用户。密码管理、系统设置、终端与本应用自身的窗口不能碰。",
             Bind(Desktop, DesktopTools.Create(host, sessionId, spillDirectory, paths, screenshots)))
         {

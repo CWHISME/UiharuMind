@@ -4,7 +4,7 @@ using UiharuMind.Core.AI.Execution.Tools.Desktop;
 namespace UiharuMind.Core.Tests.Execution.Desktop;
 
 /// <summary>
-/// desktop.open 的预检落在宿主上（ADR 0084，P0）：名单内应用、路径形状、URL 在被平台启动之前就拒
+/// desktop.launch 的预检落在宿主上（ADR 0084，P0）：名单内应用、路径形状、URL 在被平台启动之前就拒
 /// </summary>
 public class OpenPolicyHostTests
 {

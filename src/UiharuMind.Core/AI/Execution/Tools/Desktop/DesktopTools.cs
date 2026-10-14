@@ -33,7 +33,7 @@ public sealed class DesktopTools
     public const string ActToolName = "DesktopAct";
 
     /// <summary>打开工具名</summary>
-    public const string OpenToolName = "DesktopOpen";
+    public const string LaunchToolName = "DesktopLaunch";
 
     /// <summary>接管工具名</summary>
     public const string HandoffToolName = "DesktopHandoff";
@@ -106,7 +106,7 @@ public sealed class DesktopTools
                 "在一个窗口里执行动作，结果已包含更新后的快照（或只含变动的行）。默认不移动鼠标、不抢前台；" +
                 "点了没反应时可改用 input \"real\" 用真实鼠标键盘（要用户同意，用户可为这个应用放行本会话）。" +
                 $"标记为 [password] 的字段不能输入：用 {HandoffMention}。" + ThirdPartyNotice),
-            ToolJson.CreateFunction(tools.OpenAsync, OpenToolName,
+            ToolJson.CreateFunction(tools.LaunchAsync, LaunchToolName,
                 "启动一个应用（按名字，如 TextEdit、Notepad、Calculator），或用默认应用打开工作区或草稿目录里的文件。" +
                 "返回打开后的窗口。"),
             ToolJson.CreateFunction(tools.HandoffAsync, HandoffToolName,
@@ -120,7 +120,7 @@ public sealed class DesktopTools
     /// </summary>
     /// <param name="toolName">工具名</param>
     /// <returns>有为 true</returns>
-    public static bool HasPreview(string toolName) => toolName is ActToolName or OpenToolName or HandoffToolName;
+    public static bool HasPreview(string toolName) => toolName is ActToolName or LaunchToolName or HandoffToolName;
 
     private Task<string> WindowsAsync(CancellationToken cancellationToken = default) => RunAsync(async () =>
     {
@@ -190,7 +190,7 @@ public sealed class DesktopTools
         return RunAsync(async () => _formatter.AfterAction(ToView(await _host.ActAsync(_sessionId, request, cancellationToken))));
     }
 
-    private Task<string> OpenAsync(
+    private Task<string> LaunchAsync(
         [Description("应用名（如 TextEdit、Notepad），或工作区、草稿目录里文件的路径")]
         string target,
         CancellationToken cancellationToken = default) => RunAsync(async () =>

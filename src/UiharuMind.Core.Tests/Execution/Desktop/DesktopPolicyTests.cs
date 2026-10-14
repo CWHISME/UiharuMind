@@ -3,7 +3,7 @@ using UiharuMind.Core.AI.Execution.Tools.Desktop;
 namespace UiharuMind.Core.Tests.Execution.Desktop;
 
 /// <summary>
-/// desktop.open 的预检（ADR 0084，P0）：名单内的应用不能开、路径/URL 不当应用名、文件分支必须带路径解析器
+/// desktop.launch 的预检（ADR 0084，P0）：名单内的应用不能开、路径/URL 不当应用名、文件分支必须带路径解析器
 /// </summary>
 public class DesktopPolicyTests
 {

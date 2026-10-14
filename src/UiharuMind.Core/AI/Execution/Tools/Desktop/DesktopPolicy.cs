@@ -58,8 +58,8 @@ public static class DesktopPolicy
     }
 
     /// <summary>
-    /// <c>desktop.open</c> 一个<b>应用名</b>之前的预检（ADR 0084）：名单内的应用不能开（开了也拍不了动不了，白开），
-    /// 长得像路径或 URL 的不当应用名放行（open 只认应用名与工作区/草稿目录里的文件，免得成了绕过 Shell 审批的口子）
+    /// <c>desktop.launch</c> 一个<b>应用名</b>之前的预检（ADR 0084）：名单内的应用不能开（开了也拍不了动不了，白开），
+    /// 长得像路径或 URL 的不当应用名放行（launch 只认应用名与工作区/草稿目录里的文件，免得成了绕过 Shell 审批的口子）
     /// </summary>
     /// <param name="target">模型写的应用名</param>
     /// <param name="blockedApps">拒绝名单；为 null 用默认的</param>
@@ -80,7 +80,7 @@ public static class DesktopPolicy
     }
 
     /// <summary>
-    /// <c>desktop.open</c> 的文件分支入口判断（ADR 0084）：只认工作区/草稿目录里的文件；
+    /// <c>desktop.launch</c> 的文件分支入口判断（ADR 0084）：只认工作区/草稿目录里的文件；
     /// 没有路径解析器（<c>_paths == null</c>）时不能把任意路径原样交给平台当应用名开——Windows 会当真执行
     /// </summary>
     /// <param name="target">模型给的 target</param>
@@ -93,7 +93,7 @@ public static class DesktopPolicy
     }
 
     /// <summary>
-    /// open 的 target 是不是路径形状（应用名不该有这些特征）
+    /// launch 的 target 是不是路径形状（应用名不该有这些特征）
     /// </summary>
     /// <param name="target">target</param>
     /// <returns>是为 true</returns>

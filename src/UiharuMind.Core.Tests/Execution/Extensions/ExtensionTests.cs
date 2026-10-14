@@ -132,7 +132,7 @@ public class ExtensionTests
         BuiltinExtension desktop = BuiltinExtensions.CreateDesktop(new DesktopHost(null), "s1", "/tmp/uiharu-spill");
 
         Assert.Equal(["snapshot", "navigate", "act", "handoff"], browser.Commands.Select(x => x.Name));
-        Assert.Equal(["windows", "snapshot", "act", "open", "handoff"], desktop.Commands.Select(x => x.Name));
+        Assert.Equal(["windows", "snapshot", "act", "launch", "handoff"], desktop.Commands.Select(x => x.Name));
         Assert.Equal(["synthesize", "transcribe"], audio.Commands.Select(x => x.Name));
         Assert.Equal(["generate"], image.Commands.Select(x => x.Name));
         Assert.NotNull(image.Unavailable);
@@ -262,19 +262,15 @@ public class ExtensionTests
     //================= 名单 =================
 
     [Fact]
-    public void Roster_ListsUndisabledBuiltinsThenServers_SkippingNameClashes()
+    public void Roster_ListsOnlyMcpServers_SkippingNameClashes()
     {
-        AgentToolConfig config = new() { DisabledExtensions = { "image" } };
         McpToolSet mcp = new()
         {
             Servers = [new McpRosterServer { Name = "unity", Description = "d" }, new McpRosterServer { Name = "browser" }],
         };
 
-        IReadOnlyList<(string Name, string Description)> roster = ExtensionRoster.Of(config, mcp);
-
-        Assert.Equal(["browser", "desktop", "audio", "unity"], roster.Select(x => x.Name));
-        Assert.Equal(string.Empty, ExtensionRoster.Section(
-            new AgentToolConfig { DisabledExtensions = [..BuiltinExtensions.Names] }, McpToolSet.Empty));
+        Assert.Equal(["unity"], ExtensionRoster.Of(mcp).Select(x => x.Name));
+        Assert.Equal(string.Empty, ExtensionRoster.Section(McpToolSet.Empty)); //内置都在 ExCall 的速查里，没有 MCP 就不出
     }
 
     /// <summary>旧档案的 MCP 禁用名单读进新名单，写出时不再带旧字段</summary>
@@ -328,6 +324,52 @@ public class ExtensionTests
         Assert.False(await ApprovalRuleProbe.IsApprovedAsync(rules, handoff));
         Assert.False(await ApprovalRuleProbe.IsApprovedAsync(
             ApprovalModeMapper.BuildRules(EAgentPermissionMode.ReadOnly, root, memoryWriteRoot: memory), shell));
+    }
+
+    /// <summary>
+    /// 整个调用套进 arguments 的写法：执行与审批都拆出来按同一次调用认，结果里提醒写法
+    /// </summary>
+    [Fact]
+    public async Task CallNestedInArguments_IsUnwrapped_ForBothRunAndApproval()
+    {
+        AIFunction call = (AIFunction)ExtensionMetaTools.Create(Hub(Echo())).Single(x => x.Name == ExtensionCalls.CallName);
+        Dictionary<string, object?> nested = new()
+        {
+            ["arguments"] = JsonSerializer.SerializeToElement(new
+            {
+                extension = "audio", command = "transcribe", arguments = new { path = "a.wav" },
+            }),
+        };
+
+        string text = Assert.IsType<string>(await call.InvokeAsync(new AIFunctionArguments(nested),
+            TestContext.Current.CancellationToken));
+        Assert.StartsWith("（注意：", text);
+        Assert.Contains("heard a.wav", text);
+
+        Assert.True(ExtensionCalls.TryRead(new FunctionCallContent("c1", ExtensionCalls.CallName, nested),
+            out ExtensionInvocation? invocation));
+        Assert.Equal(("audio", "transcribe", "a.wav"),
+            (invocation.Extension, invocation.Command, invocation.Arguments!["path"].GetString()));
+    }
+
+    /// <summary>内层没有 arguments 时，除扩展名、命令名之外的字段就是参数；只有参数没有命令的照常报错</summary>
+    [Fact]
+    public void ReadParts_FlatNestedCall_TakesTheRestAsArguments_AndLeavesBareArgumentsAlone()
+    {
+        ExtensionCallParts flat = ExtensionCalls.ReadParts(new Dictionary<string, object?>
+        {
+            ["arguments"] = JsonSerializer.SerializeToElement(new { extension = "desktop", command = "act", window = "w1" }),
+        });
+        Assert.True(flat.Unwrapped);
+        Assert.Equal(("desktop", "act"), (flat.Extension, flat.Command));
+        Assert.Equal(["window"], flat.Arguments!.Keys);
+
+        ExtensionCallParts bare = ExtensionCalls.ReadParts(new Dictionary<string, object?>
+        {
+            ["arguments"] = JsonSerializer.SerializeToElement(new { window = "w1" }),
+        });
+        Assert.False(bare.Unwrapped);
+        Assert.Null(bare.Extension);
     }
 
     /// <summary>参数对象写坏了就别执行：按「没参数」跑，全可选的命令会拿默认值真的去做一件事</summary>
