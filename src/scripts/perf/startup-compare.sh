@@ -12,7 +12,8 @@
 #   整个循环请包 caffeinate -d -u 跑（唤醒并顶住已休眠的屏）。
 #
 # 探针：UIHARU_STARTUP_PROBE=1 环境变量开启 StartupPhaseProbe 分段打点（默认关）。
-# 结果：启动分段在 <label>-<n>.log，report 在 <label>-report-<n>.json。
+# 探针段走 Log.Debug→文件仓，落在隔离档案 $home/Logs/Log.txt（不写 stdout）；
+# open --stdout/--stderr 那个 .log 只接得住崩溃栈，正常路径 0 字节，别指望它有分段。
 #
 # 超时：open -W 会等应用退出、自身没有超时；应用启动挂住（-6661 或 dev-script 卡住）时会
 #   永远等，整个对比连带调用链（如解锁 watcher）都阻塞。用 OPEN_TIMEOUT 秒兜底：
@@ -53,7 +54,7 @@ EOF
         waited=$((waited + 2))
     done
     wait "$open_pid" 2>/dev/null || true
-    echo "  [startup] 关键段："
-    grep -E "\[startup\]" "/tmp/startup-compare/$LABEL-$i.log" 2>/dev/null | grep -E "launch-main-window|first|settle" | head -2
-    echo "  (log: /tmp/startup-compare/$LABEL-$i.log)"
+    echo "  [startup] 关键段（探针段在档案 Log.txt，不在 stdout 那个文件）："
+    grep -hE "\[startup\]" "$home/Logs/"*.txt 2>/dev/null | grep -E "launch-main-window|first|settle" | head -2
+    echo "  (探针档案: $home/Logs/ ，stdout/stderr: /tmp/startup-compare/$LABEL-$i.log)"
 done
