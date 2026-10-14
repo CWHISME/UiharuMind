@@ -70,10 +70,10 @@ public class GroupAvatarTests
         string? toAlice = GroupTranscript.BuildDelivery([byAvatar, reply], 0, "alice-session");
 
         Assert.Equal(GroupTranscript.FeedHeader + "[Alice]: 好，我来改", toAvatar);
-        Assert.Equal(GroupTranscript.FeedHeader + "[黑猫(化身)]: 就用方案 A", toAlice); //化身代笔的署名带后缀，用户真身不带
+        Assert.Equal(GroupTranscript.FeedHeader + "[黑猫]: 就用方案 A", toAlice); //化身代笔与用户真身同署一个名字，不强调化身
     }
 
-    /// <summary>投递与广播里的署名：用户真身只写名，化身代笔带「(化身)」后缀，成员原样</summary>
+    /// <summary>投递与广播里的署名：化身代笔与用户真身同署一个名字（不强调化身），成员原样</summary>
     [Fact]
     public void SpeakerOf_MarksAvatarPosts_LeavesUserAndMembersAlone()
     {
@@ -83,7 +83,7 @@ public class GroupAvatarTests
         ChatMessage member = new(ChatRole.Assistant, "好") { AuthorName = "Alice" };
 
         Assert.Equal("黑猫", GroupTranscript.SpeakerOf(own));
-        Assert.Equal("黑猫(化身)", GroupTranscript.SpeakerOf(byAvatar));
+        Assert.Equal("黑猫", GroupTranscript.SpeakerOf(byAvatar));
         Assert.Equal("Alice", GroupTranscript.SpeakerOf(member));
     }
 

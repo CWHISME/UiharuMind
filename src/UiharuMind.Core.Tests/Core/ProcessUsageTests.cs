@@ -39,7 +39,9 @@ public class SystemCpuMeterTests
         while (Environment.TickCount64 < until) await Task.Yield();
         double? percent = meter.Sample();
 
-        Assert.True(percent is >= 0 and <= 100, $"{percent}");
+        // 契约允许 null：macOS 的 HOST_CPU_LOAD_INFO tick 是 32 位，开机久了（约 24 天）会回绕一次，
+        // 回绕当次 Sample() 按设计返回 null（回绕那次不算）。偶发撞上边界不是失败。
+        Assert.True(percent is null or (>= 0 and <= 100), $"{percent}");
     }
 }
 

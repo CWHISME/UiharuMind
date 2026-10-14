@@ -101,21 +101,19 @@ public static class GroupTranscript
     }
 
     /// <summary>
-    /// 化身替用户说的在投递与广播里的署名后缀：用户真身只写名，化身代笔的写成「名(化身)」。
-    /// 模型要分得清这句是本人拍的还是化身代拍的（ADR 0055 修订）；剥前缀、@ 路由认的仍是名字本体，不走这里
+    /// 旧的化身代笔署名后缀（ADR 0055 修订）。新版不再生成（化身代笔与用户真身同署一个名字，
+    /// 不强调化身），但已落盘的旧投递正文里可能带着旧后缀，渲染器仍要认得出（只兼容旧数据）
     /// </summary>
     public const string AvatarSpeakerSuffix = "(化身)";
 
     /// <summary>
-    /// 一条群发言在投递与广播里署谁的名：化身替用户说的带 <see cref="AvatarSpeakerSuffix"/> 后缀，
-    /// 其余（用户真身、成员）原样。只管显示，身份判定一律看标记不看这个串
+    /// 一条群发言在投递与广播里署谁的名：化身代笔与用户真身同署一个名字，成员原样。
+    /// 不强调化身身份（2026-10-14 修订）；身份判定一律看标记（<c>GroupAvatarPostOf</c>），不看这个串
     /// </summary>
     /// <param name="post">群发言</param>
     /// <returns>署名</returns>
     public static string SpeakerOf(ChatMessage post) =>
-        string.IsNullOrEmpty(post.AuthorName) ? string.Empty
-        : ChatMessageAnnotations.GroupAvatarPostOf(post) != null ? post.AuthorName + AvatarSpeakerSuffix
-        : post.AuthorName;
+        string.IsNullOrEmpty(post.AuthorName) ? string.Empty : post.AuthorName;
 
     /// <summary>
     /// 一条群发言交给别人时的样子。结构化地知道是谁说的（是谁的那一轮），

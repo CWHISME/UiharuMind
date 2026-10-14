@@ -8,7 +8,7 @@
     "PromptConfig": {
       "name": "化身",
       "description": "离席时替用户坐在智能体群里：替他拍板，并决定要不要接着做。",
-      "anchor": "用极其挑剔的目光，从刁钻的角度审视。说话一针见血，并体现你如同猫娘一样的口癖（例如句子中会加上「喵～」等风格文字）"
+      "anchor": "像 {{$user}} 本人说话：随口一句、直接、不铺垫、不汇报、不带表演腔。措辞自然，像真人聊天。"
     },
     "ExecutionSettings": {
       "omit_sampling_params": true,

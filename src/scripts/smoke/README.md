@@ -179,6 +179,11 @@ OP-01 派一个人通读 63 篇 ADR（要读好几分钟）；主会话这一轮
   `defaults write com.apple.TextEdit NSQuitAlwaysKeepsWindows -bool false`）并删它的 savedState，
   不然 macOS 恢复窗口会把前几轮留下的脏窗口全复活（2026-10-14 verify-agnes3-3 实测开局 7 个 TextEdit 窗口）。
 
+- **锁屏时想「解锁后自动跑」**：用 `lsappinfo front` 判前台是不是 `loginwindow`
+  （参考 run.sh 的 `front_app_name()`，别用 screencapture——它在解锁态也可能失败），
+  连续稳定若干秒确认后再起冒烟；脚本要带 pid 文件单实例锁，避免多个 watcher 并跑抢桌面
+  （2026-10-14 aot 收尾用过一套：等在草稿目录，逻辑同上，下次要时照着写，别重造）。
+
 - **一次说明不了什么**。模型输出有随机性，前缀这类毛病三轮里可能只冒一次；下结论前至少跑两遍。
 - **题目别和卡上样本同一个场景**。OP-01 卡的样本里有「缓存全删了吧」，拿它当题测出来的是照抄。
 - **429 会自动重试**，免费档模型一场跑几分钟是常态；`*.wait` 默认等 10 分钟。
