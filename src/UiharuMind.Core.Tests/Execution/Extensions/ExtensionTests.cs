@@ -139,36 +139,46 @@ public class ExtensionTests
         Assert.Equal(["transcribe"], BuiltinExtensions.CreateAudio(Paths, null).Commands.Select(x => x.Name));
     }
 
-    /// <summary><see cref="ExtensionCalls.CallName"/> 描述里那份速查是手写常量：每条内置命令的签名都得与它背后工具的 schema 对上</summary>
-    [Fact]
-    public void CallUsage_MatchesEveryBuiltinCommandSchema()
-    {
-        BuiltinExtension[] builtins =
-        [
-            BuiltinExtensions.CreateBrowser(PuppeteerBrowserHost.Shared, "s1", "/tmp/uiharu-spill", EReadImageMode.None),
-            BuiltinExtensions.CreateImage(Paths, null, configured: true),
-            BuiltinExtensions.CreateAudio(Paths, new CharacterData { CharacterName = "Me" }),
-        ];
-
-        foreach (BuiltinExtension builtin in builtins)
-        {
-            foreach (ExtensionCommand command in builtin.Commands)
-            {
-                string signature = McpHelpFormatter.Signature(command.Function.JsonSchema);
-                Assert.Contains($"{builtin.Name}.{command.Name} {signature}", BuiltinExtensions.CallUsage);
-            }
-        }
-    }
-
     /// <summary>把 command 塞进 arguments 是弱模型的常见错：报错要指出放错了层，并给可照抄的写法</summary>
     [Fact]
-    public async Task Call_CommandInsideArguments_SaysItBelongsAtTheTopLevel()
+    public async Task Call_WithoutCommandName_SaysHowToWriteIt()
     {
         string text = (string)(await Hub(Echo()).CallAsync("audio", null,
-            Args(new { command = "transcribe", args = new { path = "a.wav" } }), TestContext.Current.CancellationToken))!;
+            Args(new { path = "a.wav" }), TestContext.Current.CancellationToken))!;
 
-        Assert.Contains("放进了 `arguments` 里", text);
+        Assert.Contains("扩展名.命令名", text);
         Assert.Contains(BuiltinExtensions.CallExample, text);
+    }
+
+    /// <summary>全名按第一个点号切：命令名里可以再有点号；只给扩展名时命令为空；分开写的旧字段照认</summary>
+    [Theory]
+    [InlineData("""{"name":"unity.scene.read"}""", "unity", "scene.read")]
+    [InlineData("""{"name":"browser"}""", "browser", null)]
+    [InlineData("""{"command":"browser.snapshot"}""", "browser", "snapshot")]
+    [InlineData("""{"extension":"audio","command":"transcribe"}""", "audio", "transcribe")]
+    [InlineData("""{"extension":"audio","command":"audio.transcribe"}""", "audio", "transcribe")]
+    public void ReadParts_SplitsTheFullNameAtTheFirstDot(string json, string extension, string? command)
+    {
+        Dictionary<string, object?> arguments = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json)!
+            .ToDictionary(x => x.Key, object? (x) => x.Value);
+
+        ExtensionCallParts parts = ExtensionCalls.ReadParts(arguments);
+
+        Assert.Equal((extension, command), (parts.Extension, parts.Command));
+        Assert.Equal(("browser", "snapshot"),
+            ExtensionCalls.ReadHelpTarget(new Dictionary<string, object?> { ["name"] = "browser.snapshot" }));
+    }
+
+    /// <summary>server 名里的点号在模型那边换成下划线，全名才切得开；模型写回来时认得</summary>
+    [Fact]
+    public void McpServerWithDotInName_IsReachableByItsModelName()
+    {
+        McpServerConfig server = new() { Name = "com.unity.mcp" };
+
+        McpServerLookup lookup = McpServerFinder.Find([server], [], _ => true, ExtensionCalls.ModelName(server.Name));
+
+        Assert.Equal("com_unity_mcp", ExtensionCalls.ModelName(server.Name));
+        Assert.Same(server, lookup.Server);
     }
 
     /// <summary>参数名猜错（ref/text）时，除了缺什么，还要说哪些不认识、正确签名是什么</summary>
@@ -262,15 +272,19 @@ public class ExtensionTests
     //================= 名单 =================
 
     [Fact]
-    public void Roster_ListsOnlyMcpServers_SkippingNameClashes()
+    public void Roster_ListsUndisabledBuiltinsThenServers_SkippingNameClashes()
     {
+        AgentToolConfig config = new() { DisabledExtensions = { "image" } };
         McpToolSet mcp = new()
         {
             Servers = [new McpRosterServer { Name = "unity", Description = "d" }, new McpRosterServer { Name = "browser" }],
         };
 
-        Assert.Equal(["unity"], ExtensionRoster.Of(mcp).Select(x => x.Name));
-        Assert.Equal(string.Empty, ExtensionRoster.Section(McpToolSet.Empty)); //内置都在 ExCall 的速查里，没有 MCP 就不出
+        IReadOnlyList<(string Name, string Description)> roster = ExtensionRoster.Of(config, mcp);
+
+        Assert.Equal(["browser", "desktop", "audio", "unity"], roster.Select(x => x.Name));
+        Assert.Equal(string.Empty, ExtensionRoster.Section(
+            new AgentToolConfig { DisabledExtensions = [..BuiltinExtensions.Names] }, McpToolSet.Empty));
     }
 
     /// <summary>旧档案的 MCP 禁用名单读进新名单，写出时不再带旧字段</summary>

@@ -82,33 +82,71 @@ public static class ExtensionCalls
     }
 
     /// <summary>
-    /// 读三个顶层字段。宽容一种常见错法：整个调用又套进了 <c>arguments</c>
-    /// （<c>{"arguments": {"extension": …, "command": …, "arguments": {…}}}</c>），
-    /// 顶层缺扩展名或命令名而 <c>arguments</c> 里有时，从里面拆出来；内层没有 <c>arguments</c> 就把其余字段当参数。
+    /// 读一次 <c>ExCall</c>：<c>name</c> 是「扩展名.命令名」全名，按<b>第一个</b>点号切开
+    /// （命令名里可以再有点号；server 名里的点号由 <see cref="ModelName"/> 换掉，切分因此是确定的），<c>args</c> 是命令自己的参数。
+    /// 宽容两种写法：旧字段名（<c>extension</c>、<c>command</c>、<c>arguments</c>，也认得旧会话的调用），
+    /// 以及整个调用又套进了参数对象——后者拆出来照做，内层没有参数对象就把其余字段当参数。
     /// 审批（<see cref="TryRead"/>）与执行共用这一份，两边看到的是同一次调用
     /// </summary>
     /// <param name="arguments">ExCall 的原始参数</param>
-    /// <returns>三个字段</returns>
+    /// <returns>拆开的字段</returns>
     public static ExtensionCallParts ReadParts(IDictionary<string, object?> arguments)
     {
-        string? extension = ReadString(arguments, "extension");
-        string? command = ReadString(arguments, "command");
-        Dictionary<string, JsonElement>? inner = ReadObject(arguments, "arguments");
-        bool topComplete = !string.IsNullOrWhiteSpace(extension) && !string.IsNullOrWhiteSpace(command);
-        if (topComplete || inner == null || !(inner.ContainsKey("extension") || inner.ContainsKey("command")))
-        {
-            return new ExtensionCallParts(extension, command, inner, false);
-        }
+        (string? extension, string? command) = ReadName(arguments);
+        Dictionary<string, JsonElement>? inner = ReadObject(arguments, ArgsKey) ?? ReadObject(arguments, "arguments");
+        bool complete = extension != null && command != null;
+        if (complete || inner == null || !inner.Keys.Any(IsNameKey)) return new ExtensionCallParts(extension, command, inner, false);
 
         Dictionary<string, object?> nested = inner.ToDictionary(x => x.Key, object? (x) => x.Value);
-        if (string.IsNullOrWhiteSpace(extension)) extension = ReadString(nested, "extension");
-        if (string.IsNullOrWhiteSpace(command)) command = ReadString(nested, "command");
-        Dictionary<string, JsonElement> rest = inner.Where(x => x.Key is not ("extension" or "command"))
-            .ToDictionary(x => x.Key, x => x.Value);
-        Dictionary<string, JsonElement>? commandArguments = inner.ContainsKey("arguments")
-            ? ReadObject(nested, "arguments")
-            : rest.Count > 0 ? rest : null;
-        return new ExtensionCallParts(extension, command, commandArguments, true);
+        (string? nestedExtension, string? nestedCommand) = ReadName(nested);
+        Dictionary<string, JsonElement> rest = inner.Where(x => !IsNameKey(x.Key)).ToDictionary(x => x.Key, x => x.Value);
+        Dictionary<string, JsonElement>? commandArguments = ReadObject(nested, ArgsKey) ?? ReadObject(nested, "arguments")
+            ?? (rest.Any(x => x.Key is not (ArgsKey or "arguments")) ? rest : null);
+        return new ExtensionCallParts(nestedExtension ?? extension, nestedCommand ?? command, commandArguments, true);
+    }
+
+    /// <summary>
+    /// 读 <c>ExHelp</c> 的目标：<c>name</c> 是扩展名或「扩展名.命令名」，都没给就是列出全部
+    /// </summary>
+    /// <param name="arguments">ExHelp 的原始参数</param>
+    /// <returns>扩展名与命令名，没给的为 null</returns>
+    public static (string? Extension, string? Command) ReadHelpTarget(IDictionary<string, object?> arguments) =>
+        ReadName(arguments);
+
+    /// <summary>参数对象的键名</summary>
+    public const string ArgsKey = "args";
+
+    private static bool IsNameKey(string key) => key is "name" or "command" or "extension";
+
+    // name 优先，旧字段名 command / extension 照认
+    private static (string? Extension, string? Command) ReadName(IDictionary<string, object?> arguments) =>
+        Split(ReadString(arguments, "extension"), ReadString(arguments, "name") ?? ReadString(arguments, "command"));
+
+    /// <summary>
+    /// MCP server 名在模型那边的写法：点号换成下划线，全名「扩展名.命令名」才切得开
+    /// </summary>
+    /// <param name="serverName">配置里的 server 名</param>
+    /// <returns>给模型看、由模型写回的名字</returns>
+    public static string ModelName(string serverName) => serverName.Replace('.', '_');
+
+    // 有单独的扩展名就照用（命令名带了同名前缀则去掉）；否则全名按第一个点号切
+    private static (string? Extension, string? Command) Split(string? extension, string? command)
+    {
+        extension = string.IsNullOrWhiteSpace(extension) ? null : extension.Trim();
+        command = string.IsNullOrWhiteSpace(command) ? null : command.Trim();
+        if (extension != null)
+        {
+            if (command != null && command.StartsWith(extension + ".", StringComparison.OrdinalIgnoreCase))
+                command = command[(extension.Length + 1)..];
+            return (extension, command);
+        }
+
+        if (command == null) return (null, null);
+        int dot = command.IndexOf('.');
+        if (dot < 0) return (command, null); //只给了扩展名
+        string head = command[..dot].Trim();
+        string tail = command[(dot + 1)..].Trim();
+        return (head.Length > 0 ? head : null, tail.Length > 0 ? tail : null);
     }
 
     /// <summary>

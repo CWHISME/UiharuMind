@@ -69,7 +69,7 @@ internal sealed class McpBridge
     /// <returns>给模型的文本</returns>
     public async Task<string> HelpAsync(string? server, string? tool, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(server)) return "Parameter `extension` is required.";
+        if (string.IsNullOrWhiteSpace(server)) return "Parameter `name` is required.";
 
         McpServerLookup lookup = _host.Find(_workspacePath, _disabledServers, server);
         if (lookup.Server == null) return Refusal(server, lookup);
@@ -106,7 +106,7 @@ internal sealed class McpBridge
         if (string.IsNullOrWhiteSpace(tool))
         {
             // 只在查这个 server 时说(原先每轮写在系统提示里):自带的「列出工具」返回的可能含没开放的
-            text = McpHelpFormatter.RenderServer(config.Name, instructions, tools, note) +
+            text = McpHelpFormatter.RenderServer(ExtensionCalls.ModelName(config.Name), instructions, tools, note) +
                    "\n可调用的命令以这里为准：server 自带的「列出工具」之类命令，返回的名单可能包含没开放、调不了的。";
         }
         else
@@ -122,7 +122,7 @@ internal sealed class McpBridge
 
             text = found == null
                 ? UnknownTool(config.Name, tool, tools.Select(x => x.Name))
-                : McpHelpFormatter.RenderTool(config.Name, found, note);
+                : McpHelpFormatter.RenderTool(ExtensionCalls.ModelName(config.Name), found, note);
         }
 
         return ToolResultSpill.Limit(text, _spillDirectory, $"{ExtensionCalls.HelpName}_{config.Name}", ToolOutputBudget.Catalog);
@@ -139,8 +139,8 @@ internal sealed class McpBridge
     public async Task<object> CallAsync(string? server, string? tool,
         IReadOnlyDictionary<string, JsonElement>? arguments, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(server)) return "Parameter `extension` is required.";
-        if (string.IsNullOrWhiteSpace(tool)) return "Parameter `command` is required.";
+        if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(tool))
+            return "Parameter `name` is required, written as server.tool.";
 
         McpServerLookup lookup = _host.Find(_workspacePath, _disabledServers, server);
         if (lookup.Server == null) return Refusal(server, lookup);
@@ -203,7 +203,7 @@ internal sealed class McpBridge
             : string.Empty;
         return $"MCP server '{serverName}' has no callable tool '{tool}' ({names.Count} tools are exposed).{hint} " +
                "It may be turned off on the server side; do not retry it, tell the user to enable it there. " +
-               $"{ExtensionCalls.HelpName} with extension \"{serverName}\" lists every callable command.";
+               $"{ExtensionCalls.HelpName} with name \"{ExtensionCalls.ModelName(serverName)}\" lists every callable command.";
     }
 
     private static string Refusal(string requested, McpServerLookup lookup) => lookup.Status switch

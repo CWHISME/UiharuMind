@@ -64,7 +64,7 @@ internal static class McpHelpFormatter
 
         if (tools.Count > 0)
         {
-            sb.Append("\n用 ").Append(ExtensionCalls.HelpName).Append(" 传 `extension` 和 `command` 可查看某条命令的完整参数。");
+            sb.Append("\n用 ").Append(ExtensionCalls.HelpName).Append(" 传 `name`（扩展名.命令名）可查看某条命令的完整参数。");
         }
 
         return sb.ToString().TrimEnd();

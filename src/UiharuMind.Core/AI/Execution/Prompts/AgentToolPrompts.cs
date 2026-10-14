@@ -218,18 +218,19 @@ public static class AgentToolPrompts
         "- 没有挂载知识库时它会直说；这时如实告诉用户，不要靠猜。";
 
     /// <summary>
-    /// 扩展名单（「# 扩展」段正文，ADR 0079）：只列用户接的 MCP 应用。
+    /// 扩展名单（「# 扩展」段正文，ADR 0079）。
     ///
-    /// 怎么查、怎么调<b>不在这里说</b>：<c>ExCall</c> 描述已写「MCP 扩展先查 ExHelp」，再写一遍就是两层各说一套。
-    /// ⚠️ <b>只放配置里就有的东西</b>：名字与一句话说明，<b>不写状态、不写命令</b>——
+    /// ⚠️ <b>只放配置里就有的东西</b>：名字与一句话说明，<b>不写状态、不写命令</b>。
     /// 后两者是运行时信息，写进来的话 server 一连上系统提示就变一次，缓存前缀白白失效。
+    /// 怎么查、怎么调归两把元工具的描述，这里只给一个指向
     /// </summary>
     /// <param name="extensions">扩展：名字与说明（说明可空）</param>
     /// <returns>段落正文</returns>
     public static string BuildExtensions(IReadOnlyList<(string Name, string Description)> extensions)
     {
         StringBuilder sb = new();
-        sb.Append("用户通过 MCP 接入的应用：\n");
+        sb.Append("以下能力不在你的工具列表里，用 `").Append(ExtensionCalls.HelpName).Append("` 查命令，`")
+            .Append(ExtensionCalls.CallName).Append("` 执行：\n");
         foreach ((string name, string description) in extensions)
         {
             sb.Append("- ").Append(name);

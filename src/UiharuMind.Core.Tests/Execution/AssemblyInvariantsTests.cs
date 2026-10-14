@@ -629,12 +629,18 @@ public class HarnessInstructionsCompositionTests
         Assert.Contains("默认写相对路径", instructions);
     }
 
-    /// <summary>内置扩展不进系统提示（全在 ExCall 的速查里），没有 MCP 时整段不出</summary>
+    /// <summary>角色禁掉的扩展不进名单，全禁且没有 MCP 时整段不出</summary>
     [Fact]
-    public void ExtensionsSection_IsAbsentWithoutMcp()
+    public void ExtensionsSection_LeavesOutDisabledOnes()
     {
-        BuildAgentOptions("/tmp/uiharu-agent-test", out IReadOnlyList<AgentPromptSegment> segments, new AgentToolConfig());
+        AgentToolConfig partly = new() { DisabledExtensions = { "browser", "image", "audio" } };
+        BuildAgentOptions("/tmp/uiharu-agent-test", out IReadOnlyList<AgentPromptSegment> segments, partly);
+        string roster = Assert.Single(segments, x => x.Section == EPromptSection.Extensions).Text;
+        Assert.Contains("- desktop", roster);
+        Assert.DoesNotContain("- browser", roster);
 
+        AgentToolConfig all = new() { DisabledExtensions = [..BuiltinExtensions.Names] };
+        BuildAgentOptions("/tmp/uiharu-agent-test", out segments, all);
         Assert.DoesNotContain(segments, x => x.Section == EPromptSection.Extensions);
     }
 

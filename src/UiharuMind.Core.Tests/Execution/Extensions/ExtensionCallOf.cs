@@ -12,10 +12,9 @@ internal static class ExtensionCallOf
     {
         Dictionary<string, object?> args = new()
         {
-            ["extension"] = JsonSerializer.SerializeToElement(extension),
-            ["command"] = JsonSerializer.SerializeToElement(command),
+            ["name"] = JsonSerializer.SerializeToElement($"{extension}.{command}"),
         };
-        if (arguments != null) args["arguments"] = JsonSerializer.SerializeToElement(arguments);
+        if (arguments != null) args["args"] = JsonSerializer.SerializeToElement(arguments);
         return new FunctionCallContent(callId, ExtensionCalls.CallName, args);
     }
 }

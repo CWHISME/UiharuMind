@@ -22,13 +22,9 @@ internal static class ExtensionMetaTools
         {
           "type": "object",
           "properties": {
-            "extension": {
+            "name": {
               "type": "string",
-              "description": "可选。扩展名；省略则列出全部扩展及其是否就绪。"
-            },
-            "command": {
-              "type": "string",
-              "description": "可选。该扩展的一条命令；给定时返回它的完整描述和参数。"
+              "description": "可选。扩展名（如 browser）列出它的命令；扩展名.命令名（如 browser.snapshot）给出该命令的完整参数；省略则列出全部扩展及其是否就绪。"
             }
           }
         }
@@ -39,21 +35,17 @@ internal static class ExtensionMetaTools
         {
           "type": "object",
           "properties": {
-            "extension": {
+            "name": {
               "type": "string",
-              "description": "扩展名，以 {{ExtensionCalls.HelpName}} 列出的为准。"
+              "description": "扩展名.命令名，如 browser.snapshot，与 {{ExtensionCalls.HelpName}} 显示的完全一致。"
             },
-            "command": {
-              "type": "string",
-              "description": "命令名，与 {{ExtensionCalls.HelpName}} 显示的完全一致。"
-            },
-            "arguments": {
+            "args": {
               "type": "object",
-              "description": "只放该命令自己的参数，JSON 对象；`extension` 和 `command` 绝不放在这里。无参数的命令可省略。",
+              "description": "只放该命令自己的参数，JSON 对象；无参数的命令可省略。",
               "additionalProperties": true
             }
           },
-          "required": ["extension", "command"],
+          "required": ["name"],
           "additionalProperties": false
         }
         """;
@@ -66,34 +58,34 @@ internal static class ExtensionMetaTools
     public static IReadOnlyList<AITool> Create(ExtensionHub hub) =>
     [
         new MetaFunction(ExtensionCalls.HelpName,
-            "查询扩展：不在你的工具列表里的能力——内置的（真实浏览器、图像生成、音频）以及用户通过 MCP 连接的应用。" +
-            "不传参数：列出所有扩展及其就绪状态。传 `extension`：返回其用法说明和命令。" +
-            "传 `extension` 和 `command`：返回该命令的完整描述和参数。" +
-            "集合是动态的：用户后来接入的 MCP 应用会出现在这里，名单里没有的先查一次再下结论。",
+            "查询扩展：不在你的工具列表里的能力——内置的（真实浏览器、桌面、图像生成、音频）以及用户通过 MCP 连接的应用。" +
+            "不传参数：列出所有扩展及其就绪状态。`name` 传扩展名：返回其用法说明和命令；" +
+            "传扩展名.命令名：返回该命令的完整描述和参数。" +
+            "集合是动态的：用户后来接入的 MCP 应用会出现在这里。",
             HelpSchema,
             (arguments, ct) => InvokeHelpAsync(hub, arguments, ct)),
         new ApprovalRequiredAIFunction(new MetaFunction(ExtensionCalls.CallName,
-            "运行一条扩展命令。内置命令列在下面；MCP 扩展先查 " + ExtensionCalls.HelpName + "。" +
-            "结果与帮助里命令写作 extension.command（如 browser.snapshot）。" +
-            "大结果会保存到文件，只返回头尾；其余读保存的文件。\n\n" +
-            BuiltinExtensions.CallUsage,
+            "运行一条扩展命令。命令名与参数以 " + ExtensionCalls.HelpName + " 查到的为准，没查过的扩展先查。" +
+            "命令写作扩展名.命令名（如 browser.snapshot），与帮助里一致。" +
+            "大结果会保存到文件，只返回头尾；其余读保存的文件。示例：" + BuiltinExtensions.CallExample,
             CallSchema,
             (arguments, ct) => InvokeCallAsync(hub, arguments, ct))),
     ];
 
     private static async Task<object?> InvokeHelpAsync(ExtensionHub hub, AIFunctionArguments arguments,
         CancellationToken cancellationToken) =>
-        await hub.HelpAsync(ExtensionCalls.ReadString(arguments, "extension"),
-            ExtensionCalls.ReadString(arguments, "command"), cancellationToken).ConfigureAwait(false);
+        await hub.HelpAsync(ExtensionCalls.ReadHelpTarget(arguments).Extension,
+            ExtensionCalls.ReadHelpTarget(arguments).Command, cancellationToken).ConfigureAwait(false);
 
     // 参数对象给了却解不出来（JSON 写坏）就别执行：按「没参数」跑，全可选的命令会拿默认值真的去做一件事
     private static async Task<object?> InvokeCallAsync(ExtensionHub hub, AIFunctionArguments arguments,
         CancellationToken cancellationToken)
     {
         ExtensionCallParts parts = ExtensionCalls.ReadParts(arguments);
-        if (parts.Arguments == null && !parts.Unwrapped && HasValue(arguments, "arguments"))
+        if (parts.Arguments == null && !parts.Unwrapped &&
+            (HasValue(arguments, ExtensionCalls.ArgsKey) || HasValue(arguments, "arguments")))
         {
-            return "参数 `arguments` 必须是 JSON 对象，如 {\"url\": \"https://example.com\"}。什么都没运行。";
+            return "参数 `args` 必须是 JSON 对象，如 {\"url\": \"https://example.com\"}。什么都没运行。";
         }
 
         object? result = await hub.CallAsync(parts.Extension, parts.Command, parts.Arguments, cancellationToken)
@@ -101,7 +93,7 @@ internal static class ExtensionMetaTools
         if (!parts.Unwrapped) return result;
 
         // 照做了，但要让模型知道写法错了，下次写对
-        string notice = $"（注意：`extension`、`command` 应放在顶层，这次已按 {parts.Extension}.{parts.Command} 理解。）\n";
+        string notice = $"（注意：`name` 应放在顶层、`args` 只装命令自己的参数，这次已按 {parts.Extension}.{parts.Command} 理解。）\n";
         return result switch
         {
             string text => notice + text,

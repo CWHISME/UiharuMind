@@ -827,7 +827,8 @@ public static class AgentContentFormatter
         // 查扩展：扩展名在前，否则摘要只剩一个命令名，看不出查的是谁
         if (call.Name == ExtensionCalls.HelpName)
         {
-            return $"{ExtensionCalls.ReadString(call.Arguments, "extension")} {ExtensionCalls.ReadString(call.Arguments, "command")}".Trim();
+            (string? extension, string? command) = ExtensionCalls.ReadHelpTarget(call.Arguments);
+            return $"{extension} {command}".Trim();
         }
 
         foreach (string key in PrimaryArgumentKeys)

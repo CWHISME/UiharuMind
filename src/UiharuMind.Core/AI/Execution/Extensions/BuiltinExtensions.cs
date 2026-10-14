@@ -92,26 +92,7 @@ public static class BuiltinExtensions
 
     /// <summary>一次调用的完整写法，报错与工具描述共用</summary>
     public const string CallExample =
-        """{"extension": "browser", "command": "act", "arguments": {"action": "fill", "target": "e3", "value": "hello"}}""";
-
-    /// <summary>
-    /// 内置命令的速查，写进 <see cref="ExtensionCalls.CallName"/> 的描述：模型不必先查三轮帮助就能直接调对。
-    /// 是常量（缓存前缀稳定），所以角色禁了的扩展也列着，调用时会如实说关了。
-    /// 与各工具 schema 的一致性由测试对照
-    /// </summary>
-    public const string CallUsage =
-        "内置命令（`?` = 可选）：\n" +
-        "- browser.navigate {url, view?} · browser.snapshot {view?, find?} · browser.act {action, target?, value?} " +
-        "· browser.handoff {task}. act 的 action 取 click | fill | select | check | uncheck | press | hover | scroll " +
-        "| back；target 是最近一份 outline 里的 ref，如 e5。\n" +
-        "- desktop.windows {} · desktop.snapshot {window, view?, find?} · desktop.act {window, action, target?, value?, input?} " +
-        "· desktop.launch {target} · desktop.handoff {window, task}. window 是 windows 列出的编号，如 w3；" +
-        "snapshot 的 view 取 outline | ocr | screenshot（screenshot 另附这个窗口的截图，图上框出各 ref）；" +
-        "act 的 action 取 click | double_click | right_click | fill | type | select | check | uncheck | press | focus | scroll，" +
-        "scroll 的 value 取 up | down。\n" +
-        "- image.generate {prompt, images?, aspectRatio?}\n" +
-        "- audio.synthesize {text, voice?, tone?, speed?} · audio.transcribe {path, subtitles?}\n" +
-        "示例：" + CallExample;
+        """{"name": "browser.act", "args": {"action": "fill", "target": "e3", "value": "hello"}}""";
 
     /// <summary>全部内置扩展名，按系统提示与帮助里的顺序</summary>
     public static readonly IReadOnlyList<string> Names = [Browser, Desktop, Image, Audio];
@@ -131,6 +112,20 @@ public static class BuiltinExtensions
         ],
         [Image] = [(ImageGenerate, ImageGenerationTool.ToolName)],
         [Audio] = [(AudioSynthesize, SynthesizeSpeechTool.ToolName), (AudioTranscribe, TranscribeAudioTool.ToolName)],
+    };
+
+    /// <summary>
+    /// 一句话说明（系统提示里那份名单用）
+    /// </summary>
+    /// <param name="name">扩展名</param>
+    /// <returns>说明</returns>
+    public static string Summary(string name) => name switch
+    {
+        Browser => "操作一个真实的 Chrome 窗口：打开网页、点按钮、填表、读正文、截图",
+        Desktop => "看、操作电脑上别的应用的窗口：读界面、点按钮、填字、按快捷键、启动应用",
+        Image => "生成或修改图片",
+        Audio => "用角色的声音配音成音频文件；把音频转写成文字或字幕",
+        _ => string.Empty,
     };
 
     /// <summary>

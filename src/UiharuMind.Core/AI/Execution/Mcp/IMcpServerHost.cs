@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Extensions;
 
 namespace UiharuMind.Core.AI.Execution.Mcp;
 
@@ -95,8 +96,10 @@ internal static class McpServerFinder
             .Where(x => IsUsable(x, disabled, isTrusted)).Select(x => x.Name).ToList();
 
         string wanted = serverName.Trim();
+        // 模型写的是点号换掉后的名字（见 ExtensionCalls.ModelName）
         McpServerConfig? hit = effective.FirstOrDefault(x =>
-            string.Equals(x.Name, wanted, StringComparison.OrdinalIgnoreCase));
+            string.Equals(x.Name, wanted, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(ExtensionCalls.ModelName(x.Name), wanted, StringComparison.OrdinalIgnoreCase));
         if (hit == null) return new McpServerLookup(EMcpLookupStatus.NotFound, null, available);
 
         EMcpLookupStatus status =

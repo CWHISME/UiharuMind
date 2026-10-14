@@ -80,7 +80,7 @@ internal sealed class ExtensionHub
     {
         if (string.IsNullOrWhiteSpace(extension) || string.IsNullOrWhiteSpace(command))
         {
-            return MissingTopLevel(string.IsNullOrWhiteSpace(extension) ? "extension" : "command", arguments);
+            return MissingCommand();
         }
 
         BuiltinExtension? builtin = Find(extension);
@@ -100,8 +100,8 @@ internal sealed class ExtensionHub
 
         string mention = BuiltinExtensions.Mention(builtin.Name, found.Name);
         JsonElement schema = found.Function.JsonSchema;
-        string lookUp = $"参数：{McpHelpFormatter.Signature(schema)}。用 {ExtensionCalls.HelpName} 传 extension " +
-                        $"\"{builtin.Name}\"、command \"{found.Name}\" 可查看每一项的说明。";
+        string lookUp = $"参数：{McpHelpFormatter.Signature(schema)}。用 {ExtensionCalls.HelpName} 传 name " +
+                        $"\"{mention}\" 可查看每一项的说明。";
         // 缺必填先在这里说：交给框架绑定的话，缺参数与命令跑起来出的错都是同一类异常，分不出该改参数还是别重试。
         // 多余的参数名一起报：猜成 ref/text 的模型只看「缺 action」会接着猜，看到「ref 不认识」才会去对签名
         HashSet<string> required = McpHelpFormatter.RequiredOf(schema);
@@ -137,19 +137,14 @@ internal sealed class ExtensionHub
         }
     }
 
-    // 弱模型常把 command 塞进 arguments 里；只回「command 必填」它会去补里层那个，越改越远
-    private static string MissingTopLevel(string field, IReadOnlyDictionary<string, JsonElement>? arguments)
-    {
-        string misplaced = arguments != null && (arguments.ContainsKey("command") || arguments.ContainsKey("extension"))
-            ? " 它被放进了 `arguments` 里；`extension` 和 `command` 应放在顶层，`arguments` 只装该命令自己的参数。"
-            : string.Empty;
-        return $"参数 `{field}` 必填。{misplaced}示例：{BuiltinExtensions.CallExample}";
-    }
+    // 只给了扩展名、没写命令，或什么都没写
+    private static string MissingCommand() =>
+        $"`name` 必填，写成扩展名.命令名（如 browser.snapshot）；`args` 只装该命令自己的参数。示例：{BuiltinExtensions.CallExample}";
 
     // 内置在前、MCP 在后；状态只出现在这里（工具结果），不进系统提示
     private string ListAll()
     {
-        StringBuilder sb = new($"扩展（用 {ExtensionCalls.HelpName} 传 `extension` 查看其命令）：\n");
+        StringBuilder sb = new($"扩展（用 {ExtensionCalls.HelpName} 传 `name` 查看其命令）：\n");
         foreach (BuiltinExtension builtin in _builtins)
         {
             sb.Append("- ").Append(builtin.Name).Append("（内置");
@@ -161,12 +156,12 @@ internal sealed class ExtensionHub
         {
             if (Find(server.Name) != null)
             {
-                sb.Append("- ").Append(server.Name)
+                sb.Append("- ").Append(ExtensionCalls.ModelName(server.Name))
                     .Append("（MCP，已隐藏：名字与内置扩展冲突；用户可在设置里改名）\n");
                 continue;
             }
 
-            sb.Append("- ").Append(server.Name).Append("（MCP，").Append(Describe(server.Status)).Append('）');
+            sb.Append("- ").Append(ExtensionCalls.ModelName(server.Name)).Append("（MCP，").Append(Describe(server.Status)).Append('）');
             if (!string.IsNullOrWhiteSpace(server.Description)) sb.Append("：").Append(server.Description.Trim());
             sb.Append('\n');
         }

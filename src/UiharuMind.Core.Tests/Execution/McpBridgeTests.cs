@@ -186,10 +186,10 @@ public class McpBridgeTests : IDisposable
     {
         McpBridge bridge = Bridge(new FakeHost());
 
-        Assert.Contains("`extension` is required", await bridge.HelpAsync(" ", null, TestContext.Current.CancellationToken));
-        Assert.Contains("`extension` is required",
+        Assert.Contains("`name` is required", await bridge.HelpAsync(" ", null, TestContext.Current.CancellationToken));
+        Assert.Contains("`name` is required",
             Assert.IsType<string>(await bridge.CallAsync(null, "t", null, TestContext.Current.CancellationToken)));
-        Assert.Contains("`command` is required",
+        Assert.Contains("`name` is required",
             Assert.IsType<string>(await bridge.CallAsync("github", "", null, TestContext.Current.CancellationToken)));
     }
 
