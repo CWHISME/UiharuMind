@@ -740,6 +740,10 @@
                         <StackPanel IsVisible="{Binding IsGenerating}" Orientation="Horizontal" Spacing="6"
                                     VerticalAlignment="Center">
                             <SpinnerIcon />
+                            <!-- 本轮已跑时长：发送那一刻起计，每秒刷一次；停了整块随 IsGenerating 一起收起 -->
+                            <TextBlock Classes="muted mono" VerticalAlignment="Center"
+                                       Text="{Binding RunningElapsedText}"
+                                       IsVisible="{Binding RunningElapsedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                             <!-- 这里曾经有一句「别处正在运行」。删了:唤醒轮之后它变成了常态
                                  (主代理那一轮由后台驱动,而用户正看着的就是这个会话),
                                  于是一句本意为"它在别的窗口跑"的话变成了对着本窗口说的废话。

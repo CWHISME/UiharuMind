@@ -22,6 +22,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Threading;
 using System;
+using System.Diagnostics;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Core.AI.Audio;
@@ -95,6 +96,12 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     [ObservableProperty] private bool _isAutoCollapseThinking;
 
     [ObservableProperty] private bool _isSessionLoading; //会话切换构建中(空状态覆盖层此间不显示,避免闪烁)
+
+    /// <summary>本轮已跑的时长（发送那一刻起，每秒刷一次；空闲时为空串）</summary>
+    [ObservableProperty] private string _runningElapsedText = string.Empty;
+
+    private DispatcherTimer? _runTimer; //跑着的时候才存在，每秒把时长刷进界面
+    private readonly Stopwatch _runStopwatch = new();
 
     /// <summary>
     /// 发送/插话。
@@ -927,6 +934,56 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         OnPropertyChanged(nameof(SendButtonText)); //跑着的时候它显示「插话」
         OnPropertyChanged(nameof(HasPendingWork)); //自己这一轮也算「未了结的工作」
         OnPropertyChanged(nameof(HasBackgroundWorkOnly));
+        SyncRunTimer();
+    }
+
+    /// <summary>
+    /// 运行计时与 <see cref="IsGenerating"/> 同步：进入运行态就从此刻起每秒刷一次，
+    /// 回到空闲就停掉并清空。起点是「发送」而不是「首 token」——装配那几秒也算在内，
+    /// 否则模型迟迟不回时显示的时间对不上用户的体感。
+    /// 外驱那一轮在打开窗口之前就开跑了，起点只能是装载那一刻，见装载处的补通知。
+    /// </summary>
+    private void SyncRunTimer()
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(SyncRunTimer);
+            return;
+        }
+
+        if (IsGenerating)
+        {
+            if (_runTimer != null) return; //已经在计了：起点保持发送那一刻，不重来
+            _runStopwatch.Restart();
+            RefreshRunningElapsed();
+            _runTimer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background,
+                (_, _) => RefreshRunningElapsed());
+            _runTimer.Start();
+        }
+        else
+        {
+            _runTimer?.Stop();
+            _runTimer = null;
+            _runStopwatch.Reset();
+            RunningElapsedText = string.Empty;
+        }
+    }
+
+    private void RefreshRunningElapsed() =>
+        RunningElapsedText = FormatRunElapsed(_runStopwatch.Elapsed);
+
+    /// <summary>
+    /// 时长排版：语言无关，只放数字（60 秒内 <c>12s</c>，1 小时内 <c>01:23</c>，再长 <c>1:02:03</c>）。
+    /// </summary>
+    internal static string FormatRunElapsed(TimeSpan elapsed)
+    {
+        if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
+        int total = (int)elapsed.TotalSeconds;
+        if (total < 60) return $"{total}s";
+        int seconds = total % 60;
+        int minutes = total / 60;
+        if (minutes < 60) return $"{minutes:D2}:{seconds:D2}";
+        return $"{minutes / 60}:{(minutes % 60):D2}:{seconds:D2}";
     }
 
     /// 忙碌态可能从后台线程上抛(装配在后台线程上),而绑定要求属性变更在 UI 线程上发生
@@ -1010,6 +1067,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         Search.Dispose();
         _driver.Dispose();
         MemoryPanel?.Detach();
+        _runTimer?.Stop();
+        _runTimer = null;
     }
 
     private LangKey _inputPlaceholderKey = LangKey.AgentInputWatermark;
