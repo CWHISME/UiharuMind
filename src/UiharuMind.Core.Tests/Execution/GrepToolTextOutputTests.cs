@@ -123,8 +123,8 @@ public class GrepToolTextOutputTests : IDisposable
     {
         var options = new JsonSerializerOptions { Converters = { new LenientStringArrayConverter() } };
 
-        Assert.Equal(["*.cs", "*.md"], JsonSerializer.Deserialize<string[]>("\"[\\\"*.cs\\\", \\\"*.md\\\"]\"", options));
-        Assert.Equal(["[ab]"], JsonSerializer.Deserialize<string[]>("\"[ab]\"", options)); //glob 字符类不误当 JSON
+        Assert.Equal(["*.cs", "*.md"], JsonSerializer.Deserialize<string[]>("\"[\\\"*.cs\\\", \\\"*.md\\\"]\"", options)!);
+        Assert.Equal(["[ab]"], JsonSerializer.Deserialize<string[]>("\"[ab]\"", options)!); //glob 字符类不误当 JSON
     }
 
     /// <summary>多文件命中按文件路径字典序输出,不随扫描顺序变——输出稳定,逐文件扫读顺序可预期</summary>

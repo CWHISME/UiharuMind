@@ -264,7 +264,7 @@ public static class GroupTranscript
     /// 补位轮的提示（ADR 0049 修订）：激进档一波静下来后，给还有没看过的发言的人各补一次，随投递附在末尾。
     /// 界面随每轮重锚一并摘掉，不画出来
     /// </summary>
-    public static string CatchUpHint => $"【这一波大家说完了，上面是你还没看过的：有新角度就说，没有就只回复「{PassReply}」。】";
+    public static string CatchUpHint => $"【本轮是补位，没有新的指令：这一波大家说完了，上面是你还没看过的；有新角度就说，没有就只回复「{PassReply}」。】";
 
     /// <summary>
     /// 群里那一轮被停或失败后，再被叫醒又没有新话时交给他的一句。他可能已在私聊里接着做完了——
