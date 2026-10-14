@@ -2301,6 +2301,9 @@
     <data name="FileSearchEmptyHint" xml:space="preserve">
         <value>No search results</value>
     </data>
+    <data name="FileSearchStatusLayer" xml:space="preserve">
+        <value>Listing {0} items in this directory</value>
+    </data>
     <data name="RemoteModelWindowTitle" xml:space="preserve">
         <value>Remote Model Configuration</value>
     </data>

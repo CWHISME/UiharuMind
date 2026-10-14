@@ -11,8 +11,12 @@ using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Features.QuickTools;
 
-// 搜索结果数据模型
-public record SearchItem(string Path, string FileName, int LineNumber, string Snippet, bool IsContentSearch);
+// 搜索结果数据模型。IsDirectory 只在浏览态（列当前目录一层）有意义：
+// 目录条目点它下钻，文件条目点它打开；搜索态命中的目录仍可打开/揭示，默认 false
+public record SearchItem(string Path, string FileName, int LineNumber, string Snippet, bool IsContentSearch, bool IsDirectory = false);
+
+/// <summary>浏览态「列当前目录一层」的结果：与搜索的 <see cref="SearchOutcome"/> 同构，分开命名不混淆</summary>
+public record LayerListing(List<SearchItem> Items, SearchFailure? Failure, string? ErrorDetail);
 
 /// <summary>
 /// 一次界面搜索的结果：命中与失败原因分开。
@@ -75,8 +79,11 @@ public class SearchService
         bool isContentMode,
         bool isRegex,
         bool caseSensitive,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? root = null)
     {
+        // 浏览器化：搜索根跟面包屑走。默认 null 回落历史首项（兼容旧调用）
+        string searchRoot = string.IsNullOrWhiteSpace(root) ? CurrentRoot : root;
         try
         {
             if (isContentMode)
@@ -86,7 +93,7 @@ public class SearchService
                 // contextLines 传 0:列表只渲染 Snippet 单行与行号,上下文行取了也显示不出来,
                 // 却要给每个命中多做 4 次字符串分配与两次全文件回扫(见 SearchEngine.GetContext*)。
                 // 模型那条路要上下文自己传(见 PermissiveFileAccessTools.Grep),这里不替它取。
-                GrepOutcome grep = await new SimpleGrepper(CurrentRoot).SearchAsync(
+                GrepOutcome grep = await new SimpleGrepper(searchRoot).SearchAsync(
                     query,
                     isRegex,
                     caseSensitive,
@@ -107,9 +114,10 @@ public class SearchService
                 )).ToList(), null, null);
             }
 
+            // 递归搜（浏览器化保留的全树能力）：pattern 相对、根由 path 指定，命中从 searchRoot 向下递归
             var pattern = query.Contains('*') || query.Contains('?') ? query : $"**/*{query}*";
-            GlobOutcome glob = await new SimpleGlobber(CurrentRoot)
-                .SearchAsync(pattern, path: null, ct: ct).ConfigureAwait(false);
+            GlobOutcome glob = await new SimpleGlobber(searchRoot)
+                .SearchAsync(pattern, path: searchRoot, ct: ct).ConfigureAwait(false);
 
             if (glob.Failure != null) return new SearchOutcome([], glob.Failure, null);
 
@@ -152,5 +160,40 @@ public class SearchService
     {
         if (snippet.Length <= MaxSnippetChars) return snippet;
         return snippet[..MaxSnippetChars] + "…";
+    }
+
+    /// <summary>
+    /// 列 <paramref name="root"/> 下一层（不递归）：当前目录的子目录与文件各是什么。
+    /// 浏览态用它代替全树搜——无 query 时列一层、点目录进、点文件开。
+    /// </summary>
+    public async Task<LayerListing> ListLayerAsync(string root, CancellationToken ct)
+    {
+        try
+        {
+            // 单星号 `*` 只匹配一层（Standard 口径 ** 才递归）；path 钉死根，目录在前按名排
+            GlobOutcome glob = await new SimpleGlobber(root)
+                .SearchAsync("*", path: root, maxResults: 4000, ct: ct).ConfigureAwait(false);
+
+            if (glob.Failure != null) return new LayerListing([], glob.Failure, null);
+
+            List<SearchItem> items = glob.Entries.Select(e => new SearchItem(
+                e.Path,
+                Path.GetFileName(e.Path),
+                0,
+                e.IsDirectory ? string.Empty : GameUtils.FormatBytes(e.SizeBytes),
+                false,
+                e.IsDirectory
+            )).ToList();
+            items = items.OrderByDescending(i => i.IsDirectory).ThenBy(i => i.FileName, StringComparer.OrdinalIgnoreCase).ToList();
+            return new LayerListing(items, null, null);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception e)
+        {
+            return new LayerListing([], null, e.Message);
+        }
     }
 }

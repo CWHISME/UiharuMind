@@ -52,25 +52,43 @@
             </StackPanel>
         </Border>
 
-        <!-- Row 2: 目录 -->
-        <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,0,0,5">
-            <TextBlock Grid.Column="0" Text="{loc:Loc FileSearchCurrentDirectory}"
-                       VerticalAlignment="Center" Margin="0,0,5,0" FontSize="11" Foreground="Gray"/>
-            <ComboBox Grid.Column="1"
-                      ItemsSource="{Binding HistoryDirectories}"
-                      SelectedItem="{Binding CurrentDirectory}"
-                      IsEditable="True"
-                      LostFocus="OnDirectoryLostFocus"
-                      KeyDown="OnDirectoryKeyDown"
-                      HorizontalAlignment="Stretch"
-                      VerticalAlignment="Center"/>
-            <icons:ThemedIconButton Grid.Column="2"
+        <!-- Row 2: 面包屑导航 + 末段可编辑路径框（粘路径直达）+ 原生选目录设根 + 打开目录 -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,5">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="4">
+                <!-- 父目录链：点任一段回退到那一段 -->
+                <ItemsControl ItemsSource="{Binding Breadcrumb}" VerticalAlignment="Center">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="1">
+                                <Button Content="{Binding Label}"
+                                        Click="OnBreadcrumbSegmentClicked"
+                                        Background="Transparent" BorderThickness="0"
+                                        Padding="4,1" FontSize="11" Foreground="Gray"
+                                        Cursor="Hand"/>
+                                <TextBlock Text="›" Foreground="Gray" VerticalAlignment="Center" FontSize="11"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <!-- 末段当前目录：可编辑路径框（PathPicker 式），回车/失焦跳 -->
+                <TextBox Text="{Binding CurrentDirectory}"
+                         LostFocus="OnPathBoxLostFocus"
+                         KeyDown="OnPathBoxKeyDown"
+                         Width="220" VerticalAlignment="Center"
+                         FontSize="11"/>
+            </StackPanel>
+            <icons:ThemedIconButton Grid.Column="1"
                                     IconName="folder-cog"
                                     Command="{Binding SelectDirectoryCommand}"
                                     Width="28" Height="28"
                                     Margin="4,0,0,0"
                                     ToolTip.Tip="{loc:Loc FileSearchSelectDirectory}"/>
-            <icons:ThemedIconButton Grid.Column="3"
+            <icons:ThemedIconButton Grid.Column="2"
                                     IconName="square-arrow-out-up-right"
                                     Command="{Binding OpenCurrentDirectoryCommand}"
                                     Width="28" Height="28"
@@ -82,6 +100,7 @@
         <Grid Grid.Row="3">
             <ListBox ItemsSource="{Binding Results}"
                      SelectionMode="Single"
+                     Tapped="OnResultTapped"
                      DoubleTapped="OnResultDoubleTapped">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
@@ -96,7 +115,7 @@
                                 </Grid.ContextMenu>
                                 <icons:ThemedSvgIcon Grid.Column="0"
                                                      Width="16" Height="16"
-                                                     IconName="{Binding IsContentSearch, Converter={x:Static vm:SearchModeToIconConverter.Instance}}"
+                                                     IconName="{Binding Converter={x:Static vm:SearchItemIconConverter.Instance}}"
                                                      Margin="0,0,10,0"/>
 
                                 <StackPanel Grid.Column="1">

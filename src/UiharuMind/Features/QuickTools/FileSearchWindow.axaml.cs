@@ -47,29 +47,52 @@ public partial class FileSearchWindow : UiharuWindowBase
     //     }
     // }
 
-    private void OnDirectoryLostFocus(object? sender, RoutedEventArgs e)
+    // 末段可编辑路径框（PathPicker 式）：粘长路径直达，键盘优先工具顺手。回车/失焦跳。
+    private void OnPathBoxLostFocus(object? sender, RoutedEventArgs e)
     {
-        if (sender is ComboBox comboBox)
+        if (sender is TextBox textBox)
         {
-            var text = comboBox.Text;
-            if (!string.IsNullOrEmpty(text))
+            string text = (textBox.Text ?? string.Empty).Trim();
+            if (!string.IsNullOrEmpty(text) && text != ViewModel.CurrentDirectory)
             {
                 ViewModel.SetDirectoryCommand.Execute(text);
             }
         }
     }
 
-    private void OnDirectoryKeyDown(object? sender, KeyEventArgs e)
+    private void OnPathBoxKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter && sender is ComboBox comboBox)
+        if (e.Key == Key.Enter && sender is TextBox textBox)
         {
-            var text = comboBox.Text;
+            string text = (textBox.Text ?? string.Empty).Trim();
             if (!string.IsNullOrEmpty(text) && text != ViewModel.CurrentDirectory)
             {
                 ViewModel.SetDirectoryCommand.Execute(text);
             }
 
             e.Handled = true;
+        }
+    }
+
+    // 点面包屑任一段回退到那个父目录（DataContext 是 DirSegment）
+    private void OnBreadcrumbSegmentClicked(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.DataContext is UiharuMind.Features.QuickTools.DirSegment segment)
+        {
+            ViewModel.NavigateToSegmentCommand.Execute(segment);
+        }
+    }
+
+    // 目录条目单击下钻一层（文件条目单击只选中，打开仍走双击/右键）。
+    // 条目取自点中处所在的 ListBoxItem.DataContext，不赌选中时序——
+    // 靠 SelectedItem 的话，点到 A 时若上次选中的还是 B，会进错目录。
+    private void OnResultTapped(object? sender, TappedEventArgs e)
+    {
+        if (e.Source is Control source
+            && source.FindAncestorOfType<ListBoxItem>()?.DataContext is SearchItem item
+            && item.IsDirectory)
+        {
+            ViewModel.EnterDirectoryCommand.Execute(item);
         }
     }
 
