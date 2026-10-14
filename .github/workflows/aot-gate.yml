@@ -1,0 +1,56 @@
+name: AOT Gate
+
+# AOT 编译门禁：把「AOT 还能编」从人肉验证钉成 CI 机械保证。
+# 只到 AOT publish 为止（纯编译、不签名、不出包）——这是 CI 无头 runner 唯一能诚实判绿的部分。
+#
+# 为什么不判「跑起来」：brain 冒烟要真实模型 + GUI + 签名 .app + TCC 授权，无头 runner 起不来。
+# 运行时那半道门在发版前的本地必经一步，见 src/scripts/aot/README.md（aot-gate.sh）。
+#
+# osx-only：Native AOT 走的是 osx-arm64 目标（buildAotMac.sh 硬编码该 RID，macos-14 即 arm64 对得上）。
+# Windows/Linux 没有 AOT 通道，这个门禁不覆盖它们。
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# 同一分支上新的推送取消旧的跑（与 ci.yml 同口径）
+concurrency:
+  group: aot-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  aot-publish:
+    runs-on: macos-14
+    # 本地 AOT publish 基线 6 分钟；CI 上挂住不该拖到 GitHub 默认 6 小时（与 ci.yml 同口径兜底）
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: 缓存 NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-aot-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.*.props', '**/global.json') }}
+          restore-keys: nuget-aot-${{ runner.os }}-
+
+      # AOT 编译门禁：与 buildAotMac.sh 同参数（PublishAotOverride 条件开关、显式关 R2R）。
+      # 成功 = 代码改了 AOT 仍编得过。trim/AOT 分析器（EnableTrimAnalyzer/EnableAotAnalyzer）
+      # 的第三方 warning（Ursa/PuppeteerSharp 等）不阻断——只挡编不过与静态分析报错。
+      # 本地基线约 6 分钟。
+      - name: AOT publish（osx-arm64）
+        run: dotnet publish UiharuMind.Desktop/UiharuMind.Desktop.csproj --output Tmp/AotGate -r osx-arm64 --configuration Release -p:PublishAotOverride=true -p:PublishReadyToRun=false -nologo
+
+      # 产物在就编出来了；AOT 原生单文件 + 依赖 dylib，列出来便于肉眼核
+      - name: 列产物
+        working-directory: src/Tmp/AotGate
+        run: ls -lh
