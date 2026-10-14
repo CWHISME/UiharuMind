@@ -77,7 +77,7 @@ internal static class GrepResultShaper
         // 命中过多：直接给分布地图，不再返半截正文——半截按扫描序取、无相关度排序，
         // 模型会锚定到运气好的文件上（地图按全量统计）。开头先声明「这不是正文」，
         // 小模型容易从第一行就照着做，放在末尾的说明它未必读到
-        GrepHitMap.Rendering map = GrepHitMap.Render(outcome.Matches, orderByPath: false, MaxOutputBytes);
+        GrepHitMap.Rendering map = GrepHitMap.Render(outcome.Matches, orderByPath: true, MaxOutputBytes);
         List<string> parts = QueryNotes(outcome, pattern);
         parts.Add($"{CountMatchLines(outcome.Matches)} 行命中，跨 {map.FileCount} 个文件，范围太宽，无法内联返回"
                   + (map.IsDirectoryLevel ? "，下面是按目录的命中分布，不是匹配内容。" : "，下面是按文件的命中分布，不是匹配内容。"));

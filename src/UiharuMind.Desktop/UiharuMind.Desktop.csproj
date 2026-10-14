@@ -40,6 +40,9 @@
          Localization.Generator，NETSDK1207。buildAotMac.sh 经 -p:PublishAotOverride=true 打开；
          通道已验绿（2026-10-14：构建 + brain 冒烟通过），开关保留给脚本用 -->
     <PublishAot Condition="'$(PublishAotOverride)' == 'true'">true</PublishAot>
+    <!-- Trim 触发验证口子（ADR 0029 §待重估）：命令行 -p:PublishTrimmed=true 会传给 netstandard 的
+         Localization.Generator 报 NETSDK1124。按 AOT 同款——传无害的 Override，csproj 映射成真开关 -->
+    <PublishTrimmed Condition="'$(PublishTrimmedOverride)' == 'true'">true</PublishTrimmed>
   </PropertyGroup>
 
   <!-- macOS 走 .app 目录形态：单文件会妨碍 codesign 逐 dylib 签名 -->

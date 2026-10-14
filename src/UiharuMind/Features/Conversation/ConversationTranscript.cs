@@ -170,7 +170,7 @@ public sealed class ConversationTranscript : ITurnSink
 
                 // 扩展调用按内层那次画（ADR 0079）：生图缩略图、配音播放、浏览器卡都认原工具名
                 FunctionCallContent shown = ExtensionCalls.Unwrap(call);
-                _target.Add(new ToolCallItem
+                ToolCallItem card = new()
                 {
                     CallId = shown.CallId,
                     ToolName = shown.Name,
@@ -181,7 +181,10 @@ public sealed class ConversationTranscript : ITurnSink
                     ArgumentsJson = shown.Arguments == null
                         ? string.Empty
                         : string.Join("\n", shown.Arguments.Select(x => $"{x.Key}: {x.Value}")),
-                });
+                };
+                _target.Add(card);
+                // 跑表只在 live 起：回放卡没有“跑的过程”，一起跳只会刷出 0.1s 的假耗时
+                if (_isUiBound) card.BeginLiveTiming();
                 break;
 
             case FunctionResultContent result:
@@ -318,6 +321,10 @@ public sealed class ConversationTranscript : ITurnSink
         // 判据只能取正文——Exception 带 [JsonIgnore],存盘再读回来就没了
         item.IsSuccess = result.Exception == null && !ToolCallCancellation.IsCancelled(result);
         item.ResultText = result.Result?.ToString() ?? result.Exception?.Message ?? string.Empty;
+        // live 才给 provisional 耗时：回放卡建完即收尾，起点是重建时刻，算了也是假数，
+        // 等渲染器按来源认领存档（ToolCallItem.FreezeReplayItems）。
+        // 时间戳取在结果到达处：后面的缩略图/音频解码是到达之后的 UI 活，不该计进调用耗时
+        if (_isUiBound) item.FinishProvisionalDuration();
         // 回放历史时 SubSessionStartedContent 早已随当时那一轮消失,
         // 入口只能从落了盘的结果文本里认回来
         if (!item.HasSubSession) item.SubSessionId = ToolCallItem.ParseSubSessionId(item.ResultText);
@@ -325,9 +332,6 @@ public sealed class ConversationTranscript : ITurnSink
         AgentPathResolver? paths = _pathsSource?.Invoke();
         item.LoadResultImages(paths);
         item.LoadResultAudio(paths);
-        // live 才给 provisional 耗时：回放卡建完即收尾，起点是重建时刻，算了也是假数，
-        // 等渲染器按来源认领存档（ToolCallItem.FreezeReplayItems）
-        if (_isUiBound) item.FinishProvisionalDuration();
     }
 
     /// <summary>

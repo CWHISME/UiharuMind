@@ -2262,9 +2262,6 @@
     <data name="FileSearchSelectDirectory" xml:space="preserve">
         <value>Select search directory</value>
     </data>
-    <data name="FileSearchCurrentDirectory" xml:space="preserve">
-        <value>Directory:</value>
-    </data>
     <data name="FileSearchStatusDirectoryNotFound" xml:space="preserve">
         <value>Directory not found: {0}</value>
     </data>
@@ -2285,9 +2282,6 @@
     </data>
     <data name="FileSearchStatusCancelled" xml:space="preserve">
         <value>Cancelled</value>
-    </data>
-    <data name="FileSearchStatusNeedInput" xml:space="preserve">
-        <value>Please enter search content</value>
     </data>
     <data name="FileSearchCtxOpenFile" xml:space="preserve">
         <value>Open File</value>

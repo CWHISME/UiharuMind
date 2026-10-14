@@ -53,6 +53,27 @@ public class ThinkingItemStatsTests
     }
 
     [Fact]
+    public void FormatStats_LiveOverOneSecond_FloorsDuration()
+    {
+        // 节拍晚到几十毫秒是常态：取整后 1s 一跳就是 1s、2s，不会满屏 1.1s、2.1s；
+        // 速度用同一个取整值算，190字 / 1s = 190字/秒，读者能对上
+        string suffix = string.Format(Loc.Text("AgentThinkingSpeedFormat"), ((long)190).ToString("N0"));
+        string expected = string.Format(Loc.Text("AgentThinkingStatsFormat"), "1s", "190", suffix);
+
+        Assert.Equal(expected, ThinkingItem.FormatStats(TimeSpan.FromMilliseconds(1900), 190));
+    }
+
+    [Fact]
+    public void FormatStats_FinalOverOneSecond_KeepsPrecision()
+    {
+        // 定格（收尾、存档）保持精确，不取整
+        string suffix = string.Format(Loc.Text("AgentThinkingSpeedFormat"), ((long)100).ToString("N0"));
+        string expected = string.Format(Loc.Text("AgentThinkingStatsFormat"), "1.9s", "190", suffix);
+
+        Assert.Equal(expected, ThinkingItem.FormatStats(TimeSpan.FromMilliseconds(1900), 190, isFinal: true));
+    }
+
+    [Fact]
     public void ApplyPersistedStats_SurvivesFlushAndPump()
     {
         ThinkingItem thinking = new();

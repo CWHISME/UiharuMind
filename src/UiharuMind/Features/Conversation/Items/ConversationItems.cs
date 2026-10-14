@@ -171,13 +171,13 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget, IL
         }
 
         Message = text;
-        NotifyContentChanged();
+        NotifyContentChanged(); //收尾补上最后一段增量;没有订阅者时零成本
         IsPreviewTruncated = IsTruncated(len);
-        // 统计节流:超过 1s 后标题 1s 一跳,之前跟着刷只会让它乱跳。
+        // 统计节流:首秒内跟着节拍走（0.1→0.9 顺滑跳，冻住一整秒看着像流停了），
+        // 1 秒后 1s 一跳（与工具卡跑表同一口径，显示侧都取整，不会满屏 1.1s）。
         // 正文预览不受影响——它是头部锚定的,本来就不跳。
-        TimeSpan elapsed = LiveElapsed;
         DateTime now = DateTime.Now;
-        if (elapsed >= TimeSpan.FromSeconds(1) && now - _lastStatsAt < TimeSpan.FromSeconds(1)) return;
+        if (LiveElapsed >= TimeSpan.FromSeconds(1) && now - _lastStatsAt < TimeSpan.FromSeconds(1)) return;
         // 与 Flush 同样地锁外赋值:属性变更会引发绑定与布局,不该攥着锁做
         UpdateStats(len);
     }

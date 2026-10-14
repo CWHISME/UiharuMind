@@ -5,6 +5,7 @@ using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Shared.Utils.Tools;
 
 namespace UiharuMind.Features.Conversation.Items;
 
@@ -14,14 +15,50 @@ namespace UiharuMind.Features.Conversation.Items;
 /// 计时的唯一权威是随内容流看的 Core 计时器（<c>ThinkingStatsRecorder</c>，调用发出到
 /// 结果到达，同一把单调时钟），轮末盖进装着调用的那条历史消息；这里 live 时先按卡片
 /// 创建时刻给一个 provisional，来源配好（或回放）后一律改读存档。
+/// 跑的过程中 1 秒跳一拍（<see cref="StreamFlushPump"/>，与思考段同一套节拍，
+/// 空闲自停，不另起定时器），收尾或认领存档即停。
 /// </summary>
-public partial class ToolCallItem
+public partial class ToolCallItem : IStreamFlushTarget
 {
     private readonly long _startTicks = Stopwatch.GetTimestamp(); //本次调用发出时刻（live provisional 用）
     private bool _hasPersistedDuration; //DurationText 已是存档值，收尾不再覆盖
 
     /// <summary>卡片头部显示的耗时（如「3.2s」）；没有数据时为空（不显示）</summary>
     [ObservableProperty] private string _durationText = string.Empty;
+
+    /// <summary>跑表节拍：与思考段标题统计同一口径，1 秒一跳（两边统一）</summary>
+    public int FlushIntervalMs => 1000;
+
+    /// <summary>
+    /// 开始 live 跑表（转录器建卡时调，回放不调）。只排一次节拍，之后每拍自续。
+    /// 首值不等节拍——节拍回调总在 UI 线程，而建卡可能不在（跨线程写绑定集合实机崩过，
+    /// 见转录器的 VerifyUiAccess），这里只做线程安全的排队，赋值全留给节拍。
+    /// </summary>
+    internal void BeginLiveTiming()
+    {
+        if (_hasPersistedDuration) return;
+        StreamFlushPump.Request(this);
+    }
+
+    void IStreamFlushTarget.FlushForDisplay()
+    {
+        if (_hasPersistedDuration || !IsRunning) return;
+        DurationText = FormatLiveDuration(Stopwatch.GetElapsedTime(_startTicks));
+        StreamFlushPump.Request(this); //跑着就续下一拍；收尾/认领后不再续
+    }
+
+    /// <summary>
+    /// live 跑表显示：1 秒以上向下取整到整秒。节拍回调受 UI 繁忙度影响总晚到几十~上百毫秒，
+    /// 按实际流逝四舍五入会稳定地多出 0.1（满屏 1.1s、2.1s、10.2s），取整后 1s 一跳就是 1s、2s。
+    /// 1 秒以内照毫秒显示；收尾与存档走精确的 <see cref="FormatDuration"/>，不受影响。
+    /// </summary>
+    /// <param name="span">耗时</param>
+    /// <returns>显示文本</returns>
+    internal static string FormatLiveDuration(TimeSpan span)
+    {
+        if (span.TotalSeconds < 1) return FormatDuration(span);
+        return ThinkingItem.FormatDuration(TimeSpan.FromSeconds(Math.Floor(span.TotalSeconds)));
+    }
 
     /// <summary>
     /// 收尾 provisional：live 才调。回放不调——回放卡建完即收尾，起点是重建时刻，

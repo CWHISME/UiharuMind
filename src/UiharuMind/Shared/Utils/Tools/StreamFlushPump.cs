@@ -75,10 +75,40 @@ public static class StreamFlushPump
         EnsureRunning();
     }
 
+    /// <summary>
+    /// 取消注册：条目销毁或不再需要冲刷时调，泵空了自动停。可从任意线程调用。
+    /// 条目还在待冲列表里、没到期就移除同样安全——OnTick 取到它时发现已不在列表就跳过
+    /// </summary>
+    /// <param name="target">待取消的条目</param>
+    public static void Remove(IStreamFlushTarget target)
+    {
+        bool removed;
+        lock (Gate)
+        {
+            removed = Waiting.Remove(target);
+        }
+
+        if (removed) StopWhenEmpty();
+    }
+
     private static void EnsureRunning()
     {
         if (Dispatcher.UIThread.CheckAccess()) Start();
         else Dispatcher.UIThread.Post(Start, DispatcherPriority.Normal);
+    }
+
+    // Remove 可能从任意线程来;停 timer 是 UI 线程的活,空才停(可能同时有新的 Request 进来)
+    private static void StopWhenEmpty()
+    {
+        bool empty;
+        lock (Gate)
+        {
+            empty = Waiting.Count == 0;
+        }
+
+        if (!empty) return;
+        if (Dispatcher.UIThread.CheckAccess()) _timer?.Stop();
+        else Dispatcher.UIThread.Post(() => _timer?.Stop(), DispatcherPriority.Normal);
     }
 
     private static void Start()

@@ -24,10 +24,12 @@ internal static class GrepHitMap
         string? Legend);
 
     /// <summary>
-    /// 渲染命中分布
+    /// 渲染命中分布。默认按路径字典序：同目录的文件挨在一起，模型扫得出结构，
+    /// 输出被截断时也能从路径猜出少了哪块——热点榜会把同一模块的文件拆散到列表各处。
+    /// 命中数降序保留为<b>兜底</b>选项（热点视图），未来需要「先看最重要的文件」时传 false
     /// </summary>
     /// <param name="matches">全量命中</param>
-    /// <param name="orderByPath">文件级按路径字典序（文件清单）；否则按命中数降序（热点视图）</param>
+    /// <param name="orderByPath">true 按路径字典序（默认）；false 按命中数降序（兜底的热点视图）</param>
     /// <param name="maxBytes">文件级正文预算，超了降级到目录级</param>
     /// <returns>渲染结果</returns>
     internal static Rendering Render(IReadOnlyList<GrepMatchResult> matches, bool orderByPath, int maxBytes)

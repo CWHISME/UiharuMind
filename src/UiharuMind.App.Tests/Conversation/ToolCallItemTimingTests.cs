@@ -1,6 +1,7 @@
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Features.Conversation.Items;
+using UiharuMind.Shared.Utils.Tools;
 
 namespace UiharuMind.App.Tests.Conversation;
 
@@ -56,6 +57,22 @@ public class ToolCallItemTimingTests
         Assert.Equal("<1ms", ToolCallItem.FormatDuration(TimeSpan.Zero));
     }
 
+    [Theory]
+    [InlineData(1150, "1s")]
+    [InlineData(1900, "1s")]
+    [InlineData(10900, "10s")]
+    public void FormatLiveDuration_OverOneSecond_FloorsToWholeSeconds(long ms, string expected)
+    {
+        // 节拍晚到几十毫秒是常态：取整后 1s 一跳就是 1s、2s，不会满屏 1.1s、2.1s
+        Assert.Equal(expected, ToolCallItem.FormatLiveDuration(TimeSpan.FromMilliseconds(ms)));
+    }
+
+    [Fact]
+    public void FormatLiveDuration_SubSecond_ShowsMilliseconds()
+    {
+        Assert.Equal("400ms", ToolCallItem.FormatLiveDuration(TimeSpan.FromMilliseconds(400)));
+    }
+
     [Fact]
     public void FreezeReplayItems_WithoutStats_StaysBlank()
     {
@@ -98,5 +115,41 @@ public class ToolCallItemTimingTests
         // 没存档的可保留 provisional（取消打断等情形）
         Assert.NotEqual(string.Empty, unwired.DurationText);
         Assert.Equal(string.Empty, unstamped.DurationText);
+    }
+
+    [Fact]
+    public void FlushForDisplay_WhileRunning_FillsDurationText()
+    {
+        // 跑的过程中每拍刷新：直接调接口，不经 Dispatcher（节拍线程由泵保证）
+        var item = new ToolCallItem { CallId = "c1", ToolName = "read_file" };
+
+        ((IStreamFlushTarget)item).FlushForDisplay();
+
+        Assert.NotEqual(string.Empty, item.DurationText);
+        // FlushForDisplay 内部会自续注册进静态泵（Waiting 是全局单例）；
+        // 测试结束前摘掉，免得条目跨测试留在泵里空转
+        StreamFlushPump.Remove(item);
+    }
+
+    [Fact]
+    public void FlushForDisplay_WhenStopped_LeavesTextAlone()
+    {
+        var item = new ToolCallItem { CallId = "c1", ToolName = "read_file", IsRunning = false };
+
+        ((IStreamFlushTarget)item).FlushForDisplay();
+
+        Assert.Equal(string.Empty, item.DurationText);
+    }
+
+    [Fact]
+    public void FlushForDisplay_AfterPersisted_KeepsArchive()
+    {
+        var item = new ToolCallItem { CallId = "c1", ToolName = "read_file" };
+        item.ApplyPersistedDuration(TimeSpan.FromMilliseconds(9500));
+        string archived = item.DurationText;
+
+        ((IStreamFlushTarget)item).FlushForDisplay();
+
+        Assert.Equal(archived, item.DurationText);
     }
 }

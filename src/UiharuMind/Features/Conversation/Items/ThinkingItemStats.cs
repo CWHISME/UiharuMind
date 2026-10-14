@@ -60,8 +60,10 @@ public partial class ThinkingItem
     /// <summary>
     /// 拼标题统计。纯函数：同一输入永远同一输出，可单测。
     /// 有字数、有时间就报速度，不设时长门槛——限速门只会把 burst 到达（整段一次到、
-    /// 分母极小）误判成极速，却修不好它；真正的分母来自 Core 计时器（到达时刻的单调时钟），
-    /// 显示侧只负责诚实呈现（耗时并排展示，读者自能判断）。
+    /// 分母极小）误判成极速，却修不好它；真正的分母来自 Core 计时器（到达时刻的单调时钟）。
+    /// live（未定格）1 秒以上向下取整到整秒：节拍回调受 UI 繁忙度影响总晚到几十~上百毫秒，
+    /// 按实际流逝四舍五入会稳定地多出 0.1（满屏 1.1s、2.1s），与工具卡跑表同一口径；
+    /// 时长与速度用同一个取整后的值算，读者能对上。定格（收尾、存档）保持精确。
     /// 速度取整数，小数在标题栏里只会制造无效跳动。
     /// </summary>
     /// <param name="elapsed">耗时</param>
@@ -70,6 +72,8 @@ public partial class ThinkingItem
     /// <returns>标题栏文本</returns>
     public static string FormatStats(TimeSpan elapsed, long charCount, bool isFinal = false)
     {
+        if (!isFinal && elapsed.TotalSeconds >= 1)
+            elapsed = TimeSpan.FromSeconds(Math.Floor(elapsed.TotalSeconds));
         string count = charCount.ToString("N0");
         string speedSuffix = string.Empty;
         if (elapsed > TimeSpan.Zero && charCount > 0)
