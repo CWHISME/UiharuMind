@@ -71,41 +71,6 @@ public static class GroupAvatarTranscript
     /// </summary>
     public const string InfiniteNote = "【无限模式：开】";
 
-    /// <summary>心跳状态行（无限模式 §8）的起止字符：整行以此包裹 = 状态行，程序不进群</summary>
-    public const char HeartbeatOpen = '⟦';
-
-    /// <summary>心跳状态行的结束字符</summary>
-    public const char HeartbeatClose = '⟧';
-
-    /// <summary>
-    /// 剥掉正文里整行是心跳状态行（无限模式 §8，⟦…⟧）的行，返回剩余文本。
-    /// 整条都是心跳时返回空串（调用方据此不进群）。
-    /// 实测：化身在无限模式把「思考总结 ＋ 心跳 ＋ 正式发言」写在同一块里，
-    /// 只认整条会漏——心跳混着进了群。改为按行认：整行以 ⟦ 开头、⟧ 结尾才算，
-    /// 正文行（哪怕含半截 ⟦ 符号）不动，避免误吞
-    /// </summary>
-    /// <param name="text">化身的正文</param>
-    /// <returns>剥掉心跳行后的正文；全是心跳则为空串</returns>
-    public static string WithoutHeartbeatLines(string text)
-    {
-        IEnumerable<string> kept = text.Split('\n').Where(l => !IsHeartbeatLine(l));
-        return string.Join("\n", kept);
-    }
-
-    /// <summary>
-    /// 正文里所有整行是心跳状态行（⟦…⟧）的行，按原顺序。调用方据此落心跳日志（<c>GroupHeartbeatLog</c>）
-    /// </summary>
-    /// <param name="text">化身的正文</param>
-    /// <returns>心跳行序列</returns>
-    public static IEnumerable<string> HeartbeatLinesOf(string text) =>
-        text.Split('\n').Where(IsHeartbeatLine);
-
-    private static bool IsHeartbeatLine(string line)
-    {
-        string t = line.Trim();
-        return t.Length >= 2 && t[0] == HeartbeatOpen && t[^1] == HeartbeatClose;
-    }
-
     /// <summary>
     /// 一次离席私下交代给化身的话：捎话只在首轮带，提醒与无限模式每一轮都带
     /// （化身历史跨离席保留，提醒只靠第一轮那一次会分不清哪份作数；捎话是用户原话，压缩的回查段会原样留着）

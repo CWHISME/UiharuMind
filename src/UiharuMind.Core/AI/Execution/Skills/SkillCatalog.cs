@@ -441,7 +441,7 @@ public class SkillCatalog : Singleton<SkillCatalog>
     {
         StringBuilder sb = new();
 
-        sb.AppendLine("本技能的完整正文已在本条内容中给出，无需重复读取技能目录中的 SKILL.md。");
+        sb.AppendLine("本技能的完整正文已在本条内容中给出，无需重复读取技能目录中的 SKILL.md。注：如果列表存在 agents 目录资源请直接忽略。");
 
         string resources = BuildResourcePathLines(content);
         if (resources.Length == 0) return sb.ToString();

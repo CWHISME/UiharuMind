@@ -19,10 +19,6 @@ namespace UiharuMind.Core.AI.Execution.Assembly;
 /// </summary>
 internal static class AgentInstructionsComposer
 {
-    /// <summary>
-    /// 工作区规矩指针的「何时读」。「动手前」实测被读成「改文件前」：模型先列目录、读别的文件，改文件前也没读它
-    /// </summary>
-    internal const string ReadWorkspaceRulesFirst = "本会话第一次调用工具之前，先 `Read` 它读完全文；读过就不用再读。";
 
     /// 按固定顺序拼出 agent 档的整段系统提示：
     /// 基座(所有角色共用、系统锁定) → 角色段(人格 + 用户卡 + 对话模板) → 群场景(群成员才有) → 化身职责(化身才有) → 工具纪律与工作目录 → 扩展名单 → 工作区规矩 → 人格 coda(末尾回锚)。
@@ -187,7 +183,7 @@ internal static class AgentInstructionsComposer
         string pointer = string.IsNullOrEmpty(fileName)
             ? "工作目录下有一份 AGENTS.md（或 CLAUDE.md），写着这个项目的协作规矩与禁区。"
             : $"工作目录下的 {fileName} 写着这个项目的协作规矩与禁区。";
-        return $"{AgentPromptHeadings.Workspace}\n\n{pointer}\n" + ReadWorkspaceRulesFirst;
+        return $"{AgentPromptHeadings.Workspace}\n\n{pointer}\n" + $"本会话第一次调用工具之前，先 `Read {fileName}` 它读完全文；读过就不用再读。";
     }
 
     /// <summary>

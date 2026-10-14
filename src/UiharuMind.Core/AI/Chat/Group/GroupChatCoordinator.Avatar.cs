@@ -69,11 +69,8 @@ public sealed partial class GroupChatCoordinator
             Task? PostBody(string text, DateTimeOffset? createdAt)
             {
                 string body = GroupTranscript.StripSpeakerPrefix(text.Trim(), GroupSceneSource.SpeakerNameOf(avatar));
-                // 无限模式心跳状态行（⟦…⟧ 行）：不进群，逐条落心跳日志（留给用户与巡检）；
-                // posted 不因此 +1，只心跳的一轮会被当 Silent 退避，下次催它说推进的话
-                foreach (string heartbeat in GroupAvatarTranscript.HeartbeatLinesOf(body))
-                    GroupHeartbeatLog.Append(group, heartbeat);
-                body = GroupAvatarTranscript.WithoutHeartbeatLines(body);
+                // 无限模式心跳由化身自己调 Write/Edit 写进草稿目录的心跳.md（§8），程序不再剥离 ⟦…⟧ 行、也不代写；
+                // 正文原样进群。只写了心跳、没给正文的一轮 posted 仍为 0 → 当 Silent 退避，下次催它说推进的话
                 if (string.IsNullOrWhiteSpace(body)) return null;
 
                 ChatMessage post = group.CreateMessage(ChatRole.User, body, imageContents: null, createdAt);

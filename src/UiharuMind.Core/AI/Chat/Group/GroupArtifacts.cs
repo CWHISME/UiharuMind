@@ -121,7 +121,7 @@ public static class GroupArtifacts
 
         foreach ((string file, List<string> names) in authors)
         {
-            if (seen.Contains(file) || !File.Exists(file)) continue;
+            if (seen.Contains(file) || !File.Exists(file) || IsBookkeepingFile(file)) continue;
             artifacts.Add(new GroupArtifact(file, DisplayPathOf(file, workspace), EGroupArtifactSource.Workspace,
                 names, File.GetLastWriteTime(file)));
         }
@@ -180,11 +180,12 @@ public static class GroupArtifacts
         try
         {
             // 点开头的（.DS_Store、编辑器的临时文件）不是谁的产物；群流水与心跳日志是离席的簿记，也不进产物清单
-            // （它们每波末都在变，列进来会污染「本群产物」指纹，使空闲保险丝与退避永不触发）
+            // （它们每波末都在变，列进来会污染「本群产物」指纹，使空闲保险丝与退避永不触发）。
+            // 心跳改为化身自己调 Write 写之后，它还会出现在「成员写过的文件」里（authors），
+            // 所以簿记排除统一走 IsBookkeepingFile，两处同一条判据
             return Directory.EnumerateFiles(draftRoom, "*", SearchOption.AllDirectories)
                 .Where(x => !Path.GetFileName(x).StartsWith('.'))
-                .Where(x => !string.Equals(Path.GetFileName(x), GroupLogText.FileName, StringComparison.OrdinalIgnoreCase))
-                .Where(x => !string.Equals(Path.GetFileName(x), GroupHeartbeatLog.FileName, StringComparison.OrdinalIgnoreCase))
+                .Where(x => !IsBookkeepingFile(x))
                 .ToList();
         }
         catch (Exception e)
@@ -192,6 +193,19 @@ public static class GroupArtifacts
             Log.Warning($"Group artifacts: list draft room '{draftRoom}' failed: {e.Message}");
             return [];
         }
+    }
+
+    /// <summary>
+    /// 离席的簿记文件（群流水与心跳日志）：不列产物、不署名——它们每波末都在变，
+    /// 列进来会污染「本群产物」指纹，使空闲保险丝与退避永不触发
+    /// </summary>
+    /// <param name="path">文件绝对路径</param>
+    /// <returns>簿记文件为 true</returns>
+    private static bool IsBookkeepingFile(string path)
+    {
+        string name = Path.GetFileName(path);
+        return string.Equals(name, GroupLogText.FileName, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, GroupHeartbeatLog.FileName, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string DisplayPathOf(string file, string? workspace)

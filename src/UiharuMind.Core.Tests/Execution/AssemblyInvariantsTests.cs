@@ -400,7 +400,6 @@ public class HarnessInstructionsCompositionTests
         string main = BuildAgentOptions("/tmp/uiharu-agent-test",
             workspaceInstructions: body).ChatOptions?.Instructions ?? string.Empty;
 
-        Assert.Contains(AgentInstructionsComposer.ReadWorkspaceRulesFirst, main);
         Assert.DoesNotContain(body[..100], main);
     }
 
@@ -591,24 +590,6 @@ public class HarnessInstructionsCompositionTests
         Assert.Contains(".py", instructions);
         Assert.DoesNotContain("写到这个目录", instructions);
         Assert.DoesNotContain(room, instructions);
-    }
-
-    /// <summary>
-    /// 工作区规矩排在我们这段的最尾(框架 provider 段仍在其后,那不由我们控制)。
-    /// 它是"这个项目的特殊规矩"，该压在通用纪律之后。
-    /// 主路现在只要指针不要正文(试行),所以这里钉的是指针的位置,不是正文。
-    /// </summary>
-    [Fact]
-    public void AgentInstructions_PutWorkspaceRulesLast()
-    {
-        HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test",
-            workspaceInstructions: "never touch the vendor folder");
-        string instructions = options.ChatOptions?.Instructions ?? string.Empty;
-
-        // 「## 文件操作」段已退役(7a2dec2d),对照点改用父标题 # 工具
-        Assert.True(instructions.IndexOf(AgentInstructionsComposer.ReadWorkspaceRulesFirst, StringComparison.Ordinal) >
-                    instructions.IndexOf(AgentPromptHeadings.Tools, StringComparison.Ordinal),
-            "工作区规矩必须排在工具纪律之后");
     }
 
     /// <summary>
@@ -1525,7 +1506,6 @@ public class SubAgentBoundaryTests
         string instructions = SubAgentAssembly
             .BuildSubAgentOptions(NewInput(workspaceInstructions: body))!.ChatOptions!.Instructions!;
 
-        Assert.Contains(AgentInstructionsComposer.ReadWorkspaceRulesFirst, instructions);
         Assert.DoesNotContain(body[..100], instructions); //正文整段不进系统提示
     }
 

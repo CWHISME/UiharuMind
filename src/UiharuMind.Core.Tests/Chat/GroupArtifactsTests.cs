@@ -1,5 +1,6 @@
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat.Group;
+using UiharuMind.Core.AI.Chat.Group.Away;
 using UiharuMind.Core.AI.Execution.Files;
 
 namespace UiharuMind.Core.Tests.Chat;
@@ -90,6 +91,24 @@ public sealed class GroupArtifactsTests : IDisposable
     public void MissingDraftRoom_IsJustEmpty()
     {
         Assert.Empty(GroupArtifacts.Collect(Path.Combine(_root, "nope"), null, []));
+    }
+
+    /// <summary>离席簿记（群流水与心跳日志）不进产物清单：哪怕化身真用 Write 写过心跳.md，也不列、不署名——
+    /// 否则「本群产物」指纹被污染，保险丝与退避永不触发</summary>
+    [Fact]
+    public void BookkeepingFiles_AreExcluded_EvenWhenWrittenViaTools()
+    {
+        Touch(_room, GroupLogText.FileName);
+        Touch(_room, GroupHeartbeatLog.FileName);
+        string note = Touch(_room, "正常产物.md");
+        List<ChatMessage> avatar = [];
+        AddWrite(avatar, "1", FileToolNames.Write, Path.Combine(_room, GroupLogText.FileName), "已保存 '群流水.md'。");
+        AddWrite(avatar, "2", FileToolNames.Write, Path.Combine(_room, GroupHeartbeatLog.FileName), "已保存 '心跳.md'。");
+        AddWrite(avatar, "3", FileToolNames.Write, note, "已保存 '正常产物.md'。");
+
+        IReadOnlyList<GroupArtifact> artifacts = GroupArtifacts.Collect(_room, _workspace, [("化身", Written(avatar))]);
+
+        Assert.Equal(["正常产物.md"], artifacts.Select(x => x.DisplayPath));
     }
 
     private IReadOnlyList<string> Written(List<ChatMessage> history) => GroupArtifacts.WrittenPaths(history, new AgentPathResolver(_workspace));

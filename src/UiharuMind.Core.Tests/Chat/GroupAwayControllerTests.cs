@@ -383,26 +383,6 @@ public class GroupAwayControllerTests
         Assert.Equal(EGroupAwayEndReason.Manual, receipt.Reason);
     }
 
-    /// <summary>无限模式心跳状态行（⟦…⟧ 整条）：程序拦下不进群；一轮只有心跳就算 Silent 退避，下次催它说推进的话</summary>
-    [Fact]
-    public async Task AvatarHeartbeatLine_IsNotPostedToTheGroup_AndTreatedAsSilent()
-    {
-        _runner.Replies[_avatar.SessionId] = _ => "⟦运行中｜锚点：x｜本轮 delta：无⟧";
-
-        _away.Start(_group, "目标", null, null, true);
-        await Until(() => AvatarCalls() == 1);
-
-        // 心跳没进群：群里没有化身代笔的发言
-        Assert.DoesNotContain(_coordinator.HistorySnapshot(_group), x => ChatMessageAnnotations.GroupAvatarPostOf(x) != null);
-        // 化身历史里留着这条心跳，而且没盖「已发到群」标记
-        ChatMessage? heartbeat = _avatar.History.LastOrDefault(m => m.Role == ChatRole.Assistant);
-        Assert.NotNull(heartbeat);
-        Assert.Equal("⟦运行中｜锚点：x｜本轮 delta：无⟧", heartbeat.Text);
-        // 只心跳 → Silent：退避排上，离席不结束
-        await Until(() => _delays.Count == 1);
-        Assert.True(_away.IsAway(_group.SessionId));
-    }
-
     [Fact]
     public async Task PushNobodyAnswers_IsAnEmptyPush()
     {
