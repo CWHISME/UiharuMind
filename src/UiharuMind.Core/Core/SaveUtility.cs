@@ -28,6 +28,21 @@ public static class SaveUtility
     /// </summary>
     public static readonly JsonSerializerOptions SaveJsonOptions = CreateSourceGenOptions();
 
+    private static int _suppressSaveDepth;
+
+    /// <summary>
+    /// 反序列化期间是否应抑制 <see cref="Configs.ConfigBase.Save"/>。
+    /// 配置类的属性 setter 里带落盘（如 <c>ThemeMode</c>），STJ 按 JSON 键顺序逐个调 setter，
+    /// 每调一次就把<b>半成品</b>对象写盘——排在带 Save 的 setter 之后的普通属性（
+    /// <c>FavoriteCharacterIds</c>、<c>SettingsScrollPositions</c> 等）还没被赋值，就被写成默认值，
+    /// 把磁盘上已存在的值覆盖成空。加载期间抑制 Save，整份读完后再放行。
+    /// </summary>
+    internal static bool SaveSuppressed => Volatile.Read(ref _suppressSaveDepth) > 0;
+
+    private static void EnterSuppressSave() => Interlocked.Increment(ref _suppressSaveDepth);
+
+    private static void ExitSuppressSave() => Interlocked.Decrement(ref _suppressSaveDepth);
+
     private static JsonSerializerOptions CreateSourceGenOptions()
     {
         JsonSerializerOptions options = new(SaveJsonContext.Default.Options)
@@ -224,12 +239,17 @@ public static class SaveUtility
         if (!File.Exists(filePath)) return null;
         try
         {
+            EnterSuppressSave();
             return JsonSerializer.Deserialize(File.ReadAllText(filePath), (options ?? SaveJsonOptions).GetTypeInfo<T>());
         }
         catch (Exception e)
         {
             Log.Warning($"Load File Error:{e.Message},Path:{filePath}");
             return null;
+        }
+        finally
+        {
+            ExitSuppressSave();
         }
     }
 
@@ -270,11 +290,16 @@ public static class SaveUtility
     {
         try
         {
+            EnterSuppressSave();
             return JsonSerializer.Deserialize(jsonString, (options ?? SaveJsonOptions).GetTypeInfo<T>()) ?? new T();
         }
         catch (Exception e)
         {
             Log.Warning(e.ToString());
+        }
+        finally
+        {
+            ExitSuppressSave();
         }
 
         return new T();
@@ -292,11 +317,16 @@ public static class SaveUtility
         if (type == null) return null;
         try
         {
+            EnterSuppressSave();
             return JsonSerializer.Deserialize(jsonString, (options ?? SaveJsonOptions).GetTypeInfo(type));
         }
         catch (Exception e)
         {
             Log.Error(e.Message);
+        }
+        finally
+        {
+            ExitSuppressSave();
         }
 
         return null;

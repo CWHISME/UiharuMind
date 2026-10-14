@@ -103,6 +103,62 @@ public class SaveUtilitySourceGenGuardTests
         Assert.True(restored.IndexDirty);
     }
 
+    /// <summary>
+    /// 反序列化期间的 setter 不应把半成品写盘：种子（含尾部字段 <c>FavoriteCharacterIds</c> /
+    /// <c>SettingsScrollPositions</c>）放临时文件，Load 后内存正确，且规范路径保持原样。
+    /// 曾出现：配置类的属性 setter 带 <see cref="ConfigBase.Save"/>，STJ 按 JSON 键顺序逐个调 setter，
+    /// 排在带 Save 的 setter 之后的普通字段还没被赋值时，半成品写盘把磁盘上的收藏覆盖成空
+    /// （重启丢收藏的根因，抑制机制见 <see cref="SaveUtility.SaveSuppressed"/>）。
+    /// 注意不断言种子文件本身：<see cref="ConfigBase.Save"/> 的目标永远是规范路径（按类型名算，
+    /// 与从哪 Load 无关），种子放临时文件、修之前照样通过，是空测试；必须看规范路径。
+    /// </summary>
+    [Fact]
+    public void Load_PreservesDiskContent_WhenSetterSavesHalfWrittenConfig()
+    {
+        string canonical = AppPaths.Config.ForType(nameof(SettingConfig));
+        Directory.CreateDirectory(AppPaths.Config.Root);
+        // 快乐路径下对用户配置零写入：只读不断言之外的任何修改。
+        // 抑制机制若失效，Load 会弄脏规范路径（断言变红），finally 负责恢复。
+        byte[]? backup = File.Exists(canonical) ? File.ReadAllBytes(canonical) : null;
+        string seedPath = Path.Combine(Path.GetTempPath(), $"save-half-baked-seed-{Guid.NewGuid():N}.json");
+        const string seed = """
+            {
+              "IsLocalServer": true,
+              "ClipboardRetentionDays": 0,
+              "LanguageCode": "zh-CN",
+              "ThemeMode": "Dark",
+              "CharacterFilterIndex": 0,
+              "CharacterOriginFilter": 0,
+              "CharacterFavoriteFilter": false,
+              "FavoriteCharacterIds": ["built-in-id", "user-guid"],
+              "SettingsScrollPositions": {"page": 42}
+            }
+            """;
+        File.WriteAllText(seedPath, seed);
+        try
+        {
+            SettingConfig? loaded = SaveUtility.Load<SettingConfig>(seedPath);
+
+            Assert.NotNull(loaded);
+            Assert.Equal("Dark", loaded!.ThemeMode);
+            Assert.Equal(new[] { "built-in-id", "user-guid" }, loaded.FavoriteCharacterIds);
+            Assert.Equal(42d, Assert.Single(loaded.SettingsScrollPositions).Value);
+            byte[]? after = File.Exists(canonical) ? File.ReadAllBytes(canonical) : null;
+            bool untouched = (backup is null && after is null)
+                || (backup is not null && after is not null && backup.SequenceEqual(after));
+            Assert.True(untouched, "Load 不应触碰规范路径上的配置文件");
+        }
+        finally
+        {
+            if (File.Exists(seedPath)) File.Delete(seedPath);
+            if (backup is null)
+            {
+                if (File.Exists(canonical)) File.Delete(canonical);
+            }
+            else if (!File.ReadAllBytes(canonical).SequenceEqual(backup)) File.WriteAllBytes(canonical, backup);
+        }
+    }
+
     /// <summary>设置经基类保存（<see cref="ConfigBase.Save"/> 的路子）时按运行时类型写，派生字段不能丢</summary>
     [Fact]
     public void ConfigBase_SavedThroughBase_KeepsDerivedFields()

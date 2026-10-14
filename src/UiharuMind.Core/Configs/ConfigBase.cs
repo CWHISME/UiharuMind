@@ -31,6 +31,9 @@ public class ConfigBase : INotifyPropertyChanged
 
     public void Save()
     {
+        // 反序列化期间的 setter 不落盘：STJ 逐键调 setter 时对象还是半成品，
+        // 此刻写盘会把它还沒读到的尾部字段覆盖成默认值（见 SaveUtility.SaveSuppressed）。
+        if (SaveUtility.SaveSuppressed) return;
         if (AllowSelfSave) SaveUtility.Save(AppPaths.Config.ForType(this.GetType().Name), this, SaveUtility.SaveJsonOptions);
         else Log.Error("Save is not allowed for this config: " + this.GetType().Name);
     }
