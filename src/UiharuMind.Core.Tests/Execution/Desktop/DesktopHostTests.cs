@@ -1,3 +1,4 @@
+using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Tools.Accessibility;
 using UiharuMind.Core.AI.Execution.Tools.Desktop;
 
@@ -28,6 +29,23 @@ public class DesktopHostTests
             new AxNode("checkbox", "Wrap") { Checked = "true", Bounds = new AxRect(110, 450, 20, 20), Source = "native" },
         ],
     };
+
+    /// <summary>锁屏时窗口列表只剩 loginwindow，结果开头直说锁屏，免得模型自己造探测脚本</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task WindowsTool_PrefixesLockNoticeOnlyWhenLocked(bool locked)
+    {
+        _platform.IsScreenLocked = locked;
+        _platform.AddWindow("loginwindow", "com.apple.loginwindow", "", new AxNode("window", ""));
+        AIFunction windows = (AIFunction)DesktopTools.Create(_host, "s", Path.GetTempPath())
+            .Single(x => x.Name == DesktopTools.WindowsToolName);
+
+        string text = (await windows.InvokeAsync(new AIFunctionArguments(), Token))?.ToString() ?? string.Empty;
+
+        Assert.Equal(locked, text.StartsWith("The screen is locked"));
+        Assert.Contains("loginwindow", text);
+    }
 
     [Fact]
     public async Task Click_OcrTextTarget_DefaultsToRealInput()

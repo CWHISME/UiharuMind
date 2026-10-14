@@ -125,7 +125,11 @@ public sealed class DesktopTools
     private Task<string> WindowsAsync(CancellationToken cancellationToken = default) => RunAsync(async () =>
     {
         IReadOnlyList<DesktopWindow> windows = await _host.ListWindowsAsync(cancellationToken);
-        return windows.Count == 0 ? "No windows are open." : "Windows (front first):\n" + Describe(windows);
+        // 实机见过:锁屏时只列出 loginwindow,模型没认出是锁屏,自己写了几版有缺陷的锁屏探测脚本
+        string locked = _host.IsScreenLocked
+            ? "The screen is locked (the list may show only loginwindow). Ask the user to unlock it before operating other windows.\n"
+            : string.Empty;
+        return locked + (windows.Count == 0 ? "No windows are open." : "Windows (front first):\n" + Describe(windows));
     });
 
     private Task<string> SnapshotAsync(

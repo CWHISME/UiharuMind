@@ -83,6 +83,12 @@ public interface IDesktopPlatform
     /// <returns>做成为 true</returns>
     bool Raise(DesktopWindowInfo window);
 
+    /// <summary>
+    /// 屏幕是否锁着。macOS 锁屏时窗口列表只剩 loginwindow，模型认不出那是锁屏；
+    /// Windows 锁屏时列表照旧、不易误读，暂取默认 false
+    /// </summary>
+    bool IsScreenLocked => false;
+
     /// <summary>用户最近一次动键盘鼠标（硬件输入，不含这里发的事件）距今多少秒</summary>
     double SecondsSinceUserInput { get; }
 

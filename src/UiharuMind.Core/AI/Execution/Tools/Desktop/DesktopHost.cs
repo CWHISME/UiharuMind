@@ -86,6 +86,9 @@ public sealed partial class DesktopHost
     /// </summary>
     public void RequestAccess() => _platform?.RequestAccess();
 
+    /// <summary>屏幕是否锁着</summary>
+    public bool IsScreenLocked => _platform?.IsScreenLocked ?? false;
+
     /// <summary>
     /// 列出窗口并分配编号
     /// </summary>

@@ -53,7 +53,7 @@ internal sealed class PermissiveFileAccessTools
     /// <summary>Edit diff 单行长度上限（minified JSON 一行可达几十 KB，行数上限拦不住）</summary>
     internal const int MaxEditDiffLineChars = FileEditPlanner.DefaultMaxDiffLineChars;
 
-    // 描述只写契约;何时读全文、何时先 Grep 再切片是策略,归文件纪律段(AgentToolPrompts.FileReadDefault)
+    // 描述只写契约;Read 与 Shell 的分工归命令行纪律段(AgentToolPrompts.BuildShell)
     private const string ReadDescription =
         "读取文件的原始内容。每行前的「行号+制表符」是参照，不是文件内容，引用位置时直接用它，Edit 时不要带上。"
         + "代码与 Markdown 被截断时附文件大纲（各类型、函数、标题的起止行），据此传 offset 与 head 只读需要的段。";

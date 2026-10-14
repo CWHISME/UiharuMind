@@ -48,7 +48,23 @@ public class ShellSelfKillGuardTests
         object? result = await guarded.InvokeAsync(new AIFunctionArguments { ["command"] = command },
             TestContext.Current.CancellationToken);
 
-        Assert.Equal(ShellSelfKillGuardFunction.Refusal, result?.ToString());
+        Assert.StartsWith(ShellSelfKillGuardFunction.RefusalPrefix, result?.ToString());
+        Assert.False(invoked());
+    }
+
+    /// <summary>heredoc 写脚本时正文提到 pkill 仍拒绝（正文可能被执行），但文案点出命中段并指向 Write</summary>
+    [Fact]
+    public async Task HeredocBody_IsRefusedWithHitSnippetAndWriteHint()
+    {
+        (AIFunction guarded, Func<bool> invoked) = NewGuarded();
+        string command = "cat > restart.sh <<'EOF'\npkill -f UiharuMind.Desktop\nopen -a UiharuMind\nEOF";
+
+        object? result = await guarded.InvokeAsync(new AIFunctionArguments { ["command"] = command },
+            TestContext.Current.CancellationToken);
+
+        string text = result?.ToString() ?? string.Empty;
+        Assert.Contains("「pkill -f UiharuMind.Desktop」", text);
+        Assert.Contains("`Write`", text);
         Assert.False(invoked());
     }
 
@@ -80,7 +96,7 @@ public class ShellSelfKillGuardTests
             new AIFunctionArguments { ["command"] = $"kill -0 {Environment.ProcessId}" },
             TestContext.Current.CancellationToken);
 
-        Assert.Equal(ShellSelfKillGuardFunction.Refusal, result?.ToString());
+        Assert.StartsWith(ShellSelfKillGuardFunction.RefusalPrefix, result?.ToString());
     }
 
     /// <summary>同上，后台任务工具：拒绝时连任务都不建</summary>
@@ -98,7 +114,7 @@ public class ShellSelfKillGuardTests
             },
             TestContext.Current.CancellationToken);
 
-        Assert.Equal(ShellSelfKillGuardFunction.Refusal, result?.ToString());
+        Assert.StartsWith(ShellSelfKillGuardFunction.RefusalPrefix, result?.ToString());
     }
 
     private static (AIFunction Guarded, Func<bool> Invoked) NewGuarded()

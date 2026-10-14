@@ -49,7 +49,9 @@ internal static class ShellExecutorFactory
 
     private static readonly string BackgroundTasksHint =
         $"预期要跑超过 {CommandTimeout.TotalMinutes:0} 分钟或不会退出的命令：用 " +
-        Tools.BackgroundTasks.BackgroundTaskTool.ToolName + "。";
+        Tools.BackgroundTasks.BackgroundTaskTool.ToolName + "，它结束时会主动通知你。" +
+        // 实机抽样:单会话前台 sleep 累计上百分钟(sleep 900、sleep 420 + tail 盯后台日志)
+        "不要在这里用 sleep 干等或轮询它的输出。";
 
     /// <summary>
     /// 把执行器包成模型可调的 shell 工具（主代理与子代理共用）。
@@ -77,11 +79,11 @@ internal static class ShellExecutorFactory
             : RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "macOS"
             : RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "Linux" : "POSIX";
         string binary = executor.ResolvedShellBinary;
-        StringBuilder sb = new($"在本地机器上执行一条 shell 命令，返回它的标准输出、标准错误与退出码。操作系统：{os}");
+        StringBuilder sb = new($"在本地机器上执行一条 shell 命令，返回它的标准输出、标准错误与退出码。操作系统：{os}。");
         // binary 读不到就整句省掉:宁可不说,也不能给模型一个错的 shell
-        if (binary.Length > 0) sb.Append($"。shell 可执行文件：'{binary}'");
-        sb.Append("。无状态模式：每次调用都开一个全新 shell，工作目录与环境变量不跨调用保留——需要状态就把相关步骤合成一条命令。")
-          .Append($"。单次调用超时：{CommandTimeout.TotalSeconds:0} 秒；输出过长时按首尾截断。");
+        if (binary.Length > 0) sb.Append($"shell 可执行文件：'{binary}'");
+        sb.Append("无状态模式：每次调用都开一个全新 shell，工作目录与环境变量不跨调用保留——需要状态就把相关步骤合成一条命令。")
+          .Append($"单次调用超时：{CommandTimeout.TotalSeconds:0} 秒；输出过长时按首尾截断。");
         return sb.ToString();
     }
 

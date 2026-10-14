@@ -28,10 +28,10 @@ namespace UiharuMind.Core.AI.Execution.Assembly;
 /// </summary>
 internal sealed class ShellSelfKillGuardFunction : DelegatingAIFunction
 {
-    /// <summary>拒绝时交回给模型的话：说什么、指哪条正路</summary>
-    internal const string Refusal =
-        "拒绝执行：这条命令会杀掉 UiharuMind 应用自己的进程（Shell 就跑在这个进程里，杀它等于自杀）。" +
-        "要停应用走 `app quit` 这类公开步骤并先问用户，没有就让用户手动操作，别自己动手杀进程。";
+    /// <summary>拒绝文案开头（测试按它认拒绝）</summary>
+    internal const string RefusalPrefix = "拒绝执行：";
+
+    private const int SnippetMaxLength = 80;
 
     // 杀进程动词逐个列：`skill` 这类词里也含 kill，裸写 kill 反而误伤，所以全用 \b 圈住；
     // taskkill/stop-process 不含 \bkill\b（前者是连着的、后者是另一个词），另列。
@@ -57,30 +57,39 @@ internal sealed class ShellSelfKillGuardFunction : DelegatingAIFunction
     protected override ValueTask<object?> InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
     {
         // 参数口径复用审批那一份：shell 两把工具的命令参数都叫 command
-        if (IsSelfKill(ApprovalModeMapper.ExtractCommand(arguments), OwnPid))
-            return ValueTask.FromResult<object?>(Refusal);
+        string? hit = FindSelfKill(ApprovalModeMapper.ExtractCommand(arguments), OwnPid);
+        if (hit != null)
+            return ValueTask.FromResult<object?>(BuildRefusal(hit));
         return base.InvokeCoreAsync(arguments, cancellationToken);
     }
 
     /// <summary>
-    /// 这条命令是不是在杀应用自己：杀进程动词之后、同一段里出现应用名、本进程 pid 或 `$PPID`。
-    /// 段到 `;`、`&`、换行即止，管道不断（`ps | xargs kill` 仍算一段）；注释里顺带提到应用名
-    /// 会误伤，宁可多拦一条——真要注释，换个说法即可。
+    /// 找出命令里杀应用自己的那一段：杀进程动词之后、同一段里出现应用名、本进程 pid 或 `$PPID`。
+    /// 段到 `;`、`&`、换行即止，管道不断（`ps | xargs kill` 仍算一段）。
+    /// 不剥 heredoc 正文：`bash &lt;&lt;EOF` 的正文会被执行，剥了就是一条绕过的路；
+    /// 写脚本文件时正文里提到 pkill 会误伤，由拒绝文案点出命中段、指向 `Write`。
     /// </summary>
     /// <param name="command">命令原文</param>
     /// <param name="ownPid">本进程 pid（参数化只为可测试，线上恒为 <see cref="Environment.ProcessId"/>）</param>
-    /// <returns>自杀为 true</returns>
-    internal static bool IsSelfKill(string? command, int ownPid)
+    /// <returns>命中的那一段（动词起）；不是自杀时为 null</returns>
+    internal static string? FindSelfKill(string? command, int ownPid)
     {
-        if (string.IsNullOrWhiteSpace(command)) return false;
+        if (string.IsNullOrWhiteSpace(command)) return null;
         Regex pidToken = ownPid == OwnPid ? OwnPidToken : new Regex(@"\b" + ownPid + @"\b", RegexOptions.Compiled);
         foreach (Match verb in KillVerb.Matches(command))
         {
             string tail = command[(verb.Index + verb.Length)..].Split([';', '&', '\r', '\n'])[0];
-            if (AppToken.IsMatch(tail)) return true;
-            if (ParentPidToken.IsMatch(tail)) return true;
-            if (pidToken.IsMatch(tail)) return true;
+            if (AppToken.IsMatch(tail) || ParentPidToken.IsMatch(tail) || pidToken.IsMatch(tail))
+                return (verb.Value + tail).Trim();
         }
-        return false;
+        return null;
+    }
+
+    internal static string BuildRefusal(string hit)
+    {
+        string snippet = hit.Length > SnippetMaxLength ? hit[..SnippetMaxLength] + "…" : hit;
+        return RefusalPrefix + $"命中「{snippet}」，这段会杀掉 UiharuMind 应用自己的进程（Shell 就跑在这个进程里，杀它等于自杀）。" +
+               "要停应用走 `app quit` 这类公开步骤并先问用户，没有就让用户手动操作，别自己动手杀进程。" +
+               "若这段只是要写进文件的脚本内容（如 heredoc 正文），改用 `Write` 写文件。";
     }
 }

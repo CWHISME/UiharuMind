@@ -633,10 +633,14 @@ public class HarnessInstructionsCompositionTests
     [Fact]
     public void ExtensionsSection_LeavesOutDisabledOnes()
     {
-        AgentToolConfig config = new() { DisabledExtensions = { "browser", "image", "audio" } };
+        AgentToolConfig partly = new() { DisabledExtensions = { "browser", "image", "audio" } };
+        BuildAgentOptions("/tmp/uiharu-agent-test", out IReadOnlyList<AgentPromptSegment> segments, partly);
+        string roster = Assert.Single(segments, x => x.Section == EPromptSection.Extensions).Text;
+        Assert.Contains("- desktop", roster);
+        Assert.DoesNotContain("- browser", roster);
 
-        BuildAgentOptions("/tmp/uiharu-agent-test", out IReadOnlyList<AgentPromptSegment> segments, config);
-
+        AgentToolConfig all = new() { DisabledExtensions = [..BuiltinExtensions.Names] };
+        BuildAgentOptions("/tmp/uiharu-agent-test", out segments, all);
         Assert.DoesNotContain(segments, x => x.Section == EPromptSection.Extensions);
     }
 

@@ -55,6 +55,24 @@ internal sealed class MacDesktopPlatform : IDesktopPlatform
     }
 
     /// <inheritdoc />
+    public bool IsScreenLocked
+    {
+        get
+        {
+            IntPtr session = CGSessionCopyCurrentDictionary();
+            if (session == IntPtr.Zero) return false;
+            try
+            {
+                return ToManaged(DictionaryValue(session, "CGSSessionScreenIsLocked")) is true;
+            }
+            finally
+            {
+                CFRelease(session);
+            }
+        }
+    }
+
+    /// <inheritdoc />
     public double SecondsSinceUserInput => CGEventSourceSecondsSinceLastEventType(EventSourceHidSystem, AnyInputEvent);
 
     /// <inheritdoc />

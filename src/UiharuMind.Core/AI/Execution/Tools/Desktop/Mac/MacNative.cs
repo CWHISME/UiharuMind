@@ -363,6 +363,10 @@ internal static class MacNative
     [DllImport(CoreGraphics)]
     public static extern IntPtr CGWindowListCopyWindowInfo(uint option, uint relativeToWindow);
 
+    /// <summary>当前登录会话的属性字典（含 CGSSessionScreenIsLocked）；调用方负责 <see cref="CFRelease"/>，无会话时为空</summary>
+    [DllImport(CoreGraphics)]
+    public static extern IntPtr CGSessionCopyCurrentDictionary();
+
     [DllImport(CoreGraphics)]
     public static extern byte CGPreflightScreenCaptureAccess();
 

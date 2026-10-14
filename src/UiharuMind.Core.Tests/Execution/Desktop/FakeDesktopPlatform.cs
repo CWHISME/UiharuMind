@@ -41,6 +41,8 @@ internal sealed class FakeDesktopPlatform : IDesktopPlatform
 
     public double SecondsSinceUserInput { get; set; } = 60;
 
+    public bool IsScreenLocked { get; set; }
+
     public void RequestAccess()
     {
     }

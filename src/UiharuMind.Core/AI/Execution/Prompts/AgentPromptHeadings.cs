@@ -37,13 +37,6 @@ public static class AgentPromptHeadings
     /// <summary>目录段的标题正文（不含级别前缀，见 <see cref="Directories"/>）</summary>
     public const string DirectoriesName = "目录";
 
-    /// <summary>
-    /// 文件工具纪律段（读 + 写，同一段标题下）。写那几条只在写工具在场时附上，
-    /// 由 <see cref="AgentToolPrompts.BuildFileOperations"/> 按条件拼——只读装配
-    /// （探索档子代理、关掉写工具的主代理）拿不到 `Edit`/`Write`，这一段就只说读。
-    /// </summary>
-    public const string FileOperations = "## 文件操作";
-
     /// <summary>知识库检索纪律段</summary>
     public const string KnowledgeBase = "## 知识库";
 

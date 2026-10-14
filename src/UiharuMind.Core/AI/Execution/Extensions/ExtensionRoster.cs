@@ -44,10 +44,9 @@ internal static class ExtensionRoster
     /// <returns>整段；名单为空时为空串</returns>
     public static string Section(AgentToolConfig config, McpToolSet mcp)
     {
-        return "";
-        // IReadOnlyList<(string Name, string Description)> roster = Of(config, mcp);
-        // return roster.Count == 0
-        //     ? string.Empty
-        //     : $"{AgentPromptHeadings.Extensions}\n\n{AgentToolPrompts.BuildExtensions(roster)}";
+        IReadOnlyList<(string Name, string Description)> roster = Of(config, mcp);
+        return roster.Count == 0
+            ? string.Empty
+            : $"{AgentPromptHeadings.Extensions}\n\n{AgentToolPrompts.BuildExtensions(roster)}";
     }
 }

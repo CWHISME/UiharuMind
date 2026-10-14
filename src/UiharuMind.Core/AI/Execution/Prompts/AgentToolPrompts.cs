@@ -84,7 +84,9 @@ public static class AgentToolPrompts
                           $"`Read {memoryToken}` 会返回记忆索引，每份笔记的路径和首行（超过 {MemoryIndex.SummaryMaxLength} 字截断），读全文用 {memoryToken}/文件名。" +
                           "开始一件事前先看一眼索引，以前的你可能记过相关的东西。" +
                           "索引里只看得到首行，" +
-                          "只写个标题的话，以后的你得打开文件才知道里面是什么。只记对话里的沉淀。");
+                          "只写个标题的话，以后的你得打开文件才知道里面是什么。只记对话里的沉淀。" +
+                          // 实机见过:拿过时的进度记忆当事实答给用户,被指出后才去翻 git log
+                          "记忆里带时间的状态（进度、计数、某事是否已做）说出口前先用 git log 或现场数据核一遍，过期的顺手删掉。");
         }
 
         string tokens = string.Join("、", new[] { draftToken, memoryToken }.Where(t => t != null));
@@ -96,82 +98,6 @@ public static class AgentToolPrompts
         }
 
         return sb.ToString().TrimEnd();
-    }
-
-    /// <summary>
-    /// 读那几条纪律默认正文。
-    ///
-    /// 两组内容，缺一组都会有实机症状：
-    /// <list type="number">
-    /// <item>找文件的顺序（Glob/Grep/Read）——不说模型就上来先问用户"文件在哪"。</item>
-    /// <item>上下文卫生——不说模型会把整个文件、整棵目录树拉进来。</item>
-    /// </list>
-    ///
-    /// 写那几条在 <see cref="FileWriteDefault"/>，由 <see cref="BuildFileOperations"/>
-    /// 按条件附到同一段——只读装配只有这里读那几条，不指名 `Edit`/`Write`。
-    ///
-    /// 这里<b>不再重复一句"不知道在哪就先搜"</b>：目录段结尾原先有同义的一句，
-    /// 两段又是紧挨着发出去的，对小模型那不是强调而是噪声。留具体的那一句（点名了 `Glob`）。
-    ///
-    /// 也<b>不说 isRegex 怎么传</b>：非法正则已在工具边界自动降级为字面串搜索，结果里会说明，
-    /// 事前哪一层都不必叮嘱（见 CONTEXT.md「一条规则只放一层」）。
-    ///
-    /// 参数名（edits / oldString / offset / limit / contextLines）刻意<b>不加反引号</b>：
-    /// 反引号在提示词里专表工具名，有不变量测试按这条约定校验。
-    /// </summary>
-    public const string FileReadDefault =
-        "- 项目中的文件工具都经过反复优化，优先用 `Glob` 找文件，用 `Grep` 搜文本（可指定目录或具体文件），用 `Read` 读文件(自动处理编码等问题、传 head=-1 可一次读完)。\n" +
-        "- 已经知道关键词，就先用 `Grep` 带上 contextLines 搜一次——" +
-        "命中行加上它的上下文，往往就是你需要的全部。否则只 `Read` 需要的那一段。";
-    /// <summary>
-    /// 没有 Glob 的只读装配（脑，ADR 0082）：只有 Grep/Read 时的读纪律。
-    /// 与 <see cref="FileReadDefault"/> 的差别只在找文件那一句不点名 `Glob`——
-    /// 提示语指名的工具必须真实存在（有不变量测试钉住）。
-    /// </summary>
-    public const string FileReadDefaultWithoutGlob =
-        "- 项目中的文件工具都经过反复优化，用 `Grep` 搜文本（可指定目录或具体文件），用 `Read` 读文件(自动处理编码等问题、传 head=-1 可一次读完)。\n" +
-        "- 已经知道关键词，就先用 `Grep` 带上 contextLines 搜一次——" +
-        "命中行加上它的上下文，往往就是你需要的全部。否则只 `Read` 需要的那一段。";
-
-    /// <summary>
-    /// 文件<b>修改</b>纪律默认正文。只在写工具真的在场时由 <see cref="BuildFileOperations"/> 附到「## 文件操作」段。
-    ///
-    /// 「先 `Read` 再改」留在这一侧而不是读那一侧：它是 <c>Edit</c> 的前置条件，
-    /// 没有写工具时说它等于指一件做不了的事。
-    ///
-    /// 「也不要读太少」那句刹车同理挂在这里——它的理由整条都是 oldString 要精确匹配。
-    /// 只说省着读、不说这句，模型会只读二十行就动手，匹配失败再重试，一轮下来烧的比老实读一段更多。
-    ///
-    /// <c>Edit</c> 调用本身的契约（改动放一次调用、按当前内容匹配、条目不重叠、越短越好）
-    /// <b>只在工具描述里说</b>：这里再写一遍就是每轮付两次钱，改了一处另一处还会走样。
-    ///
-    /// 参数名（oldString）刻意<b>不加反引号</b>：反引号在提示词里专表工具名，
-    /// 有不变量测试按这条约定校验。
-    /// </summary>
-    public const string FileWriteDefault =
-        // "- 要改一个文件，先 `Read` 它，而且要动的那一段要完整读完：oldString 必须与文件完全一致，" +
-        // "`Edit` 才会成功。猜的代价比读的代价高。\n" +
-        "- 改动已有文件用 `Edit`。`Write` 只用来新建文件，或者整体替换掉一个文件。";
-
-    /// <summary>
-    /// 文件工具纪律段正文：读 + 写，同一段「## 文件操作」之下，写那几条只在写工具在场时附上。
-    ///
-    /// <b>只读装配（探索档子代理、关掉写工具的主代理）只有读那几条</b>：写纪律指名
-    /// `Edit`/`Write`，没有写工具时说它等于指一件做不了的事——「指名的工具必须真的
-    /// 在同一份工具集里」有不变量测试钉着。从前读、写分两段（ADR 0030），只读侧
-    /// 「文件修改」整段缺席；合并后同一标题下按条件拼，两档各拿该拿的那半。
-    ///
-    /// 写工具在场蕴含读工具在场（主代理两者恒等；子代理 FileWrite = FileRead && canMutate），
-    /// 所以装配侧段条件只判 FileRead 即可。
-    /// </summary>
-    /// <param name="fileWriteMounted">写工具（Edit/Write）是否已装配</param>
-    /// <returns>文件操作段正文</returns>
-    public static string BuildFileOperations(bool fileWriteMounted, bool fileGlob = true)
-    {
-        string read = fileGlob ? FileReadDefault : FileReadDefaultWithoutGlob;
-        return fileWriteMounted
-            ? read + "\n" + FileWriteDefault
-            : read;
     }
 
     /// <summary>
@@ -200,7 +126,7 @@ public static class AgentToolPrompts
         // 工具名写在这条无条件的里:下两条会被文件工具缺席时整块跳过,
         // 而一节讲命令行的纪律却一次都不提 `Shell` 是说不通的
         // 路径默认口径只在目录段表态一次(见 CONTEXT.md),这里只说命令的 cwd
-        sb.AppendLine("- 用 `Shell` 跑命令，命令在工作目录下执行。");
+        sb.AppendLine("- 用 `Shell` 运行的命令默认在工作目录下执行。");
         
         // 这两条讲的是"这件事该归 Shell 还是归文件工具",没有文件工具时它们无从谈起,
         // 而且会指名 Read/Edit/Write —— 那三个只随 EnableFileAccess 出现。
@@ -214,10 +140,11 @@ public static class AgentToolPrompts
             // 批量替换的例外放这里而不放文件纪律段:那段在 shell 关闭时照发,指一个不存在的段落
             // 会违反"指名的工具必须真的在同一份工具集里"。脚本替换要预检(先 Grep 确认范围)、
             // 要收尾验证(再 Grep 0 残留);审批上它过的是 shell 命令级审批,不是 Read/Edit 的内容级
-            // sb.AppendLine(
-            //     "- 但文件内容的读与改默认仍走文件工具：读取用 `Read`，" +
-            //     "单点改动用 `Edit`（每次改动可见、可审计）。例外是贯穿多个文件的同一种批量机械改动，" +
-            //     "那种情况优先用 `Shell` 或脚本一次做完。");
+            // 实机抽样:Shell 里 cat/grep/find 读文件单会话上百次、sed -i 批量改源码绕过 Edit 的差异与审批
+            sb.AppendLine(
+                "- 但文件内容的读与改默认仍走文件工具：读取用 `Read`，" +
+                "单点改动用 `Edit`（每次改动可见、可审计）。例外是贯穿多个文件的同一种批量机械改动，" +
+                "那种情况优先用 `Shell` 或脚本一次做完。");
         }
         
         // shell 是按平台解析的,而模型对自己跑在哪种 shell 上一无所知,
@@ -229,9 +156,9 @@ public static class AgentToolPrompts
 
         // sb.AppendLine("- 输出会被截断，所以不要打印大文件、也不要列不加过滤的目录树。");
         // 破坏性操作只描述性质,不举 rm -rf / git reset --hard:那两个在 Windows 上都不成立
-        sb.Append(
-            "- 破坏性或不可逆的操作（递归删除、批量覆盖、丢弃未提交的改动、任何推向远端的动作），" +
-            "先说清你要做什么，再做。");
+        // sb.Append(
+        //     "- 破坏性或不可逆的操作（递归删除、批量覆盖、丢弃未提交的改动、任何推向远端的动作），" +
+        //     "先说清你要做什么，再做。");
 
         return sb.ToString();
     }
