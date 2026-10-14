@@ -28,8 +28,9 @@
   </ItemGroup>
 
   <!-- 发布口径：三个平台共用，脚本与 CI 都只需给 -r <RID>。
-       不开 PublishTrimmed —— 全仓默认反射绑定（AvaloniaUseCompiledBindingsByDefault=false），
-       裁剪会剪掉绑定要用的属性，且是静默的运行时失败。
+       不开 PublishTrimmed（ADR 0029）：当初的理由是全仓反射绑定（裁剪会剪掉绑定属性、且静默挂），
+       b05e363f 已把 AvaloniaUseCompiledBindingsByDefault 翻成全仓 =true，这条理由被削弱；
+       是否可开 Trim 见 ADR 0029「§待重估（2026-10-14）」，现状维持 R2R 不裁剪。
        TieredPGO 自 .NET 8 起默认开启，不必显式声明。 -->
   <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
     <SelfContained>true</SelfContained>
