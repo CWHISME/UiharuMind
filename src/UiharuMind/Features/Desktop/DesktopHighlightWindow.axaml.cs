@@ -30,6 +30,7 @@ public partial class DesktopHighlightWindow : UiharuWindowBase
 
     private static DesktopHighlightWindow? _instance;
     private int _generation; //连着闪时只让最后一次去藏
+    private bool _closed; //窗口一旦 Close 就不可再 Show（IsCacheWindow=false），排队的 Flash 回调直接放弃
 
     public DesktopHighlightWindow()
     {
@@ -55,9 +56,17 @@ public partial class DesktopHighlightWindow : UiharuWindowBase
         this.SetNonInteractiveOverlayWindow();
     }
 
+    protected override void OnClosed(EventArgs e)
+    {
+        base.OnClosed(e);
+        _closed = true;
+    }
+
     // 平台给的是屏幕逻辑坐标：macOS 上窗口位置本就按点算，Windows 上窗口位置按物理像素、尺寸按缩放后的单位
     private void Flash(AxRect rect)
     {
+        // 窗口被关过后不可再 Show（Attach 的 Post 是排队的，关掉之后回调才跑会炸）——直接放弃这次闪
+        if (_closed) return;
         double scaling = PlatformUtils.IsMacOS ? 1 : App.ScreensService.Scaling;
         Position = new PixelPoint((int)(rect.X - FrameMargin), (int)(rect.Y - FrameMargin));
         Width = (rect.Width + FrameMargin * 2) / scaling;
