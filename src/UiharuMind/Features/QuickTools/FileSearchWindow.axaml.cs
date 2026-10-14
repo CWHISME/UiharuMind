@@ -39,28 +39,18 @@ public partial class FileSearchWindow : UiharuWindowBase
         this.SetScreenCenterPosition();
     }
 
-    // private void OnDirectorySelectionChanged(object? sender, SelectionChangedEventArgs e)
-    // {
-    //     if (sender is ComboBox comboBox && comboBox.SelectedItem is string path)
-    //     {
-    //         ViewModel.SetDirectoryCommand.Execute(path);
-    //     }
-    // }
-
-    // 末段可编辑路径框（PathPicker 式）：粘长路径直达，键盘优先工具顺手。回车/失焦跳。
-    private void OnPathBoxLostFocus(object? sender, RoutedEventArgs e)
+    // 点面包屑任一段回退到那个父目录（DataContext 是 DirSegment；末级的当前目录不跳）
+    private void OnBreadcrumbSegmentClicked(object? sender, RoutedEventArgs e)
     {
-        if (sender is TextBox textBox)
+        if (sender is Button button && button.DataContext is UiharuMind.Features.QuickTools.DirSegment segment)
         {
-            string text = (textBox.Text ?? string.Empty).Trim();
-            if (!string.IsNullOrEmpty(text) && text != ViewModel.CurrentDirectory)
-            {
-                ViewModel.SetDirectoryCommand.Execute(text);
-            }
+            if (segment.IsCurrent) return;
+            ViewModel.NavigateToSegmentCommand.Execute(segment);
         }
     }
 
-    private void OnPathBoxKeyDown(object? sender, KeyEventArgs e)
+    // 历史下拉的直达框：粘路径回车即跳
+    private void OnHistoryJumpKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter && sender is TextBox textBox)
         {
@@ -74,25 +64,22 @@ public partial class FileSearchWindow : UiharuWindowBase
         }
     }
 
-    // 点面包屑任一段回退到那个父目录（DataContext 是 DirSegment）
-    private void OnBreadcrumbSegmentClicked(object? sender, RoutedEventArgs e)
+    // 历史下拉点一条切过去（DataContext 是 SidebarEntry）
+    private void OnHistoryItemClicked(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button button && button.DataContext is UiharuMind.Features.QuickTools.DirSegment segment)
+        if (sender is Button button && button.DataContext is SidebarEntry entry
+            && entry.Path != ViewModel.CurrentDirectory)
         {
-            ViewModel.NavigateToSegmentCommand.Execute(segment);
+            ViewModel.SetDirectoryCommand.Execute(entry.Path);
         }
     }
 
-    // 目录条目单击下钻一层（文件条目单击只选中，打开仍走双击/右键）。
-    // 条目取自点中处所在的 ListBoxItem.DataContext，不赌选中时序——
-    // 靠 SelectedItem 的话，点到 A 时若上次选中的还是 B，会进错目录。
-    private void OnResultTapped(object? sender, TappedEventArgs e)
+    // 历史下拉的 ✕：从最近中移除（DataContext 是 SidebarEntry）
+    private void OnHistoryForgetClicked(object? sender, RoutedEventArgs e)
     {
-        if (e.Source is Control source
-            && source.FindAncestorOfType<ListBoxItem>()?.DataContext is SearchItem item
-            && item.IsDirectory)
+        if (sender is Button button && button.DataContext is SidebarEntry entry)
         {
-            ViewModel.EnterDirectoryCommand.Execute(item);
+            ViewModel.RemoveRecentCommand.Execute(entry);
         }
     }
 
@@ -113,15 +100,42 @@ public partial class FileSearchWindow : UiharuWindowBase
         }
     }
 
-    private void OnResultDoubleTapped(object? sender, TappedEventArgs e)
+    // 主列双击统一入口（浏览/搜索两份列表共用）：目录下钻，文件打开。
+    // 条目取自点中处所在的 ListBoxItem.DataContext，不赌选中时序
+    private void OnMainDoubleTapped(object? sender, TappedEventArgs e)
     {
-        if (e.Source is Control source)
+        if (e.Source is Control source
+            && source.FindAncestorOfType<ListBoxItem>()?.DataContext is SearchItem item)
         {
-            var listBox = source.FindAncestorOfType<ListBox>();
-            if (listBox?.SelectedItem is SearchItem item)
-            {
+            if (item.IsDirectory)
+                ViewModel.EnterDirectoryCommand.Execute(item);
+            else
                 OpenTarget(item);
-            }
+        }
+    }
+
+    // 侧栏点选即跳（与 Finder 一致）。选中与当前目录相同时是外部导航回写的，不处理
+    private void OnFavoriteSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ListBox list && list.SelectedItem is SidebarEntry entry
+            && entry.Path != ViewModel.CurrentDirectory)
+        {
+            ViewModel.SetDirectoryCommand.Execute(entry.Path);
+        }
+    }
+
+    // 侧栏右键：揭示目录 / 取消收藏（Tag 区分）
+    private void OnSidebarMenuClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem menuItem || menuItem.DataContext is not SidebarEntry entry) return;
+        switch (menuItem.Tag?.ToString())
+        {
+            case "OpenDir":
+                FileOpener.RevealInFolder(entry.Path);
+                break;
+            case "RemoveFav":
+                ViewModel.RemoveFavoriteCommand.Execute(entry);
+                break;
         }
     }
 
@@ -165,7 +179,10 @@ public partial class FileSearchWindow : UiharuWindowBase
 
     private async void OpenTarget(SearchItem item, string? tag = null)
     {
-        var fullPath = Path.GetFullPath(Path.Combine(ViewModel.CurrentDirectory, item.Path));
+        // 搜索/浏览命中的是相对搜索根的路径（根外的是绝对路径），拼回完整路径再打开
+        var fullPath = Path.IsPathFullyQualified(item.Path)
+            ? Path.GetFullPath(item.Path)
+            : Path.GetFullPath(Path.Combine(ViewModel.CurrentDirectory, item.Path));
 
         string action = tag ?? "OpenDefault";
         // 双击默认动作与右键「用编辑器打开」(OpenEditor) 同一条路：分流收在 FileOpener

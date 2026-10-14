@@ -34,6 +34,8 @@ public class SearchService
 {
     private readonly List<string> _searchHistory;
     private readonly RecentPathList _recentHistory;
+    private readonly List<string> _favorites;
+    private readonly RecentPathList _recentFavorites;
 
     public SearchService()
     {
@@ -42,7 +44,10 @@ public class SearchService
                          new List<string>();
         _recentHistory = new RecentPathList(_searchHistory, 10);
 
-
+        // 侧栏收藏：手动 pin 的目录，顺序即收藏顺序（RecentPathList 只复用它的落盘与去重）
+        _favorites = SaveUtility.Load<List<string>>(AppPaths.Data.QuickSearchFavorites, SaveUtility.SaveJsonOptions) ??
+                     new List<string>();
+        _recentFavorites = new RecentPathList(_favorites, 30);
     }
 
     /// <summary>
@@ -63,6 +68,36 @@ public class SearchService
     public void RemoveHistory(string path)
     {
         if (_recentHistory.Forget(path)) SaveHistory();
+    }
+
+    public IReadOnlyList<string> GetFavorites() => _favorites.AsReadOnly();
+
+    public bool IsFavorite(string path) =>
+        _favorites.Contains(path);
+
+    /// <summary>收藏/取消收藏当前目录，返回收藏后是否为已收藏</summary>
+    public bool ToggleFavorite(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path)) return false;
+        bool nowFavorite;
+        if (_favorites.Contains(path))
+        {
+            _recentFavorites.Forget(path);
+            nowFavorite = false;
+        }
+        else
+        {
+            _recentFavorites.Remember(path);
+            nowFavorite = true;
+        }
+        SaveUtility.Save(AppPaths.Data.QuickSearchFavorites, _favorites);
+        return nowFavorite;
+    }
+
+    public void RemoveFavorite(string path)
+    {
+        if (_recentFavorites.Forget(path))
+            SaveUtility.Save(AppPaths.Data.QuickSearchFavorites, _favorites);
     }
 
     /// <summary>

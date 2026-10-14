@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Media;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -16,8 +17,37 @@ using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.QuickTools;
 
-/// <summary>面包屑一级：可点击回退的父目录（末段当前目录走可编辑路径框，不入这里）</summary>
-public sealed record DirSegment(string Label, string FullPath);
+/// <summary>面包屑一级：从根到当前逐级可点击，末级是当前目录（只展示不跳转）</summary>
+public sealed record DirSegment(string Label, string FullPath, bool IsCurrent);
+
+/// <summary>侧栏一条：收藏或最近的目录。展示与工作区选择器的最近列表同式（名 + 父路径）</summary>
+public sealed record SidebarEntry(string Path)
+{
+    public string Name
+    {
+        get
+        {
+            string trimmed = Path.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar);
+            string name = System.IO.Path.GetFileName(trimmed);
+            return name.Length == 0 ? Path : name; // 根（/ 或 C:\）全写才认得出来
+        }
+    }
+
+    public string Parent
+    {
+        get
+        {
+            try
+            {
+                return System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(Path)) ?? string.Empty;
+            }
+            catch (Exception)
+            {
+                return string.Empty;
+            }
+        }
+    }
+}
 
 public partial class SearchViewModel : ViewModelBase
 {
@@ -27,6 +57,7 @@ public partial class SearchViewModel : ViewModelBase
 
     private readonly SearchService _searchService = null!; // 由带参构造函数（DI）赋值
     private CancellationTokenSource? _searchCts;
+    private CancellationTokenSource? _layerCts;
     private DispatcherTimer? _debounceTimer;
     private bool _isInitialized;
 
@@ -45,11 +76,44 @@ public partial class SearchViewModel : ViewModelBase
     [ObservableProperty] private bool _autoSearch = true;
     [ObservableProperty] private bool _hasNoResults = true;
 
+    // 左栏浏览与右栏搜索各写各的集合：从前共用 Results，
+    // 有 query 切浏览态会把搜索结果洗掉、切回又要重搜一遍
     public ObservableCollection<SearchItem> Results { get; } = new();
+    public ObservableCollection<SearchItem> BrowseItems { get; } = new();
+    [ObservableProperty] private string _browseStatusMessage = Loc.Text(LangKey.FileSearchStatusReady);
+    [ObservableProperty] private bool _hasNoBrowseResults = true;
+
+    // Finder 式单列：有 query 主列显示搜索结果，否则显示浏览层
+    [ObservableProperty] private bool _hasActiveQuery;
+
+    // 侧栏只留收藏。最近收进口径条的下拉（Flyout），不再占一栏：
+    // ComboBox 吃 HistoryDirectories（字符串），侧栏与下拉吃条目，
+    // 三边在 UpdateHistory/LoadHistory 里同批同步
+    public ObservableCollection<SidebarEntry> FavoriteEntries { get; } = new();
+    public ObservableCollection<SidebarEntry> RecentEntries { get; } = new();
+    [ObservableProperty] private SidebarEntry? _selectedFavorite;
+    [ObservableProperty] private bool _isCurrentFavorite;
+    [ObservableProperty] private bool _hasNoFavorites = true;
+    [ObservableProperty] private string _historyJumpText = string.Empty;
+
+    /// <summary>星标悬停提示：已收藏显示取消，未收藏显示收藏</summary>
+    public string FavoriteTip => IsCurrentFavorite
+        ? Loc.Text(LangKey.FileSearchRemoveFavorite)
+        : Loc.Text(LangKey.FileSearchAddFavorite);
+
+    /// <summary>星标颜色：已收藏金色，未收藏灰（与角色列表的收藏星同口径）</summary>
+    public Color FavoriteColor => IsCurrentFavorite ? Colors.Gold : Colors.Gray;
+
+    partial void OnIsCurrentFavoriteChanged(bool value)
+    {
+        OnPropertyChanged(nameof(FavoriteTip));
+        OnPropertyChanged(nameof(FavoriteColor));
+    }
+
     public ObservableCollection<string> HistoryDirectories { get; } = new();
 
-    // 面包屑：当前目录的<b>父目录链</b>（根..父，不含自身）。末段当前目录走可编辑路径框，不入这里。
-    // 点任一父级回退到那一段（NavigateToSegment），点结果里的目录条目下钻（EnterDirectory）。
+    // 面包屑：从根到当前的完整链（含自身，末级标 IsCurrent 只展示）。
+    // 点任一父级回退到那一段（NavigateToSegment），点浏览栏的目录条目下钻（EnterDirectory）。
     public ObservableCollection<DirSegment> Breadcrumb { get; } = new();
 
     public SearchViewModel()
@@ -65,6 +129,16 @@ public partial class SearchViewModel : ViewModelBase
     partial void OnSearchQueryChanged(string value)
     {
         if (!_isInitialized) return;
+        // query 清空 = 回浏览态：右栏收起，不留过期结果
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            _searchCts?.Cancel();
+            Results.Clear();
+            HasNoResults = true;
+            HasActiveQuery = false;
+            StatusMessage = Loc.Text(LangKey.FileSearchStatusNeedInput);
+            return;
+        }
         if (AutoSearch) DebounceSearch();
     }
 
@@ -130,13 +204,18 @@ public partial class SearchViewModel : ViewModelBase
 
     private async Task RunSearchOnceAsync()
     {
-        // 浏览器化语义（圣娅钉的）：无 query = 列当前目录一层（浏览态）；
-        // 有 query = 以当前目录为根向下递归搜（保住全树能力，只是根随面包屑走）。
+        // Finder 式单列：无 query 右栏（主列）回到浏览提示，浏览层常驻刷新（另跑，不抢这里的 CTS）
         if (string.IsNullOrWhiteSpace(SearchQuery))
         {
-            await RefreshLayerAsync();
+            _searchCts?.Cancel();
+            Results.Clear();
+            HasNoResults = true;
+            HasActiveQuery = false;
+            StatusMessage = Loc.Text(LangKey.FileSearchStatusNeedInput);
             return;
         }
+
+        HasActiveQuery = true;
 
         _searchCts?.Cancel();
         _searchCts = new CancellationTokenSource();
@@ -190,51 +269,77 @@ public partial class SearchViewModel : ViewModelBase
         }
     }
 
-    // 浏览态：列当前目录一层。没有当前目录（首开无历史）就不列，提示就绪。
+    // 左栏浏览：列当前目录一层，有自己的 CTS 与状态，不跟搜索抢 _searchCts。
+    // 没有当前目录（首开无历史）就不列，提示就绪。
     private async Task RefreshLayerAsync()
     {
         if (string.IsNullOrEmpty(CurrentDirectory))
         {
-            Results.Clear();
-            HasNoResults = true;
-            StatusMessage = Loc.Text(LangKey.FileSearchStatusReady);
+            BrowseItems.Clear();
+            HasNoBrowseResults = true;
+            BrowseStatusMessage = Loc.Text(LangKey.FileSearchStatusReady);
             return;
         }
 
-        _searchCts?.Cancel();
-        _searchCts = new CancellationTokenSource();
-        var searchCts = _searchCts;
+        _layerCts?.Cancel();
+        _layerCts = new CancellationTokenSource();
+        var layerCts = _layerCts;
 
-        HasNoResults = false;
-        Results.Clear();
+        HasNoBrowseResults = false;
+        BrowseStatusMessage = Loc.Text(LangKey.FileSearchStatusSearching);
+        BrowseItems.Clear();
 
         try
         {
-            LayerListing layer = await _searchService.ListLayerAsync(CurrentDirectory, searchCts.Token);
+            LayerListing layer = await _searchService.ListLayerAsync(CurrentDirectory, layerCts.Token);
 
-            if (_searchRerunRequested || !ReferenceEquals(_searchCts, searchCts)) return;
+            if (!ReferenceEquals(_layerCts, layerCts)) return;
 
             if (layer.ErrorDetail != null)
             {
-                HasNoResults = true;
-                StatusMessage = string.Format(Loc.Text(LangKey.FileSearchStatusFailed), layer.ErrorDetail);
+                HasNoBrowseResults = true;
+                BrowseStatusMessage = string.Format(Loc.Text(LangKey.FileSearchStatusFailed), layer.ErrorDetail);
+                return;
+            }
+            if (layer.Failure != null)
+            {
+                HasNoBrowseResults = true;
+                BrowseStatusMessage = DescribeLayerFailure(layer);
                 return;
             }
 
             var display = layer.Items.Take(MaxLayerItems).ToList();
             foreach (var item in display)
             {
-                Results.Add(item);
+                BrowseItems.Add(item);
             }
 
-            HasNoResults = display.Count == 0;
-            StatusMessage = string.Format(Loc.Text(LangKey.FileSearchStatusLayer), layer.Items.Count);
+            HasNoBrowseResults = display.Count == 0;
+            BrowseStatusMessage = string.Format(Loc.Text(LangKey.FileSearchStatusLayer), layer.Items.Count);
         }
         catch (OperationCanceledException)
         {
-            if (!_searchRerunRequested)
-                StatusMessage = Loc.Text(LangKey.FileSearchStatusCancelled);
+            // 被新一轮取代的取消不写状态；只有顶层取消才算一次取消
+            if (ReferenceEquals(_layerCts, layerCts))
+                BrowseStatusMessage = Loc.Text(LangKey.FileSearchStatusCancelled);
         }
+    }
+
+    // 浏览层的失败与搜索同构，文案也走同一套本地化
+    private static string DescribeLayerFailure(LayerListing layer)
+    {
+        if (layer.Failure == null) return Loc.Text(LangKey.FileSearchStatusReady);
+        return layer.Failure.Kind switch
+        {
+            ESearchFailureKind.PathNotFound => string.Format(
+                Loc.Text(LangKey.FileSearchStatusDirectoryNotFound),
+                layer.Failure.ResolvedDirectory),
+            ESearchFailureKind.InvalidGlobPattern => string.Format(
+                Loc.Text(LangKey.FileSearchStatusInvalidPattern),
+                layer.Failure.Detail),
+            _ => string.Format(Loc.Text(LangKey.FileSearchStatusFailed),
+                layer.Failure.Detail),
+        };
     }
 
     /// <summary>
@@ -285,16 +390,20 @@ public partial class SearchViewModel : ViewModelBase
     {
         _searchService.AddHistory(path);
         UpdateHistory(path);
+        // 浏览栏跟目录走、无条件刷新；有 query 时搜索根也变了，顺带重搜
+        _ = RefreshLayerAsync();
         if (AutoSearch && !string.IsNullOrWhiteSpace(SearchQuery))
             DebounceSearch();
-        else
-            _ = RefreshLayerAsync(); // 没 query 时切目录刷新面包屑与层列表
     }
 
     private void UpdateHistory(string path)
     {
         var existingIndex = HistoryDirectories.IndexOf(path);
-        if (existingIndex == 0) return; // 已经是第一项
+        if (existingIndex == 0)
+        {
+            RefreshLocationState();
+            return; // 已经是第一项，顺序没变，只同步侧栏选中
+        }
 
         if (existingIndex > 0)
         {
@@ -310,7 +419,73 @@ public partial class SearchViewModel : ViewModelBase
         CurrentDirectory = path;
         while (HistoryDirectories.Count > MaxHistoryItems)
             HistoryDirectories.RemoveAt(HistoryDirectories.Count - 1);
+
+        SyncRecentEntries();
+        RefreshLocationState();
     }
+
+    // 侧栏最近 = 历史目录的条目版，同批同步
+    private void SyncRecentEntries()
+    {
+        RecentEntries.Clear();
+        foreach (var dir in HistoryDirectories)
+            RecentEntries.Add(new SidebarEntry(dir));
+    }
+
+    // 切目录后统一同步：面包屑由 OnCurrentDirectoryChanged 管，
+    // 这里管侧栏选中与收藏态
+    private void RefreshLocationState()
+    {
+        IsCurrentFavorite = !string.IsNullOrEmpty(CurrentDirectory) && _searchService.IsFavorite(CurrentDirectory);
+        SyncSidebarSelection();
+    }
+
+    private void SyncSidebarSelection()
+    {
+        SelectedFavorite = FavoriteEntries.FirstOrDefault(f =>
+            string.Equals(f.Path, CurrentDirectory, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>星标：收藏/取消收藏当前目录（按钮是 OneWay + Command，态由 IsCurrentFavorite 回推）</summary>
+    [RelayCommand]
+    private void ToggleFavorite()
+    {
+        if (string.IsNullOrEmpty(CurrentDirectory)) return;
+        _searchService.ToggleFavorite(CurrentDirectory);
+        RefreshFavoriteEntries();
+        RefreshLocationState();
+    }
+
+    [RelayCommand]
+    private void RemoveFavorite(SidebarEntry? entry)
+    {
+        if (entry == null) return;
+        _searchService.RemoveFavorite(entry.Path);
+        RefreshFavoriteEntries();
+        RefreshLocationState();
+    }
+
+    private void RefreshFavoriteEntries()
+    {
+        FavoriteEntries.Clear();
+        foreach (var dir in _searchService.GetFavorites())
+            FavoriteEntries.Add(new SidebarEntry(dir));
+        HasNoFavorites = FavoriteEntries.Count == 0;
+    }
+
+    [RelayCommand]
+    private void RemoveRecent(SidebarEntry? entry)
+    {
+        if (entry == null) return;
+        _searchService.RemoveHistory(entry.Path);
+        HistoryDirectories.Remove(entry.Path);
+        RecentEntries.Remove(entry);
+        SyncSidebarSelection();
+    }
+
+    /// <summary>搜索框的 ✕：清空回到浏览态（OnSearchQueryChanged 收尾）</summary>
+    [RelayCommand]
+    private void ClearSearch() => SearchQuery = string.Empty;
 
     [RelayCommand]
     private void OpenCurrentDirectory()
@@ -319,13 +494,24 @@ public partial class SearchViewModel : ViewModelBase
             App.FilesService.OpenFolder(CurrentDirectory);
     }
 
-    /// <summary>点结果里的目录条目下钻一层（浏览器化的「进」）</summary>
+    /// <summary>浏览栏/面包屑里点目录条目下钻一层</summary>
     [RelayCommand]
-    private void EnterDirectory(SearchItem item)
+    private void EnterDirectory(SearchItem? item)
     {
-        if (!item.IsDirectory) return;
-        string full = Path.GetFullPath(Path.Combine(CurrentDirectory, item.Path));
+        if (item == null || !item.IsDirectory) return;
+        string full = Path.IsPathFullyQualified(item.Path)
+            ? Path.GetFullPath(item.Path)
+            : Path.GetFullPath(Path.Combine(CurrentDirectory, item.Path));
         ApplyDirectory(full);
+    }
+
+    /// <summary>返回上一级（面包屑旁的 ↑）</summary>
+    [RelayCommand]
+    private void GoUp()
+    {
+        if (string.IsNullOrEmpty(CurrentDirectory)) return;
+        string? parent = Path.GetDirectoryName(Path.GetFullPath(CurrentDirectory));
+        if (!string.IsNullOrEmpty(parent)) ApplyDirectory(parent);
     }
 
     /// <summary>点面包屑任一段回退到那个父目录</summary>
@@ -338,7 +524,7 @@ public partial class SearchViewModel : ViewModelBase
     public void Initialize()
     {
         _isInitialized = true;
-        // 首开无 query，直接列当前目录一层（有历史目录的话）；没有则提示就绪
+        // 左栏首开直接列当前目录一层（有历史目录的话）；没有则提示就绪
         _ = RefreshLayerAsync();
     }
 
@@ -349,30 +535,57 @@ public partial class SearchViewModel : ViewModelBase
         {
             HistoryDirectories.Add(dir);
         }
+        SyncRecentEntries();
+
+        RefreshFavoriteEntries();
 
         CurrentDirectory = HistoryDirectories.FirstOrDefault() ?? "";
+        RefreshLocationState();
     }
 
     // 任何途径改当前目录（首开/下钻/回退/切根）都重建面包屑，收在这一个 hook
     partial void OnCurrentDirectoryChanged(string value) => RebuildBreadcrumb();
 
-    // 面包屑 = 当前目录的父目录链（根..父，不含自身）。末段当前目录走可编辑路径框，不入这里。
+    // 面包屑 = 从根到当前的完整链（含根与自身）。根标全路径（/ 或 C:\），
+    // 其余标文件夹名；末级是当前目录，只展示不跳转（IsCurrent）。
     private void RebuildBreadcrumb()
     {
         Breadcrumb.Clear();
         if (string.IsNullOrEmpty(CurrentDirectory)) return;
 
-        // 从当前目录的<b>父级</b>起逐级上溯到根，根在前（Insert(0)），
-        // 当前目录自身留给末段路径框，避免与路径框重复显示同一段
-        string? parent = Path.GetDirectoryName(Path.GetFullPath(CurrentDirectory));
-        while (!string.IsNullOrEmpty(parent))
+        List<string> chain = new();
+        try
         {
-            string trimmed = parent.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            string name = Path.GetFileName(trimmed);
-            // 到根就停：unix 根（/ 砍空）、windows 驱动器根（裸 C:）都不该再往上
-            if (name.Length == 0 || (name.Length == 2 && name[1] == ':')) break;
-            Breadcrumb.Insert(0, new DirSegment(name, parent));
-            parent = Path.GetDirectoryName(parent);
+            string? cur = Path.GetFullPath(CurrentDirectory);
+            while (!string.IsNullOrEmpty(cur))
+            {
+                chain.Add(cur);
+                string? parent = Path.GetDirectoryName(cur);
+                if (parent == null || parent == cur) break;
+                cur = parent;
+            }
+        }
+        catch (Exception)
+        {
+            return; // 路径不成形就不画面包屑，目录框里还能改
+        }
+        chain.Reverse(); // 根..当前
+
+        for (int i = 0; i < chain.Count; i++)
+        {
+            string full = chain[i];
+            string label;
+            if (i == 0)
+            {
+                label = full; // 根：unix "/"、windows "C:\"，全写才认得出来
+            }
+            else
+            {
+                string trimmed = full.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                label = Path.GetFileName(trimmed);
+                if (label.Length == 0) label = full;
+            }
+            Breadcrumb.Add(new DirSegment(label, full, i == chain.Count - 1));
         }
     }
 }

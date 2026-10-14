@@ -2234,9 +2234,6 @@
     <data name="FileSearchInputWatermark" xml:space="preserve">
         <value>输入搜索内容...</value>
     </data>
-    <data name="FileSearchBtn" xml:space="preserve">
-        <value>搜索</value>
-    </data>
     <data name="FileSearchContentSearchMode" xml:space="preserve">
         <value>内容搜索</value>
     </data>
@@ -2290,6 +2287,33 @@
     </data>
     <data name="FileSearchStatusLayer" xml:space="preserve">
         <value>当前目录 {0} 项</value>
+    </data>
+    <data name="FileSearchHistoryTip" xml:space="preserve">
+        <value>历史目录</value>
+    </data>
+    <data name="FileSearchJumpWatermark" xml:space="preserve">
+        <value>粘贴路径，回车直达</value>
+    </data>
+    <data name="FileSearchFavoritesEmpty" xml:space="preserve">
+        <value>点 ★ 收藏当前目录</value>
+    </data>
+    <data name="FileSearchStatusNeedInput" xml:space="preserve">
+        <value>输入关键词，在当前目录下搜索</value>
+    </data>
+    <data name="FileSearchSidebarFavorites" xml:space="preserve">
+        <value>个人收藏</value>
+    </data>
+    <data name="FileSearchSidebarRecent" xml:space="preserve">
+        <value>最近</value>
+    </data>
+    <data name="FileSearchAddFavorite" xml:space="preserve">
+        <value>收藏当前目录</value>
+    </data>
+    <data name="FileSearchRemoveFavorite" xml:space="preserve">
+        <value>取消收藏</value>
+    </data>
+    <data name="FileSearchRemoveEntry" xml:space="preserve">
+        <value>移除</value>
     </data>
     <data name="RemoteModelWindowTitle" xml:space="preserve">
         <value>远程模型配置</value>

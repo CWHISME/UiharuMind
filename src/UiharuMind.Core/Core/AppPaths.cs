@@ -168,6 +168,10 @@ public static class AppPaths
         /// <summary>快捷工具面板的搜索历史</summary>
         public static readonly string QuickSearchHistory =
             Path.Combine(Root, "QuickTools", "QuickSearchHistory.json");
+
+        /// <summary>文件搜索工具侧栏收藏的目录（Finder 式固定栏）</summary>
+        public static readonly string QuickSearchFavorites =
+            Path.Combine(Root, "QuickTools", "QuickSearchFavorites.json");
     }
 
     /// <summary>可再生缓存:大且用户可随手删</summary>

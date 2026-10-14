@@ -5,7 +5,7 @@ using Avalonia.Data.Converters;
 namespace UiharuMind.Features.QuickTools;
 
 /// <summary>
-/// 结果条目图标：目录用 folder-open（浏览态下钻的手感），文件按内容/文件名搜索区分。
+/// 结果条目图标：目录用 folder-open，内容命中用 file-text（带行号），文件名/浏览的文件用 file。
 /// 入参是整个 SearchItem（DataTemplate 的 DataContext），由条目自己说它是什么。
 /// </summary>
 public class SearchItemIconConverter : IValueConverter
@@ -17,9 +17,9 @@ public class SearchItemIconConverter : IValueConverter
         if (value is SearchItem item)
         {
             if (item.IsDirectory) return "folder-open";
-            return item.IsContentSearch ? "file-text" : "search";
+            return item.IsContentSearch ? "file-text" : "file";
         }
-        return "search";
+        return "file";
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

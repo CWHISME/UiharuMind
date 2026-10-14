@@ -2241,9 +2241,6 @@
     <data name="FileSearchInputWatermark" xml:space="preserve">
         <value>Enter search content...</value>
     </data>
-    <data name="FileSearchBtn" xml:space="preserve">
-        <value>Search</value>
-    </data>
     <data name="FileSearchContentSearchMode" xml:space="preserve">
         <value>Content search</value>
     </data>
@@ -2297,6 +2294,33 @@
     </data>
     <data name="FileSearchStatusLayer" xml:space="preserve">
         <value>Listing {0} items in this directory</value>
+    </data>
+    <data name="FileSearchRemoveEntry" xml:space="preserve">
+        <value>Remove</value>
+    </data>
+    <data name="FileSearchHistoryTip" xml:space="preserve">
+        <value>History</value>
+    </data>
+    <data name="FileSearchJumpWatermark" xml:space="preserve">
+        <value>Paste a path and press Enter to jump</value>
+    </data>
+    <data name="FileSearchFavoritesEmpty" xml:space="preserve">
+        <value>Pin the current directory with ★</value>
+    </data>
+    <data name="FileSearchStatusNeedInput" xml:space="preserve">
+        <value>Type keywords to search in the current directory</value>
+    </data>
+    <data name="FileSearchSidebarFavorites" xml:space="preserve">
+        <value>Favorites</value>
+    </data>
+    <data name="FileSearchSidebarRecent" xml:space="preserve">
+        <value>Recent</value>
+    </data>
+    <data name="FileSearchAddFavorite" xml:space="preserve">
+        <value>Pin current directory to favorites</value>
+    </data>
+    <data name="FileSearchRemoveFavorite" xml:space="preserve">
+        <value>Unpin from favorites</value>
     </data>
     <data name="RemoteModelWindowTitle" xml:space="preserve">
         <value>Remote Model Configuration</value>

@@ -5,155 +5,340 @@
         xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
         x:Class="UiharuMind.Features.QuickTools.FileSearchWindow" x:DataType="vm:SearchViewModel"
         Title="{loc:Loc FileSearchTitle}"
-        Width="800" Height="600"
+        Width="860" Height="620"
         WindowStartupLocation="CenterOwner"
-        MinWidth="500" MinHeight="400"
+        MinWidth="560" MinHeight="400"
         DragDrop.AllowDrop="True">
 
     <Design.DataContext>
         <vm:SearchViewModel />
     </Design.DataContext>
 
-    <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="10">
+    <Window.Styles>
+        <!-- 面包屑段：纯文字导航，悬停/按下都不挂底色 -->
+        <Style Selector="Button.breadcrumb-seg:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.breadcrumb-seg:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+    </Window.Styles>
 
-        <!-- Row 0: 搜索栏 -->
-        <StackPanel Orientation="Vertical">
-            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,5">
-                <TextBox Text="{Binding SearchQuery}"
-                         PlaceholderText="{loc:Loc FileSearchInputWatermark}"
-                         KeyDown="OnSearchBoxKeyDown"
-                         VerticalAlignment="Center"
-                         VerticalContentAlignment="Center"/>
+    <!-- Finder 式：顶部路径通栏 / 下方左收藏右主列 / 底部状态通栏 -->
+    <Grid RowDefinitions="Auto,*,Auto" Margin="10">
 
-                <Button Grid.Column="1"
-                        Command="{Binding SearchCommand}"
-                        IsEnabled="{Binding !IsSearching}"
-                        Margin="5,0">
-                    <TextBlock Text="{loc:Loc FileSearchBtn}"/>
-                </Button>
-            </Grid>
-            <TextBlock Text="{Binding StatusMessage}"/>
-        </StackPanel>
-        
-        <!-- Row 1: 搜索选项 -->
-        <Border Grid.Row="1"
-                Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
-                CornerRadius="5" Padding="8"
-                Margin="0,0,0,5">
-            <StackPanel Orientation="Horizontal" Spacing="16">
-                <CheckBox Content="{loc:Loc FileSearchContentSearchMode}" IsChecked="{Binding IsContentMode}">
-                    <ToolTip.Tip>
-                        <TextBlock Text="{loc:Loc FileSearchContentSearchModeTip}" />
-                    </ToolTip.Tip>
-                </CheckBox>
-                <CheckBox Content="{loc:Loc FileSearchRegexMode}" IsChecked="{Binding IsRegexMode}"/>
-                <CheckBox Content="{loc:Loc FileSearchCaseSensitive}" IsChecked="{Binding IsCaseSensitive}"/>
-                <CheckBox Content="{loc:Loc FileSearchAutoSearch}" IsChecked="{Binding AutoSearch}"/>
-            </StackPanel>
-        </Border>
-
-        <!-- Row 2: 面包屑导航 + 末段可编辑路径框（粘路径直达）+ 原生选目录设根 + 打开目录 -->
-        <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,5">
-            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="4">
-                <!-- 父目录链：点任一段回退到那一段 -->
-                <ItemsControl ItemsSource="{Binding Breadcrumb}" VerticalAlignment="Center">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel Orientation="Horizontal"/>
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="1">
-                                <Button Content="{Binding Label}"
-                                        Click="OnBreadcrumbSegmentClicked"
-                                        Background="Transparent" BorderThickness="0"
-                                        Padding="4,1" FontSize="11" Foreground="Gray"
-                                        Cursor="Hand"/>
-                                <TextBlock Text="›" Foreground="Gray" VerticalAlignment="Center" FontSize="11"/>
-                            </StackPanel>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-                <!-- 末段当前目录：可编辑路径框（PathPicker 式），回车/失焦跳 -->
-                <TextBox Text="{Binding CurrentDirectory}"
-                         LostFocus="OnPathBoxLostFocus"
-                         KeyDown="OnPathBoxKeyDown"
-                         Width="220" VerticalAlignment="Center"
-                         FontSize="11"/>
-            </StackPanel>
+        <!-- Row 0: 路径工具条（占满顶部通栏）：连段路径条（右端含收藏星标）+ 历史下拉 + 选目录 + 打开目录。
+             路径条高度钉死 28：根目录这种只有一段时不再塌。横向滚动拿掉，超长从右截断 -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="4" Margin="0,0,0,5">
+            <Border Grid.Column="0"
+                    Background="{DynamicResource SemiGrey1}"
+                    CornerRadius="8" Padding="6,2" MinHeight="28"
+                    VerticalAlignment="Center">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="2">
+                    <!-- 连段路径条：一段一个文件夹图标+名，当前级加粗，不断开 -->
+                    <ItemsControl Grid.Column="0" ItemsSource="{Binding Breadcrumb}" VerticalAlignment="Center">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="2">
+                                    <icons:ThemedSvgIcon Width="12" Height="12" IconName="folder-open"
+                                                         Opacity="0.6" VerticalAlignment="Center"/>
+                                    <Button Content="{Binding Label}"
+                                            Click="OnBreadcrumbSegmentClicked"
+                                            Classes="breadcrumb-seg"
+                                            ToolTip.Tip="{Binding FullPath}"
+                                            Background="Transparent" BorderThickness="0"
+                                            Padding="2,1" FontSize="12" VerticalAlignment="Center"
+                                            IsVisible="{Binding IsCurrent, Converter={x:Static BoolConverters.Not}}"/>
+                                    <TextBlock Text="{Binding Label}" FontSize="12" FontWeight="SemiBold"
+                                               VerticalAlignment="Center" ToolTip.Tip="{Binding FullPath}"
+                                               IsVisible="{Binding IsCurrent}"/>
+                                    <TextBlock Text="›" Classes="muted" VerticalAlignment="Center" FontSize="12"
+                                               Margin="2,0"
+                                               IsVisible="{Binding IsCurrent, Converter={x:Static BoolConverters.Not}}"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <!-- 收藏星标：路径条右端。金色=已收藏，灰色=未收藏（与角色列表同口径） -->
+                    <icons:ThemedIconButton Grid.Column="1" Classes="row-action" CornerRadius="6"
+                                            IconName="star"
+                                            CurrentColor="{Binding FavoriteColor}"
+                                            ToolTip.Tip="{Binding FavoriteTip}"
+                                            Command="{Binding ToggleFavoriteCommand}"
+                                            VerticalAlignment="Center"
+                                            IsEnabled="{Binding CurrentDirectory, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                </Grid>
+            </Border>
+            <!-- 历史下拉：路径直达框 + 最近列表 -->
             <icons:ThemedIconButton Grid.Column="1"
+                                    IconName="clock"
+                                    Width="28" Height="28"
+                                    VerticalAlignment="Center"
+                                    ToolTip.Tip="{loc:Loc FileSearchHistoryTip}">
+                <Button.Flyout>
+                    <Flyout Placement="BottomEdgeAlignedLeft">
+                        <StackPanel MinWidth="260" MaxWidth="360" Spacing="2">
+                            <TextBox Text="{Binding HistoryJumpText}"
+                                     PlaceholderText="{loc:Loc FileSearchJumpWatermark}"
+                                     KeyDown="OnHistoryJumpKeyDown"
+                                     Margin="2"/>
+                            <TextBlock Text="{loc:Loc FileSearchSidebarRecent}" Classes="muted"
+                                       FontSize="11" Margin="6,4,6,0"/>
+                            <ItemsControl ItemsSource="{Binding RecentEntries}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <Button Grid.Column="0" Classes="picker-row"
+                                                    HorizontalAlignment="Stretch"
+                                                    Click="OnHistoryItemClicked"
+                                                    ToolTip.Tip="{Binding Path}">
+                                                <StackPanel>
+                                                    <TextBlock FontSize="12"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               Text="{Binding Name}"/>
+                                                    <TextBlock FontSize="10" Classes="muted"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               Text="{Binding Parent}"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Grid.Column="1" Classes="picker-row"
+                                                    VerticalAlignment="Center" FontSize="11"
+                                                    Click="OnHistoryForgetClicked"
+                                                    ToolTip.Tip="{loc:Loc FileSearchRemoveEntry}"
+                                                    Content="✕"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Flyout>
+                </Button.Flyout>
+            </icons:ThemedIconButton>
+            <icons:ThemedIconButton Grid.Column="2"
                                     IconName="folder-cog"
                                     Command="{Binding SelectDirectoryCommand}"
                                     Width="28" Height="28"
-                                    Margin="4,0,0,0"
+                                    VerticalAlignment="Center"
                                     ToolTip.Tip="{loc:Loc FileSearchSelectDirectory}"/>
-            <icons:ThemedIconButton Grid.Column="2"
+            <icons:ThemedIconButton Grid.Column="3"
                                     IconName="square-arrow-out-up-right"
                                     Command="{Binding OpenCurrentDirectoryCommand}"
                                     Width="28" Height="28"
-                                    Margin="4,0,0,0"
+                                    VerticalAlignment="Center"
                                     ToolTip.Tip="{loc:Loc FileSearchCtxOpenDir}"/>
         </Grid>
 
-        <!-- Row 3: 结果 -->
-        <Grid Grid.Row="3">
-            <ListBox ItemsSource="{Binding Results}"
-                     SelectionMode="Single"
-                     Tapped="OnResultTapped"
-                     DoubleTapped="OnResultDoubleTapped">
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <Border BorderBrush="{DynamicResource BorderCardBorderBrush}" BorderThickness="0,0,0,1" Padding="5">
-                            <Grid ColumnDefinitions="Auto,*,Auto" Background="Transparent">
-                                <Grid.ContextMenu>
-                                    <ContextMenu>
-                                        <MenuItem Header="{loc:Loc FileSearchCtxOpenEditor}" Tag="OpenEditor" Click="OnContextMenuItemClick"/>
-                                        <MenuItem Header="{loc:Loc FileSearchCtxOpenFile}" Tag="OpenFile" Click="OnContextMenuItemClick"/>
-                                        <MenuItem Header="{loc:Loc FileSearchCtxOpenDir}" Tag="OpenDir" Click="OnContextMenuItemClick"/>
-                                    </ContextMenu>
-                                </Grid.ContextMenu>
-                                <icons:ThemedSvgIcon Grid.Column="0"
-                                                     Width="16" Height="16"
-                                                     IconName="{Binding Converter={x:Static vm:SearchItemIconConverter.Instance}}"
-                                                     Margin="0,0,10,0"/>
+        <!-- Row 1: 下方左右两栏：左个人收藏 / 右搜索栏 + 单列主列表 -->
+        <Grid Grid.Row="1" ColumnDefinitions="180,*" ColumnSpacing="8">
+            <!-- 侧栏：个人收藏（点选即跳） -->
+            <ScrollViewer Grid.Column="0"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Spacing="2">
+                    <TextBlock Text="{loc:Loc FileSearchSidebarFavorites}" Classes="muted"
+                               FontSize="11" Margin="4,2,4,0"/>
+                    <ListBox ItemsSource="{Binding FavoriteEntries}"
+                             SelectedItem="{Binding SelectedFavorite}"
+                             SelectionChanged="OnFavoriteSelectionChanged"
+                             Background="Transparent" BorderThickness="0" Padding="0">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnDefinitions="Auto,*" Background="Transparent"
+                                      ToolTip.Tip="{Binding Path}">
+                                    <Grid.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="{loc:Loc FileSearchCtxOpenDir}" Tag="OpenDir" Click="OnSidebarMenuClick"/>
+                                            <MenuItem Header="{loc:Loc FileSearchRemoveFavorite}" Tag="RemoveFav" Click="OnSidebarMenuClick"/>
+                                        </ContextMenu>
+                                    </Grid.ContextMenu>
+                                    <icons:ThemedSvgIcon Grid.Column="0"
+                                                         Width="14" Height="14" IconName="folder-open"
+                                                         Opacity="0.7" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="{Binding Name}" FontSize="12"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding Parent}" Classes="muted" FontSize="10"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <TextBlock IsVisible="{Binding HasNoFavorites}"
+                               Text="{loc:Loc FileSearchFavoritesEmpty}" Classes="muted" FontSize="11"
+                               TextWrapping="Wrap" Margin="4,0,4,0"/>
+                </StackPanel>
+            </ScrollViewer>
 
-                                <StackPanel Grid.Column="1">
-                                    <TextBlock Text="{Binding FileName}" FontWeight="Bold" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Text="{Binding Path}" FontSize="11" Foreground="Gray"
-                                               TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Text="{Binding Snippet}" FontSize="11" Foreground="Gray"
+            <!-- 右列 -->
+            <Grid Grid.Column="1" RowDefinitions="Auto,*">
+                <!-- Row 0: 搜索栏：输入 + 四个选项开关（icon，悬停看全名）。回车即搜，故不设搜索按钮 -->
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="2" Margin="0,0,0,5">
+                    <TextBox Text="{Binding SearchQuery}"
+                             PlaceholderText="{loc:Loc FileSearchInputWatermark}"
+                             KeyDown="OnSearchBoxKeyDown"
+                             Padding="8,6"
+                             VerticalAlignment="Center"/>
+                    <icons:ThemedIconToggleButton Grid.Column="1" Width="24" Height="24" VerticalAlignment="Center"
+                                                  IconName="file-text"
+                                                  CheckedForeground="{DynamicResource SemiBlue5}"
+                                                  IsChecked="{Binding IsContentMode, Mode=TwoWay}">
+                        <ToolTip.Tip>
+                            <StackPanel>
+                                <TextBlock Text="{loc:Loc FileSearchContentSearchMode}" FontWeight="Bold"/>
+                                <TextBlock Text="{loc:Loc FileSearchContentSearchModeTip}" Classes="muted"/>
+                            </StackPanel>
+                        </ToolTip.Tip>
+                    </icons:ThemedIconToggleButton>
+                    <icons:ThemedIconToggleButton Grid.Column="2" Width="24" Height="24" VerticalAlignment="Center"
+                                                  IconName="scan-text"
+                                                  CheckedForeground="{DynamicResource SemiBlue5}"
+                                                  IsChecked="{Binding IsRegexMode, Mode=TwoWay}"
+                                                  ToolTip.Tip="{loc:Loc FileSearchRegexMode}"/>
+                    <icons:ThemedIconToggleButton Grid.Column="3" Width="24" Height="24" VerticalAlignment="Center"
+                                                  IconName="type"
+                                                  CheckedForeground="{DynamicResource SemiBlue5}"
+                                                  IsChecked="{Binding IsCaseSensitive, Mode=TwoWay}"
+                                                  ToolTip.Tip="{loc:Loc FileSearchCaseSensitive}"/>
+                    <icons:ThemedIconToggleButton Grid.Column="4" Width="24" Height="24" VerticalAlignment="Center"
+                                                  IconName="sparkles"
+                                                  CheckedForeground="{DynamicResource SemiBlue5}"
+                                                  IsChecked="{Binding AutoSearch, Mode=TwoWay}"
+                                                  ToolTip.Tip="{loc:Loc FileSearchAutoSearch}"/>
+                </Grid>
+
+                <!-- Row 1: 主列：浏览层与搜索结果二选一，各写各的集合，互不覆盖 -->
+                <Grid Grid.Row="1">
+                    <ListBox ItemsSource="{Binding BrowseItems}"
+                             SelectionMode="Single"
+                             DoubleTapped="OnMainDoubleTapped"
+                             IsVisible="{Binding HasActiveQuery, Converter={x:Static BoolConverters.Not}}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnDefinitions="Auto,*,Auto" Background="Transparent"
+                                      ToolTip.Tip="{Binding Path}">
+                                    <Grid.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="{loc:Loc FileSearchCtxOpenEditor}" Tag="OpenEditor" Click="OnContextMenuItemClick"/>
+                                            <MenuItem Header="{loc:Loc FileSearchCtxOpenFile}" Tag="OpenFile" Click="OnContextMenuItemClick"/>
+                                            <MenuItem Header="{loc:Loc FileSearchCtxOpenDir}" Tag="OpenDir" Click="OnContextMenuItemClick"/>
+                                        </ContextMenu>
+                                    </Grid.ContextMenu>
+                                    <icons:ThemedSvgIcon Grid.Column="0"
+                                                         Width="16" Height="16"
+                                                         IconName="{Binding Converter={x:Static vm:SearchItemIconConverter.Instance}}"
+                                                         Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding FileName}"
+                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding Snippet}" Classes="muted"
+                                               FontSize="11" VerticalAlignment="Center" Margin="10,0,0,0"
                                                TextTrimming="CharacterEllipsis"
                                                IsVisible="{Binding Snippet, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                                </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <ListBox ItemsSource="{Binding Results}"
+                             SelectionMode="Single"
+                             DoubleTapped="OnMainDoubleTapped"
+                             IsVisible="{Binding HasActiveQuery}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{DynamicResource BorderCardBorderBrush}" BorderThickness="0,0,0,1" Padding="5">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" Background="Transparent">
+                                        <Grid.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="{loc:Loc FileSearchCtxOpenEditor}" Tag="OpenEditor" Click="OnContextMenuItemClick"/>
+                                                <MenuItem Header="{loc:Loc FileSearchCtxOpenFile}" Tag="OpenFile" Click="OnContextMenuItemClick"/>
+                                                <MenuItem Header="{loc:Loc FileSearchCtxOpenDir}" Tag="OpenDir" Click="OnContextMenuItemClick"/>
+                                            </ContextMenu>
+                                        </Grid.ContextMenu>
+                                        <icons:ThemedSvgIcon Grid.Column="0"
+                                                             Width="16" Height="16"
+                                                             IconName="{Binding Converter={x:Static vm:SearchItemIconConverter.Instance}}"
+                                                             Margin="0,0,10,0"/>
 
-                                <TextBlock Grid.Column="2"
-                                           IsVisible="{Binding IsContentSearch}"
-                                           Text="{Binding LineNumber, StringFormat='Line: {0}'}"
-                                           FontSize="11" VerticalAlignment="Center" Margin="10,0,0,0"/>
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="{Binding FileName}" FontWeight="Bold" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding Path}" FontSize="11" Classes="muted"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding Snippet}" FontSize="11" Classes="muted"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       IsVisible="{Binding Snippet, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                        </StackPanel>
 
-            <StackPanel IsVisible="{Binding HasNoResults}"
-                        VerticalAlignment="Center" HorizontalAlignment="Center"
-                        Spacing="12">
-                <icons:ThemedSvgIcon IconName="search"
-                                     Width="48" Height="48"
-                                     HorizontalAlignment="Center"
-                                     Opacity="0.4"/>
-                <TextBlock Text="{loc:Loc FileSearchEmptyHint}"
-                           FontSize="14" Foreground="Gray"
-                           HorizontalAlignment="Center"
-                           TextWrapping="Wrap"
-                           TextAlignment="Center"/>
-            </StackPanel>
+                                        <TextBlock Grid.Column="2"
+                                                   IsVisible="{Binding IsContentSearch}"
+                                                   Text="{Binding LineNumber, StringFormat='Line: {0}'}"
+                                                   FontSize="11" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
 
-            <Border Background="#80000000" IsVisible="{Binding IsSearching}" VerticalAlignment="Top" Height="30">
-                <TextBlock Text="{loc:Loc FileSearchSearching}" Foreground="White" VerticalAlignment="Center" Margin="10,0"/>
-            </Border>
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                Spacing="12">
+                        <StackPanel.IsVisible>
+                            <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                <Binding Path="HasNoBrowseResults"/>
+                                <Binding Path="HasActiveQuery" Converter="{x:Static BoolConverters.Not}"/>
+                            </MultiBinding>
+                        </StackPanel.IsVisible>
+                        <icons:ThemedSvgIcon IconName="folder-open"
+                                             Width="48" Height="48"
+                                             HorizontalAlignment="Center"
+                                             Opacity="0.4"/>
+                        <TextBlock Text="{loc:Loc FileSearchEmptyHint}"
+                                   FontSize="14" Classes="muted"
+                                   HorizontalAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="Center"/>
+                    </StackPanel>
+
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                Spacing="12">
+                        <StackPanel.IsVisible>
+                            <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                <Binding Path="HasNoResults"/>
+                                <Binding Path="HasActiveQuery"/>
+                            </MultiBinding>
+                        </StackPanel.IsVisible>
+                        <icons:ThemedSvgIcon IconName="search"
+                                             Width="48" Height="48"
+                                             HorizontalAlignment="Center"
+                                             Opacity="0.4"/>
+                        <TextBlock Text="{loc:Loc FileSearchEmptyHint}"
+                                   FontSize="14" Classes="muted"
+                                   HorizontalAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="Center"/>
+                    </StackPanel>
+
+                    <Border Background="#80000000" IsVisible="{Binding IsSearching}" VerticalAlignment="Top" Height="30">
+                        <TextBlock Text="{loc:Loc FileSearchSearching}" Foreground="White" VerticalAlignment="Center" Margin="10,0"/>
+                    </Border>
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <!-- Row 2: 底部状态条（通栏）：当前路径 + 数量（浏览/搜索随模式走） -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,5,0,0">
+            <TextBlock Grid.Column="0" Text="{Binding CurrentDirectory}" Classes="muted"
+                       FontSize="11" VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis"
+                       ToolTip.Tip="{Binding CurrentDirectory}"/>
+            <TextBlock Grid.Column="1" Text="{Binding BrowseStatusMessage}" Classes="muted"
+                       FontSize="11" VerticalAlignment="Center"
+                       IsVisible="{Binding HasActiveQuery, Converter={x:Static BoolConverters.Not}}"/>
+            <TextBlock Grid.Column="1" Text="{Binding StatusMessage}" Classes="muted"
+                       FontSize="11" VerticalAlignment="Center"
+                       IsVisible="{Binding HasActiveQuery}"/>
         </Grid>
     </Grid>
 </Window>
