@@ -132,20 +132,11 @@ public partial class CharacterListViewData : ObservableObject
             _characterChacheList.Add(item);
         }
 
-        // 收藏最前，同类内按存档时间倒序,普通角色在前、智能体在后。
-        // 收藏是显式的常用标记，排在任何档位/时间轴前面；收藏项之间仍按下面的轴排，
+        // 统一排序口径（与内联选择器、建群挑人一致，见 CharacterSorting）：
+        // 收藏恒置顶 → 普通角色在前、智能体在后 → 作品分组（未填作品的排最前）→ 角色名。
+        // 收藏是显式的常用标记，排在任何分区/作品轴前面；收藏项之间仍按下面的轴排，
         // 因此一个普通角色收藏后不会被智能体档位的分区挤下去，只会顶到最前。
-        _characterChacheList.Sort((x, y) =>
-        {
-            int byFavorite = y.IsFavorite.CompareTo(x.IsFavorite);
-            if (byFavorite != 0) return byFavorite;
-            bool xa = x.IsAgent, ya = y.IsAgent;
-            if (xa != ya) return xa ? 1 : -1;
-            // 内置卡没有存档时间(全是 0),不补这一刀它们的先后就取决于资源清单的枚举顺序,
-            // 换个构建顺序可能就变了。按 CharacterId 排 = 按罗马字名字排,稳定且读得懂。
-            int byTime = y.FileDateTime.CompareTo(x.FileDateTime);
-            return byTime != 0 ? byTime : string.CompareOrdinal(x.CharacterId, y.CharacterId);
-        });
+        _characterChacheList.Sort((x, y) => CharacterSorting.Compare(x.Data, y.Data, c => c.IsAgent ? 1 : 0));
 
         // 还没入库的新角色不在字典里,重建列表时得自己顶回最前,否则建到一半会被筛没
         if (_pending != null) _characterChacheList.Insert(0, _pending);

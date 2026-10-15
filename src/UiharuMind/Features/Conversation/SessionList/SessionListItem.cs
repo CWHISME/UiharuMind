@@ -69,11 +69,13 @@ public partial class SessionListItem : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasDistinctDescription))]
+    [NotifyPropertyChangedFor(nameof(ShowCharacterName))]
     [NotifyPropertyChangedFor(nameof(FullTextTip))]
     private string _name;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasDistinctDescription))]
+    [NotifyPropertyChangedFor(nameof(ShowCharacterName))]
     [NotifyPropertyChangedFor(nameof(FullTextTip))]
     private string _description;
 
@@ -128,14 +130,30 @@ public partial class SessionListItem : ObservableObject
     public bool HasDistinctDescription =>
         Description.Length > 0 && !string.Equals(Description, Name, StringComparison.Ordinal);
 
+    /// <summary>
+    /// 中间行是否显示角色名：单聊且没有值得单独占一行的描述时，把副行让给角色名。
+    /// 群壳的副行是成员名单（<see cref="ChatSessionMeta.Description"/>），已经是名字，不再叠加。
+    /// </summary>
+    public bool ShowCharacterName =>
+        !IsGroup && !HasDistinctDescription && !string.IsNullOrWhiteSpace(CharacterName)
+        && !string.Equals(CharacterName, Name, StringComparison.Ordinal);
+
     //================= 悬停提示 =================
 
     /// <summary>
-    /// 悬停提示：条目里被截断的那几行的全文。标题与描述在列表里都是单行截断的，
-    /// 侧栏又窄，长标题看不到尾——描述值得单独占一行时（对话页）一并给出。
-    /// 曾把工作区完整路径与角色名也塞进来,堆成一团反而看不清,已还原(ADR 0026 相关那轮)
+    /// 悬停提示：条目里被截断的那几行的全文。标题与副行在列表里都是单行截断的，
+    /// 侧栏又窄，长标题看不到尾——副行（描述或角色名）值得单独占一行时一并给出。
+    /// 曾把工作区完整路径也塞进来,堆成一团反而看不清,已还原(ADR 0026 相关那轮)
     /// </summary>
-    public string FullTextTip => HasDistinctDescription ? $"{Name}\n{Description}" : Name;
+    public string FullTextTip
+    {
+        get
+        {
+            if (HasDistinctDescription) return $"{Name}\n{Description}";
+            // if (ShowCharacterName) return $"{Name}\n{CharacterName}";
+            return Name;
+        }
+    }
 
     /// <summary>
     /// 角色头像。<b>惰性解码</b>——列表可能有成百条，在构造期逐条解码位图会在开页时
@@ -222,6 +240,8 @@ public partial class SessionListItem : ObservableObject
             _iconResolved = false;
             OnPropertyChanged(nameof(Icon));
             OnPropertyChanged(nameof(CharacterName));
+            OnPropertyChanged(nameof(ShowCharacterName));
+            OnPropertyChanged(nameof(FullTextTip));
         }
 
         if (workspaceChanged)
@@ -236,6 +256,7 @@ public partial class SessionListItem : ObservableObject
         Description = meta.Description;
         RefreshTimeString();
         OnPropertyChanged(nameof(IsGroup));
+        OnPropertyChanged(nameof(ShowCharacterName));
         OnPropertyChanged(nameof(HasDraft));
         OnPropertyChanged(nameof(IsDraftVisible));
     }

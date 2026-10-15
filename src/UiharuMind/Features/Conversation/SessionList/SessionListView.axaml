@@ -192,8 +192,8 @@
                 <DataTemplate x:DataType="sessions:SessionListItem">
                     <!-- 悬停给全文:标题与描述在这窄侧栏里都是单行截断的,看不到尾 -->
                     <Grid Classes="session-row" ColumnDefinitions="Auto,Auto,*,Auto" Background="Transparent"
-                          ToolTip.ShowDelay="600"
-                          ToolTip.Placement="Pointer">
+                          ToolTip.ShowDelay="150"
+                          ToolTip.Placement="Right">
                         <!-- 明确给换行与上限宽度:标题本来就是因为放不下才截断的,
                              提示里再拉成一条长横条等于没解决问题 -->
                         <ToolTip.Tip>
@@ -283,15 +283,20 @@
                                                MaxLines="1"
                                                TextTrimming="CharacterEllipsis" />
                                 </Grid>
-                                <!-- 中间行:描述(对话页)。agent 页通常没有描述,这行自动隐藏。
-                                     群壳的描述是成员名单,群身份已由标题行的徽章表明 -->
+                                <!-- 中间行:副行,群与单聊共用一行。
+                                     群壳的描述是成员名单;单聊没有值得单独占一行的描述时显示角色名,
+                                     与群那一行同式(灰色小字),扫列表时一眼分出是谁。
+                                     有真正不同的描述时(调度器那种)仍显示描述,角色身份靠头像与右侧栏 -->
                                 <TextBlock Grid.Row="1" Classes="muted" FontSize="11"
                                            Text="{Binding Description}" TextTrimming="CharacterEllipsis"
                                            MaxLines="1"
                                            IsVisible="{Binding HasDistinctDescription}" />
+                                <TextBlock Grid.Row="1" Classes="muted" FontSize="11"
+                                           Text="{Binding CharacterName}" TextTrimming="CharacterEllipsis"
+                                           MaxLines="1"
+                                           IsVisible="{Binding ShowCharacterName}" />
                                 <!-- 末行:agent 页(不显头像)是「工作区名(项目色) + 时间」,聊天页(显头像)只有时间。
-                                     工作区名打头让同角色不同项目一眼分开;角色名已从末行移除
-                                     (同工作区多个会话角色不同是常态,身份靠标题与右侧栏呈现)。
+                                     工作区名打头让同角色不同项目一眼分开;角色名走中间行的副行,不挤末行。
                                      负边距只抵消末行基线以下的一小截空白:先试 -1,不够/过头再调 -->
                                 <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6" Margin="0,0,0,-5">
                                     <TextBlock Classes="muted"

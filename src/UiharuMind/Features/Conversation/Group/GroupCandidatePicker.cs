@@ -94,22 +94,14 @@ public partial class GroupCandidatePicker : ObservableObject
     /// <summary>
     /// 候选排序：收藏恒置顶（显式的常用标记，不看群类型），然后是档位轴——
     /// 智能体群挑人以智能体为主（<see cref="_agentsFirst"/>）、普通群保持普通在前，
-    /// 组内按显示名。收藏变更后重排仍走这里，两处不会各说各话
+    /// 再往后是作品分组与角色名（统一口径见 <see cref="CharacterSorting"/>）。
+    /// 收藏变更后重排仍走这里，两处不会各说各话
     /// </summary>
     /// <param name="x">候选</param>
     /// <param name="y">候选</param>
     /// <returns>比较结果</returns>
-    private int CompareCandidates(GroupCandidate x, GroupCandidate y)
-    {
-        int byFavorite = y.IsFavorite.CompareTo(x.IsFavorite);
-        if (byFavorite != 0) return byFavorite;
-
-        int xa = KindRank(x.Data), ya = KindRank(y.Data);
-        int byKind = xa.CompareTo(ya);
-        return byKind != 0
-            ? byKind
-            : string.Compare(x.Name, y.Name, StringComparison.CurrentCulture);
-    }
+    private int CompareCandidates(GroupCandidate x, GroupCandidate y) =>
+        CharacterSorting.Compare(x.Data, y.Data, KindRank);
 
     /// <summary>档位排名的键：<see cref="_agentsFirst"/> 为真时智能体(0)在普通(1)前，否则反过来</summary>
     /// <param name="character">角色</param>

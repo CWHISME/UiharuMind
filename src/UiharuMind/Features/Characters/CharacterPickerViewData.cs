@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -69,10 +70,10 @@ public partial class CharacterPickerViewData : ObservableObject
             .Where(x => _filter == null || _filter(x))
             .Where(x => x.MatchesSearch(SearchText));
 
-        // 收藏顶到最前（与角色库左栏同一口径），然后按显示名
+        // 统一排序口径（与角色库左栏一致，见 CharacterSorting）：收藏恒置顶，
+        // 然后按作品分组（未填作品的排最前）、组内按显示名。候选集已由谓词限档，不再分区。
         foreach (CharacterData character in candidates
-                     .OrderByDescending(x => CharacterFavorites.IsFavorite(x.CharacterId))
-                     .ThenBy(x => x.CharacterName, StringComparer.CurrentCulture))
+                     .OrderBy(x => x, Comparer<CharacterData>.Create((a, b) => CharacterSorting.Compare(a, b, _ => 0))))
         {
             Items.Add(new CharacterPickerItem(character, new RelayCommand(() => _onPicked(character))));
         }
@@ -108,6 +109,9 @@ public sealed record CharacterPickerItem(CharacterData Character, IRelayCommand 
 
     /// <summary>是否已收藏（只读展示：置顶排序的原因；这里的收藏在别处切）</summary>
     public bool IsFavorite => CharacterFavorites.IsFavorite(Character.CharacterId);
+
+    /// <summary>星标颜色：已收藏金色，未收藏灰（颜色绑定用，见 <see cref="IsFavorite"/>）</summary>
+    public Color FavoriteColor => IsFavorite ? Colors.Gold : Colors.Gray;
 
     /// <summary>头像</summary>
     public Bitmap? Icon => IconUtils.GetCharacterBitmapOrDefault(Character);

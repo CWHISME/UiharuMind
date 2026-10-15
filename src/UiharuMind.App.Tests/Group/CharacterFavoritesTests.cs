@@ -8,7 +8,7 @@ using UiharuMind.Features.Conversation.Group;
 namespace UiharuMind.App.Tests.Group;
 
 /// <summary>
-/// 角色收藏：数据在设置里、变化有广播，三处角色列表（工作台左栏 / 建群挑人）共享同一套排序口径——
+/// 角色收藏：数据在设置里、变化有广播，三处角色列表（工作台左栏 / 内联选择器 / 建群挑人）共享同一套排序口径——
 /// 收藏恒置顶，然后才是各自的档位轴。
 /// </summary>
 [Collection(CharacterLibraryCollection.Name)]
