@@ -205,7 +205,10 @@
                             </StackPanel>
                         </TabItem.Header>
                         <ScrollViewer Margin="0,6,0,0">
-                            <StackPanel>
+                            <!-- 时间列跨行等宽（SharedSizeGroup）：每行是独立 Grid，Auto 列按本行内容算宽，
+                                 时间文本一长一短（"末轮 08:42" / "05/06 07:08" / "1:02:03"）会把复制按钮
+                                 顶到每行不同的 x 上。组内取最宽的那一格，按钮右边缘就对齐了 -->
+                            <StackPanel Grid.IsSharedSizeScope="True">
                                 <!-- 脑不列条目（没名字、量大会刷屏），只在顶部给一个数量提示（ADR 0082） -->
                                 <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,6"
                                            IsVisible="{Binding SubAgents.HasBrains}"
@@ -216,14 +219,25 @@
                                 <ItemsControl ItemsSource="{Binding SubAgents.Items}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="panels:SubSessionDisplayItem">
-                                            <Button Classes="text-row" HorizontalAlignment="Stretch"
-                                                    Margin="0,3" Command="{Binding Open}"
-                                                    ToolTip.Tip="{Binding Title}">
-                                                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="6">
+                                             <!-- text-row 默认把内容左对齐（与纯文本行左边缘对齐），这一行要撑满：
+                                                  不撑满的话 Grid 只包内容，标题长的行更宽，尾部时间+按钮每行 x 都不一样。
+                                                  参考角色选择器的 picker-row（Stretch），* 列吃掉标题差，尾部自然右对齐 -->
+                                             <Button Classes="text-row" HorizontalAlignment="Stretch"
+                                                     HorizontalContentAlignment="Stretch"
+                                                     Margin="0,3" Command="{Binding Open}"
+                                                     ToolTip.Tip="{Binding Title}">
+                                                <Grid ColumnSpacing="6">
+                                                     <Grid.ColumnDefinitions>
+                                                         <ColumnDefinition Width="Auto" />
+                                                         <ColumnDefinition Width="*" />
+                                                         <ColumnDefinition Width="Auto" SharedSizeGroup="SubAgentRunTime" />
+                                                         <ColumnDefinition Width="Auto" />
+                                                     </Grid.ColumnDefinitions>
                                                     <Border Grid.Column="0" Classes="status-dot"
                                                             VerticalAlignment="Center"
                                                             Tag="{Binding StatusKey}" />
-                                                    <StackPanel Grid.Column="1" Spacing="2">
+                                                     <StackPanel Grid.Column="1" Spacing="2"
+                                                                VerticalAlignment="Center">
                                                         <TextBlock FontSize="12"
                                                                    TextTrimming="CharacterEllipsis"
                                                                    Text="{Binding Title}" />
