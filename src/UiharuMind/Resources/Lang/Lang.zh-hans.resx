@@ -1259,6 +1259,15 @@
     <data name="FullscreenGameInputRestartConfirm" xml:space="preserve">
         <value>该设置需要重启后生效。是否立即重启 UiharuMind？</value>
     </data>
+    <data name="AutoLaunchTitle" xml:space="preserve">
+        <value>开机自启动</value>
+    </data>
+    <data name="AutoLaunchDesc" xml:space="preserve">
+        <value>登录系统时自动启动 UiharuMind。</value>
+    </data>
+    <data name="AutoLaunchFailedFormat" xml:space="preserve">
+        <value>更改开机自启动失败：{0}</value>
+    </data>
     <data name="AboutIntroductionText" xml:space="preserve">
         <value>UiharuMind 是一个支持运行本地(GGUF)大语言模型(同时也支持在线模型的调用)的跨平台开源项目。支持 Window、MacOS，提供聊天、知识库对话、截图、翻译(AI)、OCR识别(AI)、剪切板历史等等快捷功能使用。</value>
     </data>

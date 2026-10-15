@@ -33,6 +33,7 @@ using UiharuMind.Features.Models;
 using UiharuMind.Features.Memory;
 using UiharuMind.Features.Clipboard;
 using UiharuMind.Core.Core;
+using UiharuMind.Core.Core.Utils;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Group;
 using UiharuMind.Core.AI.Chat.Group.Away;
@@ -41,6 +42,7 @@ using UiharuMind.Resources.Lang;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core;
+using UiharuMind.Core.Configs;
 using UiharuMind.Features.ScreenCapture;
 using UiharuMind.Features.QuickTools;
 using UiharuMind.Features.Settings;
@@ -179,6 +181,8 @@ public partial class App : Application, ILogger, IDisposable
         // 上次退出时还在跑的后台委派:父会话里那条「已派出」永远等不到下文,在这里补上一条中止说明
         UiharuMind.Core.AI.Execution.Tools.BackgroundSubAgentDispatcher.SettleOrphansOnStartup();
         UiharuCoreManager.Instance.Init();
+        // 开机自启动期望开但登录项丢了（更新换了路径等）就补写；期望关则不动系统
+        AutoLaunchManager.SyncFromConfig(ConfigManager.Instance.Setting.AutoLaunchEnabled);
 
         // Process.GetCurrentProcess().Exited += OnExit;
         AppDomain.CurrentDomain.ProcessExit += OnExit;

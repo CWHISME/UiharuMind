@@ -47,6 +47,10 @@ public partial class GeneralSettingViewModel : ViewModelBase
     [ObservableProperty] private LanguageOption? _selectedLanguage;
     [ObservableProperty] private ThemeOption? _selectedTheme;
     [ObservableProperty] private bool _enableFullscreenGameInputSupport;
+    [ObservableProperty] private bool _enableAutoLaunch;
+
+    // 写登录项失败时把开关拨回实际状态，那次回拨不该再写一次系统
+    private bool _syncingAutoLaunch;
 
     /// <summary>
     /// 剪贴板历史自动清理的保留天数，0 = 不清理（默认）。收藏项永远豁免。
@@ -116,6 +120,8 @@ public partial class GeneralSettingViewModel : ViewModelBase
         using (_writeBack.BeginLoad())
         {
             EnableFullscreenGameInputSupport = ConfigManager.Instance.Setting.EnableFullscreenGameInputSupport;
+            // 以系统登录项的实际状态为准：用户可能在系统设置里手动改过，配置只是期望值
+            EnableAutoLaunch = AutoLaunchManager.IsEnabled();
             RefreshThemeOptions();
             RefreshSelectedLanguage();
         }
@@ -148,6 +154,29 @@ public partial class GeneralSettingViewModel : ViewModelBase
         {
             ApplicationRestartService.Restart();
         }
+    }
+
+    async partial void OnEnableAutoLaunchChanged(bool value)
+    {
+        if (_writeBack.IsLoading || _syncingAutoLaunch) return;
+        if (!AutoLaunchManager.TrySetEnabled(value, out string? error))
+        {
+            _syncingAutoLaunch = true;
+            try
+            {
+                EnableAutoLaunch = AutoLaunchManager.IsEnabled();
+            }
+            finally
+            {
+                _syncingAutoLaunch = false;
+            }
+
+            await _messageService.ShowWarningAsync(string.Format(
+                Loc.Text(LangKey.AutoLaunchFailedFormat), error ?? string.Empty));
+            return;
+        }
+
+        ConfigManager.Instance.Setting.AutoLaunchEnabled = value;
     }
 
     [RelayCommand]

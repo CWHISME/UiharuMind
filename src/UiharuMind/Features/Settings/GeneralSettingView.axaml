@@ -159,13 +159,12 @@
                     <StackPanel>
                         <!-- 日志等级那一项已搬到日志页顶部的下拉:改等级时人正看着日志,
                              跑到设置里改再回来看是多余的一趟 -->
-                        <!-- 分隔线跟着「下面还有一行吗」走:全屏输入那行只在 Windows 出现,
-                             不是 Windows 时这行就是末行,不该留一条尾巴 -->
+                        <!-- 分隔线跟着「下面还有一行吗」走:自启动那行全平台都有,
+                             所以保留天数这行永远不是末行 -->
                         <controls:SettingsRow Header="{loc:Loc ClipboardRetentionTitle}"
                                               Description="{loc:Loc ClipboardRetentionDesc}"
                                               ResetCommand="{Binding ResetClipboardRetentionDaysCommand}"
-                                              ResetVisible="{Binding IsClipboardRetentionNotDefault}"
-                                              DividerVisible="{Binding IsWindows}">
+                                              ResetVisible="{Binding IsClipboardRetentionNotDefault}">
                             <controls:SettingsRow.Field>
                                 <NumericUpDown Width="120"
                                                Minimum="0" Maximum="3650" Increment="1"
@@ -179,11 +178,19 @@
                                               Description="{loc:Loc FullscreenGameInputSupportDesc}"
                                               ResetCommand="{Binding ResetFullscreenGameInputSupportCommand}"
                                               ResetVisible="{Binding IsFullscreenGameInputNotDefault}"
-                                              DividerVisible="False"
                                               IsVisible="{Binding IsWindows}">
                             <controls:SettingsRow.Field>
                                 <CheckBox IsChecked="{Binding EnableFullscreenGameInputSupport}"
                                           VerticalAlignment="Center" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+
+                        <controls:SettingsRow Header="{loc:Loc AutoLaunchTitle}"
+                                              Description="{loc:Loc AutoLaunchDesc}"
+                                              DividerVisible="False">
+                            <controls:SettingsRow.Field>
+                                <ToggleSwitch IsChecked="{Binding EnableAutoLaunch}"
+                                              VerticalAlignment="Center" />
                             </controls:SettingsRow.Field>
                         </controls:SettingsRow>
                         <!-- 「保存目录」那一行已删:托盘菜单的 TrayMenuOpenSaveDir 开的是同一个

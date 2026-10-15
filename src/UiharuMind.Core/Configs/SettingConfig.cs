@@ -36,6 +36,9 @@ public class SettingConfig : TConfigBase<SettingConfig>
     /// <summary>全屏游戏输入支持的出厂值：关闭</summary>
     public const bool FactoryDefaultFullscreenGameInputSupport = false;
 
+    /// <summary>开机自启动的出厂值：关闭</summary>
+    public const bool FactoryDefaultAutoLaunchEnabled = false;
+
     /// <summary>
     /// 是否是本地服务模式
     /// </summary>
@@ -106,6 +109,25 @@ public class SettingConfig : TConfigBase<SettingConfig>
         {
             if (_enableFullscreenGameInputSupport == value) return;
             _enableFullscreenGameInputSupport = value;
+            OnPropertyChanged();
+            Save();
+        }
+    }
+
+    private bool _autoLaunchEnabled = FactoryDefaultAutoLaunchEnabled;
+
+    /// <summary>
+    /// 是否开机自启动。只是期望值，真正的登录项由
+    /// <c>UiharuMind.Core.Core.Utils.AutoLaunchManager</c> 写系统：
+    /// 改开关时同步写一次，启动时按这个值补写一次（更新换了路径时修复）。
+    /// </summary>
+    public bool AutoLaunchEnabled
+    {
+        get => _autoLaunchEnabled;
+        set
+        {
+            if (_autoLaunchEnabled == value) return;
+            _autoLaunchEnabled = value;
             OnPropertyChanged();
             Save();
         }

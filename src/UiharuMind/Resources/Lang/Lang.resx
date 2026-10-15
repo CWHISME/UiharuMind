@@ -1266,6 +1266,15 @@
     <data name="FullscreenGameInputRestartConfirm" xml:space="preserve">
         <value>This setting takes effect after restart. Restart UiharuMind now?</value>
     </data>
+    <data name="AutoLaunchTitle" xml:space="preserve">
+        <value>Launch at login</value>
+    </data>
+    <data name="AutoLaunchDesc" xml:space="preserve">
+        <value>Automatically start UiharuMind when you sign in.</value>
+    </data>
+    <data name="AutoLaunchFailedFormat" xml:space="preserve">
+        <value>Could not change the login item: {0}</value>
+    </data>
     <data name="AboutIntroductionText" xml:space="preserve">
         <value>UiharuMind is a cross-platform open-source app for running local GGUF large language models and calling online models. It supports Windows and macOS, and provides chat, knowledge-base conversations, screenshots, AI translation, AI OCR, clipboard history, and other quick tools.</value>
     </data>
