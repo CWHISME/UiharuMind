@@ -1469,6 +1469,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private void OnMessageBoundaryReached()
     {
         _itemActions.WireStreamed(CurrentRunner?.GetHistory() ?? []);
+        // 驱动方在这次落盘后已把统计盖进内存历史（轮内盖章，见 TurnDriver），
+        // 上一批冻成纯字数/空白的卡此刻就能认领存档，不必等到轮末。只读不写，幂等；
+        // 正在流的那几张来源还没配好，自动跳过。
+        AdoptPersistedTimings();
         _pager.TrimToBudget();
     }
 

@@ -189,6 +189,10 @@ public sealed class TurnDriver : IDisposable
         // 无界面轮次的兜底,兼界面配对失败时的回填——只写缺统计的消息,已有值的不碰
         int historyBefore = session.History.Count;
         ThinkingStatsRecorder thinkingStats = new();
+        // 本轮已盖过章的消息数（含轮内各服务调用边界上那几次）：轮末落盘看它——
+        // 轮内只写内存不写文件（JSONL 追加写改不了已落盘的行，全量重写每调用一次的成本与会话长度有关），
+        // 轮末统一 Save 一次；若轮末新增为 0 但轮内盖过，同样要 Save，否则文件永远拿不到那几章。
+        int stampedThisTurn = 0;
         GeneratedImageTally imageTally = new(); //生图按张计,不进 token 账本
         // 岔口的释放必须晚到 finally 里:收尾的 CloseSegment/StopRunningToolCalls 与失败路径的
         // 落库都要经过它,拆早了自己的落点都收不到那几下
@@ -248,6 +252,11 @@ public sealed class TurnDriver : IDisposable
                         if (imageTally.Observe(content) is > 0 and int generated) RecordGeneratedImages(session, generated);
                         _turnSink?.Apply(content);
                         thinkingStats.NoteContent(content);
+                        // 一次服务调用到此为止、它的请求与响应已落盘（提供器先落盘才放边界）：就地把这一段的
+                        // 统计盖进内存历史——中途打开这个会话的窗口读到的就是已落盘那几段的真实耗时，
+                        // 不必等到轮末。只写内存不写文件，轮末统一 Save；计时器自带分段游标，多次盖不重摊。
+                        if (content is MessageBoundaryContent)
+                            stampedThisTurn += StampThinkingStatsInMemory(session, thinkingStats, historyBefore);
                     }
                 }
                 catch (OperationCanceledException e)
@@ -309,7 +318,8 @@ public sealed class TurnDriver : IDisposable
             }
 
             await runner.SaveStateAsync();
-            StampThinkingStats(session, thinkingStats, historyBefore);
+            stampedThisTurn += StampThinkingStatsInMemory(session, thinkingStats, historyBefore);
+            if (stampedThisTurn > 0) session.Save();
             _notify?.Invoke(new TurnNotice(ETurnNotice.Persisted));
         }
         catch (Exception e)
@@ -320,7 +330,8 @@ public sealed class TurnDriver : IDisposable
             // 响应侧它拿不到——不在这里收,重开会话就是一次没有结果的调用加一段消失的回复
             interruptionNote = ToolCallCancellation.FailureResultText;
             SettleInterruptedTurn(session, interruptionNote);
-            StampThinkingStats(session, thinkingStats, historyBefore);
+            stampedThisTurn += StampThinkingStatsInMemory(session, thinkingStats, historyBefore);
+            if (stampedThisTurn > 0) session.Save();
             _notify?.Invoke(new TurnNotice(ETurnNotice.Failed, e.Message));
         }
         finally
@@ -472,22 +483,24 @@ public sealed class TurnDriver : IDisposable
     }
 
     /// <summary>
-    /// 把本轮思考段的耗时写回历史并落盘。落盘是追加式的,写回发生在行已上盘之后,
-    /// 因此这里是一次全量重写——一轮一次,只在真有缺统计的思考段时触发。
-    /// 盖章本身永不打断一轮,异常只记日志:统计丢了可以接受,轮次崩了不行。
+    /// 把本轮思考段的耗时写回历史（只写内存）。轮内每次服务调用落盘后调一次、轮末再调一次，
+    /// 是否落文件由调用方按累计数决定——盖章本身永不打断一轮，异常只记日志：
+    /// 统计丢了可以接受，轮次崩了不行。
     /// </summary>
     /// <param name="session">本轮的会话</param>
     /// <param name="recorder">本轮的思考计时器</param>
     /// <param name="fromIndex">本轮新增段在历史里的起始下标</param>
-    private void StampThinkingStats(ChatSession session, ThinkingStatsRecorder recorder, int fromIndex)
+    /// <returns>这次写上统计的消息数（思考与工具合计）</returns>
+    private static int StampThinkingStatsInMemory(ChatSession session, ThinkingStatsRecorder recorder, int fromIndex)
     {
         try
         {
-            if (recorder.Stamp(session.History, fromIndex) > 0) session.Save();
+            return recorder.Stamp(session.History, fromIndex);
         }
         catch (Exception e)
         {
             Log.Warning($"Stamp thinking stats failed: {e.Message}");
+            return 0;
         }
     }
 

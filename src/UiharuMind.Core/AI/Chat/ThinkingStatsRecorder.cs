@@ -35,6 +35,8 @@ public sealed class ThinkingStatsRecorder
     private long _segmentChars; //当前思考段的字数
     private TimeSpan _totalThinking; //本轮思考段耗时之和
     private long _totalThinkingChars; //本轮思考字数之和
+    private int _stampedSegmentCount; //已分摊出去的思考段数（多次盖章不重复分摊，见 StampThinking）
+    private long _stampedThinkingMs; //已分摊出去的思考毫秒数，与上同源
     private readonly Dictionary<string, TimeSpan> _toolStarted = new(); //调用发出时刻（相对 _clock），按 CallId
     private readonly Dictionary<string, long> _toolDurations = new(); //已收齐的调用耗时毫秒，按 CallId
 
@@ -81,6 +83,10 @@ public sealed class ThinkingStatsRecorder
     ///
     /// 不能一上来就按比例摊：一轮多次工具往返时各次思考的快慢差得很远，
     /// 摊下来是「想了半分钟的那条显示 3 秒、几秒的那条显示半分钟」。
+    ///
+    /// 可以调多次（轮内每次服务调用落盘后调一次、轮末再调一次）：已分摊的段不再参与，
+    /// 每次只拿新增的段去认新增的消息——中途打开的窗口读到的就是已落盘那几段的真实耗时，
+    /// 不必等到轮末。只写缺统计的消息，已有值的不碰。
     ///
     /// 工具耗时记在装着调用的那条消息上——工具卡按 <c>CallId</c> 回指的正是它，
     /// 配对失败也不丢数。没收到结果的调用（取消/失败）没有耗时，不盖。
@@ -135,13 +141,23 @@ public sealed class ThinkingStatsRecorder
         }
 
         if (targets.Count == 0) return 0;
-        long[] shares = AttributeSegments(_segments, weights.ToArray())
-                        ?? DistributeDurations((long)TotalThinking.TotalMilliseconds, weights.ToArray());
+        // 只分摊新增的段：之前盖过章的段已从游标后划掉，不再参与——否则轮内调多次时
+        // 前面那段的耗时会被后面的消息再分一遍，总和对不上计时器。
+        // 段已用完却还有新消息（极罕见，如消息落盘晚于盖章）时宁可不写：写 0ms 是假数，
+        // 留着缺统计至少诚实，且下一次盖章还会再试。
+        if (_stampedSegmentCount >= _segments.Count) return 0;
+        List<(long Ms, long Chars)> fresh = _segments.GetRange(_stampedSegmentCount,
+            _segments.Count - _stampedSegmentCount);
+        long freshMs = (long)(_totalThinking - TimeSpan.FromMilliseconds(_stampedThinkingMs)).TotalMilliseconds;
+        long[] shares = AttributeSegments(fresh, weights.ToArray())
+                        ?? DistributeDurations(freshMs, weights.ToArray());
         for (int i = 0; i < targets.Count; i++)
         {
             ChatMessageAnnotations.WriteThinkingStats(targets[i], shares[i], weights[i]);
         }
 
+        _stampedSegmentCount += fresh.Count;
+        _stampedThinkingMs += shares.Sum();
         return targets.Count;
     }
 

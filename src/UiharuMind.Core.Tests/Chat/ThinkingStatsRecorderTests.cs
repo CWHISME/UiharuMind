@@ -170,6 +170,54 @@ public class ThinkingStatsRecorderTests
     }
 
     [Fact]
+    public void Stamp_TwiceConservesTotalAcrossStamps()
+    {
+        // 轮内多次盖章（每次服务调用落盘后一次、轮末一次）：第二次只分摊新增的段，
+        // 已盖的不动，各条之和恒等于计时器总量——否则中途打开的窗口读到的是重摊过的数。
+        ThinkingStatsRecorder recorder = new();
+        recorder.NoteContent(new TextReasoningContent("第一段想。"));
+        Thread.Sleep(20);
+        recorder.NoteSegmentClosed();
+        List<ChatMessage> history = [new(ChatRole.Assistant, [new TextReasoningContent("第一段想。")])];
+
+        Assert.Equal(1, recorder.Stamp(history, 0));
+        Assert.True(ChatMessageAnnotations.TryReadThinkingStats(history[0], out TimeSpan first, out _));
+
+        recorder.NoteContent(new TextReasoningContent("第二段想想想。"));
+        Thread.Sleep(20);
+        recorder.NoteSegmentClosed();
+        history.Add(new(ChatRole.Assistant, [new TextReasoningContent("第二段想想想。")]));
+
+        Assert.Equal(1, recorder.Stamp(history, 0));
+        Assert.True(ChatMessageAnnotations.TryReadThinkingStats(history[0], out TimeSpan firstAgain, out _));
+        Assert.Equal(first, firstAgain); //第二次盖章不动已盖的
+        Assert.True(ChatMessageAnnotations.TryReadThinkingStats(history[1], out TimeSpan second, out _));
+        long total = (long)recorder.TotalThinking.TotalMilliseconds;
+        Assert.InRange((long)(first + second).TotalMilliseconds, total - 2, total + 2);
+    }
+
+    [Fact]
+    public void Stamp_ToolsAcrossTwoBoundaries_StampsEach()
+    {
+        // 工具耗时同理：多次盖章下每次只盖新增收齐的那次，已盖的不碰
+        ThinkingStatsRecorder recorder = new();
+        recorder.NoteContent(new FunctionCallContent("c1", "read_file"));
+        recorder.NoteContent(new FunctionResultContent("c1", "ok"));
+        List<ChatMessage> history =
+            [new(ChatRole.Assistant, [new FunctionCallContent("c1", "read_file")])];
+
+        Assert.Equal(1, recorder.Stamp(history, 0));
+
+        recorder.NoteContent(new FunctionCallContent("c2", "read_file"));
+        recorder.NoteContent(new FunctionResultContent("c2", "ok"));
+        history.Add(new(ChatRole.Assistant, [new FunctionCallContent("c2", "read_file")]));
+
+        Assert.Equal(1, recorder.Stamp(history, 0));
+        Assert.True(ChatMessageAnnotations.TryReadToolDuration(history[0], out _));
+        Assert.True(ChatMessageAnnotations.TryReadToolDuration(history[1], out _));
+    }
+
+    [Fact]
     public void Stamp_ToolCall_SkipsAlreadyStamped()
     {
         ThinkingStatsRecorder recorder = new();

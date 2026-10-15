@@ -399,6 +399,11 @@ public sealed class ConversationHistoryRenderer
 
         // 流式条目此刻才能与落了盘的消息配对,配上了才有编辑/删除/分叉
         _itemActions.WireStreamed(history);
+        // 驱动方在每次服务调用落盘后就把那一段的统计盖进内存历史（见 TurnDriver），
+        // 这里把上一批冻成纯字数/空白的卡升级成存档值——只读不写，幂等。
+        // 正在流的那几张来源还没配好，认领时自动跳过，继续跑它的 provisional。
+        ThinkingItem.AdoptPersistedStats(_items);
+        ToolCallItem.AdoptPersistedDurations(_items);
     }
 
     /// <summary>
