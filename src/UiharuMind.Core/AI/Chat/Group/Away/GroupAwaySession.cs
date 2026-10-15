@@ -1,13 +1,12 @@
+using UiharuMind.Core.AI.Chat.WakeLoops;
+
 namespace UiharuMind.Core.AI.Chat.Group.Away;
 
 /// <summary>
 /// 一次离席的可变状态（ADR 0055）。没有自己的锁：一律在 <see cref="GroupAwayController"/> 的锁里读写
 /// </summary>
-internal sealed class GroupAwaySession
+internal sealed class GroupAwaySession : WakeLoopSession<EGroupAwayEndReason>
 {
-    private readonly CancellationTokenSource _lifetime = new(); //离席结束即取消：化身正在跑的那一轮随之停下
-    private CancellationTokenSource? _delay; //正在等的延迟唤醒
-    private DateTimeOffset? _wakeAt;
     private string? _note; //带给化身下一轮的提示（上次没进展的情况），交出即清
 
     /// <summary>
@@ -23,6 +22,7 @@ internal sealed class GroupAwaySession
     /// <param name="infinite">无限模式：只有用户手动能结束，保险丝全关、结束工具报错</param>
     public GroupAwaySession(ChatSession group, ChatSession avatar, GroupAwaySettings settings, DateTimeOffset startedAt,
         string artifactStamp, string? goal = null, string? reminder = null, bool infinite = false)
+        : base(startedAt, artifactStamp)
     {
         Goal = string.IsNullOrWhiteSpace(goal) ? string.Empty : goal.Trim();
         Reminder = string.IsNullOrWhiteSpace(reminder) ? null : reminder.Trim();
@@ -30,8 +30,6 @@ internal sealed class GroupAwaySession
         Group = group;
         Avatar = avatar;
         Settings = settings;
-        StartedAt = startedAt;
-        ArtifactStamp = artifactStamp;
         HistoryStart = group.History.Count;
         AvatarHistoryStart = avatar.History.Count;
     }
@@ -57,17 +55,11 @@ internal sealed class GroupAwaySession
     /// <summary>定格的离席参数</summary>
     public GroupAwaySettings Settings { get; }
 
-    /// <summary>开始时刻</summary>
-    public DateTimeOffset StartedAt { get; }
-
     /// <summary>开始时的群流水长度：回执只认这之后化身说的话</summary>
     public int HistoryStart { get; }
 
     /// <summary>开始时化身历史的长度：回执只认这之后它自己动手做的事</summary>
     public int AvatarHistoryStart { get; }
-
-    /// <summary>最近一次看到的本群产物指纹</summary>
-    public string ArtifactStamp { get; set; }
 
     /// <summary>群流水文件已含到的群历史下标（下一次从那追加，不含）</summary>
     public int LogAppendedUpTo { get; set; }
@@ -87,35 +79,17 @@ internal sealed class GroupAwaySession
     /// <summary>化身已出手几次</summary>
     public int AvatarTurns { get; set; }
 
-    /// <summary>连续没进展的次数（退避的级数）</summary>
-    public int BackoffLevel { get; set; }
-
     /// <summary>连续等后台的次数：成员交回即清零，超限按没进展退避唤醒，不让离席悄悄卡死</summary>
     public int DeferCount { get; set; }
 
     /// <summary>连续没有新产物的波数</summary>
     public int IdleWaves { get; set; }
 
-    /// <summary>化身正在跑</summary>
-    public bool IsAvatarRunning { get; set; }
-
     /// <summary>化身跑着时又有一波收场：跑完再叫</summary>
     public bool WakePending { get; set; }
 
     /// <summary>已约好私聊放闸后接回化身：只约一次，免得放闸时连叫几轮</summary>
     public bool ResumeArmed { get; set; }
-
-    /// <summary>已结束（回执可能还要等化身那一轮停稳才出）</summary>
-    public bool IsEnded { get; private set; }
-
-    /// <summary>结束原因；没结束为 null</summary>
-    public EGroupAwayEndReason? EndReason { get; private set; }
-
-    /// <summary>化身的交代；保险丝与手动结束为空</summary>
-    public string EndSummary { get; private set; } = string.Empty;
-
-    /// <summary>离席的生命周期：结束即取消</summary>
-    public CancellationToken Token => _lifetime.Token;
 
     /// <summary>
     /// 更新这次离席的参数。捎话在化身介入前改才随首轮投递；提醒与无限模式每轮现读，随时改随时生效
@@ -128,30 +102,6 @@ internal sealed class GroupAwaySession
         if (goal != null) Goal = string.IsNullOrWhiteSpace(goal) ? string.Empty : goal.Trim();
         if (reminder != null) Reminder = string.IsNullOrWhiteSpace(reminder) ? null : reminder.Trim();
         if (infinite is { } value) IsInfinite = value;
-    }
-
-    /// <summary>
-    /// 排上一次延迟唤醒（调用方先 <see cref="CancelDelay"/>）
-    /// </summary>
-    /// <param name="wakeAt">到点时刻</param>
-    /// <returns>取消这次延迟用的令牌</returns>
-    public CancellationToken BeginDelay(DateTimeOffset wakeAt)
-    {
-        _delay = new CancellationTokenSource();
-        _wakeAt = wakeAt;
-        return _delay.Token;
-    }
-
-    /// <summary>取消正在等的延迟唤醒（没有就什么也不做）</summary>
-    /// <returns>确实取消了一次为 true</returns>
-    public bool CancelDelay()
-    {
-        if (_delay == null) return false;
-        _delay.Cancel();
-        _delay.Dispose();
-        _delay = null;
-        _wakeAt = null;
-        return true;
     }
 
     /// <summary>
@@ -172,27 +122,10 @@ internal sealed class GroupAwaySession
         return note;
     }
 
-    /// <summary>
-    /// 结束：取消延迟与化身正在跑的那一轮
-    /// </summary>
-    /// <param name="reason">原因</param>
-    /// <param name="summary">化身的交代</param>
-    public void End(EGroupAwayEndReason reason, string summary)
-    {
-        IsEnded = true;
-        EndReason = reason;
-        EndSummary = summary;
-        CancelDelay();
-        _lifetime.Cancel();
-    }
-
-    /// <summary>回执交出之后释放：此后谁也不再取 <see cref="Token"/></summary>
-    public void Dispose() => _lifetime.Dispose();
-
     /// <summary>界面用的快照</summary>
     /// <returns>状态</returns>
     public GroupAwayStatus Snapshot() =>
-        new(Group.SessionId, Avatar.SessionId, StartedAt, AvatarTurns, IsAvatarRunning, _wakeAt, Goal, Reminder, IsInfinite,
+        new(Group.SessionId, Avatar.SessionId, StartedAt, AvatarTurns, IsRunning, WakeAt, Goal, Reminder, IsInfinite,
             // 等后台的计数非零 = 兜底重判排着：WakeAt 只是再看一眼的时刻，界面别写成“化身马上醒来”
             WaitingBackground: DeferCount > 0);
 }

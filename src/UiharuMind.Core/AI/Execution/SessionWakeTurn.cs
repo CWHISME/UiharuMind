@@ -39,6 +39,13 @@ public static class SessionWakeTurn
     public static Func<string, ApprovalResolver?>? ApprovalSource { get; set; }
 
     /// <summary>
+    /// 目标模式的封顶豁免：某会话在目标模式里就不计「连续无用户参与的唤醒轮」。
+    /// 目标模式无保险丝（模型自判结束或用户手动结束是仅有的出路），掐封顶等于悄悄结束它；
+    /// 由 <see cref="Chat.Single.GoalMode.GoalModeController"/> 注入，与 <see cref="ApprovalSource"/> 同形
+    /// </summary>
+    public static Func<string, bool>? WakeStreakExempt { get; set; }
+
+    /// <summary>
     /// 用户在这个会话里说话了：自激封顶清零。
     ///
     /// 由 <see cref="TurnDriver.RunAsync"/> 在<b>带用户消息</b>的轮次上调——
@@ -56,7 +63,8 @@ public static class SessionWakeTurn
     /// </summary>
     /// <param name="sessionId">会话标识</param>
     /// <param name="cause">起因，只进日志</param>
-    public static async Task RunAsync(string sessionId, string cause)
+    /// <param name="cancellationToken">发起方撤回时取消（如目标模式结束），这一轮随之停下</param>
+    public static async Task RunAsync(string sessionId, string cause, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -72,7 +80,10 @@ public static class SessionWakeTurn
                 return;
             }
 
-            int streak = _streaks.AddOrUpdate(sessionId, 1, (_, n) => n + 1);
+            // 目标模式豁免：不计连续无用户参与的唤醒轮（streak 恒 0，永不封顶）
+            int streak = WakeStreakExempt?.Invoke(sessionId) == true
+                ? 0
+                : _streaks.AddOrUpdate(sessionId, 1, (_, n) => n + 1);
             if (streak > MaxConsecutiveWakeTurns)
             {
                 Log.Warning($"Wake turn suppressed after {MaxConsecutiveWakeTurns} "
@@ -91,7 +102,7 @@ public static class SessionWakeTurn
             // 有宿主时审批卡在会话窗口里,按普通「无人回应」口径收口
             using TurnDriver driver = new(null, new TurnUsageLedger(), unansweredResultText:
                 resolver == null ? ToolCallCancellation.WakeUnansweredResultText : null);
-            await driver.RunAsync(session, lease.Runner, null, resolver, attended: resolver != null)
+            await driver.RunAsync(session, lease.Runner, null, resolver, cancellationToken, resolver != null)
                 .ConfigureAwait(false);
         }
         catch (Exception e)

@@ -147,6 +147,8 @@ internal sealed class ExtensionHub
         StringBuilder sb = new($"扩展（用 {ExtensionCalls.HelpName} 传 `name` 查看其命令）：\n");
         foreach (BuiltinExtension builtin in _builtins)
         {
+            // 隐藏扩展（目标模式）不进广告：模型只在目标模式开启时经注入消息得知
+            if (builtin.IsHidden) continue;
             sb.Append("- ").Append(builtin.Name).Append("（内置");
             if (builtin.Unavailable is { } reason) sb.Append("，不可用：").Append(reason);
             sb.Append("）\n");

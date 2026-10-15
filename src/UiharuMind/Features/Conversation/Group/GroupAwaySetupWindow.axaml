@@ -76,7 +76,7 @@
                           OffContent="{loc:Loc GroupAwayInfiniteLabel}"
                           ToolTip.Tip="{loc:Loc GroupAwayInfiniteTip}" />
             <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
-                       IsVisible="{Binding IsAway}" Text="{Binding StatusLine}" />
+                       IsVisible="{Binding IsActive}" Text="{Binding StatusLine}" />
             <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
                        IsVisible="{Binding HasCountdown}" Text="{Binding CountdownLine}" />
         </StackPanel>
@@ -92,17 +92,17 @@
                         Click="StartButton_Click" />
                 <!-- 离席中：更新（写回捎话/提醒/无限模式）/ 立即唤醒 / 结束离席 / 关闭 -->
                 <Button Classes="Primary" Content="{loc:Loc GroupAwayUpdate}"
-                        IsVisible="{Binding IsAway}"
+                        IsVisible="{Binding IsActive}"
                         IsEnabled="{Binding HasChanges}"
                         Click="UpdateButton_Click" />
                 <Button Classes="Tertiary" Content="{loc:Loc GroupAwayWakeNow}"
                         IsVisible="{Binding HasCountdown}"
                         Click="WakeNowButton_Click" />
                 <Button Content="{loc:Loc GroupAwayEnd}"
-                        IsVisible="{Binding IsAway}"
+                        IsVisible="{Binding IsActive}"
                         Click="EndButton_Click" />
                 <Button Content="{loc:Loc CancelBtn}"
-                        IsVisible="{Binding IsAway}"
+                        IsVisible="{Binding IsActive}"
                         Click="CancelButton_Click" />
             </StackPanel>
         </Border>

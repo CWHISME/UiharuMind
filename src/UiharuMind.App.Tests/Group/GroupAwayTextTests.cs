@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using UiharuMind.Core.AI.Chat.Group.Away;
+using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Group;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
@@ -18,7 +19,7 @@ public class GroupAwayTextTests
     [InlineData(-3, "0:00")]
     public void Countdown_IsMinutesSeconds_UnderAnHour(int seconds, string expected)
     {
-        Assert.Equal(expected, GroupAwayViewData.CountdownText(TimeSpan.FromSeconds(seconds)));
+        Assert.Equal(expected, WakeLoopViewData.CountdownText(TimeSpan.FromSeconds(seconds)));
     }
 
     [Fact]

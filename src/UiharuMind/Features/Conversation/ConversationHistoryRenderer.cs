@@ -73,8 +73,9 @@ public sealed class ConversationHistoryRenderer
         string text = ChatMessageDisplay.TextOf(message);
         if (ChatMessageDisplay.IsFrameworkInjected(message)) return [];
         if (string.IsNullOrWhiteSpace(text) && !ConversationItemFactory.HasImage(message)) return [];
-        // 插进一轮里的后台任务结果也走这里：与回放一样画成旁白，不安到用户头上
-        if (ChatMessageAnnotations.IsHandedBackReport(message))
+        // 插进一轮里的后台任务结果也走这里：与回放一样画成旁白，不安到用户头上；
+        // 目标模式的注入（目标/唤醒提醒）同理：User 角色但不是用户的话
+        if (ChatMessageAnnotations.IsHandedBackReport(message) || ChatMessageAnnotations.IsGoalModeInjection(message))
             return [_itemActions.Wire(ConversationItemFactory.CreateNarration(message), message)];
 
         if (_deliverySource() is { } renderer && renderer.IsDelivery(message))

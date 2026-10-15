@@ -67,6 +67,7 @@ public static class ConversationMessageOrigin
         if (ChatMessageAnnotations.IsSubAgentReport(message)) return EHistoryItemKind.SubAgentReport;
         if (ChatMessageAnnotations.IsBackgroundTaskReport(message)) return EHistoryItemKind.BackgroundTaskReport;
         if (ChatMessageAnnotations.GroupAwayReceiptOf(message) != null) return EHistoryItemKind.AwayReceipt;
+        if (ChatMessageAnnotations.IsGoalModeInjection(message)) return EHistoryItemKind.Narration;
         if (message.Role == ChatRole.User) return EHistoryItemKind.UserInput;
         return EHistoryItemKind.StreamContents;
     }

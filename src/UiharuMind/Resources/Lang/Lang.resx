@@ -3841,6 +3841,117 @@ Allow them?</value>
     <data name="GroupAwayEndConfirm" xml:space="preserve">
         <value>End away? Your avatar will stop; the wave already running is not affected.</value>
     </data>
+    <data name="GoalModeEntryTip" xml:space="preserve">
+        <value>Goal mode: give this session a goal and wake it on a schedule until it finishes by itself or you stop it.</value>
+    </data>
+    <data name="GoalModeSetupTitle" xml:space="preserve">
+        <value>Goal mode</value>
+    </data>
+    <data name="GoalModeHint" xml:space="preserve">
+        <value>The model keeps working toward the goal on its own after each turn stops; it ends only when it decides the goal is done, or you stop it.</value>
+    </data>
+    <data name="GoalModeGoalLabel" xml:space="preserve">
+        <value>Goal (given to the model)</value>
+    </data>
+    <data name="GoalModeGoalTip" xml:space="preserve">
+        <value>Be concrete: the model keeps pushing on its own, so a vague goal may spin in circles. It can end by itself when done, or call goal.end when it needs you.</value>
+    </data>
+    <data name="GoalModeGoalPlaceholder" xml:space="preserve">
+        <value>e.g. Research the competitor's release plan and write it into docs/report.md</value>
+    </data>
+    <data name="GoalModeRulesLabel" xml:space="preserve">
+        <value>Wake schedule</value>
+    </data>
+    <data name="GoalModeRulesTip" xml:space="preserve">
+        <value>Several rules can coexist; the nearest next trigger wins. No progress only slows the wake (backoff), it never ends the mode.</value>
+    </data>
+    <data name="GoalModeRuleDaily" xml:space="preserve">
+        <value>Daily at time</value>
+    </data>
+    <data name="GoalModeRuleOneShot" xml:space="preserve">
+        <value>Once at date</value>
+    </data>
+    <data name="GoalModeRuleInterval" xml:space="preserve">
+        <value>Every N minutes</value>
+    </data>
+    <data name="GoalModeAddRule" xml:space="preserve">
+        <value>Add a wake rule</value>
+    </data>
+    <data name="GoalModeStart" xml:space="preserve">
+        <value>Start goal mode</value>
+    </data>
+    <data name="GoalModeUpdate" xml:space="preserve">
+        <value>Update</value>
+    </data>
+    <data name="GoalModeWakeNow" xml:space="preserve">
+        <value>Wake now</value>
+    </data>
+    <data name="GoalModeEnd" xml:space="preserve">
+        <value>End goal mode</value>
+    </data>
+    <data name="GoalModeEndConfirm" xml:space="preserve">
+        <value>End goal mode? The model stops being woken, and a wake turn already running is stopped too.</value>
+    </data>
+    <data name="GoalModeIdle" xml:space="preserve">
+        <value>Not active</value>
+    </data>
+    <data name="GoalModeThinking" xml:space="preserve">
+        <value>Working on the goal…</value>
+    </data>
+    <data name="GoalModeStatusFormat" xml:space="preserve">
+        <value>{0} turns so far</value>
+    </data>
+    <data name="GoalModeCountdownFormat" xml:space="preserve">
+        <value>Next wake in {0}</value>
+    </data>
+    <data name="GoalModeListTitle" xml:space="preserve">
+        <value>Goal mode</value>
+    </data>
+    <data name="GoalModeEmpty" xml:space="preserve">
+        <value>No goal mode running.</value>
+    </data>
+    <data name="GoalModeWaitingWake" xml:space="preserve">
+        <value>Waiting for next wake</value>
+    </data>
+    <data name="GoalModeWaitingManual" xml:space="preserve">
+        <value>Idle (no schedule left)</value>
+    </data>
+    <data name="GoalModeEndedDone" xml:space="preserve">
+        <value>Finished (goal done)</value>
+    </data>
+    <data name="GoalModeEndedNeedsUser" xml:space="preserve">
+        <value>Waiting for you</value>
+    </data>
+    <data name="GoalModeEndedManual" xml:space="preserve">
+        <value>Ended manually</value>
+    </data>
+    <data name="GoalModeOpen" xml:space="preserve">
+        <value>Open</value>
+    </data>
+    <data name="GoalModeStop" xml:space="preserve">
+        <value>Stop</value>
+    </data>
+    <data name="GoalModeClearDone" xml:space="preserve">
+        <value>Clear finished</value>
+    </data>
+    <data name="GoalModeRuleImmediate" xml:space="preserve">
+        <value>Right after each stop</value>
+    </data>
+    <data name="GoalModeRuleDailyFormat" xml:space="preserve">
+        <value>Daily at {0}</value>
+    </data>
+    <data name="GoalModeRuleOneShotFormat" xml:space="preserve">
+        <value>On {0}</value>
+    </data>
+    <data name="GoalModeRuleIntervalFormat" xml:space="preserve">
+        <value>Every {0} min</value>
+    </data>
+    <data name="GoalModeIntervalUnitFormat" xml:space="preserve">
+        <value>0 min</value>
+    </data>
+    <data name="GoalModeNotOwner" xml:space="preserve">
+        <value>Goal mode is managed by the UiharuMind instance that started first; it cannot be started here.</value>
+    </data>
     <data name="GroupAwayWakeNow" xml:space="preserve">
         <value>Wake now</value>
     </data>

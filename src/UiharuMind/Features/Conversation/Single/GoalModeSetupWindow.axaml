@@ -1,0 +1,137 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:single="clr-namespace:UiharuMind.Features.Conversation.Single"
+        xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+        xmlns:u="https://irihi.tech/ursa"
+        xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+        mc:Ignorable="d"
+        x:Class="UiharuMind.Features.Conversation.Single.GoalModeSetupWindow"
+        x:DataType="single:GoalModeViewData"
+        Width="460"
+        MinWidth="400"
+        SizeToContent="Height"
+        Title="{loc:Loc GoalModeSetupTitle}">
+    <Window.Styles>
+        <Style Selector="ComboBox">
+            <Setter Property="MaxDropDownHeight" Value="240" />
+        </Style>
+    </Window.Styles>
+    <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource SemiGrey0}">
+        <Border Padding="18,15" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="50,*" ColumnSpacing="12">
+                <Border Width="50" Height="50" CornerRadius="8"
+                        Background="{DynamicResource SemiBlue0}">
+                    <controls:ThemedSvgIcon Width="24" Height="24" IconName="clock" />
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
+                    <TextBlock Text="{loc:Loc GoalModeSetupTitle}" FontSize="20" />
+                    <TextBlock Text="{loc:Loc GoalModeHint}" Classes="muted" MaxLines="2"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="18" Spacing="12">
+                <!-- 目标：只给模型看，模型每轮唤醒时经注入读到 -->
+                <StackPanel Spacing="4">
+                    <TextBlock Text="{loc:Loc GoalModeGoalLabel}" ToolTip.Tip="{loc:Loc GoalModeGoalTip}" />
+                    <TextBox Text="{Binding Goal}" PlaceholderText="{loc:Loc GoalModeGoalPlaceholder}"
+                             AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="160"
+                             VerticalContentAlignment="Top" Padding="10" />
+                </StackPanel>
+
+                <!-- 调度规则：可多条并存，各自算下次触发取最近 -->
+                <StackPanel Spacing="4">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <TextBlock Grid.Column="0" VerticalAlignment="Center"
+                                   Text="{loc:Loc GoalModeRulesLabel}"
+                                   ToolTip.Tip="{loc:Loc GoalModeRulesTip}" />
+                        <ComboBox Grid.Column="1" MinWidth="120"
+                                  HorizontalAlignment="Right"
+                                  SelectedIndex="0"
+                                  x:Name="RuleKindCombo">
+                            <ComboBoxItem Content="{loc:Loc GoalModeRuleDaily}" />
+                            <ComboBoxItem Content="{loc:Loc GoalModeRuleOneShot}" />
+                            <ComboBoxItem Content="{loc:Loc GoalModeRuleInterval}" />
+                            <ComboBoxItem Content="{loc:Loc GoalModeRuleImmediate}" />
+                        </ComboBox>
+                    </Grid>
+                    <Button Classes="Tertiary" HorizontalAlignment="Stretch"
+                            Content="{loc:Loc GoalModeAddRule}"
+                            Command="{Binding AddRuleCommand}"
+                            CommandParameter="{Binding #RuleKindCombo.SelectedIndex}" />
+                    <ItemsControl ItemsSource="{Binding Rules}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="single:GoalModeRuleEditorItem">
+                                <Border BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}"
+                                        CornerRadius="6" Padding="8" Margin="0,2">
+                                    <Grid ColumnDefinitions="150,*,Auto" ColumnSpacing="8">
+                                        <TextBlock Grid.Column="0" VerticalAlignment="Center" FontSize="12"
+                                                   Width="150" TextTrimming="CharacterEllipsis"
+                                                   Text="{Binding Summary}" ToolTip.Tip="{Binding Summary}" />
+                                        <!-- 参数编辑：按种类切换 -->
+                                        <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                                            <u:TimeOnlyPicker IsVisible="{Binding IsDaily}"
+                                                              HorizontalAlignment="Stretch"
+                                                              SelectedTime="{Binding DailyTime}"
+                                                              DisplayFormat="HH:mm" PanelFormat="HH mm" />
+                                            <u:DateTimePicker IsVisible="{Binding IsOneShot}"
+                                                              HorizontalAlignment="Stretch"
+                                                              SelectedDate="{Binding FireAt}"
+                                                              DisplayFormat="yyyy-MM-dd HH:mm" />
+                                            <NumericUpDown IsVisible="{Binding IsInterval}"
+                                                           HorizontalAlignment="Stretch"
+                                                           Minimum="1" Maximum="1440"
+                                                           Value="{Binding IntervalMinutes}"
+                                                           FormatString="{loc:Loc GoalModeIntervalUnitFormat}" />
+                                        </StackPanel>
+                                        <Button Grid.Column="2" Classes="Tertiary" Content="×"
+                                                Command="{Binding $parent[Window].((single:GoalModeViewData)DataContext).RemoveRuleCommand}"
+                                                CommandParameter="{Binding}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
+                           IsVisible="{Binding IsActive}" Text="{Binding StatusLine}" />
+                <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
+                           IsVisible="{Binding HasCountdown}" Text="{Binding CountdownLine}" />
+                <!-- 非主实例（ADR 0064）：目标模式归先启动的那个实例，这里开不了 -->
+                <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
+                           IsVisible="{Binding !IsOwner}" Text="{loc:Loc GoalModeNotOwner}" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2" Padding="14" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,1,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                <!-- 没在目标模式：取消 / 开始 -->
+                <Button Content="{loc:Loc CancelBtn}" Click="CancelButton_Click"
+                        IsVisible="{Binding IsIdle}" />
+                <Button Classes="Primary" Content="{loc:Loc GoalModeStart}"
+                        IsVisible="{Binding IsIdle}"
+                        IsEnabled="{Binding IsOwner}"
+                        Click="StartButton_Click" />
+                <!-- 目标模式中：更新 / 立即唤醒 / 结束 / 关闭 -->
+                <Button Classes="Primary" Content="{loc:Loc GoalModeUpdate}"
+                        IsVisible="{Binding IsActive}"
+                        IsEnabled="{Binding HasChanges}"
+                        Click="UpdateButton_Click" />
+                <Button Classes="Tertiary" Content="{loc:Loc GoalModeWakeNow}"
+                        IsVisible="{Binding CanWakeNow}"
+                        Click="WakeNowButton_Click" />
+                <Button Content="{loc:Loc GoalModeEnd}"
+                        IsVisible="{Binding IsActive}"
+                        Click="EndButton_Click" />
+                <Button Content="{loc:Loc CancelBtn}"
+                        IsVisible="{Binding IsActive}"
+                        Click="CancelButton_Click" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

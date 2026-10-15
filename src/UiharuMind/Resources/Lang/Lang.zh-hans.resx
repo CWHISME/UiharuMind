@@ -3834,6 +3834,117 @@
     <data name="GroupAwayEndConfirm" xml:space="preserve">
         <value>结束离席？化身会停下，群里正在跑的这一波不受影响。</value>
     </data>
+    <data name="GoalModeEntryTip" xml:space="preserve">
+        <value>目标模式：给这个会话设一个目标，按调度自动唤醒推进，直到模型自判结束或你手动结束</value>
+    </data>
+    <data name="GoalModeSetupTitle" xml:space="preserve">
+        <value>目标模式</value>
+    </data>
+    <data name="GoalModeHint" xml:space="preserve">
+        <value>设定目标后，模型每跑完一轮自动停下，按调度醒来继续推进；只有它判定目标达成或你手动结束才会停</value>
+    </data>
+    <data name="GoalModeGoalLabel" xml:space="preserve">
+        <value>目标（只给模型看）</value>
+    </data>
+    <data name="GoalModeGoalTip" xml:space="preserve">
+        <value>写明确一点：模型会自己一直推，太含糊的目标容易空转。它完成时可以自行结束，遇到必须你拍板的事会调 goal.end 等你</value>
+    </data>
+    <data name="GoalModeGoalPlaceholder" xml:space="preserve">
+        <value>例如：调研竞品发布计划，写成 docs/report.md</value>
+    </data>
+    <data name="GoalModeRulesLabel" xml:space="preserve">
+        <value>唤醒调度</value>
+    </data>
+    <data name="GoalModeRulesTip" xml:space="preserve">
+        <value>可多条并存，各自算下次触发取最近；没进展只会放缓唤醒（退避），不会结束目标模式</value>
+    </data>
+    <data name="GoalModeRuleDaily" xml:space="preserve">
+        <value>每天指定时间</value>
+    </data>
+    <data name="GoalModeRuleOneShot" xml:space="preserve">
+        <value>指定日期</value>
+    </data>
+    <data name="GoalModeRuleInterval" xml:space="preserve">
+        <value>循环间隔</value>
+    </data>
+    <data name="GoalModeAddRule" xml:space="preserve">
+        <value>添加唤醒规则</value>
+    </data>
+    <data name="GoalModeStart" xml:space="preserve">
+        <value>开始目标模式</value>
+    </data>
+    <data name="GoalModeUpdate" xml:space="preserve">
+        <value>更新</value>
+    </data>
+    <data name="GoalModeWakeNow" xml:space="preserve">
+        <value>立即唤醒</value>
+    </data>
+    <data name="GoalModeEnd" xml:space="preserve">
+        <value>结束目标模式</value>
+    </data>
+    <data name="GoalModeEndConfirm" xml:space="preserve">
+        <value>结束目标模式？模型将不再被唤醒，目标模式唤醒的那一轮正在跑也会停下。</value>
+    </data>
+    <data name="GoalModeIdle" xml:space="preserve">
+        <value>未激活</value>
+    </data>
+    <data name="GoalModeThinking" xml:space="preserve">
+        <value>正在朝目标推进…</value>
+    </data>
+    <data name="GoalModeStatusFormat" xml:space="preserve">
+        <value>已跑 {0} 轮</value>
+    </data>
+    <data name="GoalModeCountdownFormat" xml:space="preserve">
+        <value>{0} 后唤醒</value>
+    </data>
+    <data name="GoalModeListTitle" xml:space="preserve">
+        <value>目标模式</value>
+    </data>
+    <data name="GoalModeEmpty" xml:space="preserve">
+        <value>没有进行中的目标模式</value>
+    </data>
+    <data name="GoalModeWaitingWake" xml:space="preserve">
+        <value>等待下次唤醒</value>
+    </data>
+    <data name="GoalModeWaitingManual" xml:space="preserve">
+        <value>待命（没有可触发的调度）</value>
+    </data>
+    <data name="GoalModeEndedDone" xml:space="preserve">
+        <value>已完成（目标达成）</value>
+    </data>
+    <data name="GoalModeEndedNeedsUser" xml:space="preserve">
+        <value>等你拍板</value>
+    </data>
+    <data name="GoalModeEndedManual" xml:space="preserve">
+        <value>已手动结束</value>
+    </data>
+    <data name="GoalModeOpen" xml:space="preserve">
+        <value>打开</value>
+    </data>
+    <data name="GoalModeStop" xml:space="preserve">
+        <value>停止</value>
+    </data>
+    <data name="GoalModeClearDone" xml:space="preserve">
+        <value>清除已完成</value>
+    </data>
+    <data name="GoalModeRuleImmediate" xml:space="preserve">
+        <value>停下即唤醒</value>
+    </data>
+    <data name="GoalModeRuleDailyFormat" xml:space="preserve">
+        <value>每天 {0}</value>
+    </data>
+    <data name="GoalModeRuleOneShotFormat" xml:space="preserve">
+        <value>指定 {0}</value>
+    </data>
+    <data name="GoalModeRuleIntervalFormat" xml:space="preserve">
+        <value>每 {0} 分钟</value>
+    </data>
+    <data name="GoalModeIntervalUnitFormat" xml:space="preserve">
+        <value>0 分钟</value>
+    </data>
+    <data name="GoalModeNotOwner" xml:space="preserve">
+        <value>目标模式由先启动的 UiharuMind 实例管理，这里开不了。</value>
+    </data>
     <data name="GroupAwayWakeNow" xml:space="preserve">
         <value>立即唤醒</value>
     </data>

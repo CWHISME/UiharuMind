@@ -143,6 +143,9 @@ public static class AppPaths
         /// <summary>定时任务</summary>
         public static readonly string ScheduledAgentTasks = Path.Combine(AgentRoot, "ScheduledAgentTasks.json");
 
+        /// <summary>进行中的目标模式（重启后恢复，继续按调度跑）</summary>
+        public static readonly string GoalModeSessions = Path.Combine(AgentRoot, "GoalModeSessions.json");
+
         /// <summary>对话附件</summary>
         public static readonly string AgentAttachments = Path.Combine(AgentRoot, "Attachments");
 

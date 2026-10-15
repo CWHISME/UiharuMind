@@ -57,6 +57,7 @@ using UiharuMind.Features.Conversation.Composer;
 using UiharuMind.Features.Conversation.Group;
 using UiharuMind.Features.Conversation.Items;
 using UiharuMind.Features.Conversation.SidePanels;
+using UiharuMind.Features.Conversation.Single;
 
 namespace UiharuMind.Features.Conversation;
 
@@ -183,6 +184,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             _currentMeta = value;
             // 「扩展不再询问」存在会话上，换会话（含回到空态）就换了那一份
             OnPropertyChanged(nameof(ExtensionsApproved));
+            OnPropertyChanged(nameof(CanOpenGoalMode));
         }
     }
 
@@ -203,6 +205,17 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     public bool IsAgentSession => CurrentMeta is { } meta
         ? SessionManager.IsAgentSide(meta)
         : NewSessionIsAgentForm;
+
+    /// <summary>目标模式入口是否显示：右侧栏工作区卡右上角，只对已建成的 agent 档单聊会话</summary>
+    public bool CanOpenGoalMode => CurrentMeta is { } meta && !meta.IsGroup && SessionManager.IsAgentSide(meta);
+
+    /// <summary>打开当前会话的目标模式设置弹窗（入口在右栏工作区卡右上角）</summary>
+    [RelayCommand]
+    public Task OpenGoalModeSetup()
+    {
+        ChatSession? session = CurrentSession;
+        return session == null ? Task.CompletedTask : Single.GoalModeSetupWindow.OpenForAsync(session, _messages);
+    }
 
     /// <summary>
     /// 本会话的角色。尚无会话时取页面的新建默认角色——工具开关、技能清单、
@@ -1630,6 +1643,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private void NotifyCharacterKindChanged()
     {
         OnPropertyChanged(nameof(IsAgentSession));
+        OnPropertyChanged(nameof(CanOpenGoalMode));
         OnPropertyChanged(nameof(CanApproveExtensions));
         OnPropertyChanged(nameof(IsModeSwitchVisible));
         OnPropertyChanged(nameof(IsTodoListVisible));

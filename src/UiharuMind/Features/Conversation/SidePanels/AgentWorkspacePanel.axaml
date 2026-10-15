@@ -34,19 +34,28 @@
 
     <Border Background="{DynamicResource SemiGrey1}" CornerRadius="10" Padding="10">
         <StackPanel Spacing="6">
-            <StackPanel Orientation="Horizontal" Spacing="6">
-                <!-- 状态点的配色由 Tag 选,所以一个 Border 绑 key 即可;
-                     文案那两条仍是两个 TextBlock——loc 标记要能跟着切语言重取,换成绑定字符串就跟不了 -->
-                <Border Classes="status-dot" Tag="{Binding Conversation.RunStatusKey}" />
-                <TextBlock FontSize="12" Text="{loc:Loc AgentStatusRunning}"
-                           IsVisible="{Binding Conversation.IsGenerating}" />
-                <!-- 第三档:本会话闲着但名下的后台子代理还没回来。少了它,用户看到的是「空闲」,
-                     而实际上还有活在跑——这正是默认后台化之后的常态 -->
-                <TextBlock FontSize="12" Text="{loc:Loc AgentStatusBackgroundWork}"
-                           IsVisible="{Binding Conversation.HasBackgroundWorkOnly}" />
-                <TextBlock FontSize="12" Text="{loc:Loc AgentStatusIdle}"
-                           IsVisible="{Binding !Conversation.HasPendingWork}" />
-            </StackPanel>
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
+                    <!-- 状态点的配色由 Tag 选,所以一个 Border 绑 key 即可;
+                         文案那两条仍是两个 TextBlock——loc 标记要能跟着切语言重取,换成绑定字符串就跟不了 -->
+                    <Border Classes="status-dot" Tag="{Binding Conversation.RunStatusKey}" />
+                    <TextBlock FontSize="12" Text="{loc:Loc AgentStatusRunning}"
+                               IsVisible="{Binding Conversation.IsGenerating}" />
+                    <!-- 第三档:本会话闲着但名下的后台子代理还没回来。少了它,用户看到的是「空闲」,
+                         而实际上还有活在跑——这正是默认后台化之后的常态 -->
+                    <TextBlock FontSize="12" Text="{loc:Loc AgentStatusBackgroundWork}"
+                               IsVisible="{Binding Conversation.HasBackgroundWorkOnly}" />
+                    <TextBlock FontSize="12" Text="{loc:Loc AgentStatusIdle}"
+                               IsVisible="{Binding !Conversation.HasPendingWork}" />
+                </StackPanel>
+                <!-- 目标模式入口：运行状态对面、整卡右上角。与头像无关，只对 agent 档单聊会话显示 -->
+                <ThemedIconButton Grid.Column="1" Width="24" Height="24"
+                                  VerticalAlignment="Center"
+                                  Command="{Binding Conversation.OpenGoalModeSetupCommand}"
+                                  IsVisible="{Binding Conversation.CanOpenGoalMode}"
+                                  ToolTip.Tip="{loc:Loc GoalModeEntryTip}"
+                                  IconName="settings" />
+            </Grid>
             <!-- 角色行:竖排大头像在上、名字在下,整块一个换角色按钮,点哪都出角色选择(空态即预选,发送才建会话);
                  名字单独一行居中,与头像同一条中心线;换角色提示走 ToolTip -->
             <Button Classes="text-row" HorizontalAlignment="Stretch" Margin="0,4,0,0"

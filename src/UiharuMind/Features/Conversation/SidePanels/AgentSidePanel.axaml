@@ -330,6 +330,46 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
+                                <!-- 目标模式：与定时任务同页签（统一清单）。进行中的在前，最近结束的回执在后 -->
+                                <TextBlock Classes="capability-section" Margin="0,12,0,2"
+                                           Text="{loc:Loc GoalModeListTitle}" />
+                                <TextBlock Classes="muted"
+                                           IsVisible="{Binding !GoalModes.Items.Count}"
+                                           Text="{loc:Loc GoalModeEmpty}" />
+                                <ItemsControl ItemsSource="{Binding GoalModes.Items}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="sessions:GoalModeDisplayItem">
+                                            <Border Background="{DynamicResource SemiGrey1}"
+                                                    CornerRadius="8" Padding="10,8" Margin="0,3">
+                                                <StackPanel Spacing="4">
+                                                    <TextBlock FontSize="12" Text="{Binding Title}"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Classes="muted" FontSize="10"
+                                                               Text="{Binding Goal}"
+                                                               TextWrapping="Wrap" MaxLines="2" />
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                        <TextBlock Classes="muted" FontSize="10"
+                                                                   VerticalAlignment="Center"
+                                                                   Text="{Binding StatusText}" />
+                                                        <Button FontSize="10" Padding="6,2" CornerRadius="5"
+                                                                IsVisible="{Binding IsActive}"
+                                                                Command="{Binding $parent[TabControl].((pages:ConversationPageData)DataContext).GoalModes.StopCommand}"
+                                                                CommandParameter="{Binding}"
+                                                                Content="{loc:Loc GoalModeStop}" />
+                                                        <Button FontSize="10" Padding="6,2" CornerRadius="5"
+                                                                Command="{Binding $parent[TabControl].((pages:ConversationPageData)DataContext).GoalModes.OpenCommand}"
+                                                                CommandParameter="{Binding}"
+                                                                Content="{loc:Loc GoalModeOpen}" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <Button FontSize="10" Padding="6,2" CornerRadius="5" HorizontalAlignment="Left"
+                                        IsVisible="{Binding GoalModes.HasDone}"
+                                        Command="{Binding GoalModes.ClearDoneCommand}"
+                                        Content="{loc:Loc GoalModeClearDone}" />
                             </StackPanel>
                         </ScrollViewer>
                     </TabItem>

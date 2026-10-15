@@ -48,6 +48,9 @@ public partial class ConversationPageData : ConversationPageDataBase
     /// <summary>定时任务侧栏（智能体右栏）</summary>
     public ScheduledTaskListModel Scheduled { get; }
 
+    /// <summary>目标模式清单（智能体右栏，与定时任务同一页签）</summary>
+    public GoalModeListModel GoalModes { get; }
+
     /// <summary>子代理索引（智能体右栏。群聊的成员窗口将来也复用这块——子会话那套机制，不并入）</summary>
     public SubAgentListViewData SubAgents { get; }
 
@@ -100,6 +103,7 @@ public partial class ConversationPageData : ConversationPageDataBase
         // 页面 SetSession 要能反映到视图上，两者必须同一份
         ChatInfo = App.ViewModel.GetViewModel<ChatInfoModel>();
         Scheduled = new ScheduledTaskListModel(OpenSession);
+        GoalModes = new GoalModeListModel(OpenSession);
         SubAgents = new SubAgentListViewData(() => Conversation?.CurrentMeta?.SessionId);
 
         SessionList.SelectionChanged += OnSelectionChanged;

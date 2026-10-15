@@ -92,6 +92,13 @@ public static class ChatMessageAnnotations
     public const string Narration = "_narration";
 
     /// <summary>
+    /// 目标模式注入标记。带此键的消息是控制器落给模型的交代（目标/唤醒提醒），
+    /// 形状同 <see cref="Narration"/>：User 角色、落盘、供给模型，只是渲染成旁白而不是用户气泡。
+    /// 唤醒轮仍以无消息形态跑，因此它不算「用户参与」，不触发自激封顶清零
+    /// </summary>
+    public const string GoalModeInjection = "_goalModeInjection";
+
+    /// <summary>
     /// 后续报告标记，值为产出它的那个子会话标识。带此键的消息<b>要落盘、要供给模型</b>——
     /// 它是用户在子会话里点「交回主代理」送进来的结论，形状同 <see cref="Narration"/>：
     /// 一条货真价实的消息，只是渲染成一张独立卡片。
@@ -331,6 +338,20 @@ public static class ChatMessageAnnotations
     /// <returns>是为 true</returns>
     public static bool IsGroupDelivery(ChatMessage message) =>
         message.AdditionalProperties?.ContainsKey(GroupDelivery) == true;
+
+    /// <summary>给一条目标模式注入盖上标记（控制器落进历史前调）。就地写</summary>
+    /// <param name="message">注入消息</param>
+    public static void MarkGoalModeInjection(ChatMessage message)
+    {
+        message.AdditionalProperties ??= new AdditionalPropertiesDictionary();
+        message.AdditionalProperties[GoalModeInjection] = true;
+    }
+
+    /// <summary>是不是目标模式注入（UI 据此画成旁白）</summary>
+    /// <param name="message">消息</param>
+    /// <returns>是为 true</returns>
+    public static bool IsGoalModeInjection(ChatMessage message) =>
+        message.AdditionalProperties?.ContainsKey(GoalModeInjection) == true;
 
     /// <summary>给一条群成员私聊盖上标记。就地写</summary>
     /// <param name="message">私聊消息</param>

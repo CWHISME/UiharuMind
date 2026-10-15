@@ -1,5 +1,6 @@
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Chat.WakeLoops;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.Configs;
@@ -67,7 +68,7 @@ public sealed class GroupAwayController
         _settings = settings ?? (() => GroupAwaySettings.From(AgentSettingConfig.Current));
         _delay = delay ?? Task.Delay;
         _now = now ?? (() => DateTimeOffset.Now);
-        _artifactStamp = artifactStamp ?? ArtifactStampOf;
+        _artifactStamp = artifactStamp ?? (group => WakeLoop.StampOf(GroupArtifacts.CollectFor(group)));
         _coordinator.EpisodeEnded += OnEpisodeEnded;
         _coordinator.UserPosted += OnUserPosted;
         _coordinator.UserPostAppended += OnUserPostAppended;
@@ -256,7 +257,7 @@ public sealed class GroupAwayController
         ChatSession avatar;
         lock (_sync)
         {
-            if (_sessions.GetValueOrDefault(group.SessionId) is not { IsEnded: false, IsAvatarRunning: true, } session)
+            if (_sessions.GetValueOrDefault(group.SessionId) is not { IsEnded: false, IsRunning: true, } session)
                 return;
             avatar = session.Avatar;
         }
@@ -371,7 +372,7 @@ public sealed class GroupAwayController
         {
             if (session.IsEnded) return;
             session.CarryNote(note);
-            avatarRunning = session.IsAvatarRunning;
+            avatarRunning = session.IsRunning;
             if (avatarRunning) session.WakePending = true;
             // 与空闲保险丝借同一上限：连续等后台太久，真卡死了也要醒一次，不额外加配置。
             // 硬叫醒后计数清零，重新开始等——后台还不交回就再等一轮，不连着吵
@@ -400,7 +401,7 @@ public sealed class GroupAwayController
             if (session.IsEnded) return;
             session.CancelDelay();
             session.CarryNote(note);
-            if (session.IsAvatarRunning)
+            if (session.IsRunning)
             {
                 // 化身还在跑：多半是它自己那句开的一波已经收场。跑完再叫
                 session.WakePending = true;
@@ -414,7 +415,7 @@ public sealed class GroupAwayController
                 fuse = EGroupAwayEndReason.TurnsFuse;
             else
             {
-                session.IsAvatarRunning = true;
+                session.IsRunning = true;
                 session.AvatarTurns++;
                 note = session.TakeNote();
             }
@@ -466,7 +467,7 @@ public sealed class GroupAwayController
         bool ended;
         lock (_sync)
         {
-            session.IsAvatarRunning = false;
+            session.IsRunning = false;
             pending = session.WakePending;
             session.WakePending = false;
             ended = session.IsEnded;
@@ -571,7 +572,6 @@ public sealed class GroupAwayController
         lock (_sync)
         {
             if (session.IsEnded) return;
-            session.CancelDelay();
             session.CarryNote(note);
             mark = session.Avatar.History.Count;
             token = session.BeginDelay(_now() + PrivateResumeDelay);
@@ -583,14 +583,7 @@ public sealed class GroupAwayController
 
     private async Task DelayThenResumeAsync(GroupAwaySession session, int mark, CancellationToken token)
     {
-        try
-        {
-            await _delay(PrivateResumeDelay, token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            return;
-        }
+        if (!await WakeLoop.WaitAsync(_delay, PrivateResumeDelay, token).ConfigureAwait(false)) return;
 
         bool regroup;
         lock (_sync)
@@ -629,7 +622,6 @@ public sealed class GroupAwayController
         lock (_sync)
         {
             if (session.IsEnded) return;
-            session.CancelDelay();
             session.CarryNote(note);
             token = session.BeginDelay(_now() + delay);
         }
@@ -640,19 +632,10 @@ public sealed class GroupAwayController
 
     private async Task DelayThenWakeAsync(GroupAwaySession session, TimeSpan delay, CancellationToken token)
     {
-        try
-        {
-            await _delay(delay, token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            return;
-        }
-
+        if (!await WakeLoop.WaitAsync(_delay, delay, token).ConfigureAwait(false)) return;
         lock (_sync)
         {
-            if (token.IsCancellationRequested || session.IsEnded) return;
-            session.CancelDelay();
+            if (!session.TryTakeDue(token)) return;
         }
 
         // 到点时群正在跑一波：那一波收场会叫醒化身，提示留着随那次带上
@@ -674,7 +657,7 @@ public sealed class GroupAwayController
             if (session.IsEnded) return;
             session.End(reason, summary);
             _sessions.Remove(session.Group.SessionId);
-            avatarRunning = session.IsAvatarRunning;
+            avatarRunning = session.IsRunning;
         }
 
         RaiseStatusChanged(session.Group.SessionId);
@@ -695,14 +678,7 @@ public sealed class GroupAwayController
 
         _coordinator.AppendAwayReceipt(session.Group,
             session.EndSummary.Length > 0 ? session.EndSummary : GroupAvatarTranscript.AwayEndedText, receipt.ToJson());
-        try
-        {
-            Ended?.Invoke(receipt);
-        }
-        catch (Exception e)
-        {
-            Log.Error($"Group away ended handler failed: {e}");
-        }
+        WakeLoop.Raise(Ended, receipt, "Group away ended");
     }
 
     // 化身这一轮已停稳，但用户可能正私聊它：读不出就不列，回执照出
@@ -743,26 +719,7 @@ public sealed class GroupAwayController
         return indices;
     }
 
-    private string SafeStamp(ChatSession group)
-    {
-        try
-        {
-            return _artifactStamp(group);
-        }
-        catch (Exception e)
-        {
-            Log.Warning($"Group artifacts stamp failed: {e.Message}");
-            return string.Empty;
-        }
-    }
-
-    // 指纹 = 件数 + 最近一次改动：新建与再次改动都算有新产物
-    private static string ArtifactStampOf(ChatSession group)
-    {
-        IReadOnlyList<GroupArtifact> artifacts = GroupArtifacts.CollectFor(group);
-        DateTimeOffset latest = artifacts.Count == 0 ? DateTimeOffset.MinValue : artifacts.Max(x => x.LastWrite);
-        return $"{artifacts.Count}|{latest.UtcTicks}";
-    }
+    private string SafeStamp(ChatSession group) => WakeLoop.SafeStamp(_artifactStamp, group);
 
     private static string UserName => CharacterManager.Instance.UserCharacterName;
 
@@ -795,15 +752,5 @@ public sealed class GroupAwayController
         return note == null ? briefing : briefing + "\n\n" + note;
     }
 
-    private void RaiseStatusChanged(string groupId)
-    {
-        try
-        {
-            StatusChanged?.Invoke(groupId);
-        }
-        catch (Exception e)
-        {
-            Log.Error($"Group away status handler failed: {e}");
-        }
-    }
+    private void RaiseStatusChanged(string groupId) => WakeLoop.Raise(StatusChanged, groupId, "Group away status");
 }

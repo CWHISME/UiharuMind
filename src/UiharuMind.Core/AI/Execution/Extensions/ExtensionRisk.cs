@@ -69,6 +69,9 @@ public static class ExtensionRisk
             return DesktopRisk.RequiresApprovalInAllModes(inner) ? EExtensionRisk.AlwaysAsk : EExtensionRisk.Standard;
         }
 
+        // 目标模式的结束请求：不改任何盘，只请求收场——无人值守也得放行，否则模型结束不了目标模式
+        if (invocation.Extension == BuiltinExtensions.Goal) return EExtensionRisk.ReadOnly;
+
         if (BuiltinExtensions.Canonical(invocation.Extension) != null) return EExtensionRisk.Standard;
 
         return mcpReadOnly?.Invoke(invocation.Extension, invocation.Command) == true

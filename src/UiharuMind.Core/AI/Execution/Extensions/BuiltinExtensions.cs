@@ -34,6 +34,9 @@ internal sealed record BuiltinExtension(string Name, string Guide, IReadOnlyList
 {
     /// <summary>缺前提时的原因：照样列出，但调不了；能用为 null</summary>
     public string? Unavailable { get; init; }
+
+    /// <summary>隐藏扩展：不列在广告与帮助里，但可调用（目标模式专用，模型经注入消息得知）</summary>
+    public bool IsHidden { get; init; }
 }
 
 /// <summary>
@@ -90,6 +93,12 @@ public static class BuiltinExtensions
     /// <summary>音频：转写</summary>
     public const string AudioTranscribe = "transcribe";
 
+    /// <summary>目标模式（隐藏扩展）：模型自判结束目标模式。广告与帮助不列，只在目标模式开启时经注入消息告知</summary>
+    public const string Goal = "goal";
+
+    /// <summary>目标模式：结束（reason=done | needs_user，summary=给用户的交代）</summary>
+    public const string GoalEnd = "end";
+
     /// <summary>一次调用的完整写法，报错与工具描述共用</summary>
     public const string CallExample =
         """{"name": "browser.act", "args": {"action": "fill", "target": "e3", "value": "hello"}}""";
@@ -112,6 +121,7 @@ public static class BuiltinExtensions
         ],
         [Image] = [(ImageGenerate, ImageGenerationTool.ToolName)],
         [Audio] = [(AudioSynthesize, SynthesizeSpeechTool.ToolName), (AudioTranscribe, TranscribeAudioTool.ToolName)],
+        [Goal] = [(GoalEnd, EndGoalModeTool.ToolName)],
     };
 
     /// <summary>
@@ -129,12 +139,16 @@ public static class BuiltinExtensions
     };
 
     /// <summary>
-    /// 规范写法（不区分大小写地认）
+    /// 规范写法（不区分大小写地认）。隐藏扩展（<see cref="Goal"/>）不在广告名单里，这里单独认
     /// </summary>
     /// <param name="name">模型写的扩展名</param>
     /// <returns>内置扩展名；不是内置扩展为 null</returns>
-    public static string? Canonical(string name) =>
-        Names.FirstOrDefault(x => string.Equals(x, name.Trim(), StringComparison.OrdinalIgnoreCase));
+    public static string? Canonical(string name)
+    {
+        string wanted = name.Trim();
+        if (string.Equals(wanted, Goal, StringComparison.OrdinalIgnoreCase)) return Goal;
+        return Names.FirstOrDefault(x => string.Equals(x, wanted, StringComparison.OrdinalIgnoreCase));
+    }
 
     /// <summary>
     /// 命令的规范写法：认命令名，也认原工具名（模型照着旧习惯写 BrowserAct 时）
@@ -246,6 +260,17 @@ public static class BuiltinExtensions
             "transcribe 把音频文件转成文字，可选带 SRT 字幕。结果保存在草稿目录下。",
             Bind(Audio, tools));
     }
+
+    /// <summary>
+    /// 目标模式隐藏扩展：模型自判结束。广告与帮助不列（<see cref="IsHidden"/>），
+    /// 模型只在目标模式开启时经注入消息得知用法
+    /// </summary>
+    /// <returns>扩展</returns>
+    internal static BuiltinExtension CreateGoalMode() =>
+        new(Goal, string.Empty, Bind(Goal, [EndGoalModeTool.Create()]))
+        {
+            IsHidden = true,
+        };
 
     /// <summary>
     /// 列在名单里、这次却用不了的内置扩展（缺宿主之类）：帮助与调用都如实说原因

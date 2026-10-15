@@ -36,7 +36,7 @@
                                       IconName="stop" CurrentColor="Red"
                                       ToolTip.Tip="{loc:Loc GroupAwayEnd}"
                                       Command="{Binding ConfirmEndCommand}"
-                                      IsVisible="{Binding IsAway}" />
+                                      IsVisible="{Binding IsActive}" />
                     <ThemedIconButton Width="24" Height="24" VerticalAlignment="Center"
                                       IconName="settings"
                                       ToolTip.Tip="{loc:Loc GroupAwaySettingsTip}"

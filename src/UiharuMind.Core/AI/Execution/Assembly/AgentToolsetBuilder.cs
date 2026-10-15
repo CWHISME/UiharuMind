@@ -169,7 +169,10 @@ internal static class AgentToolsetBuilder
 
         if (rule.Allows(EAgentCapability.Extensions))
         {
-            IReadOnlyList<BuiltinExtension> builtins = Builtins(config, resources, imageMode, mountFiles);
+            List<BuiltinExtension> builtins = Builtins(config, resources, imageMode, mountFiles);
+            // 目标模式的隐藏扩展：只挂主代理场合（目标模式是主会话的事，子代理/群成员/化身不跑它）。
+            // 常驻可调用（模型经注入消息得知）、不进广告名单，因此不占 DisabledExtensions
+            if (scope == EAgentToolScope.Main) builtins.Add(BuiltinExtensions.CreateGoalMode());
             if (builtins.Count > 0 || resources.Mcp.Bridge != null)
             {
                 foreach (AITool tool in ExtensionMetaTools.Create(new ExtensionHub(builtins, resources.Mcp.Bridge)))
@@ -207,7 +210,7 @@ internal static class AgentToolsetBuilder
     /// <summary>
     /// 这次装配列出的内置扩展：角色没禁的都给（ADR 0079），缺前提的照样列出、调用时说明原因。
     /// </summary>
-    private static IReadOnlyList<BuiltinExtension> Builtins(AgentToolConfig config, AgentToolResources resources,
+    private static List<BuiltinExtension> Builtins(AgentToolConfig config, AgentToolResources resources,
         EReadImageMode imageMode, bool mountFiles)
     {
         List<BuiltinExtension> builtins = new();

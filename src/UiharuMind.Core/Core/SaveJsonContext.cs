@@ -3,6 +3,7 @@ using UiharuMind.Core.AI.Audio;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Character.CharacterCards;
 using UiharuMind.Core.AI.Embedding;
+using UiharuMind.Core.AI.Chat.Single.GoalMode;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Tools.Scheduler;
 using UiharuMind.Core.AI.ImageGeneration;
@@ -43,6 +44,8 @@ namespace UiharuMind.Core.Core;
 [JsonSerializable(typeof(McpTrustRecord))]
 [JsonSerializable(typeof(PromptSnippet))]
 [JsonSerializable(typeof(ScheduledAgentTask))]
+[JsonSerializable(typeof(GoalModeState))]
+[JsonSerializable(typeof(GoalModeScheduleRule))]
 [JsonSerializable(typeof(DownloadState))]
 [JsonSerializable(typeof(ModelManifest))]
 [JsonSerializable(typeof(BaseRemoteModelConfig))]
@@ -76,6 +79,7 @@ namespace UiharuMind.Core.Core;
 // 作为根类型出现过的泛型容器（Load/Save 直接传 List/Dictionary 的地方）
 [JsonSerializable(typeof(List<PromptSnippet>))]
 [JsonSerializable(typeof(List<ScheduledAgentTask>))]
+[JsonSerializable(typeof(List<GoalModeState>))]
 [JsonSerializable(typeof(List<McpTrustRecord>))]
 [JsonSerializable(typeof(List<string>))]
 [JsonSerializable(typeof(Dictionary<string, McpServerLocalState>))]

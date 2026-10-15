@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Character;
@@ -19,16 +18,12 @@ namespace UiharuMind.Features.Conversation.Group;
 /// 群右栏的离席块（ADR 0055）：常态只有一行（状态 + 化身 + 设置），点设置开弹窗填目标、提醒、模型与无限模式。
 /// 只在智能体群里有。状态跟着 <see cref="GroupAwayController.StatusChanged"/> 刷新，倒计时每秒走一格
 /// </summary>
-public sealed partial class GroupAwayViewData : ObservableObject, IDisposable
+public sealed partial class GroupAwayViewData : WakeLoopViewData
 {
     private readonly ChatSession _group;
     private readonly GroupAwayController _away;
-    private readonly IMessageService _messages;
-    private readonly Func<DateTimeOffset> _now;
-    private readonly DispatcherTimer _ticker = new() { Interval = TimeSpan.FromSeconds(1) };
     private GroupAwayStatus? _status;
     private SessionUsageStats? _avatarUsage; //化身会话还没建为 null
-    private bool _disposed; //投到 UI 线程的刷新可能在视图关掉之后才到
 
     [ObservableProperty]
     private string _goal = string.Empty;
@@ -47,19 +42,16 @@ public sealed partial class GroupAwayViewData : ObservableObject, IDisposable
     /// <param name="away">离席控制器；null 取应用里的那一个</param>
     /// <param name="now">当前时刻；null 取本地时间</param>
     public GroupAwayViewData(ChatSession group, IMessageService messages, GroupAwayController? away = null,
-        Func<DateTimeOffset>? now = null)
+        Func<DateTimeOffset>? now = null) : base(group.SessionId, messages, now)
     {
         _group = group;
-        _messages = messages;
         _away = away ?? GroupAwayController.Instance;
-        _now = now ?? (() => DateTimeOffset.Now);
         // 化身模型走会话模型组件的空态草稿：尚无化身会话，预选存在草稿里，开离席时带入
         ModelPicker = new SessionModelViewData(() => null, () => false, () => { });
         ModelPicker.Refresh();
         PreselectHostModel(group);
         _status = _away.StatusOf(group.SessionId);
         SyncAvatarUsage();
-        _ticker.Tick += (_, _) => OnPropertyChanged(nameof(CountdownLine));
         _away.StatusChanged += OnStatusChanged;
         SyncTicker();
     }
@@ -77,10 +69,7 @@ public sealed partial class GroupAwayViewData : ObservableObject, IDisposable
     public bool HasCustomAvatarCharacter => AvatarCharacterId != null;
 
     /// <summary>在离席</summary>
-    public bool IsAway => _status != null;
-
-    /// <summary>没在离席（弹窗里开始按钮的显隐）</summary>
-    public bool IsIdle => _status == null;
+    public override bool IsActive => _status != null;
 
     /// <summary>群的化身会话已建（化身标题点不点得开）；离席结束后会话还在，照样点得开</summary>
     public bool HasAvatar => _avatarUsage != null;
@@ -102,7 +91,7 @@ public sealed partial class GroupAwayViewData : ObservableObject, IDisposable
         && (Goal != _status.Goal || Reminder != (_status.Reminder ?? string.Empty) || Infinite != _status.IsInfinite);
 
     /// <summary>单行圆点的配色键（status-dot 按 Tag 选色）：没在离席灰色，离席中蓝色</summary>
-    public string DotTag => IsAway ? "Progress" : "Idle";
+    public string DotTag => IsActive ? "Progress" : "Idle";
 
     /// <summary>单行里的状态行：没在离席是待机文案，离席中是出手次数或化身正在看群</summary>
     public string StatusLine => _status switch
@@ -113,40 +102,22 @@ public sealed partial class GroupAwayViewData : ObservableObject, IDisposable
     };
 
     /// <summary>延迟唤醒的倒计时；没在等为空。等成员后台时显示等待文案——那是兜底重判的时刻，化身到点不一定出来</summary>
-    public string CountdownLine
-    {
-        get
-        {
-            if (_status?.WaitingBackground == true) return Loc.Text(LangKey.GroupAwayWaitingBackground);
-            return _status?.WakeAt is { } wakeAt
-                ? Loc.Text(LangKey.GroupAwayCountdownFormat, CountdownText(wakeAt - _now()))
-                : string.Empty;
-        }
-    }
+    public override string CountdownLine => _status?.WaitingBackground == true
+        ? Loc.Text(LangKey.GroupAwayWaitingBackground)
+        : CountdownOf(LangKey.GroupAwayCountdownFormat);
 
-    /// <summary>有没有倒计时（「立即唤醒」与倒计时行显隐）</summary>
-    public bool HasCountdown => _status?.WakeAt != null;
+    /// <inheritdoc />
+    protected override DateTimeOffset? WakeAt => _status?.WakeAt;
 
-    /// <summary>
-    /// 倒计时的写法：不足一小时写「分:秒」，否则「时:分:秒」；过了点按 0 算
-    /// </summary>
-    /// <param name="remaining">剩余时间</param>
-    /// <returns>文本</returns>
-    public static string CountdownText(TimeSpan remaining)
-    {
-        if (remaining < TimeSpan.Zero) remaining = TimeSpan.Zero;
-        return remaining.TotalHours >= 1
-            ? $"{(int)remaining.TotalHours}:{remaining.Minutes:00}:{remaining.Seconds:00}"
-            : $"{remaining.Minutes}:{remaining.Seconds:00}";
-    }
+    /// <inheritdoc />
+    protected override LangKey EndConfirmKey => LangKey.GroupAwayEndConfirm;
 
     /// <summary>摘掉订阅、停掉倒计时</summary>
-    public void Dispose()
+    public override void Dispose()
     {
-        _disposed = true;
         _away.StatusChanged -= OnStatusChanged;
         ModelPicker.Dispose();
-        _ticker.Stop();
+        base.Dispose();
     }
 
     [RelayCommand]
@@ -243,7 +214,7 @@ public sealed partial class GroupAwayViewData : ObservableObject, IDisposable
     /// <param name="sessionId">报用量的会话</param>
     public void OnSessionUsageReported(string sessionId)
     {
-        if (_disposed) return;
+        if (IsDisposed) return;
         if (_avatarUsage == null)
         {
             // 化身会话可能是这一拍才建出来（第一次离席）：实例还没建，补建并读数
@@ -255,23 +226,11 @@ public sealed partial class GroupAwayViewData : ObservableObject, IDisposable
         OnPropertyChanged(nameof(HasAvatarUsage));
     }
 
-    [RelayCommand]
-    private void End() => _away.End(_group.SessionId);
+    /// <inheritdoc />
+    protected override void EndCore() => _away.End(_group.SessionId);
 
-    /// <summary>右栏停止按钮：确认后结束离席</summary>
-    /// <returns>确认并结束了为 true；取消为 false（设置弹窗据此决定关窗时机）</returns>
-    public async Task<bool> ConfirmEndAsync()
-    {
-        if (!await _messages.ConfirmAsync(Loc.Text(LangKey.GroupAwayEndConfirm))) return false;
-        End();
-        return true;
-    }
-
-    [RelayCommand]
-    private Task ConfirmEnd() => ConfirmEndAsync();
-
-    [RelayCommand]
-    private void WakeNow() => _away.WakeNow(_group.SessionId);
+    /// <inheritdoc />
+    protected override void WakeNowCore() => _away.WakeNow(_group.SessionId);
 
     [RelayCommand]
     private void OpenAvatar()
@@ -291,25 +250,18 @@ public sealed partial class GroupAwayViewData : ObservableObject, IDisposable
             ModelPicker.SelectedOption = match;
     }
 
-    private void OnStatusChanged(string groupId)
+    /// <inheritdoc />
+    protected override void ReloadStatus() => _status = _away.StatusOf(_group.SessionId);
+
+    /// <inheritdoc />
+    protected override void OnStatusReloaded()
     {
-        if (groupId != _group.SessionId) return;
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (_disposed) return;
-            _status = _away.StatusOf(_group.SessionId);
-            OnPropertyChanged(nameof(IsAway));
-            OnPropertyChanged(nameof(IsIdle));
-            OnPropertyChanged(nameof(IsAvatarRunning));
-            OnPropertyChanged(nameof(CanEditGoal));
-            OnPropertyChanged(nameof(HasChanges));
-            OnPropertyChanged(nameof(DotTag));
-            OnPropertyChanged(nameof(StatusLine));
-            OnPropertyChanged(nameof(CountdownLine));
-            OnPropertyChanged(nameof(HasCountdown));
-            SyncAvatarUsage();
-            SyncTicker();
-        });
+        OnPropertyChanged(nameof(IsAvatarRunning));
+        OnPropertyChanged(nameof(CanEditGoal));
+        OnPropertyChanged(nameof(HasChanges));
+        OnPropertyChanged(nameof(DotTag));
+        OnPropertyChanged(nameof(StatusLine));
+        SyncAvatarUsage();
     }
 
     // 化身会话在第一次离席时才建，之后跨离席保留：没建过的每次状态变化再找一次
@@ -326,11 +278,5 @@ public sealed partial class GroupAwayViewData : ObservableObject, IDisposable
 
         _avatarUsage.Refresh();
         OnPropertyChanged(nameof(HasAvatarUsage));
-    }
-
-    private void SyncTicker()
-    {
-        if (HasCountdown) _ticker.Start();
-        else _ticker.Stop();
     }
 }
