@@ -51,7 +51,7 @@
                         BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}"
                         CornerRadius="8" Padding="8">
                     <panels:ContextUsagePanel DataContext="{Binding Conversation.Usage.Context}"
-                                                ShowDescriptions="False" />
+                                                ShowDetails="False" />
                 </Border>
                 <!-- 群壳：下块换成成员列表。能力/子代理/会话详情讲的都是「一个角色的会话」，群壳挂的是占位角色 -->
                 <!-- 焦点变化不自动滚（默认 true 会在点按半截露出的成员/产物行时把滚动条拽走） -->

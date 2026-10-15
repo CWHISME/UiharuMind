@@ -21,19 +21,19 @@ namespace UiharuMind.Features.Conversation.SidePanels;
 public partial class ContextUsagePanel : UserControl
 {
     /// <summary>
-    /// 是否显示水位说明文字（交接/折叠/截断）。
-    /// 右侧栏常驻时关掉，描述只在输入框 ToolTip 里弹出
+    /// 是否显示补充信息（水位说明、思考统计等）。
+    /// 右侧栏常驻时关掉，完整内容只在输入框 ToolTip 里弹出
     /// </summary>
-    public static readonly StyledProperty<bool> ShowDescriptionsProperty =
-        AvaloniaProperty.Register<ContextUsagePanel, bool>(nameof(ShowDescriptions), defaultValue: true);
+    public static readonly StyledProperty<bool> ShowDetailsProperty =
+        AvaloniaProperty.Register<ContextUsagePanel, bool>(nameof(ShowDetails), defaultValue: true);
 
     /// <summary>
-    /// 是否显示水位说明文字（交接/折叠/截断）
+    /// 是否显示补充信息（水位说明、思考统计等）
     /// </summary>
-    public bool ShowDescriptions
+    public bool ShowDetails
     {
-        get => GetValue(ShowDescriptionsProperty);
-        set => SetValue(ShowDescriptionsProperty, value);
+        get => GetValue(ShowDetailsProperty);
+        set => SetValue(ShowDetailsProperty, value);
     }
 
     public ContextUsagePanel()

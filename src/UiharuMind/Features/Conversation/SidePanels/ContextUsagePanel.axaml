@@ -114,22 +114,25 @@
                    ToolTip.Tip="{Binding CachedText}" />
     </controls:BaselineStackPanel>
 
-    <!-- 交接/折叠/截断三条水位的说明。属描述性文字：右侧栏常驻时藏掉（ShowDescriptions=False），
+    <!-- 交接/折叠/截断三条水位的说明。属补充信息：右侧栏常驻时藏掉（ShowDetails=False），
          只在输入框 ToolTip 弹出时完整显示 -->
     <Grid IsVisible="{Binding HasData}">
         <TextBlock Classes="muted" TextWrapping="Wrap" FontSize="11"
-                   IsVisible="{Binding #Root.ShowDescriptions}"
+                   IsVisible="{Binding #Root.ShowDetails}"
                    Text="{Binding ThresholdText}" />
     </Grid>
 
-    <!-- 思考统计:只显示会话累计数量,不摆比率(比率底数是累计消耗,跟「上下文」的最近占用不是一回事)。
+    <!-- 思考统计:属补充信息,跟水位说明一起只在完整显示时出现（ShowDetails）。
+         只显示会话累计数量,不摆比率(比率底数是累计消耗,跟「上下文」的最近占用不是一回事)。
          放在本轮/累计之前,它是累计口径但只报一个数,不跟下面两行排成同一形状 -->
+    <!-- <Grid IsVisible="{Binding #Root.ShowDetails}"> -->
     <controls:BaselineStackPanel Spacing="8"
           IsVisible="{Binding ReasoningText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <TextBlock Classes="muted" Text="{loc:Loc ContextReasoningLabel}" />
         <TextBlock HorizontalAlignment="Right" Text="{Binding ReasoningText}" TextTrimming="CharacterEllipsis"
                    ToolTip.Tip="{Binding ReasoningText}" />
     </controls:BaselineStackPanel>
+    <!-- </Grid> -->
 
     <controls:BaselineStackPanel Spacing="8"
           IsVisible="{Binding TurnText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
