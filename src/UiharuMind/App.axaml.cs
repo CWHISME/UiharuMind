@@ -202,6 +202,7 @@ public partial class App : Application, ILogger, IDisposable
 #endif
 
         DeliverTrayFunc();
+        MacDockReopenService.Install(this, UIManager.GetVisibleMacRegularModeWindows, DummyWindow.LaunchMainWindow);
         UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("tray");
         _ = Services.GetRequiredService<ApplicationUpdateService>().CheckForUpdatesAsync();
         // 引擎新版本：错开启动高峰再查，查到了在设置入口与引擎卡上提示

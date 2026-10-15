@@ -1,3 +1,4 @@
+using System.Linq;
 /****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
@@ -189,15 +190,19 @@ public static class UIManager
         _activationPolicy.SetRegularMode(HasVisibleMacRegularModeWindow());
     }
 
-    private static bool HasVisibleMacRegularModeWindow()
+    private static bool HasVisibleMacRegularModeWindow() => GetVisibleMacRegularModeWindows().Any();
+
+    /// <summary>
+    /// 当前看得见、且让应用占着 Dock 图标的窗口（未最小化）
+    /// </summary>
+    /// <returns>这些窗口，无先后次序</returns>
+    public static IEnumerable<UiharuWindowBase> GetVisibleMacRegularModeWindows()
     {
         foreach (var win in WindowRegistry.All())
         {
             if (win.ContributesToMacRegularMode && win.IsVisible && win.WindowState != WindowState.Minimized)
-                return true;
+                yield return win;
         }
-
-        return false;
     }
 
     /// <summary>
