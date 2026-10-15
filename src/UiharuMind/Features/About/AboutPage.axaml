@@ -41,7 +41,7 @@
                                      TextWrapping="Wrap" />
                 <u:Divider Content="{loc:Loc Thanks}" FontSize="20" />
                 <StackPanel Margin="0,10">
-                    <SelectableTextBlock HorizontalAlignment="Center" Text="{loc:Loc AboutDefaultIconCredit}" />
+                    <!-- <SelectableTextBlock HorizontalAlignment="Center" Text="{loc:Loc AboutDefaultIconCredit}" /> -->
                     <SelectableTextBlock HorizontalAlignment="Center" Text="{loc:Loc AboutFontCredit}" />
                     <u:Divider Margin="0,10" />
                 </StackPanel>
