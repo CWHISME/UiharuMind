@@ -53,7 +53,7 @@ public class RuntimeEngineHeaderLayoutTests : IDisposable
                 Dispatcher.UIThread.RunJobs();
                 // 最挤的情形：长版本名 + 推荐徽标 + 发布说明按钮都在。
                 // 构造里有个异步回填（本地版本读完会重设选中），必须在它跑完后再指定，否则会被盖掉
-                string? suffix = new[] { "-bin-macos-arm64", "-bin-macos-x64", "-bin-win-vulkan-x64", "-bin-ubuntu-vulkan-x64" }
+                string? suffix = new[] { "-bin-macos-arm64", "-bin-macos-x64", "-bin-win-vulkan-x64", "-bin-ubuntu-vulkan-x64", "-bin-ubuntu-vulkan-arm64" }
                     .FirstOrDefault(x => LLamaCppVariants.IsRecommended("llama-b1" + x + ".zip"));
                 data.Engine.SelectedVersion = new VersionInfo
                     { Name = $"llama-b11443{suffix ?? "-bin-macos-arm64"}" };

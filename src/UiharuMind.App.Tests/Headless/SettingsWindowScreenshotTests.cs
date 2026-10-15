@@ -100,7 +100,7 @@ public class SettingsWindowScreenshotTests : IDisposable
     {
         HeadlessUi.Run(() =>
         {
-            string? suffix = new[] { "-bin-macos-arm64", "-bin-macos-x64", "-bin-win-vulkan-x64", "-bin-ubuntu-vulkan-x64" }
+            string? suffix = new[] { "-bin-macos-arm64", "-bin-macos-x64", "-bin-win-vulkan-x64", "-bin-ubuntu-vulkan-x64", "-bin-ubuntu-vulkan-arm64" }
                 .FirstOrDefault(x => LLamaCppVariants.IsRecommended("llama-b1" + x + ".zip"));
             if (suffix == null) return;
             SettingsWindow window = BuildWindow();
@@ -183,6 +183,7 @@ public class SettingsWindowScreenshotTests : IDisposable
 
     private static void Capture(SettingsWindow window, string outDir, string pageName)
     {
+        Directory.CreateDirectory(outDir); // 单跑任一测试也要能落盘（EverySettingsPage 之外的用例只在这里建目录）
         using Bitmap frame = Avalonia.Headless.HeadlessWindowExtensions.CaptureRenderedFrame(window)
             ?? throw new InvalidOperationException($"CaptureRenderedFrame 返回空帧：{pageName}");
         Assert.True(frame.PixelSize.Width >= 760 && frame.PixelSize.Height >= 520,
