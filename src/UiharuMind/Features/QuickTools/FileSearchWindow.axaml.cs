@@ -1,10 +1,12 @@
 using System;
 using System.IO;
 using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Windows;
@@ -31,12 +33,27 @@ public partial class FileSearchWindow : UiharuWindowBase
         AddHandler(DragDrop.DropEvent, OnDrop);
 
         ViewModel.Initialize();
+        ViewModel.Breadcrumb.CollectionChanged += (_, _) => ScrollBreadcrumbToEnd();
     }
 
     protected override void OnPreShow()
     {
         base.OnPreShow();
         this.SetScreenCenterPosition();
+        ScrollBreadcrumbToEnd();
+    }
+
+    // 面包屑超长时左侧被截：滚动条藏了（Hidden 照样能滚），段一变就滚到底，
+    // 永远露出最右侧的当前目录。排版没好时 Extent 还是旧的，丢到 Loaded 那一拍再滚
+    private void ScrollBreadcrumbToEnd()
+    {
+        var scroller = this.FindControl<ScrollViewer>("BreadcrumbScroller");
+        if (scroller == null) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            scroller.Offset = new Vector(
+                Math.Max(0, scroller.Extent.Width - scroller.Viewport.Width), 0);
+        }, DispatcherPriority.Loaded);
     }
 
     // 点面包屑任一段回退到那个父目录（DataContext 是 DirSegment；末级的当前目录不跳）

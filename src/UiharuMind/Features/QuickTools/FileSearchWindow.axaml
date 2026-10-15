@@ -28,7 +28,8 @@
     <Grid RowDefinitions="Auto,*,Auto" Margin="10">
 
         <!-- Row 0: 路径工具条（占满顶部通栏）：连段路径条（右端含收藏星标）+ 历史下拉 + 选目录 + 打开目录。
-             路径条高度钉死 28：根目录这种只有一段时不再塌。横向滚动拿掉，超长从右截断 -->
+             路径条高度钉死 28：根目录这种只有一段时不再塌。超长时左侧被截、永远露出最右侧当前目录：
+             滚动条藏起来（Hidden 照样能滚），面包屑一变就自动滚到底 -->
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="4" Margin="0,0,0,5">
             <Border Grid.Column="0"
                     Background="{DynamicResource SemiGrey1}"
@@ -36,7 +37,11 @@
                     VerticalAlignment="Center">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="2">
                     <!-- 连段路径条：一段一个文件夹图标+名，当前级加粗，不断开 -->
-                    <ItemsControl Grid.Column="0" ItemsSource="{Binding Breadcrumb}" VerticalAlignment="Center">
+                    <ScrollViewer Grid.Column="0" Name="BreadcrumbScroller"
+                                  HorizontalScrollBarVisibility="Hidden"
+                                  VerticalScrollBarVisibility="Disabled"
+                                  VerticalAlignment="Center">
+                        <ItemsControl ItemsSource="{Binding Breadcrumb}" VerticalAlignment="Center">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <StackPanel Orientation="Horizontal"/>
@@ -64,6 +69,7 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+                    </ScrollViewer>
                     <!-- 收藏星标：路径条右端。金色=已收藏，灰色=未收藏（与角色列表同口径） -->
                     <icons:ThemedIconButton Grid.Column="1" Classes="row-action" CornerRadius="6"
                                             IconName="star"
@@ -196,15 +202,15 @@
                         </ToolTip.Tip>
                     </icons:ThemedIconToggleButton>
                     <icons:ThemedIconToggleButton Grid.Column="2" Width="24" Height="24" VerticalAlignment="Center"
-                                                  IconName="scan-text"
-                                                  CheckedForeground="{DynamicResource SemiBlue5}"
-                                                  IsChecked="{Binding IsRegexMode, Mode=TwoWay}"
-                                                  ToolTip.Tip="{loc:Loc FileSearchRegexMode}"/>
+                                                   IconName="regex"
+                                                   CheckedForeground="{DynamicResource SemiBlue5}"
+                                                   IsChecked="{Binding IsRegexMode, Mode=TwoWay}"
+                                                   ToolTip.Tip="{loc:Loc FileSearchRegexMode}"/>
                     <icons:ThemedIconToggleButton Grid.Column="3" Width="24" Height="24" VerticalAlignment="Center"
-                                                  IconName="type"
-                                                  CheckedForeground="{DynamicResource SemiBlue5}"
-                                                  IsChecked="{Binding IsCaseSensitive, Mode=TwoWay}"
-                                                  ToolTip.Tip="{loc:Loc FileSearchCaseSensitive}"/>
+                                                   IconName="case-sensitive"
+                                                   CheckedForeground="{DynamicResource SemiBlue5}"
+                                                   IsChecked="{Binding IsCaseSensitive, Mode=TwoWay}"
+                                                   ToolTip.Tip="{loc:Loc FileSearchCaseSensitive}"/>
                     <icons:ThemedIconToggleButton Grid.Column="4" Width="24" Height="24" VerticalAlignment="Center"
                                                   IconName="sparkles"
                                                   CheckedForeground="{DynamicResource SemiBlue5}"
