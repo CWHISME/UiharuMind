@@ -22,7 +22,6 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Threading;
 using System;
-using System.Diagnostics;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Core.AI.Audio;
@@ -102,7 +101,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     [ObservableProperty] private string _runningElapsedText = string.Empty;
 
     private DispatcherTimer? _runTimer; //跑着的时候才存在，每秒把时长刷进界面
-    private readonly Stopwatch _runStopwatch = new();
+    private DateTimeOffset _runStartedAt; //本轮起点(墙钟)：自己那轮是发送时刻，外驱那轮从会话本体取
 
     /// <summary>
     /// 发送/插话。
@@ -954,7 +953,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// 运行计时与 <see cref="IsGenerating"/> 同步：进入运行态就从此刻起每秒刷一次，
     /// 回到空闲就停掉并清空。起点是「发送」而不是「首 token」——装配那几秒也算在内，
     /// 否则模型迟迟不回时显示的时间对不上用户的体感。
-    /// 外驱那一轮在打开窗口之前就开跑了，起点只能是装载那一刻，见装载处的补通知。
+    /// 外驱那一轮在打开窗口之前就开跑了，起点从会话本体取（<c>TurnDriver</c> 起跑时盖章），
+    /// 取不到才按装载时刻起算。
     /// </summary>
     private void SyncRunTimer()
     {
@@ -967,7 +967,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         if (IsGenerating)
         {
             if (_runTimer != null) return; //已经在计了：起点保持发送那一刻，不重来
-            _runStopwatch.Restart();
+            DateTimeOffset startedAt = CurrentSession?.CurrentRunStartedAt ?? DateTimeOffset.Now;
+            if (startedAt > DateTimeOffset.Now) startedAt = DateTimeOffset.Now;
+            _runStartedAt = startedAt;
             RefreshRunningElapsed();
             _runTimer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background,
                 (_, _) => RefreshRunningElapsed());
@@ -977,13 +979,12 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         {
             _runTimer?.Stop();
             _runTimer = null;
-            _runStopwatch.Reset();
             RunningElapsedText = string.Empty;
         }
     }
 
     private void RefreshRunningElapsed() =>
-        RunningElapsedText = FormatRunElapsed(_runStopwatch.Elapsed);
+        RunningElapsedText = FormatRunElapsed(DateTimeOffset.Now - _runStartedAt);
 
     /// <summary>
     /// 时长排版：语言无关，只放数字（60 秒内 <c>12s</c>，1 小时内 <c>01:23</c>，再长 <c>1:02:03</c>）。

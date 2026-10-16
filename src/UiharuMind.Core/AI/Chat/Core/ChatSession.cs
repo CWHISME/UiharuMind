@@ -304,6 +304,14 @@ public class ChatSession
     public DateTimeOffset? TurnStartedAt { get; set; }
 
     /// <summary>
+    /// 本轮开始时刻（整轮的标记）。每轮由 <c>TurnDriver</c> 起跑时盖章、轮末清除——
+    /// 与 <see cref="TurnStartedAt"/> 分工：那一个是给落盘定请求消息时间的<b>一次性凭据</b>
+    /// （每次服务调用都要消费一次），这一个轮内不清，中途打开窗口的外驱观察者读到的才是真起点。
+    /// </summary>
+    [JsonIgnore]
+    public DateTimeOffset? CurrentRunStartedAt { get; set; }
+
+    /// <summary>
     /// 本轮检索到的知识库片段。由 <c>MemoryContextProvider</c> 盖章，
     /// <c>SessionChatHistoryProvider</c> 落盘时取用后清空——与 <see cref="TurnStartedAt"/>
     /// 同一套一次性凭据模式。

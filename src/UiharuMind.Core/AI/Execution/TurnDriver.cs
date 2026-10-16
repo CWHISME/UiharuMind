@@ -232,6 +232,9 @@ public sealed class TurnDriver : IDisposable
             // 给本轮的请求消息盖上时间:框架交给持久化的是丢了时间戳的副本,
             // 而落盘发生在一轮跑完之后(见 ChatSession.TurnStartedAt)
             session.TurnStartedAt = DateTimeOffset.Now;
+            // 外驱观察窗的计时起点:与请求消息共用同一时刻,但轮内不清(那一个是每次落盘都要消费的一次性凭据),
+            // 轮末才清,见 finally
+            session.CurrentRunStartedAt = session.TurnStartedAt;
 
             while (firstRound || nextMessages is { Count: > 0 })
             {
@@ -350,6 +353,7 @@ public sealed class TurnDriver : IDisposable
             IsRunning = false;
             _runCancellation = null;
             _activeSession = null;
+            session.CurrentRunStartedAt = null; //轮次标记随轮末清除,下一轮起跑重盖
             _notify?.Invoke(new TurnNotice(ETurnNotice.Ended));
             runScope?.Dispose(); //收尾的最后一步,见上面声明处
         }
