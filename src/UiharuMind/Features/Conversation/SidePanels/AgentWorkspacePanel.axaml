@@ -39,13 +39,16 @@
                     <!-- 状态点的配色由 Tag 选,所以一个 Border 绑 key 即可;
                          文案那两条仍是两个 TextBlock——loc 标记要能跟着切语言重取,换成绑定字符串就跟不了 -->
                     <Border Classes="status-dot" Tag="{Binding Conversation.RunStatusKey}" />
-                    <TextBlock FontSize="12" Text="{loc:Loc AgentStatusRunning}"
+                    <TextBlock FontSize="12" Text="{loc:Loc AgentStatusRunning}" 
+                               VerticalAlignment="Center"
                                IsVisible="{Binding Conversation.IsGenerating}" />
                     <!-- 第三档:本会话闲着但名下的后台子代理还没回来。少了它,用户看到的是「空闲」,
                          而实际上还有活在跑——这正是默认后台化之后的常态 -->
                     <TextBlock FontSize="12" Text="{loc:Loc AgentStatusBackgroundWork}"
+                               VerticalAlignment="Center"
                                IsVisible="{Binding Conversation.HasBackgroundWorkOnly}" />
                     <TextBlock FontSize="12" Text="{loc:Loc AgentStatusIdle}"
+                               VerticalAlignment="Center"
                                IsVisible="{Binding !Conversation.HasPendingWork}" />
                 </StackPanel>
                 <!-- 目标模式入口：运行状态对面、整卡右上角。与头像无关，只对 agent 档单聊会话显示 -->
