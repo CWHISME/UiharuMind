@@ -100,6 +100,23 @@ public static class ReadLineNumbers
     }
 
     /// <summary>
+    /// 模型删了行号却留下其后的制表符：每个非空行都以制表符开头才算，剥掉一个。
+    /// 调用方同样须先按原样匹配、找不到才用剥过的（实测这类失败占 Edit 失败的四成）
+    /// </summary>
+    /// <param name="text">oldString 或 newString</param>
+    /// <param name="stripped">每行剥掉一个行首制表符后的文本</param>
+    /// <returns>是否剥过</returns>
+    public static bool TryStripCopiedSeparator(string text, out string stripped)
+    {
+        stripped = text;
+        string[] lines = text.Split('\n');
+        if (!lines.Any(line => line.Length > 0) || lines.Any(line => line.Length > 0 && line[0] != Separator)) return false;
+
+        stripped = string.Join('\n', lines.Select(line => line.Length > 0 ? line[1..] : line));
+        return true;
+    }
+
+    /// <summary>
     /// oldString 已确认是从 Read 抄来的之后，剥掉 newString 里带前缀的那些行：
     /// 模型常只给抄来的行留着前缀、新写的行不带，或者随手编个行号，所以不要求每行都带、也不要求连续
     /// </summary>

@@ -63,7 +63,7 @@ public class ToolOutputCapTests : IDisposable
             "渲染后的正文超出预算一行以上");
     }
 
-    /// <summary>显式 head 按点名的行数给满：800 行代码（约 40KB）超过默认 16KB，但在显式上限内</summary>
+    /// <summary>显式 limit 按点名的行数给满：800 行代码（约 40KB）超过默认 16KB，但在显式上限内</summary>
     [Fact]
     public async Task Read_ExplicitHead_IsHonoredBeyondDefaultBudget()
     {
@@ -71,7 +71,7 @@ public class ToolOutputCapTests : IDisposable
         await File.WriteAllLinesAsync(path, Enumerable.Range(1, 2000).Select(i => $"        var value{i} = Compute(value{i - 1});"),
             TestContext.Current.CancellationToken);
 
-        string result = await _tools.Read(path, head: 800, cancellationToken: TestContext.Current.CancellationToken);
+        string result = await _tools.Read(path, limit: 800, cancellationToken: TestContext.Current.CancellationToken);
 
         string[] lines = result.Split('\n');
         Assert.True(Encoding.UTF8.GetByteCount(result) > FileReader.MaxTotalBytes, "素材应超过默认预算");
@@ -106,39 +106,39 @@ public class ToolOutputCapTests : IDisposable
 
     /// <summary>
     /// 总量上限按 UTF-8 字节算,而不是字符——中文一个字符三字节,按字符算会让中文文件
-    /// 实际放进三四倍于标称的 token。传 head=4000 绕过行数限制,让显式 head 的字节上限先生效,并说明没读满。
+    /// 实际放进三四倍于标称的 token。传 limit=4000 绕过行数限制,让显式 limit 的字节上限先生效,并说明没读满。
     /// </summary>
     [Fact]
     public async Task Read_ChineseFile_IsCappedByBytesNotChars()
     {
         string path = Path.Combine(_dir, "chinese.md");
-        // 每行 100 个汉字 = 301 字节,4000 行约 1.2MB,传 head=4000 绕过行数限制
+        // 每行 100 个汉字 = 301 字节,4000 行约 1.2MB,传 limit=4000 绕过行数限制
         await File.WriteAllLinesAsync(path,
             Enumerable.Range(1, 4000).Select(_ => new string('测', 100)), TestContext.Current.CancellationToken);
 
-        string result = await _tools.Read(path, head: 4000, cancellationToken: TestContext.Current.CancellationToken);
+        string result = await _tools.Read(path, limit: 4000, cancellationToken: TestContext.Current.CancellationToken);
 
         string[] lines = result.Split('\n');
         Assert.Contains("续读传 offset=", lines[^2]);
-        Assert.Equal($"[单次最多返回 {FileReader.MaxExplicitBytes / 1024}KB，所传 head=4000 没读满]", lines[^1]);
+        Assert.Equal($"[单次最多返回 {FileReader.MaxExplicitBytes / 1024}KB，所传 limit=4000 没读满]", lines[^1]);
         Assert.True(lines.Length - 2 < 4000, $"应因字节上限提前截断,实际返回 {lines.Length - 2} 行");
         Assert.True(Encoding.UTF8.GetByteCount(result) < FileReader.MaxExplicitBytes + 1024,
             "截断后总字节应在上限量级内");
     }
 
     /// <summary>
-    /// head=-1 是全文读模式:绕过 1MB 字节上限,读完整个文件。
+    /// whole=true 是全文读模式:绕过 1MB 字节上限,读完整个文件。
     /// 用于需要完整理解文件以做重构的场景——分段读容易让模型忘了前面读了什么。
     /// </summary>
     [Fact]
-    public async Task Read_WithLimitNegativeOne_ReadsEntireFile()
+    public async Task Read_Whole_ReadsEntireFile()
     {
         string path = Path.Combine(_dir, "full.txt");
         // 3000 行 × 约 500 字节/行 = 1.5MB,超过 1MB 字节上限
         await File.WriteAllLinesAsync(path,
             Enumerable.Range(1, 3000).Select(i => new string('x', 480) + i), TestContext.Current.CancellationToken);
 
-        string result = await _tools.Read(path, head: -1, cancellationToken: TestContext.Current.CancellationToken);
+        string result = await _tools.Read(path, whole: true, cancellationToken: TestContext.Current.CancellationToken);
 
         // 全文读绕过字节上限,不应有截断提示
         Assert.DoesNotContain("[已截断：", result);
@@ -147,7 +147,7 @@ public class ToolOutputCapTests : IDisposable
         Assert.Contains("3000", result);
         // 总字节应超过 1MB(证明绕过了字节上限)
         Assert.True(Encoding.UTF8.GetByteCount(result) > FileReader.MaxTotalBytes,
-            "head=-1 应绕过字节上限,实际返回字节应超过上限");
+            "whole=true 应绕过字节上限,实际返回字节应超过上限");
     }
 
     /// <summary>

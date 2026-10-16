@@ -130,6 +130,19 @@ public static class FileEditPlanner
                 }
             }
 
+            // 删了行号却留着其后的制表符：每行多一个行首 \t。newString 也每行都带才剥，混着带的多半是新写的行，不动
+            if (located.Kind == ELocateResult.NotFound && ReadLineNumbers.TryStripCopiedSeparator(oldString, out string untabbedOld))
+            {
+                Location untabbed = EditLocator.Locate(text, lines, untabbedOld);
+                if (untabbed.Kind != ELocateResult.NotFound)
+                {
+                    located = untabbed;
+                    oldString = untabbedOld;
+                    if (ReadLineNumbers.TryStripCopiedSeparator(newString, out string untabbedNew)) newString = untabbedNew;
+                    strippedPrefixes = true;
+                }
+            }
+
             // 找不到、多处命中只属于这一条，其余照写；失败话术等写入后对着新文本出，行号才与磁盘对得上
             if (located.Kind != ELocateResult.Found)
             {

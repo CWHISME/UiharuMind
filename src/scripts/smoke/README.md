@@ -216,7 +216,7 @@ SMOKE_MODEL=Agnes-2.5-Flash-无思考 src/scripts/smoke/run.sh file-outline
 看 `outline.md`：
 
 - 第一问答的是 `OnSessionHistoryReplaced`，起止行与原文件一致
-- 用的是大纲或 Grep 的 `[位于 …]` 标注跳读，而不是从头一页页翻（Read 次数与 offset/head 是否只取那一段）
+- 用的是大纲或 Grep 的 `[位于 …]` 标注跳读，而不是从头一页页翻（Read 次数与 offset/limit 是否只取那一段）
 - 第二问的注释落在 `UnloadHistory` 方法体第一行前，Edit 一次成功
 
 ### research-project：研究一个陌生项目

@@ -136,8 +136,8 @@ internal static class FileOutline
             pruned = true;
         }
 
-        // 带上止行：模型能算出 head，只读这一段。行号套方括号，不与 Grep 的「行号:」「行号-」混淆
-        var sb = new StringBuilder("文件大纲（[起–止行] 结构，可传 offset 与 head 只读对应的段）：");
+        // 带上止行：模型能算出 limit，只读这一段。行号套方括号，不与 Grep 的「行号:」「行号-」混淆
+        var sb = new StringBuilder("文件大纲（[起–止行] 结构，可传 offset 与 limit 只读对应的段）：");
         if (shownThrough > 0) sb.Append("\n（上面已显示的第 1–").Append(shownThrough).Append(" 行里的结构不再列出）");
         foreach (OutlineEntry entry in entries.Take(maxEntries))
         {

@@ -35,13 +35,16 @@ internal sealed class FileReader
     /// <summary>
     /// 单次返回的总量上限，按 <b>UTF-8 字节</b>算而不是字符：中文约 1~1.5 字符/token，
     /// 按字符算实际能放进标称值三四倍的 token。与 Grep 的正文预算同为 16KB（约 4–5k token，代码约四五百行）：
-    /// 本地小模型的上下文经不起一次读掉近万；截断时附大纲，按行号再读要的段。要全文走 <c>limit=-1</c>。
+    /// 本地小模型的上下文经不起一次读掉近万；截断时附大纲，按行号再读要的段。要全文走 <see cref="WholeFile"/>。
     /// </summary>
     internal const int MaxTotalBytes = 16 * 1024;
 
+    /// <summary>limit 传它 = 读全文且不设字节上限（工具侧的 whole=true）</summary>
+    internal const int WholeFile = -1;
+
     /// <summary>
-    /// 显式传了 head 时的总量上限：模型点名要几行就尽量给满（800 行代码约 30KB），
-    /// 只防弱模型随手传 head=4000 这类一次吃掉几万 token 的读法
+    /// 显式传了 limit 时的总量上限：模型点名要几行就尽量给满（800 行代码约 30KB），
+    /// 只防弱模型随手传 limit=4000 这类一次吃掉几万 token 的读法
     /// </summary>
     internal const int MaxExplicitBytes = 64 * 1024;
 
@@ -81,7 +84,7 @@ internal sealed class FileReader
     /// </summary>
     /// <param name="filePath">模型给的路径</param>
     /// <param name="offset">起始行（从 1 起）；负数从文件末尾倒数</param>
-    /// <param name="limit">最多几行；-1 读全文且不设字节上限</param>
+    /// <param name="limit">最多几行；<see cref="WholeFile"/> 读全文且不设字节上限</param>
     /// <param name="ct">取消令牌</param>
     /// <returns>工具结果</returns>
     public Task<string> ReadAsync(string filePath, int offset, int? limit, CancellationToken ct) =>
@@ -92,7 +95,7 @@ internal sealed class FileReader
     /// </summary>
     /// <param name="filePath">模型给的路径</param>
     /// <param name="offset">起始行（从 1 起）；负数从文件末尾倒数</param>
-    /// <param name="limit">最多几行；-1 读全文且不设字节上限</param>
+    /// <param name="limit">最多几行；<see cref="WholeFile"/> 读全文且不设字节上限</param>
     /// <param name="outline">只要文件大纲，不要正文</param>
     /// <param name="ct">取消令牌</param>
     /// <returns>工具结果</returns>
@@ -109,7 +112,7 @@ internal sealed class FileReader
         if (outline)
         {
             string result = await ReadOutlineAsync(filePath, full, ct).ConfigureAwait(false);
-            return offset != 1 || limit != null ? result + "\n[outline 模式只返回大纲，已忽略 offset 与 head]" : result;
+            return offset != 1 || limit != null ? result + "\n[outline 模式只返回大纲，已忽略 offset 与 limit]" : result;
         }
 
         long size = new FileInfo(full).Length;
@@ -146,8 +149,8 @@ internal sealed class FileReader
 
         ReadWindow window = TakeWindow(lines.Skip(start - 1).Select(line => TextLines.Text(text, line)), limit, start);
         // 只在从头读、被截断时附大纲：此时模型还不知道文件长什么样；带 offset 翻页时它已经看过了。
-        // 自己传了 head 的，文件至少是所读的两倍长才附：head=50 读 120 行的文件翻一页就完，不值约 1k token；
-        // head=80 读 1500 行的文件却正需要它（实测模型常这样浅读一段就停）。
+        // 自己传了 limit 的，文件至少是所读的两倍长才附：limit=50 读 120 行的文件翻一页就完，不值约 1k token；
+        // limit=80 读 1500 行的文件却正需要它（实测模型常这样浅读一段就停）。
         // 流式读的大文件（>8MB）不附——多是日志与生成物，为它多扫一遍不值，只提示可以要
         string? outline = window.HasMore && start == 1 && (limit == null || lines.Count >= window.Lines.Count * 2)
             ? FileOutline.Render(filePath, lines.Select(line => TextLines.Text(text, line)), shownThrough: window.Lines.Count)
@@ -197,10 +200,10 @@ internal sealed class FileReader
 
     private static ReadWindow TakeWindow(IEnumerable<string> lines, int? limit, int startLine)
     {
-        // limit=-1：全文读模式，绕过字节上限。其余不传 limit 时套默认窗口，总量另设保险——
+        // WholeFile：全文读模式，绕过字节上限。其余不传 limit 时套默认窗口，总量另设保险——
         // 编码会话一次误读大文件就是几万 token，截断必须由工具侧兜底。
         // 预算连行号前缀一起算：数的是模型真拿到的字节
-        bool fullFile = limit == -1;
+        bool fullFile = limit == WholeFile;
         int maxLines = fullFile ? int.MaxValue : Math.Max(1, limit ?? DefaultLineLimit);
         int maxBytes = limit == null ? MaxTotalBytes : MaxExplicitBytes;
         List<string> window = new();
@@ -234,11 +237,11 @@ internal sealed class FileReader
             // 也就无从判断该继续翻还是改用 Grep 定位
             int next = start + window.Lines.Count;
             sb.Append('\n').Append(ReadTruncationNote.Format(start, next - 1, total, next));
-            // 点名要了 head 却没给满，得说清是上限截的，否则模型以为文件就到这里
+            // 点名要了 limit 却没给满，得说清是上限截的，否则模型以为文件就到这里
             if (limit > 0 && window.ByteCapped)
-                sb.Append($"\n[单次最多返回 {MaxExplicitBytes / 1024}KB，所传 head={limit} 没读满]");
+                sb.Append($"\n[单次最多返回 {MaxExplicitBytes / 1024}KB，所传 limit={limit} 没读满]");
             if (outline != null) sb.Append("\n\n").Append(outline);
-            // 自己传了 head 就是在按段读，不必再指去处
+            // 自己传了 limit 就是在按段读，不必再指去处
             if (truncationHint != null && limit == null) sb.Append('\n').Append(truncationHint);
         }
 

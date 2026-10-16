@@ -295,7 +295,7 @@ public sealed class FileOutlineTests : IDisposable
     {
         string? outline = FileOutline.Render("doc.md", ["## 安装", "### 依赖"]);
 
-        Assert.Equal("文件大纲（[起–止行] 结构，可传 offset 与 head 只读对应的段）：\n[1–2] ## 安装\n[2]   ### 依赖", outline);
+        Assert.Equal("文件大纲（[起–止行] 结构，可传 offset 与 limit 只读对应的段）：\n[1–2] ## 安装\n[2]   ### 依赖", outline);
         Assert.Null(FileOutline.Render("data.bin", ["## 安装"]));
         Assert.Null(FileOutline.Render("empty.md", ["正文"]));
     }
@@ -379,9 +379,9 @@ public sealed class FileOutlineTests : IDisposable
         string outline = await tools.Read(path, outline: true, cancellationToken: TestContext.Current.CancellationToken);
         string unsupported = await tools.Read("a.txt", outline: true, cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.Equal("文件大纲（[起–止行] 结构，可传 offset 与 head 只读对应的段）：\n[1–6] class A\n[3–5]   void Run()", outline);
+        Assert.Equal("文件大纲（[起–止行] 结构，可传 offset 与 limit 只读对应的段）：\n[1–6] class A\n[3–5]   void Run()", outline);
         Assert.Contains("没有大纲", unsupported);
-        Assert.EndsWith("已忽略 offset 与 head]",
+        Assert.EndsWith("已忽略 offset 与 limit]",
             await tools.Read(path, 3, 2, outline: true, cancellationToken: TestContext.Current.CancellationToken));
     }
 

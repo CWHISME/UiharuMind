@@ -44,6 +44,18 @@ public sealed class ReadToolTests : IDisposable
 
     private static string Lines(int count) => string.Join('\n', Enumerable.Range(1, count).Select(i => $"line{i}")) + "\n";
 
+    /// <summary>limit 只表示行数：负数不当成「末尾」或「全文」，退回并指明两种正确写法</summary>
+    [Fact]
+    public async Task NonPositiveLimit_IsRejectedWithTheRightWays()
+    {
+        string path = Save("small.txt", Lines(5));
+
+        string result = await Read(path, limit: -1);
+
+        Assert.Equal("limit 须为正数（所传 -1）；读末尾几行用负的 offset，读全文传 whole=true。", result);
+        Assert.Equal("5\tline5\n[已到文件末尾，共 5 行]", await Read(path, offset: -1));
+    }
+
     [Fact]
     public async Task TruncationNotice_GivesTheTotalLineCount()
     {
@@ -66,7 +78,7 @@ public sealed class ReadToolTests : IDisposable
         string result = await tools.Read(path, 1, null, cancellationToken: ct);
 
         Assert.EndsWith($"]\n要整体理解这份文件，可交给 `{BrainTool.ToolName}`，task 里写清要什么。", result);
-        Assert.DoesNotContain(BrainTool.ToolName, await tools.Read(path, 1, 100, cancellationToken: ct)); //自己传了 head 是在按段读，不提
+        Assert.DoesNotContain(BrainTool.ToolName, await tools.Read(path, 1, 100, cancellationToken: ct)); //自己传了 limit 是在按段读，不提
         Assert.DoesNotContain(BrainTool.ToolName, await tools.Read(Save("small.txt", Lines(3)), 1, null,
             cancellationToken: ct)); //没截断不提
     }

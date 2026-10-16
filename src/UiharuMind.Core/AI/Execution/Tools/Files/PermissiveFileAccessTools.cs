@@ -18,18 +18,6 @@ using UiharuMind.Core.Core.Utils;
 namespace UiharuMind.Core.AI.Execution.Files;
 
 // [MFA绕坑] 绕:框架 FileAccessProvider 拒绝一切绝对路径 因:该类 internal 无法继承修改 删除条件:框架允许配置路径策略
-/// <summary>
-/// 自带的文件工具集,替代 MFA 内置的 FileAccessProvider。
-/// MFA 的 FileAccessProvider 在调用存储前会用 StorePaths.NormalizeRelativePath 拒绝一切绝对路径,
-/// 且该类为 internal 无法继承/修改;因此这里完全自行实现文件访问:
-/// - 相对路径解析到工作区根目录;
-/// - 绝对路径直接访问真实文件系统。
-/// 解析口径只有一份(<see cref="AgentPathResolver"/>),搜索、审批、界面预演与这里同源。
-///
-/// <b>工作区外的写入没有在这一层拦</b>,拦在审批规则里(<c>ApprovalModeMapper</c>):
-/// 任何权限档下首次越界写入都要用户点一次,包括完全自动档。放在那一层是因为「越界」是<b>授权</b>
-/// 问题而不是路径解析问题——同一条判据还要服务 shell,而且用户点了"本会话允许"之后要能真的放行。
-///
 /// 五个工具:Read / Write / Edit / Glob / Grep。
 /// Glob 采用 Meziantou.Framework.Globbing 实现递归路径枚举;Grep 采用 Glacier.Grep 高性能检索引擎
 /// (它自带 .gitignore/.ignore/.rgignore 的层级排除,对齐 ripgrep 行为)。
@@ -37,7 +25,6 @@ namespace UiharuMind.Core.AI.Execution.Files;
 /// 全在 <see cref="FileEditPlanner"/>,Grep 结果整形在 <see cref="GrepResultShaper"/>;
 /// 本类只负责工具面、写入与落盘;Write 覆盖前经 <see cref="IFileBackupStore"/> 自动备份。
 /// 写工具各包一层 ApprovalRequiredAIFunction,沿用 MFA 的审批管线。
-/// </summary>
 internal sealed class PermissiveFileAccessTools
 {
     // —— 输出限幅:工具输出直接进模型上下文,编码会话的上下文大头是工具结果而非对话。
@@ -56,7 +43,7 @@ internal sealed class PermissiveFileAccessTools
     // 描述只写契约;Read 与 Shell 的分工归命令行纪律段(AgentToolPrompts.BuildShell)
     private const string ReadDescription =
         "读取文件的原始内容。每行前的「行号+制表符」是参照，不是文件内容，引用位置时直接用它，Edit 时不要带上。"
-        + "代码与 Markdown 被截断时附文件大纲（各类型、函数、标题的起止行），据此传 offset 与 head 只读需要的段。";
+        + "代码与 Markdown 被截断时附文件大纲（各类型、函数、标题的起止行），据此传 offset 与 limit 只读需要的段。";
 
     private const string ReadImagesDescription = " PNG、JPEG 与 WebP 文件会以图片形式展示。"; //只有视觉模型的装配才说
 
@@ -241,16 +228,24 @@ internal sealed class PermissiveFileAccessTools
             file => _paths.TryResolve(file, out string full, out _) ? FileOutline.ExtractFile(full) : null, contextLines);
     }
 
+    [Description("查看指定文件，自动处理编码等问题。")]
     internal Task<string> Read(
-        [Description("文件路径，工作目录的相对路径(也接受其它目录的绝对路径)。自动处理编码等问题、传 head=-1 可一次读完")] string filePath,
+        [Description("文件路径，工作目录的相对路径(也接受其它目录的绝对路径)。")] string filePath,
         [Description("起始行号，1 起算。负数从末尾计：-100 读最后 100 行")]
         int offset = 1,
-        [Description("从 offset 开始，最多返回的行数")]
-        int? head = null,
+        [Description("从 offset 开始，最多返回的行数，须为正数")]
+        int? limit = null,
+        [Description("可选，一次读完全文，不受单次返回的字节上限限制。传了就忽略 offset 与 limit")]
+        bool whole = false,
         [Description("可选，只返回文件大纲（类型、函数、标题及起止行），不返回正文。大文件先看结构，再按行号只读需要的段")]
         bool outline = false,
         CancellationToken cancellationToken = default)
-        => _reader.ReadAsync(filePath, offset, head, outline, cancellationToken);
+    {
+        if (limit <= 0 && !whole) return Task.FromResult($"limit 须为正数（所传 {limit}）；读末尾几行用负的 offset，读全文传 whole=true。");
+        return whole
+            ? _reader.ReadAsync(filePath, 1, FileReader.WholeFile, outline, cancellationToken)
+            : _reader.ReadAsync(filePath, offset, limit, outline, cancellationToken);
+    }
 
     [Description("新建文件，或整份替换已有文件，局部修改用 Edit")]
     internal async Task<string> Write(
@@ -324,7 +319,7 @@ internal sealed class PermissiveFileAccessTools
             await SaveAsync(full, plan.Envelope, plan.NewText, ct).ConfigureAwait(false);
 
             string diff = FileEditPlanner.RenderDiff(plan.Diff, MaxEditDiffLines, MaxEditDiffLineChars);
-            string prefixNote = plan.StrippedLinePrefixes ? "参数里带了 Read 的行号前缀，已去掉后再匹配；以后不要带。" : "";
+            string prefixNote = plan.StrippedLinePrefixes ? "参数里带了 Read 的行号前缀（或行号后的制表符），已去掉后再匹配；以后不要带。" : "";
             // 部分写入时结论放最前、没生效的条目紧随其后：小模型只扫到 diff 会当成全成了，或把整批重发
             string head = plan.IsPartial
                 ? $"{FileToolNames.EditSucceededPrefix}{filePath}'（部分成功：{plan.AppliedEdits}/{plan.TotalEdits} 处编辑）。"

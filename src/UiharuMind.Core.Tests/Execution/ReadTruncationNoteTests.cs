@@ -10,7 +10,7 @@ public class ReadTruncationNoteTests
     {
         string result = "line1\nline2\n"
                         + ReadTruncationNote.Format(1, 2, "共 9 行", 3)
-                        + "\n\n文件大纲（[起–止行] 结构，可传 offset 与 head 只读对应的段）：\n[1] # 标题";
+                        + "\n\n文件大纲（[起–止行] 结构，可传 offset 与 limit 只读对应的段）：\n[1] # 标题";
 
         Assert.Equal(2, ReadTruncationNote.ContentLineCount(result));
     }

@@ -57,4 +57,39 @@ public sealed class ReadLineNumbersTests
         Assert.False(ReadLineNumbers.TryStripCopied("1\ta\n3\tb", out _));
         Assert.False(ReadLineNumbers.TryStripCopied("1\ta\nb", out _));
     }
+
+    /// <summary>删了行号、留着其后的制表符：每行多一个行首 \t，剥一个再匹配，newString 每行都带也一起剥</summary>
+    [Fact]
+    public void Edit_StripsLeftoverSeparatorTab_WhenNumbersWereRemoved()
+    {
+        FileEditPlan plan = FileEditPlanner.Plan("{\n\tint a;\n\n\tint b;\n}\n", "a.cpp",
+            [new FileEdit { OldString = "\t\tint a;\n\t\n\t\tint b;", NewString = "\t\tint a = 1;\n\t\n\t\tint b = 2;" }]);
+
+        Assert.True(plan.Succeeded, plan.Error);
+        Assert.True(plan.StrippedLinePrefixes);
+        Assert.Equal("{\n\tint a = 1;\n\n\tint b = 2;\n}\n", plan.NewText);
+    }
+
+    /// <summary>newString 混着带与不带的行：多半是新写的行，原样写入不剥</summary>
+    [Fact]
+    public void Edit_KeepsNewString_WhenOnlySomeLinesCarryTheTab()
+    {
+        FileEditPlan plan = FileEditPlanner.Plan("{\n\tint a;\n}\n", "a.cpp",
+            [new FileEdit { OldString = "\t\tint a;", NewString = "\t\tint a;\n#define C" }]);
+
+        Assert.True(plan.Succeeded, plan.Error);
+        Assert.Equal("{\n\t\tint a;\n#define C\n}\n", plan.NewText);
+    }
+
+    /// <summary>原样能命中就不剥：文件里真有那层缩进</summary>
+    [Fact]
+    public void Edit_KeepsLeadingTab_WhenItMatchesAsIs()
+    {
+        FileEditPlan plan = FileEditPlanner.Plan("\t\tint a;\n", "a.cpp",
+            [new FileEdit { OldString = "\t\tint a;", NewString = "\t\tint b;" }]);
+
+        Assert.True(plan.Succeeded, plan.Error);
+        Assert.False(plan.StrippedLinePrefixes);
+        Assert.Equal("\t\tint b;\n", plan.NewText);
+    }
 }
