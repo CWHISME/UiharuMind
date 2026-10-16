@@ -106,7 +106,7 @@ public static class FileEditPlanner
         // 加上下面的重叠检测，没生效那条的 oldString 在写入后的文件里仍原样在，重发照旧命中。
         // 改成顺序定位的话，没生效的条目可能已被前面的条目改掉
         bool anyStripped = false;
-        bool indentShifted = false;
+        EIndentShift indentShift = EIndentShift.None;
         for (int i = 0; i < edits.Count; i++)
         {
             bool strippedPrefixes = false;
@@ -138,7 +138,7 @@ public static class FileEditPlanner
                 if (located.Kind == ELocateResult.Found)
                 {
                     newString = Reindent(newString, added, removed);
-                    indentShifted = true;
+                    indentShift |= added.Length > 0 ? EIndentShift.Missing : EIndentShift.Extra;
                 }
             }
 
@@ -185,7 +185,7 @@ public static class FileEditPlanner
 
         string? skippedNote = skipped.Count == 0 ? null : DescribeSkipped(skipped, newText, TextLines.Split(newText), label);
         return FileEditPlan.Success(newText, EditDiffBuilder.Build(text, lines, matches), envelope,
-            strippedLinePrefixes: anyStripped, indentShifted: indentShifted,
+            strippedLinePrefixes: anyStripped, indentShift: indentShift,
             edits.Count, matches.Count, skippedNote, skipped.Select(edit => edit.Index).ToList());
     }
 

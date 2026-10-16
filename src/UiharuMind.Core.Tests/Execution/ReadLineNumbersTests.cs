@@ -66,7 +66,7 @@ public sealed class ReadLineNumbersTests
             [new FileEdit { OldString = "\t\tint a;\n\t\n\t\tint b;", NewString = "\t\tint a = 1;\n\t\n\t\tint b = 2;" }]);
 
         Assert.True(plan.Succeeded, plan.Error);
-        Assert.True(plan.IndentShifted);
+        Assert.Equal(EIndentShift.Extra, plan.IndentShift);
         Assert.Equal("{\n\tint a = 1;\n\n\tint b = 2;\n}\n", plan.NewText);
     }
 
@@ -78,7 +78,7 @@ public sealed class ReadLineNumbersTests
             [new FileEdit { OldString = "/**\n * 存档往返\n */\nvoid Run();", NewString = "/** 存档往返 */\n\nvoid Run();" }]);
 
         Assert.True(plan.Succeeded, plan.Error);
-        Assert.True(plan.IndentShifted);
+        Assert.Equal(EIndentShift.Missing, plan.IndentShift);
         Assert.Equal("{\n\t/** 存档往返 */\n\n\tvoid Run();\n}\n", plan.NewText);
     }
 
@@ -113,7 +113,7 @@ public sealed class ReadLineNumbersTests
 
         Assert.True(plan.Succeeded, plan.Error);
         Assert.True(plan.StrippedLinePrefixes);
-        Assert.True(plan.IndentShifted);
+        Assert.Equal(EIndentShift.Extra, plan.IndentShift);
         Assert.Equal("{\n\tint c;\n\tint b;\n}\n", plan.NewText);
     }
 
@@ -125,7 +125,7 @@ public sealed class ReadLineNumbersTests
             [new FileEdit { OldString = "\t\tint a;", NewString = "\t\tint b;" }]);
 
         Assert.True(plan.Succeeded, plan.Error);
-        Assert.False(plan.IndentShifted);
+        Assert.Equal(EIndentShift.None, plan.IndentShift);
         Assert.Equal("\t\tint b;\n", plan.NewText);
     }
 }

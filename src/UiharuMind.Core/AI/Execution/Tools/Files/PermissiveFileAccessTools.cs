@@ -296,10 +296,7 @@ internal sealed class PermissiveFileAccessTools
         }
     }
 
-    [Description("""
-                 按精确文本替换修改已有文件。oldString 与 newString 只写文件内容，不要带 Read 每行前的「行号+制表符」。
-                 找不到或匹配多处的条目单独跳过，其余照常写入。
-                 """)]
+    [Description("按精确文本替换修改已有文件。oldString 与 newString 只写文件内容。")]
     internal async Task<string> Edit(
         [Description("文件路径，工作目录的相对路径(也接受非工作目录的绝对路径)。")]
         string filePath,
@@ -320,7 +317,11 @@ internal sealed class PermissiveFileAccessTools
 
             string diff = FileEditPlanner.RenderDiff(plan.Diff, MaxEditDiffLines, MaxEditDiffLineChars);
             string prefixNote = plan.StrippedLinePrefixes ? "参数里带了 Read 的行号前缀，已去掉后再匹配；以后不要带。" : "";
-            if (plan.IndentShifted) prefixNote += "有条目的行首缩进与文件整段差了一层，已按文件的缩进匹配，newString 同样平移；核对下面的 diff。";
+            // 只说事实：模型没带行号，光说「别带前缀」它不知道该删哪个字符
+            if (plan.IndentShift.HasFlag(EIndentShift.Extra))
+                prefixNote += "oldString 每行比文件多了一层行首缩进：Read 每行前「行号+制表符」里的制表符是分隔符，不属于文件内容。已按文件的缩进匹配，newString 也去掉了这一层，请核对下面的差异。";
+            if (plan.IndentShift.HasFlag(EIndentShift.Missing))
+                prefixNote += "oldString 每行比文件少了一层行首缩进：Read 每行前「行号+制表符」之后的空白都是文件的缩进。已按文件的缩进匹配，newString 也补上了这一层，请核对下面的差异。";
             // 部分写入时结论放最前、没生效的条目紧随其后：小模型只扫到 diff 会当成全成了，或把整批重发
             string head = plan.IsPartial
                 ? $"{FileToolNames.EditSucceededPrefix}{filePath}'（部分成功：{plan.AppliedEdits}/{plan.TotalEdits} 处编辑）。"
