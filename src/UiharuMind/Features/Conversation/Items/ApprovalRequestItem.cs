@@ -195,16 +195,21 @@ public partial class ApprovalRequestItem : ConversationItemBase
     }
 
     /// <summary>
-    /// 这次审批已在别处决出（同一次审批画在好几处，先点的那张算数）：收起按钮、显示那个决定
+    /// 这次审批已在别处决出（同一次审批画在好几处，先点的那张算数）：收起按钮、显示那个决定。
+    /// 无人值守的自动同意也走这里，只是那一行文案另给（<paramref name="label"/>）——
+    /// 回应消息始终是真正发出去的那一条
     /// </summary>
     /// <param name="response">最终的回应消息</param>
-    public void MarkDecidedElsewhere(ChatMessage response)
+    /// <param name="label">收起后那一行的文案；null 按回应本身判（同意/拒绝/本会话允许）</param>
+    public void MarkDecidedElsewhere(ChatMessage response, LangKey? label = null)
     {
         if (IsResolved) return;
         // 「本会话总是允许」是框架的包装类型，认不出 ToolApprovalResponseContent 的就是它
         ToolApprovalResponseContent? plain = response.Contents.OfType<ToolApprovalResponseContent>().FirstOrDefault();
         bool extensionSession = plain?.Reason?.StartsWith(ExtensionSessionReason, StringComparison.Ordinal) == true;
-        ResolvedText = ResolvedLabel(plain == null || extensionSession ? "session" : plain.Approved ? "once" : "deny");
+        ResolvedText = label != null
+            ? Loc.Text(label.Value)
+            : ResolvedLabel(plain == null || extensionSession ? "session" : plain.Approved ? "once" : "deny");
         IsResolved = true;
         _completion.TrySetResult(response);
     }

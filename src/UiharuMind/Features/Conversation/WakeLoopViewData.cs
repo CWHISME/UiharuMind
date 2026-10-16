@@ -45,6 +45,9 @@ public abstract partial class WakeLoopViewData : ObservableObject, IDisposable
     /// <summary>当前时刻</summary>
     protected Func<DateTimeOffset> Now { get; }
 
+    /// <summary>确认与提示用的消息服务（派生类要弹自己的确认框时用它）</summary>
+    protected IMessageService Messages => _messages;
+
     /// <summary>投到 UI 线程的刷新可能在视图关掉之后才到</summary>
     protected bool IsDisposed { get; private set; }
 

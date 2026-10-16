@@ -11,8 +11,10 @@ namespace UiharuMind.Core.AI.Chat.Single.GoalMode;
 /// <param name="ArtifactStamp">最近的产物指纹</param>
 /// <param name="LastStop">最近一次停下的时刻</param>
 /// <param name="BackoffLevel">连续没进展的次数</param>
+/// <param name="AutoApproveApprovals">唤醒轮的审批是否自动同意（无人值守时直接放行）</param>
 public sealed record GoalModeState(string SessionId, string Goal, IReadOnlyList<GoalModeScheduleRule> Rules,
-    DateTimeOffset StartedAt, int Turns, string ArtifactStamp, DateTimeOffset LastStop, int BackoffLevel);
+    DateTimeOffset StartedAt, int Turns, string ArtifactStamp, DateTimeOffset LastStop, int BackoffLevel,
+    bool AutoApproveApprovals = false);
 
 /// <summary>
 /// 目标模式的存档读写（仿 <see cref="AI.Execution.Tools.Scheduler.InProcessSchedulerBackend"/>）：

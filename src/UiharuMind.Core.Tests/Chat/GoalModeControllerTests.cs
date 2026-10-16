@@ -41,7 +41,7 @@ public class GoalModeControllerTests
         ChatSession session = NewSession();
         try
         {
-            Assert.True(_controller.Start(session, "写一份方案", [Interval30]));
+            Assert.True(_controller.Start(session, new GoalModeSettings("写一份方案", [Interval30])));
             await Until(() => _wakeCalls.Count == 1);
 
             ChatMessage? injection = session.History.LastOrDefault(ChatMessageAnnotations.IsGoalModeInjection);
@@ -61,10 +61,10 @@ public class GoalModeControllerTests
         ChatSession session = NewSession();
         try
         {
-            _controller.Start(session, "目标", [Interval30]);
+            _controller.Start(session, new GoalModeSettings("目标", [Interval30]));
             await Until(() => _wakeCalls.Count == 1);
 
-            Assert.False(_controller.Start(session, "另一个目标", null));
+            Assert.False(_controller.Start(session, new GoalModeSettings("另一个目标")));
         }
         finally
         {
@@ -79,7 +79,7 @@ public class GoalModeControllerTests
         ChatSession session = NewSession();
         try
         {
-            _controller.Start(session, "目标", [Interval30]);
+            _controller.Start(session, new GoalModeSettings("目标", [Interval30]));
             await Until(() => _wakeCalls.Count == 1); //首轮跑完
             await Until(() => _delays.Count == 1); //排上 Interval 30 分钟（首轮没新产物：再退避一段）
             Assert.Equal(TimeSpan.FromMinutes(30) + GoalModeWakePolicy.DefaultBackoffStart, _delays[0].Delay);
@@ -101,7 +101,7 @@ public class GoalModeControllerTests
         ChatSession session = NewSession();
         try
         {
-            _controller.Start(session, "目标", [Interval30]);
+            _controller.Start(session, new GoalModeSettings("目标", [Interval30]));
             await Until(() => _delays.Count == 1);
             //没进展（指纹没变）：调度时刻 30 分钟后，再退避一段（第一次无进展 = BackoffOf(0)）
             Assert.Equal(TimeSpan.FromMinutes(30) + GoalModeWakePolicy.DefaultBackoffStart, _delays[0].Delay);
@@ -126,7 +126,7 @@ public class GoalModeControllerTests
         try
         {
             _endOnNextTurn = true;
-            _controller.Start(session, "目标", [Interval30]);
+            _controller.Start(session, new GoalModeSettings("目标", [Interval30]));
             await Until(() => _receipts.Count == 1);
 
             GoalModeReceipt receipt = _receipts[0];
@@ -149,7 +149,7 @@ public class GoalModeControllerTests
         {
             _endOnNextTurn = true;
             _endReasonOverride = "needs_user";
-            _controller.Start(session, "目标", [Interval30]);
+            _controller.Start(session, new GoalModeSettings("目标", [Interval30]));
             await Until(() => _receipts.Count == 1);
 
             Assert.Equal(EGoalModeEndReason.NeedsUser, _receipts[0].Reason);
@@ -167,7 +167,7 @@ public class GoalModeControllerTests
         ChatSession session = NewSession();
         try
         {
-            _controller.Start(session, "目标", [Interval30]);
+            _controller.Start(session, new GoalModeSettings("目标", [Interval30]));
             await Until(() => _delays.Count == 1);
             await Until(() => _controller.StatusOf(session.SessionId)?.IsRunning == false);
 
@@ -194,7 +194,7 @@ public class GoalModeControllerTests
         ChatSession session = NewSession();
         try
         {
-            _controller.Start(session, "目标", [Interval30]);
+            _controller.Start(session, new GoalModeSettings("目标", [Interval30]));
             await Until(() => _wakeCalls.Count == 1);
             await Until(() => _controller.StatusOf(session.SessionId)?.IsRunning == false);
 
@@ -214,11 +214,11 @@ public class GoalModeControllerTests
         ChatSession session = NewSession();
         try
         {
-            _controller.Start(session, "旧目标", [Interval30]);
+            _controller.Start(session, new GoalModeSettings("旧目标", [Interval30]));
             await Until(() => _wakeCalls.Count == 1);
             int injectionsAfterStart = session.History.Count(ChatMessageAnnotations.IsGoalModeInjection);
 
-            Assert.True(_controller.Update(session.SessionId, "新目标", null));
+            Assert.True(_controller.Update(session.SessionId, new GoalModeSettings("新目标", AutoApproveApprovals: false)));
             // 改目标不落消息：注入条数不变
             Assert.Equal(injectionsAfterStart, session.History.Count(ChatMessageAnnotations.IsGoalModeInjection));
 
@@ -245,7 +245,7 @@ public class GoalModeControllerTests
         try
         {
             _holdTurn = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            _controller.Start(session, "目标", [Interval30]);
+            _controller.Start(session, new GoalModeSettings("目标", [Interval30]));
             await Until(() => _wakeTokens.Count == 1);
 
             _controller.End(session.SessionId);
@@ -266,11 +266,12 @@ public class GoalModeControllerTests
         ChatSession session = NewSession();
         try
         {
-            _controller.Start(session, "目标", [Interval30]);
+            _controller.Start(session, new GoalModeSettings("目标", [Interval30]));
             await Until(() => _delays.Count == 1);
             await Until(() => _controller.StatusOf(session.SessionId)?.IsRunning == false);
 
-            Assert.True(_controller.Update(session.SessionId, null, [new GoalModeScheduleRule(EGoalScheduleKind.Immediate)]));
+            Assert.True(_controller.Update(session.SessionId, new GoalModeSettings(null,
+                    [new GoalModeScheduleRule(EGoalScheduleKind.Immediate)], false)));
             await Until(() => _delays.Count == 2);
             //首轮没进展：停即醒再退避一段
             Assert.Equal(GoalModeWakePolicy.DefaultBackoffStart, _delays[1].Delay);
@@ -291,11 +292,81 @@ public class GoalModeControllerTests
         {
             GoalModeController secondary = new(Delay, () => _now, _ => _stamp, WakeTurn, primary: false);
             Assert.False(secondary.IsOwner);
-            Assert.False(secondary.Start(session, "目标", [Interval30]));
+            Assert.False(secondary.Start(session, new GoalModeSettings("目标", [Interval30])));
             Assert.Empty(_wakeCalls);
         }
         finally
         {
+            SessionManager.Instance.Delete(session.SessionId);
+        }
+    }
+
+    [Fact]
+    public async Task Start_WithAutoApprove_KeepsTheFlag_AndRestoresItAfterRestart()
+    {
+        ChatSession session = NewSession();
+        try
+        {
+            Assert.True(_controller.Start(session, new GoalModeSettings("目标", [Interval30], AutoApproveApprovals: true)));
+            await Until(() => _wakeCalls.Count == 1);
+
+            Assert.True(_controller.StatusOf(session.SessionId)!.AutoApproveApprovals);
+            Assert.True(_controller.IsAutoApprove(session.SessionId));
+            Assert.False(_controller.IsAutoApprove("不存在的会话"));
+
+            // 重启后恢复：勾选随存档回来（无人值守的那一轮照样自动同意）
+            GoalModeController restored = new(Delay, () => _now, _ => _stamp, WakeTurn, primary: true);
+            Assert.True(restored.IsAutoApprove(session.SessionId));
+            Assert.True(restored.StatusOf(session.SessionId)!.AutoApproveApprovals);
+            restored.End(session.SessionId);
+        }
+        finally
+        {
+            _controller.End(session.SessionId);
+            SessionManager.Instance.Delete(session.SessionId);
+        }
+    }
+
+    [Fact]
+    public async Task Update_TogglesAutoApprove()
+    {
+        ChatSession session = NewSession();
+        try
+        {
+            _controller.Start(session, new GoalModeSettings("目标", [Interval30]));
+            await Until(() => _wakeCalls.Count == 1);
+            Assert.False(_controller.IsAutoApprove(session.SessionId));
+
+            Assert.True(_controller.Update(session.SessionId, new GoalModeSettings(AutoApproveApprovals: true)));
+            Assert.True(_controller.IsAutoApprove(session.SessionId));
+
+            Assert.True(_controller.Update(session.SessionId, new GoalModeSettings(AutoApproveApprovals: false)));
+            Assert.False(_controller.IsAutoApprove(session.SessionId));
+        }
+        finally
+        {
+            _controller.End(session.SessionId);
+            SessionManager.Instance.Delete(session.SessionId);
+        }
+    }
+
+    /// <summary>局部更新：只改目标时自动同意保持原值，不会被缺省覆写</summary>
+    [Fact]
+    public async Task Update_OnlyGoal_LeavesAutoApproveAlone()
+    {
+        ChatSession session = NewSession();
+        try
+        {
+            _controller.Start(session, new GoalModeSettings("目标", [Interval30], AutoApproveApprovals: true));
+            await Until(() => _wakeCalls.Count == 1);
+
+            Assert.True(_controller.Update(session.SessionId, new GoalModeSettings("新目标")));
+            Assert.Equal("新目标", _controller.StatusOf(session.SessionId)!.Goal);
+            Assert.True(_controller.IsAutoApprove(session.SessionId));
+        }
+        finally
+        {
+            _controller.End(session.SessionId);
             SessionManager.Instance.Delete(session.SessionId);
         }
     }

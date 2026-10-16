@@ -98,6 +98,15 @@
                     </ItemsControl>
                 </StackPanel>
 
+                <!-- 自动同意审批：勾上要先确认危险度；正在进行的目标模式里改了，按「更新」生效 -->
+                <CheckBox x:Name="AutoApproveCheck"
+                          Content="{loc:Loc GoalModeAutoApproveLabel}"
+                          IsChecked="{Binding AutoApproveApprovals}">
+                    <ToolTip.Tip>
+                        <TextBlock Text="{loc:Loc GoalModeAutoApproveTip}" />
+                    </ToolTip.Tip>
+                </CheckBox>
+
                 <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
                            IsVisible="{Binding IsActive}" Text="{Binding StatusLine}" />
                 <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"

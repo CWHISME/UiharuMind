@@ -98,7 +98,7 @@ public class SubAgentReportHandoffTests
 
         Assert.StartsWith("来自 审查员 [sub-session: sub1]，回你之前发的「黑猫，提交前给你看账：」：", text);
         Assert.Contains("\n\n可以提交\n\n", text);
-        Assert.EndsWith($"`{SubAgentTool.MessageToolName}`，to 填 [sub-session: sub1]；另开一位的话，对方什么都不知道。）", text); //读完要决定找谁的地方告诉它怎么接着谈
+        Assert.EndsWith($"`{SubAgentTool.MessageToolName}`，to 填 [sub-session: sub1]；另开一位的话，对方什么都不知道。】", text); //读完要决定找谁的地方告诉它怎么接着谈
         Assert.DoesNotContain("委派", text);
         Assert.DoesNotContain("报告", text);
         Assert.DoesNotContain("还在等", text);
@@ -113,15 +113,16 @@ public class SubAgentReportHandoffTests
         Assert.StartsWith("来自 [sub-session: sub1]，回你之前发的「查一下」：", text);
     }
 
+    /// <summary>更正与等人数：更正标在信头末尾，附言与等人数坠在正文之后</summary>
     [Fact]
     public void ReplyText_StatesCorrectionAndWhoElseIsPending()
     {
         string text = SubAgentReportHandoff.BuildText("审查员", "sub1", "查一下", "改口了", supersedes: true,
             interruption: null, othersPending: 2);
 
-        Assert.Contains("（更正上一封）：", text);
-        Assert.Contains("改口了\n\n（接着谈同类主题", text); //附言在正文之后,不夹在信头与正文之间
-        Assert.EndsWith("\n（你还在等 2 位的回信。）", text);
+        Assert.Contains("【更正上一封】：", text);
+        Assert.Contains("改口了\n\n【接着谈同类主题", text); //附言在正文之后,不夹在信头与正文之间
+        Assert.EndsWith("\n【当前还剩 2 位的回信。】", text);
     }
 
     /// <summary>被打断是事实，不是命令：有内容就附上说到一半的，没有就明说没回</summary>
@@ -150,13 +151,13 @@ public class SubAgentReportHandoffTests
         string second = SubAgentReportHandoff.Compose(parent, sub, null, "改口了", 0)!.Text;
 
         Assert.DoesNotContain("更正上一封", first);
-        Assert.Contains("（更正上一封）", second);
+        Assert.Contains("【更正上一封】", second);
         Assert.Null(SubAgentReportHandoff.Compose(parent, sub, null, "", 0)); //没话可插
     }
 
     /// <summary>
     /// 续聊问了新问题，第二封是新回答不是更正。实测踩过：只看「这人回过没有」，
-    /// 续聊的回信一律被标成「（更正上一封）」
+    /// 续聊的回信一律被标成「【更正上一封】」
     /// </summary>
     [Fact]
     public void ReplyToANewMessage_IsNotACorrection()
@@ -172,7 +173,7 @@ public class SubAgentReportHandoffTests
         sub.History.Add(new ChatMessage(ChatRole.User, "提到了哪些本地模型功能") { CreatedAt = asked.AddMinutes(1) });
         string newRequest = SubAgentReportHandoff.Compose(parent, sub, null, "llama.cpp 跑 GGUF", 0)!.Text;
 
-        Assert.Contains("（更正上一封）", sameRequest);
+        Assert.Contains("【更正上一封】", sameRequest);
         Assert.DoesNotContain("更正上一封", newRequest);
     }
 

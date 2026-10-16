@@ -15,7 +15,9 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
+using UiharuMind.Core.AI.Chat.Single.GoalMode;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Items;
 
@@ -46,11 +48,13 @@ public class ConversationTurnRunnerTests
         public void ShowError(string message) => Errors.Add(message);
     }
 
-    private static ConversationTurnRunner NewRunner(FakeHost host)
+    private static ConversationTurnRunner NewRunner(FakeHost host,
+        Func<string?, ApprovalResolver?>? unattended = null)
     {
         List<ConversationItemBase> items = [];
         ConversationTranscript transcript = new(items, () => new TextConversationItem(isUser: false));
-        return new ConversationTurnRunner(host, new TurnDriver(transcript, new TurnUsageLedger()), transcript);
+        return new ConversationTurnRunner(host, new TurnDriver(transcript, new TurnUsageLedger()), transcript,
+            unattended);
     }
 
     /// <summary>装配期间按停止：轮次不起，本轮输入补回历史，装配态在前后各通知一次</summary>
@@ -140,5 +144,74 @@ public class ConversationTurnRunnerTests
 
         Assert.False(runner.IsPreparing);
         Assert.Equal(0, host.PreparingChanges);
+    }
+
+    /// <summary>
+    /// 会话勾了「自动同意审批」（用户确认过危险度）：这一轮的审批不等用户点，直接按同意回应，
+    /// 回应带上自动同意的理由（历史据此认出它不是人点的）
+    /// </summary>
+    [Fact]
+    public async Task UnattendedApprovals_AnswersWithoutWaitingForTheUser()
+    {
+        ChatSession session = new("g", new CharacterData { CharacterId = "g" }) { IsTransient = true };
+        FakeHost host = new() { Session = session, CurrentSessionId = session.SessionId };
+        ConversationTurnRunner runner = NewRunner(host, id => GoalModeApproval.Create(id ?? string.Empty));
+
+        ToolApprovalRequestContent request =
+            new("r1", new FunctionCallContent("c1", "Write", new Dictionary<string, object?>()));
+
+        IReadOnlyList<ChatMessage> responses = await runner.ResolveApprovalsFor(session.SessionId)([request]);
+
+        ToolApprovalResponseContent content =
+            Assert.Single(Assert.Single(responses).Contents.OfType<ToolApprovalResponseContent>());
+        Assert.True(content.Approved);
+        Assert.Equal(GoalModeApproval.Reason, content.Reason);
+    }
+
+    /// <summary>
+    /// 同一轮里多批审批共用一个无人值守通道：每批都新建的话轮次上限永不触发，
+    /// 前台这一轮就没了审批侧闸门（计数记在通道里，一轮只取一次）。
+    /// 开关本身每批现问（工厂调用次数不固定），不断的是通道
+    /// </summary>
+    [Fact]
+    public async Task UnattendedResolver_IsReusedWithinATurn_SoRoundCapApplies()
+    {
+        ChatSession session = new("g", new CharacterData { CharacterId = "g" }) { IsTransient = true };
+        FakeHost host = new() { Session = session, CurrentSessionId = session.SessionId };
+        ConversationTurnRunner runner = NewRunner(host, id => GoalModeApproval.Create(id ?? string.Empty));
+
+        ToolApprovalRequestContent request =
+            new("r1", new FunctionCallContent("c1", "Write", new Dictionary<string, object?>()));
+        ApprovalResolver resolve = runner.ResolveApprovalsFor(session.SessionId);
+        IReadOnlyList<ChatMessage> last = [];
+        int batches = 0;
+        for (; batches < 20; batches++)
+        {
+            last = await resolve([request]);
+            if (last.Count == 0) break;
+        }
+
+        Assert.True(batches < 20, "round cap should end the run instead of approving forever");
+        Assert.Empty(last);
+    }
+
+    /// <summary>
+    /// 中途撤销立即生效：开关关掉后不再自动同意，回落到用户点选（空 transcript 里没有卡，直接返回空）
+    /// </summary>
+    [Fact]
+    public async Task RevokedMidTurn_FallsBackInsteadOfAutoApproving()
+    {
+        ChatSession session = new("g", new CharacterData { CharacterId = "g" }) { IsTransient = true };
+        FakeHost host = new() { Session = session, CurrentSessionId = session.SessionId };
+        bool on = true;
+        ConversationTurnRunner runner = NewRunner(host, _ => on ? GoalModeApproval.Create("g") : null);
+        ApprovalResolver resolve = runner.ResolveApprovalsFor(session.SessionId);
+
+        ToolApprovalRequestContent request =
+            new("r1", new FunctionCallContent("c1", "Write", new Dictionary<string, object?>()));
+        Assert.NotEmpty(await resolve([request]));
+
+        on = false;
+        Assert.Empty(await resolve([request]));
     }
 }

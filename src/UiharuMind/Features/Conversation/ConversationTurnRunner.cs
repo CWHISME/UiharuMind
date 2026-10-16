@@ -17,9 +17,11 @@ using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.History;
+using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Features.Conversation.Items;
+using UiharuMind.Generated;
 
 namespace UiharuMind.Features.Conversation;
 
@@ -63,6 +65,7 @@ public sealed class ConversationTurnRunner
     private readonly IConversationTurnHost _host;
     private readonly TurnDriver _driver;
     private readonly ConversationTranscript _transcript;
+    private readonly Func<string?, ApprovalResolver?> _unattended; //这个会话的审批是不是一条都不问
     private CancellationTokenSource? _prepareCancellation; //会话装配阶段的取消源,此后由 TurnDriver 接手
 
     /// <summary>正在装配会话（此时驱动还没开始跑，但界面必须已经显示停止按钮）</summary>
@@ -71,14 +74,20 @@ public sealed class ConversationTurnRunner
     /// <summary>
     /// 构造
     /// </summary>
-    /// <param name="host">宿主</param>
+    /// <param name="host">宿主机位</param>
     /// <param name="driver">一轮对话的编排</param>
     /// <param name="transcript">实时流装配器（审批卡在它那里）</param>
-    public ConversationTurnRunner(IConversationTurnHost host, TurnDriver driver, ConversationTranscript transcript)
+    /// <param name="unattended">
+    /// 某个会话的审批一条都不问时取无人值守的审批通道；null 取应用登记的那一份
+    /// （<see cref="WakeApprovalHosts.UnattendedFor"/>）
+    /// </param>
+    public ConversationTurnRunner(IConversationTurnHost host, TurnDriver driver, ConversationTranscript transcript,
+        Func<string?, ApprovalResolver?>? unattended = null)
     {
         _host = host;
         _driver = driver;
         _transcript = transcript;
+        _unattended = unattended ?? (sessionId => WakeApprovalHosts.UnattendedFor(sessionId));
     }
 
     /// <summary>
@@ -123,7 +132,10 @@ public sealed class ConversationTurnRunner
                 await session.AcquireRunnerAsync(prepareToken).ConfigureAwait(false);
             try
             {
-                await _driver.RunAsync(session, lease.Runner, userMessage, ResolveApprovalsAsync);
+                // 本轮自己的作用域：局部变量保证两轮重叠也不串计数；认装配到位时的会话，
+                // 之后切走不影响在跑的审批口径
+                UnattendedScope turnScope = new(() => _unattended(session.SessionId));
+                await _driver.RunAsync(session, lease.Runner, userMessage, requests => ResolveWithScope(turnScope, requests));
             }
             finally
             {
@@ -172,17 +184,51 @@ public sealed class ConversationTurnRunner
     }
 
     /// <summary>
-    /// 审批回应：等用户对本轮每个请求做出决定，回应即下一轮的输入。
+    /// 按会话钉死的解析器：挂上这个会话的信号时一次绑定，在飞的执行不受会话切换影响。
+    /// 作用域随返回的委托一起释放（摘除登记即丢掉），不攒字典、不跨会话串计数
+    /// </summary>
+    /// <param name="sessionId">绑定的会话；钉死它，只认它的开关</param>
+    /// <returns>该会话的审批回应口</returns>
+    public ApprovalResolver ResolveApprovalsFor(string? sessionId)
+    {
+        UnattendedScope scope = new(() => string.IsNullOrEmpty(sessionId) ? null : _unattended(sessionId));
+        return requests => ResolveWithScope(scope, requests);
+    }
+
+    /// <summary>
+    /// 唤醒轮用自己的通道决出了无人值守的审批：在这个窗口里把卡片就地收掉。
+    /// 只收显示、不参与判据——判据是唤醒轮本轮通道的事
+    /// </summary>
+    /// <param name="requests">已决出的审批请求</param>
+    /// <param name="responses">与 <paramref name="requests"/> 一一对应的回应</param>
+    public void NotifyApprovalsSettled(IReadOnlyList<ToolApprovalRequestContent> requests,
+        IReadOnlyList<ChatMessage> responses) =>
+        _transcript.ResolveApprovalsElsewhere(requests, responses, LangKey.AgentApprovalResolvedAuto);
+
+    /// <summary>
+    /// 按作用域决审批：开关开着不等用户点，直接按同意回应并把卡片就地收成已决；
+    /// 关着走用户点选（等用户对本轮每个请求做出决定，回应即下一轮的输入）。
+    /// 开关每批现问（撤销立即生效），通道按作用域冻结（计数不断）。
     ///
     /// <b>按请求对象相认</b>，不是把转录器攒着的整批抽干：同一个会话上可能同时有两轮在跑
     /// （用户那一轮与后台委派回来时起的<b>唤醒轮</b>共用这一个转录器），抽干会领走别人那一轮的卡片，
     /// 让那一轮的工具调用永远没有结果地留在历史里。
     /// </summary>
+    /// <param name="scope">本执行的作用域：前台一轮与壳对外各持一个</param>
     /// <param name="requests">本轮新增的审批请求</param>
     /// <returns>回应消息</returns>
-    public async Task<IReadOnlyList<ChatMessage>> ResolveApprovalsAsync(
+    private async Task<IReadOnlyList<ChatMessage>> ResolveWithScope(UnattendedScope scope,
         IReadOnlyList<ToolApprovalRequestContent> requests)
     {
+        // 这个会话的审批一条都不问（目标模式勾了「自动同意审批」，用户在设置弹窗确认过危险度）：
+        // 这一轮不等用户点。卡片就地收成已决——挂在待决里不动的话，看着像还在等人
+        if (scope.ForBatch() is { } unattended)
+        {
+            IReadOnlyList<ChatMessage> decisions = await unattended(requests).ConfigureAwait(false);
+            _transcript.ResolveApprovalsElsewhere(requests, decisions, LangKey.AgentApprovalResolvedAuto);
+            return decisions;
+        }
+
         IReadOnlyList<ApprovalRequestItem> turnApprovals = _transcript.TakeRoundApprovals(requests);
         List<ChatMessage> responses = new(turnApprovals.Count);
         foreach (ApprovalRequestItem approval in turnApprovals)

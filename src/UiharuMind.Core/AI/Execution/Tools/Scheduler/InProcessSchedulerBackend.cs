@@ -7,10 +7,12 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Threading.Tasks;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution.Mcp;
+using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Instances;
 using UiharuMind.Core.Core.SimpleLog;
@@ -25,7 +27,8 @@ namespace UiharuMind.Core.AI.Execution.Tools.Scheduler;
 /// </summary>
 public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
 {
-    private const int MaxApprovalRounds = 4; //拒绝造成的追加轮次上限,防御模型反复请求同一授权
+    // 一律拒的策略里每一轮都是「一条都没批」:这个上限就是拒绝造成的追加轮次上限,防御模型反复请求同一授权
+    private const int MaxApprovalRounds = 4;
 
     /// <summary>拒绝理由,会送给模型——说清是"无人值守"而不是"用户不同意",模型才不会反复请求</summary>
     private const string DenialReason =
@@ -306,42 +309,12 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
     /// </summary>
     /// <param name="task">本次执行的任务，日志要指名道姓说是谁被拒</param>
     /// <returns>一个带轮次计数的审批策略，一次执行用一个</returns>
-    internal static ApprovalResolver DenyUnauthorizedApprovals(ScheduledAgentTask task)
-    {
-        int round = 0;
-        return requests =>
-        {
-            if (++round > MaxApprovalRounds)
-            {
-                Log.Warning($"Scheduled agent task '{task.DisplayName}' ({task.TaskId}) hit the " +
-                            $"{MaxApprovalRounds}-round approval limit; ending the run.");
-                return Task.FromResult<IReadOnlyList<ChatMessage>>([]);
-            }
-
-            IReadOnlyList<ChatMessage> denials = requests
-                .Select(request =>
-                {
-                    Log.Warning($"Scheduled agent task '{task.DisplayName}' ({task.TaskId}) denied " +
-                                $"{DescribeCall(request.ToolCall)}: not allowed under {task.PermissionMode} " +
-                                "and not pre-authorized (unattended run, nobody to ask).");
-                    return new ChatMessage(ChatRole.User,
-                        new List<AIContent>
-                            { request.CreateResponse(approved: false, reason: DenialReason) });
-                })
-                .ToList();
-            return Task.FromResult(denials);
-        };
-    }
-
-    /// <summary>把被拒的调用写成一行人能看懂的字(工具名 + 最关键的那个参数)</summary>
-    private static string DescribeCall(AIContent? toolCall)
-    {
-        if (toolCall is not FunctionCallContent call) return toolCall?.ToString() ?? "an unknown tool call";
-
-        string? detail = ApprovalModeMapper.ExtractCommand(call.Arguments) ??
-                         ApprovalModeMapper.ExtractFilePath(call.Arguments);
-        return string.IsNullOrWhiteSpace(detail) ? call.Name : $"{call.Name}[{detail}]";
-    }
+    internal static ApprovalResolver DenyUnauthorizedApprovals(ScheduledAgentTask task) =>
+        UnattendedApprovals.Create(
+            $"Scheduled agent task '{task.DisplayName}' ({task.TaskId}) under {task.PermissionMode}",
+            // 一律拒：总轮次与连拒在此等价，两个都写上——判据将来批过一条时总轮次仍是界
+            _ => Task.FromResult(new UnattendedVerdict(false, DenialReason)),
+            maxRounds: MaxApprovalRounds, maxDeniedRounds: MaxApprovalRounds);
 
     private ScheduledAgentTask? FindTask(string taskId)
     {

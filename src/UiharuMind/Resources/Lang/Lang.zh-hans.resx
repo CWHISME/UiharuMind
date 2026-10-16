@@ -215,6 +215,9 @@
     <data name="AgentApprovalResolvedDenied" xml:space="preserve">
         <value>已拒绝</value>
     </data>
+    <data name="AgentApprovalResolvedAuto" xml:space="preserve">
+        <value>已自动同意（目标模式）</value>
+    </data>
     <data name="ToolResultUnansweredHint" xml:space="preserve">
         <value>审批始终无人回应，调用未执行；发句话让模型重做即可。</value>
     </data>
@@ -3884,6 +3887,26 @@
     </data>
     <data name="GoalModeEndConfirm" xml:space="preserve">
         <value>结束目标模式？模型将不再被唤醒，目标模式唤醒的那一轮正在跑也会停下。</value>
+    </data>
+    <data name="GoalModeAutoApproveLabel" xml:space="preserve">
+        <value>自动同意审批</value>
+    </data>
+    <data name="GoalModeAutoApproveTip" xml:space="preserve">
+        <value>目标模式唤醒模型时，需要审批的操作不再询问，直接同意；没开着这个会话也能继续推进。危险，开启前会二次确认</value>
+    </data>
+    <data name="GoalModeAutoApproveConfirmTitle" xml:space="preserve">
+        <value>高风险确认</value>
+    </data>
+    <data name="GoalModeAutoApproveConfirm" xml:space="preserve">
+        <value>开启后，目标模式唤醒的每一轮里，需要审批的操作都不再询问、直接执行：
+· 改写文件（含工作区以外的路径）
+· 执行 shell 命令
+· 调用扩展（浏览器、桌面操作，打开本机或内网地址等）
+
+模型无人值守时这些操作也会真实发生：可能改掉你的文件、执行命令、花钱。每一轮做了什么都会记在会话里。
+想恢复询问，在同一个设置里取消勾选即可。
+
+确定要开启吗？</value>
     </data>
     <data name="GoalModeIdle" xml:space="preserve">
         <value>未激活</value>

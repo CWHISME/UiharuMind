@@ -37,9 +37,17 @@ public sealed record GoalModeScheduleRule(EGoalScheduleKind Kind, TimeOnly? Dail
     public static GoalModeScheduleRule Default { get; } = new(EGoalScheduleKind.Interval, Interval: TimeSpan.FromMinutes(30));
 }
 
+/// <summary>目标模式的参数：设置弹窗里能改的几样，一次交给控制器</summary>
+/// <param name="Goal">只给模型看的目标；<see cref="GoalModeController.Update"/> 里为 null 表示不改</param>
+/// <param name="Rules">唤醒调度规则；null 不改，空用 <see cref="GoalModeScheduleRule.Default"/></param>
+/// <param name="AutoApproveApprovals">唤醒轮的审批自动同意（界面勾选并确认过危险度）；null 不改，缺省不自动同意</param>
+public sealed record GoalModeSettings(string? Goal = null, IReadOnlyList<GoalModeScheduleRule>? Rules = null,
+    bool? AutoApproveApprovals = null);
+
 /// <summary>目标模式此刻的样子（界面用）</summary>
+/// <param name="AutoApproveApprovals">唤醒轮的审批是否自动同意（勾选并确认过危险度才为 true）</param>
 public sealed record GoalModeStatus(string SessionId, DateTimeOffset StartedAt, int Turns, bool IsRunning,
-    DateTimeOffset? WakeAt, string Goal, IReadOnlyList<GoalModeScheduleRule> Rules);
+    DateTimeOffset? WakeAt, string Goal, IReadOnlyList<GoalModeScheduleRule> Rules, bool AutoApproveApprovals);
 
 /// <summary>一次目标模式结束时的回执原料（界面画成一张只给人看的卡）</summary>
 public sealed record GoalModeReceipt(string SessionId, EGoalModeEndReason Reason, string Summary,

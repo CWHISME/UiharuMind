@@ -4,6 +4,7 @@ using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools.Browser;
+using UiharuMind.Core.AI.Chat.Single.GoalMode;
 using UiharuMind.Features.Conversation.Items;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
@@ -41,6 +42,27 @@ public class ApprovalCardResolutionTests
         Assert.True(card.IsResolved);
         Assert.Equal(Loc.Text(LangKey.AgentApprovalResolvedOnce), card.ResolvedText);
         Assert.True(card.Response.IsCompleted);
+    }
+
+    /// <summary>
+    /// 审批在别处按无人值守的策略决出：卡片就地收成已同意，别再挂着一张像在等人的卡。
+    /// 那一行按真正发出去的那条回应显示（这里是自动同意），不另写一套文案
+    /// </summary>
+    [Fact]
+    public void AutoApproved_FoldsWithTheAutoLabel()
+    {
+        ApprovalRequestItem card = new(Request());
+        ChatMessage response = new(ChatRole.User,
+        [
+            ToolApprovalResponseFactory.Create(Request(), EApprovalDecision.Once, GoalModeApproval.Reason)
+        ]);
+
+        card.MarkDecidedElsewhere(response, LangKey.AgentApprovalResolvedAuto);
+
+        Assert.True(card.IsResolved);
+        Assert.Equal(Loc.Text(LangKey.AgentApprovalResolvedAuto), card.ResolvedText);
+        // 卡片等的是同一条回应：不会出现「显示已同意、其实发了别的」
+        Assert.Same(response, card.Response.Result);
     }
 
     // 浏览器经扩展调用（ADR 0079）：卡片拆开画，认的还是原工具名

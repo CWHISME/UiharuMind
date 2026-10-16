@@ -27,7 +27,7 @@ public class SessionSignalSubscriptionTests
     private readonly List<int> _replaced = [];
 
     private SessionSignalSubscription Attach() => new(_session, new SessionSignalHandlers(
-        _ => Task.FromResult<IReadOnlyList<ChatMessage>>([]),
+        _ => _ => Task.FromResult<IReadOnlyList<ChatMessage>>([]),
         _ => { },
         (index, _) => _replaced.Add(index),
         () => { },

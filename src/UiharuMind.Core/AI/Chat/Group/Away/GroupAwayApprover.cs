@@ -63,31 +63,16 @@ public sealed class GroupAwayApprover
     public ApprovalResolver Create(ChatSession group, ChatSession avatar, ChatSession requester,
         Action<GroupAwayApproval> record, CancellationToken cancellationToken)
     {
-        int deniedRounds = 0;
         Party party = new(group, avatar, requester, GroupSceneSource.SpeakerNameOf(requester));
-        return async requests =>
+        return UnattendedApprovals.Create($"Group away '{party.RequesterName}'", async request =>
         {
-            if (requests.Count == 0 || deniedRounds >= MaxDeniedRounds) return [];
-
-            List<ChatMessage> responses = [];
-            bool anyApproved = false;
-            foreach (ToolApprovalRequestContent request in requests)
-            {
-                GroupAwayApprovalVerdict verdict = request.ToolCall is FunctionCallContent call
-                    ? await DecideAsync(party, call, cancellationToken).ConfigureAwait(false)
-                    : new GroupAwayApprovalVerdict(false, "认不出这次调用");
-                anyApproved |= verdict.Approved;
-                record(new GroupAwayApproval(party.RequesterName, NestedApprovalResolver.Describe(request), verdict.Approved,
-                    verdict.Reason));
-                responses.Add(new ChatMessage(ChatRole.User, [
-                    ToolApprovalResponseFactory.Create(request,
-                        verdict.Approved ? EApprovalDecision.Once : EApprovalDecision.Deny, verdict.Reason),
-                ]));
-            }
-
-            deniedRounds = anyApproved ? 0 : deniedRounds + 1;
-            return responses;
-        };
+            GroupAwayApprovalVerdict verdict = request.ToolCall is FunctionCallContent call
+                ? await DecideAsync(party, call, cancellationToken).ConfigureAwait(false)
+                : new GroupAwayApprovalVerdict(false, "认不出这次调用");
+            record(new GroupAwayApproval(party.RequesterName, UnattendedApprovals.Describe(request),
+                verdict.Approved, verdict.Reason));
+            return new UnattendedVerdict(verdict.Approved, verdict.Reason);
+        }, maxDeniedRounds: MaxDeniedRounds);
     }
 
     private async Task<GroupAwayApprovalVerdict> DecideAsync(Party party, FunctionCallContent call,

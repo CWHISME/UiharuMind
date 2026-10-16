@@ -37,6 +37,7 @@ using UiharuMind.Core.Core.Utils;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Group;
 using UiharuMind.Core.AI.Chat.Group.Away;
+using UiharuMind.Core.AI.Chat.Single.GoalMode;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Core.Core.Process;
@@ -366,9 +367,30 @@ public partial class App : Application, ILogger, IDisposable
     /// </summary>
     private static void WireBackgroundSubAgents()
     {
-        // 唤醒轮跑的是主代理那一轮,它要动东西时该弹给正看着它的人。
-        // 取不到宿主(没开着那个会话)就按无头口径拒绝,与定时任务同形
-        UiharuMind.Core.AI.Execution.SessionWakeTurn.ApprovalSource = WakeApprovalHosts.Resolve;
+        // 唤醒轮按会话的几件事一次说清(见 SessionWakePolicy):壳、无人值守、收卡通知各归各的源，
+        // 有没有人看着、免不免自激封顶。拖到装配入口是因为 Core 不该知道目标模式——
+        // 从前每个功能各来一个静态口,越挂越多
+        UiharuMind.Core.AI.Execution.SessionWakeTurn.Policy =
+            new UiharuMind.Core.AI.Execution.SessionWakeTurn.SessionWakePolicy
+            {
+                // 唤醒轮跑的是主代理那一轮,它要动东西时该弹给正看着它的人。
+                // 只认壳:无人值守的判据走下面的 UnattendedSource,两条路的计数各归各的执行
+                HostSource = WakeApprovalHosts.ResolveHost,
+                // 勾了「自动同意审批」的会话:审批一条都不问,直接放行(用户确认过危险度)。
+                // 每次调用都是新通道,唤醒轮按轮持有、不得每批现取
+                UnattendedSource = WakeApprovalHosts.UnattendedFor,
+                // 无人值守决出后,开着的窗口把卡片就地收掉、不等用户点
+                SettledSource = WakeApprovalHosts.SettledFor,
+                // 「有没有人看着」只认壳:无人值守的自动同意接得住审批,背后却没有人,
+                // 按它推会把子代理的审批通道建起来,于是白等 5 分钟再被拒
+                AttendedSource = WakeApprovalHosts.HasHost,
+                // 目标模式无保险丝,掐自激封顶等于悄悄结束它
+                StreakExemptSource = sessionId => GoalModeController.Instance.IsActive(sessionId),
+            };
+        // 勾了「自动同意审批」的会话:审批一条都不问,无人值守也直接放行(用户确认过危险度)。
+        // 会话窗口与唤醒轮都向 WakeApprovalHosts 问这一份答案,不会各判一套
+        WakeApprovalHosts.SetUnattendedApprovals(
+            sessionId => GoalModeController.Instance.ResolverFor(sessionId));
         UiharuMind.Core.AI.Execution.Tools.BackgroundSubAgentDispatcher.Notifier = (notice, _) =>
         {
             if (Services?.GetService<IMessageService>() is not { } messageService) return;

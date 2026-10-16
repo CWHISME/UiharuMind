@@ -123,10 +123,6 @@ internal static class NestedApprovalResolver
             .All(x => x is ToolApprovalResponseContent { Approved: false });
 
     /// <summary>日志里一句话说清这次调用是谁、动哪儿（报告点名同口径）</summary>
-    internal static string Describe(ToolApprovalRequestContent request)
-    {
-        if (request.ToolCall is not FunctionCallContent call) return "unknown call";
-        string? path = ApprovalModeMapper.ExtractFilePath(call.Arguments);
-        return path == null ? call.Name : $"{call.Name} {path}";
-    }
+    internal static string Describe(ToolApprovalRequestContent request) =>
+        UnattendedApprovals.Describe(request);
 }

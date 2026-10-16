@@ -216,7 +216,7 @@ public static class SubAgentReportHandoff
             ? $"{sender} [sub-session: {SubSessionIdAlias.Short(subSessionId)}]"
             : $"[sub-session: {SubSessionIdAlias.Short(subSessionId)}]";
         string head = replyingTo.Length > 0 ? $"来自 {from}，回你之前发的「{replyingTo}」" : $"来自 {from}";
-        if (supersedes) head += "（更正上一封）";
+        if (supersedes) head += "【更正上一封】";
 
         // 附言不插在信头与正文之间:放在最后,也正好是模型读完要决定下一步的位置
         string waiting = $"\n\n【接着谈同类主题就用 `{SubAgentTool.MessageToolName}`，to 填 [sub-session: {SubSessionIdAlias.Short(subSessionId)}]；"

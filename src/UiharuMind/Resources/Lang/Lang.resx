@@ -222,6 +222,9 @@
     <data name="AgentApprovalResolvedDenied" xml:space="preserve">
         <value>Denied</value>
     </data>
+    <data name="AgentApprovalResolvedAuto" xml:space="preserve">
+        <value>Auto-approved (goal mode)</value>
+    </data>
     <data name="ToolResultUnansweredHint" xml:space="preserve">
         <value>Nobody answered this approval, so the call never ran; send a message to have the model redo it.</value>
     </data>
@@ -3891,6 +3894,26 @@ Allow them?</value>
     </data>
     <data name="GoalModeEndConfirm" xml:space="preserve">
         <value>End goal mode? The model stops being woken, and a wake turn already running is stopped too.</value>
+    </data>
+    <data name="GoalModeAutoApproveLabel" xml:space="preserve">
+        <value>Auto-approve approvals</value>
+    </data>
+    <data name="GoalModeAutoApproveTip" xml:space="preserve">
+        <value>Approvals requested during goal mode wake turns are granted without asking, so the goal keeps moving even when this session is closed. Risky; you will be asked to confirm first.</value>
+    </data>
+    <data name="GoalModeAutoApproveConfirmTitle" xml:space="preserve">
+        <value>High-risk confirmation</value>
+    </data>
+    <data name="GoalModeAutoApproveConfirm" xml:space="preserve">
+        <value>When enabled, every wake turn approves without asking:
+· File writes (including paths outside the workspace)
+· Shell commands
+· Extension calls (browser, desktop, opening local or intranet addresses, …)
+
+These really happen unattended: files can be changed, commands run, money spent. Everything is recorded in the session.
+Uncheck it in this setup window to go back to being asked.
+
+Enable it?</value>
     </data>
     <data name="GoalModeIdle" xml:space="preserve">
         <value>Not active</value>

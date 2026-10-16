@@ -87,6 +87,29 @@ public sealed class GoalModeController
         lock (_sync) return _sessions.ContainsKey(sessionId);
     }
 
+    /// <summary>
+    /// 某个会话的目标模式是不是勾了自动同意审批：这个会话的审批一条都不问（唤醒轮与用户自己那一轮
+    /// 都一样），没窗口那头按同意收口、有窗口那头把卡片收成已同意。⚠️ 可能来自后台线程
+    /// </summary>
+    /// <param name="sessionId">会话标识</param>
+    /// <returns>勾了为 true</returns>
+    public bool IsAutoApprove(string? sessionId)
+    {
+        if (string.IsNullOrEmpty(sessionId)) return false;
+        lock (_sync) return _sessions.TryGetValue(sessionId, out GoalModeSession? session) && session.AutoApproveApprovals;
+    }
+
+    /// <summary>
+    /// 这个会话勾了自动同意审批时，给出无人值守的审批通道；没勾为 null。
+    ///
+    /// 「问不问人」只此一处说了算：会话窗口与唤醒轮的无人值守策略都向它问（见
+    /// <c>Features.Conversation.WakeApprovalHosts</c>），两边不会各判一套。
+    /// </summary>
+    /// <param name="sessionId">会话标识</param>
+    /// <returns>审批通道；没勾为 null</returns>
+    public ApprovalResolver? ResolverFor(string? sessionId) =>
+        IsAutoApprove(sessionId) ? GoalModeApproval.Create(sessionId!) : null;
+
     /// <summary>全部进行中的目标模式（统一清单用）</summary>
     /// <returns>状态列表</returns>
     public IReadOnlyList<GoalModeStatus> ActiveStatuses()
@@ -98,18 +121,17 @@ public sealed class GoalModeController
     /// 开始目标模式：落目标注入、立刻跑第一轮（模型正在跑就不抢，那轮结束后按调度接）
     /// </summary>
     /// <param name="session">会话（agent 档）</param>
-    /// <param name="goal">只给模型看的目标</param>
-    /// <param name="rules">唤醒调度规则；null 或空用 <see cref="GoalModeScheduleRule.Default"/></param>
+    /// <param name="settings">目标与调度规则、自动同意审批</param>
     /// <returns>开始了为 true；已经在目标模式或本实例不管目标模式为 false</returns>
-    public bool Start(ChatSession session, string goal, IReadOnlyList<GoalModeScheduleRule>? rules = null)
+    public bool Start(ChatSession session, GoalModeSettings settings)
     {
         if (!IsOwner) return false;
         GoalModeSession created;
         lock (_sync)
         {
             if (_sessions.ContainsKey(session.SessionId)) return false;
-            created = new GoalModeSession(session, goal, EffectiveRules(rules), _now(),
-                WakeLoop.SafeStamp(_artifactStamp, session));
+            created = new GoalModeSession(session, settings.Goal, EffectiveRules(settings.Rules), _now(),
+                WakeLoop.SafeStamp(_artifactStamp, session), settings.AutoApproveApprovals ?? false);
             _sessions[session.SessionId] = created;
         }
 
@@ -121,14 +143,13 @@ public sealed class GoalModeController
     }
 
     /// <summary>
-    /// 更新目标与调度规则。目标改动不落消息：模型在下次唤醒时经带当前目标的提醒读到。
+    /// 更新目标、调度规则与自动同意。目标改动不落消息：模型在下次唤醒时经带当前目标的提醒读到。
     /// 规则改了且没在跑就按新规则重排下次唤醒；正在跑的，那一轮收场时按新规则排
     /// </summary>
     /// <param name="sessionId">会话标识</param>
-    /// <param name="goal">新目标；null 不改</param>
-    /// <param name="rules">新规则；null 不改，空用 <see cref="GoalModeScheduleRule.Default"/></param>
+    /// <param name="settings">新参数；<see cref="GoalModeSettings.Goal"/> 为 null 表示不改</param>
     /// <returns>更新了为 true；没在目标模式为 false</returns>
-    public bool Update(string sessionId, string? goal, IReadOnlyList<GoalModeScheduleRule>? rules)
+    public bool Update(string sessionId, GoalModeSettings settings)
     {
         GoalModeSession? session;
         bool reschedule;
@@ -136,7 +157,9 @@ public sealed class GoalModeController
         {
             session = _sessions.GetValueOrDefault(sessionId);
             if (session == null) return false;
-            reschedule = session.Update(goal, rules == null ? null : EffectiveRules(rules)) && !session.IsRunning;
+            reschedule = session.Update(settings.Goal, settings.Rules == null ? null : EffectiveRules(settings.Rules),
+                          settings.AutoApproveApprovals)
+                          && !session.IsRunning;
         }
 
         Save();
@@ -164,12 +187,7 @@ public sealed class GoalModeController
         if (session != null) Finish(session, EGoalModeEndReason.Manual, string.Empty);
     }
 
-    private static GoalModeController CreateInstance()
-    {
-        GoalModeController controller = new();
-        SessionWakeTurn.WakeStreakExempt = controller.IsActive;
-        return controller;
-    }
+    private static GoalModeController CreateInstance() => new();
 
     private static IReadOnlyList<GoalModeScheduleRule> EffectiveRules(IReadOnlyList<GoalModeScheduleRule>? rules) =>
         rules is { Count: > 0 } ? rules : [GoalModeScheduleRule.Default];

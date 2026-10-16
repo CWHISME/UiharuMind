@@ -26,7 +26,8 @@ public sealed class HeadlessGroupMemberTurnRunner : IGroupMemberTurnRunner
     public static Action<ChatSession>? ApprovalWaitingNotifier { get; set; }
 
     /// <summary>
-    /// 离席期间的审批通道（ADR 0055）：返回非空就由化身接，不等用户。每批审批现问一次——离席可能在一轮中途开始或结束。
+    /// 离席期间的审批通道（ADR 0055）：返回非空就由化身接，不等用户。
+    /// 开关每批现问一次——离席可能在一轮中途开始或结束；通道按轮冻结（见 <see cref="UnattendedScope"/>）。
     /// 静态口，由 <c>GroupAwayController.Instance</c> 接上
     /// </summary>
     public static Func<ChatSession, CancellationToken, ApprovalResolver?>? AwayApprovals { get; set; }
@@ -47,11 +48,13 @@ public sealed class HeadlessGroupMemberTurnRunner : IGroupMemberTurnRunner
         ApprovalResolver waitForUser = NestedApprovalResolver.Create(true, member.SessionId,
             SessionApprovalRegistry.Instance, ApprovalTimeout, MaxDeniedApprovalRounds, cancellationToken,
             () => ApprovalWaitingNotifier?.Invoke(member))!;
+        // 本轮的离席作用域：开关每批现问（离席可能中途开始或结束），通道按轮冻结（计数不断）
+        UnattendedScope awayScope = new(() => AwayApprovals?.Invoke(member, cancellationToken));
         // 群本身也挂「等审批」：左栏、导航角标、托盘认的是群那一行，成员会话不进左栏。
         // 成员自己那份由 TurnDriver 登记（右栏成员列表认它）
         async Task<IReadOnlyList<ChatMessage>> Resolver(IReadOnlyList<ToolApprovalRequestContent> requests)
         {
-            if (AwayApprovals?.Invoke(member, cancellationToken) is { } away) return await away(requests).ConfigureAwait(false);
+            if (awayScope.ForBatch() is { } away) return await away(requests).ConfigureAwait(false);
 
             using IDisposable waiting = SessionManager.Instance.Running.BeginApprovalWait(member.GroupId);
             return await waitForUser(requests).ConfigureAwait(false);

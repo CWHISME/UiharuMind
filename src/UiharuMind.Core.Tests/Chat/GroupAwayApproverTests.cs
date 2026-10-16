@@ -93,7 +93,7 @@ public class GroupAwayApproverTests
 
         Assert.False(Approved(responses));
         Assert.Equal("Alice", Assert.Single(_asked).RequesterName);
-        Assert.Equal(new GroupAwayApproval("Alice", "Shell", false, "要推送，等本人"), Assert.Single(_ledger));
+        Assert.Equal(new GroupAwayApproval("Alice", "Shell[git push]", false, "要推送，等本人"), Assert.Single(_ledger));
     }
 
     [Fact]

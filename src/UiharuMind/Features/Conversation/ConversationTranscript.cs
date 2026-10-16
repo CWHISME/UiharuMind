@@ -21,6 +21,7 @@ using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Features.Conversation.Items;
+using UiharuMind.Generated;
 
 namespace UiharuMind.Features.Conversation;
 
@@ -435,6 +436,48 @@ public sealed class ConversationTranscript : ITurnSink
     {
         List<ApprovalRequestItem> resolved = approvals.ToList();
         _pending.RemoveAll(resolved.Contains);
+    }
+
+    /// <summary>
+    /// 这些审批已在别处按这些回应决出（无人值守的自动同意）：卡片就地收掉，从本轮与待决清单里摘掉。
+    ///
+    /// 卡片上那一行按<b>真正发出去的那条回应</b>显示，不另写一套文案——两边各写各的，
+    /// 将来口径一改就会出现「显示已同意、其实发了别的」。
+    ///
+    /// <b>一律 Post 到 UI 线程</b>，与 <see cref="LiveObserverSink"/> 同一理由：画卡的 Post 排在
+    /// 更早的队列里，直接调会赶在卡片诞生之前（唤醒轮里调用方可能在后台线程上）。
+    /// </summary>
+    /// <param name="requests">已决出的审批请求</param>
+    /// <param name="responses">与 <paramref name="requests"/> 一一对应的回应</param>
+    /// <param name="label">收起后那一行的文案；null 按回应本身判（同意/拒绝/本会话允许）</param>
+    public void ResolveApprovalsElsewhere(IReadOnlyList<ToolApprovalRequestContent> requests,
+        IReadOnlyList<ChatMessage> responses, LangKey? label = null)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            IReadOnlyList<ApprovalRequestItem> taken = TakeRoundApprovals(requests);
+            foreach (ApprovalRequestItem approval in taken)
+            {
+                // 认卡按 _round 的顺序,回应按 requests 的顺序,两者未必一致,按请求对象对回去
+                int index = IndexOf(requests, approval.Request);
+                if (index >= 0 && index < responses.Count)
+                {
+                    approval.MarkDecidedElsewhere(responses[index], label);
+                }
+            }
+
+            ResolveApprovals(taken);
+        });
+    }
+
+    private static int IndexOf(IReadOnlyList<ToolApprovalRequestContent> requests, ToolApprovalRequestContent request)
+    {
+        for (int i = 0; i < requests.Count; i++)
+        {
+            if (ReferenceEquals(requests[i], request)) return i;
+        }
+
+        return -1;
     }
 
     /// <summary>
