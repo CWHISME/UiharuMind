@@ -44,6 +44,13 @@
         <Setter Property="FontSize" Value="12" />
         <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
     </Style>
+    <!-- 只压灰、不改字号：muted 自带 12 号字，套在正文字号的条目上字会缩一圈（如文件浏览的隐藏文件名） -->
+    <Style Selector=":is(TextBlock).dim">
+        <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+    </Style>
+    <Style Selector=":is(SelectableTextBlock).dim">
+        <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+    </Style>
     <!-- 代码/路径等宽语义:字体与正文统一走 MainFont(单点,换字体只改 MainFont),
          mono 只保留"小字号"的语义,以后想换回等宽只改这一处 -->
     <Style Selector=":is(TextBlock).mono">

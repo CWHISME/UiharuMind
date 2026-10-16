@@ -2298,6 +2298,12 @@
     <data name="FileSearchCtxOpenDir" xml:space="preserve">
         <value>Open Directory</value>
     </data>
+    <data name="FileSearchCtxCopyPath" xml:space="preserve">
+        <value>Copy Path</value>
+    </data>
+    <data name="FileSearchShowHidden" xml:space="preserve">
+        <value>Show hidden files</value>
+    </data>
     <data name="FileSearchAutoSearch" xml:space="preserve">
         <value>Auto search</value>
     </data>

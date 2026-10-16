@@ -2294,6 +2294,12 @@
     <data name="FileSearchCtxOpenDir" xml:space="preserve">
         <value>打开目录</value>
     </data>
+    <data name="FileSearchCtxCopyPath" xml:space="preserve">
+        <value>复制路径</value>
+    </data>
+    <data name="FileSearchShowHidden" xml:space="preserve">
+        <value>显示隐藏文件</value>
+    </data>
     <data name="FileSearchEmptyHint" xml:space="preserve">
         <value>暂无搜索结果</value>
     </data>

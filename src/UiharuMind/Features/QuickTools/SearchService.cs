@@ -13,7 +13,7 @@ namespace UiharuMind.Features.QuickTools;
 
 // 搜索结果数据模型。IsDirectory 只在浏览态（列当前目录一层）有意义：
 // 目录条目点它下钻，文件条目点它打开；搜索态命中的目录仍可打开/揭示，默认 false
-public record SearchItem(string Path, string FileName, int LineNumber, string Snippet, bool IsContentSearch, bool IsDirectory = false);
+public record SearchItem(string Path, string FileName, int LineNumber, string Snippet, bool IsContentSearch, bool IsDirectory = false, bool IsHidden = false);
 
 /// <summary>浏览态「列当前目录一层」的结果：与搜索的 <see cref="SearchOutcome"/> 同构，分开命名不混淆</summary>
 public record LayerListing(List<SearchItem> Items, SearchFailure? Failure, string? ErrorDetail);
@@ -200,25 +200,74 @@ public class SearchService
     /// <summary>
     /// 列 <paramref name="root"/> 下一层（不递归）：当前目录的子目录与文件各是什么。
     /// 浏览态用它代替全树搜——无 query 时列一层、点目录进、点文件开。
+    /// 直调 <see cref="Directory"/> 单层枚举，不走搜索器：搜索器是为全树剪枝、ignore、
+    /// 模型侧统计存在的，浏览只是把当前目录原样列出来，显隐只由
+    /// <paramref name="includeHidden"/> 定。
     /// </summary>
-    public async Task<LayerListing> ListLayerAsync(string root, CancellationToken ct)
+    /// <param name="includeHidden">是否列出隐藏文件；界面浏览层的显示隐藏开关用</param>
+    public async Task<LayerListing> ListLayerAsync(string root, CancellationToken ct, bool includeHidden = false)
     {
         try
         {
-            // 单星号 `*` 只匹配一层（Standard 口径 ** 才递归）；path 钉死根，目录在前按名排
-            GlobOutcome glob = await new SimpleGlobber(root)
-                .SearchAsync("*", path: root, maxResults: 4000, ct: ct).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+            {
+                return new LayerListing([], new SearchFailure
+                {
+                    Kind = ESearchFailureKind.PathNotFound,
+                    RequestedDirectory = root,
+                    ResolvedDirectory = root,
+                    WorkingDirectory = CurrentRoot,
+                    Pattern = "*",
+                    NearestExistingDirectory = string.Empty,
+                }, null);
+            }
 
-            if (glob.Failure != null) return new LayerListing([], glob.Failure, null);
+            List<SearchItem> items = await Task.Run(() =>
+            {
+                var list = new List<SearchItem>();
+                foreach (string entry in Directory.EnumerateFileSystemEntries(root))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    string name = Path.GetFileName(entry);
+                    if (string.IsNullOrEmpty(name)) continue;
+                    FileAttributes attributes;
+                    try
+                    {
+                        attributes = File.GetAttributes(entry);
+                    }
+                    catch (Exception)
+                    {
+                        continue; // 竞态：列出瞬间被删或无权限，跳过这一条
+                    }
+                    bool isDir = attributes.HasFlag(FileAttributes.Directory);
+                    if (attributes.HasFlag(FileAttributes.System)) continue;
+                    bool isHiddenEntry = name.StartsWith('.') || attributes.HasFlag(FileAttributes.Hidden);
+                    if (!includeHidden && isHiddenEntry) continue;
+                    string snippet = string.Empty;
+                    if (!isDir)
+                    {
+                        try
+                        {
+                            snippet = GameUtils.FormatBytes(new FileInfo(entry).Length);
+                        }
+                        catch (Exception)
+                        {
+                            snippet = string.Empty;
+                        }
+                    }
+                    list.Add(new SearchItem(
+                        Path.GetRelativePath(root, entry),
+                        name,
+                        0,
+                        snippet,
+                        false,
+                        isDir,
+                        IsHidden: isHiddenEntry));
+                    if (list.Count >= 4000) break;
+                }
+                return list;
+            }, ct).ConfigureAwait(false);
 
-            List<SearchItem> items = glob.Entries.Select(e => new SearchItem(
-                e.Path,
-                Path.GetFileName(e.Path),
-                0,
-                e.IsDirectory ? string.Empty : GameUtils.FormatBytes(e.SizeBytes),
-                false,
-                e.IsDirectory
-            )).ToList();
             items = items.OrderByDescending(i => i.IsDirectory).ThenBy(i => i.FileName, StringComparer.OrdinalIgnoreCase).ToList();
             return new LayerListing(items, null, null);
         }

@@ -159,6 +159,7 @@
                                     <Grid.ContextMenu>
                                         <ContextMenu>
                                             <MenuItem Header="{loc:Loc FileSearchCtxOpenDir}" Tag="OpenDir" Click="OnSidebarMenuClick"/>
+                                            <MenuItem Header="{loc:Loc FileSearchCtxCopyPath}" Tag="CopyPath" Click="OnSidebarMenuClick"/>
                                             <MenuItem Header="{loc:Loc FileSearchRemoveFavorite}" Tag="RemoveFav" Click="OnSidebarMenuClick"/>
                                         </ContextMenu>
                                     </Grid.ContextMenu>
@@ -183,8 +184,8 @@
 
             <!-- 右列 -->
             <Grid Grid.Column="1" RowDefinitions="Auto,*">
-                <!-- Row 0: 搜索栏：输入 + 四个选项开关（icon，悬停看全名）。回车即搜，故不设搜索按钮 -->
-                <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="2" Margin="0,0,0,5">
+                <!-- Row 0: 搜索栏：输入 + 五个选项开关（icon，悬停看全名）。回车即搜，故不设搜索按钮 -->
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="2" Margin="0,0,0,5">
                     <TextBox Text="{Binding SearchQuery}"
                              PlaceholderText="{loc:Loc FileSearchInputWatermark}"
                              KeyDown="OnSearchBoxKeyDown"
@@ -212,10 +213,15 @@
                                                    IsChecked="{Binding IsCaseSensitive, Mode=TwoWay}"
                                                    ToolTip.Tip="{loc:Loc FileSearchCaseSensitive}"/>
                     <icons:ThemedIconToggleButton Grid.Column="4" Width="24" Height="24" VerticalAlignment="Center"
-                                                  IconName="sparkles"
-                                                  CheckedForeground="{DynamicResource SemiBlue5}"
-                                                  IsChecked="{Binding AutoSearch, Mode=TwoWay}"
-                                                  ToolTip.Tip="{loc:Loc FileSearchAutoSearch}"/>
+                                                   IconName="eye"
+                                                   CheckedForeground="{DynamicResource SemiBlue5}"
+                                                   IsChecked="{Binding ShowHiddenFiles, Mode=TwoWay}"
+                                                   ToolTip.Tip="{loc:Loc FileSearchShowHidden}"/>
+                    <icons:ThemedIconToggleButton Grid.Column="5" Width="24" Height="24" VerticalAlignment="Center"
+                                                   IconName="sparkles"
+                                                   CheckedForeground="{DynamicResource SemiBlue5}"
+                                                   IsChecked="{Binding AutoSearch, Mode=TwoWay}"
+                                                   ToolTip.Tip="{loc:Loc FileSearchAutoSearch}"/>
                 </Grid>
 
                 <!-- Row 1: 主列：浏览层与搜索结果二选一，各写各的集合，互不覆盖 -->
@@ -233,6 +239,7 @@
                                             <MenuItem Header="{loc:Loc FileSearchCtxOpenEditor}" Tag="OpenEditor" Click="OnContextMenuItemClick"/>
                                             <MenuItem Header="{loc:Loc FileSearchCtxOpenFile}" Tag="OpenFile" Click="OnContextMenuItemClick"/>
                                             <MenuItem Header="{loc:Loc FileSearchCtxOpenDir}" Tag="OpenDir" Click="OnContextMenuItemClick"/>
+                                            <MenuItem Header="{loc:Loc FileSearchCtxCopyPath}" Tag="CopyPath" Click="OnContextMenuItemClick"/>
                                         </ContextMenu>
                                     </Grid.ContextMenu>
                                     <icons:ThemedSvgIcon Grid.Column="0"
@@ -240,7 +247,12 @@
                                                          IconName="{Binding Converter={x:Static vm:SearchItemIconConverter.Instance}}"
                                                          Margin="0,0,10,0" VerticalAlignment="Center"/>
                                     <TextBlock Grid.Column="1" Text="{Binding FileName}"
-                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                               IsVisible="{Binding IsHidden, Converter={x:Static BoolConverters.Not}}"/>
+                                    <!-- 隐藏文件灰显：dim 只压灰不改字号，muted 会顺带缩到 12 号 -->
+                                    <TextBlock Grid.Column="1" Text="{Binding FileName}" Classes="dim"
+                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                               IsVisible="{Binding IsHidden}"/>
                                     <TextBlock Grid.Column="2" Text="{Binding Snippet}" Classes="muted"
                                                FontSize="11" VerticalAlignment="Center" Margin="10,0,0,0"
                                                TextTrimming="CharacterEllipsis"
@@ -262,6 +274,7 @@
                                                 <MenuItem Header="{loc:Loc FileSearchCtxOpenEditor}" Tag="OpenEditor" Click="OnContextMenuItemClick"/>
                                                 <MenuItem Header="{loc:Loc FileSearchCtxOpenFile}" Tag="OpenFile" Click="OnContextMenuItemClick"/>
                                                 <MenuItem Header="{loc:Loc FileSearchCtxOpenDir}" Tag="OpenDir" Click="OnContextMenuItemClick"/>
+                                                <MenuItem Header="{loc:Loc FileSearchCtxCopyPath}" Tag="CopyPath" Click="OnContextMenuItemClick"/>
                                             </ContextMenu>
                                         </Grid.ContextMenu>
                                         <icons:ThemedSvgIcon Grid.Column="0"

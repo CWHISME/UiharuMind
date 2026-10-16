@@ -70,6 +70,7 @@ public partial class SearchViewModel : ViewModelBase
     [ObservableProperty] private bool _isContentMode;
     [ObservableProperty] private bool _isRegexMode;
     [ObservableProperty] private bool _isCaseSensitive;
+    [ObservableProperty] private bool _showHiddenFiles;
     [ObservableProperty] private bool _isSearching;
     [ObservableProperty] private string _statusMessage = Loc.Text(LangKey.FileSearchStatusReady);
     [ObservableProperty] private string _currentDirectory = string.Empty;
@@ -152,6 +153,13 @@ public partial class SearchViewModel : ViewModelBase
     partial void OnIsContentModeChanged(bool value) => TriggerSearchIfAuto();
     partial void OnIsRegexModeChanged(bool value) => TriggerSearchIfAuto();
     partial void OnIsCaseSensitiveChanged(bool value) => TriggerSearchIfAuto();
+
+    // 显示隐藏开关只影响浏览层（列当前目录一层）：切开关就刷新浏览，搜索沿用原口径不重搜
+    partial void OnShowHiddenFilesChanged(bool value)
+    {
+        if (!_isInitialized) return;
+        _ = RefreshLayerAsync();
+    }
 
     private void TriggerSearchIfAuto()
     {
@@ -291,7 +299,7 @@ public partial class SearchViewModel : ViewModelBase
 
         try
         {
-            LayerListing layer = await _searchService.ListLayerAsync(CurrentDirectory, layerCts.Token);
+            LayerListing layer = await _searchService.ListLayerAsync(CurrentDirectory, layerCts.Token, includeHidden: ShowHiddenFiles);
 
             if (!ReferenceEquals(_layerCts, layerCts)) return;
 

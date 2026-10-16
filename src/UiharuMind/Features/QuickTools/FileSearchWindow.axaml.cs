@@ -15,6 +15,9 @@ using UiharuMind.Shared.Utils;
 
 namespace UiharuMind.Features.QuickTools;
 
+/// <summary>
+/// 现在也可以称为 文件浏览器
+/// </summary>
 public partial class FileSearchWindow : UiharuWindowBase
 {
     public override bool IsCacheWindow => true;
@@ -113,6 +116,12 @@ public partial class FileSearchWindow : UiharuWindowBase
     {
         if (sender is MenuItem menuItem && menuItem.DataContext is SearchItem item)
         {
+            if (menuItem.Tag?.ToString() == "CopyPath")
+            {
+                App.Clipboard.CopyToClipboard(GetFullPath(item), true, true);
+                return;
+            }
+
             OpenTarget(item, menuItem.Tag?.ToString());
         }
     }
@@ -141,7 +150,7 @@ public partial class FileSearchWindow : UiharuWindowBase
         }
     }
 
-    // 侧栏右键：揭示目录 / 取消收藏（Tag 区分）
+    // 侧栏右键：揭示目录 / 复制路径 / 取消收藏（Tag 区分）
     private void OnSidebarMenuClick(object? sender, RoutedEventArgs e)
     {
         if (sender is not MenuItem menuItem || menuItem.DataContext is not SidebarEntry entry) return;
@@ -149,6 +158,9 @@ public partial class FileSearchWindow : UiharuWindowBase
         {
             case "OpenDir":
                 FileOpener.RevealInFolder(entry.Path);
+                break;
+            case "CopyPath":
+                App.Clipboard.CopyToClipboard(entry.Path, true, true);
                 break;
             case "RemoveFav":
                 ViewModel.RemoveFavoriteCommand.Execute(entry);
@@ -194,12 +206,15 @@ public partial class FileSearchWindow : UiharuWindowBase
         e.Handled = true;
     }
 
-    private async void OpenTarget(SearchItem item, string? tag = null)
-    {
-        // 搜索/浏览命中的是相对搜索根的路径（根外的是绝对路径），拼回完整路径再打开
-        var fullPath = Path.IsPathFullyQualified(item.Path)
+    // 搜索/浏览命中的是相对搜索根的路径（根外的是绝对路径），拼回完整路径
+    private string GetFullPath(SearchItem item) =>
+        Path.IsPathFullyQualified(item.Path)
             ? Path.GetFullPath(item.Path)
             : Path.GetFullPath(Path.Combine(ViewModel.CurrentDirectory, item.Path));
+
+    private async void OpenTarget(SearchItem item, string? tag = null)
+    {
+        var fullPath = GetFullPath(item);
 
         string action = tag ?? "OpenDefault";
         // 双击默认动作与右键「用编辑器打开」(OpenEditor) 同一条路：分流收在 FileOpener
