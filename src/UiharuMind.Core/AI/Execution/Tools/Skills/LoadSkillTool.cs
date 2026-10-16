@@ -66,6 +66,7 @@ public static class LoadSkillTool
         sb.Append(" 本应用的内置技能：");
         foreach (BuiltInSkill skill in builtIns)
             sb.Append($"\n- {skill.Frontmatter.Name}: {SingleLine(skill.Frontmatter.Description)}");
+        sb.Append("\n- 注意：用户技能不会在此列出，当用户要求调用技能时，可直接根据用户给的技能名调用。");
         return sb.ToString();
     }
 
@@ -78,7 +79,7 @@ public static class LoadSkillTool
         return line.Length > 200 ? line[..200] + "…" : line;
     }
 
-    private static async Task<string> LoadAsync(AgentSkillsSource source, string skillName,
+    private static async Task<string> LoadAsync(AgentSkillsSource? source, string skillName,
         bool hasFileTools, bool hasShell, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(skillName)) return "Error: 技能名不能为空。";

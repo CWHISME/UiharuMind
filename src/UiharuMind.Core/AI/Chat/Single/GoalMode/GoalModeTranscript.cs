@@ -14,7 +14,7 @@ public static class GoalModeTranscript
     /// <param name="goal">目标文本</param>
     /// <returns>注入正文</returns>
     public static string KickoffNote(string goal) =>
-        $"【{Marker}】你被唤醒了。根据设定，回忆目标：{goal.Trim()}。继续推进；" +
+        $"【{Marker}】已开启，目标：{goal.Trim()}。" +
         $"若已达成，可调用隐藏扩展结束目标模式：ExCall name=\"goal.end\"，" +
         $"reason=\"done\"（目标达成）或 \"needs_user\"（有必须由用户本人决定的事），" +
         "summary=用户回来时应当知道的交代。";
