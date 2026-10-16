@@ -448,22 +448,23 @@ public sealed class ConversationTranscript : ITurnSink
     /// 更早的队列里，直接调会赶在卡片诞生之前（唤醒轮里调用方可能在后台线程上）。
     /// </summary>
     /// <param name="requests">已决出的审批请求</param>
-    /// <param name="responses">与 <paramref name="requests"/> 一一对应的回应</param>
+    /// <param name="responses">与 <paramref name="requests"/> 一一对应的回应；缺了回应的那几条卡片原样留着</param>
     /// <param name="label">收起后那一行的文案；null 按回应本身判（同意/拒绝/本会话允许）</param>
     public void ResolveApprovalsElsewhere(IReadOnlyList<ToolApprovalRequestContent> requests,
         IReadOnlyList<ChatMessage> responses, LangKey? label = null)
     {
+        // 只认有回应的那几条：没回应的卡片摘掉了就再也没人能回应它，留在本轮里还能交给用户点
+        IReadOnlyList<ToolApprovalRequestContent> answered =
+            responses.Count >= requests.Count ? requests : requests.Take(responses.Count).ToList();
+        if (answered.Count == 0) return;
+
         Dispatcher.UIThread.Post(() =>
         {
-            IReadOnlyList<ApprovalRequestItem> taken = TakeRoundApprovals(requests);
+            IReadOnlyList<ApprovalRequestItem> taken = TakeRoundApprovals(answered);
             foreach (ApprovalRequestItem approval in taken)
             {
                 // 认卡按 _round 的顺序,回应按 requests 的顺序,两者未必一致,按请求对象对回去
-                int index = IndexOf(requests, approval.Request);
-                if (index >= 0 && index < responses.Count)
-                {
-                    approval.MarkDecidedElsewhere(responses[index], label);
-                }
+                approval.MarkDecidedElsewhere(responses[IndexOf(answered, approval.Request)], label);
             }
 
             ResolveApprovals(taken);

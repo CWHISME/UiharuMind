@@ -151,6 +151,53 @@ public class UnattendedApprovalsTests
         Assert.NotSame(first, scope.ForBatch());
     }
 
+    /// <summary>
+    /// 无人值守的子代理（没有点选那条路）继承了派活会话的自动同意：照样放行，不再当场拒；
+    /// 放行的那几条交给记账（报告点名）
+    /// </summary>
+    [Fact]
+    public async Task Prefer_WithoutFallback_StillAnswersThroughTheScope()
+    {
+        UnattendedScope scope = new(() => Create(_ => new UnattendedVerdict(true, "继承")));
+        List<ToolApprovalRequestContent> settled = [];
+        ApprovalResolver? resolver = UnattendedApprovals.Prefer(scope, () => null,
+            (requests, _) => settled.AddRange(requests));
+
+        Assert.NotNull(resolver);
+        ToolApprovalRequestContent request = Request("r1", "Write");
+        Assert.Single(await resolver([request]));
+        Assert.Same(request, Assert.Single(settled));
+    }
+
+    /// <summary>开关关着且没有回落：返回 null，口径与从前一致（驱动按无头收口）</summary>
+    [Fact]
+    public void Prefer_NeitherSide_ReturnsNull()
+    {
+        Assert.Null(UnattendedApprovals.Prefer(new UnattendedScope(() => null), () => null));
+    }
+
+    /// <summary>通道到了上限：交给回落那条路（人可能就在），不拿空回应去记账</summary>
+    [Fact]
+    public async Task Prefer_Exhausted_HandsOverToTheFallback()
+    {
+        UnattendedScope scope = new(() => Create(_ => new UnattendedVerdict(true, "批"), maxRounds: 1));
+        int fallbackAsked = 0;
+        int settled = 0;
+        ApprovalResolver fallback = _ =>
+        {
+            fallbackAsked++;
+            return Task.FromResult<IReadOnlyList<ChatMessage>>([]);
+        };
+        ApprovalResolver? resolver = UnattendedApprovals.Prefer(scope, () => fallback, (_, _) => settled++);
+
+        Assert.NotNull(resolver);
+        Assert.Single(await Answer(resolver, "Write"));
+        Assert.Empty(await Answer(resolver, "Write"));
+
+        Assert.Equal(1, fallbackAsked);
+        Assert.Equal(1, settled);
+    }
+
     private static Task<IReadOnlyList<ChatMessage>> Answer(ApprovalResolver resolver, string tool) =>
         resolver([Request("r", tool)]);
 

@@ -35,7 +35,7 @@ internal sealed class GoalModeSession : WakeLoopSession<EGoalModeEndReason>
     public IReadOnlyList<GoalModeScheduleRule> Rules { get; private set; }
 
     /// <summary>唤醒轮的审批是否自动同意（无人值守时也直接放行，用户在设置弹窗确认过危险度）</summary>
-    public bool AutoApproveApprovals { get; set; }
+    public bool AutoApproveApprovals { get; private set; }
 
     /// <summary>结束判定只认这个下标之后模型的 goal.end 调用</summary>
     public int HistoryStart { get; }

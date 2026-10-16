@@ -15,12 +15,82 @@ namespace UiharuMind.Core.Tests.Execution;
 public class SessionWakeTurnTests
 {
     [Fact]
-    public void ScopeOff_ReturnsTheHost()
+    public async Task ScopeOff_AsksTheHost()
     {
         UnattendedScope scope = new(() => null);
-        ApprovalResolver host = _ => Task.FromResult<IReadOnlyList<ChatMessage>>([]);
+        bool hostAsked = false;
+        ApprovalResolver host = _ =>
+        {
+            hostAsked = true;
+            return Task.FromResult<IReadOnlyList<ChatMessage>>([]);
+        };
 
-        Assert.Same(host, SessionWakeTurn.ComposeWakeResolver(host, scope, null));
+        ApprovalResolver? resolver = SessionWakeTurn.ComposeWakeResolver(() => host, scope, NoSettled);
+
+        Assert.NotNull(resolver);
+        await resolver([Request("r1", "Write")]);
+        Assert.True(hostAsked);
+    }
+
+    /// <summary>开跑时没勾、中途勾上：下一批就自动同意，不再问壳</summary>
+    [Fact]
+    public async Task GrantedMidTurn_SwitchesToTheWakeChannel()
+    {
+        bool on = false;
+        UnattendedScope scope = new(() => on ? GoalModeApproval.Create("s") : null);
+        int hostAsked = 0;
+        ApprovalResolver host = _ =>
+        {
+            hostAsked++;
+            return Task.FromResult<IReadOnlyList<ChatMessage>>([]);
+        };
+        ApprovalResolver? resolver = SessionWakeTurn.ComposeWakeResolver(() => host, scope, NoSettled);
+
+        Assert.NotNull(resolver);
+        await resolver([Request("r1", "Write")]);
+        on = true;
+        Assert.Single(await resolver([Request("r2", "Write")]));
+        Assert.Equal(1, hostAsked);
+    }
+
+    /// <summary>窗口在这一轮中途才打开：收卡回调每批现取，新窗口的卡也收得掉</summary>
+    [Fact]
+    public async Task SettledHandler_IsLookedUpPerBatch()
+    {
+        UnattendedScope scope = new(() => GoalModeApproval.Create("s"));
+        Action<IReadOnlyList<ToolApprovalRequestContent>, IReadOnlyList<ChatMessage>>? current = null;
+        int settled = 0;
+        ApprovalResolver? resolver = SessionWakeTurn.ComposeWakeResolver(() => null, scope, () => current);
+
+        Assert.NotNull(resolver);
+        await resolver([Request("r1", "Write")]);
+        current = (_, _) => settled++;
+        await resolver([Request("r2", "Write")]);
+
+        Assert.Equal(1, settled);
+    }
+
+    /// <summary>通道到上限且有壳：改问用户，也不拿空回应去收卡</summary>
+    [Fact]
+    public async Task Exhausted_FallsBackToTheHost_WithoutSettling()
+    {
+        ApprovalResolver exhausted = _ => Task.FromResult<IReadOnlyList<ChatMessage>>([]);
+        UnattendedScope scope = new(() => exhausted);
+        bool hostAsked = false;
+        int settled = 0;
+        ApprovalResolver host = _ =>
+        {
+            hostAsked = true;
+            return Task.FromResult<IReadOnlyList<ChatMessage>>([]);
+        };
+        ApprovalResolver? resolver = SessionWakeTurn.ComposeWakeResolver(() => host, scope,
+            () => (_, _) => settled++);
+
+        Assert.NotNull(resolver);
+        await resolver([Request("r1", "Write")]);
+
+        Assert.True(hostAsked);
+        Assert.Equal(0, settled);
     }
 
     [Fact]
@@ -28,7 +98,7 @@ public class SessionWakeTurnTests
     {
         UnattendedScope scope = new(() => null);
 
-        Assert.Null(SessionWakeTurn.ComposeWakeResolver(null, scope, null));
+        Assert.Null(SessionWakeTurn.ComposeWakeResolver(() => null, scope, NoSettled));
     }
 
     /// <summary>开着：本轮通道判据，壳只收卡、不参与判据</summary>
@@ -37,8 +107,8 @@ public class SessionWakeTurnTests
     {
         UnattendedScope scope = new(() => GoalModeApproval.Create("s"));
         List<(IReadOnlyList<ToolApprovalRequestContent> Requests, IReadOnlyList<ChatMessage> Responses)> settled = [];
-        ApprovalResolver? resolver = SessionWakeTurn.ComposeWakeResolver(null, scope,
-            (requests, responses) => settled.Add((requests, responses)));
+        ApprovalResolver? resolver = SessionWakeTurn.ComposeWakeResolver(() => null, scope,
+            () => (requests, responses) => settled.Add((requests, responses)));
 
         Assert.NotNull(resolver);
         ToolApprovalRequestContent request = Request("r1", "Write");
@@ -62,7 +132,7 @@ public class SessionWakeTurnTests
             hostAsked = true;
             return Task.FromResult<IReadOnlyList<ChatMessage>>([]);
         };
-        ApprovalResolver? resolver = SessionWakeTurn.ComposeWakeResolver(host, scope, null);
+        ApprovalResolver? resolver = SessionWakeTurn.ComposeWakeResolver(() => host, scope, NoSettled);
 
         Assert.NotNull(resolver);
         Assert.NotEmpty(await resolver([Request("r1", "Write")]));
@@ -79,7 +149,7 @@ public class SessionWakeTurnTests
     {
         bool on = true;
         UnattendedScope scope = new(() => on ? GoalModeApproval.Create("s") : null);
-        ApprovalResolver? resolver = SessionWakeTurn.ComposeWakeResolver(null, scope, null);
+        ApprovalResolver? resolver = SessionWakeTurn.ComposeWakeResolver(() => null, scope, NoSettled);
 
         Assert.NotNull(resolver);
         Assert.NotEmpty(await resolver([Request("r1", "Write")]));
@@ -93,12 +163,14 @@ public class SessionWakeTurnTests
     public async Task SettledThrowing_DoesNotFailTheDecisions()
     {
         UnattendedScope scope = new(() => GoalModeApproval.Create("s"));
-        ApprovalResolver? resolver = SessionWakeTurn.ComposeWakeResolver(null, scope,
-            (_, _) => throw new InvalidOperationException("收卡炸了"));
+        ApprovalResolver? resolver = SessionWakeTurn.ComposeWakeResolver(() => null, scope,
+            () => (_, _) => throw new InvalidOperationException("收卡炸了"));
 
         Assert.NotNull(resolver);
         Assert.Single(await resolver([Request("r1", "Write")]));
     }
+
+    private static Action<IReadOnlyList<ToolApprovalRequestContent>, IReadOnlyList<ChatMessage>>? NoSettled() => null;
 
     private static ToolApprovalRequestContent Request(string id, string tool) =>
         new(id, new FunctionCallContent(id, tool, new Dictionary<string, object?>()));

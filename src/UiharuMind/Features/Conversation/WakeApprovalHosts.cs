@@ -24,7 +24,8 @@ namespace UiharuMind.Features.Conversation;
 /// <b>「这个会话问不问人」只此一处说了算</b>：目标模式勾了「自动同意审批」时登记进来的
 /// 无人值守策略（<see cref="SetUnattendedApprovals"/>）返回非空，会话窗口就据此把卡片
 /// 就地收掉、不等用户点；唤醒轮那头则在没有壳可问时直接走它。两边问的是同一份答案，
-/// 不会各判一套。
+/// 不会各判一套。判据与收卡分开取（<see cref="ResolveHost"/>、<see cref="UnattendedFor"/>、
+/// <see cref="SettledFor"/>），由唤醒轮自己组合（<c>SessionWakeTurn.ComposeWakeResolver</c>）。
 ///
 /// ⚠️ 这正是 ADR 0021 修订里嵌套审批踩过的那个坑的同构版：请求冒出来了，
 /// 但接它的那一头清单恒为空、回应恒为空，于是轮次直接结束、调用永无结果。
@@ -86,7 +87,8 @@ public static class WakeApprovalHosts
     /// <summary>
     /// 这个会话的审批是不是一条都不问：勾了「自动同意审批」时为那个通道，否则 null。
     ///
-    /// 会话窗口据此把待决卡片就地收掉；唤醒轮 <see cref="Resolve"/> 在问不到壳时也走它
+    /// 会话窗口据此把待决卡片就地收掉；唤醒轮也向它取本轮的通道。每次调用都是新通道（计数从零起），
+    /// 调用方按执行持有
     /// </summary>
     /// <param name="sessionId">会话标识</param>
     /// <returns>无人值守的审批通道；没有为 null</returns>
@@ -148,29 +150,5 @@ public static class WakeApprovalHosts
     {
         if (string.IsNullOrEmpty(sessionId)) return null;
         lock (_locker) return _settled.GetValueOrDefault(sessionId);
-    }
-
-    /// <summary>
-    /// 取这个会话的唤醒轮审批回应口：先问壳（壳那一头自己知道要不要把卡片收掉），
-    /// 壳没开着才走无人值守策略；两者都没有返回 null（按拒绝收口）。
-    ///
-    /// 单次查询语义：每次调用都新建无人值守通道（计数从零起）。调用方按执行持有一次、
-    /// 后续批次复用，不得每批现取——否则轮次上限永不触发
-    /// </summary>
-    /// <param name="sessionId">会话标识；没有则问不出名堂</param>
-    /// <returns>回应口；没有为 null</returns>
-    public static ApprovalResolver? Resolve(string? sessionId)
-    {
-        if (string.IsNullOrEmpty(sessionId)) return null;
-        // 先把两份答案拷贝出来、出锁再调：回调里可能再拿别的锁（目标模式控制器那把），锁里调会锁序反转
-        ApprovalResolver? host;
-        Func<string, ApprovalResolver?>? unattended;
-        lock (_locker)
-        {
-            _hosts.TryGetValue(sessionId, out host);
-            unattended = _unattended;
-        }
-
-        return host ?? unattended?.Invoke(sessionId);
     }
 }

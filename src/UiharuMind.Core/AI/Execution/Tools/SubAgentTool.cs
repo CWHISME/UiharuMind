@@ -68,6 +68,15 @@ public static class SubAgentTool
     private const int MaxLabelLength = 40; //身份与标题的长度上限：署名、窗口标题、身份句都用它
 
     /// <summary>
+    /// 派活会话的无人值守审批通道（按派活者的会话标识）：派活者的审批一条都不问时（目标模式勾了
+    /// 「自动同意审批」），它派出的子代理也一条都不问。没有为 null。
+    ///
+    /// 每批现问（目标模式中途结束或取消勾选，下一批就回落），通道按一次委派冻结。
+    /// 由装配入口注入：Core 的执行层不该知道目标模式
+    /// </summary>
+    public static Func<string, ApprovalResolver?>? InheritedUnattendedApprovals { get; set; }
+
+    /// <summary>
     /// 子代理的工具循环轮次上限(传给框架的 <c>MaximumIterationsPerRequest</c>,
     /// 到顶即停止循环并把已有进展作为响应返回,不抛异常)。
     ///
@@ -504,7 +513,7 @@ public static class SubAgentTool
         // 警告记进日志、路径点名进报告,三处缺一不可。
         bool fullAuto = ShouldAutoApproveNestedApprovals(attended, session.PermissionModeIndex);
         List<string> autoApprovedCalls = new();
-        ApprovalResolver? resolver = NestedApprovalResolver.Create(attended,
+        ApprovalResolver? nested = NestedApprovalResolver.Create(attended,
             session.SessionId, SessionApprovalRegistry.Instance, NestedApprovalTimeout,
             MaxDeniedApprovalRounds, timeoutSource.Token,
             () => BackgroundSubAgentDispatcher.Notifier?.Invoke(
@@ -514,6 +523,20 @@ public static class SubAgentTool
             {
                 lock (autoApprovedCalls) autoApprovedCalls.Add(NestedApprovalResolver.Describe(call));
             });
+        // 派活会话一条都不问（目标模式的自动同意）：子代理同样不问，无人值守时也不再当场拒——
+        // 目标模式的活多半是派出去干的，不继承就推不动。放行同样要在报告里点名
+        List<string> inheritedApprovedCalls = new();
+        string? parentSessionId = session.ParentSessionId;
+        UnattendedScope inherited = new(() => string.IsNullOrEmpty(parentSessionId)
+            ? null
+            : InheritedUnattendedApprovals?.Invoke(parentSessionId));
+        ApprovalResolver? resolver = UnattendedApprovals.Prefer(inherited, () => nested, (requests, responses) =>
+        {
+            lock (inheritedApprovedCalls)
+            {
+                inheritedApprovedCalls.AddRange(requests.Take(responses.Count).Select(UnattendedApprovals.Describe));
+            }
+        });
 
         try
         {
@@ -604,6 +627,15 @@ public static class SubAgentTool
             string more = autoApprovedCalls.Count > shown.Length ? "，…" : string.Empty;
             report += $"\n（注：{autoApprovedCalls.Count} 个通常需要审批的动作"
                       + "因你的会话运行在 FullAuto 模式而被自动放行："
+                      + string.Join("; ", shown) + more + "。）";
+        }
+        if (inheritedApprovedCalls.Count > 0)
+        {
+            string[] shown;
+            lock (inheritedApprovedCalls) shown = inheritedApprovedCalls.Distinct().Take(5).ToArray();
+            string more = inheritedApprovedCalls.Count > shown.Length ? "，…" : string.Empty;
+            report += $"\n（注：{inheritedApprovedCalls.Count} 个通常需要审批的动作"
+                      + "因你的会话开着目标模式的「自动同意审批」而被自动放行："
                       + string.Join("; ", shown) + more + "。）";
         }
         string outcome = timedOut ? "timed out" : stopped || parentToken.IsCancellationRequested ? "stopped" : "done";

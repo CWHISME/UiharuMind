@@ -38,11 +38,11 @@ public class WakeApprovalHostsTests : IDisposable
     [Fact]
     public void NoHostAndNoPolicy_NobodyToAsk()
     {
-        Assert.Null(WakeApprovalHosts.Resolve(_session));
+        Assert.Null(WakeApprovalHosts.ResolveHost(_session));
         Assert.Null(WakeApprovalHosts.UnattendedFor(_session));
     }
 
-    /// <summary>壳开着：唤醒轮问壳，那一头自己知道要不要把卡片收掉</summary>
+    /// <summary>壳开着：唤醒轮问壳</summary>
     [Fact]
     public void HostRegistered_TheWakeTurnAsksTheShell()
     {
@@ -57,19 +57,19 @@ public class WakeApprovalHostsTests : IDisposable
         WakeApprovalHosts.Register(_session, host);
         _registered = host; //Dispose 据此摘掉：进程级字典残留会污染同类其他用例
 
-        Assert.Same(host, WakeApprovalHosts.Resolve(_session));
+        Assert.Same(host, WakeApprovalHosts.ResolveHost(_session));
         Assert.True(WakeApprovalHosts.HasHost(_session));
         Assert.False(asked);
     }
 
-    /// <summary>壳不在（会话没开着）：无人值守的策略接，不再按无头口径拒绝</summary>
+    /// <summary>壳不在（会话没开着）：无人值守的策略照样取得到，不再按无头口径拒绝</summary>
     [Fact]
     public void NoHost_UnattendedPolicyAnswers()
     {
         ApprovalResolver unattended = _ => Task.FromResult<IReadOnlyList<ChatMessage>>([]);
         WakeApprovalHosts.SetUnattendedApprovals(id => id == _session ? unattended : null);
 
-        Assert.Same(unattended, WakeApprovalHosts.Resolve(_session));
+        Assert.Null(WakeApprovalHosts.ResolveHost(_session));
         Assert.Same(unattended, WakeApprovalHosts.UnattendedFor(_session));
         Assert.False(WakeApprovalHosts.HasHost(_session));
     }
@@ -87,14 +87,15 @@ public class WakeApprovalHostsTests : IDisposable
         _registered = host;
         WakeApprovalHosts.Register(_session, host);
 
-        Assert.Same(host, WakeApprovalHosts.Resolve(_session));
+        Assert.Same(host, WakeApprovalHosts.ResolveHost(_session));
         Assert.Same(unattended, WakeApprovalHosts.UnattendedFor(_session));
         Assert.True(WakeApprovalHosts.HasHost(_session));
 
         WakeApprovalHosts.Unregister(_session, host);
         _registered = null;
 
-        Assert.Same(unattended, WakeApprovalHosts.Resolve(_session));
+        Assert.Null(WakeApprovalHosts.ResolveHost(_session));
+        Assert.Same(unattended, WakeApprovalHosts.UnattendedFor(_session));
         Assert.False(WakeApprovalHosts.HasHost(_session));
     }
 
@@ -107,8 +108,8 @@ public class WakeApprovalHostsTests : IDisposable
         _registered = host;
         WakeApprovalHosts.Register(_session, host);
 
-        Assert.Null(WakeApprovalHosts.Resolve(null));
-        Assert.Null(WakeApprovalHosts.Resolve(string.Empty));
+        Assert.Null(WakeApprovalHosts.ResolveHost(null));
+        Assert.Null(WakeApprovalHosts.ResolveHost(string.Empty));
         Assert.Null(WakeApprovalHosts.UnattendedFor(null));
         Assert.Null(WakeApprovalHosts.UnattendedFor(string.Empty));
         Assert.False(WakeApprovalHosts.HasHost(null));

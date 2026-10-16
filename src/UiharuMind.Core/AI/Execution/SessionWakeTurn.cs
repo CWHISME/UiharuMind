@@ -138,12 +138,13 @@ public static class SessionWakeTurn
             // 「没人看着」,于是这一轮里派出的子代理连审批通道都不建(见 TurnDriver 的 attended)
             //
             // 有壳问壳（卡片弹给正看着它的人），无人值守走本轮自己的通道并另行通知壳收卡：
-            // 两条路的计数各归各的执行，壳的通道只判用户点的那些，不替无人值守计数
-            ApprovalResolver? host = Policy?.HostSource?.Invoke(sessionId);
+            // 两条路的计数各归各的执行，壳的通道只判用户点的那些，不替无人值守计数。
+            // 壳与收卡回调每批现取：窗口可能在这一轮中途打开或关掉
+            Func<ApprovalResolver?> hostSource = () => Policy?.HostSource?.Invoke(sessionId);
+            ApprovalResolver? host = hostSource();
             UnattendedScope wakeScope = new(() => Policy?.UnattendedSource?.Invoke(sessionId));
-            Action<IReadOnlyList<ToolApprovalRequestContent>, IReadOnlyList<ChatMessage>>? settled =
-                Policy?.SettledSource?.Invoke(sessionId);
-            ApprovalResolver? resolver = ComposeWakeResolver(host, wakeScope, settled);
+            ApprovalResolver? resolver = ComposeWakeResolver(hostSource, wakeScope,
+                () => Policy?.SettledSource?.Invoke(sessionId));
             // 「有没有人看着」只认壳,不按无人值守推:无人值守接得住审批,
             // 背后却没有人,按它推等于让子代理的审批白等 5 分钟再被拒；没注入口子默认没人看着
             bool attended = Policy?.AttendedSource?.Invoke(sessionId) ?? host != null;
@@ -151,7 +152,7 @@ public static class SessionWakeTurn
             // 无宿主时收口正文写明「唤醒轮没窗口」,卡片据此解释「为什么没弹审批」;
             // 有宿主时审批卡在会话窗口里,按普通「无人回应」口径收口
             using TurnDriver driver = new(null, new TurnUsageLedger(), unansweredResultText:
-                resolver == null ? ToolCallCancellation.WakeUnansweredResultText : null);
+                host == null ? ToolCallCancellation.WakeUnansweredResultText : null);
             await driver.RunAsync(session, lease.Runner, null, resolver, cancellationToken, attended)
                 .ConfigureAwait(false);
         }
@@ -163,38 +164,16 @@ public static class SessionWakeTurn
     }
 
     /// <summary>
-    /// 唤醒轮本轮的审批回应口：无人值守开着走本轮自己的通道（计数不与壳串），关着问壳，
-    /// 两边都没有为 null。null 的口径与从前完全一致，驱动据此按无头收口
+    /// 唤醒轮本轮的审批回应口：无人值守开着走本轮自己的通道（计数不与壳串），关着问壳；
+    /// 开跑时两边都没有为 null，口径与从前一致，驱动据此按无头收口。
+    /// 开跑时只有壳也照样组合：开关可能在这一轮中途勾上
     /// </summary>
-    /// <param name="host">界面壳；没有为 null</param>
+    /// <param name="hostSource">界面壳，每批现取；没有为 null</param>
     /// <param name="scope">本轮的无人值守作用域（开关现问、通道冻结）</param>
-    /// <param name="settled">无人值守决出后通知壳收卡；没有壳为 null</param>
-    /// <returns>回应口；两边都没有为 null</returns>
-    internal static ApprovalResolver? ComposeWakeResolver(ApprovalResolver? host, UnattendedScope scope,
-        Action<IReadOnlyList<ToolApprovalRequestContent>, IReadOnlyList<ChatMessage>>? settled)
-    {
-        if (scope.ForBatch() == null) return host;
-        return async requests =>
-        {
-            if (scope.ForBatch() is { } active)
-            {
-                IReadOnlyList<ChatMessage> responses = await active(requests).ConfigureAwait(false);
-                try
-                {
-                    settled?.Invoke(requests, responses);
-                }
-                catch (Exception e)
-                {
-                    // 收卡通知必须不抛、快返：判据已经决出，不能把显示问题记成整轮失败
-                    Log.Warning($"Wake approval settled notice failed: {e.Message}");
-                }
-
-                return responses;
-            }
-
-            // 本轮中途撤销：改问壳；壳也没有就按未决收（与到上限收口同一条路）
-            if (host != null) return await host(requests).ConfigureAwait(false);
-            return [];
-        };
-    }
+    /// <param name="settledSource">无人值守决出后通知壳收卡，每批现取；没有壳为 null</param>
+    /// <returns>回应口；开跑时两边都没有为 null</returns>
+    internal static ApprovalResolver? ComposeWakeResolver(Func<ApprovalResolver?> hostSource, UnattendedScope scope,
+        Func<Action<IReadOnlyList<ToolApprovalRequestContent>, IReadOnlyList<ChatMessage>>?> settledSource) =>
+        UnattendedApprovals.Prefer(scope, hostSource,
+            (requests, responses) => settledSource()?.Invoke(requests, responses));
 }

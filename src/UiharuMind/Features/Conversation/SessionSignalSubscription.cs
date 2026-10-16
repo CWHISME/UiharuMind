@@ -20,8 +20,8 @@ namespace UiharuMind.Features.Conversation;
 /// <summary>
 /// 视图挂在会话上要接的几路回调。视图构造时建一份，每次挂会话都用它
 /// </summary>
-/// <param name="ResolveApprovalsFor">按会话钉死的审批回应口：挂上哪个会话就只认它的开关，
-/// 在飞的唤醒轮不受会话切换影响（见 <see cref="WakeApprovalHosts"/>）</param>
+/// <param name="ResolveApprovals">后台子代理跑完起的唤醒轮，审批只有本壳接得住（见 <see cref="WakeApprovalHosts"/>）。
+/// 只管用户点选：无人值守的判据由唤醒轮自己那一轮的通道定</param>
 /// <param name="ApprovalsSettled">唤醒轮用自己的通道判了无人值守的审批，卡片仍要在这里就地收掉；null 不收</param>
 /// <param name="HistoryAppended">历史被追加了（参数是新增段起点）；可能来自后台线程</param>
 /// <param name="HistoryReplaced">历史里某一条被别处原地换掉了；可能来自后台线程</param>
@@ -30,7 +30,7 @@ namespace UiharuMind.Features.Conversation;
 /// <param name="LiveIdentity">落点的身份：自己驱动时按它去重，不会渲染两遍</param>
 /// <param name="SpeechRequested">智能体要开口（Speak 工具）；来自工具线程。null 不接</param>
 public sealed record SessionSignalHandlers(
-    Func<string, ApprovalResolver> ResolveApprovalsFor,
+    ApprovalResolver ResolveApprovals,
     Action<int> HistoryAppended,
     Action<int, ChatMessage> HistoryReplaced,
     Action TurnEnded,
@@ -49,7 +49,6 @@ public sealed class SessionSignalSubscription : IDisposable
 {
     private readonly ChatSession _session;
     private readonly SessionSignalHandlers _handlers;
-    private readonly ApprovalResolver _pinnedHost; //钉死本会话的回应口：摘除时认它，不会摘走顶替者的
     private readonly IDisposable _pin;
     private readonly IDisposable _liveObservation;
     private bool _disposed;
@@ -66,8 +65,7 @@ public sealed class SessionSignalSubscription : IDisposable
         // 钉住它的历史:每个气泡都指着历史里的某一条消息实例,历史被卸掉重载之后
         // 那些引用全部认不回来,编辑/删除/分叉/重试会静默失效(见 SessionResidencyPolicy)
         _pin = SessionManager.Instance.Pin(session.SessionId);
-        _pinnedHost = handlers.ResolveApprovalsFor(session.SessionId);
-        WakeApprovalHosts.Register(session.SessionId, _pinnedHost);
+        WakeApprovalHosts.Register(session.SessionId, handlers.ResolveApprovals);
         if (handlers.ApprovalsSettled != null) WakeApprovalHosts.RegisterSettled(session.SessionId, handlers.ApprovalsSettled);
         session.HistoryAppended += handlers.HistoryAppended;
         session.HistoryMessageReplaced += handlers.HistoryReplaced;
@@ -82,7 +80,7 @@ public sealed class SessionSignalSubscription : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        WakeApprovalHosts.Unregister(_session.SessionId, _pinnedHost);
+        WakeApprovalHosts.Unregister(_session.SessionId, _handlers.ResolveApprovals);
         if (_handlers.ApprovalsSettled != null) WakeApprovalHosts.UnregisterSettled(_session.SessionId, _handlers.ApprovalsSettled);
         _session.HistoryAppended -= _handlers.HistoryAppended;
         _session.HistoryMessageReplaced -= _handlers.HistoryReplaced;

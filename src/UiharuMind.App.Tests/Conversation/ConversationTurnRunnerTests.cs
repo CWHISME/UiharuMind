@@ -160,7 +160,7 @@ public class ConversationTurnRunnerTests
         ToolApprovalRequestContent request =
             new("r1", new FunctionCallContent("c1", "Write", new Dictionary<string, object?>()));
 
-        IReadOnlyList<ChatMessage> responses = await runner.ResolveApprovalsFor(session.SessionId)([request]);
+        IReadOnlyList<ChatMessage> responses = await runner.ResolveForTurn(session.SessionId)([request]);
 
         ToolApprovalResponseContent content =
             Assert.Single(Assert.Single(responses).Contents.OfType<ToolApprovalResponseContent>());
@@ -169,30 +169,49 @@ public class ConversationTurnRunnerTests
     }
 
     /// <summary>
-    /// 同一轮里多批审批共用一个无人值守通道：每批都新建的话轮次上限永不触发，
-    /// 前台这一轮就没了审批侧闸门（计数记在通道里，一轮只取一次）。
+    /// 同一轮里多批审批共用一个无人值守通道：每批都新建的话轮次上限永不触发（计数记在通道里）。
     /// 开关本身每批现问（工厂调用次数不固定），不断的是通道
     /// </summary>
     [Fact]
-    public async Task UnattendedResolver_IsReusedWithinATurn_SoRoundCapApplies()
+    public async Task UnattendedResolver_IsReusedWithinATurn()
     {
         ChatSession session = new("g", new CharacterData { CharacterId = "g" }) { IsTransient = true };
         FakeHost host = new() { Session = session, CurrentSessionId = session.SessionId };
-        ConversationTurnRunner runner = NewRunner(host, id => GoalModeApproval.Create(id ?? string.Empty));
+        int created = 0;
+        List<int> used = [];
+        ConversationTurnRunner runner = NewRunner(host, id =>
+        {
+            int channel = ++created;
+            ApprovalResolver inner = GoalModeApproval.Create(id ?? string.Empty);
+            return requests =>
+            {
+                used.Add(channel);
+                return inner(requests);
+            };
+        });
 
         ToolApprovalRequestContent request =
             new("r1", new FunctionCallContent("c1", "Write", new Dictionary<string, object?>()));
-        ApprovalResolver resolve = runner.ResolveApprovalsFor(session.SessionId);
-        IReadOnlyList<ChatMessage> last = [];
-        int batches = 0;
-        for (; batches < 20; batches++)
-        {
-            last = await resolve([request]);
-            if (last.Count == 0) break;
-        }
+        ApprovalResolver resolve = runner.ResolveForTurn(session.SessionId);
+        for (int i = 0; i < 5; i++) Assert.Single(await resolve([request]));
 
-        Assert.True(batches < 20, "round cap should end the run instead of approving forever");
-        Assert.Empty(last);
+        Assert.Equal(5, used.Count);
+        Assert.Single(used.Distinct());
+    }
+
+    /// <summary>通道到上限：人就在窗口里，改问用户（空 transcript 里没有卡，直接返回空），不抛</summary>
+    [Fact]
+    public async Task UnattendedExhausted_FallsBackToTheUser()
+    {
+        ChatSession session = new("g", new CharacterData { CharacterId = "g" }) { IsTransient = true };
+        FakeHost host = new() { Session = session, CurrentSessionId = session.SessionId };
+        ConversationTurnRunner runner = NewRunner(host,
+            _ => _ => Task.FromResult<IReadOnlyList<ChatMessage>>([]));
+
+        ToolApprovalRequestContent request =
+            new("r1", new FunctionCallContent("c1", "Write", new Dictionary<string, object?>()));
+
+        Assert.Empty(await runner.ResolveForTurn(session.SessionId)([request]));
     }
 
     /// <summary>
@@ -205,7 +224,7 @@ public class ConversationTurnRunnerTests
         FakeHost host = new() { Session = session, CurrentSessionId = session.SessionId };
         bool on = true;
         ConversationTurnRunner runner = NewRunner(host, _ => on ? GoalModeApproval.Create("g") : null);
-        ApprovalResolver resolve = runner.ResolveApprovalsFor(session.SessionId);
+        ApprovalResolver resolve = runner.ResolveForTurn(session.SessionId);
 
         ToolApprovalRequestContent request =
             new("r1", new FunctionCallContent("c1", "Write", new Dictionary<string, object?>()));

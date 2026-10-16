@@ -670,7 +670,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _handoffWriting = new HandoffWritingPlaceholder(Items, () => ScrollToEnd = true);
         // 观察别人驱动的那一轮时用它:内核仍是 _transcript,所以自己驱动时会被去重掉(见 LiveTurnStream)
         // 登记在册的才放行审批请求——嵌套审批的卡只该在子窗口弹,普通会话的观察窗弹出来也没人听
-        _signalHandlers = new SessionSignalHandlers(_turns.ResolveApprovalsFor, OnSessionHistoryAppended,
+        _signalHandlers = new SessionSignalHandlers(_turns.ResolveApprovalsAsync, OnSessionHistoryAppended,
             OnSessionHistoryReplaced, OnObservedTurnEnded,
             new LiveObserverSink(_transcript, _approvalAdopter.AllowsObservedApproval), _transcript,
             OnSpeechRequested, _turns.NotifyApprovalsSettled);

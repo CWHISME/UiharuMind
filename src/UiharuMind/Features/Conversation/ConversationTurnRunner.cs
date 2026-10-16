@@ -132,10 +132,8 @@ public sealed class ConversationTurnRunner
                 await session.AcquireRunnerAsync(prepareToken).ConfigureAwait(false);
             try
             {
-                // 本轮自己的作用域：局部变量保证两轮重叠也不串计数；认装配到位时的会话，
-                // 之后切走不影响在跑的审批口径
-                UnattendedScope turnScope = new(() => _unattended(session.SessionId));
-                await _driver.RunAsync(session, lease.Runner, userMessage, requests => ResolveWithScope(turnScope, requests));
+                // 认装配到位时的会话：之后切走不影响在跑的审批口径
+                await _driver.RunAsync(session, lease.Runner, userMessage, ResolveForTurn(session.SessionId));
             }
             finally
             {
@@ -184,15 +182,33 @@ public sealed class ConversationTurnRunner
     }
 
     /// <summary>
-    /// 按会话钉死的解析器：挂上这个会话的信号时一次绑定，在飞的执行不受会话切换影响。
-    /// 作用域随返回的委托一起释放（摘除登记即丢掉），不攒字典、不跨会话串计数
+    /// 前台一轮的审批回应口：开关每批现问（撤销立即生效），无人值守通道在本轮内冻结（计数不断）。
+    /// 每轮新建一个，两轮重叠也不串计数
     /// </summary>
-    /// <param name="sessionId">绑定的会话；钉死它，只认它的开关</param>
-    /// <returns>该会话的审批回应口</returns>
-    public ApprovalResolver ResolveApprovalsFor(string? sessionId)
+    /// <param name="sessionId">这一轮的会话；只认它的开关</param>
+    /// <returns>本轮的审批回应口</returns>
+    internal ApprovalResolver ResolveForTurn(string? sessionId)
     {
         UnattendedScope scope = new(() => string.IsNullOrEmpty(sessionId) ? null : _unattended(sessionId));
-        return requests => ResolveWithScope(scope, requests);
+        return async requests =>
+        {
+            // 这个会话的审批一条都不问（目标模式勾了「自动同意审批」，用户在设置弹窗确认过危险度）：
+            // 这一轮不等用户点。卡片就地收成已决——挂在待决里不动的话，看着像还在等人
+            if (scope.ForBatch() is { } unattended)
+            {
+                IReadOnlyList<ChatMessage> decisions = await unattended(requests);
+                if (decisions.Count > 0)
+                {
+                    _transcript.ResolveApprovalsElsewhere(requests, decisions, LangKey.AgentApprovalResolvedAuto);
+                    return decisions;
+                }
+
+                // 通道到了上限：人就在这个窗口里，改问用户，别带着未决结果收工
+                Log.Warning($"Session '{sessionId}' unattended approvals exhausted; asking the user instead.");
+            }
+
+            return await ResolveApprovalsAsync(requests);
+        };
     }
 
     /// <summary>
@@ -206,29 +222,19 @@ public sealed class ConversationTurnRunner
         _transcript.ResolveApprovalsElsewhere(requests, responses, LangKey.AgentApprovalResolvedAuto);
 
     /// <summary>
-    /// 按作用域决审批：开关开着不等用户点，直接按同意回应并把卡片就地收成已决；
-    /// 关着走用户点选（等用户对本轮每个请求做出决定，回应即下一轮的输入）。
-    /// 开关每批现问（撤销立即生效），通道按作用域冻结（计数不断）。
+    /// 审批回应：等用户对本轮每个请求做出决定，回应即下一轮的输入。
+    /// 只管用户点选，不看无人值守开关——唤醒轮的无人值守由它自己那一轮的通道判
+    /// （见 <c>SessionWakeTurn.ComposeWakeResolver</c>），前台一轮由 <see cref="ResolveForTurn"/> 判。
     ///
     /// <b>按请求对象相认</b>，不是把转录器攒着的整批抽干：同一个会话上可能同时有两轮在跑
     /// （用户那一轮与后台委派回来时起的<b>唤醒轮</b>共用这一个转录器），抽干会领走别人那一轮的卡片，
     /// 让那一轮的工具调用永远没有结果地留在历史里。
     /// </summary>
-    /// <param name="scope">本执行的作用域：前台一轮与壳对外各持一个</param>
     /// <param name="requests">本轮新增的审批请求</param>
     /// <returns>回应消息</returns>
-    private async Task<IReadOnlyList<ChatMessage>> ResolveWithScope(UnattendedScope scope,
+    public async Task<IReadOnlyList<ChatMessage>> ResolveApprovalsAsync(
         IReadOnlyList<ToolApprovalRequestContent> requests)
     {
-        // 这个会话的审批一条都不问（目标模式勾了「自动同意审批」，用户在设置弹窗确认过危险度）：
-        // 这一轮不等用户点。卡片就地收成已决——挂在待决里不动的话，看着像还在等人
-        if (scope.ForBatch() is { } unattended)
-        {
-            IReadOnlyList<ChatMessage> decisions = await unattended(requests).ConfigureAwait(false);
-            _transcript.ResolveApprovalsElsewhere(requests, decisions, LangKey.AgentApprovalResolvedAuto);
-            return decisions;
-        }
-
         IReadOnlyList<ApprovalRequestItem> turnApprovals = _transcript.TakeRoundApprovals(requests);
         List<ChatMessage> responses = new(turnApprovals.Count);
         foreach (ApprovalRequestItem approval in turnApprovals)

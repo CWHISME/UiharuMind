@@ -99,6 +99,46 @@ internal static class UnattendedApprovals
         };
     }
 
+    /// <summary>
+    /// 无人值守优先、回落到别处：开关开着走作用域里冻结的通道，关着（或本执行中途撤销、
+    /// 通道到了上限）交给 <paramref name="fallback"/>，那边也没有就按未决收。
+    /// 唤醒轮（回落到窗口）与子代理（回落到子会话的点选）共用这一份形状
+    /// </summary>
+    /// <param name="scope">本执行的无人值守作用域</param>
+    /// <param name="fallback">回落的回应口，每批现取；没有为 null</param>
+    /// <param name="settled">无人值守决出之后调一次（收卡、记账）；抛了只记日志，不影响已决出的判据</param>
+    /// <returns>回应口；此刻开关关着且没有回落为 null（调用方按无头收口）</returns>
+    internal static ApprovalResolver? Prefer(UnattendedScope scope, Func<ApprovalResolver?> fallback,
+        Action<IReadOnlyList<ToolApprovalRequestContent>, IReadOnlyList<ChatMessage>>? settled = null)
+    {
+        if (scope.ForBatch() == null && fallback() == null) return null;
+        return async requests =>
+        {
+            if (scope.ForBatch() is { } active)
+            {
+                IReadOnlyList<ChatMessage> responses = await active(requests).ConfigureAwait(false);
+                if (responses.Count > 0)
+                {
+                    try
+                    {
+                        settled?.Invoke(requests, responses);
+                    }
+                    catch (Exception e)
+                    {
+                        Log.Warning($"Unattended approval settled notice failed: {e.Message}");
+                    }
+
+                    return responses;
+                }
+
+                // 通道到了上限：有回落就交给它（人可能就在），没有按未决收
+            }
+
+            if (fallback() is { } next) return await next(requests).ConfigureAwait(false);
+            return Empty;
+        };
+    }
+
     /// <summary>一句话说清这次调用是谁、动哪儿（日志点名与事后报告同一口径）</summary>
     /// <param name="request">审批请求</param>
     /// <returns>描述</returns>

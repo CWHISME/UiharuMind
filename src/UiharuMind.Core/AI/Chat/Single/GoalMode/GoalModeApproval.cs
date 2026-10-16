@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.ToolCall;
 
 namespace UiharuMind.Core.AI.Chat.Single.GoalMode;
@@ -25,7 +26,7 @@ public static class GoalModeApproval
     public const string Reason = "Auto-approved: goal mode is running with auto-approve approvals on.";
 
     /// <summary>
-    /// 造这个会话的无人值守审批通道。一个唤醒轮用一个：轮次上限记在通道里，跨轮次要重新取
+    /// 造这个会话的无人值守审批通道。一次执行用一个：轮次上限记在通道里，跨执行要重新取
     /// </summary>
     /// <param name="sessionId">会话标识，日志指名道姓用</param>
     /// <returns>审批通道</returns>
@@ -36,8 +37,8 @@ public static class GoalModeApproval
             maxRounds: MaxRounds, maxDeniedRounds: null);
 
     /// <summary>
-    /// 一个唤醒轮里最多收口几批审批。模型每轮都要审批、还一批比一批多，就是在空转——
-    /// 目标模式本身没有保险丝，这一条是它仅有的审批侧闸门
+    /// 一次执行里最多自动同意几批审批。与主代理单轮工具往返上限同一个数（几乎无限）：
+    /// 目标模式推的就是长活，设小了半路收工、留一串未决调用；只防真正失控
     /// </summary>
-    internal const int MaxRounds = 8;
+    internal const int MaxRounds = AgentOptionsFactory.MaxIterationsPerRequest;
 }

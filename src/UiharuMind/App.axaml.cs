@@ -391,6 +391,9 @@ public partial class App : Application, ILogger, IDisposable
         // 会话窗口与唤醒轮都向 WakeApprovalHosts 问这一份答案,不会各判一套
         WakeApprovalHosts.SetUnattendedApprovals(
             sessionId => GoalModeController.Instance.ResolverFor(sessionId));
+        // 派出去的子代理随派活会话：目标模式的活多半是派出去干的,不继承就推不动
+        UiharuMind.Core.AI.Execution.Tools.SubAgentTool.InheritedUnattendedApprovals =
+            sessionId => GoalModeController.Instance.ResolverFor(sessionId);
         UiharuMind.Core.AI.Execution.Tools.BackgroundSubAgentDispatcher.Notifier = (notice, _) =>
         {
             if (Services?.GetService<IMessageService>() is not { } messageService) return;

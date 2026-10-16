@@ -36,20 +36,19 @@ public class GoalModeApprovalTests
     }
 
     /// <summary>
-    /// 轮次上限记在通道里：一个唤醒轮共用同一个通道，要审批的轮次太多就收工——
-    /// 目标模式本身没有保险丝，这一条是它仅有的审批侧闸门
+    /// 长活不该半路收工：上限与主代理单轮工具往返同一口径（几乎无限），只防真正失控
     /// </summary>
     [Fact]
-    public async Task TooManyRounds_EndsTheRunInsteadOfApprovingForever()
+    public async Task LongRuns_AreNotCutShort()
     {
         ApprovalResolver resolver = GoalModeApproval.Create("session");
 
-        for (int i = 0; i < GoalModeApproval.MaxRounds; i++)
+        for (int i = 0; i < 100; i++)
         {
             Assert.Single(await resolver([Request($"r{i}", "Write")]));
         }
 
-        Assert.Empty(await resolver([Request("one-more", "Write")]));
+        Assert.True(GoalModeApproval.MaxRounds >= 10000);
     }
 
     private static Task<IReadOnlyList<ChatMessage>> Resolve(IReadOnlyList<ToolApprovalRequestContent> requests) =>
