@@ -26,6 +26,7 @@ public sealed class DevControlHost : IDisposable
     internal static readonly IReadOnlyList<DevStepUsage> HostUsages =
     [
         new("app.ops", "列出全部步骤与用法"),
+        new("app.guide", "返回 uiharu-dev 技能正文：经命令行驱动应用的完整说明"),
         new("app.ping", "通道是否在、应用进程号"),
         new("app.quit", "退出应用"),
     ];
@@ -95,6 +96,8 @@ public sealed class DevControlHost : IDisposable
             case "app.ops":
                 return new DevStepOutcome(true, 0, DevJson.Array(HostUsages.Concat(_executor.Usages),
                     x => new JsonObject { ["Op"] = x.Op, ["Usage"] = x.Usage }));
+            case "app.guide":
+                return new DevStepOutcome(true, 0, JsonValue.Create(UiharuDevSkill.BuildBody()));
             case "app.quit":
                 _ = Task.Delay(QuitDelay).ContinueWith(_ => DevScriptRunner.QuitApp(), TaskScheduler.Default);
                 return new DevStepOutcome(true, 0);
