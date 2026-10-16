@@ -77,7 +77,7 @@ public static class SubAgentToolPrompts
     /// （见 <c>SubAgentPrompts.RoleOverPersona</c>）。
     /// </summary>
     public const string RoleParam =
-        "可选的角色简述（如「资深 C# 评审」「唱反调的人」）。" +
+        "可选的角色名称（如「资深 C# 评审」「唱反调的人」）。" +
         "会成为会话标题和对方的身份，决定他关注什么、如何权衡取舍。" +
         "它改变的是视角，不是能力。" +
         "指定了 `subagent_type` 时，对方保留人格，这个参数补充侧重点。";

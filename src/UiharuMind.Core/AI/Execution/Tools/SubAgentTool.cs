@@ -833,17 +833,17 @@ public static class SubAgentTool
             {
                 // 收尾总结缺失(轮次到顶/超时/被截断):给出全程旁白,但要说清它不是结论,
                 // 否则主代理会把中间猜测当成子代理的判断
-                result.AppendLine("（他没写出最终答案就停了。"
-                                  + "下面是他在过程中的话，不是结论。）");
+                result.AppendLine("【他没写出最终答案就停了。"
+                                  + "下面是他在过程中的话，不是结论。】");
                 result.Append(_allText.ToString().Trim());
             }
 
-            if (result.Length == 0) result.Append("（他什么也没回复。）");
+            if (result.Length == 0) result.Append("【他什么也没回复。】");
 
             if (timedOut)
             {
                 result.AppendLine();
-                result.Append($"（他停住了：撞上 {limit.TotalMinutes:0} 分钟的时间上限。）");
+                result.Append($"【他停住了：撞上 {limit.TotalMinutes:0} 分钟的时间上限。】");
             }
 
             // 被用户中止与超时是两回事:后者是意外,前者是**用户的决定**。
@@ -852,18 +852,18 @@ public static class SubAgentTool
             if (stoppedByUser)
             {
                 result.AppendLine();
-                result.Append("（用户特意停了他——那是用户的决定，不是失败。"
+                result.Append("【他的回话被用户终止，不是失败。"
                               + "不要转交给别人，也不要自己替他做；"
                               + "告诉用户他被停了，问接下来要做什么。"
-                              + "用户要是要求，你可以接着这段对话继续。）");
+                              + "用户要是要求，你可以接着这段对话继续。】");
             }
 
             // 用户插话改变了这次委派的性质,主代理该知道自己拿到的不全是它自己要的东西
             if (userInterjected)
             {
                 result.AppendLine();
-                result.Append("（注：用户在他干活时也直接跟他说过话，"
-                              + "所以这份回复可能反映了你没给过的方向。）");
+                result.Append("【注：用户在他干活时也直接跟他说过话，"
+                              + "所以这份回复可能反映了你没给过的方向。】");
             }
 
             return result.ToString();
