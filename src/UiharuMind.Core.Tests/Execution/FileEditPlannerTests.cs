@@ -835,4 +835,109 @@ public class FileEditPlannerTests
         Assert.False(plan.Succeeded);
         Assert.Contains("找不到文件 'src/Nope.cs'", plan.Error);
     }
+
+
+    #region 省略记号（ADR 0088）
+
+    private const string T = EditElision.Token;
+
+    [Fact]
+    public void Elision_OwnLine_ReplacesFromHeadToTail()
+    {
+        FileEditPlan plan = Plan("a\nstart\nm1\nm2\nend\nz\n", ($"start\n{T}\nend", "X"));
+
+        Assert.Equal("a\nX\nz\n", NewTextOf(plan));
+        Assert.Equal("edits[0] 的省略部分：第 3–4 行（2 行）。", plan.ElisionNote);
+    }
+
+    [Fact]
+    public void Elision_TailTakesTheNearestAfterHead()
+    {
+        FileEditPlan plan = Plan("begin\nx\nend\ny\nend\n", ($"begin\n{T}\nend", "B"));
+
+        Assert.Equal("B\ny\nend\n", NewTextOf(plan));
+    }
+
+    [Fact]
+    public void Elision_TokenInNewString_KeepsTheElidedText()
+    {
+        FileEditPlan plan = Plan("head();\nmid1\nmid2\nfoot();\n",
+            ($"head();\n{T}\nfoot();", $"try {{\n\t{T}\n}} // foot"));
+
+        Assert.Equal("try {\nmid1\nmid2\n} // foot\n", NewTextOf(plan));
+    }
+
+    [Fact]
+    public void Elision_Inline_MatchesWithinALine()
+    {
+        FileEditPlan plan = Plan("你好呀，我的世界\n", ($"你好{T}界", "Hi"));
+
+        Assert.Equal("Hi\n", NewTextOf(plan));
+        Assert.Equal("edits[0] 的省略部分：第 1 行内 5 个字符。", plan.ElisionNote);
+    }
+
+    [Fact]
+    public void Elision_HeadNotUnique_IsRejected()
+    {
+        FileEditPlan plan = Plan("dup\na\nend\ndup\nb\n", ($"dup\n{T}\nend", "X"));
+
+        Assert.False(plan.Succeeded);
+        Assert.Contains("开头一段在 'x.cs' 中出现了 2 次（起始于第 1、4 行）", plan.Error);
+    }
+
+    [Fact]
+    public void Elision_PunctuationOnlyTail_IsRejected()
+    {
+        FileEditPlan plan = Plan("void F()\n{\n\tA();\n}\n", ($"void F()\n{T}\n}}", "X"));
+
+        Assert.False(plan.Succeeded);
+        Assert.Contains("只有括号或标点", plan.Error);
+    }
+
+    [Fact]
+    public void Elision_LiteralTokenInFile_MatchesAsText()
+    {
+        FileEditPlan plan = Plan($"a {T} b\n", ($"a {T} b", $"c {T} d"));
+
+        Assert.Equal($"c {T} d\n", NewTextOf(plan));
+        Assert.Null(plan.ElisionNote);
+    }
+
+    [Fact]
+    public void Elision_TokenOnlyInNewString_IsLiteral()
+    {
+        FileEditPlan plan = Plan("a\n", ("a", $"用 {T} 连接首尾"));
+
+        Assert.Equal($"用 {T} 连接首尾\n", NewTextOf(plan));
+    }
+
+    [Fact]
+    public void Elision_TokenCountMismatch_IsSkipped()
+    {
+        FileEditPlan plan = Plan("h1\nm\nf1\nother\n",
+            ($"h1\n{T}\nf1", $"{T}\n{T}"), ("other", "OTHER"));
+
+        Assert.True(plan.IsPartial);
+        Assert.Equal("h1\nm\nf1\nOTHER\n", NewTextOf(plan));
+        Assert.Contains("newString 里却有 2 处", plan.SkippedNote);
+    }
+
+    [Fact]
+    public void Elision_CrlfFile_KeepsElidedBytes()
+    {
+        FileEditPlan plan = Plan("s\r\nm\r\ne\r\n", ($"s\n{T}\ne", $"S\n{T}\nE"));
+
+        Assert.Equal("S\r\nm\r\nE\r\n", NewTextOf(plan));
+    }
+
+    [Fact]
+    public void Elision_TailMissing_ReportsTheSegment()
+    {
+        FileEditPlan plan = Plan("begin\nx\n", ($"begin\n{T}\nfinish", "X"));
+
+        Assert.False(plan.Succeeded);
+        Assert.Contains("第 2 段（在前一段之后找）没有找到", plan.Error);
+    }
+
+    #endregion
 }

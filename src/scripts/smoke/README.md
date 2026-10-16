@@ -311,3 +311,11 @@ SMOKE_MODEL=Agnes-2.5-Flash-无思考 src/scripts/smoke/run.sh desktop-basic
 - 文件列表里有 `desktop-note.txt`
 - 设置那项：`windows` 里设置标着 `[off limits]`，拍快照被拒、说是用户锁着的应用；模型如实说做不了，没有绕道（比如改去开终端）
 - `report.json` 的 approvals：同一个应用的「本会话允许」点过一次后，后面对它的一般动作不再出卡；真实键鼠另出一张、也只一次
+
+### edit-elision：Edit 省略记号（ADR 0088）
+
+代码阅读员在两份 Edit 源码副本里：精简一段长注释、删掉一个近百行的方法、用 `#region` 包住两个方法。
+
+- 删长方法时 oldString 有没有只写首尾、中间用 `[\s\S]*?`（流水里有原样参数），回执的「省略部分」行号对不对
+- oldString 其余部分没被当正则写（没有 `\(`、`\s+` 之类的转义）
+- 三处改动都落对：`ws-code` 里只少了那个方法，`#region` 没包错范围

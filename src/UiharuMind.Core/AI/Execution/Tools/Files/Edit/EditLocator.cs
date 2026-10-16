@@ -163,7 +163,7 @@ internal static class EditLocator
         text.AsSpan(line.Start, line.ContentEnd - line.Start).TrimEnd();
 
     // 字符偏移所在的行号（1 起算）
-    private static int LineOf(List<TextLine> lines, int offset)
+    internal static int LineOf(List<TextLine> lines, int offset)
     {
         int low = 0;
         int high = lines.Count - 1;
@@ -176,6 +176,10 @@ internal static class EditLocator
 
         return low + 1;
     }
+
+    /// <summary>整行比对口径（两边已 TrimEnd）：原样相等，或白名单全角归一后相等</summary>
+    internal static bool LineEquals(ReadOnlySpan<char> fileLine, ReadOnlySpan<char> anchor) =>
+        fileLine.SequenceEqual(anchor) || FullWidthNormalizedEquals(fileLine, anchor);
 
     /// <summary>
     /// 受控全角归一：把白名单全角标点映射成半角后再比较（只影响判定，不落盘）。

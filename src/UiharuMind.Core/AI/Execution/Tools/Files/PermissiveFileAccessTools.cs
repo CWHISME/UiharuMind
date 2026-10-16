@@ -296,7 +296,8 @@ internal sealed class PermissiveFileAccessTools
         }
     }
 
-    [Description("按精确文本替换修改已有文件。oldString 与 newString 只写文件内容。")]
+    [Description("按精确文本替换修改已有文件。oldString 与 newString 只写文件内容。"
+                 + "被替换的段落较长时，oldString 可以只写开头和结尾几行，中间用 " + EditElision.Token + " 代替。")]
     internal async Task<string> Edit(
         [Description("文件路径，工作目录的相对路径(也接受非工作目录的绝对路径)。")]
         string filePath,
@@ -327,7 +328,8 @@ internal sealed class PermissiveFileAccessTools
                 ? $"{FileToolNames.EditSucceededPrefix}{filePath}'（部分成功：{plan.AppliedEdits}/{plan.TotalEdits} 处编辑）。"
                   + $"以下条目没有生效，只需对它们重新 `{FileToolNames.Edit}`，已生效的不要重发：\n{plan.SkippedNote}\n\n已生效的改动："
                 : $"{FileToolNames.EditSucceededPrefix}{filePath}'（{edits.Count} 处编辑）。";
-            return $"{head}{prefixNote}{MemoryListLine(full, plan.NewText)}\n{diff}";
+            string elisionNote = plan.ElisionNote is { } note ? "\n" + note : "";
+            return $"{head}{prefixNote}{elisionNote}{MemoryListLine(full, plan.NewText)}\n{diff}";
         }
         finally
         {

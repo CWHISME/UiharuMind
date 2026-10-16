@@ -1,0 +1,10 @@
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"session.new","args":{"character":"CodeReader","workspace":"{{WS_CODE}}"}}
+{"op":"session.post","args":{"text":"把 src/UiharuMind.Core/AI/Execution/Tools/Files/Edit/EditDiffRenderer.cs 里 Render 方法上面那段 XML 文档注释精简成三行以内，只说它做什么，代码不动。"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"once"}}
+{"op":"session.post","args":{"text":"把 src/UiharuMind.Core/AI/Execution/Tools/Files/Edit/EditMissHint.cs 里的 AlignWithGaps 方法连同它的注释整个删掉，调用处先不管。"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"once"}}
+{"op":"session.post","args":{"text":"在 EditDiffRenderer.cs 里，用 #region 折叠 / #endregion 把 CollapseContextRuns 和 BuildCollapsed 两个方法（连同注释）包起来，方法本身不动。"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"once"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/edit-elision.md"}}
+{"op":"quit"}

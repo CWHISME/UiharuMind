@@ -25,6 +25,7 @@ namespace UiharuMind.Core.AI.Execution.Files;
 /// 模型常把中文注释里的全角标点抄成半角（或反之），这层吸收能救回这类失败。</item>
 /// <item>缩进偏移：仍不中时，若每个非空行都只差同一段行首空白（整段多或少一层），按文件的缩进命中，
 /// newString 同样平移。Read 的行号分隔符与缩进同为制表符，模型删行号时常多删或少删一个。</item>
+/// <item>省略记号：仍不中且 oldString 含 <see cref="EditElision.Token"/> 时按记号拆段，开头唯一、之后就近，见 <see cref="EditElision"/> 与 ADR 0088。</item>
 /// </list>
 ///
 /// 归一的<b>边界</b>：只映射上面这份白名单标点——不碰智能引号、破折号、省略号，
@@ -107,6 +108,7 @@ public static class FileEditPlanner
         // 改成顺序定位的话，没生效的条目可能已被前面的条目改掉
         bool anyStripped = false;
         EIndentShift indentShift = EIndentShift.None;
+        List<string> elisionNotes = [];
         for (int i = 0; i < edits.Count; i++)
         {
             bool strippedPrefixes = false;
@@ -140,6 +142,25 @@ public static class FileEditPlanner
                     newString = Reindent(newString, added, removed);
                     indentShift |= added.Length > 0 ? EIndentShift.Missing : EIndentShift.Extra;
                 }
+            }
+
+            // 整串按原文的各层都不中，再按省略记号拆段（ADR 0088）；被省略的原文不经换行转写，一字不改
+            if (located.Kind == ELocateResult.NotFound && EditElision.Contains(oldString))
+            {
+                ElidedMatch elided = EditElision.Locate(text, lines, oldString, i, label);
+                string? filled = elided.Kind == ELocateResult.Found
+                    ? EditElision.Fill(newString, text, elided, envelope.ConvertNewLines)
+                    : null;
+                if (filled is null)
+                {
+                    skipped.Add(new SkippedEdit(i, oldString, null, newString, Elided: true));
+                    continue;
+                }
+
+                anyStripped |= strippedPrefixes;
+                elisionNotes.Add(EditElision.Describe(i, elided));
+                matches.Add(new EditMatch(i, elided.Start, elided.End, filled));
+                continue;
             }
 
             // 找不到、多处命中只属于这一条，其余照写；失败话术等写入后对着新文本出，行号才与磁盘对得上
@@ -186,7 +207,8 @@ public static class FileEditPlanner
         string? skippedNote = skipped.Count == 0 ? null : DescribeSkipped(skipped, newText, TextLines.Split(newText), label);
         return FileEditPlan.Success(newText, EditDiffBuilder.Build(text, lines, matches), envelope,
             strippedLinePrefixes: anyStripped, indentShift: indentShift,
-            edits.Count, matches.Count, skippedNote, skipped.Select(edit => edit.Index).ToList());
+            edits.Count, matches.Count, skippedNote, skipped.Select(edit => edit.Index).ToList(),
+            elisionNotes.Count == 0 ? null : string.Join("\n", elisionNotes));
     }
 
     // 缩进平移：文件多的那段补到每个有内容的行首；oldString 多的那段从带着它的行首去掉，不带的多半是新写的行
@@ -195,8 +217,8 @@ public static class FileEditPlanner
             added.Length > 0 ? line.Trim().Length > 0 ? added + line : line
             : line.StartsWith(removed, StringComparison.Ordinal) ? line[removed.Length..] : line));
 
-    /// <summary>没生效的一条：原话术所需的 oldString 与定位结果；oldString 为空时 Located 为 null</summary>
-    private readonly record struct SkippedEdit(int Index, string OldString, Location? Located);
+    /// <summary>没生效的一条：原话术所需的 oldString 与定位结果；oldString 为空或按省略记号拆段时 Located 为 null</summary>
+    private readonly record struct SkippedEdit(int Index, string OldString, Location? Located, string? NewString = null, bool Elided = false);
 
     // 没生效条目的话术，对着 text 出（部分写入时是写入后的新文本）
     private static string DescribeSkipped(List<SkippedEdit> skipped, string text, List<TextLine> lines, string label)
@@ -204,6 +226,7 @@ public static class FileEditPlanner
         string[]? fileLines = null;
         return string.Join("\n\n", skipped.Select(edit =>
         {
+            if (edit.Elided) return EditElision.DescribeSkipped(edit.Index, edit.OldString, edit.NewString ?? string.Empty, text, lines, label);
             if (edit.Located is null)
             {
                 return $"edits[{edit.Index}].oldString 不能为空。`{FileToolNames.Edit}` 替换的是已有文本：oldString 必须是文件里确实存在的一段。"

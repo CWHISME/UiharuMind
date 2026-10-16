@@ -19,11 +19,13 @@ namespace UiharuMind.Core.AI.Execution.Files;
 public sealed class FileEdit
 {
     /// <summary>被替换的原文，必须在文件中唯一出现，且不得与同一次调用的其他编辑重叠</summary>
-    [Description("被替换的原文，必须在文件中唯一出现，且不得与同一次调用的其他编辑重叠。")]
+    [Description("被替换的原文，必须在文件中唯一出现，且不得与同一次调用的其他编辑重叠。"
+                 + "段落较长时可以只写开头和结尾，中间用 " + EditElision.Token + " 代替：开头须唯一，结尾取开头之后最近的一处，连同首尾整段被替换。")]
     public string OldString { get; set; } = string.Empty;
 
     /// <summary>替换后的文本（空串表示删掉这段）</summary>
-    [Description("替换后的文本，空字符串表示删掉命中的那段。")]
+    [Description("替换后的文本，空字符串表示删掉命中的那段。"
+                 + "oldString 用了 " + EditElision.Token + " 时，newString 里的 " + EditElision.Token + " 表示原样保留那段被省略的原文。")]
     public string NewString { get; set; } = string.Empty;
 }
 
@@ -46,8 +48,9 @@ public sealed class FileEditPlan
 {
     private FileEditPlan(string? error, string newText, IReadOnlyList<LineDiffEntry> diff,
         TextFileEnvelope envelope, bool strippedLinePrefixes = false, EIndentShift indentShift = EIndentShift.None, int totalEdits = 0, int appliedEdits = 0,
-        string? skippedNote = null, IReadOnlyList<int>? skippedIndexes = null)
+        string? skippedNote = null, IReadOnlyList<int>? skippedIndexes = null, string? elisionNote = null)
     {
+        ElisionNote = elisionNote;
         SkippedIndexes = skippedIndexes ?? [];
         TotalEdits = totalEdits;
         AppliedEdits = appliedEdits;
@@ -68,6 +71,9 @@ public sealed class FileEditPlan
 
     /// <summary>有条目靠缩进偏移才命中时，oldString 比文件多还是少了一层（newString 已同样平移，成功回执里说明）</summary>
     public EIndentShift IndentShift { get; }
+
+    /// <summary>有条目按省略记号命中时，每处省略实际覆盖的行（成功回执里说明，见 ADR 0088）；没有为 null</summary>
+    public string? ElisionNote { get; }
 
     /// <summary>是否可以落盘</summary>
     public bool Succeeded => Error is null;
@@ -100,6 +106,6 @@ public sealed class FileEditPlan
 
     internal static FileEditPlan Success(string newText, IReadOnlyList<LineDiffEntry> diff,
         TextFileEnvelope envelope, bool strippedLinePrefixes, EIndentShift indentShift, int totalEdits, int appliedEdits,
-        string? skippedNote, IReadOnlyList<int> skippedIndexes) =>
-        new(null, newText, diff, envelope, strippedLinePrefixes, indentShift, totalEdits, appliedEdits, skippedNote, skippedIndexes);
+        string? skippedNote, IReadOnlyList<int> skippedIndexes, string? elisionNote = null) =>
+        new(null, newText, diff, envelope, strippedLinePrefixes, indentShift, totalEdits, appliedEdits, skippedNote, skippedIndexes, elisionNote);
 }
