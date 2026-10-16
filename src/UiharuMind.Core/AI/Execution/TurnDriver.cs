@@ -360,7 +360,16 @@ public sealed class TurnDriver : IDisposable
 
         // 压缩放在轮次之间,不放在请求路径上:写交接文档本身要发一次请求,
         // 塞进本轮会让用户多等一次完整往返
-        await WriteHandoffAsync(session, runner, force: false);
+        try
+        {
+            await WriteHandoffAsync(session, runner, force: false);
+        }
+        catch (Exception e)
+        {
+            // 交接失败不能杀死整轮:本轮历史已经落盘,后继的总结与报告还在后面排着。
+            // 交接只是丢了一次压缩机会,下次水位再到还会触发
+            Log.Error($"Context handoff failed: session={session.SessionId}: {e.Message}");
+        }
     }
 
     /// <summary>

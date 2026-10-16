@@ -458,13 +458,14 @@ public static class BackgroundSubAgentDispatcher
         // 只在交回期间持有,不占 _turnGates
         SemaphoreSlim deliverGate = _deliverGates.GetOrAdd(subSession.SessionId, _ => new SemaphoreSlim(1, 1));
         await deliverGate.WaitAsync().ConfigureAwait(false);
+        EDeliveryOutcome outcome = EDeliveryOutcome.Missing;
         try
         {
             // 结论先落在子会话上:送到之前进程没了,启动扫描补的是这一份,而不是一句「被中止」
             subSession.PendingReport = report;
             subSession.SaveMeta(touchUpdatedAt: false);
 
-            EDeliveryOutcome outcome = await SessionDelivery.Instance
+            outcome = await SessionDelivery.Instance
                 .DeliverAsync(new ReplyLetter(subSession, parentId, report),
                     () => MarkHandoffQueued(parentId, subSession.SessionId))
                 .ConfigureAwait(false);
@@ -477,9 +478,14 @@ public static class BackgroundSubAgentDispatcher
         }
         finally
         {
-            subSession.BackgroundReportPending = false;
-            subSession.PendingReport = null;
-            subSession.SaveMeta();
+            // 没送到就留着标记:启动扫描靠它们补送这一封(见 SettleOrphansOnStartup),清了就永久丢失。
+            // 运行时账本照常摘——这一轮确实跑完了,等的是下次启动,不是现在
+            if (outcome != EDeliveryOutcome.Missing)
+            {
+                subSession.BackgroundReportPending = false;
+                subSession.PendingReport = null;
+                subSession.SaveMeta();
+            }
             ClearHandoffQueued(parentId, subSession.SessionId);
             RemovePendingTurn(parentId, subSession.SessionId);
             PendingWorkChanged?.Invoke(parentId);
