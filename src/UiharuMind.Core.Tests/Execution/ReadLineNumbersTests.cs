@@ -58,30 +58,66 @@ public sealed class ReadLineNumbersTests
         Assert.False(ReadLineNumbers.TryStripCopied("1\ta\nb", out _));
     }
 
-    /// <summary>删了行号、留着其后的制表符：每行多一个行首 \t，剥一个再匹配，newString 每行都带也一起剥</summary>
+    /// <summary>删行号时多留了分隔的制表符：整段多一层缩进，按文件的缩进命中，newString 同样去掉一层</summary>
     [Fact]
-    public void Edit_StripsLeftoverSeparatorTab_WhenNumbersWereRemoved()
+    public void Edit_ShiftsIndent_WhenEveryLineHasOneExtraTab()
     {
         FileEditPlan plan = FileEditPlanner.Plan("{\n\tint a;\n\n\tint b;\n}\n", "a.cpp",
             [new FileEdit { OldString = "\t\tint a;\n\t\n\t\tint b;", NewString = "\t\tint a = 1;\n\t\n\t\tint b = 2;" }]);
 
         Assert.True(plan.Succeeded, plan.Error);
-        Assert.True(plan.StrippedLinePrefixes);
+        Assert.True(plan.IndentShifted);
         Assert.Equal("{\n\tint a = 1;\n\n\tint b = 2;\n}\n", plan.NewText);
     }
 
-    /// <summary>newString 混着带与不带的行：多半是新写的行，原样写入不剥</summary>
+    /// <summary>删行号时连缩进一起删了：整段少一层，按文件的缩进命中，newString 每个有内容的行补回一层</summary>
     [Fact]
-    public void Edit_KeepsNewString_WhenOnlySomeLinesCarryTheTab()
+    public void Edit_ShiftsIndent_WhenEveryLineLostOneTab()
     {
-        FileEditPlan plan = FileEditPlanner.Plan("{\n\tint a;\n}\n", "a.cpp",
-            [new FileEdit { OldString = "\t\tint a;", NewString = "\t\tint a;\n#define C" }]);
+        FileEditPlan plan = FileEditPlanner.Plan("{\n\t/**\n\t * 存档往返\n\t */\n\tvoid Run();\n}\n", "a.h",
+            [new FileEdit { OldString = "/**\n * 存档往返\n */\nvoid Run();", NewString = "/** 存档往返 */\n\nvoid Run();" }]);
 
         Assert.True(plan.Succeeded, plan.Error);
-        Assert.Equal("{\n\t\tint a;\n#define C\n}\n", plan.NewText);
+        Assert.True(plan.IndentShifted);
+        Assert.Equal("{\n\t/** 存档往返 */\n\n\tvoid Run();\n}\n", plan.NewText);
     }
 
-    /// <summary>原样能命中就不剥：文件里真有那层缩进</summary>
+    /// <summary>去掉一层时 newString 里不带那层的行原样保留：多半是新写的行</summary>
+    [Fact]
+    public void Edit_ShiftsIndent_KeepsNewLinesWithoutTheExtraTab()
+    {
+        FileEditPlan plan = FileEditPlanner.Plan("{\n\tint a;\n}\n", "a.cpp",
+            [new FileEdit { OldString = "\t\tint a;\n", NewString = "\t\tint a;\n#define C\n" }]);
+
+        Assert.True(plan.Succeeded, plan.Error);
+        Assert.Equal("{\n\tint a;\n#define C\n}\n", plan.NewText);
+    }
+
+    /// <summary>偏移后多处命中照常退回，不替模型挑</summary>
+    [Fact]
+    public void Edit_IndentShift_RefusesAmbiguousMatches()
+    {
+        FileEditPlan plan = FileEditPlanner.Plan("\tint a;\n\t\tint a;\n", "a.cpp",
+            [new FileEdit { OldString = "\t\t\tint a;", NewString = "int b;" }]);
+
+        Assert.False(plan.Succeeded);
+        Assert.Contains("出现了 2 次（起始于第 1、2 行）", plan.Error); //话术重定位也走缩进偏移，不说成没找到
+    }
+
+    /// <summary>抄了行号、缩进又多一层：先剥行号再平移，两层兜底叠着用</summary>
+    [Fact]
+    public void Edit_StripsPrefixThenShiftsIndent()
+    {
+        FileEditPlan plan = FileEditPlanner.Plan("{\n\tint a;\n\tint b;\n}\n", "a.cpp",
+            [new FileEdit { OldString = "2\t\t\tint a;\n3\t\t\tint b;", NewString = "2\t\t\tint c;\n3\t\t\tint b;" }]);
+
+        Assert.True(plan.Succeeded, plan.Error);
+        Assert.True(plan.StrippedLinePrefixes);
+        Assert.True(plan.IndentShifted);
+        Assert.Equal("{\n\tint c;\n\tint b;\n}\n", plan.NewText);
+    }
+
+    /// <summary>原样能命中就不平移：文件里真有那层缩进</summary>
     [Fact]
     public void Edit_KeepsLeadingTab_WhenItMatchesAsIs()
     {
@@ -89,7 +125,7 @@ public sealed class ReadLineNumbersTests
             [new FileEdit { OldString = "\t\tint a;", NewString = "\t\tint b;" }]);
 
         Assert.True(plan.Succeeded, plan.Error);
-        Assert.False(plan.StrippedLinePrefixes);
+        Assert.False(plan.IndentShifted);
         Assert.Equal("\t\tint b;\n", plan.NewText);
     }
 }

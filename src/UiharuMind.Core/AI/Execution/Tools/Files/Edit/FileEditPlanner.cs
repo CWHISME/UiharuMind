@@ -23,6 +23,8 @@ namespace UiharuMind.Core.AI.Execution.Files;
 /// 因为切行时 <c>\r\n</c> 与 <c>\n</c> 都是终止符，不参与比较。</item>
 /// <item>受控全角归一：仍不中时，把 <c>，。：；（）！？</c> 与全角空格映射成半角再比一次。
 /// 模型常把中文注释里的全角标点抄成半角（或反之），这层吸收能救回这类失败。</item>
+/// <item>缩进偏移：仍不中时，若每个非空行都只差同一段行首空白（整段多或少一层），按文件的缩进命中，
+/// newString 同样平移。Read 的行号分隔符与缩进同为制表符，模型删行号时常多删或少删一个。</item>
 /// </list>
 ///
 /// 归一的<b>边界</b>：只映射上面这份白名单标点——不碰智能引号、破折号、省略号，
@@ -103,9 +105,11 @@ public static class FileEditPlanner
         // 逐条定位，全部对着原文算，不是对着前几条的结果算。这是部分写入的地基（ADR 0087）：
         // 加上下面的重叠检测，没生效那条的 oldString 在写入后的文件里仍原样在，重发照旧命中。
         // 改成顺序定位的话，没生效的条目可能已被前面的条目改掉
-        bool strippedPrefixes = false;
+        bool anyStripped = false;
+        bool indentShifted = false;
         for (int i = 0; i < edits.Count; i++)
         {
+            bool strippedPrefixes = false;
             string oldString = edits[i].OldString ?? string.Empty;
             string newString = edits[i].NewString ?? string.Empty;
 
@@ -117,29 +121,24 @@ public static class FileEditPlanner
 
             Location located = EditLocator.Locate(text, lines, oldString);
 
-            // 原样找不到，再看是不是连 Read 的行号前缀一起抄了过来：原文优先，真以行号前缀开头的内容不会被剥
+            // 原样找不到，再看是不是连 Read 的行号前缀一起抄了过来：原文优先，真以行号前缀开头的内容不会被剥。
+            // 剥过仍不中也换成剥过的串：抄了行号、缩进又差一层时，下面的缩进偏移得对着剥过的比
             if (located.Kind == ELocateResult.NotFound && ReadLineNumbers.TryStripCopied(oldString, out string bareOld))
             {
-                Location bare = EditLocator.Locate(text, lines, bareOld);
-                if (bare.Kind != ELocateResult.NotFound)
-                {
-                    located = bare;
-                    oldString = bareOld;
-                    newString = ReadLineNumbers.StripEachCopied(newString);
-                    strippedPrefixes = true;
-                }
+                located = EditLocator.Locate(text, lines, bareOld);
+                oldString = bareOld;
+                newString = ReadLineNumbers.StripEachCopied(newString);
+                strippedPrefixes = true;
             }
 
-            // 删了行号却留着其后的制表符：每行多一个行首 \t。newString 也每行都带才剥，混着带的多半是新写的行，不动
-            if (located.Kind == ELocateResult.NotFound && ReadLineNumbers.TryStripCopiedSeparator(oldString, out string untabbedOld))
+            // 整段缩进差一层（多删或少删了与缩进同形的行号制表符）：按文件的缩进命中，newString 同样平移
+            if (located.Kind == ELocateResult.NotFound)
             {
-                Location untabbed = EditLocator.Locate(text, lines, untabbedOld);
-                if (untabbed.Kind != ELocateResult.NotFound)
+                located = EditLocator.LocateByIndentShift(text, lines, oldString, out string added, out string removed);
+                if (located.Kind == ELocateResult.Found)
                 {
-                    located = untabbed;
-                    oldString = untabbedOld;
-                    if (ReadLineNumbers.TryStripCopiedSeparator(newString, out string untabbedNew)) newString = untabbedNew;
-                    strippedPrefixes = true;
+                    newString = Reindent(newString, added, removed);
+                    indentShifted = true;
                 }
             }
 
@@ -149,6 +148,8 @@ public static class FileEditPlanner
                 skipped.Add(new SkippedEdit(i, oldString, located));
                 continue;
             }
+
+            anyStripped |= strippedPrefixes;
 
             matches.Add(new EditMatch(i, located.Start, located.End,
                 envelope.ConvertNewLines(newString)));
@@ -183,9 +184,16 @@ public static class FileEditPlanner
         }
 
         string? skippedNote = skipped.Count == 0 ? null : DescribeSkipped(skipped, newText, TextLines.Split(newText), label);
-        return FileEditPlan.Success(newText, EditDiffBuilder.Build(text, lines, matches), envelope, strippedPrefixes,
+        return FileEditPlan.Success(newText, EditDiffBuilder.Build(text, lines, matches), envelope,
+            strippedLinePrefixes: anyStripped, indentShifted: indentShifted,
             edits.Count, matches.Count, skippedNote, skipped.Select(edit => edit.Index).ToList());
     }
+
+    // 缩进平移：文件多的那段补到每个有内容的行首；oldString 多的那段从带着它的行首去掉，不带的多半是新写的行
+    private static string Reindent(string newString, string added, string removed) =>
+        string.Join('\n', newString.Split('\n').Select(line =>
+            added.Length > 0 ? line.Trim().Length > 0 ? added + line : line
+            : line.StartsWith(removed, StringComparison.Ordinal) ? line[removed.Length..] : line));
 
     /// <summary>没生效的一条：原话术所需的 oldString 与定位结果；oldString 为空时 Located 为 null</summary>
     private readonly record struct SkippedEdit(int Index, string OldString, Location? Located);
@@ -203,6 +211,7 @@ public static class FileEditPlanner
             }
 
             Location now = EditLocator.Locate(text, lines, edit.OldString);
+            if (now.Kind == ELocateResult.NotFound) now = EditLocator.LocateByIndentShift(text, lines, edit.OldString, out _, out _);
             if (now.Kind == ELocateResult.NotUnique) return DescribeNotUnique(edit.Index, now, label);
             if (now.Kind == ELocateResult.Found)
             {

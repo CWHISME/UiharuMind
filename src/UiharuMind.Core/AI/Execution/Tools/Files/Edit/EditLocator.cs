@@ -16,7 +16,7 @@ internal readonly record struct Location(ELocateResult Kind, int Start, int End,
     bool NormalizedAmbiguity = false, IReadOnlyList<int>? Lines = null);
 
 /// <summary>
-/// 在原文里找 oldString：精确 → 整行窗口 TrimEnd → 受控全角归一，规则与边界见 <see cref="FileEditPlanner"/>
+/// 在原文里找 oldString：精确 → 整行窗口 TrimEnd → 受控全角归一（缩进偏移另由调用方兜底），规则与边界见 <see cref="FileEditPlanner"/>
 /// </summary>
 internal static class EditLocator
 {
@@ -94,6 +94,73 @@ internal static class EditLocator
         return new Location(ELocateResult.Found, lines[firstLine].Start,
             consumesTerminator ? last.End : last.ContentEnd, 1);
     }
+
+    /// <summary>
+    /// 缩进偏移兜底：oldString 每个非空行与文件行窗口只差<b>同一段</b>行首空白（整段多一层或少一层）。
+    /// 常见于模型删 Read 行号时多删或少删了与缩进同形的制表符。只在前面几层都没命中时用
+    /// </summary>
+    /// <param name="text">原文</param>
+    /// <param name="lines">原文的行</param>
+    /// <param name="oldString">模型给的 oldString</param>
+    /// <param name="added">文件比 oldString 每行多出的行首空白；没有为空串</param>
+    /// <param name="removed">oldString 比文件每行多出的行首空白；没有为空串</param>
+    /// <returns>定位结果</returns>
+    internal static Location LocateByIndentShift(string text, List<TextLine> lines, string oldString,
+        out string added, out string removed)
+    {
+        added = string.Empty;
+        removed = string.Empty;
+        string[] pieces = oldString.Replace("\r\n", "\n").Split('\n');
+        bool consumesTerminator = pieces.Length > 1 && pieces[^1].Length == 0;
+        int keyCount = consumesTerminator ? pieces.Length - 1 : pieces.Length;
+        int anchorIndex = Array.FindIndex(pieces, 0, keyCount, piece => piece.AsSpan().TrimEnd().Length > 0);
+        if (anchorIndex < 0) return new Location(ELocateResult.NotFound, -1, -1, 0);
+
+        string anchorPiece = pieces[anchorIndex].TrimEnd();
+        List<(int Line, int Added, int Removed)> hits = []; //偏移量记长度，命中后才从文件/oldString 里切出那段空白
+        for (int i = 0; i + keyCount <= lines.Count; i++)
+        {
+            ReadOnlySpan<char> anchorFile = FileLine(text, lines[i + anchorIndex]);
+            int add = 0;
+            int remove = 0;
+            if (anchorFile.Length > anchorPiece.Length && anchorFile.EndsWith(anchorPiece, StringComparison.Ordinal))
+                add = anchorFile.Length - anchorPiece.Length;
+            else if (anchorPiece.Length > anchorFile.Length && anchorPiece.AsSpan().EndsWith(anchorFile, StringComparison.Ordinal))
+                remove = anchorPiece.Length - anchorFile.Length;
+            ReadOnlySpan<char> shift = add > 0 ? anchorFile[..add] : anchorPiece.AsSpan(0, remove);
+            if (shift.IsEmpty || !shift.IsWhiteSpace()) continue;
+
+            bool hit = true;
+            for (int j = 0; j < keyCount && hit; j++)
+            {
+                ReadOnlySpan<char> fileLine = FileLine(text, lines[i + j]);
+                ReadOnlySpan<char> piece = pieces[j].AsSpan().TrimEnd();
+                // 只按锚行定下的那个方向比：两边都比的话，没偏移的行也会算命中
+                if (piece.IsEmpty) hit = fileLine.IsEmpty;
+                else if (add > 0) hit = fileLine.Length == piece.Length + add && fileLine.StartsWith(shift) && fileLine[add..].SequenceEqual(piece);
+                else hit = piece.Length == fileLine.Length + remove && piece.StartsWith(shift) && piece[remove..].SequenceEqual(fileLine);
+            }
+
+            if (hit) hits.Add((i, add, remove));
+        }
+
+        if (hits.Count == 0) return new Location(ELocateResult.NotFound, -1, -1, 0);
+        if (hits.Count > 1)
+        {
+            return new Location(ELocateResult.NotUnique, -1, -1, hits.Count,
+                Lines: hits.Select(hit => hit.Line + 1).ToList());
+        }
+
+        (int firstLine, int addedLength, int removedLength) = hits[0];
+        added = FileLine(text, lines[firstLine + anchorIndex])[..addedLength].ToString();
+        removed = anchorPiece[..removedLength];
+        TextLine last = lines[firstLine + keyCount - 1];
+        return new Location(ELocateResult.Found, lines[firstLine].Start,
+            consumesTerminator ? last.End : last.ContentEnd, 1);
+    }
+
+    private static ReadOnlySpan<char> FileLine(string text, TextLine line) =>
+        text.AsSpan(line.Start, line.ContentEnd - line.Start).TrimEnd();
 
     // 字符偏移所在的行号（1 起算）
     private static int LineOf(List<TextLine> lines, int offset)

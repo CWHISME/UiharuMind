@@ -36,7 +36,7 @@ public sealed class FileEdit
 public sealed class FileEditPlan
 {
     private FileEditPlan(string? error, string newText, IReadOnlyList<LineDiffEntry> diff,
-        TextFileEnvelope envelope, bool strippedLinePrefixes = false, int totalEdits = 0, int appliedEdits = 0,
+        TextFileEnvelope envelope, bool strippedLinePrefixes = false, bool indentShifted = false, int totalEdits = 0, int appliedEdits = 0,
         string? skippedNote = null, IReadOnlyList<int>? skippedIndexes = null)
     {
         SkippedIndexes = skippedIndexes ?? [];
@@ -44,6 +44,7 @@ public sealed class FileEditPlan
         AppliedEdits = appliedEdits;
         SkippedNote = skippedNote;
         StrippedLinePrefixes = strippedLinePrefixes;
+        IndentShifted = indentShifted;
         Error = error;
         NewText = newText;
         Diff = diff;
@@ -55,6 +56,9 @@ public sealed class FileEditPlan
 
     /// <summary>是否剥掉过模型抄进参数的 Read 行号前缀（成功回执里说一声，下次别再带）</summary>
     public bool StrippedLinePrefixes { get; }
+
+    /// <summary>是否有条目靠缩进偏移才命中（newString 已同样平移，成功回执里提醒核对）</summary>
+    public bool IndentShifted { get; }
 
     /// <summary>是否可以落盘</summary>
     public bool Succeeded => Error is null;
@@ -86,7 +90,7 @@ public sealed class FileEditPlan
     internal static FileEditPlan Failed(string error) => new(error, string.Empty, [], default);
 
     internal static FileEditPlan Success(string newText, IReadOnlyList<LineDiffEntry> diff,
-        TextFileEnvelope envelope, bool strippedLinePrefixes, int totalEdits, int appliedEdits, string? skippedNote,
-        IReadOnlyList<int> skippedIndexes) =>
-        new(null, newText, diff, envelope, strippedLinePrefixes, totalEdits, appliedEdits, skippedNote, skippedIndexes);
+        TextFileEnvelope envelope, bool strippedLinePrefixes, bool indentShifted, int totalEdits, int appliedEdits,
+        string? skippedNote, IReadOnlyList<int> skippedIndexes) =>
+        new(null, newText, diff, envelope, strippedLinePrefixes, indentShifted, totalEdits, appliedEdits, skippedNote, skippedIndexes);
 }

@@ -319,7 +319,8 @@ internal sealed class PermissiveFileAccessTools
             await SaveAsync(full, plan.Envelope, plan.NewText, ct).ConfigureAwait(false);
 
             string diff = FileEditPlanner.RenderDiff(plan.Diff, MaxEditDiffLines, MaxEditDiffLineChars);
-            string prefixNote = plan.StrippedLinePrefixes ? "参数里带了 Read 的行号前缀（或行号后的制表符），已去掉后再匹配；以后不要带。" : "";
+            string prefixNote = plan.StrippedLinePrefixes ? "参数里带了 Read 的行号前缀，已去掉后再匹配；以后不要带。" : "";
+            if (plan.IndentShifted) prefixNote += "有条目的行首缩进与文件整段差了一层，已按文件的缩进匹配，newString 同样平移；核对下面的 diff。";
             // 部分写入时结论放最前、没生效的条目紧随其后：小模型只扫到 diff 会当成全成了，或把整批重发
             string head = plan.IsPartial
                 ? $"{FileToolNames.EditSucceededPrefix}{filePath}'（部分成功：{plan.AppliedEdits}/{plan.TotalEdits} 处编辑）。"

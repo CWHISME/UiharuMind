@@ -152,6 +152,7 @@ public class FileEditPlannerTests
     /// <summary>
     /// 整块只差缩进是旧版最常翻车的场景:单行评分会指向远处一句内容相近的注释。
     /// 块级候选必须把内容同、空白差的行标成 [ws],并写清首空白数差。
+    /// 整块统一差一层已由缩进偏移兜底接住,这里只让前两行差,走到失败话术。
     /// </summary>
     [Fact]
     public void MissingOldString_WhitespaceOnlyDiff_NamesLineAndWhitespace()
@@ -162,8 +163,8 @@ public class FileEditPlannerTests
             + "{\n"
             + "    /// <summary>搜索根目录不存在</summary>\n"
             + "    DirectoryNotFound,\n",
-            ("    /// <summary>搜索失败的种类</summary>\n    public enum ESearchFailureKind\n    {\n"
-             + "        /// <summary>搜索根目录不存在</summary>\n        DirectoryNotFound,", "x"));
+            ("    /// <summary>搜索失败的种类</summary>\n    public enum ESearchFailureKind\n{\n"
+             + "    /// <summary>搜索根目录不存在</summary>\n    DirectoryNotFound,", "x"));
 
         Assert.False(plan.Succeeded);
         Assert.Contains("最接近的匹配：第 1 行（5/5 行内容一致）", plan.Error);
