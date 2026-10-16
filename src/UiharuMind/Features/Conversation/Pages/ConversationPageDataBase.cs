@@ -216,6 +216,13 @@ public abstract partial class ConversationPageDataBase : PageDataBase
         _conversations.FirstOrDefault(x => x.CurrentMeta?.SessionId == sessionId);
 
     /// <summary>
+    /// 找出承载某会话、仍在缓存里的实例（开发通道按 id 等待与审批用）
+    /// </summary>
+    /// <param name="sessionId">会话标识</param>
+    /// <returns>实例；已回收或从未打开则为 null</returns>
+    public ConversationViewModel? FindLiveConversation(string sessionId) => FindConversation(sessionId);
+
+    /// <summary>
     /// 弃用承载某会话的实例（会话被删除时用）
     /// </summary>
     /// <param name="sessionId">会话标识</param>

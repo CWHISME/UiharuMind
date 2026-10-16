@@ -20,7 +20,8 @@ namespace UiharuMind.Features.DevAutomation;
 /// <summary>
 /// 单聊冒烟用的几步：新建、说话、等这一轮跑完、导出流水。与 <see cref="GroupDevCommands"/> 同一口径——
 /// 只走用户那条路：新建是点「新建」再选角色，说话是填输入框再点发送，审批是点审批卡上的按钮。
-/// 都作用于 session.new 开出的那个会话，所以先 <c>page.jump</c>
+/// 不带 id 时作用于 session.new 开出的那个会话；带 id（session.post 的返回值）时作用于那个会话，
+/// 于是可以开几个单聊并行、分别等
 /// </summary>
 internal static class SessionDevCommands
 {
@@ -44,6 +45,32 @@ internal static class SessionDevCommands
     internal static ConversationViewModel Active => _active ?? DevCommandRegistry.RequireConversationPage().Conversation;
 
     internal static void Track(ConversationViewModel conversation) => _active = conversation;
+
+    /// <summary>args 里的 id；没给为 null</summary>
+    internal static string? IdOf(JsonElement args) => GroupDevCommands.StringOr(args, "id");
+
+    /// <summary>
+    /// 带 id 时找承载那个会话的实例：还在缓存里就直接用，已回收就像在左栏点一下那样打开它（主窗口跟着换）
+    /// </summary>
+    /// <param name="sessionId">会话标识</param>
+    /// <returns>装载完的实例</returns>
+    internal static async Task<ConversationViewModel> OpenAsync(string sessionId)
+    {
+        ConversationPageDataBase page = DevCommandRegistry.RequireConversationPage();
+        if (page.FindLiveConversation(sessionId) is { } live) return live;
+
+        page.SessionList.SelectSession(sessionId);
+        if (page.SessionList.Find(sessionId) is null)
+            throw new ArgumentException($"session '{sessionId}' is not in this page's list");
+        Stopwatch watch = Stopwatch.StartNew();
+        while (page.Conversation.CurrentMeta?.SessionId != sessionId || page.Conversation.IsSessionLoading)
+        {
+            if (watch.Elapsed > TimeSpan.FromSeconds(30)) throw new InvalidOperationException($"session '{sessionId}' did not open");
+            await Task.Delay(100);
+        }
+
+        return page.Conversation;
+    }
 }
 
 /// <summary>
@@ -57,7 +84,7 @@ internal sealed class SessionNewCommand : IAsyncDevCommand
 
     public string Name => "session.new";
 
-    public string Usage => "在会话页新建单聊并盯住它（首轮发送时才真正建），之后 session.post / wait / dump / inject 都作用于它，再 new 就改盯新的。单人干活开单聊，要多人讨论才建群。character、workspace、permission、model";
+    public string Usage => "在会话页新建单聊并盯住它（首轮发送时才真正建），之后不带 id 的 session.post / wait / dump / inject 都作用于它，再 new 就改盯新的；session.post 返回会话 id，并行开几个单聊时凭 id 分别等。单人干活开单聊，要多人讨论才建群。character、workspace、permission、model";
 
     public async Task<JsonNode?> ExecuteAsync(JsonElement args)
     {
@@ -99,20 +126,29 @@ internal sealed class SessionNewCommand : IAsyncDevCommand
     }
 }
 
-/// <summary>往当前会话说一句：填输入框、点发送。不等跑完（那是 session.wait 的事）</summary>
-internal sealed class SessionPostCommand : IDevCommand
+/// <summary>
+/// 往会话说一句：填输入框、点发送。不等跑完（那是 session.wait 的事）。
+/// 返回会话 id（懒建的会话在首轮发送时才有 id，这里等它出现），之后 wait / dump / post 可凭它点名
+/// </summary>
+internal sealed class SessionPostCommand : IAsyncDevCommand
 {
     public string Name => "session.post";
 
-    public string Usage => "往 session.new 盯住的会话说一句（没 new 过才用当前显示的），不等跑完。text";
+    public string Usage => "往会话说一句，不等跑完，返回会话 id。text、id（省略为 session.new 盯住的那个；给了就发到那个会话，已回收的会先打开）";
 
-    public JsonNode? Execute(JsonElement args)
+    public async Task<JsonNode?> ExecuteAsync(JsonElement args)
     {
         string text = DevCommandRegistry.RequireString(args, "text");
-        ConversationViewModel conversation = SessionDevCommands.Active;
+        ConversationViewModel conversation = SessionDevCommands.IdOf(args) is { } id
+            ? await SessionDevCommands.OpenAsync(id)
+            : SessionDevCommands.Active;
         conversation.InputText = text;
         _ = conversation.SendMessageCommand.ExecuteAsync(null);
-        return new JsonObject { ["chars"] = text.Length };
+
+        Stopwatch watch = Stopwatch.StartNew();
+        while (conversation.CurrentMeta?.SessionId == null && watch.Elapsed < TimeSpan.FromSeconds(10))
+            await Task.Delay(100);
+        return new JsonObject { ["chars"] = text.Length, ["id"] = conversation.CurrentMeta?.SessionId };
     }
 }
 
@@ -127,7 +163,7 @@ internal sealed class SessionWaitCommand : IAsyncDevCommand
 
     public string Name => "session.wait";
 
-    public string Usage => "等 session.new 盯住的会话这一轮跑完（默认连后台子代理一起等）。timeoutMinutes、approvals（deny / once / session；扩展卡上 session 即本会话允许该扩展，浏览器接管卡上 once 即「完成了，继续」、deny 即取消）、foreground（true 只等主会话这一轮）";
+    public string Usage => "等会话这一轮跑完（默认连后台子代理一起等）。id（省略为 session.new 盯住的那个）、timeoutMinutes、approvals（deny / once / session；扩展卡上 session 即本会话允许该扩展，浏览器接管卡上 once 即「完成了，继续」、deny 即取消）、foreground（true 只等主会话这一轮）";
 
     public async Task<JsonNode?> ExecuteAsync(JsonElement args)
     {
@@ -135,8 +171,9 @@ internal sealed class SessionWaitCommand : IAsyncDevCommand
         string decision = GroupDevCommands.StringOr(args, "approvals") ?? "deny";
         bool foregroundOnly = GroupDevCommands.BoolOr(args, "foreground", false);
 
-        ConversationViewModel conversation = SessionDevCommands.Active;
         ConversationPageDataBase page = DevCommandRegistry.RequireConversationPage();
+        string? targetId = SessionDevCommands.IdOf(args);
+        ConversationViewModel? tracked = targetId == null ? SessionDevCommands.Active : null;
         JsonArray approvals = [];
         JsonArray shownChanges = []; //这一轮跑着时界面换成了别的会话：用户那头就是「看着看着跳走了」
         string? shownId = page.Conversation.CurrentMeta?.SessionId;
@@ -157,12 +194,14 @@ internal sealed class SessionWaitCommand : IAsyncDevCommand
                 shownChanges.Add((JsonNode)new JsonObject
                 {
                     ["atSeconds"] = (int)watch.Elapsed.TotalSeconds, ["from"] = shownId, ["to"] = nowShown,
-                    ["running"] = conversation.CurrentMeta?.SessionId,
+                    ["running"] = targetId ?? tracked?.CurrentMeta?.SessionId,
                 });
                 shownId = nowShown;
             }
 
-            foreach (ApprovalRequestItem card in conversation.Items.OfType<ApprovalRequestItem>().Where(x => !x.IsResolved).ToList())
+            // 按 id 等时实例可能已被回收（跑完了），每拍现找；回收了就只看运行表
+            ConversationViewModel? conversation = targetId == null ? tracked : page.FindLiveConversation(targetId);
+            foreach (ApprovalRequestItem card in conversation?.Items.OfType<ApprovalRequestItem>().Where(x => !x.IsResolved).ToList() ?? [])
             {
                 approvals.Add((JsonNode)new JsonObject { ["tool"] = card.ToolName, ["summary"] = card.ArgumentSummary, ["decision"] = decision });
                 card.ResolveCommand.Execute(decision);
@@ -171,8 +210,8 @@ internal sealed class SessionWaitCommand : IAsyncDevCommand
             // 交接文档在轮末写，那时这一轮已不算在跑：不等它的话，紧跟着的 quit 会把它掐掉。
             // 唤醒轮一开始就占住会话，界面的 IsGenerating 要等装配完才亮，中间约两秒：
             // 不问占用的话，子代理回信刚落进历史就被当成跑完，下一步的 post 撞上唤醒轮
-            string? sessionId = conversation.CurrentMeta?.SessionId;
-            bool busy = (foregroundOnly ? conversation.IsGenerating : conversation.HasPendingWork)
+            string? sessionId = targetId ?? conversation?.CurrentMeta?.SessionId;
+            bool busy = (conversation != null && (foregroundOnly ? conversation.IsGenerating : conversation.HasPendingWork))
                         || (sessionId != null && SessionManager.Instance.Running.IsBusy(sessionId))
                         || TurnDriver.IsCompacting(sessionId);
             idlePolls = busy ? 0 : idlePolls + 1;
@@ -196,17 +235,19 @@ internal sealed class SessionDumpCommand : IDevCommand
 
     public string Name => "session.dump";
 
-    public string Usage => "把 session.new 盯住的会话导成 markdown（工具调用带原样参数）。path";
+    public string Usage => "把会话导成 markdown（工具调用带原样参数）。path、id（省略为 session.new 盯住的那个）";
 
     public JsonNode? Execute(JsonElement args)
     {
         string path = DevCommandRegistry.RequireString(args, "path");
-        ConversationViewModel conversation = SessionDevCommands.Active;
-        string id = conversation.CurrentMeta?.SessionId ?? throw new InvalidOperationException("no session yet; post first");
+        string id = SessionDevCommands.IdOf(args)
+                    ?? SessionDevCommands.Active.CurrentMeta?.SessionId
+                    ?? throw new InvalidOperationException("no session yet; post first");
         ChatSession session = SessionManager.Instance.Load(id) ?? throw new InvalidOperationException($"session '{id}' failed to load");
+        string? character = DevCommandRegistry.RequireConversationPage().FindLiveConversation(id)?.ActiveCharacterName;
 
         StringBuilder text = new();
-        text.AppendLine($"# {session.Title}（{conversation.ActiveCharacterName}）").AppendLine();
+        text.AppendLine(character == null ? $"# {session.Title}" : $"# {session.Title}（{character}）").AppendLine();
         foreach (ChatMessage message in session.History)
         {
             text.AppendLine($"### {message.Role}").AppendLine();
