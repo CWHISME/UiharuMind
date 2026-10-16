@@ -20,7 +20,7 @@ internal sealed class SessionInjectCommand : IAsyncDevCommand
 {
     public string Name => "session.inject";
 
-    public string Usage => "往当前显示的会话流式追加假条目（不调模型、不写历史），模拟直播累积。" +
+    public string Usage => "往 session.new 盯住的会话流式追加假条目（不调模型、不写历史），模拟直播累积。" +
                            "count、batch（每批条数，默认 8）、gapMs（批间等待毫秒，默认 300）";
 
     public async Task<JsonNode?> ExecuteAsync(JsonElement args)

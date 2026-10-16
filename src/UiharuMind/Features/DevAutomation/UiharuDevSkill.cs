@@ -68,8 +68,11 @@ internal static class UiharuDevSkill
         text.AppendLine();
         text.AppendLine($"- 长等（`group.wait`、`group.away.wait`、`session.wait`）放进 `{BackgroundTaskTool.ToolName}`：" +
                         $"`{shell}` 单条命令有时限，后台任务跑完会叫醒你。中途看进度用 `group.dump` 导出来读。");
-        text.AppendLine("- `page.jump`、`session.*` 作用在主窗口当前显示的那个会话上——你自己就在这个应用里，" +
-                         "调它们可能切走或打断你自己这个会话。`app.quit` 会把你自己也关掉。没有用户明说，这几步都别调。");
+        text.AppendLine("- 单人干活开单聊（`session.new` → `session.post` → `session.wait`），要多人讨论才建群（`group.*`）。" +
+                        "几个单聊、几个群可以同时开，应用里都并行跑；同一把密钥的请求会排队，要真并行就给不同模型（不同密钥）。" +
+                        "命令行的 session.post / wait / dump 只盯最近一次 session.new 的那个，要同时等几路就用群：group.wait 能一次等多个群，并行群里一人一个模型也是一种分工。");
+        text.AppendLine("- `page.jump`、`session.new`、`session.open` 会切换主窗口显示的会话。你若是应用里的模型，" +
+                         "这会切走或打断你自己这个会话，`app.quit` 也会把你自己关掉，没有用户明说这几步都别调；从外部终端驱动时只是主窗口跟着换。");
         text.AppendLine("- ⛔ **严禁**用 `Shell` 杀应用自己的进程（`pkill/kill/killall/taskkill` 指向 `UiharuMind.Desktop`、`open -W` 等它退出都算）");
         text.AppendLine("- 推送、删除、花钱这类收不回的事照常先问用户。");
         text.AppendLine();

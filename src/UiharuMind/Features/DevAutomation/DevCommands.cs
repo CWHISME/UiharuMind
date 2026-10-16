@@ -229,7 +229,7 @@ internal sealed class OpenSessionCommand : IDevCommand
 {
     public string Name => "session.open";
 
-    public string Usage => "在会话页里打开某个会话（与左栏点一下同一条路）。id";
+    public string Usage => "在会话页里打开某个会话（与左栏点一下同一条路），不改 session.post / wait / dump 盯的那个。id";
 
     public JsonNode? Execute(JsonElement args)
     {

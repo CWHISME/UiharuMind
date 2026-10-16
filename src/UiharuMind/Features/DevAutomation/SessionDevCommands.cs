@@ -57,7 +57,7 @@ internal sealed class SessionNewCommand : IAsyncDevCommand
 
     public string Name => "session.new";
 
-    public string Usage => "在会话页新建会话（首轮发送时才真正建）。character、workspace、permission、model";
+    public string Usage => "在会话页新建单聊并盯住它（首轮发送时才真正建），之后 session.post / wait / dump / inject 都作用于它，再 new 就改盯新的。单人干活开单聊，要多人讨论才建群。character、workspace、permission、model";
 
     public async Task<JsonNode?> ExecuteAsync(JsonElement args)
     {
@@ -104,7 +104,7 @@ internal sealed class SessionPostCommand : IDevCommand
 {
     public string Name => "session.post";
 
-    public string Usage => "往当前显示的会话说一句，不等跑完。text";
+    public string Usage => "往 session.new 盯住的会话说一句（没 new 过才用当前显示的），不等跑完。text";
 
     public JsonNode? Execute(JsonElement args)
     {
@@ -127,7 +127,7 @@ internal sealed class SessionWaitCommand : IAsyncDevCommand
 
     public string Name => "session.wait";
 
-    public string Usage => "等当前显示的会话这一轮跑完（默认连后台子代理一起等）。timeoutMinutes、approvals（deny / once / session；扩展卡上 session 即本会话允许该扩展，浏览器接管卡上 once 即「完成了，继续」、deny 即取消）、foreground（true 只等主会话这一轮）";
+    public string Usage => "等 session.new 盯住的会话这一轮跑完（默认连后台子代理一起等）。timeoutMinutes、approvals（deny / once / session；扩展卡上 session 即本会话允许该扩展，浏览器接管卡上 once 即「完成了，继续」、deny 即取消）、foreground（true 只等主会话这一轮）";
 
     public async Task<JsonNode?> ExecuteAsync(JsonElement args)
     {
@@ -196,7 +196,7 @@ internal sealed class SessionDumpCommand : IDevCommand
 
     public string Name => "session.dump";
 
-    public string Usage => "把当前显示的会话导成 markdown（工具调用带原样参数）。path";
+    public string Usage => "把 session.new 盯住的会话导成 markdown（工具调用带原样参数）。path";
 
     public JsonNode? Execute(JsonElement args)
     {
