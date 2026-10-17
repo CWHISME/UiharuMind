@@ -231,12 +231,11 @@ public partial class ModelService : ObservableObject
             ModelSources.Remove(model);
         }
 
-        //添加新的
+        //添加新的（顺序交给 Refresh 里的 ModelSorting 统一排）
         foreach (var model in list)
         {
             if (ModelSources.Contains(model)) continue;
-            if (model.IsRemoteModel) ModelSources.Insert(0, model);
-            else ModelSources.Add(model);
+            ModelSources.Add(model);
         }
 
         Refresh();
@@ -250,6 +249,8 @@ public partial class ModelService : ObservableObject
         {
             item.NotifyFavoriteChanged();
         }
+
+        ModelSorting.Sort(ModelSources);
     }
 
     private void Refresh()
@@ -265,6 +266,8 @@ public partial class ModelService : ObservableObject
         OnPropertyChanged(nameof(CurRunningCount));
         OnPropertyChanged(nameof(CurModelRunningData));
         foreach (ModelRunningData model in ModelSources) model.NotifyStateChanged();
+        // 运行/加载状态是排序键之一，状态变后重排一次（已有序则为空操作）
+        ModelSorting.Sort(ModelSources);
     }
 
     // ======= event =======
