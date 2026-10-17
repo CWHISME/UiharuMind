@@ -58,7 +58,7 @@ internal static class ToolDisciplineSections
         /// <summary>实际解析出来的 shell 可执行路径；空串则不写那一句</summary>
         public string ShellBinary { get; init; } = string.Empty;
 
-        /// <summary>是否给子代理装配（只影响草稿目录段的措辞，见 <see cref="AgentToolPrompts.BuildDirectories"/>）</summary>
+        /// <summary>是否给子代理装配</summary>
         public bool ForSubAgent { get; init; }
     }
 
@@ -89,7 +89,7 @@ internal static class ToolDisciplineSections
             : null;
         list.Section(hasWorkingDirectory || draftToken != null || memoryToken != null,
             AgentPromptHeadings.Directories("##"),
-            () => AgentToolPrompts.BuildDirectories(hasWorkingDirectory, draftToken, memoryToken, facts.ForSubAgent, facts.Shell));
+            () => AgentToolPrompts.BuildDirectories(hasWorkingDirectory,facts.WorkingDirectory, draftToken, memoryToken, facts.ForSubAgent, facts.Shell));
 
         // shell 曾是唯一挂了工具却零指示的能力,缺口的表现是模型拿 Write 重写全文去做一次 mv。
         // 「文件系统操作用 Shell」那句刻意不写进文件纪律段:shell 可以被关掉,
