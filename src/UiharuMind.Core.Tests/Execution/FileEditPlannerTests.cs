@@ -145,8 +145,11 @@ public class FileEditPlannerTests
 
         Assert.False(plan.Succeeded);
         Assert.Contains("中没有找到", plan.Error);
-        // 首句会提 Closest match 概念(指路用),但无候选时绝不能出现「具体第 N 行」的指向
+        // 无候选时绝不能给「具体第 N 行」的指向,也不能说「照下面最接近的匹配」——下面没有候选,那句引导是空头支票
         Assert.DoesNotContain("最接近的匹配：第", plan.Error);
+        Assert.DoesNotContain("照下面「最接近的匹配」", plan.Error);
+        // 改为直接引导 Read 定位
+        Assert.Contains("请 `Read`", plan.Error);
     }
 
     /// <summary>
@@ -937,6 +940,64 @@ public class FileEditPlannerTests
 
         Assert.False(plan.Succeeded);
         Assert.Contains("第 2 段（在前一段之后找）没有找到", plan.Error);
+    }
+
+    // ---- 单行前缀：以某串开头的整行 ----
+
+    [Fact]
+    public void Elision_LinePrefix_ReplacesTheWholeLine()
+    {
+        FileEditPlan plan = Plan("a\nfoo bar\nc\n", ($"foo{T}", "FOO"));
+
+        Assert.Equal("a\nFOO\nc\n", NewTextOf(plan));
+    }
+
+    /// <summary>newString 里的记号保留该行行尾，只改行首</summary>
+    [Fact]
+    public void Elision_LinePrefix_TokenInNewString_KeepsTheLineTail()
+    {
+        FileEditPlan plan = Plan("a\nfoo bar;\nc\n", ($"foo{T}", $"FOO{T}"));
+
+        Assert.Equal("a\nFOO bar;\nc\n", NewTextOf(plan));
+    }
+
+    [Fact]
+    public void Elision_LinePrefix_NotUnique_IsRejected()
+    {
+        FileEditPlan plan = Plan("foo1\nfoo2\n", ($"foo{T}", "x"));
+
+        Assert.False(plan.Succeeded);
+        Assert.Contains("以「foo」开头的整行", plan.Error);
+        Assert.Contains("有 2 处", plan.Error);
+    }
+
+    [Fact]
+    public void Elision_LinePrefix_NoLineStartsWith_IsRejected()
+    {
+        FileEditPlan plan = Plan("bar\n", ($"foo{T}", "x"));
+
+        Assert.False(plan.Succeeded);
+        Assert.Contains("以「foo」开头的整行", plan.Error);
+        Assert.Contains("没有这样的行", plan.Error);
+    }
+
+    /// <summary>原文优先：文件里真有这串字符时按字面命中，不当前缀处理</summary>
+    [Fact]
+    public void Elision_LinePrefix_LiteralTokenInFile_MatchesAsText()
+    {
+        FileEditPlan plan = Plan($"a {T} b\n", ($"a {T} b", "z"));
+
+        Assert.Equal("z\n", NewTextOf(plan));
+        Assert.Null(plan.ElisionNote);
+    }
+
+    [Fact]
+    public void Elision_LinePrefix_EmptyPrefix_IsRejected()
+    {
+        FileEditPlan plan = Plan("anything\n", (T, "x"));
+
+        Assert.False(plan.Succeeded);
+        Assert.Contains("之前没有原文", plan.Error);
     }
 
     #endregion

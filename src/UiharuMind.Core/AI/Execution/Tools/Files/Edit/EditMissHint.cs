@@ -39,17 +39,15 @@ internal static class EditMissHint
     /// <returns>给模型的话术</returns>
     public static string Build(int index, string oldString, string label, IReadOnlyList<string> fileLines)
     {
-        string message = $"edits[{index}].oldString 在 '{label}' 中没有找到。它必须与文件完全一致，空白和换行也算在内。"
-                         + "照下面「最接近的匹配」修正 oldString；只有没给出候选或位置不明确时，"
-                         + $"才 `{FileToolNames.Read}` 提示位置附近的一小段——不要重读整个文件。";
-
         string[] anchors = oldString.Split('\n').Select(a => a.TrimEnd()).ToArray();
         // 镜像 LocateByLineWindow：尾随换行产生的空末段只表示「连换行一起换」，不参与评分
         if (anchors.Length > 1 && anchors[^1].Length == 0) anchors = anchors[..^1];
+
+        // 评不了分的情况给不出候选：直接指路 Read，不再说「照下面最接近的匹配」
         if (anchors.Length == 0 || anchors.Length > MaxBlockLines
             || anchors.Any(a => a.Length > MaxLineChars) || anchors.All(a => a.Length == 0))
         {
-            return message;
+            return WithoutCandidate(index, label);
         }
 
         string[] file = fileLines.Select(l => l.TrimEnd()).ToArray();
@@ -58,8 +56,19 @@ internal static class EditMissHint
         // 行对齐只在它真的用到了缺行/多行、且比等长窗口少解释不了的行时才采用
         Alignment? best = gapped != null && (window == null || gapped.Unmatched < window.Unmatched) ? gapped : window;
 
-        return best == null ? message : message + Render(best, anchors, file);
+        return best == null ? WithoutCandidate(index, label) : WithCandidate(index, label) + Render(best, anchors, file);
     }
+
+    /// <summary>有候选时的话术：引到下面的「最接近的匹配」对照表</summary>
+    private static string WithCandidate(int index, string label) =>
+        $"edits[{index}].oldString 在 '{label}' 中没有找到，空白和换行也算在内。"
+        + "照下面「最接近的匹配」修正 oldString；只有位置不明确时，"
+        + $"才 `{FileToolNames.Read}` 提示位置附近的一小段——不要重读整个文件。";
+
+    /// <summary>给不出候选时的话术：直接引导 Read 定位，不再提「最接近的匹配」</summary>
+    private static string WithoutCandidate(int index, string label) =>
+        $"edits[{index}].oldString 在 '{label}' 中没有找到，空白和换行也算在内。"
+        + $"请 `{FileToolNames.Read}` 提示位置附近的一小段，照着文件里的原文重发——不要重读整个文件。";
 
     #region 对齐
 

@@ -19,13 +19,11 @@ namespace UiharuMind.Core.AI.Execution.Files;
 public sealed class FileEdit
 {
     /// <summary>被替换的原文，必须在文件中唯一出现，且不得与同一次调用的其他编辑重叠</summary>
-    [Description("被替换的原文，必须在文件中唯一出现，且不得与同一次调用的其他编辑重叠。"
-                 + "段落较长时可以只写开头和结尾，中间用 " + EditElision.Token + " 代替：开头须唯一，结尾取开头之后最近的一处，连同首尾整段被替换。")]
+    [Description("被替换的原文，不得与同一次调用的其他编辑重叠。")]
     public string OldString { get; set; } = string.Empty;
 
     /// <summary>替换后的文本（空串表示删掉这段）</summary>
-    [Description("替换后的文本，空字符串表示删掉命中的那段。"
-                 + "oldString 用了 " + EditElision.Token + " 时，newString 里的 " + EditElision.Token + " 表示原样保留那段被省略的原文。")]
+    [Description("替换后的文本，空字符串表示删掉命中的那段。")]
     public string NewString { get; set; } = string.Empty;
 }
 

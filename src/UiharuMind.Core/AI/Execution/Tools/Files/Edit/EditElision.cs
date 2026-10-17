@@ -21,6 +21,7 @@ internal sealed record ElidedMatch(ELocateResult Kind, int Start, int End, IRead
 /// <summary>
 /// oldString 里的省略记号（ADR 0088）：「开头 + <see cref="Token"/> + 结尾」替换从开头到结尾的整段。
 /// 开头须唯一，之后每段取前一段之后最近的一处；记号独占一行时按整行比对（逐行 TrimEnd、全角归一），否则按原文精确找。
+/// 只有一行且以记号收尾时表示「以此前那串开头的整行」——前缀锚在行首、行尾成为记号代表的省略段。
 /// 只在整串按原文的各层匹配都不中时才用，所以文件里真有这串字符时照常命中。
 /// </summary>
 internal static class EditElision
@@ -50,12 +51,20 @@ internal static class EditElision
     internal static ElidedMatch Locate(string text, List<TextLine> lines, string oldString, int index, string label)
     {
         string normalized = oldString.Replace("\r\n", "\n");
+        if (IsLinePrefix(normalized)) return LocateLinePrefix(text, lines, normalized, index, label);
+
         string[] oldLines = normalized.Split('\n');
         bool lineMode = oldLines.Count(line => line.Trim() == Token) == Count(normalized);
         return lineMode
             ? LocateLines(text, lines, oldLines, index, label)
             : LocateInline(text, lines, normalized, index, label);
     }
+
+    // 只有一行、且记号是该行最后一个内容：表示「以此前那串开头的整行」
+    private static bool IsLinePrefix(string normalized) =>
+        normalized.IndexOf('\n') < 0
+        && Count(normalized) == 1
+        && normalized.TrimEnd().EndsWith(Token, StringComparison.Ordinal);
 
     /// <summary>
     /// 用定位到的省略区间拼出替换文本：newString 不含记号时整段换成它；含记号时按顺序把被省略的原文原样填回
@@ -226,6 +235,47 @@ internal static class EditElision
 
         return new ElidedMatch(ELocateResult.Found, heads[0], cursor, gaps, false);
     }
+
+    // 单行前缀：逐行比行首，命中整行；行首之后的行尾成为省略段（newString 里的记号原样保留它）
+    private static ElidedMatch LocateLinePrefix(string text, List<TextLine> lines, string oldString, int index, string label)
+    {
+        string prefix = oldString[..oldString.LastIndexOf(Token, StringComparison.Ordinal)].TrimEnd();
+        if (prefix.Length == 0)
+            return Fail(ELocateResult.NotFound,
+                $"edits[{index}].oldString 里 {Token} 之前没有原文：单行以它收尾表示「以此前那串开头的整行」。");
+
+        List<int> hits = [];
+        for (int i = 0; i < lines.Count; i++)
+        {
+            ReadOnlySpan<char> fileLine = text.AsSpan(lines[i].Start, lines[i].ContentEnd - lines[i].Start).TrimEnd();
+            if (StartsWith(fileLine, prefix)) hits.Add(i);
+        }
+
+        if (hits.Count == 0) return Fail(ELocateResult.NotFound, MissingLinePrefix(index, prefix, text, lines, label));
+        if (hits.Count > 1) return Fail(ELocateResult.NotUnique, NotUniqueLinePrefix(index, prefix, hits, label));
+
+        TextLine hit = lines[hits[0]];
+        int gapStart = hit.Start + prefix.Length;
+        List<ElidedGap> gaps = [new ElidedGap(gapStart, hit.ContentEnd, hits[0] + 1, hit.ContentEnd == gapStart ? 0 : 1)];
+        return new ElidedMatch(ELocateResult.Found, hit.Start, hit.ContentEnd, gaps, false);
+    }
+
+    // 行首比对：原样相等或白名单全角归一后相等（复用整行口径）
+    private static bool StartsWith(ReadOnlySpan<char> fileLine, ReadOnlySpan<char> prefix) =>
+        fileLine.Length >= prefix.Length && EditLocator.LineEquals(fileLine[..prefix.Length], prefix);
+
+    private static string MissingLinePrefix(int index, string prefix, string text, List<TextLine> lines, string label)
+    {
+        string[] fileLines = lines.Select(line => TextLines.Text(text, line)).ToArray();
+        return $"edits[{index}].oldString 以 {Token} 收尾，表示以「{prefix}」开头的整行，但 '{label}' 里没有这样的行。"
+               + "下面是对这串开头的匹配提示：\n"
+               + EditMissHint.Build(index, prefix, label, fileLines);
+    }
+
+    private static string NotUniqueLinePrefix(int index, string prefix, List<int> hitLines, string label) =>
+        $"edits[{index}].oldString 以 {Token} 收尾，表示以「{prefix}」开头的整行，"
+        + $"但 '{label}' 中这样的行有 {hitLines.Count} 处（起始于第 {string.Join("、", hitLines.Select(h => h + 1))} 行）。"
+        + "把这串开头写长一些，让它只匹配一行。";
 
     // 每段都得有内容；开头之后的段若只剩括号、标点，就近匹配几乎一定截短范围
     private static string? Validate(List<string> segments, int index)
