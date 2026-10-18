@@ -162,6 +162,10 @@ public class TurnUsageContextTests
         {
             InputTokenCount = 12_345, OutputTokenCount = 900, ReasoningTokenCount = 456, CachedInputTokenCount = 10_000,
         }, session);
+        recorder.Record(new UsageDetails
+        {
+            InputTokenCount = 13_000, OutputTokenCount = 800, CachedInputTokenCount = 6_000,
+        }, session);
 
         TurnUsageLedger restored = new();
         restored.RestoreFrom(session);
@@ -169,10 +173,12 @@ public class TurnUsageContextTests
         Assert.Equal(recorder.SessionInput, restored.SessionInput);
         Assert.Equal(recorder.SessionOutput, restored.SessionOutput);
         Assert.Equal(456, restored.SessionReasoningTokens);
-        Assert.Equal(12_345, restored.LastInput);
-        Assert.Equal(10_000, restored.LastCachedInput);
-        Assert.Equal(12_345, restored.TurnInput);
-        Assert.Equal(900, restored.TurnOutput);
+        Assert.Equal(16_000, restored.SessionCachedInput); //累计命中也要读得回来,否则重开只剩最近一次
+        Assert.Equal(13_000, restored.LastInput);
+        Assert.Equal(6_000, restored.LastCachedInput);
+        Assert.Equal(25_345, restored.TurnInput);
+        Assert.Equal(1700, restored.TurnOutput);
+        Assert.Equal(16_000, restored.TurnCachedInput);
     }
 
     private static ChatSession Session(long lastInput = 0) =>
@@ -204,6 +210,26 @@ public class TurnUsageContextTests
 
         //留着上一次的数会让人以为这次也命中了缓存,那正是我们要测的东西
         Assert.Equal(0, ledger.LastCachedInput);
+    }
+
+    /// <summary>
+    /// 单次命中数按构造接近全命中（轮内上下文单调增长，最后一发的前缀正好是上一发的全部），
+    /// 所以它是诊断值不是命中率。累计那两个数才是能反映「到目前为止省了多少」的口径，
+    /// 而它们会诚实地把开头那几次未命中算进来
+    /// </summary>
+    [Fact]
+    public void CachedTokens_AccumulateSoTheRateCountsTheMissesToo()
+    {
+        TurnUsageLedger ledger = new();
+        //第一轮冷启动：整轮都没命中
+        ledger.Add(new UsageDetails { InputTokenCount = 100_000 });
+        ledger.Add(new UsageDetails { InputTokenCount = 110_000 });
+        //之后轮次全部命中
+        ledger.Add(new UsageDetails { InputTokenCount = 120_000, CachedInputTokenCount = 118_000 });
+
+        Assert.Equal(118_000, ledger.LastCachedInput); //单次：看着像 98%
+        Assert.Equal(330_000, ledger.SessionInput);
+        Assert.Equal(118_000, ledger.SessionCachedInput); //累计：35.8%,冷启动那两发计入分母
     }
 
     [Fact]

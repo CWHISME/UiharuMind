@@ -23,6 +23,12 @@ public sealed class TurnUsageLedger
     public long TurnInput { get; private set; }
 
     /// <summary>
+    /// 本轮命中前缀缓存的输入 token。<b>与 <see cref="TurnInput"/> 同源累加</b>——
+    /// 分母在哪涨分子就得在哪涨，两边不是同一批请求的话算出来的命中率不是比例
+    /// </summary>
+    public long TurnCachedInput { get; private set; }
+
+    /// <summary>
     /// <b>报告占用</b>：最近一次响应里服务端报的输入 token。不能拿 <see cref="TurnInput"/> 顶替：
     /// 那是本轮累加值，一轮十几次工具往返能累到四十几万，与占用无关。
     ///
@@ -79,6 +85,10 @@ public sealed class TurnUsageLedger
     /// <summary>
     /// 最近一次响应里命中前缀缓存的输入 token，0 表示未命中或服务端不报。
     /// 服务端不报这个数的话就无从判断缓存有没有生效——只能靠它来验证，不能靠推理。
+    ///
+    /// <b>只是诊断值，不是命中率</b>。一轮 agent 里上下文单调增长，最后一发的前缀正好是上一发的全部，
+    /// 按构造就接近全命中；写交接那一发（供给形态不同、前缀不同）还会把这一对数整个覆写掉。
+    /// 要报命中率用 <see cref="SessionCachedInput"/> / <see cref="SessionInput"/>
     /// </summary>
     public long LastCachedInput { get; private set; }
     
@@ -105,6 +115,13 @@ public sealed class TurnUsageLedger
     /// <summary>会话累计输入 token</summary>
     public long SessionInput { get; private set; }
 
+    /// <summary>
+    /// 会话累计命中前缀缓存的输入 token，与 <see cref="SessionInput"/> 同源累加。
+    /// 命中率由这两个数现算，是唯一能反映「这个会话到目前为止缓存到底省了多少」的口径。
+    /// 随本体持久化（见 <c>ChatSession.TotalCachedInputTokens</c>）
+    /// </summary>
+    public long SessionCachedInput { get; private set; }
+
     /// <summary>会话累计输出 token</summary>
     public long SessionOutput { get; private set; }
 
@@ -118,24 +135,27 @@ public sealed class TurnUsageLedger
     {
         TurnInput = 0;
         TurnOutput = 0;
+        TurnCachedInput = 0;
     }
 
     /// <summary>
     /// 计入一次响应用量
     /// </summary>
     /// <param name="details">响应携带的用量</param>
-    /// <returns>本次的增量（输入、输出、思考），供调用方写回会话本体</returns>
-    public (long Input, long Output, long Reasoning) Add(UsageDetails details)
+    /// <returns>本次的增量（输入、输出、思考、命中），供调用方写回会话本体</returns>
+    public (long Input, long Output, long Reasoning, long Cached) Add(UsageDetails details)
     {
         //输入消息（含 system、历史对话、用户消息）的 token 数
         long input = details.InputTokenCount ?? 0;
         //模型生成的回复 token 数（含推理 token）,不含历史
         long output = details.OutputTokenCount ?? 0;
         long reasoning = 0;
+        //本次命中的输入。一次服务调用只报一份用量（见 StreamUsage），所以这一次读出来的就是这一发的
+        long cached = ReadCachedTokens(details);
         if (input > 0)
         {
             LastInput = input;
-            LastCachedInput = ReadCachedTokens(details); //不报就归零,不能留着上一次的数冒充本次命中
+            LastCachedInput = cached; //不报就归零,不能留着上一次的数冒充本次命中
             LastReasoningTokens = details.ReasoningTokenCount ?? 0; //同理:没报这次数就归零
             reasoning = LastReasoningTokens;
         }
@@ -144,10 +164,12 @@ public sealed class TurnUsageLedger
         
         TurnInput += input;
         TurnOutput += output;
+        TurnCachedInput += cached;
         SessionInput += input;
         SessionOutput += output;
+        SessionCachedInput += cached;
         SessionReasoningTokens += reasoning;
-        return (input, output, reasoning);
+        return (input, output, reasoning, cached);
     }
 
     /// <summary>
@@ -190,13 +212,14 @@ public sealed class TurnUsageLedger
     /// <param name="session">会话本体</param>
     public void Record(UsageDetails details, ChatSession session)
     {
-        (long input, long output, long reasoning) = Add(details);
-        session.AccumulateUsage(input, output, reasoning);
+        (long input, long output, long reasoning, long cached) = Add(details);
+        session.AccumulateUsage(input, output, reasoning, cached);
         // 占用、命中与本轮用量随本体持久化:切回会话不必等下一次响应,旁观的窗口(子会话)也只读得到本体
         session.LastInputTokens = LastInput;
         session.LastCachedInputTokens = LastCachedInput;
         session.LastTurnInputTokens = TurnInput;
         session.LastTurnOutputTokens = TurnOutput;
+        session.LastTurnCachedInputTokens = TurnCachedInput;
     }
 
     /// <summary>
@@ -209,10 +232,12 @@ public sealed class TurnUsageLedger
         SessionInput = session.TotalInputTokens;
         SessionOutput = session.TotalOutputTokens;
         SessionReasoningTokens = session.TotalReasoningTokens;
+        SessionCachedInput = session.TotalCachedInputTokens;
         LastInput = session.LastInputTokens;
         LastCachedInput = session.LastCachedInputTokens;
         TurnInput = session.LastTurnInputTokens;
         TurnOutput = session.LastTurnOutputTokens;
+        TurnCachedInput = session.LastTurnCachedInputTokens;
     }
 
     /// <summary>
@@ -231,6 +256,7 @@ public sealed class TurnUsageLedger
         TotalTokenCount = 0;
         SessionInput = 0;
         SessionOutput = 0;
+        SessionCachedInput = 0;
         SessionReasoningTokens = 0;
     }
 

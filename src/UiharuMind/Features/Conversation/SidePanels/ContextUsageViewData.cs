@@ -42,11 +42,11 @@ public partial class ContextUsageViewData : ObservableObject
     /// <summary>「占用 / 上限」的显示文本</summary>
     [ObservableProperty] private string _usageText = string.Empty;
 
-    /// <summary>本轮输入/输出的显示文本</summary>
-    [ObservableProperty] private string _turnText = string.Empty;
-
     /// <summary>会话累计消耗的显示文本（与本轮同一形状，一眼看出是求和而非占用）</summary>
     [ObservableProperty] private string _sessionText = string.Empty;
+
+    /// <summary>会话累计消耗的说明文本：把本轮一并摆进去，本轮不再单占一行</summary>
+    [ObservableProperty] private string _sessionTip = string.Empty;
 
     /// <summary>报告占用的百分比（0~100），进度条<b>实色那段</b>的值</summary>
     [ObservableProperty] private double _usagePercent;
@@ -66,8 +66,14 @@ public partial class ContextUsageViewData : ObservableObject
     /// <summary>三条水位的说明文本（交接 → 折叠 → 截断）</summary>
     [ObservableProperty] private string _thresholdText = string.Empty;
 
-    /// <summary>前缀缓存命中的显示文本；服务端不报时为空</summary>
+    /// <summary>会话累计命中的显示文本；累计命中为 0（服务端不报或没命中过）时为空</summary>
     [ObservableProperty] private string _cachedText = string.Empty;
+
+    /// <summary>
+    /// 命中的说明文本：把会话累计、本轮、最近一次三个口径摆在一起。
+    /// 三者摆在一起才读得出差别——只看其中一个会以为缓存一直满命中
+    /// </summary>
+    [ObservableProperty] private string _cachedTip = string.Empty;
 
     /// <summary>思考（推理）token 的显示文本；服务端不报时为空</summary>
     [ObservableProperty] private string _reasoningText = string.Empty;
@@ -85,6 +91,9 @@ public partial class ContextUsageViewData : ObservableObject
     private const string EvictingState = "Evicting";
     private const string TruncatingState = "Truncating";
 
+    /// <summary>该口径还没有数据的占位符。与「上下文」那一行同一符号，别让两处表示「没有」用不同的字</summary>
+    private const string NoUsage = "—";
+
     /// <summary>
     /// 按账本与当前模型刷新
     /// </summary>
@@ -97,21 +106,28 @@ public partial class ContextUsageViewData : ObservableObject
         int contextLength = ledger.ContextLength;
         long usage = ledger.EffectiveInput; //「还剩多少空间」一律用它,见类注释
         ModelName = modelName;
-        TurnText = ledger.TurnInput + ledger.TurnOutput > 0
-            ? $"↑{TurnUsageLedger.FormatExact(ledger.TurnInput)}  ↓{TurnUsageLedger.FormatExact(ledger.TurnOutput)}"
-            : string.Empty;
         // 与本轮同一形状(↑输入 ↓输出)。原先只给一个合计数,跟上一行的「上下文」对不上——
         // 那是占用(最近一次请求吃进去多少),这是累计消耗(每次请求的输入输出求和,
         // 一轮十几次工具往返会全部计入),两个轴不同,长得像就一定会被误读
+        string turnUsage = ledger.TurnInput + ledger.TurnOutput > 0
+            ? Usage(ledger.TurnInput, ledger.TurnOutput)
+            : NoUsage;
         SessionText = ledger.SessionInput + ledger.SessionOutput > 0
-            ? $"↑{TurnUsageLedger.FormatExact(ledger.SessionInput)}  ↓{TurnUsageLedger.FormatExact(ledger.SessionOutput)}"
+            ? Usage(ledger.SessionInput, ledger.SessionOutput)
+            : string.Empty;
+        // 本轮不再单占一行:它与累计是同一个数的两个范围,摆成两行会被当成两个量在比。
+        // 收进累计那行的悬停里,和命中率一样——正文只留能一眼读懂的那一个数
+        SessionTip = SessionText.Length > 0
+            ? Loc.Text(LangKey.ContextSessionTip, turnUsage, SessionText)
             : string.Empty;
 
-        // 缓存命中与上限无关,有就报。命中率 = 最近一次命中的输入 / 服务端报的输入
-        long cached = ledger.LastCachedInput;
-        CachedText = cached > 0 && ledger.LastInput > 0
-            ? $"{Math.Clamp(cached * 100 / ledger.LastInput, 0, 100)}% · " +
-              $"{TurnUsageLedger.FormatExact(cached)} / {TurnUsageLedger.FormatExact(ledger.LastInput)}"
+        // 命中率 = 命中输入 / 服务端报的输入。正文报**会话累计**:单次那个数按构造就接近全命中
+        // (轮内上下文单调增长,最后一发的前缀正好是上一发的全部),拿它当命中率必然虚高——
+        // 面板上原来那个「99%」就是这么来的。本轮与最近一次一起摆进悬停,三个口径对照才读得出差别
+        CachedText = HitRateText(ledger.SessionCachedInput, ledger.SessionInput);
+        CachedTip = CachedText.Length > 0
+            ? Loc.Text(LangKey.ContextCachedTip, CachedText, HitRateOrDash(ledger.TurnCachedInput, ledger.TurnInput),
+                HitRateOrDash(ledger.LastCachedInput, ledger.LastInput))
             : string.Empty;
 
         // 思考 token：显示<b>会话累计</b>的数量。比率和底数刻意不显示——
@@ -144,7 +160,7 @@ public partial class ContextUsageViewData : ObservableObject
         // 而它可能只是刚切过来还没发过话
         UsageText = usage > 0
             ? $"{TurnUsageLedger.FormatExact(usage)} / {TurnUsageLedger.FormatExact(contextLength)}"
-            : $"— / {TurnUsageLedger.FormatExact(contextLength)}";
+            : $"{NoUsage} / {TurnUsageLedger.FormatExact(contextLength)}";
 
         // 两段:实色画服务端报的,淡色补上它没计入的那截。整条填充到有效占用
         UsagePercent = Percent(ledger.LastInput, contextLength);
@@ -199,4 +215,28 @@ public partial class ContextUsageViewData : ObservableObject
     {
         return total <= 0 ? 0 : Math.Clamp(value / total * 100, 0, 100);
     }
+
+    /// <summary>用量的一行：↑输入 ↓输出，与「本轮 / 累计」两处共用同一形状</summary>
+    /// <param name="input">输入 token</param>
+    /// <param name="output">输出 token</param>
+    /// <returns>显示文本</returns>
+    private static string Usage(long input, long output) =>
+        $"↑{TurnUsageLedger.FormatExact(input)}  ↓{TurnUsageLedger.FormatExact(output)}";
+
+    /// <summary>命中率 = 命中输入 / 服务端报的输入，一位小数；没命中过或分母为 0 时整段为空</summary>
+    /// <param name="cached">命中前缀缓存的输入 token</param>
+    /// <param name="input">服务端报的输入 token（与 cached 同一批请求累加而来）</param>
+    /// <returns>「命中率 · 命中 / 输入」；两者缺一为空串</returns>
+    private static string HitRateText(long cached, long input) =>
+        cached > 0 && input > 0
+            ? $"{Math.Clamp(cached * 100.0 / input, 0, 100):0.#}% · " +
+              $"{TurnUsageLedger.FormatExact(cached)} / {TurnUsageLedger.FormatExact(input)}"
+            : string.Empty;
+
+    /// <summary>同 <see cref="HitRateText"/>，但空档补一个占位符——悬停里少一行会以为那一档没这个口径</summary>
+    /// <param name="cached">命中前缀缓存的输入 token</param>
+    /// <param name="input">服务端报的输入 token</param>
+    /// <returns>显示文本，没有数据时为「—」</returns>
+    private static string HitRateOrDash(long cached, long input) =>
+        HitRateText(cached, input) is { Length: > 0 } text ? text : NoUsage;
 }

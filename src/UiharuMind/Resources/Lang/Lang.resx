@@ -108,11 +108,12 @@
     <data name="ContextUsageLabel" xml:space="preserve">
         <value>Context</value>
     </data>
-    <data name="ContextTurnLabel" xml:space="preserve">
-        <value>Turn usage</value>
-    </data>
     <data name="ContextSessionLabel" xml:space="preserve">
         <value>Total usage</value>
+    </data>
+    <data name="ContextSessionTip" xml:space="preserve">
+        <value>This turn {0}
+Session total {1}</value>
     </data>
     <data name="ContextGeneratedImagesLabel" xml:space="preserve">
         <value>Images generated</value>
@@ -130,7 +131,14 @@
         <value>No model selected — context usage is unknown</value>
     </data>
     <data name="ContextCachedLabel" xml:space="preserve">
-        <value>Cached</value>
+        <value>Cached (session total)</value>
+    </data>
+    <data name="ContextCachedTip" xml:space="preserve">
+        <value>Session total {0}
+This turn {1}
+Latest call {2}
+
+Hit rate = cached input / reported input. The row above is the session total, with numerator and denominator coming from the same batch of requests. A single call is near-total by construction — within a turn the context grows monotonically, so the last call's prefix is exactly the previous one's — so neither of the lower two rows may be read as the hit rate.</value>
     </data>
     <data name="ContextReasoningLabel" xml:space="preserve">
         <value>Reasoning</value>

@@ -101,11 +101,12 @@
     <data name="ContextUsageLabel" xml:space="preserve">
         <value>上下文</value>
     </data>
-    <data name="ContextTurnLabel" xml:space="preserve">
-        <value>本轮消耗</value>
-    </data>
     <data name="ContextSessionLabel" xml:space="preserve">
         <value>累计消耗</value>
+    </data>
+    <data name="ContextSessionTip" xml:space="preserve">
+        <value>本轮 {0}
+累计 {1}</value>
     </data>
     <data name="ContextGeneratedImagesLabel" xml:space="preserve">
         <value>生图张数</value>
@@ -123,7 +124,16 @@
         <value>未选择模型，无法计算上下文占用</value>
     </data>
     <data name="ContextCachedLabel" xml:space="preserve">
-        <value>缓存命中</value>
+        <value>缓存命中（累计）</value>
+    </data>
+    <data name="ContextCachedTip" xml:space="preserve">
+        <value>会话累计 {0}
+本轮 {1}
+最近一次 {2}
+
+命中率 = 命中输入 / 服务端报的输入。正文那一行是会话累计，分子分母来自同一批请求。
+单发的那一档按构造就接近全命中——一轮里上下文单调增长，最后一发的前缀正好是上一发的全部——
+拿它当命中率会虚高，本轮那一档同理。</value>
     </data>
     <data name="ContextReasoningLabel" xml:space="preserve">
         <value>思考统计</value>

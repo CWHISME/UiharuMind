@@ -215,6 +215,12 @@ public class ChatSession
     /// <summary>会话累计输入 token（响应 usage 不随消息持久化，累计值记在本体上）</summary>
     public long TotalInputTokens { get; set; }
 
+    /// <summary>
+    /// 会话累计命中前缀缓存的输入 token，与 <see cref="TotalInputTokens"/> 同源累加
+    /// （两个数来自同一批请求，命中率才成立）。不记的话切回会话就只能看到最近一次那点命中
+    /// </summary>
+    public long TotalCachedInputTokens { get; set; }
+
     /// <summary>会话累计输出 token</summary>
     public long TotalOutputTokens { get; set; }
 
@@ -241,6 +247,9 @@ public class ChatSession
 
     /// <summary>最近一轮的输出 token</summary>
     public long LastTurnOutputTokens { get; set; }
+
+    /// <summary>最近一轮命中前缀缓存的输入 token，<see cref="LastTurnInputTokens"/> 的命中那一半</summary>
+    public long LastTurnCachedInputTokens { get; set; }
 
     /// <summary>
     /// 会话累计生图张数。生图按张计费、不报 token，不进 token 累计；与 token 累计一样记在本体上
@@ -1017,11 +1026,13 @@ public class ChatSession
     /// <param name="input">输入 token</param>
     /// <param name="output">输出 token</param>
     /// <param name="reasoning">思考 token</param>
-    public void AccumulateUsage(long input, long output, long reasoning)
+    /// <param name="cached">命中前缀缓存的输入 token；与输入成对，缺了它累计命中率就失真</param>
+    public void AccumulateUsage(long input, long output, long reasoning, long cached)
     {
         TotalInputTokens += input;
         TotalOutputTokens += output;
         TotalReasoningTokens += reasoning;
+        TotalCachedInputTokens += cached;
     }
 
     /// <summary>

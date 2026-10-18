@@ -89,8 +89,10 @@ public static class GroupBackground
         // 是这个会话的模型花的,记进它的累计:群成员面板的成本读的就是它。不碰占用——单聊本身没有变满
         foreach (UsageDetails usage in reply.Usages)
         {
+            // 命中也要记:累计命中率是「累计命中 / 累计输入」,这一发的输入进了分母,
+            // 命中不跟着进分子,那个比例就既不是命中率也没法跟官方控制台对账
             source.AccumulateUsage(usage.InputTokenCount ?? 0, usage.OutputTokenCount ?? 0,
-                usage.ReasoningTokenCount ?? 0);
+                usage.ReasoningTokenCount ?? 0, TurnUsageLedger.ReadCachedTokens(usage));
         }
 
         if (reply.Usages.Count > 0)

@@ -107,11 +107,14 @@
                    ToolTip.Tip="{Binding CompactedText}" />
     </controls:BaselineStackPanel>
 
+    <!-- 缓存命中:正文报会话累计命中率,本轮与最近一次两个口径在悬停里对照。
+         单次那个数按构造接近全命中(轮内上下文单调增长,最后一发前缀就是上一发的全部),
+         拿它当命中率会虚高——所以它不上正文 -->
     <controls:BaselineStackPanel Spacing="8"
           IsVisible="{Binding CachedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <TextBlock Classes="muted" Text="{loc:Loc ContextCachedLabel}" />
         <TextBlock HorizontalAlignment="Right" Text="{Binding CachedText}" TextTrimming="CharacterEllipsis"
-                   ToolTip.Tip="{Binding CachedText}" />
+                   ToolTip.Tip="{Binding CachedTip}" />
     </controls:BaselineStackPanel>
 
     <!-- 交接/折叠/截断三条水位的说明。属补充信息：右侧栏常驻时藏掉（ShowDetails=False），
@@ -134,18 +137,13 @@
     </controls:BaselineStackPanel>
     <!-- </Grid> -->
 
-    <controls:BaselineStackPanel Spacing="8"
-          IsVisible="{Binding TurnText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-        <TextBlock Classes="muted" Text="{loc:Loc ContextTurnLabel}" />
-        <TextBlock HorizontalAlignment="Right" Text="{Binding TurnText}" TextTrimming="CharacterEllipsis"
-                   ToolTip.Tip="{Binding TurnText}" />
-    </controls:BaselineStackPanel>
-
+    <!-- 累计消耗:本轮收进这一行的悬停。正文只留累计——本轮与累计是同一个数的两个范围,
+         摆成上下两行会被当成两个量在比。同理,累计命中率也不单列一行 -->
     <controls:BaselineStackPanel Spacing="8"
           IsVisible="{Binding SessionText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <TextBlock Classes="muted" Text="{loc:Loc ContextSessionLabel}" />
         <TextBlock HorizontalAlignment="Right" Text="{Binding SessionText}" TextTrimming="CharacterEllipsis"
-                   ToolTip.Tip="{Binding SessionText}" />
+                   ToolTip.Tip="{Binding SessionTip}" />
     </controls:BaselineStackPanel>
 
     <!-- 生图按张计费、不报 token,不混进上面的 token 累计,单列一行 -->
