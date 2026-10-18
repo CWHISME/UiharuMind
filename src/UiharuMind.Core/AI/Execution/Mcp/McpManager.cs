@@ -53,14 +53,46 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
     /// 回收的检查间隔。比 IdleTimeout 小一个量级就够——早晚几分钟无所谓,检查太密纯属空转
     private static readonly TimeSpan ReclaimInterval = TimeSpan.FromMinutes(5);
 
-    /// 连续失败第 n 次之后的等待时长,末项为封顶值
+    /// 巡检两次之间至少隔这么久:退避到点常近在几秒内,不给下界会打转
+    private static readonly TimeSpan MinimumReclaimDelay = TimeSpan.FromSeconds(1);
+
+    /// 连续失败第 n 次之后的等待时长,末项为封顶值。
+    /// 封顶值刻意大于 <see cref="ReclaimInterval"/>(5 分钟):否则巡检每一扫都到点、等于每 5 分钟拉一次进程
     private static readonly TimeSpan[] RetryBackoff =
     [
         TimeSpan.FromSeconds(5),
         TimeSpan.FromSeconds(15),
         TimeSpan.FromSeconds(60),
-        TimeSpan.FromMinutes(5),
+        TimeSpan.FromMinutes(15),
     ];
+
+    /// <summary>
+    /// 一次刷新(建连接+取回工具)的硬上限。
+    ///
+    /// <b>没有它挂住就是死态</b>:错误入账只在抛异常时发生,而「server 拉起了却不回话」
+    /// (npx 卡在装包确认、目标进程无响应)谁都不抛——Refreshing 永远不落,
+    /// 面板长亮连接中,模型每次调用只拿到一句 10 秒超时。远处冷启动要涵养住,
+    /// 60 秒足够 npx 装完一个包。
+    ///
+    /// <b>实例字段而非静态</b>:值随每个 <see cref="McpManager"/> 走,测试各改各的,不互相串。
+    /// </summary>
+    internal TimeSpan RefreshTimeout { get; set; } = TimeSpan.FromSeconds(60);
+
+    /// <summary>
+    /// 失败之后自动重连只在「最近有人问过」的这个窗口内跑:没人关心的 server 不该被空拉子进程。
+    /// 窗口外的失败只等模型下一次张口(那条路会无视退避当场重连)。
+    /// </summary>
+    private static readonly TimeSpan RetryWindow = TimeSpan.FromMinutes(30);
+
+    /// <summary>
+    /// 模型明确要用、而正在跑的那一轮刷新已挂超过这个时长:当场作废重起,不等它耗完预算。
+    ///
+    /// 挂住的刷新几乎都是「server 还没起时留下的包袱」(意图连一个没在监听的进程,握手永不回),
+    /// 就算 server 随后起来了,它也不会自己好——只能重连。模型只等 10 秒,继续等它只会得到
+    /// 「仍在连接」然后不再尝试。取值比一次正常连接(含 2 秒 discover 探测,通常 1~3 秒)留出余量,
+    /// 又不至于让模型干等整个预算。只对 model 侧(force)生效,后台巡检不抢跑。
+    /// </summary>
+    private static readonly TimeSpan StuckRefreshThreshold = TimeSpan.FromSeconds(5);
 
     private readonly object _lock = new(); //守护配置列表、运行态与修订号,全场只此一把
     private readonly List<McpServerConfig> _servers = new(); //全局作用域那一份(McpServers.json)
@@ -166,7 +198,8 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
     }
 
     /// <summary>
-    /// 新增或更新<b>全局</b> server 配置；缓存失效、断开旧连接，托管中的在后台重连。
+    /// 新增或更新<b>全局</b> server 配置；缓存失效、断开旧连接。不重连：
+    /// 连接按 ADR 0079 懒走——模型下一次查、调，或设置页测试时才建。
     ///
     /// 只管全局那一份：项目级配置的唯一来源是工作区里的 <c>.mcp.json</c>，
     /// 由用户直接编辑那个文件，本应用不写它（那是要入库共享的文件）。
@@ -282,14 +315,19 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
             return;
         }
 
+        // 与其它入口同一道去重闸:连着同一个 key 的刷新同时只许一条,拿到的是在跑的那条(没有则新起)
+        McpServerKey key = McpServerKey.Of(server);
+        Task? refresh;
         lock (_lock)
         {
-            McpServerRuntime runtime = GetRuntimeLocked(McpServerKey.Of(server));
+            McpServerRuntime runtime = GetRuntimeLocked(key);
             runtime.FailureCount = 0;
             runtime.NextAttemptUtc = DateTime.MinValue;
+            KickRefreshLocked(server, force: true, cancellationToken);
+            refresh = runtime.RefreshTask;
         }
 
-        await RefreshServerAsync(server, cancellationToken).ConfigureAwait(false);
+        if (refresh != null) await refresh.WaitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     //================= 本轮该管哪些 server =================
@@ -426,8 +464,8 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
         }
     }
 
-    /// 首次连上时才启动回收循环:这个应用还有截图、剪贴板一堆与 MCP 无关的功能,
-    /// 从没连过 server 的进程不该为它空转
+    /// 首次连上<b>或首次失败入账</b>时启动循环:这个应用还有截图、剪贴板一堆与 MCP 无关的功能,
+    /// 从没碰过 server 的进程不该为它空转。失败也要它,是为了失败后的退避重连有的跑(见 <see cref="ReclaimIdle"/>)
     private void EnsureReclaimLoop()
     {
         CancellationTokenSource cancellation;
@@ -446,40 +484,90 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                await Task.Delay(ReclaimInterval, cancellationToken).ConfigureAwait(false);
-                ReclaimIdle();
+                await Task.Delay(NextReclaimDelay(), cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    ReclaimIdle();
+                }
+                catch (Exception e)
+                {
+                    //一轮失手不该让整条循环停摆——退避重连就搭在这条循环上,它一停就全停了
+                    Log.Warning($"MCP idle reclaim pass failed: {e.Message}");
+                }
             }
         }
         catch (OperationCanceledException)
         {
             //应用退出,正常收尾
         }
-        catch (Exception e)
+        finally
         {
-            Log.Warning($"MCP idle reclaim loop stopped: {e.Message}");
+            //退出后把句柄让出来:下一次 EnsureReclaimLoop 还能把它惰性启起来
+            lock (_lock)
+            {
+                _reclaimCancellation = null;
+            }
         }
     }
 
     /// <summary>
-    /// 断开零租约且已空闲超过 <see cref="IdleTimeout"/> 的连接。
+    /// 下一次巡检该隔多久。退避重连搭在这条循环上,所以不能固定按 <see cref="ReclaimInterval"/> 睡:
+    /// 首轮退避才 5 秒,固定睡 5 分钟等于把「到点就重连」推迟到下一扫,面板白白在失败态上多待几分钟。
+    /// 取「离得最近的那个到点时刻」与巡检间隔的较小者(下界 <see cref="MinimumReclaimDelay"/> 防打转)。
+    /// 空闲回收不用赶时间,故仍以巡检间隔为上限。
+    /// </summary>
+    private TimeSpan NextReclaimDelay()
+    {
+        DateTime now = DateTime.UtcNow;
+        TimeSpan delay = ReclaimInterval;
+        lock (_lock)
+        {
+            foreach (McpServerRuntime runtime in _runtimes.Values)
+            {
+                if (runtime.State != EMcpConnectionState.Failed) continue;
+                TimeSpan until = runtime.NextAttemptUtc - now;
+                if (until < delay) delay = until;
+            }
+        }
+
+        return delay < MinimumReclaimDelay ? MinimumReclaimDelay : delay;
+    }
+
+    /// <summary>
+    /// 空闲回收 + 失败退避重连，一份巡检：
     ///
-    /// <b>工具缓存跟着一起丢</b>：那批 <c>AIFunction</c> 持有 <c>McpClient</c>，
-    /// client 一释放它们就是「定义还在但调不动」——挂上去的工具必须是能调的。
+    /// <b>回收</b>：断开零租约且空闲超过 <see cref="IdleTimeout"/> 的连接。
+    /// 工具缓存跟着一起丢——那批 <c>AIFunction</c> 持有 <c>McpClient</c>，
+    /// client 一释放它们就是「定义还在但调不动」——挂上去的工具必须是能调的；
     /// 但 <see cref="McpServerRuntime.LastToolCount"/> 与估算 token 留着，
     /// 否则能力面板会在回收后突然显示「0 个工具」，用户会以为坏了。
+    ///
+    /// <b>退避重连</b>：失败的 server 到了 <c>NextAttemptUtc</c> 就再连一遍。
+    /// 退避账只记账不干活是半天工——挂着的间隔没人补，server 明明回来了，面板还停在失败，
+    /// 模型对该不该再用扩展也只能靠猜。不用 `force`（<c>KickRefreshLocked</c> 自己会卡到点），
+    /// 且只重连最近 <see cref="RetryWindow"/> 内有人问过的：没人关心的 server 不再空拉子进程。
+    /// 到点精度由 <see cref="NextReclaimDelay"/> 保证——不是每 5 分钟才轮一次。
     /// </summary>
     internal void ReclaimIdle()
     {
         DateTime now = DateTime.UtcNow;
         List<McpClient> orphans = new();
+        List<McpServerKey> dueRetries = new();
         lock (_lock)
         {
             int totalLeases = _leases.Values.Sum();
             foreach ((McpServerKey key, McpServerRuntime runtime) in _runtimes)
             {
-                if (runtime.Client == null) continue; //没连上的没有可回收的资源
                 if (runtime.Refreshing) continue; //正在连,别把它连出来的东西掐掉
 
+                if (runtime.State == EMcpConnectionState.Failed)
+                {
+                    if (now >= runtime.NextAttemptUtc && now - runtime.LastUsedUtc < RetryWindow)
+                        dueRetries.Add(key);
+                    continue;
+                }
+
+                if (runtime.Client == null) continue; //没连上的没有可回收的资源
                 bool leased = key.IsGlobal
                     ? totalLeases > 0
                     : _leases.GetValueOrDefault(key.Workspace) > 0;
@@ -495,6 +583,37 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
         }
 
         foreach (McpClient client in orphans) _ = client.DisposeAsync();
+
+        foreach (McpServerKey key in dueRetries) KickDueRetry(key);
+    }
+
+    /// <summary>到点的那一次退避重连。配置要重查（项目级那是盘上的），查不到就当是刚被删掉的那条</summary>
+    private void KickDueRetry(McpServerKey key)
+    {
+        McpServerConfig? config;
+        if (key.IsGlobal)
+        {
+            lock (_lock)
+            {
+                config = _servers.FirstOrDefault(x => string.Equals(x.Name, key.Name, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+        else
+        {
+            config = McpWorkspaceConfigLoader.Load(key.Workspace)
+                .FirstOrDefault(x => string.Equals(x.Name, key.Name, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (config == null) return;
+
+        //与装配同一道闸:整体关掉的、没获授权的不许起进程
+        if (!IsInPlay(config, DisabledSet(null)) || !_trust.IsTrusted(config)) return;
+
+        SyncFingerprints([config]); //配置刚被改过的先作废旧账
+        lock (_lock)
+        {
+            KickRefreshLocked(config, force: false); //没到点或已在连,静默放过
+        }
     }
 
     /// <summary>
@@ -525,6 +644,8 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
                 if (string.Equals(runtime.Fingerprint, fingerprint, StringComparison.Ordinal)) continue;
 
                 if (runtime.Client != null) orphans.Add(runtime.Client);
+                // 旧连接若还在连,顺手叫停:新一代(代次不同)会接管,旧任务只是白等预算
+                runtime.RefreshCancellation?.Cancel();
                 // 整条换新而不是逐字段清:退避账也该重算(配置换了,上次为什么连不上不再有参考价值)。
                 // 只把"上次的账"带过去给 UI
                 _runtimes[key] = new McpServerRuntime
@@ -761,45 +882,96 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
         return runtime;
     }
 
-    /// <summary>调用方须持有 _lock。受退避约束，force 时无视退避</summary>
-    private void KickRefreshLocked(McpServerConfig server, bool force)
+    /// <summary>
+    /// 调用方须持有 _lock。受退避约束，force 时无视退避。刷新任务留档在运行时上，模型查、调时要等的就是它。
+    /// force 且正在跑的那一轮已挂过 <see cref="StuckRefreshThreshold"/> 时，把它作废改起新一轮
+    /// （见该阈值说明）——否则模型会被一条早就死透的连接一直挂着。
+    /// </summary>
+    private void KickRefreshLocked(McpServerConfig server, bool force, CancellationToken cancellationToken = default)
     {
         McpServerRuntime runtime = GetRuntimeLocked(McpServerKey.Of(server));
-        if (runtime.Refreshing) return;
+        if (runtime.Refreshing)
+        {
+            if (!force || DateTime.UtcNow - runtime.RefreshStartedUtc < StuckRefreshThreshold) return;
+            SupersedeRefreshLocked(runtime);
+        }
+
         if (!force && DateTime.UtcNow < runtime.NextAttemptUtc) return;
 
         runtime.Refreshing = true;
-        // 任务留在运行态上:模型查、调时要等的就是它。丢掉句柄的话「等它连上」无从实现
-        runtime.RefreshTask = Task.Run(() => RefreshServerAsync(server, CancellationToken.None));
+        runtime.RefreshStartedUtc = DateTime.UtcNow;
+        long generation = ++runtime.RefreshGeneration;
+        CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cancellation.CancelAfter(RefreshTimeout); //刷新必须限期落账:挂住的结局与抛异常一致(见 RefreshTimeout)
+        runtime.RefreshCancellation = cancellation;
+        runtime.RefreshTask = Task.Run(() => RefreshServerAsync(server, generation, cancellation, cancellationToken));
     }
 
-    private async Task RefreshServerAsync(McpServerConfig server, CancellationToken cancellationToken)
+    /// <summary>
+    /// 调用方须持有 _lock。作废正在跑的那一轮：取消它的预算令牌、让出代次。
+    /// 代次一变，旧任务回来时认得出自己已被顶替，不再往运行态写任何东西。
+    /// </summary>
+    private static void SupersedeRefreshLocked(McpServerRuntime runtime)
+    {
+        runtime.Refreshing = false;
+        runtime.RefreshCancellation?.Cancel();
+        runtime.RefreshCancellation = null;
+        runtime.RefreshTask = null;
+    }
+
+    /// <summary>这一代是否已被顶替（或运行态已被删）：是则收手，别把结果/失败账写进新一代</summary>
+    private bool IsSuperseded(McpServerKey key, long generation)
+    {
+        lock (_lock)
+        {
+            return !_runtimes.TryGetValue(key, out McpServerRuntime? runtime)
+                   || runtime.RefreshGeneration != generation;
+        }
+    }
+
+    private async Task RefreshServerAsync(McpServerConfig server, long generation,
+        CancellationTokenSource cancellation, CancellationToken externalToken)
     {
         McpServerKey key = McpServerKey.Of(server);
         string fingerprint = McpServerFingerprint.Of(server);
+        CancellationToken refreshToken = cancellation.Token;
+        bool alive;
         lock (_lock)
         {
-            //手动路径进来时标记还没置上;后台路径由 KickRefreshLocked 置好,这里是幂等补一次
-            McpServerRuntime runtime = GetRuntimeLocked(key);
-            runtime.Refreshing = true;
-            if (runtime.Fingerprint.Length == 0) runtime.Fingerprint = fingerprint;
+            alive = _runtimes.TryGetValue(key, out McpServerRuntime? runtime);
+            if (alive)
+            {
+                runtime!.Refreshing = true;
+                if (runtime.Fingerprint.Length == 0) runtime.Fingerprint = fingerprint;
+            }
+        }
+
+        if (!alive)
+        {
+            //刷新期间运行态被删掉了(用户删配置/撤销授权):没什么可写的,直接收手
+            cancellation.Dispose();
+            return;
         }
 
         try
         {
-            McpClient client = await ConnectAsync(server, cancellationToken).ConfigureAwait(false);
+            McpClient client = await ConnectAsync(server, refreshToken).ConfigureAwait(false);
             IReadOnlyList<AIFunction> tools = await client
-                .ListAgentToolsWithTasksAsync(options: null, cancellationToken: cancellationToken).ConfigureAwait(false);
-            HashSet<string> readOnly = await ReadOnlyToolsAsync(client, key, cancellationToken).ConfigureAwait(false);
+                .ListAgentToolsWithTasksAsync(options: null, cancellationToken: refreshToken).ConfigureAwait(false);
+            HashSet<string> readOnly = await ReadOnlyToolsAsync(client, key, refreshToken).ConfigureAwait(false);
 
             bool stale = false;
             McpToolCatalog? catalog = null;
             lock (_lock)
             {
-                McpServerRuntime runtime = GetRuntimeLocked(key);
                 // 配置在这次连接期间被改过:这批工具属于旧命令,写进去等于让新配置顶着旧工具跑。
-                // 连接本身已由 SyncFingerprints 作废,这里只需别把结果落进新的运行态
-                if (!string.Equals(runtime.Fingerprint, fingerprint, StringComparison.Ordinal))
+                // 连接本身已由 SyncFingerprints 作废,这里只需别把结果落进新的运行态。
+                // 要么运行态被删了、要么已被更新的一轮顶替、要么当前连接不是这次连出来的那条:
+                // 结果作废,别把一批绑在死 client 上的工具写进状态(改判据看身份,不看 null——换过一条健康的也算)
+                if (!_runtimes.TryGetValue(key, out McpServerRuntime? runtime)
+                    || runtime.RefreshGeneration != generation
+                    || !string.Equals(runtime.Fingerprint, fingerprint, StringComparison.Ordinal)
+                    || !ReferenceEquals(runtime.Client, client))
                 {
                     stale = true;
                 }
@@ -841,26 +1013,73 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
 
             EnsureReclaimLoop(); //有连接了才值得开回收循环
         }
+        catch (OperationCanceledException) when (refreshToken.IsCancellationRequested && !externalToken.IsCancellationRequested)
+        {
+            //取消来源二选一:预算到期,或被更新的一轮顶替。顶替的静默让位,别把失败账写进新一代
+            if (IsSuperseded(key, generation)) return;
+            Log.Warning($"MCP server '{key}' refresh exceeded {RefreshTimeout.TotalSeconds:0}s budget");
+            await FailRefreshAsync(key,
+                $"{RefreshTimeout.TotalSeconds:0} 秒无响应；server 进程可能没有在运行").ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (externalToken.IsCancellationRequested)
+        {
+            //外部取消(手动测试)。不入账也不入死态:调用方自会决定下一步
+        }
         catch (Exception e)
         {
+            //被顶替/已被删:这次的结果作废,失败账也不该记——那会踩到新一代的运行态
+            if (IsSuperseded(key, generation)) return;
             Log.Warning($"MCP server '{key}' unavailable: {e.Message}");
-            lock (_lock)
-            {
-                McpServerRuntime runtime = GetRuntimeLocked(key);
-                runtime.State = EMcpConnectionState.Failed;
-                runtime.Error = e.Message;
-                runtime.FailureCount++;
-                TimeSpan wait = RetryBackoff[Math.Min(runtime.FailureCount - 1, RetryBackoff.Length - 1)];
-                runtime.NextAttemptUtc = DateTime.UtcNow + wait;
-            }
+            await FailRefreshAsync(key, e.Message).ConfigureAwait(false);
         }
         finally
         {
+            bool owned = false;
             lock (_lock)
             {
-                GetRuntimeLocked(key).Refreshing = false;
+                //只有当自己还是那一代时才清:否则会把新一代的标记一起抹掉
+                if (_runtimes.TryGetValue(key, out McpServerRuntime? runtime) && runtime.RefreshGeneration == generation)
+                {
+                    runtime.Refreshing = false;
+                    runtime.RefreshCancellation = null;
+                    runtime.RefreshTask = null;
+                    owned = true;
+                }
             }
+
+            cancellation.Dispose();
+            //失败账要有人补:退避重连搭在巡检循环上(见 ReclaimIdle)。必须等 Refreshing 落定后再起,
+            //否则 NextReclaimDelay 读到的还是"正在连",会把首轮 5 秒的退避推迟成整个巡检间隔
+            if (owned) EnsureReclaimLoop();
         }
+    }
+
+    /// <summary>
+    /// 一次失败的落账：状态与错误原文入账、退避起算，并断开这次没连成的连接。
+    ///
+    /// <b>连接必须收掉</b>：取工具失败或超时后，半成品 client 若还挂在运行态上，
+    /// 下次的 <see cref="ConnectAsync"/> 会认账（<c>existing != null</c> 直接返回），
+    /// 模型就拿着一条从未握上手的连接去调工具。
+    /// 工具快照不清——那可能是一份此前连上时取回的旧账，server 离线时帮助还读它。
+    /// </summary>
+    private async Task FailRefreshAsync(McpServerKey key, string error)
+    {
+        McpClient? broken;
+        lock (_lock)
+        {
+            //运行态已被删掉(用户删配置/撤销授权):账不用记,免得把删掉的条目又造回来
+            if (!_runtimes.TryGetValue(key, out McpServerRuntime? runtime)) return;
+            runtime.State = EMcpConnectionState.Failed;
+            runtime.Error = error;
+            runtime.FailureCount++;
+            TimeSpan wait = RetryBackoff[Math.Min(runtime.FailureCount - 1, RetryBackoff.Length - 1)];
+            runtime.NextAttemptUtc = DateTime.UtcNow + wait;
+
+            broken = runtime.Client;
+            runtime.Client = null;
+        }
+
+        if (broken != null) await broken.DisposeAsync().ConfigureAwait(false);
     }
 
     // 框架包过的工具（任务感知那层）不透出协议注解,只读声明得另问一次清单。
@@ -964,6 +1183,15 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
 
         /// 正在跑的那次刷新;模型查、调时据此等待。失败过的那次是已完成任务,等于不等
         public Task? RefreshTask { get; set; }
+
+        /// 正在跑的那次刷新的预算/取消令牌;force 顶替时据此把它叫停(见 SupersedeRefreshLocked)
+        public CancellationTokenSource? RefreshCancellation { get; set; }
+
+        /// 刷新代次:每次开新的一轮自增。旧任务据此认出自己已被顶替,不再往运行态写
+        public long RefreshGeneration { get; set; }
+
+        /// 这一轮刷新的起始时刻;据此判断它是否已挂成包袱(见 StuckRefreshThreshold)
+        public DateTime RefreshStartedUtc { get; set; }
 
         public int FailureCount { get; set; }
         public DateTime NextAttemptUtc { get; set; }

@@ -157,6 +157,17 @@ internal interface IMcpServerHost
     Task<McpServerConnection> RefreshToolsAsync(McpServerConfig server, TimeSpan timeout,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// 判定连接已死（server 进程退出、管道断）后重建：丢掉旧连接、强刷工具，最多等 <paramref name="timeout"/>。
+    /// 只有传输层故障走这里——协议/业务错误（<c>McpException</c>）是 server 的正常回话，重连接不动它。
+    /// </summary>
+    /// <param name="server">配置</param>
+    /// <param name="timeout">最长等待</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>重建后的连接结果；失败时 <see cref="McpServerConnection.IsConnected"/> 为 false</returns>
+    Task<McpServerConnection> ReconnectAsync(McpServerConfig server, TimeSpan timeout,
+        CancellationToken cancellationToken);
+
     /// <summary>读磁盘上的工具清单缓存（server 离线时用）；没有或已过期为 null</summary>
     /// <param name="server">配置</param>
     /// <returns>清单</returns>

@@ -92,7 +92,7 @@ public static class AgentToolPrompts
                 "- 文件系统层面的操作——移动、改名、删除、新建目录——用 `Shell` 做。");
             // 刻意不举 cat/sed/awk 这些具体命令:框架按平台解析 shell(bash/sh/PowerShell/cmd 四种),
             sb.AppendLine(
-                "- 但文件内容的读与改默认仍走文件工具：读取用 `Read`，" +
+                "- 但文件内容的读与改仍建议默认走文件工具：读取用 `Read`，" +
                 "单点改动用 `Edit`（每次改动可见、可审计）。例外是贯穿多个文件的同一种批量机械改动，" +
                 "那种情况优先用 `Shell` 或脚本一次做完。");
         }

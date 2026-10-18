@@ -19,6 +19,9 @@
     <PackageReference Include="Microsoft.Agents.AI" Version="1.22.0" />
     <PackageReference Include="Microsoft.Agents.AI.Harness" Version="1.22.0" />
     <PackageReference Include="Microsoft.Agents.AI.Tools.Shell" Version="1.22.0-preview.260918.1" />
+    <!-- 判据测试要点名 MCP 协议层异常 McpException；Core 的 MCP 包是 compile-only 私有资产，
+         不随引用透传，故这里直引（版本须与 Core 的 Agents.AI.Mcp 解析到的保持一致） -->
+    <PackageReference Include="ModelContextProtocol.Core" Version="2.2.0" />
   </ItemGroup>
 
   <ItemGroup>

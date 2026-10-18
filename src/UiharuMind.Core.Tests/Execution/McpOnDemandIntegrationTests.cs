@@ -23,8 +23,14 @@ namespace UiharuMind.Core.Tests.Execution;
 public class McpOnDemandIntegrationTests : IDisposable
 {
     private const string StubServer = """
-        import sys, json, os
-        silent_discover = len(sys.argv) > 1 and sys.argv[1] == "silent"
+        import sys, json, os, time
+        argv_mode = sys.argv[1] if len(sys.argv) > 1 else "normal"
+        silent_discover = argv_mode == "silent"
+        if argv_mode == "revive" and not os.path.exists(__file__ + ".revive"):
+            #复活桩:revive 模式下标记文件还不存在时吞掉请求不回话(连接挂住),标记一出现即恢复正常
+            for line in sys.stdin: pass
+            time.sleep(5)
+            sys.exit(0)
         def send(o):
             sys.stdout.write(json.dumps(o) + "\n"); sys.stdout.flush()
         for line in sys.stdin:
@@ -235,7 +241,7 @@ public class McpOnDemandIntegrationTests : IDisposable
         // 但若桥接是在禁用之前拿到的(旧快照),调用时仍按最新名单拒绝
         McpBridge bridge = new(_manager, null, ["stub-blocked"], _directory);
         string refused = await bridge.HelpAsync("stub-blocked", null, ct);
-        Assert.Contains("disabled for this agent", refused);
+        Assert.Contains("被本智能体禁用", refused);
     }
 
     /// <summary>只读声明（readOnlyHint）要在连上时记下：审批据此放过只读的调用</summary>
@@ -252,5 +258,161 @@ public class McpOnDemandIntegrationTests : IDisposable
 
         Assert.True(_manager.IsReadOnlyTool("stub-hints", "echo", null));
         Assert.False(_manager.IsReadOnlyTool("stub-hints", "structured", null));
+    }
+
+    /// <summary>
+    /// server 拉起来了却不回话（npx 卡在装包确认、目标进程无响应）：过去刷新没有期限，
+    /// 异常才入账，于是 Refreshing 永不落——面板长亮「连接中」，模型每次调用只在同一条
+    /// 死任务上等到 10 秒超时，永远建不起刷新。现在刷新到期即按失败落账：
+    /// 错误原文可见，且下一次调用能重新起一轮（退避账生效）。
+    /// </summary>
+    [Fact]
+    public async Task UnresponsiveStdioServer_TimesOutIntoFailedAccountInsteadOfStuck()
+    {
+        if (!HasPython()) Assert.Skip("python3 is not available");
+        CancellationToken ct = TestContext.Current.CancellationToken;
+        TimeSpan originalTimeout = _manager.RefreshTimeout;
+        _manager.RefreshTimeout = TimeSpan.FromSeconds(3);
+        try
+        {
+            Directory.CreateDirectory(_directory);
+            File.WriteAllText(Path.Combine(_directory, "mute_server.py"),
+                """
+                import sys, time
+                for line in sys.stdin: pass    # 吃掉请求,永不回答:连接就此挂住
+                time.sleep(3600)
+                """);
+            McpServerConfig config = new()
+            {
+                Name = "stub-mute", Command = "python3", Args = [Path.Combine(_directory, "mute_server.py")],
+                IsEnabled = true,
+            };
+            _manager.SaveServer(config);
+            _serversToDelete.Add(config.Name);
+            McpToolSet set = _manager.Resolve(null, null, _directory);
+            AIFunction help = Named(set, ExtensionCalls.HelpName);
+
+            string first = Assert.IsType<string>(await help.InvokeAsync(Ask("stub-mute"), ct));
+            Assert.Contains("未连接", first);
+            Assert.Contains("3 秒无响应", first);
+            McpServerStatus status = _manager.GetServerStatus("stub-mute");
+            Assert.Equal(EMcpConnectionState.Failed, status.State);
+            Assert.Contains("3 秒无响应", status.Error);
+
+            // 到期即终局,不是死等:帮助应该在远超预算之前回来
+            string second = Assert.IsType<string>(await help.InvokeAsync(Ask("stub-mute"), ct));
+            Assert.Contains("未连接", second);
+        }
+        finally
+        {
+            _manager.RefreshTimeout = originalTimeout;
+        }
+    }
+
+    /// <summary>
+    /// 失败后的退避重连是真正在跑的：server 恢复后，巡检（<c>ReclaimIdle</c>）到点的
+    /// 那一次重连应当把它连回来，<b>不需要模型再张口</b>——否则模型只能自己脚本探测。
+    /// 桩先处于「拉起不回话」态逼出一次失败，标记建成后等退避（首败 5s）让路，再扫一次。
+    /// </summary>
+    [Fact]
+    public async Task FailedServer_ReconnectsAutomaticallyOnceBackoffIsDue()
+    {
+        if (!HasPython()) Assert.Skip("python3 is not available");
+        CancellationToken ct = TestContext.Current.CancellationToken;
+        TimeSpan originalTimeout = _manager.RefreshTimeout;
+        _manager.RefreshTimeout = TimeSpan.FromSeconds(3);
+        try
+        {
+            AddStub("stub-revival", "revive");
+            McpToolSet set = _manager.Resolve(null, null, _directory);
+            string first = Assert.IsType<string>(
+                await Named(set, ExtensionCalls.HelpName).InvokeAsync(Ask("stub-revival"), ct));
+            Assert.Contains("未连接", first);
+            Assert.Equal(EMcpConnectionState.Failed, _manager.GetServerStatus("stub-revival").State);
+
+            //server 此刻"恢复了"(标记建成):退避到点前巡检按兵不动,到点那一次把它连回来。
+            //不写死"等 6 秒":巡检按 NextAttemptUtc 卡点,反复调等价于循环每 5 分钟扫一遍
+            File.WriteAllText(Path.Combine(_directory, "stub_server.py.revive"), "");
+            for (int i = 0; i < 40; i++)
+            {
+                await Task.Delay(500, ct);
+                _manager.ReclaimIdle();
+                if (_manager.GetServerStatus("stub-revival").State == EMcpConnectionState.Connected) break;
+            }
+
+            Assert.Equal(EMcpConnectionState.Connected, _manager.GetServerStatus("stub-revival").State);
+        }
+        finally
+        {
+            _manager.RefreshTimeout = originalTimeout;
+        }
+    }
+
+    /// <summary>
+    /// 退避到点的重连由巡检循环自己按点醒来跑，而不是「每 5 分钟才轮一次」：
+    /// 首轮退避才 5 秒，若固定睡 5 分钟，server 明明回来了面板却要多停在失败上几分钟。
+    /// 这条不手动敲 <c>ReclaimIdle</c>——等循环自己把它连回来。
+    /// </summary>
+    [Fact]
+    public async Task FailedServer_IsRetriedByTheLoopAtItsBackoffTime_NotOnlyOnTheNextScan()
+    {
+        if (!HasPython()) Assert.Skip("python3 is not available");
+        CancellationToken ct = TestContext.Current.CancellationToken;
+        TimeSpan originalTimeout = _manager.RefreshTimeout;
+        _manager.RefreshTimeout = TimeSpan.FromSeconds(3);
+        try
+        {
+            AddStub("stub-loop-revival", "revive");
+            McpToolSet set = _manager.Resolve(null, null, _directory);
+            string first = Assert.IsType<string>(
+                await Named(set, ExtensionCalls.HelpName).InvokeAsync(Ask("stub-loop-revival"), ct));
+            Assert.Contains("未连接", first);
+
+            // server 恢复:首轮退避 5s 到点后由循环自己重连,不手动敲巡检
+            File.WriteAllText(Path.Combine(_directory, "stub_server.py.revive"), "");
+            DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+            while (DateTime.UtcNow < deadline
+                   && _manager.GetServerStatus("stub-loop-revival").State != EMcpConnectionState.Connected)
+            {
+                await Task.Delay(250, ct);
+            }
+
+            Assert.Equal(EMcpConnectionState.Connected, _manager.GetServerStatus("stub-loop-revival").State);
+        }
+        finally
+        {
+            _manager.RefreshTimeout = originalTimeout;
+        }
+    }
+
+    /// <summary>
+    /// 模型调用兜底：刷新在 server 还没起时起过一轮、握手就此挂住（面板长亮「连接中」）。
+    /// server 随后起来了，模型这一次调用必须当场作废挂住的那一轮、重起一轮连上它——
+    /// 而不是在同一条死任务上等到 10 秒超时、回一句「仍在连接」然后放弃（旧行为）。
+    /// </summary>
+    [Fact]
+    public async Task StuckRefresh_IsSupersededByModelCall_OnceServerComesUp()
+    {
+        if (!HasPython()) Assert.Skip("python3 is not available");
+        CancellationToken ct = TestContext.Current.CancellationToken;
+        AddStub("stub-supersede", "revive");
+        McpToolSet set = _manager.Resolve(null, null, _directory);
+
+        // 后台起一轮刷新:此时「server 还没起」,握手挂住。不 await,就让它一直挂着
+        _ = _manager.TestServerAsync("stub-supersede");
+
+        // 越过作废阈值(5s):它仍挂在连接中,没有被记成失败
+        await Task.Delay(TimeSpan.FromSeconds(5.5), ct);
+        Assert.Equal(EMcpConnectionState.Connecting, _manager.GetServerStatus("stub-supersede").State);
+
+        // server 起来了:模型这次调用应当当场连上
+        File.WriteAllText(Path.Combine(_directory, "stub_server.py.revive"), "");
+        Stopwatch watch = Stopwatch.StartNew();
+        string help = Assert.IsType<string>(await Named(set, ExtensionCalls.HelpName).InvokeAsync(Ask("stub-supersede"), ct));
+        watch.Stop();
+
+        Assert.Contains("- echo {text}:", help);
+        Assert.Equal(EMcpConnectionState.Connected, _manager.GetServerStatus("stub-supersede").State);
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(10), $"model call waited {watch.Elapsed.TotalSeconds:0.0}s");
     }
 }

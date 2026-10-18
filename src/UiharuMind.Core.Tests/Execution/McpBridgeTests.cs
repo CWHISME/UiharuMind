@@ -80,7 +80,7 @@ public class McpBridgeTests : IDisposable
 
         string text = await Bridge(host).HelpAsync("github", "nope", TestContext.Current.CancellationToken);
 
-        Assert.Contains("no callable tool 'nope'", text);
+        Assert.Contains("没有可调用的工具 'nope'", text);
         Assert.Contains("search_code", text);
     }
 
@@ -98,7 +98,7 @@ public class McpBridgeTests : IDisposable
 
         string text = await Bridge(host).HelpAsync("github", null, TestContext.Current.CancellationToken);
 
-        Assert.Contains("not connected (connection refused)", text);
+        Assert.Contains("未连接（connection refused）", text);
         Assert.Contains("2026-09-01 08:30 UTC", text);
         Assert.Contains("Cached notes.", text);
         Assert.Contains("- search_code", text);
@@ -111,8 +111,8 @@ public class McpBridgeTests : IDisposable
 
         string text = await Bridge(host).HelpAsync("github", null, TestContext.Current.CancellationToken);
 
-        Assert.Contains("not connected (timed out)", text);
-        Assert.Contains("no cached tool list", text);
+        Assert.Contains("未连接（timed out）", text);
+        Assert.Contains("工具清单缓存", text);
     }
 
     [Fact]
@@ -153,10 +153,10 @@ public class McpBridgeTests : IDisposable
     //================= 查找失败要说清楚 =================
 
     [Theory]
-    [InlineData("DisabledByCharacter", "disabled for this agent")]
-    [InlineData("NeedsApproval", "not been approved")]
-    [InlineData("HostingOff", "turned off")]
-    [InlineData("NotFound", "Unknown extension")]
+    [InlineData("DisabledByCharacter", "被本智能体禁用")]
+    [InlineData("NeedsApproval", "尚未经用户授权")]
+    [InlineData("HostingOff", "在应用的设置里被关掉了")]
+    [InlineData("NotFound", "没有叫")]
     public async Task Refusals_ExplainWhyTheServerCannotBeUsed(string statusName, string expected)
     {
         EMcpLookupStatus status = Enum.Parse<EMcpLookupStatus>(statusName);
@@ -178,7 +178,7 @@ public class McpBridgeTests : IDisposable
 
         string text = await Bridge(host).HelpAsync("gitlab", null, TestContext.Current.CancellationToken);
 
-        Assert.Contains($"{ExtensionCalls.HelpName} with no arguments", text);
+        Assert.Contains($"{ExtensionCalls.HelpName}（不带参数）", text);
     }
 
     [Fact]
@@ -186,10 +186,10 @@ public class McpBridgeTests : IDisposable
     {
         McpBridge bridge = Bridge(new FakeHost());
 
-        Assert.Contains("`name` is required", await bridge.HelpAsync(" ", null, TestContext.Current.CancellationToken));
-        Assert.Contains("`name` is required",
+        Assert.Contains("`name` 必填", await bridge.HelpAsync(" ", null, TestContext.Current.CancellationToken));
+        Assert.Contains("`name` 必填",
             Assert.IsType<string>(await bridge.CallAsync(null, "t", null, TestContext.Current.CancellationToken)));
-        Assert.Contains("`name` is required",
+        Assert.Contains("`name` 必填",
             Assert.IsType<string>(await bridge.CallAsync("github", "", null, TestContext.Current.CancellationToken)));
     }
 
@@ -231,7 +231,7 @@ public class McpBridgeTests : IDisposable
         object result = await Bridge(host).CallAsync("github", "ping", null, TestContext.Current.CancellationToken);
 
         string text = Assert.IsType<string>(result);
-        Assert.Contains("not connected: still connecting after 10s", text);
+        Assert.Contains("未连接：still connecting after 10s", text);
     }
 
     [Fact]
@@ -241,7 +241,7 @@ public class McpBridgeTests : IDisposable
 
         string text = Assert.IsType<string>(await Bridge(host).CallAsync("github", "pnig", null, TestContext.Current.CancellationToken));
 
-        Assert.Contains("no callable tool 'pnig'", text);
+        Assert.Contains("没有可调用的工具 'pnig'", text);
         Assert.Contains("ping", text);
     }
 
@@ -269,7 +269,7 @@ public class McpBridgeTests : IDisposable
         string text = Assert.IsType<string>(
             await Bridge(host).CallAsync("github", "nope", null, TestContext.Current.CancellationToken));
 
-        Assert.Contains("no callable tool 'nope'", text);
+        Assert.Contains("没有可调用的工具 'nope'", text);
         Assert.Equal(1, host.RefreshCount);
     }
 
@@ -327,11 +327,11 @@ public class McpBridgeTests : IDisposable
         string text = Assert.IsType<string>(await Bridge(host).CallAsync("unity", "editor-application-get-state",
             null, TestContext.Current.CancellationToken));
 
-        Assert.Contains("no callable tool 'editor-application-get-state'", text);
-        Assert.Contains("(10 tools are exposed)", text);
-        Assert.DoesNotContain("Similar callable commands", text); //只因都含 get 的不算相似
-        Assert.Contains("turned off on the server side", text);
-        Assert.Contains("do not retry", text);
+        Assert.Contains("没有可调用的工具 'editor-application-get-state'", text);
+        Assert.Contains("共暴露 10 个", text);
+        Assert.DoesNotContain("相似的可调用命令", text); //只因都含 get 的不算相似
+        Assert.Contains("在 server 端被关掉了", text);
+        Assert.Contains("不要重试，告知用户到 server 端开启", text);
         Assert.DoesNotContain("tests-run", text);
     }
 
@@ -359,7 +359,7 @@ public class McpBridgeTests : IDisposable
         string text = Assert.IsType<string>(
             await Bridge(host).CallAsync("unity", "A.B", null, TestContext.Current.CancellationToken));
 
-        Assert.Contains("no callable tool 'A.B'", text);
+        Assert.Contains("没有可调用的工具 'A.B'", text);
     }
 
     /// <summary>真正的拼写近似（差一两个字母）才建议</summary>
@@ -375,7 +375,7 @@ public class McpBridgeTests : IDisposable
         string text = Assert.IsType<string>(
             await Bridge(host).CallAsync("unity", typed, null, TestContext.Current.CancellationToken));
 
-        Assert.Contains("Similar callable commands: gameobject-create", text);
+        Assert.Contains("相似的可调用命令：gameobject-create", text);
     }
 
     [Fact]
@@ -387,7 +387,7 @@ public class McpBridgeTests : IDisposable
         string text = Assert.IsType<string>(await Bridge(host).CallAsync("unity", "zzz", null,
             TestContext.Current.CancellationToken));
 
-        Assert.DoesNotContain("Similar callable commands", text);
+        Assert.DoesNotContain("相似的可调用命令", text);
         Assert.Contains(ExtensionCalls.HelpName, text);
     }
 
@@ -400,8 +400,108 @@ public class McpBridgeTests : IDisposable
 
         string text = Assert.IsType<string>(await Bridge(host).CallAsync("github", "boom", null, TestContext.Current.CancellationToken));
 
-        Assert.Contains("github.boom failed", text);
+        Assert.Contains("github.boom 失败", text);
         Assert.Contains("kaput", text);
+    }
+
+    /// <summary>传输层故障（server 进程死、管道断）：丢连接重连一次并重试——协议/业务错误不这么走</summary>
+    [Fact]
+    public async Task Call_ConnectionDeath_ReconnectsOnceAndRetries()
+    {
+        int calls = 0;
+        FakeHost host = FakeHost.Connected("github", "", Tool("ping", () =>
+        {
+            //第一笔:连接刚死,冒成 IOException;重连落地后同一工具活着
+            return Interlocked.Increment(ref calls) == 1
+                ? throw new IOException("pipe is closed")
+                : "pong";
+        }));
+        host.AfterReconnect = new McpServerConnection { IsConnected = true, Tools = host.Connection.Tools };
+
+        object? result = await Bridge(host).CallAsync("github", "ping", null, TestContext.Current.CancellationToken);
+
+        Assert.Equal("pong", result);
+        Assert.Equal(1, host.ReconnectCount);
+        Assert.Equal(2, Interlocked.CompareExchange(ref calls, 0, 0));
+    }
+
+    /// <summary>有意的对照：普通业务错误（server 正常回话）不触发重连，只如实报错</summary>
+    [Fact]
+    public async Task Call_BusinessError_DoesNotReconnect()
+    {
+        int calls = 0;
+        FakeHost host = FakeHost.Connected("github", "", Tool("boomer", () =>
+        {
+            Interlocked.Increment(ref calls);
+            throw new InvalidOperationException("kaput");
+        }));
+
+        string text = Assert.IsType<string>(await Bridge(host).CallAsync("github", "boomer", null, TestContext.Current.CancellationToken));
+
+        Assert.Contains("github.boomer 失败", text);
+        Assert.Equal(0, host.ReconnectCount);
+        Assert.Equal(1, Interlocked.CompareExchange(ref calls, 0, 0));
+    }
+
+    [Fact]
+    public async Task Call_ReconnectFails_ReportsBothErrors()
+    {
+        FakeHost host = FakeHost.Connected("github", "", Tool("ping", () => throw new IOException("pipe is closed")));
+        host.AfterReconnect = new McpServerConnection { IsConnected = false, Error = "no route to host" };
+
+        string text = Assert.IsType<string>(await Bridge(host).CallAsync("github", "ping", null, TestContext.Current.CancellationToken));
+
+        Assert.Contains("pipe is closed", text);
+        Assert.Contains("no route to host", text);
+        Assert.Contains("不要用自己写的脚本", text);
+        Assert.Equal(1, host.ReconnectCount);
+    }
+
+    /// <summary>重连连上了、但这个工具已不在新清单里:报未知工具,不拿挂在死 client 上的旧句柄重试</summary>
+    [Fact]
+    public async Task Call_ReconnectSucceedsButToolGone_ReportsUnknownTool()
+    {
+        FakeHost host = FakeHost.Connected("github", "", Tool("ping", () => throw new IOException("pipe is closed")));
+        host.AfterReconnect = new McpServerConnection { IsConnected = true, Tools = [Tool("other", () => "x")] };
+
+        string text = Assert.IsType<string>(await Bridge(host).CallAsync("github", "ping", null, TestContext.Current.CancellationToken));
+
+        Assert.Contains("没有可调用的工具 'ping'", text);
+        Assert.Equal(1, host.ReconnectCount);
+    }
+
+    /// <summary>判据的钉桩:传输层链(new IOException 包在里层)算"连接死了";协议/普通业务错误不是。
+    /// SDK 的 <c>ClientTransportClosedException</c> 自身就是 <c>IOException</c> 子类,天然被这条覆盖</summary>
+    [Fact]
+    public void ConnectionFailureJudgement_SplitsTransportFromProtocol()
+    {
+        var transport = new InvalidOperationException("outer", new IOException("broken pipe"));
+        var protocol = new InvalidOperationException("outer", new ModelContextProtocol.McpException("tool blew up"));
+        var disposed = new InvalidOperationException("outer", new ObjectDisposedException("client"));
+        // 裸的套接字错(SocketException 继承 Win32Exception,不是 IOException):连接没通,算连接死
+        var socket = new InvalidOperationException("outer",
+            new System.Net.Sockets.SocketException((int)System.Net.Sockets.SocketError.ConnectionRefused));
+        // 工具自己要读的文件不在:是业务错误,认成连接死会白重启 server 并把工具重跑一遍
+        var businessIo = new InvalidOperationException("outer", new FileNotFoundException("nope.txt"));
+        // 协议错误压着传输异常:server 有回话,仍按业务错误算
+        var protocolOverTransport = new ModelContextProtocol.McpException("tool blew up", new IOException("pipe"));
+        // HTTP:连都没连上(拿不到状态码)算连接死;4xx 是业务/权限错,不算;5xx/超时算
+        var httpNoStatus = new HttpRequestException("connection refused");
+        var httpBadRequest = new HttpRequestException("business", null, System.Net.HttpStatusCode.BadRequest);
+        var httpUnauthorized = new HttpRequestException("auth", null, System.Net.HttpStatusCode.Unauthorized);
+        var httpServerError = new HttpRequestException("boom", null, System.Net.HttpStatusCode.BadGateway);
+
+        Assert.True(McpBridge.IsConnectionFailure(transport));
+        Assert.True(McpBridge.IsConnectionFailure(disposed));
+        Assert.True(McpBridge.IsConnectionFailure(socket));
+        Assert.True(McpBridge.IsConnectionFailure(httpNoStatus));
+        Assert.True(McpBridge.IsConnectionFailure(httpServerError));
+        Assert.False(McpBridge.IsConnectionFailure(protocol));
+        Assert.False(McpBridge.IsConnectionFailure(businessIo));
+        Assert.False(McpBridge.IsConnectionFailure(protocolOverTransport));
+        Assert.False(McpBridge.IsConnectionFailure(httpBadRequest));
+        Assert.False(McpBridge.IsConnectionFailure(httpUnauthorized));
+        Assert.False(McpBridge.IsConnectionFailure(new NotSupportedException()));
     }
 
     [Fact]
@@ -498,5 +598,16 @@ public class McpBridgeTests : IDisposable
         public McpToolCatalog? LoadCatalog(McpServerConfig server) => Catalog;
 
         public IReadOnlyList<McpServerBrief> List(string? workspacePath, IEnumerable<string>? disabledServers) => [];
+
+        public int ReconnectCount { get; private set; }
+        public McpServerConnection? AfterReconnect { get; set; }
+
+        public Task<McpServerConnection> ReconnectAsync(McpServerConfig server, TimeSpan timeout,
+            CancellationToken cancellationToken)
+        {
+            ReconnectCount++;
+            Connection = AfterReconnect ?? new McpServerConnection { IsConnected = false, Error = "reconnect failed" };
+            return Task.FromResult(Connection);
+        }
     }
 }

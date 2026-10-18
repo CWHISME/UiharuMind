@@ -7,8 +7,12 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Net;
+using System.Net.Sockets;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
+using ModelContextProtocol;
+using ModelContextProtocol.Client;
 using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Files;
@@ -69,7 +73,7 @@ internal sealed class McpBridge
     /// <returns>给模型的文本</returns>
     public async Task<string> HelpAsync(string? server, string? tool, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(server)) return "Parameter `name` is required.";
+        if (string.IsNullOrWhiteSpace(server)) return "参数 `name` 必填。";
 
         McpServerLookup lookup = _host.Find(_workspacePath, _disabledServers, server);
         if (lookup.Server == null) return Refusal(server, lookup);
@@ -91,15 +95,15 @@ internal sealed class McpBridge
             McpToolCatalog? catalog = _host.LoadCatalog(config);
             if (catalog == null)
             {
-                return $"MCP server '{config.Name}' is not connected ({connection.Error ?? "unknown error"}) " +
-                       "and has no cached tool list yet. Try again later.";
+                return $"MCP server '{config.Name}' 未连接（{connection.Error ?? "未知原因"}），也还没有工具清单缓存。" +
+                       "它会自行重连，稍后再试。";
             }
 
             tools = catalog.Tools;
             instructions = catalog.Instructions;
-            note = $"Note: the server is not connected ({connection.Error ?? "unknown error"}); " +
-                   $"this is the tool list cached at {catalog.CapturedUtc:yyyy-MM-dd HH:mm} UTC. " +
-                   "Calls will fail until it is back.";
+            note = $"注意：server 当前未连接（{connection.Error ?? "未知原因"}）；" +
+                   $"以下是 {catalog.CapturedUtc:yyyy-MM-dd HH:mm} UTC 缓存的工具清单。" +
+                   "恢复连接前调用会失败；它会自行重连，稍后重试即可。";
         }
 
         string text;
@@ -140,7 +144,7 @@ internal sealed class McpBridge
         IReadOnlyDictionary<string, JsonElement>? arguments, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(tool))
-            return "Parameter `name` is required, written as server.tool.";
+            return "参数 `name` 必填，写成 server.tool。";
 
         McpServerLookup lookup = _host.Find(_workspacePath, _disabledServers, server);
         if (lookup.Server == null) return Refusal(server, lookup);
@@ -150,8 +154,9 @@ internal sealed class McpBridge
             await _host.ConnectAsync(config, ConnectTimeout, cancellationToken).ConfigureAwait(false);
         if (!connection.IsConnected)
         {
-            return $"MCP server '{config.Name}' is not connected: {connection.Error ?? "unknown error"}. " +
-                   $"It is retried on every call; {ExtensionCalls.HelpName} still shows its last known commands.";
+            return $"MCP server '{config.Name}' 未连接：{connection.Error ?? "未知原因"}。" +
+                   "它会自行重连；再调一次也能当场等连接回来，稍后重试这笔调用即可。" +
+                   $"用 {ExtensionCalls.HelpName}（不带参数）可看每个扩展的实时状态。";
         }
 
         AIFunction? function = McpHelpFormatter.FindByName(connection.Tools, x => x.Name, tool);
@@ -165,19 +170,92 @@ internal sealed class McpBridge
 
         try
         {
-            AIFunctionArguments callArguments = new(
-                arguments?.ToDictionary(x => x.Key, object? (x) => x.Value) ?? new Dictionary<string, object?>());
-            object? raw = await function.InvokeAsync(callArguments, cancellationToken).ConfigureAwait(false);
+            object? raw = await function.InvokeAsync(BuildArguments(arguments), cancellationToken).ConfigureAwait(false);
             return McpCallResult.Normalize(raw, _spillDirectory, $"{ExtensionCalls.CallName}_{config.Name}_{function.Name}", _paths);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
         }
+        catch (Exception e) when (!IsConnectionFailure(e))
+        {
+            return $"MCP 调用 {config.Name}.{function.Name} 失败：{e.Message}";
+        }
         catch (Exception e)
         {
-            return $"MCP call {config.Name}.{function.Name} failed: {e.Message}";
+            // 传输层故障(server 进程退出、管道断):旧 client 死在运行态上,重试永远失败——
+            // 丢掉重连一次,再试这一笔。再失败就不是连接的事了,两段错误一起交代给模型
+            McpServerConnection fresh =
+                await _host.ReconnectAsync(config, ConnectTimeout, cancellationToken).ConfigureAwait(false);
+            if (!fresh.IsConnected)
+            {
+                return $"MCP 调用 {config.Name}.{function.Name} 失败：{e.Message}；重连也失败（{fresh.Error ?? "未知原因"}）。" +
+                       "它会自行重试；再调一次也能当场等连接回来。" +
+                       "不要用自己写的脚本或手工 HTTP 请求绕过——那会跳过用户授权。";
+            }
+
+            // 重连后必须在新清单里重新认这个工具:旧 function 挂在已释放的 client 上,拿它重试只会再抛
+            AIFunction? retryTarget = McpHelpFormatter.FindByName(fresh.Tools, x => x.Name, tool);
+            if (retryTarget == null) return UnknownTool(config.Name, tool, fresh.Tools.Select(x => x.Name));
+            try
+            {
+                object? raw = await retryTarget.InvokeAsync(BuildArguments(arguments), cancellationToken)
+                    .ConfigureAwait(false);
+                return McpCallResult.Normalize(raw, _spillDirectory,
+                    $"{ExtensionCalls.CallName}_{config.Name}_{retryTarget.Name}", _paths);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception retryError)
+            {
+                return $"重连后 MCP 调用 {config.Name}.{retryTarget.Name} 仍失败：{retryError.Message}";
+            }
         }
+    }
+
+    /// <summary>从模型的 JSON 对象参数拼 AIFunction 的入参；两处调用同源</summary>
+    private static AIFunctionArguments BuildArguments(IReadOnlyDictionary<string, JsonElement>? arguments)
+    {
+        return new AIFunctionArguments(
+            arguments?.ToDictionary(x => x.Key, object? (x) => x.Value) ?? new Dictionary<string, object?>());
+    }
+
+    /// <summary>
+    /// 是不是传输层故障（连接死了，可丢连接重连）：
+    /// <see cref="ClientTransportClosedException"/> 是 SDK 对「server 侧面不见了」的正式答法，
+    /// 裸的经 IOException（管道断）/HttpRequestException（HTTP 断链）/SocketException（套接字没通，
+    /// 它继承 Win32Exception 而非 IOException，不单独认就漏掉）/ObjectDisposedException（client 已释放）冒出。
+    ///
+    /// <b>两类不算</b>：<see cref="McpException"/> 是 server <b>正常回话</b>（工具报错、没这个方法），
+    /// 重连救不了它；文件/路径类的 <see cref="IOException"/>（工具自己要读的文件不在之类）是业务错误，
+    /// 认成连接死会白重启一次 server 并把工具重跑一遍。判据看整条异常链——连接故障常被包在里层。
+    /// </summary>
+    internal static bool IsConnectionFailure(Exception e)
+    {
+        bool transport = false;
+        for (Exception? cur = e; cur != null; cur = cur.InnerException)
+        {
+            if (cur is McpException) return false;
+            if (cur is ClientTransportClosedException or ObjectDisposedException or SocketException) transport = true;
+            else if (cur is HttpRequestException http) transport |= IsTransportHttp(http);
+            else if (cur is IOException and not FileNotFoundException and not DirectoryNotFoundException
+                     and not FileLoadException and not PathTooLongException) transport = true;
+        }
+
+        return transport;
+    }
+
+    /// <summary>
+    /// HTTP 传输的这一笔算不算连接死：<b>拿得到状态码</b>说明 server 回了话，
+    /// 4xx 是请求/权限错误，重连救不了它；只有拿不到状态码（DNS/TCP 没通）或超时、5xx
+    /// （server 侧暂时不可用）才值得丢连接重连。不这样分，一次业务 400 会被误判成连接死，
+    /// 白重启 server 并把工具重跑一遍。
+    /// </summary>
+    private static bool IsTransportHttp(HttpRequestException e)
+    {
+        return e.StatusCode is null or HttpStatusCode.RequestTimeout or >= HttpStatusCode.InternalServerError;
     }
 
     /// 重取失败（连接断了、超时）就保留旧快照：旧的至少还能回答"有什么"
@@ -198,23 +276,20 @@ internal sealed class McpBridge
     {
         List<string> names = available.ToList();
         string suggestions = McpHelpFormatter.SuggestNames(names, tool);
-        string hint = suggestions.Length > 0
-            ? $" Similar callable commands: {suggestions}."
-            : string.Empty;
-        return $"MCP server '{serverName}' has no callable tool '{tool}' ({names.Count} tools are exposed).{hint} " +
-               "It may be turned off on the server side; do not retry it, tell the user to enable it there. " +
-               $"{ExtensionCalls.HelpName} with name \"{ExtensionCalls.ModelName(serverName)}\" lists every callable command.";
+        string hint = suggestions.Length > 0 ? $" 相似的可调用命令：{suggestions}。" : string.Empty;
+        return $"MCP server '{serverName}' 没有可调用的工具 '{tool}'（共暴露 {names.Count} 个）。{hint} " +
+               "很可能是工具在 server 端被关掉了；不要重试，告知用户到 server 端开启。 " +
+               $"用 {ExtensionCalls.HelpName}，名字 \"{ExtensionCalls.ModelName(serverName)}\" 可列出全部可调用命令。";
     }
 
     private static string Refusal(string requested, McpServerLookup lookup) => lookup.Status switch
     {
         EMcpLookupStatus.DisabledByCharacter =>
-            $"MCP server '{requested}' is disabled for this agent.",
+            $"MCP server '{requested}' 被本智能体禁用。",
         EMcpLookupStatus.NeedsApproval =>
-            $"MCP server '{requested}' comes from this workspace's .mcp.json and has not been approved " +
-            "by the user yet, so it cannot be used.",
+            $"MCP server '{requested}' 来自本工作区的 .mcp.json，尚未经用户授权，不能使用。",
         EMcpLookupStatus.HostingOff =>
-            $"MCP server '{requested}' is turned off in the app's settings.",
-        _ => $"Unknown extension '{requested}'. {ExtensionCalls.HelpName} with no arguments lists every extension.",
+            $"MCP server '{requested}' 在应用的设置里被关掉了。",
+        _ => $"没有叫 '{requested}' 的扩展。{ExtensionCalls.HelpName}（不带参数）列出全部扩展。",
     };
 }

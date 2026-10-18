@@ -9,6 +9,8 @@
 
 namespace UiharuMind.Core.AI.Execution.Mcp;
 
+using ModelContextProtocol.Client;
+
 /// <summary>
 /// <see cref="McpManager"/> 给扩展那一侧（<see cref="McpBridge"/>）的入口：名单签名、查找、列状态与懒连接。
 ///
@@ -61,6 +63,30 @@ public partial class McpManager : IMcpServerHost
         CancellationToken cancellationToken) =>
         EnsureConnectedAsync(server, timeout, forceRefresh: true, cancellationToken);
 
+    Task<McpServerConnection> IMcpServerHost.ReconnectAsync(McpServerConfig server, TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        // 先丢再连:死的 client 挂在运行态上,EnsureConnectedAsync 会认账(见下)
+        DropDeadConnection(server);
+        return EnsureConnectedAsync(server, timeout, forceRefresh: true, cancellationToken);
+    }
+
+    /// <summary>连接被判定死亡:client 置空收掉(工具快照保留——server 离线时帮助还读它),下次连接不再认账</summary>
+    private void DropDeadConnection(McpServerConfig server)
+    {
+        McpClient? dead = null;
+        lock (_lock)
+        {
+            if (_runtimes.TryGetValue(McpServerKey.Of(server), out McpServerRuntime? runtime))
+            {
+                dead = runtime.Client;
+                runtime.Client = null;
+            }
+        }
+
+        if (dead != null) _ = dead.DisposeAsync();
+    }
+
     /// <summary>
     /// 确保连上并取回工具，最多等 <paramref name="timeout"/>。
     /// <paramref name="forceRefresh"/> 时即使已连上也重取一遍工具：server 运行中工具集可能变了
@@ -70,7 +96,7 @@ public partial class McpManager : IMcpServerHost
         bool forceRefresh, CancellationToken cancellationToken)
     {
         // 授权闸门在这条路上同样不能绕:这里是又一个会启动进程的地方
-        if (!_trust.IsTrusted(server)) return NotConnected("the server has not been approved by the user");
+        if (!_trust.IsTrusted(server)) return NotConnected("该 server 尚未经用户授权");
 
         // 命令被改过的旧连接先作废,免得拿着旧进程当新配置用
         SyncFingerprints([server]);
@@ -96,7 +122,8 @@ public partial class McpManager : IMcpServerHost
             }
             catch (TimeoutException)
             {
-                return NotConnected($"still connecting after {timeout.TotalSeconds:0}s; it keeps trying in the background");
+                return NotConnected($"已等待 {timeout.TotalSeconds:0} 秒仍在连接；它还在后台继续重连。" +
+                                    "请稍等片刻后原样重试这次调用——不要改用你自己的脚本绕过它");
             }
         }
 
@@ -119,7 +146,7 @@ public partial class McpManager : IMcpServerHost
                 Tools = runtime.Tools,
                 Instructions = runtime.Instructions,
             }
-            : NotConnected(runtime.Error ?? "connection failed");
+            : NotConnected(runtime.Error ?? "连接失败");
     }
 
     private static McpServerConnection NotConnected(string reason) =>

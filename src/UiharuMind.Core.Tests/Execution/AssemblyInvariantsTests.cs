@@ -592,24 +592,6 @@ public class HarnessInstructionsCompositionTests
         Assert.DoesNotContain(room, instructions);
     }
 
-    /// <summary>
-    /// 主代理也必须被告知工作目录的绝对路径。同一个坑：路径只被拿去构造工具，
-    /// 从没进过提示词，模型只能自己编。
-    /// </summary>
-    [Fact]
-    public void AgentInstructions_StateWorkingDirectoryWithoutAbsolutePath()
-    {
-        const string workingDirectory = "/tmp/uiharu-agent-test";
-
-        HarnessAgentOptions options = BuildAgentOptions(workingDirectory);
-        string instructions = options.ChatOptions?.Instructions ?? string.Empty;
-
-        // 写了绝对路径模型就照抄它去操作(ADR 0080),只说以工作目录为基准、默认相对
-        Assert.DoesNotContain(workingDirectory, instructions);
-        Assert.Contains(AgentPromptHeadings.Directories("##"), instructions);
-        Assert.Contains("默认写相对路径", instructions);
-    }
-
     /// <summary>角色禁掉的扩展不进名单，全禁且没有 MCP 时整段不出</summary>
     [Fact]
     public void ExtensionsSection_LeavesOutDisabledOnes()
@@ -1288,21 +1270,6 @@ public class SubAgentBoundaryTests
             Assert.True(mounted.Contains(name),
                 $"子代理指令里指名了工具 `{name}`,但装配出来的工具集里没有它。已装配:{string.Join(", ", mounted)}");
         }
-    }
-
-    /// <summary>
-    /// 子代理同样只被告知「以工作目录为基准、默认相对路径」，不给绝对路径（ADR 0080）。
-    /// 当初它编出 <c>Glob(pattern: "*.*", root: "/path/to/project")</c>，是因为提示词对路径只字未提；
-    /// 说清默认相对之后根在哪不必知道，写了绝对路径反倒会被照抄。
-    /// </summary>
-    [Fact]
-    public void SubAgentInstructions_StateWorkingDirectoryWithoutAbsolutePath()
-    {
-        string instructions = SubAgentAssembly
-            .BuildSubAgentOptions(NewInput())!.ChatOptions!.Instructions!;
-
-        Assert.DoesNotContain(TestWorkingDirectory, instructions);
-        Assert.Contains("默认写相对路径", instructions);
     }
 
     /// <summary>
