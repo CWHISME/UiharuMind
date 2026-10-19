@@ -97,4 +97,28 @@ public class ContextUsageCacheRateTests
         Assert.Equal("↑3k  ↓60", viewData.SessionText);
         Assert.Contains("↑2k  ↓40", viewData.SessionTip);
     }
+
+    /// <summary>请求次数报会话累计，且跨轮累计（每一轮的响应都算一次请求）</summary>
+    [Fact]
+    public void RequestCountText_ReportsTheSessionTotalAcrossTurns()
+    {
+        TurnUsageLedger ledger = new();
+        ledger.Add(new UsageDetails { InputTokenCount = 1000 });
+        ledger.Add(new UsageDetails { InputTokenCount = 2000 });
+        ledger.BeginTurn();
+        ledger.Add(new UsageDetails { InputTokenCount = 3000 });
+        ledger.Add(new UsageDetails { InputTokenCount = 4000 });
+
+        ContextUsageViewData viewData = Refresh(ledger);
+
+        Assert.Equal("4", viewData.RequestCountText);
+    }
+
+    [Fact]
+    public void RequestCountText_StaysEmptyWhenTheModelWasNeverCalled()
+    {
+        ContextUsageViewData viewData = Refresh(new TurnUsageLedger());
+
+        Assert.Equal(string.Empty, viewData.RequestCountText);
+    }
 }

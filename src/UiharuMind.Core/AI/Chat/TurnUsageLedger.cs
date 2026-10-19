@@ -128,6 +128,15 @@ public sealed class TurnUsageLedger
     /// <summary>输入框文本的 token 估算（尚未发送，不计入累计）</summary>
     public int InputEstimate { get; set; }
 
+    /// <summary>本轮请求次数（每次拿到一次响应用量计一次，含 0 token 的响应）</summary>
+    public int TurnRequests { get; private set; }
+
+    /// <summary>
+    /// 会话累计请求次数，与 <see cref="SessionInput"/> 同源累加——每次响应就是一次请求。
+    /// 随本体持久化（见 <c>ChatSession.TotalRequests</c>），切回会话时由 <see cref="RestoreFrom"/> 恢复
+    /// </summary>
+    public int SessionRequests { get; private set; }
+
     /// <summary>
     /// 开始新一轮：只清本轮，累计值保留
     /// </summary>
@@ -136,6 +145,7 @@ public sealed class TurnUsageLedger
         TurnInput = 0;
         TurnOutput = 0;
         TurnCachedInput = 0;
+        TurnRequests = 0;
     }
 
     /// <summary>
@@ -161,7 +171,12 @@ public sealed class TurnUsageLedger
         }
 
         TotalTokenCount = details.TotalTokenCount??0;
-        
+
+        // 请求次数与 token 累计同源：流式里 provider 每个 chunk 都带 usage，
+        // 这里只接受「一次服务调用」这一档（见 StreamUsage），所以一次调用即一次请求
+        TurnRequests++;
+        SessionRequests++;
+
         TurnInput += input;
         TurnOutput += output;
         TurnCachedInput += cached;
@@ -233,6 +248,7 @@ public sealed class TurnUsageLedger
         SessionOutput = session.TotalOutputTokens;
         SessionReasoningTokens = session.TotalReasoningTokens;
         SessionCachedInput = session.TotalCachedInputTokens;
+        SessionRequests = session.TotalRequests;
         LastInput = session.LastInputTokens;
         LastCachedInput = session.LastCachedInputTokens;
         TurnInput = session.LastTurnInputTokens;
@@ -258,6 +274,8 @@ public sealed class TurnUsageLedger
         SessionOutput = 0;
         SessionCachedInput = 0;
         SessionReasoningTokens = 0;
+        SessionRequests = 0;
+        TurnRequests = 0;
     }
 
     /// <summary>

@@ -174,6 +174,8 @@ public class TurnUsageContextTests
         Assert.Equal(recorder.SessionOutput, restored.SessionOutput);
         Assert.Equal(456, restored.SessionReasoningTokens);
         Assert.Equal(16_000, restored.SessionCachedInput); //累计命中也要读得回来,否则重开只剩最近一次
+        Assert.Equal(recorder.SessionRequests, restored.SessionRequests); //请求次数同理:重开不能丢
+        Assert.Equal(2, restored.SessionRequests);
         Assert.Equal(13_000, restored.LastInput);
         Assert.Equal(6_000, restored.LastCachedInput);
         Assert.Equal(25_345, restored.TurnInput);

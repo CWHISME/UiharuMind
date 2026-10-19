@@ -256,6 +256,13 @@ public class ChatSession
     /// </summary>
     public int TotalGeneratedImages { get; set; }
 
+    /// <summary>
+    /// 会话累计模型请求次数（每次拿到一次响应用量计一次）。与 token 累计一样记在本体上——
+    /// 响应 usage 不随消息持久化，不记的话切回会话请求次数就丢了。
+    /// 群后台的旁路调用（离席摘要）也走同一累计，见 <see cref="AccumulateUsage"/>
+    /// </summary>
+    public int TotalRequests { get; set; }
+
     /// <summary>创建时间</summary>
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
 
@@ -1021,7 +1028,8 @@ public class ChatSession
     }
 
     /// <summary>
-    /// 计入一次请求的用量到会话累计。只改内存，随下一次存会话头落盘
+    /// 计入一次请求的用量到会话累计。只改内存，随下一次存会话头落盘。
+    /// 一次调用即一次模型请求（响应用量），请求次数与 token 累计同源累加
     /// </summary>
     /// <param name="input">输入 token</param>
     /// <param name="output">输出 token</param>
@@ -1033,6 +1041,7 @@ public class ChatSession
         TotalOutputTokens += output;
         TotalReasoningTokens += reasoning;
         TotalCachedInputTokens += cached;
+        TotalRequests++;
     }
 
     /// <summary>

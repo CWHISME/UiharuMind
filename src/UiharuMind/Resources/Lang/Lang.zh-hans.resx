@@ -111,6 +111,9 @@
     <data name="ContextGeneratedImagesLabel" xml:space="preserve">
         <value>生图张数</value>
     </data>
+    <data name="ContextRequestsLabel" xml:space="preserve">
+        <value>请求次数</value>
+    </data>
     <data name="ContextWatermarkFold" xml:space="preserve">
         <value>折叠工具结果 {0}</value>
     </data>

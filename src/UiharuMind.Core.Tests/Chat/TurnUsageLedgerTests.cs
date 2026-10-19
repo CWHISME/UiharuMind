@@ -27,6 +27,8 @@ public class TurnUsageLedgerTests
         Assert.Equal(20, ledger.TurnOutput);
         Assert.Equal(10, ledger.SessionInput);
         Assert.Equal(20, ledger.SessionOutput);
+        Assert.Equal(1, ledger.TurnRequests);
+        Assert.Equal(1, ledger.SessionRequests);
     }
 
     /// <summary>
@@ -91,6 +93,8 @@ public class TurnUsageLedgerTests
         Assert.Equal(0, ledger.TurnOutput);
         Assert.Equal(10, ledger.SessionInput);
         Assert.Equal(20, ledger.SessionOutput);
+        Assert.Equal(0, ledger.TurnRequests);
+        Assert.Equal(1, ledger.SessionRequests);
     }
 
     [Fact]
@@ -106,6 +110,8 @@ public class TurnUsageLedgerTests
         Assert.Equal(0, ledger.SessionOutput);
         Assert.Equal(0, ledger.SessionCachedInput);
         Assert.Equal(0, ledger.TurnInput);
+        Assert.Equal(0, ledger.TurnRequests);
+        Assert.Equal(0, ledger.SessionRequests);
         Assert.Equal(0, ledger.CompactedInput); //留着会让新会话一开始就顶着旧会话折掉的那截
     }
 
@@ -132,6 +138,7 @@ public class TurnUsageLedgerTests
 
         Assert.Equal(501, session.TotalInputTokens);
         Assert.Equal(602, session.TotalOutputTokens);
+        Assert.Equal(1, session.TotalRequests); //一次响应即一次请求
     }
 
     /// <summary>
@@ -147,6 +154,7 @@ public class TurnUsageLedgerTests
 
         Assert.Equal(1000, session.TotalInputTokens);
         Assert.Equal(950, session.TotalCachedInputTokens);
+        Assert.Equal(1, session.TotalRequests); //群后台的旁路调用也计请求次数
     }
 
     [Fact]

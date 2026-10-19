@@ -81,6 +81,9 @@ public partial class ContextUsageViewData : ObservableObject
     /// <summary>会话累计生图张数的显示文本；没生过图时为空，整行不出现</summary>
     [ObservableProperty] private string _generatedImagesText = string.Empty;
 
+    /// <summary>会话累计请求次数的显示文本；还没调过模型时为空，整行不出现</summary>
+    [ObservableProperty] private string _requestCountText = string.Empty;
+
     /// <summary>档位键，供样式选色：Normal / Evicting / Truncating</summary>
     [ObservableProperty] private string _stateKey = NormalState;
 
@@ -135,6 +138,11 @@ public partial class ContextUsageViewData : ObservableObject
         // 只给会话累计量，跟下面「累计消耗」的视角一致即可
         ReasoningText = ledger.SessionReasoningTokens > 0
             ? TurnUsageLedger.FormatExact(ledger.SessionReasoningTokens)
+            : string.Empty;
+
+        // 请求次数：会话累计调用了多少次模型。次数没有 token 那样的量级换算，整数原样显示
+        RequestCountText = ledger.SessionRequests > 0
+            ? ledger.SessionRequests.ToString()
             : string.Empty;
 
         if (contextLength <= 0)

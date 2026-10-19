@@ -118,6 +118,9 @@ Session total {1}</value>
     <data name="ContextGeneratedImagesLabel" xml:space="preserve">
         <value>Images generated</value>
     </data>
+    <data name="ContextRequestsLabel" xml:space="preserve">
+        <value>Requests</value>
+    </data>
     <data name="ContextWatermarkFold" xml:space="preserve">
         <value>Fold tool results at {0}</value>
     </data>
