@@ -44,10 +44,12 @@ jobs:
       - name: 构建
         run: dotnet build UiharuMind.sln --configuration Release --no-restore
 
-      # 本仓测试走 MTP（Microsoft.Testing.Platform），判成败用 dotnet msbuild -t:Test。
-      # 别用 dotnet test —— SDK 10.0.401 下它会静默跑出零个测试；dotnet msbuild 没有 --no-restore
+      # 本仓测试走 MTP（Microsoft.Testing.Platform），测试项目本身是可执行文件，判成败直接跑产物 exe：
+      # 失败详情会打在终端。别再走 dotnet msbuild -t:Test——它把 test host 完整输出重定向进
+      # TestResults/*.log（UTF-16LE），失败详情不进终端，CI 上看不出是哪个测试挂了。
+      # 也别用 dotnet test —— SDK 10.0.401 下它会静默跑出零个测试。
       - name: Core 测试
-        run: dotnet msbuild UiharuMind.Core.Tests/UiharuMind.Core.Tests.csproj -t:Test -p:Configuration=Release
+        run: ./UiharuMind.Core.Tests/bin/Release/net10.0/UiharuMind.Core.Tests
 
       - name: App 测试
-        run: dotnet msbuild UiharuMind.App.Tests/UiharuMind.App.Tests.csproj -t:Test -p:Configuration=Release
+        run: ./UiharuMind.App.Tests/bin/Release/net10.0/UiharuMind.App.Tests

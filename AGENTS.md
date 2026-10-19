@@ -37,29 +37,37 @@ Avalonia 12 桌面应用，.NET 10。本地跑 GGUF 模型（llama.cpp）+ 远�
 ## 构建与测试
 
 ```bash
+# 构建
 dotnet build src/UiharuMind.sln
-dotnet msbuild src/UiharuMind.Core.Tests/UiharuMind.Core.Tests.csproj -t:Test
-dotnet msbuild src/UiharuMind.App.Tests/UiharuMind.App.Tests.csproj -t:Test
+# 测试：直接运行产物 exe，失败详情会打在终端
+./src/UiharuMind.Core.Tests/bin/Debug/net10.0/UiharuMind.Core.Tests
+./src/UiharuMind.App.Tests/bin/Debug/net10.0/UiharuMind.App.Tests
 ```
 
 实测耗时（Apple Silicon）：增量构建解决方案约 10 秒，Core 测试全量约 10 秒，App 测试全量约 40 秒（含无头界面），
 按类过滤只要一两秒。
 
 测试框架是 xunit v3（`xunit.v3` 4.x），跑在 Microsoft.Testing.Platform（MTP）上，由仓库根的
-`global.json`（`test.runner`）选择加入。MTP 测试项目本身是可执行文件，
-`dotnet msbuild <csproj> -t:Test` 等价于直接运行产物 exe（`<csproj 同名目录>/bin/Debug/net10.0/<项目名>`）。
-**跑测试用这个或直接跑产物 exe，别用 `dotnet test`。**
+`global.json`（`test.runner`）选择加入。MTP 测试项目本身是可执行文件，**跑测试统一直接运行产物
+exe**（`<csproj 同名目录>/bin/<Configuration>/net10.0/<项目名>`），失败详情直接打在终端，
+CI（`ci.yml`）与本地都是同一套命令。
+
+**别走 `dotnet msbuild <csproj> -t:Test`**：它会把 test host 的完整输出重定向进
+`TestResults/<项目名>_net10.0_<arch>.log`（UTF-16LE），终端只剩一行摘要和指向该文件的 error 行，
+失败时看不到是哪个测试挂了，本地 CI 都中招。也**别用 `dotnet test`**（见下）。
 
 ⚠️ `dotnet test` 在本仓**测不出结果**：项目早已带
 `<TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>`（缺它 .NET 10 SDK 起
 `dotnet test` 会直接报错，那是另一个坑），但 SDK 10.0.401 实测 `dotnet test` 两个项目都是
 「运行了零个测试 / exit 5」——它压根没发现测试，0 通过不代表测试真过了。判成败一律看
-`dotnet msbuild -t:Test` 或产物 exe 的输出（10.0.301 上曾全跑通，说明这个行为随 SDK 版本变，
+产物 exe 的输出（10.0.301 上曾全跑通，说明这个行为随 SDK 版本变，
 不要再用 dotnet test）。
 
 过滤语法与 VSTest 不同（`--filter-class` / `--filter-method` / `--filter-trait`…，见
 <https://xunit.net/docs/getting-started/v3/microsoft-testing-platform>），参数直接跟在产物
-exe 后面。`--filter-class` 要写**完整类型名**（如 `UiharuMind.Core.Tests.AI.RemoteModelInfoTests`），
+exe 后面，如
+`./src/UiharuMind.Core.Tests/bin/Debug/net10.0/UiharuMind.Core.Tests --filter-class UiharuMind.Core.Tests.AI.RemoteModelInfoTests`。
+`--filter-class` 要写**完整类型名**（如 `UiharuMind.Core.Tests.AI.RemoteModelInfoTests`），
 简写类名会静默得到「运行了零个测试」且退出码不是失败——务必核对输出的「总计」不是 0。
 
 > `ClassicDiagnostics.Avalonia` 是 vendored 的独立解决方案，其 NUnit 测试项目不在
