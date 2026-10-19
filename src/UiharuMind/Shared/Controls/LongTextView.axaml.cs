@@ -8,15 +8,19 @@
  ****************************************************************************/
 
 using System;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using AvaloniaEdit;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Editing;
+using AvaloniaEdit.Search;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Services.TextMate;
 
@@ -146,6 +150,8 @@ public partial class LongTextView : UserControl
         EnsureLineNumberMargins();
         ApplyLineNumbersVisibility();
         Editor.TextChanged += OnEditorTextChanged;
+        // 搜索面板挂在 TextArea 的视觉树下，面板里控件的 GotFocus 会冒泡到 Editor（面板自己会标 Handled，所以要 handledEventsToo）
+        Editor.AddHandler(GotFocusEvent, OnEditorGotFocus, RoutingStrategies.Bubble, handledEventsToo: true);
         // 跟底与滚轮的关系不能靠 PointerWheelChanged 冒泡:AvaloniaEdit 内部会把滚轮
         // 标记 handled,冒泡上不来。改挂 TextView.ScrollOffsetChanged——任何滚动来源
         // (滚轮/滚动条/触控板)都会触发它,可靠得多。模板未应用前 TextView 不可用,
@@ -512,13 +518,42 @@ public partial class LongTextView : UserControl
     /// 向上冒泡找 <see cref="AvaloniaEdit.IRoutedCommandBindable"/>（SearchPanel 实现它，命令绑定
     /// 挂在面板自己身上）。焦点留在编辑器时，冒泡向上永远不会经过下层的 SearchPanel，
     /// 上一/下一/关闭按钮就全是 disabled——表现是"按钮点不了"。
+    ///
+    /// 首次打开时面板模板还没应用（搜索框为 null），同步 Reactivate 是空操作，
+    /// 所以和库自己的 Ctrl+F 一样投递到布局之后再聚焦。
     /// </summary>
     public void OpenSearch()
     {
         var panel = Editor.SearchPanel;
         if (panel == null) return;
         panel.Open();
-        panel.Reactivate();
+        Dispatcher.UIThread.Post(panel.Reactivate, DispatcherPriority.Input);
+    }
+
+    private void OnEditorGotFocus(object? sender, FocusChangedEventArgs e)
+    {
+        if (Editor.SearchPanel is { } panel && e.Source is Visual source && panel.IsVisualAncestorOf(source))
+            RefreshSearchButtons(panel);
+    }
+
+    /// <summary>
+    /// 让搜索面板的按钮按当前焦点重算可用状态。
+    ///
+    /// Button 只在挂进逻辑树或 Command/CommandParameter 变化时问一次 CanExecute，之后靠
+    /// CanExecuteChanged 刷新；而 AvaloniaEdit 的 RoutedCommand 从不触发该事件，且 CanExecute
+    /// 用的是全局静态"最后获得焦点的元素"。按钮在面板首次打开、模板生成时就被定格：
+    /// 那一刻焦点若在编辑器正文、标题栏或别的窗口，冒泡经不过 SearchPanel，按钮就永久 disabled
+    /// （禁用控件不参与命中测试，DevTools 里指针落在外层 StackPanel 上）。
+    /// 焦点进入面板后改一次 CommandParameter，借 Button 自己的属性回调重算（这几个命令不读参数）
+    /// </summary>
+    private static void RefreshSearchButtons(SearchPanel panel)
+    {
+        foreach (var button in panel.GetVisualDescendants().OfType<Button>())
+        {
+            if (button.Command == null) continue;
+            button.CommandParameter = button;
+            button.ClearValue(Button.CommandParameterProperty);
+        }
     }
 
     private void CopyButton_Click(object? sender, RoutedEventArgs e) => CopyAll();
