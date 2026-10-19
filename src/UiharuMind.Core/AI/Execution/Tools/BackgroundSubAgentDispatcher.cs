@@ -37,6 +37,14 @@ public enum ESubAgentNotice
 /// </summary>
 public static class BackgroundSubAgentDispatcher
 {
+    static BackgroundSubAgentDispatcher()
+    {
+        // Written 登记的「待交还」在报告被主代理读过之后摘掉：借 Running 的 StateChanged
+        // （每一轮结束都会发）当信号，与 GoalModeController 同一来源。
+        // 为什么不放在 DeliverAsync 收尾：写历史的那一秒报告还在末尾，读没读只有之后才知道
+        SessionManager.Instance.Running.StateChanged += OnRunStateChanged;
+    }
+
     /// <summary>跑到这个时长还没完，弹一条提示把它顶到用户眼前。
     /// <c>SubAgentTool.Timeout</c>（24 小时）刻意没动，靠这条提示兜住「悄悄烧了一夜」</summary>
     public static readonly TimeSpan LongRunNotice = TimeSpan.FromMinutes(30);
@@ -64,7 +72,10 @@ public static class BackgroundSubAgentDispatcher
 
     // 父会话 → 报告已就绪、正等它空闲好交回的子会话标识。它是 _pendingByParent 的<b>子集</b>,
     // 单独记是因为界面要把「还在跑」与「跑完了压着」分成两行说——用户看到的
-    // 「子代理跑完了、回执没了」正是后一档(派活者正在跑时写它的历史会与落盘交错,只能等)
+    // 「子代理跑完了、回执没了」正是后一档(派活者正在跑时写它的历史会与落盘交错,只能等)。
+    // 派活者空闲、报告直接落盘( Written )但主代理还没读它的那一段也登记在这：
+    // 从用户角度同样是「跑完了、主代理还没理」,唤醒轮被限流拖住时尤其看得见(ADR 0062 实测)。
+    // 前者靠 DeliverAsync 收尾清,后者靠主会话那一轮结束( OnRunStateChanged )清
     private static readonly ConcurrentDictionary<string, HashSet<string>> _handoffQueuedByParent = new();
 
     // 子会话 → 本会话同一时刻只跑一轮的串行闸。一次委派 = 真会话 + 自己的 TurnDriver,
@@ -283,7 +294,7 @@ public static class BackgroundSubAgentDispatcher
     }
 
     /// <summary>记下「这一份在排队」。已经排着返回 false——调用方据此不要再起第二个重试循环</summary>
-    private static bool MarkHandoffQueued(string parentId, string subSessionId)
+    internal static bool MarkHandoffQueued(string parentId, string subSessionId)
     {
         HashSet<string> queued = _handoffQueuedByParent.GetOrAdd(parentId, _ => new HashSet<string>());
         lock (queued)
@@ -296,12 +307,57 @@ public static class BackgroundSubAgentDispatcher
     }
 
     /// <summary>这一份不再排队（交回了、或者交不成了）</summary>
-    private static void ClearHandoffQueued(string parentId, string subSessionId)
+    internal static void ClearHandoffQueued(string parentId, string subSessionId)
     {
         if (!_handoffQueuedByParent.TryGetValue(parentId, out HashSet<string>? queued)) return;
         bool removed;
         lock (queued) removed = queued.Remove(subSessionId);
         if (removed) PendingWorkChanged?.Invoke(parentId);
+    }
+
+    /// <summary>测试/诊断用：该子会话是否还排在父会话的「待交还」里（忙时排队的与 Written 登记的都在内）</summary>
+    internal static bool IsHandoffQueued(string parentId, string subSessionId)
+    {
+        if (!_handoffQueuedByParent.TryGetValue(parentId, out HashSet<string>? queued)) return false;
+        lock (queued) return queued.Contains(subSessionId);
+    }
+
+    /// <summary>
+    /// 主会话那一轮结束了（从忙回到闲）：名下「待交还」的报告若已被模型读过（不再停在历史末尾）
+    /// 就摘掉。Written 登记的那批靠这里清——<c>DeliverAsync</c> 只负责登记，读没读它不知道。
+    /// 不另起订阅源：Running 的 StateChanged 是本会话自己的轮次（含唤醒轮）结束的现成信号
+    /// </summary>
+    private static void OnRunStateChanged(string sessionId)
+    {
+        if (SessionManager.Instance.Running.IsBusy(sessionId)) return;
+        RefreshHandoffQueued(sessionId);
+    }
+
+    /// <summary>把名下已读完的报告从「待交还」里摘掉。报告停在历史末尾=模型还没据它回应过</summary>
+    internal static void RefreshHandoffQueued(string parentId)
+    {
+        if (string.IsNullOrEmpty(parentId)) return;
+        ChatSession? parent = SessionManager.Instance.Load(parentId);
+        foreach (string subSessionId in QueuedSnapshot(parentId))
+        {
+            if (parent != null && ReportStillUnread(parent.History, subSessionId)) continue;
+            ClearHandoffQueued(parentId, subSessionId);
+        }
+    }
+
+    /// <summary>
+    /// 这份报告是否还停在派活者历史末尾（还没被模型据它回应过）。
+    /// 找不到（交回进行中、还没落盘）按未读处理——清理交给交回流程自己收口，这里不抢跑
+    /// </summary>
+    internal static bool ReportStillUnread(IReadOnlyList<ChatMessage> history, string subSessionId)
+    {
+        for (int i = history.Count - 1; i >= 0; i--)
+        {
+            if (ChatMessageAnnotations.ReadSubAgentReportSession(history[i]) != subSessionId) continue;
+            return i == history.Count - 1;
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -486,7 +542,16 @@ public static class BackgroundSubAgentDispatcher
                 subSession.PendingReport = null;
                 subSession.SaveMeta();
             }
-            ClearHandoffQueued(parentId, subSession.SessionId);
+
+            // 主会话空闲、报告直接落盘( Written )时,它还没被主代理读到:登记「待交还」,
+            // 输入区上方那行因此看得见——尤其唤醒轮被限流拖住的那几十秒(ADR 0062 实测)。
+            // 其余结局(插进被消费/没送到)一律清:被消费说明主代理已经在读,没送到留着也没意义。
+            // Written 登记的清除不走这里:报告被读过(不再停在历史末尾)由 OnRunStateChanged 摘
+            if (outcome == EDeliveryOutcome.Written)
+                MarkHandoffQueued(parentId, subSession.SessionId);
+            else
+                ClearHandoffQueued(parentId, subSession.SessionId);
+
             RemovePendingTurn(parentId, subSession.SessionId);
             PendingWorkChanged?.Invoke(parentId);
             deliverGate.Release();
