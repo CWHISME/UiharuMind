@@ -26,11 +26,13 @@
 		<PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
 		<!-- 显式引用:Avalonia 自己在用它,但我们要的 JPEG 编码 Avalonia 的 Bitmap.Save 给不了
 		     (它只写 PNG,quality 参数不改格式),照片用 PNG 存下来是 JPEG 的 5~10 倍 -->
-		<PackageReference Include="SkiaSharp" Version="4.152.1" />
-		<!-- 钉 Linux native 到同版本:SkiaSharp 主包只依赖 macOS/Win32 native,Svg.Controls.Skia.Avalonia
-		     传递的 SkiaSharp.NativeAssets.Linux 4.148.0 会把 Linux 上 native 库拽成 148,托管 4.152.1
-		     的版本检查要求 [152,153),Linux 上一开 Skia 就 InvalidOperation(CI 上 27 个测试全红) -->
-		<PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="4.152.1" />
+		<!-- 版本跟 Avalonia.Skia 编译时用的那版走,别升 4.x:4.x 的 SKPath 首次读 Handle 时才把构建器定型、
+		     删旧原生对象换新的,且不加锁。Avalonia 渲染线程与 UI 线程命中测试会同时首读同一条路径,
+		     重复释放把堆写坏(标注编辑器拖矩形/椭圆时随机崩)。Svg.Controls.Skia.Avalonia 也因此停在 3.x 那版 -->
+		<PackageReference Include="SkiaSharp" Version="3.119.4" />
+		<!-- 钉 Linux native 到同版本:SkiaSharp 主包只依赖 macOS/Win32 native,传递来的 Linux native 版本
+		     一旦和托管对不上,托管的版本检查会让 Linux 上一开 Skia 就 InvalidOperation(CI 上曾 27 个测试全红) -->
+		<PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.4" />
 		<!-- 长文本查看/编辑内核。要的是它内建的<b>按行虚拟化</b>:SelectableTextBlock 与 TextBox
 		     都没有文本虚拟化,几十万字的工具结果塞进去必然卡死。搜索/行号/跨行选中是白得的 -->
 		<PackageReference Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
@@ -50,7 +52,7 @@
 		<PackageReference Include="Semi.Avalonia" Version="12.1.0.1" />
 		<PackageReference Include="Semi.Avalonia.ColorPicker" Version="12.1.0.1" />
 		<PackageReference Include="SharpHook" Version="8.0.0" />
-		<PackageReference Include="Svg.Controls.Skia.Avalonia" Version="12.0.0.17" />
+		<PackageReference Include="Svg.Controls.Skia.Avalonia" Version="12.0.0.13" />
 	</ItemGroup>
 
 	<ItemGroup>

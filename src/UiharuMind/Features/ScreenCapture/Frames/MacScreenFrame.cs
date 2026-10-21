@@ -138,7 +138,8 @@ public sealed class MacScreenFrame : IScreenFrame
             var info = new SKImageInfo(decoded.Width, decoded.Height, SKColorType.Bgra8888, SKAlphaType.Unpremul);
             var normalized = new SKBitmap(info);
             using var canvas = new SKCanvas(normalized);
-            canvas.DrawBitmap(decoded, 0, 0, SKSamplingOptions.Default, null);
+            using (SKImage decodedImage = SKImage.FromBitmap(decoded))
+                canvas.DrawImage(decodedImage, 0, 0, SKSamplingOptions.Default);
             decoded.Dispose();
             return normalized;
         }

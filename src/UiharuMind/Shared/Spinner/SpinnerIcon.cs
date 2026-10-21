@@ -151,9 +151,10 @@ public sealed class SpinnerIcon : Control
         using SKBitmap tinted = new(source.Width, source.Height);
         using (SKCanvas canvas = new(tinted))
         using (SKPaint paint = new() { ColorFilter = SKColorFilter.CreateBlendMode(color, SKBlendMode.SrcIn) })
+        using (SKImage sourceImage = SKImage.FromBitmap(source))
         {
             canvas.Clear(SKColors.Transparent);
-            canvas.DrawBitmap(source, 0, 0, SKSamplingOptions.Default, paint);
+            canvas.DrawImage(sourceImage, 0, 0, SKSamplingOptions.Default, paint);
         }
 
         using SKData png = tinted.Encode(SKEncodedImageFormat.Png, 100);

@@ -43,6 +43,7 @@ internal static class TrayFrameBuilder
     {
         int canvas = source.Width;
         (float cx, float cy) = SkiaBitmapUtils.AlphaCentroid(source);
+        using SKImage sourceImage = SKImage.FromBitmap(source);
         var frames = new WindowIcon[angles.Length];
         for (int i = 0; i < angles.Length; i++)
         {
@@ -51,7 +52,7 @@ internal static class TrayFrameBuilder
             c.Clear(SKColors.Transparent);
             c.Translate(canvas / 2f, canvas / 2f);
             c.RotateDegrees(angles[i]);
-            c.DrawBitmap(source, -cx, -cy, new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None), null);
+            c.DrawImage(sourceImage, -cx, -cy, new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None));
             frames[i] = ToWindowIcon(bmp, null);
         }
         return frames;
