@@ -32,12 +32,6 @@ public sealed class GroupAwayController
     private readonly object _sync = new();
     private readonly Dictionary<string, GroupAwaySession> _sessions = new(); //群 → 正在进行的离席
 
-    /// <summary>
-    /// 私聊放闸后等多久再叫醒化身：给用户留看完私聊回复的时间（固定 2 分钟）。
-    /// 用户在群里发言照常取消倒计时、由那波收场时叫醒；等的期间又私聊一句就重排（见 <see cref="DelayThenResumeAsync"/>）
-    /// </summary>
-    private static readonly TimeSpan PrivateResumeDelay = TimeSpan.FromMinutes(2);
-
     /// <summary>应用里的那一个：成员（与化身）的审批在离席期间改由它接</summary>
     public static GroupAwayController Instance { get; } = CreateInstance();
 
@@ -250,25 +244,55 @@ public sealed class GroupAwayController
         if (cancelled) RaiseStatusChanged(groupId);
     }
 
-    // 用户在群里插了话、化身正跑着：立即插一句提醒它有新话，不等波末。
-    // 化身闲着不另起一轮：用户那句自己会开一波，波末投递照常带上，没跑成的插话化身下一轮经流水读到
+    // 用户在群里插了话、化身正跑着：先把新发言即时追加进流水文件，再注入一条<b>系统提示</b>（不灌正文），
+    // 化身按提示 Read 流水文件读到真新段。追加与波末收口同一份（AppendLogNow），行号不漂移。
+    // 化身闲着不另起一轮：用户那句自己会开一波，波末投递锚点照常带上。
+    // 追加失败（append null）就不注入：提示指空会引化身 Read 到旧段，不如让这一轮跑完、下轮锚点再看
     private void OnUserPostAppended(ChatSession group, ChatMessage post, int index)
     {
-        ChatSession avatar;
+        GroupAwaySession? session;
+        GroupLogAppend? append;
         lock (_sync)
         {
-            if (_sessions.GetValueOrDefault(group.SessionId) is not { IsEnded: false, IsRunning: true, } session)
-                return;
-            avatar = session.Avatar;
+            session = _sessions.GetValueOrDefault(group.SessionId);
+            if (session is not { IsEnded: false, IsRunning: true }) return;
+            append = AppendLogNow(session);
         }
 
-        string body = post.Text.Trim();
-        if (body.Length == 0) return;
-        bool seesImages = avatar.ChatModelRunningData?.IsVisionModel == true;
+        if (append == null) return;
+        bool seesImages = session.Avatar.ChatModelRunningData?.IsVisionModel == true;
         ChatMessage injection = GroupTranscript.DeliveryMessage(
-            GroupTranscript.FormatInjection(UserName, body),
+            GroupAvatarTranscript.UserPostInjection(GroupLogFile.PathOf(group), append.FirstIndex, append.LastIndex,
+                append.StartLine, append.EndLine),
             seesImages ? GroupTranscript.ImagesOf(post) : []);
-        _coordinator.TryInjectAsync(avatar, injection).LogOnFault("inject the user post into the group avatar");
+        TryInjectUserPostAsync(session.Avatar, group.SessionId, injection).LogOnFault("inject the user post into the group avatar");
+    }
+
+    // 注入用户发言的系统提示：化身那一轮恰好结束就排不进去（false）——信息不丢，波末锚点会指到那一段，
+    // 但排不进去要留一条可查的日志，别静默
+    private async Task TryInjectUserPostAsync(ChatSession avatar, string groupId, ChatMessage injection)
+    {
+        if (!await _coordinator.TryInjectAsync(avatar, injection))
+            Log.Debug($"Group away can't inject the user post into the running avatar: {groupId}");
+    }
+
+    // 追加群流水文件（波末与用户插话共用）：<b>调用方须持 _sync</b>——「读状态 → 追加 → 更新状态」同临界区，
+    // 同群两处并发追加时，第二个读到已推进的水位，AppendNew 返回 null，不会把同一段写两遍、行号也不漂移。
+    // 没有新发言（或写失败）返回 null；LogLastAppend 只在成功时更新
+    private GroupLogAppend? AppendLogNow(GroupAwaySession session, IReadOnlyList<ChatMessage>? groupLog = null)
+    {
+        if (session.IsEnded) return null;
+        groupLog ??= _coordinator.HistorySnapshot(session.Group);
+        GroupLogAppend? append = GroupLogFile.AppendNew(session.Group, groupLog, session.LogAppendedUpTo,
+            session.LogEndLine + 1);
+        if (append != null)
+        {
+            session.LogLastAppend = append;
+            session.LogAppendedUpTo = append.LastIndex + 1;
+            session.LogEndLine = append.EndLine;
+        }
+
+        return append;
     }
 
     private void OnEpisodeEnded(GroupEpisodeSummary summary)
@@ -277,7 +301,8 @@ public sealed class GroupAwayController
         // 快照在 coordinator 的 _locker 里拷贝，与 _sync 不叠加；stamp 也锁外读盘
         IReadOnlyList<ChatMessage> groupLog = _coordinator.HistorySnapshot(summary.Group);
         string stamp = SafeStamp(summary.Group);
-        bool emptyPush = summary.MemberPostCount == 0 && IsAvatarKickoff(summary);
+        // 空推 = 化身这句开的波里既没有成员接话、用户真身也没回群插话；用户真身说了就不算空推
+        bool emptyPush = summary.MemberPostCount == 0 && summary.UserPostCount == 0 && IsAvatarKickoff(summary);
         EGroupAwayEndReason? fuse = null;
         GroupAwaySession? session;
         lock (_sync)
@@ -285,16 +310,10 @@ public sealed class GroupAwayController
             session = _sessions.GetValueOrDefault(groupId);
             if (session == null) return;
 
-            // 「读状态 → 追加 → 更新状态」同临界区：同群两波并发收场时，第二个等第一个释放后
-            // 重读到的 LogAppendedUpTo 已经推进，不会把同一段写两遍、锚点行号也不会逐段漂移
-            GroupLogAppend? append = GroupLogFile.AppendNew(session.Group, groupLog, session.LogAppendedUpTo,
-                session.LogEndLine + 1);
-            if (append != null)
-            {
-                session.LogLastAppend = append;
-                session.LogAppendedUpTo = append.LastIndex + 1;
-                session.LogEndLine = append.EndLine;
-            }
+            // 「读状态 → 追加 → 更新状态」同临界区（AppendLogNow）：同群两波并发收场时，第二个等第一个释放后
+            // 重读到的 LogAppendedUpTo 已经推进，不会把同一段写两遍、锚点行号也不会逐段漂移。
+            // 用户插话的即时追加也走这里（OnUserPostAppended），同一份水位不会双写
+            AppendLogNow(session, groupLog);
             // 没有新发言（或追加失败）时保留 LogLastAppend 原值：hasNew 由交付水位判，
             // 已交付的段不会反复标「新发言」；append 失败的日志告警在 GroupLogFile 里
 
@@ -497,11 +516,6 @@ public sealed class GroupAwayController
             case EGroupAvatarTurnResult.Stopped:
                 Schedule(session, session.Settings.StopDelay, GroupAvatarTranscript.StoppedNote(UserName));
                 return;
-            case EGroupAvatarTurnResult.Preempted:
-                // 被用户私聊叫停：不计出手次数，私聊结束就接回；期间收场的波也由这次接回一并看
-                lock (_sync) session.AvatarTurns--;
-                ResumeAfterPrivate(session);
-                return;
         }
 
         // 捎话轮没跑成（用户正在私聊化身、或这一轮失败）：交代还没送达，下次重带
@@ -521,92 +535,17 @@ public sealed class GroupAwayController
         {
             case EGroupAvatarTurnResult.Silent:
             case EGroupAvatarTurnResult.Failed:
+            case EGroupAvatarTurnResult.Preempted: //化身不再被私聊抢占（私聊即正常消息）；真出现就当没进展兜底，别让离席卡住
                 NoProgress(session, NoteFor(turn.Result));
                 break;
             case EGroupAvatarTurnResult.Busy:
-                // 用户正在私聊化身：不算没进展（捎话重带在上面已安排；Busy 也不计出手次数）。
-                // 正等着接回的，私聊一结束就再接；否则过一阵再试，没交出去的提示带回去
+                // 化身闲着时私聊轮占着闸、离席轮抢不到：不算没进展（捎话重带在上面已安排；Busy 也不计出手次数）。
+                // 过一阵再试，没交出去的提示带回去；私聊放闸后下一轮自然能跑
                 lock (_sync) session.AvatarTurns--;
-                if (_coordinator.AvatarResumeOf(session.Group.SessionId) == EGroupAvatarResume.Pending)
-                    ResumeAfterPrivate(session);
-                else
-                    Schedule(session, session.Settings.BackoffStart, note);
+                Schedule(session, session.Settings.BackoffStart, note);
                 break;
             //Pushed：它那句开的一波收场时会再叫醒它
         }
-    }
-
-    // 私聊放闸就接回；等的期间用户停了群，按停下处理（过一阵再叫），已被别的一轮接过就不再叫
-    private void ResumeAfterPrivate(GroupAwaySession session)
-    {
-        lock (_sync)
-        {
-            if (session.ResumeArmed) return;
-            session.ResumeArmed = true;
-        }
-
-        GroupMemberTurnGate.ResumeAfter(session.Avatar.SessionId, () =>
-        {
-            lock (_sync) session.ResumeArmed = false;
-            switch (_coordinator.AvatarResumeOf(session.Group.SessionId))
-            {
-                case EGroupAvatarResume.Pending:
-                    // 通道先钉死（上一轮是私聊回复、没进群），再等一会才叫：用户还没看完私聊回复
-                    SchedulePrivateResume(session,
-                        GroupTranscript.PrivateReplyChannelNote + "\n\n" + GroupTranscript.PrivateResumeNote);
-                    break;
-                case EGroupAvatarResume.Stopped:
-                    _coordinator.ClearAvatarResume(session.Group.SessionId);
-                    Schedule(session, session.Settings.StopDelay, GroupAvatarTranscript.StoppedNote(UserName));
-                    break;
-            }
-        });
-    }
-
-    // 私聊后接回的延迟唤醒：记下化身此刻的历史长度，到点时变长了说明等的期间又私聊了一句，
-    // 重排完整间隔（看完最后一句再过 2 分钟）；提示留着随那次带上
-    private void SchedulePrivateResume(GroupAwaySession session, string? note)
-    {
-        int mark;
-        CancellationToken token;
-        lock (_sync)
-        {
-            if (session.IsEnded) return;
-            session.CarryNote(note);
-            mark = session.Avatar.History.Count;
-            token = session.BeginDelay(_now() + PrivateResumeDelay);
-        }
-
-        RaiseStatusChanged(session.Group.SessionId);
-        DelayThenResumeAsync(session, mark, token).LogOnFault("wake the group avatar after private chat");
-    }
-
-    private async Task DelayThenResumeAsync(GroupAwaySession session, int mark, CancellationToken token)
-    {
-        if (!await WakeLoop.WaitAsync(_delay, PrivateResumeDelay, token).ConfigureAwait(false)) return;
-
-        bool regroup;
-        lock (_sync)
-        {
-            if (token.IsCancellationRequested || session.IsEnded) return;
-            regroup = session.Avatar.History.Count > mark;
-            if (!regroup) session.CancelDelay();
-        }
-
-        if (regroup)
-        {
-            SchedulePrivateResume(session, null);
-            return;
-        }
-
-        // 到点时群正在跑一波：那一波收场会叫醒化身，提示留着随那次带上
-        if (_coordinator.IsRunning(session.Group.SessionId))
-        {
-            RaiseStatusChanged(session.Group.SessionId);
-            return;
-        }
-
-        RequestWake(session, null);
     }
 
     private void NoProgress(GroupAwaySession session, string? note)

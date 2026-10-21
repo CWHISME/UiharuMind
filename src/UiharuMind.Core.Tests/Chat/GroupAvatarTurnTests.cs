@@ -7,7 +7,8 @@ using UiharuMind.Core.AI.Execution.Tools;
 namespace UiharuMind.Core.Tests.Chat;
 
 /// <summary>
-/// 化身那一轮（ADR 0055）：投递它没听过的，说完的话以用户的名义进群并开下一波；结局按结束离席、进群与否判定。
+/// 化身那一轮（ADR 0055 修订：只经 SendMessage 发群）：投递它没听过的，要说的话只能经 SendMessage（<see cref="GroupChatCoordinator.TryPostFromAvatar"/>）
+/// 以用户的名义进群并开下一波；回复正文只留它自己的会话。结局按结束离席、进群与否判定。
 /// 跑模型的那一段换成假的，会话一律是临时的
 /// </summary>
 public class GroupAvatarTurnTests
@@ -41,11 +42,17 @@ public class GroupAvatarTurnTests
 
     private static string UserName => CharacterManager.Instance.UserCharacterName;
 
+    /// <summary>化身经 SendMessage 发群：以用户名义进群、开下一波；回复正文只留本地，posted 由工具那一条算</summary>
     [Fact]
     public async Task Push_PostsAsTheUser_AndOpensTheNextWave()
     {
         await _coordinator.PostAsync(_group, "@Alice 先看看");
-        _runner.Replies[_avatar.SessionId] = _ => "@Bob 就用 Alice 的方案";
+        _runner.During[_avatar.SessionId] = () =>
+        {
+            Assert.Equal(EAvatarPostResult.Posted, _coordinator.TryPostFromAvatar(_avatar.SessionId, "@Bob 就用 Alice 的方案"));
+            return Task.CompletedTask;
+        };
+        _runner.Replies[_avatar.SessionId] = _ => ""; //回复正文不进群
         Task<GroupEpisodeSummary> nextWave = NextEpisode();
 
         GroupAvatarTurn turn = await _coordinator.RunAvatarAsync(_group, _avatar, null, CancellationToken.None);
@@ -59,6 +66,18 @@ public class GroupAvatarTurnTests
         Assert.Contains("[Alice]: Alice 的第 1 次发言", _runner.Calls.Single(x => x.Member == _avatar).Input);
         Assert.Contains($"[{UserName}]: @Bob 就用 Alice 的方案", _runner.Calls.Single(x => x.Member == _bob).Input);
         Assert.Equal(_group.History.Count, _avatar.GroupCursor + 2); //它那句与 Bob 的回复都在游标之后
+    }
+
+    /// <summary>没调 SendMessage、只写了回复正文：正文不进群（只经 SendMessage），整轮当 Silent——离席控制器按没进展退避再催</summary>
+    [Fact]
+    public async Task ReplyBody_WithoutSendMessage_IsNotPosted_AndTreatedAsSilent()
+    {
+        _runner.Replies[_avatar.SessionId] = _ => "@Bob 就用 Alice 的方案"; //照对话习惯在正文里答
+
+        GroupAvatarTurn turn = await _coordinator.RunAvatarAsync(_group, _avatar, null, CancellationToken.None);
+
+        Assert.Equal(EGroupAvatarTurnResult.Silent, turn.Result);
+        Assert.Empty(_group.History);
     }
 
     [Fact]
@@ -78,25 +97,21 @@ public class GroupAvatarTurnTests
 
         Assert.Equal(EGroupAvatarTurnResult.Ended, turn.Result);
         Assert.Equal(EAwayEndRequest.Done, turn.End?.Reason);
-        Assert.Empty(_group.History); //结束之后的话不进群
+        Assert.Empty(_group.History); //回复正文不进群（只经 SendMessage），结束之后的话更不进群
     }
 
-    /// <summary>
-    /// 结束调用的 say 参数是点名要进群的告别话：同条消息里的顺手正文（自言自语）照样只留本地，一个字不动
-    /// </summary>
+    /// <summary>告别话走 SendMessage（只经 SendMessage）：先调工具把话发出去、再结束；同条消息里的顺手正文照样只留本地</summary>
     [Fact]
-    public async Task EndCallSayParameter_IsPosted_WhileSideTextStaysLocal()
+    public async Task Farewell_GoesThroughSendMessage_BeforeEnding()
     {
         _runner.During[_avatar.SessionId] = () =>
         {
+            Assert.Equal(EAvatarPostResult.Posted, _coordinator.TryPostFromAvatar(_avatar.SessionId, "各位辛苦，两步都做完了"));
             _avatar.History.Add(new ChatMessage(ChatRole.Assistant,
             [
                 new TextContent("收口可修成立，报个目标达成收尾"),
                 new FunctionCallContent("c1", EndAwayTool.ToolName,
-                    new Dictionary<string, object?>
-                    {
-                        ["reason"] = "done", ["summary"] = "做完了", ["say"] = "各位辛苦，两步都做完了",
-                    }),
+                    new Dictionary<string, object?> { ["reason"] = "done", ["summary"] = "做完了" }),
             ]));
             return Task.CompletedTask;
         };
@@ -111,170 +126,17 @@ public class GroupAvatarTurnTests
         Assert.NotNull(ChatMessageAnnotations.GroupAvatarPostOf(post));
     }
 
-    /// <summary>
-    /// 结局判定不认 completed（GroupAvatarTurn.Classify 里 FindEnd 非空即 Ended）：失败/被停的轮次只要
-    /// 历史里有成立的结束调用，离席照样真结束、回执照样进群——告别话也得跟着进群，不能丢
-    /// </summary>
+    /// <summary>调了结束离席之后再调 SendMessage：不再接受（结束之后的话不进群，与旧的自动进群同口径）</summary>
     [Fact]
-    public async Task EndCallSay_IsPosted_EvenWhenTheTurnFails()
+    public async Task EndAway_ThenSendMessage_IsRefused()
     {
         _runner.During[_avatar.SessionId] = () =>
         {
-            _avatar.History.Add(new ChatMessage(ChatRole.Assistant,
-            [
-                new FunctionCallContent("c1", EndAwayTool.ToolName,
-                    new Dictionary<string, object?>
-                    {
-                        ["reason"] = "done", ["summary"] = "做完了", ["say"] = "大家再见",
-                    }),
-            ]));
-            return Task.CompletedTask;
-        };
-        _runner.Fail.Add(_avatar.SessionId); //这一轮失败,completed=false
-        _runner.Replies[_avatar.SessionId] = _ => "";
-
-        GroupAvatarTurn turn = await _coordinator.RunAvatarAsync(_group, _avatar, null, CancellationToken.None);
-
-        Assert.Equal(EGroupAvatarTurnResult.Ended, turn.Result); //离席真结束
-        ChatMessage post = Assert.Single(_group.History, x => x.Role == ChatRole.User);
-        Assert.Equal("大家再见", post.Text);
-        Assert.NotNull(ChatMessageAnnotations.GroupAvatarPostOf(post));
-    }
-
-    /// <summary>
-    /// 无限模式：结束调用被拦（endCallsBlocked），FindEnd 认不出，告别话不进群
-    /// </summary>
-    [Fact]
-    public async Task EndCallSay_IsNotPosted_InInfiniteMode()
-    {
-        _runner.During[_avatar.SessionId] = () =>
-        {
-            _avatar.History.Add(new ChatMessage(ChatRole.Assistant,
-            [
-                new FunctionCallContent("c1", EndAwayTool.ToolName,
-                    new Dictionary<string, object?>
-                    {
-                        ["reason"] = "done", ["summary"] = "做完了", ["say"] = "大家再见",
-                    }),
-            ]));
-            return Task.CompletedTask;
-        };
-        _runner.Replies[_avatar.SessionId] = _ => "";
-
-        GroupAvatarTurn turn = await _coordinator.RunAvatarAsync(_group, _avatar, null, CancellationToken.None,
-            endCallsBlocked: true);
-
-        Assert.Empty(_group.History);
-        Assert.NotEqual(EGroupAvatarTurnResult.Ended, turn.Result);
-    }
-
-    /// <summary>
-    /// 反向的边界也钉住：失败轮次里没有成立的结束调用，告别话自然没有，也不该凭空发一条
-    /// </summary>
-    [Fact]
-    public async Task EndCallSay_IsNotPosted_WhenTheTurnFails_WithoutAValidEndCall()
-    {
-        _runner.During[_avatar.SessionId] = () =>
-        {
-            _avatar.History.Add(new ChatMessage(ChatRole.Assistant, [new TextContent("什么都没干成")]));
-            return Task.CompletedTask;
-        };
-        _runner.Fail.Add(_avatar.SessionId);
-        _runner.Replies[_avatar.SessionId] = _ => "";
-
-        GroupAvatarTurn turn = await _coordinator.RunAvatarAsync(_group, _avatar, null, CancellationToken.None);
-
-        Assert.Empty(_group.History);
-        Assert.Equal(EGroupAvatarTurnResult.Failed, turn.Result);
-    }
-
-    /// <summary>
-    /// 被私聊叫停（preempt）的轮次：只要历史里有成立的结束调用，离席照样 Ended（Classify 的 Ended 优先于 Preempted），
-    /// 告别话跟着进群——旧版 !completed 守卫会在这条路径上把 say 吞掉
-    /// </summary>
-    [Fact]
-    public async Task EndCallSay_IsPosted_EvenWhenPreempted()
-    {
-        Task<IDisposable>? privateTurn = null;
-        _runner.During[_avatar.SessionId] = () =>
-        {
-            privateTurn ??= GroupMemberTurnGate.EnterPrivateAsync(_avatar.SessionId); //取消化身那一轮,不 await 免得死锁
-            _avatar.History.Add(new ChatMessage(ChatRole.Assistant,
-            [
-                new FunctionCallContent("c1", EndAwayTool.ToolName,
-                    new Dictionary<string, object?>
-                    {
-                        ["reason"] = "done", ["summary"] = "做完了", ["say"] = "大家再见",
-                    }),
-            ]));
-            return Task.CompletedTask;
-        };
-        _runner.Replies[_avatar.SessionId] = _ => "";
-
-        GroupAvatarTurn turn = await _coordinator.RunAvatarAsync(_group, _avatar, null, CancellationToken.None);
-
-        Assert.Equal(EGroupAvatarTurnResult.Ended, turn.Result); //FindEnd 压过 Preempted
-        ChatMessage post = Assert.Single(_group.History, x => x.Role == ChatRole.User);
-        Assert.Equal("大家再见", post.Text);
-        if (privateTurn != null) (await privateTurn).Dispose();
-    }
-
-    /// <summary>
-    /// 同一轮多个成立的结束调用：只发第一次的 say（FindEnd 取 FirstOrDefault），与回执 reason/summary 同口径
-    /// </summary>
-    [Fact]
-    public async Task EndCallSay_OnlyTheFirstValidCall_IsPosted()
-    {
-        _runner.During[_avatar.SessionId] = () =>
-        {
-            _avatar.History.Add(new ChatMessage(ChatRole.Assistant,
-            [
-                new FunctionCallContent("c1", EndAwayTool.ToolName,
-                    new Dictionary<string, object?>
-                    {
-                        ["reason"] = "done", ["summary"] = "做完了", ["say"] = "先说再见",
-                    }),
-            ]));
-            _avatar.History.Add(new ChatMessage(ChatRole.Assistant,
-            [
-                new FunctionCallContent("c2", EndAwayTool.ToolName,
-                    new Dictionary<string, object?>
-                    {
-                        ["reason"] = "done", ["summary"] = "再说一遍", ["say"] = "再说再见",
-                    }),
-            ]));
-            return Task.CompletedTask;
-        };
-        _runner.Replies[_avatar.SessionId] = _ => "";
-
-        GroupAvatarTurn turn = await _coordinator.RunAvatarAsync(_group, _avatar, null, CancellationToken.None);
-
-        Assert.Equal(EGroupAvatarTurnResult.Ended, turn.Result);
-        ChatMessage post = Assert.Single(_group.History, x => x.Role == ChatRole.User);
-        Assert.Equal("先说再见", post.Text);
-    }
-
-    /// <summary>
-    /// 只有第一个成立调用才算数：它没带 say，第二个带了也不补——钉住「只发第一次」语义，防被误当成漏发 bug
-    /// </summary>
-    [Fact]
-    public async Task EndCallSay_NoSayOnTheFirstValidCall_MeansNothingLeaves()
-    {
-        _runner.During[_avatar.SessionId] = () =>
-        {
-            _avatar.History.Add(new ChatMessage(ChatRole.Assistant,
-            [
+            _avatar.History.Add(new ChatMessage(ChatRole.Assistant, [
                 new FunctionCallContent("c1", EndAwayTool.ToolName,
                     new Dictionary<string, object?> { ["reason"] = "done", ["summary"] = "做完了" }),
             ]));
-            _avatar.History.Add(new ChatMessage(ChatRole.Assistant,
-            [
-                new FunctionCallContent("c2", EndAwayTool.ToolName,
-                    new Dictionary<string, object?>
-                    {
-                        ["reason"] = "done", ["summary"] = "补一句", ["say"] = "再见",
-                    }),
-            ]));
+            Assert.Equal(EAvatarPostResult.AwayEnded, _coordinator.TryPostFromAvatar(_avatar.SessionId, "迟到的告别话"));
             return Task.CompletedTask;
         };
         _runner.Replies[_avatar.SessionId] = _ => "";
@@ -285,31 +147,7 @@ public class GroupAvatarTurnTests
         Assert.Empty(_group.History);
     }
 
-    /// <summary>空白 say（Trim 后为空串）不贴空告别</summary>
-    [Fact]
-    public async Task EndCallSay_WhitespaceOnly_IsNotPosted()
-    {
-        _runner.During[_avatar.SessionId] = () =>
-        {
-            _avatar.History.Add(new ChatMessage(ChatRole.Assistant,
-            [
-                new FunctionCallContent("c1", EndAwayTool.ToolName,
-                    new Dictionary<string, object?>
-                    {
-                        ["reason"] = "done", ["summary"] = "做完了", ["say"] = "   ",
-                    }),
-            ]));
-            return Task.CompletedTask;
-        };
-        _runner.Replies[_avatar.SessionId] = _ => "";
-
-        GroupAvatarTurn turn = await _coordinator.RunAvatarAsync(_group, _avatar, null, CancellationToken.None);
-
-        Assert.Equal(EGroupAvatarTurnResult.Ended, turn.Result);
-        Assert.Empty(_group.History);
-    }
-
-    /// <summary>化身没有「不接话」这回事（ADR 0060）：写了什么就以用户的名义进群，「[沉默]」也不例外</summary>
+    /// <summary>化身没有「不接话」（ADR 0055 决策 4 随「只经 SendMessage」改）：不调 SendMessage 就是不说话，Silent 由离席退避催——「[沉默]」也不例外</summary>
     [Fact]
     public async Task PassMarker_IsNotSpecialForTheAvatar()
     {
@@ -317,8 +155,8 @@ public class GroupAvatarTurnTests
 
         GroupAvatarTurn turn = await _coordinator.RunAvatarAsync(_group, _avatar, null, CancellationToken.None);
 
-        Assert.Equal(EGroupAvatarTurnResult.Pushed, turn.Result);
-        Assert.Equal(GroupTranscript.PassReply, Assert.Single(_group.History, x => x.Role == ChatRole.User).Text);
+        Assert.Equal(EGroupAvatarTurnResult.Silent, turn.Result);
+        Assert.Empty(_group.History);
     }
 
     [Fact]

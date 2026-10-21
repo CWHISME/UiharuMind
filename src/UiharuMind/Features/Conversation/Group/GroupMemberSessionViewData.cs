@@ -51,12 +51,13 @@ public sealed partial class GroupMemberSessionViewData : ObservableObject, IDisp
     /// <summary>
     /// 他正在跑<b>群里那一轮</b>（不是本地私聊轮）。判据取运行态登记处：群轮跑成员时把成员会话登记为 busy，
     /// 而视图自己的那一轮闲着。此时打字不该走插话——插话的回应会被群轮按「这一轮正文」收成群发言，
-    /// 改走正常发送：过闸时叫停群轮（ADR 0063）
+    /// 改走正常发送：过闸时叫停群轮（ADR 0063）。
+    /// 化身是例外（私聊即正常消息）：它与用户的关系就是「正常消息」，跑着离席轮时用户私聊走插话注入那一轮，不当群轮处理
     /// </summary>
     /// <param name="ownTurnRunning">视图自己驱动的那一轮是否在跑</param>
     /// <returns>是否正跑着群轮</returns>
     public bool IsRunningGroupTurn(bool ownTurnRunning) =>
-        !ownTurnRunning && SessionManager.Instance.Running.IsBusy(_session.SessionId);
+        !_session.IsGroupAvatar && !ownTurnRunning && SessionManager.Instance.Running.IsBusy(_session.SessionId);
 
     /// <summary>
     /// 权限档的悬停提示：注明跟群走

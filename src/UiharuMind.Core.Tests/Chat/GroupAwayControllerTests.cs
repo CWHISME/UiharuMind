@@ -121,7 +121,7 @@ public class GroupAwayControllerTests
         Assert.EndsWith(GroupAvatarTranscript.SilentNote, LastAvatarInput()); //没交出去的提示带回来了
     }
 
-    /// <summary>化身跑着时用户在群里插话：立即插一句提醒它有新话，不等波末，也不另起一轮</summary>
+    /// <summary>化身跑着时用户在群里插话：先把新发言即时追加进流水文件，再注入一条<b>系统提示</b>（不灌正文），不等波末、不另起一轮</summary>
     [Fact]
     public async Task UserPost_WhileAvatarRuns_InjectsImmediatelyWithoutANewTurn()
     {
@@ -132,8 +132,14 @@ public class GroupAwayControllerTests
         await Until(() => AvatarCalls() == 1);
 
         await _coordinator.PostAsync(_group, "先别拍，等我说完");
-        // 插话在落盘当时就进去了，不等波末；跑着的那一轮不算新一轮
-        Assert.Contains(_runner.Injected, x => x.Member == _avatar && x.Text.Contains("先别拍，等我说完"));
+        // 插话在落盘当时就进去了，不等波末；跑着的那一轮不算新一轮。
+        // 注入的是系统提示（指到流水文件新段），不是用户发言正文——化身按提示自己 Read
+        string injection = Assert.Single(_runner.Injected, x => x.Member == _avatar).Text;
+        Assert.Contains("用户刚在群里发言", injection);
+        Assert.Contains("群流水", injection);
+        Assert.DoesNotContain("先别拍，等我说完", injection);
+        // 同一声插话已经即时追加进流水文件：化身按提示 Read 得到的是真新段，不是等波末
+        Assert.Contains("先别拍，等我说完", File.ReadAllText(GroupLogFile.PathOf(_group)));
         Assert.Equal(1, AvatarCalls());
 
         gate.SetResult();
@@ -155,102 +161,31 @@ public class GroupAwayControllerTests
         await Until(() => AvatarCalls() == 2);
     }
 
-    /// <summary>化身跑着时用户私聊它（ADR 0063）：叫停这一轮、不计出手次数；
-    /// 私聊完先等 2 分钟（让用户看完私聊回复）再接回，并把通道钉死（上一轮是私聊回复、没进群）</summary>
+    /// <summary>化身跑着时用户私聊它（私聊即正常消息）：私聊 = 正常消息，走插话注入正在跑的轮，不抢占、不另起一轮</summary>
     [Fact]
-    public async Task PrivateChat_PreemptsAvatarTurn_ResumesAfterwardsWithNote()
+    public async Task PrivateChat_WhileAvatarRuns_InjectsAsNormalMessage_NoPreempt()
     {
-        Task<IDisposable>? privateTurn = null;
-        _runner.Replies[_avatar.SessionId] = _ => ""; //接回那轮没写正文：停在退避上，不连锁
-        _runner.During[_avatar.SessionId] = () =>
-        {
-            if (AvatarCalls() == 1) privateTurn ??= GroupMemberTurnGate.EnterPrivateAsync(_avatar.SessionId);
-            return Task.CompletedTask;
-        };
-
+        TaskCompletionSource gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        _runner.During[_avatar.SessionId] = () => gate.Task; //化身首轮卡住：正在跑
+        _runner.Replies[_avatar.SessionId] = _ => ""; //放行后没写正文：停在退避上，不连锁
         _away.Start(_group, "目标", null);
-        await Until(() => privateTurn != null);
-        IDisposable lease = await privateTurn!;
-        await Until(() => _away.StatusOf(_group.SessionId)?.IsAvatarRunning == false);
+        await Until(() => AvatarCalls() == 1);
 
-        Assert.Equal(0, _away.StatusOf(_group.SessionId)?.AvatarTurns); //被叫停的不计出手次数
+        ChatMessage privateMessage = new(ChatRole.User, "帮我看下这个方案"); //正常消息，不标私聊（私聊即正常消息）
+        Assert.True(await _coordinator.TryInjectAsync(_avatar, privateMessage));
+        Assert.Equal(1, AvatarCalls()); //没有另起一轮、也没有叫停
 
-        lease.Dispose();
-        await Until(() => _delays.Count == 1); //私聊完不等了：先等 2 分钟再接回
-        Assert.Equal(TimeSpan.FromMinutes(2), _delays[0].Delay);
-        Assert.Equal(1, AvatarCalls()); //到点前不叫
-
-        _delays[0].Due.SetResult();
-        await Until(() => AvatarCalls() == 2);
-        Assert.EndsWith(GroupTranscript.PrivateResumeNote, LastAvatarInput());
-        Assert.Contains(GroupTranscript.PrivateReplyChannelNote, LastAvatarInput()); //通道先钉死
-    }
-
-    /// <summary>私聊后接回的 2 分钟里又私聊了一句：重排完整间隔，看完最后一句再过 2 分钟才叫</summary>
-    [Fact]
-    public async Task PrivateResume_RetimesOnFollowUpPrivate()
-    {
-        Task<IDisposable>? privateTurn = null;
-        _runner.Replies[_avatar.SessionId] = _ => ""; //接回那轮没写正文：停在退避上，不连锁
-        _runner.During[_avatar.SessionId] = () =>
-        {
-            if (AvatarCalls() == 1) privateTurn ??= GroupMemberTurnGate.EnterPrivateAsync(_avatar.SessionId);
-            return Task.CompletedTask;
-        };
-
-        _away.Start(_group, "目标", null);
-        await Until(() => privateTurn != null);
-        IDisposable lease = await privateTurn!;
-        await Until(() => _away.StatusOf(_group.SessionId)?.IsAvatarRunning == false);
-
-        lease.Dispose();
+        gate.SetResult();
         await Until(() => _delays.Count == 1);
-        Assert.Equal(TimeSpan.FromMinutes(2), _delays[0].Delay);
-
-        // 等的期间又私聊了一句：化身历史变长，到点时重排、不叫醒
-        _avatar.History.Add(new ChatMessage(ChatRole.User, "追一句"));
-        _delays[0].Due.SetResult();
-        await Until(() => _delays.Count == 2);
-        Assert.Equal(TimeSpan.FromMinutes(2), _delays[1].Delay);
-        Assert.Equal(1, AvatarCalls());
-
-        // 这一轮没再私聊：到点叫醒，交代还在
-        _delays[1].Due.SetResult();
-        await Until(() => AvatarCalls() == 2);
-        Assert.EndsWith(GroupTranscript.PrivateResumeNote, LastAvatarInput());
-    }
-
-    /// <summary>化身被私聊叫停、私聊期间用户停了群：私聊完不直接接回，按停下过一阵再叫</summary>
-    [Fact]
-    public async Task PrivateChat_GroupStoppedMeanwhile_AvatarWaitsTheStopDelay()
-    {
-        Task<IDisposable>? privateTurn = null;
-        _runner.Replies[_avatar.SessionId] = _ => "";
-        _runner.During[_avatar.SessionId] = () =>
-        {
-            if (AvatarCalls() == 1) privateTurn ??= GroupMemberTurnGate.EnterPrivateAsync(_avatar.SessionId);
-            return Task.CompletedTask;
-        };
-
-        _away.Start(_group, "目标", null);
-        await Until(() => privateTurn != null);
-        IDisposable lease = await privateTurn!;
-        await Until(() => _away.StatusOf(_group.SessionId)?.IsAvatarRunning == false);
-
-        _coordinator.Stop(_group.SessionId);
-        lease.Dispose();
-        await Until(() => _delays.Count == 1);
-
-        Assert.Equal(Settings.StopDelay, _delays[0].Delay);
-        Assert.Equal(1, AvatarCalls());
     }
 
     [Fact]
     public async Task KickoffGoesToTheFirstAvatarTurnOnly_RestRideEveryTurn()
     {
-        _runner.Replies[_avatar.SessionId] = _ => "@Alice 接着把第二步做完";
+        _runner.Replies[_avatar.SessionId] = _ => ""; //正文不进群（只经 SendMessage）
         _runner.During[_avatar.SessionId] = () =>
         {
+            if (AvatarCalls() == 1) Assert.Equal(EAvatarPostResult.Posted, _coordinator.TryPostFromAvatar(_avatar.SessionId, "@Alice 接着把第二步做完"));
             if (AvatarCalls() == 2) AddEndAway("done", "两步都做完了");
             return Task.CompletedTask;
         };
@@ -330,7 +265,12 @@ public class GroupAwayControllerTests
     {
         _settings = Settings with { MaxIdleWaves = 1 };
         _coordinator.EpisodeEnded += _ => _stamp = "same"; //后挂的覆盖前面那个：一直没有新产物
-        _runner.Replies[_avatar.SessionId] = _ => "@Alice 再看看";
+        _runner.Replies[_avatar.SessionId] = _ => ""; //正文不进群（只经 SendMessage）
+        _runner.During[_avatar.SessionId] = () =>
+        {
+            Assert.Equal(EAvatarPostResult.Posted, _coordinator.TryPostFromAvatar(_avatar.SessionId, "@Alice 再看看"));
+            return Task.CompletedTask;
+        };
 
         Assert.True(_away.Start(_group, "把登录页修了", null, null, true));
         await Until(() => AvatarCalls() >= 3);
@@ -364,9 +304,11 @@ public class GroupAwayControllerTests
 
     [Fact]
     public async Task InfiniteMode_BlockedEndCall_DoesNotEnd_AndDoesNotSwallowItsWords()
-    {        _runner.Replies[_avatar.SessionId] = _ => "@Alice 继续";
+    {
+        _runner.Replies[_avatar.SessionId] = _ => ""; //正文不进群（只经 SendMessage）
         _runner.During[_avatar.SessionId] = () =>
         {
+            Assert.Equal(EAvatarPostResult.Posted, _coordinator.TryPostFromAvatar(_avatar.SessionId, "@Alice 继续"));
             if (AvatarCalls() == 2) AddEndAway("done", "做完了");
             return Task.CompletedTask;
         };
@@ -387,7 +329,12 @@ public class GroupAwayControllerTests
     public async Task PushNobodyAnswers_IsAnEmptyPush()
     {
         foreach (string id in _group.GroupMemberSessionIds) _runner.Replies[id] = _ => GroupTranscript.PassReply;
-        _runner.Replies[_avatar.SessionId] = _ => "大家继续";
+        _runner.Replies[_avatar.SessionId] = _ => ""; //正文不进群（只经 SendMessage）
+        _runner.During[_avatar.SessionId] = () =>
+        {
+            Assert.Equal(EAvatarPostResult.Posted, _coordinator.TryPostFromAvatar(_avatar.SessionId, "大家继续"));
+            return Task.CompletedTask;
+        };
 
         _away.Start(_group, "目标", null);
         await Until(() => _delays.Count == 1);
@@ -415,7 +362,12 @@ public class GroupAwayControllerTests
     public async Task EmptyPush_InInfiniteMode_DoesNotTellToEnd()
     {
         foreach (string id in _group.GroupMemberSessionIds) _runner.Replies[id] = _ => GroupTranscript.PassReply;
-        _runner.Replies[_avatar.SessionId] = _ => "大家继续";
+        _runner.Replies[_avatar.SessionId] = _ => ""; //正文不进群（只经 SendMessage）
+        _runner.During[_avatar.SessionId] = () =>
+        {
+            Assert.Equal(EAvatarPostResult.Posted, _coordinator.TryPostFromAvatar(_avatar.SessionId, "大家继续"));
+            return Task.CompletedTask;
+        };
 
         _away.Start(_group, "目标", null, null, true);
         await Until(() => _delays.Count == 1);
@@ -428,6 +380,12 @@ public class GroupAwayControllerTests
     [Fact]
     public async Task UserStop_WakesTheAvatarAfterTheFixedDelay_WithANote()
     {
+        _runner.Replies[_avatar.SessionId] = _ => ""; //正文不进群（只经 SendMessage）
+        _runner.During[_avatar.SessionId] = () =>
+        {
+            if (AvatarCalls() == 1) Assert.Equal(EAvatarPostResult.Posted, _coordinator.TryPostFromAvatar(_avatar.SessionId, "大家继续"));
+            return Task.CompletedTask;
+        };
         _runner.During[_alice.SessionId] = () =>
         {
             _coordinator.Stop(_group.SessionId);
@@ -452,7 +410,12 @@ public class GroupAwayControllerTests
     {
         _settings = Settings with { MaxIdleWaves = 2 };
         _coordinator.EpisodeEnded += _ => _stamp = "same"; //后挂的覆盖前面那个：一直没有新产物
-        _runner.Replies[_avatar.SessionId] = _ => "@Alice 再看看";
+        _runner.Replies[_avatar.SessionId] = _ => ""; //正文不进群（只经 SendMessage）
+        _runner.During[_avatar.SessionId] = () =>
+        {
+            Assert.Equal(EAvatarPostResult.Posted, _coordinator.TryPostFromAvatar(_avatar.SessionId, "@Alice 再看看"));
+            return Task.CompletedTask;
+        };
 
         _away.Start(_group, "目标", null);
         GroupAwayReceipt receipt = await NextReceipt();
@@ -760,6 +723,12 @@ public class GroupAwayControllerTests
     {
         _settings = Settings with { MaxIdleWaves = 1 };
         _coordinator.EpisodeEnded += _ => _stamp = "0"; //一直没有新产物
+        _runner.Replies[_avatar.SessionId] = _ => ""; //正文不进群（只经 SendMessage）
+        _runner.During[_avatar.SessionId] = () =>
+        {
+            if (AvatarCalls() == 1) Assert.Equal(EAvatarPostResult.Posted, _coordinator.TryPostFromAvatar(_avatar.SessionId, "大家继续"));
+            return Task.CompletedTask;
+        };
         _runner.During[_alice.SessionId] = () =>
         {
             _coordinator.Stop(_group.SessionId);

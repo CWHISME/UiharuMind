@@ -1,5 +1,6 @@
 using System.Text;
 using UiharuMind.Core.AI.Execution.Files;
+using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.AI.Chat.Group;
 
@@ -278,6 +279,21 @@ public static class GroupAvatarTranscript
     }
 
     /// <summary>
+    /// 化身跑着时用户插话的系统提示（ADR 0055 第三方视角）：不灌用户发言正文，
+    /// 指到流水文件里刚追加的新段，化身按锚点 Read 再说话。界面按群投递拆成旁白，不画成用户气泡。
+    /// 必须与 <see cref="Away.GroupLogFile.AppendNew"/> 配套：先追加拿行号，再注入这条
+    /// </summary>
+    /// <param name="logPath">群流水文件路径（$DRAFT 相对或绝对）</param>
+    /// <param name="firstIndex">新段第一条发言的群历史下标（0-based，人读 +1）</param>
+    /// <param name="lastIndex">新段最后一条发言的群历史下标</param>
+    /// <param name="startLine">段头所在行（1-based）</param>
+    /// <param name="endLine">段尾（含）所在行</param>
+    /// <returns>提示正文</returns>
+    public static string UserPostInjection(string logPath, int firstIndex, int lastIndex, int startLine, int endLine) =>
+        $"【用户刚在群里发言：最新群发言已追加到流水文件（#{(firstIndex + 1)}-{lastIndex + 1}，文件第 {startLine} 行到第 {endLine} 行）。"
+        + $"先 {FileToolNames.Read}（offset={startLine}）读完这段，再决定说什么。群流水在 {logPath}。】";
+
+    /// <summary>
     /// 化身的群场景段：群名、在场成员、主持人与发言格式。成员那份的「只说新的」「拍板归用户」不给它——
     /// 它就是替用户拍板的那一位
     /// </summary>
@@ -291,11 +307,11 @@ public static class GroupAvatarTranscript
         if (members.Length > 0) text.Append($"在场的成员有：{members}。");
         if (scene.HostName != null) text.Append($"本群主持人是{scene.HostName}。");
 
-        text.Append($"\n\n- 格式：群里的发言按「[名字]: 内容」交给你；你说完的正文会以{scene.UserName}的名义发到群里，" +
-                    "直接写正文，不加前缀。想请某位成员接话，写 @名字，只写名字、不带作品名。");
+        text.Append($"\n\n- 发言：要说的话调用 {GroupPostTool.ToolName} 发到群里，会以{scene.UserName}的名义自动署上名字，直接写正文、不要自己加前缀。");
+        text.Append($"\n- 你的回复正文不会自动发到群里——不调 {GroupPostTool.ToolName} 就是不说话，群里没人看得到。想请某位成员接话，写 @名字，只写名字、不带作品名。");
         text.Append($"\n- 尺度：发到群聊的信息尽量简短，像普通聊天那样。");
         if (scene.SharesDraftRoom) text.Append("材料长（清单、对比、摘录）就写成草稿目录里的文件，群里只说结论、附上路径。");
-        text.Append("\n- 一轮怎么算：调用工具时顺手写的话只留在你这里，群里看不到；要对大家说的，等工具用完再说。");
+        text.Append($"\n- 一轮怎么算：调用工具时顺手写的话只留在你这里，群里看不到；要对大家说的，用 {GroupPostTool.ToolName} 发出去。");
         if (scene.SharesDraftRoom)
             text.Append("\n- 草稿目录是全群共用的：文件名起得具体些，新建前先看有没有同名的，别盖掉别人的。");
 

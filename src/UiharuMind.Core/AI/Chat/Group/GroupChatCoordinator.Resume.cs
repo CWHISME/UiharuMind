@@ -2,70 +2,23 @@ using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.AI.Chat.Group;
 
-/// <summary>化身被私聊叫停之后的接回状态（ADR 0063）</summary>
-public enum EGroupAvatarResume
-{
-    /// <summary>没有待接回的（没被叫停，或已经接回过）</summary>
-    None,
-
-    /// <summary>等私聊结束接回</summary>
-    Pending,
-
-    /// <summary>等的期间用户停了群：按停下处理，不直接接回</summary>
-    Stopped,
-}
-
-// 私聊叫停群轮之后的接回（ADR 0063）：成员由这里在闸空时单独叫醒；化身只记状态，由离席接回
+// 私聊叫停群轮之后的接回（ADR 0063）：成员由这里在闸空时单独叫醒。
+// 私聊即正常消息：化身不再抢占/接回——它跑着时用户私聊走插话，闲着时私聊轮占闸、离席轮自己 Busy 退避
 public sealed partial class GroupChatCoordinator
 {
     private readonly HashSet<string> _preempted = new(); //被用户私聊叫停的成员：私聊结束后叫醒接着做
     private readonly HashSet<string> _resumeArmed = new(); //已约好闸空叫醒的成员：一人只约一次，免得多叫一轮
-    private readonly Dictionary<string, EGroupAvatarResume> _avatarResumes = new(); //群 → 化身的接回状态
-
     /// <summary>
     /// 私聊放闸后等多久再叫醒成员：给用户留看完私聊回复的时间（固定 30 秒）。
-    /// 化身那份是 2 分钟（`GroupAwayController`）：看回复的是用户本人，等得起；成员停着全群那一波都等他，取短
+    /// （化身不再有私聊接回，私聊即正常消息；这条只服务成员）
     /// </summary>
     private static readonly TimeSpan PrivateResumeDelay = TimeSpan.FromSeconds(30);
 
-    /// <summary>
-    /// 这个群的化身有没有被私聊叫停、等着接回
-    /// </summary>
-    /// <param name="groupId">群壳会话标识</param>
-    /// <returns>接回状态</returns>
-    public EGroupAvatarResume AvatarResumeOf(string groupId)
-    {
-        lock (_locker) return _avatarResumes.GetValueOrDefault(groupId);
-    }
-
-    /// <summary>
-    /// 化身那边已按「停下」处理了待接回：清掉记号
-    /// </summary>
-    /// <param name="groupId">群壳会话标识</param>
-    public void ClearAvatarResume(string groupId)
-    {
-        lock (_locker) _avatarResumes.Remove(groupId);
-    }
-
-    // 化身这一轮的接回记号：抢到闸即算接回过（清掉），被叫停则记上
-    private void NoteAvatarTurn(string groupId, bool preempted)
-    {
-        lock (_locker)
-        {
-            if (preempted) _avatarResumes[groupId] = EGroupAvatarResume.Pending;
-            else _avatarResumes.Remove(groupId);
-        }
-    }
-
-    // 用户停了群：成员不再自动接回（留给「继续」），化身改按停下处理
+    // 用户停了群：成员不再自动接回（留给「继续」）
     private void ForgetResumes(string groupId)
     {
         if (_load(groupId) is not { IsGroup: true } group) return;
-        lock (_locker)
-        {
-            _preempted.ExceptWith(group.GroupMemberSessionIds);
-            if (_avatarResumes.ContainsKey(groupId)) _avatarResumes[groupId] = EGroupAvatarResume.Stopped;
-        }
+        lock (_locker) _preempted.ExceptWith(group.GroupMemberSessionIds);
     }
 
     // 还等着接回、又没约过的，约好闸一空就叫醒他

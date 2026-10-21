@@ -452,6 +452,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// </summary>
     public bool IsGroupMemberSession => CurrentMeta?.IsGroupMember == true;
 
+    /// <summary>本会话是不是群的化身会话（ADR 0055）：私聊就是正常消息（私聊即正常消息），不包私聊说明</summary>
+    public bool IsAvatarSession => CurrentMeta?.IsGroupAvatar == true;
+
     /// <summary>输入区是否可见</summary>
     public bool IsComposerVisible => true;
 
@@ -1416,9 +1419,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _messages.ShowNotification(Loc.Text(message), severity: MessageSeverity.Warning);
     }
 
-    /// <summary>组装要发出去的用户消息。群成员会话里用户直接打的话是私聊，见 <see cref="GroupMemberSessionViewData.BuildPrivateMessage"/></summary>
+    /// <summary>组装要发出去的用户消息。群成员会话里用户直接打的话是私聊，见 <see cref="GroupMemberSessionViewData.BuildPrivateMessage"/>；
+    /// 化身是例外（私聊即正常消息）——私聊就是正常消息，不包私聊说明</summary>
     private ChatMessage BuildOutgoingMessage(string text, List<ConversationAttachment>? attachments) =>
-        IsGroupMemberSession
+        IsGroupMemberSession && !IsAvatarSession
             ? GroupMemberSessionViewData.BuildPrivateMessage(text, body => Tray.BuildUserMessage(body, attachments))
             : Tray.BuildUserMessage(text, attachments);
 

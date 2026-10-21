@@ -88,9 +88,6 @@ internal sealed class GroupAwaySession : WakeLoopSession<EGroupAwayEndReason>
     /// <summary>化身跑着时又有一波收场：跑完再叫</summary>
     public bool WakePending { get; set; }
 
-    /// <summary>已约好私聊放闸后接回化身：只约一次，免得放闸时连叫几轮</summary>
-    public bool ResumeArmed { get; set; }
-
     /// <summary>
     /// 更新这次离席的参数。捎话在化身介入前改才随首轮投递；提醒与无限模式每轮现读，随时改随时生效
     /// </summary>

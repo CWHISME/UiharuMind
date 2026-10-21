@@ -78,8 +78,18 @@ internal static class AgentToolScopes
     private static readonly AgentToolScopeRule GroupMemberRule =
         new(With(MainRule, add: EAgentCapability.GroupPost, remove: EAgentCapability.Speak), BackgroundTasks: true);
 
-    private static readonly AgentToolScopeRule GroupAvatarRule =
-        new(With(MainRule, add: EAgentCapability.GroupAway), BackgroundTasks: false);
+    /// <summary>
+    /// 离席的化身（ADR 0055 修订）：能结束离席、也能经群发言工具（SendMessage）以用户名义发群；
+    /// 不在群名单里、群叫不醒它，不起后台任务。回复正文不再自动进群——发不发由化身自己调工具决定
+    /// </summary>
+    private static readonly AgentToolScopeRule GroupAvatarRule = new(new HashSet<EAgentCapability>
+    {
+        // MainRule 的全部 + 结束离席 + 群发言工具（只经 SendMessage）：化身不发话就由离席控制器退避再唤，不起后台任务
+        EAgentCapability.FileAccess, EAgentCapability.Shell, EAgentCapability.WebSearch,
+        EAgentCapability.VisionTool, EAgentCapability.Extensions, EAgentCapability.Speak,
+        EAgentCapability.KnowledgeSearch, EAgentCapability.ScheduledTasks, EAgentCapability.SubAgent,
+        EAgentCapability.Skills, EAgentCapability.GroupAway, EAgentCapability.GroupPost,
+    }, BackgroundTasks: false);
 
     private static readonly AgentToolScopeRule ScheduledRunRule = MainRule with { BackgroundTasks = false };
 

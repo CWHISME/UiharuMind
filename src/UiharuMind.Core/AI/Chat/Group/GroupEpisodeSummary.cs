@@ -1,4 +1,5 @@
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Chat;
 
 namespace UiharuMind.Core.AI.Chat.Group;
 
@@ -16,6 +17,11 @@ public sealed record GroupEpisodeSummary(ChatSession Group, int? KickoffPostInde
     /// <summary>这一波里成员说了几句（用户与化身的不算）</summary>
     public int MemberPostCount =>
         Group.History.Skip(Start).Take(End - Start).Count(IsMemberPost);
+
+    /// <summary>这一波里用户真身说了几句（化身代笔的不算）：离席期间用户回群插话也算「有人接」，不算空推</summary>
+    public int UserPostCount =>
+        Group.History.Skip(Start).Take(End - Start)
+            .Count(x => x.Role == ChatRole.User && ChatMessageAnnotations.GroupAvatarPostOf(x) == null);
 
     private static bool IsMemberPost(ChatMessage message) =>
         ChatMessageAnnotations.GroupSpeakerSessionOf(message) != null;

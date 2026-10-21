@@ -17,8 +17,7 @@ public enum EAwayEndRequest
 /// <summary>化身调 <see cref="EndAwayTool"/> 留下的结束请求</summary>
 /// <param name="Reason">原因</param>
 /// <param name="Summary">给用户的交代</param>
-/// <param name="Say">点名要进群的告别话；没有为 null</param>
-public sealed record AwayEndRequest(EAwayEndRequest Reason, string Summary, string? Say = null);
+public sealed record AwayEndRequest(EAwayEndRequest Reason, string Summary);
 
 /// <summary>
 /// 化身结束离席（ADR 0055）。只挂给化身。
@@ -46,13 +45,11 @@ public static class EndAwayTool
             ([Description("离席目标达成时填 \"done\"；有必须由用户本人决定的事时填 \"needs_user\"。")]
                 string reason,
                 [Description("用户回来时应当知道的事：完成了什么，或具体有什么在等他们。")]
-                string summary,
-                [Description("结束前可选地对群说几句告别话；没有要告诉群的就留空。" +
-                    "本调用旁边的任何文字都只留在本地，只有这个参数会到达群里。")]
-                string? say = null) => Acknowledge(reason, summary, isInfinite?.Invoke() == true),
+                string summary) => Acknowledge(reason, summary, isInfinite?.Invoke() == true),
             ToolName,
             "结束用户的离席会话。本轮结束后群停止，并通知用户。" +
             "只用于目标达成或必须由用户本人决定的事。" +
+            "想对群说告别话，请先用群发言工具（SendMessage）把话说出去，再结束。" +
             "无限离席模式下本工具被禁用，会返回错误。");
     }
 
@@ -68,11 +65,10 @@ public static class EndAwayTool
         string? reason = Text(call.Arguments.TryGetValue("reason", out object? rawReason) ? rawReason : null);
         string summary = Text(call.Arguments.TryGetValue("summary", out object? rawSummary) ? rawSummary : null)?.Trim()
                          ?? string.Empty;
-        string? say = Text(call.Arguments.TryGetValue("say", out object? rawSay) ? rawSay : null)?.Trim();
         return reason?.Trim() switch
         {
-            DoneValue => new AwayEndRequest(EAwayEndRequest.Done, summary, say),
-            NeedsUserValue => new AwayEndRequest(EAwayEndRequest.NeedsUser, summary, say),
+            DoneValue => new AwayEndRequest(EAwayEndRequest.Done, summary),
+            NeedsUserValue => new AwayEndRequest(EAwayEndRequest.NeedsUser, summary),
             _ => null,
         };
     }

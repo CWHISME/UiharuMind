@@ -104,12 +104,13 @@ public class GroupAvatarTests
         Assert.Contains("替黑猫坐着", scene);
         Assert.Contains("在场的成员有：Alice、Bob", scene);
         Assert.DoesNotContain("（用户）", scene); //它就是用户
-        Assert.DoesNotContain(GroupPostTool.ToolName, scene);
+        // 化身唯一的发群通道是 SendMessage（场景段明说），不调就是不说话
+        Assert.Contains(GroupPostTool.ToolName, scene);
     }
 
-    /// <summary>化身不往群里发言（它说完的话由离席以用户名义发）、不委派，多一把结束离席</summary>
+    /// <summary>化身经 SendMessage 以用户名义发群、不委派，多一把结束离席</summary>
     [Fact]
-    public async Task Assembly_GivesTheAvatarEndAway_NotGroupPostOrDelegation()
+    public async Task Assembly_GivesTheAvatarEndAwayAndGroupPost_NotDelegation()
     {
         CharacterData character = new()
         {
@@ -129,7 +130,8 @@ public class GroupAvatarTests
 
         List<string> tools = handle.ChatOptions?.Tools?.Select(x => x.Name).ToList() ?? [];
         Assert.Contains(EndAwayTool.ToolName, tools);
-        Assert.DoesNotContain(GroupPostTool.ToolName, tools);
+        // 化身也挂群发言工具（经它把话以用户名义发出去），但仍然是 peer——不委派
+        Assert.Contains(GroupPostTool.ToolName, tools);
         Assert.DoesNotContain(SubAgentTool.ToolName, tools);
     }
 
@@ -248,20 +250,18 @@ public class GroupAvatarTests
     }
 
     /// <summary>
-    /// 告别话的教学在 EndAway 工具描述里：顺手正文只留本地、进群的走 say 参数，无限模式禁用（调了也只拿到错误）。
-    /// 卡面不重复这些——调了 EndAway 之后再说的话不会进群，写进 summary 的交代下次离席读历史也不会误会进过群
+    /// 告别话不再由 EndAway 带（只经 SendMessage）：要说的话先用 SendMessage 发出去，再结束离席；
+    /// 无限模式禁用仍在工具描述里。卡面不重复这些
     /// </summary>
     [Fact]
-    public void EndAwayTool_DescriptionCarriesThePostEndSpeechAndInfiniteModeReminder()
+    public void EndAwayTool_Description_CarriesInfiniteModeReminder_AndPointsToSendMessageForFarewell()
     {
         AITool tool = EndAwayTool.Create();
 
         // 无限模式禁用，调了也只拿到错误（工具主体描述）
         Assert.Contains("无限离席模式下本工具被禁用", tool.Description ?? string.Empty);
-        // 顺手正文只留本地，进群只能靠 say 参数（say 参数写在 schema 的 description 里）
-        JsonNode? schema = tool is AIFunction function ? JsonNode.Parse(function.JsonSchema.GetRawText()) : null;
-        string? sayDescription = schema?["properties"]?["say"]?["description"]?.GetValue<string>();
-        Assert.Contains("只有这个参数会到达群里", sayDescription);
+        // 告别话的教学指回 SendMessage（schema 已无 say 参数）
+        Assert.Contains(GroupPostTool.ToolName, tool.Description ?? string.Empty);
     }
 
     private static IReadOnlyList<CharacterData> Cards(params string[] ids) =>
