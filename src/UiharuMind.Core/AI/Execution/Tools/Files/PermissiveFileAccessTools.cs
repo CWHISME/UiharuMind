@@ -299,8 +299,8 @@ internal sealed class PermissiveFileAccessTools
     [Description($"""
                  编辑文本文件。工具提供三种对 oldString 的匹配模式：
                  1. 精确匹配：全文件子串匹配，不限整行。但该子串在全文件必须唯一。
-                 2. 多行匹配：「头串{EditElision.Token}尾串」，头串必须全文件唯一、尾取就近一处。
-                 3. 单行匹配：「头串{EditElision.Token}」，以该头串开头的行必须全文件唯一。
+                 2. 多行匹配：「头串{EditElision.Token}尾串」，可跨行匹配以**头串**开头、**尾串**结尾的文本。
+                 3. 单行匹配：「头串{EditElision.Token}」，直接匹配以**头串**开头的整行。
                  """)]
     internal async Task<string> Edit(
         [Description("文件路径，工作目录的相对路径(也接受非工作目录的绝对路径)。")]

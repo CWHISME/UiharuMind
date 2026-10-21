@@ -245,12 +245,11 @@ public partial class ModelService : ObservableObject
     private void OnFavoriteModelConfigChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName != nameof(ModelSettingConfig.FavoriteModels)) return;
+        // 收藏不参与排序，只刷新星标显示
         foreach (var item in ModelSources)
         {
             item.NotifyFavoriteChanged();
         }
-
-        ModelSorting.Sort(ModelSources);
     }
 
     private void Refresh()
@@ -266,7 +265,7 @@ public partial class ModelService : ObservableObject
         OnPropertyChanged(nameof(CurRunningCount));
         OnPropertyChanged(nameof(CurModelRunningData));
         foreach (ModelRunningData model in ModelSources) model.NotifyStateChanged();
-        // 运行/加载状态是排序键之一，状态变后重排一次（已有序则为空操作）
+        // 模型列表增删后统一重排一次（已有序则为空操作）
         ModelSorting.Sort(ModelSources);
     }
 

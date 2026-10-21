@@ -8,7 +8,7 @@ using UiharuMind.Features.Models;
 namespace UiharuMind.App.Tests.Models;
 
 /// <summary>
-/// 模型列表排序口径：运行/加载置顶 → 远程区在本地区前 → 区内收藏在前 → 名称
+/// 模型列表排序口径：远程区在本地区前 → 区内收藏在前 → 名称（运行/加载状态不参与排序）
 /// </summary>
 public class ModelSortingTests
 {
@@ -32,7 +32,7 @@ public class ModelSortingTests
     }
 
     [Fact]
-    public void WithinBlock_FavoriteFirst_ThenName()
+    public void Favorite_DoesNotAffectOrder()
     {
         List<string> backup = [.. ModelSettingConfig.Current.FavoriteModels];
         try
@@ -45,7 +45,7 @@ public class ModelSortingTests
 
             ModelSorting.Sort(items);
 
-            Assert.Equal(["m-remote", "a-remote", "m-local", "a-local"], Names(items));
+            Assert.Equal(["a-remote", "m-remote", "a-local", "m-local"], Names(items));
         }
         finally
         {
@@ -55,14 +55,14 @@ public class ModelSortingTests
     }
 
     [Fact]
-    public void LoadingModel_PinnedAbovePartition()
+    public void LoadingState_DoesNotAffectOrder()
     {
         ObservableCollection<ModelRunningData> items = [Local("a-local"), Remote("a-remote"), Local("m-local")];
         items[2].BeginLoading();
 
         ModelSorting.Sort(items);
 
-        Assert.Equal(["m-local", "a-remote", "a-local"], Names(items));
+        Assert.Equal(["a-remote", "a-local", "m-local"], Names(items));
     }
 
     [Fact]
@@ -80,28 +80,16 @@ public class ModelSortingTests
     [Fact]
     public void SingleRankChange_EmitsExactlyOneMove()
     {
-        List<string> backup = [.. ModelSettingConfig.Current.FavoriteModels];
-        try
+        ObservableCollection<ModelRunningData> items = [Local("a"), Local("c"), Local("b")];
+        int moves = 0;
+        items.CollectionChanged += (_, e) =>
         {
-            ObservableCollection<ModelRunningData> items =
-                [Local("a"), Local("b"), Local("c"), Local("d"), Local("e")];
-            ModelSettingConfig.Current.FavoriteModels.Clear();
-            int moves = 0;
-            items.CollectionChanged += (_, e) =>
-            {
-                if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Move) moves++;
-            };
+            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Move) moves++;
+        };
 
-            ModelSettingConfig.Current.ToggleFavorite("e");
-            ModelSorting.Sort(items);
+        ModelSorting.Sort(items);
 
-            Assert.Equal(["e", "a", "b", "c", "d"], Names(items));
-            Assert.Equal(1, moves);
-        }
-        finally
-        {
-            ModelSettingConfig.Current.FavoriteModels.Clear();
-            ModelSettingConfig.Current.FavoriteModels.AddRange(backup);
-        }
+        Assert.Equal(["a", "b", "c"], Names(items));
+        Assert.Equal(1, moves);
     }
 }
