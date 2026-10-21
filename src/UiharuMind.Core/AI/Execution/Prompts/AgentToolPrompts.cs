@@ -32,14 +32,14 @@ public static class AgentToolPrompts
         "同一条回复里的多个工具调用会同时执行。";
 
     /// 目录段：工作目录、草稿目录、记忆目录合在一个标题下，三条各按装配条件出现。
-    public static string BuildDirectories(bool hasWorkingDirectory,string workingDirectory, string? draftToken, string? memoryToken,
+    public static string BuildDirectories(bool hasWorkingDirectory, string workingDirectory, string? draftToken, string? memoryToken,
         bool forSubAgent = false, bool shellMounted = false)
     {
         StringBuilder sb = new();
         if (hasWorkingDirectory)
         {
-            sb.AppendLine($"你当前的工作目录是【{workingDirectory}】");
-            sb.AppendLine("命令和文件工具都以工作目录为基准，路径默认写相对路径；只有要碰工作目录之外的东西时才用绝对路径。");
+            sb.AppendLine($"你现在正在通过 UiharuMind 聊天界面与用户对话，当前的工作目录是【{workingDirectory}】");
+            sb.AppendLine("调用的命令和文件工具都以工作目录为基准，路径默认写相对路径即可；只有工作目录之外的东西时才必须使用绝对路径。");
         }
 
         if (draftToken != null)
@@ -56,15 +56,10 @@ public static class AgentToolPrompts
         if (memoryToken != null)
         {
             // 只交代事实不立规矩:首行会进索引,模型知道了这个代价,自然会把首行写成摘要、少记琐事
-            sb.AppendLine($"- 记忆目录 {memoryToken}：你在本工作区跨会话保留的笔记，按主题一个 .md 文件。" +
+            sb.AppendLine($"- 记忆目录 {memoryToken}：你拥有一个持久化的记忆文件系统。这是你在不同会话之间的工作记忆，专门为未来的你保留——每次对话开始时，你都可以重新阅读这些文件。。" +
                           $"`Read {memoryToken}` 会返回记忆索引，每份笔记的路径、修改日期和首行（超过 {MemoryIndex.SummaryMaxLength} 字截断），读全文用 {memoryToken}/文件名。" +
-                          "开始一件事前先看一眼索引，以前的你可能记过相关的东西。" +
-                          "索引里只看得到首行，" +
-                          "只写个标题的话，以后的你得打开文件才知道里面是什么。只记对话里的沉淀。" +
-                          // 实机见过:拿过时的进度记忆当事实答给用户,被指出后才去翻 git log
-                          "记忆里带时间的状态（进度、计数、某事是否已做）说出口前先用 git log 或现场数据核一遍，过期的顺手删掉。" +
-                          // 实机见过:写了更正笔记却没改旧笔记,两份并存,下一个读到旧那份的又照着错(记忆是工作区内各成员共用的)
-                          $"推翻某条结论时，先 `Grep` {memoryToken} 找出还记着旧结论的笔记，把仍有用的内容并进更正后的笔记，" +
+                          "你当前处于对话模式。其它会话可能向同一文件系统写入数据，因此你可能会看到并非由你自己创建的文件。" +
+                          "你可以通过文件工具对记忆文件进行维护，如果发现记忆里带时间的状态（进度、计数、某事是否已做）与现场数据不一致，核对后可顺手修正。" +
                           (shellMounted ? "旧文件用 `Shell` 删掉。" : "旧笔记的首行改成「已过时，见 新笔记名」。"));
         }
 
@@ -84,7 +79,7 @@ public static class AgentToolPrompts
     {
         StringBuilder sb = new();
 
-        sb.AppendLine("- 用 `Shell` 运行的命令默认在工作目录下执行。");
+        sb.AppendLine("- 当你使用 `Shell` 运行的时，默认会在工作目录下执行。");
 
         if (fileAccessMounted)
         {
@@ -92,9 +87,11 @@ public static class AgentToolPrompts
                 "- 文件系统层面的操作——移动、改名、删除、新建目录——用 `Shell` 做。");
             // 刻意不举 cat/sed/awk 这些具体命令:框架按平台解析 shell(bash/sh/PowerShell/cmd 四种),
             sb.AppendLine(
-                "- 但文件内容的读与改仍建议默认走文件工具：读取用 `Read`，" +
-                "单点改动用 `Edit`（每次改动可见、可审计）。例外是贯穿多个文件的同一种批量机械改动，" +
-                "那种情况优先用 `Shell` 或脚本一次做完。");
+                "- 文件内容的搜索、读写建议走文件工具：UiharuMind 为你提供方便的 `Glob`、`Grep` 搜索、`Read` 读取，`Edit` 修改（每次改动可见、可审计）工具。");
+            sb.AppendLine("搜索工具：命中数量过多时，会自动生成搜索地图，方便你逐步缩小范围；");
+            sb.AppendLine("读取工具：自动处理字符编码问题，并提供了大纲模式方便查看文件结构；");
+            sb.AppendLine("编辑工具：提供了三种匹配模式方便替换。");
+            sb.AppendLine("- 当然这只是建议，UiharuMind 并不强制要求你一定照做，当你认为 `Shell` 更顺手时，例如贯穿多个文件的同一种批量机械改动，可以按照你的方式处理。");
         }
 
         return sb.ToString();
@@ -149,7 +146,8 @@ public static class AgentToolPrompts
     public static string BuildExtensions(IReadOnlyList<(string Name, string Description)> extensions)
     {
         StringBuilder sb = new();
-        sb.Append("以下能力不在你的工具列表里，用 `").Append(ExtensionCalls.HelpName).Append("` 查命令，`")
+        sb.Append("UiharuMind 为你整理了一套「扩展」，专门用于存放可能不常使用(例如动态的 MCP 连接及操作)的工具，因此不直接存在于你的工具列表里。\n");
+        sb.Append("当你有需要时，可以通过查询命令列出使用方法：`").Append(ExtensionCalls.HelpName).Append("` 查命令，`")
             .Append(ExtensionCalls.CallName).Append("` 执行：\n");
         foreach ((string name, string description) in extensions)
         {

@@ -228,7 +228,7 @@ internal sealed class PermissiveFileAccessTools
             file => _paths.TryResolve(file, out string full, out _) ? FileOutline.ExtractFile(full) : null, contextLines);
     }
 
-    [Description("查看指定文件，自动处理编码等问题。")]
+    [Description("读取指定文件")]
     internal Task<string> Read(
         [Description("文件路径，工作目录的相对路径(也接受其它目录的绝对路径)。")] string filePath,
         [Description("起始行号，1 起算。负数从末尾计：-100 读最后 100 行")]
@@ -247,7 +247,7 @@ internal sealed class PermissiveFileAccessTools
             : _reader.ReadAsync(filePath, offset, limit, outline, cancellationToken);
     }
 
-    [Description("新建文件，或整份替换已有文件，局部修改用 Edit")]
+    [Description("新建文件，或整份替换已有文件")]
     internal async Task<string> Write(
         [Description("文件路径，工作目录的相对路径(也接受非工作目录的绝对路径)")]
         string filePath,
@@ -297,7 +297,7 @@ internal sealed class PermissiveFileAccessTools
     }
 
     [Description($"""
-                 按精确文本替换修改已有文件。工具提供三种对 oldString 的匹配模式：
+                 编辑文本文件。工具提供三种对 oldString 的匹配模式：
                  1. 精确匹配：全文件子串匹配，不限整行。但该子串在全文件必须唯一。
                  2. 多行匹配：「头串{EditElision.Token}尾串」，头串必须全文件唯一、尾取就近一处。
                  3. 单行匹配：「头串{EditElision.Token}」，以该头串开头的行必须全文件唯一。
