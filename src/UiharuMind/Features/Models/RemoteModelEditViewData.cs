@@ -332,17 +332,27 @@ public partial class RemoteModelEditViewData : ObservableObject
 
     private void LoadValues(BaseRemoteModelConfig config, string apiKey, string modelName)
     {
-        ModelName = modelName;
-        ModelPath = config.ModelPath ?? "";
-        ModelId = config.ModelId ?? "";
-        ModelDescription = config.ModelDescription ?? "";
-        ContextLengthText = config.ContextLength > 0 ? config.ContextLength.ToString() : "";
-        MaxTokensText = config.MaxTokens > 0 ? config.MaxTokens.ToString() : "";
-        ThinkingModeIndex = (int)config.ThinkingMode;
-        IsVision = config.IsVision;
-        OmitSamplingParams = config.OmitSamplingParams;
-        RequiresReasoningContentRoundtripOverride = config.RequiresReasoningContentRoundtripOverride;
-        ApiKey = apiKey;
+        // 初始化回填途中不触发按 ModelId 的预填(OnModelIdChanged 会 ApplyModelIdPreset):
+        // 编辑模式要把用户已保存的手动设置原样带回,创建模式的初始预填由 ApplyConfigTraits 末尾显式做
+        _suppressModelIdPrefill = true;
+        try
+        {
+            ModelName = modelName;
+            ModelPath = config.ModelPath ?? "";
+            ModelId = config.ModelId ?? "";
+            ModelDescription = config.ModelDescription ?? "";
+            ContextLengthText = config.ContextLength > 0 ? config.ContextLength.ToString() : "";
+            MaxTokensText = config.MaxTokens > 0 ? config.MaxTokens.ToString() : "";
+            ThinkingModeIndex = (int)config.ThinkingMode;
+            IsVision = config.IsVision;
+            OmitSamplingParams = config.OmitSamplingParams;
+            RequiresReasoningContentRoundtripOverride = config.RequiresReasoningContentRoundtripOverride;
+            ApiKey = apiKey;
+        }
+        finally
+        {
+            _suppressModelIdPrefill = false;
+        }
     }
 
     private void ApplyConfigTraits(BaseRemoteModelConfig config)
@@ -413,7 +423,8 @@ public partial class RemoteModelEditViewData : ObservableObject
     /// 可编辑下拉框的 <c>Text</c> 与 <c>SelectedItem</c> 是双向绑定的两条道,
     /// 两边值一旦不一致(如复制模型先写文本后定选中),控件回写就会把文本冲掉——
     /// VM 里永远保持两者一致,那次回写写回来的就是同一个值,等于没写。
-    /// 只对齐选中,不碰上下文等预设(手输自定义 ID 不该被预设覆盖)。
+    /// 对齐后若命中预设表,再按预设预填视觉/采样参数等强相关选项(与下拉选择同一口径);
+    /// 不命中(自定义 ID)不碰,手输自定义 ID 不该被预设覆盖。
     /// </summary>
     /// <param name="value">新的模型 ID 文本</param>
     partial void OnModelIdChanged(string value)
@@ -422,6 +433,7 @@ public partial class RemoteModelEditViewData : ObservableObject
         _suppressModelIdPrefill = true;
         SelectedModelIdOption = ModelIdOptions.FirstOrDefault(x => x.Id == value);
         _suppressModelIdPrefill = false;
+        if (SelectedModelIdOption != null) ApplyModelIdPreset(SelectedModelIdOption);
     }
 
     private void ApplyModelIdPreset(ModelIdOptionItem? option)
