@@ -69,7 +69,9 @@
       <EmbeddedResource Include="Resources\Cards\**\*.json" />
       <EmbeddedResource Include="Resources\Cards\**\*.md" />
       <EmbeddedResource Include="Resources\Snippets\*.json" />
-      <EmbeddedResource Include="Resources\Help*.md" />
+      <!-- WithCulture=false：文件名里的 zh-CN 会被 MSBuild 当成语言后缀，把 Help.zh-CN.md 编进
+           zh-CN 卫星程序集并从资源名里抹掉语言码，HelpPageData 按 Help.{code}.md 就找不到它 -->
+      <EmbeddedResource Include="Resources\Help*.md" WithCulture="false" />
     </ItemGroup>
 
   <ItemGroup>

@@ -21,6 +21,9 @@ publish_for() {
     local output="$2"
 
     rm -rf "$output"
+    # 清掉 publish 中间产物：dotnet publish 增量复用 obj 里旧的 SkiaSharp.dll 等依赖，
+    # 会把它混进新包（曾出现 4.152.1 托管 + 3.x native 的混装包，一开就崩）。
+    rm -rf "../UiharuMind.Desktop/obj" "../UiharuMind.Desktop/bin"
     dotnet publish "$DESKTOP_PROJECT" --output "$output" -r "$rid" --configuration Release || return 1
 
     if [ -d "$output/runtimes" ]; then

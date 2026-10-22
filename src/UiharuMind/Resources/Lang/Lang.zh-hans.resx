@@ -931,7 +931,7 @@
         <value>用户角色</value>
     </data>
     <data name="ParamsLang" xml:space="preserve">
-        <value>语言参数($lang)</value>
+        <value>语言</value>
     </data>
     <data name="ConvertToTempChat" xml:space="preserve">
         <value>转为对话</value>
@@ -1285,7 +1285,7 @@
         <value>更改开机自启动失败：{0}</value>
     </data>
     <data name="AboutIntroductionText" xml:space="preserve">
-        <value>UiharuMind 是一个支持运行本地(GGUF)大语言模型(同时也支持在线模型的调用)的跨平台开源项目。支持 Window、MacOS，提供聊天、知识库对话、截图、翻译(AI)、OCR识别(AI)、剪切板历史等等快捷功能使用。</value>
+        <value>UiharuMind 是一个跨平台的开源桌面 AI 助手：既能跑本地 GGUF 模型（llama.cpp），也能调用任何兼容 OpenAI 接口的在线模型。除了聊天，还有带工具与工作区的智能体、群聊与离席、知识库、截图 OCR、翻译、剪切板历史、自动点击等快捷工具。支持 Windows、macOS 与 Linux。</value>
     </data>
     <data name="AboutDefaultIconCredit" xml:space="preserve">
         <value>默认角色图标由智谱 CogView4 生成</value>
@@ -2077,7 +2077,7 @@
         <value>嵌入服务设置已保存。</value>
     </data>
     <data name="ServicesEmbeddingSettingsDesc" xml:space="preserve">
-        <value>配置常驻嵌入运行时。LLamaSharp 会在进程内运行；只有手动选择远程后端时才使用远程嵌入。</value>
+        <value>配置常驻嵌入运行时。本地走 llama-server；只有手动选择远程后端时才使用远程嵌入。</value>
     </data>
     <data name="ServicesEmbeddingAdvanced" xml:space="preserve">
         <value>高级参数</value>
