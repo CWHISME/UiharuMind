@@ -15,6 +15,7 @@ using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.ToolCall;
+using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Execution;
@@ -327,7 +328,13 @@ public sealed class TurnDriver : IDisposable
         }
         catch (Exception e)
         {
-            Log.Error($"Agent turn failed: {e}");
+            // 服务端拒 max_tokens(400):配置已在请求层自愈并重发过一次(LazyChatClient),
+            // 到这里要么是重发仍被拒、要么是本地模型无从修。属可预期故障,降为 Warning;
+            // 界面失败提示照发,不静默。
+            if (MaxTokensErrorHandler.IsMaxTokensError(e))
+                Log.Warning($"Agent turn failed: max_tokens rejected by the server. {e.Message}");
+            else
+                Log.Error($"Agent turn failed: {e}");
             // 失败与取消在历史上是同一种残局:那条工具结果永远不会来,半截回复也没人落盘。
             // 框架在失败路径上补的只有请求消息(见 SessionChatHistoryProvider.InvokedCoreAsync),
             // 响应侧它拿不到——不在这里收,重开会话就是一次没有结果的调用加一段消失的回复
@@ -368,7 +375,11 @@ public sealed class TurnDriver : IDisposable
         {
             // 交接失败不能杀死整轮:本轮历史已经落盘,后继的总结与报告还在后面排着。
             // 交接只是丢了一次压缩机会,下次水位再到还会触发
-            Log.Error($"Context handoff failed: session={session.SessionId}: {e.Message}");
+            // max_tokens 被服务端拒(400)属可预期故障,降为 Warning,与主轮次同一口径
+            if (MaxTokensErrorHandler.IsMaxTokensError(e))
+                Log.Warning($"Context handoff (max_tokens rejected): session={session.SessionId}: {e.Message}");
+            else
+                Log.Error($"Context handoff failed: session={session.SessionId}: {e.Message}");
         }
     }
 

@@ -15,11 +15,13 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution.ToolCall;
+using UiharuMind.Core.AI.Models;
+using UiharuMind.Core.AI.Net;
+using UiharuMind.Core.Configs.RemoteAI;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.RemoteOpenAI;
 
 namespace UiharuMind.Core.AI.Execution;
-
-/// <summary>
 /// 惰性模型客户端:构建 agent 时不要求模型就绪,每次请求时解析全局当前模型。
 /// 使会话历史的加载/回放与模型状态解耦(重启后无模型也能看历史),
 /// 顶栏切换模型后无需重建 agent,下一次请求自动生效。
@@ -94,6 +96,7 @@ public class LazyChatClient : IChatClient
         // 例外是 [DONE] 收尾却只有思考、没有 finish_reason 的截断回复(见 StreamCompletionWatch),同样重试。
         // 重试代价:若断线前已向上层吐过完整的工具调用,重发会让同一调用被框架再执行一次——
         // 好在工具调用通常出现在流中后段,断线多发在思考/等待的停顿期,此时尚无新调用产出。
+        bool maxTokensFixed = false; // 服务端拒 max_tokens 的自愈只做一次
         for (int attempt = 1; ; attempt++)
         {
             bool retryable = false;
@@ -102,6 +105,23 @@ public class LazyChatClient : IChatClient
             {
                 if (failure != null)
                 {
+                    // 服务端拒绝 max_tokens(响应头阶段的 400):不走断线退避——修好配置后立即整段重发一次。
+                    // 重发是一次全新的 SDK 调用,请求体由 OpenAICompatibleRequestPolicy 重新改写,新值真正生效。
+                    // 自愈只做一次;修不了(非远程配置型模型)或重发仍被拒 → 直接抛给上层,不空耗断线的重试次数。
+                    if (MaxTokensErrorHandler.TryGetUpperBound(failure, out int upperBound))
+                    {
+                        if (maxTokensFixed || !TryFixMaxTokens(model, upperBound))
+                        {
+                            ExceptionDispatchInfo.Capture(failure).Throw();
+                        }
+
+                        maxTokensFixed = true;
+                        Log.Warning($"max_tokens rejected by the server (declared upper bound {upperBound}); " +
+                                    "model config corrected, retrying this stream once.");
+                        retryable = true;
+                        break;
+                    }
+
                     retryable = true;
                     if (attempt >= StreamingRetryMaxAttempts)
                     {
@@ -124,11 +144,35 @@ public class LazyChatClient : IChatClient
     }
 
     /// <summary>
-    /// 单次流式枚举。中途断线(HttpIOException)或收尾判为截断时不向外抛,而是产出 (null, 异常) 让上层决定重试;
-    /// 正常产出 (update, null)。手动驱动 MoveNextAsync 是为了把 yield 从带 catch 的 try 里挪出来
-    /// (C# 不允许在带 catch 的 try 内 yield)。
+    /// 把远程模型配置的 <see cref="BaseRemoteModelConfig.MaxTokens"/> 回退为服务端声明的合法上限并落盘。
+    /// 配置中心里就是同一份对象:改完无需额外同步,下次请求的 <c>GetExtraParams</c> 直接按新值发。
+    /// 本地模型没有可调的输出预算配置(报错属服务端限制),返回 false 交给上层处理。
     /// </summary>
-    private async IAsyncEnumerable<(ChatResponseUpdate? Update, HttpIOException? Failure)> StreamOnceAsync(
+    private static bool TryFixMaxTokens(ModelRunningData model, int upperBound)
+    {
+        if (model.ModelInfo is not RemoteModelInfo remote) return false;
+        BaseRemoteModelConfig config = remote.Config;
+        if (config.MaxTokens == upperBound) return true; // 已是合法值
+        config.MaxTokens = upperBound;
+        try
+        {
+            RemoteModelSettingConfig.Current.Save();
+            return true;
+        }
+        catch (Exception e)
+        {
+            // 内存已修好、本次重发能成功;落盘失败只影响重启后,不阻塞自愈
+            Log.Warning($"max_tokens correction (MaxTokens={upperBound}) could not be persisted: {e.Message}");
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// 单次流式枚举。中途断线(HttpIOException)、收尾判为截断或服务端拒参数(400 max_tokens)时不向外抛,
+    /// 而是产出 (null, 异常) 让上层决定重试;正常产出 (update, null)。手动驱动 MoveNextAsync 是为了把 yield 从带 catch
+    /// 的 try 里挪出来 (C# 不允许在带 catch 的 try 内 yield)。
+    /// </summary>
+    private async IAsyncEnumerable<(ChatResponseUpdate? Update, Exception? Failure)> StreamOnceAsync(
         IChatClient client, IReadOnlyList<ChatMessage> messages, ChatOptions? options, HashSet<string>? toolNames,
         string? modelName, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
@@ -153,7 +197,7 @@ public class LazyChatClient : IChatClient
             while (true)
             {
                 ChatResponseUpdate? update = null;
-                HttpIOException? failure = null;
+                Exception? failure = null;
                 try
                 {
                     if (!await enumerator.MoveNextAsync().ConfigureAwait(false)) break;
@@ -161,6 +205,11 @@ public class LazyChatClient : IChatClient
                 }
                 catch (HttpIOException e) when (!cancellationToken.IsCancellationRequested)
                 {
+                    failure = e;
+                }
+                catch (Exception e) when (!cancellationToken.IsCancellationRequested && MaxTokensErrorHandler.IsMaxTokensError(e))
+                {
+                    // 响应头阶段的 400 在此转成交付形式,交上层做一次性自愈重发(见 StreamWithRetryAsync)
                     failure = e;
                 }
 
