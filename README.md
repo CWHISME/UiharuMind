@@ -6,10 +6,10 @@
 
 **English** · [中文](README.zh-CN.md)
 
-UiharuMind is a local-first AI assistant for the desktop. It runs GGUF models locally through llama.cpp, or talks to
+UiharuMind is a cross-platform desktop AI assistant. It runs GGUF models locally through llama.cpp, or talks to
 any OpenAI-compatible API. Beyond chatting, it gives models agents that work in a folder, group chats that keep going
 while you are away, and a set of quick tools — screenshot OCR, translation, clipboard history, auto click — that stay
-one hotkey away.
+one hotkey away. Local speech synthesis / recognition and image generation are built in as well.
 
 ## Features
 
@@ -27,7 +27,7 @@ one hotkey away.
   keyword-activated world books shared between characters.
 - **Extensions and MCP** — built-in `browser`, `desktop`, `image` and `audio` extensions plus MCP servers. The model
   looks a capability up before use, and risky calls are approved one by one.
-- **Voice and images** — speech synthesis and dictation through a local audio engine or online providers; image
+- **Voice and images** — speech synthesis and dictation through the local audio.cpp engine or online providers; image
   generation through stable-diffusion.cpp or remote image models.
 - **Managed Python** — agents install packages into a virtualenv UiharuMind creates and run them through the shell,
   leaving system Python alone.
@@ -65,10 +65,11 @@ Grab the archive for your platform from **[Releases][releases]**:
 | --- | --- | --- |
 | macOS (Apple Silicon) | `…-osx-arm64.zip` | Open `UiharuMind.app`. Signed with a self-signed certificate, **not notarized** — see below. |
 | Windows x64 | `…-win-x64.zip` | Windows 10 (build 19041) or later. Unzip and run `UiharuMind.Desktop.exe`. |
-| Linux x64 | `…-linux-x64.tar.gz` | X11 or XWayland. Untar and run `UiharuMind/UiharuMind.Desktop`. |
+| Linux x64 | `…-linux-x64.tar.gz` | X11 or XWayland. Untar and run `UiharuMind/UiharuMind.Desktop`. **Work in progress** — built but not fully tested. |
 
 Builds are self-contained — no .NET runtime needed. Releases are currently tagged `-alpha`, and older ones may only
-contain the macOS and Windows packages.
+contain the macOS and Windows packages. Linux x64 archives are built by the same pipeline, but Linux support is a
+work in progress and has not been fully tested.
 
 **macOS first launch.** Because the bundle is not notarized, Gatekeeper refuses it the first time. Allow it once:
 
@@ -194,6 +195,6 @@ release archives do not contain them.
 [license-shield]: https://img.shields.io/github/license/CWHISME/UiharuMind
 [releases]: https://github.com/CWHISME/UiharuMind/releases
 [release-shield]: https://img.shields.io/github/v/release/CWHISME/UiharuMind?include_prereleases&label=release
-[platform-shield]: https://img.shields.io/badge/platform-macOS%20arm64%20%7C%20Windows%20x64%20%7C%20Linux%20x64-informational
+[platform-shield]: https://img.shields.io/badge/platform-macOS%20arm64%20%7C%20Windows%20x64%20%7C%20Linux%20x64%20%28WIP%29-informational
 [issues]: https://github.com/CWHISME/UiharuMind/issues
 [discussions]: https://github.com/CWHISME/UiharuMind/discussions

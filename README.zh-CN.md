@@ -6,9 +6,9 @@
 
 [English](README.md) · **中文**
 
-UiharuMind 是一个面向日常桌面使用的本地优先 AI 助手。它可以通过 llama.cpp 在本地运行 GGUF 模型，也可以调用任何兼容
+UiharuMind 是一个面向日常桌面使用的跨平台 AI 助手。它可以通过 llama.cpp 在本地运行 GGUF 模型，也可以调用任何兼容
 OpenAI 接口的远程模型。除了聊天，它还给模型提供在目录里干活的智能体、开着就能在你离席时继续推进的群聊，以及截图 OCR、
-翻译、剪切板历史、自动点击这些只差一个快捷键的快捷工具。
+翻译、剪切板历史、自动点击这些只差一个快捷键的快捷工具；本地语音合成 / 识别和本地生图也内置其中。
 
 ## 功能特性
 
@@ -23,7 +23,7 @@ OpenAI 接口的远程模型。除了聊天，它还给模型提供在目录里�
   多个角色之间共享。
 - **扩展与 MCP** — 内置 `browser`、`desktop`、`image`、`audio` 扩展，MCP server 也以扩展形式接入。模型先查后调，高风险
   调用逐条审批。
-- **语音与生图** — 经本地语音引擎或在线服务完成朗读与听写；生图经 stable-diffusion.cpp 或远程生图模型。
+- **语音与生图** — 经本地 audio.cpp 引擎或在线服务完成朗读与听写；生图经 stable-diffusion.cpp 或远程生图模型。
 - **受管 Python** — 智能体把包装进 UiharuMind 创建的虚拟环境，经 shell 运行，不碰系统 Python。
 
 ## 截图
@@ -59,9 +59,10 @@ OpenAI 接口的远程模型。除了聊天，它还给模型提供在目录里�
 | --- | --- | --- |
 | macOS（Apple Silicon） | `…-osx-arm64.zip` | 打开 `UiharuMind.app`。自签名证书签名，**未经公证**——见下。 |
 | Windows x64 | `…-win-x64.zip` | 需要 Windows 10（19041）或更高。解压后运行 `UiharuMind.Desktop.exe`。 |
-| Linux x64 | `…-linux-x64.tar.gz` | X11 或 XWayland。解开后运行 `UiharuMind/UiharuMind.Desktop`。 |
+| Linux x64 | `…-linux-x64.tar.gz` | X11 或 XWayland。解开后运行 `UiharuMind/UiharuMind.Desktop`。**仍在完善中**——能构建，但还没有充分测试。 |
 
 三个平台都是自包含发布，不需要装 .NET 运行时。当前版本号带 `-alpha`；较早的发布可能只有 macOS 与 Windows 包。
+Linux x64 的包由同一套流水线构建，但 Linux 支持仍在完善中，尚未经过充分测试。
 
 **macOS 首次打开。** 因为包没有经过公证，Gatekeeper 第一次会拦住它。放行一次即可：
 
@@ -181,6 +182,6 @@ UiharuMind 站在这些项目之上，各自遵循自己的许可证：
 [license-shield]: https://img.shields.io/github/license/CWHISME/UiharuMind
 [releases]: https://github.com/CWHISME/UiharuMind/releases
 [release-shield]: https://img.shields.io/github/v/release/CWHISME/UiharuMind?include_prereleases&label=release
-[platform-shield]: https://img.shields.io/badge/platform-macOS%20arm64%20%7C%20Windows%20x64%20%7C%20Linux%20x64-informational
+[platform-shield]: https://img.shields.io/badge/platform-macOS%20arm64%20%7C%20Windows%20x64%20%7C%20Linux%20x64%20%28WIP%29-informational
 [issues]: https://github.com/CWHISME/UiharuMind/issues
 [discussions]: https://github.com/CWHISME/UiharuMind/discussions

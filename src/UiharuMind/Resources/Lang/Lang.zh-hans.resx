@@ -1285,7 +1285,7 @@
         <value>更改开机自启动失败：{0}</value>
     </data>
     <data name="AboutIntroductionText" xml:space="preserve">
-        <value>UiharuMind 是一个跨平台的开源桌面 AI 助手：既能跑本地 GGUF 模型（llama.cpp），也能调用任何兼容 OpenAI 接口的在线模型。除了聊天，还有带工具与工作区的智能体、群聊与离席、知识库、截图 OCR、翻译、剪切板历史、自动点击等快捷工具。支持 Windows、macOS 与 Linux。</value>
+        <value>UiharuMind 是一个跨平台的开源桌面 AI 助手：既能跑本地 GGUF 模型（llama.cpp），也能调用任何兼容 OpenAI 接口的在线模型。除了聊天，还有带工具与工作区的智能体、群聊与离席、知识库、截图 OCR、翻译、剪切板历史、自动点击等快捷工具。支持 Windows、macOS；Linux 支持仍在完善中。</value>
     </data>
     <data name="AboutDefaultIconCredit" xml:space="preserve">
         <value>默认角色图标由智谱 CogView4 生成</value>
