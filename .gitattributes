@@ -1,0 +1,4 @@
+# 仓库按 macOS 开发、CI 在 ubuntu：文本文件统一 LF。
+# 没有这份规则时，Windows 上 core.autocrlf=true 会把 checkout 的文件全落成 CRLF，
+# 本地跑测试/看 diff 会撞上平台差异（见 App.Tests 的 6 个环境性失败）。
+* text=auto eol=lf
