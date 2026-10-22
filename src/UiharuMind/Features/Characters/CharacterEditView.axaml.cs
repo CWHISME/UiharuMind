@@ -1,5 +1,6 @@
 using System;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Features.WorldBooks;
@@ -28,7 +29,7 @@ public partial class CharacterEditView : UserControl
     {
         if (DataContext is not CharacterDraft data) return;
 
-        SnippetPicker.DataContext = new PromptSnippetPickerViewData(
+        (sender as Flyout)!.Content = new PromptSnippetPickerViewData(
             () => data.Template,
             text => data.InsertSnippet(text));
     }
@@ -50,7 +51,7 @@ public partial class CharacterEditView : UserControl
             },
             filter: character => character.IsAgent,
             excludedIds: data.SubAgentAndSelfIds);
-        SubAgentPicker.DataContext = picker;
+        (sender as Flyout)!.Content = picker;
     }
 
     // ---- 世界书挂载（共享世界设定）：选择 / 编辑 / 解除，都在弹窗里做，不在角色卡里内联改共享书 ----

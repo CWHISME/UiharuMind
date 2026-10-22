@@ -65,7 +65,7 @@ public partial class GroupAwaySetupWindow : Window
         if (DataContext is not GroupAwayViewData away) return;
 
         Flyout? flyout = sender as Flyout; //Opening 的 sender 就是 Flyout 本身，拿它收起面板
-        AvatarCharacterPicker.DataContext = new CharacterPickerViewData(
+        flyout!.Content = new CharacterPickerViewData(
             character =>
             {
                 away.PickAvatarCharacter(character);

@@ -11,7 +11,7 @@
         </StackPanel>
 
         <ScrollViewer Grid.Row="1" MaxHeight="400" HorizontalScrollBarVisibility="Disabled">
-            <models:ModelRuntimeOverridesView Name="Rows" Margin="16,0,16,12" />
+            <models:ModelRuntimeOverridesView Name="Rows" Margin="16,0,16,12" DataContext="{x:Null}" />
         </ScrollViewer>
 
         <Border Grid.Row="2" Padding="12,10" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,1,0,0">

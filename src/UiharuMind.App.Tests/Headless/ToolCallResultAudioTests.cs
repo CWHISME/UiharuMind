@@ -30,7 +30,9 @@ public sealed class ToolCallResultAudioTests : IDisposable
 
     private string WriteWav(string relativePath)
     {
-        string path = Path.Combine(_root, "draft", relativePath);
+        // Path.Combine 不转换已有分隔符：Windows 上 "audio/line-1.wav" 拼出来是混合分隔符，
+        // 而 AgentPathResolver 走 Path.GetFullPath 会规范化成 \——期望必须与生产口径一致
+        string path = Path.Combine(_root, "draft", relativePath.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllBytes(path, WavEncoder.Encode(new float[2400], 24000, 1));
         return path;

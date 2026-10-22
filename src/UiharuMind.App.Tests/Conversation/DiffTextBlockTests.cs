@@ -14,7 +14,7 @@ namespace UiharuMind.App.Tests.Conversation;
 public class DiffTextBlockTests
 {
     [Fact]
-    public void BuildInlines_JoinsEveryLineAsRunWithLineBreakBetween()
+    public void BuildInlines_JoinsEveryLineAsRunWithNewlineRunBetween()
     {
         var lines = new[]
         {
@@ -25,10 +25,12 @@ public class DiffTextBlockTests
 
         var inlines = DiffTextBlock.BuildInlines(lines, null, null);
 
-        var runs = inlines.OfType<Run>().ToArray();
-        var breaks = inlines.OfType<LineBreak>().ToArray();
+        // 行间是换行 Run（Text == "\n"）而不是 LineBreak：LineBreak 在 Inlines.Text 里按平台换行展开
+        // （Windows 上是 \r\n，2 字符），与 BuildDecorations 按每行间隔 1 字符算的偏移对不上——
+        // 用 Run("\n") 拼出来的 Inlines.Text 跨平台恒为单换行，装饰偏移才稳定（见 DiffTextBlock.BuildInlines）
+        Run[] runs = TextRuns(inlines);
         Assert.Equal(3, runs.Length);
-        Assert.Equal(2, breaks.Length);
+        Assert.Equal(2, inlines.OfType<Run>().Count(r => r.Text == "\n")); //行间换行 Run
         Assert.Equal(" ctx", runs[0].Text);
         Assert.Equal("+old", runs[1].Text);
         Assert.Equal("-new", runs[2].Text);
@@ -49,7 +51,7 @@ public class DiffTextBlockTests
         var redFg = new SolidColorBrush(Colors.Red);
 
         var inlines = DiffTextBlock.BuildInlines(lines, greenFg, redFg);
-        var runs = inlines.OfType<Run>().ToArray();
+        var runs = TextRuns(inlines);
 
         // context：不用增删配色（Foreground 默认非 null，故用 NotSame）
         Assert.NotSame(greenFg, runs[0].Foreground);
@@ -106,6 +108,10 @@ public class DiffTextBlockTests
 
         Assert.Empty(inlines);
     }
+
+    /// <summary>行文本 Run（剔除行间换行 Run），断言配色与文本时的统一入口</summary>
+    private static Run[] TextRuns(InlineCollection inlines) =>
+        inlines.OfType<Run>().Where(r => r.Text != "\n").ToArray();
 
     [Fact]
     public void StyleKey_StaysSelectableTextBlock_SelectsThemeAndCopyMenu()

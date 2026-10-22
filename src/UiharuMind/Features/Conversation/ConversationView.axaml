@@ -102,10 +102,17 @@
                                        Text="{Binding SessionModelLabel}"
                                        TextTrimming="CharacterEllipsis" MaxLines="1" />
                             <Button.Flyout>
-                                <Flyout Placement="BottomEdgeAlignedLeft">
-                                    <Border Width="320" Padding="0" ClipToBounds="True">
-                                        <panels:SessionModelPanel DataContext="{Binding SessionModel}" />
-                                    </Border>
+                                <Flyout Placement="BottomEdgeAlignedLeft" Content="{Binding SessionModel}">
+                                    <!-- ContentTemplate 包一层：直接写 DataContext 绑定时，内容在绑定求值前会继承
+                                         父级 ConversationViewModel，编译绑定强转会抛 InvalidCastException；
+                                         Content 为 null 时模板不实例化，中间态不存在 -->
+                                    <Flyout.ContentTemplate>
+                                        <DataTemplate DataType="panels:SessionModelViewData">
+                                            <Border Width="320" Padding="0" ClipToBounds="True">
+                                                <panels:SessionModelPanel />
+                                            </Border>
+                                        </DataTemplate>
+                                    </Flyout.ContentTemplate>
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
@@ -659,20 +666,29 @@
                                               IsVisible="{Binding AutoReadAloud}" />
                         </Panel>
                         <!-- 语音输入：数据由后台代码在挂上界面时接（要取听写服务），无头测试里没有就一直藏着 -->
-                        <Panel Name="DictationButton" IsVisible="False" x:DataType="audio:ComposerDictationViewData">
-                            <ThemedIconButton IconName="mic" Command="{Binding ToggleCommand}"
-                                              ToolTips="{Binding Tooltip}" IsVisible="{Binding IsIdle}" />
-                            <ThemedIconButton IconName="mic" CurrentColor="Red" Command="{Binding ToggleCommand}"
-                                              ToolTips="{Binding Tooltip}" IsVisible="{Binding IsRecording}" />
-                            <Panel Width="28" Height="28" Background="Transparent" ToolTip.Tip="{Binding Tooltip}"
-                                   IsVisible="{Binding IsTranscribing}">
-                                <SpinnerIcon HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Panel>
-                            <!-- 录音时的音量条：贴在图标底下 -->
-                            <ProgressBar Height="2" MinHeight="2" MinWidth="0" Width="18" Maximum="1" Value="{Binding Level}"
-                                         VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,1"
-                                         IsHitTestVisible="False" IsVisible="{Binding IsRecording}" />
-                        </Panel>
+                        <!-- 用 ContentTemplate 包一层：直接在元素上标 x:DataType 时，面板在 DataContext 赋值前会继承
+                             父级 ConversationViewModel，编译绑定强转会抛 InvalidCastException；
+                             放模板里 DataType 固定，类型不匹配就不实例化、绑定不求值 -->
+                        <ContentControl Name="DictationButton" IsVisible="False">
+                            <ContentControl.ContentTemplate>
+                                <DataTemplate DataType="audio:ComposerDictationViewData">
+                                    <Panel>
+                                        <ThemedIconButton IconName="mic" Command="{Binding ToggleCommand}"
+                                                          ToolTips="{Binding Tooltip}" IsVisible="{Binding IsIdle}" />
+                                        <ThemedIconButton IconName="mic" CurrentColor="Red" Command="{Binding ToggleCommand}"
+                                                          ToolTips="{Binding Tooltip}" IsVisible="{Binding IsRecording}" />
+                                        <Panel Width="28" Height="28" Background="Transparent" ToolTip.Tip="{Binding Tooltip}"
+                                               IsVisible="{Binding IsTranscribing}">
+                                            <SpinnerIcon HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Panel>
+                                        <!-- 录音时的音量条：贴在图标底下 -->
+                                        <ProgressBar Height="2" MinHeight="2" MinWidth="0" Width="18" Maximum="1" Value="{Binding Level}"
+                                                     VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,1"
+                                                     IsHitTestVisible="False" IsVisible="{Binding IsRecording}" />
+                                    </Panel>
+                                </DataTemplate>
+                            </ContentControl.ContentTemplate>
+                        </ContentControl>
                         <ThemedIconButton IconName="settings">
                             <ThemedIconButton.Flyout>
                                 <Flyout Placement="Top">

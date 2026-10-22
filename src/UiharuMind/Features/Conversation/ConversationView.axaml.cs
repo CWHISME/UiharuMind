@@ -146,7 +146,7 @@ public partial class ConversationView : UserControl
         if (_dictation != null || App.Services?.GetService<IDictationService>() is not { } service) return;
         _dictationTarget = new TextBoxDictationTarget(InputBox, service);
         _dictation = new ComposerDictationViewData(service, _dictationTarget, () => SettingConfig.Current);
-        DictationButton.DataContext = _dictation;
+        DictationButton.Content = _dictation;
         DictationButton.IsVisible = true;
     }
 
@@ -156,7 +156,7 @@ public partial class ConversationView : UserControl
         _dictationTarget?.Dispose();
         _dictation = null;
         _dictationTarget = null;
-        DictationButton.DataContext = null;
+        DictationButton.Content = null;
         DictationButton.IsVisible = false;
     }
 

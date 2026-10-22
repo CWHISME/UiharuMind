@@ -26,7 +26,15 @@ public class ModelRepoDetailDataTests : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(_root)) Directory.Delete(_root, true);
+        try
+        {
+            if (Directory.Exists(_root)) Directory.Delete(_root, true);
+        }
+        catch (IOException)
+        {
+            // 后台传输循环被 Cancel 后还没放下文件句柄（Windows 上释放有延迟），
+            // 临时目录清理失败由系统兜底，不影响断言（同 ApprovalDiffTests 口径）
+        }
     }
 
     private static readonly ModelRepoFile[] RepoFiles =

@@ -143,7 +143,13 @@
                                     <Button Content="{loc:Loc SnippetInsert}">
                                         <Button.Flyout>
                                             <Flyout Placement="BottomEdgeAlignedLeft" Opening="OnSnippetPickerOpening">
-                                                <viewData:PromptSnippetPickerView Name="SnippetPicker" />
+                                                <!-- 同子代理选择器：ContentTemplate 包一层，避免内容在赋值前
+                                                     继承父级 DataContext、编译绑定强转抛 InvalidCastException -->
+                                                <Flyout.ContentTemplate>
+                                                    <DataTemplate DataType="viewData:PromptSnippetPickerViewData">
+                                                        <viewData:PromptSnippetPickerView />
+                                                    </DataTemplate>
+                                                </Flyout.ContentTemplate>
                                             </Flyout>
                                         </Button.Flyout>
                                     </Button>
@@ -323,7 +329,13 @@
                                 <Button Content="{loc:Loc AddBtn}" HorizontalAlignment="Left">
                                     <Button.Flyout>
                                         <Flyout Placement="BottomEdgeAlignedLeft" Opening="OnSubAgentPickerOpening">
-                                            <viewData:CharacterPickerView Name="SubAgentPicker" />
+                                            <!-- 同 ConversationPageData 场景：ContentTemplate 包一层，避免内容在赋值前
+                                                 继承父级 DataContext、编译绑定强转抛 InvalidCastException -->
+                                            <Flyout.ContentTemplate>
+                                                <DataTemplate DataType="viewData:CharacterPickerViewData">
+                                                    <viewData:CharacterPickerView />
+                                                </DataTemplate>
+                                            </Flyout.ContentTemplate>
                                         </Flyout>
                                     </Button.Flyout>
                                 </Button>

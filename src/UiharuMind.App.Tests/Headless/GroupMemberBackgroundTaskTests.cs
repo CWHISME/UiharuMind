@@ -20,8 +20,8 @@ namespace UiharuMind.App.Tests.Headless;
 public class GroupMemberBackgroundTaskTests : IDisposable
 {
     // Shell 解析在 Core 内部（ShellExecutorFactory 只对 Core.Tests 开放），App.Tests 起真进程直接给路径。
-    // 本仓开发/测试机是 macOS，/bin/bash 恒在
-    private const string ShellBinary = "/bin/bash";
+    // 本仓按 macOS 开发，/bin/bash 恒在；Windows 上没有，换 cmd.exe（BackgroundTaskLaunch 已按 shell 给参数）
+    private static readonly string ShellBinary = OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/bash";
 
     private readonly List<string> _ownedGroups = [];
     private readonly List<string> _ownedTasks = [];
@@ -139,7 +139,8 @@ public class GroupMemberBackgroundTaskTests : IDisposable
     {
         BackgroundTaskLaunch launch = new(ShellBinary, Path.GetTempPath(), new Dictionary<string, string?>(),
             Directory.CreateTempSubdirectory("bg-dot").FullName);
-        return BackgroundTaskRegistry.Start(memberId, "sleep 30", description, TimeSpan.FromMinutes(1), launch,
+        string command = OperatingSystem.IsWindows() ? "ping -n 30 127.0.0.1 >nul" : "sleep 30";
+        return BackgroundTaskRegistry.Start(memberId, command, description, TimeSpan.FromMinutes(1), launch,
             new NoopSink());
     }
 

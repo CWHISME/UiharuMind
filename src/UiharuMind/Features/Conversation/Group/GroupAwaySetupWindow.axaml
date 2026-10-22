@@ -46,7 +46,13 @@
                         <Button.Flyout>
                             <Flyout Placement="BottomEdgeAlignedLeft"
                                     Opening="OnAvatarCharacterPickerOpening">
-                                <chars:CharacterPickerView Name="AvatarCharacterPicker" />
+                                <!-- 同 ConversationPageData 场景：ContentTemplate 包一层，避免内容在赋值前
+                                     继承父级 DataContext、编译绑定强转抛 InvalidCastException -->
+                                <Flyout.ContentTemplate>
+                                    <DataTemplate DataType="chars:CharacterPickerViewData">
+                                        <chars:CharacterPickerView />
+                                    </DataTemplate>
+                                </Flyout.ContentTemplate>
                             </Flyout>
                         </Button.Flyout>
                     </Button>

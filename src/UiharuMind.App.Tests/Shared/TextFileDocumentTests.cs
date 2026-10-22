@@ -11,11 +11,15 @@ public class TextFileDocumentTests
     [Fact]
     public void File_IsNamedByItsFileName_AndAddressedByItsPath()
     {
-        TextFileDocument document = TextFileDocument.ForFile("/repo/src/A.cs", new UTF8Encoding(false), false);
+        // 用平台真正的绝对路径：/repo/src/A.cs 这种 POSIX 写法在 Windows 上
+        // 不被 Path.IsPathFullyQualified 认作绝对路径，LinkBaseDirectory 会落空
+        string dir = Path.Combine(Path.GetTempPath(), "repo", "src");
+        string file = Path.Combine(dir, "A.cs");
+        TextFileDocument document = TextFileDocument.ForFile(file, new UTF8Encoding(false), false);
 
         Assert.Equal("A.cs", document.GetTitle("未命名"));
-        Assert.Equal("/repo/src/A.cs", document.GetLocation("未命名"));
-        Assert.Equal("/repo/src", document.LinkBaseDirectory);
+        Assert.Equal(file, document.GetLocation("未命名"));
+        Assert.Equal(dir, document.LinkBaseDirectory);
         Assert.False(document.IsReadOnly);
     }
 

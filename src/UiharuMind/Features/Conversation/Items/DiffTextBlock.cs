@@ -132,14 +132,14 @@ public sealed class DiffTextBlock : DecoratedTextBlock
             }
 
             offset += text.Length;
-            if (i < lines.Count - 1) offset += 1; // 行间 LineBreak → 文本源里一个换行符
+            if (i < lines.Count - 1) offset += 1; // 行间换行 Run → 文本源里一个换行符(与 BuildInlines 同口径)
         }
 
         return decorations;
     }
 
     /// <summary>
-    /// 把 diff 行构建成单块 Inlines（行间 LineBreak；增/删行只设前景——背景由 Decorations 自绘）。
+    /// 把 diff 行构建成单块 Inlines（行间一个换行 Run；增/删行只设前景——背景由 Decorations 自绘）。
     /// 抽出为纯静态便于测试；与 <see cref="BuildDecorations"/> 共用同一行文本拼接规则
     /// </summary>
     internal static InlineCollection BuildInlines(
@@ -150,7 +150,10 @@ public sealed class DiffTextBlock : DecoratedTextBlock
         var inlines = new InlineCollection();
         for (int i = 0; i < lines.Count; i++)
         {
-            if (i > 0) inlines.Add(new LineBreak());
+            // 行间用 Run("\n") 而不是 LineBreak：LineBreak 在 Inlines.Text 里按 Environment.NewLine 展开，
+            // Windows 上是 \r\n（2 字符），而 BuildDecorations 的偏移按每行间隔 1 字符算——
+            // 从第二行起背景逐行错位（macOS 上 \n 恰好 1 字符，从未暴露）。Run("\n") 跨平台一致
+            if (i > 0) inlines.Add(new Run("\n"));
 
             DiffLineView line = lines[i];
             var run = new Run(line.Prefix + line.Text);
