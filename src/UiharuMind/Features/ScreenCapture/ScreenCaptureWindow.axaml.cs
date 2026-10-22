@@ -73,6 +73,11 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     // 遮罩铺满全屏且独占指针，后续移动窗口一定收得到，钩子再掺一脚只会两个来源互相顶
     private bool _selectionFromHook;
 
+    // 悬停放大镜更新合并到渲染帧：高回报率鼠标（125–1000Hz）的每个 move 事件都做
+    // 全套取色+布局会挤掉渲染帧，面板看着就"跟不上"。同一时刻至多排一个，
+    // 渲染优先级保证下一帧就执行，且用的是最新坐标
+    private bool _magnifierQueued;
+
     // 调整模式下按位置切光标；静态复用，避免指针热路径上每帧 new
     private static readonly Cursor CursorMove = new(StandardCursorType.DragMove);
     private static readonly Cursor CursorResizeDiagonalLeft = new(StandardCursorType.TopLeftCorner);
@@ -312,7 +317,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
 
         if (!_selection.IsSelecting)
         {
-            UpdateMagnifier();
+            QueueMagnifierUpdate();
             return;
         }
 
@@ -517,6 +522,18 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         if (_currentScreen == null) return;
         _infoPanel.ShowSelectionSize(_currentScreen, RenderScaling, _lastPointerPixel, Position,
             _selection.Selection.Size);
+    }
+
+    private void QueueMagnifierUpdate()
+    {
+        if (_magnifierQueued) return;
+        _magnifierQueued = true;
+        Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            _magnifierQueued = false;
+            if (!IsVisible || _adjusting || _selection.IsSelecting) return;
+            UpdateMagnifier();
+        }, DispatcherPriority.Render);
     }
 
     private void UpdateMagnifier()
@@ -730,6 +747,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         _pendingScreen = null;
         _lastPointerPixel = default;
         _selectionFromHook = false;
+        _magnifierQueued = false;
         _adjusting = false;
         _dragHandle = SelectionResizeHandle.None;
         Cursor = Cursor.Default;

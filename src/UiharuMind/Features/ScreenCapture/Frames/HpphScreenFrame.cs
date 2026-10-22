@@ -1,10 +1,8 @@
 using System;
-using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Media.Imaging;
 using HPPH;
 using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Core.Core.UiharuScreenCapture;
 using UiharuMind.Shared.Utils;
 using MediaColor = Avalonia.Media.Color;
 
@@ -69,26 +67,20 @@ public sealed class HpphScreenFrame : IScreenFrame
         int y = screenUnits.Y - Origin.Y;
         if (x < 0 || y < 0 || x >= _image.Width || y >= _image.Height) return null;
 
-        // 与 UiUtils.BuildBitmap 同口径：底层是 Bgra8888，直接按字节读
-        MediaColor? color = null;
         try
         {
-            _image.GetCaptureImagePointer((data, stride) =>
-            {
-                int offset = y * stride + x * 4;
-                byte b = Marshal.ReadByte(data, offset);
-                byte g = Marshal.ReadByte(data, offset + 1);
-                byte r = Marshal.ReadByte(data, offset + 2);
-                byte a = Marshal.ReadByte(data, offset + 3);
-                color = MediaColor.FromArgb(a, r, g, b);
-            });
+            // 直接走 HPPH 索引器读单个像素，O(1) 零分配。
+            // 之前经 GetCaptureImagePointer 取一个点会先复制整屏（4K 约 830 万次遍历），
+            // 鼠标每动一下都来一回，UI 线程被反复堵死，tips 跟随就卡了
+            var c = _image[x, y];
+            return MediaColor.FromArgb(c.A, c.R, c.G, c.B);
         }
         catch (Exception e)
         {
             Log.Warning($"取色失败：{e.Message}");
         }
 
-        return color;
+        return null;
     }
 
     /// 整屏位图是全应用最大的一次分配，且每次截图都来一张，必须确定性释放
