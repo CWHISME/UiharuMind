@@ -195,6 +195,76 @@ public class SubAgentToolTests
         }
     }
 
+    //================= 墙钟上限（目标模式豁免，夜间实现活不被 30 分钟掐） =================
+
+    /// 默认无人值守档 30 分钟；有人看着按 24 小时交互档
+    [Fact]
+    public void WallClock_Unattended_UsesShortLimit()
+    {
+        SubAgentTool.InGoalModeSource = null;
+        try
+        {
+            Assert.Equal(SubAgentTool.UnattendedTimeout, SubAgentTool.ResolveWallClockLimit(attended: false, "parent"));
+            Assert.Equal(SubAgentTool.Timeout, SubAgentTool.ResolveWallClockLimit(attended: true, "parent"));
+        }
+        finally
+        {
+            SubAgentTool.InGoalModeSource = null;
+        }
+    }
+
+    /// 派活会话在目标模式：没人看着也按 24 小时交互档，不落 30 分钟
+    [Fact]
+    public void WallClock_GoalModeParent_UsesInteractiveLimitEvenIfUnattended()
+    {
+        SubAgentTool.InGoalModeSource = id => id == "goal-parent";
+        try
+        {
+            Assert.Equal(SubAgentTool.Timeout, SubAgentTool.ResolveWallClockLimit(attended: false, "goal-parent"));
+            Assert.Equal(SubAgentTool.UnattendedTimeout, SubAgentTool.ResolveWallClockLimit(attended: false, "other-parent"));
+        }
+        finally
+        {
+            SubAgentTool.InGoalModeSource = null;
+        }
+    }
+
+    //================= 收尾判定（墙钟超时不再误标 done） =================
+
+    /// 正常结束：既不算超时也不算停止
+    [Fact]
+    public void Outcome_Normal_Nothing()
+    {
+        Assert.Equal((false, false), SubAgentTool.ResolveOutcome(wasCancelled: false, timeoutRequested: false, parentCancelled: false));
+    }
+
+    /// 墙钟超时：TurnDriver 以取消收尾且 timeout 已请求取消 —— 必须判成超时而不是「完成」
+    [Fact]
+    public void Outcome_WallClockTimeout_IsTimedOutNotDone()
+    {
+        (bool timedOut, bool stopped) = SubAgentTool.ResolveOutcome(wasCancelled: true, timeoutRequested: true, parentCancelled: false);
+        Assert.True(timedOut);
+        Assert.False(stopped);
+    }
+
+    /// 用户点停止：driver 取消但 timeout 没动 —— 是 stopped，不是超时
+    [Fact]
+    public void Outcome_UserStop_IsStoppedNotTimedOut()
+    {
+        (bool timedOut, bool stopped) = SubAgentTool.ResolveOutcome(wasCancelled: true, timeoutRequested: false, parentCancelled: false);
+        Assert.False(timedOut);
+        Assert.True(stopped);
+    }
+
+    /// 外部上游取消：与墙钟超时同时发生时算停止（父令牌动了，不算超时的账）
+    [Fact]
+    public void Outcome_ParentCancelled_IsStoppedEvenIfTimeoutAlsoFired()
+    {
+        (bool timedOut, bool stopped) = SubAgentTool.ResolveOutcome(wasCancelled: true, timeoutRequested: true, parentCancelled: true);
+        Assert.False(timedOut);
+        Assert.True(stopped);
+    }
+
     private static Task<string> Send(string to) =>
         Invoke(Messenger(), new AIFunctionArguments { ["message"] = "继续", ["to"] = to });
 

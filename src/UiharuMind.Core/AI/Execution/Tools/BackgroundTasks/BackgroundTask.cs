@@ -21,6 +21,10 @@ namespace UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
 /// </summary>
 public sealed class BackgroundTask
 {
+    /// <summary>后台任务日志目录名（草稿目录下的子目录）：日志落在 <c>&lt;草稿目录&gt;/tasks/</c>，
+    /// 产物枚举排除它；模型按 <c>$DRAFT</c> 也找得到</summary>
+    public const string LogDirectoryName = "tasks";
+
     // 进程退出后等输出读完的最长时间:它放到后台的子进程可能一直占着管道,不能陪着等
     private static readonly TimeSpan DrainLimit = TimeSpan.FromSeconds(2);
 

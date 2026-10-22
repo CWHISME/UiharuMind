@@ -1,7 +1,9 @@
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Chat.Group.Away;
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Files;
+using UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
 
 namespace UiharuMind.Core.Tests.Chat;
 
@@ -112,6 +114,39 @@ public sealed class GroupArtifactsTests : IDisposable
     }
 
     private IReadOnlyList<string> Written(List<ChatMessage> history) => GroupArtifacts.WrittenPaths(history, new AgentPathResolver(_workspace));
+
+    /// <summary>运行时文件不进产物：后台任务日志目录（tasks/）、未绑工作区时落在草稿目录里的记忆目录（Memory/）、
+    /// 任何位置的 .log——它们自动生成、高频变动，列进来只是噪音；干活落的真产物与子目录里的产物照常列</summary>
+    [Fact]
+    public void RuntimeLogs_AreExcluded_FromDraftRoom()
+    {
+        string note = Touch(_room, "正常产物.md");
+        Touch(_room, Path.Combine(BackgroundTask.LogDirectoryName, "a1.log"));
+        Touch(_room, Path.Combine("logs", "output.log"));
+        Touch(_room, Path.Combine(MemoryLayout.FolderName, "偏好.md"));
+        Touch(_room, Path.Combine("sub", "report.md"));
+
+        IReadOnlyList<GroupArtifact> artifacts = GroupArtifacts.Collect(_room, null, []);
+
+        Assert.Equal(new[] { Path.Combine("sub", "report.md"), "正常产物.md" }.Order(),
+            artifacts.Select(x => x.DisplayPath).Order());
+        Assert.Contains(artifacts, x => x.FullPath == note);
+    }
+
+    /// <summary>工作区里模型有意写下的 .log 也不算产物：同一条判据两处共用（见 <see cref="GroupArtifacts"/> 的 IsRuntimeFile）</summary>
+    [Fact]
+    public void RuntimeLogs_AreExcluded_FromWorkspaceWrites()
+    {
+        Touch(_workspace, "run.log");
+        Touch(_workspace, Path.Combine("Code", "A.cpp"));
+        List<ChatMessage> history = [];
+        AddWrite(history, "1", FileToolNames.Write, "run.log", "已保存 'run.log'。");
+        AddWrite(history, "2", FileToolNames.Write, Path.Combine("Code", "A.cpp"), "已保存 'Code/A.cpp'。");
+
+        IReadOnlyList<GroupArtifact> artifacts = GroupArtifacts.Collect(_room, _workspace, [(string.Empty, Written(history))]);
+
+        Assert.Equal([Path.Combine("Code", "A.cpp")], artifacts.Select(x => x.DisplayPath));
+    }
 
     private static string Touch(string root, string relative)
     {

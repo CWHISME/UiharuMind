@@ -394,6 +394,11 @@ public partial class App : Application, ILogger, IDisposable
         // 派出去的子代理随派活会话：目标模式的活多半是派出去干的,不继承就推不动
         UiharuMind.Core.AI.Execution.Tools.SubAgentTool.InheritedUnattendedApprovals =
             sessionId => GoalModeController.Instance.ResolverFor(sessionId);
+        // 派出去的子代理随派活会话的墙钟：目标模式没人盯着却分派长实现活，30 分钟无人值守档
+        // 会把一半的活掐掉（实机 1800s 整被掐）。按交互档（24 小时）跑，代价是跑偏更晚才
+        // 暴露——但目标模式本来就有交付判据（goal.end 自判结束），不是无限烧
+        UiharuMind.Core.AI.Execution.Tools.SubAgentTool.InGoalModeSource =
+            sessionId => GoalModeController.Instance.IsActive(sessionId);
         UiharuMind.Core.AI.Execution.Tools.BackgroundSubAgentDispatcher.Notifier = (notice, _) =>
         {
             if (Services?.GetService<IMessageService>() is not { } messageService) return;

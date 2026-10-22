@@ -192,7 +192,8 @@ internal static class AgentAssembler
         LocalShellExecutor shellExecutor) =>
         new(shellExecutor.ResolvedShellBinary, plan.WorkingDirectory,
             ShellExecutorFactory.BuildEnvironment(plan.ShellEnvironment),
-            Path.Combine(plan.OutputRoomDirectory.Length > 0 ? plan.OutputRoomDirectory : Path.GetTempPath(), "tasks"));
+            Path.Combine(plan.OutputRoomDirectory.Length > 0 ? plan.OutputRoomDirectory : Path.GetTempPath(),
+                BackgroundTask.LogDirectoryName));
 
     /// <summary>
     /// 把装配好的选项变成一个可运行的 agent 句柄

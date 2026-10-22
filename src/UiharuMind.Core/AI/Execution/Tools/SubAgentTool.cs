@@ -77,6 +77,18 @@ public static class SubAgentTool
     public static Func<string, ApprovalResolver?>? InheritedUnattendedApprovals { get; set; }
 
     /// <summary>
+    /// 派活会话是否在目标模式里（按派活者的会话标识）。在则它派出的子代理按交互档墙钟
+    /// （<see cref="Timeout"/>）跑，不落无人值守档的 30 分钟——目标模式就是让模型自己
+    /// 推进的，夜里派出去的实现活常超 30 分钟（实机 1800s 整被掐、报告只有几十字符）。
+    /// 没有为 null（不豁免）。
+    ///
+    /// 只抬墙钟，不碰审批：attended 仍按原值算，目标模式无人值守的审批走
+    /// <see cref="InheritedUnattendedApprovals"/>（勾了自动同意才放行），两边语义不混。
+    /// 由装配入口注入：Core 的执行层不该知道目标模式
+    /// </summary>
+    public static Func<string, bool>? InGoalModeSource { get; set; }
+
+    /// <summary>
     /// 子代理的工具循环轮次上限(传给框架的 <c>MaximumIterationsPerRequest</c>,
     /// 到顶即停止循环并把已有进展作为响应返回,不抛异常)。
     ///
@@ -470,12 +482,53 @@ public static class SubAgentTool
     private static async Task<string> RunTurnAsync(ChatSession session, string message, bool attended,
         CancellationToken cancellationToken)
     {
-        TimeSpan limit = attended ? Timeout : UnattendedTimeout;
+        // 目标模式豁免：派活会话在目标模式里就按交互档墙钟（24 小时）跑，不落 30 分钟无人值守档。
+        // 判定用派活者的会话标识（session.ParentSessionId），与 InheritedUnattendedApprovals 同源；
+        // 只抬墙钟不碰审批（见 InGoalModeSource 注释）。
+        // 注意 attended 本身冻结在派发时刻（DispatchToBackground），这里复用的不是它，
+        // 而是按 parentSessionId 现问——目标模式可能在那之后才开始/结束
+        TimeSpan limit = ResolveWallClockLimit(attended, session.ParentSessionId);
         using CancellationTokenSource timeoutSource =
             CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutSource.CancelAfter(limit);
         return await RunSubSessionTurnAsync(session, message, attended, limit, timeoutSource, cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// 子代理的墙钟上限：有人看着（或派活会话在目标模式）按交互档 <see cref="Timeout"/>，
+    /// 否则按无人值守档 <see cref="UnattendedTimeout"/>。
+    ///
+    /// 拆出来是为了不让「没人盯着的实现活被 30 分钟掐掉」这种回归有第二次机会：
+    /// 判定只差一个注入口，而它会被测试直接钉住（见 SubAgentTool 的目标模式豁免测试）。
+    /// </summary>
+    /// <param name="attended">派发时刻有没有人看着</param>
+    /// <param name="parentSessionId">派活会话标识；目标模式豁免按它问 <see cref="InGoalModeSource"/></param>
+    /// <returns>墙钟上限</returns>
+    internal static TimeSpan ResolveWallClockLimit(bool attended, string? parentSessionId)
+    {
+        bool goalMode = InGoalModeSource?.Invoke(parentSessionId ?? string.Empty) == true;
+        return attended || goalMode ? Timeout : UnattendedTimeout;
+    }
+
+    /// <summary>
+    /// 一轮跑完后的收尾判定：是墙钟超时、被停、还是正常结束。
+    ///
+    /// TurnDriver 把取消的 OCE 吞掉后正常返回（<c>WasCancelled=true</c>），不补判的话
+    /// 墙钟超时会被记成「done」、报告不提示超时（实机 1800s 整被掐、报告只有几十字符）。
+    /// 三种情形互斥：超时（timeout 请求取消且外部未取消）、被停（driver 取消但 timeout 未动，
+    /// 用户按停止是 CancelSession 只取消 driver 内部令牌；外部上游取消也算停止）、正常（其余）。
+    /// </summary>
+    /// <param name="wasCancelled">TurnDriver 是否以取消收尾（<see cref="TurnDriver.WasCancelled"/>）</param>
+    /// <param name="timeoutRequested">本轮墙钟超时源是否已请求取消</param>
+    /// <param name="parentCancelled">外部上游令牌是否已取消（属于 stopped，不算 timedOut）</param>
+    /// <returns>超时与停止两个布尔</returns>
+    internal static (bool TimedOut, bool Stopped) ResolveOutcome(
+        bool wasCancelled, bool timeoutRequested, bool parentCancelled)
+    {
+        bool timedOut = timeoutRequested && !parentCancelled;
+        bool stopped = parentCancelled || (wasCancelled && !timeoutRequested);
+        return (timedOut, stopped);
     }
 
     /// <summary>
@@ -551,7 +604,14 @@ public static class SubAgentTool
             // 问我们手里这个令牌永远得到"没有"(见 TurnDriver.WasCancelled)
             await driver.RunAsync(session, runner, new ChatMessage(ChatRole.User, message),
                 resolver, timeoutSource.Token).ConfigureAwait(false);
-            stopped = driver.WasCancelled && !timeoutSource.IsCancellationRequested;
+            // 墙钟超时由 timeoutSource 触发（CancelAfter），TurnDriver 内部把取消的 OCE 吞掉后
+            // 正常返回（见 TurnDriver.RunAsync 的 catch），不会走到下面那个 catch——
+            // 不在这里补判，超时就会被记成「done」，报告也不带超时说明（实机 1800s 整被掐）。
+            // 用户点停止走的是 TurnDriver.CancelSession，取消的是 driver 内部令牌，
+            // timeoutSource 一动不动，所以「它已请求取消」只可能是墙钟超时（或外部上游取消，
+            // 那属于 stopped 而非 timedOut，见 parentToken）
+            (timedOut, stopped) = ResolveOutcome(driver.WasCancelled,
+                timeoutSource.IsCancellationRequested, parentToken.IsCancellationRequested);
 
             // 兜底网:正常结束时理论上不应再有孤儿(嵌套审批已按拒绝收口),
             // 留着防其他漏网路径。先封再总结:总结那一轮要看到"没跑成",
@@ -574,7 +634,12 @@ public static class SubAgentTool
                         new ChatMessage(ChatRole.User, SubAgentPrompts.SummaryPrompt),
                         resolver, timeoutSource.Token)
                     .ConfigureAwait(false);
-                stopped |= summaryDriver.WasCancelled && !timeoutSource.IsCancellationRequested;
+                stopped |= ResolveOutcome(summaryDriver.WasCancelled,
+                    timeoutSource.IsCancellationRequested, parentToken.IsCancellationRequested).Stopped;
+                // 总结那一轮也共用同一个超时源：它若撞墙钟同样被 TurnDriver 吞掉正常返回，
+                // 补判方式与主轮一致（见上）；timedOut 只能置 true 不能置回 false
+                timedOut |= ResolveOutcome(summaryDriver.WasCancelled,
+                    timeoutSource.IsCancellationRequested, parentToken.IsCancellationRequested).TimedOut;
 
                 // 总结那一轮同样可能撞上审批未决(同一条断路),再封一次——无孤儿时是空操作
                 unansweredClosed += ToolCallCancellation.CloseUnansweredAtTail(session,

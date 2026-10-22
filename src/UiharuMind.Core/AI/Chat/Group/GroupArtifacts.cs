@@ -3,6 +3,7 @@ using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Chat.Group.Away;
+using UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Chat.Group;
@@ -121,7 +122,7 @@ public static class GroupArtifacts
 
         foreach ((string file, List<string> names) in authors)
         {
-            if (seen.Contains(file) || !File.Exists(file) || IsBookkeepingFile(file)) continue;
+            if (seen.Contains(file) || !File.Exists(file) || IsBookkeepingFile(file) || IsRuntimeFile(file, draftRoom)) continue;
             artifacts.Add(new GroupArtifact(file, DisplayPathOf(file, workspace), EGroupArtifactSource.Workspace,
                 names, File.GetLastWriteTime(file)));
         }
@@ -183,9 +184,11 @@ public static class GroupArtifacts
             // （它们每波末都在变，列进来会污染「本群产物」指纹，使空闲保险丝与退避永不触发）。
             // 心跳改为化身自己调 Write 写之后，它还会出现在「成员写过的文件」里（authors），
             // 所以簿记排除统一走 IsBookkeepingFile，两处同一条判据
+            // 运行时生成的文件（后台任务日志、未绑工作区时的记忆目录、.log）同理由 IsRuntimeFile 排除，两处同一判据
             return Directory.EnumerateFiles(draftRoom, "*", SearchOption.AllDirectories)
                 .Where(x => !Path.GetFileName(x).StartsWith('.'))
                 .Where(x => !IsBookkeepingFile(x))
+                .Where(x => !IsRuntimeFile(x, draftRoom))
                 .ToList();
         }
         catch (Exception e)
@@ -206,6 +209,27 @@ public static class GroupArtifacts
         string name = Path.GetFileName(path);
         return string.Equals(name, GroupLogText.FileName, StringComparison.OrdinalIgnoreCase)
             || string.Equals(name, GroupHeartbeatLog.FileName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// 运行时生成的文件（不是谁的创作产物）：草稿目录下的后台任务日志目录（<see cref="BackgroundTask.LogDirectoryName"/>）、
+    /// 未绑工作区时落在草稿目录里的记忆目录（<see cref="MemoryLayout.FolderName"/>），以及任何位置的 .log——
+    /// 它们自动生成、高频变动，列进产物区只是刷屏。与 <see cref="IsBookkeepingFile"/> 同口径：草稿目录与成员写入两处共用
+    /// </summary>
+    /// <param name="path">文件绝对路径</param>
+    /// <param name="draftRoom">草稿目录绝对路径；工作区文件不在它之下时只按扩展名判定</param>
+    /// <returns>运行时文件为 true</returns>
+    private static bool IsRuntimeFile(string path, string draftRoom)
+    {
+        if (string.Equals(Path.GetExtension(path), ".log", StringComparison.OrdinalIgnoreCase)) return true;
+        if (string.IsNullOrWhiteSpace(draftRoom)) return false;
+
+        string relative = Path.GetRelativePath(draftRoom, path);
+        if (relative.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relative)) return false;
+
+        string top = relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)[0];
+        return string.Equals(top, BackgroundTask.LogDirectoryName, StringComparison.OrdinalIgnoreCase)
+               || string.Equals(top, MemoryLayout.FolderName, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string DisplayPathOf(string file, string? workspace)
