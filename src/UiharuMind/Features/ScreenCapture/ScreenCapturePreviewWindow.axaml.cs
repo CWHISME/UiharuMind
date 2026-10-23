@@ -44,6 +44,8 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
 
     public override bool ContributesToMacRegularMode => false;
 
+    public override EOverlayWindowLevel OverlayWindowLevel => EOverlayWindowLevel.Pinned;
+
     private PixelVector _dragGrabOffset; //按下那一刻，全局鼠标相对窗口左上的偏移
     private bool _isDragging;
     private Size _originSize;

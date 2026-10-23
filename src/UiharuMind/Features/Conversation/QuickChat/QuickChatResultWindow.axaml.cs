@@ -45,6 +45,8 @@ namespace UiharuMind.Features.Conversation.QuickChat;
 
 public partial class QuickChatResultWindow : QuickWindowBase
 {
+    public override EOverlayWindowLevel OverlayWindowLevel => EOverlayWindowLevel.QuickChatResult;
+
     // public static void Show(string? title, string? answer, string? prompt = null)
     // {
     //     if (answer == null) return;
@@ -162,6 +164,13 @@ public partial class QuickChatResultWindow : QuickWindowBase
         base.OnPreShow();
         this.SetWindowToMousePosition(HorizontalAlignment.Center);
         PlaintextCheckBox.IsChecked = ChatSettingConfig.Current.IsChatPlainText;
+    }
+
+    protected override void OnPostShow()
+    {
+        base.OnPostShow();
+        // 压过贴图系与轮盘，但 QuickToolWindow(复制工具)弹出时要能盖住它
+        OverlayWindowService.ApplyNativeWindowLevel(this, EOverlayWindowLevel.QuickChatResult);
     }
 
     protected override void OnPreClose()

@@ -28,6 +28,8 @@ public class QuickFloatingWindowBase : QuickWindowBase
 {
     protected override bool IsAllowFocusOnOpen => false;
 
+    public override EOverlayWindowLevel OverlayWindowLevel => EOverlayWindowLevel.FloatingTool;
+
     public override void Awake()
     {
         SizeToContent = SizeToContent.WidthAndHeight;

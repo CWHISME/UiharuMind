@@ -301,6 +301,9 @@ public static class UIManager
         if (IconUtils.DefaultAppIcon != null) window.Icon = new WindowIcon(IconUtils.DefaultAppIcon);
         if (!string.IsNullOrEmpty(title)) window.Title = title;
         window.DataContext = new StringContentEditWindowViewModel(content, null);
+        // 对话框也以鼠标位置为准：在会话里点编辑，窗就该弹在光标附近，别落在屏幕中央
+        window.WindowStartupLocation = WindowStartupLocation.Manual;
+        window.SetWindowToMousePosition(HorizontalAlignment.Center, VerticalAlignment.Center);
         return await window.ShowDialog<string?>(owner ?? UIManager.GetFocusWindow());
     }
 }

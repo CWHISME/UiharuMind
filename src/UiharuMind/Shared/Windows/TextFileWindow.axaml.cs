@@ -14,6 +14,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Layout;
 using AvaloniaEdit;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Editing;
@@ -23,6 +24,7 @@ using UiharuMind.Core.Core.Utils;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Controls;
 using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.WindowManagement;
 
 namespace UiharuMind.Shared.Windows;
@@ -85,6 +87,23 @@ public partial class TextFileWindow : QuickWindowBase
     {
         base.Awake();
         CanResize = true;
+    }
+
+    /// <summary>置顶但只到浮动层：压不过快捷工具与问答结果窗，复制时它们才露得出来</summary>
+    public override EOverlayWindowLevel OverlayWindowLevel => EOverlayWindowLevel.Floating;
+
+    protected override void OnPreShow()
+    {
+        base.OnPreShow();
+        // 文本窗常从文件搜索/工具结果打开：以鼠标位置为准，别弹到屏幕中央或留在缓存旧位置
+        this.SetWindowToMousePosition(HorizontalAlignment.Center, VerticalAlignment.Center);
+    }
+
+    protected override void OnPostShow()
+    {
+        base.OnPostShow();
+        // 与 QuickChatViewWindow 同一条路：把置顶限定在浮动层，Windows 上借重排让自己排在快捷工具之下
+        OverlayWindowService.ApplyNativeWindowLevel(this, EOverlayWindowLevel.Floating);
     }
 
     /// <summary>

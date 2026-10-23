@@ -48,6 +48,12 @@ public abstract class UiharuWindowBase : Window
     /// </summary>
     public virtual bool IsAuxiliaryWindow => !ContributesToMacRegularMode;
 
+    /// <summary>
+    /// 窗口在置顶体系里的档位（macOS 映射 NSWindow level；Windows 按它重排 topmost 的先后）。
+    /// 默认 <see cref="EOverlayWindowLevel.Normal"/>：非置顶的普通窗口不参与重排。
+    /// </summary>
+    public virtual EOverlayWindowLevel OverlayWindowLevel => EOverlayWindowLevel.Normal;
+
     protected UiharuWindowBase()
     {
         Activated += OnActivated;

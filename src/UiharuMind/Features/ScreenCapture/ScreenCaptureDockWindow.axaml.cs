@@ -27,6 +27,8 @@ namespace UiharuMind.Features.ScreenCapture;
 
 public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWindow>
 {
+    public override EOverlayWindowLevel OverlayWindowLevel => EOverlayWindowLevel.PinnedDock;
+
     private bool _dockSizeFixed; //是否已量过编辑工具条尺寸
     private double _editToolbarWidth; //编辑工具条（含胶囊留白）尺寸，供「先长窗再换面板」用
     private double _editToolbarHeight;

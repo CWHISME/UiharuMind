@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using Avalonia.Controls;
+using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using UiharuMind.Shared.Utils;
@@ -44,8 +45,11 @@ public partial class QuickChatViewWindow : QuickWindowBase
     /// 这个窗口进不了应用切换器——与 <see cref="ShowInTaskbar"/> 是同一件事的两面
     /// </summary>
     public override bool ContributesToMacRegularMode => true;
-    
+
     public override bool IsAuxiliaryWindow => true;
+
+    /// <summary>置顶但只到浮动层：压不过快捷工具与问答结果窗，复制时它们才露得出来</summary>
+    public override EOverlayWindowLevel OverlayWindowLevel => EOverlayWindowLevel.Floating;
 
     /// <summary>本窗口此刻装载的会话；已关闭（视图模型已弃用）时为 null</summary>
     public string? SessionId { get; private set; }
@@ -177,5 +181,20 @@ public partial class QuickChatViewWindow : QuickWindowBase
         Topmost = true; //盯子代理跑到哪了要一直看得见,SetDocumentWindow 把它关了,这里覆盖回来
         Width = DefaultWidth;
         Height = DefaultHeight;
+    }
+
+    protected override void OnPreShow()
+    {
+        base.OnPreShow();
+        // 子代理/临时会话窗常从「查看过程」「子代理」面板打开：以鼠标位置为准，别弹到屏幕中央
+        this.SetWindowToMousePosition(HorizontalAlignment.Center, VerticalAlignment.Center);
+    }
+
+    protected override void OnPostShow()
+    {
+        base.OnPostShow();
+        // 文档型窗口的置顶在这里补一档：macOS 上与现状(仅 Topmost)一致；
+        // Windows 上借这次重排把自己压到快捷工具之下，复制时 QuickToolWindow 才露得出来
+        OverlayWindowService.ApplyNativeWindowLevel(this, EOverlayWindowLevel.Floating);
     }
 }

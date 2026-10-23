@@ -8,9 +8,12 @@
  ****************************************************************************/
 
 using System;
+using System.Linq;
 using System.Runtime.Versioning;
 using Avalonia.Controls;
 using UiharuMind.Shared.Services.Native;
+using UiharuMind.Shared.Windows;
+using UiharuMind.Shared.WindowManagement;
 
 namespace UiharuMind.Shared.Services;
 
@@ -72,9 +75,16 @@ public static class OverlayWindowService
     /// <param name="level">档位</param>
     public static void ApplyNativeWindowLevel(Window window, EOverlayWindowLevel level)
     {
-        if (!OperatingSystem.IsMacOS()) return;
-        if (!MacNative.TryGetNsWindow(window, out var nsWindow)) return;
-        MacNative.SendLong(nsWindow, MacNative.Selector("setLevel:"), (long)level);
+        if (OperatingSystem.IsMacOS())
+        {
+            if (!MacNative.TryGetNsWindow(window, out var nsWindow)) return;
+            MacNative.SendLong(nsWindow, MacNative.Selector("setLevel:"), (long)level);
+            return;
+        }
+
+        // Windows 的 Topmost 只有一档，多个置顶窗口之间靠 z-order 分先后：
+        // 按档位从低到高把本应用全部可见置顶窗口依次抬到 topmost 区顶部，让「枚举即次序」在两平台成立
+        if (OperatingSystem.IsWindows()) ReorderTopmostWindowsOnWindows(window);
     }
 
     /// <summary>
@@ -144,5 +154,26 @@ public static class OverlayWindowService
         var newExStyle = new IntPtr(exStyle.ToInt64() | Win32Native.WsExTransparent | Win32Native.WsExNoActivate |
                                     Win32Native.WsExToolWindow);
         Win32Native.SetWindowLongPtr(hwnd, Win32Native.GwlExStyle, newExStyle);
+    }
+
+    /// <summary>
+    /// Windows：把本应用所有可见的置顶窗口按 <see cref="UiharuWindowBase.OverlayWindowLevel"/> 从低到高
+    /// 依次 SetWindowPos(HWND_TOPMOST)，最后设置的最高档落在 topmost 区顶部——整体次序由此与 macOS 的
+    /// NSWindow level 一致。同一档里本次触发重排的窗口排最后，保持「刚弹出的在最上」。
+    /// </summary>
+    [SupportedOSPlatform("windows")]
+    private static void ReorderTopmostWindowsOnWindows(Window target)
+    {
+        var ordered = WindowRegistry.All()
+            .Where(w => w.IsVisible && w.Topmost && w.OverlayWindowLevel > EOverlayWindowLevel.Normal)
+            .OrderBy(w => w.OverlayWindowLevel)
+            .ThenBy(w => ReferenceEquals(w, target) ? 1 : 0);
+
+        foreach (UiharuWindowBase win in ordered)
+        {
+            if (!Win32Native.TryGetHwnd(win, out var hwnd)) continue;
+            Win32Native.SetWindowPos(hwnd, Win32Native.HwndTopmost, 0, 0, 0, 0,
+                Win32Native.SwpNoMove | Win32Native.SwpNoSize | Win32Native.SwpNoActivate);
+        }
     }
 }

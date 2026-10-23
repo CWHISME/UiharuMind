@@ -16,6 +16,8 @@ namespace UiharuMind.Features.QuickTools
         public override bool IsCacheWindow => true;
         public override bool ContributesToMacRegularMode => false;
 
+        public override EOverlayWindowLevel OverlayWindowLevel => EOverlayWindowLevel.RadialMenu;
+
         // 本趟轮盘只执行一次：Alt+Shift+主键逐个松开会各触发一次 EventOnKeyUp，加上鼠标点击，
         // 一次选择可能连发多个 DoCheck，不拦住就会把同一项执行多遍（TextFileWindow 多开就是三扇窗）
         private bool _executedThisShow;
