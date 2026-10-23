@@ -42,7 +42,7 @@ public static class SubAgentToolPrompts
         "继续做任何不依赖它的活；如果剩下的都依赖它，就结束本轮——" +
         "回复落地时会把你唤醒。\n" +
         "一条回复并不关闭话题：同一主题的后续（评审新修复、复核结论、收窄范围，甚至提交之后）都用 `" +
-        SubAgentTool.MessageToolName + "` 发回同一位子代理。只有新主题才新开一位——" +
+        SubAgentTool.MessageToolName + "` 发回同一位子代理——如果中途需要补充信息、与其交流，同样可以随时通过这种方式进行对话。只有新主题才新开一位——" +
         "新开的不了解之前的对话。";
 
     /// <summary>
