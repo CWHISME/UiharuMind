@@ -253,20 +253,11 @@ public class GroupSceneTests
     {
         string instructions = Compose("场景正文", out IReadOnlyList<AgentPromptSegment> segments);
 
-        Assert.Equal([EPromptSection.Base, EPromptSection.Character, EPromptSection.Scene],
-            segments.Select(x => x.Section).Take(3));
+        Assert.Equal([EPromptSection.Character, EPromptSection.Scene],
+            segments.Select(x => x.Section).Take(2));
         AgentPromptSegment scene = segments.Single(x => x.Section == EPromptSection.Scene);
         Assert.Equal($"{AgentPromptHeadings.Scene}\n\n场景正文", scene.Text);
         Assert.Contains(scene.Text, instructions);
-    }
-
-    /// <summary>运行宿主是人格写不出来的事实：不说，模型对不上描述里写着「UiharuMind 这个应用」的内置技能（ADR 0061）</summary>
-    [Fact]
-    public void AgentPrompt_BaseSaysWhereTheModelRuns()
-    {
-        Compose("", out IReadOnlyList<AgentPromptSegment> segments);
-
-        Assert.Contains(AgentBasePrompts.HostFact, segments.Single(x => x.Section == EPromptSection.Base).Text);
     }
 
     [Fact]

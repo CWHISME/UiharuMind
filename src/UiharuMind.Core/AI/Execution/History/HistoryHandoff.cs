@@ -57,7 +57,8 @@ public static class HistoryHandoff
     private const int RecallMessageChars = 300; //每条原话的篇幅
     private const double RecallBudgetRatio = 0.02; //原话合计占输入预算的比例,与正文篇幅上限脱钩
 
-    // 这些 user 消息不是用户本人说的话:派活方插话、群里别人的发言、知识库片段(交回的报告另由 IsHandedBackReport 认)
+    // 这些 user 消息不是用户本人说的话:派活方插话、群里别人的发言、知识库片段。
+    // 交回的报告与子代理中途来信不列在这里——它们由 IsNotUserWords 在数组之前就先挡掉(UserWords 首判)
     private static readonly string[] NotUserWords =
     [
         ChatMessageAnnotations.ParentInterjection,
@@ -239,7 +240,7 @@ public static class HistoryHandoff
     private static string? UserWords(ChatMessage message)
     {
         if (message.Role != ChatRole.User) return null;
-        if (ChatMessageAnnotations.IsHandedBackReport(message)) return null;
+        if (ChatMessageAnnotations.IsNotUserWords(message)) return null;
         AdditionalPropertiesDictionary? properties = message.AdditionalProperties;
         if (properties != null && NotUserWords.Any(properties.ContainsKey)) return null;
         if (properties?.TryGetValue(ChatMessageAnnotations.NamedSkillInput, out object? input) == true)

@@ -68,11 +68,12 @@ internal static class AgentToolScopes
 
     // 子代理拿的是一份任务书：不再往下委派（递归）、不自己装载技能、不排定时任务、
     // 没有会话挂载的知识库可检索、不开口朗读（用户看的是派活的那个会话）、不起后台任务。
-    // 其余与主代理一样——扩展里的浏览器各开各的标签页，配音、转写落进共用的草稿目录
+    // 其余与主代理一样——扩展里的浏览器各开各的标签页，配音、转写落进共用的草稿目录；
+    // 另有一把只发给主代理的 SendMessage（ParentMessage）：收件人固定是派活者，不发别处。
     private static readonly AgentToolScopeRule SubAgentRule = new(new HashSet<EAgentCapability>
     {
         EAgentCapability.FileAccess, EAgentCapability.Shell, EAgentCapability.WebSearch,
-        EAgentCapability.VisionTool, EAgentCapability.Extensions,
+        EAgentCapability.VisionTool, EAgentCapability.Extensions, EAgentCapability.ParentMessage,
     }, BackgroundTasks: false);
 
     private static readonly AgentToolScopeRule GroupMemberRule =

@@ -62,10 +62,20 @@ public class ConversationMessageOriginTests
             },
         };
 
+        ChatMessage incoming = new(ChatRole.User, "子代理途中来信")
+        {
+            AdditionalProperties = new AdditionalPropertiesDictionary
+            {
+                [ChatMessageAnnotations.SubAgentMessage] = "sub-1",
+            },
+        };
+
         Assert.Equal(EHistoryItemKind.Knowledge, ConversationMessageOrigin.KindOf(knowledge));
         Assert.Equal(EHistoryItemKind.SubAgentReport, ConversationMessageOrigin.KindOf(report));
         Assert.Equal(EHistoryItemKind.BackgroundTaskReport, ConversationMessageOrigin.KindOf(taskResult));
+        Assert.Equal(EHistoryItemKind.SubAgentMessage, ConversationMessageOrigin.KindOf(incoming));
         Assert.False(ConversationMessageOrigin.IsProducedByContentStream(EHistoryItemKind.BackgroundTaskReport));
+        Assert.False(ConversationMessageOrigin.IsProducedByContentStream(EHistoryItemKind.SubAgentMessage));
     }
 
     [Fact]

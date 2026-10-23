@@ -211,10 +211,7 @@ public static class SubAgentReportHandoff
     internal static string BuildText(string sender, string subSessionId, string replyingTo, string conclusion,
         bool supersedes, string? interruption, int othersPending)
     {
-        // 信头是显示层:给模型短号,存储/槽位判定仍用真实 ID(ChatMessageAnnotations.SubAgentReport)
-        string from = sender.Length > 0
-            ? $"{sender} [sub-session: {SubSessionIdAlias.Short(subSessionId)}]"
-            : $"[sub-session: {SubSessionIdAlias.Short(subSessionId)}]";
+        string from = FromLabel(sender, subSessionId);
         string head = replyingTo.Length > 0 ? $"来自 {from}，回你之前发的「{replyingTo}」" : $"来自 {from}";
         if (supersedes) head += "【更正上一封】";
 
@@ -234,8 +231,21 @@ public static class SubAgentReportHandoff
         Annotate(subSession, BuildText(SenderOf(subSession), subSession.SessionId, ReplyingTo(subSession), conclusion,
             supersedes, interruption, othersPending));
 
+    /// <summary>
+    /// 信头署名：{名字} [sub-session: 短号]。匿名无名字时只留标识。
+    /// 显示层给短号（模型照抄进 to），存储/槽位判定仍用真实 ID（<see cref="ChatMessageAnnotations.SubAgentReport"/>）
+    /// </summary>
+    /// <param name="sender">点名的人用名字，匿名的用派活时给的身份；为空则只留标识</param>
+    /// <param name="subSessionId">子会话标识</param>
+    /// <returns>署名串</returns>
+    internal static string FromLabel(string sender, string subSessionId)
+    {
+        string shortId = SubSessionIdAlias.Short(subSessionId);
+        return sender.Length > 0 ? $"{sender} [sub-session: {shortId}]" : $"[sub-session: {shortId}]";
+    }
+
     // 点名的人用派活时那个名字（模型下次 to 填的就是它），匿名的用派活时给的身份
-    private static string SenderOf(ChatSession subSession) =>
+    internal static string SenderOf(ChatSession subSession) =>
         subSession.SubAgentName.Length > 0 ? subSession.SubAgentName : subSession.SubAgentRole;
 
     // 子会话里最后一条有字的用户消息就是派活者发的那句（续聊时是最新那句）。

@@ -111,4 +111,24 @@ public static class SubAgentToolPrompts
     /// <summary><c>message</c> 参数说明</summary>
     public const string MessageParam =
         "你的消息。他记得你们之前的对话，不必重复。";
+
+    /// <summary>
+    /// 子代理侧联系工具（<see cref="Tools.ParentMessageTool.ToolName"/>）的描述：收件人固定是主代理，
+    /// 是委派那条通道的反向。放在工具上而不是系统提示里——决策时刻模型正打算调的是这把
+    /// </summary>
+    public const string ParentMessageDescription =
+        "给派活给你的主代理发一条消息：问他要信息、请他拍板，或中途汇报进展。" +
+        "收件人固定是主代理；他会回话，回复会以【发信人】开头送到你这边。";
+
+    /// <summary><c>message</c> 参数说明（子代理侧那把）</summary>
+    public const string ParentMessageMessageParam =
+        "你要发给主代理的话（问题、请求拍板或进度汇报）。";
+
+    /// <summary>
+    /// 子代理侧联系工具的回执。紧挨着模型的下一个 token，只留两条护栏：
+    /// 发出去了、回复什么时候以什么形状来——不必为它等，先做能做的
+    /// </summary>
+    public const string ParentMessageReceipt =
+        "已发给主代理。他会看到并回话，回复会以【发信人】开头的消息送到你这边；" +
+        "在收到前先做能做的部分，需要他拍板的可以等回复到了再继续。";
 }

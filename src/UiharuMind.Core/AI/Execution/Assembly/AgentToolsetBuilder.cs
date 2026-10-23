@@ -152,6 +152,12 @@ internal static class AgentToolsetBuilder
             Add(EAgentCapability.GroupAway, EndAwayTool.Create(awayIsInfinite));
         }
 
+        // 子代理 → 主代理：收件人固定是派活者，只在子代理场合挂（场合表说话），脑不挂（ADR 0082）
+        if (rule.Allows(EAgentCapability.ParentMessage))
+        {
+            Add(EAgentCapability.ParentMessage, ParentMessageTool.Create(resources.SessionId));
+        }
+
         if (Mounts(EAgentCapability.Speak, config.EnableSpeak) && resources.SpeechSink is { } speechSink)
         {
             Add(EAgentCapability.Speak, SpeakTool.Create(speechSink));

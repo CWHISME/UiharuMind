@@ -60,7 +60,7 @@ public static class SubAgentPrompts
         "任务结束用一段话总结发现，先给结论；派活者想追问细节时会把同一会话编号传回来，你基于这份材料继续深挖。";
 
     /// <summary>
-    /// 协作段正文。五条改动，每条都对着一处实际冲突：
+    /// 协作段正文（脑也用，见 <see cref="BrainCollaboration"/>）。六条改动，每条都对着一处实际冲突：
     ///
     /// 1. <b>讨论是常态</b>——取代从前"不必每轮都交终版结论"那句附带说明，
     ///    现在它是第一条，因为 <see cref="Role"/> 不再说"独立完成"了。
@@ -72,6 +72,8 @@ public static class SubAgentPrompts
     ///    讨论轮里按它写很别扭。
     /// 5. <b>授权挑战前提</b>——对等讨论要子代理在前提/目标/方案本身有问题时直说，
     ///    而不是只在缺信息时才问回去。
+    /// 6. <b>子代理也能先开口</b>——联系是双向的：干活中要信息、请拍板可以主动发消息。
+    ///    脑除外（ADR 0082：同步、有界、只读，不反问），见 <see cref="BrainCollaboration"/>。
     ///
     /// 末条<b>一字未动</b>：它不是风格，它对着代码兜底（模型以工具调用收尾时，
     /// 要额外追加一轮 <see cref="SummaryPrompt"/>），松了就是每次白烧一轮。
@@ -79,7 +81,13 @@ public static class SubAgentPrompts
     /// 用户插话那条补了识别方法：发信人插话带【发信人】前缀，用户的话没有；任务原文两者都不是、
     /// 照常当任务——从前只说「那不是派活方的话」，没说靠什么区分，也没排除任务原文，误判只能靠自觉。
     /// </summary>
-    public const string Collaboration =
+    public const string Collaboration = MessagingLine + CollaborationBody;
+
+    /// <summary>脑的协作段：不含「你可以给主代理发消息」——脑是被雇来整理的，可被追问、不主动开口（ADR 0082）</summary>
+    public const string BrainCollaboration = CollaborationBody;
+
+    /// <summary>协作段共用的主体（不含主动联系那条）</summary>
+    private const string CollaborationBody =
         "- 给你发消息的人会就这件事继续追问、纠偏、和你讨论。这不是一次性交办：\n" +
         "  哪一轮交终版结论、哪一轮只是往下谈，你自己判断。\n" +
         "  主代理追问以【发信人】开头，用户直接插话没有这个前缀，认前缀不要猜；\n" +
@@ -87,6 +95,11 @@ public static class SubAgentPrompts
         "- 事情里没给的信息不要猜着补。缺什么就说缺什么——可以先做能做的部分，也可以直接停下来问回去。\n" +
         "- 交终版结论时先给结论、再给依据（路径、链接、原文）；讨论轮里不必套这个格式。\n" +
         "- 每一轮都要以一段文本收尾，不要让工具调用做最后一个动作。";
+
+    /// <summary>「你可以主动联系主代理」那条，只进通用档（脑不反问）</summary>
+    private const string MessagingLine =
+        "- 你可以用 `SendMessage` 给主代理发消息：要信息、请他拍板，或中途汇报都行。\n" +
+        "  他的回复会以【发信人】开头送到你这边；发出后先做能做的部分，不用干等。\n";
 
     /// <summary>代码兜底追加总结轮时的提问</summary>
     public const string SummaryPrompt = "请用一段话总结这一轮的发现和结论，作为本轮结论。";

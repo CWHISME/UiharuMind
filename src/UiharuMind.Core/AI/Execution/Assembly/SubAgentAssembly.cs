@@ -311,8 +311,10 @@ internal static class SubAgentAssembly
             SubAgentProfile = subProfile,
         };
 
-        // 先探一次:全部能力都关掉时不挂载(shell/MCP 不参与这个判定,它们只在完全自动档才有)
-        if (BuildSubAgentOptions(Probe(null, null, McpToolSet.Empty, config, string.Empty, string.Empty)) == null) return null;
+        // 先探一次:能力工具全关时不挂载(shell/MCP 不参与这个判定,它们只在完全自动档才有)。
+        // 不能拿 BuildSubAgentOptions 是否返回 null 当判据:SendMessage 恒挂,能力全关也非空——
+        // 那会让委派被无条件挂上,派一个什么能力都没有的子代理出去
+        if (!HasCapabilityTools(Probe(null, null, McpToolSet.Empty, config, string.Empty, string.Empty))) return null;
 
         IReadOnlyList<CharacterData> mounted = plan.MountedAgents;
         List<SubAgentChoice> roster = mounted
@@ -351,6 +353,17 @@ internal static class SubAgentAssembly
 
         return BrainTool.Create(BuildLaunchContext(plan, SubAgentProfile.Brain, []));
     }
+
+    /// <summary>
+    /// 这份输入里有没有「能力工具」（排除恒挂的 <see cref="ParentMessageTool"/>）。
+    /// 主代理侧据此决定挂不挂委派（<see cref="TryCreateTools"/> 探测）：
+    /// 派一个什么能力都没有的子代理出去没有意义
+    /// </summary>
+    /// <param name="input">装配输入（与 <see cref="BuildSubAgentOptions"/> 同一份形状）</param>
+    /// <returns>有能力工具返回 True</returns>
+    internal static bool HasCapabilityTools(SubAgentAssemblyInput input) =>
+        BuildSubAgentOptions(input) is { ChatOptions.Tools: { } tools }
+        && tools.Any(x => x.Name != ParentMessageTool.ToolName);
 
     /// <summary>
     /// 组一份派活上下文。子会话的字段几乎全部从派活者继承，因此这里没有任何决策，
@@ -421,6 +434,9 @@ internal static class SubAgentAssembly
         // 纪律段里指名的工具必须真的在这份工具集里(有不变量测试钉住),所以判据取装配结果而不是配置意图
         bool hasShell = entries.Any(x => x.Capability == EAgentCapability.Shell);
 
+        // SendMessage（给主代理）随场合恒挂、与能力开关无关：能力全关的子代理仍能联系主代理。
+        // 「有没有能力」只对主代理侧挂不挂委派有意义（TryCreateTools 探测），见 HasCapabilityTools。
+        // 这里 tools 恒非空（General 档必有 SendMessage），null 只对脑等不含 ParentMessage 的场合发生
         if (tools.Count == 0) return null;
 
         // 框架有状态能力全关,子代理是一次性的纯工具循环
@@ -555,7 +571,8 @@ internal static class SubAgentAssembly
             ForSubAgent = true,
         }));
 
-        list.Section(true, AgentPromptHeadings.SubAgentCollaboration, SubAgentPrompts.Collaboration);
+        list.Section(true, AgentPromptHeadings.SubAgentCollaboration,
+            brain ? SubAgentPrompts.BrainCollaboration : SubAgentPrompts.Collaboration);
 
         // 挂了扩展的元工具就得给名单:不知道有什么,子代理想不到去查
         list.Raw(extensionsSection.Length > 0, extensionsSection);

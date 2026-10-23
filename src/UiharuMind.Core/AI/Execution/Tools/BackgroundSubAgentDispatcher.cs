@@ -444,6 +444,38 @@ public static class BackgroundSubAgentDispatcher
         }
     }
 
+    /// <summary>
+    /// 子代理中途来信的投递（<see cref="ParentMessageTool"/> 的后台入口）。
+    ///
+    /// 与报告交回共用 <see cref="_deliverGates"/>：同一子会话的来信与报告都写派活者历史，
+    /// 必须串行，否则两封会竞态（晚到的先落）。非阻塞——调用方拿到回执即返回，
+    /// 投递在这里的后台任务里完成；失败只落日志：来信是异步补充，丢了一封
+    /// 子代理那轮还在跑，不是断头
+    /// </summary>
+    /// <param name="childSessionId">发信的子会话标识（按它串行）</param>
+    /// <param name="letter">子代理 → 派活者的信</param>
+    internal static async Task DeliverParentMessageAsync(string childSessionId, SessionLetter letter)
+    {
+        SemaphoreSlim gate = _deliverGates.GetOrAdd(childSessionId, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            EDeliveryOutcome outcome = await SessionDelivery.Instance.DeliverAsync(letter).ConfigureAwait(false);
+            if (outcome == EDeliveryOutcome.Missing)
+            {
+                Log.Warning($"Parent message not delivered (parent missing or gone): child={childSessionId}");
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Error($"Deliver parent message failed: child={childSessionId}: {e}");
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
     private static async Task RunInBackgroundAsync(ChatSession subSession, string parentId,
         Func<CancellationToken, Task<string>> run)
     {

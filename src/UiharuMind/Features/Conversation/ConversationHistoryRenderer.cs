@@ -73,9 +73,9 @@ public sealed class ConversationHistoryRenderer
         string text = ChatMessageDisplay.TextOf(message);
         if (ChatMessageDisplay.IsFrameworkInjected(message)) return [];
         if (string.IsNullOrWhiteSpace(text) && !ConversationItemFactory.HasImage(message)) return [];
-        // 插进一轮里的后台任务结果也走这里：与回放一样画成旁白，不安到用户头上；
+        // 插进一轮里的报告与子代理来信也走这里：与回放一样画成旁白，不安到用户头上；
         // 目标模式的注入（目标/唤醒提醒）同理：User 角色但不是用户的话
-        if (ChatMessageAnnotations.IsHandedBackReport(message) || ChatMessageAnnotations.IsGoalModeInjection(message))
+        if (ChatMessageAnnotations.IsNotUserWords(message) || ChatMessageAnnotations.IsGoalModeInjection(message))
             return [_itemActions.Wire(ConversationItemFactory.CreateNarration(message), message)];
 
         if (_deliverySource() is { } renderer && renderer.IsDelivery(message))
@@ -274,11 +274,12 @@ public sealed class ConversationHistoryRenderer
                     continue;
                 }
 
-                // 子会话的后续报告:角色是 User(它要供给模型),但<b>不是用户说的话</b>——
-                // 画成用户气泡等于把子代理的结论安到用户头上。借旁白那套呈现:
-                // 居中、无头像无名字,表示"这条不归对话双方任何一方"。后台任务的结果同理
+                // 子会话的后续报告与子代理干活中的来信:角色是 User(要供给模型),但<b>不是用户说的话</b>——
+                // 画成用户气泡等于把对方的话安到用户头上。借旁白那套呈现:居中、无头像无名字,
+                // 表示"这条不归对话双方任何一方"。后台任务的结果同理
                 case EHistoryItemKind.SubAgentReport:
                 case EHistoryItemKind.BackgroundTaskReport:
+                case EHistoryItemKind.SubAgentMessage:
                 {
                     TextConversationItem reportItem = _itemActions.Wire(
                         ConversationItemFactory.CreateNarration(message), message);
@@ -371,7 +372,8 @@ public sealed class ConversationHistoryRenderer
         for (int i = fromIndex; i < history.Count; i++)
         {
             if (ConversationMessageOrigin.KindOf(history[i]) is not (EHistoryItemKind.SubAgentReport
-                or EHistoryItemKind.BackgroundTaskReport)) continue;
+                or EHistoryItemKind.BackgroundTaskReport
+                or EHistoryItemKind.SubAgentMessage)) continue;
             Append(history, i, i + 1, liveTail: true);
         }
     }

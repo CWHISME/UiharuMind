@@ -1,4 +1,5 @@
-﻿﻿using System.Text.RegularExpressions;
+﻿﻿using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Compaction;
 using Microsoft.Extensions.AI;
@@ -294,6 +295,10 @@ public class HarnessInstructionsCompositionTests
 {
     private const string PersonaMarker = "I am the persona line";
 
+    /// <summary>
+    /// 基座层已清空（<see cref="AgentBasePrompts.Base"/> 为空串）：不再断言「基座在人格之前」。
+    /// 这里只守与人格相关的段序——人格标题在人格正文之前
+    /// </summary>
     [Fact]
     public void AgentInstructions_PutThePersonaBeforeTheToolDisciplines()
     {
@@ -310,37 +315,17 @@ public class HarnessInstructionsCompositionTests
     }
 
     /// <summary>
-    /// 基座层是 agent 系统提示的<b>固定第一段</b>（文档 §7 组装顺序：基座 → 人格 → 身份 → 场景 → 配置）。
-    /// 它不随角色卡与能力配置而消失——所有 agent 角色共用、系统锁定，只对 agent 档主代理注入。
-    /// 断言只认结构（第一段 + 人格在后），不认基座正文措辞——措辞是提示词作者的家务事。
-    /// </summary>
-    [Fact]
-    public void AgentInstructions_PutTheBaseBeforeThePersona()
-    {
-        HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test", out var segments);
-        string instructions = options.ChatOptions?.Instructions ?? string.Empty;
-
-        AgentPromptSegment baseSeg = Assert.Single(segments, x => x.Section == EPromptSection.Base);
-        Assert.StartsWith(baseSeg.Text, instructions);
-        int persona = instructions.IndexOf(PersonaMarker, StringComparison.Ordinal);
-        Assert.True(persona > baseSeg.Text.Length, "基座必须排在角色人格之前");
-    }
-
-    /// <summary>
-    /// 裸角色卡（正文不带一级标题）由装配层补上 <c># 角色</c>，排在基座之后、工具纪律之前。
-    /// 基座第 4 条「以『角色』节为准」因此有了字面对得上的落点，不再是一个悬空引用。
+    /// 裸角色卡（正文不带一级标题）由装配层补上 <c># 角色</c>，排在工具纪律之前
     /// </summary>
     [Fact]
     public void AgentInstructions_BarePersonaGetsItsOwnTopLevelHeading()
     {
-        HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test", out var segments);
+        HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test");
         string instructions = options.ChatOptions?.Instructions ?? string.Empty;
 
-        AgentPromptSegment baseSeg = Assert.Single(segments, x => x.Section == EPromptSection.Base);
         int heading = instructions.IndexOf(AgentPromptHeadings.Character, StringComparison.Ordinal);
         int persona = instructions.IndexOf(PersonaMarker, StringComparison.Ordinal);
         Assert.True(heading >= 0, $"裸角色卡缺 {AgentPromptHeadings.Character} 标题");
-        Assert.True(heading > baseSeg.Text.Length, "人格标题必须排在基座之后");
         Assert.True(persona > heading, "人格标题必须排在人格正文之前");
     }
 
@@ -796,6 +781,12 @@ public class SubAgentBoundaryTests
         return options!.ChatOptions!.Tools!.OfType<AIFunction>().Select(x => x.Name).ToList();
     }
 
+    private static IList<AITool> ToolsOf(HarnessAgentOptions? options)
+    {
+        Assert.NotNull(options);
+        return options!.ChatOptions!.Tools!;
+    }
+
     /// <summary>
     /// 子代理的采样参数跟着输入走:输入给了就进 ChatOptions,不给就保持旧行为(空)。
     /// 从前 <c>BuildSubAgentOptions</c> 里是裸 <c>new ChatOptions</c>,卡上的 temperature
@@ -849,6 +840,8 @@ public class SubAgentBoundaryTests
         Assert.Contains(FileToolNames.Grep, names);
         Assert.DoesNotContain(WebSearchTool.ToolName, names);
         Assert.DoesNotContain(WebFetchTool.ToolName, names);
+        // 脑不主动开口：没有给主代理发消息的那把 SendMessage（ADR 0082）
+        Assert.DoesNotContain(ParentMessageTool.ToolName, names);
         // 名单取自工具侧的那一份,不在测试里重抄一遍:漏抄一个新增的写工具,
         // 这条不变量就会在不报错的情况下失效
         string[] mutating = [..FileToolNames.Mutating, CharacterRunnerFactory.ShellToolName];
@@ -885,6 +878,7 @@ public class SubAgentBoundaryTests
             [EAgentCapability.Extensions] = ExtensionCalls.CallName,
             [EAgentCapability.KnowledgeSearch] = KnowledgeTool.ToolName,
             [EAgentCapability.ScheduledTasks] = SchedulerTools.ToolName,
+            [EAgentCapability.ParentMessage] = ParentMessageTool.ToolName,
         };
         AgentToolConfig everything = new()
         {
@@ -1021,8 +1015,11 @@ public class SubAgentBoundaryTests
     }
 
     /// <summary>
-    /// 子代理工具集里绝不能有子代理工具自身：那是无限递归，
+    /// 子代理工具集里绝不能有<b>往下委派</b>的那两把：那是无限递归，
     /// 本地模型会被层层嵌套的子代理占满。连完全自动档也不例外。
+    ///
+    /// 子代理可以有一把自己的 <c>SendMessage</c>（给主代理发消息，<see cref="ParentMessageTool"/>）——
+    /// 收件人固定是派活者、不再往下开，递归无从发生。区别只在参数：委派那把带 <c>to</c>，这把只有正文。
     /// </summary>
     [Theory]
     [InlineData(EAgentPermissionMode.ReadOnly)]
@@ -1030,10 +1027,33 @@ public class SubAgentBoundaryTests
     [InlineData(EAgentPermissionMode.FullAuto)]
     public void SubAgentTools_DoNotIncludeSubAgentItself(EAgentPermissionMode mode)
     {
-        // 子会话的工具集里绝不能有委派工具（新开与续聊两把），否则可以无限套娃
-        IReadOnlyList<string> names = ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(NewInput(mode: mode)));
+        // 子会话的工具集里绝不能有委派工具（新开与带 to 的续聊），否则可以无限套娃
+        IList<AITool> tools = ToolsOf(SubAgentAssembly.BuildSubAgentOptions(NewInput(mode: mode)));
+        IReadOnlyList<string> names = tools.OfType<AIFunction>().Select(x => x.Name).ToList();
         Assert.DoesNotContain(SubAgentTool.ToolName, names);
-        Assert.DoesNotContain(SubAgentTool.MessageToolName, names);
+
+        // 子代理自己那把 SendMessage 只收正文：<b>恰好一把</b>、没有 to 可填、没有新开可触发。
+        // 用 Single 而不是 FirstOrDefault:委派那把（带 to）若误挂,同名下会数出两把
+        AIFunction[] sendMessages = tools.OfType<AIFunction>()
+            .Where(x => x.Name == ParentMessageTool.ToolName).ToArray();
+        Assert.Single(sendMessages);
+        Assert.False(sendMessages[0].JsonSchema.TryGetProperty("properties", out JsonElement properties)
+                      && properties.TryGetProperty("to", out _));
+    }
+
+    /// <summary>
+    /// 子代理（通用档）恒有一把给主代理发消息的 SendMessage；脑没有（ADR 0082：同步、有界、只读，
+    /// 可被追问、不主动开口），场合表里脑那档不含 <see cref="EAgentCapability.ParentMessage"/>
+    /// </summary>
+    [Fact]
+    public void SubAgentGetsParentMessage_ButBrainDoesNot()
+    {
+        List<string> general = ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(NewInput()));
+        Assert.Contains(ParentMessageTool.ToolName, general);
+
+        List<string> brain = ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(
+            NewInput() with { SubAgentProfile = SubAgentProfile.Brain }));
+        Assert.DoesNotContain(ParentMessageTool.ToolName, brain);
     }
 
     /// <summary>
@@ -1114,17 +1134,17 @@ public class SubAgentBoundaryTests
     }
 
     /// <summary>
-    /// 子代理与主代理同一口径：工作循环已并入基座层，harness 段为空。
+    /// 子代理与主代理同一口径：harness 段为空。
     /// 框架默认那段的身份句会和子代理指令开头的「# 角色」抢身份(见 ADR 0004)。
+    /// 基座层（<see cref="AgentBasePrompts.Base"/>）已清空，不再断言它的正文
     /// </summary>
     [Fact]
-    public void SubAgent_KeepsTheBaseInItsOwnInstructions()
+    public void SubAgent_KeepsItsOwnInstructions()
     {
         HarnessAgentOptions? options = SubAgentAssembly.BuildSubAgentOptions(NewInput());
 
         Assert.NotNull(options);
         Assert.Equal(string.Empty, options!.HarnessInstructions);
-        Assert.Contains(AgentBasePrompts.Base, options.ChatOptions?.Instructions);
         Assert.DoesNotContain("helpful AI assistant", options.ChatOptions?.Instructions);
     }
 
@@ -1173,12 +1193,9 @@ public class SubAgentBoundaryTests
         Assert.NotNull(options);
         string instructions = options!.ChatOptions?.Instructions ?? string.Empty;
         Assert.Equal("Researcher", options.Name);
-        // 基座恒在最前、人格紧跟其后(与主代理 AgentAssemblyFacts 同口径,ADR 0005 人格在最前);
-        // 裸卡由装配层补「# 你是谁」标题(与主代理同一口径)
-        int baseIndex = instructions.IndexOf(AgentPromptHeadings.Base, StringComparison.Ordinal);
+        // 人格必须出场；裸卡由装配层补「# 你是谁」标题(与主代理同一口径)
         int persona = instructions.IndexOf("I am the research specialist", StringComparison.Ordinal);
-        Assert.True(baseIndex >= 0, "基座必须在场");
-        Assert.True(persona > baseIndex, "人格必须紧跟基座之后");
+        Assert.True(persona >= 0, "角色人格丢了");
         // 无 role 时 SubAgentRole 段正文为空、不生成（Boundary 句已置空）。
         // 唯一一次「# 角色」是 CharacterSection 给裸卡补的人格标题；SubAgentRole 段若生成，计数会变成 2。
         Assert.Equal(1, instructions.Split(AgentPromptHeadings.SubAgentRole).Length - 1);
@@ -1398,6 +1415,8 @@ public class SubAgentBoundaryTests
 
         Assert.Contains(AgentPromptHeadings.Tools, instructions); //工具段必须在
         Assert.Contains(SubAgentPrompts.BrainDiscipline, instructions); //脑纪律必须在身份段
+        // 协作段是脑的变体（BrainCollaboration），不得出现子代理主动联系主代理的说法——脑不反问
+        Assert.DoesNotContain("`SendMessage`", instructions);
         // 工具侧已无 Glob（S4 钉住），纪律侧也必须不点名它——提示语指名的工具必须真实存在
         Assert.DoesNotContain("`Glob`", instructions);
         // 文件操作段退役后读纪律也不在提示词里了(7a2dec2d),但「脑不指名写工具」仍成立
@@ -1551,6 +1570,9 @@ public class SubAgentBoundaryTests
     [Fact]
     public void SubAgent_NotMounted_WhenAllCapabilitiesDisabled()
     {
+        // 能力全关时主代理侧探测不到能力工具（HasCapabilityTools），委派工具不挂——
+        // 派一个什么能力都没有的子代理出去没有意义；但子代理装配仍存在：
+        // 恒挂的 SendMessage（给主代理）与能力开关无关
         AgentToolConfig config = new()
         {
             EnableFileAccess = false,
@@ -1560,7 +1582,8 @@ public class SubAgentBoundaryTests
             DisabledExtensions = [..BuiltinExtensions.Names],
         };
 
-        Assert.Null(SubAgentAssembly.BuildSubAgentOptions(NewInput(config)));
+        Assert.False(SubAgentAssembly.HasCapabilityTools(NewInput(config))); //主代理侧探测不到能力,不挂委派
+        Assert.NotNull(SubAgentAssembly.BuildSubAgentOptions(NewInput(config))); //但装配仍在:恒挂的 SendMessage 让它能联系主代理
     }
 }
 

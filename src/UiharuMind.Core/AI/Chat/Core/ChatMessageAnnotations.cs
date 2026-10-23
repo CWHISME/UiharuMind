@@ -132,6 +132,17 @@ public static class ChatMessageAnnotations
     public const string ParentInterjection = "_parentInterjection";
 
     /// <summary>
+    /// 子代理中途来信标记，值为发信的那个子会话标识。带此键的 user 消息是<b>子代理</b>在干活中
+    /// 经自己那把 SendMessage 发给派活者的话（<see cref="AI.Execution.Tools.ParentMessageTool"/>），
+    /// 不是用户在派活者会话里说的话——派活者据此知道「有人等你回话」，渲染成旁白卡片而不是用户气泡。
+    ///
+    /// 它落在「呈现」轴上：消息<b>要落盘、要供给模型</b>（派活者要据它回应），
+    /// 与 <see cref="SubAgentReport"/> 同形状，但<b>不是交回</b>——不占报告的槽位，
+    /// 因此绝不能复用那个键（<see cref="SubAgentReportHandoff.ResolveSlot"/> 会把它当成可替换的回信）。
+    /// </summary>
+    public const string SubAgentMessage = "_subAgentMessage";
+
+    /// <summary>
     /// 思考耗时标记：值为毫秒数。带此键的消息<b>要落盘、不供给模型判断</b>——
     /// 它是呈现轴：回放时思考卡片据此冻结显示真实耗时，而不是按重建时刻现算一个 0.1s。
     ///
@@ -227,6 +238,36 @@ public static class ChatMessageAnnotations
         message.AdditionalProperties?.ContainsKey(SubAgentReport) == true;
 
     /// <summary>
+    /// 判断是否为子代理中途发来的消息
+    /// </summary>
+    /// <param name="message">消息</param>
+    /// <returns>带 <see cref="SubAgentMessage"/> 标记时返回 True</returns>
+    public static bool IsSubAgentMessage(ChatMessage message) =>
+        message.AdditionalProperties?.ContainsKey(SubAgentMessage) == true;
+
+    /// <summary>
+    /// 盖上子代理中途来信标记
+    /// </summary>
+    /// <param name="message">消息</param>
+    /// <param name="subSessionId">发信的子会话标识</param>
+    public static void MarkSubAgentMessage(ChatMessage message, string subSessionId)
+    {
+        message.AdditionalProperties ??= new AdditionalPropertiesDictionary();
+        message.AdditionalProperties[SubAgentMessage] = subSessionId;
+    }
+
+    /// <summary>
+    /// 读子代理中途来信的发信会话标识。落盘往返后值会变成 <c>JsonElement</c>，一律经 <c>ToString</c>
+    /// </summary>
+    /// <param name="message">消息</param>
+    /// <returns>子会话标识；不是中途来信时为空串</returns>
+    public static string ReadSubAgentMessageSession(ChatMessage message)
+    {
+        if (message.AdditionalProperties?.TryGetValue(SubAgentMessage, out object? raw) != true) return string.Empty;
+        return raw?.ToString() ?? string.Empty;
+    }
+
+    /// <summary>
     /// 判断是否为后台任务结果消息
     /// </summary>
     /// <param name="message">消息</param>
@@ -246,13 +287,25 @@ public static class ChatMessageAnnotations
     }
 
     /// <summary>
-    /// 是不是<b>交回的报告</b>（子代理后续报告、后台任务结果）：user 角色、落盘也供给模型，但不是用户的话。
-    /// 问「这条 user 消息是不是用户说的」「它是不是一张卡」时一律经它，不各自枚举标记——各写一份迟早漏一处
+    /// 是不是<b>交回的报告</b>（子代理后续报告、后台任务结果）：user 角色、落盘也供给模型，但不是用户的话
     /// </summary>
     /// <param name="message">消息</param>
     /// <returns>是交回的报告时返回 True</returns>
     public static bool IsHandedBackReport(ChatMessage message) =>
         IsSubAgentReport(message) || IsBackgroundTaskReport(message);
+
+    /// <summary>
+    /// 这条 user 消息是不是<b>别处送进来的</b>而不是用户本人说的：交回的报告与子代理中途来信。
+    ///
+    /// 问「该不该画成用户气泡」「能不能当作用户原话抄进交接文档」「转录里该不该标成 user」时
+    /// 一律经它，不各自枚举标记——各写一份迟早漏一处（中途来信就曾只接了回放那一条路，
+    /// 实时注入仍被画成用户气泡）。与 <see cref="IsHandedBackReport"/> 分开：
+    /// 那个还带着「占不占报告槽位」的语义，中途来信明确不占。
+    /// </summary>
+    /// <param name="message">消息</param>
+    /// <returns>不是用户本人说的返回 True</returns>
+    public static bool IsNotUserWords(ChatMessage message) =>
+        IsHandedBackReport(message) || IsSubAgentMessage(message);
 
     /// <summary>
     /// 读后续报告指向的子会话标识。落盘往返后值会变成 <c>JsonElement</c>，一律经 <c>ToString</c>
