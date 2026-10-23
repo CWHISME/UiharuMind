@@ -17,6 +17,7 @@ using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.Diagnostics;
 using UiharuMind.Features.Conversation.SessionList;
+using UiharuMind.Features.Diagnostics;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Services;
 
@@ -112,7 +113,18 @@ public abstract partial class ConversationPageDataBase : PageDataBase
 
     //================= 每会话一个视图模型 =================
 
-    private readonly List<ConversationViewModel> _conversations = new(); //缓存,见 PruneConversations
+    /// <summary>
+    /// 缓存中的实例（含当前与后台还在跑的），按最近使用排序（最新在头），见 <see cref="MarkMostRecent"/>。
+    /// 缓存实例数 = 当前 + <see cref="MaxIdleRetainedConversations"/> 份空闲 + 正在跑/有保留理由的
+    /// </summary>
+    private readonly List<ConversationViewModel> _conversations = new();
+
+    /// <summary>
+    /// 当前会话之外还允许留下的空闲实例数。来回切的是同一两三个会话时，多留几份就能走
+    /// 「切回缓存实例」那条路（贴底 + 实体化），不再冷装载；切走的实例已被后台裁剪压到
+    /// 首屏量级，留着的内存是可控的
+    /// </summary>
+    private const int MaxIdleRetainedConversations = 2;
 
     /// <summary>
     /// 当前展示的会话视图模型（<c>ConversationView</c> 的 DataContext）。
@@ -196,8 +208,21 @@ public abstract partial class ConversationPageDataBase : PageDataBase
         }
 
         Conversation = target;
+        MarkMostRecent(target);
+        // 切会话也算正在干活:空闲回收器据此把压缩式全回收推后,免得叠在这次的落位排版上
+        IdleMemoryReclaimer.NoteConversationSwitch();
         PruneConversations();
         StartupPhaseProbe.End($"conversation/switch:cached={(cacheHit ? 1 : 0)},live={_conversations.Count}", switchBegin);
+    }
+
+    /// <summary>
+    /// 把刚切到的实例提到列表头部，让 <see cref="PruneConversations"/> 按「最旧先裁」腾位
+    /// </summary>
+    /// <param name="conversation">当前展示的实例</param>
+    private void MarkMostRecent(ConversationViewModel conversation)
+    {
+        _conversations.Remove(conversation);
+        _conversations.Insert(0, conversation);
     }
 
     // 缓存里的本体已被摘掉(被盘上新读的顶替),或别的实例改过它的历史
@@ -249,16 +274,31 @@ public abstract partial class ConversationPageDataBase : PageDataBase
     /// 回收缓存。留下的理由有三个：正在展示、还在跑（含卡在审批上——
     /// 那种情形 IsGenerating 仍为真，运行循环还等在审批的回应上）、
     /// 或正在整理交接文档（压缩不是轮次，IsGenerating 为假，但占位卡与
-    /// BusyLabel 都还挂在 VM 上，回收了切回来就什么都没了）
+    /// BusyLabel 都还挂在 VM 上，回收了切回来就什么都没了）。
+    /// 空闲且没有保留理由的，按最近使用留 <see cref="MaxIdleRetainedConversations"/> 份，
+    /// 最旧的先裁——这样来回切同一个会话不用每次冷装载
     /// </summary>
     private void PruneConversations()
     {
-        for (int i = _conversations.Count - 1; i >= 0; i--)
+        int discardable = 0;
+        foreach (ConversationViewModel conversation in _conversations)
+        {
+            if (conversation == Conversation || conversation.IsGenerating || conversation.IsCompacting
+                || ShouldRetainConversation(conversation)) continue;
+            discardable++;
+        }
+
+        int excess = discardable - MaxIdleRetainedConversations;
+        if (excess <= 0) return;
+
+        // 列表按最近使用排序,从最旧（尾部）开始裁
+        for (int i = _conversations.Count - 1; i >= 0 && excess > 0; i--)
         {
             ConversationViewModel conversation = _conversations[i];
             if (conversation == Conversation || conversation.IsGenerating || conversation.IsCompacting
                 || ShouldRetainConversation(conversation)) continue;
             Discard(conversation);
+            excess--;
         }
     }
 

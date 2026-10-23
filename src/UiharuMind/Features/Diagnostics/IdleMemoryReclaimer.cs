@@ -9,6 +9,7 @@
 
 using System;
 using System.Runtime;
+using System.Threading;
 using Avalonia.Threading;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.SimpleLog;
@@ -26,13 +27,19 @@ namespace UiharuMind.Features.Diagnostics;
 /// 常规 GC 不会做这件事：它只在必要时回收，且默认<b>不压缩</b>——
 /// 碎片留在原地等着被复用，对服务进程是对的，对一个用户盯着内存数字的桌面应用不是。
 ///
-/// 三道闸，缺一不可：
+/// 闸门，缺一不可：
 /// <list type="number">
 /// <item><b>没有会话在跑。</b>压缩式 gen2 是阻塞的，几百 MB 的堆上要几十到几百毫秒，
 /// 撞在流式输出中间就是一次肉眼可见的卡顿。</item>
 /// <item><b>碎片够多才值得。</b>低于阈值时这趟纯属白付一次暂停。</item>
 /// <item><b>两次之间隔得够久。</b>否则一个持续繁忙的应用会被自己的回收拖垮。</item>
+/// <item><b>刚切过会话就退让。</b>切换的落位排版也是几十到几百毫秒，压缩式全回收叠上去
+/// 就是一次秒级冻结；页面在切完会话时调用 <see cref="NoteConversationSwitch"/> 记一笔。</item>
 /// </list>
+///
+/// 全回收本体跑在线程池上而不是计时器回调里（计时器在 UI 线程）：阻塞式压缩的那几十到
+/// 几百毫秒不该由 UI 线程发起并干等——丢给后台线程后，UI 线程只会在回收本身的
+/// 各阶段被暂停，而不是从头到尾被占着。
 ///
 /// ⚠️ 它<b>不解决</b>「活对象为什么有 196MB」。那一半归条目裁剪与历史驻留
 /// （见 <c>ConversationItemWindowTrimmer</c> 与 <c>SessionResidencyPolicy</c>），
@@ -50,7 +57,13 @@ public sealed class IdleMemoryReclaimer : IDisposable
     // 而同期碎片一直没稳定过阈值——闸门只开在碎片上就成了撞运气
     private const long UncommittedSlackThresholdBytes = 256L * 1024 * 1024;
 
+    /// <summary>刚切完会话多久之内不回收。切换的落位排版和压缩式全回收叠在一起就是秒级冻结</summary>
+    private const int BackoffAfterSwitchMs = 3000;
+
+    private static long _lastConversationSwitchTicks; //Interlocked 读写:UI 线程写、回收线程读
+
     private readonly DispatcherTimer _timer;
+    private readonly object _reclaimLock = new();
     private DateTime _lastReclaimedAt = DateTime.MinValue;
 
     private IdleMemoryReclaimer()
@@ -67,21 +80,39 @@ public sealed class IdleMemoryReclaimer : IDisposable
         return reclaimer;
     }
 
+    /// <summary>
+    /// 会话切换属于「正在干活」：页面壳在切完会话时调用，回收器据此把
+    /// 压缩式全回收推到切换的落位排版过去之后
+    /// </summary>
+    public static void NoteConversationSwitch() =>
+        Interlocked.Exchange(ref _lastConversationSwitchTicks, Environment.TickCount64);
+
     private void OnTick(object? sender, EventArgs e)
     {
+        // 只判「该不该」，真正动手丢给线程池——阻塞式压缩在 UI 线程上发起并干等就是一次冻结
+        if (ShouldReclaim(out _, out _)) ThreadPool.QueueUserWorkItem(_ => Reclaim());
+    }
+
+    private void Reclaim()
+    {
+        // 排队到线程池的这几十毫秒里条件可能已经变了(会话开跑/刚切过会话):忙就放弃,
+        // 计时器每 30s 会再来
         if (!ShouldReclaim(out long fragmentedBytes, out long slackBytes)) return;
 
-        long committedBefore = GC.GetGCMemoryInfo().TotalCommittedBytes;
+        lock (_reclaimLock)
+        {
+            long committedBefore = GC.GetGCMemoryInfo().TotalCommittedBytes;
 
-        // 压缩必须显式要:默认的 gen2 只清不挪,碎片原地留着。大对象堆另有一道开关,
-        // 而长回复的正文与工具结果恰恰是大对象堆的常客
-        GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
-        GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
+            // 压缩必须显式要:默认的 gen2 只清不挪,碎片原地留着。大对象堆另有一道开关,
+            // 而长回复的正文与工具结果恰恰是大对象堆的常客
+            GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
+            GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
 
-        _lastReclaimedAt = DateTime.UtcNow;
-        long committedAfter = GC.GetGCMemoryInfo().TotalCommittedBytes;
-        Log.Debug($"Idle memory reclaim: committed {ToMb(committedBefore)} -> {ToMb(committedAfter)} MB " +
-                  $"(fragmentation {ToMb(fragmentedBytes)} MB, slack {ToMb(slackBytes)} MB).");
+            _lastReclaimedAt = DateTime.UtcNow;
+            long committedAfter = GC.GetGCMemoryInfo().TotalCommittedBytes;
+            Log.Debug($"Idle memory reclaim: committed {ToMb(committedBefore)} -> {ToMb(committedAfter)} MB " +
+                      $"(fragmentation {ToMb(fragmentedBytes)} MB, slack {ToMb(slackBytes)} MB).");
+        }
     }
 
     /// <param name="fragmentedBytes">触发时的碎片量，仅在返回 true 时有意义</param>
@@ -92,6 +123,7 @@ public sealed class IdleMemoryReclaimer : IDisposable
         fragmentedBytes = 0;
         slackBytes = 0;
         if (DateTime.UtcNow - _lastReclaimedAt < MinInterval) return false;
+        if (RecentlySwitchedConversation()) return false;
 
         // 任何会话在跑(含卡在审批上)都算忙:阻塞式压缩撞在流式中间就是一次可见卡顿
         if (SessionManager.Instance.Running.ActiveSessions().Count > 0) return false;
@@ -101,6 +133,9 @@ public sealed class IdleMemoryReclaimer : IDisposable
         slackBytes = Math.Max(0, info.TotalCommittedBytes - info.HeapSizeBytes);
         return fragmentedBytes >= FragmentationThresholdBytes || slackBytes >= UncommittedSlackThresholdBytes;
     }
+
+    private static bool RecentlySwitchedConversation() =>
+        Environment.TickCount64 - Interlocked.Read(ref _lastConversationSwitchTicks) < BackoffAfterSwitchMs;
 
     private static long ToMb(long bytes) => bytes / 1048576;
 
