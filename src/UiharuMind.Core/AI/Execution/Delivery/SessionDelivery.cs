@@ -64,6 +64,11 @@ public sealed class SessionDelivery
         bool waited = false;
         while (true)
         {
+            // 送达层去重：全历史已有同键同正文的一封，就不再写也不注入（子代理报告交回两次、
+            // 后台任务正常送达与退出收尾各走一遍时，历史里只该有一封）。
+            // 同键不同正文的不在这里拦——那可能是更正，交给各信的 Write 决定替换还是追加
+            if (AlreadyDelivered(letter)) return EDeliveryOutcome.Unchanged;
+
             if (injected != null)
             {
                 EInjected state = await CheckInjectedAsync(sessionId, injectedInto!, injected).ConfigureAwait(false);
@@ -144,6 +149,33 @@ public sealed class SessionDelivery
         return runner.PendingInjections.Any(x => ReferenceEquals(x, message)) ? EInjected.Abandoned : EInjected.Pending;
     }
 
+    // 全历史里已有同键同正文的一封了吗。读历史可能与正在跑的那一轮落盘并发
+    // （List 遍历撞上追加），照 IsInHistory 的兜底：撞了就下次再看
+    private bool AlreadyDelivered(SessionLetter letter)
+    {
+        if (letter.DedupeKey is not { } key) return false;
+        try
+        {
+            if (_host.Load(letter.SessionId) is not { } session) return false;
+            ChatMessage? message = letter.Compose(session);
+            if (message == null) return false;
+
+            IList<ChatMessage> history = session.History;
+            for (int i = history.Count - 1; i >= 0; i--)
+            {
+                ChatMessage existing = history[i];
+                if (string.Equals(letter.KeyOf(existing), key, StringComparison.Ordinal)
+                    && existing.Text == message.Text) return true;
+            }
+        }
+        catch (Exception)
+        {
+            //那一轮正往历史里追加，下次再看
+        }
+
+        return false;
+    }
+
     // 落盘的可能是框架重建的副本，按正文认；正文里带着任务编号或子会话标识，不会撞上别的
     private bool IsInHistory(string sessionId, ChatMessage message)
     {
@@ -174,6 +206,8 @@ public sealed class SessionDelivery
                 if (_host.Load(letter.SessionId) is not { } session) return ELetterWrite.Missing;
                 // 在跑时写它的历史会与那一轮逐次调用的落盘交错
                 if (waitForIdle && _host.IsBusy(letter.SessionId)) return null;
+                // 送达层去重同样管 WriteNow（应用退出收尾）：正常送达写过的一封，退出时别再补一遍
+                if (AlreadyDelivered(letter)) return ELetterWrite.Unchanged;
                 return letter.Write(session);
             }
         }

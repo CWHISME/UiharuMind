@@ -616,6 +616,19 @@ public static class BackgroundSubAgentDispatcher
                 _ => ELetterWrite.Missing,
             };
 
+        // 送达层去重键：同一子会话回同一次来信，历史里已有同正文的一封就不再写（挡「回两封」）。
+        // 键带「回的是哪一次来信」，同一个人问两个问题回两封时不会被误吞
+        public override string? DedupeKey =>
+            $"{subSession.SessionId}|{SubAgentReportHandoff.RequestKey(subSession)}";
+
+        public override string? KeyOf(ChatMessage message)
+        {
+            string session = ChatMessageAnnotations.ReadSubAgentReportSession(message);
+            if (session.Length == 0) return null;
+            string replyTo = ChatMessageAnnotations.ReadSubAgentReplyTo(message);
+            return $"{session}|{replyTo}";
+        }
+
         // 数的是人不是轮次：同一位排着几轮也只算一位，这一位自己不算
         private int OthersPending() => Snapshot(parentId).Count(x => x != subSession.SessionId);
     }

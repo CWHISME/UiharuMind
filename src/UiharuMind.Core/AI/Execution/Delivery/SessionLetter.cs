@@ -50,4 +50,22 @@ public abstract class SessionLetter
     /// <param name="session">收信会话</param>
     /// <returns>落成了什么样</returns>
     public abstract ELetterWrite Write(ChatSession session);
+
+    /// <summary>
+    /// 同一来源的唯一键。<b>送达层按它去重</b>：全历史里已经有同键同正文的一封，就不再写也不注入——
+    /// 子代理报告交回一次以上、后台任务正常送达与退出收尾各走一遍时，历史里只该有一封。
+    /// null 表示不查重（这类信本身幂等，或就允许重复）。
+    ///
+    /// 键要能涵盖「回的是哪一次来信」这类区分：只按来源认的话，同一个人问两个问题回两封，
+    /// 其中一封会被误当成另一封的重复而吞掉
+    /// </summary>
+    public virtual string? DedupeKey => null;
+
+    /// <summary>
+    /// 从历史消息里读它的来源键，与 <see cref="DedupeKey"/> 同一口径。
+    /// 默认实现不认任何标记（配合 <see cref="DedupeKey"/> 为 null 的情形）；各信覆盖成读自己的标记
+    /// </summary>
+    /// <param name="message">历史里的一条消息</param>
+    /// <returns>它的来源键；认不出为 null</returns>
+    public virtual string? KeyOf(ChatMessage message) => null;
 }

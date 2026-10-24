@@ -159,6 +159,29 @@ public class SessionDeliveryTests
         Assert.Equal(outcome.Task.Id, ChatMessageAnnotations.ReadBackgroundTaskReportId(report));
     }
 
+    /// <summary>送达层去重：同键同正文的一封交回两次，历史只留一封——挡「子代理报告回两封」那条路</summary>
+    [Fact]
+    public async Task SameKeySameText_DeliveredTwice_StaysSingle()
+    {
+        TestLetter letter = new(_host.Session) { Dedupe = "sub|request" };
+
+        Assert.Equal(EDeliveryOutcome.Written, await DeliverAsync(letter));
+        Assert.Equal(EDeliveryOutcome.Unchanged, await DeliverAsync(letter));
+        Assert.Single(_host.Session.History);
+        Assert.Single(_host.Wakes); //第二封不写也不叫醒
+    }
+
+    /// <summary>没有去重键的信照旧可以重复落：查重只在信声明了 DedupeKey 时生效</summary>
+    [Fact]
+    public async Task WithoutDedupeKey_DeliveredTwice_KeepsBoth()
+    {
+        TestLetter letter = new(_host.Session);
+
+        Assert.Equal(EDeliveryOutcome.Written, await DeliverAsync(letter));
+        Assert.Equal(EDeliveryOutcome.Written, await DeliverAsync(letter));
+        Assert.Equal(2, _host.Session.History.Count);
+    }
+
     private Task<EDeliveryOutcome> DeliverAsync(SessionLetter letter) =>
         _delivery.DeliverAsync(letter).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
@@ -167,6 +190,8 @@ public class SessionDeliveryTests
         private readonly ChatMessage _message = new(ChatRole.User, "信");
 
         public bool Insertable { get; init; } = true;
+
+        public string? Dedupe { get; init; }
 
         public override string SessionId => session.SessionId;
 
@@ -179,6 +204,11 @@ public class SessionDeliveryTests
             target.History.Add(_message);
             return ELetterWrite.Written;
         }
+
+        public override string? DedupeKey => Dedupe;
+
+        public override string? KeyOf(ChatMessage message) =>
+            Dedupe != null && message.Text == _message.Text ? Dedupe : null;
     }
 
     private sealed class FakeHost : ISessionDeliveryHost

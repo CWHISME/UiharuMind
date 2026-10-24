@@ -56,5 +56,12 @@ public sealed class SessionReportSink : IBackgroundTaskReportSink
             session.SaveAppended(from);
             return ELetterWrite.Written;
         }
+
+        // 送达层去重键：同任务同正文的历史里已有一封就不再写。Write 里的
+        // 「同任务即不写」更严（正文改了也不更新），保留它当旧语义兜底
+        public override string? DedupeKey => outcome.Task.Id;
+
+        public override string? KeyOf(ChatMessage message) =>
+            ChatMessageAnnotations.ReadBackgroundTaskReportId(message) is { Length: > 0 } id ? id : null;
     }
 }

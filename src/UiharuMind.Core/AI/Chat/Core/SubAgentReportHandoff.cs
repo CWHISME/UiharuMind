@@ -275,7 +275,7 @@ public static class SubAgentReportHandoff
     }
 
     /// <summary>回的是哪一次来信：取那条来信的时间戳，消息本身没有稳定编号</summary>
-    private static string RequestKey(ChatSession subSession) =>
+    internal static string RequestKey(ChatSession subSession) =>
         LastRequest(subSession)?.CreatedAt?.UtcTicks.ToString() ?? string.Empty;
 
     /// <summary>盖上后续报告标记：带它的消息要落盘、要供给模型，只是渲染成旁白那一套</summary>
