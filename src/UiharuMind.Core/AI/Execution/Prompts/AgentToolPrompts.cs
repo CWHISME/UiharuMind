@@ -38,7 +38,7 @@ public static class AgentToolPrompts
         StringBuilder sb = new();
         if (hasWorkingDirectory)
         {
-            sb.AppendLine($"你现在正在通过 UiharuMind 聊天界面与用户对话，当前的工作目录是【{workingDirectory}】");
+            sb.AppendLine($"你正在借助 UiharuMind 客户端与用户对话，当前的工作目录是【{workingDirectory}】");
             sb.AppendLine("调用的命令和文件工具都以工作目录为基准，路径默认写相对路径即可；只有工作目录之外的东西时才必须使用绝对路径。");
         }
 

@@ -44,12 +44,24 @@ public static class ImagePreview
         !string.IsNullOrEmpty(path) && ImageExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    /// 这次工具调用是不是用 Read 看图
+    /// 这次工具调用是不是用 Read 看图。多图拼接（filePath 里用分号拼多张）也算：
+    /// 拆开后任一路径是图片即为看图——拆不拆只看有没有分号，文件是否存在由 FileReader 按「存在优先」判定
     /// </summary>
     /// <param name="call">工具调用（刚产出的或从历史读回来的都行）</param>
     /// <returns>是 Read 且路径是图片为 true</returns>
     public static bool IsImageRead(FunctionCallContent call) =>
-        call.Name == FileToolNames.Read && IsImagePath(ApprovalModeMapper.ExtractFilePath(call.Arguments));
+        call.Name == FileToolNames.Read
+        && SplitJoinedPaths(ApprovalModeMapper.ExtractFilePath(call.Arguments)).Any(IsImagePath);
+
+    /// <summary>按分号拆开 Read 的拼接路径（"a.png;b.png"）；无分号时原样单条</summary>
+    private static IEnumerable<string> SplitJoinedPaths(string? path)
+    {
+        if (string.IsNullOrEmpty(path)) yield break;
+        foreach (string part in path.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            yield return part;
+        }
+    }
 
     /// <summary>
     /// 看一张图：缩成预览副本存进草稿目录，返回给模型的结果（路径与尺寸，图随后由投影带上）

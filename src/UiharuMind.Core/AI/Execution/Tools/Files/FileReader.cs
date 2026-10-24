@@ -104,7 +104,12 @@ internal sealed class FileReader
         if (!_paths.TryResolve(filePath, out string full, out string pathError)) return pathError;
         if (_paths.RelativeToMemory(full) == ".") return ReadMemoryIndex();
         if (Directory.Exists(full)) return $"'{filePath}' 是目录；列出其中的文件用 `{FileToolNames.Glob}`。";
-        if (!File.Exists(full)) return await NotFoundAsync(filePath, full, ct).ConfigureAwait(false);
+        if (!File.Exists(full))
+        {
+            // 多图拼接：完整路径解析不到才按分号拆——路径本身带分号的真实文件在上游已按单文件处理
+            if (filePath.IndexOf(';') >= 0) return await ReadImageBatchAsync(filePath, ct).ConfigureAwait(false);
+            return await NotFoundAsync(filePath, full, ct).ConfigureAwait(false);
+        }
 
         // 只按扩展名分流：投影也只认参数里的扩展名，两边口径一致
         if (ImagePreview.IsImagePath(filePath)) return await ReadImageAsync(filePath, full, ct).ConfigureAwait(false);
@@ -133,6 +138,54 @@ internal sealed class FileReader
             $"你自己看不了图片，可以让 `{VisionTool.ToolName}` 帮你看。", ct),
         _ => ImagePreview.DescribeAsync(filePath, full, "本会话无法查看图片。", ct),
     };
+
+    /// <summary>
+    /// 多图拼接：filePath 里用分号拼了多张图片（"a.png;b.png"）。只在完整路径不存在时走到这里——
+    /// 路径本身带分号的真实文件已在上游按单文件处理，不会误拆。
+    /// 任一入口不是图片、任一文件缺失就整体报错（与 AnalyzeImage 同一口径），不搞「缺的跳过、剩的 Attach」
+    /// </summary>
+    private async Task<string> ReadImageBatchAsync(string filePath, CancellationToken ct)
+    {
+        string[] parts = filePath.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length > VisionTool.MaxImages)
+        {
+            return $"Error: 单次最多拼接 {VisionTool.MaxImages} 张图片。";
+        }
+
+        List<string> notImages = new();
+        List<string> missing = new();
+        foreach (string part in parts)
+        {
+            if (!ImagePreview.IsImagePath(part))
+            {
+                notImages.Add(part);
+                continue;
+            }
+
+            if (!_paths.TryResolve(part, out string full) || !File.Exists(full)) missing.Add(part);
+        }
+
+        if (notImages.Count > 0)
+        {
+            return $"Error: 图片拼接只支持图片路径（.png/.jpg/.jpeg/.webp），这些不是图片："
+                   + $"{string.Join(", ", notImages)}。文本请用单路径 Read。";
+        }
+
+        if (missing.Count > 0)
+        {
+            return $"Error: 找不到图片文件：{string.Join(", ", missing)}。";
+        }
+
+        List<string> results = new();
+        foreach (string part in parts)
+        {
+            // 存在性已校验过，这里只取解析出的绝对路径；解析失败是防御性跳过（不应发生）
+            if (!_paths.TryResolve(part, out string full, out _)) continue;
+            results.Add(await ReadImageAsync(part, full, ct).ConfigureAwait(false));
+        }
+
+        return string.Join("\n", results);
+    }
 
     private static async Task<string> ReadWholeAsync(string filePath, string full, int offset, int? limit,
         string? truncationHint, CancellationToken ct)

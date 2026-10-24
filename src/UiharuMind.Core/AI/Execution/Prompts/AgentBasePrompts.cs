@@ -29,7 +29,7 @@ public static class AgentBasePrompts
     /// 内置技能 uiharu-guide / uiharu-dev 的描述写的是「UiharuMind 这个应用」，它对不上（ADR 0061）。
     /// 只给事实不指路：技能开没开因角色而异，指向一个可能不存在的技能就是在指挥不存在的工具
     /// </summary>
-    public const string HostFact = "你当前的宿主是 UiharuMind 应用，在运行时请遵守以下规则：";
+    public const string HostFact = "用户正在通过 UiharuMind 客户端与你对话，你在执行指令时请遵守以下规则：";
 
     /// <summary>
     /// 基座层整段（含标题），与角色段同级，按 markdown 结构读是两个并列的顶级段。
@@ -37,6 +37,6 @@ public static class AgentBasePrompts
     /// </summary>
     public const string Base =
         AgentPromptHeadings.Base + "\n\n" +
-        // HostFact + "\n\n" +
+        HostFact + "\n" +
         "先把事实弄清楚再动手，下决定前必须先搜索项目获取足够信息，不得凭印象或猜测操作。";
 }

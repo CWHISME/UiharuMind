@@ -45,7 +45,9 @@ internal sealed class PermissiveFileAccessTools
         "读取文件的原始内容。每行前的「行号+制表符」是参照，不是文件内容，引用位置时直接用它，Edit 时不要带上。"
         + "代码与 Markdown 被截断时附文件大纲（各类型、函数、标题的起止行），据此传 offset 与 limit 只读需要的段。";
 
-    private const string ReadImagesDescription = " PNG、JPEG 与 WebP 文件会以图片形式展示。"; //只有视觉模型的装配才说
+    private const string ReadImagesDescription =
+        " 也可以直接用于读取/查看图片。多张图片可用分号（;）拼接在一个 filePath 里（如 \"a.png;b.png\"）一次附加多张，"
+        + "拼接里的每一项都必须是图片路径；路径本身含分号的单个文件仍按完整路径读，不受影响。"; //只有视觉模型的装配才说
 
     private const string SearchPathDescription = //Glob 与 Grep 的 path 参数共用
         "可选，省略则搜索整个工作目录。需要缩小搜索范围时传一个子目录或单个文件。";

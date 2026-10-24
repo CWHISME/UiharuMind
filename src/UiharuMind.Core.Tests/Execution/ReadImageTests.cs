@@ -109,6 +109,104 @@ public sealed class ReadImageTests : IDisposable
         Assert.DoesNotContain("`", result);
     }
 
+    // —— 多图拼接（分号）：完整路径不存在才拆，存在优先；批量与 AnalyzeImage 同上限、同「整体报错」口径 ——
+
+    [Fact]
+    public async Task SemicolonJoin_AttachesEveryImage_ReturningOnePreviewPerImage()
+    {
+        await WriteFile("a.png", TestImages.Png(8, 8));
+        await WriteFile("b.png", TestImages.Png(16, 16));
+
+        string result = await Read("a.png;b.png", EReadImageMode.Attach);
+
+        IReadOnlyList<string> previews = ImagePreview.ParsePreviewPaths(result);
+        Assert.Equal(2, previews.Count);
+        foreach (string preview in previews)
+        {
+            Assert.True(Paths().TryResolve(preview, out string full));
+            Assert.StartsWith(Draft, full);
+        }
+
+        Assert.Contains("a.png", result);
+        Assert.Contains("b.png", result);
+    }
+
+    [Fact]
+    public async Task SemicolonJoin_WithNonImageEntry_IsAnError_NothingAttached()
+    {
+        await WriteFile("a.png", TestImages.Png(8, 8));
+        await WriteFile("notes.txt", "hello"u8.ToArray());
+
+        string result = await Read("a.png;notes.txt", EReadImageMode.Attach);
+
+        Assert.StartsWith("Error:", result);
+        Assert.Contains("notes.txt", result);
+        Assert.False(Directory.Exists(Path.Combine(Draft, ImagePreview.PreviewFolder)));
+    }
+
+    [Fact]
+    public async Task SemicolonJoin_WithMissingImage_IsAnError_ListingMissing()
+    {
+        await WriteFile("a.png", TestImages.Png(8, 8));
+
+        string result = await Read("a.png;missing.png", EReadImageMode.Attach);
+
+        Assert.StartsWith("Error:", result);
+        Assert.Contains("missing.png", result);
+        Assert.False(Directory.Exists(Path.Combine(Draft, ImagePreview.PreviewFolder)));
+    }
+
+    [Fact]
+    public async Task SemicolonJoin_MoreThanEight_IsAnError()
+    {
+        List<string> names = new();
+        for (int i = 0; i < VisionTool.MaxImages + 1; i++)
+        {
+            string name = $"a{i}.png";
+            names.Add(name);
+            await WriteFile(name, TestImages.Png(2, 2));
+        }
+
+        string result = await Read(string.Join(";", names), EReadImageMode.Attach);
+
+        Assert.StartsWith("Error:", result);
+        Assert.Contains(VisionTool.MaxImages.ToString(), result);
+    }
+
+    [Fact]
+    public async Task SemicolonInRealFilename_ExistingFileIsReadWhole_NotSplit()
+    {
+        // 文件名里带分号的真实文件：存在优先，不拆
+        await WriteFile("a;b.png", TestImages.Png(8, 8));
+
+        string result = await Read("a;b.png", EReadImageMode.Attach);
+
+        Assert.Single(ImagePreview.ParsePreviewPaths(result));
+        Assert.Contains("a;b.png", result);
+    }
+
+    [Fact]
+    public async Task SemicolonInRealTextFilename_IsReadAsText_NotSplit()
+    {
+        await WriteFile("a;b.txt", "hello world"u8.ToArray());
+
+        string result = await Read("a;b.txt", EReadImageMode.Attach);
+
+        Assert.False(result.StartsWith("Error:", StringComparison.Ordinal));
+        Assert.Contains("hello world", result);
+    }
+
+    [Fact]
+    public void IsImageRead_RecognizesSemicolonJoinedPaths()
+    {
+        Assert.True(ImagePreview.IsImageRead(
+            new FunctionCallContent("c1", FileToolNames.Read, new Dictionary<string, object?> { ["filePath"] = "a.png;b.png" })));
+        Assert.True(ImagePreview.IsImageRead(
+            new FunctionCallContent("c2", FileToolNames.Read, new Dictionary<string, object?> { ["filePath"] = "cat.png" })));
+        Assert.False(ImagePreview.IsImageRead(
+            new FunctionCallContent("c3", FileToolNames.Read, new Dictionary<string, object?> { ["filePath"] = "a;b.txt" })));
+    }
+
     /// <summary>描述只在会附图时提图片，别让看不了图的模型以为能看</summary>
     [Theory]
     [InlineData(EReadImageMode.Attach, true)]
