@@ -1135,7 +1135,7 @@ public class SubAgentBoundaryTests
 
     /// <summary>
     /// 子代理与主代理同一口径：harness 段为空。
-    /// 框架默认那段的身份句会和子代理指令开头的「# 角色」抢身份(见 ADR 0004)。
+    /// 框架默认那段的身份句会和子代理指令里的个性化段（# 主题 等）抢身份(见 ADR 0004)。
     /// 基座层（<see cref="AgentBasePrompts.Base"/>）已清空，不再断言它的正文
     /// </summary>
     [Fact]
@@ -1181,8 +1181,8 @@ public class SubAgentBoundaryTests
     }
 
     /// <summary>
-    /// 点名的子智能体：人格是身份本身（角色卡已说"我是谁"）。无 role 时 # 角色 段没有
-    /// 可说的身份信息、整段省略（与主代理同一口径，见 ADR 0005）。
+    /// 点名的子智能体：人格是身份本身（角色卡已说"我是谁"）。无主题时 # 主题 段没有
+    /// 可说的信息、整段省略（与主代理同一口径，见 ADR 0005）。
     /// </summary>
     [Fact]
     public void NamedSubAgent_PutsItsPersonaFirst()
@@ -1196,14 +1196,15 @@ public class SubAgentBoundaryTests
         // 人格必须出场；裸卡由装配层补「# 你是谁」标题(与主代理同一口径)
         int persona = instructions.IndexOf("I am the research specialist", StringComparison.Ordinal);
         Assert.True(persona >= 0, "角色人格丢了");
-        // 无 role 时 SubAgentRole 段正文为空、不生成（Boundary 句已置空）。
-        // 唯一一次「# 角色」是 CharacterSection 给裸卡补的人格标题；SubAgentRole 段若生成，计数会变成 2。
-        Assert.Equal(1, instructions.Split(AgentPromptHeadings.SubAgentRole).Length - 1);
+        // 无主题时 SubAgentTopic 段正文为空、不生成（Boundary 句已置空）。
+        // 主题标题「# 主题」与人格标题（「# 角色」，CharacterSection 给裸卡补）不同名，
+        // 段若生成计数就不是 0。
+        Assert.Equal(0, instructions.Split(AgentPromptHeadings.SubAgentTopic).Length - 1);
     }
 
     /// <summary>
     /// 子代理<b>不装人格锚段</b>（<c># 记着</c>）：回锚是主代理/群成员专有的 recency 手段，
-    /// 子代理拿的是一份任务书，身份由人格段与 # 角色 段承担（合并口径：子代理不加锚段）。
+    /// 子代理拿的是一份任务书，身份由人格段与 # 主题 段承担（合并口径：子代理不加锚段）。
     /// 输入拼到能拼的最满，锚段也必须缺席。
     /// </summary>
     [Fact]
@@ -1225,9 +1226,9 @@ public class SubAgentBoundaryTests
         Assert.DoesNotContain(AgentPromptHeadings.PersonaAnchor, instructions);
     }
 
-    /// <summary>给了 role 时，role 收进 # 角色 段且排在人格之后——"role 放角色段"这个设计被钉住</summary>
+    /// <summary>给了主题时，主题收进 # 主题 段且排在人格之后——"主题放主题段"这个设计被钉住</summary>
     [Fact]
-    public void NamedSubAgent_RoleGoesIntoTheRoleSection()
+    public void NamedSubAgent_TopicGoesIntoTheTopicSection()
     {
         HarnessAgentOptions? options = SubAgentAssembly.BuildSubAgentOptions(
             NewInput() with
@@ -1240,10 +1241,10 @@ public class SubAgentBoundaryTests
         Assert.NotNull(options);
         string instructions = options!.ChatOptions?.Instructions ?? string.Empty;
         int persona = instructions.IndexOf("I am the research specialist", StringComparison.Ordinal);
-        // 首个「# 角色」是 CharacterSection 给裸卡补的人格标题，role 段标题从人格之后找
-        int roleSection = instructions.IndexOf(AgentPromptHeadings.SubAgentRole, persona, StringComparison.Ordinal);
+        // 首个「# 角色」是 CharacterSection 给裸卡补的人格标题，主题段标题从人格之后找
+        int topicSection = instructions.IndexOf(AgentPromptHeadings.SubAgentTopic, persona, StringComparison.Ordinal);
         Assert.True(persona >= 0, "人格必须在场");
-        Assert.True(roleSection > persona, "role 段必须排在人格之后");
+        Assert.True(topicSection > persona, "主题段必须排在人格之后");
         Assert.Contains("senior C# reviewer", instructions);
     }
 

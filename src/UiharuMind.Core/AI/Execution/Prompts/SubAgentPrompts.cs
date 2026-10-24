@@ -29,19 +29,11 @@ public static class SubAgentPrompts
     public const string Role = "你是 UiharuMind 的一个代理。";
 
     /// <summary>
-    /// 派活时给的一句话身份
+    /// 派活时给的一句话主题
     /// </summary>
     /// <returns></returns>
-    public static string RoleAssignment(string role) =>
-        $"你这次扮演的身份：{role}，按这个身份的视角和判断标准来做这件事。";
-
-    /// <summary>
-    /// 身份句的补充，<b>只在人格卡也在场时追加</b>。
-    ///
-    /// 不表态的话，一张写得强势的角色卡（长度与具体度都碾压那一句 role）会直接压过它，
-    /// 于是"点名一个代理 + 给它本次侧重"这个组合又变成半死的。
-    /// </summary>
-    public const string RoleOverPersona = "本次按这个身份侧重来，其余仍按你自己的方式。";
+    public static string RoleAssignment(string topic) =>
+        $"本次委派的主题：{topic}。围绕这个主题做事。";
 
     /// <summary>可变更档的边界。能力由工具集决定、规则由任务书指明，这里不重复（与「档位提示」同源，那一份已删）</summary>
     public const string BoundaryCanMutate =

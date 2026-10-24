@@ -244,7 +244,7 @@ public static class SubAgentReportHandoff
         return sender.Length > 0 ? $"{sender} [sub-session: {shortId}]" : $"[sub-session: {shortId}]";
     }
 
-    // 点名的人用派活时那个名字（模型下次 to 填的就是它），匿名的用派活时给的身份
+    // 点名的人用派活时那个名字（模型下次 to 填的就是它），匿名的用派活时给的主题（语录标题）
     internal static string SenderOf(ChatSession subSession) =>
         subSession.SubAgentName.Length > 0 ? subSession.SubAgentName : subSession.SubAgentRole;
 

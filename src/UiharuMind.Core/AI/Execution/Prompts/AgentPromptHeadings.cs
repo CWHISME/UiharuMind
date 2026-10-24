@@ -65,8 +65,8 @@ public static class AgentPromptHeadings
     /// </summary>
     public const string PersonaAnchor = "# 记着";
 
-    /// <summary>子代理的身份段</summary>
-    public const string SubAgentRole = "# 角色";
+    /// <summary>子代理段的标题：派活时给的一句话主题</summary>
+    public const string SubAgentTopic = "# 主题";
 
     /// <summary>
     /// 子代理的协作段。取代从前的「# 做法」：那一段把工具纪律与协作口径混成一摊裸 bullet，

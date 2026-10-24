@@ -209,32 +209,32 @@ public static class SubAgentTool
         // 请在角色上挂一个子智能体,而不是让模型现编。
         if (context.Roster.Count == 0)
         {
-            // 没挂子角色就没有 subagent_type:schema 里没有可填名字的地方,也就编不出名字
+            // 没挂子角色就没有 character:schema 里没有可填名字的地方,也就编不出名字
             // (ADR 0044 补注:弱模型见到「可以填名字」就自己造一个)
             return ToolJson.CreateFunction(
                 ([Description(SubAgentToolPrompts.PromptParam)]
                     string prompt,
-                    [Description(SubAgentToolPrompts.RoleParam)]
-                    string? role = null,
+                    [Description(SubAgentToolPrompts.TopicParam)]
+                    string? topic = null,
                     [Description(SubAgentToolPrompts.ModelParam)]
-                    string? model = null) => Launch(context, prompt, null, role, model),
+                    string? model = null) => Launch(context, prompt, null, topic, model),
                 ToolName,
                 SubAgentToolPrompts.AgentDescription);
         }
 
-        // subagent_type 的说明随名单装配时拼(SubAgentToolPrompts.BuildSubagentTypeParam),[Description] 只能写常量
+        // character 的说明随名单装配时拼(SubAgentToolPrompts.BuildCharacterParam),[Description] 只能写常量
         AIFunction function = ToolJson.CreateFunction(
             ([Description(SubAgentToolPrompts.PromptParam)]
                 string prompt,
-                string? subagent_type = null,
-                [Description(SubAgentToolPrompts.RoleParam)]
-                string? role = null,
+                string? character = null,
+                [Description(SubAgentToolPrompts.TopicParam)]
+                string? topic = null,
                 [Description(SubAgentToolPrompts.ModelParam)]
-                string? model = null) => Launch(context, prompt, subagent_type, role, model),
+                string? model = null) => Launch(context, prompt, character, topic, model),
             ToolName,
             SubAgentToolPrompts.AgentDescription);
-        return new ParameterDescriptionFunction(function, "subagent_type",
-            SubAgentToolPrompts.BuildSubagentTypeParam(context.Roster));
+        return new ParameterDescriptionFunction(function, "character",
+            SubAgentToolPrompts.BuildCharacterParam(context.Roster));
     }
 
     private static AITool CreateMessage(LaunchContext context) =>
@@ -327,12 +327,51 @@ public static class SubAgentTool
     }
 
     /// <summary>
-    /// <see cref="ToolName"/> 的 <c>subagent_type</c> 不在名单里。只有挂了子角色才会走到这里
+    /// 点名选角色。<c>character</c> 先按推荐名单（挂载的子智能体）匹配：角色卡标识、装配名
+    /// （<see cref="AgentOptionsFactory.SanitizeAgentName"/> 的产物，中文名会被滤成标识）、显示名；
+    /// 名单里没有就放宽到全角色库——只要角色存在就能点名（装配不校验名单，见
+    /// <see cref="SubAgentAssembly.BuildSubSessionAssembly"/> 的 <c>named</c> 分支）
+    /// </summary>
+    internal static SubAgentChoice? PickChoice(IReadOnlyList<SubAgentChoice> roster, string agent)
+    {
+        string wanted = agent.Trim();
+        if (wanted.Length == 0) return null;
+
+        SubAgentChoice? inRoster = MatchInRoster(roster, wanted);
+        if (inRoster != null) return inRoster;
+
+        // 放宽到全角色库：按标识或显示名，存在即认
+        CharacterData? card = CharacterManager.Instance.CharacterDataDictionary.Values.FirstOrDefault(x =>
+            string.Equals(x.CharacterId, wanted, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(x.CharacterName, wanted, StringComparison.OrdinalIgnoreCase));
+        return card == null
+            ? null
+            : new SubAgentChoice(AgentOptionsFactory.SanitizeAgentName(card.CharacterName, card.CharacterId),
+                card.Description, card.CharacterId);
+    }
+
+    private static SubAgentChoice? MatchInRoster(IReadOnlyList<SubAgentChoice> roster, string wanted)
+    {
+        SubAgentChoice? byId = roster.FirstOrDefault(x =>
+            string.Equals(x.CharacterId, wanted, StringComparison.OrdinalIgnoreCase));
+        if (byId != null) return byId;
+
+        SubAgentChoice? byName = roster.FirstOrDefault(x =>
+            string.Equals(x.Name, wanted, StringComparison.OrdinalIgnoreCase));
+        if (byName != null) return byName;
+
+        return roster.FirstOrDefault(x =>
+            CharacterManager.Instance.CharacterDataDictionary.TryGetValue(x.CharacterId, out CharacterData? card)
+            && string.Equals(card.CharacterName, wanted, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// <see cref="ToolName"/> 的 <c>character</c> 不在名单也不在角色库里。只有挂了子角色才会走到这里
     /// (没挂就没有这个参数)。
     /// </summary>
     private static string UnknownSubagentType(LaunchContext context, string name) =>
-        $"Error: 没有名为 '{name}' 的人。选一个：{string.Join(", ", context.Roster.Select(x => x.Name))}, "
-        + "或留空 `subagent_type`。";
+        $"Error: 角色库中没有 '{name}'。可点名的（挂载的子智能体）：{string.Join(", ", context.Roster.Select(x => x.Name + "（" + x.CharacterId + "）"))}; "
+        + "或留空 `character`（用通用子代理）。";
 
     /// <summary>
     /// 发信人插话的前缀。子代理提示词明确区分「用户在窗口说话」与「给它发消息的会话追问」，
@@ -347,7 +386,7 @@ public static class SubAgentTool
     /// 子会话字段几乎全部从派活者继承，差异只有类型、身份卡、标题与模型。两处各写一遍就会漂移。
     /// </summary>
     internal static ChatSession CreateSubSession(LaunchContext context, ESubAgentType type,
-        string characterId, string title, string description, string name, string role, string? modelName) =>
+        string characterId, string title, string description, string name, string topic, string? modelName) =>
         new()
         {
             CharacterId = characterId,
@@ -360,11 +399,11 @@ public static class SubAgentTool
             ParentOutputFolderName = context.ParentOutputFolderName,
             SubAgentType = type,
             SubAgentName = name,
-            SubAgentRole = role,
+            SubAgentRole = topic,
             SessionModelName = modelName,
         };
 
-    private static string Launch(LaunchContext context, string task, string? agent, string? role = null,
+    private static string Launch(LaunchContext context, string task, string? agent, string? topic = null,
         string? model = null)
     {
         if (string.IsNullOrWhiteSpace(task)) return "Error: 任务不能为空。";
@@ -373,14 +412,14 @@ public static class SubAgentTool
         SubAgentChoice? choice = null;
         if (!string.IsNullOrWhiteSpace(agent))
         {
-            choice = context.Roster.FirstOrDefault(x => string.Equals(x.Name, agent.Trim(), StringComparison.OrdinalIgnoreCase));
+            choice = PickChoice(context.Roster, agent);
             if (choice == null)
             {
                 return UnknownSubagentType(context, agent.Trim());
             }
         }
 
-        string? normalizedRole = NormalizeRole(role);
+        string? normalizedTopic = NormalizeTopic(topic);
         ModelChoice modelChoice = ResolveSubAgentModelName(context.Profile, model);
         ChatSession session = CreateSubSession(context, context.Profile.Type,
             // 匿名子代理用内置的身份角色,不沿用派活者的——否则子会话窗口会顶着派活者的
@@ -388,8 +427,8 @@ public static class SubAgentTool
             // 顶同一个名字用户分不清这次委派能不能改东西。
             // 能力仍然直接取派活者那一份(不经交集,见 SubAgentAssembly.BuildFromPlan)
             choice?.CharacterId ?? AnonymousCharacterOf(context.Profile.Type).ToString(),
-            BuildTitle(task, normalizedRole), task,
-            choice?.Name ?? string.Empty, normalizedRole ?? string.Empty, modelChoice.Name);
+            BuildTitle(task, normalizedTopic), task,
+            choice?.Name ?? string.Empty, normalizedTopic ?? string.Empty, modelChoice.Name);
         SessionManager.Instance.Add(session);
         NoteStarted(context, session.SessionId);
 
@@ -784,9 +823,9 @@ public static class SubAgentTool
     private static DefaultCharacter AnonymousCharacterOf(ESubAgentType type) =>
         type == ESubAgentType.Explorer ? DefaultCharacter.LegacyExploreAgent : DefaultCharacter.AnonymousAgent;
 
-    /// <summary>子会话标题:有 role 用 role,否则取任务首行,都截 40 字。标题纯显示、落盘、改不了名</summary>
-    internal static string BuildTitle(string task, string? role = null) =>
-        Clip(string.IsNullOrWhiteSpace(role) ? task.Trim().Split('\n', 2)[0].Trim() : role);
+    /// <summary>子会话标题:有主题用主题,否则取任务首行,都截 40 字。标题纯显示、落盘、改不了名</summary>
+    internal static string BuildTitle(string task, string? topic = null) =>
+        Clip(string.IsNullOrWhiteSpace(topic) ? task.Trim().Split('\n', 2)[0].Trim() : topic);
 
     /// <summary>
     /// 截到 <see cref="MaxLabelLength"/> 字以内（含省略号）。拉丁文字退到词边界再截，不切半个词——
@@ -802,12 +841,12 @@ public static class SubAgentTool
         return head.TrimEnd(' ', ',', '，', '/', '、') + "…";
     }
 
-    /// <summary>role 清洗:trim、剥掉换行与反引号(防注入工具名)、截到 <see cref="MaxLabelLength"/> 字。返回 null 表示未设定</summary>
-    private static string? NormalizeRole(string? role)
+    /// <summary>主题清洗:trim、剥掉换行与反引号(防注入工具名)、截到 <see cref="MaxLabelLength"/> 字。返回 null 表示未设定</summary>
+    private static string? NormalizeTopic(string? topic)
     {
-        if (string.IsNullOrWhiteSpace(role)) return null;
-        StringBuilder sb = new(role.Length);
-        foreach (char c in role.Trim())
+        if (string.IsNullOrWhiteSpace(topic)) return null;
+        StringBuilder sb = new(topic.Length);
+        foreach (char c in topic.Trim())
         {
             if (c is '\r' or '\n' or '`') continue;
             sb.Append(c);

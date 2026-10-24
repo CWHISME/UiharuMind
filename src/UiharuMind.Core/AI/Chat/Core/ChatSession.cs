@@ -114,8 +114,9 @@ public class ChatSession
     public string SubAgentName { get; set; } = string.Empty;
 
     /// <summary>
-    /// 派活时给的一句话身份/职业（可选）；空串表示未设定。随会话落盘：
-    /// 重开子会话续跑时注入「# 角色」段，也直接用作会话标题。仅子会话有意义。
+    /// 委派时给的一句话主题名称（可选）；空串表示未设定。随会话落盘：
+    /// 重开子会话续跑时注入「# 主题」段，也直接用作会话标题与匿名子代理的署名。
+    /// 仅子会话有意义。字段名保留旧名 SubAgentRole：存档兼容，语义已是主题
     /// </summary>
     public string SubAgentRole { get; set; } = string.Empty;
 
@@ -798,6 +799,7 @@ public class ChatSession
             CreatedAt = CreatedAt,
             UpdatedAt = UpdatedAt,
             MessageCount = History.Count,
+            LastInputTokens = LastInputTokens,
             HasComposerDraft = !string.IsNullOrWhiteSpace(ComposerDraft),
             ParentSessionId = ParentSessionId,
             SubAgentType = SubAgentType,

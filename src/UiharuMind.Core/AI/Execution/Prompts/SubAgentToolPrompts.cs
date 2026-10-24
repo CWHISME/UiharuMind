@@ -55,32 +55,28 @@ public static class SubAgentToolPrompts
         "任务或问题。他看不到你们的对话，所以要把任务写完整、自包含。";
 
     /// <summary>
-    /// <c>subagent_type</c> 参数说明，<b>按名单装配时拼</b>；只在挂了子角色时才有这个参数。
-    /// 名字就写在要填名字的地方，模型不必去别处对照。
+    /// <c>character</c> 参数说明，<b>按名单装配时拼</b>；只在挂了子角色时才有这个参数。
+    /// 名单列常用项；点名不限名单——角色库里任何存在的角色名/标识都认
     /// </summary>
-    /// <param name="roster">可点名的子角色，非空</param>
+    /// <param name="roster">可点名的子角色（常用名单），非空</param>
     /// <returns>参数说明</returns>
-    public static string BuildSubagentTypeParam(IReadOnlyList<SubAgentChoice> roster)
+    public static string BuildCharacterParam(IReadOnlyList<SubAgentChoice> roster)
     {
         IEnumerable<string> people = roster.Select(x =>
-            x.Description.Length > 0 ? $"- {x.Name}: {x.Description}" : $"- {x.Name}");
-        return "可选。取下列名字之一；留空则用通用子代理。\n" + string.Join("\n", people);
+            x.Description.Length > 0 ? $"- {x.Name}（{x.CharacterId}）: {x.Description}" : $"- {x.Name}（{x.CharacterId}）");
+        return "可选。填角色名或标识（任意存在的角色均可，下面只是常用名单）；留空用通用子代理。\n" + string.Join("\n", people);
     }
 
     /// <summary>
-    /// <c>role</c> 参数说明（身份/职业）。
+    /// <c>topic</c> 参数说明（主题名称）。
     ///
-    /// 从前末尾还有一句 "Ignored when `agent` names a mounted agent." ——<b>那是假的</b>：
-    /// <c>SubAgentTool.Launch</c> 无条件 <c>NormalizeRole</c> 并钉在子会话上，装配侧也无条件
-    /// 输出身份句。点名一个角色卡、再给它本次侧重，本就是有意义的组合，不该丢；
-    /// 该修的是那句话，不是那个行为。两者同时在场时谁压谁，由提示词明确表态
-    /// （见 <c>SubAgentPrompts.RoleOverPersona</c>）。
+    /// 用途是「区分不同的子代理会话」：给这次委派起个名，它会成为会话标题与匿名子代理的署名，
+    /// 同一主题的后续用 <c>SendMessage</c> 回到同一会话。
     /// </summary>
-    public const string RoleParam =
-        "可选的角色名称（如「资深 C# 评审」「唱反调的人」）。" +
-        "会成为会话标题和对方的身份，决定他关注什么、如何权衡取舍。" +
-        "它改变的是视角，不是能力。" +
-        "指定了 `subagent_type` 时，对方保留人格，这个参数补充侧重点。";
+    public const string TopicParam =
+        "可选的会话名称：给这次委派起个名。" +
+        "会成为会话标题与署名，用于区分不同的子代理会话——同一主题的后续都用 `" +
+        SubAgentTool.MessageToolName + "` 回到同一会话，只有新主题才新开一位。";
     
     /// <summary>
     /// <c>model</c> 参数说明。

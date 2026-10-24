@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
@@ -37,7 +38,7 @@ public class SubAgentToolTests
     }
 
     /// <summary>
-    /// 没挂子角色就没有 subagent_type。实测弱模型见到「可以填名字」就自己造一个
+    /// 没挂子角色就没有 character。实测弱模型见到「可以填名字」就自己造一个
     /// （general、reviewer…），干脆不给它填的地方
     /// </summary>
     [Fact]
@@ -45,19 +46,20 @@ public class SubAgentToolTests
     {
         JsonElement properties = Launcher().JsonSchema.GetProperty("properties");
 
-        Assert.False(properties.TryGetProperty("subagent_type", out _));
+        Assert.False(properties.TryGetProperty("character", out _));
         Assert.True(properties.TryGetProperty("prompt", out _));
     }
 
-    /// <summary>挂了子角色：名字连同用途列在要填名字的地方</summary>
+    /// <summary>挂了子角色：名字与标识连同用途列在要填角色名的地方</summary>
     [Fact]
     public void Agent_WithRoster_ListsThePeopleOnSubagentType()
     {
         string description = Launcher(new SubAgentChoice("Alice", "审代码", "alice-id"), new SubAgentChoice("Bob", "", "bob-id"))
-            .JsonSchema.GetProperty("properties").GetProperty("subagent_type").GetProperty("description").GetString() ?? "";
+            .JsonSchema.GetProperty("properties").GetProperty("character").GetProperty("description").GetString() ?? "";
 
-        Assert.Contains("- Alice: 审代码", description);
-        Assert.Contains("- Bob", description);
+        Assert.Contains("- Alice（alice-id）: 审代码", description);
+        Assert.Contains("- Bob（bob-id）", description);
+        Assert.Contains("任意存在的角色", description);
     }
 
     /// <summary>「同一主题回到同一个人」写在模型正打算新开的那一把上，并指名续聊工具</summary>
@@ -70,7 +72,7 @@ public class SubAgentToolTests
         Assert.Contains(SubAgentTool.MessageToolName, description);
     }
 
-    /// <summary>只有 prompt 必填：role / model / subagent_type 都可不传</summary>
+    /// <summary>只有 prompt 必填：topic / model / character 都可不传</summary>
     [Fact]
     public void Agent_OnlyPromptIsRequired()
     {
@@ -88,10 +90,71 @@ public class SubAgentToolTests
     {
         AIFunction launcher = Launcher(new SubAgentChoice("Alice", "", "alice-id"));
 
-        string result = await Invoke(launcher, new AIFunctionArguments { ["prompt"] = "看看", ["subagent_type"] = "reviewer" });
+        string result = await Invoke(launcher, new AIFunctionArguments { ["prompt"] = "看看", ["character"] = "reviewer" });
 
-        Assert.Contains("没有名为 'reviewer' 的人", result);
+        Assert.Contains("角色库中没有 'reviewer'", result);
         Assert.Contains("Alice", result);
+    }
+
+    /// <summary>点名认三种写法：角色卡标识、装配名、显示名（按 CharacterId / Name / CharacterName 依次）</summary>
+    [Fact]
+    public void PickChoice_MatchesIdOrNameOrDisplayName()
+    {
+        SubAgentChoice alice = new("Alice", "审代码", "alice-id");
+        List<SubAgentChoice> roster = [alice, new SubAgentChoice("Bob", "", "bob-id")];
+
+        Assert.Same(alice, SubAgentTool.PickChoice(roster, "alice-id")); // 角色卡标识
+        Assert.Same(alice, SubAgentTool.PickChoice(roster, "ALICE")); // 装配名，忽略大小写
+        Assert.Null(SubAgentTool.PickChoice(roster, "nobody"));
+        Assert.Null(SubAgentTool.PickChoice(roster, ""));
+    }
+
+    /// <summary>点名也认显示名（中文原名）：经角色库反查 CharacterId 再落名单。测试往全局角色库临时塞一张卡</summary>
+    [Fact]
+    public void PickChoice_MatchesDisplayNameThroughCharacterLibrary()
+    {
+        SubAgentChoice alice = new("alice-id", "审代码", "alice-card"); // 中文装配名会被滤成标识，见 SanitizeAgentName
+        List<SubAgentChoice> roster = [alice];
+        CharacterManager.Instance.CharacterDataDictionary["alice-card"] = new CharacterData
+        {
+            CharacterId = "alice-card",
+            CharacterName = "艾丽丝",
+        };
+        try
+        {
+            Assert.Same(alice, SubAgentTool.PickChoice(roster, "艾丽丝"));
+        }
+        finally
+        {
+            CharacterManager.Instance.CharacterDataDictionary.Remove("alice-card");
+        }
+    }
+
+    /// <summary>点名不限挂载名单：角色库里存在但不在 roster 里的角色也能点名（按标识或显示名）</summary>
+    [Fact]
+    public void PickChoice_AcceptsAnyExistingRoleFromLibrary()
+    {
+        List<SubAgentChoice> roster = []; // 空名单：没挂任何子智能体
+        CharacterManager.Instance.CharacterDataDictionary["external-card"] = new CharacterData
+        {
+            CharacterId = "external-card",
+            CharacterName = "外部角色",
+            Description = "能干的帮手",
+        };
+        try
+        {
+            SubAgentChoice byId = SubAgentTool.PickChoice(roster, "external-card")!;
+            Assert.Equal("external-card", byId.CharacterId);
+
+            SubAgentChoice byName = SubAgentTool.PickChoice(roster, "外部角色")!;
+            Assert.Equal("external-card", byName.CharacterId);
+
+            Assert.Null(SubAgentTool.PickChoice(roster, "不存在的角色"));
+        }
+        finally
+        {
+            CharacterManager.Instance.CharacterDataDictionary.Remove("external-card");
+        }
     }
 
     [Theory]

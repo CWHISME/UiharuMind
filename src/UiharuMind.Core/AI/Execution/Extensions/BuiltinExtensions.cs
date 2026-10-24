@@ -33,6 +33,9 @@ public static class BuiltinExtensions
     /// <summary>桌面：看、动别的应用的窗口（ADR 0084）</summary>
     public const string Desktop = "desktop";
 
+    /// <summary>chatsession：查看本会话派出的子代理状态与群聊状态</summary>
+    public const string ChatSession = "chatsession";
+
     /// <summary>目标模式（隐藏扩展）：模型自判结束目标模式</summary>
     public const string Goal = "goal";
 
@@ -90,6 +93,21 @@ public static class BuiltinExtensions
     /// <summary>worktree：查询当前状态</summary>
     public const string WorktreeStatus = "status";
 
+    /// <summary>chatsession：本会话派出的子代理</summary>
+    public const string ChatSessionList = "list";
+
+    /// <summary>chatsession：群聊状态（留「本会话发起的群」过滤的口子）</summary>
+    public const string ChatSessionGroups = "list-groups";
+
+    /// <summary>chatsession：已加载的模型列表（派活前选 model 用）</summary>
+    public const string ChatSessionModels = "list-models";
+
+    /// <summary>chatsession：角色列表（派活前选 character 用）</summary>
+    public const string ChatSessionCharacters = "list-characters";
+
+    /// <summary>chatsession：强行停止一个正在跑的子代理</summary>
+    public const string ChatSessionStop = "stop";
+
     /// <summary>目标模式：结束（reason=done | needs_user，summary=给用户的交代）</summary>
     public const string GoalEnd = "end";
 
@@ -103,7 +121,7 @@ public static class BuiltinExtensions
     public static readonly IReadOnlyList<BuiltinExtension> Catalog =
     [
         BrowserExtension.Spec, DesktopExtension.Spec, ImageExtension.Spec,
-        AudioExtension.Spec, WorktreeExtension.Spec, GoalModeExtension.Spec,
+        AudioExtension.Spec, WorktreeExtension.Spec, ChatSessionExtension.Spec, GoalModeExtension.Spec,
     ];
 
     /// <summary>全部内置扩展名，按系统提示与帮助里的顺序（隐藏扩展不进名单）</summary>

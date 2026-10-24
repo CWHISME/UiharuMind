@@ -280,6 +280,12 @@ public class ExtensionTests
     [InlineData("worktree", "set", EExtensionRisk.Standard)]
     [InlineData("worktree", "remove", EExtensionRisk.Standard)]
     [InlineData("worktree", "frobnicate", EExtensionRisk.ReadOnly)] //没这条命令,什么也不会跑
+    [InlineData("chatsession", "list", EExtensionRisk.ReadOnly)] //纯查询
+    [InlineData("chatsession", "list-groups", EExtensionRisk.ReadOnly)] //纯查询
+    [InlineData("chatsession", "list-models", EExtensionRisk.ReadOnly)] //纯查询
+    [InlineData("chatsession", "list-characters", EExtensionRisk.ReadOnly)] //纯查询
+    [InlineData("chatsession", "stop", EExtensionRisk.Standard)] //取消一轮并写收尾历史,要问
+    [InlineData("chatsession", "join", EExtensionRisk.ReadOnly)] //没这条命令,什么也不会跑
     public void Classify(string extension, string command, EExtensionRisk expected)
     {
         EExtensionRisk? risk = ExtensionRisk.Classify(ExtensionCallOf.Make(extension, command),
@@ -320,12 +326,12 @@ public class ExtensionTests
 
     //================= 注册表 =================
 
-    /// <summary>Catalog 是唯一的登记处：五个可见扩展 + 隐藏的目标模式；按名取回都要走得到</summary>
+    /// <summary>Catalog 是唯一的登记处：六个可见扩展 + 隐藏的目标模式；按名取回都要走得到</summary>
     [Fact]
     public void Catalog_RegistersEveryVisibleExtension_AndResolvesNames()
     {
-        Assert.Equal(["browser", "desktop", "image", "audio", "worktree"], BuiltinExtensions.Names);
-        Assert.Equal(6, BuiltinExtensions.Catalog.Count); //含隐藏的目标模式
+        Assert.Equal(["browser", "desktop", "image", "audio", "worktree", "chatsession"], BuiltinExtensions.Names);
+        Assert.Equal(7, BuiltinExtensions.Catalog.Count); //含隐藏的目标模式
         Assert.True(BuiltinExtensions.Catalog.Single(x => x.IsHidden).Name == BuiltinExtensions.Goal);
         Assert.Equal("browser", BuiltinExtensions.Canonical("BROWSER")); //大小写都归一到规范写法
         Assert.Equal("snapshot", BuiltinExtensions.CanonicalCommand("browser", "BrowserSnapshot")); //旧工具名也认
@@ -346,7 +352,7 @@ public class ExtensionTests
 
         IReadOnlyList<(string Name, string Description)> roster = ExtensionRoster.Of(config, mcp, EAgentToolScope.Main);
 
-        Assert.Equal(["browser", "desktop", "audio", "worktree", "unity"], roster.Select(x => x.Name));
+        Assert.Equal(["browser", "desktop", "audio", "worktree", "chatsession", "unity"], roster.Select(x => x.Name));
         Assert.Equal(string.Empty, ExtensionRoster.Section(
             new AgentToolConfig { DisabledExtensions = [..BuiltinExtensions.Names] }, McpToolSet.Empty, EAgentToolScope.Main));
     }
@@ -365,6 +371,22 @@ public class ExtensionTests
         IReadOnlyList<(string Name, string Description)> roster = ExtensionRoster.Of(new AgentToolConfig(), McpToolSet.Empty, scope);
 
         Assert.Equal(included, roster.Any(x => x.Name == BuiltinExtensions.Worktree));
+    }
+
+    /// <summary>chatsession 只进能派出子代理、会话持久的场合：主代理/群成员/化身。
+    /// 子代理与脑拿的是任务书、不往下委派；定时任务跑完就收工——都没有自己的委派可查</summary>
+    [Theory]
+    [InlineData(EAgentToolScope.Main, true)]
+    [InlineData(EAgentToolScope.GroupMember, true)]
+    [InlineData(EAgentToolScope.GroupAvatar, true)]
+    [InlineData(EAgentToolScope.SubAgent, false)]
+    [InlineData(EAgentToolScope.ScheduledRun, false)]
+    [InlineData(EAgentToolScope.Brain, false)]
+    public void Roster_ChatSessionOnlyWhereItCanHaveSubAgents(EAgentToolScope scope, bool included)
+    {
+        IReadOnlyList<(string Name, string Description)> roster = ExtensionRoster.Of(new AgentToolConfig(), McpToolSet.Empty, scope);
+
+        Assert.Equal(included, roster.Any(x => x.Name == BuiltinExtensions.ChatSession));
     }
 
     /// <summary>旧档案的 MCP 禁用名单读进新名单，写出时不再带旧字段</summary>

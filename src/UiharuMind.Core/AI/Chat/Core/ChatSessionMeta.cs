@@ -69,6 +69,14 @@ public class ChatSessionMeta
     /// <summary>消息条数（列表展示，避免为此加载本体）</summary>
     public int MessageCount { get; set; }
 
+    /// <summary>
+    /// 最近一次响应的输入 token，即这个会话的上下文占用快照。索引冗余：
+    /// 只为旁路查询（如 chatsession.list）在<b>不加载本体</b>时也能读出占用；
+    /// 权威值在本体 <see cref="ChatSession.LastInputTokens"/>，随轮末 <c>SaveMeta</c> 刷新。
+    /// 旧索引没有该字段时读回 0（表示还没跑过），与「占用未知」同义
+    /// </summary>
+    public long LastInputTokens { get; set; }
+
     /// <summary>是否有未发送的输入草稿（列表据此显示小标记，避免为此加载本体）</summary>
     public bool HasComposerDraft { get; set; }
 

@@ -120,7 +120,7 @@ internal static class SubAgentAssembly
         /// <summary>子代理策略(类型、模型源、提示词侧重点);未传时用通用子代理</summary>
         public SubAgentProfile SubAgentProfile { get; init; } = SubAgentProfile.General;
 
-        /// <summary>派活时给的一句话身份/职业(可选);空串表示未设定。注入子代理的「# 角色」段</summary>
+        /// <summary>派活时给的一句话主题名称(可选);空串表示未设定。注入子代理的「# 主题」段</summary>
         public string Role { get; init; } = string.Empty;
 
         /// <summary>
@@ -247,16 +247,16 @@ internal static class SubAgentAssembly
             options = AgentOptionsFactory.CreateSubAgentBaseOptions(plan.Compaction);
             options.Name = identity.AgentName.Length > 0 ? identity.AgentName : "SubAgent";
             ChatOptions fallback = input.Sampling?.ToChatOptions() ?? new ChatOptions();
-            // 纯对话也走与正常装配同一份身份形状:人格(带标题) + # 角色 段;
+            // 纯对话也走与正常装配同一份身份形状:人格(带标题) + # 主题 段;
             // 工具纪律等一律不拼——没有工具,拼了等于指挥模型调不存在的东西
             string personaSection = AgentInstructionsComposer.CharacterSection(persona);
             string identitySection = BuildIdentitySection(named, input.Role, canMutate: false,
                 brain: input.SubAgentProfile.IsBrain);
             List<string> fallbackParts = [];
             if (personaSection.Length > 0) fallbackParts.Add(personaSection);
-            // 标题→正文单换行,与正常路径 list.Section 同一口径(身份段内部刻意不空行撑开)
+            // 标题→正文单换行,与正常路径 list.Section 同一口径(主题段内部刻意不空行撑开)
             if (identitySection.Length > 0)
-                fallbackParts.Add($"{AgentPromptHeadings.SubAgentRole}\n\n{identitySection}");
+                fallbackParts.Add($"{AgentPromptHeadings.SubAgentTopic}\n\n{identitySection}");
             fallback.Instructions = string.Join("\n\n", fallbackParts);
             options.ChatOptions = fallback;
         }
@@ -492,20 +492,15 @@ internal static class SubAgentAssembly
     /// 两档同构后这个 corner 也要同一形状。
     /// </summary>
     /// <param name="named">是否点名的子智能体（persona 非空）</param>
-    /// <param name="role">派活时给的一句话身份；空串则不写那一句</param>
+    /// <param name="role">派活时给的一句话主题；空串则不写那一句</param>
     /// <param name="canMutate">是否挂了可变更工具（决定边界句取哪一档）</param>
     /// <param name="brain">是否脑（ADR 0082）：追加脑纪律</param>
-    /// <returns># 角色 段正文（不含标题）；可能为空串</returns>
+    /// <returns># 主题 段正文（不含标题）；可能为空串</returns>
     private static string BuildIdentitySection(bool named, string role, bool canMutate, bool brain = false)
     {
         List<string> identity = [];
         if (!named) identity.Add(SubAgentPrompts.Role);
-        if (role.Length > 0)
-        {
-            identity.Add(SubAgentPrompts.RoleAssignment(role));
-            // 角色卡的长度与具体度都碾压那一句 role,不表态的话 role 会被压过去
-            if (named) identity.Add(SubAgentPrompts.RoleOverPersona);
-        }
+        if (role.Length > 0) identity.Add(SubAgentPrompts.RoleAssignment(role));
 
         // 边界句置空(见 SubAgentPrompts 注释):能力由工具集决定,规则由任务书指明。非空才入列。
         string? boundary = canMutate ? SubAgentPrompts.BoundaryCanMutate : SubAgentPrompts.BoundaryReadOnly;
@@ -520,7 +515,7 @@ internal static class SubAgentAssembly
     /// <b>与主代理同构</b>——中间那段工具纪律逐字取自同一张清单，只有开关不同。
     ///
     /// <b>子代理不装人格锚段</b>（<c># 记着</c>）：回锚是主代理/群成员专有的 recency 手段，
-    /// 子代理拿的是一份任务书，身份由人格段与 # 角色 段承担（有不变量测试钉住）。
+    /// 子代理拿的是一份任务书，身份由人格段与 # 主题 段承担（有不变量测试钉住）。
     /// 工作循环由基座层提供（<see cref="AgentBasePrompts.Base"/>），不再在装配层追加。
     ///
     /// 工作区规矩必须给:子代理干的正是探查工作区的活,却会是全场唯一不知道工作区规矩的人——
@@ -555,12 +550,12 @@ internal static class SubAgentAssembly
         // 基座与主代理共用同一份(AgentBasePrompts.Base)：最底层的根本规则，恒在最前。
         // 子代理拿任务书也要守「不编/落盘/不可逆先问」，普通角色不装这一层(ADR 0066 基座共用)
         list.Raw(true, AgentBasePrompts.Base);
-        // 人格段与主代理同一实现:角色卡自带一级标题则原样,裸卡补「# 你是谁」标题
+        // 人格段与主代理同一实现:角色卡自带一级标题则原样,裸卡补「# 角色」标题
         // (CharacterSection 与主代理同一处,「谁排标题」的口径只有一处定义;ADR 0005 人格在最前)
         list.Raw(named, AgentInstructionsComposer.CharacterSection(persona));
-        // 身份段(# 角色)。点名的子智能体人格已是身份,不再跟一句"你是 UiharuMind 的一个代理"
-        // ——那是跟人格抢身份;身份段内部用单换行:全是短句,空行撑开既费 token 又让它看着像五段独立的话
-        list.Section(true, AgentPromptHeadings.SubAgentRole, BuildIdentitySection(named, role, canMutate, brain));
+        // 身份段(# 主题)。点名的子智能体人格已是身份,不再跟一句"你是 UiharuMind 的一个代理"
+        // ——那是跟人格抢身份;主题段只给派活时的一句话主题
+        list.Section(true, AgentPromptHeadings.SubAgentTopic, BuildIdentitySection(named, role, canMutate, brain));
 
         // 工具纪律与主代理共用同一张清单(段序、出现条件都在那一处定义)
         list.Raw(true, ToolDisciplineSections.Build(new ToolDisciplineSections.ToolDisciplineFacts
