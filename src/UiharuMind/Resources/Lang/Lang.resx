@@ -52,10 +52,10 @@
         <value>Full auto: everything runs without prompts</value>
     </data>
     <data name="CompactCommandDescription" xml:space="preserve">
-        <value>Compact the conversation into a handoff document</value>
+        <value>Compact the conversation into a memory compression</value>
     </data>
     <data name="HandoffHeader" xml:space="preserve">
-        <value>Context handoff — the model cannot see anything before this point</value>
+        <value>Memory compressed</value>
     </data>
     <data name="AgentInterject" xml:space="preserve">
         <value>Interject</value>
@@ -91,16 +91,16 @@
         <value>Cannot compact right now: a turn is still running. Wait for it to finish.</value>
     </data>
     <data name="CompactAlreadyInProgress" xml:space="preserve">
-        <value>Already writing the context handoff. Wait for it to finish.</value>
+        <value>Memory compression already in progress. Wait for it to finish.</value>
     </data>
     <data name="InterjectionRemoveTip" xml:space="preserve">
         <value>Withdraw this interjection before the model reads it</value>
     </data>
     <data name="HandoffWriting" xml:space="preserve">
-        <value>Writing context handoff…</value>
+        <value>Compressing memory…</value>
     </data>
     <data name="HandoffFailed" xml:space="preserve">
-        <value>Could not write the context handoff; the oldest messages will be dropped instead.</value>
+        <value>Memory compression failed; the oldest messages will be dropped instead.</value>
     </data>
     <data name="HandoffNothingToCompact" xml:space="preserve">
         <value>Nothing to compact yet.</value>
@@ -125,7 +125,7 @@ Session total {1}</value>
         <value>Fold tool results at {0}</value>
     </data>
     <data name="ContextWatermarkHandoff" xml:space="preserve">
-        <value>Handoff at {0}</value>
+        <value>Memory compression at {0}</value>
     </data>
     <data name="ContextWatermarkTruncate" xml:space="preserve">
         <value>Drop oldest at {0}</value>
@@ -162,7 +162,7 @@ Hit rate = cached input / reported input. The row above is the session total, wi
         <value>Folded away (est.)</value>
     </data>
     <data name="ContextCompactedTip" xml:space="preserve">
-        <value>History folded (or truncated) away before this request was sent, by our own estimate. The bar shows what was actually sent; the handoff watermark counts this slice too, so a handoff can still come while the bar sits below it.</value>
+        <value>History folded (or truncated) away before this request was sent, by our own estimate. The bar shows what was actually sent; the memory-compression watermark counts this slice too, so a memory compression can still come while the bar sits below it.</value>
     </data>
     <data name="ChatAutoCollapseThinking" xml:space="preserve">
         <value>Auto-collapse thinking</value>
@@ -570,7 +570,7 @@ Hit rate = cached input / reported input. The row above is the session total, wi
         <value>Memory list size limit</value>
     </data>
     <data name="AgentSettingMemoryIndexBudgetDesc" xml:space="preserve">
-        <value>At the start of a new session, and after each handoff document, the agent receives a memory list (file name and first line of every note). Past this many characters only the most recently modified notes are listed, and the agent is told how many were left out.</value>
+        <value>At the start of a new session, and after each memory compression, the agent receives a memory list (file name and first line of every note). Past this many characters only the most recently modified notes are listed, and the agent is told how many were left out.</value>
     </data>
     <data name="AgentSettingSubAgentFallbackHint" xml:space="preserve">
         <value>(Not set — falls back to the main agent model)</value>

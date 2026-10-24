@@ -11,6 +11,7 @@ using System.Linq;
 using System.Text;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.Core.SimpleLog;
@@ -18,8 +19,8 @@ using UiharuMind.Core.Core.SimpleLog;
 namespace UiharuMind.Core.AI.Execution.History;
 
 /// <summary>
-/// 交接文档式压缩：上下文快满时，让<b>当前模型</b>把这段对话写成一份交接文档
-/// （已完成什么、正在做什么、进度到哪、下一步），之后喂给模型的历史就从这份文档开始。
+/// 记忆压缩式上下文整理：上下文快满时，让<b>当前模型</b>把这段对话整理成一份记忆压缩
+/// （已完成什么、正在做什么、进度到哪、下一步），之后喂给模型的历史就从这份压缩开始。
 ///
 /// 与框架自带的 <c>SummarizationCompactionStrategy</c> 的两个关键差别：
 /// <list type="number">
@@ -30,46 +31,48 @@ namespace UiharuMind.Core.AI.Execution.History;
 /// （摘要输出会永久替换原始消息，因此摘要模型必须与主模型同等可信）——同一个模型就没有这个落差。</item>
 /// </list>
 ///
-/// 框架的截断仍然挂着当兜底：写交接文档本身也要发一次请求，它失败时得有东西接住。
+/// 框架的截断仍然挂着当兜底：写记忆压缩本身也要发一次请求，它失败时得有东西接住。
 /// </summary>
 public static class HistoryHandoff
 {
     /// <summary>触发水位（占输入预算的比例）。低于框架截断的水位，好让截断几乎轮不到。</summary>
     public const double Threshold = 0.8;
 
-    /// <summary>交接文档在对话里的标题，界面与提示词共用一处</summary>
-    public const string Title = "Context handoff";
+    /// <summary>记忆压缩在对话里的标题，界面与提示词共用一处</summary>
+    public const string Title = "记忆压缩";
+
+    /// <summary>记忆压缩正文的固定开场句（代码注入，不靠模型写）</summary>
+    private const string Opening = "我来整理这段历史记忆。";
+
+    /// <summary>「上一轮最后一句」小标题（代码注入，紧跟在模型正文之后）</summary>
+    private const string LastSentenceHeading = "上一轮我的最后一句：";
 
     /// <summary>
     /// 附加段的分隔标题：它之后是代码现算的内容（委派清单、用户原话、转录路径），不是模型写的正文。
     /// 与正文同在一条消息里而不另起一条：另起一条的话，下次压缩要么把它一并交给模型（照样被总结），
     /// 要么剔掉它（请求从那里岔开，前缀缓存整段作废）；指令里一句"不要照抄"就够了。界面要折叠附录时按它切
     /// </summary>
-    public const string AppendixHeading = "--- Appended automatically (regenerated at every handoff) ---";
+    public const string AppendixHeading = "--- 以下由程序自动生成（每次压缩重新生成） ---";
 
-    private const double NoteBudgetRatio = 0.1; //交接文档自己占输入预算的比例
+    private const double NoteBudgetRatio = 0.1; //记忆压缩自己占输入预算的比例
     private const int MinNoteTokens = 400;
     private const int MaxNoteTokens = 8000;
-    // 委派清单里每条摘要的篇幅。10 条 × 160 字 ≈ 1600 字,在交接文档自己的预算里是小头,
-    // 而这正是模型判断「该不该续这一个」的唯一依据——截太狠等于整段白写
-    private const int SubSessionSummaryChars = 160;
+    private const int RecallUserMessages = 15; //回忆段最多带几条用户原话;逐条原文不截断
 
-    private const int RecallMessageChars = 300; //每条原话的篇幅
-    private const double RecallBudgetRatio = 0.02; //原话合计占输入预算的比例,与正文篇幅上限脱钩
-
-    // 这些 user 消息不是用户本人说的话:派活方插话、群里别人的发言、知识库片段。
+    // 这些 user 消息不是用户本人说的话:派活方插话、群里别人的发言、知识库片段、目标模式的系统注入。
     // 交回的报告与子代理中途来信不列在这里——它们由 IsNotUserWords 在数组之前就先挡掉(UserWords 首判)
     private static readonly string[] NotUserWords =
     [
         ChatMessageAnnotations.ParentInterjection,
         ChatMessageAnnotations.GroupDelivery,
         ChatMessageAnnotations.Knowledge,
+        ChatMessageAnnotations.GoalModeInjection,
     ];
 
     private const int CharsPerToken = 2; //中英混排的保守估计:英文约 4、中文约 1.5,取 2 不至于让模型写超
 
     /// <summary>
-    /// 交接文档自己的篇幅上限（字符数）。
+    /// 记忆压缩自己的篇幅上限（字符数）。
     ///
     /// 必须给，而且必须算出来告诉模型：文档写完就成了下一段历史的**起点**，
     /// 它自己太长的话，压缩等于没做——极端情况下一写完就又过了水位，下一轮再压一次，
@@ -84,35 +87,32 @@ public static class HistoryHandoff
         return tokens * CharsPerToken;
     }
 
-    private const string Instruction = $$"""
-        You are about to lose access to the earlier part of this conversation: it is being
-        compacted to fit the context window. Write a handoff document for your future self.
+    private const string Instruction = 
+        $$"""
+        为了适配上下文窗口，这段对话更早的部分将被压缩，我即将失去直接访问它们的能力。请以「我」的视角，为未来的我整理一份压缩记忆。
 
-        Cover, in this order, and omit any section that genuinely has nothing to report:
-        1. What the user is ultimately trying to accomplish.
-        2. What has already been done and decided, including the reasoning behind each decision.
-        3. What is in progress right now and exactly how far it got.
-        4. What comes next, and anything still unresolved or blocked.
-        5. Concrete details that would be expensive to rediscover: file paths, identifiers,
-           commands, numbers, names, API shapes.
+        按顺序覆盖以下内容，确实没有可报的部分可以省略：
+        1. 用户最终想达成什么。
+        2. 已经完成和已经定下的事，包括每个决定背后的理由。
+        3. 现在正在做什么、进行到了哪一步。
+        4. 接下来是什么，以及任何仍未解决或卡住的事。
+        5. 重新发掘起来代价很高的具体细节：文件路径、标识符、命令、数字、名字、API 形状。
 
-        Rules:
-        - Write it for someone who will see ONLY this document and nothing before it.
-        - Be specific. "Fixed the bug" is useless; name the file and what changed.
-        - Do not invent anything that did not happen in the conversation.
-        - Do not address the user, do not ask questions, do not offer to continue.
-        - Write in the language the conversation is in.
-        - Output the document only. No preamble, no closing remarks.
-        - Do not call any tools: everything you need is already above.
-        - If an earlier handoff ends with a section headed "{{AppendixHeading}}", do not copy it:
-          it is regenerated automatically after your document.
-        - HARD LIMIT: at most {0} characters. This document replaces the conversation above,
-          so if it is too long it defeats its own purpose. Spend the budget on sections 3 and 5
-          (current progress and concrete details); compress sections 1 and 2 hard.
+        规则：
+        - 这份文档是写给一个只能看到它、看不到它之前任何内容的自己。
+        - 要具体。「修好了 bug」没用；写出文件名和改了什么。
+        - 不要编造对话里没发生过的事。
+        - 不要对用户说话，不要提问，不要主动表示继续。
+        - 用对话所用的语言写。
+        - 只输出文档本身。不要前言，不要收尾客套。
+        - 不要调用任何工具：需要的东西都已在上面。
+        - 开头那句开场白与末尾「上一轮我的最后一句」两段由代码自动加上，不要自己写。
+        - 如果早先的记忆压缩以「{{AppendixHeading}}」结尾，不要照抄：它会自动重新生成。
+        - 硬性上限：最多 {0} 字。这份文档会替换上面的对话，太长就违背了它的目的。把预算花在第 3 和第 5 节（当前进度与具体细节）上；第 1、2 节尽量压缩。
         """;
 
     /// <summary>
-    /// 是否该写交接文档了
+    /// 是否该写记忆压缩了
     /// </summary>
     /// <param name="rawInput">原始占用（有效占用加上被折叠或截断压掉的那截，见 <c>TurnUsageLedger.RawInput</c>）</param>
     /// <param name="contextLength">当前模型的上下文上限</param>
@@ -124,113 +124,100 @@ public static class HistoryHandoff
     }
 
     /// <summary>
-    /// 这个会话派出过的委派清单，<b>确定性追加</b>在交接文档正文之后。
+    /// 这个会话派出过的委派数量、仍在跑的那几位、以及查询入口，<b>确定性追加</b>在记忆压缩正文之后。
     ///
-    /// 存在的理由很窄：用 <c>SendMessage</c> 续上一次委派要写子会话编号，而编号只出现在回执与报告里
-    /// ——那些正是压缩要吃掉的东西。不补这一段，压缩之后「续跑上一次委派」这个能力就<b>够不着了</b>，
-    /// 模型只能重新派一个，把子代理攒下的上下文全丢掉。
-    ///
-    /// <b>不写进给模型的指令里让它自己带</b>：一长串十六进制编号正是摘要最先丢掉的东西。
-    /// 这里从会话索引现算，与模型写了什么无关；也因此每次压缩都重算一遍，二次压缩同样丢不掉。
+    /// 不逐条列出：<c>ExCall</c> 调 <c>chatsession</c> 扩展的 <c>list</c> 命令能实时列出本会话派出的子代理及其状态，
+    /// 比压缩时固化的快照更新、也更省篇幅。压缩里只报数量、把还在跑的点名出来（压缩后模型要知道还有哪些活挂着），
+    /// 再指路怎么查、怎么续。续聊仍要说明为什么别新开：新开一位会丢掉子代理攒下的上下文。
     /// </summary>
-    /// <param name="subSessions">该会话派出过的子会话，最近的在前</param>
-    /// <param name="max">最多列几条（老的那些用户多半会重新描述而不是点名续跑）</param>
+    /// <param name="subSessions">该会话派出过的子会话</param>
+    /// <param name="tools">会话装配的工具；没有扩展元工具（<c>ExCall</c>）时只报数量与运行中列表，不给查不了的指路</param>
+    /// <param name="stateOf">运行态判定；缺省用全局运行登记（测试传自建）</param>
     /// <returns>要追加的段落；没有委派时为空串</returns>
-    public static string BuildSubSessionRoster(IReadOnlyList<ChatSessionMeta> subSessions, int max = 10)
+    public static string BuildSubSessionRoster(IReadOnlyList<ChatSessionMeta> subSessions, IEnumerable<AITool>? tools,
+        Func<string, ESessionRunState>? stateOf = null)
     {
         if (subSessions.Count == 0) return string.Empty;
 
+        stateOf ??= SessionManager.Instance.Running.StateOf;
         StringBuilder roster = new();
         roster.AppendLine();
-        roster.AppendLine("People you already talked to in this session (pass the "
-                          + $"`[sub-session: …]` id as `to` in `{SubAgentTool.MessageToolName}` to pick one back up "
-                          + $"instead of launching a new `{SubAgentTool.ToolName}`, which would lose everything they already worked out):");
-        foreach (ChatSessionMeta meta in subSessions.Take(max))
+        // 还在跑的那几位单独点名:压缩后模型要知道还有哪些活挂着(全部状态与编号可由扩展现查,这里只给抓手)
+        List<ChatSessionMeta> running = subSessions
+            .Where(x => stateOf(x.SessionId) != ESessionRunState.Idle)
+            .ToList();
+        if (running.Count == 0)
         {
-            // 还在跑的那些要单独标出来——续跑一个没跑完的与续跑一个已经交回结论的,是两件事
-            string state = meta.BackgroundReportPending ? " [hasn't written back yet]" : string.Empty;
-            // 被点名的子代理带上角色名,模型才知道这一单是谁干的;匿名子代理没有名字,不加前缀
-            string who = string.IsNullOrWhiteSpace(meta.SubAgentName) ? string.Empty : $"{meta.SubAgentName}: ";
-            roster.AppendLine($"- [sub-session: {SubSessionIdAlias.Short(meta.SessionId)}] - {who}{Summarize(meta)}{state}");
+            roster.Append($"本会话派出过 {subSessions.Count} 位子代理。");
+        }
+        else
+        {
+            roster.Append($"本会话派出过 {subSessions.Count} 位子代理，其中 {running.Count} 位还在工作中：\n");
+            foreach (ChatSessionMeta meta in running)
+            {
+                string who = string.IsNullOrWhiteSpace(meta.SubAgentName) ? string.Empty : $"{meta.SubAgentName}：";
+                string topic = string.IsNullOrWhiteSpace(meta.Title) ? string.Empty : $"《{meta.Title}》";
+                string state = stateOf(meta.SessionId) == ESessionRunState.AwaitingApproval ? "等审批" : "工作中";
+                roster.Append($"- {who} · {topic}[{SubSessionIdAlias.Short(meta.SessionId)}] · {state}\n");
+            }
+        }
+
+        if (tools?.Any(t => t.Name == ExtensionCalls.CallName) == true)
+        {
+            roster.Append("要查他们的状态或编号，用 "
+                          + $"`{ExtensionCalls.CallName}` 调 `{BuiltinExtensions.ChatSession}` 扩展的 "
+                          + $"`{BuiltinExtensions.ChatSessionList}` 命令；要续聊，把列出的 `[sub-session: …]` 编号作为 `to` 传给 "
+                          + $"`{SubAgentTool.MessageToolName}`，而不是新开 "
+                          + $"`{SubAgentTool.ToolName}`——新开会丢掉他们已整理好的一切。");
         }
 
         return roster.ToString().TrimEnd();
     }
 
     /// <summary>
-    /// 一次委派在清单里的那一行摘要。
-    ///
-    /// 取 <see cref="ChatSessionMeta.Description"/>（派活时的<b>任务原文</b>）而不是
-    /// <see cref="ChatSessionMeta.Title"/>：后者是界面用的，首行截到 40 字，
-    /// 实测经常看不出这次委派到底干什么——而模型要判断的正是「该不该续这一个」。
-    /// 多行压成一行（<see cref="OneLine"/>）：清单一项占一行，换行会把它冲散。
-    /// </summary>
-    private static string Summarize(ChatSessionMeta meta)
-    {
-        string task = string.IsNullOrWhiteSpace(meta.Description) ? meta.Title : meta.Description;
-        return OneLine(task, SubSessionSummaryChars);
-    }
-
-    private static string OneLine(string text, int maxChars)
-    {
-        text = string.Join(' ', text.Split('\n', '\r', '\t')
-            .Select(x => x.Trim())
-            .Where(x => x.Length > 0));
-        return text.Length <= maxChars ? text : text[..maxChars] + "…";
-    }
-
-    /// <summary>
-    /// 回查段，<b>确定性追加</b>在交接文档末尾：最近几条用户原话，加上纯文本转录的路径。
+    /// 回查段，<b>确定性追加</b>在记忆压缩末尾：最近最多 <see cref="RecallUserMessages"/> 条用户原话（逐条原文不截断），
+    /// 加上纯文本转录的路径。
     ///
     /// 用户原话是意图与约束的第一手来源，"别动 X"这类约束在摘要里最容易丢，所以由代码原样带上。
-    /// 逐条截断、合计按预算从最近往前带，不另设条数上限：交接文档有篇幅上限（防"压缩→还是满→再压缩"），
-    /// 用户消息却没有，贴一段日志就能冲穿它。更早的原话与完整过程靠转录回查。
-    /// 每次都从整份历史现算，多次压缩不会逐次累积。
+    /// 只数<b>用户本人</b>说的话：系统注入（目标模式等）、群投递、子代理交回、知识库片段都不是用户的话，一律不算。
+    /// 条数封顶 <see cref="RecallUserMessages"/>、不按篇幅截断——超长粘贴原样进回忆段是明确口径，
+    /// 更早的原话与完整过程靠转录回查。每次都从整份历史现算，多次压缩不会逐次累积。
     /// </summary>
     /// <param name="history">完整历史</param>
     /// <param name="transcriptPath">转录文件路径；没挂 Grep/Read 时为 null，路径与回查提示都不写</param>
-    /// <param name="contextLength">当前模型的上下文上限，用于算原话部分的预算</param>
     /// <returns>要追加的段落（以空行开头）；无可追加时为空串</returns>
-    public static string BuildRecall(IReadOnlyList<ChatMessage> history, string? transcriptPath, int contextLength)
+    public static string BuildRecall(IReadOnlyList<ChatMessage> history, string? transcriptPath)
     {
-        // 按输入预算单独算:正文的篇幅上限封顶 8000 token,只管模型写的那段,附加段不该挤在它里面
-        int budget = (int)(HistoryCompaction.InputBudgetFor(contextLength) * RecallBudgetRatio) * CharsPerToken;
         List<string> quotes = [];
-        int used = 0;
         int older = 0;
         for (int i = history.Count - 1; i >= 0; i--)
         {
             string? words = UserWords(history[i]);
             if (words == null) continue;
 
-            string quote = $"- #{i + 1}: {OneLine(words, RecallMessageChars)}";
-            // 最近的那一条无论多长都带上,它往往就是当前这件事本身
-            if (quotes.Count > 0 && used + quote.Length > budget)
+            if (quotes.Count >= RecallUserMessages)
             {
                 older++;
                 continue;
             }
 
-            quotes.Add(quote);
-            used += quote.Length;
+            quotes.Add($"- #{i + 1}: {words}");
         }
 
         StringBuilder recall = new();
         if (quotes.Count > 0)
         {
             quotes.Reverse();
-            recall.Append("\nWhat the user said most recently, verbatim (oldest first; #N is the message number):\n");
+            recall.Append($"\n最近用户原话（最多 {RecallUserMessages} 条，原文照抄，旧在前；#N 是消息编号）：\n");
             foreach (string quote in quotes) recall.Append(quote).Append('\n');
         }
 
         if (transcriptPath != null)
         {
-            string earlier = older > 0 ? $" and {older} earlier user message(s)" : string.Empty;
-            recall.Append($"\nThe whole conversation before this handoff, including everything summarized away{earlier}, "
-                          + $"is in \"{transcriptPath}\" as plain text: one \"## #N role time\" header per message, "
-                          + "tool calls and results cut to one line. "
-                          + $"`{FileToolNames.Grep}` it for exact wording, paths or decisions, "
-                          + $"then `{FileToolNames.Read}` around the hit.\n");
+            string earlier = older > 0 ? $"以及更早的 {older} 条用户消息" : string.Empty;
+            recall.Append($"\n这次记忆压缩之前的完整对话（包括被整理掉的部分{earlier}）以纯文本存在 \"{transcriptPath}\"："
+                          + "每条消息一个 \"## #N 角色 时间\" 标题，工具调用与结果压成一行。"
+                          + $"用 `{FileToolNames.Grep}` 搜确切措辞、路径或决定，再用 `{FileToolNames.Read}` 读命中处附近。\n");
         }
 
         return recall.ToString().TrimEnd();
@@ -255,9 +242,9 @@ public static class HistoryHandoff
     /// <summary>
     /// 在模型写的正文之后接上附加段，中间用 <see cref="AppendixHeading"/> 隔开
     /// </summary>
-    /// <param name="note">模型写的交接正文</param>
+    /// <param name="note">模型写的记忆压缩正文</param>
     /// <param name="sections">各附加段（委派清单、回查段）；空串跳过</param>
-    /// <returns>整份交接文档；没有附加段时即正文本身</returns>
+    /// <returns>整份记忆压缩；没有附加段时即正文本身</returns>
     public static string WithAppendix(string note, params string[] sections)
     {
         string appendix = string.Join("\n\n", sections.Where(x => x.Length > 0).Select(x => x.Trim()));
@@ -265,18 +252,18 @@ public static class HistoryHandoff
     }
 
     /// <summary>
-    /// 构造交接文档消息。
+    /// 构造记忆压缩消息。
     ///
-    /// 角色取 <b>system</b> 而不是 assistant，是为了不被框架截断吃掉：交接文档在供给窗口里
-    /// 恰好是最老的一条，而 <c>TruncationCompactionStrategy</c> 正是从最老的非 system 组开始删——
-    /// 取 assistant 的话，占用一旦冲到截断水位，第一个被删的就是它自己，那段历史就白压了。
-    /// 框架对 system 组一律保留，这条因此稳住。
+    /// 角色取 <b>assistant</b> 而不是 system：文档是「我」以第一人称整理的记忆，
+    /// 放在供给窗口的最前面作为<b>模型自己的第一条消息</b>，新一轮从这里接着往下说。
+    /// 代价是失去框架截断的保护（截断从最老的非 system 组开始删，system 组一律保留）——
+    /// 记忆压缩一旦被那一轮请求排除，模型那一轮就丢了前情；但轮末 0.8 水位会再写一份，自愈。
     /// </summary>
     /// <param name="note">文档正文</param>
     /// <returns>可直接写进历史的消息</returns>
     public static ChatMessage CreateNote(string note)
     {
-        return new ChatMessage(ChatRole.System, $"[{Title}]\n{note}")
+        return new ChatMessage(ChatRole.Assistant, $"[{Title}]\n{note}")
         {
             CreatedAt = DateTimeOffset.Now,
             AdditionalProperties = new AdditionalPropertiesDictionary { [ChatMessageAnnotations.Handoff] = Title },
@@ -303,7 +290,7 @@ public static class HistoryHandoff
     }
 
     /// <summary>
-    /// 是否为交接文档消息
+    /// 是否为记忆压缩消息
     /// </summary>
     /// <param name="message">消息</param>
     /// <returns>是则 true</returns>
@@ -313,22 +300,110 @@ public static class HistoryHandoff
     }
 
     /// <summary>
-    /// 取交接文档的正文（去掉给模型认的那行标题，界面上已有标题了）
+    /// 取记忆压缩的正文（去掉给模型认的那行标题，界面上已有标题了）
     /// </summary>
     /// <param name="text">消息文本</param>
     /// <returns>正文</returns>
     public static string NoteBody(string text)
     {
         string prefix = $"[{Title}]";
-        return text.StartsWith(prefix, StringComparison.Ordinal) ? text[prefix.Length..].TrimStart() : text;
+        if (text.StartsWith(prefix, StringComparison.Ordinal)) return text[prefix.Length..].TrimStart();
+        // 旧存档里标题还是 "Context handoff":改名之前写下的记忆压缩,界面上不能带着旧标题前缀
+        string legacy = "[Context handoff]";
+        return text.StartsWith(legacy, StringComparison.Ordinal) ? text[legacy.Length..].TrimStart() : text;
     }
 
     /// <summary>
-    /// 取喂给模型的历史区间起点：最后一条交接文档所在的下标。
+    /// 拼出记忆压缩正文：固定开场 + 模型写的正文 + 上一轮最后一句（开场与末句由代码确定性追加）。
+    /// 开场让卡片读起来有头；上一轮最后一句放末尾，让新一轮的接续点紧贴用户接下来的输入。
+    /// </summary>
+    /// <param name="note">模型写的正文</param>
+    /// <param name="lastSentence">上一轮最后一句；没有（无 assistant 正文）时为 null</param>
+    /// <returns>整段正文</returns>
+    public static string ComposeBody(string note, string? lastSentence)
+    {
+        string body = $"{Opening}\n\n{note}";
+        if (!string.IsNullOrWhiteSpace(lastSentence))
+        {
+            body += $"\n\n{LastSentenceHeading}\n{lastSentence}";
+        }
+
+        return body;
+    }
+
+    /// <summary>
+    /// 取历史里最后一条 assistant 文本消息的最后一句话。
+    /// 记忆压缩本身也是 assistant 角色，要跳过；开场旁白不是"上一轮说的话"，也跳过；
+    /// 纯工具调用/空回复没有文本，跳过。没有可取的句子时返回 null（正文不带这段）。
+    /// </summary>
+    /// <param name="history">完整历史</param>
+    /// <returns>上一轮最后一句；取不到为 null</returns>
+    public static string? LastAssistantSentence(IReadOnlyList<ChatMessage> history)
+    {
+        for (int i = history.Count - 1; i >= 0; i--)
+        {
+            ChatMessage message = history[i];
+            if (message.Role != ChatRole.Assistant) continue;
+            if (IsNote(message) || ChatMessageAnnotations.IsNarration(message)) continue;
+            string text = message.Text;
+            if (string.IsNullOrWhiteSpace(text)) continue;
+            return LastSentence(text);
+        }
+
+        return null;
+    }
+
+    /// <summary>无句末标点可切时的兜底长度：别把一大块代码/日志整个塞进记忆压缩</summary>
+    private const int TailFallbackChars = 300;
+
+    /// <summary>
+    /// 切最后一句：按句末标点从后往前取最后一段。
+    /// 英文句号只在该处是句尾（后跟空白或结尾、且前面不是数字）时才算，避免 "v1.2.3" 被劈开。
+    /// </summary>
+    private static string LastSentence(string text)
+    {
+        text = text.Trim();
+        if (text.Length == 0) return text;
+
+        int last = LastSentenceEnd(text);
+        if (last < 0)
+        {
+            return text.Length <= TailFallbackChars ? text : "…" + text[^TailFallbackChars..];
+        }
+
+        if (last == text.Length - 1)
+        {
+            // 以标点结尾:取这个标点所在的那一句(往回找上一个标点)
+            int prev = LastSentenceEnd(text[..last]);
+            return prev < 0 ? text : text[(prev + 1)..].Trim();
+        }
+
+        // 标点后面还有内容:取标点之后的末尾段
+        return text[(last + 1)..].Trim();
+    }
+
+    private static int LastSentenceEnd(string text)
+    {
+        for (int i = text.Length - 1; i >= 0; i--)
+        {
+            char c = text[i];
+            if (c is '。' or '！' or '？' or '…' or '!' or '?') return i;
+            if (c == '.' && (i == text.Length - 1 || char.IsWhiteSpace(text[i + 1]))
+                && (i == 0 || !char.IsDigit(text[i - 1])))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// 取喂给模型的历史区间起点：最后一条记忆压缩所在的下标。
     /// 文档本身要包含在内——它就是模型能看到的全部前情。
     /// </summary>
     /// <param name="history">完整历史</param>
-    /// <returns>起点下标；没有交接文档时为 0</returns>
+    /// <returns>起点下标；没有记忆压缩时为 0</returns>
     public static int SupplyStartIndex(IReadOnlyList<ChatMessage> history)
     {
         for (int i = history.Count - 1; i >= 0; i--)
@@ -340,10 +415,10 @@ public static class HistoryHandoff
     }
 
     /// <summary>
-    /// 让模型写一份交接文档
+    /// 让模型写一份记忆压缩
     /// </summary>
     /// <param name="client">模型客户端</param>
-    /// <param name="history">要交接的历史，与常规请求同一视图（见 <see cref="HistorySupply.ForSideRequestAsync"/>）</param>
+    /// <param name="history">要压缩的历史，与常规请求同一视图（见 <see cref="HistorySupply.ForSideRequestAsync"/>）</param>
     /// <param name="agentOptions">本会话装配好的对话选项，见 <see cref="ICharacterRunner.ChatOptions"/></param>
     /// <param name="contextLength">当前模型的上下文上限，用于算出文档自己的篇幅上限</param>
     /// <param name="extraInstructions">
@@ -364,8 +439,7 @@ public static class HistoryHandoff
         {
             // 附在最后一条 user 指令消息里而不是另起一条:消息结构与从前完全一样,
             // 服务端的前缀缓存不因这段追加而失效
-            instruction += "\n\nAdditional instructions from the user - give these priority "
-                           + "over the general list above where they conflict:\n"
+            instruction += "\n\n补充指示 — 与上面的一般清单冲突时优先执行：\n"
                            + extraInstructions.Trim();
         }
 
@@ -424,7 +498,7 @@ public static class HistoryHandoff
 }
 
 /// <summary>
-/// 写交接文档那一发请求的产出
+/// 写记忆压缩那一发请求的产出
 /// </summary>
 /// <param name="Text">文档正文；失败或产出为空时为 null</param>
 /// <param name="Usages">

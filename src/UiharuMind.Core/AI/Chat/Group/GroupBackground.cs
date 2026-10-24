@@ -7,38 +7,33 @@ namespace UiharuMind.Core.AI.Chat.Group;
 /// 从单聊开群时带进群的背景（方案 v6 §6.6b 规则 5 的轻量落地：另开一个群，原单聊不动）。
 /// 让原单聊的模型把那段对话写成一份给新成员看的摘要，填进新群的输入框，由用户过目、删改后再发——
 /// 新成员看到什么由用户定。普通群的成员没有工具读不了文件，所以背景是正文而不是文件路径。
-/// 复用交接文档那条线（同一个客户端与装配好的选项，前缀缓存照吃），只换了写给谁看。
+/// 复用记忆压缩那条线（同一个客户端与装配好的选项，前缀缓存照吃），只换了写给谁看。
 /// 建群之后加人 / 加回时的入群摘要也走这里，由一位群成员来写（ADR 0046 修订「建群之后增删成员」）
 /// </summary>
 public static class GroupBackground
 {
     private const int SummaryCharLimit = 1500; //背景要被每位新成员读一遍，也要让用户看得完
 
-    // 附在交接指令之后，优先级高于它：那份是写给压缩后的自己，这份是写给没看过这段对话的新成员
+    // 附在记忆压缩指令之后，优先级高于它：那份是写给压缩后的自己，这份是写给没看过这段对话的新成员
     internal const string Audience = """
-        This document does NOT replace the conversation. It will be shown to other characters who are
-        joining a group chat that continues from here as new participants; they have seen none of it.
-        Write it for them: what the user wants, what has been established so far, and what is still open.
-        Leave out personal details that are not needed to follow the topic.
-        HARD LIMIT: at most 1500 characters - this overrides the limit above.
+        这份文档不会替换对话。它会被展示给从这段对话继续开群、以新成员身份加入的角色们——他们完全没看过前面的内容。
+        请为他们写：用户想要什么、到目前为止确立了哪些共识、还有什么悬而未决。
+        与跟上话题无关的个人细节不必写。
+        硬性上限：最多 1500 字——这条覆盖上面的上限。
         """;
 
     // 新成员入群：他一句都没看过
     internal const string JoinerAudience = """
-        This document does NOT replace the conversation. It will be given to a character who is joining this
-        group chat now as a new participant; they have seen none of it.
-        Write it for them: what the user wants, what the group has settled so far, where members disagree,
-        and what is still open.
-        HARD LIMIT: at most 1500 characters - this overrides the limit above.
+        这份文档不会替换对话。它会交给一位现在以新成员身份加入本群聊的角色，他完全没看过前面的内容。
+        请为他写：用户想要什么、群到目前为止定了什么、成员之间哪里还有分歧、还有什么悬而未决。
+        硬性上限：最多 1500 字——这条覆盖上面的上限。
         """;
 
     // 退群的人加回来：离开之前的他都记得，缺的是最近这一段
     internal const string ReturnerAudience = """
-        This document does NOT replace the conversation. It will be given to a character who was in this
-        group chat earlier, left for a while, and is now coming back. They remember the early discussion
-        but missed the latest part. Focus on recent developments: what changed, what was decided,
-        and what is still open.
-        HARD LIMIT: at most 1500 characters - this overrides the limit above.
+        这份文档不会替换对话。它会交给一位早先在本群聊过、离开了一段时间、现在回来的角色。他记得早期的讨论，但错过了最近这一段。
+        请聚焦近况：什么变了、定了什么、还有什么悬而未决。
+        硬性上限：最多 1500 字——这条覆盖上面的上限。
         """;
 
     /// <summary>

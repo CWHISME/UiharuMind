@@ -45,10 +45,10 @@
         <value>全自动:所有操作自动执行,不再询问</value>
     </data>
     <data name="CompactCommandDescription" xml:space="preserve">
-        <value>把当前对话压缩成一份交接文档</value>
+        <value>把当前对话整理成一份记忆压缩</value>
     </data>
     <data name="HandoffHeader" xml:space="preserve">
-        <value>交接文档 —— 模型看不到这条之前的内容了</value>
+        <value>已进行记忆压缩</value>
     </data>
     <data name="AgentInterject" xml:space="preserve">
         <value>插话</value>
@@ -84,16 +84,16 @@
         <value>现在不能压缩：还有一轮在跑，等它结束再试。</value>
     </data>
     <data name="CompactAlreadyInProgress" xml:space="preserve">
-        <value>正在整理交接文档，等它完成再试。</value>
+        <value>正在进行记忆压缩，等它完成再试。</value>
     </data>
     <data name="InterjectionRemoveTip" xml:space="preserve">
         <value>撤回这条插话（模型还没读到）</value>
     </data>
     <data name="HandoffWriting" xml:space="preserve">
-        <value>正在整理交接文档…</value>
+        <value>正在进行记忆压缩…</value>
     </data>
     <data name="HandoffFailed" xml:space="preserve">
-        <value>交接文档没能写成，改由截断丢弃最旧的消息。</value>
+        <value>记忆压缩没能完成，改由截断丢弃最旧的消息。</value>
     </data>
     <data name="HandoffNothingToCompact" xml:space="preserve">
         <value>当前没有可压缩的内容。</value>
@@ -118,7 +118,7 @@
         <value>折叠工具结果 {0}</value>
     </data>
     <data name="ContextWatermarkHandoff" xml:space="preserve">
-        <value>交接文档 {0}</value>
+        <value>记忆压缩 {0}</value>
     </data>
     <data name="ContextWatermarkTruncate" xml:space="preserve">
         <value>截断最旧消息 {0}</value>
@@ -157,7 +157,7 @@
         <value>已折叠（估）</value>
     </data>
     <data name="ContextCompactedTip" xml:space="preserve">
-        <value>本次请求发出前被折叠（或截断）压掉的历史，是我们估的。进度条画的是发出去的那份；交接文档按占用加上这一截判定，所以进度条落回水位下时交接照样会来。</value>
+        <value>本次请求发出前被折叠（或截断）压掉的历史，是我们估的。进度条画的是发出去的那份；记忆压缩的触发按占用加上这一截判定，所以进度条落回水位下时压缩照样会来。</value>
     </data>
     <data name="ChatAutoCollapseThinking" xml:space="preserve">
         <value>自动折叠思考</value>
@@ -565,7 +565,7 @@
         <value>记忆清单字数上限</value>
     </data>
     <data name="AgentSettingMemoryIndexBudgetDesc" xml:space="preserve">
-        <value>智能体在新会话开头、以及每次写完交接文档之后，会收到一份记忆清单（每份笔记的文件名与首行）。超过这个字数时只列最近修改的，并告诉它还有几份没列。</value>
+        <value>智能体在新会话开头、以及每次完成记忆压缩之后，会收到一份记忆清单（每份笔记的文件名与首行）。超过这个字数时只列最近修改的，并告诉它还有几份没列。</value>
     </data>
     <data name="AgentSettingSubAgentFallbackHint" xml:space="preserve">
         <value>(未设置 — 回退到主代理 模型)</value>

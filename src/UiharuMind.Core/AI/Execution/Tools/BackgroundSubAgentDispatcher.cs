@@ -405,7 +405,7 @@ public static class BackgroundSubAgentDispatcher
         return (who.Length > 0 ? $"已发给 \"{who}\"。 " : "已派出。 ")
                + "他正在自己的会话里做这件事，做完会回一封。"
                + $"期间你可以用 `{SubAgentTool.MessageToolName}` 给他补充或纠正——"
-               + "他会把它并入正在写的回复。\n"
+               + "或直接要求对你的问题进行回复。\n"
                + (notice.Length > 0 ? notice + "\n" : string.Empty)
                // 给模型的是前 8 位短号(真实 ID 的别名),照抄进 to 由 SubSessionIdAlias 反查回真 ID
                + $"[sub-session: {SubSessionIdAlias.Short(subSession.SessionId)}]";

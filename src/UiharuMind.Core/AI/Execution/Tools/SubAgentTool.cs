@@ -491,8 +491,7 @@ public static class SubAgentTool
     /// <param name="subSessionId">子会话标识</param>
     /// <returns>当场返回给模型的工具结果</returns>
     public static string BuildInjectedReceipt(string subSessionId) =>
-        "他干活途中收到了这条，会把它并入正在写的回复——"
-        + "不会再单独回一封。\n"
+        "已发送消息。\n"
         + $"[sub-session: {SubSessionIdAlias.Short(subSessionId)}]";
 
     /// <summary>

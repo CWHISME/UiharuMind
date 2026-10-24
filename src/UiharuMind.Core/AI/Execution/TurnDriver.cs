@@ -749,14 +749,15 @@ public sealed class TurnDriver : IDisposable
                 return;
             }
 
-            // 委派清单确定性追加在模型那段散文之后:编号只出现在回执与报告里,而那些正是
-            // 压缩要吃掉的东西。少了它,压缩之后就没法用 SendMessage 续上旧委派了(见 BuildSubSessionRoster)
+            // 委派段确定性追加:只报数量与查询入口,状态与编号由 ChatSessionList 现查(见 BuildSubSessionRoster)
             string roster = HistoryHandoff.BuildSubSessionRoster(
-                SessionManager.Instance.GetSubSessions(session.SessionId));
-            // 回查段同理确定性追加:最近几条用户原话 + 转录路径(转录只在挂了 Grep/Read 时写,见 HistoryTranscript)
+                SessionManager.Instance.GetSubSessions(session.SessionId), runner.ChatOptions?.Tools);
+            // 回查段同理确定性追加:最近 15 条用户原话 + 转录路径(转录只在挂了 Grep/Read 时写,见 HistoryTranscript)
             string? transcriptPath = HistoryTranscript.TrySave(session, runner.ChatOptions?.Tools);
-            string recall = HistoryHandoff.BuildRecall(session.History, transcriptPath, _usage.ContextLength);
-            ChatMessage message = HistoryHandoff.CreateNote(HistoryHandoff.WithAppendix(note, roster, recall));
+            string recall = HistoryHandoff.BuildRecall(session.History, transcriptPath);
+            // 开场句与上一轮最后一句由代码注入:正文成为新一轮的第一条消息,接续点落在末尾
+            string noteBody = HistoryHandoff.ComposeBody(note, HistoryHandoff.LastAssistantSentence(session.History));
+            ChatMessage message = HistoryHandoff.CreateNote(HistoryHandoff.WithAppendix(noteBody, roster, recall));
             int before = session.History.Count;
             session.History.Add(message);
             session.SaveAppended(before);

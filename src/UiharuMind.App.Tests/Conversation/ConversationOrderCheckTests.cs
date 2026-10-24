@@ -149,7 +149,7 @@ public class ConversationOrderCheckTests
     public void AMiddleNoteMissingIsInvisibleToReconciliation()
     {
         ChatMessage first = new(ChatRole.User, "任务");
-        ChatMessage note = new(ChatRole.System, "[Context handoff]\n交接正文");
+        ChatMessage note = new(ChatRole.Assistant, "[记忆压缩]\n交接正文");
         ChatMessage later = new(ChatRole.User, "后续");
         List<ConversationItemBase> items = [Item(first, true), Item(later, true)]; //note 漏画
 

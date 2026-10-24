@@ -126,11 +126,10 @@ public class HistoryHandoffTests
         ChatMessage note = HistoryHandoff.CreateNote("做完了 A，正在做 B。");
 
         Assert.True(HistoryHandoff.IsNote(note));
-        //必须是 system:它在供给窗口里是最老的一条,而框架截断从最老的非 system 组开始删,
-        //取 assistant 的话占用一冲到截断水位,第一个被删的就是交接文档自己
-        Assert.Equal(ChatRole.System, note.Role);
+        //是 assistant:「我」以第一人称整理的记忆,是模型自己的第一条消息,新一轮从这里接着往下说
+        Assert.Equal(ChatRole.Assistant, note.Role);
         Assert.Contains("做完了 A", note.Text);
-        //不能带 _attribution:那个键的含义是「不落盘」,交接文档丢了就等于那段历史白压
+        //不能带 _attribution:那个键的含义是「不落盘」,记忆压缩丢了就等于那段历史白压
         Assert.False(note.AdditionalProperties!.ContainsKey(ChatMessageAnnotations.Attribution));
     }
 
@@ -141,6 +140,76 @@ public class HistoryHandoffTests
 
         Assert.Equal("正文", HistoryHandoff.NoteBody(note.Text));
         Assert.Equal("没有标题的文本", HistoryHandoff.NoteBody("没有标题的文本"));
+    }
+
+    [Fact]
+    public void NoteBody_StripsTheLegacyEnglishTitle()
+    {
+        //改名之前写下的记忆压缩,标题还是 "Context handoff"
+        Assert.Equal("正文", HistoryHandoff.NoteBody("[Context handoff]\n正文"));
+    }
+
+    [Fact]
+    public void ComposeBody_StartsWithOpening_AndEndsWithLastSentence()
+    {
+        string body = HistoryHandoff.ComposeBody("正文", "好的，马上办。");
+
+        Assert.StartsWith("我来整理这段历史记忆。", body);
+        Assert.Contains("上一轮我的最后一句：", body);
+        Assert.EndsWith("好的，马上办。", body);
+    }
+
+    [Fact]
+    public void ComposeBody_WithoutLastSentence_OmitsTheSection()
+    {
+        Assert.Equal("我来整理这段历史记忆。\n\n正文", HistoryHandoff.ComposeBody("正文", null));
+    }
+
+    [Fact]
+    public void LastAssistantSentence_TakesTheLastSentenceOfTheLastAssistantMessage()
+    {
+        List<ChatMessage> history =
+        [
+            new(ChatRole.User, "a"),
+            new(ChatRole.Assistant, "先看 a.cs。再看 b.cs。"),
+            new(ChatRole.User, "b"),
+        ];
+
+        Assert.Equal("再看 b.cs。", HistoryHandoff.LastAssistantSentence(history));
+    }
+
+    [Fact]
+    public void LastAssistantSentence_SkipsNotesNarrationAndTextlessMessages()
+    {
+        List<ChatMessage> history =
+        [
+            new(ChatRole.Assistant, "真正的上一句。"),
+            HistoryHandoff.CreateNote("上一份记忆压缩"),
+            new(ChatRole.Assistant, [new FunctionCallContent("c1", "Read")]), //纯工具调用没有正文
+        ];
+
+        Assert.Equal("真正的上一句。", HistoryHandoff.LastAssistantSentence(history));
+    }
+
+    [Fact]
+    public void LastAssistantSentence_WithoutAnyAssistantText_ReturnsNull()
+    {
+        ChatMessage narration = new(ChatRole.Assistant, "开场白")
+        {
+            AdditionalProperties = new AdditionalPropertiesDictionary { [ChatMessageAnnotations.Narration] = "x" },
+        };
+
+        Assert.Null(HistoryHandoff.LastAssistantSentence([narration, HistoryHandoff.CreateNote("上一份记忆压缩")]));
+        Assert.Null(HistoryHandoff.LastAssistantSentence([new(ChatRole.User, "只有用户")]));
+        Assert.Null(HistoryHandoff.LastAssistantSentence([]));
+    }
+
+    [Fact]
+    public void LastSentence_HandlesEnglishAndVersionNumbers()
+    {
+        Assert.Equal("next.", HistoryHandoff.LastAssistantSentence([new ChatMessage(ChatRole.Assistant, "first. next.")]));
+        Assert.Equal("版本 v1.2.3", HistoryHandoff.LastAssistantSentence([new ChatMessage(ChatRole.Assistant, "版本 v1.2.3")]));
+        Assert.Equal("好的", HistoryHandoff.LastAssistantSentence([new ChatMessage(ChatRole.Assistant, "你好。好的")]));
     }
 
     [Fact]
@@ -307,7 +376,7 @@ public class HistoryHandoffTests
 
         await HistoryHandoff.WriteAsync(client, [User("聊天内容")], null, 128_000, "   ", cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.DoesNotContain("Additional instructions", client.Seen[^1].Text);
+        Assert.DoesNotContain("补充指示", client.Seen[^1].Text);
     }
 
     private sealed class StubChatClient(string reply, UsageDetails? usage = null) : IChatClient

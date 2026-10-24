@@ -64,6 +64,18 @@ public class HistoryTranscriptTests : IDisposable
         Assert.DoesNotContain("整份技能说明", transcript);
     }
 
+    /// <summary>记忆压缩在转录里标成中文标签，模型 Grep 回查时认得出是哪一条</summary>
+    [Fact]
+    public void Render_LabelsMemoryCompressionNotes()
+    {
+        ChatMessage note = HistoryHandoff.CreateNote("前情");
+
+        string transcript = HistoryTranscript.Render([note]);
+
+        Assert.Contains("## #1 记忆压缩", transcript);
+        Assert.Contains("前情", transcript);
+    }
+
     /// <summary>整条链路：长段落里的约束，经转录落盘后用真实的 Grep 搜，返回的那一行要能看见命中</summary>
     [Fact]
     public async Task LongParagraph_IsWrapped_SoGrepShowsTheHit()

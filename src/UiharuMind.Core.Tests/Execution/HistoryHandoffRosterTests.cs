@@ -1,95 +1,84 @@
-/****************************************************************************
- * Copyright (c) 2024 CWHISME
- *
- * UiharuMind v0.0.1
- *
- * https://wangjiaying.top
- * https://github.com/CWHISME/UiharuMind
- ****************************************************************************/
-
+using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.History;
+using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.Tests.Execution;
 
 /// <summary>
-/// 交接文档里的委派清单。
+/// 记忆压缩里的委派段。
 ///
-/// 钉住的是一条很容易被「顺手简化」掉的取舍：这一段<b>不由模型写</b>，而是从会话索引现算。
-/// 编号只出现在回执与报告里，压缩恰恰要吃掉它们——而一长串十六进制正是摘要最先丢的东西。
-/// 少了这一段，压缩之后 <c>ContinueSubAgent</c> 就够不着了。
+/// 不逐条列子代理——<c>ExCall</c> 调 <c>chatsession</c> 扩展的 <c>list</c> 命令能实时列出状态，
+/// 比压缩时固化的快照更新也更省篇幅。这里只报数量、把仍在跑的点名出来、再指路怎么查怎么续。
 /// </summary>
 public class HistoryHandoffRosterTests
 {
-    private static ChatSessionMeta Sub(string id, string title, string? description = null) =>
+    private static ChatSessionMeta Sub(string id, string title) =>
         new()
         {
             SessionId = id,
             Title = title,
-            Description = description ?? title,
             ParentSessionId = "parent",
         };
+
+    private static AITool Named(string name) => AIFunctionFactory.Create(() => string.Empty, name);
+
+    private static Func<string, ESessionRunState> IdleAll => _ => ESessionRunState.Idle;
 
     [Fact]
     public void NoDelegations_ProducesNothing()
     {
-        //没派过活时整段不出现,不占交接文档的篇幅
-        Assert.Equal(string.Empty, HistoryHandoff.BuildSubSessionRoster([]));
+        //没派过活时整段不出现,不占记忆压缩的篇幅
+        Assert.Equal(string.Empty, HistoryHandoff.BuildSubSessionRoster([], null));
     }
 
     [Fact]
-    public void Roster_CarriesIdAndTitle()
-    {
-        string roster = HistoryHandoff.BuildSubSessionRoster([Sub("abc123", "查配置加载")]);
-
-        Assert.Contains("abc123", roster);
-        Assert.Contains("查配置加载", roster);
-    }
-
-    /// <summary>
-    /// 摘要取任务原文而不是标题：标题是界面用的、首行截到 40 字，实测经常看不出这次委派干什么，
-    /// 而模型要判断的正是「该不该续这一个」
-    /// </summary>
-    [Fact]
-    public void Roster_PrefersTheFullTaskOverTheDisplayTitle()
+    public void Roster_ReportsCountAndPointsToTheExtension()
     {
         string roster = HistoryHandoff.BuildSubSessionRoster(
-            [Sub("abc123", "查配置加载", "查清楚配置是怎么从 Excel 一路加载到运行时的，特别是热更那条路")]);
+            [Sub("abc123", "查配置加载"), Sub("def456", "审一遍 diff")],
+            [Named(ExtensionCalls.CallName)], IdleAll);
 
-        Assert.Contains("热更那条路", roster);
+        Assert.Contains("2 位子代理。", roster);
+        Assert.Contains(ExtensionCalls.CallName, roster); //指路走扩展元工具
+        Assert.Contains(BuiltinExtensions.ChatSession, roster); //扩展名
+        Assert.Contains(BuiltinExtensions.ChatSessionList, roster); //命令名
+        Assert.Contains(SubAgentTool.MessageToolName, roster); //续聊:编号作为 to 传给 SendMessage
+        Assert.Contains(SubAgentTool.ToolName, roster); //别新开:会丢掉子代理攒下的上下文
+        Assert.DoesNotContain("abc123", roster); //不逐条列,状态与编号由扩展现查
+        Assert.DoesNotContain("查配置加载", roster);
     }
 
     [Fact]
-    public void Roster_FlattensMultilineTasksOntoOneLine()
+    public void Roster_ListsTheOnesStillRunning()
     {
-        //一项占一行,换行会把清单冲散
+        ChatSessionMeta running = Sub("run123", "查配置加载");
+        ChatSessionMeta idle = Sub("idle456", "审一遍 diff");
+
         string roster = HistoryHandoff.BuildSubSessionRoster(
-            [Sub("abc123", "标题", "第一行\n第二行")]);
+            [running, idle],
+            [Named(ExtensionCalls.CallName)],
+            id => id == running.SessionId ? ESessionRunState.Running : ESessionRunState.Idle);
 
-        Assert.Contains("第一行 第二行", roster);
+        Assert.Contains("2 位子代理，其中 1 位还在工作中", roster);
+        Assert.Contains($"-  · 《查配置加载》[{SubSessionIdAlias.Short(running.SessionId)}] · 工作中", roster);
+        Assert.DoesNotContain("idle456", roster); //空闲的不占篇幅
+        Assert.DoesNotContain("审一遍 diff", roster);
     }
 
     [Fact]
-    public void Roster_MarksTheOnesStillRunning()
+    public void Roster_WithoutExCall_StillListsRunningOnes_ButGivesNoDirection()
     {
-        //续跑一个没跑完的与续跑一个已交回结论的,是两件事
-        ChatSessionMeta running = Sub("abc123", "还在查");
-        running.BackgroundReportPending = true;
+        //运行中列表不依赖扩展(从运行登记现读),该给的照给;没有扩展元工具就不指路,免得模型去调查不了的工具
+        ChatSessionMeta running = Sub("run123", "查配置加载");
 
-        Assert.Contains("[hasn't written back yet]", HistoryHandoff.BuildSubSessionRoster([running]));
-        Assert.DoesNotContain("[hasn't written back yet]", HistoryHandoff.BuildSubSessionRoster([Sub("d", "完事了")]));
-    }
+        string roster = HistoryHandoff.BuildSubSessionRoster([running], null,
+            id => id == running.SessionId ? ESessionRunState.AwaitingApproval : ESessionRunState.Idle);
 
-    [Fact]
-    public void Roster_IsCappedAndKeepsTheRecentOnes()
-    {
-        //会话索引给的是最近在前;老的那些用户多半重新描述而不是点名续跑
-        List<ChatSessionMeta> subs = [.. Enumerable.Range(0, 20).Select(i => Sub($"id{i}", $"任务{i}"))];
-
-        string roster = HistoryHandoff.BuildSubSessionRoster(subs, max: 3);
-
-        Assert.Contains("id0", roster);
-        Assert.Contains("id2", roster);
-        Assert.DoesNotContain("id3", roster);
+        Assert.Contains("1 位子代理，其中 1 位还在工作中", roster);
+        Assert.Contains("· 等审批", roster);
+        Assert.DoesNotContain(ExtensionCalls.CallName, roster);
+        Assert.DoesNotContain(BuiltinExtensions.ChatSession, roster);
     }
 }

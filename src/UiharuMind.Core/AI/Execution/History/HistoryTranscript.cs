@@ -16,7 +16,7 @@ using UiharuMind.Core.Core.SimpleLog;
 namespace UiharuMind.Core.AI.Execution.History;
 
 /// <summary>
-/// 会话历史的纯文本转录：交接时从历史整份重写，交接文档末尾给出路径，
+/// 纯文本转录：记忆压缩时从历史整份重写，记忆压缩末尾给出路径，
 /// 压缩之后模型要回查前情，就用现成的 <c>Grep</c>/<c>Read</c> 搜它。
 ///
 /// 为"好搜"而设计，不为还原——历史 jsonl 一条消息一行，行首全是 JSON 字段，
@@ -97,7 +97,7 @@ internal static class HistoryTranscript
     private static string Label(ChatMessage message)
     {
         string role = message.Role.Value;
-        if (Has(message, ChatMessageAnnotations.Handoff)) return "handoff";
+        if (Has(message, ChatMessageAnnotations.Handoff)) return "记忆压缩";
         if (Has(message, ChatMessageAnnotations.SubAgentReport)) return $"{role} (sub-agent report)";
         if (Has(message, ChatMessageAnnotations.SubAgentMessage)) return $"{role} (sub-agent message)";
         if (Has(message, ChatMessageAnnotations.BackgroundTaskReport)) return $"{role} (background task)";
