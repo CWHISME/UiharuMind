@@ -27,7 +27,7 @@ public enum DefaultCharacter
     /// <summary>匿名委派会话的身份载体(内部角色，提示词现拼)</summary>
     AnonymousAgent,
 
-    /// <summary>老的只读子会话身份载体(内部角色，仅为重建存量)</summary>
+    /// <summary>探索档匿名委派的身份载体（内部角色，提示词现拼；名字带 Legacy，现在是活档）</summary>
     LegacyExploreAgent,
 
     /// <summary>群的化身(ADR 0055):离席时替用户坐在智能体群里，注入用户卡</summary>

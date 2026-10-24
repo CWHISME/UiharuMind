@@ -4,10 +4,11 @@ using UiharuMind.Core.Configs;
 namespace UiharuMind.Core.Tests.Execution;
 
 /// <summary>
-/// 脑（<see cref="SubAgentProfile.Brain"/>）的档案：只读、模型源=脑配置。
+/// 脑（<see cref="SubAgentProfile.Brain"/>）与探索档（<see cref="SubAgentProfile.Explorer"/>）的档案：
+/// 只读、各自的模型配置源。
 ///
-/// 顺带钉住 Explorer 墓碑：它是反序列化存量的墓碑，字符串值 <c>"Explorer"</c> 必须仍能解析，
-/// 否则盘上老会话的索引加载会抛 JsonException（见 ADR 0082 与 CONTEXT.md 的 Brain 词条）。
+/// Explorer 字符串值必须仍能反序列化（枚举按字符串序列化），否则导入老盘会炸索引加载——
+/// 复活为活档后这层兼容仍在（见 CONTEXT.md 的 Brain 词条）。
 /// </summary>
 public class BrainProfileTests
 {
@@ -41,11 +42,51 @@ public class BrainProfileTests
         Assert.Equal("main-1", SubAgentProfile.General.ResolveModelName(config));
     }
 
-    /// <summary>Explorer 墓碑：老会话字符串值仍可反序列化，不炸索引加载</summary>
+    /// <summary>Explorer 字符串值仍可反序列化（老存档/导入兼容），且是活档语义</summary>
     [Fact]
-    public void Explorer_Tombstone_StillParses()
+    public void Explorer_EnumString_StillParses()
     {
         Assert.True(Enum.TryParse<ESubAgentType>("Explorer", out ESubAgentType parsed));
         Assert.Equal(ESubAgentType.Explorer, parsed);
+    }
+
+    //================= 探索档（ADR 0044 复活） =================
+
+    /// <summary>探索档恒定只读，与档位无关：一次「帮我看看」不该顺手改掉东西</summary>
+    [Fact]
+    public void Explorer_ForceReadOnly_IsTrue()
+    {
+        Assert.True(SubAgentProfile.Explorer.ForceReadOnly);
+    }
+
+    [Fact]
+    public void Explorer_ResolveModelName_ReadsExplorerSetting()
+    {
+        AgentSettingConfig config = new() { ExplorerSubAgentModelName = "survey-1" };
+
+        Assert.Equal("survey-1", SubAgentProfile.Explorer.ResolveModelName(config));
+    }
+
+    /// <summary>探索模型配置空串 = 跟随主代理/全局</summary>
+    [Fact]
+    public void Explorer_ResolveModelName_Empty_FallsBackToGlobal()
+    {
+        Assert.Equal(string.Empty, SubAgentProfile.Explorer.ResolveModelName(new AgentSettingConfig()));
+    }
+
+    /// <summary>探索档只读但不算脑系：右栏照常列条目、不被脑追问认领</summary>
+    [Fact]
+    public void Explorer_IsNotBrain_ButReadOnly()
+    {
+        Assert.False(SubAgentProfile.Explorer.IsBrain);
+        Assert.False(SubAgentProfile.IsBrainLineage(ESubAgentType.Explorer));
+        Assert.True(SubAgentProfile.Explorer.ForceReadOnly);
+    }
+
+    /// <summary>探索挂 Glob（与脑不同：脑是内容向不关心目录形状，探索要看目录形状）</summary>
+    [Fact]
+    public void Explorer_MountsGlob()
+    {
+        Assert.True(SubAgentProfile.Explorer.MountsGlob);
     }
 }

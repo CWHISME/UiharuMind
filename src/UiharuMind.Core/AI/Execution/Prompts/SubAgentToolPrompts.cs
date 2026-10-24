@@ -43,8 +43,7 @@ public static class SubAgentToolPrompts
         "回复落地时会把你唤醒。\n" +
         "一条回复并不关闭话题：同一主题的后续（评审新修复、复核结论、收窄范围，甚至提交之后）都用 `" +
         SubAgentTool.MessageToolName + "` 发回同一位子代理——如果中途需要补充信息、与其交流，同样可以随时通过这种方式进行对话。只有新主题才新开一位——" +
-        "新开的不了解之前的对话。";
-
+        "新开的不了解之前的对话。\n";
     /// <summary>
     /// <c>prompt</c> 参数说明。
     ///
@@ -90,6 +89,17 @@ public static class SubAgentToolPrompts
     /// </summary>
     public const string ModelParam =
         "可选的精确模型名。";
+
+    /// <summary>
+    /// <c>readOnly</c> 参数说明（探索档）。
+    ///
+    /// 置真 = 派一位<b>探索档</b>：恒定只读——只能读文件与搜资料，改不了任何东西，
+    /// 适合大范围调研、审阅、摸底（翻代码找结论），不适合实现活。默认给主代理派活者权限。
+    /// 探索档默认用设置页的探索模型，<c>model</c> 仍可单趟点名。
+    /// </summary>
+    public const string ReadOnlyParam =
+        "可选。置真则新开的子代理恒定只读：只能读文件与联网搜资料，**没有 `Shell`**，也改不了任何东西——" +
+        "适合调研、审阅、摸底。";
 
     /// <summary>
     /// <see cref="SubAgentTool.MessageToolName"/> 的描述：给已经开过的那位续发一条，跑着时就是插话。

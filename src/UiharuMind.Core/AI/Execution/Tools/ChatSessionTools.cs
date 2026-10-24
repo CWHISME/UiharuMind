@@ -69,7 +69,8 @@ public static class ChatSessionTools
 
     /// <summary>
     /// 本会话派出的子代理。按「在跑/等审批的在前、其余按最后更新」排——查状态的时刻最想知道谁还活着。
-    /// 脑（ADR 0082：同步整理助手、可被 brainId 追问）与墓碑不列条目——与右栏「只报数量」同口径
+    /// 脑（ADR 0082：同步整理助手、可被 brainId 追问）不列条目——与右栏「只报数量」同口径；
+    /// 探索档有名字有主题，像通用委派一样列。
     /// </summary>
     /// <param name="sessionId">派活者会话标识</param>
     /// <param name="manager">会话管理器；缺省用全局实例（测试传自建的隔离实例）</param>
@@ -246,6 +247,8 @@ public static class ChatSessionTools
             ? $"- {topic}[{SubSessionIdAlias.Short(meta.SessionId)}]"
             : $"- [{SubSessionIdAlias.Short(meta.SessionId)}]");
         if (meta.SubAgentName.Length > 0) sb.Append(" · 点名：").Append(meta.SubAgentName);
+        // 探索档恒定只读（CreateAgent 置 readOnly 派出）：主代理续用前要知道这位改不了东西
+        if (meta.SubAgentType == ESubAgentType.Explorer) sb.Append(" · 只读");
         sb.Append(" · ").Append(StateLabel(StateOf(manager, meta.SessionId)));
         string usage = UsageOf(meta, body);
         if (usage.Length > 0) sb.Append(" · 上下文 ").Append(usage);

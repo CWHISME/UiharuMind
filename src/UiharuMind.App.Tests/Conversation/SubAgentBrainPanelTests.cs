@@ -48,9 +48,9 @@ public class SubAgentBrainPanelTests
         Assert.Single(delegations);
     }
 
-    /// <summary>墓碑档（Explorer）也按脑处理：老探索子会话不混进委派条目</summary>
+    /// <summary>探索档（ADR 0044 复活）有名字有主题，像通用委派一样进条目，不计入脑</summary>
     [Fact]
-    public void Partition_TreatsExplorerTombstoneAsBrain()
+    public void Partition_ListsExplorerAsDelegation()
     {
         ChatSessionMeta explorer = new()
         {
@@ -61,7 +61,7 @@ public class SubAgentBrainPanelTests
 
         (List<ChatSessionMeta> delegations, int brainCount) = SubAgentListViewData.Partition([explorer]);
 
-        Assert.Equal(1, brainCount);
-        Assert.Empty(delegations);
+        Assert.Equal(0, brainCount);
+        Assert.Equal([explorer.SessionId], delegations.Select(x => x.SessionId));
     }
 }

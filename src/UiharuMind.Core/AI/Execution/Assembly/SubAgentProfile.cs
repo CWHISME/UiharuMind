@@ -33,9 +33,10 @@ public enum ESubAgentType
     Brain,
 
     /// <summary>
-    /// <b>墓碑，只为反序列化存量</b>：老的探索子会话身上还钉着这个值，删掉会让盘上会话
-    /// 索引加载抛 JsonException（枚举按字符串序列化）。存量会话重建时按
-    /// <see cref="SubAgentProfile.Brain"/> 装配——只读语义原样延续。新会话永不产生此值。
+    /// 探索档：异步后台、恒定只读的子代理，配探索模型（
+    /// <c>AgentSettingConfig.ExplorerSubAgentModelName</c>），挂只读文件工具（含 Glob）与联网。
+    /// 曾因 ADR 0044 归一委派而退役为墓碑，现复活为独立档：区别于脑（同步、有界、整理），
+    /// 探索是开放、后台的调研/审阅。存量已确认无残留，枚举字符串值延续以便导入旧盘。
     /// </summary>
     Explorer,
 }
@@ -54,24 +55,29 @@ public sealed record SubAgentProfile
     // 本 record 现在只剩「重建一次已存档的委派时要什么」：类型、只读与否、用哪个模型。
 
     /// <summary>
-    /// 脑系（脑 + 墓碑档 Explorer）：只读、右栏不列条目、存量重建按脑装配（ADR 0082）。
-    /// 谓词只此一处——ForceReadOnly 与 ChatSessionMeta.IsBrain 都从它来，语义变了不会只改一边。
+    /// 脑系谓词：只有脑。从前含墓碑档 Explorer（ADR 0044 封存、重建按脑），
+    /// 复活为独立档后不再算脑系——右栏照常列探索条目，这里只剩真脑。
+    /// 右栏分区（<c>SubAgentListViewData.Partition</c>）与脑追问（<c>BrainTool</c>）都从它来。
     /// </summary>
-    public static bool IsBrainLineage(ESubAgentType type) => type is ESubAgentType.Brain or ESubAgentType.Explorer;
+    public static bool IsBrainLineage(ESubAgentType type) => type == ESubAgentType.Brain;
 
     /// <summary>
-    /// 是否强制只读。脑系恒定只读；通用型继承主代理的权限档。
+    /// 是否强制只读。脑与探索档恒定只读；通用型继承主代理的权限档。
+    /// <b>独立判据，不从 <see cref="IsBrainLineage"/> 推</b>：探索档只读但不算脑系。
     /// </summary>
-    public bool ForceReadOnly => IsBrainLineage(Type);
+    public bool ForceReadOnly => Type is ESubAgentType.Brain or ESubAgentType.Explorer;
 
-    /// <summary>脑不挂 Glob：内容向，目录形状不关心（ADR 0082）。通用档挂</summary>
+    /// <summary>脑不挂 Glob：内容向，目录形状不关心（ADR 0082）。通用与探索档挂</summary>
     public bool MountsGlob => Type != ESubAgentType.Brain;
 
     /// <summary>内部工具轮上限：脑有界（<see cref="BrainTool.MaxIterations"/>），其余沿用委派上限</summary>
     public int MaxIterations => Type == ESubAgentType.Brain ? BrainTool.MaxIterations : SubAgentTool.MaxIterations;
 
-    /// <summary>装配侧是否按脑处理。墓碑档在 <c>BuildSubSessionAssembly</c> 已映射到脑 profile，此处只见真脑</summary>
-    public bool IsBrain => Type == ESubAgentType.Brain;
+    /// <summary>
+    /// 装配侧是否按脑处理。只有真脑；探索档走自己的装配。
+    /// <b>唯一判据在 <see cref="IsBrainLineage"/></b>，实例属性只是便捷入口——不会两边漂移。
+    /// </summary>
+    public bool IsBrain => IsBrainLineage(Type);
 
     // 从前这里还有一个 RoleHint（「你只读：通览文件、搜代码…」/「你可以执行实际修改操作…」），
     // 与 SubAgentPrompts.BoundaryReadOnly / BoundaryCanMutate 近乎逐字同义，
@@ -88,6 +94,7 @@ public sealed record SubAgentProfile
         return Type switch
         {
             ESubAgentType.Brain => config.BrainSubAgentModelName,
+            ESubAgentType.Explorer => config.ExplorerSubAgentModelName,
             _ => config.GeneralSubAgentModelName,
         };
     }
@@ -99,4 +106,9 @@ public sealed record SubAgentProfile
     /// 脑策略（ADR 0082）：同步、有界、只读的整理助手，配脑模型。
     /// </summary>
     public static SubAgentProfile Brain { get; } = new() { Type = ESubAgentType.Brain };
+
+    /// <summary>
+    /// 探索策略：异步后台、恒定只读的调研/审阅助手，配探索模型。
+    /// </summary>
+    public static SubAgentProfile Explorer { get; } = new() { Type = ESubAgentType.Explorer };
 }

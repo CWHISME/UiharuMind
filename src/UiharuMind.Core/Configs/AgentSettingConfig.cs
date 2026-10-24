@@ -80,6 +80,12 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     public string BrainSubAgentModelName { get; set; } = string.Empty;
 
     /// <summary>
+    /// 探索档使用的模型名(空 = 回退到主代理模型)。探索档是 CreateAgent 置 readOnly 派出的
+    /// 异步后台、恒定只读调研/审阅助手，配一个便宜小模型正合适（与脑同源，见 SubAgentProfile.Explorer）。
+    /// </summary>
+    public string ExplorerSubAgentModelName { get; set; } = string.Empty;
+
+    /// <summary>
     /// 通用子代理使用的模型名(空 = 回退到主代理模型)。
     /// 通用子代理做实际修改操作,可给它配一个与主代理不同的模型
     /// (比如主代理用推理慢的大模型,通用子代理用快模型)。

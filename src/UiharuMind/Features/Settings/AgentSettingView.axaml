@@ -64,6 +64,24 @@
                                 </ComboBox>
                             </controls:SettingsRow.Field>
                         </controls:SettingsRow>
+                        <!-- 探索档模型：CreateAgent 置 readOnly 派出的调研/审阅助手（ADR 0044 复活），同样一行并在常规里 -->
+                        <controls:SettingsRow Header="{loc:Loc AgentSettingExplorerSubAgentModel}"
+                                              Description="{loc:Loc AgentSettingExplorerSubAgentModelDesc}"
+                                              ResetCommand="{Binding ResetExplorerSubAgentModelCommand}"
+                                              ResetVisible="{Binding IsExplorerSubAgentModelNotDefault}">
+                            <controls:SettingsRow.Field>
+                                <ComboBox ItemsSource="{Binding AvailableModels}"
+                                          SelectedItem="{Binding ExplorerSubAgentModel}"
+                                          PlaceholderText="{loc:Loc AgentSettingSubAgentFallbackHint}"
+                                          MinWidth="300">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
                         <controls:SettingsRow Header="{loc:Loc AgentSettingMemoryIndexBudget}"
                                               Description="{loc:Loc AgentSettingMemoryIndexBudgetDesc}"
                                               ResetCommand="{Binding ResetMemoryIndexBudgetCommand}"

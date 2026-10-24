@@ -217,7 +217,9 @@ public static class SubAgentTool
                     [Description(SubAgentToolPrompts.TopicParam)]
                     string? topic = null,
                     [Description(SubAgentToolPrompts.ModelParam)]
-                    string? model = null) => Launch(context, prompt, null, topic, model),
+                    string? model = null,
+                    [Description(SubAgentToolPrompts.ReadOnlyParam)]
+                    bool readOnly = false) => Launch(context, prompt, null, topic, model, readOnly),
                 ToolName,
                 SubAgentToolPrompts.AgentDescription);
         }
@@ -230,7 +232,9 @@ public static class SubAgentTool
                 [Description(SubAgentToolPrompts.TopicParam)]
                 string? topic = null,
                 [Description(SubAgentToolPrompts.ModelParam)]
-                string? model = null) => Launch(context, prompt, character, topic, model),
+                string? model = null,
+                [Description(SubAgentToolPrompts.ReadOnlyParam)]
+                bool readOnly = false) => Launch(context, prompt, character, topic, model, readOnly),
             ToolName,
             SubAgentToolPrompts.AgentDescription);
         return new ParameterDescriptionFunction(function, "character",
@@ -404,7 +408,7 @@ public static class SubAgentTool
         };
 
     private static string Launch(LaunchContext context, string task, string? agent, string? topic = null,
-        string? model = null)
+        string? model = null, bool readOnly = false)
     {
         if (string.IsNullOrWhiteSpace(task)) return "Error: 任务不能为空。";
 
@@ -419,14 +423,16 @@ public static class SubAgentTool
             }
         }
 
+        // readOnly 置真即探索档：恒定只读、另配探索模型（ADR 0044 复活，见 SubAgentProfile.Explorer）
+        SubAgentProfile profile = readOnly ? SubAgentProfile.Explorer : context.Profile;
         string? normalizedTopic = NormalizeTopic(topic);
-        ModelChoice modelChoice = ResolveSubAgentModelName(context.Profile, model);
-        ChatSession session = CreateSubSession(context, context.Profile.Type,
+        ModelChoice modelChoice = ResolveSubAgentModelName(profile, model);
+        ChatSession session = CreateSubSession(context, profile.Type,
             // 匿名子代理用内置的身份角色,不沿用派活者的——否则子会话窗口会顶着派活者的
-            // 名字和头像,看起来像在跟主代理说话。两档各有一张:探索档恒定只读、另配模型,
-            // 顶同一个名字用户分不清这次委派能不能改东西。
+            // 名字和头像,看起来像在跟主代理说话。探索档用那张只读卡（LegacyExploreAgent），
+            // 与通用档顶同一个名字,用户分不清这次委派能不能改东西。
             // 能力仍然直接取派活者那一份(不经交集,见 SubAgentAssembly.BuildFromPlan)
-            choice?.CharacterId ?? AnonymousCharacterOf(context.Profile.Type).ToString(),
+            choice?.CharacterId ?? AnonymousCharacterOf(profile.Type).ToString(),
             BuildTitle(task, normalizedTopic), task,
             choice?.Name ?? string.Empty, normalizedTopic ?? string.Empty, modelChoice.Name);
         SessionManager.Instance.Add(session);
@@ -816,9 +822,9 @@ public static class SubAgentTool
     /// <summary>
     /// 匿名委派用哪张身份卡。
     ///
-    /// ⚠️ 实际上只会走到 General 与 Brain 两支：ADR 0044 之后新的委派一律是通用档
-    /// （<c>SubAgentProfile.General</c>）；脑（<c>SubAgentProfile.Brain</c>，ADR 0082）是同步只读档。
-    /// Explorer 那一支是墓碑，只为反序列化存量，不是活路径。
+    /// 只会走到 General 与 Explorer 两支（CreateAgent 只有这两档；脑经 BrainTool 另建）：
+    /// 通用档用匿名基座卡；探索档沿用「探索子代理」那张内置卡（名字带 Legacy 但现在是活档），
+    /// 恒定只读、另配模型——两档身份卡分开，署名上能看出这位是不是只读活。
     /// </summary>
     private static DefaultCharacter AnonymousCharacterOf(ESubAgentType type) =>
         type == ESubAgentType.Explorer ? DefaultCharacter.LegacyExploreAgent : DefaultCharacter.AnonymousAgent;

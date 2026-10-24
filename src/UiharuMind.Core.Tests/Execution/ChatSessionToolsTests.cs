@@ -57,6 +57,23 @@ public sealed class ChatSessionToolsTests : IDisposable
         Assert.Contains("还没有派出过子代理", text);
     }
 
+    /// <summary>探索档像通用委派一样列条目，且带「只读」标记（它改不了东西）；脑仍不列</summary>
+    [Fact]
+    public void List_ListsExplorerWithReadOnlyMarker()
+    {
+        ChatSession explorer = CreateSub("parent", "调研代码库", ESubAgentType.Explorer);
+        ChatSession general = CreateSub("parent", "实现功能", ESubAgentType.General);
+
+        string text = ChatSessionTools.ListSubSessions("parent", _manager);
+
+        Assert.Contains(SubSessionIdAlias.Short(explorer.SessionId), text);
+        // 只读标记只打在探索档那一行上，通用档不带（脑不列条目由 List_ExcludesBrainSessions 钉住）
+        string explorerLine = text.Split('\n').First(x => x.Contains(SubSessionIdAlias.Short(explorer.SessionId)));
+        string generalLine = text.Split('\n').First(x => x.Contains(SubSessionIdAlias.Short(general.SessionId)));
+        Assert.Contains("只读", explorerLine);
+        Assert.DoesNotContain("只读", generalLine);
+    }
+
     [Fact]
     public void List_ColdSession_ReadsIndexSnapshot_WithoutLoading()
     {

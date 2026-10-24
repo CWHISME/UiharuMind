@@ -862,6 +862,74 @@ public class SubAgentBoundaryTests
     }
 
     /// <summary>
+    /// 探索档恒定只读，<b>与档位无关</b>；但与脑不同：保留 Glob 与联网——
+    /// 探索要看目录形状、翻资料，脑是内容向的整理助手（ADR 0082）。
+    /// </summary>
+    [Theory]
+    [InlineData(EAgentPermissionMode.ReadOnly)]
+    [InlineData(EAgentPermissionMode.AutoEdit)]
+    [InlineData(EAgentPermissionMode.FullAuto)]
+    public void ExplorerTools_AreReadOnly_ButKeepGlobAndWeb(EAgentPermissionMode mode)
+    {
+        List<string> names = ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(
+            NewInput(mode: mode) with { SubAgentProfile = SubAgentProfile.Explorer }));
+
+        // 只读文件面：Read/Glob/Grep 都在，没有写工具、没有 shell
+        Assert.Contains(FileToolNames.Read, names);
+        Assert.Contains(FileToolNames.Glob, names);
+        Assert.Contains(FileToolNames.Grep, names);
+        string[] mutating = [..FileToolNames.Mutating, CharacterRunnerFactory.ShellToolName];
+        Assert.DoesNotContain(names, name => mutating.Contains(name));
+        // 联网是读方向，探索档保留（脑不给）；识图同（默认视觉模型不附图时挂 AnalyzeImage）；
+        // 扩展会改东西（desktop/image/audio），探索档不给
+        Assert.Contains(WebSearchTool.ToolName, names);
+        Assert.Contains(WebFetchTool.ToolName, names);
+        Assert.Contains(VisionTool.ToolName, names);
+        Assert.DoesNotContain(ExtensionCalls.CallName, names);
+    }
+
+    /// <summary>探索档不算脑：有给主代理的那把 SendMessage（异步委派的协作通道，能续跑能反问）；脑没有</summary>
+    [Fact]
+    public void ExplorerGetsParentMessage_ButBrainDoesNot()
+    {
+        List<string> explorer = ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(
+            NewInput() with { SubAgentProfile = SubAgentProfile.Explorer }));
+        Assert.Contains(ParentMessageTool.ToolName, explorer);
+
+        List<string> brain = ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(
+            NewInput() with { SubAgentProfile = SubAgentProfile.Brain }));
+        Assert.DoesNotContain(ParentMessageTool.ToolName, brain);
+    }
+
+    /// <summary>探索档是开放活：轮次上限沿用委派上限，不压脑的有界值（<see cref="BrainTool.MaxIterations"/>）</summary>
+    [Fact]
+    public void Explorer_HasDelegationIterationCap()
+    {
+        HarnessAgentOptions? options = SubAgentAssembly.BuildSubAgentOptions(
+            NewInput() with { SubAgentProfile = SubAgentProfile.Explorer });
+
+        Assert.NotNull(options);
+        Assert.Equal(SubAgentTool.MaxIterations, options!.MaximumIterationsPerRequest);
+    }
+
+    /// <summary>探索档提示词：工具段在、没有脑纪律（不是整理脑）、只读侧不指名写工具</summary>
+    [Fact]
+    public void ExplorerInstructions_ReadOnlyButNotBrainDiscipline()
+    {
+        string instructions = SubAgentAssembly.BuildSubAgentOptions(
+                NewInput(mode: EAgentPermissionMode.FullAuto) with
+                {
+                    SubAgentProfile = SubAgentProfile.Explorer,
+                })!
+            .ChatOptions!.Instructions!;
+
+        Assert.Contains(AgentPromptHeadings.Tools, instructions); //工具段必须在
+        Assert.DoesNotContain(SubAgentPrompts.BrainDiscipline, instructions); //不是脑
+        Assert.DoesNotContain("`Edit`", instructions); // 只读侧不指名写工具
+        Assert.DoesNotContain("`Write`", instructions);
+    }
+
+    /// <summary>
     /// 场合表允许子代理用的每一档，开着、资源备齐时子代理都真的挂上了；不允许的一档也不多挂。
     /// 从前子代理另写一份工具名单，主代理新加的能力（浏览器、配音、转写）都漏了它，没有任何地方报错——
     /// 现在名单只有场合表一份，这条盯的是「表里允许了，子代理那边却没把资源备齐」

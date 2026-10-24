@@ -560,6 +560,12 @@ Hit rate = cached input / reported input. The row above is the session total, wi
     <data name="AgentSettingBrainSubAgentModelDesc" xml:space="preserve">
         <value>Brains summarize large files and truncated tool results with a read-only helper. Pick a small model to run them on; leave empty to fall back to the main agent's model.</value>
     </data>
+    <data name="AgentSettingExplorerSubAgentModel" xml:space="preserve">
+        <value>Explorer model</value>
+    </data>
+    <data name="AgentSettingExplorerSubAgentModelDesc" xml:space="preserve">
+        <value>Explorers are read-only research/review helpers. Pick a model to run them on; leave empty to fall back to the main agent's model.</value>
+    </data>
     <data name="AgentSettingMemoryIndexBudget" xml:space="preserve">
         <value>Memory list size limit</value>
     </data>

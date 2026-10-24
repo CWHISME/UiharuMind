@@ -179,15 +179,20 @@ internal static class SubAgentAssembly
         AgentBuildProfile profile = plan.Profile;
         SubAgentIdentity identity = profile.SubAgent
                                     ?? throw new InvalidOperationException("BuildFromPlan 只接受子会话的装配计划");
-        // 墓碑档（Explorer）按脑装配：老只读子会话重建后仍是只读，语义升级进 Brain（ADR 0082）
-        SubAgentProfile subProfile = identity.Type == ESubAgentType.General
-            ? SubAgentProfile.General
-            : SubAgentProfile.Brain;
+        // 三档按自己的档案装配：通用可改；探索恒定只读（只读但保留 Glob/联网）；
+        // 脑同步有界只读（ADR 0082）。从前的墓碑档（Explorer）重建按脑，已随复活取消。
+        SubAgentProfile subProfile = identity.Type switch
+        {
+            ESubAgentType.General => SubAgentProfile.General,
+            ESubAgentType.Brain => SubAgentProfile.Brain,
+            ESubAgentType.Explorer => SubAgentProfile.Explorer,
+            _ => throw new ArgumentOutOfRangeException(nameof(identity.Type), identity.Type, null),
+        };
 
         EAgentPermissionMode effectivePermission = subProfile.ForceReadOnly
             ? EAgentPermissionMode.ReadOnly
             : profile.PermissionMode;
-        // 挂不挂 shell/MCP 与档位无关了,只看是不是探索档——能不能真的执行由审批规则把关
+        // 挂不挂 shell/MCP 与档位无关了,只看是不是只读档——能不能真的执行由审批规则把关
         bool canMutate = !subProfile.ForceReadOnly;
 
         bool named = identity.AgentName.Length > 0;
@@ -400,7 +405,7 @@ internal static class SubAgentAssembly
     /// <summary>
     /// 子代理装配选项(纯函数,不碰单例)。工具与主代理同一份装配(<see cref="AgentToolsetBuilder"/>),
     /// 比主代理少的那几档(委派、技能、定时任务、知识库、朗读、后台任务)只写在场合表里(<see cref="AgentToolScopes"/>);
-    /// 旧探索档只读。能不能动手由 <see cref="ApprovalModeMapper"/> 定——与主代理同一口径,
+    /// 探索档恒定只读（ADR 0044 复活）。能不能动手由 <see cref="ApprovalModeMapper"/> 定——与主代理同一口径,
     /// 因为子代理跑自己的 <c>TurnDriver</c>,审批请求冒到派活者这一轮的回应口(ADR 0021)。不变量均由测试钉住。
     /// </summary>
     /// <param name="input">装配输入</param>
@@ -408,10 +413,13 @@ internal static class SubAgentAssembly
     internal static HarnessAgentOptions? BuildSubAgentOptions(SubAgentAssemblyInput input)
     {
         AgentToolConfig config = input.Config;
-        // 新派的子代理只有两种：通用（可改）与脑（ADR 0082，恒定只读）；墓碑档重建也走脑
-        EAgentToolScope scope = input.SubAgentProfile.ForceReadOnly
+        // 新派的有三档：通用（可改）、探索（ADR 0044 复活，恒定只读但保留 Glob/联网）、
+        // 脑（ADR 0082，恒定只读，只给 Grep/Read）。scope 说话，工具名不在此处猜测。
+        EAgentToolScope scope = input.SubAgentProfile.IsBrain
             ? EAgentToolScope.Brain
-            : EAgentToolScope.SubAgent;
+            : input.SubAgentProfile.ForceReadOnly
+                ? EAgentToolScope.Explore
+                : EAgentToolScope.SubAgent;
         bool canMutate = !AgentToolScopes.Of(scope).ReadOnlyFiles;
         string outputRoom = AgentOutputLayout.GetRoomAbsolutePath(input.OutputFolderName);
         // 与主代理同一份路径口径:共用那间草稿目录,简写的写法跟子代理自己的 shell 走(子代理不带记忆)

@@ -248,13 +248,14 @@ public class GroupSceneTests
             }).SubAgent);
     }
 
+    /// <summary>基座恒在最前（AgentBasePrompts.Base，本轮已加回内容），场景插在人格与工具之间</summary>
     [Fact]
     public void AgentPrompt_PutsTheSceneBetweenPersonaAndTools()
     {
         string instructions = Compose("场景正文", out IReadOnlyList<AgentPromptSegment> segments);
 
-        Assert.Equal([EPromptSection.Character, EPromptSection.Scene],
-            segments.Select(x => x.Section).Take(2));
+        Assert.Equal([EPromptSection.Base, EPromptSection.Character, EPromptSection.Scene],
+            segments.Select(x => x.Section).Take(3));
         AgentPromptSegment scene = segments.Single(x => x.Section == EPromptSection.Scene);
         Assert.Equal($"{AgentPromptHeadings.Scene}\n\n场景正文", scene.Text);
         Assert.Contains(scene.Text, instructions);

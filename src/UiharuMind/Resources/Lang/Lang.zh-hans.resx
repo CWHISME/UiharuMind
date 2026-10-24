@@ -555,6 +555,12 @@
     <data name="AgentSettingBrainSubAgentModelDesc" xml:space="preserve">
         <value>脑负责用只读助手整理大文件与被截断的工具结果。给它指定运行模型（配便宜小模型正合适）；留空则回退到主代理模型。</value>
     </data>
+    <data name="AgentSettingExplorerSubAgentModel" xml:space="preserve">
+        <value>探索模型</value>
+    </data>
+    <data name="AgentSettingExplorerSubAgentModelDesc" xml:space="preserve">
+        <value>探索档是只读的调研/审阅助手。给它指定运行模型（配便宜小模型正合适）；留空则回退到主代理模型。</value>
+    </data>
     <data name="AgentSettingMemoryIndexBudget" xml:space="preserve">
         <value>记忆清单字数上限</value>
     </data>
