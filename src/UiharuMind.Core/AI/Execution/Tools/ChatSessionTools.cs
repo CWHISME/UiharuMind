@@ -12,9 +12,12 @@ using System.Text;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Chat.Group;
+using UiharuMind.Core.AI.Chat.Group.Away;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
+using UiharuMind.Core.AI.Execution.Extensions;
 
 namespace UiharuMind.Core.AI.Execution.Tools;
 
@@ -34,8 +37,11 @@ public static class ChatSessionTools
     /// <summary>list：本会话派出的子代理</summary>
     public const string ListToolName = "ChatSessionList";
 
-    /// <summary>groups：群聊状态</summary>
+    /// <summary>groups：本会话建过的群聊（在跑时顺带记一份流水快照）</summary>
     public const string GroupsToolName = "ChatSessionGroups";
+
+    /// <summary>create-group：建一个群</summary>
+    public const string CreateGroupToolName = "ChatSessionCreateGroup";
 
     /// <summary>models：已加载的模型列表（参数已解析）</summary>
     public const string ListModelsToolName = "ChatSessionModels";
@@ -46,17 +52,42 @@ public static class ChatSessionTools
     /// <summary>stop：强行停止一个正在跑的子代理</summary>
     public const string StopToolName = "ChatSessionStop";
 
+    // 群多了全列占上下文，最近几个够看
+    private const int MaxListedGroups = 5;
+
+    // 建群至少几位成员：一位就是单聊（与建群弹窗同口径；开发脚本那条路不受此限）
+    private const int MinMembers = 2;
+
+    // 结果里提到别的命令与工具时的写法：名字改了这里跟着改，不靠各处手写字符串
+    private static readonly string CreateGroupMention =
+        BuiltinExtensions.Mention(BuiltinExtensions.ChatSession, BuiltinExtensions.ChatSessionCreateGroup);
+
+    private static readonly string GroupsMention =
+        BuiltinExtensions.Mention(BuiltinExtensions.ChatSession, BuiltinExtensions.ChatSessionGroups);
+
+    private static readonly string ListCharactersMention =
+        BuiltinExtensions.Mention(BuiltinExtensions.ChatSession, BuiltinExtensions.ChatSessionCharacters);
+
+    private static readonly string SendMessageMention = $"`{SubAgentTool.MessageToolName}`";
+
     /// <summary>
-    /// 造五把工具
+    /// 造六把工具
     /// </summary>
     /// <param name="sessionId">当前会话标识；空串时报「不可用」（扩展装配时拦截）</param>
-    /// <returns>五把工具，list 在前</returns>
-    public static IReadOnlyList<AITool> Create(string sessionId) =>
+    /// <param name="workspacePath">当前会话的工作区；建群时默认绑它</param>
+    /// <returns>六把工具，list 在前</returns>
+    public static IReadOnlyList<AITool> Create(string sessionId, string? workspacePath = null) =>
     [
         ToolJson.CreateFunction(() => ListSubSessions(sessionId), ListToolName,
             "列出本会话派出的子代理及其状态。"),
-        ToolJson.CreateFunction(() => ListGroups(false), GroupsToolName,
-            "列出群聊及其状态。"),
+        ToolJson.CreateFunction(() => ListGroups(sessionId), GroupsToolName,
+            "列出本会话建的群聊及其状态；正在跑的群会立刻记一份流水快照，并给出快照路径。"),
+        ToolJson.CreateFunction(
+            ([Description("群名。")] string name,
+                [Description("成员的角色名或标识，顺序即发言顺序，至少两位。")]
+                string[] members) => CreateGroup(sessionId, workspacePath, name, members),
+            CreateGroupToolName,
+            "建一个智能体群并把成员拉进去（群绑在当前会话的工作区）。建好后用 `SendMessage`（`to` 填群名）往群里说话。"),
         ToolJson.CreateFunction(() => ListModels(), ListModelsToolName,
             "列出已加载的远程模型及其参数。"),
         ToolJson.CreateFunction(() => ListCharacters(), ListCharactersToolName,
@@ -134,25 +165,90 @@ public static class ChatSessionTools
     }
 
     /// <summary>
-    /// 群聊状态。「群里谁在跑」由群壳的成员名单与运行登记聚合；化身单独报（不在名单里）
+    /// 群聊状态（最近的几个）。列表不是「我建过的」——群不记发起会话，列出谁都能看；
+    /// 排的是最后更新，正在跑的群自然浮在上面。
+    ///
+    /// <b>正在跑的群当场把流水写进 <c>群流水.md</c> 并给出路径</b>：跑着的时候群历史还在长，
+    /// 光看状态不够，调用方要能读到「此刻他们说到哪了」
     /// </summary>
-    internal static string ListGroups(bool mine, SessionManager? manager = null)
+    /// <param name="sessionId">查询方会话标识（只用来判断该不该提建群/发群提示）</param>
+    /// <param name="manager">会话管理器；缺省用全局实例（测试传自建的隔离实例）</param>
+    internal static string ListGroups(string sessionId, SessionManager? manager = null)
     {
         manager ??= SessionManager.Instance;
         List<ChatSessionMeta> all = manager.GetSessions().Where(x => x.IsGroup).ToList();
-        List<ChatSessionMeta> groups = all.Take(5).ToList(); // 群可能很多，全列占上下文，最近 5 个够看
-        if (groups.Count == 0) return "当前没有群聊。";
 
-        StringBuilder sb = new();
-        if (mine)
+        // 群成员与化身没有「to 填群名」那把 SendMessage（他自己那把只收正文），
+        // 只在会话这一层（主代理/单聊）才提这些提示；不在索引里的调用方也按会话层算（工具只对真会话开放）
+        bool canSendToGroup = manager.GetMeta(sessionId) is not { IsGroupMember: true };
+        if (all.Count == 0)
         {
-            sb.AppendLine("当前还无法按「本会话发起的群聊」过滤——群的创建尚未记录发起会话，以下先列出最近的：");
+            return canSendToGroup
+                ? $"当前没有群聊。要建一个，用 {CreateGroupMention}；建好后用 {SendMessageMention} 往群里说话（`to` 填群名）。"
+                : "当前没有群聊。";
         }
 
+        List<ChatSessionMeta> groups = all.Take(MaxListedGroups).ToList();
+        StringBuilder sb = new();
         sb.AppendLine(groups.Count < all.Count
             ? $"群聊（最近 {groups.Count} 个，共 {all.Count}）："
             : $"群聊 {groups.Count} 个：");
-        foreach (ChatSessionMeta group in groups) sb.AppendLine(DescribeGroup(group, manager));
+        foreach (ChatSessionMeta group in groups) sb.Append(DescribeGroup(group, manager));
+        if (canSendToGroup) sb.Append($"往群里说一句用 {SendMessageMention}，`to` 填群名或群壳短号。");
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// 建一个群。成员用角色名或标识点名，顺序即发言顺序——调用方不必先去角色库取卡。
+    /// 群是绑在<b>当前会话的工作区</b>上的智能体群（成员里的 agent 才动手，普通角色只说话）。
+    /// 群成员与化身不建群：建群是会话这一层的事，与「群里的人再开一个群」不是一回事
+    /// </summary>
+    /// <param name="sessionId">建群会话标识（落进群的 <see cref="ChatSessionMeta.CreatorSessionId"/>）</param>
+    /// <param name="workspacePath">群要绑的工作区</param>
+    /// <param name="name">群名</param>
+    /// <param name="members">成员的角色名或标识，顺序即发言顺序</param>
+    /// <returns>给模型的回执</returns>
+    internal static string CreateGroup(string sessionId, string? workspacePath, string name, string[] members)
+    {
+        if (members == null || members.Length < MinMembers)
+        {
+            return $"Error: 一个群至少要 {MinMembers} 位成员（一位就是单聊）——用 {ListCharactersMention} 看有哪些角色。";
+        }
+
+        ChatSessionMeta? caller = SessionManager.Instance.GetMeta(sessionId);
+        if (caller == null) return "Error: 当前会话不在会话索引里，建不了群。";
+        if (caller.IsGroupMember)
+        {
+            return "Error: 群成员与化身不建群——建群是会话这一层的事，在单聊或主代理里做。";
+        }
+
+        try
+        {
+            ChatSession group = GroupCreation.Create(new GroupCreationSpec
+            {
+                Name = name,
+                Members = members,
+                WorkspacePath = workspacePath,
+            });
+            return DescribeCreatedGroup(group);
+        }
+        catch (ArgumentException e)
+        {
+            return $"Error: {e.Message}";
+        }
+    }
+
+    private static string DescribeCreatedGroup(ChatSession group)
+    {
+        string members = string.Join(" → ", GroupRoster.Of(group).Present.Select(x => x.Name));
+        StringBuilder sb = new();
+        sb.AppendLine($"已建群《{group.Title}》[群壳 {SubSessionIdAlias.Short(group.SessionId)}] · " +
+                      $"{(group.IsAgentGroup ? "智能体群" : "普通群")} · 成员 {members}");
+        sb.AppendLine(string.IsNullOrWhiteSpace(group.WorkspacePath)
+            ? "工作区：未绑（成员写文件落在各自的草稿目录）"
+            : $"工作区：{group.WorkspacePath}");
+        sb.Append($"往群里说一句用 {SendMessageMention}，`to` 填《{group.Title}》；" +
+                  $"跑起来后用 {GroupsMention} 看进度（正在跑的群会给你流水快照路径）。");
         return sb.ToString();
     }
 
@@ -281,14 +377,21 @@ public static class ChatSessionTools
         return string.IsNullOrEmpty(modelName) ? line : $"{line}（{modelName}）";
     }
 
+    /// <summary>
+    /// 一个群在结果里的样子：一行概况 + 成员状态。
+    /// 群在跑时顺带记一份流水快照并把路径写在概况里——跑着的时候「谁说到哪了」只能从流水看
+    /// </summary>
     private static string DescribeGroup(ChatSessionMeta group, SessionManager manager)
     {
         List<ChatSessionMeta> members = manager.GetGroupMembers(group.SessionId)
             .Where(x => !x.HasLeftGroup)
             .ToList();
 
+        bool running = StateOf(manager, group.SessionId) != ESessionRunState.Idle;
         StringBuilder sb = new($"- 《{group.Title}》[群壳 {SubSessionIdAlias.Short(group.SessionId)}] " +
-                               $"· {(group.IsAgentGroup ? "智能体群" : "普通群")} · 在场 {members.Count(x => !x.IsGroupAvatar)} 人 · 在跑 {members.Count(x => StateOf(manager, x.SessionId) != ESessionRunState.Idle)}");
+                               $"· {(group.IsAgentGroup ? "智能体群" : "普通群")} · 在场 {members.Count(x => !x.IsGroupAvatar)} 人 · " +
+                               $"在跑 {members.Count(x => StateOf(manager, x.SessionId) != ESessionRunState.Idle)}");
+        if (running && SnapshotOf(group, manager) is { } path) sb.Append(" · 流水快照 ").Append(path);
         if (members.Count == 0) return sb.AppendLine().ToString();
 
         sb.AppendLine();
@@ -304,6 +407,18 @@ public static class ChatSessionTools
         }
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// 把流水写进标准的 <c>群流水.md</c>（草稿目录那一份，与离席给化身读的同一份）并返回路径；
+    /// 写不出来为 null（告警在 <see cref="GroupLogFile"/> 里）。
+    /// 为它得加载群壳本体——历史就是那份流水，而群正在跑时正是要读它的时候
+    /// </summary>
+    private static string? SnapshotOf(ChatSessionMeta group, SessionManager manager)
+    {
+        if (manager.Load(group.SessionId) is not { IsGroup: true } body) return null;
+        IReadOnlyList<ChatMessage> history = GroupChatCoordinator.Instance.HistorySnapshot(body);
+        return GroupLogFile.Initialize(body, history) > 0 ? GroupLogFile.PathOf(body) : null;
     }
 
     private static ESessionRunState StateOf(SessionManager manager, string sessionId) =>

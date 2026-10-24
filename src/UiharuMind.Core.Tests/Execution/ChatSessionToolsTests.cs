@@ -1,4 +1,7 @@
+using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Chat.Group;
+using UiharuMind.Core.AI.Chat.Group.Away;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.Tools;
 
@@ -9,6 +12,7 @@ namespace UiharuMind.Core.Tests.Execution;
 /// 热会话读已驻留本体。用自建的 <see cref="SessionManager"/>（不碰全局单例）跑，
 /// AppPaths 已由测试基建 <c>AppDataDirectoryInitializer</c> 指向临时目录，落盘安全
 /// </summary>
+[Collection("ChatSessionState")] //私有管理器 SaveIndex 会把共享索引并进来，见 ChatSessionStateCollection
 public sealed class ChatSessionToolsTests : IDisposable
 {
     private readonly SessionManager _manager = new();
@@ -99,5 +103,84 @@ public sealed class ChatSessionToolsTests : IDisposable
         string text = ChatSessionTools.ListSubSessions("parent", _manager);
 
         Assert.Contains("4.3k", text);
+    }
+
+    /// <summary>列最近的群聊，不按发起会话过滤（群不记发起会话）；末尾提示发群写法</summary>
+    [Fact]
+    public void ListGroups_ListsRecentGroups_AndHintsSendMessage()
+    {
+        string parent = NewParent();
+        ChatSession mine = CreateGroup("list-评审群");
+        CreateGroup("list-别人的群");
+        CreateGroup("list-用户手建的群");
+
+        string text = ChatSessionTools.ListGroups(parent, _manager);
+
+        Assert.Contains(mine.Title, text);
+        Assert.Contains("list-别人的群", text);
+        Assert.Contains("list-用户手建的群", text);
+        Assert.Contains("SendMessage", text); //提示：往群里说话走到哪个工具
+    }
+
+    [Fact]
+    public void ListGroups_WithNone_SaysHowToCreateOne()
+    {
+        // 不往管理器里 Add 任何东西：一写索引就会把共享盘上的别的群并进来，"空"就测不了了
+        string text = ChatSessionTools.ListGroups("fake-parent", _manager);
+
+        Assert.Contains("当前没有群聊", text);
+        Assert.Contains("chatsession.create-group", text);
+    }
+
+    /// <summary>正在跑的群要把流水写进标准的 <c>群流水.md</c> 并把路径交回来——跑着的时候「谁说到哪了」只能从流水看</summary>
+    [Fact]
+    public void ListGroups_RunningGroup_WritesLogAndReturnsPath()
+    {
+        string parent = NewParent();
+        ChatSession group = CreateGroup("list-跑着的群");
+        group.History.Add(new ChatMessage(ChatRole.User, "开工吧"));
+
+        using (_manager.Running.BeginRun(group.SessionId))
+        {
+            string text = ChatSessionTools.ListGroups(parent, _manager);
+
+            string path = GroupLogFile.PathOf(group);
+            Assert.True(File.Exists(path));
+            Assert.Contains("开工吧", File.ReadAllText(path));
+            Assert.Contains(path, text);
+        }
+
+        // 空闲的群不为它重写流水：查询不该在群里留新痕迹
+        string again = GroupLogFile.PathOf(group);
+        File.Delete(again);
+        Assert.DoesNotContain(again, ChatSessionTools.ListGroups(parent, _manager));
+        Assert.False(File.Exists(again));
+    }
+
+    private string NewParent()
+    {
+        ChatSession session = new() { Title = "主会话" };
+        _manager.Add(session);
+        _created.Add(session.SessionId);
+        return session.SessionId;
+    }
+
+    private ChatSession CreateGroup(string title)
+    {
+        ChatSession group = new()
+        {
+            Title = title,
+            Description = title,
+            IsGroup = true,
+            IsAgentGroup = true,
+            // 私有管理器的 SaveIndex 会把共享盘上的群并进自己的索引；把时间戳提到未来，
+            // 保证「最近五个」的断言不被并行建群的别的测试挤掉
+            UpdatedAt = DateTimeOffset.Now.AddHours(1),
+        };
+        _manager.Add(group);
+        // Add 里的 SaveMeta 已把 UpdatedAt 覆盖成 now：重存一次（不刷新时间）让未来值进索引
+        _manager.SaveMeta(group, touchUpdatedAt: false);
+        _created.Add(group.SessionId);
+        return group;
     }
 }

@@ -8,7 +8,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Microsoft.Extensions.AI;
-using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Chat.Group.Away;
@@ -129,7 +128,7 @@ internal sealed class GroupCreateCommand : IAsyncDevCommand
     public async Task<JsonNode?> ExecuteAsync(JsonElement args)
     {
         string name = DevCommandRegistry.RequireString(args, "name");
-        List<CharacterData> members = GroupDevCommands.Strings(args, "members").Select(DevCommandRegistry.ResolveCharacter).ToList();
+        List<string> members = GroupDevCommands.Strings(args, "members");
         List<string> models = GroupDevCommands.Strings(args, "models");
         string workspace = DevCommandRegistry.RequireString(args, "workspace");
         EGroupScheduleMode mode = GroupDevCommands.StringOr(args, "mode") == "parallel"
@@ -138,10 +137,21 @@ internal sealed class GroupCreateCommand : IAsyncDevCommand
         EGroupStopPolicy stop = GroupDevCommands.StringOr(args, "stop") == "aggressive"
             ? EGroupStopPolicy.Aggressive
             : EGroupStopPolicy.Conservative;
+        int host = GroupDevCommands.IntOr(args, "host", -1);
 
-        ChatSession group = GroupChatSessions.Create(name, true, members, workspace,
-            models.Count > 0 ? models.Cast<string?>().ToList() : null,
-            new GroupSchedule(mode, stop, GroupDevCommands.IntOr(args, "host", -1)));
+        // 建群走与 chatsession.create-group 同一条路径：成员解析、模型对齐、主持人校验只在那里著一处。
+        // 主持人脚本里按下标给，共用路径按名字点，这里把下标译成名字
+        ChatSession group = GroupCreation.Create(new GroupCreationSpec
+        {
+            Name = name,
+            Members = members,
+            ModelNames = models.Count > 0 ? models : null,
+            IsAgentGroup = true,
+            WorkspacePath = workspace,
+            Mode = mode,
+            StopPolicy = stop,
+            Host = host >= 0 && host < members.Count ? members[host] : null,
+        });
 
         Stopwatch watch = Stopwatch.StartNew();
         ConversationViewModel conversation = await GroupDevCommands.OpenAsync(group.SessionId);
@@ -151,7 +161,9 @@ internal sealed class GroupCreateCommand : IAsyncDevCommand
 
         return new JsonObject
         {
-            ["id"] = group.SessionId, ["members"] = DevJson.Array(members, x => x.CharacterName), ["mode"] = mode.ToString(),
+            ["id"] = group.SessionId,
+            ["members"] = DevJson.Array(GroupRoster.Of(group).Present, x => JsonValue.Create(x.Name)),
+            ["mode"] = mode.ToString(),
             ["openMs"] = openMs,
         };
     }

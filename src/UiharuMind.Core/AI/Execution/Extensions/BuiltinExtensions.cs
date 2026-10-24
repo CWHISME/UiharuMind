@@ -99,8 +99,11 @@ public static class BuiltinExtensions
     /// <summary>chatsession：本会话派出的子代理</summary>
     public const string ChatSessionList = "list";
 
-    /// <summary>chatsession：群聊状态（留「本会话发起的群」过滤的口子）</summary>
+    /// <summary>chatsession：群聊状态（在跑时顺带把流水写一份）</summary>
     public const string ChatSessionGroups = "list-groups";
+
+    /// <summary>chatsession：建一个群</summary>
+    public const string ChatSessionCreateGroup = "create-group";
 
     /// <summary>chatsession：已加载的模型列表（派活前选 model 用）</summary>
     public const string ChatSessionModels = "list-models";

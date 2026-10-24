@@ -16,10 +16,8 @@ namespace UiharuMind.Core.AI.Execution.Extensions;
 
 /// <summary>
 /// chatsession 扩展：查看与本会话关联的会话状态——本会话派出过的子代理还在不在聊、
-/// 卡没卡审批、报告交没交，以及群聊的成员与化身状态。全部只读。
-///
-/// 群聊的命令位是留给「本会话发起的群聊」的口子：群的创建至今没有记录发起会话，
-/// <c>groups</c> 的 mine 参数已就位，等数据有了按发起会话过滤即可接上，不用改扩展
+/// 卡没卡审批、报告交没交，群聊谁在跑，外加建群与选模型/选角色。
+/// 查询只读；建群与停止会改东西，按一般级问一次。
 /// </summary>
 public sealed class ChatSessionExtension : BuiltinExtension
 {
@@ -31,22 +29,23 @@ public sealed class ChatSessionExtension : BuiltinExtension
     public override string Guide => Summary;
 
     public override string Summary =>
-        "查子代理状态、群聊、远程模型与角色库，也可用于停止子代理";
+        "查子代理状态、群聊、远程模型与角色库；也可建群、停止子代理";
 
     public override IReadOnlyList<(string Command, string ToolName)> CommandNames =>
     [
         (BuiltinExtensions.ChatSessionList, ChatSessionTools.ListToolName),
         (BuiltinExtensions.ChatSessionGroups, ChatSessionTools.GroupsToolName),
+        (BuiltinExtensions.ChatSessionCreateGroup, ChatSessionTools.CreateGroupToolName),
         (BuiltinExtensions.ChatSessionModels, ChatSessionTools.ListModelsToolName),
         (BuiltinExtensions.ChatSessionCharacters, ChatSessionTools.ListCharactersToolName),
         (BuiltinExtensions.ChatSessionStop, ChatSessionTools.StopToolName),
     ];
 
-    /// <summary>查询命令按只读放行；stop 会取消一轮并写收尾历史，按一般级问一次</summary>
+    /// <summary>查询命令按只读放行；stop 与 create-group 会写会话（取消一轮 / 建一份新群），按一般级问一次</summary>
     public override EExtensionRisk Classify(FunctionCallContent call)
     {
         if (!ExtensionCalls.TryRead(call, out ExtensionInvocation? invocation)) return EExtensionRisk.ReadOnly;
-        return invocation.Command == BuiltinExtensions.ChatSessionStop
+        return invocation.Command is BuiltinExtensions.ChatSessionStop or BuiltinExtensions.ChatSessionCreateGroup
             ? EExtensionRisk.Standard
             : EExtensionRisk.ReadOnly;
     }
@@ -66,7 +65,7 @@ public sealed class ChatSessionExtension : BuiltinExtension
         }
 
         ChatSessionExtension assembled = new();
-        assembled.SetCommands(Bind(ChatSessionTools.Create(resources.SessionId)));
+        assembled.SetCommands(Bind(ChatSessionTools.Create(resources.SessionId, resources.WorkspacePath)));
         return assembled;
     }
 }

@@ -282,7 +282,8 @@ public class ExtensionTests
     [InlineData("worktree", "remove", EExtensionRisk.PerScope)] //删目录，要求额外审批
     [InlineData("worktree", "frobnicate", EExtensionRisk.ReadOnly)] //没这条命令,什么也不会跑
     [InlineData("chatsession", "list", EExtensionRisk.ReadOnly)] //纯查询
-    [InlineData("chatsession", "list-groups", EExtensionRisk.ReadOnly)] //纯查询
+    [InlineData("chatsession", "list-groups", EExtensionRisk.ReadOnly)] //纯查询（在跑时顺带写一份流水快照）
+    [InlineData("chatsession", "create-group", EExtensionRisk.Standard)] //建一份新群，要问
     [InlineData("chatsession", "list-models", EExtensionRisk.ReadOnly)] //纯查询
     [InlineData("chatsession", "list-characters", EExtensionRisk.ReadOnly)] //纯查询
     [InlineData("chatsession", "stop", EExtensionRisk.Standard)] //取消一轮并写收尾历史,要问

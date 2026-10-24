@@ -148,6 +148,28 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
     }
 
     /// <summary>
+    /// 按标识或显示名找角色（标识优先）。模型与开发脚本共用的那一套点名口径：
+    /// 两边各写一遍时，「名称撞上别人的标识」这类事只在其中一边发生
+    /// </summary>
+    /// <param name="key">角色标识或显示名</param>
+    /// <returns>角色；没有为 null</returns>
+    public CharacterData? Find(string key)
+    {
+        if (FindBy(x => x.CharacterId == key) is { } byId) return byId;
+        return FindBy(x => x.CharacterName == key);
+    }
+
+    private CharacterData? FindBy(Func<CharacterData, bool> predicate)
+    {
+        foreach (CharacterData character in CharacterDataDictionary.Values)
+        {
+            if (predicate(character)) return character;
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// 添加新角色，标识重复则返回 false
     /// </summary>
     /// <param name="characterData">角色数据</param>

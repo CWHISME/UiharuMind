@@ -253,6 +253,9 @@ public static class SubAgentTool
     /// <summary>
     /// 给聊过的人续发一条。<c>to</c> 只收本会话派出过的子会话标识（短号或完整 ID）；
     /// 短号撞车则列出完整 ID 让它挑。填了人名或留空都是想新开，报错指回 <see cref="ToolName"/>。
+    ///
+    /// 不是子代理时再看是不是<b>本会话建的群</b>（<see cref="GroupMessageChannel"/>）：那里收群名或群壳短号，
+    /// 发出去不等这一波跑完。子代理优先——两者撞名时延续「续聊」这个旧意图
     /// </summary>
     private static Task<string> SendAsync(LaunchContext context, string? to, string message)
     {
@@ -266,12 +269,28 @@ public static class SubAgentTool
 
         // 按索引反查而不是猜标识格式:模型手里是短号,精确 Load 永远对不上(实测新委派因此全部续不上)
         IReadOnlyList<ChatSessionMeta> runs = SubSessionIdAlias.Match(context.ParentSessionId, target);
-        return runs.Count switch
+        if (runs.Count == 1) return ContinueAsync(context, runs[0].SessionId, message);
+        if (runs.Count > 1) return Task.FromResult(AmbiguousRun(target, runs));
+
+        IReadOnlyList<ChatSessionMeta> groups = GroupMessageChannel.Match(target);
+        return groups.Count switch
         {
             0 => Task.FromResult(UnknownRecipient(context, target)),
-            1 => ContinueAsync(context, runs[0].SessionId, message),
-            _ => Task.FromResult(AmbiguousRun(target, runs)),
+            1 => Task.FromResult(GroupMessageChannel.Post(groups[0], message)),
+            _ => Task.FromResult(AmbiguousGroup(target, groups)),
         };
+    }
+
+    /// <summary>
+    /// 群名/群壳短号撞车：与 <see cref="AmbiguousRun"/> 同一口径，把候选的群壳短号交给模型挑
+    /// </summary>
+    private static string AmbiguousGroup(string target, IReadOnlyList<ChatSessionMeta> groups)
+    {
+        IEnumerable<string> lines = groups.Select(x =>
+            $"- 《{x.Title}》[群壳 {SubSessionIdAlias.Short(x.SessionId)}]");
+        return $"Error: '{target}' 匹配了多个群：\n"
+               + string.Join("\n", lines)
+               + "\n把你要的那一群的群壳短号或群名作为 `to` 传进来。";
     }
 
     /// <summary>
@@ -311,7 +330,8 @@ public static class SubAgentTool
     /// 自己是想续聊却抄错了编号,还是其实想新开一位——只说一条它会在另一条上再错一次。
     ///
     /// 聊过的人直接列出来照抄:只说"去回执里找标识",模型会凭印象补写(实测把短号补成 GUID),
-    /// 对不上就另起新人,前面做过的全丢。
+    /// 对不上就另起新人,前面做过的全丢。发群与发单聊的写法由各自的结果页教,
+    /// 这里不攒一张全库名单——那只会让这一行报错长得不可读
     /// </summary>
     private static string UnknownRecipient(LaunchContext context, string? target)
     {
@@ -321,13 +341,14 @@ public static class SubAgentTool
         List<ChatSessionMeta> earlier = SessionManager.Instance.GetSubSessions(context.ParentSessionId);
         if (earlier.Count == 0) return error;
 
+        StringBuilder text = new(error);
         IEnumerable<string> lines = earlier.Take(MaxListedConversations).Select(x =>
         {
             string who = x.SubAgentName.Length > 0 ? x.SubAgentName : x.Title; //身份即会话标题
             return $"- [sub-session: {SubSessionIdAlias.Short(x.SessionId)}]" + (who.Length > 0 ? $" — {who}" : string.Empty);
         });
-        return error + "\n本会话里你已联系过的人（把 id 传给 `to` 即可继续）：\n"
-               + string.Join("\n", lines);
+        text.Append("\n本会话里你已联系过的人（把 id 传给 `to` 即可继续）：\n").AppendJoin("\n", lines);
+        return text.ToString();
     }
 
     /// <summary>

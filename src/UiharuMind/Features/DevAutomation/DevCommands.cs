@@ -57,16 +57,11 @@ internal static class DevCommandRegistry
         ..FileDevCommands.CreateAll(),
     ];
 
-    /// <summary>按角色标识或显示名找角色（标识优先）</summary>
+    /// <summary>按角色标识或显示名找角色（标识优先）；两边共用一套点名口径，见 <see cref="CharacterManager.Find"/></summary>
     /// <param name="key">角色标识或名字</param>
     /// <returns>角色</returns>
-    internal static CharacterData ResolveCharacter(string key)
-    {
-        IEnumerable<CharacterData> all = CharacterManager.Instance.CharacterDataDictionary.Values;
-        return all.FirstOrDefault(x => x.CharacterId == key)
-               ?? all.FirstOrDefault(x => x.CharacterName == key)
-               ?? throw new ArgumentException($"character '{key}' not found");
-    }
+    internal static CharacterData ResolveCharacter(string key) =>
+        CharacterManager.Instance.Find(key) ?? throw new ArgumentException($"character '{key}' not found");
 
     /// <summary>取当前显示的那一页（不是会话页时为 null）</summary>
     internal static ConversationPageDataBase? CurrentConversationPage() =>
