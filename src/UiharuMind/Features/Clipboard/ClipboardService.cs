@@ -126,6 +126,14 @@ public class ClipboardService : IDisposable
 
     public async Task<string?> GetFromClipboard()
     {
+        // Windows 的来源应用（JetBrains/JVM 等）延迟渲染时，OLE 的 OleGetClipboard→EnumFormatEtc 可能失败，
+        // 优先用监听器的 Win32 直读；读不到再回退 Avalonia 的 OLE 路径兜底
+        if (_clipboardMonitor is WindowsClipboardMonitor win)
+        {
+            string? text = await win.TryReadTextAsync();
+            if (!string.IsNullOrEmpty(text)) return text;
+        }
+
         return await Clipboard.TryGetValueAsync(DataFormat.Text);
     }
 

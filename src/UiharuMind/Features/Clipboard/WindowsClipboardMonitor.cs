@@ -12,6 +12,7 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace UiharuMind.Features.Clipboard;
 
@@ -85,6 +86,50 @@ public class WindowsClipboardMonitor : IClipboardMonitor
         return DefWindowProc(hWnd, msg, wParam, lParam);
     }
 
+    /// <summary>
+    /// 用 Win32 直读剪贴板文本。<c>OpenClipboard + GetClipboardData(CF_UNICODETEXT)</c>，不经过 OLE——
+    /// OLE 的 <c>OleGetClipboard → EnumFormatEtc</c> 在来源应用（如 JetBrains/JVM）延迟渲染时会失败。
+    /// 读到空或剪贴板被占用时按 <paramref name="retryDelayMs"/> 等待后重试，最多 <paramref name="maxAttempts"/> 次。
+    /// </summary>
+    /// <param name="maxAttempts">最大尝试次数</param>
+    /// <param name="retryDelayMs">每次失败后的等待毫秒</param>
+    /// <returns>剪贴板文本；无文本或均失败时返回 null</returns>
+    public async Task<string?> TryReadTextAsync(int maxAttempts = 5, int retryDelayMs = 100)
+    {
+        for (int i = 0; i < maxAttempts; i++)
+        {
+            string? text = ReadClipboardText();
+            if (!string.IsNullOrEmpty(text)) return text;
+            if (i < maxAttempts - 1) await Task.Delay(retryDelayMs);
+        }
+
+        return null;
+    }
+
+    private static string? ReadClipboardText()
+    {
+        if (!OpenClipboard(IntPtr.Zero)) return null;
+        try
+        {
+            IntPtr handle = GetClipboardData(CF_UNICODETEXT);
+            if (handle == IntPtr.Zero) return null;
+            IntPtr ptr = GlobalLock(handle);
+            if (ptr == IntPtr.Zero) return null;
+            try
+            {
+                return Marshal.PtrToStringUni(ptr);
+            }
+            finally
+            {
+                GlobalUnlock(handle);
+            }
+        }
+        finally
+        {
+            CloseClipboard();
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
@@ -104,6 +149,7 @@ public class WindowsClipboardMonitor : IClipboardMonitor
     }
 
     private const int WM_CLIPBOARDUPDATE = 0x031D;
+    private const uint CF_UNICODETEXT = 13;
     private static readonly IntPtr HWND_MESSAGE = new IntPtr(-3);
     private const int WM_CLOSE = 0x0010;
 
@@ -137,6 +183,21 @@ public class WindowsClipboardMonitor : IClipboardMonitor
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern IntPtr DispatchMessage(ref Msg lpMsg);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool OpenClipboard(IntPtr hWndNewOwner);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool CloseClipboard();
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr GetClipboardData(uint uFormat);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr GlobalLock(IntPtr hMem);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GlobalUnlock(IntPtr hMem);
 
     [DllImport("user32.dll")]
     private static extern void PostQuitMessage(int nExitCode);
