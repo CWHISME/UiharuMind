@@ -236,7 +236,12 @@ public static class ChatSessionTools
         }
         catch (ArgumentException e)
         {
-            return $"Error: {e.Message}";
+            // 找成员的错（人不够、点名了不认识的）给模型指条路；其余错误文案已自足，不额外加尾巴
+            string hint = e.Message.Contains("至少", StringComparison.Ordinal)
+                          || e.Message.Contains("角色库里没有", StringComparison.Ordinal)
+                ? $"（用 {ListCharactersMention} 看有哪些角色）"
+                : string.Empty;
+            return $"Error: {e.Message}{hint}";
         }
     }
 
