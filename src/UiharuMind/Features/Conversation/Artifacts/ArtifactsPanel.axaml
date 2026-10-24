@@ -27,7 +27,8 @@
                                         IsChecked="{Binding DraftOnly, Mode=TwoWay}"
                                         ToolTip.Tip="{Binding FilterTip}" />
             </Grid>
-            <TextBlock Grid.Row="1" Classes="muted" Text="{Binding Hint}" TextWrapping="Wrap" />
+            <TextBlock Grid.Row="1" Classes="muted" Text="{Binding Hint}" TextWrapping="Wrap"
+                       IsVisible="{Binding IsEmpty}" />
             <TextBlock Grid.Row="2" Classes="muted" FontSize="11" IsVisible="{Binding IsEmpty}"
                        Text="{loc:Loc GroupArtifactsEmpty}" TextWrapping="Wrap" />
             <TextBlock Grid.Row="3" Classes="muted" FontSize="11" IsVisible="{Binding IsDraftEmpty}"

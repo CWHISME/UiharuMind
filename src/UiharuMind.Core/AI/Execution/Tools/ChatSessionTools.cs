@@ -61,8 +61,7 @@ public static class ChatSessionTools
             "列出已加载的远程模型及其参数。"),
         ToolJson.CreateFunction(() => ListCharacters(), ListCharactersToolName,
             "列出角色库。"),
-        ToolJson.CreateFunction(([Description("要停止的子代理短号或完整标识")]
-                string id) => StopSubSession(sessionId, id),
+        ToolJson.CreateFunction(([Description("要停止的子代理短号或完整标识")] string id) => StopSubSession(sessionId, id),
             StopToolName,
             "强行停止本会话派出的一个正在跑的子代理。"),
     ];
@@ -98,6 +97,7 @@ public static class ChatSessionTools
             // （Load 会整读历史、跑孤儿修复落盘、钉驻留，不该跟着一次免审批查询发生）
             sb.AppendLine(DescribeSub(meta, manager.GetLoaded(meta.SessionId), manager));
         }
+
         return sb.ToString();
     }
 
@@ -181,8 +181,8 @@ public static class ChatSessionTools
         foreach (ModelRunningData model in models)
         {
             sb.Append("- ").Append(model.ModelName)
-              .Append(" · 上下文 ").Append(TurnUsageLedger.Format(model.ContextLength))
-              .Append(" · ").Append(model.IsVisionModel ? "原生视觉" : "非视觉");
+                .Append(" · 上下文 ").Append(TurnUsageLedger.Format(model.ContextLength))
+                .Append(" · ").Append(model.IsVisionModel ? "原生视觉" : "非视觉");
             if (string.Equals(model.ModelName, current, StringComparison.Ordinal)) sb.Append(" · 当前");
             if (model.IsLoading) sb.Append(" · 加载中");
             else if (model.IsRunning) sb.Append(" · 在跑");
@@ -219,8 +219,8 @@ public static class ChatSessionTools
         foreach (CharacterData character in all)
         {
             sb.Append("- ").Append(character.CharacterName)
-              .Append("（").Append(character.CharacterId).Append("）")
-              .Append(" · ").Append(character.IsAgent ? "agent" : "普通");
+                .Append("（").Append(character.CharacterId).Append("）")
+                .Append(" · ").Append(character.IsAgent ? "agent" : "普通");
             if (character.IsBuiltIn) sb.Append(" · 内置");
             if (!string.IsNullOrWhiteSpace(character.Description))
                 sb.Append(" · ").Append(Clip(character.Description, MaxDescriptionLength));
@@ -249,12 +249,15 @@ public static class ChatSessionTools
         if (meta.SubAgentName.Length > 0) sb.Append(" · 点名：").Append(meta.SubAgentName);
         // 探索档恒定只读（CreateAgent 置 readOnly 派出）：主代理续用前要知道这位改不了东西
         if (meta.SubAgentType == ESubAgentType.Explorer) sb.Append(" · 只读");
-        sb.Append(" · ").Append(StateLabel(StateOf(manager, meta.SessionId)));
+        var state = StateOf(manager, meta.SessionId);
+        sb.Append(" · ").Append(StateLabel(state));
         string usage = UsageOf(meta, body);
         if (usage.Length > 0) sb.Append(" · 上下文 ").Append(usage);
         if (meta.BackgroundReportPending) sb.Append(" · 报告未交");
-        sb.Append(" · 末轮 ").Append(string.IsNullOrWhiteSpace(FriendlyAge(meta.LastRunStartedAt))
-            ? "从未跑过" : FriendlyAge(meta.LastRunStartedAt));
+        if (state == ESessionRunState.Idle)
+            sb.Append(" · 末轮 ").Append(string.IsNullOrWhiteSpace(FriendlyAge(meta.LastRunStartedAt))
+                ? "从未跑过"
+                : FriendlyAge(meta.LastRunStartedAt));
         sb.Append(" · ").Append(meta.MessageCount).Append(" 条消息");
         return sb.ToString();
     }
@@ -294,10 +297,10 @@ public static class ChatSessionTools
             string who = member.IsGroupAvatar ? "化身" :
                 !string.IsNullOrWhiteSpace(member.Title) ? member.Title : member.CharacterId;
             sb.Append("  - ")
-              .Append(who)
-              .Append("（").Append(SubSessionIdAlias.Short(member.SessionId)).Append("）：")
-              .Append(StateLabel(StateOf(manager, member.SessionId)))
-              .AppendLine();
+                .Append(who)
+                .Append("（").Append(SubSessionIdAlias.Short(member.SessionId)).Append("）：")
+                .Append(StateLabel(StateOf(manager, member.SessionId)))
+                .AppendLine();
         }
 
         return sb.ToString();

@@ -36,8 +36,8 @@
                             <StackPanel Grid.Column="1">
                                 <TextBlock FontSize="12" TextTrimming="CharacterEllipsis"
                                            Text="{Binding Name}" />
-                                <TextBlock FontSize="10" Classes="muted" MaxLines="2"
-                                           TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+                                <TextBlock FontSize="10" Classes="muted"
+                                           TextTrimming="CharacterEllipsis"
                                            Text="{Binding Description}" />
                             </StackPanel>
                             <!-- 只读星标：已收藏的角色排在前面（收藏在角色库左栏或群成员里切）。

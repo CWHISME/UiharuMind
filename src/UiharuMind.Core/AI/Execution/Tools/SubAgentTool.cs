@@ -383,7 +383,7 @@ public static class SubAgentTool
     /// 跑中注入与排队续跑两分支都用它；落盘带前缀：它本来就是发信人说的，原样留痕才是实话。
     /// 名字跟随 ADR 0044 的对话心智（委派 = 给对方发消息），不再叫「派活方」
     /// </summary>
-    internal const string ParentInterjectionPrefix = "【发信人】";
+    internal const string ParentInterjectionPrefix = "【主代理】";
 
     /// <summary>
     /// 从派活上下文建一个子会话。<b>委派（<see cref="Launch"/>）与脑（<see cref="BrainTool"/>）共用</b>——
@@ -460,7 +460,7 @@ public static class SubAgentTool
         // 插话走注入队列,在下一次模型请求前消费,效果并入当前轮的报告,不另交报告。
         if (SessionManager.Instance.Running.IsBusy(session.SessionId))
         {
-            ChatMessage injection = session.CreateMessage(ChatRole.User, ParentInterjectionPrefix + message);
+            ChatMessage injection = session.CreateMessage(ChatRole.User, ParentInterjectionPrefix + message + $"\n***\n【这是主代理动态发给你的消息，如有沟通需要，请及时使用 `{ParentMessageTool.ToolName}` 工具回复这条消息。】");
             ChatMessageAnnotations.MarkParentInterjection(injection);
             bool injected = false;
             try
