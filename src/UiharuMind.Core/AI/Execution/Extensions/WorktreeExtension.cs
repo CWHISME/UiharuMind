@@ -26,13 +26,7 @@ public sealed class WorktreeExtension : BuiltinExtension
 
     public override string Name => BuiltinExtensions.Worktree;
 
-    public override string Guide =>
-        "worktree（隔离工作副本）的创建与登记。create 一键创建并登记：git 仓库时自动拉取 origin、初始化子模块、" +
-        "修复软链接、同名分支已存在则直接检出；不是 git 仓库时复制工作目录内容成隔离副本。" +
-        "set 登记用户自己已有的副本；list 列出已登记的（含上次修改时间）；status 查询当前状态；" +
-        "reset 取消登记（动态切回，提示清理）；remove 删除并取消登记（清理）。" +
-        "登记后 worktree 内的文件写入免审批；本扩展不动会话的工作目录（相对路径基准不变），" +
-        "worktree 内干活用绝对路径；草稿目录与记忆目录不变。创建默认落数据目录项目共享的 Worktrees 下。";
+    public override string Guide => Summary;
 
     public override string Summary =>
         "worktree（隔离工作副本）的创建与登记：创建/登记的 worktree 内文件写入免审批，不动工作目录与草稿目录";
@@ -55,7 +49,7 @@ public sealed class WorktreeExtension : BuiltinExtension
         // 没有这条命令：执行只会报错，不为它弹卡（与基类同一口径）
         if (CanonicalCommand(invocation.Command) == null) return EExtensionRisk.ReadOnly;
         return invocation.Command is BuiltinExtensions.WorktreeStatus or BuiltinExtensions.WorktreeList
-                                   or BuiltinExtensions.WorktreeReset
+            or BuiltinExtensions.WorktreeReset
             ? EExtensionRisk.ReadOnly
             : EExtensionRisk.Standard;
     }

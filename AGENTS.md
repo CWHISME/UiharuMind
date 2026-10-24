@@ -47,35 +47,6 @@ dotnet build src/UiharuMind.sln
 实测耗时（Apple Silicon）：增量构建解决方案约 10 秒，Core 测试全量约 10 秒，App 测试全量约 40 秒（含无头界面），
 按类过滤只要一两秒。
 
-测试框架是 xunit v3（`xunit.v3` 4.x），跑在 Microsoft.Testing.Platform（MTP）上，由仓库根的
-`global.json`（`test.runner`）选择加入。MTP 测试项目本身是可执行文件，**跑测试统一直接运行产物
-exe**（`<csproj 同名目录>/bin/<Configuration>/net10.0/<项目名>`），失败详情直接打在终端，
-CI（`ci.yml`）与本地都是同一套命令。
-
-**别走 `dotnet msbuild <csproj> -t:Test`**：它会把 test host 的完整输出重定向进
-`TestResults/<项目名>_net10.0_<arch>.log`（UTF-16LE），终端只剩一行摘要和指向该文件的 error 行，
-失败时看不到是哪个测试挂了，本地 CI 都中招。也**别用 `dotnet test`**（见下）。
-
-⚠️ `dotnet test` 在本仓**测不出结果**：项目早已带
-`<TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>`（缺它 .NET 10 SDK 起
-`dotnet test` 会直接报错，那是另一个坑），但 SDK 10.0.401 实测 `dotnet test` 两个项目都是
-「运行了零个测试 / exit 5」——它压根没发现测试，0 通过不代表测试真过了。判成败一律看
-产物 exe 的输出（10.0.301 上曾全跑通，说明这个行为随 SDK 版本变，
-不要再用 dotnet test）。
-
-过滤语法与 VSTest 不同（`--filter-class` / `--filter-method` / `--filter-trait`…，见
-<https://xunit.net/docs/getting-started/v3/microsoft-testing-platform>），参数直接跟在产物
-exe 后面，如
-`./src/UiharuMind.Core.Tests/bin/Debug/net10.0/UiharuMind.Core.Tests --filter-class UiharuMind.Core.Tests.AI.RemoteModelInfoTests`。
-`--filter-class` 要写**完整类型名**（如 `UiharuMind.Core.Tests.AI.RemoteModelInfoTests`），
-简写类名会静默得到「运行了零个测试」且退出码不是失败——务必核对输出的「总计」不是 0。
-
-> `ClassicDiagnostics.Avalonia` 是 vendored 的独立解决方案，其 NUnit 测试项目不在
-> `UiharuMind.sln` 中，也不走本仓的 MTP 流程。
-
-axaml 的命名空间与 `x:Class` 错误在编译期就会炸（`AVLN2000`），所以对结构性改动，
-「解决方案编译通过」是很强的信号。
-
 ### 无头界面测试
 
 `UiharuMind.App.Tests/Headless/` 下的测试跑的是**真实控件与真实模板**，只是不要窗口
@@ -89,6 +60,8 @@ axaml 的命名空间与 `x:Class` 错误在编译期就会炸（`AVLN2000`）�
 新增无头测试类记得挂 `[Collection(HeadlessCollection.Name)]`，否则并行跑会随机撞线程亲和性。
 
 ### 开发脚本（驱动真实应用）
+
+**重要**：不懂的话先看 `src/scripts/smoke`
 
 有些问题只在「真的用了一阵」之后才显形（长会话切换、内存驻留），无头测试走不完那条路。
 这时用开发脚本：
@@ -119,10 +92,8 @@ UiharuMind.CLI app run scenario.jsonl         # 与 --dev-script 同格式
 UiharuMind.CLI app quit
 ```
 
-⚠️ 拿真实档案跑之前先 `UIHARU_HOME` 指到副本上，脚本会真的改那份数据。
-
-应用支持多实例共享同一份档案（会话与配置的并发写已处理）。只是想再起一个实例给人看效果时，
-直接用真实档案即可，不必复制；上面那条只针对会自动改数据的脚本。别为此覆盖正在运行实例的 bin，产物另编到别的目录。
+应用支持多实例共享同一份档案（会话与配置的并发写已处理）。只是想再起一个实例给人看效果时，或者测试性能直接用真实档案即可，不必复制；
+除非会自动改数据的脚本，需要先 `UIHARU_HOME` 指到一个空的临时路径上。
 
 应用里的模型要驱动应用自己时，开发者模式下有内置技能 `uiharu-dev`（ADR 0061）：正文现生成，步骤清单取自各步骤的 `Usage`。
 新增或改了步骤，记得写 `Usage`——它同时是 `app.ops` 的回答与这份技能的内容。
