@@ -5944,6 +5944,12 @@
     <data name="ExtensionDesktopDesc" xml:space="preserve">
         <value>看、操作电脑上别的应用的窗口：读界面、点按钮、填字、按快捷键、启动应用。密码管理、系统设置与终端碰不了；动用真实鼠标键盘每次都问你。</value>
     </data>
+    <data name="ExtensionNameWorktree" xml:space="preserve">
+        <value>工作树</value>
+    </data>
+    <data name="ExtensionWorktreeDesc" xml:space="preserve">
+        <value>创建 git worktree（自动拉取、初始化子模块、修复软链接）并登记，登记后该目录内文件写入免审批。不改会话的工作目录、草稿与记忆。</value>
+    </data>
     <data name="DesktopHandoffTitle" xml:space="preserve">
         <value>请你接手这个窗口</value>
     </data>

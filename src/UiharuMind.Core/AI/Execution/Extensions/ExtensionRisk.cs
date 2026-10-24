@@ -49,30 +49,10 @@ public static class ExtensionRisk
         // 当只读放过去，让模型立刻拿到报错重发——拦下来只会弹一张空卡（与越界写入缺路径同一口径）
         if (!ExtensionCalls.TryRead(call, out ExtensionInvocation? invocation)) return EExtensionRisk.ReadOnly;
 
-        // 内置扩展没有这条命令：执行那边认的是同一个解析（见 ExtensionHub），什么也不会跑，不为它弹卡
-        if (BuiltinExtensions.Canonical(invocation.Extension) is { } builtin &&
-            BuiltinExtensions.ToolNameOf(builtin, invocation.Command) == null) return EExtensionRisk.ReadOnly;
-
-        if (invocation.Extension == BuiltinExtensions.Browser)
-        {
-            if (invocation.Command == BuiltinExtensions.BrowserSnapshot) return EExtensionRisk.ReadOnly;
-            return BrowserRisk.RequiresApprovalInAllModes(ExtensionCalls.Unwrap(call))
-                ? EExtensionRisk.AlwaysAsk
-                : EExtensionRisk.Standard;
-        }
-
-        if (invocation.Extension == BuiltinExtensions.Desktop)
-        {
-            FunctionCallContent inner = ExtensionCalls.Unwrap(call);
-            if (DesktopRisk.IsReadOnly(inner)) return EExtensionRisk.ReadOnly;
-            if (DesktopRisk.IsRealInput(inner)) return EExtensionRisk.PerScope;
-            return DesktopRisk.RequiresApprovalInAllModes(inner) ? EExtensionRisk.AlwaysAsk : EExtensionRisk.Standard;
-        }
-
-        // 目标模式的结束请求：不改任何盘，只请求收场——无人值守也得放行，否则模型结束不了目标模式
-        if (invocation.Extension == BuiltinExtensions.Goal) return EExtensionRisk.ReadOnly;
-
-        if (BuiltinExtensions.Canonical(invocation.Extension) != null) return EExtensionRisk.Standard;
+        // 内置扩展：风险规则在各自的扩展类里（命令名解析与风险同处，不会出现
+        // 「审批按没这条命令判、执行却落到别处」）。没有这条命令的调用到工具里只会报错，
+        // 按只读放过去（见 BuiltinExtension.Classify）
+        if (BuiltinExtensions.SpecOf(invocation.Extension) is { } spec) return spec.Classify(call);
 
         return mcpReadOnly?.Invoke(invocation.Extension, invocation.Command) == true
             ? EExtensionRisk.ReadOnly
@@ -96,9 +76,7 @@ public static class ExtensionRisk
     /// <param name="desktop">桌面宿主（按窗口编号认应用）；缺省用全应用那一个</param>
     /// <returns>放行名单里的一格</returns>
     public static string ApprovalKey(ExtensionInvocation invocation, FunctionCallContent call, DesktopHost? desktop = null) =>
-        invocation.Extension == BuiltinExtensions.Desktop
-            ? $"{BuiltinExtensions.Desktop}:{DesktopRisk.ApprovalScope(ExtensionCalls.Unwrap(call), desktop ?? DesktopHost.Shared)}"
-            : invocation.Extension;
+        BuiltinExtensions.SpecOf(invocation.Extension)?.ApprovalKey(invocation, call, desktop) ?? invocation.Extension;
 
     /// <summary>
     /// 本会话放行名单是否覆盖了这一格

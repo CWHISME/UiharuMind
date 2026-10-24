@@ -1,0 +1,734 @@
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Assembly;
+using UiharuMind.Core.AI.Execution.Tools.Worktree;
+using UiharuMind.Core.Tests.Agent;
+
+namespace UiharuMind.Core.Tests.Execution.Worktree;
+
+/// <summary>
+/// worktree 扩展：登记进会话、审批动态豁免（切过去/切回来都不重建装配）、
+/// create/set/reset/status 的命令序列与报错。git 一律用假执行器，不碰网络与真实仓库
+/// </summary>
+public class WorktreeTests
+{
+    private const string Workspace = "/tmp/uiharu-ws";
+
+    private static ChatSession NewSession() => new() { IsTransient = true, WorkspacePath = Workspace };
+
+    private static FunctionCallContent Edit(string filePath) => new("c1", "Edit",
+        new Dictionary<string, object?> { ["filePath"] = filePath });
+
+    private sealed class FakeGit : IWorktreeGitRunner
+    {
+        public List<string> Commands { get; } = [];
+
+        /// <summary>按工作目录与前两个词分发；没写到的命令一律成功</summary>
+        public Func<string, IReadOnlyList<string>, WorktreeGitResult?>? Handler { get; set; }
+
+        public Task<WorktreeGitResult> RunAsync(string workingDirectory, IReadOnlyList<string> args,
+            CancellationToken cancellationToken)
+        {
+            Commands.Add(string.Join(" ", args));
+            WorktreeGitResult? result = Handler?.Invoke(workingDirectory, args);
+            return Task.FromResult(result ?? new WorktreeGitResult(string.Empty, string.Empty, 0));
+        }
+    }
+
+    //================= 会话登记 =================
+
+    [Fact]
+    public void Session_AddRemoveClear_NormalizeAndDedupe()
+    {
+        ChatSession session = NewSession();
+
+        session.AddSessionApprovedWorktreeRoot("/tmp/wt/a");
+        session.AddSessionApprovedWorktreeRoot("/tmp/wt/a/"); // 尾分隔符归一，去重
+        Assert.Equal([Path.GetFullPath("/tmp/wt/a")],
+            session.SnapshotSessionApprovedWorktreeRoots().Select(x => x.Root));
+
+        session.AddSessionApprovedWorktreeRoot("/tmp/wt/b");
+        Assert.Equal(2, session.SnapshotSessionApprovedWorktreeRoots().Count);
+
+        session.RemoveSessionApprovedWorktreeRoot("/tmp/wt/a");
+        Assert.Equal([Path.GetFullPath("/tmp/wt/b")],
+            session.SnapshotSessionApprovedWorktreeRoots().Select(x => x.Root));
+
+        session.ClearSessionApprovedWorktreeRoots();
+        Assert.Empty(session.SnapshotSessionApprovedWorktreeRoots());
+    }
+
+    /// <summary>登记自动带上当前有效工作区（群成员跟群走）；非群成员就是自己绑的</summary>
+    [Fact]
+    public void Session_AddRecordsTheEffectiveWorkspace()
+    {
+        ChatSession session = NewSession();
+
+        session.AddSessionApprovedWorktreeRoot("/tmp/wt/a");
+
+        ChatSession.SessionWorktreeGrant grant = Assert.Single(session.SnapshotSessionApprovedWorktreeRoots());
+        Assert.Equal(Path.GetFullPath("/tmp/wt/a"), grant.Root);
+        Assert.Equal(Path.GetFullPath(Workspace), grant.Workspace);
+    }
+
+    //================= create =================
+
+    /// <summary>数据目录项目共享 Worktrees 根下的目标（create 的 directory 必须落在根内；缺省也落这里）</summary>
+    private static string CreateTarget(params string[] parts) =>
+        Path.GetFullPath(Path.Combine(WorktreeLayout.GetWorktreesRoot(Path.GetFullPath(Workspace)), Path.Combine(parts)));
+
+    [Fact]
+    public async Task Create_RunsFetchThenAdd_RegistersTheWorktree()
+    {
+        ChatSession session = NewSession();
+        // 同名分支本地与 origin/ 都没有：走 -b 新建（基于 HEAD）
+        FakeGit git = new()
+        {
+            Handler = (_, args) => args is ["rev-parse", "--verify", _]
+                ? new WorktreeGitResult(string.Empty, "unknown", 128)
+                : null,
+        };
+        string target = CreateTarget("feature", "x");
+
+        string result = await new WorktreeGitService(git).CreateAsync(session, "feature/x", null, null,
+            CreateTarget("feature", "x"), TestContext.Current.CancellationToken);
+
+        Assert.Contains(target, result);
+        Assert.Contains("已创建并登记", result);
+        Assert.Contains(target, session.SnapshotSessionApprovedWorktreeRoots().Select(x => x.Root));
+        Assert.Contains("fetch origin --prune --tags", git.Commands);
+        Assert.Contains("submodule update --init --recursive", git.Commands);
+        Assert.Contains("ls-files -s", git.Commands); // 软链接探测
+        Assert.Contains($"worktree add -b feature/x {target} HEAD", git.Commands);
+    }
+
+    [Fact]
+    public async Task Create_ExistingBranch_AttachesWithoutCreating()
+    {
+        ChatSession session = NewSession();
+        FakeGit git = new(); // 一切成功：refs/heads/exists 存在
+        string target = CreateTarget("exists");
+
+        string result = await new WorktreeGitService(git).CreateAsync(session, "exists", null, null,
+            CreateTarget("exists"), TestContext.Current.CancellationToken);
+
+        Assert.Contains("已存在同名分支", result);
+        Assert.Contains($"worktree add {target} exists", git.Commands);
+        Assert.DoesNotContain(git.Commands, c => c.StartsWith("worktree add -b", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Create_LocalMissing_OriginPresent_TracksOrigin()
+    {
+        ChatSession session = NewSession();
+        string target = CreateTarget("fix");
+        FakeGit git = new()
+        {
+            Handler = (_, args) => args is ["rev-parse", "--verify", "refs/heads/fix"]
+                ? new WorktreeGitResult(string.Empty, "unknown", 128)
+                : null,
+        };
+
+        string result = await new WorktreeGitService(git).CreateAsync(session, "fix", null, null,
+            CreateTarget("fix"), TestContext.Current.CancellationToken);
+
+        Assert.Contains("跟踪 origin/fix", result);
+        Assert.Contains($"worktree add -b fix {target} origin/fix", git.Commands);
+    }
+
+    [Fact]
+    public async Task Create_BaseOnlyOnOrigin_UsesOriginBranch()
+    {
+        ChatSession session = NewSession();
+        // base 只在 origin/：本地 main、同名分支本地与 origin/ 都不存在
+        FakeGit git = new()
+        {
+            Handler = (_, args) => args is ["rev-parse", "--verify", "main"]
+                                        or ["rev-parse", "--verify", "refs/heads/fix"]
+                                        or ["rev-parse", "--verify", "origin/fix"]
+                ? new WorktreeGitResult(string.Empty, "unknown", 128)
+                : null,
+        };
+        string target = CreateTarget("fix");
+
+        string result = await new WorktreeGitService(git).CreateAsync(session, "fix", "main", null,
+            CreateTarget("fix"), TestContext.Current.CancellationToken);
+
+        Assert.Contains("origin/main", result);
+        Assert.Contains($"worktree add -b fix {target} origin/main", git.Commands);
+    }
+
+    [Fact]
+    public async Task Create_BaseNowhere_ReturnsError_AndDoesNotRegister()
+    {
+        ChatSession session = NewSession();
+        FakeGit git = new()
+        {
+            Handler = (_, args) => args is ["rev-parse", "--verify", _]
+                ? new WorktreeGitResult(string.Empty, "unknown", 128)
+                : null,
+        };
+
+        string result = await new WorktreeGitService(git).CreateAsync(session, "fix", "nope", null, null,
+            TestContext.Current.CancellationToken);
+
+        Assert.Contains("找不到 base 'nope'", result);
+        Assert.Empty(session.SnapshotSessionApprovedWorktreeRoots());
+    }
+
+    [Fact]
+    public async Task Create_TargetAlreadyExists_ReturnsError()
+    {
+        ChatSession session = NewSession();
+        FakeGit git = new();
+        string existing = CreateTarget("taken");
+        Directory.CreateDirectory(existing);
+        try
+        {
+            File.WriteAllText(Path.Combine(existing, "x.txt"), "x");
+
+            string result = await new WorktreeGitService(git).CreateAsync(session, "taken", null, null,
+                CreateTarget("taken"), TestContext.Current.CancellationToken);
+
+            Assert.Contains("已存在且非空", result);
+            Assert.Empty(session.SnapshotSessionApprovedWorktreeRoots());
+        }
+        finally
+        {
+            Directory.Delete(existing, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Create_EmptyName_ReturnsError()
+    {
+        string result = await new WorktreeGitService(new FakeGit()).CreateAsync(NewSession(), "  ", null, null, null,
+            TestContext.Current.CancellationToken);
+
+        Assert.Contains("name 必填", result);
+    }
+
+    /// <summary>落盘范围锁在项目共享 Worktrees 根内：目录越界直接拒，不许变成任意路径的免审批口子</summary>
+    [Fact]
+    public async Task Create_OutsideWorktreesRoot_Rejected()
+    {
+        ChatSession session = NewSession();
+        string outside = Path.GetFullPath("/tmp/not-in-worktrees/feature/x");
+
+        string result = await new WorktreeGitService(new FakeGit()).CreateAsync(session, "feature/x", null, null,
+            outside, TestContext.Current.CancellationToken);
+
+        Assert.Contains("必须在项目共享的 Worktrees 根内", result);
+        Assert.Contains("worktree.set", result);
+        Assert.Empty(session.SnapshotSessionApprovedWorktreeRoots());
+    }
+
+    /// <summary>工作目录不是 git 仓库也能建：复制成隔离副本并登记（git 只是有则锦上添花，不是前提）。
+    /// 常见大目录（node_modules 等）跳过</summary>
+    [Fact]
+    public async Task Create_NoGit_CopiesWorkspaceAndRegisters()
+    {
+        string src = Path.Combine(Path.GetTempPath(), "wrk-no-git-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(src);
+        string target = Path.Combine(WorktreeLayout.GetWorktreesRoot(src), "copy");
+        try
+        {
+            File.WriteAllText(Path.Combine(src, "a.txt"), "x");
+            Directory.CreateDirectory(Path.Combine(src, "node_modules"));
+            File.WriteAllText(Path.Combine(src, "node_modules", "big.js"), "big");
+            ChatSession session = new() { IsTransient = true, WorkspacePath = src };
+            FakeGit git = new()
+            {
+                Handler = (_, args) => args is ["rev-parse", "--git-common-dir"]
+                    ? new WorktreeGitResult(string.Empty, "not a git repository", 128)
+                    : null,
+            };
+
+            string result = await new WorktreeGitService(git).CreateAsync(session, "copy", null, null, null,
+                TestContext.Current.CancellationToken);
+
+            Assert.Contains("纯副本", result);
+            Assert.Contains(target, session.SnapshotSessionApprovedWorktreeRoots().Select(x => x.Root));
+            Assert.True(File.Exists(Path.Combine(target, "a.txt")), "内容应被复制");
+            Assert.False(Directory.Exists(Path.Combine(target, "node_modules")), "node_modules 应被排除");
+        }
+        finally
+        {
+            if (Directory.Exists(target)) Directory.Delete(target, recursive: true);
+            if (Directory.Exists(src)) Directory.Delete(src, recursive: true);
+        }
+    }
+
+    /// <summary>工作目录不是 git 仓库时 set 也能登记自己准备的隔离副本（没有仓库身份可比，不再硬拒）</summary>
+    [Fact]
+    public async Task Set_NoGit_AcceptsExistingDirectory()
+    {
+        string workspace = Path.Combine(Path.GetTempPath(), "wrk-no-git-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(workspace);
+        string copy = Path.Combine(Path.GetTempPath(), "wk-copy-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(copy);
+        try
+        {
+            ChatSession session = new() { IsTransient = true, WorkspacePath = workspace };
+            FakeGit git = new()
+            {
+                Handler = (_, args) => args is ["rev-parse", "--git-common-dir"]
+                    ? new WorktreeGitResult(string.Empty, "not a git repository", 128)
+                    : null,
+            };
+
+            string result = await new WorktreeGitService(git).SetAsync(session, copy, TestContext.Current.CancellationToken);
+
+            Assert.Contains("已登记", result);
+            Assert.Contains("未做同仓库校验", result);
+            Assert.Contains(copy, session.SnapshotSessionApprovedWorktreeRoots().Select(x => x.Root));
+        }
+        finally
+        {
+            if (Directory.Exists(copy)) Directory.Delete(copy, recursive: true);
+            if (Directory.Exists(workspace)) Directory.Delete(workspace, recursive: true);
+        }
+    }
+
+    /// <summary>纯副本的 remove 走目录删除：非空默认拒删（同 git 脏树语义），force=true 才递归删</summary>
+    [Fact]
+    public async Task Remove_PlainCopy_DeletesDirectory()
+    {
+        ChatSession session = NewSession();
+        string copy = Path.Combine(Path.GetTempPath(), "wk-copy-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(copy);
+        File.WriteAllText(Path.Combine(copy, "x.txt"), "x");
+        session.AddSessionApprovedWorktreeRoot(copy);
+        FakeGit git = new()
+        {
+            Handler = (_, args) => args is ["rev-parse", "--git-common-dir"]
+                ? new WorktreeGitResult(string.Empty, "not a git repository", 128)
+                : null,
+        };
+        try
+        {
+            string refused = await new WorktreeGitService(git).RemoveAsync(session, copy, force: false,
+                TestContext.Current.CancellationToken);
+            Assert.Contains("非空", refused); // 有内容默认拒删
+            Assert.Contains(copy, session.SnapshotSessionApprovedWorktreeRoots().Select(x => x.Root));
+
+            string removed = await new WorktreeGitService(git).RemoveAsync(session, copy, force: true,
+                TestContext.Current.CancellationToken);
+            Assert.Contains("已删除并取消登记", removed);
+            Assert.False(Directory.Exists(copy));
+            Assert.Empty(session.SnapshotSessionApprovedWorktreeRoots());
+        }
+        finally
+        {
+            if (Directory.Exists(copy)) Directory.Delete(copy, recursive: true);
+        }
+    }
+
+    /// <summary>相对 directory 按 Worktrees 根解析（directory: "feature/foo" → 根内），不用拼绝对路径</summary>
+    [Fact]
+    public async Task Create_RelativeDirectory_ResolvesInsideRoot()
+    {
+        ChatSession session = NewSession();
+        FakeGit git = new()
+        {
+            Handler = (_, args) => args is ["rev-parse", "--verify", _]
+                ? new WorktreeGitResult(string.Empty, "unknown", 128)
+                : null,
+        };
+        string target = CreateTarget("feature", "foo");
+
+        string result = await new WorktreeGitService(git).CreateAsync(session, "feature/foo", null, null,
+            "feature/foo", TestContext.Current.CancellationToken);
+
+        Assert.Contains(target, result);
+        Assert.Contains($"worktree add -b feature/foo {target} HEAD", git.Commands);
+        Assert.Contains(target, session.SnapshotSessionApprovedWorktreeRoots().Select(x => x.Root));
+    }
+
+    /// <summary>缺省落盘：数据目录里项目共享的 Worktrees 下（跟 memory 同家）</summary>
+    [Fact]
+    public void Layout_WorktreesRoot_IsProjectSharedUnderAgentWorkspaces()
+    {
+        string root = WorktreeLayout.GetWorktreesRoot("/tmp/uiharu-ws");
+
+        // <AgentWorkspaces>/<工作区段>/Worktrees —— 家目录同 WorkspaceSegment（与记忆/产物同段）
+        Assert.Equal(WorkspaceSegment.From("/tmp/uiharu-ws"), Path.GetFileName(Path.GetDirectoryName(root)));
+        Assert.Equal(WorktreeLayout.FolderName, Path.GetFileName(root));
+        Assert.Equal(string.Empty, WorktreeLayout.GetWorktreesRoot(null));
+        Assert.Equal(string.Empty, WorktreeLayout.GetWorktreesRoot("  "));
+    }
+
+    //================= set =================
+
+    [Fact]
+    public async Task Set_SameRepo_RegistersTheToplevel()
+    {
+        ChatSession session = NewSession();
+        string workspaceFull = Path.GetFullPath(Workspace);
+        string target = Path.GetFullPath("/tmp/uiharu-ws-worktrees/user-made");
+        Directory.CreateDirectory(target);
+        try
+        {
+            FakeGit git = new()
+            {
+                Handler = (dir, args) => args switch
+                {
+                    // 主工作区与链接 worktree 的公共 git 目录：链接的落在主库 .git 的 worktrees/ 下
+                    ["rev-parse", "--git-common-dir"] when dir == workspaceFull =>
+                        new WorktreeGitResult(".git", string.Empty, 0),
+                    ["rev-parse", "--git-common-dir"] =>
+                        new WorktreeGitResult(Path.Combine(workspaceFull, ".git", "worktrees", "user-made"), string.Empty, 0),
+                    ["rev-parse", "--show-toplevel"] => new WorktreeGitResult(target, string.Empty, 0),
+                    _ => null,
+                },
+            };
+
+            string result = await new WorktreeGitService(git).SetAsync(session, target,
+                TestContext.Current.CancellationToken);
+
+            Assert.Contains("已登记", result);
+            Assert.Contains(target, session.SnapshotSessionApprovedWorktreeRoots().Select(x => x.Root));
+        }
+        finally
+        {
+            Directory.Delete(target, recursive: true);
+        }
+    }
+
+    /// <summary>会话工作区本身是链接 worktree 时，同仓库的兄弟树也认（公共 git 目录归到仓库根再比）</summary>
+    [Fact]
+    public async Task Set_WorkspaceIsLinkWorktree_AcceptsSibling()
+    {
+        ChatSession session = NewSession();
+        string workspaceFull = Path.GetFullPath(Workspace);
+        string target = Path.GetFullPath("/tmp/uiharu-ws-worktrees/sibling");
+        Directory.CreateDirectory(target);
+        try
+        {
+            FakeGit git = new()
+            {
+                Handler = (dir, args) => args switch
+                {
+                    // 会话工作区本身是链接 worktree a：common dir 在 .git/worktrees/a
+                    ["rev-parse", "--git-common-dir"] when dir == workspaceFull =>
+                        new WorktreeGitResult(
+                            Path.Combine(workspaceFull, ".git", "worktrees", "a"), string.Empty, 0),
+                    // 目标是同仓库的兄弟链接 worktree b：两棵树的公共根都是 <repo>/.git
+                    ["rev-parse", "--git-common-dir"] =>
+                        new WorktreeGitResult(
+                            Path.Combine(workspaceFull, ".git", "worktrees", "b"), string.Empty, 0),
+                    ["rev-parse", "--show-toplevel"] => new WorktreeGitResult(target, string.Empty, 0),
+                    _ => null,
+                },
+            };
+
+            string result = await new WorktreeGitService(git).SetAsync(session, target,
+                TestContext.Current.CancellationToken);
+
+            Assert.Contains("已登记", result);
+            Assert.Contains(target, session.SnapshotSessionApprovedWorktreeRoots().Select(x => x.Root));
+        }
+        finally
+        {
+            Directory.Delete(target, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Set_DifferentRepo_Rejects()
+    {
+        ChatSession session = NewSession();
+        string workspaceFull = Path.GetFullPath(Workspace);
+        string target = Path.GetFullPath("/tmp/uiharu-ws-worktrees/other-repo");
+        Directory.CreateDirectory(target);
+        try
+        {
+            FakeGit git = new()
+            {
+                Handler = (dir, args) => args switch
+                {
+                    ["rev-parse", "--git-common-dir"] when dir == workspaceFull =>
+                        new WorktreeGitResult(".git", string.Empty, 0),
+                    // 别的仓库：公共 git 目录在别处（不在主库 .git 之下）
+                    ["rev-parse", "--git-common-dir"] =>
+                        new WorktreeGitResult(Path.Combine(target, ".git"), string.Empty, 0),
+                    ["rev-parse", "--show-toplevel"] => new WorktreeGitResult(target, string.Empty, 0),
+                    _ => null,
+                },
+            };
+
+            string result = await new WorktreeGitService(git).SetAsync(session, target,
+                TestContext.Current.CancellationToken);
+
+            Assert.Contains("不是本仓库", result);
+            Assert.Empty(session.SnapshotSessionApprovedWorktreeRoots());
+        }
+        finally
+        {
+            Directory.Delete(target, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Set_NotAGitTree_Rejects()
+    {
+        ChatSession session = NewSession();
+        string workspaceFull = Path.GetFullPath(Workspace);
+        string target = Path.GetFullPath("/tmp/uiharu-ws-worktrees/not-git");
+        Directory.CreateDirectory(target);
+        try
+        {
+            FakeGit git = new()
+            {
+                Handler = (dir, args) => dir == workspaceFull && args is ["rev-parse", "--git-common-dir"]
+                    ? new WorktreeGitResult(".git", string.Empty, 0)
+                    : args is ["rev-parse", "--show-toplevel"]
+                        ? new WorktreeGitResult(string.Empty, "not a git repository", 128)
+                        : null,
+            };
+
+            string result = await new WorktreeGitService(git).SetAsync(session, target,
+                TestContext.Current.CancellationToken);
+
+            Assert.Contains("不是 git 工作树", result);
+            Assert.Empty(session.SnapshotSessionApprovedWorktreeRoots());
+        }
+        finally
+        {
+            Directory.Delete(target, recursive: true);
+        }
+    }
+
+    //================= reset / status =================
+
+    [Fact]
+    public void Reset_RemovesOneThenAll_AndHintsCleanup()
+    {
+        ChatSession session = NewSession();
+        session.AddSessionApprovedWorktreeRoot("/tmp/wt/a");
+        session.AddSessionApprovedWorktreeRoot("/tmp/wt/b");
+
+        string one = WorktreeGitService.Reset(session, "/tmp/wt/a");
+        Assert.Contains("已取消登记", one);
+        Assert.Contains("清理", one); //切回主工作目录时提示清理
+        Assert.Equal([Path.GetFullPath("/tmp/wt/b")], session.SnapshotSessionApprovedWorktreeRoots().Select(x => x.Root));
+
+        string all = WorktreeGitService.Reset(session, null);
+        Assert.Contains("已取消全部 1 个", all);
+        Assert.Contains("worktree.remove", all);
+        Assert.Empty(session.SnapshotSessionApprovedWorktreeRoots());
+    }
+
+    [Fact]
+    public void Status_ListsWorkspaceAndRegisteredRoots()
+    {
+        ChatSession session = NewSession();
+        session.AddSessionApprovedWorktreeRoot("/tmp/wt/a");
+
+        string text = WorktreeGitService.Status(session);
+
+        Assert.Contains(Workspace, text);
+        Assert.Contains(Path.GetFullPath("/tmp/wt/a"), text);
+        Assert.Contains("$DRAFT", text);
+        Assert.Contains("$MEMORY", text);
+    }
+
+    //================= remove / list =================
+
+    [Fact]
+    public async Task Remove_DeletesAndUnregisters()
+    {
+        ChatSession session = NewSession();
+        string root = Path.GetFullPath("/tmp/uiharu-ws-worktrees/feature/x");
+        Directory.CreateDirectory(root);
+        session.AddSessionApprovedWorktreeRoot(root);
+        FakeGit git = new(); // git worktree remove 成功
+        try
+        {
+            string result = await new WorktreeGitService(git).RemoveAsync(session, root, force: false,
+                TestContext.Current.CancellationToken);
+
+            Assert.Contains("已删除并取消登记", result);
+            Assert.Empty(session.SnapshotSessionApprovedWorktreeRoots());
+            Assert.Contains($"worktree remove {root}", git.Commands);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Remove_Dirty_RefusesWithoutForce_AndKeepsRegistration()
+    {
+        ChatSession session = NewSession();
+        string root = Path.GetFullPath("/tmp/uiharu-ws-worktrees/feature/x");
+        Directory.CreateDirectory(root);
+        session.AddSessionApprovedWorktreeRoot(root);
+        FakeGit git = new()
+        {
+            Handler = (_, args) => args is ["worktree", "remove", _]
+                ? new WorktreeGitResult(string.Empty, "contains modified or untracked files", 128)
+                : null,
+        };
+        try
+        {
+            string result = await new WorktreeGitService(git).RemoveAsync(session, root, force: false,
+                TestContext.Current.CancellationToken);
+
+            Assert.Contains("删除 worktree 失败", result);
+            Assert.Contains("force=true", result);
+            Assert.Contains(root, session.SnapshotSessionApprovedWorktreeRoots().Select(x => x.Root)); // 没删成，登记保留
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Remove_DirectoryGone_JustUnregisters()
+    {
+        ChatSession session = NewSession();
+        string root = Path.GetFullPath("/tmp/uiharu-ws-worktrees/gone");
+        session.AddSessionApprovedWorktreeRoot(root); // 目录并不存在
+        FakeGit git = new();
+
+        string result = await new WorktreeGitService(git).RemoveAsync(session, root, force: false,
+            TestContext.Current.CancellationToken);
+
+        Assert.Contains("已取消登记", result);
+        Assert.Contains(git.Commands, c => c.Contains("prune", StringComparison.Ordinal));
+        Assert.Empty(session.SnapshotSessionApprovedWorktreeRoots());
+    }
+
+    [Fact]
+    public async Task Remove_UnregisteredPath_ReturnsError()
+    {
+        string result = await new WorktreeGitService(new FakeGit()).RemoveAsync(NewSession(), "/tmp/wt/nope",
+            force: false, TestContext.Current.CancellationToken);
+
+        Assert.Contains("没有登记过", result);
+    }
+
+    [Fact]
+    public async Task List_ShowsBranchLastModifiedAndDirtiness()
+    {
+        ChatSession session = NewSession();
+        session.AddSessionApprovedWorktreeRoot("/tmp/wt/clean");
+        session.AddSessionApprovedWorktreeRoot("/tmp/wt/dirty");
+        FakeGit git = new()
+        {
+            Handler = (dir, args) => args switch
+            {
+                ["branch", "--show-current"] => new WorktreeGitResult(
+                    dir.EndsWith("dirty") ? "fix/dirty" : "fix/clean", string.Empty, 0),
+                ["log", "-1", "--format=%cI"] => new WorktreeGitResult("2026-01-05T08:00:00+00:00", string.Empty, 0),
+                ["status", "--porcelain"] when dir.EndsWith("dirty") =>
+                    new WorktreeGitResult(" M src/A.cs\n", string.Empty, 0),
+                _ => null,
+            },
+        };
+
+        string text = await new WorktreeGitService(git).ListAsync(session, TestContext.Current.CancellationToken);
+
+        Assert.Contains("fix/clean", text);
+        Assert.Contains("fix/dirty", text);
+        Assert.Contains("2026-01-05T08:00:00+00:00", text);
+        Assert.Contains("有未提交改动", text);
+        Assert.Contains("干净", text);
+    }
+
+    //================= 审批动态豁免 =================
+
+    /// <summary>登记后 worktree 内写入免审批；取消后立即恢复要审批——同一规则集，无需重建装配</summary>
+    [Fact]
+    public async Task Approval_WorktreeRoots_ApplyDynamicallyWithoutRebuild()
+    {
+        List<ChatSession.SessionWorktreeGrant> roots = [];
+        List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> rules =
+            ApprovalModeMapper.BuildRules(EAgentPermissionMode.AutoEdit, Workspace,
+                sessionWorktreeRootsSource: () => roots);
+        string inside = Path.GetFullPath("/tmp/uiharu-ws-worktrees/feature/x/src/A.cs");
+        var grant = new ChatSession.SessionWorktreeGrant(Path.GetFullPath("/tmp/uiharu-ws-worktrees/feature/x"),
+            Path.GetFullPath(Workspace));
+
+        // 未登记：工作区外写入要审批
+        Assert.False(await ApprovalRuleProbe.IsApprovedAsync(rules, Edit(inside)));
+
+        // 登记：免审批（动态生效）
+        roots.Add(grant);
+        Assert.True(await ApprovalRuleProbe.IsApprovedAsync(rules, Edit(inside)));
+
+        // 切回：恢复要审批（动态生效）
+        roots.Clear();
+        Assert.False(await ApprovalRuleProbe.IsApprovedAsync(rules, Edit(inside)));
+
+        // 别的工作区外路径不受牵连
+        Assert.False(await ApprovalRuleProbe.IsApprovedAsync(rules, Edit("/tmp/elsewhere/b.cs")));
+    }
+
+    /// <summary>登记带工作区：换绑工作区/群换工作区后旧登记自动失效（不必逐会话清理）</summary>
+    [Fact]
+    public async Task Approval_GrantFromOtherWorkspace_IsNotExempt()
+    {
+        List<ChatSession.SessionWorktreeGrant> roots =
+        [
+            new(Path.GetFullPath("/tmp/uiharu-ws-worktrees/feature/x"),
+                Path.GetFullPath("/tmp/old-workspace")),
+        ];
+        List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> rules =
+            ApprovalModeMapper.BuildRules(EAgentPermissionMode.AutoEdit, Workspace,
+                sessionWorktreeRootsSource: () => roots);
+
+        Assert.False(await ApprovalRuleProbe.IsApprovedAsync(rules,
+            Edit(Path.GetFullPath("/tmp/uiharu-ws-worktrees/feature/x/src/A.cs"))));
+    }
+
+    /// <summary>只读档不因登记放行写入（与产出房间同一口径）；FullAuto 档也认登记</summary>
+    [Theory]
+    [InlineData(EAgentPermissionMode.ReadOnly, false)]
+    [InlineData(EAgentPermissionMode.AutoEdit, true)]
+    [InlineData(EAgentPermissionMode.FullAuto, true)]
+    public async Task Approval_WorktreeRoots_ModeAware(EAgentPermissionMode mode, bool expected)
+    {
+        List<ChatSession.SessionWorktreeGrant> roots =
+        [
+            new(Path.GetFullPath("/tmp/uiharu-ws-worktrees/feature/x"), Path.GetFullPath(Workspace)),
+        ];
+        List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> rules =
+            ApprovalModeMapper.BuildRules(mode, Workspace, sessionWorktreeRootsSource: () => roots);
+
+        Assert.Equal(expected, await ApprovalRuleProbe.IsApprovedAsync(rules,
+            Edit(Path.GetFullPath("/tmp/uiharu-ws-worktrees/feature/x/src/A.cs"))));
+    }
+
+    /// <summary>化身判定（离席替派活者点）与正常放行同一份口径：派活者登记的 worktree 算界内</summary>
+    [Fact]
+    public void AvatarJudge_RecognizesRequesterWorktreeRoots()
+    {
+        ChatSession requester = NewSession();
+        requester.AddSessionApprovedWorktreeRoot("/tmp/uiharu-ws-worktrees/feature/x");
+
+        Assert.False(ApprovalModeMapper.IsOutOfWorkspaceWrite(
+            Edit(Path.GetFullPath("/tmp/uiharu-ws-worktrees/feature/x/src/A.cs")),
+            AgentBuildProfile.PathResolverOf(requester), requester.SnapshotSessionApprovedWorktreeRoots()));
+        Assert.True(ApprovalModeMapper.IsOutOfWorkspaceWrite(
+            Edit("/tmp/elsewhere/b.cs"),
+            AgentBuildProfile.PathResolverOf(requester), requester.SnapshotSessionApprovedWorktreeRoots()));
+    }
+
+    /// <summary>不认登记的老入口照旧：没传 worktree 根的化身判定按工作区外算</summary>
+    [Fact]
+    public void AvatarJudge_WithoutRoots_StaysConservative()
+    {
+        ChatSession requester = NewSession();
+        requester.AddSessionApprovedWorktreeRoot("/tmp/uiharu-ws-worktrees/feature/x");
+
+        Assert.True(ApprovalModeMapper.IsOutOfWorkspaceWrite(
+            Edit(Path.GetFullPath("/tmp/uiharu-ws-worktrees/feature/x/src/A.cs")),
+            AgentBuildProfile.PathResolverOf(requester)));
+    }
+}

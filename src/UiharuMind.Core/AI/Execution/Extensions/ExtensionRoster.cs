@@ -25,10 +25,12 @@ internal static class ExtensionRoster
     /// </summary>
     /// <param name="config">生效能力</param>
     /// <param name="mcp">同一次装配的 MCP 名单</param>
+    /// <param name="scope">场合（worktree 只进主代理/子代理的名单）</param>
     /// <returns>名字与一句话说明，内置在前</returns>
-    public static IReadOnlyList<(string Name, string Description)> Of(AgentToolConfig config, McpToolSet mcp)
+    public static IReadOnlyList<(string Name, string Description)> Of(AgentToolConfig config, McpToolSet mcp,
+        EAgentToolScope scope)
     {
-        List<(string Name, string Description)> roster = AgentToolsetBuilder.ListedBuiltins(config)
+        List<(string Name, string Description)> roster = AgentToolsetBuilder.ListedBuiltins(config, scope)
             .Select(name => (name, BuiltinExtensions.Summary(name))).ToList();
         // 与内置撞名的 server 被内置挡住，帮助里会说明；名单里不写，免得模型以为有两个
         roster.AddRange(mcp.Servers.Where(x => BuiltinExtensions.Canonical(x.Name) == null)
@@ -41,10 +43,11 @@ internal static class ExtensionRoster
     /// </summary>
     /// <param name="config">生效能力</param>
     /// <param name="mcp">同一次装配的 MCP 名单</param>
+    /// <param name="scope">场合</param>
     /// <returns>整段；名单为空时为空串</returns>
-    public static string Section(AgentToolConfig config, McpToolSet mcp)
+    public static string Section(AgentToolConfig config, McpToolSet mcp, EAgentToolScope scope)
     {
-        IReadOnlyList<(string Name, string Description)> roster = Of(config, mcp);
+        IReadOnlyList<(string Name, string Description)> roster = Of(config, mcp, scope);
         return roster.Count == 0
             ? string.Empty
             : $"{AgentPromptHeadings.Extensions}\n\n{AgentToolPrompts.BuildExtensions(roster)}";

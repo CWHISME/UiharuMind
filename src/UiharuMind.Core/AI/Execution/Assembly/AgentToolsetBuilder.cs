@@ -9,8 +9,9 @@
 
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Audio;
-using UiharuMind.Core.AI.ImageGeneration;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.ImageGeneration;
 using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Mcp;
@@ -27,13 +28,16 @@ namespace UiharuMind.Core.AI.Execution.Assembly;
 /// 装配工具要用到的现成资源，由各自的装配路径备好（主代理取自装配计划，子代理取自派活上下文）。
 /// 挂不挂只由 <see cref="AgentToolsetBuilder"/> 按能力与场合决定；只在某些场合用得上的给成工厂，用不上就不造
 /// </summary>
-internal sealed record AgentToolResources
+public sealed record AgentToolResources
 {
     /// <summary>文件、识图与各扩展共用的路径口径</summary>
     public required AgentPathResolver Paths { get; init; }
 
     /// <summary>会话 id：浏览器一个会话一个标签页，群发言认它</summary>
     public string SessionId { get; init; } = string.Empty;
+
+    /// <summary>当前会话本体（worktree 扩展写登记用）；取不到为 null</summary>
+    public Func<ChatSession?>? Session { get; init; }
 
     /// <summary>会话的产出房间（浏览器快照超长、截图落在这里）；空串退回临时目录</summary>
     public string OutputRoomDirectory { get; init; } = string.Empty;
@@ -175,10 +179,8 @@ internal static class AgentToolsetBuilder
 
         if (rule.Allows(EAgentCapability.Extensions))
         {
-            List<BuiltinExtension> builtins = Builtins(config, resources, imageMode, mountFiles);
-            // 目标模式的隐藏扩展：只挂主代理场合（目标模式是主会话的事，子代理/群成员/化身不跑它）。
-            // 常驻可调用（模型经注入消息得知）、不进广告名单，因此不占 DisabledExtensions
-            if (scope == EAgentToolScope.Main) builtins.Add(BuiltinExtensions.CreateGoalMode());
+            // 隐藏扩展（目标模式）也在 Catalog 里，经 MountsIn(Main) 只挂主代理场合、不占禁用名单
+            List<BuiltinExtension> builtins = Builtins(config, resources, imageMode, mountFiles, scope);
             if (builtins.Count > 0 || resources.Mcp.Bridge != null)
             {
                 foreach (AITool tool in ExtensionMetaTools.Create(new ExtensionHub(builtins, resources.Mcp.Bridge)))
@@ -215,58 +217,36 @@ internal static class AgentToolsetBuilder
 
     /// <summary>
     /// 这次装配列出的内置扩展：角色没禁的都给（ADR 0079），缺前提的照样列出、调用时说明原因。
+    /// 每个扩展挂不挂、怎么造都由它自己的类回答（<see cref="BuiltinExtension.Assemble"/>）——
+    /// 这里只有一条通用规则：隐藏扩展不占禁用名单（目标模式），其余角色禁了就不挂
     /// </summary>
     private static List<BuiltinExtension> Builtins(AgentToolConfig config, AgentToolResources resources,
-        EReadImageMode imageMode, bool mountFiles)
+        EReadImageMode imageMode, bool mountFiles, EAgentToolScope scope)
     {
+        HashSet<string> disabled = new(config.DisabledExtensions, StringComparer.OrdinalIgnoreCase);
         List<BuiltinExtension> builtins = new();
-        HashSet<string> listed = ListedBuiltins(config).ToHashSet();
-        AgentPathResolver paths = resources.Paths;
-
-        // 一个会话一个标签页；快照超长、截图落进会话自己的草稿目录，模型按路径续读。
-        // 截图得看得了：视觉模型要有 Read 才看得见，非视觉模型要有 AnalyzeImage
-        if (listed.Contains(BuiltinExtensions.Browser) && resources.Browser == null)
+        foreach (BuiltinExtension spec in BuiltinExtensions.Catalog)
         {
-            // 名单照写（与系统提示同一判据），调用时如实说用不了，免得名单与帮助各说各的
-            builtins.Add(BuiltinExtensions.Unavailable(BuiltinExtensions.Browser, "No browser is available here."));
-        }
-        else if (listed.Contains(BuiltinExtensions.Browser))
-        {
-            string spillDirectory = Path.Combine(
-                resources.OutputRoomDirectory.Length > 0 ? resources.OutputRoomDirectory : Path.GetTempPath(), "browser");
-            EReadImageMode screenshots = imageMode == EReadImageMode.Attach && !mountFiles ? EReadImageMode.None : imageMode;
-            builtins.Add(BuiltinExtensions.CreateBrowser(resources.Browser!, resources.SessionId, spillDirectory, screenshots,
-                paths));
+            if (!spec.MountsIn(scope)) continue;
+            if (!spec.IsHidden && disabled.Contains(spec.Name)) continue;
+            builtins.Add(spec.Assemble(resources, imageMode, mountFiles));
         }
 
-        // 桌面：系统不支持、没授权时照样列出，调用时如实说原因（扩展自带 Unavailable）
-        if (listed.Contains(BuiltinExtensions.Desktop))
-        {
-            builtins.Add(resources.Desktop == null
-                ? BuiltinExtensions.Unavailable(BuiltinExtensions.Desktop, "Desktop control is not available here.")
-                : BuiltinExtensions.CreateDesktop(resources.Desktop, resources.SessionId, Path.Combine(
-                    resources.OutputRoomDirectory.Length > 0 ? resources.OutputRoomDirectory : Path.GetTempPath(), "desktop"),
-                    paths, imageMode == EReadImageMode.Attach && !mountFiles ? EReadImageMode.None : imageMode));
-        }
-
-        // 生图只看配置：至少配了一个生图模型，连不连得通不看（ADR 0052）
-        if (listed.Contains(BuiltinExtensions.Image))
-        {
-            builtins.Add(BuiltinExtensions.CreateImage(paths, resources.ImageProgress, resources.ImageModelsConfigured));
-        }
-
-        if (listed.Contains(BuiltinExtensions.Audio)) builtins.Add(BuiltinExtensions.CreateAudio(paths, resources.Character));
         return builtins;
     }
 
     /// <summary>
-    /// 角色没禁的内置扩展名（系统提示的名单与这里同一个判据）
+    /// 角色没禁的内置扩展名（系统提示的名单与这里同一个判据）。
+    /// 各扩展按 <see cref="BuiltinExtension.MountsIn"/> 回答场合；没挂就不该出现在「可用扩展」里
     /// </summary>
     /// <param name="config">生效能力</param>
+    /// <param name="scope">场合</param>
     /// <returns>扩展名，按名单顺序</returns>
-    internal static IEnumerable<string> ListedBuiltins(AgentToolConfig config)
+    internal static IEnumerable<string> ListedBuiltins(AgentToolConfig config, EAgentToolScope scope)
     {
         HashSet<string> disabled = new(config.DisabledExtensions, StringComparer.OrdinalIgnoreCase);
-        return BuiltinExtensions.Names.Where(name => !disabled.Contains(name));
+        return BuiltinExtensions.Catalog
+            .Where(x => !x.IsHidden && x.MountsIn(scope) && !disabled.Contains(x.Name))
+            .Select(x => x.Name);
     }
 }

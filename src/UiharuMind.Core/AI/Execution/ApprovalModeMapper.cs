@@ -11,6 +11,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Mcp;
@@ -61,17 +62,19 @@ public static class ApprovalModeMapper
     /// 空串表示无豁免(老行为)。只认这一间,不认整棵产出树</param>
     /// <param name="memoryWriteRoot">记忆目录绝对路径(ADR 0028):落在里面的<b>写</b>入
     /// 任何权限档自动放行;空串表示无豁免。范围只认 <c>Memory/</c> 这一格,删除不在此列(走 shell)</param>
-    /// <param name="sessionExtensionApprovalSource">本会话放行过的扩展名来源(审批卡「本会话允许」与输入框设置写入,
-    /// <see cref="ExtensionCalls.AllExtensions"/> 代表全部),可空</param>
+    /// <param name="sessionExtensionApprovalSource">本会话放行过的扩展名来源,可空</param>
+    /// <param name="sessionWorktreeRootsSource">本会话登记的 worktree 来源(worktree 扩展写入,
+    /// 落在里面、且登记工作区与当前工作区一致的写入视为界内;规则每次执行时现取现用,变化无需重建装配),可空</param>
     /// <returns>规则列表</returns>
     public static List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> BuildRules(
         EAgentPermissionMode mode, string workspaceRoot = "",
         IReadOnlyList<string>? preAuthorizedShellPatterns = null,
         Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null,
         string approvedWriteRoot = "", string memoryWriteRoot = "",
-        Func<IReadOnlyList<string>?>? sessionExtensionApprovalSource = null) =>
+        Func<IReadOnlyList<string>?>? sessionExtensionApprovalSource = null,
+        Func<IReadOnlyList<ChatSession.SessionWorktreeGrant>?>? sessionWorktreeRootsSource = null) =>
         BuildRules(() => mode, workspaceRoot, preAuthorizedShellPatterns, sessionShellApprovalSource,
-            approvedWriteRoot, memoryWriteRoot, sessionExtensionApprovalSource);
+            approvedWriteRoot, memoryWriteRoot, sessionExtensionApprovalSource, sessionWorktreeRootsSource);
 
     /// <summary>
     /// 同上，但档位每次判断时现取：用户中途改档（或群改档推给成员），下一条调用就按新档来，
@@ -84,13 +87,15 @@ public static class ApprovalModeMapper
     /// <param name="approvedWriteRoot">会话自己的产出房间绝对路径</param>
     /// <param name="memoryWriteRoot">记忆目录绝对路径</param>
     /// <param name="sessionExtensionApprovalSource">本会话放行过的扩展名来源,可空</param>
+    /// <param name="sessionWorktreeRootsSource">本会话登记的 worktree 来源,可空</param>
     /// <returns>规则列表</returns>
     public static List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> BuildRules(
         Func<EAgentPermissionMode> modeSource, string workspaceRoot = "",
         IReadOnlyList<string>? preAuthorizedShellPatterns = null,
         Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null,
         string approvedWriteRoot = "", string memoryWriteRoot = "",
-        Func<IReadOnlyList<string>?>? sessionExtensionApprovalSource = null)
+        Func<IReadOnlyList<string>?>? sessionExtensionApprovalSource = null,
+        Func<IReadOnlyList<ChatSession.SessionWorktreeGrant>?>? sessionWorktreeRootsSource = null)
     {
         // 产出房间就是草稿目录:简写 $DRAFT / $MEMORY 按它们展开,与工具执行时落到同一处
         AgentPathResolver paths = new(workspaceRoot, approvedWriteRoot, memoryWriteRoot);
@@ -110,7 +115,7 @@ public static class ApprovalModeMapper
         rules.Add(context => new ValueTask<bool>(
             modeSource() == EAgentPermissionMode.FullAuto &&
             !ExtensionCalls.IsCall(context.FunctionCallContent) &&
-            !IsOutOfWorkspaceWrite(context.FunctionCallContent, paths, room)));
+            !IsOutOfWorkspaceWrite(context.FunctionCallContent, paths, room, sessionWorktreeRootsSource?.Invoke())));
 
         // 扩展:只读的三档都不问;一般的本会话放行过这个扩展就不问;逐项的(桌面真实键鼠)只认单独放行过的那一格;
         // 硬问的(接管、浏览器去本机地址)永远问
@@ -124,7 +129,7 @@ public static class ApprovalModeMapper
         rules.Add(context => new ValueTask<bool>(
             modeSource() == EAgentPermissionMode.AutoEdit &&
             IsMutatingFileTool(context.FunctionCallContent) &&
-            !IsOutOfWorkspaceWrite(context.FunctionCallContent, paths, room)));
+            !IsOutOfWorkspaceWrite(context.FunctionCallContent, paths, room, sessionWorktreeRootsSource?.Invoke())));
 
         // 记忆目录:任何权限档可写(ADR 0028)——记忆是 agent 的工作台,只读/计划档也得能记笔记。
         // 范围只认 Memory/ 这一格;删除不在这里,走 shell 由命令行审批纪律兜。
@@ -229,13 +234,25 @@ public static class ApprovalModeMapper
         => FileToolNames.Mutating.Contains(functionCall.Name);
 
     /// <summary>
-    /// 这次调用是不是越界写入（离席时化身据此不替用户点，ADR 0055）。与放行规则同一份口径，草稿目录算界内
+    /// 这次调用是不是越界写入（离席时化身据此不替用户点，ADR 0055）。与放行规则同一份口径，草稿目录算界内。
+    /// 化身替用户点的那一口不认会话登记的 worktree（无人能确认那是否用户本意），沿用老行为
     /// </summary>
     /// <param name="functionCall">工具调用</param>
     /// <param name="paths">发起调用的会话的路径口径</param>
     /// <returns>越界写入为 true</returns>
     public static bool IsOutOfWorkspaceWrite(FunctionCallContent functionCall, AgentPathResolver paths) =>
-        IsOutOfWorkspaceWrite(functionCall, paths, paths.DraftRoot);
+        IsOutOfWorkspaceWrite(functionCall, paths, paths.DraftRoot, worktreeGrants: null);
+
+    /// <summary>
+    /// 同上，另给本会话登记的 worktree（化身对派活者自己的 worktree 放行；与放行规则同一份口径）
+    /// </summary>
+    /// <param name="functionCall">工具调用</param>
+    /// <param name="paths">发起调用的会话的路径口径</param>
+    /// <param name="worktreeGrants">会话登记的 worktree（含登记工作区）；落在里面且工作区一致的写入视为界内</param>
+    /// <returns>越界写入为 true</returns>
+    public static bool IsOutOfWorkspaceWrite(FunctionCallContent functionCall, AgentPathResolver paths,
+        IReadOnlyList<ChatSession.SessionWorktreeGrant>? worktreeGrants) =>
+        IsOutOfWorkspaceWrite(functionCall, paths, paths.DraftRoot, worktreeGrants);
 
     /// <summary>
     /// 这次调用是否是「工作区外的写入」。
@@ -252,8 +269,10 @@ public static class ApprovalModeMapper
     /// 每次审批都去 realpath 一趟只是把成本花在挡不住的地方。
     /// </summary>
     /// <param name="approvedWriteRoot">会话自己的产出房间(已规范化);落在里面的写入视为界内</param>
+    /// <param name="worktreeGrants">会话登记的 worktree（已规范化）；落在里面、且登记工作区与当前有效工作区
+    /// 一致才视为界内；空则无豁免。换绑工作区后旧登记自然失效</param>
     private static bool IsOutOfWorkspaceWrite(FunctionCallContent functionCall, AgentPathResolver paths,
-        string approvedWriteRoot)
+        string approvedWriteRoot, IReadOnlyList<ChatSession.SessionWorktreeGrant>? worktreeGrants)
     {
         if (!IsMutatingFileTool(functionCall)) return false;
         if (paths.WorkspaceRoot.Length == 0) return true;
@@ -265,7 +284,21 @@ public static class ApprovalModeMapper
         if (!paths.TryResolve(path, out string full)) return true;
 
         if (AgentPathResolver.IsUnder(full, paths.WorkspaceRoot)) return false;
-        return !AgentPathResolver.IsUnder(full, approvedWriteRoot);
+        if (AgentPathResolver.IsUnder(full, approvedWriteRoot)) return false;
+        if (worktreeGrants is { Count: > 0 } && worktreeGrants.Any(g =>
+                g is { Root.Length: > 0, Workspace.Length: > 0 } &&
+                SameWorkspace(g.Workspace, paths.WorkspaceRoot) &&
+                AgentPathResolver.IsUnder(full, g.Root))) return false;
+        return true;
+    }
+
+    /// 登记工作区与当前有效工作区是否同一（与 <see cref="AgentPathResolver.IsUnder"/> 同一平台口径）
+    private static bool SameWorkspace(string granted, string current)
+    {
+        StringComparison comparison = OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+        string a = granted.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        string b = current.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return a.Equals(b, comparison);
     }
 
     /// <summary>

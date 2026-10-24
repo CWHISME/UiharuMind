@@ -562,6 +562,102 @@ public class ChatSession
         }
     }
 
+    /// <summary>
+    /// 一次 worktree 登记：根路径 + 登记时的有效工作区。审批按<b>当前有效工作区</b>过滤，
+    /// 换绑工作区/群换工作区后旧仓库的登记自动失效，不必逐会话清理、也没有加载窗口
+    /// </summary>
+    /// <param name="Root">worktree 根（绝对路径，规范化）</param>
+    /// <param name="Workspace">登记时的有效工作区（群成员是群工作区，其余是自己绑的）；空串=未绑定</param>
+    public sealed record SessionWorktreeGrant(string Root, string Workspace);
+
+    /// <summary>
+    /// 本会话登记的 worktree（git worktree）。落在里面、且登记工作区与当前有效工作区一致的写入
+    /// 按工作区内豁免审批（worktree 扩展 create/set 写入，<see cref="ApprovalModeMapper"/> 判界内）。
+    /// 随会话持久化；审批规则每次执行现取现用，变化无需重建装配、不动系统提示。
+    /// 子代理经 <see cref="Execution.Assembly.AgentBuildProfile.FromSession"/> 继承派活者的名单
+    /// </summary>
+    public List<SessionWorktreeGrant> SessionApprovedWorktreeRoots { get; set; } = [];
+
+    /// <summary>
+    /// 登记一个 worktree 根并立即持久化（重复添加忽略）。登记工作区缺省取<b>当前有效工作区</b>
+    /// （群成员跟群走，见 <see cref="Group.GroupChatSessions.WorkspaceOf"/>）——
+    /// 换绑工作区后这条登记自然失效
+    /// </summary>
+    /// <param name="path">worktree 根目录的绝对路径</param>
+    /// <param name="workspace">登记所属工作区；缺省为当前有效工作区</param>
+    public void AddSessionApprovedWorktreeRoot(string path, string? workspace = null)
+    {
+        string normalized = NormalizeWorktreeRoot(path);
+        if (normalized.Length == 0) return;
+        string grantedWorkspace = NormalizeWorktreeRoot(string.IsNullOrWhiteSpace(workspace)
+            ? Group.GroupChatSessions.WorkspaceOf(this) ?? string.Empty
+            : workspace);
+        lock (SessionApprovedWorktreeRoots)
+        {
+            if (SessionApprovedWorktreeRoots.Any(x => WorktreeRootComparer.Equals(x.Root, normalized))) return;
+            SessionApprovedWorktreeRoots.Add(new SessionWorktreeGrant(normalized, grantedWorkspace));
+        }
+
+        SaveMeta();
+    }
+
+    /// <summary>
+    /// 取消登记一个 worktree 根并立即持久化；没登记过则不动
+    /// </summary>
+    /// <param name="path">worktree 根目录的绝对路径</param>
+    public void RemoveSessionApprovedWorktreeRoot(string path)
+    {
+        string normalized = NormalizeWorktreeRoot(path);
+        if (normalized.Length == 0) return;
+        lock (SessionApprovedWorktreeRoots)
+        {
+            SessionApprovedWorktreeRoots.RemoveAll(x => WorktreeRootComparer.Equals(x.Root, normalized));
+        }
+
+        SaveMeta();
+    }
+
+    /// <summary>
+    /// 取消全部登记（换绑工作目录时顺手清掉，见 <see cref="ConversationSessionBinder.PersistSettings"/>；
+    /// 即便不主动清，审批按工作区过滤后旧登记也失效，这只是让 status/list 干净）。不落盘：调用方随后会 SaveMeta
+    /// </summary>
+    public void ClearSessionApprovedWorktreeRoots()
+    {
+        lock (SessionApprovedWorktreeRoots)
+        {
+            SessionApprovedWorktreeRoots.Clear();
+        }
+    }
+
+    /// <summary>
+    /// 会话登记 worktree 的线程安全快照（审批规则读取用）
+    /// </summary>
+    /// <returns>名单副本</returns>
+    public IReadOnlyList<SessionWorktreeGrant> SnapshotSessionApprovedWorktreeRoots()
+    {
+        lock (SessionApprovedWorktreeRoots)
+        {
+            return SessionApprovedWorktreeRoots.ToArray();
+        }
+    }
+
+    /// 规范化登记路径：绝对化 + 去尾分隔符；空或不成形返回空串
+    private static string NormalizeWorktreeRoot(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return string.Empty;
+        try
+        {
+            return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        catch (Exception e) when (e is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return string.Empty;
+        }
+    }
+
+    private static StringComparer WorktreeRootComparer =>
+        OperatingSystem.IsLinux() ? StringComparer.Ordinal : StringComparer.OrdinalIgnoreCase;
+
     /// <summary>所属角色</summary>
     [JsonIgnore]
     public CharacterData CharacterData =>

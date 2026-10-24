@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.Extensions;
@@ -24,16 +25,51 @@ public class ExtensionTests
 
     private static ExtensionHub Hub(params BuiltinExtension[] builtins) => new(builtins, null);
 
-    private static BuiltinExtension Echo(string? unavailable = null) => new(BuiltinExtensions.Audio, "Usage notes.",
+    /// <summary>测试用的扩展：直接给命令与缺前提原因，绕开装配（规格/装配体都有完整元数据）</summary>
+    private sealed class StubExtension : BuiltinExtension
+    {
+        private readonly string _name;
+        private readonly string _guide;
+        private readonly string? _unavailable;
+
+        public StubExtension(string name, string guide, IReadOnlyList<ExtensionCommand> commands,
+            string? unavailable = null)
+        {
+            _name = name;
+            _guide = guide;
+            _unavailable = unavailable;
+            SetCommands(commands);
+        }
+
+        public override string Name => _name;
+        public override string Guide => _guide;
+        public override string Summary => _name;
+        public override string? Unavailable => _unavailable;
+        public override IReadOnlyList<(string Command, string ToolName)> CommandNames =>
+            Commands.Select(x => (x.Name, x.Function.Name)).ToList();
+        protected override BuiltinExtension CreateAssembled(AgentToolResources resources,
+            EReadImageMode imageMode, bool mountFiles) => throw new NotSupportedException();
+    }
+
+    private static BuiltinExtension Echo(string? unavailable = null) => new StubExtension(BuiltinExtensions.Audio,
+        "Usage notes.",
         [new ExtensionCommand(BuiltinExtensions.AudioTranscribe, AIFunctionFactory.Create(
             (string path, bool subtitles = false) => $"heard {path} {subtitles}", TranscribeAudioTool.ToolName,
-            "Transcribe an audio file."))])
-    {
-        Unavailable = unavailable,
-    };
+            "Transcribe an audio file."))], unavailable);
 
     private static Dictionary<string, JsonElement> Args(object value) =>
         JsonSerializer.SerializeToElement(value).EnumerateObject().ToDictionary(x => x.Name, x => x.Value.Clone());
+
+    /// <summary>装配一份扩展要用的资源桩（缺省不配：浏览器/桌面/会话/角色都没有）</summary>
+    private static AgentToolResources Resources(IBrowserHost? browser = null, DesktopHost? desktop = null,
+        Func<ChatSession?>? session = null, CharacterData? character = null) => new()
+    {
+        Paths = Paths,
+        Browser = browser,
+        Desktop = desktop,
+        Session = session,
+        Character = character,
+    };
 
     //================= 元工具 =================
 
@@ -62,7 +98,7 @@ public class ExtensionTests
     [Fact]
     public async Task Help_ListsEveryExtension_WithWhyOneIsUnavailable()
     {
-        BuiltinExtension image = new(BuiltinExtensions.Image, "g", []) { Unavailable = "No image model is configured." };
+        BuiltinExtension image = new StubExtension(BuiltinExtensions.Image, "g", [], "No image model is configured.");
 
         string text = await Hub(Echo(), image).HelpAsync(null, null, TestContext.Current.CancellationToken);
 
@@ -89,7 +125,7 @@ public class ExtensionTests
     [Fact]
     public async Task Help_Detail_KeepsNonAsciiDescriptionsReadable()
     {
-        ExtensionHub hub = Hub(BuiltinExtensions.CreateAudio(Paths, null));
+        ExtensionHub hub = Hub(AudioExtension.Spec.Assemble(Resources(), EReadImageMode.None, mountFiles: true));
 
         string detail = await hub.HelpAsync("audio", "transcribe", TestContext.Current.CancellationToken);
 
@@ -121,22 +157,28 @@ public class ExtensionTests
             (string)(await Hub(Echo("busy")).CallAsync("audio", "transcribe", Args(new { path = "a" }), ct))!);
     }
 
-    /// <summary>内置扩展的命令一一对上原工具：工具改名而对照表没跟上，造扩展时当场炸</summary>
+    /// <summary>内置扩展的命令一一对上原工具：工具改名而声明没跟上，装配时当场炸</summary>
     [Fact]
     public void BuiltinExtensions_BindEveryCommandToItsTool()
     {
-        BuiltinExtension browser = BuiltinExtensions.CreateBrowser(PuppeteerBrowserHost.Shared, "s1", "/tmp/uiharu-spill",
-            EReadImageMode.None);
-        BuiltinExtension audio = BuiltinExtensions.CreateAudio(Paths, new CharacterData { CharacterName = "Me" });
-        BuiltinExtension image = BuiltinExtensions.CreateImage(Paths, null, configured: false);
-        BuiltinExtension desktop = BuiltinExtensions.CreateDesktop(new DesktopHost(null), "s1", "/tmp/uiharu-spill");
+        BuiltinExtension browser = BrowserExtension.Spec.Assemble(Resources(browser: PuppeteerBrowserHost.Shared),
+            EReadImageMode.None, mountFiles: true);
+        BuiltinExtension audio = AudioExtension.Spec.Assemble(Resources(character: new CharacterData { CharacterName = "Me" }),
+            EReadImageMode.None, mountFiles: true);
+        BuiltinExtension image = ImageExtension.Spec.Assemble(Resources(), EReadImageMode.None, mountFiles: true);
+        BuiltinExtension desktop = DesktopExtension.Spec.Assemble(Resources(desktop: new DesktopHost(null)),
+            EReadImageMode.None, mountFiles: true);
+        BuiltinExtension worktree = WorktreeExtension.Spec.Assemble(Resources(session: () => new ChatSession { IsTransient = true }),
+            EReadImageMode.None, mountFiles: true);
 
         Assert.Equal(["snapshot", "navigate", "act", "handoff"], browser.Commands.Select(x => x.Name));
         Assert.Equal(["windows", "snapshot", "act", "launch", "handoff"], desktop.Commands.Select(x => x.Name));
         Assert.Equal(["synthesize", "transcribe"], audio.Commands.Select(x => x.Name));
         Assert.Equal(["generate"], image.Commands.Select(x => x.Name));
+        Assert.Equal(["create", "set", "reset", "remove", "list", "status"], worktree.Commands.Select(x => x.Name));
         Assert.NotNull(image.Unavailable);
-        Assert.Equal(["transcribe"], BuiltinExtensions.CreateAudio(Paths, null).Commands.Select(x => x.Name));
+        Assert.Equal(["transcribe"],
+            AudioExtension.Spec.Assemble(Resources(), EReadImageMode.None, mountFiles: true).Commands.Select(x => x.Name));
     }
 
     /// <summary>把 command 塞进 arguments 是弱模型的常见错：报错要指出放错了层，并给可照抄的写法</summary>
@@ -231,6 +273,13 @@ public class ExtensionTests
     [InlineData("browser", "hand_off", EExtensionRisk.ReadOnly)]
     [InlineData("unity", "read_scene", EExtensionRisk.ReadOnly)] //server 自己声明了只读
     [InlineData("unity", "delete_scene", EExtensionRisk.Standard)]
+    [InlineData("worktree", "status", EExtensionRisk.ReadOnly)] //纯查询
+    [InlineData("worktree", "list", EExtensionRisk.ReadOnly)] //纯查询
+    [InlineData("worktree", "reset", EExtensionRisk.ReadOnly)] //只撤豁免,无副作用
+    [InlineData("worktree", "create", EExtensionRisk.Standard)]
+    [InlineData("worktree", "set", EExtensionRisk.Standard)]
+    [InlineData("worktree", "remove", EExtensionRisk.Standard)]
+    [InlineData("worktree", "frobnicate", EExtensionRisk.ReadOnly)] //没这条命令,什么也不会跑
     public void Classify(string extension, string command, EExtensionRisk expected)
     {
         EExtensionRisk? risk = ExtensionRisk.Classify(ExtensionCallOf.Make(extension, command),
@@ -269,6 +318,21 @@ public class ExtensionTests
         Assert.False(ExtensionRisk.IsApproved(null, "browser"));
     }
 
+    //================= 注册表 =================
+
+    /// <summary>Catalog 是唯一的登记处：五个可见扩展 + 隐藏的目标模式；按名取回都要走得到</summary>
+    [Fact]
+    public void Catalog_RegistersEveryVisibleExtension_AndResolvesNames()
+    {
+        Assert.Equal(["browser", "desktop", "image", "audio", "worktree"], BuiltinExtensions.Names);
+        Assert.Equal(6, BuiltinExtensions.Catalog.Count); //含隐藏的目标模式
+        Assert.True(BuiltinExtensions.Catalog.Single(x => x.IsHidden).Name == BuiltinExtensions.Goal);
+        Assert.Equal("browser", BuiltinExtensions.Canonical("BROWSER")); //大小写都归一到规范写法
+        Assert.Equal("snapshot", BuiltinExtensions.CanonicalCommand("browser", "BrowserSnapshot")); //旧工具名也认
+        Assert.Null(BuiltinExtensions.Canonical("unity"));
+        Assert.Equal(string.Empty, BuiltinExtensions.Summary("nope"));
+    }
+
     //================= 名单 =================
 
     [Fact]
@@ -280,11 +344,27 @@ public class ExtensionTests
             Servers = [new McpRosterServer { Name = "unity", Description = "d" }, new McpRosterServer { Name = "browser" }],
         };
 
-        IReadOnlyList<(string Name, string Description)> roster = ExtensionRoster.Of(config, mcp);
+        IReadOnlyList<(string Name, string Description)> roster = ExtensionRoster.Of(config, mcp, EAgentToolScope.Main);
 
-        Assert.Equal(["browser", "desktop", "audio", "unity"], roster.Select(x => x.Name));
+        Assert.Equal(["browser", "desktop", "audio", "worktree", "unity"], roster.Select(x => x.Name));
         Assert.Equal(string.Empty, ExtensionRoster.Section(
-            new AgentToolConfig { DisabledExtensions = [..BuiltinExtensions.Names] }, McpToolSet.Empty));
+            new AgentToolConfig { DisabledExtensions = [..BuiltinExtensions.Names] }, McpToolSet.Empty, EAgentToolScope.Main));
+    }
+
+    /// <summary>worktree 只进挂它的场合名单：主代理/子代理/群成员/化身。
+    /// 群成员与化身要建自己的树：群里有人离席、化身值守时，越界写入被化身硬拒，有自己的 worktree 才有地方改</summary>
+    [Theory]
+    [InlineData(EAgentToolScope.Main, true)]
+    [InlineData(EAgentToolScope.SubAgent, true)]
+    [InlineData(EAgentToolScope.GroupMember, true)]
+    [InlineData(EAgentToolScope.GroupAvatar, true)]
+    [InlineData(EAgentToolScope.ScheduledRun, false)]
+    [InlineData(EAgentToolScope.Brain, false)]
+    public void Roster_WorktreeOnlyWhereItIsMounted(EAgentToolScope scope, bool included)
+    {
+        IReadOnlyList<(string Name, string Description)> roster = ExtensionRoster.Of(new AgentToolConfig(), McpToolSet.Empty, scope);
+
+        Assert.Equal(included, roster.Any(x => x.Name == BuiltinExtensions.Worktree));
     }
 
     /// <summary>旧档案的 MCP 禁用名单读进新名单，写出时不再带旧字段</summary>
@@ -311,8 +391,8 @@ public class ExtensionTests
     [InlineData("Hand-Off")]
     public async Task LooseCommandNames_NeitherRunNorSlipPastTheHardAsk(string command)
     {
-        BuiltinExtension browser = BuiltinExtensions.CreateBrowser(PuppeteerBrowserHost.Shared, "s1", "/tmp/uiharu-spill",
-            EReadImageMode.None);
+        BuiltinExtension browser = BrowserExtension.Spec.Assemble(Resources(browser: PuppeteerBrowserHost.Shared),
+            EReadImageMode.None, mountFiles: true);
 
         object? result = await Hub(browser).CallAsync("browser", command, null, TestContext.Current.CancellationToken);
 
@@ -404,7 +484,7 @@ public class ExtensionTests
     [Fact]
     public async Task FailuresWhileRunning_AreNotReportedAsBadArguments()
     {
-        BuiltinExtension failing = new(BuiltinExtensions.Audio, "g",
+        BuiltinExtension failing = new StubExtension(BuiltinExtensions.Audio, "g",
             [new ExtensionCommand(BuiltinExtensions.AudioTranscribe, AIFunctionFactory.Create(
                 string (string path) => throw new InvalidOperationException("Audio stream error"), TranscribeAudioTool.ToolName))]);
 

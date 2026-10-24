@@ -114,8 +114,12 @@ public sealed class ConversationSessionBinder
         if (session == null) return;
         if (!session.IsGroupMember) //成员跟群走，不存副本
         {
+            // 换绑工作目录：旧仓库的 worktree 登记一并清掉，免得跨项目继续免审批
+            bool workspaceChanged = !string.Equals(session.WorkspacePath, meta.WorkspacePath,
+                OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase);
             session.WorkspacePath = meta.WorkspacePath;
             session.PermissionModeIndex = meta.PermissionModeIndex;
+            if (workspaceChanged) session.ClearSessionApprovedWorktreeRoots();
         }
         session.SessionModelName = meta.SessionModelName;
         session.SaveMeta(); //只动头字段,不必重写整份历史

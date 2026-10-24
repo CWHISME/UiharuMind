@@ -78,7 +78,9 @@ public sealed class GroupAwayApprover
     private async Task<GroupAwayApprovalVerdict> DecideAsync(Party party, FunctionCallContent call,
         CancellationToken cancellationToken)
     {
-        if (ApprovalModeMapper.IsOutOfWorkspaceWrite(call, AgentBuildProfile.PathResolverOf(party.Requester)))
+        // worktree 是工作目录的副本：派活者自己登记的 worktree 按界内算（与正常放行的豁免同一份口径）
+        if (ApprovalModeMapper.IsOutOfWorkspaceWrite(call, AgentBuildProfile.PathResolverOf(party.Requester),
+            party.Requester.SnapshotSessionApprovedWorktreeRoots()))
         {
             return new GroupAwayApprovalVerdict(false, "越界写入：离席中不替用户点，留给用户本人");
         }

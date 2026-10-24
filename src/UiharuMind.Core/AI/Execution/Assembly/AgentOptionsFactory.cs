@@ -127,7 +127,8 @@ internal static class AgentOptionsFactory
         AgentToolConfig config = plan.Config;
         chatOptions.Instructions = AgentInstructionsComposer.Compose(chatOptions.Instructions,
             plan.Profile.GroupScene, plan.Profile.AvatarDuties, config,
-            plan.WorkingDirectory, plan.WorkspaceInstructions, ExtensionRoster.Section(config, plan.Mcp),
+            plan.WorkingDirectory, plan.WorkspaceInstructions,
+            ExtensionRoster.Section(config, plan.Mcp, AgentToolScopes.ScopeOf(plan.Profile)),
             shellBinary, plan.PythonInterpreterPath, plan.OutputRoomDirectory, plan.MemoryDirectory,
             character.GetPersonaCoda(), out promptSegments);
 
@@ -162,7 +163,8 @@ internal static class AgentOptionsFactory
                 AgentOutputLayout.GetRoomAbsolutePath(plan.Profile.OutputFolderName),
                 // 记忆目录:任何权限档可写(ADR 0028)。范围只认 Memory/ 这一格,与房间豁免互不重叠
                 plan.MemoryDirectory,
-                plan.Profile.SessionExtensionApprovalSource),
+                plan.Profile.SessionExtensionApprovalSource,
+                plan.Profile.SessionWorktreeRootsSource),
             // 自动放行链同口径:默认 40 次后不再自动放行、剩余请求弹卡
             MaxAutoApprovalIterations = MaxIterationsPerRequest,
         };

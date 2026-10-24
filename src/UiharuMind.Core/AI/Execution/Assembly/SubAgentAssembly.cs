@@ -12,6 +12,7 @@ using Microsoft.Agents.AI.Compaction;
 using Microsoft.Agents.AI.Tools.Shell;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution.Prompts;
 using UiharuMind.Core.AI.Execution;
@@ -109,6 +110,9 @@ internal static class SubAgentAssembly
 
         /// <summary>会话放行过的扩展名来源(派活者那个会话的,ADR 0079)</summary>
         public Func<IReadOnlyList<string>?>? SessionExtensionApprovalSource { get; init; }
+
+        /// <summary>会话登记的 worktree 来源(派活者那个会话的;子代理自己也能登记,合并生效)</summary>
+        public Func<IReadOnlyList<ChatSession.SessionWorktreeGrant>?>? SessionWorktreeRootsSource { get; init; }
 
         /// <summary>历史压缩策略(与主代理同一份);为 null 则不压缩</summary>
         public CompactionStrategy? Compaction { get; init; }
@@ -227,6 +231,7 @@ internal static class SubAgentAssembly
             PreAuthorizedShellPatterns = profile.PreAuthorizedShellPatterns,
             SessionShellApprovalSource = profile.SessionShellApprovalSource,
             SessionExtensionApprovalSource = profile.SessionExtensionApprovalSource,
+            SessionWorktreeRootsSource = profile.SessionWorktreeRootsSource,
             SubAgentProfile = subProfile,
             Role = identity.Role,
             Sampling = plan.Character.Config.ExecutionSettings,
@@ -308,6 +313,7 @@ internal static class SubAgentAssembly
             PreAuthorizedShellPatterns = profile.PreAuthorizedShellPatterns,
             SessionShellApprovalSource = profile.SessionShellApprovalSource,
             SessionExtensionApprovalSource = profile.SessionExtensionApprovalSource,
+            SessionWorktreeRootsSource = profile.SessionWorktreeRootsSource,
             SubAgentProfile = subProfile,
         };
 
@@ -421,6 +427,8 @@ internal static class SubAgentAssembly
             Mcp = input.Mcp,
             Shell = input.ShellTool is { } shellTool ? _ => shellTool : null,
             SessionId = input.SessionId,
+            // 子代理自己也能登记 worktree（与主代理可能分属不同 worktree），运行时取自己的会话
+            Session = () => SessionManager.Instance.GetLoaded(input.SessionId),
             Browser = input.Browser,
             Desktop = input.Desktop,
             Character = input.Character,
@@ -459,14 +467,17 @@ internal static class SubAgentAssembly
             AutoApprovalRules = ApprovalModeMapper.BuildRules(input.PermissionMode,
                 input.WorkingDirectory, input.PreAuthorizedShellPatterns, input.SessionShellApprovalSource,
                 // 子会话沿用派活者的房间(见 AgentBuildProfile),豁免同一间
-                outputRoom, sessionExtensionApprovalSource: input.SessionExtensionApprovalSource),
+                outputRoom, sessionExtensionApprovalSource: input.SessionExtensionApprovalSource,
+                sessionWorktreeRootsSource: input.SessionWorktreeRootsSource),
         };
         ChatOptions subOptions = input.Sampling?.ToChatOptions() ?? new ChatOptions();
         subOptions.Instructions = BuildSubAgentInstructions(config, hasShell,
             input.ShellBinary ?? string.Empty, canMutate, input.PythonOutputDirectory,
             input.WorkingDirectory, outputRoom,
             input.WorkspaceInstructions,
-            entries.Any(x => x.Capability == EAgentCapability.Extensions) ? ExtensionRoster.Section(config, input.Mcp) : string.Empty,
+        // 只读场合不发扩展名单：脑（Brain）场合本身没有扩展
+        entries.Any(x => x.Capability == EAgentCapability.Extensions)
+            ? ExtensionRoster.Section(config, input.Mcp, scope) : string.Empty,
             input.Persona, input.Role,
             brain: input.SubAgentProfile.IsBrain);
         subOptions.Tools = tools;

@@ -5949,6 +5949,12 @@ Enable it?</value>
     <data name="ExtensionDesktopDesc" xml:space="preserve">
         <value>Reads and operates other apps' windows: reads the interface, clicks, fills in text, presses shortcuts, opens apps. Password managers, system settings and terminals are off limits; using the real mouse and keyboard asks you every time.</value>
     </data>
+    <data name="ExtensionNameWorktree" xml:space="preserve">
+        <value>Worktree</value>
+    </data>
+    <data name="ExtensionWorktreeDesc" xml:space="preserve">
+        <value>Creates git worktrees (with automatic fetch, submodule init and symlink fixes) and registers them so file writes inside are approved without asking. Never changes the session's working directory, draft or memory.</value>
+    </data>
     <data name="DesktopHandoffTitle" xml:space="preserve">
         <value>Take over this window</value>
     </data>

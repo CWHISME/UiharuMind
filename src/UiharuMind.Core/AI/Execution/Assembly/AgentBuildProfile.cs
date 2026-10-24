@@ -123,6 +123,13 @@ public class AgentBuildProfile
     public Func<IReadOnlyList<string>?>? SessionExtensionApprovalSource { get; init; }
 
     /// <summary>
+    /// 本会话登记的 worktree 根来源（审批规则每次执行时解析；worktree 扩展写入，
+    /// 变化无需重建装配、不动系统提示）。子代理与群成员经 <see cref="WithInheritedWorktreeRoots"/> 继承。
+    /// 登记带工作区：换绑后旧登记自动失效
+    /// </summary>
+    public Func<IReadOnlyList<ChatSession.SessionWorktreeGrant>?>? SessionWorktreeRootsSource { get; init; }
+
+    /// <summary>
     /// 权限档来源（审批规则每次判断时现取；中途改档下一条调用即生效）。为 null 时用 <see cref="PermissionMode"/>
     /// </summary>
     public Func<EAgentPermissionMode>? PermissionModeSource { get; init; }
@@ -195,6 +202,7 @@ public class AgentBuildProfile
     /// <param name="sessionShellApprovalSource">会话级 shell 放行模式来源</param>
     /// <param name="isAttendedSource">本轮有没有人看着</param>
     /// <param name="sessionExtensionApprovalSource">会话放行过的扩展名来源</param>
+    /// <param name="sessionWorktreeRootsSource">会话登记的 worktree 来源</param>
     /// <returns>构建配置</returns>
     public static AgentBuildProfile FromSession(ChatSession session,
         Func<ModelRunningData?>? sessionModelSource = null,
@@ -203,7 +211,8 @@ public class AgentBuildProfile
         Func<bool>? isAttendedSource = null,
         Action<string, string>? subSessionStarted = null,
         Action<string, ImageProgress>? imageProgressReported = null,
-        Func<IReadOnlyList<string>?>? sessionExtensionApprovalSource = null)
+        Func<IReadOnlyList<string>?>? sessionExtensionApprovalSource = null,
+        Func<IReadOnlyList<ChatSession.SessionWorktreeGrant>?>? sessionWorktreeRootsSource = null)
     {
         return new AgentBuildProfile
         {
@@ -236,6 +245,8 @@ public class AgentBuildProfile
             SessionExtensionApprovalSource = session.IsScheduledRun
                 ? static () => [ExtensionCalls.AllExtensions]
                 : WithInheritedApprovals(session, sessionExtensionApprovalSource),
+            // 子代理/群成员沿用派活者/群壳登记的 worktree；登记带工作区，审批按当前工作区过滤
+            SessionWorktreeRootsSource = WithInheritedWorktreeRoots(session, sessionWorktreeRootsSource),
             IsAttendedSource = isAttendedSource,
             SubSessionStarted = subSessionStarted,
             ImageProgressReported = imageProgressReported,
@@ -260,6 +271,27 @@ public class AgentBuildProfile
             return [..own?.Invoke() ?? [], ..inherited];
         };
     }
+
+    // 子代理/群成员沿用派活者登记的 worktree：主代理建好 worktree 后派活，子代理不必再设置一次；
+    // 子代理自己要换别的 worktree 时，它自己的登记并进来（自己的优先，按根去重）
+    // 注意：定时运行不继承也不挂 worktree（WorktreeExtension.MountsIn 排除 ScheduledRun），
+    // 这里对定时会话退化为只读自己的名单
+    private static Func<IReadOnlyList<ChatSession.SessionWorktreeGrant>?>? WithInheritedWorktreeRoots(ChatSession session,
+        Func<IReadOnlyList<ChatSession.SessionWorktreeGrant>?>? own)
+    {
+        string? inheritedFrom = session.IsSubSession ? session.ParentSessionId : session.GroupId;
+        if (inheritedFrom == null) return own;
+        return () =>
+        {
+            IReadOnlyList<ChatSession.SessionWorktreeGrant> inherited = SessionManager.Instance.GetLoaded(inheritedFrom)
+                ?.SnapshotSessionApprovedWorktreeRoots() ?? [];
+            IReadOnlyList<ChatSession.SessionWorktreeGrant> mine = own?.Invoke() ?? [];
+            return [..mine, ..inherited.Where(x => !mine.Any(m => RootComparer.Equals(m.Root, x.Root)))];
+        };
+    }
+
+    private static StringComparer RootComparer =>
+        OperatingSystem.IsLinux() ? StringComparer.Ordinal : StringComparer.OrdinalIgnoreCase;
 
     /// <summary>
     /// 界面侧解析这个会话工具调用里的路径（审批卡预演 diff）用的口径，与装配给工具的同源

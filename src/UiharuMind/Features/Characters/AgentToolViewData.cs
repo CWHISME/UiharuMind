@@ -87,10 +87,11 @@ public sealed class AgentToolViewData
         Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapAgentMode), Loc.Text(LangKey.AgentGateDescAgentMode),
             () => tools.EnableAgentMode, v => tools.EnableAgentMode = v));
 
-        ExtensionToggles.Add(new AgentExtensionToggle(BuiltinExtensions.Browser, Loc.Text(LangKey.ExtensionBrowserDesc), tools));
-        ExtensionToggles.Add(new AgentExtensionToggle(BuiltinExtensions.Desktop, Loc.Text(LangKey.ExtensionDesktopDesc), tools));
-        ExtensionToggles.Add(new AgentExtensionToggle(BuiltinExtensions.Image, Loc.Text(LangKey.ExtensionImageDesc), tools));
-        ExtensionToggles.Add(new AgentExtensionToggle(BuiltinExtensions.Audio, Loc.Text(LangKey.ExtensionAudioDesc), tools));
+        // 内置扩展勾选项：各扩展的本地化 key 由扩展类自己给，这里只按 Catalog 遍历——加扩展不再改界面
+        foreach (BuiltinExtension spec in BuiltinExtensions.Catalog.Where(x => !x.IsHidden))
+        {
+            ExtensionToggles.Add(new AgentExtensionToggle(spec.Name, ExtensionLabels.DescriptionOf(spec.Name), tools));
+        }
 
         // MCP server 名单是内存里的配置,同步取即可。与内置扩展同名的被内置挡住、用不上,不列
         // (列出来的话它与内置那一项共用黑名单里同一条,两个勾选框会联动)

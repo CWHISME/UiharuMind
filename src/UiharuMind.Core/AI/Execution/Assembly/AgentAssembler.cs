@@ -12,6 +12,7 @@ using Microsoft.Agents.AI.Compaction;
 using Microsoft.Agents.AI.Tools.Shell;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group.Away;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Harness;
@@ -153,6 +154,8 @@ internal static class AgentAssembler
             // 文件工具与识图共用一份路径口径,草稿目录简写的写法跟 shell 走
             Paths = plan.CreatePathResolver(shellExecutor?.ResolvedShellBinary),
             SessionId = profile.SessionId,
+            // worktree 扩展写登记用：只在会话运行中被取，取不到时工具如实报错
+            Session = () => SessionManager.Instance.GetLoaded(profile.SessionId),
             OutputRoomDirectory = plan.OutputRoomDirectory,
             ModelSupportsVision = plan.ModelSupportsVision,
             ImageModelsConfigured = plan.ImageModelsConfigured,
