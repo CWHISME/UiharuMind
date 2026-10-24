@@ -22,11 +22,12 @@ public static class ScreenCaptureWin
     private static readonly GraphicsCard GraphicsCard = ScreenCaptureService.GetGraphicsCards().First();
 
     private static bool _hasCaptured = false;
-    // public ScreenCaptureWin()
-    // {
-    //     ScreenCaptureService = ;
-    //     GraphicsCard = ScreenCaptureService.GetGraphicsCards().First();
-    // }
+
+    /// <summary>
+    /// DX11 捕获服务按屏幕缓存了它的 <see cref="IScreenCapture"/>（见 GetScreenCapture），
+    /// 并发请求会共用同一实例，注册/捕获/注销不能穿插，把整段串行化。
+    /// </summary>
+    private static readonly object CaptureGate = new();
 
     public static async Task<IImage?> CaptureAsync(int screenId)
     {
@@ -41,40 +42,48 @@ public static class ScreenCaptureWin
     /// <returns></returns>
     public static IImage? Capture(int screenId)
     {
-        // Log.Debug("查找屏幕");
-        IEnumerable<Display> displays = ScreenCaptureService.GetDisplays(GraphicsCard);
-        foreach (var display in displays)
+        lock (CaptureGate)
         {
-            if (display.Index == screenId)
+            foreach (var display in ScreenCaptureService.GetDisplays(GraphicsCard))
             {
+                if (display.Index != screenId) continue;
+
+                // 项目自身也有 IScreenCapture 接口，这里必须是库的全限定名，否则会被遮蔽。
                 ScreenCapture.NET.IScreenCapture screenCapture = ScreenCaptureService.GetScreenCapture(display);
 
-                // Log.Debug($"注册全屏截图 {screenCapture.Display.Width}x{screenCapture.Display.Height}");
+                // 每个 zone 都持有 width×height×4 的像素缓冲（托管）和一份 DXGI staging 纹理（非托管）。
+                // 只注册不注销会把历次截图的缓冲全挂在 screenCapture 的字典里（4K 屏每份约 33 MB），
+                // 必须捕获完注销掉；返回的 image 包装了 zone 的 InternalBuffer，注销后仍可安全读取，
+                // 它随调用方的帧对象一起 GC，不会悬空。
                 ICaptureZone fullscreen = screenCapture.RegisterCaptureZone(0, 0, screenCapture.Display.Width,
                     screenCapture.Display.Height);
-                if (!_hasCaptured)
+                try
                 {
-                    _hasCaptured = true;
-                    Thread.Sleep(100);
-                }
+                    if (!_hasCaptured)
+                    {
+                        _hasCaptured = true;
+                        Thread.Sleep(100); // 首次注册后等 DXGI duplication 就绪
+                    }
 
-                Thread.Sleep(1);
-                // Log.Debug("真的开始截图");
-                if (!screenCapture.CaptureScreen())
-                {
-                    return null;
-                }
+                    Thread.Sleep(1);
+                    if (!screenCapture.CaptureScreen())
+                    {
+                        return null;
+                    }
 
-                // Log.Debug("锁定屏幕并获取截图");
-                using (fullscreen.Lock())
+                    using (fullscreen.Lock())
+                    {
+                        return fullscreen.Image;
+                    }
+                }
+                finally
                 {
-                    IImage image = fullscreen.Image;
-                    return image;
+                    screenCapture.UnregisterCaptureZone(fullscreen);
                 }
             }
-        }
 
-        return null;
+            return null;
+        }
     }
 
     public static async Task GetCaptureImagePointerAsync(this IImage image, Action<IntPtr, int> onCaptureSuccess)
