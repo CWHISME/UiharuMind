@@ -2,7 +2,6 @@ using System;
 using System.Reflection;
 using Avalonia.Controls;
 using UiharuMind.Shared.Services;
-using UiharuMind.Shared.Utils;
 using Ursa.Controls;
 
 namespace UiharuMind.Shared.Windows;
@@ -19,12 +18,14 @@ public class UiharuMessageBoxWindow : MessageBoxWindow
         messageBoxButton)
     {
         _callback = callback;
+        // 模态弹窗统一居中于属主窗口；非模态(无 owner)打开时 Avalonia 自动回退屏幕居中
+        WindowStartupLocation = WindowStartupLocation.CenterOwner;
     }
 
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
-        this.SetScreenCenterPosition();
+        // 不在这里再摆位置：CenterOwner 在 Show 时已按属主窗口居中，SetScreenCenterPosition 会把它覆盖成屏幕中央
         OverlayWindowService.PreventTopmostNativeFullScreen(this);
     }
 

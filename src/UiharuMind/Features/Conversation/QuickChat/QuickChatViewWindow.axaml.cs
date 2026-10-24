@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using Avalonia.Controls;
-using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using UiharuMind.Shared.Utils;
@@ -187,7 +186,7 @@ public partial class QuickChatViewWindow : QuickWindowBase
     {
         base.OnPreShow();
         // 子代理/临时会话窗常从「查看过程」「子代理」面板打开：以鼠标位置为准，别弹到屏幕中央
-        this.SetWindowToMousePosition(HorizontalAlignment.Center, VerticalAlignment.Center);
+        this.CenterAtMouse();
     }
 
     protected override void OnPostShow()

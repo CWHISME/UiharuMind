@@ -10,6 +10,7 @@
         MinWidth="620"
         MinHeight="460"
         x:Class="UiharuMind.Features.Characters.ImportCharacterWindow"
+        WindowStartupLocation="CenterOwner"
         Title="{loc:Loc ImportCharacter}"
         xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
 

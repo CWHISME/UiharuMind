@@ -8,6 +8,7 @@
         mc:Ignorable="d"
         x:Class="UiharuMind.Features.Conversation.Group.GroupCreateWindow"
         x:DataType="group:GroupCreateWindowModel"
+        WindowStartupLocation="CenterOwner"
         Width="560"
         Height="660"
         MinWidth="480"

@@ -6,6 +6,7 @@
         xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
         mc:Ignorable="d"
         x:Class="UiharuMind.Features.Memory.MemorySelectWindow" x:DataType="common:MemorySelectWindowModel"
+        WindowStartupLocation="CenterOwner"
         xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
         Width="920"
         Height="640"

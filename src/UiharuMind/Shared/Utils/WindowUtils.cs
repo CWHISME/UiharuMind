@@ -90,6 +90,17 @@ public static class WindowUtils
         var fallbackSize = GetMeasuredWindowSize(window);
         SetWindowToScreenCenter(window,fallbackSize);
     }
+
+    /// <summary>
+    /// 把窗口定位到当前鼠标位置的正中心：弹窗/浮窗打开时的统一落点口径。
+    /// 缩放屏与多屏下的换算（DIP↔物理像素、越界鉗制）都收敛在 <see cref="SetWindowToMousePosition"/> 里。
+    /// </summary>
+    /// <param name="window">目标窗口</param>
+    public static void CenterAtMouse(this Window window)
+    {
+        window.WindowStartupLocation = WindowStartupLocation.Manual;
+        window.SetWindowToMousePosition(HorizontalAlignment.Center, VerticalAlignment.Center);
+    }
     
     /// <summary>
     /// 把窗口放到当前活动屏的中央，用作鼠标位置不可用时的降级落点
@@ -106,7 +117,9 @@ public static class WindowUtils
             var finalPos = new PixelPoint(
                 bounds.X + (int)((bounds.Width - size.Width * scaling) / 2),
                 bounds.Y + (int)((bounds.Height - size.Height * scaling) / 2));
-            window.Position = UiUtils.EnsurePositionWithinScreen(finalPos, size);
+            // 钳制必须用同一块屏(活动窗口所在屏)：两参数版会拿鼠标所在屏来钳，
+            // 鼠标和活动窗口不在同一块屏时，算好的居中点会被拽到另一块屏的边界上
+            window.Position = UiUtils.EnsurePositionWithinScreen(screen, finalPos, size);
         }, DispatcherPriority.MaxValue);
     }
 

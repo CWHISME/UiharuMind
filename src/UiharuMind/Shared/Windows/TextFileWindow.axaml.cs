@@ -96,7 +96,7 @@ public partial class TextFileWindow : QuickWindowBase
     {
         base.OnPreShow();
         // 文本窗常从文件搜索/工具结果打开：以鼠标位置为准，别弹到屏幕中央或留在缓存旧位置
-        this.SetWindowToMousePosition(HorizontalAlignment.Center, VerticalAlignment.Center);
+        this.CenterAtMouse();
     }
 
     protected override void OnPostShow()

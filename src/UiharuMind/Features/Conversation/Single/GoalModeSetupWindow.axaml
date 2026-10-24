@@ -9,6 +9,7 @@
         mc:Ignorable="d"
         x:Class="UiharuMind.Features.Conversation.Single.GoalModeSetupWindow"
         x:DataType="single:GoalModeViewData"
+        WindowStartupLocation="CenterOwner"
         Width="460"
         MinWidth="400"
         SizeToContent="Height"
