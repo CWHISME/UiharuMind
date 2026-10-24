@@ -33,7 +33,7 @@ public static class WorktreeTools
     /// <summary>status：查询当前状态</summary>
     public const string StatusToolName = "WorktreeStatus";
 
-    /// <summary>reset：取消登记（动态切回仅工作目录免审批）</summary>
+    /// <summary>reset：取消登记（动态切回仅工作目录免审批）。已临时注释待删（2026-10-24）</summary>
     public const string ResetToolName = "WorktreeReset";
 
     /// <summary>remove：删除并取消登记（清理）</summary>
@@ -43,11 +43,11 @@ public static class WorktreeTools
     public const string SyncToolName = "WorktreeSync";
 
     /// <summary>
-    /// 造七把工具
+    /// 造六把工具（reset 已临时注释待删）
     /// </summary>
     /// <param name="sessionSource">当前会话（写登记与读工作目录）；取不到为 null 时报错</param>
     /// <param name="git">git 执行器；缺省用系统 git</param>
-    /// <returns>七把工具，顺序 create/set/sync/reset/remove/list/status</returns>
+    /// <returns>六把工具，顺序 create/set/sync/remove/list/status</returns>
     public static IReadOnlyList<AITool> Create(Func<ChatSession?> sessionSource, IWorktreeGitRunner? git = null)
     {
         git ??= GitWorktreeRunner.Shared;
@@ -67,8 +67,8 @@ public static class WorktreeTools
                         string? baseBranch = null,
                     [Description("新分支名；缺省同 name")]
                         string? branch = null,
-                    [Description("worktree 落盘目录（相对路径按工作区解析）；缺省为数据目录项目共享的 Worktrees 下；" +
-                                      "必须在该根内，落别处用 worktree.set 登记自己建好的树")]
+                    [Description("worktree 落盘目录的绝对路径（相对路径按工作目录解析）；缺省为数据目录项目共享的 Worktrees 下；" +
+                                      "目标须为空或不存在")]
                         string? directory = null,
                     CancellationToken cancellationToken = default) =>
                     await service.CreateAsync(RequireSession(), name, baseBranch, branch, directory, cancellationToken)
@@ -78,7 +78,7 @@ public static class WorktreeTools
                 "工作目录是 git 仓库时：自动拉取（fetch origin）、初始化子模块（正常 git 拉取，拉不下来的从主工作区复制补齐，" +
                 "带 git 身份的子模块在目标 commit 上建同名分支）、按平台能力修复软链接（Windows 需开发者模式/管理员），" +
                 "同名分支已存在则直接检出；不是 git 仓库时：复制工作目录内容成隔离副本（跳过 node_modules 等常见大目录）。" +
-                "落盘默认数据目录项目共享的 Worktrees 下（directory 必须在该根内）。" +
+                "落盘默认数据目录项目共享的 Worktrees 下（directory 给绝对路径即落在别处，目标须为空/不存在）。" +
                 "本工具不动会话的工作目录（相对路径仍解析到原工作目录），worktree 内请用绝对路径。"),
             ToolJson.CreateFunction(
                 async ([Description("worktree 根目录的绝对路径（可给树内子目录，会归到树根）。必须属于会话绑定的同一仓库")]
@@ -101,13 +101,15 @@ public static class WorktreeTools
                 "子模块从主工作区子模块目录本地 fetch 后快进；纯副本重新复制内容覆盖。" +
                 "只对已登记的 worktree 生效；有分叉/冲突/未提交改动照实报告，不强制、不回滚。" +
                 "不动会话的工作目录。"),
-            ToolJson.CreateFunction(
-                ([Description("要取消登记的 worktree 根；不填取消全部")]
-                    string? path = null) => WorktreeGitService.Reset(RequireSession(), path),
-                ResetToolName,
-                "取消登记本会话的 worktree（动态切回）：取消后该目录内的写入恢复要审批。" +
-                "只给 path 就只取消那一个，不给就全部取消。只动会话登记，不改盘、不动工作目录；" +
-                "切回后结果会提示清理（worktree.remove）。"),
+            // reset 已临时注释（2026-10-24）：模型看到它以为能真正「切回」主工作目录，实际做不到动态换目录，
+            // 只是取消豁免——留着会让模型误会。底层 WorktreeGitService.Reset 与测试保留，恢复时把下面三行放出来。
+            // ToolJson.CreateFunction(
+            //     ([Description("要取消登记的 worktree 根；不填取消全部")]
+            //         string? path = null) => WorktreeGitService.Reset(RequireSession(), path),
+            //     ResetToolName,
+            //     "取消登记本会话的 worktree（动态切回）：取消后该目录内的写入恢复要审批。" +
+            //     "只给 path 就只取消那一个，不给就全部取消。只动会话登记，不改盘、不动工作目录；" +
+            //     "切回后结果会提示清理（worktree.remove）。"),
             ToolJson.CreateFunction(
                 async ([Description("要删除的 worktree 根目录的绝对路径（须已登记）")]
                         string path,

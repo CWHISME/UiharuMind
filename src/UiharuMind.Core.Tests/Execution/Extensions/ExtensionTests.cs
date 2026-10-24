@@ -175,7 +175,7 @@ public class ExtensionTests
         Assert.Equal(["windows", "snapshot", "act", "launch", "handoff"], desktop.Commands.Select(x => x.Name));
         Assert.Equal(["synthesize", "transcribe"], audio.Commands.Select(x => x.Name));
         Assert.Equal(["generate"], image.Commands.Select(x => x.Name));
-        Assert.Equal(["create", "set", "sync", "reset", "remove", "list", "status"], worktree.Commands.Select(x => x.Name));
+        Assert.Equal(["create", "set", "sync", "remove", "list", "status"], worktree.Commands.Select(x => x.Name));
         Assert.NotNull(image.Unavailable);
         Assert.Equal(["transcribe"],
             AudioExtension.Spec.Assemble(Resources(), EReadImageMode.None, mountFiles: true).Commands.Select(x => x.Name));
@@ -275,11 +275,11 @@ public class ExtensionTests
     [InlineData("unity", "delete_scene", EExtensionRisk.Standard)]
     [InlineData("worktree", "status", EExtensionRisk.ReadOnly)] //纯查询
     [InlineData("worktree", "list", EExtensionRisk.ReadOnly)] //纯查询
-    [InlineData("worktree", "reset", EExtensionRisk.ReadOnly)] //只撤豁免,无副作用
-    [InlineData("worktree", "create", EExtensionRisk.Standard)]
-    [InlineData("worktree", "set", EExtensionRisk.Standard)]
+    [InlineData("worktree", "reset", EExtensionRisk.ReadOnly)] //已临时注释(2026-10-24),未知命令什么也不会跑
+    [InlineData("worktree", "create", EExtensionRisk.FullAutoOnly)] //隔离副本不影响主工作区，全自动档免审批
+    [InlineData("worktree", "set", EExtensionRisk.PerScope)] //登记任意已有目录为免审批，要求额外审批
     [InlineData("worktree", "sync", EExtensionRisk.Standard)] //改工作树/子模块，会动文件
-    [InlineData("worktree", "remove", EExtensionRisk.Standard)]
+    [InlineData("worktree", "remove", EExtensionRisk.PerScope)] //删目录，要求额外审批
     [InlineData("worktree", "frobnicate", EExtensionRisk.ReadOnly)] //没这条命令,什么也不会跑
     [InlineData("chatsession", "list", EExtensionRisk.ReadOnly)] //纯查询
     [InlineData("chatsession", "list-groups", EExtensionRisk.ReadOnly)] //纯查询
@@ -323,6 +323,59 @@ public class ExtensionTests
         Assert.True(ExtensionRisk.IsApproved(["*"], "unity"));
         Assert.False(ExtensionRisk.IsApproved(["image"], "browser"));
         Assert.False(ExtensionRisk.IsApproved(null, "browser"));
+    }
+
+    //================= worktree 审批档 =================
+
+    /// <summary>create 跟随全自动档：FullAuto 直接放行，其余档要审批</summary>
+    [Theory]
+    [InlineData(EAgentPermissionMode.FullAuto, true)]
+    [InlineData(EAgentPermissionMode.AutoEdit, false)]
+    [InlineData(EAgentPermissionMode.ReadOnly, false)]
+    public async Task WorktreeCreate_FollowsFullAutoOnly(EAgentPermissionMode mode, bool expected)
+    {
+        List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> rules =
+            ApprovalModeMapper.BuildRules(mode, "/tmp/uiharu-ws");
+
+        Assert.Equal(expected,
+            await ApprovalRuleProbe.IsApprovedAsync(rules, ExtensionCallOf.Make("worktree", "create")));
+    }
+
+    /// <summary>create 非全自动档按 Standard：本会话放行过 worktree 后也不再问</summary>
+    [Fact]
+    public async Task WorktreeCreate_OutsideFullAuto_HonorsSessionApproval()
+    {
+        List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> rules =
+            ApprovalModeMapper.BuildRules(EAgentPermissionMode.AutoEdit, "/tmp/uiharu-ws",
+                sessionExtensionApprovalSource: () => ["worktree"]);
+
+        Assert.True(await ApprovalRuleProbe.IsApprovedAsync(rules, ExtensionCallOf.Make("worktree", "create")));
+    }
+
+    /// <summary>remove/set 是逐项：放行 create（记在 worktree 整格）不连带它们；单独放行各自那格才通过</summary>
+    [Fact]
+    public async Task WorktreeRemoveSet_RequireTheirOwnApprovalSlot()
+    {
+        List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> createOnly =
+            ApprovalModeMapper.BuildRules(EAgentPermissionMode.AutoEdit, "/tmp/uiharu-ws",
+                sessionExtensionApprovalSource: () => ["worktree"]);
+
+        // 只放行了 worktree 整格（create 会记在这格）：remove/set 不被连带
+        Assert.False(await ApprovalRuleProbe.IsApprovedAsync(createOnly, ExtensionCallOf.Make("worktree", "remove")));
+        Assert.False(await ApprovalRuleProbe.IsApprovedAsync(createOnly, ExtensionCallOf.Make("worktree", "set")));
+
+        // 单独放行各自那格才通过
+        List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> removeOnly =
+            ApprovalModeMapper.BuildRules(EAgentPermissionMode.AutoEdit, "/tmp/uiharu-ws",
+                sessionExtensionApprovalSource: () => ["worktree:remove"]);
+        List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> setOnly =
+            ApprovalModeMapper.BuildRules(EAgentPermissionMode.AutoEdit, "/tmp/uiharu-ws",
+                sessionExtensionApprovalSource: () => ["worktree:set"]);
+        Assert.True(await ApprovalRuleProbe.IsApprovedAsync(removeOnly, ExtensionCallOf.Make("worktree", "remove")));
+        Assert.True(await ApprovalRuleProbe.IsApprovedAsync(setOnly, ExtensionCallOf.Make("worktree", "set")));
+        // 放行 remove 那格不连带 set，反之亦然
+        Assert.False(await ApprovalRuleProbe.IsApprovedAsync(removeOnly, ExtensionCallOf.Make("worktree", "set")));
+        Assert.False(await ApprovalRuleProbe.IsApprovedAsync(setOnly, ExtensionCallOf.Make("worktree", "remove")));
     }
 
     //================= 注册表 =================

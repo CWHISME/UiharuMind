@@ -118,10 +118,11 @@ public static class ApprovalModeMapper
             !IsOutOfWorkspaceWrite(context.FunctionCallContent, paths, room, sessionWorktreeRootsSource?.Invoke())));
 
         // 扩展:只读的三档都不问;一般的本会话放行过这个扩展就不问;逐项的(桌面真实键鼠)只认单独放行过的那一格;
-        // 硬问的(接管、浏览器去本机地址)永远问
+        // 硬问的(接管、浏览器去本机地址)永远问;完全自动档免审批的(worktree.create)只在 FullAuto 放行
         rules.Add(context => new ValueTask<bool>(
             IsApprovedExtensionCall(context.FunctionCallContent, sessionExtensionApprovalSource,
-                (server, tool) => McpManager.Instance.IsReadOnlyTool(server, tool, workspaceRoot))));
+                (server, tool) => McpManager.Instance.IsReadOnlyTool(server, tool, workspaceRoot),
+                fullAuto: modeSource() == EAgentPermissionMode.FullAuto)));
 
         // 自动编辑:工作区内的写入放行。这一档曾经<b>一条规则都不加</b>,于是与只读档行为完全一致:
         // 枚举注释写着"文件读写自动放行",实际每次编辑都弹卡。更要命的是定时任务写死用这一档而
@@ -160,12 +161,23 @@ public static class ApprovalModeMapper
     /// <param name="call">工具调用</param>
     /// <param name="sessionApprovalSource">本会话放行过的扩展名来源,可空</param>
     /// <param name="mcpReadOnly">MCP 工具是否声明了只读(按发起会话的工作区认 server)</param>
+    /// <param name="fullAuto">当前是否完全自动档：<see cref="EExtensionRisk.FullAutoOnly"/> 在这一档直接放行</param>
     /// <returns>放行为 true；不是扩展调用为 false</returns>
     internal static bool IsApprovedExtensionCall(FunctionCallContent call,
-        Func<IReadOnlyList<string>?>? sessionApprovalSource, Func<string, string, bool> mcpReadOnly)
+        Func<IReadOnlyList<string>?>? sessionApprovalSource, Func<string, string, bool> mcpReadOnly,
+        bool fullAuto = false)
     {
         EExtensionRisk? risk = ExtensionRisk.Classify(call, mcpReadOnly);
         if (risk == EExtensionRisk.ReadOnly) return true;
+        if (risk == EExtensionRisk.FullAutoOnly)
+        {
+            if (fullAuto) return true;
+            // 非全自动档：按 Standard 走（问一次，本会话放行过这个扩展就不再问）
+            return ExtensionCalls.TryRead(call, out ExtensionInvocation? approvedInv) &&
+                   ExtensionRisk.IsApproved(sessionApprovalSource?.Invoke(),
+                       ExtensionRisk.ApprovalKey(approvedInv, call), coveredByAll: true);
+        }
+
         if (risk is not (EExtensionRisk.Standard or EExtensionRisk.PerScope)) return false;
         return ExtensionCalls.TryRead(call, out ExtensionInvocation? invocation) &&
                ExtensionRisk.IsApproved(sessionApprovalSource?.Invoke(), ExtensionRisk.ApprovalKey(invocation, call),

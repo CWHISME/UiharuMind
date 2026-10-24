@@ -24,6 +24,10 @@ public enum EExtensionRisk
     /// <summary>一般：三档都问，本会话放行过这个扩展就不问</summary>
     Standard,
 
+    /// <summary>完全自动档免审批（全自动下直接放行），只读/自动编辑档按 <see cref="Standard"/> 处理：
+    /// 三档都问、本会话放行过这个扩展就不问（worktree.create 用）</summary>
+    FullAutoOnly,
+
     /// <summary>逐项：三档都问，本会话只认为这一项单独放行过的，「扩展不再询问」不算（桌面的真实键鼠，按应用记）</summary>
     PerScope,
 

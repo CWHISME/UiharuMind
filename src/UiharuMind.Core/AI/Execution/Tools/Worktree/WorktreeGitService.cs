@@ -60,18 +60,13 @@ internal sealed class WorktreeGitService
         if (workspaceFull.Length == 0) return "Error: 工作目录路径不成形。";
         string worktreesRoot = WorktreeLayout.GetWorktreesRoot(workspaceFull);
 
-        // 落盘范围锁在数据目录项目共享的 Worktrees 根内：建树会顺带登记为免审批，
-        // 不能让它成为「模型给任意路径、登记后整棵子树免审批」的口子。想登记别处的树用 worktree.set（有同仓库校验）。
-        // 相对 directory 按根解析（directory: "feature/foo" → &lt;根&gt;/feature/foo）；绝对路径必须落在根内
+        // directory 是落盘路径：git 场景建出来的树天然属于本仓库，纯副本是工作目录内容的拷贝，
+        // 都不需要把落点锁在 Worktrees 根内——真正的守卫是下面“目标必须为空/不存在”（不能把已有目录变免审批）。
+        // 相对 directory 按工作目录解析（directory: "feature/foo" → <工作目录>/feature/foo）
         string target = string.IsNullOrWhiteSpace(directory)
             ? DefaultDirectory(workspaceFull, safeName)
-            : Full(directory.Trim(), "directory", worktreesRoot);
+            : Full(directory.Trim(), "directory", workspaceFull);
         if (target.Length == 0) return "Error: directory 路径不成形。";
-        if (!AgentPathResolver.IsUnder(target, worktreesRoot))
-        {
-            return $"Error: directory 必须在项目共享的 Worktrees 根内：{worktreesRoot}\n" +
-                   "落别处的树请先用 git 自己建好，再用 worktree.set 登记（set 会校验同一仓库）。";
-        }
 
         if (Directory.Exists(target) && Directory.EnumerateFileSystemEntries(target).Any())
             return $"Error: 目标目录已存在且非空：{target}。换一个 name 或 directory。";

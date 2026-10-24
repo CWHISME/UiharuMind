@@ -210,9 +210,10 @@ public class WorktreeTests
         Assert.Contains("name 必填", result);
     }
 
-    /// <summary>落盘范围锁在项目共享 Worktrees 根内：目录越界直接拒，不许变成任意路径的免审批口子</summary>
+    /// <summary>directory 给任意绝对路径也能建并登记：git 场景建出来的树天然同仓库、纯副本是工作目录内容的拷贝，
+    /// 不需要锁在 Worktrees 根内（真正的守卫是目标必须为空/不存在）</summary>
     [Fact]
-    public async Task Create_OutsideWorktreesRoot_Rejected()
+    public async Task Create_OutsideWorktreesRoot_IsAllowedAndRegistered()
     {
         ChatSession session = NewSession();
         string outside = Path.GetFullPath("/tmp/not-in-worktrees/feature/x");
@@ -220,9 +221,8 @@ public class WorktreeTests
         string result = await new WorktreeGitService(new FakeGit()).CreateAsync(session, "feature/x", null, null,
             outside, TestContext.Current.CancellationToken);
 
-        Assert.Contains("必须在项目共享的 Worktrees 根内", result);
-        Assert.Contains("worktree.set", result);
-        Assert.Empty(session.SnapshotSessionApprovedWorktreeRoots());
+        Assert.Contains("已创建并登记", result);
+        Assert.Contains(outside, session.SnapshotSessionApprovedWorktreeRoots().Select(x => x.Root));
     }
 
     /// <summary>工作目录不是 git 仓库也能建：复制成隔离副本并登记（git 只是有则锦上添花，不是前提）。
@@ -326,9 +326,9 @@ public class WorktreeTests
         }
     }
 
-    /// <summary>相对 directory 按 Worktrees 根解析（directory: "feature/foo" → 根内），不用拼绝对路径</summary>
+    /// <summary>相对 directory 按工作目录解析（directory: "feature/foo" → &lt;工作目录&gt;/feature/foo），不用拼绝对路径</summary>
     [Fact]
-    public async Task Create_RelativeDirectory_ResolvesInsideRoot()
+    public async Task Create_RelativeDirectory_ResolvesUnderWorkspace()
     {
         ChatSession session = NewSession();
         FakeGit git = new()
@@ -337,7 +337,7 @@ public class WorktreeTests
                 ? new WorktreeGitResult(string.Empty, "unknown", 128)
                 : null,
         };
-        string target = CreateTarget("feature", "foo");
+        string target = Path.GetFullPath(Path.Combine(Workspace, "feature", "foo"));
 
         string result = await new WorktreeGitService(git).CreateAsync(session, "feature/foo", null, null,
             "feature/foo", TestContext.Current.CancellationToken);

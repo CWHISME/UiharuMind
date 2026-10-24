@@ -11,6 +11,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.Files;
+using UiharuMind.Core.AI.Execution.Tools.Desktop;
 using UiharuMind.Core.AI.Execution.Tools.Worktree;
 
 namespace UiharuMind.Core.AI.Execution.Extensions;
@@ -36,23 +37,41 @@ public sealed class WorktreeExtension : BuiltinExtension
         (BuiltinExtensions.WorktreeCreate, WorktreeTools.CreateToolName),
         (BuiltinExtensions.WorktreeSet, WorktreeTools.SetToolName),
         (BuiltinExtensions.WorktreeSync, WorktreeTools.SyncToolName),
-        (BuiltinExtensions.WorktreeReset, WorktreeTools.ResetToolName),
+        // (BuiltinExtensions.WorktreeReset, WorktreeTools.ResetToolName), // 已临时注释（2026-10-24）：见 WorktreeTools.Create
         (BuiltinExtensions.WorktreeRemove, WorktreeTools.RemoveToolName),
         (BuiltinExtensions.WorktreeList, WorktreeTools.ListToolName),
         (BuiltinExtensions.WorktreeStatus, WorktreeTools.StatusToolName),
     ];
 
-    /// <summary>status/list 纯查询、reset 只撤豁免（恢复要审批，无副作用），都不问；
-    /// create/set/sync/remove 有真副作用（拉取、建分支、落盘、改工作树、删目录、授予免审批写入），按一般问一次</summary>
+    /// <summary>status/list/reset 纯查询/只撤豁免（恢复要审批，无副作用），都不问；
+    /// create 跟随全自动档免审批（隔离副本不影响主工作区；其余档按一般问一次）；
+    /// remove/set 要求额外审批（逐项：删目录、登记任意已有目录为免审批，create 的放行不连带）</summary>
     public override EExtensionRisk Classify(FunctionCallContent call)
     {
         if (!ExtensionCalls.TryRead(call, out ExtensionInvocation? invocation)) return EExtensionRisk.ReadOnly;
         // 没有这条命令：执行只会报错，不为它弹卡（与基类同一口径）
         if (CanonicalCommand(invocation.Command) == null) return EExtensionRisk.ReadOnly;
-        return invocation.Command is BuiltinExtensions.WorktreeStatus or BuiltinExtensions.WorktreeList
-            or BuiltinExtensions.WorktreeReset
-            ? EExtensionRisk.ReadOnly
-            : EExtensionRisk.Standard;
+        return invocation.Command switch
+        {
+            BuiltinExtensions.WorktreeStatus or BuiltinExtensions.WorktreeList =>
+                EExtensionRisk.ReadOnly,
+            // reset 已临时注释（2026-10-24）：命令不存在自然走下面的未知命令分支 ReadOnly
+            BuiltinExtensions.WorktreeCreate => EExtensionRisk.FullAutoOnly,
+            BuiltinExtensions.WorktreeRemove or BuiltinExtensions.WorktreeSet => EExtensionRisk.PerScope,
+            _ => EExtensionRisk.Standard,
+        };
+    }
+
+    /// <summary>「本会话允许」按命令记格：remove/set 单独一格，create 放行不连带它们；其余整个 worktree 记</summary>
+    public override string ApprovalKey(ExtensionInvocation invocation, FunctionCallContent call,
+        DesktopHost? desktop = null)
+    {
+        return invocation.Command switch
+        {
+            BuiltinExtensions.WorktreeRemove => $"{Name}:remove",
+            BuiltinExtensions.WorktreeSet => $"{Name}:set",
+            _ => Name,
+        };
     }
 
     /// <summary>只挂能自己动手、有会话可写登记的场合：主代理/子代理/群成员/化身。
