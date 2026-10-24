@@ -331,13 +331,16 @@ public sealed class GoalModeController
         WakeLoop.Raise(Ended, receipt, "Goal mode ended");
     }
 
-    // 落一条目标模式注入（User 角色 + 旁白标注）：模型读历史看到，UI 画成旁白
+    // 落一条目标模式注入（User 角色 + 旁白标注）：模型读历史看到，UI 画成旁白。
+    // 用 SaveAppended 而不是 Save()：Save 不触发 HistoryAppended，打开着的窗口收不到信号，
+    // 旁白要等那一轮跑完对账才补出来——用户看到的就是「唤醒的提醒要等轮完才出现」
     private static void Inject(ChatSession session, string text)
     {
         ChatMessage message = session.CreateMessage(ChatRole.User, text);
         ChatMessageAnnotations.MarkGoalModeInjection(message);
+        int from = session.History.Count;
         session.History.Add(message);
-        session.Save();
+        session.SaveAppended(from);
     }
 
     // 从一段历史里认 goal.end：模型经 ExCall 调用，拆开后是内层的 EndGoalMode

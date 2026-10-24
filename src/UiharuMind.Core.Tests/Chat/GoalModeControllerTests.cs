@@ -55,6 +55,29 @@ public class GoalModeControllerTests
         }
     }
 
+    /// <summary>注入必须走 SaveAppended 并把新增段广播出去：打开着的窗口靠 HistoryAppended
+    /// 实时补画旁白，否则「唤醒的系统消息」要等那一轮跑完对账才出现</summary>
+    [Fact]
+    public async Task Inject_RaisesHistoryAppended_SoOpenWindowsRepaintImmediately()
+    {
+        ChatSession session = NewSession();
+        try
+        {
+            List<int> appended = [];
+            session.HistoryAppended += appended.Add;
+
+            _controller.Start(session, new GoalModeSettings("写一份方案", [Interval30]));
+            await Until(() => _wakeCalls.Count == 1);
+
+            Assert.NotEmpty(appended);
+            Assert.Single(session.History, ChatMessageAnnotations.IsGoalModeInjection);
+        }
+        finally
+        {
+            SessionManager.Instance.Delete(session.SessionId);
+        }
+    }
+
     [Fact]
     public async Task Start_WhileActive_ReturnsFalse()
     {
