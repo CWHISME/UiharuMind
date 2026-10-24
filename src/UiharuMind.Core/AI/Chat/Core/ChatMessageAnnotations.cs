@@ -165,6 +165,12 @@ public static class ChatMessageAnnotations
     public const string ToolDurationMs = "_toolDurationMs";
 
     /// <summary>
+    /// 记忆压缩耗时标记：值为毫秒数，记在压缩消息上（压缩卡据此显示整理耗时，与工具卡同一路呈现）。
+    /// 带此键的消息<b>要落盘、不供给模型判断</b>——呈现轴。计时由 TurnDriver 写压缩那一段现测。
+    /// </summary>
+    public const string HandoffDurationMs = "_handoffDurationMs";
+
+    /// <summary>
     /// 群发言的发言人：值为角色标识。只出现在群流水里的 assistant 消息上——
     /// 群壳挂的是占位的空角色，不标的话整段群流水都画成同一个人的头像（ADR 0046）。
     /// </summary>
@@ -579,6 +585,33 @@ public static class ChatMessageAnnotations
         duration = TimeSpan.Zero;
         if (message.AdditionalProperties == null) return false;
         if (!TryGetInt64(message.AdditionalProperties, ToolDurationMs, out long ms)) return false;
+        if (ms < 0) return false;
+        duration = TimeSpan.FromMilliseconds(ms);
+        return true;
+    }
+
+    /// <summary>
+    /// 写一次记忆压缩的整理耗时（开始写压缩到写完落盘）。就地写：调用方持有的是历史里的同一引用
+    /// </summary>
+    /// <param name="message">记忆压缩消息</param>
+    /// <param name="durationMs">耗时毫秒</param>
+    public static void WriteHandoffDuration(ChatMessage message, long durationMs)
+    {
+        message.AdditionalProperties ??= new AdditionalPropertiesDictionary();
+        message.AdditionalProperties[HandoffDurationMs] = durationMs;
+    }
+
+    /// <summary>
+    /// 读一次记忆压缩的整理耗时。落盘往返后值会变成 <c>JsonElement</c>，与工具耗时同一套兼容
+    /// </summary>
+    /// <param name="message">记忆压缩消息</param>
+    /// <param name="duration">耗时</param>
+    /// <returns>键齐全且合法返回 True</returns>
+    public static bool TryReadHandoffDuration(ChatMessage message, out TimeSpan duration)
+    {
+        duration = TimeSpan.Zero;
+        if (message.AdditionalProperties == null) return false;
+        if (!TryGetInt64(message.AdditionalProperties, HandoffDurationMs, out long ms)) return false;
         if (ms < 0) return false;
         duration = TimeSpan.FromMilliseconds(ms);
         return true;

@@ -720,6 +720,8 @@ public sealed class TurnDriver : IDisposable
 
         Busy = ETurnBusy.Compacting;
         _compactingSessionId = session.SessionId;
+        // 整理耗时的起点：从进入压缩状态算到写完落盘，压缩卡与占位卡据此显示时间
+        System.Diagnostics.Stopwatch handoffTimer = System.Diagnostics.Stopwatch.StartNew();
         SessionManager.Instance.Running.NotifyStateChanged(session.SessionId); //会话列表据此转圈
         _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffStarted));
         try
@@ -758,10 +760,13 @@ public sealed class TurnDriver : IDisposable
             // 开场句与上一轮最后一句由代码注入:正文成为新一轮的第一条消息,接续点落在末尾
             string noteBody = HistoryHandoff.ComposeBody(note, HistoryHandoff.LastAssistantSentence(session.History));
             ChatMessage message = HistoryHandoff.CreateNote(HistoryHandoff.WithAppendix(noteBody, roster, recall));
+            ChatMessageAnnotations.WriteHandoffDuration(message, handoffTimer.ElapsedMilliseconds);
             int before = session.History.Count;
             session.History.Add(message);
             session.SaveAppended(before);
             ForgetSupersededEstimate(runner);
+            // 压缩完成:历史已被记忆压缩文档替换,占用归零、进度条立即重置,等下一轮请求再重新涨
+            _usage.ResetOccupancyAfterCompaction();
             //正文从消息本体取而不是直接用 note:去标题这一步与写进历史的那份逐字对应
             _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffWritten, HistoryHandoff.NoteBody(message.Text)));
             _notify?.Invoke(new TurnNotice(ETurnNotice.ScrollToEnd));

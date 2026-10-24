@@ -227,16 +227,25 @@
                                     <Grid ColumnDefinitions="*,Auto">
                                         <TextBlock Grid.Column="0" Classes="muted"
                                                    Text="{loc:Loc HandoffHeader}"
+                                                   TextAlignment="Center"
                                                    VerticalAlignment="Center" />
-                                        <ThemedSvgIcon Grid.Column="1" Width="14" Height="14"
-                                                       IconName="chevron-down"
-                                                       VerticalAlignment="Center" Margin="8,0,0,0">
-                                            <ThemedSvgIcon.RenderTransform>
-                                                <RotateTransform Angle="{Binding IsExpanded,
-                                                Converter={x:Static BoolToDoubleConverter.Instance},
-                                                ConverterParameter='180:0'}" />
-                                            </ThemedSvgIcon.RenderTransform>
-                                        </ThemedSvgIcon>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                                                    VerticalAlignment="Center">
+                                            <!-- 整理耗时,与工具卡同一路呈现;旧存档没有这个数就不占位 -->
+                                            <TextBlock FontSize="11" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource SemiGrey5}"
+                                                       Text="{Binding DurationText}"
+                                                       IsVisible="{Binding DurationText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                            <ThemedSvgIcon Width="14" Height="14"
+                                                           IconName="chevron-down"
+                                                           VerticalAlignment="Center" Margin="8,0,0,0">
+                                                <ThemedSvgIcon.RenderTransform>
+                                                    <RotateTransform Angle="{Binding IsExpanded,
+                                                    Converter={x:Static BoolToDoubleConverter.Instance},
+                                                    ConverterParameter='180:0'}" />
+                                                </ThemedSvgIcon.RenderTransform>
+                                            </ThemedSvgIcon>
+                                        </StackPanel>
                                     </Grid>
                                 </ToggleButton>
                                 <ExpandReveal IsOpen="{Binding IsExpanded}">
@@ -254,6 +263,9 @@
                             <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
                                 <SpinnerIcon VerticalAlignment="Center" />
                                 <TextBlock Classes="muted" Text="{Binding Message}" VerticalAlignment="Center" />
+                                <!-- 整理开始时刻,与工具卡同一条时间线索 -->
+                                <TextBlock Classes="muted mono" FontSize="11" Text="{Binding TimeText}"
+                                           VerticalAlignment="Center" />
                             </StackPanel>
                         </Border>
                     </DataTemplate>

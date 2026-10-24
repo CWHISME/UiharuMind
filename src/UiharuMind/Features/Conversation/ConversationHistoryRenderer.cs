@@ -249,6 +249,10 @@ public sealed class ConversationHistoryRenderer
                     buffer.Add(new HandoffItem
                     {
                         Message = HistoryHandoff.NoteBody(ChatMessageDisplay.TextOf(message)),
+                        // 整理耗时与工具卡同一路呈现:落盘往返后读附加键,旧存档没有这个数就不显示
+                        DurationText = ChatMessageAnnotations.TryReadHandoffDuration(message, out TimeSpan duration)
+                            ? ToolCallItem.FormatDuration(duration)
+                            : string.Empty,
                         SourceMessage = message,
                     });
                     continue;

@@ -39,7 +39,11 @@ public sealed class HandoffWritingPlaceholder
     public void Show()
     {
         if (_item != null) return;
-        _item = new HandoffWritingItem { Message = Loc.Text(LangKey.HandoffWriting) };
+        _item = new HandoffWritingItem
+        {
+            Message = Loc.Text(LangKey.HandoffWriting),
+            TimeText = DateTimeOffset.Now.ToString("HH:mm"), //整理开始时刻,占位卡上给人一个抓手
+        };
         _items.Add(_item);
         _scrollToEnd();
     }

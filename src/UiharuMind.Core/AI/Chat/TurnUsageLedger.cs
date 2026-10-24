@@ -257,6 +257,20 @@ public sealed class TurnUsageLedger
     }
 
     /// <summary>
+    /// 压缩后重置占用段：历史已被记忆压缩文档替换，进度条不该再顶着压缩前的大数。
+    /// 累计（会话花了多少）保留，只有「现在多满」这一段归零——下一轮请求后由执行侧重新写入。
+    /// </summary>
+    public void ResetOccupancyAfterCompaction()
+    {
+        LastInput = 0;
+        EstimatedInput = 0;
+        CompactedInput = 0;
+        LastCachedInput = 0;
+        LastReasoningTokens = 0;
+        TotalTokenCount = 0;
+    }
+
+    /// <summary>
     /// 全部归零（切换会话）
     /// </summary>
     public void Reset()

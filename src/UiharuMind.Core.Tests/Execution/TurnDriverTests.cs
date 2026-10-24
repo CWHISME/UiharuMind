@@ -583,12 +583,14 @@ public class TurnDriverTests
         Assert.Contains($"交接正文\n\n{HistoryHandoff.AppendixHeading}\n", body); //附加段与正文用分隔标题隔开
         Assert.Contains("- #5: 第 4 条", body); //用户原话由代码追加在模型正文之后
         Assert.DoesNotContain("transcript", body); //临时会话不写转录,也就不给路径
+        Assert.True(ChatMessageAnnotations.TryReadHandoffDuration(session.History[^1], out _), "压缩卡要记整理耗时");
         Assert.Contains("别忘了临时结论", client.Seen[^1].Text);
     }
 
     /// <summary>
-    /// 写交接那一发照常记账（会话累计、缓存命中），写完把估算里那段被替换的历史忘掉：
-    /// 交接后第一次请求框架不问触发条件，不清的话账本会把交接之前的大数当成那一次的占用
+    /// 写交接那一发照常记账（会话累计、缓存命中），写完把估算里那段被替换的历史忘掉、占用重置：
+    /// 交接后第一次请求框架不问触发条件，不清的话账本会把交接之前的大数当成那一次的占用；
+    /// 压缩已完成，进度条也不该再顶着压缩前的大数
     /// </summary>
     [Fact]
     public async Task Handoff_RecordsItsOwnUsage_AndForgetsTheSupersededEstimate()
@@ -606,13 +608,15 @@ public class TurnDriverTests
 
         await driver.CompactAsync(session, new StubRunner { InputEstimate = estimate });
 
-        Assert.Equal(90_000, session.TotalInputTokens);
+        Assert.Equal(90_000, session.TotalInputTokens); //累计照记,重置不动它
         Assert.Equal(800, session.TotalOutputTokens);
-        Assert.Equal(85_000, ledger.LastCachedInput); //面板据此显示交接那一发的命中率
-        Assert.Equal(85_000, session.LastCachedInputTokens); //随本体落盘,重开会话与旁观窗口读的是它
+        Assert.Equal(85_000, session.LastCachedInputTokens); //交接那一发的命中随本体落盘,重开会话与旁观窗口读的是它
+        Assert.Equal(0, ledger.LastInput); //压缩完成:占用已重置,进度条不再顶着压缩前的大数
+        Assert.Equal(0, ledger.EstimatedInput);
+        Assert.Equal(0, ledger.LastCachedInput); //「最近一次命中」那行也随占用一起清
+        Assert.Equal(0, ledger.CompactedInput); //「已折叠」那一行随之消失
         Assert.Equal(0, estimate.LastHistory);
         Assert.Equal(0, estimate.CompactedHistory);
-        Assert.Equal(0, ledger.CompactedInput); //「已折叠」那一行随之消失
     }
 
     /// <summary>挂了 Grep/Read 的正式会话：交接时写出转录，交接文档末尾给出它的路径</summary>

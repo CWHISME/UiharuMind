@@ -525,6 +525,8 @@ public partial class ErrorItem : ConversationItemBase
 /// </summary>
 public partial class HandoffWritingItem : ConversationItemBase
 {
+    /// <summary>整理开始时间（如「14:32」），占位卡进行中时显示</summary>
+    [ObservableProperty] private string _timeText = string.Empty;
 }
 
 /// <summary>
@@ -536,6 +538,9 @@ public partial class HandoffItem : ConversationItemBase
 {
     /// <summary>是否展开</summary>
     [ObservableProperty] private bool _isExpanded;
+
+    /// <summary>整理耗时（如「3.2s」），与工具卡同一路呈现；旧存档没有这个数时为空（不显示）</summary>
+    [ObservableProperty] private string _durationText = string.Empty;
 }
 
 /// <summary>

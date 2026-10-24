@@ -1563,6 +1563,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
             case ETurnNotice.HandoffWritten:
                 _handoffWriting.Hide();
+                // 压缩完成时占用已被重置(见 TurnDriver),进度条立即补刷,不等下一轮 Ended
+                Usage.RefreshCoalesced(force: true);
                 // 卡片默认由落盘/回放路径渲染(ConversationHistoryRenderer.Build 的 HandoffNote 分支),这里只收掉占位;
                 // 通知自己再 Add 一张会与落盘渲染各画一遍,同一条交接文档就出两张卡。
                 // 只在自己那一轮正跑时补画:落盘路径走 AppendHandedBackReports 不画交接文档,

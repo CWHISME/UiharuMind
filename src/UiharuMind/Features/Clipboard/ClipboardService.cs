@@ -64,6 +64,9 @@ public class ClipboardService : IDisposable
     private static readonly DataFormat<byte[]> ImageFormatPngMac = DataFormat.CreateBytesPlatformFormat(ImageTypePngMac);
     private static readonly DataFormat<byte[]> ImageFormatTiffMac = DataFormat.CreateBytesPlatformFormat(ImageTypeTiffMac);
 
+    /// <summary>Win32 直读剪贴板的等待上限：来源应用延迟渲染时不让读取无期阻塞线程</summary>
+    private static readonly TimeSpan ReadTimeout = TimeSpan.FromSeconds(3);
+
     // public string ImageType => PlatformUtils.IsWindows ? ImageTypePngWin : ImageTypePngMac;
 
     private bool _isSelfCopying;
@@ -124,14 +127,21 @@ public class ClipboardService : IDisposable
     /// <param name="duration">多久</param>
     public void IgnoreChangesFor(TimeSpan duration) => _ignoreChangesUntil = DateTime.UtcNow + duration;
 
+    /// <summary>
+    /// 读剪贴板文本。Windows 上用监听器的 Win32 直读（<c>OpenClipboard+GetClipboardData</c>）；
+    /// 其余平台走 Avalonia 的 <c>IClipboard</c>。
+    /// </summary>
+    /// <returns>剪贴板文本；无文本或读取超时返回 null</returns>
     public async Task<string?> GetFromClipboard()
     {
-        // Windows 的来源应用（JetBrains/JVM 等）延迟渲染时，OLE 的 OleGetClipboard→EnumFormatEtc 可能失败，
-        // 优先用监听器的 Win32 直读；读不到再回退 Avalonia 的 OLE 路径兜底
         if (_clipboardMonitor is WindowsClipboardMonitor win)
         {
-            string? text = await win.TryReadTextAsync();
-            if (!string.IsNullOrEmpty(text)) return text;
+            // GetClipboardData 是同步调用：来源应用（Sourcetree/JetBrains 等）延迟渲染时
+            // 会现场渲染再返回，渲染多久这里就等多久——即使复制几个字也可能卡数秒，
+            // 所以整体放到后台线程并设超时，宁可这次不记也不能冻住 UI
+            var readTask = Task.Run(() => win.TryReadTextAsync());
+            var completed = await Task.WhenAny(readTask, Task.Delay(ReadTimeout));
+            return completed == readTask ? await readTask : null;
         }
 
         return await Clipboard.TryGetValueAsync(DataFormat.Text);
