@@ -641,6 +641,311 @@ public class WorktreeTests
         Assert.Contains("干净", text);
     }
 
+    //================= 子模块：本地复制 + 网络兜底 + 建分支 =================
+
+    /// <summary>主工作区已检出的子模块：网络拉取失败时直接从主工作区本地 clone（保留 git 身份），
+    /// 再建同名分支。命令序列 clone → absorbgitdirs → update 兜底 → switch -c；结果里这三步都要交代</summary>
+    [Fact]
+    public async Task Create_Submodule_NetworkFails_ClonesFromMain_AndBranches()
+    {
+        string ws = Path.Combine(Path.GetTempPath(), "wrk-sub-" + Guid.NewGuid().ToString("N")[..8]);
+        string sub = Path.Combine(ws, "src", "Sub");
+        Directory.CreateDirectory(sub);
+        File.WriteAllText(Path.Combine(sub, ".git"), "gitdir: fake");
+        File.WriteAllText(Path.Combine(sub, "sub.txt"), "x");
+        string target = Path.Combine(WorktreeLayout.GetWorktreesRoot(ws), "feature", "x");
+        try
+        {
+            ChatSession session = new() { IsTransient = true, WorkspacePath = ws };
+            FakeGit git = new()
+            {
+                Handler = (_, args) =>
+                {
+                    // 模拟真实 clone：把目录建出来、放 .git 标记，后面的建分支步骤才有 git 身份可查
+                    if (args is ["clone", "--quiet", _, string dst])
+                    {
+                        Directory.CreateDirectory(dst);
+                        File.WriteAllText(Path.Combine(dst, ".git"), "gitdir: fake");
+                        return new WorktreeGitResult(string.Empty, string.Empty, 0);
+                    }
+
+                    return args switch
+                    {
+                        ["config", "-z", "--file", ".gitmodules", "--get-regexp", _] =>
+                            new WorktreeGitResult("submodule.src/Sub.path\u0000src/Sub\u0000", string.Empty, 0),
+                        ["submodule", "update", "--init", "--recursive"] =>
+                            new WorktreeGitResult(string.Empty, "connect to host failed", 128),
+                        ["submodule", "absorbgitdirs"] => new WorktreeGitResult(string.Empty, string.Empty, 0),
+                        ["rev-parse", "--verify", "refs/heads/feature/x"] =>
+                            new WorktreeGitResult(string.Empty, "unknown", 128),
+                        ["rev-parse", "--verify", "origin/feature/x"] =>
+                            new WorktreeGitResult(string.Empty, "unknown", 128),
+                        ["rev-parse", "--verify", "HEAD"] => new WorktreeGitResult("aaa111", string.Empty, 0),
+                        ["switch", "-c", "feature/x"] => new WorktreeGitResult(string.Empty, string.Empty, 0),
+                        _ => null,
+                    };
+                },
+            };
+
+            string result = await new WorktreeGitService(git).CreateAsync(session, "feature/x", null, null,
+                target, TestContext.Current.CancellationToken);
+
+            Assert.Contains("已从主工作区本地复制", result);
+            Assert.Contains("子模块已检出分支", result);
+            Assert.Contains(git.Commands, c => c.StartsWith("clone --quiet", StringComparison.Ordinal));
+            Assert.Contains("submodule absorbgitdirs", git.Commands);
+            Assert.Contains(git.Commands, c => c.StartsWith("switch -c feature/x", StringComparison.Ordinal));
+        }
+        finally
+        {
+            if (Directory.Exists(target)) Directory.Delete(target, recursive: true);
+            if (Directory.Exists(ws)) Directory.Delete(ws, recursive: true);
+        }
+    }
+
+    /// <summary>主工作区没检出该子模块：不做本地 clone，交给网络 update 兜底（命令里不应有 clone）</summary>
+    [Fact]
+    public async Task Create_Submodule_NotInMain_ReliesOnNetwork()
+    {
+        string ws = Path.Combine(Path.GetTempPath(), "wrk-sub-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(ws);
+        string target = Path.Combine(WorktreeLayout.GetWorktreesRoot(ws), "feature", "x");
+        try
+        {
+            ChatSession session = new() { IsTransient = true, WorkspacePath = ws };
+            FakeGit git = new()
+            {
+                Handler = (_, args) => args switch
+                {
+                    ["config", "-z", "--file", ".gitmodules", "--get-regexp", _] =>
+                        new WorktreeGitResult("submodule.src/Sub.path\u0000src/Sub\u0000", string.Empty, 0),
+                    ["rev-parse", "--verify", "refs/heads/feature/x"] =>
+                        new WorktreeGitResult(string.Empty, "unknown", 128),
+                    ["rev-parse", "--verify", "origin/feature/x"] =>
+                        new WorktreeGitResult(string.Empty, "unknown", 128),
+                    _ => null,
+                },
+            };
+
+            string result = await new WorktreeGitService(git).CreateAsync(session, "feature/x", null, null,
+                target, TestContext.Current.CancellationToken);
+
+            Assert.Contains("子模块已就绪", result); // update 兜底成功
+            Assert.DoesNotContain(git.Commands, c => c.StartsWith("clone", StringComparison.Ordinal));
+        }
+        finally
+        {
+            if (Directory.Exists(target)) Directory.Delete(target, recursive: true);
+            if (Directory.Exists(ws)) Directory.Delete(ws, recursive: true);
+        }
+    }
+
+    /// <summary>子模块里已有同名分支且与当前 commit 一致：直接 switch 而不新建（-c）；不一致则不强切（避免弄脏父仓库）</summary>
+    [Fact]
+    public async Task Create_Submodule_ExistingBranchSameCommit_Switches_NotCreates()
+    {
+        string ws = Path.Combine(Path.GetTempPath(), "wrk-sub-" + Guid.NewGuid().ToString("N")[..8]);
+        string sub = Path.Combine(ws, "src", "Sub");
+        Directory.CreateDirectory(sub);
+        File.WriteAllText(Path.Combine(sub, ".git"), "gitdir: fake");
+        string target = Path.Combine(WorktreeLayout.GetWorktreesRoot(ws), "branchme");
+        try
+        {
+            ChatSession session = new() { IsTransient = true, WorkspacePath = ws };
+            // 让 update 命令模拟“联网拉成功并建出子模块目录”，后面的建分支步骤才有 git 身份可查
+            FakeGit git = new()
+            {
+                Handler = (dir, args) =>
+                {
+                    if (args is ["submodule", "update", "--init", "--recursive"])
+                    {
+                        string subDir = Path.Combine(dir, "src", "Sub");
+                        Directory.CreateDirectory(subDir);
+                        File.WriteAllText(Path.Combine(subDir, ".git"), "gitdir: fake");
+                        return new WorktreeGitResult(string.Empty, string.Empty, 0);
+                    }
+
+                    return args switch
+                    {
+                        ["config", "-z", "--file", ".gitmodules", "--get-regexp", _] =>
+                            new WorktreeGitResult("submodule.src/Sub.path\u0000src/Sub\u0000", string.Empty, 0),
+                        ["rev-parse", "--verify", "HEAD"] => new WorktreeGitResult("aaa111", string.Empty, 0),
+                        ["rev-parse", "--verify", "refs/heads/branchme"] =>
+                            new WorktreeGitResult("aaa111", string.Empty, 0), // 同 commit
+                        ["switch", "branchme"] => new WorktreeGitResult(string.Empty, string.Empty, 0),
+                        _ => null,
+                    };
+                },
+            };
+
+            string result = await new WorktreeGitService(git).CreateAsync(session, "branchme", null, null,
+                target, TestContext.Current.CancellationToken);
+
+            Assert.Contains("子模块已检出分支", result);
+            Assert.Contains("switch branchme", git.Commands);
+            Assert.DoesNotContain(git.Commands, c => c.StartsWith("switch -c", StringComparison.Ordinal));
+        }
+        finally
+        {
+            if (Directory.Exists(target)) Directory.Delete(target, recursive: true);
+            if (Directory.Exists(ws)) Directory.Delete(ws, recursive: true);
+        }
+    }
+
+    //================= 软链接：平台能力 + worktree 级修复 =================
+
+    /// <summary>平台支持符号链接：只对这张 worktree 开 core.symlinks（worktreeConfig），重新落盘；
+    /// 命令里不能出现仓库级 config core.symlinks（那会改到主工作区）</summary>
+    [Fact]
+    public async Task Create_SymlinkSupported_RepairsWorktreeScoped()
+    {
+        ChatSession session = NewSession();
+        FakeGit git = new()
+        {
+            Handler = (_, args) => args is ["ls-files", "-s"]
+                ? new WorktreeGitResult("120000 8ab6d0 0\tlink.txt\n100644 cf8 0\treadme.md", string.Empty, 0)
+                : null,
+        };
+        string target = CreateTarget("sym");
+
+        string result = await new WorktreeGitService(git, () => true).CreateAsync(session, "sym", null, null,
+            target, TestContext.Current.CancellationToken);
+
+        Assert.Contains("软链接已修复", result);
+        Assert.Contains("config extensions.worktreeConfig true", git.Commands);
+        Assert.Contains("config --worktree core.symlinks true", git.Commands);
+        Assert.Contains("checkout-index -f -a", git.Commands);
+        Assert.DoesNotContain(git.Commands, c => c == "config core.symlinks true");
+    }
+
+    /// <summary>平台不支持符号链接（Windows 无开发者模式/管理员）：不强修，保持普通文件，也不碰任何 core.symlinks 配置</summary>
+    [Fact]
+    public async Task Create_SymlinkUnsupported_KeepsPlainFilesAndReports()
+    {
+        ChatSession session = NewSession();
+        FakeGit git = new()
+        {
+            Handler = (_, args) => args is ["ls-files", "-s"]
+                ? new WorktreeGitResult("120000 8ab6d0 0\tlink.txt\n", string.Empty, 0)
+                : null,
+        };
+        string target = CreateTarget("sym");
+
+        string result = await new WorktreeGitService(git, () => false).CreateAsync(session, "sym", null, null,
+            target, TestContext.Current.CancellationToken);
+
+        Assert.Contains("不能创建真符号链接", result);
+        Assert.DoesNotContain(git.Commands, c => c.Contains("checkout-index", StringComparison.Ordinal));
+        Assert.DoesNotContain(git.Commands, c => c.Contains("core.symlinks", StringComparison.Ordinal));
+    }
+
+    //================= sync：主工作区 → 已登记 worktree =================
+
+    /// <summary>git worktree：父仓库快进到主工作区分支（共享 .git，本地未推送提交也带过来），
+    /// 子模块从主工作区本地 fetch 后快进</summary>
+    [Fact]
+    public async Task Sync_GitWorktree_MergesParentAndSubmodules()
+    {
+        string ws = Path.Combine(Path.GetTempPath(), "wrk-sync-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(Path.Combine(ws, "src", "Sub"));
+        File.WriteAllText(Path.Combine(ws, "src", "Sub", ".git"), "gitdir: fake");
+        string root = Path.Combine(Path.GetTempPath(), "wt-sync-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(Path.Combine(root, "src", "Sub"));
+        File.WriteAllText(Path.Combine(root, "src", "Sub", ".git"), "gitdir: fake");
+        try
+        {
+            ChatSession session = new() { IsTransient = true, WorkspacePath = ws };
+            session.AddSessionApprovedWorktreeRoot(root);
+            FakeGit git = new()
+            {
+                Handler = (dir, args) => args switch
+                {
+                    ["rev-parse", "--git-common-dir"] when
+                        dir.Equals(root, StringComparison.OrdinalIgnoreCase) =>
+                        new WorktreeGitResult(".git", string.Empty, 0),
+                    ["branch", "--show-current"] when dir.EndsWith(Path.Combine(ws, "src") + "/Sub",
+                        StringComparison.OrdinalIgnoreCase) => new WorktreeGitResult("master", string.Empty, 0),
+                    ["branch", "--show-current"] when dir.Equals(ws, StringComparison.OrdinalIgnoreCase) =>
+                        new WorktreeGitResult("main", string.Empty, 0),
+                    ["config", "-z", "--file", ".gitmodules", "--get-regexp", _] =>
+                        new WorktreeGitResult("submodule.src/Sub.path\u0000src/Sub\u0000", string.Empty, 0),
+                    ["merge", "--ff-only", "main"] => new WorktreeGitResult(string.Empty, string.Empty, 0),
+                    ["fetch", _, "master"] => new WorktreeGitResult(string.Empty, string.Empty, 0),
+                    ["merge", "--ff-only", "FETCH_HEAD"] => new WorktreeGitResult(string.Empty, string.Empty, 0),
+                    _ => null,
+                },
+            };
+
+            string result = await new WorktreeGitService(git).SyncAsync(session, null,
+                TestContext.Current.CancellationToken);
+
+            Assert.Contains("已快进到主工作区分支 main", result);
+            Assert.Contains("子模块 src/Sub：已快进", result);
+            // fetch 直接指向主工作区子模块目录（本地路径），不依赖 origin
+            Assert.Contains(git.Commands, c => c.StartsWith($"fetch {Path.Combine(ws, "src") + "/Sub"}",
+                StringComparison.Ordinal));
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+            if (Directory.Exists(ws)) Directory.Delete(ws, recursive: true);
+        }
+    }
+
+    /// <summary>同步只对已登记的 worktree 生效：没登记过的 path 报错</summary>
+    [Fact]
+    public async Task Sync_UnregisteredPath_ReturnsError()
+    {
+        string result = await new WorktreeGitService(new FakeGit()).SyncAsync(NewSession(), "/tmp/wt/nope",
+            TestContext.Current.CancellationToken);
+
+        Assert.Contains("没有登记过", result);
+    }
+
+    /// <summary>没有登记的 worktree：提示先 create/set</summary>
+    [Fact]
+    public async Task Sync_NoRoots_ReturnsError()
+    {
+        string result = await new WorktreeGitService(new FakeGit()).SyncAsync(NewSession(), null,
+            TestContext.Current.CancellationToken);
+
+        Assert.Contains("没有登记的 worktree", result);
+    }
+
+    /// <summary>纯副本：把主工作区内容重新复制过去，覆盖已有文件</summary>
+    [Fact]
+    public async Task Sync_PlainCopy_RerunsCopyOverExisting()
+    {
+        string ws = Path.Combine(Path.GetTempPath(), "wrk-sync-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(ws);
+        File.WriteAllText(Path.Combine(ws, "a.txt"), "new");
+        string root = Path.Combine(Path.GetTempPath(), "wt-sync-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(root);
+        File.WriteAllText(Path.Combine(root, "a.txt"), "old");
+        try
+        {
+            ChatSession session = new() { IsTransient = true, WorkspacePath = ws };
+            session.AddSessionApprovedWorktreeRoot(root);
+            FakeGit git = new()
+            {
+                Handler = (_, args) => args is ["rev-parse", "--git-common-dir"]
+                    ? new WorktreeGitResult(string.Empty, "not a git repository", 128)
+                    : null,
+            };
+
+            string result = await new WorktreeGitService(git).SyncAsync(session, null,
+                TestContext.Current.CancellationToken);
+
+            Assert.Contains("已从主工作区重新复制", result);
+            Assert.Equal("new", File.ReadAllText(Path.Combine(root, "a.txt"))); // 覆盖了旧内容
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+            if (Directory.Exists(ws)) Directory.Delete(ws, recursive: true);
+        }
+    }
+
     //================= 审批动态豁免 =================
 
     /// <summary>登记后 worktree 内写入免审批；取消后立即恢复要审批——同一规则集，无需重建装配</summary>

@@ -175,7 +175,7 @@ public class ExtensionTests
         Assert.Equal(["windows", "snapshot", "act", "launch", "handoff"], desktop.Commands.Select(x => x.Name));
         Assert.Equal(["synthesize", "transcribe"], audio.Commands.Select(x => x.Name));
         Assert.Equal(["generate"], image.Commands.Select(x => x.Name));
-        Assert.Equal(["create", "set", "reset", "remove", "list", "status"], worktree.Commands.Select(x => x.Name));
+        Assert.Equal(["create", "set", "sync", "reset", "remove", "list", "status"], worktree.Commands.Select(x => x.Name));
         Assert.NotNull(image.Unavailable);
         Assert.Equal(["transcribe"],
             AudioExtension.Spec.Assemble(Resources(), EReadImageMode.None, mountFiles: true).Commands.Select(x => x.Name));
@@ -278,6 +278,7 @@ public class ExtensionTests
     [InlineData("worktree", "reset", EExtensionRisk.ReadOnly)] //只撤豁免,无副作用
     [InlineData("worktree", "create", EExtensionRisk.Standard)]
     [InlineData("worktree", "set", EExtensionRisk.Standard)]
+    [InlineData("worktree", "sync", EExtensionRisk.Standard)] //改工作树/子模块，会动文件
     [InlineData("worktree", "remove", EExtensionRisk.Standard)]
     [InlineData("worktree", "frobnicate", EExtensionRisk.ReadOnly)] //没这条命令,什么也不会跑
     [InlineData("chatsession", "list", EExtensionRisk.ReadOnly)] //纯查询

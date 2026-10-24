@@ -35,6 +35,7 @@ public sealed class WorktreeExtension : BuiltinExtension
     [
         (BuiltinExtensions.WorktreeCreate, WorktreeTools.CreateToolName),
         (BuiltinExtensions.WorktreeSet, WorktreeTools.SetToolName),
+        (BuiltinExtensions.WorktreeSync, WorktreeTools.SyncToolName),
         (BuiltinExtensions.WorktreeReset, WorktreeTools.ResetToolName),
         (BuiltinExtensions.WorktreeRemove, WorktreeTools.RemoveToolName),
         (BuiltinExtensions.WorktreeList, WorktreeTools.ListToolName),
@@ -42,7 +43,7 @@ public sealed class WorktreeExtension : BuiltinExtension
     ];
 
     /// <summary>status/list 纯查询、reset 只撤豁免（恢复要审批，无副作用），都不问；
-    /// create/set/remove 有真副作用（拉取、建分支、落盘、删目录、授予免审批写入），按一般问一次</summary>
+    /// create/set/sync/remove 有真副作用（拉取、建分支、落盘、改工作树、删目录、授予免审批写入），按一般问一次</summary>
     public override EExtensionRisk Classify(FunctionCallContent call)
     {
         if (!ExtensionCalls.TryRead(call, out ExtensionInvocation? invocation)) return EExtensionRisk.ReadOnly;

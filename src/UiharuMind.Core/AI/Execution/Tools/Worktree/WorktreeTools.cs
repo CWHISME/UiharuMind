@@ -39,12 +39,15 @@ public static class WorktreeTools
     /// <summary>remove：删除并取消登记（清理）</summary>
     public const string RemoveToolName = "WorktreeRemove";
 
+    /// <summary>sync：把主工作区最新状态同步进已登记的 worktree</summary>
+    public const string SyncToolName = "WorktreeSync";
+
     /// <summary>
-    /// 造六把工具
+    /// 造七把工具
     /// </summary>
     /// <param name="sessionSource">当前会话（写登记与读工作目录）；取不到为 null 时报错</param>
     /// <param name="git">git 执行器；缺省用系统 git</param>
-    /// <returns>六把工具，顺序 create/set/reset/remove/list/status</returns>
+    /// <returns>七把工具，顺序 create/set/sync/reset/remove/list/status</returns>
     public static IReadOnlyList<AITool> Create(Func<ChatSession?> sessionSource, IWorktreeGitRunner? git = null)
     {
         git ??= GitWorktreeRunner.Shared;
@@ -72,8 +75,9 @@ public static class WorktreeTools
                         .ConfigureAwait(false),
                 CreateToolName,
                 "创建一个隔离的 worktree（工作副本）并自动登记为免审批——登记后该 worktree 内的文件写入不再问（AutoEdit/FullAuto 档）。" +
-                "工作目录是 git 仓库时：自动拉取（fetch origin）、初始化子模块、修复软链接，同名分支已存在则直接检出；" +
-                "不是 git 仓库时：复制工作目录内容成隔离副本（跳过 node_modules 等常见大目录）。" +
+                "工作目录是 git 仓库时：自动拉取（fetch origin）、初始化子模块（正常 git 拉取，拉不下来的从主工作区复制补齐，" +
+                "带 git 身份的子模块在目标 commit 上建同名分支）、按平台能力修复软链接（Windows 需开发者模式/管理员），" +
+                "同名分支已存在则直接检出；不是 git 仓库时：复制工作目录内容成隔离副本（跳过 node_modules 等常见大目录）。" +
                 "落盘默认数据目录项目共享的 Worktrees 下（directory 必须在该根内）。" +
                 "本工具不动会话的工作目录（相对路径仍解析到原工作目录），worktree 内请用绝对路径。"),
             ToolJson.CreateFunction(
@@ -85,6 +89,18 @@ public static class WorktreeTools
                 "登记用户自己已有的隔离工作副本：登记后该目录内的文件写入免审批（AutoEdit/FullAuto 档），" +
                 "子代理派活时自动继承。git 仓库时校验目标属于同一仓库；不是 git 仓库时登记你准备的副本（确认目录是你的）。" +
                 "不动工作目录与草稿目录。"),
+            ToolJson.CreateFunction(
+                async ([Description("要同步的 worktree 根目录的绝对路径；不填同步该会话全部已登记的")]
+                        string? path = null,
+                    CancellationToken cancellationToken = default) =>
+                    await service.SyncAsync(RequireSession(), path, cancellationToken).ConfigureAwait(false),
+                SyncToolName,
+                "把主工作区的最新状态同步进已登记的 worktree（方向：主工作区 → worktree）：" +
+                "git worktree 的父仓库在 worktree 里 merge --ff-only 到主工作区当前分支" +
+                "（所有 worktree 共享 .git，主工作区未推送的本地提交也会带过来，不联网）；" +
+                "子模块从主工作区子模块目录本地 fetch 后快进；纯副本重新复制内容覆盖。" +
+                "只对已登记的 worktree 生效；有分叉/冲突/未提交改动照实报告，不强制、不回滚。" +
+                "不动会话的工作目录。"),
             ToolJson.CreateFunction(
                 ([Description("要取消登记的 worktree 根；不填取消全部")]
                     string? path = null) => WorktreeGitService.Reset(RequireSession(), path),

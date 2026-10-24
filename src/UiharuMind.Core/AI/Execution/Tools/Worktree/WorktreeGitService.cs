@@ -26,8 +26,14 @@ namespace UiharuMind.Core.AI.Execution.Tools.Worktree;
 internal sealed class WorktreeGitService
 {
     private readonly IWorktreeGitRunner _git;
+    private readonly Func<bool> _symlinkProbe;
 
-    public WorktreeGitService(IWorktreeGitRunner git) => _git = git;
+    public WorktreeGitService(IWorktreeGitRunner git, Func<bool>? symlinkProbe = null)
+    {
+        _git = git;
+        // 探测平台能否建真符号链接（Windows 要开发者模式/管理员）；测试注入假探针
+        _symlinkProbe = symlinkProbe ?? SymlinksSupported;
+    }
 
     /// <summary>会话的有效工作区：群成员跟群走（GroupChatSessions.WorkspaceOf），其余取自己绑的</summary>
     private static string? WorkspaceOf(ChatSession session) => GroupChatSessions.WorkspaceOf(session);
@@ -175,28 +181,186 @@ internal sealed class WorktreeGitService
 
         steps.Add($"已创建 worktree {target}（{branchNote}）");
 
-        // 3) 子模块：初始化并递归拉取
-        WorktreeGitResult submodule = await _git.RunAsync(target, ["submodule", "update", "--init", "--recursive"],
-            cancellationToken).ConfigureAwait(false);
-        steps.Add(submodule.Succeeded
-            ? "子模块已初始化（submodule update --init --recursive）"
-            : $"子模块初始化未完成：{Brief(submodule)}");
+        // 3) 子模块：先本地（主工作区已检出的直接 clone，快且离线），剩下的才走网络兜底；带 git 身份的都建同名分支
+        steps.AddRange(await PopulateSubmodulesAsync(workspaceFull, target, branchName, cancellationToken)
+            .ConfigureAwait(false));
 
-        // 4) 软链接：仓库里有 120000 模式（符号链接）才动；Windows 上没开开发者模式会失败，照实报告
+        // 4) 软链接：仓库顶层有 120000 模式（符号链接）才处理。
+        //    修复只对这张 worktree 生效：extensions.worktreeConfig 只开树的开关、--worktree 只写这棵树；
+        //    绝不改仓库级 core.symlinks（那会把主工作区一起翻）。
+        //    平台不支持真符号链接（Windows 未开开发者模式/管理员）时不强修：
+        //    checkout-index 会先删普通文件再建链接，失败即丢文件（实测），保持普通文件形态更可靠
         WorktreeGitResult modes = await _git.RunAsync(target, ["ls-files", "-s"], cancellationToken).ConfigureAwait(false);
-        if (modes.Succeeded && modes.Output.Split('\n').Any(line =>
-                line.TrimStart().StartsWith("120000", StringComparison.Ordinal)))
+        if (modes.Succeeded && HasSymlinkMode(modes.Output))
         {
-            WorktreeGitResult config = await _git.RunAsync(target, ["config", "core.symlinks", "true"], cancellationToken)
-                .ConfigureAwait(false);
-            WorktreeGitResult checkout = await _git.RunAsync(target, ["checkout-index", "-f", "-a"], cancellationToken)
-                .ConfigureAwait(false);
-            steps.Add(config.Succeeded && checkout.Succeeded
-                ? "软链接已修复（core.symlinks=true + 重新落盘）"
-                : $"软链接修复未完成：{Brief(config)}；{Brief(checkout)}");
+            if (!_symlinkProbe())
+            {
+                steps.Add("仓库含符号链接（120000）但当前平台不能创建真符号链接（Windows 需开发者模式/管理员）；" +
+                          "保持与主工作区一致的普通文件形态，未改动仓库级 core.symlinks。");
+            }
+            else
+            {
+                WorktreeGitResult worktreeCfg = await _git.RunAsync(target,
+                    ["config", "extensions.worktreeConfig", "true"], cancellationToken).ConfigureAwait(false);
+                WorktreeGitResult symlinkCfg = await _git.RunAsync(target,
+                    ["config", "--worktree", "core.symlinks", "true"], cancellationToken).ConfigureAwait(false);
+                WorktreeGitResult checkout = await _git.RunAsync(target, ["checkout-index", "-f", "-a"], cancellationToken)
+                    .ConfigureAwait(false);
+                steps.Add(worktreeCfg.Succeeded && symlinkCfg.Succeeded && checkout.Succeeded
+                    ? "软链接已修复（仅此 worktree 开启 core.symlinks=true 并重新落盘）"
+                    : $"软链接修复未完成：{Brief(worktreeCfg)}；{Brief(symlinkCfg)}；{Brief(checkout)}");
+            }
         }
 
         return (null, steps, branchNote);
+    }
+
+    /// <summary>
+    /// 子模块：主工作区已检出的子模块先本地 <c>git clone</c>（本地路径默认硬链接 objects，秒级、离线、保留 git 身份），
+    /// 再 <c>submodule absorbgitdirs</c> 收编；主工作区没检出的（含嵌套）才走 <c>submodule update --init --recursive</c>
+    /// 联网兜底（对已填好的子模块是空检查、不会重拉）；带 git 身份的子模块在目标 commit 上建同名分支，
+    /// 免得在 detached HEAD 上干活。返回要展示的步骤
+    /// </summary>
+    /// <param name="workspaceFull">主工作区（子模块内容的来源）</param>
+    /// <param name="target">新的 worktree 根</param>
+    /// <param name="branchName">新建的分支名（与 worktree 分支同名）</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>步骤文本</returns>
+    private async Task<List<string>> PopulateSubmodulesAsync(string workspaceFull, string target, string branchName,
+        CancellationToken cancellationToken)
+    {
+        List<string> steps = [];
+
+        // 子模块清单从新树（跟着检出分支）的 .gitmodules 读；失败/无子模块就跳过，直接走网络兜底
+        WorktreeGitResult list = await _git.RunAsync(target,
+            ["config", "-z", "--file", ".gitmodules", "--get-regexp", "^submodule\\..*\\.path$"],
+            cancellationToken).ConfigureAwait(false);
+        List<string> paths = list.Succeeded ? ParseSubmodulePaths(list.Output).ToList() : [];
+
+        // 1) 本地复制：主工作区已检出的子模块 → 本地 clone（快、离线、git 身份完整）
+        List<string> cloned = [];
+        foreach (string path in paths)
+        {
+            string src = Path.Combine(workspaceFull, path);
+            string dst = Path.Combine(target, path);
+            if (IsPopulatedSubmodule(dst)) continue;  // 新树里已有 git 身份，不动
+            if (!IsPopulatedSubmodule(src)) continue;  // 主工作区没检出它 → 交给网络兜底
+
+            WorktreeGitResult clone = await _git.RunAsync(target, ["clone", "--quiet", src, dst],
+                cancellationToken).ConfigureAwait(false);
+            if (clone.Succeeded) cloned.Add(path);
+            else steps.Add($"子模块 {path} 本地复制未完成：{Brief(clone)}（将走网络兜底）");
+        }
+
+        if (cloned.Count > 0)
+        {
+            // 把克隆出的 .git 目录收编进本 worktree 的 modules/（与 git 自建布局一致）；失败不致命，就地 .git 也能用
+            WorktreeGitResult absorb = await _git.RunAsync(target, ["submodule", "absorbgitdirs"],
+                cancellationToken).ConfigureAwait(false);
+            steps.Add(absorb.Succeeded
+                ? $"{cloned.Count} 个子模块已从主工作区本地复制：{string.Join("、", cloned)}"
+                : $"{cloned.Count} 个子模块已从主工作区本地复制，但收编未完成：{Brief(absorb)}");
+        }
+
+        // 2) 网络兜底：主工作区没检出的子模块按原样拉取；本地已填好的子模块在此是空检查，不会重拉
+        WorktreeGitResult submodule = await _git.RunAsync(target, ["submodule", "update", "--init", "--recursive"],
+            cancellationToken).ConfigureAwait(false);
+        steps.Add(submodule.Succeeded
+            ? "子模块已就绪（submodule update --init --recursive 仅作剩余项兜底）"
+            : $"子模块补充拉取未完成：{Brief(submodule)}");
+
+        // 3) 带 git 身份的子模块（本地克隆或网络拉成功的）：在目标 commit 上建同名分支
+        //    （已存在且同 commit 就切过去；已存在但不同 commit 不强切，避免把父仓库 gitlink 弄脏）
+        List<string> branched = [];
+        foreach (string path in paths)
+        {
+            string subDir = Path.Combine(target, path);
+            if (!IsPopulatedSubmodule(subDir)) continue;
+
+            WorktreeGitResult head = await _git.RunAsync(subDir, ["rev-parse", "--verify", "HEAD"],
+                cancellationToken).ConfigureAwait(false);
+            WorktreeGitResult existing = await _git.RunAsync(subDir, ["rev-parse", "--verify", $"refs/heads/{branchName}"],
+                cancellationToken).ConfigureAwait(false);
+            if (existing.Succeeded)
+            {
+                if (head.Succeeded && existing.Output.Trim().Equals(head.Output.Trim(), StringComparison.Ordinal))
+                {
+                    WorktreeGitResult sw = await _git.RunAsync(subDir, ["switch", branchName], cancellationToken)
+                        .ConfigureAwait(false);
+                    if (sw.Succeeded) branched.Add($"{path}@{branchName}");
+                }
+            }
+            else if (head.Succeeded)
+            {
+                WorktreeGitResult sw = await _git.RunAsync(subDir, ["switch", "-c", branchName], cancellationToken)
+                    .ConfigureAwait(false);
+                if (sw.Succeeded) branched.Add($"{path}@{branchName}");
+            }
+        }
+
+        if (branched.Count > 0)
+            steps.Add($"子模块已检出分支：{string.Join("、", branched)}");
+        return steps;
+    }
+
+    /// <summary>主工作区的子模块是否已检出（有 .git 文件/目录才算，空 gitlink 目录不算）</summary>
+    private static bool IsPopulatedSubmodule(string path)
+    {
+        if (!Directory.Exists(path)) return false;
+        string gitMarker = Path.Combine(path, ".git");
+        return File.Exists(gitMarker) || Directory.Exists(gitMarker);
+    }
+
+    /// <summary><c>git config -z --file .gitmodules --get-regexp '^submodule\..*\.path$'</c>
+    /// 的输出（key NUL value NUL …）解析成子模块路径</summary>
+    private static IEnumerable<string> ParseSubmodulePaths(string output)
+    {
+        string[] parts = output.Split('\0');
+        for (int i = 0; i + 1 < parts.Length; i += 2)
+        {
+            if (!parts[i].EndsWith(".path", StringComparison.Ordinal)) continue;
+            string path = parts[i + 1].Trim();
+            if (path.Length == 0) continue;
+            if (Path.IsPathRooted(path) || path.Split('/', '\\').Contains("..")) continue; // 防越界
+            yield return path;
+        }
+    }
+
+    /// <summary>ls-files -s 的输出里有没有 120000 模式（符号链接）</summary>
+    private static bool HasSymlinkMode(string output) => output.Split('\n').Any(line =>
+        line.TrimStart().StartsWith("120000", StringComparison.Ordinal));
+
+    /// <summary>
+    /// 平台能否创建真符号链接：Windows 需开发者模式或管理员权限；macOS/Linux 恒真。
+    /// 建一个临时文件+链接再删掉来探测，探测本身不做任何仓库级改动
+    /// </summary>
+    internal static bool SymlinksSupported()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "uiharu-symlink-probe-" + Guid.NewGuid().ToString("N")[..8]);
+        try
+        {
+            Directory.CreateDirectory(dir);
+            string target = Path.Combine(dir, "target");
+            string link = Path.Combine(dir, "link");
+            File.WriteAllText(target, "x");
+            File.CreateSymbolicLink(link, target);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+            }
+            catch
+            {
+                // 清理失败不影响结论
+            }
+        }
     }
 
     /// <summary>
@@ -242,7 +406,7 @@ internal sealed class WorktreeGitService
     };
 
     private static async Task CopyDirectoryAsync(string source, string target, List<string> excluded,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, bool overwrite = false)
     {
         Directory.CreateDirectory(target);
         foreach (string entry in Directory.EnumerateFileSystemEntries(source))
@@ -258,11 +422,11 @@ internal sealed class WorktreeGitService
                     continue;
                 }
 
-                await CopyDirectoryAsync(entry, destination, excluded, cancellationToken).ConfigureAwait(false);
+                await CopyDirectoryAsync(entry, destination, excluded, cancellationToken, overwrite).ConfigureAwait(false);
             }
             else
             {
-                File.Copy(entry, destination, overwrite: false);
+                File.Copy(entry, destination, overwrite);
             }
         }
     }
@@ -323,6 +487,155 @@ internal sealed class WorktreeGitService
                $"注意：本会话的工作目录（相对路径基准）没有变，仍是 {workspaceFull}；" +
                "在 worktree 里干活请用绝对路径。草稿目录 $DRAFT 与记忆目录 $MEMORY 都不变。\n" +
                "用 worktree.status 查询状态，用 worktree.reset 动态切回，用 worktree.remove 清理磁盘。";
+    }
+
+    /// <summary>
+    /// 把主工作区最新状态同步进已登记的 worktree：
+    /// <list type="bullet">
+    /// <item>git worktree：父仓库 merge --ff-only 到主工作区当前分支（共享 .git ⇒ 未推送的本地提交也带得过来，不联网）；
+    /// 子模块直接 fetch 主工作区子模块目录（本地路径，不依赖 origin）后快进到其当前分支。</item>
+    /// <item>纯副本：重新把主工作区内容复制过去（覆盖已有）。</item>
+    /// </list>
+    /// 只报告，不强制：快进失败（有分叉/冲突/未提交改动）照实写明，交用户处理。
+    /// </summary>
+    /// <param name="session">会话（读工作目录与登记）</param>
+    /// <param name="path">要同步的 worktree 根；不填同步全部已登记的</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>给模型的文本</returns>
+    public async Task<string> SyncAsync(ChatSession session, string? path, CancellationToken cancellationToken)
+    {
+        string workspace = WorkspaceOf(session)?.Trim() ?? string.Empty;
+        if (workspace.Length == 0) return "Error: 会话没有绑定工作目录，无法同步 worktree。";
+        string workspaceFull = Full(workspace, "工作目录");
+        if (workspaceFull.Length == 0) return "Error: 工作目录路径不成形。";
+
+        List<string> roots;
+        if (path is { Length: > 0 } && !string.IsNullOrWhiteSpace(path))
+        {
+            string wanted = Full(path.Trim(), "path", workspaceFull);
+            if (wanted.Length == 0) return "Error: path 路径不成形。";
+            string? root = session.SnapshotSessionApprovedWorktreeRoots().FirstOrDefault(x =>
+                RootComparer.Equals(x.Root, wanted.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)))?.Root;
+            if (root == null) return $"Error: 没有登记过 {wanted}。用 worktree.list 查看当前登记的 worktree。";
+            roots = [root];
+        }
+        else
+        {
+            roots = session.SnapshotSessionApprovedWorktreeRoots().Select(x => x.Root).ToList();
+            if (roots.Count == 0) return "没有登记的 worktree，无从同步。先 worktree.create 或 worktree.set。";
+        }
+
+        StringBuilder sb = new($"同步 {roots.Count} 个已登记 worktree 到主工作区（{workspaceFull}）：\n");
+        foreach (string root in roots)
+        {
+            sb.AppendLine($"- {root}");
+            if (!Directory.Exists(root))
+            {
+                sb.AppendLine("    目录已不存在，跳过（不用了可 worktree.remove 清理登记）。");
+                continue;
+            }
+
+            WorktreeGitResult isGit = await _git.RunAsync(root, ["rev-parse", "--git-common-dir"], cancellationToken)
+                .ConfigureAwait(false);
+            sb.Append(isGit.Succeeded
+                ? await SyncGitWorktreeAsync(workspaceFull, root, cancellationToken).ConfigureAwait(false)
+                : await SyncCopyWorktreeAsync(workspaceFull, root, cancellationToken).ConfigureAwait(false));
+        }
+
+        sb.AppendLine("同步只报告、不强改：有分叉或未提交改动请先处理再 sync；会话工作目录没有变。");
+        return sb.ToString();
+    }
+
+    /// <summary>git worktree 的同步：父仓库快进到主工作区分支，子模块 fetch 主工作区（本地）后快进</summary>
+    private async Task<string> SyncGitWorktreeAsync(string workspaceFull, string root,
+        CancellationToken cancellationToken)
+    {
+        StringBuilder sb = new();
+
+        // 1) 父仓库：快进到主工作区当前分支。merge --ff-only：能快进就到最新，有分叉/未提交改动就拒、报告
+        WorktreeGitResult wsBranchResult = await _git.RunAsync(workspaceFull, ["branch", "--show-current"],
+            cancellationToken).ConfigureAwait(false);
+        string wsBranch = wsBranchResult.Succeeded ? wsBranchResult.Output.Trim() : string.Empty;
+        if (wsBranch.Length == 0)
+        {
+            sb.AppendLine("    父仓库：主工作区不在分支上（detached HEAD），跳过。");
+        }
+        else
+        {
+            WorktreeGitResult merge = await _git.RunAsync(root, ["merge", "--ff-only", wsBranch], cancellationToken)
+                .ConfigureAwait(false);
+            sb.AppendLine(merge.Succeeded
+                ? $"    父仓库：已快进到主工作区分支 {wsBranch}（merge --ff-only，本地提交也带过来了）。"
+                : $"    父仓库：同步未完成：{Brief(merge)}（可能 worktree 有自己的提交、或有未提交改动）。");
+        }
+
+        // 2) 子模块：直接从主工作区子模块目录 fetch（不依赖 origin，origin 可能被改成别的源），再快进到其当前分支
+        WorktreeGitResult list = await _git.RunAsync(root,
+            ["config", "-z", "--file", ".gitmodules", "--get-regexp", "^submodule\\..*\\.path$"],
+            cancellationToken).ConfigureAwait(false);
+        int handled = 0;
+        if (list.Succeeded)
+        {
+            foreach (string path in ParseSubmodulePaths(list.Output))
+            {
+                string wsSub = Path.Combine(workspaceFull, path);
+                string rootSub = Path.Combine(root, path);
+                if (!IsPopulatedSubmodule(rootSub) || !IsPopulatedSubmodule(wsSub))
+                {
+                    sb.AppendLine($"    子模块 {path}：新树或主工作区里没有检出，跳过。");
+                    continue;
+                }
+
+                WorktreeGitResult wsSubBranchResult = await _git.RunAsync(wsSub, ["branch", "--show-current"],
+                    cancellationToken).ConfigureAwait(false);
+                string wsSubBranch = wsSubBranchResult.Succeeded ? wsSubBranchResult.Output.Trim() : string.Empty;
+                if (wsSubBranch.Length == 0)
+                {
+                    sb.AppendLine($"    子模块 {path}：主工作区里不在分支上（detached），跳过。");
+                    continue;
+                }
+
+                WorktreeGitResult fetch = await _git.RunAsync(rootSub, ["fetch", wsSub, wsSubBranch],
+                    cancellationToken).ConfigureAwait(false);
+                if (!fetch.Succeeded)
+                {
+                    sb.AppendLine($"    子模块 {path}：从主工作区 fetch 未完成：{Brief(fetch)}");
+                    continue;
+                }
+
+                WorktreeGitResult merge = await _git.RunAsync(rootSub, ["merge", "--ff-only", "FETCH_HEAD"],
+                    cancellationToken).ConfigureAwait(false);
+                sb.AppendLine(merge.Succeeded
+                    ? $"    子模块 {path}：已快进到主工作区 {wsSubBranch}（本地 fetch + merge --ff-only）。"
+                    : $"    子模块 {path}：同步未完成：{Brief(merge)}（有分叉/未提交改动？）。");
+                handled++;
+            }
+        }
+
+        if (handled == 0) sb.AppendLine("    子模块：无（或 .gitmodules 不可读）。");
+        return sb.ToString();
+    }
+
+    /// <summary>纯副本的同步：把主工作区内容重新复制过去（覆盖已有文件，不删 worktree 里多出的）</summary>
+    private async Task<string> SyncCopyWorktreeAsync(string workspaceFull, string root,
+        CancellationToken cancellationToken)
+    {
+        List<string> excluded = [];
+        try
+        {
+            await CopyDirectoryAsync(workspaceFull, root, excluded, cancellationToken, overwrite: true)
+                .ConfigureAwait(false);
+            string excludedNote = excluded.Count > 0 ? $"（跳过：{string.Join("、", excluded)}）" : string.Empty;
+            return $"    纯副本：已从主工作区重新复制内容{excludedNote}。\n";
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception e)
+        {
+            return $"    纯副本：同步未完成：{e.Message}\n";
+        }
     }
 
     /// <summary>

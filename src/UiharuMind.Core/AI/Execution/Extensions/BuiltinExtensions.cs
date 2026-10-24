@@ -93,6 +93,9 @@ public static class BuiltinExtensions
     /// <summary>worktree：查询当前状态</summary>
     public const string WorktreeStatus = "status";
 
+    /// <summary>worktree：把主工作区最新状态同步进已登记的 worktree</summary>
+    public const string WorktreeSync = "sync";
+
     /// <summary>chatsession：本会话派出的子代理</summary>
     public const string ChatSessionList = "list";
 
