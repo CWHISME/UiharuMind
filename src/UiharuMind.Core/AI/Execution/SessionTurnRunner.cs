@@ -41,6 +41,7 @@ public static class SessionTurnRunner
                 notify?.Invoke(notice);
             }, unansweredResultText);
 
+        bool stopped = false;
         lease.Runner.ReplyFinishing = onReplyFinishing == null ? null : _ => onReplyFinishing();
         try
         {
@@ -50,8 +51,11 @@ public static class SessionTurnRunner
         finally
         {
             lease.Runner.ReplyFinishing = null;
+            // 内部取消（TurnDriver.CancelSession，用户点停止）不在外层 token 上：
+            // 只查外层的话，被停的轮会被当成「跑完了」交回去
+            stopped = driver.WasCancelled;
         }
 
-        return !failed && !cancellationToken.IsCancellationRequested;
+        return !failed && !stopped && !cancellationToken.IsCancellationRequested;
     }
 }

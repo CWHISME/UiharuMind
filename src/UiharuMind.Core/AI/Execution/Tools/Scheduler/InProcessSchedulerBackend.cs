@@ -201,23 +201,16 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
 
             NoteUnapprovedMcpServers(task, chatSession);
 
-            // 整轮同一实例：Attach 与 Run 共用租约里的那一个，退出/卸载并发时也不换实例
-            using ChatSession.RunnerLease lease = await chatSession.AcquireRunnerAsync().ConfigureAwait(false);
-
+            // 整轮同一实例：Attach 与 Run 共用租约里的那一个，退出/卸载并发时也不换实例。
             // 与界面跑的是同一份编排:运行态登记(这个会话就在会话列表里,⏰ 前缀,用户看得见它在跑,
             // 也因此不会在跑的过程中被删除或清空历史)、取消收尾、交接文档一并到手。
-            // 差异只有两处——没有渲染落点(sink 为 null),审批一律拒绝
-            bool failed = false;
-            using TurnDriver driver = new(null, new TurnUsageLedger(),
-                notice =>
-                {
-                    if (notice.Kind is ETurnNotice.Failed or ETurnNotice.Refused) failed = true;
-                });
-            await driver.RunAsync(chatSession, lease.Runner,
-                    new ChatMessage(ChatRole.User, task.Prompt), DenyUnauthorizedApprovals(task))
+            // 差异只有两处——没有渲染落点(sink 为 null),审批一律拒绝。
+            // 走与群成员/唤醒轮同一条无头跑轮（SessionTurnRunner），不再各抄一份样板
+            bool completed = await SessionTurnRunner.RunHeadlessAsync(chatSession,
+                new ChatMessage(ChatRole.User, task.Prompt), DenyUnauthorizedApprovals(task), attended: false)
                 .ConfigureAwait(false);
 
-            task.Status = failed ? EScheduledTaskStatus.Failed : EScheduledTaskStatus.Completed;
+            task.Status = completed ? EScheduledTaskStatus.Completed : EScheduledTaskStatus.Failed;
         }
         catch (Exception e)
         {

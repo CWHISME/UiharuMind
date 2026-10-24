@@ -48,8 +48,14 @@ public static class GroupLogFile
             text.Append(GroupLogText.BuildHeading(group.Title));
             foreach (ChatMessage post in history) text.Append(GroupLogText.FormatPost(post));
 
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, text.ToString());
+            // 与 AppendNew 同一把锁：查询方（chatsession.list-groups）重写与离席追加并发时不交错写文件。
+            // 覆盖仍会让离席维护的行号水位错位——离席中不重写由调用方（SnapshotOf）挡，不在这层替所有调用方做主
+            lock (Sync)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.WriteAllText(path, text.ToString());
+            }
+
             return CountLines(text.ToString()); //内存数行数，不重读文件
         }
         catch (Exception e)

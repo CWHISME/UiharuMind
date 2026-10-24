@@ -182,11 +182,37 @@ public class SessionDeliveryTests
         Assert.Equal(2, _host.Session.History.Count);
     }
 
+    /// <summary>历史里一封老格式（没记来信标注，键只有会话标识），新交回带来信标识：
+    /// 按会话认、同正文就去重——否则老数据上补送的报告会「回两封」</summary>
+    [Fact]
+    public async Task LegacyHistoryWithoutReplyTo_StillDeduplicates()
+    {
+        TestLetter legacy = new(_host.Session) { Dedupe = "sub" };
+        Assert.Equal(EDeliveryOutcome.Written, await DeliverAsync(legacy));
+
+        TestLetter newOne = new(_host.Session) { Dedupe = "sub|123" };
+        Assert.Equal(EDeliveryOutcome.Unchanged, await DeliverAsync(newOne));
+        Assert.Single(_host.Session.History);
+    }
+
+    /// <summary>同一个人回两次不同来信（键带不同来信标识）：不该被当成重复吞掉</summary>
+    [Fact]
+    public async Task DifferentReplyTo_IsNotDeduplicated()
+    {
+        TestLetter first = new(_host.Session) { Dedupe = "sub|111" };
+        Assert.Equal(EDeliveryOutcome.Written, await DeliverAsync(first));
+
+        TestLetter second = new(_host.Session) { Dedupe = "sub|222" };
+        Assert.Equal(EDeliveryOutcome.Written, await DeliverAsync(second));
+        Assert.Equal(2, _host.Session.History.Count);
+    }
+
     private Task<EDeliveryOutcome> DeliverAsync(SessionLetter letter) =>
         _delivery.DeliverAsync(letter).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
     private sealed class TestLetter(ChatSession session) : SessionLetter
     {
+        private const string TestKey = "test-letter-key";
         private readonly ChatMessage _message = new(ChatRole.User, "信");
 
         public bool Insertable { get; init; } = true;
@@ -197,7 +223,18 @@ public class SessionDeliveryTests
 
         public override string Cause => "test";
 
-        public override ChatMessage? Compose(ChatSession target) => Insertable ? _message : null;
+        public override ChatMessage? Compose(ChatSession target)
+        {
+            if (!Insertable) return null;
+            // 键要落在消息上、从消息读（像真实信读标记那样）：不同实例同键不同正文才能测准
+            if (Dedupe != null && _message.AdditionalProperties?.ContainsKey(TestKey) != true)
+            {
+                _message.AdditionalProperties ??= new AdditionalPropertiesDictionary();
+                _message.AdditionalProperties[TestKey] = Dedupe;
+            }
+
+            return _message;
+        }
 
         public override ELetterWrite Write(ChatSession target)
         {
@@ -208,7 +245,7 @@ public class SessionDeliveryTests
         public override string? DedupeKey => Dedupe;
 
         public override string? KeyOf(ChatMessage message) =>
-            Dedupe != null && message.Text == _message.Text ? Dedupe : null;
+            message.AdditionalProperties?.TryGetValue(TestKey, out object? raw) == true ? raw?.ToString() : null;
     }
 
     private sealed class FakeHost : ISessionDeliveryHost

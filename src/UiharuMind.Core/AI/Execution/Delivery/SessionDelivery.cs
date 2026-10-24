@@ -66,8 +66,9 @@ public sealed class SessionDelivery
         {
             // 送达层去重：全历史已有同键同正文的一封，就不再写也不注入（子代理报告交回两次、
             // 后台任务正常送达与退出收尾各走一遍时，历史里只该有一封）。
-            // 同键不同正文的不在这里拦——那可能是更正，交给各信的 Write 决定替换还是追加
-            if (AlreadyDelivered(letter)) return EDeliveryOutcome.Unchanged;
+            // 同键不同正文的不在这里拦——那可能是更正，交给各信的 Write 决定替换还是追加。
+            // 只在还没注入时查：注入后等收信人取走的那些拍，扫全历史是白花钱
+            if (injected == null && AlreadyDelivered(letter)) return EDeliveryOutcome.Unchanged;
 
             if (injected != null)
             {
@@ -164,8 +165,8 @@ public sealed class SessionDelivery
             for (int i = history.Count - 1; i >= 0; i--)
             {
                 ChatMessage existing = history[i];
-                if (string.Equals(letter.KeyOf(existing), key, StringComparison.Ordinal)
-                    && existing.Text == message.Text) return true;
+                string? existingKey = letter.KeyOf(existing);
+                if (existingKey != null && SameSource(key, existingKey) && existing.Text == message.Text) return true;
             }
         }
         catch (Exception)
@@ -174,6 +175,24 @@ public sealed class SessionDelivery
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// 两个来源键是不是同一封的来源。带「回的是哪一次来信」的键必须全等；
+    /// 至少一个只有会话标识（老数据没记来信）时按会话认——与 <c>SubAgentReportHandoff.ResolveSlot</c> 的
+    /// 「previousKey 为空当同一次」同口径，否则老数据上补送的去重会失效
+    /// </summary>
+    private static bool SameSource(string key, string existingKey)
+    {
+        if (key == existingKey) return true;
+
+        bool keyScoped = key.Contains('|');
+        bool existingScoped = existingKey.Contains('|');
+        if (keyScoped && existingScoped) return false;
+
+        string keySession = keyScoped ? key[..key.IndexOf('|')] : key;
+        string existingSession = existingScoped ? existingKey[..existingKey.IndexOf('|')] : existingKey;
+        return keySession == existingSession;
     }
 
     // 落盘的可能是框架重建的副本，按正文认；正文里带着任务编号或子会话标识，不会撞上别的

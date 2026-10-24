@@ -617,16 +617,26 @@ public static class BackgroundSubAgentDispatcher
             };
 
         // 送达层去重键：同一子会话回同一次来信，历史里已有同正文的一封就不再写（挡「回两封」）。
-        // 键带「回的是哪一次来信」，同一个人问两个问题回两封时不会被误吞
-        public override string? DedupeKey =>
-            $"{subSession.SessionId}|{SubAgentReportHandoff.RequestKey(subSession)}";
+        // 键带「回的是哪一次来信」，同一个人问两个问题回两封时不会被误吞；
+        // 没记来信的老数据（或这封本身就是续聊首问）只按会话标识——与 ResolveSlot 的
+        // 「previousKey 为空当同一次」同口径
+        public override string? DedupeKey
+        {
+            get
+            {
+                string requestKey = SubAgentReportHandoff.RequestKey(subSession);
+                return requestKey.Length > 0
+                    ? $"{subSession.SessionId}|{requestKey}"
+                    : subSession.SessionId;
+            }
+        }
 
         public override string? KeyOf(ChatMessage message)
         {
             string session = ChatMessageAnnotations.ReadSubAgentReportSession(message);
             if (session.Length == 0) return null;
             string replyTo = ChatMessageAnnotations.ReadSubAgentReplyTo(message);
-            return $"{session}|{replyTo}";
+            return replyTo.Length > 0 ? $"{session}|{replyTo}" : session;
         }
 
         // 数的是人不是轮次：同一位排着几轮也只算一位，这一位自己不算

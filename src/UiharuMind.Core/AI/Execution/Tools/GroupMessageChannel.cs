@@ -56,9 +56,20 @@ internal static class GroupMessageChannel
         // 发之前先看：已经在跑就是插进那一波，否则由这句开一波——回执要把这两种说清
         bool running = SessionManager.Instance.Running.IsBusy(group.SessionId);
 
-        // 落盘与插话都在这句调用里同步做完（PostAsync 的第一件事就是追加进流水），
-        // 只有「这一波跑完」是后话：不等它，异常也只记日志（没人接得住，且不该毁掉主代理这一轮）
-        Task posting = GroupChatCoordinator.Instance.PostAsync(body, message);
+        // PostAsync 的同步段（追加进流水、广播开波）就在这句调用里做完，只有「这一波跑完」是后话。
+        // 同步段异常会冒到工具调用上毁掉主代理这一轮：包住它，异常就当场报错；
+        // 异步段（这一波跑完）的异常没人接得住，记日志即可
+        Task posting;
+        try
+        {
+            posting = GroupChatCoordinator.Instance.PostAsync(body, message);
+        }
+        catch (Exception e)
+        {
+            Log.Error($"Group post to '{group.Title}' failed: {e.Message}");
+            return $"Error: 发到《{group.Title}》失败：{e.Message}。";
+        }
+
         _ = posting.ContinueWith(t => Log.Error($"Group post to '{group.Title}' failed: {t.Exception?.GetBaseException().Message}"),
             TaskContinuationOptions.OnlyOnFaulted);
 

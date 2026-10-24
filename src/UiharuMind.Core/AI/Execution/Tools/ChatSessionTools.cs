@@ -55,8 +55,9 @@ public static class ChatSessionTools
     // 群多了全列占上下文，最近几个够看
     private const int MaxListedGroups = 5;
 
-    // 建群至少几位成员：一位就是单聊（与建群弹窗同口径；开发脚本那条路不受此限）
-    private const int MinMembers = 2;
+    // 建群至少几位成员：一位就是单聊（与建群弹窗同口径；开发脚本那条路不受此限）。
+    // 下限校验在 GroupCreation 里按解析后的非空成员数算，空串成员不会绕过
+    private const int MinGroupMembers = 2;
 
     // 结果里提到别的命令与工具时的写法：名字改了这里跟着改，不靠各处手写字符串
     private static readonly string CreateGroupMention =
@@ -210,9 +211,9 @@ public static class ChatSessionTools
     /// <returns>给模型的回执</returns>
     internal static string CreateGroup(string sessionId, string? workspacePath, string name, string[] members)
     {
-        if (members == null || members.Length < MinMembers)
+        if (members == null)
         {
-            return $"Error: 一个群至少要 {MinMembers} 位成员（一位就是单聊）——用 {ListCharactersMention} 看有哪些角色。";
+            return $"Error: 还没点名成员——用 {ListCharactersMention} 看有哪些角色。";
         }
 
         ChatSessionMeta? caller = SessionManager.Instance.GetMeta(sessionId);
@@ -229,6 +230,7 @@ public static class ChatSessionTools
                 Name = name,
                 Members = members,
                 WorkspacePath = workspacePath,
+                MinMembers = MinGroupMembers,
             });
             return DescribeCreatedGroup(group);
         }
@@ -412,11 +414,16 @@ public static class ChatSessionTools
     /// <summary>
     /// 把流水写进标准的 <c>群流水.md</c>（草稿目录那一份，与离席给化身读的同一份）并返回路径；
     /// 写不出来为 null（告警在 <see cref="GroupLogFile"/> 里）。
-    /// 为它得加载群壳本体——历史就是那份流水，而群正在跑时正是要读它的时候
+    /// 为它得加载群壳本体——历史就是那份流水，而群正在跑时正是要读它的时候。
+    /// 正在离席的群不重写：那份流水由离席会话维护段头行号（LogAppendedUpTo / LogEndLine），
+    /// 第三方覆盖会让化身按锚点读错行；等离席还原（user 计划中）这段判断可删
     /// </summary>
     private static string? SnapshotOf(ChatSessionMeta group, SessionManager manager)
     {
         if (manager.Load(group.SessionId) is not { IsGroup: true } body) return null;
+        // 正在离席的群不重写：那份流水由离席会话维护段头行号（LogAppendedUpTo / LogEndLine），
+        // 第三方覆盖会让化身按锚点读错行；等离席还原（user 计划中）这段判断可删
+        if (GroupAwayController.Instance.StatusOf(group.SessionId) != null) return null;
         IReadOnlyList<ChatMessage> history = GroupChatCoordinator.Instance.HistorySnapshot(body);
         return GroupLogFile.Initialize(body, history) > 0 ? GroupLogFile.PathOf(body) : null;
     }

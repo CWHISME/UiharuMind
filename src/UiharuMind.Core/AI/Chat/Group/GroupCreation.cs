@@ -24,9 +24,13 @@ public static class GroupCreation
         if (name.Length == 0) throw new ArgumentException("群名不能为空。");
 
         List<CharacterData> members = ResolveMembers(spec.Members);
-        // 单人成群在这条路上是合法的（开发脚本用它跑「群路径」对照）：用户那边的「至少两位」
-        // 是建群弹窗的产品规则，由工具自己钉，不在这里替所有调用方做主
-        if (members.Count == 0) throw new ArgumentException("一个群至少要有一位成员。");
+        // 成员数下限由调用方定：工具（chatsession.create-group）要求至少两位（一位就是单聊），
+        // 开发脚本的「群路径」对照场景允许单人成群。按<b>解析后的</b>数量算——
+        // 传 "["角色A",""]" 这种带空串的名单不会绕过下限
+        if (members.Count < spec.MinMembers)
+        {
+            throw new ArgumentException($"一个群至少要 {spec.MinMembers} 位成员（一位就是单聊）。");
+        }
 
         List<string?>? modelNames = AlignModels(spec.ModelNames, members.Count);
         GroupSchedule schedule = new(spec.Mode, spec.StopPolicy, HostIndexOf(spec.Host, members));
@@ -111,6 +115,9 @@ public sealed record GroupCreationSpec
 
     /// <summary>是不是智能体群；智能体群才绑 <see cref="WorkspacePath"/></summary>
     public bool IsAgentGroup { get; init; } = true;
+
+    /// <summary>成员数下限（按解析后的非空成员算）；开发脚本默认允许单人成群</summary>
+    public int MinMembers { get; init; } = 1;
 
     /// <summary>智能体群的工作区；普通群忽略</summary>
     public string? WorkspacePath { get; init; }
