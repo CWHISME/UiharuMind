@@ -39,7 +39,7 @@ public partial class AgentWorkspacePanel : UserControl
 
         ConversationViewModel conversation = data.Conversation;
         Flyout? flyout = sender as Flyout; //Opening 的 sender 就是 Flyout 本身,拿它收起面板
-        flyout!.Content = new CharacterPickerViewData(
+        CharacterPicker.DataContext = new CharacterPickerViewData(
             character =>
             {
                 // 空态即预选（只改新建默认值，发送才建会话）；预选名字显示在角色行的头像旁

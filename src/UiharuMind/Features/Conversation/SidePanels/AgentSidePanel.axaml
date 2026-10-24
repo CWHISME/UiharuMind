@@ -386,11 +386,11 @@
                              判空守卫必须挂在外层（继承页面 DataContext），不能与 DataContext 写在同一元素上——
                              同一元素上的绑定按新的 DataContext 求值，空时守卫恒为真，面板带着空 DataContext
                              裸奔：标题与说明全空、文件夹按钮点不了，只剩静态空文案 -->
-                        <ScrollViewer Margin="0,6,0,0" HorizontalScrollBarVisibility="Disabled"
-                                      BringIntoViewOnFocusChange="False"
-                                      IsVisible="{Binding Conversation.Artifacts, Converter={x:Static ObjectConverters.IsNotNull}}">
+                        <Border Margin="0,6,0,0"
+                                IsVisible="{Binding Conversation.Artifacts, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <!-- 列表在 ArtifactsPanel 内部自己滚（ListBox 虚拟化需要受限高度，外层不能再套 ScrollViewer） -->
                             <art:ArtifactsPanel DataContext="{Binding Conversation.Artifacts}" />
-                        </ScrollViewer>
+                        </Border>
                     </TabItem>
 
                 </TabControl>

@@ -32,6 +32,23 @@
     <Style Selector="ListBox.model-list ListBoxItem:selected">
         <Setter Property="Background" Value="{DynamicResource SemiBlue0}" />
     </Style>
+    <!-- 自带行内按钮、不需要选中痕迹的扁平列表（角色选择器、产物列表共用）：
+         ListBoxItem 只是容器，视觉全交给行内的 Button；选中/悬停不染色、无焦点框 -->
+    <Style Selector="ListBox.flat-list">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="ListBox.flat-list ListBoxItem">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="ListBox.flat-list ListBoxItem:pointerover /template/ Border#PART_Border, ListBox.flat-list ListBoxItem:selected /template/ Border#PART_Border">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
     <!-- 不进 ListBox 的分组列表（语音模型、音色库）用的行：与 model-list 的行同一几何，只悬停不选中 -->
     <Style Selector="Border.model-row">
         <Setter Property="Padding" Value="14,10" />

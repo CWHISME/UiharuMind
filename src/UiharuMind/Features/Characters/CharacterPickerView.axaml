@@ -18,38 +18,38 @@
         <TextBlock DockPanel.Dock="Top" Classes="muted" FontSize="12" Margin="4,6"
                    Text="{loc:Loc CharacterPickerEmpty}"
                    IsVisible="{Binding IsEmpty}" />
-        <ScrollViewer>
-            <ItemsControl ItemsSource="{Binding Items}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="chars:CharacterPickerItem">
-                        <Button Classes="picker-row" Command="{Binding PickCommand}"
-                                HorizontalContentAlignment="Stretch"
-                                ToolTip.Placement="Left"
-                                ToolTip.Tip="{Binding Description}">
-                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8"
-                                  HorizontalAlignment="Stretch">
-                                <Border Grid.Column="0" Width="28" Height="28" CornerRadius="14"
-                                        ClipToBounds="True" VerticalAlignment="Top">
-                                    <Image Source="{Binding Icon}" Stretch="UniformToFill" RenderOptions.BitmapInterpolationMode="HighQuality" />
-                                </Border>
-                                <StackPanel Grid.Column="1">
-                                    <TextBlock FontSize="12" TextTrimming="CharacterEllipsis"
-                                               Text="{Binding Name}" />
-                                    <TextBlock FontSize="10" Classes="muted" MaxLines="2"
-                                               TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
-                                               Text="{Binding Description}" />
-                                </StackPanel>
-                                <!-- 只读星标：已收藏的角色排在前面（收藏在角色库左栏或群成员里切）。
-                                     顶部对齐而非常垂直居中：描述行数不一导致行高不同，居中会让星星上下漂移不同线 -->
-                                <controls:ThemedSvgIcon Grid.Column="2" IconName="star" Width="14" Height="14"
-                                                        IsVisible="{Binding IsFavorite}"
-                                                        CurrentColor="{Binding FavoriteColor}"
-                                                        VerticalAlignment="Center" />
-                            </Grid>
-                        </Button>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
+        <ListBox ItemsSource="{Binding Items}" Classes="flat-list"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 ScrollViewer.BringIntoViewOnFocusChange="False">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="chars:CharacterPickerItem">
+                    <Button Classes="picker-row" Command="{Binding PickCommand}"
+                            HorizontalContentAlignment="Stretch"
+                            ToolTip.Placement="Left"
+                            ToolTip.Tip="{Binding Description}">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8"
+                              HorizontalAlignment="Stretch">
+                            <Border Grid.Column="0" Width="28" Height="28" CornerRadius="14"
+                                    ClipToBounds="True" VerticalAlignment="Top">
+                                <Image Source="{Binding Icon}" Stretch="UniformToFill" RenderOptions.BitmapInterpolationMode="HighQuality" />
+                            </Border>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock FontSize="12" TextTrimming="CharacterEllipsis"
+                                           Text="{Binding Name}" />
+                                <TextBlock FontSize="10" Classes="muted" MaxLines="2"
+                                           TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+                                           Text="{Binding Description}" />
+                            </StackPanel>
+                            <!-- 只读星标：已收藏的角色排在前面（收藏在角色库左栏或群成员里切）。
+                                 顶部对齐而非常垂直居中：描述行数不一导致行高不同，居中会让星星上下漂移不同线 -->
+                            <controls:ThemedSvgIcon Grid.Column="2" IconName="star" Width="14" Height="14"
+                                                    IsVisible="{Binding IsFavorite}"
+                                                    CurrentColor="{Binding FavoriteColor}"
+                                                    VerticalAlignment="Center" />
+                        </Grid>
+                    </Button>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
     </DockPanel>
 </UserControl>

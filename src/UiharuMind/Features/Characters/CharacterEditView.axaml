@@ -143,13 +143,9 @@
                                     <Button Content="{loc:Loc SnippetInsert}">
                                         <Button.Flyout>
                                             <Flyout Placement="BottomEdgeAlignedLeft" Opening="OnSnippetPickerOpening">
-                                                <!-- 同子代理选择器：ContentTemplate 包一层，避免内容在赋值前
-                                                     继承父级 DataContext、编译绑定强转抛 InvalidCastException -->
-                                                <Flyout.ContentTemplate>
-                                                    <DataTemplate DataType="viewData:PromptSnippetPickerViewData">
-                                                        <viewData:PromptSnippetPickerView />
-                                                    </DataTemplate>
-                                                </Flyout.ContentTemplate>
+                                                <!-- 控件实例固定、只换 DataContext：直接嵌控件时，赋值前会继承父级 DataContext，
+                                                     编译绑定强转会抛 InvalidCastException，故初始把 DataContext 钉死为 null（null 安全） -->
+                                                <viewData:PromptSnippetPickerView Name="SnippetPicker" DataContext="{x:Null}" />
                                             </Flyout>
                                         </Button.Flyout>
                                     </Button>
@@ -329,13 +325,9 @@
                                 <Button Content="{loc:Loc AddBtn}" HorizontalAlignment="Left">
                                     <Button.Flyout>
                                         <Flyout Placement="BottomEdgeAlignedLeft" Opening="OnSubAgentPickerOpening">
-                                            <!-- 同 ConversationPageData 场景：ContentTemplate 包一层，避免内容在赋值前
-                                                 继承父级 DataContext、编译绑定强转抛 InvalidCastException -->
-                                            <Flyout.ContentTemplate>
-                                                <DataTemplate DataType="viewData:CharacterPickerViewData">
-                                                    <viewData:CharacterPickerView />
-                                                </DataTemplate>
-                                            </Flyout.ContentTemplate>
+                                            <!-- 控件实例固定、只换 DataContext：直接嵌控件时，赋值前会继承父级 DataContext，
+                                                 编译绑定强转会抛 InvalidCastException，故初始把 DataContext 钉死为 null（null 安全） -->
+                                            <viewData:CharacterPickerView Name="SubAgentPicker" DataContext="{x:Null}" />
                                         </Flyout>
                                     </Button.Flyout>
                                 </Button>

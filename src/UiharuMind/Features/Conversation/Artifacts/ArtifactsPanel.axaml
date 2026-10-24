@@ -11,8 +11,9 @@
 
     <!-- 产物区：群或单聊到底落了哪些盘。点开看文件，右键在文件夹中显示 -->
     <Border BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}" CornerRadius="8" Padding="8">
-        <StackPanel Spacing="8">
-            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
+        <!-- 列表行用 * 拿受限高度：放纵向 StackPanel 里的话 ListBox 收到无限高度，虚拟化失效 -->
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" RowSpacing="8">
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
                 <TextBlock FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"
                            Text="{Binding Title}" />
                 <ThemedIconButton Grid.Column="1" Width="24" Height="24" VerticalAlignment="Center"
@@ -26,13 +27,15 @@
                                         IsChecked="{Binding DraftOnly, Mode=TwoWay}"
                                         ToolTip.Tip="{Binding FilterTip}" />
             </Grid>
-            <TextBlock Classes="muted" Text="{Binding Hint}" TextWrapping="Wrap" />
-            <TextBlock Classes="muted" FontSize="11" IsVisible="{Binding IsEmpty}"
+            <TextBlock Grid.Row="1" Classes="muted" Text="{Binding Hint}" TextWrapping="Wrap" />
+            <TextBlock Grid.Row="2" Classes="muted" FontSize="11" IsVisible="{Binding IsEmpty}"
                        Text="{loc:Loc GroupArtifactsEmpty}" TextWrapping="Wrap" />
-            <TextBlock Classes="muted" FontSize="11" IsVisible="{Binding IsDraftEmpty}"
+            <TextBlock Grid.Row="3" Classes="muted" FontSize="11" IsVisible="{Binding IsDraftEmpty}"
                        Text="{loc:Loc GroupArtifactsDraftEmpty}" TextWrapping="Wrap" />
-            <ItemsControl ItemsSource="{Binding Items}">
-                <ItemsControl.ItemTemplate>
+            <ListBox Grid.Row="4" ItemsSource="{Binding Items}" Classes="flat-list"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     ScrollViewer.BringIntoViewOnFocusChange="False">
+                <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="art:ArtifactItem">
                         <Button Classes="Tertiary" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                 Margin="0,1" Padding="6,4" Command="{Binding OpenCommand}"
@@ -64,8 +67,8 @@
                             </StackPanel>
                         </Button>
                     </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </StackPanel>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Grid>
     </Border>
 </UserControl>

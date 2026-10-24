@@ -47,13 +47,9 @@
                         <Button.Flyout>
                             <Flyout Placement="BottomEdgeAlignedLeft"
                                     Opening="OnAvatarCharacterPickerOpening">
-                                <!-- 同 ConversationPageData 场景：ContentTemplate 包一层，避免内容在赋值前
-                                     继承父级 DataContext、编译绑定强转抛 InvalidCastException -->
-                                <Flyout.ContentTemplate>
-                                    <DataTemplate DataType="chars:CharacterPickerViewData">
-                                        <chars:CharacterPickerView />
-                                    </DataTemplate>
-                                </Flyout.ContentTemplate>
+                                <!-- 控件实例固定、只换 DataContext：直接嵌控件时，赋值前会继承父级 DataContext，
+                                     编译绑定强转会抛 InvalidCastException，故初始把 DataContext 钉死为 null（null 安全） -->
+                                <chars:CharacterPickerView Name="AvatarCharacterPicker" DataContext="{x:Null}" />
                             </Flyout>
                         </Button.Flyout>
                     </Button>

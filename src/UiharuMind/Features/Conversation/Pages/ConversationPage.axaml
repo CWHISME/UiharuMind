@@ -64,8 +64,11 @@
                         <Border IsVisible="{Binding Conversation.Group.Away, Converter={x:Static ObjectConverters.IsNotNull}}">
                             <group:GroupAwayPanel DataContext="{Binding Conversation.Group.Away}" />
                         </Border>
-                        <!-- 本群产物：群到底落了哪些盘（方案 v6 §1.4 产出锚点） -->
-                        <art:ArtifactsPanel DataContext="{Binding Conversation.Group.Artifacts}" />
+                        <!-- 本群产物：群到底落了哪些盘（方案 v6 §1.4 产出锚点）。
+                             产物多时内部列表独立滚动（ListBox 虚拟化需要受限高度，限高由外层给） -->
+                        <Border MaxHeight="300">
+                            <art:ArtifactsPanel DataContext="{Binding Conversation.Group.Artifacts}" />
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
                 <Grid Grid.Row="2" IsVisible="{Binding !Conversation.IsGroupSession}">
