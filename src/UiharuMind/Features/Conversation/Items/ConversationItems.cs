@@ -523,10 +523,27 @@ public partial class ErrorItem : ConversationItemBase
 /// 正在整理交接文档的会话内占位。不配对任何历史消息（<c>SourceMessage</c> 为空），
 /// 因此不会参与对账判定；整理完成由 <c>HandoffItem</c>（或错误条目）替换它。
 /// </summary>
-public partial class HandoffWritingItem : ConversationItemBase
+public partial class HandoffWritingItem : ConversationItemBase, IStreamFlushTarget
 {
-    /// <summary>整理开始时间（如「14:32」），占位卡进行中时显示</summary>
+    private readonly long _startTicks = Stopwatch.GetTimestamp(); //整理开始时刻（live 计时用，单调时钟）
+
+    /// <summary>进行中耗时（如「3.2s」），随跑表 1 秒一跳；与思考段/工具卡同一口径</summary>
     [ObservableProperty] private string _timeText = string.Empty;
+
+    /// <summary>跑表节拍：与思考段/工具卡统一，1 秒一跳</summary>
+    public int FlushIntervalMs => 1000;
+
+    /// <summary>开始 live 跑表（占位卡挂上时调）。只排一次节拍，之后每拍自续</summary>
+    internal void BeginLiveTiming() => StreamFlushPump.Request(this);
+
+    /// <summary>停止 live 跑表（占位卡收掉或清场时调），泵空了自动停</summary>
+    internal void StopTiming() => StreamFlushPump.Remove(this);
+
+    void IStreamFlushTarget.FlushForDisplay()
+    {
+        TimeText = ThinkingItem.FormatDuration(Stopwatch.GetElapsedTime(_startTicks));
+        StreamFlushPump.Request(this); //跑着就续下一拍；收掉后不再续
+    }
 }
 
 /// <summary>

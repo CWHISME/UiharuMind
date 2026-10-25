@@ -263,7 +263,7 @@
                             <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
                                 <SpinnerIcon VerticalAlignment="Center" />
                                 <TextBlock Classes="muted" Text="{Binding Message}" VerticalAlignment="Center" />
-                                <!-- 整理开始时刻,与工具卡同一条时间线索 -->
+                                <!-- 进行中耗时,与工具卡跑表同一口径,1 秒一跳 -->
                                 <TextBlock Classes="muted mono" FontSize="11" Text="{Binding TimeText}"
                                            VerticalAlignment="Center" />
                             </StackPanel>

@@ -588,9 +588,9 @@ public class TurnDriverTests
     }
 
     /// <summary>
-    /// 写交接那一发照常记账（会话累计、缓存命中），写完把估算里那段被替换的历史忘掉、占用重置：
+    /// 写交接那一发照常记账（会话累计、缓存命中），写完把估算里那段被替换的历史忘掉、占用换成压缩后的估算：
     /// 交接后第一次请求框架不问触发条件，不清的话账本会把交接之前的大数当成那一次的占用；
-    /// 压缩已完成，进度条也不该再顶着压缩前的大数
+    /// 压缩已完成，进度条与面板显示的是压缩后供给窗口的实际大小，也不再顶着压缩前的大数
     /// </summary>
     [Fact]
     public async Task Handoff_RecordsItsOwnUsage_AndForgetsTheSupersededEstimate()
@@ -610,9 +610,11 @@ public class TurnDriverTests
 
         Assert.Equal(90_000, session.TotalInputTokens); //累计照记,重置不动它
         Assert.Equal(800, session.TotalOutputTokens);
-        Assert.Equal(85_000, session.LastCachedInputTokens); //交接那一发的命中随本体落盘,重开会话与旁观窗口读的是它
-        Assert.Equal(0, ledger.LastInput); //压缩完成:占用已重置,进度条不再顶着压缩前的大数
-        Assert.Equal(0, ledger.EstimatedInput);
+        // 压缩后占用 = 压缩后供给窗口(交接文档 + 保留消息 + 固定开销)的估算:不是压缩前的大数,也不归零
+        Assert.InRange(session.LastInputTokens, 1, 90_000);
+        Assert.Equal(session.LastInputTokens, ledger.LastInput); //本体与账本同源,旁观窗口/重开会话按 RestoreFrom 也能还原
+        Assert.Equal(0, session.LastCachedInputTokens); //交接那一发的命中不该在重开/旁观窗口里冒充当前缓存命中
+        Assert.Equal(0, ledger.EstimatedInput); //估算段清掉,面板不再显示「未计入」
         Assert.Equal(0, ledger.LastCachedInput); //「最近一次命中」那行也随占用一起清
         Assert.Equal(0, ledger.CompactedInput); //「已折叠」那一行随之消失
         Assert.Equal(0, estimate.LastHistory);

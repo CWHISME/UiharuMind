@@ -183,6 +183,48 @@ public class TurnUsageContextTests
         Assert.Equal(16_000, restored.TurnCachedInput);
     }
 
+    /// <summary>
+    /// 压缩后重置占用段：连本体一起换成压缩后的估算。交接请求本身一次记账，本体上还顶着压缩前的全量历史，
+    /// 只清内存会让 RestoreFrom（旁观窗口、下次切回会话）把大数捞回来；传估算则是让它显示压缩后的实际大小
+    /// </summary>
+    [Fact]
+    public void ResetOccupancyAfterCompaction_ReplacesSessionOccupancyKeepsAccumulated()
+    {
+        TurnUsageLedger ledger = new();
+        ChatSession session = Session();
+        ledger.Record(new UsageDetails
+        {
+            InputTokenCount = 12_345, OutputTokenCount = 900, ReasoningTokenCount = 456, CachedInputTokenCount = 10_000,
+        }, session);
+        ledger.Record(new UsageDetails
+        {
+            InputTokenCount = 13_000, OutputTokenCount = 800, CachedInputTokenCount = 6_000,
+        }, session);
+
+        ledger.ResetOccupancyAfterCompaction(session, afterOccupancy: 2_400);
+
+        Assert.Equal(2_400, ledger.LastInput);
+        Assert.Equal(0, ledger.EstimatedInput);
+        Assert.Equal(0, ledger.CompactedInput);
+        Assert.Equal(2_400, session.LastInputTokens);
+        Assert.Equal(0, session.LastCachedInputTokens);
+        Assert.Equal(0, session.LastTurnInputTokens);
+        Assert.Equal(0, session.LastTurnOutputTokens);
+        Assert.Equal(0, session.LastTurnCachedInputTokens);
+        // 累计保留:会话花了多少与压缩无关
+        Assert.Equal(25_345, ledger.SessionInput);
+        Assert.Equal(1700, ledger.SessionOutput);
+        Assert.Equal(16_000, ledger.SessionCachedInput);
+        Assert.Equal(2, ledger.SessionRequests);
+
+        // 压缩后估算同样要能从本体读回来,不能失踪
+        TurnUsageLedger restored = new();
+        restored.RestoreFrom(session);
+        Assert.Equal(2_400, restored.LastInput);
+        Assert.Equal(0, restored.TurnInput);
+        Assert.Equal(0, restored.TurnCachedInput);
+    }
+
     private static ChatSession Session(long lastInput = 0) =>
         new("t", new CharacterData { CharacterId = "t" }) { IsTransient = true, LastInputTokens = lastInput };
 

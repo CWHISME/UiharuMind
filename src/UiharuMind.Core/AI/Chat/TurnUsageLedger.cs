@@ -258,16 +258,29 @@ public sealed class TurnUsageLedger
 
     /// <summary>
     /// 压缩后重置占用段：历史已被记忆压缩文档替换，进度条不该再顶着压缩前的大数。
-    /// 累计（会话花了多少）保留，只有「现在多满」这一段归零——下一轮请求后由执行侧重新写入。
+    /// 累计（会话花了多少）保留，只有「现在多满」这一段换成压缩后的占用——下一轮请求后由执行侧覆写。
+    ///
+    /// <b>会话本体上的占用字段一并更新</b>：交接请求本身也是一次记账（见
+    /// <c>TurnDriver.RecordUsage</c>），它的输入是压缩前的全量历史，那个数早已写回本体并随会话头持久化；
+    /// 只清内存会让旁观窗口与下次切回会话时的 <see cref="RestoreFrom"/> 又恢复成大数。
     /// </summary>
-    public void ResetOccupancyAfterCompaction()
+    /// <param name="session">压缩的那个会话，其占用字段会同步覆写</param>
+    /// <param name="afterOccupancy">压缩后的占用（交接文档 + 保留消息 + 固定开销的估算，调用方现算）；
+    /// 归零会显示成「会话像被清空」，留压缩前的数又像压缩没生效</param>
+    public void ResetOccupancyAfterCompaction(ChatSession session, long afterOccupancy)
     {
-        LastInput = 0;
+        LastInput = Math.Max(0, afterOccupancy);
         EstimatedInput = 0;
         CompactedInput = 0;
         LastCachedInput = 0;
         LastReasoningTokens = 0;
         TotalTokenCount = 0;
+
+        session.LastInputTokens = LastInput;
+        session.LastCachedInputTokens = 0;
+        session.LastTurnInputTokens = 0;
+        session.LastTurnOutputTokens = 0;
+        session.LastTurnCachedInputTokens = 0;
     }
 
     /// <summary>

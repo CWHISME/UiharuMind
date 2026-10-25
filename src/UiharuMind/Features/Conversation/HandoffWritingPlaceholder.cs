@@ -39,12 +39,10 @@ public sealed class HandoffWritingPlaceholder
     public void Show()
     {
         if (_item != null) return;
-        _item = new HandoffWritingItem
-        {
-            Message = Loc.Text(LangKey.HandoffWriting),
-            TimeText = DateTimeOffset.Now.ToString("HH:mm"), //整理开始时刻,占位卡上给人一个抓手
-        };
-        _items.Add(_item);
+        HandoffWritingItem item = new() { Message = Loc.Text(LangKey.HandoffWriting) };
+        _item = item;
+        item.BeginLiveTiming(); //首值等节拍：建卡可能不在 UI 线程，赋值留给节拍回调
+        _items.Add(item);
         _scrollToEnd();
     }
 
@@ -53,12 +51,15 @@ public sealed class HandoffWritingPlaceholder
     {
         if (_item is not { } item) return;
         _item = null;
+        item.StopTiming();
         if (_items.Remove(item)) _scrollToEnd();
     }
 
-    /// <summary>条目已被整体清掉时只丢引用；若整理还在跑，切回会话时由装载重新挂上</summary>
+    /// <summary>条目已被整体清掉时只丢引用并停表；若整理还在跑，切回会话时由装载重新挂上</summary>
     public void Forget()
     {
+        if (_item is not { } item) return;
         _item = null;
+        item.StopTiming(); //集合已清，泵里的注册还在——不摘它会每拍自续、全局泵停不下来
     }
 }

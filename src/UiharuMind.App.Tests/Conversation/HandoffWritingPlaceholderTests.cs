@@ -10,6 +10,7 @@
 using System.Collections.Generic;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Items;
+using UiharuMind.Shared.Utils.Tools;
 
 namespace UiharuMind.App.Tests.Conversation;
 
@@ -53,17 +54,51 @@ public class HandoffWritingPlaceholderTests
         Assert.Equal(0, _scrolls);
     }
 
-    /// <summary>条目被整体清掉之后只丢引用；整理还在跑时切回来要能再挂一张</summary>
+    /// <summary>占位卡的跑表：首值等节拍，节拍一拍就填上耗时；跑表由收掉/清场停掉</summary>
     [Fact]
-    public void Forget_AfterItemsCleared_AllowsShowingAgain()
+    public void Show_ThenFlush_FillsElapsedText()
     {
         HandoffWritingPlaceholder placeholder = NewPlaceholder();
         placeholder.Show();
+
+        HandoffWritingItem item = Assert.IsType<HandoffWritingItem>(Assert.Single(_items));
+        try
+        {
+            // 建卡可能不在 UI 线程，首值留给节拍回调，不在这里写
+            Assert.Equal(string.Empty, item.TimeText);
+
+            ((IStreamFlushTarget)item).FlushForDisplay();
+
+            Assert.NotEqual(string.Empty, item.TimeText);
+        }
+        finally
+        {
+            item.StopTiming(); // FlushForDisplay 会自续进全局泵，测试结束前摘掉
+        }
+    }
+
+    /// <summary>清场停表后再挂一张，跑表从新条目自己的起点重新走</summary>
+    [Fact]
+    public void Forget_ThenShow_StartsFreshTimingOnNewCard()
+    {
+        HandoffWritingPlaceholder placeholder = NewPlaceholder();
+        placeholder.Show();
+        HandoffWritingItem first = Assert.IsType<HandoffWritingItem>(Assert.Single(_items));
         _items.Clear();
 
         placeholder.Forget();
         placeholder.Show();
 
-        Assert.IsType<HandoffWritingItem>(Assert.Single(_items));
+        HandoffWritingItem second = Assert.IsType<HandoffWritingItem>(Assert.Single(_items));
+        Assert.NotSame(first, second);
+        try
+        {
+            ((IStreamFlushTarget)second).FlushForDisplay();
+            Assert.NotEqual(string.Empty, second.TimeText);
+        }
+        finally
+        {
+            second.StopTiming();
+        }
     }
 }

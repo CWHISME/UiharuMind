@@ -7,7 +7,9 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Text.Json;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.CrossProcess;
 using UiharuMind.Core.AI.Chat.Group;
@@ -15,6 +17,7 @@ using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.ToolCall;
+using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Core.SimpleLog;
 
@@ -675,6 +678,45 @@ public sealed class TurnDriver : IDisposable
     }
 
     /// <summary>
+    /// 压缩完成后的占用估算：从最后一份交接文档起的供给窗口 + 固定开销。
+    ///
+    /// 交接请求报的输入是压缩前的全量，不能拿它当压缩后占用；归零又会让面板显示成
+    /// 「— / 上限」（像会话被清空）。这里按新的供给窗口自己估一遍——量级参考即可，
+    /// 下一轮常规请求会由服务端报准数并覆写。
+    /// </summary>
+    private static long EstimateOccupancyAfterCompaction(ChatSession session, ICharacterRunner runner)
+    {
+        bool promptOnly = runner.ChatOptions?.Tools is not { Count: > 0 };
+        long tokens = 0;
+        foreach (ChatMessage message in HistorySupply.From(session.History, promptOnly))
+        {
+            foreach (AIContent content in message.Contents)
+            {
+                switch (content)
+                {
+                    case TextContent text:
+                        tokens += LlmTokenizer.CountTokens(text.Text);
+                        break;
+                    case TextReasoningContent text:
+                        tokens += LlmTokenizer.CountTokens(text.Text);
+                        break;
+                    case FunctionCallContent call when call.Arguments is { Count: > 0 } arguments:
+                        tokens += LlmTokenizer.CountTokens(JsonSerializer.Serialize(arguments, ToolJson.Arguments));
+                        break;
+                    case FunctionResultContent result when result.Result is string text:
+                        tokens += LlmTokenizer.CountTokens(text);
+                        break;
+                    case DataContent data when data.HasTopLevelMediaType("image"):
+                        tokens += InlineImageLimits.EstimateTokens(data.Data.Span);
+                        break;
+                }
+            }
+        }
+
+        return tokens + (runner.InputEstimate?.FixedOverhead ?? 0);
+    }
+
+    /// <summary>
     /// 到水位就让当前模型写一份交接文档，之后的历史供给从它开始。
     /// 失败不作声张——框架的截断仍挂着当兜底，最坏结果是回到「悄悄丢最旧的消息」。
     /// </summary>
@@ -765,8 +807,10 @@ public sealed class TurnDriver : IDisposable
             session.History.Add(message);
             session.SaveAppended(before);
             ForgetSupersededEstimate(runner);
-            // 压缩完成:历史已被记忆压缩文档替换,占用归零、进度条立即重置,等下一轮请求再重新涨
-            _usage.ResetOccupancyAfterCompaction();
+            // 压缩完成:历史已被记忆压缩文档替换,占用换成压缩后的估算、进度条立即复位,等下一轮请求再被真实值覆写。
+            // 交接请求刚记过账,本体上还是压缩前的大数,不清的话旁观窗口和下次切回会话会按 RestoreFrom 恢复成大数
+            _usage.ResetOccupancyAfterCompaction(session, EstimateOccupancyAfterCompaction(session, runner));
+            session.SaveMeta(false); //占用字段随会话头落盘;历史刚追加过,UpdatedAt 已刷新,不重排列表
             //正文从消息本体取而不是直接用 note:去标题这一步与写进历史的那份逐字对应
             _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffWritten, HistoryHandoff.NoteBody(message.Text)));
             _notify?.Invoke(new TurnNotice(ETurnNotice.ScrollToEnd));
