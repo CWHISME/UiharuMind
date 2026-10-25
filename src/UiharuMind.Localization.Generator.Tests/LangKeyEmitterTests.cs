@@ -58,8 +58,8 @@ public class LangKeyEmitterTests
         Assert.Contains("    /// <summary>Line1 Line2 &amp; &lt;tag&gt;</summary>", source);
         // 原始换行不得进入注释体
         Assert.DoesNotContain("\nLine2", source);
-        // 注释行必须紧挨在成员行上方
-        Assert.Contains("    /// <summary>Line1 Line2 &amp; &lt;tag&gt;</summary>\n    MultiLine,", source);
+        // 注释行必须紧挨在成员行上方(生成器用 AppendLine,换行按平台取,不要写死 \n)
+        Assert.Contains("    /// <summary>Line1 Line2 &amp; &lt;tag&gt;</summary>" + Environment.NewLine + "    MultiLine,", source);
     }
 
     [Fact]

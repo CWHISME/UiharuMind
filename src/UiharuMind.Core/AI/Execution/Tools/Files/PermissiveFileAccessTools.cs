@@ -300,9 +300,11 @@ internal sealed class PermissiveFileAccessTools
 
     [Description($"""
                  编辑文本文件。工具提供三种对 oldString 的匹配模式：
-                 1. 精确匹配：全文件子串匹配，不限整行。但该子串在全文件必须唯一。
-                 2. 多行匹配：「头串{EditElision.Token}尾串」，可跨行匹配以**头串**开头、**尾串**结尾的文本。
-                 3. 单行匹配：「头串{EditElision.Token}」，直接匹配以**头串**开头的整行（替换不影响换行）。
+                 1. 精确匹配：全文件子串匹配，不限整行。该子串在全文件必须唯一——不唯一时报错会列出出现次数与起始行号，给它补上前后几行锁定唯一那一处。
+                 2. 多行匹配：「头串{EditElision.Token}尾串」，可跨行匹配以**头串**开头、**尾串**结尾的整段文本；头串须唯一，不唯一时报错会列出各次起始行，把头串写长即可。
+                 3. 单行匹配：「头串{EditElision.Token}」，直接匹配以**头串**开头的整行（替换不影响换行）；头串太短不唯一时报错会列出命中行数，把开头写长。
+                 newString 里也可以带 {EditElision.Token}：代表把被省略的原文原样保留，数量必须与 oldString 一致（一处都不写 = 整段换成 newString；数量对不上会失败）。
+                 {EditElision.Token} 是字面字符串、不是正则表达式：文件里真有这段字符时精确匹配优先；要写入字面的 {EditElision.Token}，用不带记号的普通编辑。
                  """)]
     internal async Task<string> Edit(
         [Description("文件路径，工作目录的相对路径(也接受非工作目录的绝对路径)。")]

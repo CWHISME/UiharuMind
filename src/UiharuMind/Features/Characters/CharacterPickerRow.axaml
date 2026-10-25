@@ -1,0 +1,39 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:chars="clr-namespace:UiharuMind.Features.Characters"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="54"
+             x:Class="UiharuMind.Features.Characters.CharacterPickerRow"
+             x:DataType="chars:CharacterPickerItem">
+
+    <!-- 选择器的一行。刻意做成独立控件：XAML 的 DataTemplate 在滚动时不会复用行内容，
+         每滚进一行就重建一整棵（Button + 头像 + 两段文字 + 星标）；换成 FuncDataTemplate +
+         这个控件之后滚动只换 DataContext，见 CharacterPickerView.axaml.cs -->
+    <Button Classes="picker-row" Command="{Binding PickCommand}"
+            HorizontalContentAlignment="Stretch"
+            ToolTip.Placement="Left"
+            ToolTip.Tip="{Binding Description}">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8"
+              HorizontalAlignment="Stretch">
+            <Border Grid.Column="0" Width="28" Height="28" CornerRadius="14"
+                    ClipToBounds="True" VerticalAlignment="Top">
+                <Image Source="{Binding Icon}" Stretch="UniformToFill" RenderOptions.BitmapInterpolationMode="HighQuality" />
+            </Border>
+            <StackPanel Grid.Column="1">
+                <TextBlock FontSize="12" TextTrimming="CharacterEllipsis"
+                           Text="{Binding Name}" />
+                <TextBlock FontSize="10" Classes="muted"
+                           TextTrimming="CharacterEllipsis"
+                           Text="{Binding Description}" />
+            </StackPanel>
+            <!-- 只读星标：已收藏的角色排在前面（收藏在角色库左栏或群成员里切）。
+                 顶部对齐而非常垂直居中：描述行数不一导致行高不同，居中会让星星上下漂移不同线 -->
+            <controls:ThemedSvgIcon Grid.Column="2" IconName="star" Width="14" Height="14"
+                                    IsVisible="{Binding IsFavorite}"
+                                    CurrentColor="{Binding FavoriteColor}"
+                                    VerticalAlignment="Center" />
+        </Grid>
+    </Button>
+</UserControl>
