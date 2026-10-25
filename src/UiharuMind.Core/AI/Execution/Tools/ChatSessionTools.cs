@@ -185,7 +185,7 @@ public static class ChatSessionTools
         if (all.Count == 0)
         {
             return canSendToGroup
-                ? $"当前没有群聊。要建一个，用 {CreateGroupMention}；建好后用 {SendMessageMention} 往群里说话（`to` 填群名）。"
+                ? $"当前没有群聊。要建一个，用 {CreateGroupMention}；建好后用 {SendMessageMention} 往群里说话（`to` 填群名或群壳短号）。"
                 : "当前没有群聊。";
         }
 
@@ -195,7 +195,7 @@ public static class ChatSessionTools
             ? $"群聊（最近 {groups.Count} 个，共 {all.Count}）："
             : $"群聊 {groups.Count} 个：");
         foreach (ChatSessionMeta group in groups) sb.Append(DescribeGroup(group, manager));
-        if (canSendToGroup) sb.Append($"往群里说一句用 {SendMessageMention}，`to` 填群名或群壳短号。");
+        if (canSendToGroup) sb.Append($"往群里说一句用 {SendMessageMention}，`to` 填群名或群壳短号（`[群壳 xxxxxxxx]` 整行拷进去也认）。");
         return sb.ToString();
     }
 
@@ -254,7 +254,7 @@ public static class ChatSessionTools
         sb.AppendLine(string.IsNullOrWhiteSpace(group.WorkspacePath)
             ? "工作区：未绑（成员写文件落在各自的草稿目录）"
             : $"工作区：{group.WorkspacePath}");
-        sb.Append($"往群里说一句用 {SendMessageMention}，`to` 填《{group.Title}》；" +
+        sb.Append($"往群里说一句用 {SendMessageMention}，`to` 填《{group.Title}》或 [群壳 {SubSessionIdAlias.Short(group.SessionId)}]；" +
                   $"跑起来后用 {GroupsMention} 看进度（正在跑的群会给你流水快照路径）。");
         return sb.ToString();
     }

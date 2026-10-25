@@ -100,11 +100,14 @@ public sealed class ChatSessionCreateGroupTests : IDisposable
         ChatSessionMeta group = Assert.Single(SessionManager.Instance.FindSessions(x =>
             x.IsGroup && x.Title == "cg-评审群"));
         _sessions.Add(group.SessionId);
+        string shortId = SubSessionIdAlias.Short(group.SessionId);
 
         Assert.Equal(group.SessionId, Assert.Single(GroupMessageChannel.Match("cg-评审群")).SessionId);
         Assert.Equal(group.SessionId, Assert.Single(GroupMessageChannel.Match("《cg-评审群》")).SessionId); //书名号一起照进来也认
-        Assert.Equal(group.SessionId,
-            Assert.Single(GroupMessageChannel.Match(SubSessionIdAlias.Short(group.SessionId))).SessionId);
+        Assert.Equal(group.SessionId, Assert.Single(GroupMessageChannel.Match(shortId)).SessionId);
+        // list-groups 输出里的 [群壳 短号] 整行拷进 to 也认：与子代理的 [sub-session: …] 同款宽容
+        Assert.Equal(group.SessionId, Assert.Single(GroupMessageChannel.Match($"[群壳 {shortId}]")).SessionId);
+        Assert.Equal(group.SessionId, Assert.Single(GroupMessageChannel.Match($"《cg-评审群》[群壳 {shortId}]")).SessionId);
     }
 
     /// <summary>

@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Execution.Extensions;
@@ -16,14 +17,26 @@ namespace UiharuMind.Core.AI.Execution.Tools;
 internal static class GroupMessageChannel
 {
     /// <summary>
+    /// list-groups 输出里的群壳标识（短号）的宽容认法：模型把《名》[群壳 d5874adf] 整行拷进
+    /// <c>to</c> 也认——与子代理的 <c>[sub-session: …]</c> 同款（<see cref="SubAgentTool.NormalizeTo"/>）。
+    /// 多放行 <c>-</c> 与 <c>_</c> 只是防复制时带上的变体，不代表系统会发出这种标识
+    /// </summary>
+    private static readonly Regex GroupShellRef = new(@"\[群壳\s*([A-Za-z0-9\-_]+)\]",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>
     /// 按群壳短号或群名找群：一个即唯一命中，零个即没有，多个即撞名/撞号
     /// </summary>
     /// <param name="target">模型填的收件人（群名或群壳短号）</param>
     /// <returns>命中的群壳元数据</returns>
     internal static IReadOnlyList<ChatSessionMeta> Match(string target)
     {
-        // 回执与列表里的群名带书名号，模型常把它们一起拷进来；剥掉再认
-        string wanted = target.Trim().Trim('《', '》', '「', '」');
+        // 先剥「[群壳 短号]」整行：list-groups 给的就是这个形状，模型照抄最常见
+        string wanted = target.Trim();
+        Match shell = GroupShellRef.Match(wanted);
+        if (shell.Success) wanted = shell.Groups[1].Value;
+        // 再剥书名号：回执与列表里的群名带《》，模型常把它们一起拷贝进来
+        wanted = wanted.Trim().Trim('《', '》', '「', '」');
         if (wanted.Length == 0) return [];
 
         List<ChatSessionMeta> all = SessionManager.Instance.FindSessions(x => x.IsGroup)
