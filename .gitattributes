@@ -2,3 +2,8 @@
 # 没有这份规则时，Windows 上 core.autocrlf=true 会把 checkout 的文件全落成 CRLF，
 # 本地跑测试/看 diff 会撞上平台差异（见 App.Tests 的 6 个环境性失败）。
 * text=auto eol=lf
+
+# 例外：.bat 必须 CRLF。cmd 在 zh-CN Windows 上按 GBK 读脚本，LF 收尾时 UTF-8 中文注释
+# 会在行边界被拆错位，后半截当命令执行（buildWin.bat 实测报 'd' is not recognized）。
+# 脚本要保留中文注释，只能给它们 CRLF。
+*.bat text eol=crlf
