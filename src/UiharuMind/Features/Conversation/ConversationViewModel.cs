@@ -1345,6 +1345,39 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             return;
         }
 
+        // 清空记忆 = 不带总结的记忆压缩:模型从清空提示起看不见之前的内容,界面与原始文件(转录)保留
+        if (CommandPaletteViewData.TryParseClear(text))
+        {
+            if (IsGenerating)
+            {
+                InputText = text;
+                _messages.ShowNotification(
+                    Loc.Text(LangKey.ClearWhileRunning), severity: MessageSeverity.Warning);
+                return;
+            }
+
+            if (CurrentSession is not { } toClear)
+            {
+                _messages.ShowNotification(
+                    Loc.Text(LangKey.ClearNothing), severity: MessageSeverity.Information);
+                return;
+            }
+
+            // 正在整理时再敲一次同样拒绝:清空提示与交接文档都会写进历史,并发两条会搞乱供给起点
+            if (TurnDriver.IsCompacting(toClear.SessionId))
+            {
+                _messages.ShowNotification(
+                    Loc.Text(LangKey.CompactAlreadyInProgress), severity: MessageSeverity.Information);
+                return;
+            }
+
+            if (RefuseBlockedTurn(text)) return;
+            // 破坏性操作,先确认再清;确认文案说明界面与原始文件会保留
+            if (!await _messages.ConfirmAsync(Loc.Text(LangKey.ClearConfirmText))) return;
+            await _driver.ClearAsync(toClear, toClear.Runner);
+            return;
+        }
+
         // 运行中输入 = 插话:入注入队列,agent 下一次机会消费。
         // 此刻<b>不进时间轴</b>:它在时间轴上的位置是"模型消费它的那一刻",由执行者在那一刻
         // 发 UserMessageContent 画出来。发送时就画会把它排在正在流的回复前面,而历史里它在后面。

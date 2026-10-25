@@ -32,6 +32,9 @@ public partial class CommandPaletteViewData : ObservableObject
     /// <summary>手动压缩命令</summary>
     public const string CompactCommand = "/compact";
 
+    /// <summary>清空记忆命令</summary>
+    public const string ClearCommand = "/clear";
+
     /// <summary>
     /// 解析压缩命令的输入。整行匹配 <see cref="CompactCommand"/>（忽略大小写与首尾空白）；
     /// 命令后跟的文字作为用户附加的额外指示取出——它会随写交接文档的请求一起交给模型。
@@ -56,6 +59,19 @@ public partial class CommandPaletteViewData : ObservableObject
         string rest = trimmed[CompactCommand.Length..].Trim();
         extraInstructions = rest.Length == 0 ? null : rest;
         return true;
+    }
+
+    /// <summary>
+    /// 解析清空记忆命令的输入。整行必须恰为 <see cref="ClearCommand"/>（忽略大小写与首尾空白）；
+    /// 命令后跟任何文字都不算——/clear 不带参数，防止吞掉想聊这个单词的普通消息
+    /// </summary>
+    /// <param name="text">用户敲的整行</param>
+    /// <returns>是不是清空记忆命令</returns>
+    public static bool TryParseClear(string text)
+    {
+        string trimmed = text.Trim();
+        return trimmed.Length == ClearCommand.Length
+               && trimmed.Equals(ClearCommand, StringComparison.OrdinalIgnoreCase);
     }
 
     private readonly Action<string, int> _setInputText;
@@ -202,6 +218,11 @@ public partial class CommandPaletteViewData : ObservableObject
         {
             Name = CompactCommand[1..], //列表里存的是不带斜杠的名字
             Description = Loc.Text(LangKey.CompactCommandDescription),
+        },
+        new()
+        {
+            Name = ClearCommand[1..],
+            Description = Loc.Text(LangKey.ClearCommandDescription),
         },
     ];
 

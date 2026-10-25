@@ -46,3 +46,31 @@ public class CommandPaletteCompactTests
         Assert.False(CommandPaletteViewData.TryParseCompact("/compactness", out _));
     }
 }
+
+/// <summary>
+/// /clear 命令的输入解析：整行精确匹配、忽略首尾空白与大小写；
+/// 命令后跟任何文字都不算——/clear 不带参数，防止吞掉想聊这个单词的普通消息
+/// </summary>
+public class CommandPaletteClearTests
+{
+    [Theory]
+    [InlineData("/clear")]
+    [InlineData(" /clear ")]
+    [InlineData("/Clear")]
+    public void TryParseClear_AcceptsExactCommand(string text)
+    {
+        Assert.True(CommandPaletteViewData.TryParseClear(text));
+    }
+
+    [Fact]
+    public void TryParseClear_RejectsTrailingText()
+    {
+        Assert.False(CommandPaletteViewData.TryParseClear("/clear 记得清干净"));
+    }
+
+    [Fact]
+    public void TryParseClear_RejectsWordsThatStartWithTheCommand()
+    {
+        Assert.False(CommandPaletteViewData.TryParseClear("/clearly"));
+    }
+}

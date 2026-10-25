@@ -556,6 +556,9 @@ public partial class HandoffItem : ConversationItemBase
     /// <summary>是否展开</summary>
     [ObservableProperty] private bool _isExpanded;
 
+    /// <summary>是否清空记忆提示卡（<c>/clear</c>）；标题与交接文档卡区分，见 ConversationView 模板</summary>
+    [ObservableProperty] private bool _isClear;
+
     /// <summary>整理耗时（如「3.2s」），与工具卡同一路呈现；旧存档没有这个数时为空（不显示）</summary>
     [ObservableProperty] private string _durationText = string.Empty;
 }

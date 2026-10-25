@@ -98,6 +98,21 @@
     <data name="HandoffNothingToCompact" xml:space="preserve">
         <value>当前没有可压缩的内容。</value>
     </data>
+    <data name="ClearCommandDescription" xml:space="preserve">
+        <value>清空当前对话的记忆（之前的对话不再供给模型，原始记录保留）</value>
+    </data>
+    <data name="ClearHeader" xml:space="preserve">
+        <value>记忆已清理</value>
+    </data>
+    <data name="ClearConfirmText" xml:space="preserve">
+        <value>清空当前对话的记忆？之前的对话不再供给模型（界面与原始文件保留）。继续？</value>
+    </data>
+    <data name="ClearWhileRunning" xml:space="preserve">
+        <value>现在不能清空：还有一轮在跑，等它结束再试。</value>
+    </data>
+    <data name="ClearNothing" xml:space="preserve">
+        <value>当前没有可清理的内容。</value>
+    </data>
     <data name="ContextUsageLabel" xml:space="preserve">
         <value>上下文</value>
     </data>

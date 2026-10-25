@@ -105,6 +105,21 @@
     <data name="HandoffNothingToCompact" xml:space="preserve">
         <value>Nothing to compact yet.</value>
     </data>
+    <data name="ClearCommandDescription" xml:space="preserve">
+        <value>Clear this conversation's memory (earlier messages stop feeding the model; the transcript is kept)</value>
+    </data>
+    <data name="ClearHeader" xml:space="preserve">
+        <value>Memory cleared</value>
+    </data>
+    <data name="ClearConfirmText" xml:space="preserve">
+        <value>Clear this conversation's memory? Earlier messages will stop feeding the model (the UI and the transcript file keep them). Continue?</value>
+    </data>
+    <data name="ClearWhileRunning" xml:space="preserve">
+        <value>Cannot clear right now: a turn is still running. Wait for it to finish.</value>
+    </data>
+    <data name="ClearNothing" xml:space="preserve">
+        <value>Nothing to clear yet.</value>
+    </data>
     <data name="ContextUsageLabel" xml:space="preserve">
         <value>Context</value>
     </data>

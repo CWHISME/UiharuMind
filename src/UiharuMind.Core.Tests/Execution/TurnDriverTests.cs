@@ -658,6 +658,44 @@ public class TurnDriverTests
         static AITool Named(string name) => AIFunctionFactory.Create(() => string.Empty, name);
     }
 
+    /// <summary>
+    /// /clear = 不带总结的记忆压缩:不调模型,历史末尾追加一条清空提示,供给起点移到它——
+    /// 之前的内容模型不可见但历史原样保留;占用换成清空后窗口的估算,与压缩同一路通知
+    /// </summary>
+    [Fact]
+    public async Task Clear_AppendsClearNote_AndMovesSupplyStart()
+    {
+        ChatSession session = NewSession();
+        for (int i = 0; i < 5; i++) session.History.Add(Prompt($"第 {i} 条"));
+        TurnUsageLedger ledger = new() { ContextLength = 128_000 };
+        List<TurnNotice> notices = new();
+        TurnDriver driver = new(new FakeSink(), ledger, notices.Add);
+
+        await driver.ClearAsync(session, new StubRunner());
+
+        Assert.Equal(6, session.History.Count);
+        ChatMessage clear = session.History[^1];
+        Assert.True(HistoryHandoff.IsClear(clear));
+        Assert.Equal(5, HistoryHandoff.SupplyStartIndex(session.History)); //供给从清空提示开始,旧消息留在它前面
+        Assert.True(ledger.LastInput > 0); //占用换成清空后窗口(提示 + 固定开销)的估算
+        Assert.Equal(ledger.LastInput, session.LastInputTokens); //本体与账本同源
+        Assert.Equal(0, session.LastCachedInputTokens);
+        Assert.Contains(notices, n => n.Kind == ETurnNotice.HandoffWritten); //与压缩同一路通知:刷新占用与滚动
+    }
+
+    [Fact]
+    public async Task Clear_EmptyHistory_ReportsNothingToClear()
+    {
+        ChatSession session = NewSession();
+        List<TurnNotice> notices = new();
+        TurnDriver driver = new(new FakeSink(), new TurnUsageLedger(), notices.Add);
+
+        await driver.ClearAsync(session, new StubRunner());
+
+        Assert.Empty(session.History);
+        Assert.Contains(notices, n => n.Kind == ETurnNotice.HandoffNothingToCompact);
+    }
+
     [Fact]
     public async Task Handoff_Auto_Succeeds_WhenWatermarkCrossed_AndReportsStarted()
     {

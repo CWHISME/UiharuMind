@@ -165,6 +165,54 @@ public class HistoryHandoffTests
         Assert.Equal("我来整理这段历史记忆。\n\n正文", HistoryHandoff.ComposeBody("正文", null));
     }
 
+    /// <summary>
+    /// 清空记忆提示复用交接的供应链:带同一注解、供给起点认它,界面上只在值上区分标题
+    /// </summary>
+    [Fact]
+    public void CreateClearNote_ReusesHandoffSupplyChain_AndIsDistinguishable()
+    {
+        ChatMessage message = HistoryHandoff.CreateClearNote("我把之前的记忆清理掉了。");
+
+        Assert.True(HistoryHandoff.IsNote(message), "供给起点要认它:它之后的窗口从这条开始");
+        Assert.True(HistoryHandoff.IsClear(message), "界面靠值区分标题:记忆已清理/记忆压缩");
+        Assert.Contains("之前的记忆", HistoryHandoff.NoteBody(message.Text));
+    }
+
+    [Fact]
+    public void NoteBody_StripsTheClearTitle()
+    {
+        Assert.Equal("正文", HistoryHandoff.NoteBody(HistoryHandoff.CreateClearNote("正文").Text));
+    }
+
+    [Fact]
+    public void ComposeClearBody_WithTranscriptPath_ListsItForRecalling()
+    {
+        string body = HistoryHandoff.ComposeClearBody("/tmp/uiharu/s1.transcript.md");
+
+        Assert.Contains("/tmp/uiharu/s1.transcript.md", body);
+    }
+
+    [Fact]
+    public void ComposeClearBody_WithoutTranscriptPath_OmitsThePath()
+    {
+        string body = HistoryHandoff.ComposeClearBody(null);
+
+        Assert.DoesNotContain("导出到", body);
+    }
+
+    /// <summary>清空提示与交接文档同一条起点判定:模型从它开始,之前的内容不可见</summary>
+    [Fact]
+    public void SupplyStart_PointsAtTheClearMessage()
+    {
+        List<ChatMessage> history =
+        [
+            User("第一条"),
+            HistoryHandoff.CreateClearNote("我把之前的记忆清理掉了。"),
+        ];
+
+        Assert.Equal(1, HistoryHandoff.SupplyStartIndex(history));
+    }
+
     [Fact]
     public void LastAssistantSentence_TakesTheLastSentenceOfTheLastAssistantMessage()
     {

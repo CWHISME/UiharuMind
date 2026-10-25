@@ -253,6 +253,8 @@ public sealed class ConversationHistoryRenderer
                         DurationText = ChatMessageAnnotations.TryReadHandoffDuration(message, out TimeSpan duration)
                             ? ToolCallItem.FormatDuration(duration)
                             : string.Empty,
+                        // 清空记忆提示(/clear)与交接文档同一卡片形态,标题按注解值区分
+                        IsClear = HistoryHandoff.IsClear(message),
                         SourceMessage = message,
                     });
                     continue;

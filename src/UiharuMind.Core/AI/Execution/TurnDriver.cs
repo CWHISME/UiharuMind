@@ -407,6 +407,46 @@ public sealed class TurnDriver : IDisposable
     }
 
     /// <summary>
+    /// 手动清空记忆（<c>/clear</c>）：不带总结的记忆压缩。往历史末尾追加一条「记忆已清理」提示，
+    /// 供给窗口从它开始——之前的内容模型不可见，但历史文件与界面渲染原样保留（与交接同一套机制）。
+    /// 清理前的历史复用转录导出（与记忆压缩同一份文件），路径写进提示卡供日后回查。
+    /// </summary>
+    /// <param name="session">会话</param>
+    /// <param name="runner">该会话的执行者</param>
+    public async Task ClearAsync(ChatSession session, ICharacterRunner runner)
+    {
+        // 提示要写进历史:与开跑同一道认领,旧的或正在别的实例里跑的都不清
+        using IDisposable? claim = SessionManager.Instance.TryClaimTurn(session, out ETurnBlock block);
+        if (claim == null)
+        {
+            Log.Warning($"Clear refused for session '{session.SessionId}': {SessionManager.Describe(block)}.");
+            _notify?.Invoke(new TurnNotice(ETurnNotice.Refused, block.ToString()));
+            return;
+        }
+
+        if (session.History.Count == 0)
+        {
+            // 没有可清的内容;明说而不是静默无操作
+            _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffNothingToCompact));
+            return;
+        }
+
+        // 与记忆压缩同一份转录:历史 jsonl 仍是唯一真源,这份是给模型回查的派生视图
+        string? transcriptPath = HistoryTranscript.TrySave(session, runner.ChatOptions?.Tools);
+        ChatMessage message = HistoryHandoff.CreateClearNote(HistoryHandoff.ComposeClearBody(transcriptPath));
+
+        int before = session.History.Count;
+        session.History.Add(message);
+        session.SaveAppended(before);
+        ForgetSupersededEstimate(runner);
+        _usage.ResetOccupancyAfterCompaction(session, EstimateOccupancyAfterCompaction(session, runner));
+        session.SaveMeta(false);
+        // 与压缩同一路通知:界面收占位卡(无挂时无操作)、补刷占用与卡片、滚动到底;卡片由落盘回放渲染
+        _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffWritten, HistoryHandoff.NoteBody(message.Text)));
+        _notify?.Invoke(new TurnNotice(ETurnNotice.ScrollToEnd));
+    }
+
+    /// <summary>
     /// 某会话此刻是否正在整理交接文档。压缩不是轮次、不进运行登记处，
     /// 但会话列表的"在跑"指示要显示它——单独挂一个查询
     /// </summary>

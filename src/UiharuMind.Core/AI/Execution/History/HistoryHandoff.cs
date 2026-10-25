@@ -9,6 +9,7 @@
 
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution.Extensions;
@@ -40,6 +41,9 @@ public static class HistoryHandoff
 
     /// <summary>记忆压缩在对话里的标题，界面与提示词共用一处</summary>
     public const string Title = "记忆压缩";
+
+    /// <summary>清空记忆提示在对话里的标题，界面与提示词共用一处</summary>
+    public const string ClearTitle = "记忆清理";
 
     /// <summary>记忆压缩正文的固定开场句（代码注入，不靠模型写）</summary>
     private const string Opening = "我来整理这段历史记忆。";
@@ -269,6 +273,42 @@ public static class HistoryHandoff
         };
     }
 
+    /// <summary>
+    /// 构造清空记忆提示消息（<c>/clear</c>）：与记忆压缩同一条供应链——同样带
+    /// <see cref="ChatMessageAnnotations.Handoff"/> 注解，<see cref="SupplyStartIndex"/> 因此从它开始，
+    /// 之前的内容模型不可见但历史文件与界面渲染原样保留。唯一差别是不做模型总结。
+    /// </summary>
+    /// <param name="body">提示正文（代码现拼：固定开场 + 转录路径）</param>
+    /// <returns>可直接写进历史的消息</returns>
+    public static ChatMessage CreateClearNote(string body)
+    {
+        return new ChatMessage(ChatRole.Assistant, $"[{ClearTitle}]\n{body}")
+        {
+            CreatedAt = DateTimeOffset.Now,
+            AdditionalProperties = new AdditionalPropertiesDictionary { [ChatMessageAnnotations.Handoff] = ClearTitle },
+        };
+    }
+
+    /// <summary>
+    /// 是否清空记忆提示消息。与 <see cref="CreateNote"/> 共用 <see cref="ChatMessageAnnotations.Handoff"/> 键、
+    /// 只在值上区分——供应链与供给起点因此不必为它改一条代码
+    /// </summary>
+    /// <param name="message">消息</param>
+    /// <returns>是则 true</returns>
+    public static bool IsClear(ChatMessage message)
+    {
+        if (message.AdditionalProperties?.TryGetValue(ChatMessageAnnotations.Handoff, out object? value) != true
+            || value == null)
+        {
+            return false;
+        }
+
+        // 落盘往返后值会变成 JsonElement，与工具耗时同一套兼容
+        return value is JsonElement { ValueKind: JsonValueKind.String } element
+            ? element.GetString() == ClearTitle
+            : Equals(value, ClearTitle);
+    }
+
     private const double CapSlack = 1.5; //给模型一点余量,超过这个倍数才动刀
 
     /// <summary>
@@ -305,11 +345,30 @@ public static class HistoryHandoff
     /// <returns>正文</returns>
     public static string NoteBody(string text)
     {
+        if (text.StartsWith($"[{ClearTitle}]", StringComparison.Ordinal))
+            return text[$"[{ClearTitle}]".Length..].TrimStart();
         string prefix = $"[{Title}]";
         if (text.StartsWith(prefix, StringComparison.Ordinal)) return text[prefix.Length..].TrimStart();
         // 旧存档里标题还是 "Context handoff":改名之前写下的记忆压缩,界面上不能带着旧标题前缀
         string legacy = "[Context handoff]";
         return text.StartsWith(legacy, StringComparison.Ordinal) ? text[legacy.Length..].TrimStart() : text;
+    }
+
+    /// <summary>
+    /// 拼出清空记忆提示的正文：固定开场（代码注入，不靠模型）+ 转录路径。
+    /// 转录与记忆压缩共用同一份（<c>HistoryTranscript.TrySave</c>），列出路径供日后 Grep/Read 回查旧内容
+    /// </summary>
+    /// <param name="transcriptPath">转录文件路径；没挂 Grep/Read 时为 null，路径与回查提示都不写</param>
+    /// <returns>整段正文</returns>
+    public static string ComposeClearBody(string? transcriptPath)
+    {
+        string body = "我把之前的记忆清理掉了，从这里开始只看到这句话之后的内容。";
+        if (!string.IsNullOrWhiteSpace(transcriptPath))
+        {
+            body += $"\n\n本次清理前的完整对话已导出到 {transcriptPath}；需要回查旧内容时用 Grep/Read 搜这份文件。";
+        }
+
+        return body;
     }
 
     /// <summary>
