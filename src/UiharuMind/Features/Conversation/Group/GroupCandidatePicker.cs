@@ -60,9 +60,11 @@ public partial class GroupCandidatePicker : ObservableObject
         SessionModelOption followGlobal = ModelOptions[0];
         _agentsFirst = agentsFirst;
         _allCandidates = CharacterManager.Instance.CharacterDataDictionary.Values
-            .Where(x => !x.IsInternal && GroupChatSessions.CanJoin(x)
-                        && excludedIds?.Contains(x.CharacterId) != true
-                        && (CharacterVisibility.PassesShield(x) || alwaysListed?.Any(p => p.CharacterId == x.CharacterId) == true))
+            .Where(x => (CharacterVisibility.IsVisibleCandidate(x)
+                         // 正在跟他聊的角色屏蔽了也照样列出（他本来就看得见）；不是内部角色，连带豁免无实际影响
+                         || alwaysListed?.Any(p => p.CharacterId == x.CharacterId) == true)
+                        && GroupChatSessions.CanJoin(x)
+                        && excludedIds?.Contains(x.CharacterId) != true)
             .Select(x => new GroupCandidate(x, OnCandidateToggled, OnCandidateFavoriteToggled, ModelOptions)
             {
                 SelectedModelOption = followGlobal,

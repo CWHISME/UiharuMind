@@ -36,6 +36,18 @@ public static class CharacterVisibility
     /// <summary>该角色此刻是否应当出现在列表 / 选择器里（只看屏蔽这一维；内部角色另有开关）</summary>
     public static bool PassesShield(CharacterData character) => !character.IsShielded || ShowShielded;
 
+    /// <summary>
+    /// 角色库 / 选择器 / 建群 / list-characters 共用的「默认候选可见性」闸门：
+    /// 内部角色默认不列（角色库可经 <paramref name="includeInternal"/> 打开「显示内部角色」），
+    /// 屏蔽角色按 <see cref="ShowShielded"/> 解锁闸门走。
+    /// 各场景自己的筛法（CanJoin、排除集、档位、搜索）在各自调用点另叠，不归这里。
+    /// </summary>
+    /// <param name="character">角色</param>
+    /// <param name="includeInternal">是否连内部角色一起列（角色库的「显示内部角色」开关）</param>
+    /// <returns>该显示返回 True</returns>
+    public static bool IsVisibleCandidate(CharacterData character, bool includeInternal = false) =>
+        (!character.IsInternal || includeInternal) && PassesShield(character);
+
     /// <summary>输入等于开发者网址则解锁屏蔽角色；返回是否解锁</summary>
     /// <param name="input">用户输入的地址</param>
     public static bool TryUnlock(string? input)

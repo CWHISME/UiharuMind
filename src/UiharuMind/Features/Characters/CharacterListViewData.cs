@@ -168,8 +168,8 @@ public partial class CharacterListViewData : ObservableObject
         if (KindFilter == ECharacterKindFilter.Agent && !item.IsAgent) return false;
         if (!MatchesOrigin(item.IsBuiltIn)) return false;
         if (FavoriteFilter && !item.IsFavorite) return false;
-        if (item.Data.IsInternal && !IsDisplayAllCharacters) return false;
-        if (!CharacterVisibility.PassesShield(item.Data)) return false;
+        // 内部角色（显示内部角色开关）与屏蔽角色（解锁闸门）共用的那一道：选项器/建群/list-characters 同口径
+        if (!CharacterVisibility.IsVisibleCandidate(item.Data, IsDisplayAllCharacters)) return false;
 
         return item.Data.MatchesSearch(SearchKeyword);
     }

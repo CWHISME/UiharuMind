@@ -297,8 +297,9 @@ public static class ChatSessionTools
 
     /// <summary>
     /// 角色库里的全部角色及其参数：名字（标识）、agent/普通、内置、一句描述。
-    /// 内部角色与屏蔽角色不列（选项器同口径）；全库只是候选参考，能点名的以
-    /// CreateAgent.character 提示的名单为准。角色库并发增删时枚举可能打滑，让你重试
+    /// 内部角色不列（工具卡不是点名的对象），屏蔽角色按解锁闸门走（选项器同口径）——
+    /// 开发者网址解锁后，屏蔽的内置智能体也会出现在这里。全库只是候选参考，
+    /// 能点名的以 CreateAgent.character 提示的名单为准。角色库并发增删时枚举可能打滑，让你重试
     /// </summary>
     private static string ListCharacters()
     {
@@ -306,7 +307,7 @@ public static class ChatSessionTools
         try
         {
             all = CharacterManager.Instance.CharacterDataDictionary.Values
-                .Where(x => !x.IsInternal && !x.IsShielded)
+                .Where(x => CharacterVisibility.IsVisibleCandidate(x))
                 .OrderBy(x => x.CharacterName)
                 .ToList();
         }
