@@ -207,6 +207,10 @@ public abstract partial class ConversationPageDataBase : PageDataBase
             _ = target.LoadSessionAsync(meta);
         }
 
+        // 换实例前把当前会话的输入草稿落盘:草稿原本只在 VM 弃用(缓存淘汰)时写,
+        // 切走 N 个会话才轮到它,列表的草稿标记随之滞后(与运行态同类的刷新缺口)
+        Conversation?.SaveComposerDraft();
+
         Conversation = target;
         MarkMostRecent(target);
         // 切会话也算正在干活:空闲回收器据此把压缩式全回收推后,免得叠在这次的落位排版上

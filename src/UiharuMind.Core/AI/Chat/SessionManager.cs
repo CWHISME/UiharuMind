@@ -281,6 +281,42 @@ public partial class SessionManager : Singleton<SessionManager>, IInitialize
     }
 
     /// <summary>
+    /// 名下有没有子会话正在跑（含前台私聊轮）。后台委派未交回另由 <c>PendingWork</c> 覆盖。
+    /// 左栏父会话那一行据此显示运行中——子会话不进左栏，那一行是用户唯一能看见的地方。
+    /// 遍历登记处的活动会话反查而不是遍历全索引：活动会话数通常远小于会话总数
+    /// </summary>
+    /// <param name="parentSessionId">派活者的会话标识</param>
+    /// <returns>有则 true</returns>
+    public bool HasRunningSubSessions(string? parentSessionId)
+    {
+        if (string.IsNullOrEmpty(parentSessionId)) return false;
+        foreach (KeyValuePair<string, ESessionRunState> active in Running.ActiveSessions())
+        {
+            if (GetMeta(active.Key)?.ParentSessionId == parentSessionId) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 名下有没有子会话卡在审批上（含前台私聊轮）。与 <see cref="HasRunningSubSessions"/> 分开：
+    /// 卡审批需要用户动手、有时限，左栏父会话那一行要单独挂橙点而不是只转圈
+    /// </summary>
+    /// <param name="parentSessionId">派活者的会话标识</param>
+    /// <returns>有则 true</returns>
+    public bool HasAwaitingApprovalSubSessions(string? parentSessionId)
+    {
+        if (string.IsNullOrEmpty(parentSessionId)) return false;
+        foreach (KeyValuePair<string, ESessionRunState> active in Running.ActiveSessions())
+        {
+            if (active.Value == ESessionRunState.AwaitingApproval
+                && GetMeta(active.Key)?.ParentSessionId == parentSessionId) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// 按条件找会话元数据，<b>不排序</b>——给只关心命中、不关心顺序的反查用，省掉全量排序
     /// </summary>
     /// <param name="predicate">筛选条件（在锁内执行，别做重活）</param>

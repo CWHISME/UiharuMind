@@ -912,6 +912,35 @@ public class SubAgentBoundaryTests
         Assert.Equal(SubAgentTool.MaxIterations, options!.MaximumIterationsPerRequest);
     }
 
+    /// <summary>
+    /// 子代理不撞框架默认的 40 次<b>自动放行</b>上限：撞上后长轮后半段剩余调用不再自动执行、
+    /// 而是转成审批请求弹卡（主代理已有同口径测试，见 <c>MainAgent_IterationCaps_AreRaisedAboveFrameworkDefaults</c>）。
+    /// 两个上限同源同值，现实任务不可能撞上，又保留失控兜底
+    /// </summary>
+    [Fact]
+    public void SubAgentOptions_IterationCaps_AreRaisedAboveFrameworkDefaults()
+    {
+        HarnessAgentOptions? options = SubAgentAssembly.BuildSubAgentOptions(NewInput());
+
+        Assert.NotNull(options);
+        Assert.Equal(SubAgentTool.MaxIterations, options!.MaximumIterationsPerRequest);
+        Assert.NotNull(options.ToolApprovalAgentOptions);
+        Assert.Equal(SubAgentTool.MaxIterations, options.ToolApprovalAgentOptions!.MaxAutoApprovalIterations);
+    }
+
+    /// <summary>脑是有界活：两个迭代上限都与 <see cref="BrainTool.MaxIterations"/> 同值，不落框架默认的 40</summary>
+    [Fact]
+    public void BrainOptions_IterationCaps_MatchBrainLimit()
+    {
+        HarnessAgentOptions? options = SubAgentAssembly.BuildSubAgentOptions(
+            NewInput() with { SubAgentProfile = SubAgentProfile.Brain });
+
+        Assert.NotNull(options);
+        Assert.Equal(BrainTool.MaxIterations, options!.MaximumIterationsPerRequest);
+        Assert.NotNull(options.ToolApprovalAgentOptions);
+        Assert.Equal(BrainTool.MaxIterations, options.ToolApprovalAgentOptions!.MaxAutoApprovalIterations);
+    }
+
     /// <summary>探索档提示词：工具段在、没有脑纪律（不是整理脑）、只读侧不指名写工具</summary>
     [Fact]
     public void ExplorerInstructions_ReadOnlyButNotBrainDiscipline()

@@ -440,7 +440,18 @@ public partial class SessionListModel : ObservableObject, IDisposable
 
     private void OnRunStateChanged(string sessionId) =>
         // 可能来自后台线程(无头执行),而条目是界面绑定的
-        _post(() => Find(sessionId)?.RefreshRunState());
+        _post(() =>
+        {
+            // 子会话不进左栏:它的运行态变化要刷到父会话那一行(名下有子代理在跑/卡审批)。
+            // 不补这一下,私聊前台轮跑着时父会话行毫无动静——用户无从知道子代理在干活
+            SessionListItem? item = Find(sessionId);
+            if (item == null && SessionManager.Instance.GetMeta(sessionId)?.ParentSessionId is { } parentId)
+            {
+                item = Find(parentId);
+            }
+
+            item?.RefreshRunState();
+        });
 
     /// <summary>主题切换后重取每个条目的项目色。条目复用意味着 Brush 不会自动重算</summary>
     private void OnThemeVariantChanged(object? sender, EventArgs e)

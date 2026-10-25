@@ -1051,6 +1051,13 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     }
 
     /// <summary>
+    /// 把当前会话的输入草稿落盘（切走前由页面壳调用）。没改就不写——与 Dispose 同一口
+    /// （<see cref="ChatSession.SaveDraft"/> 内部判），只把落盘时机从「VM 弃用」提前到「切走」，
+    /// 会话列表的草稿标记才跟得上（否则要等缓存淘汰才落盘、标记滞后）
+    /// </summary>
+    public void SaveComposerDraft() => CurrentSession?.SaveDraft();
+
+    /// <summary>
     /// 弃用本实例：反注销全局事件、弃用运行侧（它会取消正在跑的那一轮）。
     ///
     /// 只取消、不在这里补写取消结果——运行循环还活着，它自己会在取消分支里收尾。

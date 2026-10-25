@@ -477,6 +477,9 @@ internal static class SubAgentAssembly
                 // 子会话沿用派活者的房间(见 AgentBuildProfile),豁免同一间
                 outputRoom, sessionExtensionApprovalSource: input.SessionExtensionApprovalSource,
                 sessionWorktreeRootsSource: input.SessionWorktreeRootsSource),
+            // 自动放行链与 MaximumIterationsPerRequest 同源同值:不设就落框架默认 40,
+            // 长轮后半段的工具调用不再自动放行、转成审批请求弹卡(主代理同口径见 AgentOptionsFactory)
+            MaxAutoApprovalIterations = input.SubAgentProfile.MaxIterations,
         };
         ChatOptions subOptions = input.Sampling?.ToChatOptions() ?? new ChatOptions();
         subOptions.Instructions = BuildSubAgentInstructions(config, hasShell,

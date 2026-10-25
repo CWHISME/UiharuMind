@@ -275,12 +275,15 @@ public partial class SessionListItem : ObservableObject
     public void RefreshRunState()
     {
         ESessionRunState state = SessionManager.Instance.Running.StateOf(SessionId);
-        // 名下的后台子代理卡在审批上时,父会话这一行也要挂出来:子会话不进左栏,
-        // 用户在左栏唯一能看见的就是这一行
+        // 名下的子代理卡在审批上时,父会话这一行也要挂出来:子会话不进左栏,
+        // 用户在左栏唯一能看见的就是这一行。后台委派与前台私聊轮都算——
+        // 私聊前台轮不登记后台委派表,只能从活动会话反查(见 SessionManager.HasAwaitingApprovalSubSessions)
         IsAwaitingApproval = state == ESessionRunState.AwaitingApproval
-                             || BackgroundSubAgentDispatcher.HasApprovalWaiting(SessionId);
+                             || BackgroundSubAgentDispatcher.HasApprovalWaiting(SessionId)
+                             || SessionManager.Instance.HasAwaitingApprovalSubSessions(SessionId);
         // 后台子代理跑在**自己的**会话标识上,只看本会话的运行态会把「名下还有活在跑」
         // 显示成空闲——而委派默认后台化之后那才是常态(见 CONTEXT.md「未了结的工作」)。
+        // 私聊前台轮同理:它不入后台委派表,靠 HasRunningSubSessions 从活动会话反查
         //
         // 与 IsAwaitingApproval **刻意不互斥**:名下有三个委派在跑、其中一个在等你批,
         // 这是两件正交的事,都要说。叠加由布局负责(橙点压在转圈之上,见 SessionListView.axaml)
@@ -288,6 +291,7 @@ public partial class SessionListItem : ObservableObject
         // 但列表转圈是用户判断"这个会话还有没有动静"的直观依据
         IsRunning = state == ESessionRunState.Running
                     || PendingWork.Has(SessionId)
+                    || SessionManager.Instance.HasRunningSubSessions(SessionId)
                     || TurnDriver.IsCompacting(SessionId);
         DeleteCommand.NotifyCanExecuteChanged();
         ClearChatHistoryCommand.NotifyCanExecuteChanged();
