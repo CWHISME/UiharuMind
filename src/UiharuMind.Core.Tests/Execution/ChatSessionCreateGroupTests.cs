@@ -63,6 +63,24 @@ public sealed class ChatSessionCreateGroupTests : IDisposable
         Assert.Empty(SessionManager.Instance.FindSessions(x => x.IsGroup && x.Title == "一个人"));
     }
 
+    /// <summary>成员可以各自钉模型：顺序与 members 一一对应，空串按跟随全局</summary>
+    [Fact]
+    public void CreateGroup_AssignsPerMemberModels()
+    {
+        string parent = NewSession("主会话");
+
+        ChatSessionTools.CreateGroup(parent, null, "cg-模型群", ["初春", "佐天"],
+            models: ["model-a", "model-b"]);
+        ChatSessionMeta group = Assert.Single(SessionManager.Instance.FindSessions(x =>
+            x.IsGroup && x.Title == "cg-模型群"));
+        _sessions.Add(group.SessionId);
+
+        List<string> models = group.GroupMemberSessionIds
+            .Select(id => SessionManager.Instance.GetMeta(id)!.SessionModelName!)
+            .ToList();
+        Assert.Equal(["model-a", "model-b"], models);
+    }
+
     [Fact]
     public void CreateGroup_WithUnknownMember_NamesIt()
     {

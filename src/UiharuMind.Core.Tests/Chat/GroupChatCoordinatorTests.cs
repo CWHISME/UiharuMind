@@ -720,6 +720,30 @@ public class GroupChatCoordinatorTests
         Assert.False(_coordinator.TryPostFromMember(loner.SessionId, "hi"));
     }
 
+    /// <summary>
+    /// 运行中改调度模式：当前波按旧模式跑完，下一波用新模式（ADR 0049 决策 1）。
+    /// 并行特征用「Alice 卡住时 Bob 是否也在说」认——串行里 Bob 要等 Alice 说完才开跑
+    /// </summary>
+    [Fact]
+    public async Task ChangingScheduleMode_TakesEffectFromTheNextWave()
+    {
+        await _coordinator.PostAsync(_group, "第一波（串行）");
+        _runner.ClearCalls();
+
+        // 运行中切串行→并行：下一波开始就该并行
+        _group.GroupScheduleMode = EGroupScheduleMode.Parallel;
+
+        TaskCompletionSource gate = new();
+        _runner.During[_alice.SessionId] = () => gate.Task;
+        _runner.During[_bob.SessionId] = () => gate.Task;
+        Task posting = _coordinator.PostAsync(_group, "改了并行");
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, _coordinator.SpeakersOf(_group.SessionId).Count); //并行：两位同时在说；串行只有一位
+        gate.SetResult();
+        await posting;
+    }
+
     [Fact]
     public async Task SpeakerChanged_TracksWhoIsSpeakingAcrossTheRound()
     {

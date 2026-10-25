@@ -85,10 +85,19 @@ public static class ChatSessionTools
             "列出本会话建的群聊及其状态；正在跑的群会立刻记一份流水快照，并给出快照路径。"),
         ToolJson.CreateFunction(
             ([Description("群名。")] string name,
-                [Description("成员的角色名或标识，顺序即发言顺序，至少两位。")]
-                string[] members) => CreateGroup(sessionId, workspacePath, name, members),
+                    [Description("成员的角色名或标识，顺序即发言顺序，至少两位。")]
+                    string[] members,
+                    [Description("调度模式：serial（成员一人一轮、一圈即停）/ parallel（被唤醒的成员并发开跑）。默认 serial。")]
+                    string? mode = null,
+                    [Description("并行时的停止条件：conservative（发言引起的唤醒只传一跳）/ aggressive（聊到自然停）。默认 conservative；串行忽略。")]
+                    string? stop = null,
+                    [Description("主持人：必须是成员之一（角色名或标识）。默认无主持人。")]
+                    string? host = null,
+                    [Description("成员各自的模型名，顺序与 members 一一对应；省略或空串 = 跟随全局。")]
+                    string[]? models = null) =>
+                CreateGroup(sessionId, workspacePath, name, members, mode, stop, host, models),
             CreateGroupToolName,
-            "建一个智能体群并把成员拉进去（群绑在当前会话的工作区）。建好后用 `SendMessage`（`to` 填群名）往群里说话。"),
+            "建一个智能体群并把成员拉进去（群绑在当前会话的工作区）。建好后用 `SendMessage`（`to` 填群名或群壳短号）往群里说话。"),
         ToolJson.CreateFunction(() => ListModels(), ListModelsToolName,
             "列出已加载的远程模型及其参数。"),
         ToolJson.CreateFunction(() => ListCharacters(), ListCharactersToolName,
@@ -195,7 +204,7 @@ public static class ChatSessionTools
             ? $"群聊（最近 {groups.Count} 个，共 {all.Count}）："
             : $"群聊 {groups.Count} 个：");
         foreach (ChatSessionMeta group in groups) sb.Append(DescribeGroup(group, manager));
-        if (canSendToGroup) sb.Append($"往群里说一句用 {SendMessageMention}，`to` 填群名或群壳短号（`[群壳 xxxxxxxx]` 整行拷进去也认）。");
+        if (canSendToGroup) sb.Append($"往群里说一句用 {SendMessageMention}，`to` 填群名或群壳短号。");
         return sb.ToString();
     }
 
@@ -208,13 +217,38 @@ public static class ChatSessionTools
     /// <param name="workspacePath">群要绑的工作区</param>
     /// <param name="name">群名</param>
     /// <param name="members">成员的角色名或标识，顺序即发言顺序</param>
+    /// <param name="mode">调度模式；null 为串行</param>
+    /// <param name="stop">并行停止条件；null 为保守</param>
+    /// <param name="host">主持人角色名或标识；null 为无</param>
+    /// <param name="models">成员各自的模型名，与 members 一一对应；null 或空串 = 跟随全局</param>
     /// <returns>给模型的回执</returns>
-    internal static string CreateGroup(string sessionId, string? workspacePath, string name, string[] members)
+    internal static string CreateGroup(string sessionId, string? workspacePath, string name, string[] members,
+        string? mode = null, string? stop = null, string? host = null, string[]? models = null)
     {
         if (members == null)
         {
             return $"Error: 还没点名成员——用 {ListCharactersMention} 看有哪些角色。";
         }
+
+        string modeValue = (mode ?? "serial").ToLowerInvariant();
+        if (modeValue is not ("serial" or "parallel"))
+        {
+            return $"Error: mode 只认 serial 或 parallel，拿到「{mode}」。";
+        }
+
+        EGroupScheduleMode scheduleMode = modeValue == "serial"
+            ? EGroupScheduleMode.Serial
+            : EGroupScheduleMode.Parallel;
+
+        string stopValue = (stop ?? "conservative").ToLowerInvariant();
+        if (stopValue is not ("conservative" or "aggressive"))
+        {
+            return $"Error: stop 只认 conservative 或 aggressive，拿到「{stop}」。";
+        }
+
+        EGroupStopPolicy stopPolicy = stopValue == "aggressive"
+            ? EGroupStopPolicy.Aggressive
+            : EGroupStopPolicy.Conservative;
 
         ChatSessionMeta? caller = SessionManager.Instance.GetMeta(sessionId);
         if (caller == null) return "Error: 当前会话不在会话索引里，建不了群。";
@@ -231,6 +265,10 @@ public static class ChatSessionTools
                 Members = members,
                 WorkspacePath = workspacePath,
                 MinMembers = MinGroupMembers,
+                Mode = scheduleMode,
+                StopPolicy = stopPolicy,
+                Host = string.IsNullOrWhiteSpace(host) ? null : host,
+                ModelNames = models is { Length: > 0 } ? models : null,
             });
             return DescribeCreatedGroup(group);
         }
@@ -249,13 +287,14 @@ public static class ChatSessionTools
     {
         string members = string.Join(" → ", GroupRoster.Of(group).Present.Select(x => x.Name));
         StringBuilder sb = new();
-        sb.AppendLine($"已建群《{group.Title}》[群壳 {SubSessionIdAlias.Short(group.SessionId)}] · " +
+        sb.AppendLine($"已建群《{group.Title}》[{SubSessionIdAlias.Short(group.SessionId)}] · " +
                       $"{(group.IsAgentGroup ? "智能体群" : "普通群")} · 成员 {members}");
         sb.AppendLine(string.IsNullOrWhiteSpace(group.WorkspacePath)
             ? "工作区：未绑（成员写文件落在各自的草稿目录）"
             : $"工作区：{group.WorkspacePath}");
-        sb.Append($"往群里说一句用 {SendMessageMention}，`to` 填《{group.Title}》或 [群壳 {SubSessionIdAlias.Short(group.SessionId)}]；" +
-                  $"跑起来后用 {GroupsMention} 看进度（正在跑的群会给你流水快照路径）。");
+        sb.Append(
+            $"往群里说一句用 {SendMessageMention}，`to` 填《{group.Title}》或 [群壳 {SubSessionIdAlias.Short(group.SessionId)}]；" +
+            $"跑起来后用 {GroupsMention} 看进度（正在跑的群会给你流水快照路径）。");
         return sb.ToString();
     }
 
@@ -390,7 +429,7 @@ public static class ChatSessionTools
             .ToList();
 
         bool running = StateOf(manager, group.SessionId) != ESessionRunState.Idle;
-        StringBuilder sb = new($"- 《{group.Title}》[群壳 {SubSessionIdAlias.Short(group.SessionId)}] " +
+        StringBuilder sb = new($"- 《{group.Title}》[{SubSessionIdAlias.Short(group.SessionId)}] " +
                                $"· {(group.IsAgentGroup ? "智能体群" : "普通群")} · 在场 {members.Count(x => !x.IsGroupAvatar)} 人 · " +
                                $"在跑 {members.Count(x => StateOf(manager, x.SessionId) != ESessionRunState.Idle)}");
         if (running && SnapshotOf(group, manager) is { } path) sb.Append(" · 流水快照 ").Append(path);
@@ -399,8 +438,7 @@ public static class ChatSessionTools
         sb.AppendLine();
         foreach (ChatSessionMeta member in members)
         {
-            string who = member.IsGroupAvatar ? "化身" :
-                !string.IsNullOrWhiteSpace(member.Title) ? member.Title : member.CharacterId;
+            string who = member.IsGroupAvatar ? "化身" : "";
             sb.Append("  - ")
                 .Append(who)
                 .Append("（").Append(SubSessionIdAlias.Short(member.SessionId)).Append("）：")

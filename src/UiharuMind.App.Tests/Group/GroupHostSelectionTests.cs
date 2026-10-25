@@ -98,6 +98,22 @@ public class GroupHostSelectionTests : IDisposable
         Assert.Equal(hostId, group.GroupHostSessionId);
     }
 
+    /// <summary>调度开关点了要真写回群壳并落盘：只改界面显示、不写回，coordinator 下一波读不到新值</summary>
+    [Fact]
+    public void ScheduleSwitch_WritesBackToTheGroupShell()
+    {
+        ChatSession group = GroupChatSessions.Create("g-schedule", false,
+            [new CharacterData { CharacterName = "A" }, new CharacterData { CharacterName = "B" }], null);
+        _ownedGroups.Add(group.SessionId);
+        GroupMembersViewData members = NewMembers(group);
+
+        members.Schedule.UseParallelCommand.Execute(null);
+
+        Assert.Equal(EGroupScheduleMode.Parallel, group.GroupScheduleMode);
+        Assert.Equal(EGroupScheduleMode.Parallel,
+            SessionManager.Instance.GetMeta(group.SessionId)!.GroupScheduleMode); //落盘：重启后还是并行
+    }
+
     private ChatSession NewGroupWithHost(string name, int hostIndex)
     {
         ChatSession group = GroupChatSessions.Create(name, false,
