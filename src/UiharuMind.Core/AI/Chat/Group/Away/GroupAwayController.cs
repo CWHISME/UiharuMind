@@ -117,20 +117,24 @@ public sealed class GroupAwayController
         // 化身与产物指纹都在锁外取（读盘）；之后再确认一次没被别处抢先开
         ChatSession avatar = _ensureAvatar(group, avatarModelName, avatarCharacterId);
         string stamp = SafeStamp(group);
-        // 群流水文件：开离席时建/确认，写进全部历史（第三方视角，化身按锚点自己读，不灌正文）
+        // 群流水快照也在锁外取（协调器的锁，不与 _sync 叠加）
         IReadOnlyList<ChatMessage> groupLog = _coordinator.HistorySnapshot(group);
-        int logEndLine = GroupLogFile.Initialize(group, groupLog);
         lock (_sync)
         {
             if (_sessions.ContainsKey(group.SessionId)) return false;
             session = new GroupAwaySession(group, avatar, _settings(), _now(), stamp, goal, reminder, infinite)
             {
                 LogAppendedUpTo = groupLog.Count,
-                LogEndLine = logEndLine,
+                LogEndLine = 0, //文件在下面写，写完后回填
                 LogDeliveredUpTo = groupLog.Count - 1, //初始化快照已含全部历史：这些不算「新段」
             };
             _sessions[group.SessionId] = session;
         }
+
+        // 群流水文件在<b>注册之后</b>才建/确认：从这一刻起 StatusOf 非 null，
+        // list-groups 的「离席中不重写」查得到它，不会再并发覆盖这个窗口
+        int logEndLine = GroupLogFile.Initialize(group, groupLog);
+        session.LogEndLine = logEndLine;
 
         RaiseStatusChanged(group.SessionId);
         // 群正在跑一波：不等它——波末那次唤醒来带首轮（kickoff 还没消费，丢不了）

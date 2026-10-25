@@ -220,7 +220,7 @@ public static class ChatSessionTools
         if (caller == null) return "Error: 当前会话不在会话索引里，建不了群。";
         if (caller.IsGroupMember)
         {
-            return "Error: 群成员与化身不建群——建群是会话这一层的事，在单聊或主代理里做。";
+            return "Error: 你是群成员/化身——建群要在主代理或单聊会话里做（群成员的那把 SendMessage 只收正文，发不了群）。";
         }
 
         try
@@ -425,7 +425,9 @@ public static class ChatSessionTools
     /// </summary>
     private static string? SnapshotOf(ChatSessionMeta group, SessionManager manager)
     {
-        if (manager.Load(group.SessionId) is not { IsGroup: true } body) return null;
+        // 群在跑 = 热会话：先取缓存，避免 Load 附带 UnloadColdHistories 的同步写盘
+        ChatSession? body = manager.GetLoaded(group.SessionId) ?? manager.Load(group.SessionId);
+        if (body is not { IsGroup: true }) return null;
         // 正在离席的群不重写：那份流水由离席会话维护段头行号（LogAppendedUpTo / LogEndLine），
         // 第三方覆盖会让化身按锚点读错行；等离席还原（user 计划中）这段判断可删
         if (GroupAwayController.Instance.StatusOf(group.SessionId) != null) return null;

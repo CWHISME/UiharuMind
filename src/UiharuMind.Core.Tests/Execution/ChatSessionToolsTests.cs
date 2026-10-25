@@ -173,12 +173,12 @@ public sealed class ChatSessionToolsTests : IDisposable
             Description = title,
             IsGroup = true,
             IsAgentGroup = true,
-            // 私有管理器的 SaveIndex 会把共享盘上的群并进自己的索引；把时间戳提到未来，
-            // 保证「最近五个」的断言不被并行建群的别的测试挤掉
-            UpdatedAt = DateTimeOffset.Now.AddHours(1),
         };
         _manager.Add(group);
-        // Add 里的 SaveMeta 已把 UpdatedAt 覆盖成 now：重存一次（不刷新时间）让未来值进索引
+        // 私有管理器的 SaveIndex 会把共享盘上的群并进自己的索引；把时间戳提到未来，
+        // 保证「最近五个」的断言不被并行建群的别的测试挤掉。Add 里的 SaveMeta 已把它覆盖成 now，
+        // 这里改回未来再存一次（不刷新时间，只让未来值进索引）
+        group.UpdatedAt = DateTimeOffset.Now.AddHours(1);
         _manager.SaveMeta(group, touchUpdatedAt: false);
         _created.Add(group.SessionId);
         return group;

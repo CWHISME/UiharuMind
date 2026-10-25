@@ -88,7 +88,7 @@ public sealed class ChatSessionCreateGroupTests : IDisposable
         string text = ChatSessionTools.CreateGroup(member.SessionId, null, "楼下群", ["初春", "佐天"]);
 
         Assert.StartsWith("Error:", text);
-        Assert.Contains("不建群", text);
+        Assert.Contains("群成员/化身", text);
     }
 
     /// <summary>SendMessage 的收件人：群按群名、带书名号的群名与群壳短号都认得（全库匹配，不认发起者）</summary>
