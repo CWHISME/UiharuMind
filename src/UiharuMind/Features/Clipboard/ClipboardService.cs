@@ -44,6 +44,7 @@ public class ClipboardService : IDisposable
 
     private IClipboard Clipboard => _target.Clipboard!;
     private readonly IClipboardMonitor? _clipboardMonitor;
+    private readonly IClipboardTextReader _textReader;
 
     /// <summary>
     /// 历史记录。每次变更立即落盘，本类只负责调它，不再持有任何历史内容
@@ -64,15 +65,13 @@ public class ClipboardService : IDisposable
     private static readonly DataFormat<byte[]> ImageFormatPngMac = DataFormat.CreateBytesPlatformFormat(ImageTypePngMac);
     private static readonly DataFormat<byte[]> ImageFormatTiffMac = DataFormat.CreateBytesPlatformFormat(ImageTypeTiffMac);
 
-    /// <summary>Win32 直读剪贴板的等待上限：来源应用延迟渲染时不让读取无期阻塞线程</summary>
-    private static readonly TimeSpan ReadTimeout = TimeSpan.FromSeconds(3);
-
     // public string ImageType => PlatformUtils.IsWindows ? ImageTypePngWin : ImageTypePngMac;
 
     private bool _isSelfCopying;
     private string? _lastRecordedText; //上一条记进历史的文本,只用于去重
     private DateTime _ignoreChangesUntil; //这之前的剪贴板变化是自己借用造成的,不记历史
     private int _readQueued; //1 表示已排了一次读取,这期间再来的变化通知并进去
+    private int _changedWhileReading; //1 表示读取期间剪贴板又变了,读完补一次
 
     public bool IsSelfCopying
     {
@@ -88,6 +87,7 @@ public class ClipboardService : IDisposable
         //初始化剪切板监控
         _clipboardMonitor = CreateClipboardMonitor();
         if (_clipboardMonitor != null) _clipboardMonitor.OnClipboardChanged += OnSystemClipboardChanged;
+        _textReader = CreateTextReader();
 
         History = new ClipboardHistoryStore(AppPaths.Data.ClipboardHistory);
 
@@ -99,24 +99,45 @@ public class ClipboardService : IDisposable
         Task.Run(CheckAndRecordImagesInClipboardHistory);
     }
 
+    /// <summary>
+    /// 把文本放上系统剪贴板。
+    ///
+    /// <para>
+    /// 写是异步的，但这里<b>不能</b>不 await 就走：写失败时 <c>_isSelfCopying</c> 会一直挂着，
+    /// 于是<b>下一次用户自己复制的东西</b>会被当成「这次是我干的」而整条吞掉——剪贴板历史里
+    /// 就凭空少一条，还查不出原因。同理，「复制成功」的提示与 <see cref="OnClipboardStringChanged"/>
+    /// 也得等真写进去了再发，否则会给一个没生效的复制报成功。
+    /// </para>
+    /// </summary>
+    /// <param name="text">要放的文本</param>
+    /// <param name="ignoreSelfCopying">这次变化不记进历史</param>
+    /// <param name="tips">是否弹一条「已复制」提示</param>
     public void CopyToClipboard(string text, bool ignoreSelfCopying = false, bool tips = false)
     {
         if (string.IsNullOrEmpty(text)) return;
-        // _target.Dispatcher.Invoke(() => { Clipboard.SetText(text); });
+        _ = CopyToClipboardAsync(text, ignoreSelfCopying, tips);
+    }
+
+    private async Task CopyToClipboardAsync(string text, bool ignoreSelfCopying, bool tips)
+    {
         if (ignoreSelfCopying) _isSelfCopying = true;
         try
         {
-            Clipboard.SetTextAsync(text);
-            OnClipboardStringChanged?.Invoke(text);
-            if (tips)
-            {
-                // 弹一条:剪贴板是不可见的,不给反馈用户只能再点一次确认
-                _messages.ShowNotification(Loc.Text(LangKey.CopiedToClipboardTips), severity: MessageSeverity.Success);
-            }
+            await Clipboard.SetTextAsync(text);
         }
         catch (Exception e)
         {
+            // 没写进去就把标记撤了，别让它去吞用户的下一次复制
+            _isSelfCopying = false;
             Log.Error(e.Message);
+            return;
+        }
+
+        OnClipboardStringChanged?.Invoke(text);
+        if (tips)
+        {
+            // 弹一条:剪贴板是不可见的,不给反馈用户只能再点一次确认
+            _messages.ShowNotification(Loc.Text(LangKey.CopiedToClipboardTips), severity: MessageSeverity.Success);
         }
     }
 
@@ -128,24 +149,11 @@ public class ClipboardService : IDisposable
     public void IgnoreChangesFor(TimeSpan duration) => _ignoreChangesUntil = DateTime.UtcNow + duration;
 
     /// <summary>
-    /// 读剪贴板文本。Windows 上用监听器的 Win32 直读（<c>OpenClipboard+GetClipboardData</c>）；
+    /// 读剪贴板文本。Windows 上走 <see cref="WindowsClipboardTextReader"/>（OLE 优先，不占剪贴板），
     /// 其余平台走 Avalonia 的 <c>IClipboard</c>。
     /// </summary>
-    /// <returns>剪贴板文本；无文本或读取超时返回 null</returns>
-    public async Task<string?> GetFromClipboard()
-    {
-        if (_clipboardMonitor is WindowsClipboardMonitor win)
-        {
-            // GetClipboardData 是同步调用：来源应用（Sourcetree/JetBrains 等）延迟渲染时
-            // 会现场渲染再返回，渲染多久这里就等多久——即使复制几个字也可能卡数秒，
-            // 所以整体放到后台线程并设超时，宁可这次不记也不能冻住 UI
-            var readTask = Task.Run(() => win.TryReadTextAsync());
-            var completed = await Task.WhenAny(readTask, Task.Delay(ReadTimeout));
-            return completed == readTask ? await readTask : null;
-        }
-
-        return await Clipboard.TryGetValueAsync(DataFormat.Text);
-    }
+    /// <returns>剪贴板文本；无文本或这一次读不到返回 null</returns>
+    public Task<string?> GetFromClipboard() => _textReader.ReadTextAsync();
 
     /// <summary>
     /// 把图片放上系统剪贴板。
@@ -319,10 +327,17 @@ public class ClipboardService : IDisposable
         if (recorded) Dispatcher.UIThread.Post(() => OnClipboardChanged?.Invoke());
     }
 
-    // 监控可能在后台线程回调，判断统一放到 UI 线程；排队期间再来的通知并进同一次读取
+    // 监控可能在后台线程回调，判断统一放到 UI 线程。读取期间再来的通知只记一笔、读完补一次：
+    // 原来是在读之前就放行，而一次读要一两秒，这期间每条通知都会再排一个读者，几个线程一起抢
+    // 那把全局剪贴板锁，来源应用自己的写入跟着被推回去
     private void OnSystemClipboardChanged()
     {
-        if (Interlocked.Exchange(ref _readQueued, 1) == 1) return;
+        if (Interlocked.Exchange(ref _readQueued, 1) == 1)
+        {
+            Volatile.Write(ref _changedWhileReading, 1);
+            return;
+        }
+
         Dispatcher.UIThread.Post(RecordSystemClipboard);
     }
 
@@ -336,13 +351,12 @@ public class ClipboardService : IDisposable
 
     private async void RecordSystemClipboard()
     {
-        // 放行要在读之前，读的过程中再变还能排上下一次
-        Volatile.Write(ref _readQueued, 0);
-        if (ConsumeSelfChange()) return;
-
         try
         {
-            // 来源应用先清空再写入，读早了只会读到空、不会读到旧内容，所以空了稍等再补读一次
+            if (ConsumeSelfChange()) return;
+
+            // 来源应用先清空再写入，读早了只会读到空、不会读到旧内容，所以空了稍等再补读一次。
+            // 这一次补读是承重的：它兜住的正是「通知已经发出去、数据还没写完」那段空窗
             var clipboardContent = await GetFromClipboard();
             if (string.IsNullOrEmpty(clipboardContent))
             {
@@ -362,13 +376,21 @@ public class ClipboardService : IDisposable
             //系统剪贴板每变一次就查一次全文,纯属浪费
             if (string.Equals(_lastRecordedText, clipboardContent, StringComparison.Ordinal)) return;
             _lastRecordedText = clipboardContent;
-            History.AddText(clipboardContent);
+            // 预览要把全文 Split 一遍、正文要进 SQLite，都不该压在 UI 线程上：
+            // 复制一大段 diff 或日志时那是几百毫秒的白等。存储层自己有锁，换个线程照样安全
+            await Task.Run(() => History.AddText(clipboardContent));
             OnClipboardStringChanged?.Invoke(clipboardContent);
             OnClipboardChanged?.Invoke();
         }
         catch (Exception e)
         {
             Log.Warning(e.Message);
+        }
+        finally
+        {
+            // 放行必须在读完之后：在读之前放行等于没有单飞，读的这段时间里通知会再排进来
+            Volatile.Write(ref _readQueued, 0);
+            if (Interlocked.Exchange(ref _changedWhileReading, 0) == 1) OnSystemClipboardChanged();
         }
     }
 
@@ -377,11 +399,19 @@ public class ClipboardService : IDisposable
         // 没有「退出时保存」这一步了:每次变更当场就已落盘,
         // 调试模式直接终止进程也不会丢——那正是旧实现丢一大截的原因
         _clipboardMonitor?.Dispose();
+        _textReader.Dispose();
         History.Dispose();
     }
 
 
     //==========================================================
+
+    IClipboardTextReader CreateTextReader()
+    {
+        // Windows 上必须绕开 OLE 延迟渲染，否则一次复制能把整台机器的剪贴板占住几十秒
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return new WindowsClipboardTextReader();
+        return new AvaloniaClipboardTextReader(() => Clipboard);
+    }
 
     IClipboardMonitor? CreateClipboardMonitor()
     {

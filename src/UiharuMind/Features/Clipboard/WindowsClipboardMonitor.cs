@@ -12,17 +12,23 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace UiharuMind.Features.Clipboard;
 
 /// <summary>
 /// 需要通过创建一个隐藏的窗口并使用 Win32 API 来监听剪贴板的变化
 /// 据说是因为 Windows 的剪贴板机制依赖于窗口消息传递系统，而 Avalonia 并不直接提供这种级别的系统集成
+///
+/// <para>
+/// 这个类<b>只负责听</b>：收到 <c>WM_CLIPBOARDUPDATE</c> 就发通知，读内容交给
+/// <see cref="IClipboardTextReader"/>。以前读取也塞在这里，于是 <c>ClipboardService</c>
+/// 只能靠 <c>is WindowsClipboardMonitor</c> 反查具体类型才拿得到读法。
+/// </para>
 /// </summary>
 public class WindowsClipboardMonitor : IClipboardMonitor
 {
     private static readonly TimeSpan DisposeTimeout = TimeSpan.FromSeconds(1);
+    private static readonly IntPtr HWND_MESSAGE = new IntPtr(-3);
 
     private readonly Thread _monitorThread;
     private readonly ManualResetEventSlim _windowReady = new(); //窗口在监控线程上创建，建好前没处投递退出消息
@@ -35,7 +41,7 @@ public class WindowsClipboardMonitor : IClipboardMonitor
 
     public WindowsClipboardMonitor()
     {
-        _monitorThread = new Thread(RunMessageLoop) { IsBackground = true };
+        _monitorThread = new Thread(RunMessageLoop) { IsBackground = true, Name = "ClipboardMonitor" };
 #pragma warning disable CA1416
         _monitorThread.SetApartmentState(ApartmentState.STA);
 #pragma warning restore CA1416
@@ -61,10 +67,10 @@ public class WindowsClipboardMonitor : IClipboardMonitor
         AddClipboardFormatListener(_windowHandle);
         _windowReady.Set();
 
-        while (_running && GetMessage(out var msg, IntPtr.Zero, 0, 0))
+        while (_running && ClipboardWin32.GetMessage(out ClipboardWin32.Msg msg, IntPtr.Zero, 0, 0) > 0)
         {
-            TranslateMessage(ref msg);
-            DispatchMessage(ref msg);
+            ClipboardWin32.TranslateMessage(ref msg);
+            ClipboardWin32.DispatchMessage(ref msg);
         }
 
         RemoveClipboardFormatListener(_windowHandle);
@@ -73,7 +79,7 @@ public class WindowsClipboardMonitor : IClipboardMonitor
 
     private IntPtr WindowProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
     {
-        if (msg == WM_CLIPBOARDUPDATE && _running)
+        if (msg == ClipboardWin32.WM_CLIPBOARDUPDATE && _running)
         {
             OnClipboardChanged?.Invoke();
         }
@@ -84,50 +90,6 @@ public class WindowsClipboardMonitor : IClipboardMonitor
         }
 
         return DefWindowProc(hWnd, msg, wParam, lParam);
-    }
-
-    /// <summary>
-    /// 用 Win32 直读剪贴板文本。<c>OpenClipboard + GetClipboardData(CF_UNICODETEXT)</c>，不经过 OLE——
-    /// OLE 的 <c>OleGetClipboard → EnumFormatEtc</c> 在来源应用（如 JetBrains/JVM）延迟渲染时会失败。
-    /// 读到空或剪贴板被占用时按 <paramref name="retryDelayMs"/> 等待后重试，最多 <paramref name="maxAttempts"/> 次。
-    /// </summary>
-    /// <param name="maxAttempts">最大尝试次数</param>
-    /// <param name="retryDelayMs">每次失败后的等待毫秒</param>
-    /// <returns>剪贴板文本；无文本或均失败时返回 null</returns>
-    public async Task<string?> TryReadTextAsync(int maxAttempts = 5, int retryDelayMs = 100)
-    {
-        for (int i = 0; i < maxAttempts; i++)
-        {
-            string? text = ReadClipboardText();
-            if (!string.IsNullOrEmpty(text)) return text;
-            if (i < maxAttempts - 1) await Task.Delay(retryDelayMs);
-        }
-
-        return null;
-    }
-
-    private static string? ReadClipboardText()
-    {
-        if (!OpenClipboard(IntPtr.Zero)) return null;
-        try
-        {
-            IntPtr handle = GetClipboardData(CF_UNICODETEXT);
-            if (handle == IntPtr.Zero) return null;
-            IntPtr ptr = GlobalLock(handle);
-            if (ptr == IntPtr.Zero) return null;
-            try
-            {
-                return Marshal.PtrToStringUni(ptr);
-            }
-            finally
-            {
-                GlobalUnlock(handle);
-            }
-        }
-        finally
-        {
-            CloseClipboard();
-        }
     }
 
     public void Dispose()
@@ -148,9 +110,6 @@ public class WindowsClipboardMonitor : IClipboardMonitor
         GC.SuppressFinalize(this);
     }
 
-    private const int WM_CLIPBOARDUPDATE = 0x031D;
-    private const uint CF_UNICODETEXT = 13;
-    private static readonly IntPtr HWND_MESSAGE = new IntPtr(-3);
     private const int WM_CLOSE = 0x0010;
 
     [DllImport("user32.dll", SetLastError = true)]
@@ -175,30 +134,6 @@ public class WindowsClipboardMonitor : IClipboardMonitor
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool GetMessage(out Msg lpMsg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool TranslateMessage(ref Msg lpMsg);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern IntPtr DispatchMessage(ref Msg lpMsg);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool OpenClipboard(IntPtr hWndNewOwner);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool CloseClipboard();
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern IntPtr GetClipboardData(uint uFormat);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern IntPtr GlobalLock(IntPtr hMem);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool GlobalUnlock(IntPtr hMem);
-
     [DllImport("user32.dll")]
     private static extern void PostQuitMessage(int nExitCode);
 
@@ -220,24 +155,6 @@ public class WindowsClipboardMonitor : IClipboardMonitor
         public string lpszMenuName;
         public string lpszClassName;
         public IntPtr hIconSm;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct Msg
-    {
-        public IntPtr hwnd;
-        public uint message;
-        public IntPtr wParam;
-        public IntPtr lParam;
-        public uint time;
-        public Point pt;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct Point
-    {
-        public int x;
-        public int y;
     }
 
     private delegate IntPtr WndProcDelegate(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
