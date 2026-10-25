@@ -61,7 +61,9 @@ public class SessionJsonShapeGuardTests
         for (int i = 0; i < Representative.Count; i++)
         {
             string actual = JsonSerializer.Serialize(Representative[i], SessionJsonOptions.Default);
-            Assert.Equal(golden[i], actual);
+            // Utf8JsonWriter 的缩进换行取 Environment.NewLine,Windows 上是 CRLF;
+            // 黄金字节是从 macOS 探针固化的 LF,比的是形状,换行符平台差异先归一再比
+            Assert.Equal(golden[i], NormalizeNewlines(actual));
         }
     }
 
@@ -130,7 +132,7 @@ public class SessionJsonShapeGuardTests
             }),
         });
 
-        Assert.Equal(Golden.TypedDictionaryInArguments, JsonSerializer.Serialize(message, SessionJsonOptions.Default));
+        Assert.Equal(Golden.TypedDictionaryInArguments, NormalizeNewlines(JsonSerializer.Serialize(message, SessionJsonOptions.Default)));
 
         ChatMessage restored = JsonSerializer.Deserialize<ChatMessage>(Golden.TypedDictionaryInArguments, SessionJsonOptions.Default)!;
         FunctionCallContent call = Assert.IsType<FunctionCallContent>(restored.Contents[0]);
@@ -148,7 +150,7 @@ public class SessionJsonShapeGuardTests
         ChatMessage message = new ChatMessage(ChatRole.User, "hi")
             .WithAgentRequestMessageSource(AgentRequestMessageSourceType.ChatHistory, "source");
 
-        Assert.Equal(Golden.AttributionInAdditionalProperties, JsonSerializer.Serialize(message, SessionJsonOptions.Default));
+        Assert.Equal(Golden.AttributionInAdditionalProperties, NormalizeNewlines(JsonSerializer.Serialize(message, SessionJsonOptions.Default)));
 
         ChatMessage restored = JsonSerializer.Deserialize<ChatMessage>(Golden.AttributionInAdditionalProperties, SessionJsonOptions.Default)!;
         Assert.True(restored.AdditionalProperties!.TryGetValue("_attribution", out object? attribution));
@@ -168,6 +170,9 @@ public class SessionJsonShapeGuardTests
         Assert.IsType<JsonElement>(value);
         Assert.Equal(toEqual, value!.ToString());
     }
+
+    /// <summary>缩进换行归一成 \n：黄金字节是 macOS 上固化的 LF，Windows 序列化输出 CRLF，比形状前先归一</summary>
+    private static string NormalizeNewlines(string value) => value.Replace("\r\n", "\n");
 
     private static JsonElement JsonElementThrow(object? value)
     {

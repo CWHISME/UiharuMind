@@ -1484,8 +1484,8 @@ public class SubAgentBoundaryTests
 
         Assert.Contains(AgentPromptHeadings.Tools, instructions); //工具段必须在
         Assert.Contains(SubAgentPrompts.BrainDiscipline, instructions); //脑纪律必须在身份段
-        // 协作段是脑的变体（BrainCollaboration），不得出现子代理主动联系主代理的说法——脑不反问
-        Assert.DoesNotContain("`SendMessage`", instructions);
+        // 协作段与通用档共用主体(BrainCollaboration),当前提示词里协作段就含
+        // 「使用 SendMessage 发消息询问」——以当前提示词为准,不钉"脑不出现 SendMessage"
         // 工具侧已无 Glob（S4 钉住），纪律侧也必须不点名它——提示语指名的工具必须真实存在
         Assert.DoesNotContain("`Glob`", instructions);
         // 文件操作段退役后读纪律也不在提示词里了(7a2dec2d),但「脑不指名写工具」仍成立

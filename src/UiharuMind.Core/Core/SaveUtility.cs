@@ -106,7 +106,7 @@ public static class SaveUtility
         string tempPath = filePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
-            const int maxAttempts = 3;
+            const int maxAttempts = 10; //Windows 上 8 并发替换同一目标的竞争窗口常超 60ms,3 次不够(实测偶发 Access denied 上报)
             for (int attempt = 1;; attempt++)
             {
                 try
@@ -115,11 +115,13 @@ public static class SaveUtility
                     File.Move(tempPath, filePath, true);
                     return;
                 }
-                catch (IOException) when (attempt < maxAttempts)
+                catch (Exception e) when ((e is IOException or UnauthorizedAccessException) && attempt < maxAttempts)
                 {
                     // 同一目标的并发替换等瞬态失败:退避重试。
                     // 内存里的对象才是权威,下一次保存还会重写,这里只为吞掉这次抖动。
                     // 注意 FileNotFoundException 也是 IOException,正好覆盖"目标被并发替换删掉"那一下。
+                    // Windows 上覆盖 MoveFileEx 对正被并发替换的目标会报 Access denied(UnauthorizedAccess),
+                    // 与 IOException 同为瞬态,一并重试
                     Thread.Sleep(TimeSpan.FromMilliseconds(20 * attempt));
                 }
             }
@@ -157,7 +159,7 @@ public static class SaveUtility
             string tempPath = filePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
             try
             {
-                const int maxAttempts = 3;
+                const int maxAttempts = 10; //与 WriteAtomic 同口径:并发替换的竞争窗口要留足
                 for (int attempt = 1;; attempt++)
                 {
                     try
@@ -179,8 +181,9 @@ public static class SaveUtility
                         File.Move(tempPath, filePath, true);
                         return true;
                     }
-                    catch (IOException) when (attempt < maxAttempts)
+                    catch (Exception e) when ((e is IOException or UnauthorizedAccessException) && attempt < maxAttempts)
                     {
+                        // 同 WriteAtomic:Windows 并发替换时的 Access denied 也是瞬态,一并重试
                         Thread.Sleep(TimeSpan.FromMilliseconds(20 * attempt));
                     }
                 }

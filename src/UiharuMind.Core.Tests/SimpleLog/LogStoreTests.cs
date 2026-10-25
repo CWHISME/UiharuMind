@@ -59,7 +59,7 @@ public class LogStoreTests : IDisposable
         Assert.Equal(ELogStream.Bodies, entry.Stream);
         Assert.Equal(text, store.ReadText(entry));
 
-        string main = File.ReadAllText(Path.Combine(_directory, "Log.txt"));
+        string main = ReadSharedText(Path.Combine(_directory, "Log.txt"));
         Assert.Contains("-> Bodies.txt#", main);
         Assert.Contains("首行摘要", main);
         Assert.True(main.Length < 500, $"主流被大正文撑到了 {main.Length} 字符");
@@ -113,7 +113,7 @@ public class LogStoreTests : IDisposable
         Assert.Equal("请求 (1 条): " + body, store.ReadText(first));
         Assert.Equal("之后的一条", store.ReadText(second));
         Assert.Equal("请求 (1 条): {…", first.Preview);
-        Assert.Contains($"({("请求 (1 条): " + body).Length:N0} chars)", File.ReadAllText(Path.Combine(_directory, "Log.txt")));
+        Assert.Contains($"({("请求 (1 条): " + body).Length:N0} chars)", ReadSharedText(Path.Combine(_directory, "Log.txt")));
     }
 
     /// <summary>外置与否按字符数判（与字符串正文同口径）：中文按字节早就超了阈值，按字符没超就仍在主流</summary>
@@ -180,8 +180,8 @@ public class LogStoreTests : IDisposable
         second.Append(new LogItem(ELogType.Log, "这一次运行"));
         second.Flush();
 
-        Assert.Contains("上一次运行", File.ReadAllText(Path.Combine(_directory, "Log.1.txt")));
-        Assert.Contains("这一次运行", File.ReadAllText(Path.Combine(_directory, "Log.txt")));
+        Assert.Contains("上一次运行", ReadSharedText(Path.Combine(_directory, "Log.1.txt")));
+        Assert.Contains("这一次运行", ReadSharedText(Path.Combine(_directory, "Log.txt")));
     }
 
     /// <summary>快照是副本，调用方改动它不影响内部索引</summary>
@@ -195,6 +195,16 @@ public class LogStoreTests : IDisposable
         first.Clear();
 
         Assert.Single(store.GetSnapshot());
+    }
+    /// <summary>
+    /// 读日志文件。Windows 上 File.ReadAllText 默认声明 FileShare.Read，与仍在写的那条
+    /// 写句柄（FileShare.ReadWrite）冲突；多实例日志就是要边写边读，读方也放开共享
+    /// </summary>
+    private static string ReadSharedText(string path)
+    {
+        using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using StreamReader reader = new(stream);
+        return reader.ReadToEnd();
     }
 }
 

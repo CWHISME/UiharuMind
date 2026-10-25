@@ -119,7 +119,7 @@ internal sealed class LogFileWriter : IDisposable
 
         try
         {
-            using FileStream fs = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using FileStream fs = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
             fs.Seek(offset, SeekOrigin.Begin);
             byte[] buffer = new byte[byteLength];
             int read = fs.ReadAtLeast(buffer, byteLength, throwOnEndOfStream: false);
@@ -204,7 +204,9 @@ internal sealed class LogFileWriter : IDisposable
             return;
         }
 
-        FileStream fs = new(path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+        // 写句柄必须声明 FileShare.Delete:别的实例 RotateOnStartup 要把本实例的 Log.txt 改名
+        // (Windows 上改名/删除要求所有打开句柄声明 DELETE 共享, POSIX 无此限制)
+        FileStream fs = new(path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
         if (fs.Length == 0)
         {
             // 新文件:盖本会话戳作为身份标记,正文偏移一律从戳之后算
@@ -248,7 +250,7 @@ internal sealed class LogFileWriter : IDisposable
             if (!File.Exists(path)) continue;
             try
             {
-                using FileStream fs = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                using FileStream fs = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
                 if (StartsWithSessionTag(fs)) return generation;
             }
             catch (Exception)
@@ -270,7 +272,7 @@ internal sealed class LogFileWriter : IDisposable
     {
         try
         {
-            using FileStream fs = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using FileStream fs = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
             return StartsWithSessionTag(fs);
         }
         catch (Exception)

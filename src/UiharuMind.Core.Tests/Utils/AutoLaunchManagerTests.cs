@@ -201,6 +201,9 @@ public class AutoLaunchManagerTests
     [Fact]
     public void LinuxExec_EscapesAndRoundTrips()
     {
+        // Windows 文件系统不允许文件名里出现 '"',这条是 Linux 语义(用例专测它的转义),Windows 上跳过
+        if (OperatingSystem.IsWindows()) return;
+
         Assert.Equal("/opt/a%%b\\\"c", AutoLaunchManager.QuoteLinuxExecArg("/opt/a%b\"c"));
 
         string dir = Path.Combine(Path.GetTempPath(), $"autolaunch-test-{Guid.NewGuid():N}");

@@ -37,7 +37,10 @@ public class ShellToolDescriptionTests
             executor.AsAIFunction(CharacterRunnerFactory.ShellToolName), TimeSpan.FromSeconds(2));
 
         Stopwatch watch = Stopwatch.StartNew();
-        object? result = await guarded.InvokeAsync(new AIFunctionArguments { ["command"] = "sleep 15 & echo started" },
+        // bash 的 `sleep 15 & echo started` 让后台进程占着管道;PowerShell 没有等价的
+        // 后台继承管道写法(5.1 里 & 还是调用操作符),改用挂 15 秒的命令,同样触发兜底时限
+        string command = OperatingSystem.IsWindows() ? "Start-Sleep 15" : "sleep 15 & echo started";
+        object? result = await guarded.InvokeAsync(new AIFunctionArguments { ["command"] = command },
             TestContext.Current.CancellationToken);
 
         Assert.Equal(ShellHangGuardFunction.HangNotice, result?.ToString());

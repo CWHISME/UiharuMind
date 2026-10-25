@@ -229,12 +229,16 @@ public class SubAgentReceiptMarkerTests
         }
     }
 
+    /// <summary>
+    /// 实时插话回执的文案(「已发送消息」)。不钉具体措辞——文案以当前代码为准,
+    /// 曾有一条断言"不会再单独回一封",与现在"子代理会主动发消息"的口径冲突,已删
+    /// </summary>
     [Fact]
-    public void InjectedReceipt_SaysNoSeparateReport()
+    public void InjectedReceipt_SaysTheMessageWasSent()
     {
         string receipt = SubAgentTool.BuildInjectedReceipt("abc123");
 
-        Assert.Contains("不会再单独回一封", receipt);
-        Assert.DoesNotContain("已派出", receipt);
+        Assert.Contains("已发送消息", receipt);
+        Assert.DoesNotContain("已派出", receipt); //"已派出"是派活轮的说法,插话回执不是它
     }
 }

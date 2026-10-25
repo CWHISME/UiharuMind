@@ -74,10 +74,10 @@ public static class MarkdownBlockScanner
                     if (Flush(buffer, kind, headerPath) is { } beforeFence) yield return beforeFence;
 
                     // 围栏内的一切都按原样收进来:里面的 # 和 | 是代码,不是结构
-                    buffer.AppendLine(line);
+                    buffer.Append(line).Append('\n');
                     while (++i < lines.Length)
                     {
-                        buffer.AppendLine(lines[i]);
+                        buffer.Append(lines[i]).Append('\n');
                         if (IsFenceClose(lines[i], fence)) break;
                     }
 
@@ -113,7 +113,8 @@ public static class MarkdownBlockScanner
                 }
 
                 kind = isTableRow ? EMemoryBlockKind.Table : EMemoryBlockKind.Paragraph;
-                buffer.AppendLine(line);
+                // 不用 AppendLine:它在 Windows 上拼的是 CRLF,会把这里"归一成 \n"的承诺破坏掉
+                buffer.Append(line).Append('\n');
             }
 
             if (Flush(buffer, kind, headerPath) is { } last) yield return last;

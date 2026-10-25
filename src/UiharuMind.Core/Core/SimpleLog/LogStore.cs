@@ -211,11 +211,17 @@ public sealed class LogStore : IDisposable
         if (!File.Exists(main)) return;
         try
         {
-            // 新格式的头行是 "[2026-..",第二个字符必为数字;旧格式是 JSON 数组,'[' 之后是换行或空白
-            using StreamReader reader = new(main);
-            int first = reader.Read();
-            int second = reader.Read();
-            if (first == '[' && !char.IsDigit((char)second)) TryDelete(main);
+            // 新格式的头行是 "[2026-..",第二个字符必为数字;旧格式是 JSON 数组,'[' 之后是换行或空白。
+            // 判定与删除必须分两步:reader 的句柄还开着时 File.Delete 在 Windows 上会因共享冲突失败
+            // (POSIX 上 unlink 不受打开句柄影响),而判定需要读,删完再让滚动接手旧文件
+            bool legacy;
+            using (StreamReader reader = new(main))
+            {
+                int first = reader.Read();
+                int second = reader.Read();
+                legacy = first == '[' && !char.IsDigit((char)second);
+            }
+            if (legacy) TryDelete(main);
         }
         catch (Exception)
         {

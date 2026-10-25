@@ -179,7 +179,9 @@ public class AgentPathResolverTests
     [InlineData("%%/a.txt")]
     public void Resolve_NamesThatMerelyContainSigils_StayRelative(string path)
     {
-        Assert.Equal(Path.Combine(Workspace, path), WithDraft().Resolve(path));
+        // 两边都走一次 GetFullPath 再比:Resolve 返回的是规范化的绝对路径,
+        // Windows 上会把混合分隔符(如 %%/a.txt)收成单一分隔符,不能拿原始拼接串当期望
+        Assert.Equal(Path.GetFullPath(Path.Combine(Workspace, path)), WithDraft().Resolve(path));
     }
 
     private static AgentPathResolver WithDraft() => new(Workspace, Draft);

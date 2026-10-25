@@ -55,8 +55,10 @@ public sealed class GroupArtifactsTests : IDisposable
     [Fact]
     public void Workspace_OnlyCountsWritesThatLanded()
     {
-        string spec = Touch(_workspace, "Design/spec.md");
-        string code = Touch(_workspace, "Code/A.cpp");
+        // Touch 的相对路径用 Path.Combine 拼:直接写 "Code/A.cpp" 在 Windows 上
+        // Path.Combine 会保留混合分隔符,而 Resolve 的 GetFullPath 会收成 "\",两个绝对路径串就比不上了
+        string spec = Touch(_workspace, Path.Combine("Design", "spec.md"));
+        string code = Touch(_workspace, Path.Combine("Code", "A.cpp"));
         Touch(_workspace, "Code/B.cpp");
         List<ChatMessage> mitsuko = [];
         AddWrite(mitsuko, "1", FileToolNames.Edit, "Design/spec.md", "已修改 'Design/spec.md'（2 处编辑）。\n-old\n+new");

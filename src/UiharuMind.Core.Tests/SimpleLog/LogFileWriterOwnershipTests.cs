@@ -88,8 +88,8 @@ public class LogFileWriterOwnershipTests : IDisposable
         Assert.False(File.Exists(Path.Combine(_directory, "T.2.txt"))); //链只在第二个实例启动时推过一代
         Assert.Equal("第一实例最早那条", first.Read(firstFileId, firstOffset, firstPayload.Length));
         Assert.Equal("第二实例最早那条", second.Read(secondFileId, secondOffset, secondPayload.Length));
-        Assert.Contains("一19", File.ReadAllText(Path.Combine(_directory, "T.1.txt")));
-        Assert.Contains("二19", File.ReadAllText(Path.Combine(_directory, "T.txt")));
+        Assert.Contains("一19", ReadSharedText(Path.Combine(_directory, "T.1.txt")));
+        Assert.Contains("二19", ReadSharedText(Path.Combine(_directory, "T.txt")));
     }
 
     /// <summary>
@@ -107,8 +107,23 @@ public class LogFileWriterOwnershipTests : IDisposable
         Assert.Equal("0123456789abcdefghij", writer.Read(fileId, offset, payload.Length));
 
         // 模拟别的实例把 T.txt 换成一个短文件（旧正文随之丢失/被改名）
-        File.WriteAllText(Path.Combine(_directory, "T.txt"), "新的短内容");
+        // Windows 上 File.WriteAllText 默认 FileShare.Read 会与 writer 的写句柄冲突,
+        // 换文件的一方同样放开共享
+        using (FileStream replace = new(Path.Combine(_directory, "T.txt"), FileMode.Create,
+                   FileAccess.Write, FileShare.ReadWrite | FileShare.Delete))
+        using (StreamWriter replacement = new(replace))
+        {
+            replacement.Write("新的短内容");
+        }
 
         Assert.Null(writer.Read(fileId, offset, payload.Length));
+    }
+
+    /// <summary>读日志文件。Windows 上 File.ReadAllText 默认 FileShare.Read 与仍在写的写句柄冲突,放开共享</summary>
+    private static string ReadSharedText(string path)
+    {
+        using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using StreamReader reader = new(stream);
+        return reader.ReadToEnd();
     }
 }

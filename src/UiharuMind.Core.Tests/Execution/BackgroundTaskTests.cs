@@ -38,7 +38,11 @@ public class BackgroundTaskTests
     [Fact]
     public async Task ExitedTask_ReportsExitCodeAndLogsOutput()
     {
-        BackgroundTaskOutcome outcome = await RunAsync("echo hello; echo oops 1>&2; exit 3", TimeSpan.FromMinutes(1));
+        // Windows PowerShell 5.1 不支持 `1>&2`(保留运算符),stderr 用 Console.Error 写
+        string command = OperatingSystem.IsWindows()
+            ? "echo hello; [Console]::Error.WriteLine('oops'); exit 3"
+            : "echo hello; echo oops 1>&2; exit 3";
+        BackgroundTaskOutcome outcome = await RunAsync(command, TimeSpan.FromMinutes(1));
 
         Assert.Equal(EBackgroundTaskEnd.Exited, outcome.End);
         Assert.Equal(3, outcome.ExitCode);
