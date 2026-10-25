@@ -273,12 +273,26 @@ public static class SubAgentTool
         if (runs.Count > 1) return Task.FromResult(AmbiguousRun(target, runs));
 
         IReadOnlyList<ChatSessionMeta> groups = GroupMessageChannel.Match(target);
-        return groups.Count switch
-        {
-            0 => Task.FromResult(UnknownRecipient(context, target)),
-            1 => Task.FromResult(GroupMessageChannel.Post(groups[0], message)),
-            _ => Task.FromResult(AmbiguousGroup(target, groups)),
-        };
+        if (groups.Count == 1) return Task.FromResult(GroupMessageChannel.Post(groups[0], message));
+        if (groups.Count > 1) return Task.FromResult(AmbiguousGroup(target, groups));
+
+        IReadOnlyList<ChatSessionMeta> chats = SessionMessenger.Match(target);
+        if (chats.Count == 1) return Task.FromResult(SessionMessenger.Post(chats[0], message));
+        if (chats.Count > 1) return Task.FromResult(AmbiguousChat(target, chats));
+
+        return Task.FromResult(UnknownRecipient(context, target));
+    }
+
+    /// <summary>
+    /// 单聊标题/会话短号撞车：与 <see cref="AmbiguousRun"/> 同一口径，把候选的短号交给模型挑
+    /// </summary>
+    private static string AmbiguousChat(string target, IReadOnlyList<ChatSessionMeta> chats)
+    {
+        IEnumerable<string> lines = chats.Select(x =>
+            $"- 《{x.Title}》[{SubSessionIdAlias.Short(x.SessionId)}]");
+        return $"Error: '{target}' 匹配了多个单聊：\n"
+               + string.Join("\n", lines)
+               + "\n把你要的那一个的会话短号或标题作为 `to` 传进来。";
     }
 
     /// <summary>
@@ -326,12 +340,12 @@ public static class SubAgentTool
     }
 
     /// <summary>
-    /// <see cref="MessageToolName"/> 的收件人不认识时的回话。<b>两条路都给</b>:模型此刻不知道
-    /// 自己是想续聊却抄错了编号,还是其实想新开一位——只说一条它会在另一条上再错一次。
+    /// <see cref="MessageToolName"/> 的收件人不认识时的回话。<b>三条路都给</b>:模型此刻不知道
+    /// 自己是想续聊却抄错了编号、想新开一位，还是想往某个群/单聊里说一句——只说一条它会在另一条上再错一次。
     ///
     /// 聊过的人直接列出来照抄:只说"去回执里找标识",模型会凭印象补写(实测把短号补成 GUID),
-    /// 对不上就另起新人,前面做过的全丢。发群与发单聊的写法由各自的结果页教,
-    /// 这里不攒一张全库名单——那只会让这一行报错长得不可读
+    /// 对不上就另起新人,前面做过的全丢。最近的单聊也列出来:模型不知道会场里有哪些会话,
+    /// 光说「`to` 填单聊标题」它编不出来。名单有限量,不会长得不可读
     /// </summary>
     private static string UnknownRecipient(LaunchContext context, string? target)
     {
@@ -339,15 +353,26 @@ public static class SubAgentTool
                        + $"要新开一位，用 `{ToolName}`。";
 
         List<ChatSessionMeta> earlier = SessionManager.Instance.GetSubSessions(context.ParentSessionId);
-        if (earlier.Count == 0) return error;
-
         StringBuilder text = new(error);
-        IEnumerable<string> lines = earlier.Take(MaxListedConversations).Select(x =>
+        if (earlier.Count > 0)
         {
-            string who = x.SubAgentName.Length > 0 ? x.SubAgentName : x.Title; //身份即会话标题
-            return $"- [sub-session: {SubSessionIdAlias.Short(x.SessionId)}]" + (who.Length > 0 ? $" — {who}" : string.Empty);
-        });
-        text.Append("\n本会话里你已联系过的人（把 id 传给 `to` 即可继续）：\n").AppendJoin("\n", lines);
+            IEnumerable<string> lines = earlier.Take(MaxListedConversations).Select(x =>
+            {
+                string who = x.SubAgentName.Length > 0 ? x.SubAgentName : x.Title; //身份即会话标题
+                return $"- [sub-session: {SubSessionIdAlias.Short(x.SessionId)}]" + (who.Length > 0 ? $" — {who}" : string.Empty);
+            });
+            text.Append("\n本会话里你已联系过的人（把 id 传给 `to` 即可继续）：\n").AppendJoin("\n", lines);
+        }
+
+        IReadOnlyList<ChatSessionMeta> chats = SessionMessenger.RecentSingles(MaxListedConversations);
+        if (chats.Count > 0)
+        {
+            IEnumerable<string> lines = chats.Select(x =>
+                $"- 《{x.Title}》[{SubSessionIdAlias.Short(x.SessionId)}]");
+            text.Append("\n最近的单聊（`to` 填标题或短号，就以用户的名义往那边说一句，那边会回一轮）：\n")
+                .AppendJoin("\n", lines);
+        }
+
         return text.ToString();
     }
 
