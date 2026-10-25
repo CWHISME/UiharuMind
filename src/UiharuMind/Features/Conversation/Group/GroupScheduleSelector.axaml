@@ -23,5 +23,6 @@
                     Content="{loc:Loc GroupStopAggressive}" Command="{Binding UseAggressiveCommand}" />
         </StackPanel>
         <TextBlock Classes="muted" FontSize="11" Text="{Binding Hint}" TextWrapping="Wrap" />
+        <TextBlock Classes="muted" FontSize="11" Text="{loc:Loc GroupScheduleNextWaveHint}" TextWrapping="Wrap" />
     </StackPanel>
 </UserControl>

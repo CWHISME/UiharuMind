@@ -3462,6 +3462,9 @@
     <data name="GroupModeSerialHint" xml:space="preserve">
         <value>成员按顺序一人一轮，一圈即停。</value>
     </data>
+    <data name="GroupScheduleNextWaveHint" xml:space="preserve">
+        <value>正在跑的这一波不打断，改动从下一波起生效。</value>
+    </data>
     <data name="GroupModeParallelHint" xml:space="preserve">
         <value>被叫醒的成员同时开口，每条发言即时传给还在说的人；用 @名字 点名。</value>
     </data>

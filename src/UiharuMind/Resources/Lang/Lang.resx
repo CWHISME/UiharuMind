@@ -3467,6 +3467,9 @@ Allow them?</value>
     <data name="GroupModeSerialHint" xml:space="preserve">
         <value>Members take turns in order and stop after one round.</value>
     </data>
+    <data name="GroupScheduleNextWaveHint" xml:space="preserve">
+        <value>Changes take effect from the next wave; the one currently running is not interrupted.</value>
+    </data>
     <data name="GroupModeParallelHint" xml:space="preserve">
         <value>Woken members speak at the same time, and each message reaches whoever is still speaking. Use @name to call on someone.</value>
     </data>
