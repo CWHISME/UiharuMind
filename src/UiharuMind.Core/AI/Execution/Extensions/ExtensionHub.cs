@@ -151,7 +151,10 @@ internal sealed class ExtensionHub
             if (builtin.IsHidden) continue;
             sb.Append("- ").Append(builtin.Name).Append("（内置");
             if (builtin.Unavailable is { } reason) sb.Append("，不可用：").Append(reason);
-            sb.Append("）\n");
+            sb.Append('）');
+            // 与 MCP 那支对齐：名字后面带一句话简介，模型不用逐个 ExHelp 才知道每个扩展是干什么的
+            if (!string.IsNullOrWhiteSpace(builtin.Summary)) sb.Append("：").Append(builtin.Summary.Trim());
+            sb.Append('\n');
         }
 
         foreach (McpServerBrief server in _mcp?.List() ?? [])

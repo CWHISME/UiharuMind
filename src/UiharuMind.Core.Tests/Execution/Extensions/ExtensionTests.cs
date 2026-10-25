@@ -133,6 +133,17 @@ public class ExtensionTests
         Assert.DoesNotContain("\\u", detail);
     }
 
+    /// <summary>无参数列出时，内置扩展像 MCP server 一样带一句话简介，不是只给名字</summary>
+    [Fact]
+    public async Task Help_ListAll_BuiltinsCarryTheirSummary()
+    {
+        ExtensionHub hub = Hub(AudioExtension.Spec.Assemble(Resources(), EReadImageMode.None, mountFiles: true));
+
+        string text = await hub.HelpAsync(null, null, TestContext.Current.CancellationToken);
+
+        Assert.Contains("- audio（内置）：用角色的声音配音成音频文件", text);
+    }
+
     [Fact]
     public async Task Call_BindsArgumentsAndRunsTheCommand()
     {

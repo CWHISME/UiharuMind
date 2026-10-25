@@ -52,7 +52,7 @@
         <value>Full auto: everything runs without prompts</value>
     </data>
     <data name="CompactCommandDescription" xml:space="preserve">
-        <value>Compact the conversation into a memory compression</value>
+        <value>Compact the conversation into a memory summary</value>
     </data>
     <data name="HandoffHeader" xml:space="preserve">
         <value>Memory compressed</value>

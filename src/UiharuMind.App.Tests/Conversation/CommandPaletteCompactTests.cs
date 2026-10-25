@@ -73,4 +73,16 @@ public class CommandPaletteClearTests
     {
         Assert.False(CommandPaletteViewData.TryParseClear("/clearly"));
     }
+
+    /// <summary>内置命令必须完整出现在输入框的 / 补全里——用户看不到 /clear 就是它没进来</summary>
+    [Fact]
+    public void BuiltInCommands_IncludeCompactAndClear()
+    {
+        List<string> names = CommandPaletteViewData.BuiltInCommands.Select(x => x.Name).ToList();
+
+        Assert.Contains("compact", names);
+        Assert.Contains("clear", names);
+        // 补全列表按名字前匹配,名字不带斜杠(BuiltInCommands 已去掉);描述要有话可说,不能空着
+        Assert.All(CommandPaletteViewData.BuiltInCommands, x => Assert.False(string.IsNullOrEmpty(x.Description)));
+    }
 }

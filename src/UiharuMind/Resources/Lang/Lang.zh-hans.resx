@@ -45,7 +45,7 @@
         <value>全自动:所有操作自动执行,不再询问</value>
     </data>
     <data name="CompactCommandDescription" xml:space="preserve">
-        <value>把当前对话整理成一份记忆压缩</value>
+        <value>把当前对话压缩成一份记忆摘要</value>
     </data>
     <data name="HandoffHeader" xml:space="preserve">
         <value>已进行记忆压缩</value>
