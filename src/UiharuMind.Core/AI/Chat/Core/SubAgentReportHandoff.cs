@@ -207,29 +207,33 @@ public static class SubAgentReportHandoff
     /// <param name="supersedes">更正上一封</param>
     /// <param name="interruption">被打断的原因（接在「对方」后面成句），没被打断为 null</param>
     /// <param name="othersPending">还在等几位别人的回信</param>
+    /// <param name="identityLine">这位子代理的身份行（<see cref="SubAgentDescriptor.Describe"/> 的产物）；非空则附在信头后，主代理据此认出是谁</param>
     /// <returns>信的全文</returns>
     internal static string BuildText(string sender, string subSessionId, string replyingTo, string conclusion,
-        bool supersedes, string? interruption, int othersPending)
+        bool supersedes, string? interruption, int othersPending, string? identityLine = null)
     {
         string from = FromLabel(sender, subSessionId);
         string head = replyingTo.Length > 0 ? $"来自 {from}，回你之前发的「{replyingTo}」" : $"来自 {from}";
         if (supersedes) head += "【更正上一封】";
 
+        // 身份行附在信头之后：信头已经说了是谁，这一行再把来龙去脉（主题/点名/只读档）展开
+        string identity = identityLine is { Length: > 0 } ? $"\n{identityLine}" : string.Empty;
+
         // 附言不插在信头与正文之间:放在最后,也正好是模型读完要决定下一步的位置
         string waiting = $"\n\n【接着谈同类主题就用 `{SubAgentTool.MessageToolName}`，to 填 [sub-session: {SubSessionIdAlias.Short(subSessionId)}]；"
                          + $"另开一位的话，对方什么都不知道。】"
                          + (othersPending > 0 ? $"\n【当前还剩 {othersPending} 位的回信。】" : string.Empty);
-        if (interruption == null) return $"{head}：\n\n{conclusion}{waiting}";
+        if (interruption == null) return $"{head}：{identity}\n\n{conclusion}{waiting}";
 
         return conclusion.Length > 0
-            ? $"{head}。对方{interruption}，以下是对方停下前说到的：\n\n{conclusion}{waiting}"
-            : $"{head}。对方{interruption}，没回任何内容。{waiting}";
+            ? $"{head}。对方{interruption}，以下是对方停下前说到的：{identity}\n\n{conclusion}{waiting}"
+            : $"{head}。对方{interruption}，没回任何内容。{identity}{waiting}";
     }
 
     private static ChatMessage BuildMessage(ChatSession subSession, string conclusion, bool supersedes,
         string? interruption, int othersPending) =>
         Annotate(subSession, BuildText(SenderOf(subSession), subSession.SessionId, ReplyingTo(subSession), conclusion,
-            supersedes, interruption, othersPending));
+            supersedes, interruption, othersPending, SubAgentDescriptor.Describe(subSession)));
 
     /// <summary>
     /// 信头署名：{名字} [sub-session: 短号]。匿名无名字时只留标识。

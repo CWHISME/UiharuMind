@@ -62,7 +62,8 @@ public class HistoryHandoffRosterTests
             id => id == running.SessionId ? ESessionRunState.Running : ESessionRunState.Idle);
 
         Assert.Contains("2 位子代理，其中 1 位还在工作中", roster);
-        Assert.Contains($"-  · 《查配置加载》[{SubSessionIdAlias.Short(running.SessionId)}] · 工作中", roster);
+        // 身份行与子代理列表同一口径（SubAgentDescriptor）：主题不带《》，点名/只读另标
+        Assert.Contains($"- 查配置加载[{SubSessionIdAlias.Short(running.SessionId)}] · 工作中", roster);
         Assert.DoesNotContain("idle456", roster); //空闲的不占篇幅
         Assert.DoesNotContain("审一遍 diff", roster);
     }

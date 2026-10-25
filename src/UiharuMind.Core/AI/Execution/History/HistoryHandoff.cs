@@ -155,10 +155,9 @@ public static class HistoryHandoff
             roster.Append($"本会话派出过 {subSessions.Count} 位子代理，其中 {running.Count} 位还在工作中：\n");
             foreach (ChatSessionMeta meta in running)
             {
-                string who = string.IsNullOrWhiteSpace(meta.SubAgentName) ? string.Empty : $"{meta.SubAgentName}：";
-                string topic = string.IsNullOrWhiteSpace(meta.Title) ? string.Empty : $"《{meta.Title}》";
                 string state = stateOf(meta.SessionId) == ESessionRunState.AwaitingApproval ? "等审批" : "工作中";
-                roster.Append($"- {who} · {topic}[{SubSessionIdAlias.Short(meta.SessionId)}] · {state}\n");
+                // 身份行与子代理列表、回信信头共用同一份口径（SubAgentDescriptor），状态是当下才有的信息
+                roster.Append(SubAgentDescriptor.Describe(meta)).Append(" · ").Append(state).Append('\n');
             }
         }
 

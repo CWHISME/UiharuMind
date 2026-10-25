@@ -344,14 +344,8 @@ public static class ChatSessionTools
 
     private static string DescribeSub(ChatSessionMeta meta, ChatSession? body, SessionManager manager)
     {
-        // 索引没有主题字段；标题就是 BuildTitle 的产物（派活时给了主题用主题，否则任务首行）
-        string topic = meta.Title;
-        StringBuilder sb = new(topic.Length > 0
-            ? $"- {topic}[{SubSessionIdAlias.Short(meta.SessionId)}]"
-            : $"- [{SubSessionIdAlias.Short(meta.SessionId)}]");
-        if (meta.SubAgentName.Length > 0) sb.Append(" · 点名：").Append(meta.SubAgentName);
-        // 探索档恒定只读（CreateAgent 置 readOnly 派出）：主代理续用前要知道这位改不了东西
-        if (meta.SubAgentType == ESubAgentType.Explorer) sb.Append(" · 只读");
+        // 身份行（主题/短号/点名/只读档）与记忆压缩、回信信头共用同一份，见 SubAgentDescriptor
+        StringBuilder sb = new(SubAgentDescriptor.Describe(meta));
         var state = StateOf(manager, meta.SessionId);
         sb.Append(" · ").Append(StateLabel(state));
         string usage = UsageOf(meta, body);

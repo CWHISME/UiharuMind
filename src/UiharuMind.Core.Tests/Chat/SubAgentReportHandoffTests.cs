@@ -138,6 +138,28 @@ public class SubAgentReportHandoffTests
         Assert.Contains("对方没写完回复就停下了，没回任何内容。", empty);
     }
 
+    /// <summary>身份行附在信头之后：主代理一眼看到这位是谁（主题/点名/只读档），与子代理列表同一口径</summary>
+    [Fact]
+    public void ReplyText_AppendsTheIdentityLine()
+    {
+        string text = SubAgentReportHandoff.BuildText("审查员", "sub1", "查一下", "可以提交",
+            supersedes: false, interruption: null, othersPending: 0,
+            identityLine: "- 审查主题[sub1] · 点名：审查员");
+
+        Assert.StartsWith("来自 审查员 [sub-session: sub1]，回你之前发的「查一下」：\n- 审查主题[sub1] · 点名：审查员", text);
+        Assert.Contains("\n\n可以提交\n\n", text);
+    }
+
+    /// <summary>没给身份行时信头后直接是正文——旧形态不回归</summary>
+    [Fact]
+    public void ReplyText_WithoutIdentityLine_GoesStraightToBody()
+    {
+        string text = SubAgentReportHandoff.BuildText("审查员", "sub1", "查一下", "可以提交", false, null, 0);
+
+        Assert.StartsWith("来自 审查员 [sub-session: sub1]，回你之前发的「查一下」：\n\n可以提交", text);
+        Assert.DoesNotContain("- 审查主题", text);
+    }
+
     /// <summary>插进醒着的派活者那一轮时：他醒着说明上一封（若有）已读过，有就写成更正</summary>
     [Fact]
     public void Compose_WhileParentAwake_MarksACorrectionOnlyIfAnEarlierReplyExists()

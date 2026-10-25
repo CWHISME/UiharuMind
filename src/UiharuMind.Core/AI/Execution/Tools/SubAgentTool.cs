@@ -506,7 +506,14 @@ public static class SubAgentTool
         // 插话走注入队列,在下一次模型请求前消费,效果并入当前轮的报告,不另交报告。
         if (SessionManager.Instance.Running.IsBusy(session.SessionId))
         {
-            ChatMessage injection = session.CreateMessage(ChatRole.User, ParentInterjectionPrefix + message + $"\n***\n【这是主代理动态发给你的消息，如有沟通需要，请及时使用 `{ParentMessageTool.ToolName}` 工具回复这条消息。】");
+            // 动态插话是「中途回复」：收尾后的报告会自动交回，不需要调工具——对这条插话立即作答
+            // 必须用子代理自己那把 SendMessage（ParentMessageTool）发回来。脑（同步、只读、不反问）
+            // 没有这把工具，它的回答当场返回，只让它直接作答即可
+            string replyDirective = session.SubAgentType == ESubAgentType.Brain
+                ? $"\n***\n【这是主代理动态发给你的消息，正在等你的答复：请在现在这一轮直接回答上面的问题。】"
+                : $"\n***\n【这是主代理动态发给你的消息，正在等你的答复：请用 `{ParentMessageTool.ToolName}` 直接回复这条消息——"
+                  + $"收尾后的报告会自动交回，不用调工具；需要你中途回话时才用它。】";
+            ChatMessage injection = session.CreateMessage(ChatRole.User, ParentInterjectionPrefix + message + replyDirective);
             ChatMessageAnnotations.MarkParentInterjection(injection);
             bool injected = false;
             try
