@@ -11,9 +11,11 @@
 
     <!-- 产物区：群或单聊到底落了哪些盘。点开看文件，右键在文件夹中显示 -->
     <Border BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}" CornerRadius="8" Padding="8">
-        <!-- 列表行用 * 拿受限高度：放纵向 StackPanel 里的话 ListBox 收到无限高度，虚拟化失效 -->
-        <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" RowSpacing="8">
-            <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
+        <!-- 标题固定在上、列表吃满剩余高度（DockPanel 的末位子元素填满，虚拟化照样拿到受限高度）。
+             刻意不用 Grid + RowSpacing：RowSpacing 给高度为 0 的行也留间距，三段空状态文案
+             会在标题与列表之间白砸出 24px（探针 ArtifactsPanelAppearanceProbeTests 量过） -->
+        <DockPanel>
+            <Grid DockPanel.Dock="Top" Margin="0,0,0,8" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
                 <TextBlock FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"
                            Text="{Binding Title}" />
                 <ThemedIconButton Grid.Column="1" Width="24" Height="24" VerticalAlignment="Center"
@@ -27,13 +29,17 @@
                                         IsChecked="{Binding DraftOnly, Mode=TwoWay}"
                                         ToolTip.Tip="{Binding FilterTip}" />
             </Grid>
-            <TextBlock Grid.Row="1" Classes="muted" Text="{Binding Hint}" TextWrapping="Wrap"
-                       IsVisible="{Binding IsEmpty}" />
-            <TextBlock Grid.Row="2" Classes="muted" FontSize="11" IsVisible="{Binding IsEmpty}"
-                       Text="{loc:Loc GroupArtifactsEmpty}" TextWrapping="Wrap" />
-            <TextBlock Grid.Row="3" Classes="muted" FontSize="11" IsVisible="{Binding IsDraftEmpty}"
-                       Text="{loc:Loc GroupArtifactsDraftEmpty}" TextWrapping="Wrap" />
-            <ListBox Grid.Row="4" ItemsSource="{Binding Items}" Classes="flat-list"
+            <!-- 空状态整块收起时不占位（连下边距一起没）。三句文案互斥，谁有话说谁显 -->
+            <StackPanel DockPanel.Dock="Top" Spacing="2" Margin="0,0,0,6"
+                        IsVisible="{Binding HasEmptyNotice}">
+                <TextBlock Classes="muted" Text="{Binding Hint}" TextWrapping="Wrap"
+                           IsVisible="{Binding IsEmpty}" />
+                <TextBlock Classes="muted" FontSize="11" IsVisible="{Binding IsEmpty}"
+                           Text="{loc:Loc GroupArtifactsEmpty}" TextWrapping="Wrap" />
+                <TextBlock Classes="muted" FontSize="11" IsVisible="{Binding IsDraftEmpty}"
+                           Text="{loc:Loc GroupArtifactsDraftEmpty}" TextWrapping="Wrap" />
+            </StackPanel>
+            <ListBox ItemsSource="{Binding Items}" Classes="flat-list"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                      ScrollViewer.BringIntoViewOnFocusChange="False">
                 <ListBox.ItemTemplate>
@@ -70,6 +76,6 @@
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
-        </Grid>
+        </DockPanel>
     </Border>
 </UserControl>

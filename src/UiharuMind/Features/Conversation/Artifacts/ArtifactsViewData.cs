@@ -47,7 +47,9 @@ public sealed partial class ArtifactsViewData : ObservableObject, IDisposable
     public string Hint => _source.Hint;
 
     /// <summary>盘上还什么都没有</summary>
-    [ObservableProperty] private bool _isEmpty = true;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasEmptyNotice))]
+    private bool _isEmpty = true;
 
     /// <summary>只看草稿目录（否则草稿 + 改过的工作区文件都列）</summary>
     [ObservableProperty]
@@ -55,7 +57,12 @@ public sealed partial class ArtifactsViewData : ObservableObject, IDisposable
     private bool _draftOnly;
 
     /// <summary>筛完一条不剩（盘上有东西，但全是工作区改的）</summary>
-    [ObservableProperty] private bool _isDraftEmpty;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasEmptyNotice))]
+    private bool _isDraftEmpty;
+
+    /// <summary>空状态要不要出现（盘空，或筛完不剩）；区块整块收起时不留行距</summary>
+    public bool HasEmptyNotice => IsEmpty || IsDraftEmpty;
 
     /// <summary>筛选钮的悬停说明，随开关变</summary>
     public string FilterTip => Loc.Text(DraftOnly ? LangKey.GroupArtifactsFilterAll : LangKey.GroupArtifactsFilterDrafts);
