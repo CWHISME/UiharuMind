@@ -62,10 +62,9 @@ public class GroupAvatarTurnTests
         ChatMessage post = _group.History.Single(x => ChatMessageAnnotations.GroupAvatarPostOf(x) != null);
         Assert.Equal(ChatRole.User, post.Role);
         Assert.Equal(UserName, post.AuthorName);
-        // 它听到的是 Alice 的话，不含它自己的；Bob 听到的是化身代笔（与用户真身同署一个名字），不强调化身
-        Assert.Contains("[Alice]: Alice 的第 1 次发言", _runner.Calls.Single(x => x.Member == _avatar).Input);
-        Assert.Contains($"[{UserName}]: @Bob 就用 Alice 的方案", _runner.Calls.Single(x => x.Member == _bob).Input);
-        Assert.Equal(_group.History.Count, _avatar.GroupCursor + 2); //它那句与 Bob 的回复都在游标之后
+        // 它听到的是 Alice 的话，不含它自己的；Bob 第一轮先跑完了，化身那句由波末补位投给他
+        Assert.Contains("[Alice]: Alice 的第 1 次发言", _runner.Calls.First(x => x.Member == _avatar).Input);
+        Assert.Contains($"[{UserName}]: @Bob 就用 Alice 的方案", _runner.Calls.Last(x => x.Member == _bob).Input);
     }
 
     /// <summary>没调 SendMessage、只写了回复正文：正文不进群（只经 SendMessage），整轮当 Silent——离席控制器按没进展退避再催</summary>

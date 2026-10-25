@@ -129,7 +129,7 @@ public class GroupMembershipTests
         await mention!;
 
         Assert.Equal([_alice.SessionId, _bob.SessionId, carol.SessionId], _group.GroupMemberSessionIds);
-        string carolInput = _runner.Calls.Single(x => x.Member == carol).Input;
+        string carolInput = _runner.Calls.First(x => x.Member == carol).Input; //补位可能让它再跑一次，取第一次投递
         Assert.Contains("你来看看", carolInput);
         Assert.DoesNotContain("大家好", carolInput); //入群之前的不补
     }

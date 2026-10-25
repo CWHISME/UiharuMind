@@ -47,7 +47,10 @@ public static class GroupWakePolicy
         EGroupStopPolicy stopPolicy, string authorSessionId, EGroupWakeCause authorCause,
         IReadOnlyList<string> mentions)
     {
-        if (stopPolicy == EGroupStopPolicy.Conservative && authorCause == EGroupWakeCause.Member) return [];
+        // 保守档下，被别的成员叫醒的人说完不再叫醒任何人（一跳防护）；
+        // 补位叫醒的人同理——补位是补齐没看过的新话，不是再开一轮扩散（ADR 0049 修订）
+        if (stopPolicy == EGroupStopPolicy.Conservative && authorCause is EGroupWakeCause.Member or EGroupWakeCause.CatchUp)
+            return [];
 
         EGroupWakeCause cause = authorSessionId == hostSessionId ? EGroupWakeCause.Host : EGroupWakeCause.Member;
         List<string> targets = mentions.Where(x => x != authorSessionId && members.Contains(x)).ToList();
@@ -60,7 +63,8 @@ public static class GroupWakePolicy
     }
 
     /// <summary>
-    /// 一波静下来之后补位叫醒谁：激进档里还有没看过的发言、这一波没有没跑成过的人各补一次；保守档不补。
+    /// 一波静下来之后补位叫醒谁：还有没看过的发言、这一波没有没跑成过的人各补一次；
+    /// 串行与并行、保守与激进都补——并行收场前不补，用户插话后之前说过话的成员就拿着过时的上下文了。
     /// 补位不看他说没说过话——没主持人时人人开头都说过，只补没说过的就谁也补不上（ADR 0049 修订）
     /// </summary>
     /// <param name="members">成员会话标识，发言顺序</param>
@@ -71,8 +75,6 @@ public static class GroupWakePolicy
     public static IReadOnlyList<GroupWake> ForCatchUp(IReadOnlyList<string> members, EGroupStopPolicy stopPolicy,
         Func<string, bool> hasNewLines, IReadOnlySet<string> unfinished)
     {
-        if (stopPolicy != EGroupStopPolicy.Aggressive) return [];
-
         return members.Where(x => !unfinished.Contains(x) && hasNewLines(x))
             .Select(x => new GroupWake(x, EGroupWakeCause.CatchUp))
             .ToList();
