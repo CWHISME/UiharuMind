@@ -350,6 +350,55 @@ public class GoalModeControllerTests
         }
     }
 
+    /// <summary>
+    /// 回归（2026-10-25 实机 NRE）：静态初始化里 ctor→Restore→排下次唤醒，而 Task.Delay(0)
+    /// 同步完成，到点即触发的那一轮唤醒会整个跑在 ctor 的同步栈里；那时 Instance 字段尚未
+    /// 赋值，唤醒轮里重入 GoalModeController.Instance 的 lambda（App 装配的
+    /// StreakExemptSource）拿到 null，踩空抛 NRE，那一轮被 SessionWakeTurn 的 catch 吞掉。
+    /// 不变量：不管延迟是否同步完成，唤醒轮被调用时构造函数一定已经返回
+    /// </summary>
+    [Fact]
+    public async Task Restore_DueWake_NeverRunsInsideTheConstructor()
+    {
+        ChatSession session = NewSession();
+        try
+        {
+            // 存档一个「下次唤醒已到期」的目标模式：一小时前停下、30 分钟 interval（idleStreak=0 不退避）。
+            // 必须显式 List：Save 收 IReadOnlyList，集合表达式给的 ReadOnlySingleElementList
+            // 不在源码生成 JSON 上下文里，序列化会静默失败（只记一条 Save File Error）
+            GoalModePersistence.Save(new List<GoalModeState>
+            {
+                new(session.SessionId, "目标", [Interval30],
+                    StartedAt: _now.AddHours(-2), Turns: 1, ArtifactStamp: _stamp,
+                    LastStop: _now.AddHours(-1), BackoffLevel: 0)
+            });
+
+            bool constructorReturned = false;
+            List<bool> sawConstructorReturned = [];
+            // 同步完成的延迟：没有异步边界时唤醒轮会整个跑进 ctor（旧行为）
+            GoalModeController restored = new(
+                delay: (_, _) => Task.CompletedTask,
+                now: () => _now,
+                artifactStamp: _ => _stamp,
+                wakeTurn: (_, _, _) =>
+                {
+                    sawConstructorReturned.Add(constructorReturned);
+                    return Task.CompletedTask;
+                },
+                primary: true);
+
+            constructorReturned = true;
+            await Until(() => sawConstructorReturned.Count > 0);
+            Assert.All(sawConstructorReturned, Assert.True);
+            restored.End(session.SessionId);
+        }
+        finally
+        {
+            GoalModePersistence.Save(new List<GoalModeState>());
+            SessionManager.Instance.Delete(session.SessionId);
+        }
+    }
+
     [Fact]
     public async Task Update_TogglesAutoApprove()
     {

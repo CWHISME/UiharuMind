@@ -6,7 +6,7 @@ namespace UiharuMind.Core.AI.Chat.WakeLoops;
 /// <summary>后台唤醒循环（离席、目标模式）共用的小件：等延迟、取产物指纹、安全地发事件</summary>
 internal static class WakeLoop
 {
-    /// <summary>等一段延迟（负数按 0）</summary>
+    /// <summary>等一段延迟（负数按 0）。<b>永不同步完成</b>：返回前至少让出一个异步边界</summary>
     /// <param name="delay">等待的实现（测试替换）</param>
     /// <param name="duration">等多久</param>
     /// <param name="token">取消令牌</param>
@@ -16,6 +16,14 @@ internal static class WakeLoop
     {
         try
         {
+            // 先让出一个异步边界再等：Task.Delay(0) 是同步完成的，而排程方可能是静态初始化——
+            // GoalModeController 的 ctor 里 Restore→排下次唤醒，到点即触发的那一轮会整个跑在
+            // 静态初始化的同步栈里，那时 Instance 字段还没赋值，唤醒轮里重入
+            // GoalModeController.Instance 的 lambda（App 装配的 StreakExemptSource）拿到的是
+            // null，踩空抛 NRE，那一轮被 SessionWakeTurn 的 catch 吞掉、补唤醒静默丢失
+            // （2026-10-25 实机：重启后 goal-mode 补 Wake turn failed，cause=goal-mode NRE）。
+            // 让出之后唤醒轮只可能在排程方返回之后跑，重入永远见得到完整的单例
+            await Task.Yield();
             await delay(duration < TimeSpan.Zero ? TimeSpan.Zero : duration, token).ConfigureAwait(false);
             return true;
         }

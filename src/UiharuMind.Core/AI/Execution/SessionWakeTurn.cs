@@ -156,7 +156,8 @@ public static class SessionWakeTurn
         catch (Exception e)
         {
             //唤醒失败不影响结论:它已经在历史里了
-            Log.Warning($"Wake turn failed: session={sessionId} cause={cause}: {e.Message}");
+            //记整个异常而不只 Message:堆栈是这类 NRE 唯一的定位依据(只记 Message 时无从查起)
+            Log.Warning($"Wake turn failed: session={sessionId} cause={cause}: {e}");
         }
     }
 
