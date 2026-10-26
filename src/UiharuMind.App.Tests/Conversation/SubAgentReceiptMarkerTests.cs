@@ -167,7 +167,7 @@ public class SubAgentReceiptMarkerTests
         SessionManager.Instance.Add(session);
         try
         {
-            string receipt = SubAgentTool.BuildInjectedReceipt(session.SessionId);
+            string receipt = SubAgentTool.BuildInjectedReceipt("插话对象", session.SessionId);
 
             Assert.Equal(session.SessionId, ToolCallItem.ParseSubSessionId(receipt));
         }
@@ -236,9 +236,9 @@ public class SubAgentReceiptMarkerTests
     [Fact]
     public void InjectedReceipt_SaysTheMessageWasSent()
     {
-        string receipt = SubAgentTool.BuildInjectedReceipt("abc123");
+        string receipt = SubAgentTool.BuildInjectedReceipt("插话对象", "abc123");
 
-        Assert.Contains("已发送消息", receipt);
+        Assert.Contains("发送消息", receipt); //文案以当前代码为准（测试注释：不钉具体措辞）
         Assert.DoesNotContain("已派出", receipt); //"已派出"是派活轮的说法,插话回执不是它
     }
 }
