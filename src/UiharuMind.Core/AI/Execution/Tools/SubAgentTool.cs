@@ -114,6 +114,7 @@ public static class SubAgentTool
     /// 模型若执意重试同一动作,无限拒绝等于无限烧轮次。用户批准一次即清零(见
     /// <see cref="ToolCall.NestedApprovalResolver"/>),掐的只是空转</summary>
     private const int MaxDeniedApprovalRounds = 4;
+
     private const int MaxListedConversations = 8; //报错里列几位聊过的人:按最近排,够认出想找的那位即可
 
     /// <summary>
@@ -200,7 +201,8 @@ public static class SubAgentTool
     /// </summary>
     /// <param name="context">派活上下文</param>
     /// <returns>两把工具,新开在前</returns>
-    public static IReadOnlyList<AITool> Create(LaunchContext context) => [CreateLaunch(context), CreateMessage(context)];
+    public static IReadOnlyList<AITool> Create(LaunchContext context) =>
+        [CreateLaunch(context), CreateMessage(context)];
 
     private static AITool CreateLaunch(LaunchContext context)
     {
@@ -212,8 +214,7 @@ public static class SubAgentTool
             // 没挂子角色就没有 character:schema 里没有可填名字的地方,也就编不出名字
             // (ADR 0044 补注:弱模型见到「可以填名字」就自己造一个)
             return ToolJson.CreateFunction(
-                ([Description(SubAgentToolPrompts.PromptParam)]
-                    string prompt,
+                ([Description(SubAgentToolPrompts.PromptParam)] string prompt,
                     [Description(SubAgentToolPrompts.TopicParam)]
                     string? topic = null,
                     [Description(SubAgentToolPrompts.ModelParam)]
@@ -226,8 +227,7 @@ public static class SubAgentTool
 
         // character 的说明随名单装配时拼(SubAgentToolPrompts.BuildCharacterParam),[Description] 只能写常量
         AIFunction function = ToolJson.CreateFunction(
-            ([Description(SubAgentToolPrompts.PromptParam)]
-                string prompt,
+            ([Description(SubAgentToolPrompts.PromptParam)] string prompt,
                 string? character = null,
                 [Description(SubAgentToolPrompts.TopicParam)]
                 string? topic = null,
@@ -243,8 +243,7 @@ public static class SubAgentTool
 
     private static AITool CreateMessage(LaunchContext context) =>
         ToolJson.CreateFunction(
-            ([Description(SubAgentToolPrompts.ToParam)]
-                string to,
+            ([Description(SubAgentToolPrompts.ToParam)] string to,
                 [Description(SubAgentToolPrompts.MessageParam)]
                 string message) => SendAsync(context, to, message),
             MessageToolName,
@@ -359,7 +358,8 @@ public static class SubAgentTool
             IEnumerable<string> lines = earlier.Take(MaxListedConversations).Select(x =>
             {
                 string who = x.SubAgentName.Length > 0 ? x.SubAgentName : x.Title; //身份即会话标题
-                return $"- [sub-session: {SubSessionIdAlias.Short(x.SessionId)}]" + (who.Length > 0 ? $" — {who}" : string.Empty);
+                return $"- [sub-session: {SubSessionIdAlias.Short(x.SessionId)}]" +
+                       (who.Length > 0 ? $" — {who}" : string.Empty);
             });
             text.Append("\n本会话里你已联系过的人（把 id 传给 `to` 即可继续）：\n").AppendJoin("\n", lines);
         }
@@ -513,7 +513,8 @@ public static class SubAgentTool
                 ? $"\n***\n【这是主代理动态发给你的消息，正在等你的答复：请在现在这一轮直接回答上面的问题。】"
                 : $"\n***\n【这是主代理动态发给你的消息，正在等你的答复：请及时使用 `{ParentMessageTool.ToolName}` 工具回复这条消息，直接发言对方看不到——"
                   + $"收尾后的报告会自动交回，不用调工具；需要你中途回话时才用它。】";
-            ChatMessage injection = session.CreateMessage(ChatRole.User, ParentInterjectionPrefix + message + replyDirective);
+            ChatMessage injection =
+                session.CreateMessage(ChatRole.User, ParentInterjectionPrefix + message + replyDirective);
             ChatMessageAnnotations.MarkParentInterjection(injection);
             bool injected = false;
             try
@@ -527,7 +528,7 @@ public static class SubAgentTool
                             + $"session={session.SessionId}: {e.Message}");
             }
 
-            if (injected) return BuildInjectedReceipt(session.SessionId);
+            if (injected) return BuildInjectedReceipt(session.Title, session.SessionId);
         }
 
         // 没在跑(或注入失败回落到排队续跑):新起一轮。同样自报家门——子代理按【发信人】前缀
@@ -541,11 +542,9 @@ public static class SubAgentTool
     /// 实时插话的回执(纯函数,可单测)。标记行必须是最后一行——回放历史时卡片靠
     /// <c>ToolCallItem.ParseSubSessionId</c> 的正则认出「这是一次委派」并挂出「查看过程」入口。
     /// </summary>
-    /// <param name="subSessionId">子会话标识</param>
     /// <returns>当场返回给模型的工具结果</returns>
-    public static string BuildInjectedReceipt(string subSessionId) =>
-        "已发送消息。\n"
-        + $"[sub-session: {SubSessionIdAlias.Short(subSessionId)}]";
+    public static string BuildInjectedReceipt(string name, string subSessionId) =>
+        $"已向执行 {name} 的代理发送消息。\n[sub-session: {SubSessionIdAlias.Short(subSessionId)}]";
 
     /// <summary>
     /// 把这次委派转入后台并当场给出工具结果。
@@ -775,6 +774,7 @@ public static class SubAgentTool
             report += "\n（注：你在他干活时又给他发过消息，"
                       + "所以这份回复可能超出了你最初那条消息的内容。）";
         }
+
         if (unansweredClosed > 0)
         {
             // 有调用因审批未决根本没跑成,必须点名——否则主代理会把没干的活当成干完了
@@ -782,6 +782,7 @@ public static class SubAgentTool
                       + "审批在其停止前未被响应。"
                       + "那部分工作没有完成。）";
         }
+
         if (autoApprovedCalls.Count > 0)
         {
             // 完全自动档下放行的那些:放行即落子,主代理(和用户)必须知道动了界外的哪几处。
@@ -793,6 +794,7 @@ public static class SubAgentTool
                       + "因你的会话运行在 FullAuto 模式而被自动放行："
                       + string.Join("; ", shown) + more + "。）";
         }
+
         if (inheritedApprovedCalls.Count > 0)
         {
             string[] shown;
@@ -802,6 +804,7 @@ public static class SubAgentTool
                       + "因你的会话开着目标模式的「自动同意审批」而被自动放行："
                       + string.Join("; ", shown) + more + "。）";
         }
+
         string outcome = timedOut ? "timed out" : stopped || parentToken.IsCancellationRequested ? "stopped" : "done";
         Log.Debug($"Sub-agent turn {outcome}: session={session.SessionId} "
                   + $"elapsed={(Environment.TickCount64 - startedAt) / 1000}s report={report.Length} chars");
@@ -825,8 +828,9 @@ public static class SubAgentTool
     internal static ModelChoice ResolveSubAgentModelName(SubAgentProfile profile, string? requested = null)
     {
         string? asked = NormalizeModel(requested);
-        if (asked == null) return new ModelChoice(PinnableModelName(profile.ResolveModelName(AgentSettingConfig.Current)),
-            string.Empty);
+        if (asked == null)
+            return new ModelChoice(PinnableModelName(profile.ResolveModelName(AgentSettingConfig.Current)),
+                string.Empty);
 
         // 点名的压过设置页那档默认:那两项的语义是"默认用哪个",而这一趟点名是"这一趟用哪个"
         if (PinnableModelName(asked) is { } pinned) return new ModelChoice(pinned, string.Empty);
@@ -909,6 +913,7 @@ public static class SubAgentTool
             if (c is '\r' or '\n' or '`') continue;
             sb.Append(c);
         }
+
         string result = sb.ToString().Trim();
         return result.Length == 0 ? null : Clip(result);
     }
