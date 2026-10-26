@@ -590,9 +590,6 @@ Hit rate = cached input / reported input. The row above is the session total, wi
     <data name="AgentSettingSubAgentFallbackHint" xml:space="preserve">
         <value>(Not set — falls back to the main agent model)</value>
     </data>
-    <data name="AgentSettingCapabilities" xml:space="preserve">
-        <value>Capabilities</value>
-    </data>
     <data name="AgentSettingCapFileAccess" xml:space="preserve">
         <value>File operations (read/write/edit/search)</value>
     </data>
@@ -2555,9 +2552,6 @@ Hit rate = cached input / reported input. The row above is the session total, wi
     <data name="SnippetDelete" xml:space="preserve">
         <value>Delete snippet</value>
     </data>
-    <data name="AgentSettingCapabilitiesMoved" xml:space="preserve">
-        <value>Tool switches and skill toggles are now configured per agent — edit an agent on the Characters page to see what it actually assembles. Only the shared search API credentials live here.</value>
-    </data>
     <data name="AgentSkillsPerAgentHint" xml:space="preserve">
         <value>This page manages the skill packages themselves. Which skills an agent may use is chosen in that agent's editor.</value>
     </data>
@@ -2940,6 +2934,30 @@ Allow them?</value>
   </data>
   <data name="AgentSettingPythonRemove" xml:space="preserve">
     <value>Remove</value>
+  </data>
+  <data name="AgentSettingShell" xml:space="preserve">
+    <value>Model shell</value>
+  </data>
+  <data name="AgentSettingShellDesc" xml:space="preserve">
+    <value>The shell the model actually uses when running commands through the Shell tool. Auto follows the system default (Windows: pwsh → PowerShell → cmd; macOS/Linux: /bin/bash). Changes apply to sessions assembled afterwards; running sessions keep the old shell until rebuilt.</value>
+  </data>
+  <data name="AgentSettingShellPreset" xml:space="preserve">
+    <value>Shell executable</value>
+  </data>
+  <data name="AgentSettingShellAuto" xml:space="preserve">
+    <value>Auto (follow system)</value>
+  </data>
+  <data name="AgentSettingShellCustom" xml:space="preserve">
+    <value>Custom path…</value>
+  </data>
+  <data name="AgentSettingShellCustomPlaceholder" xml:space="preserve">
+    <value>Full path to the shell executable (e.g. C:\Program Files\Git\bin\bash.exe)</value>
+  </data>
+  <data name="AgentSettingShellProbe" xml:space="preserve">
+    <value>Probe</value>
+  </data>
+  <data name="AgentSettingShellEffective" xml:space="preserve">
+    <value>Currently in effect: {0}</value>
   </data>
     <data name="LogFilterLevelAll" xml:space="preserve">
         <value>All levels</value>
@@ -3805,18 +3823,6 @@ Allow them?</value>
     </data>
     <data name="ImageModelExtraBodyError" xml:space="preserve">
         <value>Must be a JSON object</value>
-    </data>
-    <data name="AgentSettingImageModelsTitle" xml:space="preserve">
-        <value>Image generation</value>
-    </data>
-    <data name="AgentSettingImageModelsSummary" xml:space="preserve">
-        <value>{0} image model(s) configured, tried in list order.</value>
-    </data>
-    <data name="AgentSettingImageModelsNone" xml:space="preserve">
-        <value>No image model configured. Agents can use image generation once one is added.</value>
-    </data>
-    <data name="AgentSettingImageModelsManage" xml:space="preserve">
-        <value>Manage image models</value>
     </data>
 
 

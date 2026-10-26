@@ -402,13 +402,16 @@ plus **Voice input**: **Hold to talk** and **Use in other apps**.
 
 ### Agent
 
-- **General**: the model used by general sub-agents (empty follows the main agent model) and by summarizing
-  sub-agents, plus **Memory list size limit** — how much of the agent's memory index (file name and first line of
-  each note) is handed to it.
-- **Image generation**: the image model list used by agents, in order.
-- **MCP Servers**, **Skills**, **Managed Python environment**, **Web search API keys** and **Search engines** (the
-  fallback order with a **Test** button per engine).
+- **General**: default permission mode, the models used by general / brain / explorer sub-agents (empty follows the
+  main agent model), and **Memory list size limit** — how much of the agent's memory index (file name and first line
+  of each note) is handed to it. The global capability settings also live here:
+  - **Model shell**: the interpreter the model actually calls when running commands through the Shell tool (Auto
+    follows the system default, or pick Git Bash / PowerShell / a custom path).
+  - **Managed Python environment**: the interpreter-is-yours, environment-is-ours setup (see above).
+  - **Web search API keys** and **Search engines**: the fallback order with a **Test** button per engine.
+- **MCP Servers**, **Skills**: see the sections above.
 - **Avatar settings**: the runaway guards for away mode.
+- The **image model list** lives on the Models page (**Image models**); it is no longer listed here.
 
 ### Local Models (Text) / (Voice) / (Image)
 

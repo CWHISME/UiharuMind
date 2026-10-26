@@ -9,10 +9,11 @@
              x:Class="UiharuMind.Features.Settings.PythonEnvSettingsView"
              x:DataType="vm:PythonEnvSettingsViewData">
 
-    <!-- 内嵌小卡片：HeaderFontSize=13（晨曦留的口子），说明走全局 muted，本地 form-pane 样式已删 -->
+    <!-- 内嵌小卡片：HeaderFontSize=13；标题描述收进卡片（HeaderInsideCard，Agent 常规页整卡样式） -->
     <controls:SettingsSection Header="{loc:Loc AgentSettingPython}"
                               Description="{loc:Loc AgentSettingPythonDesc}"
-                              HeaderFontSize="13">
+                              HeaderFontSize="13"
+                              HeaderInsideCard="True">
         <controls:SettingsSection.Body>
             <StackPanel Spacing="6">
                 <controls:SettingsRow Header="{loc:Loc AgentSettingPythonInterpreter}"

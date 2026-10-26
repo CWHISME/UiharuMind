@@ -95,6 +95,14 @@ internal sealed class AgentAssemblyPlan
     public string PythonInterpreterPath { get; init; } = string.Empty;
 
     /// <summary>
+    /// 模型 shell 工具要用的 shell 可执行文件（空 = 跟随系统默认，即框架 ShellResolver
+    /// 的 pwsh → powershell → cmd / /bin/bash → /bin/sh 兜底）。显式填路径即强制换壳。
+    ///
+    /// 随配置在 <see cref="Resolve"/> 固化：它是装配事实，不在 <c>Create</c> 里现读单例。
+    /// </summary>
+    public string ShellBinaryPath { get; init; } = string.Empty;
+
+    /// <summary>
     /// 产出目录：模型跑 Python 画的图往这儿写，回复里以 <c>file://</c> 引用它，用户就看得见。
     /// 与 <see cref="PythonInterpreterPath"/> 同生同灭（那个为空时这个也为空）。
     /// </summary>
@@ -241,6 +249,9 @@ internal sealed class AgentAssemblyPlan
             // 由 AgentAssemblyFacts 入账触发重建
             DisableSkillsProvider = disableSkillsProvider,
             MemoryDirectory = memoryDirectory,
+            // 模型用哪个 shell 也是装配事实:空 = 跟随系统默认,填了强制换壳。
+            // 在 Resolve 读而不是 AgentAssembler 现取,好让装配保持"不碰单例的纯函数"
+            ShellBinaryPath = AgentSettingConfig.Current.ShellBinaryPath,
         };
     }
 

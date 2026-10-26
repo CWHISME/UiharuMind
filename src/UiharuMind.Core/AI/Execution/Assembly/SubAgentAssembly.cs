@@ -210,7 +210,7 @@ internal static class SubAgentAssembly
         string persona = named ? CharacterPromptBuilder.Build(plan.Character, profile.PromptArguments) : string.Empty;
 
         LocalShellExecutor? shellExecutor = canMutate && effectiveConfig.EnableShellExecution
-            ? ShellExecutorFactory.Create(plan.WorkingDirectory, plan.ShellEnvironment)
+            ? ShellExecutorFactory.Create(plan.WorkingDirectory, plan.ShellEnvironment, plan.ShellBinaryPath)
             : null;
         AITool? shellTool = shellExecutor == null ? null : ShellExecutorFactory.CreateTool(shellExecutor);
         McpToolSet mcp = canMutate ? plan.Mcp : McpToolSet.Empty;

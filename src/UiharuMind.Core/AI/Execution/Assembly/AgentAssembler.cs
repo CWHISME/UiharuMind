@@ -87,8 +87,9 @@ internal static class AgentAssembler
         if (plan.ReadAttachesImages) client = new ImagePreviewProjectingChatClient(client, plan.CreatePathResolver(null));
 
         // ShellEnvironment 带草稿目录简写与(受管 Python 就绪时的)venv 激活,见 AgentAssemblyPlan
+        // ShellBinaryPath 是 Resolve 固化的装配事实(空=跟随系统默认),见 AgentAssemblyPlan
         LocalShellExecutor? shellExecutor = plan.Config.EnableShellExecution
-            ? ShellExecutorFactory.Create(plan.WorkingDirectory, plan.ShellEnvironment)
+            ? ShellExecutorFactory.Create(plan.WorkingDirectory, plan.ShellEnvironment, plan.ShellBinaryPath)
             : null;
 
         List<AgentToolEntry> toolEntries = BuildTools(plan, client, shellExecutor);

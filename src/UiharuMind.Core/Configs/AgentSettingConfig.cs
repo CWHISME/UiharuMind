@@ -31,6 +31,7 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     public const int FactoryDefaultAwayStopDelayMinutes = 5;
     public const int FactoryDefaultMemoryIndexBudget = 4000;
     public const string FactoryDefaultPythonInterpreterPath = "";
+    public const string FactoryDefaultShellBinaryPath = "";
     public const string FactoryDefaultFirecrawlApiKey = "";
     public const string FactoryDefaultTavilyApiKey = "";
     public const string FactoryDefaultBraveSearchApiKey = "";
@@ -72,6 +73,16 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     /// 探测只认 PATH,而 Windows 上装了 Python 却没勾"Add to PATH"是常态。
     /// </summary>
     public string PythonInterpreterPath { get; set; } = FactoryDefaultPythonInterpreterPath;
+
+    /// <summary>
+    /// 模型 shell 工具实际调用的 shell 可执行文件（空 = 跟随系统默认：
+    /// Windows 按 pwsh → powershell → cmd 顺序，macOS/Linux 用 /bin/bash，见框架
+    /// ShellResolver）。显式填绝对路径可强制换壳（如 Git Bash 的 bash.exe、
+    /// PowerShell 7 的 pwsh.exe）。
+    ///
+    /// 会话装配时读取：新装配/重装配的会话生效，已在跑的会话沿用旧 shell 直到重建。
+    /// </summary>
+    public string ShellBinaryPath { get; set; } = FactoryDefaultShellBinaryPath;
 
     /// <summary>
     /// 脑使用的模型名(空 = 回退到主代理模型)。脑同步、有界、只读地整理大文件与被截断的工具结果，

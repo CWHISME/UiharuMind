@@ -585,9 +585,6 @@
     <data name="AgentSettingSubAgentFallbackHint" xml:space="preserve">
         <value>(未设置 — 回退到主代理 模型)</value>
     </data>
-    <data name="AgentSettingCapabilities" xml:space="preserve">
-        <value>能力开关</value>
-    </data>
     <data name="AgentSettingCapFileAccess" xml:space="preserve">
         <value>文件操作(读/写/编辑/搜索)</value>
     </data>
@@ -2550,9 +2547,6 @@
     <data name="SnippetDelete" xml:space="preserve">
         <value>删除片段</value>
     </data>
-    <data name="AgentSettingCapabilitiesMoved" xml:space="preserve">
-        <value>工具开关与技能启停已改为按智能体各自配置——到「角色」页编辑某个智能体即可，那里能看到它实际会装配哪些工具。这里只保留全局共用的搜索 API 凭据。</value>
-    </data>
     <data name="AgentSkillsPerAgentHint" xml:space="preserve">
         <value>这里管理技能包本身；某个智能体启用哪些技能，在该角色的编辑页勾选。</value>
     </data>
@@ -2935,6 +2929,30 @@
   </data>
   <data name="AgentSettingPythonRemove" xml:space="preserve">
     <value>移除</value>
+  </data>
+  <data name="AgentSettingShell" xml:space="preserve">
+    <value>模型 Shell</value>
+  </data>
+  <data name="AgentSettingShellDesc" xml:space="preserve">
+    <value>模型通过 Shell 工具执行命令时实际调用的解释器。选「自动」跟随系统默认（Windows：pwsh → PowerShell → cmd；macOS/Linux：/bin/bash）。修改对新装配的会话生效，已在跑的会话沿用旧 shell 直到重建。</value>
+  </data>
+  <data name="AgentSettingShellPreset" xml:space="preserve">
+    <value>Shell 可执行文件</value>
+  </data>
+  <data name="AgentSettingShellAuto" xml:space="preserve">
+    <value>自动（跟随系统）</value>
+  </data>
+  <data name="AgentSettingShellCustom" xml:space="preserve">
+    <value>自定义路径…</value>
+  </data>
+  <data name="AgentSettingShellCustomPlaceholder" xml:space="preserve">
+    <value>shell 可执行文件的完整路径（如 C:\Program Files\Git\bin\bash.exe）</value>
+  </data>
+  <data name="AgentSettingShellProbe" xml:space="preserve">
+    <value>探测</value>
+  </data>
+  <data name="AgentSettingShellEffective" xml:space="preserve">
+    <value>当前生效：{0}</value>
   </data>
     <data name="LogFilterLevelAll" xml:space="preserve">
         <value>全部等级</value>
@@ -3800,18 +3818,6 @@
     </data>
     <data name="ImageModelExtraBodyError" xml:space="preserve">
         <value>必须是 JSON 对象</value>
-    </data>
-    <data name="AgentSettingImageModelsTitle" xml:space="preserve">
-        <value>生图</value>
-    </data>
-    <data name="AgentSettingImageModelsSummary" xml:space="preserve">
-        <value>已配置 {0} 个生图模型，按列表顺序回退。</value>
-    </data>
-    <data name="AgentSettingImageModelsNone" xml:space="preserve">
-        <value>还没有配置生图模型。添加之后智能体才能使用生图工具。</value>
-    </data>
-    <data name="AgentSettingImageModelsManage" xml:space="preserve">
-        <value>管理生图模型</value>
     </data>
 
 

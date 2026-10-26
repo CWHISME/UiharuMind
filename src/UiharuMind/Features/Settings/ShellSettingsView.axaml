@@ -1,0 +1,53 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:UiharuMind.Features.Settings"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="220"
+             x:Class="UiharuMind.Features.Settings.ShellSettingsView"
+             x:DataType="vm:ShellSettingsViewData">
+
+    <!-- 内嵌小卡片：HeaderFontSize=13；标题描述收进卡片（HeaderInsideCard，Agent 常规页整卡样式） -->
+    <controls:SettingsSection Header="{loc:Loc AgentSettingShell}"
+                              Description="{loc:Loc AgentSettingShellDesc}"
+                              HeaderFontSize="13"
+                              HeaderInsideCard="True">
+        <controls:SettingsSection.Body>
+            <StackPanel Spacing="6">
+                <controls:SettingsRow Header="{loc:Loc AgentSettingShellPreset}"
+                                      ResetCommand="{Binding ResetShellBinaryCommand}"
+                                      ResetVisible="{Binding IsShellBinaryPathNotDefault}">
+                    <controls:SettingsRow.Field>
+                        <StackPanel Spacing="6">
+                            <ComboBox ItemsSource="{Binding Options}"
+                                      SelectedItem="{Binding SelectedOption}"
+                                      MinWidth="360"
+                                      HorizontalAlignment="Left">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ShellPresetOption">
+                                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <!-- 选「自定义路径…」才出现：填了立即落盘 -->
+                            <TextBox Text="{Binding CustomPath}"
+                                     PlaceholderText="{loc:Loc AgentSettingShellCustomPlaceholder}"
+                                     Width="360"
+                                     HorizontalAlignment="Left"
+                                     IsVisible="{Binding IsCustomPathVisible}" />
+                        </StackPanel>
+                    </controls:SettingsRow.Field>
+                </controls:SettingsRow>
+
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+                    <Button Content="{loc:Loc AgentSettingShellProbe}" Command="{Binding ProbeCommand}" />
+                </StackPanel>
+
+                <SelectableTextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding Status}"
+                                     IsVisible="{Binding Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            </StackPanel>
+        </controls:SettingsSection.Body>
+    </controls:SettingsSection>
+</UserControl>

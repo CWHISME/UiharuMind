@@ -9,44 +9,48 @@
              x:Class="UiharuMind.Features.Settings.WebSearchSettingsView"
              x:DataType="vm:WebSearchSettingsViewData">
 
-    <!-- 内嵌小卡片：HeaderFontSize=13；凭据行走 SettingsRow（进搜索索引），
+    <!-- 联网搜索整卡：凭据 + 链路状态合并进一个 Border（HeaderInsideCard 整卡样式）。
+         外层不设标题，内部两个小节各带小标题；凭据行走 SettingsRow（进搜索索引），
          状态行保留「圆点+回显」的局部视觉（SemiGrey1 底板内联，status-dot/result-panel 是全局样式） -->
-    <StackPanel Spacing="12">
-        <!-- 凭据。Firecrawl 不填也能用，另两个不填就等于没这一环 -->
-        <controls:SettingsSection Header="{loc:Loc AgentSettingWebSearchKeys}"
-                                  Description="{loc:Loc AgentSettingWebSearchKeysDesc}"
-                                  HeaderFontSize="13">
-            <controls:SettingsSection.Body>
+    <controls:SettingsSection HeaderInsideCard="True" HeaderFontSize="13">
+        <controls:SettingsSection.Body>
+            <StackPanel Spacing="12">
+                <!-- 小节：凭据。Firecrawl 不填也能用，另两个不填就等于没这一环 -->
                 <StackPanel Spacing="6">
-                    <controls:SettingsRow Header="Firecrawl"
-                                          ResetCommand="{Binding ResetFirecrawlApiKeyCommand}"
-                                          ResetVisible="{Binding IsFirecrawlApiKeyNotDefault}">
-                        <controls:SettingsRow.Field>
-                            <TextBox Width="300" PasswordChar="●" Text="{Binding FirecrawlApiKey}" />
-                        </controls:SettingsRow.Field>
-                    </controls:SettingsRow>
-                    <controls:SettingsRow Header="Tavily"
-                                          ResetCommand="{Binding ResetTavilyApiKeyCommand}"
-                                          ResetVisible="{Binding IsTavilyApiKeyNotDefault}">
-                        <controls:SettingsRow.Field>
-                            <TextBox Width="300" PasswordChar="●" Text="{Binding TavilyApiKey}" />
-                        </controls:SettingsRow.Field>
-                    </controls:SettingsRow>
-                    <controls:SettingsRow Header="Brave" ResetCommand="{Binding ResetBraveSearchApiKeyCommand}" ResetVisible="{Binding IsBraveSearchApiKeyNotDefault}" DividerVisible="False">
-                        <controls:SettingsRow.Field>
-                            <TextBox Width="300" PasswordChar="●" Text="{Binding BraveSearchApiKey}" />
-                        </controls:SettingsRow.Field>
-                    </controls:SettingsRow>
+                    <TextBlock FontSize="13" Text="{loc:Loc AgentSettingWebSearchKeys}" TextWrapping="Wrap" />
+                    <TextBlock Classes="muted" TextWrapping="Wrap"
+                               Text="{loc:Loc AgentSettingWebSearchKeysDesc}" />
+                    <StackPanel Spacing="6">
+                        <controls:SettingsRow Header="Firecrawl"
+                                              ResetCommand="{Binding ResetFirecrawlApiKeyCommand}"
+                                              ResetVisible="{Binding IsFirecrawlApiKeyNotDefault}">
+                            <controls:SettingsRow.Field>
+                                <TextBox Width="300" PasswordChar="●" Text="{Binding FirecrawlApiKey}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="Tavily"
+                                              ResetCommand="{Binding ResetTavilyApiKeyCommand}"
+                                              ResetVisible="{Binding IsTavilyApiKeyNotDefault}">
+                            <controls:SettingsRow.Field>
+                                <TextBox Width="300" PasswordChar="●" Text="{Binding TavilyApiKey}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                        <controls:SettingsRow Header="Brave" ResetCommand="{Binding ResetBraveSearchApiKeyCommand}" ResetVisible="{Binding IsBraveSearchApiKeyNotDefault}" DividerVisible="False">
+                            <controls:SettingsRow.Field>
+                                <TextBox Width="300" PasswordChar="●" Text="{Binding BraveSearchApiKey}" />
+                            </controls:SettingsRow.Field>
+                        </controls:SettingsRow>
+                    </StackPanel>
                 </StackPanel>
-            </controls:SettingsSection.Body>
-        </controls:SettingsSection>
 
-        <!-- 链路状态：谁配好了、谁在冷却、上次为什么不通，以及实测抓到了什么 -->
-        <controls:SettingsSection Header="{loc:Loc AgentSettingSearchHealth}"
-                                  Description="{loc:Loc AgentSettingSearchHealthDesc}"
-                                  HeaderFontSize="13">
-            <controls:SettingsSection.Body>
+                <!-- 小节：链路状态。谁配好了、谁在冷却、上次为什么不通，以及实测抓到了什么 -->
                 <StackPanel Spacing="10">
+                    <StackPanel Spacing="4">
+                        <TextBlock FontSize="13" Text="{loc:Loc AgentSettingSearchHealth}" TextWrapping="Wrap" />
+                        <TextBlock Classes="muted" TextWrapping="Wrap"
+                                   Text="{loc:Loc AgentSettingSearchHealthDesc}" />
+                    </StackPanel>
+
                     <Grid ColumnDefinitions="*,Auto,Auto">
                         <Button Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center"
                                 Content="{loc:Loc AgentSettingSearchRefresh}"
@@ -111,8 +115,7 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </StackPanel>
-            </controls:SettingsSection.Body>
-        </controls:SettingsSection>
-    </StackPanel>
-
+            </StackPanel>
+        </controls:SettingsSection.Body>
+    </controls:SettingsSection>
 </UserControl>

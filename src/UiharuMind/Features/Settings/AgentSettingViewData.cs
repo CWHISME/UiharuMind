@@ -24,10 +24,8 @@ using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
-using UiharuMind.Core.AI.ImageGeneration;
 using UiharuMind.Features.Models;
 using UiharuMind.Generated;
-using UiharuMind.Shared.WindowManagement;
 
 namespace UiharuMind.Features.Settings;
 
@@ -77,10 +75,7 @@ public partial class AgentSettingViewData : ViewModelBase
     /// <summary>群聊离席的保险丝与唤醒节奏（ADR 0055）</summary>
     public GroupAwaySettingsViewData Away { get; } = new();
 
-    //================= 生图 =================
-    /// <summary>生图模型的一句话摘要；列表本身在模型页（ADR 0052：那是一张模型清单，不是 agent 设置）</summary>
-    [ObservableProperty] private string _imageModelsSummary = string.Empty;
-
+    //================= 反馈 =================
     /// <summary>最近一次改动的反馈文本（如「已保存」），空串不显示</summary>
     [ObservableProperty] private string _statusText = string.Empty;
 
@@ -91,13 +86,19 @@ public partial class AgentSettingViewData : ViewModelBase
     public bool IsExplorerSubAgentModelNotDefault => ExplorerSubAgentModel is not null; // 同上
     public bool IsMemoryIndexBudgetNotDefault => MemoryIndexBudget != AgentSettingConfig.FactoryDefaultMemoryIndexBudget;
 
+    //================= 模型 Shell =================
+    /// <summary>
+    /// 模型用 shell 工具执行命令时实际调哪个解释器，自成一块，见 <see cref="ShellSettingsViewData"/>。
+    /// 挂能力页：与受管 Python 环境同性质（"模型用什么跑命令"），且 Python 环境建立在它之上。
+    /// </summary>
+    public ShellSettingsViewData ShellEnv { get; } = new();
+
     //================= 受管 Python 环境 =================
     /// <summary>
     /// 解释器探测与虚拟环境创建自成一块，见 <see cref="PythonEnvSettingsViewData"/>。
     /// 它挂在能力页而不是常规页：它讲的是"agent 能不能跑 Python"，与联网搜索凭据同性质。
     /// </summary>
     public PythonEnvSettingsViewData PythonEnv { get; } = new();
-
     //================= MCP =================
     /// <summary>server 列表、连接状态与编辑缓冲自成一块,见 <see cref="McpSettingsViewData"/></summary>
     public McpSettingsViewData Mcp { get; } = new();
@@ -142,23 +143,6 @@ public partial class AgentSettingViewData : ViewModelBase
         // 开发者模式运行中开关会增删 uiharu-dev（ADR 0061）：内置不经过扫盘缓存，重查重画即可，不必 Invalidate。
         // 与设置窗同寿命，不退订（同 ModelListRefreshed）
         DeveloperMode.Changed += RefreshSkillsOnDeveloperModeChanged;
-        RefreshImageModelsSummary();
-        // 与设置窗同寿命,不退订(同上)
-        ImageModelSettingConfig.Current.ModelsChanged += RefreshImageModelsSummary;
-    }
-
-    private void RefreshImageModelsSummary()
-    {
-        int count = ImageModelSettingConfig.Current.Models.Count(m => m.IsConfigured);
-        ImageModelsSummary = count > 0
-            ? Loc.Text(LangKey.AgentSettingImageModelsSummary, count)
-            : Loc.Text(LangKey.AgentSettingImageModelsNone);
-    }
-
-    [RelayCommand]
-    private void ManageImageModels()
-    {
-        App.ShowMainPage<ModelPageData>(MenuPages.MenuModelKey)?.ShowImageModels();
     }
 
     //================= 常规:变更即存 =================

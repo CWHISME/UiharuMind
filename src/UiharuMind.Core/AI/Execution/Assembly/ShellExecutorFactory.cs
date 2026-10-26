@@ -89,7 +89,8 @@ internal static class ShellExecutorFactory
 
     public static LocalShellExecutor Create(
         string workingDirectory,
-        IReadOnlyDictionary<string, string?>? environment)
+        IReadOnlyDictionary<string, string?>? environment,
+        string? shellBinaryPath = null)
     {
         return new LocalShellExecutor(new LocalShellExecutorOptions
         {
@@ -97,6 +98,9 @@ internal static class ShellExecutorFactory
             WorkingDirectory = workingDirectory,
             Environment = BuildEnvironment(environment),
             Timeout = CommandTimeout,
+            // 非空则覆盖 shell（优先级：显式路径 → AGENT_FRAMEWORK_SHELL → 系统默认）。
+            // 覆盖值取自装配计划（AgentAssemblyPlan.Resolve 读配置），这里只认输入、不碰单例。
+            Shell = string.IsNullOrWhiteSpace(shellBinaryPath) ? null : shellBinaryPath,
         });
     }
 

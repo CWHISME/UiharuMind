@@ -9,99 +9,111 @@
              x:Class="UiharuMind.Features.Settings.AgentSettingView"
              x:DataType="vm:AgentSettingViewData">
 
-    <!-- 五个 Tab 全部走共用件：页面级分节默认 15，内嵌小卡片 HeaderFontSize=13。
+    <!-- 四个 Tab 全部走共用件：页面级分节默认 15，内嵌小卡片 HeaderFontSize=13。
          本地 field-label/form-pane 样式已删（field-label 视觉 = 全局 muted + Margin） -->
     <TabControl>
         <!-- ===================== 常规 ===================== -->
         <TabItem Header="{loc:Loc AgentSettingGeneral}">
-            <controls:SettingsSection Margin="0,12">
-                <controls:SettingsSection.Body>
-                    <StackPanel>
-                        <controls:SettingsRow Header="{loc:Loc AgentSettingDefaultPermission}"
-                                              ResetCommand="{Binding ResetDefaultPermissionModeCommand}"
-                                              ResetVisible="{Binding IsDefaultPermissionModeNotDefault}">
-                            <controls:SettingsRow.Field>
-                                <ComboBox SelectedIndex="{Binding DefaultPermissionModeIndex}" MinWidth="200">
-                                    <ComboBoxItem Content="{loc:Loc AgentPermissionReadOnly}" />
-                                    <ComboBoxItem Content="{loc:Loc AgentPermissionAutoEdit}" />
-                                    <ComboBoxItem Content="{loc:Loc AgentPermissionFullAuto}" />
-                                </ComboBox>
-                            </controls:SettingsRow.Field>
-                        </controls:SettingsRow>
-                        <!-- 子代理模型选择：只有一行，直接并在常规里，不值得单独一个 Tab -->
-                        <controls:SettingsRow Header="{loc:Loc AgentSettingGeneralSubAgentModel}"
-                                              Description="{loc:Loc AgentSettingGeneralSubAgentModelDesc}"
-                                              ResetCommand="{Binding ResetGeneralSubAgentModelCommand}"
-                                              ResetVisible="{Binding IsGeneralSubAgentModelNotDefault}">
-                            <controls:SettingsRow.Field>
-                                <ComboBox ItemsSource="{Binding AvailableModels}"
-                                          SelectedItem="{Binding GeneralSubAgentModel}"
-                                          PlaceholderText="{loc:Loc AgentSettingSubAgentFallbackHint}"
-                                          MinWidth="300">
-                                    <ComboBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                        </DataTemplate>
-                                    </ComboBox.ItemTemplate>
-                                </ComboBox>
-                            </controls:SettingsRow.Field>
-                        </controls:SettingsRow>
-                        <!-- 脑模型选择：同步只读整理助手配便宜小模型（ADR 0082），同样一行并在常规里 -->
-                        <controls:SettingsRow Header="{loc:Loc AgentSettingBrainSubAgentModel}"
-                                              Description="{loc:Loc AgentSettingBrainSubAgentModelDesc}"
-                                              ResetCommand="{Binding ResetBrainSubAgentModelCommand}"
-                                              ResetVisible="{Binding IsBrainSubAgentModelNotDefault}">
-                            <controls:SettingsRow.Field>
-                                <ComboBox ItemsSource="{Binding AvailableModels}"
-                                          SelectedItem="{Binding BrainSubAgentModel}"
-                                          PlaceholderText="{loc:Loc AgentSettingSubAgentFallbackHint}"
-                                          MinWidth="300">
-                                    <ComboBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                        </DataTemplate>
-                                    </ComboBox.ItemTemplate>
-                                </ComboBox>
-                            </controls:SettingsRow.Field>
-                        </controls:SettingsRow>
-                        <!-- 探索档模型：CreateAgent 置 readOnly 派出的调研/审阅助手（ADR 0044 复活），同样一行并在常规里 -->
-                        <controls:SettingsRow Header="{loc:Loc AgentSettingExplorerSubAgentModel}"
-                                              Description="{loc:Loc AgentSettingExplorerSubAgentModelDesc}"
-                                              ResetCommand="{Binding ResetExplorerSubAgentModelCommand}"
-                                              ResetVisible="{Binding IsExplorerSubAgentModelNotDefault}">
-                            <controls:SettingsRow.Field>
-                                <ComboBox ItemsSource="{Binding AvailableModels}"
-                                          SelectedItem="{Binding ExplorerSubAgentModel}"
-                                          PlaceholderText="{loc:Loc AgentSettingSubAgentFallbackHint}"
-                                          MinWidth="300">
-                                    <ComboBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                        </DataTemplate>
-                                    </ComboBox.ItemTemplate>
-                                </ComboBox>
-                            </controls:SettingsRow.Field>
-                        </controls:SettingsRow>
-                        <controls:SettingsRow Header="{loc:Loc AgentSettingMemoryIndexBudget}"
-                                              Description="{loc:Loc AgentSettingMemoryIndexBudgetDesc}"
-                                              ResetCommand="{Binding ResetMemoryIndexBudgetCommand}"
-                                              ResetVisible="{Binding IsMemoryIndexBudgetNotDefault}"
-                                              DividerVisible="False">
-                            <controls:SettingsRow.Field>
-                                <NumericUpDown Width="140" Increment="500" FormatString="0"
-                                               Minimum="{Binding MemoryIndexBudgetMin}"
-                                               Maximum="{Binding MemoryIndexBudgetMax}"
-                                               Value="{Binding MemoryIndexBudget}" />
-                            </controls:SettingsRow.Field>
-                        </controls:SettingsRow>
+            <!-- 全局能力设置都收在这里（工具开关在角色页，ADR 0003）；卡片按常用程度排序 -->
+            <ScrollViewer controls:SettingsScrollMemory.ScrollKey="AgentSettingGeneral" Margin="0,12">
+                <StackPanel Spacing="12">
+                    <controls:SettingsSection>
+                        <controls:SettingsSection.Body>
+                            <StackPanel>
+                                <controls:SettingsRow Header="{loc:Loc AgentSettingDefaultPermission}"
+                                                      ResetCommand="{Binding ResetDefaultPermissionModeCommand}"
+                                                      ResetVisible="{Binding IsDefaultPermissionModeNotDefault}">
+                                    <controls:SettingsRow.Field>
+                                        <ComboBox SelectedIndex="{Binding DefaultPermissionModeIndex}" MinWidth="200">
+                                            <ComboBoxItem Content="{loc:Loc AgentPermissionReadOnly}" />
+                                            <ComboBoxItem Content="{loc:Loc AgentPermissionAutoEdit}" />
+                                            <ComboBoxItem Content="{loc:Loc AgentPermissionFullAuto}" />
+                                        </ComboBox>
+                                    </controls:SettingsRow.Field>
+                                </controls:SettingsRow>
+                                <!-- 子代理模型选择：只有一行，直接并在常规里，不值得单独一个 Tab -->
+                                <controls:SettingsRow Header="{loc:Loc AgentSettingGeneralSubAgentModel}"
+                                                      Description="{loc:Loc AgentSettingGeneralSubAgentModelDesc}"
+                                                      ResetCommand="{Binding ResetGeneralSubAgentModelCommand}"
+                                                      ResetVisible="{Binding IsGeneralSubAgentModelNotDefault}">
+                                    <controls:SettingsRow.Field>
+                                        <ComboBox ItemsSource="{Binding AvailableModels}"
+                                                  SelectedItem="{Binding GeneralSubAgentModel}"
+                                                  PlaceholderText="{loc:Loc AgentSettingSubAgentFallbackHint}"
+                                                  MinWidth="300">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </controls:SettingsRow.Field>
+                                </controls:SettingsRow>
+                                <!-- 脑模型选择：同步只读整理助手配便宜小模型（ADR 0082），同样一行并在常规里 -->
+                                <controls:SettingsRow Header="{loc:Loc AgentSettingBrainSubAgentModel}"
+                                                      Description="{loc:Loc AgentSettingBrainSubAgentModelDesc}"
+                                                      ResetCommand="{Binding ResetBrainSubAgentModelCommand}"
+                                                      ResetVisible="{Binding IsBrainSubAgentModelNotDefault}">
+                                    <controls:SettingsRow.Field>
+                                        <ComboBox ItemsSource="{Binding AvailableModels}"
+                                                  SelectedItem="{Binding BrainSubAgentModel}"
+                                                  PlaceholderText="{loc:Loc AgentSettingSubAgentFallbackHint}"
+                                                  MinWidth="300">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </controls:SettingsRow.Field>
+                                </controls:SettingsRow>
+                                <!-- 探索档模型：CreateAgent 置 readOnly 派出的调研/审阅助手（ADR 0044 复活），同样一行并在常规里 -->
+                                <controls:SettingsRow Header="{loc:Loc AgentSettingExplorerSubAgentModel}"
+                                                      Description="{loc:Loc AgentSettingExplorerSubAgentModelDesc}"
+                                                      ResetCommand="{Binding ResetExplorerSubAgentModelCommand}"
+                                                      ResetVisible="{Binding IsExplorerSubAgentModelNotDefault}">
+                                    <controls:SettingsRow.Field>
+                                        <ComboBox ItemsSource="{Binding AvailableModels}"
+                                                  SelectedItem="{Binding ExplorerSubAgentModel}"
+                                                  PlaceholderText="{loc:Loc AgentSettingSubAgentFallbackHint}"
+                                                  MinWidth="300">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </controls:SettingsRow.Field>
+                                </controls:SettingsRow>
+                                <controls:SettingsRow Header="{loc:Loc AgentSettingMemoryIndexBudget}"
+                                                      Description="{loc:Loc AgentSettingMemoryIndexBudgetDesc}"
+                                                      ResetCommand="{Binding ResetMemoryIndexBudgetCommand}"
+                                                      ResetVisible="{Binding IsMemoryIndexBudgetNotDefault}"
+                                                      DividerVisible="False">
+                                    <controls:SettingsRow.Field>
+                                        <NumericUpDown Width="140" Increment="500" FormatString="0"
+                                                       Minimum="{Binding MemoryIndexBudgetMin}"
+                                                       Maximum="{Binding MemoryIndexBudgetMax}"
+                                                       Value="{Binding MemoryIndexBudget}" />
+                                    </controls:SettingsRow.Field>
+                                </controls:SettingsRow>
 
-                        <!-- 改完反馈：改哪项都即时落盘，这里给一句「已保存」；空串时不占行 -->
-                        <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,10,0,0"
-                                   Text="{Binding StatusText}"
-                                   IsVisible="{Binding StatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                    </StackPanel>
-                </controls:SettingsSection.Body>
-            </controls:SettingsSection>
+                                <!-- 改完反馈：改哪项都即时落盘，这里给一句「已保存」；空串时不占行 -->
+                                <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,10,0,0"
+                                           Text="{Binding StatusText}"
+                                           IsVisible="{Binding StatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                            </StackPanel>
+                        </controls:SettingsSection.Body>
+                    </controls:SettingsSection>
+
+                    <!-- 模型 Shell：模型用 Shell 工具执行命令时实际调哪个解释器（ADR 0090） -->
+                    <vm:ShellSettingsView DataContext="{Binding ShellEnv}" />
+                    <!-- 受管 Python 环境。它不是能力开关:agent 用 Shell 调那个解释器,见 ADR 0019 -->
+                    <vm:PythonEnvSettingsView DataContext="{Binding PythonEnv}" />
+                    <!-- 联网搜索（凭据 + 链路状态）自成一块，见 WebSearchSettingsView -->
+                    <vm:WebSearchSettingsView DataContext="{Binding WebSearch}" />
+                </StackPanel>
+            </ScrollViewer>
         </TabItem>
 
         <!-- ===================== 群聊离席（ADR 0055） ===================== -->
@@ -167,38 +179,8 @@
             </controls:SettingsSection>
         </TabItem>
 
-        <!-- 能力门控:左列 toggle+名称,右栏详细描述/提示词/专属设置 -->
-        <TabItem Header="{loc:Loc AgentSettingCapabilities}">
-            <ScrollViewer controls:SettingsScrollMemory.ScrollKey="AgentSetting" Margin="0,12">
-                <StackPanel Spacing="12">
-                    <!-- 工具开关与技能启停已下沉到角色(ADR 0003):这里只剩全局共用的搜索凭据 -->
-                    <controls:SettingsSection HeaderFontSize="13">
-                        <controls:SettingsSection.Body>
-                            <TextBlock Classes="muted" TextWrapping="Wrap"
-                                       Text="{loc:Loc AgentSettingCapabilitiesMoved}" />
-                        </controls:SettingsSection.Body>
-                    </controls:SettingsSection>
-
-                    <!-- 联网搜索(凭据 + 链路状态)自成一块，见 WebSearchSettingsView -->
-                    <vm:WebSearchSettingsView DataContext="{Binding WebSearch}" />
-
-                    <!-- 生图模型的列表在模型页(ADR 0052),这里只给摘要与入口 -->
-                    <controls:SettingsSection Header="{loc:Loc AgentSettingImageModelsTitle}"
-                                              Description="{Binding ImageModelsSummary}"
-                                              HeaderFontSize="13">
-                        <controls:SettingsSection.Body>
-                            <Button HorizontalAlignment="Left" Margin="0,4,0,0"
-                                    Content="{loc:Loc AgentSettingImageModelsManage}"
-                                    Command="{Binding ManageImageModelsCommand}" />
-                        </controls:SettingsSection.Body>
-                    </controls:SettingsSection>
-
-                    <!-- 受管 Python 环境。它不是能力开关:agent 用 Shell 调那个解释器,见 ADR 0019 -->
-                    <vm:PythonEnvSettingsView DataContext="{Binding PythonEnv}" />
-
-                </StackPanel>
-            </ScrollViewer>
-        </TabItem>
+        <!-- 能力门控页已撤（ADR 0090）：工具开关与技能启停按角色配置（ADR 0003），
+             全局只剩的搜索凭据/受管 Python/模型 Shell 都收进常规页；生图列表在模型页(ADR 0052)。 -->
 
         <!-- 子代理档案页已移除:子代理就是普通角色,在角色编辑器里维护,
              由 agent 角色的委托挂载列表决定启用哪些。 -->
