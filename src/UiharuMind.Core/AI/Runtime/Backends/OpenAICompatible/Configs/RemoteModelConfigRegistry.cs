@@ -19,6 +19,7 @@ public static class RemoteModelConfigRegistry
         (typeof(RemoteDeepSeekModelConfig), static () => new RemoteDeepSeekModelConfig()),
         (typeof(RemoteSensenovaModelConfig), static () => new RemoteSensenovaModelConfig()),
         (typeof(RemoteZhipuModelConfig), static () => new RemoteZhipuModelConfig()),
+        (typeof(RemoteCommandCodeModelConfig), static () => new RemoteCommandCodeModelConfig()),
         (typeof(RemoteModelConfig), static () => new RemoteModelConfig()),
     ];
 

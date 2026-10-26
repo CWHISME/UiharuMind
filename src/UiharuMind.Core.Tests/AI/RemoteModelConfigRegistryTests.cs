@@ -11,11 +11,12 @@ namespace UiharuMind.Core.Tests.AI;
 public class RemoteModelConfigRegistryTests
 {
     [Fact]
-    public void ProviderTypes_AreTheFourVendorsInFixedOrder()
+    public void ProviderTypes_AreTheFiveVendorsInFixedOrder()
     {
         Assert.Equal(
             [typeof(RemoteAgnesModelConfig), typeof(RemoteDeepSeekModelConfig),
-             typeof(RemoteSensenovaModelConfig), typeof(RemoteZhipuModelConfig)],
+             typeof(RemoteSensenovaModelConfig), typeof(RemoteZhipuModelConfig),
+             typeof(RemoteCommandCodeModelConfig)],
             RemoteModelConfigRegistry.ProviderTypes);
     }
 
@@ -29,7 +30,7 @@ public class RemoteModelConfigRegistryTests
     [Fact]
     public void AllConfigTypes_IncludeGenericFallbackLast()
     {
-        Assert.Equal(5, RemoteModelConfigRegistry.AllConfigTypes.Count);
+        Assert.Equal(6, RemoteModelConfigRegistry.AllConfigTypes.Count);
         Assert.Equal(typeof(RemoteModelConfig), RemoteModelConfigRegistry.AllConfigTypes[^1]);
     }
 
@@ -55,6 +56,7 @@ public class RemoteModelConfigRegistryTests
     [InlineData("RemoteDeepSeekModelConfig", typeof(RemoteDeepSeekModelConfig))]
     [InlineData("RemoteSensenovaModelConfig", typeof(RemoteSensenovaModelConfig))]
     [InlineData("RemoteZhipuModelConfig", typeof(RemoteZhipuModelConfig))]
+    [InlineData("RemoteCommandCodeModelConfig", typeof(RemoteCommandCodeModelConfig))]
     [InlineData("RemoteModelConfig", typeof(RemoteModelConfig))]
     public void ResolveConfigType_ByName_FindsConfig(string name, Type expected)
     {

@@ -17,6 +17,7 @@ using UiharuMind.Core.Configs;
 using UiharuMind.Core.Configs.RemoteAI;
 using UiharuMind.Core.Core.DownloadHelper;
 using UiharuMind.Core.RemoteOpenAI;
+using UiharuMind.Core.RemoteOpenAI.ModelCatalog;
 
 namespace UiharuMind.Core.Core;
 
@@ -53,7 +54,10 @@ namespace UiharuMind.Core.Core;
 [JsonSerializable(typeof(RemoteDeepSeekModelConfig))]
 [JsonSerializable(typeof(RemoteSensenovaModelConfig))]
 [JsonSerializable(typeof(RemoteZhipuModelConfig))]
+[JsonSerializable(typeof(RemoteCommandCodeModelConfig))]
 [JsonSerializable(typeof(RemoteModelConfig))]
+[JsonSerializable(typeof(ModelCatalogResponse))]
+[JsonSerializable(typeof(List<ModelCatalogEntry>))]
 // 设置一族
 [JsonSerializable(typeof(SettingConfig))]
 [JsonSerializable(typeof(QuickToolSetting))]

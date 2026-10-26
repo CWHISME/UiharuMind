@@ -3,7 +3,6 @@ using UiharuMind.Core.AI.Models;
 using UiharuMind.Generated;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Shared.Services;
-
 namespace UiharuMind.Features.Models;
 
 /// <summary>
@@ -52,9 +51,26 @@ public sealed class ModelIdOptionItem
     public bool OmitSamplingParams { get; init; }
 
     /// <summary>
+    /// 该模型的接口格式（wire），由目录 supported_endpoints 解析（ADR 0092）
+    /// </summary>
+    public EApiFormat ApiFormat { get; init; }
+
+    /// <summary>上下文长度的紧凑显示（如 1M / 256K），0 或未预设时为空</summary>
+    public string ContextDisplay => ContextLength > 0 ? FormatContext(ContextLength) : "";
+
+    /// <summary>
     /// 下拉框显示的文本
     /// </summary>
     public override string ToString() => Id;
+
+    /// <summary>上下文长度的人类可读格式（基 1024）</summary>
+    public static string FormatContext(int contextLength) => contextLength switch
+    {
+        >= 1_048_576 => $"{contextLength / 1_048_576.0:0.#}M",
+        >= 1024 => $"{contextLength / 1024.0:0.#}K",
+        > 0 => contextLength.ToString(),
+        _ => "",
+    };
 }
 
 /// <summary>
@@ -81,6 +97,11 @@ public sealed class ProviderItem
     /// 对应的配置类型
     /// </summary>
     public required Type ConfigType { get; init; }
+
+    /// <summary>
+    /// 服务商的模型目录地址（/v1/models）；空表示无目录（ADR 0092）
+    /// </summary>
+    public string CatalogUrl { get; init; } = "";
 }
 
 /// <summary>

@@ -197,6 +197,12 @@ public static class AppPaths
         /// </summary>
         public static readonly string McpToolCatalogs = Path.Combine(Root, "McpToolCatalogs");
 
+        /// <summary>
+        /// 模型目录缓存：服务商 /v1/models 拉来的候选，离线时编辑窗口仍可读（ADR 0092）。
+        /// 可再生（点拉取即重写）、用户可随手删。
+        /// </summary>
+        public static readonly string ModelCatalogs = Path.Combine(Root, "ModelCatalogs");
+
         /// <summary>WebFetch 遇到非文本内容时下载的文件:可再生(重新下载即可)、用户可随手删</summary>
         public static readonly string Downloads = Path.Combine(Root, "Downloads");
 

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -10,6 +11,7 @@ using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Configs.RemoteAI;
 using UiharuMind.Core.Core.Extensions;
 using UiharuMind.Core.RemoteOpenAI;
+using UiharuMind.Core.RemoteOpenAI.ModelCatalog;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 
@@ -25,9 +27,12 @@ public partial class RemoteModelEditViewData : ObservableObject
     private readonly Func<string, bool> _isNameTaken; //名字是否已被别的模型占用
     private BaseRemoteModelConfig? _draftConfig; //创建/复制模式下待写入的新配置实例
     private bool _suppressProviderReset; //编辑模式初始化选中服务商时不重置表单
+    private readonly IModelCatalogFetcher _catalogFetcher; //模型目录拉取器（测试注入 fake）
+    private readonly IModelCatalogCache _catalogCache; //模型目录缓存（测试注入 fake）
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanOpenProviderWebsite))]
+    [NotifyPropertyChangedFor(nameof(HasCatalog))]
     private ProviderItem? _selectedProvider;
 
     [ObservableProperty]
@@ -121,6 +126,32 @@ public partial class RemoteModelEditViewData : ObservableObject
     [ObservableProperty] private bool _isPresetProvider;
     [ObservableProperty] private bool _hasCopySources;
     private bool _suppressModelIdPrefill;
+
+    /// <summary>目录候选的显示集合：跟随 ModelId 文本过滤，空文本显示全量（ADR 0092）</summary>
+    public ObservableCollection<ModelIdOptionItem> VisibleModelIdOptions { get; } = new();
+
+    /// <summary>自定义服务商的目录地址（表单字段，不随模型存档）</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCatalog))]
+    private string _catalogUrlText = "";
+
+    [ObservableProperty] private bool _isFetchingCatalog;
+
+    /// <summary>目录拉取失败提示（空=无提示）</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CatalogFetchErrorVisible))]
+    private string _catalogFetchError = "";
+
+    /// <summary>当前服务商是否有模型目录地址（决定「拉取」按钮与自动拉取）</summary>
+    public bool HasCatalog => EffectiveCatalogUrl.Length > 0;
+
+    /// <summary>目录拉取失败提示是否可见</summary>
+    public bool CatalogFetchErrorVisible => CatalogFetchError.Length > 0;
+
+    /// <summary>生效的目录地址：预设读常量，自定义读表单字段</summary>
+    private string EffectiveCatalogUrl => IsPresetProvider
+        ? SelectedProvider?.CatalogUrl ?? ""
+        : CatalogUrlText.Trim();
 
     /// <summary>
     /// 可选服务商列表
@@ -223,7 +254,7 @@ public partial class RemoteModelEditViewData : ObservableObject
     public bool CanOpenProviderWebsite => SelectedProvider?.WebsiteUrl is { Length: > 0 };
 
     /// <summary>新建模式，视为没有已占用的名字（供设计期预览与测试）</summary>
-    public RemoteModelEditViewData() : this(null, _ => false)
+    public RemoteModelEditViewData() : this(null, _ => false, new ModelCatalogFetcher(), new ModelCatalogCache())
     {
     }
 
@@ -232,11 +263,16 @@ public partial class RemoteModelEditViewData : ObservableObject
     /// </summary>
     /// <param name="remoteModelInfo">要编辑的模型；null 为新建</param>
     /// <param name="isNameTaken">名字是否已被已有模型占用（重名校验用）</param>
-    public RemoteModelEditViewData(RemoteModelInfo? remoteModelInfo, Func<string, bool> isNameTaken)
+    /// <param name="catalogFetcher">模型目录拉取器；缺省用真实实现（测试注入 fake）</param>
+    /// <param name="catalogCache">模型目录缓存；缺省用真实实现（测试注入 fake）</param>
+    public RemoteModelEditViewData(RemoteModelInfo? remoteModelInfo, Func<string, bool> isNameTaken,
+        IModelCatalogFetcher? catalogFetcher = null, IModelCatalogCache? catalogCache = null)
     {
         _isNameTaken = isNameTaken;
         _sourceInfo = remoteModelInfo;
         IsEditMode = remoteModelInfo != null;
+        _catalogFetcher = catalogFetcher ?? new ModelCatalogFetcher();
+        _catalogCache = catalogCache ?? new ModelCatalogCache();
 
         foreach (Type type in RemoteModelConfigRegistry.ProviderTypes)
         {
@@ -246,6 +282,7 @@ public partial class RemoteModelEditViewData : ObservableObject
                 Name = type.GetDescription(),
                 DefaultEndpoint = defaultConfig?.ModelPath ?? "",
                 WebsiteUrl = defaultConfig?.WebsiteUrl ?? "",
+                CatalogUrl = defaultConfig?.ModelCatalogUrl ?? "",
                 ConfigType = type,
             });
         }
@@ -269,6 +306,9 @@ public partial class RemoteModelEditViewData : ObservableObject
         _suppressProviderReset = false;
         LoadValues(remoteModelInfo.Config, remoteModelInfo.ApiKey, remoteModelInfo.ModelName ?? "");
         ApplyConfigTraits(remoteModelInfo.Config);
+
+        // 编辑模式初始化也要吃目录候选（如 CommandCode 已存档再编辑），但不覆盖已存 ModelId
+        TryAutoLoadCatalog();
     }
 
     /// <summary>
@@ -292,6 +332,8 @@ public partial class RemoteModelEditViewData : ObservableObject
         if (IsVisionEditable) config.IsVision = IsVision;
         config.OmitSamplingParams = OmitSamplingParams;
         config.RequiresReasoningContentRoundtripOverride = RequiresReasoningContentRoundtripOverride;
+        // 目录项带 wire 信息：选中时按端点写入 ApiFormat；手输/未选不碰（保留旧值/默认 ChatCompletions，ADR 0092）
+        if (SelectedModelIdOption is { } selected) config.ApiFormat = selected.ApiFormat;
         target.ApiKey = ApiKey;
         return target;
     }
@@ -314,7 +356,35 @@ public partial class RemoteModelEditViewData : ObservableObject
         LoadValues(config, "", config.ModelName ?? "");
         ApplyConfigTraits(config);
         RefreshCopySources(value.ConfigType);
+
+        // 目录地址是服务商属性：换服务商清掉自定义字段，有目录则按「有缓存不自动拉」加载（ADR 0092）
+        CatalogUrlText = "";
+        CatalogFetchError = "";
+        TryAutoLoadCatalog();
     }
+
+    partial void OnCatalogUrlTextChanged(string value)
+    {
+        if (IsPresetProvider) return;
+        // 只对「看起来完整的 http(s) 地址」自动拉，避免击键到一半就发请求（Spec 评审 b-2）
+        if (!Uri.TryCreate(value.Trim(), UriKind.Absolute, out Uri? uri) ||
+            (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            return;
+        }
+
+        _ = LoadCatalogAsync(force: false);
+    }
+
+    /// <summary>有目录地址时按「有缓存不自动拉」口径加载（无缓存才拉网络）</summary>
+    private void TryAutoLoadCatalog()
+    {
+        if (EffectiveCatalogUrl.Length > 0) _ = LoadCatalogAsync(force: false);
+    }
+
+    /// <summary>手动「拉取」：强制走网络并覆盖缓存（ADR 0092）</summary>
+    [RelayCommand]
+    private Task RefreshCatalog() => LoadCatalogAsync(force: true);
 
     private void RefreshCopySources(Type configType)
     {
@@ -427,6 +497,88 @@ public partial class RemoteModelEditViewData : ObservableObject
     /// 不命中(自定义 ID)不碰,手输自定义 ID 不该被预设覆盖。
     /// </summary>
     /// <param name="value">新的模型 ID 文本</param>
+    /// <summary>
+    /// 模型目录加载：有缓存先展示且不再自动拉（Q12 修订）；无缓存才自动拉；「拉取」按钮强制拉并覆盖。
+    /// 失败时保留已有列表并提示（无列表则空 + 提示，仍可手输）。
+    /// </summary>
+    private async Task LoadCatalogAsync(bool force)
+    {
+        if (IsFetchingCatalog) return;
+        string url = EffectiveCatalogUrl;
+        if (url.Length == 0) return;
+
+        IsFetchingCatalog = true;
+        CatalogFetchError = "";
+        try
+        {
+            IReadOnlyList<ModelCatalogEntry>? cached = _catalogCache.TryRead(url);
+            if (cached != null)
+            {
+                ApplyCatalog(cached);
+                if (!force) return; // 有缓存不自动拉（空列表缓存也是缓存，Q12 修订）
+            }
+
+            IReadOnlyList<ModelCatalogEntry> fetched = await _catalogFetcher.FetchAsync(url, ApiKey).ConfigureAwait(true);
+            _catalogCache.Write(url, fetched);
+            ApplyCatalog(fetched);
+        }
+        catch
+        {
+            CatalogFetchError = Loc.Text(LangKey.RemoteModelCatalogFetchFailed);
+        }
+        finally
+        {
+            IsFetchingCatalog = false;
+        }
+    }
+
+    /// <summary>
+    /// 把目录条目灌进候选列表：v1 只显示 chat/completions 线（/messages-only 的 Claude 系过滤），
+    /// 重建期间保护已选/已填的 ModelId 不被回写冲掉（同 ApplyConfigTraits 的注释）。
+    /// </summary>
+    private void ApplyCatalog(IReadOnlyList<ModelCatalogEntry> entries)
+    {
+        string currentId = ModelId;
+        ModelIdOptions.Clear();
+        foreach (ModelCatalogEntry entry in entries)
+        {
+            // 端点字段缺失（OpenRouter 等标准 /v1/models 不返回）默认展示；
+            // 只有显式声明且不含 /chat/completions（即 /messages-only 的 Claude 系）才过滤（ADR 0092）
+            if (entry.SupportedEndpoints.Count > 0 && !entry.SupportsEndpoint("/chat/completions")) continue;
+            ModelIdOptions.Add(new ModelIdOptionItem
+            {
+                Id = entry.Id,
+                Alias = entry.Name,
+                ContextLength = entry.ContextLength,
+                ApiFormat = EApiFormat.ChatCompletions,
+            });
+        }
+
+        HasModelIdOptions = ModelIdOptions.Count > 0;
+        _suppressModelIdPrefill = true;
+        SelectedModelIdOption = ModelIdOptions.FirstOrDefault(x => x.Id == currentId);
+        ModelId = currentId;
+        _suppressModelIdPrefill = false;
+        RefreshVisibleModelIdOptions();
+        if (!IsEditMode) ApplyModelIdPreset(SelectedModelIdOption);
+    }
+
+    /// <summary>按 ModelId 文本过滤可见候选（id 或显示名，忽略大小写子串；空文本=全量）</summary>
+    private void RefreshVisibleModelIdOptions()
+    {
+        string filter = ModelId.Trim();
+        VisibleModelIdOptions.Clear();
+        foreach (ModelIdOptionItem option in ModelIdOptions)
+        {
+            if (filter.Length == 0 ||
+                option.Id.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+                option.DisplayName.Contains(filter, StringComparison.OrdinalIgnoreCase))
+            {
+                VisibleModelIdOptions.Add(option);
+            }
+        }
+    }
+
     partial void OnModelIdChanged(string value)
     {
         if (_suppressModelIdPrefill) return;
@@ -434,6 +586,7 @@ public partial class RemoteModelEditViewData : ObservableObject
         SelectedModelIdOption = ModelIdOptions.FirstOrDefault(x => x.Id == value);
         _suppressModelIdPrefill = false;
         if (SelectedModelIdOption != null) ApplyModelIdPreset(SelectedModelIdOption);
+        RefreshVisibleModelIdOptions();
     }
 
     private void ApplyModelIdPreset(ModelIdOptionItem? option)

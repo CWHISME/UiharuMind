@@ -19,6 +19,13 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     [JsonIgnore]
     public virtual string WebsiteUrl { get; set; } = string.Empty;
 
+    /// <summary>
+    /// 服务商的模型目录地址（/v1/models），空表示无目录。
+    /// 预设写常量；自定义配置在表单填（不随模型存档，ADR 0092）。
+    /// </summary>
+    [JsonIgnore]
+    public virtual string ModelCatalogUrl { get; set; } = string.Empty;
+
     public virtual string ModelDescription { get; set; } = string.Empty;
     public virtual string ModelId { get; set; } = string.Empty;
     public virtual bool IsVision { get; set; }
@@ -142,6 +149,14 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
          variant.RequiresReasoningContentRoundtrip);
 
     [SettingConfigIgnoreDisplay] public virtual int Port { get; set; }
+
+    /// <summary>
+    /// 模型答话的接口格式（wire）：<see cref="EApiFormat.ChatCompletions"/> 走 OpenAI 兼容线，
+    /// <see cref="EApiFormat.Messages"/> 走 Anthropic Messages（v1 未实现，二期接）。
+    /// 目录解析时按 supported_endpoints 写入（ADR 0092）。
+    /// </summary>
+    [SettingConfigIgnoreDisplay]
+    public virtual EApiFormat ApiFormat { get; set; } = EApiFormat.ChatCompletions;
 
     public BaseRemoteModelConfig()
     {

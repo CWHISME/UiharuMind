@@ -134,26 +134,38 @@
 
                     <StackPanel Spacing="6">
                         <TextBlock Text="{loc:Loc RemoteModelIdLabel}" />
-                        <ComboBox IsEditable="True"
-                                  ItemsSource="{Binding ModelIdOptions}"
-                                  SelectedItem="{Binding SelectedModelIdOption}"
-                                  Text="{Binding ModelId}"
-                                  PlaceholderText="{loc:Loc RemoteModelIdPlaceholder}"
-                                  HorizontalAlignment="Stretch"
-                                  IsVisible="{Binding HasModelIdOptions}">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate>
-                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding DisplayName}" VerticalAlignment="Center" />
-                                        <controls:ModelStateBadges IsVision="{Binding IsVision}" />
-                                    </StackPanel>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
-                        <TextBox Text="{Binding ModelId}"
-                                 PlaceholderText="{loc:Loc RemoteModelIdPlaceholder}"
-                                 IsVisible="{Binding !HasModelIdOptions}" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <ComboBox IsEditable="True"
+                                      ItemsSource="{Binding VisibleModelIdOptions}"
+                                      SelectedItem="{Binding SelectedModelIdOption}"
+                                      Text="{Binding ModelId}"
+                                      PlaceholderText="{loc:Loc RemoteModelIdPlaceholder}"
+                                      HorizontalAlignment="Stretch"
+                                      IsVisible="{Binding HasModelIdOptions}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding DisplayName}" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding ContextDisplay}" Classes="muted" VerticalAlignment="Center" />
+                                            <controls:ModelStateBadges IsVision="{Binding IsVision}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBox Text="{Binding ModelId}"
+                                     PlaceholderText="{loc:Loc RemoteModelIdPlaceholder}"
+                                     IsVisible="{Binding !HasModelIdOptions}" />
+                            <Button Grid.Column="1"
+                                    Content="{loc:Loc RemoteModelCatalogFetch}"
+                                    Command="{Binding RefreshCatalogCommand}"
+                                    IsEnabled="{Binding !IsFetchingCatalog}"
+                                    IsVisible="{Binding HasCatalog}"
+                                    VerticalAlignment="Stretch"
+                                    Padding="14,0" />
+                        </Grid>
                         <TextBlock Text="{loc:Loc RemoteModelIdHint}" Classes="muted" TextWrapping="Wrap" />
+                        <TextBlock Classes="error" Text="{loc:Loc RemoteModelCatalogFetchFailed}"
+                                   IsVisible="{Binding CatalogFetchErrorVisible}" />
                         <TextBlock Classes="error" Text="{loc:Loc NotInputModelIdTips}"
                                    IsVisible="{Binding HasModelIdError}" />
                     </StackPanel>
@@ -186,6 +198,12 @@
 
                     <!-- 自定义配置:接口地址等全部平铺 -->
                     <StackPanel Spacing="14" IsVisible="{Binding !IsPresetProvider}">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="{loc:Loc RemoteModelCatalogUrlLabel}" />
+                            <TextBox Text="{Binding CatalogUrlText}"
+                                     PlaceholderText="{loc:Loc RemoteModelCatalogUrlPlaceholder}" />
+                            <TextBlock Text="{loc:Loc RemoteModelCatalogUrlHint}" Classes="muted" TextWrapping="Wrap" />
+                        </StackPanel>
                         <StackPanel Spacing="6">
                             <TextBlock Text="{loc:Loc RemoteModelPathLabel}" />
                             <TextBox Text="{Binding ModelPath}"

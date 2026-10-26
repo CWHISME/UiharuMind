@@ -2417,6 +2417,21 @@ Hit rate = cached input / reported input. The row above is the session total, wi
     <data name="RemoteModelIdHint" xml:space="preserve">
         <value>Identifier sent with API requests to select the model.</value>
     </data>
+    <data name="RemoteModelCatalogUrlLabel" xml:space="preserve">
+        <value>Model catalog URL</value>
+    </data>
+    <data name="RemoteModelCatalogUrlPlaceholder" xml:space="preserve">
+        <value>https://…/v1/models</value>
+    </data>
+    <data name="RemoteModelCatalogUrlHint" xml:space="preserve">
+        <value>Optional: fetch model candidates from this URL (OpenAI-style /v1/models).</value>
+    </data>
+    <data name="RemoteModelCatalogFetch" xml:space="preserve">
+        <value>Fetch</value>
+    </data>
+    <data name="RemoteModelCatalogFetchFailed" xml:space="preserve">
+        <value>Failed to fetch the model catalog. You can still type a model ID manually.</value>
+    </data>
     <data name="RemoteModelDescriptionLabel" xml:space="preserve">
         <value>Description</value>
     </data>

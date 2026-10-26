@@ -2412,6 +2412,21 @@
     <data name="RemoteModelIdHint" xml:space="preserve">
         <value>调用接口时用于指定模型的标识。</value>
     </data>
+    <data name="RemoteModelCatalogUrlLabel" xml:space="preserve">
+        <value>模型目录地址</value>
+    </data>
+    <data name="RemoteModelCatalogUrlPlaceholder" xml:space="preserve">
+        <value>https://…/v1/models</value>
+    </data>
+    <data name="RemoteModelCatalogUrlHint" xml:space="preserve">
+        <value>可选：从此地址（OpenAI 系 /v1/models）拉取模型候选。</value>
+    </data>
+    <data name="RemoteModelCatalogFetch" xml:space="preserve">
+        <value>拉取</value>
+    </data>
+    <data name="RemoteModelCatalogFetchFailed" xml:space="preserve">
+        <value>模型目录拉取失败，仍可手动输入模型 ID。</value>
+    </data>
     <data name="RemoteModelDescriptionLabel" xml:space="preserve">
         <value>模型描述</value>
     </data>
