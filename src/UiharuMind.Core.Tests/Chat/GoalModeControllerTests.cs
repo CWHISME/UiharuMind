@@ -212,6 +212,72 @@ public class GoalModeControllerTests
     }
 
     [Fact]
+    public async Task End_KeepsLastSettings_ForTheSetupWindowToRestore()
+    {
+        ChatSession session = NewSession();
+        try
+        {
+            _controller.Start(session, new GoalModeSettings("写一份方案", [Interval30], true));
+            await Until(() => _wakeCalls.Count == 1);
+
+            _controller.End(session.SessionId);
+            await Until(() => _receipts.Count == 1);
+
+            GoalModeSettings? last = _controller.LastSettingsOf(session.SessionId);
+            Assert.NotNull(last);
+            Assert.Equal("写一份方案", last!.Goal);
+            Assert.Equal(Interval30, Assert.Single(last.Rules!));
+            Assert.True(last.AutoApproveApprovals);
+        }
+        finally
+        {
+            SessionManager.Instance.Delete(session.SessionId);
+        }
+    }
+
+    [Fact]
+    public async Task Update_RefreshesLastSettings()
+    {
+        ChatSession session = NewSession();
+        try
+        {
+            _controller.Start(session, new GoalModeSettings("旧目标", [Interval30], false));
+            await Until(() => _wakeCalls.Count == 1);
+
+            Assert.True(_controller.Update(session.SessionId, new GoalModeSettings("新目标", AutoApproveApprovals: true)));
+            _controller.End(session.SessionId);
+            await Until(() => _receipts.Count == 1);
+
+            GoalModeSettings? last = _controller.LastSettingsOf(session.SessionId);
+            Assert.Equal("新目标", last!.Goal);
+            Assert.True(last.AutoApproveApprovals);
+            Assert.Equal(Interval30, Assert.Single(last.Rules!)); //规则没改：最近设置仍保留旧规则
+        }
+        finally
+        {
+            SessionManager.Instance.Delete(session.SessionId);
+        }
+    }
+
+    [Fact]
+    public async Task Start_WithEmptyRules_LastSettingsCarriesTheEffectiveDefault()
+    {
+        ChatSession session = NewSession();
+        try
+        {
+            _controller.Start(session, new GoalModeSettings("目标", []));
+            await Until(() => _wakeCalls.Count == 1);
+
+            Assert.Equal(GoalModeScheduleRule.Default, Assert.Single(_controller.LastSettingsOf(session.SessionId)!.Rules!));
+        }
+        finally
+        {
+            _controller.End(session.SessionId);
+            SessionManager.Instance.Delete(session.SessionId);
+        }
+    }
+
+    [Fact]
     public async Task WakeNow_WhileWaiting_RunsAnotherTurn()
     {
         ChatSession session = NewSession();

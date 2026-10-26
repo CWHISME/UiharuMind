@@ -114,6 +114,35 @@ public class GoalModeAutoApproveTests
         });
     }
 
+    /// <summary>结束后再开设置弹窗：目标与调度规则原样回显——结束目标模式不该把设过的内容清掉</summary>
+    [Fact]
+    public void ReopeningAfterEnd_ShowsTheLastGoalAndRules()
+    {
+        HeadlessUi.Run(() =>
+        {
+            ChatSession session = NewSession();
+            GoalModeController goalMode = NewGoalMode();
+            GoalModeScheduleRule rule = new(EGoalScheduleKind.Interval, Interval: TimeSpan.FromMinutes(45));
+            Assert.True(goalMode.Start(session, new GoalModeSettings("写一份方案", [rule], true)));
+            goalMode.End(session.SessionId);
+
+            RecordingMessageService messages = new();
+            using GoalModeViewData viewData = new(session, messages, goalMode);
+            (Window window, _) = ShowSetup(viewData);
+            try
+            {
+                Assert.Equal("写一份方案", viewData.Goal);
+                Assert.Equal(rule, Assert.Single(viewData.Rules).ToRule());
+                Assert.True(viewData.AutoApproveApprovals);
+                Assert.False(viewData.IsActive); //没在进行：按钮区是「开始/取消」
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
     /// <summary>进行中改勾选：更新按钮置灰解除，「更新」把它带进正在进行的目标模式</summary>
     [Fact]
     public void CheckingWhileActive_UpdateCarriesTheFlag()

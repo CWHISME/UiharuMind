@@ -31,6 +31,7 @@ public sealed class GoalModeController
     private readonly Func<string, string, CancellationToken, Task> _wakeTurn;
     private readonly object _sync = new();
     private readonly Dictionary<string, GoalModeSession> _sessions = new(); //会话 → 进行中的目标模式
+    private readonly Dictionary<string, GoalModeSettings> _lastSettings = new(); //会话 → 最近一次设置（结束不删，Setup 弹窗回填用）
 
     /// <summary>应用里的那一个</summary>
     public static GoalModeController Instance { get; } = CreateInstance();
@@ -77,6 +78,17 @@ public sealed class GoalModeController
     public GoalModeStatus? StatusOf(string sessionId)
     {
         lock (_sync) return _sessions.GetValueOrDefault(sessionId)?.Snapshot();
+    }
+
+    /// <summary>
+    /// 某个会话最近一次的目标模式设置（目标、调度规则、自动同意审批）。结束目标模式不删：
+    /// 设置弹窗在没进行中状态时回填它，用户设过的东西结束后仍看得到
+    /// </summary>
+    /// <param name="sessionId">会话标识</param>
+    /// <returns>最近设置；从没开过目标模式为 null</returns>
+    public GoalModeSettings? LastSettingsOf(string sessionId)
+    {
+        lock (_sync) return _lastSettings.GetValueOrDefault(sessionId);
     }
 
     /// <summary>某个会话是不是在目标模式里（SessionWakeTurn 的封顶豁免据此放行）</summary>
@@ -133,6 +145,7 @@ public sealed class GoalModeController
             created = new GoalModeSession(session, settings.Goal, EffectiveRules(settings.Rules), _now(),
                 WakeLoop.SafeStamp(_artifactStamp, session), settings.AutoApproveApprovals ?? false);
             _sessions[session.SessionId] = created;
+            _lastSettings[session.SessionId] = new GoalModeSettings(created.Goal, created.Rules, created.AutoApproveApprovals);
         }
 
         Inject(session, GoalModeTranscript.KickoffNote(created.Goal));
@@ -160,6 +173,8 @@ public sealed class GoalModeController
             reschedule = session.Update(settings.Goal, settings.Rules == null ? null : EffectiveRules(settings.Rules),
                           settings.AutoApproveApprovals)
                           && !session.IsRunning;
+            // 更新后的实际生效值也记进最近设置（空规则被换成默认循环等，弹窗回填显示生效的那条）
+            _lastSettings[sessionId] = new GoalModeSettings(session.Goal, session.Rules, session.AutoApproveApprovals);
         }
 
         Save();

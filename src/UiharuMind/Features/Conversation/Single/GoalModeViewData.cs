@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
@@ -227,17 +228,38 @@ public sealed partial class GoalModeViewData : WakeLoopViewData
         Dispatcher.UIThread.Post(() => AutoApproveApprovals = false);
     }
 
-    // 弹窗对齐到正在进行的实际参数；没在目标模式就保留当前输入
+    // 弹窗对齐到实际参数：在进行中回填当前状态；没在但开过（含结束后重开）回填最近一次设置，
+    // 别让用户设过的目标与规则在结束后凭空消失；从没开过就保留当前输入
     private void SyncFromGoalMode()
     {
-        if (_status is not { } status) return;
+        string? goal = null;
+        IReadOnlyList<GoalModeScheduleRule>? rules = null;
+        bool? autoApprove = null;
+        if (_status is { } status)
+        {
+            goal = status.Goal;
+            rules = status.Rules;
+            autoApprove = status.AutoApproveApprovals;
+        }
+        else if (_goalMode.LastSettingsOf(_session.SessionId) is { } last)
+        {
+            goal = last.Goal;
+            rules = last.Rules;
+            autoApprove = last.AutoApproveApprovals;
+        }
+
+        if (goal == null && rules == null && autoApprove == null) return;
         _syncingStatus = true;
-        Goal = status.Goal;
-        AutoApproveApprovals = status.AutoApproveApprovals;
+        if (goal != null) Goal = goal;
+        if (autoApprove.HasValue) AutoApproveApprovals = autoApprove.Value;
         _syncingStatus = false;
-        foreach (GoalModeRuleEditorItem item in Rules) item.PropertyChanged -= OnRuleEdited; //Clear 的 Reset 不带旧项
-        Rules.Clear();
-        foreach (GoalModeScheduleRule rule in status.Rules) Rules.Add(GoalModeRuleEditorItem.From(rule));
+        if (rules != null)
+        {
+            foreach (GoalModeRuleEditorItem item in Rules) item.PropertyChanged -= OnRuleEdited; //Clear 的 Reset 不带旧项
+            Rules.Clear();
+            foreach (GoalModeScheduleRule rule in rules) Rules.Add(GoalModeRuleEditorItem.From(rule));
+        }
+
         OnPropertyChanged(nameof(HasChanges));
     }
 
