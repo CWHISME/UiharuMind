@@ -303,7 +303,8 @@ public class AgentBuildProfile
         string? workspace = GroupChatSessions.WorkspaceOf(session);
         string folder = OutputFolderNameOf(session);
         return new AgentPathResolver(workspace, AgentOutputLayout.GetRoomAbsolutePath(folder),
-            MemoryLayout.GetMemoryDirectory(workspace, folder));
+            MemoryLayout.GetMemoryDirectory(workspace, folder),
+            transcriptPath: SessionManager.TranscriptPathOf(session.SessionId));
     }
 
     /// <summary>

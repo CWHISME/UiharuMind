@@ -274,7 +274,8 @@ internal sealed class AgentAssemblyPlan
     /// <param name="shellBinary">实际解析出的 shell；没挂 shell 为空</param>
     /// <returns>路径解析口径</returns>
     public AgentPathResolver CreatePathResolver(string? shellBinary) =>
-        new(WorkingDirectory, OutputRoomDirectory, MemoryDirectory, shellBinary);
+        new(WorkingDirectory, OutputRoomDirectory, MemoryDirectory, shellBinary,
+            SessionManager.TranscriptPathOf(Profile.SessionId));
 
     /// <summary>
     /// 合出 shell 的追加环境（见 <see cref="ShellEnvironment"/>）

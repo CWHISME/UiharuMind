@@ -423,7 +423,8 @@ internal static class SubAgentAssembly
         bool canMutate = !AgentToolScopes.Of(scope).ReadOnlyFiles;
         string outputRoom = AgentOutputLayout.GetRoomAbsolutePath(input.OutputFolderName);
         // 与主代理同一份路径口径:共用那间草稿目录,简写的写法跟子代理自己的 shell 走(子代理不带记忆)
-        AgentPathResolver paths = new(input.WorkingDirectory, outputRoom, shellBinary: input.ShellBinary);
+        AgentPathResolver paths = new(input.WorkingDirectory, outputRoom, shellBinary: input.ShellBinary,
+            transcriptPath: SessionManager.TranscriptPathOf(input.SessionId));
 
         // 挂哪些与主代理同一份装配(AgentToolsetBuilder):子代理比主代理少的那几档只写在场合表里
         List<AgentToolEntry> entries = AgentToolsetBuilder.Build(config, scope, new AgentToolResources

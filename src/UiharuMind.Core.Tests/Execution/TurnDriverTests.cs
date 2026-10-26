@@ -646,7 +646,9 @@ public class TurnDriverTests
             await driver.CompactAsync(session, runner);
 
             string body = HistoryHandoff.NoteBody(session.History[^1].Text);
-            string path = System.Text.RegularExpressions.Regex.Match(body, "\"([^\"]+\\.transcript\\.md)\"").Groups[1].Value;
+            string reference = System.Text.RegularExpressions.Regex.Match(body, "\\$TRANSCRIPT/[^\\s\"]+").Value;
+            Assert.False(string.IsNullOrEmpty(reference), body); //正文带文件名,不是裸 token
+            string path = AgentBuildProfile.PathResolverOf(session).Resolve(reference);
             Assert.True(File.Exists(path), body);
             Assert.Contains("## #5 user", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
         }

@@ -970,6 +970,14 @@ public partial class SessionManager : Singleton<SessionManager>, IInitialize
         return File.Exists(path) ? path : null; //SaveText 失败只记日志不抛,给出一个不存在的路径比不给更糟
     }
 
+    /// <summary>
+    /// 会话转录文件的绝对路径（<c>$TRANSCRIPT</c> 的展开目标）。按当前 <c>AppPaths.Root</c> 现算，
+    /// 配置目录整个搬走也不会指向旧位置。文件可能尚未生成——写没写过由 <see cref="SaveTranscript"/> 决定
+    /// </summary>
+    /// <param name="sessionId">会话标识</param>
+    /// <returns>转录文件绝对路径</returns>
+    public static string TranscriptPathOf(string sessionId) => Path.GetFullPath(GetTranscriptPath(sessionId));
+
     //================= 路径 =================
 
     private static string GetIndexPath()

@@ -106,8 +106,9 @@ public class HistoryTranscriptTests : IDisposable
         Assert.Null(HistoryTranscript.TrySave(persistent, [Named(FileToolNames.Read)])); //没有 Grep 就搜不了
         Assert.Null(HistoryTranscript.TrySave(persistent, null));
 
-        string? path = HistoryTranscript.TrySave(persistent, searchable);
-        Assert.NotNull(path);
+        string? reference = HistoryTranscript.TrySave(persistent, searchable);
+        string path = SessionManager.TranscriptPathOf(persistent.SessionId);
+        Assert.Equal($"{AgentPathResolver.TranscriptToken}/{Path.GetFileName(path)}", reference); //带文件名的简写,不是绝对路径
         Assert.StartsWith("## #1 user", File.ReadAllText(path));
         SessionManager.Instance.Delete(persistent.SessionId);
         Assert.False(File.Exists(path), "删会话要连转录一起删");

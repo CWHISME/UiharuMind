@@ -136,6 +136,25 @@ public class AgentPathResolverTests
         Assert.Equal("$MEMORY/decisions.md", paths.ToPortable(Path.Combine(Memory, "decisions.md")));
     }
 
+    /// <summary>
+    /// 转录是一个确定的文件：裸 token 展开到它，写回也是 token；接子路径或没有转录都报错。
+    /// 这条是为了配置目录被整个搬走时不失效——正文存 token，按当前根目录现算
+    /// </summary>
+    [Fact]
+    public void Resolve_TranscriptShorthand_ExpandsToTheTranscriptFile()
+    {
+        string transcript = Path.GetFullPath(Path.Combine(
+            Path.GetTempPath(), "uiharu-paths-data", "Sessions", "s1.transcript.md"));
+        AgentPathResolver paths = new(Workspace, Draft, Memory, transcriptPath: transcript);
+
+        Assert.Equal(transcript, paths.Resolve("$TRANSCRIPT")); //裸 token
+        Assert.Equal(transcript, paths.Resolve("$TRANSCRIPT/s1.transcript.md")); //带文件名
+        Assert.Equal("$TRANSCRIPT/s1.transcript.md", paths.ToPortable(transcript)); //写回带文件名
+        Assert.Throws<ArgumentException>(() => paths.Resolve("$TRANSCRIPT/child.md")); //不是这个文件
+        Assert.Throws<ArgumentException>(() => paths.Resolve("$TRANSCRIPT/../other.transcript.md")); //不许跨会话
+        Assert.Throws<ArgumentException>(() => new AgentPathResolver(Workspace).Resolve("$TRANSCRIPT")); //没转录
+    }
+
     /// <summary>没绑工作区时记忆目录住在草稿目录里面：写回取更贴近的那个简写</summary>
     [Fact]
     public void ToPortable_MemoryInsideTheDraftRoot_PrefersTheMemoryShorthand()

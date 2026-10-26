@@ -33,6 +33,19 @@ public sealed record AgentPathResolver
     /// <summary>记忆目录简写的环境变量名（shell 里导出的就是它）</summary>
     public const string MemoryVariable = "MEMORY";
 
+    /// <summary>
+    /// 转录文件简写的变量名。与 <see cref="DraftVariable"/> / <see cref="MemoryVariable"/> 不同，
+    /// 它指<b>一个确定的文件</b>而不是目录——记忆压缩/清理把整段对话导出成转录，正文里引用的就是它。
+    /// 用简写而非绝对路径：配置目录（<c>AppPaths.Root</c>）被整个拷走时，绝对路径会指向旧位置。
+    /// </summary>
+    public const string TranscriptVariable = "TRANSCRIPT";
+
+    /// <summary>
+    /// 转录简写的 POSIX 写法（与 ADR 0080 里正文固定写 <c>$DRAFT</c> 同理）。
+    /// 写进正文时带上真实文件名，即 <c>$TRANSCRIPT/&lt;文件名&gt;</c>——只给裸 token 读者看不出是哪个文件
+    /// </summary>
+    public const string TranscriptToken = "$" + TranscriptVariable;
+
     /// <summary>环境变量名里允许的字符（<c>%NAME%</c> 的判定用）</summary>
     private static readonly SearchValues<char> VariableNameChars =
         SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_");
@@ -44,12 +57,14 @@ public sealed record AgentPathResolver
     /// <param name="draftRoot">草稿目录；空表示没有，此时它的简写报错而不是当成相对路径</param>
     /// <param name="memoryRoot">记忆目录；空表示没有，同上</param>
     /// <param name="shellBinary">会话的 shell，决定写回路径时用哪种简写（见 <see cref="ShorthandFor"/>）</param>
+    /// <param name="transcriptPath">本会话的转录文件绝对路径；空表示没有（<c>$TRANSCRIPT</c> 会报错）</param>
     public AgentPathResolver(string? workspaceRoot, string? draftRoot = null, string? memoryRoot = null,
-        string? shellBinary = null)
+        string? shellBinary = null, string? transcriptPath = null)
     {
         WorkspaceRoot = Normalize(workspaceRoot);
         DraftRoot = Normalize(draftRoot);
         MemoryRoot = Normalize(memoryRoot);
+        TranscriptPath = Normalize(transcriptPath);
         DraftToken = ShorthandFor(DraftVariable, shellBinary);
         MemoryToken = ShorthandFor(MemoryVariable, shellBinary);
     }
@@ -62,6 +77,9 @@ public sealed record AgentPathResolver
 
     /// <summary>记忆目录（已规范化）；空串表示没有</summary>
     public string MemoryRoot { get; }
+
+    /// <summary>本会话的转录文件绝对路径（已规范化）；空串表示没有</summary>
+    public string TranscriptPath { get; }
 
     /// <summary>写回草稿目录里的路径时用的简写（与提示词里教的是同一种）</summary>
     public string DraftToken { get; }
@@ -105,6 +123,22 @@ public sealed record AgentPathResolver
     /// </exception>
     public string Resolve(string path, string? relativeTo = null)
     {
+        // 转录是本会话唯一的那份文件：裸 token 直接指它，也可带上它的文件名（$TRANSCRIPT/<文件名>）。
+        // 只认这一个文件——别的子路径（含 ../ 跨到别的会话）一律拒绝，免得简写变成整目录入口
+        if (TrySplitPrefix(path, ShellSpellings(TranscriptVariable), out string afterTranscript))
+        {
+            if (TranscriptPath.Length == 0)
+                throw new ArgumentException($"'{path}' 用了 ${TranscriptVariable}，但本会话没有转录文件。");
+            if (afterTranscript.Length == 0) return TranscriptPath;
+
+            string named = Path.GetFullPath(Path.GetDirectoryName(TranscriptPath)! + afterTranscript);
+            if (!string.Equals(named, TranscriptPath, PathComparison))
+                throw new ArgumentException(
+                    $"'{path}' 只允许指向本会话的转录文件 {TranscriptToken}/{Path.GetFileName(TranscriptPath)}。");
+
+            return TranscriptPath;
+        }
+
         foreach ((string variable, string root, _) in Shorthands)
         {
             if (!TrySplitPrefix(path, ShellSpellings(variable), out string rest)) continue;
@@ -151,11 +185,14 @@ public sealed record AgentPathResolver
     public static bool IsUnder(string fullPath, string root)
     {
         if (root.Length == 0) return false;
-        StringComparison comparison = OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
         string trimmed = root.TrimEnd(Path.DirectorySeparatorChar);
-        return fullPath.Equals(trimmed, comparison) ||
-               fullPath.StartsWith(trimmed + Path.DirectorySeparatorChar, comparison);
+        return fullPath.Equals(trimmed, PathComparison) ||
+               fullPath.StartsWith(trimmed + Path.DirectorySeparatorChar, PathComparison);
     }
+
+    /// <summary>路径比较口径：除 Linux 外不分大小写</summary>
+    private static StringComparison PathComparison =>
+        OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
 
     /// <summary>
     /// 同 <see cref="Resolve"/>，但解析不了时返回 false 而不抛（审批、预演这类只读判断用）
@@ -212,6 +249,9 @@ public sealed record AgentPathResolver
     public string ToPortable(string absolutePath)
     {
         string full = Path.GetFullPath(absolutePath);
+        if (TranscriptPath.Length > 0 && string.Equals(full, TranscriptPath, PathComparison))
+            return $"{TranscriptToken}/{Path.GetFileName(TranscriptPath)}";
+
         foreach ((_, string root, string token) in Shorthands)
         {
             if (root.Length > 0 && RelativeWithin(root, full) is { } inside)

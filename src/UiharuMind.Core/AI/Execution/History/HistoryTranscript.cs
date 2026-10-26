@@ -54,7 +54,11 @@ internal static class HistoryTranscript
     /// </summary>
     /// <param name="session">会话</param>
     /// <param name="tools">会话实际装配的工具</param>
-    /// <returns>转录文件的绝对路径；不该写（临时会话、搜不了）或写盘失败为 null</returns>
+    /// <returns>
+    /// 写进正文的转录引用 <c>$TRANSCRIPT/&lt;文件名&gt;</c>（工具侧经 <see cref="AgentPathResolver"/> 展开成
+    /// 当前会话的转录文件）；不该写（临时会话、搜不了）或写盘失败为 null。<b>不返回绝对路径</b>：
+    /// 配置目录被整个搬走后绝对路径即失效，而 <c>$TRANSCRIPT</c> 按当前根目录现算
+    /// </returns>
     public static string? TrySave(ChatSession session, IEnumerable<AITool>? tools)
     {
         // 临时会话不落盘,也不走删除流程,写了转录就是一个永远没人删的孤儿文件
@@ -62,7 +66,8 @@ internal static class HistoryTranscript
 
         try
         {
-            return SessionManager.Instance.SaveTranscript(session.SessionId, Render(session.History));
+            string? saved = SessionManager.Instance.SaveTranscript(session.SessionId, Render(session.History));
+            return saved == null ? null : $"{AgentPathResolver.TranscriptToken}/{Path.GetFileName(saved)}";
         }
         catch (Exception e)
         {
