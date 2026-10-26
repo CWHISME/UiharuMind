@@ -79,4 +79,19 @@ public class CreateRemoteLlmModelWindowTests
         Assert.Equal(source.Config.ModelId, vm.SelectedModelIdOption?.Id);
         Assert.Equal(source.Config.ModelId, vm.BuildResult().Config.ModelId);
     }
+
+    /// <summary>复制名是占位（xxx-copy）：再选模型 id 时名字跟随，不被占位顶住</summary>
+    [Fact]
+    public void CopySource_ThenPickModelId_SyncsName()
+    {
+        RemoteModelInfo source = CreateSource();
+        RemoteModelEditViewData vm = CreateViewModelFor(typeof(RemoteDeepSeekModelConfig));
+        vm.SelectCopySourceCommand.Execute(source);
+
+        Assert.Equal("source-model-copy", vm.ModelName);
+
+        vm.SelectedModelIdOption = vm.ModelIdOptions.First(o => o.Id == "deepseek-v4-pro");
+
+        Assert.Equal("deepseek-v4-pro", vm.ModelName);
+    }
 }

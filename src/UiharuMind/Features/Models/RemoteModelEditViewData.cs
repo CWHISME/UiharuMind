@@ -348,7 +348,8 @@ public partial class RemoteModelEditViewData : ObservableObject
         config.Port = source.Config.Port;
         _draftConfig = config;
         LoadValues(source.Config, source.ApiKey, source.ModelName + "-copy");
-        _modelNameEditedByUser = !string.IsNullOrWhiteSpace(ModelName); //复制名是明确的，自动同步不再顶掉
+        // 复制名是程序生成的占位，不算用户手改：之后选模型 id 时名字照常跟随（用户亲自改过才锁定）
+        _modelNameEditedByUser = false;
         ApplyConfigTraits(config);
     }
 
@@ -608,15 +609,14 @@ public partial class RemoteModelEditViewData : ObservableObject
     }
 
     /// <summary>
-    /// 选中目录项时让模型名跟着显示名走：用户没手改过、或名字为空时才写；
-    /// 没有显示名（Alias 空，如预设变体表）不碰，避免把预设默认名顶掉。
+    /// 选中模型项时让模型名跟着走：用户没手改过、或名字为空时才写。
+    /// 名字取显示名；没有显示名（Alias 空，如预设变体表、无 name 字段的目录）回退用模型 ID 本身。
     /// </summary>
     private void TrySyncModelName(ModelIdOptionItem option)
     {
         if (_modelNameEditedByUser && !string.IsNullOrWhiteSpace(ModelName)) return;
-        if (option.Alias.Length == 0) return;
         _suppressModelNamePrefill = true;
-        ModelName = option.Alias;
+        ModelName = option.Alias.Length > 0 ? option.Alias : option.Id;
         _suppressModelNamePrefill = false;
     }
 

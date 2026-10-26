@@ -278,17 +278,15 @@ public class RemoteModelEditCatalogTests
         Assert.Equal("saved-name", vm.ModelName);
     }
 
-    /// <summary>预设（无目录、Alias 空）：选变体不覆盖默认名（回归护栏）</summary>
+    /// <summary>预设（无目录、Alias 空）：选变体时名字跟随模型 ID（没有显示名可跟）</summary>
     [Fact]
-    public void PresetPick_DoesNotOverwriteDefaultName()
+    public void PresetPick_SyncsName_WithModelId()
     {
         var vm = new RemoteModelEditViewData();
         vm.SelectedProvider = vm.Providers.First(p => p.ConfigType == typeof(RemoteDeepSeekModelConfig));
-        string defaultName = vm.ModelName;
-
         vm.SelectedModelIdOption = vm.ModelIdOptions.First(o => o.Id == "deepseek-v4-pro");
 
-        Assert.Equal(defaultName, vm.ModelName);
+        Assert.Equal("deepseek-v4-pro", vm.ModelName);
     }
 
     /// <summary>下拉选择目录项：上下文长度按目录预填（ApplyModelIdPreset 同一条路）</summary>
