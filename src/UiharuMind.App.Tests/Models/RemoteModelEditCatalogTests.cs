@@ -97,6 +97,26 @@ public class RemoteModelEditCatalogTests
         Assert.Equal("openrouter-model", Assert.Single(vm.ModelIdOptions).Id);
     }
 
+    /// <summary>OpenCode 变体：目录最简形状（仅 id，实测 2026-10-26）也能走通通用流程</summary>
+    [Fact]
+    public void ProviderSwitch_OpenCode_FillsOptionsForMinimalCatalogShape()
+    {
+        var fetcher = new FakeCatalogFetcher
+        {
+            Handler = (_, _) => Task.FromResult<IReadOnlyList<ModelCatalogEntry>>(
+                [new ModelCatalogEntry { Id = "beam-free" }, new ModelCatalogEntry { Id = "claude-fable-5" }]),
+        };
+        var cache = new FakeCatalogCache();
+        var vm = CreateVm(fetcher, cache);
+
+        vm.SelectedProvider = vm.Providers.First(p => p.ConfigType == typeof(RemoteOpenCodeModelConfig));
+
+        Assert.True(vm.HasModelIdOptions);
+        Assert.Equal(["beam-free", "claude-fable-5"], vm.ModelIdOptions.Select(o => o.Id));
+        Assert.Equal(1, fetcher.Calls);
+        Assert.Equal("https://opencode.ai/inference/v1/models", cache.LastWrittenUrl);
+    }
+
     /// <summary>有本地缓存时切服务商：直接展示缓存，不碰网络（Q12 修订：有缓存不自动拉）</summary>
     [Fact]
     public void ProviderSwitch_WithCache_SkipsNetworkFetch()
@@ -196,6 +216,79 @@ public class RemoteModelEditCatalogTests
         Assert.Equal(1, fetcher.Calls);
         Assert.Equal("gpt-6-astra", Assert.Single(vm.ModelIdOptions).Id); // 缓存仍在
         Assert.False(string.IsNullOrEmpty(vm.CatalogFetchError));
+    }
+
+    /// <summary>下拉选目录项：模型名跟着显示名自动变（未手改或为空时）</summary>
+    [Fact]
+    public void CatalogPick_PrefillsModelNameFromDisplayName()
+    {
+        var fetcher = new FakeCatalogFetcher
+        {
+            Handler = (_, _) => Task.FromResult<IReadOnlyList<ModelCatalogEntry>>(
+                [new ModelCatalogEntry { Id = "grok-4.6", Name = "Grok 4.6", ContextLength = 500000, SupportedEndpoints = ["/chat/completions"] }]),
+        };
+        var vm = CreateVm(fetcher, new FakeCatalogCache());
+        vm.SelectedProvider = vm.Providers.First(p => p.ConfigType == typeof(RemoteCommandCodeModelConfig));
+
+        vm.SelectedModelIdOption = vm.ModelIdOptions.First(o => o.Id == "grok-4.6");
+
+        Assert.Equal("Grok 4.6", vm.ModelName);
+    }
+
+    /// <summary>用户手改过模型名：选目录项不再覆盖</summary>
+    [Fact]
+    public void CatalogPick_AfterUserEditedName_KeepsUserValue()
+    {
+        var fetcher = new FakeCatalogFetcher
+        {
+            Handler = (_, _) => Task.FromResult<IReadOnlyList<ModelCatalogEntry>>(
+                [new ModelCatalogEntry { Id = "grok-4.6", Name = "Grok 4.6", ContextLength = 500000, SupportedEndpoints = ["/chat/completions"] }]),
+        };
+        var vm = CreateVm(fetcher, new FakeCatalogCache());
+        vm.SelectedProvider = vm.Providers.First(p => p.ConfigType == typeof(RemoteCommandCodeModelConfig));
+        vm.ModelName = "我的模型";
+
+        vm.SelectedModelIdOption = vm.ModelIdOptions.First(o => o.Id == "grok-4.6");
+
+        Assert.Equal("我的模型", vm.ModelName);
+    }
+
+    /// <summary>编辑模式带已存名字：换目录项不覆盖已存名</summary>
+    [Fact]
+    public void EditMode_PickAnotherCatalogModel_KeepsSavedName()
+    {
+        var fetcher = new FakeCatalogFetcher
+        {
+            Handler = (_, _) => Task.FromResult<IReadOnlyList<ModelCatalogEntry>>(
+            [
+                new ModelCatalogEntry { Id = "grok-4.6", Name = "Grok 4.6", ContextLength = 500000, SupportedEndpoints = ["/chat/completions"] },
+                new ModelCatalogEntry { Id = "gpt-5.5", Name = "GPT-5.5", ContextLength = 400000, SupportedEndpoints = ["/chat/completions"] },
+            ]),
+        };
+        var cache = new FakeCatalogCache();
+        var source = new RemoteModelInfo
+        {
+            Config = new RemoteCommandCodeModelConfig { ModelName = "saved-name", ModelId = "grok-4.6" },
+            ApiKey = "key",
+        };
+        var vm = new RemoteModelEditViewData(source, _ => false, fetcher, cache);
+
+        vm.SelectedModelIdOption = vm.ModelIdOptions.First(o => o.Id == "gpt-5.5");
+
+        Assert.Equal("saved-name", vm.ModelName);
+    }
+
+    /// <summary>预设（无目录、Alias 空）：选变体不覆盖默认名（回归护栏）</summary>
+    [Fact]
+    public void PresetPick_DoesNotOverwriteDefaultName()
+    {
+        var vm = new RemoteModelEditViewData();
+        vm.SelectedProvider = vm.Providers.First(p => p.ConfigType == typeof(RemoteDeepSeekModelConfig));
+        string defaultName = vm.ModelName;
+
+        vm.SelectedModelIdOption = vm.ModelIdOptions.First(o => o.Id == "deepseek-v4-pro");
+
+        Assert.Equal(defaultName, vm.ModelName);
     }
 
     /// <summary>下拉选择目录项：上下文长度按目录预填（ApplyModelIdPreset 同一条路）</summary>

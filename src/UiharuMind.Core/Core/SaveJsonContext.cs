@@ -55,6 +55,7 @@ namespace UiharuMind.Core.Core;
 [JsonSerializable(typeof(RemoteSensenovaModelConfig))]
 [JsonSerializable(typeof(RemoteZhipuModelConfig))]
 [JsonSerializable(typeof(RemoteCommandCodeModelConfig))]
+[JsonSerializable(typeof(RemoteOpenCodeModelConfig))]
 [JsonSerializable(typeof(RemoteModelConfig))]
 [JsonSerializable(typeof(ModelCatalogResponse))]
 [JsonSerializable(typeof(List<ModelCatalogEntry>))]

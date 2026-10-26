@@ -27,6 +27,8 @@ public class RemoteSensenovaModelConfig : BaseRemoteModelConfig, IRemoteModelCon
             ["kimi-k3"] = new(ContextLength: 1048576, MaxTokens: 131072,IsVision:true, OmitSamplingParams: true,
                 RequiresReasoningContentRoundtrip: true),
             // 商汤自研(平台最新为 6.8)
+            // 官方文档参数推荐:多轮对话只回传 content、不回传 reasoning(思考字段名是 reasoning 非 reasoning_content);
+            // 与同平台 DeepSeek(携带 tools 时必须回传 reasoning_content)相反,这里不开 roundtrip
             ["sensenova-6.8-flash-lite"] = new(ContextLength: 262144, MaxTokens: 65535, IsVision: true),
         };
 

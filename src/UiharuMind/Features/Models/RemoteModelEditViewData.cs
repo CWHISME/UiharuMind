@@ -126,6 +126,8 @@ public partial class RemoteModelEditViewData : ObservableObject
     [ObservableProperty] private bool _isPresetProvider;
     [ObservableProperty] private bool _hasCopySources;
     private bool _suppressModelIdPrefill;
+    private bool _suppressModelNamePrefill; //LoadValues/自动同步写名字时不把用户改动标记置真
+    private bool _modelNameEditedByUser; //用户是否手改过模型名（决定自动同步是否放行）
 
     /// <summary>目录候选的显示集合：跟随 ModelId 文本过滤，空文本显示全量（ADR 0092）</summary>
     public ObservableCollection<ModelIdOptionItem> VisibleModelIdOptions { get; } = new();
@@ -305,6 +307,7 @@ public partial class RemoteModelEditViewData : ObservableObject
         SelectedProvider = Providers.FirstOrDefault(p => p.ConfigType == remoteModelInfo.Config.GetType());
         _suppressProviderReset = false;
         LoadValues(remoteModelInfo.Config, remoteModelInfo.ApiKey, remoteModelInfo.ModelName ?? "");
+        _modelNameEditedByUser = !string.IsNullOrWhiteSpace(ModelName); //已存名字是用户定的，自动同步不再顶掉
         ApplyConfigTraits(remoteModelInfo.Config);
 
         // 编辑模式初始化也要吃目录候选（如 CommandCode 已存档再编辑），但不覆盖已存 ModelId
@@ -345,6 +348,7 @@ public partial class RemoteModelEditViewData : ObservableObject
         config.Port = source.Config.Port;
         _draftConfig = config;
         LoadValues(source.Config, source.ApiKey, source.ModelName + "-copy");
+        _modelNameEditedByUser = !string.IsNullOrWhiteSpace(ModelName); //复制名是明确的，自动同步不再顶掉
         ApplyConfigTraits(config);
     }
 
@@ -354,6 +358,7 @@ public partial class RemoteModelEditViewData : ObservableObject
         if (RemoteModelConfigRegistry.CreateDefault(value.ConfigType) is not BaseRemoteModelConfig config) return;
         _draftConfig = config;
         LoadValues(config, "", config.ModelName ?? "");
+        _modelNameEditedByUser = false; //切服务商=新表单：预设默认名不算用户手改
         ApplyConfigTraits(config);
         RefreshCopySources(value.ConfigType);
 
@@ -407,7 +412,9 @@ public partial class RemoteModelEditViewData : ObservableObject
         _suppressModelIdPrefill = true;
         try
         {
+            _suppressModelNamePrefill = true;
             ModelName = modelName;
+            _suppressModelNamePrefill = false;
             ModelPath = config.ModelPath ?? "";
             ModelId = config.ModelId ?? "";
             ModelDescription = config.ModelDescription ?? "";
@@ -486,6 +493,7 @@ public partial class RemoteModelEditViewData : ObservableObject
         ModelId = value.Id;
         _suppressModelIdPrefill = false;
         ApplyModelIdPreset(value);
+        TrySyncModelName(value);
     }
 
     /// <summary>
@@ -585,8 +593,31 @@ public partial class RemoteModelEditViewData : ObservableObject
         _suppressModelIdPrefill = true;
         SelectedModelIdOption = ModelIdOptions.FirstOrDefault(x => x.Id == value);
         _suppressModelIdPrefill = false;
-        if (SelectedModelIdOption != null) ApplyModelIdPreset(SelectedModelIdOption);
+        if (SelectedModelIdOption != null)
+        {
+            ApplyModelIdPreset(SelectedModelIdOption);
+            TrySyncModelName(SelectedModelIdOption);
+        }
         RefreshVisibleModelIdOptions();
+    }
+
+    partial void OnModelNameChanged(string value)
+    {
+        if (_suppressModelNamePrefill) return;
+        _modelNameEditedByUser = true;
+    }
+
+    /// <summary>
+    /// 选中目录项时让模型名跟着显示名走：用户没手改过、或名字为空时才写；
+    /// 没有显示名（Alias 空，如预设变体表）不碰，避免把预设默认名顶掉。
+    /// </summary>
+    private void TrySyncModelName(ModelIdOptionItem option)
+    {
+        if (_modelNameEditedByUser && !string.IsNullOrWhiteSpace(ModelName)) return;
+        if (option.Alias.Length == 0) return;
+        _suppressModelNamePrefill = true;
+        ModelName = option.Alias;
+        _suppressModelNamePrefill = false;
     }
 
     private void ApplyModelIdPreset(ModelIdOptionItem? option)
