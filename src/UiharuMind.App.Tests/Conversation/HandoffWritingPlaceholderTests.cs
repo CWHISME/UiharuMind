@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System.Collections.Generic;
+using System.Threading;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Items;
 using UiharuMind.Shared.Utils.Tools;
@@ -74,6 +75,28 @@ public class HandoffWritingPlaceholderTests
         finally
         {
             item.StopTiming(); // FlushForDisplay 会自续进全局泵，测试结束前摘掉
+        }
+    }
+
+    /// <summary>
+    /// 占位卡 live 跑表与工具卡同一口径：满 1 秒后向下取整到整秒，不会出现 1.1s、2.2s 这种小数
+    /// </summary>
+    [Fact]
+    public void Flush_OverOneSecond_FloorsToWholeSeconds()
+    {
+        HandoffWritingPlaceholder placeholder = NewPlaceholder();
+        placeholder.Show();
+        HandoffWritingItem item = Assert.IsType<HandoffWritingItem>(Assert.Single(_items));
+        try
+        {
+            Thread.Sleep(1100); // 跨过 1 秒，落在向下取整分支
+            ((IStreamFlushTarget)item).FlushForDisplay();
+
+            Assert.Equal("1s", item.TimeText); // 约 1.1s，取整即 1s，不含小数
+        }
+        finally
+        {
+            item.StopTiming();
         }
     }
 

@@ -527,7 +527,7 @@ public partial class HandoffWritingItem : ConversationItemBase, IStreamFlushTarg
 {
     private readonly long _startTicks = Stopwatch.GetTimestamp(); //整理开始时刻（live 计时用，单调时钟）
 
-    /// <summary>进行中耗时（如「3.2s」），随跑表 1 秒一跳；与思考段/工具卡同一口径</summary>
+    /// <summary>进行中耗时（如「3s」），随跑表 1 秒一跳；与工具卡同一路呈现（向下取整到整秒，避免节拍晚到带来的 1.1s、2.2s）</summary>
     [ObservableProperty] private string _timeText = string.Empty;
 
     /// <summary>跑表节拍：与思考段/工具卡统一，1 秒一跳</summary>
@@ -541,7 +541,8 @@ public partial class HandoffWritingItem : ConversationItemBase, IStreamFlushTarg
 
     void IStreamFlushTarget.FlushForDisplay()
     {
-        TimeText = ThinkingItem.FormatDuration(Stopwatch.GetElapsedTime(_startTicks));
+        // 与工具卡同一路：live 跑表向下取整到整秒，否则节拍晚到几十~上百毫秒会稳定多出小数（1.1s、2.2s）
+        TimeText = ToolCallItem.FormatLiveDuration(Stopwatch.GetElapsedTime(_startTicks));
         StreamFlushPump.Request(this); //跑着就续下一拍；收掉后不再续
     }
 }
