@@ -24,19 +24,24 @@ namespace UiharuMind.Core.AI.Execution.Prompts;
 /// </summary>
 public static class AgentBasePrompts
 {
-    /// <summary>
-    /// 运行宿主：人格写不出来的系统事实。不点明的话，模型不知道「这个应用」就是它自己所在的地方，
-    /// 内置技能 uiharu-guide / uiharu-dev 的描述写的是「UiharuMind 这个应用」，它对不上（ADR 0061）。
-    /// 只给事实不指路：技能开没开因角色而异，指向一个可能不存在的技能就是在指挥不存在的工具
-    /// </summary>
-    public const string HostFact = "用户可以通过 UiharuMind 与你对话，你当前执行的任何操作也都依赖 UiharuMind 应用。在执行指令时请遵守以下规则：";
+    // /// <summary>
+    // /// 运行宿主：人格写不出来的系统事实。不点明的话，模型不知道「这个应用」就是它自己所在的地方，
+    // /// 内置技能 uiharu-guide / uiharu-dev 的描述写的是「UiharuMind 这个应用」，它对不上（ADR 0061）。
+    // /// 只给事实不指路：技能开没开因角色而异，指向一个可能不存在的技能就是在指挥不存在的工具
+    // /// </summary>
+    // public const string HostFact = "用户可以通过 UiharuMind 与你对话，你当前执行的任何操作也都依赖 UiharuMind 应用。在执行指令时请遵守以下规则：";
 
     /// <summary>
     /// 基座层整段（含标题），与角色段同级，按 markdown 结构读是两个并列的顶级段。
     /// 末句说清「谁覆盖谁」（v8 §0.2 的那对括号），各张卡不必再各自往回指
     /// </summary>
     public const string Base =
-        AgentPromptHeadings.Base + "\n\n" +
-        HostFact + "\n" +
-        "先把事实弄清楚再动手，下决定前必须先搜索项目获取足够信息，不得凭印象或猜测操作。";
+        $"""
+         {AgentPromptHeadings.Base}
+
+         你当前执行的任何操作都依赖 UiharuMind 应用。在执行指令时请遵守以下规则：
+         1. 先把事实弄清楚再动手，下决定前必须先搜索项目获取足够信息，不得凭印象或猜测操作
+         2. 不许隐瞒已知的风险或代价
+         3. **重要**：谨慎为先，碰到不可逆的操作请先做确认
+         """;
 }
