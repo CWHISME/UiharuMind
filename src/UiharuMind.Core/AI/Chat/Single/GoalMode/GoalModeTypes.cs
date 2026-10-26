@@ -52,3 +52,10 @@ public sealed record GoalModeStatus(string SessionId, DateTimeOffset StartedAt, 
 /// <summary>一次目标模式结束时的回执原料（界面画成一张只给人看的卡）</summary>
 public sealed record GoalModeReceipt(string SessionId, EGoalModeEndReason Reason, string Summary,
     DateTimeOffset StartedAt, DateTimeOffset EndedAt, int Turns);
+
+/// <summary>
+/// 某个会话最近一次目标模式设置的存档形态（可序列化）：目标、调度规则、自动同意审批。
+/// 结束目标模式不删——设置弹窗靠它回填，重启后仍能看到设过的内容
+/// </summary>
+public sealed record GoalModeRecentState(string SessionId, string Goal,
+    IReadOnlyList<GoalModeScheduleRule> Rules, bool AutoApproveApprovals);

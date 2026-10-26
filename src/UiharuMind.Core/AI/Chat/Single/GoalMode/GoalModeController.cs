@@ -150,6 +150,7 @@ public sealed class GoalModeController
 
         Inject(session, GoalModeTranscript.KickoffNote(created.Goal));
         Save();
+        SaveRecent();
         RaiseStatusChanged(session.SessionId);
         Wake(created);
         return true;
@@ -178,6 +179,7 @@ public sealed class GoalModeController
         }
 
         Save();
+        SaveRecent();
         if (reschedule) ScheduleNext(session);
         else RaiseStatusChanged(sessionId);
         return true;
@@ -377,6 +379,7 @@ public sealed class GoalModeController
     private void Restore()
     {
         List<GoalModeSession> restored = [];
+        bool recentChanged = false;
         foreach (GoalModeState state in GoalModePersistence.Load())
         {
             ChatSession? session = SessionManager.Instance.Load(state.SessionId);
@@ -386,9 +389,25 @@ public sealed class GoalModeController
                 if (_sessions.ContainsKey(state.SessionId)) continue;
                 GoalModeSession goal = GoalModeSession.Restore(session, state);
                 _sessions[state.SessionId] = goal;
+                // 进行中的也同步进最近设置：重启前开始、恢复后停止的目标模式，设置弹窗仍能回填
+                _lastSettings[state.SessionId] = new GoalModeSettings(goal.Goal, goal.Rules, goal.AutoApproveApprovals);
+                recentChanged = true;
                 restored.Add(goal);
             }
         }
+
+        // 最近设置随存档回来：已结束的目标模式重开设置弹窗仍能看到设过的目标与规则（重启也不丢）
+        foreach (GoalModeRecentState state in GoalModePersistence.LoadRecent())
+        {
+            if (SessionManager.Instance.Load(state.SessionId) == null) continue; //会话没了
+            lock (_sync)
+            {
+                if (_lastSettings.ContainsKey(state.SessionId)) continue;
+                _lastSettings[state.SessionId] = new GoalModeSettings(state.Goal, state.Rules, state.AutoApproveApprovals);
+            }
+        }
+
+        if (recentChanged) SaveRecent();
 
         // 重启后第一轮按有进展排：不继承存档时的退避级数继续放缓
         foreach (GoalModeSession goal in restored) ScheduleNext(goal, idleStreak: 0);
@@ -400,6 +419,33 @@ public sealed class GoalModeController
         List<GoalModeState> states;
         lock (_sync) states = _sessions.Values.Select(x => x.ToState()).ToList();
         GoalModePersistence.Save(states);
+    }
+
+    private void SaveRecent()
+    {
+        if (!IsOwner) return;
+        List<GoalModeRecentState> states;
+        lock (_sync)
+        {
+            List<string> gone = [];
+            states = [];
+            foreach (KeyValuePair<string, GoalModeSettings> item in _lastSettings)
+            {
+                // 会话没了就不保留：下次保存即清（刚开始/进行中的必然在，只有已删会话会被滤掉）
+                if (SessionManager.Instance.GetMeta(item.Key) == null)
+                {
+                    gone.Add(item.Key);
+                    continue;
+                }
+
+                states.Add(new GoalModeRecentState(item.Key, item.Value.Goal ?? string.Empty,
+                    item.Value.Rules ?? [], item.Value.AutoApproveApprovals ?? false));
+            }
+
+            foreach (string id in gone) _lastSettings.Remove(id);
+        }
+
+        GoalModePersistence.SaveRecent(states);
     }
 
     private void RaiseStatusChanged(string sessionId) => WakeLoop.Raise(StatusChanged, sessionId, "Goal mode status");

@@ -35,4 +35,18 @@ public static class GoalModePersistence
     {
         SaveUtility.Save(AppPaths.Data.GoalModeSessions, states, SaveUtility.SaveJsonOptions);
     }
+
+    /// <summary>读最近设置存档；没有或读不出为空表</summary>
+    /// <returns>各会话最近一次的目标模式设置</returns>
+    public static IReadOnlyList<GoalModeRecentState> LoadRecent()
+    {
+        return SaveUtility.Load<List<GoalModeRecentState>>(AppPaths.Data.GoalModeRecentSessions, SaveUtility.SaveJsonOptions) ?? [];
+    }
+
+    /// <summary>整份覆盖写</summary>
+    /// <param name="states">各会话最近一次的目标模式设置</param>
+    public static void SaveRecent(IReadOnlyList<GoalModeRecentState> states)
+    {
+        SaveUtility.Save(AppPaths.Data.GoalModeRecentSessions, states, SaveUtility.SaveJsonOptions);
+    }
 }

@@ -193,7 +193,13 @@ public sealed partial class GoalModeViewData : WakeLoopViewData
     private void RemoveRule(GoalModeRuleEditorItem item) => Rules.Remove(item);
 
     /// <inheritdoc />
-    protected override void EndCore() => _goalMode.End(_session.SessionId);
+    protected override void EndCore()
+    {
+        // 结束前把未提交的编辑落进最近设置：否则弹窗里改了没点「更新」就被结束（跨窗口结束），
+        // 重开时回填会拿旧值覆盖掉刚改的内容（评审跟进项）
+        if (HasChanges) Update();
+        _goalMode.End(_session.SessionId);
+    }
 
     /// <inheritdoc />
     protected override void WakeNowCore() => _goalMode.WakeNow(_session.SessionId);

@@ -28,6 +28,7 @@ public class GoalModeControllerTests
     public GoalModeControllerTests()
     {
         GoalModePersistence.Save([]); //清掉别的测试残留，避免 Restore 误恢复
+        GoalModePersistence.SaveRecent([]); //清掉别的测试残留的最近设置
         _controller = new GoalModeController(Delay, () => _now, _ => _stamp, WakeTurn, primary: true);
         _controller.Ended += receipt =>
         {
@@ -157,6 +158,7 @@ public class GoalModeControllerTests
             Assert.Equal("写完了", receipt.Summary);
             Assert.Equal(1, receipt.Turns);
             Assert.Null(_controller.StatusOf(session.SessionId)); //已摘掉
+            Assert.NotNull(_controller.LastSettingsOf(session.SessionId)); //最近设置保留，设置弹窗仍能回填
         }
         finally
         {
@@ -273,6 +275,90 @@ public class GoalModeControllerTests
         finally
         {
             _controller.End(session.SessionId);
+            SessionManager.Instance.Delete(session.SessionId);
+        }
+    }
+
+    /// <summary>最近设置随存档回来：重启后重开设置弹窗仍能看到设过的目标与规则（结束不删）</summary>
+    [Fact]
+    public async Task Restore_KeepsRecentSettings_ForTheSetupWindowToRestore()
+    {
+        ChatSession session = NewSession();
+        try
+        {
+            _controller.Start(session, new GoalModeSettings("写一份方案", [Interval30], true));
+            await Until(() => _wakeCalls.Count == 1);
+            _controller.End(session.SessionId);
+            await Until(() => _receipts.Count == 1);
+
+            GoalModeController restored = new(Delay, () => _now, _ => _stamp, WakeTurn, primary: true);
+            GoalModeSettings? last = restored.LastSettingsOf(session.SessionId);
+            Assert.NotNull(last);
+            Assert.Equal("写一份方案", last!.Goal);
+            Assert.Equal(Interval30, Assert.Single(last.Rules!));
+            Assert.True(last.AutoApproveApprovals);
+        }
+        finally
+        {
+            _controller.End(session.SessionId);
+            SessionManager.Instance.Delete(session.SessionId);
+        }
+    }
+
+    /// <summary>恢复进行中的目标模式时同步最近设置：重启前开启、恢复后手动停止的，设置弹窗仍能回填</summary>
+    [Fact]
+    public void Restore_ActiveMode_SeedsRecentSettings_SoStoppingAfterRestartKeepsThem()
+    {
+        ChatSession session = NewSession();
+        try
+        {
+            // 模拟重启前开启的目标模式存档（旧代码时代开的，最近设置存档里没有它）
+            GoalModePersistence.Save(new List<GoalModeState>
+            {
+                new(session.SessionId, "写一份方案", [Interval30],
+                    StartedAt: _now.AddHours(-2), Turns: 1, ArtifactStamp: _stamp,
+                    LastStop: _now.AddHours(-1), BackoffLevel: 0, AutoApproveApprovals: true)
+            });
+
+            GoalModeController restored = new(Delay, () => _now, _ => _stamp, WakeTurn, primary: true);
+            // 手动停止
+            restored.End(session.SessionId);
+
+            GoalModeSettings? last = restored.LastSettingsOf(session.SessionId);
+            Assert.NotNull(last);
+            Assert.Equal("写一份方案", last!.Goal);
+            Assert.Equal(Interval30, Assert.Single(last.Rules!));
+            Assert.True(last.AutoApproveApprovals);
+        }
+        finally
+        {
+            GoalModePersistence.Save(new List<GoalModeState>());
+            SessionManager.Instance.Delete(session.SessionId);
+        }
+    }
+
+    /// <summary>会话删除后，它的最近设置在下次保存（再开一个目标模式）时被滤掉</summary>
+    [Fact]
+    public void SessionDeleted_RecentSettingIsDropped_OnNextSave()
+    {
+        ChatSession session = NewSession();
+        ChatSession other = NewSession();
+        try
+        {
+            _controller.Start(session, new GoalModeSettings("写一份方案", [Interval30]));
+            _controller.End(session.SessionId);
+            Assert.NotNull(_controller.LastSettingsOf(session.SessionId));
+
+            SessionManager.Instance.Delete(session.SessionId);
+            Assert.NotNull(_controller.LastSettingsOf(session.SessionId)); //删完内存还在，下次保存才清
+
+            _controller.Start(other, new GoalModeSettings("另一个目标", [Interval30])); //触发 SaveRecent
+            Assert.Null(_controller.LastSettingsOf(session.SessionId)); //下次保存清掉了
+        }
+        finally
+        {
+            _controller.End(other.SessionId);
+            SessionManager.Instance.Delete(other.SessionId);
             SessionManager.Instance.Delete(session.SessionId);
         }
     }

@@ -51,6 +51,7 @@ public class GoalModeAutoApproveTests
             finally
             {
                 window.Close();
+                SessionManager.Instance.Delete(session.SessionId);
             }
         });
     }
@@ -83,6 +84,7 @@ public class GoalModeAutoApproveTests
             {
                 window.Close();
                 goalMode.End(session.SessionId);
+                SessionManager.Instance.Delete(session.SessionId);
             }
         });
     }
@@ -110,6 +112,7 @@ public class GoalModeAutoApproveTests
             {
                 window.Close();
                 goalMode.End(session.SessionId);
+                SessionManager.Instance.Delete(session.SessionId);
             }
         });
     }
@@ -139,6 +142,7 @@ public class GoalModeAutoApproveTests
             finally
             {
                 window.Close();
+                SessionManager.Instance.Delete(session.SessionId);
             }
         });
     }
@@ -174,6 +178,7 @@ public class GoalModeAutoApproveTests
             {
                 window.Close();
                 goalMode.End(session.SessionId);
+                SessionManager.Instance.Delete(session.SessionId);
             }
         });
     }
@@ -212,7 +217,7 @@ public class GoalModeAutoApproveTests
     }
 
     private static ChatSession NewSession() =>
-        new("goal-auto", new CharacterData { CharacterId = "goal-auto" }) { IsTransient = true };
+        SessionManager.Instance.StartNewSession(new CharacterData { CharacterName = "目标会话" });
 
     private static GoalModeController NewGoalMode() =>
         new(wakeTurn: (_, _, _) => Task.CompletedTask, primary: true);

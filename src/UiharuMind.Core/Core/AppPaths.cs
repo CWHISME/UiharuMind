@@ -146,6 +146,9 @@ public static class AppPaths
         /// <summary>进行中的目标模式（重启后恢复，继续按调度跑）</summary>
         public static readonly string GoalModeSessions = Path.Combine(AgentRoot, "GoalModeSessions.json");
 
+        /// <summary>各会话最近一次的目标模式设置（结束不删，设置弹窗回填用；重启后仍保留）</summary>
+        public static readonly string GoalModeRecentSessions = Path.Combine(AgentRoot, "GoalModeRecent.json");
+
         /// <summary>对话附件</summary>
         public static readonly string AgentAttachments = Path.Combine(AgentRoot, "Attachments");
 
