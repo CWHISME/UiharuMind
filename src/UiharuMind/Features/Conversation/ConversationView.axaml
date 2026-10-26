@@ -786,11 +786,15 @@
                                  (主代理那一轮由后台驱动,而用户正看着的就是这个会话),
                                  于是一句本意为"它在别的窗口跑"的话变成了对着本窗口说的废话。
                                  IsExternallyDriven 仍然保留——停止按钮与「打字走插话还是走发送」靠它 -->
-                            <ThemedIconButton IconName="stop"
-                                              CurrentColor="Red"
-                                              Command="{Binding StopSendingCommand}"
-                                              ToolTips="{loc:Loc StopGenerating}" />
                         </StackPanel>
+                        <!-- 停止按钮单独一块,绑 CanStop 而不是 IsGenerating:轮末的压缩不是轮次,
+                             IsGenerating 已经归零,但那几秒里它同样是一次模型请求、同样要停得下来。
+                             两块挨着,看上去仍是一整组 -->
+                        <ThemedIconButton IconName="stop"
+                                          CurrentColor="Red"
+                                          IsVisible="{Binding CanStop}"
+                                          Command="{Binding StopSendingCommand}"
+                                          ToolTips="{loc:Loc StopGenerating}" />
                         <!-- 跑着的时候<b>不藏</b>发送按钮:那时它是「插话」。藏了的话中途想说一句
                              就只剩快捷键一条路,而按钮上写的字已经说明了区别 -->
                         <!-- 群:不开口也让大家接着说。串行再说一圈,并行叫醒还有新话没听的人(文案跟着模式走) -->

@@ -387,6 +387,15 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     public bool IsCompacting => _driver.Busy == ETurnBusy.Compacting;
 
     /// <summary>
+    /// 停止按钮此刻该不该在。
+    ///
+    /// 压缩<b>不是轮次</b>（<see cref="IsGenerating"/> 为假），但它同样是一次模型请求、同样要停得下来：
+    /// 按钮在那几秒里消失的话，用户看着"正在进行记忆压缩…"却无从下手。
+    /// 停止键按下去走的是同一条路——<c>TurnDriver.Cancel</c> 连带取消压缩自己那个取消源
+    /// </summary>
+    public bool CanStop => IsGenerating || IsCompacting;
+
+    /// <summary>
     /// 此刻有没有<b>本实例自己发起</b>的活在跑（装配、一轮、整理交接文档）。弃用本实例会取消它；
     /// 旁观别处跑的那一轮（<see cref="IsExternallyDriven"/>）不算，弃了不影响那边。
     /// 变化随 <see cref="IsGenerating"/> 一起通知
@@ -944,6 +953,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private void NotifyRunStateChanged()
     {
         OnPropertyChanged(nameof(IsGenerating));
+        OnPropertyChanged(nameof(CanStop)); //压缩期间也显示停止按钮，它随 IsGenerating 一起翻
         OnPropertyChanged(nameof(RunStatusKey));
         OnPropertyChanged(nameof(CanRegenerate));
         OnPropertyChanged(nameof(SendButtonText)); //跑着的时候它显示「插话」
@@ -1010,6 +1020,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         {
             OnPropertyChanged(nameof(Busy));
             OnPropertyChanged(nameof(BusyLabel));
+            OnPropertyChanged(nameof(CanStop)); //压缩开始/收尾各翻一次，停止按钮跟着出现与收起
         });
     }
 
@@ -1622,6 +1633,11 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 Items.Add(new ErrorItem { Message = Loc.Text(LangKey.HandoffFailed) });
                 break;
 
+            case ETurnNotice.HandoffAborted:
+                // 自动压缩没写成：只收占位卡。它会随下一轮水位再试，每轮挂一张一样的错误卡只是噪音
+                _handoffWriting.Hide();
+                break;
+
             case ETurnNotice.HandoffNothingToCompact:
                 _handoffWriting.Hide();
                 Items.Add(new ErrorItem
@@ -2092,10 +2108,15 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private ICharacterRunner? CurrentRunner => CurrentSession?.Runner;
 
     /// <summary>
-    /// 当前有效模型的上下文上限，用量分母与能力面板共用。每次现读：顶栏换模型不重建 agent，缓存就是过期的分母
+    /// 当前有效模型的上下文上限，用量分母与能力面板共用。每次现读：顶栏换模型不重建 agent，缓存就是过期的分母。
+    ///
+    /// 取的是<b>真正会发请求的那个模型</b>，而不是会话钉着的那个名字——会话钉着一个没在跑的本地模型时，
+    /// 后者仍在、但它的上限会落到本地兜底 8192，进度条于是一屏之外就"满了"，
+    /// 而请求实际发给的是另一个模型。判据与请求路径同一条，见 <c>LazyChatClient.ServingModel</c>
     /// </summary>
     private int ContextLength() =>
-        (CurrentSession?.ChatModelRunningData ?? LlmManager.Instance.CurrentRunningModel)?.ContextLength ?? 0;
+        LazyChatClient.ServingModel(CurrentSession?.ChatModelRunningData, LlmManager.Instance.CurrentRunningModel)
+            ?.ContextLength ?? 0;
 
     //================= 输入框 =================
 

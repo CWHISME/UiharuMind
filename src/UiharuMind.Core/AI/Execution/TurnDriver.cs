@@ -13,6 +13,7 @@ using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.CrossProcess;
 using UiharuMind.Core.AI.Chat.Group;
+using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Execution.Mcp;
@@ -56,6 +57,17 @@ public sealed class TurnDriver : IDisposable
     private bool _isRunning;
     private volatile ETurnBusy _busy;
     private volatile string? _compactingSessionId; //正在整理交接文档的会话,列表侧据此显示运行中
+
+    /// <summary>
+    /// 整理交接文档那一发自己的取消源。
+    ///
+    /// 必须自备：压缩跑在轮次之外（<see cref="RunAsync"/> 的 finally 里已经把
+    /// <see cref="_runCancellation"/> 清掉了），共用那一个的话停止按钮在压缩期间是空按。
+    /// 与它同样不显式释放——这个源既没有计时器也没有注册，交给 GC；显式 Dispose 反而会与
+    /// 并发的 <see cref="Cancel"/> 抢出 ObjectDisposedException。
+    /// </summary>
+    private CancellationTokenSource? _compactCancellation;
+
     private bool _ratioLogged; //占用比值每轮至多记一条,见 LogUsageRatio
 
     /// <summary>
@@ -469,10 +481,14 @@ public sealed class TurnDriver : IDisposable
     /// <summary>
     /// 请求停止本轮。只取消，补写取消结果由运行循环自己在取消分支里做；
     /// 进程即将消失的场合用 <see cref="SettleForShutdown"/>。
+    ///
+    /// 轮末的压缩也要停得下来：那时 <see cref="_runCancellation"/> 已经清空，
+    /// 而用户看到的仍是"正在进行记忆压缩…"——不连带停它，停止按钮在那几秒里是骗人的。
     /// </summary>
     public void Cancel()
     {
         _runCancellation?.Cancel();
+        _compactCancellation?.Cancel();
     }
 
     /// <summary>
@@ -498,6 +514,9 @@ public sealed class TurnDriver : IDisposable
     ///
     /// 取消之后的收尾照旧走 <c>SettleInterruptedTurn</c>：历史被补上取消结果封口，
     /// 所以停完还能接着续（见 ADR 0021）。
+    ///
+    /// 认两种归属：这一轮（<see cref="_activeSession"/>）与轮末的压缩（<see cref="_compactingSessionId"/>）。
+    /// 后者不算轮次、<c>_activeSession</c> 已归零，只认前者的话，别的窗口/实例停不掉正在压的那份。
     /// </summary>
     /// <param name="sessionId">会话标识</param>
     /// <returns>真的取消了至少一轮返回 true</returns>
@@ -511,7 +530,7 @@ public sealed class TurnDriver : IDisposable
         bool cancelled = false;
         foreach (TurnDriver driver in drivers)
         {
-            if (driver._activeSession?.SessionId != sessionId) continue;
+            if (driver._activeSession?.SessionId != sessionId && driver._compactingSessionId != sessionId) continue;
             driver.Cancel();
             cancelled = true;
         }
@@ -758,7 +777,10 @@ public sealed class TurnDriver : IDisposable
 
     /// <summary>
     /// 到水位就让当前模型写一份交接文档，之后的历史供给从它开始。
-    /// 失败不作声张——框架的截断仍挂着当兜底，最坏结果是回到「悄悄丢最旧的消息」。
+    ///
+    /// 没写成时分两种口径：<b>手动</b>（<c>/compact</c>）必须报出来，否则用户点了没反应；
+    /// <b>自动</b>则一声不吭——框架的截断仍挂着当兜底，最坏结果是回到「悄悄丢最旧的消息」，
+    /// 而每轮再挂一张一模一样的错误卡只是噪音（见 <see cref="NotifyHandoffUnwritten"/>）。
     /// </summary>
     /// <param name="session">会话</param>
     /// <param name="runner">该会话的执行者</param>
@@ -771,12 +793,13 @@ public sealed class TurnDriver : IDisposable
         // 白白再走一遍五次退避
         if (!force && _usage.TurnInput == 0) return;
 
-        // 上限只在没人填过时现读:界面侧本来就随模型变化刷新账本上的这个数,
-        // 无头执行没有界面,不补的话水位永远算不出来、交接也就永不触发
-        if (_usage.ContextLength == 0)
-        {
-            _usage.ContextLength = session.ChatModelRunningData?.ContextLength ?? 0;
-        }
+        // 上限按「真正会发这一发的模型」算，而不是「会话钉着的那个名字」。两者不同时
+        // （全局跑着 B、会话钉着没在跑的 A），钉着的那个 ContextLength 会落到本地兜底 8192——
+        // 拿它定水位与篇幅上限，等于按一个根本不发请求的窗口在算：水位每轮都到，
+        // 而请求实际发给的是 128k 的 B。判据与请求路径同一条，见 LazyChatClient.ServingModel
+        ModelRunningData? serving = LazyChatClient.ServingModel(
+            session.ChatModelRunningData, LlmManager.Instance.CurrentRunningModel);
+        if (serving != null) _usage.ContextLength = serving.ContextLength;
 
         // 收有效占用而不是报告占用:服务端的 usage 未必含工具定义,只信它的话
         // 在少报的服务端上这条水位永远不触发——三条里唯一能保住上下文的那条就此失效。见 ADR 0009。
@@ -792,14 +815,25 @@ public sealed class TurnDriver : IDisposable
             return;
         }
 
-        // ChatModelRunningData 取不到会话自己那份时已经回落到当前运行模型,这里不必再兜一层
-        if (session.ChatModelRunningData?.ChatClient == null)
+        // 请求路径上 LazyChatClient 会在钉选的本地模型没在跑时回落全局，这里同一口径：
+        // 有能发请求的就发，一个都指望不上才算失败。从前只看钉选模型的 ChatClient，
+        // 于是「全局跑着 B、会话钉着没在跑的 A」这种再普通不过的状态下压缩永远发不出去——
+        // 明明同一轮的常规请求走的就是 B。远程未启动的 ChatClient 也是 null，
+        // 但请求会把它拉起来（见 ResolveAsync 的 EnsureModelStarted），所以放行
+        if (serving == null || (serving.ChatClient == null && !serving.IsRemoteModel))
         {
-            // 手动触发时不能静默无操作:占位卡没插入、也没失败提示,用户只会看到"点了没反应"
+            // 手动触发时不能静默无操作:占位卡没插入、也没失败提示,用户只会看到"点了没反应"。
+            // 自动触发则连通知都不发——占位卡还没插入,没有要收掉的东西
             if (force) _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffFailed));
             return;
         }
 
+        // 这一发自己的取消源：跑在轮次之外，_runCancellation 已在上一轮的 finally 里清掉。
+        // 先挂上去再改状态：界面是看到 Busy 才知道"正在进行记忆压缩…"、才可能按下停止，
+        // 那个顺序反过来就会有一段「按钮已经在、取消源还没有」的空窗
+        CancellationTokenSource compactCancellation = new();
+        _compactCancellation = compactCancellation;
+        CancellationToken compactToken = compactCancellation.Token;
         Busy = ETurnBusy.Compacting;
         _compactingSessionId = session.SessionId;
         // 整理耗时的起点：从进入压缩状态算到写完落盘，压缩卡与占位卡据此显示时间
@@ -812,10 +846,10 @@ public sealed class TurnDriver : IDisposable
             // 就与已缓存的那份岔开,原始历史本身还可能比窗口还大——交接恰恰常在折叠动过手之后才写
             IReadOnlyList<ChatMessage> supplied = await HistorySupply.ForSideRequestAsync(session.History,
                 runner.ChatOptions, _usage.ContextLength, runner.InputEstimate?.FixedOverhead ?? 0,
-                CancellationToken.None);
+                compactToken);
             // 选项取本会话装配好的那一份(系统提示词 + 工具定义 + 采样参数),与常规轮次逐字一致
             HandoffReply reply = await HistoryHandoff.WriteAsync(HistorySupply.ClientFor(session), supplied,
-                runner.ChatOptions, _usage.ContextLength, extraInstructions, CancellationToken.None);
+                runner.ChatOptions, _usage.ContextLength, extraInstructions, compactToken);
             // 这一发往往是整个会话最大的一次请求,照常记账:不记的话会话累计少算,它命没命中缓存也无从验证。
             // 日志带上前一次常规请求的命中与折叠量:对照着看才分得清是前缀岔开了,还是服务端本就不缓存
             long previousInput = _usage.LastInput;
@@ -829,7 +863,7 @@ public sealed class TurnDriver : IDisposable
 
             if (reply.Text is not { } note)
             {
-                _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffFailed));
+                NotifyHandoffUnwritten(force);
                 return;
             }
 
@@ -855,19 +889,43 @@ public sealed class TurnDriver : IDisposable
             _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffWritten, HistoryHandoff.NoteBody(message.Text)));
             _notify?.Invoke(new TurnNotice(ETurnNotice.ScrollToEnd));
         }
+        catch (OperationCanceledException) when (compactToken.IsCancellationRequested)
+        {
+            // 用户按了停止（或会话被弃用、被 CancelSession 点到）。他自己按的，不必再解释一遍——
+            // 收掉占位卡就够，不留错误条目。不写文档：半截压缩比不压更糟
+            Log.Debug($"Context handoff cancelled: session={session.SessionId}.");
+            _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffAborted));
+        }
         catch (OperationCanceledException)
         {
-            // 客户端超时可能把取消包装成 OCE 逃出来。普通异常已被 WriteAsync 吞掉并转成
-            // HandoffFailed,OCE 是原样上抛的——不在这里补发,占位卡会永远留在会话流里。
-            // 压缩用的是 CancellationToken.None,这个 OCE 不是用户取消,没有向上传达的必要;
+            // 客户端超时可能把取消包装成 OCE 逃出来。普通异常已被 WriteAsync 吞掉并转成失败产出，
+            // OCE 是原样上抛的——不在这里补发,占位卡会永远留在会话流里。
+            // 这不是用户取消(取消标记没动),没有向上传达的必要;
             // rethrow 会冒到手动路径的命令管线(SendCoreAsync 没有 catch)变成未处理异常
-            _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffFailed));
+            NotifyHandoffUnwritten(force);
         }
         finally
         {
             Busy = ETurnBusy.None;
             _compactingSessionId = null;
+            _compactCancellation = null; //先摘引用再收尾:并发的 Cancel 拿到的要么是它、要么是 null
             SessionManager.Instance.Running.NotifyStateChanged(session.SessionId); //转圈熄灭
         }
+    }
+
+    /// <summary>
+    /// 交接文档没写成。两种口径必须分开，而且<b>两种都要发一条通知</b>——
+    /// 界面靠它收掉已经挂上去的进行中占位卡，漏发那张卡会一直转圈。
+    ///
+    /// 手动触发（<c>/compact</c>）报 <see cref="ETurnNotice.HandoffFailed"/>，界面补一张错误条目：
+    /// 用户刚点了命令，不能"点了没反应"。自动触发（水位到了自己压）报
+    /// <see cref="ETurnNotice.HandoffAborted"/>，界面只收卡不留言——它每轮都会再试一次，
+    /// 失败原因在日志里，而同一句「改由截断丢弃最旧的消息」刷满一屏只是噪音。
+    /// （用户自己按停止的那一路也走 Aborted，见 <see cref="WriteHandoffAsync"/> 的取消分支。）
+    /// </summary>
+    /// <param name="force">是否手动触发</param>
+    private void NotifyHandoffUnwritten(bool force)
+    {
+        _notify?.Invoke(new TurnNotice(force ? ETurnNotice.HandoffFailed : ETurnNotice.HandoffAborted));
     }
 }

@@ -95,8 +95,18 @@ public enum ETurnNotice
     /// <summary>开始整理交接文档（多一次模型请求，界面据此在会话流里挂进行中提示）</summary>
     HandoffStarted,
 
-    /// <summary>交接文档写失败</summary>
+    /// <summary>
+    /// 交接文档写失败（手动触发、且不是用户自己停的）：用户刚敲了 <c>/compact</c>，不能"点了没反应"
+    /// </summary>
     HandoffFailed,
+
+    /// <summary>
+    /// 压缩没写成，<b>不留言</b>：界面只收掉进行中的占位卡，不补错误条目。两种情形：
+    /// 自动压缩失败（它每轮都会再试一次，同一句失败提示刷满一屏只是噪音——框架的截断仍挂着当兜底，
+    /// 失败原因在日志里），以及用户自己按了停止（他自己按的，不必再解释）。
+    /// 与 <see cref="HandoffFailed"/> 分开正是因为后者要留错误条目
+    /// </summary>
+    HandoffAborted,
 
     /// <summary>上一份交接之后攒下的消息太少，没什么可压（仅手动触发时报）</summary>
     HandoffNothingToCompact,

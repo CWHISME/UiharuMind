@@ -455,6 +455,26 @@ public class LazyChatClient : IChatClient
     }
 
     /// <summary>
+    /// 按与请求同一条判据解析出<b>真正会发请求的那个模型</b>：钉选的能跑就用它，
+    /// 本地未起的钉选回落全局，回无可回时为 null（或那个注定起不来的候选）。
+    ///
+    /// 旁路请求（写交接文档）要用它定上下文上限。直接读 <c>ChatSession.ChatModelRunningData</c> 不够——
+    /// 那是「钉着的名字」，不是「发请求的那个」：会话钉着一个没在跑的本地模型时它照样返回那个模型，
+    /// 而它的 <c>ContextLength</c> 会落到本地兜底 8192。拿这个数去算水位与篇幅上限，
+    /// 等于按一个根本不发请求的窗口在算：水位每轮都到，请求却发给另一个 128k 的模型。
+    ///
+    /// 纯函数、无副作用（不碰 <see cref="ResolveAsync"/> 那条会拉起模型的路径），可单测。
+    /// </summary>
+    /// <param name="candidate">会话钉选优先解析出的候选</param>
+    /// <param name="global">全局当前模型</param>
+    /// <returns>会真正发请求的那个模型；一个都指望不上时为 null</returns>
+    public static ModelRunningData? ServingModel(ModelRunningData? candidate, ModelRunningData? global)
+    {
+        if (candidate == null) return global;
+        return DecideCandidate(candidate, global) == SessionCandidateDecision.UseGlobal ? global : candidate;
+    }
+
+    /// <summary>
     /// 解析当前模型客户端与其归属;远程模型启动中时限时等待就绪
     /// </summary>
     private async Task<(IChatClient Client, ModelRunningData Model)> ResolveAsync(CancellationToken cancellationToken)

@@ -726,9 +726,59 @@ public class TurnDriverTests
     }
 
     [Fact]
+    public async Task Handoff_Auto_FailureStaysQuiet_ButStillClosesThePlaceholder()
+    {
+        //自动压缩失败不给用户留错误条目:它会随下一轮水位再试一次,同一句
+        //「改由截断丢弃最旧的消息」刷满一屏只是噪音——框架的截断仍挂着当兜底。
+        //但通知必须照发:界面靠它收掉已经挂上去的进行中占位卡,漏发那张卡会一直转圈
+        List<TurnNotice> notices = new();
+        ChatSession session = NewSession();
+        for (int i = 0; i < 10; i++) session.History.Add(Prompt($"第 {i} 条"));
+
+        ModelRunningData running = new(new GGufModelInfo { ModelName = "m1" });
+        running.CompleteLoading(new CapturingChatClient(" \n "), runtimeContextSize: 65536, CancellationToken.None);
+        session.ChatModelRunningData = running;
+
+        TurnUsageLedger ledger = new() { ContextLength = 128_000 };
+        StubRunner runner = new(Round(Usage(100_000, 20))); //占用过水位
+        TurnDriver driver = new(new FakeSink(), ledger, notices.Add);
+
+        await driver.RunAsync(session, runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
+
+        List<ETurnNotice> kinds = notices.Select(x => x.Kind).ToList();
+        Assert.Contains(ETurnNotice.HandoffStarted, kinds);
+        Assert.Contains(ETurnNotice.HandoffAborted, kinds);
+        Assert.DoesNotContain(ETurnNotice.HandoffFailed, kinds);
+        Assert.Equal(10, session.History.Count); //失败不写文档
+    }
+
+    [Fact]
+    public async Task Handoff_SizesByTheModelThatActuallyServes_NotThePinnedName()
+    {
+        //会话钉着 A、实际发请求的是全局的 B 时,上限要按 B 算。按 A 算的话 A 没在跑、
+        //上限落到本地兜底 8192,水位与篇幅上限全按一个根本不发请求的窗口在算
+        ChatSession session = NewSession();
+        for (int i = 0; i < 10; i++) session.History.Add(Prompt($"第 {i} 条"));
+
+        ModelRunningData running = new(new GGufModelInfo { ModelName = "m1" });
+        running.CompleteLoading(new CapturingChatClient("交接正文"), runtimeContextSize: 65536,
+            CancellationToken.None);
+        session.ChatModelRunningData = running;
+
+        TurnUsageLedger ledger = new() { ContextLength = 128_000 }; //界面按另一个模型填的旧值
+        TurnDriver driver = new(new FakeSink(), ledger);
+
+        await driver.RunAsync(session, new StubRunner(Round(Usage(1_000, 20))), Prompt(),
+            externalCancellation: TestContext.Current.CancellationToken);
+
+        Assert.Equal(65_536, ledger.ContextLength); //换成真正发请求那个模型的上限
+    }
+
+    [Fact]
     public async Task Handoff_Forced_FailureReportsFailedAfterStarted()
     {
-        //client 返回空产出 → WriteAsync 返回 null → HandoffFailed;占位卡要靠它收掉
+        //client 返回空产出 → WriteAsync 返回 null → HandoffFailed;占位卡要靠它收掉。
+        //手动触发必须报出来:用户刚敲了 /compact,不能"点了没反应"
         List<TurnNotice> notices = new();
         ChatSession session = NewSession();
         for (int i = 0; i < 5; i++) session.History.Add(Prompt($"第 {i} 条"));
@@ -816,6 +866,61 @@ public class TurnDriverTests
         await driver.CompactAsync(session, new StubRunner());
 
         Assert.Equal([ETurnNotice.HandoffFailed], notices.Select(x => x.Kind));
+        Assert.Equal(5, session.History.Count);
+    }
+
+    [Fact]
+    public async Task Handoff_CanBeStoppedLikeATurn_AndWritesNoNote()
+    {
+        //压缩也是一次模型请求,与普通对话一样要停得下来。它跑在轮次之外(IsRunning 已归零、
+        //_runCancellation 已清空),所以自备一个取消源——共用轮次那个的话,停止按钮在压缩期间是空按。
+        //用户自己按的停止不必再解释一遍:收掉占位卡就够,不留错误条目
+        List<TurnNotice> notices = new();
+        ChatSession session = NewSession();
+        for (int i = 0; i < 5; i++) session.History.Add(Prompt($"第 {i} 条"));
+
+        GatedChatClient client = new("交接正文");
+        ModelRunningData running = new(new GGufModelInfo { ModelName = "m1" });
+        running.CompleteLoading(client, runtimeContextSize: 65536, CancellationToken.None);
+        session.ChatModelRunningData = running;
+
+        TurnUsageLedger ledger = new() { ContextLength = 128_000 };
+        TurnDriver driver = new(new FakeSink(), ledger, notices.Add);
+
+        Task compact = driver.CompactAsync(session, new StubRunner());
+        Assert.True(TurnDriver.IsCompacting(session.SessionId)); //请求还没回来
+
+        driver.Cancel(); //用户点了停止
+        await compact; //不抛异常
+
+        Assert.False(TurnDriver.IsCompacting(session.SessionId));
+        Assert.Equal([ETurnNotice.HandoffStarted, ETurnNotice.HandoffAborted],
+            notices.Select(x => x.Kind));
+        Assert.Equal(5, session.History.Count); //半截压缩比不压更糟:一个字都不写
+    }
+
+    [Fact]
+    public async Task CancelSession_ReachesTheCompactionToo()
+    {
+        //外驱那一半:别的窗口/实例看到"正在进行记忆压缩…"时,它的 _activeSession 已经归零,
+        //只认轮次的话这个静态取消点够不着正在压的那份
+        List<TurnNotice> notices = new();
+        ChatSession session = NewSession();
+        for (int i = 0; i < 5; i++) session.History.Add(Prompt($"第 {i} 条"));
+
+        GatedChatClient client = new("交接正文");
+        ModelRunningData running = new(new GGufModelInfo { ModelName = "m1" });
+        running.CompleteLoading(client, runtimeContextSize: 65536, CancellationToken.None);
+        session.ChatModelRunningData = running;
+
+        TurnUsageLedger ledger = new() { ContextLength = 128_000 };
+        TurnDriver driver = new(new FakeSink(), ledger, notices.Add);
+
+        Task compact = driver.CompactAsync(session, new StubRunner());
+        Assert.True(TurnDriver.CancelSession(session.SessionId));
+        await compact;
+
+        Assert.Contains(ETurnNotice.HandoffAborted, notices.Select(x => x.Kind));
         Assert.Equal(5, session.History.Count);
     }
 
@@ -969,7 +1074,8 @@ public class TurnDriverTests
         public async Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages,
             ChatOptions? options = null, CancellationToken cancellationToken = default)
         {
-            await _gate.Task;
+            // 与真客户端一样认取消：压缩要停得下来，靠的就是这个令牌真的传到了请求上
+            await _gate.Task.WaitAsync(cancellationToken);
             return new ChatResponse(new ChatMessage(ChatRole.Assistant, reply));
         }
 
