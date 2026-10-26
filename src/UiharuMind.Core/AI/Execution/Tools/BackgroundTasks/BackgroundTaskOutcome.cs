@@ -12,8 +12,11 @@ namespace UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
 /// <summary>后台任务是怎么结束的</summary>
 public enum EBackgroundTaskEnd
 {
-    /// <summary>进程自己退出</summary>
+    /// <summary>进程自己退出（shell 任务）</summary>
     Exited,
+
+    /// <summary>任务体正常做完（inline 任务）——等价于 shell 的 <see cref="Exited"/></summary>
+    Completed,
 
     /// <summary>到了时间上限，连同进程树被结束</summary>
     TimeLimit,
@@ -32,4 +35,4 @@ public enum EBackgroundTaskEnd
 /// <param name="End">结束方式</param>
 /// <param name="ExitCode">退出码；被结束时可能取不到</param>
 /// <param name="Duration">实际运行时长</param>
-public sealed record BackgroundTaskOutcome(BackgroundTask Task, EBackgroundTaskEnd End, int? ExitCode, TimeSpan Duration);
+public sealed record BackgroundTaskOutcome(IBackgroundTask Task, EBackgroundTaskEnd End, int? ExitCode, TimeSpan Duration);

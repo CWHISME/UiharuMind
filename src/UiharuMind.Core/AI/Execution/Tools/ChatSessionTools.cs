@@ -18,6 +18,7 @@ using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.Extensions;
+using UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
 
 namespace UiharuMind.Core.AI.Execution.Tools;
 
@@ -52,6 +53,9 @@ public static class ChatSessionTools
     /// <summary>stop：强行停止一个正在跑的子代理</summary>
     public const string StopToolName = "ChatSessionStop";
 
+    /// <summary>list-tasks：本会话名下在跑的后台任务（含 SendMessage 自动起的等待任务）</summary>
+    public const string ListTasksToolName = "ChatSessionListTasks";
+
     // 群多了全列占上下文，最近几个够看
     private const int MaxListedGroups = 5;
 
@@ -72,11 +76,11 @@ public static class ChatSessionTools
     private static readonly string SendMessageMention = $"`{SubAgentTool.MessageToolName}`";
 
     /// <summary>
-    /// 造六把工具
+    /// 造七把工具
     /// </summary>
     /// <param name="sessionId">当前会话标识；空串时报「不可用」（扩展装配时拦截）</param>
     /// <param name="workspacePath">当前会话的工作区；建群时默认绑它</param>
-    /// <returns>六把工具，list 在前</returns>
+    /// <returns>七把工具，list 在前</returns>
     public static IReadOnlyList<AITool> Create(string sessionId, string? workspacePath = null) =>
     [
         ToolJson.CreateFunction(() => ListSubSessions(sessionId), ListToolName,
@@ -97,7 +101,7 @@ public static class ChatSessionTools
                     string[]? models = null) =>
                 CreateGroup(sessionId, workspacePath, name, members, mode, stop, host, models),
             CreateGroupToolName,
-            "建一个智能体群并把成员拉进去（群绑在当前会话的工作区）。建好后用 `SendMessage`（`to` 填群名或群壳短号）往群里说话。"),
+            "建一个智能体群并把成员拉进去（群绑在当前会话的工作区）。建好后用 `SendMessage`（`to` 填群名或短号）往群里说话。"),
         ToolJson.CreateFunction(() => ListModels(), ListModelsToolName,
             "列出已加载的远程模型及其参数。"),
         ToolJson.CreateFunction(() => ListCharacters(), ListCharactersToolName,
@@ -105,6 +109,8 @@ public static class ChatSessionTools
         ToolJson.CreateFunction(([Description("要停止的子代理短号或完整标识")] string id) => StopSubSession(sessionId, id),
             StopToolName,
             "强行停止本会话派出的一个正在跑的子代理。"),
+        ToolJson.CreateFunction(() => ListTasks(sessionId), ListTasksToolName,
+            "列出本会话名下在跑的后台任务（含 SendMessage 发群/发单聊后自动起的等待任务）。"),
     ];
 
     /// <summary>
@@ -137,6 +143,32 @@ public static class ChatSessionTools
             // 只读路径：热会话取已驻留本体（零加载），冷会话读索引里的占用快照——绝不 Load 全量
             // （Load 会整读历史、跑孤儿修复落盘、钉驻留，不该跟着一次免审批查询发生）
             sb.AppendLine(DescribeSub(meta, manager.GetLoaded(meta.SessionId), manager));
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// 本会话名下在跑的后台任务。SendMessage 发群/发单聊后自动起的等待任务也在这里——
+    /// 「还差哪一封回信没来」这一问的答案就在这份清单里（回信到达即任务结束，只列在跑的）
+    /// </summary>
+    /// <param name="sessionId">查询方会话标识</param>
+    /// <returns>任务清单文本</returns>
+    internal static string ListTasks(string sessionId)
+    {
+        IReadOnlyList<IBackgroundTask> tasks = BackgroundTaskRegistry.RunningOf(sessionId);
+        if (tasks.Count == 0)
+        {
+            return "本会话名下没有在跑的后台任务。";
+        }
+
+        StringBuilder sb = new();
+        sb.AppendLine($"本会话名下有 {tasks.Count} 个后台任务在跑：");
+        foreach (IBackgroundTask task in tasks)
+        {
+            string age = BackgroundTaskReport.FormatDuration(DateTimeOffset.Now - task.StartedAt);
+            sb.AppendLine($"- `{task.Id}`：{task.Description} · 已跑 {age}"
+                          + (task.LogPath.Length > 0 ? $" · 日志 {task.LogPath}" : string.Empty));
         }
 
         return sb.ToString();
@@ -194,7 +226,7 @@ public static class ChatSessionTools
         if (all.Count == 0)
         {
             return canSendToGroup
-                ? $"当前没有群聊。要建一个，用 {CreateGroupMention}；建好后用 {SendMessageMention} 往群里说话（`to` 填群名或群壳短号）。"
+                ? $"当前没有群聊。要建一个，用 {CreateGroupMention}；建好后用 {SendMessageMention} 往群里说话（`to` 填群名或短号）。"
                 : "当前没有群聊。";
         }
 
@@ -204,7 +236,7 @@ public static class ChatSessionTools
             ? $"群聊（最近 {groups.Count} 个，共 {all.Count}）："
             : $"群聊 {groups.Count} 个：");
         foreach (ChatSessionMeta group in groups) sb.Append(DescribeGroup(group, manager));
-        if (canSendToGroup) sb.Append($"往群里说一句用 {SendMessageMention}，`to` 填群名或群壳短号。");
+        if (canSendToGroup) sb.Append($"往群里说一句用 {SendMessageMention}，`to` 填群名或短号。");
         return sb.ToString();
     }
 
@@ -293,7 +325,7 @@ public static class ChatSessionTools
             ? "工作区：未绑（成员写文件落在各自的草稿目录）"
             : $"工作区：{group.WorkspacePath}");
         sb.Append(
-            $"往群里说一句用 {SendMessageMention}，`to` 填《{group.Title}》或 [群壳 {SubSessionIdAlias.Short(group.SessionId)}]；" +
+            $"往群里说一句用 {SendMessageMention}，`to` 填《{group.Title}》或短号 {SubSessionIdAlias.Short(group.SessionId)}；" +
             $"跑起来后用 {GroupsMention} 看进度（正在跑的群会给你流水快照路径）。");
         return sb.ToString();
     }
@@ -436,9 +468,13 @@ public static class ChatSessionTools
         if (members.Count == 0) return sb.AppendLine().ToString();
 
         sb.AppendLine();
+        GroupRoster roster = GroupRoster.Of(group);
         foreach (ChatSessionMeta member in members)
         {
-            string who = member.IsGroupAvatar ? "化身" : "";
+            // 认得出名字就写名字（只给编号没人看得懂是谁）；认不出就只剩括号里的短号
+            string who = member.IsGroupAvatar
+                ? "化身"
+                : roster.Everyone.FirstOrDefault(x => x.Meta.SessionId == member.SessionId)?.Name ?? "";
             sb.Append("  - ")
                 .Append(who)
                 .Append("（").Append(SubSessionIdAlias.Short(member.SessionId)).Append("）：")

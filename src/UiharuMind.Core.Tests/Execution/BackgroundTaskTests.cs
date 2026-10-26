@@ -186,6 +186,111 @@ public class BackgroundTaskTests
         Assert.True(ChatMessageAnnotations.IsBackgroundTaskReport(BackgroundTaskReport.BuildMessage(outcome)));
     }
 
+    [Fact]
+    public async Task InlineTask_Completes_WithResultText()
+    {
+        RecordingSink sink = new();
+        InlineBackgroundTask task = BackgroundTaskRegistry.StartInline("owner", "等《初春的日常》回这一轮",
+            TimeSpan.FromMinutes(1), _ => Task.FromResult("《初春的日常》回完了，最后一句是：\n\n你好"), sink);
+
+        BackgroundTaskOutcome outcome = await sink.Delivered.Task.WaitAsync(TimeSpan.FromSeconds(10),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(EBackgroundTaskEnd.Completed, outcome.End);
+        Assert.Equal("《初春的日常》回完了，最后一句是：\n\n你好", outcome.Task.ResultText);
+        Assert.DoesNotContain(outcome.Task, BackgroundTaskRegistry.RunningOf("owner")); //结束后摘掉
+    }
+
+    [Fact]
+    public async Task InlineTask_PastItsTimeLimit_IsEndedWithTimeLimit()
+    {
+        RecordingSink sink = new();
+        BackgroundTaskRegistry.StartInline("owner", "slow wait", TimeSpan.FromSeconds(1),
+            async ct => { await Task.Delay(TimeSpan.FromSeconds(30), ct); return string.Empty; }, sink);
+
+        BackgroundTaskOutcome outcome = await sink.Delivered.Task.WaitAsync(TimeSpan.FromSeconds(10),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(EBackgroundTaskEnd.TimeLimit, outcome.End);
+    }
+
+    [Fact]
+    public async Task InlineTask_Stopped_IsEndedWithStopped()
+    {
+        RecordingSink sink = new();
+        InlineBackgroundTask task = BackgroundTaskRegistry.StartInline("owner", "slow wait",
+            TimeSpan.FromMinutes(1), async ct => { await Task.Delay(TimeSpan.FromSeconds(30), ct); return string.Empty; }, sink);
+
+        Assert.True(BackgroundTaskRegistry.Stop(task.Id));
+
+        BackgroundTaskOutcome outcome = await sink.Delivered.Task.WaitAsync(TimeSpan.FromSeconds(10),
+            TestContext.Current.CancellationToken);
+        Assert.Equal(EBackgroundTaskEnd.Stopped, outcome.End);
+        Assert.False(BackgroundTaskRegistry.Stop(task.Id)); //已经结束的停不了
+    }
+
+    /// <summary>inline 任务的报告原样放任务体拼好的正文：它没有日志，不能用 shell 任务的形状</summary>
+    [Fact]
+    public async Task InlineReport_ReturnsTheTaskBodyText()
+    {
+        RecordingSink sink = new();
+        InlineBackgroundTask task = BackgroundTaskRegistry.StartInline("owner", "等《初春的日常》回这一轮",
+            TimeSpan.FromMinutes(1), _ => Task.FromResult("《初春的日常》回完了"), sink);
+        BackgroundTaskOutcome outcome = await sink.Delivered.Task.WaitAsync(TimeSpan.FromSeconds(10),
+            TestContext.Current.CancellationToken);
+
+        string text = BackgroundTaskReport.BuildText(outcome);
+
+        Assert.Equal("《初春的日常》回完了", text);
+        Assert.True(ChatMessageAnnotations.IsBackgroundTaskReport(BackgroundTaskReport.BuildMessage(outcome)));
+    }
+
+    /// <summary>任务体不响应取消时也要收口：没有进程树可杀，只能靠宽限兜住「永远停在在跑」</summary>
+    [Fact]
+    public async Task InlineTask_ThatIgnoresCancellation_IsSettledAnyway()
+    {
+        TimeSpan grace = InlineBackgroundTask.KillGrace;
+        InlineBackgroundTask.KillGrace = TimeSpan.FromMilliseconds(200);
+        try
+        {
+            RecordingSink sink = new();
+            InlineBackgroundTask task = BackgroundTaskRegistry.StartInline("owner", "ignore cancel",
+                TimeSpan.FromMinutes(1), _ => new TaskCompletionSource<string>().Task, sink);
+
+            Assert.True(BackgroundTaskRegistry.Stop(task.Id));
+
+            BackgroundTaskOutcome outcome = await sink.Delivered.Task.WaitAsync(TimeSpan.FromSeconds(10),
+                TestContext.Current.CancellationToken);
+            Assert.Equal(EBackgroundTaskEnd.Stopped, outcome.End);
+            Assert.Null(outcome.Task.ResultText);
+            Assert.DoesNotContain(outcome.Task, BackgroundTaskRegistry.RunningOf("owner"));
+        }
+        finally
+        {
+            InlineBackgroundTask.KillGrace = grace;
+        }
+    }
+
+    /// <summary>报告正文里的模型输出要进围栏：这条是 user 角色，不能让它自带的反引号截断卡片</summary>
+    [Fact]
+    public void QuoteForReport_FencesTheModelOutput()
+    {
+        string quoted = BackgroundTaskReport.QuoteForReport("结论如下：\n```\ncode\n```");
+
+        Assert.StartsWith("````", quoted); //围栏比正文里最长的反引号串还长一位
+        Assert.Contains("结论如下：", quoted);
+    }
+
+    /// <summary>超长的模型输出按尾巴截断，不把上万字整段灌进发送方的上下文</summary>
+    [Fact]
+    public void QuoteForReport_TruncatesLongOutput()
+    {
+        string quoted = BackgroundTaskReport.QuoteForReport(new string('x', 20000));
+
+        Assert.Contains("前文过长", quoted);
+        Assert.True(quoted.Length < 7000);
+    }
+
     /// <summary>后台任务也是执行一条命令：会话里「记住同类命令」放行的，起后台任务时同样放行</summary>
     [Fact]
     public async Task SessionShellRule_AppliesToBackgroundTasks()

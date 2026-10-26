@@ -19,7 +19,7 @@ namespace UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
 /// 不经 Shell 工具的执行器：那边一次调用要等输出管道关闭才返回，时限一到还会结束整棵进程树——
 /// 这两件事正是长任务要躲开的。这里只认进程本身退出，输出由我们自己读走落盘
 /// </summary>
-public sealed class BackgroundTask
+public sealed class BackgroundTask : IBackgroundTask
 {
     /// <summary>后台任务日志目录名（草稿目录下的子目录）：日志落在 <c>&lt;草稿目录&gt;/tasks/</c>，
     /// 产物枚举排除它；模型按 <c>$DRAFT</c> 也找得到</summary>
@@ -35,6 +35,9 @@ public sealed class BackgroundTask
     private readonly TaskCompletionSource _exited = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly CancellationTokenSource _timeLimit = new();
     private int _end = -1; //主动结束时先记下原因,退出回调据此区分
+
+    /// <inheritdoc />
+    public string? ResultText => null; //shell 任务的结果在日志里，不由任务本体带
 
     /// <summary>任务编号</summary>
     public string Id { get; }
@@ -118,7 +121,7 @@ public sealed class BackgroundTask
     /// 管不到的：命令自己用 <c>&amp;</c>/<c>nohup</c> 丢出去、父进程又先退了的孙进程，它已被系统收养、不在树上
     /// </summary>
     /// <param name="reason">结束原因</param>
-    internal void Kill(EBackgroundTaskEnd reason)
+    public void Kill(EBackgroundTaskEnd reason)
     {
         if (_exited.Task.IsCompleted) return;
         if (Interlocked.CompareExchange(ref _end, (int)reason, -1) != -1) return;

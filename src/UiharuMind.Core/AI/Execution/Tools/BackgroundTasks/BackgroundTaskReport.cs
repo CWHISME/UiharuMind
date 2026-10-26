@@ -42,13 +42,49 @@ public static class BackgroundTaskReport
     /// <returns>正文</returns>
     public static string BuildText(BackgroundTaskOutcome outcome) => BuildText(outcome, ReadTail(outcome.Task.LogPath));
 
+    // inline 任务没拼出正文时，按结束方式交代一句（正常完成不会走到这里）
+    private static string HowInlineEnded(BackgroundTaskOutcome outcome) => outcome.End switch
+    {
+        EBackgroundTaskEnd.TimeLimit => "跑满时间上限被结束，还没等到",
+        EBackgroundTaskEnd.Stopped => "被用户叫停，没有等到",
+        EBackgroundTaskEnd.AppExit => "在应用退出时被中止",
+        _ => "已结束",
+    };
+
+    /// <summary>
+    /// 把一段<b>模型输出</b>包成能直接进报告正文的样子：过长截断，整段进围栏。
+    ///
+    /// 报告是 user 角色（ADR 0062），另一个会话或群成员说的话原样铺开，既会被当成用户自己说的，
+    /// 也可能自带 ``` 把卡片的 markdown 提前截断——这两件事统一在这里做，任务体只管拼标题
+    /// </summary>
+    /// <param name="text">模型输出原文</param>
+    /// <returns>可进报告正文的文本</returns>
+    internal static string QuoteForReport(string text)
+    {
+        string body = text.Length > TailChars ? $"……（前文过长，已截断）\n{text[^TailChars..]}" : text;
+        string fence = FenceFor(body);
+        return $"{fence}\n{body}\n{fence}";
+    }
+
     /// <summary>
     /// 结果正文。打头那句交代来源（哪个任务、怎么结束的），输出末尾整段在围栏里——
     /// 这条是 user 角色、输出里什么都可能有，靠的是来源说清楚，不另加「不是用户的话」（ADR 0062）
     /// </summary>
     internal static string BuildText(BackgroundTaskOutcome outcome, string tail)
     {
-        BackgroundTask task = outcome.Task;
+        if (outcome.Task is InlineBackgroundTask inline)
+        {
+            // inline 任务（SendMessage 的等待任务）：正文由任务体拼好；没拼出来时按结束方式兜底
+            if (inline.ResultText is { Length: > 0 } result) return result;
+            return $"等待任务（{inline.Description}）{HowInlineEnded(outcome)}，没有产出结果。";
+        }
+
+        // 认不出的实现（第三个形态）按最小面交代，别在这里抛 InvalidCastException
+        if (outcome.Task is not BackgroundTask task)
+        {
+            return $"后台任务（{outcome.Task.Description}）已结束，没有可读的结果。";
+        }
+
         string how = outcome.End switch
         {
             EBackgroundTaskEnd.Exited => $"已结束，退出码 {outcome.ExitCode?.ToString() ?? "未知"}",
@@ -97,6 +133,7 @@ public static class BackgroundTaskReport
     // 只取末尾:长任务的日志动辄上万行,结论几乎总在最后
     private static string ReadTail(string path)
     {
+        if (string.IsNullOrEmpty(path)) return string.Empty; //inline 任务没有日志文件
         try
         {
             using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);

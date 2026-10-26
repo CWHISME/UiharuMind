@@ -32,7 +32,7 @@ public static class BackgroundTaskRegistry
     /// <summary>
     /// 起一个后台任务并登记，结束后交给 <paramref name="sink"/> 送达
     /// </summary>
-    /// <param name="ownerSessionId">启动它的会话标识</param>
+    /// <param name="ownerSessionId">启动它的会话标识，结果送回这里</param>
     /// <param name="command">命令原文</param>
     /// <param name="description">一句话说明</param>
     /// <param name="maxRuntime">时间上限</param>
@@ -58,18 +58,43 @@ public static class BackgroundTaskRegistry
     }
 
     /// <summary>
-    /// 某个会话名下在跑的任务
+    /// 起一个<b>进程内</b>后台任务并登记（<see cref="InlineBackgroundTask"/>），结束后交给 <paramref name="sink"/> 送达。
+    /// 任务体必须响应传给它的取消令牌——它没有进程树可杀，不响应就停不下来（见 <see cref="InlineBackgroundTask"/>）
     /// </summary>
+    /// <param name="ownerSessionId">启动它的会话标识，结果送回这里</param>
+    /// <param name="description">一句话说明，显示给用户</param>
+    /// <param name="maxRuntime">时间上限；到点按超时收口</param>
+    /// <param name="body">任务体：返回结果正文</param>
+    /// <param name="sink">结果送到哪儿</param>
+    /// <returns>在跑的任务</returns>
+    /// <exception cref="InvalidOperationException">应用正在退出</exception>
+    public static InlineBackgroundTask StartInline(string ownerSessionId, string description, TimeSpan maxRuntime,
+        Func<CancellationToken, Task<string>> body, IBackgroundTaskReportSink sink)
+    {
+        InlineBackgroundTask task;
+        lock (_lock)
+        {
+            if (_shuttingDown) throw new InvalidOperationException("the app is shutting down");
+            task = InlineBackgroundTask.Start(ownerSessionId, description, maxRuntime, body);
+            _running[task.Id] = new Entry(task, sink);
+        }
+
+        Changed?.Invoke(ownerSessionId);
+        _ = WatchAsync(task, sink);
+        return task;
+    }
+
+    /// <summary>某个会话名下在跑的任务</summary>
     /// <param name="sessionId">会话标识</param>
     /// <returns>任务快照；没有则空</returns>
-    public static IReadOnlyList<BackgroundTask> RunningOf(string? sessionId) =>
+    public static IReadOnlyList<IBackgroundTask> RunningOf(string? sessionId) =>
         string.IsNullOrEmpty(sessionId)
             ? []
             : _running.Values.Select(x => x.Task).Where(x => x.OwnerSessionId == sessionId).ToArray();
 
     /// <summary>进程内所有在跑的任务（快照）</summary>
     /// <returns>任务快照</returns>
-    public static IReadOnlyList<BackgroundTask> AllRunning() => _running.Values.Select(x => x.Task).ToArray();
+    public static IReadOnlyList<IBackgroundTask> AllRunning() => _running.Values.Select(x => x.Task).ToArray();
 
     /// <summary>进程内有没有任何在跑的任务</summary>
     public static bool AnyRunning() => !_running.IsEmpty;
@@ -92,7 +117,7 @@ public static class BackgroundTaskRegistry
     /// <param name="sessionId">会话标识</param>
     public static void StopAllOf(string sessionId)
     {
-        foreach (BackgroundTask task in RunningOf(sessionId)) task.Kill(EBackgroundTaskEnd.Stopped);
+        foreach (IBackgroundTask task in RunningOf(sessionId)) task.Kill(EBackgroundTaskEnd.Stopped);
     }
 
     /// <summary>
@@ -136,7 +161,7 @@ public static class BackgroundTaskRegistry
         }
     }
 
-    private static async Task WatchAsync(BackgroundTask task, IBackgroundTaskReportSink sink)
+    private static async Task WatchAsync(IBackgroundTask task, IBackgroundTaskReportSink sink)
     {
         BackgroundTaskOutcome outcome = await task.Completion.ConfigureAwait(false);
         lock (_lock)
@@ -167,7 +192,7 @@ public static class BackgroundTaskRegistry
         lock (_lock) _shuttingDown = false;
     }
 
-    private sealed record Entry(BackgroundTask Task, IBackgroundTaskReportSink Sink);
+    private sealed record Entry(IBackgroundTask Task, IBackgroundTaskReportSink Sink);
 
     private sealed record Undelivered(BackgroundTaskOutcome Outcome, IBackgroundTaskReportSink Sink);
 }

@@ -109,9 +109,9 @@ public sealed class ChatSessionCreateGroupTests : IDisposable
         Assert.Contains("群成员/化身", text);
     }
 
-    /// <summary>SendMessage 的收件人：群按群名、带书名号的群名与群壳短号都认得（全库匹配，不认发起者）</summary>
+    /// <summary>SendMessage 的收件人：群按群名、带书名号的群名与短号都认得（全库匹配，不认发起者）</summary>
     [Fact]
-    public void SendMessage_ResolvesGroupsByNameAndShellId()
+    public void SendMessage_ResolvesGroupsByNameAndShortId()
     {
         string parent = NewSession("主会话");
         ChatSessionTools.CreateGroup(parent, null, "cg-评审群", ["初春", "佐天"]);
@@ -123,9 +123,10 @@ public sealed class ChatSessionCreateGroupTests : IDisposable
         Assert.Equal(group.SessionId, Assert.Single(GroupMessageChannel.Match("cg-评审群")).SessionId);
         Assert.Equal(group.SessionId, Assert.Single(GroupMessageChannel.Match("《cg-评审群》")).SessionId); //书名号一起照进来也认
         Assert.Equal(group.SessionId, Assert.Single(GroupMessageChannel.Match(shortId)).SessionId);
-        // list-groups 输出里的 [群壳 短号] 整行拷进 to 也认：与子代理的 [sub-session: …] 同款宽容
+        // 撞名报错里给的是 [短号]：整行拷进 to 也认，与子代理的 [sub-session: …] 同款宽容
+        Assert.Equal(group.SessionId, Assert.Single(GroupMessageChannel.Match($"《cg-评审群》[{shortId}]")).SessionId);
+        // 老格式 [群壳 短号] 也认：旧上下文里的工具结果还长那样
         Assert.Equal(group.SessionId, Assert.Single(GroupMessageChannel.Match($"[群壳 {shortId}]")).SessionId);
-        Assert.Equal(group.SessionId, Assert.Single(GroupMessageChannel.Match($"《cg-评审群》[群壳 {shortId}]")).SessionId);
     }
 
     /// <summary>

@@ -40,7 +40,8 @@ public sealed partial class BackgroundTaskStatusBarViewData
     {
         BackgroundTaskStatusViewData[] fresh = PendingWork.TasksOf(sessionId)
             .OrderBy(x => x.StartedAt)
-            .Select(x => new BackgroundTaskStatusViewData(x.Id, x.Description, x.Command))
+            // inline 任务（SendMessage 的等待任务）没有命令原文，悬停提示本来就空
+            .Select(x => new BackgroundTaskStatusViewData(x.Id, x.Description, x is BackgroundTask shell ? shell.Command : ""))
             .ToArray();
         //一字未变就别动集合,免得那几行跟着闪
         if (fresh.SequenceEqual(Items)) return;

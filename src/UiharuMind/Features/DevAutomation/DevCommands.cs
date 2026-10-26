@@ -195,7 +195,7 @@ internal sealed class SessionsListCommand : IDevCommand
 
     public string Name => "sessions.list";
 
-    public string Usage => "列出会话（默认最近 20 条，含群壳，isGroup 标记）。groups（只看群）、query（按标题过滤）、limit（条数，0 不限）；avatarActive（群是否开着离席化身，非群恒为 false）";
+    public string Usage => "列出会话（默认最近 20 条，含群，isGroup 标记）。groups（只看群）、query（按标题过滤）、limit（条数，0 不限）；avatarActive（群是否开着离席化身，非群恒为 false）";
 
     public JsonNode? Execute(JsonElement args)
     {

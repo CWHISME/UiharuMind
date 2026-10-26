@@ -45,7 +45,7 @@ public static class PendingWork
     /// </summary>
     /// <param name="sessionId">会话标识</param>
     /// <returns>任务快照；没有则空</returns>
-    public static IReadOnlyList<BackgroundTask> TasksOf(string? sessionId) =>
+    public static IReadOnlyList<IBackgroundTask> TasksOf(string? sessionId) =>
         string.IsNullOrEmpty(sessionId)
             ? []
             : BackgroundTaskRegistry.AllRunning()

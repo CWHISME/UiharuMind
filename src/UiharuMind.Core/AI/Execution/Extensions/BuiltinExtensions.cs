@@ -114,6 +114,9 @@ public static class BuiltinExtensions
     /// <summary>chatsession：强行停止一个正在跑的子代理</summary>
     public const string ChatSessionStop = "stop";
 
+    /// <summary>chatsession：本会话名下在跑的后台任务（含 SendMessage 的等待任务）</summary>
+    public const string ChatSessionTasks = "list-tasks";
+
     /// <summary>目标模式：结束（reason=done | needs_user，summary=给用户的交代）</summary>
     public const string GoalEnd = "end";
 

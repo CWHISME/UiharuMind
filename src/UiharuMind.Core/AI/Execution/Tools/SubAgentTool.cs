@@ -253,8 +253,10 @@ public static class SubAgentTool
     /// 给聊过的人续发一条。<c>to</c> 只收本会话派出过的子会话标识（短号或完整 ID）；
     /// 短号撞车则列出完整 ID 让它挑。填了人名或留空都是想新开，报错指回 <see cref="ToolName"/>。
     ///
-    /// 不是子代理时再看是不是<b>本会话建的群</b>（<see cref="GroupMessageChannel"/>）：那里收群名或群壳短号，
-    /// 发出去不等这一波跑完。子代理优先——两者撞名时延续「续聊」这个旧意图
+    /// 不是子代理时再看是不是<b>本会话建的群</b>（<see cref="GroupMessageChannel"/>）或<b>普通单聊</b>
+    /// （<see cref="SessionMessenger"/>）：那里收群名/短号/单聊标题，发出去不等对方跑完，
+    /// 起一个等待任务在波末或轮末把最后一句送回<b>本会话</b>（<see cref="LaunchContext.ParentSessionId"/>）。
+    /// 子代理优先——两者撞名时延续「续聊」这个旧意图
     /// </summary>
     private static Task<string> SendAsync(LaunchContext context, string? to, string message)
     {
@@ -272,11 +274,11 @@ public static class SubAgentTool
         if (runs.Count > 1) return Task.FromResult(AmbiguousRun(target, runs));
 
         IReadOnlyList<ChatSessionMeta> groups = GroupMessageChannel.Match(target);
-        if (groups.Count == 1) return Task.FromResult(GroupMessageChannel.Post(groups[0], message));
+        if (groups.Count == 1) return Task.FromResult(GroupMessageChannel.Post(groups[0], message, context.ParentSessionId));
         if (groups.Count > 1) return Task.FromResult(AmbiguousGroup(target, groups));
 
         IReadOnlyList<ChatSessionMeta> chats = SessionMessenger.Match(target);
-        if (chats.Count == 1) return Task.FromResult(SessionMessenger.Post(chats[0], message));
+        if (chats.Count == 1) return Task.FromResult(SessionMessenger.Post(chats[0], message, context.ParentSessionId));
         if (chats.Count > 1) return Task.FromResult(AmbiguousChat(target, chats));
 
         return Task.FromResult(UnknownRecipient(context, target));
@@ -295,15 +297,15 @@ public static class SubAgentTool
     }
 
     /// <summary>
-    /// 群名/群壳短号撞车：与 <see cref="AmbiguousRun"/> 同一口径，把候选的群壳短号交给模型挑
+    /// 群名撞车：与 <see cref="AmbiguousRun"/> 同一口径，把候选的短号交给模型挑
     /// </summary>
     private static string AmbiguousGroup(string target, IReadOnlyList<ChatSessionMeta> groups)
     {
         IEnumerable<string> lines = groups.Select(x =>
-            $"- 《{x.Title}》[群壳 {SubSessionIdAlias.Short(x.SessionId)}]");
+            $"- 《{x.Title}》[{SubSessionIdAlias.Short(x.SessionId)}]");
         return $"Error: '{target}' 匹配了多个群：\n"
                + string.Join("\n", lines)
-               + "\n把你要的那一群的群壳短号或群名作为 `to` 传进来。";
+               + "\n把你要的那一群的短号或群名作为 `to` 传进来。";
     }
 
     /// <summary>
@@ -369,7 +371,7 @@ public static class SubAgentTool
         {
             IEnumerable<string> lines = chats.Select(x =>
                 $"- 《{x.Title}》[{SubSessionIdAlias.Short(x.SessionId)}]");
-            text.Append("\n最近的单聊（`to` 填标题或短号，就以用户的名义往那边说一句，那边会回一轮）：\n")
+            text.Append("\n最近的单聊（`to` 填标题或短号，就以用户的名义往那边说一句；那边回完会自动送一封回信）：\n")
                 .AppendJoin("\n", lines);
         }
 

@@ -4,6 +4,7 @@ using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Chat.Group.Away;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
 
 namespace UiharuMind.Core.Tests.Execution;
 
@@ -132,6 +133,20 @@ public sealed class ChatSessionToolsTests : IDisposable
         Assert.Contains("chatsession.create-group", text);
     }
 
+    /// <summary>列表里不出现「群壳」这种叫法：群名 + 短号，短号照旧要给（撞名时靠它挑）</summary>
+    [Fact]
+    public void ListGroups_ShowsNameAndShortId_WithoutTheShellJargon()
+    {
+        string parent = NewParent();
+        ChatSession group = CreateGroup("list-干净群");
+
+        string text = ChatSessionTools.ListGroups(parent, _manager);
+
+        Assert.Contains("《list-干净群》", text);
+        Assert.Contains(SubSessionIdAlias.Short(group.SessionId), text);
+        Assert.DoesNotContain("群壳", text);
+    }
+
     /// <summary>正在跑的群要把流水写进标准的 <c>群流水.md</c> 并把路径交回来——跑着的时候「谁说到哪了」只能从流水看</summary>
     [Fact]
     public void ListGroups_RunningGroup_WritesLogAndReturnsPath()
@@ -155,6 +170,47 @@ public sealed class ChatSessionToolsTests : IDisposable
         File.Delete(again);
         Assert.DoesNotContain(again, ChatSessionTools.ListGroups(parent, _manager));
         Assert.False(File.Exists(again));
+    }
+
+    /// <summary>list-tasks 列本会话名下在跑的后台任务（含 SendMessage 自动起的等待任务）</summary>
+    [Fact]
+    public async Task ListTasks_ListsRunningTasks()
+    {
+        string owner = "list-tasks-owner";
+        NoopSink sink = new();
+        InlineBackgroundTask inline = BackgroundTaskRegistry.StartInline(owner, "等《评审群》这一波跑完",
+            TimeSpan.FromMinutes(1), async ct => { await Task.Delay(TimeSpan.FromMinutes(5), ct); return string.Empty; }, sink);
+
+        try
+        {
+            string text = ChatSessionTools.ListTasks(owner);
+
+            Assert.Contains("等《评审群》这一波跑完", text);
+            Assert.Contains(inline.Id, text);
+            Assert.DoesNotContain(".log", text); //inline 任务没有日志路径
+        }
+        finally
+        {
+            BackgroundTaskRegistry.StopAllOf(owner);
+        }
+    }
+
+    /// <summary>名下没有任务时如实说没有；列的是别的会话的任务不串</summary>
+    [Fact]
+    public void ListTasks_WithNone_SaysSo()
+    {
+        string text = ChatSessionTools.ListTasks("list-tasks-never");
+
+        Assert.Contains("没有在跑的后台任务", text);
+    }
+
+    private sealed class NoopSink : IBackgroundTaskReportSink
+    {
+        public Task DeliverAsync(BackgroundTaskOutcome outcome) => Task.CompletedTask;
+
+        public void DeliverOnShutdown(BackgroundTaskOutcome outcome)
+        {
+        }
     }
 
     private string NewParent()

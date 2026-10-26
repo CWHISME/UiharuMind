@@ -29,7 +29,7 @@ public sealed class ChatSessionExtension : BuiltinExtension
     public override string Guide => Summary;
 
     public override string Summary =>
-        "查子代理状态、群聊、远程模型与角色库；也可建群、停止子代理";
+        "查子代理状态、群聊、后台任务、远程模型与角色库；也可建群、停止子代理";
 
     public override IReadOnlyList<(string Command, string ToolName)> CommandNames =>
     [
@@ -39,6 +39,7 @@ public sealed class ChatSessionExtension : BuiltinExtension
         (BuiltinExtensions.ChatSessionModels, ChatSessionTools.ListModelsToolName),
         (BuiltinExtensions.ChatSessionCharacters, ChatSessionTools.ListCharactersToolName),
         (BuiltinExtensions.ChatSessionStop, ChatSessionTools.StopToolName),
+        (BuiltinExtensions.ChatSessionTasks, ChatSessionTools.ListTasksToolName),
     ];
 
     /// <summary>查询命令按只读放行；stop 与 create-group 会写会话（取消一轮 / 建一份新群），按一般级问一次</summary>

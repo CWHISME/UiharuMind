@@ -426,11 +426,13 @@ public sealed partial class GroupMemberItem : ObservableObject
     /// <summary>重读他名下在跑的后台任务：任务开始/结束、群右栏装载时刷</summary>
     public void RefreshBackgroundTasks()
     {
-        IReadOnlyList<BackgroundTask> tasks = BackgroundTaskRegistry.RunningOf(SessionId);
+        IReadOnlyList<IBackgroundTask> tasks = BackgroundTaskRegistry.RunningOf(SessionId);
         HasBackgroundTask = tasks.Count > 0;
         BackgroundTaskTip = tasks.Count == 0
             ? ""
-            : string.Join("\n", tasks.Select(t => string.IsNullOrWhiteSpace(t.Description) ? t.Command : t.Description));
+            : string.Join("\n", tasks.Select(t => string.IsNullOrWhiteSpace(t.Description)
+                ? t is BackgroundTask shell ? shell.Command : ""
+                : t.Description));
     }
 
     /// <summary>标「发言中」：等审批时让位给「等审批」，两个标不同时挂</summary>
