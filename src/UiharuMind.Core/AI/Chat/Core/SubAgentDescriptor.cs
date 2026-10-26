@@ -39,6 +39,36 @@ public static class SubAgentDescriptor
     public static string Describe(ChatSession session) =>
         Describe(session.Title, session.SubAgentName, session.SubAgentType, session.SessionId);
 
+    /// <summary>
+    /// 上下文占用（<c>12k / 32k（模型名）</c>）：主代理判断这位还剩多少、要不要换人接着干。
+    /// 只给占用没有窗口说明不了问题，所以窗口与模型名跟着一起给。从没跑过为空串，调用方整段省略
+    /// </summary>
+    /// <param name="session">子会话本体：占用、窗口与模型名都精确</param>
+    /// <returns>占用行；没有记录为空串</returns>
+    public static string DescribeUsage(ChatSession session) =>
+        DescribeUsage(session.LastInputTokens, session.ChatModelRunningData?.ContextLength ?? 0,
+            session.ChatModelRunningData?.ModelName);
+
+    /// <summary>
+    /// 上下文占用。冷会话（只有索引元数据）窗口与模型名不猜，与界面「上限未知只给占用」同一口径
+    /// </summary>
+    /// <param name="meta">子会话的索引元数据</param>
+    /// <param name="body">已驻留的本体；没有为 null</param>
+    /// <returns>占用行；没有记录为空串</returns>
+    public static string DescribeUsage(ChatSessionMeta meta, ChatSession? body) =>
+        DescribeUsage(body != null ? body.LastInputTokens : meta.LastInputTokens,
+            body?.ChatModelRunningData?.ContextLength ?? 0, body?.ChatModelRunningData?.ModelName);
+
+    private static string DescribeUsage(long usage, int contextLength, string? modelName)
+    {
+        if (usage <= 0) return string.Empty;
+
+        string line = contextLength > 0
+            ? $"{TurnUsageLedger.Format(usage)} / {TurnUsageLedger.Format(contextLength)}"
+            : TurnUsageLedger.Format(usage);
+        return string.IsNullOrEmpty(modelName) ? line : $"{line}（{modelName}）";
+    }
+
     private static string Describe(string title, string name, ESubAgentType type, string sessionId)
     {
         StringBuilder sb = new(title.Length > 0

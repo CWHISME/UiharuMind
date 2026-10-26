@@ -31,6 +31,27 @@ public static class GroupLogFile
         Path.Combine(GroupArtifacts.DraftRoomOf(group), GroupLogText.FileName);
 
     /// <summary>
+    /// 按当前群历史写一份定稿并给出路径。报告要用<b>这一波结束时的</b>流水——
+    /// 中途被 <c>list-groups</c> 写下的那份只覆盖到那一刻，拿它当结论读会少掉后半截。
+    ///
+    /// 离席中不覆盖（那份流水由离席按行号锚点维护），文件在就只给路径；临时会话不落盘
+    /// </summary>
+    /// <param name="group">群壳会话</param>
+    /// <returns>流水文件绝对路径；写不出为 null</returns>
+    public static string? TrySnapshot(ChatSession group)
+    {
+        // 临时会话不落盘，也不走删除流程：写了就是一个永远没人删的孤儿文件
+        if (group.IsTransient) return null;
+
+        string path = PathOf(group);
+        if (GroupAwayController.Instance.StatusOf(group.SessionId) != null)
+            return File.Exists(path) ? path : null;
+
+        IReadOnlyList<ChatMessage> history = GroupChatCoordinator.Instance.HistorySnapshot(group);
+        return Initialize(group, history) > 0 ? path : null;
+    }
+
+    /// <summary>
     /// 初始化流水文件：写下「标题 + 当前全量历史」。每次离席开始都重写——\n\n
     /// 不以「文件已存在就保留」为前提：跨离席时旧文件追到哪、与群历史差哪段都不好查，\n
     /// 重写一份连开头到开离席这一刻的全量快照永远正确，化身拿到的就是干净基线，之后的发言都是追加。\n\n
@@ -53,7 +74,10 @@ public static class GroupLogFile
             lock (Sync)
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                File.WriteAllText(path, text.ToString());
+                // 先写临时文件再整体替换：读方（模型 Read）不会读到截断到一半的流水
+                string temporary = path + ".tmp";
+                File.WriteAllText(temporary, text.ToString());
+                File.Move(temporary, path, overwrite: true);
             }
 
             return CountLines(text.ToString()); //内存数行数，不重读文件

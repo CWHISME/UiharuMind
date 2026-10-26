@@ -420,7 +420,7 @@ public static class ChatSessionTools
         StringBuilder sb = new(SubAgentDescriptor.Describe(meta));
         var state = StateOf(manager, meta.SessionId);
         sb.Append(" · ").Append(StateLabel(state));
-        string usage = UsageOf(meta, body);
+        string usage = SubAgentDescriptor.DescribeUsage(meta, body);
         if (usage.Length > 0) sb.Append(" · 上下文 ").Append(usage);
         if (meta.BackgroundReportPending) sb.Append(" · 报告未交");
         if (state == ESessionRunState.Idle)
@@ -429,25 +429,6 @@ public static class ChatSessionTools
                 : FriendlyAge(meta.LastRunStartedAt));
         sb.Append(" · ").Append(meta.MessageCount).Append(" 条消息");
         return sb.ToString();
-    }
-
-    /// <summary>
-    /// 上下文占用行（k/M 简写）：主代理判断还能不能往这位身上派/续用。
-    /// 热会话（已驻留本体）占用读本体、窗口与模型名精确；冷会话只有索引里的占用快照，
-    /// 窗口/模型不猜（与界面「上限未知只给占用」同一口径）。没跑过为空串，整段省略
-    /// </summary>
-    private static string UsageOf(ChatSessionMeta meta, ChatSession? body)
-    {
-        long usage = body != null ? body.LastInputTokens : meta.LastInputTokens;
-        if (usage <= 0) return string.Empty;
-        if (body == null) return TurnUsageLedger.Format(usage);
-
-        int contextLength = body.ChatModelRunningData?.ContextLength ?? 0;
-        string line = contextLength > 0
-            ? $"{TurnUsageLedger.Format(usage)} / {TurnUsageLedger.Format(contextLength)}"
-            : TurnUsageLedger.Format(usage);
-        string? modelName = body.ChatModelRunningData?.ModelName;
-        return string.IsNullOrEmpty(modelName) ? line : $"{line}（{modelName}）";
     }
 
     /// <summary>
@@ -464,7 +445,9 @@ public static class ChatSessionTools
         StringBuilder sb = new($"- 《{group.Title}》[{SubSessionIdAlias.Short(group.SessionId)}] " +
                                $"· {(group.IsAgentGroup ? "智能体群" : "普通群")} · 在场 {members.Count(x => !x.IsGroupAvatar)} 人 · " +
                                $"在跑 {members.Count(x => StateOf(manager, x.SessionId) != ESessionRunState.Idle)}");
-        if (running && SnapshotOf(group, manager) is { } path) sb.Append(" · 流水快照 ").Append(path);
+        // 跑着时刷新一份快照并给路径：跑着的时候「谁说到哪了」只能从流水看。
+        // 空闲时不给——那份文件停在最后一次写入那一刻，当结论读会少掉后半截
+        if (running && SnapshotOf(group, manager) is { } path) sb.Append(" · 流水 ").Append(path);
         if (members.Count == 0) return sb.AppendLine().ToString();
 
         sb.AppendLine();
@@ -489,19 +472,15 @@ public static class ChatSessionTools
     /// 把流水写进标准的 <c>群流水.md</c>（草稿目录那一份，与离席给化身读的同一份）并返回路径；
     /// 写不出来为 null（告警在 <see cref="GroupLogFile"/> 里）。
     /// 为它得加载群壳本体——历史就是那份流水，而群正在跑时正是要读它的时候。
-    /// 正在离席的群不重写：那份流水由离席会话维护段头行号（LogAppendedUpTo / LogEndLine），
-    /// 第三方覆盖会让化身按锚点读错行；等离席还原（user 计划中）这段判断可删
+    ///
+    /// ⚠️ 只在群<b>在跑</b>时调用：空闲时给一份「上次写到哪」的旧文件，模型会把它当成结论读
+    /// （见 <see cref="GroupLogFile.TrySnapshot"/> 的注释）
     /// </summary>
     private static string? SnapshotOf(ChatSessionMeta group, SessionManager manager)
     {
         // 群在跑 = 热会话：先取缓存，避免 Load 附带 UnloadColdHistories 的同步写盘
         ChatSession? body = manager.GetLoaded(group.SessionId) ?? manager.Load(group.SessionId);
-        if (body is not { IsGroup: true }) return null;
-        // 正在离席的群不重写：那份流水由离席会话维护段头行号（LogAppendedUpTo / LogEndLine），
-        // 第三方覆盖会让化身按锚点读错行；等离席还原（user 计划中）这段判断可删
-        if (GroupAwayController.Instance.StatusOf(group.SessionId) != null) return null;
-        IReadOnlyList<ChatMessage> history = GroupChatCoordinator.Instance.HistorySnapshot(body);
-        return GroupLogFile.Initialize(body, history) > 0 ? GroupLogFile.PathOf(body) : null;
+        return body is { IsGroup: true } ? GroupLogFile.TrySnapshot(body) : null;
     }
 
     private static ESessionRunState StateOf(SessionManager manager, string sessionId) =>

@@ -1,6 +1,7 @@
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
+using UiharuMind.Core.AI.Chat.Group.Away;
 using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.Tests.Execution;
@@ -90,6 +91,37 @@ public sealed class GroupMessageChannelTests
         string report = GroupMessageChannel.BuildGroupReport(0, Summary(group, 0, 1, stopped: false));
 
         Assert.Contains("````", report);
+    }
+
+    /// <summary>报告末尾指个路：写不出流水（临时会话）时退回「用 list-groups 拿路径」</summary>
+    [Fact]
+    public void BuildGroupReport_PointsAtTheGroupLogWhenItCannotBeWritten()
+    {
+        ChatSession group = NewGroup();
+        group.History.Add(MemberPost("初春", "说完了"));
+
+        string report = GroupMessageChannel.BuildGroupReport(0, Summary(group, 0, 1, stopped: false));
+
+        Assert.Contains("chatsession.list-groups", report);
+        Assert.Contains("流水", report);
+    }
+
+    /// <summary>
+    /// 能写就把<b>波末定稿</b>的路径直接写进报告：中途被 list-groups 写下的那份只到那一刻，
+    /// 让模型自己去捞会拿到旧内容
+    /// </summary>
+    [Fact]
+    public void BuildGroupReport_HandsOutTheFreshLogPath()
+    {
+        ChatSession group = new() { Title = "评审群", IsGroup = true, IsAgentGroup = true };
+        group.History.Add(MemberPost("初春", "说完了"));
+
+        string report = GroupMessageChannel.BuildGroupReport(0, Summary(group, 0, 1, stopped: false));
+
+        string path = GroupLogFile.PathOf(group);
+        Assert.Contains(path, report);
+        Assert.True(File.Exists(path));
+        Assert.Contains("说完了", File.ReadAllText(path)); //写的是这一波的最新历史，不是旧快照
     }
 
     private static ChatSession NewGroup() => new() { Title = "评审群", IsGroup = true, IsAgentGroup = true };

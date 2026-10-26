@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
+using UiharuMind.Core.AI.Chat.Group.Away;
 using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
 using UiharuMind.Core.Core.SimpleLog;
@@ -181,6 +182,13 @@ internal static class GroupMessageChannel
     internal static string BuildGroupReport(int start, GroupEpisodeSummary summary)
     {
         ChatSession group = summary.Group;
+        // 波末写一份定稿并直接给路径：中途被 list-groups 写下的那份只覆盖到那一刻，
+        // 拿它当「这一波说了什么」读会少掉后半截。写不出（临时会话/离席中/写盘失败）才退回指路
+        string hint = GroupLogFile.TrySnapshot(group) is { } log
+            ? $"\n\n【这一波的完整流水：{log} ——想看谁还说了什么，读它。】"
+            : "\n\n【这一波谁还说了什么，用 "
+              + BuiltinExtensions.Mention(BuiltinExtensions.ChatSession, BuiltinExtensions.ChatSessionGroups)
+              + " 拿流水文件路径，读它。】";
         IList<ChatMessage> history = group.History;
         int from = Math.Max(summary.Start, start);
         int to = Math.Min(summary.End, history.Count);
@@ -193,11 +201,11 @@ internal static class GroupMessageChannel
 
             string stop = summary.Stopped ? "\n\n（这一波被用户停下了）" : string.Empty;
             return $"《{group.Title}》这一波结束，最后一句是：\n\n"
-                   + $"{BackgroundTaskReport.QuoteForReport(text)}{stop}";
+                   + $"{BackgroundTaskReport.QuoteForReport(text)}{stop}{hint}";
         }
 
-        return summary.Stopped
+        return (summary.Stopped
             ? $"《{group.Title}》这一波被用户停下，成员没有留下可读的发言。"
-            : $"《{group.Title}》这一波结束了，但成员没有留下可读的发言。";
+            : $"《{group.Title}》这一波结束了，但成员没有留下可读的发言。") + hint;
     }
 }

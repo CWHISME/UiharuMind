@@ -51,6 +51,14 @@ public static class GroupArtifacts
         AgentOutputLayout.GetRoomAbsolutePath(AgentOutputLayout.GetFolderName(group.WorkspacePath, group.SessionId));
 
     /// <summary>
+    /// 群的草稿目录（按索引元数据算，供只读查询用——不必为了一个路径把冷群加载进内存）
+    /// </summary>
+    /// <param name="group">群壳元数据</param>
+    /// <returns>绝对路径</returns>
+    public static string DraftRoomOf(ChatSessionMeta group) =>
+        AgentOutputLayout.GetRoomAbsolutePath(AgentOutputLayout.GetFolderName(group.WorkspacePath, group.SessionId));
+
+    /// <summary>
     /// 成员工具调用里的路径按什么口径解析（认成员写过哪些文件用）
     /// </summary>
     /// <param name="group">群壳会话</param>

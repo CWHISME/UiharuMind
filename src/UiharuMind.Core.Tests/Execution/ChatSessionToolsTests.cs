@@ -172,6 +172,24 @@ public sealed class ChatSessionToolsTests : IDisposable
         Assert.False(File.Exists(again));
     }
 
+    /// <summary>
+    /// 空闲的群<b>不</b>给流水路径：那份文件停在最后一次写入那一刻（可能只是某一波的中间），
+    /// 模型拿它当「刚才说了什么」读会少掉后半截。要定稿走等待任务报告那条路（波末重写）
+    /// </summary>
+    [Fact]
+    public void ListGroups_IdleGroup_DoesNotHandOutAStaleLogPath()
+    {
+        string parent = NewParent();
+        ChatSession group = CreateGroup("list-闲着但有旧流水的群");
+        group.History.Add(new ChatMessage(ChatRole.User, "上一波说过的话"));
+        string path = GroupLogFile.PathOf(group);
+        Assert.True(GroupLogFile.Initialize(group, group.History) > 0);
+
+        string text = ChatSessionTools.ListGroups(parent, _manager);
+
+        Assert.DoesNotContain(path, text);
+    }
+
     /// <summary>list-tasks 列本会话名下在跑的后台任务（含 SendMessage 自动起的等待任务）</summary>
     [Fact]
     public async Task ListTasks_ListsRunningTasks()

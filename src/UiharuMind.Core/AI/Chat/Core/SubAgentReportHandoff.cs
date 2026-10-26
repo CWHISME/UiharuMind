@@ -207,7 +207,7 @@ public static class SubAgentReportHandoff
     /// <param name="supersedes">更正上一封</param>
     /// <param name="interruption">被打断的原因（接在「对方」后面成句），没被打断为 null</param>
     /// <param name="othersPending">还在等几位别人的回信</param>
-    /// <param name="identityLine">这位子代理的身份行（<see cref="SubAgentDescriptor.Describe"/> 的产物）；非空则附在信头后，主代理据此认出是谁</param>
+    /// <param name="identityLine">这位子代理的身份行与上下文占用（<see cref="IdentityLineOf"/> 的产物）；非空则附在信头后，主代理据此认出是谁、还剩多少</param>
     /// <returns>信的全文</returns>
     internal static string BuildText(string sender, string subSessionId, string replyingTo, string conclusion,
         bool supersedes, string? interruption, int othersPending, string? identityLine = null)
@@ -216,7 +216,7 @@ public static class SubAgentReportHandoff
         string head = replyingTo.Length > 0 ? $"来自 {from}，回你之前发的「{replyingTo}」" : $"来自 {from}";
         if (supersedes) head += "【更正上一封】";
 
-        // 身份行附在信头之后：信头已经说了是谁，这一行再把来龙去脉（主题/点名/只读档）展开
+        // 身份行附在信头之后：信头已经说了是谁，这一行再把来龙去脉（主题/点名/只读档）与上下文占用展开
         string identity = identityLine is { Length: > 0 } ? $"\n{identityLine}" : string.Empty;
 
         // 附言不插在信头与正文之间:放在最后,也正好是模型读完要决定下一步的位置
@@ -233,7 +233,20 @@ public static class SubAgentReportHandoff
     private static ChatMessage BuildMessage(ChatSession subSession, string conclusion, bool supersedes,
         string? interruption, int othersPending) =>
         Annotate(subSession, BuildText(SenderOf(subSession), subSession.SessionId, ReplyingTo(subSession), conclusion,
-            supersedes, interruption, othersPending, SubAgentDescriptor.Describe(subSession)));
+            supersedes, interruption, othersPending, IdentityLineOf(subSession)));
+
+    /// <summary>
+    /// 信头后那一行：身份行 + 上下文占用。主代理读完信要决定「接着追问 / 换人 / 自己干」，
+    /// 这位还剩多少上下文是硬判据——与 <c>chatsession.list</c> 里那一行同一份算法
+    /// </summary>
+    /// <param name="subSession">子会话本体</param>
+    /// <returns>身份行（没有占用记录时只有身份部分）</returns>
+    private static string IdentityLineOf(ChatSession subSession)
+    {
+        string identity = SubAgentDescriptor.Describe(subSession);
+        string usage = SubAgentDescriptor.DescribeUsage(subSession);
+        return usage.Length == 0 ? identity : $"{identity} · 上下文 {usage}";
+    }
 
     /// <summary>
     /// 信头署名：{名字} [sub-session: 短号]。匿名无名字时只留标识。

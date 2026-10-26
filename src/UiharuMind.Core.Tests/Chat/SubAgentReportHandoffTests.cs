@@ -8,8 +8,10 @@
  ****************************************************************************/
 
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Models;
 
 namespace UiharuMind.Core.Tests.Chat;
 
@@ -158,6 +160,34 @@ public class SubAgentReportHandoffTests
 
         Assert.StartsWith("来自 审查员 [sub-session: sub1]，回你之前发的「查一下」：\n\n可以提交", text);
         Assert.DoesNotContain("- 审查主题", text);
+    }
+
+    /// <summary>回信带上下文占用：主代理读完信要决定接着追问还是换人，这位还剩多少是硬判据</summary>
+    [Fact]
+    public void Reply_CarriesTheSubAgentContextUsage()
+    {
+        ChatSession parent = new() { IsTransient = true };
+        ChatSession sub = new() { IsTransient = true, SubAgentRole = "审查员", LastInputTokens = 12_000 };
+        sub.ChatModelRunningData = new ModelRunningData(new GGufModelInfo { ModelName = "qwen3" });
+        sub.History.Add(new ChatMessage(ChatRole.User, "看一下这个改动"));
+
+        string text = SubAgentReportHandoff.Compose(parent, sub, null, "可以", 0)!.Text;
+
+        Assert.Contains("上下文 12k", text);
+        Assert.Contains("qwen3", text);
+    }
+
+    /// <summary>从没跑过的子代理没有占用可报：那一段整段省略，不留一个空的「上下文」</summary>
+    [Fact]
+    public void Reply_WithoutUsage_OmitsTheContextSegment()
+    {
+        ChatSession parent = new() { IsTransient = true };
+        ChatSession sub = new() { IsTransient = true, SubAgentRole = "审查员" };
+        sub.History.Add(new ChatMessage(ChatRole.User, "看一下这个改动"));
+
+        string text = SubAgentReportHandoff.Compose(parent, sub, null, "可以", 0)!.Text;
+
+        Assert.DoesNotContain("上下文", text);
     }
 
     /// <summary>插进醒着的派活者那一轮时：他醒着说明上一封（若有）已读过，有就写成更正</summary>
