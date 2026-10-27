@@ -402,9 +402,9 @@ public static class BackgroundSubAgentDispatcher
         // 写成「发给了某个人」:带上名字,说清回信只有一封、做完才写——问「好了没」换不来东西,
         // 不必再立「别催」的规矩;中途补充纠正是正当用法,照实说能做
         string who = subSession.SubAgentName.Length > 0 ? subSession.SubAgentName : subSession.SubAgentRole;
-        return (who.Length > 0 ? $"已发给 \"{who}\"。 " : "已派出。 ")
-               + "他正在自己的会话里做这件事，做完会回一封。"
-               + $"期间你可以用 `{SubAgentTool.MessageToolName}` 给他补充或纠正——"
+        return (who.Length > 0 ? $"消息已发给 \"{who}\"。 " : "已派出。 ")
+               + "任务完成后会回一封。"
+               + $"期间你可以用 `{SubAgentTool.MessageToolName}` 对任务进行补充或纠正——"
                + "或直接要求对你的问题进行回复。\n"
                + (notice.Length > 0 ? notice + "\n" : string.Empty)
                // 给模型的是前 8 位短号(真实 ID 的别名),照抄进 to 由 SubSessionIdAlias 反查回真 ID

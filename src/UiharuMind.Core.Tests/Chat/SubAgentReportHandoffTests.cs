@@ -89,8 +89,8 @@ public class SubAgentReportHandoffTests
     }
 
     /// <summary>
-    /// 回信写成对方发来的（ADR 0062）：「来自」起头带上回执里那种标识，模型照抄就能接着回；
-    /// 引一句它回的是哪件事；不再出现「委派」「报告」这些调用的说法
+    /// 回信写成对方发来的（ADR 0062）：「来自」起头，说清是谁、回的是你发的哪一句；
+    /// 续聊方式与上下文占用合成一行附言坠在正文之后，不再出现「委派」「报告」这些调用的说法
     /// </summary>
     [Fact]
     public void ReplyText_SaysWhoSentItAndWhatItAnswers()
@@ -98,33 +98,36 @@ public class SubAgentReportHandoffTests
         string text = SubAgentReportHandoff.BuildText("审查员", "sub1", "黑猫，提交前给你看账：", "可以提交",
             supersedes: false, interruption: null, othersPending: 0);
 
-        Assert.StartsWith("来自 审查员 [sub-session: sub1]，回你之前发的「黑猫，提交前给你看账：」：", text);
-        Assert.Contains("\n\n可以提交\n\n", text);
-        Assert.EndsWith($"`{SubAgentTool.MessageToolName}`，to 填 [sub-session: sub1]；另开一位的话，对方什么都不知道。】", text); //读完要决定找谁的地方告诉它怎么接着谈
+        Assert.StartsWith("来自 审查员 [sub-session: sub1]，回你之前发的「黑猫，提交前给你看账：」：\n\n可以提交", text);
+        // 附言是系统话，用【】与正文分开；续聊方式在里面
+        Assert.Contains($"【想接着聊：`{SubAgentTool.MessageToolName}` → [sub-session: sub1]】", text);
+        // 不写「当前已进入空闲」这类状态断言：被用户终止时它与正文的「被终止」直接打架
+        Assert.DoesNotContain("当前已进入空闲", text);
+        Assert.EndsWith("】", text);
         Assert.DoesNotContain("委派", text);
         Assert.DoesNotContain("报告", text);
         Assert.DoesNotContain("还在等", text);
     }
 
-    /// <summary>匿名、没给身份的：只留标识，不拿任务开头冒充名字</summary>
+    /// <summary>匿名、没给身份的：用「一位子代理」起头，不拿任务开头冒充名字</summary>
     [Fact]
-    public void ReplyText_WithoutAName_KeepsOnlyTheId()
+    public void ReplyText_WithoutAName_SaysASubAgentSentIt()
     {
         string text = SubAgentReportHandoff.BuildText("", "sub1", "查一下", "好了", false, null, 0);
 
-        Assert.StartsWith("来自 [sub-session: sub1]，回你之前发的「查一下」：", text);
+        Assert.StartsWith("来自 一位子代理 [sub-session: sub1]，回你之前发的「查一下」：", text);
     }
 
-    /// <summary>更正与等人数：更正标在信头末尾，附言与等人数坠在正文之后</summary>
+    /// <summary>更正标在信头末尾，等人数坠在附言之后</summary>
     [Fact]
     public void ReplyText_StatesCorrectionAndWhoElseIsPending()
     {
         string text = SubAgentReportHandoff.BuildText("审查员", "sub1", "查一下", "改口了", supersedes: true,
             interruption: null, othersPending: 2);
 
-        Assert.Contains("【更正上一封】：", text);
-        Assert.Contains("改口了\n\n【接着谈同类主题", text); //附言在正文之后,不夹在信头与正文之间
-        Assert.EndsWith("\n【当前还剩 2 位的回信。】", text);
+        Assert.Contains("【更正上一封】", text);
+        Assert.Contains("改口了\n\n【", text); //附言在正文之后,不夹在信头与正文之间
+        Assert.EndsWith("\n【另外还有 2 位没回信】", text);
     }
 
     /// <summary>被打断是事实，不是命令：有内容就附上说到一半的，没有就明说没回</summary>
@@ -140,29 +143,31 @@ public class SubAgentReportHandoffTests
         Assert.Contains("对方没写完回复就停下了，没回任何内容。", empty);
     }
 
-    /// <summary>身份行附在信头之后：主代理一眼看到这位是谁（主题/点名/只读档），与子代理列表同一口径</summary>
+    /// <summary>
+    /// 上下文占用挂在附言里（`｜ 8k/1M · 模型名`），不再单起一行身份行：
+    /// 主代理读完信要决定接着追问还是换人，这位还剩多少是硬判据
+    /// </summary>
     [Fact]
-    public void ReplyText_AppendsTheIdentityLine()
+    public void ReplyText_CarriesTheUsageInTheTail()
     {
         string text = SubAgentReportHandoff.BuildText("审查员", "sub1", "查一下", "可以提交",
-            supersedes: false, interruption: null, othersPending: 0,
-            identityLine: "- 审查主题[sub1] · 点名：审查员");
+            supersedes: false, interruption: null, othersPending: 0, usage: "8k/1M · qwen3");
 
-        Assert.StartsWith("来自 审查员 [sub-session: sub1]，回你之前发的「查一下」：\n- 审查主题[sub1] · 点名：审查员", text);
-        Assert.Contains("\n\n可以提交\n\n", text);
+        Assert.Contains("想接着聊：", text);
+        Assert.Contains("｜ 8k/1M · qwen3】", text);
     }
 
-    /// <summary>没给身份行时信头后直接是正文——旧形态不回归</summary>
+    /// <summary>没有占用就不写那一段，也不留一个空的「｜」</summary>
     [Fact]
-    public void ReplyText_WithoutIdentityLine_GoesStraightToBody()
+    public void ReplyText_WithoutUsage_LeavesNoEmptySeparator()
     {
         string text = SubAgentReportHandoff.BuildText("审查员", "sub1", "查一下", "可以提交", false, null, 0);
 
-        Assert.StartsWith("来自 审查员 [sub-session: sub1]，回你之前发的「查一下」：\n\n可以提交", text);
-        Assert.DoesNotContain("- 审查主题", text);
+        Assert.DoesNotContain("｜", text);
+        Assert.DoesNotContain("上下文", text);
     }
 
-    /// <summary>回信带上下文占用：主代理读完信要决定接着追问还是换人，这位还剩多少是硬判据</summary>
+    /// <summary>Compose 这条真路径也把占用算进附言（不是只有直接调 BuildText 才带）</summary>
     [Fact]
     public void Reply_CarriesTheSubAgentContextUsage()
     {
@@ -173,11 +178,11 @@ public class SubAgentReportHandoffTests
 
         string text = SubAgentReportHandoff.Compose(parent, sub, null, "可以", 0)!.Text;
 
-        Assert.Contains("上下文 12k", text);
+        Assert.Contains("12k", text);
         Assert.Contains("qwen3", text);
     }
 
-    /// <summary>从没跑过的子代理没有占用可报：那一段整段省略，不留一个空的「上下文」</summary>
+    /// <summary>从没跑过的子代理没有占用可报：附言里不留空分隔符</summary>
     [Fact]
     public void Reply_WithoutUsage_OmitsTheContextSegment()
     {
@@ -187,7 +192,7 @@ public class SubAgentReportHandoffTests
 
         string text = SubAgentReportHandoff.Compose(parent, sub, null, "可以", 0)!.Text;
 
-        Assert.DoesNotContain("上下文", text);
+        Assert.DoesNotContain("｜", text);
     }
 
     /// <summary>插进醒着的派活者那一轮时：他醒着说明上一封（若有）已读过，有就写成更正</summary>
@@ -266,5 +271,74 @@ public class SubAgentReportHandoffTests
 
         Assert.Equal((-1, false), SubAgentReportHandoff.ResolveSlot(history, "sub1", "200"));
         Assert.Equal((1, true), SubAgentReportHandoff.ResolveSlot(history, "sub1", "100"));
+    }
+
+    //================= 署名：谁 + 在做什么 =================
+
+    /// <summary>
+    /// 同一张角色卡可以被点名成多个子智能体（还可能和用户配的默认卡撞上），
+    /// 署名只给名字就分不清是哪一位、在办哪件事——所以有名字就一定带主题
+    /// </summary>
+    [Fact]
+    public void SenderOf_NamedAgent_CarriesTheTopic()
+    {
+        ChatSession session = new() { IsTransient = true, SubAgentName = "阿洛娜", SubAgentRole = "查日志" };
+
+        Assert.Equal("阿洛娜（查日志）", SubAgentReportHandoff.SenderOf(session));
+    }
+
+    /// <summary>主代理没给主题：退到会话标题，不能只剩一个名字</summary>
+    [Fact]
+    public void SenderOf_WithoutTopic_FallsBackToTheTitle()
+    {
+        ChatSession session = new() { IsTransient = true, SubAgentName = "阿洛娜", Title = "构建失败排查" };
+
+        Assert.Equal("阿洛娜（构建失败排查）", SubAgentReportHandoff.SenderOf(session));
+    }
+
+    /// <summary>兜底标题也要截短：一整句任务书不该把署名撑得比正文还长</summary>
+    [Fact]
+    public void SenderOf_LongTitle_IsClipped()
+    {
+        ChatSession session = new()
+        {
+            IsTransient = true,
+            SubAgentName = "阿洛娜",
+            Title = "看一下构建失败的原因并修掉它，顺便把日志也贴出来",
+        };
+
+        Assert.Equal("阿洛娜（看一下构建失败的原因并修掉它，顺便把日志…）", SubAgentReportHandoff.SenderOf(session));
+    }
+
+    /// <summary>匿名但配了默认角色卡：角色名当名字，同样带主题</summary>
+    [Fact]
+    public void SenderOf_DefaultCard_NamesTheCharacterAndKeepsTheTopic()
+    {
+        ChatSession session = new()
+        {
+            IsTransient = true,
+            CharacterId = "AronaAgent",
+            SubAgentRole = "子代理功能测试",
+        };
+
+        Assert.Equal("阿洛娜（子代理功能测试）", SubAgentReportHandoff.SenderOf(session));
+    }
+
+    /// <summary>匿名且没配默认卡：内置基座卡与 None 哨兵的名字都不算人设，只剩主题</summary>
+    [Fact]
+    public void SenderOf_AnonymousWithoutDefaultCard_UsesOnlyTheTopic()
+    {
+        ChatSession session = new() { IsTransient = true, SubAgentRole = "通读者" };
+
+        Assert.Equal("通读者", SubAgentReportHandoff.SenderOf(session));
+    }
+
+    /// <summary>点名、没给主题、也没有标题：只剩名字，不硬编一个「（主题）」上去</summary>
+    [Fact]
+    public void SenderOf_WithoutAnyTopic_KeepsJustTheName()
+    {
+        ChatSession session = new() { IsTransient = true, SubAgentName = "阿洛娜" };
+
+        Assert.Equal("阿洛娜", SubAgentReportHandoff.SenderOf(session));
     }
 }

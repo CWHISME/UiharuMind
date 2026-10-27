@@ -5,6 +5,7 @@
              xmlns:vm="clr-namespace:UiharuMind.Features.Settings"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:chars="clr-namespace:UiharuMind.Features.Characters"
              mc:Ignorable="d" d:DesignWidth="720" d:DesignHeight="640"
              x:Class="UiharuMind.Features.Settings.AgentSettingView"
              x:DataType="vm:AgentSettingViewData">
@@ -83,6 +84,32 @@
                                                 </DataTemplate>
                                             </ComboBox.ItemTemplate>
                                         </ComboBox>
+                                    </controls:SettingsRow.Field>
+                                </controls:SettingsRow>
+                                <!-- 子代理默认角色卡：不点名的通用子代理用哪张卡的人设与名字（能力仍随派活者） -->
+                                <controls:SettingsRow Header="{loc:Loc AgentSettingDefaultSubAgentCharacter}"
+                                                      Description="{loc:Loc AgentSettingDefaultSubAgentCharacterDesc}"
+                                                      ResetCommand="{Binding ResetDefaultSubAgentCharacterCommand}"
+                                                      ResetVisible="{Binding IsDefaultSubAgentCharacterNotDefault}">
+                                    <controls:SettingsRow.Field>
+                                        <!-- 宽度写死 300，与上面几行下拉框的 MinWidth 一致：
+                                             未设置时那句占位文案很长，不锁定的话按钮会随选中内容变宽变窄 -->
+                                        <Button Width="300" HorizontalContentAlignment="Left"
+                                                Padding="12,5">
+                                            <Button.Content>
+                                                <TextBlock Text="{Binding DefaultSubAgentCharacterText}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </Button.Content>
+                                            <Button.Flyout>
+                                                <!-- 与 GroupAwaySetupWindow 同款：控件实例固定、展开时只换 DataContext。
+                                                     直接嵌控件时，赋值前会继承父级 DataContext，编译绑定强转会抛 -->
+                                                <Flyout Placement="BottomEdgeAlignedLeft"
+                                                        Opening="OnDefaultSubAgentCharacterPickerOpening">
+                                                    <chars:CharacterPickerView Name="DefaultSubAgentCharacterPicker"
+                                                                               DataContext="{x:Null}" />
+                                                </Flyout>
+                                            </Button.Flyout>
+                                        </Button>
                                     </controls:SettingsRow.Field>
                                 </controls:SettingsRow>
                                 <controls:SettingsRow Header="{loc:Loc AgentSettingMemoryIndexBudget}"

@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.AI.Chat;
@@ -50,7 +51,8 @@ public enum EHandoffOutcome
 /// </summary>
 public static class SubAgentReportHandoff
 {
-    private const int QuoteLength = 30; //「回你之前发的」引多长：认得出是哪件事就够
+    private const int QuoteLength = 30; //「回复「…」」引多长：认得出是哪件事就够
+    private const int TopicLength = 20; //署名括号里主题的兜底长度（会话标题本身可到 40 字）
 
     /// <summary>
     /// 把子会话最新的结论交回派活者
@@ -200,70 +202,104 @@ public static class SubAgentReportHandoff
     /// 末尾附一句怎么接着谈（ADR 0065）：工具描述里那句「同一主题回到同一个人」弱模型不照做
     /// （Agnes 0/3），而读完回信正是它决定下一步找谁的时刻。写成事实，不立规矩
     /// </summary>
-    /// <param name="sender">对方的名字或身份，没有为空</param>
-    /// <param name="subSessionId">子会话标识</param>
+    /// <param name="sender">署名主体（<see cref="SenderOf"/> 的产物，形如「阿洛娜（子代理功能测试）」）</param>
+    /// <param name="subSessionId">子会话标识（附言里给短号，模型照抄进 to）</param>
     /// <param name="replyingTo">对方回的是你发的哪一句（取开头）</param>
     /// <param name="conclusion">正文</param>
     /// <param name="supersedes">更正上一封</param>
     /// <param name="interruption">被打断的原因（接在「对方」后面成句），没被打断为 null</param>
     /// <param name="othersPending">还在等几位别人的回信</param>
-    /// <param name="identityLine">这位子代理的身份行与上下文占用（<see cref="IdentityLineOf"/> 的产物）；非空则附在信头后，主代理据此认出是谁、还剩多少</param>
+    /// <param name="usage">上下文占用（<c>8k/1M · 模型名</c>）；空则不写</param>
     /// <returns>信的全文</returns>
     internal static string BuildText(string sender, string subSessionId, string replyingTo, string conclusion,
-        bool supersedes, string? interruption, int othersPending, string? identityLine = null)
+        bool supersedes, string? interruption, int othersPending, string? usage = null)
     {
-        string from = FromLabel(sender, subSessionId);
-        string head = replyingTo.Length > 0 ? $"来自 {from}，回你之前发的「{replyingTo}」" : $"来自 {from}";
+        string shortId = SubSessionIdAlias.Short(subSessionId);
+        // 信头：谁 + 标识 + 回哪句。标识紧跟名字，模型照抄进 to 就能续聊；
+        // 引号里是<b>被回复的那句话</b>而不是它说的话，所以「回你之前发的」这层主客关系不能省
+        string who = sender.Length > 0 ? sender : "一位子代理";
+        string head = replyingTo.Length > 0
+            ? $"来自 {who}，回你之前发的「{replyingTo}」"
+            : $"来自 {who}";
         if (supersedes) head += "【更正上一封】";
 
-        // 身份行附在信头之后：信头已经说了是谁，这一行再把来龙去脉（主题/点名/只读档）与上下文占用展开
-        string identity = identityLine is { Length: > 0 } ? $"\n{identityLine}" : string.Empty;
+        // 附言只留「怎么接着聊」，不写「当前已进入空闲」：那是上一版硬加的状态断言，
+        // 代码并没有真的检查它在不在跑；被用户终止时它还会把「刚被停掉」说成「没事待命中」，
+        // 与正文上方那句「他的回话被用户终止」直接打架。
+        string usagePart = usage is { Length: > 0 } ? $" ｜ {usage}" : string.Empty;
+        string pending = othersPending > 0 ? $"\n【另外还有 {othersPending} 位没回信】" : string.Empty;
+        string tail = $"【想接着聊：`{SubAgentTool.MessageToolName}` → [sub-session: {shortId}]{usagePart}】{pending}";
 
-        // 附言不插在信头与正文之间:放在最后,也正好是模型读完要决定下一步的位置
-        string waiting = $"\n\n【接着谈同类主题就用 `{SubAgentTool.MessageToolName}`，to 填 [sub-session: {SubSessionIdAlias.Short(subSessionId)}]；"
-                         + $"另开一位的话，对方什么都不知道。】"
-                         + (othersPending > 0 ? $"\n【当前还剩 {othersPending} 位的回信。】" : string.Empty);
-        if (interruption == null) return $"{head}：{identity}\n\n{conclusion}{waiting}";
+        if (interruption == null)
+            return $"""
+                {head}：
+
+                {conclusion}
+
+                {tail}
+                """;
 
         return conclusion.Length > 0
-            ? $"{head}。对方{interruption}，以下是对方停下前说到的：{identity}\n\n{conclusion}{waiting}"
-            : $"{head}。对方{interruption}，没回任何内容。{identity}{waiting}";
+            ? $"""
+                {head}。对方{interruption}，以下是对方停下前说到的：
+
+                {conclusion}
+
+                {tail}
+                """
+            : $"""
+                {head}。对方{interruption}，没回任何内容。
+
+                {tail}
+                """;
     }
 
     private static ChatMessage BuildMessage(ChatSession subSession, string conclusion, bool supersedes,
         string? interruption, int othersPending) =>
         Annotate(subSession, BuildText(SenderOf(subSession), subSession.SessionId, ReplyingTo(subSession), conclusion,
-            supersedes, interruption, othersPending, IdentityLineOf(subSession)));
+            supersedes, interruption, othersPending, SubAgentDescriptor.DescribeUsage(subSession)));
 
     /// <summary>
-    /// 信头后那一行：身份行 + 上下文占用。主代理读完信要决定「接着追问 / 换人 / 自己干」，
-    /// 这位还剩多少上下文是硬判据——与 <c>chatsession.list</c> 里那一行同一份算法
+    /// 署名主体：<b>谁在说话 + 在做什么</b>。名字三级降级——点名的子智能体用它的名字，
+    /// 匿名但用户配了默认角色卡就用那张卡的角色名，都没有才只留主题。
+    ///
+    /// <b>只要有名字就一定带主题</b>（「阿洛娜（子代理功能测试）」）：同一张角色卡可以被点名成
+    /// 多个子智能体（甚至与用户配的默认卡撞上），光看名字根本分不清是哪一位、在办哪件事。
+    /// 主题优先取派活时那句话；没给就用会话标题兜底——标题本来就是「主题，否则任务首行」。
     /// </summary>
-    /// <param name="subSession">子会话本体</param>
-    /// <returns>身份行（没有占用记录时只有身份部分）</returns>
-    private static string IdentityLineOf(ChatSession subSession)
+    /// <param name="subSession">子会话</param>
+    /// <returns>署名主体；什么都不知道时为空</returns>
+    internal static string SenderOf(ChatSession subSession)
     {
-        string identity = SubAgentDescriptor.Describe(subSession);
-        string usage = SubAgentDescriptor.DescribeUsage(subSession);
-        return usage.Length == 0 ? identity : $"{identity} · 上下文 {usage}";
+        string topic = TopicOf(subSession);
+        string name = subSession.SubAgentName;
+        // 匿名档：只有用户指定的默认角色卡才算「人设」。内置基座卡的名字是「通用子代理」、
+        // None 哨兵的名字是 "None"，两者都不是谁的名字，拿来署名比空着更糟
+        if (name.Length == 0 && !subSession.CharacterData.IsInternal
+            && subSession.CharacterId != nameof(DefaultCharacter.None))
+            name = subSession.CharacterData.CharacterName;
+
+        if (name.Length == 0) return topic;
+        if (topic.Length == 0 || string.Equals(topic, name, StringComparison.Ordinal)) return name;
+        return $"{name}（{topic}）";
     }
 
     /// <summary>
-    /// 信头署名：{名字} [sub-session: 短号]。匿名无名字时只留标识。
-    /// 显示层给短号（模型照抄进 to），存储/槽位判定仍用真实 ID（<see cref="ChatMessageAnnotations.SubAgentReport"/>）
+    /// 这次委派的主题。派活时那句话最准；主代理没填就退到会话标题
+    /// （<c>BuildTitle</c> 的产物：有主题用主题，否则任务首行截 40 字）。
+    /// 兜底值再截一次短：括号里塞一整句任务书，署名比正文还长。
     /// </summary>
-    /// <param name="sender">点名的人用名字，匿名的用派活时给的身份；为空则只留标识</param>
-    /// <param name="subSessionId">子会话标识</param>
-    /// <returns>署名串</returns>
-    internal static string FromLabel(string sender, string subSessionId)
+    /// <param name="subSession">子会话</param>
+    /// <returns>主题；都没有为空</returns>
+    private static string TopicOf(ChatSession subSession)
     {
-        string shortId = SubSessionIdAlias.Short(subSessionId);
-        return sender.Length > 0 ? $"{sender} [sub-session: {shortId}]" : $"[sub-session: {shortId}]";
-    }
+        if (subSession.SubAgentRole.Length > 0) return subSession.SubAgentRole;
 
-    // 点名的人用派活时那个名字（模型下次 to 填的就是它），匿名的用派活时给的主题（语录标题）
-    internal static string SenderOf(ChatSession subSession) =>
-        subSession.SubAgentName.Length > 0 ? subSession.SubAgentName : subSession.SubAgentRole;
+        string title = subSession.Title;
+        // 出厂标题是「Empty」哨兵，等于没标题——拿它当主题会署名成「阿洛娜（Empty）」
+        if (title.Length == 0 || title == ChatSession.EmptyText) return string.Empty;
+        return title.Length > TopicLength ? title[..TopicLength] + "…" : title;
+    }
 
     // 子会话里最后一条有字的用户消息就是派活者发的那句（续聊时是最新那句）。
     // 跑着时插进去的补充不算：它并进了这一轮的回信，回信回的仍是开启这一轮的那句

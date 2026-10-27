@@ -40,7 +40,7 @@ public static class SubAgentDescriptor
         Describe(session.Title, session.SubAgentName, session.SubAgentType, session.SessionId);
 
     /// <summary>
-    /// 上下文占用（<c>12k / 32k（模型名）</c>）：主代理判断这位还剩多少、要不要换人接着干。
+    /// 上下文占用（<c>12k/32k · 模型名</c>）：主代理判断这位还剩多少、要不要换人接着干。
     /// 只给占用没有窗口说明不了问题，所以窗口与模型名跟着一起给。从没跑过为空串，调用方整段省略
     /// </summary>
     /// <param name="session">子会话本体：占用、窗口与模型名都精确</param>
@@ -63,10 +63,12 @@ public static class SubAgentDescriptor
     {
         if (usage <= 0) return string.Empty;
 
+        // 「8k/1M · 模型名」：分隔符只用中点，不再套括号——这一行会挂在回信附言末尾，
+        // 括号叠着方括号读起来像机器码
         string line = contextLength > 0
-            ? $"{TurnUsageLedger.Format(usage)} / {TurnUsageLedger.Format(contextLength)}"
+            ? $"{TurnUsageLedger.Format(usage)}/{TurnUsageLedger.Format(contextLength)}"
             : TurnUsageLedger.Format(usage);
-        return string.IsNullOrEmpty(modelName) ? line : $"{line}（{modelName}）";
+        return string.IsNullOrEmpty(modelName) ? line : $"{line} · {modelName}";
     }
 
     private static string Describe(string title, string name, ESubAgentType type, string sessionId)

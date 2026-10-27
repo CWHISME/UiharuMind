@@ -70,16 +70,23 @@ public static class ParentMessageTool
     /// <summary>
     /// 落进派活者历史的那封信的正文
     /// </summary>
-    /// <param name="sender">署名（点名的人用名字，匿名的用派活时给的身份）</param>
+    /// <param name="sender">署名主体（<see cref="SubAgentReportHandoff.SenderOf"/> 的产物，形如「阿洛娜（子代理功能测试）」）</param>
     /// <param name="subSessionId">子会话标识（写短号，派活者照抄进 to）</param>
     /// <param name="message">子代理的话</param>
     /// <returns>信的全文</returns>
     internal static string BuildText(string sender, string subSessionId, string message)
     {
         string shortId = SubSessionIdAlias.Short(subSessionId);
-        return $"来自 {SubAgentReportHandoff.FromLabel(sender, subSessionId)}，干活途中发来的消息：\n\n{message}\n\n"
-               + $"【他在等你回话。用 `{SubAgentTool.MessageToolName}`，to 填 [sub-session: {shortId}] "
-               + "回复他；你的回复会插进他正在写的那一轮。】";
+        // 短号紧贴名字后面（「阿洛娜（主题）[13307a27]」）而不是再写一遍 [sub-session: …]：
+        // 完整标识在末尾那句「回复使用」里给一次就够，信头只需要读得出「这封是谁发的」
+        string who = sender.Length > 0 ? $"来自 {sender}" : "来自一位子代理";
+        return $"""
+            {who}[{shortId}]，工作途中的消息：
+
+            {message}
+
+            【回复使用：`{SubAgentTool.MessageToolName}` → [sub-session: {shortId}]】
+            """;
     }
 
     /// <summary>子代理 → 主代理的信。写是<b>纯追加</b>：它是一次对话，不是交回，不占报告的槽位

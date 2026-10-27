@@ -30,20 +30,20 @@ public class ParentMessageToolTests
     {
         string text = ParentMessageTool.BuildText("小A", "abcdef1234567890", "可以改这个文件吗？");
 
-        Assert.Contains("来自 小A [sub-session: abcdef12]，干活途中发来的消息：", text);
+        Assert.Contains("来自 小A[abcdef12]，工作途中的消息：", text);
         Assert.Contains("可以改这个文件吗？", text);
         // 末尾教派活者怎么回：用他自己那把 SendMessage，to 填这个短号
         Assert.Contains("`SendMessage`", text);
-        Assert.Contains("to 填 [sub-session: abcdef12]", text);
+        Assert.Contains("[sub-session: abcdef12]", text);
     }
 
-    /// <summary>匿名的子代理没有名字：署名只剩标识，派活者照旧认得是它</summary>
+    /// <summary>匿名的子代理没有名字：用「一位子代理」起头，派活者照旧认得是它</summary>
     [Fact]
-    public void MessageText_WithoutAName_KeepsOnlyTheId()
+    public void MessageText_WithoutAName_SaysASubAgentSentIt()
     {
         string text = ParentMessageTool.BuildText(string.Empty, "abcdef1234567890", "hello");
 
-        Assert.Contains("来自 [sub-session: abcdef12]", text);
+        Assert.Contains("来自一位子代理[abcdef12]", text);
         Assert.DoesNotContain("小A", text);
     }
 

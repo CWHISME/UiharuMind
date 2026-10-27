@@ -32,6 +32,7 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     public const int FactoryDefaultMemoryIndexBudget = 4000;
     public const string FactoryDefaultPythonInterpreterPath = "";
     public const string FactoryDefaultShellBinaryPath = "";
+    public const string FactoryDefaultSubAgentCharacterId = "";
     public const string FactoryDefaultFirecrawlApiKey = "";
     public const string FactoryDefaultTavilyApiKey = "";
     public const string FactoryDefaultBraveSearchApiKey = "";
@@ -102,6 +103,17 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     /// (比如主代理用推理慢的大模型,通用子代理用快模型)。
     /// </summary>
     public string GeneralSubAgentModelName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 通用子代理默认使用的角色卡标识。<b>空 = 内置「通用子代理」身份卡</b>（那张卡没有
+    /// 人格正文，于是通用子代理只拿任务书与身份段）。
+    ///
+    /// 只作用于<b>不点名的通用档</b>：点名的子智能体自带人格，脑与探索档职责固定
+    /// （只读整理 / 只读调研），给它们塞人设只会干扰。取用见 <c>SubAgentDefaultCharacter</c>。
+    ///
+    /// 存标识而不是角色对象：角色被改写时下一批派活就跟着变，删掉了则自动回退内置卡。
+    /// </summary>
+    public string DefaultSubAgentCharacterId { get; set; } = FactoryDefaultSubAgentCharacterId;
 
     /// <summary><see cref="RecentWorkspaces"/> 的条数上限</summary>
     public const int RecentWorkspacesLimit = 10;

@@ -533,6 +533,12 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         var newWindowSize = DisplayUnits.SnapToPixels(ToWindowSize(newSize), pixelsPerDip);
         var newDisplaySize = ToDisplaySize(newWindowSize);
 
+        // 顶到缩放上限时，SnapToPixels 的向上取整会越过 SetImage 里设的 MaxWidth/MaxHeight，
+        // 布局随后把窗口钳回来 → 每格多一次 SetWindowPos（顶格处的 1px 回抽）。
+        // 把 Max 抬到这次真正落盘的尺寸，尺寸就只由缩放这一路说了算（缩放上限本身由 _maxDisplaySize 卡）
+        MaxWidth = Math.Max(MaxWidth, newWindowSize.Width);
+        MaxHeight = Math.Max(MaxHeight, newWindowSize.Height);
+
         // 光标锚定：位置一律由「光标 screen 坐标 + 归一化锚点」现算，不复用上一格的结果。
         // 这样每格的误差都只来自最后一次取整（≤0.5px），不会逐格累积成漂移。
         // 换算细节见 ZoomAnchorMath：留白只加不乘，锚点用比例而不是 DIP 偏移。

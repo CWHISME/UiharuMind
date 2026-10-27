@@ -585,6 +585,15 @@
     <data name="AgentSettingSubAgentFallbackHint" xml:space="preserve">
         <value>(未设置 — 回退到主代理 模型)</value>
     </data>
+    <data name="AgentSettingDefaultSubAgentCharacter" xml:space="preserve">
+        <value>子代理默认角色卡</value>
+    </data>
+    <data name="AgentSettingDefaultSubAgentCharacterDesc" xml:space="preserve">
+        <value>不点名时派出去的通用子代理用哪张角色卡的人设与名字。能力与权限档仍沿用主代理；留空则使用内置的「通用子代理」，只有任务书、没有人设。</value>
+    </data>
+    <data name="AgentSettingSubAgentCharacterEmpty" xml:space="preserve">
+        <value>未设置（内置「通用子代理」）</value>
+    </data>
     <data name="AgentSettingCapFileAccess" xml:space="preserve">
         <value>文件操作(读/写/编辑/搜索)</value>
     </data>

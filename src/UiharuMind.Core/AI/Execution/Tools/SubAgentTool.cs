@@ -442,6 +442,10 @@ public static class SubAgentTool
         new()
         {
             CharacterId = characterId,
+            // 子会话恒为 agent 形态。<b>不跟着身份卡的身份走</b>：用户可以把一张普通角色卡
+            // （IsAgent = false）设成通用子代理的默认人格，若让形态派生，装配会判成只能纯对话的
+            // Chat 形态——工具与工作目录整份消失，子代理变成只会说话的哑巴，而界面上一切正常。
+            IsAgentForm = true,
             Title = title,
             Description = description,
             WorkspacePath = context.WorkspacePath,
@@ -476,11 +480,11 @@ public static class SubAgentTool
         string? normalizedTopic = NormalizeTopic(topic);
         ModelChoice modelChoice = ResolveSubAgentModelName(profile, model);
         ChatSession session = CreateSubSession(context, profile.Type,
-            // 匿名子代理用内置的身份角色,不沿用派活者的——否则子会话窗口会顶着派活者的
-            // 名字和头像,看起来像在跟主代理说话。探索档用那张只读卡（LegacyExploreAgent），
-            // 与通用档顶同一个名字,用户分不清这次委派能不能改东西。
+            // 匿名子代理用身份角色卡,不沿用派活者的——否则子会话窗口会顶着派活者的
+            // 名字和头像,看起来像在跟主代理说话。通用档可能是用户指定的默认卡（人格也从它取），
+            // 探索档用那张只读卡（LegacyExploreAgent），与通用档顶同一个名字,用户分不清这次委派能不能改东西。
             // 能力仍然直接取派活者那一份(不经交集,见 SubAgentAssembly.BuildFromPlan)
-            choice?.CharacterId ?? AnonymousCharacterOf(profile.Type).ToString(),
+            choice?.CharacterId ?? AnonymousCharacterOf(profile.Type),
             BuildTitle(task, normalizedTopic), task,
             choice?.Name ?? string.Empty, normalizedTopic ?? string.Empty, modelChoice.Name);
         SessionManager.Instance.Add(session);
@@ -881,11 +885,13 @@ public static class SubAgentTool
     /// 匿名委派用哪张身份卡。
     ///
     /// 只会走到 General 与 Explorer 两支（CreateAgent 只有这两档；脑经 BrainTool 另建）：
-    /// 通用档用匿名基座卡；探索档沿用「探索子代理」那张内置卡（名字带 Legacy 但现在是活档），
-    /// 恒定只读、另配模型——两档身份卡分开，署名上能看出这位是不是只读活。
+    /// 通用档用用户指定的默认卡（未指定则为匿名基座卡）；探索档沿用「探索子代理」那张内置卡
+    /// （名字带 Legacy 但现在是活档），恒定只读、另配模型——两档身份卡分开，署名上能看出这位是不是只读活。
+    ///
+    /// 判定本身收在 <see cref="SubAgentDefaultCharacter"/>：装配侧按同一处取人格，
+    /// 若两边各读一次配置，就会出现「窗口显示 A、实跑人格 B」。
     /// </summary>
-    private static DefaultCharacter AnonymousCharacterOf(ESubAgentType type) =>
-        type == ESubAgentType.Explorer ? DefaultCharacter.LegacyExploreAgent : DefaultCharacter.AnonymousAgent;
+    private static string AnonymousCharacterOf(ESubAgentType type) => SubAgentDefaultCharacter.IdentityIdOf(type);
 
     /// <summary>子会话标题:有主题用主题,否则取任务首行,都截 40 字。标题纯显示、落盘、改不了名</summary>
     internal static string BuildTitle(string task, string? topic = null) =>

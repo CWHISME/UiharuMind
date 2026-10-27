@@ -590,6 +590,15 @@ Hit rate = cached input / reported input. The row above is the session total, wi
     <data name="AgentSettingSubAgentFallbackHint" xml:space="preserve">
         <value>(Not set — falls back to the main agent model)</value>
     </data>
+    <data name="AgentSettingDefaultSubAgentCharacter" xml:space="preserve">
+        <value>Default sub-agent character</value>
+    </data>
+    <data name="AgentSettingDefaultSubAgentCharacterDesc" xml:space="preserve">
+        <value>Which character card's persona and name an unnamed general sub-agent runs with. Its capabilities and permission mode still follow the main agent; leave empty to use the built-in "General sub-agent", which carries only a task brief and no persona.</value>
+    </data>
+    <data name="AgentSettingSubAgentCharacterEmpty" xml:space="preserve">
+        <value>(Not set — built-in "General sub-agent")</value>
+    </data>
     <data name="AgentSettingCapFileAccess" xml:space="preserve">
         <value>File operations (read/write/edit/search)</value>
     </data>

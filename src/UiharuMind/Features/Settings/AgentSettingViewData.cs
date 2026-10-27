@@ -19,7 +19,9 @@ using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.Skills;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.AI;
@@ -56,6 +58,12 @@ public partial class AgentSettingViewData : ViewModelBase
     /// </summary>
     [ObservableProperty] private ModelRunningData? _explorerSubAgentModel;
 
+    /// <summary>
+    /// 通用子代理默认使用的角色卡。null = 内置「通用子代理」基座卡（无人格，只拿任务书）。
+    /// <b>只作用于不点名的通用档</b>，脑与探索档不受影响。
+    /// </summary>
+    [ObservableProperty] private CharacterData? _defaultSubAgentCharacter;
+
     /// <summary>记忆清单字数上限（ADR 0076）。数值框绑的是 decimal，存回去取整</summary>
     [ObservableProperty] private decimal _memoryIndexBudget;
 
@@ -84,6 +92,7 @@ public partial class AgentSettingViewData : ViewModelBase
     public bool IsGeneralSubAgentModelNotDefault => GeneralSubAgentModel is not null; // null = 回退主代理，出厂态
     public bool IsBrainSubAgentModelNotDefault => BrainSubAgentModel is not null; // 同上
     public bool IsExplorerSubAgentModelNotDefault => ExplorerSubAgentModel is not null; // 同上
+    public bool IsDefaultSubAgentCharacterNotDefault => DefaultSubAgentCharacter is not null; // null = 内置基座卡，出厂态
     public bool IsMemoryIndexBudgetNotDefault => MemoryIndexBudget != AgentSettingConfig.FactoryDefaultMemoryIndexBudget;
 
     //================= 模型 Shell =================
@@ -134,6 +143,9 @@ public partial class AgentSettingViewData : ViewModelBase
             MemoryIndexBudget = Math.Clamp(config.MemoryIndexBudget, MemoryIndex.MinListBudget, MemoryIndex.MaxListBudget);
             ModelSkillsEnabled = config.ModelSkillsEnabled;
             LoadAvailableModels();
+            // 判据与派活侧同一处（SubAgentDefaultCharacter）：卡被删/被屏蔽时这里直接回填 null，
+            // 界面与实跑不会一个显示旧卡、一个悄悄降级
+            DefaultSubAgentCharacter = SubAgentDefaultCharacter.Resolve(config);
         }
         // 设置窗是缓存复用的，构造只跑一次；模型页后加的模型靠这个通知同步进来。
         // ViewData 与设置窗同寿命，不退订；设计态 App.ModelService 为空时跳过。
@@ -199,6 +211,45 @@ public partial class AgentSettingViewData : ViewModelBase
         _writeBack.Save();
         OnPropertyChanged(nameof(IsExplorerSubAgentModelNotDefault));
         if (!_writeBack.IsLoading) StatusText = Loc.Text(LangKey.ShortcutSavedTips);
+    }
+
+    //================= 常规:子代理默认角色卡,变更即存,之后新派出的通用子代理起生效 =================
+    partial void OnDefaultSubAgentCharacterChanged(CharacterData? value)
+    {
+        AgentSettingConfig.Current.DefaultSubAgentCharacterId = value?.CharacterId ?? string.Empty;
+        _writeBack.Save();
+        OnPropertyChanged(nameof(IsDefaultSubAgentCharacterNotDefault));
+        OnPropertyChanged(nameof(DefaultSubAgentCharacterText));
+        if (!_writeBack.IsLoading) StatusText = Loc.Text(LangKey.ShortcutSavedTips);
+    }
+
+    /// <summary>
+    /// 按钮上显示谁。<b>未设置时不是空白</b>：空白读不出「我关掉了它」还是「它没生效」，
+    /// 这里明说回退到内置卡。
+    /// </summary>
+    public string DefaultSubAgentCharacterText =>
+        DefaultSubAgentCharacter is { CharacterName.Length: > 0 } card
+            ? card.CharacterName
+            : Loc.Text(LangKey.AgentSettingSubAgentCharacterEmpty);
+
+    /// <summary>
+    /// 选择器选中一张卡。null 走 <see cref="ResetDefaultSubAgentCharacter"/>，不从这里进。
+    /// </summary>
+    /// <param name="character">选中的角色卡</param>
+    public void PickDefaultSubAgentCharacter(CharacterData character) => DefaultSubAgentCharacter = character;
+
+    /// <summary>
+    /// 展开选择器前重新核对一遍：角色可能刚被删除、或锁回屏蔽状态，而设置页是缓存复用的，
+    /// 不做这一步就会一直顶着一张已经不存在的卡。判据直接用 Core 那一份
+    /// （<see cref="SubAgentDefaultCharacter.Resolve()"/>），因此界面显示与派活实际行为不会分叉。
+    /// 顺带刷新按钮文字：角色改名后绑定的是旧字符串。
+    /// </summary>
+    public void RevalidateDefaultSubAgentCharacter()
+    {
+        if (DefaultSubAgentCharacter != null && SubAgentDefaultCharacter.Resolve() is null)
+            DefaultSubAgentCharacter = null; // 卡没了：配置与界面一起回退，handler 负责写回
+
+        OnPropertyChanged(nameof(DefaultSubAgentCharacterText));
     }
 
     /// <summary>
@@ -292,6 +343,12 @@ public partial class AgentSettingViewData : ViewModelBase
     private void ResetExplorerSubAgentModel()
     {
         ExplorerSubAgentModel = null; // 回退到主代理模型
+    }
+
+    [RelayCommand]
+    private void ResetDefaultSubAgentCharacter()
+    {
+        DefaultSubAgentCharacter = null; // 回退到内置「通用子代理」基座卡
     }
 
     //================= 技能(SKILL.md 目录,框架规范) =================

@@ -85,7 +85,7 @@ public class BackgroundSubAgentHandoffTrackingTests
     }
 
     private static ChatMessage Report(string subSessionId) =>
-        new(ChatRole.User, "来自 子代理 [sub-session: x]，回你之前发的「…」：\n\n结论")
+        new(ChatRole.User, "来自 一位子代理回复「…」\n\n结论")
         {
             AdditionalProperties = new AdditionalPropertiesDictionary
             {

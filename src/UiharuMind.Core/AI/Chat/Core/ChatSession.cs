@@ -47,11 +47,14 @@ public class ChatSession
     /// <summary>会话唯一标识，同时是存档文件名</summary>
     public string SessionId { get; set; } = Guid.NewGuid().ToString("N");
 
+    /// <summary>标题与副标题的出厂哨兵：表示「还没填」，读的地方别把它当成真内容</summary>
+    public const string EmptyText = "Empty";
+
     /// <summary>标题（纯显示，允许重复，改名不动文件）</summary>
-    public string Title { get; set; } = "Empty";
+    public string Title { get; set; } = EmptyText;
 
     /// <summary>列表副标题</summary>
-    public string Description { get; set; } = "Empty";
+    public string Description { get; set; } = EmptyText;
 
     /// <summary>
     /// 所属角色的标识（<see cref="CharacterData.CharacterId"/>）。角色改名不会断开该引用。

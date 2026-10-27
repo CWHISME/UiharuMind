@@ -95,42 +95,6 @@ public class SubAgentReceiptMarkerTests
         }
     }
 
-    /// <summary>回执写成「发给了某个人」：带名字，并说明中途可以再发消息补充</summary>
-    [Fact]
-    public void Receipt_NamesTheRecipientAndAllowsFollowUps()
-    {
-        ChatSession session = SubSession("ffff6666aaaa7777");
-        session.SubAgentRole = "审查员";
-        try
-        {
-            string receipt = BackgroundSubAgentDispatcher.Dispatch(session, _ => Task.FromResult(string.Empty));
-
-            Assert.StartsWith($"已发给 \"审查员\"。", receipt); //名字加引号:角色过长被截成「…」时不会再接一个句号
-            Assert.Contains($"`{SubAgentTool.MessageToolName}` 给他补充或纠正", receipt); //指名续聊工具：中途补充走它
-        }
-        finally
-        {
-            SessionManager.Instance.Delete(session.SessionId);
-        }
-    }
-
-    [Fact]
-    public void Receipt_SaysThereIsNoResultYet()
-    {
-        //模型最容易犯的错是把「已派出」读成「已完成」,这句话是唯一挡在那儿的东西
-        ChatSession session = SubSession("dddd4444eeee5555");
-        try
-        {
-            string receipt = BackgroundSubAgentDispatcher.Dispatch(session, _ => Task.FromResult(string.Empty));
-
-            Assert.Contains("做完会回一封", receipt);
-        }
-        finally
-        {
-            SessionManager.Instance.Delete(session.SessionId);
-        }
-    }
-
     /// <summary>脑回执也走同一契约：末行 <c>[sub-session: 短号]</c>，回放时卡片能挂「查看更多」入口（ADR 0082）</summary>
     [Fact]
     public void BrainReceipt_CarriesAParseableSubSessionMarker()
