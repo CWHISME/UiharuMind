@@ -91,7 +91,7 @@ public class RemoteModelEditPresetSyncTests
                 ContextLength = 32768, // 用户手动改过
                 MaxTokens = 5000, // 用户手动改过
                 IsVision = true, // 用户手动开过
-                RequiresReasoningContentRoundtripOverride = true, // 用户手动覆盖过
+                ReplayExistingReasoningOverride = true, // 用户手动覆盖过
             },
             ApiKey = "key",
         };
@@ -100,6 +100,6 @@ public class RemoteModelEditPresetSyncTests
         Assert.Equal("32768", vm.ContextLengthText); // 保留用户值，不被预设 1048576 覆盖
         Assert.Equal("5000", vm.MaxTokensText);
         Assert.True(vm.IsVision);
-        Assert.True(vm.RequiresReasoningContentRoundtripOverride);
+        Assert.True(vm.ReplayExistingReasoningOverride);
     }
 }

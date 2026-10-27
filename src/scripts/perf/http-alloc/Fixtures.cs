@@ -130,7 +130,7 @@ internal sealed class FakeModel(bool deepSeek) : ILlmModel
     public string ModelDescription => "";
     public string ModelId => deepSeek ? "deepseek-v4-flash" : "sensenova-6.8-flash-lite";
     public int Port => 0;
-    public bool RequiresReasoningContentRoundtrip => deepSeek;
+    public bool ReplayExistingReasoning => deepSeek;
     public bool OmitSamplingParams => false;
 
     public IReadOnlyList<KeyValuePair<string, JsonNode?>>? GetExtraParams() =>

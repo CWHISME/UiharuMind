@@ -136,35 +136,42 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     /// (不带这个字段,反序列化后天然是 null)能在不重建的前提下吃到预设表的判断结果——
     /// 同款结构可参照 <see cref="ContextLength"/> 用 0 表示未设置、消费时才按预设表兜底。
     /// </summary>
-    public virtual bool? RequiresReasoningContentRoundtripOverride { get; set; }
+    public virtual bool? ReplayExistingReasoningOverride { get; set; }
 
     /// <summary>
-    /// 思考模式下,助手消息带 tool_calls 时是否要求原样带回当时的思考正文。
+    /// 历史消息里<b>已有</b>思考正文时，是否原样回传（有正文看这个，没正文看
+    /// <see cref="RequireReasoningFieldWhenEmpty"/>）。
     /// 用户显式覆盖优先,否则按当前 ModelId 查预设表——这是模型本身的接口约束,
     /// 同一供应商转售的其它模型未必需要,不能挂在配置类上固定死。
     /// <c>null</c>=自动(历史有思考就回传),<c>true</c>/<c>false</c>=显式要求/禁止。
     /// </summary>
-    public virtual bool? RequiresReasoningContentRoundtrip =>
-        RequiresReasoningContentRoundtripOverride ??
+    public virtual bool? ReplayExistingReasoning =>
+        ReplayExistingReasoningOverride ??
         (ModelIdVariants.TryGetValue(ModelId, out RemoteModelIdVariant? variant)
-            ? variant.RequiresReasoningContentRoundtrip
+            ? variant.ReplayExistingReasoning
             : null);
 
     /// <summary>
     /// 思考模式下助手消息带 tool_calls 时,<b>没有思考正文也必须带思考字段</b>(空串)。
+    /// 没正文看这个，有正文看 <see cref="ReplayExistingReasoning"/>——两者互斥：有正文时字段已存在，
+    /// 前者不适用；没正文时没东西可回传，后者不适用。
     ///
-    /// 与 <see cref="RequiresReasoningContentRoundtrip"/> 是两件事:那个管"有正文要不要回传",
-    /// 这个管"没正文时字段能不能缺"。DeepSeek 类服务端把后者当硬校验,缺字段直接 400——
+    /// DeepSeek 类服务端把「字段必须在」当硬校验,缺字段直接 400——
     /// 典型触发点是历史里那条带 tool_calls 的消息本来就是关思考的档位跑出来的,没有正文可回传。
     ///
     /// 消费侧只在本次请求不是 <see cref="EThinkingMode.None"/> 时启用:None 档显式发 thinking:disabled,
     /// 服务端按正文调用处理,不要求该字段;Default 及各级思考档位都可能思考,保守补上。
     ///
-    /// 这是模型侧的硬约束,只从预设表读:不落配置、不给手动覆盖(与 roundtrip 不同,用户没法靠观察判断)。
+    /// 来源：预设表显式声明，或模型 ID 含 <c>deepseek</c> 的兜底——转售的 DeepSeek
+    /// （CommandCode/OpenCode 等目录供应商）不在预设表里，但硬校验不因转售而消失
+    /// （与 opencode 的 <c>modelID.includes("deepseek")</c> 同口径）。
+    ///
+    /// 这是模型侧的硬约束,只从预设表/模型 ID 读:不落配置、不给手动覆盖(与 roundtrip 不同,用户没法靠观察判断)。
     /// </summary>
-    public bool RequiresReasoningContentOnAssistantMessages =>
-        ModelIdVariants.TryGetValue(ModelId, out RemoteModelIdVariant? variant) &&
-        variant.RequiresReasoningContentOnAssistantMessages;
+    public bool RequireReasoningFieldWhenEmpty =>
+        (ModelIdVariants.TryGetValue(ModelId, out RemoteModelIdVariant? variant) &&
+         variant.RequireReasoningFieldWhenEmpty) ||
+        ModelId.Contains("deepseek", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// 运行时观测到的思考 wire 字段名（reasoning_content/reasoning/reasoning_text），**按 ModelId 分开记**。

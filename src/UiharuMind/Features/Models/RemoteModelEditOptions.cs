@@ -45,7 +45,7 @@ public sealed class ModelIdOptionItem
     /// <c>null</c>=自动(历史有思考就回传),
     /// <c>true</c>/<c>false</c>=显式要求/禁止
     /// </summary>
-    public bool? RequiresReasoningContentRoundtrip { get; init; }
+    public bool? ReplayExistingReasoning { get; init; }
 
     /// <summary>
     /// 该模型是否默认不发送采样参数(temperature 等固定参数的模型,如 Kimi)

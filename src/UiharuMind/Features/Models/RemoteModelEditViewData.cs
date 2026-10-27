@@ -92,27 +92,27 @@ public partial class RemoteModelEditViewData : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsReasoningRoundtripAutoDetect))]
     [NotifyPropertyChangedFor(nameof(IsReasoningRoundtripForceOn))]
     [NotifyPropertyChangedFor(nameof(IsReasoningRoundtripForceOff))]
-    private bool? _requiresReasoningContentRoundtripOverride;
+    private bool? _replayExistingReasoningOverride;
 
     /// <summary>三选一单选组:自动检测(覆盖为空,有思考就回传)</summary>
     public bool IsReasoningRoundtripAutoDetect
     {
-        get => RequiresReasoningContentRoundtripOverride == null;
-        set { if (value) RequiresReasoningContentRoundtripOverride = null; }
+        get => ReplayExistingReasoningOverride == null;
+        set { if (value) ReplayExistingReasoningOverride = null; }
     }
 
     /// <summary>三选一单选组:强制开启</summary>
     public bool IsReasoningRoundtripForceOn
     {
-        get => RequiresReasoningContentRoundtripOverride == true;
-        set { if (value) RequiresReasoningContentRoundtripOverride = true; }
+        get => ReplayExistingReasoningOverride == true;
+        set { if (value) ReplayExistingReasoningOverride = true; }
     }
 
     /// <summary>三选一单选组:强制关闭</summary>
     public bool IsReasoningRoundtripForceOff
     {
-        get => RequiresReasoningContentRoundtripOverride == false;
-        set { if (value) RequiresReasoningContentRoundtripOverride = false; }
+        get => ReplayExistingReasoningOverride == false;
+        set { if (value) ReplayExistingReasoningOverride = false; }
     }
 
     [ObservableProperty] private bool _hasModelIdOptions;
@@ -165,20 +165,20 @@ public partial class RemoteModelEditViewData : ObservableObject
     public ObservableCollection<ModelIdOptionItem> ModelIdOptions { get; } = new();
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(PresetRequiresReasoningContentRoundtrip))]
+    [NotifyPropertyChangedFor(nameof(PresetReplaysExistingReasoning))]
     [NotifyPropertyChangedFor(nameof(IsReasoningRoundtripPresetAuto))]
     [NotifyPropertyChangedFor(nameof(IsReasoningRoundtripPresetOff))]
     [NotifyPropertyChangedFor(nameof(MaxTokensPlaceholder))]
     private ModelIdOptionItem? _selectedModelIdOption;
 
     /// <summary>覆盖开关留空(自动检测)时,当前选中模型的预设判断:要求回传,供界面提示用</summary>
-    public bool PresetRequiresReasoningContentRoundtrip => SelectedModelIdOption?.RequiresReasoningContentRoundtrip == true;
+    public bool PresetReplaysExistingReasoning => SelectedModelIdOption?.ReplayExistingReasoning == true;
 
     /// <summary>当前选中模型的预设判断:自动检测(未声明,有思考就回传)</summary>
-    public bool IsReasoningRoundtripPresetAuto => SelectedModelIdOption?.RequiresReasoningContentRoundtrip == null;
+    public bool IsReasoningRoundtripPresetAuto => SelectedModelIdOption?.ReplayExistingReasoning == null;
 
     /// <summary>当前选中模型的预设判断:不回传</summary>
-    public bool IsReasoningRoundtripPresetOff => SelectedModelIdOption?.RequiresReasoningContentRoundtrip == false;
+    public bool IsReasoningRoundtripPresetOff => SelectedModelIdOption?.ReplayExistingReasoning == false;
 
     /// <summary>
     /// 上下文长度内置档位
@@ -338,7 +338,7 @@ public partial class RemoteModelEditViewData : ObservableObject
         config.ThinkingMode = (EThinkingMode)ThinkingModeIndex;
         if (IsVisionEditable) config.IsVision = IsVision;
         config.OmitSamplingParams = OmitSamplingParams;
-        config.RequiresReasoningContentRoundtripOverride = RequiresReasoningContentRoundtripOverride;
+        config.ReplayExistingReasoningOverride = ReplayExistingReasoningOverride;
         // 目录项带 wire 信息：选中时按端点写入 ApiFormat；手输/未选不碰（保留旧值/默认 ChatCompletions，ADR 0092）
         if (SelectedModelIdOption is { } selected) config.ApiFormat = selected.ApiFormat;
         target.ApiKey = ApiKey;
@@ -428,7 +428,7 @@ public partial class RemoteModelEditViewData : ObservableObject
             ThinkingModeIndex = (int)config.ThinkingMode;
             IsVision = config.IsVision;
             OmitSamplingParams = config.OmitSamplingParams;
-            RequiresReasoningContentRoundtripOverride = config.RequiresReasoningContentRoundtripOverride;
+            ReplayExistingReasoningOverride = config.ReplayExistingReasoningOverride;
             ApiKey = apiKey;
         }
         finally
@@ -450,7 +450,7 @@ public partial class RemoteModelEditViewData : ObservableObject
             bool isVision = false;
             int contextLength = 0;
             int maxTokens = 0;
-            bool? requiresReasoningContentRoundtrip = null;
+            bool? replayExistingReasoning = null;
             bool omitSamplingParams = false;
             string alias = "";
             if (config.ModelIdVariants.TryGetValue(option, out var variant))
@@ -458,7 +458,7 @@ public partial class RemoteModelEditViewData : ObservableObject
                 isVision = variant.IsVision;
                 contextLength = variant.ContextLength;
                 maxTokens = variant.MaxTokens;
-                requiresReasoningContentRoundtrip = variant.RequiresReasoningContentRoundtrip;
+                replayExistingReasoning = variant.ReplayExistingReasoning;
                 omitSamplingParams = variant.OmitSamplingParams;
                 alias = variant.Alias;
             }
@@ -470,7 +470,7 @@ public partial class RemoteModelEditViewData : ObservableObject
                 IsVision = isVision,
                 ContextLength = contextLength,
                 MaxTokens = maxTokens,
-                RequiresReasoningContentRoundtrip = requiresReasoningContentRoundtrip,
+                ReplayExistingReasoning = replayExistingReasoning,
                 OmitSamplingParams = omitSamplingParams,
             });
         }
@@ -580,7 +580,7 @@ public partial class RemoteModelEditViewData : ObservableObject
                 ContextLength = capabilities.ContextLength,
                 MaxTokens = capabilities.MaxTokens,
                 OmitSamplingParams = capabilities.OmitSamplingParams,
-                RequiresReasoningContentRoundtrip = preset?.RequiresReasoningContentRoundtrip,
+                ReplayExistingReasoning = preset?.ReplayExistingReasoning,
                 ApiFormat = EApiFormat.ChatCompletions,
             });
         }
@@ -659,7 +659,7 @@ public partial class RemoteModelEditViewData : ObservableObject
         if (IsVisionEditable) IsVision = option.IsVision;
         OmitSamplingParams = option.OmitSamplingParams;
         // 换了模型,之前针对旧模型的手动覆盖不该带过来——重置为"跟随预设",预设值随下拉框联动展示
-        RequiresReasoningContentRoundtripOverride = null;
+        ReplayExistingReasoningOverride = null;
     }
 
     /// <summary>

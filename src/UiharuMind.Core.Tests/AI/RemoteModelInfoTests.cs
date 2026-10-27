@@ -57,9 +57,9 @@ public class RemoteModelInfoTests
         Assert.NotEqual(a, b);
     }
 
-    /// <summary>roundtrip 三态：DeepSeek 显式 true；通用配置未声明(null=自动)；sensenova 自研显式 false</summary>
+    /// <summary>roundtrip 三态：DeepSeek/通用未声明(null=自动)；sensenova 自研显式 false</summary>
     [Fact]
-    public void RequiresReasoningContentRoundtrip_IsTriState()
+    public void ReplayExistingReasoning_IsTriState()
     {
         var deepseek = new RemoteModelInfo
         {
@@ -68,9 +68,9 @@ public class RemoteModelInfoTests
         var generic = new RemoteModelInfo { Config = new RemoteModelConfig() };
         var sensenova = new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "sensenova-6.8-flash-lite" } };
 
-        Assert.True(deepseek.RequiresReasoningContentRoundtrip);
-        Assert.Null(generic.RequiresReasoningContentRoundtrip);
-        Assert.False(sensenova.RequiresReasoningContentRoundtrip);
+        Assert.Null(deepseek.ReplayExistingReasoning); // 默认 auto：有正文就回传
+        Assert.Null(generic.ReplayExistingReasoning);
+        Assert.False(sensenova.ReplayExistingReasoning);
     }
 
     /// <summary>回传键名三级查表：当前 ModelId 的观测值 → 预设表 → reasoning_content</summary>

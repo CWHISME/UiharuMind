@@ -20,14 +20,12 @@ public class RemoteDeepSeekModelConfig : BaseRemoteModelConfig, IRemoteModelConf
     public override IReadOnlyDictionary<string, RemoteModelIdVariant> ModelIdVariants { get; } =
         new Dictionary<string, RemoteModelIdVariant>
         {
-            // deepseek-flash 即 DeepSeek-V4.1-Flash;deepseek-v4-flash 为已退役旧名,官方仍兼容且同样由 V4.1-Flash 服务
-            // 三个都要求「思考模式下带 tool_calls 的助手消息必须含 reasoning_content」——没有正文也要给空串
-            ["deepseek-flash"] = new(ContextLength: 1048576, MaxTokens: 393216, IsVision: true,
-                RequiresReasoningContentRoundtrip: true, RequiresReasoningContentOnAssistantMessages: true),
-            ["deepseek-v4-flash"] = new(ContextLength: 1048576, MaxTokens: 393216, IsVision: true,
-                RequiresReasoningContentRoundtrip: true, RequiresReasoningContentOnAssistantMessages: true),
-            ["deepseek-v4-pro"] = new(ContextLength: 1048576, MaxTokens: 393216,
-                RequiresReasoningContentRoundtrip: true, RequiresReasoningContentOnAssistantMessages: true),
+            // deepseek-flash 即 DeepSeek-V4.1-Flash;deepseek-v4-flash 为已退役旧名,官方仍兼容且同样由 V4.1-Flash 服务。
+            // 「思考模式下带 tool_calls 的助手消息必须含 reasoning_content」由基类按模型 ID 含 deepseek 自动判定;
+            // roundtrip 默认 auto(有正文就回传),这里只留能力字段。
+            ["deepseek-flash"] = new(ContextLength: 1048576, MaxTokens: 393216, IsVision: true),
+            ["deepseek-v4-flash"] = new(ContextLength: 1048576, MaxTokens: 393216, IsVision: true),
+            ["deepseek-v4-pro"] = new(ContextLength: 1048576, MaxTokens: 393216),
         };
 
     public override int Port { get; set; }

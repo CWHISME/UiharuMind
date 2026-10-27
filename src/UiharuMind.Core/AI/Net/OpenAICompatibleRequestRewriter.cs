@@ -78,7 +78,7 @@ internal static class OpenAICompatibleRequestRewriter
         // 收集器扫不到思考时返回空,自然不带字段——只有显式 false(确认不要求回传)或无模型才跳过。
         // 注意不能用 `model?.X != false`:nullable 的 lifted 比较在 null 时得到 null(判不出),
         // 这里用 `is not false`(null 也算)并先把 model 判空
-        model is not null && model.RequiresReasoningContentRoundtrip is not false
+        model is not null && model.ReplayExistingReasoning is not false
             ? LlmRequestContext.PendingReasoningSource?.Invoke()
             : null,
         // 采样参数固定的模型(如 Kimi)会拒绝显式传值的请求,开启后删掉这四个字段,不碰其它参数
@@ -88,7 +88,7 @@ internal static class OpenAICompatibleRequestRewriter
         // 但这条校验只在本次请求处于思考模式时成立——None 档显式发了 thinking:disabled,服务端按正文
         // 调用处理,不要求字段;此时补空串是多写字段、白改请求体。Default 不干预、由模型自己决定是否
         // 思考,仍按「可能思考」保守补上。
-        model is not null && model.RequiresReasoningContentOnAssistantMessages &&
+        model is not null && model.RequireReasoningFieldWhenEmpty &&
         model.ThinkingMode != EThinkingMode.None,
         // 思考回填键名不写死:按模型实际字段(运行时观测/预设/默认)回传
         ResolveReasoningField(model));

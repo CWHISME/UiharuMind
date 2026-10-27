@@ -254,7 +254,7 @@
                                        IsVisible="{Binding IsReasoningRoundtripPresetAuto}"
                                        Text="{loc:Loc RemoteModelReasoningRoundtripPresetAuto}" />
                             <TextBlock Classes="muted" TextWrapping="Wrap"
-                                       IsVisible="{Binding PresetRequiresReasoningContentRoundtrip}"
+                                       IsVisible="{Binding PresetReplaysExistingReasoning}"
                                        Text="{loc:Loc RemoteModelReasoningRoundtripPresetOn}" />
                             <TextBlock Classes="muted" TextWrapping="Wrap"
                                        IsVisible="{Binding IsReasoningRoundtripPresetOff}"
@@ -327,7 +327,7 @@
                                            IsVisible="{Binding IsReasoningRoundtripPresetAuto}"
                                            Text="{loc:Loc RemoteModelReasoningRoundtripPresetAuto}" />
                                 <TextBlock Classes="muted" TextWrapping="Wrap"
-                                           IsVisible="{Binding PresetRequiresReasoningContentRoundtrip}"
+                                           IsVisible="{Binding PresetReplaysExistingReasoning}"
                                            Text="{loc:Loc RemoteModelReasoningRoundtripPresetOn}" />
                                 <TextBlock Classes="muted" TextWrapping="Wrap"
                                            IsVisible="{Binding IsReasoningRoundtripPresetOff}"

@@ -108,7 +108,7 @@ CPU 不是问题：我们这层每次调用合计十几毫秒，对比几秒的�
   它只作初始大小），改写进池化缓冲，发出去的是 `SegmentedBinaryContent`（64KB 段，不从池里租：HTTP/2 可能在请求体发完之前就收到响应，那时还池会把别处的数据发出去）。无需改写时不替换。
   请求体日志的引导文字改报字节数：`OpenAI-compatible request (17,605 bytes): `，就是发到线上的大小，不必再数字符。
 - **思考回填按需收集**：`LlmRequestContext.PendingReasoningByCallId` 换成 `PendingReasoningSource`（`Func`），
-  只有 `RequiresReasoningContentRoundtrip` 的模型才调；一条消息只有一段思考时直接用它，不过 `StringBuilder`。
+  只有 `ReplayExistingReasoning` 的模型才调；一条消息只有一段思考时直接用它，不过 `StringBuilder`。
 - 顺手：响应日志两行合一（不清洗的端点在行尾标 `(not sanitized)`），路径判断挪到构造时；删掉无人引用的 `DefaultLogger`。
 - 冒烟 `view-image`（Agnes-2.5-Flash-无思考）：`Bodies.txt` 三条请求体两格缩进、真换行、中文原样、图片载荷抹成
   `<170228 base64 chars>`；第二轮请求的消息前缀与上一轮逐条相同，`max_tokens` 追加在根的末尾。

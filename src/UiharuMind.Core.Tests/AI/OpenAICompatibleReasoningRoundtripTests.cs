@@ -105,24 +105,24 @@ public class OpenAICompatibleReasoningRoundtripTests
     }
 
     [Fact]
-    public void KimiK3Preset_OmitsSamplingParamsAndRequiresReasoningRoundtrip()
+    public void KimiK3Preset_OmitsSamplingParams_RoundtripIsAuto()
     {
         var config = new RemoteSensenovaModelConfig();
         var preset = config.ModelIdVariants["kimi-k3"];
 
         Assert.True(preset.OmitSamplingParams);
-        Assert.True(preset.RequiresReasoningContentRoundtrip);
+        Assert.Null(preset.ReplayExistingReasoning); // 默认 auto：有正文就回传
     }
 
     [Fact]
-    public void KimiK3ModelInfo_FollowsPresetWithoutOverride()
+    public void KimiK3ModelInfo_RoundtripDefaultsToAuto()
     {
         var info = new RemoteModelInfo
         {
             Config = new RemoteSensenovaModelConfig { ModelId = "kimi-k3" },
         };
 
-        Assert.True(info.RequiresReasoningContentRoundtrip);
+        Assert.Null(info.ReplayExistingReasoning);
     }
 
     /// <summary>
@@ -201,7 +201,7 @@ public class OpenAICompatibleReasoningRoundtripTests
 
     /// <summary>预设表接线：DeepSeek 系两条都开，商汤自研只回填正文、不补空串</summary>
     [Fact]
-    public void RequiresReasoningContentOnAssistantMessages_FollowsPreset()
+    public void RequireReasoningFieldWhenEmpty_FollowsPreset()
     {
         var deepseek = new RemoteModelInfo { Config = new RemoteDeepSeekModelConfig { ModelId = "deepseek-v4-flash" } };
         var sensenovaDeepseek = new RemoteModelInfo
@@ -218,6 +218,23 @@ public class OpenAICompatibleReasoningRoundtripTests
         Assert.True(OpenAICompatibleRequestRewriter.For(sensenovaDeepseek).FillEmptyReasoning);
         Assert.False(OpenAICompatibleRequestRewriter.For(sensenovaOwn).FillEmptyReasoning);
         Assert.False(OpenAICompatibleRequestRewriter.For(generic).FillEmptyReasoning);
+    }
+
+    /// <summary>转售的 DeepSeek 不在预设表里（CommandCode/OpenCode），按模型 ID 兜底补空串</summary>
+    [Fact]
+    public void RequireReasoningFieldWhenEmpty_CoversResoldDeepSeekByModelId()
+    {
+        var resold = new RemoteModelInfo
+        {
+            Config = new RemoteCommandCodeModelConfig { ModelId = "deepseek/deepseek-v4-flash" },
+        };
+        var other = new RemoteModelInfo
+        {
+            Config = new RemoteCommandCodeModelConfig { ModelId = "gpt-6-astra" },
+        };
+
+        Assert.True(OpenAICompatibleRequestRewriter.For(resold).FillEmptyReasoning);
+        Assert.False(OpenAICompatibleRequestRewriter.For(other).FillEmptyReasoning);
     }
 
     /// <summary>

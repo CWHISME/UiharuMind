@@ -30,14 +30,14 @@ public class RemoteModelInfo : ILlmModel
     [JsonIgnore] public int ContextLength => Config.ContextLength;
     [JsonIgnore] public bool OmitSamplingParams => Config.OmitSamplingParams;
     /// <summary>思考模式下带 tool_calls 时是否要求原样带回思考正文；<c>null</c>=自动(有思考就回传)，<c>true</c>/<c>false</c>=显式要求/禁止</summary>
-    [JsonIgnore] public bool? RequiresReasoningContentRoundtrip => Config.RequiresReasoningContentRoundtrip;
+    [JsonIgnore] public bool? ReplayExistingReasoning => Config.ReplayExistingReasoning;
 
     /// <summary>回填思考正文用的 wire 键名（观测值/预设/默认），请求侧不写死</summary>
     [JsonIgnore] public string ThinkingField => Config.EffectiveThinkingField;
 
     /// <summary>思考模式下带 tool_calls 时，没有思考正文也必须带该字段（空串），否则服务端 400</summary>
-    [JsonIgnore] public bool RequiresReasoningContentOnAssistantMessages =>
-        Config.RequiresReasoningContentOnAssistantMessages;
+    [JsonIgnore] public bool RequireReasoningFieldWhenEmpty =>
+        Config.RequireReasoningFieldWhenEmpty;
 
     /// <summary>本次请求的思考档位；请求侧据此判断是否可能处于思考模式</summary>
     [JsonIgnore] public EThinkingMode ThinkingMode => Config.ThinkingMode;

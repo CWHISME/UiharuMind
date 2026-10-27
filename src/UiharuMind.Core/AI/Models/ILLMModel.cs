@@ -38,11 +38,12 @@ public interface ILlmModel
     public EThinkingMode ThinkingMode => EThinkingMode.Default;
 
     /// <summary>
-    /// 思考模式下,助手消息带 tool_calls 时是否要求原样带回当时的思考正文。
+    /// 历史消息里<b>已有</b>思考正文时，是否原样回传（有正文看这个，没正文看
+    /// <see cref="RequireReasoningFieldWhenEmpty"/>）。
     /// <c>null</c>=自动(历史有思考就回传);<c>true</c>/<c>false</c>=显式要求/禁止。
     /// 本地模型没有思考回传一说,默认不回传。
     /// </summary>
-    public bool? RequiresReasoningContentRoundtrip => false;
+    public bool? ReplayExistingReasoning => false;
 
     /// <summary>
     /// 回填思考正文用的 wire 键名(reasoning_content/reasoning/reasoning_text)。
@@ -55,7 +56,7 @@ public interface ILlmModel
     /// 消费侧只在本次请求不是 <see cref="EThinkingMode.None"/> 时启用——正文调用不要求该字段。
     /// 本地模型没有这条约束,默认不带。
     /// </summary>
-    public bool RequiresReasoningContentOnAssistantMessages => false;
+    public bool RequireReasoningFieldWhenEmpty => false;
 
     /// <summary>
     /// 是否不发送采样参数(temperature/top_p/presence_penalty/frequency_penalty)。
