@@ -19,6 +19,7 @@ using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
+using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.AI.Execution.Tools;
 
@@ -176,7 +177,7 @@ public static class ChatSessionTools
         sb.AppendLine($"本会话名下有 {tasks.Count} 个后台任务在跑：");
         foreach (IBackgroundTask task in tasks)
         {
-            string age = BackgroundTaskReport.FormatDuration(DateTimeOffset.Now - task.StartedAt);
+            string age = TimeUtils.FormatDuration(DateTimeOffset.Now - task.StartedAt);
             sb.AppendLine($"- `{task.Id}`：{task.Description} · 已跑 {age}"
                           + (task.LogPath.Length > 0 ? $" · 日志 {task.LogPath}" : string.Empty));
         }

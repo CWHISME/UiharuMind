@@ -48,6 +48,7 @@ public class GoalModeControllerTests
             ChatMessage? injection = session.History.LastOrDefault(ChatMessageAnnotations.IsGoalModeInjection);
             Assert.NotNull(injection);
             Assert.Contains("写一份方案", injection.Text);
+            Assert.Contains($"现在是 {_now:yyyy-MM-dd HH:mm}", injection.Text); // 首轮也知道现在几点
             Assert.Contains("goal.end", injection.Text);
         }
         finally
@@ -375,6 +376,39 @@ public class GoalModeControllerTests
 
             _controller.WakeNow(session.SessionId);
             await Until(() => _wakeCalls.Count == 2);
+        }
+        finally
+        {
+            _controller.End(session.SessionId);
+            SessionManager.Instance.Delete(session.SessionId);
+        }
+    }
+
+    /// <summary>
+    /// 唤醒提示带上时间：现在几点、上一次从何时起休眠、已过去多久。
+    /// 休眠起点取会话本体自己的记录（<see cref="ChatSession.UpdatedAt"/>），不另存一份
+    /// </summary>
+    [Fact]
+    public async Task WakeNote_TellsNow_TheSleepStart_AndHowLongItSlept()
+    {
+        ChatSession session = NewSession();
+        try
+        {
+            _controller.Start(session, new GoalModeSettings("目标", [Interval30]));
+            await Until(() => _wakeCalls.Count == 1);
+            await Until(() => _controller.StatusOf(session.SessionId)?.IsRunning == false);
+
+            DateTimeOffset sleepStart = _now;
+            session.UpdatedAt = sleepStart; // 上一轮结束在这个假时刻
+            _now = sleepStart.AddMinutes(90); // 之后歇了 90 分才被唤醒
+            _controller.WakeNow(session.SessionId);
+            await Until(() => _wakeCalls.Count == 2);
+
+            ChatMessage wake = session.History.Last(x =>
+                ChatMessageAnnotations.IsGoalModeInjection(x) && x.Text.Contains("当前目标"));
+            Assert.Contains($"现在是 {_now:yyyy-MM-dd HH:mm}", wake.Text);
+            Assert.Contains($"上次开始休眠是 {sleepStart:yyyy-MM-dd HH:mm}", wake.Text);
+            Assert.Contains("已过去 1 小时 30 分", wake.Text);
         }
         finally
         {

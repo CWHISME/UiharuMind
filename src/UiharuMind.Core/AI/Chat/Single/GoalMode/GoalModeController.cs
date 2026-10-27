@@ -139,16 +139,18 @@ public sealed class GoalModeController
     {
         if (!IsOwner) return false;
         GoalModeSession created;
+        DateTimeOffset now;
         lock (_sync)
         {
             if (_sessions.ContainsKey(session.SessionId)) return false;
-            created = new GoalModeSession(session, settings.Goal, EffectiveRules(settings.Rules), _now(),
+            now = _now();
+            created = new GoalModeSession(session, settings.Goal, EffectiveRules(settings.Rules), now,
                 WakeLoop.SafeStamp(_artifactStamp, session), settings.AutoApproveApprovals ?? false);
             _sessions[session.SessionId] = created;
             _lastSettings[session.SessionId] = new GoalModeSettings(created.Goal, created.Rules, created.AutoApproveApprovals);
         }
 
-        Inject(session, GoalModeTranscript.KickoffNote(created.Goal));
+        Inject(session, GoalModeTranscript.KickoffNote(created.Goal, now));
         Save();
         SaveRecent();
         RaiseStatusChanged(session.SessionId);
@@ -283,17 +285,23 @@ public sealed class GoalModeController
     {
         int turns;
         CancellationToken token;
+        DateTimeOffset now;
+        ChatSession chat;
         lock (_sync)
         {
             if (session.IsEnded || session.IsRunning) return;
             session.CancelDelay();
             session.IsRunning = true;
             turns = ++session.Turns;
+            now = _now();
+            chat = session.Session;
             token = session.Token;
         }
 
-        // 每次唤醒（首轮除外）落一条带当前目标的提醒：改目标不落消息，靠这一句让模型以最新为准
-        if (turns > 1) Inject(session.Session, GoalModeTranscript.WakeNote(session.Goal));
+        // 每次唤醒（首轮除外）落一条带当前目标与时间的提醒：改目标不落消息，靠这一句让模型以最新为准；
+        // 时间也靠它——模型手上没有别的时钟。上次结束时刻取会话本体记的那个
+        // （末条消息落盘时刷新，见 ChatSession.UpdatedAt），这里不另存一份
+        if (turns > 1) Inject(chat, GoalModeTranscript.WakeNote(session.Goal, now, chat.UpdatedAt));
         RaiseStatusChanged(session.Session.SessionId);
         RunTurnAsync(session, token).LogOnFault("run a goal mode turn");
     }

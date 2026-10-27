@@ -10,6 +10,7 @@
 using System.Text;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
 
@@ -88,13 +89,13 @@ public static class BackgroundTaskReport
         string how = outcome.End switch
         {
             EBackgroundTaskEnd.Exited => $"已结束，退出码 {outcome.ExitCode?.ToString() ?? "未知"}",
-            EBackgroundTaskEnd.TimeLimit => $"跑满时间上限 {FormatDuration(task.MaxRuntime)} 被结束（连同它起的进程）",
+            EBackgroundTaskEnd.TimeLimit => $"跑满时间上限 {TimeUtils.FormatDuration(task.MaxRuntime)} 被结束（连同它起的进程）",
             EBackgroundTaskEnd.Stopped => "被用户叫停，没有跑完",
             _ => "在应用退出时被中止，没有跑完",
         };
 
         StringBuilder text = new();
-        text.Append($"你先前启动的后台任务 `{task.Id}`（{task.Description}）{how}，用时 {FormatDuration(outcome.Duration)}。");
+        text.Append($"你先前启动的后台任务 `{task.Id}`（{task.Description}）{how}，用时 {TimeUtils.FormatDuration(outcome.Duration)}。");
         text.Append($"完整输出在 `{task.LogPath}`。\n\n");
         if (tail.Length == 0)
         {
@@ -121,13 +122,6 @@ public static class BackgroundTaskReport
         }
 
         return new string('`', Math.Max(3, longest + 1));
-    }
-
-    internal static string FormatDuration(TimeSpan duration)
-    {
-        if (duration.TotalMinutes < 1) return $"{Math.Max(0, (int)duration.TotalSeconds)} 秒";
-        if (duration.TotalHours < 1) return $"{(int)duration.TotalMinutes} 分 {duration.Seconds} 秒";
-        return $"{(int)duration.TotalHours} 小时 {duration.Minutes} 分";
     }
 
     // 只取末尾:长任务的日志动辄上万行,结论几乎总在最后
