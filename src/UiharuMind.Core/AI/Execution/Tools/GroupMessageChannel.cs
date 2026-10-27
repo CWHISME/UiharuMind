@@ -51,22 +51,31 @@ internal static class GroupMessageChannel
     /// </summary>
     /// <param name="target">模型填的收件人（群名或短号）</param>
     /// <returns>命中的群元数据</returns>
-    internal static IReadOnlyList<ChatSessionMeta> Match(string target)
+    internal static IReadOnlyList<ChatSessionMeta> Match(string target) =>
+        FindGroups(SessionManager.Instance, target);
+
+    /// <summary>
+    /// 按短号或群名找群（可注入管理器，chatsession.dump 与 SendMessage 的 <c>to</c> 共用这一份解析）。
+    /// 先剥方括号编号（模型常把列表整行《名》[d5874adf]照抄进来），再剥书名号；
+    /// 短号优先——撞名报错给的是短号，模型照着填时按它认最准
+    /// </summary>
+    /// <param name="manager">会话管理器</param>
+    /// <param name="target">模型填的收件人（群名或短号）</param>
+    /// <returns>命中的群元数据</returns>
+    internal static IReadOnlyList<ChatSessionMeta> FindGroups(SessionManager manager, string target)
     {
-        // 先剥方括号编号：模型常把列表整行（《名》[d5874adf]）照抄进 to
         string wanted = target.Trim();
         Match bracketed = BracketedRef.Match(wanted);
         if (bracketed.Success) wanted = bracketed.Groups[1].Value;
-        // 再剥书名号：回执与列表里的群名带《》，模型常把它们一起拷贝进来
+        // 回执与列表里的群名带《》，模型常把它们一起拷贝进来
         wanted = wanted.Trim().Trim('《', '》', '「', '」');
         if (wanted.Length == 0) return [];
 
-        List<ChatSessionMeta> all = SessionManager.Instance.FindSessions(x => x.IsGroup)
+        List<ChatSessionMeta> all = manager.FindSessions(x => x.IsGroup)
             .OrderByDescending(x => x.UpdatedAt)
             .ToList();
         if (all.Count == 0) return [];
 
-        // 短号优先：撞名报错给的是短号，模型照着填时按它认最准
         List<ChatSessionMeta> byId = all
             .Where(x => x.SessionId.StartsWith(wanted, StringComparison.OrdinalIgnoreCase))
             .ToList();

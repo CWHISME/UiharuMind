@@ -190,6 +190,61 @@ public sealed class ChatSessionToolsTests : IDisposable
         Assert.DoesNotContain(path, text);
     }
 
+    /// <summary>显式 dump：空闲的群也按当前历史重写整份流水并给路径——与 list-groups「空闲不落痕」对照，这是主动要的</summary>
+    [Fact]
+    public void Dump_IdleGroup_WritesFullLogAndReturnsPath()
+    {
+        string parent = NewParent();
+        ChatSession group = CreateGroup("dump-闲着的群");
+        group.History.Add(new ChatMessage(ChatRole.User, "上一波说过的话"));
+
+        string text = ChatSessionTools.Dump(parent, group.Title, _manager);
+
+        string path = GroupLogFile.PathOf(group);
+        Assert.Contains(path, text);
+        Assert.True(File.Exists(path));
+        string body = File.ReadAllText(path);
+        Assert.Contains("dump-闲着的群", body);
+        Assert.Contains("上一波说过的话", body);
+    }
+
+    /// <summary>dump 子代理：历史导成 markdown（正文 + 工具调用原样参数）落到它的草稿目录并给路径</summary>
+    [Fact]
+    public void Dump_SubSession_WritesSessionMarkdown()
+    {
+        string parent = NewParent();
+        ChatSession sub = CreateSub(parent, "dump-评审草案");
+        sub.History.Add(new ChatMessage(ChatRole.User, "请评审代码"));
+        sub.History.Add(new ChatMessage(ChatRole.Assistant,
+        [
+            new TextContent("我先看看结构。"),
+            new FunctionCallContent("call-1", "file.glob", new Dictionary<string, object?> { ["pattern"] = "**/*.cs" }),
+        ]));
+
+        string text = ChatSessionTools.Dump(parent, SubSessionIdAlias.Short(sub.SessionId), _manager);
+
+        string path = Path.Combine(AgentBuildProfile.DraftRoomOf(sub),
+            SessionLogText.FileNameOf(SubSessionIdAlias.Short(sub.SessionId)));
+        Assert.Contains(path, text);
+        Assert.True(File.Exists(path));
+        string body = File.ReadAllText(path);
+        Assert.Contains("dump-评审草案", body);
+        Assert.Contains("请评审代码", body);
+        Assert.Contains("我先看看结构。", body);
+        Assert.Contains("file.glob", body);
+        Assert.Contains("\"pattern\"", body); //工具参数原样导出
+    }
+
+    /// <summary>查无此群/子代理时报错，并指路去哪看有哪些</summary>
+    [Fact]
+    public void Dump_Unknown_ReturnsError()
+    {
+        string text = ChatSessionTools.Dump("fake-parent", "不存在的群", _manager);
+
+        Assert.Contains("没有『不存在的群』", text);
+        Assert.Contains("list-groups", text);
+    }
+
     /// <summary>list-tasks 列本会话名下在跑的后台任务（含 SendMessage 自动起的等待任务）</summary>
     [Fact]
     public async Task ListTasks_ListsRunningTasks()

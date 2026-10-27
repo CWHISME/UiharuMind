@@ -117,6 +117,9 @@ public static class BuiltinExtensions
     /// <summary>chatsession：本会话名下在跑的后台任务（含 SendMessage 的等待任务）</summary>
     public const string ChatSessionTasks = "list-tasks";
 
+    /// <summary>chatsession：把群或子代理的流水导成一份 markdown（空闲的群也照导）</summary>
+    public const string ChatSessionDump = "dump";
+
     /// <summary>目标模式：结束（reason=done | needs_user，summary=给用户的交代）</summary>
     public const string GoalEnd = "end";
 

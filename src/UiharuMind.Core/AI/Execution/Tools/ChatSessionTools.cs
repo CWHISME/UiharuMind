@@ -56,6 +56,9 @@ public static class ChatSessionTools
     /// <summary>list-tasks：本会话名下在跑的后台任务（含 SendMessage 自动起的等待任务）</summary>
     public const string ListTasksToolName = "ChatSessionListTasks";
 
+    /// <summary>dump：把群或子代理的会话流水导成一份 markdown 并给路径（空闲的群也照导）</summary>
+    public const string DumpToolName = "ChatSessionDump";
+
     // 群多了全列占上下文，最近几个够看
     private const int MaxListedGroups = 5;
 
@@ -76,11 +79,11 @@ public static class ChatSessionTools
     private static readonly string SendMessageMention = $"`{SubAgentTool.MessageToolName}`";
 
     /// <summary>
-    /// 造七把工具
+    /// 造八把工具
     /// </summary>
     /// <param name="sessionId">当前会话标识；空串时报「不可用」（扩展装配时拦截）</param>
     /// <param name="workspacePath">当前会话的工作区；建群时默认绑它</param>
-    /// <returns>七把工具，list 在前</returns>
+    /// <returns>八把工具，list 在前</returns>
     public static IReadOnlyList<AITool> Create(string sessionId, string? workspacePath = null) =>
     [
         ToolJson.CreateFunction(() => ListSubSessions(sessionId), ListToolName,
@@ -111,6 +114,9 @@ public static class ChatSessionTools
             "强行停止本会话派出的一个正在跑的子代理。"),
         ToolJson.CreateFunction(() => ListTasks(sessionId), ListTasksToolName,
             "列出本会话名下在跑的后台任务（含 SendMessage 发群/发单聊后自动起的等待任务）。"),
+        ToolJson.CreateFunction(([Description("群名或短号，或本会话派出的子代理短号/完整标识")] string id) =>
+                Dump(sessionId, id), DumpToolName,
+            "把群或子代理的会话流水导成一份 markdown 并给出文件路径：id 填群名/短号导群流水（空闲也照导），填子代理短号/完整标识导它的会话历史（含工具调用原样参数）。"),
     ];
 
     /// <summary>
@@ -238,6 +244,72 @@ public static class ChatSessionTools
         foreach (ChatSessionMeta group in groups) sb.Append(DescribeGroup(group, manager));
         if (canSendToGroup) sb.Append($"往群里说一句用 {SendMessageMention}，`to` 填群名或短号。");
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// 主动把会话流水导成一份 markdown 并给路径。目标可以是群（id 按群名/短号认，与 SendMessage 的 <c>to</c>
+    /// 同一份解析）或本会话派出的子代理（短号/完整标识）。
+    /// 显式请求：空闲的群也照导——list-groups 只给在跑群的流水（查询不落痕），「主动要一份当前全量」走这里
+    /// </summary>
+    /// <param name="sessionId">查询方会话标识（子代理范围限定在它名下的）</param>
+    /// <param name="id">群名/短号，或子代理短号/完整标识</param>
+    /// <param name="manager">会话管理器；缺省用全局实例（测试传自建的隔离实例）</param>
+    /// <returns>给模型的回执（含流水文件路径）</returns>
+    internal static string Dump(string sessionId, string id, SessionManager? manager = null)
+    {
+        manager ??= SessionManager.Instance;
+        string target = id.Trim();
+        if (target.Length == 0)
+        {
+            return $"Error: 要导出的会话标识不能为空。群用 {GroupsMention} 看有哪些，子代理用 {ListToolName} 看有哪些。";
+        }
+
+        // 群与子代理各自解析，再合并判断：短号可能同时撞群与子代理，两者都查才报得准
+        IReadOnlyList<ChatSessionMeta> groups = GroupMessageChannel.FindGroups(manager, target);
+        IReadOnlyList<ChatSessionMeta> subs = SubSessionIdAlias.Match(sessionId, target, manager);
+        return (groups.Count + subs.Count) switch
+        {
+            0 => $"Error: 没有『{target}』这个群或子代理。群用 {GroupsMention} 看有哪些，子代理用 {ListToolName} 看有哪些。",
+            1 when groups.Count == 1 => DumpGroup(groups[0], manager),
+            1 => DumpSession(subs[0], manager),
+            _ => $"Error: 『{target}』匹配了 {groups.Count} 个群和 {subs.Count} 个子代理，改用完整标识或独一份的群名再来。",
+        };
+    }
+
+    private static string DumpGroup(ChatSessionMeta group, SessionManager manager)
+    {
+        // SnapshotOf 会按当前历史重写整份流水（离席中只给已有文件）——对空闲群重写是这次显式请求要的，不是 list-groups 那种查询副作用
+        return SnapshotOf(group, manager) is { } path
+            ? $"《{group.Title}》流水已写到 {path}（当前 {group.MessageCount} 条发言）。读它看谁说了什么。"
+            : $"Error: 写《{group.Title}》的流水失败（临时会话不落盘/离席中/写盘失败）。";
+    }
+
+    private static string DumpSession(ChatSessionMeta meta, SessionManager manager)
+    {
+        ChatSession? body = manager.GetLoaded(meta.SessionId) ?? manager.Load(meta.SessionId);
+        if (body == null)
+        {
+            return $"Error: 会话《{meta.Title}》打不开。";
+        }
+
+        StringBuilder text = new();
+        text.Append(SessionLogText.BuildHeading(body.Title));
+        foreach (ChatMessage message in body.History) text.Append(SessionLogText.FormatMessage(message));
+        text.Append(SessionLogText.FormatUsage(body.TotalInputTokens, body.TotalOutputTokens));
+
+        string path = Path.Combine(AgentBuildProfile.DraftRoomOf(body),
+            SessionLogText.FileNameOf(SubSessionIdAlias.Short(meta.SessionId)));
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, text.ToString());
+        }
+        catch (Exception e)
+        {
+            return $"Error: 写《{body.Title}》的流水失败：{e.Message}";
+        }
+
+        return $"《{body.Title}》流水已写到 {path}（{body.History.Count} 条消息）。读它看这一路的完整过程。";
     }
 
     /// <summary>
@@ -473,8 +545,10 @@ public static class ChatSessionTools
     /// 写不出来为 null（告警在 <see cref="GroupLogFile"/> 里）。
     /// 为它得加载群壳本体——历史就是那份流水，而群正在跑时正是要读它的时候。
     ///
-    /// ⚠️ 只在群<b>在跑</b>时调用：空闲时给一份「上次写到哪」的旧文件，模型会把它当成结论读
-    /// （见 <see cref="GroupLogFile.TrySnapshot"/> 的注释）
+    /// ⚠️ 调用方自己把关重写时机：<c>list-groups</c> 只在群<b>在跑</b>时调（空闲时给一份「上次写到哪」的
+    /// 旧文件，模型会把它当成结论读——见 <see cref="GroupLogFile.TrySnapshot"/> 的注释）；
+    /// <c>chatsession.dump</c> 显式请求时对空闲群也调——主动要一份当前全量，重写不是查询副作用。
+    /// 离席中的重写由 <see cref="GroupLogFile.TrySnapshot"/> 自己挡（行号水位），这里不需要再判断
     /// </summary>
     private static string? SnapshotOf(ChatSessionMeta group, SessionManager manager)
     {
