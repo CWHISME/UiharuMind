@@ -26,6 +26,8 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <!-- 真实响应的 fixture（-empty 是实测原文脱敏，-pro 的窗口字段名仍假拟） -->
+    <None Include="AI/Status/fixtures/*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

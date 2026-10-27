@@ -727,7 +727,7 @@ public class ChatSession
     [JsonIgnore]
     public ModelRunningData? ChatModelRunningData
     {
-        get => _modelRunningData ?? FindModelByName(SessionModelName) ?? LlmManager.Instance.CurrentRunningModel;
+        get => OwnModelRunningData ?? LlmManager.Instance.CurrentRunningModel;
         set
         {
             _modelRunningData = value;
@@ -736,6 +736,17 @@ public class ChatSession
             if (value != null) SessionModelName = value.ModelName;
         }
     }
+
+    /// <summary>
+    /// 本会话<b>自己</b>指定的模型（运行期覆写或钉的名字），<b>不回落全局</b>。
+    ///
+    /// 与 <see cref="ChatModelRunningData"/> 的差别就在这一条回落上：后者会把「本会话没指定」
+    /// 变成「全局当前模型」，于是看不出这个会话到底有没有自己的选择。
+    /// 顶栏的供应商额度读数要的就是后者（会话有钉选就报那家），
+    /// 所以单独开一个口，不改既有那条的语义。
+    /// </summary>
+    [JsonIgnore]
+    public ModelRunningData? OwnModelRunningData => _modelRunningData ?? FindModelByName(SessionModelName);
 
     private static ModelRunningData? FindModelByName(string? modelName)
     {

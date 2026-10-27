@@ -1193,6 +1193,37 @@ _Avoid_: 世界书、百科、lorebook
 
 ---
 
+## 供应商状态域
+
+### 供应商状态（Provider Status）
+
+聊天页顶栏模型选择器右边那条读数：**额度窗口、计费时段、凭据异常**。三件事都绑在
+「当前哪家供应商、哪个模型」上，所以按供应商接入而不是按 CC 写死。见
+[ADR 0094](adr/0094-聊天页顶栏供应商状态，账户级与模型级分开按注册表接入.md)。
+体现为 `ProviderStatusService`（取数/缓存/单飞/退避）、`ProviderStatusRegistry`（configType → 注册项）、
+`ProviderStatusViewData`（文案与倒计时）、`ProviderStatusIndicator`（顶栏那一条）。
+
+**跟谁走**：跟着**本会话真正会发请求的那个模型**走（`ConversationViewModel.ServingModel`——
+会话钉的优先、指望不上就落全局），所以它归会话页持有，不是全应用一份。
+同时配了多家供应商也不打架：任何时刻顶栏只代表「这个会话现在用的那家」，切会话或改钉选当场换口径。
+
+⚠️ 不要与 `ConversationUsageViewData`（这一轮/这个上下文用了多少 token）混淆：
+一个讲**账户额度**，一个讲**本次上下文**。也不要与 `LocalUsageIndicator`（本机内存与 CPU）混淆。
+
+### 账户级 / 模型级（Account-level vs Model-level）
+
+**账户级**：额度窗口、余额、计划名、凭据异常——接口给的，同一把 key 下**跨模型共享**，按账户缓存。
+**模型级**：高峰倍率、免费、促销——**本地时钟现算**，每次按当前 `ModelId` 重算，不进账户级快照。
+
+⚠️ 两者混进同一份缓存会出事：切模型命中同一份账户缓存，会把上一个模型的高峰徽章带过来。
+
+### 额度窗口（Meter）
+
+账户额度的滚动窗口，如 CC 的 5 小时 / 周。一条 `ProviderUsageMeter` 只有「已用 / 上限 / 重置时刻」；
+「接近上限」「已打满」是同一个数字的两种读法（`ProviderStatusRules`，0.9 / 1.0），不是两个数据源。
+
+---
+
 ## 结构术语
 
 ### Feature（功能切片）

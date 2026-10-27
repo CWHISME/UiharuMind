@@ -1,0 +1,48 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:usage="clr-namespace:UiharuMind.Features.Models.Usage"
+             x:Class="UiharuMind.Features.Models.Usage.ProviderStatusPanel"
+             x:DataType="usage:ProviderStatusViewData">
+    <!-- 供应商读数点开的明细：各窗口一条、余额、数据年龄。
+         「额度是账户级的」这行是必须的：用户切模型看到读数不变，否则会以为坏了 -->
+    <StackPanel Width="320" Spacing="10" Margin="4">
+        <TextBlock Text="{Binding PanelTitle}" FontWeight="SemiBold" />
+
+        <StackPanel Spacing="4" IsVisible="{Binding HasCredentialWarning}">
+            <TextBlock Text="{Binding CredentialHint}" FontSize="12" TextWrapping="Wrap"
+                       Foreground="{DynamicResource MessageStatusErrorBrush}" />
+        </StackPanel>
+
+        <ItemsControl ItemsSource="{Binding MeterRows}" IsVisible="{Binding HasMeters}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Spacing="8" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="usage:ProviderStatusMeterRow">
+                    <StackPanel Spacing="3">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                            <TextBlock Text="{Binding Label}" FontSize="12" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" Text="{Binding PercentText}" FontSize="12"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                        <ProgressBar Minimum="0" Maximum="1" Value="{Binding Ratio}" Height="6"
+                                     MinHeight="6" CornerRadius="3" />
+                        <TextBlock Text="{Binding ResetText}" Classes="muted" FontSize="11"
+                                   IsVisible="{Binding HasReset}" />
+                    </StackPanel>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <TextBlock Text="{Binding BalanceText}" FontSize="12" IsVisible="{Binding HasBalance}" />
+
+        <Separator />
+        <TextBlock Text="{loc:Loc ProviderStatusAccountLevelHint}" Classes="muted" FontSize="12"
+                   TextWrapping="Wrap" />
+        <TextBlock Text="{Binding DataAgeText}" Classes="muted" FontSize="12"
+                   IsVisible="{Binding DataAgeText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+    </StackPanel>
+</UserControl>

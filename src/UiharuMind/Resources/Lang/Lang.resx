@@ -6048,4 +6048,73 @@ Enable it?</value>
     <data name="DesktopElementPoint" xml:space="preserve">
         <value>the point ({0}) in the window</value>
     </data>
+    <data name="ProviderStatusSlotFiveHour" xml:space="preserve">
+        <value>5h</value>
+    </data>
+    <data name="ProviderStatusSlotWeekly" xml:space="preserve">
+        <value>Week</value>
+    </data>
+    <data name="ProviderStatusSlotMonthly" xml:space="preserve">
+        <value>Month</value>
+    </data>
+    <data name="ProviderStatusResetsIn" xml:space="preserve">
+        <value>resets in {0}</value>
+    </data>
+    <data name="ProviderStatusPeakBadge" xml:space="preserve">
+        <value>Peak ×{0} · {1}</value>
+    </data>
+    <data name="ProviderStatusPromoBadge" xml:space="preserve">
+        <value>{0}× credits</value>
+    </data>
+    <data name="ProviderStatusFreeModel" xml:space="preserve">
+        <value>Free</value>
+    </data>
+    <data name="ProviderStatusCredentialInvalid" xml:space="preserve">
+        <value>Invalid key</value>
+    </data>
+    <data name="ProviderStatusCredentialHint" xml:space="preserve">
+        <value>The key is expired or revoked; replace it in the model settings.</value>
+    </data>
+    <data name="ProviderStatusAccountLevelHint" xml:space="preserve">
+        <value>Quota is account-level, shared across models</value>
+    </data>
+    <data name="ProviderStatusDataAge" xml:space="preserve">
+        <value>{0} ago</value>
+    </data>
+    <data name="ProviderStatusDataStale" xml:space="preserve">
+        <value>{0} ago · not updating</value>
+    </data>
+    <data name="ProviderStatusBalance" xml:space="preserve">
+        <value>Balance {0}{1}</value>
+    </data>
+    <data name="ProviderStatusSpanSeconds" xml:space="preserve">
+        <value>{0}s</value>
+    </data>
+    <data name="ProviderStatusSpanMinutes" xml:space="preserve">
+        <value>{0}m</value>
+    </data>
+    <data name="ProviderStatusSpanHours" xml:space="preserve">
+        <value>{0}h {1}m</value>
+    </data>
+    <data name="ProviderStatusSpanDays" xml:space="preserve">
+        <value>{0}d {1}h</value>
+    </data>
+    <data name="ProviderStatusTip" xml:space="preserve">
+        <value>Provider status: quota, pricing window and credentials</value>
+    </data>
+    <data name="ProviderStatusAgeSeconds" xml:space="preserve">
+        <value>{0}s</value>
+    </data>
+    <data name="ProviderStatusAgeMinutes" xml:space="preserve">
+        <value>{0}m {1}s</value>
+    </data>
+    <data name="ProviderStatusAgeHours" xml:space="preserve">
+        <value>{0}h {1}m</value>
+    </data>
+    <data name="ProviderStatusRefreshing" xml:space="preserve">
+        <value>refreshing…</value>
+    </data>
+    <data name="ProviderStatusDataJustNow" xml:space="preserve">
+        <value>updated just now</value>
+    </data>
 </root>

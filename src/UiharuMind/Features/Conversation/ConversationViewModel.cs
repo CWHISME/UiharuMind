@@ -25,7 +25,9 @@ using System;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Core.AI.Audio;
+using UiharuMind.Core.AI.Status;
 using UiharuMind.Features.Audio;
+using UiharuMind.Features.Models.Usage;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Execution;
@@ -273,6 +275,51 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             return string.Format(Loc.Text(LangKey.SessionModelDefaultFormat), name);
         }
     }
+
+    /// <summary>
+    /// 本会话的供应商额度读数（会话头里模型名右边那条）。<b>归会话视图模型持有</b>——
+    /// 它报的是「这个会话用的那家供应商」的额度，所以它的生死跟着会话视图模型走，
+    /// 不是跟着页面或全局。
+    ///
+    /// 取数与轮询归公共调度器（<c>ProviderStatusHub</c>）管：多个会话/窗口同时看着同一家供应商时，
+    /// 一共一个拍子、一次请求（ADR 0094）。
+    /// </summary>
+    public ProviderStatusViewData ProviderStatus { get; }
+
+    /// <summary>
+    /// 本会话<b>自己指定</b>的模型：已落盘的钉选 / 运行期覆写；空态看右栏面板里选好还没发出去的那个。
+    /// <b>不回落全局</b>——「本会话没指定」就是没指定，不是「跟全局走」。
+    ///
+    /// 顶栏的供应商额度读数按它决定报哪家（ADR 0094）：会话钉了哪家就报哪家，
+    /// 没钉才看全局当前选择。
+    /// </summary>
+    public ModelRunningData? SessionOwnModel
+    {
+        get
+        {
+            ChatSession? session = CurrentSession;
+            if (session != null) return session.OwnModelRunningData;
+            string? draft = SessionModel?.PeekDraft();
+            return draft == null ? null : LlmManager.Instance.CacheModelDictionary.GetValueOrDefault(draft);
+        }
+    }
+
+    /// <summary>
+    /// 这个会话此刻「实际会用哪家供应商」：会话自己指定的优先，钉着但指望不上（本地没在跑）就落全局。
+    /// 与 <see cref="ServingModel"/> 同一条判据，只是取的是「候选」那一侧——额度读数要报的是
+    /// 这个会话指给哪家供应商，不是请求最后发给了谁。
+    /// </summary>
+    private ModelRunningData? EffectiveStatusModel() =>
+        LazyChatClient.ServingModel(SessionOwnModel, LlmManager.Instance.CurrentRunningModel);
+
+    /// <summary>
+    /// 本会话<b>真正会用来发请求</b>的模型：会话钉的优先，钉着但指望不上（本地没在跑）就落全局。
+    ///
+    /// 顶栏的供应商额度读数按它决定报哪家（ADR 0094）——判据与 <see cref="ContextLength"/> 和请求路径
+    /// 同一条（<c>LazyChatClient.ServingModel</c>），否则会出现「读数报 A 家、请求其实发给 B 家」。
+    /// </summary>
+    public ModelRunningData? ServingModel =>
+        LazyChatClient.ServingModel(CurrentSession?.ChatModelRunningData, LlmManager.Instance.CurrentRunningModel);
 
     //================= 工具行图标态(Tag 驱动颜色 + 悬停提示当前值) =================
     // 文案与状态键全在 ConversationModeLabels,这里只是绑定用的转发
@@ -661,6 +708,15 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             path => Group?.ConfirmWorkspaceChangeAsync(path) ?? Task.FromResult(true));
         SessionModel = new SessionModelViewData(() => CurrentMeta, () => _isLoadingSession, OnSessionModelChanged);
         SessionModel.Refresh();
+        // 供应商额度读数。放在 SessionModel 之后建：它的目标解析要读那份面板的草稿，
+        // 而订阅读数那一刻会立刻取一次（挂在公共调度器上），早建会读到还没准备好的状态
+        ProviderStatus = new ProviderStatusViewData(
+            () => ProviderStatusContextFactory.TryCreate(EffectiveStatusModel()), ProviderStatusService.Shared);
+        // 会话换模型（钉选变了或全局换了）→ 读数当场改口径
+        PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SessionModelLabel)) ProviderStatus.Pump();
+        };
         StartupPhaseProbe.End("vm/sub:workspace+sessionmodel", workspaceBegin);
 
         _transcript = new ConversationTranscript(Items, () => ConversationItemFactory.CreateAssistant(_currentCharacter),
@@ -1081,6 +1137,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         CurrentSession?.SaveDraft();
 
         LlmManager.Instance.OnCurrentModelChanged -= OnCurrentModelChanged;
+        ProviderStatus.Dispose(); //从公共调度器退订：这份读数随会话视图模型一起走
         SessionModel.Dispose();
         LocalizationManager.Instance.LanguageChanged -= OnLanguageChanged;
         if (Application.Current is { } app) app.ActualThemeVariantChanged -= OnWorkspaceThemeVariantChanged;
@@ -1583,6 +1640,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 Usage.RefreshCoalesced(force: true);
                 // 这轮结束还没消费的插话不会再有机会被这轮消费,留着只会让下一轮莫名收到旧话
                 _ = Interjections.CancelAllAsync();
+                // 一轮跑完额度大概变了。挂在 Ended 而不是 OnObservedTurnEnded：后者对自己那一轮
+                // 直接早退(`_driver.IsRunning`)，而用户自己发的那一轮正是烧额度的那一轮（ADR 0094）
+                ProviderStatus.NotifyTurnEnded();
                 break;
 
             case ETurnNotice.Failed:

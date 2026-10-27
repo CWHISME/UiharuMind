@@ -5,6 +5,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:u="https://irihi.tech/ursa"
              xmlns:composer="clr-namespace:UiharuMind.Features.Conversation.Composer"
+             xmlns:usage="clr-namespace:UiharuMind.Features.Models.Usage"
              xmlns:conv="clr-namespace:UiharuMind.Features.Conversation"
              xmlns:group="clr-namespace:UiharuMind.Features.Conversation.Group"
              xmlns:items="clr-namespace:UiharuMind.Features.Conversation.Items"
@@ -95,7 +96,10 @@
                              SessionModelPanel,右栏那两份已撤掉,一个值不再有两处能改 -->
                         <!-- HorizontalAlignment=Left 不能省:text-row 此前只用在 Auto 宽度的槽里
                              (会话编号那个),放进 * 列才暴露出内容是居中的,模型名会缩进一块 -->
-                        <Button Classes="text-row" Padding="0"
+                        <!-- 模型名与读数并排:内层网格让读数紧贴模型名右边(不是被 * 列推到行尾)。
+                             模型名按内容宽、最长 320px 截断,读数占剩下的余量 -->
+                        <Grid Grid.Column="0" ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                        <Button Grid.Column="0" Classes="text-row" Padding="0" MaxWidth="320"
                                 HorizontalAlignment="Left" HorizontalContentAlignment="Left"
                                 IsVisible="{Binding SessionModelLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                             <TextBlock Classes="muted"
@@ -116,6 +120,14 @@
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
+                        <!-- 供应商额度读数：紧贴<b>本会话</b>用的模型名——它报的就是这家供应商的额度,
+                             放在会话头才名实相符(顶栏那个模型下拉是全局选择,与本会话未必是一家)。
+                             没数据不占位;取数与轮询归公共调度器(ADR 0094) -->
+                        <usage:ProviderStatusIndicator Grid.Column="1" HorizontalAlignment="Left"
+                                                       VerticalAlignment="Center"
+                                                       Data="{Binding ProviderStatus}" />
+                        </Grid>
+
                         <!-- 会话编号:ContinueSubAgent、日志与 Agent/Workspaces 房间目录认的都是它。
                              显示短写省地方,点一下复制的是全串(悬停可见) -->
                         <Button Grid.Column="1" Classes="text-row"

@@ -1,0 +1,25 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:usage="clr-namespace:UiharuMind.Features.Models.Usage"
+             x:Class="UiharuMind.Features.Models.Usage.ProviderStatusIndicator">
+    <!-- 顶栏那条供应商读数：额度百分比 + 计费徽章，点开是明细。
+         常态不出状态点——顶栏左侧已有本机占用那个点，再并一个绿点只会让两个点互相稀释；
+         接近上限转黄、打满或凭据失效才出点。整块没数据时只藏 Trigger（不藏自己），
+         与 LocalUsageIndicator 的取舍一致 -->
+    <Button Name="Trigger" Classes="text-row" Padding="4,2" IsVisible="False"
+            ToolTip.Tip="{loc:Loc ProviderStatusTip}">
+        <StackPanel Orientation="Horizontal" Spacing="6">
+            <Border Name="Dot" Classes="status-dot" Tag="Ready" IsVisible="False" />
+            <TextBlock Name="Readout" Classes="muted" FontSize="12" VerticalAlignment="Center"
+                       MaxWidth="200" TextTrimming="CharacterEllipsis" />
+            <controls:KindBadge Name="Badge" BadgeBackground="Gold" IsVisible="False" />
+        </StackPanel>
+        <Button.Flyout>
+            <Flyout Placement="BottomEdgeAlignedRight">
+                <usage:ProviderStatusPanel Name="Panel" />
+            </Flyout>
+        </Button.Flyout>
+    </Button>
+</UserControl>

@@ -6043,4 +6043,73 @@
     <data name="DesktopElementPoint" xml:space="preserve">
         <value>窗口内的位置（{0}）</value>
     </data>
+    <data name="ProviderStatusSlotFiveHour" xml:space="preserve">
+        <value>5h</value>
+    </data>
+    <data name="ProviderStatusSlotWeekly" xml:space="preserve">
+        <value>周</value>
+    </data>
+    <data name="ProviderStatusSlotMonthly" xml:space="preserve">
+        <value>月</value>
+    </data>
+    <data name="ProviderStatusResetsIn" xml:space="preserve">
+        <value>{0}后重置</value>
+    </data>
+    <data name="ProviderStatusPeakBadge" xml:space="preserve">
+        <value>高峰 ×{0} · {1}</value>
+    </data>
+    <data name="ProviderStatusPromoBadge" xml:space="preserve">
+        <value>{0}× 额度</value>
+    </data>
+    <data name="ProviderStatusFreeModel" xml:space="preserve">
+        <value>免费</value>
+    </data>
+    <data name="ProviderStatusCredentialInvalid" xml:space="preserve">
+        <value>密钥无效</value>
+    </data>
+    <data name="ProviderStatusCredentialHint" xml:space="preserve">
+        <value>密钥已过期或被吊销，到模型设置里换一把</value>
+    </data>
+    <data name="ProviderStatusAccountLevelHint" xml:space="preserve">
+        <value>额度是账户级的，跨模型共享</value>
+    </data>
+    <data name="ProviderStatusDataAge" xml:space="preserve">
+        <value>数据 {0}前</value>
+    </data>
+    <data name="ProviderStatusDataStale" xml:space="preserve">
+        <value>数据 {0}前 · 未更新</value>
+    </data>
+    <data name="ProviderStatusBalance" xml:space="preserve">
+        <value>余额 {0}{1}</value>
+    </data>
+    <data name="ProviderStatusSpanSeconds" xml:space="preserve">
+        <value>{0}秒</value>
+    </data>
+    <data name="ProviderStatusSpanMinutes" xml:space="preserve">
+        <value>{0}分</value>
+    </data>
+    <data name="ProviderStatusSpanHours" xml:space="preserve">
+        <value>{0}时{1}分</value>
+    </data>
+    <data name="ProviderStatusSpanDays" xml:space="preserve">
+        <value>{0}天{1}时</value>
+    </data>
+    <data name="ProviderStatusTip" xml:space="preserve">
+        <value>供应商状态：额度、计费时段与凭据</value>
+    </data>
+    <data name="ProviderStatusAgeSeconds" xml:space="preserve">
+        <value>{0}秒</value>
+    </data>
+    <data name="ProviderStatusAgeMinutes" xml:space="preserve">
+        <value>{0}分{1}秒</value>
+    </data>
+    <data name="ProviderStatusAgeHours" xml:space="preserve">
+        <value>{0}时{1}分</value>
+    </data>
+    <data name="ProviderStatusRefreshing" xml:space="preserve">
+        <value>更新中…</value>
+    </data>
+    <data name="ProviderStatusDataJustNow" xml:space="preserve">
+        <value>数据 刚刚</value>
+    </data>
 </root>

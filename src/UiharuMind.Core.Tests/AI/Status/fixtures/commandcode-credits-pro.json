@@ -1,0 +1,17 @@
+{
+  "credits": {
+    "belowThreshold": false,
+    "creditThreshold": 1,
+    "monthlyCredits": 12.4,
+    "purchasedCredits": 5,
+    "freeCredits": 0
+  },
+  "windowLimits": {
+    "limited": true,
+    "exceeded": null,
+    "fiveHour": { "used": 3.2, "limit": 10, "resetsAt": "2026-10-27T13:12:00Z" },
+    "weekly": { "used": 41, "limit": 100, "resetsAt": "2026-10-29T16:00:00Z" }
+  },
+  "sandboxAccess": true,
+  "sandboxMinutes": 120
+}
