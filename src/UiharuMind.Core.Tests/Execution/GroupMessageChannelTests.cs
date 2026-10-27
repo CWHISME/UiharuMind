@@ -97,7 +97,7 @@ public sealed class GroupMessageChannelTests
     [Fact]
     public void BuildGroupReport_PointsAtTheGroupLogWhenItCannotBeWritten()
     {
-        ChatSession group = NewGroup();
+        ChatSession group = NewGroup(transient: true);
         group.History.Add(MemberPost("初春", "说完了"));
 
         string report = GroupMessageChannel.BuildGroupReport(0, Summary(group, 0, 1, stopped: false));
@@ -124,7 +124,8 @@ public sealed class GroupMessageChannelTests
         Assert.Contains("说完了", File.ReadAllText(path)); //写的是这一波的最新历史，不是旧快照
     }
 
-    private static ChatSession NewGroup() => new() { Title = "评审群", IsGroup = true, IsAgentGroup = true };
+    private static ChatSession NewGroup(bool transient = false) =>
+        new() { Title = "评审群", IsGroup = true, IsAgentGroup = true, IsTransient = transient };
 
     private static ChatMessage MemberPost(string name, string text)
     {
