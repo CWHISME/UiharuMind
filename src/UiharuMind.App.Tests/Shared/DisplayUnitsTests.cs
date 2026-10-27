@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Layout;
 using UiharuMind.Shared.Utils;
 
 namespace UiharuMind.App.Tests.Shared;
@@ -120,5 +121,84 @@ public class DisplayUnitsTests
         Assert.Equal(2.0, DisplayUnits.PixelsPerDip(1.0, 2.0));
         Assert.Equal(1.0, DisplayUnits.PositionUnitsPerDip(1.0, 2.0));
         Assert.Equal(2.0, DisplayUnits.ScreenBoundsToPixels(1.0, 2.0));
+    }
+
+    // 对齐的目标不是「ceil 后的任意整像素」，而是托管 resize 能原样保持的像素：
+    // 平台后端把 DIP 转像素用 (int)(DIP × scale) 截断（Win32 WindowImpl.Resize、X11 同款），
+    // 截不回自身的像素会被随后的托管 resize 二次改小 1px，窗口真实尺寸与记账分叉，逐格缩放就是抖动。
+    // 两条回灌路径都要过同一个截断判定（见 DisplayUnits.IsHeldAtPixelSize）：
+    // 1. 原生改尺寸 → WM_SIZE → ClientSize = 像素/scale 回灌；
+    // 2. Width/Height → 布局圆整（RoundLayoutValueUp）→ 截断。
+    [Theory]
+    [InlineData(400, 1.0)]
+    [InlineData(400.3, 1.0)]
+    [InlineData(400.3, 1.5)]
+    [InlineData(585.64, 1.5)]
+    [InlineData(779.48, 1.25)]
+    [InlineData(137.3, 1.75)]
+    [InlineData(503.7, 1.4)]
+    [InlineData(611.2, 1.8)]
+    [InlineData(233.33, 1.3)]
+    [InlineData(999.99, 1.1)]
+    [InlineData(1200.5, 2.25)]
+    public void SnapToPixels_LandsOnHeldPixelSize(double dip, double scaling)
+    {
+        if (OperatingSystem.IsMacOS()) return; // mac 的 setFrame 收 CGFloat，不参与对齐
+
+        Size snapped = DisplayUnits.SnapToPixels(new Size(dip, dip), scaling);
+        int px = (int)Math.Round(snapped.Width * scaling);
+        Assert.Equal(px, (int)Math.Round(snapped.Height * scaling));
+
+        // 路径 1：原生尺寸回灌的 ClientSize = px/scale，截断必须截回自身
+        Assert.Equal(px, (int)((px / scaling) * scaling));
+        // 路径 2：Width/Height 先过布局圆整再截断，同样必须截回自身
+        Assert.Equal(px, (int)(LayoutHelper.RoundLayoutValueUp(snapped.Width, scaling) * scaling));
+    }
+
+    // 收敛只能往下走（不许长过理想尺寸，避免顶穿 MaxWidth 之类的钳制），且最多只让出几个像素
+    [Theory]
+    [InlineData(400.3, 1.5)]
+    [InlineData(585.64, 1.5)]
+    [InlineData(137.3, 1.75)]
+    [InlineData(503.7, 1.4)]
+    [InlineData(611.2, 1.8)]
+    [InlineData(233.33, 1.3)]
+    [InlineData(999.99, 1.1)]
+    public void SnapToPixels_StaysCloseToIdealCeil(double dip, double scaling)
+    {
+        if (OperatingSystem.IsMacOS()) return;
+
+        Size snapped = DisplayUnits.SnapToPixels(new Size(dip, dip), scaling);
+        int ideal = (int)Math.Ceiling(dip * scaling);
+        int px = (int)Math.Round(snapped.Width * scaling);
+
+        Assert.InRange(px, ideal - 3, ideal);
+    }
+
+    // 尺寸记账每一格都会再对齐一次，必须幂等：否则每滚一格就莫名长胖 1px，缩放会失控
+    [Theory]
+    [InlineData(586.0, 1.5)]
+    [InlineData(400.8, 1.25)]
+    [InlineData(532.4, 1.5)]
+    [InlineData(1141.24, 1.5)]
+    public void SnapToPixels_IsIdempotent(double dip, double scaling)
+    {
+        if (OperatingSystem.IsMacOS()) return;
+
+        Size once = DisplayUnits.SnapToPixels(new Size(dip, dip), scaling);
+        Size twice = DisplayUnits.SnapToPixels(once, scaling);
+
+        Assert.Equal(once, twice);
+    }
+
+    // mac 的 NSWindow frame 是 CGFloat，对齐反而会引入平台特有的尺寸台阶
+    [Fact]
+    public void SnapToPixels_LeavesMacAlone()
+    {
+        if (!OperatingSystem.IsMacOS()) Assert.Skip("验证 mac 不做像素对齐,非 mac 平台跳过");
+
+        Size size = new(400.3, 300.7);
+
+        Assert.Equal(size, DisplayUnits.SnapToPixels(size, 2.0));
     }
 }

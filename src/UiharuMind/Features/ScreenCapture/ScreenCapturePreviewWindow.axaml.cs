@@ -48,6 +48,12 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
 
     private PixelVector _dragGrabOffset; //按下那一刻，全局鼠标相对窗口左上的偏移
     private bool _isDragging;
+
+    // Windows 自绘拖动：系统拖动循环不许窗口离开屏幕，只能自己按全局光标搬
+    private Point _dragOffsetDip; // 同上的偏移，但存 DIP —— 跨屏 DPI 变了按新倍率换算才不错位
+    private bool _managedDrag;
+    private bool _dragCommitQueued;
+
     private Size _originSize;
     private Size _maxDisplaySize = new(double.PositiveInfinity, double.PositiveInfinity);
     private double _aspectRatio = 1.0f;
@@ -528,25 +534,75 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
 
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
 
-        // 窗口本身交给系统拖动循环（mac 下是 performWindowDragWithEvent:），与其它窗口一致；
-        // 手写位移在跨屏时会抖（窗内坐标按旧 frame 算，却要和已移动的 Position 相加，残差每帧回灌）。
-        // 停靠栏跟随则不能再问窗口在哪，改用按下时记下的抓取偏移，按全局鼠标反推，见 DockAnchorPosition
+        // mac 交给系统拖动循环（performWindowDragWithEvent:），本来就允许拖出屏幕；
+        // Windows 的系统拖动循环（SC_MOVE）会把无边框窗当成「整窗都是标题栏」，卡在屏幕边挪不出去，
+        // 所以 Windows 走自绘拖动：全局光标定位置 + 每帧一次原子提交，位置不再问窗口自己（见 CommitDrag）。
+        // 停靠栏跟随也不能再问窗口在哪，改用按下时记下的抓取偏移按全局鼠标反推，见 DockAnchorPosition
         if (!App.ScreensService.IsMousePositionReliable) return;
         _dragGrabOffset = App.ScreensService.MousePosition - Position;
+        double dragUnits = DisplayUnits.WindowPositionUnitsPerDip(this);
+        // 抓取偏移存 DIP：跨屏 DPI 变化时按新屏的倍率换算，才不会突然错位一段
+        _dragOffsetDip = dragUnits > 0
+            ? new Point(_dragGrabOffset.X / dragUnits, _dragGrabOffset.Y / dragUnits)
+            : new Point(0, 0);
         BeginDrag();
-        BeginMoveDrag(e);
+        if (OperatingSystem.IsWindows()) BeginManagedDrag();
+        else BeginMoveDrag(e);
     }
 
-    // 系统拖动期间窗口照常收得到移动事件（只有 Position 是滞后的），跟随就挂在这里
+    // 系统拖动期间窗口照常收得到移动事件（只有 Position 是滞后的），跟随就挂在这里。
+    // 自绘拖动每帧自己在 CommitDrag 里触发跟随，这里不用重复推
     protected override void OnPointerMoved(PointerEventArgs e)
     {
-        if (!_isDragging) return;
+        if (!_isDragging || _managedDrag) return;
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
             EndDrag();
             return;
         }
 
+        DockAnchorChanged?.Invoke();
+    }
+
+    // 自绘拖动：Windows 专用。系统拖动循环不允许把窗口拖出屏幕，只能自己按全局光标搬。
+    // 只在 UI 线程上提交、且每帧最多一次：钩子线程只负责敲门，位置一律在提交那一刻现取
+    private void BeginManagedDrag()
+    {
+        if (_managedDrag) return;
+        _managedDrag = true;
+        InputManager.Instance.EventOnMouseMoved += OnHookMoved;
+    }
+
+    private void EndManagedDrag()
+    {
+        if (!_managedDrag) return;
+        _managedDrag = false;
+        InputManager.Instance.EventOnMouseMoved -= OnHookMoved;
+    }
+
+    // 钩子线程回调，只转发；同帧多次移动合并成一次提交
+    private void OnHookMoved(SharpHook.Data.MouseEventData data)
+    {
+        if (!_managedDrag || _dragCommitQueued) return;
+        _dragCommitQueued = true;
+        Dispatcher.UIThread.Post(CommitDrag, DispatcherPriority.Render);
+    }
+
+    private void CommitDrag()
+    {
+        _dragCommitQueued = false;
+        if (!_managedDrag || !IsVisible || _currentSize.Width <= 0 || _currentSize.Height <= 0) return;
+
+        // 位置 = 全局光标 - 抓取偏移（偏移按当前屏倍率换算，跨屏不出错位）
+        double units = DisplayUnits.WindowPositionUnitsPerDip(this);
+        var cursor = App.ScreensService.MousePosition;
+        var pos = new PixelPoint(
+            cursor.X - (int)Math.Round(_dragOffsetDip.X * units),
+            cursor.Y - (int)Math.Round(_dragOffsetDip.Y * units));
+
+        // 尺寸原样传：纯位移不触发重绘，DWM 直接搬表面，逐帧都跟手；
+        // 而且没有系统拖动循环那套「必须留在屏幕内」的约束
+        this.TrySetWindowFrame(pos, ToWindowSize(_currentSize));
         DockAnchorChanged?.Invoke();
     }
 
@@ -564,6 +620,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     {
         if (!_isDragging) return;
         _isDragging = false;
+        EndManagedDrag();
         InputManager.Instance.EventOnMouseReleased -= OnHookReleased;
     }
 

@@ -1,5 +1,7 @@
 using System;
 using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Layout;
 using Avalonia.Platform;
 
 namespace UiharuMind.Shared.Utils;
@@ -40,6 +42,91 @@ public static class DisplayUnits
     public static double ScreenBoundsToPixels(double screenScaling, double renderScaling)
     {
         return PixelsPerDip(screenScaling, renderScaling) / screenScaling;
+    }
+
+    /// <summary>
+    /// 该平台的窗口几何是否只能落在整物理像素上。
+    /// Windows/Linux 的 SetWindowPos 只收整数；mac 的 setFrame 收 CGFloat，不需要也不该对齐。
+    /// </summary>
+    public static bool HasIntegerPixelGeometry => !OperatingSystem.IsMacOS();
+
+    /// <summary>
+    /// 某个窗口自己的 DIP→物理像素倍率。窗口尺寸、布局取整、Position 单位换算都以它为唯一口径。
+    /// <para>
+    /// 优先用 <see cref="TopLevel.RenderScaling"/>：这正是 Avalonia 自己算布局取整
+    /// （LayoutHelper.RoundLayoutSizeUp）与 PixelSize.FromSize 用的那个倍率。
+    /// Show 之前它还停在 1，此时退回窗口所在屏的 Scaling。
+    /// </para>
+    /// </summary>
+    /// <param name="window">目标窗口</param>
+    public static double WindowPixelsPerDip(Window window)
+    {
+        if (window.IsVisible && window.RenderScaling > 0) return window.RenderScaling;
+        return window.Screens.ScreenFromWindow(window)?.Scaling
+               ?? window.Screens.Primary?.Scaling
+               ?? 1.0;
+    }
+
+    /// <summary>
+    /// 某个窗口的 Position 单位换算（每 DIP 多少 Position 单位）。mac 恒为 1，其余平台同 <see cref="WindowPixelsPerDip"/>。
+    /// </summary>
+    /// <param name="window">目标窗口</param>
+    public static double WindowPositionUnitsPerDip(Window window)
+    {
+        return OperatingSystem.IsMacOS() ? 1.0 : WindowPixelsPerDip(window);
+    }
+
+    /// <summary>
+    /// 把 DIP 尺寸对齐到「窗口能稳定保持」的整物理像素网格，返回对齐后的 DIP；不需要对齐的平台原样返回。
+    /// <para>
+    /// 目标像素先向上取整（口径见 <see cref="Avalonia.PixelSize.FromSize"/>），再向下收敛到
+    /// 托管 resize 能原样保持的像素值。理由：平台后端把 DIP 转像素用的是 <c>(int)(DIP × scale)</c> 截断
+    /// （Win32 <c>WindowImpl.Resize</c>、X11 <c>X11Window.ToPixelSize</c> 同款），
+    /// 像素 <c>P</c> 若截不回自身（<c>(int)((P/scale)×scale) &lt; P</c>），后续每条改尺寸的路径都会
+    /// 二次把窗口改小 1px——原生落盘的尺寸与窗口真实尺寸分叉，逐格缩放就成了抖动。
+    /// </para>
+    /// <para>
+    /// 托管 resize 改尺寸有两条入口，都要过同一个截断判定，收敛因此按两条一起卡（见
+    /// <see cref="IsHeldAtPixelSize"/>）。落到稳定像素后，两条路径都在
+    /// <c>WindowImpl.Resize</c> 的「client 尺寸已相等」分支直接返回，同一次缩放只提交一次几何。
+    /// </para>
+    /// <para>
+    /// 收敛是幂等的：已对齐的值再对齐一次不会变，也不会每滚一格莫名长胖/缩水。
+    /// </para>
+    /// </summary>
+    /// <param name="dipSize">待对齐的 DIP 尺寸</param>
+    /// <param name="pixelsPerDip">每 DIP 多少物理像素，见 <see cref="WindowPixelsPerDip"/></param>
+    public static Size SnapToPixels(Size dipSize, double pixelsPerDip)
+    {
+        if (!HasIntegerPixelGeometry) return dipSize;
+        if (pixelsPerDip <= 0 || !double.IsFinite(pixelsPerDip)) return dipSize;
+        return new Size(
+            AlignUpToPixel(dipSize.Width, pixelsPerDip),
+            AlignUpToPixel(dipSize.Height, pixelsPerDip));
+    }
+
+    private static double AlignUpToPixel(double dipValue, double pixelsPerDip)
+    {
+        // 先按 8 位小数收敛浮点误差再 ceil（与 Avalonia 的 RoundTo8Digits 同义），保证幂等
+        int pixels = (int)Math.Ceiling(Math.Round(dipValue * pixelsPerDip, 8));
+        while (pixels > 1 && !IsHeldAtPixelSize(pixels, pixelsPerDip)) pixels--;
+        return pixels / pixelsPerDip;
+    }
+
+    /// <summary>
+    /// 像素值能否被托管 resize 原样保持。托管改尺寸的两条入口都要过
+    /// 后端 <c>(int)(DIP × scale)</c> 的截断判定（Win32/X11 同款），截不回自身就会被二次改小：
+    /// 1. Width/Height → 布局圆整（<see cref="LayoutHelper.RoundLayoutValueUp"/>）→ 截断；
+    /// 2. 原生改尺寸 → WM_SIZE → ClientSize = 像素/scale 回灌订阅 → 截断。
+    /// </summary>
+    /// <param name="pixels">候选像素值</param>
+    /// <param name="pixelsPerDip">每 DIP 多少物理像素</param>
+    private static bool IsHeldAtPixelSize(int pixels, double pixelsPerDip)
+    {
+        double dip = pixels / pixelsPerDip;
+        if ((int)(dip * pixelsPerDip) != pixels) return false;
+        double arranged = LayoutHelper.RoundLayoutValueUp(dip, pixelsPerDip);
+        return (int)(arranged * pixelsPerDip) == pixels;
     }
 
     /// <summary>
