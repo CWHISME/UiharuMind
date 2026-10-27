@@ -556,6 +556,9 @@ public partial class RemoteModelEditViewData : ObservableObject
     private void ApplyCatalog(IReadOnlyList<ModelCatalogEntry> entries)
     {
         string currentId = ModelId;
+        IReadOnlyDictionary<string, RemoteModelIdVariant> presets =
+            _draftConfig?.ModelIdVariants ?? RemoteModelIdVariant.Empty;
+        string providerKey = _draftConfig is null ? "" : ModelCatalogCapabilities.ProviderKeyOf(_draftConfig.GetType());
         ModelIdOptions.Clear();
         HashSet<string> seen = new(StringComparer.Ordinal); //目录偶有重复 id，重复项会让下拉出现同一条两次
         foreach (ModelCatalogEntry entry in entries)
@@ -563,12 +566,21 @@ public partial class RemoteModelEditViewData : ObservableObject
             // 端点字段缺失（OpenRouter 等标准 /v1/models 不返回）默认展示；
             // 只有显式声明且不含 /chat/completions（即 /messages-only 的 Claude 系）才过滤（ADR 0092）
             if (entry.SupportedEndpoints.Count > 0 && !entry.SupportsEndpoint("/chat/completions")) continue;
+            // 出图模型（如 sensenova-u1.5-lite）不是对话候选；输出模态未声明时按对话模型处理
+            if (!entry.SupportsTextOutput) continue;
             if (!seen.Add(entry.Id)) continue;
+
+            presets.TryGetValue(entry.Id, out RemoteModelIdVariant? preset);
+            ResolvedCapabilities capabilities = ModelCatalogCapabilities.Resolve(entry, preset, providerKey);
             ModelIdOptions.Add(new ModelIdOptionItem
             {
                 Id = entry.Id,
-                Alias = entry.Name,
-                ContextLength = entry.ContextLength,
+                Alias = entry.Name.Length > 0 ? entry.Name : preset?.Alias ?? "",
+                IsVision = capabilities.IsVision,
+                ContextLength = capabilities.ContextLength,
+                MaxTokens = capabilities.MaxTokens,
+                OmitSamplingParams = capabilities.OmitSamplingParams,
+                RequiresReasoningContentRoundtrip = preset?.RequiresReasoningContentRoundtrip,
                 ApiFormat = EApiFormat.ChatCompletions,
             });
         }

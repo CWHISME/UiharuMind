@@ -307,6 +307,48 @@ public class RemoteModelEditCatalogTests
         Assert.Equal("1050000", vm.ContextLengthText);
     }
 
+    /// <summary>富目录（商汤式）：能力按预设预填（目录的 MaxTokens 不可信），出图模型被过滤</summary>
+    [Fact]
+    public void RichCatalog_PrefillsFromPreset_FiltersImageOnly()
+    {
+        var fetcher = new FakeCatalogFetcher
+        {
+            Handler = (_, _) => Task.FromResult<IReadOnlyList<ModelCatalogEntry>>(
+            [
+                new ModelCatalogEntry
+                {
+                    Id = "sensenova-6.8-flash-lite",
+                    Name = "SenseNova 6.8",
+                    ContextLength = 262144,
+                    MaxOutputLength = 65536,
+                    InputModalities = ["text", "image"],
+                    OutputModalities = ["text"],
+                    SupportedSamplingParameters = ["temperature", "stop"],
+                },
+                new ModelCatalogEntry
+                {
+                    Id = "sensenova-u1.5-lite",
+                    InputModalities = ["text"],
+                    OutputModalities = ["image"],
+                    MaxOutputLength = 65536,
+                    SupportedSamplingParameters = ["temperature"],
+                },
+            ]),
+        };
+        var vm = CreateVm(fetcher, new FakeCatalogCache());
+        vm.SelectedProvider = vm.Providers.First(p => p.ConfigType == typeof(RemoteSensenovaModelConfig));
+
+        ModelIdOptionItem option = Assert.Single(vm.ModelIdOptions); // 出图模型被过滤
+        Assert.Equal("sensenova-6.8-flash-lite", option.Id);
+        Assert.True(option.IsVision);
+        Assert.Equal(65535, option.MaxTokens); // 预设值，目录的 65536 不可信
+        Assert.Equal(262144, option.ContextLength);
+
+        vm.SelectedModelIdOption = option;
+        Assert.True(vm.IsVision);
+        Assert.Equal("65535", vm.MaxTokensText);
+    }
+
     /// <summary>输入过滤：ModelId 文本按 id/显示名过滤 VisibleModelIdOptions，空文本恢复全量</summary>
     [Fact]
     public void ModelIdText_FiltersVisibleOptions()

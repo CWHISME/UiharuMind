@@ -46,6 +46,34 @@ public class ModelCatalogJsonParserTests
         Assert.Empty(entry.SupportedEndpoints);
     }
 
+    /// <summary>商汤式富目录：input_modalities / max_output_length / supported_sampling_parameters 要解析出来</summary>
+    [Fact]
+    public void Parse_RichCatalog_MapsCapabilityFields()
+    {
+        const string json = """
+            {
+              "data": [
+                { "id": "sensenova-6.8-flash-lite", "name": "SenseNova 6.8", "context_length": 262144,
+                  "input_modalities": ["text", "image"], "output_modalities": ["text"],
+                  "max_output_length": 65536, "supported_sampling_parameters": ["temperature", "stop"] },
+                { "id": "sensenova-u1.5-lite", "context_length": 262144,
+                  "input_modalities": ["text"], "output_modalities": ["image"],
+                  "max_output_length": 65536, "supported_sampling_parameters": ["temperature"] }
+              ]
+            }
+            """;
+
+        IReadOnlyList<ModelCatalogEntry> entries = ModelCatalogJsonParser.Parse(json);
+
+        ModelCatalogEntry chat = entries[0];
+        Assert.True(chat.SupportsVision);
+        Assert.True(chat.SupportsTextOutput);
+        Assert.Equal(65536, chat.MaxOutputLength);
+        Assert.False(chat.OmitsSamplingParams);
+        // 出图模型：输出模态只有 image，不作为对话候选
+        Assert.False(entries[1].SupportsTextOutput);
+    }
+
     [Fact]
     public void Parse_EmptyData_ReturnsEmptyList()
     {
