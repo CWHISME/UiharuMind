@@ -23,6 +23,12 @@ namespace UiharuMind.Core.Configs.RemoteAI;
 /// 该模型的思考 wire 字段名(reasoning_content/reasoning/reasoning_text);空表示未声明,
 /// 消费时按 运行时观测值 → 本预设值 → reasoning_content 查表。
 /// </param>
+/// <param name="RequiresReasoningContentOnAssistantMessages">
+/// 思考模式下助手消息带 tool_calls 时,<b>没有思考正文也必须带思考字段</b>(空串)。
+/// 与 <paramref name="RequiresReasoningContentRoundtrip"/> 是两件事:那个管"有正文要不要回传",
+/// 这个管"没正文时字段能不能缺"。DeepSeek 类服务端把后者当硬校验,缺字段直接 400
+/// (历史里的旧工具调用没有思考正文——先用关思考的档位跑出来的——是常见触发点)。
+/// </param>
 public record RemoteModelIdVariant(
     int ContextLength = 0,
     int MaxTokens = 0,
@@ -30,7 +36,8 @@ public record RemoteModelIdVariant(
     bool? RequiresReasoningContentRoundtrip = null,
     bool OmitSamplingParams = false,
     string Alias = "",
-    string ThinkingField = "")
+    string ThinkingField = "",
+    bool RequiresReasoningContentOnAssistantMessages = false)
 {
     /// <summary>
     /// 空表,供未声明预设的配置使用

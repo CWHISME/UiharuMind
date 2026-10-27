@@ -34,6 +34,10 @@ public class RemoteModelInfo : ILlmModel
 
     /// <summary>回填思考正文用的 wire 键名（观测值/预设/默认），请求侧不写死</summary>
     [JsonIgnore] public string ThinkingField => Config.EffectiveThinkingField;
+
+    /// <summary>思考模式下带 tool_calls 时，没有思考正文也必须带该字段（空串），否则服务端 400</summary>
+    [JsonIgnore] public bool RequiresReasoningContentOnAssistantMessages =>
+        Config.RequiresReasoningContentOnAssistantMessages;
     public virtual IReadOnlyList<KeyValuePair<string, JsonNode?>>? GetExtraParams() =>
         Config.GetExtraParams();
 

@@ -21,8 +21,10 @@ public class RemoteSensenovaModelConfig : BaseRemoteModelConfig, IRemoteModelCon
         new Dictionary<string, RemoteModelIdVariant>
         {
             // 商汤平台转售的第三方模型,ID 与参数沿用平台口径
-            ["deepseek-v4-flash"] = new(ContextLength: 1048576, MaxTokens: 327680, RequiresReasoningContentRoundtrip: true),
-            ["deepseek-flash"] = new(ContextLength: 1048576, MaxTokens: 393216, IsVision: true, RequiresReasoningContentRoundtrip: true),
+            ["deepseek-v4-flash"] = new(ContextLength: 1048576, MaxTokens: 327680,
+                RequiresReasoningContentRoundtrip: true, RequiresReasoningContentOnAssistantMessages: true),
+            ["deepseek-flash"] = new(ContextLength: 1048576, MaxTokens: 393216, IsVision: true,
+                RequiresReasoningContentRoundtrip: true, RequiresReasoningContentOnAssistantMessages: true),
             ["glm-5.2"] = new(ContextLength: 1048576, MaxTokens: 128000),
             ["kimi-k3"] = new(ContextLength: 1048576, MaxTokens: 131072, IsVision: true, OmitSamplingParams: true,
                 RequiresReasoningContentRoundtrip: true),

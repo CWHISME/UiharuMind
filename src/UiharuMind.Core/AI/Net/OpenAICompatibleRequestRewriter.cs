@@ -23,11 +23,15 @@ namespace UiharuMind.Core.AI.Net;
 /// <param name="ReasoningByCallId">按 tool_call id 回填的思考正文；不需要回填时为 null</param>
 /// <param name="OmitSamplingParams">删掉 <see cref="OpenAICompatibleRequestRewriter.SamplingParamKeys"/></param>
 /// <param name="ReasoningField">思考正文回填的 wire 键名（观测/预设/默认）</param>
+/// <param name="FillEmptyReasoning">
+/// 带 tool_calls 的助手消息即使没有思考正文，也要补一个空串字段（DeepSeek 类缺字段即 400）
+/// </param>
 internal readonly record struct RequestRewrite(
     IReadOnlyList<KeyValuePair<string, JsonNode?>>? ExtraParams,
     bool ForbidToolCalls,
     IReadOnlyDictionary<string, string>? ReasoningByCallId,
     bool OmitSamplingParams,
+    bool FillEmptyReasoning = false,
     string ReasoningField = OpenAICompatibleRequestRewriter.DefaultReasoningField);
 
 /// <summary>
@@ -78,6 +82,9 @@ internal static class OpenAICompatibleRequestRewriter
             : null,
         // 采样参数固定的模型(如 Kimi)会拒绝显式传值的请求,开启后删掉这四个字段,不碰其它参数
         model?.OmitSamplingParams == true,
+        // 没有思考正文也要带字段(空串):DeepSeek 类把「思考模式下带 tool_calls 的助手消息必须含思考字段」
+        // 当硬校验,历史里那些关思考时跑出来的旧工具调用没有正文可回传,缺字段就是 400
+        model?.RequiresReasoningContentOnAssistantMessages == true,
         // 思考回填键名不写死:按模型实际字段(运行时观测/预设/默认)回传
         ResolveReasoningField(model));
 
@@ -101,7 +108,7 @@ internal static class OpenAICompatibleRequestRewriter
         bool fixArguments = json.IndexOf("\"arguments\":\"null\""u8) >= 0 || json.IndexOf("\"arguments\": \"null\""u8) >= 0;
         IReadOnlyDictionary<string, string>? reasoning = rewrite.ReasoningByCallId is { Count: > 0 } map ? map : null;
         if (rewrite.ExtraParams is not { Count: > 0 } && !rewrite.ForbidToolCalls && !fixArguments && reasoning == null &&
-            !rewrite.OmitSamplingParams)
+            !rewrite.OmitSamplingParams && !rewrite.FillEmptyReasoning)
         {
             return false;
         }
@@ -131,8 +138,9 @@ internal static class OpenAICompatibleRequestRewriter
                 bool isMessages = reader.ValueTextEquals("messages"u8);
                 reader.Read();
                 // 被额外参数覆盖掉的 messages 不能扫:记下的改动会落到别的属性上
-                if (isMessages && !drop && (fixArguments || reasoning != null) && reader.TokenType == JsonTokenType.StartArray)
-                    ScanMessages(ref reader, fixArguments, reasoning, rewrite.ReasoningField, edits);
+                if (isMessages && !drop && (fixArguments || reasoning != null || rewrite.FillEmptyReasoning) &&
+                    reader.TokenType == JsonTokenType.StartArray)
+                    ScanMessages(ref reader, fixArguments, reasoning, rewrite.FillEmptyReasoning, rewrite.ReasoningField, edits);
                 else
                     SkipValue(ref reader);
 
@@ -149,11 +157,13 @@ internal static class OpenAICompatibleRequestRewriter
     }
 
     private static void ScanMessages(ref Utf8JsonReader reader, bool fixArguments,
-        IReadOnlyDictionary<string, string>? reasoning, string reasoningField, List<Utf8JsonSplice.Edit> edits)
+        IReadOnlyDictionary<string, string>? reasoning, bool fillEmptyReasoning, string reasoningField,
+        List<Utf8JsonSplice.Edit> edits)
     {
         while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
         {
-            if (reader.TokenType == JsonTokenType.StartObject) ScanMessage(ref reader, fixArguments, reasoning, reasoningField, edits);
+            if (reader.TokenType == JsonTokenType.StartObject)
+                ScanMessage(ref reader, fixArguments, reasoning, fillEmptyReasoning, reasoningField, edits);
             else SkipValue(ref reader);
         }
     }
@@ -165,11 +175,17 @@ internal static class OpenAICompatibleRequestRewriter
     /// 标准 ChatMessage→wire 消息转换认不出 <c>TextReasoningContent</c>,序列化时会把它悄悄丢掉,
     /// 只能按 tool_call id 从 <see cref="LlmRequestContext.PendingReasoningSource"/> 找回来补上。
     /// 一条消息可带多个 tool_calls,任一 id 命中即恢复整条消息的思考正文;已经带了(哪怕是空串)就不覆盖,只有缺省或 null 才补。
+    ///
+    /// 找不回正文时(<paramref name="fillEmptyReasoning"/> 为真)补一个空串:服务端要的是"字段必须在",
+    /// 不是"字段必须有内容"。历史里那些关思考档位跑出来的工具调用没有正文可回传,缺字段就是 400。
+    /// 只对带 tool_calls 的助手消息补——给普通消息塞空字段是白改请求体,还会打乱前缀缓存。
     /// </summary>
     private static void ScanMessage(ref Utf8JsonReader reader, bool fixArguments,
-        IReadOnlyDictionary<string, string>? reasoning, string reasoningField, List<Utf8JsonSplice.Edit> edits)
+        IReadOnlyDictionary<string, string>? reasoning, bool fillEmptyReasoning, string reasoningField,
+        List<Utf8JsonSplice.Edit> edits)
     {
         bool hasReasoning = false;
+        bool hasToolCalls = false;
         Region nullReasoning = new(-1, -1); //思考键为 null 的值区间,回填时只换值
         string? matched = null;
 
@@ -187,7 +203,11 @@ internal static class OpenAICompatibleRequestRewriter
             else if (reader.ValueTextEquals("tool_calls"u8))
             {
                 reader.Read();
-                if (reader.TokenType == JsonTokenType.StartArray) ScanToolCalls(ref reader, fixArguments, reasoning, ref matched, edits);
+                if (reader.TokenType == JsonTokenType.StartArray)
+                {
+                    hasToolCalls = true;
+                    ScanToolCalls(ref reader, fixArguments, reasoning, ref matched, edits);
+                }
                 else SkipValue(ref reader);
             }
             else
@@ -198,15 +218,18 @@ internal static class OpenAICompatibleRequestRewriter
         }
 
         // 此时停在消息对象的 '}' 上
-        if (matched == null || hasReasoning) return;
+        if (hasReasoning) return;
+        if (matched == null && !(fillEmptyReasoning && hasToolCalls)) return;
+
+        string text = matched ?? string.Empty;
         if (nullReasoning.Start >= 0)
         {
-            edits.Add(new Utf8JsonSplice.Edit(nullReasoning.Start, nullReasoning.End, SerializeReasoning(matched, withKey: false, reasoningField)));
+            edits.Add(new Utf8JsonSplice.Edit(nullReasoning.Start, nullReasoning.End, SerializeReasoning(text, withKey: false, reasoningField)));
         }
         else
         {
             int at = (int)reader.TokenStartIndex;
-            edits.Add(new Utf8JsonSplice.Edit(at, at, SerializeReasoning(matched, withKey: true, reasoningField)));
+            edits.Add(new Utf8JsonSplice.Edit(at, at, SerializeReasoning(text, withKey: true, reasoningField)));
         }
     }
 

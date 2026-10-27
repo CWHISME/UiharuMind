@@ -43,6 +43,12 @@ public interface ILlmModel
     public string ThinkingField => "reasoning_content";
 
     /// <summary>
+    /// 思考模式下助手消息带 tool_calls 时,没有思考正文也必须带思考字段(空串)。
+    /// 本地模型没有这条约束,默认不带。
+    /// </summary>
+    public bool RequiresReasoningContentOnAssistantMessages => false;
+
+    /// <summary>
     /// 是否不发送采样参数(temperature/top_p/presence_penalty/frequency_penalty)。
     /// 采样参数固定的模型(如 Kimi)会拒绝显式传值的请求,默认发送,按模型单独开启。
     /// </summary>

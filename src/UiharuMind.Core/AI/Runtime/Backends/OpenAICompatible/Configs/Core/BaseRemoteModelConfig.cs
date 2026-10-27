@@ -151,6 +151,19 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
             : null);
 
     /// <summary>
+    /// 思考模式下助手消息带 tool_calls 时,<b>没有思考正文也必须带思考字段</b>(空串)。
+    ///
+    /// 与 <see cref="RequiresReasoningContentRoundtrip"/> 是两件事:那个管"有正文要不要回传",
+    /// 这个管"没正文时字段能不能缺"。DeepSeek 类服务端把后者当硬校验,缺字段直接 400——
+    /// 典型触发点是历史里那条带 tool_calls 的消息本来就是关思考的档位跑出来的,没有正文可回传。
+    ///
+    /// 这是模型侧的硬约束,只从预设表读:不落配置、不给手动覆盖(与 roundtrip 不同,用户没法靠观察判断)。
+    /// </summary>
+    public bool RequiresReasoningContentOnAssistantMessages =>
+        ModelIdVariants.TryGetValue(ModelId, out RemoteModelIdVariant? variant) &&
+        variant.RequiresReasoningContentOnAssistantMessages;
+
+    /// <summary>
     /// 运行时观测到的思考 wire 字段名（reasoning_content/reasoning/reasoning_text），**按 ModelId 分开记**。
     /// 同一端点的不同模型字段名可以不同（商汤转售的 DeepSeek 用 reasoning_content、自研 6.8 用 reasoning），
     /// 记成一个标量就会在切 ModelId 时互相污染，所以键是观测时的 ModelId。空表表示尚未观测。

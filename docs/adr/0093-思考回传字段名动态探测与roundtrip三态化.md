@@ -66,6 +66,17 @@
    - 观测落盘写进 `ObservedThinkingFields[当前 ModelId]`；
    - 编辑窗口保存时若 `ModelPath` 变了，**清整张表**（旧的都属于旧端点）；
    - 同端点切 ModelId 不清理——每个 ModelId 各记各的，天然不串台。
+5. **「没有正文也要带字段」独立成一个开关**（第四轮）：`RequiresReasoningContentOnAssistantMessages`
+   与 `RequiresReasoningContentRoundtrip` 是两件事——那个管「有正文要不要回传」，这个管
+   「没正文时字段能不能缺」。DeepSeek 类服务端把后者当硬校验，**字段缺了直接 400**。
+
+   触发场景不是切模型，而是**现在就有**：先用关思考的档位跑出带 `tool_calls` 的历史，再切到
+   开思考的档位，那条旧消息没有正文可回传，`ScanMessage` 找不到就整条不带字段 → 400。
+
+   落点：`RequestRewrite.FillEmptyReasoning` → `ScanMessage` 在 `matched == null` 时写空串。
+   **只对带 `tool_calls` 的助手消息补**——给普通消息塞空字段是白改请求体，还打乱前缀缓存。
+   判定只从预设表读，不落配置、不给手动覆盖（用户没法靠观察判断这条硬约束）。
+   预设：DeepSeek 系全部 `true`；`kimi-k3` 保持 `false`（pi 对 Moonshot 也没开这条）。
 
 ## 取舍
 

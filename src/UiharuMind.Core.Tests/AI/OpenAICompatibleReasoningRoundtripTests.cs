@@ -161,11 +161,70 @@ public class OpenAICompatibleReasoningRoundtripTests
         public string ThinkingField => "";
     }
 
+    /// <summary>
+    /// 没有思考正文可回传时补空串：DeepSeek 类要求「思考模式下带 tool_calls 的助手消息必须含
+    /// reasoning_content」，字段缺了直接 400——历史里关思考档位跑出来的工具调用就是这种。
+    /// </summary>
+    [Fact]
+    public void FillEmptyReasoning_NoThinkingOnToolCallMessage_WritesEmptyString()
+    {
+        string? rewritten = OpenAICompatibleRequestRewriterTests.Rewrite(
+            """{"messages":[{"role":"assistant","content":"查一下","tool_calls":[{"id":"call-1","type":"function"}]}]}""",
+            new RequestRewrite(null, false, null, false, FillEmptyReasoning: true));
+
+        var message = (JsonObject)JsonNode.Parse(rewritten!)!["messages"]![0]!;
+        Assert.Equal("", message["reasoning_content"]!.GetValue<string>());
+    }
+
+    /// <summary>只补带 tool_calls 的助手消息：给普通消息塞空字段是白改请求体，还打乱前缀缓存</summary>
+    [Fact]
+    public void FillEmptyReasoning_PlainMessage_IsUntouched()
+    {
+        string? rewritten = OpenAICompatibleRequestRewriterTests.Rewrite(
+            """{"messages":[{"role":"assistant","content":"说完了"}]}""",
+            new RequestRewrite(null, false, null, false, FillEmptyReasoning: true));
+
+        var message = (JsonObject)JsonNode.Parse(rewritten!)!["messages"]![0]!;
+        Assert.Null(message["reasoning_content"]);
+    }
+
+    /// <summary>模型不要求时保持原样：连改写都不做，照发 SDK 那份</summary>
+    [Fact]
+    public void FillEmptyReasoning_Off_LeavesFieldAbsent()
+    {
+        string? rewritten = OpenAICompatibleRequestRewriterTests.Rewrite(
+            """{"messages":[{"role":"assistant","content":"查一下","tool_calls":[{"id":"call-1","type":"function"}]}]}""",
+            new RequestRewrite(null, false, null, false));
+
+        Assert.Null(rewritten);
+    }
+
+    /// <summary>预设表接线：DeepSeek 系两条都开，商汤自研只回填正文、不补空串</summary>
+    [Fact]
+    public void RequiresReasoningContentOnAssistantMessages_FollowsPreset()
+    {
+        var deepseek = new RemoteModelInfo { Config = new RemoteDeepSeekModelConfig { ModelId = "deepseek-v4-flash" } };
+        var sensenovaDeepseek = new RemoteModelInfo
+        {
+            Config = new RemoteSensenovaModelConfig { ModelId = "deepseek-v4-flash" },
+        };
+        var sensenovaOwn = new RemoteModelInfo
+        {
+            Config = new RemoteSensenovaModelConfig { ModelId = "sensenova-6.8-flash-lite" },
+        };
+        var generic = new RemoteModelInfo { Config = new RemoteModelConfig { ModelId = "anything" } };
+
+        Assert.True(OpenAICompatibleRequestRewriter.For(deepseek).FillEmptyReasoning);
+        Assert.True(OpenAICompatibleRequestRewriter.For(sensenovaDeepseek).FillEmptyReasoning);
+        Assert.False(OpenAICompatibleRequestRewriter.For(sensenovaOwn).FillEmptyReasoning);
+        Assert.False(OpenAICompatibleRequestRewriter.For(generic).FillEmptyReasoning);
+    }
+
     private static JsonObject RestoreFirstMessage(string json, Dictionary<string, string> reasoning,
         string reasoningField = "reasoning_content")
     {
         string? rewritten = OpenAICompatibleRequestRewriterTests.Rewrite(json,
-            new RequestRewrite(null, false, reasoning, false, reasoningField));
+            new RequestRewrite(null, false, reasoning, false, ReasoningField: reasoningField));
         return (JsonObject)JsonNode.Parse(rewritten ?? json)!["messages"]![0]!;
     }
 }
