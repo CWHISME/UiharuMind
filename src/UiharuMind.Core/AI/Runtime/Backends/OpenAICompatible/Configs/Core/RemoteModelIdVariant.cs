@@ -28,6 +28,7 @@ namespace UiharuMind.Core.Configs.RemoteAI;
 /// 与 <paramref name="RequiresReasoningContentRoundtrip"/> 是两件事:那个管"有正文要不要回传",
 /// 这个管"没正文时字段能不能缺"。DeepSeek 类服务端把后者当硬校验,缺字段直接 400
 /// (历史里的旧工具调用没有思考正文——先用关思考的档位跑出来的——是常见触发点)。
+/// 消费侧仅在本次请求非 None 档时生效（正文调用不要求该字段）。
 /// </param>
 public record RemoteModelIdVariant(
     int ContextLength = 0,

@@ -220,6 +220,32 @@ public class OpenAICompatibleReasoningRoundtripTests
         Assert.False(OpenAICompatibleRequestRewriter.For(generic).FillEmptyReasoning);
     }
 
+    /// <summary>
+    /// 补不补看<b>本次请求是否可能处于思考模式</b>：DeepSeek 的硬校验是「思考模式下带 tool_calls
+    /// 的助手消息必须含思考字段」，正文调用（None 档显式 thinking:disabled）不要求。
+    /// Default 不干预、由模型自己决定是否思考，仍按「可能思考」保守补上。
+    /// </summary>
+    [Theory]
+    [InlineData(EThinkingMode.Default, true)]
+    [InlineData(EThinkingMode.None, false)]
+    [InlineData(EThinkingMode.Light, true)]
+    [InlineData(EThinkingMode.Medium, true)]
+    [InlineData(EThinkingMode.High, true)]
+    [InlineData(EThinkingMode.Max, true)]
+    public void FillEmptyReasoning_FollowsThinkingMode(EThinkingMode mode, bool expected)
+    {
+        var deepseek = new RemoteModelInfo
+        {
+            Config = new RemoteDeepSeekModelConfig
+            {
+                ModelId = "deepseek-v4-flash",
+                ThinkingMode = mode,
+            },
+        };
+
+        Assert.Equal(expected, OpenAICompatibleRequestRewriter.For(deepseek).FillEmptyReasoning);
+    }
+
     private static JsonObject RestoreFirstMessage(string json, Dictionary<string, string> reasoning,
         string reasoningField = "reasoning_content")
     {

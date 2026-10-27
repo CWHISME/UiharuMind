@@ -24,7 +24,8 @@ namespace UiharuMind.Core.AI.Net;
 /// <param name="OmitSamplingParams">删掉 <see cref="OpenAICompatibleRequestRewriter.SamplingParamKeys"/></param>
 /// <param name="ReasoningField">思考正文回填的 wire 键名（观测/预设/默认）</param>
 /// <param name="FillEmptyReasoning">
-/// 带 tool_calls 的助手消息即使没有思考正文，也要补一个空串字段（DeepSeek 类缺字段即 400）
+/// 带 tool_calls 的助手消息即使没有思考正文，也要补一个空串字段（DeepSeek 类缺字段即 400）。
+/// 仅在本次请求可能处于思考模式（<see cref="EThinkingMode.None"/> 之外）时为真。
 /// </param>
 internal readonly record struct RequestRewrite(
     IReadOnlyList<KeyValuePair<string, JsonNode?>>? ExtraParams,
@@ -83,8 +84,12 @@ internal static class OpenAICompatibleRequestRewriter
         // 采样参数固定的模型(如 Kimi)会拒绝显式传值的请求,开启后删掉这四个字段,不碰其它参数
         model?.OmitSamplingParams == true,
         // 没有思考正文也要带字段(空串):DeepSeek 类把「思考模式下带 tool_calls 的助手消息必须含思考字段」
-        // 当硬校验,历史里那些关思考时跑出来的旧工具调用没有正文可回传,缺字段就是 400
-        model?.RequiresReasoningContentOnAssistantMessages == true,
+        // 当硬校验,历史里那些关思考时跑出来的旧工具调用没有正文可回传,缺字段就是 400。
+        // 但这条校验只在本次请求处于思考模式时成立——None 档显式发了 thinking:disabled,服务端按正文
+        // 调用处理,不要求字段;此时补空串是多写字段、白改请求体。Default 不干预、由模型自己决定是否
+        // 思考,仍按「可能思考」保守补上。
+        model is not null && model.RequiresReasoningContentOnAssistantMessages &&
+        model.ThinkingMode != EThinkingMode.None,
         // 思考回填键名不写死:按模型实际字段(运行时观测/预设/默认)回传
         ResolveReasoningField(model));
 
@@ -178,6 +183,8 @@ internal static class OpenAICompatibleRequestRewriter
     ///
     /// 找不回正文时(<paramref name="fillEmptyReasoning"/> 为真)补一个空串:服务端要的是"字段必须在",
     /// 不是"字段必须有内容"。历史里那些关思考档位跑出来的工具调用没有正文可回传,缺字段就是 400。
+    /// <paramref name="fillEmptyReasoning"/> 由调用方按「本次请求是否可能处于思考模式」把关:
+    /// None 档已显式关思考,服务端不要求该字段,不必补。
     /// 只对带 tool_calls 的助手消息补——给普通消息塞空字段是白改请求体,还会打乱前缀缓存。
     /// </summary>
     private static void ScanMessage(ref Utf8JsonReader reader, bool fixArguments,

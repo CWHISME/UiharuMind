@@ -157,6 +157,9 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     /// 这个管"没正文时字段能不能缺"。DeepSeek 类服务端把后者当硬校验,缺字段直接 400——
     /// 典型触发点是历史里那条带 tool_calls 的消息本来就是关思考的档位跑出来的,没有正文可回传。
     ///
+    /// 消费侧只在本次请求不是 <see cref="EThinkingMode.None"/> 时启用:None 档显式发 thinking:disabled,
+    /// 服务端按正文调用处理,不要求该字段;Default 及各级思考档位都可能思考,保守补上。
+    ///
     /// 这是模型侧的硬约束,只从预设表读:不落配置、不给手动覆盖(与 roundtrip 不同,用户没法靠观察判断)。
     /// </summary>
     public bool RequiresReasoningContentOnAssistantMessages =>

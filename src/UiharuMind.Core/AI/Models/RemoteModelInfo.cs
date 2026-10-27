@@ -38,6 +38,9 @@ public class RemoteModelInfo : ILlmModel
     /// <summary>思考模式下带 tool_calls 时，没有思考正文也必须带该字段（空串），否则服务端 400</summary>
     [JsonIgnore] public bool RequiresReasoningContentOnAssistantMessages =>
         Config.RequiresReasoningContentOnAssistantMessages;
+
+    /// <summary>本次请求的思考档位；请求侧据此判断是否可能处于思考模式</summary>
+    [JsonIgnore] public EThinkingMode ThinkingMode => Config.ThinkingMode;
     public virtual IReadOnlyList<KeyValuePair<string, JsonNode?>>? GetExtraParams() =>
         Config.GetExtraParams();
 
