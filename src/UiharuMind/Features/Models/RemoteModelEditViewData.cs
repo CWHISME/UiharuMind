@@ -355,6 +355,10 @@ public partial class RemoteModelEditViewData : ObservableObject
         // 复制名是程序生成的占位，不算用户手改：之后选模型 id 时名字照常跟随（用户亲自改过才锁定）
         _modelNameEditedByUser = false;
         ApplyConfigTraits(config);
+        // 目录驱动型服务商（如 CommandCode）无预设变体表，候选全在运行时目录里：
+        // ApplyConfigTraits 已把目录候选清空重建，这里必须像切服务商一样把目录候选拉回来，
+        // 否则 HasModelIdOptions 变 false、模型 ID 下拉框直接消失（有缓存不重复拉网络）
+        TryAutoLoadCatalog();
     }
 
     partial void OnSelectedProviderChanged(ProviderItem? value)
@@ -484,6 +488,9 @@ public partial class RemoteModelEditViewData : ObservableObject
         ModelId = currentId;
         _suppressModelIdPrefill = false;
 
+        // ComboBox 绑的是 VisibleModelIdOptions:重建候选后必须同步刷新可见列表,
+        // 否则预设候选(无目录的服务商)或复制后下拉会一直空(与 ApplyCatalog 同口径)
+        RefreshVisibleModelIdOptions();
         if (!IsEditMode) ApplyModelIdPreset(SelectedModelIdOption);
     }
 
