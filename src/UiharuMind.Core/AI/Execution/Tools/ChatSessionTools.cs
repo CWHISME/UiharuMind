@@ -114,9 +114,13 @@ public static class ChatSessionTools
             "强行停止本会话派出的一个正在跑的子代理。"),
         ToolJson.CreateFunction(() => ListTasks(sessionId), ListTasksToolName,
             "列出本会话名下在跑的后台任务（含 SendMessage 发群/发单聊后自动起的等待任务）。"),
-        ToolJson.CreateFunction(([Description("群名或短号，或本会话派出的子代理短号/完整标识")] string id) =>
-                Dump(sessionId, id), DumpToolName,
-            "把群或子代理的会话流水导成一份 markdown 并给出文件路径：id 填群名/短号导群流水（空闲也照导），填子代理短号/完整标识导它的会话历史（含工具调用原样参数）。"),
+        ToolJson.CreateFunction(([Description("群名或短号，或本会话派出的子代理短号/完整标识")] string id,
+                    [Description("是否导出模型的思考段（默认 false：只留正文；思考段可能很长）")]
+                    bool reasoning = false,
+                    [Description("是否导出工具调用原样参数与结果（默认 false：只留正文；排查工具参数时开）")]
+                    bool tools = false) =>
+                Dump(sessionId, id, reasoning, tools), DumpToolName,
+            "把群或子代理的会话流水导成一份 markdown 并给出文件路径：id 填群名/短号导群流水（空闲也照导），填子代理短号/完整标识导它的会话历史（默认只留正文，reasoning/tools 可加思考与工具调用）。"),
     ];
 
     /// <summary>
@@ -249,13 +253,17 @@ public static class ChatSessionTools
     /// <summary>
     /// 主动把会话流水导成一份 markdown 并给路径。目标可以是群（id 按群名/短号认，与 SendMessage 的 <c>to</c>
     /// 同一份解析）或本会话派出的子代理（短号/完整标识）。
-    /// 显式请求：空闲的群也照导——list-groups 只给在跑群的流水（查询不落痕），「主动要一份当前全量」走这里
+    /// 显式请求：空闲的群也照导——list-groups 只给在跑群的流水（查询不落痕），「主动要一份当前全量」走这里。
+    /// 子代理历史默认只留正文（思考/工具可能很长又占上下文），排查时用 reasoning / tools 加回过程内容
     /// </summary>
     /// <param name="sessionId">查询方会话标识（子代理范围限定在它名下的）</param>
     /// <param name="id">群名/短号，或子代理短号/完整标识</param>
+    /// <param name="withReasoning">子代理历史是否导出思考段；群流水不受影响</param>
+    /// <param name="withTools">子代理历史是否导出工具调用与结果；群流水不受影响</param>
     /// <param name="manager">会话管理器；缺省用全局实例（测试传自建的隔离实例）</param>
     /// <returns>给模型的回执（含流水文件路径）</returns>
-    internal static string Dump(string sessionId, string id, SessionManager? manager = null)
+    internal static string Dump(string sessionId, string id, bool withReasoning = false, bool withTools = false,
+        SessionManager? manager = null)
     {
         manager ??= SessionManager.Instance;
         string target = id.Trim();
@@ -271,7 +279,7 @@ public static class ChatSessionTools
         {
             0 => $"Error: 没有『{target}』这个群或子代理。群用 {GroupsMention} 看有哪些，子代理用 {ListToolName} 看有哪些。",
             1 when groups.Count == 1 => DumpGroup(groups[0], manager),
-            1 => DumpSession(subs[0], manager),
+            1 => DumpSession(subs[0], manager, withReasoning, withTools),
             _ => $"Error: 『{target}』匹配了 {groups.Count} 个群和 {subs.Count} 个子代理，改用完整标识或独一份的群名再来。",
         };
     }
@@ -284,7 +292,7 @@ public static class ChatSessionTools
             : $"Error: 写《{group.Title}》的流水失败（临时会话不落盘/离席中/写盘失败）。";
     }
 
-    private static string DumpSession(ChatSessionMeta meta, SessionManager manager)
+    private static string DumpSession(ChatSessionMeta meta, SessionManager manager, bool withReasoning, bool withTools)
     {
         ChatSession? body = manager.GetLoaded(meta.SessionId) ?? manager.Load(meta.SessionId);
         if (body == null)
@@ -294,7 +302,12 @@ public static class ChatSessionTools
 
         StringBuilder text = new();
         text.Append(SessionLogText.BuildHeading(body.Title));
-        foreach (ChatMessage message in body.History) text.Append(SessionLogText.FormatMessage(message));
+        foreach (ChatMessage message in body.History)
+        {
+            string block = SessionLogText.FormatMessage(message, withReasoning, withTools);
+            if (block.Length > 0) text.Append(block);
+        }
+
         text.Append(SessionLogText.FormatUsage(body.TotalInputTokens, body.TotalOutputTokens));
 
         string path = Path.Combine(AgentBuildProfile.DraftRoomOf(body),
@@ -309,7 +322,10 @@ public static class ChatSessionTools
             return $"Error: 写《{body.Title}》的流水失败：{e.Message}";
         }
 
-        return $"《{body.Title}》流水已写到 {path}（{body.History.Count} 条消息）。读它看这一路的完整过程。";
+        string hint = withReasoning || withTools
+            ? "注意：本次连思考/工具内容一起导出了，文件偏长、上下文占用较高，建议先按大纲模式浏览定位，再按需读对应段。"
+            : string.Empty;
+        return $"《{body.Title}》流水已写到 {path}（{body.History.Count} 条消息）。读它看这一路的完整过程。{hint}";
     }
 
     /// <summary>

@@ -198,7 +198,7 @@ public sealed class ChatSessionToolsTests : IDisposable
         ChatSession group = CreateGroup("dump-闲着的群");
         group.History.Add(new ChatMessage(ChatRole.User, "上一波说过的话"));
 
-        string text = ChatSessionTools.Dump(parent, group.Title, _manager);
+        string text = ChatSessionTools.Dump(parent, group.Title, manager: _manager);
 
         string path = GroupLogFile.PathOf(group);
         Assert.Contains(path, text);
@@ -208,7 +208,7 @@ public sealed class ChatSessionToolsTests : IDisposable
         Assert.Contains("上一波说过的话", body);
     }
 
-    /// <summary>dump 子代理：历史导成 markdown（正文 + 工具调用原样参数）落到它的草稿目录并给路径</summary>
+    /// <summary>dump 子代理：默认只导正文——思考/工具都是过程内容，别让流水像夹着日志</summary>
     [Fact]
     public void Dump_SubSession_WritesSessionMarkdown()
     {
@@ -217,11 +217,12 @@ public sealed class ChatSessionToolsTests : IDisposable
         sub.History.Add(new ChatMessage(ChatRole.User, "请评审代码"));
         sub.History.Add(new ChatMessage(ChatRole.Assistant,
         [
+            new TextReasoningContent("我先想想怎么查。"),
             new TextContent("我先看看结构。"),
             new FunctionCallContent("call-1", "file.glob", new Dictionary<string, object?> { ["pattern"] = "**/*.cs" }),
         ]));
 
-        string text = ChatSessionTools.Dump(parent, SubSessionIdAlias.Short(sub.SessionId), _manager);
+        string text = ChatSessionTools.Dump(parent, SubSessionIdAlias.Short(sub.SessionId), manager: _manager);
 
         string path = Path.Combine(AgentBuildProfile.DraftRoomOf(sub),
             SessionLogText.FileNameOf(SubSessionIdAlias.Short(sub.SessionId)));
@@ -231,15 +232,65 @@ public sealed class ChatSessionToolsTests : IDisposable
         Assert.Contains("dump-评审草案", body);
         Assert.Contains("请评审代码", body);
         Assert.Contains("我先看看结构。", body);
+        Assert.DoesNotContain("思考：", body); //默认不收思考
+        Assert.DoesNotContain("file.glob", body); //默认不收工具
+        Assert.DoesNotContain("注意：本次连思考/工具内容", body); //默认也不给占用提示
+    }
+
+    /// <summary>reasoning=true：正文 + 思考，但不收工具——想看推理过程又不想被工具日志淹掉</summary>
+    [Fact]
+    public void Dump_SubSession_ReasoningOnly_IncludesThinking()
+    {
+        string parent = NewParent();
+        ChatSession sub = CreateSub(parent, "dump-只开思考");
+        sub.History.Add(new ChatMessage(ChatRole.Assistant,
+        [
+            new TextReasoningContent("我先想想怎么查。"),
+            new TextContent("我先看看结构。"),
+            new FunctionCallContent("call-1", "file.glob", new Dictionary<string, object?> { ["pattern"] = "**/*.cs" }),
+        ]));
+
+        string text = ChatSessionTools.Dump(parent, SubSessionIdAlias.Short(sub.SessionId), withReasoning: true, manager: _manager);
+
+        string path = Path.Combine(AgentBuildProfile.DraftRoomOf(sub),
+            SessionLogText.FileNameOf(SubSessionIdAlias.Short(sub.SessionId)));
+        string body = File.ReadAllText(path);
+        Assert.Contains("思考：我先想想怎么查。", body);
+        Assert.DoesNotContain("file.glob", body);
+        Assert.Contains("注意：本次连思考/工具内容", text); //导出过程内容就给占用提示
+    }
+
+    /// <summary>tools=true：正文 + 思考 + 工具调用原样参数与结果，并提醒先按大纲模式看</summary>
+    [Fact]
+    public void Dump_SubSession_WithTools_IncludesToolCallsAndHint()
+    {
+        string parent = NewParent();
+        ChatSession sub = CreateSub(parent, "dump-全量");
+        sub.History.Add(new ChatMessage(ChatRole.User, "请评审代码"));
+        sub.History.Add(new ChatMessage(ChatRole.Assistant,
+        [
+            new TextReasoningContent("我先想想怎么查。"),
+            new TextContent("我先看看结构。"),
+            new FunctionCallContent("call-1", "file.glob", new Dictionary<string, object?> { ["pattern"] = "**/*.cs" }),
+        ]));
+
+        string text = ChatSessionTools.Dump(parent, SubSessionIdAlias.Short(sub.SessionId), withReasoning: true,
+            withTools: true, manager: _manager);
+
+        string path = Path.Combine(AgentBuildProfile.DraftRoomOf(sub),
+            SessionLogText.FileNameOf(SubSessionIdAlias.Short(sub.SessionId)));
+        string body = File.ReadAllText(path);
+        Assert.Contains("思考：我先想想怎么查。", body);
         Assert.Contains("file.glob", body);
         Assert.Contains("\"pattern\"", body); //工具参数原样导出
+        Assert.Contains("注意：本次连思考/工具内容", text);
     }
 
     /// <summary>查无此群/子代理时报错，并指路去哪看有哪些</summary>
     [Fact]
     public void Dump_Unknown_ReturnsError()
     {
-        string text = ChatSessionTools.Dump("fake-parent", "不存在的群", _manager);
+        string text = ChatSessionTools.Dump("fake-parent", "不存在的群", manager: _manager);
 
         Assert.Contains("没有『不存在的群』", text);
         Assert.Contains("list-groups", text);

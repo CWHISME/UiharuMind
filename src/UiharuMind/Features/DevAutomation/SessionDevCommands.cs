@@ -227,12 +227,12 @@ internal sealed class SessionWaitCommand : IAsyncDevCommand
 
 /// <summary>
 /// 把当前会话导成一份 markdown：逐条消息，工具调用带<b>原样参数</b>（参数类型传错这类问题只在这里看得见）。
+/// 正文格式与 chatsession.dump 共用 <see cref="SessionLogText"/>，这里只多拼一个角色名标题；
+/// dev 排查工具固定全量（思考 + 工具调用都要），不设开关
 /// <c>args</c>：path
 /// </summary>
 internal sealed class SessionDumpCommand : IDevCommand
 {
-    private const int MaxResultChars = 600; //工具结果只留开头：看的是调用本身，不是读回来的文件
-
     public string Name => "session.dump";
 
     public string Usage => "把会话导成 markdown（工具调用带原样参数）。path、id（省略为 session.new 盯住的那个）";
@@ -250,36 +250,11 @@ internal sealed class SessionDumpCommand : IDevCommand
         text.AppendLine(character == null ? $"# {session.Title}" : $"# {session.Title}（{character}）").AppendLine();
         foreach (ChatMessage message in session.History)
         {
-            text.AppendLine($"### {message.Role}").AppendLine();
-            foreach (AIContent content in message.Contents) AppendContent(text, content);
+            text.Append(SessionLogText.FormatMessage(message, withReasoning: true, withTools: true));
         }
 
-        text.AppendLine($"输入 {session.TotalInputTokens} · 输出 {session.TotalOutputTokens}");
+        text.Append(SessionLogText.FormatUsage(session.TotalInputTokens, session.TotalOutputTokens));
         File.WriteAllText(path, text.ToString());
         return new JsonObject { ["messages"] = session.History.Count, ["path"] = path };
     }
-
-    private static void AppendContent(StringBuilder text, AIContent content)
-    {
-        switch (content)
-        {
-            case TextReasoningContent reasoning when !string.IsNullOrWhiteSpace(reasoning.Text):
-                text.AppendLine($"> 思考：{reasoning.Text.Trim().Replace("\n", " ")}").AppendLine();
-                break;
-            case TextContent plain when !string.IsNullOrWhiteSpace(plain.Text):
-                text.AppendLine(plain.Text.Trim()).AppendLine();
-                break;
-            case FunctionCallContent call:
-                text.AppendLine($"- 调用 `{call.Name}`：`{ToJson(call.Arguments)}`");
-                break;
-            case FunctionResultContent result:
-                string body = result.Result?.ToString() ?? "";
-                if (body.Length > MaxResultChars) body = body[..MaxResultChars] + "…";
-                text.AppendLine($"- 结果：{body.Replace("\n", " ")}").AppendLine();
-                break;
-        }
-    }
-
-    private static string ToJson(IDictionary<string, object?>? arguments) =>
-        arguments is not { Count: > 0 } ? "" : JsonSerializer.Serialize(arguments, ToolJson.Arguments);
 }
