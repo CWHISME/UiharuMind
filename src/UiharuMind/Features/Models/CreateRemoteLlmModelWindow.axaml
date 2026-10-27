@@ -241,8 +241,8 @@
                                        TextWrapping="Wrap" />
                             <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,6,0,0">
                                 <RadioButton GroupName="ReasoningRoundtrip"
-                                             Content="{loc:Loc RemoteModelReasoningRoundtripFollowPreset}"
-                                             IsChecked="{Binding IsReasoningRoundtripFollowPreset}" />
+                                             Content="{loc:Loc RemoteModelReasoningRoundtripAutoDetect}"
+                                             IsChecked="{Binding IsReasoningRoundtripAutoDetect}" />
                                 <RadioButton GroupName="ReasoningRoundtrip"
                                              Content="{loc:Loc RemoteModelReasoningRoundtripForceOn}"
                                              IsChecked="{Binding IsReasoningRoundtripForceOn}" />
@@ -251,10 +251,13 @@
                                              IsChecked="{Binding IsReasoningRoundtripForceOff}" />
                             </StackPanel>
                             <TextBlock Classes="muted" TextWrapping="Wrap"
+                                       IsVisible="{Binding IsReasoningRoundtripPresetAuto}"
+                                       Text="{loc:Loc RemoteModelReasoningRoundtripPresetAuto}" />
+                            <TextBlock Classes="muted" TextWrapping="Wrap"
                                        IsVisible="{Binding PresetRequiresReasoningContentRoundtrip}"
                                        Text="{loc:Loc RemoteModelReasoningRoundtripPresetOn}" />
                             <TextBlock Classes="muted" TextWrapping="Wrap"
-                                       IsVisible="{Binding !PresetRequiresReasoningContentRoundtrip}"
+                                       IsVisible="{Binding IsReasoningRoundtripPresetOff}"
                                        Text="{loc:Loc RemoteModelReasoningRoundtripPresetOff}" />
                         </StackPanel>
 
@@ -311,8 +314,8 @@
                                            TextWrapping="Wrap" />
                                 <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,6,0,0">
                                     <RadioButton GroupName="ReasoningRoundtripPreset"
-                                                 Content="{loc:Loc RemoteModelReasoningRoundtripFollowPreset}"
-                                                 IsChecked="{Binding IsReasoningRoundtripFollowPreset}" />
+                                                 Content="{loc:Loc RemoteModelReasoningRoundtripAutoDetect}"
+                                                 IsChecked="{Binding IsReasoningRoundtripAutoDetect}" />
                                     <RadioButton GroupName="ReasoningRoundtripPreset"
                                                  Content="{loc:Loc RemoteModelReasoningRoundtripForceOn}"
                                                  IsChecked="{Binding IsReasoningRoundtripForceOn}" />
@@ -321,10 +324,13 @@
                                                  IsChecked="{Binding IsReasoningRoundtripForceOff}" />
                                 </StackPanel>
                                 <TextBlock Classes="muted" TextWrapping="Wrap"
+                                           IsVisible="{Binding IsReasoningRoundtripPresetAuto}"
+                                           Text="{loc:Loc RemoteModelReasoningRoundtripPresetAuto}" />
+                                <TextBlock Classes="muted" TextWrapping="Wrap"
                                            IsVisible="{Binding PresetRequiresReasoningContentRoundtrip}"
                                            Text="{loc:Loc RemoteModelReasoningRoundtripPresetOn}" />
                                 <TextBlock Classes="muted" TextWrapping="Wrap"
-                                           IsVisible="{Binding !PresetRequiresReasoningContentRoundtrip}"
+                                           IsVisible="{Binding IsReasoningRoundtripPresetOff}"
                                            Text="{loc:Loc RemoteModelReasoningRoundtripPresetOff}" />
                             </StackPanel>
 

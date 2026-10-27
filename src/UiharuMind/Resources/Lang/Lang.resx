@@ -2448,7 +2448,10 @@ Hit rate = cached input / reported input. The row above is the session total, wi
         <value>Reasoning Content Round-trip</value>
     </data>
     <data name="RemoteModelReasoningRoundtripHint" xml:space="preserve">
-        <value>Some thinking-mode models require the reasoning content to be echoed back with tool calls, or requests fail. "Follow preset" resolves this automatically per model.</value>
+        <value>Some thinking-mode models require the thinking text to be echoed back with tool calls, or requests fail. "Auto-detect" echoes it when the response carried thinking, using the field name the model actually used.</value>
+    </data>
+    <data name="RemoteModelReasoningRoundtripPresetAuto" xml:space="preserve">
+        <value>Auto-detect: echo thinking when present.</value>
     </data>
     <data name="RemoteModelReasoningRoundtripPresetOn" xml:space="preserve">
         <value>Current preset for this model: required.</value>
@@ -2456,8 +2459,8 @@ Hit rate = cached input / reported input. The row above is the session total, wi
     <data name="RemoteModelReasoningRoundtripPresetOff" xml:space="preserve">
         <value>Current preset for this model: not required.</value>
     </data>
-    <data name="RemoteModelReasoningRoundtripFollowPreset" xml:space="preserve">
-        <value>Follow preset</value>
+    <data name="RemoteModelReasoningRoundtripAutoDetect" xml:space="preserve">
+        <value>Auto-detect</value>
     </data>
     <data name="RemoteModelReasoningRoundtripForceOn" xml:space="preserve">
         <value>Force on</value>

@@ -25,9 +25,11 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
 {
     private readonly Uri _baseUri;
     private readonly bool _isChatCompletions; //只有聊天补全的响应需要清洗
+    private readonly Action<string>? _reasoningFieldObserver; //响应观测到思考字段原名时的回调(按模型记录回传键名)
 
-    public OpenAICompatibleHttpHandler(string address = "http://127.0.0.1:1369/v1/chat/completions")
-        : this(address, new HttpClientHandler())
+    public OpenAICompatibleHttpHandler(string address = "http://127.0.0.1:1369/v1/chat/completions",
+        Action<string>? reasoningFieldObserver = null)
+        : this(address, new HttpClientHandler(), reasoningFieldObserver)
     {
     }
 
@@ -36,14 +38,17 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
     /// </summary>
     /// <param name="address">端点地址</param>
     /// <param name="inner">内层处理器</param>
-    internal OpenAICompatibleHttpHandler(string address, HttpMessageHandler inner) : base(inner)
+    /// <param name="reasoningFieldObserver">思考字段观测回调（可选，观测到 origin 字段名时调用）</param>
+    internal OpenAICompatibleHttpHandler(string address, HttpMessageHandler inner,
+        Action<string>? reasoningFieldObserver = null) : base(inner)
     {
         _baseUri = CreateChatCompletionUri(address).Uri;
         _isChatCompletions = IsChatCompletions(_baseUri);
+        _reasoningFieldObserver = reasoningFieldObserver;
     }
 
     public OpenAICompatibleHttpHandler(string host = "http://127.0.0.1", int port = 1369,
-        string absolutePath = "/v1/chat/completions")
+        string absolutePath = "/v1/chat/completions", Action<string>? reasoningFieldObserver = null)
         : base(new HttpClientHandler())
     {
         var newUriBuilder = new UriBuilder(host)
@@ -53,6 +58,7 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
         };
         _baseUri = newUriBuilder.Uri;
         _isChatCompletions = IsChatCompletions(_baseUri);
+        _reasoningFieldObserver = reasoningFieldObserver;
     }
 
     private static bool IsChatCompletions(Uri uri) =>
@@ -198,17 +204,18 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
         var mediaType = response.Content.Headers.ContentType?.MediaType;
         if (mediaType == "text/event-stream")
         {
-            response.Content = new SseSanitizingContent(response.Content);
+            response.Content = new SseSanitizingContent(response.Content, _reasoningFieldObserver);
         }
         else if (mediaType == "application/json")
         {
             HttpContent original = response.Content;
             byte[] json = await original.ReadAsByteArrayAsync(cancellationToken);
             var fixedJson = new ArrayBufferWriter<byte>(json.Length + 64);
-            if (OpenAiCompatibleResponseFixer.TryFix(json, fixedJson))
+            if (OpenAiCompatibleResponseFixer.TryFix(json, fixedJson, out string? reasoningField))
             {
                 response.Content = new ReadOnlyMemoryContent(fixedJson.WrittenMemory);
                 response.Content.Headers.ContentType = original.Headers.ContentType;
+                if (reasoningField != null) _reasoningFieldObserver?.Invoke(reasoningField);
                 original.Dispose();
             }
         }

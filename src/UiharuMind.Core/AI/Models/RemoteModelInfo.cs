@@ -29,7 +29,11 @@ public class RemoteModelInfo : ILlmModel
     [JsonIgnore] public int Port => Config.Port;
     [JsonIgnore] public int ContextLength => Config.ContextLength;
     [JsonIgnore] public bool OmitSamplingParams => Config.OmitSamplingParams;
-    [JsonIgnore] public bool RequiresReasoningContentRoundtrip => Config.RequiresReasoningContentRoundtrip;
+    /// <summary>思考模式下带 tool_calls 时是否要求原样带回思考正文；<c>null</c>=自动(有思考就回传)，<c>true</c>/<c>false</c>=显式要求/禁止</summary>
+    [JsonIgnore] public bool? RequiresReasoningContentRoundtrip => Config.RequiresReasoningContentRoundtrip;
+
+    /// <summary>回填思考正文用的 wire 键名（观测值/预设/默认），请求侧不写死</summary>
+    [JsonIgnore] public string ThinkingField => Config.EffectiveThinkingField;
     public virtual IReadOnlyList<KeyValuePair<string, JsonNode?>>? GetExtraParams() =>
         Config.GetExtraParams();
 

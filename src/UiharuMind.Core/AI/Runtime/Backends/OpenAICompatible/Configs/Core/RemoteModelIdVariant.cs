@@ -7,7 +7,8 @@ namespace UiharuMind.Core.Configs.RemoteAI;
 /// <param name="MaxTokens">默认最大输出预算(token 数),0 表示未设置</param>
 /// <param name="IsVision">是否支持视觉</param>
 /// <param name="RequiresReasoningContentRoundtrip">
-/// 思考模式下,助手消息带 tool_calls 时是否要求原样带回当时的 reasoning_content。
+/// 思考模式下,助手消息带 tool_calls 时是否要求原样带回当时的思考正文。
+/// <c>null</c>=自动(历史有思考就回传);<c>true</c>/<c>false</c>=显式要求/禁止。
 /// 这是模型本身(如 DeepSeek)的接口约束,与转售它的供应商无关——同一供应商下的其它
 /// 模型(如商汤转售的 GLM/自研模型)未必有此限制,因此按 ModelId 逐条声明,不挂在配置类上。
 /// </param>
@@ -18,13 +19,18 @@ namespace UiharuMind.Core.Configs.RemoteAI;
 /// <param name="Alias">
 /// 显示别名,非空时创建窗口的下拉框优先展示它(如标注「免费」);空则回退显示 ModelId。
 /// </param>
+/// <param name="ThinkingField">
+/// 该模型的思考 wire 字段名(reasoning_content/reasoning/reasoning_text);空表示未声明,
+/// 消费时按 运行时观测值 → 本预设值 → reasoning_content 查表。
+/// </param>
 public record RemoteModelIdVariant(
     int ContextLength = 0,
     int MaxTokens = 0,
     bool IsVision = false,
-    bool RequiresReasoningContentRoundtrip = false,
+    bool? RequiresReasoningContentRoundtrip = null,
     bool OmitSamplingParams = false,
-    string Alias = "")
+    string Alias = "",
+    string ThinkingField = "")
 {
     /// <summary>
     /// 空表,供未声明预设的配置使用

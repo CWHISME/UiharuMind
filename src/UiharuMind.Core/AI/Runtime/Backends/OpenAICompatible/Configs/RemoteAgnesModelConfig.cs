@@ -47,7 +47,7 @@ public class RemoteAgnesModelConfig : BaseRemoteModelConfig, IRemoteModelConfig
             ? MaxTokens
             : (ModelIdVariants.TryGetValue(ModelId, out RemoteModelIdVariant? preset) && preset.MaxTokens > 0
                 ? preset.MaxTokens
-                : GetDefaultMaxTokens(ThinkingMode));
+                : DefaultMaxTokens);
 
         KeyValuePair<string, JsonNode?>? thinkingParam = ThinkingMode switch
         {

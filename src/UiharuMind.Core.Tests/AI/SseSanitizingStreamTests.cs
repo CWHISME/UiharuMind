@@ -95,6 +95,23 @@ public class SseSanitizingStreamTests
         Assert.Equal(line + "\n\n" + FixedChunk + "\n", text);
     }
 
+    /// <summary>观测到思考字段原名时经回调上报（流式多帧都上报,去重由落盘侧值比较负责）</summary>
+    [Fact]
+    public async Task ObservedReasoningField_IsReportedThroughObserver()
+    {
+        List<string> observed = [];
+        string sse = "data: {\"choices\":[{\"index\":0,\"delta\":{\"reasoning\":\"想\"},\"finish_reason\":\"\"}]}\n" +
+                     "data: {\"choices\":[{\"index\":0,\"delta\":{\"reasoning\":\"一想\"},\"finish_reason\":\"\"}]}\n" +
+                     "data: [DONE]\n\n";
+        await using var stream = new SseSanitizingStream(
+            new MemoryStream(Encoding.UTF8.GetBytes(sse)), observed.Add);
+        using var reader = new StreamReader(stream);
+        await reader.ReadToEndAsync(TestContext.Current.CancellationToken);
+
+        Assert.All(observed, field => Assert.Equal("reasoning", field));
+        Assert.NotEmpty(observed);
+    }
+
     private static async Task<string> ReadAllAsync(Stream inner)
     {
         await using var stream = new SseSanitizingStream(inner);

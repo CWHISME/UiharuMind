@@ -30,11 +30,17 @@ public interface ILlmModel
     public IReadOnlyList<KeyValuePair<string, JsonNode?>>? GetExtraParams() => null;
 
     /// <summary>
-    /// 思考模式下,助手消息带 tool_calls 时是否要求原样带回当时的 reasoning_content。
-    /// 目前只有 DeepSeek 已确认有此强制要求;其余共用 thinking/reasoning_effort 参数的
-    /// 兼容服务未必有此限制,默认不开,避免给不需要的后端塞进多余字段。
+    /// 思考模式下,助手消息带 tool_calls 时是否要求原样带回当时的思考正文。
+    /// <c>null</c>=自动(历史有思考就回传);<c>true</c>/<c>false</c>=显式要求/禁止。
+    /// 本地模型没有思考回传一说,默认不回传。
     /// </summary>
-    public bool RequiresReasoningContentRoundtrip => false;
+    public bool? RequiresReasoningContentRoundtrip => false;
+
+    /// <summary>
+    /// 回填思考正文用的 wire 键名(reasoning_content/reasoning/reasoning_text)。
+    /// 请求侧不写死键名,按模型实际值回填;本地模型取默认。
+    /// </summary>
+    public string ThinkingField => "reasoning_content";
 
     /// <summary>
     /// 是否不发送采样参数(temperature/top_p/presence_penalty/frequency_penalty)。

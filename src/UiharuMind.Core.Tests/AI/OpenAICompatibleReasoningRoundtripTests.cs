@@ -63,9 +63,22 @@ public class OpenAICompatibleReasoningRoundtripTests
         Assert.Null(message["reasoning_content"]);
     }
 
-    /// <summary>只有要求回填的模型才去收集思考：别的模型一次都不调来源</summary>
+    /// <summary>回填键名跟随模型字段（如 reasoning），不写死 reasoning_content</summary>
     [Fact]
-    public async Task ReasoningSource_IsOnlyInvokedForModelsThatRequireIt()
+    public void RestoreReasoningContent_UsesConfiguredFieldName()
+    {
+        JsonObject message = RestoreFirstMessage(
+            """{"messages":[{"role":"assistant","content":"查一下","tool_calls":[{"id":"call-1","type":"function"}]}]}""",
+            new Dictionary<string, string> { ["call-1"] = "先想好再调工具。" },
+            reasoningField: "reasoning");
+
+        Assert.Equal("先想好再调工具。", message["reasoning"]!.GetValue<string>());
+        Assert.Null(message["reasoning_content"]);
+    }
+
+    /// <summary>roundtrip=null(自动)与 true 都去收集(收集器扫不到就空);显式 false 与无模型跳过</summary>
+    [Fact]
+    public async Task ReasoningSource_IsCollectedForAutoOrRequired_SkippedForExplicitOff()
     {
         int invoked = await Task.Run(() =>
         {
@@ -75,15 +88,20 @@ public class OpenAICompatibleReasoningRoundtripTests
                 count++;
                 return new Dictionary<string, string> { ["c1"] = "思考" };
             };
-            OpenAICompatibleRequestRewriter.For(new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "glm-5.2" } });
+            // 显式关(商汤自研,官方推荐不回传):不收集
+            OpenAICompatibleRequestRewriter.For(new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "sensenova-6.8-flash-lite" } });
+            // 无模型:不收集
             OpenAICompatibleRequestRewriter.For(model: null);
+            // 自动(未声明):收集
+            OpenAICompatibleRequestRewriter.For(new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "glm-5.2" } });
+            // 必须回填(kimi-k3):收集
             RequestRewrite rewrite = OpenAICompatibleRequestRewriter.For(
                 new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "kimi-k3" } });
             Assert.NotNull(rewrite.ReasoningByCallId);
             return count;
         }, TestContext.Current.CancellationToken);
 
-        Assert.Equal(1, invoked);
+        Assert.Equal(2, invoked);
     }
 
     [Fact]
@@ -107,9 +125,47 @@ public class OpenAICompatibleReasoningRoundtripTests
         Assert.True(info.RequiresReasoningContentRoundtrip);
     }
 
-    private static JsonObject RestoreFirstMessage(string json, Dictionary<string, string> reasoning)
+    /// <summary>
+    /// 从模型配置一路查到请求体里的键名（此前只分别测了「观测落盘」和「按给定键名改写」，
+    /// 中间的接线没人钉）：观测值 → 预设 → 默认，且空串绝不能拼进请求体。
+    /// </summary>
+    [Fact]
+    public void ReasoningField_ResolvesObservedThenPresetThenDefault()
     {
-        string? rewritten = OpenAICompatibleRequestRewriterTests.Rewrite(json, new RequestRewrite(null, false, reasoning, false));
+        var observed = new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "glm-5.2" } };
+        observed.Config.ObservedThinkingFields["glm-5.2"] = "reasoning_text";
+        Assert.Equal("reasoning_text", OpenAICompatibleRequestRewriter.For(observed).ReasoningField);
+
+        // 同端点另一模型的预设声明照常生效（观测值只属于各自的 ModelId）
+        var preseted = new RemoteModelInfo
+        {
+            Config = new RemoteSensenovaModelConfig { ModelId = "sensenova-6.8-flash-lite" },
+        };
+        Assert.Equal("reasoning", OpenAICompatibleRequestRewriter.For(preseted).ReasoningField);
+
+        Assert.Equal("reasoning_content", OpenAICompatibleRequestRewriter.For(new RemoteModelInfo()).ReasoningField);
+        Assert.Equal("reasoning_content", OpenAICompatibleRequestRewriter.For(model: null).ReasoningField);
+        // 违反契约给了空串的实现：退回默认，而不是写一个 `"": "..."` 进请求体
+        Assert.Equal("reasoning_content", OpenAICompatibleRequestRewriter.For(new BlankFieldModel()).ReasoningField);
+    }
+
+    /// <summary>思考字段名给空串的模型（接口契约说该给生效键名，实现可能给空）</summary>
+    private sealed class BlankFieldModel : ILlmModel
+    {
+        public string ModelName => "blank";
+        public string ModelPath => "";
+        public bool IsVision => false;
+        public string ModelDescription => "";
+        public string ModelId => "blank";
+        public int Port => 0;
+        public string ThinkingField => "";
+    }
+
+    private static JsonObject RestoreFirstMessage(string json, Dictionary<string, string> reasoning,
+        string reasoningField = "reasoning_content")
+    {
+        string? rewritten = OpenAICompatibleRequestRewriterTests.Rewrite(json,
+            new RequestRewrite(null, false, reasoning, false, reasoningField));
         return (JsonObject)JsonNode.Parse(rewritten ?? json)!["messages"]![0]!;
     }
 }

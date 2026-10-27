@@ -46,6 +46,14 @@ internal static class OpenAiCompatibleResponseFixer
         ToolCallType,
     }
 
+    /// <summary>观测到的思考字段原貌；<see cref="None"/> 表示本层没有思考键</summary>
+    private enum ReasoningKind : byte
+    {
+        None,
+        Reasoning,
+        ReasoningText,
+    }
+
     // 一层容器的扫描状态。思考键要等对象收尾才能定夺：同对象的 reasoning_content 可能排在它后面
     private struct Frame
     {
@@ -53,6 +61,7 @@ internal static class OpenAiCompatibleResponseFixer
         public bool IsToolCall; //直接位于 tool_calls 数组里的元素
         public bool HasReasoningContent;
         public bool ReasoningNonEmpty;
+        public ReasoningKind Kind; //本层的思考键是哪一个
         public int ReasoningKeyStart; //-1 表示本层没有字符串值的 reasoning 键
         public int ReasoningKeyEnd;
         public int ReasoningValueEnd;
@@ -64,12 +73,24 @@ internal static class OpenAiCompatibleResponseFixer
     /// <param name="line">原始行（不含换行）</param>
     /// <param name="output">需要修正时写入 <c>data: </c> 与修正后的 JSON</param>
     /// <returns>写了返回 true；无需修正返回 false，output 不动，调用方原样转发</returns>
-    public static bool TryFixEventStreamLine(ReadOnlySpan<byte> line, IBufferWriter<byte> output)
+    public static bool TryFixEventStreamLine(ReadOnlySpan<byte> line, IBufferWriter<byte> output) =>
+        TryFixEventStreamLine(line, output, out _);
+
+    /// <summary>
+    /// 修正一行 SSE，并上报本行观测到的原始思考字段名
+    /// （<c>reasoning</c>/<c>reasoning_text</c>，已改名成 <c>reasoning_content</c>；未观测到返回 null）
+    /// </summary>
+    /// <param name="line">原始行（不含换行）</param>
+    /// <param name="output">需要修正时写入 <c>data: </c> 与修正后的 JSON</param>
+    /// <param name="reasoningField">本行观测到的思考字段原貌，供上层记录按模型回传</param>
+    /// <returns>写了返回 true；无需修正返回 false，output 不动</returns>
+    public static bool TryFixEventStreamLine(ReadOnlySpan<byte> line, IBufferWriter<byte> output, out string? reasoningField)
     {
+        reasoningField = null;
         if (!line.StartsWith("data:"u8)) return false;
         ReadOnlySpan<byte> payload = line["data:"u8.Length..].Trim(" \t"u8);
         if (payload.IsEmpty || payload.SequenceEqual("[DONE]"u8)) return false;
-        return TryFix(payload, output, "data: "u8);
+        return TryFix(payload, output, "data: "u8, out reasoningField);
     }
 
     /// <summary>
@@ -78,7 +99,11 @@ internal static class OpenAiCompatibleResponseFixer
     /// <param name="json">原始 JSON</param>
     /// <param name="output">需要修正时写入修正后的 JSON</param>
     /// <returns>写了返回 true；无需修正或解析失败返回 false，output 不动</returns>
-    public static bool TryFix(ReadOnlySpan<byte> json, IBufferWriter<byte> output) => TryFix(json, output, default);
+    public static bool TryFix(ReadOnlySpan<byte> json, IBufferWriter<byte> output) => TryFix(json, output, default, out _);
+
+    /// <summary>修正一段 JSON 并上报观测到的原始思考字段名（见 <see cref="TryFixEventStreamLine(ReadOnlySpan{byte}, IBufferWriter{byte}, out string?)"/>）</summary>
+    public static bool TryFix(ReadOnlySpan<byte> json, IBufferWriter<byte> output, out string? reasoningField) =>
+        TryFix(json, output, default, out reasoningField);
 
     /// <summary>
     /// 修正一行 SSE 文本（字符串入口，测试用）
@@ -104,16 +129,17 @@ internal static class OpenAiCompatibleResponseFixer
         return TryFix(Encoding.UTF8.GetBytes(json), output) ? Encoding.UTF8.GetString(output.WrittenSpan) : null;
     }
 
-    private static bool TryFix(ReadOnlySpan<byte> json, IBufferWriter<byte> output, ReadOnlySpan<byte> prefix)
+    private static bool TryFix(ReadOnlySpan<byte> json, IBufferWriter<byte> output, ReadOnlySpan<byte> prefix, out string? reasoningField)
     {
-        // 三个键名一个都不含就不必解析
+        reasoningField = null;
+        // 三个键名一个都不含就不必解析（reasoning_text 单独查：带闭合引号的 "reasoning" 不命中它）
         if (json.IndexOf("finish_reason"u8) < 0 && json.IndexOf("tool_calls"u8) < 0 &&
-            json.IndexOf("\"reasoning\""u8) < 0) return false;
+            json.IndexOf("\"reasoning\""u8) < 0 && json.IndexOf("\"reasoning_text\""u8) < 0) return false;
 
         var splice = new Utf8JsonSplice();
         try
         {
-            if (!Collect(json, ref splice) || splice.Count == 0) return false;
+            if (!Collect(json, ref splice, out reasoningField) || splice.Count == 0) return false;
         }
         catch (JsonException)
         {
@@ -126,8 +152,9 @@ internal static class OpenAiCompatibleResponseFixer
     }
 
     // 一遍扫描记下全部改动；同一对象里出现两个 reasoning 键这种拿不准的形态，整块不动
-    private static bool Collect(ReadOnlySpan<byte> json, ref Utf8JsonSplice splice)
+    private static bool Collect(ReadOnlySpan<byte> json, ref Utf8JsonSplice splice, out string? reasoningField)
     {
+        reasoningField = null;
         Span<Frame> frames = stackalloc Frame[MaxDepth + 1];
         var reader = new Utf8JsonReader(json);
         Key key = Key.Other;
@@ -172,7 +199,7 @@ internal static class OpenAiCompatibleResponseFixer
                     break;
                 }
                 case JsonTokenType.EndObject:
-                    ResolveReasoning(json, ref frames[depth], ref splice);
+                    ResolveReasoning(json, ref frames[depth], ref splice, ref reasoningField);
                     break;
                 case JsonTokenType.EndArray:
                     if (frames[depth].IsToolCallsArray) toolCallsDepth--;
@@ -201,7 +228,17 @@ internal static class OpenAiCompatibleResponseFixer
             return owner.IsToolCall && reader.ValueTextEquals("type"u8) ? Key.ToolCallType : Key.Other;
         if (reader.ValueTextEquals("finish_reason"u8)) return Key.FinishReason;
         if (reader.ValueTextEquals("tool_calls"u8)) return Key.ToolCalls;
-        if (reader.ValueTextEquals("reasoning"u8)) return Key.Reasoning;
+        if (reader.ValueTextEquals("reasoning"u8))
+        {
+            owner.Kind = ReasoningKind.Reasoning;
+            return Key.Reasoning;
+        }
+
+        if (reader.ValueTextEquals("reasoning_text"u8))
+        {
+            owner.Kind = ReasoningKind.ReasoningText;
+            return Key.Reasoning;
+        }
         if (reader.ValueTextEquals("reasoning_content"u8)) owner.HasReasoningContent = true;
         return Key.Other;
     }
@@ -246,13 +283,19 @@ internal static class OpenAiCompatibleResponseFixer
     }
 
     // 对象收尾时定夺思考键：非空且同对象没有 reasoning_content 时改名；空串或已有 reasoning_content 时删掉，
-    // 思考只留一个来源（下游空思考本来也会被 ChatContentNormalizer 丢掉，这里提前收敛）
-    private static void ResolveReasoning(ReadOnlySpan<byte> json, ref Frame frame, ref Utf8JsonSplice splice)
+    // 思考只留一个来源（下游空思考本来也会被 ChatContentNormalizer 丢掉，这里提前收敛）。
+    // 改名时把原始字段名上报（reasoning/reasoning_text），供上层按模型记录回传键名
+    private static void ResolveReasoning(ReadOnlySpan<byte> json, ref Frame frame, ref Utf8JsonSplice splice, ref string? reasoningField)
     {
         if (frame.ReasoningKeyStart < 0) return;
         if (frame.ReasoningNonEmpty && !frame.HasReasoningContent)
+        {
             splice.Replace(frame.ReasoningKeyStart, frame.ReasoningKeyEnd, ReasoningContentKey);
+            reasoningField = frame.Kind == ReasoningKind.ReasoningText ? "reasoning_text" : "reasoning";
+        }
         else
+        {
             splice.RemoveProperty(json, frame.ReasoningKeyStart, frame.ReasoningValueEnd);
+        }
     }
 }

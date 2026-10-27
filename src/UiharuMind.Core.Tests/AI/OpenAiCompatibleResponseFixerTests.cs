@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Text;
 using UiharuMind.Core.AI.Net;
 
@@ -106,6 +107,45 @@ public class OpenAiCompatibleResponseFixerTests
         var obj = node!["choices"]![0]![container]!.AsObject();
         Assert.Equal("用户让我", obj["reasoning_content"]!.GetValue<string>());
         Assert.False(obj.ContainsKey("reasoning"));
+    }
+
+    /// <summary>reasoning_text 也是思考字段：改名成 reasoning_content 并上报原名（观测链路的输入）</summary>
+    [Fact]
+    public void ReasoningText_IsRenamedAndReported()
+    {
+        const string line = """data: {"choices":[{"index":0,"delta":{"reasoning_text":"想想"},"finish_reason":null}]}""";
+        var output = new ArrayBufferWriter<byte>();
+
+        bool wasFixed = OpenAiCompatibleResponseFixer.TryFixEventStreamLine(Encoding.UTF8.GetBytes(line), output, out string? field);
+
+        Assert.True(wasFixed);
+        Assert.Equal("reasoning_text", field);
+        Assert.Contains("\"reasoning_content\":\"想想\"", Encoding.UTF8.GetString(output.WrittenSpan));
+    }
+
+    /// <summary>reasoning 改名时上报原名 reasoning（观测链路的输入）</summary>
+    [Fact]
+    public void Reasoning_IsRenamedAndReported()
+    {
+        const string line = """data: {"choices":[{"index":0,"delta":{"reasoning":"想想"},"finish_reason":null}]}""";
+        var output = new ArrayBufferWriter<byte>();
+
+        bool wasFixed = OpenAiCompatibleResponseFixer.TryFixEventStreamLine(Encoding.UTF8.GetBytes(line), output, out string? field);
+
+        Assert.True(wasFixed);
+        Assert.Equal("reasoning", field);
+    }
+
+    /// <summary>本来就是 reasoning_content：不上报（没有改名动作）</summary>
+    [Fact]
+    public void ReasoningContent_IsNotReported()
+    {
+        const string line = """data: {"choices":[{"index":0,"delta":{"reasoning_content":"想想"},"finish_reason":null}]}""";
+        var output = new ArrayBufferWriter<byte>();
+
+        OpenAiCompatibleResponseFixer.TryFixEventStreamLine(Encoding.UTF8.GetBytes(line), output, out string? field);
+
+        Assert.Null(field);
     }
 
     /// <summary>空思考按字面删掉，不进 DOM；删完无事可做时返回删过的串</summary>

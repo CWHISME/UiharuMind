@@ -41,9 +41,11 @@ public sealed class ModelIdOptionItem
     public int MaxTokens { get; init; }
 
     /// <summary>
-    /// 思考模式下带 tool_calls 时,该模型是否要求原样带回 reasoning_content
+    /// 思考模式下带 tool_calls 时,该模型是否要求原样带回思考正文;
+    /// <c>null</c>=自动(历史有思考就回传),
+    /// <c>true</c>/<c>false</c>=显式要求/禁止
     /// </summary>
-    public bool RequiresReasoningContentRoundtrip { get; init; }
+    public bool? RequiresReasoningContentRoundtrip { get; init; }
 
     /// <summary>
     /// 该模型是否默认不发送采样参数(temperature 等固定参数的模型,如 Kimi)

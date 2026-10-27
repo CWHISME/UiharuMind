@@ -17,6 +17,7 @@ internal sealed class SseSanitizingStream : Stream
     private const int InitialBufferSize = 16 * 1024;
 
     private readonly Stream _inner;
+    private readonly Action<string>? _reasoningFieldObserver; //观测到思考字段原名(reasoning/reasoning_text)时回调,供上层按模型记录回传键名
     private readonly ArrayBufferWriter<byte> _output = new(InitialBufferSize); //处理好、待吐给下游的字节
     private byte[] _input = new byte[InitialBufferSize]; //读进来还没成行的字节
     private int _inputStart;
@@ -33,9 +34,10 @@ internal sealed class SseSanitizingStream : Stream
     private byte[] _lastDataLine = []; //最后一条 data 行原文(诊断用:看服务端收尾时到底发了什么)
     private int _lastDataLineLength;
 
-    public SseSanitizingStream(Stream inner)
+    public SseSanitizingStream(Stream inner, Action<string>? reasoningFieldObserver = null)
     {
         _inner = inner;
+        _reasoningFieldObserver = reasoningFieldObserver;
     }
 
     public override bool CanRead => true;
@@ -206,7 +208,8 @@ internal sealed class SseSanitizingStream : Stream
         // 跳过 [DONE]:要的是最后一条<b>业务帧</b>(它才带 finish_reason/usage)。
         // 之前把 [DONE] 也记进来,收尾帧被它覆盖,看不到服务端到底发了什么
         if (!_sawDone && line.StartsWith("data:"u8)) RememberLastDataLine(line);
-        if (!OpenAiCompatibleResponseFixer.TryFixEventStreamLine(line, _output)) _output.Write(line);
+        if (!OpenAiCompatibleResponseFixer.TryFixEventStreamLine(line, _output, out string? observedField)) _output.Write(line);
+        else if (observedField != null) _reasoningFieldObserver?.Invoke(observedField);
         _output.Write("\n"u8);
     }
 

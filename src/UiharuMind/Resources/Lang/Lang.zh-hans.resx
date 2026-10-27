@@ -2443,7 +2443,10 @@
         <value>回传思考正文</value>
     </data>
     <data name="RemoteModelReasoningRoundtripHint" xml:space="preserve">
-        <value>部分思考模式模型要求工具调用消息原样带回思考正文,否则请求会被拒绝。"跟随预设"会按所选模型自动判断。</value>
+        <value>部分思考模式模型要求工具调用消息原样带回思考正文,否则请求会被拒绝。"自动检测"在响应带思考时按该模型实际使用的字段名回传,没有思考就不带。</value>
+    </data>
+    <data name="RemoteModelReasoningRoundtripPresetAuto" xml:space="preserve">
+        <value>自动检测：有思考就回传。</value>
     </data>
     <data name="RemoteModelReasoningRoundtripPresetOn" xml:space="preserve">
         <value>当前模型的预设判断:需要。</value>
@@ -2451,8 +2454,8 @@
     <data name="RemoteModelReasoningRoundtripPresetOff" xml:space="preserve">
         <value>当前模型的预设判断:不需要。</value>
     </data>
-    <data name="RemoteModelReasoningRoundtripFollowPreset" xml:space="preserve">
-        <value>跟随预设</value>
+    <data name="RemoteModelReasoningRoundtripAutoDetect" xml:space="preserve">
+        <value>自动检测</value>
     </data>
     <data name="RemoteModelReasoningRoundtripForceOn" xml:space="preserve">
         <value>强制开启</value>

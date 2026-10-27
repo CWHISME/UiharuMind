@@ -8,10 +8,12 @@ namespace UiharuMind.Core.AI.Net;
 internal sealed class SseSanitizingContent : HttpContent
 {
     private readonly HttpContent _inner;
+    private readonly Action<string>? _reasoningFieldObserver; //观测到思考字段原名时回调,透传给 SseSanitizingStream
 
-    public SseSanitizingContent(HttpContent inner)
+    public SseSanitizingContent(HttpContent inner, Action<string>? reasoningFieldObserver = null)
     {
         _inner = inner;
+        _reasoningFieldObserver = reasoningFieldObserver;
         foreach (var header in inner.Headers)
         {
             // 内容被改写后长度不再准确，Content-Length 不能照抄
@@ -22,12 +24,12 @@ internal sealed class SseSanitizingContent : HttpContent
 
     protected override async Task SerializeToStreamAsync(Stream stream, TransportContext? context)
     {
-        await using var source = new SseSanitizingStream(await _inner.ReadAsStreamAsync());
+        await using var source = new SseSanitizingStream(await _inner.ReadAsStreamAsync(), _reasoningFieldObserver);
         await source.CopyToAsync(stream);
     }
 
     protected override async Task<Stream> CreateContentReadStreamAsync()
-        => new SseSanitizingStream(await _inner.ReadAsStreamAsync());
+        => new SseSanitizingStream(await _inner.ReadAsStreamAsync(), _reasoningFieldObserver);
 
     protected override bool TryComputeLength(out long length)
     {

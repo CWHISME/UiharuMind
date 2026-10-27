@@ -46,7 +46,7 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     /// 模型最大输出预算(max_tokens)。思考与正文共用一个输出配额:
     /// 服务端默认预算(实测 deepseek-v4-flash 是 8192)会被超长思考整个吃光,
     /// 正文一个字都发不出,finish_reason=length 直接收尾——这正是"思考一长就断"的根因。
-    /// 0 表示未设置,发送时按思考档位取默认预算(<see cref="GetDefaultMaxTokens"/>)。
+    /// 0 表示未设置,发送时取默认预算(<see cref="DefaultMaxTokens"/>)。
     /// </summary>
     [SettingConfigIgnoreDisplay]
     public virtual int MaxTokens { get; set; }
@@ -66,10 +66,10 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     public virtual IReadOnlyDictionary<string, RemoteModelIdVariant> ModelIdVariants => RemoteModelIdVariant.Empty;
 
     /// <summary>
-    /// 思考档位未显式设置时的输出预算。0 表示未预设。
-    /// 思考档位预算要取思考自身够用 + 正文留量。
+    /// 既没显式设置、预设表也没声明时的输出预算兜底。思考与正文共用一个配额，
+    /// 给小了会被思考吃光、正文一个字发不出，因此取一个足够大的值。
     /// </summary>
-    public static int GetDefaultMaxTokens(EThinkingMode mode) => 65535;
+    public const int DefaultMaxTokens = 65535;
 
     /// <summary>
     /// 思考力度
@@ -84,7 +84,7 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
             ? MaxTokens
             : (ModelIdVariants.TryGetValue(ModelId, out RemoteModelIdVariant? preset) && preset.MaxTokens > 0
                 ? preset.MaxTokens
-                : GetDefaultMaxTokens(ThinkingMode));
+                : DefaultMaxTokens);
 
         return ThinkingMode switch
         {
@@ -139,14 +139,42 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     public virtual bool? RequiresReasoningContentRoundtripOverride { get; set; }
 
     /// <summary>
-    /// 思考模式下,助手消息带 tool_calls 时是否要求原样带回当时的 reasoning_content。
+    /// 思考模式下,助手消息带 tool_calls 时是否要求原样带回当时的思考正文。
     /// 用户显式覆盖优先,否则按当前 ModelId 查预设表——这是模型本身的接口约束,
     /// 同一供应商转售的其它模型未必需要,不能挂在配置类上固定死。
+    /// <c>null</c>=自动(历史有思考就回传),<c>true</c>/<c>false</c>=显式要求/禁止。
     /// </summary>
-    public virtual bool RequiresReasoningContentRoundtrip =>
+    public virtual bool? RequiresReasoningContentRoundtrip =>
         RequiresReasoningContentRoundtripOverride ??
-        (ModelIdVariants.TryGetValue(ModelId, out RemoteModelIdVariant? variant) &&
-         variant.RequiresReasoningContentRoundtrip);
+        (ModelIdVariants.TryGetValue(ModelId, out RemoteModelIdVariant? variant)
+            ? variant.RequiresReasoningContentRoundtrip
+            : null);
+
+    /// <summary>
+    /// 运行时观测到的思考 wire 字段名（reasoning_content/reasoning/reasoning_text），**按 ModelId 分开记**。
+    /// 同一端点的不同模型字段名可以不同（商汤转售的 DeepSeek 用 reasoning_content、自研 6.8 用 reasoning），
+    /// 记成一个标量就会在切 ModelId 时互相污染，所以键是观测时的 ModelId。空表表示尚未观测。
+    /// </summary>
+    [SettingConfigIgnoreDisplay]
+    public Dictionary<string, string> ObservedThinkingFields { get; set; } = new();
+
+    /// <summary>
+    /// 回填思考正文用的 wire 键名：当前 ModelId 的观测值 → 该 ModelId 的预设表 → reasoning_content。
+    /// 请求侧改写只认这个值，不写死键名。
+    /// </summary>
+    public string EffectiveThinkingField =>
+        ObservedThinkingFields.TryGetValue(ModelId, out string? observed) && !string.IsNullOrWhiteSpace(observed)
+            ? observed
+            : ModelIdVariants.TryGetValue(ModelId, out RemoteModelIdVariant? variant) &&
+              !string.IsNullOrWhiteSpace(variant.ThinkingField)
+                ? variant.ThinkingField
+                : "reasoning_content";
+
+    /// <summary>
+    /// 接口要的是「回填键名」即 <see cref="EffectiveThinkingField"/>。显式实现，
+    /// 避免有人把配置当模型用时读到存储侧的 <see cref="ObservedThinkingFields"/> 而拿不到兜底值。
+    /// </summary>
+    string ILlmModel.ThinkingField => EffectiveThinkingField;
 
     [SettingConfigIgnoreDisplay] public virtual int Port { get; set; }
 

@@ -10,6 +10,7 @@ using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Configs.RemoteAI;
 using UiharuMind.Core.Core.Extensions;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.RemoteOpenAI;
 using UiharuMind.Core.RemoteOpenAI.ModelCatalog;
 using UiharuMind.Generated;
@@ -74,35 +75,27 @@ public partial class RemoteModelEditViewData : ObservableObject
             .Select(mode => new ThinkingModeOptionItem(mode))
             .ToArray();
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(MaxTokensPlaceholder))]
-    private int _thinkingModeIndex; //思考档位序号,即 EThinkingMode
+    [ObservableProperty] private int _thinkingModeIndex; //思考档位序号,即 EThinkingMode
 
     /// <summary>
     /// MaxTokens 输入框占位提示:显示该模型未填时实际会用到的默认输出预算
-    /// (当前 ModelId 的预设值,没有预设才落到思考档位兜底值)
+    /// (当前 ModelId 的预设值,没有预设才落到兜底值)
     /// </summary>
-    public string MaxTokensPlaceholder
-    {
-        get
-        {
-            int defaultTokens = SelectedModelIdOption?.MaxTokens > 0
-                ? SelectedModelIdOption.MaxTokens
-                : BaseRemoteModelConfig.GetDefaultMaxTokens((EThinkingMode)ThinkingModeIndex);
-            return defaultTokens > 0 ? defaultTokens.ToString() : string.Empty;
-        }
-    }
+    public string MaxTokensPlaceholder =>
+        SelectedModelIdOption is { MaxTokens: > 0 } option
+            ? option.MaxTokens.ToString()
+            : BaseRemoteModelConfig.DefaultMaxTokens.ToString();
 
     [ObservableProperty] private bool _isVisionEditable = true;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsReasoningRoundtripFollowPreset))]
+    [NotifyPropertyChangedFor(nameof(IsReasoningRoundtripAutoDetect))]
     [NotifyPropertyChangedFor(nameof(IsReasoningRoundtripForceOn))]
     [NotifyPropertyChangedFor(nameof(IsReasoningRoundtripForceOff))]
     private bool? _requiresReasoningContentRoundtripOverride;
 
-    /// <summary>三选一单选组:跟随预设(覆盖为空)</summary>
-    public bool IsReasoningRoundtripFollowPreset
+    /// <summary>三选一单选组:自动检测(覆盖为空,有思考就回传)</summary>
+    public bool IsReasoningRoundtripAutoDetect
     {
         get => RequiresReasoningContentRoundtripOverride == null;
         set { if (value) RequiresReasoningContentRoundtripOverride = null; }
@@ -128,6 +121,7 @@ public partial class RemoteModelEditViewData : ObservableObject
     private bool _suppressModelIdPrefill;
     private bool _suppressModelNamePrefill; //LoadValues/自动同步写名字时不把用户改动标记置真
     private bool _modelNameEditedByUser; //用户是否手改过模型名（决定自动同步是否放行）
+    private bool _catalogRefreshPending; //强制刷新撞上在飞的拉取时先记下，等这轮结束补跑
 
     /// <summary>目录候选的显示集合：跟随 ModelId 文本过滤，空文本显示全量（ADR 0092）</summary>
     public ObservableCollection<ModelIdOptionItem> VisibleModelIdOptions { get; } = new();
@@ -172,13 +166,19 @@ public partial class RemoteModelEditViewData : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PresetRequiresReasoningContentRoundtrip))]
+    [NotifyPropertyChangedFor(nameof(IsReasoningRoundtripPresetAuto))]
+    [NotifyPropertyChangedFor(nameof(IsReasoningRoundtripPresetOff))]
     [NotifyPropertyChangedFor(nameof(MaxTokensPlaceholder))]
     private ModelIdOptionItem? _selectedModelIdOption;
 
-    /// <summary>
-    /// 覆盖开关留空(跟随预设)时,当前选中模型实际会解析成的值,供界面提示用
-    /// </summary>
-    public bool PresetRequiresReasoningContentRoundtrip => SelectedModelIdOption?.RequiresReasoningContentRoundtrip ?? false;
+    /// <summary>覆盖开关留空(自动检测)时,当前选中模型的预设判断:要求回传,供界面提示用</summary>
+    public bool PresetRequiresReasoningContentRoundtrip => SelectedModelIdOption?.RequiresReasoningContentRoundtrip == true;
+
+    /// <summary>当前选中模型的预设判断:自动检测(未声明,有思考就回传)</summary>
+    public bool IsReasoningRoundtripPresetAuto => SelectedModelIdOption?.RequiresReasoningContentRoundtrip == null;
+
+    /// <summary>当前选中模型的预设判断:不回传</summary>
+    public bool IsReasoningRoundtripPresetOff => SelectedModelIdOption?.RequiresReasoningContentRoundtrip == false;
 
     /// <summary>
     /// 上下文长度内置档位
@@ -323,8 +323,12 @@ public partial class RemoteModelEditViewData : ObservableObject
     {
         var target = _sourceInfo ?? new RemoteModelInfo { Config = _draftConfig! };
         var config = target.Config;
+        string previousModelPath = config.ModelPath;
         config.ModelName = ModelName.Trim();
         config.ModelPath = ModelPath.Trim();
+        // 换了端点/服务商:旧端点的思考字段观测值整份作废,等新端点重新观测(ADR 0093)。
+        // 同端点切 ModelId 不用清:观测值本身按 ModelId 分开记,不会串到别的模型上
+        if (!string.Equals(previousModelPath, config.ModelPath, StringComparison.Ordinal)) config.ObservedThinkingFields.Clear();
         config.ModelId = ModelId.Trim();
         config.ModelDescription = ModelDescription;
         config.ContextLength =
@@ -446,7 +450,7 @@ public partial class RemoteModelEditViewData : ObservableObject
             bool isVision = false;
             int contextLength = 0;
             int maxTokens = 0;
-            bool requiresReasoningContentRoundtrip = false;
+            bool? requiresReasoningContentRoundtrip = null;
             bool omitSamplingParams = false;
             string alias = "";
             if (config.ModelIdVariants.TryGetValue(option, out var variant))
@@ -498,21 +502,18 @@ public partial class RemoteModelEditViewData : ObservableObject
     }
 
     /// <summary>
-    /// 手输/代码改了模型 ID 文本时:把下拉选中项对齐到同一条。
-    /// 可编辑下拉框的 <c>Text</c> 与 <c>SelectedItem</c> 是双向绑定的两条道,
-    /// 两边值一旦不一致(如复制模型先写文本后定选中),控件回写就会把文本冲掉——
-    /// VM 里永远保持两者一致,那次回写写回来的就是同一个值,等于没写。
-    /// 对齐后若命中预设表,再按预设预填视觉/采样参数等强相关选项(与下拉选择同一口径);
-    /// 不命中(自定义 ID)不碰,手输自定义 ID 不该被预设覆盖。
-    /// </summary>
-    /// <param name="value">新的模型 ID 文本</param>
-    /// <summary>
     /// 模型目录加载：有缓存先展示且不再自动拉（Q12 修订）；无缓存才自动拉；「拉取」按钮强制拉并覆盖。
     /// 失败时保留已有列表并提示（无列表则空 + 提示，仍可手输）。
     /// </summary>
     private async Task LoadCatalogAsync(bool force)
     {
-        if (IsFetchingCatalog) return;
+        if (IsFetchingCatalog)
+        {
+            // 自动拉取在飞时点「拉取」不该什么都不发生：记下来，等这轮结束再补一次强制刷新
+            if (force) _catalogRefreshPending = true;
+            return;
+        }
+
         string url = EffectiveCatalogUrl;
         if (url.Length == 0) return;
 
@@ -529,15 +530,22 @@ public partial class RemoteModelEditViewData : ObservableObject
 
             IReadOnlyList<ModelCatalogEntry> fetched = await _catalogFetcher.FetchAsync(url, ApiKey).ConfigureAwait(true);
             _catalogCache.Write(url, fetched);
-            ApplyCatalog(fetched);
+            // 拉取期间用户可能已切走服务商：这一份属于旧地址，灌进去就是串台
+            if (string.Equals(url, EffectiveCatalogUrl, StringComparison.Ordinal)) ApplyCatalog(fetched);
         }
-        catch
+        catch (Exception e)
         {
+            Log.Warning($"model catalog fetch failed for '{url}': {e.GetType().Name}: {e.Message}");
             CatalogFetchError = Loc.Text(LangKey.RemoteModelCatalogFetchFailed);
         }
         finally
         {
             IsFetchingCatalog = false;
+            if (_catalogRefreshPending)
+            {
+                _catalogRefreshPending = false;
+                await LoadCatalogAsync(force: true).ConfigureAwait(true);
+            }
         }
     }
 
@@ -549,11 +557,13 @@ public partial class RemoteModelEditViewData : ObservableObject
     {
         string currentId = ModelId;
         ModelIdOptions.Clear();
+        HashSet<string> seen = new(StringComparer.Ordinal); //目录偶有重复 id，重复项会让下拉出现同一条两次
         foreach (ModelCatalogEntry entry in entries)
         {
             // 端点字段缺失（OpenRouter 等标准 /v1/models 不返回）默认展示；
             // 只有显式声明且不含 /chat/completions（即 /messages-only 的 Claude 系）才过滤（ADR 0092）
             if (entry.SupportedEndpoints.Count > 0 && !entry.SupportsEndpoint("/chat/completions")) continue;
+            if (!seen.Add(entry.Id)) continue;
             ModelIdOptions.Add(new ModelIdOptionItem
             {
                 Id = entry.Id,
@@ -588,6 +598,15 @@ public partial class RemoteModelEditViewData : ObservableObject
         }
     }
 
+    /// <summary>
+    /// 手输/代码改了模型 ID 文本时:把下拉选中项对齐到同一条。
+    /// 可编辑下拉框的 <c>Text</c> 与 <c>SelectedItem</c> 是双向绑定的两条道,
+    /// 两边值一旦不一致(如复制模型先写文本后定选中),控件回写就会把文本冲掉——
+    /// VM 里永远保持两者一致,那次回写写回来的就是同一个值,等于没写。
+    /// 对齐后若命中预设表,再按预设预填视觉/采样参数等强相关选项(与下拉选择同一口径);
+    /// 不命中(自定义 ID)不碰,手输自定义 ID 不该被预设覆盖。
+    /// </summary>
+    /// <param name="value">新的模型 ID 文本</param>
     partial void OnModelIdChanged(string value)
     {
         if (_suppressModelIdPrefill) return;

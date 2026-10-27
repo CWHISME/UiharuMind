@@ -22,11 +22,13 @@ namespace UiharuMind.Core.AI.Net;
 /// <param name="ForbidToolCalls">写 <c>tool_choice: "none"</c></param>
 /// <param name="ReasoningByCallId">按 tool_call id 回填的思考正文；不需要回填时为 null</param>
 /// <param name="OmitSamplingParams">删掉 <see cref="OpenAICompatibleRequestRewriter.SamplingParamKeys"/></param>
+/// <param name="ReasoningField">思考正文回填的 wire 键名（观测/预设/默认）</param>
 internal readonly record struct RequestRewrite(
     IReadOnlyList<KeyValuePair<string, JsonNode?>>? ExtraParams,
     bool ForbidToolCalls,
     IReadOnlyDictionary<string, string>? ReasoningByCallId,
-    bool OmitSamplingParams);
+    bool OmitSamplingParams,
+    string ReasoningField = OpenAICompatibleRequestRewriter.DefaultReasoningField);
 
 /// <summary>
 /// 发往 OpenAI 兼容端点之前对请求体的几道改写：注入模型的额外参数、禁止工具调用、
@@ -44,6 +46,9 @@ internal static class OpenAICompatibleRequestRewriter
     /// </summary>
     internal static readonly string[] SamplingParamKeys =
         ["temperature", "top_p", "presence_penalty", "frequency_penalty"];
+
+    /// <summary>模型没给回填键名时的默认 wire 键名</summary>
+    internal const string DefaultReasoningField = "reasoning_content";
 
     // 宽松编码器与 SDK 自己序列化请求体的口径一致：默认编码器会把中文全写成 \uXXXX，
     // 每次改写后发出去的请求体凭空大三成（中文为主的长会话实测 458KB → 595KB）
@@ -64,11 +69,24 @@ internal static class OpenAICompatibleRequestRewriter
     public static RequestRewrite For(ILlmModel? model) => new(
         model?.GetExtraParams(),
         LlmRequestContext.ForbidToolCalls,
-        // 只对已确认要求 reasoning_content 回填的模型(目前只有 DeepSeek)才去收集,
-        // 其余共用 thinking/reasoning_effort 参数的兼容服务不无谓塞多余字段
-        model?.RequiresReasoningContentRoundtrip == true ? LlmRequestContext.PendingReasoningSource?.Invoke() : null,
+        // null/true 都收集思考:null=自动(历史有思考就回传),true=模型强制要求;
+        // 收集器扫不到思考时返回空,自然不带字段——只有显式 false(确认不要求回传)或无模型才跳过。
+        // 注意不能用 `model?.X != false`:nullable 的 lifted 比较在 null 时得到 null(判不出),
+        // 这里用 `is not false`(null 也算)并先把 model 判空
+        model is not null && model.RequiresReasoningContentRoundtrip is not false
+            ? LlmRequestContext.PendingReasoningSource?.Invoke()
+            : null,
         // 采样参数固定的模型(如 Kimi)会拒绝显式传值的请求,开启后删掉这四个字段,不碰其它参数
-        model?.OmitSamplingParams == true);
+        model?.OmitSamplingParams == true,
+        // 思考回填键名不写死:按模型实际字段(运行时观测/预设/默认)回传
+        ResolveReasoningField(model));
+
+    /// <summary>
+    /// 回填键名取模型给的生效值；模型为 null 或给了空串时退回
+    /// <see cref="DefaultReasoningField"/>——空串拼进请求体就是 `"": "..."`，服务端认不出
+    /// </summary>
+    private static string ResolveReasoningField(ILlmModel? model) =>
+        string.IsNullOrWhiteSpace(model?.ThinkingField) ? DefaultReasoningField : model.ThinkingField;
 
     /// <summary>
     /// 改写请求体
@@ -114,7 +132,7 @@ internal static class OpenAICompatibleRequestRewriter
                 reader.Read();
                 // 被额外参数覆盖掉的 messages 不能扫:记下的改动会落到别的属性上
                 if (isMessages && !drop && (fixArguments || reasoning != null) && reader.TokenType == JsonTokenType.StartArray)
-                    ScanMessages(ref reader, fixArguments, reasoning, edits);
+                    ScanMessages(ref reader, fixArguments, reasoning, rewrite.ReasoningField, edits);
                 else
                     SkipValue(ref reader);
 
@@ -131,32 +149,33 @@ internal static class OpenAICompatibleRequestRewriter
     }
 
     private static void ScanMessages(ref Utf8JsonReader reader, bool fixArguments,
-        IReadOnlyDictionary<string, string>? reasoning, List<Utf8JsonSplice.Edit> edits)
+        IReadOnlyDictionary<string, string>? reasoning, string reasoningField, List<Utf8JsonSplice.Edit> edits)
     {
         while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
         {
-            if (reader.TokenType == JsonTokenType.StartObject) ScanMessage(ref reader, fixArguments, reasoning, edits);
+            if (reader.TokenType == JsonTokenType.StartObject) ScanMessage(ref reader, fixArguments, reasoning, reasoningField, edits);
             else SkipValue(ref reader);
         }
     }
 
     /// <summary>
-    /// 思考模式下,助手消息带 tool_calls 时接口要求原样带回当时的 reasoning_content,
+    /// 思考模式下,助手消息带 tool_calls 时接口要求原样带回当时的思考正文,
     /// 否则报 "If thinking mode and tool_calls, reasoning_content must be passed back to the API"。
+    /// 键名按 <paramref name="reasoningField"/>（模型实际字段，默认 reasoning_content）。
     /// 标准 ChatMessage→wire 消息转换认不出 <c>TextReasoningContent</c>,序列化时会把它悄悄丢掉,
     /// 只能按 tool_call id 从 <see cref="LlmRequestContext.PendingReasoningSource"/> 找回来补上。
     /// 一条消息可带多个 tool_calls,任一 id 命中即恢复整条消息的思考正文;已经带了(哪怕是空串)就不覆盖,只有缺省或 null 才补。
     /// </summary>
     private static void ScanMessage(ref Utf8JsonReader reader, bool fixArguments,
-        IReadOnlyDictionary<string, string>? reasoning, List<Utf8JsonSplice.Edit> edits)
+        IReadOnlyDictionary<string, string>? reasoning, string reasoningField, List<Utf8JsonSplice.Edit> edits)
     {
         bool hasReasoning = false;
-        Region nullReasoning = new(-1, -1); //"reasoning_content":null 的值区间,回填时只换值
+        Region nullReasoning = new(-1, -1); //思考键为 null 的值区间,回填时只换值
         string? matched = null;
 
         while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
         {
-            if (reader.ValueTextEquals("reasoning_content"u8))
+            if (reader.ValueTextEquals(reasoningField))
             {
                 reader.Read();
                 if (reader.TokenType == JsonTokenType.Null)
@@ -182,12 +201,12 @@ internal static class OpenAICompatibleRequestRewriter
         if (matched == null || hasReasoning) return;
         if (nullReasoning.Start >= 0)
         {
-            edits.Add(new Utf8JsonSplice.Edit(nullReasoning.Start, nullReasoning.End, SerializeReasoning(matched, withKey: false)));
+            edits.Add(new Utf8JsonSplice.Edit(nullReasoning.Start, nullReasoning.End, SerializeReasoning(matched, withKey: false, reasoningField)));
         }
         else
         {
             int at = (int)reader.TokenStartIndex;
-            edits.Add(new Utf8JsonSplice.Edit(at, at, SerializeReasoning(matched, withKey: true)));
+            edits.Add(new Utf8JsonSplice.Edit(at, at, SerializeReasoning(matched, withKey: true, reasoningField)));
         }
     }
 
@@ -334,11 +353,20 @@ internal static class OpenAICompatibleRequestRewriter
         else added.Add((key, property));
     }
 
-    private static byte[] SerializeReasoning(string text, bool withKey)
+    private static byte[] SerializeReasoning(string text, bool withKey, string reasoningField)
     {
-        Utf8JsonWriter writer = BeginScratch(withKey ? ",\"reasoning_content\":"u8 : ReadOnlySpan<byte>.Empty);
+        // 键名走 WritePropertyName 而不是拼进前缀字符串:字段名是运行时观测来的外部值，
+        // 不该有拼出坏 JSON 的机会
+        Utf8JsonWriter writer = BeginScratch(ReadOnlySpan<byte>.Empty);
+        if (withKey)
+        {
+            writer.WriteStartObject();
+            writer.WritePropertyName(reasoningField);
+        }
+
         writer.WriteStringValue(text);
-        return EndScratch(writer, trimBraces: false);
+        if (withKey) writer.WriteEndObject();
+        return EndScratch(writer, trimBraces: withKey, prefixComma: withKey);
     }
 
     private static Utf8JsonWriter BeginScratch(ReadOnlySpan<byte> prefix)
@@ -351,11 +379,17 @@ internal static class OpenAICompatibleRequestRewriter
         return writer;
     }
 
-    private static byte[] EndScratch(Utf8JsonWriter writer, bool trimBraces)
+    /// <param name="writer">刚写完内容的 scratch writer</param>
+    /// <param name="trimBraces">去掉首尾的花括号（对象拆成属性）</param>
+    /// <param name="prefixComma">结果前面补一个逗号（插到已有对象的末尾时用）</param>
+    private static byte[] EndScratch(Utf8JsonWriter writer, bool trimBraces, bool prefixComma = false)
     {
         writer.Flush();
         ReadOnlySpan<byte> written = _scratch!.WrittenSpan;
-        byte[] result = (trimBraces ? written[1..^1] : written).ToArray();
+        ReadOnlySpan<byte> body = trimBraces ? written[1..^1] : written;
+        byte[] result = new byte[body.Length + (prefixComma ? 1 : 0)];
+        if (prefixComma) result[0] = (byte)',';
+        body.CopyTo(result.AsSpan(prefixComma ? 1 : 0));
         if (_scratch.Capacity > MaxRetainedScratch)
         {
             _scratch = null;

@@ -94,4 +94,49 @@ public class CreateRemoteLlmModelWindowTests
 
         Assert.Equal("deepseek-v4-pro", vm.ModelName);
     }
+
+    /// <summary>编辑模式改了请求地址：旧的思考字段观测值作废，保存时清空（ADR 0093）</summary>
+    [Fact]
+    public void EditMode_ChangedModelPath_ClearsObservedThinkingField()
+    {
+        var source = new RemoteModelInfo
+        {
+            Config = new RemoteSensenovaModelConfig
+            {
+                ModelName = "sensenova",
+                ModelId = "sensenova-6.8-flash-lite",
+                ModelPath = "https://old.example/v1/chat/completions",
+                ObservedThinkingFields = { ["sensenova-6.8-flash-lite"] = "reasoning" }, // 上次观测落盘的值
+            },
+            ApiKey = "key",
+        };
+        var vm = new RemoteModelEditViewData(source, _ => false);
+        vm.ModelPath = "https://new.example/v1/chat/completions";
+
+        RemoteModelInfo result = vm.BuildResult();
+
+        Assert.Empty(result.Config.ObservedThinkingFields);
+    }
+
+    /// <summary>编辑模式不改请求地址：观测值保留继续生效（同端点通常同字段）</summary>
+    [Fact]
+    public void EditMode_SameModelPath_KeepsObservedThinkingField()
+    {
+        var source = new RemoteModelInfo
+        {
+            Config = new RemoteSensenovaModelConfig
+            {
+                ModelName = "sensenova",
+                ModelId = "sensenova-6.8-flash-lite",
+                ModelPath = "https://old.example/v1/chat/completions",
+                ObservedThinkingFields = { ["sensenova-6.8-flash-lite"] = "reasoning" },
+            },
+            ApiKey = "key",
+        };
+        var vm = new RemoteModelEditViewData(source, _ => false);
+
+        RemoteModelInfo result = vm.BuildResult();
+
+        Assert.Equal("reasoning", result.Config.EffectiveThinkingField);
+    }
 }

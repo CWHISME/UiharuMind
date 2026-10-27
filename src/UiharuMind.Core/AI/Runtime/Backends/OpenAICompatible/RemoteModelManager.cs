@@ -5,6 +5,7 @@ using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Configs.RemoteAI;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.LLM;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.RemoteOpenAI;
@@ -59,11 +60,47 @@ internal sealed class RemoteModelManager
     {
         string endpoint = model.ModelPath + (model.Port > 0 ? ":" + model.Port : "");
         string apiKey = model is RemoteModelInfo remoteModel ? remoteModel.ApiKey : "";
-        var handler = new OpenAICompatibleHttpHandler(endpoint);
+        var handler = new OpenAICompatibleHttpHandler(endpoint, CreateReasoningFieldObserver(model));
         // SDK 默认重试对限流太急(3 次 / 6 秒内打完),免费档模型的共享配额窗口远不止这么短;
         // 同一把密钥上并行的请求经发送闸排队,不再各自退避互撞
         return OpenAICompatibleChatClient.Create(handler, model, model.ModelId, apiKey, new RateLimitAwareRetryPolicy(),
             SendGate.For(endpoint, apiKey, model.ModelId));
+    }
+
+    /// <summary>
+    /// 响应观测到思考字段原名(reasoning/reasoning_text)时的回调:落盘到该模型配置(按 ModelId 分开记),
+    /// 下次请求按同名回传。值变了才写,避免流式思考逐帧触发配置存档。
+    /// </summary>
+    private static Action<string>? CreateReasoningFieldObserver(ILlmModel model)
+    {
+        if (model is not RemoteModelInfo remote) return null;
+        return CreateThinkingFieldObserver(remote.Config, () => RemoteModelSettingConfig.Current.Save());
+    }
+
+    /// <summary>
+    /// 思考字段观测的落盘闭包（独立出来以便测试注入 save）。
+    /// 比较+赋值+Save 锁在 <paramref name="config"/> 上:<see cref="RemoteModelSettingConfig.Current"/>
+    /// 里同一个模型自始至终是同一个 config 实例,跨请求并发流共享这把锁,避免"双线程同值首写"重复落盘。
+    /// Save 失败只记日志,不打断响应读取(内存值已更新,失败只在重启后丢)。
+    /// </summary>
+    internal static Action<string> CreateThinkingFieldObserver(BaseRemoteModelConfig config, Action save)
+    {
+        return field =>
+        {
+            lock (config)
+            {
+                if (config.ObservedThinkingFields.TryGetValue(config.ModelId, out string? current) && current == field) return;
+                config.ObservedThinkingFields[config.ModelId] = field;
+                try
+                {
+                    save();
+                }
+                catch (Exception e)
+                {
+                    Log.Warning($"could not persist observed thinking field '{field}': {e.Message}");
+                }
+            }
+        };
     }
 
     public void AddRemoteModel(RemoteModelInfo model)
