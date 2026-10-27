@@ -90,6 +90,12 @@ internal static class Win32Native
     [DllImport("user32.dll")]
     public static extern bool IsIconic(IntPtr hWnd);
 
+    [DllImport("user32.dll")]
+    public static extern bool InvalidateRect(IntPtr hWnd, IntPtr lpRect, bool bErase);
+
+    [DllImport("user32.dll")]
+    public static extern bool UpdateWindow(IntPtr hWnd);
+
     [DllImport("kernel32.dll")]
     public static extern uint GetCurrentThreadId();
 

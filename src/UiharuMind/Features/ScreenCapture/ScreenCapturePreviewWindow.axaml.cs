@@ -24,6 +24,7 @@ using UiharuMind.Resources.Lang;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Services.Native;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Features.ScreenCapture.Ocr;
@@ -40,7 +41,24 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
 
     private const double MinDisplayLength = 50;
     private const double ScaleStep = 0.1f;
+
     private const int ZoomQualityRestoreMs = 150;
+
+    // 缩放锚点的手势记忆：窗口位置只能落在整像素上，若每格都从「已经取整过的位置」反推锚点，
+    // 那点亚像素误差会一格一格随机游走，连滚十几格就是肉眼可见的漂。手势期间锁住比例即可。
+    private const int ZoomAnchorIdleMs = 400;
+    private const int ZoomAnchorCursorSlack = 2;
+
+    private Point _zoomAnchor = new(0.5, 0.5);
+    private PixelPoint _zoomAnchorCursor;
+    private long _zoomAnchorTickMs; // 0 表示还没采过样，第一格必然重采样（避免与 MinValue 相减溢出）
+
+    // 滚轮只在事件里累积，几何统一在下一帧的 CommitZoom 里落盘：一帧多次滚轮合并成一次提交，
+    // 且让窗口几何与内容布局落在同一帧（否则会出现「位置已跳、尺寸还是旧的」那一帧）
+    private double? _pendingZoomScale;
+    private bool _zoomCommitQueued;
+    private Point _wheelImagePoint; // 最近一次滚轮时刻的光标（相对 ImageContent），仅作全局光标不可用时的兜底
+
 
     public override bool ContributesToMacRegularMode => false;
 
@@ -53,7 +71,6 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     private Point _dragOffsetDip; // 同上的偏移，但存 DIP —— 跨屏 DPI 变了按新倍率换算才不错位
     private bool _managedDrag;
     private bool _dragCommitQueued;
-
     private Size _originSize;
     private Size _maxDisplaySize = new(double.PositiveInfinity, double.PositiveInfinity);
     private double _aspectRatio = 1.0f;
@@ -364,9 +381,10 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         _pendingFramePosition = null;
         _pendingFrameSize = null;
 
-        if (!this.TrySetWindowFrame(pos, size)) Position = pos;
-        Width = size.Width;
-        Height = size.Height;
+        // 落盘尺寸以 native 带回的为准（Windows 上会对齐到托管 resize 能保持的整物理像素），
+        // 记账与 Width/Height 都从它派生，才不会二次改动
+        if (!this.TrySetWindowFrame(pos, size, out Size applied)) Position = pos;
+        ApplyWindowSize(applied);
     }
 
     // 让「图片」而不是「窗口」贴合截取范围。
@@ -392,10 +410,34 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         displaySize.Width + ShadowMargin.Left + ShadowMargin.Right,
         displaySize.Height + ShadowMargin.Top + ShadowMargin.Bottom);
 
+    /// <summary>
+    /// 窗口尺寸 → 图片显示尺寸，<see cref="ToWindowSize"/> 的逆运算。
+    /// 原生提交拿到的是窗口尺寸，记账用的是图片尺寸，两个方向各算一次、别只算一头：
+    /// 只往一个方向补留白，窗口就会每滚一格凭空长一圈留白。
+    /// </summary>
+    private static Size ToDisplaySize(Size windowSize) => new(
+        windowSize.Width - ShadowMargin.Left - ShadowMargin.Right,
+        windowSize.Height - ShadowMargin.Top - ShadowMargin.Bottom);
+
     private void SetDisplaySize(Size newSize)
     {
-        _currentSize = newSize;
-        var windowSize = ToWindowSize(newSize);
+        // 记账与 Width/Height 一律以「窗口尺寸」为账本：先对齐到窗口真实能落的网格
+        // （Windows 是托管 resize 能保持的整物理像素，幂等），再由窗口尺寸反推图片尺寸
+        var windowSize = DisplayUnits.SnapToPixels(ToWindowSize(newSize), DisplayUnits.WindowPixelsPerDip(this));
+        ApplyWindowSize(windowSize);
+    }
+
+    /// <summary>
+    /// 以<b>窗口尺寸</b>为唯一账本落一次几何记账：<see cref="_currentSize"/>、Width/Height 都从它派生。
+    /// <para>
+    /// 必须整窗一份账：Width/Height 与原生落盘用同一个 double 时，托管 resize 才会算出同一个像素尺寸、
+    /// 走「client 尺寸已相等」分支直接返回；只往一个方向补留白或二次换算，窗口就会每滚一格改两回尺寸。
+    /// </para>
+    /// </summary>
+    /// <param name="windowSize">窗口尺寸（DIP，含阴影留白），以原生落盘的为准</param>
+    private void ApplyWindowSize(Size windowSize)
+    {
+        _currentSize = ToDisplaySize(windowSize);
         Width = windowSize.Width;
         Height = windowSize.Height;
         DockAnchorChanged?.Invoke();
@@ -446,62 +488,198 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         if (_editMode) return; // 编辑态缩放交给编辑器（AllowViewZoom=false 已禁滚轮缩放），本窗不再动几何
         if (e.Delta.Y == 0) return;
 
-        var mousePosition = e.GetPosition(ImageContent);
-        var curPos = Position;
+        // 这里只累积目标比例，真正的几何落盘推到下一帧（见 CommitZoom）。
+        // 一帧内连来几个滚轮事件就合并成一次提交，不会每个事件各落一次几何
+        _wheelImagePoint = e.GetPosition(ImageContent);
+        double baseScale = _pendingZoomScale ?? _currentScale;
+        _pendingZoomScale = ClampZoomScale(baseScale * (1 + e.Delta.Y * ScaleStep));
+        e.Handled = true;
 
-        // 计算新的缩放比例；上下限收敛到显示尺寸这一处钳制
-        var newScale = _currentScale * (1 + e.Delta.Y * ScaleStep);
-        double minScale = Math.Min(MinDisplayLength / _originSize.Width, MinDisplayLength / _originSize.Height);
-        double maxScale = Math.Min(_maxDisplaySize.Width / _originSize.Width,
-            _maxDisplaySize.Height / _originSize.Height);
-        if (double.IsFinite(maxScale)) newScale = Math.Min(newScale, maxScale);
-        newScale = Math.Max(newScale, minScale);
+        if (_zoomCommitQueued) return;
+        _zoomCommitQueued = true;
+        // 排到 Input：与同一帧的输入批一起落盘，一帧内连来的几个滚轮事件先合并成一次提交
+        Dispatcher.UIThread.Post(CommitZoom, DispatcherPriority.Input);
+    }
+
+    /// <summary>
+    /// 把累积的缩放比例落盘成「先尺寸、再呈现、最后移动」三拍。
+    /// <para>
+    /// 不能合并成一次 <c>SetWindowPos</c>：原生几何是 DWM 立刻生效的，surface 内容却要等一次绘制。
+    /// 两者一起提交就会有一帧「窗口已到新位置、图还是旧尺寸」——偏移 = 锚点 × 尺寸差
+    /// （500px 图滚一格、光标居中约 25px），下一帧再弹回去，肉眼就是「跳过去又跳回来」。
+    /// </para>
+    /// <para>
+    /// 拆开之后：① 只改尺寸、位置不动，那一帧最多是「内容晚一拍」（实测不抖）；
+    /// ② 把这一帧画完让 surface 就位；③ 再纯移动——移动一块已就位的内容不留痕（拖动一直是这个机制）。
+    /// 第 ② 步没赶上也不过多一次「不流畅」，不会退化成位置跳。
+    /// </para>
+    /// </summary>
+    private void CommitZoom()
+    {
+        _zoomCommitQueued = false;
+        if (_pendingZoomScale is not { } newScale) return;
+        _pendingZoomScale = null;
+        if (!IsVisible) return;
+        if (_currentSize.Width <= 0 || _currentSize.Height <= 0) return;
         if (Math.Abs(newScale - _currentScale) < 0.001) return;
 
         var newSize = _originSize.ScaleByWidth(newScale, _aspectRatio, MinDisplayLength, MinDisplayLength,
             _maxDisplaySize.Width, _maxDisplaySize.Height);
-        if (_currentSize.Width <= 0 || _currentSize.Height <= 0) return;
         if (newSize.Width <= 0 || newSize.Height <= 0) return;
 
-        // 光标锚定： trunc 改 Round，收敛只做一次；
-        // Position 与窗内偏移的单位换算收敛到 DisplayUnits（mac 全是 point，Windows 差一个屏缩放）
-        double positionUnitsPerDip = DisplayUnits.PositionUnitsPerDip(App.ScreensService.Scaling, RenderScaling);
-        double zoomX = newSize.Width / _currentSize.Width;
-        double zoomY = newSize.Height / _currentSize.Height;
+        // 尺寸先对齐到窗口真实能落的网格：比率、锚点、尺寸记账三者必须同一个值。
+        // 否则「我们算的 DIP」与「窗口真实落的像素」差那一点，逐格缩放会把它当残差累积（见 DisplayUnits.SnapToPixels）
+        double pixelsPerDip = DisplayUnits.WindowPixelsPerDip(this);
+        var newWindowSize = DisplayUnits.SnapToPixels(ToWindowSize(newSize), pixelsPerDip);
+        var newDisplaySize = ToDisplaySize(newWindowSize);
 
-        //调整窗口位置（阴影留白是常量，窗口位移与图片位移一一对应）
-        int newPosX = (int)Math.Round(curPos.X - (mousePosition.X * positionUnitsPerDip * (zoomX - 1)));
-        int newPosY = (int)Math.Round(curPos.Y - (mousePosition.Y * positionUnitsPerDip * (zoomY - 1)));
+        // 光标锚定：位置一律由「光标 screen 坐标 + 归一化锚点」现算，不复用上一格的结果。
+        // 这样每格的误差都只来自最后一次取整（≤0.5px），不会逐格累积成漂移。
+        // 换算细节见 ZoomAnchorMath：留白只加不乘，锚点用比例而不是 DIP 偏移。
+        double positionUnitsPerDip = DisplayUnits.WindowPositionUnitsPerDip(this);
+        PixelPoint cursor = ResolveZoomCursor(positionUnitsPerDip);
+        Point anchor = ResolveZoomAnchor(cursor, Position, positionUnitsPerDip);
+        var pos = ZoomAnchorMath.PositionForAnchor(cursor, ShadowMargin, positionUnitsPerDip, anchor, newDisplaySize);
 
-        var pos = new PixelPoint(newPosX, newPosY);
-        var newWindowSize = ToWindowSize(newSize);
-
-        //确保鼠标位置在缩放后不超出界面
-        pos += UiUtils.EnsureMousePositionWithinTargetOffset(pos, newWindowSize);
-
-        // 以钳制后的实际尺寸为准存 scale，否则顶到上下限时两者脱钩，往回滚会先卡住再跳变
-        _currentScale = newSize.Width / _originSize.Width;
         MarkZoomInteractive();
+        CommitZoomGeometry(pos, newWindowSize, newDisplaySize);
+    }
 
-        // macOS 原子提交：位置与尺寸一次 setFrame 落盘，不再分两帧撕裂；
-        // 失败或非 macOS 才走托管老路
-        if (this.TrySetWindowFrame(pos, newWindowSize))
+    /// <summary>
+    /// 把算好的目标几何落盘。平台分流：
+    /// mac 一次原子 <c>setFrame:display:</c>（几何与重绘本来就同帧，多拆一次反而撕裂）；
+    /// Windows 拆三拍，见 <see cref="CommitZoom"/> 的说明。
+    /// </summary>
+    /// <param name="pos">目标窗口左上</param>
+    /// <param name="windowSize">目标窗口尺寸（已对齐整物理像素）</param>
+    /// <param name="displaySize">目标图片显示尺寸（用于托管兜底路径的记账）</param>
+    private void CommitZoomGeometry(PixelPoint pos, Size windowSize, Size displaySize)
+    {
+        if (!OperatingSystem.IsWindows())
         {
-            SetDisplaySize(newSize);
-        }
-        else
-        {
+            if (this.TrySetWindowFrame(pos, windowSize, out Size applied))
+            {
+                _currentScale = ToDisplaySize(applied).Width / _originSize.Width;
+                ApplyWindowSize(applied);
+                return;
+            }
+
+            _currentScale = displaySize.Width / _originSize.Width;
             Dispatcher.UIThread.InvokeAsync(() =>
             {
                 Position = pos;
-                SetDisplaySize(newSize);
+                SetDisplaySize(displaySize);
             }, DispatcherPriority.MaxValue);
+            return;
         }
 
-        e.Handled = true;
+        // ① 只落尺寸，位置留在原地
+        if (!this.TrySetWindowFrame(Position, windowSize, out Size sized))
+        {
+            _currentScale = displaySize.Width / _originSize.Width;
+            Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                Position = pos;
+                SetDisplaySize(displaySize);
+            }, DispatcherPriority.MaxValue);
+            return;
+        }
+
+        // 记账跟着尺寸走；Width/Height 也必须在渲染前就位，否则画出来的仍是旧尺寸
+        _currentScale = ToDisplaySize(sized).Width / _originSize.Width;
+        ApplyWindowSize(sized);
+
+        // ② 把这一帧画完：布局 → 合成批 → 绘制 → 呈现
+        FlushFrame();
+
+        // ③ 纯移动：尺寸原样再传一遍（已对齐，幂等），内容已就位，搬窗口不留痕
+        if (!this.TrySetWindowFrame(pos, sized, out Size moved)) Position = pos;
+        ApplyWindowSize(moved);
     }
 
-    // 手势期间降为低质量重采样，停稳后恢复原档，避免逐帧高质量重采样拖慢 UI 线程
+    /// <summary>
+    /// 把刚提交的这一帧同步画完（布局 → 合成批 → 绘制 → 呈现），让窗口矩形与内容同帧落地。
+    /// <para>
+    /// 对照 macOS：那边 <c>setFrame:display:animate:</c> 传的是 <c>display:YES</c>，重绘跟着几何变更一起落地，
+    /// 所以窗口矩形和内容永远同帧。Windows 默认渲染跑在独立线程上，DWM 已经按新矩形合成、内容还停在旧尺寸
+    /// （实测落后 1~2 帧，就是缩放时「位置先跳过去又跳回来」那下抖）。
+    /// </para>
+    /// <para>
+    /// 两步走，缺一不可：
+    /// 1. <c>RunJobs(Render)</c> 跑掉 <c>MediaContext</c> 排在 Render 优先级的布局+合成批提交；
+    /// 2. 强制一发 WM_PAINT，走 <c>CompositingRenderer.Paint → ImmediateRenderRequested</c> 的同步呈现
+    ///    （等价 <c>display:YES</c>）。少了第 2 步，呈现要等下一次渲染循环节拍，错帧照样出现。
+    /// </para>
+    /// </summary>
+    private void FlushFrame()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        Dispatcher.UIThread.RunJobs(DispatcherPriority.Render);
+        if (!Win32Native.TryGetHwnd(this, out var hwnd)) return;
+        Win32Native.InvalidateRect(hwnd, IntPtr.Zero, false);
+        Win32Native.UpdateWindow(hwnd);
+    }
+
+    // 缩放上下限收敛到「显示尺寸」这一处：滚轮累积时也要夹，否则一次攒过多格会冲过边界再弹回
+    private double ClampZoomScale(double scale)
+    {
+        if (_originSize.Width <= 0 || _originSize.Height <= 0) return 1;
+        double minScale = Math.Min(MinDisplayLength / _originSize.Width, MinDisplayLength / _originSize.Height);
+        double maxScale = Math.Min(_maxDisplaySize.Width / _originSize.Width,
+            _maxDisplaySize.Height / _originSize.Height);
+        if (double.IsFinite(maxScale)) scale = Math.Min(scale, maxScale);
+        return Math.Max(scale, minScale);
+    }
+
+    // 手势期间锁住锚点比例：只在「隔了太久」或「光标真的动了」时从当前真实几何重新取样。
+    // 每格重新取样会让取整误差随机游走（实测滚 12 格攒到 2px 以上，回滚时看着像抖）。
+    private Point ResolveZoomAnchor(PixelPoint cursor, PixelPoint framePosition, double positionUnitsPerDip)
+    {
+        long now = Environment.TickCount64;
+        bool resample = _currentSize.Width <= 0 || _currentSize.Height <= 0
+                        || now - _zoomAnchorTickMs > ZoomAnchorIdleMs
+                        || Math.Abs(cursor.X - _zoomAnchorCursor.X) > ZoomAnchorCursorSlack
+                        || Math.Abs(cursor.Y - _zoomAnchorCursor.Y) > ZoomAnchorCursorSlack;
+        if (resample)
+        {
+            _zoomAnchor = ZoomAnchorMath.NormalizeAnchor(cursor, framePosition, ShadowMargin, positionUnitsPerDip,
+                _currentSize);
+            _zoomAnchorCursor = cursor;
+        }
+
+        _zoomAnchorTickMs = now;
+        return _zoomAnchor;
+    }
+
+    // 缩放的锚点必须取「当前真实光标」，不能取 e.GetPosition(ImageContent)：
+    // Windows 上窗口被 SetWindowPos 搬走后系统不会补发 WM_MOUSEMOVE，
+    // Avalonia 缓存的客户端内坐标就停在搬走前那一刻；拿它当锚点，每格都会偏一点，连滚就是肉眼可见的漂+抖。
+    // mac 那条路是 setFrame:display:animate:，窗口移动和指针同步走，问题被掩盖了。
+    // 纯 Wayland 拿不到全局光标时才退回客户端内坐标（此时窗口基本不会被搬太远）。
+    private PixelPoint ResolveZoomCursor(double positionUnitsPerDip)
+    {
+        // 事件自带的客户端内坐标：永远有值，但窗口被搬走后会停在旧值。
+        // 换算成 Position 单位后与全局光标可以直接比
+        var fromEvent = new PixelPoint(
+            Position.X + (int)Math.Round((_wheelImagePoint.X + ShadowMargin.Left) * positionUnitsPerDip),
+            Position.Y + (int)Math.Round((_wheelImagePoint.Y + ShadowMargin.Top) * positionUnitsPerDip));
+
+        if (!App.ScreensService.IsMousePositionReliable) return fromEvent;
+
+        // 全局光标是真实值、不随窗口搬动失效，优先用它。
+        // 但它在 Windows 上取自钩子缓存的最后一个事件坐标，钩子没起来时会一直是旧值（可能是 (0,0)），
+        // 所以只在它落在窗口附近时才采信，否则退回事件坐标
+        var global = App.ScreensService.MousePosition;
+        double slack = 4 * positionUnitsPerDip;
+        bool inside = global.X >= Position.X - slack && global.Y >= Position.Y - slack
+                      && global.X <= Position.X + ClientSize.Width * positionUnitsPerDip + slack
+                      && global.Y <= Position.Y + ClientSize.Height * positionUnitsPerDip + slack;
+        return inside ? global : fromEvent;
+    }
+
+    // 手势期间切到 LowQuality、停稳后还原。
+    // 注：实测 Avalonia 12 里 Unspecified 与 LowQuality 同为双线性（只有 HighQuality 是 cubic），
+    // 所以这一步目前基本是空转；留着是为了 ImageContent 将来被主题设成 HighQuality 时能生效
     private void MarkZoomInteractive()
     {
         _zoomRestoreQuality ??= RenderOptions.GetBitmapInterpolationMode(ImageContent);
