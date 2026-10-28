@@ -24,7 +24,6 @@ using UiharuMind.Resources.Lang;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Services;
-using UiharuMind.Shared.Services.Native;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Features.ScreenCapture.Ocr;
@@ -505,16 +504,22 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     }
 
     /// <summary>
-    /// 把累积的缩放比例落盘成「先尺寸、再呈现、最后移动」三拍。
+    /// 把累积的缩放比例落盘。平台分流，因为两个平台的窗口几何与重绘能否同帧完全不同。
     /// <para>
-    /// 不能合并成一次 <c>SetWindowPos</c>：原生几何是 DWM 立刻生效的，surface 内容却要等一次绘制。
-    /// 两者一起提交就会有一帧「窗口已到新位置、图还是旧尺寸」——偏移 = 锚点 × 尺寸差
-    /// （500px 图滚一格、光标居中约 25px），下一帧再弹回去，肉眼就是「跳过去又跳回来」。
+    /// <b>macOS</b>：<c>setFrame:display:animate:</c> 传 <c>display:YES</c>，几何与重绘本来就同帧，
+    /// 所以按光标锚定，一格一次原子提交。
     /// </para>
     /// <para>
-    /// 拆开之后：① 只改尺寸、位置不动，那一帧最多是「内容晚一拍」（实测不抖）；
-    /// ② 把这一帧画完让 surface 就位；③ 再纯移动——移动一块已就位的内容不留痕（拖动一直是这个机制）。
-    /// 第 ② 步没赶上也不过多一次「不流畅」，不会退化成位置跳。
+    /// <b>Windows</b>：锚点固定在<b>窗口左上角</b>，只改尺寸、位置一次都不动。
+    /// 实测（2026-10-28 探针）：矩形变更到新内容真正呈现之间要等 11~16ms——几乎一整帧，
+    /// 因为同步呈现（`RunJobs` + 强制 `WM_PAINT`）本身就要吃掉这么多。这段时间 DWM 合成出去的是
+    /// 「新矩形 + 旧内容」，所以<b>只要位置在动，就必然有一帧错位</b>：
+    /// 跟光标锚定时每档要挪「锚点 × 尺寸差」（实测 30px），那一帧就是肉眼看到的抖。
+    /// 位置恒为 0，错位就无从谈起，只剩「尺寸晚一帧」——纯尺寸变化看不出来。
+    /// </para>
+    /// <para>
+    /// 代价：缩放不跟光标，图从左上角往右下长。这是权衡后的选择，别再改回跟光标——
+    /// 除非先解决「同步呈现吃掉一整帧」，否则一定会抖。
     /// </para>
     /// </summary>
     private void CommitZoom()
@@ -542,6 +547,15 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         MaxWidth = Math.Max(MaxWidth, newWindowSize.Width);
         MaxHeight = Math.Max(MaxHeight, newWindowSize.Height);
 
+        MarkZoomInteractive();
+
+        // Windows：锚点在左上角，位置就是当前位置，不必再算
+        if (OperatingSystem.IsWindows())
+        {
+            CommitZoomGeometry(Position, newWindowSize, newDisplaySize);
+            return;
+        }
+
         // 光标锚定：位置一律由「光标 screen 坐标 + 归一化锚点」现算，不复用上一格的结果。
         // 这样每格的误差都只来自最后一次取整（≤0.5px），不会逐格累积成漂移。
         // 换算细节见 ZoomAnchorMath：留白只加不乘，锚点用比例而不是 DIP 偏移。
@@ -550,16 +564,14 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         Point anchor = ResolveZoomAnchor(cursor, Position, positionUnitsPerDip);
         var pos = ZoomAnchorMath.PositionForAnchor(cursor, ShadowMargin, positionUnitsPerDip, anchor, newDisplaySize);
 
-        MarkZoomInteractive();
         CommitZoomGeometry(pos, newWindowSize, newDisplaySize);
     }
 
     /// <summary>
-    /// 把算好的目标几何落盘。平台分流：
-    /// mac 一次原子 <c>setFrame:display:</c>（几何与重绘本来就同帧，多拆一次反而撕裂）；
-    /// Windows 拆三拍，见 <see cref="CommitZoom"/> 的说明。
+    /// 把算好的目标几何落盘。平台分流见 <see cref="CommitZoom"/>：
+    /// mac 一次原子 <c>setFrame:display:</c>；Windows 只改尺寸、位置不动。
     /// </summary>
-    /// <param name="pos">目标窗口左上</param>
+    /// <param name="pos">目标窗口左上（Windows 恒为当前位置）</param>
     /// <param name="windowSize">目标窗口尺寸（已对齐整物理像素）</param>
     /// <param name="displaySize">目标图片显示尺寸（用于托管兜底路径的记账）</param>
     private void CommitZoomGeometry(PixelPoint pos, Size windowSize, Size displaySize)
@@ -582,51 +594,18 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
             return;
         }
 
-        // ① 只落尺寸，位置留在原地
+        // 只落尺寸，位置留在原地：位移恒为 0，就不存在「位置和内容落在不同帧」那一帧。
+        // 也不做同步呈现——它要吃掉一整帧，而这一帧里内容晚到是看不出来的（纯尺寸变化），
+        // 强制同步只会让滚轮卡顿，换不来任何可见收益
         if (!this.TrySetWindowFrame(Position, windowSize, out Size sized))
         {
             _currentScale = displaySize.Width / _originSize.Width;
-            Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                Position = pos;
-                SetDisplaySize(displaySize);
-            }, DispatcherPriority.MaxValue);
+            Dispatcher.UIThread.InvokeAsync(() => SetDisplaySize(displaySize), DispatcherPriority.MaxValue);
             return;
         }
 
-        // 记账跟着尺寸走；Width/Height 也必须在渲染前就位，否则画出来的仍是旧尺寸
         _currentScale = ToDisplaySize(sized).Width / _originSize.Width;
         ApplyWindowSize(sized);
-
-        // ② 把这一帧画完：布局 → 合成批 → 绘制 → 呈现
-        FlushFrame();
-
-        // ③ 纯移动：尺寸原样再传一遍（已对齐，幂等），内容已就位，搬窗口不留痕
-        if (!this.TrySetWindowFrame(pos, sized, out Size moved)) Position = pos;
-        ApplyWindowSize(moved);
-    }
-
-    /// <summary>
-    /// 把刚提交的这一帧同步画完（布局 → 合成批 → 绘制 → 呈现），让窗口矩形与内容同帧落地。
-    /// <para>
-    /// 对照 macOS：那边 <c>setFrame:display:animate:</c> 传的是 <c>display:YES</c>，重绘跟着几何变更一起落地，
-    /// 所以窗口矩形和内容永远同帧。Windows 默认渲染跑在独立线程上，DWM 已经按新矩形合成、内容还停在旧尺寸
-    /// （实测落后 1~2 帧，就是缩放时「位置先跳过去又跳回来」那下抖）。
-    /// </para>
-    /// <para>
-    /// 两步走，缺一不可：
-    /// 1. <c>RunJobs(Render)</c> 跑掉 <c>MediaContext</c> 排在 Render 优先级的布局+合成批提交；
-    /// 2. 强制一发 WM_PAINT，走 <c>CompositingRenderer.Paint → ImmediateRenderRequested</c> 的同步呈现
-    ///    （等价 <c>display:YES</c>）。少了第 2 步，呈现要等下一次渲染循环节拍，错帧照样出现。
-    /// </para>
-    /// </summary>
-    private void FlushFrame()
-    {
-        if (!OperatingSystem.IsWindows()) return;
-        Dispatcher.UIThread.RunJobs(DispatcherPriority.Render);
-        if (!Win32Native.TryGetHwnd(this, out var hwnd)) return;
-        Win32Native.InvalidateRect(hwnd, IntPtr.Zero, false);
-        Win32Native.UpdateWindow(hwnd);
     }
 
     // 缩放上下限收敛到「显示尺寸」这一处：滚轮累积时也要夹，否则一次攒过多格会冲过边界再弹回
