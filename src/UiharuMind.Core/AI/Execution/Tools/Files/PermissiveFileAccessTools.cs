@@ -42,8 +42,7 @@ internal sealed class PermissiveFileAccessTools
 
     // 描述只写契约;Read 与 Shell 的分工归命令行纪律段(AgentToolPrompts.BuildShell)
     private const string ReadDescription =
-        "读取文件的原始内容。每行前的「行号+制表符」是参照，不是文件内容，引用位置时直接用它，Edit 时不要带上。"
-        + "代码与 Markdown 被截断时附文件大纲（各类型、函数、标题的起止行），据此传 offset 与 limit 只读需要的段。";
+        "读取文件的内容，可通过传递 whole 参数读全文，outline 读大纲，大文件先看结构，再按行号只读需要的段。注意每行前的「行号+制表符」是参照，不是文件内容。";
 
     private const string ReadImagesDescription =
         " 也可以直接用于读取/查看图片。多张图片可用分号（;）拼接在一个 filePath 里（如 \"a.png;b.png\"）一次附加多张，"
@@ -51,7 +50,7 @@ internal sealed class PermissiveFileAccessTools
 
     private const string SearchPathDescription = //Glob 与 Grep 的 path 参数共用
         "可选，省略则搜索整个工作目录。需要缩小搜索范围时传一个子目录或单个文件。";
-    
+
     /// <summary>
     /// 同文件的"读→计划→写"互斥锁。<c>AllowConcurrentInvocation=true</c> 时同一轮的两个 Edit/Write
     /// 打同一文件会静默 lost-update；锁表进程级静态，主代理与子代理的实例天然互斥。
@@ -61,6 +60,7 @@ internal sealed class PermissiveFileAccessTools
     /// 与 ApprovalModeMapper"不解析符号链接"的口径一致，接受（见 <see cref="ResolveWriteTarget"/>）。
     /// </summary>
     private const int FileLockStripes = 64;
+
     private static readonly SemaphoreSlim[] _fileLocks = BuildFileLocks();
 
     private static SemaphoreSlim[] BuildFileLocks()
@@ -128,7 +128,8 @@ internal sealed class PermissiveFileAccessTools
     [Description("按 glob 模式查找文件，如 “**/*.c”。搜文件内容用 Grep")]
     internal async Task<string> Glob(
         [Description("匹配模式")] string pattern,
-        [Description("可选，工作目录的相对路径(也接受非工作目录的绝对路径)")] string? path = null,
+        [Description("可选，工作目录的相对路径(也接受非工作目录的绝对路径)")]
+        string? path = null,
         CancellationToken ct = default)
     {
         GlobOutcome outcome = await _glob
@@ -224,23 +225,25 @@ internal sealed class PermissiveFileAccessTools
         CancellationToken ct = default)
     {
         GrepOutcome outcome = await _grepper
-            .SearchAsync(pattern, isRegex, caseSensitive, filesOnly ? 0 : contextLines, maxDepth: null, fileGlobs, path, ct)
+            .SearchAsync(pattern, isRegex, caseSensitive, filesOnly ? 0 : contextLines, maxDepth: null, fileGlobs, path,
+                ct)
             .ConfigureAwait(false);
         return GrepResultShaper.Shape(outcome, pattern, filesOnly,
-            file => _paths.TryResolve(file, out string full, out _) ? FileOutline.ExtractFile(full) : null, contextLines);
+            file => _paths.TryResolve(file, out string full, out _) ? FileOutline.ExtractFile(full) : null,
+            contextLines);
     }
 
     [Description("读取指定文件")]
     internal Task<string> Read(
-        [Description("文件路径，工作目录的相对路径(也接受其它目录的绝对路径)。")] string filePath,
+        [Description("文件路径，工作目录的相对路径(也接受其它目录的绝对路径)。")]
+        string filePath,
         [Description("起始行号，1 起算。负数从末尾计：-100 读最后 100 行")]
         int offset = 1,
         [Description("从 offset 开始，最多返回的行数，须为正数")]
         int? limit = null,
-        [Description("可选，一次读完全文，不受单次返回的字节上限限制。传了就忽略 offset 与 limit")]
+        [Description("可选，一次读完全文，不受单次返回的字节上限限制。")]
         bool whole = false,
-        [Description("可选，只返回文件大纲（类型、函数、标题及起止行），不返回正文。大文件先看结构，再按行号只读需要的段")]
-        bool outline = false,
+        [Description("可选，只返回文件大纲。")] bool outline = false,
         CancellationToken cancellationToken = default)
     {
         if (limit <= 0 && !whole) return Task.FromResult($"limit 须为正数（所传 {limit}）；读末尾几行用负的 offset，读全文传 whole=true。");
@@ -299,13 +302,13 @@ internal sealed class PermissiveFileAccessTools
     }
 
     [Description($"""
-                 编辑文本文件。工具提供三种对 oldString 的匹配模式：
-                 1. 精确匹配：全文件子串匹配，不限整行。该子串在全文件必须唯一——不唯一时报错会列出出现次数与起始行号，给它补上前后几行锁定唯一那一处。
-                 2. 多行匹配：「头串{EditElision.Token}尾串」，可跨行匹配以**头串**开头、**尾串**结尾的整段文本；头串须唯一，不唯一时报错会列出各次起始行，把头串写长即可。
-                 3. 单行匹配：「头串{EditElision.Token}」，直接匹配以**头串**开头的整行（替换不影响换行）；头串太短不唯一时报错会列出命中行数，把开头写长。
-                 newString 里也可以带 {EditElision.Token}：代表把被省略的原文原样保留，数量必须与 oldString 一致（一处都不写 = 整段换成 newString；数量对不上会失败）。
-                 {EditElision.Token} 是字面字符串、不是正则表达式：文件里真有这段字符时精确匹配优先；要写入字面的 {EditElision.Token}，用不带记号的普通编辑。
-                 """)]
+                  编辑文本文件。工具提供三种对 oldString 的匹配模式：
+                  1. 精确匹配：全文件子串匹配，不限整行。该子串在全文件必须唯一——不唯一时报错会列出出现次数与起始行号，给它补上前后几行锁定唯一那一处。
+                  2. 多行匹配：「头串{EditElision.Token}尾串」，可跨行匹配以**头串**开头、**尾串**结尾的整段文本；头串须唯一，不唯一时报错会列出各次起始行，把头串写长即可。
+                  3. 单行匹配：「头串{EditElision.Token}」，直接匹配以**头串**开头的整行（替换不影响换行）；头串太短不唯一时报错会列出命中行数，把开头写长。
+                  newString 里也可以带 {EditElision.Token}：代表把被省略的原文原样保留，数量必须与 oldString 一致（一处都不写 = 整段换成 newString；数量对不上会失败）。
+                  {EditElision.Token} 是字面字符串、不是正则表达式：文件里真有这段字符时精确匹配优先；要写入字面的 {EditElision.Token}，用不带记号的普通编辑。
+                  """)]
     internal async Task<string> Edit(
         [Description("文件路径，工作目录的相对路径(也接受非工作目录的绝对路径)。")]
         string filePath,
@@ -328,9 +331,11 @@ internal sealed class PermissiveFileAccessTools
             string prefixNote = plan.StrippedLinePrefixes ? "参数里带了 Read 的行号前缀，已去掉后再匹配；以后不要带。" : "";
             // 只说事实：模型没带行号，光说「别带前缀」它不知道该删哪个字符
             if (plan.IndentShift.HasFlag(EIndentShift.Extra))
-                prefixNote += "oldString 每行比文件多了一层行首缩进：Read 每行前「行号+制表符」里的制表符是分隔符，不属于文件内容。已按文件的缩进匹配，newString 也去掉了这一层，请核对下面的差异。";
+                prefixNote +=
+                    "oldString 每行比文件多了一层行首缩进：Read 每行前「行号+制表符」里的制表符是分隔符，不属于文件内容。已按文件的缩进匹配，newString 也去掉了这一层，请核对下面的差异。";
             if (plan.IndentShift.HasFlag(EIndentShift.Missing))
-                prefixNote += "oldString 每行比文件少了一层行首缩进：Read 每行前「行号+制表符」之后的空白都是文件的缩进。已按文件的缩进匹配，newString 也补上了这一层，请核对下面的差异。";
+                prefixNote +=
+                    "oldString 每行比文件少了一层行首缩进：Read 每行前「行号+制表符」之后的空白都是文件的缩进。已按文件的缩进匹配，newString 也补上了这一层，请核对下面的差异。";
             // 部分写入时结论放最前、没生效的条目紧随其后：小模型只扫到 diff 会当成全成了，或把整批重发
             string head = plan.IsPartial
                 ? $"{FileToolNames.EditSucceededPrefix}{filePath}'（部分成功：{plan.AppliedEdits}/{plan.TotalEdits} 处编辑）。"
