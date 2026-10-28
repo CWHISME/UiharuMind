@@ -21,6 +21,7 @@ public sealed class CommandCodeStatusSource : IProviderStatusSource
 
     private const string CreditsPath = "/alpha/billing/credits";
     private const string WhoamiPath = "/alpha/whoami";
+    private const string SummaryPath = "/alpha/usage/summary";
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(8);
 
     private readonly HttpClient _http;
@@ -77,8 +78,7 @@ public sealed class CommandCodeStatusSource : IProviderStatusSource
         }
     }
 
-    private async Task<string?> TryWhoamiAsync(ProviderStatusContext context, CancellationToken ct)
-    {
+    private async Task<string?> TryWhoamiAsync(ProviderStatusContext context, CancellationToken ct)    {
         try
         {
             using HttpResponseMessage response = await _http.SendAsync(Build(context, WhoamiPath), ct)
@@ -90,6 +90,32 @@ public sealed class CommandCodeStatusSource : IProviderStatusSource
         catch (Exception)
         {
             // 计划名是锦上添花，拿不到就当没有
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 取一次本周期用量统计。<b>不进 30 秒的公共拍子</b>：只有明细面板要看，开面板时拉一次就够。
+    /// 失败（含限流、字段变了）一律返回 null——面板少一行，不影响额度读数。
+    /// </summary>
+    /// <param name="context">取数输入</param>
+    /// <param name="ct">取消</param>
+    /// <returns>统计；读不出结构时 null</returns>
+    public async Task<ProviderUsageSummary?> FetchSummaryAsync(ProviderStatusContext context, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(context.ApiBaseUrl) || string.IsNullOrWhiteSpace(context.ApiKey)) return null;
+
+        try
+        {
+            using HttpResponseMessage response = await _http.SendAsync(Build(context, SummaryPath), ct)
+                .ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) return null;
+
+            return CommandCodeStatusParser.ParseSummary(await response.Content.ReadAsStringAsync(ct)
+                .ConfigureAwait(false));
+        }
+        catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
+        {
             return null;
         }
     }

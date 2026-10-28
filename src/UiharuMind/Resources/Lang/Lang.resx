@@ -6066,6 +6066,24 @@ Enable it?</value>
     <data name="ProviderStatusSlotMonthly" xml:space="preserve">
         <value>Month</value>
     </data>
+    <data name="ProviderStatusBucketMonthly" xml:space="preserve">
+        <value>Monthly credits</value>
+    </data>
+    <data name="ProviderStatusBucketPurchased" xml:space="preserve">
+        <value>Purchased credits</value>
+    </data>
+    <data name="ProviderStatusBucketFree" xml:space="preserve">
+        <value>Free credits</value>
+    </data>
+    <data name="ProviderStatusMonthlyUsed" xml:space="preserve">
+        <value>{0} / {1}</value>
+    </data>
+    <data name="ProviderStatusMonthlyResetLine" xml:space="preserve">
+        <value>Resets on {0} · in {1}</value>
+    </data>
+    <data name="ProviderStatusUsageStats" xml:space="preserve">
+        <value>{0} requests · {1}% success</value>
+    </data>
     <data name="ProviderStatusResetsIn" xml:space="preserve">
         <value>resets in {0}</value>
     </data>
@@ -6094,7 +6112,7 @@ Enable it?</value>
         <value>{0} ago · not updating</value>
     </data>
     <data name="ProviderStatusBalance" xml:space="preserve">
-        <value>Balance {0}{1}</value>
+        <value>Remaining {0}{1}</value>
     </data>
     <data name="ProviderStatusSpanSeconds" xml:space="preserve">
         <value>{0}s</value>

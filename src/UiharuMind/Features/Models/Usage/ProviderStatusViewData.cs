@@ -39,6 +39,8 @@ public sealed partial class ProviderStatusViewData : ObservableObject, IDisposab
 
     private ProviderStatusContext? _context; //当前目标（Tick 每次都刷）
     private ProviderStatusSnapshot? _snapshot; //账户级数据的最后一次成功结果
+    private ProviderUsageSummary? _summary; //本周期统计；只给面板，点开才拉
+    private bool _summaryFetching;
     private bool _visible; //控件报上来的可见性
     private bool _fetching;
     private bool _everSucceeded;
@@ -58,6 +60,15 @@ public sealed partial class ProviderStatusViewData : ObservableObject, IDisposab
     [ObservableProperty] private IReadOnlyList<ProviderStatusMeterRow> _meterRows = [];
     [ObservableProperty] private bool _hasBalance;
     [ObservableProperty] private string _balanceText = "";
+    [ObservableProperty] private bool _hasBuckets;
+    [ObservableProperty] private IReadOnlyList<ProviderStatusBucketRow> _bucketRows = [];
+    [ObservableProperty] private bool _hasMonthlyProgress;
+    [ObservableProperty] private string _monthlyPercentText = "";
+    [ObservableProperty] private double _monthlyRatio;
+    [ObservableProperty] private string _monthlyAmountText = "";
+    [ObservableProperty] private string _monthlyResetText = "";
+    [ObservableProperty] private bool _hasUsageStats;
+    [ObservableProperty] private string _usageStatsText = "";
     [ObservableProperty] private bool _hasCredentialWarning;
     [ObservableProperty] private string _credentialHint = "";
     [ObservableProperty] private string _dataAgeText = "";
@@ -173,6 +184,44 @@ public sealed partial class ProviderStatusViewData : ObservableObject, IDisposab
     /// <summary>一轮对话结束：额度可能变了，按 TTL 补刷一次（不会连击）</summary>
     public void NotifyTurnEnded() => _ = RefreshAsync();
 
+    /// <summary>
+    /// 取一次本周期统计。<b>只给明细面板</b>：点开时调，不进公共拍子——
+    /// 它变化慢，没人看着的时候拉它只是白花一个请求。
+    /// 失败保留上一份（面板少更新一次，不会变成空白）。
+    /// </summary>
+    public async Task RefreshSummaryAsync()
+    {
+        if (_disposed) return;
+        ProviderStatusContext? context = _contextProvider();
+        if (context == null) return;
+        if (_summaryFetching) return;
+
+        _summaryFetching = true;
+        try
+        {
+            // 缓存与 TTL 在服务层（与快照共用 key，各自一份新鲜度）
+            ProviderUsageSummary? summary = await _status.GetSummaryAsync(context, _cts.Token)
+                .ConfigureAwait(false);
+            if (summary == null) return;
+
+            _post(() =>
+            {
+                _summary = summary;
+                // 重算整份：桶行要不要让位给「本月额度」看的就是 HasMonthlyProgress
+                if (_context is { } current && _snapshot != null) Apply(current);
+                else ApplyMonthlyProgress();
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            //退出时取消，不是错误
+        }
+        finally
+        {
+            _summaryFetching = false;
+        }
+    }
+
     /// <summary>停下在途请求并从公共调度器摘掉（窗口关了、页面没了）</summary>
     public void Dispose()
     {
@@ -218,10 +267,22 @@ public sealed partial class ProviderStatusViewData : ObservableObject, IDisposab
             DotTag = "Warning";
         }
 
-        HasBalance = balance?.Remaining != null;
-        BalanceText = HasBalance
-            ? Loc.Text(LangKey.ProviderStatusBalance, balance!.Unit, FormatAmount(balance.Remaining!.Value))
+        // 有桶就不再写一遍合计：桶行本身就是余额的明细，两个数一模一样并列只是重复
+        // （用户截图就是这样：「余额 $69.92」下面紧接「本月额度 $69.92」）
+        // 但 BalanceText 仍然要算——顶栏没窗口时的读数就靠它
+        HasBalance = balance?.Remaining != null && balance.Buckets is not { Count: > 0 };
+        BalanceText = balance?.Remaining != null
+            ? Loc.Text(LangKey.ProviderStatusBalance, balance.Unit, FormatAmount(balance.Remaining.Value))
             : "";
+
+        // 先算月度进度：桶行要看它决定「本月额度」那一行还画不画，不然同一名字出现两次
+        ApplyMonthlyProgress();
+
+        // 余额是三个桶的和（月度 / 购买 / 赠送），合起来就说不清「本月还剩多少」——
+        // 桶行放明细面板，顶栏读数仍然只给一个总数
+        IReadOnlyList<ProviderStatusBucketRow> bucketRows = BuildBucketRows(balance, HasMonthlyProgress);
+        if (!BucketRows.SequenceEqual(bucketRows)) BucketRows = bucketRows;
+        HasBuckets = bucketRows.Count > 0;
 
         // 没有滚动窗口的账户（免费档，接口给 windowLimits.fiveHour=null）读数退到余额：
         // 否则顶栏一片空白，而用户其实是「余额 0，发不出去」，正好缺的就是这句
@@ -238,9 +299,8 @@ public sealed partial class ProviderStatusViewData : ObservableObject, IDisposab
         HasBadge = badge != null;
         BadgeText = badge == null ? "" : ComposeBadge(badge, now);
 
-        PanelTitle = string.IsNullOrWhiteSpace(balance?.PlanName)
-            ? snapshot.ProviderName
-            : $"{snapshot.ProviderName} · {balance!.PlanName}";
+        PanelTitle = string.Join(" · ", new[] { snapshot.ProviderName, balance?.PlanName, snapshot.AccountName }
+            .Where(part => !string.IsNullOrWhiteSpace(part)));
 
         IReadOnlyList<ProviderStatusMeterRow> rows = BuildMeterRows(snapshot.Meters, now);
         if (!MeterRows.SequenceEqual(rows)) MeterRows = rows;
@@ -265,6 +325,14 @@ public sealed partial class ProviderStatusViewData : ObservableObject, IDisposab
         HasMeters = false;
         HasBalance = false;
         BalanceText = "";
+        HasBuckets = false;
+        if (BucketRows.Count > 0) BucketRows = [];
+        HasMonthlyProgress = false;
+        MonthlyPercentText = "";
+        MonthlyAmountText = "";
+        MonthlyResetText = "";
+        HasUsageStats = false;
+        UsageStatsText = "";
         HasCredentialWarning = false;
         CredentialHint = "";
         DataAgeText = "";
@@ -288,8 +356,7 @@ public sealed partial class ProviderStatusViewData : ObservableObject, IDisposab
     }
 
     private IReadOnlyList<ProviderStatusMeterRow> BuildMeterRows(IReadOnlyList<ProviderUsageMeter> meters,
-        DateTimeOffset now)
-    {
+        DateTimeOffset now)    {
         if (meters.Count == 0) return [];
 
         List<ProviderStatusMeterRow> rows = [];
@@ -303,6 +370,71 @@ public sealed partial class ProviderStatusViewData : ObservableObject, IDisposab
         }
 
         return rows;
+    }
+
+    /// <summary>
+    /// 余额的构成：只列有钱的那几个桶。三个都是 0 时一条也不列——
+    /// 「余额 $0」已经说完了，再挂三行 $0 只是噪音
+    /// </summary>
+    private static IReadOnlyList<ProviderStatusBucketRow> BuildBucketRows(ProviderBalance? balance, bool skipMonthly)
+    {
+        if (balance?.Buckets is not { Count: > 0 } buckets) return [];
+
+        List<ProviderStatusBucketRow> rows = [];
+        foreach (ProviderCreditBucket bucket in buckets)
+        {
+            if (bucket.Amount <= 0) continue;
+            // 月度进度那一块已经顶着「本月额度」这个标题了，桶行再写一次同名只是重复
+            if (skipMonthly && bucket.Kind == EProviderCreditBucket.Monthly) continue;
+            rows.Add(new ProviderStatusBucketRow(BucketLabel(bucket.Kind),
+                $"{balance.Unit}{FormatAmount(bucket.Amount)}"));
+        }
+
+        return rows;
+    }
+
+    private static string BucketLabel(EProviderCreditBucket kind) => kind switch
+    {
+        EProviderCreditBucket.Monthly => Loc.Text(LangKey.ProviderStatusBucketMonthly),
+        EProviderCreditBucket.Purchased => Loc.Text(LangKey.ProviderStatusBucketPurchased),
+        _ => Loc.Text(LangKey.ProviderStatusBucketFree)
+    };
+
+    /// <summary>
+    /// 月度进度。<b>分母是推出来的</b>：接口没有「本月上限」这个字段，
+    /// 只能拿「剩余 + 本周期已用」相加（官网也画这条条，且实测重置日与 periodStart + 1 月一致）。
+    /// 推不出来就只给数字不给条——宁可少一条，不可给错的分母。
+    /// </summary>
+    private void ApplyMonthlyProgress()
+    {
+        if (_snapshot?.Balance?.Remaining is not { } remaining || _summary is not { } summary)
+        {
+            HasMonthlyProgress = false;
+            MonthlyPercentText = "";
+            MonthlyAmountText = "";
+            MonthlyResetText = "";
+            HasUsageStats = false;
+            UsageStatsText = "";
+            return;
+        }
+
+        double cap = remaining + summary.Used;
+        bool trustworthy = cap > 0 && summary.Used >= 0 && summary.Used <= cap;
+        MonthlyRatio = trustworthy ? Math.Clamp(summary.Used / cap, 0, 1) : 0;
+        MonthlyPercentText = trustworthy ? PercentText(MonthlyRatio) : "";
+        MonthlyAmountText = Loc.Text(LangKey.ProviderStatusMonthlyUsed,
+            summary.Unit + FormatAmount(summary.Used), summary.Unit + FormatAmount(cap));
+        // 日期与倒计时都要：日期回答「降到哪天」，倒计时回答「还有多久」
+        DateTimeOffset resetAt = summary.PeriodStart.AddMonths(1);
+        MonthlyResetText = Loc.Text(LangKey.ProviderStatusMonthlyResetLine,
+            resetAt.ToLocalTime().ToString("yyyy-MM-dd"), ShortSpan(resetAt - _now()));
+        HasMonthlyProgress = trustworthy;
+
+        // 统计行与进度条分开：分母推不出来时，它仍然说得出「花了多少、多少次」
+        HasUsageStats = summary.RequestCount > 0;
+        UsageStatsText = HasUsageStats
+            ? Loc.Text(LangKey.ProviderStatusUsageStats, summary.RequestCount, FormatAmount(summary.SuccessRate))
+            : "";
     }
 
     private string ComposeBadge(ProviderStatusNotice notice, DateTimeOffset now) => notice.Kind switch
@@ -357,6 +489,8 @@ public sealed partial class ProviderStatusViewData : ObservableObject, IDisposab
         DataAgeText = ComposeDataAge(now - _snapshot.FetchedAt);
         IReadOnlyList<ProviderStatusMeterRow> rows = BuildMeterRows(_snapshot.Meters, now);
         if (!MeterRows.SequenceEqual(rows)) MeterRows = rows;
+        // 月度倒计时也得按秒走，不然它跟上面两条窗口不一样、像卡住了
+        ApplyMonthlyProgress();
     }
 
     private static string SlotLabel(EProviderMeterSlot slot) => slot switch
@@ -366,8 +500,15 @@ public sealed partial class ProviderStatusViewData : ObservableObject, IDisposab
         _ => Loc.Text(LangKey.ProviderStatusSlotMonthly)
     };
 
-    //百分比自己拼：走 ":P0" 会跟着文化变成 "32 %"（带空格）或换符号，读数要的是稳定的 "32%"
-    private static string PercentText(double ratio) => $"{(int)Math.Round(ratio * 100)}%";
+    //百分比自己拼：走 ":P0" 会跟着文化变成 "32 %"（带空格）或换符号，读数要的是稳定的 "32%"。
+    //小于 10% 保留一位小数：0.5% 被四舍五入成 1% 看着像翻倍
+    private static string PercentText(double ratio)
+    {
+        double percent = ratio * 100;
+        return percent < 10
+            ? percent.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + "%"
+            : $"{(int)Math.Round(percent)}%";
+    }
 
     private static string FormatMultiplier(double multiplier) =>
         Math.Abs(multiplier - Math.Round(multiplier)) < 0.01
@@ -392,6 +533,11 @@ public sealed partial class ProviderStatusViewData : ObservableObject, IDisposab
         left.ApiBaseUrl == right.ApiBaseUrl &&
         string.Equals(left.ModelId, right.ModelId, StringComparison.Ordinal);
 }
+
+/// <summary>悬停面板里的一行余额构成（本月 / 购买 / 赠送）</summary>
+/// <param name="Label">桶名</param>
+/// <param name="AmountText">带单位的金额</param>
+public sealed record ProviderStatusBucketRow(string Label, string AmountText);
 
 /// <summary>悬停面板里的一行窗口读数</summary>
 /// <param name="Label">窗口名</param>

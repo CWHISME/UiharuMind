@@ -12,12 +12,19 @@ namespace UiharuMind.App.Tests.TestDoubles;
 internal sealed class StubProviderStatusSource : IProviderStatusSource
 {
     private int _calls;
+    private int _summaryCalls;
 
     /// <summary>取数次数</summary>
     public int Calls => Volatile.Read(ref _calls);
 
+    /// <summary>本周期统计的取数次数</summary>
+    public int SummaryCalls => Volatile.Read(ref _summaryCalls);
+
     /// <summary>按取数时刻造快照；返回 null 表示「这家没数据」</summary>
     public Func<DateTimeOffset, ProviderStatusSnapshot?>? SnapshotFactory { get; set; }
+
+    /// <summary>按取数时刻造本周期统计；不给表示这家没有统计接口</summary>
+    public Func<DateTimeOffset, ProviderUsageSummary?>? SummaryFactory { get; set; }
 
     /// <summary>时钟</summary>
     public Func<DateTimeOffset> Clock { get; set; } = () => DateTimeOffset.Now;
@@ -28,6 +35,13 @@ internal sealed class StubProviderStatusSource : IProviderStatusSource
         Interlocked.Increment(ref _calls);
         ProviderStatusSnapshot? snapshot = SnapshotFactory?.Invoke(Clock());
         return Task.FromResult(snapshot is null ? null : snapshot with { FetchedAt = Clock() });
+    }
+
+    /// <inheritdoc />
+    public Task<ProviderUsageSummary?> FetchSummaryAsync(ProviderStatusContext context, CancellationToken ct)
+    {
+        Interlocked.Increment(ref _summaryCalls);
+        return Task.FromResult(SummaryFactory?.Invoke(Clock()));
     }
 }
 

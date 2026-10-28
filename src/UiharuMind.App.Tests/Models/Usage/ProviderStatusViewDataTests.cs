@@ -162,6 +162,120 @@ public sealed class ProviderStatusViewDataTests
     }
 
     [Fact]
+    public void BalanceBuckets_BecomePanelRows()
+    {
+        Harness harness = new(() => Context(), _ => new ProviderStatusSnapshot("Command Code", [],
+            new ProviderBalance(69.97, "$", null,
+            [
+                new ProviderCreditBucket(EProviderCreditBucket.Monthly, 69.97),
+                new ProviderCreditBucket(EProviderCreditBucket.Purchased, 0),
+                new ProviderCreditBucket(EProviderCreditBucket.Free, 0)
+            ]), [], DateTimeOffset.Now));
+        harness.Data.Pump();
+
+        // 三个桶只有月度有钱：只列那一行，0 的桶不上面板
+        ProviderStatusBucketRow row = Assert.Single(harness.Data.BucketRows);
+        Assert.True(harness.Data.HasBuckets);
+        Assert.Equal(Loc.Text(LangKey.ProviderStatusBucketMonthly), row.Label);
+        Assert.Equal("$69.97", row.AmountText);
+    }
+
+    [Fact]
+    public void AllZeroBuckets_ShowNoRows()
+    {
+        Harness harness = new(() => Context(), _ => new ProviderStatusSnapshot("Command Code", [],
+            new ProviderBalance(0, "$", null, [new ProviderCreditBucket(EProviderCreditBucket.Monthly, 0)]), [],
+            DateTimeOffset.Now));
+        harness.Data.Pump();
+
+        // 「余额 $0」已经说完了，再挂一行 $0 只是噪音
+        Assert.False(harness.Data.HasBuckets);
+        Assert.Empty(harness.Data.BucketRows);
+    }
+
+    [Fact]
+    public void PanelTitle_CarriesTheAccountName()
+    {
+        Harness harness = new(() => Context(), _ => new ProviderStatusSnapshot("Command Code", [],
+            new ProviderBalance(69.93, "$", null, [new ProviderCreditBucket(EProviderCreditBucket.Monthly, 69.93)]),
+            [], NoonUtc, "JiaYingWang"));
+        harness.Data.Pump();
+
+        Assert.Contains("Command Code", harness.Data.PanelTitle);
+        Assert.Contains("JiaYingWang", harness.Data.PanelTitle);
+    }
+
+    [Fact]
+    public async Task MonthlyProgress_DenominatorIsRemainingPlusUsed()
+    {
+        DateTimeOffset periodStart = new(2026, 10, 28, 10, 40, 16, TimeSpan.Zero);
+        Harness harness = new(() => Context(), _ => new ProviderStatusSnapshot("Command Code", [],
+            new ProviderBalance(69.93, "$", null, [new ProviderCreditBucket(EProviderCreditBucket.Monthly, 69.93)]),
+            [], NoonUtc), NoonUtc);
+        harness.Source.SummaryFactory = _ => new ProviderUsageSummary(0.07, "$", periodStart, 43, 100);
+
+        harness.Data.Pump();
+        await harness.Data.RefreshSummaryAsync();
+
+        // 接口不给「本月上限」，分母是剩余 + 本周期已用推的
+        Assert.True(harness.Data.HasMonthlyProgress);
+        Assert.Equal(0.07 / 70.0, harness.Data.MonthlyRatio, 1e-6);
+        Assert.Equal(Loc.Text(LangKey.ProviderStatusMonthlyUsed, "$0.07", "$70"),
+            harness.Data.MonthlyAmountText);
+        // 日期与倒计时都要（用户拍板）
+        DateTimeOffset resetAt = periodStart.AddMonths(1);
+        Assert.Equal(
+            Loc.Text(LangKey.ProviderStatusMonthlyResetLine, resetAt.ToLocalTime().ToString("yyyy-MM-dd"),
+                Loc.Text(LangKey.ProviderStatusSpanDays, 32, 22)), harness.Data.MonthlyResetText);
+        Assert.True(harness.Data.HasUsageStats);
+    }
+
+    [Fact]
+    public async Task MonthlyProgress_HidesTheDuplicateBucketRow()
+    {
+        // 进度块已经叫「本月额度」，桶行再写一次同名只是重复（用户截图指出）
+        Harness harness = new(() => Context(), _ => new ProviderStatusSnapshot("Command Code", [],
+            new ProviderBalance(69.93, "$", null, [new ProviderCreditBucket(EProviderCreditBucket.Monthly, 69.93)]),
+            [], NoonUtc), NoonUtc);
+        harness.Source.SummaryFactory = _ =>
+            new ProviderUsageSummary(0.07, "$", new DateTimeOffset(2026, 10, 28, 10, 40, 16, TimeSpan.Zero), 43, 100);
+
+        harness.Data.Pump();
+        await harness.Data.RefreshSummaryAsync();
+
+        Assert.True(harness.Data.HasMonthlyProgress);
+        Assert.False(harness.Data.HasBuckets);
+        Assert.Empty(harness.Data.BucketRows);
+    }
+
+    [Fact]
+    public async Task MonthlyProgress_UntrustworthyDenominator_ShowsNoBar()
+    {
+        // 剩余为负 → 分母站不住：宁可少一条，不可给错的分母
+        Harness harness = new(() => Context(), _ => new ProviderStatusSnapshot("Command Code", [],
+            new ProviderBalance(-1, "$", null, [new ProviderCreditBucket(EProviderCreditBucket.Monthly, -1)]),
+            [], NoonUtc), NoonUtc);
+        harness.Source.SummaryFactory = _ =>
+            new ProviderUsageSummary(5, "$", new DateTimeOffset(2026, 10, 28, 0, 0, 0, TimeSpan.Zero), 3, 100);
+
+        harness.Data.Pump();
+        await harness.Data.RefreshSummaryAsync();
+
+        Assert.False(harness.Data.HasMonthlyProgress);
+        Assert.Empty(harness.Data.MonthlyPercentText);
+    }
+
+    [Fact]
+    public void SmallPercent_KeepsOneDecimal()
+    {
+        // 0.5% 四舍五入成 1% 看着像翻倍，小数值保留一位
+        Harness harness = new(() => Context(), _ => Snapshot(Meter(0.5, 100)));
+        harness.Data.Pump();
+
+        Assert.Contains("0.5%", harness.Data.Readout);
+    }
+
+    [Fact]
     public void MeterRows_AreBuiltForPanel()
     {
         Harness harness = new(() => Context(),

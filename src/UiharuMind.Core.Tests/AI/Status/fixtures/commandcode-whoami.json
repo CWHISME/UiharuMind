@@ -1,5 +1,10 @@
 {
   "success": true,
-  "user": { "id": "00000000-0000-0000-0000-000000000000", "name": "Fixture User", "email": "user@example.com", "userName": "fixture" },
+  "user": {
+    "id": "00000000-0000-0000-0000-000000000000",
+    "name": "Fixture User",
+    "email": "user@example.com",
+    "userName": "fixture"
+  },
   "org": null
 }

@@ -17,6 +17,17 @@ public interface IProviderStatusSource
     /// <param name="ct">取消</param>
     /// <returns>快照；整份读不出结构时返回 null</returns>
     Task<ProviderStatusSnapshot?> FetchAsync(ProviderStatusContext context, CancellationToken ct);
+
+    /// <summary>
+    /// 取一次本周期用量统计。<b>与 <see cref="FetchAsync"/> 分开</b>：它只给「本月花了多少、重置于哪天」，
+    /// 变化慢、只有明细面板要用，所以由界面在「点开面板」时按需调，不进 30 秒的公共拍子。
+    /// 不提供统计的供应商默认返回 null。
+    /// </summary>
+    /// <param name="context">取数输入</param>
+    /// <param name="ct">取消</param>
+    /// <returns>统计；这家没有这个接口时 null</returns>
+    Task<ProviderUsageSummary?> FetchSummaryAsync(ProviderStatusContext context, CancellationToken ct) =>
+        Task.FromResult<ProviderUsageSummary?>(null);
 }
 
 /// <summary>模型级计费规则（纯本地，按当前时刻算，零网络）</summary>

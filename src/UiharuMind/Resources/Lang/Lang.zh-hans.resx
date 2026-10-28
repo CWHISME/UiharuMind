@@ -6061,6 +6061,24 @@
     <data name="ProviderStatusSlotMonthly" xml:space="preserve">
         <value>月</value>
     </data>
+    <data name="ProviderStatusBucketMonthly" xml:space="preserve">
+        <value>本月额度</value>
+    </data>
+    <data name="ProviderStatusBucketPurchased" xml:space="preserve">
+        <value>购买额度</value>
+    </data>
+    <data name="ProviderStatusBucketFree" xml:space="preserve">
+        <value>赠送额度</value>
+    </data>
+    <data name="ProviderStatusMonthlyUsed" xml:space="preserve">
+        <value>{0} / {1}</value>
+    </data>
+    <data name="ProviderStatusMonthlyResetLine" xml:space="preserve">
+        <value>{0} 重置 · 还有 {1}</value>
+    </data>
+    <data name="ProviderStatusUsageStats" xml:space="preserve">
+        <value>{0} 次请求 · 成功率 {1}%</value>
+    </data>
     <data name="ProviderStatusResetsIn" xml:space="preserve">
         <value>{0}后重置</value>
     </data>
@@ -6089,7 +6107,7 @@
         <value>数据 {0}前 · 未更新</value>
     </data>
     <data name="ProviderStatusBalance" xml:space="preserve">
-        <value>余额 {0}{1}</value>
+        <value>剩余额度 {0}{1}</value>
     </data>
     <data name="ProviderStatusSpanSeconds" xml:space="preserve">
         <value>{0}秒</value>

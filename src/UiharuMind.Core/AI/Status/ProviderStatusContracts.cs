@@ -113,11 +113,50 @@ public sealed record ProviderUsageMeter(
     public bool IsExhausted => Exceeded || (Cap > 0 && Used >= Cap);
 }
 
+/// <summary>余额的构成桶。接口把额度拆成互不通用的三类，合成一个数就再也分不清「本月还剩多少」</summary>
+public enum EProviderCreditBucket
+{
+    /// <summary>订阅自带的月度额度（每月重置）</summary>
+    Monthly,
+
+    /// <summary>额外购买、不过期</summary>
+    Purchased,
+
+    /// <summary>赠送</summary>
+    Free
+}
+
+/// <summary>一个余额桶</summary>
+/// <param name="Kind">桶的语义</param>
+/// <param name="Amount">该桶剩余金额</param>
+public sealed record ProviderCreditBucket(EProviderCreditBucket Kind, double Amount);
+
+/// <summary>
+/// 本计费周期的用量统计。与窗口、余额都不是一回事：窗口讲「这段时间还能烧多少」，
+/// 余额讲「还剩多少钱」，它讲「这个周期花掉了多少」——月度进度的分子就是它。
+/// </summary>
+/// <param name="Used">本周期已用</param>
+/// <param name="Unit">单位</param>
+/// <param name="PeriodStart">本周期起点（重置日按它加一个计费月推）</param>
+/// <param name="RequestCount">本周期请求数</param>
+/// <param name="SuccessRate">成功率（0..100）</param>
+public sealed record ProviderUsageSummary(
+    double Used,
+    string Unit,
+    DateTimeOffset PeriodStart,
+    int RequestCount,
+    double SuccessRate);
+
 /// <summary>余额与计划（都可能为空：免费档没有计划名、预付费没有余额概念）</summary>
 /// <param name="Remaining">剩余额度</param>
 /// <param name="Unit">单位</param>
 /// <param name="PlanName">计划名</param>
-public sealed record ProviderBalance(double? Remaining, string Unit, string? PlanName);
+/// <param name="Buckets">余额的构成；接口没拆桶时为 null</param>
+public sealed record ProviderBalance(
+    double? Remaining,
+    string Unit,
+    string? PlanName,
+    IReadOnlyList<ProviderCreditBucket>? Buckets = null);
 
 /// <summary>
 /// 提示项：只带语义与数值，文案由界面层组装。
@@ -143,12 +182,14 @@ public sealed record ProviderStatusNotice(
 /// <param name="Balance">余额与计划</param>
 /// <param name="AccountNotices">账户级提示（凭据失效等）</param>
 /// <param name="FetchedAt">取到这份数据的时刻（本地时钟）</param>
+/// <param name="AccountName">账户显示名（whoami 给的，没有则 null）</param>
 public sealed record ProviderStatusSnapshot(
     string ProviderName,
     IReadOnlyList<ProviderUsageMeter> Meters,
     ProviderBalance? Balance,
     IReadOnlyList<ProviderStatusNotice> AccountNotices,
-    DateTimeOffset FetchedAt);
+    DateTimeOffset FetchedAt,
+    string? AccountName = null);
 
 /// <summary>
 /// 缓存键：额度是账户级的，同一把 key 下切模型共用一份。

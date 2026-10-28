@@ -1,0 +1,18 @@
+{
+  "totalCount": 43,
+  "totalCost": 0.0315770445,
+  "averageCost": 0.0007343498720930233,
+  "successRate": 100,
+  "completedCount": 43,
+  "failedCount": 0,
+  "totalTokensIn": 2173011,
+  "totalTokensOut": 21006,
+  "totalTokens": 2194017,
+  "totalCredits": 0.0315770445,
+  "totalFreeCredits": 0,
+  "totalMonthlyCredits": 0.0315770445,
+  "totalPurchasedCredits": 0,
+  "periodBasis": "billing-period",
+  "periodStart": "2026-10-28T10:40:16.000Z",
+  "daily": []
+}

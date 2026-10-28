@@ -37,7 +37,34 @@
             </ItemsControl.ItemTemplate>
         </ItemsControl>
 
+        <!-- 月度进度：分母是「剩余 + 本周期已用」推的（接口不给上限），推不出来时这整块隐藏，只留桶行 -->
+        <StackPanel Spacing="3" IsVisible="{Binding HasMonthlyProgress}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <TextBlock Text="{loc:Loc ProviderStatusBucketMonthly}" FontSize="12" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding MonthlyPercentText}" FontSize="12"
+                           VerticalAlignment="Center" />
+            </Grid>
+            <ProgressBar Minimum="0" Maximum="1" Value="{Binding MonthlyRatio}" Height="6"
+                         MinHeight="6" CornerRadius="3" />
+            <TextBlock Text="{Binding MonthlyAmountText}" Classes="muted" FontSize="11" />
+            <TextBlock Text="{Binding MonthlyResetText}" Classes="muted" FontSize="11" />
+        </StackPanel>
+
+        <TextBlock Text="{Binding UsageStatsText}" Classes="muted" FontSize="11"
+                   IsVisible="{Binding HasUsageStats}" />
+
         <TextBlock Text="{Binding BalanceText}" FontSize="12" IsVisible="{Binding HasBalance}" />
+        <!-- 余额是三个桶的和，合起来说不清「本月还剩多少」：有钱的那几个桶各列一行 -->
+        <ItemsControl ItemsSource="{Binding BucketRows}" IsVisible="{Binding HasBuckets}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="usage:ProviderStatusBucketRow">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" Margin="0,2,0,0">
+                        <TextBlock Text="{Binding Label}" Classes="muted" FontSize="12" />
+                        <TextBlock Grid.Column="1" Text="{Binding AmountText}" FontSize="12" />
+                    </Grid>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
 
         <Separator />
         <TextBlock Text="{loc:Loc ProviderStatusAccountLevelHint}" Classes="muted" FontSize="12"

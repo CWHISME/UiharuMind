@@ -26,6 +26,9 @@ internal static class CommandCodeStatusParser
 {
     private const string FallbackUnit = "$";
 
+    /// <summary>秒级 Unix 时间戳的上限（9999-12-31）；超过它只可能是毫秒</summary>
+    private const long MaxUnixSeconds = 253402300799;
+
     /// <summary>
     /// 解析两份响应
     /// </summary>
@@ -52,7 +55,36 @@ internal static class CommandCodeStatusParser
         ProviderBalance? balance = ReadBalance(credits, whoami, unit);
         if (meters.Count == 0 && balance == null) return null;
 
-        return new ProviderStatusSnapshot(CommandCodeStatusSource.ProviderName, meters, balance, [], now);
+        return new ProviderStatusSnapshot(CommandCodeStatusSource.ProviderName, meters, balance, [], now,
+            ReadAccountName(whoami));
+    }
+
+    /// <summary>
+    /// 解析 <c>/alpha/usage/summary</c>（2026-10-28 实测）：
+    /// <code>
+    /// { "totalCount": 43, "totalCost": 0.0315, "successRate": 100,
+    ///   "totalCredits": 0.0315, "periodBasis": "billing-period",
+    ///   "periodStart": "2026-10-28T10:40:16.000Z", "daily": [] }
+    /// </code>
+    ///
+    /// <b>它没有「本月上限」字段</b>：月度进度的分母只能由「剩余 + 已用」推，
+    /// 所以 <c>periodStart</c> 与已用两个读数缺一不可，缺任何一个就整份不用——
+    /// 宁可少一行，不可给错的分母。
+    /// </summary>
+    /// <param name="json">响应体</param>
+    /// <returns>统计；读不出必需字段时 null</returns>
+    public static ProviderUsageSummary? ParseSummary(string? json)
+    {
+        if (TryParseNode(json) is not JsonObject summary) return null;
+
+        double? used = ReadNumber(summary, "totalCost", "total_cost", "totalCredits", "total_credits", "cost");
+        DateTimeOffset? periodStart = ReadTime(summary, "periodStart", "period_start", "cycleStart", "cycle_start");
+        if (used is not >= 0 || periodStart == null) return null;
+
+        string unit = ReadString(summary, "unit", "currency") ?? FallbackUnit;
+        int requests = (int)Math.Round(ReadNumber(summary, "totalCount", "total_count", "requestCount") ?? 0);
+        double successRate = ReadNumber(summary, "successRate", "success_rate") ?? 0;
+        return new ProviderUsageSummary(used.Value, unit, periodStart.Value, requests, successRate);
     }
 
     private static void AddMeter(List<ProviderUsageMeter> meters, EProviderMeterSlot slot, JsonNode? windows,
@@ -120,24 +152,35 @@ internal static class CommandCodeStatusParser
     private static bool IsFalseValue(JsonNode? node) =>
         node is JsonValue value && value.TryGetValue(out bool flag) && !flag;
 
-    private static ProviderBalance? ReadBalance(JsonNode credits, JsonNode? whoami, string unit)
-    {
-        // 真实形状把余额拆成三个桶；任何一个存在就按它们求和，没有再退回单字段
-        string[] buckets = ["monthlyCredits", "purchasedCredits", "freeCredits"];
-        bool hasBucket = buckets.Any(bucket => FindNumber(credits, "credits." + bucket) != null);
-        double? remaining = hasBucket
-            ? buckets.Sum(bucket => FindNumber(credits, "credits." + bucket) ?? 0)
+    private static ProviderBalance? ReadBalance(JsonNode credits, JsonNode? whoami, string unit)    {
+        // 真实形状把余额拆成三个桶；任何一个存在就按它们求和，没有再退回单字段。
+        // 桶本身也一起带上去：界面要能说「本月还剩多少」，合计说不出来
+        (string Name, EProviderCreditBucket Kind)[] names =
+        [
+            ("monthlyCredits", EProviderCreditBucket.Monthly),
+            ("purchasedCredits", EProviderCreditBucket.Purchased),
+            ("freeCredits", EProviderCreditBucket.Free)
+        ];
+        List<ProviderCreditBucket> buckets = [];
+        foreach ((string name, EProviderCreditBucket kind) in names)
+        {
+            if (FindNumber(credits, "credits." + name) is { } amount) buckets.Add(new ProviderCreditBucket(kind, amount));
+        }
+
+        double? remaining = buckets.Count > 0
+            ? buckets.Sum(bucket => bucket.Amount)
             : ReadNumber(credits, "credits.remaining", "remaining", "balance", "credits_remaining",
                 "credits_left", "available");
 
         if (remaining == null && credits is JsonValue value && TryDouble(value, out double flat)) remaining = flat;
 
         string? planName = ReadPlanName(whoami) ?? ReadPlanNameFromCredits(credits);
-        return remaining == null && planName == null ? null : new ProviderBalance(remaining, unit, planName);
+        return remaining == null && planName == null
+            ? null
+            : new ProviderBalance(remaining, unit, planName, buckets.Count > 0 ? buckets : null);
     }
 
-    private static string? ReadPlanName(JsonNode? whoami)
-    {
+    private static string? ReadPlanName(JsonNode? whoami)    {
         // 实测 whoami 只有 user/org，没有 plan；org 有值时才可能带计划名
         if (whoami is not JsonObject whoamiObject) return null;
         return ReadString(whoamiObject,
@@ -148,6 +191,18 @@ internal static class CommandCodeStatusParser
 
     private static string? ReadPlanNameFromCredits(JsonNode credits) =>
         ReadString(credits, "plan.name", "plan", "plan_name", "planName");
+
+    /// <summary>
+    /// 账户显示名。<b>只取名字，不取邮箱</b>：面板是常驻界面，邮箱截图外传的代价比名字大得多。
+    /// 团队账户优先显示组织名（看到的是谁的花费就是团队而不是个人）。
+    /// </summary>
+    private static string? ReadAccountName(JsonNode? whoami)
+    {
+        if (whoami is not JsonObject whoamiObject) return null;
+        return ReadString(whoamiObject,
+            "org.name", "org.displayName",
+            "user.name", "user.userName", "user.displayName");
+    }
 
     //================= 容错读取 =================
 
@@ -231,6 +286,13 @@ internal static class CommandCodeStatusParser
         return node is JsonValue value && value.TryGetValue(out bool flag) ? flag : null;
     }
 
+    /// <summary>
+    /// 读时刻。<b>三个都必须容忍</b>：字符串、秒级数字、<b>毫秒级数字</b>。
+    ///
+    /// CC 实测给的是毫秒（<c>resetAt: 1793202552382</c>），按秒读会越界抛异常；
+    /// 而这个异常以前没有被吞，一抛就把整份快照（含余额与窗口）都废掉——
+    /// 一个时间字段读不懂，代价不能是「整块数据都取不到」。
+    /// </summary>
     private static DateTimeOffset? ReadTime(JsonNode root, params string[] names)
     {
         JsonNode? node = Select(root, names);
@@ -242,8 +304,18 @@ internal static class CommandCodeStatusParser
             return parsed;
         }
 
-        if (value.TryGetValue(out long epoch) && epoch > 0) return DateTimeOffset.FromUnixTimeSeconds(epoch);
-        return null;
+        if (!value.TryGetValue(out long stamp) || stamp <= 0) return null;
+        try
+        {
+            // 按量级判而不是按年份写死：超过秒级上限（9999-12-31）就当毫秒
+            return stamp > MaxUnixSeconds
+                ? DateTimeOffset.FromUnixTimeMilliseconds(stamp)
+                : DateTimeOffset.FromUnixTimeSeconds(stamp);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return null;
+        }
     }
 
     private static bool TryDouble(JsonValue value, out double number)

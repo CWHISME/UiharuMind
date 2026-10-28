@@ -15,6 +15,7 @@ namespace UiharuMind.Core.AI.Status;
 public sealed class ProviderStatusService
 {
     private static readonly TimeSpan Ttl = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan SummaryTtl = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan MinBackoff = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan MaxBackoff = TimeSpan.FromMinutes(5);
     private const int MaxEntries = 64; //超过就清一遍久未触及的项（用户可能建很多把 key 的模型）
@@ -80,6 +81,45 @@ public sealed class ProviderStatusService
         return await fetch.WaitAsync(ct).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 取一次本周期用量统计。与 <see cref="GetAsync"/> 共用同一份 key 缓存与单飞，
+    /// 但有自己的 TTL：它只给明细面板，不跟着 30 秒的拍子转
+    /// </summary>
+    /// <param name="context">取数输入</param>
+    /// <param name="ct">取消</param>
+    /// <returns>统计；这家没有统计接口时 null</returns>
+    public async Task<ProviderUsageSummary?> GetSummaryAsync(ProviderStatusContext context,
+        CancellationToken ct = default)
+    {
+        IProviderStatusSource? source = _registry.For(context.ConfigType)?.Source;
+        if (source == null) return null;
+
+        ProviderStatusCacheKey key = new(context.ConfigType, context.ApiBaseUrl,
+            ProviderStatusCacheKey.HashKey(context.ApiKey));
+        Entry entry = _entries.GetOrAdd(key, static _ => new Entry());
+
+        Task<ProviderUsageSummary?> fetch;
+        lock (entry.Gate)
+        {
+            DateTimeOffset now = _now();
+            entry.LastTouchedAt = now;
+
+            if (entry.Summary != null && now - entry.SummaryAt < SummaryTtl) return entry.Summary;
+
+            if (entry.SummaryInFlight is { IsCompleted: false } running)
+            {
+                fetch = running;
+            }
+            else
+            {
+                entry.SummaryInFlight = fetch = FetchSummaryCoreAsync(source, entry, context);
+            }
+        }
+
+        PruneIfCrowded();
+        return await fetch.WaitAsync(ct).ConfigureAwait(false);
+    }
+
     /// <summary>最后一次成功取到的快照（无则 null），给「切换目标时先顶一下」用</summary>
     /// <param name="context">取数输入</param>
     /// <returns>缓存里的快照</returns>
@@ -125,6 +165,31 @@ public sealed class ProviderStatusService
         }
     }
 
+    private async Task<ProviderUsageSummary?> FetchSummaryCoreAsync(IProviderStatusSource source, Entry entry,
+        ProviderStatusContext context)
+    {
+        try
+        {
+            ProviderUsageSummary? summary = await source.FetchSummaryAsync(context, CancellationToken.None)
+                .ConfigureAwait(false);
+            lock (entry.Gate)
+            {
+                if (summary != null)
+                {
+                    entry.Summary = summary;
+                    entry.SummaryAt = _now();
+                }
+
+                return summary ?? entry.Summary;
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Log.Debug($"[ProviderStatus] summary failed: {context} · {ex.GetType().Name}: {ex.Message}");
+            lock (entry.Gate) return entry.Summary;
+        }
+    }
+
     private void PruneIfCrowded()
     {
         if (_entries.Count <= MaxEntries) return;
@@ -148,5 +213,8 @@ public sealed class ProviderStatusService
         public DateTimeOffset LastTouchedAt;
         public int Failures;
         public Task<ProviderStatusSnapshot?>? InFlight;
+        public ProviderUsageSummary? Summary; //本周期统计（面板用）
+        public DateTimeOffset SummaryAt;
+        public Task<ProviderUsageSummary?>? SummaryInFlight;
     }
 }

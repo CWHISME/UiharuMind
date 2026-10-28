@@ -41,6 +41,8 @@ public partial class ProviderStatusIndicator : UserControl
             _ageTick.Start();
             Data?.BeginRefresh();
             _ = Data?.RefreshAsync(force: true);
+            // 周期统计只在面板开着时要看：它变化慢，没必要进 30 秒的公共拍子
+            _ = Data?.RefreshSummaryAsync();
         };
         Trigger.Flyout.Closed += (_, _) => _ageTick.Stop();
         Update();

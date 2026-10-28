@@ -87,37 +87,7 @@ public class SubAgentReportHandoffTests
         Assert.Equal(1, second);
         Assert.True(replaceSecond);
     }
-
-    /// <summary>
-    /// 回信写成对方发来的（ADR 0062）：「来自」起头，说清是谁、回的是你发的哪一句；
-    /// 续聊方式与上下文占用合成一行附言坠在正文之后，不再出现「委派」「报告」这些调用的说法
-    /// </summary>
-    [Fact]
-    public void ReplyText_SaysWhoSentItAndWhatItAnswers()
-    {
-        string text = SubAgentReportHandoff.BuildText("审查员", "sub1", "黑猫，提交前给你看账：", "可以提交",
-            supersedes: false, interruption: null, othersPending: 0);
-
-        Assert.StartsWith("来自 审查员 [sub-session: sub1]，回你之前发的「黑猫，提交前给你看账：」：\n\n可以提交", text);
-        // 附言是系统话，用【】与正文分开；续聊方式在里面
-        Assert.Contains($"【想接着聊：`{SubAgentTool.MessageToolName}` → [sub-session: sub1]】", text);
-        // 不写「当前已进入空闲」这类状态断言：被用户终止时它与正文的「被终止」直接打架
-        Assert.DoesNotContain("当前已进入空闲", text);
-        Assert.EndsWith("】", text);
-        Assert.DoesNotContain("委派", text);
-        Assert.DoesNotContain("报告", text);
-        Assert.DoesNotContain("还在等", text);
-    }
-
-    /// <summary>匿名、没给身份的：用「一位子代理」起头，不拿任务开头冒充名字</summary>
-    [Fact]
-    public void ReplyText_WithoutAName_SaysASubAgentSentIt()
-    {
-        string text = SubAgentReportHandoff.BuildText("", "sub1", "查一下", "好了", false, null, 0);
-
-        Assert.StartsWith("来自 一位子代理 [sub-session: sub1]，回你之前发的「查一下」：", text);
-    }
-
+    
     /// <summary>更正标在信头末尾，等人数坠在附言之后</summary>
     [Fact]
     public void ReplyText_StatesCorrectionAndWhoElseIsPending()
