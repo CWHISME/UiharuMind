@@ -1,9 +1,9 @@
 using System;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Media;
 using UiharuMind.Features.ScreenCapture.Drawing;
+using UiharuMind.Shared.Controls;
 
 namespace UiharuMind.Features.ScreenCapture;
 
@@ -67,7 +67,7 @@ public partial class ScreenCaptureEditToolbar : UserControl
 
     // 用户把当前工具再点一下 = 取消选中，没有活动工具（同独立编辑窗行为）；
     // 换工具时旧按钮的 IsCheckedChanged(false) 会追来，此时不动当前工具
-    private void UpdateTool(ToggleButton sender, DrawingTool tool)
+    private void UpdateTool(ThemedIconToggleButton sender, DrawingTool tool)
     {
         if (sender.IsChecked != true)
         {

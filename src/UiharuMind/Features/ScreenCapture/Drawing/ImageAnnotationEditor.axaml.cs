@@ -75,7 +75,7 @@ public partial class ImageAnnotationEditor : UserControl
     /// 装载一张图并重置命令栈。<b>本控件不接管位图所有权</b>（由宿主决定释放时机）。
     /// </summary>
     /// <param name="source">原始位图（96 DPI，尺寸即像素尺寸）</param>
-    /// <param name="initialScale">初始视图缩放</param>
+    /// <param name="initialScale">初始视图缩放：<b>位图 1 像素画成多少 DIP</b>，一般由 <see cref="ScaleForDisplay"/> 算</param>
     public void SetSource(Bitmap source, double initialScale)
     {
         _source = source;
@@ -95,6 +95,24 @@ public partial class ImageAnnotationEditor : UserControl
         ApplyViewTransform();
         ViewChanged?.Invoke();
         UndoRedoChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// 图片在宿主里占 <paramref name="displaySize"/>（DIP）时，本编辑器该用的初始视图缩放。
+    /// <para>
+    /// 画布按<b>位图物理像素</b>排版（见 <see cref="SetSource"/>），所以这里要把「DIP 的显示尺寸」
+    /// 折回像素：<c>显示宽 / 位图宽</c>。宿主自己那套「显示尺寸 / 原始尺寸」的比率是 DIP 之间的，
+    /// 少除一个 pixelsPerDip——125% 屏上直接拿来当初始缩放，编辑视图就比贴图大 1.25 倍
+    /// （表现为「进编辑图被放大一圈、显示不全」）。
+    /// </para>
+    /// </summary>
+    /// <param name="source">原始位图</param>
+    /// <param name="displaySize">图片在宿主里的显示尺寸（DIP）；非法时退回 1:1</param>
+    public static double ScaleForDisplay(Bitmap source, Size displaySize)
+    {
+        double pixelWidth = source.PixelSize.Width;
+        if (pixelWidth <= 0 || displaySize.Width <= 0) return 1.0;
+        return displaySize.Width / pixelWidth;
     }
 
     /// <summary>

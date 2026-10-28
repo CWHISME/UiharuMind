@@ -10,6 +10,7 @@
  ****************************************************************************/
 
 using System;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
@@ -28,11 +29,6 @@ namespace UiharuMind.Features.ScreenCapture;
 public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWindow>
 {
     public override EOverlayWindowLevel OverlayWindowLevel => EOverlayWindowLevel.PinnedDock;
-
-    private bool _dockSizeFixed; //是否已量过编辑工具条尺寸
-    private double _editToolbarWidth; //编辑工具条（含胶囊留白）尺寸，供「先长窗再换面板」用
-    private double _editToolbarHeight;
-    private bool _growPending; //浏览→编辑：等窗口长大后再切面板，避免编辑面板被排进旧尺寸
 
     public ScreenCaptureDockWindow()
     {
@@ -64,26 +60,13 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
         // 同档位时点一下贴图就把工具条压下去了
         OverlayWindowService.ApplyNativeWindowLevel(this, EOverlayWindowLevel.PinnedDock);
         RefreshBrowsePanel();
-        MeasureEditToolbarSize();
     }
 
-    // 两套按钮集宽度差一倍（浏览 ≈ 7 键、编辑 ≈ 6 工具 + 取色 + 撤销重做 + 保存取消）。
-    // 窗口跟随当前面板 SizeToContent，切换模式必然原生 resize，而 resize 是异步回灌的——
-    // 新面板若在 resize 落定前就排进旧尺寸，会「被压扁」一帧。
-    // 处理：编辑→浏览直接换（浏览面板小，放进宽窗立刻是对的）；
-    // 浏览→编辑先把窗口长到编辑尺寸，等 SizeChanged 落定再换面板。这里只量一次编辑尺寸。
-    private void MeasureEditToolbarSize()
-    {
-        if (_dockSizeFixed) return;
-        _dockSizeFixed = true;
-
-        bool editWasVisible = EditToolbar.IsVisible;
-        EditToolbar.IsVisible = true;
-        UpdateLayout();
-        _editToolbarWidth = PillBorder.DesiredSize.Width;
-        _editToolbarHeight = PillBorder.DesiredSize.Height;
-        EditToolbar.IsVisible = editWasVisible;
-    }
+    // 两套按钮集宽度差一倍（浏览≈ 7 键、编辑≈ 6 工具 + 取色 + 撤销重做 + 保存取消）。
+    // 窗口跟内容（SizeToContent），换面板会让窗口跟着长/缩——这是对的，但不能像早先那样
+    // 「先给 MinWidth 撑大窗口、等 SizeChanged 再切面板」：SizeToContent 窗口不理 MinWidth，
+    // 而改 MinWidth 也不会把布局标脏，于是尺寸不变、SizeChanged 永不到来——面板就永远停在浏览态。
+    // 直接换面板 + 立刻跑一次布局：窗口会在同一次布局里尺寸到位，新面板排的就是新尺寸。
 
     protected override void OnMainWindowChanged(ScreenCapturePreviewWindow? previous, ScreenCapturePreviewWindow? current)
     {
@@ -103,46 +86,32 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
     private void OnSnapEditModeChanged(bool editMode)
     {
         Pinned = editMode; // 编辑工具条不能被「鼠标离开组合区域」藏掉，否则画着画着就没了
-
-        if (!editMode)
-        {
-            // 编辑→浏览：浏览面板比编辑小，放进当前窗口立刻就是对的——先换面板，再放开 Min 让窗口缩回
-            SizeChanged -= OnDockSizeChangedWhileGrowing;
-            _growPending = false;
-            MinWidth = 0;
-            MinHeight = 0;
-            ApplyPanelSwap(false);
-            return;
-        }
-
-        // 浏览→编辑：先把窗口长到编辑尺寸；窗口已经够大就直接换，否则等 resize 落定（SizeChanged）再换
-        if (!_dockSizeFixed || _editToolbarWidth <= 0) MeasureEditToolbarSize();
-        if (_editToolbarWidth <= 0 || _editToolbarHeight <= 0)
-        {
-            ApplyPanelSwap(true); // 量不到尺寸（极端时序），退化为直接切换
-            return;
-        }
-
-        MinWidth = _editToolbarWidth;
-        MinHeight = _editToolbarHeight;
-
-        if (ClientSize.Width >= _editToolbarWidth - 1 && ClientSize.Height >= _editToolbarHeight - 1)
-        {
-            ApplyPanelSwap(true);
-            return;
-        }
-
-        _growPending = true;
-        SizeChanged += OnDockSizeChangedWhileGrowing;
+        ApplyPanelSwap(editMode);
+        FitToCurrentPanel();
     }
 
-    // 窗口长到编辑尺寸后触发：此时才把面板换成编辑工具条，杜绝「编辑面板排进旧尺寸」的压扁帧
-    private void OnDockSizeChangedWhileGrowing(object? sender, SizeChangedEventArgs e)
+    /// <summary>
+    /// 把窗口定成当前面板的尺寸。
+    /// <para>
+    /// 不能靠「改 MinWidth 撑大 + 等 SizeChanged 再换面板」（旧做法）：窗口是 <c>SizeToContent</c>，
+    /// 改 MinWidth 既不改变窗口尺寸也不标脏布局，SizeChanged 永不到来——面板永远停在浏览态。
+    /// </para>
+    /// <para>
+    /// 也不能光靠 <c>SizeToContent</c> 自己跟：靠 <c>IsVisible</c> 换面板时，窗口的 DesiredSize 会变，
+    /// 但排布不一定会重跑，实测窗口尺寸原地不动，编辑条就被排进浏览面板的宽度里（右边全裁掉）。
+    /// 所以换完面板直接把窗口尺寸定成新面板量出来的值（就是 SizeToContent 本来该算出的那个）。
+    /// </para>
+    /// </summary>
+    private void FitToCurrentPanel()
     {
-        SizeChanged -= OnDockSizeChangedWhileGrowing;
-        if (!_growPending) return;
-        _growPending = false;
-        if (CurrentSnapWindow != null) ApplyPanelSwap(CurrentSnapWindow.EditMode);
+        // 先排一遍：刚显示出来的面板模板还没应用、图标还没量出尺寸，直接量会少算一截（实测 403 vs 431）
+        UpdateLayout();
+        Size target = DesiredSize;
+        if (target.Width <= 0 || target.Height <= 0) return;
+
+        Width = target.Width;
+        Height = target.Height;
+        UpdateLayout();
     }
 
     private void ApplyPanelSwap(bool editMode)

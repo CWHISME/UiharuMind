@@ -4,6 +4,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using UiharuMind.App.Tests.Headless;
 using UiharuMind.Features.ScreenCapture;
+using UiharuMind.Features.ScreenCapture.Drawing;
 
 namespace UiharuMind.App.Tests.ScreenCapture;
 
@@ -53,6 +54,8 @@ public class ScreenCaptureEditModeHeadlessTests
 
             Assert.True(window.EditMode, "进入编辑模式后 EditMode 应为 true");
             Assert.True(window.EditEditor.IsVisible, "编辑器应叠加显示");
+            // 没走 SetImage 时没有显示尺寸可依，视图退回 1:1（不得凭空放大）
+            Assert.Equal(1.0, window.EditEditor.ViewScale, 3);
 
             using Bitmap output = window.EditEditor.RenderToBitmap();
             Assert.Equal(new PixelSize(200, 120), output.PixelSize);
@@ -68,6 +71,30 @@ public class ScreenCaptureEditModeHeadlessTests
         }
     });
 
+    /// <summary>
+    /// 编辑器画布是<b>位图像素</b>口径，初始视图缩放必须按「显示宽 / 位图宽」给。
+    /// 回归点：曾经直接把宿主那套 DIP 之间的比率（显示尺寸/原始尺寸）传进来，
+    /// 125% 屏上编辑视图就比贴图大 1.25 倍——「点编辑，图被放大一圈，显示不全」。
+    /// </summary>
+    [Fact]
+    public void ScaleForDisplay_MapsDisplayDipsToBitmapPixels() => HeadlessUi.Run(() =>
+    {
+        Bitmap source = CreateBitmap(200, 120);
+        try
+        {
+            // 同一张 200px 宽的图，在 125% 屏上贴图显示成 250 DIP → 视图 1.25（不是 1.0）
+            Assert.Equal(1.25, ImageAnnotationEditor.ScaleForDisplay(source, new Size(250, 150)), 3);
+            // 显示缩到一半
+            Assert.Equal(0.5, ImageAnnotationEditor.ScaleForDisplay(source, new Size(100, 60)), 3);
+            // 尺寸不可用时退回 1:1，不能算出 0（视图会整张消失）
+            Assert.Equal(1.0, ImageAnnotationEditor.ScaleForDisplay(source, default), 3);
+        }
+        finally
+        {
+            source.Dispose();
+        }
+    });
+
     [Fact]
     public void EditMode_RenderExports_AtOriginalPixelSize_RegardlessOfZoom() => HeadlessUi.Run(() =>
     {
@@ -75,7 +102,7 @@ public class ScreenCaptureEditModeHeadlessTests
         try
         {
             // 初始视图缩放只影响显示变换，不影响导出尺寸（RenderToBitmap 恒按原始像素渲染）
-            var editor = new UiharuMind.Features.ScreenCapture.Drawing.ImageAnnotationEditor();
+            var editor = new ImageAnnotationEditor();
             editor.SetSource(source, 4.0);
             using Bitmap output = editor.RenderToBitmap();
             Assert.Equal(new PixelSize(200, 120), output.PixelSize);

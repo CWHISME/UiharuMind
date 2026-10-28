@@ -13,30 +13,37 @@
         <Style Selector="Button">
             <Setter Property="CornerRadius" Value="10" />
         </Style>
-        <Style Selector="ToggleButton">
+        <!-- 选中的工具要跟浏览面板那颗 OCR 开关同一套选中色，而不是只靠背景深浅区分 -->
+        <Style Selector=":is(ThemedIconToggleButton)">
             <Setter Property="CornerRadius" Value="10" />
         </Style>
     </UserControl.Styles>
 
     <StackPanel Orientation="Horizontal" Spacing="6">
-        <ToggleButton Name="GeometryRectangleButton" Width="30" Height="30" Padding="0" ToolTip.Tip="Rectangle · Shift=Square">
-            <controls:ThemedSvgIcon IconName="square" Width="18" Height="18" />
-        </ToggleButton>
-        <ToggleButton Name="GeometryEllipseButton" Width="30" Height="30" Padding="0" ToolTip.Tip="Ellipse · Shift=Circle">
-            <controls:ThemedSvgIcon IconName="ellipse" Width="18" Height="18" />
-        </ToggleButton>
-        <ToggleButton Name="GeometryLineButton" Width="30" Height="30" Padding="0" ToolTip.Tip="Line">
-            <controls:ThemedSvgIcon IconName="minus" Width="18" Height="18" />
-        </ToggleButton>
-        <ToggleButton Name="GeometryArrowLineButton" Width="30" Height="30" Padding="0" ToolTip.Tip="ArrowLine">
-            <controls:ThemedSvgIcon IconName="arrow-line" Width="18" Height="18" />
-        </ToggleButton>
-        <ToggleButton Name="GeometryTextButton" Width="30" Height="30" Padding="0" ToolTip.Tip="Text">
-            <controls:ThemedSvgIcon IconName="type" Width="18" Height="18" />
-        </ToggleButton>
-        <ToggleButton Name="GeometryPenButton" Width="30" Height="30" Padding="0" ToolTip.Tip="Pen">
-            <controls:ThemedSvgIcon IconName="pencil" Width="18" Height="18" />
-        </ToggleButton>
+        <controls:ThemedIconToggleButton Name="GeometryRectangleButton" Width="30" Height="30" Padding="0"
+                                         IconName="square" IconWidth="18" IconHeight="18"
+                                         CheckedForeground="{DynamicResource SemiBlue5}"
+                                         ToolTip.Tip="Rectangle · Shift=Square" />
+        <controls:ThemedIconToggleButton Name="GeometryEllipseButton" Width="30" Height="30" Padding="0"
+                                         IconName="ellipse" IconWidth="18" IconHeight="18"
+                                         CheckedForeground="{DynamicResource SemiBlue5}"
+                                         ToolTip.Tip="Ellipse · Shift=Circle" />
+        <controls:ThemedIconToggleButton Name="GeometryLineButton" Width="30" Height="30" Padding="0"
+                                         IconName="minus" IconWidth="18" IconHeight="18"
+                                         CheckedForeground="{DynamicResource SemiBlue5}"
+                                         ToolTip.Tip="Line" />
+        <controls:ThemedIconToggleButton Name="GeometryArrowLineButton" Width="30" Height="30" Padding="0"
+                                         IconName="arrow-line" IconWidth="18" IconHeight="18"
+                                         CheckedForeground="{DynamicResource SemiBlue5}"
+                                         ToolTip.Tip="ArrowLine" />
+        <controls:ThemedIconToggleButton Name="GeometryTextButton" Width="30" Height="30" Padding="0"
+                                         IconName="type" IconWidth="18" IconHeight="18"
+                                         CheckedForeground="{DynamicResource SemiBlue5}"
+                                         ToolTip.Tip="Text" />
+        <controls:ThemedIconToggleButton Name="GeometryPenButton" Width="30" Height="30" Padding="0"
+                                         IconName="pencil" IconWidth="18" IconHeight="18"
+                                         CheckedForeground="{DynamicResource SemiBlue5}"
+                                         ToolTip.Tip="Pen" />
 
         <ColorPicker Name="GeometryColorPicker" Theme="{StaticResource SimpleColorPicker}" />
 

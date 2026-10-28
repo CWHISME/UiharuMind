@@ -185,7 +185,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     public bool EditCanRedo => EditEditor.CanRedo;
 
     /// <summary>
-    /// 进入编辑模式：编辑器叠加在当前图上（初始视图 = 贴图窗当前缩放），
+    /// 进入编辑模式：编辑器叠加在当前图上（初始视图 = 图片当前在贴图窗里的显示尺寸），
     /// 不改动本窗位置与尺寸。位图所有权不变，仍是本窗持有。
     /// </summary>
     public void EnterEditMode()
@@ -194,7 +194,10 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         _editMode = true;
         _editBackup = ImageSource;
         SetOcrMode(false); // 互斥：编辑器接管绘制，OCR 层先让位
-        EditEditor.SetSource(ImageSource, DisplayScale);
+        // 编辑器的画布是位图像素口径，初始缩放要按「显示宽 / 位图宽」给；
+        // 直接传 DisplayScale（DIP 之间的比率）会让编辑视图大出整整一个 pixelsPerDip
+        Size editViewSize = _currentSize.Width > 0 ? _currentSize : ImageSource.PixelSize.ToSize(1);
+        EditEditor.SetSource(ImageSource, ImageAnnotationEditor.ScaleForDisplay(ImageSource, editViewSize));
         EditEditor.SetTool(_editTool);
         EditEditor.SetColor(_editColor);
         EditEditor.AllowViewZoom = false; // 编辑过程视图固定，画布坐标与视图比例不再变动

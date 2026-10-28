@@ -11,8 +11,15 @@ public class ThemedSvgIcon : global::Avalonia.Svg.Skia.Svg
 {
     private const string SvgPathFormat = "avares://UiharuMind/Assets/Icons/{0}.svg";
 
+    // 禁用态保留的描边不透明度。Svg 走的是 context.Custom 自绘通道，Opacity 传不进去
+    // （自身和父级都一样），只能把透明度揉进 CurrentColor 的 alpha
+    private const double DisabledOpacity = 0.35;
+
     // 标志位：标记 CurrentColor 是否由外部（用户绑定/赋值）设置
     private bool _externalColorSet;
+
+    // 未禁用时该显示的颜色，禁用时由它派生出半透明版本
+    private Color _baseColor = Colors.Black;
 
     // 防止递归的标志
     private bool _isUpdatingCurrentColor;
@@ -53,7 +60,13 @@ public class ThemedSvgIcon : global::Avalonia.Svg.Skia.Svg
         else if (change.Property == CurrentColorProperty && !_isUpdatingCurrentColor)
         {
             // 任何非内部引发的 CurrentColor 变化都视为外部设置
-            _externalColorSet = change.NewValue != null;
+            _externalColorSet = change.NewValue is Color;
+            if (change.NewValue is Color external) _baseColor = external;
+            UpdateCurrentColor();
+        }
+        else if (change.Property == IsEffectivelyEnabledProperty)
+        {
+            // 宿主禁用（含祖先禁用）时置灰
             UpdateCurrentColor();
         }
     }
@@ -105,12 +118,20 @@ public class ThemedSvgIcon : global::Avalonia.Svg.Skia.Svg
 
     private void UpdateCurrentColor()
     {
-        // 如果已显式设置过颜色，则不再自动覆盖
-        if (_externalColorSet || _isUpdatingCurrentColor)
-            return;
+        if (_isUpdatingCurrentColor) return;
+
+        // 外部显式设过颜色就守住它，否则跟随主题
+        Color color = _externalColorSet
+            ? _baseColor
+            : ApplicationThemeManager.IsDarkTheme()
+                ? Colors.White
+                : Colors.Black;
+
+        if (!IsEffectivelyEnabled)
+            color = Color.FromArgb((byte)(color.A * DisabledOpacity), color.R, color.G, color.B);
 
         _isUpdatingCurrentColor = true;
-        CurrentColor = ApplicationThemeManager.IsDarkTheme() ? Colors.White : Colors.Black;
+        CurrentColor = color;
         _isUpdatingCurrentColor = false;
     }
 }
