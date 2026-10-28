@@ -20,17 +20,20 @@ namespace UiharuMind.Core.AI.Net;
 /// </summary>
 /// <param name="ExtraParams">模型的额外参数，写到根上（同名覆盖）</param>
 /// <param name="ForbidToolCalls">写 <c>tool_choice: "none"</c></param>
-/// <param name="ReasoningByCallId">按 tool_call id 回填的思考正文；不需要回填时为 null</param>
-/// <param name="OmitSamplingParams">删掉 <see cref="OpenAICompatibleRequestRewriter.SamplingParamKeys"/></param>
-/// <param name="ReasoningField">思考正文回填的 wire 键名（观测/预设/默认）</param>
-/// <param name="FillEmptyReasoning">
-/// 带 tool_calls 的助手消息即使没有思考正文，也要补一个空串字段（DeepSeek 类缺字段即 400）。
-/// 仅在本次请求可能处于思考模式（<see cref="EThinkingMode.None"/> 之外）时为真。
+/// <param name="ReasoningByAssistantMessage">
+/// 按助手消息出现顺序排列的思考正文，缺思考的位置为 null；不需要回填时为 null。
+/// 按序而不是按 tool_call id：没有工具调用的普通回复同样要回传，而它身上没有 id 可挂
 /// </param>
+/// <param name="OmitSamplingParams">删掉 <see cref="OpenAICompatibleRequestRewriter.SamplingParamKeys"/></param>
+/// <param name="FillEmptyReasoning">
+/// 每一条助手消息都带思考字段：没有正文的补空串。与 opencode 的 <c>compatibility.requireReasoning</c>、
+/// pi 的「有就带」同一层级——服务端要的是「字段必须在」，不是「字段必须有内容」。
+/// </param>
+/// <param name="ReasoningField">思考正文回填的 wire 键名（预设/默认）</param>
 internal readonly record struct RequestRewrite(
     IReadOnlyList<KeyValuePair<string, JsonNode?>>? ExtraParams,
     bool ForbidToolCalls,
-    IReadOnlyDictionary<string, string>? ReasoningByCallId,
+    IReadOnlyList<string?>? ReasoningByAssistantMessage,
     bool OmitSamplingParams,
     bool FillEmptyReasoning = false,
     string ReasoningField = OpenAICompatibleRequestRewriter.DefaultReasoningField);
@@ -71,30 +74,33 @@ internal static class OpenAICompatibleRequestRewriter
     /// </summary>
     /// <param name="model">目标模型；为 null 时只做与模型无关的改写</param>
     /// <returns>要做的改写</returns>
-    public static RequestRewrite For(ILlmModel? model) => new(
-        model?.GetExtraParams(),
-        LlmRequestContext.ForbidToolCalls,
+    public static RequestRewrite For(ILlmModel? model)
+    {
+        // 每条助手消息都要带思考的模型：有正文回正文，没正文补空串。
+        // 这条校验发生在服务端解析历史那一层，与本次是否思考无关，因此不跟思考档位走
+        bool everyAssistant = model is not null && model.RequireReasoningOnEveryAssistantMessage;
         // null/true 都收集思考:null=自动(历史有思考就回传),true=模型强制要求;
         // 收集器扫不到思考时返回空,自然不带字段——只有显式 false(确认不要求回传)或无模型才跳过。
         // 注意不能用 `model?.X != false`:nullable 的 lifted 比较在 null 时得到 null(判不出),
         // 这里用 `is not false`(null 也算)并先把 model 判空
-        model is not null && model.ReplayExistingReasoning is not false
+        IReadOnlyList<string?>? reasoning = model is not null &&
+                                            (everyAssistant || model.ReplayExistingReasoning is not false)
             ? LlmRequestContext.PendingReasoningSource?.Invoke()
-            : null,
-        // 采样参数固定的模型(如 Kimi)会拒绝显式传值的请求,开启后删掉这四个字段,不碰其它参数
-        model?.OmitSamplingParams == true,
-        // 没有思考正文也要带字段(空串):DeepSeek 类把「思考模式下带 tool_calls 的助手消息必须含思考字段」
-        // 当硬校验,历史里那些关思考时跑出来的旧工具调用没有正文可回传,缺字段就是 400。
-        // 但这条校验只在本次请求处于思考模式时成立——None 档显式发了 thinking:disabled,服务端按正文
-        // 调用处理,不要求字段;此时补空串是多写字段、白改请求体。Default 不干预、由模型自己决定是否
-        // 思考,仍按「可能思考」保守补上。
-        model is not null && model.RequireReasoningFieldWhenEmpty &&
-        model.ThinkingMode != EThinkingMode.None,
-        // 思考回填键名不写死:按模型实际字段(运行时观测/预设/默认)回传
-        ResolveReasoningField(model));
+            : null;
+
+        return new RequestRewrite(
+            model?.GetExtraParams(),
+            LlmRequestContext.ForbidToolCalls,
+            reasoning,
+            // 采样参数固定的模型(如 Kimi)会拒绝显式传值的请求,开启后删掉这四个字段,不碰其它参数
+            model?.OmitSamplingParams == true,
+            everyAssistant,
+            // 思考回填键名不写死:按模型实际字段(预设/默认)回传
+            ResolveReasoningField(model));
+    }
 
     /// <summary>
-    /// 回填键名取模型给的生效值；模型为 null 或给了空串时退回
+    /// 回填键名取模型给的请求侧键名；模型为 null 或给了空串时退回
     /// <see cref="DefaultReasoningField"/>——空串拼进请求体就是 `"": "..."`，服务端认不出
     /// </summary>
     private static string ResolveReasoningField(ILlmModel? model) =>
@@ -111,7 +117,7 @@ internal static class OpenAICompatibleRequestRewriter
     {
         // 大多数请求不含畸形 tool_calls 参数,先做一次廉价的字节扫描,避免每次都逐条走 messages
         bool fixArguments = json.IndexOf("\"arguments\":\"null\""u8) >= 0 || json.IndexOf("\"arguments\": \"null\""u8) >= 0;
-        IReadOnlyDictionary<string, string>? reasoning = rewrite.ReasoningByCallId is { Count: > 0 } map ? map : null;
+        IReadOnlyList<string?>? reasoning = rewrite.ReasoningByAssistantMessage is { Count: > 0 } list ? list : null;
         if (rewrite.ExtraParams is not { Count: > 0 } && !rewrite.ForbidToolCalls && !fixArguments && reasoning == null &&
             !rewrite.OmitSamplingParams && !rewrite.FillEmptyReasoning)
         {
@@ -143,9 +149,11 @@ internal static class OpenAICompatibleRequestRewriter
                 bool isMessages = reader.ValueTextEquals("messages"u8);
                 reader.Read();
                 // 被额外参数覆盖掉的 messages 不能扫:记下的改动会落到别的属性上
-                if (isMessages && !drop && (fixArguments || reasoning != null || rewrite.FillEmptyReasoning) &&
+                if (isMessages && !drop &&
+                    (fixArguments || reasoning != null || rewrite.FillEmptyReasoning) &&
                     reader.TokenType == JsonTokenType.StartArray)
-                    ScanMessages(ref reader, fixArguments, reasoning, rewrite.FillEmptyReasoning, rewrite.ReasoningField, edits);
+                    ScanMessages(ref reader, fixArguments, reasoning, rewrite.FillEmptyReasoning, rewrite.ReasoningField,
+                        edits);
                 else
                     SkipValue(ref reader);
 
@@ -162,43 +170,47 @@ internal static class OpenAICompatibleRequestRewriter
     }
 
     private static void ScanMessages(ref Utf8JsonReader reader, bool fixArguments,
-        IReadOnlyDictionary<string, string>? reasoning, bool fillEmptyReasoning, string reasoningField,
+        IReadOnlyList<string?>? reasoning, bool fillEmptyReasoning, string reasoningField,
         List<Utf8JsonSplice.Edit> edits)
     {
+        int assistantIndex = 0; //第几条助手消息,与 reasoning 列表一一对应
         while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
         {
             if (reader.TokenType == JsonTokenType.StartObject)
-                ScanMessage(ref reader, fixArguments, reasoning, fillEmptyReasoning, reasoningField, edits);
+                ScanMessage(ref reader, fixArguments, reasoning, fillEmptyReasoning, reasoningField, edits, ref assistantIndex);
             else SkipValue(ref reader);
         }
     }
 
     /// <summary>
-    /// 思考模式下,助手消息带 tool_calls 时接口要求原样带回当时的思考正文,
-    /// 否则报 "If thinking mode and tool_calls, reasoning_content must be passed back to the API"。
-    /// 键名按 <paramref name="reasoningField"/>（模型实际字段，默认 reasoning_content）。
-    /// 标准 ChatMessage→wire 消息转换认不出 <c>TextReasoningContent</c>,序列化时会把它悄悄丢掉,
-    /// 只能按 tool_call id 从 <see cref="LlmRequestContext.PendingReasoningSource"/> 找回来补上。
-    /// 一条消息可带多个 tool_calls,任一 id 命中即恢复整条消息的思考正文;已经带了(哪怕是空串)就不覆盖,只有缺省或 null 才补。
+    /// 助手消息的思考正文回填。标准 ChatMessage→wire 消息转换认不出 <c>TextReasoningContent</c>,
+    /// 序列化时会把它悄悄丢掉,只能从 <see cref="LlmRequestContext.PendingReasoningSource"/>
+    /// 按<b>助手消息出现顺序</b>找回来补上。已经带了(哪怕是空串)就不覆盖,只有缺省或 null 才补。
     ///
-    /// 找不回正文时(<paramref name="fillEmptyReasoning"/> 为真)补一个空串:服务端要的是"字段必须在",
-    /// 不是"字段必须有内容"。历史里那些关思考档位跑出来的工具调用没有正文可回传,缺字段就是 400。
-    /// <paramref name="fillEmptyReasoning"/> 由调用方按「本次请求是否可能处于思考模式」把关:
-    /// None 档已显式关思考,服务端不要求该字段,不必补。
-    /// 只对带 tool_calls 的助手消息补——给普通消息塞空字段是白改请求体,还会打乱前缀缓存。
+    /// <b>有正文就发,不挑消息</b>:服务端给过的思考原样带回去,工具调用链之外的回复也一样——
+    /// 各家的校验口径不同（DeepSeek 只查带 tool_calls 的，网关连纯文本回复都查），
+    /// 全都带回去就同时满足所有口径，不用去猜这一家要哪一种。
+    ///
+    /// 历史里压根没有正文时，<paramref name="fillEmptyReasoning"/> 决定要不要补空串
+    /// （服务端要的是「字段必须在」，不是「字段必须有内容」）。
     /// </summary>
     private static void ScanMessage(ref Utf8JsonReader reader, bool fixArguments,
-        IReadOnlyDictionary<string, string>? reasoning, bool fillEmptyReasoning, string reasoningField,
-        List<Utf8JsonSplice.Edit> edits)
+        IReadOnlyList<string?>? reasoning, bool fillEmptyReasoning, string reasoningField,
+        List<Utf8JsonSplice.Edit> edits, ref int assistantIndex)
     {
+        bool isAssistant = false;
         bool hasReasoning = false;
-        bool hasToolCalls = false;
         Region nullReasoning = new(-1, -1); //思考键为 null 的值区间,回填时只换值
-        string? matched = null;
 
         while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
         {
-            if (reader.ValueTextEquals(reasoningField))
+            if (reader.ValueTextEquals("role"u8))
+            {
+                reader.Read();
+                isAssistant = reader.TokenType == JsonTokenType.String && reader.ValueTextEquals("assistant"u8);
+                SkipValue(ref reader);
+            }
+            else if (reader.ValueTextEquals(reasoningField))
             {
                 reader.Read();
                 if (reader.TokenType == JsonTokenType.Null)
@@ -210,11 +222,7 @@ internal static class OpenAICompatibleRequestRewriter
             else if (reader.ValueTextEquals("tool_calls"u8))
             {
                 reader.Read();
-                if (reader.TokenType == JsonTokenType.StartArray)
-                {
-                    hasToolCalls = true;
-                    ScanToolCalls(ref reader, fixArguments, reasoning, ref matched, edits);
-                }
+                if (reader.TokenType == JsonTokenType.StartArray) ScanToolCalls(ref reader, fixArguments, edits);
                 else SkipValue(ref reader);
             }
             else
@@ -224,24 +232,27 @@ internal static class OpenAICompatibleRequestRewriter
             }
         }
 
-        // 此时停在消息对象的 '}' 上
-        if (hasReasoning) return;
-        if (matched == null && !(fillEmptyReasoning && hasToolCalls)) return;
+        // 此时停在消息对象的 '}' 上。序号必须无条件递增(已带正文的消息同样占一个位置),
+        // 否则后面每条都会错位取到上一条的思考
+        int index = isAssistant ? assistantIndex++ : -1;
+        if (index < 0 || hasReasoning) return;
 
-        string text = matched ?? string.Empty;
+        string? text = reasoning != null && index < reasoning.Count ? reasoning[index] : null;
+        if (text == null && !fillEmptyReasoning) return;
+
+        string value = text ?? string.Empty;
         if (nullReasoning.Start >= 0)
         {
-            edits.Add(new Utf8JsonSplice.Edit(nullReasoning.Start, nullReasoning.End, SerializeReasoning(text, withKey: false, reasoningField)));
+            edits.Add(new Utf8JsonSplice.Edit(nullReasoning.Start, nullReasoning.End, SerializeReasoning(value, withKey: false, reasoningField)));
         }
         else
         {
             int at = (int)reader.TokenStartIndex;
-            edits.Add(new Utf8JsonSplice.Edit(at, at, SerializeReasoning(text, withKey: true, reasoningField)));
+            edits.Add(new Utf8JsonSplice.Edit(at, at, SerializeReasoning(value, withKey: true, reasoningField)));
         }
     }
 
-    private static void ScanToolCalls(ref Utf8JsonReader reader, bool fixArguments,
-        IReadOnlyDictionary<string, string>? reasoning, ref string? matched, List<Utf8JsonSplice.Edit> edits)
+    private static void ScanToolCalls(ref Utf8JsonReader reader, bool fixArguments, List<Utf8JsonSplice.Edit> edits)
     {
         while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
         {
@@ -253,26 +264,10 @@ internal static class OpenAICompatibleRequestRewriter
 
             while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
             {
-                if (reader.ValueTextEquals("id"u8))
-                {
-                    reader.Read();
-                    if (matched == null && reasoning != null && reader.TokenType == JsonTokenType.String &&
-                        reasoning.TryGetValue(reader.GetString()!, out string? text))
-                        matched = text;
-                    else
-                        SkipValue(ref reader);
-                }
-                else if (fixArguments && reader.ValueTextEquals("function"u8))
-                {
-                    reader.Read();
-                    if (reader.TokenType == JsonTokenType.StartObject) FixArguments(ref reader, edits);
-                    else SkipValue(ref reader);
-                }
-                else
-                {
-                    reader.Read();
-                    SkipValue(ref reader);
-                }
+                bool isFunction = fixArguments && reader.ValueTextEquals("function"u8);
+                reader.Read();
+                if (isFunction && reader.TokenType == JsonTokenType.StartObject) FixArguments(ref reader, edits);
+                else SkipValue(ref reader);
             }
         }
     }

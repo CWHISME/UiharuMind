@@ -77,18 +77,18 @@ internal static class Conversation
     /// <param name="rounds">轮数；95 轮约 37.5 万字符 / 458KB</param>
     /// <param name="withImage">末尾带一张 256KB 的图（看 base64 抹不抹得掉）</param>
     /// <param name="thinkingChars">每轮思考的字数</param>
-    public static (List<ChatMessage> Messages, ChatOptions Options, Dictionary<string, string> ReasoningByCallId) Build(
+    public static (List<ChatMessage> Messages, ChatOptions Options, List<string?> Reasoning) Build(
         int rounds, bool withImage, int thinkingChars = 240)
     {
         var rng = new Random(7);
         List<ChatMessage> messages = [new(ChatRole.System, string.Concat(Enumerable.Repeat(Paragraph, 120)))];
-        Dictionary<string, string> reasoning = new(StringComparer.Ordinal);
+        List<string?> reasoning = []; //按助手消息顺序,与请求里的助手消息一一对应
         for (int round = 0; round < rounds; round++)
         {
             messages.Add(new ChatMessage(ChatRole.User, "[黑猫]: " + string.Concat(Enumerable.Repeat(Paragraph, 2))));
             string callId = $"call_{round:0000}";
             string think = string.Concat(Enumerable.Repeat("先读一下文件再决定怎么改。", thinkingChars / 12));
-            reasoning[callId] = think;
+            reasoning.Add(think);
             messages.Add(new ChatMessage(ChatRole.Assistant,
             [
                 new TextReasoningContent(think),

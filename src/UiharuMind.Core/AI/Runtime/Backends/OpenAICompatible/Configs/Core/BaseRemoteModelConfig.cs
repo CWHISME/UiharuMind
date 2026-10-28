@@ -139,8 +139,8 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     public virtual bool? ReplayExistingReasoningOverride { get; set; }
 
     /// <summary>
-    /// 历史消息里<b>已有</b>思考正文时，是否原样回传（有正文看这个，没正文看
-    /// <see cref="RequireReasoningFieldWhenEmpty"/>）。
+    /// 历史消息里<b>已有</b>思考正文时，是否原样回传（有正文就发，见
+    /// <see cref="RequireReasoningOnEveryAssistantMessage"/> 管「没正文时字段能不能缺」）。
     /// 用户显式覆盖优先,否则按当前 ModelId 查预设表——这是模型本身的接口约束,
     /// 同一供应商转售的其它模型未必需要,不能挂在配置类上固定死。
     /// <c>null</c>=自动(历史有思考就回传),<c>true</c>/<c>false</c>=显式要求/禁止。
@@ -152,52 +152,71 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
             : null);
 
     /// <summary>
-    /// 思考模式下助手消息带 tool_calls 时,<b>没有思考正文也必须带思考字段</b>(空串)。
-    /// 没正文看这个，有正文看 <see cref="ReplayExistingReasoning"/>——两者互斥：有正文时字段已存在，
-    /// 前者不适用；没正文时没东西可回传，后者不适用。
+    /// 运行时被告知「每一条助手消息都要带思考」的 ModelId（按 ModelId 分开记，与
+    /// <see cref="ObservedThinkingFields"/> 同构）。由 <c>ReasoningRequirementErrorHandler</c>
+    /// 在服务端报 <c>Missing required parameter: 'messages[n].reasoning_content'</c> 时写入并重发一次。
     ///
-    /// DeepSeek 类服务端把「字段必须在」当硬校验,缺字段直接 400——
-    /// 典型触发点是历史里那条带 tool_calls 的消息本来就是关思考的档位跑出来的,没有正文可回传。
-    ///
-    /// 消费侧只在本次请求不是 <see cref="EThinkingMode.None"/> 时启用:None 档显式发 thinking:disabled,
-    /// 服务端按正文调用处理,不要求该字段;Default 及各级思考档位都可能思考,保守补上。
-    ///
-    /// 来源：预设表显式声明，或模型 ID 含 <c>deepseek</c> 的兜底——转售的 DeepSeek
-    /// （CommandCode/OpenCode 等目录供应商）不在预设表里，但硬校验不因转售而消失
-    /// （与 opencode 的 <c>modelID.includes("deepseek")</c> 同口径）。
-    ///
-    /// 这是模型侧的硬约束,只从预设表/模型 ID 读:不落配置、不给手动覆盖(与 roundtrip 不同,用户没法靠观察判断)。
+    /// 为什么靠学而不是靠表：这条约束是<b>按模型</b>的，同一网关下也不一致——
+    /// 实测 CommandCode 的 <c>deepseek/deepseek-v4.1-flash</c> 只要求带 tool_calls 的那些（88 次请求、
+    /// 105 条无思考的纯文本回复全部通过），而 <c>reflection/beam:free</c> 连纯文本回复都要求。
+    /// 目录里几十个模型补不出表，等服务端亲口说一次比猜准。
     /// </summary>
-    public bool RequireReasoningFieldWhenEmpty =>
+    [SettingConfigIgnoreDisplay]
+    public HashSet<string> ReasoningEveryAssistantModelIds { get; set; } = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// 每一条助手消息都必须带思考字段:有正文回正文,没正文补空串。
+    ///
+    /// 来源三条：预设表显式声明、运行时从服务端 400 里学到（<see cref="ReasoningEveryAssistantModelIds"/>）、
+    /// 或模型 ID 含 <c>deepseek</c> 的兜底——转售的 DeepSeek（CommandCode/OpenCode 等目录供应商）
+    /// 不在预设表里，但口径与官方一致（opencode 客户端也是这么默认的：
+    /// <c>requireReasoning ?? (reasoningField 已配 || provider/endpoint/modelID 是 deepseek)</c>）。
+    ///
+    /// 与思考档位无关:校验发生在服务端解析历史那一层,与本次是否思考无关。
+    /// </summary>
+    public bool RequireReasoningOnEveryAssistantMessage =>
         (ModelIdVariants.TryGetValue(ModelId, out RemoteModelIdVariant? variant) &&
-         variant.RequireReasoningFieldWhenEmpty) ||
+         variant.RequireReasoningOnEveryAssistantMessage) ||
+        ReasoningEveryAssistantModelIds.Contains(ModelId) ||
         ModelId.Contains("deepseek", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 记下「当前 ModelId 要求每条助手消息都带思考」。落盘由调用方负责（同 <c>TryFixMaxTokens</c>）。
+    /// </summary>
+    /// <returns>是否是新记下的（已记过时返回 false，重发没有意义）</returns>
+    public bool LearnRequireReasoningOnEveryAssistantMessage() =>
+        !string.IsNullOrWhiteSpace(ModelId) && ReasoningEveryAssistantModelIds.Add(ModelId);
 
     /// <summary>
     /// 运行时观测到的思考 wire 字段名（reasoning_content/reasoning/reasoning_text），**按 ModelId 分开记**。
     /// 同一端点的不同模型字段名可以不同（商汤转售的 DeepSeek 用 reasoning_content、自研 6.8 用 reasoning），
     /// 记成一个标量就会在切 ModelId 时互相污染，所以键是观测时的 ModelId。空表表示尚未观测。
+    ///
+    /// 只描述<b>响应</b>：请求侧的键名见 <see cref="RequestThinkingField"/>，两者不是一回事
+    /// （CommandCode 的响应用 reasoning、请求只认 reasoning_content）。
     /// </summary>
     [SettingConfigIgnoreDisplay]
     public Dictionary<string, string> ObservedThinkingFields { get; set; } = new();
 
     /// <summary>
-    /// 回填思考正文用的 wire 键名：当前 ModelId 的观测值 → 该 ModelId 的预设表 → reasoning_content。
-    /// 请求侧改写只认这个值，不写死键名。
+    /// 回填思考正文用的<b>请求侧</b> wire 键名：该 ModelId 的预设表 → <c>reasoning_content</c>。
+    ///
+    /// 不取运行时观测值：观测到的是<b>响应</b>里的字段名，请求侧未必同名——
+    /// CommandCode 的响应给 <c>reasoning</c>，请求体里却只认 <c>reasoning_content</c>，
+    /// 拿观测值回填等于发一个服务端不认的键，被当成「缺字段」直接 400。
+    /// 请求侧确实不用默认名的服务商，在预设表里显式声明（如商汤自研 6.8 的 <c>reasoning</c>）。
     /// </summary>
-    public string EffectiveThinkingField =>
-        ObservedThinkingFields.TryGetValue(ModelId, out string? observed) && !string.IsNullOrWhiteSpace(observed)
-            ? observed
-            : ModelIdVariants.TryGetValue(ModelId, out RemoteModelIdVariant? variant) &&
-              !string.IsNullOrWhiteSpace(variant.ThinkingField)
-                ? variant.ThinkingField
-                : "reasoning_content";
+    public string RequestThinkingField =>
+        ModelIdVariants.TryGetValue(ModelId, out RemoteModelIdVariant? variant) &&
+        !string.IsNullOrWhiteSpace(variant.ThinkingField)
+            ? variant.ThinkingField
+            : "reasoning_content";
 
     /// <summary>
-    /// 接口要的是「回填键名」即 <see cref="EffectiveThinkingField"/>。显式实现，
+    /// 接口要的是「回填键名」即 <see cref="RequestThinkingField"/>。显式实现，
     /// 避免有人把配置当模型用时读到存储侧的 <see cref="ObservedThinkingFields"/> 而拿不到兜底值。
     /// </summary>
-    string ILlmModel.ThinkingField => EffectiveThinkingField;
+    string ILlmModel.ThinkingField => RequestThinkingField;
 
     [SettingConfigIgnoreDisplay] public virtual int Port { get; set; }
 

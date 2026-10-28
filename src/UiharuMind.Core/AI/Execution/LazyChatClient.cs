@@ -50,11 +50,22 @@ public class LazyChatClient : IChatClient
         CancellationToken cancellationToken = default)
     {
         IReadOnlyList<ChatMessage> messageList = AsList(messages);
-        LlmRequestContext.PendingReasoningSource = () => CollectReasoningByCallId(messageList);
+        LlmRequestContext.PendingReasoningSource = () => CollectAssistantReasoning(messageList);
 
-        IChatClient client = (await ResolveAsync(cancellationToken).ConfigureAwait(false)).Client;
-        ChatResponse response = await client.GetResponseAsync(messageList, options, cancellationToken)
-            .ConfigureAwait(false);
+        var (client, model) = await ResolveAsync(cancellationToken).ConfigureAwait(false);
+        ChatResponse response;
+        try
+        {
+            response = await client.GetResponseAsync(messageList, options, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception e) when (ReasoningRequirementErrorHandler.IsRequirementError(e))
+        {
+            // 服务端要求每条助手消息都带思考:记下这个模型,重发一次(请求体会按新配置重新改写)
+            if (!TryLearnReasoningRequirement(model)) throw;
+            Log.Warning($"server requires reasoning on every earlier assistant message " +
+                        $"(model '{model.ModelInfo.ModelId}'); marked for this model, retrying once.");
+            response = await client.GetResponseAsync(messageList, options, cancellationToken).ConfigureAwait(false);
+        }
 
         HashSet<string>? toolNames = CollectToolNames(options);
         if (toolNames == null) return response;
@@ -84,7 +95,7 @@ public class LazyChatClient : IChatClient
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         IReadOnlyList<ChatMessage> messageList = AsList(messages);
-        LlmRequestContext.PendingReasoningSource = () => CollectReasoningByCallId(messageList);
+        LlmRequestContext.PendingReasoningSource = () => CollectAssistantReasoning(messageList);
 
         var (client, model) = await ResolveAsync(cancellationToken).ConfigureAwait(false);
         HashSet<string>? toolNames = CollectToolNames(options);
@@ -97,6 +108,7 @@ public class LazyChatClient : IChatClient
         // 重试代价:若断线前已向上层吐过完整的工具调用,重发会让同一调用被框架再执行一次——
         // 好在工具调用通常出现在流中后段,断线多发在思考/等待的停顿期,此时尚无新调用产出。
         bool maxTokensFixed = false; // 服务端拒 max_tokens 的自愈只做一次
+        bool reasoningRequirementLearned = false; // 「每条助手消息都要带思考」的自愈只做一次
         for (int attempt = 1; ; attempt++)
         {
             bool retryable = false;
@@ -118,6 +130,22 @@ public class LazyChatClient : IChatClient
                         maxTokensFixed = true;
                         Log.Warning($"max_tokens rejected by the server (declared upper bound {upperBound}); " +
                                     "model config corrected, retrying this stream once.");
+                        retryable = true;
+                        break;
+                    }
+
+                    // 服务端要求历史里每条助手消息都带思考:记下这个 ModelId,整段重发一次。
+                    // 同 max_tokens 一样只自愈一次——记过之后请求体已经带上字段,再被拒就是别的问题
+                    if (ReasoningRequirementErrorHandler.IsRequirementError(failure))
+                    {
+                        if (reasoningRequirementLearned || !TryLearnReasoningRequirement(model))
+                        {
+                            ExceptionDispatchInfo.Capture(failure).Throw();
+                        }
+
+                        reasoningRequirementLearned = true;
+                        Log.Warning($"server requires reasoning on every earlier assistant message " +
+                                    $"(model '{model.ModelInfo.ModelId}'); marked for this model, retrying this stream once.");
                         retryable = true;
                         break;
                     }
@@ -168,6 +196,27 @@ public class LazyChatClient : IChatClient
     }
 
     /// <summary>
+    /// 记下「这个模型要求历史里每条助手消息都带思考」并落盘，供下一次重发使用。
+    /// 非远程配置型模型（本地）改不了，返回 false 交上层照原样抛错。
+    /// </summary>
+    private static bool TryLearnReasoningRequirement(ModelRunningData model)
+    {
+        if (model.ModelInfo is not RemoteModelInfo remote) return false;
+        if (!remote.Config.LearnRequireReasoningOnEveryAssistantMessage()) return false;
+        try
+        {
+            RemoteModelSettingConfig.Current.Save();
+        }
+        catch (Exception e)
+        {
+            // 内存已记下、本次重发能成功;落盘失败只影响重启后,不阻塞自愈
+            Log.Warning($"reasoning requirement (ModelId={remote.ModelId}) could not be persisted: {e.Message}");
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// 单次流式枚举。中途断线(HttpIOException)、收尾判为截断或服务端拒参数(400 max_tokens)时不向外抛,
     /// 而是产出 (null, 异常) 让上层决定重试;正常产出 (update, null)。手动驱动 MoveNextAsync 是为了把 yield 从带 catch
     /// 的 try 里挪出来 (C# 不允许在带 catch 的 try 内 yield)。
@@ -210,6 +259,12 @@ public class LazyChatClient : IChatClient
                 catch (Exception e) when (!cancellationToken.IsCancellationRequested && MaxTokensErrorHandler.IsMaxTokensError(e))
                 {
                     // 响应头阶段的 400 在此转成交付形式,交上层做一次性自愈重发(见 StreamWithRetryAsync)
+                    failure = e;
+                }
+                catch (Exception e) when (!cancellationToken.IsCancellationRequested &&
+                                          ReasoningRequirementErrorHandler.IsRequirementError(e))
+                {
+                    // 同上:缺思考字段的 400 也交给上层,记下模型后重发
                     failure = e;
                 }
 
@@ -321,46 +376,47 @@ public class LazyChatClient : IChatClient
         messages as IReadOnlyList<ChatMessage> ?? messages.ToList();
 
     /// <summary>
-    /// 从历史消息里按 tool_call id 收集对应的思考正文,供 <see cref="LlmRequestContext.PendingReasoningSource"/>
+    /// 从历史消息里按<b>助手消息出现顺序</b>收集思考正文,供 <see cref="LlmRequestContext.PendingReasoningSource"/>
     /// 使用——转发给底层客户端之前,消息里的 <see cref="TextReasoningContent"/> 还在,过了这一层就没处找了。
-    /// 同一条 assistant 消息里的思考正文对该消息所有 tool_calls 一视同仁。
+    ///
+    /// 按序而不是按 tool_call id:没有工具调用的普通回复同样要回传(网关按「每一条更早的助手消息」
+    /// 校验),而它身上没有 id 可挂。返回的列表与请求里的助手消息一一对应,没有思考的位置留 null;
+    /// 一条都没有时返回 null,让改写整段跳过。
     ///
     /// 一条消息里可能躺着多段思考(老会话是逐 chunk 落下的碎片),要拼齐了发回去——
     /// 只取其中一段等于把思考截成一句话,接口那边照样对不上。只有一段时直接用它,不另拼一份。
     /// </summary>
-    private static IReadOnlyDictionary<string, string>? CollectReasoningByCallId(IReadOnlyList<ChatMessage> messages)
+    internal static IReadOnlyList<string?>? CollectAssistantReasoning(IReadOnlyList<ChatMessage> messages)
     {
-        Dictionary<string, string>? map = null;
+        List<string?>? collected = null;
         foreach (ChatMessage message in messages)
         {
             if (message.Role != ChatRole.Assistant) continue;
-
-            string? single = null;
-            StringBuilder? joined = null;
-            List<string>? callIds = null;
-            foreach (AIContent content in message.Contents)
-            {
-                switch (content)
-                {
-                    case TextReasoningContent { Text.Length: > 0 } rc when single == null:
-                        single = rc.Text;
-                        break;
-                    case TextReasoningContent { Text.Length: > 0 } rc:
-                        (joined ??= new StringBuilder(single)).Append(rc.Text);
-                        break;
-                    case FunctionCallContent fc:
-                        (callIds ??= new List<string>()).Add(fc.CallId);
-                        break;
-                }
-            }
-
-            if (single == null || callIds == null) continue;
-            string reasoningText = joined?.ToString() ?? single;
-            map ??= new Dictionary<string, string>(StringComparer.Ordinal);
-            foreach (string callId in callIds) map[callId] = reasoningText;
+            (collected ??= []).Add(JoinReasoning(message.Contents));
         }
 
-        return map;
+        return collected?.Exists(x => x != null) == true ? collected : null;
+    }
+
+    /// <summary>拼齐一条消息里的多段思考;没有思考正文时返回 null</summary>
+    private static string? JoinReasoning(IList<AIContent> contents)
+    {
+        string? single = null;
+        StringBuilder? joined = null;
+        foreach (AIContent content in contents)
+        {
+            switch (content)
+            {
+                case TextReasoningContent { Text.Length: > 0 } rc when single == null:
+                    single = rc.Text;
+                    break;
+                case TextReasoningContent { Text.Length: > 0 } rc:
+                    (joined ??= new StringBuilder(single)).Append(rc.Text);
+                    break;
+            }
+        }
+
+        return single == null ? null : joined?.ToString() ?? single;
     }
 
     /// <summary>

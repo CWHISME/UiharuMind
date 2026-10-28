@@ -8,7 +8,7 @@ namespace UiharuMind.Core.Configs.RemoteAI;
 /// <param name="IsVision">是否支持视觉</param>
 /// <param name="ReplayExistingReasoning">
 /// 历史消息里<b>已有</b>思考正文时,是否原样回传（有正文看这个，没正文看
-/// <paramref name="RequireReasoningFieldWhenEmpty"/>）。
+/// <paramref name="RequireReasoningOnEveryAssistantMessage"/>）。
 /// <c>null</c>=自动(历史有思考就回传);<c>true</c>/<c>false</c>=显式要求/禁止。
 /// 这是模型本身(如 DeepSeek)的接口约束,与转售它的供应商无关——同一供应商下的其它
 /// 模型(如商汤转售的 GLM/自研模型)未必有此限制,因此按 ModelId 逐条声明,不挂在配置类上。
@@ -24,13 +24,12 @@ namespace UiharuMind.Core.Configs.RemoteAI;
 /// 该模型的思考 wire 字段名(reasoning_content/reasoning/reasoning_text);空表示未声明,
 /// 消费时按 运行时观测值 → 本预设值 → reasoning_content 查表。
 /// </param>
-/// <param name="RequireReasoningFieldWhenEmpty">
-/// 思考模式下助手消息带 tool_calls 时,<b>没有思考正文也必须带思考字段</b>(空串)。
-/// 没正文看这个，有正文看 <paramref name="ReplayExistingReasoning"/>——两者互斥：
-/// 有正文时字段已存在，前者不适用；没正文时没东西可回传，后者不适用。
-/// DeepSeek 类服务端把「字段必须在」当硬校验,缺字段直接 400
-/// (历史里的旧工具调用没有思考正文——先用关思考的档位跑出来的——是常见触发点)。
-/// 消费侧仅在本次请求非 None 档时生效（正文调用不要求该字段）。
+/// <param name="RequireReasoningOnEveryAssistantMessage">
+/// <b>每一条</b>助手消息都必须带思考字段:有正文回正文,没正文补空串。
+/// 缺了报 <c>Missing required parameter: 'messages[n].reasoning_content'</c>
+/// （实测 CommandCode 的 reflection/beam:free 就是这条）。
+/// 这条校验与本次是否思考无关,消费侧不跟思考档位走。
+/// 与 opencode 的 <c>compatibility.requireReasoning</c> 同一层级。
 /// </param>
 public record RemoteModelIdVariant(
     int ContextLength = 0,
@@ -40,7 +39,7 @@ public record RemoteModelIdVariant(
     bool OmitSamplingParams = false,
     string Alias = "",
     string ThinkingField = "",
-    bool RequireReasoningFieldWhenEmpty = false)
+    bool RequireReasoningOnEveryAssistantMessage = false)
 {
     /// <summary>
     /// 空表,供未声明预设的配置使用

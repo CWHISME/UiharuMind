@@ -70,7 +70,8 @@ public class ThinkingFieldObserverTests
 
         Assert.Equal("reasoning", config.ObservedThinkingFields["m1"]);
         Assert.Equal("reasoning_text", config.ObservedThinkingFields["m2"]);
-        Assert.Equal("reasoning", config.EffectiveThinkingField);
+        // 观测值只是记录，不再决定请求侧键名（见 RemoteModelInfoTests.ThinkingField_FallsBackPresetThenDefault_IgnoringObservation）
+        Assert.Equal("reasoning_content", config.RequestThinkingField);
     }
 
     [Fact]

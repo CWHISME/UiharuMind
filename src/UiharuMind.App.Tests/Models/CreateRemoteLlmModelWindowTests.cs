@@ -118,7 +118,7 @@ public class CreateRemoteLlmModelWindowTests
         Assert.Empty(result.Config.ObservedThinkingFields);
     }
 
-    /// <summary>编辑模式不改请求地址：观测值保留继续生效（同端点通常同字段）</summary>
+    /// <summary>编辑模式不改请求地址：观测值保留（只作响应侧记录，不决定请求键名）</summary>
     [Fact]
     public void EditMode_SameModelPath_KeepsObservedThinkingField()
     {
@@ -137,6 +137,6 @@ public class CreateRemoteLlmModelWindowTests
 
         RemoteModelInfo result = vm.BuildResult();
 
-        Assert.Equal("reasoning", result.Config.EffectiveThinkingField);
+        Assert.Equal("reasoning", result.Config.ObservedThinkingFields["sensenova-6.8-flash-lite"]);
     }
 }

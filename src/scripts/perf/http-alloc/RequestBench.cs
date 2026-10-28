@@ -79,7 +79,7 @@ internal static class RequestBench
         }
 
         // 思考回填的收集：只有要求回填思考的模型才做（LazyChatClient 挂的是惰性来源）
-        MethodInfo collect = typeof(LazyChatClient).GetMethod("CollectReasoningByCallId", BindingFlags.NonPublic | BindingFlags.Static)!;
+        MethodInfo collect = typeof(LazyChatClient).GetMethod("CollectAssistantReasoning", BindingFlags.NonPublic | BindingFlags.Static)!;
         foreach (int thinkingChars in new[] { 240, 3000 })
         {
             IReadOnlyList<ChatMessage> history = Conversation.Build(rounds: 95, withImage: false, thinkingChars).Messages;

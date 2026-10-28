@@ -73,11 +73,15 @@ public class RemoteModelInfoTests
         Assert.False(sensenova.ReplayExistingReasoning);
     }
 
-    /// <summary>回传键名三级查表：当前 ModelId 的观测值 → 预设表 → reasoning_content</summary>
+    /// <summary>
+    /// 回填键名（请求侧）只看预设表与默认：<b>观测值不参与</b>。
+    /// 观测到的是响应里的字段名，请求侧未必同名——CommandCode 响应给 <c>reasoning</c>、
+    /// 请求只认 <c>reasoning_content</c>，拿观测值回填等于发一个服务端不认的键，被当缺字段 400。
+    /// </summary>
     [Fact]
-    public void ThinkingField_FallsBackPresetThenDefault()
+    public void ThinkingField_FallsBackPresetThenDefault_IgnoringObservation()
     {
-        // 观测值优先(不管预设写什么)
+        // 观测值再花哨也不影响请求侧键名
         var observed = new RemoteModelInfo
         {
             Config = new RemoteSensenovaModelConfig
@@ -86,7 +90,7 @@ public class RemoteModelInfoTests
                 ObservedThinkingFields = { ["sensenova-6.8-flash-lite"] = "reasoning_text" },
             },
         };
-        Assert.Equal("reasoning_text", observed.ThinkingField);
+        Assert.Equal("reasoning", observed.ThinkingField); // 预设表声明的那个
 
         // 预设表(sensenova 自研思考字段是 reasoning)
         var preseted = new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "sensenova-6.8-flash-lite" } };
@@ -95,21 +99,30 @@ public class RemoteModelInfoTests
         // 默认 reasoning_content
         var generic = new RemoteModelInfo { Config = new RemoteModelConfig { ModelId = "anything" } };
         Assert.Equal("reasoning_content", generic.ThinkingField);
+
+        // 无预设、观测到 reasoning 的网关：请求仍走默认键
+        var gateway = new RemoteModelInfo
+        {
+            Config = new RemoteCommandCodeModelConfig
+            {
+                ModelId = "reflection/beam:free",
+                ObservedThinkingFields = { ["reflection/beam:free"] = "reasoning" },
+            },
+        };
+        Assert.Equal("reasoning_content", gateway.ThinkingField);
     }
 
-    /// <summary>
-    /// 观测值按 ModelId 隔离：同端点从 6.8 切到 DeepSeek，前者的观测不能压住后者的预设/默认，
-    /// 否则 DeepSeek 会收到它不认的 reasoning 键（商汤同端点两个模型字段名相反）
-    /// </summary>
+    /// <summary>观测值按 ModelId 隔离：同端点从 6.8 切到 DeepSeek，各记各的，不串台</summary>
     [Fact]
     public void ThinkingField_ObservedOnOneModelId_DoesNotLeakToAnother()
     {
         var config = new RemoteSensenovaModelConfig { ModelId = "sensenova-6.8-flash-lite" };
         config.ObservedThinkingFields["sensenova-6.8-flash-lite"] = "reasoning";
-        Assert.Equal("reasoning", config.EffectiveThinkingField);
+        Assert.Equal("reasoning", config.ObservedThinkingFields["sensenova-6.8-flash-lite"]);
 
         config.ModelId = "deepseek-v4-flash";
-        Assert.Equal("reasoning_content", config.EffectiveThinkingField);
+        Assert.False(config.ObservedThinkingFields.ContainsKey("deepseek-v4-flash"));
+        Assert.Equal("reasoning_content", config.RequestThinkingField);
     }
 
     /// <summary>观测字段名随配置序列化落盘,读回保留;旧配置缺字段=空表,查表兜底</summary>
@@ -122,13 +135,13 @@ public class RemoteModelInfoTests
         string json = JsonSerializer.Serialize(config, SaveUtility.SaveJsonOptions);
         var restored = JsonSerializer.Deserialize<BaseRemoteModelConfig>(json, SaveUtility.SaveJsonOptions);
 
-        Assert.Equal("reasoning", restored!.EffectiveThinkingField);
+        Assert.Equal("reasoning", restored!.ObservedThinkingFields["sensenova-6.8-flash-lite"]);
 
-        // 旧配置没有该字段:反序列化后为空表,有效值回退默认(反序列化回基类后无预设表可查)
+        // 旧配置没有该字段:反序列化后为空表
         var legacy = JsonSerializer.Deserialize<BaseRemoteModelConfig>(
             """{"ConfigType":"RemoteSensenovaModelConfig"}""", SaveUtility.SaveJsonOptions);
         Assert.Empty(legacy!.ObservedThinkingFields);
-        Assert.Equal("reasoning_content", legacy.EffectiveThinkingField);
+        Assert.Equal("reasoning_content", legacy.RequestThinkingField);
     }
 
     /// <summary>
@@ -150,7 +163,29 @@ public class RemoteModelInfoTests
         string json = JsonSerializer.Serialize(settings, SaveUtility.SaveJsonOptions);
         var restored = JsonSerializer.Deserialize<RemoteModelSettingConfig>(json, SaveUtility.SaveJsonOptions)!;
 
-        Assert.Equal("reasoning", restored.ModelInfos["sensenova"].Config.EffectiveThinkingField);
+        Assert.Equal("reasoning", restored.ModelInfos["sensenova"].Config.ObservedThinkingFields["sensenova-6.8-flash-lite"]);
+    }
+
+    /// <summary>
+    /// 从 400 里学到的「每条助手消息都要带思考」随配置落盘：重启后不该让用户再吃一次 400。
+    /// </summary>
+    [Fact]
+    public void LearnedReasoningRequirement_SurvivesConfigFileRoundTrip()
+    {
+        var settings = new RemoteModelSettingConfig();
+        var info = new RemoteModelInfo
+        {
+            Config = new RemoteCommandCodeModelConfig { ModelName = "cc", ModelId = "reflection/beam:free" },
+        };
+        Assert.True(info.Config.LearnRequireReasoningOnEveryAssistantMessage());
+        settings.ModelInfos["cc"] = info;
+
+        string json = JsonSerializer.Serialize(settings, SaveUtility.SaveJsonOptions);
+        var restored = JsonSerializer.Deserialize<RemoteModelSettingConfig>(json, SaveUtility.SaveJsonOptions)!;
+
+        BaseRemoteModelConfig config = restored.ModelInfos["cc"].Config;
+        Assert.Contains("reflection/beam:free", config.ReasoningEveryAssistantModelIds);
+        Assert.True(config.RequireReasoningOnEveryAssistantMessage);
     }
 
     [Fact]

@@ -326,9 +326,13 @@ public partial class RemoteModelEditViewData : ObservableObject
         string previousModelPath = config.ModelPath;
         config.ModelName = ModelName.Trim();
         config.ModelPath = ModelPath.Trim();
-        // 换了端点/服务商:旧端点的思考字段观测值整份作废,等新端点重新观测(ADR 0093)。
-        // 同端点切 ModelId 不用清:观测值本身按 ModelId 分开记,不会串到别的模型上
-        if (!string.Equals(previousModelPath, config.ModelPath, StringComparison.Ordinal)) config.ObservedThinkingFields.Clear();
+        // 换了端点/服务商:旧端点学到的思考口径整份作废,等新端点重新学(ADR 0093/0095)。
+        // 同端点切 ModelId 不用清:两者都按 ModelId 分开记,不会串到别的模型上
+        if (!string.Equals(previousModelPath, config.ModelPath, StringComparison.Ordinal))
+        {
+            config.ObservedThinkingFields.Clear();
+            config.ReasoningEveryAssistantModelIds.Clear();
+        }
         config.ModelId = ModelId.Trim();
         config.ModelDescription = ModelDescription;
         config.ContextLength =

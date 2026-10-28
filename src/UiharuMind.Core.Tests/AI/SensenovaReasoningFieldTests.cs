@@ -105,7 +105,8 @@ public class SensenovaReasoningFieldTests
 
         Assert.Equal("reasoning", config.ObservedThinkingFields["glm-5.2"]);
         Assert.Equal(1, saves); // 多帧观测,值只在首次变化时写一次
-        Assert.Equal("reasoning", config.EffectiveThinkingField);
+        // 观测只记响应侧；请求侧键名走预设/默认（见 BaseRemoteModelConfig.RequestThinkingField）
+        Assert.Equal("reasoning_content", config.RequestThinkingField);
     }
 
     /// <summary>闭环:非流式(application/json)响应同样上报观测字段</summary>

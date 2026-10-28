@@ -78,7 +78,7 @@ public class OpenAICompatibleRequestRewriterTests
     [Fact]
     public void Reasoning_IsInsertedAtTheEndOfTheMessage_EscapedLikeTheSdk()
     {
-        var reasoning = new Dictionary<string, string> { ["c1"] = "想<一>&\"引号\"\n第二行" };
+        string?[] reasoning = ["想<一>&\"引号\"\n第二行"];
 
         string? rewritten = Rewrite(
             """{"messages":[{"role":"assistant","tool_calls":[{"id":"c1","type":"function"}]}]}""",
@@ -96,7 +96,7 @@ public class OpenAICompatibleRequestRewriterTests
     [Fact]
     public void NullReasoningBeforeToolCalls_WithArgumentFix_BothApply()
     {
-        var reasoning = new Dictionary<string, string> { ["c1"] = "思考" };
+        string?[] reasoning = ["思考"];
 
         string? rewritten = Rewrite(
             """{"messages":[{"role":"assistant","reasoning_content":null,"tool_calls":[{"id":"c1","function":{"arguments":"null"}}]}]}""",
@@ -112,7 +112,7 @@ public class OpenAICompatibleRequestRewriterTests
     public void ExtraParamOverridingMessages_WithArgumentFix_ReplacesThemCleanly()
     {
         IReadOnlyList<KeyValuePair<string, JsonNode?>> messages = [new("messages", new JsonArray())];
-        var reasoning = new Dictionary<string, string> { ["c1"] = "思考" };
+        string?[] reasoning = ["思考"];
 
         string? rewritten = Rewrite(
             """{"messages":[{"role":"assistant","tool_calls":[{"id":"c1","function":{"arguments":"null"}}]}],"model":"m"}""",

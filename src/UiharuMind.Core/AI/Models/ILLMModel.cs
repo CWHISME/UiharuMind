@@ -39,24 +39,25 @@ public interface ILlmModel
 
     /// <summary>
     /// 历史消息里<b>已有</b>思考正文时，是否原样回传（有正文看这个，没正文看
-    /// <see cref="RequireReasoningFieldWhenEmpty"/>）。
+    /// <see cref="RequireReasoningOnEveryAssistantMessage"/>）。
     /// <c>null</c>=自动(历史有思考就回传);<c>true</c>/<c>false</c>=显式要求/禁止。
     /// 本地模型没有思考回传一说,默认不回传。
     /// </summary>
     public bool? ReplayExistingReasoning => false;
 
     /// <summary>
-    /// 回填思考正文用的 wire 键名(reasoning_content/reasoning/reasoning_text)。
-    /// 请求侧不写死键名,按模型实际值回填;本地模型取默认。
+    /// 回填思考正文用的<b>请求侧</b> wire 键名(reasoning_content/reasoning/reasoning_text)。
+    /// 取预设表声明，否则默认 <c>reasoning_content</c>；<b>不取响应侧观测值</b>——
+    /// 两者不是一回事（CommandCode 的响应给 reasoning、请求只认 reasoning_content）。本地模型取默认。
     /// </summary>
     public string ThinkingField => "reasoning_content";
 
     /// <summary>
-    /// 思考模式下助手消息带 tool_calls 时,没有思考正文也必须带思考字段(空串)。
-    /// 消费侧只在本次请求不是 <see cref="EThinkingMode.None"/> 时启用——正文调用不要求该字段。
+    /// <b>每一条</b>助手消息都必须带思考字段(有正文回正文,没正文补空串)。
+    /// 服务端要的是「字段必须在」,与本次是否思考无关,不跟思考档位走。
     /// 本地模型没有这条约束,默认不带。
     /// </summary>
-    public bool RequireReasoningFieldWhenEmpty => false;
+    public bool RequireReasoningOnEveryAssistantMessage => false;
 
     /// <summary>
     /// 是否不发送采样参数(temperature/top_p/presence_penalty/frequency_penalty)。
