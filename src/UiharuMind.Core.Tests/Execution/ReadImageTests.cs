@@ -237,6 +237,7 @@ public sealed class ReadImageTests : IDisposable
         };
 
         Assert.Equal(attach, plan.ReadAttachesImages);
+        Assert.Equal(enabled, plan.ReadProjectsImages); //投影只看开关,看不了图的模型也要发占位
         Assert.Equal(analyze, plan.MountVisionTool);
     }
 
@@ -246,8 +247,10 @@ public sealed class ReadImageTests : IDisposable
     /// </summary>
     [Theory]
     [InlineData(true, true)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
     [InlineData(false, false)]
-    public async Task Projection_FollowsTheVisionToggle(bool enabled, bool projected)
+    public async Task Projection_FollowsTheVisionToggle(bool enabled, bool modelSeesImages)
     {
         CharacterData character = new()
         {
@@ -261,11 +264,46 @@ public sealed class ReadImageTests : IDisposable
             WorkingDirectory = Workspace,
             SkillsSource = new AgentFileSkillsSource(Path.Combine(_root, "skills")),
             Mcp = McpToolSet.Empty,
-            ModelSupportsVision = true,
+            ModelSupportsVision = modelSeesImages,
         };
 
         await using AgentHandle handle = AgentAssembler.Assemble(plan);
 
-        Assert.Equal(projected, handle.ServiceCalls.GetService<ImagePreviewProjectingChatClient>() != null);
+        Assert.Equal(enabled, handle.ServiceCalls.GetService<ImagePreviewProjectingChatClient>() != null);
+    }
+
+    /// <summary>
+    /// 看不了图的模型也要收到那条投影消息，只是图换成占位：整条不发的话，
+    /// 历史里那些"我看着图说"的助手回复就失去了对应的事实（换模型后历史断裂）
+    /// </summary>
+    [Fact]
+    public async Task Projection_ModelWithoutVision_KeepsAPlaceholderInsteadOfTheImage()
+    {
+        string preview = Path.Combine(Draft, "previews", "shot.png");
+        Directory.CreateDirectory(Path.GetDirectoryName(preview)!);
+        await File.WriteAllBytesAsync(preview, TestImages.Png(4, 4), TestContext.Current.CancellationToken);
+
+        List<ChatMessage> messages =
+        [
+            new(ChatRole.Assistant,
+            [
+                new FunctionCallContent("c1", FileToolNames.Read,
+                    new Dictionary<string, object?> { ["filePath"] = "shot.png" }),
+            ]),
+            new(ChatRole.Tool,
+            [
+                new FunctionResultContent("c1",
+                    $"Attached: shot.png\nPreview: {preview}\nPreview size: 4x4"),
+            ]),
+        ];
+
+        IReadOnlyList<ChatMessage> blind = ImagePreviewProjection.Project(messages, Paths(), attachImages: false);
+        ChatMessage placeholder = blind[^1];
+        Assert.Equal(ChatRole.User, placeholder.Role);
+        Assert.Empty(placeholder.Contents.OfType<DataContent>());
+        Assert.Contains("Image omitted", placeholder.Text, StringComparison.Ordinal);
+
+        IReadOnlyList<ChatMessage> seeing = ImagePreviewProjection.Project(messages, Paths(), attachImages: true);
+        Assert.Single(seeing[^1].Contents.OfType<DataContent>());
     }
 }

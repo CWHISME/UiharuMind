@@ -82,9 +82,13 @@ internal static class AgentAssembler
                     plan.Compaction), null, inputEstimate: plan.InputEstimate);
         }
 
-        // Read 会附图才投影:关掉识图开关就停发看过的图,模型只剩路径文本。
+        // 识图开关开着就挂投影:模型自己看不了图时发占位而不是整条不发,否则历史里那些看图回合会断在半空。
         // 投影挂在压缩里面,工具组折叠了图就跟着不发(ADR 0053)
-        if (plan.ReadAttachesImages) client = new ImagePreviewProjectingChatClient(client, plan.CreatePathResolver(null));
+        if (plan.ReadProjectsImages)
+        {
+            client = new ImagePreviewProjectingChatClient(client, plan.CreatePathResolver(null),
+                plan.ReadAttachesImages);
+        }
 
         // ShellEnvironment 带草稿目录简写与(受管 Python 就绪时的)venv 激活,见 AgentAssemblyPlan
         // ShellBinaryPath 是 Resolve 固化的装配事实(空=跟随系统默认),见 AgentAssemblyPlan

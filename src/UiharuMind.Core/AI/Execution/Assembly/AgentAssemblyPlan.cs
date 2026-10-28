@@ -171,9 +171,15 @@ internal sealed class AgentAssemblyPlan
 
     /// <summary>
     /// Read 读到图片时附给模型自己看：同一个识图开关，当前模型自带视觉时才成立（ADR 0053），与识图工具互斥。
-    /// 成立时还要挂投影，把看过的图在每次发送时带上
+    /// 投影另算，见 <see cref="ReadProjectsImages"/>
     /// </summary>
     public bool ReadAttachesImages => VisionFallback.HasFallback(IsAgentForm, Config) && ModelSupportsVision;
+
+    /// <summary>
+    /// 发送时投影看过的图：只认识图开关，<b>与模型有没有视觉无关</b>。
+    /// 模型看不了图时投影成占位文本——整条不发，历史里那几轮"看图"的助手回复就成了无源之水
+    /// </summary>
+    public bool ReadProjectsImages => VisionFallback.HasFallback(IsAgentForm, Config);
 
     /// <summary>
     /// 从构建配置解析出装配所需的全部事实。<b>这是唯一读单例与磁盘的地方</b>。
