@@ -293,15 +293,10 @@ public partial class App : Application, ILogger, IDisposable
             {
                 var trayIcon = trayIcons[0];
                 trayIcon.Clicked += (x, y) => DummyWindow.LaunchMainWindow();
-                // 菜单栏图标是用户切走之后唯一还看得见的东西,而审批等待是有时限的
-                // 初始图标分平台:macOS 用剪影模板(App.axaml 已给 TrayFlowerIdle);Windows 先给彩色底图,
-                // 否则启动瞬间黑剪影在深色任务栏上看不见
-                if (!OperatingSystem.IsMacOS())
-                {
-                    trayIcon.Icon = IconUtils.LoadWindowIconFromAsset("TrayColorBase.png");
-                }
-                // 底图用 64px 彩色版:Windows 托盘实际 16px,拿 1024 主图缩到 16 会糊
-                _trayStatus = new TrayStatusIndicator(trayIcon, IconUtils.AssetUri("TrayColorBase.png"));
+                // 菜单栏图标是用户切走之后唯一还看得见的东西,而审批等待是有时限的。
+                // 初始图标由 TrayStatusIndicator 在构造里按平台落上(macOS 剪影模板 / Windows 按任务栏明暗染色),
+                // 这里不再单独给一张底图——两份初始图标只会让启动瞬间闪一下
+                _trayStatus = new TrayStatusIndicator(trayIcon);
             }
         }
     }
@@ -457,7 +452,7 @@ public partial class App : Application, ILogger, IDisposable
         };
     }
 
-    //菜单栏图标的后台状态角标。静态:托盘图标是应用级的一份,装配它的那一步也是静态的
+    //菜单栏图标的后台状态。静态:托盘图标是应用级的一份,装配它的那一步也是静态的
     private static TrayStatusIndicator? _trayStatus;
 
     public void Dispose()

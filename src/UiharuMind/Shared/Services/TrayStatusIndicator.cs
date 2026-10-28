@@ -9,7 +9,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Platform;
@@ -48,31 +47,28 @@ public enum ETrayStatus
 /// 都要求用户正看着这个应用。菜单栏图标是唯一在用户切走之后还看得见的东西，
 /// 而审批是有时限的——到期按拒绝收口，那次委派白跑（见 ADR 0025）。
 ///
-/// 状态表达按平台分开（见 <c>_isMacOS</c> 分叉）：
-/// - macOS 走 template image + 动画：系统每帧按菜单栏实际明暗（壁纸亮度）自动着色，
-///   所以<b>不需要探测明暗</b>，也绕开了「彩色与反色互斥」的 AppKit 限制。
-///   素图是纯黑剪影 + alpha，正好满足 template 素材要求。状态用动画表达：
-///   Idle 静态纯花，Running 旋转（一圈 <see cref="SpinClock.FrameCount"/> 帧），AwaitingApproval 晃动（左右摆）。
-/// - Windows 没有反色机制，黑剪影在深色任务栏会看不见，保留彩色底图 +
-///   右下角白环彩点（蓝=运行 / 橙=待审批）。
+/// 两个平台<b>同一套表现</b>：素图是纯黑剪影 + alpha，Idle 静态纯花，
+/// Running 旋转（一圈 <see cref="SpinClock.FrameCount"/> 帧），AwaitingApproval 晃动（左右摆）。
+/// 差别只在<b>墨色怎么来</b>：
+/// - macOS 走 template image，系统每帧按菜单栏实际明暗（壁纸亮度）自动着色，素图原样喂进去即可，
+///   也绕开了「彩色与反色互斥」的 AppKit 限制；
+/// - Windows 没有反色机制，剪影染黑还是染白得自己判断，取<b>系统背景明暗</b>
+///   （<see cref="IPlatformSettings.GetColorValues"/> 的 <c>ThemeVariant</c>，即设置里的「Windows 模式」，
+///   不是应用自己的配色）——否则黑剪影落在深色任务栏上等于没有图标。系统切明暗时重染一遍。
 /// </summary>
 public sealed class TrayStatusIndicator : IDisposable
 {
-    private static readonly SKColor RunningColor = new(SpinnerIcon.RunningColor.R, SpinnerIcon.RunningColor.G, SpinnerIcon.RunningColor.B);
-    private static readonly SKColor ApprovalColor = new(0xF2, 0x99, 0x3D);
-    private const int WobblePeriodMs = 800; //待审批摆一个来回的时长
+    // Windows 分支的墨色：浅色任务栏染黑、深色任务栏染白，与 macOS 上系统给 template 上的色一致
+    private static readonly SKColor LightTaskbarInk = SKColors.Black;
+    private static readonly SKColor DarkTaskbarInk = SKColors.White;
 
     private readonly TrayIcon? _trayIcon;
-    private readonly bool _isMacOs; //macOS: template + 动画;Windows: 彩色底图 + 角标
+    private readonly bool _isMacOs; //macOS: template 自动着色;Windows: 自己按任务栏明暗染色
+    private readonly IPlatformSettings? _platformSettings; //Windows: 系统切明暗时重染的订阅口
 
-    // Windows 分支：状态 → 图标（显式映射，不依赖枚举底层值）
-    private readonly Dictionary<ETrayStatus, WindowIcon?> _winIcons = new();
-
-    // macOS 分支：静态 Idle + 两组动画帧
-    private WindowIcon? _macIdle;
-    private WindowIcon?[] _macRunningFrames = [];
-    private WindowIcon?[] _macAlertFrames = [];
-    private WindowIcon?[] _activeFrames = []; //当前在播的帧序列,OnAnimTick 只认它
+    private TrayFrameBuilder.Frames? _frames; //当前这套帧（Windows 上已按任务栏明暗染过）
+    private WindowIcon[] _activeFrames = []; //当前在播的帧序列,OnAnimTick 只认它
+    private bool _lightTaskbar; //Windows 任务栏是否浅色（macOS 不读）
     private bool _clockSubscribed; //是否已订阅 SpinClock;托盘与应用内转圈共用它,两边才转得一致
     private long _shownFrame = -1; //当前托盘上显示的帧号;定时器早到时帧号没变,同一帧不重复换图
 
@@ -80,8 +76,7 @@ public sealed class TrayStatusIndicator : IDisposable
     private bool _disposed;
 
     /// <param name="trayIcon">要驱动的那个托盘图标；为 null 表示这个平台上没有</param>
-    /// <param name="baseIconUri">非 macOS 分支的彩色底图资源地址</param>
-    public TrayStatusIndicator(TrayIcon? trayIcon, Uri baseIconUri)
+    public TrayStatusIndicator(TrayIcon? trayIcon)
     {
         _trayIcon = trayIcon;
         if (_trayIcon == null) return;
@@ -94,28 +89,21 @@ public sealed class TrayStatusIndicator : IDisposable
 
         try
         {
-            if (_isMacOs)
+            if (!_isMacOs)
             {
-                // 三态统一用纯花(镂空):Idle 静态,动画帧绕质心旋转/摆动
-                _macIdle = IconUtils.LoadWindowIconFromAsset("TrayFlowerIdle.png");
-                using SKBitmap flower = SkiaBitmapUtils.DecodeAsset("TrayFlowerIdle.png");
-                _macRunningFrames = TrayFrameBuilder.BuildRotationFrames(flower, SpinClock.FrameCount);
-                _macAlertFrames = TrayFrameBuilder.BuildWobbleFrames(flower, WobblePeriodMs / SpinClock.IntervalMs);
+                _platformSettings = Application.Current?.PlatformSettings;
+                _lightTaskbar = IsLightTaskbar(_platformSettings);
             }
-            else
-            {
-                using Stream source = AssetLoader.Open(baseIconUri);
-                using SKBitmap bitmap = SKBitmap.Decode(source);
-                _winIcons[ETrayStatus.Idle] = TrayFrameBuilder.ToWindowIcon(bitmap, null);
-                _winIcons[ETrayStatus.Running] = TrayFrameBuilder.ToWindowIcon(bitmap, RunningColor);
-                _winIcons[ETrayStatus.AwaitingApproval] = TrayFrameBuilder.ToWindowIcon(bitmap, ApprovalColor);
-            }
+
+            RebuildFrames();
         }
         catch (Exception e)
         {
-            // 画不出来就退化成「只改 tooltip」:菜单栏图标丢一个角标远不如整个应用起不来严重
-            Log.Warning($"Tray badge icons unavailable, falling back to tooltip only: {e.Message}");
+            // 画不出来就退化成「只改 tooltip」:菜单栏图标丢一个状态远不如整个应用起不来严重
+            Log.Warning($"Tray icons unavailable, falling back to tooltip only: {e.Message}");
         }
+
+        if (_platformSettings != null) _platformSettings.ColorValuesChanged += OnColorValuesChanged;
 
         SessionManager.Instance.Running.StateChanged += OnStateChanged;
         PendingWork.Changed += OnStateChanged;
@@ -127,6 +115,7 @@ public sealed class TrayStatusIndicator : IDisposable
         if (_disposed) return;
         _disposed = true;
         SetClockSubscribed(false);
+        if (_platformSettings != null) _platformSettings.ColorValuesChanged -= OnColorValuesChanged;
         SessionManager.Instance.Running.StateChanged -= OnStateChanged;
         PendingWork.Changed -= OnStateChanged;
     }
@@ -154,14 +143,7 @@ public sealed class TrayStatusIndicator : IDisposable
         if (status == _current) return; //每次运行态变化都会喊一声,原样重设会让菜单栏图标闪
 
         _current = status;
-        if (_isMacOs)
-        {
-            ApplyMacState(status);
-        }
-        else if (_winIcons.TryGetValue(status, out WindowIcon? icon))
-        {
-            _trayIcon.Icon = icon;
-        }
+        ApplyState(status);
         _trayIcon.ToolTipText = status switch
         {
             ETrayStatus.AwaitingApproval => Loc.Text(LangKey.SubAgentApprovalWaiting),
@@ -170,21 +152,78 @@ public sealed class TrayStatusIndicator : IDisposable
         };
     }
 
-    /// <summary>macOS 分支：按状态切静态图 / 启动对应动画。</summary>
-    private void ApplyMacState(ETrayStatus status)
+    /// <summary>按状态换帧：Idle 静态、Running 转、AwaitingApproval 摆</summary>
+    private void ApplyState(ETrayStatus status)
     {
-        if (_trayIcon == null) return; //ctor 判过空;这里兜底供编译器可空分析
+        if (_trayIcon == null || _frames == null) return; //ctor 判过空;这里兜底供编译器可空分析
 
         // 状态→表现的一份映射：动画帧序列（Idle 无动画）
         _activeFrames = status switch
         {
-            ETrayStatus.Running => _macRunningFrames,
-            ETrayStatus.AwaitingApproval => _macAlertFrames,
+            ETrayStatus.Running => _frames.Running,
+            ETrayStatus.AwaitingApproval => _frames.Alert,
             _ => [],
         };
         _shownFrame = SpinClock.Frame;
-        _trayIcon.Icon = _activeFrames.Length > 0 ? FrameAt(_shownFrame) : _macIdle;
+        _trayIcon.Icon = _activeFrames.Length > 0 ? FrameAt(_shownFrame) : _frames.Idle;
         SetClockSubscribed(_activeFrames.Length > 0);
+    }
+
+    /// <summary>重新渲一套帧。macOS 用素图原样，Windows 先按任务栏明暗染色</summary>
+    private void RebuildFrames()
+    {
+        using SKBitmap flower = SkiaBitmapUtils.DecodeAsset("TrayFlowerIdle.png");
+        if (_isMacOs)
+        {
+            _frames = TrayFrameBuilder.Build(flower);
+            return;
+        }
+
+        using SKBitmap inked = SkiaBitmapUtils.Tint(flower, _lightTaskbar ? LightTaskbarInk : DarkTaskbarInk);
+        _frames = TrayFrameBuilder.Build(inked);
+    }
+
+    /// <summary>
+    /// 系统切了明暗（Windows 上就是任务栏配色）。<b>不在 UI 线程上</b>，且切换很频繁
+    /// （拖动滑块时一路报），所以先排到 UI 线程，再比对明暗有没有真变
+    /// </summary>
+    private void OnColorValuesChanged(object? sender, PlatformColorValues e) => Dispatcher.UIThread.Post(ApplyTaskbarTheme);
+
+    private void ApplyTaskbarTheme()
+    {
+        if (_disposed) return;
+
+        bool lightTaskbar = IsLightTaskbar(_platformSettings);
+        if (lightTaskbar == _lightTaskbar) return;
+
+        _lightTaskbar = lightTaskbar;
+        try
+        {
+            RebuildFrames();
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Tray recolor failed: {e.Message}");
+            return;
+        }
+
+        ApplyState(_current); //换了帧就得把图标重新落一次，否则要等下次状态变化才更新
+    }
+
+    /// <summary>任务栏是否浅色。取系统背景明暗，与应用自己的主题无关</summary>
+    private static bool IsLightTaskbar(IPlatformSettings? settings)
+    {
+        if (settings == null) return false; //拿不到就按深色算：深色任务栏是 Windows 的默认
+
+        try
+        {
+            return settings.GetColorValues().ThemeVariant != PlatformThemeVariant.Dark;
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Read system theme failed: {e.Message}");
+            return false;
+        }
     }
 
     private void SetClockSubscribed(bool subscribed)
@@ -195,7 +234,7 @@ public sealed class TrayStatusIndicator : IDisposable
     }
 
     // 帧号取自共用时钟而不是自己数:这样应用内转圈图标与本图标永远同相
-    private WindowIcon? FrameAt(long frame) => _activeFrames[(int)(frame % _activeFrames.Length)];
+    private WindowIcon FrameAt(long frame) => _activeFrames[(int)(frame % _activeFrames.Length)];
 
     private void OnAnimTick()
     {
@@ -203,6 +242,6 @@ public sealed class TrayStatusIndicator : IDisposable
         if (_trayIcon == null || _activeFrames.Length == 0 || frame == _shownFrame) return;
 
         _shownFrame = frame;
-        if (FrameAt(frame) is { } icon) _trayIcon.Icon = icon;
+        _trayIcon.Icon = FrameAt(frame);
     }
 }

@@ -29,7 +29,7 @@ public sealed class SpinnerIcon : Control
 {
     private const double DefaultSize = 16;
 
-    /// <summary>「在跑」的颜色。托盘的 Windows 角标共用它，两边才是同一个蓝</summary>
+    /// <summary>「在跑」的颜色。应用内转圈用它给素图染色</summary>
     public static readonly Color RunningColor = Color.Parse("#4C8DF6");
 
     private static readonly Lazy<SpinnerArt?> Art = new(LoadArt);
@@ -145,18 +145,10 @@ public sealed class SpinnerIcon : Control
         }
     }
 
-    // 只留 alpha、整张换成同一个颜色
+    // 染成固定色后交给 Avalonia 位图
     private static Bitmap Tint(SKBitmap source, SKColor color)
     {
-        using SKBitmap tinted = new(source.Width, source.Height);
-        using (SKCanvas canvas = new(tinted))
-        using (SKPaint paint = new() { ColorFilter = SKColorFilter.CreateBlendMode(color, SKBlendMode.SrcIn) })
-        using (SKImage sourceImage = SKImage.FromBitmap(source))
-        {
-            canvas.Clear(SKColors.Transparent);
-            canvas.DrawImage(sourceImage, 0, 0, SKSamplingOptions.Default, paint);
-        }
-
+        using SKBitmap tinted = SkiaBitmapUtils.Tint(source, color);
         using SKData png = tinted.Encode(SKEncodedImageFormat.Png, 100);
         using MemoryStream stream = new(png.ToArray());
         return new Bitmap(stream);

@@ -19,6 +19,23 @@ internal static class SkiaBitmapUtils
     }
 
     /// <summary>
+    /// 只留 alpha、整张染成同一个颜色。素图是纯黑剪影，染色后仍是同一朵花，只是换成别的墨色
+    /// </summary>
+    /// <param name="source">素图</param>
+    /// <param name="color">目标色</param>
+    /// <returns>染色后的位图，调用方释放</returns>
+    public static SKBitmap Tint(SKBitmap source, SKColor color)
+    {
+        SKBitmap tinted = new(source.Width, source.Height);
+        using SKCanvas canvas = new(tinted);
+        using SKPaint paint = new() { ColorFilter = SKColorFilter.CreateBlendMode(color, SKBlendMode.SrcIn) };
+        using SKImage sourceImage = SKImage.FromBitmap(source);
+        canvas.Clear(SKColors.Transparent);
+        canvas.DrawImage(sourceImage, 0, 0, SKSamplingOptions.Default, paint);
+        return tinted;
+    }
+
+    /// <summary>
     /// 位图的 alpha 质心（旋转轴心）。手绘素材的重心未必在画布正中，绕质心转重心才稳
     /// </summary>
     /// <param name="bmp">位图</param>
