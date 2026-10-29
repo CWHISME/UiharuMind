@@ -32,10 +32,10 @@ internal static class McpTransportFactory
             Version = AppInfo.Version.ToString(),
         },
         // SDK 默认先发一个 server/discover 探测最新协议版本，再退回 initialize。
-        // 不认识这个方法的 server（Unity MCP 就是）会直接吞掉它，于是每次新连接白等满 5 秒——
-        // 实测首次查 server 6 秒。本地与局域网 server 的响应远快于 2 秒；
-        // 万一是很慢的远程 server 误判，后果也只是走 initialize 握手，与今天绝大多数 server 一致
-        DiscoverProbeTimeout = TimeSpan.FromSeconds(2),
+        // 不认识这个方法的 server（Unity MCP 就是）会直接吞掉它，于是每次新连接白等满超时。
+        // 本地实测：godot-ai attach 冷启动后端约 6 秒，故留 10 秒；若哪天首连被杀软首扫拖过
+        // 10 秒而回退 initialize 被拒（mcp≥2.3.0 服务端判代后拒收），把 20 回来即可。
+        DiscoverProbeTimeout = TimeSpan.FromSeconds(10),
     };
 
     /// <summary>

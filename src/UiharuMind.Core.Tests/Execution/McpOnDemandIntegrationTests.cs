@@ -164,10 +164,11 @@ public class McpOnDemandIntegrationTests : IDisposable
 
     /// <summary>
     /// 不认识 server/discover 的 server（Unity MCP 就是）会吞掉这个探测，SDK 默认白等 5 秒。
-    /// 探测超时缩到 2 秒之后，首次连接应明显快于那个数
+    /// 探测超时按本机慢启动 server（godot-ai attach 冷启动约 6 秒）放宽到 10 秒之后，
+    /// 首次连接应围绕配置值收敛（这里 stub 会吞掉探测，所以约等于 10 秒内）。
     /// </summary>
     [Fact]
-    public async Task FirstConnect_AgainstServerThatSwallowsDiscover_DoesNotWaitFiveSeconds()
+    public async Task FirstConnect_AgainstServerThatSwallowsDiscover_TracksConfiguredProbeTimeout()
     {
         if (!HasPython()) Assert.Skip("python3 is not available");
         CancellationToken ct = TestContext.Current.CancellationToken;
@@ -179,7 +180,7 @@ public class McpOnDemandIntegrationTests : IDisposable
         watch.Stop();
 
         Assert.Contains("- echo {text}:", help);
-        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(4.5), $"first connect took {watch.Elapsed.TotalSeconds:0.0}s");
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(12), $"first connect took {watch.Elapsed.TotalSeconds:0.0}s");
     }
 
     /// <summary>连上之后 server 才多出来的工具：点名它时重取一遍再判断，不该一口咬定"没有"</summary>
@@ -402,8 +403,8 @@ public class McpOnDemandIntegrationTests : IDisposable
         // 后台起一轮刷新:此时「server 还没起」,握手挂住。不 await,就让它一直挂着
         _ = _manager.TestServerAsync("stub-supersede");
 
-        // 越过作废阈值(5s):它仍挂在连接中,没有被记成失败
-        await Task.Delay(TimeSpan.FromSeconds(5.5), ct);
+        // 越过作废阈值(15s):它仍挂在连接中,没有被记成失败
+        await Task.Delay(TimeSpan.FromSeconds(15.5), ct);
         Assert.Equal(EMcpConnectionState.Connecting, _manager.GetServerStatus("stub-supersede").State);
 
         // server 起来了:模型这次调用应当当场连上

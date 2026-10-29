@@ -88,11 +88,12 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
     /// 模型明确要用、而正在跑的那一轮刷新已挂超过这个时长:当场作废重起,不等它耗完预算。
     ///
     /// 挂住的刷新几乎都是「server 还没起时留下的包袱」(意图连一个没在监听的进程,握手永不回),
-    /// 就算 server 随后起来了,它也不会自己好——只能重连。模型只等 10 秒,继续等它只会得到
-    /// 「仍在连接」然后不再尝试。取值比一次正常连接(含 2 秒 discover 探测,通常 1~3 秒)留出余量,
-    /// 又不至于让模型干等整个预算。只对 model 侧(force)生效,后台巡检不抢跑。
+    /// 就算 server 随后起来了,它也不会自己好——只能重连。模型只等 ConnectTimeout,继续等它只会得到
+    /// 「仍在连接」然后不再尝试。取值比一次正常连接(含 discover 探测,通常 1~3 秒)留出余量,
+    /// 又得容得下慢启动的 stdio server:godot-ai attach 冷启动后端实测约 6 秒(2026-10-29),
+    /// 5 秒会把活连接当死连接作废、陷入无限重连,故取 15。只对 model 侧(force)生效,后台巡检不抢跑。
     /// </summary>
-    private static readonly TimeSpan StuckRefreshThreshold = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan StuckRefreshThreshold = TimeSpan.FromSeconds(15);
 
     private readonly object _lock = new(); //守护配置列表、运行态与修订号,全场只此一把
     private readonly List<McpServerConfig> _servers = new(); //全局作用域那一份(McpServers.json)

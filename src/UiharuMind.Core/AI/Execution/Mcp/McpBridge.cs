@@ -34,8 +34,10 @@ internal sealed class McpBridge
 {
     /// <summary>
     /// 等 server 连上的上限：此刻模型已经明确要用这个 server，等一会儿比立刻失败划算。
+    /// 正常本地 stdio server（含镋启 discover 探测）1~3 秒完成；godot-ai attach 冷启动约 6 秒，
+    /// 再留杀软首扫等余量，故 30 秒。
     /// </summary>
-    public static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(10);
+    public static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(30);
 
     private readonly IMcpServerHost _host;
     private readonly string? _workspacePath;
