@@ -36,6 +36,9 @@ public static class BuiltinExtensions
     /// <summary>chatsession：查看本会话派出的子代理状态与群聊状态</summary>
     public const string ChatSession = "chatsession";
 
+    /// <summary>mcp：MCP server 的管理（列配置、现连）。名字与 MCP server 撞名时由它占住</summary>
+    public const string Mcp = "mcp";
+
     /// <summary>目标模式（隐藏扩展）：模型自判结束目标模式</summary>
     public const string Goal = "goal";
 
@@ -123,6 +126,12 @@ public static class BuiltinExtensions
     /// <summary>目标模式：结束（reason=done | needs_user，summary=给用户的交代）</summary>
     public const string GoalEnd = "end";
 
+    /// <summary>mcp：列出全部已配置的 server 与各自的状态</summary>
+    public const string McpList = "list";
+
+    /// <summary>mcp：现在就连接某一台</summary>
+    public const string McpConnect = "connect";
+
     /// <summary>一次调用的完整写法，报错与工具描述共用</summary>
     public const string CallExample =
         """{"name": "browser.act", "args": {"action": "fill", "target": "e3", "value": "hello"}}""";
@@ -133,7 +142,8 @@ public static class BuiltinExtensions
     public static readonly IReadOnlyList<BuiltinExtension> Catalog =
     [
         BrowserExtension.Spec, DesktopExtension.Spec, ImageExtension.Spec,
-        AudioExtension.Spec, WorktreeExtension.Spec, ChatSessionExtension.Spec, GoalModeExtension.Spec,
+        AudioExtension.Spec, WorktreeExtension.Spec, ChatSessionExtension.Spec, McpExtension.Spec,
+        GoalModeExtension.Spec,
     ];
 
     /// <summary>全部内置扩展名，按系统提示与帮助里的顺序（隐藏扩展不进名单）</summary>

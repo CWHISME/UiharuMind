@@ -392,12 +392,13 @@ public class ExtensionTests
 
     //================= 注册表 =================
 
-    /// <summary>Catalog 是唯一的登记处：六个可见扩展 + 隐藏的目标模式；按名取回都要走得到</summary>
+    /// <summary>Catalog 是唯一的登记处：七个可见扩展 + 隐藏的目标模式；按名取回都要走得到</summary>
     [Fact]
     public void Catalog_RegistersEveryVisibleExtension_AndResolvesNames()
     {
-        Assert.Equal(["browser", "desktop", "image", "audio", "worktree", "chatsession"], BuiltinExtensions.Names);
-        Assert.Equal(7, BuiltinExtensions.Catalog.Count); //含隐藏的目标模式
+        Assert.Equal(["browser", "desktop", "image", "audio", "worktree", "chatsession", "mcp"],
+            BuiltinExtensions.Names);
+        Assert.Equal(8, BuiltinExtensions.Catalog.Count); //含隐藏的目标模式
         Assert.True(BuiltinExtensions.Catalog.Single(x => x.IsHidden).Name == BuiltinExtensions.Goal);
         Assert.Equal("browser", BuiltinExtensions.Canonical("BROWSER")); //大小写都归一到规范写法
         Assert.Equal("snapshot", BuiltinExtensions.CanonicalCommand("browser", "BrowserSnapshot")); //旧工具名也认
@@ -418,7 +419,8 @@ public class ExtensionTests
 
         IReadOnlyList<(string Name, string Description)> roster = ExtensionRoster.Of(config, mcp, EAgentToolScope.Main);
 
-        Assert.Equal(["browser", "desktop", "audio", "worktree", "chatsession", "unity"], roster.Select(x => x.Name));
+        Assert.Equal(["browser", "desktop", "audio", "worktree", "chatsession", "mcp", "unity"],
+            roster.Select(x => x.Name));
         Assert.Equal(string.Empty, ExtensionRoster.Section(
             new AgentToolConfig { DisabledExtensions = [..BuiltinExtensions.Names] }, McpToolSet.Empty, EAgentToolScope.Main));
     }

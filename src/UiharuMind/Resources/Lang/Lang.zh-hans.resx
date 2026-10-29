@@ -6007,6 +6007,12 @@
     <data name="ExtensionWorktreeDesc" xml:space="preserve">
         <value>创建 git worktree（自动拉取、初始化子模块、修复软链接）并登记，登记后该目录内文件写入免审批。不改会话的工作目录、草稿与记忆。</value>
     </data>
+    <data name="ExtensionNameMcp" xml:space="preserve">
+        <value>MCP</value>
+    </data>
+    <data name="ExtensionMcpDesc" xml:space="preserve">
+        <value>管理用户自己跑的 MCP server：列出配了哪些（含没打开的、待授权的、离线的那几台），也能现在就连接某一台。</value>
+    </data>
     <data name="DesktopHandoffTitle" xml:space="preserve">
         <value>请你接手这个窗口</value>
     </data>

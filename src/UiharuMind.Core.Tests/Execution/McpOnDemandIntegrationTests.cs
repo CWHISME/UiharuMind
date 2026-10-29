@@ -234,9 +234,13 @@ public class McpOnDemandIntegrationTests : IDisposable
         AddStub("stub-blocked");
         McpToolSet set = _manager.Resolve(null, ["stub-blocked"], _directory);
 
-        // 唯一的 server 被角色禁掉:名单为空,也没有桥接
+        // 唯一的 server 被角色禁掉:名单（写进系统提示那行）为空,桥接照给——
+        // 模型经 ExHelp（不带参数）/ mcp.list 才看得到「配了一台、但被挡着」
         Assert.Empty(set.Servers);
-        Assert.Null(set.Bridge);
+        Assert.NotNull(set.Bridge);
+        string all = (string)Assert.IsType<string>(await Named(set, ExtensionCalls.HelpName)
+            .InvokeAsync(new AIFunctionArguments(), ct));
+        Assert.Contains("都用不上", all);
 
         // 但若桥接是在禁用之前拿到的(旧快照),调用时仍按最新名单拒绝
         McpBridge bridge = new(_manager, null, ["stub-blocked"], _directory);

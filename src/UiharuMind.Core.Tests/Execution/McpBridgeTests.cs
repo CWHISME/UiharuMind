@@ -599,6 +599,11 @@ public class McpBridgeTests : IDisposable
 
         public IReadOnlyList<McpServerBrief> List(string? workspacePath, IEnumerable<string>? disabledServers) => [];
 
+        public IReadOnlyList<McpServerBrief> Overview(string? workspacePath, IEnumerable<string>? disabledServers) =>
+            OverviewServers;
+
+        public IReadOnlyList<McpServerBrief> OverviewServers { get; set; } = [];
+
         public int ReconnectCount { get; private set; }
         public McpServerConnection? AfterReconnect { get; set; }
 

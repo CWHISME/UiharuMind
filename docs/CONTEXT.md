@@ -538,8 +538,8 @@
 
 ### 扩展（Extensions）
 
-不在工具列表里、先查后调的能力：内置的 `browser`、`image`、`audio`，加上每个可用的 MCP server。
-模型经两把恒定的**元工具** `ExtensionHelp`（不带参数列出全部及状态）/ `ExtensionCall` 使用；
+不在工具列表里、先查后调的能力：内置的 `browser`、`desktop`、`image`、`audio`、`worktree`、`chatsession`、`mcp`，
+加上每个可用的 MCP server。模型经两把恒定的**元工具** `ExHelp`（不带参数列出全部及状态）/ `ExCall` 使用；
 系统提示里只有一行名单（名字 + 一句话说明，不写状态）。见 [ADR 0079](adr/0079-扩展：不常用的能力与MCP收进一对元工具，先查后调、逐条审批.md)。
 
 - **风险分级**（`EExtensionRisk`）：只读（`browser.snapshot`、声明了 `readOnlyHint` 的 MCP 工具）三档都不问；
@@ -562,6 +562,10 @@
 ⚠️ **MCP 的工具不进 `tools`**：每个 server 是一个扩展，第一次查或调它时才连；连接起落只是一条工具结果，
 不改装配、不动缓存前缀。从前的「直挂 / 按需 / 预连」已退役（ADR 0079），理由的前半见
 [ADR 0051](adr/0051-MCP送达方式分直挂与按需，默认按需.md)。
+
+⚠️ **`mcp` 是常驻的内置扩展，不是某个 server**：`mcp.list` 列全部配置（含托管没开、待授权、离线），
+`mcp.connect` 现连一台。一台可用的都没有时名单里也留着这一行，桥接照给——否则模型会以为这台机器没有 MCP
+（[ADR 0096](adr/0096-MCP常驻名单，mcp扩展的list与connect让模型现连.md)）。
 
 ⚠️ **能力真相只有「可用」**，「托管」是资源开销、不是能力闸门。分层、黑名单、归 server 不归角色——
 见 [ADR 0008](adr/0008-MCP托管与可用分层.md)。

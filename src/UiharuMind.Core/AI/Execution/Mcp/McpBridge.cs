@@ -65,6 +65,38 @@ internal sealed class McpBridge
     public IReadOnlyList<McpServerBrief> List() => _host.List(_workspacePath, _disabledServers);
 
     /// <summary>
+    /// <b>全部</b>已配置的 server（含这一轮用不上的）与各自被哪道闸挡着（不连接）
+    /// </summary>
+    /// <returns>名单；一台都没配为空</returns>
+    public IReadOnlyList<McpServerBrief> Overview() => _host.Overview(_workspacePath, _disabledServers);
+
+    /// <summary>
+    /// 当场连一台 server 并取回工具清单（无视重连退避）。给模型一个明确的「现在就连」动作：
+    /// 查、调本来也会顺带连，但那条路的副作用不在名字里，模型不知道该不该指望它
+    /// </summary>
+    /// <param name="server">模型给的名字</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>给模型的文本：连上了几条命令，或没连上的原因</returns>
+    public async Task<string> OpenAsync(string server, CancellationToken cancellationToken)
+    {
+        McpServerLookup lookup = _host.Find(_workspacePath, _disabledServers, server);
+        if (lookup.Server == null) return Refusal(server, lookup);
+
+        McpServerConfig config = lookup.Server;
+        McpServerConnection connection =
+            await _host.ConnectAsync(config, ConnectTimeout, cancellationToken).ConfigureAwait(false);
+        string name = ExtensionCalls.ModelName(config.Name);
+        if (!connection.IsConnected)
+        {
+            return $"'{name}' 没连上：{connection.Error ?? "未知原因"}。" +
+                   "它还在后台继续重连；过一会儿再 connect 一次即可，不要改用自己写的脚本或手工 HTTP 请求绕过。";
+        }
+
+        return $"已连上 '{name}'：{connection.Tools.Count} 条命令。" +
+               $"用 {ExtensionCalls.HelpName} 传 name \"{name}\" 可查看命令清单，再用 {ExtensionCalls.CallName} 调。";
+    }
+
+    /// <summary>
     /// 查 server 或工具。
     /// </summary>
     /// <param name="server">server 名</param>
@@ -285,11 +317,12 @@ internal sealed class McpBridge
     private static string Refusal(string requested, McpServerLookup lookup) => lookup.Status switch
     {
         EMcpLookupStatus.DisabledByCharacter =>
-            $"MCP server '{requested}' 被本智能体禁用。",
+            $"MCP server '{requested}' 被本智能体禁用（角色能力面板里可以打开）。",
         EMcpLookupStatus.NeedsApproval =>
-            $"MCP server '{requested}' 来自本工作区的 .mcp.json，尚未经用户授权，不能使用。",
+            $"MCP server '{requested}' 来自本工作区的 .mcp.json，尚未经用户授权，不能使用；请用户在应用里确认一次。",
         EMcpLookupStatus.HostingOff =>
-            $"MCP server '{requested}' 在应用的设置里被关掉了。",
-        _ => $"没有叫 '{requested}' 的扩展。{ExtensionCalls.HelpName}（不带参数）列出全部扩展。",
+            $"MCP server '{requested}' 在应用的设置里被关掉了（设置 → MCP 里打开托管才连得上）。",
+        _ => $"没有叫 '{requested}' 的扩展（也没有配置同名的 MCP server）。" +
+             $"{ExtensionCalls.HelpName}（不带参数）列出全部扩展，{BuiltinExtensions.Mention(BuiltinExtensions.Mcp, BuiltinExtensions.McpList)} 列出配置过的 server。",
     };
 }

@@ -65,7 +65,14 @@ internal sealed class McpServerConnection
 /// <param name="Name">server 名</param>
 /// <param name="Description">一句话说明；项目级 server 恒为空</param>
 /// <param name="Status">连接状态</param>
-internal sealed record McpServerBrief(string Name, string Description, McpServerStatus Status);
+internal sealed record McpServerBrief(string Name, string Description, McpServerStatus Status)
+{
+    /// <summary>
+    /// 这一轮<b>用不上</b>的原因；能用为 <c>null</c>（那时才有 <see cref="Status"/> 可看）。
+    /// 只在「全部已配置」那份清单里有意义——能用的清单本来就滤掉了这些
+    /// </summary>
+    public EMcpLookupStatus? Blocked { get; init; }
+}
 
 /// <summary>
 /// 按名字找 server 并说清没找到的原因。纯函数：合并后的名单、角色禁用名单与授权判据都从参数进来，
@@ -79,7 +86,22 @@ internal static class McpServerFinder
     /// </summary>
     public static bool IsUsable(McpServerConfig server, HashSet<string> disabled,
         Func<McpServerConfig, bool> isTrusted) =>
-        McpManager.IsInPlay(server, disabled) && isTrusted(server);
+        BlockedBy(server, disabled, isTrusted) == EMcpLookupStatus.Found;
+
+    /// <summary>
+    /// 这一轮用不上时是哪一道闸挡的：托管（资源层）→ 角色（能力层）→ 授权（安全），次序即优先级。
+    /// 三处都问它，于是「能不能用」与「为什么不能用」不会各算一遍、各有一套说法
+    /// </summary>
+    /// <param name="server">配置</param>
+    /// <param name="disabled">本角色禁用的 server 名（不区分大小写）</param>
+    /// <param name="isTrusted">授权判据</param>
+    /// <returns>挡它的那道闸；能用为 <see cref="EMcpLookupStatus.Found"/></returns>
+    public static EMcpLookupStatus BlockedBy(McpServerConfig server, HashSet<string> disabled,
+        Func<McpServerConfig, bool> isTrusted) =>
+        !server.IsEnabled ? EMcpLookupStatus.HostingOff
+        : disabled.Contains(server.Name) ? EMcpLookupStatus.DisabledByCharacter
+        : !isTrusted(server) ? EMcpLookupStatus.NeedsApproval
+        : EMcpLookupStatus.Found;
 
     /// <summary>
     /// 查找。
@@ -102,11 +124,7 @@ internal static class McpServerFinder
             string.Equals(ExtensionCalls.ModelName(x.Name), wanted, StringComparison.OrdinalIgnoreCase));
         if (hit == null) return new McpServerLookup(EMcpLookupStatus.NotFound, null, available);
 
-        EMcpLookupStatus status =
-            !hit.IsEnabled ? EMcpLookupStatus.HostingOff
-            : disabled.Contains(hit.Name) ? EMcpLookupStatus.DisabledByCharacter
-            : !isTrusted(hit) ? EMcpLookupStatus.NeedsApproval
-            : EMcpLookupStatus.Found;
+        EMcpLookupStatus status = BlockedBy(hit, disabled, isTrusted);
         return new McpServerLookup(status, status == EMcpLookupStatus.Found ? hit : null, available);
     }
 }
@@ -124,6 +142,16 @@ internal interface IMcpServerHost
     /// <param name="disabledServers">本角色禁用的扩展名单</param>
     /// <returns>名单</returns>
     IReadOnlyList<McpServerBrief> List(string? workspacePath, IEnumerable<string>? disabledServers);
+
+    /// <summary>
+    /// <b>全部</b>已配置的 server（含这一轮用不上的），每台带"被哪道闸挡着"。
+    /// 与 <see cref="List"/> 的分工：那个回答「现在能调什么」，这个回答「配了什么」——
+    /// 模型据此才分得清「没配」与「配了但没开 / 没授权」，也才说得清该让用户去哪儿动手
+    /// </summary>
+    /// <param name="workspacePath">会话的工作区；空表示只有全局 server</param>
+    /// <param name="disabledServers">本角色禁用的扩展名单</param>
+    /// <returns>名单；一台都没配为空</returns>
+    IReadOnlyList<McpServerBrief> Overview(string? workspacePath, IEnumerable<string>? disabledServers);
 
     /// <summary>
     /// 按名字找一个 server，并把没找到的原因说清楚。

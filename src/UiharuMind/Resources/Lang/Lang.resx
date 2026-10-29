@@ -6012,6 +6012,12 @@ Enable it?</value>
     <data name="ExtensionWorktreeDesc" xml:space="preserve">
         <value>Creates git worktrees (with automatic fetch, submodule init and symlink fixes) and registers them so file writes inside are approved without asking. Never changes the session's working directory, draft or memory.</value>
     </data>
+    <data name="ExtensionNameMcp" xml:space="preserve">
+        <value>MCP</value>
+    </data>
+    <data name="ExtensionMcpDesc" xml:space="preserve">
+        <value>Manages the user's own MCP servers: lists what is configured (including unhosted, unapproved and offline ones) and connects to one on the spot.</value>
+    </data>
     <data name="DesktopHandoffTitle" xml:space="preserve">
         <value>Take over this window</value>
     </data>

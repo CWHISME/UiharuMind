@@ -237,7 +237,10 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
 
     /// <summary>
     /// 一次装配从 MCP 侧拿的东西：这一轮可用的 server 名单，与查、调它们的桥接。
-    /// <b>不连接、不等网络</b>：MCP 工具不进 <c>tools</c>（ADR 0079），模型第一次查或调某个 server 时才连
+    /// <b>不连接、不等网络</b>：MCP 工具不进 <c>tools</c>（ADR 0079），模型第一次查或调某个 server 时才连。
+    ///
+    /// <b>一台可用的都没有时照样给桥接</b>：名单（写进系统提示那行）只装可用的，桥接却能现查现连——
+    /// 模型经 <c>mcp.list</c> 看得到配了什么，用户后来才起来 / 才打开的 server 不必等重装配就连得上
     /// </summary>
     /// <param name="workspacePath">
     /// 本次装配的工作区；项目级 <c>.mcp.json</c> 里的 server 据此并入（同名覆盖全局）。
@@ -251,7 +254,6 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
     {
         List<string> disabledList = disabledServers?.ToList() ?? [];
         List<McpServerConfig> inPlay = InPlayServers(workspacePath, DisabledSet(disabledList));
-        if (inPlay.Count == 0) return McpToolSet.Empty;
 
         string spill = spillDirectory.Length > 0 ? spillDirectory : AppPaths.Cache.Scratch;
         // 落进会话房间时图片路径写成草稿目录简写,模型拿它直接喂 Read / 生图;退到缓存时没有简写可用

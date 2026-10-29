@@ -157,7 +157,8 @@ internal sealed class ExtensionHub
             sb.Append('\n');
         }
 
-        foreach (McpServerBrief server in _mcp?.List() ?? [])
+        IReadOnlyList<McpServerBrief> servers = _mcp?.List() ?? [];
+        foreach (McpServerBrief server in servers)
         {
             if (Find(server.Name) != null)
             {
@@ -166,23 +167,36 @@ internal sealed class ExtensionHub
                 continue;
             }
 
-            sb.Append("- ").Append(ExtensionCalls.ModelName(server.Name)).Append("（MCP，").Append(Describe(server.Status)).Append('）');
+            sb.Append("- ").Append(ExtensionCalls.ModelName(server.Name)).Append("（MCP，")
+                .Append(McpHelpFormatter.DescribeServer(server)).Append('）');
             if (!string.IsNullOrWhiteSpace(server.Description)) sb.Append("：").Append(server.Description.Trim());
             sb.Append('\n');
         }
 
-        if (_builtins.Count == 0 && _mcp == null) sb.Append("（无）\n");
-        sb.Append("MCP server 是用户运行的应用；现在离线的那台可能稍后会再起来，所以再查一次，别以为它没了。");
+        if (_builtins.Count == 0 && servers.Count == 0) sb.Append("（无）\n");
+
+        // 一台都用不上时才需要知道「配了什么」：能用的那几台上面已经列了，这里再读一次盘不值当
+        IReadOnlyList<McpServerBrief> configured = servers.Count == 0 && _mcp != null ? _mcp.Overview() : [];
+        // 配了却一台都用不上时，光靠 mcp 那一行的简介看不出「其实有东西，只是被挡着」——
+        // 这一句把它摆到模型眼前，具体原因交给 mcp.list
+        if (configured.Count > 0)
+        {
+            sb.Append("（MCP 配了 ").Append(configured.Count).Append(" 台，这一轮都用不上；用 ")
+                .Append(BuiltinExtensions.Mention(BuiltinExtensions.Mcp, BuiltinExtensions.McpList))
+                .Append(" 看各自被什么挡着）\n");
+        }
+
+        // 只在这个扩展真挂着时说：它被角色关掉之后，mcp.connect 本来就调不动，说了就是给人指一条走不通的路。
+        // 一台都没配时也不说：那时的下一步是去设置里加一台，不是「再连一次」
+        if ((servers.Count > 0 || configured.Count > 0) && Find(BuiltinExtensions.Mcp) != null)
+        {
+            sb.Append("MCP server 是用户运行的应用；离线的那台可能稍后会再起来，用 ")
+                .Append(BuiltinExtensions.Mention(BuiltinExtensions.Mcp, BuiltinExtensions.McpConnect))
+                .Append(" 再连一次即可，别以为它没了。\n");
+        }
+
         return sb.ToString();
     }
-
-    private static string Describe(McpServerStatus status) => status.State switch
-    {
-        EMcpConnectionState.Connected => $"已连接，{status.ToolCount} 条命令",
-        EMcpConnectionState.Connecting => "连接中",
-        EMcpConnectionState.Failed => $"离线：{status.Error ?? "连接失败"}",
-        _ => "尚未连接；查询时会建立连接",
-    };
 
     private BuiltinExtension? Find(string name) => BuiltinExtensions.Canonical(name) is { } canonical
         ? _builtins.FirstOrDefault(x => x.Name == canonical)

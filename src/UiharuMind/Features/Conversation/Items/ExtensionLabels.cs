@@ -32,6 +32,7 @@ public static class ExtensionLabels
         BuiltinExtensions.Image => Loc.Text(LangKey.ExtensionNameImage),
         BuiltinExtensions.Audio => Loc.Text(LangKey.ExtensionNameAudio),
         BuiltinExtensions.Worktree => Loc.Text(LangKey.ExtensionNameWorktree),
+        BuiltinExtensions.Mcp => Loc.Text(LangKey.ExtensionNameMcp),
         _ => extension,
     };
 
@@ -47,6 +48,7 @@ public static class ExtensionLabels
         BuiltinExtensions.Image => Loc.Text(LangKey.ExtensionImageDesc),
         BuiltinExtensions.Audio => Loc.Text(LangKey.ExtensionAudioDesc),
         BuiltinExtensions.Worktree => Loc.Text(LangKey.ExtensionWorktreeDesc),
+        BuiltinExtensions.Mcp => Loc.Text(LangKey.ExtensionMcpDesc),
         _ => string.Empty,
     };
 }

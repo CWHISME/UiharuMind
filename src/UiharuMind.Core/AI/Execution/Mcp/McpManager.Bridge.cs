@@ -50,6 +50,26 @@ public partial class McpManager : IMcpServerHost
             .ToList();
     }
 
+    IReadOnlyList<McpServerBrief> IMcpServerHost.Overview(string? workspacePath,
+        IEnumerable<string>? disabledServers)
+    {
+        HashSet<string> disabled = DisabledSet(disabledServers);
+        List<McpServerBrief> all = new();
+        foreach (EffectiveMcpServer effective in GetEffectiveServers(workspacePath))
+        {
+            // 被项目级同名配置顶掉的那条不列：它不是"另一台"，用户看到的同一台的两份写法
+            McpServerConfig server = effective.Config;
+            EMcpLookupStatus blocked = McpServerFinder.BlockedBy(server, disabled, _trust.IsTrusted);
+            all.Add(new McpServerBrief(server.Name, server.Description,
+                GetServerStatus(server.Name, server.WorkspacePath))
+            {
+                Blocked = blocked == EMcpLookupStatus.Found ? null : blocked,
+            });
+        }
+
+        return all;
+    }
+
     McpServerLookup IMcpServerHost.Find(string? workspacePath, IEnumerable<string>? disabledServers,
         string serverName) =>
         McpServerFinder.Find(GetEffectiveServers(workspacePath).Select(x => x.Config).ToList(),

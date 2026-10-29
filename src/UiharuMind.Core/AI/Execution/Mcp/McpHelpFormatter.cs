@@ -71,6 +71,35 @@ internal static class McpHelpFormatter
     }
 
     /// <summary>
+    /// 一台 server 此刻是什么情况，一句话：用不上的报被哪道闸挡着（并说明该去哪儿动），
+    /// 能用的报连接状态。<see cref="ExtensionCalls.HelpName"/> 的清单与 <c>mcp.list</c> 共用这一处，
+    /// 两处说的才是同一件事
+    /// </summary>
+    /// <param name="server">名单里的那一台</param>
+    /// <returns>一句话</returns>
+    public static string DescribeServer(McpServerBrief server)
+    {
+        if (server.Blocked is { } blocked)
+        {
+            return blocked switch
+            {
+                EMcpLookupStatus.HostingOff => "没开：设置 → MCP 里打开托管才连得上",
+                EMcpLookupStatus.NeedsApproval => "待授权：来自项目级 .mcp.json，等用户在应用里确认一次",
+                EMcpLookupStatus.DisabledByCharacter => "被本智能体禁用（角色能力面板里可打开）",
+                _ => "不可用",
+            };
+        }
+
+        return server.Status.State switch
+        {
+            EMcpConnectionState.Connected => $"已连接，{server.Status.ToolCount} 条命令",
+            EMcpConnectionState.Connecting => "连接中",
+            EMcpConnectionState.Failed => $"离线：{server.Status.Error ?? "连接失败"}",
+            _ => "尚未连接；查它或 connect 时才连",
+        };
+    }
+
+    /// <summary>
     /// 渲染单条命令的详情。
     /// </summary>
     /// <param name="serverName">扩展名</param>
