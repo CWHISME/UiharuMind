@@ -279,7 +279,35 @@ public static class ToolJson
     public static AIFunction CreateFunction(Delegate method, string name, string? description = null)
     {
         EnsureAotSafe(method, name);
-        return AIFunctionFactory.Create(method, CreateFactoryOptions(name, description));
+        return new StringResultFunction(AIFunctionFactory.Create(method, CreateFactoryOptions(name, description)));
+    }
+
+    /// <summary>
+    /// 把结果里的 <c>JsonElement{String}</c> 还原成 <see cref="string"/>。
+    ///
+    /// 工厂带了 <see cref="AIFunctionFactoryOptions.SerializerOptions"/>（参数要宽松解析），
+    /// 框架就用同一份选项把<b>返回值</b>也序列化成 <see cref="JsonElement"/>——返回 string 的工具
+    /// 于是拿到一个「JSON 字符串元素」。发给模型时 SDK 原样写它的 JSON 文本，也就是<b>带引号、
+    /// 带 <c>\t</c> 与 <c>\n</c> 字面量</b>的一长串：模型读文件结果，读到的是转义串而不是文件内容。
+    ///
+    /// 更糟的是它和历史读盘后的形态不一致：<see cref="Chat.HistoryJsonl"/> 读回时会把
+    /// <c>JsonElement{String}</c> 还原成 string（<see cref="Chat.ChatContentNormalizer"/>），
+    /// 于是同一份历史在「刚跑完」与「重开之后」是两种字节，前缀从第一条 tool 消息起就分叉，
+    /// 整段缓存作废（实测 deepseek 会话里一次这样的分叉让后面 32 条消息全部冷启动）。就地还原，两种来源同形。
+    ///
+    /// 只还原 String 一类：结构化结果（<c>JsonElement{Object}</c>）要保持对象形态，
+    /// 那是工具特意给模型的结构，抹成文本反而丢信息。
+    /// </summary>
+    private sealed class StringResultFunction(AIFunction inner) : DelegatingAIFunction(inner)
+    {
+        protected override async ValueTask<object?> InvokeCoreAsync(AIFunctionArguments arguments,
+            CancellationToken cancellationToken)
+        {
+            object? result = await base.InvokeCoreAsync(arguments, cancellationToken).ConfigureAwait(false);
+            return result is JsonElement { ValueKind: JsonValueKind.String } element
+                ? element.GetString()
+                : result;
+        }
     }
 
     /// <summary>
