@@ -248,6 +248,13 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// <summary>会话集合变化(新会话创建/一轮结束),页面据此刷新左侧列表</summary>
     public event Action? SessionsChanged;
 
+    /// <summary>
+    /// 空态输入草稿被消费：首轮建出会话本体的那一刻（输入框里那些字已经进了这一轮）。
+    /// 空态的草稿挂在页面壳的两档槽里，由它据此清掉对应那一档；参数为新会话形态（true 为智能体档）。
+    /// 挂在已有会话上的实例不会发——它的草稿走 <c>ComposerDraft</c>
+    /// </summary>
+    public event Action<bool>? EmptyDraftConsumed;
+
     /// <summary>当前模式显示标签</summary>
     public string ModeLabel => ConversationModeLabels.ModeLabel(CurrentMode);
 
@@ -555,6 +562,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         CurrentMeta = created.ToMeta();
         Title = CurrentMeta.Title;
         Artifacts = CreateSessionArtifacts(created);
+        // 走到这里就只可能是"空态→会话"这一步（调用方只有 EnsureSessionAsync 的空态分支），
+        // 首轮那些字已经随这一轮建了会话，页面壳那档草稿可以清了
+        EmptyDraftConsumed?.Invoke(NewSessionIsAgentForm);
     }
 
     /// <summary>请页面在列表里选中某个会话（建完群要切过去，而新建不经列表选中）</summary>

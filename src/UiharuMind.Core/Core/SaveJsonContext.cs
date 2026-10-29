@@ -73,6 +73,7 @@ namespace UiharuMind.Core.Core;
 [JsonSerializable(typeof(TextFileSettingConfig))]
 [JsonSerializable(typeof(GroupModelMemoryConfig))]
 [JsonSerializable(typeof(AutoClickSettingConfig))]
+[JsonSerializable(typeof(NewConversationDraftConfig))]
 [JsonSerializable(typeof(ImageModelSettingConfig))]
 [JsonSerializable(typeof(SdCppSettingConfig))]
 [JsonSerializable(typeof(EmbeddingModelSettingConfig))]

@@ -467,6 +467,10 @@ public partial class App : Application, ILogger, IDisposable
         // 轮次都收住了才写「后台任务被中止」,不会与某一轮的落盘交错
         UiharuMind.Core.AI.Execution.Tools.BackgroundTasks.BackgroundTaskRegistry.SettleAllForShutdown();
         UiharuMind.Core.AI.Chat.SessionManager.Instance.DisposeAllRunners();
+        // 输入草稿平时只在切走/轮末落盘：打完字直接退出的那些字就靠这里补。
+        // 放在服务释放之前——它们都要写文件；也在轮次收尾之后，写完的才是最终那份
+        UiharuMind.Core.AI.Chat.SessionManager.Instance.FlushDrafts();
+        DummyWindow?.MainViewModel?.FlushPendingDrafts();
         (Services as IDisposable)?.Dispose();
         ProcessHelper.CancelAllProcesses();
         if (!_crashing) _exitGuard?.MarkClean();

@@ -181,6 +181,15 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
         return (T)vm;
     }
 
+    /// <summary>
+    /// 应用退出前把各页还没落盘的输入草稿写下去。只扫<b>已经建出来</b>的页——
+    /// 没建过的页不可能有草稿，为此在退出路径上现造一个页面反而是事故
+    /// </summary>
+    public void FlushPendingDrafts()
+    {
+        foreach (PageDataBase page in _viewPageModels.Values) page.FlushPendingDrafts();
+    }
+
     public void JumpToPage(MenuPages page)
     {
         if (page == MenuPages.MenuSettingKey)

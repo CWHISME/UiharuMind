@@ -15,6 +15,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Diagnostics;
 using UiharuMind.Features.Conversation.SessionList;
 using UiharuMind.Features.Diagnostics;
@@ -40,6 +41,8 @@ public abstract partial class ConversationPageDataBase : PageDataBase
     {
         Messages = messages;
         SessionList = new SessionListModel(type, messages);
+        // 新建会话空态草稿：会话本体还不存在，输入文字挂不到 ComposerDraft，由本壳持有一份
+        _emptyDrafts = new EmptySessionDraftStore(NewConversationDraftConfig.Current);
     }
 
     /// <summary>弹提示与确认用的消息服务</summary>
@@ -118,6 +121,7 @@ public abstract partial class ConversationPageDataBase : PageDataBase
     /// 缓存实例数 = 当前 + <see cref="MaxIdleRetainedConversations"/> 份空闲 + 正在跑/有保留理由的
     /// </summary>
     private readonly List<ConversationViewModel> _conversations = new();
+    private readonly EmptySessionDraftStore _emptyDrafts; // 新建会话空态输入草稿（普通对话/智能体两档）
 
     /// <summary>
     /// 当前会话之外还允许留下的空闲实例数。来回切的是同一两三个会话时，多留几份就能走
@@ -202,6 +206,7 @@ public abstract partial class ConversationPageDataBase : PageDataBase
         {
             target = CreateConversation();
             target.PropertyChanged += OnConversationStateChanged;
+            target.EmptyDraftConsumed += OnEmptyDraftConsumed;
             _conversations.Add(target);
             OnConversationCreated(target);
             _ = target.LoadSessionAsync(meta);
@@ -210,6 +215,10 @@ public abstract partial class ConversationPageDataBase : PageDataBase
         // 换实例前把当前会话的输入草稿落盘:草稿原本只在 VM 弃用(缓存淘汰)时写,
         // 切走 N 个会话才轮到它,列表的草稿标记随之滞后(与运行态同类的刷新缺口)
         Conversation?.SaveComposerDraft();
+        SaveEmptyDraft(Conversation);
+        // 新建会话空态恢复输入草稿:空态没有会话本体,普通那条恢复路(LoadSessionAsync
+        // 读 ComposerDraft)走不到,这里对标补上。两档(普通对话/智能体)互不污染
+        if (meta == null) target.InputText = _emptyDrafts.DraftOf(target.NewSessionIsAgentForm);
 
         Conversation = target;
         MarkMostRecent(target);
@@ -263,14 +272,20 @@ public abstract partial class ConversationPageDataBase : PageDataBase
 
     private void OnConversationStateChanged(object? sender, PropertyChangedEventArgs e)
     {
-        // 后台那一轮跑完,留着它的理由就没了。等到下次切会话再回收也行,
-        // 但那意味着「一个已经跑完的长会话的全部气泡」会一直占着内存。
-        //
-        // 排到下一个循环再回收:这个通知是从运行循环的收尾里抛出来的,它后面还有几句
-        // (SessionsChanged 通知、交接文档),当场把实例弃用会打断它自己的收尾
         if (e.PropertyName == nameof(ConversationViewModel.IsGenerating))
         {
+            // 后台那一轮跑完,留着它的理由就没了。等到下次切会话再回收也行,
+            // 但那意味着「一个已经跑完的长会话的全部气泡」会一直占着内存。
+            //
+            // 排到下一个循环再回收:这个通知是从运行循环的收尾里抛出来的,它后面还有几句
+            // (SessionsChanged 通知、交接文档),当场把实例弃用会打断它自己的收尾
             Dispatcher.UIThread.Post(PruneConversations);
+        }
+        else if (e.PropertyName == nameof(ConversationViewModel.InputText)
+                 && sender is ConversationViewModel { CurrentMeta: null } empty)
+        {
+            // 空态没有会话本体,文字挂不到 ComposerDraft:只记进内存槽,写盘交给切走与退出
+            _emptyDrafts.Set(empty.NewSessionIsAgentForm, empty.InputText);
         }
     }
 
@@ -314,10 +329,38 @@ public abstract partial class ConversationPageDataBase : PageDataBase
     /// <returns>保留为 true</returns>
     protected virtual bool ShouldRetainConversation(ConversationViewModel conversation) => false;
 
+    /// <summary>
+    /// 把空态实例的输入文字收进本壳的草稿槽(内存即改、写配置文件)。只在切走前调一处:
+    /// 任何空态实例被弃用前都必然先被切走(见 <see cref="SwitchConversation"/>),弃用时再存一次
+    /// 只会把那份旧文字盖回新草稿上(缓存回收不看新旧)。有会话的草稿走 ComposerDraft,不在这里
+    /// </summary>
+    /// <param name="conversation">要离开展示位的实例；null 或非空态时不处理</param>
+    private void SaveEmptyDraft(ConversationViewModel? conversation)
+    {
+        if (conversation == null || conversation.CurrentMeta != null) return;
+        _emptyDrafts.Save(conversation.NewSessionIsAgentForm, conversation.InputText);
+    }
+
+    /// <summary>
+    /// 空态草稿被消费：首轮建出会话的那一刻，视图自己把「空态→会话」这件事报上来
+    /// （对标 <c>SendMessage</c> 里的「发送即清草稿」）。此前是拿 <see cref="ConversationViewModel.SessionsChanged"/>
+    /// 反推，那信号一轮结束/换角色/建群都会发，且不带是谁发的——只能再叠一份「空态出生」名单
+    /// 与「当前展示」判据，后台实例的事件仍会从缝里漏过去
+    /// </summary>
+    /// <param name="isAgentForm">新会话形态：清哪一档槽</param>
+    private void OnEmptyDraftConsumed(bool isAgentForm) => _emptyDrafts.Clear(isAgentForm);
+
+    /// <summary>
+    /// 应用退出前把还没落盘的空态草稿写下去。打字只记内存（见 <see cref="EmptySessionDraftStore.Set"/>），
+    /// 而落盘原本只有「切走」一处——打完字直接退出的那些字就靠这一次补上
+    /// </summary>
+    public override void FlushPendingDrafts() => _emptyDrafts.Flush();
+
     private void Discard(ConversationViewModel conversation)
     {
         _conversations.Remove(conversation);
         conversation.PropertyChanged -= OnConversationStateChanged;
+        conversation.EmptyDraftConsumed -= OnEmptyDraftConsumed;
         OnConversationDiscarding(conversation);
         conversation.Dispose();
     }

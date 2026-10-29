@@ -37,4 +37,12 @@ public abstract partial class PageDataBase : ViewModelBase, IViewControl
     // }
 
     protected abstract Control CreateView { get; }
+
+    /// <summary>
+    /// 把还没落盘的输入草稿写下去（应用退出前由主视图模型统一调一次）。默认无事可做：
+    /// 多数页面没有草稿，有草稿的页面按自己的口径实现
+    /// </summary>
+    public virtual void FlushPendingDrafts()
+    {
+    }
 }

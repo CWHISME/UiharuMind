@@ -852,6 +852,28 @@ public partial class SessionManager : Singleton<SessionManager>, IInitialize
     }
 
     /// <summary>
+    /// 把全部已加载会话的输入草稿落盘（应用退出前调用）。草稿平时只在切走、实例弃用与轮末落盘，
+    /// 打完字没切会话直接关窗口的那些字就靠这一次补上；没改动过的会话内部会自己跳过
+    /// </summary>
+    public void FlushDrafts()
+    {
+        List<ChatSession> sessions;
+        lock (_locker) sessions = _loaded.Values.ToList();
+        foreach (ChatSession session in sessions)
+        {
+            try
+            {
+                session.SaveDraft();
+            }
+            catch (Exception e)
+            {
+                // 退出路径上写失败只能记一笔：此刻没有任何界面可提示，也不该拦着进程走
+                Log.Warning($"Flush draft of '{session.SessionId}' failed: {e.Message}");
+            }
+        }
+    }
+
+    /// <summary>
     /// 释放全部已加载会话的执行者（应用退出时调用，尽力而为不等待）
     /// </summary>
     public void DisposeAllRunners()

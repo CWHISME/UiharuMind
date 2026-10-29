@@ -60,7 +60,7 @@ internal static class McpAdminTools
         if (all.Count == 0)
         {
             return "用户还没配置任何 MCP server，所以现在没有可连的外部应用。" +
-                   "要接的话在应用的 设置 → MCP 里加一台（它会是一个独立进程或一条 HTTP 连接），加完用 mcp.list 复查。";
+                   "要接的话在应用的 设置 → MCP 里加一台，或在当前项目目录配置 *.mcp.json，加完用 mcp.list 复查。";
         }
 
         StringBuilder sb = new($"MCP server（{all.Count} 台；每台自己也是一个扩展，用 {ExtensionCalls.HelpName} 传它的名字可看命令）：\n");
