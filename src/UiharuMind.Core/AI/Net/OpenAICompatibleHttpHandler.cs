@@ -11,6 +11,7 @@
 
 using System.Buffers;
 using System.Net.Http.Headers;
+using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
@@ -80,6 +81,7 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
     {
         // OpenAI SDK 会自行拼接标准路径，这里统一改写到用户配置的兼容端点。
         request.RequestUri = _baseUri;
+        ApplySessionAffinity(request);
         var response = await base.SendAsync(request, cancellationToken);
         // 诊断:无条件记录响应媒体类型与状态码——SseSanitizingContent 只在 text/event-stream 时介入,
         // 非该媒体类型的流不经过 SseSanitizingStream,此类故障的桩也就全都不在链路上
@@ -91,11 +93,33 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
         return await SanitizeResponseAsync(response, cancellationToken);
     }
 
+    /// <summary>
+    /// 写会话亲和头。同一会话（含子会话、工具往返、旁路请求）的请求带着同一个值，
+    /// 网关据此把它们路由到同一后端——前缀缓存按副本各存一份，落到没建过该前缀的副本上
+    /// 就是整段冷启动，命中率看着像坏了，其实是另一台机器在答。
+    ///
+    /// 头名与组合照 pi 的 <c>openai</c> 亲和格式（<c>session_id</c> + <c>x-client-request-id</c>
+    /// + <c>x-session-affinity</c>）：<c>x-client-request-id</c> 是各家最通用的一条，
+    /// <c>x-session-affinity</c> 是 Fireworks 这类按副本做前缀路由的网关认的，
+    /// <c>session_id</c> 供只认下划线名的那一类。对不认识它们的网关就是未知头，直接忽略。
+    ///
+    /// <b>不动请求体</b>：头不参与前缀缓存，加它不会让任何一份已有缓存失效；
+    /// <c>prompt_cache_key</c> 那种要写进 body 的，会改字节、缓存失效一次，因此不在这里做。
+    /// </summary>
+    /// <param name="request">待发出的请求</param>
+    private static void ApplySessionAffinity(HttpRequestMessage request)
+    {
+        string? affinity = LlmRequestContext.SessionAffinity;
+        if (string.IsNullOrEmpty(affinity)) return;
+        request.Headers.TryAddWithoutValidation("session_id", affinity);
+        request.Headers.TryAddWithoutValidation("x-client-request-id", affinity);
+        request.Headers.TryAddWithoutValidation("x-session-affinity", affinity);
+    }
+
     //各家名字都不一样(OpenAI 用 x-ratelimit-*,Anthropic 用 anthropic-ratelimit-*,
     //部分国内网关用 x-tc-requestid 之类),因此按子串命中而不是白名单精确匹配
     private static readonly string[] DiagnosticHeaderHints =
         ["ratelimit", "rate-limit", "retry-after", "request-id", "requestid"];
-
     /// <summary>
     /// 失败诊断日志。**只在失败时说话**——成功路径上曾经打过一行配额头，
     /// 那是为了查清撞的到底是 TPM 还是 RPM；结论已经有了（免费档端点一个配额头都不给，

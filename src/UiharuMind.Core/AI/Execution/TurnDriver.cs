@@ -182,6 +182,9 @@ public sealed class TurnDriver : IDisposable
         IsRunning = true;
         WasCancelled = false;
         _activeSession = session;
+        // 会话亲和：本轮所有请求（工具往返、写交接那种旁路请求都算）带同一个值，
+        // 网关据此把它们钉到同一后端，复用那一份前缀缓存
+        LlmRequestContext.SessionAffinity = session.CacheAffinity;
         // 「这一轮有没有用户参与」的唯一诚实判据就是有没有用户消息——唤醒轮的自激封顶据此清零
         if (userMessage != null) SessionWakeTurn.NoteUserTurn(session.SessionId);
         _usage.BeginTurn();
@@ -386,6 +389,7 @@ public sealed class TurnDriver : IDisposable
             IsRunning = false;
             _runCancellation = null;
             _activeSession = null;
+            LlmRequestContext.SessionAffinity = null; //亲和只属于本轮,别漏给同一流程上的下一次请求
             session.CurrentRunStartedAt = null; //轮次标记随轮末清除,下一轮起跑重盖
             _notify?.Invoke(new TurnNotice(ETurnNotice.Ended));
             runScope?.Dispose(); //收尾的最后一步,见上面声明处
@@ -916,6 +920,9 @@ public sealed class TurnDriver : IDisposable
         System.Diagnostics.Stopwatch handoffTimer = System.Diagnostics.Stopwatch.StartNew();
         SessionManager.Instance.Running.NotifyStateChanged(session.SessionId); //会话列表据此转圈
         _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffStarted));
+        // 压缩跑在轮次之外，上一轮的 finally 已经把亲和清掉了；这一发同样是常规请求的前缀，
+        // 不带同一个亲和值就可能落到另一台副本上，白丢一次最大请求的缓存
+        LlmRequestContext.SessionAffinity = session.CacheAffinity;
         try
         {
             // 与常规请求同一视图:同一口径供给(不带知识库片段)、同一套压缩。发原始历史的话,前缀在第一组折叠处
@@ -982,6 +989,7 @@ public sealed class TurnDriver : IDisposable
         }
         finally
         {
+            LlmRequestContext.SessionAffinity = null;
             Busy = ETurnBusy.None;
             _compactingSessionId = null;
             _compactCancellation = null; //先摘引用再收尾:并发的 Cancel 拿到的要么是它、要么是 null

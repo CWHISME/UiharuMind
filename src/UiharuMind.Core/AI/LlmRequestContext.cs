@@ -44,4 +44,22 @@ public static class LlmRequestContext
         get => _pendingReasoningSource.Value;
         set => _pendingReasoningSource.Value = value;
     }
+
+    private static readonly AsyncLocal<string?> _sessionAffinity = new();
+
+    /// <summary>
+    /// 本次请求的<b>会话亲和</b>值：同一会话的所有请求（含工具往返、写交接文档那种旁路请求）
+    /// 带着同一个值，网关据此把它们路由到同一后端——前缀缓存按副本各存一份，
+    /// 落到没建过该前缀的副本上就是全冷启动。
+    ///
+    /// 取值规则跟 pi / opencode 一致：<b>子会话用父会话的</b>，这样委派出去的请求
+    /// 也落在同一后端，复用父会话已经建好的那份前缀。
+    ///
+    /// 由 <see cref="Execution.TurnDriver"/> 开轮时设置，HTTP 层读它写请求头。
+    /// </summary>
+    public static string? SessionAffinity
+    {
+        get => _sessionAffinity.Value;
+        set => _sessionAffinity.Value = value;
+    }
 }

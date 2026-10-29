@@ -77,6 +77,9 @@ public static class GroupBackground
         // 同一分母:成员会话若自设了上限,这一发的供给与篇幅也按它算,
         // 否则压缩后的摘要按 128k 的窗口写,回到 32k 的会话里照样超
         int contextLength = SessionContextBudget.Resolve(model.ContextLength, source.ContextLengthOverride);
+        // 会话亲和：这一发是常规请求的前缀，带同一个值才可能落在同一后端、命中同一份缓存。
+        // 后台线程上的独立流程，设完不必还原——流程结束它就随执行上下文一起没了
+        LlmRequestContext.SessionAffinity = source.CacheAffinity;
         // 与原单聊平时的请求同一视图:同一口径供给、同一套压缩,前缀才中得了它的缓存
         IReadOnlyList<ChatMessage> supplied = await HistorySupply.ForSideRequestAsync(source.History, options,
             contextLength, source.Runner.InputEstimate?.FixedOverhead ?? 0, cancellationToken).ConfigureAwait(false);
