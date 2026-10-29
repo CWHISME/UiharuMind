@@ -54,6 +54,13 @@ public class AgentBuildProfile
     /// </summary>
     public string SessionId { get; init; } = string.Empty;
 
+    /// <summary>
+    /// 会话亲和值：有会话时就是会话标识，无会话（能力预览）为空串。
+    /// 与 <see cref="ChatSession.CacheAffinity"/> 同值——按会话自己算，不继承父会话
+    /// （子会话的工具集与角色卡都可能不同，前缀从第一个 token 就分叉）。
+    /// </summary>
+    public string? CacheAffinity => string.IsNullOrEmpty(SessionId) ? null : SessionId;
+
     /// <summary>绑定的工作目录;为空表示通用助手模式(文件/shell 工具落到沙箱目录)</summary>
     public string? WorkspacePath { get; init; }
 

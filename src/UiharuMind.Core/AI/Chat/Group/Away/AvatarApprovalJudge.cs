@@ -37,8 +37,6 @@ public static class AvatarApprovalJudge
             new(ChatRole.System, Instructions(ask.Avatar)),
             new(ChatRole.User, Question(ask)),
         ];
-        // 会话亲和：与这个化身的常规请求同一个值，落在同一后端才可能吃到它的前缀缓存
-        LlmRequestContext.SessionAffinity = ask.Avatar.CacheAffinity;
         ChatResponse response = await HistorySupply.ClientFor(ask.Avatar)
             .GetResponseAsync(messages, new ChatOptions(), timeout.Token).ConfigureAwait(false);
         return Parse(response.Text);

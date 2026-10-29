@@ -60,7 +60,7 @@ internal static class AgentAssembler
         // 不拦就会按残留配置装回 shell（ADR 0043「已定」）。那时它就是个普通角色的会话
         if (profile.SubAgent != null && character.IsAgent) return SubAgentAssembly.BuildFromPlan(plan);
 
-        IChatClient client = new LazyChatClient(profile.SessionModelSource);
+        IChatClient client = new LazyChatClient(profile.SessionModelSource, profile.CacheAffinity);
         // 角色自身的提示词(人格 + 用户卡 + 对话模板)。智能体随后会在它之后接上工具纪律与
         // 工作区规矩(见 AgentOptionsFactory.BuildAgentOptions)——顺序由我们说,不交给框架的分层
         ChatOptions chatOptions = character.Config.ExecutionSettings.ToChatOptions();

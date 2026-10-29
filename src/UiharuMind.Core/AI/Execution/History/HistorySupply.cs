@@ -47,7 +47,7 @@ internal static class HistorySupply
     /// <returns>客户端；不持有底层客户端，用完不必释放</returns>
     public static IChatClient ClientFor(ChatSession session)
     {
-        return new LazyChatClient(() => session.ChatModelRunningData);
+        return new LazyChatClient(() => session.ChatModelRunningData, session.CacheAffinity);
     }
 
     /// <summary>

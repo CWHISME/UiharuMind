@@ -158,7 +158,7 @@ internal static class SubAgentAssembly
         SubSessionAssembly assembled = BuildSubSessionAssembly(plan);
         // 模型走会话覆写(派活时已把解析结果钉在子会话上,见 SubAgentTool.ResolveSubAgentModelName)——
         // 与主代理同一条解析链,于是界面显示的模型与实际问话的那个<b>由构造保证一致</b>
-        IChatClient client = new LazyChatClient(plan.Profile.SessionModelSource);
+        IChatClient client = new LazyChatClient(plan.Profile.SessionModelSource, plan.Profile.CacheAffinity);
         if (plan.ReadProjectsImages)
         {
             client = new ImagePreviewProjectingChatClient(client, plan.CreatePathResolver(null),

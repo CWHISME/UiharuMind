@@ -40,10 +40,18 @@ public class LazyChatClient : IChatClient
     private static readonly TimeSpan StreamingRetryMaxDelay = TimeSpan.FromSeconds(8);
 
     private readonly Func<ModelRunningData?>? _sessionModelSource; //会话级模型来源,优先于全局当前模型
+    private readonly string? _sessionAffinity; //会话亲和值,每发请求前落到 AsyncLocal 供 HTTP 层写头
 
-    public LazyChatClient(Func<ModelRunningData?>? sessionModelSource = null)
+    /// <param name="sessionModelSource">会话级模型来源；null 走全局当前模型</param>
+    /// <param name="sessionAffinity">
+    /// 会话亲和值（见 <see cref="ChatSession.CacheAffinity"/>）。绑在客户端实例上而不是靠调用方
+    /// 在流程里设一次：这个客户端属于某个会话，它发出的每一发都该带同一个值，
+    /// 并发会话各发各的，互不覆盖。
+    /// </param>
+    public LazyChatClient(Func<ModelRunningData?>? sessionModelSource = null, string? sessionAffinity = null)
     {
         _sessionModelSource = sessionModelSource;
+        _sessionAffinity = sessionAffinity;
     }
 
     public async Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null,
@@ -51,6 +59,7 @@ public class LazyChatClient : IChatClient
     {
         IReadOnlyList<ChatMessage> messageList = AsList(messages);
         LlmRequestContext.PendingReasoningSource = () => CollectAssistantReasoning(messageList);
+        LlmRequestContext.SessionAffinity = _sessionAffinity;
 
         var (client, model) = await ResolveAsync(cancellationToken).ConfigureAwait(false);
         ChatResponse response;
@@ -96,6 +105,7 @@ public class LazyChatClient : IChatClient
     {
         IReadOnlyList<ChatMessage> messageList = AsList(messages);
         LlmRequestContext.PendingReasoningSource = () => CollectAssistantReasoning(messageList);
+        LlmRequestContext.SessionAffinity = _sessionAffinity;
 
         var (client, model) = await ResolveAsync(cancellationToken).ConfigureAwait(false);
         HashSet<string>? toolNames = CollectToolNames(options);
