@@ -1,5 +1,6 @@
 using System.Text.Json;
 using UiharuMind.Core.Core;
+using UiharuMind.Core.Core.Extensions;
 
 namespace UiharuMind.Core.RemoteOpenAI.ModelCatalog;
 
@@ -16,7 +17,7 @@ public static class ModelCatalogJsonParser
     /// <returns>模型候选列表；data 缺失时为空列表</returns>
     public static IReadOnlyList<ModelCatalogEntry> Parse(string json)
     {
-        var response = JsonSerializer.Deserialize<ModelCatalogResponse>(json, SaveUtility.SaveJsonOptions);
+        var response = JsonSerializer.Deserialize(json, SaveUtility.SaveJsonOptions.GetTypeInfo<ModelCatalogResponse>());
         return response?.Data ?? [];
     }
 }
