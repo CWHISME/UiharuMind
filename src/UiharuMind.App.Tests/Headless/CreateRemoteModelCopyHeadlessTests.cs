@@ -33,9 +33,7 @@ public class CreateRemoteModelCopyHeadlessTests
             var window = new CreateRemoteLlmModelWindow { DataContext = vm };
             window.Show();
 
-            ComboBox idBox = window.GetVisualDescendants()
-                .OfType<ComboBox>()
-                .First(b => ReferenceEquals(b.ItemsSource, vm.VisibleModelIdOptions));
+            TextBox idBox = window.FindControl<TextBox>("ModelIdBox")!;
 
             Assert.Equal("deepseek-flash", vm.ModelId);
             Assert.Equal("deepseek-flash", idBox.Text);
@@ -58,9 +56,7 @@ public class CreateRemoteModelCopyHeadlessTests
             var window = new CreateRemoteLlmModelWindow { DataContext = vm };
             window.Show();
 
-            ComboBox idBox = window.GetVisualDescendants()
-                .OfType<ComboBox>()
-                .First(b => ReferenceEquals(b.ItemsSource, vm.VisibleModelIdOptions));
+            TextBox idBox = window.FindControl<TextBox>("ModelIdBox")!;
 
             vm.SelectedModelIdOption = vm.ModelIdOptions.First(o => o.Id == "deepseek-v4-pro");
 
@@ -81,9 +77,7 @@ public class CreateRemoteModelCopyHeadlessTests
             var window = new CreateRemoteLlmModelWindow { DataContext = vm };
             window.Show();
 
-            ComboBox idBox = window.GetVisualDescendants()
-                .OfType<ComboBox>()
-                .First(b => ReferenceEquals(b.ItemsSource, vm.VisibleModelIdOptions));
+            TextBox idBox = window.FindControl<TextBox>("ModelIdBox")!;
 
             idBox.Text = "my-custom-id";
 

@@ -19,6 +19,7 @@ using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.LLM;
 using UiharuMind.Core.RemoteOpenAI;
+using UiharuMind.Core.RemoteOpenAI.ModelCatalog;
 
 namespace UiharuMind.Core.AI.Core;
 
@@ -36,6 +37,8 @@ public class ModelRunningData : INotifyPropertyChanged
 
     private IChatClient? _chatClient;
     private int _runtimeContextSize; //本地模型实际加载的上下文大小,0 表示未知(远程模型不用它)
+    private ModelPrice? _price; //价格只解一次:来自构建期静态表,运行期不会变
+    private bool _priceResolved;
 
     // private ChatThread? _chatThread;
     private CancellationTokenSource? _cts;
@@ -86,6 +89,35 @@ public class ModelRunningData : INotifyPropertyChanged
         : "";
 
     /// <summary>
+    /// 该供应商公布的单价（USD / 百万 token）。<c>null</c> 表示不适用或没公布——
+    /// 本地模型是免费但不算"有价"，转售商没挂牌也不是免费
+    /// </summary>
+    public ModelPrice? Price
+    {
+        get
+        {
+            if (_priceResolved) return _price;
+            _priceResolved = true;
+            if (_modelInfo is RemoteModelInfo remote &&
+                ModelCapabilityResolver.TryGetPrice(remote.Config, out ModelPrice price))
+            {
+                _price = price;
+            }
+
+            return _price;
+        }
+    }
+
+    /// <summary>列表行里那一段"输入 / 输出 / 缓存读"；没价为空串</summary>
+    public string PriceSummary => Price?.Summary ?? "";
+
+    /// <summary>是否有可显示的单价</summary>
+    public bool HasPrice => Price != null;
+
+    /// <summary>悬停明细（单位、缓存写、阶梯价）；没价为空串</summary>
+    public string PriceTip => Price?.Tip ?? "";
+
+    /// <summary>
     /// 是否处于运行中
     /// </summary>
     public bool IsRunning => _isLoaded && _chatClient != null && !((_cts?.IsCancellationRequested) ?? true);
@@ -134,6 +166,8 @@ public class ModelRunningData : INotifyPropertyChanged
     public void ForceUpdateModelInfo(ILlmModel modelInfo)
     {
         _modelInfo = modelInfo;
+        _priceResolved = false; //换了模型信息,价格要按新的重解
+        _price = null;
     }
 
     /// <summary>

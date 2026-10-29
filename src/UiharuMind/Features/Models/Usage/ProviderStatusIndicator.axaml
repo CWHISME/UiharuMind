@@ -14,6 +14,9 @@
             <Border Name="Dot" Classes="status-dot" Tag="Ready" IsVisible="False" />
             <TextBlock Name="Readout" Classes="muted" FontSize="12" VerticalAlignment="Center"
                        MaxWidth="200" TextTrimming="CharacterEllipsis" />
+            <!-- 缓存读单价：长会话里真正吃钱的那一项，顶栏上留一段就够，输入/输出在明细里看 -->
+            <TextBlock Name="CachePrice" Classes="muted" FontSize="12" VerticalAlignment="Center"
+                       IsVisible="False" />
             <controls:KindBadge Name="Badge" BadgeBackground="Gold" IsVisible="False" />
         </StackPanel>
         <Button.Flyout>

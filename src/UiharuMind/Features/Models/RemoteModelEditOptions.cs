@@ -57,6 +57,44 @@ public sealed class ModelIdOptionItem
     /// </summary>
     public EApiFormat ApiFormat { get; init; }
 
+    /// <summary>
+    /// 该供应商公布的单价；<c>null</c> 表示没公布（不是免费）
+    /// </summary>
+    public ModelPrice? Price { get; init; }
+
+    /// <summary>
+    /// 该模型声明支持的思考档位（如 <c>low,high,max</c>），空串表示没声明
+    /// </summary>
+    public string Efforts { get; init; } = "";
+
+    /// <summary>
+    /// 候选行里那一小段价格（入/出/缓存读，每百万 token），放不下带单位的完整写法；
+    /// 缓存读为 0（不单独计价）时不占位，免得出现 "$0.15/$0.6/$0" 这种误导
+    /// </summary>
+    public string PriceDisplay => Price is { IsKnown: true } price
+        ? price.IsFree ? "free" : ComposePriceDisplay(price)
+        : "";
+
+    private static string ComposePriceDisplay(ModelPrice price) =>
+        price.CacheRead > 0
+            ? $"{ModelPrice.Format(price.Input)}/{ModelPrice.Format(price.Output)}/{ModelPrice.Format(price.CacheRead)}"
+            : $"{ModelPrice.Format(price.Input)}/{ModelPrice.Format(price.Output)}";
+
+    /// <summary>
+    /// 排序键：没公布价格的排在最后（不能当 0 参与比较，否则"免费"会被排到"未知"后面之后）
+    /// </summary>
+    /// <param name="sort">排序维度</param>
+    /// <returns>比较用的值；无价时 null</returns>
+    public decimal? SortKey(EModelPriceSort sort) => Price is { IsKnown: true } price
+        ? sort switch
+        {
+            EModelPriceSort.Input => price.Input,
+            EModelPriceSort.Output => price.Output,
+            EModelPriceSort.CacheRead => price.CacheRead,
+            _ => null
+        }
+        : null;
+
     /// <summary>上下文长度的紧凑显示（如 1M / 256K），0 或未预设时为空</summary>
     public string ContextDisplay => ContextLength > 0 ? FormatContext(ContextLength) : "";
 
@@ -73,6 +111,40 @@ public sealed class ModelIdOptionItem
         > 0 => contextLength.ToString(),
         _ => "",
     };
+}
+
+/// <summary>
+/// 模型候选的排序维度。<see cref="Default"/> 保持目录/预设给的顺序——
+/// 那是供应商自己排的（通常按新旧或推荐度），按价格排只是为了找便宜的模型
+/// </summary>
+public enum EModelPriceSort
+{
+    /// <summary>目录原序</summary>
+    Default,
+
+    /// <summary>输入单价升序</summary>
+    Input,
+
+    /// <summary>输出单价升序</summary>
+    Output,
+
+    /// <summary>缓存读单价升序</summary>
+    CacheRead
+}
+
+/// <summary>
+/// 排序下拉条目
+/// </summary>
+public sealed class ModelSortOption
+{
+    /// <summary>排序维度</summary>
+    public required EModelPriceSort Sort { get; init; }
+
+    /// <summary>本地化显示名</summary>
+    public required string Display { get; init; }
+
+    /// <summary>控件没套模板时的兜底显示文本</summary>
+    public override string ToString() => Display;
 }
 
 /// <summary>

@@ -109,6 +109,8 @@ public partial class ProviderStatusIndicator : UserControl
 
         Trigger.IsVisible = !data.IsEmpty;
         Readout.Text = data.Readout;
+        CachePrice.Text = data.CacheReadPriceText;
+        CachePrice.IsVisible = data.HasCacheReadPrice;
         Dot.IsVisible = data.HasDot;
         Dot.Tag = data.DotTag;
         Badge.IsVisible = data.HasBadge;

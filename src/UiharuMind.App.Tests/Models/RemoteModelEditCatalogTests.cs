@@ -439,4 +439,49 @@ public class RemoteModelEditCatalogTests
         Assert.Equal("grok-4.6", vm.SelectedModelIdOption?.Id); // 选中项对齐到目录里的同一条
         Assert.Equal("32768", vm.ContextLengthText); // 用户手动值不被目录预填覆盖
     }
+
+    /// <summary>候选行带上缓存读价（只有输入输出两段时看不出缓存命中要花多少）</summary>
+    [Fact]
+    public void CandidateRow_ShowsCacheReadPrice()
+    {
+        var fetcher = new FakeCatalogFetcher
+        {
+            Handler = (_, _) => Task.FromResult<IReadOnlyList<ModelCatalogEntry>>(
+                [Entry("deepseek/deepseek-v4.1-flash")]),
+        };
+        var vm = CreateVm(fetcher, new FakeCatalogCache());
+
+        vm.SelectedProvider = vm.Providers.First(p => p.ConfigType == typeof(RemoteCommandCodeModelConfig));
+
+        Assert.Equal("$0.15/$0.6/$0.003", Assert.Single(vm.ModelIdOptions).PriceDisplay);
+    }
+
+    /// <summary>
+    /// 按单价排序：没公布价格的排最后——不能当 0 参与比较，
+    /// 否则"未公布"会挤在真正便宜的模型前面
+    /// </summary>
+    [Fact]
+    public void SortByInputPrice_PutsUnpricedCandidatesLast()
+    {
+        var fetcher = new FakeCatalogFetcher
+        {
+            Handler = (_, _) => Task.FromResult<IReadOnlyList<ModelCatalogEntry>>(
+            [
+                Entry("claude-opus-5"),
+                Entry("no-price-model"),
+                Entry("Qwen/Qwen3.7-Flash"),
+                Entry("deepseek/deepseek-v4-flash"),
+            ]),
+        };
+        var vm = CreateVm(fetcher, new FakeCatalogCache());
+        vm.SelectedProvider = vm.Providers.First(p => p.ConfigType == typeof(RemoteCommandCodeModelConfig));
+        Assert.Equal(EModelPriceSort.Default, vm.SelectedSortOption.Sort);
+        Assert.Equal("claude-opus-5", vm.VisibleModelIdOptions[0].Id); // 默认保持目录原序
+
+        vm.SelectedSortOption = vm.SortOptions.Single(option => option.Sort == EModelPriceSort.Input);
+
+        Assert.Equal(
+            ["Qwen/Qwen3.7-Flash", "deepseek/deepseek-v4-flash", "claude-opus-5", "no-price-model"],
+            vm.VisibleModelIdOptions.Select(option => option.Id));
+    }
 }

@@ -9,6 +9,7 @@ using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Status;
 using UiharuMind.Core.Configs.RemoteAI;
+using UiharuMind.Core.RemoteOpenAI.ModelCatalog;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 
@@ -69,6 +70,18 @@ public sealed partial class ProviderStatusViewData : ObservableObject, IDisposab
     [ObservableProperty] private string _monthlyResetText = "";
     [ObservableProperty] private bool _hasUsageStats;
     [ObservableProperty] private string _usageStatsText = "";
+
+    /// <summary>当前模型的挂牌单价（来自构建期的价格表，不是会话统计）</summary>
+    [ObservableProperty] private bool _hasModelPrice;
+
+    [ObservableProperty] private string _modelPriceText = "";
+
+    /// <summary>顶栏读数尾巴上的缓存读单价（如「· cache $0.003」）；未公布缓存读价时为空</summary>
+    [ObservableProperty] private string _cacheReadPriceText = "";
+
+    /// <summary>是否有可显示的缓存读单价（0 不等于免费，没有就是没有）</summary>
+    [ObservableProperty] private bool _hasCacheReadPrice;
+
     [ObservableProperty] private bool _hasCredentialWarning;
     [ObservableProperty] private string _credentialHint = "";
     [ObservableProperty] private string _dataAgeText = "";
@@ -302,6 +315,8 @@ public sealed partial class ProviderStatusViewData : ObservableObject, IDisposab
         PanelTitle = string.Join(" · ", new[] { snapshot.ProviderName, balance?.PlanName, snapshot.AccountName }
             .Where(part => !string.IsNullOrWhiteSpace(part)));
 
+        ApplyModelPrice(context, notices);
+
         IReadOnlyList<ProviderStatusMeterRow> rows = BuildMeterRows(snapshot.Meters, now);
         if (!MeterRows.SequenceEqual(rows)) MeterRows = rows;
         HasMeters = rows.Count > 0;
@@ -322,6 +337,10 @@ public sealed partial class ProviderStatusViewData : ObservableObject, IDisposab
         Readout = "";
         BadgeText = "";
         PanelTitle = "";
+        HasModelPrice = false;
+        ModelPriceText = "";
+        HasCacheReadPrice = false;
+        CacheReadPriceText = "";
         HasMeters = false;
         HasBalance = false;
         BalanceText = "";
@@ -339,8 +358,44 @@ public sealed partial class ProviderStatusViewData : ObservableObject, IDisposab
         if (MeterRows.Count > 0) MeterRows = [];
     }
 
-    private string ComposeReadout(IReadOnlyList<ProviderUsageMeter> meters, DateTimeOffset now)
+    /// <summary>
+    /// 当前模型的挂牌单价：数据来自构建期的价格表（<c>ModelCapabilityResolver</c>），
+    /// <b>不是</b>本会话的用量统计——顶栏回答的是「这个模型多少钱」，不是「我花了多少」。
+    /// 处于高峰计价时按提示项的倍率放大，那正是用户此刻实际要付的价。
+    /// </summary>
+    /// <param name="context">当前取数目标（带配置类型与模型 ID）</param>
+    /// <param name="notices">本次算出的提示项（峰时倍率从这里取）</param>
+    private void ApplyModelPrice(ProviderStatusContext context, IReadOnlyList<ProviderStatusNotice> notices)
     {
+        if (!ModelCapabilityResolver.TryGetPrice(context.ConfigType, context.ModelId, out ModelPrice price))
+        {
+            HasModelPrice = false;
+            ModelPriceText = "";
+            HasCacheReadPrice = false;
+            CacheReadPriceText = "";
+            return;
+        }
+
+        double multiplier = notices.FirstOrDefault(n => n.Kind == EProviderNoticeKind.PeakPricing)?.Multiplier ?? 1;
+        decimal scale = multiplier > 0 ? (decimal)multiplier : 1m;
+        HasModelPrice = true;
+        ModelPriceText = price.IsFree
+            ? Loc.Text(LangKey.ProviderStatusFreeModel)
+            : string.Format(Loc.Text(LangKey.ProviderStatusPriceValues),
+                ModelPrice.Format(price.Input * scale),
+                ModelPrice.Format(price.Output * scale),
+                ModelPrice.Format(price.CacheRead * scale));
+
+        // 顶栏只放一段最值得盯的：缓存读是长会话里真正吃钱的那一项（命中一次就按它计价），
+        // 输入/输出在明细面板里再看。表里没这一档（0）就不显示——写成 $0 会被读成"缓存不要钱"
+        HasCacheReadPrice = price.CacheRead > 0;
+        CacheReadPriceText = HasCacheReadPrice
+            ? string.Format(Loc.Text(LangKey.ProviderStatusCacheReadPrice),
+                ModelPrice.Format(price.CacheRead * scale))
+            : "";
+    }
+
+    private string ComposeReadout(IReadOnlyList<ProviderUsageMeter> meters, DateTimeOffset now)    {
         if (meters.Count == 0) return "";
 
         //打满时不说「还剩多少」，直接说什么时候能再用——那才是用户此刻唯一关心的

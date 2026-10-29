@@ -114,7 +114,31 @@ public sealed class ProviderStatusTopBarTests
         window.Close();
     });
 
-    private static ProviderStatusViewData CreateData()
+    /// <summary>
+    /// 顶栏读数后面跟一段缓存读单价——长会话里真正吃钱的是缓存命中那一档，
+    /// 输入/输出留在明细面板里。价格不能把「5h 32% · 周 41%」挤换行。
+    /// </summary>
+    [Fact]
+    public void WithPricedModel_CacheReadPriceFollowsReadout() => HeadlessUi.Run(() =>
+    {
+        ConversationView view = Show(out Window window);
+        ProviderStatusIndicator indicator = view.GetVisualDescendants().OfType<ProviderStatusIndicator>().Single();
+        indicator.Data = CreateData("deepseek/deepseek-v4.1-flash");
+        Dispatcher.UIThread.RunJobs();
+        view.UpdateLayout();
+
+        TextBlock cache = indicator.FindControl<TextBlock>("CachePrice")!;
+        Assert.True(cache.IsVisible);
+        Assert.Contains("$0.003", cache.Text);
+
+        TextBlock readout = indicator.FindControl<TextBlock>("Readout")!;
+        Assert.True(readout.Bounds.Height <= MaxReadoutHeight, $"读数换行了：{readout.Bounds.Height}");
+        Capture(window, "provider-status-cache-price");
+
+        window.Close();
+    });
+
+    private static ProviderStatusViewData CreateData(string modelId = "deepseek-v4-flash")
     {
         DateTimeOffset now = new(2026, 10, 26, 12, 0, 0, TimeSpan.Zero);
         StubProviderStatusSource source = new()
@@ -131,7 +155,7 @@ public sealed class ProviderStatusTopBarTests
             new StubProviderStatusRegistry(typeof(RemoteCommandCodeModelConfig), source), () => now);
         ProviderStatusViewData data = new(
             () => new ProviderStatusContext(typeof(RemoteCommandCodeModelConfig), "https://api.commandcode.ai",
-                "key-a", "deepseek-v4-flash", "DeepSeek V4 Flash"),
+                "key-a", modelId, "DeepSeek V4 Flash"),
             status, () => now, action => action());
         data.Pump();
         return data;

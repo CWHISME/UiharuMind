@@ -68,6 +68,34 @@ public class ChatModelListTests
         });
     }
 
+    /// <summary>供应商公布了单价时，远程那一行带上"输入/输出/缓存读"（本地模型不显示）</summary>
+    [Fact]
+    public void RemoteRow_ShowsPublishedPrice()
+    {
+        HeadlessUi.Run(() =>
+        {
+            ObservableCollection<ModelRunningData> models =
+            [
+                new(new RemoteModelInfo
+                {
+                    Config = new RemoteDeepSeekModelConfig { ModelName = "DeepSeek", ModelId = "deepseek-flash" },
+                    ApiKey = "key",
+                }),
+            ];
+            ModelPageData data = new(new RecordingMessageService(), modelSources: models);
+            Window window = new() { Width = 960, Height = 560, Content = new ModelPage { DataContext = data } };
+            window.Show();
+            data.ChatModels.IsListDataReady = true;
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            ChatModelListView view = window.GetVisualDescendants().OfType<ChatModelListView>().Single();
+            Assert.Contains(view.GetVisualDescendants().OfType<TextBlock>(),
+                text => text.Text == "in $0.15 · out $0.6 · cache $0.003");
+            window.Close();
+        });
+    }
+
     private static void Capture(Window window, string name)
     {
         string dir = Environment.GetEnvironmentVariable("MODEL_DOWNLOAD_SHOTS_DIR") ?? Path.GetTempPath();

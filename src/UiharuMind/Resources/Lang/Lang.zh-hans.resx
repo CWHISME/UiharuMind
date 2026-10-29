@@ -6145,4 +6145,37 @@
     <data name="ProviderStatusDataJustNow" xml:space="preserve">
         <value>数据 刚刚</value>
     </data>
+    <data name="RemoteModelPriceFormat" xml:space="preserve">
+        <value>单价 {0}</value>
+    </data>
+    <data name="RemoteModelPriceUnknown" xml:space="preserve">
+        <value>该供应商未公布单价</value>
+    </data>
+    <data name="RemoteModelEffortsFormat" xml:space="preserve">
+        <value>思考档位 {0}</value>
+    </data>
+    <data name="RemoteModelSortDefault" xml:space="preserve">
+        <value>目录</value>
+    </data>
+    <data name="RemoteModelSortInput" xml:space="preserve">
+        <value>输入价</value>
+    </data>
+    <data name="RemoteModelSortOutput" xml:space="preserve">
+        <value>输出价</value>
+    </data>
+    <data name="RemoteModelSortCacheRead" xml:space="preserve">
+        <value>缓存读价</value>
+    </data>
+    <data name="RemoteModelSortTip" xml:space="preserve">
+        <value>按每百万 token 单价排序，未公布价格的排在最后</value>
+    </data>
+    <data name="ProviderStatusPriceLabel" xml:space="preserve">
+        <value>单价（每百万 token）</value>
+    </data>
+    <data name="ProviderStatusPriceValues" xml:space="preserve">
+        <value>入 {0} · 出 {1} · 缓存读 {2}</value>
+    </data>
+    <data name="ProviderStatusCacheReadPrice" xml:space="preserve">
+        <value>· 缓存读 {0}</value>
+    </data>
 </root>

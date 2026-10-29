@@ -77,13 +77,18 @@
                                                        Foreground="{DynamicResource MessageStatusInfoBrush}" />
                                         </StackPanel>
                                     </StackPanel>
-                                    <!-- 本地：大小、量化、上下文；远程：接口地址 -->
+                                    <!-- 本地：大小、量化、上下文；远程：接口地址 + 挂牌单价 -->
                                     <TextBlock Text="{Binding ModelMetadataSummary}" Classes="muted" FontSize="12"
                                                TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ModelPath}"
                                                IsVisible="{Binding !IsRemoteModel}" />
-                                    <TextBlock Text="{Binding ModelPath}" Classes="muted" FontSize="12"
-                                               TextTrimming="CharacterEllipsis"
-                                               IsVisible="{Binding IsRemoteModel}" />
+                                    <DockPanel IsVisible="{Binding IsRemoteModel}">
+                                        <TextBlock DockPanel.Dock="Right" Classes="muted" FontSize="12"
+                                                   Margin="8,0,0,0" VerticalAlignment="Center"
+                                                   Text="{Binding PriceSummary}" ToolTip.Tip="{Binding PriceTip}"
+                                                   IsVisible="{Binding HasPrice}" />
+                                        <TextBlock Text="{Binding ModelPath}" Classes="muted" FontSize="12"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
                                 </StackPanel>
 
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2"

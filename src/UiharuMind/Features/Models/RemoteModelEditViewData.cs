@@ -46,6 +46,7 @@ public partial class RemoteModelEditViewData : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanConfirm))]
     [NotifyPropertyChangedFor(nameof(HasModelIdError))]
+    [NotifyPropertyChangedFor(nameof(SelectedCapabilitySummary))]
     private string _modelId = "";
     [ObservableProperty] private string _modelDescription = "";
     [ObservableProperty] private bool _isVision;
@@ -86,8 +87,6 @@ public partial class RemoteModelEditViewData : ObservableObject
             ? option.MaxTokens.ToString()
             : BaseRemoteModelConfig.DefaultMaxTokens.ToString();
 
-    [ObservableProperty] private bool _isVisionEditable = true;
-
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsReasoningRoundtripAutoDetect))]
     [NotifyPropertyChangedFor(nameof(IsReasoningRoundtripForceOn))]
@@ -125,6 +124,34 @@ public partial class RemoteModelEditViewData : ObservableObject
 
     /// <summary>目录候选的显示集合：跟随 ModelId 文本过滤，空文本显示全量（ADR 0092）</summary>
     public ObservableCollection<ModelIdOptionItem> VisibleModelIdOptions { get; } = new();
+
+    /// <summary>候选排序维度（默认保持目录原序）</summary>
+    public ModelSortOption[] SortOptions { get; }
+
+    [ObservableProperty] private ModelSortOption _selectedSortOption;
+
+    partial void OnSelectedSortOptionChanged(ModelSortOption value) => RefreshVisibleModelIdOptions();
+
+    /// <summary>
+    /// 至少有一条候选公布了单价——排序头据此决定出不出现。
+    /// 没有价格可排的供应商（sensenova 之类）不该看到一个点了没反应的排序开关。
+    /// </summary>
+    [ObservableProperty] private bool _hasSortablePrices;
+
+    /// <summary>模型 ID 下拉（候选浮层）是否展开</summary>
+    [ObservableProperty] private bool _isModelPickerOpen;
+
+    /// <summary>
+    /// 点选候选：写入 ID、按预设预填，然后收起浮层。
+    /// 同一项重复点不会触发 <see cref="OnSelectedModelIdOptionChanged"/>，但手输过的文本仍要拉回来。
+    /// </summary>
+    /// <param name="option">被点选的候选</param>
+    public void SelectModelIdOption(ModelIdOptionItem option)
+    {
+        SelectedModelIdOption = option;
+        if (ModelId != option.Id) ModelId = option.Id;
+        IsModelPickerOpen = false;
+    }
 
     /// <summary>自定义服务商的目录地址（表单字段，不随模型存档）</summary>
     [ObservableProperty]
@@ -169,7 +196,35 @@ public partial class RemoteModelEditViewData : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsReasoningRoundtripPresetAuto))]
     [NotifyPropertyChangedFor(nameof(IsReasoningRoundtripPresetOff))]
     [NotifyPropertyChangedFor(nameof(MaxTokensPlaceholder))]
+    [NotifyPropertyChangedFor(nameof(SelectedCapabilitySummary))]
     private ModelIdOptionItem? _selectedModelIdOption;
+
+    /// <summary>
+    /// 当前模型 ID 的能力摘要：上下文、挂牌单价、声明的思考档位。
+    /// 手输的 ID 不在候选里也照查（价格与档位本来就是查表来的），查不到就明说"未公布"，
+    /// 不写 0 也不留空——空着会被读成"免费"
+    /// </summary>
+    public string SelectedCapabilitySummary
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(ModelId)) return "";
+            List<string> parts = [];
+            ModelIdOptionItem? option = SelectedModelIdOption;
+            if (option is { ContextLength: > 0 }) parts.Add(option.ContextDisplay);
+
+            ModelPrice? price = option?.Price ?? ResolvePrice(ModelId);
+            parts.Add(price is { IsKnown: true } known
+                ? string.Format(Loc.Text(LangKey.RemoteModelPriceFormat), known.Summary)
+                : Loc.Text(LangKey.RemoteModelPriceUnknown));
+
+            string efforts = option is { Efforts.Length: > 0 } ? option.Efforts : ResolveEfforts(ModelId);
+            if (efforts.Length > 0)
+                parts.Add(string.Format(Loc.Text(LangKey.RemoteModelEffortsFormat), efforts));
+
+            return string.Join(" · ", parts);
+        }
+    }
 
     /// <summary>覆盖开关留空(自动检测)时,当前选中模型的预设判断:要求回传,供界面提示用</summary>
     public bool PresetReplaysExistingReasoning => SelectedModelIdOption?.ReplayExistingReasoning == true;
@@ -275,6 +330,17 @@ public partial class RemoteModelEditViewData : ObservableObject
         IsEditMode = remoteModelInfo != null;
         _catalogFetcher = catalogFetcher ?? new ModelCatalogFetcher();
         _catalogCache = catalogCache ?? new ModelCatalogCache();
+        SortOptions =
+        [
+            new ModelSortOption { Sort = EModelPriceSort.Default, Display = Loc.Text(LangKey.RemoteModelSortDefault) },
+            new ModelSortOption { Sort = EModelPriceSort.Input, Display = Loc.Text(LangKey.RemoteModelSortInput) },
+            new ModelSortOption { Sort = EModelPriceSort.Output, Display = Loc.Text(LangKey.RemoteModelSortOutput) },
+            new ModelSortOption
+            {
+                Sort = EModelPriceSort.CacheRead, Display = Loc.Text(LangKey.RemoteModelSortCacheRead)
+            },
+        ];
+        _selectedSortOption = SortOptions[0]; //直接写字段：构造期不必触发一次列表重建
 
         foreach (Type type in RemoteModelConfigRegistry.ProviderTypes)
         {
@@ -340,7 +406,10 @@ public partial class RemoteModelEditViewData : ObservableObject
         config.MaxTokens =
             int.TryParse(MaxTokensText.Trim(), out var maxTokens) && maxTokens > 0 ? maxTokens : 0;
         config.ThinkingMode = (EThinkingMode)ThinkingModeIndex;
-        if (IsVisionEditable) config.IsVision = IsVision;
+        // 没动过就保持"跟随推导"：把界面上那个派生值当成用户选择存下来，
+        // 会让下次模型表修好之后仍然沿用旧的判断（<see cref="BaseRemoteModelConfig.IsVisionOverride"/>）
+        bool derivedVision = ModelCapabilityResolver.ResolveVision(config);
+        config.IsVisionOverride = IsVision == derivedVision ? null : IsVision;
         config.OmitSamplingParams = OmitSamplingParams;
         config.ReplayExistingReasoningOverride = ReplayExistingReasoningOverride;
         // 目录项带 wire 信息：选中时按端点写入 ApiFormat；手输/未选不碰（保留旧值/默认 ChatCompletions，ADR 0092）
@@ -450,7 +519,6 @@ public partial class RemoteModelEditViewData : ObservableObject
         // 注意:下面的 ModelIdOptions.Clear() 会触发 ItemsSource 的 Reset,控件侧会把
         // Text 置空并经双向绑定回写 VM(复制模型时源 ID 就是这么丢的)。先留底再重建。
         var currentId = ModelId;
-        IsVisionEditable = ProbeIsVisionWritable(config);
         IsPresetProvider = config.GetType() != typeof(RemoteModelConfig);
         ModelIdOptions.Clear();
         foreach (string option in config.ModelIdVariants.Keys)
@@ -480,6 +548,8 @@ public partial class RemoteModelEditViewData : ObservableObject
                 MaxTokens = maxTokens,
                 ReplayExistingReasoning = replayExistingReasoning,
                 OmitSamplingParams = omitSamplingParams,
+                Price = ResolvePrice(option),
+                Efforts = ResolveEfforts(option),
             });
         }
 
@@ -593,6 +663,8 @@ public partial class RemoteModelEditViewData : ObservableObject
                 OmitSamplingParams = capabilities.OmitSamplingParams,
                 ReplayExistingReasoning = preset?.ReplayExistingReasoning,
                 ApiFormat = EApiFormat.ChatCompletions,
+                Price = ResolvePrice(entry.Id),
+                Efforts = ResolveEfforts(entry.Id),
             });
         }
 
@@ -605,20 +677,33 @@ public partial class RemoteModelEditViewData : ObservableObject
         if (!IsEditMode) ApplyModelIdPreset(SelectedModelIdOption);
     }
 
-    /// <summary>按 ModelId 文本过滤可见候选（id 或显示名，忽略大小写子串；空文本=全量）</summary>
+    /// <summary>按 ModelId 文本过滤可见候选（id 或显示名，忽略大小写子串；空文本=全量），再按选定维度排序</summary>
     private void RefreshVisibleModelIdOptions()
     {
         string filter = ModelId.Trim();
-        VisibleModelIdOptions.Clear();
-        foreach (ModelIdOptionItem option in ModelIdOptions)
+        List<ModelIdOptionItem> matches = ModelIdOptions
+            .Where(option => filter.Length == 0 ||
+                             option.Id.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+                             option.DisplayName.Contains(filter, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        EModelPriceSort sort = SelectedSortOption?.Sort ?? EModelPriceSort.Default;
+        if (sort != EModelPriceSort.Default)
         {
-            if (filter.Length == 0 ||
-                option.Id.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
-                option.DisplayName.Contains(filter, StringComparison.OrdinalIgnoreCase))
-            {
-                VisibleModelIdOptions.Add(option);
-            }
+            // 没公布价格的排最后（不能当 0 比，否则"未公布"会挤在免费模型前面）；
+            // 同价再按 ID 排，免得每次刷新顺序跟着字典遍历抖
+            matches = matches
+                .OrderBy(option => option.SortKey(sort) is null ? 1 : 0)
+                .ThenBy(option => option.SortKey(sort) ?? 0m)
+                .ThenBy(option => option.Id, StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
+
+        VisibleModelIdOptions.Clear();
+        foreach (ModelIdOptionItem option in matches) VisibleModelIdOptions.Add(option);
+
+        // 按全部候选判（不是过滤后的）：搜到只剩无价的一条时排序头不该突然消失
+        HasSortablePrices = ModelIdOptions.Any(option => option.Price is { IsKnown: true });
     }
 
     /// <summary>
@@ -667,22 +752,25 @@ public partial class RemoteModelEditViewData : ObservableObject
         if (option == null) return;
         if (option.ContextLength > 0) ContextLengthText = option.ContextLength.ToString();
         if (option.MaxTokens > 0) MaxTokensText = option.MaxTokens.ToString();
-        if (IsVisionEditable) IsVision = option.IsVision;
+        IsVision = option.IsVision;
         OmitSamplingParams = option.OmitSamplingParams;
         // 换了模型,之前针对旧模型的手动覆盖不该带过来——重置为"跟随预设",预设值随下拉框联动展示
         ReplayExistingReasoningOverride = null;
     }
 
+    /// <summary>编辑模式认原实例的配置类型，创建/复制模式认草稿（价格与档位都按这个去查表）</summary>
+    private Type? EffectiveConfigType => _sourceInfo?.Config.GetType() ?? _draftConfig?.GetType();
+
     /// <summary>
-    /// 探测 IsVision 是否可写:部分服务商以只读 override 锁定该值(如智谱 Vision),写入是空操作。
-    /// 当前各配置属性均为无副作用的自动属性;若未来 setter 增加副作用,需改造此探测方式
+    /// 当前模型的挂牌单价；供应商没公布、或自定义服务商查不到时为 null
     /// </summary>
-    private static bool ProbeIsVisionWritable(BaseRemoteModelConfig config)
-    {
-        var original = config.IsVision;
-        config.IsVision = !original;
-        var writable = config.IsVision != original;
-        config.IsVision = original;
-        return writable;
-    }
+    private ModelPrice? ResolvePrice(string modelId) =>
+        EffectiveConfigType is { } configType &&
+        ModelCapabilityResolver.TryGetPrice(configType, modelId, out ModelPrice price)
+            ? price
+            : null;
+
+    /// <summary>当前模型声明的思考档位；没声明为空串</summary>
+    private string ResolveEfforts(string modelId) =>
+        EffectiveConfigType is { } configType ? ModelCapabilityResolver.ResolveEfforts(configType, modelId) : "";
 }

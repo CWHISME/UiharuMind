@@ -4,6 +4,7 @@ using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Core.Attributes;
 using UiharuMind.Core.Core.Configs;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Core.RemoteOpenAI.ModelCatalog;
 
 namespace UiharuMind.Core.Configs.RemoteAI;
 
@@ -28,7 +29,29 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
 
     public virtual string ModelDescription { get; set; } = string.Empty;
     public virtual string ModelId { get; set; } = string.Empty;
-    public virtual bool IsVision { get; set; }
+
+    /// <summary>
+    /// 用户显式指定的"是否视觉模型"。<c>null</c> 表示跟随推导（<see cref="ModelCapabilityResolver.ResolveVision"/>）。
+    ///
+    /// 为什么不直接存 bool：能力本来就是"表里查出来的"，存下来就冻结成建模型那一刻的判断。
+    /// 转售商目录缺行时预填值可能是错的（实测 commandcode 下的 MiMo 就是这样被存成非视觉，
+    /// 结果图片发不出去），而表会在下一次生成时修好——只有留出"未覆盖"这一档，修好的值才带得过去。
+    /// 同款结构见 <see cref="ReplayExistingReasoningOverride"/>。
+    /// </summary>
+    [SettingConfigIgnoreDisplay]
+    public virtual bool? IsVisionOverride { get; set; }
+
+    /// <summary>
+    /// 是否视觉模型：用户显式设置 &gt; 预设变体 &gt; 供应商条目 &gt; canonical 兜底。
+    /// 写入即视为用户显式指定（见 <see cref="IsVisionOverride"/>）
+    /// </summary>
+    [JsonIgnore]
+    [SettingConfigIgnoreDisplay]
+    public virtual bool IsVision
+    {
+        get => IsVisionOverride ?? ModelCapabilityResolver.ResolveVision(this);
+        set => IsVisionOverride = value;
+    }
 
     /// <summary>
     /// 是否不发送采样参数(temperature/top_p/presence_penalty/frequency_penalty)。

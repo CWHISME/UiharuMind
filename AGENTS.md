@@ -121,6 +121,11 @@ bin 里的裸 exe 是 ad-hoc 签名、身份不同——从终端/脚本裸跑�
 打包与发版的口径（版本号唯一来源、发布参数、构建脚本与 CI、macOS 签名）见
 [docs/adr/0029-打包与发版，macOS签名必须用自签名证书.md](docs/adr/0029-打包与发版，macOS签名必须用自签名证书.md)。
 
+出包前跑一次 `src/Build/updateModelInfo.sh`：刷新 `ModelCapabilityTable.g.cs`（models.dev 能力/价格）
+与 `ProviderPricingTable.g.cs`（各家官网价格）。这两张表是「重新生成即改数」，脚本要联网，
+所以没接进 `dotnet build`；生成器的正文在 `src/scripts/modelInfoGenerator/`，一家抓取器一个文件。
+（ADR 0097）
+
 ## 代码规范
 
 正确使用注释：注释精简、无冗余注释，简单代码可忽略，必要代码才进行合理注释。

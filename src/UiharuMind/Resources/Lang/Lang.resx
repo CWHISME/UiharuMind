@@ -6150,4 +6150,37 @@ Enable it?</value>
     <data name="ProviderStatusDataJustNow" xml:space="preserve">
         <value>updated just now</value>
     </data>
+    <data name="RemoteModelPriceFormat" xml:space="preserve">
+        <value>price {0}</value>
+    </data>
+    <data name="RemoteModelPriceUnknown" xml:space="preserve">
+        <value>price not published</value>
+    </data>
+    <data name="RemoteModelEffortsFormat" xml:space="preserve">
+        <value>efforts {0}</value>
+    </data>
+    <data name="RemoteModelSortDefault" xml:space="preserve">
+        <value>Catalog</value>
+    </data>
+    <data name="RemoteModelSortInput" xml:space="preserve">
+        <value>Input</value>
+    </data>
+    <data name="RemoteModelSortOutput" xml:space="preserve">
+        <value>Output</value>
+    </data>
+    <data name="RemoteModelSortCacheRead" xml:space="preserve">
+        <value>Cache</value>
+    </data>
+    <data name="RemoteModelSortTip" xml:space="preserve">
+        <value>Sort by price per 1M tokens; models without a published price go last</value>
+    </data>
+    <data name="ProviderStatusPriceLabel" xml:space="preserve">
+        <value>Unit price (per 1M tokens)</value>
+    </data>
+    <data name="ProviderStatusPriceValues" xml:space="preserve">
+        <value>in {0} · out {1} · cache read {2}</value>
+    </data>
+    <data name="ProviderStatusCacheReadPrice" xml:space="preserve">
+        <value>· cache {0}</value>
+    </data>
 </root>

@@ -135,26 +135,75 @@
                     <StackPanel Spacing="6">
                         <TextBlock Text="{loc:Loc RemoteModelIdLabel}" />
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                            <ComboBox IsEditable="True"
-                                      ItemsSource="{Binding VisibleModelIdOptions}"
-                                      SelectedItem="{Binding SelectedModelIdOption}"
-                                      Text="{Binding ModelId}"
-                                      PlaceholderText="{loc:Loc RemoteModelIdPlaceholder}"
-                                      HorizontalAlignment="Stretch"
-                                      IsVisible="{Binding HasModelIdOptions}">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding DisplayName}" VerticalAlignment="Center" />
-                                            <TextBlock Text="{Binding ContextDisplay}" Classes="muted" VerticalAlignment="Center" />
-                                            <controls:ModelStateBadges IsVision="{Binding IsVision}" />
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                            <TextBox Text="{Binding ModelId}"
-                                     PlaceholderText="{loc:Loc RemoteModelIdPlaceholder}"
-                                     IsVisible="{Binding !HasModelIdOptions}" />
+                            <!-- 候选选择器：一个输入框 + 右侧箭头，箭头开的是带排序头的浮层。
+                                 刻意不用 ComboBox：它的弹层里只有 ItemsPresenter，塞不进排序行，
+                                 排序控件就只剩「挂在框外」一条路——那会把这一行的排版带歪 -->
+                            <Panel x:Name="ModelIdPickerHost">
+                                <TextBox x:Name="ModelIdBox"
+                                         Text="{Binding ModelId}"
+                                         PlaceholderText="{loc:Loc RemoteModelIdPlaceholder}"
+                                         Padding="10,0,30,0" />
+                                <Button x:Name="ModelIdDropDownButton"
+                                        Classes="picker-arrow"
+                                        IsVisible="{Binding HasModelIdOptions}"
+                                        Click="ToggleModelPicker_Click">
+                                    <Path Data="M0,0 L4.5,4.5 L9,0"
+                                          Stroke="{DynamicResource SemiGrey6}"
+                                          StrokeThickness="1.4" />
+                                </Button>
+                                <!-- 浮层：顶部是按单价的排序头（只有存在价格时出现），下面是候选列表 -->
+                                <Popup x:Name="ModelIdPopup"
+                                       IsOpen="{Binding IsModelPickerOpen, Mode=TwoWay}"
+                                       PlacementTarget="{Binding #ModelIdPickerHost}"
+                                       Placement="BottomEdgeAlignedLeft"
+                                       VerticalOffset="4"
+                                       IsLightDismissEnabled="True"
+                                       MinWidth="{Binding #ModelIdPickerHost.Bounds.Width}">
+                                    <Border Background="{DynamicResource ComboBoxPopupBackground}"
+                                            BorderBrush="{DynamicResource ComboBoxPopupBorderBrush}"
+                                            BorderThickness="{DynamicResource ComboBoxPopupBorderThickness}"
+                                            BoxShadow="{DynamicResource ComboBoxPopupBoxShadow}"
+                                            CornerRadius="{DynamicResource ComboBoxPopupBoxCornerRadius}"
+                                            Padding="6">
+                                        <Grid RowDefinitions="Auto,*">
+                                            <ListBox Grid.Row="0"
+                                                     Classes="segmented stretch"
+                                                     ItemsSource="{Binding SortOptions}"
+                                                     SelectedItem="{Binding SelectedSortOption}"
+                                                     IsVisible="{Binding HasSortablePrices}"
+                                                     Margin="0,2,0,6"
+                                                     ToolTip.Tip="{loc:Loc RemoteModelSortTip}">
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate x:DataType="common:ModelSortOption">
+                                                        <TextBlock Text="{Binding Display}" />
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                            </ListBox>
+                                            <ScrollViewer Grid.Row="1" MaxHeight="300"
+                                                          HorizontalScrollBarVisibility="Disabled">
+                                                <ItemsControl ItemsSource="{Binding VisibleModelIdOptions}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate x:DataType="common:ModelIdOptionItem">
+                                                            <Button Classes="model-option" Click="ModelOption_Click">
+                                                                <StackPanel Orientation="Horizontal" Spacing="8"
+                                                                            VerticalAlignment="Center">
+                                                                    <TextBlock Text="{Binding DisplayName}"
+                                                                               VerticalAlignment="Center" />
+                                                                    <TextBlock Text="{Binding ContextDisplay}"
+                                                                               Classes="muted" VerticalAlignment="Center" />
+                                                                    <TextBlock Text="{Binding PriceDisplay}"
+                                                                               Classes="muted" VerticalAlignment="Center" />
+                                                                    <controls:ModelStateBadges IsVision="{Binding IsVision}" />
+                                                                </StackPanel>
+                                                            </Button>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </ScrollViewer>
+                                        </Grid>
+                                    </Border>
+                                </Popup>
+                            </Panel>
                             <Button Grid.Column="1"
                                     Content="{loc:Loc RemoteModelCatalogFetch}"
                                     Command="{Binding RefreshCatalogCommand}"
@@ -164,6 +213,9 @@
                                     Padding="14,0" />
                         </Grid>
                         <TextBlock Text="{loc:Loc RemoteModelIdHint}" Classes="muted" TextWrapping="Wrap" />
+                        <!-- 选中模型的能力摘要：上下文、挂牌单价、声明的思考档位 -->
+                        <TextBlock Text="{Binding SelectedCapabilitySummary}" Classes="muted" TextWrapping="Wrap"
+                                   IsVisible="{Binding SelectedCapabilitySummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                         <TextBlock Classes="error" Text="{loc:Loc RemoteModelCatalogFetchFailed}"
                                    IsVisible="{Binding CatalogFetchErrorVisible}" />
                         <TextBlock Classes="error" Text="{loc:Loc NotInputModelIdTips}"
@@ -223,8 +275,7 @@
                                            TextWrapping="Wrap" />
                             </StackPanel>
                             <ToggleSwitch Grid.Column="1" VerticalAlignment="Center"
-                                          IsChecked="{Binding IsVision}"
-                                          IsEnabled="{Binding IsVisionEditable}" />
+                                          IsChecked="{Binding IsVision}" />
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto">
                             <StackPanel Spacing="2" VerticalAlignment="Center">
@@ -296,8 +347,7 @@
                                                TextWrapping="Wrap" />
                                 </StackPanel>
                                 <ToggleSwitch Grid.Column="1" VerticalAlignment="Center"
-                                              IsChecked="{Binding IsVision}"
-                                              IsEnabled="{Binding IsVisionEditable}" />
+                                              IsChecked="{Binding IsVision}" />
                             </Grid>
                             <Grid ColumnDefinitions="*,Auto">
                                 <StackPanel Spacing="2" VerticalAlignment="Center">

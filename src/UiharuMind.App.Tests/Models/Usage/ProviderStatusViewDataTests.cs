@@ -360,8 +360,63 @@ public sealed class ProviderStatusViewDataTests
         Assert.Equal(Loc.Text(LangKey.ProviderStatusDataJustNow), harness.Data.DataAgeText);
     }
 
-    //================= 造数据 =================
+    /// <summary>
+    /// 单价来自构建期的价格表（不是会话统计）：入/出/缓存读三段，
+    /// 谷时按表价，峰时乘倍率——那才是此刻实际要付的价
+    /// </summary>
+    [Fact]
+    public void ModelPrice_ComesFromThePriceTable()
+    {
+        Harness harness = new(() => Context("deepseek/deepseek-v4.1-flash"), _ => Snapshot(Meter(3, 10)), NoonUtc);
+        harness.Data.Pump();
 
+        Assert.True(harness.Data.HasModelPrice);
+        Assert.Equal(Loc.Text(LangKey.ProviderStatusPriceValues, "$0.15", "$0.6", "$0.003"),
+            harness.Data.ModelPriceText);
+        // 顶栏那串读数后面跟的就是这一段的缓存读价
+        Assert.True(harness.Data.HasCacheReadPrice);
+        Assert.Equal(Loc.Text(LangKey.ProviderStatusCacheReadPrice, "$0.003"), harness.Data.CacheReadPriceText);
+    }
+
+    [Fact]
+    public void ModelPrice_IsScaledDuringPeak()
+    {
+        Harness harness = new(() => Context("deepseek/deepseek-v4.1-flash"), _ => Snapshot(Meter(3, 10)),
+            MondayTwoUtc.AddMinutes(30));
+        harness.Data.Pump();
+
+        Assert.True(harness.Data.HasModelPrice);
+        Assert.Equal(Loc.Text(LangKey.ProviderStatusPriceValues, "$0.3", "$1.2", "$0.006"),
+            harness.Data.ModelPriceText);
+        // 峰时只说数、不写字：状态由顶栏徽章表达，同一句话不出现两遍
+        Assert.Equal(Loc.Text(LangKey.ProviderStatusCacheReadPrice, "$0.006"), harness.Data.CacheReadPriceText);
+    }
+
+    /// <summary>官网明写免费的模型：说"免费"而不是三个 $0；缓存读价那一段也不挂（0 会被读成免费缓存）</summary>
+    [Fact]
+    public void ModelPrice_FreeModelSaysFree()
+    {
+        Harness harness = new(() => Context("poolside/laguna-s-2.1-free"), _ => Snapshot(Meter(3, 10)), NoonUtc);
+        harness.Data.Pump();
+
+        Assert.Equal(Loc.Text(LangKey.ProviderStatusFreeModel), harness.Data.ModelPriceText);
+        Assert.False(harness.Data.HasCacheReadPrice);
+        Assert.Equal("", harness.Data.CacheReadPriceText);
+    }
+
+    /// <summary>表里没有这一行就整块不显示，不拿 0 冒充免费</summary>
+    [Fact]
+    public void ModelPrice_HiddenWhenNothingPublished()
+    {
+        Harness harness = new(() => Context("local/not-in-any-table"), _ => Snapshot(Meter(3, 10)));
+        harness.Data.Pump();
+
+        Assert.False(harness.Data.HasModelPrice);
+        Assert.Equal("", harness.Data.ModelPriceText);
+        Assert.False(harness.Data.HasCacheReadPrice);
+    }
+
+    //================= 造数据 =================
     private static ProviderStatusContext Context(string modelId = "deepseek-v4-flash") =>
         new(CcType, "https://api.commandcode.ai", "key-a", modelId, modelId);
 

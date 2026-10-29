@@ -50,6 +50,16 @@
             <TextBlock Text="{Binding MonthlyResetText}" Classes="muted" FontSize="11" />
         </StackPanel>
 
+        <!-- 当前模型的挂牌单价（来自构建期价格表）。峰时按倍率放大成此刻的实价，
+             但不再写字说明——顶栏徽章已经在说这件事，同一句话不用出现两遍 -->
+        <StackPanel Spacing="2" IsVisible="{Binding HasModelPrice}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <TextBlock Text="{loc:Loc ProviderStatusPriceLabel}" FontSize="12" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding ModelPriceText}" FontSize="12"
+                           VerticalAlignment="Center" />
+            </Grid>
+        </StackPanel>
+
         <TextBlock Text="{Binding UsageStatsText}" Classes="muted" FontSize="11"
                    IsVisible="{Binding HasUsageStats}" />
 

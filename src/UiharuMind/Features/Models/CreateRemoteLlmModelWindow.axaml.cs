@@ -43,4 +43,24 @@ public partial class CreateRemoteLlmModelWindow : Window
         if (DataContext is not RemoteModelEditViewData { SelectedProvider.WebsiteUrl: { Length: > 0 } url }) return;
         _ = Launcher.LaunchUriAsync(new Uri(url));
     }
+
+    /// <summary>
+    /// 箭头开候选浮层。**只负责开**：浮层开着时再点箭头，是 Popup 的 light dismiss 在
+    /// 按下阶段就把它关掉并按下了这次点击——这里若是 toggle，就会把它又打开一遍，变成关不掉。
+    /// 万一某平台不吞这次点击，走到这里也只会 return，不会重新弹开。
+    /// </summary>
+    private void ToggleModelPicker_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not RemoteModelEditViewData viewModel) return;
+        if (viewModel.IsModelPickerOpen) return;
+        viewModel.IsModelPickerOpen = true;
+    }
+
+    /// <summary>点选候选：写回 ID 并收起浮层</summary>
+    private void ModelOption_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not RemoteModelEditViewData viewModel) return;
+        if ((sender as Control)?.DataContext is not ModelIdOptionItem option) return;
+        viewModel.SelectModelIdOption(option);
+    }
 }
