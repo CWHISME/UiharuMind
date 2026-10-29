@@ -414,8 +414,14 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private readonly ConversationHistoryPager _pager; //历史开窗：首屏回放、续窗与裁剪
     private readonly ConversationHistoryReconciler _reconciler; //落盘与界面对不上的兜底
 
-    /// <summary>token 用量（工具行文本与上下文占用的悬停面板）</summary>
+    /// <summary>token 用量（输入框工具行的环形进度与它弹出的上下文面板）</summary>
     public ConversationUsageViewData Usage { get; }
+
+    /// <summary>
+    /// 本会话上下文上限的编辑。能改的东西单开一份：右侧栏复用的 <c>ContextUsagePanel</c> 是只读的统计，
+    /// 设置混进去会让「看一眼」变成「顺手改坏」
+    /// </summary>
+    public SessionContextBudgetViewData Budget { get; }
 
     /// <summary>会话内搜索栏（关键词、范围、结果与上下条）</summary>
     public ConversationSearchViewData Search { get; }
@@ -680,6 +686,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         long uiModelsBegin = StartupPhaseProbe.Begin();
         Usage = new ConversationUsageViewData(ContextLength, () => SessionModelLabel,
             () => CurrentSession?.TotalGeneratedImages ?? 0);
+        // 改上限就是换分母：环与面板都得跟着重刷。落盘在 Budget 自己那边（防抖），这里只管显示
+        Budget = new SessionContextBudgetViewData(() => CurrentSession, ModelContextLength,
+            () => Usage.Ledger.EffectiveInput, Usage.Refresh);
         Search = new ConversationSearchViewData(() => CurrentSession?.History);
         // 子模型只吃窄依赖、不反向持有本类:附件盘取会话要用委托(首轮发送时会话还不存在),
         // 命令面板要能改写输入框并读当前角色,挂接器只需报忙碌态
@@ -1166,6 +1175,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         if (CurrentRunner is { } runner) runner.BusyChanged = null;
         _turns.CancelPreparing();
         Usage.Dispose();
+        Budget.Dispose();
         Search.Dispose();
         _driver.Dispose();
         MemoryPanel?.Detach();
@@ -2185,9 +2195,16 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     ///
     /// 取的是<b>真正会发请求的那个模型</b>，而不是会话钉着的那个名字——会话钉着一个没在跑的本地模型时，
     /// 后者仍在、但它的上限会落到本地兜底 8192，进度条于是一屏之外就"满了"，
-    /// 而请求实际发给的是另一个模型。判据与请求路径同一条，见 <c>LazyChatClient.ServingModel</c>
+    /// 而请求实际发给的是另一个模型。判据与请求路径同一条，见 <c>LazyChatClient.ServingModel</c>。
+    ///
+    /// 再与<b>会话自设上限</b>取小（<see cref="SessionContextBudget"/>）：那是同一个分母的另一半，
+    /// 交接与压缩读的也是它，两边各读各的就会出现「环显示 40%、交接按 128k 判」
     /// </summary>
     private int ContextLength() =>
+        SessionContextBudget.Resolve(ModelContextLength(), CurrentSession?.ContextLengthOverride ?? 0);
+
+    /// <summary>当前模型的真实窗口，不受会话自设上限影响——上限设置面板拿它当可调上界</summary>
+    private int ModelContextLength() =>
         LazyChatClient.ServingModel(CurrentSession?.ChatModelRunningData, LlmManager.Instance.CurrentRunningModel)
             ?.ContextLength ?? 0;
 
@@ -2203,7 +2220,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         int caret = _composerCaret < 0 || _composerCaret > value.Length ? value.Length : _composerCaret;
         _ = Palette.RefreshAsync(value, caret);
 
-        Usage.EstimateInput(value);
+        // 草稿的 token 估算不跟着打字刷（见 ConversationUsageViewData.CountDraft）：
+        // 打开上下文面板时数一次就够，这里只负责清空时归零
+        if (value.Length == 0) Usage.ClearDraft();
     }
 
     //================= 能力面板 =================

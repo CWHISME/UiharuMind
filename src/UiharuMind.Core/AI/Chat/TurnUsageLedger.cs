@@ -7,7 +7,6 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
-using System.Text;
 using Microsoft.Extensions.AI;
 
 namespace UiharuMind.Core.AI.Chat;
@@ -125,7 +124,11 @@ public sealed class TurnUsageLedger
     /// <summary>会话累计输出 token</summary>
     public long SessionOutput { get; private set; }
 
-    /// <summary>输入框文本的 token 估算（尚未发送，不计入累计）</summary>
+    /// <summary>
+    /// 输入框草稿的 token 估算（尚未发送，不计入累计）。
+    /// <b>按需算</b>：只在上下文面板打开时数一次，不再跟着打字实时刷——
+    /// 那是每次停顿整段全文重算一遍，换来的只是状态栏一个数字
+    /// </summary>
     public int InputEstimate { get; set; }
 
     /// <summary>本轮请求次数（每次拿到一次响应用量计一次，含 0 token 的响应）</summary>
@@ -303,36 +306,6 @@ public sealed class TurnUsageLedger
         SessionReasoningTokens = 0;
         SessionRequests = 0;
         TurnRequests = 0;
-    }
-
-    /// <summary>
-    /// 状态栏文本：「占用/上限  ≈输入估算」，无数据的段落整段省略。
-    ///
-    /// 刻意只留这两段。它紧挨发送按钮、位置很窄，四段堆进去会挤成一串看不出量级的数字；
-    /// 本轮用量与会话累计都在悬停面板里，那里有标签、读得懂。
-    /// </summary>
-    public string Text
-    {
-        get
-        {
-            StringBuilder sb = new();
-            // 上限未知(还没选模型)时也要显示占用:那个数是从会话本体恢复出来的,
-            // 「这个会话现在有多大」跟当前选没选模型无关,整段藏掉等于凭空少了一条信息。
-            // 报的是有效占用:这一格回答的正是「还剩多少空间」,而服务端那个数未必是全量
-            long usage = EffectiveInput;
-            if (usage > 0)
-            {
-                sb.Append(ContextLength > 0 ? $"{Format(usage)}/{Format(ContextLength)}" : Format(usage));
-            }
-
-            if (InputEstimate > 0)
-            {
-                if (sb.Length > 0) sb.Append("  ");
-                sb.Append($"≈{Format(InputEstimate)}");
-            }
-
-            return sb.ToString();
-        }
     }
 
     /// <summary>

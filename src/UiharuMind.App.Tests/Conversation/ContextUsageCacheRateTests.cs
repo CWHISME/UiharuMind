@@ -73,12 +73,12 @@ public class ContextUsageCacheRateTests
     public void CachedTip_DashesTheScopesThatHaveNoDataYet()
     {
         TurnUsageLedger ledger = new();
-        ledger.BeginTurn();
         ledger.Add(new UsageDetails { InputTokenCount = 100_000, CachedInputTokenCount = 100_000 });
+        //新一轮还没开始：本轮那一档没有数。悬停里留个占位符,少一行会被读成「那一档不存在」
+        ledger.BeginTurn();
 
         ContextUsageViewData viewData = Refresh(ledger);
 
-        //新一轮还没开始：本轮那一档没有数。悬停里留个占位符,少一行会被读成「那一档不存在」
         Assert.Contains("—", viewData.CachedTip);
         Assert.Contains("100% · 100k / 100k", viewData.CachedTip);
     }

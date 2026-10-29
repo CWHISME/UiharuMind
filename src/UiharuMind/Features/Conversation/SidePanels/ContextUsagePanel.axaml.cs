@@ -15,14 +15,14 @@ namespace UiharuMind.Features.Conversation.SidePanels;
 /// <summary>
 /// 上下文占用的统计面板。DataContext 即 <see cref="ContextUsageViewData"/>。
 ///
-/// 输入框 token 统计的 ToolTip 与右侧栏复用的同一份控件；
+/// 两处复用：输入框那个环点开的面板（完整，含水位说明）与右侧栏（只读摘要）。
 /// 数据那一半在 <see cref="ContextUsageViewData"/>，进度条样式与行布局都在本文件。
 /// </summary>
 public partial class ContextUsagePanel : UserControl
 {
     /// <summary>
     /// 是否显示补充信息（水位说明、思考统计等）。
-    /// 右侧栏常驻时关掉，完整内容只在输入框 ToolTip 里弹出
+    /// 右侧栏常驻时关掉，完整内容只在输入框那个环弹出的面板里给
     /// </summary>
     public static readonly StyledProperty<bool> ShowDetailsProperty =
         AvaloniaProperty.Register<ContextUsagePanel, bool>(nameof(ShowDetails), defaultValue: true);

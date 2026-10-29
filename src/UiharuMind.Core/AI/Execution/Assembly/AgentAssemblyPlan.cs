@@ -190,10 +190,13 @@ internal sealed class AgentAssemblyPlan
     {
         // 压缩阈值现读当前模型的上下文上限,与 LazyChatClient 取模型的口径完全一致:
         // agent 只在切工作区/权限档时重建,而模型随时可切,写死在构建期就会留下过期预算。
+        // 会话自设的上限同样现读——用户随时会把它压低或恢复,而那是同一个分母的两半,
+        // 各读各的就会出现「环显示 40%、交接按 128k 判」。
         // 固定开销此刻还算不出来(它含系统提示,而提示是装配现场拼的),故经盒子迟到绑定
         TurnInputEstimate estimate = new();
-        CompactionStrategy compaction =
-            HistoryCompaction.Create(() => CurrentModel(profile)?.ContextLength ?? 0, estimate);
+        CompactionStrategy compaction = HistoryCompaction.Create(
+            () => SessionContextBudget.Resolve(CurrentModel(profile)?.ContextLength ?? 0,
+                profile.ContextLengthOverrideSource?.Invoke() ?? 0), estimate);
 
         // 非 agent 形态不装配任何工具:下面这些解析既用不上,又带副作用(建沙箱目录、读盘)
         // （ADR 0050：agent 卡开成普通对话形态同样走这里）

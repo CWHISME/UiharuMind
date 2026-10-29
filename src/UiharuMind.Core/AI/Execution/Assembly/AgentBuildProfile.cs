@@ -106,6 +106,13 @@ public class AgentBuildProfile
     public Func<ModelRunningData?>? SessionModelSource { get; init; }
 
     /// <summary>
+    /// 会话自设的上下文上限来源（0 = 跟随模型窗口）。压缩水位每次触发时现读，
+    /// 用户在会话里调完立即生效、不必重建装配。与 <see cref="SessionModelSource"/> 同一套理由：
+    /// 装配只在切工作区/权限档时重建，而这些值随时会变
+    /// </summary>
+    public Func<int>? ContextLengthOverrideSource { get; init; }
+
+    /// <summary>
     /// 会话级知识库来源(KnowledgeSearch 工具执行时解析,锁定当前挂接会话的单库)
     /// </summary>
     public Func<MemoryData?>? SessionKnowledgeSource { get; init; }
@@ -240,6 +247,7 @@ public class AgentBuildProfile
             // 群成员共用群壳那一间:一起干的活落在一处,产物不必从五个目录里拼;群删了房间随之删
             OutputFolderName = OutputFolderNameOf(session),
             SessionModelSource = sessionModelSource,
+            ContextLengthOverrideSource = () => session.ContextLengthOverride,
             SessionKnowledgeSource = sessionKnowledgeSource,
             SessionShellApprovalSource = sessionShellApprovalSource,
             SessionExtensionApprovalSource = session.IsScheduledRun

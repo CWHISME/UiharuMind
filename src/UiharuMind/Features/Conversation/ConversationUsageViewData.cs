@@ -19,38 +19,37 @@ using UiharuMind.Features.Conversation.SidePanels;
 namespace UiharuMind.Features.Conversation;
 
 /// <summary>
-/// 会话的 token 用量显示：工具行那一行文本、悬停面板，以及两种刷新节流。
+/// 会话的 token 用量：输入框工具行那个环形进度、点开的面板，以及两种刷新节流。
 ///
 /// 账本由运行侧逐块记准（<see cref="TurnDriver"/> 写的就是 <see cref="Ledger"/>），
 /// 这里只管「什么时候、按哪个上限」把它刷到界面上。
+///
+/// <b>不再有常驻的文本读数</b>：那行数字换成了环（占比一眼看得出，绝对值在面板里）。
+/// 输入框草稿的估算也从「每次停顿都数一遍」改成「打开面板时数一次」——前者是整段全文重算，
+/// 只为喂一个一直挂在那儿的数字，打字跟不跟手就差在这里
 /// </summary>
 public sealed partial class ConversationUsageViewData : ObservableObject, IDisposable
 {
-    private static readonly TimeSpan TypingDebounce = TimeSpan.FromMilliseconds(200);
     private static readonly TimeSpan StreamingDebounce = TimeSpan.FromMilliseconds(250);
-
-    /// <summary>工具行的用量文本（占用/上限、输入估算）</summary>
-    [ObservableProperty] private string _text = string.Empty;
 
     private readonly Func<int> _contextLength; //上限每次现读：顶栏换模型不重建 agent，缓存就是过期的分母
     private readonly Func<string> _modelLabel;
     private readonly Func<int> _generatedImages;
     private readonly Func<string, int> _countTokens;
-    private int _inputEstimateVersion; //后台计数只采纳最新一次
-    private CancellationTokenSource? _typingDebounce;
+    private int _draftVersion; //后台计数只采纳最新一次
     private CancellationTokenSource? _streamingDebounce;
 
     /// <summary>token 账本</summary>
     public TurnUsageLedger Ledger { get; } = new();
 
-    /// <summary>上下文占用的悬停面板（进度条、压缩水位刻度与配色）</summary>
+    /// <summary>上下文占用的面板数据（环形进度、压缩水位刻度与配色）</summary>
     public ContextUsageViewData Context { get; } = new();
 
     /// <summary>
     /// 构造
     /// </summary>
     /// <param name="contextLength">取当前有效模型的上下文上限</param>
-    /// <param name="modelLabel">取悬停面板上显示的模型名</param>
+    /// <param name="modelLabel">取面板上显示的模型名</param>
     /// <param name="generatedImages">取会话累计生图张数（按张计，不在账本里）</param>
     /// <param name="countTokens">输入估算用的计数；缺省用 <see cref="LlmTokenizer.CountTokens"/></param>
     public ConversationUsageViewData(Func<int> contextLength, Func<string> modelLabel, Func<int> generatedImages,
@@ -72,12 +71,11 @@ public sealed partial class ConversationUsageViewData : ObservableObject, IDispo
         }
 
         Ledger.ContextLength = _contextLength();
-        Text = Ledger.Text;
         Context.Refresh(Ledger, _modelLabel(), _generatedImages());
     }
 
     /// <summary>
-    /// 合并刷新。流式期间 provider 每个 chunk 都带用量，逐块刷会让状态栏与悬停面板跟着重排而闪烁，
+    /// 合并刷新。流式期间 provider 每个 chunk 都带用量，逐块刷会让环与面板跟着重排而闪烁，
     /// 这里收进一个窗口只刷一次
     /// </summary>
     /// <param name="force">跳过合并立即刷（流结束时补最终值，不能再拖一个窗口）</param>
@@ -96,18 +94,17 @@ public sealed partial class ConversationUsageViewData : ObservableObject, IDispo
             return;
         }
 
-        _streamingDebounce = RefreshAfter(StreamingDebounce);
+        _streamingDebounce = RunAfter(StreamingDebounce, Refresh);
     }
 
     /// <summary>
-    /// 按输入框文本重估输入 token。<b>停手后</b>才在后台计数（首次会加载词表），数回来当场刷新。
-    /// 先防抖再计数：计数是整段全文重算，每个字都跑一遍是白烧 CPU，打字就不跟手
+    /// 数一次输入框草稿有多大。<b>只在面板打开时调</b>：计数是整段全文重算（首次还要加载词表），
+    /// 跟着每个字跑一遍是白烧 CPU
     /// </summary>
     /// <param name="text">输入框全文</param>
-    public void EstimateInput(string text)
+    public void CountDraft(string text)
     {
-        int version = ++_inputEstimateVersion;
-        _typingDebounce?.Cancel();
+        int version = ++_draftVersion;
         if (string.IsNullOrEmpty(text))
         {
             Ledger.InputEstimate = 0;
@@ -115,17 +112,28 @@ public sealed partial class ConversationUsageViewData : ObservableObject, IDispo
             return;
         }
 
-        _typingDebounce = RunAfter(TypingDebounce, () => _ = Task.Run(() =>
+        _ = Task.Run(() =>
         {
             int count = _countTokens(text);
             Dispatcher.UIThread.Post(() =>
             {
-                // 两次停顿各自的计数仍可能乱序回来,只采纳最新那次
-                if (version != _inputEstimateVersion) return;
+                // 面板开着的这几百毫秒里用户可能又改了字，只采纳最新那次
+                if (version != _draftVersion) return;
                 Ledger.InputEstimate = count;
                 Refresh();
             });
-        }));
+        });
+    }
+
+    /// <summary>
+    /// 输入框被清空时把草稿估算归零。不走分词——空文本不必数，而这里每敲一下都会来一次
+    /// </summary>
+    public void ClearDraft()
+    {
+        ++_draftVersion;
+        if (Ledger.InputEstimate == 0) return;
+        Ledger.InputEstimate = 0;
+        Refresh();
     }
 
     /// <summary>从会话本体恢复用量（响应用量不随消息持久化，累计值与最近一次的数记在本体上）</summary>
@@ -135,12 +143,9 @@ public sealed partial class ConversationUsageViewData : ObservableObject, IDispo
     /// <summary>停掉还没到点的刷新，作废还在后台的计数</summary>
     public void Dispose()
     {
-        ++_inputEstimateVersion;
-        _typingDebounce?.Cancel();
+        ++_draftVersion;
         _streamingDebounce?.Cancel();
     }
-
-    private CancellationTokenSource RefreshAfter(TimeSpan delay) => RunAfter(delay, Refresh);
 
     private static CancellationTokenSource RunAfter(TimeSpan delay, Action action)
     {

@@ -6184,4 +6184,22 @@
     <data name="ProviderStatusPriceUnit" xml:space="preserve">
         <value>美元 / 百万 token</value>
     </data>
+    <data name="ContextRingTip" xml:space="preserve">
+        <value>上下文 {0}% · {1} / {2}</value>
+    </data>
+    <data name="ContextRingTipNoModel" xml:space="preserve">
+        <value>上下文 {0}（未选模型）</value>
+    </data>
+    <data name="ContextDraftLabel" xml:space="preserve">
+        <value>草稿</value>
+    </data>
+    <data name="ContextBudgetTitle" xml:space="preserve">
+        <value>本会话上下文上限</value>
+    </data>
+    <data name="ContextBudgetNoRoom" xml:space="preserve">
+        <value>当前占用已到上限，先清理历史</value>
+    </data>
+    <data name="ContextBudgetCostTip" xml:space="preserve">
+        <value>压低上限会把交接与折叠的水位整体前移</value>
+    </data>
 </root>

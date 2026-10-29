@@ -54,6 +54,13 @@ public class ChatSessionMeta
     /// </summary>
     public string? SessionModelName { get; set; }
 
+    /// <summary>
+    /// 本会话自设的上下文上限（<see cref="ChatSession.ContextLengthOverride"/> 在索引里的冗余）。
+    /// 0 = 跟随模型窗口。列表这类只读索引的地方要据此显示「这个会话被收紧了」，
+    /// 而权威值仍在本体上
+    /// </summary>
+    public int ContextLengthOverride { get; set; }
+
     /// <summary>创建时间</summary>
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
 

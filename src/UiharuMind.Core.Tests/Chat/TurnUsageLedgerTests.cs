@@ -75,7 +75,7 @@ public class TurnUsageLedgerTests
         Assert.Equal(0, output);
         Assert.Equal(0, reasoning);
         Assert.Equal(0, cached);
-        Assert.Equal(string.Empty, ledger.Text);
+        Assert.Equal(0, ledger.EffectiveInput);
     }
 
     /// <summary>
@@ -157,51 +157,19 @@ public class TurnUsageLedgerTests
         Assert.Equal(1, session.TotalRequests); //群后台的旁路调用也计请求次数
     }
 
-    [Fact]
-    public void Text_IsEmptyWhenNothingRecorded()
-    {
-        Assert.Equal(string.Empty, new TurnUsageLedger().Text);
-    }
-
-    [Fact]
-    public void Text_InputEstimateOnly()
-    {
-        TurnUsageLedger ledger = new() { InputEstimate = 42 };
-
-        Assert.Equal("≈42", ledger.Text);
-    }
-
     /// <summary>
-    /// 状态栏只留「占用 + 输入估算」两段。本轮与会话累计已挪进悬停面板——
-    /// 那一行紧挨发送按钮、位置很窄，四段堆进去会挤成一串看不出量级的数字。
+    /// 新一轮开始时占用不清：它回答的是「这个会话现在多满」，跟本轮跑了多少无关。
+    /// 这一条原先靠状态栏文本兜着，文本撤掉之后直接钉在账本上
     /// </summary>
     [Fact]
-    public void Text_ShowsOccupancyAndEstimateOnly()
-    {
-        TurnUsageLedger ledger = new() { ContextLength = 128_000, InputEstimate = 5 };
-        ledger.Add(Usage(8526, 200));
-
-        Assert.Equal("8.5k/128k  ≈5", ledger.Text);
-    }
-
-    [Fact]
-    public void Text_OmitsTurnAndSessionTotals()
-    {
-        TurnUsageLedger ledger = new() { ContextLength = 128_000 };
-        ledger.Add(Usage(100, 200));
-
-        //本轮 ↑100 ↓200 与累计都不出现在状态栏,它们只在悬停面板里
-        Assert.Equal("100/128k", ledger.Text);
-    }
-
-    [Fact]
-    public void Text_KeepsOccupancyAfterBeginTurn()
+    public void Occupancy_SurvivesBeginTurn()
     {
         TurnUsageLedger ledger = new() { ContextLength = 128_000 };
         ledger.Add(Usage(8526, 200));
         ledger.BeginTurn();
 
-        Assert.Equal("8.5k/128k", ledger.Text); //新一轮还没响应时,占用仍显示上一轮的结果
+        Assert.Equal(8526, ledger.EffectiveInput);
+        Assert.Equal(0, ledger.TurnInput); //清的只有本轮那两个数
     }
 
     /// <summary>

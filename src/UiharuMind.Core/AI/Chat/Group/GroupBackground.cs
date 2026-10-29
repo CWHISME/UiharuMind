@@ -74,13 +74,16 @@ public static class GroupBackground
         if (source.ChatModelRunningData is not { ChatClient: not null } model) return null;
 
         ChatOptions? options = source.Runner.ChatOptions;
+        // 同一分母:成员会话若自设了上限,这一发的供给与篇幅也按它算,
+        // 否则压缩后的摘要按 128k 的窗口写,回到 32k 的会话里照样超
+        int contextLength = SessionContextBudget.Resolve(model.ContextLength, source.ContextLengthOverride);
         // 与原单聊平时的请求同一视图:同一口径供给、同一套压缩,前缀才中得了它的缓存
         IReadOnlyList<ChatMessage> supplied = await HistorySupply.ForSideRequestAsync(source.History, options,
-            model.ContextLength, source.Runner.InputEstimate?.FixedOverhead ?? 0, cancellationToken).ConfigureAwait(false);
+            contextLength, source.Runner.InputEstimate?.FixedOverhead ?? 0, cancellationToken).ConfigureAwait(false);
         if (supplied.Count == 0) return null;
 
         HandoffReply reply = await HistoryHandoff.WriteAsync(HistorySupply.ClientFor(source), supplied, options,
-            model.ContextLength, audience, cancellationToken).ConfigureAwait(false);
+            contextLength, audience, cancellationToken).ConfigureAwait(false);
         // 是这个会话的模型花的,记进它的累计:群成员面板的成本读的就是它。不碰占用——单聊本身没有变满
         foreach (UsageDetails usage in reply.Usages)
         {

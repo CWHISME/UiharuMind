@@ -90,6 +90,15 @@ public class ChatSession
     public string? SessionModelName { get; set; }
 
     /// <summary>
+    /// 本会话自设的上下文上限（token）。0 = 跟随当前模型的真实窗口。
+    ///
+    /// 它<b>只会收紧、不会放宽</b>：解析时与模型窗口取小（见 <see cref="SessionContextBudget.Resolve"/>），
+    /// 因为放宽只会让请求撞上服务端的上限直接失败。压低它等于把交接/折叠的水位整体前移——
+    /// 因此<b>压缩与交接也必须读它</b>，只改显示那一半就会变成「环显示 40%、交接按 128k 判」。
+    /// </summary>
+    public int ContextLengthOverride { get; set; }
+
+    /// <summary>
     /// 派活给它的那个会话；为空表示这是一个普通会话。非空即<b>子会话</b>，
     /// 见 <c>docs/CONTEXT.md</c> 的「子会话」与 ADR 0021。
     /// </summary>
@@ -835,6 +844,7 @@ public class ChatSession
             WorkspacePath = WorkspacePath,
             PermissionModeIndex = PermissionModeIndex,
             SessionModelName = SessionModelName,
+            ContextLengthOverride = ContextLengthOverride,
             CreatedAt = CreatedAt,
             UpdatedAt = UpdatedAt,
             MessageCount = History.Count,

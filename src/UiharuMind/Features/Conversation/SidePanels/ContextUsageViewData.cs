@@ -19,7 +19,8 @@ using UiharuMind.Shared.Services;
 namespace UiharuMind.Features.Conversation.SidePanels;
 
 /// <summary>
-/// 上下文占用的悬停面板数据：进度条两段、三条压缩水位刻度与档位配色。
+/// 上下文占用的面板数据：进度条两段、三条压缩水位刻度与档位配色，
+/// 以及输入框那个环里的百分比与悬停摘要。
 ///
 /// 进度条整条 = 模型的上下文总长（用户能跟官方文档对上的那个数），
 /// 而压缩水位是按**输入预算**（总长减去预留）算的，因此刻度位置必须换算过去，
@@ -90,6 +91,22 @@ public partial class ContextUsageViewData : ObservableObject
     /// <summary>是否有可显示的数据（没有就整个面板退回纯文本提示）</summary>
     [ObservableProperty] private bool _hasData;
 
+    /// <summary>
+    /// 输入框左侧那个环要不要出现：<b>有占用才画</b>。
+    /// 新会话是 0，画出来就是一个空圈——那不是「还剩多少空间」，是「还没开始」，不如不占位。
+    /// 上限未知但有占用时照样画：占用是从会话本体恢复出来的，跟选没选模型无关，只是没有分母
+    /// </summary>
+    [ObservableProperty] private bool _hasRing;
+
+    /// <summary>环里的百分比文本（有效占用 / 上限）；上限未知时为空，环里留白</summary>
+    [ObservableProperty] private string _percentText = string.Empty;
+
+    /// <summary>环的悬停提示：一行摘要，完整面板留给点击</summary>
+    [ObservableProperty] private string _ringTip = string.Empty;
+
+    /// <summary>输入框草稿的 token 估算；没数过（或输入框为空）时为空，整行不出现</summary>
+    [ObservableProperty] private string _draftText = string.Empty;
+
     private const string NormalState = "Normal";
     private const string EvictingState = "Evicting";
     private const string TruncatingState = "Truncating";
@@ -145,11 +162,21 @@ public partial class ContextUsageViewData : ObservableObject
             ? ledger.SessionRequests.ToString()
             : string.Empty;
 
+        // 草稿只在面板打开时数过一次，数完就显示在这一行；没数过整行不出现
+        DraftText = ledger.InputEstimate > 0
+            ? TurnUsageLedger.FormatExact(ledger.InputEstimate)
+            : string.Empty;
+
         if (contextLength <= 0)
         {
             // 上限不知道,但占用可能是从会话本体恢复出来的——「这个会话现在有多大」
-            // 跟当前选没选模型无关,该显示的还是要显示,只是没有分母、也画不出进度条
+            // 跟当前选没选模型无关,该显示的还是要显示,只是没有分母、也画不出进度
             HasData = false;
+            HasRing = usage > 0;
+            PercentText = string.Empty;
+            RingTip = usage > 0
+                ? string.Format(Loc.Text(LangKey.ContextRingTipNoModel), TurnUsageLedger.FormatExact(usage))
+                : string.Empty;
             LimitText = string.Empty;
             UsageText = usage > 0 ? TurnUsageLedger.FormatExact(usage) : string.Empty;
             ThresholdText = string.Empty;
@@ -163,6 +190,7 @@ public partial class ContextUsageViewData : ObservableObject
         }
 
         HasData = true;
+        HasRing = usage > 0;
         LimitText = TurnUsageLedger.Format(contextLength);
         // 还没收到过响应时占用是「未知」而不是「零」——显示 0/128k 会被读成「这个会话是空的」,
         // 而它可能只是刚切过来还没发过话
@@ -173,6 +201,11 @@ public partial class ContextUsageViewData : ObservableObject
         // 两段:实色画服务端报的,淡色补上它没计入的那截。整条填充到有效占用
         UsagePercent = Percent(ledger.LastInput, contextLength);
         EffectivePercent = Percent(usage, contextLength);
+        // 环里只放一个数:整段填充（含未计入那截）的百分比。两段在弧上靠深浅区分,
+        // 与进度条同一口径——环里塞两个百分比就读不出哪个是哪个了
+        PercentText = $"{EffectivePercent:0}%";
+        RingTip = string.Format(Loc.Text(LangKey.ContextRingTip), $"{EffectivePercent:0}",
+            TurnUsageLedger.FormatExact(usage), TurnUsageLedger.FormatExact(contextLength));
         // 报告占用与未计入是同一件事的两半:只有服务端少报(未计入 > 0)时才亮出来对账——
         // 绝大多数服务端报的就是全量,两行都显示会跟上面的「上下文」重复,纯噪音。
         // 有差额时一起出:报告占用 + 未计入 = 有效占用,一眼读得出关系

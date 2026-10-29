@@ -169,6 +169,19 @@ public partial class ConversationView : UserControl
         e.Handled = true;
     }
 
+    /// <summary>
+    /// 上下文面板打开：草稿估算与上限区间都在这一刻现算。
+    ///
+    /// 草稿只在打开时数一次（跟着打字实时数就是整段全文重算）；下限则要按此刻的占用算——
+    /// 面板可能开了很久，占用早不是打开那一刻的数了
+    /// </summary>
+    private void OnUsageFlyoutOpened(object? sender, EventArgs e)
+    {
+        if (DataContext is not ConversationViewModel vm) return;
+        vm.Usage.CountDraft(vm.InputText);
+        vm.Budget.Refresh();
+    }
+
     // 搜索栏浮在消息流上,跳到的卡要落在它下沿以下
     private double SearchPanelInset() =>
         SearchPanel.IsVisible ? SearchPanel.TranslatePoint(new Point(0, SearchPanel.Bounds.Height), Viewer)?.Y ?? 0 : 0;

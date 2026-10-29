@@ -18,6 +18,7 @@ public sealed class SessionUsageStats : ObservableObject
     private long _usageTokens; //当前有效占用：最近一次请求输入与固定开销取大
     private long _inputTokens; //会话累计输入
     private long _outputTokens; //会话累计输出
+    private int _contextLengthOverride; //会话自设的上限；0 为跟随模型窗口
 
     /// <summary>
     /// 构造（不立即读数，持有者按需 <see cref="Refresh"/>）
@@ -26,7 +27,9 @@ public sealed class SessionUsageStats : ObservableObject
     public SessionUsageStats(string sessionId)
     {
         SessionId = sessionId;
-        _modelName = SessionManager.Instance.GetMeta(sessionId)?.SessionModelName;
+        ChatSessionMeta? meta = SessionManager.Instance.GetMeta(sessionId);
+        _modelName = meta?.SessionModelName;
+        _contextLengthOverride = meta?.ContextLengthOverride ?? 0;
     }
 
     /// <summary>会话标识</summary>
@@ -41,7 +44,7 @@ public sealed class SessionUsageStats : ObservableObject
         get
         {
             if (_usageTokens <= 0) return "";
-            int contextLength = ResolveModel()?.ContextLength ?? 0;
+            int contextLength = ResolveContextLength();
             return contextLength > 0
                 ? $"{TurnUsageLedger.Format(_usageTokens)} / {TurnUsageLedger.Format(contextLength)}"
                 : TurnUsageLedger.Format(_usageTokens);
@@ -70,7 +73,7 @@ public sealed class SessionUsageStats : ObservableObject
     {
         get
         {
-            int contextLength = ResolveModel()?.ContextLength ?? 0;
+            int contextLength = ResolveContextLength();
             return contextLength > 0 ? Math.Clamp(_usageTokens * 100.0 / contextLength, 0, 100) : 0;
         }
     }
@@ -108,7 +111,11 @@ public sealed class SessionUsageStats : ObservableObject
     public void Refresh()
     {
         ChatSession? session = SessionManager.Instance.Load(SessionId);
-        if (session != null) _modelName = session.SessionModelName;
+        if (session != null)
+        {
+            _modelName = session.SessionModelName;
+            _contextLengthOverride = session.ContextLengthOverride;
+        }
         _usageTokens = Math.Max(session?.LastInputTokens ?? 0, FixedTokens);
         _inputTokens = session?.TotalInputTokens ?? 0;
         _outputTokens = session?.TotalOutputTokens ?? 0;
@@ -121,6 +128,10 @@ public sealed class SessionUsageStats : ObservableObject
         OnPropertyChanged(nameof(HasTokenLine));
         OnPropertyChanged(nameof(Tip));
     }
+
+    /// <summary>生效上限：模型窗口与会话自设上限取小。与界面那根进度条、与压缩/交接同一个分母</summary>
+    private int ResolveContextLength() =>
+        SessionContextBudget.Resolve(ResolveModel()?.ContextLength ?? 0, _contextLengthOverride);
 
     /// <summary>会话的模型（钉选解析 → 全局当前）</summary>
     private ModelRunningData? ResolveModel()

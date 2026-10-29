@@ -821,7 +821,10 @@ public sealed class TurnDriver : IDisposable
         // 而请求实际发给的是 128k 的 B。判据与请求路径同一条，见 LazyChatClient.ServingModel
         ModelRunningData? serving = LazyChatClient.ServingModel(
             session.ChatModelRunningData, LlmManager.Instance.CurrentRunningModel);
-        if (serving != null) _usage.ContextLength = serving.ContextLength;
+        // 会话自设上限压在这里而不是显示那一侧:交接判据读的就是 _usage.ContextLength,
+        // 只改显示的话，用户调低上限后环会走到 90%，交接却永远不来
+        if (serving != null)
+            _usage.ContextLength = SessionContextBudget.Resolve(serving.ContextLength, session.ContextLengthOverride);
 
         // 收有效占用而不是报告占用:服务端的 usage 未必含工具定义,只信它的话
         // 在少报的服务端上这条水位永远不触发——三条里唯一能保住上下文的那条就此失效。见 ADR 0009。

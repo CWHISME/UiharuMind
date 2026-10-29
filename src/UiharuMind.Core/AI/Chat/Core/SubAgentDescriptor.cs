@@ -46,7 +46,9 @@ public static class SubAgentDescriptor
     /// <param name="session">子会话本体：占用、窗口与模型名都精确</param>
     /// <returns>占用行；没有记录为空串</returns>
     public static string DescribeUsage(ChatSession session) =>
-        DescribeUsage(session.LastInputTokens, session.ChatModelRunningData?.ContextLength ?? 0,
+        DescribeUsage(session.LastInputTokens,
+            SessionContextBudget.Resolve(session.ChatModelRunningData?.ContextLength ?? 0,
+                session.ContextLengthOverride),
             session.ChatModelRunningData?.ModelName);
 
     /// <summary>
@@ -57,7 +59,9 @@ public static class SubAgentDescriptor
     /// <returns>占用行；没有记录为空串</returns>
     public static string DescribeUsage(ChatSessionMeta meta, ChatSession? body) =>
         DescribeUsage(body != null ? body.LastInputTokens : meta.LastInputTokens,
-            body?.ChatModelRunningData?.ContextLength ?? 0, body?.ChatModelRunningData?.ModelName);
+            SessionContextBudget.Resolve(body?.ChatModelRunningData?.ContextLength ?? 0,
+                body?.ContextLengthOverride ?? meta.ContextLengthOverride),
+            body?.ChatModelRunningData?.ModelName);
 
     private static string DescribeUsage(long usage, int contextLength, string? modelName)
     {

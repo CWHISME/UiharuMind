@@ -74,6 +74,19 @@
         <Style Selector="ThemedIconButton.memory-status[Tag=Ready] controls|ThemedSvgIcon">
             <Setter Property="CurrentColor" Value="LawnGreen" />
         </Style>
+        <!-- 上下文环:与右侧栏那根进度条同一套档位配色,改一处两边一起变 -->
+        <Style Selector="controls|ArcProgressRing">
+            <Setter Property="TrackBrush" Value="{DynamicResource SemiGrey3}" />
+        </Style>
+        <Style Selector="controls|ArcProgressRing[StateKey=Normal]">
+            <Setter Property="ArcBrush" Value="MediumSeaGreen" />
+        </Style>
+        <Style Selector="controls|ArcProgressRing[StateKey=Evicting]">
+            <Setter Property="ArcBrush" Value="Orange" />
+        </Style>
+        <Style Selector="controls|ArcProgressRing[StateKey=Truncating]">
+            <Setter Property="ArcBrush" Value="OrangeRed" />
+        </Style>
     </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource SemiGrey0}">
@@ -767,18 +780,40 @@
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
                                 VerticalAlignment="Center">
-                        <!-- 默认 Placement=Pointer 会把提示面板锚在光标下:这段文本在状态栏最右、
-                             紧贴窗口右缘,面板宽放不下时自动翻转到左侧,正好盖在光标底下→PointerExited→
-                             面板关→PointerEntered→面板开,开开关键循环就是"hover 上一直闪"。
-                             改成固定 Left,面板锚在文本自身、不随光标重叠,规避该循环(Avalonia #15486/#20980) -->
-                        <TextBlock Classes="muted" VerticalAlignment="Center"
-                                   Text="{Binding Usage.Text}"
-                                   ToolTip.Placement="Left"
-                                   IsVisible="{Binding Usage.Text, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                            <ToolTip.Tip>
-                                    <panels:ContextUsagePanel DataContext="{Binding Usage.Context}" />
-                            </ToolTip.Tip>
-                        </TextBlock>
+                        <!-- 上下文占用：环 + 点击弹出面板。
+                             原先是一段「54k/128k」文本、完整面板挂在 ToolTip 上——指针一离开就关，里面放不了滑杆；
+                             改成点击弹 Flyout 顺带绕开了 #15486 那类指针闪烁。悬停仍给一行摘要，点开才是完整面板与上限设置。
+                             Placement 固定 Left：环紧贴窗口右缘，按指针定位时面板会盖住光标自己 -->
+                        <Button Classes="NoneStyle" Width="28" Height="28" Padding="0"
+                                VerticalAlignment="Center" Cursor="Hand"
+                                IsVisible="{Binding Usage.Context.HasRing}"
+                                ToolTip.Tip="{Binding Usage.Context.RingTip}"
+                                ToolTip.Placement="Left">
+                            <Grid Width="28" Height="28">
+                                <controls:ArcProgressRing Percent="{Binding Usage.Context.UsagePercent}"
+                                                         SecondaryPercent="{Binding Usage.Context.EffectivePercent}"
+                                                         StateKey="{Binding Usage.Context.StateKey}" />
+                                <TextBlock Text="{Binding Usage.Context.PercentText}" FontSize="9"
+                                           FontWeight="SemiBold" HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" IsHitTestVisible="False" />
+                            </Grid>
+                            <Button.Flyout>
+                                <Flyout Placement="Top" Opened="OnUsageFlyoutOpened">
+                                    <Border Padding="12" Width="288" CornerRadius="8"
+                                            Background="{DynamicResource SemiGrey0}"
+                                            BorderBrush="{DynamicResource SemiGrey2}"
+                                            BorderThickness="1">
+                                        <StackPanel Spacing="10">
+                                            <panels:ContextUsagePanel DataContext="{Binding Usage.Context}" />
+                                            <Rectangle Height="1" Fill="{DynamicResource SemiGrey2}"
+                                                       IsVisible="{Binding Budget.HasModel}" />
+                                            <!-- 设置块单独一个控件：右侧栏那份面板是只读的，不该跟着变成可编辑 -->
+                                            <panels:SessionContextBudgetView DataContext="{Binding Budget}" />
+                                        </StackPanel>
+                                    </Border>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
                         <!-- 「没卡死,在忙别的」：整理交接文档、等 MCP 连上都走这一处。
                              文案由 BusyLabel 按 ETurnBusy 映射，再加一种不必再复制一块 StackPanel -->
                         <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"

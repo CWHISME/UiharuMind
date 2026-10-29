@@ -6189,4 +6189,22 @@ Enable it?</value>
     <data name="ProviderStatusPriceUnit" xml:space="preserve">
         <value>USD per 1M tokens</value>
     </data>
+    <data name="ContextRingTip" xml:space="preserve">
+        <value>Context {0}% · {1} / {2}</value>
+    </data>
+    <data name="ContextRingTipNoModel" xml:space="preserve">
+        <value>Context {0} (no model selected)</value>
+    </data>
+    <data name="ContextDraftLabel" xml:space="preserve">
+        <value>Draft</value>
+    </data>
+    <data name="ContextBudgetTitle" xml:space="preserve">
+        <value>Session context cap</value>
+    </data>
+    <data name="ContextBudgetNoRoom" xml:space="preserve">
+        <value>Already at the cap — clear history first</value>
+    </data>
+    <data name="ContextBudgetCostTip" xml:space="preserve">
+        <value>Lowering the cap moves the handoff and folding lines up</value>
+    </data>
 </root>

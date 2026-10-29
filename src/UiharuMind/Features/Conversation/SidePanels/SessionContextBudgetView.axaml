@@ -1,0 +1,35 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:panels="clr-namespace:UiharuMind.Features.Conversation.SidePanels"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="260" d:DesignHeight="70"
+             x:Class="UiharuMind.Features.Conversation.SidePanels.SessionContextBudgetView"
+             x:DataType="panels:SessionContextBudgetViewData">
+
+    <!-- 本会话上下文上限：一根滑杆，可调区间就是 [下限, 模型窗口]。
+         下限靠 Minimum 挡住，拖不过去，不另画一段灰条——滑杆自己给拇指留了半个拇指宽的边距，
+         旁边接一段独立色块永远接不上，屏幕上看着就是断的。
+         拉到顶就是「跟随模型」（值归一成 0，见视图模型），所以不需要单独的恢复按钮。 -->
+    <StackPanel Spacing="6" IsVisible="{Binding HasModel}">
+        <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="{loc:Loc ContextBudgetTitle}" />
+            <TextBlock Grid.Column="1" Classes="muted" Margin="8,0,0,0" Text="{Binding ValueText}" />
+        </Grid>
+
+        <Slider Name="BudgetSlider" IsVisible="{Binding HasRoom}" Padding="0" MinHeight="0" Height="24"
+                Minimum="{Binding Minimum}" Maximum="{Binding Maximum}"
+                Value="{Binding Value, Mode=TwoWay}"
+                IsSnapToTickEnabled="True" TickFrequency="{Binding TickFrequency}" />
+
+        <!-- 占用已经顶到窗口：没有可调空间，说清楚为什么，而不是给一根拖不动的滑杆 -->
+        <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
+                   IsVisible="{Binding !HasRoom}" Text="{loc:Loc ContextBudgetNoRoom}" />
+
+        <!-- 代价写在能改的地方：压低上限就是把压缩的水位整体往前挪 -->
+        <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
+                   Text="{loc:Loc ContextBudgetCostTip}" />
+    </StackPanel>
+
+</UserControl>
