@@ -71,14 +71,13 @@
                IsVisible="{Binding !HasData}" Text="{loc:Loc ContextNoModel}" />
 
     <!-- 没有上限时也显示占用(会话本体恢复出来的),只是没有分母。
-         这一格的悬停要给成显式的 NoWrap 文本：tip 是字符串时它会被塞进一个会换行的 TextBlock，
-         而「134.1k / 308k」正好在斜杠处折行——折出来的第二行有时不显示，屏幕上就是半句 -->
+         悬停用 TipText:它会按自己要的高度排版,不会被弹层客户区那点尾差切掉(单行时也照样成立) -->
     <controls:BaselineStackPanel Spacing="8"
           IsVisible="{Binding UsageText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <TextBlock Classes="muted" Text="{loc:Loc ContextUsageLabel}" />
         <TextBlock HorizontalAlignment="Right" Text="{Binding UsageText}" TextTrimming="CharacterEllipsis">
             <ToolTip.Tip>
-                <TextBlock Text="{Binding UsageText}" TextWrapping="NoWrap" />
+                <controls:TipText Text="{Binding UsageText}" />
             </ToolTip.Tip>
         </TextBlock>
     </controls:BaselineStackPanel>
@@ -88,10 +87,13 @@
     <controls:BaselineStackPanel Name="ReportedRow" Spacing="8"
           IsVisible="{Binding ReportedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <TextBlock Classes="muted" Text="{loc:Loc ContextReportedLabel}" />
-        <TextBlock HorizontalAlignment="Right" Text="{Binding ReportedText}" TextTrimming="CharacterEllipsis"
-                   ToolTip.Tip="{Binding ReportedText}" />
+        <TextBlock HorizontalAlignment="Right" Text="{Binding ReportedText}" TextTrimming="CharacterEllipsis">
+            <ToolTip.Tip>
+                <controls:TipText Text="{Binding ReportedText}" />
+            </ToolTip.Tip>
+        </TextBlock>
         <ToolTip.Tip>
-            <TextBlock Text="{loc:Loc ContextReportedTip}" TextWrapping="Wrap" />
+            <controls:TipText Text="{loc:Loc ContextReportedTip}" />
         </ToolTip.Tip>
     </controls:BaselineStackPanel>
 
@@ -99,10 +101,13 @@
     <controls:BaselineStackPanel Spacing="8"
           IsVisible="{Binding UnreportedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <TextBlock Classes="muted" Text="{loc:Loc ContextUnreportedLabel}" />
-        <TextBlock HorizontalAlignment="Right" Text="{Binding UnreportedText}" TextTrimming="CharacterEllipsis"
-                   ToolTip.Tip="{Binding UnreportedText}" />
+        <TextBlock HorizontalAlignment="Right" Text="{Binding UnreportedText}" TextTrimming="CharacterEllipsis">
+            <ToolTip.Tip>
+                <controls:TipText Text="{Binding UnreportedText}" />
+            </ToolTip.Tip>
+        </TextBlock>
         <ToolTip.Tip>
-            <TextBlock Text="{loc:Loc ContextUnreportedTip}" TextWrapping="Wrap" />
+            <controls:TipText Text="{loc:Loc ContextUnreportedTip}" />
         </ToolTip.Tip>
     </controls:BaselineStackPanel>
 
@@ -111,10 +116,13 @@
     <controls:BaselineStackPanel Spacing="8"
           IsVisible="{Binding CompactedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <TextBlock Classes="muted" Text="{loc:Loc ContextCompactedLabel}" />
-        <TextBlock HorizontalAlignment="Right" Text="{Binding CompactedText}" TextTrimming="CharacterEllipsis"
-                   ToolTip.Tip="{Binding CompactedText}" />
+        <TextBlock HorizontalAlignment="Right" Text="{Binding CompactedText}" TextTrimming="CharacterEllipsis">
+            <ToolTip.Tip>
+                <controls:TipText Text="{Binding CompactedText}" />
+            </ToolTip.Tip>
+        </TextBlock>
         <ToolTip.Tip>
-            <TextBlock Text="{loc:Loc ContextCompactedTip}" TextWrapping="Wrap" />
+            <controls:TipText Text="{loc:Loc ContextCompactedTip}" />
         </ToolTip.Tip>
     </controls:BaselineStackPanel>
 
@@ -129,15 +137,15 @@
     <!-- 缓存命中:正文报会话累计命中率,本轮与最近一次两个口径在悬停里对照。
          单次那个数按构造接近全命中(轮内上下文单调增长,最后一发前缀就是上一发的全部),
          拿它当命中率会虚高——所以它不上正文。
-         长文案的 tip 一律给显式宽度:tip 是字符串时按外层给的约束量,在弹出层里那个约束是错的,
-         量出来的高度少一行,最后一句就被裁掉 -->
+         长文案的 tip 一律用 TipText:它会按「自己要的高度」排版,不会被弹层客户区那点尾差切掉最后一行
+         (给死宽度不行——短文案会留一大块空) -->
     <controls:BaselineStackPanel Name="CachedRow" Spacing="8"
           IsVisible="{Binding CachedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <TextBlock Classes="muted" Text="{loc:Loc ContextCachedLabel}" />
         <TextBlock Name="CachedValue" HorizontalAlignment="Right" Text="{Binding CachedText}"
                    TextTrimming="CharacterEllipsis">
             <ToolTip.Tip>
-                <TextBlock Text="{Binding CachedTip}" TextWrapping="Wrap" />
+                <controls:TipText Text="{Binding CachedTip}" />
             </ToolTip.Tip>
         </TextBlock>
     </controls:BaselineStackPanel>
@@ -154,8 +162,11 @@
     <controls:BaselineStackPanel Spacing="8"
                                  IsVisible="{Binding RequestCountText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <TextBlock Classes="muted" Text="{loc:Loc ContextRequestsLabel}" />
-        <TextBlock HorizontalAlignment="Right" Text="{Binding RequestCountText}" TextTrimming="CharacterEllipsis"
-                   ToolTip.Tip="{Binding RequestCountText}" />
+        <TextBlock HorizontalAlignment="Right" Text="{Binding RequestCountText}" TextTrimming="CharacterEllipsis">
+            <ToolTip.Tip>
+                <controls:TipText Text="{Binding RequestCountText}" />
+            </ToolTip.Tip>
+        </TextBlock>
     </controls:BaselineStackPanel>
     
     <!-- 思考统计:属补充信息,跟水位说明一起只在完整显示时出现（ShowDetails）。
@@ -165,19 +176,24 @@
     <controls:BaselineStackPanel Spacing="8"
           IsVisible="{Binding ReasoningText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <TextBlock Classes="muted" Text="{loc:Loc ContextReasoningLabel}" />
-        <TextBlock HorizontalAlignment="Right" Text="{Binding ReasoningText}" TextTrimming="CharacterEllipsis"
-                   ToolTip.Tip="{Binding ReasoningText}" />
+        <TextBlock HorizontalAlignment="Right" Text="{Binding ReasoningText}" TextTrimming="CharacterEllipsis">
+            <ToolTip.Tip>
+                <controls:TipText Text="{Binding ReasoningText}" />
+            </ToolTip.Tip>
+        </TextBlock>
     </controls:BaselineStackPanel>
     <!-- </Grid> -->
 
     <!-- 累计消耗:本轮收进这一行的悬停。正文只留累计——本轮与累计是同一个数的两个范围,
-         摆成上下两行会被当成两个量在比。同理,累计命中率也不单列一行 -->
+         摆成上下两行会被当成两个量在比。同理,累计命中率也不单列一行。
+         悬停是两行(本轮/累计),用 TipText:裸 TextBlock 会被弹层的客户区尾差削掉一整行,
+         屏幕上只剩「本轮」那行、下面空一行 -->
     <controls:BaselineStackPanel Spacing="8"
           IsVisible="{Binding SessionText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <TextBlock Classes="muted" Text="{loc:Loc ContextSessionLabel}" />
         <TextBlock HorizontalAlignment="Right" Text="{Binding SessionText}" TextTrimming="CharacterEllipsis">
             <ToolTip.Tip>
-                <TextBlock Text="{Binding SessionTip}" TextWrapping="NoWrap" />
+                <controls:TipText Text="{Binding SessionTip}" />
             </ToolTip.Tip>
         </TextBlock>
     </controls:BaselineStackPanel>

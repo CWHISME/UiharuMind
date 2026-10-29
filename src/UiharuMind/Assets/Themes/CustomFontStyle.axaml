@@ -32,7 +32,9 @@
     </Style>
     
     <!-- 提示框掐断继承:MaxLines / TextTrimming / TextWrapping 是可继承属性,ToolTip 的逻辑父级是挂它的控件,
-         挂在「单行 + 省略号」的 TextBlock 上时整段提示也被截成一行,宽度只剩屏幕右侧那点空间 -->
+         挂在「单行 + 省略号」的 TextBlock 上时整段提示也被截成一行,宽度只剩屏幕右侧那点空间。
+         另外:提示内容不要给字符串(ToolTip.Tip="{Binding X}"),要给控件(controls:TipText)——
+         字符串会被包成一个裸 TextBlock,按窄一点的框重新折行、丢掉折出来的行(「82」显示成「8」) -->
     <Style Selector="ToolTip">
         <Setter Property="TextBlock.MaxLines" Value="0" />
         <Setter Property="TextBlock.TextTrimming" Value="None" />

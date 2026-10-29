@@ -121,8 +121,13 @@ public class ThemedIconButton : Ursa.Controls.IconButton
     private void OnToolTipsChanged()
     {
         if (string.IsNullOrEmpty(ToolTips))
+        {
             ToolTip.SetTip(this, null);
-        else
-            ToolTip.SetTip(this, ToolTips);
+            return;
+        }
+
+        // 给控件而不是字符串：字符串会被提示框包成一个裸 TextBlock，按窄一点的框重新折行、
+        // 丢掉折出来的那一行（「82」显示成「8」）。见 TipText
+        ToolTip.SetTip(this, new TipText { Text = ToolTips });
     }
 }
