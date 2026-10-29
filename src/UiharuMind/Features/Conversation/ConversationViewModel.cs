@@ -1612,6 +1612,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         {
             case ETurnNotice.Started:
                 OnPropertyChanged(nameof(SessionModelLabel)); //本轮实际使用的模型此刻可解析
+                // 没选过模型的会话在这一刻已被定格成本轮实际用的那个（见 TurnDriver），
+                // 下拉里的「默认」要跟着变成那一项，否则会话头说不跟随、下拉还指着跟随
+                SessionModel.Refresh();
                 break;
 
             case ETurnNotice.RoundCompleted:

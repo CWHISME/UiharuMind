@@ -24,6 +24,8 @@ public partial class SessionModelPanel : UserControl
 
 /// <summary>
 /// 本会话模型：空即跟随全局，选过即钉选。选项复用全局模型列表，写回走会话头。
+/// 「跟随全局」只在会话还没跑过时成立——首轮开跑就定格成本轮实际用的模型
+/// （见 <c>ChatSession.PinModelIfFollowingGlobal</c>），所以跑过的会话这里读出的是钉选。
 /// 条目实例稳定复用——选中项引用不变，ComboBox 不会因列表重建丢显示。
 /// 只经窄依赖与宿主会话对话，不持有任何页面或视图模型。
 /// </summary>

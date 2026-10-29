@@ -183,6 +183,9 @@ public sealed class TurnDriver : IDisposable
         if (userMessage != null) SessionWakeTurn.NoteUserTurn(session.SessionId);
         _usage.BeginTurn();
         _ratioLogged = false;
+        // 「跟随全局」只维持到第一次开跑：这一轮实际用谁，就把名字定格下来。
+        // 否则用户之后换个全局模型，这个会话的下一发跟着换窗口，整段前缀缓存白丢
+        PinFollowingGlobalModel(session);
         runner.InputEstimate?.UseModel(session.ChatModelRunningData?.ModelName);
         _notify?.Invoke(new TurnNotice(ETurnNotice.Started)); //本轮实际使用的模型此刻可解析
         _runCancellation = CancellationTokenSource.CreateLinkedTokenSource(externalCancellation);
@@ -566,6 +569,25 @@ public sealed class TurnDriver : IDisposable
     {
         lock (_liveDrivers) _liveDrivers.Remove(this);
         _runCancellation?.Cancel();
+    }
+
+    /// <summary>
+    /// 没钉过模型的会话，在本轮开头定格到「这一轮实际要用的那个」模型上并落盘。
+    ///
+    /// 必须先让全局落定，再定格。全局还没选过模型时，请求路径靠「候选为空」走进那支补选，
+    /// 顺带把结果写回全局（<see cref="LazyChatClient"/> 的 <c>ResolveAsync</c>）。先定格就等于
+    /// 把候选填上了，那支会整段跳过——模型照样被拉起、会话也确实在用它，可顶栏一直是空的，
+    /// token 统计与水位也拿不到它的上下文上限。所以这里按请求路径同一条判据（<see cref="LazyChatClient.ServingModel"/>）
+    /// 先补一枪，再把结果写进会话覆写。
+    /// </summary>
+    /// <param name="session">本轮要开跑的会话</param>
+    private static void PinFollowingGlobalModel(ChatSession session)
+    {
+        if (session.HasSessionModelOverride) return;
+
+        if (LlmManager.Instance.CurrentRunningModel == null) LlmManager.Instance.TryCheckModelRunning(false);
+        session.PinModelIfFollowingGlobal(
+            LazyChatClient.ServingModel(session.ChatModelRunningData, LlmManager.Instance.EffectiveGlobalModel));
     }
 
     /// <summary>

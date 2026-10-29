@@ -48,7 +48,10 @@ public class ChatSessionMeta
     /// <summary>权限档索引（EAgentPermissionMode，仅 agent 会话有意义）</summary>
     public int PermissionModeIndex { get; set; } = 1;
 
-    /// <summary>会话覆写的模型名；为空表示无覆写、跟随全局当前模型</summary>
+    /// <summary>
+    /// 会话覆写的模型名。为空表示无覆写（还没跑过，跟随全局当前模型）；
+    /// 第一轮开跑即定格成本轮实际用的模型，见 <see cref="ChatSession.PinModelIfFollowingGlobal"/>
+    /// </summary>
     public string? SessionModelName { get; set; }
 
     /// <summary>创建时间</summary>

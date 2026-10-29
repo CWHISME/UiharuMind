@@ -83,7 +83,10 @@ public class ChatSession
     /// <summary>权限档索引（仅 agent 会话有意义）</summary>
     public int PermissionModeIndex { get; set; } = 1;
 
-    /// <summary>会话覆写的模型名；为空表示无覆写、跟随全局当前模型</summary>
+    /// <summary>
+    /// 会话覆写的模型名。为空表示无覆写——<b>只在还没跑过时</b>跟随全局当前模型；
+    /// 第一轮开跑就定格成本轮实际用的那个（见 <see cref="PinModelIfFollowingGlobal"/>）
+    /// </summary>
     public string? SessionModelName { get; set; }
 
     /// <summary>
@@ -755,6 +758,28 @@ public class ChatSession
     {
         if (string.IsNullOrEmpty(modelName)) return null;
         return LlmManager.Instance.CacheModelDictionary.GetValueOrDefault(modelName);
+    }
+
+    /// <summary>
+    /// 把「跟着全局走」的会话定格到本轮实际要用的模型上，并落盘。
+    ///
+    /// 只在<b>没有覆写</b>且定得出模型时生效：第一轮开跑那一刻用的就是全局当下这个模型，
+    /// 从此名字写进 <see cref="SessionModelName"/>。不定的话，用户之后随手换个全局模型，
+    /// 这个会话的下一发就跟着换窗口——整段前缀缓存作废，钱与首字延迟都要再付一遍。
+    ///
+    /// 已经钉过的一律不动（钉着的模型没在跑时保留名字、回落全局是另一条既有语义，
+    /// 见 <see cref="ChatModelRunningData"/>）。落盘放在这里：同一次开跑后面那次
+    /// <c>SaveMeta</c> 也可能因别处异常走不到，凭它兜不住；而本方法一个会话一辈子只写一次。
+    /// </summary>
+    /// <param name="serving">本轮真正会发请求的模型（<c>LazyChatClient.ServingModel</c> 的结果）</param>
+    /// <returns>真的定格了返回 true</returns>
+    public bool PinModelIfFollowingGlobal(ModelRunningData? serving)
+    {
+        if (serving == null || string.IsNullOrEmpty(serving.ModelName) || HasSessionModelOverride) return false;
+
+        SessionModelName = serving.ModelName;
+        SaveMeta(); //只动了头字段，历史一个字没改
+        return true;
     }
 
     /// <summary>首条消息时间;历史为空或该消息没有时间戳时回落会话创建时间</summary>
