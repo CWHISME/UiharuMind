@@ -1,6 +1,14 @@
 namespace UiharuMind.Core.AI.Models;
 
 /// <summary>
+/// 模型能选哪些思考档位，以及它有没有对此表过态。
+/// </summary>
+/// <param name="Levels">档位候选；空表示这个模型没有档位（只有开关，或只认 token 预算）</param>
+/// <param name="Declared">模型是否声明过 <c>reasoning_options</c>；
+/// false 时 <paramref name="Levels"/> 只是兜底阶梯，不代表模型真的认这些值</param>
+public readonly record struct ThinkingProfile(IReadOnlyList<string> Levels, bool Declared);
+
+/// <summary>
 /// 思考档位的取值约定。档位不是固定枚举——能接受哪些值由模型自己声明
 /// （models.dev 的 <c>reasoning_options</c>，如 <c>low,medium,xhigh</c>），
 /// 写死一套 low..max 会让只认三档的模型直接 400、声明了 <c>xhigh</c> 的模型点不到。

@@ -52,4 +52,7 @@ public class RemoteZhipuModelConfig : BaseRemoteModelConfig, IRemoteModelConfig
         };
 
     public override int Port { get; set; }
+
+    /// <summary>智谱认 <c>thinking.type</c> 开关，档位另走 <c>reasoning_effort</c>（实测两者同发可用）</summary>
+    public override EThinkingFormat ThinkingFormat => EThinkingFormat.ThinkingType;
 }

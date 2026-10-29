@@ -87,13 +87,22 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     public virtual string ThinkingEffort { get; set; } = ThinkingEfforts.Auto;
 
     /// <summary>
+    /// 思考参数的字段写法。预设供应商各自覆写（智谱/DeepSeek 走 <c>thinking.type</c>、Agnes 走
+    /// <c>chat_template_kwargs</c>）；自定义配置按端点地址推断。
+    /// </summary>
+    [JsonIgnore]
+    [SettingConfigIgnoreDisplay]
+    public virtual EThinkingFormat ThinkingFormat => ThinkingFormats.Detect(ModelPath);
+
+    /// <summary>
     /// 当前模型声明支持的思考档位（不含「不干预」与「关闭」两项，这两项永远可选）。
-    /// 查不到声明时回退到 <see cref="ThinkingEfforts.Fallback"/>。
+    /// 查不到声明时回退到 <see cref="ThinkingEfforts.Fallback"/>；
+    /// 模型明确只认开关或只认 token 预算时为空——那种模型没有档位可选。
     /// </summary>
     [JsonIgnore]
     [SettingConfigIgnoreDisplay]
     public virtual IReadOnlyList<string> SupportedThinkingEfforts =>
-        ModelCapabilityResolver.ResolveEffortOptions(this);
+        ModelCapabilityResolver.ResolveThinkingProfile(this).Levels;
 
     /// <summary>
     /// 各 ModelId 的预设能力(默认上下文、是否支持视觉),键为 ModelId。
@@ -128,23 +137,11 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
         string effort = ThinkingEfforts.Normalize(ThinkingEffort);
         if (effort.Length == 0) return [new("max_tokens", JsonValue.Create(maxTokens))];
 
-        // 关闭档不思考,给 8192 也够正文用;其余档位原样下发声明值——
-        // 不再做 low/medium/high/max 的四档映射,模型声明什么就发什么
-        if (ThinkingEfforts.IsOff(effort))
-        {
-            return
-            [
-                new("thinking", new JsonObject { ["type"] = "disabled" }),
-                new("max_tokens", JsonValue.Create(maxTokens)),
-            ];
-        }
-
-        return
-        [
-            new("thinking", new JsonObject { ["type"] = "enabled" }),
-            new("reasoning_effort", JsonValue.Create(effort)),
-            new("max_tokens", JsonValue.Create(maxTokens)),
-        ];
+        // 只有开关或只有 token 预算的模型没有档位可给:选了具体档位也只翻译成「开」,
+        // 免得把一个它不认的档位名发过去
+        bool off = ThinkingEfforts.IsOff(effort);
+        string? level = off || SupportedThinkingEfforts.Count == 0 ? null : effort;
+        return ThinkingParamWriter.Write(ThinkingFormat, new ThinkingSwitch(!off, level), maxTokens);
     }
 
     /// <summary>

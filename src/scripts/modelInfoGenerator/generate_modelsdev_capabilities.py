@@ -73,9 +73,20 @@ def efforts_of(model):
     return ",".join(seen)
 
 
-def uses_token_budget(model):
-    """思考是否用 token 预算表达（Claude 风格），而不是 effort 档位。"""
-    return any((o.get("type") or "") == "budget_tokens" for o in model.get("reasoning_options") or [])
+def thinking_control(model):
+    """思考控制形态：有取值表按档位选（effort）、只有开关（toggle）、只给 token 预算（budget）。
+
+    混合声明时按「有没有档位可选」定：effort+toggle 算 effort，toggle+budget 算 toggle。
+    没声明就是 Unknown——不等于不支持思考，消费侧按兜底阶梯处理。
+    """
+    types = {o.get("type") for o in model.get("reasoning_options") or []}
+    if not types:
+        return "Unknown"
+    if "effort" in types:
+        return "Effort"
+    if "toggle" in types:
+        return "Toggle"
+    return "Budget"
 
 
 def price_of(model):
@@ -153,7 +164,7 @@ def main():
                 m.get("tool_call") is True,
                 m.get("reasoning") is True,
                 efforts_of(m),
-                uses_token_budget(m),
+                thinking_control(m),
                 base, tier_start, tier,
             ))
 
@@ -191,6 +202,18 @@ def main():
         "/// 键是 <c>provider/modelId</c>；<see cref=\"CanonicalEntries\"/> 是按 <c>canonical_model_id</c> 的跨供应商兜底，",
         "/// 只解「这个模型是什么」（视觉与两个窗口），不解价格——转售商各自的挂牌价只能各查各的。",
         "/// </summary>",
+        "internal enum ThinkingControl",
+        "{",
+        "    /// <summary>模型没声明 <c>reasoning_options</c>；不等于不支持思考，消费侧按兜底阶梯处理</summary>",
+        "    Unknown,",
+        "    /// <summary>有档位取值表，按名字选（<c>low</c>/<c>medium</c>/<c>xhigh</c>…）</summary>",
+        "    Effort,",
+        "    /// <summary>只有开/关，没有档位</summary>",
+        "    Toggle,",
+        "    /// <summary>只给 token 预算数值（Claude 风格），没有档位名</summary>",
+        "    Budget,",
+        "}",
+        "",
         "internal static class ModelCapabilityTable",
         "{",
         "    internal readonly record struct Capability(",
@@ -201,7 +224,7 @@ def main():
         "        bool SupportsToolCall,",
         "        bool IsReasoning,",
         "        string Efforts,",
-        "        bool UsesTokenBudget,",
+        "        ThinkingControl Thinking,",
         "        ModelPrice Price);",
         "",
         "    internal readonly record struct Canonical(bool IsVision, int ContextLength, int MaxTokens);",
@@ -210,13 +233,13 @@ def main():
         "    {",
     ]
     for (provider, model_id, vision, max_out, ctx, omit, tool_call, reasoning,
-         efforts, token_budget, base, tier_start, tier) in rows:
+         efforts, thinking, base, tier_start, tier) in rows:
         key = escape(f"{provider}/{model_id}")
         price = ", ".join([money(v) for v in base] + [str(tier_start)] + [money(v) for v in tier])
         out.append(
             f'        ["{key}"] = new({str(vision).lower()}, {max_out}, {ctx}, {str(omit).lower()}, '
             f'{str(tool_call).lower()}, {str(reasoning).lower()}, "{escape(efforts)}", '
-            f'{str(token_budget).lower()}, new ModelPrice({price})),'
+            f'ThinkingControl.{thinking}, new ModelPrice({price})),'
         )
 
     out += [

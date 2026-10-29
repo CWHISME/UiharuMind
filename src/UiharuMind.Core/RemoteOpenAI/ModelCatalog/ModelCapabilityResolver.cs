@@ -102,20 +102,37 @@ public static class ModelCapabilityResolver
     }
 
     /// <summary>
-    /// 该模型可选的思考档位（编辑窗口下拉的候选）。声明了就给声明值，
-    /// 没声明回退到 <see cref="ThinkingEfforts.Fallback"/>——没声明不等于不支持思考。
+    /// 该模型可选哪些思考档位（编辑窗口下拉的候选）。
+    /// <see cref="ThinkingProfile.Levels"/> 为空表示这个模型根本没有档位——只有开关，或只认 token 预算。
     /// </summary>
     /// <param name="config">远程模型配置</param>
-    /// <returns>档位值列表，不含「不干预」与「关闭」</returns>
-    public static IReadOnlyList<string> ResolveEffortOptions(BaseRemoteModelConfig config) =>
-        ResolveEffortOptions(config.GetType(), config.ModelId);
+    /// <returns>档位候选与「模型是否表过态」</returns>
+    public static ThinkingProfile ResolveThinkingProfile(BaseRemoteModelConfig config) =>
+        ResolveThinkingProfile(config.GetType(), config.ModelId);
 
     /// <summary>
-    /// 按配置类型与模型 ID 取可选思考档位
+    /// 按配置类型与模型 ID 取思考档位候选
     /// </summary>
     /// <param name="configType">远程配置类型</param>
     /// <param name="modelId">模型 ID</param>
-    /// <returns>档位值列表，不含「不干预」与「关闭」</returns>
-    public static IReadOnlyList<string> ResolveEffortOptions(Type configType, string modelId) =>
-        ThinkingEfforts.ParseDeclared(ResolveEfforts(configType, modelId));
+    /// <returns>档位候选与「模型是否表过态」</returns>
+    public static ThinkingProfile ResolveThinkingProfile(Type configType, string modelId) =>
+        ResolveThinkingControl(configType, modelId) switch
+        {
+            // 只有开关或只有 token 预算：没有档位名可选
+            ThinkingControl.Toggle or ThinkingControl.Budget => new ThinkingProfile([], true),
+            ThinkingControl.Effort => new ThinkingProfile(
+                ThinkingEfforts.ParseDeclared(ResolveEfforts(configType, modelId)), true),
+            // 没声明不等于不支持思考，给兜底阶梯；但「没表态」要让界面知道，
+            // 否则用户自己填过的档位会被当成不支持而清掉
+            _ => new ThinkingProfile(ThinkingEfforts.Fallback, false),
+        };
+
+    private static ThinkingControl ResolveThinkingControl(Type configType, string modelId)
+    {
+        string providerKey = ModelCapabilityTable.ProviderKeyOf(configType);
+        return providerKey.Length > 0 && ModelCapabilityTable.TryGet(providerKey, modelId, out var capability)
+            ? capability.Thinking
+            : ThinkingControl.Unknown;
+    }
 }

@@ -87,6 +87,15 @@ public class RemoteModelEditThinkingTests
         Assert.Equal(["", "none", "low", "medium", "high", "xhigh"], values);
     }
 
+    /// <summary>只有开关的模型没有档位可选，下拉只剩「不干预」「关闭」</summary>
+    [Fact]
+    public void ToggleOnlyModel_OffersNoLevels()
+    {
+        var vm = CreateEditVm(new RemoteOpenCodeModelConfig { ModelId = "glm-4.7" });
+
+        Assert.Equal(["", "none"], Values(vm));
+    }
+
     [Theory]
     [InlineData("minimal")]
     [InlineData("xhigh")]

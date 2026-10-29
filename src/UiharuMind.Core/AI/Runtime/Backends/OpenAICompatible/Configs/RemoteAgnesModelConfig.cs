@@ -1,4 +1,3 @@
-using System.Text.Json.Nodes;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Core.Attributes;
 using UiharuMind.Core.Core.Utils;
@@ -37,29 +36,8 @@ public class RemoteAgnesModelConfig : BaseRemoteModelConfig, IRemoteModelConfig
     public override int Port { get; set; }
 
     /// <summary>
-    /// Agnes 的思考开关。2.5/3.0 默认都是关,只有显式开才思考;
-    /// 四个力度档在服务端没有对应分级,一律收敛为开。
+    /// Agnes 的思考只有一个布尔开关（<c>chat_template_kwargs.enable_thinking</c>），没有力度分级；
+    /// 顶层 <c>thinking</c>/<c>reasoning_effort</c> 经它的 litellm 网关直接 400，所以不能走基类的写法。
     /// </summary>
-    /// <returns>只含 <c>chat_template_kwargs</c> 与 <c>max_tokens</c>,永不含顶层 thinking</returns>
-    public override IReadOnlyList<KeyValuePair<string, JsonNode?>>? GetExtraParams()
-    {
-        int maxTokens = MaxTokens > 0
-            ? MaxTokens
-            : (ModelIdVariants.TryGetValue(ModelId, out RemoteModelIdVariant? preset) && preset.MaxTokens > 0
-                ? preset.MaxTokens
-                : DefaultMaxTokens);
-
-        // Agnes 没有力度分级:任何具体档位都收敛成「开」,只有显式关闭与不干预才区分
-        KeyValuePair<string, JsonNode?>? thinkingParam = ThinkingEfforts.Normalize(ThinkingEffort) switch
-        {
-            ThinkingEfforts.Auto => null,
-            ThinkingEfforts.Off => new("chat_template_kwargs",
-                new JsonObject { ["enable_thinking"] = JsonValue.Create(false) }),
-            _ => new("chat_template_kwargs",
-                new JsonObject { ["enable_thinking"] = JsonValue.Create(true) }),
-        };
-
-        if (thinkingParam.HasValue) return [thinkingParam.Value, new("max_tokens", JsonValue.Create(maxTokens))];
-        return [new("max_tokens", JsonValue.Create(maxTokens))];
-    }
+    public override EThinkingFormat ThinkingFormat => EThinkingFormat.ChatTemplate;
 }

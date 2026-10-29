@@ -8,11 +8,14 @@ using UiharuMind.Core.RemoteOpenAI.ModelCatalog;
 namespace UiharuMind.Core.Tests.AI;
 
 /// <summary>
-/// 思考档位的取值约定:不再固定 low/medium/high/max 四档,
-/// 模型声明什么就发什么,旧存档的枚举名要能读成 wire 值。
+/// 思考档位的取值约定与请求写法：档位不再固定 low/medium/high/max，
+/// 字段名也不是统一的 <c>reasoning_effort</c>，按供应商族分派。
 /// </summary>
 public class ThinkingEffortsTests
 {
+    private static Dictionary<string, JsonNode?> ExtraParams(BaseRemoteModelConfig config) =>
+        config.GetExtraParams()!.ToDictionary(pair => pair.Key, pair => pair.Value);
+
     [Theory]
     [InlineData(null, "")]
     [InlineData("", "")]
@@ -40,24 +43,73 @@ public class ThinkingEffortsTests
         Assert.Equal(ThinkingEfforts.Fallback, ThinkingEfforts.ParseDeclared(null));
     }
 
-    [Fact]
-    public void GetExtraParams_SendsDeclaredValueVerbatim()
-    {
-        var config = new RemoteModelConfig { ThinkingEffort = "xhigh" };
+    [Theory]
+    [InlineData("https://open.bigmodel.cn/api/paas/v4/chat/completions", EThinkingFormat.ThinkingType)]
+    [InlineData("https://api.z.ai/api/paas/v4/chat/completions", EThinkingFormat.ThinkingType)]
+    [InlineData("https://api.deepseek.com/chat/completions", EThinkingFormat.ThinkingType)]
+    [InlineData("https://api.agnes-ai.cn/v1/chat/completions", EThinkingFormat.ChatTemplate)]
+    [InlineData("https://api.example.com/v1/chat/completions", EThinkingFormat.Effort)]
+    [InlineData("", EThinkingFormat.Effort)]
+    public void Detect_PicksFormatFromEndpoint(string modelPath, EThinkingFormat expected) =>
+        Assert.Equal(expected, ThinkingFormats.Detect(modelPath));
 
-        var extra = config.GetExtraParams()!.ToDictionary(pair => pair.Key, pair => pair.Value);
+    /// <summary>预设供应商显式声明格式，不靠地址猜</summary>
+    [Fact]
+    public void PresetProviders_DeclareTheirFormat()
+    {
+        Assert.Equal(EThinkingFormat.ChatTemplate, new RemoteAgnesModelConfig().ThinkingFormat);
+        Assert.Equal(EThinkingFormat.ThinkingType, new RemoteZhipuModelConfig().ThinkingFormat);
+        Assert.Equal(EThinkingFormat.ThinkingType, new RemoteDeepSeekModelConfig().ThinkingFormat);
+    }
+
+    [Fact]
+    public void GetExtraParams_EffortFormat_SendsOnlyReasoningEffort()
+    {
+        var config = new RemoteModelConfig
+        {
+            ModelPath = "https://api.example.com/v1/chat/completions",
+            ThinkingEffort = "xhigh",
+        };
+
+        var extra = ExtraParams(config);
 
         Assert.Equal("xhigh", extra["reasoning_effort"]!.GetValue<string>());
-        Assert.Equal("enabled", extra["thinking"]!["type"]!.GetValue<string>());
+        Assert.DoesNotContain("thinking", extra);
         Assert.True(extra.ContainsKey("max_tokens"));
     }
 
     [Fact]
-    public void GetExtraParams_OffDisablesThinking()
+    public void GetExtraParams_EffortFormat_OffWritesNone()
     {
-        var config = new RemoteModelConfig { ThinkingEffort = ThinkingEfforts.Off };
+        var config = new RemoteModelConfig
+        {
+            ModelPath = "https://api.example.com/v1/chat/completions",
+            ThinkingEffort = ThinkingEfforts.Off,
+        };
 
-        var extra = config.GetExtraParams()!.ToDictionary(pair => pair.Key, pair => pair.Value);
+        var extra = ExtraParams(config);
+
+        Assert.Equal("none", extra["reasoning_effort"]!.GetValue<string>());
+        Assert.DoesNotContain("thinking", extra);
+    }
+
+    [Fact]
+    public void GetExtraParams_ThinkingTypeFormat_SendsSwitchAndLevel()
+    {
+        var config = new RemoteZhipuModelConfig { ModelId = "glm-5.3", ThinkingEffort = "high" };
+
+        var extra = ExtraParams(config);
+
+        Assert.Equal("enabled", extra["thinking"]!["type"]!.GetValue<string>());
+        Assert.Equal("high", extra["reasoning_effort"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void GetExtraParams_ThinkingTypeFormat_OffSendsNoLevel()
+    {
+        var config = new RemoteZhipuModelConfig { ThinkingEffort = ThinkingEfforts.Off };
+
+        var extra = ExtraParams(config);
 
         Assert.Equal("disabled", extra["thinking"]!["type"]!.GetValue<string>());
         Assert.DoesNotContain("reasoning_effort", extra);
@@ -66,19 +118,44 @@ public class ThinkingEffortsTests
     [Fact]
     public void GetExtraParams_AutoSendsNoThinkingParams()
     {
-        var config = new RemoteModelConfig { ThinkingEffort = ThinkingEfforts.Auto };
+        var config = new RemoteZhipuModelConfig { ThinkingEffort = ThinkingEfforts.Auto };
 
-        var extra = config.GetExtraParams()!.ToDictionary(pair => pair.Key, pair => pair.Value);
+        var extra = ExtraParams(config);
 
         Assert.Equal(["max_tokens"], extra.Keys.ToArray());
     }
 
+    /// <summary>只有开关的模型：没有档位名可发，只把开关打开</summary>
     [Fact]
-    public void ResolveEffortOptions_CustomProviderUsesFallback()
+    public void ThinkingParamWriter_ToggleModelSendsSwitchWithoutLevel()
     {
-        Assert.Equal(
-            ThinkingEfforts.Fallback,
-            ModelCapabilityResolver.ResolveEffortOptions(typeof(RemoteModelConfig), "some-unknown-model"));
+        var parameters = ThinkingParamWriter.Write(
+                EThinkingFormat.ThinkingType, new ThinkingSwitch(true, null), 4096)
+            .ToDictionary(pair => pair.Key, pair => pair.Value);
+
+        Assert.Equal("enabled", parameters["thinking"]!["type"]!.GetValue<string>());
+        Assert.DoesNotContain("reasoning_effort", parameters);
+    }
+
+    [Fact]
+    public void ResolveThinkingProfile_CustomProviderUsesFallbackAndIsNotDeclared()
+    {
+        ThinkingProfile profile =
+            ModelCapabilityResolver.ResolveThinkingProfile(typeof(RemoteModelConfig), "some-unknown-model");
+
+        Assert.Equal(ThinkingEfforts.Fallback, profile.Levels);
+        Assert.False(profile.Declared);
+    }
+
+    /// <summary>Agnes 的模型只有开关，没有档位可选</summary>
+    [Fact]
+    public void ResolveThinkingProfile_ToggleModelHasNoLevels()
+    {
+        ThinkingProfile profile =
+            ModelCapabilityResolver.ResolveThinkingProfile(typeof(RemoteAgnesModelConfig), "agnes-3.0-flash");
+
+        Assert.Empty(profile.Levels);
+        Assert.True(profile.Declared);
     }
 
     /// <summary>旧存档写的是 <c>"ThinkingMode": "Light"</c>，改名后必须还能读进 wire 值</summary>

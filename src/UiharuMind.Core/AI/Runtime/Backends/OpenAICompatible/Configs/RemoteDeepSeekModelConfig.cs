@@ -1,3 +1,4 @@
+using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Core.Attributes;
 using UiharuMind.Core.Core.Utils;
 
@@ -29,4 +30,7 @@ public class RemoteDeepSeekModelConfig : BaseRemoteModelConfig, IRemoteModelConf
         };
 
     public override int Port { get; set; }
+
+    /// <summary>DeepSeek 用 <c>thinking.type</c> 开关思考，档位另走 <c>reasoning_effort</c></summary>
+    public override EThinkingFormat ThinkingFormat => EThinkingFormat.ThinkingType;
 }

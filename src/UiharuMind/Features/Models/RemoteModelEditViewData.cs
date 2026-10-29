@@ -599,10 +599,9 @@ public partial class RemoteModelEditViewData : ObservableObject
     private void RefreshThinkingOptions()
     {
         string desired = ThinkingEfforts.Normalize(_thinkingEffortValue);
-        string declared = EffectiveConfigType is { } configType
-            ? ModelCapabilityResolver.ResolveEfforts(configType, ModelId)
-            : "";
-        IReadOnlyList<string> supported = ThinkingEfforts.ParseDeclared(declared);
+        ThinkingProfile profile = EffectiveConfigType is { } configType
+            ? ModelCapabilityResolver.ResolveThinkingProfile(configType, ModelId)
+            : new ThinkingProfile(ThinkingEfforts.Fallback, false);
 
         _suppressThinkingOptionWrite = true;
         try
@@ -611,12 +610,13 @@ public partial class RemoteModelEditViewData : ObservableObject
             ThinkingOptions.Add(new ThinkingOptionItem(ThinkingEfforts.Auto));
             ThinkingOptions.Add(new ThinkingOptionItem(ThinkingEfforts.Off));
             // 声明里可能就有 none（23 条模型这么写），与「关闭」是同一个语义，不能重复成两条
-            foreach (string effort in supported)
+            foreach (string effort in profile.Levels)
             {
                 if (ThinkingOptions.All(option => option.Value != effort))
                     ThinkingOptions.Add(new ThinkingOptionItem(effort));
             }
-            if (declared.Length == 0 && desired.Length > 0 &&
+
+            if (!profile.Declared && desired.Length > 0 &&
                 ThinkingOptions.All(option => option.Value != desired))
             {
                 ThinkingOptions.Add(new ThinkingOptionItem(desired));

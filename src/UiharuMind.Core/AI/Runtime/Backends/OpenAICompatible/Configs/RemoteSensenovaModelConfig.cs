@@ -1,3 +1,4 @@
+using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Core.Attributes;
 using UiharuMind.Core.Core.Utils;
 
@@ -41,4 +42,7 @@ public class RemoteSensenovaModelConfig : BaseRemoteModelConfig, IRemoteModelCon
         };
 
     public override int Port { get; set; }
+
+    /// <summary>商汤转售的 GLM/DeepSeek 系走 <c>thinking.type</c>；与改动前的基类写法一致</summary>
+    public override EThinkingFormat ThinkingFormat => EThinkingFormat.ThinkingType;
 }
