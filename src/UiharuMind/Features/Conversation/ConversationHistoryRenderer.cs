@@ -328,6 +328,11 @@ public sealed class ConversationHistoryRenderer
             }
 
             int before = buffer.Count;
+            // 加密思考：正文压根不存在，历史里也就没有对应内容，卡只能在这里补。
+            // 插在本条消息的条目之前——思考发生在正文之前
+            if (ChatMessageAnnotations.TryReadThinkingUnavailable(message, out _))
+                buffer.Insert(before, new ThinkingItem { IsContentUnavailable = true, IsDone = true });
+
             foreach (AIContent content in message.Contents)
             {
                 replay.Apply(content);

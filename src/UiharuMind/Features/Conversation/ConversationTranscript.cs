@@ -56,6 +56,8 @@ public sealed class ConversationTranscript : ITurnSink
     private readonly bool _isUiBound; //落点是否为界面绑定集合(回放缓冲是普通 List,不是)
     private TextConversationItem? _streamingText;
     private ThinkingItem? _streamingThinking;
+    private int _segmentFirstItem = -1; //本段第一条条目在落点里的下标,-1=本段还没有条目
+    private int _closedSegmentFirstItem = -1; //刚收尾那一段的首条下标,「加密思考」卡要插回原位
     private bool _offThreadReported; //跨线程写入只报一次,否则流式期间会刷屏
 
     /// <summary>思考段收尾时是否自动折叠（流式进行中一律保持展开）</summary>
@@ -149,6 +151,7 @@ public sealed class ConversationTranscript : ITurnSink
     public void Apply(AIContent content)
     {
         VerifyUiAccess();
+        if (content is not MessageBoundaryContent && _segmentFirstItem < 0) _segmentFirstItem = _target.Count;
         switch (content)
         {
             case TextReasoningContent reasoning:
@@ -210,6 +213,8 @@ public sealed class ConversationTranscript : ITurnSink
             // 一次服务调用到此为止:之后的正文属于下一条助手消息,不能续进当前气泡
             case MessageBoundaryContent boundary:
                 ThinkingBoundary.Dispatch(boundary, _thinkParser, AppendText, AppendThinking, CloseSegment);
+                _closedSegmentFirstItem = _segmentFirstItem;
+                _segmentFirstItem = -1;
                 MessageBoundaryReached?.Invoke();
                 break;
 
@@ -375,6 +380,27 @@ public sealed class ConversationTranscript : ITurnSink
         StopRunningToolCalls(_target, note, _isUiBound);
     }
 
+    /// <summary>
+    /// 本次服务调用报了思考 token 却没有一个字：补一张「加密思考」卡。
+    ///
+    /// 思考卡原本只在有正文增量时才建（见 <see cref="AppendThinking"/>），而闭源模型
+    /// （<c>meta/muse-spark</c> 这类）只回密文或只报计数，正文压根不存在——于是一张卡都不会出现，
+    /// 界面上整段空白，读起来像模型没思考过。这里补的卡<b>不带正文也不报字数</b>：那两样本来就没有，
+    /// 编不出来；只把标题换成「加密思考」，让人知道它想过。
+    ///
+    /// 插回本段首条条目的位置：思考发生在正文之前，而这条通知要等用量到达（服务调用收尾）
+    /// 才发得出来，此刻正文气泡已经画好了，直接 Append 会画到回答下面去。
+    /// </summary>
+    /// <param name="reasoningTokens">服务端报的思考 token 数</param>
+    public void ThinkingNotReturned(long reasoningTokens)
+    {
+        VerifyUiAccess();
+        ThinkingItem card = new() { IsContentUnavailable = true, IsDone = true };
+        int at = _closedSegmentFirstItem;
+        if (at < 0 || at > _target.Count) at = _target.Count;
+        _target.Insert(at, card);
+    }
+
     private static void StopRunningToolCalls(IEnumerable<ConversationItemBase> items, string note, bool finishDuration)
     {
         foreach (ToolCallItem call in items.OfType<ToolCallItem>())
@@ -501,6 +527,8 @@ public sealed class ConversationTranscript : ITurnSink
         _round.Clear();
         _streamingText = null;
         _streamingThinking = null;
+        _segmentFirstItem = -1;
+        _closedSegmentFirstItem = -1;
         _thinkParser.Reset();
     }
 

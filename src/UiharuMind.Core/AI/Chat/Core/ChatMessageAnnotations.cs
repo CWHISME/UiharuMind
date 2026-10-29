@@ -530,6 +530,15 @@ public static class ChatMessageAnnotations
         message.AdditionalProperties?.ContainsKey(Knowledge) == true;
 
     /// <summary>
+    /// 思考未返回正文标记：值为服务端报的思考 token 数。带此键的消息<b>要落盘、不供给模型判断</b>——
+    /// 呈现轴：闭源模型只回密文或只报计数时正文压根不存在，思考卡靠它显示「加密思考」，
+    /// 否则一张卡都画不出来，界面上整段空白，读起来像模型没思考过。
+    ///
+    /// 与 <see cref="ThinkingChars"/> 互斥：有正文字数就不会有本键（有正文就不必走这条路）。
+    /// </summary>
+    public const string ThinkingUnavailableTokens = "_thinkingUnavailableTokens";
+
+    /// <summary>
     /// 写一条消息的思考统计（耗时毫秒 + 字数）。就地写：调用方持有的是历史里的同一引用。
     /// </summary>
     /// <param name="message">目标消息</param>
@@ -540,6 +549,31 @@ public static class ChatMessageAnnotations
         message.AdditionalProperties ??= new AdditionalPropertiesDictionary();
         message.AdditionalProperties[ThinkingDurationMs] = durationMs;
         message.AdditionalProperties[ThinkingChars] = chars;
+    }
+
+    /// <summary>
+    /// 标一条消息的思考「没给正文」，值是服务端报的思考 token 数。就地写。
+    /// </summary>
+    /// <param name="message">助手消息</param>
+    /// <param name="reasoningTokens">服务端报的思考 token 数（&gt;0）</param>
+    public static void WriteThinkingUnavailable(ChatMessage message, long reasoningTokens)
+    {
+        message.AdditionalProperties ??= new AdditionalPropertiesDictionary();
+        message.AdditionalProperties[ThinkingUnavailableTokens] = reasoningTokens;
+    }
+
+    /// <summary>
+    /// 读「思考没给正文」的标记
+    /// </summary>
+    /// <param name="message">消息</param>
+    /// <param name="reasoningTokens">服务端报的思考 token 数</param>
+    /// <returns>带此标记且值合法返回 True</returns>
+    public static bool TryReadThinkingUnavailable(ChatMessage message, out long reasoningTokens)
+    {
+        reasoningTokens = 0;
+        if (message.AdditionalProperties == null) return false;
+        if (!TryGetInt64(message.AdditionalProperties, ThinkingUnavailableTokens, out reasoningTokens)) return false;
+        return reasoningTokens > 0;
     }
 
     /// <summary>

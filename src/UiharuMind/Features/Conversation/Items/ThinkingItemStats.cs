@@ -121,6 +121,8 @@ public partial class ThinkingItem
     /// <param name="message">来源历史消息</param>
     public static void FreezeReplayItems(IReadOnlyList<ThinkingItem> items, ChatMessage message)
     {
+        // 没有正文的卡（加密思考）不参与分配：它本来就没有字数，定格成「0 字」是假数
+        items = items.Where(x => !x.IsContentUnavailable).ToList();
         if (items.Count == 0) return;
         if (!ChatMessageAnnotations.TryReadThinkingStats(message, out TimeSpan duration, out long chars))
         {

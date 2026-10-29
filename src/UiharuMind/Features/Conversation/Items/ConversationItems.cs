@@ -73,6 +73,12 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget, IL
     [ObservableProperty] private bool _isPreviewTruncated;
 
     /// <summary>
+    /// 思考没给正文：闭源模型（<c>meta/muse-spark</c> 这类）只回密文或只报计数，正文压根不存在。
+    /// 这种卡只有标题，不展开、不报字数——「0 字 · 0s」是编出来的假数。
+    /// </summary>
+    [ObservableProperty] private bool _isContentUnavailable;
+
+    /// <summary>
     /// 全文增量订阅者及其「已消费到的缓冲长度」（游标）。每人各记各的——
     /// 多个全文窗先后打开互不干扰：后开的窗口基线是打开那一刻，
     /// 先开的窗口照常收自己缺的那段，不会因为新订阅者出现而丢数据。
@@ -133,6 +139,7 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget, IL
     public void Flush()
     {
         if (IsStatsFrozen) return; //回放冻结:存档值已定,收尾重算只会把它抹成 0.1s
+        if (IsContentUnavailable) return; //没有正文的卡:统计与正文都不存在,重算只会写进 0 字
         string text;
         int fullLen;
         // 取快照再赋值:赋值会引发绑定与布局,不该攥着锁做
@@ -162,6 +169,7 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget, IL
     void IStreamFlushTarget.FlushForDisplay()
     {
         if (IsStatsFrozen) return; //回放冻结:泵的延迟冲刷不能盖掉存档值
+        if (IsContentUnavailable) return; //没有正文的卡不该被泵刷出 0 字
         string text;
         int len;
         lock (_bufferGate)

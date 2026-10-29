@@ -44,6 +44,7 @@
                 <ToggleButton Grid.Column="0" Classes="NoneStyle" Cursor="Hand" MaxHeight="32"
                               Background="Transparent" Padding="0"
                               BorderThickness="0" IsChecked="{Binding IsExpanded}"
+                              IsHitTestVisible="{Binding !IsContentUnavailable}"
                               HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                     <Grid ColumnDefinitions="Auto,*,Auto">
                         <!-- 图标占同一个列位、同样不带左边距:与工具卡片的图标同一起点。
@@ -53,12 +54,19 @@
                         <controls:CenteredStackPanel Grid.Column="1" Spacing="8"
                                     VerticalAlignment="Center">
                             <TextBlock Classes="muted" VerticalAlignment="Center"
-                                       Text="{loc:Loc AgentThinking}" />
+                                       Text="{loc:Loc AgentThinking}"
+                                       IsVisible="{Binding !IsContentUnavailable}" />
+                            <!-- 闭源模型只回密文/只报计数时正文不存在,标题改成「加密思考」。
+                                 两条并列而不是换一个属性:loc 标记扩展跟着语言热切换,绑死的字符串跟不上 -->
+                            <TextBlock Classes="muted" VerticalAlignment="Center"
+                                       Text="{loc:Loc AgentThinkingEncrypted}"
+                                       IsVisible="{Binding IsContentUnavailable}" />
                             <TextBlock Classes="muted" FontSize="10" Opacity="0.7"
                                        VerticalAlignment="Center"
                                        Text="{Binding StatsText}" />
                         </controls:CenteredStackPanel>
-                        <ThemedSvgIcon Grid.Column="2" Width="14" Height="14" IconName="chevron-down">
+                        <ThemedSvgIcon Grid.Column="2" Width="14" Height="14" IconName="chevron-down"
+                                      IsVisible="{Binding !IsContentUnavailable}">
                             <ThemedSvgIcon.RenderTransform>
                                 <RotateTransform Angle="{Binding IsExpanded,
                                 Converter={x:Static BoolToDoubleConverter.Instance},

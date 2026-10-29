@@ -221,6 +221,9 @@ Hit rate = cached input / reported input. The row above is the session total, wi
     <data name="AgentThinking" xml:space="preserve">
         <value>Thinking</value>
     </data>
+    <data name="AgentThinkingEncrypted" xml:space="preserve">
+        <value>Encrypted thinking</value>
+    </data>
     <data name="AgentThinkingCharsFormat" xml:space="preserve">
         <value>{0} chars</value>
     </data>

@@ -70,6 +70,9 @@ public sealed class TurnDriver : IDisposable
 
     private bool _ratioLogged; //占用比值每轮至多记一条,见 LogUsageRatio
 
+    private long _callReasoningTokens; //本次服务调用报的思考 token,边界时消费
+    private bool _usageSinceBoundary; //边界之后有没有新到过一次用量,见 MarkThinkingNotReturned
+
     /// <summary>
     /// 上一轮是不是被<b>取消</b>收的尾（用户点停止、外部 <see cref="CancelSession"/>、墙钟超时）。
     ///
@@ -269,6 +272,8 @@ public sealed class TurnDriver : IDisposable
                             // 先校准再记账:水位刻度要按下一发实际用的系数换算。旁路请求(写交接)不校准,它与常规请求不同形
                             Calibrate(session, runner, usage.Details);
                             RecordUsage(session, runner, usage.Details);
+                            _callReasoningTokens = usage.Details.ReasoningTokenCount ?? 0;
+                            _usageSinceBoundary = true;
                         }
 
                         if (imageTally.Observe(content) is > 0 and int generated) RecordGeneratedImages(session, generated);
@@ -278,7 +283,10 @@ public sealed class TurnDriver : IDisposable
                         // 统计盖进内存历史——中途打开这个会话的窗口读到的就是已落盘那几段的真实耗时，
                         // 不必等到轮末。只写内存不写文件，轮末统一 Save；计时器自带分段游标，多次盖不重摊。
                         if (content is MessageBoundaryContent)
+                        {
                             stampedThisTurn += StampThinkingStatsInMemory(session, thinkingStats, historyBefore);
+                            MarkThinkingNotReturned(session, historyBefore);
+                        }
                     }
                 }
                 catch (OperationCanceledException e)
@@ -610,6 +618,49 @@ public sealed class TurnDriver : IDisposable
             Log.Warning($"Stamp thinking stats failed: {e.Message}");
             return 0;
         }
+    }
+
+    /// <summary>
+    /// 本次服务调用报了思考 token、历史里却一个字都没有 → 在助手消息上盖「思考未返回」标记，
+    /// 并通知落点补一张「加密思考」卡。
+    ///
+    /// 闭源模型（<c>meta/muse-spark</c> 这类）只回密文或只报计数，正文压根不存在；而思考卡是按
+    /// 内容流创建的，没有正文就一张都不会出现，界面上整段空白，读起来像模型没思考过。
+    /// 用量的思考 token 是唯一能证明「它想过」的证据。
+    ///
+    /// 边界之前没到过用量就整段跳过：宁可不画，也不能把上一次调用的 token 盖到这一次的消息上。
+    /// </summary>
+    /// <param name="session">本轮的会话</param>
+    /// <param name="fromIndex">本轮新增段在历史里的起始下标</param>
+    private void MarkThinkingNotReturned(ChatSession session, int fromIndex)
+    {
+        if (!_usageSinceBoundary) return;
+        _usageSinceBoundary = false;
+        long tokens = _callReasoningTokens;
+        _callReasoningTokens = 0;
+        if (tokens <= 0) return;
+
+        // 这次调用的助手消息是区间里最后一条 assistant
+        ChatMessage? reply = null;
+        for (int i = session.History.Count - 1; i >= Math.Max(0, fromIndex); i--)
+        {
+            if (session.History[i].Role != ChatRole.Assistant) continue;
+            reply = session.History[i];
+            break;
+        }
+
+        // 收得到正文就说明思考正常,不必另标
+        if (reply == null) return;
+        // 先做廉价的短路:结构化思考段在,直接放过;只有它不在时才去扫正文里的 <think> 段
+        foreach (AIContent content in reply.Contents)
+        {
+            if (content is TextReasoningContent { Text.Length: > 0 }) return;
+        }
+
+        if (ThinkingStatsRecorder.ThinkingCharsOf(reply) > 0) return;
+
+        ChatMessageAnnotations.WriteThinkingUnavailable(reply, tokens);
+        _turnSink?.ThinkingNotReturned(tokens);
     }
 
     /// <summary>

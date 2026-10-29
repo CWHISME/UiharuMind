@@ -925,4 +925,55 @@ public class ConversationTranscriptTests
         Assert.Equal("实时", FlushedMessage(Assert.Single(live)));
         Assert.Equal("回放", FlushedMessage(Assert.Single(replay)));
     }
+
+    /// <summary>
+    /// 闭源模型只回密文/只报计数时一个字都流不出来，思考卡本来一张都不会有。
+    /// 补的卡必须落在回答<b>之前</b>——思考发生在正文之前，而这条通知要等用量到达
+    /// （服务调用收尾）才发得出来，此刻气泡已经画好了。
+    /// </summary>
+    [Fact]
+    public void ThinkingNotReturned_InsertsCardBeforeTheReplyBubble()
+    {
+        (ConversationTranscript transcript, List<ConversationItemBase> items) = Create();
+
+        transcript.Apply(new TextContent("答"));
+        transcript.Apply(MessageBoundaryContent.Instance);
+        transcript.ThinkingNotReturned(790);
+
+        Assert.Equal(2, items.Count);
+        ThinkingItem card = Assert.IsType<ThinkingItem>(items[0]);
+        Assert.True(card.IsContentUnavailable);
+        Assert.IsType<TextConversationItem>(items[1]);
+    }
+
+    /// <summary>没有正文的卡不报字数：那两样本来就不存在，「0 字」是编出来的假数。</summary>
+    [Fact]
+    public void ThinkingNotReturned_CardCarriesNoStats()
+    {
+        (ConversationTranscript transcript, List<ConversationItemBase> items) = Create();
+
+        transcript.Apply(new TextContent("答"));
+        transcript.Apply(MessageBoundaryContent.Instance);
+        transcript.ThinkingNotReturned(790);
+
+        ThinkingItem card = items.OfType<ThinkingItem>().Single();
+        card.Flush();
+
+        Assert.Equal(string.Empty, card.StatsText);
+        Assert.Equal(string.Empty, card.Message);
+    }
+
+    /// <summary>有正文的思考照旧走自己的卡，不会被这条通知影响（驱动侧有正文就不会发它）。</summary>
+    [Fact]
+    public void NormalThinking_StaysUnchanged()
+    {
+        (ConversationTranscript transcript, List<ConversationItemBase> items) = Create();
+
+        transcript.Apply(new TextReasoningContent("先想。"));
+        transcript.Apply(new TextContent("答"));
+        transcript.Apply(MessageBoundaryContent.Instance);
+
+        ThinkingItem card = Assert.Single(items.OfType<ThinkingItem>());
+        Assert.False(card.IsContentUnavailable);
+    }
 }

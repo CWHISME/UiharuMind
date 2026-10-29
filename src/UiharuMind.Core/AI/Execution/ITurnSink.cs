@@ -48,6 +48,18 @@ public interface ITurnSink
     /// </summary>
     /// <returns>正在流的正文；当时没在流正文（比如卡在工具调用上）则为 null</returns>
     string? TakeStreamingText();
+
+    /// <summary>
+    /// 本次服务调用报了思考 token，历史里却没有一个字。
+    ///
+    /// 闭源模型（如 <c>meta/muse-spark</c>）只回密文或只报计数，正文压根不存在——思考卡
+    /// 按内容流创建，没有正文就一张都不会出现，界面上整段空白，读起来像模型没思考过。
+    /// 由 <see cref="TurnDriver"/> 在服务调用边界按用量判定后通知；默认什么都不做。
+    /// </summary>
+    /// <param name="reasoningTokens">服务端报的思考 token 数</param>
+    void ThinkingNotReturned(long reasoningTokens)
+    {
+    }
 }
 
 /// <summary>

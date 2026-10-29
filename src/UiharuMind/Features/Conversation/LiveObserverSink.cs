@@ -53,6 +53,9 @@ public sealed class LiveObserverSink : ITurnSink
     /// <inheritdoc />
     public void StopRunningToolCalls(string note) => Post(() => _inner.StopRunningToolCalls(note));
 
+    /// <inheritdoc />
+    public void ThinkingNotReturned(long reasoningTokens) => Post(() => _inner.ThinkingNotReturned(reasoningTokens));
+
     /// <summary>
     /// 观察者的正文不进任何人的历史，所以只做它的另一半职责——收尾当前流段——并返回 null。
     /// 返回值得同步给出，而这里的调用来自后台线程，取不到也不该取。

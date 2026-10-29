@@ -216,6 +216,9 @@
     <data name="AgentThinking" xml:space="preserve">
         <value>思考过程</value>
     </data>
+    <data name="AgentThinkingEncrypted" xml:space="preserve">
+        <value>加密思考</value>
+    </data>
     <data name="AgentThinkingCharsFormat" xml:space="preserve">
         <value>{0} 字</value>
     </data>

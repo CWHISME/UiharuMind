@@ -193,6 +193,9 @@ public sealed class LiveTurnStream
 
         public void StopRunningToolCalls(string note) => ForEach(x => x.StopRunningToolCalls(note));
 
+        /// <summary>思考没给正文同样要转给每个落点，否则只有驱动方那一窗看得到「加密思考」卡</summary>
+        public void ThinkingNotReturned(long reasoningTokens) => ForEach(x => x.ThinkingNotReturned(reasoningTokens));
+
         /// <summary>
         /// 落库用的正文只认<b>驱动者</b>那一份：观察者的条目不进任何人的历史。
         /// 仍要对观察者走一遍，因为它同时是「收尾当前流段」。

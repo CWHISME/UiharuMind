@@ -88,4 +88,49 @@ public class ThinkingStatsAnnotationsTests
 
         Assert.False(ChatMessageAnnotations.TryReadToolDuration(message, out _));
     }
+
+    [Fact]
+    public void ThinkingUnavailable_WriteRead_RoundTrips()
+    {
+        ChatMessage message = new(ChatRole.Assistant, "答");
+
+        ChatMessageAnnotations.WriteThinkingUnavailable(message, 790);
+
+        Assert.True(ChatMessageAnnotations.TryReadThinkingUnavailable(message, out long tokens));
+        Assert.Equal(790, tokens);
+    }
+
+    /// <summary>
+    /// 落盘往返后值变成 <c>JsonElement</c>：重开会话时「加密思考」卡还在，读不回来就变成普通思考卡。
+    /// </summary>
+    [Fact]
+    public void ThinkingUnavailable_JsonRoundTrip_SurvivesAsJsonElement()
+    {
+        ChatMessage message = new(ChatRole.Assistant, "答");
+        ChatMessageAnnotations.WriteThinkingUnavailable(message, 790);
+
+        string json = JsonSerializer.Serialize(message, SessionJsonOptions.Default);
+        ChatMessage restored = JsonSerializer.Deserialize<ChatMessage>(json, SessionJsonOptions.Default)!;
+
+        Assert.True(ChatMessageAnnotations.TryReadThinkingUnavailable(restored, out long tokens));
+        Assert.Equal(790, tokens);
+    }
+
+    [Fact]
+    public void ThinkingUnavailable_MissingKey_ReturnsFalse()
+    {
+        ChatMessage message = new(ChatRole.Assistant, "答");
+
+        Assert.False(ChatMessageAnnotations.TryReadThinkingUnavailable(message, out _));
+    }
+
+    /// <summary>零思考 token 不算「想过」：这条路径只在服务端确实报了数时才成立。</summary>
+    [Fact]
+    public void ThinkingUnavailable_ZeroTokens_ReturnsFalse()
+    {
+        ChatMessage message = new(ChatRole.Assistant, "答");
+        ChatMessageAnnotations.WriteThinkingUnavailable(message, 0);
+
+        Assert.False(ChatMessageAnnotations.TryReadThinkingUnavailable(message, out _));
+    }
 }
