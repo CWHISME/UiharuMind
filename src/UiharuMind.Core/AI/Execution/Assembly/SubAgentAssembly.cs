@@ -502,7 +502,7 @@ internal static class SubAgentAssembly
             input.WorkspaceInstructions,
         // 只读场合不发扩展名单：脑（Brain）场合本身没有扩展
         entries.Any(x => x.Capability == EAgentCapability.Extensions)
-            ? ExtensionRoster.Section(config, input.Mcp, scope) : string.Empty,
+            ? ExtensionRoster.Section(config, scope) : string.Empty,
             input.Persona, input.Role,
             brain: input.SubAgentProfile.IsBrain);
         subOptions.Tools = tools;

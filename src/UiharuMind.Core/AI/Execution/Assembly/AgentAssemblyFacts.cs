@@ -159,13 +159,6 @@ public sealed record AgentAssemblyFacts
     /// <summary>禁用的扩展名(换行拼接)；过滤在装配时固化，故属装配输入</summary>
     public string DisabledExtensions { get; init; } = string.Empty;
 
-    /// <summary>
-    /// MCP server 名单签名（名字 + 说明，见 <see cref="McpManager.DescribeUsable"/>）。
-    /// 系统提示里那份扩展名单由它决定，所以必须入账。
-    /// 只含配置信息，因此连接起落不会让它变——这正是缓存前缀稳定的来源。
-    /// </summary>
-    public string McpRoster { get; init; } = string.Empty;
-
     /// <summary>深度注入（角色卡 depth_prompt）的 JSON 序列化形态；无则为空串。它属装配输入：卡上改深度注入要触发重建。</summary>
     public string DepthPrompt { get; init; } = string.Empty;
 
@@ -207,9 +200,6 @@ public sealed record AgentAssemblyFacts
             IsAgentForm = isAgentForm,
             GroupScene = profile.GroupScene,
             AvatarDuties = profile.AvatarDuties,
-            McpRoster = isAgentForm
-                ? McpManager.Instance.DescribeUsable(profile.WorkspacePath, profile.Tools.DisabledExtensions)
-                : string.Empty,
             ImageModelsConfigured = ImageGenerationService.Shared.HasConfiguredModel,
         });
     }
@@ -270,7 +260,6 @@ public sealed record AgentAssemblyFacts
             BuiltInSkills = isAgent && !inputs.ModelSkillsEnabled ? inputs.BuiltInSkills : string.Empty,
             McpRevision = isAgent ? inputs.McpRevision : 0,
             DisabledExtensions = isAgent ? string.Join('\n', config.DisabledExtensions) : string.Empty,
-            McpRoster = isAgent ? inputs.McpRoster : string.Empty,
             DepthPrompt = character.DepthPrompt is { } depthPrompt ? SaveUtility.SaveToString(depthPrompt) : "",
         };
     }

@@ -197,7 +197,7 @@ public class McpTests
         {
             Assert.Empty(snapshot.BuiltInTools);
             Assert.Empty(snapshot.PromptSegments);
-            Assert.Empty(snapshot.Mcp.Servers);
+            Assert.Null(snapshot.Mcp.Bridge);
             Assert.Equal(0, snapshot.EstimatedTokens);
         }
     }

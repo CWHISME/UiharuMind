@@ -61,8 +61,8 @@ internal sealed class AgentAssemblyPlan
     public IReadOnlyList<CharacterData> MountedAgents { get; init; } = [];
 
     /// <summary>
-    /// MCP 侧的产物：可用的 server 名单与桥接，已按角色的 <c>DisabledExtensions</c> 过滤。
-    /// 主代理与子代理用<b>同一份</b>；名单变化由 <see cref="AgentAssemblyFacts.McpRoster"/> 触发重建
+    /// MCP 侧的产物：查、调各 server 的桥接，已按角色的 <c>DisabledExtensions</c> 过滤。
+    /// 主代理与子代理用<b>同一份</b>；名单不进系统提示（ADR 0096 补记），由 <c>mcp.list</c> 现查
     /// </summary>
     public McpToolSet Mcp { get; init; } = McpToolSet.Empty;
 

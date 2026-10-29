@@ -409,24 +409,31 @@ public class ExtensionTests
     //================= 名单 =================
 
     [Fact]
-    public void Roster_ListsUndisabledBuiltinsThenServers_SkippingNameClashes()
+    public void Roster_ListsUndisabledBuiltinsOnly()
     {
         AgentToolConfig config = new() { DisabledExtensions = { "image" } };
-        McpToolSet mcp = new()
-        {
-            Servers = [new McpRosterServer { Name = "unity", Description = "d" }, new McpRosterServer { Name = "browser" }],
-        };
 
-        IReadOnlyList<(string Name, string Description)> roster = ExtensionRoster.Of(config, mcp, EAgentToolScope.Main);
+        IReadOnlyList<(string Name, string Description)> roster = ExtensionRoster.Of(config, EAgentToolScope.Main);
 
-        Assert.Equal(["browser", "desktop", "audio", "worktree", "chatsession", "mcp", "unity"],
+        Assert.Equal(["browser", "desktop", "audio", "worktree", "chatsession", "mcp"],
             roster.Select(x => x.Name));
         Assert.Equal(string.Empty, ExtensionRoster.Section(
-            new AgentToolConfig { DisabledExtensions = [..BuiltinExtensions.Names] }, McpToolSet.Empty, EAgentToolScope.Main));
+            new AgentToolConfig { DisabledExtensions = [..BuiltinExtensions.Names] }, EAgentToolScope.Main));
     }
 
     /// <summary>worktree 只进挂它的场合名单：主代理/子代理/群成员/化身。
     /// 群成员与化身要建自己的树：群里有人离席、化身值守时，越界写入被化身硬拒，有自己的 worktree 才有地方改</summary>
+    /// <summary>MCP server 的名字不进系统提示（ADR 0096 补记）：那些名字跟着用户配置变，
+    /// 写进去等于每接一台就换一次缓存前缀；「配了哪些」由 mcp.list 现查</summary>
+    [Fact]
+    public void Roster_CarriesNoMcpServerNames()
+    {
+        string section = ExtensionRoster.Section(new AgentToolConfig(), EAgentToolScope.Main);
+
+        Assert.Contains("- mcp：", section);
+        Assert.DoesNotContain("- godot", section);
+    }
+
     [Theory]
     [InlineData(EAgentToolScope.Main, true)]
     [InlineData(EAgentToolScope.SubAgent, true)]
@@ -436,7 +443,7 @@ public class ExtensionTests
     [InlineData(EAgentToolScope.Brain, false)]
     public void Roster_WorktreeOnlyWhereItIsMounted(EAgentToolScope scope, bool included)
     {
-        IReadOnlyList<(string Name, string Description)> roster = ExtensionRoster.Of(new AgentToolConfig(), McpToolSet.Empty, scope);
+        IReadOnlyList<(string Name, string Description)> roster = ExtensionRoster.Of(new AgentToolConfig(), scope);
 
         Assert.Equal(included, roster.Any(x => x.Name == BuiltinExtensions.Worktree));
     }
@@ -452,7 +459,7 @@ public class ExtensionTests
     [InlineData(EAgentToolScope.Brain, false)]
     public void Roster_ChatSessionOnlyWhereItCanHaveSubAgents(EAgentToolScope scope, bool included)
     {
-        IReadOnlyList<(string Name, string Description)> roster = ExtensionRoster.Of(new AgentToolConfig(), McpToolSet.Empty, scope);
+        IReadOnlyList<(string Name, string Description)> roster = ExtensionRoster.Of(new AgentToolConfig(), scope);
 
         Assert.Equal(included, roster.Any(x => x.Name == BuiltinExtensions.ChatSession));
     }

@@ -12,32 +12,13 @@ namespace UiharuMind.Core.AI.Execution.Mcp;
 using ModelContextProtocol.Client;
 
 /// <summary>
-/// <see cref="McpManager"/> 给扩展那一侧（<see cref="McpBridge"/>）的入口：名单签名、查找、列状态与懒连接。
+/// <see cref="McpManager"/> 给扩展那一侧（<see cref="McpBridge"/>）的入口：列状态、查找与懒连接。
 ///
 /// 拆成 partial 文件是因为这是一个自成一体的关注点——它与连接账共享运行态与锁，
 /// 但对外的入口、语义、测试面都不同。主文件只管"配置与连接账"。
 /// </summary>
 public partial class McpManager : IMcpServerHost
 {
-    /// <summary>
-    /// 名单的<b>入账签名</b>：这个会话此刻会写进系统提示的 server（名字 + 说明）。
-    ///
-    /// 装配事实用它判断是否要重建。只含配置信息，所以连接起落不会让它变，缓存前缀因此稳定；
-    /// 而外部改了项目的 <c>.mcp.json</c>、授权状态变了，这里都会变——它们本来就该让模型重新看见名单。
-    /// 无副作用：不标待授权、不清连接，纯读。
-    /// </summary>
-    /// <param name="workspacePath">会话的工作区；空表示只有全局 server</param>
-    /// <param name="disabledServers">本角色禁用的扩展名单</param>
-    /// <returns>签名文本；没有可用 server 时为空串</returns>
-    public string DescribeUsable(string? workspacePath, IEnumerable<string>? disabledServers)
-    {
-        HashSet<string> disabled = DisabledSet(disabledServers);
-        return string.Join('\n', GetEffectiveServers(workspacePath)
-            .Select(x => x.Config)
-            .Where(x => McpServerFinder.IsUsable(x, disabled, _trust.IsTrusted))
-            .Select(x => $"{x.WorkspacePath}\t{x.Name}\t{x.Description}"));
-    }
-
     //================= IMcpServerHost（给 McpBridge） =================
 
     IReadOnlyList<McpServerBrief> IMcpServerHost.List(string? workspacePath, IEnumerable<string>? disabledServers)

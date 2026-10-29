@@ -142,7 +142,7 @@ public class McpExtensionTests : IDisposable
     public async Task RosterAndHelp_NeverLeaveMcpOut()
     {
         Assert.Contains((BuiltinExtensions.Mcp, McpExtension.Spec.Summary),
-            ExtensionRoster.Of(new AgentToolConfig(), McpToolSet.Empty, EAgentToolScope.Main));
+            ExtensionRoster.Of(new AgentToolConfig(), EAgentToolScope.Main));
 
         string all = Text(await Hub(new FakeHost()).HelpAsync(null, null, TestContext.Current.CancellationToken));
 

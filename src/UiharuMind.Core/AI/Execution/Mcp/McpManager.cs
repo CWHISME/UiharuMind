@@ -106,8 +106,9 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
     /// <summary>
     /// 配置修订号：增删改、托管开关、授权变化都会使其自增。
     ///
-    /// <b>连接事件不计入</b>：MCP 工具不进 <c>tools</c>（ADR 0079），连上、断开、重连都不该改前缀。
-    /// 系统提示里那行名单的变化由 <see cref="DescribeUsable"/> 单独入账。
+    /// <b>连接事件不计入</b>：MCP 工具不进 <c>tools</c>，连上、断开、重连都不该改前缀（ADR 0079）。
+    /// 它进装配事实（<c>AgentAssemblyFacts.McpRevision</c>），但名单不在系统提示里（ADR 0096 补记），
+    /// 所以改配置引起的重建<b>产出的请求字节不变</b>——前缀缓存照样命中，重建只当刷新一次桥接
     /// </summary>
     public int Revision
     {
@@ -236,11 +237,11 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
     }
 
     /// <summary>
-    /// 一次装配从 MCP 侧拿的东西：这一轮可用的 server 名单，与查、调它们的桥接。
+    /// 一次装配从 MCP 侧拿的东西：查、调各 server 的桥接。
     /// <b>不连接、不等网络</b>：MCP 工具不进 <c>tools</c>（ADR 0079），模型第一次查或调某个 server 时才连。
     ///
-    /// <b>一台可用的都没有时照样给桥接</b>：名单（写进系统提示那行）只装可用的，桥接却能现查现连——
-    /// 模型经 <c>mcp.list</c> 看得到配了什么，用户后来才起来 / 才打开的 server 不必等重装配就连得上
+    /// <b>一台 server 都没有时照样给桥接</b>：名单本来就该由 <c>mcp.list</c> 现查（ADR 0096 补记），
+    /// 模板这一侧只提供一个现查现连的入口——用户后来才起来 / 才打开的 server 不必等重装配就连得上
     /// </summary>
     /// <param name="workspacePath">
     /// 本次装配的工作区；项目级 <c>.mcp.json</c> 里的 server 据此并入（同名覆盖全局）。
@@ -248,24 +249,19 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
     /// </param>
     /// <param name="disabledServers">本角色禁用的扩展名单（能力层，见 ADR 0008）</param>
     /// <param name="spillDirectory">超限结果的落盘目录（会话自己的产出房间）；无会话时为空，退到缓存下的草稿目录</param>
-    /// <returns>名单与桥接</returns>
+    /// <returns>桥接</returns>
     public McpToolSet Resolve(string? workspacePath = null, IEnumerable<string>? disabledServers = null,
         string spillDirectory = "")
     {
         List<string> disabledList = disabledServers?.ToList() ?? [];
-        List<McpServerConfig> inPlay = InPlayServers(workspacePath, DisabledSet(disabledList));
+        // 顺带把待授权的标出来、改过命令的连接作废：装配是这两件事唯一的时机
+        SyncInPlay(workspacePath, DisabledSet(disabledList));
 
         string spill = spillDirectory.Length > 0 ? spillDirectory : AppPaths.Cache.Scratch;
         // 落进会话房间时图片路径写成草稿目录简写,模型拿它直接喂 Read / 生图;退到缓存时没有简写可用
         AgentPathResolver? paths = spillDirectory.Length > 0 ? new AgentPathResolver(workspacePath, spillDirectory) : null;
         return new McpToolSet
         {
-            Servers = inPlay.Select(x => new McpRosterServer
-            {
-                Name = x.Name,
-                WorkspacePath = x.WorkspacePath,
-                Description = x.Description,
-            }).ToList(),
             Bridge = new McpBridge(this, workspacePath, disabledList, spill, paths),
         };
     }
@@ -356,7 +352,7 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
     }
 
     /// <summary>
-    /// 这一轮真正参与的那批：合并 → 托管与能力过滤 → <b>授权闸门</b>。
+    /// 装配时把这次该管的 server 过一遍账：合并 → 托管与能力过滤 → <b>授权闸门</b>。
     ///
     /// 闸门钉在这里而不是调用方，是因为这是<b>唯一会启动进程的地方</b>。
     /// 若配置由外部传进来、授权由外部先查，那条不变式就依赖「每个调用点都记得查一次」，
@@ -364,13 +360,15 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
     ///
     /// 未获授权的不算失败，标成 <see cref="EMcpConnectionState.PendingApproval"/>——
     /// 缺的是用户那一下授权，不是连接能力，而面板必须能显示「有东西因为没授权而没挂上」。
+    ///
+    /// <b>不返回名单</b>：查、调与 <c>mcp.list</c> 每次都现算，装配这一侧只交出桥接
+    /// （ADR 0096 补记——名单曾经装进 <c>McpToolSet</c> 供系统提示用，现已不在提示里）
     /// </summary>
     /// <param name="workspacePath">工作区路径</param>
     /// <param name="disabled">本角色禁用的 server 名单</param>
-    /// <returns>可以连、也该连的那批配置</returns>
-    private List<McpServerConfig> InPlayServers(string? workspacePath, HashSet<string> disabled)
+    private void SyncInPlay(string? workspacePath, HashSet<string> disabled)
     {
-        List<McpServerConfig> result = new();
+        List<McpServerConfig> trusted = new();
         List<McpServerKey> pending = new();
         foreach (EffectiveMcpServer effective in GetEffectiveServers(workspacePath))
         {
@@ -383,13 +381,12 @@ public partial class McpManager : Singleton<McpManager>, IInitialize
                 continue;
             }
 
-            result.Add(server);
+            trusted.Add(server);
         }
 
         if (pending.Count > 0) MarkPendingApproval(pending);
         // 命令被改过的那些在这里就地作废,免得下面拿着旧连接当新配置用
-        SyncFingerprints(result);
-        return result;
+        SyncFingerprints(trusted);
     }
 
     /// 只动状态,不碰工具缓存:曾授权过、命令刚被改掉的那条,旧工具还能用到下一次重连

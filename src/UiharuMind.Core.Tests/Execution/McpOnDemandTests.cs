@@ -456,33 +456,24 @@ public class McpOnDemandTests : IDisposable
 
     //================= 装配事实 =================
 
+    /// <summary>改配置会让装配重建（刷新桥接），但名单不在系统提示里，重建产出的请求字节不变</summary>
     [Fact]
-    public void Facts_McpRosterChangeTriggersRebuild_ButOnlyForAgents()
+    public void Facts_ConfigRevisionTriggersRebuild()
     {
         CharacterData agent = new() { CharacterName = "a", IsAgent = true };
 
-        AgentAssemblyFacts one = Capture(agent, "github\tdesc");
-        AgentAssemblyFacts two = Capture(agent, "github\tdesc\nunity\t");
-
-        Assert.NotEqual(one, two);
-        Assert.Equal(one, Capture(agent, "github\tdesc"));
+        Assert.NotEqual(Capture(agent, revision: 1), Capture(agent, revision: 2));
+        Assert.Equal(Capture(agent, revision: 1), Capture(agent, revision: 1));
+        // 非 agent 不装配，归零后不连累重建
         CharacterData chat = new() { CharacterName = "c" };
-        Assert.Equal(Capture(chat, "github\tdesc"), Capture(chat, "unity\t")); //非 agent 归零，不连累重建
+        Assert.Equal(Capture(chat, revision: 1), Capture(chat, revision: 2));
     }
 
-    [Fact]
-    public void Facts_ConfigRevision_IsIndependentOfRosterSignature()
-    {
-        CharacterData agent = new() { CharacterName = "a", IsAgent = true };
-
-        Assert.NotEqual(Capture(agent, "", revision: 1), Capture(agent, "", revision: 2));
-    }
-
-    private static AgentAssemblyFacts Capture(CharacterData character, string roster, int revision = 0) =>
+    private static AgentAssemblyFacts Capture(CharacterData character, int revision = 0) =>
         AgentAssemblyFacts.Capture(character,
             new AgentAssemblyInputs
             {
                 Instructions = "prompt", WorkspacePath = "/ws", Permission = EAgentPermissionMode.ReadOnly,
-                McpRevision = revision, McpRoster = roster,
+                McpRevision = revision,
             });
 }

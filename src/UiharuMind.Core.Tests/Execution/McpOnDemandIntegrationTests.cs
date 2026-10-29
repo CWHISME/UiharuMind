@@ -128,9 +128,8 @@ public class McpOnDemandIntegrationTests : IDisposable
         McpServerConfig config = AddStub("stub-ondemand");
         int revisionBefore = _manager.Revision;
 
-        // 装配:不连接、不等待,只出名单与桥接
+        // 装配:不连接、不等待,只给桥接（名单不进系统提示,由 ExHelp / mcp.list 现查）
         McpToolSet set = _manager.Resolve(null, null, _directory);
-        Assert.Equal("stub-ondemand", Assert.Single(set.Servers).Name);
         Assert.NotNull(set.Bridge);
         Assert.Equal(EMcpConnectionState.Disconnected, _manager.GetServerStatus("stub-ondemand").State);
 
@@ -234,9 +233,7 @@ public class McpOnDemandIntegrationTests : IDisposable
         AddStub("stub-blocked");
         McpToolSet set = _manager.Resolve(null, ["stub-blocked"], _directory);
 
-        // 唯一的 server 被角色禁掉:名单（写进系统提示那行）为空,桥接照给——
-        // 模型经 ExHelp（不带参数）/ mcp.list 才看得到「配了一台、但被挡着」
-        Assert.Empty(set.Servers);
+        // 唯一的 server 被角色禁掉:桥接照给,模型经 ExHelp（不带参数）/ mcp.list 才看得到「配了一台、但被挡着」
         Assert.NotNull(set.Bridge);
         string all = (string)Assert.IsType<string>(await Named(set, ExtensionCalls.HelpName)
             .InvokeAsync(new AIFunctionArguments(), ct));
