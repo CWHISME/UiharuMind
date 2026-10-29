@@ -88,8 +88,8 @@ internal sealed class McpBridge
         string name = ExtensionCalls.ModelName(config.Name);
         if (!connection.IsConnected)
         {
-            return $"'{name}' 没连上：{connection.Error ?? "未知原因"}。" +
-                   "它还在后台继续重连；过一会儿再 connect 一次即可，不要改用自己写的脚本或手工 HTTP 请求绕过。";
+            return $"'{name}' 连接失败，错误：{connection.Error ?? "未知原因"}。\n" +
+                   "它会在后台继续重连；过一会儿再连接一次即可，不要改用自己写的脚本或手工 HTTP 请求绕过。";
         }
 
         return $"已连上 '{name}'：{connection.Tools.Count} 条命令。" +

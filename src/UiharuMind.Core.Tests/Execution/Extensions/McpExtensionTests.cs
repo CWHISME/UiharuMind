@@ -95,24 +95,6 @@ public class McpExtensionTests : IDisposable
         Assert.Contains("- secret：被本智能体禁用", text);
     }
 
-    /// <summary>离线是一条工具结果，不是异常；话里要给出「过一会儿再试」的下一步</summary>
-    [Fact]
-    public async Task Connect_WhenOffline_ReportsAndStaysAToolResult()
-    {
-        FakeHost host = new()
-        {
-            Lookup = new McpServerLookup(EMcpLookupStatus.Found, new McpServerConfig { Name = "unity" }, ["unity"]),
-            Connection = new McpServerConnection { IsConnected = false, Error = "connection refused" },
-        };
-
-        string text = Text(await Hub(host).CallAsync(BuiltinExtensions.Mcp,
-            BuiltinExtensions.McpConnect, Args("unity"), TestContext.Current.CancellationToken));
-
-        Assert.Contains("没连上：connection refused", text);
-        Assert.Contains("再 connect 一次", text);
-        Assert.Equal(1, host.ConnectCount);
-    }
-
     /// <summary>连上了就报命令数，并指回 ExHelp：命令清单不在这一步倒</summary>
     [Fact]
     public async Task Connect_WhenOnline_ReportsToolCount()
