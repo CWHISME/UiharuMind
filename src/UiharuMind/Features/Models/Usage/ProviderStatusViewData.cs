@@ -82,6 +82,9 @@ public sealed partial class ProviderStatusViewData : ObservableObject, IDisposab
     /// <summary>是否有可显示的缓存读单价（0 不等于免费，没有就是没有）</summary>
     [ObservableProperty] private bool _hasCacheReadPrice;
 
+    /// <summary>峰时倍率提示（"峰时 ×2"）；谷时为空</summary>
+    [ObservableProperty] private string _modelPriceHint = "";
+
     [ObservableProperty] private bool _hasCredentialWarning;
     [ObservableProperty] private string _credentialHint = "";
     [ObservableProperty] private string _dataAgeText = "";
@@ -339,6 +342,7 @@ public sealed partial class ProviderStatusViewData : ObservableObject, IDisposab
         PanelTitle = "";
         HasModelPrice = false;
         ModelPriceText = "";
+        ModelPriceHint = "";
         HasCacheReadPrice = false;
         CacheReadPriceText = "";
         HasMeters = false;
@@ -371,6 +375,7 @@ public sealed partial class ProviderStatusViewData : ObservableObject, IDisposab
         {
             HasModelPrice = false;
             ModelPriceText = "";
+            ModelPriceHint = "";
             HasCacheReadPrice = false;
             CacheReadPriceText = "";
             return;
@@ -385,6 +390,9 @@ public sealed partial class ProviderStatusViewData : ObservableObject, IDisposab
                 ModelPrice.Format(price.Input * scale),
                 ModelPrice.Format(price.Output * scale),
                 ModelPrice.Format(price.CacheRead * scale));
+        ModelPriceHint = multiplier > 1
+            ? string.Format(Loc.Text(LangKey.ProviderStatusPricePeak), FormatMultiplier(multiplier))
+            : "";
 
         // 顶栏只放一段最值得盯的：缓存读是长会话里真正吃钱的那一项（命中一次就按它计价），
         // 输入/输出在明细面板里再看。表里没这一档（0）就不显示——写成 $0 会被读成"缓存不要钱"

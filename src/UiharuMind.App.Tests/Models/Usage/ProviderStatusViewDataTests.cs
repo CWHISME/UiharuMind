@@ -374,6 +374,7 @@ public sealed class ProviderStatusViewDataTests
         Assert.Equal(Loc.Text(LangKey.ProviderStatusPriceValues, "$0.15", "$0.6", "$0.003"),
             harness.Data.ModelPriceText);
         // 顶栏那串读数后面跟的就是这一段的缓存读价
+        Assert.Equal("", harness.Data.ModelPriceHint);
         Assert.True(harness.Data.HasCacheReadPrice);
         Assert.Equal(Loc.Text(LangKey.ProviderStatusCacheReadPrice, "$0.003"), harness.Data.CacheReadPriceText);
     }
@@ -388,7 +389,7 @@ public sealed class ProviderStatusViewDataTests
         Assert.True(harness.Data.HasModelPrice);
         Assert.Equal(Loc.Text(LangKey.ProviderStatusPriceValues, "$0.3", "$1.2", "$0.006"),
             harness.Data.ModelPriceText);
-        // 峰时只说数、不写字：状态由顶栏徽章表达，同一句话不出现两遍
+        Assert.Contains("×2", harness.Data.ModelPriceHint);
         Assert.Equal(Loc.Text(LangKey.ProviderStatusCacheReadPrice, "$0.006"), harness.Data.CacheReadPriceText);
     }
 

@@ -6175,12 +6175,18 @@ Enable it?</value>
         <value>Sort by price per 1M tokens; models without a published price go last</value>
     </data>
     <data name="ProviderStatusPriceLabel" xml:space="preserve">
-        <value>Unit price (per 1M tokens)</value>
+        <value>Unit price: </value>
     </data>
     <data name="ProviderStatusPriceValues" xml:space="preserve">
         <value>in {0} · out {1} · cache read {2}</value>
     </data>
     <data name="ProviderStatusCacheReadPrice" xml:space="preserve">
         <value>· cache {0}</value>
+    </data>
+    <data name="ProviderStatusPricePeak" xml:space="preserve">
+        <value>peak ×{0}</value>
+    </data>
+    <data name="ProviderStatusPriceUnit" xml:space="preserve">
+        <value>USD per 1M tokens</value>
     </data>
 </root>

@@ -50,14 +50,19 @@
             <TextBlock Text="{Binding MonthlyResetText}" Classes="muted" FontSize="11" />
         </StackPanel>
 
-        <!-- 当前模型的挂牌单价（来自构建期价格表）。峰时按倍率放大成此刻的实价，
-             但不再写字说明——顶栏徽章已经在说这件事，同一句话不用出现两遍 -->
+        <!-- 当前模型的挂牌单价（来自构建期价格表）：峰时按下方的倍率放大，那才是此刻的实价 -->
         <StackPanel Spacing="2" IsVisible="{Binding HasModelPrice}">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                <TextBlock Text="{loc:Loc ProviderStatusPriceLabel}" FontSize="12" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="1" Text="{Binding ModelPriceText}" FontSize="12"
-                           VerticalAlignment="Center" />
-            </Grid>
+            <!-- 一行说完：单价：输入 $0.3 · 输出 $1.2 · 缓存读 $0.006。
+                 单位不进标签（那会把价格顶出面板），也不进悬停提示——提示框宽度一被压就折行，
+                 而高度只按一行算，后半截直接看不见。放在下面一行明说 -->
+            <TextBlock FontSize="12" TextWrapping="Wrap"><Run
+                    Text="{loc:Loc ProviderStatusPriceLabel}" /><Run
+                    Text="{Binding ModelPriceText}" /></TextBlock>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="{loc:Loc ProviderStatusPriceUnit}" Classes="muted" FontSize="11" />
+                <TextBlock Text="{Binding ModelPriceHint}" Classes="muted" FontSize="11"
+                           IsVisible="{Binding ModelPriceHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            </StackPanel>
         </StackPanel>
 
         <TextBlock Text="{Binding UsageStatsText}" Classes="muted" FontSize="11"

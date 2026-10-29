@@ -6170,12 +6170,18 @@
         <value>按每百万 token 单价排序，未公布价格的排在最后</value>
     </data>
     <data name="ProviderStatusPriceLabel" xml:space="preserve">
-        <value>单价（每百万 token）</value>
+        <value>单价：</value>
     </data>
     <data name="ProviderStatusPriceValues" xml:space="preserve">
-        <value>入 {0} · 出 {1} · 缓存读 {2}</value>
+        <value>输入 {0} · 输出 {1} · 缓存读 {2}</value>
     </data>
     <data name="ProviderStatusCacheReadPrice" xml:space="preserve">
         <value>· 缓存读 {0}</value>
+    </data>
+    <data name="ProviderStatusPricePeak" xml:space="preserve">
+        <value>峰时 ×{0}</value>
+    </data>
+    <data name="ProviderStatusPriceUnit" xml:space="preserve">
+        <value>美元 / 百万 token</value>
     </data>
 </root>
