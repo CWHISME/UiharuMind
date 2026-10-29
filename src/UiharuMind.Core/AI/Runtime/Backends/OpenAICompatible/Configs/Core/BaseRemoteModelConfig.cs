@@ -75,11 +75,25 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     public virtual int MaxTokens { get; set; }
 
     /// <summary>
-    /// 模型思考力度。Default 表示不干预,沿用模型自身行为;
-    /// 其余档位由 <see cref="GetExtraParams"/> 翻译为请求参数。
+    /// 模型思考档位的 wire 值（如 <c>low</c> / <c>medium</c> / <c>xhigh</c>）。
+    /// 空串表示不干预、<see cref="ThinkingEfforts.Off"/> 表示关闭，其余由 <see cref="GetExtraParams"/> 原样下发。
+    ///
+    /// 存字符串而不是枚举：能接受哪些值由模型自己声明（<see cref="SupportedThinkingEfforts"/>），
+    /// 固定枚举会让只认三档的模型收到 <c>max</c> 直接 400。JSON 键沿用旧名 <c>ThinkingMode</c>，
+    /// 旧存档里的枚举名由 <see cref="ThinkingEfforts.Normalize"/> 翻译，不需要迁移脚本。
     /// </summary>
     [SettingConfigIgnoreDisplay]
-    public virtual EThinkingMode ThinkingMode { get; set; } = EThinkingMode.Default;
+    [JsonPropertyName("ThinkingMode")]
+    public virtual string ThinkingEffort { get; set; } = ThinkingEfforts.Auto;
+
+    /// <summary>
+    /// 当前模型声明支持的思考档位（不含「不干预」与「关闭」两项，这两项永远可选）。
+    /// 查不到声明时回退到 <see cref="ThinkingEfforts.Fallback"/>。
+    /// </summary>
+    [JsonIgnore]
+    [SettingConfigIgnoreDisplay]
+    public virtual IReadOnlyList<string> SupportedThinkingEfforts =>
+        ModelCapabilityResolver.ResolveEffortOptions(this);
 
     /// <summary>
     /// 各 ModelId 的预设能力(默认上下文、是否支持视觉),键为 ModelId。
@@ -97,7 +111,7 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     /// <summary>
     /// 思考力度
     /// </summary>
-    /// <returns>要写入请求 JSON 的键值对;模型配置为 Default 仅给足预算,不干预思考参数</returns>
+    /// <returns>要写入请求 JSON 的键值对;档位为「不干预」时仅给足预算</returns>
     public virtual IReadOnlyList<KeyValuePair<string, JsonNode?>>? GetExtraParams()
     {
         // 输出预算优先级:模型配置里显式填的 MaxTokens → 当前 ModelId 的预设默认值
@@ -109,48 +123,28 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
                 ? preset.MaxTokens
                 : DefaultMaxTokens);
 
-        return ThinkingMode switch
+        // max_tokens 必须与思考档位同步给:服务端默认 8192 被思考吃光后正文为 0,
+        // 表现为「思考完就没有正式对话」。这是用户最常用的「不干预」档,漏了等于没修
+        string effort = ThinkingEfforts.Normalize(ThinkingEffort);
+        if (effort.Length == 0) return [new("max_tokens", JsonValue.Create(maxTokens))];
+
+        // 关闭档不思考,给 8192 也够正文用;其余档位原样下发声明值——
+        // 不再做 low/medium/high/max 的四档映射,模型声明什么就发什么
+        if (ThinkingEfforts.IsOff(effort))
         {
-            // max_tokens 必须与思考档位同步给:服务端默认 8192 被思考吃光后正文为 0,
-            // 表现为「思考完就没有正式对话」。None 档不思考,给 8192 也够正文用
-            EThinkingMode.None =>
+            return
             [
                 new("thinking", new JsonObject { ["type"] = "disabled" }),
                 new("max_tokens", JsonValue.Create(maxTokens)),
-            ],
-            // 跟随模型配置(不干预 thinking/reasoning_effort),但预算必须给够——
-            // 服务端默认 8192 被思考吃光后正文为 0,表现为「思考完就没有正式对话」。
-            // 这是用户最常用的档位,漏了等于没修。MaxTokens 显式设置时优先用它的值
-            EThinkingMode.Default =>
-            [
-                new("max_tokens", JsonValue.Create(maxTokens)),
-            ],
-            EThinkingMode.Light =>
-            [
-                new("thinking", new JsonObject { ["type"] = "enabled" }),
-                new("reasoning_effort", JsonValue.Create("low")),
-                new("max_tokens", JsonValue.Create(maxTokens)),
-            ],
-            EThinkingMode.Medium =>
-            [
-                new("thinking", new JsonObject { ["type"] = "enabled" }),
-                new("reasoning_effort", JsonValue.Create("medium")),
-                new("max_tokens", JsonValue.Create(maxTokens)),
-            ],
-            EThinkingMode.High =>
-            [
-                new("thinking", new JsonObject { ["type"] = "enabled" }),
-                new("reasoning_effort", JsonValue.Create("high")),
-                new("max_tokens", JsonValue.Create(maxTokens)),
-            ],
-            EThinkingMode.Max =>
-            [
-                new("thinking", new JsonObject { ["type"] = "enabled" }),
-                new("reasoning_effort", JsonValue.Create("max")),
-                new("max_tokens", JsonValue.Create(maxTokens)),
-            ],
-            _ => null,
-        };
+            ];
+        }
+
+        return
+        [
+            new("thinking", new JsonObject { ["type"] = "enabled" }),
+            new("reasoning_effort", JsonValue.Create(effort)),
+            new("max_tokens", JsonValue.Create(maxTokens)),
+        ];
     }
 
     /// <summary>

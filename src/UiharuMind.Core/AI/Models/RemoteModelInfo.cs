@@ -40,7 +40,7 @@ public class RemoteModelInfo : ILlmModel
         Config.RequireReasoningOnEveryAssistantMessage;
 
     /// <summary>本次请求的思考档位；请求侧据此判断是否可能处于思考模式</summary>
-    [JsonIgnore] public EThinkingMode ThinkingMode => Config.ThinkingMode;
+    [JsonIgnore] public string ThinkingEffort => Config.ThinkingEffort;
     public virtual IReadOnlyList<KeyValuePair<string, JsonNode?>>? GetExtraParams() =>
         Config.GetExtraParams();
 

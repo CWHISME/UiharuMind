@@ -68,15 +68,16 @@ public partial class RemoteModelEditViewData : ObservableObject
     private string _maxTokensText = "";
 
     /// <summary>
-    /// 思考档位选项(与 EThinkingMode 枚举一一对应,序号即枚举序号)。
-    /// 显示文案取本地化键 ThinkingMode{枚举名}
+    /// 思考档位候选：跟随当前模型声明的值重建（<see cref="BaseRemoteModelConfig.SupportedThinkingEfforts"/>），
+    /// 固定以「不干预」「关闭」两项打头。模型声明了 <c>xhigh</c> 之类就只给声明的，
+    /// 不再固定 low/medium/high/max 四档。
     /// </summary>
-    public ThinkingModeOptionItem[] ThinkingModeOptions { get; } =
-        Enum.GetValues<EThinkingMode>()
-            .Select(mode => new ThinkingModeOptionItem(mode))
-            .ToArray();
+    public ObservableCollection<ThinkingOptionItem> ThinkingOptions { get; } = new();
 
-    [ObservableProperty] private int _thinkingModeIndex; //思考档位序号,即 EThinkingMode
+    [ObservableProperty] private ThinkingOptionItem? _selectedThinkingOption;
+
+    private string _thinkingEffortValue = ThinkingEfforts.Auto; //当前选中的 wire 值,重建选项时按它恢复
+    private bool _suppressThinkingOptionWrite; //重建候选时不回写值
 
     /// <summary>
     /// MaxTokens 输入框占位提示:显示该模型未填时实际会用到的默认输出预算
@@ -405,7 +406,7 @@ public partial class RemoteModelEditViewData : ObservableObject
             int.TryParse(ContextLengthText.Trim(), out var contextLength) && contextLength > 0 ? contextLength : 0;
         config.MaxTokens =
             int.TryParse(MaxTokensText.Trim(), out var maxTokens) && maxTokens > 0 ? maxTokens : 0;
-        config.ThinkingMode = (EThinkingMode)ThinkingModeIndex;
+        config.ThinkingEffort = _thinkingEffortValue;
         // 没动过就保持"跟随推导"：把界面上那个派生值当成用户选择存下来，
         // 会让下次模型表修好之后仍然沿用旧的判断（<see cref="BaseRemoteModelConfig.IsVisionOverride"/>）
         bool derivedVision = ModelCapabilityResolver.ResolveVision(config);
@@ -502,7 +503,7 @@ public partial class RemoteModelEditViewData : ObservableObject
             ModelDescription = config.ModelDescription ?? "";
             ContextLengthText = config.ContextLength > 0 ? config.ContextLength.ToString() : "";
             MaxTokensText = config.MaxTokens > 0 ? config.MaxTokens.ToString() : "";
-            ThinkingModeIndex = (int)config.ThinkingMode;
+            _thinkingEffortValue = ThinkingEfforts.Normalize(config.ThinkingEffort);
             IsVision = config.IsVision;
             OmitSamplingParams = config.OmitSamplingParams;
             ReplayExistingReasoningOverride = config.ReplayExistingReasoningOverride;
@@ -566,6 +567,7 @@ public partial class RemoteModelEditViewData : ObservableObject
         // 否则预设候选(无目录的服务商)或复制后下拉会一直空(与 ApplyCatalog 同口径)
         RefreshVisibleModelIdOptions();
         if (!IsEditMode) ApplyModelIdPreset(SelectedModelIdOption);
+        RefreshThinkingOptions();
     }
 
     /// <summary>
@@ -580,6 +582,55 @@ public partial class RemoteModelEditViewData : ObservableObject
         _suppressModelIdPrefill = false;
         ApplyModelIdPreset(value);
         TrySyncModelName(value);
+        RefreshThinkingOptions();
+    }
+
+    partial void OnSelectedThinkingOptionChanged(ThinkingOptionItem? value)
+    {
+        if (_suppressThinkingOptionWrite) return;
+        _thinkingEffortValue = value?.Value ?? ThinkingEfforts.Auto;
+    }
+
+    /// <summary>
+    /// 按当前模型声明重建思考档位候选。模型<b>声明了</b>取值集合、而已选值不在其中时退回「不干预」——
+    /// 留着会让下次请求发出模型不认的档位（服务端 400 或静默降级）。
+    /// 没声明的模型给的是兜底阶梯，那只是猜测，此时保留用户已选的值。
+    /// </summary>
+    private void RefreshThinkingOptions()
+    {
+        string desired = ThinkingEfforts.Normalize(_thinkingEffortValue);
+        string declared = EffectiveConfigType is { } configType
+            ? ModelCapabilityResolver.ResolveEfforts(configType, ModelId)
+            : "";
+        IReadOnlyList<string> supported = ThinkingEfforts.ParseDeclared(declared);
+
+        _suppressThinkingOptionWrite = true;
+        try
+        {
+            ThinkingOptions.Clear();
+            ThinkingOptions.Add(new ThinkingOptionItem(ThinkingEfforts.Auto));
+            ThinkingOptions.Add(new ThinkingOptionItem(ThinkingEfforts.Off));
+            // 声明里可能就有 none（23 条模型这么写），与「关闭」是同一个语义，不能重复成两条
+            foreach (string effort in supported)
+            {
+                if (ThinkingOptions.All(option => option.Value != effort))
+                    ThinkingOptions.Add(new ThinkingOptionItem(effort));
+            }
+            if (declared.Length == 0 && desired.Length > 0 &&
+                ThinkingOptions.All(option => option.Value != desired))
+            {
+                ThinkingOptions.Add(new ThinkingOptionItem(desired));
+            }
+
+            ThinkingOptionItem selected = ThinkingOptions.FirstOrDefault(option => option.Value == desired) ??
+                                          ThinkingOptions[0];
+            SelectedThinkingOption = selected;
+            _thinkingEffortValue = selected.Value;
+        }
+        finally
+        {
+            _suppressThinkingOptionWrite = false;
+        }
     }
 
     /// <summary>
@@ -675,6 +726,7 @@ public partial class RemoteModelEditViewData : ObservableObject
         _suppressModelIdPrefill = false;
         RefreshVisibleModelIdOptions();
         if (!IsEditMode) ApplyModelIdPreset(SelectedModelIdOption);
+        RefreshThinkingOptions();
     }
 
     /// <summary>按 ModelId 文本过滤可见候选（id 或显示名，忽略大小写子串；空文本=全量），再按选定维度排序</summary>
@@ -727,6 +779,7 @@ public partial class RemoteModelEditViewData : ObservableObject
             TrySyncModelName(SelectedModelIdOption);
         }
         RefreshVisibleModelIdOptions();
+        RefreshThinkingOptions();
     }
 
     partial void OnModelNameChanged(string value)

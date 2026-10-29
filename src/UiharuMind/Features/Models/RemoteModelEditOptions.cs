@@ -179,28 +179,43 @@ public sealed class ProviderItem
 }
 
 /// <summary>
-/// 思考档位下拉条目:携带枚举值与本地化显示名
+/// 思考档位下拉条目:携带 wire 值与本地化显示名。
+/// 值来自模型声明（<see cref="BaseRemoteModelConfig.SupportedThinkingEfforts"/>），
+/// 没见过的自定义值（如 <c>xhigh</c>）原样显示——服务端认什么就写什么，不翻译。
 /// </summary>
-public sealed class ThinkingModeOptionItem
+public sealed class ThinkingOptionItem
 {
-    public ThinkingModeOptionItem(EThinkingMode mode)
+    /// <summary>
+    /// 按档位值构造
+    /// </summary>
+    /// <param name="value">wire 值；空串表示不干预</param>
+    public ThinkingOptionItem(string value)
     {
-        Mode = mode;
-        Display = Loc.Text(mode switch
+        Value = ThinkingEfforts.Normalize(value);
+        Display = ResolveDisplay(Value);
+    }
+
+    private static string ResolveDisplay(string value)
+    {
+        LangKey? key = value switch
         {
-            EThinkingMode.None => LangKey.ThinkingModeNone,
-            EThinkingMode.Light => LangKey.ThinkingModeLight,
-            EThinkingMode.Medium => LangKey.ThinkingModeMedium,
-            EThinkingMode.High => LangKey.ThinkingModeHigh,
-            EThinkingMode.Max => LangKey.ThinkingModeMax,
-            _ => LangKey.ThinkingModeDefault,
-        });
+            ThinkingEfforts.Auto => LangKey.ThinkingModeDefault,
+            ThinkingEfforts.Off => LangKey.ThinkingModeNone,
+            "minimal" => LangKey.ThinkingModeMinimal,
+            "low" => LangKey.ThinkingModeLight,
+            "medium" => LangKey.ThinkingModeMedium,
+            "high" => LangKey.ThinkingModeHigh,
+            "xhigh" => LangKey.ThinkingModeXHigh,
+            "max" => LangKey.ThinkingModeMax,
+            _ => null,
+        };
+        return key is { } known ? Loc.Text(known) : value;
     }
 
     /// <summary>
-    /// 思考档位
+    /// 思考档位 wire 值
     /// </summary>
-    public EThinkingMode Mode { get; }
+    public string Value { get; }
 
     /// <summary>
     /// 本地化显示名

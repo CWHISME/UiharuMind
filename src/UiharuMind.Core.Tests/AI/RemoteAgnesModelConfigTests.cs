@@ -10,16 +10,16 @@ namespace UiharuMind.Core.Tests.AI;
 /// </summary>
 public class RemoteAgnesModelConfigTests
 {
-    private static Dictionary<string, JsonNode?> ExtraParams(EThinkingMode mode) =>
-        new RemoteAgnesModelConfig { ThinkingMode = mode }.GetExtraParams()!
+    private static Dictionary<string, JsonNode?> ExtraParams(string effort) =>
+        new RemoteAgnesModelConfig { ThinkingEffort = effort }.GetExtraParams()!
             .ToDictionary(p => p.Key, p => p.Value);
 
     [Fact]
     public void ThinkingLevels_AllCollapseToEnabled()
     {
-        foreach (EThinkingMode mode in new[] { EThinkingMode.Light, EThinkingMode.Medium, EThinkingMode.High, EThinkingMode.Max })
+        foreach (string effort in new[] { "low", "medium", "high", "max", "xhigh" })
         {
-            var extra = ExtraParams(mode);
+            var extra = ExtraParams(effort);
 
             Assert.True(extra["chat_template_kwargs"]!["enable_thinking"]!.GetValue<bool>());
             Assert.DoesNotContain("thinking", extra);
@@ -28,18 +28,18 @@ public class RemoteAgnesModelConfigTests
     }
 
     [Fact]
-    public void None_DisablesThinking()
+    public void Off_DisablesThinking()
     {
-        var extra = ExtraParams(EThinkingMode.None);
+        var extra = ExtraParams(ThinkingEfforts.Off);
 
         Assert.False(extra["chat_template_kwargs"]!["enable_thinking"]!.GetValue<bool>());
         Assert.DoesNotContain("thinking", extra);
     }
 
     [Fact]
-    public void Default_OnlySendsMaxTokens()
+    public void Auto_OnlySendsMaxTokens()
     {
-        var extra = ExtraParams(EThinkingMode.Default);
+        var extra = ExtraParams(ThinkingEfforts.Auto);
 
         Assert.DoesNotContain("chat_template_kwargs", extra);
         Assert.DoesNotContain("thinking", extra);

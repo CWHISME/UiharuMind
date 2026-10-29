@@ -2505,7 +2505,7 @@ Hit rate = cached input / reported input. The row above is the session total, wi
         <value>Thinking Mode</value>
     </data>
     <data name="RemoteModelThinkingModeHint" xml:space="preserve">
-        <value>Thinking effort for this model. Default follows the model's own behavior; other levels are sent with each request (backends that don't support it will ignore it).</value>
+        <value>Thinking effort for this model. Options come from what this model declares it supports; Auto sends no thinking parameter, other levels are sent as-is with each request.</value>
     </data>
     <data name="RemoteModelMaxTokensLabel" xml:space="preserve">
         <value>Max Output Tokens</value>
@@ -2518,6 +2518,12 @@ Hit rate = cached input / reported input. The row above is the session total, wi
     </data>
     <data name="ThinkingModeLight" xml:space="preserve">
         <value>Think: light</value>
+    </data>
+    <data name="ThinkingModeMinimal" xml:space="preserve">
+        <value>Think: minimal</value>
+    </data>
+    <data name="ThinkingModeXHigh" xml:space="preserve">
+        <value>Think: extra high</value>
     </data>
     <data name="RepeatModelNameTips" xml:space="preserve">
         <value>Model name already exists!</value>

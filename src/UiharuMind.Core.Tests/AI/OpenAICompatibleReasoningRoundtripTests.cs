@@ -357,7 +357,7 @@ public class OpenAICompatibleReasoningRoundtripTests
         var config = new RemoteCommandCodeModelConfig
         {
             ModelId = "reflection/beam:free",
-            ThinkingMode = EThinkingMode.None,
+            ThinkingEffort = ThinkingEfforts.Off,
         };
         config.LearnRequireReasoningOnEveryAssistantMessage();
 

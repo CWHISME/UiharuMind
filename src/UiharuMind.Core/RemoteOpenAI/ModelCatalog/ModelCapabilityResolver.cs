@@ -100,4 +100,22 @@ public static class ModelCapabilityResolver
             ? capability.Efforts
             : "";
     }
+
+    /// <summary>
+    /// 该模型可选的思考档位（编辑窗口下拉的候选）。声明了就给声明值，
+    /// 没声明回退到 <see cref="ThinkingEfforts.Fallback"/>——没声明不等于不支持思考。
+    /// </summary>
+    /// <param name="config">远程模型配置</param>
+    /// <returns>档位值列表，不含「不干预」与「关闭」</returns>
+    public static IReadOnlyList<string> ResolveEffortOptions(BaseRemoteModelConfig config) =>
+        ResolveEffortOptions(config.GetType(), config.ModelId);
+
+    /// <summary>
+    /// 按配置类型与模型 ID 取可选思考档位
+    /// </summary>
+    /// <param name="configType">远程配置类型</param>
+    /// <param name="modelId">模型 ID</param>
+    /// <returns>档位值列表，不含「不干预」与「关闭」</returns>
+    public static IReadOnlyList<string> ResolveEffortOptions(Type configType, string modelId) =>
+        ThinkingEfforts.ParseDeclared(ResolveEfforts(configType, modelId));
 }

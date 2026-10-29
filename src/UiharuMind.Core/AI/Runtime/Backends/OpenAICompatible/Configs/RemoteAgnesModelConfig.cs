@@ -49,10 +49,11 @@ public class RemoteAgnesModelConfig : BaseRemoteModelConfig, IRemoteModelConfig
                 ? preset.MaxTokens
                 : DefaultMaxTokens);
 
-        KeyValuePair<string, JsonNode?>? thinkingParam = ThinkingMode switch
+        // Agnes 没有力度分级:任何具体档位都收敛成「开」,只有显式关闭与不干预才区分
+        KeyValuePair<string, JsonNode?>? thinkingParam = ThinkingEfforts.Normalize(ThinkingEffort) switch
         {
-            EThinkingMode.Default => null,
-            EThinkingMode.None => new("chat_template_kwargs",
+            ThinkingEfforts.Auto => null,
+            ThinkingEfforts.Off => new("chat_template_kwargs",
                 new JsonObject { ["enable_thinking"] = JsonValue.Create(false) }),
             _ => new("chat_template_kwargs",
                 new JsonObject { ["enable_thinking"] = JsonValue.Create(true) }),

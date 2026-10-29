@@ -236,11 +236,11 @@
 
                     <StackPanel Spacing="6">
                         <TextBlock Text="{loc:Loc RemoteModelThinkingModeLabel}" />
-                        <ComboBox ItemsSource="{Binding ThinkingModeOptions}"
-                                  SelectedIndex="{Binding ThinkingModeIndex}"
+                        <ComboBox ItemsSource="{Binding ThinkingOptions}"
+                                  SelectedItem="{Binding SelectedThinkingOption}"
                                   HorizontalAlignment="Stretch">
                             <ComboBox.ItemTemplate>
-                                <DataTemplate x:DataType="common:ThinkingModeOptionItem">
+                                <DataTemplate x:DataType="common:ThinkingOptionItem">
                                     <TextBlock Text="{Binding Display}" />
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>

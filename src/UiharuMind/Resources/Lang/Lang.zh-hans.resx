@@ -2500,7 +2500,7 @@
         <value>思考模式</value>
     </data>
     <data name="RemoteModelThinkingModeHint" xml:space="preserve">
-        <value>该模型的思考力度。默认跟随模型自身行为;其余档位随每次请求下发(不支持的后端会忽略)。</value>
+        <value>该模型的思考力度。候选取自该模型声明支持的档位；「不干预」不下发思考参数，其余档位随每次请求原样下发。</value>
     </data>
     <data name="RemoteModelMaxTokensLabel" xml:space="preserve">
         <value>最大输出 Tokens</value>
@@ -2513,6 +2513,12 @@
     </data>
     <data name="ThinkingModeLight" xml:space="preserve">
         <value>思考:轻</value>
+    </data>
+    <data name="ThinkingModeMinimal" xml:space="preserve">
+        <value>思考:极低</value>
+    </data>
+    <data name="ThinkingModeXHigh" xml:space="preserve">
+        <value>思考:超高</value>
     </data>
     <data name="RepeatModelNameTips" xml:space="preserve">
         <value>模型名称已存在！</value>

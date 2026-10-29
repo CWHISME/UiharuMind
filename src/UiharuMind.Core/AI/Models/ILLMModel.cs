@@ -30,12 +30,12 @@ public interface ILlmModel
     public IReadOnlyList<KeyValuePair<string, JsonNode?>>? GetExtraParams() => null;
 
     /// <summary>
-    /// 本次请求的思考档位。请求侧改写据此判断本次是否可能处于思考模式：
-    /// <see cref="EThinkingMode.None"/> 显式发 <c>thinking: disabled</c>，服务端按正文调用处理，
+    /// 本次请求的思考档位 wire 值。请求侧改写据此判断本次是否可能处于思考模式：
+    /// <see cref="ThinkingEfforts.Off"/> 显式发 <c>thinking: disabled</c>，服务端按正文调用处理，
     /// 不要求带 tool_calls 的助手消息补思考字段；其余档位都可能思考，需保守补上。
-    /// 本地模型没有思考档位，取 <see cref="EThinkingMode.Default"/>。
+    /// 本地模型没有思考档位，取 <see cref="ThinkingEfforts.Auto"/>。
     /// </summary>
-    public EThinkingMode ThinkingMode => EThinkingMode.Default;
+    public string ThinkingEffort => ThinkingEfforts.Auto;
 
     /// <summary>
     /// 历史消息里<b>已有</b>思考正文时，是否原样回传（有正文看这个，没正文看
