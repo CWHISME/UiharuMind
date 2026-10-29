@@ -62,6 +62,24 @@ public class ThinkingEffortsTests
         Assert.Equal(EThinkingFormat.ThinkingType, new RemoteDeepSeekModelConfig().ThinkingFormat);
     }
 
+    /// <summary>聚合网关下个别模型可以单独声明写法，其余跟随供应商默认</summary>
+    [Fact]
+    public void PerModelPreset_OverridesProviderDefault()
+    {
+        Assert.Equal(EThinkingFormat.ChatTemplate, new PresetFormatConfig { ModelId = "special" }.ThinkingFormat);
+        Assert.Equal(EThinkingFormat.Effort, new PresetFormatConfig { ModelId = "other" }.ThinkingFormat);
+    }
+
+    /// <summary>测试用：供应商默认是 Effort，其中一个模型在预设表里改成 ChatTemplate</summary>
+    private sealed class PresetFormatConfig : BaseRemoteModelConfig
+    {
+        public override IReadOnlyDictionary<string, RemoteModelIdVariant> ModelIdVariants { get; } =
+            new Dictionary<string, RemoteModelIdVariant>
+            {
+                ["special"] = new(ThinkingFormat: EThinkingFormat.ChatTemplate),
+            };
+    }
+
     [Fact]
     public void GetExtraParams_EffortFormat_SendsOnlyReasoningEffort()
     {

@@ -39,5 +39,5 @@ public class RemoteAgnesModelConfig : BaseRemoteModelConfig, IRemoteModelConfig
     /// Agnes 的思考只有一个布尔开关（<c>chat_template_kwargs.enable_thinking</c>），没有力度分级；
     /// 顶层 <c>thinking</c>/<c>reasoning_effort</c> 经它的 litellm 网关直接 400，所以不能走基类的写法。
     /// </summary>
-    public override EThinkingFormat ThinkingFormat => EThinkingFormat.ChatTemplate;
+    protected override EThinkingFormat DefaultThinkingFormat => EThinkingFormat.ChatTemplate;
 }

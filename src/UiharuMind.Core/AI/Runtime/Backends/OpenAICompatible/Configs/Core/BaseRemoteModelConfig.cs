@@ -87,12 +87,27 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     public virtual string ThinkingEffort { get; set; } = ThinkingEfforts.Auto;
 
     /// <summary>
-    /// 思考参数的字段写法。预设供应商各自覆写（智谱/DeepSeek 走 <c>thinking.type</c>、Agnes 走
-    /// <c>chat_template_kwargs</c>）；自定义配置按端点地址推断。
+    /// 思考参数的字段写法。按模型的预设覆盖优先，否则用供应商默认值。
+    ///
+    /// 字段名属于<b>端点</b>而不是模型：聚合网关下几十个模型共用一个格式，
+    /// 网关自己负责把参数翻译给上游。只有个别模型要单独走另一套写法时，
+    /// 才在预设表里给该 ModelId 声明 <see cref="RemoteModelIdVariant.ThinkingFormat"/>。
     /// </summary>
     [JsonIgnore]
     [SettingConfigIgnoreDisplay]
-    public virtual EThinkingFormat ThinkingFormat => ThinkingFormats.Detect(ModelPath);
+    public EThinkingFormat ThinkingFormat =>
+        ModelIdVariants.TryGetValue(ModelId, out RemoteModelIdVariant? variant) &&
+        variant.ThinkingFormat is { } overridden
+            ? overridden
+            : DefaultThinkingFormat;
+
+    /// <summary>
+    /// 供应商默认的思考写法。预设供应商各自覆写；自定义配置按端点地址推断
+    /// （见 <see cref="ThinkingFormats.Detect"/>）。
+    /// </summary>
+    [JsonIgnore]
+    [SettingConfigIgnoreDisplay]
+    protected virtual EThinkingFormat DefaultThinkingFormat => ThinkingFormats.Detect(ModelPath);
 
     /// <summary>
     /// 当前模型声明支持的思考档位（不含「不干预」与「关闭」两项，这两项永远可选）。

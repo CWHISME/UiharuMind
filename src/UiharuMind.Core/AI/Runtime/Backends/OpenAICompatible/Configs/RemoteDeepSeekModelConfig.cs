@@ -32,5 +32,5 @@ public class RemoteDeepSeekModelConfig : BaseRemoteModelConfig, IRemoteModelConf
     public override int Port { get; set; }
 
     /// <summary>DeepSeek 用 <c>thinking.type</c> 开关思考，档位另走 <c>reasoning_effort</c></summary>
-    public override EThinkingFormat ThinkingFormat => EThinkingFormat.ThinkingType;
+    protected override EThinkingFormat DefaultThinkingFormat => EThinkingFormat.ThinkingType;
 }

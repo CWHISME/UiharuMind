@@ -31,5 +31,5 @@ public class RemoteOpenCodeModelConfig : BaseRemoteModelConfig, IRemoteModelConf
     /// 网关下挂的模型各家不同，暂时沿用改动前的写法（<c>thinking.type</c> + <c>reasoning_effort</c>）。
     /// 是否被接受未验证，换格式前得先录一次真实请求。
     /// </summary>
-    public override EThinkingFormat ThinkingFormat => EThinkingFormat.ThinkingType;
+    protected override EThinkingFormat DefaultThinkingFormat => EThinkingFormat.ThinkingType;
 }

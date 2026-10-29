@@ -1,3 +1,5 @@
+using UiharuMind.Core.AI.Models;
+
 namespace UiharuMind.Core.Configs.RemoteAI;
 
 /// <summary>
@@ -31,6 +33,11 @@ namespace UiharuMind.Core.Configs.RemoteAI;
 /// 这条校验与本次是否思考无关,消费侧不跟思考档位走。
 /// 与 opencode 的 <c>compatibility.requireReasoning</c> 同一层级。
 /// </param>
+/// <param name="ThinkingFormat">
+/// 该模型的思考参数写法，覆盖供应商默认值。思考字段名属于<b>端点</b>而不是模型——
+/// 聚合网关下几十个模型共用一个格式；这一项只给个别模型要单独走另一套写法的例外留口子
+/// （同 pi 的 per-model <c>compat</c>）。<c>null</c> 表示跟随供应商。
+/// </param>
 public record RemoteModelIdVariant(
     int ContextLength = 0,
     int MaxTokens = 0,
@@ -39,7 +46,8 @@ public record RemoteModelIdVariant(
     bool OmitSamplingParams = false,
     string Alias = "",
     string ThinkingField = "",
-    bool RequireReasoningOnEveryAssistantMessage = false)
+    bool RequireReasoningOnEveryAssistantMessage = false,
+    EThinkingFormat? ThinkingFormat = null)
 {
     /// <summary>
     /// 空表,供未声明预设的配置使用

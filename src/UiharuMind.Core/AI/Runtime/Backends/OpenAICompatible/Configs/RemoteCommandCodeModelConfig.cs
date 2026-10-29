@@ -31,5 +31,5 @@ public class RemoteCommandCodeModelConfig : BaseRemoteModelConfig, IRemoteModelC
     /// 网关下挂的模型各家不同，暂时沿用改动前的写法（<c>thinking.type</c> + <c>reasoning_effort</c>）。
     /// 这套参数在 CommandCode 上是否被接受仍未验证（ADR 0097），换格式前得先录一次真实请求。
     /// </summary>
-    public override EThinkingFormat ThinkingFormat => EThinkingFormat.ThinkingType;
+    protected override EThinkingFormat DefaultThinkingFormat => EThinkingFormat.ThinkingType;
 }
