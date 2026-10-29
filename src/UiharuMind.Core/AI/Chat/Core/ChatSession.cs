@@ -121,14 +121,19 @@ public class ChatSession
     /// 网关据此把它们路由到同一后端——前缀缓存按副本各存一份，落到没建过该前缀的副本上
     /// 就是整段冷启动，命中率看着像坏了，其实是另一台机器在答。
     ///
-    /// <b>按会话自己算，不继承父会话</b>——这一点与 pi / opencode 不同，别照抄过来：
-    /// 它们的子会话是<b>同一份上下文的分支</b>（<c>parentID ?? fork ?? id</c>），前缀与父会话共享；
+    /// <b>按会话自己算，不继承父会话</b>。pi 与我们同口径（它的子代理是另起一个进程、另一份会话）；
+    /// 与 opencode 相反——它按 <c>parentID ?? fork?.sessionID ?? id</c> 让子会话继承父会话。
+    /// <b>别照抄 opencode</b>：它的子会话是<b>同一份上下文的分支</b>，前缀与父会话共享；
     /// 我们的子会话是<b>一等会话</b>，工具集按档位裁剪、角色卡可以另配（ADR 0021 / 0043），
     /// 工具块在 prompt 里通常还排在系统提示之前——前缀从第一个 token 就分叉，
     /// 亲和值绑在一起换不来一个命中，反而把两套互不相同的前缀挤到同一台副本上。
+    ///
+    /// 由 <see cref="AI.SessionAffinity.Of"/> 从 <see cref="SessionId"/> 算出（哈希，不是原值）。
+    /// 不许在这里另写一套推导：装配那边（<see cref="Execution.Assembly.AgentBuildProfile.CacheAffinity"/>）
+    /// 也要算同一个值，两处一旦分叉，同一会话的主代理请求与旁路请求就会落到不同副本上。
     /// </summary>
     [JsonIgnore]
-    public string CacheAffinity => SessionId;
+    public string CacheAffinity => AI.SessionAffinity.Of(SessionId);
 
     /// <summary>
     /// 子会话装配成哪一种子代理。<b>必须落盘</b>：重开一个子会话续跑时，装配要按同一档重建，

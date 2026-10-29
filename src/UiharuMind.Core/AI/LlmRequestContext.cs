@@ -52,10 +52,16 @@ public static class LlmRequestContext
     /// 带着同一个值，网关据此把它们路由到同一后端——前缀缓存按副本各存一份，
     /// 落到没建过该前缀的副本上就是全冷启动。
     ///
-    /// 取值规则跟 pi / opencode 一致：<b>子会话用父会话的</b>，这样委派出去的请求
-    /// 也落在同一后端，复用父会话已经建好的那份前缀。
+    /// 取值是<b>会话自己的</b>（<see cref="Chat.ChatSession.CacheAffinity"/>）。与 pi 一致——pi 的子代理
+    /// 是另起一个进程、另一份会话，本就用自己的 id；与 opencode 相反——它按
+    /// <c>parentID ?? fork?.sessionID ?? id</c> 让子会话继承父会话。
+    /// <b>别照抄 opencode</b>：它的子会话是同一份上下文的分支，前缀与父会话共享；我们的子会话
+    /// 是一等会话，工具集按档裁剪、角色卡可以另配，前缀从第一个 token 就分叉。
+    /// 理由的全文在 <see cref="Chat.ChatSession.CacheAffinity"/> 上，改这里之前先读那一份。
     ///
-    /// 由 <see cref="Execution.TurnDriver"/> 开轮时设置，HTTP 层读它写请求头。
+    /// 由 <see cref="Execution.LazyChatClient"/> 每发请求前落地（绑在客户端实例上，
+    /// 不靠调用方在流程里设一次——那样子会话、群背景、压缩这些旁路各要补一遍，漏一个就静默失效），
+    /// HTTP 层读它写请求头。
     /// </summary>
     public static string? SessionAffinity
     {
