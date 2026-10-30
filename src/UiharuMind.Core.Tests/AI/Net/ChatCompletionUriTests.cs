@@ -37,4 +37,50 @@ public class ChatCompletionUriTests
     {
         Assert.Equal(expected, ChatCompletionUri.IsChatCompletions(new Uri("https://api.example.com" + path)));
     }
+
+    /// <summary>
+    /// responses 端点的地址归一：与 chat 同样的三种形态收敛，只是结尾换成了 <c>/responses</c>。
+    /// 已填完整路径时不能再补一层（否则打成 <c>/responses/responses</c>）。
+    /// </summary>
+    [Theory]
+    [InlineData("https://api.example.com", "https://api.example.com/v1/responses")]
+    [InlineData("https://api.example.com/", "https://api.example.com/v1/responses")]
+    [InlineData("https://api.example.com/v1", "https://api.example.com/v1/responses")]
+    [InlineData("https://api.example.com/v1/", "https://api.example.com/v1/responses")]
+    [InlineData("https://api.example.com/v1/responses", "https://api.example.com/v1/responses")]
+    public void ResolveResponses_ConvergesEveryShapeToTheResponsesEndpoint(string address, string expected)
+    {
+        Assert.Equal(expected, ChatCompletionUri.ResolveResponses(address).Uri.ToString());
+    }
+
+    /// <summary>responses 地址带查询串时路径照补、查询串保留</summary>
+    [Fact]
+    public void ResolveResponses_KeepsQueryString()
+    {
+        Assert.Equal("https://api.example.com/v1/responses?api-version=2",
+            ChatCompletionUri.ResolveResponses("https://api.example.com/v1?api-version=2").Uri.ToString());
+    }
+
+    /// <summary>判是不是 responses 线：chat 与模型目录都不算</summary>
+    [Theory]
+    [InlineData("/v1/responses", true)]
+    [InlineData("/v1/Responses", true)]
+    [InlineData("/v1/chat/completions", false)]
+    [InlineData("/v1/models", false)]
+    public void IsResponses_OnlyMatchesTheResponsesPath(string path, bool expected)
+    {
+        Assert.Equal(expected, ChatCompletionUri.IsResponses(new Uri("https://api.example.com" + path)));
+    }
+
+    /// <summary>
+    /// 两条线互不误判：填了 responses 的地址不能被当成 chat 走（否则请求体会发成 messages 形状）。
+    /// </summary>
+    [Fact]
+    public void Responses_IsNotMistakenForChatCompletions()
+    {
+        var uri = ChatCompletionUri.ResolveResponses("https://api.example.com/v1").Uri;
+
+        Assert.True(ChatCompletionUri.IsResponses(uri));
+        Assert.False(ChatCompletionUri.IsChatCompletions(uri));
+    }
 }

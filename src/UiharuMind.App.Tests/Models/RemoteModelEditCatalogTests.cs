@@ -97,6 +97,52 @@ public class RemoteModelEditCatalogTests
         Assert.Equal("openrouter-model", Assert.Single(vm.ModelIdOptions).Id);
     }
 
+    /// <summary>
+    /// wire 格式按目录声明的端点推：只声明 /responses 的走 responses 线，
+    /// 只声明 /chat/completions 的走 chat 线，两者都声明的取 chat（已跑通的那条）。
+    /// </summary>
+    [Fact]
+    public void Catalog_ResolvesApiFormatFromDeclaredEndpoints()
+    {
+        var fetcher = new FakeCatalogFetcher
+        {
+            Handler = (_, _) => Task.FromResult<IReadOnlyList<ModelCatalogEntry>>(
+            [
+                Entry("responses-only", "/responses"),
+                Entry("chat-only", "/chat/completions"),
+                Entry("both", "/chat/completions", "/responses"),
+                Entry("no-endpoints"),
+            ]),
+        };
+        var vm = CreateVm(fetcher, new FakeCatalogCache());
+
+        vm.SelectedProvider = vm.Providers.First(p => p.ConfigType == typeof(RemoteCommandCodeModelConfig));
+
+        Assert.Equal(EApiFormat.Responses, vm.ModelIdOptions.First(o => o.Id == "responses-only").ApiFormat);
+        Assert.Equal(EApiFormat.ChatCompletions, vm.ModelIdOptions.First(o => o.Id == "chat-only").ApiFormat);
+        Assert.Equal(EApiFormat.ChatCompletions, vm.ModelIdOptions.First(o => o.Id == "both").ApiFormat);
+        Assert.Equal(EApiFormat.ChatCompletions, vm.ModelIdOptions.First(o => o.Id == "no-endpoints").ApiFormat);
+    }
+
+    /// <summary>
+    /// 只声明 /responses 的模型要被展示出来——过滤条件不能把它当 /messages-only 滤掉
+    /// （它是对话模型，只是走另一条线）。
+    /// </summary>
+    [Fact]
+    public void Catalog_ResponsesOnlyEntry_IsNotFilteredOut()
+    {
+        var fetcher = new FakeCatalogFetcher
+        {
+            Handler = (_, _) => Task.FromResult<IReadOnlyList<ModelCatalogEntry>>(
+                [Entry("responses-only", "/responses")]),
+        };
+        var vm = CreateVm(fetcher, new FakeCatalogCache());
+
+        vm.SelectedProvider = vm.Providers.First(p => p.ConfigType == typeof(RemoteCommandCodeModelConfig));
+
+        Assert.Equal("responses-only", Assert.Single(vm.ModelIdOptions).Id);
+    }
+
     /// <summary>OpenCode 变体：目录最简形状（仅 id，实测 2026-10-26）也能走通通用流程</summary>
     [Fact]
     public void ProviderSwitch_OpenCode_FillsOptionsForMinimalCatalogShape()

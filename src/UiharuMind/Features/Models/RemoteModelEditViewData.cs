@@ -696,8 +696,9 @@ public partial class RemoteModelEditViewData : ObservableObject
         foreach (ModelCatalogEntry entry in entries)
         {
             // 端点字段缺失（OpenRouter 等标准 /v1/models 不返回）默认展示；
-            // 只有显式声明且不含 /chat/completions（即 /messages-only 的 Claude 系）才过滤（ADR 0092）
-            if (entry.SupportedEndpoints.Count > 0 && !entry.SupportsEndpoint("/chat/completions")) continue;
+            // 只有显式声明且不含任何可对话端点（即 /messages-only 的 Claude 系）才过滤（ADR 0092）
+            if (entry.SupportedEndpoints.Count > 0 && !entry.SupportsEndpoint("/chat/completions")
+                && !entry.SupportsEndpoint("/responses")) continue;
             // 出图模型（如 sensenova-u1.5-lite）不是对话候选；输出模态未声明时按对话模型处理
             if (!entry.SupportsTextOutput) continue;
             if (!seen.Add(entry.Id)) continue;
@@ -713,7 +714,7 @@ public partial class RemoteModelEditViewData : ObservableObject
                 MaxTokens = capabilities.MaxTokens,
                 OmitSamplingParams = capabilities.OmitSamplingParams,
                 ReplayExistingReasoning = preset?.ReplayExistingReasoning,
-                ApiFormat = EApiFormat.ChatCompletions,
+                ApiFormat = ResolveApiFormat(entry),
                 Price = ResolvePrice(entry.Id),
                 Efforts = ResolveEfforts(entry.Id),
             });
@@ -826,4 +827,20 @@ public partial class RemoteModelEditViewData : ObservableObject
     /// <summary>当前模型声明的思考档位；没声明为空串</summary>
     private string ResolveEfforts(string modelId) =>
         EffectiveConfigType is { } configType ? ModelCapabilityResolver.ResolveEfforts(configType, modelId) : "";
+
+    /// <summary>
+    /// 这个模型答话走哪种 wire 格式，按目录声明的端点推。
+    ///
+    /// 只声明了 <c>/responses</c> 的走 responses 线；声明了 <c>/chat/completions</c>
+    /// （或两者都有、或没声明端点字段）的走 chat 线。
+    ///
+    /// <b>两条都声明时取 chat</b>：chat 线是我们已经跑通的形状，responses 线还在接。
+    /// 选没跑通的那条当默认，等于让所有模型突然换协议。
+    /// </summary>
+    private static EApiFormat ResolveApiFormat(ModelCatalogEntry entry)
+    {
+        if (entry.SupportedEndpoints.Count == 0) return EApiFormat.ChatCompletions;
+        if (entry.SupportsEndpoint("/chat/completions")) return EApiFormat.ChatCompletions;
+        return entry.SupportsEndpoint("/responses") ? EApiFormat.Responses : EApiFormat.ChatCompletions;
+    }
 }

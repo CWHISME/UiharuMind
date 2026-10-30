@@ -1,4 +1,5 @@
 using System.Buffers;
+using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Net.Diagnostics;
 using UiharuMind.Core.AI.Reasoning;
 
@@ -9,18 +10,18 @@ namespace UiharuMind.Core.AI.Net.Response;
 ///
 /// 分成两路，按响应媒体类型定：流式（<c>text/event-stream</c>）逐行走
 /// <see cref="SseSanitizingStream"/>；一次性 JSON 在这里就地替换正文。
-/// 只有聊天补全的响应需要这一步——其它路径（模型目录、生图）的正文形状由各自的调用方负责。
+/// 只有对话类端点的响应需要这一步——其它路径（模型目录、生图）的正文形状由各自的调用方负责。
 /// </summary>
 internal sealed class ResponseSanitizer
 {
-    private readonly bool _isChatCompletions; //不是聊天补全就原样放过
+    private readonly EApiFormat _format; //不是对话端点就原样放过
     private readonly Action<string>? _reasoningFieldObserver; //观测到思考字段原名时的回调(按模型记录回传键名)
 
-    /// <param name="isChatCompletions">这条路径的响应要不要清洗</param>
+    /// <param name="format">这条路径的 wire 格式；决定按哪种响应形状清洗</param>
     /// <param name="reasoningFieldObserver">思考字段观测回调；为 null 表示不关心</param>
-    public ResponseSanitizer(bool isChatCompletions, Action<string>? reasoningFieldObserver)
+    public ResponseSanitizer(EApiFormat format, Action<string>? reasoningFieldObserver)
     {
-        _isChatCompletions = isChatCompletions;
+        _format = format;
         _reasoningFieldObserver = reasoningFieldObserver;
     }
 
@@ -33,7 +34,7 @@ internal sealed class ResponseSanitizer
     public async Task<HttpResponseMessage> SanitizeAsync(HttpResponseMessage response,
         CancellationToken cancellationToken)
     {
-        if (!_isChatCompletions) return response;
+        if (_format == EApiFormat.Messages) return response; //Anthropic 线另有一套形状,本期不接
 
         // 这一发的「看见加密思考」回调：由 LazyChatClient 每发一次挂上，界面据此先开一张没有正文的思考卡。
         // 在这里取而不是构造时取——清洗器按端点长期存活，回调是逐请求的

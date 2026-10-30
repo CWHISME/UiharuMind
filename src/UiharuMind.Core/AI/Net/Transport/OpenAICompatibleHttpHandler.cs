@@ -9,6 +9,7 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Net.Diagnostics;
 using UiharuMind.Core.AI.Net.Response;
 
@@ -23,7 +24,8 @@ namespace UiharuMind.Core.AI.Net.Transport;
 class OpenAICompatibleHttpHandler : DelegatingHandler
 {
     private readonly Uri _baseUri; //真正要打的那个地址
-    private readonly bool _isChatCompletions; //只有聊天补全的响应被清洗(日志里要标出来)
+    private readonly EApiFormat _format; //这条路径的 wire 格式(决定地址归一与响应清洗各走哪套)
+    private readonly bool _isChatCompletions; //日志里要标出来:是不是聊天补全
     private readonly SessionAffinityHeaders _affinity; //本端点的亲和头
     private readonly ResponseSanitizer _sanitizer; //响应清洗（流式与一次性两种形状）
 
@@ -45,10 +47,11 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
         Action<string>? reasoningFieldObserver = null,
         IReadOnlyList<string>? affinityHeaders = null) : base(inner)
     {
-        _baseUri = ChatCompletionUri.Resolve(address).Uri;
+        _format = ResolveFormat(address);
+        _baseUri = ResolveUri(address, _format);
         _isChatCompletions = ChatCompletionUri.IsChatCompletions(_baseUri);
         _affinity = new SessionAffinityHeaders(affinityHeaders);
-        _sanitizer = new ResponseSanitizer(_isChatCompletions, reasoningFieldObserver);
+        _sanitizer = new ResponseSanitizer(_format, reasoningFieldObserver);
     }
 
     public OpenAICompatibleHttpHandler(string host = "http://127.0.0.1", int port = 1369,
@@ -58,6 +61,25 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
             reasoningFieldObserver, affinityHeaders)
     {
     }
+
+    /// <summary>
+    /// 从地址判断这条路径走哪种 wire 格式。
+    ///
+    /// 判据是<b>地址里写的什么</b>，不是模型声明的格式：handler 是按端点长期存活的，
+    /// 而地址才是它实际要打的那个东西。填了 <c>/responses</c> 就是 responses 线，
+    /// 否则是 chat 线。
+    /// </summary>
+    private static EApiFormat ResolveFormat(string address)
+    {
+        var builder = new UriBuilder(address);
+        return ChatCompletionUri.IsResponses(builder.Uri) ? EApiFormat.Responses : EApiFormat.ChatCompletions;
+    }
+
+    /// <summary>
+    /// 按格式归一地址：responses 线补 <c>/responses</c>，chat 线补 <c>/chat/completions</c>。
+    /// </summary>
+    private static Uri ResolveUri(string address, EApiFormat format) =>
+        (format == EApiFormat.Responses ? ChatCompletionUri.ResolveResponses(address) : ChatCompletionUri.Resolve(address)).Uri;
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
         CancellationToken cancellationToken)
