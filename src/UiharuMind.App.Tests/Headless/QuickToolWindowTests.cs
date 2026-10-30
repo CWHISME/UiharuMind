@@ -42,6 +42,13 @@ public class QuickToolWindowTests : IDisposable
 
         protected override bool UsesFixedWindowWidth => _fixedWidth;
 
+        /// <summary>走缓存窗口复用的那条路：UIManager 复用时不重建窗口，只 OnPreShow + Show</summary>
+        public void ReuseAsCachedWindow()
+        {
+            OnPreShow();
+            Show();
+        }
+
         public void Expand() => PlayAnimation(true);
 
         public void Collapse() => PlayAnimation(false);
@@ -327,5 +334,91 @@ public class QuickToolWindowTests : IDisposable
             window.Collapse();
             Assert.False(window.MainMenu.IsVisible);
         });
+    }
+
+    // 缓存窗口复用 + 动画被关闭打断，是 Windows 上「卡成半截」的来源：
+    // 卡片宽度停在中间值、_menuIsShown 与屏幕上的样子错开，之后悬停的展开或收起会撞上早退，
+    // 变成怎么动都不反应的空操作，只有重启应用才好。以下两条守的是「复用后必须回到确定的收起态」
+    [Fact]
+    public void Reuse_ClosedDuringExpand_ComesBackCollapsedAndCanExpandAgain()
+    {
+        HeadlessUi.Run(() =>
+        {
+            var window = NewShownWindow();
+            double collapsedCard = window.Card.Bounds.Width;
+
+            window.Expand();
+            Pump(60); // 播到一半就关（真实路径：按下任意键、滚轮、点窗口外）
+            Assert.True(window.Card.Width > collapsedCard + 20, "测试前提：展开途中卡片已经变宽");
+
+            window.Close();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            window.ReuseAsCachedWindow();
+            window.UpdateLayout();
+
+            AssertSettledCollapsed(window, collapsedCard);
+
+            // 复用后第一次悬停必须真的能展开（曾是空操作）
+            window.Expand();
+            Pump(400);
+            Assert.True(window.MainMenu.IsVisible);
+            Assert.True(window.Card.Bounds.Width > collapsedCard + 50);
+        });
+    }
+
+    [Fact]
+    public void Reuse_ClosedDuringCollapse_ComesBackCollapsedAndLeavesMenuUnhit()
+    {
+        HeadlessUi.Run(() =>
+        {
+            var window = NewShownWindow();
+            double collapsedCard = window.Card.Bounds.Width;
+
+            window.Expand();
+            Pump(400);
+            window.Collapse();
+            Pump(60); // 收起播到一半就关
+            window.Close();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            window.ReuseAsCachedWindow();
+            window.UpdateLayout();
+
+            AssertSettledCollapsed(window, collapsedCard);
+
+            // 一个来回之后仍要回到收起态：收起曾是空操作，菜单会一直留在布局里
+            window.Expand();
+            Pump(400);
+            window.Collapse();
+            Pump(400);
+            AssertSettledCollapsed(window, collapsedCard);
+        });
+    }
+
+    [Fact]
+    public void FixedWidth_Reuse_ClosedDuringExpand_ComesBackCollapsed()
+    {
+        HeadlessUi.Run(() =>
+        {
+            var window = NewShownWindow(fixedWidth: true);
+            double collapsedCard = window.Card.Bounds.Width;
+
+            window.Expand();
+            Pump(60);
+            window.Close();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            window.ReuseAsCachedWindow();
+            window.UpdateLayout();
+
+            Assert.Equal(480, window.Width, 0.5);
+            AssertSettledCollapsed(window, collapsedCard);
+        });
+    }
+
+    private static void AssertSettledCollapsed(QuickToolWindow window, double collapsedCard)
+    {
+        Assert.False(window.MainMenu.IsVisible);
+        Assert.False(window.MainMenu.IsHitTestVisible);
+        Assert.True(double.IsNaN(window.Card.Width), $"收起后卡片宽度应交还布局，实际 {window.Card.Width}");
+        Assert.Equal(collapsedCard, window.Card.Bounds.Width, 0.5);
     }
 }

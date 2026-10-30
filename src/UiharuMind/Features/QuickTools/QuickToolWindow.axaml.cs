@@ -27,6 +27,7 @@ using UiharuMind.Shared.Controls;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Windows;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.AI.Character.PromptActions;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.QuickChat;
@@ -87,10 +88,14 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
     protected override void OnPreShow()
     {
         base.OnPreShow();
-        if (UsesFixedWindowWidth) ResetMenuState();
+        ResetMenuState();
     }
 
-    // 窗口是缓存复用的：上次可能带着展开的菜单关闭，再弹出必须回到收起态
+    /// <summary>
+    /// 窗口是缓存复用的：上次可能带着展开中的菜单关闭，再弹出必须回到确定的收起态。
+    /// 不复位的话 <see cref="_menuIsShown"/> 与屏幕上的样子会一直错着，展开/收起里的早退（already shown）
+    /// 会把悬停变成空操作——而且这份错位会跟着缓存的窗口实例活到应用重启。
+    /// </summary>
     private void ResetMenuState()
     {
         _menuSlideCts?.Cancel();
@@ -100,6 +105,13 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
         if (MainMenu.RenderTransform is TranslateTransform transform) transform.X = MenuSlideHiddenOffset;
         Card.ClearValue(WidthProperty);
         _cardWidth = double.NaN;
+        // 非固定宽度窗口的宽度由动画在改，被打断后会停在展开值：交还给 SizeToContent 重新量
+        if (!UsesFixedWindowWidth)
+        {
+            _windowWidth = double.NaN;
+            Width = double.NaN;
+            SizeToContent = SizeToContent.WidthAndHeight;
+        }
     }
 
     protected override void SetWindowPosition()
@@ -232,11 +244,7 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
         }
 
         _menuIsShown = false;
-        PlayMenuSlide(false, () =>
-        {
-            MainMenu.IsVisible = false;
-            onCompleted?.Invoke();
-        });
+        PlayMenuSlide(false, onCompleted);
     }
 
     private const int MenuSlideMilliseconds = 150;
@@ -251,13 +259,21 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
     private void PlayMenuSlide(bool isShowed, Action? onCompleted = null)
     {
         _menuSlideCts?.Cancel();
-        _menuSlideCts = new CancellationTokenSource();
-        _ = PlayMenuSlideCoreAsync(isShowed, onCompleted, _menuSlideCts.Token);
+        // 每一轮动画各自持有一份：收尾要靠它认出「我还是当前这一轮」（见 PlayMenuSlideCoreAsync）
+        CancellationTokenSource cts = new CancellationTokenSource();
+        _menuSlideCts = cts;
+        _ = PlayMenuSlideCoreAsync(isShowed, onCompleted, cts);
     }
 
-    private async Task PlayMenuSlideCoreAsync(bool isShowed, Action? onCompleted,
-        CancellationToken ct)
+    /// <summary>
+    /// 滑入/滑出的唯一实现。无论动画是播完、被新动画取代、被关窗打断还是抛异常，
+    /// 最后都把界面收敛到确定的终态（见 <see cref="ApplyMenuState"/>）。
+    /// 卡在中间态是这个窗口最要命的故障：卡片宽度与菜单可见性停在半路、<see cref="_menuIsShown"/>
+    /// 与屏幕上的样子错开，之后悬停的展开或收起会撞上「已是这个状态」的早退，变成怎么点都不动的空操作。
+    /// </summary>
+    private async Task PlayMenuSlideCoreAsync(bool isShowed, Action? onCompleted, CancellationTokenSource cts)
     {
+        bool completed = false;
         try
         {
             if (MainMenu.RenderTransform is not TranslateTransform transform)
@@ -295,23 +311,48 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
                 transform.X = Lerp(startX, targetX, eased);
                 _cardWidth = Lerp(startCardWidth, targetCardWidth, eased);
                 Card.Width = _cardWidth;
-            }, ct);
+            }, cts.Token);
 
-            // 播完这一刻可能已被新动画取代：不检查的话旧动画的收尾会把新动画正在用的宽度和窗口尺寸改回去
-            ct.ThrowIfCancellationRequested();
-            transform.X = targetX;
-            _cardWidth = targetCardWidth;
-            if (!isShowed)
-            {
-                MainMenu.IsVisible = false;
-                if (!UsesFixedWindowWidth) SetManagedWindowWidth(collapsedWidth);
-            }
-
-            Card.ClearValue(WidthProperty);
+            // 播完这一刻可能已被新动画取代，收尾统一交给 finally 里的收敛
+            cts.Token.ThrowIfCancellationRequested();
+            completed = true;
             onCompleted?.Invoke();
         }
         catch (OperationCanceledException)
         {
+        }
+        catch (Exception exception)
+        {
+            Log.Error($"[QuickToolWindow] 菜单滑入/滑出动画失败：{exception}");
+        }
+        finally
+        {
+            // 已被新动画取代就别碰：这里的收尾会把新动画正在用的宽度和窗口尺寸改回去
+            if (ReferenceEquals(_menuSlideCts, cts)) ApplyMenuState(completed && isShowed);
+        }
+    }
+
+    /// <summary>
+    /// 把界面落到「展开」或「收起」的确定终态：位移、菜单显隐与命中、卡片宽度、窗口宽度一次落定。
+    /// 动画没播完（关窗、异常、帧停）时也走这里——终态不该依赖动画是否真的播完。
+    /// </summary>
+    private void ApplyMenuState(bool isShowed)
+    {
+        double targetWidth = MeasureCardWidth(isShowed);
+        if (MainMenu.RenderTransform is TranslateTransform transform)
+            transform.X = isShowed ? 0 : MenuSlideHiddenOffset;
+        MainMenu.IsVisible = isShowed;
+        MainMenu.IsHitTestVisible = isShowed;
+        // 卡片宽度交还给布局，_cardWidth 只留作下一轮动画的起点
+        Card.ClearValue(WidthProperty);
+        _cardWidth = targetWidth;
+        if (UsesFixedWindowWidth)
+        {
+            if (isShowed) GrowFixedWindowWidth(targetWidth);
+        }
+        else
+        {
+            SetManagedWindowWidth(targetWidth);
         }
     }
 
