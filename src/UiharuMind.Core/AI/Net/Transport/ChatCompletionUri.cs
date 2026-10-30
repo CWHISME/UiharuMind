@@ -47,6 +47,31 @@ internal static class ChatCompletionUri
     }
 
     /// <summary>
+    /// 把配置里的地址补成完整的 Anthropic Messages 端点。
+    ///
+    /// 规则与上面两条一致，只是结尾换成 <c>/messages</c>：
+    /// 填 <c>https://x/v1</c> 得 <c>https://x/v1/messages</c>，填 <c>https://x</c> 得
+    /// <c>https://x/v1/messages</c>。已填完整路径（含 <c>/messages</c>）时原样保留。
+    ///
+    /// 注意与 <see cref="ResolveResponses"/> 的判据不同：那边认的是 <c>/responses</c>，
+    /// 这边认的是 <c>/messages</c>——Anthropic 的路径里没有 chat/completions 那一段。
+    /// </summary>
+    /// <param name="address">用户配置的地址</param>
+    /// <returns>补全路径后的地址构造器</returns>
+    public static UriBuilder ResolveMessages(string address)
+    {
+        var builder = new UriBuilder(address);
+        string path = builder.Path.TrimEnd('/');
+        if (path.EndsWith("/messages", StringComparison.OrdinalIgnoreCase))
+            return builder; //已填完整,别再补一层
+        if (path.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
+            builder.Path = path + "/messages";
+        else if (string.IsNullOrEmpty(path))
+            builder.Path = "/v1/messages";
+        return builder;
+    }
+
+    /// <summary>
     /// 这个端点是不是聊天补全（只有它的响应需要清洗；其它路径的响应交给调用方原样处理）
     /// </summary>
     /// <param name="uri">已补全的端点地址</param>
@@ -61,4 +86,12 @@ internal static class ChatCompletionUri
     /// <returns>是 responses 返回 true</returns>
     public static bool IsResponses(Uri uri) =>
         uri.AbsolutePath.Contains("responses", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 这个端点是不是 Anthropic Messages。
+    /// </summary>
+    /// <param name="uri">已补全的端点地址</param>
+    /// <returns>是 messages 返回 true</returns>
+    public static bool IsMessages(Uri uri) =>
+        uri.AbsolutePath.Contains("messages", StringComparison.OrdinalIgnoreCase);
 }

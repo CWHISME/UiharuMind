@@ -7,7 +7,7 @@ namespace UiharuMind.App.Tests.Models;
 
 /// <summary>
 /// 编辑窗口对「运行时模型目录」的消费（ADR 0092）：
-/// 候选来自拉取/缓存而非写死变体表；缓存优先、按钮才刷新；/messages-only 过滤；输入过滤；ApiFormat 落盘。
+/// 候选来自拉取/缓存而非写死变体表；缓存优先、按钮才刷新；/messages 端点；输入过滤；ApiFormat 落盘。
 /// 全部走注入的 fake，不发真实网络。
 /// </summary>
 public class RemoteModelEditCatalogTests
@@ -55,9 +55,13 @@ public class RemoteModelEditCatalogTests
     private static RemoteModelEditViewData CreateVm(FakeCatalogFetcher fetcher, FakeCatalogCache cache) =>
         new(null, _ => false, fetcher, cache);
 
-    /// <summary>切到 CommandCode：拉取目录 → 候选填入；/messages-only 的 Claude 被过滤；缓存被写入</summary>
+    /// <summary>
+    /// 切到 CommandCode：拉取目录 → 候选填入；缓存被写入。
+    /// <c>/messages</c>-only 的 Claude 系<b>要出现</b>——Anthropic 线接上后不再被过滤，
+    /// 它的 wire 格式由目录端点推成 <see cref="EApiFormat.Messages"/>。
+    /// </summary>
     [Fact]
-    public void ProviderSwitch_CommandCode_FillsOptionsAndFiltersMessagesOnly()
+    public void ProviderSwitch_CommandCode_FillsOptionsAndKeepsMessagesOnly()
     {
         var fetcher = new FakeCatalogFetcher
         {
@@ -76,9 +80,9 @@ public class RemoteModelEditCatalogTests
         Assert.Equal(1, fetcher.Calls);
         Assert.Equal(CatalogUrl, cache.LastWrittenUrl);
         Assert.True(vm.HasModelIdOptions);
-        Assert.Equal(["gpt-6-astra", "deepseek/deepseek-v4-flash"], vm.ModelIdOptions.Select(o => o.Id));
-        Assert.DoesNotContain(vm.ModelIdOptions, o => o.Id == "claude-sonnet-5-5");
-        Assert.Equal(EApiFormat.ChatCompletions, vm.ModelIdOptions[0].ApiFormat);
+        Assert.Equal(["claude-sonnet-5-5", "gpt-6-astra", "deepseek/deepseek-v4-flash"], vm.ModelIdOptions.Select(o => o.Id));
+        Assert.Equal(EApiFormat.Messages, vm.ModelIdOptions.First(o => o.Id == "claude-sonnet-5-5").ApiFormat);
+        Assert.Equal(EApiFormat.ChatCompletions, vm.ModelIdOptions[1].ApiFormat);
     }
 
     /// <summary>端点字段缺失（OpenRouter 等标准 /v1/models 不返回）：默认展示，不当 /messages-only 过滤（Spec 评审 c-1）</summary>
@@ -99,7 +103,8 @@ public class RemoteModelEditCatalogTests
 
     /// <summary>
     /// wire 格式按目录声明的端点推：只声明 /responses 的走 responses 线，
-    /// 只声明 /chat/completions 的走 chat 线，两者都声明的取 chat（已跑通的那条）。
+    /// 只声明 /messages 的走 Anthropic 线，只声明 /chat/completions 的走 chat 线，
+    /// 两条都声明的取 chat（已跑通的那条）。
     /// </summary>
     [Fact]
     public void Catalog_ResolvesApiFormatFromDeclaredEndpoints()
@@ -110,6 +115,7 @@ public class RemoteModelEditCatalogTests
             [
                 Entry("responses-only", "/responses"),
                 Entry("chat-only", "/chat/completions"),
+                Entry("messages-only", "/messages"),
                 Entry("both", "/chat/completions", "/responses"),
                 Entry("no-endpoints"),
             ]),
@@ -120,6 +126,7 @@ public class RemoteModelEditCatalogTests
 
         Assert.Equal(EApiFormat.Responses, vm.ModelIdOptions.First(o => o.Id == "responses-only").ApiFormat);
         Assert.Equal(EApiFormat.ChatCompletions, vm.ModelIdOptions.First(o => o.Id == "chat-only").ApiFormat);
+        Assert.Equal(EApiFormat.Messages, vm.ModelIdOptions.First(o => o.Id == "messages-only").ApiFormat);
         Assert.Equal(EApiFormat.ChatCompletions, vm.ModelIdOptions.First(o => o.Id == "both").ApiFormat);
         Assert.Equal(EApiFormat.ChatCompletions, vm.ModelIdOptions.First(o => o.Id == "no-endpoints").ApiFormat);
     }

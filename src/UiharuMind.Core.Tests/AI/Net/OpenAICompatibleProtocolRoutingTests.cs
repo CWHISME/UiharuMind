@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.AI.Net.Transport;
 
@@ -79,5 +80,45 @@ public class OpenAICompatibleProtocolRoutingTests
         await client.GetAsync("https://api.example.com/v1/whatever");
 
         Assert.Equal("https://api.example.com/v1/chat/completions", hit?.ToString());
+    }
+
+    /// <summary>
+    /// Anthropic 线：填了 <c>/messages</c> 就打 messages 端点——
+    /// 不能落到 chat 那条路上（那会把请求发到一个只认 <c>messages</c> 的服务上）。
+    /// </summary>
+    [Fact]
+    public async Task MessagesAddress_HitsTheMessagesEndpoint()
+    {
+        Uri? hit = null;
+        var handler = new OpenAICompatibleHttpHandler(
+            "https://api.example.com/v1/messages",
+            new StubHandler(request =>
+            {
+                hit = request.RequestUri;
+                return Ok("{}");
+            }));
+
+        using var client = new HttpClient(handler);
+        await client.GetAsync("https://api.example.com/v1/chat/completions");
+
+        Assert.Equal("https://api.example.com/v1/messages", hit?.ToString());
+    }
+
+    /// <summary>
+    /// 三条线的判据互不重叠：<c>/responses</c> 的地址不能被当成 messages，
+    /// <c>/messages</c> 的地址也不能被当成 responses。
+    /// </summary>
+    [Theory]
+    [InlineData("https://api.example.com/v1/responses", EApiFormat.Responses)]
+    [InlineData("https://api.example.com/v1/messages", EApiFormat.Messages)]
+    [InlineData("https://api.example.com/v1/chat/completions", EApiFormat.ChatCompletions)]
+    public void EndpointPath_IdentifiesTheWireFormat(string address, EApiFormat expected)
+    {
+        var builder = new UriBuilder(address);
+        EApiFormat actual = ChatCompletionUri.IsMessages(builder.Uri)
+            ? EApiFormat.Messages
+            : ChatCompletionUri.IsResponses(builder.Uri) ? EApiFormat.Responses : EApiFormat.ChatCompletions;
+
+        Assert.Equal(expected, actual);
     }
 }

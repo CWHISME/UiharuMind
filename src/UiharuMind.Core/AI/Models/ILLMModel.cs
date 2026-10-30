@@ -99,11 +99,22 @@ public interface ILlmModel
     public string ProviderId => GetType().Name;
 
     /// <summary>
-    /// 这个模型答话的 <b>wire 格式</b>：走 <c>/chat/completions</c> 还是 <c>/responses</c>。
+    /// 模型最大输出预算（token 数）。0 表示未设置，由各协议自己取默认。
     ///
-    /// 两种格式的请求体形状不同（<c>messages</c> vs <c>input</c> item 数组）、
-    /// 响应形状不同（<c>delta</c> vs 逐类 SSE 事件）、加密思考票据的承载也不同
-    /// （消息上的 <c>reasoning_details</c> vs item 上的 <c>encrypted_content</c>），
+    /// 思考与正文共用这一个配额：给小了会被思考吃光，正文一个字都发不出。
+    /// 各协议的发法不同——chat 线把它写进请求体的 <c>max_tokens</c>，
+    /// Anthropic 线由 SDK 写进 <c>MessageCreateParams.MaxTokens</c>。
+    /// </summary>
+    public int MaxTokens => 0;
+
+    /// <summary>
+    /// 这个模型答话的 <b>wire 格式</b>：走 <c>/chat/completions</c>、<c>/responses</c> 还是
+    /// Anthropic 的 <c>/v1/messages</c>。
+    ///
+    /// 三种格式的请求体形状不同（<c>messages</c> vs <c>input</c> item 数组 vs 顶层 <c>system</c> +
+    /// block 数组的 <c>content</c>）、响应形状不同（<c>delta</c> vs 逐类 SSE 事件）、
+    /// 加密思考票据的承载也不同（消息上的 <c>reasoning_details</c> vs item 上的
+    /// <c>encrypted_content</c> vs thinking 块里的 <c>signature</c>），
     /// 所以它决定整条链路上哪一套改写器与解析器生效。
     ///
     /// 声明在模型上而不是猜端点：同一个网关下不同模型支持的格式可能不同。

@@ -682,7 +682,7 @@ public partial class RemoteModelEditViewData : ObservableObject
     }
 
     /// <summary>
-    /// 把目录条目灌进候选列表：v1 只显示 chat/completions 线（/messages-only 的 Claude 系过滤），
+    /// 把目录条目灌进候选列表：显示我们支持的对话端点那条线上的模型，
     /// 重建期间保护已选/已填的 ModelId 不被回写冲掉（同 ApplyConfigTraits 的注释）。
     /// </summary>
     private void ApplyCatalog(IReadOnlyList<ModelCatalogEntry> entries)
@@ -696,9 +696,11 @@ public partial class RemoteModelEditViewData : ObservableObject
         foreach (ModelCatalogEntry entry in entries)
         {
             // 端点字段缺失（OpenRouter 等标准 /v1/models 不返回）默认展示；
-            // 只有显式声明且不含任何可对话端点（即 /messages-only 的 Claude 系）才过滤（ADR 0092）
+            // 只有显式声明且不含任何我们支持的对话端点才过滤（ADR 0092）。
+            // 三条线都算：/chat/completions、/responses、/messages（Anthropic）。
+            // 早期只支持 chat 线时 /messages-only 的 Claude 系会被滤掉——那条线接上后不再滤
             if (entry.SupportedEndpoints.Count > 0 && !entry.SupportsEndpoint("/chat/completions")
-                && !entry.SupportsEndpoint("/responses")) continue;
+                && !entry.SupportsEndpoint("/responses") && !entry.SupportsEndpoint("/messages")) continue;
             // 出图模型（如 sensenova-u1.5-lite）不是对话候选；输出模态未声明时按对话模型处理
             if (!entry.SupportsTextOutput) continue;
             if (!seen.Add(entry.Id)) continue;
@@ -831,16 +833,19 @@ public partial class RemoteModelEditViewData : ObservableObject
     /// <summary>
     /// 这个模型答话走哪种 wire 格式，按目录声明的端点推。
     ///
-    /// 只声明了 <c>/responses</c> 的走 responses 线；声明了 <c>/chat/completions</c>
-    /// （或两者都有、或没声明端点字段）的走 chat 线。
+    /// 只声明了 <c>/responses</c> 的走 responses 线；只声明了 <c>/messages</c> 的走 Anthropic 线；
+    /// 声明了 <c>/chat/completions</c>（或都没声明端点字段）的走 chat 线。
     ///
-    /// <b>两条都声明时取 chat</b>：chat 线是我们已经跑通的形状，responses 线还在接。
+    /// <b>多条都声明时取 chat</b>：chat 线是我们已经跑通的形状，另两条还在接。
     /// 选没跑通的那条当默认，等于让所有模型突然换协议。
     /// </summary>
     private static EApiFormat ResolveApiFormat(ModelCatalogEntry entry)
     {
         if (entry.SupportedEndpoints.Count == 0) return EApiFormat.ChatCompletions;
         if (entry.SupportsEndpoint("/chat/completions")) return EApiFormat.ChatCompletions;
+        // messages 排在 responses 前面：Anthropic 的端点路径里没有 responses 那一段，
+        // 但反过来「只声明了 responses」的目录也不该被误判成 messages——两条判据互不重叠
+        if (entry.SupportsEndpoint("/messages")) return EApiFormat.Messages;
         return entry.SupportsEndpoint("/responses") ? EApiFormat.Responses : EApiFormat.ChatCompletions;
     }
 }

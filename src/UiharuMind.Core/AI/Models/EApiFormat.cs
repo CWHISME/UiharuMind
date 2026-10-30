@@ -1,15 +1,21 @@
 namespace UiharuMind.Core.AI.Models;
 
 /// <summary>
-/// 远程模型答话的接口格式（wire）。v1 只实现 <see cref="ChatCompletions"/>；
-/// <see cref="Messages"/> 供二期 Anthropic 线预留（ADR 0092）。
+/// 远程模型答话的接口格式（wire）。
 /// </summary>
 public enum EApiFormat
 {
     /// <summary>OpenAI 兼容的 /chat/completions</summary>
     ChatCompletions = 0,
 
-    /// <summary>Anthropic Messages（/v1/messages）</summary>
+    /// <summary>
+    /// Anthropic Messages（/v1/messages）。
+    ///
+    /// 与 <see cref="ChatCompletions"/> 的差别不只是路径：请求体把 <c>system</c> 提到顶层、
+    /// <c>content</c> 变 block 数组、工具调用换角色；响应是逐类 SSE 事件而不是 <c>delta</c>。
+    /// 加密思考票据在三条路上的承载也各不相同——chat 挂消息上（<c>reasoning_details</c>），
+    /// responses 挂 item 上（<c>encrypted_content</c>），Anthropic 挂 thinking 块里（<c>signature</c>）。
+    /// </summary>
     Messages = 1,
 
     /// <summary>

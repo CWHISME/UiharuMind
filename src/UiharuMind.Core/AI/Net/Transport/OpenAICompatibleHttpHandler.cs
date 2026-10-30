@@ -67,19 +67,28 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
     ///
     /// 判据是<b>地址里写的什么</b>，不是模型声明的格式：handler 是按端点长期存活的，
     /// 而地址才是它实际要打的那个东西。填了 <c>/responses</c> 就是 responses 线，
-    /// 否则是 chat 线。
+    /// 填了 <c>/messages</c> 就是 Anthropic 线，否则是 chat 线。
     /// </summary>
     private static EApiFormat ResolveFormat(string address)
     {
         var builder = new UriBuilder(address);
+        // messages 要先判：它的路径里既没有 chat/completions 也没有 responses，
+        // 但反过来 "/v1/messages" 若先走 responses 那条判据也不会命中——两条判据互不重叠，
+        // 顺序只是把「更具体的那条」放前面，读起来不费劲
+        if (ChatCompletionUri.IsMessages(builder.Uri)) return EApiFormat.Messages;
         return ChatCompletionUri.IsResponses(builder.Uri) ? EApiFormat.Responses : EApiFormat.ChatCompletions;
     }
 
     /// <summary>
-    /// 按格式归一地址：responses 线补 <c>/responses</c>，chat 线补 <c>/chat/completions</c>。
+    /// 按格式归一地址：responses 线补 <c>/responses</c>，messages 线补 <c>/messages</c>，
+    /// chat 线补 <c>/chat/completions</c>。
     /// </summary>
-    private static Uri ResolveUri(string address, EApiFormat format) =>
-        (format == EApiFormat.Responses ? ChatCompletionUri.ResolveResponses(address) : ChatCompletionUri.Resolve(address)).Uri;
+    private static Uri ResolveUri(string address, EApiFormat format) => (format switch
+    {
+        EApiFormat.Responses => ChatCompletionUri.ResolveResponses(address),
+        EApiFormat.Messages => ChatCompletionUri.ResolveMessages(address),
+        _ => ChatCompletionUri.Resolve(address),
+    }).Uri;
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
         CancellationToken cancellationToken)

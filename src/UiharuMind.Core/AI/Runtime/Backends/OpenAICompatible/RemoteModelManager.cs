@@ -60,8 +60,18 @@ internal sealed class RemoteModelManager
     {
         string endpoint = model.ModelPath + (model.Port > 0 ? ":" + model.Port : "");
         string apiKey = model is RemoteModelInfo remoteModel ? remoteModel.ApiKey : "";
+        // 端点按模型声明的 wire 格式补全：目录里选了 Claude 系（/messages）就补 /messages，
+        // 选了 responses 系就补 /responses。用户已经填到端点那一层的地址原样保留
+        // （三个 Resolve* 都是这个规矩）。不按格式补的话，目录推导出的格式与实际打出的端点会对不上——
+        // 模型声明走 messages 线、请求却打到 chat/completions，服务端只会回一个看不懂的 404
+        string resolved = model.ApiFormat switch
+        {
+            EApiFormat.Responses => ChatCompletionUri.ResolveResponses(endpoint).Uri.ToString(),
+            EApiFormat.Messages => ChatCompletionUri.ResolveMessages(endpoint).Uri.ToString(),
+            _ => ChatCompletionUri.Resolve(endpoint).Uri.ToString(),
+        };
         // 亲和头名由供应商配置声明：认它的（如 OpenRouter）自己给，不认的一个都不发
-        var handler = new OpenAICompatibleHttpHandler(endpoint, CreateReasoningFieldObserver(model),
+        var handler = new OpenAICompatibleHttpHandler(resolved, CreateReasoningFieldObserver(model),
             model.SessionAffinityHeaders);
         // SDK 默认重试对限流太急(3 次 / 6 秒内打完),免费档模型的共享配额窗口远不止这么短;
         // 同一把密钥上并行的请求经发送闸排队,不再各自退避互撞

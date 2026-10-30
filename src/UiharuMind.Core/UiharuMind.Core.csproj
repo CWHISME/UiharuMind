@@ -20,6 +20,12 @@
     </ItemGroup>
 
     <ItemGroup>
+      <!-- Anthropic Messages 线（/v1/messages）：官方 SDK，Apache-2.0。
+           用它而不是自己手写协议，理由同 Responses 线用 OpenAI SDK：
+           请求体翻译（system 提到顶层、content 变 block 数组、tool_use/tool_result）
+           与 SSE 事件翻译整套都由 SDK 做，签名与思考正文的往返也由它负责。
+           .NET 侧的上游 agent-framework 走的是同一个包（Microsoft.Agents.AI.Anthropic 是它的薄封装）。 -->
+      <PackageReference Include="Anthropic" Version="13.3.0" />
       <PackageReference Include="AngleSharp" Version="1.8.2" />
       <PackageReference Include="CommunityToolkit.VectorData.SqliteVec" Version="1.0.1-preview" />
       <!-- 剪贴板历史直接用它,不靠 SqliteVec 的传递引用 -->
