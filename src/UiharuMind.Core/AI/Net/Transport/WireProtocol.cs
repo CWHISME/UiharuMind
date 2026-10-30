@@ -37,15 +37,26 @@ internal sealed record WireProtocol(EApiFormat Format, string EndpointSuffix, bo
         var builder = new UriBuilder(address);
         string path = builder.Path.TrimEnd('/');
         if (path.EndsWith(EndpointSuffix, StringComparison.OrdinalIgnoreCase)) return builder; //已填完整,别再补一层
+        // 尾段是另一条线的端点:换成本协议的。原样发出去就是「messages 的请求体打到 chat 端点」——
+        // 服务端 404/400，而配置里两个字段各自看着都对
+        foreach (WireProtocol other in WireProtocols.All)
+        {
+            if (other == this) continue; //本协议前面已经原样返回了
+            if (!path.EndsWith(other.EndpointSuffix, StringComparison.OrdinalIgnoreCase)) continue;
+            builder.Path = path[..^other.EndpointSuffix.Length] + EndpointSuffix;
+            return builder;
+        }
+
         if (path.EndsWith("/v1", StringComparison.OrdinalIgnoreCase)) builder.Path = path + EndpointSuffix;
         else if (string.IsNullOrEmpty(path)) builder.Path = "/v1" + EndpointSuffix;
         return builder;
     }
 
-    /// <summary>这个地址是不是这条协议的端点</summary>
+    /// <summary>这个地址是不是这条协议的端点（尾斜杠不算差别）</summary>
     /// <param name="uri">已补全的端点地址</param>
     /// <returns>是则 true</returns>
-    public bool Matches(Uri uri) => uri.AbsolutePath.EndsWith(EndpointSuffix, StringComparison.OrdinalIgnoreCase);
+    public bool Matches(Uri uri) =>
+        uri.AbsolutePath.TrimEnd('/').EndsWith(EndpointSuffix, StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>
@@ -61,6 +72,9 @@ internal static class WireProtocols
 
     /// <summary>Anthropic 的 /v1/messages</summary>
     public static readonly WireProtocol Messages = new(EApiFormat.Messages, "/messages", false);
+
+    /// <summary>三条线。地址归一用它判断「尾段是不是别的协议」，别处不必再列一遍</summary>
+    public static readonly WireProtocol[] All = [Chat, Responses, Messages];
 
     /// <summary>按模型声明取协议；认不出的值退到 chat（默认值就是 chat）</summary>
     /// <param name="format">模型声明的格式</param>

@@ -2418,7 +2418,7 @@ Hit rate = cached input / reported input. The row above is the session total, wi
         <value>https://api.example.com/v1/chat/completions</value>
     </data>
     <data name="RemoteModelPathHint" xml:space="preserve">
-        <value>Full request URL, should start with http or https.</value>
+        <value>Full request URL this model answers on. Candidates come from the model data (chat when it is declared, responses only when that is all the model offers, /messages for Claude); type your own if the provider says otherwise.</value>
     </data>
     <data name="RemoteModelIdLabel" xml:space="preserve">
         <value>Model ID</value>

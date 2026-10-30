@@ -7,6 +7,11 @@ namespace UiharuMind.Core.Configs.RemoteAI;
 /// <summary>
 /// Command Code（OpenAI/Anthropic 兼容聚合网关）。候选不写死变体表，
 /// 走运行时模型目录（<see cref="ModelCatalogUrl"/>，ADR 0092）。
+///
+/// <para>三条线共用同一个前缀 <c>/provider/v1</c>（chat/completions、responses、messages，
+/// 见 commandcode.ai/docs/provider），所以不覆写 <see cref="BaseRemoteModelConfig.EndpointFor"/>——
+/// 换尾段就是对的。文档另有一条硬约束：<b>Claude 只能用 <c>/v1/messages</c></b>，
+/// 发到 chat 或 responses 直接 400，与添加模型页「Claude 固定 messages」的规则一致。</para>
 /// </summary>
 [SettingConfigDesc("Command Code")]
 [SettingConfigDesc("Command Code", LanguageUtils.ChineseSimplified)]

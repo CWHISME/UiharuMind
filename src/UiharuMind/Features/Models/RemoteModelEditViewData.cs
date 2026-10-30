@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Models;
+using UiharuMind.Core.AI.Net.Transport;
 using UiharuMind.Core.Configs.RemoteAI;
 using UiharuMind.Core.Core.Extensions;
 using UiharuMind.Core.Core.SimpleLog;
@@ -122,6 +123,8 @@ public partial class RemoteModelEditViewData : ObservableObject
     private bool _suppressModelNamePrefill; //LoadValues/自动同步写名字时不把用户改动标记置真
     private bool _modelNameEditedByUser; //用户是否手改过模型名（决定自动同步是否放行）
     private bool _catalogRefreshPending; //强制刷新撞上在飞的拉取时先记下，等这轮结束补跑
+    private bool _modelPathEditedByUser; //用户手改过接口地址：之后不再跟着模型推荐跑，直到他重新选模型
+    private bool _suppressModelPathDirty; //程序化改地址时不标记为手动编辑
 
     /// <summary>目录候选的显示集合：跟随 ModelId 文本过滤，空文本显示全量（ADR 0092）</summary>
     public ObservableCollection<ModelIdOptionItem> VisibleModelIdOptions { get; } = new();
@@ -143,14 +146,142 @@ public partial class RemoteModelEditViewData : ObservableObject
     [ObservableProperty] private bool _isModelPickerOpen;
 
     /// <summary>
+    /// 接口地址候选：按当前模型的数据给出的完整端点。目录声明优先；没声明时 Claude 走 /messages、
+    /// 其余按 chat / responses / messages 列出。与 <see cref="ModelPath"/> 是同一个字段的两面——
+    /// 选哪个地址就是哪个格式，不另存格式
+    /// </summary>
+    public ObservableCollection<string> EndpointOptions { get; } = new();
+
+    /// <summary>
+    /// 按当前模型数据重建地址候选。只在候选真的变了的时候才动 <see cref="EndpointOptions"/>——
+    /// 清空一个可编辑 ComboBox 的 ItemsSource 会把它框里的文本一并清掉并回写，
+    /// 每次按键都重建等于每次都跟用户抢一次光标
+    /// </summary>
+    /// <param name="applyRecommendation">是否把地址切到推荐值：只在「用户选了模型」时传 true，
+    /// 初始化与复制只重建候选、不动地址</param>
+    private void RefreshEndpointOptions(bool applyRecommendation)
+    {
+        string current = ModelPath;
+        _suppressModelPathDirty = true;
+        try
+        {
+            List<string> candidates = [];
+            foreach (EApiFormat format in CandidateFormats())
+            {
+                string candidate = CandidateAddress(current, format);
+                // 候选必须能反推回该格式，否则用户选了它也只会落成别的线
+                if (candidate.Length == 0 || RemoteEndpoints.FormatOf(candidate) != format) continue;
+                if (!candidates.Contains(candidate)) candidates.Add(candidate);
+            }
+
+            if (!candidates.SequenceEqual(EndpointOptions))
+            {
+                EndpointOptions.Clear();
+                foreach (string candidate in candidates) EndpointOptions.Add(candidate);
+                // 重建把框里的文本清空了才补回去；没清就一个字节都不动
+                if (ModelPath.Length == 0) ModelPath = current;
+            }
+
+            if (applyRecommendation) ApplyRecommendedEndpoint();
+        }
+        finally
+        {
+            _suppressModelPathDirty = false;
+        }
+    }
+
+    /// <summary>
+    /// 这个模型该给哪几条地址。
+    /// 目录声明了端点就只给声明的；没声明时 Claude 固定 messages；
+    /// 其余「有目录的服务商与自定义网关」三条都给，单线预设只给它自己那条
+    /// （给 DeepSeek 摆一个 <c>/messages</c> 出来，点一下就是 404）
+    /// </summary>
+    private IReadOnlyList<EApiFormat> CandidateFormats()
+    {
+        if (SelectedModelIdOption is { ApiFormats.Count: > 0 } option) return option.ApiFormats;
+        if (IsClaudeModel) return [EApiFormat.Messages];
+        return IsPresetProvider && !HasCatalog
+            ? [RemoteEndpoints.FormatOf(ModelPath) ?? EApiFormat.ChatCompletions]
+            : RemoteEndpoints.All;
+    }
+
+    /// <summary>当前模型 ID 是不是 Claude 系（这类模型走 Anthropic Messages 线）</summary>
+    private bool IsClaudeModel => ModelId.Contains("claude", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 把地址换成指定格式的完整端点。供应商声明了各条线的端点就用它的（OpenCode 那种前缀不同的），
+    /// 否则借运行时的归一规则换尾段——保证「界面给的候选」和「真打出去的地址」是同一个
+    /// </summary>
+    /// <param name="address">当前地址</param>
+    /// <param name="format">目标格式</param>
+    /// <returns>该格式的完整端点地址；地址还不成形时原样返回</returns>
+    private string CandidateAddress(string address, EApiFormat format)
+    {
+        string trimmed = address.Trim();
+        if (CurrentConfig is { } config)
+        {
+            string declared = config.EndpointFor(format);
+            // 用户把地址改成了别家网关（不是本供应商声明的那几条）时按他的地址走，别拿预设覆盖他
+            if (declared.Length > 0 && (trimmed.Length == 0 || IsDeclaredEndpoint(config, trimmed))) return declared;
+        }
+
+        return Uri.TryCreate(trimmed, UriKind.Absolute, out _)
+            ? RemoteEndpoints.EndpointFor(trimmed, format)
+            : address;
+    }
+
+    /// <summary>这个地址是不是本供应商声明的那几条端点之一</summary>
+    private static bool IsDeclaredEndpoint(BaseRemoteModelConfig config, string address) =>
+        Enum.GetValues<EApiFormat>().Any(format =>
+            string.Equals(config.EndpointFor(format), address, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// 把地址切到当前模型的推荐端点：目录声明优先（声明里有 /messages 的 Claude 走 messages），
+    /// 没声明时 Claude 走 messages、其余 chat。编辑模式、用户手改过地址、以及没有模型数据可依时都不动
+    /// </summary>
+    private void ApplyRecommendedEndpoint()
+    {
+        if (IsEditMode || _modelPathEditedByUser) return;
+        if (!IsClaudeModel && SelectedModelIdOption is null) return; //纯自定义 ID：地址是用户填的
+        EApiFormat recommended = SelectedModelIdOption?.RecommendedFormat
+                                 ?? (IsClaudeModel ? EApiFormat.Messages : EApiFormat.ChatCompletions);
+        string target = CandidateAddress(ModelPath, recommended);
+        if (RemoteEndpoints.FormatOf(target) != recommended) return; //换不出来就别改，留给用户
+        _suppressModelPathDirty = true;
+        try
+        {
+            ModelPath = target;
+        }
+        finally
+        {
+            _suppressModelPathDirty = false;
+        }
+    }
+
+    /// <summary>
+    /// 用户改地址：记为手动编辑（之后不再被模型推荐顶掉），并在还没有候选时补一次
+    /// ——自定义服务商一开始地址是空的，填成完整地址后才有东西可列
+    /// </summary>
+    partial void OnModelPathChanged(string value)
+    {
+        if (_suppressModelPathDirty) return;
+        _modelPathEditedByUser = true;
+        if (EndpointOptions.Count == 0) RefreshEndpointOptions(applyRecommendation: false);
+    }
+
+    /// <summary>
     /// 点选候选：写入 ID、按预设预填，然后收起浮层。
     /// 同一项重复点不会触发 <see cref="OnSelectedModelIdOptionChanged"/>，但手输过的文本仍要拉回来。
     /// </summary>
     /// <param name="option">被点选的候选</param>
     public void SelectModelIdOption(ModelIdOptionItem option)
     {
+        // 点候选＝明确「按这个模型来」：之前手改的地址不再拦着推荐
+        _modelPathEditedByUser = false;
         SelectedModelIdOption = option;
         if (ModelId != option.Id) ModelId = option.Id;
+        // 同一项再点一次不会触发 OnModelIdChanged，但用户的意图是「回到它的默认端点」
+        else RefreshEndpointOptions(applyRecommendation: true);
         IsModelPickerOpen = false;
     }
 
@@ -413,8 +544,9 @@ public partial class RemoteModelEditViewData : ObservableObject
         config.IsVisionOverride = IsVision == derivedVision ? null : IsVision;
         config.OmitSamplingParams = OmitSamplingParams;
         config.ReplayExistingReasoningOverride = ReplayExistingReasoningOverride;
-        // 目录项带 wire 信息：选中时按端点写入 ApiFormat；手输/未选不碰（保留旧值/默认 ChatCompletions，ADR 0092）
-        if (SelectedModelIdOption is { } selected) config.ApiFormat = selected.ApiFormat;
+        // 格式从地址尾段反推：界面上选的是完整地址，两者不可能打架（ADR 0102）。
+        // 认不出尾段（只填到 /v1 或裸域）时保留原值——运行时按格式补后缀，那种地址本来就合法
+        config.ApiFormat = RemoteEndpoints.FormatOf(config.ModelPath) ?? config.ApiFormat;
         target.ApiKey = ApiKey;
         return target;
     }
@@ -498,7 +630,10 @@ public partial class RemoteModelEditViewData : ObservableObject
             _suppressModelNamePrefill = true;
             ModelName = modelName;
             _suppressModelNamePrefill = false;
+            _suppressModelPathDirty = true;
             ModelPath = config.ModelPath ?? "";
+            _suppressModelPathDirty = false;
+            _modelPathEditedByUser = false; //回填不是用户改的
             ModelId = config.ModelId ?? "";
             ModelDescription = config.ModelDescription ?? "";
             ContextLengthText = config.ContextLength > 0 ? config.ContextLength.ToString() : "";
@@ -566,6 +701,7 @@ public partial class RemoteModelEditViewData : ObservableObject
         // ComboBox 绑的是 VisibleModelIdOptions:重建候选后必须同步刷新可见列表,
         // 否则预设候选(无目录的服务商)或复制后下拉会一直空(与 ApplyCatalog 同口径)
         RefreshVisibleModelIdOptions();
+        RefreshEndpointOptions(applyRecommendation: false); //只重建地址候选，不动已填的地址
         if (!IsEditMode) ApplyModelIdPreset(SelectedModelIdOption);
         RefreshThinkingOptions();
     }
@@ -577,12 +713,14 @@ public partial class RemoteModelEditViewData : ObservableObject
     partial void OnSelectedModelIdOptionChanged(ModelIdOptionItem? value)
     {
         if (value == null || _suppressModelIdPrefill) return;
+        _modelPathEditedByUser = false; //选模型＝采用这个模型的端点推荐
         _suppressModelIdPrefill = true;
         ModelId = value.Id;
         _suppressModelIdPrefill = false;
         ApplyModelIdPreset(value);
         TrySyncModelName(value);
         RefreshThinkingOptions();
+        RefreshEndpointOptions(applyRecommendation: true);
     }
 
     partial void OnSelectedThinkingOptionChanged(ThinkingOptionItem? value)
@@ -716,7 +854,7 @@ public partial class RemoteModelEditViewData : ObservableObject
                 MaxTokens = capabilities.MaxTokens,
                 OmitSamplingParams = capabilities.OmitSamplingParams,
                 ReplayExistingReasoning = preset?.ReplayExistingReasoning,
-                ApiFormat = entry.ResolveApiFormat(),
+                ApiFormats = entry.SupportedApiFormats(),
                 Price = ResolvePrice(entry.Id),
                 Efforts = ResolveEfforts(entry.Id),
             });
@@ -728,6 +866,7 @@ public partial class RemoteModelEditViewData : ObservableObject
         ModelId = currentId;
         _suppressModelIdPrefill = false;
         RefreshVisibleModelIdOptions();
+        RefreshEndpointOptions(applyRecommendation: false); //目录只是刷新候选，已填的地址不重写
         if (!IsEditMode) ApplyModelIdPreset(SelectedModelIdOption);
         RefreshThinkingOptions();
     }
@@ -783,6 +922,8 @@ public partial class RemoteModelEditViewData : ObservableObject
         }
         RefreshVisibleModelIdOptions();
         RefreshThinkingOptions();
+        // 只有命中了候选（输完整个 ID）才按它的推荐走：逐字符都改地址等于边打字边抢方向
+        RefreshEndpointOptions(applyRecommendation: SelectedModelIdOption != null);
     }
 
     partial void OnModelNameChanged(string value)
@@ -816,6 +957,9 @@ public partial class RemoteModelEditViewData : ObservableObject
 
     /// <summary>编辑模式认原实例的配置类型，创建/复制模式认草稿（价格与档位都按这个去查表）</summary>
     private Type? EffectiveConfigType => _sourceInfo?.Config.GetType() ?? _draftConfig?.GetType();
+
+    /// <summary>当前表单对应的配置实例：编辑模式是原实例，创建/复制模式是草稿</summary>
+    private BaseRemoteModelConfig? CurrentConfig => _sourceInfo?.Config ?? _draftConfig;
 
     /// <summary>
     /// 当前模型的挂牌单价；供应商没公布、或自定义服务商查不到时为 null

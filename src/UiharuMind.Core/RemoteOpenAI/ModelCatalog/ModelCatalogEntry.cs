@@ -1,5 +1,6 @@
 namespace UiharuMind.Core.RemoteOpenAI.ModelCatalog;
 
+using System.Linq;
 using System.Text.Json.Serialization;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Net.Transport;
@@ -45,28 +46,24 @@ public sealed class ModelCatalogEntry
     public List<string> SupportedSamplingParameters { get; set; } = [];
 
     /// <summary>
-    /// 这个模型答话走哪种 wire 格式，按目录声明的端点推。
+    /// 这个模型答话能走哪几条线，按目录声明的端点推。
     ///
-    /// 只声明了 <c>/responses</c> 的走 responses 线；只声明了 <c>/messages</c> 的走 Anthropic 线；
-    /// 声明了 <c>/chat/completions</c>（或都没声明端点字段）的走 chat 线。
-    ///
-    /// <b>多条都声明时取 chat</b>：chat 是已经跑通的形状，另两条还在接。
-    /// 选没跑通的那条当默认，等于让所有模型突然换协议。
+    /// 只声明 <c>/responses</c> 的给 responses，只声明 <c>/messages</c> 的给 Anthropic 线，
+    /// 声明 <c>/chat/completions</c> 的给 chat；三条都声明就三条都给——
+    /// 「推荐哪一条」由调用方定（添加模型页的规则是 Claude 固定 messages、其余 responses 优先），
+    /// 这里只回答「声明了什么」。
     ///
     /// 端点后缀从 <see cref="WireProtocols"/> 取，不在这里再写一份字面量——
     /// 加协议或改路径时只改那张表。放在目录条目上而不是编辑窗口里：这是「目录说了什么」，
     /// 与「界面怎么用」无关
     /// </summary>
-    /// <returns>该模型该走的格式</returns>
-    public EApiFormat ResolveApiFormat()
+    /// <returns>声明可用的格式，按 chat / responses / messages 顺序；空表示没声明</returns>
+    public IReadOnlyList<EApiFormat> SupportedApiFormats()
     {
-        if (SupportedEndpoints.Count == 0) return EApiFormat.ChatCompletions;
-        if (SupportsEndpoint(WireProtocols.Chat.EndpointSuffix)) return EApiFormat.ChatCompletions;
-        // messages 排在 responses 前面：两条判据互不重叠，顺序只为把更具体的放前面
-        if (SupportsEndpoint(WireProtocols.Messages.EndpointSuffix)) return EApiFormat.Messages;
-        return SupportsEndpoint(WireProtocols.Responses.EndpointSuffix)
-            ? EApiFormat.Responses
-            : EApiFormat.ChatCompletions;
+        if (SupportedEndpoints.Count == 0) return [];
+        return [.. WireProtocols.All
+            .Where(protocol => SupportsEndpoint(protocol.EndpointSuffix))
+            .Select(protocol => protocol.Format)];
     }
 
     /// <summary>是否能在指定端点答话（忽略大小写、按子串匹配）</summary>

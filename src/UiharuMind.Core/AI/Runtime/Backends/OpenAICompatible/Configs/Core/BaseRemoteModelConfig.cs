@@ -276,11 +276,24 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
 
     /// <summary>
     /// 模型答话的接口格式（wire）：<see cref="EApiFormat.ChatCompletions"/> 走 OpenAI 兼容线，
-    /// <see cref="EApiFormat.Messages"/> 走 Anthropic Messages（v1 未实现，二期接）。
-    /// 目录解析时按 supported_endpoints 写入（ADR 0092）。
+    /// <see cref="EApiFormat.Messages"/> 走 Anthropic Messages，<see cref="EApiFormat.Responses"/> 走 OpenAI Responses。
+    ///
+    /// 它<b>从地址尾段反推</b>（<c>RemoteEndpoints.FormatOf</c>），不是界面上另选的第二个字段——
+    /// 地址与格式各存一份时，两者打架就是「messages 的请求体打到 chat 端点」（ADR 0102）。
     /// </summary>
     [SettingConfigIgnoreDisplay]
     public virtual EApiFormat ApiFormat { get; set; } = EApiFormat.ChatCompletions;
+
+    /// <summary>
+    /// 该供应商某条线的完整端点。<b>默认返回空串 = 没有特别布局</b>，交给通用规则（换尾段/补全）。
+    ///
+    /// 各家路径布局并不都是「同一段前缀换个尾段」：OpenCode 的 Anthropic 线在
+    /// <c>/inference/anthropic/v1/messages</c>，而 chat 在 <c>/inference/openai/v1/chat/completions</c>，
+    /// 换尾段换不出来。这种情况由供应商自己声明，别在公共层猜。
+    /// </summary>
+    /// <param name="format">目标 wire 格式</param>
+    /// <returns>完整端点；空表示交给通用规则</returns>
+    public virtual string EndpointFor(EApiFormat format) => "";
 
     public BaseRemoteModelConfig()
     {

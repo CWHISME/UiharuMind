@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Generated;
 using UiharuMind.Resources.Lang;
@@ -53,9 +55,38 @@ public sealed class ModelIdOptionItem
     public bool OmitSamplingParams { get; init; }
 
     /// <summary>
-    /// 该模型的接口格式（wire），由目录 supported_endpoints 解析（ADR 0092）
+    /// 该模型声明可用的端点（目录 supported_endpoints 解析而来）；空表示没声明。
+    /// 添加模型页据此列出接口地址候选
     /// </summary>
-    public EApiFormat ApiFormat { get; init; }
+    public IReadOnlyList<EApiFormat> ApiFormats { get; init; } = [];
+
+    /// <summary>
+    /// 推荐的接口格式。<b>目录声明优先，且声明里有 chat 就走 chat</b>——
+    /// chat 是全仓的基线（响应清洗、请求改写、思考票据、缓存审计都建在它上面），
+    /// responses 是附加能力，两边都声明时没有理由离开跑得最熟的那条。
+    /// 只有「只声明 responses」的才走 responses；声明里有 messages 的 Claude 走 messages
+    /// （CommandCode 文档：Claude 发到 chat 或 responses 直接 400）。
+    /// 没声明时才按模型 ID 判：Claude 固定 Messages，其余 chat。
+    /// </summary>
+    public EApiFormat RecommendedFormat
+    {
+        get
+        {
+            if (ApiFormats.Count > 0)
+            {
+                if (IsClaude && ApiFormats.Contains(EApiFormat.Messages)) return EApiFormat.Messages;
+                if (ApiFormats.Contains(EApiFormat.ChatCompletions)) return EApiFormat.ChatCompletions;
+                if (ApiFormats.Contains(EApiFormat.Responses)) return EApiFormat.Responses;
+                if (ApiFormats.Contains(EApiFormat.Messages)) return EApiFormat.Messages;
+                return ApiFormats[0];
+            }
+
+            return IsClaude ? EApiFormat.Messages : EApiFormat.ChatCompletions;
+        }
+    }
+
+    /// <summary>模型 ID 是不是 Claude 系（这类模型走 Anthropic Messages 线）</summary>
+    public bool IsClaude => Id.Contains("claude", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// 该供应商公布的单价；<c>null</c> 表示没公布（不是免费）

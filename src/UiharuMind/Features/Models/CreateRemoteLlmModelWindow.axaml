@@ -29,6 +29,21 @@
         </Style>
     </Window.Styles>
 
+    <Window.Resources>
+        <!-- 接口地址：自定义服务商与「高级设置」各用一次，标记只有一份 -->
+        <DataTemplate x:Key="EndpointField" x:DataType="common:RemoteModelEditViewData">
+            <StackPanel Spacing="6">
+                <TextBlock Text="{loc:Loc RemoteModelPathLabel}" />
+                <ComboBox IsEditable="True"
+                          ItemsSource="{Binding EndpointOptions}"
+                          Text="{Binding ModelPath, Mode=TwoWay}"
+                          PlaceholderText="{loc:Loc RemoteModelPathPlaceholder}"
+                          HorizontalAlignment="Stretch" />
+                <TextBlock Text="{loc:Loc RemoteModelPathHint}" Classes="muted" TextWrapping="Wrap" />
+            </StackPanel>
+        </DataTemplate>
+    </Window.Resources>
+
     <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource SemiGrey0}">
 
         <!-- 头部:图标 + 标题 -->
@@ -256,12 +271,9 @@
                                      PlaceholderText="{loc:Loc RemoteModelCatalogUrlPlaceholder}" />
                             <TextBlock Text="{loc:Loc RemoteModelCatalogUrlHint}" Classes="muted" TextWrapping="Wrap" />
                         </StackPanel>
-                        <StackPanel Spacing="6">
-                            <TextBlock Text="{loc:Loc RemoteModelPathLabel}" />
-                            <TextBox Text="{Binding ModelPath}"
-                                     PlaceholderText="{loc:Loc RemoteModelPathPlaceholder}" />
-                            <TextBlock Text="{loc:Loc RemoteModelPathHint}" Classes="muted" TextWrapping="Wrap" />
-                        </StackPanel>
+                        <!-- 接口地址：候选按模型数据给（Claude 固定 /messages，声明了 /responses 的优先），
+                             选哪个地址就是哪个接口格式；自定义网关可直接手输 -->
+                        <ContentControl Content="{Binding}" ContentTemplate="{StaticResource EndpointField}" />
                         <StackPanel Spacing="6">
                             <TextBlock Text="{loc:Loc RemoteModelDescriptionLabel}" />
                             <TextBox Text="{Binding ModelDescription}" MinHeight="80" AcceptsReturn="True"
@@ -328,12 +340,7 @@
                               HorizontalAlignment="Stretch"
                               IsVisible="{Binding IsPresetProvider}">
                         <StackPanel Spacing="14" Margin="0,8,0,0">
-                            <StackPanel Spacing="6">
-                                <TextBlock Text="{loc:Loc RemoteModelPathLabel}" />
-                                <TextBox Text="{Binding ModelPath}"
-                                         PlaceholderText="{loc:Loc RemoteModelPathPlaceholder}" />
-                                <TextBlock Text="{loc:Loc RemoteModelPathHint}" Classes="muted" TextWrapping="Wrap" />
-                            </StackPanel>
+                            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource EndpointField}" />
                             <StackPanel Spacing="6">
                                 <TextBlock Text="{loc:Loc RemoteModelDescriptionLabel}" />
                                 <TextBox Text="{Binding ModelDescription}" MinHeight="80" AcceptsReturn="True"

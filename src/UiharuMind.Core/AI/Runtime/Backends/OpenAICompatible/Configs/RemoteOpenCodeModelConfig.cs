@@ -28,6 +28,20 @@ public class RemoteOpenCodeModelConfig : BaseRemoteModelConfig, IRemoteModelConf
     public override int Port { get; set; }
 
     /// <summary>
+    /// 三条线不在同一段前缀上（实测文档 opencode.ai/v2/docs/console/api/inference）：
+    /// chat 与 responses 在 <c>/inference/openai/v1/</c>，Anthropic 线在 <c>/inference/anthropic/v1/</c>。
+    /// 换尾段换不出来，所以这里显式给——否则选 Claude 会拼出 <c>/inference/openai/v1/messages</c> 打 404
+    /// </summary>
+    /// <param name="format">目标 wire 格式</param>
+    /// <returns>该线的完整端点</returns>
+    public override string EndpointFor(EApiFormat format) => format switch
+    {
+        EApiFormat.Messages => "https://opencode.ai/inference/anthropic/v1/messages",
+        EApiFormat.Responses => "https://opencode.ai/inference/openai/v1/responses",
+        _ => "https://opencode.ai/inference/openai/v1/chat/completions",
+    };
+
+    /// <summary>
     /// 网关下挂的模型各家不同，暂时沿用改动前的写法（<c>thinking.type</c> + <c>reasoning_effort</c>）。
     /// 是否被接受未验证，换格式前得先录一次真实请求。
     /// </summary>

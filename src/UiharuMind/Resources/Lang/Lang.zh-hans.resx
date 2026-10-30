@@ -2413,7 +2413,7 @@
         <value>https://api.example.com/v1/chat/completions</value>
     </data>
     <data name="RemoteModelPathHint" xml:space="preserve">
-        <value>完整请求地址，应以 http 或 https 开头。</value>
+        <value>该模型答话的完整地址。候选取自模型数据（声明里有 chat 就走 chat，只支持 responses 的才走 responses；Claude 走 /messages），供应商另有说明时可直接填写。</value>
     </data>
     <data name="RemoteModelIdLabel" xml:space="preserve">
         <value>模型 ID</value>

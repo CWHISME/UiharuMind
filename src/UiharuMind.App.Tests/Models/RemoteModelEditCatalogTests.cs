@@ -81,8 +81,8 @@ public class RemoteModelEditCatalogTests
         Assert.Equal(CatalogUrl, cache.LastWrittenUrl);
         Assert.True(vm.HasModelIdOptions);
         Assert.Equal(["claude-sonnet-5-5", "gpt-6-astra", "deepseek/deepseek-v4-flash"], vm.ModelIdOptions.Select(o => o.Id));
-        Assert.Equal(EApiFormat.Messages, vm.ModelIdOptions.First(o => o.Id == "claude-sonnet-5-5").ApiFormat);
-        Assert.Equal(EApiFormat.ChatCompletions, vm.ModelIdOptions[1].ApiFormat);
+        Assert.Equal(EApiFormat.Messages, vm.ModelIdOptions.First(o => o.Id == "claude-sonnet-5-5").RecommendedFormat);
+        Assert.Equal(EApiFormat.ChatCompletions, vm.ModelIdOptions[1].RecommendedFormat);
     }
 
     /// <summary>端点字段缺失（OpenRouter 等标准 /v1/models 不返回）：默认展示，不当 /messages-only 过滤（Spec 评审 c-1）</summary>
@@ -104,7 +104,7 @@ public class RemoteModelEditCatalogTests
     /// <summary>
     /// wire 格式按目录声明的端点推：只声明 /responses 的走 responses 线，
     /// 只声明 /messages 的走 Anthropic 线，只声明 /chat/completions 的走 chat 线，
-    /// 两条都声明的取 chat（已跑通的那条）。
+    /// 两条都声明的取 chat（chat 是全仓基线，responses 只是附加能力，ADR 0102）。
     /// </summary>
     [Fact]
     public void Catalog_ResolvesApiFormatFromDeclaredEndpoints()
@@ -124,11 +124,11 @@ public class RemoteModelEditCatalogTests
 
         vm.SelectedProvider = vm.Providers.First(p => p.ConfigType == typeof(RemoteCommandCodeModelConfig));
 
-        Assert.Equal(EApiFormat.Responses, vm.ModelIdOptions.First(o => o.Id == "responses-only").ApiFormat);
-        Assert.Equal(EApiFormat.ChatCompletions, vm.ModelIdOptions.First(o => o.Id == "chat-only").ApiFormat);
-        Assert.Equal(EApiFormat.Messages, vm.ModelIdOptions.First(o => o.Id == "messages-only").ApiFormat);
-        Assert.Equal(EApiFormat.ChatCompletions, vm.ModelIdOptions.First(o => o.Id == "both").ApiFormat);
-        Assert.Equal(EApiFormat.ChatCompletions, vm.ModelIdOptions.First(o => o.Id == "no-endpoints").ApiFormat);
+        Assert.Equal(EApiFormat.Responses, vm.ModelIdOptions.First(o => o.Id == "responses-only").RecommendedFormat);
+        Assert.Equal(EApiFormat.ChatCompletions, vm.ModelIdOptions.First(o => o.Id == "chat-only").RecommendedFormat);
+        Assert.Equal(EApiFormat.Messages, vm.ModelIdOptions.First(o => o.Id == "messages-only").RecommendedFormat);
+        Assert.Equal(EApiFormat.ChatCompletions, vm.ModelIdOptions.First(o => o.Id == "both").RecommendedFormat);
+        Assert.Equal(EApiFormat.ChatCompletions, vm.ModelIdOptions.First(o => o.Id == "no-endpoints").RecommendedFormat);
     }
 
     /// <summary>
@@ -442,6 +442,8 @@ public class RemoteModelEditCatalogTests
 
         RemoteModelInfo result = vm.BuildResult();
 
+        // 声明了 chat 就走 chat：地址与格式都不动（ADR 0102）
+        Assert.Equal("https://api.commandcode.ai/provider/v1/chat/completions", result.Config.ModelPath);
         Assert.Equal(EApiFormat.ChatCompletions, result.Config.ApiFormat);
     }
 

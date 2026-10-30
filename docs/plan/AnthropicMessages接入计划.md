@@ -113,6 +113,19 @@ case "signature_delta":
 | 思考参数注入（token 预算） | `AI/Net/Request/AnthropicThinkingHandler.cs`（新） |
 | 分段请求体（HttpContent 版） | `AI/Net/Transport/SegmentedHttpContent.cs`（新） |
 
+**第二步（同日）：把这条线接到界面上**
+
+| 改动 | 位置 |
+|---|---|
+| 「接口地址」改为可编辑下拉，候选按模型数据给（Claude 固定 `/messages`、声明了 `/responses` 的优先） | `Features/Models/RemoteModelEditViewData.cs`、`CreateRemoteLlmModelWindow.axaml` |
+| 格式从地址尾段反推（`ApiFormat` 不再单独选/存） | `AI/Net/Transport/RemoteEndpoints.cs`（新） |
+| 地址归一：尾段是另一条线时替换，不再原样返回 | `AI/Net/Transport/WireProtocol.cs` |
+
+口径见 [ADR 0102](../adr/0102-接口地址就是接口格式，地址给候选格式从尾段反推.md)。
+CommandCode 这种声明了 `supported_endpoints` 的目录本来就通（`/messages`-only 的 Claude 选中即推成 Messages）；
+改的是**目录不声明端点**的那半边——OpenCode 的最简目录、自定义代理网关，以前只能落 chat，现在地址候选里能选到 `/messages`。
+顺带修掉一个真 bug：格式与地址各说各话时，`Resolve` 原样放行，Messages 形状的请求体打到了 chat 端点。
+
 **目录侧一处老决定要改口**：`/messages`-only 的条目原来被过滤掉（"v1 只支持 chat 线"）。
 Anthropic 线接上后不再滤，改为推成 `EApiFormat.Messages`。
 

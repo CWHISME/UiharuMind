@@ -882,6 +882,20 @@ _Avoid_: 本地服务、后端（后端指 Metal / Vulkan / CPU 这类计算后�
 
 ⚠️ 不要与**模型目录**混淆：变体表写死，模型目录运行时拉取；二者候选来源不同，消费处相同。
 
+### 接口格式（wire）
+
+远程对话模型答话打哪个端点：`/chat/completions`（OpenAI 兼容）、`/responses`（OpenAI Responses）、
+`/messages`（Anthropic Messages）。落成配置里的 `ApiFormat`，三条线各绑一个 SDK 客户端（`ChatClientFactory`）。
+
+**格式是地址的派生量，不是独立字段**：添加模型页只有一个「接口地址」，候选取自模型数据
+（目录声明优先，声明里有 chat 就走 chat、只声明 responses 的才走 responses；没声明时 Claude 走 `/messages`、
+其余 chat），落盘时按地址尾段反推 `ApiFormat`（`RemoteEndpoints`，
+[ADR 0102](adr/0102-接口地址就是接口格式，地址给候选格式从尾段反推.md)）。
+用户手改过地址就不再自动改；各条线前缀不同的供应商（OpenCode）自己声明端点
+（`BaseRemoteModelConfig.EndpointFor`），公共层不猜。
+
+⚠️ 不要与上面生图那个「接口格式（Dialect）」混用：那个讲出图接口各家的差异，对话侧只有这三条线。
+
 ### 全局当前模型
 
 顶栏在用的那个，内存单例、重启不落盘。体现为 `LlmManager.CurrentRunningModel`。
@@ -932,10 +946,11 @@ _Avoid_: 模型包（那是 audio.cpp 的打包形态）、配方
 
 ### 接口格式（Dialect）
 
-生图模型「怎么问」：各家都称 OpenAI 兼容，到出图接口却各说各话（编辑走哪个路径、尺寸怎么写、参数放哪层），
+**生图侧**的「怎么问」：各家都称 OpenAI 兼容，到出图接口却各说各话（编辑走哪个路径、尺寸怎么写、参数放哪层），
 一种格式一个适配器。是生图模型的属性，不是服务商的。
 
-_Avoid_: 协议——对话侧只有 OpenAI 兼容一种协议，这个词会让人以为对话模型也分格式。
+_Avoid_: 协议——这个词两边都在用，容易和对话侧的「接口格式（wire）」混起来。
+对话侧那三条线叫 wire，见上面「接口格式（wire）」。
 
 ### 生图回退
 
