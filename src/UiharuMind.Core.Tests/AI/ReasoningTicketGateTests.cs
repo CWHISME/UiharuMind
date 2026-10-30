@@ -9,17 +9,18 @@ using UiharuMind.Core.Configs.RemoteAI;
 namespace UiharuMind.Core.Tests.AI;
 
 /// <summary>
-/// 加密票据的门禁：票据只回给产出它的那个模型。
+/// 加密票据的门禁：只回给产出它的模型，且只在历史恰好长了一条助手消息时回。
 ///
-/// 网关自己不校验（实测把 Meta 的票发给 deepseek 照样 200），所以这一侧没有兜底——
-/// 漏了就会把 A 的密文当 B 的推理上下文发出去，而两条路都不会报错，只会安静地错。
+/// 两个条件都不是形式主义。网关自己不校验（实测把 Meta 的票发给 deepseek 照样 200），
+/// 而服务端认的是「这条 reasoning item 就挂在这条回复前面」——挂错了会 400，
+/// 比不带票更糟。所以漏掉任何一条都不会报错，只会安静地错。
 /// </summary>
 public class ReasoningTicketGateTests
 {
     private const string Ticket =
         """[{"type":"reasoning.encrypted","data":"Q-PaD","id":"rs_1","format":"meta-responses-v1","index":0}]""";
 
-    /// <summary>同一个模型：上一发拿到的票挂在最后一条助手消息上，随下一发送回去</summary>
+    /// <summary>同一个模型、历史长了一条：上一发的票挂在那条新回复上，随下一发送回去</summary>
     [Fact]
     public async Task Ticket_IsReplayedToTheSameModel()
     {
@@ -27,8 +28,10 @@ public class ReasoningTicketGateTests
         Queue<string> models = new(["m-a", "m-a"]);
         LazyChatClient client = new(() => Running(inner, models.Dequeue()));
 
-        await Ask(client, "hi");
-        await Ask(client, "再来一次");
+        List<ChatMessage> history = Conversation();
+        await Ask(client, history);
+        Reply(history); //第一发的回复落成消息
+        await Ask(client, history);
 
         Assert.NotNull(inner.SeenTickets);
         Assert.Equal(Ticket, inner.SeenTickets[^1]);
@@ -42,8 +45,28 @@ public class ReasoningTicketGateTests
         Queue<string> models = new(["m-a", "m-b"]);
         LazyChatClient client = new(() => Running(inner, models.Dequeue()));
 
-        await Ask(client, "hi");
-        await Ask(client, "换个模型再问");
+        List<ChatMessage> history = Conversation();
+        await Ask(client, history);
+        Reply(history);
+        await Ask(client, history);
+
+        Assert.Null(inner.SeenTickets);
+    }
+
+    /// <summary>
+    /// 上一发拿到了票但没落成消息（失败/中断）：票据滞留，此时历史没长，
+    /// 挂上去就会贴到一条与它无关的回复上——必须丢掉。
+    /// </summary>
+    [Fact]
+    public async Task Ticket_IsDroppedWhenHistoryDidNotGrow()
+    {
+        TicketClient inner = new(Encoding.UTF8.GetBytes(Ticket));
+        Queue<string> models = new(["m-a", "m-a"]);
+        LazyChatClient client = new(() => Running(inner, models.Dequeue()));
+
+        List<ChatMessage> history = Conversation();
+        await Ask(client, history);
+        await Ask(client, history); //同样的历史再发一次：没有新回复可挂
 
         Assert.Null(inner.SeenTickets);
     }
@@ -56,18 +79,22 @@ public class ReasoningTicketGateTests
         Queue<string> models = new(["m-a", "m-a", "m-a"]);
         LazyChatClient client = new(() => Running(inner, models.Dequeue()));
 
-        await Ask(client, "hi");
-        await Ask(client, "第二轮");
-        await Ask(client, "第三轮");
+        List<ChatMessage> history = Conversation();
+        await Ask(client, history);
+        Reply(history);
+        await Ask(client, history); //这一发把票用掉
+        Reply(history);
+        await Ask(client, history);
 
-        Assert.Null(inner.SeenTickets); //第三发看到的也是空
+        Assert.Null(inner.SeenTickets); //第三发看到的是空
     }
 
-    private static Task Ask(LazyChatClient client, string text) =>
-        client.GetResponseAsync(
-            [new ChatMessage(ChatRole.User, text), new ChatMessage(ChatRole.Assistant, "ok"),
-             new ChatMessage(ChatRole.User, "继续")],
-            cancellationToken: TestContext.Current.CancellationToken);
+    private static List<ChatMessage> Conversation() => [new ChatMessage(ChatRole.User, "hi")];
+
+    private static void Reply(List<ChatMessage> history) => history.Add(new ChatMessage(ChatRole.Assistant, "ok"));
+
+    private static Task Ask(LazyChatClient client, IEnumerable<ChatMessage> history) =>
+        client.GetResponseAsync(history, cancellationToken: TestContext.Current.CancellationToken);
 
     private static ModelRunningData Running(IChatClient inner, string modelId)
     {
@@ -103,6 +130,7 @@ public class ReasoningTicketGateTests
                 _emit = null;
                 LlmRequestScope.Current.EncryptedReasoningObserved?.Invoke(ticket);
             }
+
             return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, "ok")));
         }
 
