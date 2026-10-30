@@ -1,0 +1,159 @@
+using System.Net;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Models;
+using UiharuMind.Core.AI.Net;
+using UiharuMind.Core.AI.Net.Transport;
+using UiharuMind.Core.Configs.RemoteAI;
+
+#pragma warning disable OPENAI001
+
+namespace UiharuMind.Core.Tests.AI;
+
+/// <summary>
+/// responses 线的请求体形状。
+///
+/// 这条线与 chat 线的差别全在请求体上，钉住三件事：
+/// 1. <c>input</c> 是 item 数组（不是 chat 的 messages）
+/// 2. <c>include</c> 带 <c>reasoning.encrypted_content</c> —— 不显式要就没有密文下发
+/// 3. <c>store</c> 为 false —— 服务端不存我们的响应，密文由客户端保管
+///
+/// 另外钉住 ADR 0100 的核心：带密文的思考内容<b>原样</b>往返（字节不变）。
+/// </summary>
+public class ResponsesWireTests
+{
+    private sealed class StubHandler : HttpMessageHandler
+    {
+        public string? LastBody { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            if (request.Content != null)
+                LastBody = await request.Content.ReadAsStringAsync(ct);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {"id":"resp_1","object":"response","created_at":1,"model":"m","status":"completed",
+                     "output":[{"type":"message","id":"msg_1","role":"assistant","status":"completed",
+                     "content":[{"type":"output_text","text":"答案"}]}]}
+                    """,
+                    Encoding.UTF8, "application/json"),
+            };
+        }
+    }
+
+    private static async Task<JsonNode?> SendBodyAsync(List<ChatMessage> messages)
+    {
+        var handler = new StubHandler();
+        var httpHandler = new OpenAICompatibleHttpHandler("https://api.example.com/v1/responses", handler);
+        var config = new RemoteModelConfig { ModelId = "m", ApiFormat = EApiFormat.Responses };
+
+        IChatClient client = OpenAICompatibleChatClient.Create(httpHandler, config, "m", "key");
+        try
+        {
+            await client.GetResponseAsync(messages);
+        }
+        catch
+        {
+            // 响应形状不被接受没关系——要看的是请求体
+        }
+
+        return handler.LastBody is null ? null : JsonNode.Parse(handler.LastBody);
+    }
+
+    private static List<ChatMessage> HistoryWithTicket() =>
+    [
+        new(ChatRole.User, "问题"),
+        new(ChatRole.Assistant,
+        [
+            new TextReasoningContent(string.Empty) { ProtectedData = "BLOB" },
+            new TextContent("上次的答案"),
+        ]),
+        new(ChatRole.User, "追问"),
+    ];
+
+    [Fact]
+    public async Task Request_UsesInputItemArray_NotMessages()
+    {
+        JsonNode? body = await SendBodyAsync(HistoryWithTicket());
+
+        Assert.NotNull(body);
+        Assert.NotNull(body["input"]);           // item 数组
+        Assert.Null(body["messages"]);           // 不能是 chat 的形状
+        Assert.Equal("message", body["input"]![0]!["type"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Request_AsksForEncryptedContent()
+    {
+        JsonNode? body = await SendBodyAsync(HistoryWithTicket());
+
+        Assert.NotNull(body);
+        JsonArray? include = body["include"] as JsonArray;
+        Assert.NotNull(include);
+        Assert.Contains(include, x => x!.GetValue<string>() == "reasoning.encrypted_content");
+    }
+
+    /// <summary>
+    /// <c>store</c> 必须是 false：开了它服务端就存我们的响应，
+    /// 密文在服务端而不在客户端手里——那就不是「客户端保管、原样带回」了。
+    /// </summary>
+    [Fact]
+    public async Task Request_DoesNotStoreServerSide()
+    {
+        JsonNode? body = await SendBodyAsync(HistoryWithTicket());
+
+        Assert.NotNull(body);
+        Assert.False(body["store"]!.GetValue<bool>());
+    }
+
+    /// <summary>
+    /// ADR 0100 的核心不变量：带密文的思考内容原样往返，字节不变。
+    /// 密文被重新编码就作废——所以这里比的是逐字节相同，不是「解出来一样」。
+    /// </summary>
+    [Fact]
+    public async Task Request_RoundTripsEncryptedContent_ByteForByte()
+    {
+        const string blob = "Q-PaD+/=abc123密文部分";
+        List<ChatMessage> messages =
+        [
+            new(ChatRole.User, "问题"),
+            new(ChatRole.Assistant,
+            [
+                new TextReasoningContent(string.Empty) { ProtectedData = blob },
+                new TextContent("上次的答案"),
+            ]),
+        ];
+
+        JsonNode? body = await SendBodyAsync(messages);
+
+        Assert.NotNull(body);
+        JsonArray input = (JsonArray)body["input"]!;
+        JsonNode? reasoning = input.FirstOrDefault(x => x!["type"]!.GetValue<string>() == "reasoning");
+        Assert.NotNull(reasoning);
+        Assert.Equal(blob, reasoning!["encrypted_content"]!.GetValue<string>());
+    }
+
+    /// <summary>
+    /// reasoning 是<b>独立的一条 item</b>，插在原来的位置，不占助手消息的位置。
+    /// 这是 ADR 0100「位置不漂移」在 responses 线上的实现方式——
+    /// chat 侧靠数第几条助手消息，responses 侧靠 item 本身的顺序。
+    /// </summary>
+    [Fact]
+    public async Task Request_KeepsReasoningItemInPlace()
+    {
+        JsonNode? body = await SendBodyAsync(HistoryWithTicket());
+
+        Assert.NotNull(body);
+        JsonArray input = (JsonArray)body["input"]!;
+        var types = input.Select(x => x!["type"]!.GetValue<string>()).ToList();
+
+        Assert.Equal(["message", "reasoning", "message", "message"], types);
+        // reasoning 夹在第一条 user 与 assistant 之间——原位
+        Assert.Equal("user", input[0]!["role"]!.GetValue<string>());
+        Assert.Equal("assistant", input[2]!["role"]!.GetValue<string>());
+    }
+}
