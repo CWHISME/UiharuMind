@@ -240,7 +240,7 @@ chat 侧同样能拿到票、同样能回放（200），而分叉的根因是生
 | 第 1 步 | 协议能力声明 | 无 | 无 | ✅ 已完成 |
 | 第 2 步 | 地址与响应形状分流 | 小 | 第 1 步 | ✅ 已完成 |
 | 第 3 步 | Responses 请求体与响应解析 | ~~高~~ → 小 | 第 2 步 | ✅ 已完成 |
-| 第 4 步 | responses 侧票据落进历史 | 中 | 第 3 步 | 待做 |
+| 第 4 步 | responses 侧票据落进历史 | 中 | 第 3 步 | ✅ 已完成 |
 
 **第 0 步可以独立交付**：它不依赖 responses，落地即让闭源模型的思考链接回来，
 且把缓存分叉从根上修掉。后四步是「多一条路」的增量。
@@ -355,14 +355,25 @@ OpenAI SDK 2.13 自带 `ResponsesClient`，M.E.AI 的
 **验证**：`ResponsesWireTests`（请求体形状 5 条）+ `ResponsesInboundTests`
 （响应侧往返 4 条）。
 
-### 第 4 步　responses 侧票据回填 —— 大部分已被 SDK 做掉
+### 第 4 步　responses 侧票据回填 —— ✅ 已完成
 
 原计划写「响应解析时收集 `encrypted_content`、请求改写时挂回」——
 **这两件事 SDK 都做了**：响应侧还原成 `ProtectedData`，请求侧原样带出。
 
-剩下的只有一件事：**让票据落进历史**。
+剩下的是**让票据落进历史**，以及一处**真缺口**：
 
-好消息是载体字段与 chat 线**完全相同**（`TextReasoningContent.ProtectedData`），
+> chat 线的密文是我们自己从字节里切出来的，切的时候就知道是谁产出的，
+> 顺手把产出方身份挂上。responses 线的密文是 **SDK 解出来的**——它只还原
+> `ProtectedData` 与 item id，**不知道也不该知道「这台机器上是谁签的票」**。
+>
+> 而身份是门禁的输入：缺了它，落盘的票读回来就无从判断该不该发给当前模型，
+> 只能一律不发——**票白存**。
+
+所以拿到响应后补一步（`LazyChatClient.StampTicketProducer`）：给带密文的思考
+内容挂上产出方身份。已有身份的不覆盖——落盘往返后身份已经在了，再补一次会把
+「原来是谁产的」改成「现在是谁在发的」。
+
+载体字段与 chat 线**完全相同**（`TextReasoningContent.ProtectedData`），
 所以 ADR 0100 定的落盘路径（随消息存进历史）**两条线通用，不用为 responses
 另存一套**。ADR 0100 的四条不变量也不用改：
 
@@ -373,10 +384,14 @@ OpenAI SDK 2.13 自带 `ResponsesClient`，M.E.AI 的
 
 **注意**：responses 侧的 reasoning item 会自然带 `id`（存在
 `AdditionalProperties["reasoningItemId"]`），但**不能靠它定位**——
-实测 id 形如 `rs_<响应id>:rs_<条目id>`，每轮都变。
-但**不要依赖 id 跨轮稳定**（实测每轮都变，opencode 也是分开存的）。
+实测 id 形如 `rs_<响应id>:rs_<条目id>`，每轮都变（opencode 也是分开存的）。
+位置稳定性的真正来源仍是 ADR 0100 那条不变量：「每条挂自己那张，不动别人的」。
 
-**验收**：同第 0 步的那几条不变量测试，在 responses 侧再跑一遍。
+补身份的位置能放 `AdditionalProperties` 里，与 SDK 自己放的 `reasoningItemId`
+**共存**（实测互不覆盖）。
+
+**验证**：`ResponsesTicketProducerTests` 4 条 —— SDK 解出的内容确实没有身份、
+补完能被载体认出、补完不覆盖 SDK 的 item id、补完不覆盖已有身份。
 
 ## 风险与边界
 
@@ -392,10 +407,25 @@ OpenAI SDK 2.13 自带 `ResponsesClient`，M.E.AI 的
 
 ## 验收口径
 
-- **缓存**：真实档案上跑 `src/scripts/perf/cache-audit.py`，前缀分类应为「纯追加」，`break` 数为 0
+**代码层（已验）**：
+
+- **请求体形状**：`input` 是 item 数组、`include` 带 `reasoning.encrypted_content`、
+  `store` 为 false —— `ResponsesWireTests` 5 条
+- **响应侧往返**：`encrypted_content` 还原成 `ProtectedData`，载体形态与 chat 线相同 ——
+  `ResponsesInboundTests` 4 条
+- **产出方身份**：SDK 解出的内容没有身份，补完能被载体认出，且不覆盖 SDK 的 item id
+  与已有身份 —— `ResponsesTicketProducerTests` 4 条
+- **回归**：Core 3392 条 / App 1258 条全绿
+
+**真实档案层（待跑）**：
+
+- **缓存**：真实档案上跑 `src/scripts/perf/cache-audit.py`，前缀分类应为「纯追加」，
+  `break` 数为 0
 - **命中**：`cached_tokens` 中位数应回到 88% 以上（还原后的基线就是纯追加 ~88%）
 - **思考质量**：闭源模型的思考卡能开出内容（而不是只有一张空卡）
-- **回归**：`UiharuMind.Core.Tests` 与 `UiharuMind.App.Tests` 全绿
+
+> 真实档案那三条要跑通必须实际调一次 responses 端点——贵模型上先跑最小的那几步，
+> 别一上来就跑全套。
 
 ## 实测依据
 
