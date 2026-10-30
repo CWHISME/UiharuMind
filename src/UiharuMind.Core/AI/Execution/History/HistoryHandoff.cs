@@ -521,10 +521,15 @@ public static class HistoryHandoff
             if (response.Usage != null) usages.Add(response.Usage);
             if (CallsTools(response))
             {
-                LlmRequestContext.ForbidToolCalls = true;
-                response = await client
-                    .GetResponseAsync(messages, options, cancellationToken)
-                    .ConfigureAwait(false);
+                // 只在这一发上禁工具：作用域结束即还原，不必在 finally 里手工复位——
+                // 手工复位把「进来时是什么」一并抹成 false，外层若正禁着工具就会被悄悄放开
+                using (LlmRequestScope.Push(LlmRequestScope.Current with { ForbidToolCalls = true }))
+                {
+                    response = await client
+                        .GetResponseAsync(messages, options, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+
                 if (response.Usage != null) usages.Add(response.Usage);
             }
 
@@ -539,10 +544,6 @@ public static class HistoryHandoff
         {
             Log.Warning($"Write context handoff failed: {e.Message}");
             return new HandoffReply(null, usages);
-        }
-        finally
-        {
-            LlmRequestContext.ForbidToolCalls = false;
         }
     }
 

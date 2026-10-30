@@ -163,10 +163,10 @@ public class OpenAICompatibleRequestPolicyTests
     [Fact]
     public async Task Rewriter_ForbidsToolCalls_FromTheCallContext()
     {
-        // AsyncLocal 只在这个异步流里生效，不漏到别的测试
+        // 作用域只在这个异步流里生效，退出即还原，不漏到别的测试
         string? rewritten = await Task.Run(() =>
         {
-            LlmRequestContext.ForbidToolCalls = true;
+            using LlmRequestScope.Scope scope = LlmRequestScope.Push(new LlmRequestContext { ForbidToolCalls = true });
             return OpenAICompatibleRequestRewriterTests.Rewrite("{\"model\":\"m\"}", RequestRewrite.For(model: null));
         }, TestContext.Current.CancellationToken);
 
@@ -205,7 +205,7 @@ public class OpenAICompatibleRequestPolicyTests
     {
         string? rewritten = await Task.Run(() =>
         {
-            LlmRequestContext.ForbidToolCalls = true;
+            using LlmRequestScope.Scope scope = LlmRequestScope.Push(new LlmRequestContext { ForbidToolCalls = true });
             return OpenAICompatibleRequestRewriterTests.Rewrite(
                 "{\"messages\":[{\"role\":\"user\",\"content\":\"你好<>&'+\"}]}", RequestRewrite.For(model: null));
         }, TestContext.Current.CancellationToken);

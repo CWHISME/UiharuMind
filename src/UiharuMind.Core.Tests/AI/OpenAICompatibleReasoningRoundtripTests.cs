@@ -133,30 +133,30 @@ public class OpenAICompatibleReasoningRoundtripTests
 
     /// <summary>roundtrip=null(自动)与 true 都去收集(收集器扫不到就空);显式 false 与无模型跳过</summary>
     [Fact]
-    public async Task ReasoningSource_IsCollectedForAutoOrRequired_SkippedForExplicitOff()
+    public void ReasoningSource_IsCollectedForAutoOrRequired_SkippedForExplicitOff()
     {
-        int invoked = await Task.Run(() =>
+        int count = 0;
+        // 上下文直接给：断言「什么情况下要收集」不必先摆一个异步流，也不必担心漏到别的测试里
+        LlmRequestContext context = new()
         {
-            int count = 0;
-            LlmRequestContext.PendingReasoningSource = () =>
+            PendingReasoningSource = () =>
             {
                 count++;
                 return ["思考"];
-            };
-            // 显式关(商汤自研,官方推荐不回传):不收集
-            RequestRewrite.For(new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "sensenova-6.8-flash-lite" } });
-            // 无模型:不收集
-            RequestRewrite.For(model: null);
-            // 自动(未声明):收集
-            RequestRewrite.For(new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "glm-5.2" } });
-            // 必须回填(kimi-k3):收集
-            RequestRewrite rewrite = RequestRewrite.For(
-                new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "kimi-k3" } });
-            Assert.NotNull(rewrite.ReasoningByAssistantMessage);
-            return count;
-        }, TestContext.Current.CancellationToken);
+            },
+        };
+        // 显式关(商汤自研,官方推荐不回传):不收集
+        RequestRewrite.For(new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "sensenova-6.8-flash-lite" } }, context);
+        // 无模型:不收集
+        RequestRewrite.For(null, context);
+        // 自动(未声明):收集
+        RequestRewrite.For(new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "glm-5.2" } }, context);
+        // 必须回填(kimi-k3):收集
+        RequestRewrite rewrite = RequestRewrite.For(
+            new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "kimi-k3" } }, context);
+        Assert.NotNull(rewrite.ReasoningByAssistantMessage);
 
-        Assert.Equal(2, invoked);
+        Assert.Equal(2, count);
     }
 
     [Fact]

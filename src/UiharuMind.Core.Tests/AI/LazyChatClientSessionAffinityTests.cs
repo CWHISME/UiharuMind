@@ -53,21 +53,16 @@ public class LazyChatClientSessionAffinityTests
     [Fact]
     public async Task ClientWithoutAffinity_ClearsTheStaleValue()
     {
-        LlmRequestContext.SessionAffinity = "left-over";
-        try
-        {
-            CapturingClient inner = new();
-            LazyChatClient client = new(() => Running(inner));
+        // 外层挂着一个值（同一条流上「上一次请求留下的」），而这个客户端没有会话：发出去必须是不带
+        using LlmRequestScope.Scope outer =
+            LlmRequestScope.Push(new LlmRequestContext { SessionAffinity = "left-over" });
+        CapturingClient inner = new();
+        LazyChatClient client = new(() => Running(inner));
 
-            await client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")],
-                cancellationToken: TestContext.Current.CancellationToken);
+        await client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")],
+            cancellationToken: TestContext.Current.CancellationToken);
 
-            Assert.Null(inner.SeenAffinity);
-        }
-        finally
-        {
-            LlmRequestContext.SessionAffinity = null;
-        }
+        Assert.Null(inner.SeenAffinity);
     }
 
     private static ModelRunningData Running(IChatClient inner)
@@ -93,7 +88,7 @@ public class LazyChatClientSessionAffinityTests
             CancellationToken cancellationToken = default)
         {
             if (delayMs > 0) await Task.Delay(delayMs, cancellationToken).ConfigureAwait(false);
-            SeenAffinity = LlmRequestContext.SessionAffinity;
+            SeenAffinity = LlmRequestScope.Current.SessionAffinity;
             return new ChatResponse(new ChatMessage(ChatRole.Assistant, "ok"));
         }
 

@@ -29,9 +29,10 @@ internal static class EndToEndBench
                  })
         {
             IChatClient client = CreateClient(sse, model);
-            LlmRequestContext.PendingReasoningSource = () => reasoning;
+            // 这里直接建客户端、绕过了 LazyChatClient，上下文得自己挂
+            using LlmRequestScope.Scope scope = LlmRequestScope.Push(
+                new LlmRequestContext { PendingReasoningSource = () => reasoning });
             var cost = Measure.Run(alloc, 12, () => Clients.ConsumeAsync(client, messages, options).GetAwaiter().GetResult());
-            LlmRequestContext.PendingReasoningSource = null;
             Console.WriteLine($"  [{label}] {Measure.Kb(cost.Bytes),10}/次（大对象堆约 {Measure.Kb(cost.LohBytes)}），{cost.Micros / 1000:0.0} ms");
         }
 
@@ -47,7 +48,8 @@ internal static class EndToEndBench
         var (messages, options, reasoning) = Conversation.Build(rounds: 95, withImage: false);
         IChatClient client = CreateClient(sse, new FakeModel(deepSeek: true));
 
-        LlmRequestContext.PendingReasoningSource = () => reasoning;
+        using LlmRequestScope.Scope scope = LlmRequestScope.Push(
+            new LlmRequestContext { PendingReasoningSource = () => reasoning });
         for (int i = 0; i < 5; i++) await Clients.ConsumeAsync(client, messages, options);
         GC.Collect();
         int gen0 = GC.CollectionCount(0);
@@ -68,7 +70,6 @@ internal static class EndToEndBench
             maxLoh = Math.Max(maxLoh, loh.SizeAfterBytes + loh.FragmentationAfterBytes);
         }
 
-        LlmRequestContext.PendingReasoningSource = null;
         LogManager.Instance.Flush();
         Console.WriteLine($"  120 次调用 {watch.ElapsedMilliseconds} ms：gen0 {GC.CollectionCount(0) - gen0} 次，" +
                           $"gen1 {GC.CollectionCount(1) - gen1} 次，gen2 {GC.CollectionCount(2) - gen2} 次，" +

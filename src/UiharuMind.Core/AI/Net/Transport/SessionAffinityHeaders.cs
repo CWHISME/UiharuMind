@@ -24,11 +24,10 @@ internal sealed class SessionAffinityHeaders
     /// 值恒为 32 个十六进制字符（<see cref="SessionAffinity.Of"/>），不需要在发请求这层校验。
     /// </summary>
     /// <param name="request">待发出的请求</param>
-    public void Apply(HttpRequestMessage request)
+    /// <param name="affinity">本次的亲和值；空表示本发没有会话，一个头都不写</param>
+    public void Apply(HttpRequestMessage request, string? affinity)
     {
-        if (_names.Length == 0) return;
-        string? affinity = LlmRequestContext.SessionAffinity;
-        if (string.IsNullOrEmpty(affinity)) return;
+        if (_names.Length == 0 || string.IsNullOrEmpty(affinity)) return;
 
         foreach (string header in _names)
         {
@@ -42,15 +41,16 @@ internal sealed class SessionAffinityHeaders
     /// <c>(none)</c> 声明了但本次没有会话（能力预览），也发不出去；
     /// 否则是真正写到网线上的那个值。
     ///
-    /// <b>不能只打 <see cref="LlmRequestContext.SessionAffinity"/></b>：那是「手上有的值」，
+    /// <b>不能只打传进来的亲和值</b>：那是「手上有的值」，
     /// 与「实际发了什么」不是一回事——没声明头名的供应商照样有值，打出来会让人以为发了。
     /// 三种取值都不带空格，好让 <c>cache-audit.py</c> 按整词分组。
     /// </summary>
+    /// <param name="affinity">本次的亲和值，与 <see cref="Apply"/> 收到的是同一个</param>
     /// <returns>日志里要显示的亲和</returns>
-    public string Describe()
+    public string Describe(string? affinity)
     {
         if (_names.Length == 0) return "(off)";
-        return LlmRequestContext.SessionAffinity ?? "(none)";
+        return affinity ?? "(none)";
     }
 
     /// <summary>

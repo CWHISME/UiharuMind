@@ -118,8 +118,9 @@ internal static class OpenAICompatibleRequestRewriter
 
     /// <summary>
     /// 助手消息的思考正文回填。标准 ChatMessage→wire 消息转换认不出 <c>TextReasoningContent</c>,
-    /// 序列化时会把它悄悄丢掉,只能从 <see cref="LlmRequestContext.PendingReasoningSource"/>
-    /// 按<b>助手消息出现顺序</b>找回来补上。已经带了(哪怕是空串)就不覆盖,只有缺省或 null 才补。
+    /// 序列化时会把它悄悄丢掉,只能从清单
+    /// <see cref="RequestRewrite.ReasoningByAssistantMessage"/>(源头是
+    /// <see cref="LlmRequestContext.PendingReasoningSource"/>)按<b>助手消息出现顺序</b>找回来补上。已经带了(哪怕是空串)就不覆盖,只有缺省或 null 才补。
     ///
     /// <b>有正文就发,不挑消息</b>:服务端给过的思考原样带回去,工具调用链之外的回复也一样——
     /// 各家的校验口径不同（DeepSeek 只查带 tool_calls 的，网关连纯文本回复都查），

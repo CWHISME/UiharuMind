@@ -459,7 +459,7 @@ public class HistoryHandoffTests
         public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null,
             CancellationToken cancellationToken = default)
         {
-            Forbidden.Add(LlmRequestContext.ForbidToolCalls);
+            Forbidden.Add(LlmRequestScope.Current.ForbidToolCalls);
             ChatMessage message = Forbidden.Count == 1
                 ? new ChatMessage(ChatRole.Assistant, [new FunctionCallContent("c1", "Read")])
                 : new ChatMessage(ChatRole.Assistant, "交接正文");

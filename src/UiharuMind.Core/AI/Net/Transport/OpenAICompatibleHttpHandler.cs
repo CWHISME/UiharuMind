@@ -62,12 +62,15 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
         CancellationToken cancellationToken)
     {
+        // 上下文只在这里取一次:写头与写日志必须是同一份值,分别取等于给「两处不一致」留了门
+        string? affinity = LlmRequestScope.Current.SessionAffinity;
+
         // OpenAI SDK 会自行拼接标准路径，这里统一改写到用户配置的兼容端点。
         request.RequestUri = _baseUri;
-        _affinity.Apply(request);
+        _affinity.Apply(request, affinity);
 
         HttpResponseMessage response = await base.SendAsync(request, cancellationToken);
-        ResponseDiagnostics.LogResponse(response, _affinity.Describe(), SessionAffinityHeaders.Echo(response),
+        ResponseDiagnostics.LogResponse(response, _affinity.Describe(affinity), SessionAffinityHeaders.Echo(response),
             _isChatCompletions);
         await ResponseDiagnostics.LogFailureAsync(response, request.RequestUri, cancellationToken);
         return await _sanitizer.SanitizeAsync(response, cancellationToken);

@@ -41,7 +41,7 @@ public class LazyChatClient : IChatClient
     private static readonly TimeSpan StreamingRetryMaxDelay = TimeSpan.FromSeconds(8);
 
     private readonly Func<ModelRunningData?>? _sessionModelSource; //会话级模型来源,优先于全局当前模型
-    private readonly string? _sessionAffinity; //会话亲和值,每发请求前落到 AsyncLocal 供 HTTP 层写头
+    private readonly string? _sessionAffinity; //会话亲和值,每发请求前挂到请求上下文上供 HTTP 层写头
 
     /// <param name="sessionModelSource">会话级模型来源；null 走全局当前模型</param>
     /// <param name="sessionAffinity">
@@ -59,8 +59,13 @@ public class LazyChatClient : IChatClient
         CancellationToken cancellationToken = default)
     {
         IReadOnlyList<ChatMessage> messageList = AsList(messages);
-        LlmRequestContext.PendingReasoningSource = () => CollectAssistantReasoning(messageList);
-        LlmRequestContext.SessionAffinity = _sessionAffinity;
+        // 只替换这两项、其余沿用外层（写交接文档那一发把 ForbidToolCalls 挂在外层）；
+        // using 结束还原成进来时那份，值不会留给同一条异步流上的下一发
+        using LlmRequestScope.Scope scope = LlmRequestScope.Push(LlmRequestScope.Current with
+        {
+            PendingReasoningSource = () => CollectAssistantReasoning(messageList),
+            SessionAffinity = _sessionAffinity,
+        });
 
         var (client, model) = await ResolveAsync(cancellationToken).ConfigureAwait(false);
         ChatResponse response;
@@ -105,8 +110,12 @@ public class LazyChatClient : IChatClient
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         IReadOnlyList<ChatMessage> messageList = AsList(messages);
-        LlmRequestContext.PendingReasoningSource = () => CollectAssistantReasoning(messageList);
-        LlmRequestContext.SessionAffinity = _sessionAffinity;
+        // 作用域覆盖整段枚举（含中途重发）：断线重试时请求体会按同一份上下文重新改写
+        using LlmRequestScope.Scope scope = LlmRequestScope.Push(LlmRequestScope.Current with
+        {
+            PendingReasoningSource = () => CollectAssistantReasoning(messageList),
+            SessionAffinity = _sessionAffinity,
+        });
 
         var (client, model) = await ResolveAsync(cancellationToken).ConfigureAwait(false);
         HashSet<string>? toolNames = CollectToolNames(options);
@@ -387,8 +396,8 @@ public class LazyChatClient : IChatClient
         messages as IReadOnlyList<ChatMessage> ?? messages.ToList();
 
     /// <summary>
-    /// 从历史消息里按<b>助手消息出现顺序</b>收集思考正文,供 <see cref="LlmRequestContext.PendingReasoningSource"/>
-    /// 使用——转发给底层客户端之前,消息里的 <see cref="TextReasoningContent"/> 还在,过了这一层就没处找了。
+    /// 从历史消息里按<b>助手消息出现顺序</b>收集思考正文,供本类挂到
+    /// <see cref="LlmRequestContext.PendingReasoningSource"/> 上使用——转发给底层客户端之前,消息里的 <see cref="TextReasoningContent"/> 还在,过了这一层就没处找了。
     ///
     /// 按序而不是按 tool_call id:没有工具调用的普通回复同样要回传(网关按「每一条更早的助手消息」
     /// 校验),而它身上没有 id 可挂。返回的列表与请求里的助手消息一一对应,没有思考的位置留 null;

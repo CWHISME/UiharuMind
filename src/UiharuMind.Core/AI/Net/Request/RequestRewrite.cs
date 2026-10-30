@@ -49,11 +49,23 @@ internal readonly record struct RequestRewrite(
         ["temperature", "top_p", "presence_penalty", "frequency_penalty"];
 
     /// <summary>
-    /// 按模型配置与本次请求上下文（<see cref="LlmRequestContext"/>）收集要做的改写
+    /// 按模型配置与<b>当前</b>请求上下文（<see cref="LlmRequestScope.Current"/>）收集要做的改写。
+    /// 生产路径只走这一个入口：改写发生在 SDK 管道里，拿不到调用方手里的上下文。
     /// </summary>
     /// <param name="model">目标模型；为 null 时只做与模型无关的改写</param>
     /// <returns>要做的改写</returns>
-    public static RequestRewrite For(ILlmModel? model)
+    public static RequestRewrite For(ILlmModel? model) => For(model, LlmRequestScope.Current);
+
+    /// <summary>
+    /// 按模型配置与给定上下文收集要做的改写——纯函数，不读环境。
+    ///
+    /// 分开的理由与清单本身一样是可测性：断言「什么情况下要回填」不该先摆好一个异步流，
+    /// 摆的时候还得小心别漏到别的测试里。
+    /// </summary>
+    /// <param name="model">目标模型；为 null 时只做与模型无关的改写</param>
+    /// <param name="context">本次请求的上下文</param>
+    /// <returns>要做的改写</returns>
+    public static RequestRewrite For(ILlmModel? model, LlmRequestContext context)
     {
         // 每条助手消息都要带思考的模型：有正文回正文，没正文补空串。
         // 这条校验发生在服务端解析历史那一层，与本次是否思考无关，因此不跟思考档位走
@@ -64,12 +76,12 @@ internal readonly record struct RequestRewrite(
         // 这里用 `is not false`(null 也算)并先把 model 判空
         IReadOnlyList<string?>? reasoning = model is not null &&
                                             (everyAssistant || model.ReplayExistingReasoning is not false)
-            ? LlmRequestContext.PendingReasoningSource?.Invoke()
+            ? context.PendingReasoningSource?.Invoke()
             : null;
 
         return new RequestRewrite(
             model?.GetExtraParams(),
-            LlmRequestContext.ForbidToolCalls,
+            context.ForbidToolCalls,
             reasoning,
             // 采样参数固定的模型(如 Kimi)会拒绝显式传值的请求,开启后删掉这四个字段,不碰其它参数
             model?.OmitSamplingParams == true,
@@ -78,7 +90,7 @@ internal readonly record struct RequestRewrite(
             ResolveReasoningField(model),
             // 会话亲和的 body 形态:值就是亲和值(32 字符,在 OpenAI 的 64 上限内),
             // 没开这个开关或没有会话时为 null,改写整段跳过
-            model?.SupportsPromptCacheKey == true ? LlmRequestContext.SessionAffinity : null);
+            model?.SupportsPromptCacheKey == true ? context.SessionAffinity : null);
     }
 
     /// <summary>

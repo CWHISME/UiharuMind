@@ -50,6 +50,7 @@
   （12 个生产文件 + 5 个测试 + 1 个基准），而在 `ChatClient` 与 `PipelinePolicy` 都是按模型长期存活、
   拿不到每请求的 `ChatOptions`——要么每请求建客户端，要么另开一条 per-request 通道。第一步只做
   「不可变快照 + `Enter` 作用域」，把所有读写收进一个文件。
+  → **已由 [ADR 0100](0100-每请求上下文改为不可变快照加作用域.md) 处理**（2026-10-30）。
 - **没做的事**：Chat Completions 与 Responses 两种协议的抽象。CommandCode 三条端点都开着
   （`/chat/completions`、`/responses`、`/messages`），加密思考只有在 Responses 上才有票据可回传，
   但那是新增能力，不是整理。分层已把接口留出来：`RequestRewrite` 与 `ResponseSanitizer` 各是一层，

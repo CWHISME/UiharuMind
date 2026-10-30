@@ -147,18 +147,12 @@ public class SessionAffinityTests
 
     private static async Task PostAsync(HttpClient client)
     {
-        LlmRequestContext.SessionAffinity = "affinity-123";
-        try
-        {
-            using HttpResponseMessage response = await client.PostAsync(
-                "http://localhost/v1/chat/completions", new StringContent("{}", Encoding.UTF8, "application/json"),
-                TestContext.Current.CancellationToken);
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        }
-        finally
-        {
-            LlmRequestContext.SessionAffinity = null;
-        }
+        using LlmRequestScope.Scope scope =
+            LlmRequestScope.Push(new LlmRequestContext { SessionAffinity = "affinity-123" });
+        using HttpResponseMessage response = await client.PostAsync(
+            "http://localhost/v1/chat/completions", new StringContent("{}", Encoding.UTF8, "application/json"),
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     private sealed class CapturingServer : HttpMessageHandler
