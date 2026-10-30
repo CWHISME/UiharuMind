@@ -78,7 +78,7 @@ public class LazyChatClient : IChatClient
         {
             PendingReasoningSource = () => CollectAssistantReasoning(gated),
             SessionAffinity = _sessionAffinity,
-            ReasoningTickets = CollectTickets(gated, producer),
+            ReasoningTickets = CollectTickets(gated),
             EncryptedReasoningObserved = ticket => ticketJson = Encoding.UTF8.GetString(ticket),
         });
 
@@ -156,7 +156,7 @@ public class LazyChatClient : IChatClient
         {
             PendingReasoningSource = () => CollectAssistantReasoning(gated),
             SessionAffinity = _sessionAffinity,
-            ReasoningTickets = CollectTickets(gated, producer),
+            ReasoningTickets = CollectTickets(gated),
             // 票据密文不能解析后再编码，所以原样存着；随信号内容一起发出，
             // 框架会把它并进这一发的助手消息，落盘时转成持久的思考内容（ADR 0100）
             EncryptedReasoningObserved = ticket =>
@@ -468,7 +468,9 @@ public class LazyChatClient : IChatClient
         messages as IReadOnlyList<ChatMessage> ?? messages.ToList();
 
     /// <summary>
-    /// 数历史里的助手消息条数。票据按这个序号定位：产出的回复会落在下一个序号上。
+    /// 数历史里的助手消息条数。票据清单按这个长度开槽——与回写侧「按第几条助手消息取用」
+    /// 是同一个序号口径，两边长度必须相等（不等就整段不发，见
+    /// <c>ChatCompletionsRequestRewriter.Commit</c>）。
     /// </summary>
     /// <param name="messages">历史消息</param>
     /// <returns>助手消息条数</returns>
@@ -512,25 +514,13 @@ public class LazyChatClient : IChatClient
     }
 
     /// <summary>
-    /// 给一条带密文的思考内容补上产出方身份（已有则不动）。
+    /// 给一条带密文的思考内容补上产出方身份（已有则不动）。口径与实现都在
+    /// <see cref="ReasoningTicketCarrier.StampProducer"/>——这里只是给本类的调用点留个短名字。
     /// </summary>
     /// <param name="reasoning">承载密文的思考内容</param>
     /// <param name="producer">这一发用的模型（票据的产出方）</param>
-    internal static void StampTicketProducer(TextReasoningContent reasoning, ReasoningGate producer)
-    {
-        // 落盘往返后身份已经在了，但值可能是 JsonElement —— 不能用「非空」判断，
-        // 得按键在不在来判断
-        if (reasoning.AdditionalProperties is not null
-            && reasoning.AdditionalProperties.ContainsKey(ReasoningTicketCarrier.ProducerProviderKey)
-            && reasoning.AdditionalProperties.ContainsKey(ReasoningTicketCarrier.ProducerModelKey))
-        {
-            return;
-        }
-
-        reasoning.AdditionalProperties ??= new AdditionalPropertiesDictionary();
-        reasoning.AdditionalProperties[ReasoningTicketCarrier.ProducerProviderKey] = producer.Provider;
-        reasoning.AdditionalProperties[ReasoningTicketCarrier.ProducerModelKey] = producer.Model;
-    }
+    internal static void StampTicketProducer(TextReasoningContent reasoning, ReasoningGate producer) =>
+        ReasoningTicketCarrier.StampProducer(reasoning, producer);
 
     /// <summary>
     /// 按助手消息顺序取出各自的票据，供本类挂到
@@ -547,13 +537,14 @@ public class LazyChatClient : IChatClient
     /// 于是票逐轮漂移、上轮挂过票的位置变成无票形态，前缀每轮分叉一次
     /// （实测命中率从 88.2% 掉到 35.3%）。
     ///
-    /// 门禁在收集侧就判：不是产出它的那家模型就不带——网关不校验归属，
-    /// 发错了不会报错，只会安静地错。
+    /// <b>门禁不在这里判</b>：调用方传进来的必须是<b>已经过
+    /// <see cref="ReasoningGateFilter.Apply"/> 的那一份</b>——不该带的票，密文已经被摘掉了，
+    /// 这里读到的自然只剩该发的。在这里再比一次 <c>Allows</c> 是死条件（永远成立），
+    /// 只会让「门禁到底在哪」多一个说法。
     /// </summary>
-    /// <param name="messages">历史消息</param>
-    /// <param name="current">本次请求的模型身份（要与票的产出方一致才带）</param>
+    /// <param name="messages">已经过门禁过滤的历史消息</param>
     /// <returns>按助手消息顺序的票据清单；一条都没有时为 null</returns>
-    private static IReadOnlyList<string?>? CollectTickets(IReadOnlyList<ChatMessage> messages, ReasoningGate current)
+    private static IReadOnlyList<string?>? CollectTickets(IReadOnlyList<ChatMessage> messages)
     {
         int count = CountAssistantMessages(messages);
         if (count == 0) return null;
@@ -565,9 +556,7 @@ public class LazyChatClient : IChatClient
         {
             if (message.Role != ChatRole.Assistant) continue;
 
-            if (index < slots.Length &&
-                ReasoningTicketCarrier.Read(message) is { } ticket &&
-                ticket.Producer.Allows(current.Provider, current.Model))
+            if (index < slots.Length && ReasoningTicketCarrier.Read(message) is { } ticket)
             {
                 slots[index] = ticket.Json;
                 any = true;

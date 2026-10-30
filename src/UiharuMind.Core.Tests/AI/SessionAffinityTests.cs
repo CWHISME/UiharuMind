@@ -24,7 +24,7 @@ public class SessionAffinityTests
     public async Task DeclaredHeaders_AreWrittenWithTheSessionValue()
     {
         CapturingServer server = new();
-        using HttpClient client = new(new OpenAICompatibleHttpHandler("http://localhost/v1", server,
+        using HttpClient client = new(new WireHttpHandler("http://localhost/v1", server,
             affinityHeaders: ["x-session-id", "x-session-affinity"]));
 
         await PostAsync(client);
@@ -39,7 +39,7 @@ public class SessionAffinityTests
     public async Task UndeclaredHeaders_SendNothing()
     {
         CapturingServer server = new();
-        using HttpClient client = new(new OpenAICompatibleHttpHandler("http://localhost/v1", server));
+        using HttpClient client = new(new WireHttpHandler("http://localhost/v1", server));
 
         await PostAsync(client);
 
@@ -50,7 +50,7 @@ public class SessionAffinityTests
     public async Task NoAffinity_LeavesHeadersOff()
     {
         CapturingServer server = new();
-        using HttpClient client = new(new OpenAICompatibleHttpHandler("http://localhost/v1", server,
+        using HttpClient client = new(new WireHttpHandler("http://localhost/v1", server,
             affinityHeaders: ["x-session-id"]));
 
         using HttpResponseMessage response = await client.PostAsync(

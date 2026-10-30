@@ -8,25 +8,17 @@
  ****************************************************************************/
 
 using System.Net;
-using System.Net.Http;
 
 namespace UiharuMind.Core.AI.Net.Transport;
 
 /// <summary>
-/// 分段的请求体（<see cref="HttpContent"/> 版）：每段小于 85000 字节，不进大对象堆，
-/// 几十万字的请求体也只是一串小数组。
+/// 切成 64KB 段的请求体（<see cref="HttpContent"/> 版）。切段逻辑在 <see cref="SegmentedBuffer"/>，
+/// 与 <see cref="SegmentedBinaryContent"/> 是同一份实现——那个走 SDK 管道，这个走裸 <see cref="HttpClient"/>。
 ///
-/// <para>与 <see cref="SegmentedBinaryContent"/> 同构——那个是 SDK 管道用的
-/// （<c>System.ClientModel.BinaryContent</c>），这个是 HttpClient 用的
-/// （<see cref="HttpContent"/>）。两条链路的请求体都要分段：几十万字的会话
-/// 一轮下来就是几百 KB 的大对象堆分配，而这类请求正是最频繁的那一种。</para>
-///
-/// <para>内容只读，重试再发一遍同一份即可，<see cref="SerializeToStreamAsync"/> 可重入。</para>
+/// 内容只读，重试再发一遍同一份即可，序列化可重入。
 /// </summary>
 internal sealed class SegmentedHttpContent : HttpContent
 {
-    private const int SegmentSize = 64 * 1024;
-
     private readonly byte[][] _segments;
     private readonly int _length;
 
@@ -37,14 +29,7 @@ internal sealed class SegmentedHttpContent : HttpContent
     public SegmentedHttpContent(ReadOnlySpan<byte> data)
     {
         _length = data.Length;
-        _segments = new byte[(data.Length + SegmentSize - 1) / SegmentSize][];
-        for (int i = 0; i < _segments.Length; i++)
-        {
-            int size = Math.Min(SegmentSize, data.Length);
-            _segments[i] = GC.AllocateUninitializedArray<byte>(size);
-            data[..size].CopyTo(_segments[i]);
-            data = data[size..];
-        }
+        _segments = SegmentedBuffer.Split(data);
     }
 
     /// <inheritdoc />
@@ -55,11 +40,19 @@ internal sealed class SegmentedHttpContent : HttpContent
     }
 
     /// <inheritdoc />
-    protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context)
-    {
-        foreach (byte[] segment in _segments) stream.Write(segment);
-        return Task.CompletedTask;
-    }
+    protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) =>
+        SegmentedBuffer.WriteToAsync(_segments, stream, CancellationToken.None);
+
+    /// <summary>
+    /// 带取消令牌的那条重载。<b>必须覆盖</b>：不覆盖的话 <see cref="HttpClient"/> 走上面那条，
+    /// 取消只能等整段写完才生效
+    /// </summary>
+    /// <param name="stream">目标流</param>
+    /// <param name="context">传输上下文</param>
+    /// <param name="cancellationToken">取消标记</param>
+    protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context,
+        CancellationToken cancellationToken) =>
+        SegmentedBuffer.WriteToAsync(_segments, stream, cancellationToken);
 
     /// <inheritdoc />
     protected override void Dispose(bool disposing)

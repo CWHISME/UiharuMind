@@ -47,7 +47,7 @@ internal static class SseBench
             var cost = Measure.Run(alloc, 20000, () =>
             {
                 output.ResetWrittenCount();
-                OpenAiCompatibleResponseFixer.TryFixEventStreamLine(bytes, output);
+                ChatCompletionsResponseFixer.TryFixEventStreamLine(bytes, output);
             });
             Console.WriteLine($"  {label,-24} {cost.Bytes,5:0} B/块，{cost.Micros,5:0.00} µs");
         }

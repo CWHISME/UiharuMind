@@ -90,7 +90,7 @@ case "signature_delta":
 
 | 要点 | 结论 |
 |---|---|
-| 自定义传输层 | `ClientOptions.HttpClient` ✓——我们的 `OpenAICompatibleHttpHandler` 能直接当内层 |
+| 自定义传输层 | `ClientOptions.HttpClient` ✓——我们的 `WireHttpHandler` 能直接当内层 |
 | 发送闸 / 重试策略 | **不是 System.ClientModel 管道**，插不进 `SendGatePolicy` / `RateLimitAwareRetryPolicy` |
 | 思考预算 | `AsIChatClient(..., thinkingMode)` 有 `Adaptive`/`Extended` 两档；预算本身要经 `RawRepresentationFactory` 设 `MessageCreateParams.Thinking` |
 | 输出预算 | `AsIChatClient(modelId, maxOutputTokens)` ✓ |
@@ -100,9 +100,9 @@ case "signature_delta":
 | 改动 | 位置 |
 |---|---|
 | 包引用（官方 SDK，Apache-2.0） | `UiharuMind.Core.csproj` |
-| 地址归一：`ResolveMessages` / `IsMessages` | `AI/Net/Transport/ChatCompletionUri.cs` |
-| 格式识别与地址分流 | `AI/Net/Transport/OpenAICompatibleHttpHandler.cs` |
-| 客户端分流 + 思考块归一层 | `AI/Net/OpenAICompatibleChatClient.cs` |
+| 地址归一：`ResolveMessages` / `IsMessages` | `AI/Net/Transport/WireProtocol.cs` |
+| 格式识别与地址分流 | `AI/Net/Transport/WireHttpHandler.cs` |
+| 客户端分流 + 思考块归一层 | `AI/Net/ChatClientFactory.cs` |
 | **思考块归一**（正文与签名合成一条；脱敏块还原） | `AI/Net/AnthropicThinkingNormalizer.cs`（新） |
 | 发送闸下沉到 HTTP 层 | `AI/Net/Transport/SendGateHandler.cs`（新） |
 | **门禁统一过滤**（三条线共用，摘掉换模型后的旧票） | `AI/Reasoning/ReasoningGateFilter.cs`（新） |
@@ -203,18 +203,28 @@ Anthropic 的默认是不思考）；**预算装不下就不写**（输出预算
 而 Anthropic 的最小思考预算也是 1024，两者相等就永远开不了思考。
 没填 `MaxTokens` 时用 32000（Claude 各版本都接受的量级，也给思考留得下 16k 以上）。
 
-### ④ 改名（可读性，不改行为）
+### ④ 改名（可读性，不改行为）—— ✅ 已完成
 
-`AI/Net/` 下三个名字现在混着两类东西：
+`AI/Net/` 下三个名字混着两类东西，三条协议都接上之后「OpenAICompatible」这个名字
+已经指着三个不同的协议，纯属误导：
 
-| 现在 | 实际职责 | 建议 |
+| 原名 | 实际职责 | 现名 |
 |---|---|---|
-| `OpenAICompatibleChatClient` | 按格式分派 | `ChatClientFactory` |
-| `OpenAICompatibleHttpHandler` | 改地址/亲和头/日志——**协议无关** | `WireHttpHandler` |
-| `OpenAICompatibleRequestRewriter` | 拼 `reasoning_details`/`tool_calls`——**chat 特有** | `ChatCompletionsRequestRewriter` |
-| `OpenAiCompatibleResponseFixer` | `finish_reason`/`tool_calls.type` 改名——**chat 特有** | `ChatCompletionsResponseFixer` |
+| `ChatClientFactory` | 按格式分派 | `ChatClientFactory` |
+| `WireHttpHandler` | 改地址/亲和头/日志——**协议无关** | `WireHttpHandler` |
+| `ChatCompletionsRequestRewriter` | 拼 `reasoning_details`/`tool_calls`——**chat 特有** | `ChatCompletionsRequestRewriter` |
+| `ChatCompletionsResponseFixer` | `finish_reason`/`tool_calls.type` 改名——**chat 特有** | `ChatCompletionsResponseFixer` |
 
-目录结构不动（沿用 ADR 0100 决定 1「按语义切，不按协议切目录」），改名约 10 处引用。
+目录结构不动（沿用 ADR 0100 决定 1「按语义切，不按协议切目录」）。
+原计划估「约 10 处引用」，实际是 32 个文件、141 处——估少了十倍。
+
+**顺带收掉的一处结构问题**：wire 格式原先有两个来源（`RemoteModelManager` 按
+`model.ApiFormat` 补一次地址、`WireHttpHandler` 再按地址字符串猜一次），两处得手工对齐。
+现在 `WireHttpHandler` 收 `EApiFormat?`：**有模型就传模型的声明，不传才退到按地址猜**
+（只给拿不到模型的调用方：本地服务、模型目录、状态探测）。
+同时 `ResponseSanitizer` 的判据从「不是 Messages 就洗」改成「只有 chat 洗」——
+responses 与 messages 的响应形状由各自 SDK 解析，套上 chat 那层不只是白扫每行 JSON，
+`SseSanitizingStream` 还会因为找不到 `data: [DONE]` 把正常收尾误报成「连接被掐」。
 
 ## 五、已知代价
 
@@ -228,4 +238,6 @@ Anthropic 的默认是不思考）；**预算装不下就不写**（输出预算
   官方 SDK 的行为（签名往返、块形状、参数写法）都验过了，但**没有真的打过一次 Anthropic**。
   这条线的思考预算、输出预算上限、签名在真实服务端的接受度都还需要一次真实调用确认。
 - **重试策略未对齐**：Anthropic SDK 自己实现重试（默认 2 次、指数退避、认 `Retry-After`），
-  我们的 `RateLimitAwareRetryPolicy` 用不上（见上面第 ② 条）。
+  我们的 `RateLimitAwareRetryPolicy` 用不上——`ClientOptions` 只有 `MaxRetries` 一个数字，
+  没有策略注入点。**但超时对齐了**：SDK 默认 10 分钟且管到「读完响应体」，
+  与另两条线的 `Timeout.InfiniteTimeSpan` 冲突，已显式关掉。

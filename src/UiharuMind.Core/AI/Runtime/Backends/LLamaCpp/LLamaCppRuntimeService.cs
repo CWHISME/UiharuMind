@@ -68,8 +68,8 @@ internal sealed class LLamaCppRuntimeService
         _servers[model.ModelName] = running;
         try
         {
-            onLoadOver?.Invoke(OpenAICompatibleChatClient.Create(
-                new OpenAICompatibleHttpHandler(port: server.Port), model, "UiharuMind", "None"));
+            onLoadOver?.Invoke(ChatClientFactory.Create(
+                new WireHttpHandler(port: server.Port), model, "UiharuMind", "None"));
             await server.Completion.ConfigureAwait(false);
         }
         finally

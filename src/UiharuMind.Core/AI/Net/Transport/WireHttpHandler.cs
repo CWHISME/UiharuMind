@@ -16,23 +16,23 @@ using UiharuMind.Core.AI.Net.Response;
 namespace UiharuMind.Core.AI.Net.Transport;
 
 /// <summary>
-/// OpenAI 兼容端点的 HTTP 层，只做三件事：改地址、写亲和头、把响应交给清洗。四处归口：
-/// <see cref="ChatCompletionUri"/>（地址归一）、<see cref="SessionAffinityHeaders"/>（亲和头与其回显）、
+/// 模型端点的 HTTP 层，只做四件<b>与协议无关</b>的事：改地址、写亲和头、记状态日志、把响应交给清洗。四处归口：
+/// <see cref="WireProtocol"/>（地址归一与「这条线要不要洗」）、<see cref="SessionAffinityHeaders"/>（亲和头与其回显）、
 /// <see cref="Diagnostics.ResponseDiagnostics"/>（状态行与失败正文两行日志）、<see cref="ResponseSanitizer"/>（修响应）。
 /// 请求体的改写与请求日志不在这条链路上，在 <see cref="Request.OpenAICompatibleRequestPolicy"/>（重试之前，每次调用只做一次）。
 /// </summary>
-class OpenAICompatibleHttpHandler : DelegatingHandler
+class WireHttpHandler : DelegatingHandler
 {
     private readonly Uri _baseUri; //真正要打的那个地址
-    private readonly EApiFormat _format; //这条路径的 wire 格式(决定地址归一与响应清洗各走哪套)
-    private readonly bool _isChatCompletions; //日志里要标出来:是不是聊天补全
+    private readonly WireProtocol _protocol; //这条端点的协议(决定地址归一与响应清洗各走哪套)
     private readonly SessionAffinityHeaders _affinity; //本端点的亲和头
     private readonly ResponseSanitizer _sanitizer; //响应清洗（流式与一次性两种形状）
 
-    public OpenAICompatibleHttpHandler(string address = "http://127.0.0.1:1369/v1/chat/completions",
+    public WireHttpHandler(string address = "http://127.0.0.1:1369/v1/chat/completions",
         Action<string>? reasoningFieldObserver = null,
-        IReadOnlyList<string>? affinityHeaders = null)
-        : this(address, new HttpClientHandler(), reasoningFieldObserver, affinityHeaders)
+        IReadOnlyList<string>? affinityHeaders = null,
+        EApiFormat? format = null)
+        : this(address, new HttpClientHandler(), reasoningFieldObserver, affinityHeaders, format)
     {
     }
 
@@ -43,52 +43,32 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
     /// <param name="inner">内层处理器</param>
     /// <param name="reasoningFieldObserver">思考字段观测回调（可选，观测到 origin 字段名时调用）</param>
     /// <param name="affinityHeaders">会话亲和要写的头名；空或 null 表示这家网关不认，一个都不发</param>
-    internal OpenAICompatibleHttpHandler(string address, HttpMessageHandler inner,
+    /// <param name="format">
+    /// 模型声明的 wire 格式。<b>有模型就一定要传</b>：它是唯一权威来源，
+    /// 不传才退到按地址反查（只给拿不到模型的调用方用：本地服务、模型目录、状态探测）。
+    /// 两条来源并存时必须以模型为准——用户把地址填成 <c>/v1</c> 时按地址猜不出协议，
+    /// 退到 chat 就会把 messages 形状的请求体打到 chat 端点上
+    /// </param>
+    internal WireHttpHandler(string address, HttpMessageHandler inner,
         Action<string>? reasoningFieldObserver = null,
-        IReadOnlyList<string>? affinityHeaders = null) : base(inner)
+        IReadOnlyList<string>? affinityHeaders = null,
+        EApiFormat? format = null) : base(inner)
     {
-        _format = ResolveFormat(address);
-        _baseUri = ResolveUri(address, _format);
-        _isChatCompletions = ChatCompletionUri.IsChatCompletions(_baseUri);
+        _protocol = format is { } declared
+            ? WireProtocols.For(declared)
+            : WireProtocols.Detect(new UriBuilder(address).Uri) ?? WireProtocols.Chat;
+        _baseUri = _protocol.Resolve(address).Uri;
         _affinity = new SessionAffinityHeaders(affinityHeaders);
-        _sanitizer = new ResponseSanitizer(_format, reasoningFieldObserver);
+        _sanitizer = new ResponseSanitizer(_protocol.SanitizesResponse, reasoningFieldObserver);
     }
 
-    public OpenAICompatibleHttpHandler(string host = "http://127.0.0.1", int port = 1369,
+    public WireHttpHandler(string host = "http://127.0.0.1", int port = 1369,
         string absolutePath = "/v1/chat/completions", Action<string>? reasoningFieldObserver = null,
         IReadOnlyList<string>? affinityHeaders = null)
         : this(new UriBuilder(host) { Port = port, Path = absolutePath }.Uri.ToString(), new HttpClientHandler(),
             reasoningFieldObserver, affinityHeaders)
     {
     }
-
-    /// <summary>
-    /// 从地址判断这条路径走哪种 wire 格式。
-    ///
-    /// 判据是<b>地址里写的什么</b>，不是模型声明的格式：handler 是按端点长期存活的，
-    /// 而地址才是它实际要打的那个东西。填了 <c>/responses</c> 就是 responses 线，
-    /// 填了 <c>/messages</c> 就是 Anthropic 线，否则是 chat 线。
-    /// </summary>
-    private static EApiFormat ResolveFormat(string address)
-    {
-        var builder = new UriBuilder(address);
-        // messages 要先判：它的路径里既没有 chat/completions 也没有 responses，
-        // 但反过来 "/v1/messages" 若先走 responses 那条判据也不会命中——两条判据互不重叠，
-        // 顺序只是把「更具体的那条」放前面，读起来不费劲
-        if (ChatCompletionUri.IsMessages(builder.Uri)) return EApiFormat.Messages;
-        return ChatCompletionUri.IsResponses(builder.Uri) ? EApiFormat.Responses : EApiFormat.ChatCompletions;
-    }
-
-    /// <summary>
-    /// 按格式归一地址：responses 线补 <c>/responses</c>，messages 线补 <c>/messages</c>，
-    /// chat 线补 <c>/chat/completions</c>。
-    /// </summary>
-    private static Uri ResolveUri(string address, EApiFormat format) => (format switch
-    {
-        EApiFormat.Responses => ChatCompletionUri.ResolveResponses(address),
-        EApiFormat.Messages => ChatCompletionUri.ResolveMessages(address),
-        _ => ChatCompletionUri.Resolve(address),
-    }).Uri;
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
         CancellationToken cancellationToken)
@@ -102,7 +82,7 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
 
         HttpResponseMessage response = await base.SendAsync(request, cancellationToken);
         ResponseDiagnostics.LogResponse(response, _affinity.Describe(affinity), SessionAffinityHeaders.Echo(response),
-            _isChatCompletions);
+            _protocol.SanitizesResponse);
         await ResponseDiagnostics.LogFailureAsync(response, request.RequestUri, cancellationToken);
         return await _sanitizer.SanitizeAsync(response, cancellationToken);
     }

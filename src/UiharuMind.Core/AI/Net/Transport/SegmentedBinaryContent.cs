@@ -3,15 +3,13 @@ using System.ClientModel;
 namespace UiharuMind.Core.AI.Net.Transport;
 
 /// <summary>
-/// 切成 64KB 段的请求体：每段小于 85000 字节，不进大对象堆，几十万字的请求体也只是一串小数组。
+/// 切成 64KB 段的请求体（SDK 管道版）：每段小于 85000 字节，不进大对象堆。
+/// 切段逻辑在 <see cref="SegmentedBuffer"/>，这里只负责包成 <see cref="BinaryContent"/>。
 ///
-/// 段归 GC 管、<b>不从池里租</b>：HTTP/2 可能在请求体发完之前就收到响应，那时还池会把别处的数据发出去。
 /// 内容只读，重试再发一遍同一份即可，<see cref="WriteToAsync"/> 可重入。
 /// </summary>
 internal sealed class SegmentedBinaryContent : BinaryContent
 {
-    private const int SegmentSize = 64 * 1024;
-
     private readonly byte[][] _segments;
     private readonly int _length;
 
@@ -22,14 +20,7 @@ internal sealed class SegmentedBinaryContent : BinaryContent
     public SegmentedBinaryContent(ReadOnlySpan<byte> data)
     {
         _length = data.Length;
-        _segments = new byte[(data.Length + SegmentSize - 1) / SegmentSize][];
-        for (int i = 0; i < _segments.Length; i++)
-        {
-            int size = Math.Min(SegmentSize, data.Length);
-            _segments[i] = GC.AllocateUninitializedArray<byte>(size);
-            data[..size].CopyTo(_segments[i]);
-            data = data[size..];
-        }
+        _segments = SegmentedBuffer.Split(data);
     }
 
     /// <inheritdoc />
@@ -50,10 +41,8 @@ internal sealed class SegmentedBinaryContent : BinaryContent
     }
 
     /// <inheritdoc />
-    public override async Task WriteToAsync(Stream stream, CancellationToken cancellation = default)
-    {
-        foreach (byte[] segment in _segments) await stream.WriteAsync(segment, cancellation).ConfigureAwait(false);
-    }
+    public override Task WriteToAsync(Stream stream, CancellationToken cancellation = default) =>
+        SegmentedBuffer.WriteToAsync(_segments, stream, cancellation);
 
     /// <inheritdoc />
     public override void Dispose()

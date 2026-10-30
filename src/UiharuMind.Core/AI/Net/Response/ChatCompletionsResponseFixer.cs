@@ -21,7 +21,7 @@ namespace UiharuMind.Core.AI.Net.Response;
 /// 所以只扫一遍 <see cref="Utf8JsonReader"/>、记下要改的字节区间再拼接（<see cref="Utf8JsonSplice"/>）：
 /// 不建 DOM、不经字符串，没改到的部分一字不动。
 /// </summary>
-internal static class OpenAiCompatibleResponseFixer
+internal static class ChatCompletionsResponseFixer
 {
     private const int MaxDepth = 64; //与 Utf8JsonReader 默认的嵌套上限一致
 

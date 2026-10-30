@@ -10,7 +10,7 @@ namespace UiharuMind.Core.Tests.AI;
 /// 请求改写直接在字节上做：根上的键按「保留的原样拷 + 要设的追加在末尾」重拼，
 /// 内层只改要修的那几处，其余一字不动
 /// </summary>
-public class OpenAICompatibleRequestRewriterTests
+public class ChatCompletionsRequestRewriterTests
 {
     private static readonly IReadOnlyList<KeyValuePair<string, JsonNode?>> MaxTokens =
         [new("max_tokens", JsonValue.Create(65535))];
@@ -24,7 +24,7 @@ public class OpenAICompatibleRequestRewriterTests
     internal static string? Rewrite(string json, RequestRewrite rewrite)
     {
         using PooledByteWriter output = new(json.Length);
-        return OpenAICompatibleRequestRewriter.Rewrite(Encoding.UTF8.GetBytes(json), rewrite, output)
+        return ChatCompletionsRequestRewriter.Rewrite(Encoding.UTF8.GetBytes(json), rewrite, output)
             ? Encoding.UTF8.GetString(output.WrittenSpan)
             : null;
     }

@@ -5,7 +5,7 @@ namespace UiharuMind.Core.AI.Net.Request;
 
 /// <summary>
 /// 一次请求体改写「要做什么」：由模型配置与本次请求上下文推出来的一张清单，
-/// 与「怎么做」（<see cref="OpenAICompatibleRequestRewriter"/> 的字节级拼接）分开。
+/// 与「怎么做」（<see cref="ChatCompletionsRequestRewriter"/> 的字节级拼接）分开。
 ///
 /// 分开的理由是可测性：清单能拿模型声明直接断言，不必去读改写后的字节；
 /// 反过来改写器只关心字节，不再知道 <c>SupportsPromptCacheKey</c> 这类供应商知识。

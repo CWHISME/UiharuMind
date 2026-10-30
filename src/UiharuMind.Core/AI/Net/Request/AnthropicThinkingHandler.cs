@@ -18,7 +18,7 @@ namespace UiharuMind.Core.AI.Net.Request;
 /// 想用它就得自己再造一份 <c>MessageCreateParams</c>，那意味着把 ChatMessage → MessageParam
 /// 的整套翻译自己写一遍（上游 Python 侧那份实现有 1900 行）。
 ///
-/// <para>所以走<b>字节级改写</b>——和 chat 线同一套路（那边是 <see cref="OpenAICompatibleRequestRewriter"/>）。
+/// <para>所以走<b>字节级改写</b>——和 chat 线同一套路（那边是 <see cref="ChatCompletionsRequestRewriter"/>）。
 /// 改的只是根对象上一个属性，用 <see cref="Utf8JsonSplice"/> 插进去，其余字节一字不动。</para>
 ///
 /// <para><b>Anthropic 的形状与别家不同</b>：它要的是 <c>thinking: {type: enabled, budget_tokens: N}</c>
@@ -83,12 +83,16 @@ internal sealed class AnthropicThinkingHandler : DelegatingHandler
             using PooledByteWriter output = new(buffer.WrittenCount + 64);
             if (TryRewrite(buffer.WrittenSpan, output))
             {
-                // 换掉正文时把原有的头带过去——Content-Type 丢了服务端可能不认
+                // 换掉正文时把原有的头带过去——Content-Type 丢了服务端可能不认。
+                // <b>Content-Length 不能照抄</b>：上面读它取过缓冲提示，这个 getter 把旧长度
+                // 缓存了下来，于是枚举时会一并带过来；而新正文比旧正文长，照抄的结果是
+                // HttpClient 直接抛 "content would exceed Content-Length"（实测），请求根本发不出去。
+                // 长度交给 SegmentedHttpContent 自己按正文算
                 System.Net.Http.Headers.HttpContentHeaders headers = request.Content.Headers;
                 request.Content = new SegmentedHttpContent(output.WrittenSpan);
-                foreach (var header in headers)
+                foreach (KeyValuePair<string, IEnumerable<string>> header in headers)
                 {
-                    request.Content.Headers.Remove(header.Key);
+                    if (string.Equals(header.Key, "Content-Length", StringComparison.OrdinalIgnoreCase)) continue;
                     request.Content.Headers.TryAddWithoutValidation(header.Key, header.Value);
                 }
             }

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Chat;
 
 namespace UiharuMind.Core.AI.Reasoning;
 
@@ -115,14 +116,6 @@ internal static class ReasoningGateFilter
             };
         }
 
-        if (contents == null) return message;
-
-        // 不复制 RawRepresentation：那是 provider 的原始对象引用，回放不得依赖它
-        return new ChatMessage(message.Role, contents)
-        {
-            MessageId = message.MessageId,
-            AuthorName = message.AuthorName,
-            AdditionalProperties = message.AdditionalProperties,
-        };
+        return contents == null ? message : ChatMessageCopies.WithContents(message, contents);
     }
 }

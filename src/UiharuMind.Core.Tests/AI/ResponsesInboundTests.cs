@@ -40,9 +40,9 @@ public class ResponsesInboundTests
     private static async Task<IReadOnlyList<AIContent>> GetContentsAsync(string body)
     {
         var handler = new StubHandler(body);
-        var httpHandler = new OpenAICompatibleHttpHandler("https://api.example.com/v1/responses", handler);
+        var httpHandler = new WireHttpHandler("https://api.example.com/v1/responses", handler);
         var config = new RemoteModelConfig { ModelId = "m", ApiFormat = EApiFormat.Responses };
-        IChatClient client = OpenAICompatibleChatClient.Create(httpHandler, config, "m", "key");
+        IChatClient client = ChatClientFactory.Create(httpHandler, config, "m", "key");
 
         ChatResponse result = await client.GetResponseAsync([new ChatMessage(ChatRole.User, "问题")]);
         return result.Messages.SelectMany(m => m.Contents).ToList();

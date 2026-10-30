@@ -193,7 +193,7 @@ public class OpenAICompatibleFailureLogTests
     [Fact]
     public async Task FailedResponse_WithUnformattableBody_StillReachesTheCaller()
     {
-        var handler = new OpenAICompatibleHttpHandler("http://localhost/v1", new StaticServer(
+        var handler = new WireHttpHandler("http://localhost/v1", new StaticServer(
             HttpStatusCode.BadRequest, """{"error":"bad \ud83d input"}"""));
         using var client = new HttpClient(handler);
 

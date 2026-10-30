@@ -7,7 +7,7 @@ namespace UiharuMind.Core.AI.Status.Providers.CommandCode;
 /// CC 的账户级状态：<c>/alpha/billing/credits</c>（5 小时 / 周窗口 + 余额）与
 /// <c>/alpha/whoami</c>（计划名）。
 ///
-/// <b>不复用聊天那条 <c>OpenAICompatibleHttpHandler</c></b>：它构造时就把 URI 改写成配置的
+/// <b>不复用聊天那条 <c>WireHttpHandler</c></b>：它构造时就把 URI 改写成配置的
 /// chat/completions 端点（响应清洗、思考字段观测也都在那条链上），拿它发状态请求必然打到错误路径。
 /// 这里用独立的 <see cref="HttpClient"/>，8 秒超时。
 ///

@@ -50,14 +50,14 @@ public class AnthropicMessagesWireTests
         }
     }
 
-    private static (OpenAICompatibleHttpHandler Http, StubHandler Stub) Build(string address = "https://api.example.com/v1/messages")
+    private static (WireHttpHandler Http, StubHandler Stub) Build(string address = "https://api.example.com/v1/messages")
     {
         StubHandler stub = new();
-        return (new OpenAICompatibleHttpHandler(address, stub), stub);
+        return (new WireHttpHandler(address, stub), stub);
     }
 
-    private static IChatClient Client(OpenAICompatibleHttpHandler http) =>
-        OpenAICompatibleChatClient.Create(http, new RemoteModelConfig { ModelId = "m", ApiFormat = EApiFormat.Messages },
+    private static IChatClient Client(WireHttpHandler http) =>
+        ChatClientFactory.Create(http, new RemoteModelConfig { ModelId = "m", ApiFormat = EApiFormat.Messages },
             "m", "key");
 
     // ---------- 地址归一 ----------
@@ -68,7 +68,7 @@ public class AnthropicMessagesWireTests
     [InlineData("https://api.anthropic.com/v1/messages", "/v1/messages")]
     public void ResolveMessages_ConvergesToTheSameEndpoint(string address, string expected)
     {
-        UriBuilder builder = ChatCompletionUri.ResolveMessages(address);
+        UriBuilder builder = WireProtocols.Messages.Resolve(address);
         Assert.Equal(expected, builder.Uri.AbsolutePath);
     }
 
@@ -392,7 +392,7 @@ public class AnthropicMessagesWireTests
     }
 
     /// <summary>走完整的客户端链路（门禁在 <c>LazyChatClient</c> 那一层，不在协议客户端里）</summary>
-    private static LazyChatClient Lazy(OpenAICompatibleHttpHandler http)
+    private static LazyChatClient Lazy(WireHttpHandler http)
     {
         RemoteModelInfo remote = new()
         {

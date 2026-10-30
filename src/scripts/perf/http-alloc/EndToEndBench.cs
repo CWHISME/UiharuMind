@@ -79,6 +79,6 @@ internal static class EndToEndBench
     }
 
     private static IChatClient CreateClient(byte[] sse, FakeModel model) =>
-        OpenAICompatibleChatClient.Create(new OpenAICompatibleHttpHandler("http://localhost/v1", new CaptureHandler(sse)),
+        ChatClientFactory.Create(new WireHttpHandler("http://localhost/v1", new CaptureHandler(sse)),
             model, "deepseek-v4-flash", "key");
 }

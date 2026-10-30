@@ -7,7 +7,7 @@ using UiharuMind.Core.Core.SimpleLog;
 namespace UiharuMind.Core.AI.Net.Response;
 
 /// <summary>
-/// 按行转发 SSE 响应，逐行交给 <see cref="OpenAiCompatibleResponseFixer"/> 修正后再吐给下游。
+/// 按行转发 SSE 响应，逐行交给 <see cref="ChatCompletionsResponseFixer"/> 修正后再吐给下游。
 /// 全程按字节：行界在字节上找，不需要修的行原样拷贝，需要修的行只改那几个字节，不解码成字符串、不建 DOM
 /// （逐行解码再编码时，一次两千块的调用约产生 8MB 垃圾）。
 /// 只做行缓冲，不整体缓冲：一次 Read 吐出已到手的全部整行、不等后续数据，流式输出的实时性不受影响。
@@ -234,7 +234,7 @@ internal sealed class SseSanitizingStream : Stream
         // 跳过 [DONE]:要的是最后一条<b>业务帧</b>(它才带 finish_reason/usage)。
         // 之前把 [DONE] 也记进来,收尾帧被它覆盖,看不到服务端到底发了什么
         if (!_sawDone && line.StartsWith("data:"u8)) RememberLastDataLine(line);
-        if (!OpenAiCompatibleResponseFixer.TryFixEventStreamLine(line, _output, out string? observedField)) _output.Write(line);
+        if (!ChatCompletionsResponseFixer.TryFixEventStreamLine(line, _output, out string? observedField)) _output.Write(line);
         else if (observedField != null) _reasoningFieldObserver?.Invoke(observedField);
         _output.Write("\n"u8);
     }

@@ -60,22 +60,15 @@ internal sealed class RemoteModelManager
     {
         string endpoint = model.ModelPath + (model.Port > 0 ? ":" + model.Port : "");
         string apiKey = model is RemoteModelInfo remoteModel ? remoteModel.ApiKey : "";
-        // 端点按模型声明的 wire 格式补全：目录里选了 Claude 系（/messages）就补 /messages，
-        // 选了 responses 系就补 /responses。用户已经填到端点那一层的地址原样保留
-        // （三个 Resolve* 都是这个规矩）。不按格式补的话，目录推导出的格式与实际打出的端点会对不上——
-        // 模型声明走 messages 线、请求却打到 chat/completions，服务端只会回一个看不懂的 404
-        string resolved = model.ApiFormat switch
-        {
-            EApiFormat.Responses => ChatCompletionUri.ResolveResponses(endpoint).Uri.ToString(),
-            EApiFormat.Messages => ChatCompletionUri.ResolveMessages(endpoint).Uri.ToString(),
-            _ => ChatCompletionUri.Resolve(endpoint).Uri.ToString(),
-        };
-        // 亲和头名由供应商配置声明：认它的（如 OpenRouter）自己给，不认的一个都不发
-        var handler = new OpenAICompatibleHttpHandler(resolved, CreateReasoningFieldObserver(model),
-            model.SessionAffinityHeaders);
+        // 亲和头名由供应商配置声明：认它的（如 OpenRouter）自己给，不认的一个都不发。
+        // wire 格式只由模型声明这一处给出，地址归一也交给 handler（同一个格式决定补哪个后缀）——
+        // 早先是这里先归一一次、handler 再按地址猜一次，两处得手工对齐，对不上就是
+        // 「模型声明走 messages、请求却打到 chat/completions」那种看不懂的 404
+        var handler = new WireHttpHandler(endpoint, CreateReasoningFieldObserver(model),
+            model.SessionAffinityHeaders, model.ApiFormat);
         // SDK 默认重试对限流太急(3 次 / 6 秒内打完),免费档模型的共享配额窗口远不止这么短;
         // 同一把密钥上并行的请求经发送闸排队,不再各自退避互撞
-        return OpenAICompatibleChatClient.Create(handler, model, model.ModelId, apiKey, new RateLimitAwareRetryPolicy(),
+        return ChatClientFactory.Create(handler, model, model.ModelId, apiKey, new RateLimitAwareRetryPolicy(),
             SendGate.For(endpoint, apiKey, model.ModelId));
     }
 

@@ -61,8 +61,8 @@ public class OpenAICompatibleRequestPolicyTests
         var server = new FlakyServer(failures: 2,
             "{\"id\":\"x\",\"object\":\"chat.completion\",\"created\":0,\"model\":\"m\"," +
             "\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"ok\"},\"finish_reason\":\"stop\"}]}");
-        IChatClient client = OpenAICompatibleChatClient.Create(
-            new OpenAICompatibleHttpHandler("http://localhost/v1", server), model: null, marker, "key",
+        IChatClient client = ChatClientFactory.Create(
+            new WireHttpHandler("http://localhost/v1", server), model: null, marker, "key",
             new ImmediateRetryPolicy());
 
         LogManager.Instance.OnLogAppended += Handler;
@@ -157,7 +157,7 @@ public class OpenAICompatibleRequestPolicyTests
     [Fact]
     public void Rewriter_ReturnsFalse_WhenNothingApplies()
     {
-        Assert.Null(OpenAICompatibleRequestRewriterTests.Rewrite("{\"model\":\"m\",\"messages\":[]}", default));
+        Assert.Null(ChatCompletionsRequestRewriterTests.Rewrite("{\"model\":\"m\",\"messages\":[]}", default));
     }
 
     [Fact]
@@ -167,7 +167,7 @@ public class OpenAICompatibleRequestPolicyTests
         string? rewritten = await Task.Run(() =>
         {
             using LlmRequestScope.Scope scope = LlmRequestScope.Push(new LlmRequestContext { ForbidToolCalls = true });
-            return OpenAICompatibleRequestRewriterTests.Rewrite("{\"model\":\"m\"}", RequestRewrite.For(model: null));
+            return ChatCompletionsRequestRewriterTests.Rewrite("{\"model\":\"m\"}", RequestRewrite.For(model: null));
         }, TestContext.Current.CancellationToken);
 
         Assert.Equal("{\"model\":\"m\",\"tool_choice\":\"none\"}", rewritten);
@@ -206,7 +206,7 @@ public class OpenAICompatibleRequestPolicyTests
         string? rewritten = await Task.Run(() =>
         {
             using LlmRequestScope.Scope scope = LlmRequestScope.Push(new LlmRequestContext { ForbidToolCalls = true });
-            return OpenAICompatibleRequestRewriterTests.Rewrite(
+            return ChatCompletionsRequestRewriterTests.Rewrite(
                 "{\"messages\":[{\"role\":\"user\",\"content\":\"你好<>&'+\"}]}", RequestRewrite.For(model: null));
         }, TestContext.Current.CancellationToken);
 

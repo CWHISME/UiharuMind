@@ -1,4 +1,5 @@
 using Anthropic.Models.Messages;
+using UiharuMind.Core.AI.Chat;
 using Microsoft.Extensions.AI;
 
 namespace UiharuMind.Core.AI.Net;
@@ -56,7 +57,7 @@ internal static class AnthropicThinkingNormalizer
 
             // 到这里才知道前面那些消息原样复用即可——不必从头重建
             rebuilt ??= [.. source.Take(i)];
-            rebuilt.Add(CloneWith(message, contents));
+            rebuilt.Add(ChatMessageCopies.WithContents(message, contents));
         }
 
         return rebuilt ?? source;
@@ -162,19 +163,4 @@ internal static class AnthropicThinkingNormalizer
         return false;
     }
 
-    /// <summary>
-    /// 复制一条消息、换掉它的内容。
-    ///
-    /// <b>不复制 <c>RawRepresentation</c></b>：那是 provider 的原始对象引用，
-    /// 落盘后就没了（上游 spec 明说回放不得依赖它）。要带的是能序列化的那些字段。
-    /// </summary>
-    private static ChatMessage CloneWith(ChatMessage message, List<AIContent> contents)
-    {
-        return new ChatMessage(message.Role, contents)
-        {
-            MessageId = message.MessageId,
-            AuthorName = message.AuthorName,
-            AdditionalProperties = message.AdditionalProperties,
-        };
-    }
 }

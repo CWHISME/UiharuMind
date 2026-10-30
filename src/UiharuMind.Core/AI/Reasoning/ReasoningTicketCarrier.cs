@@ -42,10 +42,42 @@ internal static class ReasoningTicketCarrier
     public static void Attach(TextReasoningContent reasoning, string ticketJson, ReasoningGate producer)
     {
         reasoning.ProtectedData = ticketJson;
+        StampProducer(reasoning, producer, overwrite: true);
+    }
+
+    /// <summary>
+    /// 给一条<b>已经有密文</b>的思考内容补上产出方身份。
+    ///
+    /// <para>为什么需要「补」而不是一开始就挂上：chat 线的密文是我们自己从字节里切出来的，
+    /// 切的时候就知道是谁产出的；responses 与 messages 线的密文是 <b>SDK 解出来的</b>——
+    /// 它只还原 <c>ProtectedData</c>（与 item id / 块形状），不知道也不该知道「这台机器上是谁签的票」。
+    /// 而身份是门禁的输入：缺了它，落盘后读回来就无从判断该不该发给当前模型，只能一律不发——票白存。</para>
+    /// </summary>
+    /// <param name="reasoning">承载密文的思考内容</param>
+    /// <param name="producer">产出方</param>
+    /// <param name="overwrite">
+    /// 已有身份时要不要覆盖。默认不覆盖——落盘往返后身份已经在了，
+    /// 再补一次会把「原来是谁产的」改成「现在是谁在发的」
+    /// </param>
+    public static void StampProducer(TextReasoningContent reasoning, ReasoningGate producer, bool overwrite = false)
+    {
+        if (!overwrite && HasProducer(reasoning)) return;
+
         reasoning.AdditionalProperties ??= new AdditionalPropertiesDictionary();
         reasoning.AdditionalProperties[ProducerProviderKey] = producer.Provider;
         reasoning.AdditionalProperties[ProducerModelKey] = producer.Model;
     }
+
+    /// <summary>
+    /// 身份齐不齐。<b>按键在不在判，不看值</b>：落盘往返后值是 <see cref="JsonElement"/>，
+    /// 拿「非空」判会误判成没有
+    /// </summary>
+    /// <param name="reasoning">承载票据的思考内容</param>
+    /// <returns>两个键都在时为 true</returns>
+    private static bool HasProducer(TextReasoningContent reasoning) =>
+        reasoning.AdditionalProperties is not null
+        && reasoning.AdditionalProperties.ContainsKey(ProducerProviderKey)
+        && reasoning.AdditionalProperties.ContainsKey(ProducerModelKey);
 
     /// <summary>
     /// 把流里那条加密思考内容转成<b>持久形态</b>：一条带

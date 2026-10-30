@@ -105,12 +105,18 @@ id 从本地存的来、密文也从本地存的来——**id 不需要跨轮稳
 
 ## 现状探测结论
 
+> **本节是实施前的快照。** 里面的「怎么用」说的是当时的计划，不是现在的代码：
+> `ChatCompletionUri` 的六个方法后来收成了 `AI/Net/Transport/WireProtocol.cs` 一张表
+> （三条协议共用一套归一与判定），`OpenAICompatibleHttpClient` 一族也改了名
+> （见 [AnthropicMessages接入计划](AnthropicMessages接入计划.md) ④）。
+> 留在这里是为了保住「当时看到了什么、打算怎么做」这条线。
+
 ### 已留好的接口
 
 | 位置 | 作用 | 怎么用 |
 |---|---|---|
-| `AI/Net/Transport/ChatCompletionUri.cs` | 地址归一 + 判响应形状 | 加 `ResolveResponses` / `IsResponses`，与 `Resolve` / `IsChatCompletions` 并列 |
-| `AI/Net/OpenAICompatibleChatClient.cs` | 建 SDK 客户端、装 pipeline 策略 | 加一个建 Responses 客户端的分支 |
+| `AI/Net/Transport/WireProtocol.cs` | 地址归一 + 判响应形状 | 加 `ResolveResponses` / `IsResponses`，与 `Resolve` / `IsChatCompletions` 并列 |
+| `AI/Net/ChatClientFactory.cs` | 建 SDK 客户端、装 pipeline 策略 | 加一个建 Responses 客户端的分支 |
 | `AI/Net/Request/OpenAICompatibleRequestPolicy.cs` | 请求体按字节改写 | Responses 的 `input` 是 item 数组，与 `messages` 完全不同，需要独立的改写器 |
 | `AI/Net/Response/ResponseSanitizer.cs` | 响应清洗（流式 + 一次性） | responses 的 SSE 事件逐类翻译，与 chat 的 `delta` 完全不同，需要独立的解析 |
 | `AI/Models/ILLMModel.cs` | 供应商能力声明 | 加一项决定走哪个协议（chat / responses） |
@@ -122,8 +128,8 @@ id 从本地存的来、密文也从本地存的来——**id 不需要跨轮稳
   并指出当前分层是**补丁形状**（`RequestRewrite` 与 `ResponseSanitizer` 都是「在 SDK 序列化好的 chat 体上改几处」），
   「对 Responses 够用，对 Anthropic Messages 不够」。→ Responses 要新写请求体与响应解析，**不是**在现有改写器上加字段。
 - **Core 层没有任何 `/responses` 端点代码**。
-- **`ChatCompletionUri.IsChatCompletions` 已经有 `/v1/responses` 的排除用例**
-  （`ChatCompletionUriTests.cs:41`）——说明「知道 responses 这个端点存在」，但没有实现。
+- **`WireProtocols.IsChatCompletions` 已经有 `/v1/responses` 的排除用例**
+  （`WireProtocolsTests.cs:41`）——说明「知道 responses 这个端点存在」，但没有实现。
 - **缓存 TTL：Core 层零实现**。`prompt_cache_key` 有（`RequestRewrite.cs:93`，由
   `SupportsPromptCacheKey` 控制，CommandCode 与 OpenRouter 打开），但 TTL 参数
   （`prompt_cache_retention` / `prompt_cache_options.ttl`）只在 `src/scripts/probe/cache/ttl-probe.py` 里被探测过，
@@ -298,10 +304,10 @@ AI/Reasoning/ReasoningSummary.cs            摘 reasoning.summary 明文给界�
 
 ### 第 2 步　地址与响应形状分流（小）
 
-1. `ChatCompletionUri` 加 `ResolveResponses(address)`（把 `/v1` 归一到 `/v1/responses`，
+1. `WireProtocols` 加 `ResolveResponses(address)`（把 `/v1` 归一到 `/v1/responses`，
    与 `Resolve` 同样的三种形态收敛规则）
 2. 加 `IsResponses(uri)`（判 `/responses` 路径）
-3. `OpenAICompatibleHttpHandler` 的 `_isChatCompletions` 改成「是不是需要清洗的形状」，
+3. `WireHttpHandler` 的 `_isChatCompletions` 改成「是不是需要清洗的形状」，
    两种协议各自清洗
 4. 测试：三种地址形态归一 + `/v1/responses` 不被当成 chat
 
@@ -339,7 +345,7 @@ OpenAI SDK 2.13 自带 `ResponsesClient`，M.E.AI 的
 
 **接线只有两处**：
 
-1. `OpenAICompatibleChatClient` 按 `model.ApiFormat` 分流，responses 线走
+1. `ChatClientFactory` 按 `model.ApiFormat` 分流，responses 线走
    `ResponsesClient` + `AsIChatClient`
 2. `store:false` 与 `include:["reasoning.encrypted_content"]` 挂在
    `RawRepresentationFactory` 上——`options` 本身没这两个字段，它们属于

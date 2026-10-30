@@ -141,7 +141,7 @@ public class ReasoningTicketInvariantTests
     [Fact]
     public void SplicedTicket_LandsOnItsOwnMessage()
     {
-        string? rewritten = OpenAICompatibleRequestRewriterTests.Rewrite(
+        string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(
             """
             {"messages":[
               {"role":"user","content":"u1"},
@@ -162,7 +162,7 @@ public class ReasoningTicketInvariantTests
     [Fact]
     public void MissingSlotsStayAbsent()
     {
-        string? rewritten = OpenAICompatibleRequestRewriterTests.Rewrite(
+        string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(
             """{"messages":[{"role":"assistant","content":"a"}]}""",
             new(null, false, null, false, ReasoningTickets: [null]));
 

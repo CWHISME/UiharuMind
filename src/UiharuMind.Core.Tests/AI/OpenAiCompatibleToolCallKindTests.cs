@@ -18,7 +18,7 @@ public class OpenAiCompatibleToolCallKindTests
         const string json =
             """{"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","type":"","function":{"name":"grep"}}]}}]}""";
 
-        var fixedJson = OpenAiCompatibleResponseFixer.FixJson(json);
+        var fixedJson = ChatCompletionsResponseFixer.FixJson(json);
 
         Assert.NotNull(fixedJson);
         Assert.Contains("\"type\":\"function\"", fixedJson);
@@ -29,7 +29,7 @@ public class OpenAiCompatibleToolCallKindTests
     {
         const string json = """{"choices":[{"delta":{"tool_calls":[{"index":0,"type":"custom_tool"}]}}]}""";
 
-        var fixedJson = OpenAiCompatibleResponseFixer.FixJson(json);
+        var fixedJson = ChatCompletionsResponseFixer.FixJson(json);
 
         Assert.NotNull(fixedJson);
         Assert.Contains("\"type\":\"function\"", fixedJson);
@@ -42,7 +42,7 @@ public class OpenAiCompatibleToolCallKindTests
         const string json =
             """{"choices":[{"delta":{"tool_calls":[{"index":0,"type":"function","function":{"name":"grep"}}]}}]}""";
 
-        Assert.Null(OpenAiCompatibleResponseFixer.FixJson(json)); //没改动就不该重建 JSON
+        Assert.Null(ChatCompletionsResponseFixer.FixJson(json)); //没改动就不该重建 JSON
     }
 
     [Fact]
@@ -52,7 +52,7 @@ public class OpenAiCompatibleToolCallKindTests
         const string json =
             """{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"q\":"}}]}}]}""";
 
-        Assert.Null(OpenAiCompatibleResponseFixer.FixJson(json));
+        Assert.Null(ChatCompletionsResponseFixer.FixJson(json));
     }
 
     [Fact]
@@ -61,7 +61,7 @@ public class OpenAiCompatibleToolCallKindTests
         const string json =
             """{"choices":[{"delta":{"content":[{"type":"text","text":"hi"}],"tool_calls":[{"index":0,"type":""}]}}]}""";
 
-        var fixedJson = OpenAiCompatibleResponseFixer.FixJson(json);
+        var fixedJson = ChatCompletionsResponseFixer.FixJson(json);
 
         Assert.NotNull(fixedJson);
         Assert.Contains("\"type\":\"text\"", fixedJson); //内容块的 type 必须原封不动
@@ -74,7 +74,7 @@ public class OpenAiCompatibleToolCallKindTests
         const string json =
             """{"choices":[{"delta":{"tool_calls":[{"index":0,"type":""}]},"finish_reason":""}]}""";
 
-        var fixedJson = OpenAiCompatibleResponseFixer.FixJson(json);
+        var fixedJson = ChatCompletionsResponseFixer.FixJson(json);
 
         Assert.NotNull(fixedJson);
         Assert.Contains("\"type\":\"function\"", fixedJson);

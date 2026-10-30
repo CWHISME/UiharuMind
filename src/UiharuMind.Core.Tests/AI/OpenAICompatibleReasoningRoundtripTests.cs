@@ -63,7 +63,7 @@ public class OpenAICompatibleReasoningRoundtripTests
     [Fact]
     public void RestoreReasoningContent_FollowsAssistantOrder()
     {
-        string? rewritten = OpenAICompatibleRequestRewriterTests.Rewrite(
+        string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(
             """
             {"messages":[
               {"role":"system","content":"s"},
@@ -223,7 +223,7 @@ public class OpenAICompatibleReasoningRoundtripTests
     [Fact]
     public void FillEmptyReasoning_NoThinkingOnToolCallMessage_WritesEmptyString()
     {
-        string? rewritten = OpenAICompatibleRequestRewriterTests.Rewrite(
+        string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(
             """{"messages":[{"role":"assistant","content":"查一下","tool_calls":[{"id":"call-1","type":"function"}]}]}""",
             new RequestRewrite(null, false, null, false, true));
 
@@ -235,7 +235,7 @@ public class OpenAICompatibleReasoningRoundtripTests
     [Fact]
     public void FillEmptyReasoning_PlainMessageGetsEmptyString()
     {
-        string? rewritten = OpenAICompatibleRequestRewriterTests.Rewrite(
+        string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(
             """{"messages":[{"role":"assistant","content":"说完了"}]}""",
             new RequestRewrite(null, false, null, false, true));
 
@@ -250,7 +250,7 @@ public class OpenAICompatibleReasoningRoundtripTests
     [Fact]
     public void FillEmptyReasoning_OnlyTouchesAssistantMessages()
     {
-        string? rewritten = OpenAICompatibleRequestRewriterTests.Rewrite(
+        string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(
             """{"messages":[{"role":"user","content":"你好"},{"role":"assistant","content":"说完了"}]}""",
             new RequestRewrite(null, false, null, false, true));
 
@@ -263,7 +263,7 @@ public class OpenAICompatibleReasoningRoundtripTests
     [Fact]
     public void FillEmptyReasoning_PrefersExistingReasoning()
     {
-        string? rewritten = OpenAICompatibleRequestRewriterTests.Rewrite(
+        string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(
             """{"messages":[{"role":"assistant","content":"说完了"}]}""",
             new RequestRewrite(null, false, ["真的思考"], false, true));
 
@@ -275,7 +275,7 @@ public class OpenAICompatibleReasoningRoundtripTests
     [Fact]
     public void FillEmptyReasoning_Off_LeavesFieldAbsent()
     {
-        string? rewritten = OpenAICompatibleRequestRewriterTests.Rewrite(
+        string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(
             """{"messages":[{"role":"assistant","content":"查一下","tool_calls":[{"id":"call-1","type":"function"}]}]}""",
             new RequestRewrite(null, false, null, false));
 
@@ -416,7 +416,7 @@ public class OpenAICompatibleReasoningRoundtripTests
     private static JsonObject RestoreMessage(string json, string?[] reasoning,
         string reasoningField = "reasoning_content", bool fill = false)
     {
-        string? rewritten = OpenAICompatibleRequestRewriterTests.Rewrite(json,
+        string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(json,
             new RequestRewrite(null, false, reasoning, false, fill, reasoningField));
         return (JsonObject)JsonNode.Parse(rewritten ?? json)!["messages"]![0]!;
     }

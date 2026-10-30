@@ -51,10 +51,10 @@ public class ResponsesWireTests
     private static async Task<JsonNode?> SendBodyAsync(List<ChatMessage> messages)
     {
         var handler = new StubHandler();
-        var httpHandler = new OpenAICompatibleHttpHandler("https://api.example.com/v1/responses", handler);
+        var httpHandler = new WireHttpHandler("https://api.example.com/v1/responses", handler);
         var config = new RemoteModelConfig { ModelId = "m", ApiFormat = EApiFormat.Responses };
 
-        IChatClient client = OpenAICompatibleChatClient.Create(httpHandler, config, "m", "key");
+        IChatClient client = ChatClientFactory.Create(httpHandler, config, "m", "key");
         try
         {
             await client.GetResponseAsync(messages);
@@ -207,14 +207,14 @@ public class ResponsesWireTests
     private static async Task<JsonNode?> SendBodyViaLazyAsync(List<ChatMessage> messages)
     {
         var stub = new StubHandler();
-        var httpHandler = new OpenAICompatibleHttpHandler("https://api.example.com/v1/responses", stub);
+        var httpHandler = new WireHttpHandler("https://api.example.com/v1/responses", stub);
         // 必须是 responses 格式的模型：客户端按模型声明的格式分流，
         // 地址只决定打哪个端点
         var config = new RemoteModelConfig { ModelName = "responses-test", ModelId = "m", ApiFormat = EApiFormat.Responses };
         RemoteModelInfo remote = new() { Config = config };
         ModelRunningData data = new(remote);
         data.CompleteLoading(
-            OpenAICompatibleChatClient.Create(httpHandler, config, "m", "key"),
+            ChatClientFactory.Create(httpHandler, config, "m", "key"),
             loadToken: CancellationToken.None);
 
         try

@@ -8,7 +8,7 @@ namespace UiharuMind.Core.AI.ImageGeneration.Dialects;
 internal static class ImageDialects
 {
     /// <summary>
-    /// 生图共用的 HttpClient。不能借对话模型那条：<c>OpenAICompatibleHttpHandler</c> 会把每个请求改写到
+    /// 生图共用的 HttpClient。不能借对话模型那条：<c>WireHttpHandler</c> 会把每个请求改写到
     /// chat-completions 端点。客户端本身不设超时，由每次请求按模型的 <see cref="ImageModelInfo.TimeoutSeconds"/> 裁决
     /// </summary>
     internal static readonly HttpClient Http = new(new SocketsHttpHandler

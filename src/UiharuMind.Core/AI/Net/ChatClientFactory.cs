@@ -32,7 +32,7 @@ namespace UiharuMind.Core.AI.Net;
 /// <summary>
 /// 走 OpenAI 兼容端点的聊天客户端（本地 llama.cpp 服务与远程模型共用）
 /// </summary>
-internal static class OpenAICompatibleChatClient
+internal static class ChatClientFactory
 {
     /// <summary>
     /// 建客户端：请求体由 <see cref="OpenAICompatibleRequestPolicy"/> 每次调用改写一次（重试不重做），
@@ -45,7 +45,7 @@ internal static class OpenAICompatibleChatClient
     /// <param name="retryPolicy">重试策略；为 null 时用 SDK 默认</param>
     /// <param name="sendGate">共用限额的发送闸；为 null 时不排队</param>
     /// <returns>聊天客户端</returns>
-    public static IChatClient Create(OpenAICompatibleHttpHandler handler, ILlmModel? model, string modelId, string apiKey,
+    public static IChatClient Create(WireHttpHandler handler, ILlmModel? model, string modelId, string apiKey,
         ClientRetryPolicy? retryPolicy = null, SendGate? sendGate = null)
     {
         // responses 线走另一个客户端：请求体形状（input item 数组）与响应形状（SSE 事件）都不同，
@@ -63,7 +63,7 @@ internal static class OpenAICompatibleChatClient
         {
             Transport = new HttpClientPipelineTransport(NewHttpClient(handler)),
             // 流式响应的读闸默认 100s:思考期 chunk 间隔一长就被 ReadTimeoutStream 掐断,
-            // 且那异常在 HTTP 200 之后冒出,OpenAICompatibleHttpHandler 看不到,只会被上层当用户取消吞掉。
+            // 且那异常在 HTTP 200 之后冒出,WireHttpHandler 看不到,只会被上层当用户取消吞掉。
             // 读卡的裁决完全交给上层 CancellationToken(用户停止按钮),这里不设静态时限
             NetworkTimeout = Timeout.InfiniteTimeSpan,
         };
@@ -84,7 +84,7 @@ internal static class OpenAICompatibleChatClient
     /// （<see cref="SendGatePolicy"/>），Anthropic 线挂不到那条管道，改挂在 HTTP 层
     /// （<see cref="SendGateHandler"/>）。</para>
     /// </summary>
-    private static HttpClient NewHttpClient(OpenAICompatibleHttpHandler handler) =>
+    private static HttpClient NewHttpClient(WireHttpHandler handler) =>
         new(handler) { Timeout = Timeout.InfiniteTimeSpan };
 
     /// <summary>
@@ -138,7 +138,7 @@ internal static class OpenAICompatibleChatClient
     /// <item><description><b>走裸 <see cref="HttpClient"/></b>：官方 SDK 不是 System.ClientModel 管道，
     /// 挂不进去 <see cref="OpenAICompatibleRequestPolicy"/>（那条是 chat 线的字节级改写器，
     /// Anthropic 的请求体由 SDK 自己造）。地址改写、亲和头、请求日志、响应清洗仍在
-    /// <see cref="OpenAICompatibleHttpHandler"/> 里——那个是协议无关的 HTTP 层。</description></item>
+    /// <see cref="WireHttpHandler"/> 里——那个是协议无关的 HTTP 层。</description></item>
     /// <item><description><b>思考参数自己写</b>（<see cref="AnthropicThinkingHandler"/>）：
     /// Anthropic 要的是 token 预算而不是档位名，而 SDK 的原生参数入口够不着
     /// （<c>RawRepresentationFactory</c> 默认返回 null，<c>Thinking</c> 又是 init-only）。</description></item>
@@ -150,7 +150,7 @@ internal static class OpenAICompatibleChatClient
     /// 服务端 400。</description></item>
     /// </list>
     /// </summary>
-    private static IChatClient CreateMessagesClient(OpenAICompatibleHttpHandler handler, ILlmModel? model,
+    private static IChatClient CreateMessagesClient(WireHttpHandler handler, ILlmModel? model,
         string modelId, string apiKey, SendGate? sendGate)
     {
         // 输出预算跟另外两条线同源：模型配置里显式填的 MaxTokens，没填就用协议默认。
@@ -167,8 +167,12 @@ internal static class OpenAICompatibleChatClient
         {
             ApiKey = apiKey,
             // 地址不在这儿给：HTTP 层每次发送前都改写成用户配置的那个端点
-            // （OpenAICompatibleHttpHandler.SendAsync），SDK 自己拼的地址会被覆盖掉
+            // （WireHttpHandler.SendAsync），SDK 自己拼的地址会被覆盖掉
             HttpClient = httpClient,
+            // 与另两条线同一口径：SDK 的默认超时是 10 分钟，而且它管到「读完响应体」为止——
+            // 长思考 + 长正文的流式回复会被它拦腰掐断，异常还发生在响应头之后，上层只当用户取消。
+            // 读卡的裁决完全交给上层 CancellationToken（停止按钮）
+            Timeout = Timeout.InfiniteTimeSpan,
         };
 
         IChatClient client = new AnthropicClient(options).AsIChatClient(modelId, maxTokens);

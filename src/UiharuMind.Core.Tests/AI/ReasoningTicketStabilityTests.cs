@@ -151,7 +151,7 @@ public class ReasoningTicketStabilityTests
         const string body = """{"messages":[{"role":"assistant","content":"a"}]}""";
 
         using PooledByteWriter output = new(body.Length);
-        bool rewritten = OpenAICompatibleRequestRewriter.Rewrite(Encoding.UTF8.GetBytes(body),
+        bool rewritten = ChatCompletionsRequestRewriter.Rewrite(Encoding.UTF8.GetBytes(body),
             new RequestRewrite(null, false, null, false), output);
 
         Assert.False(rewritten); //false 表示「不必改写」，上游会直接发原文
@@ -185,7 +185,7 @@ public class ReasoningTicketStabilityTests
 
         string body = BuildBody(history);
         using PooledByteWriter output = new(body.Length);
-        return OpenAICompatibleRequestRewriter.Rewrite(Encoding.UTF8.GetBytes(body),
+        return ChatCompletionsRequestRewriter.Rewrite(Encoding.UTF8.GetBytes(body),
                    new RequestRewrite(null, false, null, false, ReasoningTickets: slots), output)
             ? Encoding.UTF8.GetString(output.WrittenSpan)
             : body;

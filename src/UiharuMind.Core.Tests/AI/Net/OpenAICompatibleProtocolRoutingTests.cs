@@ -28,7 +28,7 @@ public class OpenAICompatibleProtocolRoutingTests
     public async Task ResponsesAddress_HitsTheResponsesEndpoint()
     {
         Uri? hit = null;
-        var handler = new OpenAICompatibleHttpHandler(
+        var handler = new WireHttpHandler(
             "https://api.example.com/v1/responses",
             new StubHandler(request =>
             {
@@ -46,7 +46,7 @@ public class OpenAICompatibleProtocolRoutingTests
     public async Task ChatAddress_HitsTheChatEndpoint()
     {
         Uri? hit = null;
-        var handler = new OpenAICompatibleHttpHandler(
+        var handler = new WireHttpHandler(
             "https://api.example.com/v1/chat/completions",
             new StubHandler(request =>
             {
@@ -68,7 +68,7 @@ public class OpenAICompatibleProtocolRoutingTests
     public async Task RootAddress_StaysOnTheChatLine()
     {
         Uri? hit = null;
-        var handler = new OpenAICompatibleHttpHandler(
+        var handler = new WireHttpHandler(
             "https://api.example.com/v1",
             new StubHandler(request =>
             {
@@ -90,7 +90,7 @@ public class OpenAICompatibleProtocolRoutingTests
     public async Task MessagesAddress_HitsTheMessagesEndpoint()
     {
         Uri? hit = null;
-        var handler = new OpenAICompatibleHttpHandler(
+        var handler = new WireHttpHandler(
             "https://api.example.com/v1/messages",
             new StubHandler(request =>
             {
@@ -114,11 +114,6 @@ public class OpenAICompatibleProtocolRoutingTests
     [InlineData("https://api.example.com/v1/chat/completions", EApiFormat.ChatCompletions)]
     public void EndpointPath_IdentifiesTheWireFormat(string address, EApiFormat expected)
     {
-        var builder = new UriBuilder(address);
-        EApiFormat actual = ChatCompletionUri.IsMessages(builder.Uri)
-            ? EApiFormat.Messages
-            : ChatCompletionUri.IsResponses(builder.Uri) ? EApiFormat.Responses : EApiFormat.ChatCompletions;
-
-        Assert.Equal(expected, actual);
+        Assert.Equal(expected, WireProtocols.Detect(new UriBuilder(address).Uri)?.Format);
     }
 }

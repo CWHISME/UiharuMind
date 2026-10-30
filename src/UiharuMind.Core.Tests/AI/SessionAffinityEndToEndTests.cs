@@ -13,7 +13,7 @@ namespace UiharuMind.Core.Tests.AI;
 
 /// <summary>
 /// 会话亲和的<b>端到端</b>验证：LazyChatClient → 真实 OpenAI 兼容管线（改写 + SDK 序列化 + 重试策略）
-/// → <see cref="OpenAICompatibleHttpHandler"/> → 假网卡，看头上到底有没有值。
+/// → <see cref="WireHttpHandler"/> → 假网卡，看头上到底有没有值。
 ///
 /// 与 <see cref="LazyChatClientSessionAffinityTests"/>（假客户端读环境值）和
 /// <see cref="SessionAffinityTests"/>（直接设值看头）分开：那两份各测一半，
@@ -141,9 +141,9 @@ public class SessionAffinityEndToEndTests
 
     private static LazyChatClient Client(RecordingHandler wire, string? affinity)
     {
-        OpenAICompatibleHttpHandler handler = new("http://localhost/v1/chat/completions", wire,
+        WireHttpHandler handler = new("http://localhost/v1/chat/completions", wire,
             affinityHeaders: AffinityHeaders);
-        IChatClient sdk = OpenAICompatibleChatClient.Create(handler, null, "affinity-test", "probe");
+        IChatClient sdk = ChatClientFactory.Create(handler, null, "affinity-test", "probe");
         return new LazyChatClient(() => Running(sdk), affinity);
     }
 

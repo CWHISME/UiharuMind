@@ -47,7 +47,7 @@ internal sealed class OpenAICompatibleRequestPolicy : PipelinePolicy
     /// <param name="model">目标模型</param>
     public OpenAICompatibleRequestPolicy(ILlmModel? model) : this((json, output) =>
     {
-        bool rewritten = OpenAICompatibleRequestRewriter.Rewrite(json, RequestRewrite.For(model), output);
+        bool rewritten = ChatCompletionsRequestRewriter.Rewrite(json, RequestRewrite.For(model), output);
         LogRequest(rewritten ? output.WrittenSpan : json);
         return rewritten;
     })

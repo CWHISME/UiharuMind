@@ -23,8 +23,8 @@ internal static class RequestBench
     {
         Console.WriteLine("== 请求侧（长跑量级请求体，每次调用一次）==");
         var server = new CaptureHandler(SseData.Build("m", false, "null", 1, 1, 0), capture: true);
-        IChatClient client = OpenAICompatibleChatClient.Create(
-            new OpenAICompatibleHttpHandler("http://localhost/v1", server), model: null, "deepseek-v4-flash", "key");
+        IChatClient client = ChatClientFactory.Create(
+            new WireHttpHandler("http://localhost/v1", server), model: null, "deepseek-v4-flash", "key");
         var (messages, options, reasoning) = Conversation.Build(rounds: 95, withImage: false);
         await Clients.ConsumeAsync(client, messages, options);
 
@@ -101,7 +101,7 @@ internal static class RequestBench
     private static ReadOnlySpan<byte> Rewrite(byte[] json, RequestRewrite rewrite, PooledByteWriter output)
     {
         output.Rewind(0);
-        return OpenAICompatibleRequestRewriter.Rewrite(json, rewrite, output) ? output.WrittenSpan : json;
+        return ChatCompletionsRequestRewriter.Rewrite(json, rewrite, output) ? output.WrittenSpan : json;
     }
 
     private static int CountOf(string text, string value)

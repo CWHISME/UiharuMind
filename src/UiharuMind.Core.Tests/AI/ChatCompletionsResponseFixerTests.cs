@@ -9,14 +9,14 @@ namespace UiharuMind.Core.Tests.AI;
 /// 钉死兼容服务的 finish_reason 归一化:空串写回 null、未知值降级为 stop、合法值原样透传。
 /// OpenAI SDK 对未知枚举值是直接抛异常的，这一层漏掉就会整轮对话失败。
 /// </summary>
-public class OpenAiCompatibleResponseFixerTests
+public class ChatCompletionsResponseFixerTests
 {
     [Fact]
     public void EmptyFinishReason_BecomesNull()
     {
         const string json = """{"choices":[{"index":0,"delta":{"content":"hi"},"finish_reason":""}]}""";
 
-        var fixedJson = OpenAiCompatibleResponseFixer.FixJson(json);
+        var fixedJson = ChatCompletionsResponseFixer.FixJson(json);
 
         Assert.NotNull(fixedJson);
         Assert.Contains("\"finish_reason\":null", fixedJson);
@@ -27,7 +27,7 @@ public class OpenAiCompatibleResponseFixerTests
     {
         const string json = """{"choices":[{"index":0,"finish_reason":"sensitive"}]}""";
 
-        var fixedJson = OpenAiCompatibleResponseFixer.FixJson(json);
+        var fixedJson = ChatCompletionsResponseFixer.FixJson(json);
 
         Assert.NotNull(fixedJson);
         Assert.Contains("\"finish_reason\":\"stop\"", fixedJson);
@@ -40,7 +40,7 @@ public class OpenAiCompatibleResponseFixerTests
     [InlineData("""{"choices":[{"index":0,"delta":{"content":"hi"}}]}""")]
     public void ValidPayload_IsNotRewritten(string json)
     {
-        Assert.Null(OpenAiCompatibleResponseFixer.FixJson(json));
+        Assert.Null(ChatCompletionsResponseFixer.FixJson(json));
     }
 
     /// <summary>商汤每块都带空串：按字面改写，正文原样（不经 DOM 重新转义），语义与 DOM 改写一致</summary>
@@ -49,7 +49,7 @@ public class OpenAiCompatibleResponseFixerTests
     {
         const string json = """{"choices":[{"index":0,"delta":{"content":"说 \"finish_reason\":\"\" 也不误伤"},"finish_reason":""}]}""";
 
-        var fixedJson = OpenAiCompatibleResponseFixer.FixJson(json);
+        var fixedJson = ChatCompletionsResponseFixer.FixJson(json);
 
         Assert.Equal("""{"choices":[{"index":0,"delta":{"content":"说 \"finish_reason\":\"\" 也不误伤"},"finish_reason":null}]}""", fixedJson);
     }
@@ -62,25 +62,25 @@ public class OpenAiCompatibleResponseFixerTests
         """{"choices":[{"index":0,"finish_reason":null},{"index":1,"finish_reason":"stop"}]}""")]
     public void UnusualFinishReasonShapes_StillFixed(string json, string expected)
     {
-        Assert.Equal(expected, OpenAiCompatibleResponseFixer.FixJson(json));
+        Assert.Equal(expected, ChatCompletionsResponseFixer.FixJson(json));
     }
 
     [Fact]
     public void BrokenJson_IsLeftAlone()
     {
-        Assert.Null(OpenAiCompatibleResponseFixer.FixJson("""{"finish_reason":"""));
+        Assert.Null(ChatCompletionsResponseFixer.FixJson("""{"finish_reason":"""));
     }
 
     [Fact]
     public void EventStreamLine_KeepsDataPrefixAndPassesThroughDone()
     {
-        var line = OpenAiCompatibleResponseFixer.FixEventStreamLine(
+        var line = ChatCompletionsResponseFixer.FixEventStreamLine(
             """data: {"choices":[{"index":0,"finish_reason":""}]}""");
 
         Assert.StartsWith("data: ", line);
         Assert.Contains("\"finish_reason\":null", line);
-        Assert.Equal("data: [DONE]", OpenAiCompatibleResponseFixer.FixEventStreamLine("data: [DONE]"));
-        Assert.Equal("", OpenAiCompatibleResponseFixer.FixEventStreamLine(""));
+        Assert.Equal("data: [DONE]", ChatCompletionsResponseFixer.FixEventStreamLine("data: [DONE]"));
+        Assert.Equal("", ChatCompletionsResponseFixer.FixEventStreamLine(""));
     }
 
     [Fact]
@@ -101,7 +101,7 @@ public class OpenAiCompatibleResponseFixerTests
     [InlineData("""{"choices":[{"index":0,"message":{"role":"assistant","content":"hi","reasoning":"用户让我"},"finish_reason":"stop"}]}""", "message")]
     public void ReasoningField_IsRenamedToReasoningContent(string json, string container)
     {
-        var fixedJson = OpenAiCompatibleResponseFixer.FixJson(json);
+        var fixedJson = ChatCompletionsResponseFixer.FixJson(json);
 
         Assert.NotNull(fixedJson);
         var node = System.Text.Json.Nodes.JsonNode.Parse(fixedJson);
@@ -117,7 +117,7 @@ public class OpenAiCompatibleResponseFixerTests
         const string line = """data: {"choices":[{"index":0,"delta":{"reasoning_text":"想想"},"finish_reason":null}]}""";
         var output = new ArrayBufferWriter<byte>();
 
-        bool wasFixed = OpenAiCompatibleResponseFixer.TryFixEventStreamLine(Encoding.UTF8.GetBytes(line), output, out string? field);
+        bool wasFixed = ChatCompletionsResponseFixer.TryFixEventStreamLine(Encoding.UTF8.GetBytes(line), output, out string? field);
 
         Assert.True(wasFixed);
         Assert.Equal("reasoning_text", field);
@@ -131,7 +131,7 @@ public class OpenAiCompatibleResponseFixerTests
         const string line = """data: {"choices":[{"index":0,"delta":{"reasoning":"想想"},"finish_reason":null}]}""";
         var output = new ArrayBufferWriter<byte>();
 
-        bool wasFixed = OpenAiCompatibleResponseFixer.TryFixEventStreamLine(Encoding.UTF8.GetBytes(line), output, out string? field);
+        bool wasFixed = ChatCompletionsResponseFixer.TryFixEventStreamLine(Encoding.UTF8.GetBytes(line), output, out string? field);
 
         Assert.True(wasFixed);
         Assert.Equal("reasoning", field);
@@ -144,7 +144,7 @@ public class OpenAiCompatibleResponseFixerTests
         const string line = """data: {"choices":[{"index":0,"delta":{"reasoning_content":"想想"},"finish_reason":null}]}""";
         var output = new ArrayBufferWriter<byte>();
 
-        OpenAiCompatibleResponseFixer.TryFixEventStreamLine(Encoding.UTF8.GetBytes(line), output, out string? field);
+        ChatCompletionsResponseFixer.TryFixEventStreamLine(Encoding.UTF8.GetBytes(line), output, out string? field);
 
         Assert.Null(field);
     }
@@ -157,7 +157,7 @@ public class OpenAiCompatibleResponseFixerTests
         """{"choices":[{"index":0,"delta":{"content":"hi"},"finish_reason":null}]}""")]
     public void EmptyReasoning_IsPrunedLiterally(string json, string expected)
     {
-        Assert.Equal(expected, OpenAiCompatibleResponseFixer.FixJson(json));
+        Assert.Equal(expected, ChatCompletionsResponseFixer.FixJson(json));
     }
 
     /// <summary>已有 reasoning_content 时， stray reasoning 直接删掉，思考只留一个来源</summary>
@@ -166,7 +166,7 @@ public class OpenAiCompatibleResponseFixerTests
     {
         const string json = """{"choices":[{"index":0,"delta":{"reasoning":"旧的","reasoning_content":"新的"},"finish_reason":null}]}""";
 
-        var fixedJson = OpenAiCompatibleResponseFixer.FixJson(json);
+        var fixedJson = ChatCompletionsResponseFixer.FixJson(json);
 
         Assert.NotNull(fixedJson);
         var delta = System.Text.Json.Nodes.JsonNode.Parse(fixedJson)!["choices"]![0]!["delta"]!.AsObject();
@@ -181,7 +181,7 @@ public class OpenAiCompatibleResponseFixerTests
     [InlineData("""{"choices":[{"index":0,"delta":{"content":"字段叫 \"reasoning\""},"finish_reason":null}]}""")]
     public void ReasoningLookalikes_AreNotRewritten(string json)
     {
-        Assert.Null(OpenAiCompatibleResponseFixer.FixJson(json));
+        Assert.Null(ChatCompletionsResponseFixer.FixJson(json));
     }
 
     /// <summary>孤键 {"reasoning":""} 前后都没有逗号：只删键值</summary>
@@ -190,7 +190,7 @@ public class OpenAiCompatibleResponseFixerTests
     {
         const string json = """{"choices":[{"index":0,"delta":{"reasoning":""}}]}""";
 
-        var fixedJson = OpenAiCompatibleResponseFixer.FixJson(json);
+        var fixedJson = ChatCompletionsResponseFixer.FixJson(json);
 
         Assert.Equal("""{"choices":[{"index":0,"delta":{}}]}""", fixedJson);
     }
@@ -206,7 +206,7 @@ public class OpenAiCompatibleResponseFixerTests
 
         Assert.Equal(
             """{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"c","type":"function","function":{"name":"Write","arguments":"{\"内容\":\"你好\"}"}}]},"finish_reason":null}]}""",
-            OpenAiCompatibleResponseFixer.FixJson(json));
+            ChatCompletionsResponseFixer.FixJson(json));
     }
 
     /// <summary>tool_calls 子树里只认元素自身的 type：参数里的同名键、子树里的 finish_reason 都不碰</summary>
@@ -217,6 +217,6 @@ public class OpenAiCompatibleResponseFixerTests
 
         Assert.Equal(
             """{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"type":"function","function":{"type":"","finish_reason":""}}]},"finish_reason":null}]}""",
-            OpenAiCompatibleResponseFixer.FixJson(json));
+            ChatCompletionsResponseFixer.FixJson(json));
     }
 }

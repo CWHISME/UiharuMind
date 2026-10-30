@@ -1,6 +1,8 @@
 namespace UiharuMind.Core.RemoteOpenAI.ModelCatalog;
 
 using System.Text.Json.Serialization;
+using UiharuMind.Core.AI.Models;
+using UiharuMind.Core.AI.Net.Transport;
 
 /// <summary>
 /// 模型目录里的一条：服务商 /v1/models 返回的模型候选。
@@ -41,6 +43,31 @@ public sealed class ModelCatalogEntry
     /// <summary>服务端支持的采样参数；声明后不含 temperature 即表示该模型固定采样参数</summary>
     [JsonPropertyName("supported_sampling_parameters")]
     public List<string> SupportedSamplingParameters { get; set; } = [];
+
+    /// <summary>
+    /// 这个模型答话走哪种 wire 格式，按目录声明的端点推。
+    ///
+    /// 只声明了 <c>/responses</c> 的走 responses 线；只声明了 <c>/messages</c> 的走 Anthropic 线；
+    /// 声明了 <c>/chat/completions</c>（或都没声明端点字段）的走 chat 线。
+    ///
+    /// <b>多条都声明时取 chat</b>：chat 是已经跑通的形状，另两条还在接。
+    /// 选没跑通的那条当默认，等于让所有模型突然换协议。
+    ///
+    /// 端点后缀从 <see cref="WireProtocols"/> 取，不在这里再写一份字面量——
+    /// 加协议或改路径时只改那张表。放在目录条目上而不是编辑窗口里：这是「目录说了什么」，
+    /// 与「界面怎么用」无关
+    /// </summary>
+    /// <returns>该模型该走的格式</returns>
+    public EApiFormat ResolveApiFormat()
+    {
+        if (SupportedEndpoints.Count == 0) return EApiFormat.ChatCompletions;
+        if (SupportsEndpoint(WireProtocols.Chat.EndpointSuffix)) return EApiFormat.ChatCompletions;
+        // messages 排在 responses 前面：两条判据互不重叠，顺序只为把更具体的放前面
+        if (SupportsEndpoint(WireProtocols.Messages.EndpointSuffix)) return EApiFormat.Messages;
+        return SupportsEndpoint(WireProtocols.Responses.EndpointSuffix)
+            ? EApiFormat.Responses
+            : EApiFormat.ChatCompletions;
+    }
 
     /// <summary>是否能在指定端点答话（忽略大小写、按子串匹配）</summary>
     public bool SupportsEndpoint(string endpoint) =>

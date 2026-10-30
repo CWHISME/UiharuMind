@@ -38,13 +38,13 @@ public class SensenovaReasoningFieldTests
 
     private static IChatClient PipelineClient(string mediaType, string body)
     {
-        var handler = new OpenAICompatibleHttpHandler(
+        var handler = new WireHttpHandler(
             "https://token.sensenova.cn/v1/chat/completions",
             new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(body, Encoding.UTF8, mediaType),
             }));
-        return OpenAICompatibleChatClient.Create(handler, null, "sensenova-6.8-flash-lite", "probe");
+        return ChatClientFactory.Create(handler, null, "sensenova-6.8-flash-lite", "probe");
     }
 
     private static ChatMessage UserMsg() => new(ChatRole.User, "介绍一下商汤科技。");
@@ -89,14 +89,14 @@ public class SensenovaReasoningFieldTests
         BaseRemoteModelConfig config = new RemoteSensenovaModelConfig { ModelId = "glm-5.2" };
         int saves = 0;
         Action<string> observer = RemoteModelManager.CreateThinkingFieldObserver(config, () => saves++);
-        var handler = new OpenAICompatibleHttpHandler(
+        var handler = new WireHttpHandler(
             "https://token.sensenova.cn/v1/chat/completions",
             new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(StreamingReasoningSse, Encoding.UTF8, "text/event-stream"),
             }),
             observer);
-        IChatClient client = OpenAICompatibleChatClient.Create(handler, null, "sensenova-6.8-flash-lite", "probe");
+        IChatClient client = ChatClientFactory.Create(handler, null, "sensenova-6.8-flash-lite", "probe");
 
         await foreach (ChatResponseUpdate _ in client.GetStreamingResponseAsync(
                            UserMsg(), cancellationToken: TestContext.Current.CancellationToken))
@@ -116,14 +116,14 @@ public class SensenovaReasoningFieldTests
         BaseRemoteModelConfig config = new RemoteSensenovaModelConfig { ModelId = "glm-5.2" };
         int saves = 0;
         Action<string> observer = RemoteModelManager.CreateThinkingFieldObserver(config, () => saves++);
-        var handler = new OpenAICompatibleHttpHandler(
+        var handler = new WireHttpHandler(
             "https://token.sensenova.cn/v1/chat/completions",
             new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(NonStreamingReasoningJson, Encoding.UTF8, "application/json"),
             }),
             observer);
-        IChatClient client = OpenAICompatibleChatClient.Create(handler, null, "sensenova-6.8-flash-lite", "probe");
+        IChatClient client = ChatClientFactory.Create(handler, null, "sensenova-6.8-flash-lite", "probe");
 
         await client.GetResponseAsync(UserMsg(), cancellationToken: TestContext.Current.CancellationToken);
 
