@@ -126,7 +126,7 @@ id 从本地存的来、密文也从本地存的来——**id 不需要跨轮稳
   （`ChatCompletionUriTests.cs:41`）——说明「知道 responses 这个端点存在」，但没有实现。
 - **缓存 TTL：Core 层零实现**。`prompt_cache_key` 有（`RequestRewrite.cs:93`，由
   `SupportsPromptCacheKey` 控制，CommandCode 与 OpenRouter 打开），但 TTL 参数
-  （`prompt_cache_retention` / `prompt_cache_options.ttl`）只在 `src/scripts/probe/ttl-probe.py` 里被探测过，
+  （`prompt_cache_retention` / `prompt_cache_options.ttl`）只在 `src/scripts/probe/cache/ttl-probe.py` 里被探测过，
   从未进过产品代码。
 
 ## 待决问题

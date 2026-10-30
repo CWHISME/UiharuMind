@@ -28,8 +28,8 @@ TTL 只有一个自变量：**时间**。所以：
   4. 冷启动一次（换 key 或换 body）以确保起点是干净的
 
 用法:
-    CMD_API_KEY=... CMD_MODEL=<模型id> python3 src/scripts/probe/ttl-probe.py
-    CMD_API_KEY=... CMD_MODEL=<模型id> python3 src/scripts/probe/ttl-probe.py --waits 30,120,360,720,1800
+    CMD_API_KEY=... CMD_MODEL=<模型id> python3 src/scripts/probe/cache/ttl-probe.py
+    CMD_API_KEY=... CMD_MODEL=<模型id> python3 src/scripts/probe/cache/ttl-probe.py --waits 30,120,360,720,1800
 """
 import argparse
 import json

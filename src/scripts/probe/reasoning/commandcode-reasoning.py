@@ -22,9 +22,9 @@
 「模型没有摘要」——可能是压根没要。这两步就是补这个洞。
 
 用法:
-    CMD_API_KEY=... CMD_MODEL=<模型id> python3 src/scripts/probe/commandcode-reasoning.py
-    CMD_API_KEY=... python3 src/scripts/probe/commandcode-reasoning.py <模型id>
-    CMD_API_KEY=... python3 src/scripts/probe/commandcode-reasoning.py <模型id> --only=2,3
+    CMD_API_KEY=... CMD_MODEL=<模型id> python3 src/scripts/probe/reasoning/commandcode-reasoning.py
+    CMD_API_KEY=... python3 src/scripts/probe/reasoning/commandcode-reasoning.py <模型id>
+    CMD_API_KEY=... python3 src/scripts/probe/reasoning/commandcode-reasoning.py <模型id> --only=2,3
 
 只发五六次最小请求；密钥只在本进程的环境变量里，不落盘、不写日志。
 """
