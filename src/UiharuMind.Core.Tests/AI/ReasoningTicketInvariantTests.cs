@@ -1,11 +1,15 @@
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Reasoning;
 
 namespace UiharuMind.Core.Tests.AI;
 
 /// <summary>
-/// 加密思考票据的四条不变量（<see cref="Docs.adr"/> ADR 0100）。
+/// 加密思考票据的四条不变量（ADR 0100）。
 ///
 /// 这四条是上一版实现翻车的地方，每一条都对应一次真实失败：
 ///   1. 每条助手消息永久挂自己那张票　　← 上一版只挂最后一条，票逐轮漂移
@@ -13,8 +17,8 @@ namespace UiharuMind.Core.Tests.AI;
 ///   3. 换模型时整条丢弃　　　　　　　　← 上一版只比 model id，网关根本不校验归属
 ///   4. 跨重启不丢　　　　　　　　　　　← 上一版只在内存，重启即全冷
 ///
-/// 第 4 条第一版只做到「会话存活期内不丢」（内存版），跨进程那条要等落盘。
-/// 这里测的是「同一个 store 反复取用不丢」，落盘后同一条断言原样成立。
+/// ADR 0100 决定 3 之后票据<b>长在消息上</b>（随消息落盘），所以第 4 条不再只是
+/// 「会话存活期内不丢」——这里直接测「序列化再读回来，票还在」。
 /// </summary>
 public class ReasoningTicketInvariantTests
 {
@@ -23,6 +27,14 @@ public class ReasoningTicketInvariantTests
     private static readonly ReasoningGate Producer = new("commandcode", "meta/muse-spark-1.3-contributor");
 
     private const string TicketB = """[{"type":"reasoning.encrypted","data":"BBB","id":"rs_2:rs_b","format":"meta-responses-v1","index":0}]""";
+
+    /// <summary>造一条挂着票据的助手消息</summary>
+    private static ChatMessage AssistantWithTicket(string ticketJson, ReasoningGate producer, string text = "回复")
+    {
+        TextReasoningContent reasoning = new(string.Empty);
+        ReasoningTicketCarrier.Attach(reasoning, ticketJson, producer);
+        return new ChatMessage(ChatRole.Assistant, [reasoning, new TextContent(text)]);
+    }
 
     /// <summary>
     /// 不变量 1：产出时挂在第 k 条助手消息上，以后每轮都挂在那条——票不会被挪走。
@@ -33,14 +45,12 @@ public class ReasoningTicketInvariantTests
     [Fact]
     public void Ticket_StaysOnTheMessageThatProducedIt()
     {
-        TicketStore store = new();
-
-        store.Record(0, TicketA, Producer); //第 0 条助手消息产出了票 A
-        store.Record(1, TicketB, Producer); //第 1 条助手消息产出了票 B
+        ChatMessage first = AssistantWithTicket(TicketA, Producer, "a1");
+        ChatMessage second = AssistantWithTicket(TicketB, Producer, "a2");
 
         //第 0 条还是挂 A，第 1 条挂 B——两张票各归各位
-        Assert.Equal(TicketA, store.TicketAt(0));
-        Assert.Equal(TicketB, store.TicketAt(1));
+        Assert.Equal(TicketA, ReasoningTicketCarrier.Read(first)!.Value.Json);
+        Assert.Equal(TicketB, ReasoningTicketCarrier.Read(second)!.Value.Json);
     }
 
     /// <summary>
@@ -52,12 +62,11 @@ public class ReasoningTicketInvariantTests
     [Fact]
     public void Ticket_BytesNeverChangeAcrossRounds()
     {
-        TicketStore store = new();
-        store.Record(0, TicketA, Producer);
+        ChatMessage message = AssistantWithTicket(TicketA, Producer);
 
-        string first = store.TicketAt(0)!;
-        string second = store.TicketAt(0)!;
-        string third = store.TicketAt(0)!;
+        string first = ReasoningTicketCarrier.Read(message)!.Value.Json;
+        string second = ReasoningTicketCarrier.Read(message)!.Value.Json;
+        string third = ReasoningTicketCarrier.Read(message)!.Value.Json;
 
         Assert.Equal(first, second);
         Assert.Equal(second, third);
@@ -78,35 +87,50 @@ public class ReasoningTicketInvariantTests
     }
 
     /// <summary>
-    /// 不变量 4：票据不丢。
+    /// 不变量 4：跨重启不丢——票据随消息落盘，读回来还在。
     ///
-    /// 第一版是内存版，所以这条只保证「同一个 store 反复取用不丢」；
-    /// 跨进程要等落盘。测的是「取用不会把票带走」——上一版正是取一次就清空。
+    /// 这是 ADR 0100 决定 3 的核心：上一版票据只在内存，进程退出即丢，重启后历史里挂过票的
+    /// 消息变回无票形态，那一条起前缀全冷（实测丢掉七成缓存）。
     /// </summary>
     [Fact]
-    public void Ticket_SurvivesRepeatedReads()
+    public void Ticket_SurvivesSerializationRoundTrip()
     {
-        TicketStore store = new();
-        store.Record(0, TicketA, Producer);
+        ChatMessage message = AssistantWithTicket(TicketA, Producer, "a1");
 
-        for (int i = 0; i < 5; i++)
-        {
-            Assert.Equal(TicketA, store.TicketAt(0));
-        }
+        string json = JsonSerializer.Serialize(message, SessionJsonOptions.Default.GetTypeInfo(typeof(ChatMessage)));
+        ChatMessage? restored = JsonSerializer.Deserialize(json, SessionJsonOptions.Default.GetTypeInfo(typeof(ChatMessage))) as ChatMessage;
 
-        Assert.Equal(1, store.Count);
+        Assert.NotNull(restored);
+        (string Json, ReasoningGate Producer)? ticket = ReasoningTicketCarrier.Read(restored!);
+        Assert.NotNull(ticket);
+        Assert.Equal(TicketA, ticket!.Value.Json);          //密文逐字节相同
+        Assert.Equal("commandcode", ticket.Value.Producer.Provider); //归属也还在
+        Assert.Equal("meta/muse-spark-1.3-contributor", ticket.Value.Producer.Model);
+    }
+
+    /// <summary>
+    /// 规整历史不能把带密文的思考当空思考丢掉——丢了票，下一发就回填不了。
+    /// </summary>
+    [Fact]
+    public void Normalizer_KeepsTheTicket()
+    {
+        ChatMessage message = AssistantWithTicket(TicketA, Producer, "a1");
+
+        ChatContentNormalizer.Normalize(message);
+
+        Assert.Contains(message.Contents, x => x is TextReasoningContent { ProtectedData: not null });
+        Assert.Equal(TicketA, ReasoningTicketCarrier.Read(message)!.Value.Json);
     }
 
     /// <summary>换模型时不是「删掉票」，而是这一轮不带——历史里的票留着，换回来还能用</summary>
     [Fact]
     public void Gate_SkipsTheTicket_WithoutDeletingIt()
     {
-        TicketStore store = new();
-        store.Record(0, TicketA, Producer);
+        ChatMessage message = AssistantWithTicket(TicketA, Producer);
         ReasoningGate other = new("openrouter", "deepseek-v4-flash");
 
-        Assert.Null(store.TicketAt(0, other)); //门禁不过，这一轮不带
-        Assert.Equal(TicketA, store.TicketAt(0)); //但票本身还在
+        Assert.False(Producer.Allows(other.Provider, other.Model)); //门禁不过，这一轮不带
+        Assert.Equal(TicketA, ReasoningTicketCarrier.Read(message)!.Value.Json); //但票本身还在
     }
 
     /// <summary>
@@ -170,5 +194,27 @@ public class ReasoningTicketInvariantTests
 
         Assert.True(ReasoningDetailExtractor.TryExtract(Encoding.UTF8.GetBytes(frame), out byte[] value));
         Assert.Null(ReasoningDetailExtractor.ReadSummary(value));
+    }
+
+    /// <summary>
+    /// 流里那条加密思考内容落盘时要转成持久的思考内容，而不是被摘掉。
+    /// </summary>
+    [Fact]
+    public void SignalContent_BecomesPersistentTicket()
+    {
+        EncryptedReasoningContent signal = EncryptedReasoningContent.WithTicket(
+            TicketA, "commandcode", "meta/muse-spark-1.3-contributor");
+
+        TextReasoningContent? persistent = ReasoningTicketCarrier.ToPersistent(signal);
+
+        Assert.NotNull(persistent);
+        Assert.Equal(TicketA, persistent!.ProtectedData);
+    }
+
+    /// <summary>纯信号内容（只用来开界面那张卡）不进历史</summary>
+    [Fact]
+    public void PlainSignalContent_BecomesNothing()
+    {
+        Assert.Null(ReasoningTicketCarrier.ToPersistent(EncryptedReasoningContent.Instance));
     }
 }

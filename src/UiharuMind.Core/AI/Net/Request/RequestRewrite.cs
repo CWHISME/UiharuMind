@@ -30,7 +30,7 @@ namespace UiharuMind.Core.AI.Net.Request;
 /// 按助手消息出现顺序排列的<b>加密思考票据</b>（<c>reasoning_details</c> 的原文），缺的位置为 null。
 /// 与 <see cref="ReasoningByAssistantMessage"/> 并列而非替代：那个是明文、写 <c>reasoning_content</c>，
 /// 这个是密文、写 <c>reasoning_details</c>，且只能原样回给产出它的那个模型。
-/// 一条消息的票挂上就不动（见 <see cref="Reasoning.TicketStore"/>），前缀才逐字节稳定
+/// 票据长在消息上（ADR 0100，随消息落盘），一条消息的票挂上就不动，前缀才逐字节稳定
 /// </param>
 internal readonly record struct RequestRewrite(
     IReadOnlyList<KeyValuePair<string, JsonNode?>>? ExtraParams,

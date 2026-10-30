@@ -43,7 +43,8 @@ public class LazyChatClient : IChatClient
 
     private readonly Func<ModelRunningData?>? _sessionModelSource; //会话级模型来源,优先于全局当前模型
     private readonly string? _sessionAffinity; //会话亲和值,每发请求前挂到请求上下文上供 HTTP 层写头
-    private readonly TicketStore _tickets = new(); //加密思考票据:按助手消息序号存,每条挂自己那张(见 Reasoning.TicketStore)
+    // 加密思考票据**不存这里**：它长在消息上（ADR 0100），随消息落盘。
+    // 旁挂一张「序号 → 票」的表反而是错的来源——历史一裁剪、一替换，序号就与消息错位。
 
     /// <param name="sessionModelSource">会话级模型来源；null 走全局当前模型</param>
     /// <param name="sessionAffinity">
@@ -62,10 +63,10 @@ public class LazyChatClient : IChatClient
     {
         IReadOnlyList<ChatMessage> messageList = AsList(messages);
         var (client, model) = await ResolveAsync(cancellationToken).ConfigureAwait(false);
-        // 这一发产出的回复会落在第 assistantCount 条助手消息上(0 起)——票据记在这个序号
-        int assistantCount = CountAssistantMessages(messageList);
         // 票据的产出方就是这一发用的模型；换模型后门禁会挡住旧票
         ReasoningGate producer = new(model.ModelInfo.ProviderId, model.ModelInfo.ModelId);
+        // 票据密文不能解析后再编码，所以原样存着
+        string? ticketJson = null;
 
         // 只替换这几项、其余沿用外层（写交接文档那一发把 ForbidToolCalls 挂在外层）；
         // using 结束还原成进来时那份，值不会留给同一条异步流上的下一发
@@ -74,7 +75,7 @@ public class LazyChatClient : IChatClient
             PendingReasoningSource = () => CollectAssistantReasoning(messageList),
             SessionAffinity = _sessionAffinity,
             ReasoningTickets = CollectTickets(messageList, producer),
-            EncryptedReasoningObserved = ticket => _tickets.Record(assistantCount, Encoding.UTF8.GetString(ticket), producer),
+            EncryptedReasoningObserved = ticket => ticketJson = Encoding.UTF8.GetString(ticket),
         });
 
         ChatResponse response;
@@ -96,6 +97,20 @@ public class LazyChatClient : IChatClient
         foreach (ChatMessage message in response.Messages)
         {
             message.Contents = RecoverTextToolCalls(message.Contents, toolNames);
+        }
+
+        // 票据挂到这一发的回复消息上（ADR 0100）：长在消息里，随消息落盘。
+        // 非流式路径的回复消息就在这里，直接挂；流式路径走 EncryptedReasoningContent 那条路。
+        if (ticketJson != null)
+        {
+            foreach (ChatMessage message in response.Messages)
+            {
+                if (message.Role == ChatRole.Assistant)
+                {
+                    message.Contents.Add(EncryptedReasoningContent.WithTicket(ticketJson, producer.Provider, producer.Model));
+                    break;
+                }
+            }
         }
 
         return response;
@@ -120,8 +135,6 @@ public class LazyChatClient : IChatClient
     {
         IReadOnlyList<ChatMessage> messageList = AsList(messages);
         var (client, model) = await ResolveAsync(cancellationToken).ConfigureAwait(false);
-        // 这一发产出的回复会落在第 assistantCount 条助手消息上(0 起)——票据记在这个序号
-        int assistantCount = CountAssistantMessages(messageList);
         // 票据的产出方就是这一发用的模型；换模型后门禁会挡住旧票
         ReasoningGate producer = new(model.ModelInfo.ProviderId, model.ModelInfo.ModelId);
 
@@ -132,10 +145,13 @@ public class LazyChatClient : IChatClient
             PendingReasoningSource = () => CollectAssistantReasoning(messageList),
             SessionAffinity = _sessionAffinity,
             ReasoningTickets = CollectTickets(messageList, producer),
+            // 票据密文不能解析后再编码，所以原样存着；随信号内容一起发出，
+            // 框架会把它并进这一发的助手消息，落盘时转成持久的思考内容（ADR 0100）
             EncryptedReasoningObserved = ticket =>
             {
                 signal.Seen = true;
-                _tickets.Record(assistantCount, Encoding.UTF8.GetString(ticket), producer);
+                signal.TicketJson = Encoding.UTF8.GetString(ticket);
+                signal.Producer = producer;
             },
         });
 
@@ -321,11 +337,15 @@ public class LazyChatClient : IChatClient
                 if (update is null) throw new UnreachableException();
 
                 // 加密思考：HTTP 层在更深处看见了 <c>reasoning.encrypted</c>，界面得在思考期就有一张卡
-                // （等落盘那一刻才补，整段思考期都是空白）。只发一次：重试整段重发时那张卡已经在
+                // （等落盘那一刻才补，整段思考期都是空白）。只发一次：重试整段重发时那张卡已经在。
+                // 票据也随这一条内容走：它落到这一发的助手消息上，随消息落盘（ADR 0100）
                 if (!signal.Signalled && signal.Seen)
                 {
                     signal.Signalled = true;
-                    yield return (new ChatResponseUpdate(ChatRole.Assistant, [EncryptedReasoningContent.Instance]), null);
+                    EncryptedReasoningContent content = signal.TicketJson != null && signal.Producer is { } owner
+                        ? EncryptedReasoningContent.WithTicket(signal.TicketJson, owner.Provider, owner.Model)
+                        : EncryptedReasoningContent.Instance;
+                    yield return (new ChatResponseUpdate(ChatRole.Assistant, [content]), null);
                 }
 
                 if (textParser == null)
@@ -446,6 +466,12 @@ public class LazyChatClient : IChatClient
     /// 按助手消息顺序取出各自的票据，供本类挂到
     /// <see cref="LlmRequestContext.ReasoningTickets"/> 上使用。
     ///
+    /// <b>票据长在消息上</b>（ADR 0100）：从历史消息里就地读，不再有旁挂的映射表。
+    /// 这不只是为了扛重启——映射表靠「第几条助手消息」维持对应关系，
+    /// 而历史会被裁剪、消息会被替换，序号一漂移票就挂错位置（0100 补的那条
+    /// 「历史恰好长了一条助手消息」的门禁就是治这个的补丁）。改成随消息走之后，
+    /// 对应关系由消息列表本身保证，结构上就不会错位。
+    ///
     /// <b>每条挂自己那张，挂上就不动</b>：一轮只往历史末尾追加新消息，历史部分逐字节相同，
     /// 前缀才是纯追加。上一版把票据存在单个槽位里、只挂最后一条、用一次即消费，
     /// 于是票逐轮漂移、上轮挂过票的位置变成无票形态，前缀每轮分叉一次
@@ -457,19 +483,27 @@ public class LazyChatClient : IChatClient
     /// <param name="messages">历史消息</param>
     /// <param name="current">本次请求的模型身份（要与票的产出方一致才带）</param>
     /// <returns>按助手消息顺序的票据清单；一条都没有时为 null</returns>
-    private IReadOnlyList<string?>? CollectTickets(IReadOnlyList<ChatMessage> messages, ReasoningGate current)
+    private static IReadOnlyList<string?>? CollectTickets(IReadOnlyList<ChatMessage> messages, ReasoningGate current)
     {
         int count = CountAssistantMessages(messages);
-        if (count == 0 || _tickets.Count == 0) return null;
+        if (count == 0) return null;
 
         string?[] slots = new string?[count];
         bool any = false;
-        for (int i = 0; i < count; i++)
+        int index = 0;
+        foreach (ChatMessage message in messages)
         {
-            string? ticket = _tickets.TicketAt(i, current);
-            if (ticket == null) continue;
-            slots[i] = ticket;
-            any = true;
+            if (message.Role != ChatRole.Assistant) continue;
+
+            if (index < slots.Length &&
+                ReasoningTicketCarrier.Read(message) is { } ticket &&
+                ticket.Producer.Allows(current.Provider, current.Model))
+            {
+                slots[index] = ticket.Json;
+                any = true;
+            }
+
+            index++;
         }
 
         return any ? slots : null;
@@ -593,6 +627,8 @@ public class LazyChatClient : IChatClient
     {
         public bool Seen; //这一发见过加密条目
         public bool Signalled; //已经因此补过一张卡
+        public string? TicketJson; //票据原文（密文不能解析后再编码，原样带着走）
+        public ReasoningGate? Producer; //产出方（票据的归属，与票同生共死）
     }
 
     /// <summary>候选模型（会话钉选优先）的处置</summary>

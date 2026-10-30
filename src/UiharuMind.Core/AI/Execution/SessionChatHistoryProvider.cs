@@ -13,6 +13,7 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Execution.History;
+using UiharuMind.Core.AI.Reasoning;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Execution;
@@ -198,10 +199,21 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
             if (at < floor) at = floor;
             message.CreatedAt = at;
             floor = at;
-            // 加密思考那条信号是给界面看的，框架会把它当普通内容并进消息——落库前摘掉，否则它会跟着历史走
+            // 加密思考那条信号是给界面看的，框架会把它当普通内容并进消息。
+            // 落库前的处置分两种（ADR 0100）：
+            // ① 不带票据的纯信号——摘掉，否则它会跟着历史走，白占存储与提示词；
+            // ② 带票据的——转成一条持久的思考内容（ProtectedData 装密文、附加产出方身份），
+            //    随消息存进历史。票据长在消息上，重启后读历史即得，
+            //    不需要重建任何映射；历史一裁剪、一替换，序号映射那套就会错位。
             if (message.Contents.Any(x => x is EncryptedReasoningContent))
             {
-                message.Contents = message.Contents.Where(x => x is not EncryptedReasoningContent).ToList();
+                message.Contents = message.Contents
+                    .Select(x => x is EncryptedReasoningContent signal
+                        ? ReasoningTicketCarrier.ToPersistent(signal)
+                        : x)
+                    .Where(x => x is not null)
+                    .Select(x => x!)
+                    .ToList();
             }
 
             session.History.Add(message);

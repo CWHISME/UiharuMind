@@ -1,6 +1,8 @@
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Net.Request;
 using UiharuMind.Core.AI.Reasoning;
 using UiharuMind.Core.Core.Utils;
@@ -8,18 +10,32 @@ using UiharuMind.Core.Core.Utils;
 namespace UiharuMind.Core.Tests.AI;
 
 /// <summary>
-/// 端到端：票据从响应切下 → 按序号存 → 下一发原样挂回 → <b>历史部分逐字节相同</b>。
+/// 端到端：票据从响应切下 → <b>挂到消息上</b> → 随消息落盘 → 下一发原样挂回 →
+/// 历史部分逐字节相同。
 ///
 /// 这是缓存前缀稳定性的直接检验。上一版实现在这里挂不住：
 /// 票只挂最后一条、用一次即消费，于是上一轮挂过票的位置在下一轮变成无票形态，
 /// 那一条的字节变了 → 前缀分叉（实测命中率从 88.2% 掉到 35.3%）。
 ///
-/// 这里不测单个零件，只测「连续三轮之后，历史部分是否还是一模一样」。
+/// ADR 0100 决定 3 之后票据长在消息上，所以这里能测最关键的那条：<b>重启之后</b>（消息重新
+/// 从落盘读回来）前缀依然稳定。上一版的内存版在这里必挂——重启即丢票。
 /// </summary>
 public class ReasoningTicketStabilityTests
 {
     private const string TicketA = """[{"type":"reasoning.encrypted","data":"AAA","id":"rs_1:rs_a","format":"meta-responses-v1","index":0}]""";
     private const string TicketB = """[{"type":"reasoning.encrypted","data":"BBB","id":"rs_2:rs_b","format":"meta-responses-v1","index":0}]""";
+
+    private static readonly ReasoningGate Producer = new("commandcode", "muse");
+
+    /// <summary>造一条挂着票据的助手消息（模拟响应落成消息后带上票据）</summary>
+    private static ChatMessage AssistantWithTicket(string text, string? ticketJson)
+    {
+        if (ticketJson == null) return new(ChatRole.Assistant, text);
+
+        TextReasoningContent reasoning = new(string.Empty);
+        ReasoningTicketCarrier.Attach(reasoning, ticketJson, Producer);
+        return new ChatMessage(ChatRole.Assistant, [reasoning, new TextContent(text)]);
+    }
 
     /// <summary>
     /// 三轮对话，第三轮请求体里的历史部分必须与第二轮逐字节相同。
@@ -32,27 +48,48 @@ public class ReasoningTicketStabilityTests
     {
         //第 1 轮：只有用户消息，模型回了带票的助手消息
         List<ChatMessage> history = [new(ChatRole.User, "u1")];
-        string first = Rewrite(history, null);
+        string first = Rewrite(history);
 
-        //票记在第 0 条助手消息上（这一发的回复会落在序号 0）
-        ReasoningTicket ticketA = new(TicketA, new("commandcode", "muse"));
-        ReasoningTicket[] round1 = [ticketA];
-        //第 1 轮的回复落进历史
-        history.Add(new(ChatRole.Assistant, "a1"));
+        //第 1 轮的回复落进历史（带着它自己那张票）
+        history.Add(AssistantWithTicket("a1", TicketA));
 
-        //第 2 轮：带上第 0 条的票
-        string second = Rewrite(history, round1);
+        //第 2 轮：第 0 条助手消息带票
+        string second = Rewrite(history);
 
-        //第 2 轮的回复也带票，记在第 1 条上
-        history.Add(new(ChatRole.Assistant, "a2"));
-        ReasoningTicket ticketB = new(TicketB, new("commandcode", "muse"));
-        string third = Rewrite(history, [round1[0], ticketB]);
+        //第 2 轮的回复也带票
+        history.Add(AssistantWithTicket("a2", TicketB));
+
+        //第 3 轮：两条助手消息各带各的票
+        string third = Rewrite(history);
 
         //第 2 轮里的历史（消息 0..1）与第 3 轮里的历史（消息 0..1）必须逐字节相同
         string secondHistory = ExtractHistory(second, 2);
         string thirdHistory = ExtractHistory(third, 2);
 
         Assert.Equal(secondHistory, thirdHistory);
+    }
+
+    /// <summary>
+    /// <b>跨重启</b>：消息从落盘读回来之后，前缀依然稳定。
+    ///
+    /// 这是 ADR 0100 决定 3 才做到的。上一版票据只在内存，进程退出即丢——
+    /// 重启后历史里挂过票的消息变回无票形态，那一条起前缀全冷
+    /// （实测 muse-spark 末次会话丢掉 72.1% 的缓存）。
+    /// </summary>
+    [Fact]
+    public void HistoryBytes_StayIdenticalAcrossRestart()
+    {
+        List<ChatMessage> history = [new(ChatRole.User, "u1")];
+        history.Add(AssistantWithTicket("a1", TicketA));
+
+        string before = Rewrite(history);
+
+        //模拟重启：整段历史序列化再读回来（这就是落盘往返）
+        List<ChatMessage> reloaded = Reload(history);
+
+        string after = Rewrite(reloaded);
+
+        Assert.Equal(ExtractHistory(before, 2), ExtractHistory(after, 2));
     }
 
     /// <summary>
@@ -63,11 +100,14 @@ public class ReasoningTicketStabilityTests
     [Fact]
     public void TheFirstTicket_IsStillOnItsOwnMessageInTheThirdRound()
     {
-        List<ChatMessage> history = [new(ChatRole.User, "u1")];
-        history.Add(new(ChatRole.Assistant, "a1"));
-        history.Add(new(ChatRole.Assistant, "a2"));
+        List<ChatMessage> history =
+        [
+            new(ChatRole.User, "u1"),
+            AssistantWithTicket("a1", TicketA),
+            AssistantWithTicket("a2", null),
+        ];
 
-        string rewritten = Rewrite(history, [new ReasoningTicket(TicketA, new("commandcode", "muse"))]);
+        string rewritten = Rewrite(history);
 
         JsonArray messages = (JsonArray)JsonNode.Parse(rewritten!)!["messages"]!;
 
@@ -79,10 +119,10 @@ public class ReasoningTicketStabilityTests
     [Fact]
     public void TicketFromAnotherProvider_IsNotReplayed()
     {
-        List<ChatMessage> history = [new(ChatRole.User, "u1"), new(ChatRole.Assistant, "a1")];
+        List<ChatMessage> history = [new(ChatRole.User, "u1"), AssistantWithTicket("a1", TicketA)];
 
         //产票方是 commandcode，请求方是 openrouter —— 门禁不过
-        string rewritten = Rewrite(history, [new ReasoningTicket(TicketA, new("commandcode", "muse"))], current: "openrouter");
+        string rewritten = Rewrite(history, current: "openrouter");
 
         JsonArray messages = (JsonArray)JsonNode.Parse(rewritten!)!["messages"]!;
 
@@ -95,9 +135,9 @@ public class ReasoningTicketStabilityTests
     [Fact]
     public void TicketFromAnotherModel_IsNotReplayed()
     {
-        List<ChatMessage> history = [new(ChatRole.User, "u1"), new(ChatRole.Assistant, "a1")];
+        List<ChatMessage> history = [new(ChatRole.User, "u1"), AssistantWithTicket("a1", TicketA)];
 
-        string rewritten = Rewrite(history, [new ReasoningTicket(TicketA, new("commandcode", "muse"))], currentModel: "deepseek");
+        string rewritten = Rewrite(history, currentModel: "deepseek");
 
         JsonArray messages = (JsonArray)JsonNode.Parse(rewritten!)!["messages"]!;
 
@@ -117,21 +157,31 @@ public class ReasoningTicketStabilityTests
         Assert.False(rewritten); //false 表示「不必改写」，上游会直接发原文
     }
 
-    private static string Rewrite(IReadOnlyList<ChatMessage> history, IReadOnlyList<ReasoningTicket>? tickets,
-        string current = "commandcode", string currentModel = "muse")
+    /// <summary>
+    /// 按历史里的消息收集票据：位置由消息列表本身保证，不需要旁挂的映射表。
+    /// </summary>
+    private static IReadOnlyList<string?>? CollectSlots(IReadOnlyList<ChatMessage> history,
+        ReasoningGate current)
     {
-        IReadOnlyList<string?>? slots = null;
-        if (tickets != null)
+        List<string?> slots = [];
+        foreach (ChatMessage message in history)
         {
-            string?[] list = new string?[tickets.Count];
-            for (int i = 0; i < tickets.Count; i++)
+            if (message.Role != ChatRole.Assistant)
             {
-                ReasoningTicket ticket = tickets[i];
-                list[i] = ticket.Producer.Allows(current, currentModel) ? ticket.Json : null;
+                continue;
             }
 
-            slots = list;
+            (string Json, ReasoningGate Producer)? ticket = ReasoningTicketCarrier.Read(message);
+            slots.Add(ticket is { } t && t.Producer.Allows(current.Provider, current.Model) ? t.Json : null);
         }
+
+        return slots.Exists(x => x != null) ? slots : null;
+    }
+
+    private static string Rewrite(IReadOnlyList<ChatMessage> history,
+        string current = "commandcode", string currentModel = "muse")
+    {
+        IReadOnlyList<string?>? slots = CollectSlots(history, new ReasoningGate(current, currentModel));
 
         string body = BuildBody(history);
         using PooledByteWriter output = new(body.Length);
@@ -139,6 +189,20 @@ public class ReasoningTicketStabilityTests
                    new RequestRewrite(null, false, null, false, ReasoningTickets: slots), output)
             ? Encoding.UTF8.GetString(output.WrittenSpan)
             : body;
+    }
+
+    /// <summary>模拟重启：整段历史序列化再读回来</summary>
+    private static List<ChatMessage> Reload(IReadOnlyList<ChatMessage> history)
+    {
+        List<ChatMessage> reloaded = [];
+        foreach (ChatMessage message in history)
+        {
+            string json = JsonSerializer.Serialize(message, SessionJsonOptions.Default.GetTypeInfo(typeof(ChatMessage)));
+            ChatMessage? back = JsonSerializer.Deserialize(json, SessionJsonOptions.Default.GetTypeInfo(typeof(ChatMessage))) as ChatMessage;
+            if (back != null) reloaded.Add(back);
+        }
+
+        return reloaded;
     }
 
     private static string BuildBody(IReadOnlyList<ChatMessage> history)

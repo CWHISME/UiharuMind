@@ -40,9 +40,15 @@ public static class ChatContentNormalizer
     /// </summary>
     /// <param name="content">待判定内容</param>
     /// <returns>是则为 true</returns>
+    /// <remarks>
+    /// <b>带密文的空思考不算空</b>：加密思考的正文永远不下发，思考内容只有
+    /// <see cref="TextReasoningContent.ProtectedData"/> 一项（上游 M.E.AI 明说这种形态合法）。
+    /// 把它当空思考丢掉，票据就跟着没了——下一发回填不了密文，推理链断，
+    /// 而且丢的那条消息与重启前的字节不一致，前缀缓存当场分叉。
+    /// </remarks>
     public static bool IsEmptyTextLike(AIContent content) => content switch
     {
-        TextReasoningContent reasoning => reasoning.Text.Length == 0,
+        TextReasoningContent reasoning => reasoning.Text.Length == 0 && string.IsNullOrEmpty(reasoning.ProtectedData),
         TextContent text => text.Text.Length == 0,
         _ => false,
     };
@@ -70,6 +76,17 @@ public static class ChatContentNormalizer
 
             if (content is TextReasoningContent fragment)
             {
+                // 带密文的思考**不能并进文本片段**：并进去就等于丢掉密文——
+                // 合并出来的是一条全新的 TextReasoningContent，ProtectedData 不会被带过去。
+                // 票据一丢，下一发回填不了密文，推理链断，且那条消息与重启前字节不一致，
+                // 前缀缓存当场分叉。所以它原样保留，不参与片段合并。
+                if (!string.IsNullOrEmpty(fragment.ProtectedData))
+                {
+                    FlushReasoning(rebuilt, ref reasoning);
+                    rebuilt.Add(fragment);
+                    continue;
+                }
+
                 (reasoning ??= new StringBuilder()).Append(fragment.Text);
                 continue;
             }

@@ -75,8 +75,8 @@ public sealed record LlmRequestContext
     /// 这个是密文票据、写 <c>reasoning_details</c>，<b>只能原样发给产出它的那个模型</b>。
     /// 复用同一个顺序约定，因为两者都挂在「第几条助手消息」上。
     ///
-    /// 一条消息的票挂上就不动（见 <see cref="Reasoning.TicketStore"/>）：每轮原样重发，
-    /// 历史部分逐字节相同，前缀才是纯追加。
+    /// 票据<b>长在消息上</b>（ADR 0100，随消息落盘）：一条消息的票挂上就不动，
+    /// 每轮原样重发，历史部分逐字节相同，前缀才是纯追加。
     /// </summary>
     public IReadOnlyList<string?>? ReasoningTickets { get; init; }
 }
