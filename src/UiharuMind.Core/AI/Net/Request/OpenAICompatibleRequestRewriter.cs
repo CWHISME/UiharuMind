@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System.Buffers;
+using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -50,8 +51,10 @@ internal static class OpenAICompatibleRequestRewriter
         // 大多数请求不含畸形 tool_calls 参数,先做一次廉价的字节扫描,避免每次都逐条走 messages
         bool fixArguments = json.IndexOf("\"arguments\":\"null\""u8) >= 0 || json.IndexOf("\"arguments\": \"null\""u8) >= 0;
         IReadOnlyList<string?>? reasoning = rewrite.ReasoningByAssistantMessage is { Count: > 0 } list ? list : null;
+        IReadOnlyList<string?>? tickets = rewrite.ReasoningTickets is { Count: > 0 } ticketList ? ticketList : null;
         if (rewrite.ExtraParams is not { Count: > 0 } && !rewrite.ForbidToolCalls && !fixArguments && reasoning == null &&
-            !rewrite.OmitSamplingParams && !rewrite.FillEmptyReasoning && rewrite.PromptCacheKey == null)
+            !rewrite.OmitSamplingParams && !rewrite.FillEmptyReasoning && rewrite.PromptCacheKey == null &&
+            tickets == null)
         {
             return false;
         }
@@ -84,10 +87,10 @@ internal static class OpenAICompatibleRequestRewriter
                 reader.Read();
                 // 被额外参数覆盖掉的 messages 不能扫:记下的改动会落到别的属性上
                 if (isMessages && !drop &&
-                    (fixArguments || reasoning != null || rewrite.FillEmptyReasoning) &&
+                    (fixArguments || reasoning != null || rewrite.FillEmptyReasoning || tickets != null) &&
                     reader.TokenType == JsonTokenType.StartArray)
                     ScanMessages(ref reader, fixArguments, reasoning, rewrite.FillEmptyReasoning, rewrite.ReasoningField,
-                        edits);
+                        tickets, edits);
                 else
                     SkipValue(ref reader);
 
@@ -105,13 +108,14 @@ internal static class OpenAICompatibleRequestRewriter
 
     private static void ScanMessages(ref Utf8JsonReader reader, bool fixArguments,
         IReadOnlyList<string?>? reasoning, bool fillEmptyReasoning, string reasoningField,
-        List<Utf8JsonSplice.Edit> edits)
+        IReadOnlyList<string?>? tickets, List<Utf8JsonSplice.Edit> edits)
     {
         int assistantIndex = 0; //第几条助手消息,与 reasoning 列表一一对应
         while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
         {
             if (reader.TokenType == JsonTokenType.StartObject)
-                ScanMessage(ref reader, fixArguments, reasoning, fillEmptyReasoning, reasoningField, edits, ref assistantIndex);
+                ScanMessage(ref reader, fixArguments, reasoning, fillEmptyReasoning, reasoningField, tickets, edits,
+                    ref assistantIndex);
             else SkipValue(ref reader);
         }
     }
@@ -131,7 +135,7 @@ internal static class OpenAICompatibleRequestRewriter
     /// </summary>
     private static void ScanMessage(ref Utf8JsonReader reader, bool fixArguments,
         IReadOnlyList<string?>? reasoning, bool fillEmptyReasoning, string reasoningField,
-        List<Utf8JsonSplice.Edit> edits, ref int assistantIndex)
+        IReadOnlyList<string?>? tickets, List<Utf8JsonSplice.Edit> edits, ref int assistantIndex)
     {
         bool isAssistant = false;
         bool hasReasoning = false;
@@ -170,6 +174,15 @@ internal static class OpenAICompatibleRequestRewriter
         // 此时停在消息对象的 '}' 上。序号必须无条件递增(已带正文的消息同样占一个位置),
         // 否则后面每条都会错位取到上一条的思考
         int index = isAssistant ? assistantIndex++ : -1;
+
+        // 加密票据按位置原样拼回去。与明文那条互不影响:同一条消息可能两个都有。
+        // 能不能发（同模型门禁）在收集侧就判过了，这里只管字节
+        if (index >= 0 && tickets != null && index < tickets.Count && tickets[index] is { } ticket)
+        {
+            int ticketAt = (int)reader.TokenStartIndex;
+            edits.Add(new Utf8JsonSplice.Edit(ticketAt, ticketAt, Encoding.UTF8.GetBytes($",\"reasoning_details\":{ticket}")));
+        }
+
         if (index < 0 || hasReasoning) return;
 
         string? text = reasoning != null && index < reasoning.Count ? reasoning[index] : null;

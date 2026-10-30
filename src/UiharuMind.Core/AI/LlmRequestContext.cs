@@ -55,14 +55,28 @@ public sealed record LlmRequestContext
     public string? SessionAffinity { get; init; }
 
     /// <summary>
-    /// 这一发<b>看见了加密思考</b>时通知一次（流里出现 <c>reasoning.encrypted</c> 条目）。
+    /// 这一发<b>看见了加密思考</b>时通知一次，交出票据原文（流里出现 <c>reasoning.encrypted</c> 条目）。
     ///
     /// 由 <see cref="Execution.LazyChatClient"/> 每发请求挂上，HTTP 层观测到就调。
-    /// 存在的理由只有一个：加密思考的正文永远不会下发，而"它正在思考"这件事只在流里一闪而过——
-    /// 没有这个信号，思考卡只能等落盘那一刻补，界面上整段思考期是空的。
+    /// 存在的理由有两个：
+    /// ① 加密思考的正文永远不会下发，而"它正在思考"这件事只在流里一闪而过——
+    /// 没有这个信号，思考卡只能等落盘那一刻补，界面上整段思考期是空的；
+    /// ② 票据要原样存下来，下一发原样带回（密文不能解析后再编码）。
     ///
     /// 传的是回调而不是标志位：回调是同一个对象，HTTP 层在深处调它，调用方拿得到结果——
     /// 而 <c>AsyncLocal</c> 里写下的值不会向调用方回流，标志位那样传不出来。
     /// </summary>
-    public Action? EncryptedReasoningObserved { get; init; }
+    public Action<byte[]>? EncryptedReasoningObserved { get; init; }
+
+    /// <summary>
+    /// 本次请求里，<b>按助手消息出现顺序</b>排列的加密思考票据（缺的位置为 null）。
+    ///
+    /// 与 <see cref="PendingReasoningSource"/> 是两条独立的路：那个是明文正文、写 <c>reasoning_content</c>；
+    /// 这个是密文票据、写 <c>reasoning_details</c>，<b>只能原样发给产出它的那个模型</b>。
+    /// 复用同一个顺序约定，因为两者都挂在「第几条助手消息」上。
+    ///
+    /// 一条消息的票挂上就不动（见 <see cref="Reasoning.TicketStore"/>）：每轮原样重发，
+    /// 历史部分逐字节相同，前缀才是纯追加。
+    /// </summary>
+    public IReadOnlyList<string?>? ReasoningTickets { get; init; }
 }

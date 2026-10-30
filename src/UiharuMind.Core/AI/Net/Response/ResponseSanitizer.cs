@@ -1,5 +1,6 @@
 using System.Buffers;
 using UiharuMind.Core.AI.Net.Diagnostics;
+using UiharuMind.Core.AI.Reasoning;
 
 namespace UiharuMind.Core.AI.Net.Response;
 
@@ -36,7 +37,7 @@ internal sealed class ResponseSanitizer
 
         // 这一发的「看见加密思考」回调：由 LazyChatClient 每发一次挂上，界面据此先开一张没有正文的思考卡。
         // 在这里取而不是构造时取——清洗器按端点长期存活，回调是逐请求的
-        Action? encryptedReasoning = LlmRequestScope.Current.EncryptedReasoningObserved;
+        Action<byte[]>? encryptedReasoning = LlmRequestScope.Current.EncryptedReasoningObserved;
 
         var mediaType = response.Content.Headers.ContentType?.MediaType;
         if (mediaType == "text/event-stream")
@@ -47,9 +48,10 @@ internal sealed class ResponseSanitizer
         {
             HttpContent original = response.Content;
             byte[] json = await original.ReadAsByteArrayAsync(cancellationToken);
-            // 一次性响应里出现加密条目同样是「它思考过」的证据，只是没有流式那个时机可言
-            if (encryptedReasoning != null && json.AsSpan().IndexOf("reasoning.encrypted"u8) >= 0)
-                encryptedReasoning();
+            // 一次性响应里出现加密条目同样是「它思考过」的证据，只是没有流式那个时机可言。
+            // 交出的是原文（整段 reasoning_details 数组），上层原样存着下一发带回
+            if (encryptedReasoning != null && ReasoningDetailExtractor.TryExtract(json, out byte[] ticket))
+                encryptedReasoning(ticket);
             var fixedJson = new ArrayBufferWriter<byte>(json.Length + 64);
             if (OpenAiCompatibleResponseFixer.TryFix(json, fixedJson, out string? reasoningField))
             {

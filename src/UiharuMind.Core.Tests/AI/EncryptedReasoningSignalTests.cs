@@ -28,7 +28,7 @@ public class EncryptedReasoningSignalTests
             "data: [DONE]\n\n";
         int reported = 0;
         using MemoryStream inner = new(Encoding.UTF8.GetBytes(body));
-        await using SseSanitizingStream stream = new(inner, null, () => reported++);
+        await using SseSanitizingStream stream = new(inner, null, _ => reported++);
 
         using StreamReader reader = new(stream);
         await reader.ReadToEndAsync(TestContext.Current.CancellationToken);
@@ -45,7 +45,7 @@ public class EncryptedReasoningSignalTests
             "data: [DONE]\n\n";
         int reported = 0;
         using MemoryStream inner = new(Encoding.UTF8.GetBytes(body));
-        await using SseSanitizingStream stream = new(inner, null, () => reported++);
+        await using SseSanitizingStream stream = new(inner, null, _ => reported++);
 
         using StreamReader reader = new(stream);
         await reader.ReadToEndAsync(TestContext.Current.CancellationToken);
@@ -100,7 +100,9 @@ public class EncryptedReasoningSignalTests
             [System.Runtime.CompilerServices.EnumeratorCancellation]
             CancellationToken cancellationToken = default)
         {
-            LlmRequestScope.Current.EncryptedReasoningObserved?.Invoke();
+            // 票据形态照 CommandCode 实测结果：一个 reasoning.encrypted 条目，data 是密文
+            LlmRequestScope.Current.EncryptedReasoningObserved?.Invoke(
+                """[{"type":"reasoning.encrypted","data":"Q-PaD"}]"""u8.ToArray());
             await Task.Yield();
             yield return new ChatResponseUpdate(ChatRole.Assistant, "391");
         }

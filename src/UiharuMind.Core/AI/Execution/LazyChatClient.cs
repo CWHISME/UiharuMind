@@ -17,6 +17,7 @@ using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Net;
+using UiharuMind.Core.AI.Reasoning;
 using UiharuMind.Core.Configs.RemoteAI;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.RemoteOpenAI;
@@ -42,6 +43,7 @@ public class LazyChatClient : IChatClient
 
     private readonly Func<ModelRunningData?>? _sessionModelSource; //会话级模型来源,优先于全局当前模型
     private readonly string? _sessionAffinity; //会话亲和值,每发请求前挂到请求上下文上供 HTTP 层写头
+    private readonly TicketStore _tickets = new(); //加密思考票据:按助手消息序号存,每条挂自己那张(见 Reasoning.TicketStore)
 
     /// <param name="sessionModelSource">会话级模型来源；null 走全局当前模型</param>
     /// <param name="sessionAffinity">
@@ -59,15 +61,22 @@ public class LazyChatClient : IChatClient
         CancellationToken cancellationToken = default)
     {
         IReadOnlyList<ChatMessage> messageList = AsList(messages);
-        // 只替换这两项、其余沿用外层（写交接文档那一发把 ForbidToolCalls 挂在外层）；
+        var (client, model) = await ResolveAsync(cancellationToken).ConfigureAwait(false);
+        // 这一发产出的回复会落在第 assistantCount 条助手消息上(0 起)——票据记在这个序号
+        int assistantCount = CountAssistantMessages(messageList);
+        // 票据的产出方就是这一发用的模型；换模型后门禁会挡住旧票
+        ReasoningGate producer = new(model.ModelInfo.ProviderId, model.ModelInfo.ModelId);
+
+        // 只替换这几项、其余沿用外层（写交接文档那一发把 ForbidToolCalls 挂在外层）；
         // using 结束还原成进来时那份，值不会留给同一条异步流上的下一发
         using LlmRequestScope.Scope scope = LlmRequestScope.Push(LlmRequestScope.Current with
         {
             PendingReasoningSource = () => CollectAssistantReasoning(messageList),
             SessionAffinity = _sessionAffinity,
+            ReasoningTickets = CollectTickets(messageList, producer),
+            EncryptedReasoningObserved = ticket => _tickets.Record(assistantCount, Encoding.UTF8.GetString(ticket), producer),
         });
 
-        var (client, model) = await ResolveAsync(cancellationToken).ConfigureAwait(false);
         ChatResponse response;
         try
         {
@@ -110,16 +119,26 @@ public class LazyChatClient : IChatClient
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         IReadOnlyList<ChatMessage> messageList = AsList(messages);
+        var (client, model) = await ResolveAsync(cancellationToken).ConfigureAwait(false);
+        // 这一发产出的回复会落在第 assistantCount 条助手消息上(0 起)——票据记在这个序号
+        int assistantCount = CountAssistantMessages(messageList);
+        // 票据的产出方就是这一发用的模型；换模型后门禁会挡住旧票
+        ReasoningGate producer = new(model.ModelInfo.ProviderId, model.ModelInfo.ModelId);
+
         // 作用域覆盖整段枚举（含中途重发）：断线重试时请求体会按同一份上下文重新改写
         EncryptedReasoningSignal signal = new();
         using LlmRequestScope.Scope scope = LlmRequestScope.Push(LlmRequestScope.Current with
         {
             PendingReasoningSource = () => CollectAssistantReasoning(messageList),
             SessionAffinity = _sessionAffinity,
-            EncryptedReasoningObserved = () => signal.Seen = true,
+            ReasoningTickets = CollectTickets(messageList, producer),
+            EncryptedReasoningObserved = ticket =>
+            {
+                signal.Seen = true;
+                _tickets.Record(assistantCount, Encoding.UTF8.GetString(ticket), producer);
+            },
         });
 
-        var (client, model) = await ResolveAsync(cancellationToken).ConfigureAwait(false);
         HashSet<string>? toolNames = CollectToolNames(options);
 
         // 流式中途被服务端掐断(HttpIOException: ResponseEnded)时重发整个请求再试几次。
@@ -406,6 +425,55 @@ public class LazyChatClient : IChatClient
     /// <summary>历史消息可能是一次性的枚举,重复枚举(转发给底层客户端+扫描思考正文)前先落地一份</summary>
     private static IReadOnlyList<ChatMessage> AsList(IEnumerable<ChatMessage> messages) =>
         messages as IReadOnlyList<ChatMessage> ?? messages.ToList();
+
+    /// <summary>
+    /// 数历史里的助手消息条数。票据按这个序号定位：产出的回复会落在下一个序号上。
+    /// </summary>
+    /// <param name="messages">历史消息</param>
+    /// <returns>助手消息条数</returns>
+    private static int CountAssistantMessages(IReadOnlyList<ChatMessage> messages)
+    {
+        int count = 0;
+        foreach (ChatMessage message in messages)
+        {
+            if (message.Role == ChatRole.Assistant) count++;
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// 按助手消息顺序取出各自的票据，供本类挂到
+    /// <see cref="LlmRequestContext.ReasoningTickets"/> 上使用。
+    ///
+    /// <b>每条挂自己那张，挂上就不动</b>：一轮只往历史末尾追加新消息，历史部分逐字节相同，
+    /// 前缀才是纯追加。上一版把票据存在单个槽位里、只挂最后一条、用一次即消费，
+    /// 于是票逐轮漂移、上轮挂过票的位置变成无票形态，前缀每轮分叉一次
+    /// （实测命中率从 88.2% 掉到 35.3%）。
+    ///
+    /// 门禁在收集侧就判：不是产出它的那家模型就不带——网关不校验归属，
+    /// 发错了不会报错，只会安静地错。
+    /// </summary>
+    /// <param name="messages">历史消息</param>
+    /// <param name="current">本次请求的模型身份（要与票的产出方一致才带）</param>
+    /// <returns>按助手消息顺序的票据清单；一条都没有时为 null</returns>
+    private IReadOnlyList<string?>? CollectTickets(IReadOnlyList<ChatMessage> messages, ReasoningGate current)
+    {
+        int count = CountAssistantMessages(messages);
+        if (count == 0 || _tickets.Count == 0) return null;
+
+        string?[] slots = new string?[count];
+        bool any = false;
+        for (int i = 0; i < count; i++)
+        {
+            string? ticket = _tickets.TicketAt(i, current);
+            if (ticket == null) continue;
+            slots[i] = ticket;
+            any = true;
+        }
+
+        return any ? slots : null;
+    }
 
     /// <summary>
     /// 从历史消息里按<b>助手消息出现顺序</b>收集思考正文,供本类挂到

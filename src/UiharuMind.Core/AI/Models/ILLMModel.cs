@@ -86,4 +86,15 @@ public interface ILlmModel
     /// 所以默认关，只由认它的供应商打开（opencode 的 <c>supportsPromptCacheKey</c> 同口径）。
     /// </summary>
     public bool SupportsPromptCacheKey => false;
+
+    /// <summary>
+    /// 这个模型的<b>供应商标识</b>（谁签的票）。
+    ///
+    /// 加密思考票据是「只有原厂认得的凭证」，换供应商就没有意义——而网关自己不校验
+    /// （实测把 Meta 的票发给 deepseek 照样 200），所以门禁只能在这一侧。
+    /// 只比 <see cref="ModelId"/> 不够：同一个模型 id 在不同供应商下是不同的东西。
+    ///
+    /// 取配置类型名（<c>RemoteCommandCodeModelConfig</c> 这类），本地模型取空。
+    /// </summary>
+    public string ProviderId => GetType().Name;
 }

@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Runtime.CompilerServices;
 using System.Text;
+using UiharuMind.Core.AI.Reasoning;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Net.Response;
@@ -34,14 +35,11 @@ internal sealed class SseSanitizingStream : Stream
     private byte[] _lastDataLine = []; //最后一条 data 行原文(诊断用:看服务端收尾时到底发了什么)
     private int _lastDataLineLength;
     private readonly SseReasoningCensus _reasoningCensus = new(); //思考字段普查:加密思考有没有下发,只能在这里看
-    private readonly Action? _encryptedReasoningObserver; //看见加密思考时通知一次(界面据此先开一张没有正文的思考卡)
-    private bool _encryptedSeen; //加密条目只通知一次:一条流里它可能出现多帧
-
-    /// <summary>加密思考在帧里的标记：<c>type:"reasoning.encrypted"</c>，Kimi 方言的裸 <c>type:"encrypted"</c> 另算</summary>
-    private static readonly byte[] EncryptedReasoningMarker = "reasoning.encrypted"u8.ToArray();
+    private readonly Action<byte[]>? _encryptedReasoningObserver; //看见加密思考时交出它的原文(界面开卡 + 下一发回填)
+    private bool _encryptedSeen; //只交一次:一条流里它可能出现多帧,且票据始终是同一张
 
     public SseSanitizingStream(Stream inner, Action<string>? reasoningFieldObserver = null,
-        Action? encryptedReasoningObserver = null)
+        Action<byte[]>? encryptedReasoningObserver = null)
     {
         _inner = inner;
         _reasoningFieldObserver = reasoningFieldObserver;
@@ -223,12 +221,14 @@ internal sealed class SseSanitizingStream : Stream
         if (line.StartsWith("data:"u8))
         {
             _reasoningCensus.Observe(line);
-            // 加密思考的正文永远不会下发,但"它正在思考"这件事在这一帧就有证据。
-            // 一帧就够:界面要的是开一张卡,不是数它有几条
-            if (!_encryptedSeen && line.IndexOf(EncryptedReasoningMarker) >= 0)
+            // 加密思考的正文永远不会下发,但凭证在这一帧里就有:原样切下来,一份给界面开卡,
+            // 一份留给下一发请求——两者都是同一张票,所以只交一次
+            if (!_encryptedSeen && _encryptedReasoningObserver != null &&
+                ReasoningDetailExtractor.TryExtract(line, out byte[] ticket) &&
+                ticket.AsSpan().IndexOf("encrypted"u8) >= 0)
             {
                 _encryptedSeen = true;
-                _encryptedReasoningObserver?.Invoke();
+                _encryptedReasoningObserver(ticket);
             }
         }
         // 跳过 [DONE]:要的是最后一条<b>业务帧</b>(它才带 finish_reason/usage)。
