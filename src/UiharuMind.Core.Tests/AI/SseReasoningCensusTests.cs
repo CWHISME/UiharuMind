@@ -6,7 +6,7 @@ namespace UiharuMind.Core.Tests.AI;
 
 /// <summary>
 /// 思考字段普查：加密思考有没有下发，唯一的观测手段是这个计数——
-/// 它数错了，muse-spark 那种「有思考 token、没有思考正文」的判读就会跟着错。
+/// 它数错了，「有思考 token、没有思考正文」那类模型的判读就会跟着错。
 /// </summary>
 public class SseReasoningCensusTests
 {
