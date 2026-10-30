@@ -209,6 +209,33 @@ def step_foreign_replay(chat):
     return False
 
 
+def step_replay_cost(chat):
+    print("\n== 3c. 回填的代价：同一段对话带/不带票据各发一次 ==")
+    if not chat or not chat["ticket_fields"]:
+        print("  第 2 步没有票据，跳过")
+        return
+    plain_assistant = {"role": "assistant", "content": "391"}
+    with_ticket = dict(plain_assistant)
+    with_ticket.update(chat["ticket_fields"])
+
+    def tokens(assistant):
+        result = post("/v1/chat/completions", {
+            "model": MODEL,
+            "messages": [{"role": "user", "content": PROMPT}, assistant, {"role": "user", "content": FOLLOW_UP}],
+            "stream": False,
+        })
+        if failed(result):
+            return None
+        return (result.get("usage") or {}).get("prompt_tokens")
+
+    without = tokens(plain_assistant)
+    with_it = tokens(with_ticket)
+    print("  不带票据 prompt_tokens:", without)
+    print("  带票据   prompt_tokens:", with_it)
+    if without and with_it:
+        print(f"  → 一张票据折合 {with_it - without} 个输入 token（{len(json.dumps(chat['ticket_fields']))} 字符的 JSON）")
+
+
 def step_responses():
     print("\n== 4. /responses + include:[\"reasoning.encrypted_content\"] ==")
     body = {
@@ -268,6 +295,7 @@ def main():
     failed_stream = step_chat_stream()
     failed_replay = step_chat_replay(chat)
     step_foreign_replay(chat)
+    step_replay_cost(chat)
     first, failed_responses = step_responses()
     failed_responses_replay = step_responses_replay(first) if first is not None else True
 
