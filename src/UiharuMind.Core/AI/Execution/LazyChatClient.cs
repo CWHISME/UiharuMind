@@ -93,11 +93,16 @@ public class LazyChatClient : IChatClient
         }
 
         HashSet<string>? toolNames = CollectToolNames(options);
-        if (toolNames == null) return response;
+        if (toolNames == null)
+        {
+            StampTicketProducers(response.Messages, producer);
+            return response;
+        }
         foreach (ChatMessage message in response.Messages)
         {
             message.Contents = RecoverTextToolCalls(message.Contents, toolNames);
         }
+        StampTicketProducers(response.Messages, producer);
 
         // 票据挂到这一发的回复消息上（ADR 0100）：长在消息里，随消息落盘。
         // 非流式路径的回复消息就在这里，直接挂；流式路径走 EncryptedReasoningContent 那条路。
@@ -170,7 +175,7 @@ public class LazyChatClient : IChatClient
         {
             bool retryable = false;
             await foreach (var (update, failure) in StreamOnceAsync(
-                               client, messageList, options, toolNames, model.ModelName, signal, cancellationToken)
+                               client, messageList, options, toolNames, model.ModelName, signal, producer, cancellationToken)
                            .ConfigureAwait(false))
             {
                 if (failure != null)
@@ -281,7 +286,7 @@ public class LazyChatClient : IChatClient
     /// </summary>
     private async IAsyncEnumerable<(ChatResponseUpdate? Update, Exception? Failure)> StreamOnceAsync(
         IChatClient client, IReadOnlyList<ChatMessage> messages, ChatOptions? options, HashSet<string>? toolNames,
-        string? modelName, EncryptedReasoningSignal signal,
+        string? modelName, EncryptedReasoningSignal signal, ReasoningGate producer,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         // 文本工具调用恢复:GLM 线格式的调用可能以纯文本漏进正文或思考通道
@@ -372,7 +377,16 @@ public class LazyChatClient : IChatClient
                             break;
                         default:
                             //空正文/空思考不留:它们只会把思考段切碎,详见 ChatContentNormalizer
-                            if (!ChatContentNormalizer.IsEmptyTextLike(content)) rebuilt.Add(content);
+                            if (!ChatContentNormalizer.IsEmptyTextLike(content))
+                            {
+                                // 带密文的空思考（responses 线由 SDK 解出）要补上产出方身份——
+                                // 身份是门禁的输入,缺了它落盘的票读回来也不知道该发给谁
+                                if (content is TextReasoningContent { ProtectedData: { Length: > 0 } } stamped)
+                                {
+                                    StampTicketProducer(stamped, producer);
+                                }
+                                rebuilt.Add(content);
+                            }
                             break;
                     }
                 }
@@ -460,6 +474,55 @@ public class LazyChatClient : IChatClient
         }
 
         return count;
+    }
+
+    /// <summary>
+    /// 给响应里带密文的思考内容补上<b>产出方身份</b>。
+    ///
+    /// 为什么需要这一步：chat 线的密文是我们自己从字节里切出来的，
+    /// 切的时候就知道是谁产出的，顺手把身份挂上。responses 线的密文是
+    /// <b>SDK 解出来的</b>——它只还原 <c>ProtectedData</c>（密文）与 item id，
+    /// 不知道也不该知道「这台机器上是谁签的票」。
+    ///
+    /// 而身份是<b>门禁的输入</b>：没有它，重启后读历史就无从判断这张票该不该发给
+    /// 当前这个模型，只能一律不发——票据白存。
+    ///
+    /// 只补缺失的，不覆盖已有的：落盘往返后身份已经在了（值可能是 JsonElement，
+    /// 不能用「非空」判断，得按键在不在来判断）。
+    /// </summary>
+    /// <param name="messages">响应消息</param>
+    /// <param name="producer">这一发用的模型（票据的产出方）</param>
+    private static void StampTicketProducers(IEnumerable<ChatMessage> messages, ReasoningGate producer)
+    {
+        foreach (ChatMessage message in messages)
+        {
+            foreach (AIContent content in message.Contents)
+            {
+                if (content is TextReasoningContent { ProtectedData: { Length: > 0 } } reasoning)
+                    StampTicketProducer(reasoning, producer);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 给一条带密文的思考内容补上产出方身份（已有则不动）。
+    /// </summary>
+    /// <param name="reasoning">承载密文的思考内容</param>
+    /// <param name="producer">这一发用的模型（票据的产出方）</param>
+    internal static void StampTicketProducer(TextReasoningContent reasoning, ReasoningGate producer)
+    {
+        // 落盘往返后身份已经在了，但值可能是 JsonElement —— 不能用「非空」判断，
+        // 得按键在不在来判断
+        if (reasoning.AdditionalProperties is not null
+            && reasoning.AdditionalProperties.ContainsKey(ReasoningTicketCarrier.ProducerProviderKey)
+            && reasoning.AdditionalProperties.ContainsKey(ReasoningTicketCarrier.ProducerModelKey))
+        {
+            return;
+        }
+
+        reasoning.AdditionalProperties ??= new AdditionalPropertiesDictionary();
+        reasoning.AdditionalProperties[ReasoningTicketCarrier.ProducerProviderKey] = producer.Provider;
+        reasoning.AdditionalProperties[ReasoningTicketCarrier.ProducerModelKey] = producer.Model;
     }
 
     /// <summary>
