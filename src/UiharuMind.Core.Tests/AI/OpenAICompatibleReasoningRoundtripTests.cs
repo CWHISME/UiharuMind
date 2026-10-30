@@ -7,6 +7,7 @@ using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Configs.RemoteAI;
 using UiharuMind.Core.AI.Net.Transport;
 using UiharuMind.Core.AI.Net.Request;
+using UiharuMind.Core.AI.Reasoning;
 
 namespace UiharuMind.Core.Tests.AI;
 
@@ -370,7 +371,7 @@ public class OpenAICompatibleReasoningRoundtripTests
     /// 纯文本回复的思考整段丢掉（CommandCode 的 messages[8] 就是这么 400 的）。
     /// </summary>
     [Fact]
-    public void CollectAssistantReasoning_CoversPlainRepliesInOrder()
+    public void ReplayPlan_CoversPlainRepliesInOrder()
     {
         ChatMessage[] history =
         [
@@ -381,7 +382,7 @@ public class OpenAICompatibleReasoningRoundtripTests
             new(ChatRole.Assistant, [new TextReasoningContent("收尾")]),
         ];
 
-        IReadOnlyList<string?>? collected = LazyChatClient.CollectAssistantReasoning(history);
+        IReadOnlyList<string?>? collected = ReplayPlan.For(history, new ReasoningGate("p", "m")).Reasoning;
 
         Assert.NotNull(collected);
         Assert.Equal(3, collected.Count); // 只数助手消息
@@ -392,25 +393,25 @@ public class OpenAICompatibleReasoningRoundtripTests
 
     /// <summary>老会话里一条消息躺着多段思考碎片，要拼齐</summary>
     [Fact]
-    public void CollectAssistantReasoning_JoinsFragments()
+    public void ReplayPlan_JoinsFragments()
     {
         ChatMessage[] history =
         [
             new(ChatRole.Assistant, [new TextReasoningContent("先想"), new TextReasoningContent("再想")]),
         ];
 
-        IReadOnlyList<string?>? collected = LazyChatClient.CollectAssistantReasoning(history);
+        IReadOnlyList<string?>? collected = ReplayPlan.For(history, new ReasoningGate("p", "m")).Reasoning;
 
         Assert.Equal("先想再想", collected![0]);
     }
 
     /// <summary>一条思考都没有时返回 null，改写整段跳过</summary>
     [Fact]
-    public void CollectAssistantReasoning_ReturnsNullWhenNothingToReplay()
+    public void ReplayPlan_ReturnsNullWhenNothingToReplay()
     {
         ChatMessage[] history = [new(ChatRole.User, "你好"), new(ChatRole.Assistant, "答")];
 
-        Assert.Null(LazyChatClient.CollectAssistantReasoning(history));
+        Assert.Null(ReplayPlan.For(history, new ReasoningGate("p", "m")).Reasoning);
     }
 
     private static JsonObject RestoreMessage(string json, string?[] reasoning,

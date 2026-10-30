@@ -1,10 +1,10 @@
 using System.Buffers;
 using System.ClientModel;
-using System.Reflection;
 using System.Text;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Reasoning;
 using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.AI.Net.Transport;
 using UiharuMind.Core.Core.SimpleLog;
@@ -80,13 +80,12 @@ internal static class RequestBench
             Console.WriteLine($"  Bodies 落盘 {item.CharCount:N0} 字符：{Measure.Kb(append.Bytes)}/条，{append.Micros / 1000:0.00} ms");
         }
 
-        // 思考回填的收集：只有要求回填思考的模型才做（LazyChatClient 挂的是惰性来源）
-        MethodInfo collect = typeof(LazyChatClient).GetMethod("CollectAssistantReasoning", BindingFlags.NonPublic | BindingFlags.Static)!;
+        // 思考回填的计划：门禁过滤 + 明文/票据两条清单，一次遍历产出
         foreach (int thinkingChars in new[] { 240, 3000 })
         {
             IReadOnlyList<ChatMessage> history = Conversation.Build(rounds: 95, withImage: false, thinkingChars).Messages;
-            var collectCost = Measure.Run(alloc, 50, () => collect.Invoke(null, [history]));
-            Console.WriteLine($"  思考回填收集（95 轮，每轮思考 {thinkingChars} 字）：{Measure.Kb(collectCost.Bytes)}/次请求");
+            var collectCost = Measure.Run(alloc, 50, () => ReplayPlan.For(history, new ReasoningGate("p", "m")));
+            Console.WriteLine($"  思考回填计划（95 轮，每轮思考 {thinkingChars} 字）：{Measure.Kb(collectCost.Bytes)}/次请求");
         }
 
         // 带图：base64 抹得掉吗

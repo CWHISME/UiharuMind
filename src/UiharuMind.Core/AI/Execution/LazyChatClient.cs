@@ -65,10 +65,9 @@ public class LazyChatClient : IChatClient
         var (client, model) = await ResolveAsync(cancellationToken).ConfigureAwait(false);
         // 票据的产出方就是这一发用的模型；换模型后门禁会挡住旧票
         ReasoningGate producer = new(model.ModelInfo.ProviderId, model.ModelInfo.ModelId);
-        // 门禁过滤：门禁不过的票，这一轮不带（历史里的原票不动，换回原模型还能接上）。
-        // 三条协议线共用这一道——responses 与 messages 的密文是 SDK 自己从消息里读的，
-        // 不经过 chat 线那道「按序号收集」的路子，少了这一层门禁就是空的
-        IReadOnlyList<ChatMessage> gated = ReasoningGateFilter.Apply(messageList, producer);
+        // 门禁过滤 + 两条回填清单，一次遍历产出：三条协议线共用这一道，
+        // 而「第几条助手消息」这个约定只在 ReplayPlan 里定义一次
+        ReplayPlan replay = ReplayPlan.For(messageList, producer);
         // 票据密文不能解析后再编码，所以原样存着
         string? ticketJson = null;
 
@@ -76,16 +75,16 @@ public class LazyChatClient : IChatClient
         // using 结束还原成进来时那份，值不会留给同一条异步流上的下一发
         using LlmRequestScope.Scope scope = LlmRequestScope.Push(LlmRequestScope.Current with
         {
-            PendingReasoningSource = () => CollectAssistantReasoning(gated),
+            PendingReasoningSource = () => replay.Reasoning,
             SessionAffinity = _sessionAffinity,
-            ReasoningTickets = CollectTickets(gated),
+            ReasoningTickets = replay.Tickets,
             EncryptedReasoningObserved = ticket => ticketJson = Encoding.UTF8.GetString(ticket),
         });
 
         ChatResponse response;
         try
         {
-            response = await client.GetResponseAsync(gated, options, cancellationToken).ConfigureAwait(false);
+            response = await client.GetResponseAsync(replay.Messages, options, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception e) when (ReasoningRequirementErrorHandler.IsRequirementError(e))
         {
@@ -93,7 +92,7 @@ public class LazyChatClient : IChatClient
             if (!TryLearnReasoningRequirement(model)) throw;
             Log.Warning($"server requires reasoning on every earlier assistant message " +
                         $"(model '{model.ModelInfo.ModelId}'); marked for this model, retrying once.");
-            response = await client.GetResponseAsync(gated, options, cancellationToken).ConfigureAwait(false);
+            response = await client.GetResponseAsync(replay.Messages, options, cancellationToken).ConfigureAwait(false);
         }
 
         HashSet<string>? toolNames = CollectToolNames(options);
@@ -146,17 +145,16 @@ public class LazyChatClient : IChatClient
         var (client, model) = await ResolveAsync(cancellationToken).ConfigureAwait(false);
         // 票据的产出方就是这一发用的模型；换模型后门禁会挡住旧票
         ReasoningGate producer = new(model.ModelInfo.ProviderId, model.ModelInfo.ModelId);
-        // 门禁过滤：门禁不过的票，这一轮不带（历史里的原票不动）。
-        // 与非流式那条路同一个口径——两条路都得过这道门
-        IReadOnlyList<ChatMessage> gated = ReasoningGateFilter.Apply(messageList, producer);
+        // 门禁过滤 + 两条回填清单，一次遍历产出——与非流式那条路同一个入口
+        ReplayPlan replay = ReplayPlan.For(messageList, producer);
 
         // 作用域覆盖整段枚举（含中途重发）：断线重试时请求体会按同一份上下文重新改写
         EncryptedReasoningSignal signal = new();
         using LlmRequestScope.Scope scope = LlmRequestScope.Push(LlmRequestScope.Current with
         {
-            PendingReasoningSource = () => CollectAssistantReasoning(gated),
+            PendingReasoningSource = () => replay.Reasoning,
             SessionAffinity = _sessionAffinity,
-            ReasoningTickets = CollectTickets(gated),
+            ReasoningTickets = replay.Tickets,
             // 票据密文不能解析后再编码，所以原样存着；随信号内容一起发出，
             // 框架会把它并进这一发的助手消息，落盘时转成持久的思考内容（ADR 0100）
             EncryptedReasoningObserved = ticket =>
@@ -182,7 +180,8 @@ public class LazyChatClient : IChatClient
         {
             bool retryable = false;
             await foreach (var (update, failure) in StreamOnceAsync(
-                               client, gated, options, toolNames, model.ModelName, signal, producer, cancellationToken)
+                               client, replay.Messages, options, toolNames, model.ModelName, signal, producer,
+                               cancellationToken)
                            .ConfigureAwait(false))
             {
                 if (failure != null)
@@ -463,27 +462,10 @@ public class LazyChatClient : IChatClient
         update.Contents = rebuilt;
     }
 
-    /// <summary>历史消息可能是一次性的枚举,重复枚举(转发给底层客户端+扫描思考正文)前先落地一份</summary>
+    /// <summary>历史消息可能是一次性的枚举，重复枚举前先落地一份；<b>冻结</b>由
+    /// <see cref="ReplayPlan.For"/> 负责，它才是依赖序号对齐的那个组件</summary>
     private static IReadOnlyList<ChatMessage> AsList(IEnumerable<ChatMessage> messages) =>
         messages as IReadOnlyList<ChatMessage> ?? messages.ToList();
-
-    /// <summary>
-    /// 数历史里的助手消息条数。票据清单按这个长度开槽——与回写侧「按第几条助手消息取用」
-    /// 是同一个序号口径，两边长度必须相等（不等就整段不发，见
-    /// <c>ChatCompletionsRequestRewriter.Commit</c>）。
-    /// </summary>
-    /// <param name="messages">历史消息</param>
-    /// <returns>助手消息条数</returns>
-    private static int CountAssistantMessages(IReadOnlyList<ChatMessage> messages)
-    {
-        int count = 0;
-        foreach (ChatMessage message in messages)
-        {
-            if (message.Role == ChatRole.Assistant) count++;
-        }
-
-        return count;
-    }
 
     /// <summary>
     /// 给响应里带密文的思考内容补上<b>产出方身份</b>。
@@ -521,96 +503,6 @@ public class LazyChatClient : IChatClient
     /// <param name="producer">这一发用的模型（票据的产出方）</param>
     internal static void StampTicketProducer(TextReasoningContent reasoning, ReasoningGate producer) =>
         ReasoningTicketCarrier.StampProducer(reasoning, producer);
-
-    /// <summary>
-    /// 按助手消息顺序取出各自的票据，供本类挂到
-    /// <see cref="LlmRequestContext.ReasoningTickets"/> 上使用。
-    ///
-    /// <b>票据长在消息上</b>（ADR 0100）：从历史消息里就地读，不再有旁挂的映射表。
-    /// 这不只是为了扛重启——映射表靠「第几条助手消息」维持对应关系，
-    /// 而历史会被裁剪、消息会被替换，序号一漂移票就挂错位置（0100 补的那条
-    /// 「历史恰好长了一条助手消息」的门禁就是治这个的补丁）。改成随消息走之后，
-    /// 对应关系由消息列表本身保证，结构上就不会错位。
-    ///
-    /// <b>每条挂自己那张，挂上就不动</b>：一轮只往历史末尾追加新消息，历史部分逐字节相同，
-    /// 前缀才是纯追加。上一版把票据存在单个槽位里、只挂最后一条、用一次即消费，
-    /// 于是票逐轮漂移、上轮挂过票的位置变成无票形态，前缀每轮分叉一次
-    /// （实测命中率从 88.2% 掉到 35.3%）。
-    ///
-    /// <b>门禁不在这里判</b>：调用方传进来的必须是<b>已经过
-    /// <see cref="ReasoningGateFilter.Apply"/> 的那一份</b>——不该带的票，密文已经被摘掉了，
-    /// 这里读到的自然只剩该发的。在这里再比一次 <c>Allows</c> 是死条件（永远成立），
-    /// 只会让「门禁到底在哪」多一个说法。
-    /// </summary>
-    /// <param name="messages">已经过门禁过滤的历史消息</param>
-    /// <returns>按助手消息顺序的票据清单；一条都没有时为 null</returns>
-    private static IReadOnlyList<string?>? CollectTickets(IReadOnlyList<ChatMessage> messages)
-    {
-        int count = CountAssistantMessages(messages);
-        if (count == 0) return null;
-
-        string?[] slots = new string?[count];
-        bool any = false;
-        int index = 0;
-        foreach (ChatMessage message in messages)
-        {
-            if (message.Role != ChatRole.Assistant) continue;
-
-            if (index < slots.Length && ReasoningTicketCarrier.Read(message) is { } ticket)
-            {
-                slots[index] = ticket.Json;
-                any = true;
-            }
-
-            index++;
-        }
-
-        return any ? slots : null;
-    }
-
-    /// <summary>
-    /// 从历史消息里按<b>助手消息出现顺序</b>收集思考正文,供本类挂到
-    /// <see cref="LlmRequestContext.PendingReasoningSource"/> 上使用——转发给底层客户端之前,消息里的 <see cref="TextReasoningContent"/> 还在,过了这一层就没处找了。
-    ///
-    /// 按序而不是按 tool_call id:没有工具调用的普通回复同样要回传(网关按「每一条更早的助手消息」
-    /// 校验),而它身上没有 id 可挂。返回的列表与请求里的助手消息一一对应,没有思考的位置留 null;
-    /// 一条都没有时返回 null,让改写整段跳过。
-    ///
-    /// 一条消息里可能躺着多段思考(老会话是逐 chunk 落下的碎片),要拼齐了发回去——
-    /// 只取其中一段等于把思考截成一句话,接口那边照样对不上。只有一段时直接用它,不另拼一份。
-    /// </summary>
-    internal static IReadOnlyList<string?>? CollectAssistantReasoning(IReadOnlyList<ChatMessage> messages)
-    {
-        List<string?>? collected = null;
-        foreach (ChatMessage message in messages)
-        {
-            if (message.Role != ChatRole.Assistant) continue;
-            (collected ??= []).Add(JoinReasoning(message.Contents));
-        }
-
-        return collected?.Exists(x => x != null) == true ? collected : null;
-    }
-
-    /// <summary>拼齐一条消息里的多段思考;没有思考正文时返回 null</summary>
-    private static string? JoinReasoning(IList<AIContent> contents)
-    {
-        string? single = null;
-        StringBuilder? joined = null;
-        foreach (AIContent content in contents)
-        {
-            switch (content)
-            {
-                case TextReasoningContent { Text.Length: > 0 } rc when single == null:
-                    single = rc.Text;
-                    break;
-                case TextReasoningContent { Text.Length: > 0 } rc:
-                    (joined ??= new StringBuilder(single)).Append(rc.Text);
-                    break;
-            }
-        }
-
-        return single == null ? null : joined?.ToString() ?? single;
-    }
 
     /// <summary>
     /// 请求带工具时收集工具名集合(恢复器的启用条件与命中闸);无工具返回 null
