@@ -65,6 +65,10 @@ public class LazyChatClient : IChatClient
         var (client, model) = await ResolveAsync(cancellationToken).ConfigureAwait(false);
         // 票据的产出方就是这一发用的模型；换模型后门禁会挡住旧票
         ReasoningGate producer = new(model.ModelInfo.ProviderId, model.ModelInfo.ModelId);
+        // 门禁过滤：门禁不过的票，这一轮不带（历史里的原票不动，换回原模型还能接上）。
+        // 三条协议线共用这一道——responses 与 messages 的密文是 SDK 自己从消息里读的，
+        // 不经过 chat 线那道「按序号收集」的路子，少了这一层门禁就是空的
+        IReadOnlyList<ChatMessage> gated = ReasoningGateFilter.Apply(messageList, producer);
         // 票据密文不能解析后再编码，所以原样存着
         string? ticketJson = null;
 
@@ -72,16 +76,16 @@ public class LazyChatClient : IChatClient
         // using 结束还原成进来时那份，值不会留给同一条异步流上的下一发
         using LlmRequestScope.Scope scope = LlmRequestScope.Push(LlmRequestScope.Current with
         {
-            PendingReasoningSource = () => CollectAssistantReasoning(messageList),
+            PendingReasoningSource = () => CollectAssistantReasoning(gated),
             SessionAffinity = _sessionAffinity,
-            ReasoningTickets = CollectTickets(messageList, producer),
+            ReasoningTickets = CollectTickets(gated, producer),
             EncryptedReasoningObserved = ticket => ticketJson = Encoding.UTF8.GetString(ticket),
         });
 
         ChatResponse response;
         try
         {
-            response = await client.GetResponseAsync(messageList, options, cancellationToken).ConfigureAwait(false);
+            response = await client.GetResponseAsync(gated, options, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception e) when (ReasoningRequirementErrorHandler.IsRequirementError(e))
         {
@@ -89,7 +93,7 @@ public class LazyChatClient : IChatClient
             if (!TryLearnReasoningRequirement(model)) throw;
             Log.Warning($"server requires reasoning on every earlier assistant message " +
                         $"(model '{model.ModelInfo.ModelId}'); marked for this model, retrying once.");
-            response = await client.GetResponseAsync(messageList, options, cancellationToken).ConfigureAwait(false);
+            response = await client.GetResponseAsync(gated, options, cancellationToken).ConfigureAwait(false);
         }
 
         HashSet<string>? toolNames = CollectToolNames(options);
@@ -142,14 +146,17 @@ public class LazyChatClient : IChatClient
         var (client, model) = await ResolveAsync(cancellationToken).ConfigureAwait(false);
         // 票据的产出方就是这一发用的模型；换模型后门禁会挡住旧票
         ReasoningGate producer = new(model.ModelInfo.ProviderId, model.ModelInfo.ModelId);
+        // 门禁过滤：门禁不过的票，这一轮不带（历史里的原票不动）。
+        // 与非流式那条路同一个口径——两条路都得过这道门
+        IReadOnlyList<ChatMessage> gated = ReasoningGateFilter.Apply(messageList, producer);
 
         // 作用域覆盖整段枚举（含中途重发）：断线重试时请求体会按同一份上下文重新改写
         EncryptedReasoningSignal signal = new();
         using LlmRequestScope.Scope scope = LlmRequestScope.Push(LlmRequestScope.Current with
         {
-            PendingReasoningSource = () => CollectAssistantReasoning(messageList),
+            PendingReasoningSource = () => CollectAssistantReasoning(gated),
             SessionAffinity = _sessionAffinity,
-            ReasoningTickets = CollectTickets(messageList, producer),
+            ReasoningTickets = CollectTickets(gated, producer),
             // 票据密文不能解析后再编码，所以原样存着；随信号内容一起发出，
             // 框架会把它并进这一发的助手消息，落盘时转成持久的思考内容（ADR 0100）
             EncryptedReasoningObserved = ticket =>
@@ -175,7 +182,7 @@ public class LazyChatClient : IChatClient
         {
             bool retryable = false;
             await foreach (var (update, failure) in StreamOnceAsync(
-                               client, messageList, options, toolNames, model.ModelName, signal, producer, cancellationToken)
+                               client, gated, options, toolNames, model.ModelName, signal, producer, cancellationToken)
                            .ConfigureAwait(false))
             {
                 if (failure != null)

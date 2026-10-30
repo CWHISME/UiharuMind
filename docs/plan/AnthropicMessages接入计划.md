@@ -105,18 +105,20 @@ case "signature_delta":
 | 客户端分流 + 思考块归一层 | `AI/Net/OpenAICompatibleChatClient.cs` |
 | **思考块归一**（正文与签名合成一条；脱敏块还原） | `AI/Net/AnthropicThinkingNormalizer.cs`（新） |
 | 发送闸下沉到 HTTP 层 | `AI/Net/Transport/SendGateHandler.cs`（新） |
+| **门禁统一过滤**（三条线共用，摘掉换模型后的旧票） | `AI/Reasoning/ReasoningGateFilter.cs`（新） |
 | 目录推导：`/messages` → `EApiFormat.Messages` | `Features/Models/RemoteModelEditViewData.cs` |
 | 端点按模型声明的格式补全 | `AI/Runtime/Backends/OpenAICompatible/RemoteModelManager.cs` |
 | 输出预算口径统一 | `AI/Models/ILLMModel.cs`（新增 `MaxTokens`） |
+| `ProviderId` 取真正的供应商配置类名 | `AI/Models/RemoteModelInfo.cs`、`Configs/Core/BaseRemoteModelConfig.cs` |
 
 **目录侧一处老决定要改口**：`/messages`-only 的条目原来被过滤掉（"v1 只支持 chat 线"）。
 Anthropic 线接上后不再滤，改为推成 `EApiFormat.Messages`。
 
 ## 四、还欠着的（按优先级）
 
-### ① 门禁在 SDK 直读 `ProtectedData` 的协议上不生效 —— **既有缺口，三条线都受影响**
+### ① 门禁在 SDK 直读 `ProtectedData` 的协议上不生效 —— **已修**（跨三条线）
 
-门禁（provider + model 双等）目前**只在 `LazyChatClient.CollectTickets` 一处**生效，
+门禁（provider + model 双等）原先**只在 `LazyChatClient.CollectTickets` 一处**生效，
 那是 chat 线专用的（它把票据按助手序号收集起来，交给 chat 的字节级改写器拼回）。
 
 而 **responses 线与 messages 线的密文是 SDK 自己从消息里读的**
@@ -126,11 +128,33 @@ Anthropic 线接上后不再滤，改为推成 `EApiFormat.Messages`。
 实测过本网关**不校验票据归属**（把票发给别的模型照样 200），所以发错了不会报错，
 只会安静地错（模型拿到读不懂的密文，轻则忽略、重则误解上下文）。
 
-**修法**：在进 SDK 之前统一过滤——扫历史消息里带 `ProtectedData` 的思考内容，
-读它的产出方身份（`AdditionalProperties` 里的 `_ticket_provider`/`_ticket_model`），
-门禁不过就清掉密文。**只在真要清时才克隆消息**，同模型连续对话零克隆。
+**修法**：新增 `AI/Reasoning/ReasoningGateFilter.cs`，在 `LazyChatClient` 把消息交给
+底层客户端**之前**统一过滤——门禁不过就把密文摘掉。
 
-放 `LazyChatClient`（协议无关的位置），三条线一次修好。
+两条口径：
+
+- **摘掉的是发给底层客户端的那一份**，历史里的原消息一个字节都不动。
+  所以换回原模型时票还在、还能接上（ADR 0100：门禁不过时不能删票，只是这一轮不带）。
+- **密文摘掉后正文也空了的，整条丢掉**——各协议都不收空思考块
+  （responses 侧那是一条没有 `encrypted_content` 的 reasoning item，
+  Anthropic 侧是一个空签名的 thinking 块——后者直接被服务端拒）。
+
+零克隆是常态：门禁通过时原样返回入参那一份，只有真要摘时才重建受影响的那几条。
+
+#### 顺带修掉一个真 bug：`ProviderId` 取的是容器名
+
+门禁要比 provider，而 `ProviderId` 原先取的是 `GetType().Name`。
+`RemoteModelInfo` 没覆盖它 → 对**所有**远程供应商都叫 `"RemoteModelInfo"`。
+也就是说 ADR 0100 定的「provider + model 双等」里，**provider 那一半一直形同虚设**——
+只有 model 在起作用。
+
+修法：`RemoteModelInfo.ProviderId` 委托给 `Config`（真正的供应商配置类，
+如 `RemoteAgnesModelConfig` / `RemoteCommandCodeModelConfig`）。
+
+**老数据兼容**：老会话落盘的票 provider 是 `"RemoteModelInfo"`——那个值**没有区分力**
+（所有供应商都一样），这类票只能退到「只比 model」。
+不这么兼容的代价是所有老会话的加密票据一次性全失效、推理链集体断掉，
+而它们本来就没被门禁保护过。
 
 ### ② 限流与重试的对齐
 

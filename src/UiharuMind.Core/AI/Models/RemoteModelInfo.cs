@@ -33,6 +33,17 @@ public class RemoteModelInfo : ILlmModel
     /// <summary>会话亲和写哪几个请求头名；空 = 不发（默认）。供应商配置自行声明</summary>
     [JsonIgnore] public IReadOnlyList<string>? SessionAffinityHeaders => Config.SessionAffinityHeaders;
 
+    /// <summary>
+    /// 这个模型的<b>供应商标识</b>（谁签的票）。
+    ///
+    /// 委托给 <see cref="Config"/>——真正区分供应商的是配置类
+    /// （<c>RemoteAgnesModelConfig</c>、<c>RemoteCommandCodeModelConfig</c> 这些），
+    /// 不是外层这个容器。用容器名的话所有远程供应商都叫同一个名字，
+    /// 票据门禁的 provider 那一半就形同虚设了（同一个 model id 在不同供应商下是不同的东西，
+    /// 票是原厂签的，跨供应商不认）。
+    /// </summary>
+    [JsonIgnore] public string ProviderId => Config.ProviderId;
+
     /// <summary>是否发 body 级的 <c>prompt_cache_key</c>（默认关，认它的供应商才开）</summary>
     [JsonIgnore] public bool SupportsPromptCacheKey => Config.SupportsPromptCacheKey;
     /// <summary>思考模式下带 tool_calls 时是否要求原样带回思考正文；<c>null</c>=自动(有思考就回传)，<c>true</c>/<c>false</c>=显式要求/禁止</summary>

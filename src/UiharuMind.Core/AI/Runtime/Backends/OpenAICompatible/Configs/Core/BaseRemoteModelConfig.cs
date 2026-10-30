@@ -76,6 +76,15 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     public virtual bool SupportsPromptCacheKey => false;
 
     /// <summary>
+    /// 这个模型的<b>供应商标识</b>（谁签的票）。
+    ///
+    /// 取配置类名——真正区分供应商的就是这个（<c>RemoteAgnesModelConfig</c>、
+    /// <c>RemoteCommandCodeModelConfig</c> 这些）。外层的 <c>RemoteModelInfo</c> 是容器，
+    /// 用它的名字的话所有远程供应商都叫同一个名字，票据门禁的 provider 那一半就废了。
+    /// </summary>
+    public string ProviderId => GetType().Name;
+
+    /// <summary>
     /// 模型最大上下文窗口(token 数),0 表示未设置
     /// </summary>
     [SettingConfigIgnoreDisplay]

@@ -88,7 +88,10 @@ internal static class ReasoningTicketCarrier
     /// 读产出方身份。落盘往返后值是 <see cref="JsonElement"/>，取值一律走
     /// <see cref="object.ToString"/>——不能强转 string。
     /// </summary>
-    private static bool TryReadProducer(TextReasoningContent reasoning, out ReasoningGate producer)
+    /// <param name="reasoning">承载票据的思考内容</param>
+    /// <param name="producer">读出的产出方；读不出时为 default</param>
+    /// <returns>身份完整时为 true</returns>
+    internal static bool TryReadProducer(TextReasoningContent reasoning, out ReasoningGate producer)
     {
         producer = default;
         if (reasoning.AdditionalProperties is null) return false;

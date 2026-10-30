@@ -2,9 +2,12 @@ using System.Net;
 using System.Text;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Core;
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.AI.Net.Transport;
+using UiharuMind.Core.AI.Reasoning;
 using UiharuMind.Core.Configs.RemoteAI;
 
 namespace UiharuMind.Core.Tests.AI;
@@ -300,5 +303,102 @@ public class AnthropicMessagesWireTests
         Assert.Equal("REDDATA", reasoning.ProtectedData);
         // 原始表示被装回去了——官方 SDK 靠它认出这是脱敏思考
         Assert.NotNull(reasoning.RawRepresentation);
+    }
+
+    // ---------- 门禁（换模型后旧票这一轮不带） ----------
+
+    /// <summary>
+    /// 换模型后，别的模型签的票这一轮<b>不能</b>带过去。
+    ///
+    /// 这条线上的密文是 <b>SDK 自己从消息里读</b>的（<c>ProtectedData</c> → <c>signature</c>），
+    /// 不经过 chat 线那道「按序号收集」——所以门禁若只长在那儿，这条线上的门禁就是空的。
+    /// 而网关<b>不校验归属</b>（实测照样 200），发错了不会报错，只会安静地错。
+    ///
+    /// <para>票被摘掉后那条思考就成了「有正文、无签名」——Anthropic 拒收这种块，
+    /// 所以它整个不该出现在请求里。</para>
+    /// </summary>
+    [Fact]
+    public async Task Request_DoesNotCarryAnotherModelsTicket()
+    {
+        var (http, stub) = Build();
+        List<ChatMessage> history =
+        [
+            new(ChatRole.User, "问题"),
+            new(ChatRole.Assistant,
+            [
+                ForeignTicket(),
+                new TextContent("上次的答案"),
+            ]),
+            new(ChatRole.User, "追问"),
+        ];
+
+        await Lazy(http).GetResponseAsync(history);
+
+        Assert.NotNull(stub.LastBody);
+        JsonNode? body = JsonNode.Parse(stub.LastBody!);
+        JsonArray content = (JsonArray)((JsonArray)body!["messages"]!)[1]!["content"]!;
+
+        Assert.DoesNotContain(content, x => x!["type"]!.GetValue<string>() == "thinking");
+    }
+
+    /// <summary>
+    /// 自己家的票<b>要</b>带过去——门禁不能误伤。
+    /// </summary>
+    [Fact]
+    public async Task Request_CarriesItsOwnModelsTicket()
+    {
+        var (http, stub) = Build();
+        List<ChatMessage> history =
+        [
+            new(ChatRole.User, "问题"),
+            new(ChatRole.Assistant,
+            [
+                OwnTicket(),
+                new TextContent("上次的答案"),
+            ]),
+            new(ChatRole.User, "追问"),
+        ];
+
+        await Lazy(http).GetResponseAsync(history);
+
+        Assert.NotNull(stub.LastBody);
+        JsonNode? body = JsonNode.Parse(stub.LastBody!);
+        JsonArray content = (JsonArray)((JsonArray)body!["messages"]!)[1]!["content"]!;
+
+        JsonNode? thinking = content.FirstOrDefault(x => x!["type"]!.GetValue<string>() == "thinking");
+        Assert.NotNull(thinking);
+        Assert.Equal("OWN", thinking!["signature"]!.GetValue<string>());
+    }
+
+    /// <summary>产出方是别家的票</summary>
+    private static TextReasoningContent ForeignTicket()
+    {
+        TextReasoningContent reasoning = new("思考正文") { ProtectedData = "FOREIGN" };
+        reasoning.AdditionalProperties ??= new AdditionalPropertiesDictionary();
+        reasoning.AdditionalProperties[ReasoningTicketCarrier.ProducerProviderKey] = "别的供应商";
+        reasoning.AdditionalProperties[ReasoningTicketCarrier.ProducerModelKey] = "别的模型";
+        return reasoning;
+    }
+
+    /// <summary>产出方就是本测试那个模型的票</summary>
+    private static TextReasoningContent OwnTicket()
+    {
+        TextReasoningContent reasoning = new("思考正文") { ProtectedData = "OWN" };
+        reasoning.AdditionalProperties ??= new AdditionalPropertiesDictionary();
+        reasoning.AdditionalProperties[ReasoningTicketCarrier.ProducerProviderKey] = nameof(RemoteAgnesModelConfig);
+        reasoning.AdditionalProperties[ReasoningTicketCarrier.ProducerModelKey] = "m";
+        return reasoning;
+    }
+
+    /// <summary>走完整的客户端链路（门禁在 <c>LazyChatClient</c> 那一层，不在协议客户端里）</summary>
+    private static LazyChatClient Lazy(OpenAICompatibleHttpHandler http)
+    {
+        RemoteModelInfo remote = new()
+        {
+            Config = new RemoteAgnesModelConfig { ModelName = "anthropic-test", ModelId = "m" },
+        };
+        ModelRunningData data = new(remote);
+        data.CompleteLoading(Client(http), loadToken: CancellationToken.None);
+        return new LazyChatClient(() => data);
     }
 }
