@@ -6,13 +6,20 @@
 「服务端发了、我们丢了」与「服务端根本没发」在应用里长得一模一样，
 只有 usage 里那个 reasoning_tokens 在动。muse-spark 正是这种。
 
-五步，依次回答五个问题：
+七步，依次回答七个问题：
 
   1. 它声明了哪些端点（/responses 在不在）
   2. /chat/completions 的响应里有没有 reasoning_content / reasoning_details
   3. 把这些字段原样塞回下一轮 chat，网关收不收（chat 侧回填的可行性）
   4. /responses + include:["reasoning.encrypted_content"] 下不下发 encrypted_content
   5. 把第一轮的 output 原样塞回第二轮 responses，能不能过
+  6. /responses + summary:"auto" 能不能拿到<b>可读摘要</b>（不开就只有密文）
+  7. chat 侧有没有等价的参数能要摘要
+
+第 6、7 步是后补的：OpenAI Responses API 的可读推理摘要在 Responses 侧要显式开
+（summary:"auto" 或 ReasoningSummaryVerbosity），不显式请求就只给密文。
+之前那轮探测只带了 include、没带 summary，所以「summary 是空数组」不能证明
+「模型没有摘要」——可能是压根没要。这两步就是补这个洞。
 
 用法:
     CMD_API_KEY=sk-... python3 src/scripts/probe/commandcode-reasoning.py
@@ -284,6 +291,62 @@ def step_responses_replay(first):
     return False
 
 
+def step_responses_summary():
+    print("\n== 6. /responses + summary:\"auto\" —— 显式要可读摘要 ==")
+    body = {
+        "model": MODEL,
+        "input": [{"role": "user", "content": [{"type": "input_text", "text": PROMPT}]}],
+        "store": False,
+        "include": ["reasoning.encrypted_content"],
+        "summary": "auto",
+    }
+    result = post("/v1/responses", body)
+    if failed(result):
+        print("  → 被拒。摘要要么不支持，要么参数名不对")
+        return None
+
+    reasoning = [item for item in (result.get("output") or []) if item.get("type") == "reasoning"]
+    print("  reasoning 条目:", len(reasoning))
+    for item in reasoning:
+        summary = item.get("summary")
+        print("    键:", list(item))
+        print("    summary 类型:", type(summary).__name__, "| 内容:", snippet(summary, 120))
+        print("    summary 长度:", len(summary) if hasattr(summary, "__len__") else "-")
+    usage = result.get("usage") or {}
+    details = usage.get("output_tokens_details") or {}
+    print("  reasoning_tokens:", details.get("reasoning_tokens"))
+    return result
+
+
+def step_chat_summary():
+    print("\n== 7. /chat/completions 显式要摘要（各种参数名试一轮）==")
+    # chat 端点没有文档化的 summary 参数，但网关可能透传。各试一种，看哪个不报错且给东西。
+    candidates = [
+        ("reasoning_summary", "auto"),
+        ("reasoning", {"summary": "auto"}),
+        ("reasoning_effort", "auto"),
+    ]
+    for key, value in candidates:
+        body = {"model": MODEL, "messages": [{"role": "user", "content": PROMPT}], "stream": False}
+        body[key] = value
+        result = post("/v1/chat/completions", body)
+        if failed(result):
+            print(f"  {key}: 被拒")
+            continue
+        message = ((result.get("choices") or [{}])[0].get("message")) or {}
+        details = message.get("reasoning_details")
+        summary_text = message.get("reasoning_content") or message.get("reasoning")
+        types = [d.get("type") for d in details] if isinstance(details, list) else None
+        print(f"  {key}: 通过 | reasoning_details 类型={types} | "
+              f"reasoning_content 长度={len(summary_text) if isinstance(summary_text, str) else '-'}")
+        if types and any(t and "summary" in t for t in types):
+            print("    → 拿到摘要条目！")
+            for d in details:
+                if d.get("type") and "summary" in d["type"]:
+                    print("    摘要内容:", snippet(d.get("summary"), 150))
+    return None
+
+
 def main():
     if not KEY:
         print("需要 CMD_API_KEY 环境变量（Studio → API keys 里那个）", file=sys.stderr)
@@ -298,12 +361,15 @@ def main():
     step_replay_cost(chat)
     first, failed_responses = step_responses()
     failed_responses_replay = step_responses_replay(first) if first is not None else True
+    step_responses_summary()
+    step_chat_summary()
 
     print("\n结论怎么看：")
     print("  第 2 步有 reasoning_details / reasoning_content 且第 3 步收下 → chat 侧本来就能回填，")
     print("    缺的是我们适配层把它扔了（MEAI 只认 reasoning_content）。")
     print("  第 4 步有 encrypted_content 且第 5 步通过 → 加密票据在两条路上都有，/responses 不是唯一解。")
     print("  第 2、4 步都为空 → 这个模型在网关的两条路上都不给货，别在客户端继续找办法。")
+    print("  第 6、7 步拿到摘要 → 界面上能显示真思考，不用开空卡；拿不到就是模型确实只给密文。")
     return 0 if not any([failed_endpoints, failed_chat, failed_stream, failed_replay,
                          failed_responses, failed_responses_replay]) else 1
 
