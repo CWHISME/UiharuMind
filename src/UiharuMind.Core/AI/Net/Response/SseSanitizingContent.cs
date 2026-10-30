@@ -9,10 +9,10 @@ internal sealed class SseSanitizingContent : HttpContent
 {
     private readonly HttpContent _inner;
     private readonly Action<string>? _reasoningFieldObserver; //观测到思考字段原名时回调,透传给 SseSanitizingStream
-    private readonly Action<byte[]>? _encryptedReasoningObserver; //看见加密思考时交出原文,透传给 SseSanitizingStream
+    private readonly Action? _encryptedReasoningObserver; //看见加密思考时通知一次,透传给 SseSanitizingStream
 
     public SseSanitizingContent(HttpContent inner, Action<string>? reasoningFieldObserver = null,
-        Action<byte[]>? encryptedReasoningObserver = null)
+        Action? encryptedReasoningObserver = null)
     {
         _inner = inner;
         _reasoningFieldObserver = reasoningFieldObserver;
