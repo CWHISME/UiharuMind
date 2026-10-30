@@ -158,13 +158,15 @@ Anthropic 线接上后不再滤，改为推成 `EApiFormat.Messages`。
 不这么兼容的代价是所有老会话的加密票据一次性全失效、推理链集体断掉，
 而它们本来就没被门禁保护过。
 
-### ② 限流与重试的对齐
+### ② 限流与重试的对齐 —— **闸已接，重试未对齐**
 
 `SendGate` 的核心逻辑（间隔、排队、429 记账）是协议无关的，只有挂它的
-`SendGatePolicy` 是 System.ClientModel 特有的。第一步已经把闸下沉到 HTTP 层
-（`SendGateHandler`），但：
+`SendGatePolicy` 是 System.ClientModel 特有的。闸已经下沉到 HTTP 层
+（`SendGateHandler`），这条线上的请求不再不受闸约束。
 
-- **重试策略还没对齐**：Anthropic SDK 自己实现重试（默认 2 次、指数退避、认 `Retry-After`），
+还差：
+
+- **重试策略未对齐**：Anthropic SDK 自己实现重试（默认 2 次、指数退避、认 `Retry-After`），
   我们的 `RateLimitAwareRetryPolicy` 用不上。两者叠加时的行为要单独验一遍。
 - **重试不插队**：HTTP 层认不出「这次是重试」（SDK 的重试是重新发一次 HTTP 请求，
   从这里看就是一次全新的发送），只能排到队尾。管道版能排到队首。
