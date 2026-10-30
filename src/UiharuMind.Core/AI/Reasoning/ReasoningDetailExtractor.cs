@@ -96,19 +96,6 @@ internal static class ReasoningDetailExtractor
         details.IndexOf("\"reasoning.encrypted\""u8) >= 0 || details.IndexOf("\"encrypted\""u8) >= 0;
 
     /// <summary>
-    /// 同上的字符串版：回填侧手里是落盘读回来的字符串，没必要再转一次字节。
-    ///
-    /// 用它挡住<b>历史里已经存进去的假票</b>——旧版提取器会把工具参数当票存下来，
-    /// 那些票不会自己消失，不加这道门就会一直被当成密文回填给服务端。
-    /// </summary>
-    /// <param name="details">存下来的票据原文</param>
-    /// <returns>有加密条目时为 true</returns>
-    public static bool ContainsEncrypted(string? details) =>
-        details is not null &&
-        (details.Contains("\"reasoning.encrypted\"", StringComparison.Ordinal) ||
-         details.Contains("\"encrypted\"", StringComparison.Ordinal));
-
-    /// <summary>
     /// 从切出来的数组里读明文摘要（<c>reasoning.summary</c> 条目的 <c>summary</c>）。
     ///
     /// 只有摘要能显示给用户：加密条目（<c>reasoning.encrypted</c>）没有明文，

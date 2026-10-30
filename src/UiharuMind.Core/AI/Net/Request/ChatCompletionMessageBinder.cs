@@ -175,9 +175,8 @@ internal static partial class ChatCompletionMessageBinder
             wire.Patch.Set(Encoding.UTF8.GetBytes($"$.{reasoningField}"), BinaryData.FromString(literal));
         }
 
-        // 只发真正的票：历史里可能躺着旧版提取器误存的数组（工具参数被当成票据），
-        // 那种东西回填出去就是给服务端塞一段它读不懂的 JSON
-        if (ticketJson is not null && ReasoningDetailExtractor.ContainsEncrypted(ticketJson))
+        // 票是原样切下来的 JSON 数组，回填时也原样贴回去
+        if (ticketJson is not null)
         {
             wire.Patch.Set("$.reasoning_details"u8, BinaryData.FromString(ticketJson));
         }

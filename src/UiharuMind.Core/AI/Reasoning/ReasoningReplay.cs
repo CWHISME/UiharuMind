@@ -1,4 +1,3 @@
-using System.Text;
 using Microsoft.Extensions.AI;
 
 namespace UiharuMind.Core.AI.Reasoning;
@@ -25,34 +24,23 @@ internal static class ReasoningReplay
     {
         if (message.Role != ChatRole.Assistant) return (null, null);
 
-        return (JoinText(message.Contents), ReasoningTicketCarrier.Read(message)?.Json);
+        return (TextOf(message.Contents), ReasoningTicketCarrier.Read(message)?.Json);
     }
 
     /// <summary>
-    /// 拼齐一条消息里的多段思考；没有思考正文时返回 null。
-    ///
-    /// 老会话的思考是逐 chunk 落下的碎片，要拼齐了发回去——只取其中一段等于把思考截成一句话，
-    /// 接口那边照样对不上。只有一段时直接用它的引用，不另拼一份。
+    /// 一条消息的思考正文。取第一段非空的：落盘往返前碎片已由
+    /// <see cref="Chat.ChatContentNormalizer"/> 并回一段，落盘之后读回来也只有一段；
+    /// 再往后多段只可能是「正文一段 + 只有密文的那段」，取前者就是全部正文。
     /// </summary>
     /// <param name="contents">消息内容</param>
-    /// <returns>拼好的思考正文；没有时为 null</returns>
-    private static string? JoinText(IList<AIContent> contents)
+    /// <returns>思考正文；没有时为 null</returns>
+    private static string? TextOf(IList<AIContent> contents)
     {
-        string? single = null;
-        StringBuilder? joined = null;
         foreach (AIContent content in contents)
         {
-            switch (content)
-            {
-                case TextReasoningContent { Text.Length: > 0 } rc when single == null:
-                    single = rc.Text;
-                    break;
-                case TextReasoningContent { Text.Length: > 0 } rc:
-                    (joined ??= new StringBuilder(single)).Append(rc.Text);
-                    break;
-            }
+            if (content is TextReasoningContent { Text.Length: > 0 } reasoning) return reasoning.Text;
         }
 
-        return single == null ? null : joined?.ToString() ?? single;
+        return null;
     }
 }

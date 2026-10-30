@@ -116,18 +116,6 @@ public class ChatCompletionMessageBinderTests
         Assert.Null(message["reasoning_content"]);
     }
 
-    /// <summary>
-    /// 历史里躺着的假票不发。旧版提取器会把工具参数数组当成票据存下来，
-    /// 那些东西不会自己消失——回填前按结构再判一次。
-    /// </summary>
-    [Fact]
-    public void BogusStoredTicket_IsNotSent()
-    {
-        JsonObject message = WireObject(Bind(Assistant("a1"), null, """[{"id":"c1","function":{"arguments":"{}"}}]"""));
-
-        Assert.Null(message["reasoning_details"]);
-    }
-
     /// <summary>不原地改历史里那条消息：持久对象里不该出现 SDK 的运行时引用</summary>
     [Fact]
     public void Attach_DoesNotTouchTheSourceMessage()

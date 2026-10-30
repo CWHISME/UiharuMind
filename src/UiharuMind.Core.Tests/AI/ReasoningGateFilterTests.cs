@@ -178,26 +178,4 @@ public class ReasoningGateFilterTests
         Assert.Same(passing, result[0]);
         Assert.NotSame(blocked, result[1]);
     }
-
-    /// <summary>
-    /// 老会话的票：那时 <c>ProviderId</c> 取的是容器类名，所有远程供应商都叫同一个名字，
-    /// 那张票<b>没有区分力</b>——只能退到只比 model。否则所有老会话的加密票据一次性全失效，
-    /// 而它们本来就没被门禁保护过（provider 那时恒等）。
-    /// </summary>
-    [Fact]
-    public void LegacyTicket_FallsBackToModelOnlyComparison()
-    {
-        TextReasoningContent legacy = new(string.Empty) { ProtectedData = "OLD" };
-        legacy.AdditionalProperties ??= new AdditionalPropertiesDictionary();
-        legacy.AdditionalProperties[ReasoningTicketCarrier.ProducerProviderKey] = ReasoningGate.UnknownProvider;
-        legacy.AdditionalProperties[ReasoningTicketCarrier.ProducerModelKey] = "model-a";
-        List<ChatMessage> messages = [Assistant(legacy)];
-
-        // 同模型、别的供应商：老票没有区分力，只比 model → 仍带
-        Assert.Same(messages, ReasoningGateFilter.Apply(messages, Current));
-
-        // 换了模型：model 对不上 → 不带
-        ReasoningGate other = new("prov-a", "model-b");
-        Assert.Empty(ReasoningGateFilter.Apply(messages, other)[0].Contents.OfType<TextReasoningContent>());
-    }
 }

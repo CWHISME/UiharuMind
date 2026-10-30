@@ -29,14 +29,24 @@ public class ReasoningReplayTests
         Assert.Equal("""[{"type":"reasoning.encrypted","data":"A"}]""", ticket);
     }
 
-    /// <summary>老会话里一条消息躺着多段思考碎片，要拼齐——只取一段等于把思考截成一句话</summary>
+    /// <summary>
+    /// 正文取第一段非空的。碎片在落盘往返前就由 <c>ChatContentNormalizer</c> 并回一段，
+    /// 落盘之后读回来也只有一段；多段只可能是「正文一段 + 只有密文的那段」。
+    /// </summary>
     [Fact]
-    public void Read_JoinsFragments()
+    public void Read_TakesTheFirstReasoningText()
     {
-        ChatMessage message = new(ChatRole.Assistant,
-            [new TextReasoningContent("先想"), new TextReasoningContent("再想")]);
+        TextReasoningContent ticketOnly = new(string.Empty)
+        {
+            ProtectedData = """[{"type":"reasoning.encrypted","data":"A"}]""",
+        };
+        ReasoningTicketCarrier.StampProducer(ticketOnly, Producer);
+        ChatMessage message = new(ChatRole.Assistant, [new TextReasoningContent("正文"), ticketOnly]);
 
-        Assert.Equal("先想再想", ReasoningReplay.Read(message).Text);
+        (string? text, string? ticket) = ReasoningReplay.Read(message);
+
+        Assert.Equal("正文", text);
+        Assert.NotNull(ticket); // 票据来自另一段，不受影响
     }
 
     /// <summary>只有票没有正文（闭源模型）也要能取出来——那正是票据机制存在的场景</summary>
