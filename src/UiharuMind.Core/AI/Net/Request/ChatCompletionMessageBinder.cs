@@ -53,13 +53,28 @@ internal static partial class ChatCompletionMessageBinder
     [GeneratedRegex(InvalidAuthorNamePattern)]
     private static partial Regex InvalidAuthorNameRegex();
 
-    /// <summary>转义后的思考字面量，键是正文那一个字符串实例（见 <see cref="EscapedLiteral"/>）</summary>
+    /// <summary>
+    /// 转义后的思考字面量，键是正文那一个字符串实例（见 <see cref="EscapedLiteral"/>）。
+    ///
+    /// <para><b>这两个缓存是拿常驻换分配</b>，账要两边记：省下的是每发一次重新转义
+    /// （实测 95 轮 × 3000 字，1.4 MB/发），付出的是这些转义结果在消息活着期间一直驻留
+    /// （同规模约 855 KB）。选前者是因为分配抖动会累进 GC，而常驻是线性的、有上限——
+    /// 上限就是会话里活着的思考正文。</para>
+    ///
+    /// <para>弱引用键：消息被回收，对应条目跟着走，不会无限长。</para>
+    /// </summary>
     private static readonly ConditionalWeakTable<string, BinaryData> EscapedLiterals = new();
 
     /// <summary>patch 路径的字节，键是 wire 键名（每请求一个，通常只有一两个）</summary>
     private static readonly ConcurrentDictionary<string, byte[]> ReasoningPaths = new(StringComparer.Ordinal);
 
-    /// <summary>工具参数的 JSON，键是那次调用的参数字典实例（见 <see cref="SerializeArguments"/>）</summary>
+    /// <summary>
+    /// 工具参数的 JSON，键是那次调用的参数字典实例（见 <see cref="SerializeArguments"/>）。
+    ///
+    /// <para><b>前提：参数字典建好之后只读</b>。谁要是加了「就地修畸形参数」这类逻辑，
+    /// 必须<b>换一个新的字典实例</b>再挂回 <c>FunctionCallContent.Arguments</c>——
+    /// 就地改的话这里会把旧字节发出去，而且不会报错：服务端收到的是上一次的参数。</para>
+    /// </summary>
     private static readonly ConditionalWeakTable<IDictionary<string, object?>, BinaryData> ArgumentJsons = new();
 
     /// <summary>无参调用的参数（M.E.AI 把它写成 JSON 的 <c>null</c>，不是 <c>{}</c>）</summary>
@@ -166,6 +181,9 @@ internal static partial class ChatCompletionMessageBinder
     /// <para>按参数字典实例缓存：一次工具调用的参数建好之后只被读（本仓没有任何地方就地改它），
     /// 而它每轮都要重新编一遍。带 <c>Edit</c>/<c>Write</c> 的长会话里，参数本身就有几 KB，
     /// 95 轮攒下来是实打实的一笔。</para>
+    ///
+    /// <para><b>缓存的前提是「只读」</b>：要改参数就换实例（见 <see cref="ArgumentJsons"/>）。
+    /// 就地改会让这里继续发旧字节，而请求照样 200，只是服务端收到的是上一次的参数。</para>
     /// </summary>
     /// <param name="call">工具调用内容</param>
     /// <returns>参数 JSON</returns>
