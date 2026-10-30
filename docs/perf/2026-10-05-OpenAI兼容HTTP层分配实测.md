@@ -148,3 +148,23 @@ src/scripts/perf/http-alloc.sh gc             # 连跑 120 次长跑量级调用
 - 分配：`GC.GetTotalAllocatedBytes(precise: true)` 前后差，每项先预热三次；耗时用 `DOTNET_TieredCompilation=0` 固定代码质量。
 - 大对象堆：进程内 `EventListener` 订 `Microsoft-Windows-DotNETRuntime` 的 GC 关键字（0x1），累加 `GCAllocationTick` 里 `AllocationKind = 1` 的 `AllocationAmount64`（约每 100KB 采一次，看量级）。
 - 碎片与已提交：每次调用后取 `GC.GetGCMemoryInfo()` 的 `FragmentedBytes`、`TotalCommittedBytes` 与第 3 代（大对象堆）大小取峰值。
+
+## 2026-10-30 补测：思考绑定（ADR 0101）的分配
+
+`http-alloc.sh req` 的「思考绑定」那一行，95 轮会话、每次请求：
+
+| 版本 | 240 字思考/轮 | 3000 字思考/轮 |
+|---|---|---|
+| 初版（每轮重新转义） | 318.1 KB | 1.67 MB |
+| 转义字面量 + 工具参数按实例缓存 | **165.0 KB** | **165.0 KB** |
+
+两档数字变得一样，说明**与思考长度相关的那部分已经全部消掉**；剩下的 165 KB 是每条消息
+约 1.74 KB 的固定成本（克隆消息、构造 `AssistantChatMessage`、`Patch.Set` 的条目），
+95 条累出来的。同一次请求里 SDK 自己序列化请求体是 460 KB，所以这笔固定成本没有继续压的必要。
+
+两条缓存都挂在弱引用键上，键是**不可变的那个对象**：正文的字符串实例、工具参数的字典实例。
+正文一旦被换成新实例，缓存自然落空、重新转义——不会发出旧内容。
+
+没做的一条：缓存整个 `AssistantChatMessage`（评审的②）。它能把这 165 KB 也抹掉，
+但缓存的是**可变 SDK 对象**，「内容正确」就从结构保证降级成签名算对；而收益只有
+165 KB/请求（同期请求体本身 460 KB）。不划算。

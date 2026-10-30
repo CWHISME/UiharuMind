@@ -8,6 +8,8 @@
  ****************************************************************************/
 
 using System.ClientModel.Primitives;
+using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -50,6 +52,20 @@ internal static partial class ChatCompletionMessageBinder
 
     [GeneratedRegex(InvalidAuthorNamePattern)]
     private static partial Regex InvalidAuthorNameRegex();
+
+    /// <summary>转义后的思考字面量，键是正文那一个字符串实例（见 <see cref="EscapedLiteral"/>）</summary>
+    private static readonly ConditionalWeakTable<string, BinaryData> EscapedLiterals = new();
+
+    /// <summary>patch 路径的字节，键是 wire 键名（每请求一个，通常只有一两个）</summary>
+    private static readonly ConcurrentDictionary<string, byte[]> ReasoningPaths = new(StringComparer.Ordinal);
+
+    /// <summary>工具参数的 JSON，键是那次调用的参数字典实例（见 <see cref="SerializeArguments"/>）</summary>
+    private static readonly ConditionalWeakTable<IDictionary<string, object?>, BinaryData> ArgumentJsons = new();
+
+    /// <summary>无参调用的参数（M.E.AI 把它写成 JSON 的 <c>null</c>，不是 <c>{}</c>）</summary>
+    private static readonly BinaryData NullArguments = BinaryData.FromBytes(
+        JsonSerializer.SerializeToUtf8Bytes((IDictionary<string, object?>?)null,
+            AIJsonUtilities.DefaultOptions.GetTypeInfo(typeof(IDictionary<string, object?>))));
 
     /// <summary>
     /// 给一条助手消息挂上思考，返回<b>新的</b>消息对象（不原地改）。
@@ -146,12 +162,21 @@ internal static partial class ChatCompletionMessageBinder
     /// 工具参数按 M.E.AI 同一口径序列化：<c>AIJsonUtilities.DefaultOptions</c> 对
     /// <c>IDictionary&lt;string, object?&gt;</c> 的类型信息。换一套序列化选项，
     /// 同一份参数就编出不同字节，前缀缓存会从这条消息起分叉。
+    ///
+    /// <para>按参数字典实例缓存：一次工具调用的参数建好之后只被读（本仓没有任何地方就地改它），
+    /// 而它每轮都要重新编一遍。带 <c>Edit</c>/<c>Write</c> 的长会话里，参数本身就有几 KB，
+    /// 95 轮攒下来是实打实的一笔。</para>
     /// </summary>
     /// <param name="call">工具调用内容</param>
     /// <returns>参数 JSON</returns>
     private static BinaryData SerializeArguments(FunctionCallContent call) =>
-        BinaryData.FromBytes(JsonSerializer.SerializeToUtf8Bytes(
-            call.Arguments, AIJsonUtilities.DefaultOptions.GetTypeInfo(typeof(IDictionary<string, object?>))));
+        call.Arguments is not { } arguments
+            ? NullArguments
+            : ArgumentJsons.TryGetValue(arguments, out BinaryData? cached)
+                ? cached
+                : ArgumentJsons.GetValue(arguments, static value => BinaryData.FromBytes(
+                    JsonSerializer.SerializeToUtf8Bytes(value,
+                        AIJsonUtilities.DefaultOptions.GetTypeInfo(typeof(IDictionary<string, object?>)))));
 
     /// <summary>
     /// 把思考写进消息对象的未知字段区（<c>Patch</c>）。
@@ -169,10 +194,7 @@ internal static partial class ChatCompletionMessageBinder
 #pragma warning disable SCME0001 // JsonPatch 是实验 API：M.E.AI 自己也在用它读响应，短期内不会消失
         if (reasoningText is not null)
         {
-            // 值必须是 JSON 值本身（这里是一段带引号的 JSON 字符串），Patch 不替我们加引号。
-            // 走 GetTypeInfo 而不是反射重载：本仓开着裁剪/AOT 分析器，反射序列化会报警
-            string literal = JsonSerializer.Serialize(reasoningText, AIJsonUtilities.DefaultOptions.GetTypeInfo(typeof(string)));
-            wire.Patch.Set(Encoding.UTF8.GetBytes($"$.{reasoningField}"), BinaryData.FromString(literal));
+            wire.Patch.Set(PathOf(reasoningField), EscapedLiteral(reasoningText));
         }
 
         // 票是原样切下来的 JSON 数组，回填时也原样贴回去
@@ -182,4 +204,34 @@ internal static partial class ChatCompletionMessageBinder
         }
 #pragma warning restore SCME0001
     }
+
+    /// <summary>
+    /// 思考正文转义成<b>带引号的 JSON 字面量</b>，按正文那一个字符串实例缓存。
+    ///
+    /// <para><b>为什么值得缓存</b>：一条消息的思考只产一次（ADR 0100 不变量 2），
+    /// 而它每轮都要被塞进请求体。长会话里这是请求侧最大的一笔分配——
+    /// 实测 95 轮 × 3000 字，光「转义 + 拷成 <see cref="BinaryData"/>」每发就要 1.4 MB，
+    /// 而字节一个都不会变。</para>
+    ///
+    /// <para><b>为什么键是字符串实例而不是内容对象</b>：正文是<b>不可变</b>的字符串，
+    /// 存进消息之后没人重新赋值，所以同一个实例每轮都命中；一旦有人真的换了正文，
+    /// 那是另一个实例，自然落空、重新转义——<b>不会发出旧内容</b>。
+    /// 弱引用键，消息被回收时缓存跟着走。</para>
+    /// </summary>
+    /// <param name="text">思考正文</param>
+    /// <returns>带引号的 JSON 字面量</returns>
+    private static BinaryData EscapedLiteral(string text) =>
+        EscapedLiterals.TryGetValue(text, out BinaryData? cached)
+            ? cached
+            : EscapedLiterals.GetValue(text, static value => BinaryData.FromString(
+                // 走 GetTypeInfo 而不是反射重载：本仓开着裁剪/AOT 分析器，反射序列化会报警
+                JsonSerializer.Serialize(value, AIJsonUtilities.DefaultOptions.GetTypeInfo(typeof(string)))));
+
+    /// <summary>
+    /// 思考正文的 patch 路径（<c>$.reasoning_content</c>）。键名每请求一个，缓存掉逐条消息的编码。
+    /// </summary>
+    /// <param name="reasoningField">思考正文的 wire 键名</param>
+    /// <returns>路径的 UTF-8 字节</returns>
+    private static byte[] PathOf(string reasoningField) =>
+        ReasoningPaths.GetOrAdd(reasoningField, static field => Encoding.UTF8.GetBytes($"$.{field}"));
 }
