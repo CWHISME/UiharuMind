@@ -12,6 +12,13 @@ namespace UiharuMind.Core.AI;
 ///
 /// 头名由供应商自己声明（<see cref="Models.ILlmModel.SessionAffinityHeaders"/>），不在这里——
 /// 各家认的头不一样，那是供应商的知识，不该进公共层。
+///
+/// <b>什么时候需要它，取决于「缓存存在哪」，不取决于协议。</b>官方直连（Anthropic / OpenAI）的
+/// 前缀缓存在服务端按内容哈希寻址、按组织（Anthropic 还按工作区）与模型隔离，没有「落在哪台副本」
+/// 这回事——在头上发什么都不改变命中，OpenAI 那条路的路由提示是 body 里的 <c>prompt_cache_key</c>。
+/// 而多副本的推理网关（自建 vLLM / SGLang、聚合网关）把 KV 缓存在<b>具体副本的显存</b>里，
+/// 请求落到别台就是整段重算，这才需要把同一会话钉住。所以声明头名的只有聚合网关。
+/// 反过来，「服务端已经做了缓存」推不出「不需要亲和」：前者只说缓存存在，后者问的是这一发能不能走到它跟前。
 /// </summary>
 public static class SessionAffinity
 {
