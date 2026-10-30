@@ -22,8 +22,8 @@ namespace UiharuMind.Core.Tests.AI;
 /// </summary>
 public class ReasoningTicketStabilityTests
 {
-    private const string TicketA = """[{"type":"reasoning.encrypted","data":"AAA","id":"rs_1:rs_a","format":"meta-responses-v1","index":0}]""";
-    private const string TicketB = """[{"type":"reasoning.encrypted","data":"BBB","id":"rs_2:rs_b","format":"meta-responses-v1","index":0}]""";
+    private const string TicketA = """[{"type":"reasoning.encrypted","data":"AAA","id":"rs_1:rs_a","format":"probe-v1","index":0}]""";
+    private const string TicketB = """[{"type":"reasoning.encrypted","data":"BBB","id":"rs_2:rs_b","format":"probe-v1","index":0}]""";
 
     private static readonly ReasoningGate Producer = new("provider-a", "model-a");
 

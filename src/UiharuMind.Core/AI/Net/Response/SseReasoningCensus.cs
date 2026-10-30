@@ -6,7 +6,7 @@ namespace UiharuMind.Core.AI.Net.Response;
 /// 存在的理由只有一个——<b>加密思考有没有下发，目前没有任何观测手段</b>。明文思考会在界面上出现，
 /// 看不见就等于没发；而 <c>reasoning_details</c> 里 <c>reasoning.encrypted</c> 那种 blob 不进界面，
 /// 下游的 MEAI 适配器又只认 <c>reasoning_content</c>（其它键在适配层就被丢掉），
-/// 于是「服务端到底给没给」在客户端两侧都不可见。muse-spark 正是这种：usage 报上千个思考 token，
+/// 于是「服务端到底给没给」在客户端两侧都不可见。部分闭源模型正是这种：usage 报上千个思考 token，
 /// 正文与思考一个字都没有——是「它没发」，还是「发了我们丢了」，在此之前只能靠猜。
 ///
 /// 每个 data 行扫一次（绝大多数行第一下就不命中），流结束时并进清洗流那一行日志。

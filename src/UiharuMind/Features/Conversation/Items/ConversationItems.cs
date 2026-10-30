@@ -73,7 +73,7 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget, IL
     [ObservableProperty] private bool _isPreviewTruncated;
 
     /// <summary>
-    /// 思考没给正文：闭源模型（<c>meta/muse-spark</c> 这类）只回密文或只报计数，正文压根不存在。
+    /// 思考没给正文：闭源模型（部分闭源模型）只回密文或只报计数，正文压根不存在。
     /// 这种卡只有标题，不展开、不报字数——「0 字 · 0s」是编出来的假数。
     /// </summary>
     [ObservableProperty] private bool _isContentUnavailable;

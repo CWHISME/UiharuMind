@@ -37,8 +37,8 @@ public class RemoteCommandCodeModelConfig : BaseRemoteModelConfig, IRemoteModelC
     /// 与 OpenRouter 同组：它的模型目录与模型 id 都是 OpenRouter 式命名（<c>meta/…</c>、<c>reflection/…</c>），
     /// 按 pi 的口径这类聚合网关认 <c>x-session-id</c>。
     ///
-    /// <b>未验证</b>：加会话头这件事本来就是为它上面的 muse-spark 命中率极低而做的，而此前四头发齐时
-    /// 实测毫无改善（muse-spark 的 <c>cached_tokens</c> 恒为 113、冷热交替），所以这只是一条还没被
+    /// <b>未验证</b>：加会话头这件事本来就是为它上面的某些闭源模型命中率极低而做的，而此前四头发齐时
+    /// 实测毫无改善（那几个模型的 <c>cached_tokens</c> 恒为 113、冷热交替），所以这只是一条还没被
     /// 证伪的新假设。若这一条与 <c>prompt_cache_key</c> 都上了，命中率仍不动，
     /// 就该认定是它的上游不缓存，客户端这边到此为止。
     /// </summary>
