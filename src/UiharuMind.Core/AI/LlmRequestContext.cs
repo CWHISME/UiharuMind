@@ -31,20 +31,6 @@ public sealed record LlmRequestContext
     public bool ForbidToolCalls { get; init; }
 
     /// <summary>
-    /// 本次请求历史里，<b>按助手消息出现顺序</b>排列的思考正文来源（缺思考的位置为 null）。
-    ///
-    /// 助手消息要带回当时的思考正文，但标准 ChatMessage→wire 消息转换认不出
-    /// <c>TextReasoningContent</c>,序列化时会把它悄悄丢掉。丢失发生在 OpenAI SDK 内部、
-    /// 早于 HTTP 层能碰到请求体之前,只能趁历史消息对象还在时
-    /// (<see cref="Execution.LazyChatClient"/> 转发前)把它们挂在这里,让 HTTP 层照着回填。
-    ///
-    /// 按序而不是按 tool_call id:没有工具调用的普通回复同样要回传(网关按「每一条更早的助手消息」
-    /// 校验),而它身上没有 id 可挂。顺序与即将发给 SDK 的那份消息列表一一对应。
-    /// 给的是来源而不是现成的表:只有要求回填的模型才去收集,其余模型一次都不扫
-    /// </summary>
-    public Func<IReadOnlyList<string?>?>? PendingReasoningSource { get; init; }
-
-    /// <summary>
     /// 本次请求的<b>会话亲和</b>值，取会话自己的（<see cref="Chat.ChatSession.CacheAffinity"/>；
     /// 子会话为什么不继承父会话，理由在那边）。
     ///
@@ -67,16 +53,4 @@ public sealed record LlmRequestContext
     /// 而 <c>AsyncLocal</c> 里写下的值不会向调用方回流，标志位那样传不出来。
     /// </summary>
     public Action<byte[]>? EncryptedReasoningObserved { get; init; }
-
-    /// <summary>
-    /// 本次请求里，<b>按助手消息出现顺序</b>排列的加密思考票据（缺的位置为 null）。
-    ///
-    /// 与 <see cref="PendingReasoningSource"/> 是两条独立的路：那个是明文正文、写 <c>reasoning_content</c>；
-    /// 这个是密文票据、写 <c>reasoning_details</c>，<b>只能原样发给产出它的那个模型</b>。
-    /// 复用同一个顺序约定，因为两者都挂在「第几条助手消息」上。
-    ///
-    /// 票据<b>长在消息上</b>（ADR 0100，随消息落盘）：一条消息的票挂上就不动，
-    /// 每轮原样重发，历史部分逐字节相同，前缀才是纯追加。
-    /// </summary>
-    public IReadOnlyList<string?>? ReasoningTickets { get; init; }
 }

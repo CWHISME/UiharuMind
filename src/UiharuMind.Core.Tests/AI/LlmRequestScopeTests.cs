@@ -26,7 +26,6 @@ public class LlmRequestScopeTests
         Assert.Same(LlmRequestContext.Empty, LlmRequestScope.Current);
         Assert.False(LlmRequestScope.Current.ForbidToolCalls);
         Assert.Null(LlmRequestScope.Current.SessionAffinity);
-        Assert.Null(LlmRequestScope.Current.PendingReasoningSource);
     }
 
     /// <summary>作用域结束还原成进来时的那份；嵌套时先回到外层，再回到空</summary>
@@ -91,7 +90,6 @@ public class LlmRequestScopeTests
 
         Assert.True(inner.Seen!.ForbidToolCalls);            //外层禁着：发出去就是禁的
         Assert.Null(inner.Seen.SessionAffinity);             //这个客户端没有会话：清掉，不沿用外层
-        Assert.NotNull(inner.Seen.PendingReasoningSource);   //思考来源由客户端挂上
         Assert.True(LlmRequestScope.Current.ForbidToolCalls); //客户端退出后外层照旧
         Assert.Equal("outer-affinity", LlmRequestScope.Current.SessionAffinity);
     }
@@ -113,7 +111,6 @@ public class LlmRequestScopeTests
         }
 
         Assert.Equal("stream-affinity", inner.Seen!.SessionAffinity);
-        Assert.NotNull(inner.Seen.PendingReasoningSource);
     }
 
     /// <summary>两条并发流程各挂各的：中途真正交错，谁也不该读到对方的</summary>

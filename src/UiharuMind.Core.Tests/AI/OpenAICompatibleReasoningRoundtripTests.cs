@@ -1,222 +1,22 @@
 using System.Text.Json.Nodes;
-using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI;
-using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Models;
-using UiharuMind.Core.AI.Net;
-using UiharuMind.Core.Configs.RemoteAI;
-using UiharuMind.Core.AI.Net.Transport;
 using UiharuMind.Core.AI.Net.Request;
 using UiharuMind.Core.AI.Reasoning;
+using UiharuMind.Core.Configs.RemoteAI;
 
 namespace UiharuMind.Core.Tests.AI;
 
 /// <summary>
-/// 请求改写：采样参数剥离（Kimi 类固定参数模型）与思考正文回填。
+/// 请求改写里与思考有关的那半条：「字段必须在」的模型补空串，以及键名从哪来。
 ///
-/// 回填按<b>助手消息出现顺序</b>匹配，不看 tool_call id——没有工具调用的普通回复同样要回传
-/// （网关按「每一条更早的助手消息」校验，缺了报
-/// <c>Missing required parameter: 'messages[8].reasoning_content'</c>）。
+/// <para>回填正文与票据<b>不在这层</b>（ADR 0101）：那两样跟着消息对象走，
+/// 由 <see cref="ChatCompletionMessageBinder"/> 写进消息本身，见
+/// <see cref="ChatCompletionMessageBinderTests"/>。这里只剩「补空串」——
+/// 它不需要知道是哪条消息，天然不会错配。</para>
 /// </summary>
 public class OpenAICompatibleReasoningRoundtripTests
 {
-    [Fact]
-    public void RestoreReasoningContent_FillsToolCallMessage()
-    {
-        JsonObject message = RestoreMessage(
-            """{"messages":[{"role":"assistant","content":"查一下","tool_calls":[{"id":"call-1","type":"function"}]}]}""",
-            ["先想好再调工具。"]);
-
-        Assert.Equal("先想好再调工具。", message["reasoning_content"]!.GetValue<string>());
-    }
-
-    /// <summary>
-    /// 回归：网关口径下纯文本的助手回复也要回填。此前只认带 tool_calls 的消息，网关校验
-    /// 「每一条助手消息」时就死在这一条上（实测 CommandCode 的 messages[8]）。
-    /// </summary>
-    [Fact]
-    public void RestoreReasoningContent_FillsPlainAssistantMessage()
-    {
-        JsonObject message = RestoreMessage(
-            """{"messages":[{"role":"assistant","content":"你好呀"}]}""",
-            ["先打个招呼。"],
-            fill: true);
-
-        Assert.Equal("先打个招呼。", message["reasoning_content"]!.GetValue<string>());
-    }
-
-    /// <summary>
-    /// 有正文就发，不挑消息：工具调用之外的纯文本回复也带上。各家校验口径不同
-    /// （DeepSeek 只查带 tool_calls 的，网关连纯文本回复都查），全都带回去就同时满足，
-    /// 不用猜这一家要哪一种。
-    /// </summary>
-    [Fact]
-    public void RestoreReasoningContent_FillsPlainMessageWithoutAnyFlag()
-    {
-        JsonObject message = RestoreMessage(
-            """{"messages":[{"role":"assistant","content":"你好呀"}]}""",
-            ["先打个招呼。"]);
-
-        Assert.Equal("先打个招呼。", message["reasoning_content"]!.GetValue<string>());
-    }
-
-    /// <summary>按序取：三条助手消息各拿各的思考，不串台、不错位</summary>
-    [Fact]
-    public void RestoreReasoningContent_FollowsAssistantOrder()
-    {
-        string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(
-            """
-            {"messages":[
-              {"role":"system","content":"s"},
-              {"role":"user","content":"u"},
-              {"role":"assistant","tool_calls":[{"id":"c1"}]},
-              {"role":"tool","content":"r"},
-              {"role":"assistant","content":"看完了"},
-              {"role":"user","content":"u2"},
-              {"role":"assistant","content":"好"}
-            ]}
-            """,
-            new RequestRewrite(null, false, ["第一段", null, "第三段"], false));
-
-        JsonArray messages = (JsonArray)JsonNode.Parse(rewritten!)!["messages"]!;
-        Assert.Null(messages[0]!["reasoning_content"]);
-        Assert.Null(messages[1]!["reasoning_content"]);
-        Assert.Equal("第一段", messages[2]!["reasoning_content"]!.GetValue<string>());
-        Assert.Null(messages[3]!["reasoning_content"]);
-        Assert.Null(messages[4]!["reasoning_content"]); // 该条历史里没有思考，不补（fill=None）
-        Assert.Null(messages[5]!["reasoning_content"]);
-        Assert.Equal("第三段", messages[6]!["reasoning_content"]!.GetValue<string>());
-    }
-
-    /// <summary>非助手消息一律不碰</summary>
-    [Fact]
-    public void RestoreReasoningContent_SkipsNonAssistantMessages()
-    {
-        JsonObject message = RestoreMessage(
-            """{"messages":[{"role":"user","content":"你好"}]}""",
-            ["用不上的思考。"]);
-
-        Assert.Null(message["reasoning_content"]);
-    }
-
-    [Fact]
-    public void RestoreReasoningContent_KeepsExistingContent()
-    {
-        JsonObject message = RestoreMessage(
-            """{"messages":[{"role":"assistant","reasoning_content":"已有的思考。","tool_calls":[{"id":"call-1"}]}]}""",
-            ["新的思考，不该覆盖。"]);
-
-        Assert.Equal("已有的思考。", message["reasoning_content"]!.GetValue<string>());
-    }
-
-    [Fact]
-    public void RestoreReasoningContent_ReplacesExplicitNull()
-    {
-        JsonObject message = RestoreMessage(
-            """{"messages":[{"role":"assistant","reasoning_content":null,"tool_calls":[{"id":"call-1"}]}]}""",
-            ["补上的思考。"]);
-
-        Assert.Equal("补上的思考。", message["reasoning_content"]!.GetValue<string>());
-    }
-
-    /// <summary>回填键名跟随模型（如 reasoning），不写死 reasoning_content</summary>
-    [Fact]
-    public void RestoreReasoningContent_UsesConfiguredFieldName()
-    {
-        JsonObject message = RestoreMessage(
-            """{"messages":[{"role":"assistant","content":"查一下","tool_calls":[{"id":"call-1","type":"function"}]}]}""",
-            ["先想好再调工具。"],
-            reasoningField: "reasoning");
-
-        Assert.Equal("先想好再调工具。", message["reasoning"]!.GetValue<string>());
-        Assert.Null(message["reasoning_content"]);
-    }
-
-    /// <summary>roundtrip=null(自动)与 true 都去收集(收集器扫不到就空);显式 false 与无模型跳过</summary>
-    [Fact]
-    public void ReasoningSource_IsCollectedForAutoOrRequired_SkippedForExplicitOff()
-    {
-        int count = 0;
-        // 上下文直接给：断言「什么情况下要收集」不必先摆一个异步流，也不必担心漏到别的测试里
-        LlmRequestContext context = new()
-        {
-            PendingReasoningSource = () =>
-            {
-                count++;
-                return ["思考"];
-            },
-        };
-        // 显式关(商汤自研,官方推荐不回传):不收集
-        RequestRewrite.For(new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "sensenova-6.8-flash-lite" } }, context);
-        // 无模型:不收集
-        RequestRewrite.For(null, context);
-        // 自动(未声明):收集
-        RequestRewrite.For(new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "glm-5.2" } }, context);
-        // 必须回填(kimi-k3):收集
-        RequestRewrite rewrite = RequestRewrite.For(
-            new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "kimi-k3" } }, context);
-        Assert.NotNull(rewrite.ReasoningByAssistantMessage);
-
-        Assert.Equal(2, count);
-    }
-
-    [Fact]
-    public void KimiK3Preset_OmitsSamplingParams_RoundtripIsAuto()
-    {
-        var config = new RemoteSensenovaModelConfig();
-        var preset = config.ModelIdVariants["kimi-k3"];
-
-        Assert.True(preset.OmitSamplingParams);
-        Assert.Null(preset.ReplayExistingReasoning); // 默认 auto：有正文就回传
-    }
-
-    [Fact]
-    public void KimiK3ModelInfo_RoundtripDefaultsToAuto()
-    {
-        var info = new RemoteModelInfo
-        {
-            Config = new RemoteSensenovaModelConfig { ModelId = "kimi-k3" },
-        };
-
-        Assert.Null(info.ReplayExistingReasoning);
-    }
-
-    /// <summary>
-    /// 从模型配置一路查到请求体里的键名：预设表 → 默认，<b>观测值不参与</b>。
-    /// 观测到的是响应侧字段名，请求侧未必同名（CommandCode 响应 reasoning、请求 reasoning_content）。
-    /// </summary>
-    [Fact]
-    public void ReasoningField_ResolvesPresetThenDefault_IgnoringObserved()
-    {
-        var observed = new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "glm-5.2" } };
-        observed.Config.ObservedThinkingFields["glm-5.2"] = "reasoning_text";
-        Assert.Equal("reasoning_content", RequestRewrite.For(observed).ReasoningField);
-
-        // 预设声明照常生效
-        var preseted = new RemoteModelInfo
-        {
-            Config = new RemoteSensenovaModelConfig { ModelId = "sensenova-6.8-flash-lite" },
-        };
-        Assert.Equal("reasoning", RequestRewrite.For(preseted).ReasoningField);
-
-        Assert.Equal("reasoning_content", RequestRewrite.For(new RemoteModelInfo()).ReasoningField);
-        Assert.Equal("reasoning_content", RequestRewrite.For(model: null).ReasoningField);
-        // 违反契约给了空串的实现：退回默认，而不是写一个 `"": "..."` 进请求体
-        Assert.Equal("reasoning_content", RequestRewrite.For(new BlankFieldModel()).ReasoningField);
-    }
-
-    /// <summary>思考字段名给空串的模型（接口契约说该给生效键名，实现可能给空）</summary>
-    private sealed class BlankFieldModel : ILlmModel
-    {
-        public string ModelName => "blank";
-        public string ModelPath => "";
-        public bool IsVision => false;
-        public string ModelDescription => "";
-        public string ModelId => "blank";
-        public int Port => 0;
-        public string ThinkingField => "";
-    }
-
     /// <summary>
     /// 没有思考正文可回传时补空串：DeepSeek 类要求「思考模式下带 tool_calls 的助手消息必须含
     /// reasoning_content」，字段缺了直接 400——历史里关思考档位跑出来的工具调用就是这种。
@@ -226,7 +26,7 @@ public class OpenAICompatibleReasoningRoundtripTests
     {
         string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(
             """{"messages":[{"role":"assistant","content":"查一下","tool_calls":[{"id":"call-1","type":"function"}]}]}""",
-            new RequestRewrite(null, false, null, false, true));
+            new RequestRewrite(null, false, false, true));
 
         var message = (JsonObject)JsonNode.Parse(rewritten!)!["messages"]![0]!;
         Assert.Equal("", message["reasoning_content"]!.GetValue<string>());
@@ -238,7 +38,7 @@ public class OpenAICompatibleReasoningRoundtripTests
     {
         string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(
             """{"messages":[{"role":"assistant","content":"说完了"}]}""",
-            new RequestRewrite(null, false, null, false, true));
+            new RequestRewrite(null, false, false, true));
 
         var message = (JsonObject)JsonNode.Parse(rewritten!)!["messages"]![0]!;
         Assert.Equal("", message["reasoning_content"]!.GetValue<string>());
@@ -253,20 +53,23 @@ public class OpenAICompatibleReasoningRoundtripTests
     {
         string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(
             """{"messages":[{"role":"user","content":"你好"},{"role":"assistant","content":"说完了"}]}""",
-            new RequestRewrite(null, false, null, false, true));
+            new RequestRewrite(null, false, false, true));
 
         JsonArray messages = (JsonArray)JsonNode.Parse(rewritten!)!["messages"]!;
         Assert.Null(messages[0]!["reasoning_content"]); // user 不补
         Assert.Equal("", messages[1]!["reasoning_content"]!.GetValue<string>());
     }
 
-    /// <summary>有正文就回正文，不因「补空串」把它盖成空串</summary>
+    /// <summary>
+    /// 已经有正文的不覆盖。绑定器写进去的那些就是这种形态——补空串要是盖上去，
+    /// 等于把思考抹成空串，服务端照样 400（字段在、内容是空，语义不同）。
+    /// </summary>
     [Fact]
     public void FillEmptyReasoning_PrefersExistingReasoning()
     {
         string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(
-            """{"messages":[{"role":"assistant","content":"说完了"}]}""",
-            new RequestRewrite(null, false, ["真的思考"], false, true));
+            """{"messages":[{"role":"assistant","reasoning_content":"真的思考","content":"说完了"}]}""",
+            new RequestRewrite(null, false, false, true));
 
         var message = (JsonObject)JsonNode.Parse(rewritten!)!["messages"]![0]!;
         Assert.Equal("真的思考", message["reasoning_content"]!.GetValue<string>());
@@ -278,9 +81,35 @@ public class OpenAICompatibleReasoningRoundtripTests
     {
         string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(
             """{"messages":[{"role":"assistant","content":"查一下","tool_calls":[{"id":"call-1","type":"function"}]}]}""",
-            new RequestRewrite(null, false, null, false));
+            new RequestRewrite(null, false, false));
 
         Assert.Null(rewritten);
+    }
+
+    /// <summary>补空串用模型声明的键名（如 reasoning），不写死 reasoning_content</summary>
+    [Fact]
+    public void FillEmptyReasoning_UsesConfiguredFieldName()
+    {
+        string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(
+            """{"messages":[{"role":"assistant","content":"说完了"}]}""",
+            new RequestRewrite(null, false, false, true, "reasoning"));
+
+        var message = (JsonObject)JsonNode.Parse(rewritten!)!["messages"]![0]!;
+        Assert.Equal("", message["reasoning"]!.GetValue<string>());
+        Assert.Null(message["reasoning_content"]);
+    }
+
+    /// <summary>思考键为 null 时补空串只换值，不重复写键</summary>
+    [Fact]
+    public void FillEmptyReasoning_ReplacesExplicitNull()
+    {
+        string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(
+            """{"messages":[{"role":"assistant","reasoning_content":null,"tool_calls":[{"id":"c1","function":{"arguments":"null"}}]}]}""",
+            new RequestRewrite(null, false, false, true));
+
+        Assert.Equal(
+            """{"messages":[{"role":"assistant","reasoning_content":"","tool_calls":[{"id":"c1","function":{"arguments":"{}"}}]}]}""",
+            rewritten);
     }
 
     /// <summary>
@@ -327,7 +156,7 @@ public class OpenAICompatibleReasoningRoundtripTests
     /// <summary>
     /// 「每条助手消息都带思考」是按<b>模型</b>的，不是按网关：同一网关下 DeepSeek 只要求带
     /// tool_calls 的那些（实测 88 次请求、105 条无思考的纯文本回复全部通过），beam 才要求全量。
-    /// 所以这里不给任何供应商写死，靠服务端 400 里学（见 <see cref="ReasoningRequirementErrorHandler"/>）。
+    /// 所以这里不给任何供应商写死，靠服务端 400 里学（见 <c>ReasoningRequirementErrorHandler</c>）。
     /// </summary>
     [Fact]
     public void RequireReasoningOnEveryAssistantMessage_IsLearnedPerModel()
@@ -366,59 +195,83 @@ public class OpenAICompatibleReasoningRoundtripTests
         Assert.True(RequestRewrite.For(new RemoteModelInfo { Config = config }).FillEmptyReasoning);
     }
 
+    [Fact]
+    public void KimiK3Preset_OmitsSamplingParams_RoundtripIsAuto()
+    {
+        var config = new RemoteSensenovaModelConfig();
+        var preset = config.ModelIdVariants["kimi-k3"];
+
+        Assert.True(preset.OmitSamplingParams);
+        Assert.Null(preset.ReplayExistingReasoning); // 默认 auto：有正文就回传
+    }
+
+    [Fact]
+    public void KimiK3ModelInfo_RoundtripDefaultsToAuto()
+    {
+        var info = new RemoteModelInfo
+        {
+            Config = new RemoteSensenovaModelConfig { ModelId = "kimi-k3" },
+        };
+
+        Assert.Null(info.ReplayExistingReasoning);
+    }
+
     /// <summary>
-    /// 收集器按助手消息顺序取，普通回复也收：此前只收带 tool_calls 的消息，
-    /// 纯文本回复的思考整段丢掉（CommandCode 的 messages[8] 就是这么 400 的）。
+    /// 回填开关：<c>null</c>（自动）与 <c>true</c> 都回填，只有显式 <c>false</c> 与无模型才跳过。
+    /// 绑定器与改写器问的是同一个谓词，抄成两份就会自相矛盾。
     /// </summary>
     [Fact]
-    public void ReplayPlan_CoversPlainRepliesInOrder()
+    public void ReplayPolicy_ReplaysForAutoOrRequired_SkipsForExplicitOff()
     {
-        ChatMessage[] history =
-        [
-            new(ChatRole.User, "你好"),
-            new(ChatRole.Assistant, [new TextReasoningContent("先想"), new FunctionCallContent("c1", "Read", null)]),
-            new(ChatRole.Tool, [new FunctionResultContent("c1", "内容")]),
-            new(ChatRole.Assistant, "看完了"),
-            new(ChatRole.Assistant, [new TextReasoningContent("收尾")]),
-        ];
-
-        IReadOnlyList<string?>? collected = ReplayPlan.For(history, new ReasoningGate("p", "m")).Reasoning;
-
-        Assert.NotNull(collected);
-        Assert.Equal(3, collected.Count); // 只数助手消息
-        Assert.Equal("先想", collected[0]);
-        Assert.Null(collected[1]);
-        Assert.Equal("收尾", collected[2]);
+        // 显式关(商汤自研,官方推荐不回传)
+        Assert.False(ReasoningReplayPolicy.ShouldReplay(
+            new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "sensenova-6.8-flash-lite" } }));
+        // 无模型
+        Assert.False(ReasoningReplayPolicy.ShouldReplay(null));
+        // 自动(未声明)
+        Assert.True(ReasoningReplayPolicy.ShouldReplay(
+            new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "glm-5.2" } }));
+        // 必须回填(kimi-k3 之外由服务端 400 学来的那种)
+        var learned = new RemoteModelInfo { Config = new RemoteCommandCodeModelConfig { ModelId = "beam" } };
+        learned.Config.LearnRequireReasoningOnEveryAssistantMessage();
+        Assert.True(ReasoningReplayPolicy.ShouldReplay(learned));
     }
 
-    /// <summary>老会话里一条消息躺着多段思考碎片，要拼齐</summary>
+    /// <summary>
+    /// 从模型配置一路查到请求体里的键名：预设表 → 默认，<b>观测值不参与</b>。
+    /// 观测到的是响应侧字段名，请求侧未必同名（CommandCode 响应 reasoning、请求 reasoning_content）。
+    /// </summary>
     [Fact]
-    public void ReplayPlan_JoinsFragments()
+    public void ReasoningField_ResolvesPresetThenDefault_IgnoringObserved()
     {
-        ChatMessage[] history =
-        [
-            new(ChatRole.Assistant, [new TextReasoningContent("先想"), new TextReasoningContent("再想")]),
-        ];
+        var observed = new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "glm-5.2" } };
+        observed.Config.ObservedThinkingFields["glm-5.2"] = "reasoning_text";
+        Assert.Equal("reasoning_content", RequestRewrite.For(observed).ReasoningField);
+        Assert.Equal("reasoning_content", ReasoningReplayPolicy.FieldName(observed));
 
-        IReadOnlyList<string?>? collected = ReplayPlan.For(history, new ReasoningGate("p", "m")).Reasoning;
+        // 预设声明照常生效
+        var preseted = new RemoteModelInfo
+        {
+            Config = new RemoteSensenovaModelConfig { ModelId = "sensenova-6.8-flash-lite" },
+        };
+        Assert.Equal("reasoning", RequestRewrite.For(preseted).ReasoningField);
+        Assert.Equal("reasoning", ReasoningReplayPolicy.FieldName(preseted));
 
-        Assert.Equal("先想再想", collected![0]);
+        Assert.Equal("reasoning_content", ReasoningReplayPolicy.FieldName(new RemoteModelInfo()));
+        Assert.Equal("reasoning_content", ReasoningReplayPolicy.FieldName(null));
+        // 违反契约给了空串的实现：退回默认，而不是写一个 `"": "..."` 进请求体
+        Assert.Equal("reasoning_content", ReasoningReplayPolicy.FieldName(new BlankFieldModel()));
     }
 
-    /// <summary>一条思考都没有时返回 null，改写整段跳过</summary>
-    [Fact]
-    public void ReplayPlan_ReturnsNullWhenNothingToReplay()
+    /// <summary>思考字段名给空串的模型（接口契约说该给生效键名，实现可能给空）</summary>
+    private sealed class BlankFieldModel : ILlmModel
     {
-        ChatMessage[] history = [new(ChatRole.User, "你好"), new(ChatRole.Assistant, "答")];
-
-        Assert.Null(ReplayPlan.For(history, new ReasoningGate("p", "m")).Reasoning);
-    }
-
-    private static JsonObject RestoreMessage(string json, string?[] reasoning,
-        string reasoningField = "reasoning_content", bool fill = false)
-    {
-        string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(json,
-            new RequestRewrite(null, false, reasoning, false, fill, reasoningField));
-        return (JsonObject)JsonNode.Parse(rewritten ?? json)!["messages"]![0]!;
+        public string ModelName => "blank";
+        public string ModelPath => "";
+        public bool IsVision => false;
+        public string ModelDescription => "";
+        public string ModelId => "blank";
+        public int Port => 0;
+        public string ThinkingField => "";
     }
 }

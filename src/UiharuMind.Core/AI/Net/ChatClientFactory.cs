@@ -71,7 +71,10 @@ internal static class ChatClientFactory
         options.AddPolicy(new OpenAICompatibleRequestPolicy(model), PipelinePosition.PerCall);
         if (sendGate != null) options.AddPolicy(new SendGatePolicy(sendGate), PipelinePosition.PerTry);
 
-        return new ChatClient(modelId, new ApiKeyCredential(apiKey), options).AsIChatClient();
+        // 思考回填挂在客户端外面（ADR 0101）：历史里的思考绑到它自己那条消息上，
+        // 不经过字节层，也就不存在「第几条助手消息」这个约定
+        return new ReasoningReplayChatClient(
+            new ChatClient(modelId, new ApiKeyCredential(apiKey), options).AsIChatClient(), model);
     }
 
     /// <summary>

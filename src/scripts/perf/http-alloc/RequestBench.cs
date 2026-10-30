@@ -25,7 +25,7 @@ internal static class RequestBench
         var server = new CaptureHandler(SseData.Build("m", false, "null", 1, 1, 0), capture: true);
         IChatClient client = ChatClientFactory.Create(
             new WireHttpHandler("http://localhost/v1", server), model: null, "deepseek-v4-flash", "key");
-        var (messages, options, reasoning) = Conversation.Build(rounds: 95, withImage: false);
+        var (messages, options, _) = Conversation.Build(rounds: 95, withImage: false);
         await Clients.ConsumeAsync(client, messages, options);
 
         string body = server.LastBody!;
@@ -38,16 +38,16 @@ internal static class RequestBench
         foreach (bool deepSeek in new[] { false, true })
         {
             var model = new FakeModel(deepSeek);
-            var rewrite = new RequestRewrite(model.GetExtraParams(), false, deepSeek ? reasoning : null, false);
+            var rewrite = new RequestRewrite(model.GetExtraParams(), false, false, deepSeek);
             int sent = Rewrite(bodyBytes, rewrite, rewriteOutput).Length;
             var cost = Measure.Run(alloc, 20, () => Rewrite(bodyBytes, rewrite, rewriteOutput));
-            Console.WriteLine($"  改写[{(deepSeek ? "DeepSeek：max_tokens + 回填思考" : "只加 max_tokens")}]：" +
+            Console.WriteLine($"  改写[{(deepSeek ? "DeepSeek：max_tokens + 补空串" : "只加 max_tokens")}]：" +
                               $"{Measure.Kb(cost.Bytes)}（大对象堆约 {Measure.Kb(cost.LohBytes)}），{cost.Micros / 1000:0.00} ms，发出 {Measure.Kb(sent)}");
         }
 
         // 请求体日志：格式化 + 入队（与 OpenAICompatibleRequestPolicy.LogRequest 同形）
         byte[] rewrittenBytes = Rewrite(bodyBytes,
-            new RequestRewrite(new FakeModel(false).GetExtraParams(), false, null, false), rewriteOutput).ToArray();
+            new RequestRewrite(new FakeModel(false).GetExtraParams(), false, false), rewriteOutput).ToArray();
         var logCost = Measure.Run(alloc, 20, () =>
         {
             using var output = new PooledByteWriter(rewrittenBytes.Length + rewrittenBytes.Length / 4);
@@ -80,12 +80,21 @@ internal static class RequestBench
             Console.WriteLine($"  Bodies 落盘 {item.CharCount:N0} 字符：{Measure.Kb(append.Bytes)}/条，{append.Micros / 1000:0.00} ms");
         }
 
-        // 思考回填的计划：门禁过滤 + 明文/票据两条清单，一次遍历产出
+        // 思考绑定：按消息取正文与票据，再把它们写进消息对象（ADR 0101，没有序号对位）
         foreach (int thinkingChars in new[] { 240, 3000 })
         {
             IReadOnlyList<ChatMessage> history = Conversation.Build(rounds: 95, withImage: false, thinkingChars).Messages;
-            var collectCost = Measure.Run(alloc, 50, () => ReplayPlan.For(history, new ReasoningGate("p", "m")));
-            Console.WriteLine($"  思考回填计划（95 轮，每轮思考 {thinkingChars} 字）：{Measure.Kb(collectCost.Bytes)}/次请求");
+            var collectCost = Measure.Run(alloc, 50, () =>
+            {
+                foreach (ChatMessage message in history)
+                {
+                    (string? text, string? ticket) = ReasoningReplay.Read(message);
+                    if (text is null && ticket is null) continue;
+                    GC.KeepAlive(ChatCompletionMessageBinder.Attach(
+                        message, text, ticket, ReasoningReplayPolicy.DefaultField));
+                }
+            });
+            Console.WriteLine($"  思考绑定（95 轮，每轮思考 {thinkingChars} 字）：{Measure.Kb(collectCost.Bytes)}/次请求");
         }
 
         // 带图：base64 抹得掉吗

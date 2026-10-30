@@ -8,23 +8,24 @@
  ****************************************************************************/
 
 using System.Buffers;
-using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Net.Json;
-using UiharuMind.Core.AI.Reasoning;
 
 namespace UiharuMind.Core.AI.Net.Request;
 
 /// <summary>
 /// 发往 OpenAI 兼容端点之前对请求体的几道改写：注入模型的额外参数、禁止工具调用、
-/// 修畸形的工具参数、回填思考正文、删采样参数。
+/// 修畸形的工具参数、给缺思考字段的助手消息补空串、删采样参数。
+///
+/// <para>回填思考正文与加密票据<b>不在这里</b>（ADR 0101）：那两样跟着消息对象走，
+/// 由 <see cref="ReasoningReplayChatClient"/> 在交给 SDK 之前绑进消息本身，
+/// 所以这一层再没有「第几条助手消息」这回事。</para>
 ///
 /// 直接在 UTF-8 字节上做，不建 DOM：根对象按「保留的属性原样拷贝 + 要设的键追加在末尾」重拼，
-/// <c>messages</c> 只在要修参数或回填思考时逐条走进去，其余子树只扫不拷。原文的转义与空白一字不动。
+/// <c>messages</c> 只在要修参数或补空串时逐条走进去，其余子树只扫不拷。原文的转义与空白一字不动。
 /// 根上被覆盖的键会挪到末尾；JSON 语义不变，前缀缓存按渲染后的 token 算，不受影响。
 /// </summary>
 internal static class ChatCompletionsRequestRewriter
@@ -52,11 +53,8 @@ internal static class ChatCompletionsRequestRewriter
     {
         // 大多数请求不含畸形 tool_calls 参数,先做一次廉价的字节扫描,避免每次都逐条走 messages
         bool fixArguments = json.IndexOf("\"arguments\":\"null\""u8) >= 0 || json.IndexOf("\"arguments\": \"null\""u8) >= 0;
-        IReadOnlyList<string?>? reasoning = rewrite.ReasoningByAssistantMessage is { Count: > 0 } list ? list : null;
-        IReadOnlyList<string?>? tickets = rewrite.ReasoningTickets is { Count: > 0 } ticketList ? ticketList : null;
-        if (rewrite.ExtraParams is not { Count: > 0 } && !rewrite.ForbidToolCalls && !fixArguments && reasoning == null &&
-            !rewrite.OmitSamplingParams && !rewrite.FillEmptyReasoning && rewrite.PromptCacheKey == null &&
-            tickets == null)
+        if (rewrite.ExtraParams is not { Count: > 0 } && !rewrite.ForbidToolCalls && !fixArguments &&
+            !rewrite.OmitSamplingParams && !rewrite.FillEmptyReasoning && rewrite.PromptCacheKey == null)
         {
             return false;
         }
@@ -88,11 +86,9 @@ internal static class ChatCompletionsRequestRewriter
                 bool isMessages = reader.ValueTextEquals("messages"u8);
                 reader.Read();
                 // 被额外参数覆盖掉的 messages 不能扫:记下的改动会落到别的属性上
-                if (isMessages && !drop &&
-                    (fixArguments || reasoning != null || rewrite.FillEmptyReasoning || tickets != null) &&
+                if (isMessages && !drop && (fixArguments || rewrite.FillEmptyReasoning) &&
                     reader.TokenType == JsonTokenType.StartArray)
-                    ScanMessages(ref reader, fixArguments, reasoning, rewrite.FillEmptyReasoning, rewrite.ReasoningField,
-                        tickets, edits);
+                    ScanMessages(ref reader, fixArguments, rewrite.FillEmptyReasoning, rewrite.ReasoningField, edits);
                 else
                     SkipValue(ref reader);
 
@@ -109,81 +105,32 @@ internal static class ChatCompletionsRequestRewriter
     }
 
     private static void ScanMessages(ref Utf8JsonReader reader, bool fixArguments,
-        IReadOnlyList<string?>? reasoning, bool fillEmptyReasoning, string reasoningField,
-        IReadOnlyList<string?>? tickets, List<Utf8JsonSplice.Edit> edits)
+        bool fillEmptyReasoning, string reasoningField, List<Utf8JsonSplice.Edit> edits)
     {
-        // 回填类改动先收在独立清单里：它们的定位靠「第几条助手消息」，
-        // 只有在收集的那份列表与 wire 上的助手消息逐条一致时才成立
-        List<Utf8JsonSplice.Edit> reasoningEdits = [];
-        List<Utf8JsonSplice.Edit> ticketEdits = [];
-        int assistantIndex = 0; //第几条助手消息,与 reasoning 列表一一对应
         while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
         {
             if (reader.TokenType == JsonTokenType.StartObject)
-                ScanMessage(ref reader, fixArguments, reasoning, fillEmptyReasoning, reasoningField, tickets,
-                    edits, reasoningEdits, ticketEdits, ref assistantIndex);
+                ScanMessage(ref reader, fixArguments, fillEmptyReasoning, reasoningField, edits);
             else SkipValue(ref reader);
         }
-
-        Commit("思考正文", reasoning, reasoningEdits, edits, assistantIndex);
-        Commit("加密票据", tickets, ticketEdits, edits, assistantIndex);
     }
 
     /// <summary>
-    /// 数量闸门：收集的条数与 wire 上的助手消息条数不一致时，<b>整段回填不发</b>。
+    /// 助手消息的思考字段补空串（「字段必须在」那半条）。
     ///
-    /// <para>按序索引的成立前提是「收集思考时遍历的列表」与「SDK 序列化出的 messages」逐条一致，
-    /// 中间隔着序列化这个黑盒：它一旦丢弃、合并或补进一条助手消息，后面所有位置整体错位。
-    /// 而错位不会换来 400——服务端照收，只是那条思考配到了别的消息上，语义安静地脏掉，
-    /// 事后只能翻 <c>Bodies.txt</c> 逐条对（ADR 0095 记的就是这个代价）。</para>
+    /// <para>回填正文与票据<b>不在这里</b>（ADR 0101）：那两样跟着消息对象走，
+    /// 由 <see cref="ReasoningReplayChatClient"/> 在交给 SDK 之前用
+    /// <c>RawRepresentation</c> + <c>Patch</c> 写进消息里。这里只剩「给缺字段的补个空串」——
+    /// 它不需要知道是哪条消息，天然不会错配。</para>
     ///
-    /// <para>所以口径是<b>宁缺毋滥</b>：缺字段服务端能自愈（<see cref="RequestRewrite.FillEmptyReasoning"/>
-    /// 那条路就是干这个的），配错查不出来。</para>
-    /// </summary>
-    /// <param name="what">日志里怎么称呼这批回填</param>
-    /// <param name="source">按助手消息顺序收集的清单；null 表示本次不回填</param>
-    /// <param name="pending">本批要落进请求体的改动</param>
-    /// <param name="edits">通过闸门后并入这里</param>
-    /// <param name="assistantCount">wire 上的助手消息条数</param>
-    private static void Commit(string what, IReadOnlyList<string?>? source, List<Utf8JsonSplice.Edit> pending,
-        List<Utf8JsonSplice.Edit> edits, int assistantCount)
-    {
-        if (pending.Count == 0) return;
-
-        // 没有清单的批次（只有「补空串」那种）不按位置取内容，天然不会错配，直接放行
-        if (source != null && source.Count != assistantCount)
-        {
-            Log.Warning($"{what} replay skipped: {assistantCount} assistant message(s) on the wire, " +
-                        $"{source.Count} collected. A position mismatch would silently bind reasoning " +
-                        "to the wrong message, which is worse than omitting it.");
-            return;
-        }
-
-        edits.AddRange(pending);
-    }
-
-    /// <summary>
-    /// 助手消息的思考正文回填。标准 ChatMessage→wire 消息转换认不出 <c>TextReasoningContent</c>,
-    /// 序列化时会把它悄悄丢掉,只能从清单
-    /// <see cref="RequestRewrite.ReasoningByAssistantMessage"/>(源头是
-    /// <see cref="LlmRequestContext.PendingReasoningSource"/>)按<b>助手消息出现顺序</b>找回来补上。已经带了(哪怕是空串)就不覆盖,只有缺省或 null 才补。
-    ///
-    /// <b>有正文就发,不挑消息</b>:服务端给过的思考原样带回去,工具调用链之外的回复也一样——
-    /// 各家的校验口径不同（DeepSeek 只查带 tool_calls 的，网关连纯文本回复都查），
-    /// 全都带回去就同时满足所有口径，不用去猜这一家要哪一种。
-    ///
-    /// 历史里压根没有正文时，<paramref name="fillEmptyReasoning"/> 决定要不要补空串
-    /// （服务端要的是「字段必须在」，不是「字段必须有内容」）。
+    /// 已经带了正文的（绑定器写进去的那些）不覆盖，只补缺省或 null。
     /// </summary>
     private static void ScanMessage(ref Utf8JsonReader reader, bool fixArguments,
-        IReadOnlyList<string?>? reasoning, bool fillEmptyReasoning, string reasoningField,
-        IReadOnlyList<string?>? tickets, List<Utf8JsonSplice.Edit> edits,
-        List<Utf8JsonSplice.Edit> reasoningEdits, List<Utf8JsonSplice.Edit> ticketEdits,
-        ref int assistantIndex)
+        bool fillEmptyReasoning, string reasoningField, List<Utf8JsonSplice.Edit> edits)
     {
         bool isAssistant = false;
         bool hasReasoning = false;
-        Region nullReasoning = new(-1, -1); //思考键为 null 的值区间,回填时只换值
+        Region nullReasoning = new(-1, -1); //思考键为 null 的值区间,补空串时只换值
 
         while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
         {
@@ -215,37 +162,18 @@ internal static class ChatCompletionsRequestRewriter
             }
         }
 
-        // 此时停在消息对象的 '}' 上。序号必须无条件递增(已带正文的消息同样占一个位置),
-        // 否则后面每条都会错位取到上一条的思考
-        int index = isAssistant ? assistantIndex++ : -1;
+        // 此时停在消息对象的 '}' 上
+        if (!isAssistant || hasReasoning || !fillEmptyReasoning) return;
 
-        // 加密票据按位置原样拼回去。与明文那条互不影响:同一条消息可能两个都有。
-        // 能不能发（同模型门禁）在收集侧就判过了，这里只管字节
-        // 只发真正的票：历史里可能躺着旧版提取器误存的数组（工具参数被当成票据），
-        // 那种东西回填出去就是给服务端塞一段它读不懂的 JSON
-        if (index >= 0 && tickets != null && index < tickets.Count && tickets[index] is { } ticket
-            && ReasoningDetailExtractor.ContainsEncrypted(ticket))
-        {
-            int ticketAt = (int)reader.TokenStartIndex;
-            ticketEdits.Add(new Utf8JsonSplice.Edit(ticketAt, ticketAt,
-                Encoding.UTF8.GetBytes($",\"reasoning_details\":{ticket}")));
-        }
-
-        if (index < 0 || hasReasoning) return;
-
-        string? text = reasoning != null && index < reasoning.Count ? reasoning[index] : null;
-        if (text == null && !fillEmptyReasoning) return;
-
-        string value = text ?? string.Empty;
         if (nullReasoning.Start >= 0)
         {
-            reasoningEdits.Add(new Utf8JsonSplice.Edit(nullReasoning.Start, nullReasoning.End,
-                SerializeReasoning(value, withKey: false, reasoningField)));
+            edits.Add(new Utf8JsonSplice.Edit(nullReasoning.Start, nullReasoning.End,
+                SerializeReasoning(string.Empty, withKey: false, reasoningField)));
         }
         else
         {
             int at = (int)reader.TokenStartIndex;
-            reasoningEdits.Add(new Utf8JsonSplice.Edit(at, at, SerializeReasoning(value, withKey: true, reasoningField)));
+            edits.Add(new Utf8JsonSplice.Edit(at, at, SerializeReasoning(string.Empty, withKey: true, reasoningField)));
         }
     }
 

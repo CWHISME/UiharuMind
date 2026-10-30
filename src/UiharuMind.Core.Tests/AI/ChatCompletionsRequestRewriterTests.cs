@@ -32,7 +32,7 @@ public class ChatCompletionsRequestRewriterTests
     [Fact]
     public void ExtraParams_OverwriteExistingKeys_AndMoveThemToTheEnd()
     {
-        string? rewritten = Rewrite("""{"max_tokens":5,"model":"m","messages":[]}""", new(MaxTokens, false, null, false));
+        string? rewritten = Rewrite("""{"max_tokens":5,"model":"m","messages":[]}""", new(MaxTokens, false, false));
 
         Assert.Equal("""{"model":"m","messages":[],"max_tokens":65535}""", rewritten);
     }
@@ -40,14 +40,14 @@ public class ChatCompletionsRequestRewriterTests
     [Fact]
     public void ExtraParams_OnAnEmptyObject()
     {
-        Assert.Equal("""{"max_tokens":65535}""", Rewrite("{}", new(MaxTokens, false, null, false)));
+        Assert.Equal("""{"max_tokens":65535}""", Rewrite("{}", new(MaxTokens, false, false)));
     }
 
     /// <summary>body 级的会话亲和键：追加在根上，不动 messages（它不参与历史，只是给服务端挑缓存副本用）</summary>
     [Fact]
     public void PromptCacheKey_IsAppendedToTheRoot()
     {
-        RequestRewrite rewrite = new(null, false, null, false, PromptCacheKey: "abc123");
+        RequestRewrite rewrite = new(null, false, false, PromptCacheKey: "abc123");
 
         Assert.Equal("""{"model":"m","messages":[],"prompt_cache_key":"abc123"}""",
             Rewrite("""{"model":"m","messages":[]}""", rewrite));
@@ -57,7 +57,7 @@ public class ChatCompletionsRequestRewriterTests
     [Fact]
     public void PromptCacheKey_Alone_TriggersRewrite()
     {
-        Assert.Equal("""{"prompt_cache_key":"abc123"}""", Rewrite("{}", new(null, false, null, false, PromptCacheKey: "abc123")));
+        Assert.Equal("""{"prompt_cache_key":"abc123"}""", Rewrite("{}", new(null, false, false, PromptCacheKey: "abc123")));
     }
 
     /// <summary>供应商额外参数里若显式给了这个键，以配置为准（它写在后面，同名后者覆盖）</summary>
@@ -67,7 +67,7 @@ public class ChatCompletionsRequestRewriterTests
         IReadOnlyList<KeyValuePair<string, JsonNode?>> extras = [new("prompt_cache_key", JsonValue.Create("from-config"))];
 
         Assert.Equal("""{"model":"m","prompt_cache_key":"from-config"}""",
-            Rewrite("""{"model":"m"}""", new(extras, false, null, false, PromptCacheKey: "abc123")));
+            Rewrite("""{"model":"m"}""", new(extras, false, false, PromptCacheKey: "abc123")));
     }
 
     [Fact]
@@ -77,7 +77,7 @@ public class ChatCompletionsRequestRewriterTests
             [new("thinking", new JsonObject { ["type"] = "enabled", ["note"] = "中文" })];
 
         Assert.Equal("""{"model":"m","thinking":{"type":"enabled","note":"中文"}}""",
-            Rewrite("""{"model":"m"}""", new(thinking, false, null, false)));
+            Rewrite("""{"model":"m"}""", new(thinking, false, false)));
     }
 
     [Fact]
@@ -85,7 +85,7 @@ public class ChatCompletionsRequestRewriterTests
     {
         string? rewritten = Rewrite(
             """{"temperature":0.7,"model":"m","top_p":0.9,"tools":[{"parameters":{"temperature":{"type":"number"}}}],"presence_penalty":0.5,"frequency_penalty":0.5,"max_tokens":1}""",
-            new(null, false, null, true));
+            new(null, false, true));
 
         // 工具参数里同名的键不是采样参数，不能动
         Assert.Equal("""{"model":"m","tools":[{"parameters":{"temperature":{"type":"number"}}}],"max_tokens":1}""", rewritten);
@@ -103,48 +103,15 @@ public class ChatCompletionsRequestRewriterTests
             rewritten);
     }
 
-    [Fact]
-    public void Reasoning_IsInsertedAtTheEndOfTheMessage_EscapedLikeTheSdk()
-    {
-        string?[] reasoning = ["想<一>&\"引号\"\n第二行"];
-
-        string? rewritten = Rewrite(
-            """{"messages":[{"role":"assistant","tool_calls":[{"id":"c1","type":"function"}]}]}""",
-            new(null, false, reasoning, false));
-
-        Assert.Equal(
-            """{"messages":[{"role":"assistant","tool_calls":[{"id":"c1","type":"function"}],"reasoning_content":"想<一>&\"引号\"\n第二行"}]}""",
-            rewritten);
-    }
-
-    /// <summary>
-    /// 回填在消息收尾时才记下，而 <c>"reasoning_content":null</c> 排在 tool_calls 之前：
-    /// 两处改动记录顺序与位置顺序相反，拼的时候必须按位置来
-    /// </summary>
-    [Fact]
-    public void NullReasoningBeforeToolCalls_WithArgumentFix_BothApply()
-    {
-        string?[] reasoning = ["思考"];
-
-        string? rewritten = Rewrite(
-            """{"messages":[{"role":"assistant","reasoning_content":null,"tool_calls":[{"id":"c1","function":{"arguments":"null"}}]}]}""",
-            new(null, false, reasoning, false));
-
-        Assert.Equal(
-            """{"messages":[{"role":"assistant","reasoning_content":"思考","tool_calls":[{"id":"c1","function":{"arguments":"{}"}}]}]}""",
-            rewritten);
-    }
-
     /// <summary>额外参数整个覆盖掉 messages 时，原来那份不能再扫：记下的改动会落到别的属性上</summary>
     [Fact]
     public void ExtraParamOverridingMessages_WithArgumentFix_ReplacesThemCleanly()
     {
         IReadOnlyList<KeyValuePair<string, JsonNode?>> messages = [new("messages", new JsonArray())];
-        string?[] reasoning = ["思考"];
 
         string? rewritten = Rewrite(
             """{"messages":[{"role":"assistant","tool_calls":[{"id":"c1","function":{"arguments":"null"}}]}],"model":"m"}""",
-            new(messages, false, reasoning, false));
+            new(messages, false, false));
 
         Assert.Equal("""{"model":"m","messages":[]}""", rewritten);
     }
@@ -156,6 +123,6 @@ public class ChatCompletionsRequestRewriterTests
     [InlineData("not json")]
     public void NonObjectOrBrokenBody_IsLeftAlone(string json)
     {
-        Assert.Null(Rewrite(json, new(MaxTokens, true, null, false)));
+        Assert.Null(Rewrite(json, new(MaxTokens, true, false)));
     }
 }

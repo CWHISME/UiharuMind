@@ -65,9 +65,9 @@ public class LazyChatClient : IChatClient
         var (client, model) = await ResolveAsync(cancellationToken).ConfigureAwait(false);
         // 票据的产出方就是这一发用的模型；换模型后门禁会挡住旧票
         ReasoningGate producer = new(model.ModelInfo.ProviderId, model.ModelInfo.ModelId);
-        // 门禁过滤 + 两条回填清单，一次遍历产出：三条协议线共用这一道，
-        // 而「第几条助手消息」这个约定只在 ReplayPlan 里定义一次
-        ReplayPlan replay = ReplayPlan.For(messageList, producer);
+        // 门禁过滤：换模型后旧票这一轮不带（三条协议线共用）。
+        // 回填本身不在这里——思考跟着消息对象走，由 chat 线的客户端绑（ADR 0101）
+        IReadOnlyList<ChatMessage> gated = ReasoningGateFilter.Apply([.. messageList], producer);
         // 票据密文不能解析后再编码，所以原样存着
         string? ticketJson = null;
 
@@ -75,16 +75,14 @@ public class LazyChatClient : IChatClient
         // using 结束还原成进来时那份，值不会留给同一条异步流上的下一发
         using LlmRequestScope.Scope scope = LlmRequestScope.Push(LlmRequestScope.Current with
         {
-            PendingReasoningSource = () => replay.Reasoning,
             SessionAffinity = _sessionAffinity,
-            ReasoningTickets = replay.Tickets,
             EncryptedReasoningObserved = ticket => ticketJson = Encoding.UTF8.GetString(ticket),
         });
 
         ChatResponse response;
         try
         {
-            response = await client.GetResponseAsync(replay.Messages, options, cancellationToken).ConfigureAwait(false);
+            response = await client.GetResponseAsync(gated, options, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception e) when (ReasoningRequirementErrorHandler.IsRequirementError(e))
         {
@@ -92,7 +90,7 @@ public class LazyChatClient : IChatClient
             if (!TryLearnReasoningRequirement(model)) throw;
             Log.Warning($"server requires reasoning on every earlier assistant message " +
                         $"(model '{model.ModelInfo.ModelId}'); marked for this model, retrying once.");
-            response = await client.GetResponseAsync(replay.Messages, options, cancellationToken).ConfigureAwait(false);
+            response = await client.GetResponseAsync(gated, options, cancellationToken).ConfigureAwait(false);
         }
 
         HashSet<string>? toolNames = CollectToolNames(options);
@@ -145,16 +143,14 @@ public class LazyChatClient : IChatClient
         var (client, model) = await ResolveAsync(cancellationToken).ConfigureAwait(false);
         // 票据的产出方就是这一发用的模型；换模型后门禁会挡住旧票
         ReasoningGate producer = new(model.ModelInfo.ProviderId, model.ModelInfo.ModelId);
-        // 门禁过滤 + 两条回填清单，一次遍历产出——与非流式那条路同一个入口
-        ReplayPlan replay = ReplayPlan.For(messageList, producer);
+        // 门禁过滤：换模型后旧票这一轮不带。回填由 chat 线的客户端按消息对象绑（ADR 0101）
+        IReadOnlyList<ChatMessage> gated = ReasoningGateFilter.Apply([.. messageList], producer);
 
         // 作用域覆盖整段枚举（含中途重发）：断线重试时请求体会按同一份上下文重新改写
         EncryptedReasoningSignal signal = new();
         using LlmRequestScope.Scope scope = LlmRequestScope.Push(LlmRequestScope.Current with
         {
-            PendingReasoningSource = () => replay.Reasoning,
             SessionAffinity = _sessionAffinity,
-            ReasoningTickets = replay.Tickets,
             // 票据密文不能解析后再编码，所以原样存着；随信号内容一起发出，
             // 框架会把它并进这一发的助手消息，落盘时转成持久的思考内容（ADR 0100）
             EncryptedReasoningObserved = ticket =>
@@ -180,7 +176,7 @@ public class LazyChatClient : IChatClient
         {
             bool retryable = false;
             await foreach (var (update, failure) in StreamOnceAsync(
-                               client, replay.Messages, options, toolNames, model.ModelName, signal, producer,
+                               client, gated, options, toolNames, model.ModelName, signal, producer,
                                cancellationToken)
                            .ConfigureAwait(false))
             {
@@ -462,8 +458,7 @@ public class LazyChatClient : IChatClient
         update.Contents = rebuilt;
     }
 
-    /// <summary>历史消息可能是一次性的枚举，重复枚举前先落地一份；<b>冻结</b>由
-    /// <see cref="ReplayPlan.For"/> 负责，它才是依赖序号对齐的那个组件</summary>
+    /// <summary>历史消息可能是一次性的枚举，重复枚举前先落地一份</summary>
     private static IReadOnlyList<ChatMessage> AsList(IEnumerable<ChatMessage> messages) =>
         messages as IReadOnlyList<ChatMessage> ?? messages.ToList();
 

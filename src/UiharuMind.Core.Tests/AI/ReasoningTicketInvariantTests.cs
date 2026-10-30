@@ -1,9 +1,9 @@
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Net.Request;
 using UiharuMind.Core.AI.Reasoning;
 
 namespace UiharuMind.Core.Tests.AI;
@@ -136,40 +136,38 @@ public class ReasoningTicketInvariantTests
     /// <summary>
     /// 拼回请求体时，票据挂在<b>原来那条</b>助手消息上。
     ///
-    /// 上一次的实现把票挂最后一条，于是每轮位置都变——这条钉住「按序号挂」。
+    /// 上一次的实现把票挂最后一条，于是每轮位置都变；更早一版按序号对位，
+    /// 历史一增删就错位。现在票跟着消息对象走（ADR 0101）——
+    /// 这条钉住「a1 上的票不会跑到 a2 上」。
     /// </summary>
     [Fact]
     public void SplicedTicket_LandsOnItsOwnMessage()
     {
-        string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(
-            """
-            {"messages":[
-              {"role":"user","content":"u1"},
-              {"role":"assistant","content":"a1"},
-              {"role":"user","content":"u2"},
-              {"role":"assistant","content":"a2"}
-            ]}
-            """,
-            new(null, false, null, false, ReasoningTickets: [TicketA, null]));
+        ChatMessage first = new(ChatRole.Assistant, "a1");
+        ChatMessage second = new(ChatRole.Assistant, "a2");
 
-        JsonArray messages = (JsonArray)JsonNode.Parse(rewritten!)!["messages"]!;
+        ChatMessage boundFirst = ChatCompletionMessageBinder.Attach(first, null, TicketA, "reasoning_content")!;
+        ChatMessage boundSecond = ChatCompletionMessageBinder.Attach(second, null, null, "reasoning_content")!;
 
-        Assert.Equal(TicketA, messages[1]!["reasoning_details"]!.ToJsonString());
-        Assert.Null(messages[3]!["reasoning_details"]); //第二条没票就不该有字段
+        Assert.Contains(TicketA, Wire(boundFirst));
+        Assert.DoesNotContain("reasoning_details", Wire(boundSecond)); //第二条没票就不该有字段
     }
 
     /// <summary>缺的位置不补：一条消息都没有票时，请求体里不该冒出空数组</summary>
     [Fact]
     public void MissingSlotsStayAbsent()
     {
-        string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(
-            """{"messages":[{"role":"assistant","content":"a"}]}""",
-            new(null, false, null, false, ReasoningTickets: [null]));
+        ChatMessage bound = ChatCompletionMessageBinder.Attach(
+            new ChatMessage(ChatRole.Assistant, "a"), null, null, "reasoning_content")!;
 
-        JsonArray messages = (JsonArray)JsonNode.Parse(rewritten!)!["messages"]!;
-
-        Assert.Null(messages[0]!["reasoning_details"]);
+        Assert.DoesNotContain("reasoning_details", Wire(bound));
     }
+
+    /// <summary>序列化一条挂好思考的消息（SDK 自己的序列化器）</summary>
+    private static string Wire(ChatMessage message) =>
+        System.ClientModel.Primitives.ModelReaderWriter
+            .Write(message.RawRepresentation!, new System.ClientModel.Primitives.ModelReaderWriterOptions("W"))
+            .ToString();
 
     /// <summary>
     /// 明文摘要不进回填——服务端不认摘要回传，带回去是白改请求体。

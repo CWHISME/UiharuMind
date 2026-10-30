@@ -18,7 +18,7 @@ internal static class EndToEndBench
     {
         Console.WriteLine("== 端到端一次流式调用（网关风格 2005 块，DeepSeek 模型）==");
         byte[] sse = SseData.Build("deepseek-v4-flash", false, "\"\"", 1500, 300, 200);
-        var (bigMessages, bigOptions, reasoning) = Conversation.Build(rounds: 95, withImage: false);
+        var (bigMessages, bigOptions, _) = Conversation.Build(rounds: 95, withImage: false);
         List<ChatMessage> small = [new(ChatRole.User, "你好")];
         var model = new FakeModel(deepSeek: true);
 
@@ -28,10 +28,8 @@ internal static class EndToEndBench
                      ("长跑量级请求", bigMessages, bigOptions),
                  })
         {
+            // 思考由客户端自己按消息绑定（ADR 0101），不需要外部挂上下文
             IChatClient client = CreateClient(sse, model);
-            // 这里直接建客户端、绕过了 LazyChatClient，上下文得自己挂
-            using LlmRequestScope.Scope scope = LlmRequestScope.Push(
-                new LlmRequestContext { PendingReasoningSource = () => reasoning });
             var cost = Measure.Run(alloc, 12, () => Clients.ConsumeAsync(client, messages, options).GetAwaiter().GetResult());
             Console.WriteLine($"  [{label}] {Measure.Kb(cost.Bytes),10}/次（大对象堆约 {Measure.Kb(cost.LohBytes)}），{cost.Micros / 1000:0.0} ms");
         }
@@ -45,11 +43,9 @@ internal static class EndToEndBench
         var ballast = new List<string>(1_000_000);
         for (int i = 0; i < 1_000_000; i++) ballast.Add(new string((char)('a' + i % 26), 40));
         byte[] sse = SseData.Build("deepseek-v4-flash", false, "\"\"", 1500, 300, 200);
-        var (messages, options, reasoning) = Conversation.Build(rounds: 95, withImage: false);
+        var (messages, options, _) = Conversation.Build(rounds: 95, withImage: false);
         IChatClient client = CreateClient(sse, new FakeModel(deepSeek: true));
 
-        using LlmRequestScope.Scope scope = LlmRequestScope.Push(
-            new LlmRequestContext { PendingReasoningSource = () => reasoning });
         for (int i = 0; i < 5; i++) await Clients.ConsumeAsync(client, messages, options);
         GC.Collect();
         int gen0 = GC.CollectionCount(0);
