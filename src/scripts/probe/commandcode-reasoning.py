@@ -4,7 +4,7 @@
 为什么需要专门量：加密思考不进界面，我们的适配层又只认 reasoning_content
 （reasoning_details 在 Microsoft.Extensions.AI.OpenAI 里根本没被读），于是
 「服务端发了、我们丢了」与「服务端根本没发」在应用里长得一模一样，
-只有 usage 里那个 reasoning_tokens 在动。muse-spark 正是这种。
+只有 usage 里那个 reasoning_tokens 在动。有些闭源模型正是这种。
 
 七步，依次回答七个问题：
 
@@ -22,8 +22,9 @@
 「模型没有摘要」——可能是压根没要。这两步就是补这个洞。
 
 用法:
-    CMD_API_KEY=sk-... python3 src/scripts/probe/commandcode-reasoning.py
-    CMD_API_KEY=sk-... python3 src/scripts/probe/commandcode-reasoning.py meta/muse-spark-1.3-contributor
+    CMD_API_KEY=... CMD_MODEL=<模型id> python3 src/scripts/probe/commandcode-reasoning.py
+    CMD_API_KEY=... python3 src/scripts/probe/commandcode-reasoning.py <模型id>
+    CMD_API_KEY=... python3 src/scripts/probe/commandcode-reasoning.py <模型id> --only=2,3
 
 只发五六次最小请求；密钥只在本进程的环境变量里，不落盘、不写日志。
 """
@@ -34,10 +35,38 @@ import urllib.error
 import urllib.request
 
 BASE = os.environ.get("CMD_BASE", "https://api.commandcode.ai/provider")
-MODEL = sys.argv[1] if len(sys.argv) > 1 else "meta/muse-spark-1.3-contributor"
+# 第一个位置参数是模型名；--only=<步号,步号> 只跑指定的步（其余步骤已量过时不重复消耗配额）
+_only = ""
+_args = []
+for _arg in sys.argv[1:]:
+    if _arg.startswith("--only="):
+        _only = _arg[len("--only="):]
+    else:
+        _args.append(_arg)
+MODEL = _args[0] if _args else os.environ.get("CMD_MODEL", "")
 KEY = os.environ.get("CMD_API_KEY")
 PROMPT = "算一下 17*23，先想清楚再回答，最后只给结论。"
 FOLLOW_UP = "刚才那个结果再加 1 是多少？"
+
+# 步骤号 → 函数名。--only 里的数字对应脚本头部的说明序号
+_STEPS = {
+    "1": "step_endpoints",
+    "2": "step_chat",
+    "2b": "step_chat_stream",
+    "3": "step_chat_replay",
+    "3b": "step_foreign_replay",
+    "3c": "step_replay_cost",
+    "4": "step_responses",
+    "5": "step_responses_replay",
+    "6": "step_responses_summary",
+    "7": "step_chat_summary",
+}
+_ONLY = set(_only.split(",")) if _only else None
+
+
+def want(step):
+    """这个步骤要不要跑"""
+    return _ONLY is None or step in _ONLY
 
 # 缺省的 urllib UA 会被 Cloudflare 挡成 error code: 1010（按浏览器指纹拒），写成普通客户端的
 HEADERS = {
@@ -47,11 +76,20 @@ HEADERS = {
     "Accept": "application/json",
 }
 
+# 可选的出口代理。有些网关会按客户端所在网络判断模型可用性，直连不通时
+# 可指定一个出口再试。用法：ALL_PROXY=http://host:port python3 ...
+# （Windows PowerShell: $env:ALL_PROXY="http://host:port"）
+PROXY = os.environ.get("ALL_PROXY") or os.environ.get("HTTPS_PROXY") or os.environ.get("HTTP_PROXY")
+# urllib 的 ProxyHandler 会读环境变量，但 all_proxy（小写）不在它的默认名单里，显式建一个
+_OPENER = urllib.request.build_opener(
+    urllib.request.ProxyHandler({"http": PROXY, "https": PROXY}) if PROXY else urllib.request.ProxyHandler()
+)
+
 
 def post(path, body):
     request = urllib.request.Request(BASE + path, data=json.dumps(body).encode(), headers=HEADERS)
     try:
-        with urllib.request.urlopen(request) as response:
+        with _OPENER.open(request) as response:
             return json.load(response)
     except urllib.error.HTTPError as error:
         # 成功响应自己也可能带 "error": null（Responses 就是这样），所以失败用一个专属键标出来
@@ -61,7 +99,7 @@ def post(path, body):
 def get(path):
     request = urllib.request.Request(BASE + path, headers=HEADERS)
     try:
-        with urllib.request.urlopen(request) as response:
+        with _OPENER.open(request) as response:
             return json.load(response)
     except urllib.error.HTTPError as error:
         return {"__http_error": error.read().decode("utf-8", "ignore")[:600], "status": error.code}
@@ -101,6 +139,10 @@ def step_chat():
     result = post("/v1/chat/completions",
                   {"model": MODEL, "messages": [{"role": "user", "content": PROMPT}], "stream": False})
     if failed(result):
+        body = json.dumps(result)
+        if "region" in body:
+            print("  网关按客户端所在网络判断了模型可用性。")
+            print("  换个出口再试：ALL_PROXY=http://host:port python3 " + sys.argv[0])
         return None, True
 
     message = ((result.get("choices") or [{}])[0].get("message")) or {}
@@ -130,7 +172,11 @@ def step_chat():
 def step_chat_replay(chat):
     print("\n== 3. 把 chat 的票据原样塞回下一轮（网关收不收） ==")
     if not chat or not chat["ticket_fields"]:
-        print("  第 2 步没有票据，跳过")
+        # 单独跑 --only=3 时第 2 步的产物没有——补跑一次，不然这一步永远是「跳过」
+        print("  (第 2 步没跑，先补一次)")
+        chat, _ = step_chat()
+    if not chat or not chat["ticket_fields"]:
+        print("  这个模型没有票据，跳过")
         return True
     assistant = {"role": "assistant", "content": "391"}
     assistant.update(chat["ticket_fields"])
@@ -163,7 +209,7 @@ def step_chat_stream():
                          "stream": True, "stream_options": {"include_usage": True}}).encode(),
         headers=HEADERS)
     try:
-        with urllib.request.urlopen(request) as response:
+        with _OPENER.open(request) as response:
             frames = 0
             with_details = 0
             shape = None
@@ -195,11 +241,15 @@ def step_chat_stream():
 
 
 def step_foreign_replay(chat):
-    print("\n== 3b. 把 Meta 的票据发给另一个模型（网关校验不校验） ==")
+    print("\n== 3b. 把票据发给另一个模型（网关校验不校验） ==")
     if not chat or not chat["ticket_fields"]:
         print("  第 2 步没有票据，跳过")
         return True
-    other = "deepseek/deepseek-v4-flash"
+    # 换一个模型发同一张票：网关若按模型校验会拒，不校验就会安静地收下
+    other = os.environ.get("CMD_OTHER_MODEL", "")
+    if not other:
+        print("  没给 CMD_OTHER_MODEL（要对比的那个模型），跳过")
+        return True
     assistant = {"role": "assistant", "content": "391"}
     assistant.update(chat["ticket_fields"])
     result = post("/v1/chat/completions", {
@@ -351,18 +401,29 @@ def main():
     if not KEY:
         print("需要 CMD_API_KEY 环境变量（Studio → API keys 里那个）", file=sys.stderr)
         return 2
+    if not MODEL:
+        print("需要指定模型：位置参数或 CMD_MODEL 环境变量", file=sys.stderr)
+        return 2
+
+    if _ONLY:
+        print(f"只跑步骤: {', '.join(sorted(_ONLY))}（模型 {MODEL}）\n")
 
     # 不短路：端点查不到也照样量一次 chat，答案在响应里而不在目录里
-    failed_endpoints = step_endpoints()
-    chat, failed_chat = step_chat()
-    failed_stream = step_chat_stream()
-    failed_replay = step_chat_replay(chat)
-    step_foreign_replay(chat)
-    step_replay_cost(chat)
-    first, failed_responses = step_responses()
-    failed_responses_replay = step_responses_replay(first) if first is not None else True
-    step_responses_summary()
-    step_chat_summary()
+    failed_endpoints = want("1") and step_endpoints()
+    chat, failed_chat = (None, True)
+    if want("2"):
+        chat, failed_chat = step_chat()
+    failed_stream = want("2b") and step_chat_stream()
+    failed_replay = want("3") and step_chat_replay(chat)
+    want("3b") and step_foreign_replay(chat)
+    want("3c") and step_replay_cost(chat)
+    first, failed_responses = (None, True)
+    if want("4"):
+        first, failed_responses = step_responses()
+    failed_responses_replay = (step_responses_replay(first)
+                                if (want("5") and first is not None) else True)
+    want("6") and step_responses_summary()
+    want("7") and step_chat_summary()
 
     print("\n结论怎么看：")
     print("  第 2 步有 reasoning_details / reasoning_content 且第 3 步收下 → chat 侧本来就能回填，")

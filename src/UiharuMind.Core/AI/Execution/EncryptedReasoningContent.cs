@@ -12,7 +12,7 @@ using Microsoft.Extensions.AI;
 namespace UiharuMind.Core.AI.Execution;
 
 /// <summary>
-/// 模型正在思考，但<b>一个字都没有下发</b>（加密思考，如 <c>meta/muse-spark</c>）。
+/// 模型正在思考，但<b>一个字都没有下发</b>（加密思考，如部分闭源模型）。
 ///
 /// 存在的理由：思考卡按内容增量创建，没有正文就一张都不会出现，整段思考期界面上空着，
 /// 读起来像模型没在干活。而"想过没有"的可靠证据在流里就有——加密条目随流到达，

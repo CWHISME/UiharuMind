@@ -42,8 +42,8 @@ public class ProtectedDataProbeTests
             ProtectedData = "BLOB",
             AdditionalProperties = new AdditionalPropertiesDictionary
             {
-                ["producer_provider"] = "commandcode",
-                ["producer_model"] = "meta/muse-spark-1.3-contributor",
+                ["producer_provider"] = "provider-a",
+                ["producer_model"] = "model-a",
             },
         };
         ChatMessage message = new(ChatRole.Assistant, [reasoning, new TextContent("答案")]);

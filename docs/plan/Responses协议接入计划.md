@@ -10,20 +10,20 @@
 
 ## 探测结果（已跑，2026-10-30）
 
-CommandCode 网关六项全通，阻断项解除：
+网关六项全通，阻断项解除：
 
 | 检查 | 结果 |
 |---|---|
 | 声明端点 | `/chat/completions`、`/responses` 两个都在 |
-| `/chat/completions` 响应 | `reasoning_details` 1 条：`{type:"reasoning.encrypted", data:"Q-PaD…"（5522 字符）, id:"rs_…:rs_…", format:"meta-responses-v1", index:0}` |
+| `/chat/completions` 响应 | `reasoning_details` 1 条：`{type:"reasoning.encrypted", data:"Q-PaD…"（5522 字符）, id:"rs_…:rs_…", format:"…", index:0}` |
 | 流式 delta | 4 帧里有 1 帧带同一条 `reasoning_details`——应用走的这条路上拿得到 |
 | 票据原样塞回下一轮 chat | **200**，正常回 |
 | `/responses` + `include` | 同样下发 `encrypted_content`（同一个 blob），`summary: []` |
 | Responses 侧回放 | **200** |
-| 把 Meta 的票据发给 deepseek | **也 200** —— 网关不校验模型归属 |
+| 把某模型的票据发给另一个模型 | **也 200** —— 网关不校验模型归属 |
 
-与真实日志吻合：`~/.uiharu/Logs/` 里的票据 `data` 1426 字符、`id` 形如 `rs_<响应id>:rs_<条目id>`、
-`format: meta-responses-v1`、`index: 0`。
+与真实日志吻合：本地请求体日志里的票据 `data` 1426 字符、
+`id` 形如 `rs_<响应id>:rs_<条目id>`、`index: 0`。
 
 ### 探测结果带来的三个修订
 
@@ -31,7 +31,7 @@ CommandCode 网关六项全通，阻断项解除：
 responses 侧同样下发 `encrypted_content`、同样要塞回 `input`。opencode 也是这么做的
 （`packages/ai/src/protocols/open-responses.ts:655-665`）。
 
-**修订二　客户端门禁不能省，且必须更严。** 网关不校验模型归属（Meta 的票发给 deepseek 也 200），
+**修订二　客户端门禁不能省，且必须更严。** 网关不校验模型归属（把票发给别的模型也 200），
 说明「发错了不会报错，只会安静地错」。门禁必须是 **provider + model 双等**
 （对齐 opencode `packages/core/src/session/runner/to-llm-message.ts:156-161`）。
 
@@ -59,7 +59,7 @@ id 从本地存的来、密文也从本地存的来——**id 不需要跨轮稳
 
 | 证据 | 数据 |
 |---|---|
-| 真实日志（muse-spark，同一会话连续三发） | 票挂下标 2 → 4 → 6，每轮移动；分叉点恰好是上一轮挂票的位置 |
+| 真实日志（同一会话连续三发） | 票挂下标 2 → 4 → 6，每轮移动；分叉点恰好是上一轮挂票的位置 |
 | 跨模型统计 | 纯追加请求 249 样本，真命中 221 发，平均 **88.2%**；真实分叉 3 样本，平均 **35.3%** |
 | 分发点命中 | `#12` 71.1% → `#13` **1.5%** → `#14` 无用量（冷） |
 
@@ -171,7 +171,7 @@ id 从本地存的来、密文也从本地存的来——**id 不需要跨轮稳
 ### 3. 协议切换粒度：按模型还是按供应商？
 
 建议**按模型**（`ILlmModel` 加一项），因为同一个网关下不同模型对 responses 的支持度可能不同
-（muse 这类闭源模型有加密思考，开源模型没有）。
+（闭源模型有加密思考，开源模型没有）。
 
 ### 4. 票据落不落盘？—— ✅ 已定：落盘
 
@@ -190,16 +190,43 @@ id 从本地存的来、密文也从本地存的来——**id 不需要跨轮稳
 待有新的运行样本后从 `prompt_tokens` 的增量直接量（同一会话前后两发的差值）。
 若占比过高，回填要重新权衡。
 
-### 6. 可读摘能不能拿到？
+### 6. 可读摘能不能拿到？—— ✅ 已验：是模型之间有差异
 
-**待验证**。OpenAI Responses API 的推理摘要在 Responses 侧要显式开
-（`summary: "auto"` 或 `ReasoningSummaryVerbosity`），不显式请求就只给密文。
+**实测结论（2026-10-30，直连网关）**：
 
-之前那轮探测只带了 `include: ["reasoning.encrypted_content"]`、没带 `summary`，
-所以「summary 是空数组」**不能证明「模型没有摘要」**——可能是压根没要。
-探测脚本已补第 6 步（`/responses + summary:"auto"`）与第 7 步（chat 侧几种参数名）。
+| 模型类型 | `reasoning_details` 条目类型 | 摘要 |
+|---|---|---|
+| 只给密文的闭源模型 | `['reasoning.encrypted']` | 没有，只给密文 |
+| 给摘要的闭源模型 | `['reasoning.summary']` | **有**，一句可读概括 |
+| 明文思考模型 | 无（走 `reasoning_content`） | 明文全文 |
 
-这一条决定界面上闭源模型能不能显示真思考，而不是只能开一张没有正文的空卡。
+**chat 端点自发给摘要，不需要任何参数**——`reasoning.summary`
+（`{type, summary, id, format, index}`）是裸请求就有的。
+所以「要显式开摘要」那条只适用于 **Responses 侧**（`summary: "auto"` /
+`ReasoningSummaryVerbosity`），chat 侧不需要机制。
+
+结论：**摘要是跟着模型走的**，接口已接住（给了就显示、不给就开空卡），
+不需要为它加开关。Responses 侧那个参数随第 3 步一起做。
+
+### 7. 整块原样回放 —— ✅ 实测通过，推理链真的续上了
+
+```
+第一轮  reasoning_details: 一条 reasoning.encrypted
+        reasoning_tokens: 159
+第二轮  整块原样塞回 → 200，回复 "392"
+        reasoning_tokens: 656   ← 推理链续上了
+```
+
+**`reasoning_tokens` 涨了**，说明模型接着上一轮的思路继续想，
+不是把票当字符串忽略了。这是票据机制价值的直接证据。
+
+另外两条实测细节：
+
+- **流式与非流式的密文形状一致**：流式也是**整块一帧**（`data` 长度相同），不是分片
+  ——「只切不解析」在流式侧成立，一帧就是完整一张票
+- **`data` 长度随思考量变**：实测见过 2791 与 5522 两档。存储代价按最坏一档估
+- **`id` 每轮都变**（形如 `rs_<响应id>:rs_<条目id>`，实测三轮三个不同值）
+  ——证实「id 不跨轮稳定」，回放不能靠 id 定位，得靠消息本身
 
 ## 实施步骤
 
@@ -331,7 +358,7 @@ AI/Reasoning/ReasoningSummary.cs            摘 reasoning.summary 明文给界�
 
 - **缓存**：真实档案上跑 `src/scripts/perf/cache-audit.py`，前缀分类应为「纯追加」，`break` 数为 0
 - **命中**：`cached_tokens` 中位数应回到 88% 以上（还原后的基线就是纯追加 ~88%）
-- **思考质量**：muse 这类闭源模型的思考卡能开出内容（而不是只有一张空卡）
+- **思考质量**：闭源模型的思考卡能开出内容（而不是只有一张空卡）
 - **回归**：`UiharuMind.Core.Tests` 与 `UiharuMind.App.Tests` 全绿
 
 ## 实测依据
@@ -339,10 +366,10 @@ AI/Reasoning/ReasoningSummary.cs            摘 reasoning.summary 明文给界�
 | 结论 | 依据 |
 |---|---|
 | 网关两条路都给票据 | 探测：chat 响应有 `reasoning_details`；responses 加 `include` 有 `encrypted_content`；两边回放都 200 |
-| 网关不校验模型归属 | 探测：Meta 的票发给 deepseek 也 200 |
-| 票据「用一次即消费」每轮分叉 | `~/.uiharu/Logs/` 真实请求体：muse-spark 三发，票下标 2→4→6 |
+| 网关不校验模型归属 | 探测：把票发给另一个模型也 200 |
+| 票据「用一次即消费」每轮分叉 | 本地真实请求体：三发，票下标 2→4→6 |
 | 分叉确实吃缓存 | 跨模型：append 88.2%（221/249）vs break 35.3%（3 样本） |
-| 真实票据结构 | 日志：`{type:"reasoning.encrypted", data(1426字符), id:"rs_…:rs_…", format:"meta-responses-v1", index:0}` |
+| 真实票据结构 | 日志：`{type:"reasoning.encrypted", data(1426字符), id:"rs_…:rs_…", format:"…", index:0}` |
 | id 逐轮变化 | 日志三发三个不同 id（`rs_响应id:rs_条目id` 两侧都变） |
 | opencode 也分开存 id 与密文 | `open-responses.ts:956`、`:1011`——`itemId` 与 `reasoningEncryptedContent` 并列 |
 | responses 也需回填密文 | opencode `open-responses.ts:655-665` 逐条 push `encrypted_content` |

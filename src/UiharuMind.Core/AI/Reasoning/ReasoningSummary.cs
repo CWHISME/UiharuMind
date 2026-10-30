@@ -9,9 +9,9 @@ namespace UiharuMind.Core.AI.Reasoning;
 ///
 /// 所以摘要在请求体里没有位置——带回去只是白改字节、白打缓存。
 ///
-/// muse 这类模型只给密文（实测 <c>reasoning_details</c> 条目类型只有
+/// 有些闭源模型只给密文（实测 <c>reasoning_details</c> 条目类型只有
 /// <c>reasoning.encrypted</c>），摘要是空的，界面只能开一张没有正文的「加密思考」卡；
-/// Claude 系模型会下发摘要，那才有真东西可显示。
+/// 另一些闭源模型会下发摘要，那才有真东西可显示。
 /// </summary>
 internal static class ReasoningSummary
 {

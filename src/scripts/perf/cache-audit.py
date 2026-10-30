@@ -4,7 +4,7 @@
 用法:
   python3 src/scripts/perf/cache-audit.py                    # 读 ~/.uiharu/Logs
   python3 src/scripts/perf/cache-audit.py --logs /tmp/uiharu-scratch/Logs
-  python3 src/scripts/perf/cache-audit.py --model muse        # 只看某个模型（子串匹配）
+  python3 src/scripts/perf/cache-audit.py --model <模型id>    # 只看某个模型（子串匹配）
   python3 src/scripts/perf/cache-audit.py --detail            # 逐发列出 prompt/cached
   python3 src/scripts/perf/cache-audit.py --json before.json  # 存基线，供以后比
   python3 src/scripts/perf/cache-audit.py --compare before.json
@@ -287,8 +287,8 @@ def summarize_usage(rows):
 def fixed_cold(rows):
     """找出「这个模型每发都报同一个极小的 cached」那种情况。
 
-    实测口径：`meta/muse-spark-1.3-contributor` 的 36 发里有 13 发恒为 113，
-    而 deepseek 系列冷的时候一律报 0、从不出现 113。同一个网关、同一个客户端、同一套头，
+    实测口径：某个闭源模型的 36 发里有 13 发恒为 113，
+    而另一批模型冷的时候一律报 0、从不出现 113。同一个网关、同一个客户端、同一套头，
     差别只在模型——所以那种常数不是「命中了一小段前缀」，是上游自己的固定小头部，
     等于<b>完全没命中</b>。看命中率时把它当命中会高估这个模型。
     """

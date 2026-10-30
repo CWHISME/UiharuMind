@@ -23,8 +23,8 @@ namespace UiharuMind.Core.Tests.AI;
 public class ReasoningTicketInvariantTests
 {
     private const string TicketA = """[{"type":"reasoning.encrypted","data":"AAA","id":"rs_1:rs_a","format":"meta-responses-v1","index":0}]""";
-    /// <summary>票据的产出方：CommandCode 上的 muse-spark</summary>
-    private static readonly ReasoningGate Producer = new("commandcode", "meta/muse-spark-1.3-contributor");
+    /// <summary>票据的产出方：某个闭源模型</summary>
+    private static readonly ReasoningGate Producer = new("provider-a", "model-a");
 
     private const string TicketB = """[{"type":"reasoning.encrypted","data":"BBB","id":"rs_2:rs_b","format":"meta-responses-v1","index":0}]""";
 
@@ -75,15 +75,15 @@ public class ReasoningTicketInvariantTests
     /// <summary>
     /// 不变量 3：换模型时整条丢弃——provider 与 model 都要对上。
     ///
-    /// 实测网关**不校验**模型归属：把 Meta 的票发给 deepseek 照样 200。
+    /// 实测网关**不校验**模型归属：把某模型的票发给另一个模型照样 200。
     /// 所以这道门禁是唯一的，漏了不会报错，只会安静地错。
     /// </summary>
     [Fact]
     public void Gate_RejectsWhenProviderOrModelDiffers()
     {
-        Assert.True(Producer.Allows("commandcode", "meta/muse-spark-1.3-contributor")); //完全一致
-        Assert.False(Producer.Allows("openrouter", "meta/muse-spark-1.3-contributor")); //换供应商
-        Assert.False(Producer.Allows("commandcode", "deepseek-v4-flash")); //换模型
+        Assert.True(Producer.Allows("provider-a", "model-a")); //完全一致
+        Assert.False(Producer.Allows("provider-b", "model-a")); //换供应商
+        Assert.False(Producer.Allows("provider-a", "model-b")); //换模型
     }
 
     /// <summary>
@@ -104,8 +104,8 @@ public class ReasoningTicketInvariantTests
         (string Json, ReasoningGate Producer)? ticket = ReasoningTicketCarrier.Read(restored!);
         Assert.NotNull(ticket);
         Assert.Equal(TicketA, ticket!.Value.Json);          //密文逐字节相同
-        Assert.Equal("commandcode", ticket.Value.Producer.Provider); //归属也还在
-        Assert.Equal("meta/muse-spark-1.3-contributor", ticket.Value.Producer.Model);
+        Assert.Equal("provider-a", ticket.Value.Producer.Provider); //归属也还在
+        Assert.Equal("model-a", ticket.Value.Producer.Model);
     }
 
     /// <summary>
@@ -127,7 +127,7 @@ public class ReasoningTicketInvariantTests
     public void Gate_SkipsTheTicket_WithoutDeletingIt()
     {
         ChatMessage message = AssistantWithTicket(TicketA, Producer);
-        ReasoningGate other = new("openrouter", "deepseek-v4-flash");
+        ReasoningGate other = new("provider-b", "model-b");
 
         Assert.False(Producer.Allows(other.Provider, other.Model)); //门禁不过，这一轮不带
         Assert.Equal(TicketA, ReasoningTicketCarrier.Read(message)!.Value.Json); //但票本身还在
@@ -203,7 +203,7 @@ public class ReasoningTicketInvariantTests
     public void SignalContent_BecomesPersistentTicket()
     {
         EncryptedReasoningContent signal = EncryptedReasoningContent.WithTicket(
-            TicketA, "commandcode", "meta/muse-spark-1.3-contributor");
+            TicketA, "provider-a", "model-a");
 
         TextReasoningContent? persistent = ReasoningTicketCarrier.ToPersistent(signal);
 

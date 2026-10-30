@@ -28,8 +28,8 @@ TTL 只有一个自变量：**时间**。所以：
   4. 冷启动一次（换 key 或换 body）以确保起点是干净的
 
 用法:
-    CMD_API_KEY=xxx python3 src/scripts/probe/ttl-probe.py
-    CMD_API_KEY=xxx python3 src/scripts/probe/ttl-probe.py --waits 30,120,360,720,1800
+    CMD_API_KEY=... CMD_MODEL=<模型id> python3 src/scripts/probe/ttl-probe.py
+    CMD_API_KEY=... CMD_MODEL=<模型id> python3 src/scripts/probe/ttl-probe.py --waits 30,120,360,720,1800
 """
 import argparse
 import json
@@ -40,7 +40,7 @@ import urllib.request
 
 BASE = os.environ.get("CMD_BASE", "https://api.commandcode.ai/provider")
 KEY = os.environ.get("CMD_API_KEY")
-MODEL = os.environ.get("CMD_MODEL", "meta/muse-spark-1.3-contributor")
+MODEL = os.environ.get("CMD_MODEL", "")
 FILLER = "以下是需要处理的事项清单，请逐条阅读并理解上下文。" * 60
 UA = {"Authorization": "Bearer " + (KEY or ""), "Content-Type": "application/json",
       "User-Agent": "uiharu-mind-probe/1.0"}
@@ -76,6 +76,9 @@ def main():
     args = ap.parse_args()
     if not KEY:
         print("需要 CMD_API_KEY 环境变量", flush=True)
+        return 2
+    if not MODEL:
+        print("需要 CMD_MODEL 环境变量（指定要测的模型）", flush=True)
         return 2
 
     waits = [int(x) for x in args.waits.split(",")]

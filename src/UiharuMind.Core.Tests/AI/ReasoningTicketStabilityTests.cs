@@ -25,7 +25,7 @@ public class ReasoningTicketStabilityTests
     private const string TicketA = """[{"type":"reasoning.encrypted","data":"AAA","id":"rs_1:rs_a","format":"meta-responses-v1","index":0}]""";
     private const string TicketB = """[{"type":"reasoning.encrypted","data":"BBB","id":"rs_2:rs_b","format":"meta-responses-v1","index":0}]""";
 
-    private static readonly ReasoningGate Producer = new("commandcode", "muse");
+    private static readonly ReasoningGate Producer = new("provider-a", "model-a");
 
     /// <summary>造一条挂着票据的助手消息（模拟响应落成消息后带上票据）</summary>
     private static ChatMessage AssistantWithTicket(string text, string? ticketJson)
@@ -74,7 +74,7 @@ public class ReasoningTicketStabilityTests
     ///
     /// 这是 ADR 0100 决定 3 才做到的。上一版票据只在内存，进程退出即丢——
     /// 重启后历史里挂过票的消息变回无票形态，那一条起前缀全冷
-    /// （实测 muse-spark 末次会话丢掉 72.1% 的缓存）。
+    /// （实测末次会话丢掉 72.1% 的缓存）。
     /// </summary>
     [Fact]
     public void HistoryBytes_StayIdenticalAcrossRestart()
@@ -121,8 +121,8 @@ public class ReasoningTicketStabilityTests
     {
         List<ChatMessage> history = [new(ChatRole.User, "u1"), AssistantWithTicket("a1", TicketA)];
 
-        //产票方是 commandcode，请求方是 openrouter —— 门禁不过
-        string rewritten = Rewrite(history, current: "openrouter");
+        //产票方与请求方不同 —— 门禁不过
+        string rewritten = Rewrite(history, current: "provider-b");
 
         JsonArray messages = (JsonArray)JsonNode.Parse(rewritten!)!["messages"]!;
 
@@ -137,7 +137,7 @@ public class ReasoningTicketStabilityTests
     {
         List<ChatMessage> history = [new(ChatRole.User, "u1"), AssistantWithTicket("a1", TicketA)];
 
-        string rewritten = Rewrite(history, currentModel: "deepseek");
+        string rewritten = Rewrite(history, currentModel: "model-b");
 
         JsonArray messages = (JsonArray)JsonNode.Parse(rewritten!)!["messages"]!;
 
@@ -179,7 +179,7 @@ public class ReasoningTicketStabilityTests
     }
 
     private static string Rewrite(IReadOnlyList<ChatMessage> history,
-        string current = "commandcode", string currentModel = "muse")
+        string current = "provider-a", string currentModel = "model-a")
     {
         IReadOnlyList<string?>? slots = CollectSlots(history, new ReasoningGate(current, currentModel));
 

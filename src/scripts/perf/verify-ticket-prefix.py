@@ -17,7 +17,7 @@ ADR 0100 的新做法：每条助手消息**永久挂自己那张票**，逐轮�
 
 用法:
     python3 src/scripts/perf/verify-ticket-prefix.py
-    python3 src/scripts/perf/verify-ticket-prefix.py --model muse-spark
+    python3 src/scripts/perf/verify-ticket-prefix.py --model <模型id片段>
 """
 import argparse
 import importlib.util
