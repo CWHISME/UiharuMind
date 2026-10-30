@@ -42,6 +42,7 @@ public class LazyChatClient : IChatClient
 
     private readonly Func<ModelRunningData?>? _sessionModelSource; //会话级模型来源,优先于全局当前模型
     private readonly string? _sessionAffinity; //会话亲和值,每发请求前挂到请求上下文上供 HTTP 层写头
+    private (string Json, string ModelId)? _pendingTicket; //上一发拿到的加密思考凭证,下一发用一次即消费
 
     /// <param name="sessionModelSource">会话级模型来源；null 走全局当前模型</param>
     /// <param name="sessionAffinity">
@@ -59,15 +60,18 @@ public class LazyChatClient : IChatClient
         CancellationToken cancellationToken = default)
     {
         IReadOnlyList<ChatMessage> messageList = AsList(messages);
-        // 只替换这两项、其余沿用外层（写交接文档那一发把 ForbidToolCalls 挂在外层）；
+        var (client, model) = await ResolveAsync(cancellationToken).ConfigureAwait(false);
+
+        // 只替换这几项、其余沿用外层（写交接文档那一发把 ForbidToolCalls 挂在外层）；
         // using 结束还原成进来时那份，值不会留给同一条异步流上的下一发
         using LlmRequestScope.Scope scope = LlmRequestScope.Push(LlmRequestScope.Current with
         {
             PendingReasoningSource = () => CollectAssistantReasoning(messageList),
             SessionAffinity = _sessionAffinity,
+            ReasoningTickets = TakeReasoningTickets(messageList, model),
+            EncryptedReasoningObserved = ticket =>
+                _pendingTicket = (Encoding.UTF8.GetString(ticket), model.ModelInfo.ModelId),
         });
-
-        var (client, model) = await ResolveAsync(cancellationToken).ConfigureAwait(false);
         ChatResponse response;
         try
         {
@@ -110,16 +114,22 @@ public class LazyChatClient : IChatClient
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         IReadOnlyList<ChatMessage> messageList = AsList(messages);
+        var (client, model) = await ResolveAsync(cancellationToken).ConfigureAwait(false);
+
         // 作用域覆盖整段枚举（含中途重发）：断线重试时请求体会按同一份上下文重新改写
         EncryptedReasoningSignal signal = new();
         using LlmRequestScope.Scope scope = LlmRequestScope.Push(LlmRequestScope.Current with
         {
             PendingReasoningSource = () => CollectAssistantReasoning(messageList),
             SessionAffinity = _sessionAffinity,
-            EncryptedReasoningObserved = () => signal.Seen = true,
+            ReasoningTickets = TakeReasoningTickets(messageList, model),
+            EncryptedReasoningObserved = ticket =>
+            {
+                signal.Seen = true;
+                _pendingTicket = (Encoding.UTF8.GetString(ticket), model.ModelInfo.ModelId);
+            },
         });
 
-        var (client, model) = await ResolveAsync(cancellationToken).ConfigureAwait(false);
         HashSet<string>? toolNames = CollectToolNames(options);
 
         // 流式中途被服务端掐断(HttpIOException: ResponseEnded)时重发整个请求再试几次。
@@ -406,6 +416,35 @@ public class LazyChatClient : IChatClient
     /// <summary>历史消息可能是一次性的枚举,重复枚举(转发给底层客户端+扫描思考正文)前先落地一份</summary>
     private static IReadOnlyList<ChatMessage> AsList(IEnumerable<ChatMessage> messages) =>
         messages as IReadOnlyList<ChatMessage> ?? messages.ToList();
+
+    /// <summary>
+    /// 取出上一发存下的加密思考凭证，摆到它该在的那条助手消息上（最后一条）。
+    ///
+    /// <b>只回给产出它的模型</b>：票据是"只有原厂认得的凭证"，换模型就没有意义；
+    /// 而网关自己不校验（实测把 A 的票发给 B 照样 200），所以门禁只能在这一侧。
+    /// 一次即消费：这一发无论发没发出去，票据都不再留着——它的价值就在紧跟的那一轮。
+    /// </summary>
+    /// <param name="messages">即将发出的消息</param>
+    /// <param name="model">真正发请求的那个模型</param>
+    /// <returns>按助手消息顺序排列的票据清单；没有或模型对不上时为 null</returns>
+    private IReadOnlyList<string?>? TakeReasoningTickets(IReadOnlyList<ChatMessage> messages, ModelRunningData model)
+    {
+        if (_pendingTicket is not { } ticket) return null;
+        _pendingTicket = null;
+        if (ticket.ModelId != model.ModelInfo.ModelId) return null;
+
+        int ordinal = 0;
+        int lastAssistant = -1;
+        foreach (ChatMessage message in messages)
+        {
+            if (message.Role == ChatRole.Assistant) lastAssistant = ordinal++;
+        }
+
+        if (lastAssistant < 0) return null;
+        string?[] slots = new string?[lastAssistant + 1];
+        slots[lastAssistant] = ticket.Json;
+        return slots;
+    }
 
     /// <summary>
     /// 从历史消息里按<b>助手消息出现顺序</b>收集思考正文,供本类挂到

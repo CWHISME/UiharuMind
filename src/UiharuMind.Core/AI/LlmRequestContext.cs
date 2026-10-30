@@ -64,5 +64,14 @@ public sealed record LlmRequestContext
     /// 传的是回调而不是标志位：回调是同一个对象，HTTP 层在深处调它，调用方拿得到结果——
     /// 而 <c>AsyncLocal</c> 里写下的值不会向调用方回流，标志位那样传不出来。
     /// </summary>
-    public Action? EncryptedReasoningObserved { get; init; }
+    public Action<byte[]>? EncryptedReasoningObserved { get; init; }
+
+    /// <summary>
+    /// 本次请求里，<b>按助手消息出现顺序</b>排列的加密思考凭证（缺的位置为 null）。
+    ///
+    /// 与 <see cref="PendingReasoningSource"/> 是两条独立的路：那个是明文正文、写 <c>reasoning_content</c>；
+    /// 这个是密文票据、写 <c>reasoning_details</c>，<b>只能原样发给产出它的那个模型</b>。
+    /// 复用同一个顺序约定，因为两者都挂在「第几条助手消息」上。
+    /// </summary>
+    public IReadOnlyList<string?>? ReasoningTickets { get; init; }
 }
