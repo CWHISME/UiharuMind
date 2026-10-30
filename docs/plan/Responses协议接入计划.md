@@ -237,10 +237,10 @@ chat 侧同样能拿到票、同样能回放（200），而分叉的根因是生
 | 步骤 | 内容 | 风险 | 依赖 | 状态 |
 |---|---|---|---|---|
 | **第 0 步** | chat 侧票据回填（修正版 + 落盘） | 中 | 无 | ✅ 已完成 |
-| 第 1 步 | 协议能力声明 | 无 | 无 | 待做 |
-| 第 2 步 | 地址与响应形状分流 | 小 | 第 1 步 | 待做 |
-| 第 3 步 | Responses 请求体与响应解析 | 高 | 第 2 步 | 待做 |
-| 第 4 步 | responses 侧票据回填 | 中 | 第 3 步 |
+| 第 1 步 | 协议能力声明 | 无 | 无 | ✅ 已完成 |
+| 第 2 步 | 地址与响应形状分流 | 小 | 第 1 步 | ✅ 已完成 |
+| 第 3 步 | Responses 请求体与响应解析 | ~~高~~ → 小 | 第 2 步 | ✅ 已完成 |
+| 第 4 步 | responses 侧票据落进历史 | 中 | 第 3 步 | 待做 |
 
 **第 0 步可以独立交付**：它不依赖 responses，落地即让闭源模型的思考链接回来，
 且把缓存分叉从根上修掉。后四步是「多一条路」的增量。
@@ -307,37 +307,73 @@ AI/Reasoning/ReasoningSummary.cs            摘 reasoning.summary 明文给界�
 
 **验收**：现有 URI 测试全绿；新增用例覆盖 responses 路径。
 
-### 第 3 步　Responses 请求体与响应解析（主体工作量）
+### 第 3 步　Responses 请求体与响应解析 —— ✅ 已完成，用 SDK 的，不手写
 
-**请求侧**：
-- 新增 `AI/Net/Request/ResponsesRequestRewriter.cs`
-- `messages` → `input` item 数组：`user` → `{role, content:[{type:"input_text",text}]}`，
-  `assistant` → `{role:"assistant", content:[{type:"output_text",text}]}`，
-  `tool_call` / `tool_result` 各有对应 item 形状
-- 思考字段：responses 用 `reasoning: {summary:[...]}`，与 chat 的 `reasoning_content` 字段名不同
-- 工具定义：`tools` 形状与 chat 不同（`{type:"function", name, parameters, strict}`）
-- 必须带 `include: ["reasoning.encrypted_content"]`（探测证实不带就没有密文）
+**原计划写「新增 `ResponsesRequestRewriter` + `ResponsesEventParser`，约 400 行」——不用写。**
 
-**响应侧**：
-- 新增 `AI/Net/Response/ResponsesEventParser.cs`
-- SSE 事件逐类翻译：`response.output_item.added` / `.done`（reasoning item）、
-  `response.output_text.delta`、`response.function_call_arguments.delta`、
-  `response.completed`（usage）
-- 一次性响应：`output` 数组 → `ChatResponse`
+OpenAI SDK 2.13 自带 `ResponsesClient`，M.E.AI 的
+`AsIChatClient(ResponsesClient, model?)` 直接给出 `IChatClient`。
+自己手写一遍只会多一处要维护的协议实现，且大概率在细节上与 SDK 不一致
+（item 形状、summary 结构、工具定义都是 SDK 对齐官方规范的那份）。
 
-**这一层最像 opencode 的 `open-responses.ts`，可以对着抄结构。**
+**实测请求体**（探针量出来的）：
 
-**验收**：用录制响应做单测（本仓放在 `Core.Tests/AI/Net/`）；流式与非流式各一组。
+```json
+{"model":"m","input":[message, reasoning, message, message],
+ "include":["reasoning.encrypted_content"],"store":false}
+```
 
-### 第 4 步　responses 侧票据回填
+其中 reasoning 那条：
 
-**复用第 0 步的逻辑**，只是挂载点从「助手消息序号」换成「reasoning item」：
+```json
+{"type":"reasoning","encrypted_content":"BLOB","summary":[{"type":"summary_text","text":""}]}
+```
 
-1. 响应解析时收集 `encrypted_content`，连同 item `id` 存进映射
-2. 请求改写时把密文挂回对应的 reasoning item
-3. 门禁与不变量与第 0 步完全一致（provider + model 双等、永久各挂各的、逐轮原样重发）
+**三条关键性质**（三条都直接对上 ADR 0100 的不变量）：
 
-**注意**：responses 侧的 reasoning item 会自然带 `id`，这是比 chat 侧更干净的锚点，
+| 性质 | 实测 | 对应的不变量 |
+|---|---|---|
+| `ProtectedData` 原样带成 `encrypted_content` | 逐字节不变 | 逐轮原样重发 |
+| reasoning 是**独立的一条 item**，插在原位 | 不占助手消息的位置 | 位置不漂移 |
+| 响应侧 `encrypted_content` 还原成 `ProtectedData` | 载体字段与 chat 线相同 | 落盘路径两条线通用 |
+
+**接线只有两处**：
+
+1. `OpenAICompatibleChatClient` 按 `model.ApiFormat` 分流，responses 线走
+   `ResponsesClient` + `AsIChatClient`
+2. `store:false` 与 `include:["reasoning.encrypted_content"]` 挂在
+   `RawRepresentationFactory` 上——`options` 本身没这两个字段，它们属于
+   每次请求的 `CreateResponseOptions`
+
+**`store` 必须 false**：开了它服务端就存我们的响应，密文在服务端而不在
+客户端手里——那就不是「客户端保管、原样带回」了。
+
+**一个坑**：`RawRepresentationFactory` 要**先抓住原来的工厂**再换掉自己。
+在配置动作里读 `x.RawRepresentationFactory` 拿到的是刚赋上去的那个，
+会自己调自己（无限递归）。上游框架的同名实现也是这么写的。
+
+**验证**：`ResponsesWireTests`（请求体形状 5 条）+ `ResponsesInboundTests`
+（响应侧往返 4 条）。
+
+### 第 4 步　responses 侧票据回填 —— 大部分已被 SDK 做掉
+
+原计划写「响应解析时收集 `encrypted_content`、请求改写时挂回」——
+**这两件事 SDK 都做了**：响应侧还原成 `ProtectedData`，请求侧原样带出。
+
+剩下的只有一件事：**让票据落进历史**。
+
+好消息是载体字段与 chat 线**完全相同**（`TextReasoningContent.ProtectedData`），
+所以 ADR 0100 定的落盘路径（随消息存进历史）**两条线通用，不用为 responses
+另存一套**。ADR 0100 的四条不变量也不用改：
+
+1. 每条消息永久挂自己那张票 —— reasoning item 是独立的一条，位置由 item 顺序定
+2. 逐轮原样重发 —— SDK 保证字节不变
+3. 换模型时整条丢弃 —— 门禁沿用 `ReasoningGate`
+4. 跨重启不丢 —— 落盘路径与 chat 线共用
+
+**注意**：responses 侧的 reasoning item 会自然带 `id`（存在
+`AdditionalProperties["reasoningItemId"]`），但**不能靠它定位**——
+实测 id 形如 `rs_<响应id>:rs_<条目id>`，每轮都变。
 但**不要依赖 id 跨轮稳定**（实测每轮都变，opencode 也是分开存的）。
 
 **验收**：同第 0 步的那几条不变量测试，在 responses 侧再跑一遍。
@@ -349,9 +385,9 @@ AI/Reasoning/ReasoningSummary.cs            摘 reasoning.summary 明文给界�
 | 网关不给 `encrypted_content` | ~~第 0 步探测就拦住~~ → **已排除**（探测证实两条路都给） |
 | 网关不校验模型归属（实测） | 客户端门禁必须 provider + model 双等，且要有测试 |
 | `previous_response_id` 不可用 | 不依赖它，走 `store:false` + 回填 |
-| 改动面大（响应解析基本是重写） | 分步做，第 0 步可独立交付；每步都有测试 |
-| 又一次位置漂移 | 第 0 步的四条不变量写成测试（不是第 4 步） |
-| 落盘存储增长 | 先只在内存（会话存活期），跑通再评估；密文实测 1426–5522 字符/条 |
+| 改动面大（响应解析基本是重写） | ~~原判断~~ → **实际很小**：SDK 自带 ResponsesClient，第 3 步只接线不重写 |
+| 又一次位置漂移 | 第 0 步的四条不变量写成测试；responses 侧位置由 item 顺序定，SDK 保证 |
+| 落盘存储增长 | 载体字段与 chat 线相同，落盘路径共用；密文实测 1426–5522 字符/条 |
 | 票据进分词后占 prompt | 待测：`data` 1426 字符约 400 token/条，长会话累积可观 |
 
 ## 验收口径
@@ -375,8 +411,13 @@ AI/Reasoning/ReasoningSummary.cs            摘 reasoning.summary 明文给界�
 | responses 也需回填密文 | opencode `open-responses.ts:655-665` 逐条 push `encrypted_content` |
 | `previous_response_id` 需 store | opencode `providers/xai.ts:48-50` |
 | 协议抽象尚未做 | ADR 0099「没做的事」段 |
+| **SDK 自带 responses 线，不用手写** | SDK 2.13 有 `ResponsesClient`；M.E.AI 有 `AsIChatClient(ResponsesClient)` |
+| **密文原样往返** | 探针实测：`ProtectedData` → `encrypted_content` 逐字节不变；响应侧还原回 `ProtectedData` |
+| **reasoning 是独立 item，位置不漂移** | 探针实测请求体 item 顺序：message, reasoning, message, message |
+| **载体字段两条线相同** | 响应侧实测：`TextReasoningContent.ProtectedData` + `AdditionalProperties["reasoningItemId"]` |
+| **目录里多数模型支持 responses** | 本地目录快照：94 条中 72 条声明 `/responses`、83 条 `/chat/completions`、11 条 `/messages` |
 | TTL 不是瓶颈 | 真日志同亲和值内：2–10 分钟 30 样本平均 86.1%（中位 96.4%）；27 分钟 98.5%；65 分钟 0% |
 | 原 TTL 探测无效 | 每组换了 `prompt_cache_key` 值 → 前缀不同；且六次连发无时间跨度 |
 | 还原后彻底 | `git diff 3f51fca1^ HEAD -- src/` 为空；票据符号残留 0 处 |
-| Core 测试基线 | 3340 条，3293 通过 / 47 跳过，0 失败 |
-| 缓存 TTL 未进产品 | Core 层搜不到 TTL；只在 `probe/ttl-probe.py` |
+| Core 测试基线 | 3392 条，3345 通过 / 47 跳过，0 失败 |
+| 缓存 TTL 未进产品 | Core 层搜不到 TTL；只在 `probe/cache/ttl-probe.py` |
