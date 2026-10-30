@@ -11,6 +11,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 using UiharuMind.Core.AI.Net;
+using UiharuMind.Core.Core.Resilience;
 
 namespace UiharuMind.Core.AI.Execution.Tools.WebTools;
 

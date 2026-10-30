@@ -20,6 +20,7 @@ using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Configs.RemoteAI;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.RemoteOpenAI;
+using UiharuMind.Core.AI.Net.Errors;
 
 namespace UiharuMind.Core.AI.Execution;
 /// 惰性模型客户端:构建 agent 时不要求模型就绪,每次请求时解析全局当前模型。

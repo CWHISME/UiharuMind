@@ -4,7 +4,7 @@ using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Configs.RemoteAI;
 using UiharuMind.Core.Core;
-using UiharuMind.Core.Core.LLM;
+using UiharuMind.Core.AI.Net.Transport;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 

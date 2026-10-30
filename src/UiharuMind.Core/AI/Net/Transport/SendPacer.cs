@@ -7,7 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
-namespace UiharuMind.Core.AI.Net;
+namespace UiharuMind.Core.AI.Net.Transport;
 
 /// <summary>
 /// 一组请求的发送间隔：撞了 429 翻倍、成功减半、缩到下限就撤闸（间隔归零，见 ADR 0058）。

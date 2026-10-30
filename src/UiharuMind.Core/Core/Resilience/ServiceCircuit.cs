@@ -11,7 +11,7 @@ using System.Collections.Concurrent;
 using System.Net;
 using UiharuMind.Core.Core.SimpleLog;
 
-namespace UiharuMind.Core.AI.Net;
+namespace UiharuMind.Core.Core.Resilience;
 
 /// <summary>
 /// 外部服务的熔断记账,<b>按服务名而非按 provider 实例</b>——Firecrawl 在搜索链和读页链里各有一环,

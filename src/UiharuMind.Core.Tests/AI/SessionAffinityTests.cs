@@ -5,7 +5,7 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.Configs.RemoteAI;
-using UiharuMind.Core.Core.LLM;
+using UiharuMind.Core.AI.Net.Transport;
 
 namespace UiharuMind.Core.Tests.AI;
 

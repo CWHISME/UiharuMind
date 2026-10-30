@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Text;
 using UiharuMind.Core.AI.Net;
+using UiharuMind.Core.AI.Net.Response;
 
 namespace HttpAllocBench;
 

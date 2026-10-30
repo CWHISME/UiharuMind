@@ -9,7 +9,7 @@
 
 using System.Text.RegularExpressions;
 
-namespace UiharuMind.Core.AI.Net;
+namespace UiharuMind.Core.AI.Net.Errors;
 
 /// <summary>
 /// 识别服务端对 <c>max_tokens</c> 参数返回的 400 错误，并提取其声明的合法上限。

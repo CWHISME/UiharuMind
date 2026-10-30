@@ -6,10 +6,12 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Net;
-using UiharuMind.Core.Core.LLM;
+using UiharuMind.Core.AI.Net.Transport;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
+using UiharuMind.Core.AI.Net.Request;
+using UiharuMind.Core.AI.Net.Diagnostics;
 
 
 namespace HttpAllocBench;

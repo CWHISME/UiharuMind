@@ -17,7 +17,7 @@ using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Runtime;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.AI.Chat;
-using UiharuMind.Core.Core.LLM;
+using UiharuMind.Core.AI.Net.Transport;
 using UiharuMind.Core.RemoteOpenAI;
 using UiharuMind.Core.RemoteOpenAI.ModelCatalog;
 

@@ -1,8 +1,9 @@
 using System.Net;
 using System.Text;
 using UiharuMind.Core.AI.Net;
-using UiharuMind.Core.Core.LLM;
+using UiharuMind.Core.AI.Net.Transport;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Core.AI.Net.Diagnostics;
 
 namespace UiharuMind.Core.Tests.AI;
 
@@ -21,7 +22,7 @@ public class OpenAICompatibleFailureLogTests
         response.Headers.TryAddWithoutValidation("x-tc-requestid", "abc-123");
         response.Headers.TryAddWithoutValidation("server", "nginx");
 
-        string? diagnostics = OpenAICompatibleHttpHandler.FormatDiagnosticHeaders(response);
+        string? diagnostics = ResponseDiagnostics.FormatDiagnosticHeaders(response);
 
         Assert.NotNull(diagnostics);
         Assert.Contains("x-ratelimit-remaining-tokens=0", diagnostics);
@@ -39,7 +40,7 @@ public class OpenAICompatibleFailureLogTests
         };
         response.Content.Headers.TryAddWithoutValidation("x-ratelimit-limit-requests", "60");
 
-        string? diagnostics = OpenAICompatibleHttpHandler.FormatDiagnosticHeaders(response);
+        string? diagnostics = ResponseDiagnostics.FormatDiagnosticHeaders(response);
 
         Assert.Equal("x-ratelimit-limit-requests=60", diagnostics);
     }
@@ -50,7 +51,7 @@ public class OpenAICompatibleFailureLogTests
         using HttpResponseMessage response = new(HttpStatusCode.OK);
         response.Headers.TryAddWithoutValidation("server", "nginx");
 
-        Assert.Null(OpenAICompatibleHttpHandler.FormatDiagnosticHeaders(response));
+        Assert.Null(ResponseDiagnostics.FormatDiagnosticHeaders(response));
     }
 
     /// <summary>

@@ -2,7 +2,7 @@ using System.Buffers;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
-namespace UiharuMind.Core.AI.Net;
+namespace UiharuMind.Core.AI.Net.Json;
 
 /// <summary>
 /// 在一段 UTF-8 JSON 上记下若干「字节区间 → 替换字节」，最后一次拼出结果，没改到的区间原样拷贝。

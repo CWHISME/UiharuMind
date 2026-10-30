@@ -7,7 +7,7 @@ using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Configs.RemoteAI;
-using UiharuMind.Core.Core.LLM;
+using UiharuMind.Core.AI.Net.Transport;
 
 namespace UiharuMind.Core.Tests.AI;
 

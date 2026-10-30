@@ -3,7 +3,7 @@ using System.Diagnostics;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Net;
-using UiharuMind.Core.Core.LLM;
+using UiharuMind.Core.AI.Net.Transport;
 using UiharuMind.Core.Core.SimpleLog;
 using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
 

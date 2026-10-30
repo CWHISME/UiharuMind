@@ -7,7 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
-namespace UiharuMind.Core.AI.Net;
+namespace UiharuMind.Core.AI.Net.Errors;
 
 /// <summary>
 /// 识别「历史里的助手消息必须带回思考」的 400：

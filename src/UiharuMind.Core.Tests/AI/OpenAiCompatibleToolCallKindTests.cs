@@ -1,4 +1,5 @@
 using UiharuMind.Core.AI.Net;
+using UiharuMind.Core.AI.Net.Response;
 
 namespace UiharuMind.Core.Tests.AI;
 

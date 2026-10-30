@@ -12,7 +12,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using UiharuMind.Core.Core.Utils;
 
-namespace UiharuMind.Core.AI.Net;
+namespace UiharuMind.Core.AI.Net.Diagnostics;
 
 /// <summary>
 /// 请求与响应正文写进日志前的整理：抹掉 base64 载荷、展开成两格缩进的 JSON、字符串里的换行还原成真换行。

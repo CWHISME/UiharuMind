@@ -12,8 +12,10 @@ using System.ClientModel.Primitives;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Core.AI.Net.Diagnostics;
+using UiharuMind.Core.AI.Net.Transport;
 
-namespace UiharuMind.Core.AI.Net;
+namespace UiharuMind.Core.AI.Net.Request;
 
 /// <summary>
 /// 处理一份 SDK 序列化出的请求体
@@ -45,7 +47,7 @@ internal sealed class OpenAICompatibleRequestPolicy : PipelinePolicy
     /// <param name="model">目标模型</param>
     public OpenAICompatibleRequestPolicy(ILlmModel? model) : this((json, output) =>
     {
-        bool rewritten = OpenAICompatibleRequestRewriter.Rewrite(json, OpenAICompatibleRequestRewriter.For(model), output);
+        bool rewritten = OpenAICompatibleRequestRewriter.Rewrite(json, RequestRewrite.For(model), output);
         LogRequest(rewritten ? output.WrittenSpan : json);
         return rewritten;
     })

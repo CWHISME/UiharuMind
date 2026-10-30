@@ -1,6 +1,6 @@
 using System.Net;
 
-namespace UiharuMind.Core.AI.Net;
+namespace UiharuMind.Core.AI.Net.Response;
 
 /// <summary>
 /// 包装 SSE 响应体，读取时逐行修正，保持流式不整体缓冲。

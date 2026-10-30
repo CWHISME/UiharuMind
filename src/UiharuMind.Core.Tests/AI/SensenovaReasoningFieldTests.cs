@@ -3,7 +3,7 @@ using System.Text;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Configs.RemoteAI;
-using UiharuMind.Core.Core.LLM;
+using UiharuMind.Core.AI.Net.Transport;
 using UiharuMind.Core.RemoteOpenAI;
 
 namespace UiharuMind.Core.Tests.AI;

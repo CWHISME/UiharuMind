@@ -1,0 +1,58 @@
+using System.Buffers;
+using UiharuMind.Core.AI.Net.Diagnostics;
+
+namespace UiharuMind.Core.AI.Net.Response;
+
+/// <summary>
+/// 把「OpenAI 兼容」服务端不规范的响应修成 SDK 能解析的样子，再交给下游。
+///
+/// 分成两路，按响应媒体类型定：流式（<c>text/event-stream</c>）逐行走
+/// <see cref="SseSanitizingStream"/>；一次性 JSON 在这里就地替换正文。
+/// 只有聊天补全的响应需要这一步——其它路径（模型目录、生图）的正文形状由各自的调用方负责。
+/// </summary>
+internal sealed class ResponseSanitizer
+{
+    private readonly bool _isChatCompletions; //不是聊天补全就原样放过
+    private readonly Action<string>? _reasoningFieldObserver; //观测到思考字段原名时的回调(按模型记录回传键名)
+
+    /// <param name="isChatCompletions">这条路径的响应要不要清洗</param>
+    /// <param name="reasoningFieldObserver">思考字段观测回调；为 null 表示不关心</param>
+    public ResponseSanitizer(bool isChatCompletions, Action<string>? reasoningFieldObserver)
+    {
+        _isChatCompletions = isChatCompletions;
+        _reasoningFieldObserver = reasoningFieldObserver;
+    }
+
+    /// <summary>
+    /// 按媒体类型清洗响应（就地换掉 <paramref name="response"/> 的正文）
+    /// </summary>
+    /// <param name="response">服务端响应</param>
+    /// <param name="cancellationToken">取消标记</param>
+    /// <returns>同一个响应对象（可能已换过正文）</returns>
+    public async Task<HttpResponseMessage> SanitizeAsync(HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
+        if (!_isChatCompletions) return response;
+
+        var mediaType = response.Content.Headers.ContentType?.MediaType;
+        if (mediaType == "text/event-stream")
+        {
+            response.Content = new SseSanitizingContent(response.Content, _reasoningFieldObserver);
+        }
+        else if (mediaType == "application/json")
+        {
+            HttpContent original = response.Content;
+            byte[] json = await original.ReadAsByteArrayAsync(cancellationToken);
+            var fixedJson = new ArrayBufferWriter<byte>(json.Length + 64);
+            if (OpenAiCompatibleResponseFixer.TryFix(json, fixedJson, out string? reasoningField))
+            {
+                response.Content = new ReadOnlyMemoryContent(fixedJson.WrittenMemory);
+                response.Content.Headers.ContentType = original.Headers.ContentType;
+                if (reasoningField != null) _reasoningFieldObserver?.Invoke(reasoningField);
+                original.Dispose();
+            }
+        }
+
+        return response;
+    }
+}

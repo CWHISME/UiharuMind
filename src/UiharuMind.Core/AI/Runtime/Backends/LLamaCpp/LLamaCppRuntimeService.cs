@@ -16,7 +16,7 @@ using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
-using UiharuMind.Core.Core.LLM;
+using UiharuMind.Core.AI.Net.Transport;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Runtime.Backends;

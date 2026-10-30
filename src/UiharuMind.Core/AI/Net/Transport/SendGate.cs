@@ -10,7 +10,7 @@
 using System.Collections.Concurrent;
 using UiharuMind.Core.Core.SimpleLog;
 
-namespace UiharuMind.Core.AI.Net;
+namespace UiharuMind.Core.AI.Net.Transport;
 
 /// <summary>
 /// 共用一份限额的请求按 <see cref="SendPacer"/> 的间隔排队发（ADR 0058）。

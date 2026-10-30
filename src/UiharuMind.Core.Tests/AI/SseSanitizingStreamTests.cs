@@ -1,5 +1,6 @@
 using System.Text;
 using UiharuMind.Core.AI.Net;
+using UiharuMind.Core.AI.Net.Response;
 
 namespace UiharuMind.Core.Tests.AI;
 
@@ -110,6 +111,27 @@ public class SseSanitizingStreamTests
 
         Assert.All(observed, field => Assert.Equal("reasoning", field));
         Assert.NotEmpty(observed);
+    }
+
+    /// <summary>
+    /// 思考字段普查真的接在流上（不只是类本身能算）：「加密条目有没有下发」这个判断
+    /// 全靠这条计数，接线断了就该红。
+    /// </summary>
+    [Fact]
+    public async Task ReasoningCensus_IsWiredIntoTheStream()
+    {
+        string sse =
+            "data: {\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"想\"}}]}\n" +
+            "data: {\"choices\":[{\"index\":0,\"delta\":{\"reasoning_details\":" +
+            "[{\"type\":\"reasoning.encrypted\",\"data\":\"opaque\"}]}}]}\n" +
+            "data: [DONE]\n\n";
+
+        await using var stream = new SseSanitizingStream(new MemoryStream(Encoding.UTF8.GetBytes(sse)));
+        using var reader = new StreamReader(stream);
+        await reader.ReadToEndAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal("reasoning fields: reasoning_content=1, reasoning/reasoning_text=0, " +
+                     "reasoning_details=1, encrypted=1", stream.ReasoningCensus);
     }
 
     private static async Task<string> ReadAllAsync(Stream inner)

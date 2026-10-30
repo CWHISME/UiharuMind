@@ -1,8 +1,9 @@
 using System.Buffers;
 using System.Text;
 using System.Text.Json;
+using UiharuMind.Core.AI.Net.Json;
 
-namespace UiharuMind.Core.AI.Net;
+namespace UiharuMind.Core.AI.Net.Response;
 
 /// <summary>
 /// 归一化「OpenAI 兼容」服务的响应。OpenAI SDK 的枚举解析遇到未知值一律直接抛，

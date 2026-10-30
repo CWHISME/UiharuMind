@@ -9,7 +9,7 @@
 
 using System.ClientModel.Primitives;
 
-namespace UiharuMind.Core.AI.Net;
+namespace UiharuMind.Core.AI.Net.Transport;
 
 /// <summary>
 /// 每次尝试发出前在 <see cref="SendGate"/> 上排队，回来后把 429 / 成功报给它。

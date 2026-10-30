@@ -2,6 +2,7 @@ using System.ClientModel.Primitives;
 using System.Diagnostics;
 using System.Net;
 using UiharuMind.Core.AI.Net;
+using UiharuMind.Core.AI.Net.Transport;
 
 namespace UiharuMind.Core.Tests.AI;
 

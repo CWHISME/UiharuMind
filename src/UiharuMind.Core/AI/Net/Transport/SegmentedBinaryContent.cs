@@ -1,6 +1,6 @@
 using System.ClientModel;
 
-namespace UiharuMind.Core.AI.Net;
+namespace UiharuMind.Core.AI.Net.Transport;
 
 /// <summary>
 /// 切成 64KB 段的请求体：每段小于 85000 字节，不进大对象堆，几十万字的请求体也只是一串小数组。

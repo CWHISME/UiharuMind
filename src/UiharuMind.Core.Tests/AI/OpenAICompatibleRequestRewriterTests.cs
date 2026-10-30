@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Core.AI.Net.Request;
 
 namespace UiharuMind.Core.Tests.AI;
 

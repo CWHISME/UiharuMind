@@ -13,7 +13,8 @@ using Microsoft.Extensions.AI;
 using OpenAI;
 using OpenAI.Chat;
 using UiharuMind.Core.AI.Models;
-using UiharuMind.Core.Core.LLM;
+using UiharuMind.Core.AI.Net.Transport;
+using UiharuMind.Core.AI.Net.Request;
 
 namespace UiharuMind.Core.AI.Net;
 

@@ -2,6 +2,7 @@ using UiharuMind.Core.AI.ImageGeneration.Dialects;
 using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Core.Core.Resilience;
 
 namespace UiharuMind.Core.AI.ImageGeneration;
 

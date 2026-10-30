@@ -21,6 +21,7 @@ using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.AI.Net.Errors;
 
 namespace UiharuMind.Core.AI.Execution;
 

@@ -10,7 +10,7 @@
 using System.ClientModel.Primitives;
 using UiharuMind.Core.Core.SimpleLog;
 
-namespace UiharuMind.Core.AI.Net;
+namespace UiharuMind.Core.AI.Net.Transport;
 
 /// <summary>
 /// 远程模型的重试策略：把限流(429)和瞬时故障(5xx/网络)分开对待。

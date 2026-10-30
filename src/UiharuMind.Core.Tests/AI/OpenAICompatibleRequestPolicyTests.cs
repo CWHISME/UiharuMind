@@ -5,8 +5,9 @@ using System.Text;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Net;
-using UiharuMind.Core.Core.LLM;
+using UiharuMind.Core.AI.Net.Transport;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.AI.Net.Request;
 
 namespace UiharuMind.Core.Tests.AI;
 
@@ -166,7 +167,7 @@ public class OpenAICompatibleRequestPolicyTests
         string? rewritten = await Task.Run(() =>
         {
             LlmRequestContext.ForbidToolCalls = true;
-            return OpenAICompatibleRequestRewriterTests.Rewrite("{\"model\":\"m\"}", OpenAICompatibleRequestRewriter.For(model: null));
+            return OpenAICompatibleRequestRewriterTests.Rewrite("{\"model\":\"m\"}", RequestRewrite.For(model: null));
         }, TestContext.Current.CancellationToken);
 
         Assert.Equal("{\"model\":\"m\",\"tool_choice\":\"none\"}", rewritten);
@@ -206,7 +207,7 @@ public class OpenAICompatibleRequestPolicyTests
         {
             LlmRequestContext.ForbidToolCalls = true;
             return OpenAICompatibleRequestRewriterTests.Rewrite(
-                "{\"messages\":[{\"role\":\"user\",\"content\":\"你好<>&'+\"}]}", OpenAICompatibleRequestRewriter.For(model: null));
+                "{\"messages\":[{\"role\":\"user\",\"content\":\"你好<>&'+\"}]}", RequestRewrite.For(model: null));
         }, TestContext.Current.CancellationToken);
 
         Assert.Contains("\"content\":\"你好<>&'+\"", rewritten);

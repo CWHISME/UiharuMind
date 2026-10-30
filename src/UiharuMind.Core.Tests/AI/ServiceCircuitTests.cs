@@ -1,5 +1,6 @@
 using System.Net;
 using UiharuMind.Core.AI.Net;
+using UiharuMind.Core.Core.Resilience;
 
 namespace UiharuMind.Core.Tests.AI;
 

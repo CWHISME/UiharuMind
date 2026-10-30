@@ -5,7 +5,8 @@ using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Configs.RemoteAI;
-using UiharuMind.Core.Core.LLM;
+using UiharuMind.Core.AI.Net.Transport;
+using UiharuMind.Core.AI.Net.Request;
 
 namespace UiharuMind.Core.Tests.AI;
 
@@ -143,13 +144,13 @@ public class OpenAICompatibleReasoningRoundtripTests
                 return ["思考"];
             };
             // 显式关(商汤自研,官方推荐不回传):不收集
-            OpenAICompatibleRequestRewriter.For(new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "sensenova-6.8-flash-lite" } });
+            RequestRewrite.For(new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "sensenova-6.8-flash-lite" } });
             // 无模型:不收集
-            OpenAICompatibleRequestRewriter.For(model: null);
+            RequestRewrite.For(model: null);
             // 自动(未声明):收集
-            OpenAICompatibleRequestRewriter.For(new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "glm-5.2" } });
+            RequestRewrite.For(new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "glm-5.2" } });
             // 必须回填(kimi-k3):收集
-            RequestRewrite rewrite = OpenAICompatibleRequestRewriter.For(
+            RequestRewrite rewrite = RequestRewrite.For(
                 new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "kimi-k3" } });
             Assert.NotNull(rewrite.ReasoningByAssistantMessage);
             return count;
@@ -188,19 +189,19 @@ public class OpenAICompatibleReasoningRoundtripTests
     {
         var observed = new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "glm-5.2" } };
         observed.Config.ObservedThinkingFields["glm-5.2"] = "reasoning_text";
-        Assert.Equal("reasoning_content", OpenAICompatibleRequestRewriter.For(observed).ReasoningField);
+        Assert.Equal("reasoning_content", RequestRewrite.For(observed).ReasoningField);
 
         // 预设声明照常生效
         var preseted = new RemoteModelInfo
         {
             Config = new RemoteSensenovaModelConfig { ModelId = "sensenova-6.8-flash-lite" },
         };
-        Assert.Equal("reasoning", OpenAICompatibleRequestRewriter.For(preseted).ReasoningField);
+        Assert.Equal("reasoning", RequestRewrite.For(preseted).ReasoningField);
 
-        Assert.Equal("reasoning_content", OpenAICompatibleRequestRewriter.For(new RemoteModelInfo()).ReasoningField);
-        Assert.Equal("reasoning_content", OpenAICompatibleRequestRewriter.For(model: null).ReasoningField);
+        Assert.Equal("reasoning_content", RequestRewrite.For(new RemoteModelInfo()).ReasoningField);
+        Assert.Equal("reasoning_content", RequestRewrite.For(model: null).ReasoningField);
         // 违反契约给了空串的实现：退回默认，而不是写一个 `"": "..."` 进请求体
-        Assert.Equal("reasoning_content", OpenAICompatibleRequestRewriter.For(new BlankFieldModel()).ReasoningField);
+        Assert.Equal("reasoning_content", RequestRewrite.For(new BlankFieldModel()).ReasoningField);
     }
 
     /// <summary>思考字段名给空串的模型（接口契约说该给生效键名，实现可能给空）</summary>
@@ -299,10 +300,10 @@ public class OpenAICompatibleReasoningRoundtripTests
         };
         var generic = new RemoteModelInfo { Config = new RemoteModelConfig { ModelId = "anything" } };
 
-        Assert.True(OpenAICompatibleRequestRewriter.For(deepseek).FillEmptyReasoning);
-        Assert.True(OpenAICompatibleRequestRewriter.For(sensenovaDeepseek).FillEmptyReasoning);
-        Assert.False(OpenAICompatibleRequestRewriter.For(sensenovaOwn).FillEmptyReasoning);
-        Assert.False(OpenAICompatibleRequestRewriter.For(generic).FillEmptyReasoning);
+        Assert.True(RequestRewrite.For(deepseek).FillEmptyReasoning);
+        Assert.True(RequestRewrite.For(sensenovaDeepseek).FillEmptyReasoning);
+        Assert.False(RequestRewrite.For(sensenovaOwn).FillEmptyReasoning);
+        Assert.False(RequestRewrite.For(generic).FillEmptyReasoning);
     }
 
     /// <summary>转售的 DeepSeek 不在预设表里（OpenCode），按模型 ID 兜底开全量口径</summary>
@@ -318,8 +319,8 @@ public class OpenAICompatibleReasoningRoundtripTests
             Config = new RemoteOpenCodeModelConfig { ModelId = "kimi-k2.5" },
         };
 
-        Assert.True(OpenAICompatibleRequestRewriter.For(resold).FillEmptyReasoning);
-        Assert.False(OpenAICompatibleRequestRewriter.For(other).FillEmptyReasoning);
+        Assert.True(RequestRewrite.For(resold).FillEmptyReasoning);
+        Assert.False(RequestRewrite.For(other).FillEmptyReasoning);
     }
 
     /// <summary>
@@ -335,12 +336,12 @@ public class OpenAICompatibleReasoningRoundtripTests
             Config = new RemoteCommandCodeModelConfig { ModelId = "reflection/beam:free" },
         };
         Assert.False(gateway.RequireReasoningOnEveryAssistantMessage);
-        Assert.False(OpenAICompatibleRequestRewriter.For(gateway).FillEmptyReasoning);
+        Assert.False(RequestRewrite.For(gateway).FillEmptyReasoning);
 
         // 服务端报了一次 → 记下这个 ModelId → 改写立刻改用全量口径
         Assert.True(gateway.Config.LearnRequireReasoningOnEveryAssistantMessage());
         Assert.True(gateway.RequireReasoningOnEveryAssistantMessage);
-        Assert.True(OpenAICompatibleRequestRewriter.For(gateway).FillEmptyReasoning);
+        Assert.True(RequestRewrite.For(gateway).FillEmptyReasoning);
 
         // 同端点另一个模型不受这次学习影响（它是靠 deepseek 兜底开的，不是靠学）
         gateway.Config.ModelId = "deepseek/deepseek-v4.1-flash";
@@ -361,7 +362,7 @@ public class OpenAICompatibleReasoningRoundtripTests
         };
         config.LearnRequireReasoningOnEveryAssistantMessage();
 
-        Assert.True(OpenAICompatibleRequestRewriter.For(new RemoteModelInfo { Config = config }).FillEmptyReasoning);
+        Assert.True(RequestRewrite.For(new RemoteModelInfo { Config = config }).FillEmptyReasoning);
     }
 
     /// <summary>

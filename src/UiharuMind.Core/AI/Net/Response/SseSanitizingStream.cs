@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using UiharuMind.Core.Core.SimpleLog;
 
-namespace UiharuMind.Core.AI.Net;
+namespace UiharuMind.Core.AI.Net.Response;
 
 /// <summary>
 /// 按行转发 SSE 响应，逐行交给 <see cref="OpenAiCompatibleResponseFixer"/> 修正后再吐给下游。
@@ -33,12 +33,19 @@ internal sealed class SseSanitizingStream : Stream
     private int _linesRead; //已读行数(诊断用:终止时看流到底被消费了多少)
     private byte[] _lastDataLine = []; //最后一条 data 行原文(诊断用:看服务端收尾时到底发了什么)
     private int _lastDataLineLength;
+    private readonly SseReasoningCensus _reasoningCensus = new(); //思考字段普查:加密思考有没有下发,只能在这里看
 
     public SseSanitizingStream(Stream inner, Action<string>? reasoningFieldObserver = null)
     {
         _inner = inner;
         _reasoningFieldObserver = reasoningFieldObserver;
     }
+
+    /// <summary>
+    /// 本流出现的思考字段计数（测试与排查用）。
+    /// 单开一个口子是因为它唯一的失败方式是「类写好了但没接上线」——那种错编译得过、测试若只测类也过得去。
+    /// </summary>
+    internal string ReasoningCensus => _reasoningCensus.Describe();
 
     public override bool CanRead => true;
     public override bool CanSeek => false;
@@ -205,6 +212,8 @@ internal sealed class SseSanitizingStream : Stream
         _linesRead++;
         if (line.IndexOf("[DONE]"u8) >= 0) _sawDone = true;
         if (line.IndexOf("\"usage\":{"u8) >= 0) _usageFrames++;
+        // 只看 data 行:思考字段只可能出现在帧正文里,而注释行/事件名要占掉每行一次扫描
+        if (line.StartsWith("data:"u8)) _reasoningCensus.Observe(line);
         // 跳过 [DONE]:要的是最后一条<b>业务帧</b>(它才带 finish_reason/usage)。
         // 之前把 [DONE] 也记进来,收尾帧被它覆盖,看不到服务端到底发了什么
         if (!_sawDone && line.StartsWith("data:"u8)) RememberLastDataLine(line);
@@ -282,11 +291,14 @@ internal sealed class SseSanitizingStream : Stream
         _disposed = true;
 
         // 无条件留痕:无论流怎么结束(正常读完/被掐/被提前丢弃)都会走到这里。
-        // 这是判断"服务端到底发没发完"的决定性观测——行数为 0 说明流根本没被读
+        // 这是判断"服务端到底发没发完"的决定性观测——行数为 0 说明流根本没被读。
+        // 顺带把思考字段的普查打在同一行:全 0 就是"这条流没有思考字段",与界面上看不看得见无关
+        string census = _linesRead > 0 ? $", {_reasoningCensus.Describe()}" : "";
         if (_sawDone)
-            Log.Debug($"SseSanitizingStream disposed: {_linesRead} lines, {_usageFrames} usage frames, saw [DONE] (normal end).");
+            Log.Debug($"SseSanitizingStream disposed: {_linesRead} lines, {_usageFrames} usage frames{census}, " +
+                      "saw [DONE] (normal end).");
         else
-            Log.Warning($"SseSanitizingStream disposed: {_linesRead} lines, NO [DONE]. " +
+            Log.Warning($"SseSanitizingStream disposed: {_linesRead} lines{census}, NO [DONE]. " +
                         (disposing ? "Disposed by caller" : "Finalizer"));
 
         // 诊断:最后一条 data 行原文。长思考后 text=0 时,这里能看到服务端收尾帧长什么样
