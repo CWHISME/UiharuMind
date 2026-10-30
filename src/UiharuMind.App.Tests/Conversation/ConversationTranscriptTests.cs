@@ -976,4 +976,69 @@ public class ConversationTranscriptTests
         ThinkingItem card = Assert.Single(items.OfType<ThinkingItem>());
         Assert.False(card.IsContentUnavailable);
     }
+
+    /// <summary>
+    /// 加密思考的信号一到就开一张没有正文的卡，让整段思考期界面不是空的。
+    /// 这一发没有任何正文思考，所以卡必须出现。
+    /// </summary>
+    [Fact]
+    public void EncryptedThinking_OpensACardWhenTheSegmentHasNoThinking()
+    {
+        (ConversationTranscript transcript, List<ConversationItemBase> items) = Create();
+
+        transcript.Apply(EncryptedReasoningContent.Instance);
+
+        ThinkingItem card = Assert.Single(items.OfType<ThinkingItem>());
+        Assert.True(card.IsContentUnavailable);
+    }
+
+    /// <summary>
+    /// 票是网关在流的<b>任意一帧</b>塞过来的，可能晚于同一发里的工具调用。
+    /// 卡要插回本段开头——按到达位置追加就成了「工具调用之后突然冒出一张思考卡」，
+    /// 而思考其实发生在调用之前。
+    /// </summary>
+    [Fact]
+    public void EncryptedThinking_LandsBeforeTheToolCallOfItsSegment()
+    {
+        (ConversationTranscript transcript, List<ConversationItemBase> items) = Create();
+
+        transcript.Apply(new FunctionCallContent("call-1", "read_file",
+            new Dictionary<string, object?> { ["path"] = "a.txt" }));
+        transcript.Apply(EncryptedReasoningContent.Instance);
+
+        Assert.Equal(2, items.Count);
+        Assert.True(Assert.IsType<ThinkingItem>(items[0]).IsContentUnavailable);
+        Assert.IsType<ToolCallItem>(items[1]);
+    }
+
+    /// <summary>
+    /// 本段已经流过带正文的思考：用户已经看见它想什么了，再补一张「没有正文」的只是噪音。
+    /// 判断不能只看「当前有没有开着的思考卡」——正文一开始流，那张卡就收尾置空了。
+    /// </summary>
+    [Fact]
+    public void EncryptedThinking_AddsNoCardWhenTheSegmentAlreadyThought()
+    {
+        (ConversationTranscript transcript, List<ConversationItemBase> items) = Create();
+
+        transcript.Apply(new TextReasoningContent("先想。"));
+        transcript.Apply(new TextContent("答"));
+        transcript.Apply(EncryptedReasoningContent.Instance);
+
+        ThinkingItem card = Assert.Single(items.OfType<ThinkingItem>());
+        Assert.False(card.IsContentUnavailable);
+    }
+
+    /// <summary>下一段重新计数：上一段想过，不影响下一段该不该开卡</summary>
+    [Fact]
+    public void EncryptedThinking_IsJudgedPerSegment()
+    {
+        (ConversationTranscript transcript, List<ConversationItemBase> items) = Create();
+
+        transcript.Apply(new TextReasoningContent("先想。"));
+        transcript.Apply(MessageBoundaryContent.Instance);
+        transcript.Apply(EncryptedReasoningContent.Instance);
+
+        Assert.Equal(2, items.OfType<ThinkingItem>().Count());
+        Assert.True(items.OfType<ThinkingItem>().Last().IsContentUnavailable);
+    }
 }

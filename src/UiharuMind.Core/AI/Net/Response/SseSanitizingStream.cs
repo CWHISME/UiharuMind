@@ -223,9 +223,11 @@ internal sealed class SseSanitizingStream : Stream
             _reasoningCensus.Observe(line);
             // 加密思考的正文永远不会下发,但凭证在这一帧里就有:原样切下来,一份给界面开卡,
             // 一份留给下一发请求——两者都是同一张票,所以只交一次
+            // 判「是不是票」交给提取器：要数组、且数组里有加密条目。
+            // 早先这里用 ticket.IndexOf("encrypted") 子串判，会被正文/工具参数里
+            // 提到这个词的句子撞上（实测让 deepseek 这种明文模型冒出一张「加密思考」卡）
             if (!_encryptedSeen && _encryptedReasoningObserver != null &&
-                ReasoningDetailExtractor.TryExtract(line, out byte[] ticket) &&
-                ticket.AsSpan().IndexOf("encrypted"u8) >= 0)
+                ReasoningDetailExtractor.TryExtractTicket(line, out byte[] ticket))
             {
                 _encryptedSeen = true;
                 _encryptedReasoningObserver(ticket);

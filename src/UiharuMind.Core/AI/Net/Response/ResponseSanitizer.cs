@@ -56,7 +56,7 @@ internal sealed class ResponseSanitizer
             byte[] json = await original.ReadAsByteArrayAsync(cancellationToken);
             // 一次性响应里出现加密条目同样是「它思考过」的证据，只是没有流式那个时机可言。
             // 交出的是原文（整段 reasoning_details 数组），上层原样存着下一发带回
-            if (encryptedReasoning != null && ReasoningDetailExtractor.TryExtract(json, out byte[] ticket))
+            if (encryptedReasoning != null && ReasoningDetailExtractor.TryExtractTicket(json, out byte[] ticket))
                 encryptedReasoning(ticket);
             var fixedJson = new ArrayBufferWriter<byte>(json.Length + 64);
             if (ChatCompletionsResponseFixer.TryFix(json, fixedJson, out string? reasoningField))

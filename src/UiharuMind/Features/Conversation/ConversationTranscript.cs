@@ -58,6 +58,7 @@ public sealed class ConversationTranscript : ITurnSink
     private ThinkingItem? _streamingThinking;
     private int _segmentFirstItem = -1; //本段第一条条目在落点里的下标,-1=本段还没有条目
     private int _closedSegmentFirstItem = -1; //刚收尾那一段的首条下标,「加密思考」卡要插回原位
+    private bool _segmentHadThinking; //本段已经有过带正文的思考卡(含已收尾的)
     private bool _offThreadReported; //跨线程写入只报一次,否则流式期间会刷屏
 
     /// <summary>思考段收尾时是否自动折叠（流式进行中一律保持展开）</summary>
@@ -151,7 +152,11 @@ public sealed class ConversationTranscript : ITurnSink
     public void Apply(AIContent content)
     {
         VerifyUiAccess();
-        if (content is not MessageBoundaryContent && _segmentFirstItem < 0) _segmentFirstItem = _target.Count;
+        if (content is not MessageBoundaryContent && _segmentFirstItem < 0)
+        {
+            _segmentFirstItem = _target.Count;
+            _segmentHadThinking = false;
+        }
         switch (content)
         {
             case TextReasoningContent reasoning:
@@ -425,10 +430,18 @@ public sealed class ConversationTranscript : ITurnSink
     public void ThinkingStarted()
     {
         VerifyUiAccess();
-        if (_streamingThinking != null) return; //已经有思考卡（有正文那种），不再开第二张
+        // 本段已经有过带正文的思考卡：再补一张「没有正文」的只是噪音——用户已经看见它想什么了。
+        // 这条判断不能只看 _streamingThinking：正文一开始流，那张卡就收尾置空了
+        if (_segmentHadThinking) return;
         CloseText(); //思考发生在正文之前：正文万一先流了，先收段，卡才排得对
+
         ThinkingItem card = new() { IsContentUnavailable = true, IsExpanded = true };
-        _target.Add(_streamingThinking = card);
+        // 插回本段开头，不是追加到当前末尾：票是网关在流的<b>任意一帧</b>塞过来的，
+        // 按到达位置追加会变成「工具调用之后突然冒出一张思考卡」——思考其实在调用之前
+        int at = _segmentFirstItem >= 0 ? _segmentFirstItem : _target.Count;
+        _target.Insert(at, card);
+        _streamingThinking = card;
+        _segmentHadThinking = true;
     }
 
     private static void StopRunningToolCalls(IEnumerable<ConversationItemBase> items, string note, bool finishDuration)
@@ -559,6 +572,7 @@ public sealed class ConversationTranscript : ITurnSink
         _streamingThinking = null;
         _segmentFirstItem = -1;
         _closedSegmentFirstItem = -1;
+        _segmentHadThinking = false;
         _thinkParser.Reset();
     }
 
@@ -575,6 +589,7 @@ public sealed class ConversationTranscript : ITurnSink
     private void AppendThinking(string delta)
     {
         CloseText();
+        _segmentHadThinking = true;
         // 先开的是「没有正文」那张（加密思考的信号），正文真来了就把它换成正常的卡
         if (_streamingThinking is { IsContentUnavailable: true } placeholder)
         {

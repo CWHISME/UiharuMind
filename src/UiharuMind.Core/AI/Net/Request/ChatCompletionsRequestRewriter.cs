@@ -15,6 +15,7 @@ using System.Text.Json.Nodes;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Net.Json;
+using UiharuMind.Core.AI.Reasoning;
 
 namespace UiharuMind.Core.AI.Net.Request;
 
@@ -220,7 +221,10 @@ internal static class ChatCompletionsRequestRewriter
 
         // 加密票据按位置原样拼回去。与明文那条互不影响:同一条消息可能两个都有。
         // 能不能发（同模型门禁）在收集侧就判过了，这里只管字节
-        if (index >= 0 && tickets != null && index < tickets.Count && tickets[index] is { } ticket)
+        // 只发真正的票：历史里可能躺着旧版提取器误存的数组（工具参数被当成票据），
+        // 那种东西回填出去就是给服务端塞一段它读不懂的 JSON
+        if (index >= 0 && tickets != null && index < tickets.Count && tickets[index] is { } ticket
+            && ReasoningDetailExtractor.ContainsEncrypted(ticket))
         {
             int ticketAt = (int)reader.TokenStartIndex;
             ticketEdits.Add(new Utf8JsonSplice.Edit(ticketAt, ticketAt,

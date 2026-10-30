@@ -72,11 +72,34 @@ public class ReasoningReplayGateTests
     {
         string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(TwoAssistants,
             new RequestRewrite(null, false, null, false,
-                ReasoningTickets: ["""{"id":"t1"}""", """{"id":"t2"}"""]));
+                ReasoningTickets:
+                [
+                    """[{"type":"reasoning.encrypted","data":"t1"}]""",
+                    """[{"type":"reasoning.encrypted","data":"t2"}]""",
+                ]));
 
         JsonArray messages = (JsonArray)JsonNode.Parse(rewritten!)!["messages"]!;
         Assert.NotNull(messages[1]!["reasoning_details"]);
         Assert.NotNull(messages[3]!["reasoning_details"]);
+    }
+
+    /// <summary>
+    /// 历史里躺着的假票不发。旧版提取器会把 <c>reasoning_details:null</c> 之后的工具参数数组
+    /// 当成票据存下来，那些东西不会自己消失——回填时按结构再判一次，
+    /// 否则每一发都在给服务端塞一段它读不懂的 JSON。
+    /// </summary>
+    [Fact]
+    public void BogusStoredTicket_IsNotReplayed()
+    {
+        string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(TwoAssistants,
+            new RequestRewrite(null, false, null, false,
+                ReasoningTickets:
+                [
+                    """[{"id":"c1","function":{"arguments":"{\"path\":\"encrypted-notes.md\"}"}}]""",
+                    null,
+                ]));
+
+        Assert.DoesNotContain("reasoning_details", rewritten);
     }
 
     /// <summary>

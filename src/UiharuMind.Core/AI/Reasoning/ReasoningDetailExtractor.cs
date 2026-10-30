@@ -27,8 +27,14 @@ internal static class ReasoningDetailExtractor
         if (at < 0) return false;
 
         ReadOnlySpan<byte> rest = json[(at + Key.Length)..];
-        int start = rest.IndexOf((byte)'[');
-        if (start < 0) return false;
+
+        // 值必须<b>紧接着</b>就是数组。跳过冒号后的空白再看第一个字节——
+        // 不能像早先那样「往后找第一个 '['」：`"reasoning_details":null` 这种帧极常见，
+        // 往后找会一路扫到同一帧里的 tool_calls / content 数组，把工具参数当成票据
+        // （实测：一句 `"path":"encrypted-notes.md"` 就足以让界面冒出一张「加密思考」卡）
+        int start = 0;
+        while (start < rest.Length && (rest[start] == (byte)' ' || rest[start] == (byte)'	')) start++;
+        if (start >= rest.Length || rest[start] != (byte)'[') return false;
 
         int depth = 0;
         bool inString = false;
@@ -63,6 +69,44 @@ internal static class ReasoningDetailExtractor
 
         return false; //半截数组(帧被切断)当没找到:残缺的票发回去比不发更糟
     }
+
+    /// <summary>
+    /// 切出<b>加密思考票据</b>：<c>reasoning_details</c> 是数组、且数组里确实有加密条目才算。
+    ///
+    /// <para>两步都要，缺一不可。只判「有 <c>reasoning_details</c>」会把摘要数组也当成票存下来，
+    /// 下一发原样回填给服务端；只判「含 encrypted 字样」则会被正文/参数里的同名英文单词撞上——
+    /// 按<b>结构</b>判（条目的 <c>type</c> 值），不按子串判。</para>
+    /// </summary>
+    /// <param name="json">待扫描的字节（SSE 的一行，或一次性响应的整个正文）</param>
+    /// <param name="ticket">切出来的票据原文（整个数组）</param>
+    /// <returns>确实是加密票据时为 true</returns>
+    public static bool TryExtractTicket(ReadOnlySpan<byte> json, out byte[] ticket) =>
+        TryExtract(json, out ticket) && ContainsEncrypted(ticket);
+
+    /// <summary>
+    /// 这个 <c>reasoning_details</c> 数组里有没有加密条目。
+    ///
+    /// 认两种写法：<c>{"type":"reasoning.encrypted"}</c>（OpenAI 系）与
+    /// <c>{"type":"encrypted"}</c>（Kimi 方言）。判的是引号包住的 <c>type</c> 值，
+    /// 不是裸的 <c>encrypted</c> 子串——后者会被正文里提到这个词的句子撞上。
+    /// </summary>
+    /// <param name="details">切出来的数组原文</param>
+    /// <returns>有加密条目时为 true</returns>
+    public static bool ContainsEncrypted(ReadOnlySpan<byte> details) =>
+        details.IndexOf("\"reasoning.encrypted\""u8) >= 0 || details.IndexOf("\"encrypted\""u8) >= 0;
+
+    /// <summary>
+    /// 同上的字符串版：回填侧手里是落盘读回来的字符串，没必要再转一次字节。
+    ///
+    /// 用它挡住<b>历史里已经存进去的假票</b>——旧版提取器会把工具参数当票存下来，
+    /// 那些票不会自己消失，不加这道门就会一直被当成密文回填给服务端。
+    /// </summary>
+    /// <param name="details">存下来的票据原文</param>
+    /// <returns>有加密条目时为 true</returns>
+    public static bool ContainsEncrypted(string? details) =>
+        details is not null &&
+        (details.Contains("\"reasoning.encrypted\"", StringComparison.Ordinal) ||
+         details.Contains("\"encrypted\"", StringComparison.Ordinal));
 
     /// <summary>
     /// 从切出来的数组里读明文摘要（<c>reasoning.summary</c> 条目的 <c>summary</c>）。
