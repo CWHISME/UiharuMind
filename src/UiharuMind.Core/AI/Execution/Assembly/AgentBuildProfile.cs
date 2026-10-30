@@ -55,12 +55,12 @@ public class AgentBuildProfile
     public string SessionId { get; init; } = string.Empty;
 
     /// <summary>
-    /// 会话亲和值：有会话时由 <see cref="AI.SessionAffinity.Of"/> 从 <see cref="SessionId"/> 算出，
-    /// 无会话（能力预览）为 null。与 <see cref="ChatSession.CacheAffinity"/> <b>同一个算法</b>——
-    /// 两处一旦分叉，同一会话的主代理请求与旁路请求就会落到不同副本上。
-    /// 按会话自己算，不继承父会话（子会话的工具集与角色卡都可能不同，前缀从第一个 token 就分叉）。
+    /// 会话亲和值：由会话一次性给出（<see cref="ChatSession.CacheAffinity"/>），这里只做搬运——
+    /// 同一会话的主代理请求与旁路请求必须拿同一个值，落到不同副本上比不带亲和更糟。
+    /// 无会话（能力预览）为 null。子会话用自己的，不继承父会话（工具集与角色卡都可能不同，
+    /// 前缀从第一个 token 就分叉）。
     /// </summary>
-    public string? CacheAffinity => string.IsNullOrEmpty(SessionId) ? null : AI.SessionAffinity.Of(SessionId);
+    public string? CacheAffinity { get; init; }
 
     /// <summary>绑定的工作目录;为空表示通用助手模式(文件/shell 工具落到沙箱目录)</summary>
     public string? WorkspacePath { get; init; }
@@ -233,6 +233,7 @@ public class AgentBuildProfile
         {
             Character = session.CharacterData,
             SessionId = session.SessionId,
+            CacheAffinity = session.CacheAffinity,
             IsAgentForm = session.IsAgentForm,
             // 群成员的工作区与权限档跟群走，现取、不存副本（GroupChatSessions.WorkspaceOf / PermissionOf）
             WorkspacePath = GroupChatSessions.WorkspaceOf(session),

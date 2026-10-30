@@ -30,13 +30,18 @@ namespace UiharuMind.Core.AI.Net;
 /// pi 的「有就带」同一层级——服务端要的是「字段必须在」，不是「字段必须有内容」。
 /// </param>
 /// <param name="ReasoningField">思考正文回填的 wire 键名（预设/默认）</param>
+/// <param name="PromptCacheKey">
+/// body 级的 <c>prompt_cache_key</c>：会话亲和值，服务端据此把同一会话的前缀钉在同一份缓存上。
+/// 由供应商开关（<see cref="Models.ILlmModel.SupportsPromptCacheKey"/>），没开或没会话时为 null
+/// </param>
 internal readonly record struct RequestRewrite(
     IReadOnlyList<KeyValuePair<string, JsonNode?>>? ExtraParams,
     bool ForbidToolCalls,
     IReadOnlyList<string?>? ReasoningByAssistantMessage,
     bool OmitSamplingParams,
     bool FillEmptyReasoning = false,
-    string ReasoningField = OpenAICompatibleRequestRewriter.DefaultReasoningField);
+    string ReasoningField = OpenAICompatibleRequestRewriter.DefaultReasoningField,
+    string? PromptCacheKey = null);
 
 /// <summary>
 /// 发往 OpenAI 兼容端点之前对请求体的几道改写：注入模型的额外参数、禁止工具调用、
@@ -96,7 +101,10 @@ internal static class OpenAICompatibleRequestRewriter
             model?.OmitSamplingParams == true,
             everyAssistant,
             // 思考回填键名不写死:按模型实际字段(预设/默认)回传
-            ResolveReasoningField(model));
+            ResolveReasoningField(model),
+            // 会话亲和的 body 形态:值就是亲和值(32 字符,在 OpenAI 的 64 上限内),
+            // 没开这个开关或没有会话时为 null,改写整段跳过
+            model?.SupportsPromptCacheKey == true ? LlmRequestContext.SessionAffinity : null);
     }
 
     /// <summary>
@@ -119,13 +127,15 @@ internal static class OpenAICompatibleRequestRewriter
         bool fixArguments = json.IndexOf("\"arguments\":\"null\""u8) >= 0 || json.IndexOf("\"arguments\": \"null\""u8) >= 0;
         IReadOnlyList<string?>? reasoning = rewrite.ReasoningByAssistantMessage is { Count: > 0 } list ? list : null;
         if (rewrite.ExtraParams is not { Count: > 0 } && !rewrite.ForbidToolCalls && !fixArguments && reasoning == null &&
-            !rewrite.OmitSamplingParams && !rewrite.FillEmptyReasoning)
+            !rewrite.OmitSamplingParams && !rewrite.FillEmptyReasoning && rewrite.PromptCacheKey == null)
         {
             return false;
         }
 
         // 要追加到根上的键,同名后者覆盖前者(与在 DOM 上连续赋值一致)
         List<(string Key, byte[] Property)> added = [];
+        // 先写,让供应商额外参数能覆盖它(显式配置优先于这里推出的值)
+        if (rewrite.PromptCacheKey != null) Upsert(added, "prompt_cache_key", rewrite.PromptCacheKey);
         if (rewrite.ExtraParams != null)
         {
             foreach (var pair in rewrite.ExtraParams) Upsert(added, pair.Key, pair.Value);

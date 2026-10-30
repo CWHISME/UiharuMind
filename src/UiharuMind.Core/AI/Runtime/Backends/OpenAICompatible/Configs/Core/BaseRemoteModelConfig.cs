@@ -60,6 +60,22 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     public virtual bool OmitSamplingParams { get; set; }
 
     /// <summary>
+    /// 会话亲和写哪几个请求头名；空 = 不发。默认不发：不认的网关收到未知头只是忽略，
+    /// 但一次发齐会撞上别家的语义，所以交给认它的供应商自己声明，公共层不按端点猜
+    /// </summary>
+    [JsonIgnore]
+    [SettingConfigIgnoreDisplay]
+    public virtual IReadOnlyList<string>? SessionAffinityHeaders => null;
+
+    /// <summary>
+    /// 是否发 body 级的 <c>prompt_cache_key</c>。默认关：它会改字节（已有缓存失效一次），
+    /// 且严格服务端会因未知字段 400，只由认它的供应商打开
+    /// </summary>
+    [JsonIgnore]
+    [SettingConfigIgnoreDisplay]
+    public virtual bool SupportsPromptCacheKey => false;
+
+    /// <summary>
     /// 模型最大上下文窗口(token 数),0 表示未设置
     /// </summary>
     [SettingConfigIgnoreDisplay]

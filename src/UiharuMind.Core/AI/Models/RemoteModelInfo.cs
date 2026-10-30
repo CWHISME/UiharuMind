@@ -29,6 +29,12 @@ public class RemoteModelInfo : ILlmModel
     [JsonIgnore] public int Port => Config.Port;
     [JsonIgnore] public int ContextLength => Config.ContextLength;
     [JsonIgnore] public bool OmitSamplingParams => Config.OmitSamplingParams;
+
+    /// <summary>会话亲和写哪几个请求头名；空 = 不发（默认）。供应商配置自行声明</summary>
+    [JsonIgnore] public IReadOnlyList<string>? SessionAffinityHeaders => Config.SessionAffinityHeaders;
+
+    /// <summary>是否发 body 级的 <c>prompt_cache_key</c>（默认关，认它的供应商才开）</summary>
+    [JsonIgnore] public bool SupportsPromptCacheKey => Config.SupportsPromptCacheKey;
     /// <summary>思考模式下带 tool_calls 时是否要求原样带回思考正文；<c>null</c>=自动(有思考就回传)，<c>true</c>/<c>false</c>=显式要求/禁止</summary>
     [JsonIgnore] public bool? ReplayExistingReasoning => Config.ReplayExistingReasoning;
 

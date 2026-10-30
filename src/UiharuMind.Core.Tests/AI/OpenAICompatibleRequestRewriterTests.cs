@@ -42,6 +42,33 @@ public class OpenAICompatibleRequestRewriterTests
         Assert.Equal("""{"max_tokens":65535}""", Rewrite("{}", new(MaxTokens, false, null, false)));
     }
 
+    /// <summary>body 级的会话亲和键：追加在根上，不动 messages（它不参与历史，只是给服务端挑缓存副本用）</summary>
+    [Fact]
+    public void PromptCacheKey_IsAppendedToTheRoot()
+    {
+        RequestRewrite rewrite = new(null, false, null, false, PromptCacheKey: "abc123");
+
+        Assert.Equal("""{"model":"m","messages":[],"prompt_cache_key":"abc123"}""",
+            Rewrite("""{"model":"m","messages":[]}""", rewrite));
+    }
+
+    /// <summary>只要这个键存在就得改写——它是唯一「没有别的改动也要改」的一项</summary>
+    [Fact]
+    public void PromptCacheKey_Alone_TriggersRewrite()
+    {
+        Assert.Equal("""{"prompt_cache_key":"abc123"}""", Rewrite("{}", new(null, false, null, false, PromptCacheKey: "abc123")));
+    }
+
+    /// <summary>供应商额外参数里若显式给了这个键，以配置为准（它写在后面，同名后者覆盖）</summary>
+    [Fact]
+    public void PromptCacheKey_IsOverridableByExtraParams()
+    {
+        IReadOnlyList<KeyValuePair<string, JsonNode?>> extras = [new("prompt_cache_key", JsonValue.Create("from-config"))];
+
+        Assert.Equal("""{"model":"m","prompt_cache_key":"from-config"}""",
+            Rewrite("""{"model":"m"}""", new(extras, false, null, false, PromptCacheKey: "abc123")));
+    }
+
     [Fact]
     public void ObjectValuedExtraParam_IsWrittenCompactWithoutEscapingNonAscii()
     {

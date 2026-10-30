@@ -14,14 +14,15 @@ public class RemoteModelProviderListTests
     {
         var vm = new RemoteModelEditViewData();
 
-        Assert.Equal(7, vm.Providers.Count);
+        Assert.Equal(8, vm.Providers.Count);
         Assert.Equal(typeof(RemoteAgnesModelConfig), vm.Providers[0].ConfigType);
         Assert.Equal(typeof(RemoteDeepSeekModelConfig), vm.Providers[1].ConfigType);
         Assert.Equal(typeof(RemoteSensenovaModelConfig), vm.Providers[2].ConfigType);
         Assert.Equal(typeof(RemoteZhipuModelConfig), vm.Providers[3].ConfigType);
         Assert.Equal(typeof(RemoteCommandCodeModelConfig), vm.Providers[4].ConfigType);
         Assert.Equal(typeof(RemoteOpenCodeModelConfig), vm.Providers[5].ConfigType);
-        Assert.Equal(typeof(RemoteModelConfig), vm.Providers[6].ConfigType);
+        Assert.Equal(typeof(RemoteOpenRouterModelConfig), vm.Providers[6].ConfigType);
+        Assert.Equal(typeof(RemoteModelConfig), vm.Providers[7].ConfigType);
     }
 
     [Fact]
@@ -29,7 +30,7 @@ public class RemoteModelProviderListTests
     {
         var vm = new RemoteModelEditViewData();
 
-        foreach (ProviderItem provider in vm.Providers.Take(6))
+        foreach (ProviderItem provider in vm.Providers.Take(7))
         {
             Assert.False(string.IsNullOrEmpty(provider.Name));
             Assert.False(string.IsNullOrEmpty(provider.DefaultEndpoint));

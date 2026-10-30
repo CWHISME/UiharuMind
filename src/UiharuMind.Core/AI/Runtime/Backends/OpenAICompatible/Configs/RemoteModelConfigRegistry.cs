@@ -21,6 +21,7 @@ public static class RemoteModelConfigRegistry
         (typeof(RemoteZhipuModelConfig), static () => new RemoteZhipuModelConfig()),
         (typeof(RemoteCommandCodeModelConfig), static () => new RemoteCommandCodeModelConfig()),
         (typeof(RemoteOpenCodeModelConfig), static () => new RemoteOpenCodeModelConfig()),
+        (typeof(RemoteOpenRouterModelConfig), static () => new RemoteOpenRouterModelConfig()),
         (typeof(RemoteModelConfig), static () => new RemoteModelConfig()),
     ];
 

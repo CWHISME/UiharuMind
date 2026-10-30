@@ -21,6 +21,9 @@ namespace UiharuMind.Core.Tests.AI;
 /// </summary>
 public class SessionAffinityEndToEndTests
 {
+    /// <summary>这一家的亲和头名；换成别的供应商就是别的一组，公共层不认识具体名字</summary>
+    private static readonly string[] AffinityHeaders = ["x-session-id"];
+
     private const string NonStreamingJson =
         """{"id":"1","created":1,"model":"affinity-test","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}""";
 
@@ -113,9 +116,9 @@ public class SessionAffinityEndToEndTests
     }
 
     /// <summary>
-    /// 一次发四个头，每个只能有一个值。SDK 的重试、SendGate 的排队都在这一层之外，
+    /// 每个头只能有一个值。SDK 的重试、SendGate 的排队都在这一层之外，
     /// 万一哪条路径把同一个请求对象重发一次，<c>TryAddWithoutValidation</c> 会<b>追加</b>而不是覆盖——
-    /// 那时网线上就是 <c>x-session-affinity: a, a</c>，网关解析出什么全看它怎么切。
+    /// 那时网线上就是 <c>x-session-id: a, a</c>，网关解析出什么全看它怎么切。
     /// </summary>
     [Fact]
     public async Task Headers_CarryExactlyOneValueEach()
@@ -126,7 +129,7 @@ public class SessionAffinityEndToEndTests
         await client.GetResponseAsync([User("alpha")], cancellationToken: TestContext.Current.CancellationToken);
 
         IReadOnlyList<(string Name, string[] Values)> headers = wire.HeadersOf("alpha");
-        foreach (string name in new[] { "session_id", "x-client-request-id", "x-session-affinity", "x-session-id" })
+        foreach (string name in AffinityHeaders)
         {
             (string Name, string[] Values) hit = headers.Single(h =>
                 string.Equals(h.Name, name, StringComparison.OrdinalIgnoreCase));
@@ -138,7 +141,8 @@ public class SessionAffinityEndToEndTests
 
     private static LazyChatClient Client(RecordingHandler wire, string? affinity)
     {
-        OpenAICompatibleHttpHandler handler = new("http://localhost/v1/chat/completions", wire);
+        OpenAICompatibleHttpHandler handler = new("http://localhost/v1/chat/completions", wire,
+            affinityHeaders: AffinityHeaders);
         IChatClient sdk = OpenAICompatibleChatClient.Create(handler, null, "affinity-test", "probe");
         return new LazyChatClient(() => Running(sdk), affinity);
     }
@@ -190,7 +194,7 @@ public class SessionAffinityEndToEndTests
             CancellationToken cancellationToken)
         {
             string body = request.Content == null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken);
-            string affinity = request.Headers.TryGetValues("x-session-affinity", out IEnumerable<string>? values)
+            string affinity = request.Headers.TryGetValues(AffinityHeaders[0], out IEnumerable<string>? values)
                 ? values.First()
                 : string.Empty;
             (string Name, string[] Values)[] headers = request.Headers

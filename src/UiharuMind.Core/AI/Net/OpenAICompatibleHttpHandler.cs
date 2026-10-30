@@ -11,7 +11,6 @@
 
 using System.Buffers;
 using System.Net.Http.Headers;
-using System.Text;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Core.SimpleLog;
@@ -25,18 +24,15 @@ namespace UiharuMind.Core.Core.LLM;
 /// </summary>
 class OpenAICompatibleHttpHandler : DelegatingHandler
 {
-    /// <summary>「亲和值不合规」这条日志的节流间隔：坏值会每发都来，不节流就是刷屏</summary>
-    private static readonly long UnsafeAffinityReportInterval = 60_000;
-
-    private static long _lastUnsafeAffinityReportAt; //上次记这条日志的时刻(Environment.TickCount64)
-
     private readonly Uri _baseUri;
     private readonly bool _isChatCompletions; //只有聊天补全的响应需要清洗
     private readonly Action<string>? _reasoningFieldObserver; //响应观测到思考字段原名时的回调(按模型记录回传键名)
+    private readonly string[] _affinityHeaders; //本端点要写的会话亲和头名；空=不发
 
     public OpenAICompatibleHttpHandler(string address = "http://127.0.0.1:1369/v1/chat/completions",
-        Action<string>? reasoningFieldObserver = null)
-        : this(address, new HttpClientHandler(), reasoningFieldObserver)
+        Action<string>? reasoningFieldObserver = null,
+        IReadOnlyList<string>? affinityHeaders = null)
+        : this(address, new HttpClientHandler(), reasoningFieldObserver, affinityHeaders)
     {
     }
 
@@ -46,26 +42,23 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
     /// <param name="address">端点地址</param>
     /// <param name="inner">内层处理器</param>
     /// <param name="reasoningFieldObserver">思考字段观测回调（可选，观测到 origin 字段名时调用）</param>
+    /// <param name="affinityHeaders">会话亲和要写的头名；空或 null 表示这家网关不认，一个都不发</param>
     internal OpenAICompatibleHttpHandler(string address, HttpMessageHandler inner,
-        Action<string>? reasoningFieldObserver = null) : base(inner)
+        Action<string>? reasoningFieldObserver = null,
+        IReadOnlyList<string>? affinityHeaders = null) : base(inner)
     {
         _baseUri = CreateChatCompletionUri(address).Uri;
         _isChatCompletions = IsChatCompletions(_baseUri);
         _reasoningFieldObserver = reasoningFieldObserver;
+        _affinityHeaders = affinityHeaders is { Count: > 0 } ? [.. affinityHeaders] : [];
     }
 
     public OpenAICompatibleHttpHandler(string host = "http://127.0.0.1", int port = 1369,
-        string absolutePath = "/v1/chat/completions", Action<string>? reasoningFieldObserver = null)
-        : base(new HttpClientHandler())
+        string absolutePath = "/v1/chat/completions", Action<string>? reasoningFieldObserver = null,
+        IReadOnlyList<string>? affinityHeaders = null)
+        : this(new UriBuilder(host) { Port = port, Path = absolutePath }.Uri.ToString(), new HttpClientHandler(),
+            reasoningFieldObserver, affinityHeaders)
     {
-        var newUriBuilder = new UriBuilder(host)
-        {
-            Port = port,
-            Path = absolutePath
-        };
-        _baseUri = newUriBuilder.Uri;
-        _isChatCompletions = IsChatCompletions(_baseUri);
-        _reasoningFieldObserver = reasoningFieldObserver;
     }
 
     private static bool IsChatCompletions(Uri uri) =>
@@ -90,10 +83,9 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
         ApplySessionAffinity(request);
         var response = await base.SendAsync(request, cancellationToken);
         // 诊断:无条件记录响应媒体类型与状态码——SseSanitizingContent 只在 text/event-stream 时介入,
-        // 非该媒体类型的流不经过 SseSanitizingStream,此类故障的桩也就全都不在链路上
-        // 顺带记下这一发实际带出去的亲和值：命中率不对时,第一个要回答的问题是"到底发了什么"——
-        // 不记下来只能靠猜(网关不认,还是我们压根没发),而这两者的修法完全不同
-        string affinity = LlmRequestContext.SessionAffinity ?? "(none)";
+        // 非该媒体类型的流不经过 SseSanitizingStream,此类故障的桩也就全都不在链路上。
+        // 顺带记下这一发的亲和:命中率不对时先回答"到底发了什么"——这三种情况的修法完全不同
+        string affinity = AffinityForLog();
         Log.Debug($"OpenAI-compatible response: {(int)response.StatusCode} {response.ReasonPhrase}, " +
                   $"content-type: {response.Content?.Headers.ContentType?.MediaType ?? "(null)"}" +
                   (_isChatCompletions ? "" : " (not sanitized)") +
@@ -104,82 +96,42 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
     }
 
     /// <summary>
-    /// 写会话亲和头。同一会话（含工具往返、旁路请求）的请求带着同一个值，
-    /// 网关据此把它们路由到同一后端——前缀缓存按副本各存一份，落到没建过该前缀的副本上
-    /// 就是整段冷启动，命中率看着像坏了，其实是另一台机器在答。
+    /// 这一发的亲和<b>到底发出去了什么</b>，三种情况分得清——命中率不对时，它们的修法完全不同：
+    /// <c>(off)</c> 这家网关没声明头名（默认如此），一个都没发，别去查网关为什么不认；
+    /// <c>(none)</c> 声明了但本次没有会话（能力预览），也发不出去；
+    /// 否则是真正写到网线上的那个值。
     ///
-    /// 这四条是 pi 三种亲和格式的并集（<c>sessionAffinityFormat</c>：<c>openai</c> 发前三条，
-    /// <c>openai-nosession</c> 发后两条，<c>openrouter</c> 只发 <c>x-session-id</c>）：
-    /// <c>x-client-request-id</c> 与官方 Codex CLI 同款，是最通用的一条；
-    /// <c>x-session-affinity</c> 是 Fireworks / Vercel AI Gateway 这类按副本做前缀路由的网关认的；
-    /// <c>session_id</c> 供只认下划线名的那一类，但 nginx 默认（<c>underscores_in_headers off</c>）
-    /// 会把它丢掉，别把它当主通道；<c>x-session-id</c> 是 OpenRouter 认的那一条。
-    /// 对不认识它们的网关就是未知头，直接忽略。
+    /// <b>不能只打 <see cref="LlmRequestContext.SessionAffinity"/></b>：那是「手上有的值」，
+    /// 与「实际发了什么」不是一回事——没声明头名的供应商照样有值，打出来会让人以为发了。
+    /// 三种取值都不带空格，好让 <c>cache-audit.py</c> 按整词分组。
+    /// </summary>
+    /// <returns>日志里要显示的亲和</returns>
+    private string AffinityForLog()
+    {
+        if (_affinityHeaders.Length == 0) return "(off)";
+        return LlmRequestContext.SessionAffinity ?? "(none)";
+    }
+
+    /// <summary>
+    /// 写会话亲和头：同一会话（含工具往返、旁路请求）的请求带同一个值，网关据此把它们钉到同一台副本——
+    /// 前缀缓存按副本各存一份，落到没建过该前缀的副本上就是整段冷启动，命中率看着像坏了，
+    /// 其实是另一台机器在答。
     ///
+    /// 头名由供应商声明（<see cref="ILlmModel.SessionAffinityHeaders"/>），这里只照单写；
+    /// 值恒为 32 个十六进制字符（<see cref="SessionAffinity.Of"/>），不需要在发请求这层校验。
     /// <b>不动请求体</b>：头不参与前缀缓存，加它不会让任何一份已有缓存失效。
-    /// <c>prompt_cache_key</c> 那种要写进 body 的会改字节、让已有缓存失效一次，因此不在这里做——
-    /// 参考实现也都按模型开关：pi 只在 <c>api.openai.com</c> 或长缓存时发，
-    /// opencode 要 <c>supportsPromptCacheKey</c> 显式打开（默认关，严格服务端会因未知字段 400）。
-    /// 我们目前一个都不发，等价于 opencode 的默认；要开就得在模型配置上开一个口子，别全局加。
     /// </summary>
     /// <param name="request">待发出的请求</param>
-    private static void ApplySessionAffinity(HttpRequestMessage request)
+    private void ApplySessionAffinity(HttpRequestMessage request)
     {
+        if (_affinityHeaders.Length == 0) return;
         string? affinity = LlmRequestContext.SessionAffinity;
         if (string.IsNullOrEmpty(affinity)) return;
-        if (!IsSafeHeaderValue(affinity))
+
+        foreach (string header in _affinityHeaders)
         {
-            ReportUnsafeAffinity(affinity);
-            return;
+            request.Headers.TryAddWithoutValidation(header, affinity);
         }
-
-        request.Headers.TryAddWithoutValidation("session_id", affinity);
-        request.Headers.TryAddWithoutValidation("x-client-request-id", affinity);
-        request.Headers.TryAddWithoutValidation("x-session-affinity", affinity);
-        request.Headers.TryAddWithoutValidation("x-session-id", affinity);
-    }
-
-    /// <summary>
-    /// 亲和值能不能直接当请求头值：只用可见 ASCII 的 token 字符。
-    ///
-    /// 生产路径上的值恒为 32 个十六进制字符（<see cref="SessionAffinity.Of"/> 的输出），
-    /// 所以这道检查防的不是数据，是<b>调用方写错</b>——<see cref="LlmRequestContext.SessionAffinity"/>
-    /// 是公开可写的静态属性，谁要是图省事塞了标题或原始 id，一个 CR/LF 就会让
-    /// <c>TryAddWithoutValidation</c>（按名字说的那样<b>不校验</b>）把请求在写网线那一步抛掉，
-    /// 变成整个会话发不出请求。宁可少发一个头。
-    ///
-    /// <b>不合法就不发，而不是把字符剔掉</b>：这个值是<b>身份</b>不是文本。剔掉 <c>\r\n</c>
-    /// 会造出一个从未存在过的标识，撞上另一个会话的值时两套前缀就被钉到同一台副本上——
-    /// 串号比不带更糟；而且"剔到哪一步算合法"没有答案（<c>a\r\nb: c</c> 剔完还是非法）。
-    /// </summary>
-    /// <param name="value">亲和值（调用方已排除空值）</param>
-    /// <returns>可以安全写入请求头时为 true</returns>
-    private static bool IsSafeHeaderValue(string value)
-    {
-        if (value.Length > 128) return false;
-        foreach (char ch in value)
-        {
-            if (!char.IsAsciiLetterOrDigit(ch) && ch is not ('-' or '_' or '.')) return false;
-        }
-
-        return true;
-    }
-
-    /// <summary>
-    /// 记一条「亲和值不合规，这一发不带头」。节流到一分钟一条——坏值会每发都来，不节流就是刷屏；
-    /// 值按 hex 打，因为它可能含控制字符，原样写进日志会把格式搅乱。
-    /// </summary>
-    /// <param name="value">不合规的亲和值</param>
-    private static void ReportUnsafeAffinity(string value)
-    {
-        long now = Environment.TickCount64;
-        long last = Interlocked.Read(ref _lastUnsafeAffinityReportAt);
-        if (now - last < UnsafeAffinityReportInterval) return;
-        if (Interlocked.CompareExchange(ref _lastUnsafeAffinityReportAt, now, last) != last) return;
-        Log.Warning($"session affinity is not a valid header value (length {value.Length}, " +
-                    $"hex {Convert.ToHexString(Encoding.UTF8.GetBytes(value))}); " +
-                    "this request goes out without affinity headers.",
-            ELogCategory.LlmRequest);
     }
 
     //各家名字都不一样(OpenAI 用 x-ratelimit-*,Anthropic 用 anthropic-ratelimit-*,

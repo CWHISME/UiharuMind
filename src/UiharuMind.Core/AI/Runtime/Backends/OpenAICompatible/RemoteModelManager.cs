@@ -60,7 +60,9 @@ internal sealed class RemoteModelManager
     {
         string endpoint = model.ModelPath + (model.Port > 0 ? ":" + model.Port : "");
         string apiKey = model is RemoteModelInfo remoteModel ? remoteModel.ApiKey : "";
-        var handler = new OpenAICompatibleHttpHandler(endpoint, CreateReasoningFieldObserver(model));
+        // 亲和头名由供应商配置声明：认它的（如 OpenRouter）自己给，不认的一个都不发
+        var handler = new OpenAICompatibleHttpHandler(endpoint, CreateReasoningFieldObserver(model),
+            model.SessionAffinityHeaders);
         // SDK 默认重试对限流太急(3 次 / 6 秒内打完),免费档模型的共享配额窗口远不止这么短;
         // 同一把密钥上并行的请求经发送闸排队,不再各自退避互撞
         return OpenAICompatibleChatClient.Create(handler, model, model.ModelId, apiKey, new RateLimitAwareRetryPolicy(),

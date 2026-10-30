@@ -48,20 +48,12 @@ public static class LlmRequestContext
     private static readonly AsyncLocal<string?> _sessionAffinity = new();
 
     /// <summary>
-    /// 本次请求的<b>会话亲和</b>值：同一会话的所有请求（含工具往返、写交接文档那种旁路请求）
-    /// 带着同一个值，网关据此把它们路由到同一后端——前缀缓存按副本各存一份，
-    /// 落到没建过该前缀的副本上就是全冷启动。
+    /// 本次请求的<b>会话亲和</b>值，取会话自己的（<see cref="Chat.ChatSession.CacheAffinity"/>；
+    /// 子会话为什么不继承父会话，理由在那边）。
     ///
-    /// 取值是<b>会话自己的</b>（<see cref="Chat.ChatSession.CacheAffinity"/>）。与 pi 一致——pi 的子代理
-    /// 是另起一个进程、另一份会话，本就用自己的 id；与 opencode 相反——它按
-    /// <c>parentID ?? fork?.sessionID ?? id</c> 让子会话继承父会话。
-    /// <b>别照抄 opencode</b>：它的子会话是同一份上下文的分支，前缀与父会话共享；我们的子会话
-    /// 是一等会话，工具集按档裁剪、角色卡可以另配，前缀从第一个 token 就分叉。
-    /// 理由的全文在 <see cref="Chat.ChatSession.CacheAffinity"/> 上，改这里之前先读那一份。
-    ///
-    /// 由 <see cref="Execution.LazyChatClient"/> 每发请求前落地（绑在客户端实例上，
-    /// 不靠调用方在流程里设一次——那样子会话、群背景、压缩这些旁路各要补一遍，漏一个就静默失效），
-    /// HTTP 层读它写请求头。
+    /// 由 <see cref="Execution.LazyChatClient"/> 每发请求前落地——绑在客户端实例上，
+    /// 不靠调用方在流程里设一次（那样子会话、群背景、压缩这些旁路各要补一遍，漏一个就静默失效）；
+    /// HTTP 层读它写请求头，头名由供应商配置给（<see cref="Models.ILlmModel.SessionAffinityHeaders"/>）。
     /// </summary>
     public static string? SessionAffinity
     {

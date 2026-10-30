@@ -64,4 +64,26 @@ public interface ILlmModel
     /// 采样参数固定的模型(如 Kimi)会拒绝显式传值的请求,默认发送,按模型单独开启。
     /// </summary>
     public bool OmitSamplingParams => false;
+
+    /// <summary>
+    /// 会话亲和要写哪几个<b>请求头名</b>（值由会话统一给出，见
+    /// <see cref="Chat.ChatSession.CacheAffinity"/>）；空或 null = 不发。
+    ///
+    /// 网关按副本各存一份前缀缓存，同一会话的请求落到同一台副本才谈得上命中，而各家认的头名不同：
+    /// 认错的头只会被忽略，代价却在另一头——一次发齐会撞上别家的语义
+    /// （<c>x-client-request-id</c> 是「请求」标识、<c>session_id</c> 是下划线头）。
+    /// 所以由供应商自己声明（如 OpenRouter 只认 <c>x-session-id</c>），公共层不猜端点。
+    /// 本地模型与不认的网关不发，默认空。
+    /// </summary>
+    public IReadOnlyList<string>? SessionAffinityHeaders => null;
+
+    /// <summary>
+    /// 是否发 body 级的 <c>prompt_cache_key</c>（值取会话亲和值，同一会话恒定）。
+    ///
+    /// 与亲和头是<b>两条独立的路</b>：头由网关看、body 字段由服务端看，
+    /// 服务端用它把同一会话的前缀钉在同一份缓存上，命中率比只靠头更可控。
+    /// 但它<b>会改字节</b>——第一次发会让已有缓存失效一次，且严格服务端会因未知字段 400，
+    /// 所以默认关，只由认它的供应商打开（opencode 的 <c>supportsPromptCacheKey</c> 同口径）。
+    /// </summary>
+    public bool SupportsPromptCacheKey => false;
 }

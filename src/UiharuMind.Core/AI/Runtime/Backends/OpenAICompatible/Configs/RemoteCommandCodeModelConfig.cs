@@ -32,4 +32,22 @@ public class RemoteCommandCodeModelConfig : BaseRemoteModelConfig, IRemoteModelC
     /// 这套参数在 CommandCode 上是否被接受仍未验证（ADR 0097），换格式前得先录一次真实请求。
     /// </summary>
     protected override EThinkingFormat DefaultThinkingFormat => EThinkingFormat.ThinkingType;
+
+    /// <summary>
+    /// 与 OpenRouter 同组：它的模型目录与模型 id 都是 OpenRouter 式命名（<c>meta/…</c>、<c>reflection/…</c>），
+    /// 按 pi 的口径这类聚合网关认 <c>x-session-id</c>。
+    ///
+    /// <b>未验证</b>：加会话头这件事本来就是为它上面的 muse-spark 命中率极低而做的，而此前四头发齐时
+    /// 实测毫无改善（muse-spark 的 <c>cached_tokens</c> 恒为 113、冷热交替），所以这只是一条还没被
+    /// 证伪的新假设。若这一条与 <c>prompt_cache_key</c> 都上了，命中率仍不动，
+    /// 就该认定是它的上游不缓存，客户端这边到此为止。
+    /// </summary>
+    public override IReadOnlyList<string>? SessionAffinityHeaders => ["x-session-id"];
+
+    /// <summary>
+    /// 聚合网关是 <c>prompt_cache_key</c> 最可能生效的一类：它自己不推理，靠这个字段挑上游副本。
+    /// 认不认没验证过——开了之后要拿 <c>cache-audit.py</c> 前后比一次，若 <c>cached</c> 仍恒为 113
+    /// 就说明它不认，那时把它改回 false，别留着白付一次缓存失效。
+    /// </summary>
+    public override bool SupportsPromptCacheKey => true;
 }
