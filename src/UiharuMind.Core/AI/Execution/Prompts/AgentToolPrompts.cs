@@ -91,7 +91,7 @@ public static class AgentToolPrompts
             sb.AppendLine("搜索工具：命中数量过多时，会自动生成搜索地图，方便你逐步缩小范围；");
             sb.AppendLine("读取工具：自动处理字符编码问题，并提供了大纲模式方便查看文件结构；");
             sb.AppendLine("编辑工具：提供了三种匹配模式方便替换，当你感觉可能会抄错的时候，请优先使用工具提供的两种正则匹配模式而非精确文本替换。");
-            sb.AppendLine("- 当然这只是建议，UiharuMind 并不强制要求你一定照做，当你认为 `Shell` 更顺手时，例如贯穿多个文件的同一种批量机械改动，可以按照你的方式处理。");
+            sb.AppendLine("- 当然这只是建议，UiharuMind 并不强制要求你一定照做，当你认为脚本(Edit)更顺手时，可以按照你的方式处理。");
         }
 
         return sb.ToString();
