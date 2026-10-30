@@ -34,11 +34,18 @@ internal sealed class SseSanitizingStream : Stream
     private byte[] _lastDataLine = []; //最后一条 data 行原文(诊断用:看服务端收尾时到底发了什么)
     private int _lastDataLineLength;
     private readonly SseReasoningCensus _reasoningCensus = new(); //思考字段普查:加密思考有没有下发,只能在这里看
+    private readonly Action? _encryptedReasoningObserver; //看见加密思考时通知一次(界面据此先开一张没有正文的思考卡)
+    private bool _encryptedSeen; //加密条目只通知一次:一条流里它可能出现多帧
 
-    public SseSanitizingStream(Stream inner, Action<string>? reasoningFieldObserver = null)
+    /// <summary>加密思考在帧里的标记：<c>type:"reasoning.encrypted"</c>，Kimi 方言的裸 <c>type:"encrypted"</c> 另算</summary>
+    private static readonly byte[] EncryptedReasoningMarker = "reasoning.encrypted"u8.ToArray();
+
+    public SseSanitizingStream(Stream inner, Action<string>? reasoningFieldObserver = null,
+        Action? encryptedReasoningObserver = null)
     {
         _inner = inner;
         _reasoningFieldObserver = reasoningFieldObserver;
+        _encryptedReasoningObserver = encryptedReasoningObserver;
     }
 
     /// <summary>
@@ -213,7 +220,17 @@ internal sealed class SseSanitizingStream : Stream
         if (line.IndexOf("[DONE]"u8) >= 0) _sawDone = true;
         if (line.IndexOf("\"usage\":{"u8) >= 0) _usageFrames++;
         // 只看 data 行:思考字段只可能出现在帧正文里,而注释行/事件名要占掉每行一次扫描
-        if (line.StartsWith("data:"u8)) _reasoningCensus.Observe(line);
+        if (line.StartsWith("data:"u8))
+        {
+            _reasoningCensus.Observe(line);
+            // 加密思考的正文永远不会下发,但"它正在思考"这件事在这一帧就有证据。
+            // 一帧就够:界面要的是开一张卡,不是数它有几条
+            if (!_encryptedSeen && line.IndexOf(EncryptedReasoningMarker) >= 0)
+            {
+                _encryptedSeen = true;
+                _encryptedReasoningObserver?.Invoke();
+            }
+        }
         // 跳过 [DONE]:要的是最后一条<b>业务帧</b>(它才带 finish_reason/usage)。
         // 之前把 [DONE] 也记进来,收尾帧被它覆盖,看不到服务端到底发了什么
         if (!_sawDone && line.StartsWith("data:"u8)) RememberLastDataLine(line);

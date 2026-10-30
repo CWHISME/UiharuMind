@@ -198,6 +198,12 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
             if (at < floor) at = floor;
             message.CreatedAt = at;
             floor = at;
+            // 加密思考那条信号是给界面看的，框架会把它当普通内容并进消息——落库前摘掉，否则它会跟着历史走
+            if (message.Contents.Any(x => x is EncryptedReasoningContent))
+            {
+                message.Contents = message.Contents.Where(x => x is not EncryptedReasoningContent).ToList();
+            }
+
             session.History.Add(message);
         }
     }

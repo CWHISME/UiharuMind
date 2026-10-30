@@ -53,4 +53,16 @@ public sealed record LlmRequestContext
     /// HTTP 层读它写请求头，头名由供应商配置给（<see cref="Models.ILlmModel.SessionAffinityHeaders"/>）。
     /// </summary>
     public string? SessionAffinity { get; init; }
+
+    /// <summary>
+    /// 这一发<b>看见了加密思考</b>时通知一次（流里出现 <c>reasoning.encrypted</c> 条目）。
+    ///
+    /// 由 <see cref="Execution.LazyChatClient"/> 每发请求挂上，HTTP 层观测到就调。
+    /// 存在的理由只有一个：加密思考的正文永远不会下发，而"它正在思考"这件事只在流里一闪而过——
+    /// 没有这个信号，思考卡只能等落盘那一刻补，界面上整段思考期是空的。
+    ///
+    /// 传的是回调而不是标志位：回调是同一个对象，HTTP 层在深处调它，调用方拿得到结果——
+    /// 而 <c>AsyncLocal</c> 里写下的值不会向调用方回流，标志位那样传不出来。
+    /// </summary>
+    public Action? EncryptedReasoningObserved { get; init; }
 }

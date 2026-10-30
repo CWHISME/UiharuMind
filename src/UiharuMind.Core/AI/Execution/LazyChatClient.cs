@@ -111,10 +111,12 @@ public class LazyChatClient : IChatClient
     {
         IReadOnlyList<ChatMessage> messageList = AsList(messages);
         // 作用域覆盖整段枚举（含中途重发）：断线重试时请求体会按同一份上下文重新改写
+        EncryptedReasoningSignal signal = new();
         using LlmRequestScope.Scope scope = LlmRequestScope.Push(LlmRequestScope.Current with
         {
             PendingReasoningSource = () => CollectAssistantReasoning(messageList),
             SessionAffinity = _sessionAffinity,
+            EncryptedReasoningObserved = () => signal.Seen = true,
         });
 
         var (client, model) = await ResolveAsync(cancellationToken).ConfigureAwait(false);
@@ -133,7 +135,8 @@ public class LazyChatClient : IChatClient
         {
             bool retryable = false;
             await foreach (var (update, failure) in StreamOnceAsync(
-                               client, messageList, options, toolNames, model.ModelName, cancellationToken).ConfigureAwait(false))
+                               client, messageList, options, toolNames, model.ModelName, signal, cancellationToken)
+                           .ConfigureAwait(false))
             {
                 if (failure != null)
                 {
@@ -243,7 +246,8 @@ public class LazyChatClient : IChatClient
     /// </summary>
     private async IAsyncEnumerable<(ChatResponseUpdate? Update, Exception? Failure)> StreamOnceAsync(
         IChatClient client, IReadOnlyList<ChatMessage> messages, ChatOptions? options, HashSet<string>? toolNames,
-        string? modelName, [EnumeratorCancellation] CancellationToken cancellationToken)
+        string? modelName, EncryptedReasoningSignal signal,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         // 文本工具调用恢复:GLM 线格式的调用可能以纯文本漏进正文或思考通道
         // (服务端未翻译成结构化 tool_calls 时),在此转回 FunctionCallContent,
@@ -296,6 +300,14 @@ public class LazyChatClient : IChatClient
 
                 // 能走到这里,update 必已赋值(failure 分支已退出);显式断言收窄可空性
                 if (update is null) throw new UnreachableException();
+
+                // 加密思考：HTTP 层在更深处看见了 <c>reasoning.encrypted</c>，界面得在思考期就有一张卡
+                // （等落盘那一刻才补，整段思考期都是空白）。只发一次：重试整段重发时那张卡已经在
+                if (!signal.Signalled && signal.Seen)
+                {
+                    signal.Signalled = true;
+                    yield return (new ChatResponseUpdate(ChatRole.Assistant, [EncryptedReasoningContent.Instance]), null);
+                }
 
                 if (textParser == null)
                 {
@@ -502,6 +514,17 @@ public class LazyChatClient : IChatClient
     public void Dispose()
     {
         // 不持有底层客户端所有权
+    }
+
+    /// <summary>
+    /// 加密思考信号：HTTP 层在深处置位 <see cref="Seen"/>，流的循环读它决定要不要补一张思考卡。
+    /// 两个字段分开是因为重试：断线整段重发时 <see cref="Seen"/> 会再被置一次，
+    /// 而界面那张卡已经在，不能再补第二张。
+    /// </summary>
+    private sealed class EncryptedReasoningSignal
+    {
+        public bool Seen; //这一发见过加密条目
+        public bool Signalled; //已经因此补过一张卡
     }
 
     /// <summary>候选模型（会话钉选优先）的处置</summary>

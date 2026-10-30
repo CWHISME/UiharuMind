@@ -210,6 +210,12 @@ public sealed class ConversationTranscript : ITurnSink
                 FindCall(image.CallId)?.ApplyImageProgress(image.Progress);
                 break;
 
+            // 模型开始思考但一个字都没有（加密思考）：先开一张卡让它转起来。
+            // 落盘那一刻的补卡（ThinkingNotReturned）只是兜底，不能当主路径——那时整段思考期已经过去了
+            case EncryptedReasoningContent:
+                ThinkingStarted();
+                break;
+
             // 一次服务调用到此为止:之后的正文属于下一条助手消息,不能续进当前气泡
             case MessageBoundaryContent boundary:
                 ThinkingBoundary.Dispatch(boundary, _thinkParser, AppendText, AppendThinking, CloseSegment);
@@ -395,10 +401,34 @@ public sealed class ConversationTranscript : ITurnSink
     public void ThinkingNotReturned(long reasoningTokens)
     {
         VerifyUiAccess();
+        // 流式期间已经开过卡（见 ThinkingStarted）：把它收尾就好，别再插一张
+        if (_streamingThinking is { IsContentUnavailable: true } live)
+        {
+            live.IsDone = true;
+            if (AutoCollapseThinking) live.IsExpanded = false;
+            _streamingThinking = null;
+            return;
+        }
+
         ThinkingItem card = new() { IsContentUnavailable = true, IsDone = true };
         int at = _closedSegmentFirstItem;
         if (at < 0 || at > _target.Count) at = _target.Count;
         _target.Insert(at, card);
+    }
+
+    /// <summary>
+    /// 模型开始思考，但正文一个字都不会来（加密思考）。开一张<b>没有正文</b>的卡并让它转起来。
+    ///
+    /// 这条信号由 HTTP 层在流里看见 <c>reasoning.encrypted</c> 时发出（经 <c>LazyChatClient</c> 转成内容）。
+    /// 没有它，卡只能等落盘那一刻才补，整段思考期界面是空的——读起来像模型没在干活。
+    /// </summary>
+    public void ThinkingStarted()
+    {
+        VerifyUiAccess();
+        if (_streamingThinking != null) return; //已经有思考卡（有正文那种），不再开第二张
+        CloseText(); //思考发生在正文之前：正文万一先流了，先收段，卡才排得对
+        ThinkingItem card = new() { IsContentUnavailable = true, IsExpanded = true };
+        _target.Add(_streamingThinking = card);
     }
 
     private static void StopRunningToolCalls(IEnumerable<ConversationItemBase> items, string note, bool finishDuration)
@@ -545,6 +575,13 @@ public sealed class ConversationTranscript : ITurnSink
     private void AppendThinking(string delta)
     {
         CloseText();
+        // 先开的是「没有正文」那张（加密思考的信号），正文真来了就把它换成正常的卡
+        if (_streamingThinking is { IsContentUnavailable: true } placeholder)
+        {
+            _target.Remove(placeholder);
+            _streamingThinking = null;
+        }
+
         // 流式进行中保持展开,能看到它在想什么;段落收尾时按设置折叠
         if (_streamingThinking == null) _target.Add(_streamingThinking = new ThinkingItem { IsExpanded = true });
         _streamingThinking.Append(delta);
@@ -580,6 +617,8 @@ public sealed class ConversationTranscript : ITurnSink
         if (_streamingThinking is not { } thinking) return;
 
         thinking.Flush();
+        // 没有正文的卡（加密思考）永远不会被 Append，Flush 也就不会替它收尾
+        if (thinking.IsContentUnavailable) thinking.IsDone = true;
         if (AutoCollapseThinking) thinking.IsExpanded = false;
         _streamingThinking = null;
     }
