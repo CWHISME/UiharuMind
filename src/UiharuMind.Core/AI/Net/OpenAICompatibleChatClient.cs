@@ -57,7 +57,7 @@ internal static class OpenAICompatibleChatClient
         // Anthropic Messages 线同理：请求体（system 提到顶层、content 变 block 数组）与响应
         // （逐类 SSE 事件）都与 chat 不同，整套翻译交给官方 SDK。
         if (model?.ApiFormat == EApiFormat.Messages)
-            return CreateMessagesClient(NewHttpClient(handler, sendGate), model, modelId, apiKey);
+            return CreateMessagesClient(handler, model, modelId, apiKey, sendGate);
 
         var options = new OpenAIClientOptions
         {
@@ -80,15 +80,12 @@ internal static class OpenAICompatibleChatClient
     /// <para>Timeout 必须关掉：默认 100s 只管到响应头/首字节，SDK 自带客户端反而设成 Infinite。
     /// 流式长思考会撞它，一并关掉，裁决交给上层 CancellationToken。</para>
     ///
-    /// <para><paramref name="sendGate"/> 非空时闸包在 handler <b>外面</b>（先排队再发）。
-    /// chat 与 responses 两条线的闸挂在 SDK 管道上（<see cref="SendGatePolicy"/>），
-    /// 不走这里——官方 Anthropic SDK 不是那条管道，只能挂在这一层。</para>
+    /// <para><b>发送闸不在这里</b>：chat 与 responses 两条线的闸挂在 SDK 管道上
+    /// （<see cref="SendGatePolicy"/>），Anthropic 线挂不到那条管道，改挂在 HTTP 层
+    /// （<see cref="SendGateHandler"/>）。</para>
     /// </summary>
-    private static HttpClient NewHttpClient(OpenAICompatibleHttpHandler handler, SendGate? sendGate = null)
-    {
-        HttpMessageHandler inner = sendGate == null ? handler : new SendGateHandler(sendGate, handler);
-        return new HttpClient(inner) { Timeout = Timeout.InfiniteTimeSpan };
-    }
+    private static HttpClient NewHttpClient(OpenAICompatibleHttpHandler handler) =>
+        new(handler) { Timeout = Timeout.InfiniteTimeSpan };
 
     /// <summary>
     /// 建 responses 线的客户端。
@@ -135,13 +132,16 @@ internal static class OpenAICompatibleChatClient
     /// <summary>
     /// 建 Anthropic Messages 线的客户端。
     ///
-    /// 三处与另两条线不同：
+    /// 四处与另两条线不同：
     ///
     /// <list type="number">
     /// <item><description><b>走裸 <see cref="HttpClient"/></b>：官方 SDK 不是 System.ClientModel 管道，
     /// 挂不进去 <see cref="OpenAICompatibleRequestPolicy"/>（那条是 chat 线的字节级改写器，
     /// Anthropic 的请求体由 SDK 自己造）。地址改写、亲和头、请求日志、响应清洗仍在
     /// <see cref="OpenAICompatibleHttpHandler"/> 里——那个是协议无关的 HTTP 层。</description></item>
+    /// <item><description><b>思考参数自己写</b>（<see cref="AnthropicThinkingHandler"/>）：
+    /// Anthropic 要的是 token 预算而不是档位名，而 SDK 的原生参数入口够不着
+    /// （<c>RawRepresentationFactory</c> 默认返回 null，<c>Thinking</c> 又是 init-only）。</description></item>
     /// <item><description><b>发送闸挂在 HTTP 层</b>（<see cref="SendGateHandler"/>）而不是管道策略上，
     /// 理由见那里。</description></item>
     /// <item><description><b>思考块要先归一</b>（<see cref="AnthropicThinkingNormalizer"/>）：
@@ -150,8 +150,19 @@ internal static class OpenAICompatibleChatClient
     /// 服务端 400。</description></item>
     /// </list>
     /// </summary>
-    private static IChatClient CreateMessagesClient(HttpClient httpClient, ILlmModel? model, string modelId, string apiKey)
+    private static IChatClient CreateMessagesClient(OpenAICompatibleHttpHandler handler, ILlmModel? model,
+        string modelId, string apiKey, SendGate? sendGate)
     {
+        // 输出预算跟另外两条线同源：模型配置里显式填的 MaxTokens，没填就用协议默认。
+        // 默认不能太小——Anthropic 的思考预算必须小于输出预算，而它自己的最小预算是 1024，
+        // 输出预算比这更小就永远开不了思考
+        int maxTokens = model is { MaxTokens: > 0 } ? model.MaxTokens : DefaultAnthropicMaxTokens;
+
+        // 处理链由外到内：先排队（闸），再写思考参数，最后是协议无关的 HTTP 层
+        HttpMessageHandler inner = new AnthropicThinkingHandler(model?.ThinkingEffort, maxTokens, handler);
+        if (sendGate != null) inner = new SendGateHandler(sendGate, inner);
+        HttpClient httpClient = new HttpClient(inner) { Timeout = Timeout.InfiniteTimeSpan };
+
         var options = new ClientOptions
         {
             ApiKey = apiKey,
@@ -160,12 +171,19 @@ internal static class OpenAICompatibleChatClient
             HttpClient = httpClient,
         };
 
-        // 输出预算跟另外两条线同源：模型配置里显式填的 MaxTokens，没填就用协议默认
-        int? maxOutputTokens = model is { MaxTokens: > 0 } ? model.MaxTokens : null;
-
-        IChatClient client = new AnthropicClient(options).AsIChatClient(modelId, maxOutputTokens);
+        IChatClient client = new AnthropicClient(options).AsIChatClient(modelId, maxTokens);
         return new AnthropicThinkingChatClient(client);
     }
+
+    /// <summary>
+    /// Anthropic 线没填输出预算时的默认值。
+    ///
+    /// <b>为什么不用 SDK 的默认（1024）</b>：思考预算必须严格小于输出预算，
+    /// 而 Anthropic 的最小思考预算是 1024——输出预算等于 1024 就永远开不了思考。
+    /// 32000 是 Claude 各版本都接受的量级，也给思考留得下 16k 以上的空间。
+    /// 用户在模型配置里填了 <c>MaxTokens</c> 就用用户的。
+    /// </summary>
+    private const int DefaultAnthropicMaxTokens = 32000;
 
     /// <summary>
     /// Anthropic 线的思考块归一层：发出去之前把「正文」与「签名」合成一条。

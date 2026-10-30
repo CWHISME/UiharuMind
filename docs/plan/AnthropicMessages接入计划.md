@@ -110,6 +110,8 @@ case "signature_delta":
 | 端点按模型声明的格式补全 | `AI/Runtime/Backends/OpenAICompatible/RemoteModelManager.cs` |
 | 输出预算口径统一 | `AI/Models/ILLMModel.cs`（新增 `MaxTokens`） |
 | `ProviderId` 取真正的供应商配置类名 | `AI/Models/RemoteModelInfo.cs`、`Configs/Core/BaseRemoteModelConfig.cs` |
+| 思考参数注入（token 预算） | `AI/Net/Request/AnthropicThinkingHandler.cs`（新） |
+| 分段请求体（HttpContent 版） | `AI/Net/Transport/SegmentedHttpContent.cs`（新） |
 
 **目录侧一处老决定要改口**：`/messages`-only 的条目原来被过滤掉（"v1 只支持 chat 线"）。
 Anthropic 线接上后不再滤，改为推成 `EApiFormat.Messages`。
@@ -167,12 +169,37 @@ Anthropic 线接上后不再滤，改为推成 `EApiFormat.Messages`。
 - **重试不插队**：HTTP 层认不出「这次是重试」（SDK 的重试是重新发一次 HTTP 请求，
   从这里看就是一次全新的发送），只能排到队尾。管道版能排到队首。
 
-### ③ 思考参数
+### ③ 思考参数 —— **已落地**
 
 Anthropic 要 `thinking: {type:"enabled", budget_tokens: N}`，不是 `reasoning_effort`。
-且开了 thinking 之后：`temperature` 必须为 1、`max_tokens` 必须大于 `budget_tokens`。
-我们的思考档位是 `low/medium/high/xhigh` 四档，要映射到 token 预算——**这是个设计决定**，
-落在 `EThinkingFormat` 加第四个变体（`ThinkingParamWriter` 那侧）。
+且开了 thinking 之后：`temperature` 必须为 1（我们不发这个字段，默认就是 1）、
+`max_tokens` 必须严格大于 `budget_tokens`、且预算不小于 1024。
+
+**走不了 SDK 的原生参数入口**：官方 SDK 的 `RawRepresentationFactory` 默认返回 `null`
+（意思是「用默认路径造请求体」），拿不到它造好的那份；而 `MessageCreateParams.Thinking`
+是 init-only 属性，只能在对象初始化器里设——要用它就得自己再造一份 `MessageCreateParams`，
+那意味着把 ChatMessage → MessageParam 的整套翻译自己写一遍。
+
+所以走**字节级改写**（`AnthropicThinkingHandler`，和 chat 线同一套路），
+在请求体根对象末尾追加一个 `thinking` 属性，其余字节一字不动。
+
+档位 → token 预算的映射（`AnthropicThinkingHandler` 里）：
+
+| 档位 | 预算 |
+|---|---|
+| low | 2048 |
+| medium | 8192 |
+| high | 16384 |
+| xhigh | 32768 |
+| max | 65535 |
+
+两条兜底：**「不干预」不写 `thinking`**（与另外两条线同一口径：没选档位就别替模型做决定，
+Anthropic 的默认是不思考）；**预算装不下就不写**（输出预算装不下最小预算时，
+发一个服务端会拒的组合比不思考更糟）。
+
+另有一处：**输出预算的默认值不能用 SDK 的 1024**——思考预算必须严格小于输出预算，
+而 Anthropic 的最小思考预算也是 1024，两者相等就永远开不了思考。
+没填 `MaxTokens` 时用 32000（Claude 各版本都接受的量级，也给思考留得下 16k 以上）。
 
 ### ④ 改名（可读性，不改行为）
 
@@ -195,6 +222,8 @@ Anthropic 要 `thinking: {type:"enabled", budget_tokens: N}`，不是 `reasoning
 - **地址要填到端点那一层**：格式按地址判（handler 按端点长期存活，地址才是它实际要打的），
   与 responses 线同规矩。`RemoteModelManager` 会按模型声明的格式补地址，
   但用户自己填了别的路径时以用户为准。
-- **思考预算是最大的功能缺口**：不配 `thinking` 的话 Anthropic 压根不思考，
-  签名与票据那条路也就无从验证。第一步只保证「能通、能对话、能带票据回填」。
-- **门禁缺口未修前，换模型会发旧票**：见上面第 ① 条——**这是上线前必须补的**。
+- **真实调用未验证**：这条线只做了「假 HttpClient 抓请求体」的实测——
+  官方 SDK 的行为（签名往返、块形状、参数写法）都验过了，但**没有真的打过一次 Anthropic**。
+  这条线的思考预算、输出预算上限、签名在真实服务端的接受度都还需要一次真实调用确认。
+- **重试策略未对齐**：Anthropic SDK 自己实现重试（默认 2 次、指数退避、认 `Retry-After`），
+  我们的 `RateLimitAwareRetryPolicy` 用不上（见上面第 ② 条）。

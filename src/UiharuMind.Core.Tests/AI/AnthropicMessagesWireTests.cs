@@ -6,6 +6,7 @@ using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Net;
+using UiharuMind.Core.AI.Net.Request;
 using UiharuMind.Core.AI.Net.Transport;
 using UiharuMind.Core.AI.Reasoning;
 using UiharuMind.Core.Configs.RemoteAI;
@@ -400,5 +401,87 @@ public class AnthropicMessagesWireTests
         ModelRunningData data = new(remote);
         data.CompleteLoading(Client(http), loadToken: CancellationToken.None);
         return new LazyChatClient(() => data);
+    }
+
+    // ---------- 思考参数 ----------
+
+    /// <summary>
+    /// 开了思考档位就要写 <c>thinking</c>，而且是 Anthropic 的形状：
+    /// <c>{type: enabled, budget_tokens: N}</c>——一个 token 预算，不是档位名。
+    /// </summary>
+    [Theory]
+    [InlineData("low", 2048)]
+    [InlineData("medium", 8192)]
+    [InlineData("high", 16384)]
+    public async Task Request_WritesThinkingBudget(string level, int expectedBudget)
+    {
+        var (client, stub) = ThinkingClient(level);
+        await client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]);
+
+        JsonNode? thinking = ReadThinking(stub);
+        Assert.NotNull(thinking);
+        Assert.Equal("enabled", thinking!["type"]!.GetValue<string>());
+        Assert.Equal(expectedBudget, thinking["budget_tokens"]!.GetValue<int>());
+    }
+
+    /// <summary>
+    /// 显式关闭思考写 <c>disabled</c>。
+    /// </summary>
+    [Fact]
+    public async Task Request_WritesDisabledThinking()
+    {
+        var (client, stub) = ThinkingClient("none");
+        await client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]);
+
+        JsonNode? thinking = ReadThinking(stub);
+        Assert.NotNull(thinking);
+        Assert.Equal("disabled", thinking!["type"]!.GetValue<string>());
+    }
+
+    /// <summary>
+    /// 「不干预」就<b>不写</b> <c>thinking</c>——与另外两条线同一口径：
+    /// 没选档位就别替模型做决定（Anthropic 的默认是不思考）。
+    /// </summary>
+    [Fact]
+    public async Task Request_OmitsThinkingWhenAuto()
+    {
+        var (client, stub) = ThinkingClient(string.Empty);
+        await client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]);
+
+        Assert.Null(ReadThinking(stub));
+    }
+
+    /// <summary>
+    /// 思考预算必须严格小于输出预算——装不下就不写 <c>thinking</c>，
+    /// 发一个服务端会拒的组合比不思考更糟。
+    /// </summary>
+    [Fact]
+    public async Task Request_OmitsThinkingWhenBudgetDoesNotFit()
+    {
+        // 输出预算 1024，装不下 Anthropic 的最小思考预算（也是 1024，必须严格小于）
+        var (client, stub) = ThinkingClient("low", maxTokens: 1024);
+        await client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]);
+
+        Assert.Null(ReadThinking(stub));
+    }
+
+    private static JsonNode? ReadThinking(StubHandler stub)
+    {
+        Assert.NotNull(stub.LastBody);
+        JsonNode? body = JsonNode.Parse(stub.LastBody!);
+        return body?["thinking"];
+    }
+
+    /// <summary>带思考档位的客户端（不经协议无关的 HTTP 层——这里只看思考参数）</summary>
+    private static (IChatClient Client, StubHandler Stub) ThinkingClient(string level, int maxTokens = 32000)
+    {
+        var stub = new StubHandler();
+        var handler = new AnthropicThinkingHandler(level, maxTokens, stub);
+        var options = new Anthropic.Core.ClientOptions
+        {
+            ApiKey = "key",
+            HttpClient = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan },
+        };
+        return (new Anthropic.AnthropicClient(options).AsIChatClient("m", maxTokens), stub);
     }
 }
