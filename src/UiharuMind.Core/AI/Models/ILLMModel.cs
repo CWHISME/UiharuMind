@@ -95,6 +95,17 @@ public interface ILlmModel
     public IReadOnlyList<string>? SessionBodyFields => null;
 
     /// <summary>
+    /// 显式缓存断点的保留时长。只对<b>显式断点型</b>的服务端有意义（Anthropic Messages）：
+    /// 自动前缀型由服务端自己决定存多久，客户端说了不算。
+    ///
+    /// 默认 <see cref="ECacheRetention.Long"/>（1 小时）：会话里常有几分钟以上的停顿
+    /// （看代码、跑测试、等用户回话），5 分钟的默认寿命一过，下一发就是整段冷启动。
+    /// 代价是<b>写入更贵</b>——1 小时的缓存写入按 2 倍输入计价，5 分钟那档是 1.25 倍。
+    /// 连续不停敲的会话用 <see cref="ECacheRetention.Short"/> 更省。
+    /// </summary>
+    public ECacheRetention CacheRetention => ECacheRetention.Long;
+
+    /// <summary>
     /// 这个模型的<b>供应商标识</b>（谁签的票）。
     ///
     /// 加密思考票据是「只有原厂认得的凭证」，换供应商就没有意义——而网关自己不校验

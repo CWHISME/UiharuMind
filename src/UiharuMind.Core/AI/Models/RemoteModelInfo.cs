@@ -49,6 +49,9 @@ public class RemoteModelInfo : ILlmModel
 
     /// <summary>body 级要写的会话字段名（<c>session_id</c> / <c>prompt_cache_key</c>）；默认空，认它的供应商才开</summary>
     [JsonIgnore] public IReadOnlyList<string>? SessionBodyFields => Config.SessionBodyFields;
+
+    /// <summary>显式缓存断点的保留时长（只对 Anthropic Messages 线有意义）</summary>
+    [JsonIgnore] public ECacheRetention CacheRetention => Config.CacheRetention;
     /// <summary>思考模式下带 tool_calls 时是否要求原样带回思考正文；<c>null</c>=自动(有思考就回传)，<c>true</c>/<c>false</c>=显式要求/禁止</summary>
     [JsonIgnore] public bool? ReplayExistingReasoning => Config.ReplayExistingReasoning;
 

@@ -476,7 +476,7 @@ public class AnthropicMessagesWireTests
     private static (IChatClient Client, StubHandler Stub) ThinkingClient(string level, int maxTokens = 32000)
     {
         var stub = new StubHandler();
-        var handler = new AnthropicThinkingHandler(level, maxTokens, stub);
+        var handler = new AnthropicRequestHandler(level, maxTokens, null, null, false, stub);
         var options = new Anthropic.Core.ClientOptions
         {
             ApiKey = "key",

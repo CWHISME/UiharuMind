@@ -84,6 +84,15 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     public virtual IReadOnlyList<string>? SessionBodyFields => null;
 
     /// <summary>
+    /// 显式缓存断点的保留时长；只对显式断点型的线（Anthropic Messages）有意义。
+    /// 默认 1 小时：会话里常有几分钟以上的停顿，5 分钟的默认寿命一过就是整段冷启动；
+    /// 代价是写入按 2 倍输入计价（5 分钟那档是 1.25 倍）
+    /// </summary>
+    [JsonIgnore]
+    [SettingConfigIgnoreDisplay]
+    public virtual ECacheRetention CacheRetention => ECacheRetention.Long;
+
+    /// <summary>
     /// 这个模型的<b>供应商标识</b>（谁签的票）。
     ///
     /// 取配置类名——真正区分供应商的就是这个（<c>RemoteAgnesModelConfig</c>、

@@ -153,9 +153,10 @@ internal static class ChatClientFactory
     /// 挂不进去 <see cref="OpenAICompatibleRequestPolicy"/>（那条是 chat 线的字节级改写器，
     /// Anthropic 的请求体由 SDK 自己造）。地址改写、亲和头、请求日志、响应清洗仍在
     /// <see cref="WireHttpHandler"/> 里——那个是协议无关的 HTTP 层。</description></item>
-    /// <item><description><b>思考参数自己写</b>（<see cref="AnthropicThinkingHandler"/>）：
-    /// Anthropic 要的是 token 预算而不是档位名，而 SDK 的原生参数入口够不着
-    /// （<c>RawRepresentationFactory</c> 默认返回 null，<c>Thinking</c> 又是 init-only）。</description></item>
+    /// <item><description><b>思考参数与缓存断点自己写</b>（<see cref="AnthropicRequestHandler"/>）：
+    /// Anthropic 要的是 token 预算而不是档位名，<c>cache_control</c> 又要打在块上——
+    /// 两者都够不着 SDK 的原生参数入口（<c>RawRepresentationFactory</c> 要的是整份参数，
+    /// 而块是适配层内部造的）。</description></item>
     /// <item><description><b>发送闸挂在 HTTP 层</b>（<see cref="SendGateHandler"/>）而不是管道策略上，
     /// 理由见那里。</description></item>
     /// <item><description><b>思考块要先归一</b>（<see cref="AnthropicThinkingNormalizer"/>）：
@@ -172,8 +173,12 @@ internal static class ChatClientFactory
         // 输出预算比这更小就永远开不了思考
         int maxTokens = model is { MaxTokens: > 0 } ? model.MaxTokens : DefaultAnthropicMaxTokens;
 
-        // 处理链由外到内：先排队（闸），再写思考参数，最后是协议无关的 HTTP 层
-        HttpMessageHandler inner = new AnthropicThinkingHandler(model?.ThinkingEffort, maxTokens, handler);
+        // 处理链由外到内：先排队（闸），再写思考参数、缓存断点与 metadata.user_id，最后是协议无关的 HTTP 层。
+        // 断点清单与寿命来自与 chat 线同一张清单（RequestRewrite），各线只负责渲染；
+        // 亲和开关与头那边同一个（SendsSessionAffinity），值是同一份会话哈希
+        RequestRewrite rewrite = RequestRewrite.For(model, LlmRequestContext.Empty);
+        HttpMessageHandler inner = new AnthropicRequestHandler(model?.ThinkingEffort, maxTokens,
+            rewrite.CacheBreakpoints, rewrite.CacheTtl, model?.SendsSessionAffinity == true, handler);
         if (sendGate != null) inner = new SendGateHandler(sendGate, inner);
         HttpClient httpClient = new HttpClient(inner) { Timeout = Timeout.InfiniteTimeSpan };
 

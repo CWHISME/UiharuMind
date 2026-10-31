@@ -30,6 +30,11 @@ namespace UiharuMind.Core.AI.Net.Request;
 /// body 级的会话字段名（<c>session_id</c> / <c>prompt_cache_key</c>）：服务端据此把同一会话的前缀
 /// 钉在同一份缓存上。由供应商开关（<see cref="Models.ILlmModel.SessionBodyFields"/>），没开时为空
 /// </param>
+/// <param name="CacheBreakpoints">
+/// 显式缓存断点要打在哪（见 <see cref="ECacheBreakpoint"/>）。协议无关：这里只给清单，
+/// 各条线自己渲染成 wire 上的标记。自动前缀型的线忽略它
+/// </param>
+/// <param name="CacheTtl">断点的寿命（如 <c>1h</c>）；null 表示用服务端默认</param>
 internal readonly record struct RequestRewrite(
     IReadOnlyList<KeyValuePair<string, JsonNode?>>? ExtraParams,
     bool ForbidToolCalls,
@@ -37,7 +42,9 @@ internal readonly record struct RequestRewrite(
     bool FillEmptyReasoning = false,
     string ReasoningField = ReasoningReplayPolicy.DefaultField,
     string? SessionAffinity = null,
-    IReadOnlyList<string>? SessionBodyFields = null)
+    IReadOnlyList<string>? SessionBodyFields = null,
+    IReadOnlyList<ECacheBreakpoint>? CacheBreakpoints = null,
+    string? CacheTtl = null)
 {
     /// <summary>
     /// 开启 <see cref="OmitSamplingParams"/> 的模型要删掉的采样参数。只删这四个,
@@ -80,6 +87,9 @@ internal readonly record struct RequestRewrite(
             // 会话亲和的 body 形态:值就是亲和值(32 字符,在 OpenAI 的 64 上限内),
             // 没开这个开关或没有会话时为 null,改写整段跳过
             model?.SessionBodyFields is { Count: > 0 } ? context.SessionAffinity : null,
-            model?.SessionBodyFields);
+            model?.SessionBodyFields,
+            // 显式缓存断点:关掉时整张清单为 null,各线一个标记都不打
+            model is null || model.CacheRetention == ECacheRetention.None ? null : CacheBreakpointSet.Default,
+            model?.CacheRetention == ECacheRetention.Long ? CacheBreakpointSet.LongTtl : null);
     }
 }
