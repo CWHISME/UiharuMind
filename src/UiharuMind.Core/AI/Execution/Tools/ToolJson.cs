@@ -279,8 +279,20 @@ public static class ToolJson
     public static AIFunction CreateFunction(Delegate method, string name, string? description = null)
     {
         EnsureAotSafe(method, name);
-        return new StringResultFunction(AIFunctionFactory.Create(method, CreateFactoryOptions(name, description)));
+        return KeepStringResult(AIFunctionFactory.Create(method, CreateFactoryOptions(name, description)));
     }
+
+    /// <summary>
+    /// 给<b>不是本工厂造</b>的工具补上同一道还原：框架自带的工具（如 shell 执行器的
+    /// <c>AsAIFunction</c>）同样带 <c>SerializerOptions</c>，字符串结果照样被包成
+    /// <c>JsonElement{String}</c>。
+    ///
+    /// <para>发出去的字节由 <see cref="Net.Request.ToolResultShapeChatClient"/> 统一兜住，
+    /// 这里只是让<b>源头</b>就干净——结果不只模型读，界面预览、转录导出、检索索引也读。</para>
+    /// </summary>
+    /// <param name="inner">原始工具</param>
+    /// <returns>字符串结果已还原的工具</returns>
+    internal static AIFunction KeepStringResult(AIFunction inner) => new StringResultFunction(inner);
 
     /// <summary>
     /// 把结果里的 <c>JsonElement{String}</c> 还原成 <see cref="string"/>。
@@ -294,6 +306,10 @@ public static class ToolJson
     /// <c>JsonElement{String}</c> 还原成 string（<see cref="Chat.ChatContentNormalizer"/>），
     /// 于是同一份历史在「刚跑完」与「重开之后」是两种字节，前缀从第一条 tool 消息起就分叉，
     /// 整段缓存作废（实测 deepseek 会话里一次这样的分叉让后面 32 条消息全部冷启动）。就地还原，两种来源同形。
+    ///
+    /// 2026-10-31 又踩一次：<b>Shell</b> 走的是框架的 <c>AsAIFunction</c>，没经过本工厂，
+    /// 一次重启让 26 条 shell 结果翻形态，78 条消息里从第 3 条起全部冷启动（86.7k tokens 全价）。
+    /// 兜底改挂在客户端出口（<see cref="Net.Request.ToolResultShapeChatClient"/>），这里保留是为了源头就干净。
     ///
     /// 只还原 String 一类：结构化结果（<c>JsonElement{Object}</c>）要保持对象形态，
     /// 那是工具特意给模型的结构，抹成文本反而丢信息。

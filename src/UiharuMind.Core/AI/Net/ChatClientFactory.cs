@@ -48,6 +48,17 @@ internal static class ChatClientFactory
     public static IChatClient Create(WireHttpHandler handler, ILlmModel? model, string modelId, string apiKey,
         ClientRetryPolicy? retryPolicy = null, SendGate? sendGate = null)
     {
+        // 三条线的请求体形状各不相同，出口这一道是共同的：工具结果的形态在这里统一。
+        // 工具的来源太多（ToolJson、框架的 AsAIFunction、MCP、以后还会加），逐个工具补一道补不全，
+        // 而发出去的每一发都必经过这里
+        return new ToolResultShapeChatClient(
+            CreateProtocolClient(handler, model, modelId, apiKey, retryPolicy, sendGate));
+    }
+
+    /// <summary>按协议线建客户端；协议无关的那道闸由 <see cref="Create"/> 套在外面</summary>
+    private static IChatClient CreateProtocolClient(WireHttpHandler handler, ILlmModel? model, string modelId,
+        string apiKey, ClientRetryPolicy? retryPolicy, SendGate? sendGate)
+    {
         // responses 线走另一个客户端：请求体形状（input item 数组）与响应形状（SSE 事件）都不同，
         // 改写器与解析器整套换掉。SDK 已经把这两件事做完了（ToOpenAIResponseItems / 事件翻译），
         // 自己手写一遍只会多一处要维护的协议实现。

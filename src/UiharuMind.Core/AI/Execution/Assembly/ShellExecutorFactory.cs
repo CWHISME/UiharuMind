@@ -61,16 +61,29 @@ internal static class ShellExecutorFactory
     /// <param name="executor">shell 执行器</param>
     /// <param name="hasBackgroundTasks">同一会话是否挂了后台任务工具：挂了就把长命令指过去</param>
     /// <returns>需审批的 shell 工具</returns>
-    public static AIFunction CreateTool(LocalShellExecutor executor, bool hasBackgroundTasks = false)
+    public static AIFunction CreateTool(LocalShellExecutor executor, bool hasBackgroundTasks = false) =>
+        new ApprovalRequiredAIFunction(CreateGuardedTool(executor, hasBackgroundTasks));
+
+    /// <summary>
+    /// 审批之内的那一层：结果形态还原、参数说明改写、兜底时限。
+    /// 单独拆出来是为了能直接调——审批那层是给用户看的，测试里点不掉，包在里面就测不到真实结果。
+    /// </summary>
+    /// <param name="executor">shell 执行器</param>
+    /// <param name="hasBackgroundTasks">同一会话是否挂了后台任务工具</param>
+    /// <returns>尚未套审批的 shell 工具</returns>
+    internal static AIFunction CreateGuardedTool(LocalShellExecutor executor, bool hasBackgroundTasks = false)
     {
         string description = BuildDescription(executor);
-        AIFunction gated = executor.AsAIFunction(CharacterRunnerFactory.ShellToolName, description);
+        // 执行器是框架造的，字符串结果会被它序列化成 JsonElement{String}（发给模型是带引号与 \n 字面量的一串），
+        // 而读盘回来是纯文本——两种字节就是前缀分叉。与 ToolJson 造的工具同一道还原
+        AIFunction gated = ToolJson.KeepStringResult(
+            executor.AsAIFunction(CharacterRunnerFactory.ShellToolName, description));
         // 框架的参数说明写死在方法签名里,只能靠 schema 改写层换文案(与浏览器组 view 参数同款)
         gated = new ParameterDescriptionFunction(gated, "command",
             "要执行的 shell 命令，本机 shell 语法。" +
             (hasBackgroundTasks ? " " + BackgroundTasksHint : string.Empty));
-        return new ApprovalRequiredAIFunction(new ShellSelfKillGuardFunction(new ShellHangGuardFunction(gated, CommandTimeout + HangGrace,
-            hasBackgroundTasks ? ShellHangGuardFunction.HangNoticeWithBackgroundTasks : ShellHangGuardFunction.HangNotice)));
+        return new ShellSelfKillGuardFunction(new ShellHangGuardFunction(gated, CommandTimeout + HangGrace,
+            hasBackgroundTasks ? ShellHangGuardFunction.HangNoticeWithBackgroundTasks : ShellHangGuardFunction.HangNotice));
     }
 
     private static string BuildDescription(LocalShellExecutor executor)
