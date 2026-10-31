@@ -74,14 +74,15 @@ public class RemoteModelInfoTests
     }
 
     /// <summary>
-    /// 回填键名（请求侧）只看预设表与默认：<b>观测值不参与</b>。
-    /// 观测到的是响应里的字段名，请求侧未必同名——CommandCode 响应给 <c>reasoning</c>、
-    /// 请求只认 <c>reasoning_content</c>，拿观测值回填等于发一个服务端不认的键，被当缺字段 400。
+    /// 回填键名（请求侧）按 预设表 → 响应观测值 → 默认 三级解析，与 opencode/pi 对齐。
+    /// 观测值参与：该端点响应给 <c>reasoning</c> 时，回放也用 <c>reasoning</c> 写回。
+    /// 代价：对「响应用 reasoning、请求只认 reasoning_content」的端点（如 CommandCode 部分变体）
+    /// 会重新 400，需在预设表里显式写 <see cref="RemoteModelIdVariant.ThinkingField"/> 覆盖。
     /// </summary>
     [Fact]
-    public void ThinkingField_FallsBackPresetThenDefault_IgnoringObservation()
+    public void ThinkingField_ResolvesPresetThenObservationThenDefault()
     {
-        // 观测值再花哨也不影响请求侧键名
+        // 预设优先：sensenova 自研思考字段是 reasoning，盖过观测到的 reasoning_text
         var observed = new RemoteModelInfo
         {
             Config = new RemoteSensenovaModelConfig
@@ -100,7 +101,7 @@ public class RemoteModelInfoTests
         var generic = new RemoteModelInfo { Config = new RemoteModelConfig { ModelId = "anything" } };
         Assert.Equal("reasoning_content", generic.ThinkingField);
 
-        // 无预设、观测到 reasoning 的网关：请求仍走默认键
+        // 无预设、观测到 reasoning 的网关：请求跟随观测值
         var gateway = new RemoteModelInfo
         {
             Config = new RemoteCommandCodeModelConfig
@@ -109,7 +110,7 @@ public class RemoteModelInfoTests
                 ObservedThinkingFields = { ["reflection/beam:free"] = "reasoning" },
             },
         };
-        Assert.Equal("reasoning_content", gateway.ThinkingField);
+        Assert.Equal("reasoning", gateway.ThinkingField);
     }
 
     /// <summary>观测值按 ModelId 隔离：同端点从 6.8 切到 DeepSeek，各记各的，不串台</summary>

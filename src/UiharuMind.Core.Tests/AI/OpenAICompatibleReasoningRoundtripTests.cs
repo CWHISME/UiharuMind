@@ -238,18 +238,18 @@ public class OpenAICompatibleReasoningRoundtripTests
     }
 
     /// <summary>
-    /// 从模型配置一路查到请求体里的键名：预设表 → 默认，<b>观测值不参与</b>。
-    /// 观测到的是响应侧字段名，请求侧未必同名（CommandCode 响应 reasoning、请求 reasoning_content）。
+    /// 从模型配置一路查到请求体里的键名：预设表 → 响应观测值 → 默认。
+    /// 还原 ADR 0095 解耦后，观测值参与键名解析（opencode/pi 同款）。
     /// </summary>
     [Fact]
-    public void ReasoningField_ResolvesPresetThenDefault_IgnoringObserved()
+    public void ReasoningField_ResolvesPresetThenObservationThenDefault()
     {
         var observed = new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "glm-5.2" } };
         observed.Config.ObservedThinkingFields["glm-5.2"] = "reasoning_text";
-        Assert.Equal("reasoning_content", RequestRewrite.For(observed).ReasoningField);
-        Assert.Equal("reasoning_content", ReasoningReplayPolicy.FieldName(observed));
+        Assert.Equal("reasoning_text", RequestRewrite.For(observed).ReasoningField);
+        Assert.Equal("reasoning_text", ReasoningReplayPolicy.FieldName(observed));
 
-        // 预设声明照常生效
+        // 预设声明照常生效（优先于观测值）
         var preseted = new RemoteModelInfo
         {
             Config = new RemoteSensenovaModelConfig { ModelId = "sensenova-6.8-flash-lite" },

@@ -253,18 +253,22 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     public Dictionary<string, string> ObservedThinkingFields { get; set; } = new();
 
     /// <summary>
-    /// 回填思考正文用的<b>请求侧</b> wire 键名：该 ModelId 的预设表 → <c>reasoning_content</c>。
+    /// 回填思考正文用的<b>请求侧</b> wire 键名：该 ModelId 的预设表 → <b>响应观测值</b> → <c>reasoning_content</c>。
     ///
-    /// 不取运行时观测值：观测到的是<b>响应</b>里的字段名，请求侧未必同名——
-    /// CommandCode 的响应给 <c>reasoning</c>，请求体里却只认 <c>reasoning_content</c>，
-    /// 拿观测值回填等于发一个服务端不认的键，被当成「缺字段」直接 400。
-    /// 请求侧确实不用默认名的服务商，在预设表里显式声明（如商汤自研 6.8 的 <c>reasoning</c>）。
+    /// <para><b>还原 ADR 0095 解耦</b>：原先刻意不取运行时观测值（CommandCode 响应给 <c>reasoning</c>、
+    /// 请求只认 <c>reasoning_content</c>，拿观测值回填会被当缺字段 400）。但实测该问题非普遍，
+    /// 且 opencode/pi 都是「观测到什么字段就用什么字段回放」，故改回跟随观测值，与参考实现对齐。
+    /// 代价：对「响应用 <c>reasoning</c>、请求只认 <c>reasoning_content</c>」的端点会重新 400——
+    /// 这类端点需在预设表里显式写 <see cref="RemoteModelIdVariant.ThinkingField"/> 覆盖。</para>
     /// </summary>
     public string RequestThinkingField =>
         ModelIdVariants.TryGetValue(ModelId, out RemoteModelIdVariant? variant) &&
         !string.IsNullOrWhiteSpace(variant.ThinkingField)
             ? variant.ThinkingField
-            : "reasoning_content";
+            : ObservedThinkingFields.TryGetValue(ModelId, out string? observed) &&
+              !string.IsNullOrWhiteSpace(observed)
+                ? observed
+                : "reasoning_content";
 
     /// <summary>
     /// 接口要的是「回填键名」即 <see cref="RequestThinkingField"/>。显式实现，
