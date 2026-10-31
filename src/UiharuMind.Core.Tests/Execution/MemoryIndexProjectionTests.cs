@@ -67,8 +67,8 @@ public class MemoryIndexProjectionTests
     {
         List<ChatMessage> history = [Anchored("开始干活"), new(ChatRole.Assistant, "好")];
 
-        IReadOnlyList<ChatMessage> supplied = await HistorySupply.ForSideRequestAsync(history, null, 20_000, 0,
-            TestContext.Current.CancellationToken);
+        IReadOnlyList<ChatMessage> supplied = await HistorySupply.ForSideRequestAsync(history, null,
+            SideRequestRewriters.Plain, 20_000, 0, TestContext.Current.CancellationToken);
 
         Assert.StartsWith(MemoryIndexProjection.Block(List), supplied[0].Text);
     }

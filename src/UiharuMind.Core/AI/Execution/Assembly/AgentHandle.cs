@@ -11,6 +11,7 @@ using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Tools.Shell;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Harness;
+using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Execution.Mcp;
 
 namespace UiharuMind.Core.AI.Execution.Assembly;
@@ -92,6 +93,14 @@ public sealed class AgentHandle : IAsyncDisposable
     /// 子代理与纯提示词档恒为空串
     /// </summary>
     public string MemoryDirectory { get; internal set; } = string.Empty;
+
+    /// <summary>
+    /// 旁路请求（写记忆压缩、群背景摘要）要发的那一份历史怎么改写，见 <see cref="SideRequestRewriter"/>。
+    ///
+    /// 由装配处与常规请求那条链一起造出来：旁路请求绕开了那条链，但改写口径必须是同一条——
+    /// 少挂一层不会报错，只会让请求从那里岔开，从岔口往后整段前缀缓存作废
+    /// </summary>
+    public SideRequestRewriter? RewriteSideRequest { get; init; }
 
     /// <summary>记忆目录的简写（与系统提示记忆段同一种写法），清单里每份笔记按它写路径</summary>
     public string MemoryToken { get; internal set; } = string.Empty;

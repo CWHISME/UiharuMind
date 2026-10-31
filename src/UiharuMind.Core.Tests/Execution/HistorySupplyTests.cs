@@ -38,8 +38,8 @@ public class HistorySupplyTests
         List<ChatMessage> history = [new(ChatRole.User, "看一下"), call, result, answer];
         CancellationToken token = TestContext.Current.CancellationToken;
 
-        Assert.Equal(2, (await HistorySupply.ForSideRequestAsync(history, null, ContextLength, 0, token)).Count);
-        Assert.Equal(4, (await HistorySupply.ForSideRequestAsync(history, WithTools, ContextLength, 0, token)).Count);
+        Assert.Equal(2, (await HistorySupply.ForSideRequestAsync(history, null, SideRequestRewriters.Plain, ContextLength, 0, token)).Count);
+        Assert.Equal(4, (await HistorySupply.ForSideRequestAsync(history, WithTools, SideRequestRewriters.Plain, ContextLength, 0, token)).Count);
     }
 
     /// <summary>
@@ -61,7 +61,7 @@ public class HistorySupplyTests
 
         history.Add(new ChatMessage(ChatRole.Assistant, "都看完了"));
         IReadOnlyList<ChatMessage> handoff =
-            await HistorySupply.ForSideRequestAsync(history, WithTools, ContextLength, 0, token);
+            await HistorySupply.ForSideRequestAsync(history, WithTools, SideRequestRewriters.Plain, ContextLength, 0, token);
 
         Assert.Equal(regular.Select(HistoryCompactionTests.Signature),
             handoff.Take(regular.Count).Select(HistoryCompactionTests.Signature));
@@ -79,10 +79,43 @@ public class HistorySupplyTests
         Assert.True(await HistoryCompactionTests.TokensAsync(history, token) > ContextLength, "原始历史得先超窗，否则测的不是这件事");
 
         IReadOnlyList<ChatMessage> handoff =
-            await HistorySupply.ForSideRequestAsync(history, WithTools, ContextLength, 0, token);
+            await HistorySupply.ForSideRequestAsync(history, WithTools, SideRequestRewriters.Plain, ContextLength, 0, token);
 
         long sent = await HistoryCompactionTests.TokensAsync(handoff, token);
         Assert.True(sent <= quota * HistoryCompaction.TruncationThreshold, $"压完仍有 {sent}");
     }
 
+    /// <summary>
+    /// 旁路请求跑的是常规请求那条链，不是照着重写的一份——链上新挂一层，旁路必须跟着有。
+    /// 识图投影就是这么漏的：写记忆压缩那一发少了 36 条看图消息，从第 62 条起 428 条消息的前缀全部冷启动
+    /// </summary>
+    [Fact]
+    public async Task ForSideRequest_RunsTheSameChain_SoANewLayerIsCarried()
+    {
+        SideRequestRewriter rewriter = HistoryRewriteChain.ForSideRequest((transport, compaction) =>
+            new MarkerChatClient(HistoryRewriteChain.Build(transport, projectionPaths: null, attachImages: false,
+                compaction)));
+
+        IReadOnlyList<ChatMessage> supplied = await rewriter([new ChatMessage(ChatRole.User, "历史")],
+            ContextLength, 0, TestContext.Current.CancellationToken);
+
+        Assert.Equal(MarkerChatClient.Marker, supplied[^1].Text);
+    }
+
+    /// <summary>链上的一层：往消息末尾插一条标记，用来验旁路请求确实走过这条链</summary>
+    private sealed class MarkerChatClient(IChatClient inner) : DelegatingChatClient(inner)
+    {
+        internal const string Marker = "链上新挂的那一层";
+
+        public override Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages,
+            ChatOptions? options = null, CancellationToken cancellationToken = default) =>
+            base.GetResponseAsync(Mark(messages), options, cancellationToken);
+
+        public override IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages,
+            ChatOptions? options = null, CancellationToken cancellationToken = default) =>
+            base.GetStreamingResponseAsync(Mark(messages), options, cancellationToken);
+
+        private static IEnumerable<ChatMessage> Mark(IEnumerable<ChatMessage> messages) =>
+            messages.Append(new ChatMessage(ChatRole.User, Marker));
+    }
 }

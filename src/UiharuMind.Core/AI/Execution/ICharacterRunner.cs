@@ -10,6 +10,7 @@
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution.Assembly;
+using UiharuMind.Core.AI.Execution.History;
 
 namespace UiharuMind.Core.AI.Execution;
 
@@ -126,6 +127,15 @@ public interface ICharacterRunner : IAsyncDisposable
     /// 即本条引入之前的行为。见 ADR 0009
     /// </summary>
     TurnInputEstimate? InputEstimate => null;
+
+    /// <summary>
+    /// 旁路请求（写记忆压缩、群背景摘要）要发的那一份历史怎么改写（见 <see cref="SideRequestRewriter"/>）。
+    /// 默认 null——不走 harness 的形态没有装配产物，旁路请求只能发供给区间原样。
+    ///
+    /// 由装配处与常规请求那条改写链一起造出来：旁路绕开了那条链，改写口径必须还是同一条，
+    /// 否则请求从少掉的那一层岔开，整段前缀缓存作废
+    /// </summary>
+    SideRequestRewriter? RewriteSideRequest => null;
 
     /// <summary>
     /// 交出本轮的上下文：审批回应通道与"有没有人看着"。

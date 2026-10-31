@@ -79,11 +79,12 @@ public static class GroupBackground
         int contextLength = SessionContextBudget.Resolve(model.ContextLength, source.ContextLengthOverride);
         // 与原单聊平时的请求同一视图:同一口径供给、同一套压缩,前缀才中得了它的缓存
         IReadOnlyList<ChatMessage> supplied = await HistorySupply.ForSideRequestAsync(source.History, options,
-            contextLength, source.Runner.InputEstimate?.FixedOverhead ?? 0, cancellationToken).ConfigureAwait(false);
+            source.Runner.RewriteSideRequest, contextLength, source.Runner.InputEstimate?.FixedOverhead ?? 0,
+            cancellationToken).ConfigureAwait(false);
         if (supplied.Count == 0) return null;
 
         HandoffReply reply = await HistoryHandoff.WriteAsync(HistorySupply.ClientFor(source), supplied, options,
-            contextLength, audience, cancellationToken).ConfigureAwait(false);
+            contextLength, audience, onProgress: null, cancellationToken).ConfigureAwait(false);
         // 是这个会话的模型花的,记进它的累计:群成员面板的成本读的就是它。不碰占用——单聊本身没有变满
         foreach (UsageDetails usage in reply.Usages)
         {

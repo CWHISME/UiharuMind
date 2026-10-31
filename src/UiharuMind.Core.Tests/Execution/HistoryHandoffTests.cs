@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Chat;
@@ -150,7 +151,7 @@ public class HistoryHandoffTests
     }
 
     [Fact]
-    public void ComposeBody_StartsWithOpening_AndEndsWithLastSentence()
+    public void ComposeBody_StartsWithOpening_AndEndsWithLastWords()
     {
         string body = HistoryHandoff.ComposeBody("正文", "好的，马上办。");
 
@@ -214,50 +215,68 @@ public class HistoryHandoffTests
     }
 
     [Fact]
-    public void LastAssistantSentence_TakesTheLastSentenceOfTheLastAssistantMessage()
+    public void LastAssistantText_TakesTheWholeBodyOfTheLastAssistantMessage()
     {
         List<ChatMessage> history =
         [
             new(ChatRole.User, "a"),
-            new(ChatRole.Assistant, "先看 a.cs。再看 b.cs。"),
+            new(ChatRole.Assistant, "先看 a.cs。\n\n再看 b.cs。它改的是入口。"),
             new(ChatRole.User, "b"),
         ];
 
-        Assert.Equal("再看 b.cs。", HistoryHandoff.LastAssistantSentence(history));
+        Assert.Equal("先看 a.cs。\n\n再看 b.cs。它改的是入口。", HistoryHandoff.LastAssistantText(history));
+    }
+
+    /// <summary>
+    /// 「最后一句」指的是上一轮最后发出的<b>整条正文</b>，不是按标点切出来的那一句。
+    /// 曾经按标点取，实测切出「它小、独立、有判据，我可以直接做完给你看同机位前后图」——
+    /// 没有主语的碎片，读起来像被截断
+    /// </summary>
+    [Fact]
+    public void LastAssistantText_IsNotCutDownToTheFinalSentence()
+    {
+        const string message = """
+                               我已经做了一件清理，两个理由都说过了。
+
+                               1. 认不认删 `feet` 配方这条内容决定？
+                               2. 要不要现在就上第 0 步？它小、独立、有判据，我可以直接做完给你看同机位前后图 (｡･ω･)ﻭ
+                               """;
+
+        Assert.Equal(message, HistoryHandoff.LastAssistantText([new ChatMessage(ChatRole.Assistant, message)]));
     }
 
     [Fact]
-    public void LastAssistantSentence_SkipsNotesNarrationAndTextlessMessages()
+    public void LastAssistantText_SkipsNotesNarrationAndTextlessMessages()
     {
         List<ChatMessage> history =
         [
-            new(ChatRole.Assistant, "真正的上一句。"),
+            new(ChatRole.Assistant, "真正的上一轮正文。"),
             HistoryHandoff.CreateNote("上一份记忆压缩"),
             new(ChatRole.Assistant, [new FunctionCallContent("c1", "Read")]), //纯工具调用没有正文
         ];
 
-        Assert.Equal("真正的上一句。", HistoryHandoff.LastAssistantSentence(history));
+        Assert.Equal("真正的上一轮正文。", HistoryHandoff.LastAssistantText(history));
     }
 
     [Fact]
-    public void LastAssistantSentence_WithoutAnyAssistantText_ReturnsNull()
+    public void LastAssistantText_WithoutAnyAssistantText_ReturnsNull()
     {
         ChatMessage narration = new(ChatRole.Assistant, "开场白")
         {
             AdditionalProperties = new AdditionalPropertiesDictionary { [ChatMessageAnnotations.Narration] = "x" },
         };
 
-        Assert.Null(HistoryHandoff.LastAssistantSentence([narration, HistoryHandoff.CreateNote("上一份记忆压缩")]));
-        Assert.Null(HistoryHandoff.LastAssistantSentence([new(ChatRole.User, "只有用户")]));
-        Assert.Null(HistoryHandoff.LastAssistantSentence([]));
+        Assert.Null(HistoryHandoff.LastAssistantText([narration, HistoryHandoff.CreateNote("上一份记忆压缩")]));
+        Assert.Null(HistoryHandoff.LastAssistantText([new(ChatRole.User, "只有用户")]));
+        Assert.Null(HistoryHandoff.LastAssistantText([]));
     }
 
     [Fact]
-    public void LastSentence_HandlesEnglishAndVersionNumbers()
+    public void LastAssistantText_KeepsVersionNumbersAndTrailingPunctuation()
     {
-        Assert.Equal("next.", HistoryHandoff.LastAssistantSentence([new ChatMessage(ChatRole.Assistant, "first. next.")]));
-        Assert.Equal("版本 v1.2.3", HistoryHandoff.LastAssistantSentence([new ChatMessage(ChatRole.Assistant, "版本 v1.2.3")]));
-        Assert.Equal("好的", HistoryHandoff.LastAssistantSentence([new ChatMessage(ChatRole.Assistant, "你好。好的")]));
+        Assert.Equal("first. next.", HistoryHandoff.LastAssistantText([new ChatMessage(ChatRole.Assistant, "first. next.")]));
+        Assert.Equal("版本 v1.2.3", HistoryHandoff.LastAssistantText([new ChatMessage(ChatRole.Assistant, "版本 v1.2.3")]));
+        Assert.Equal("你好。好的", HistoryHandoff.LastAssistantText([new ChatMessage(ChatRole.Assistant, "你好。好的")]));
     }
 
     [Fact]
@@ -391,6 +410,41 @@ public class HistoryHandoffTests
         Assert.Equal(2, reply.Usages.Count);
     }
 
+    /// <summary>
+    /// 必须走流式：请求体里的 stream / stream_options 也算「请求形状」，用 GetResponseAsync 发就少这两处，
+    /// 网关的前缀缓存认不出这是同一段前缀——实测同一段纯追加的 42 条消息，常规轮次 98% 命中，这一发 0
+    /// </summary>
+    [Fact]
+    public async Task WriteAsync_GoesThroughTheStreamingPath()
+    {
+        StreamingOnlyChatClient client = new("交接正文");
+
+        HandoffReply reply = await HistoryHandoff.WriteAsync(client, [User("a")], null, 128_000,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal("交接正文", reply.Text);
+        Assert.Equal(100, reply.Usages[0].InputTokenCount);
+    }
+
+    /// <summary>
+    /// 写到一半的数要报给界面：整份文档十几秒起步，占位卡只有一个转圈看不出它在动。
+    /// 只报「已写出多少」，报得单调递增；准确的那个数由收尾的 usage 给
+    /// </summary>
+    [Fact]
+    public async Task WriteAsync_ReportsWrittenTokensWhileStreaming()
+    {
+        ChunkedChatClient client = new(Enumerable.Repeat("记忆压缩的正文，一句一句地写出来。", 20).ToArray());
+        List<int> progress = [];
+
+        HandoffReply reply = await HistoryHandoff.WriteAsync(client, [User("a")], null, 128_000,
+            onProgress: progress.Add, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.NotNull(reply.Text);
+        Assert.NotEmpty(progress);
+        Assert.True(progress[^1] > 0, "一次都没报出数");
+        Assert.Equal(progress.Order(), progress); //只能往上走
+    }
+
     [Fact]
     public async Task WriteAsync_AppendsTheInstructionAfterTheHistory()
     {
@@ -427,6 +481,63 @@ public class HistoryHandoffTests
         Assert.DoesNotContain("补充指示", client.Seen[^1].Text);
     }
 
+    /// <summary>
+    /// 把假响应按流式喂出去。写记忆压缩现在走流式——请求体的 stream / stream_options 也是「请求形状」的一部分，
+    /// 非流式那一发网关的前缀缓存认不出来（见 HistoryHandoff.SendAsync）
+    /// </summary>
+    private static async IAsyncEnumerable<ChatResponseUpdate> AsUpdates(Task<ChatResponse> response)
+    {
+        foreach (ChatResponseUpdate update in (await response.ConfigureAwait(false)).ToChatResponseUpdates())
+        {
+            yield return update;
+        }
+    }
+
+    /// <summary>分块吐字的客户端：用来验写文档过程中的进度上报</summary>
+    private sealed class ChunkedChatClient(params string[] chunks) : IChatClient
+    {
+        public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("写记忆压缩必须走流式");
+
+        public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages,
+            ChatOptions? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            foreach (string chunk in chunks)
+            {
+                yield return new ChatResponseUpdate(ChatRole.Assistant, chunk);
+                await Task.Yield(); //真的分多次到达,否则测不出「边流边报」
+            }
+        }
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public void Dispose()
+        {
+        }
+    }
+
+    /// <summary>只实现流式的客户端：非流式一发就炸，用来钉住「写记忆压缩必须走流式」</summary>
+    private sealed class StreamingOnlyChatClient(string reply) : IChatClient
+    {
+        public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("写记忆压缩必须走流式");
+
+        public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages,
+            ChatOptions? options = null, CancellationToken cancellationToken = default) =>
+            AsUpdates(Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, reply))
+            {
+                Usage = new UsageDetails { InputTokenCount = 100 },
+            }));
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public void Dispose()
+        {
+        }
+    }
+
     private sealed class StubChatClient(string reply, UsageDetails? usage = null) : IChatClient
     {
         public List<ChatMessage> Seen { get; } = [];
@@ -442,7 +553,7 @@ public class HistoryHandoffTests
 
         public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages,
             ChatOptions? options = null, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
+            AsUpdates(GetResponseAsync(messages, options, cancellationToken));
 
         public object? GetService(Type serviceType, object? serviceKey = null) => null;
 
@@ -468,7 +579,7 @@ public class HistoryHandoffTests
 
         public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages,
             ChatOptions? options = null, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
+            AsUpdates(GetResponseAsync(messages, options, cancellationToken));
 
         public object? GetService(Type serviceType, object? serviceKey = null) => null;
 
@@ -484,7 +595,7 @@ public class HistoryHandoffTests
 
         public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages,
             ChatOptions? options = null, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
+            AsUpdates(GetResponseAsync(messages, options, cancellationToken));
 
         public object? GetService(Type serviceType, object? serviceKey = null) => null;
 

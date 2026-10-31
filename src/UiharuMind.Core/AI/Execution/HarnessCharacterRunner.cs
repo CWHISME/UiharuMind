@@ -19,6 +19,7 @@ using UiharuMind.Core.Core.SimpleLog;
 
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution.Assembly;
+using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Mcp;
 
@@ -339,6 +340,8 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
     }
 
     public TurnInputEstimate? InputEstimate => _handle?.InputEstimate;
+
+    public SideRequestRewriter? RewriteSideRequest => _handle?.RewriteSideRequest;
 
     public async Task<IReadOnlyList<TodoSnapshot>> GetTodosAsync()
     {

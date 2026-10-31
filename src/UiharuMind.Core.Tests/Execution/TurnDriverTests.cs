@@ -793,9 +793,10 @@ public class TurnDriverTests
 
         await driver.CompactAsync(session, new StubRunner());
 
+        // 进度通知是流式过程中的旁支，这条测的是「Started 之后以 Failed 收尾」，把它滤掉
         Assert.Equal(
             [ETurnNotice.HandoffStarted, ETurnNotice.HandoffFailed],
-            notices.Select(x => x.Kind));
+            notices.Select(x => x.Kind).Where(x => x != ETurnNotice.HandoffProgress));
         Assert.Equal(5, session.History.Count); //失败不写文档
     }
 
@@ -1041,6 +1042,18 @@ public class TurnDriverTests
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
+    /// <summary>
+    /// 把假响应按流式喂出去：写记忆压缩走的是流式（请求体的 stream / stream_options 也在缓存键里，
+    /// 非流式那一发网关认不出是同一段前缀，见 <c>HistoryHandoff.SendAsync</c>）
+    /// </summary>
+    private static async IAsyncEnumerable<ChatResponseUpdate> AsUpdates(Task<ChatResponse> response)
+    {
+        foreach (ChatResponseUpdate update in (await response.ConfigureAwait(false)).ToChatResponseUpdates())
+        {
+            yield return update;
+        }
+    }
+
     /// <summary>捕获它收到的全部消息,回一条固定回复(交接文档那一发用)</summary>
     private sealed class CapturingChatClient(string reply, UsageDetails? usage = null) : IChatClient
     {
@@ -1055,7 +1068,7 @@ public class TurnDriverTests
 
         public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages,
             ChatOptions? options = null, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
+            AsUpdates(GetResponseAsync(messages, options, cancellationToken));
 
         public object? GetService(Type serviceType, object? serviceKey = null) => null;
 
@@ -1081,7 +1094,7 @@ public class TurnDriverTests
 
         public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages,
             ChatOptions? options = null, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
+            AsUpdates(GetResponseAsync(messages, options, cancellationToken));
 
         public object? GetService(Type serviceType, object? serviceKey = null) => null;
 
@@ -1098,7 +1111,7 @@ public class TurnDriverTests
 
         public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages,
             ChatOptions? options = null, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
+            AsUpdates(GetResponseAsync(messages, options, cancellationToken));
 
         public object? GetService(Type serviceType, object? serviceKey = null) => null;
 

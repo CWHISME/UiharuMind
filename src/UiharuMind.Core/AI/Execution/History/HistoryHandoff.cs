@@ -8,9 +8,11 @@
  ****************************************************************************/
 
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Files;
@@ -373,27 +375,30 @@ public static class HistoryHandoff
     /// 开场让卡片读起来有头；上一轮最后一句放末尾，让新一轮的接续点紧贴用户接下来的输入。
     /// </summary>
     /// <param name="note">模型写的正文</param>
-    /// <param name="lastSentence">上一轮最后一句；没有（无 assistant 正文）时为 null</param>
+    /// <param name="lastWords">上一轮最后一句（整条回复正文）；没有（无 assistant 正文）时为 null</param>
     /// <returns>整段正文</returns>
-    public static string ComposeBody(string note, string? lastSentence)
+    public static string ComposeBody(string note, string? lastWords)
     {
         string body = $"{Opening}\n\n{note}";
-        if (!string.IsNullOrWhiteSpace(lastSentence))
+        if (!string.IsNullOrWhiteSpace(lastWords))
         {
-            body += $"\n\n{LastSentenceHeading}\n{lastSentence}";
+            body += $"\n\n{LastSentenceHeading}\n{lastWords}";
         }
 
         return body;
     }
 
     /// <summary>
-    /// 取历史里最后一条 assistant 文本消息的最后一句话。
+    /// 取历史里最后一条 assistant 文本消息的<b>整条正文</b>——「上一轮我的最后一句」指的是它，
+    /// 不是按标点切出来的那一句：模型最后说的话是一条完整回复，只留末尾那半句会指代不清，
+    /// 读起来还像被截断了（实测出现过「它小、独立、有判据……」这种没有主语的碎片）。
+    ///
     /// 记忆压缩本身也是 assistant 角色，要跳过；开场旁白不是"上一轮说的话"，也跳过；
-    /// 纯工具调用/空回复没有文本，跳过。没有可取的句子时返回 null（正文不带这段）。
+    /// 纯工具调用/空回复没有文本，跳过。没有可取正文时返回 null（正文不带这段）。
     /// </summary>
     /// <param name="history">完整历史</param>
-    /// <returns>上一轮最后一句；取不到为 null</returns>
-    public static string? LastAssistantSentence(IReadOnlyList<ChatMessage> history)
+    /// <returns>上一轮的整条回复正文；取不到为 null</returns>
+    public static string? LastAssistantText(IReadOnlyList<ChatMessage> history)
     {
         for (int i = history.Count - 1; i >= 0; i--)
         {
@@ -402,55 +407,10 @@ public static class HistoryHandoff
             if (IsNote(message) || ChatMessageAnnotations.IsNarration(message)) continue;
             string text = message.Text;
             if (string.IsNullOrWhiteSpace(text)) continue;
-            return LastSentence(text);
+            return text.Trim();
         }
 
         return null;
-    }
-
-    /// <summary>无句末标点可切时的兜底长度：别把一大块代码/日志整个塞进记忆压缩</summary>
-    private const int TailFallbackChars = 300;
-
-    /// <summary>
-    /// 切最后一句：按句末标点从后往前取最后一段。
-    /// 英文句号只在该处是句尾（后跟空白或结尾、且前面不是数字）时才算，避免 "v1.2.3" 被劈开。
-    /// </summary>
-    private static string LastSentence(string text)
-    {
-        text = text.Trim();
-        if (text.Length == 0) return text;
-
-        int last = LastSentenceEnd(text);
-        if (last < 0)
-        {
-            return text.Length <= TailFallbackChars ? text : "…" + text[^TailFallbackChars..];
-        }
-
-        if (last == text.Length - 1)
-        {
-            // 以标点结尾:取这个标点所在的那一句(往回找上一个标点)
-            int prev = LastSentenceEnd(text[..last]);
-            return prev < 0 ? text : text[(prev + 1)..].Trim();
-        }
-
-        // 标点后面还有内容:取标点之后的末尾段
-        return text[(last + 1)..].Trim();
-    }
-
-    private static int LastSentenceEnd(string text)
-    {
-        for (int i = text.Length - 1; i >= 0; i--)
-        {
-            char c = text[i];
-            if (c is '。' or '！' or '？' or '…' or '!' or '?') return i;
-            if (c == '.' && (i == text.Length - 1 || char.IsWhiteSpace(text[i + 1]))
-                && (i == 0 || !char.IsDigit(text[i - 1])))
-            {
-                return i;
-            }
-        }
-
-        return -1;
     }
 
     /// <summary>
@@ -480,11 +440,12 @@ public static class HistoryHandoff
     /// 用户额外交代（<c>/compact</c> 命令后跟的文字）。原样附在写文档的指令末尾，
     /// 提示模型在文档里照顾到它；为空时不附加，指令与从前逐字一致。
     /// </param>
+    /// <param name="onProgress">已写出的 token 数（估算），流式过程中分批回调；不要它时传 null</param>
     /// <param name="cancellationToken">取消标记</param>
     /// <returns>文档正文与这一发的用量；失败或产出为空时正文为 null</returns>
     public static async Task<HandoffReply> WriteAsync(IChatClient client, IReadOnlyList<ChatMessage> history,
         ChatOptions? agentOptions, int contextLength, string? extraInstructions = null,
-        CancellationToken cancellationToken = default)
+        Action<int>? onProgress = null, CancellationToken cancellationToken = default)
     {
         if (history.Count == 0) return new HandoffReply(null, []);
 
@@ -515,8 +476,8 @@ public static class HistoryHandoff
             // 服务端可能据它改写工具段的渲染。指令里已明说别调工具;
             // 它真去调了才禁掉重发一次(MEAI 的 ChatToolMode 没有 None,经逐请求上下文让 HTTP 层写 tool_choice)——
             // 那一发不中缓存,但少见,总好过每次都不中
-            ChatResponse response = await client
-                .GetResponseAsync(messages, options, cancellationToken)
+            ChatResponse response = await SendAsync(client, messages, options, ProgressFrom(onProgress, 0),
+                    cancellationToken)
                 .ConfigureAwait(false);
             if (response.Usage != null) usages.Add(response.Usage);
             if (CallsTools(response))
@@ -525,8 +486,10 @@ public static class HistoryHandoff
                 // 手工复位把「进来时是什么」一并抹成 false，外层若正禁着工具就会被悄悄放开
                 using (LlmRequestScope.Push(LlmRequestScope.Current with { ForbidToolCalls = true }))
                 {
-                    response = await client
-                        .GetResponseAsync(messages, options, cancellationToken)
+                    // 重发是从头再写一遍，进度接在上一发之后：往回跳的数字看起来就像出错
+                    int written = usages.Count > 0 ? (int)(usages[0].OutputTokenCount ?? 0) : 0;
+                    response = await SendAsync(client, messages, options, ProgressFrom(onProgress, written),
+                            cancellationToken)
                         .ConfigureAwait(false);
                 }
 
@@ -545,6 +508,74 @@ public static class HistoryHandoff
             Log.Warning($"Write context handoff failed: {e.Message}");
             return new HandoffReply(null, usages);
         }
+    }
+
+    /// <summary>
+    /// 发一发，把流式增量聚合成完整响应。
+    ///
+    /// <b>必须走流式</b>：请求体里的 <c>stream</c> 与 <c>stream_options</c> 也算「请求形状」的一部分——
+    /// 用 <c>GetResponseAsync</c> 发，这两处就没了，网关的前缀缓存认不出这是同一段前缀。
+    /// 实测同一段 42 条消息、纯追加、工具定义逐字相同：常规轮次 30464/31099（98%），
+    /// 非流式的压缩请求 31879 全冷（0 命中）。流式也正是常规轮次实际走的那条路
+    /// </summary>
+    /// <param name="client">模型客户端</param>
+    /// <param name="messages">要发的消息</param>
+    /// <param name="options">与常规轮次同一份选项</param>
+    /// <param name="onProgress">已写出的 token 数（估算）；null 表示不报</param>
+    /// <param name="cancellationToken">取消标记</param>
+    /// <returns>聚合后的响应</returns>
+    private static async Task<ChatResponse> SendAsync(IChatClient client, IReadOnlyList<ChatMessage> messages,
+        ChatOptions options, Action<int>? onProgress, CancellationToken cancellationToken)
+    {
+        return await WithProgress(client.GetStreamingResponseAsync(messages, options, cancellationToken), onProgress,
+                cancellationToken)
+            .ToChatResponseAsync(cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>攒够这么多字符再数一次 token：逐块分词会把跨块的词切成两个，还多出成百上千次调用</summary>
+    private const int ProgressBatchChars = 64;
+
+    /// <summary>
+    /// 把这一发的计数接在之前已经写出来的量后面（见 <see cref="WriteAsync"/> 的重发分支）
+    /// </summary>
+    /// <param name="onProgress">界面要的回调</param>
+    /// <param name="writtenBefore">这一发之前已经报出去的量</param>
+    /// <returns>这一发用的回调；不需要进度时为 null</returns>
+    private static Action<int>? ProgressFrom(Action<int>? onProgress, int writtenBefore) =>
+        onProgress == null ? null : tokens => onProgress(writtenBefore + tokens);
+
+    /// <summary>
+    /// 边流边报已写出的 token 数（估算），供界面做实时进度。
+    /// 估算只是给"它在动"一个量级——准确的那个数由服务端的 usage 在收尾时给出
+    /// </summary>
+    /// <param name="source">客户端的流</param>
+    /// <param name="onProgress">报数回调；null 时原样透传</param>
+    /// <param name="cancellationToken">取消标记</param>
+    /// <returns>原样透传的流</returns>
+    private static async IAsyncEnumerable<ChatResponseUpdate> WithProgress(IAsyncEnumerable<ChatResponseUpdate> source,
+        Action<int>? onProgress, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        StringBuilder pending = new();
+        int tokens = 0;
+        await foreach (ChatResponseUpdate update in source.WithCancellation(cancellationToken).ConfigureAwait(false))
+        {
+            if (onProgress != null)
+            {
+                pending.Append(update.Text);
+                if (pending.Length >= ProgressBatchChars)
+                {
+                    tokens += LlmTokenizer.CountTokens(pending.ToString());
+                    pending.Clear();
+                    onProgress(tokens);
+                }
+            }
+
+            yield return update;
+        }
+
+        // 最后一批不满一攒:不补这一次,收尾前那几十字就永远不算进去
+        if (pending.Length > 0) onProgress?.Invoke(tokens + LlmTokenizer.CountTokens(pending.ToString()));
     }
 
     private static bool CallsTools(ChatResponse response)

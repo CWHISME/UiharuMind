@@ -1743,6 +1743,11 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             case ETurnNotice.HandoffStarted:
                 _handoffWriting.Show();
                 break;
+
+            case ETurnNotice.HandoffProgress:
+                // 每几十字一次，只记数：上屏由占位卡自己的 1 秒跑表统一做
+                _handoffWriting.ReportOutputTokens(notice.Count);
+                break;
         }
     }
 

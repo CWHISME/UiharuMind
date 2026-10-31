@@ -7,7 +7,6 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
-using Microsoft.Agents.AI.Compaction;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution.Assembly;
@@ -51,31 +50,28 @@ internal static class HistorySupply
     }
 
     /// <summary>
-    /// 旁路请求的供给：常规供给，再按常规请求的同一套压缩策略压一遍。
+    /// 旁路请求的供给：常规供给，再按常规请求的同一套逐次改写（记忆清单 → 压缩 → 识图投影）过一遍。
     ///
-    /// 旁路请求的客户端不带压缩（见 <see cref="ClientFor"/>）。不先压这一道，发出去的就是原始历史：前缀在第一组折叠处就与
-    /// 已缓存的那份岔开，而这一发恰好是占用最高时最大的一次请求；原始历史还可能比窗口本身还大，请求直接被拒。
-    /// 折叠只看原始大小落在哪一级台阶，所以同一份历史压出来与常规请求逐字相同；多出的最后那条回复只在末尾。
+    /// 改写本身不在这里写：那是 <see cref="HistoryRewriteChain"/>，与常规请求共用同一条链。
+    /// 从前在这里照着重写，漏了识图投影——写记忆压缩那一发 334721 只命中 80896，
+    /// 36 条看图消息整条消失，从第 62 条起 428 条消息的前缀全部冷启动。
     ///
-    /// 每次新建一份策略而不复用 agent 那份：台阶闭包与输入估算都是一次压缩一份，复用会与在跑的请求互相踩。
+    /// 每次都由链现造一份压缩：台阶闭包与输入估算都是一次压缩一份，复用 agent 那份会与在跑的请求互相踩
     /// </summary>
     /// <param name="full">完整历史</param>
     /// <param name="options">会话装配好的选项；没挂工具即普通对话形态（装配侧那个开关旁路请求拿不到）</param>
+    /// <param name="rewriter">旁路请求的改写入口，取自句柄；不走 harness 的形态为 null</param>
     /// <param name="contextLength">当前模型的上下文上限；未知（0）时不压缩</param>
     /// <param name="fixedOverhead">每轮固定开销（系统提示 + 工具定义）</param>
     /// <param name="cancellationToken">取消标记</param>
     /// <returns>要交给旁路请求的历史</returns>
     public static async Task<IReadOnlyList<ChatMessage>> ForSideRequestAsync(IReadOnlyList<ChatMessage> full,
-        ChatOptions? options, int contextLength, int fixedOverhead, CancellationToken cancellationToken)
+        ChatOptions? options, SideRequestRewriter? rewriter, int contextLength, int fixedOverhead,
+        CancellationToken cancellationToken)
     {
-        // 记忆清单与常规请求同样先投影再压缩(见 MemoryIndexProjectingChatClient 的位置)
-        IReadOnlyList<ChatMessage> supplied =
-            MemoryIndexProjection.Project(From(full, promptOnly: options?.Tools is not { Count: > 0 }));
-        CompactionStrategy compaction =
-            HistoryCompaction.Create(() => contextLength, TurnInputEstimate.Detached(fixedOverhead));
-        IEnumerable<ChatMessage> compacted = await compaction.AsChatReducer()
-            .ReduceAsync(supplied, cancellationToken)
-            .ConfigureAwait(false);
-        return compacted.ToList();
+        IReadOnlyList<ChatMessage> supplied = From(full, promptOnly: options?.Tools is not { Count: > 0 });
+        // 没有装配产物就没有链：原样发，压不了也投影不了
+        if (rewriter == null) return supplied;
+        return await rewriter(supplied, contextLength, fixedOverhead, cancellationToken).ConfigureAwait(false);
     }
 }

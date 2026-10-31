@@ -75,19 +75,11 @@ internal static class AgentAssembler
             // 老数据万一不一致，宁可退回纯聊也不要按残留工具配置装回 shell
             chatOptions.Instructions = AgentInstructionsComposer.AppendScene(chatOptions.Instructions,
                 profile.GroupScene);
-            return BuildHandle(client,
+            return BuildHandle(plan, client,
                 AgentOptionsFactory.BuildPromptOnlyOptions(character,
                     WrapDepthPrompt(new SessionChatHistoryProvider(promptOnly: true), character),
                     contextProviders, chatOptions,
                     plan.Compaction), null, inputEstimate: plan.InputEstimate);
-        }
-
-        // 识图开关开着就挂投影:模型自己看不了图时发占位而不是整条不发,否则历史里那些看图回合会断在半空。
-        // 投影挂在压缩里面,工具组折叠了图就跟着不发(ADR 0053)
-        if (plan.ReadProjectsImages)
-        {
-            client = new ImagePreviewProjectingChatClient(client, plan.CreatePathResolver(null),
-                plan.ReadAttachesImages);
         }
 
         // ShellEnvironment 带草稿目录简写与(受管 Python 就绪时的)venv 激活,见 AgentAssemblyPlan
@@ -107,8 +99,8 @@ internal static class AgentAssembler
         HarnessAgentOptions options = AgentOptionsFactory.BuildAgentOptions(plan,
             WrapDepthPrompt(new SessionChatHistoryProvider(), character), contextProviders,
             chatOptions, shellBinary, out IReadOnlyList<AgentPromptSegment> promptSegments);
-        AgentHandle handle = BuildHandle(client, options, shellExecutor, plan.Mcp, toolEntries, promptSegments,
-            plan.InputEstimate);
+        AgentHandle handle = BuildHandle(plan, client, options, shellExecutor, plan.Mcp, toolEntries,
+            promptSegments, plan.InputEstimate);
         // 与系统提示的记忆段同一判据:plan 里的记忆目录只在开了文件工具时非空
         handle.MemoryDirectory = plan.MemoryDirectory;
         handle.MemoryToken = AgentPathResolver.ShorthandFor(AgentPathResolver.MemoryVariable, shellBinary);
@@ -206,6 +198,7 @@ internal static class AgentAssembler
     /// <summary>
     /// 把装配好的选项变成一个可运行的 agent 句柄
     /// </summary>
+    /// <param name="plan">装配计划（逐次改写链的路径口径与附图开关由它定）</param>
     /// <param name="client">模型客户端</param>
     /// <param name="options">框架选项</param>
     /// <param name="shellExecutor">shell 执行器（有生命周期，交给句柄释放）</param>
@@ -214,7 +207,7 @@ internal static class AgentAssembler
     /// <param name="promptSegments">系统提示的分段清单；子代理与纯提示词档不传</param>
     /// <param name="inputEstimate">与本次压缩策略配对的输入估算；子代理不传</param>
     /// <returns>agent 句柄</returns>
-    internal static AgentHandle BuildHandle(IChatClient client, HarnessAgentOptions options,
+    internal static AgentHandle BuildHandle(AgentAssemblyPlan plan, IChatClient client, HarnessAgentOptions options,
         ShellExecutor? shellExecutor, McpToolSet? mcp = null,
         IReadOnlyList<AgentToolEntry>? toolEntries = null,
         IReadOnlyList<AgentPromptSegment>? promptSegments = null,
@@ -223,9 +216,9 @@ internal static class AgentAssembler
         // 将插件库内部日志(含工具执行失败的真实异常)转发到 UiharuMind 日志
         MfaLoggerFactory loggerFactory = new();
         IServiceProvider services = new MfaServiceProvider(loggerFactory);
-        // 记忆清单在压缩外面并进消息(ADR 0076):压缩按真实大小算,旁路请求也按同一顺序投影
+        // 逐次改写链只有这一处(记忆清单 → 压缩 → 识图投影):常规请求与旁路请求共用,旁路那份由句柄带出去
         ServiceCallSignalingChatClient serviceCalls =
-            new(new MemoryIndexProjectingChatClient(MoveCompactionToLeaf(client, options)));
+            new(HistoryRewriteChain.Build(client, plan, TakeCompaction(options)));
         AIAgent agent = serviceCalls.AsHarnessAgent(options, loggerFactory, services);
 
         // [MFA绕坑] 绕:工具异常只回给模型一句"Error: Function failed." 因:框架管道内部构造 FunctionInvokingChatClient,选项不外露 删除条件:HarnessAgentOptions 暴露该开关
@@ -243,7 +236,11 @@ internal static class AgentAssembler
 
         // 选项此刻已装配完毕,记在句柄上供旁路请求(写交接文档)复用同一份
         return new AgentHandle(agent, serviceCalls, shellExecutor, options.ChatOptions, mcp, toolEntries,
-            promptSegments, inputEstimate);
+            promptSegments, inputEstimate)
+        {
+            // 旁路请求不经上面那条链,但改写口径必须与它同一条:只换压缩实例,链还是这一条
+            RewriteSideRequest = HistoryRewriteChain.ForSideRequest(plan),
+        };
     }
 
     // [MFA绕坑] 绕:压缩不交给框架的 CompactionProvider,改在最内层客户端上按 chat reducer 跑 因:Harness 恒开逐次落盘,逐次落盘层给会话写本地哨兵 ConversationId(_agent_local_chat_history),CompactionProvider 见 ConversationId 非空就当成服务端托管、整段跳过——压缩从未生效 删除条件:CompactionProvider 认得本地哨兵
@@ -257,10 +254,22 @@ internal static class AgentAssembler
     /// <returns>挂好压缩的客户端；没有压缩策略时原样返回</returns>
     internal static IChatClient MoveCompactionToLeaf(IChatClient client, HarnessAgentOptions options)
     {
-        if (options.DisableCompaction || options.CompactionStrategy is not { } compaction) return client;
+        return HistoryRewriteChain.ApplyCompaction(client, TakeCompaction(options));
+    }
+
+    /// <summary>
+    /// 把压缩策略从选项里摘出来，并关掉框架那一份（理由见 <see cref="MoveCompactionToLeaf"/>）。
+    /// 摘出来而不是就地挂到客户端上，是因为链要由 <see cref="HistoryRewriteChain"/> 一次挂全：
+    /// 记忆清单在外、识图投影在内，各自往客户端上叠就没人说得清顺序
+    /// </summary>
+    /// <param name="options">框架选项（压缩项就地清掉）</param>
+    /// <returns>压缩策略；没有或已关时为 null</returns>
+    private static CompactionStrategy? TakeCompaction(HarnessAgentOptions options)
+    {
+        if (options.DisableCompaction || options.CompactionStrategy is not { } compaction) return null;
 
         options.CompactionStrategy = null;
         options.DisableCompaction = true;
-        return client.AsBuilder().UseChatReducer(compaction.AsChatReducer()).Build();
+        return compaction;
     }
 }

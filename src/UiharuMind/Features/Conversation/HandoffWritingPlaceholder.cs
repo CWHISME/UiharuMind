@@ -55,6 +55,13 @@ public sealed class HandoffWritingPlaceholder
         if (_items.Remove(item)) _scrollToEnd();
     }
 
+    /// <summary>
+    /// 流式进度：已写出的 token 数。卡还没挂上时丢掉——那是上一次整理的尾巴，
+    /// 挂上时本就是 0，写上去反而像新的这次已经写了这么多
+    /// </summary>
+    /// <param name="tokens">累计已写出的 token 数（估算）</param>
+    public void ReportOutputTokens(int tokens) => _item?.ReportOutputTokens(tokens);
+
     /// <summary>条目已被整体清掉时只丢引用并停表；若整理还在跑，切回会话时由装载重新挂上</summary>
     public void Forget()
     {

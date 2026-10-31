@@ -108,6 +108,12 @@ public enum ETurnNotice
     HandoffStarted,
 
     /// <summary>
+    /// 交接文档写到一半：<c>Count</c> 是<b>已写出的 token 数</b>（估算）。
+    /// 这一发是流式的，界面据此在占位卡上显示进度——整份文档要写十几秒到几十秒，干转圈看不出它在动
+    /// </summary>
+    HandoffProgress,
+
+    /// <summary>
     /// 交接文档写失败（手动触发、且不是用户自己停的）：用户刚敲了 <c>/compact</c>，不能"点了没反应"
     /// </summary>
     HandoffFailed,
@@ -131,7 +137,11 @@ public enum ETurnNotice
 /// </summary>
 /// <param name="Kind">事件种类</param>
 /// <param name="Payload">附带正文，只有部分种类有</param>
-public readonly record struct TurnNotice(ETurnNotice Kind, string? Payload = null);
+/// <param name="Count">
+/// 附带的计数，只有部分种类有（如 <see cref="ETurnNotice.HandoffProgress"/> 的已写出 token 数）。
+/// 单开一个字段而不塞进 <see cref="Payload"/>：这条路每几十字走一次，别为个整数拼字符串
+/// </param>
+public readonly record struct TurnNotice(ETurnNotice Kind, string? Payload = null, int Count = 0);
 
 /// <summary>
 /// 审批回应的取得方式。一轮内容流结束时若冒出过审批请求，

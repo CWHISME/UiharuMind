@@ -100,6 +100,46 @@ public class HandoffWritingPlaceholderTests
         }
     }
 
+    /// <summary>
+    /// 流式进度：驱动方每几十字报一次已写出的 token 数，占位卡随同一拍跑表上屏。
+    /// 报数只记整数、不动布局——每块都刷会把会话流刷得直抖
+    /// </summary>
+    [Fact]
+    public void ReportOutputTokens_ShowsOnNextFlush()
+    {
+        HandoffWritingPlaceholder placeholder = NewPlaceholder();
+        placeholder.Show();
+        HandoffWritingItem item = Assert.IsType<HandoffWritingItem>(Assert.Single(_items));
+        try
+        {
+            Assert.Equal(string.Empty, item.TokenText); //还没报过：不显示
+
+            placeholder.ReportOutputTokens(1234);
+            Assert.Equal(string.Empty, item.TokenText); //记数不等于上屏，得等节拍
+
+            ((IStreamFlushTarget)item).FlushForDisplay();
+
+            Assert.Equal("1.2k token", item.TokenText);
+        }
+        finally
+        {
+            item.StopTiming();
+        }
+    }
+
+    /// <summary>卡收掉之后迟到的进度丢掉：那是上一发的尾巴，别让它污染下一张卡</summary>
+    [Fact]
+    public void ReportOutputTokens_AfterHide_IsDropped()
+    {
+        HandoffWritingPlaceholder placeholder = NewPlaceholder();
+        placeholder.Show();
+        placeholder.Hide();
+
+        placeholder.ReportOutputTokens(999); //不该抛
+
+        Assert.Empty(_items);
+    }
+
     /// <summary>清场停表后再挂一张，跑表从新条目自己的起点重新走</summary>
     [Fact]
     public void Forget_ThenShow_StartsFreshTimingOnNewCard()

@@ -535,11 +535,23 @@ public partial class HandoffWritingItem : ConversationItemBase, IStreamFlushTarg
 {
     private readonly long _startTicks = Stopwatch.GetTimestamp(); //整理开始时刻（live 计时用，单调时钟）
 
+    private int _outputTokens; //已写出的 token 数（估算），驱动方在流式过程中报；0 表示还没报过
+
     /// <summary>进行中耗时（如「3s」），随跑表 1 秒一跳；与工具卡同一路呈现（向下取整到整秒，避免节拍晚到带来的 1.1s、2.2s）</summary>
     [ObservableProperty] private string _timeText = string.Empty;
 
+    /// <summary>进行中已写出的量（如「1.2k token」），与耗时同一拍上屏；还没报过时为空（不显示）</summary>
+    [ObservableProperty] private string _tokenText = string.Empty;
+
     /// <summary>跑表节拍：与思考段/工具卡统一，1 秒一跳</summary>
     public int FlushIntervalMs => 1000;
+
+    /// <summary>
+    /// 记下流式进度。可从任意线程调：只写一个整数，上屏交给跑表——
+    /// 每来一块就动一次布局的话，这一发几十上百块会把会话流刷得直抖
+    /// </summary>
+    /// <param name="tokens">累计已写出的 token 数（估算）</param>
+    internal void ReportOutputTokens(int tokens) => _outputTokens = tokens;
 
     /// <summary>开始 live 跑表（占位卡挂上时调）。只排一次节拍，之后每拍自续</summary>
     internal void BeginLiveTiming() => StreamFlushPump.Request(this);
@@ -551,6 +563,7 @@ public partial class HandoffWritingItem : ConversationItemBase, IStreamFlushTarg
     {
         // 与工具卡同一路：live 跑表向下取整到整秒，否则节拍晚到几十~上百毫秒会稳定多出小数（1.1s、2.2s）
         TimeText = ToolCallItem.FormatLiveDuration(Stopwatch.GetElapsedTime(_startTicks));
+        TokenText = _outputTokens > 0 ? $"{TurnUsageLedger.Format(_outputTokens)} token" : string.Empty;
         StreamFlushPump.Request(this); //跑着就续下一拍；收掉后不再续
     }
 }

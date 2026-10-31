@@ -301,6 +301,9 @@
                                 <!-- 进行中耗时,与工具卡跑表同一口径,1 秒一跳 -->
                                 <TextBlock Classes="muted mono" FontSize="11" Text="{Binding TimeText}"
                                            VerticalAlignment="Center" />
+                                <!-- 已写出的量(估算),与耗时同一拍上屏;还没报过时为空,不占位 -->
+                                <TextBlock Classes="muted mono" FontSize="11" Text="{Binding TokenText}"
+                                           VerticalAlignment="Center" />
                             </StackPanel>
                         </Border>
                     </DataTemplate>

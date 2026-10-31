@@ -978,11 +978,14 @@ public sealed class TurnDriver : IDisposable
             // 与常规请求同一视图:同一口径供给(不带知识库片段)、同一套压缩。发原始历史的话,前缀在第一组折叠处
             // 就与已缓存的那份岔开,原始历史本身还可能比窗口还大——交接恰恰常在折叠动过手之后才写
             IReadOnlyList<ChatMessage> supplied = await HistorySupply.ForSideRequestAsync(session.History,
-                runner.ChatOptions, _usage.ContextLength, runner.InputEstimate?.FixedOverhead ?? 0,
-                compactToken);
+                runner.ChatOptions, runner.RewriteSideRequest, _usage.ContextLength,
+                runner.InputEstimate?.FixedOverhead ?? 0, compactToken);
             // 选项取本会话装配好的那一份(系统提示词 + 工具定义 + 采样参数),与常规轮次逐字一致
             HandoffReply reply = await HistoryHandoff.WriteAsync(HistorySupply.ClientFor(session), supplied,
-                runner.ChatOptions, _usage.ContextLength, extraInstructions, compactToken);
+                runner.ChatOptions, _usage.ContextLength, extraInstructions,
+                // 写到一半的数交给界面：整份文档要写十几秒，干转圈看不出它在动
+                onProgress: tokens => _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffProgress, Count: tokens)),
+                compactToken);
             // 这一发往往是整个会话最大的一次请求,照常记账:不记的话会话累计少算,它命没命中缓存也无从验证。
             // 日志带上前一次常规请求的命中与折叠量:对照着看才分得清是前缀岔开了,还是服务端本就不缓存
             long previousInput = _usage.LastInput;
@@ -990,8 +993,11 @@ public sealed class TurnDriver : IDisposable
             foreach (UsageDetails usage in reply.Usages)
             {
                 RecordUsage(session, runner, usage);
-                Log.Debug($"Context handoff request: input {_usage.LastInput}, cached {_usage.LastCachedInput}; " +
-                          $"previous request: input {previousInput}, cached {previousCached}, folded {_usage.CompactedInput}");
+                Log.Debug($"Context handoff request: input {_usage.LastInput}, " +
+                          $"cached {_usage.LastCachedInput} ({HitRate(_usage.LastCachedInput, _usage.LastInput)}); " +
+                          $"previous request: input {previousInput}, " +
+                          $"cached {previousCached} ({HitRate(previousCached, previousInput)}), " +
+                          $"folded {_usage.CompactedInput}");
             }
 
             if (reply.Text is not { } note)
@@ -1007,7 +1013,7 @@ public sealed class TurnDriver : IDisposable
             string? transcriptPath = HistoryTranscript.TrySave(session, runner.ChatOptions?.Tools);
             string recall = HistoryHandoff.BuildRecall(session.History, transcriptPath);
             // 开场句与上一轮最后一句由代码注入:正文成为新一轮的第一条消息,接续点落在末尾
-            string noteBody = HistoryHandoff.ComposeBody(note, HistoryHandoff.LastAssistantSentence(session.History));
+            string noteBody = HistoryHandoff.ComposeBody(note, HistoryHandoff.LastAssistantText(session.History));
             ChatMessage message = HistoryHandoff.CreateNote(HistoryHandoff.WithAppendix(noteBody, roster, recall));
             ChatMessageAnnotations.WriteHandoffDuration(message, handoffTimer.ElapsedMilliseconds);
             int before = session.History.Count;
@@ -1045,6 +1051,16 @@ public sealed class TurnDriver : IDisposable
             SessionManager.Instance.Running.NotifyStateChanged(session.SessionId); //转圈熄灭
         }
     }
+
+    /// <summary>
+    /// 命中率的日志写法。这一发常常占满整个窗口，只有绝对值时 334721 / 80896 得靠脑算，
+    /// 而「有没有走缓存」正是要看的那件事
+    /// </summary>
+    /// <param name="cached">命中的输入 token</param>
+    /// <param name="input">输入 token</param>
+    /// <returns>百分比；没有输入时为 n/a</returns>
+    private static string HitRate(long cached, long input) =>
+        input > 0 ? $"{100.0 * cached / input:0.0}%" : "n/a";
 
     /// <summary>
     /// 交接文档没写成。两种口径必须分开，而且<b>两种都要发一条通知</b>——
