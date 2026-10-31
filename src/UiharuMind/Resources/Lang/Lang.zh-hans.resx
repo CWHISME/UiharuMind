@@ -228,6 +228,9 @@
     <data name="AgentThinkingStatsFormat" xml:space="preserve">
         <value>{0} · {1} 字{2}</value>
     </data>
+    <data name="AgentThinkingTokensFormat" xml:space="preserve">
+        <value>{0} · {1} 思考 token</value>
+    </data>
     <data name="AgentThinkingTruncatedFormat" xml:space="preserve">
         <value>…(已截断,共 {0} 字符)</value>
     </data>

@@ -9,6 +9,7 @@
 
 using System.Diagnostics;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution;
 
 namespace UiharuMind.Core.AI.Chat;
 
@@ -33,6 +34,11 @@ public sealed class ThinkingStatsRecorder
     private TimeSpan _segmentStart; //当前思考段的开始时刻（相对 _clock）
     private bool _segmentOpen; //正处在一段思考里
     private long _segmentChars; //当前思考段的字数
+    private TimeSpan _callStart; //当前服务调用发出的时刻（零字思考段的起点只能取它）
+    private bool _bodilessOpen; //正处在一段零字思考里（加密思考）
+    private TimeSpan _bodilessStart; //零字思考段的开始时刻
+    // 零字思考段的耗时（毫秒），按到达顺序。不掺进 _segments：那份是按字数分摊的，零字掺进去会被别人吃掉
+    private readonly Queue<long> _bodilessDurations = new();
     private TimeSpan _totalThinking; //本轮思考段耗时之和
     private long _totalThinkingChars; //本轮思考字数之和
     private int _stampedSegmentCount; //已分摊出去的思考段数（多次盖章不重复分摊，见 StampThinking）
@@ -47,6 +53,12 @@ public sealed class ThinkingStatsRecorder
     public long TotalThinkingChars => _totalThinkingChars;
 
     /// <summary>
+    /// 一次服务调用开始了。零字思考段（加密思考）没有「第一个思考增量」可依，
+    /// 起点只能取这次调用发出的时刻。
+    /// </summary>
+    public void NoteCallStarted() => _callStart = _clock.Elapsed;
+
+    /// <summary>
     /// 喂入一段内容。由 <see cref="UiharuMind.Core.AI.Execution.TurnDriver"/> 在转发给渲染落点时顺带调用。
     /// 思考走边界分发；工具调用按 <c>CallId</c> 记发出时刻、结果到达时结算
     /// （含中间的审批等待——它是这次调用落地真实花掉的时间）。
@@ -57,6 +69,12 @@ public sealed class ThinkingStatsRecorder
         ThinkingBoundary.Dispatch(content, _thinkParser, _ => CloseSegment(), AddThinking, NoteSegmentClosed);
         switch (content)
         {
+            // 报了思考 token 却一个字正文都没回（加密思考）：开一段零字思考，由下一段内容收尾。
+            // 起点取调用发出的时刻——它没有「第一个思考增量」可依，而思考就是从那时开始的
+            case ThinkingNotReturnedContent when !_bodilessOpen:
+                _bodilessOpen = true;
+                _bodilessStart = _callStart;
+                break;
             case FunctionCallContent call when !string.IsNullOrEmpty(call.CallId):
                 // 先到先得：同一 CallId 只记第一次发出（重试/重放不刷新起点）
                 _toolStarted.TryAdd(call.CallId, _clock.Elapsed);
@@ -124,23 +142,34 @@ public sealed class ThinkingStatsRecorder
 
     private int StampThinking(IList<ChatMessage> history, int fromIndex)
     {
-        if (_totalThinkingChars <= 0) return 0;
+        if (_segments.Count == 0 && _bodilessDurations.Count == 0) return 0;
 
         int start = Math.Clamp(fromIndex, 0, history.Count);
         List<ChatMessage> targets = new();
         List<long> weights = new();
+        int stampedBodiless = 0;
         for (int i = start; i < history.Count; i++)
         {
             ChatMessage message = history[i];
             if (message.Role != ChatRole.Assistant) continue; //思考只会是助手的；用户原文里的 <think> 字样不能算
             if (ChatMessageAnnotations.TryReadThinkingStats(message, out _, out _)) continue;
             long chars = ThinkingCharsOf(message);
-            if (chars <= 0) continue;
+            if (chars <= 0)
+            {
+                // 零字的只有加密思考那种卡（报了 token 没正文），耗时取自它自己那一段；
+                // 别的零字消息压根没思考过，不能盖
+                if (!ChatMessageAnnotations.TryReadThinkingUnavailable(message, out _)) continue;
+                if (_bodilessDurations.Count == 0) continue;
+                ChatMessageAnnotations.WriteThinkingStats(message, _bodilessDurations.Dequeue(), 0);
+                stampedBodiless++;
+                continue;
+            }
+
             targets.Add(message);
             weights.Add(chars);
         }
 
-        if (targets.Count == 0) return 0;
+        if (targets.Count == 0) return stampedBodiless;
         // 只分摊新增的段：之前盖过章的段已从游标后划掉，不再参与——否则轮内调多次时
         // 前面那段的耗时会被后面的消息再分一遍，总和对不上计时器。
         // 段已用完却还有新消息（极罕见，如消息落盘晚于盖章）时宁可不写：写 0ms 是假数，
@@ -158,7 +187,7 @@ public sealed class ThinkingStatsRecorder
 
         _stampedSegmentCount += fresh.Count;
         _stampedThinkingMs += shares.Sum();
-        return targets.Count;
+        return targets.Count + stampedBodiless;
     }
 
     /// <summary>
@@ -274,6 +303,12 @@ public sealed class ThinkingStatsRecorder
 
     private void CloseSegment()
     {
+        if (_bodilessOpen)
+        {
+            _bodilessOpen = false;
+            _bodilessDurations.Enqueue((long)(_clock.Elapsed - _bodilessStart).TotalMilliseconds);
+        }
+
         if (!_segmentOpen) return;
         _segmentOpen = false;
         TimeSpan elapsed = _clock.Elapsed - _segmentStart;

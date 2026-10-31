@@ -205,6 +205,20 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
             // ② 带票据的——转成一条持久的思考内容（ProtectedData 装密文、附加产出方身份），
             //    随消息存进历史。票据长在消息上，重启后读历史即得，
             //    不需要重建任何映射；历史一裁剪、一替换，序号映射那套就会错位。
+            // 「报了思考 token 却一个字没回」那条信号：落盘前转成消息上的标记并摘掉自己。
+            // 标记长在消息上，重开会话时卡按它补回来；留在内容里则只会跟着历史走、白占存储。
+            // 正文里带 <think> 的模型（本地那类）同样一个字的结构化思考都没有，但它真的想过——
+            // 那种消息已经有一张带正文的卡，再盖标记就是回放时凭空多插一张「加密思考」卡
+            if (message.Contents.OfType<ThinkingNotReturnedContent>().LastOrDefault() is { } unavailable)
+            {
+                if (ThinkingStatsRecorder.ThinkingCharsOf(message) == 0)
+                {
+                    ChatMessageAnnotations.WriteThinkingUnavailable(message, unavailable.ReasoningTokens);
+                }
+
+                message.Contents = message.Contents.Where(x => x is not ThinkingNotReturnedContent).ToList();
+            }
+
             if (message.Contents.Any(x => x is EncryptedReasoningContent))
             {
                 message.Contents = message.Contents

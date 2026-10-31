@@ -69,11 +69,25 @@ public partial class ThinkingItem
     /// <param name="elapsed">耗时</param>
     /// <param name="charCount">全文字符数</param>
     /// <param name="isFinal">数已定格（收尾、存档），不会再跳</param>
+    /// <param name="reasoningTokens">
+    /// 服务端报的思考 token。只在这一段<b>没有正文</b>（加密思考：只回密文或只报计数）时用得上——
+    /// 那时字数恒为 0，速度无从谈起，能报的只有耗时与它
+    /// </param>
     /// <returns>标题栏文本</returns>
-    public static string FormatStats(TimeSpan elapsed, long charCount, bool isFinal = false)
+    public static string FormatStats(TimeSpan elapsed, long charCount, bool isFinal = false,
+        long reasoningTokens = 0)
     {
         if (!isFinal && elapsed.TotalSeconds >= 1)
             elapsed = TimeSpan.FromSeconds(Math.Floor(elapsed.TotalSeconds));
+        // 没有正文的卡：字数是假数，token 是真的；连 token 都没有就只报耗时
+        if (charCount <= 0)
+        {
+            return reasoningTokens > 0
+                ? string.Format(Loc.Text(LangKey.AgentThinkingTokensFormat),
+                    FormatDuration(elapsed), reasoningTokens.ToString("N0"))
+                : FormatDuration(elapsed);
+        }
+
         string count = charCount.ToString("N0");
         string speedSuffix = string.Empty;
         if (elapsed > TimeSpan.Zero && charCount > 0)
@@ -87,6 +101,20 @@ public partial class ThinkingItem
     }
 
     /// <summary>
+    /// 补上服务端报的思考 token 并刷新标题统计。
+    ///
+    /// 加密思考的 token 数要等这一发收尾（用量那一帧）才报得出来，而卡早在流里就开了——
+    /// 两条信号落到的必须是同一张卡，所以这里只改数、不新建。
+    /// </summary>
+    /// <param name="tokens">服务端报的思考 token</param>
+    public void SetReasoningTokens(long tokens)
+    {
+        if (tokens <= 0 || tokens == ReasoningTokens) return;
+        ReasoningTokens = tokens;
+        if (!IsStatsFrozen) UpdateStats(FullLength, isFinal: true);
+    }
+
+    /// <summary>
     /// 定格存档值（回放命中统计时调用）。此后泵的延迟冲刷与收尾都不再重算——
     /// 重建卡片的计时起点是打开会话那一刻，重算只会得到 0.1s 的假耗时。
     /// </summary>
@@ -94,7 +122,7 @@ public partial class ThinkingItem
     /// <param name="chars">存档字数</param>
     public void ApplyPersistedStats(TimeSpan duration, long chars)
     {
-        StatsText = FormatStats(duration, chars, isFinal: true);
+        StatsText = FormatStats(duration, chars, isFinal: true, ReasoningTokens);
         _closedElapsed = duration;
         _closedChars = chars;
         _statsSource = EStatsSource.Persisted; //存档里已有，不必再写回
@@ -121,7 +149,24 @@ public partial class ThinkingItem
     /// <param name="message">来源历史消息</param>
     public static void FreezeReplayItems(IReadOnlyList<ThinkingItem> items, ChatMessage message)
     {
-        // 没有正文的卡（加密思考）不参与分配：它本来就没有字数，定格成「0 字」是假数
+        if (items.Count == 0) return;
+        // 没有正文的卡（加密思考）字数恒为 0，按字数分配只会分到 0ms；它另有 token 数可报，
+        // 耗时取消息上那条整体值——一条消息只可能有一张这种卡（有正文就不会走到这条路上）
+        List<ThinkingItem> bodiless = items.Where(x => x.IsContentUnavailable).ToList();
+        if (bodiless.Count > 0)
+        {
+            bool hasBodilessStats = ChatMessageAnnotations.TryReadThinkingStats(message, out TimeSpan bodilessMs, out _);
+            if (ChatMessageAnnotations.TryReadThinkingUnavailable(message, out long tokens))
+            {
+                foreach (ThinkingItem card in bodiless) card.ReasoningTokens = tokens;
+            }
+
+            if (hasBodilessStats)
+            {
+                foreach (ThinkingItem card in bodiless) card.ApplyPersistedStats(bodilessMs, 0);
+            }
+        }
+
         items = items.Where(x => !x.IsContentUnavailable).ToList();
         if (items.Count == 0) return;
         if (!ChatMessageAnnotations.TryReadThinkingStats(message, out TimeSpan duration, out long chars))

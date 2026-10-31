@@ -13,6 +13,23 @@ namespace UiharuMind.App.Tests.Conversation;
 /// </summary>
 public class ThinkingItemStatsTests
 {
+    /// <summary>没有正文的卡（加密思考）：不报字数与速度，报耗时与服务端给的思考 token</summary>
+    [Fact]
+    public void FormatStats_BodilessCard_ReportsTokensInsteadOfChars()
+    {
+        string expected = string.Format(Loc.Text("AgentThinkingTokensFormat"), "2.4s", ((long)790).ToString("N0"));
+
+        Assert.Equal(expected, ThinkingItem.FormatStats(TimeSpan.FromMilliseconds(2400), 0, isFinal: true,
+            reasoningTokens: 790));
+    }
+
+    /// <summary>没有正文也没报 token：只剩耗时，不能编出「0 字」</summary>
+    [Fact]
+    public void FormatStats_BodilessWithoutTokens_ShowsDurationOnly()
+    {
+        Assert.Equal("2.4s", ThinkingItem.FormatStats(TimeSpan.FromMilliseconds(2400), 0, isFinal: true));
+    }
+
     /// <summary>还在流也不设限：有字数、有时间就报速度</summary>
     [Fact]
     public void FormatStats_LiveSubSecond_HasSpeed()

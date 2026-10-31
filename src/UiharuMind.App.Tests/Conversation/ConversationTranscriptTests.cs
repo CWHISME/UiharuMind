@@ -928,17 +928,15 @@ public class ConversationTranscriptTests
 
     /// <summary>
     /// 闭源模型只回密文/只报计数时一个字都流不出来，思考卡本来一张都不会有。
-    /// 补的卡必须落在回答<b>之前</b>——思考发生在正文之前，而这条通知要等用量到达
-    /// （服务调用收尾）才发得出来，此刻气泡已经画好了。
+    /// 信号在流尾才到，卡必须插回本段开头——思考发生在正文之前，直接追加会画到回答下面去。
     /// </summary>
     [Fact]
-    public void ThinkingNotReturned_InsertsCardBeforeTheReplyBubble()
+    public void ThinkingNotReturnedSignal_OpensCardBeforeTheReplyBubble()
     {
         (ConversationTranscript transcript, List<ConversationItemBase> items) = Create();
 
         transcript.Apply(new TextContent("答"));
-        transcript.Apply(MessageBoundaryContent.Instance);
-        transcript.ThinkingNotReturned(790);
+        transcript.Apply(new ThinkingNotReturnedContent(790));
 
         Assert.Equal(2, items.Count);
         ThinkingItem card = Assert.IsType<ThinkingItem>(items[0]);
@@ -946,21 +944,41 @@ public class ConversationTranscriptTests
         Assert.IsType<TextConversationItem>(items[1]);
     }
 
-    /// <summary>没有正文的卡不报字数：那两样本来就不存在，「0 字」是编出来的假数。</summary>
+    /// <summary>
+    /// 两条信号落到<b>同一张卡</b>上：加密条目先开卡（那时还不知道想了多少），
+    /// 流尾那条带 token 数的只把数补上去，不新建第二张。
+    /// </summary>
     [Fact]
-    public void ThinkingNotReturned_CardCarriesNoStats()
+    public void ThinkingNotReturnedSignal_FillsTokensOnTheCardOpenedByTheTicket()
     {
         (ConversationTranscript transcript, List<ConversationItemBase> items) = Create();
 
+        transcript.Apply(EncryptedReasoningContent.Instance);
         transcript.Apply(new TextContent("答"));
-        transcript.Apply(MessageBoundaryContent.Instance);
-        transcript.ThinkingNotReturned(790);
+        transcript.Apply(new ThinkingNotReturnedContent(790));
+
+        ThinkingItem card = Assert.Single(items.OfType<ThinkingItem>());
+        Assert.True(card.IsContentUnavailable);
+        Assert.Equal(790, card.ReasoningTokens);
+        Assert.Single(items.OfType<TextConversationItem>());
+    }
+
+    /// <summary>没有正文的卡照样报耗时与思考 token，但不报字数、没有「查看全文」。</summary>
+    [Fact]
+    public void ThinkingNotReturnedSignal_CardReportsTokensWithoutBody()
+    {
+        (ConversationTranscript transcript, List<ConversationItemBase> items) = Create();
+
+        transcript.Apply(new ThinkingNotReturnedContent(790));
 
         ThinkingItem card = items.OfType<ThinkingItem>().Single();
         card.Flush();
 
-        Assert.Equal(string.Empty, card.StatsText);
+        Assert.Equal(790, card.ReasoningTokens);
+        Assert.Contains("790", card.StatsText);
+        Assert.DoesNotContain("字", card.StatsText);
         Assert.Equal(string.Empty, card.Message);
+        Assert.False(card.IsPreviewTruncated);
     }
 
     /// <summary>有正文的思考照旧走自己的卡，不会被这条通知影响（驱动侧有正文就不会发它）。</summary>

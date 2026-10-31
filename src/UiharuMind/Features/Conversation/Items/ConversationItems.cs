@@ -74,9 +74,13 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget, IL
 
     /// <summary>
     /// 思考没给正文：闭源模型（部分闭源模型）只回密文或只报计数，正文压根不存在。
-    /// 这种卡只有标题，不展开、不报字数——「0 字 · 0s」是编出来的假数。
+    /// 这种卡不展开、不报字数，标题栏只报耗时与服务端报的思考 token
+    /// （<see cref="ReasoningTokens"/>）——「0 字」是编出来的假数，token 不是。
     /// </summary>
     [ObservableProperty] private bool _isContentUnavailable;
+
+    /// <summary>服务端为这一段报的思考 token；只有没有正文的卡才有（有正文时报的是字数）</summary>
+    public long ReasoningTokens { get; set; }
 
     /// <summary>
     /// 全文增量订阅者及其「已消费到的缓冲长度」（游标）。每人各记各的——
@@ -139,7 +143,6 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget, IL
     public void Flush()
     {
         if (IsStatsFrozen) return; //回放冻结:存档值已定,收尾重算只会把它抹成 0.1s
-        if (IsContentUnavailable) return; //没有正文的卡:统计与正文都不存在,重算只会写进 0 字
         string text;
         int fullLen;
         // 取快照再赋值:赋值会引发绑定与布局,不该攥着锁做
@@ -169,7 +172,8 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget, IL
     void IStreamFlushTarget.FlushForDisplay()
     {
         if (IsStatsFrozen) return; //回放冻结:泵的延迟冲刷不能盖掉存档值
-        if (IsContentUnavailable) return; //没有正文的卡不该被泵刷出 0 字
+        // 没有正文的卡没人 Append，靠这拍自续；收尾（IsDone）后不再续，泵空了自停
+        if (IsContentUnavailable && !IsDone) StreamFlushPump.Request(this);
         string text;
         int len;
         lock (_bufferGate)
@@ -255,12 +259,22 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget, IL
     /// <param name="charCount">缓冲里的字符数</param>
     private void UpdateStats(int charCount, bool isFinal = false)
     {
-        StatsText = FormatStats(LiveElapsed, charCount, isFinal);
+        StatsText = FormatStats(LiveElapsed, charCount, isFinal, ReasoningTokens);
         _lastStatsAt = DateTime.Now;
     }
 
     /// <summary>本段思考开始至今的耗时（live provisional 显示用；存档以历史里的为准）</summary>
     private TimeSpan LiveElapsed => Stopwatch.GetElapsedTime(_startTicks);
+
+    /// <summary>
+    /// 开始 live 跑表。有正文的卡靠增量驱动上屏泵，没有正文的卡没有增量——建卡时踢一脚，
+    /// 之后每拍自续（与工具卡同一路），收尾（<see cref="ConversationItemBase.IsDone"/>）即停。
+    /// </summary>
+    internal void BeginLiveTiming() => StreamFlushPump.Request(this);
+
+    /// <summary>停止 live 跑表（卡被摘掉或清场时调），泵空了自动停</summary>
+    internal void StopTiming() => StreamFlushPump.Remove(this);
+
 
     /// <summary>
     /// 耗时显示格式:1 分钟内给秒(带一位小数),1 小时内给分+秒,更久给时+分。

@@ -57,7 +57,6 @@ public sealed class ConversationTranscript : ITurnSink
     private TextConversationItem? _streamingText;
     private ThinkingItem? _streamingThinking;
     private int _segmentFirstItem = -1; //本段第一条条目在落点里的下标,-1=本段还没有条目
-    private int _closedSegmentFirstItem = -1; //刚收尾那一段的首条下标,「加密思考」卡要插回原位
     private bool _segmentHadThinking; //本段已经有过带正文的思考卡(含已收尾的)
     private bool _offThreadReported; //跨线程写入只报一次,否则流式期间会刷屏
 
@@ -215,16 +214,20 @@ public sealed class ConversationTranscript : ITurnSink
                 FindCall(image.CallId)?.ApplyImageProgress(image.Progress);
                 break;
 
-            // 模型开始思考但一个字都没有（加密思考）：先开一张卡让它转起来。
-            // 落盘那一刻的补卡（ThinkingNotReturned）只是兜底，不能当主路径——那时整段思考期已经过去了
+            // 模型开始思考但一个字都没有：开一张没有正文的卡让它转起来。
+            // 两种证据都走这里——流里看见了加密条目，或服务端报了思考 token 却一个字没回
             case EncryptedReasoningContent:
                 ThinkingStarted();
+                break;
+
+            // 同一张卡，只是这一条还带着「它想了多少」
+            case ThinkingNotReturnedContent notReturned:
+                ThinkingStarted(notReturned.ReasoningTokens);
                 break;
 
             // 一次服务调用到此为止:之后的正文属于下一条助手消息,不能续进当前气泡
             case MessageBoundaryContent boundary:
                 ThinkingBoundary.Dispatch(boundary, _thinkParser, AppendText, AppendThinking, CloseSegment);
-                _closedSegmentFirstItem = _segmentFirstItem;
                 _segmentFirstItem = -1;
                 MessageBoundaryReached?.Invoke();
                 break;
@@ -392,54 +395,44 @@ public sealed class ConversationTranscript : ITurnSink
     }
 
     /// <summary>
-    /// 本次服务调用报了思考 token 却没有一个字：补一张「加密思考」卡。
-    ///
-    /// 思考卡原本只在有正文增量时才建（见 <see cref="AppendThinking"/>），而闭源模型
-    /// （部分闭源模型）只回密文或只报计数，正文压根不存在——于是一张卡都不会出现，
-    /// 界面上整段空白，读起来像模型没思考过。这里补的卡<b>不带正文也不报字数</b>：那两样本来就没有，
-    /// 编不出来；只把标题换成「加密思考」，让人知道它想过。
-    ///
-    /// 插回本段首条条目的位置：思考发生在正文之前，而这条通知要等用量到达（服务调用收尾）
-    /// 才发得出来，此刻正文气泡已经画好了，直接 Append 会画到回答下面去。
-    /// </summary>
-    /// <param name="reasoningTokens">服务端报的思考 token 数</param>
-    public void ThinkingNotReturned(long reasoningTokens)
-    {
-        VerifyUiAccess();
-        // 流式期间已经开过卡（见 ThinkingStarted）：把它收尾就好，别再插一张
-        if (_streamingThinking is { IsContentUnavailable: true } live)
-        {
-            live.IsDone = true;
-            if (AutoCollapseThinking) live.IsExpanded = false;
-            _streamingThinking = null;
-            return;
-        }
-
-        ThinkingItem card = new() { IsContentUnavailable = true, IsDone = true };
-        int at = _closedSegmentFirstItem;
-        if (at < 0 || at > _target.Count) at = _target.Count;
-        _target.Insert(at, card);
-    }
-
-    /// <summary>
     /// 模型开始思考，但正文一个字都不会来（加密思考）。开一张<b>没有正文</b>的卡并让它转起来。
     ///
-    /// 这条信号由 HTTP 层在流里看见 <c>reasoning.encrypted</c> 时发出（经 <c>LazyChatClient</c> 转成内容）。
-    /// 没有它，卡只能等落盘那一刻才补，整段思考期界面是空的——读起来像模型没在干活。
+    /// 两条信号都走这里：HTTP 层在流里看见 <c>reasoning.encrypted</c> 时发的那条（开卡早，但没有 token 数），
+    /// 与流尾「报了思考 token 却一个字没回」那条（带 token 数）。落到的是同一张卡。
     /// </summary>
-    public void ThinkingStarted()
+    /// <param name="reasoningTokens">服务端报的思考 token；未知传 0</param>
+    public void ThinkingStarted(long reasoningTokens = 0)
     {
         VerifyUiAccess();
         // 本段已经有过带正文的思考卡：再补一张「没有正文」的只是噪音——用户已经看见它想什么了。
         // 这条判断不能只看 _streamingThinking：正文一开始流，那张卡就收尾置空了
-        if (_segmentHadThinking) return;
+        if (_segmentHadThinking)
+        {
+            // 但 token 数可以补到先开的那张空卡上（它开在流里，那时还不知道这一发想了多少）
+            if (reasoningTokens > 0 && _segmentFirstItem >= 0 && _segmentFirstItem < _target.Count &&
+                _target[_segmentFirstItem] is ThinkingItem { IsContentUnavailable: true } existing)
+            {
+                existing.SetReasoningTokens(reasoningTokens);
+            }
+
+            return;
+        }
+
         CloseText(); //思考发生在正文之前：正文万一先流了，先收段，卡才排得对
 
-        ThinkingItem card = new() { IsContentUnavailable = true, IsExpanded = true };
+        ThinkingItem card = new()
+        {
+            IsContentUnavailable = true,
+            IsExpanded = true,
+            IsDone = false, //还在思考：跑表靠这一位判断该不该续拍
+            ReasoningTokens = reasoningTokens,
+        };
         // 插回本段开头，不是追加到当前末尾：票是网关在流的<b>任意一帧</b>塞过来的，
         // 按到达位置追加会变成「工具调用之后突然冒出一张思考卡」——思考其实在调用之前
         int at = _segmentFirstItem >= 0 ? _segmentFirstItem : _target.Count;
         _target.Insert(at, card);
+        // 没有正文就没有增量来驱动上屏泵：踢一脚，标题上的耗时才开始走（与工具卡同一路）
+        if (_isUiBound) card.BeginLiveTiming();
         _streamingThinking = card;
         _segmentHadThinking = true;
     }
@@ -569,9 +562,9 @@ public sealed class ConversationTranscript : ITurnSink
         _pending.Clear();
         _round.Clear();
         _streamingText = null;
+        _streamingThinking?.StopTiming(); //切会话时卡片跟着走人，跑表得一起停
         _streamingThinking = null;
         _segmentFirstItem = -1;
-        _closedSegmentFirstItem = -1;
         _segmentHadThinking = false;
         _thinkParser.Reset();
     }
@@ -593,6 +586,7 @@ public sealed class ConversationTranscript : ITurnSink
         // 先开的是「没有正文」那张（加密思考的信号），正文真来了就把它换成正常的卡
         if (_streamingThinking is { IsContentUnavailable: true } placeholder)
         {
+            placeholder.StopTiming(); //它自己不会收尾，跑表得先摘掉，否则泵一直攥着它
             _target.Remove(placeholder);
             _streamingThinking = null;
         }

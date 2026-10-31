@@ -1,5 +1,6 @@
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Execution;
 // 项目自有的 struct ChatMessage 遮蔽了 Microsoft.Extensions.AI.ChatMessage，阶段 2 会删除它
 using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
@@ -53,6 +54,56 @@ public class ThinkingStatsRecorderTests
         // 取消截掉的半段没进历史，段与消息对不上
         Assert.Null(ThinkingStatsRecorder.AttributeSegments([(1_000, 100), (1_000, 50)], [100]));
         Assert.Null(ThinkingStatsRecorder.AttributeSegments([(1_000, 100)], [60, 40]));
+    }
+
+    /// <summary>
+    /// 零字思考的耗时不能被按字数分摊吃掉：它只认自己那一段，
+    /// 有正文的消息也只认自己那几段——两边的数都不许互相抬高。
+    /// </summary>
+    [Fact]
+    public void Stamp_BodilessAndTextSegments_DoNotStealFromEachOther()
+    {
+        ThinkingStatsRecorder recorder = new();
+        recorder.NoteContent(new TextReasoningContent("先想想。"));
+        recorder.NoteSegmentClosed();
+        recorder.NoteCallStarted();
+        Thread.Sleep(5); //零字段的起点是调用发出那一刻，信号要到流尾才来
+        recorder.NoteContent(new ThinkingNotReturnedContent(790));
+        recorder.NoteSegmentClosed();
+
+        ChatMessage textReply = new(ChatRole.Assistant, [new TextReasoningContent("先想想。")]);
+        ChatMessage bodiless = new(ChatRole.Assistant, [new TextContent("答")]);
+        ChatMessageAnnotations.WriteThinkingUnavailable(bodiless, 790);
+        List<ChatMessage> history = [textReply, bodiless];
+
+        recorder.Stamp(history, 0);
+
+        Assert.True(ChatMessageAnnotations.TryReadThinkingStats(textReply, out TimeSpan textMs, out long chars));
+        Assert.Equal("先想想。".Length, chars);
+        Assert.True(ChatMessageAnnotations.TryReadThinkingStats(bodiless, out TimeSpan bodilessMs, out long bodilessChars));
+        Assert.Equal(0, bodilessChars);
+        Assert.True(bodilessMs >= TimeSpan.FromMilliseconds(4), $"零字段应拿到自己那 5ms，实际 {bodilessMs.TotalMilliseconds}ms");
+        Assert.True(textMs < bodilessMs, $"有正文那段不该被抬高：text={textMs.TotalMilliseconds}ms bodiless={bodilessMs.TotalMilliseconds}ms");
+    }
+
+    /// <summary>报了思考 token、一个字没回的调用：消息上盖得到耗时，字数恒为 0。</summary>
+    [Fact]
+    public void Stamp_BodilessThinkingMessage_GetsDuration()
+    {
+        ThinkingStatsRecorder recorder = new();
+        recorder.NoteCallStarted();
+        Thread.Sleep(5); //零字段的起点是调用发出那一刻，信号要到流尾才来：中间必须有真实耗时
+        recorder.NoteContent(new ThinkingNotReturnedContent(790));
+        recorder.NoteSegmentClosed();
+        ChatMessage reply = new(ChatRole.Assistant, [new TextContent("答")]);
+        ChatMessageAnnotations.WriteThinkingUnavailable(reply, 790);
+        List<ChatMessage> history = [reply];
+
+        int stamped = recorder.Stamp(history, 0);
+
+        Assert.Equal(1, stamped);
+        Assert.True(ChatMessageAnnotations.TryReadThinkingStats(history[0], out _, out long chars));
+        Assert.Equal(0, chars);
     }
 
     [Fact]
