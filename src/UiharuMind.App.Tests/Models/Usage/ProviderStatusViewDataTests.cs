@@ -231,6 +231,41 @@ public sealed class ProviderStatusViewDataTests
     }
 
     [Fact]
+    public async Task MonthlyProgress_DerivedCap_DoesNotShowCentNoise()
+    {
+        // 用户截图：$0.83 / $69.99。分母是「剩余 + 已用」推的，两个读数取自不同时刻，
+        // 凑出来的 69.99 其实是 $70 的套餐——差几分钱不该显示出来
+        Harness harness = new(() => Context(), _ => new ProviderStatusSnapshot("Command Code", [],
+            new ProviderBalance(69.16, "$", null, [new ProviderCreditBucket(EProviderCreditBucket.Monthly, 69.16)]),
+            [], NoonUtc), NoonUtc);
+        harness.Source.SummaryFactory = _ =>
+            new ProviderUsageSummary(0.83, "$", new DateTimeOffset(2026, 10, 28, 10, 40, 16, TimeSpan.Zero), 43, 100);
+
+        harness.Data.Pump();
+        await harness.Data.RefreshSummaryAsync();
+
+        Assert.True(harness.Data.HasMonthlyProgress);
+        Assert.Equal(Loc.Text(LangKey.ProviderStatusMonthlyUsed, "$0.83", "$70"),
+            harness.Data.MonthlyAmountText);
+    }
+
+    [Fact]
+    public async Task MonthlyProgress_CapThatIsReallyFractional_KeepsItsDecimals()
+    {
+        // 容差只吃「残差」，不吃真的带小数的分母（买过零碎额度之类）
+        Harness harness = new(() => Context(), _ => new ProviderStatusSnapshot("Command Code", [],
+            new ProviderBalance(69.3, "$", null, [new ProviderCreditBucket(EProviderCreditBucket.Monthly, 69.3)]),
+            [], NoonUtc), NoonUtc);
+        harness.Source.SummaryFactory = _ =>
+            new ProviderUsageSummary(0.5, "$", new DateTimeOffset(2026, 10, 28, 10, 40, 16, TimeSpan.Zero), 43, 100);
+
+        harness.Data.Pump();
+        await harness.Data.RefreshSummaryAsync();
+
+        Assert.Equal(Loc.Text(LangKey.ProviderStatusMonthlyUsed, "$0.5", "$69.8"), harness.Data.MonthlyAmountText);
+    }
+
+    [Fact]
     public async Task MonthlyProgress_HidesTheDuplicateBucketRow()
     {
         // 进度块已经叫「本月额度」，桶行再写一次同名只是重复（用户截图指出）

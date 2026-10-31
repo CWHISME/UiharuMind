@@ -834,28 +834,59 @@ public static class SubAgentTool
     internal static ModelChoice ResolveSubAgentModelName(SubAgentProfile profile, string? requested = null)
     {
         string? asked = NormalizeModel(requested);
-        if (asked == null)
-            return new ModelChoice(PinnableModelName(profile.ResolveModelName(AgentSettingConfig.Current)),
-                string.Empty);
+        // 这一趟没点名:用设置页配的那档默认，钉不住才跟随派活者/全局
+        if (asked == null) return new ModelChoice(ConfiguredOrDefault(profile), string.Empty);
 
         // 点名的压过设置页那档默认:那两项的语义是"默认用哪个",而这一趟点名是"这一趟用哪个"
         if (PinnableModelName(asked) is { } pinned) return new ModelChoice(pinned, string.Empty);
 
-        // 回退了就必须说。这是派活方唯一能知道"我指定的模型没生效"的渠道——
-        // 模型名解析从不抛异常(查不到就静默回落全局),不说的话它会一直以为跑的是它点的那个
+        // 点名的不成立:回落到<b>设置页那档默认</b>（不是直接跟随主代理），并把实情写进回执。
+        // 这是派活方唯一能知道"我指定的模型没生效"的渠道——模型名解析从不抛异常，
+        // 不说的话它会一直以为跑的是它点的那个
         string reason = LlmManager.Instance.CacheModelDictionary.ContainsKey(asked)
             ? $"模型 '{asked}' 没有在运行"
             : $"没有名为 '{asked}' 的模型";
-        return new ModelChoice(PinnableModelName(profile.ResolveModelName(AgentSettingConfig.Current)),
-            $"注：{reason}，所以这次运行改用默认模型。");
+        string? fallback = ConfiguredOrDefault(profile);
+        // 落到哪儿就说到哪儿:默认模型也没得用时要讲明白这次跟随的是主代理的模型，
+        // 否则「改用默认模型」这句话是假的，而界面只有一个模型名，看不出区别
+        string target = fallback != null
+            ? $"所以这次运行改用设置里这一档的默认模型 '{fallback}'。"
+            : "设置里这一档也没有可用的模型，所以这次运行跟随你的模型。";
+        return new ModelChoice(fallback, $"注：{reason}，{target}");
     }
 
     /// <summary>
-    /// 一个模型名能不能钉上去：查得到、跑得起来、客户端已就绪才算。
+    /// 设置页配的那档默认模型；钉不住时留一条日志再回落。
     ///
-    /// <b>绝不把一个永远不会就绪的模型钉上去</b>，那会让惰性客户端死等，
-    /// 表现是 "Model is not running"。本地模型无法热切换（一次只能跑一个，端口写死，
-    /// 且 <c>EnsureModelStarted</c> 对本地模型直接 return 不自动加载），于是天然落进这一支。
+    /// 回落本身是必要的（本地模型没起来就是钉不得），但<b>必须留痕</b>：配置了探索模型却跑在
+    /// 主代理模型上，界面上只有一个模型名，翻会话元数据才看得出差别，没有日志就等于没发生。
+    /// </summary>
+    /// <param name="profile">子代理档</param>
+    /// <returns>钉得住的模型名；未配置或钉不住时为 null（跟随派活者/全局）</returns>
+    private static string? ConfiguredOrDefault(SubAgentProfile profile)
+    {
+        string configured = profile.ResolveModelName(AgentSettingConfig.Current);
+        if (string.IsNullOrWhiteSpace(configured)) return null;
+
+        string? pinned = PinnableModelName(configured);
+        if (pinned == null)
+        {
+            Log.Warning($"Sub-agent model '{configured}' ({profile.Type}) cannot be pinned; "
+                        + "the sub-session follows the parent/global model.");
+        }
+
+        return pinned;
+    }
+
+    /// <summary>
+    /// 一个模型名能不能钉上去：查得到、且它<b>跑得起来</b>才算。
+    ///
+    /// 判据是「远程」而不是「此刻已就绪」：远程模型可以在子会话第一次请求时被拉起并等就绪
+    /// （<see cref="LazyChatClient"/> 的 <c>ResolveAsync</c> 会先 <c>EnsureModelStarted</c> 再等），
+    /// 所以冷着也钉得住。这里曾经要求 <c>ChatClient != null</c>，于是配置了探索模型却没提前跑过的
+    /// 场合一律被静默丢掉、回落到全局模型——表现就是「只读子代理用了通用子代理的模型」
+    /// （两者恰好同值时更看不出来）。本地模型没起来才是真的钉不得：一次只能跑一个，
+    /// <c>EnsureModelStarted</c> 对它直接 return，钉上去就是惰性客户端死等再报 "Model is not running"。
     /// </summary>
     /// <param name="name">模型名；空白直接算不可钉</param>
     /// <returns>可钉时返回规范化后的模型名，否则 null</returns>
@@ -865,8 +896,9 @@ public static class SubAgentTool
         if (!LlmManager.Instance.CacheModelDictionary.TryGetValue(name, out ModelRunningData? found)) return null;
 
         ModelRunningData? candidate = found;
+        // 顺带把远程模型拉起来：钉完到第一轮请求之间多半就能就绪，省掉惰性客户端那段等待
         if (!LlmManager.Instance.TryCheckModelRunning(false, ref candidate)) return null;
-        return candidate is { ChatClient: not null } ? candidate.ModelName : null;
+        return candidate?.ModelName;
     }
 
     /// <summary>模型名按 <c>ModelName</c> 全局唯一 key 认，只去掉空白与换行；空白视为未指定</summary>

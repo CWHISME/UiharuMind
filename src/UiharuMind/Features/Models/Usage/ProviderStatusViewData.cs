@@ -32,6 +32,9 @@ public sealed partial class ProviderStatusViewData : ObservableObject, IDisposab
     private static readonly TimeSpan StaleAfter = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan JustNowAfter = TimeSpan.FromSeconds(3);
 
+    /// <summary>推出来的分母离整数多近就按整数显示：实测浮点残差不到 1 分，两块数据不同步约 $0.003</summary>
+    private const double CapSnapTolerance = 0.05;
+
     private readonly Func<ProviderStatusContext?> _contextProvider; //当前模型 → 取数输入；无状态可查时给 null
     private readonly ProviderStatusService _status;
     private readonly Func<DateTimeOffset> _now;
@@ -119,9 +122,19 @@ public sealed partial class ProviderStatusViewData : ObservableObject, IDisposab
 
     /// <summary>
     /// 一拍（30 秒，由 <see cref="ProviderStatusHub"/> 统一驱动）：重算倒计时与「是否仍处高峰」，
-    /// 必要时按 TTL 去取一次。同一把 key 的多份读数共用服务层的缓存，HTTP 只发生一次
+    /// 必要时按 TTL 去取一次。同一把 key 的多份读数共用服务层的缓存，HTTP 只发生一次。
+    ///
+    /// <b>可从任意线程调用</b>：除了定时拍，模型切换也会顺手叫一次，而那条通知来自后台线程。
+    /// 这里改的全是绑定属性，订阅者（控件）会立刻回读自己的属性，跨线程就会抛
+    /// 「The calling thread cannot access this object」。
     /// </summary>
     public void Pump()
+    {
+        if (_disposed) return;
+        _post(PumpOnUiThread);
+    }
+
+    private void PumpOnUiThread()
     {
         if (_disposed) return;
         ProviderStatusContext? context = _contextProvider();
@@ -486,7 +499,7 @@ public sealed partial class ProviderStatusViewData : ObservableObject, IDisposab
         MonthlyRatio = trustworthy ? Math.Clamp(summary.Used / cap, 0, 1) : 0;
         MonthlyPercentText = trustworthy ? PercentText(MonthlyRatio) : "";
         MonthlyAmountText = Loc.Text(LangKey.ProviderStatusMonthlyUsed,
-            summary.Unit + FormatAmount(summary.Used), summary.Unit + FormatAmount(cap));
+            summary.Unit + FormatAmount(summary.Used), summary.Unit + FormatCap(cap));
         // 日期与倒计时都要：日期回答「降到哪天」，倒计时回答「还有多久」
         DateTimeOffset resetAt = summary.PeriodStart.AddMonths(1);
         MonthlyResetText = Loc.Text(LangKey.ProviderStatusMonthlyResetLine,
@@ -580,6 +593,17 @@ public sealed partial class ProviderStatusViewData : ObservableObject, IDisposab
 
     private static string FormatAmount(double amount) => amount.ToString("0.##",
         System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// 分母的写法。它是推的（剩余 + 已用），两个读数取自不同时刻，实测会差几分钱：
+    /// 剩 69.9651 + 用 0.0348 = 70.0000，换个时刻取就成了 69.99。
+    /// 落在整数附近就按整数写——$70 的套餐显示成 $69.99，只会让人以为读数坏了。
+    /// </summary>
+    private static string FormatCap(double cap)
+    {
+        double rounded = Math.Round(cap);
+        return Math.Abs(cap - rounded) <= CapSnapTolerance ? FormatAmount(rounded) : FormatAmount(cap);
+    }
 
     /// <summary>倒计时用的短跨度（"12分" / "2时13分" / "2天4时"），单位词在资源里</summary>
     private static string ShortSpan(TimeSpan span)

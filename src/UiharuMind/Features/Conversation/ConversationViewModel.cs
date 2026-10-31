@@ -1099,8 +1099,21 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         });
     }
 
+    /// <summary>
+    /// 全局当前模型变了。<b>这个通知来自后台线程</b>——远程模型就绪那一下是
+    /// <c>StartChatModelAsync</c> 的异步续体回调的（见 <c>LlmManager.TryCheckModelRunning</c>），
+    /// 而这里要改的全是绑定属性：模型名、附件警示、用量分母，还有由此触发的顶栏读数
+    /// （<see cref="ProviderStatusViewData.Pump"/>）。不在 UI 线程上站定，第一个读控件属性的
+    /// 订阅者就会抛「The calling thread cannot access this object」。
+    /// </summary>
     private void OnCurrentModelChanged(ModelRunningData? model)
     {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => OnCurrentModelChanged(model));
+            return;
+        }
+
         OnPropertyChanged(nameof(SessionModelLabel));
         SessionModel.Refresh(); //默认项的跟随对象变了,下拉标签跟着变
         Tray.NotifyVisionStateChanged(); //换成非视觉模型时,待发的图就该立刻出警示

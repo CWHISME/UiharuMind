@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -62,6 +63,57 @@ public sealed class ProviderStatusTopBarTests
         TextBlock readout = indicator.FindControl<TextBlock>("Readout")!;
         Assert.True(readout.Bounds.Height <= MaxReadoutHeight, $"读数换行了：{readout.Bounds.Height}");
         Capture(window, "provider-status-header");
+
+        window.Close();
+    });
+
+    /// <summary>
+    /// 读数会被后台线程拍一下：模型切换的通知是从异步续体上来的（见 <c>LlmManager.TryCheckModelRunning</c>），
+    /// 而订阅了 PropertyChanged 的控件会立刻回读自己的 <c>Data</c> 属性——跨线程就是
+    /// "The calling thread cannot access this object"。这条拦的是「Pump 必须先在 UI 线程上落定」。
+    /// </summary>
+    [Fact]
+    public void PumpOnBackgroundThread_DoesNotTouchTheControlOffThread() => HeadlessUi.Run(() =>
+    {
+        ConversationView view = Show(out Window window);
+        ProviderStatusIndicator indicator = view.GetVisualDescendants().OfType<ProviderStatusIndicator>().Single();
+
+        DateTimeOffset now = new(2026, 10, 26, 12, 0, 0, TimeSpan.Zero);
+        StubProviderStatusSource source = new()
+        {
+            Clock = () => now,
+            SnapshotFactory = _ => new ProviderStatusSnapshot("Command Code",
+                [new ProviderUsageMeter(EProviderMeterSlot.FiveHour, 3.2, 10, "$", now.AddHours(3), false)],
+                null, [], now)
+        };
+        ProviderStatusService status = new(
+            new StubProviderStatusRegistry(typeof(RemoteCommandCodeModelConfig), source), () => now);
+        // 不注入 post：要的就是真实那条「回 UI 线程」，注入版是同步执行，测不出这件事
+        ProviderStatusViewData data = new(
+            () => new ProviderStatusContext(typeof(RemoteCommandCodeModelConfig), "https://api.commandcode.ai",
+                "key-a", "deepseek-v4-flash", "DeepSeek V4 Flash"),
+            status, () => now);
+        indicator.Data = data;
+        Dispatcher.UIThread.RunJobs();
+
+        // 时间往前走一格：后台那一拍算出的「数据年龄」与屏上的不同，才会真的抛一次属性变更
+        now = now.AddSeconds(30);
+        Exception? failure = null;
+        Task.Run(() =>
+        {
+            try
+            {
+                data.Pump();
+            }
+            catch (Exception e)
+            {
+                failure = e;
+            }
+        }).Wait();
+        Assert.Null(failure);
+
+        Dispatcher.UIThread.RunJobs(); // 补上被推迟的那一拍：读数照常上屏
+        Assert.True(indicator.FindControl<Button>("Trigger")!.IsVisible);
 
         window.Close();
     });
