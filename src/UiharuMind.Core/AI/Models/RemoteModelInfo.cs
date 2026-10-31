@@ -30,7 +30,10 @@ public class RemoteModelInfo : ILlmModel
     [JsonIgnore] public int ContextLength => Config.ContextLength;
     [JsonIgnore] public bool OmitSamplingParams => Config.OmitSamplingParams;
 
-    /// <summary>会话亲和写哪几个请求头名；空 = 不发（默认）。供应商配置自行声明</summary>
+    /// <summary>是否发会话亲和（远程模型默认开，本地与显式关掉的供应商不发）</summary>
+    [JsonIgnore] public bool SendsSessionAffinity => Config.SendsSessionAffinity;
+
+    /// <summary>公共头之外追加的请求头名；空 = 只发公共头与协议头</summary>
     [JsonIgnore] public IReadOnlyList<string>? SessionAffinityHeaders => Config.SessionAffinityHeaders;
 
     /// <summary>
@@ -44,8 +47,8 @@ public class RemoteModelInfo : ILlmModel
     /// </summary>
     [JsonIgnore] public string ProviderId => Config.ProviderId;
 
-    /// <summary>是否发 body 级的 <c>prompt_cache_key</c>（默认关，认它的供应商才开）</summary>
-    [JsonIgnore] public bool SupportsPromptCacheKey => Config.SupportsPromptCacheKey;
+    /// <summary>body 级要写的会话字段名（<c>session_id</c> / <c>prompt_cache_key</c>）；默认空，认它的供应商才开</summary>
+    [JsonIgnore] public IReadOnlyList<string>? SessionBodyFields => Config.SessionBodyFields;
     /// <summary>思考模式下带 tool_calls 时是否要求原样带回思考正文；<c>null</c>=自动(有思考就回传)，<c>true</c>/<c>false</c>=显式要求/禁止</summary>
     [JsonIgnore] public bool? ReplayExistingReasoning => Config.ReplayExistingReasoning;
 

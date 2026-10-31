@@ -54,15 +54,20 @@ internal static class ChatCompletionsRequestRewriter
         // 大多数请求不含畸形 tool_calls 参数,先做一次廉价的字节扫描,避免每次都逐条走 messages
         bool fixArguments = json.IndexOf("\"arguments\":\"null\""u8) >= 0 || json.IndexOf("\"arguments\": \"null\""u8) >= 0;
         if (rewrite.ExtraParams is not { Count: > 0 } && !rewrite.ForbidToolCalls && !fixArguments &&
-            !rewrite.OmitSamplingParams && !rewrite.FillEmptyReasoning && rewrite.PromptCacheKey == null)
+            !rewrite.OmitSamplingParams && !rewrite.FillEmptyReasoning && rewrite.SessionAffinity == null)
         {
             return false;
         }
 
         // 要追加到根上的键,同名后者覆盖前者(与在 DOM 上连续赋值一致)
         List<(string Key, byte[] Property)> added = [];
-        // 先写,让供应商额外参数能覆盖它(显式配置优先于这里推出的值)
-        if (rewrite.PromptCacheKey != null) Upsert(added, "prompt_cache_key", rewrite.PromptCacheKey);
+        // 先写,让供应商额外参数能覆盖它(显式配置优先于这里推出的值)。
+        // 几个会话字段共用同一个值:网关按第一个匹配的信号认会话,值不同就等于分裂成两个会话
+        if (rewrite.SessionAffinity != null && rewrite.SessionBodyFields != null)
+        {
+            foreach (string field in rewrite.SessionBodyFields) Upsert(added, field, rewrite.SessionAffinity);
+        }
+
         if (rewrite.ExtraParams != null)
         {
             foreach (var pair in rewrite.ExtraParams) Upsert(added, pair.Key, pair.Value);

@@ -60,12 +60,12 @@ internal sealed class RemoteModelManager
     {
         string endpoint = model.ModelPath + (model.Port > 0 ? ":" + model.Port : "");
         string apiKey = model is RemoteModelInfo remoteModel ? remoteModel.ApiKey : "";
-        // 亲和头名由供应商配置声明：认它的（如 OpenRouter）自己给，不认的一个都不发。
+        // 亲和三层在这里合流：公共头默认发、协议头由 handler 按线补、供应商只补自己独有的那几条。
         // wire 格式只由模型声明这一处给出，地址归一也交给 handler（同一个格式决定补哪个后缀）——
         // 早先是这里先归一一次、handler 再按地址猜一次，两处得手工对齐，对不上就是
         // 「模型声明走 messages、请求却打到 chat/completions」那种看不懂的 404
         var handler = new WireHttpHandler(endpoint, CreateReasoningFieldObserver(model),
-            model.SessionAffinityHeaders, model.ApiFormat);
+            model.SessionAffinityHeaders, model.ApiFormat, model.SendsSessionAffinity);
         // SDK 默认重试对限流太急(3 次 / 6 秒内打完),免费档模型的共享配额窗口远不止这么短;
         // 同一把密钥上并行的请求经发送闸排队,不再各自退避互撞
         return ChatClientFactory.Create(handler, model, model.ModelId, apiKey, new RateLimitAwareRetryPolicy(),

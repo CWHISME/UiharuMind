@@ -45,29 +45,46 @@ public class ChatCompletionsRequestRewriterTests
 
     /// <summary>body 级的会话亲和键：追加在根上，不动 messages（它不参与历史，只是给服务端挑缓存副本用）</summary>
     [Fact]
-    public void PromptCacheKey_IsAppendedToTheRoot()
+    public void SessionBodyField_IsAppendedToTheRoot()
     {
-        RequestRewrite rewrite = new(null, false, false, PromptCacheKey: "abc123");
+        RequestRewrite rewrite = new(null, false, false, SessionAffinity: "abc123",
+            SessionBodyFields: ["prompt_cache_key"]);
 
         Assert.Equal("""{"model":"m","messages":[],"prompt_cache_key":"abc123"}""",
             Rewrite("""{"model":"m","messages":[]}""", rewrite));
     }
 
+    /// <summary>
+    /// 多个会话字段共用<b>同一个值</b>：网关按第一个匹配的信号认会话，
+    /// 两个字段给不同值等于把自己分裂成两个会话
+    /// </summary>
+    [Fact]
+    public void SessionBodyFields_ShareOneValue()
+    {
+        RequestRewrite rewrite = new(null, false, false, SessionAffinity: "abc123",
+            SessionBodyFields: ["session_id", "prompt_cache_key"]);
+
+        Assert.Equal("""{"model":"m","session_id":"abc123","prompt_cache_key":"abc123"}""",
+            Rewrite("""{"model":"m"}""", rewrite));
+    }
+
     /// <summary>只要这个键存在就得改写——它是唯一「没有别的改动也要改」的一项</summary>
     [Fact]
-    public void PromptCacheKey_Alone_TriggersRewrite()
+    public void SessionBodyField_Alone_TriggersRewrite()
     {
-        Assert.Equal("""{"prompt_cache_key":"abc123"}""", Rewrite("{}", new(null, false, false, PromptCacheKey: "abc123")));
+        Assert.Equal("""{"prompt_cache_key":"abc123"}""", Rewrite("{}",
+            new(null, false, false, SessionAffinity: "abc123", SessionBodyFields: ["prompt_cache_key"])));
     }
 
     /// <summary>供应商额外参数里若显式给了这个键，以配置为准（它写在后面，同名后者覆盖）</summary>
     [Fact]
-    public void PromptCacheKey_IsOverridableByExtraParams()
+    public void SessionBodyField_IsOverridableByExtraParams()
     {
         IReadOnlyList<KeyValuePair<string, JsonNode?>> extras = [new("prompt_cache_key", JsonValue.Create("from-config"))];
 
         Assert.Equal("""{"model":"m","prompt_cache_key":"from-config"}""",
-            Rewrite("""{"model":"m"}""", new(extras, false, false, PromptCacheKey: "abc123")));
+            Rewrite("""{"model":"m"}""", new(extras, false, false, SessionAffinity: "abc123",
+                SessionBodyFields: ["prompt_cache_key"])));
     }
 
     [Fact]

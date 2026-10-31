@@ -42,6 +42,17 @@ public class RemoteOpenCodeModelConfig : BaseRemoteModelConfig, IRemoteModelConf
     };
 
     /// <summary>
+    /// opencode 系<b>强制</b>要 <c>x-opencode-session</c>：2026-09-05 起缺失该头的请求会被直接拒绝
+    /// （400 MissingSessionID）。公共头 <c>X-Session-Id</c> 照发，这一条是它独有的、必须追加的。
+    ///
+    /// 值用会话亲和值（哈希）而不是内部会话 id——路由只认相等性，不必把磁盘目录名发给第三方。
+    /// </summary>
+    public override IReadOnlyList<string>? SessionAffinityHeaders => ["x-opencode-session"];
+
+    /// <summary>body 字段没验证过它认不认，先不发——它会改字节，白付一次缓存失效</summary>
+    public override IReadOnlyList<string>? SessionBodyFields => null;
+
+    /// <summary>
     /// 网关下挂的模型各家不同，暂时沿用改动前的写法（<c>thinking.type</c> + <c>reasoning_effort</c>）。
     /// 是否被接受未验证，换格式前得先录一次真实请求。
     /// </summary>

@@ -31,8 +31,9 @@ class WireHttpHandler : DelegatingHandler
     public WireHttpHandler(string address = "http://127.0.0.1:1369/v1/chat/completions",
         Action<string>? reasoningFieldObserver = null,
         IReadOnlyList<string>? affinityHeaders = null,
-        EApiFormat? format = null)
-        : this(address, new HttpClientHandler(), reasoningFieldObserver, affinityHeaders, format)
+        EApiFormat? format = null,
+        bool sendsAffinity = false)
+        : this(address, new HttpClientHandler(), reasoningFieldObserver, affinityHeaders, format, sendsAffinity)
     {
     }
 
@@ -42,23 +43,26 @@ class WireHttpHandler : DelegatingHandler
     /// <param name="address">端点地址</param>
     /// <param name="inner">内层处理器</param>
     /// <param name="reasoningFieldObserver">思考字段观测回调（可选，观测到 origin 字段名时调用）</param>
-    /// <param name="affinityHeaders">会话亲和要写的头名；空或 null 表示这家网关不认，一个都不发</param>
+    /// <param name="affinityHeaders">供应商要追加的亲和头名；公共头与协议头另有来源，不在这里</param>
     /// <param name="format">
     /// 模型声明的 wire 格式。<b>有模型就一定要传</b>：它是唯一权威来源，
     /// 不传才退到按地址反查（只给拿不到模型的调用方用：本地服务、模型目录、状态探测）。
     /// 两条来源并存时必须以模型为准——用户把地址填成 <c>/v1</c> 时按地址猜不出协议，
     /// 退到 chat 就会把 messages 形状的请求体打到 chat 端点上
     /// </param>
+    /// <param name="sendsAffinity">这家发不发会话亲和；本地服务与显式关掉的供应商传 false</param>
     internal WireHttpHandler(string address, HttpMessageHandler inner,
         Action<string>? reasoningFieldObserver = null,
         IReadOnlyList<string>? affinityHeaders = null,
-        EApiFormat? format = null) : base(inner)
+        EApiFormat? format = null,
+        bool sendsAffinity = false) : base(inner)
     {
         _protocol = format is { } declared
             ? WireProtocols.For(declared)
             : WireProtocols.Detect(new UriBuilder(address).Uri) ?? WireProtocols.Chat;
         _baseUri = _protocol.Resolve(address).Uri;
-        _affinity = new SessionAffinityHeaders(affinityHeaders);
+        // 三层在这里合流：公共头默认发，协议头按线补，供应商只补自己独有的
+        _affinity = new SessionAffinityHeaders(sendsAffinity, _protocol.SessionHeaders, affinityHeaders);
         _sanitizer = new ResponseSanitizer(_protocol.SanitizesResponse, reasoningFieldObserver);
     }
 

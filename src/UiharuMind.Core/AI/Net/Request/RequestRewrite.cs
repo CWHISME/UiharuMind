@@ -9,7 +9,7 @@ namespace UiharuMind.Core.AI.Net.Request;
 /// 与「怎么做」（<see cref="ChatCompletionsRequestRewriter"/> 的字节级拼接）分开。
 ///
 /// 分开的理由是可测性：清单能拿模型声明直接断言，不必去读改写后的字节；
-/// 反过来改写器只关心字节，不再知道 <c>SupportsPromptCacheKey</c> 这类供应商知识。
+/// 反过来改写器只关心字节，不再知道 <c>SessionBodyFields</c> 这类供应商知识。
 ///
 /// <para><b>回填思考不在这张清单里</b>（ADR 0101）：思考跟着消息对象走，由
 /// <see cref="ReasoningReplayChatClient"/> 在把消息交给 SDK 之前绑好。
@@ -23,9 +23,12 @@ namespace UiharuMind.Core.AI.Net.Request;
 /// pi 的「有就带」同一层级——服务端要的是「字段必须在」，不是「字段必须有内容」。
 /// </param>
 /// <param name="ReasoningField">思考正文的 wire 键名（预设/默认）</param>
-/// <param name="PromptCacheKey">
-/// body 级的 <c>prompt_cache_key</c>：会话亲和值，服务端据此把同一会话的前缀钉在同一份缓存上。
-/// 由供应商开关（<see cref="Models.ILlmModel.SupportsPromptCacheKey"/>），没开或没会话时为 null
+/// <param name="SessionAffinity">
+/// 本次的会话亲和值，写进 <paramref name="SessionBodyFields"/> 里的每一个键；没会话时为 null
+/// </param>
+/// <param name="SessionBodyFields">
+/// body 级的会话字段名（<c>session_id</c> / <c>prompt_cache_key</c>）：服务端据此把同一会话的前缀
+/// 钉在同一份缓存上。由供应商开关（<see cref="Models.ILlmModel.SessionBodyFields"/>），没开时为空
 /// </param>
 internal readonly record struct RequestRewrite(
     IReadOnlyList<KeyValuePair<string, JsonNode?>>? ExtraParams,
@@ -33,7 +36,8 @@ internal readonly record struct RequestRewrite(
     bool OmitSamplingParams,
     bool FillEmptyReasoning = false,
     string ReasoningField = ReasoningReplayPolicy.DefaultField,
-    string? PromptCacheKey = null)
+    string? SessionAffinity = null,
+    IReadOnlyList<string>? SessionBodyFields = null)
 {
     /// <summary>
     /// 开启 <see cref="OmitSamplingParams"/> 的模型要删掉的采样参数。只删这四个,
@@ -75,6 +79,7 @@ internal readonly record struct RequestRewrite(
             ReasoningReplayPolicy.FieldName(model),
             // 会话亲和的 body 形态:值就是亲和值(32 字符,在 OpenAI 的 64 上限内),
             // 没开这个开关或没有会话时为 null,改写整段跳过
-            model?.SupportsPromptCacheKey == true ? context.SessionAffinity : null);
+            model?.SessionBodyFields is { Count: > 0 } ? context.SessionAffinity : null,
+            model?.SessionBodyFields);
     }
 }

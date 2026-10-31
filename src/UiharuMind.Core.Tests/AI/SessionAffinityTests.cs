@@ -19,24 +19,24 @@ namespace UiharuMind.Core.Tests.AI;
 /// </summary>
 public class SessionAffinityTests
 {
-    /// <summary>头名由供应商声明，HTTP 层照单写：给了两个就写两个，一个不多</summary>
+    /// <summary>头名由三层合成：公共头 + 协议头 + 供应商追加，给了就都写，一个不多</summary>
     [Fact]
     public async Task DeclaredHeaders_AreWrittenWithTheSessionValue()
     {
         CapturingServer server = new();
         using HttpClient client = new(new WireHttpHandler("http://localhost/v1", server,
-            affinityHeaders: ["x-session-id", "x-session-affinity"]));
+            affinityHeaders: ["x-opencode-session"], sendsAffinity: true));
 
         await PostAsync(client);
 
-        Assert.Equal("affinity-123", server.Header("x-session-id"));
-        Assert.Equal("affinity-123", server.Header("x-session-affinity"));
-        Assert.Null(server.Header("session_id")); //没声明就不写
+        Assert.Equal("affinity-123", server.Header("X-Session-Id"));
+        Assert.Equal("affinity-123", server.Header("x-opencode-session"));
+        Assert.Null(server.Header("session_id")); //body 字段，不在头里
     }
 
-    /// <summary>没声明头名的供应商（绝大多数）一个都不发：未知头只是噪音，还可能撞上别家的语义</summary>
+    /// <summary>整层关掉（本地服务、显式关掉的供应商）时一个头都不发</summary>
     [Fact]
-    public async Task UndeclaredHeaders_SendNothing()
+    public async Task DisabledAffinity_SendsNothing()
     {
         CapturingServer server = new();
         using HttpClient client = new(new WireHttpHandler("http://localhost/v1", server));
@@ -46,41 +46,79 @@ public class SessionAffinityTests
         Assert.Empty(server.SentHeaderNames);
     }
 
+    /// <summary>
+    /// 公共集默认发：没声明任何追加头的远程模型也带上 <c>X-Session-Id</c> 与 <c>x-session-affinity</c>。
+    /// 广谱的那几条漏了就是整段冷启动，而「漏了哪个」从命中率上看不出来
+    /// </summary>
+    [Fact]
+    public async Task CommonHeaders_AreSentWithoutAnyVendorDeclaration()
+    {
+        CapturingServer server = new();
+        using HttpClient client = new(new WireHttpHandler("http://localhost/v1", server, sendsAffinity: true));
+
+        await PostAsync(client);
+
+        Assert.Equal(SessionAffinity.CommonHeaders.Length, server.SentHeaderNames.Length);
+        foreach (string name in SessionAffinity.CommonHeaders)
+        {
+            Assert.Equal("affinity-123", server.Header(name));
+        }
+    }
+
+    /// <summary>
+    /// 大小写不是两回事：HTTP 头名不敏感，供应商把 <c>x-session-id</c> 再追加一遍也只是同一个头，
+    /// 写成两个同名头、值再对不上，等于把会话打散
+    /// </summary>
+    [Fact]
+    public async Task DuplicateHeaderNames_AreCollapsedIgnoringCase()
+    {
+        CapturingServer server = new();
+        using HttpClient client = new(new WireHttpHandler("http://localhost/v1", server,
+            affinityHeaders: ["x-session-id", "X-Session-Id"], sendsAffinity: true));
+
+        await PostAsync(client);
+
+        Assert.Equal(SessionAffinity.CommonHeaders.Length, server.SentHeaderNames.Length);
+        Assert.Single(server.ValuesOf("x-session-id")); //同名头只写一次，值不会被叠成 "a, a"
+    }
+
+    /// <summary>没有会话（能力预览、旁路探测）时不写头：值都没有，写个空的只会让网关把它当另一个会话</summary>
     [Fact]
     public async Task NoAffinity_LeavesHeadersOff()
     {
         CapturingServer server = new();
-        using HttpClient client = new(new WireHttpHandler("http://localhost/v1", server,
-            affinityHeaders: ["x-session-id"]));
+        using HttpClient client = new(new WireHttpHandler("http://localhost/v1", server, sendsAffinity: true));
 
         using HttpResponseMessage response = await client.PostAsync(
             "http://localhost/v1/chat/completions", new StringContent("{}", Encoding.UTF8, "application/json"),
             TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        Assert.Null(server.Header("x-session-id"));
+        Assert.Null(server.Header("X-Session-Id"));
     }
 
     /// <summary>
-    /// 只有聚合网关声明亲和头：认它的才发，认错了只是噪音——而且多发会撞上别家的语义。
-    /// 这两家的模型目录与 id 都是 OpenRouter 式命名（<c>meta/…</c>、<c>reflection/…</c>），按同一组处理。
+    /// 公共层默认发、供应商只补自己独有的。远程模型一律开（本地模型另算）；
+    /// 追加头只有 opencode 系那一条，其余都是 null——它们认的正是公共头。
     /// </summary>
     [Fact]
-    public void OnlyAggregatorGateways_DeclareAffinityHeaders()
+    public void RemoteModels_SendCommonHeaderAndOnlyVendorSpecificExtras()
     {
-        Assert.Equal(["x-session-id"], new RemoteOpenRouterModelConfig().SessionAffinityHeaders);
-        Assert.Equal(["x-session-id"], new RemoteCommandCodeModelConfig().SessionAffinityHeaders);
-        Assert.True(new RemoteOpenRouterModelConfig().SupportsPromptCacheKey);
-        Assert.True(new RemoteCommandCodeModelConfig().SupportsPromptCacheKey);
-
-        Type[] declaring = [typeof(RemoteOpenRouterModelConfig), typeof(RemoteCommandCodeModelConfig)];
         foreach (Type type in RemoteModelConfigRegistry.ProviderTypes)
         {
-            if (declaring.Contains(type)) continue;
             BaseRemoteModelConfig config = RemoteModelConfigRegistry.CreateDefault(type)!;
-            Assert.Null(config.SessionAffinityHeaders);
-            Assert.False(config.SupportsPromptCacheKey); //改字节的字段默认关,严格服务端会因未知字段 400
+            Assert.True(config.SendsSessionAffinity); //远程模型默认开
         }
+
+        Assert.Equal(["x-opencode-session"], new RemoteOpenCodeModelConfig().SessionAffinityHeaders);
+        Assert.Null(new RemoteOpenRouterModelConfig().SessionAffinityHeaders);
+        Assert.Null(new RemoteCommandCodeModelConfig().SessionAffinityHeaders);
+
+        // body 字段会改字节（已有缓存失效一次），只由认它的供应商打开
+        Assert.Equal(["session_id", "prompt_cache_key"], new RemoteOpenRouterModelConfig().SessionBodyFields);
+        Assert.Equal(["prompt_cache_key"], new RemoteCommandCodeModelConfig().SessionBodyFields);
+        Assert.Null(new RemoteOpenCodeModelConfig().SessionBodyFields);
+        Assert.Null(new RemoteDeepSeekModelConfig().SessionBodyFields);
     }
 
     /// <summary>
@@ -157,12 +195,18 @@ public class SessionAffinityTests
 
     private sealed class CapturingServer : HttpMessageHandler
     {
-        private readonly Dictionary<string, string?> _headers = new(StringComparer.OrdinalIgnoreCase);
+        private readonly List<(string Name, string Value)> _all = []; //原样抄下每个头名与值，重复的也留着
 
-        public string? Header(string name) => _headers.GetValueOrDefault(name);
+        public string? Header(string name) =>
+            _all.LastOrDefault(x => string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase)).Value;
 
         /// <summary>这一发实际带出去的亲和头名（去重后，便于断言「没声明就不写」）</summary>
-        public string[] SentHeaderNames => [.. _headers.Where(x => x.Value != null).Select(x => x.Key)];
+        public string[] SentHeaderNames =>
+            [.. _all.Select(x => x.Name).Distinct(StringComparer.OrdinalIgnoreCase)];
+
+        /// <summary>某个头名下的全部值；写了两遍就有两个——同名头写重了在网线上会拼成 "a, a"</summary>
+        public string[] ValuesOf(string name) =>
+            [.. _all.Where(x => string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase)).Select(x => x.Value)];
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
             CancellationToken cancellationToken)
@@ -170,7 +214,7 @@ public class SessionAffinityTests
             // 请求对象发完就被回收,取值要在这一刻抄下来
             foreach (var header in request.Headers)
             {
-                _headers[header.Key] = header.Value.FirstOrDefault();
+                foreach (string value in header.Value) _all.Add((header.Key, value));
             }
 
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)

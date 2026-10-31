@@ -22,6 +22,23 @@ namespace UiharuMind.Core.AI;
 /// </summary>
 public static class SessionAffinity
 {
+    /// <summary>
+    /// 公共层那组头名。<b>所有远程模型都发它们</b>，供应商只在之外追加自己的特有头
+    /// （<c>x-opencode-session</c>、<c>X-Claude-Code-Session-Id</c> 之类）。
+    ///
+    /// <para>分层而不是「每家一条」的理由：网关多数按<b>注册表 + 第一个匹配信号优先</b>认会话，
+    /// 多认几个不认识的只是噪音；反过来漏一个就是整段冷启动，而「漏了哪个」从命中率上看不出来。
+    /// 所以把广谱的那几条放在公共层默认发，供应商只补自己独有的。</para>
+    ///
+    /// <para>两条都是路由信号、都不进请求体，所以多发不改变任何一份已有缓存：
+    /// <c>X-Session-Id</c> 最通用；<c>x-session-affinity</c> 是 Vercel AI Gateway 那类
+    /// 按副本做前缀路由的网关认的那条（opencode 客户端两条一起发，我们照同一组）。</para>
+    ///
+    /// <para><b>大小写不是两回事</b>：HTTP 头名大小写不敏感，<c>X-Session-Id</c> 与 <c>x-session-id</c>
+    /// 是同一个头。追加时按不敏感去重，别让同一个头被写两遍——两遍值不同就会把会话打散。</para>
+    /// </summary>
+    public static readonly string[] CommonHeaders = ["X-Session-Id", "x-session-affinity"];
+
     /// <summary>输出的十六进制字符数：32 个 = 128 位，与一个 GUID 同形，撞车概率可忽略</summary>
     private const int Length = 32;
 

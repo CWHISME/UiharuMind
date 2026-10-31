@@ -7,9 +7,9 @@ namespace UiharuMind.Core.Configs.RemoteAI;
 /// <summary>
 /// OpenRouter（聚合网关，OpenAI 兼容）。候选走运行时模型目录（ADR 0092）。
 ///
-/// 它是目前<b>唯一认会话亲和头</b>的供应商：按 <c>x-session-id</c> 把同一会话的请求钉到同一台上游副本，
-/// 前缀缓存按副本各存一份，落错副本就是整段冷启动。其余供应商都不认，因此
-/// <see cref="BaseRemoteModelConfig.SessionAffinityHeaders"/> 默认空，只有这里声明。
+/// 会话亲和不再由这家声明头名：公共头 <c>X-Session-Id</c> 对所有远程模型默认发，它认的正是那一条。
+/// 这家真正额外要的是 <b>body 里的 <c>session_id</c></b>——文档给它的定义就是「粘性路由键」，
+/// 同时用于用量分组；头是另一条独立的路，两条一起发。
 /// </summary>
 [SettingConfigDesc("OpenRouter")]
 [SettingConfigDesc("OpenRouter", LanguageUtils.ChineseSimplified)]
@@ -30,9 +30,9 @@ public class RemoteOpenRouterModelConfig : BaseRemoteModelConfig, IRemoteModelCo
 
     public override int Port { get; set; }
 
-    /// <summary>只认这一条；多发（<c>session_id</c> / <c>x-client-request-id</c>）它都不看，只是噪音</summary>
-    public override IReadOnlyList<string>? SessionAffinityHeaders => ["x-session-id"];
-
-    /// <summary>OpenRouter 认 body 级的 <c>prompt_cache_key</c>（与亲和头是两条独立的路，一起发）</summary>
-    public override bool SupportsPromptCacheKey => true;
+    /// <summary>
+    /// OpenRouter 的文档字段是 body 里的 <c>session_id</c>（≤256 字符，粘性路由键 + 用量分组）；
+    /// <c>prompt_cache_key</c> 是 OpenAI 兼容面的通用写法，两条一起发，值同源。
+    /// </summary>
+    public override IReadOnlyList<string>? SessionBodyFields => ["session_id", "prompt_cache_key"];
 }

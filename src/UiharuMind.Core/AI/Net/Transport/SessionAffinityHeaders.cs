@@ -1,21 +1,51 @@
 using System.Net.Http.Headers;
-using UiharuMind.Core.AI.Models;
+using UiharuMind.Core.AI;
 
 namespace UiharuMind.Core.AI.Net.Transport;
 
 /// <summary>
-/// 会话亲和头的写与说：一家网关认哪几个头名由供应商声明（<see cref="ILlmModel.SessionAffinityHeaders"/>），
-/// 这里只照单写值、以及在日志里回答「这一发到底发出去了什么」。
+/// 会话亲和头的写与说：<b>公共头 + 协议追加 + 供应商追加</b>，三处合起来才是这一发要写的头名。
 ///
-/// 头名与值都只在这里碰：HTTP 处理器不该知道「OpenRouter 认 x-session-id」这类供应商知识，
-/// 也不该猜端点。本地模型与不认的网关声明为空，一个头都不发。
+/// <para>分层是刻意的。公共头（<see cref="SessionAffinity.CommonHeaders"/>）广谱，所有远程模型默认都发；
+/// 协议层补这条线固有的那一条（Anthropic 线认 <c>X-Claude-Code-Session-Id</c>）；
+/// 供应商层补自己独有的（opencode 系认 <c>x-opencode-session</c>，缺了直接 400）。
+/// 早先只有供应商那一层，结果是「没声明 = 一个都不发」——绝大多数远程模型连最通用的那条都没带上。</para>
+///
+/// <para>头名与值都只在这里碰：HTTP 处理器不该知道「opencode 认 x-opencode-session」这类供应商知识，
+/// 也不该猜端点。本地模型关掉整层，一个头都不发。</para>
 /// </summary>
 internal sealed class SessionAffinityHeaders
 {
     private readonly string[] _names; //本端点要写的头名；空=不发
 
-    /// <param name="names">供应商声明的头名；空或 null 表示这家网关不认</param>
-    public SessionAffinityHeaders(IReadOnlyList<string>? names) => _names = names is { Count: > 0 } ? [.. names] : [];
+    /// <param name="sends">这家发不发亲和（整体开关，关掉时三个来源一起不发）</param>
+    /// <param name="protocol">协议层追加的头名，如 Anthropic 线的 <c>X-Claude-Code-Session-Id</c></param>
+    /// <param name="extra">供应商声明的追加头名；空或 null 表示这家没有特有的</param>
+    public SessionAffinityHeaders(bool sends, IReadOnlyList<string>? protocol, IReadOnlyList<string>? extra) =>
+        _names = sends ? Merge(protocol, extra) : [];
+
+    /// <summary>
+    /// 公共集打头，再协议、再供应商，<b>按大小写不敏感去重</b>：先到先得，
+    /// 供应商把 <c>x-session-id</c> 再写一遍也只是同一个头，不会变成两个。
+    /// </summary>
+    private static string[] Merge(IReadOnlyList<string>? protocol, IReadOnlyList<string>? extra)
+    {
+        List<string> names = [];
+        HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
+        Append(SessionAffinity.CommonHeaders);
+        Append(protocol);
+        Append(extra);
+        return [.. names];
+
+        void Append(IReadOnlyList<string>? source)
+        {
+            if (source == null) return;
+            foreach (string name in source)
+            {
+                if (!string.IsNullOrWhiteSpace(name) && seen.Add(name)) names.Add(name);
+            }
+        }
+    }
 
     /// <summary>
     /// 把本次请求的亲和值写到每一个声明的头上。
@@ -37,8 +67,8 @@ internal sealed class SessionAffinityHeaders
 
     /// <summary>
     /// 这一发的亲和<b>到底发出去了什么</b>，三种情况分得清——命中率不对时，它们的修法完全不同：
-    /// <c>(off)</c> 这家网关没声明头名（默认如此），一个都没发，别去查网关为什么不认；
-    /// <c>(none)</c> 声明了但本次没有会话（能力预览），也发不出去；
+    /// <c>(off)</c> 这一层整个关着（本地模型、显式关掉的供应商），一个都没发，别去查网关为什么不认；
+    /// <c>(none)</c> 开着但本次没有会话（能力预览），也发不出去；
     /// 否则是真正写到网线上的那个值。
     ///
     /// <b>不能只打传进来的亲和值</b>：那是「手上有的值」，

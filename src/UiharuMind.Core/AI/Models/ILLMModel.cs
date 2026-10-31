@@ -66,26 +66,33 @@ public interface ILlmModel
     public bool OmitSamplingParams => false;
 
     /// <summary>
-    /// 会话亲和要写哪几个<b>请求头名</b>（值由会话统一给出，见
-    /// <see cref="Chat.ChatSession.CacheAffinity"/>）；空或 null = 不发。
+    /// 是否发会话亲和。<b>一层总开关</b>：关掉时公共头、协议头、供应商追加头与 body 字段一起不发。
     ///
-    /// 网关按副本各存一份前缀缓存，同一会话的请求落到同一台副本才谈得上命中，而各家认的头名不同：
-    /// 认错的头只会被忽略，代价却在另一头——一次发齐会撞上别家的语义
-    /// （<c>x-client-request-id</c> 是「请求」标识、<c>session_id</c> 是下划线头）。
-    /// 所以由供应商自己声明（如 OpenRouter 只认 <c>x-session-id</c>），公共层不猜端点。
-    /// 本地模型与不认的网关不发，默认空。
+    /// 本地模型默认关（进程内或单副本，没有「落到哪台」这回事）；远程模型配置默认开——
+    /// 公共头广谱且不参与前缀缓存，多带一条不认识的只是噪音，漏带一条却是整段冷启动。
+    /// </summary>
+    public bool SendsSessionAffinity => false;
+
+    /// <summary>
+    /// 公共头之外<b>还要追加</b>哪几个请求头名（值与会话统一给出，见
+    /// <see cref="Chat.ChatSession.CacheAffinity"/>）；空或 null = 只发公共头与协议头。
+    ///
+    /// 公共头（<see cref="SessionAffinity.CommonHeaders"/>）由 HTTP 层默认发，这里只放这家独有的：
+    /// opencode 系认 <c>x-opencode-session</c>（缺了直接 400），LiteLLM 认 <c>X-Litellm-Session-Id</c>。
+    /// 同名（大小写不敏感）会被去重，供应商再写一遍 <c>x-session-id</c> 也只是同一个头。
     /// </summary>
     public IReadOnlyList<string>? SessionAffinityHeaders => null;
 
     /// <summary>
-    /// 是否发 body 级的 <c>prompt_cache_key</c>（值取会话亲和值，同一会话恒定）。
+    /// body 级要写哪几个会话字段（值取会话亲和值，同一会话恒定），如
+    /// <c>session_id</c>（OpenRouter 约定）、<c>prompt_cache_key</c>（OpenAI 兼容面）。
     ///
     /// 与亲和头是<b>两条独立的路</b>：头由网关看、body 字段由服务端看，
     /// 服务端用它把同一会话的前缀钉在同一份缓存上，命中率比只靠头更可控。
     /// 但它<b>会改字节</b>——第一次发会让已有缓存失效一次，且严格服务端会因未知字段 400，
-    /// 所以默认关，只由认它的供应商打开（opencode 的 <c>supportsPromptCacheKey</c> 同口径）。
+    /// 所以默认空，只由认它的供应商打开（opencode 的 <c>supportsPromptCacheKey</c> 同口径）。
     /// </summary>
-    public bool SupportsPromptCacheKey => false;
+    public IReadOnlyList<string>? SessionBodyFields => null;
 
     /// <summary>
     /// 这个模型的<b>供应商标识</b>（谁签的票）。

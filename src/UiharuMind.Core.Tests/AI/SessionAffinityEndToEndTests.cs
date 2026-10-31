@@ -21,8 +21,11 @@ namespace UiharuMind.Core.Tests.AI;
 /// </summary>
 public class SessionAffinityEndToEndTests
 {
-    /// <summary>这一家的亲和头名；换成别的供应商就是别的一组，公共层不认识具体名字</summary>
-    private static readonly string[] AffinityHeaders = ["x-session-id"];
+    /// <summary>
+    /// 这一家追加的亲和头名：<c>X-Session-Id</c> 故意写一遍大写——公共层已经发过它，
+    /// 大小写不敏感去重之后应当只剩一个，值不被叠成 "a, a"
+    /// </summary>
+    private static readonly string[] AffinityHeaders = ["X-Session-Id", "x-opencode-session"];
 
     private const string NonStreamingJson =
         """{"id":"1","created":1,"model":"affinity-test","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}""";
@@ -142,7 +145,7 @@ public class SessionAffinityEndToEndTests
     private static LazyChatClient Client(RecordingHandler wire, string? affinity)
     {
         WireHttpHandler handler = new("http://localhost/v1/chat/completions", wire,
-            affinityHeaders: AffinityHeaders);
+            affinityHeaders: AffinityHeaders, sendsAffinity: true);
         IChatClient sdk = ChatClientFactory.Create(handler, null, "affinity-test", "probe");
         return new LazyChatClient(() => Running(sdk), affinity);
     }

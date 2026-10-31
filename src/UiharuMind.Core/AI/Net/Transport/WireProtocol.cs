@@ -21,7 +21,13 @@ namespace UiharuMind.Core.AI.Net.Transport;
 /// 思考键名，并从 <c>reasoning_details</c> 里切票据）。另两条由各自 SDK 解析，既没有这些键，
 /// 也没有 <c>[DONE]</c> 哨兵——套上去只会白扫每行 JSON，还把正常收尾误报成「连接被掐」
 /// </param>
-internal sealed record WireProtocol(EApiFormat Format, string EndpointSuffix, bool SanitizesResponse)
+/// <param name="SessionHeaders">
+/// 这条线固有要追加的会话头名。公共头由 <see cref="SessionAffinityHeaders"/> 统一发，
+/// 这里只放「换成这条线就该补上的那一条」：Anthropic 认 <c>X-Claude-Code-Session-Id</c>，
+/// 另两条线的 chat 形状没有自己的专名，留空即可
+/// </param>
+internal sealed record WireProtocol(EApiFormat Format, string EndpointSuffix, bool SanitizesResponse,
+    IReadOnlyList<string>? SessionHeaders = null)
 {
     /// <summary>
     /// 把用户填的地址补成这条协议的完整端点。
@@ -71,7 +77,8 @@ internal static class WireProtocols
     public static readonly WireProtocol Responses = new(EApiFormat.Responses, "/responses", false);
 
     /// <summary>Anthropic 的 /v1/messages</summary>
-    public static readonly WireProtocol Messages = new(EApiFormat.Messages, "/messages", false);
+    public static readonly WireProtocol Messages =
+        new(EApiFormat.Messages, "/messages", false, ["X-Claude-Code-Session-Id"]);
 
     /// <summary>三条线。地址归一用它判断「尾段是不是别的协议」，别处不必再列一遍</summary>
     public static readonly WireProtocol[] All = [Chat, Responses, Messages];

@@ -60,20 +60,28 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     public virtual bool OmitSamplingParams { get; set; }
 
     /// <summary>
-    /// 会话亲和写哪几个请求头名；空 = 不发。默认不发：不认的网关收到未知头只是忽略，
-    /// 但一次发齐会撞上别家的语义，所以交给认它的供应商自己声明，公共层不按端点猜
+    /// 是否发会话亲和。远程模型默认开：公共头广谱、不参与前缀缓存，多带一条不认识的只是噪音，
+    /// 漏带一条却是整段冷启动。不希望的场景（对外不泄露任何会话标识）在这家关掉即可
+    /// </summary>
+    [JsonIgnore]
+    [SettingConfigIgnoreDisplay]
+    public virtual bool SendsSessionAffinity => true;
+
+    /// <summary>
+    /// 公共头之外<b>追加</b>的请求头名；默认空 = 只发公共头与协议头。
+    /// 只放这家独有的（<c>x-opencode-session</c> 之类），公共的 <c>X-Session-Id</c> 不用再写一遍
     /// </summary>
     [JsonIgnore]
     [SettingConfigIgnoreDisplay]
     public virtual IReadOnlyList<string>? SessionAffinityHeaders => null;
 
     /// <summary>
-    /// 是否发 body 级的 <c>prompt_cache_key</c>。默认关：它会改字节（已有缓存失效一次），
-    /// 且严格服务端会因未知字段 400，只由认它的供应商打开
+    /// body 级要写的会话字段名（<c>session_id</c> / <c>prompt_cache_key</c>）；默认空。
+    /// 默认空是因为它会改字节（已有缓存失效一次），且严格服务端会因未知字段 400，只由认它的供应商打开
     /// </summary>
     [JsonIgnore]
     [SettingConfigIgnoreDisplay]
-    public virtual bool SupportsPromptCacheKey => false;
+    public virtual IReadOnlyList<string>? SessionBodyFields => null;
 
     /// <summary>
     /// 这个模型的<b>供应商标识</b>（谁签的票）。
