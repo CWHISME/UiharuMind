@@ -945,6 +945,22 @@ public class ConversationTranscriptTests
     }
 
     /// <summary>
+    /// 只回一个空白（deepseek 实测会发一个孤立空格）不建卡：
+    /// 建了就是「1 字 · 1 字/秒」的假思考卡。
+    /// </summary>
+    [Fact]
+    public void WhitespaceOnlyThinking_OpensNoCard()
+    {
+        (ConversationTranscript transcript, List<ConversationItemBase> items) = Create();
+
+        transcript.Apply(new TextReasoningContent(" "));
+        transcript.Apply(new TextContent("答"));
+
+        Assert.Empty(items.OfType<ThinkingItem>());
+        Assert.Single(items.OfType<TextConversationItem>());
+    }
+
+    /// <summary>
     /// 两条信号落到<b>同一张卡</b>上：加密条目先开卡（那时还不知道想了多少），
     /// 流尾那条带 token 数的只把数补上去，不新建第二张。
     /// </summary>

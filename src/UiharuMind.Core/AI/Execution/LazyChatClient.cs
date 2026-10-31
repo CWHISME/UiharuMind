@@ -350,7 +350,10 @@ public class LazyChatClient : IChatClient
                 {
                     switch (content)
                     {
-                        case TextReasoningContent { Text.Length: > 0 } reasoning:
+                        // 只有一个空白的思考不算正文：实测 deepseek 会发一个孤立空格，
+                        // 算进来就会把「它想过但没内容」误判成「它发了内容」
+                        case TextReasoningContent { Text.Length: > 0 } reasoning
+                            when !string.IsNullOrWhiteSpace(reasoning.Text):
                             reasoningChars += reasoning.Text.Length;
                             break;
                         case UsageContent { Details.ReasoningTokenCount: > 0 } usage:

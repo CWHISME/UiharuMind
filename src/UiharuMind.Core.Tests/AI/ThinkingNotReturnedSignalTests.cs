@@ -60,6 +60,29 @@ public class ThinkingNotReturnedSignalTests
         Assert.Empty(seen.OfType<ThinkingNotReturnedContent>());
     }
 
+    /// <summary>
+    /// 只回一个空白（实测 deepseek 会发一个孤立空格）同样算「一个字没回」：
+    /// 空白不是正文，不能拿它挡掉信号，否则界面会冒出一张「1 字」的假思考卡。
+    /// </summary>
+    [Fact]
+    public async Task Client_TreatsWhitespaceOnlyReasoningAsNoText()
+    {
+        LazyChatClient client = new(() => Running(new CannedClient(
+            new TextReasoningContent(" "),
+            new TextContent("答"),
+            Usage(1))));
+
+        List<AIContent> seen = [];
+        await foreach (ChatResponseUpdate update in client.GetStreamingResponseAsync(
+                           [new ChatMessage(ChatRole.User, "hi")],
+                           cancellationToken: TestContext.Current.CancellationToken))
+        {
+            seen.AddRange(update.Contents);
+        }
+
+        Assert.Single(seen.OfType<ThinkingNotReturnedContent>());
+    }
+
     /// <summary>落盘时信号转成消息上的标记并摘掉自己：标记跟着消息走，重开会话才补得回那张卡</summary>
     [Fact]
     public void Persist_TurnsSignalIntoAnnotation_AndDropsTheContent()
@@ -77,6 +100,29 @@ public class ThinkingNotReturnedSignalTests
         Assert.True(ChatMessageAnnotations.TryReadThinkingUnavailable(stored, out long tokens));
         Assert.Equal(790, tokens);
         Assert.DoesNotContain(stored.Contents, x => x is ThinkingNotReturnedContent);
+    }
+
+    /// <summary>
+    /// 只有一个空白的思考：落盘时当正文丢掉，标记照样盖——
+    /// 留着那个空格，回放就会多出一张「1 字」的卡。
+    /// </summary>
+    [Fact]
+    public void Persist_DropsWhitespaceOnlyReasoning()
+    {
+        ChatSession session = new("test", new CharacterData { CharacterId = "test" }) { IsTransient = true };
+        ChatMessage reply = new(ChatRole.Assistant, new List<AIContent>
+        {
+            new TextReasoningContent(" "),
+            new TextContent("答"),
+            new ThinkingNotReturnedContent(1),
+        });
+
+        SessionChatHistoryProvider.AppendOwned(session, [reply], DateTimeOffset.Now);
+
+        ChatMessage stored = Assert.Single(session.History);
+        Assert.DoesNotContain(stored.Contents, x => x is TextReasoningContent);
+        Assert.True(ChatMessageAnnotations.TryReadThinkingUnavailable(stored, out long tokens));
+        Assert.Equal(1, tokens);
     }
 
     /// <summary>

@@ -211,12 +211,20 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
             // 那种消息已经有一张带正文的卡，再盖标记就是回放时凭空多插一张「加密思考」卡
             if (message.Contents.OfType<ThinkingNotReturnedContent>().LastOrDefault() is { } unavailable)
             {
+                // 只有一个空白的思考不算正文：留着它，回放就会多一张「1 字」的卡
+                List<AIContent> kept = new(message.Contents.Count);
+                foreach (AIContent content in message.Contents)
+                {
+                    if (content is ThinkingNotReturnedContent) continue;
+                    if (content is TextReasoningContent { Text: var text } && string.IsNullOrWhiteSpace(text)) continue;
+                    kept.Add(content);
+                }
+
+                message.Contents = kept;
                 if (ThinkingStatsRecorder.ThinkingCharsOf(message) == 0)
                 {
                     ChatMessageAnnotations.WriteThinkingUnavailable(message, unavailable.ReasoningTokens);
                 }
-
-                message.Contents = message.Contents.Where(x => x is not ThinkingNotReturnedContent).ToList();
             }
 
             if (message.Contents.Any(x => x is EncryptedReasoningContent))
