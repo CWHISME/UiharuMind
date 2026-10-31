@@ -476,20 +476,15 @@ public sealed class ConversationItemActions
     }
 
     /// <summary>
-    /// 一条助手消息重试时,被删掉的条数达到这个值就先弹确认。
-    /// 重试 = 替换它及之后的内容,它后面还有一长串(工具往返/后续对话)时,
-    /// 静默全删就像“聊天丢了”——删得多就该先问一声。
-    /// </summary>
-    private const int RetryConfirmThreshold = 4;
-
-    /// <summary>
     /// 从某条消息起重新生成。也是「重新生成上一条」那个命令的落点。
     ///
     /// 用户消息以自己为锚:删掉它及之后,再以它为输入重跑一轮(提问本体由重跑写回)。
     /// 助手消息同样以自己为锚:删掉它及之后,历史停在它前面的内容,由无输入轮续写新回复——
     /// 不再回溯到它前面的提问重跑整轮(那样会把提问和更早的对话一起卷进去,
     /// 重试一条靠前的回复就退回到整个对话开头)。
-    /// 删掉的条数多时先弹确认。
+    ///
+    /// <b>两种消息都先弹确认</b>:重试就是删历史,删掉的那段不会自己回来——删一条也一样,
+    /// 何况用户消息被删掉的那一轮里往往还连着工具往返与后续对话
     /// </summary>
     /// <param name="item">条目</param>
     public async Task Retry(ConversationItemBase item)
@@ -502,11 +497,8 @@ public sealed class ConversationItemActions
 
         // 从这条消息起删(含它自己):重试 = 替换它及之后的内容
         int doomedCount = session.History.Count - index;
-        if (item.SourceMessage.Role == ChatRole.Assistant && doomedCount >= RetryConfirmThreshold)
-        {
-            string confirmText = string.Format(Loc.Text(LangKey.MessageRetryTurnConfirmFormat), doomedCount);
-            if (!await _messageService.ConfirmAsync(confirmText)) return;
-        }
+        string confirmText = string.Format(Loc.Text(LangKey.MessageRetryTurnConfirmFormat), doomedCount);
+        if (!await _messageService.ConfirmAsync(confirmText)) return;
 
         ChatMessage input = session.History[index];
         session.History.RemoveRange(index, doomedCount);

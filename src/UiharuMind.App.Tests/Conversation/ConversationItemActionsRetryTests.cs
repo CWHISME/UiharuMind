@@ -18,7 +18,7 @@ namespace UiharuMind.App.Tests.Conversation;
 /// 重试语义是「从这条消息起重新生成」：用户消息以自己为锚（删掉它及之后，重跑一轮）；
 /// 助手消息同样以自己为锚（删掉它及之后，由无输入轮续写新回复）——<b>不再回溯到它前面
 /// 最近的提问重跑整轮</b>，否则重试一条靠前的回复会把提问和更早的对话一起卷进去。
-/// 旁白（开场白/子代理报告）不提供重试。助手消息重试要删的条数较多时先弹确认。
+/// 旁白（开场白/子代理报告）不提供重试。用户与助手消息重试都先弹确认——删了回不来。
 ///
 /// 完整流程（历史截断 + 界面条目处理）会构造真实气泡、依赖 Avalonia 资源，
 /// 放在 <c>Headless</c> 的 <c>ConversationItemActionsRetryHeadlessTests</c>。
@@ -142,11 +142,12 @@ public class ConversationItemActionsRetryTests
     }
 
     /// <summary>
-    /// 助手消息重试要删的条数达到阈值才弹确认：重试第一条回复、后面还有一大段时，
-    /// 不能静默全删。确认拒绝则历史与条目都不动。
+    /// 重试要删掉这条及之后的内容，删了回不来：用户消息与助手消息<b>都先弹确认</b>。
+    /// 用户消息这边尤其要问——被删掉的那一轮里往往还连着工具往返与后续对话。
+    /// 确认拒绝则历史与条目都不动、也不重跑。
     /// </summary>
     [Fact]
-    public async Task RetryingAssistant_ConfirmShownWhenDoomCountLarge_AndRespected()
+    public async Task RetryingUserMessage_ConfirmsFirst_AndRespectsCancel()
     {
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
@@ -158,19 +159,72 @@ public class ConversationItemActionsRetryTests
         ChatMessage reply0 = AssistantText("回答1");
         ChatMessage user1 = UserMessage("问题2");
         ChatMessage reply1 = AssistantText("回答2");
-        ChatMessage user2 = UserMessage("问题3");
-        ChatMessage reply2 = AssistantText("回答3");
-        session.History.AddRange([user0, reply0, user1, reply1, user2, reply2]);
+        session.History.AddRange([user0, reply0, user1, reply1]);
 
-        ProbeItem item = actions.Wire(new ProbeItem(), reply0);
+        ProbeItem item = actions.Wire(new ProbeItem(), user1);
         items.Add(item);
 
         await item.RetryCommand.ExecuteAsync(null);
 
-        // 重试 reply0 要删 5 条,弹了确认,用户取消 → 什么都不动
         Assert.Equal(1, confirms.ConfirmCount);
-        Assert.Equal(6, session.History.Count);
+        Assert.Contains("2", confirms.LastConfirm); //这一条及之后共 2 条
+        Assert.Equal(4, session.History.Count);
         Assert.Single(items);
+        Assert.Equal(0, host.RerunCount);
+    }
+
+    /// <summary>用户消息确认通过后照旧:从它自己起删,以它为输入重跑</summary>
+    [Fact]
+    public async Task RetryingUserMessage_ConfirmApproved_RerunsWithThatMessage()
+    {
+        ChatSession session = TransientSession();
+        ObservableCollection<ConversationItemBase> items = new();
+        RecordingHost host = new(session);
+        RecordingMessageService confirms = new();
+        ConversationItemActions actions = new(items, host, confirms);
+
+        ChatMessage user0 = UserMessage("问题1");
+        ChatMessage reply0 = AssistantText("回答1");
+        ChatMessage user1 = UserMessage("问题2");
+        ChatMessage reply1 = AssistantText("回答2");
+        session.History.AddRange([user0, reply0, user1, reply1]);
+
+        ProbeItem item = actions.Wire(new ProbeItem(), user1);
+        items.Add(item);
+
+        await item.RetryCommand.ExecuteAsync(null);
+
+        Assert.Equal(1, confirms.ConfirmCount);
+        Assert.Equal(2, session.History.Count);
+        Assert.Same(user1, host.LastInput);
+    }
+
+    /// <summary>
+    /// 助手消息同样一律先问：只删它自己一条也问，删了回不来
+    /// </summary>
+    [Fact]
+    public async Task RetryingAssistant_AlwaysConfirms_EvenForASingleMessage()
+    {
+        ChatSession session = TransientSession();
+        ObservableCollection<ConversationItemBase> items = new();
+        RecordingHost host = new(session);
+        RecordingMessageService confirms = new() { ConfirmResult = false };
+        ConversationItemActions actions = new(items, host, confirms);
+
+        ChatMessage user0 = UserMessage("问题1");
+        ChatMessage reply0 = AssistantText("回答1");
+        ChatMessage user1 = UserMessage("问题2");
+        ChatMessage reply1 = AssistantText("回答2");
+        session.History.AddRange([user0, reply0, user1, reply1]);
+
+        ProbeItem item = actions.Wire(new ProbeItem(), reply1);
+        items.Add(item);
+
+        await item.RetryCommand.ExecuteAsync(null);
+
+        Assert.Equal(1, confirms.ConfirmCount);
+        Assert.Contains("1", confirms.LastConfirm); //只删 1 条也问
+        Assert.Equal(4, session.History.Count);
         Assert.Equal(0, host.RerunCount);
     }
 
@@ -202,38 +256,6 @@ public class ConversationItemActionsRetryTests
         Assert.Equal(1, confirms.ConfirmCount);
         Assert.Single(session.History);
         Assert.Same(user0, session.History[0]);
-        Assert.Equal(1, host.RerunCount);
-        Assert.Null(host.LastInput);
-    }
-
-    /// <summary>
-    /// 只删该条自己（或很少的几条）时不打扰：问答轮重试最新回复不弹确认。
-    /// </summary>
-    [Fact]
-    public async Task RetryingAssistant_SmallDoomCount_NoConfirm()
-    {
-        ChatSession session = TransientSession();
-        ObservableCollection<ConversationItemBase> items = new();
-        RecordingHost host = new(session);
-        RecordingMessageService confirms = new();
-        ConversationItemActions actions = new(items, host, confirms);
-
-        ChatMessage user0 = UserMessage("问题1");
-        ChatMessage reply0 = AssistantText("回答1");
-        ChatMessage user1 = UserMessage("问题2");
-        ChatMessage reply1 = AssistantText("回答2");
-        session.History.AddRange([user0, reply0, user1, reply1]);
-
-        ProbeItem item = actions.Wire(new ProbeItem(), reply1);
-        items.Add(item);
-
-        await item.RetryCommand.ExecuteAsync(null);
-
-        Assert.Equal(0, confirms.ConfirmCount); //只删 1 条,不弹
-        Assert.Equal(3, session.History.Count);
-        Assert.Same(user0, session.History[0]);
-        Assert.Same(reply0, session.History[1]);
-        Assert.Same(user1, session.History[2]);
         Assert.Equal(1, host.RerunCount);
         Assert.Null(host.LastInput);
     }
