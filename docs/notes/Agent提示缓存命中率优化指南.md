@@ -96,6 +96,68 @@ session_id = stable_uuid( sha256(system + tools + first_user_message) )
 - 每轮新生成 ID → 永远冷启动，等于没缓存。
 - 所有会话写死一个固定值 → 不同前缀的请求挤进同一个缓存桶，互相踢掉，命中率反而崩、延迟上去、钱也跟着上去。
 
+### 3.4 自研 harness 的头部分层策略
+
+结论：**公共层发一组"广谱基础集"，provider 层按各家追加特有头。**
+
+#### 公共基础集
+
+```
+X-Session-Id:     <sid>     # 最通用，多数网关注册表都认
+session_id:       <sid>     # body 字段（OpenRouter 约定，也被 cmdc2api 等识别）
+prompt_cache_key: <sid>     # body，OpenAI 兼容面
+```
+
+依据是多数网关采用**注册表 + 第一个匹配信号优先**的机制（内置覆盖 `X-Session-Id`、`X-Opencode-Session`、`X-Claude-Code-Session-Id`、`Session-Id`、`X-Litellm-Session-Id`、`Helicone-Session-Id`、`Agent-Session-Id` 等）。多发几个对方不认识的头不会报错，命中其中一个即可。
+
+#### 三个必须避开的坑
+
+1. **HTTP 头名大小写不敏感。** `X-Session-Id` 与 `x-session-id` 是**同一个头**，不要因大小写写两遍。尤其两边值不同时会互相覆盖，反而把会话打散。
+2. **所有头的值必须同源一致。** 网关匹配到第一个信号就停，多个头给不同值等于分裂成多个会话。
+3. **不要透传内部真实会话 ID。** 主流做法（如 opencode 插件）默认每个会话生成一个随机 UUID，明确不把内部会话 ID 发给第三方。会话 ID 只用于路由亲和，不需要携带语义。
+
+#### Provider 层追加项
+
+| 目标 | 追加 | 备注 |
+|---|---|---|
+| Anthropic / Claude 路径 | `X-Claude-Code-Session-Id` + `metadata.user_id` | `user_id` 必须是字符串，可序列化 device / account / session |
+| OpenCode 系 | `x-opencode-session` | **强制**，缺失返回 400 MissingSessionID |
+| Command Code `/alpha/generate` | 信封 `threadId` | 与 `x-session-id` **同值** |
+| Codex CLI | `Session-Id` / `session_id` | 新版走 Responses |
+| LiteLLM | `X-Litellm-Session-Id` | |
+| OpenRouter | body `session_id` | ≤256 字符，同时用于用量分组 |
+| 自建 vLLM / SGLang | 网关层一致性哈希 | 头只是载体，路由要自己做 |
+
+覆盖规则建议做成**公共默认 + provider override**：provider 显式声明的同名头覆盖公共值。
+
+#### 要留一个"关掉"的开关
+
+并非所有场景都该发：
+
+- **OpenRouter Responses**：明确无状态，带 `store: true` 或非空 `previous_response_id` 会被 **400 拒绝**。这里发 `session_id` 做粘性可以，但不能指望服务端状态。
+- 不希望任何会话标识外泄的场景。
+
+#### 推荐结构
+
+```ts
+type ProviderCache = {
+  sessionHeaders?: Record<string, string>;  // override，同名覆盖公共值
+  bodySessionKey?: string | null;           // session_id / prompt_cache_key / metadata.user_id
+  sticky?: boolean;                         // 自建网关侧是否做一致性哈希
+  enabled?: boolean;                        // 整体开关
+};
+
+const COMMON = {
+  headers: { 'X-Session-Id': sid },
+  body: { session_id: sid, prompt_cache_key: sid },
+};
+
+// sid 生成：每会话一个稳定 UUID，跨轮不变
+// 无显式信号时兜底：sha256(system + tools + first_user_message)
+```
+
+**关键提醒**：公共层补头只是"让网关认得出你"，真正决定命中率的仍是前缀本身稳不稳。头补齐了但前缀里塞着时间戳，该是 0 还是 0——先把两轮请求 diff 一遍，再调头部策略。
+
 ---
 
 ## 四、各供应商 / 网关的特殊要求
@@ -193,11 +255,17 @@ session_id = stable_uuid( sha256(system + tools + first_user_message) )
 - [ ] **选对端点**。能发完整信封的 `/alpha/generate` 与只接受 chat 格式的 `/provider/v1/*`，可优化的层级完全不同。
 - [ ] **生成并持久化会话 ID**，一个会话一个，跨轮不变；前缀变化时按规则轮换。
 - [ ] 兜底派生：`sha256(system + tools + first_user_message)` → 稳定 UUID。
+- [ ] **头部分层**：公共层发 `X-Session-Id` + `session_id` + `prompt_cache_key`（见 3.4），provider 层按表追加特有头。
+- [ ] **同源校验**：所有会话相关头/字段共用同一个 `sid`；检查没有因大小写不同而重复设置同一个头。
+- [ ] **不透传内部会话 ID**：对外一律发每会话随机 UUID。
+- [ ] 整体开关 `enabled` + provider override 机制，便于对无状态端点单独关掉。
 - [ ] **前缀审计**：把所有每轮变化的字段（日期、时间戳、git status、recent commits、request id、动态 skills 列表）全部挪到请求尾部。
 - [ ] **工具定义顺序冻结**。序列化前排序一次，之后永不重排；不要每轮动态增删工具。
+- [ ] 提示词版本与会话 ID 联动：system / 工具集 / 压缩上下文变化时轮换 sid。
 - [ ] 提示词版本写进缓存键（`agent:v4`），便于 A/B 与回滚。
 - [ ] 主循环**不要**设 `promptCache: "off"`。
 - [ ] 跨进程重启时固定 `FINGERPRINT_SEED`（如适用）。
+- [ ] 自建上游：网关层做一致性哈希粘性路由（头只是载体）。
 - [ ] 图片/截图预算控制：base64 图片按文本分词极贵（单张 2.76MB 截图实测约 1.92M tokens），旧图替换成占位符能同时压成本和稳定前缀。
 - [ ] **埋点**：每轮记录 `cached_tokens / prompt_tokens`，按会话和按模型分别监控。
 
@@ -209,10 +277,15 @@ session_id = stable_uuid( sha256(system + tools + first_user_message) )
 2. 前缀里有没有时间戳 / 日期 / request id？挪到最后再测。
 3. 工具定义顺序在两轮之间是否一致？抓两轮请求 diff 一下。
 4. 会话 ID 是否稳定？是不是每轮重新生成，或反过来所有会话共用一个？
-5. 该供应商是不是自动前缀型 + 多副本？有没有粘性路由手段？（OpenRouter 用 `session_id`，自建用一致性哈希）
-6. 是不是踩了桥接降级？（Responses → Chat Completions 被网关转换）
-7. 最后才怀疑模型侧天花板——先查该模型在网关上的公开命中率基线（Muse Spark 这类已知波动极大）。
+5. **头部有没有发对**：是否命中该网关注册表里的至少一个信号？多个头的值是否同源一致？有没有被大小写重复设置覆盖？该 provider 是否需要追加特有头（如 `x-opencode-session`）？
+6. 该供应商是不是自动前缀型 + 多副本？有没有粘性路由手段？（OpenRouter 用 `session_id`，自建用一致性哈希）
+7. 是不是踩了桥接降级？（Responses → Chat Completions 被网关转换）
+8. 最后才怀疑模型侧天花板——先查该模型在网关上的公开命中率基线（Muse Spark 这类已知波动极大）。
+
+> 排障心法：**先 diff 两轮真实请求，再调头部策略。** 头补齐了但前缀里塞着时间戳，该是 0 还是 0。
 
 ## 七、一句话总结
 
 命中率的胜负手不在"传没传 session ID"，而在**请求组装权在谁手上**。能自己排前缀顺序、自己冻结工具定义、自己维护会话亲和的 harness，才能吃到缓存红利；把 key 塞进别人组装好的客户端里，光补一个 ID 补不回那几十个点。
+
+分层策略一句话：**公共层发广谱基础集让网关认得出你，provider 层按各家追加特有头，值必须同源，且随时可关。**
