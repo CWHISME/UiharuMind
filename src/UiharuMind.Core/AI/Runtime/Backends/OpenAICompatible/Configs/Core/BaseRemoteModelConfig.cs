@@ -27,6 +27,17 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     [JsonIgnore]
     public virtual string ModelCatalogUrl { get; set; } = string.Empty;
 
+    /// <summary>
+    /// models.dev 的供应商键（<c>groq</c>、<c>moonshotai</c>…），经「更多供应商」选中时写入。
+    /// 空表示没有——预设供应商靠 <see cref="RemoteModelConfigRegistry"/> 的类型映射，不写这里。
+    ///
+    /// <para>要存下来是因为三件事都得靠它：编辑重开时还原身份条、重算目录地址（不落盘，ADR 0092）、
+    /// 以及查价格与思考档位（<see cref="ModelCapabilityResolver"/> 优先按实例上的键查）。
+    /// 不存的话，从 models.dev 选的供应商重开就退化成一条无主的自定义配置。</para>
+    /// </summary>
+    [SettingConfigIgnoreDisplay]
+    public virtual string CatalogProviderKey { get; set; } = string.Empty;
+
     public virtual string ModelDescription { get; set; } = string.Empty;
     public virtual string ModelId { get; set; } = string.Empty;
 

@@ -2445,7 +2445,16 @@ Hit rate = cached input / reported input. The row above is the session total, wi
         <value>Fetch</value>
     </data>
     <data name="RemoteModelCatalogFetchFailed" xml:space="preserve">
-        <value>Failed to fetch the model catalog. You can still type a model ID manually.</value>
+        <value>Model catalog fetch failed: </value>
+    </data>
+    <data name="RemoteModelCatalogNeedApiKey" xml:space="preserve">
+        <value>enter an API key first</value>
+    </data>
+    <data name="RemoteModelCatalogKeyRejected" xml:space="preserve">
+        <value>the key may be invalid or lack permission</value>
+    </data>
+    <data name="RemoteModelCatalogTimeout" xml:space="preserve">
+        <value>request timed out</value>
     </data>
     <data name="RemoteModelDescriptionLabel" xml:space="preserve">
         <value>Description</value>
@@ -3262,6 +3271,49 @@ Allow them?</value>
 
     <data name="CustomConfig" xml:space="preserve">
         <value>CustomConfig</value>
+    </data>
+
+    <data name="MoreProviders" xml:space="preserve">
+        <value>More providers</value>
+    </data>
+    <data name="SwitchProvider" xml:space="preserve">
+        <value>Switch</value>
+    </data>
+    <data name="ProviderBadge" xml:space="preserve">
+        <value>models.dev</value>
+    </data>
+    <data name="ProviderPickerSearch" xml:space="preserve">
+        <value>Search name or id</value>
+    </data>
+    <data name="ProviderPickerEmpty" xml:space="preserve">
+        <value>No matching provider</value>
+    </data>
+    <data name="ProviderPickerLoading" xml:space="preserve">
+        <value>Loading providers…</value>
+    </data>
+    <data name="ProviderPickerFailed" xml:space="preserve">
+        <value>Could not load providers</value>
+    </data>
+    <data name="ProviderPickerModelCount" xml:space="preserve">
+        <value>{0} models</value>
+    </data>
+    <data name="ProviderBuiltIn" xml:space="preserve">
+        <value>Built-in</value>
+    </data>
+    <data name="ProviderDataStatus" xml:space="preserve">
+        <value>{0} providers · updated {1}</value>
+    </data>
+    <data name="ProviderDataStale" xml:space="preserve">
+        <value>{0} providers · data is old, refresh recommended</value>
+    </data>
+    <data name="ProviderDataUnknown" xml:space="preserve">
+        <value>No provider data yet</value>
+    </data>
+    <data name="Refresh" xml:space="preserve">
+        <value>Refresh</value>
+    </data>
+    <data name="ProviderSwitchConfirm" xml:space="preserve">
+        <value>Switching provider resets the current form. Continue?</value>
     </data>
 
     <data name="Decompressing" xml:space="preserve">

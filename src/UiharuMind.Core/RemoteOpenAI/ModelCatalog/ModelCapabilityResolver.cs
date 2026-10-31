@@ -27,15 +27,15 @@ public static class ModelCapabilityResolver
         if (config.ModelIdVariants.TryGetValue(config.ModelId, out RemoteModelIdVariant? preset) && preset.IsVision)
             return true;
 
-        string providerKey = ModelCapabilityTable.ProviderKeyOf(config.GetType());
+        string providerKey = ProviderKeyOf(config);
         if (providerKey.Length > 0)
         {
             if (ProviderPricingTable.TryGet(providerKey, config.ModelId, out var official)) return official.IsVision;
-            if (ModelCapabilityTable.TryGet(providerKey, config.ModelId, out var capability)) return capability.IsVision;
+            if (ModelCapabilitySource.TryGet(providerKey, config.ModelId, out var capability)) return capability.IsVision;
         }
 
         // 自定义服务商（没有 provider 键）与转售商缺行都落这里
-        return ModelCapabilityTable.TryGetCanonical(config.ModelId, out var canonical) && canonical.IsVision;
+        return ModelCapabilitySource.TryGetCanonical(config.ModelId, out var canonical) && canonical.IsVision;
     }
 
     /// <summary>
@@ -46,7 +46,7 @@ public static class ModelCapabilityResolver
     /// <param name="price">查到的单价</param>
     /// <returns>该供应商公布了单价为 true</returns>
     public static bool TryGetPrice(BaseRemoteModelConfig config, out ModelPrice price) =>
-        TryGetPrice(config.GetType(), config.ModelId, out price);
+        TryGetPrice(ProviderKeyOf(config), config.ModelId, out price);
 
     /// <summary>
     /// 按配置类型与模型 ID 查挂牌单价（编辑窗口在候选列表里逐条查，没有配置实例）。
@@ -56,10 +56,19 @@ public static class ModelCapabilityResolver
     /// <param name="modelId">模型 ID</param>
     /// <param name="price">查到的单价</param>
     /// <returns>该供应商公布了单价为 true</returns>
-    public static bool TryGetPrice(Type configType, string modelId, out ModelPrice price)
+    public static bool TryGetPrice(Type configType, string modelId, out ModelPrice price) =>
+        TryGetPrice(RemoteModelConfigRegistry.ProviderKeyOf(configType), modelId, out price);
+
+    /// <summary>
+    /// 按 provider 键与模型 ID 查挂牌单价（编辑窗口里逐条查候选时用——那时手上只有键，没有实例）
+    /// </summary>
+    /// <param name="providerKey">models.dev 的 provider 键；空表示查不到</param>
+    /// <param name="modelId">模型 ID</param>
+    /// <param name="price">查到的单价</param>
+    /// <returns>该供应商公布了单价为 true</returns>
+    public static bool TryGetPrice(string providerKey, string modelId, out ModelPrice price)
     {
         price = ModelPrice.Unknown;
-        string providerKey = ModelCapabilityTable.ProviderKeyOf(configType);
         if (providerKey.Length == 0) return false;
 
         if (ProviderPricingTable.TryGet(providerKey, modelId, out var official) && official.Price.IsKnown)
@@ -68,7 +77,7 @@ public static class ModelCapabilityResolver
             return true;
         }
 
-        if (!ModelCapabilityTable.TryGet(providerKey, modelId, out var capability) || !capability.Price.IsKnown)
+        if (!ModelCapabilitySource.TryGet(providerKey, modelId, out var capability) || !capability.Price.IsKnown)
         {
             return false;
         }
@@ -85,7 +94,7 @@ public static class ModelCapabilityResolver
     /// <param name="config">远程模型配置</param>
     /// <returns>逗号分隔的档位；未声明为空串</returns>
     public static string ResolveEfforts(BaseRemoteModelConfig config) =>
-        ResolveEfforts(config.GetType(), config.ModelId);
+        ResolveEfforts(ProviderKeyOf(config), config.ModelId);
 
     /// <summary>
     /// 按配置类型与模型 ID 查声明的思考档位
@@ -93,13 +102,17 @@ public static class ModelCapabilityResolver
     /// <param name="configType">远程配置类型</param>
     /// <param name="modelId">模型 ID</param>
     /// <returns>逗号分隔的档位；未声明为空串</returns>
-    public static string ResolveEfforts(Type configType, string modelId)
-    {
-        string providerKey = ModelCapabilityTable.ProviderKeyOf(configType);
-        return providerKey.Length > 0 && ModelCapabilityTable.TryGet(providerKey, modelId, out var capability)
+    public static string ResolveEfforts(Type configType, string modelId) =>
+        ResolveEfforts(RemoteModelConfigRegistry.ProviderKeyOf(configType), modelId);
+
+    /// <summary>按 provider 键与模型 ID 查声明的思考档位</summary>
+    /// <param name="providerKey">models.dev 的 provider 键；空表示不查</param>
+    /// <param name="modelId">模型 ID</param>
+    /// <returns>逗号分隔的档位；未声明为空串</returns>
+    public static string ResolveEfforts(string providerKey, string modelId) =>
+        providerKey.Length > 0 && ModelCapabilitySource.TryGet(providerKey, modelId, out var capability)
             ? capability.Efforts
             : "";
-    }
 
     /// <summary>
     /// 该模型可选哪些思考档位（编辑窗口下拉的候选）。
@@ -108,7 +121,7 @@ public static class ModelCapabilityResolver
     /// <param name="config">远程模型配置</param>
     /// <returns>档位候选与「模型是否表过态」</returns>
     public static ThinkingProfile ResolveThinkingProfile(BaseRemoteModelConfig config) =>
-        ResolveThinkingProfile(config.GetType(), config.ModelId);
+        BuildThinkingProfile(ProviderKeyOf(config), config.ModelId);
 
     /// <summary>
     /// 按配置类型与模型 ID 取思考档位候选
@@ -117,22 +130,32 @@ public static class ModelCapabilityResolver
     /// <param name="modelId">模型 ID</param>
     /// <returns>档位候选与「模型是否表过态」</returns>
     public static ThinkingProfile ResolveThinkingProfile(Type configType, string modelId) =>
-        ResolveThinkingControl(configType, modelId) switch
+        BuildThinkingProfile(RemoteModelConfigRegistry.ProviderKeyOf(configType), modelId);
+
+    private static ThinkingProfile BuildThinkingProfile(string providerKey, string modelId) =>
+        ResolveThinkingControl(providerKey, modelId) switch
         {
             // 只有开关或只有 token 预算：没有档位名可选
             ThinkingControl.Toggle or ThinkingControl.Budget => new ThinkingProfile([], true),
             ThinkingControl.Effort => new ThinkingProfile(
-                ThinkingEfforts.ParseDeclared(ResolveEfforts(configType, modelId)), true),
+                ThinkingEfforts.ParseDeclared(ResolveEfforts(providerKey, modelId)), true),
             // 没声明不等于不支持思考，给兜底阶梯；但「没表态」要让界面知道，
             // 否则用户自己填过的档位会被当成不支持而清掉
             _ => new ThinkingProfile(ThinkingEfforts.Fallback, false),
         };
 
-    private static ThinkingControl ResolveThinkingControl(Type configType, string modelId)
-    {
-        string providerKey = ModelCapabilityTable.ProviderKeyOf(configType);
-        return providerKey.Length > 0 && ModelCapabilityTable.TryGet(providerKey, modelId, out var capability)
+    private static ThinkingControl ResolveThinkingControl(string providerKey, string modelId) =>
+        providerKey.Length > 0 && ModelCapabilitySource.TryGet(providerKey, modelId, out var capability)
             ? capability.Thinking
             : ThinkingControl.Unknown;
-    }
+
+    /// <summary>
+    /// 该配置对应哪个 models.dev 供应商键：<b>实例上的键优先</b>（经「更多供应商」选的自定义配置），
+    /// 否则按配置类型查注册表。这条口径决定了从 models.dev 选的供应商能不能查到价格与思考档位。
+    /// </summary>
+    /// <param name="config">远程模型配置</param>
+    public static string ProviderKeyOf(BaseRemoteModelConfig config) =>
+        config.CatalogProviderKey is { Length: > 0 } key
+            ? key
+            : RemoteModelConfigRegistry.ProviderKeyOf(config.GetType());
 }

@@ -32,15 +32,8 @@ import urllib.request
 PROVIDERS = ["agnes", "deepseek", "sensenova", "zhipuai", "commandcode", "opencode", "opencode-go"]
 URL = "https://models.dev/api.json"
 
-# 配置类型 → models.dev provider 键。新增供应商时同步这里。
-PROVIDER_TYPES = [
-    ("RemoteAgnesModelConfig", "agnes"),
-    ("RemoteDeepSeekModelConfig", "deepseek"),
-    ("RemoteSensenovaModelConfig", "sensenova"),
-    ("RemoteZhipuModelConfig", "zhipuai"),
-    ("RemoteCommandCodeModelConfig", "commandcode"),
-    ("RemoteOpenCodeModelConfig", "opencode"),
-]
+# 配置类型 → models.dev provider 键的映射<b>不在这里</b>：那是应用知识，不是 models.dev 数据，
+# 现在登记在 RemoteModelConfigRegistry（ADR 0103）。这张表只管模型能力行。
 
 
 def load(input_path):
@@ -260,16 +253,6 @@ def main():
         "    /// <summary>按 <c>canonical_model_id</c> 查；传进来的通常是转售商的原始模型 ID，两者常常同形</summary>",
         "    internal static bool TryGetCanonical(string modelId, out Canonical canonical) =>",
         "        CanonicalEntries.TryGetValue(modelId.Trim(), out canonical);",
-        "",
-        "    /// <summary>配置类型 → models.dev 的 provider 键；未知返回空串</summary>",
-        "    internal static string ProviderKeyOf(Type configType) => configType switch",
-        "    {",
-    ]
-    for type_name, provider in PROVIDER_TYPES:
-        out.append(f'        _ when configType == typeof({type_name}) => "{provider}",')
-    out += [
-        '        _ => "",',
-        "    };",
         "}",
         "",
     ]

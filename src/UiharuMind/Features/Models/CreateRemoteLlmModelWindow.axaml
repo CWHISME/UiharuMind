@@ -3,6 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:common="clr-namespace:UiharuMind.Features.Models"
+        xmlns:pp="clr-namespace:UiharuMind.Features.Models.ProviderPicker"
         xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
         xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
         mc:Ignorable="d" d:DesignWidth="860" d:DesignHeight="620"
@@ -91,8 +92,49 @@
                 </Grid>
             </Border>
 
-            <ScrollViewer Grid.Column="1">
-                <StackPanel Margin="18" Spacing="14">
+            <!-- 右栏：身份条 + 表单。身份条固定在滚动区之上，不随内容滚走——
+                 「我在配哪家」是上下文，不是表单里的一个字段 -->
+            <Grid Grid.Column="1" RowDefinitions="Auto,*">
+                <Border Grid.Row="0" x:Name="ProviderStrip"
+                        IsVisible="{Binding ShowProviderStrip}"
+                        Background="{DynamicResource SemiGrey1}"
+                        BorderBrush="{DynamicResource SemiGrey2}"
+                        BorderThickness="0,0,0,1"
+                        Padding="16,0">
+                    <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="8" Height="36">
+                        <Border Grid.Column="0" Width="18" Height="18" CornerRadius="9"
+                                Background="{DynamicResource SemiBlue0}" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding CatalogProviderInitial}" FontSize="10"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource SemiGrey7}" />
+                        </Border>
+                        <TextBlock Grid.Column="1" Text="{Binding CatalogProviderName}" FontSize="13"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <Border Grid.Column="2" VerticalAlignment="Center" CornerRadius="4"
+                                Padding="5,1" Background="{DynamicResource SemiGrey2}"
+                                IsVisible="{Binding HasCatalogProvider}">
+                            <TextBlock FontSize="10" Foreground="{DynamicResource SemiGrey7}"
+                                       Text="{loc:Loc ProviderBadge}" />
+                        </Border>
+                        <Button x:Name="ProviderPickerButton" Grid.Column="4"
+                                VerticalAlignment="Center" FontSize="12"
+                                Padding="12,4" CornerRadius="14"
+                                Content="{Binding ProviderSwitchText}"
+                                IsEnabled="{Binding CanSwitchProvider}"
+                                Click="OpenProviderPicker_Click">
+                            <Button.Flyout>
+                                <Flyout Placement="BottomEdgeAlignedRight" Opening="OnProviderPickerOpening">
+                                    <!-- 控件实例固定、只换 DataContext：直接嵌控件时赋值前会继承父级
+                                         RemoteModelEditViewData，编译绑定强转会抛 InvalidCastException -->
+                                    <pp:ProviderPickerView Name="ProviderPicker" DataContext="{x:Null}" />
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <ScrollViewer Grid.Row="1">
+                    <StackPanel Margin="18" Spacing="14">
 
                     <!-- 当前服务商下的已有模型:一键复制 -->
                     <StackPanel Spacing="6" IsVisible="{Binding HasCopySources}">
@@ -231,7 +273,9 @@
                         <!-- 选中模型的能力摘要：上下文、挂牌单价、声明的思考档位 -->
                         <TextBlock Text="{Binding SelectedCapabilitySummary}" Classes="muted" TextWrapping="Wrap"
                                    IsVisible="{Binding SelectedCapabilitySummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                        <TextBlock Classes="error" Text="{loc:Loc RemoteModelCatalogFetchFailed}"
+                        <!-- 文案来自视图模型（带状态码与下一步），这里只借它决定显不显示。
+                             以前这里绑的是静态资源串，于是后台算出什么都被固定文案盖掉 -->
+                        <TextBlock Classes="error" Text="{Binding CatalogFetchError}"
                                    IsVisible="{Binding CatalogFetchErrorVisible}" />
                         <TextBlock Classes="error" Text="{loc:Loc NotInputModelIdTips}"
                                    IsVisible="{Binding HasModelIdError}" />
@@ -403,7 +447,8 @@
                         </StackPanel>
                     </Expander>
                 </StackPanel>
-            </ScrollViewer>
+                </ScrollViewer>
+            </Grid>
         </Grid>
 
         <!-- 底部按钮条 -->

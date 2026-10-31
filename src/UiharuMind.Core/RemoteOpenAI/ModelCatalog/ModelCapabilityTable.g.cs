@@ -947,16 +947,4 @@ internal static class ModelCapabilityTable
     /// <summary>按 <c>canonical_model_id</c> 查；传进来的通常是转售商的原始模型 ID，两者常常同形</summary>
     internal static bool TryGetCanonical(string modelId, out Canonical canonical) =>
         CanonicalEntries.TryGetValue(modelId.Trim(), out canonical);
-
-    /// <summary>配置类型 → models.dev 的 provider 键；未知返回空串</summary>
-    internal static string ProviderKeyOf(Type configType) => configType switch
-    {
-        _ when configType == typeof(RemoteAgnesModelConfig) => "agnes",
-        _ when configType == typeof(RemoteDeepSeekModelConfig) => "deepseek",
-        _ when configType == typeof(RemoteSensenovaModelConfig) => "sensenova",
-        _ when configType == typeof(RemoteZhipuModelConfig) => "zhipuai",
-        _ when configType == typeof(RemoteCommandCodeModelConfig) => "commandcode",
-        _ when configType == typeof(RemoteOpenCodeModelConfig) => "opencode",
-        _ => "",
-    };
 }

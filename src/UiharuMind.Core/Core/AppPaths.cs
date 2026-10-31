@@ -206,6 +206,12 @@ public static class AppPaths
         /// </summary>
         public static readonly string ModelCatalogs = Path.Combine(Root, "ModelCatalogs");
 
+        /// <summary>
+        /// models.dev 全量快照（供应商目录 + 能力/价格），运行时按需拉取（ADR 0103）。
+        /// 可再生（删了下次打开模型窗口自动重拉）、用户可随手删；缺失时退回构建期的静态表。
+        /// </summary>
+        public static readonly string ModelsDev = Path.Combine(Root, "ModelsDev");
+
         /// <summary>WebFetch 遇到非文本内容时下载的文件:可再生(重新下载即可)、用户可随手删</summary>
         public static readonly string Downloads = Path.Combine(Root, "Downloads");
 

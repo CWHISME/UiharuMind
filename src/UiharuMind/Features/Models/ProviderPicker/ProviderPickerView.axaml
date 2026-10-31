@@ -1,0 +1,34 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pp="clr-namespace:UiharuMind.Features.Models.ProviderPicker"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="360" d:DesignHeight="420"
+             x:Class="UiharuMind.Features.Models.ProviderPicker.ProviderPickerView"
+             x:DataType="pp:ProviderPickerViewData">
+
+    <!-- picker-row 是全局样式(CustomButtonStyle.axaml)，三个选择器共用 -->
+
+    <DockPanel Width="360" MaxHeight="420">
+        <TextBox DockPanel.Dock="Top" Margin="0,0,0,6" FontSize="12"
+                 Text="{Binding SearchText}"
+                 PlaceholderText="{loc:Loc ProviderPickerSearch}" />
+        <TextBlock DockPanel.Dock="Top" Classes="muted" FontSize="12" Margin="4,6"
+                   Text="{loc:Loc ProviderPickerEmpty}"
+                   IsVisible="{Binding IsEmpty}" />
+        <!-- 底部：数据年龄 + 刷新。年龄常显是「不设 TTL」的前提——陈旧得看得见 -->
+        <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="4,6,4,0">
+            <TextBlock FontSize="10" Classes="muted" TextWrapping="Wrap" VerticalAlignment="Center"
+                       Text="{Binding StatusText}" />
+            <Button Grid.Column="1" FontSize="11" Padding="10,3"
+                    Content="{loc:Loc Refresh}"
+                    Command="{Binding RefreshCommand}"
+                    IsEnabled="{Binding !IsBusy}" />
+        </Grid>
+        <!-- 行模板在代码里给（FuncDataTemplate + 可复用），XAML 的 DataTemplate 在滚动时不会复用行内容 -->
+        <ListBox x:Name="ProviderList" ItemsSource="{Binding Items}" Classes="flat-list"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 ScrollViewer.BringIntoViewOnFocusChange="False" />
+    </DockPanel>
+</UserControl>

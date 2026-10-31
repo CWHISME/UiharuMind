@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -31,6 +33,7 @@ public partial class RemoteModelEditViewData : ObservableObject
     private bool _suppressProviderReset; //编辑模式初始化选中服务商时不重置表单
     private readonly IModelCatalogFetcher _catalogFetcher; //模型目录拉取器（测试注入 fake）
     private readonly IModelCatalogCache _catalogCache; //模型目录缓存（测试注入 fake）
+    private readonly ModelsDevCatalog _modelsDev; //models.dev 供应商数据（测试注入 fake）
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanOpenProviderWebsite))]
@@ -117,9 +120,12 @@ public partial class RemoteModelEditViewData : ObservableObject
     }
 
     [ObservableProperty] private bool _hasModelIdOptions;
-    [ObservableProperty] private bool _isPresetProvider;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowProviderStrip))]
+    private bool _isPresetProvider;
     [ObservableProperty] private bool _hasCopySources;
     private bool _suppressModelIdPrefill;
+    private bool _suppressCatalogAutoLoad; //选中供应商时填目录地址，别立刻拿空 key 去拉
     private bool _suppressModelNamePrefill; //LoadValues/自动同步写名字时不把用户改动标记置真
     private bool _modelNameEditedByUser; //用户是否手改过模型名（决定自动同步是否放行）
     private bool _catalogRefreshPending; //强制刷新撞上在飞的拉取时先记下，等这轮结束补跑
@@ -308,6 +314,42 @@ public partial class RemoteModelEditViewData : ObservableObject
         ? SelectedProvider?.CatalogUrl ?? ""
         : CatalogUrlText.Trim();
 
+    /// <summary>当前从 models.dev 选的供应商；null 表示纯自定义配置（自己填地址）</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCatalogProvider))]
+    [NotifyPropertyChangedFor(nameof(CatalogProviderName))]
+    [NotifyPropertyChangedFor(nameof(ShowProviderStrip))]
+    [NotifyPropertyChangedFor(nameof(ProviderSwitchText))]
+    [NotifyPropertyChangedFor(nameof(CatalogProviderInitial))]
+    private RemoteProviderInfo? _catalogProvider;
+
+    /// <summary>
+    /// 身份条是否出现：只有「自定义配置」这一档有。
+    /// 编辑模式只在该模型本来就属于某家时出现——那时它只读，不提供切换（左侧列表本来就禁用）。
+    /// </summary>
+    public bool ShowProviderStrip => !IsPresetProvider && (!IsEditMode || CatalogProvider != null);
+
+    /// <summary>已经选了某家（决定按钮是「更多供应商」还是「换一家」）</summary>
+    public bool HasCatalogProvider => CatalogProvider != null;
+
+    /// <summary>身份条左侧的名字：选过显示那家名，没选显示「自定义配置」</summary>
+    public string CatalogProviderName => CatalogProvider?.Name ?? Loc.Text(LangKey.CustomConfig);
+
+    /// <summary>身份条左侧圆牌里的那个字母（供应商名首字）</summary>
+    public string CatalogProviderInitial =>
+        CatalogProviderName.Length > 0 ? CatalogProviderName[..1].ToUpperInvariant() : "";
+
+    /// <summary>身份条右侧按钮文案</summary>
+    public string ProviderSwitchText =>
+        Loc.Text(CatalogProvider == null ? LangKey.MoreProviders : LangKey.SwitchProvider);
+
+    /// <summary>编辑模式不给换供应商</summary>
+    public bool CanSwitchProvider => !IsEditMode;
+
+    /// <summary>表单里已经有用户填的东西：切换供应商会清空它，界面据此先确认一次</summary>
+    public bool HasProviderSwitchContent =>
+        ApiKey.Length > 0 || ModelId.Length > 0 || ModelPath.Length > 0 || CatalogProvider != null;
+
     /// <summary>
     /// 可选服务商列表
     /// </summary>
@@ -454,14 +496,17 @@ public partial class RemoteModelEditViewData : ObservableObject
     /// <param name="isNameTaken">名字是否已被已有模型占用（重名校验用）</param>
     /// <param name="catalogFetcher">模型目录拉取器；缺省用真实实现（测试注入 fake）</param>
     /// <param name="catalogCache">模型目录缓存；缺省用真实实现（测试注入 fake）</param>
+    /// <param name="modelsDev">models.dev 数据源；缺省用全局单例（测试注入 fake）</param>
     public RemoteModelEditViewData(RemoteModelInfo? remoteModelInfo, Func<string, bool> isNameTaken,
-        IModelCatalogFetcher? catalogFetcher = null, IModelCatalogCache? catalogCache = null)
+        IModelCatalogFetcher? catalogFetcher = null, IModelCatalogCache? catalogCache = null,
+        ModelsDevCatalog? modelsDev = null)
     {
         _isNameTaken = isNameTaken;
         _sourceInfo = remoteModelInfo;
         IsEditMode = remoteModelInfo != null;
         _catalogFetcher = catalogFetcher ?? new ModelCatalogFetcher();
         _catalogCache = catalogCache ?? new ModelCatalogCache();
+        _modelsDev = modelsDev ?? ModelsDevCatalog.Instance;
         SortOptions =
         [
             new ModelSortOption { Sort = EModelPriceSort.Default, Display = Loc.Text(LangKey.RemoteModelSortDefault) },
@@ -507,6 +552,7 @@ public partial class RemoteModelEditViewData : ObservableObject
         LoadValues(remoteModelInfo.Config, remoteModelInfo.ApiKey, remoteModelInfo.ModelName ?? "");
         _modelNameEditedByUser = !string.IsNullOrWhiteSpace(ModelName); //已存名字是用户定的，自动同步不再顶掉
         ApplyConfigTraits(remoteModelInfo.Config);
+        RestoreCatalogProvider(remoteModelInfo.Config);
 
         // 编辑模式初始化也要吃目录候选（如 CommandCode 已存档再编辑），但不覆盖已存 ModelId
         TryAutoLoadCatalog();
@@ -547,6 +593,8 @@ public partial class RemoteModelEditViewData : ObservableObject
         // 格式从地址尾段反推：界面上选的是完整地址，两者不可能打架（ADR 0102）。
         // 认不出尾段（只填到 /v1 或裸域）时保留原值——运行时按格式补后缀，那种地址本来就合法
         config.ApiFormat = RemoteEndpoints.FormatOf(config.ModelPath) ?? config.ApiFormat;
+        // 身份条上的那家：预设供应商留空（它们靠类型映射），自定义配置写实际选中的键
+        config.CatalogProviderKey = CatalogProvider?.Id ?? "";
         target.ApiKey = ApiKey;
         return target;
     }
@@ -576,6 +624,8 @@ public partial class RemoteModelEditViewData : ObservableObject
         _modelNameEditedByUser = false; //切服务商=新表单：预设默认名不算用户手改
         ApplyConfigTraits(config);
         RefreshCopySources(value.ConfigType);
+        // 换服务商=换了一份表单，之前从 models.dev 选的那家不再适用
+        CatalogProvider = null;
 
         // 目录地址是服务商属性：换服务商清掉自定义字段，有目录则按「有缓存不自动拉」加载（ADR 0092）
         CatalogUrlText = "";
@@ -585,7 +635,7 @@ public partial class RemoteModelEditViewData : ObservableObject
 
     partial void OnCatalogUrlTextChanged(string value)
     {
-        if (IsPresetProvider) return;
+        if (IsPresetProvider || _suppressCatalogAutoLoad) return;
         // 只对「看起来完整的 http(s) 地址」自动拉，避免击键到一半就发请求（Spec 评审 b-2）
         if (!Uri.TryCreate(value.Trim(), UriKind.Absolute, out Uri? uri) ||
             (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
@@ -605,6 +655,71 @@ public partial class RemoteModelEditViewData : ObservableObject
     /// <summary>手动「拉取」：强制走网络并覆盖缓存（ADR 0092）</summary>
     [RelayCommand]
     private Task RefreshCatalog() => LoadCatalogAsync(force: true);
+
+    /// <summary>打开窗口时按需取一次 models.dev 数据（本地为空才联网），不阻塞表单</summary>
+    public Task EnsureProviderDataAsync() => _modelsDev.EnsureAsync();
+
+    /// <summary>
+    /// 选中一家 models.dev 供应商：命中已内置预设就直接切到那家预设行，
+    /// 否则把接口地址、目录地址、格式填进自定义配置，并记住供应商键。
+    /// </summary>
+    /// <param name="provider">选中的供应商</param>
+    public void ApplyCatalogProvider(RemoteProviderInfo provider)
+    {
+        if (IsEditMode) return;
+
+        // 已内置的家走预设行：那份带家特有逻辑（思考格式、会话头），用自定义那份是降级
+        if (RemoteModelConfigRegistry.TryGetConfigType(provider.Id, out Type configType) &&
+            configType != typeof(RemoteModelConfig) &&
+            Providers.FirstOrDefault(item => item.ConfigType == configType) is { } preset)
+        {
+            SelectedProvider = preset;
+            return;
+        }
+
+        if (CurrentConfig is not { } config) return;
+
+        config.CatalogProviderKey = provider.Id;
+        config.ApiFormat = provider.ApiFormat;
+        CatalogProvider = provider;
+
+        // 地址是供应商给的，不算用户手改：之后选模型 ID 时仍允许按推荐端点改写
+        _suppressModelPathDirty = true;
+        try
+        {
+            ModelPath = provider.ApiBaseUrl;
+        }
+        finally
+        {
+            _suppressModelPathDirty = false;
+        }
+
+        // 目录地址是表单字段（不落盘）。填进去但不立刻拉：多数家的 /models 要鉴权，
+        // 此刻 key 还是空的，拉一次必然失败，表单上会当场红一条「拉取失败」。
+        // 用户填完 key 点「拉取」即可（按钮就在模型 ID 那一行）
+        _suppressCatalogAutoLoad = true;
+        try
+        {
+            CatalogUrlText = provider.CatalogUrl;
+        }
+        finally
+        {
+            _suppressCatalogAutoLoad = false;
+        }
+    }
+
+    /// <summary>
+    /// 编辑模式还原身份条：优先用缓存里的那家；缓存还没到（启动后台读盘未完成）就用存下来的键与地址凑一个，
+    /// 至少让用户看得出这个模型属于谁。
+    /// </summary>
+    private void RestoreCatalogProvider(BaseRemoteModelConfig config)
+    {
+        if (config.CatalogProviderKey is not { Length: > 0 } key) return;
+
+        CatalogProvider = _modelsDev.TryGetProvider(key, out RemoteProviderInfo provider)
+            ? provider
+            : new RemoteProviderInfo(key, key, config.ModelPath, "", "", 0);
+    }
 
     private void RefreshCopySources(Type configType)
     {
@@ -806,7 +921,7 @@ public partial class RemoteModelEditViewData : ObservableObject
         catch (Exception e)
         {
             Log.Warning($"model catalog fetch failed for '{url}': {e.GetType().Name}: {e.Message}");
-            CatalogFetchError = Loc.Text(LangKey.RemoteModelCatalogFetchFailed);
+            CatalogFetchError = ComposeCatalogError(e);
         }
         finally
         {
@@ -828,7 +943,7 @@ public partial class RemoteModelEditViewData : ObservableObject
         string currentId = ModelId;
         IReadOnlyDictionary<string, RemoteModelIdVariant> presets =
             _draftConfig?.ModelIdVariants ?? RemoteModelIdVariant.Empty;
-        string providerKey = _draftConfig is null ? "" : ModelCatalogCapabilities.ProviderKeyOf(_draftConfig.GetType());
+        string providerKey = _draftConfig is null ? "" : ModelCapabilityResolver.ProviderKeyOf(_draftConfig);
         ModelIdOptions.Clear();
         HashSet<string> seen = new(StringComparer.Ordinal); //目录偶有重复 id，重复项会让下拉出现同一条两次
         foreach (ModelCatalogEntry entry in entries)
@@ -962,15 +1077,51 @@ public partial class RemoteModelEditViewData : ObservableObject
     private BaseRemoteModelConfig? CurrentConfig => _sourceInfo?.Config ?? _draftConfig;
 
     /// <summary>
+    /// 目录拉取失败的原因。<b>只说「失败」等于没说</b>：401 要去填密钥、超时要重试、404 多半是地址填错，
+    /// 三种处置完全不同。所以把状态码/异常摘要一并显示出来。
+    /// </summary>
+    /// <param name="error">拉取时抛出的异常</param>
+    private string ComposeCatalogError(Exception error)
+    {
+        string baseText = Loc.Text(LangKey.RemoteModelCatalogFetchFailed);
+        switch (error)
+        {
+            case HttpRequestException { StatusCode: { } status }:
+            {
+                string detail = $"{(int)status} {status}";
+                // 认证类失败再往前一步：没填 key 与填了错的，下一步不一样
+                if (status is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+                {
+                    detail += " · " + Loc.Text(ApiKey.Length == 0
+                        ? LangKey.RemoteModelCatalogNeedApiKey
+                        : LangKey.RemoteModelCatalogKeyRejected);
+                }
+
+                return baseText + detail;
+            }
+            case TaskCanceledException:
+                return baseText + Loc.Text(LangKey.RemoteModelCatalogTimeout);
+            case HttpRequestException http:
+                // 连不上、DNS 解析失败之类：把异常原文带上，别吞成一句「失败」
+                return baseText + http.Message;
+            default:
+                return baseText + error.Message;
+        }
+    }
+
+    /// <summary>
+    /// 当前表单对应的 models.dev 供应商键：<b>实例上的键优先</b>（经「更多供应商」选的），否则按配置类型查注册表
+    /// </summary>
+    private string EffectiveProviderKey =>
+        CurrentConfig is { } config ? ModelCapabilityResolver.ProviderKeyOf(config) : "";
+
+    /// <summary>
     /// 当前模型的挂牌单价；供应商没公布、或自定义服务商查不到时为 null
     /// </summary>
     private ModelPrice? ResolvePrice(string modelId) =>
-        EffectiveConfigType is { } configType &&
-        ModelCapabilityResolver.TryGetPrice(configType, modelId, out ModelPrice price)
-            ? price
-            : null;
+        ModelCapabilityResolver.TryGetPrice(EffectiveProviderKey, modelId, out ModelPrice price) ? price : null;
 
     /// <summary>当前模型声明的思考档位；没声明为空串</summary>
     private string ResolveEfforts(string modelId) =>
-        EffectiveConfigType is { } configType ? ModelCapabilityResolver.ResolveEfforts(configType, modelId) : "";
+        ModelCapabilityResolver.ResolveEfforts(EffectiveProviderKey, modelId);
 }

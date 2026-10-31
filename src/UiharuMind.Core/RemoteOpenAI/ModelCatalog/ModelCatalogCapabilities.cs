@@ -37,14 +37,14 @@ public static class ModelCatalogCapabilities
     {
         ModelCapabilityTable.Capability capability = default;
         bool hasTable = providerKey.Length > 0 &&
-                        ModelCapabilityTable.TryGet(providerKey, entry.Id, out capability);
+                        ModelCapabilitySource.TryGet(providerKey, entry.Id, out capability);
         // 供应商官网（权威、覆盖全）压过 models.dev（第三方快照，转售商常常缺行）
         ProviderPricingTable.PriceRow official = default;
         bool hasOfficial = providerKey.Length > 0 && ProviderPricingTable.TryGet(providerKey, entry.Id, out official);
         // 供应商自己的条目都没有（转售商快照落后，模型表里就是缺这一行）时走 canonical 兜底：
         // 缺一行不等于"没有能力"，不兜底就会把视觉之类的真能力判成 false
         ModelCapabilityTable.Canonical canonical = default;
-        bool hasCanonical = !hasTable && !hasOfficial && ModelCapabilityTable.TryGetCanonical(entry.Id, out canonical);
+        bool hasCanonical = !hasTable && !hasOfficial && ModelCapabilitySource.TryGetCanonical(entry.Id, out canonical);
         return new ResolvedCapabilities(
             // IsVision/OmitSamplingParams 是非空 bool，默认 false 无法区分「显式否」与「没声明」；
             // 只把 true 当显式声明，false 让目录/models.dev 继续判，避免默认值误压真实能力
@@ -69,6 +69,6 @@ public static class ModelCatalogCapabilities
                 : hasTable && capability.OmitSamplingParams);
     }
 
-    /// <summary>配置类型 → models.dev provider 键；未知返回空串</summary>
-    public static string ProviderKeyOf(Type configType) => ModelCapabilityTable.ProviderKeyOf(configType);
+    /// <summary>配置类型 → models.dev provider 键；未知返回空串（映射登记在 <see cref="RemoteModelConfigRegistry"/>）</summary>
+    public static string ProviderKeyOf(Type configType) => RemoteModelConfigRegistry.ProviderKeyOf(configType);
 }

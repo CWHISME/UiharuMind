@@ -1,0 +1,37 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pp="clr-namespace:UiharuMind.Features.Models.ProviderPicker"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="360" d:DesignHeight="54"
+             x:Class="UiharuMind.Features.Models.ProviderPicker.ProviderPickerRow"
+             x:DataType="pp:ProviderPickerItem">
+
+    <!-- 选择器的一行。与 CharacterPickerRow 同款理由做成独立控件：
+         XAML 的 DataTemplate 在滚动时不会复用行内容，换成 FuncDataTemplate + 这个控件之后只换 DataContext -->
+    <Button Classes="picker-row" Command="{Binding PickCommand}"
+            HorizontalContentAlignment="Stretch"
+            ToolTip.Placement="Left"
+            ToolTip.Tip="{Binding EndpointHint}">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" HorizontalAlignment="Stretch">
+            <!-- 字母圆牌：不联网取 logo，离线也不花屏 -->
+            <Border Grid.Column="0" Width="26" Height="26" CornerRadius="13"
+                    Background="{DynamicResource SemiBlue0}" VerticalAlignment="Center">
+                <TextBlock Text="{Binding Initial}" FontSize="11"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Foreground="{DynamicResource SemiGrey7}" />
+            </Border>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock FontSize="12" TextTrimming="CharacterEllipsis" Text="{Binding Name}" />
+                <TextBlock FontSize="10" Classes="muted" TextTrimming="CharacterEllipsis"
+                           Text="{Binding Subtitle}" />
+            </StackPanel>
+            <Border Grid.Column="2" IsVisible="{Binding IsBuiltIn}" VerticalAlignment="Center"
+                    CornerRadius="4" Padding="5,1" Background="{DynamicResource SemiGrey2}">
+                <TextBlock FontSize="10" Foreground="{DynamicResource SemiGrey7}"
+                           Text="{loc:Loc ProviderBuiltIn}" />
+            </Border>
+        </Grid>
+    </Button>
+</UserControl>

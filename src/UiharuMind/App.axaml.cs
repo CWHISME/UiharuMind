@@ -81,6 +81,9 @@ public partial class App : Application, ILogger, IDisposable
         }
 
         AppPaths.EnsureRoot();
+        // models.dev 快照：只读本地文件，一次请求都不发（ADR 0103）。
+        // 没数据时保持空快照，等打开模型窗口再按需拉——启动不该依赖对端可用性
+        _ = UiharuMind.Core.RemoteOpenAI.ModelCatalog.ModelsDevCatalog.Instance.LoadCacheAsync();
         UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("enter");
         Log.Debug("UiharuMind begins to start.");
         _exitGuard = UiharuMind.Core.Core.Diagnostics.UncleanExitGuard.Start(Debugger.IsAttached);
