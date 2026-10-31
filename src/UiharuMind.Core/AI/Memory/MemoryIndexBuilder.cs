@@ -121,7 +121,7 @@ internal sealed class MemoryIndexBuilder
         catch (Exception e)
         {
             _store.DeleteTemporary();
-            Log.Error(e.Message);
+            Log.Error(e);
             return Fail(e.Message, failures, sources.Count);
         }
     }

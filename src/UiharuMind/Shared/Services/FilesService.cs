@@ -69,7 +69,7 @@ public class FilesService //: IStorageFolder
         }
         catch (Exception e)
         {
-            Log.Error(e.Message);
+            Log.Error(e);
         }
     }
 

@@ -71,7 +71,7 @@ public class MemoryManager : UniquieContainerSingleton<MemoryManager, MemoryData
         }
         catch (Exception e)
         {
-            Log.Error($"Memory index rename failed: {oldName} -> {finalName}, {e.Message}");
+            Log.Error($"Memory index rename failed: {oldName} -> {finalName}, {e}");
             base.ModifyName(item, oldName); //库没搬成就把名字还原,不留「json 新名、库旧名」的错位
             throw;
         }

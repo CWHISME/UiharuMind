@@ -271,7 +271,7 @@ public class DownloadableItemData : INotifyPropertyChanged, IDisposable
         }
         catch (Exception e)
         {
-            Log.Error(e.Message);
+            Log.Error(e);
             ErrorMessage = e.Message;
             TotalSizeInfo = "Error";
         }

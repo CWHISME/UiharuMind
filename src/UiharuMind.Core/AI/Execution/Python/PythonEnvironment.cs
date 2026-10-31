@@ -279,7 +279,7 @@ public static class PythonEnvironment
         }
         catch (Exception e)
         {
-            Log.Error($"删除 Python 虚拟环境失败：{e.Message}");
+            Log.Error($"删除 Python 虚拟环境失败：{e}");
         }
     }
 }

@@ -190,7 +190,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
             }
             catch (Exception e)
             {
-                Log.Error(e.Message);
+                Log.Error(e);
                 if (CurrentRunningModel == runningInfo) SetCurrentRunningModel(null);
             }
             finally

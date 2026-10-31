@@ -71,7 +71,7 @@ public class EmbeddingModelService : Singleton<EmbeddingModelService>
         }
         catch (Exception e)
         {
-            Log.Error($"Embedding model startup failed: {e.Message}");
+            Log.Error($"Embedding model startup failed: {e}");
             _lastError = e is LocalServerException serverError ? serverError.Detail : e.Message;
             NotifyStateChanged();
             throw new EmbeddingRuntimeException("Embedding model startup failed.", e);
@@ -149,7 +149,7 @@ public class EmbeddingModelService : Singleton<EmbeddingModelService>
         }
         catch (Exception e)
         {
-            Log.Error($"Embedding model state notification failed: {e.Message}");
+            Log.Error($"Embedding model state notification failed: {e}");
         }
     }
 }

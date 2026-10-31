@@ -47,7 +47,7 @@ public sealed class MarkerFileFlag
         }
         catch (Exception e)
         {
-            Log.Error($"Toggle marker '{Path.GetFileName(_path)}' failed: {e.Message}");
+            Log.Error($"Toggle marker '{Path.GetFileName(_path)}' failed: {e}");
         }
 
         Changed?.Invoke();

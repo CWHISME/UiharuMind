@@ -40,7 +40,7 @@ public static class ApplicationRestartService
         }
         catch (Exception e)
         {
-            Log.Error("Restart failed: " + e.Message);
+            Log.Error("Restart failed: " + e);
         }
     }
 

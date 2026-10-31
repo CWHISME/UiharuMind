@@ -129,7 +129,7 @@ public class ClipboardService : IDisposable
         {
             // 没写进去就把标记撤了，别让它去吞用户的下一次复制
             _isSelfCopying = false;
-            Log.Error(e.Message);
+            Log.Error(e);
             return;
         }
 
@@ -192,7 +192,7 @@ public class ClipboardService : IDisposable
         }
         catch (Exception e)
         {
-            Log.Error(e.Message);
+            Log.Error(e);
         }
     }
 

@@ -99,7 +99,7 @@ public static class UiUtils
         }
         catch (Exception e)
         {
-            Log.Error(e.Message);
+            Log.Error(e);
             return null;
         }
     }
@@ -140,7 +140,7 @@ public static class UiUtils
         }
         catch (Exception e)
         {
-            Log.Error($"Clone bitmap failed: {e.Message}");
+            Log.Error($"Clone bitmap failed: {e}");
             return null;
         }
     }

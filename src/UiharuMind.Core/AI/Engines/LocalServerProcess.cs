@@ -279,7 +279,7 @@ public sealed class LocalServerProcess
         catch (Exception e)
         {
             OnLog(e.Message, lineCount, null);
-            Log.Error($"{_launch.ServerName} failed: {e.Message}");
+            Log.Error($"{_launch.ServerName} failed: {e}");
         }
         finally
         {

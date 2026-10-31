@@ -706,7 +706,7 @@ public partial class SessionManager : Singleton<SessionManager>, IInitialize
         }
         catch (Exception e)
         {
-            Log.Error($"Append history of '{session.SessionId}' failed: {e.Message}");
+            Log.Error($"Append history of '{session.SessionId}' failed: {e}");
         }
 
         SaveMeta(session);
@@ -945,7 +945,7 @@ public partial class SessionManager : Singleton<SessionManager>, IInitialize
         }
         catch (Exception e)
         {
-            Log.Error($"Save agent state failed: {e.Message}");
+            Log.Error($"Save agent state failed: {e}");
         }
     }
 

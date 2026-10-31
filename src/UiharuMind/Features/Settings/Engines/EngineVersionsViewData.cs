@@ -223,7 +223,7 @@ public partial class EngineVersionsViewData : ObservableObject
         }
         catch (Exception e)
         {
-            Log.Error($"Install {EngineName} failed: {version.Name}, {e.Message}");
+            Log.Error($"Install {EngineName} failed: {version.Name}, {e}");
             item.ErrorMessage = e.Message;
         }
 

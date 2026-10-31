@@ -38,7 +38,7 @@ public static class TimeUtils
         }
         catch (Exception e)
         {
-            Log.Error(e.Message);
+            Log.Error(e);
             timeString = targetString;
         }
 

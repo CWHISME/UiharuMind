@@ -161,7 +161,7 @@ internal sealed class MemoryStore
                 }
                 catch (Exception e)
                 {
-                    Log.Error($"Memory index rename rollback failed: {newPath + suffix}, {e.Message}");
+                    Log.Error($"Memory index rename rollback failed: {newPath + suffix}, {e}");
                 }
             }
 

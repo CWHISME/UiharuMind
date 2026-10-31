@@ -204,7 +204,7 @@ public partial class DownloadListViewData : ObservableObject
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             // Windows 上正在跑的版本文件被占着，删不掉要让用户知道
-            Log.Error($"Delete {path} failed: {e.Message}");
+            Log.Error($"Delete {path} failed: {e}");
             MessageService.ShowNotification(Loc.Text(LangKey.EnginePackageDeleteFailed, e.Message),
                 severity: MessageSeverity.Error);
         }
@@ -279,7 +279,7 @@ public partial class DownloadListViewData : ObservableObject
         }
         catch (Exception e)
         {
-            Log.Error($"Handle downloaded {item.Name} failed: {e.Message}");
+            Log.Error($"Handle downloaded {item.Name} failed: {e}");
         }
 
         await UiDispatcher.InvokeAsync(() => OnDownloadFileChange?.Invoke());

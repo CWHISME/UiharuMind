@@ -93,7 +93,7 @@ public class IconUtils
             }
             catch (Exception e)
             {
-                Log.Error($"Load character avatar asset failed: {e.Message}");
+                Log.Error($"Load character avatar asset failed: {e}");
                 return null;
             }
         }
@@ -105,7 +105,7 @@ public class IconUtils
         }
         catch (Exception e)
         {
-            Log.Error($"Decode character icon failed: {e.Message}");
+            Log.Error($"Decode character icon failed: {e}");
             return null;
         }
     }
@@ -127,7 +127,7 @@ public class IconUtils
         }
         catch (Exception e)
         {
-            Log.Error(e.Message);
+            Log.Error(e);
             return null;
         }
     }

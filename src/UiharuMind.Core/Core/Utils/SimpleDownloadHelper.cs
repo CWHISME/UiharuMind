@@ -17,7 +17,7 @@ public static class SimpleDownloadHelper
         }
         catch (Exception ex)
         {
-            Log.Error($"Error downloading image: {ex.Message}");
+            Log.Error($"Error downloading image: {ex}");
             return null;
         }
     }

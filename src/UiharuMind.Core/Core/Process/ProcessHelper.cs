@@ -191,7 +191,7 @@ public static class ProcessHelper
 //         }
 //         catch (Exception ex)
 //         {
-//             Log.Error($"Execution error: {ex.Message}. Last log line: {lastLine}");
+//             Log.Error($"Execution error: {ex}. Last log line: {lastLine}");
 //         }
 //     }
 
@@ -273,7 +273,7 @@ public static class ProcessHelper
         }
         catch (Exception ex)
         {
-            Log.Error($"Execution error: {ex.Message}. Last log line: {lastLine}");
+            Log.Error($"Execution error: {ex}. Last log line: {lastLine}");
             return false;
         }
         finally

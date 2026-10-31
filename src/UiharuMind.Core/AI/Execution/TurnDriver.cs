@@ -406,7 +406,7 @@ public sealed class TurnDriver : IDisposable
             if (MaxTokensErrorHandler.IsMaxTokensError(e))
                 Log.Warning($"Context handoff (max_tokens rejected): session={session.SessionId}: {e.Message}");
             else
-                Log.Error($"Context handoff failed: session={session.SessionId}: {e.Message}");
+                Log.Error($"Context handoff failed: session={session.SessionId}: {e}");
         }
     }
 

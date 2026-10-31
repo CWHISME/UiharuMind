@@ -117,11 +117,11 @@ internal static class GroupMessageChannel
         catch (Exception e)
         {
             watch.Dispose();
-            Log.Error($"Group post to '{group.Title}' failed: {e.Message}");
+            Log.Error($"Group post to '{group.Title}' failed: {e}");
             return $"Error: 发到《{group.Title}》失败：{e.Message}。";
         }
 
-        _ = posting.ContinueWith(t => Log.Error($"Group post to '{group.Title}' failed: {t.Exception?.GetBaseException().Message}"),
+        _ = posting.ContinueWith(t => Log.Error($"Group post to '{group.Title}' failed: {t.Exception?.GetBaseException()}"),
             TaskContinuationOptions.OnlyOnFaulted);
 
         string receipt = running
@@ -136,7 +136,7 @@ internal static class GroupMessageChannel
         catch (Exception e)
         {
             watch.Dispose();
-            Log.Error($"Start group wait task for '{group.Title}' failed: {e.Message}");
+            Log.Error($"Start group wait task for '{group.Title}' failed: {e}");
             return receipt + "这次没能挂上回信（应用可能正在退出），别等它。";
         }
 

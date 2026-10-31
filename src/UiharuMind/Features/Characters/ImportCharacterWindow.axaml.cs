@@ -95,7 +95,7 @@ public partial class ImportCharacterWindow : Window
         }
         catch (Exception e)
         {
-            Log.Error("Failed to import character, error:" + e.Message);
+            Log.Error("Failed to import character, error:" + e);
             return null;
         }
     }

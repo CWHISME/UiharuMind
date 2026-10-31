@@ -65,7 +65,7 @@ public class MemoryData : IUniquieContainerItem, IDisposable
         }
         catch (Exception e)
         {
-            Log.Error(e.Message);
+            Log.Error(e);
             return "";
         }
     }
@@ -265,7 +265,7 @@ public class MemoryData : IUniquieContainerItem, IDisposable
         catch (Exception e)
         {
             LastIndexError = e is EmbeddingRuntimeException ? e.Message : "Embedding model startup failed.";
-            Log.Error($"Embedding session unavailable: {e.Message}");
+            Log.Error($"Embedding session unavailable: {e}");
             return false;
         }
     }

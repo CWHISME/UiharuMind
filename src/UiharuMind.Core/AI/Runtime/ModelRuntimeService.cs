@@ -123,7 +123,7 @@ internal sealed class ModelRuntimeService
         }
         catch (Exception e)
         {
-            Log.Error(e.Message);
+            Log.Error(e);
             if (loaded) runningData.FailRunning(e);
             else runningData.FailLoading(e, token);
             return false;

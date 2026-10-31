@@ -90,7 +90,7 @@ public static class SaveUtility
         }
         catch (Exception e)
         {
-            Log.Error($"Save File Error:{e.Message},Path:{filePath}");
+            Log.Error($"Save File Error:{e},Path:{filePath}");
         }
     }
 
@@ -202,7 +202,7 @@ public static class SaveUtility
         }
         catch (Exception e)
         {
-            Log.Error($"Save File Error:{e.Message},Path:{filePath}");
+            Log.Error($"Save File Error:{e},Path:{filePath}");
             return false;
         }
     }
@@ -225,7 +225,7 @@ public static class SaveUtility
         }
         catch (Exception e)
         {
-            Log.Error($"Save File Error:{e.Message},Path:{filePath}");
+            Log.Error($"Save File Error:{e},Path:{filePath}");
         }
     }
 
@@ -264,7 +264,7 @@ public static class SaveUtility
         }
         catch (Exception e)
         {
-            Log.Error(e.Message);
+            Log.Error(e);
         }
     }
 
@@ -325,7 +325,7 @@ public static class SaveUtility
         }
         catch (Exception e)
         {
-            Log.Error(e.Message);
+            Log.Error(e);
         }
         finally
         {

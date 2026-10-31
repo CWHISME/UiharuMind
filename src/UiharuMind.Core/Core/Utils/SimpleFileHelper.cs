@@ -52,7 +52,7 @@ public static class SimpleFileHelper
         }
         catch (Exception ex)
         {
-            Log.Error($"Error calculating size: {ex.Message}");
+            Log.Error($"Error calculating size: {ex}");
             return -1;
         }
     }

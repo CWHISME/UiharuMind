@@ -137,7 +137,7 @@ public partial class QuickChatResultWindow : QuickWindowBase
             }
             catch (ClientResultException e)
             {
-                Log.Error(e.Message);
+                Log.Error(e);
             }
             catch (Exception e)
             {

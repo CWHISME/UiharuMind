@@ -278,7 +278,7 @@ public static class UIManager
         }
         catch (Exception e)
         {
-            Log.Error(e.Message);
+            Log.Error(e);
         }
         finally
         {

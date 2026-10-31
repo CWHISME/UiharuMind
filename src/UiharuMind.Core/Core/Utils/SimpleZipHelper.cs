@@ -66,15 +66,15 @@ public static class SimpleZipHelper
         }
         catch (IOException ioEx)
         {
-            Log.Error($"解压过程中发生 IO 错误: {ioEx.Message}");
+            Log.Error($"解压过程中发生 IO 错误: {ioEx}");
         }
         catch (UnauthorizedAccessException uaEx)
         {
-            Log.Error($"解压过程中发生权限错误: {uaEx.Message}");
+            Log.Error($"解压过程中发生权限错误: {uaEx}");
         }
         catch (Exception ex)
         {
-            Log.Error($"解压过程中发生未知错误: {ex.Message}");
+            Log.Error($"解压过程中发生未知错误: {ex}");
         }
     }
 
@@ -90,11 +90,11 @@ public static class SimpleZipHelper
         }
         catch (IOException ioEx)
         {
-            Log.Error($"删除文件过程中发生 IO 错误: {ioEx.Message}");
+            Log.Error($"删除文件过程中发生 IO 错误: {ioEx}");
         }
         catch (UnauthorizedAccessException uaEx)
         {
-            Log.Error($"删除文件过程中发生权限错误: {uaEx.Message}");
+            Log.Error($"删除文件过程中发生权限错误: {uaEx}");
         }
     }
 }

@@ -140,7 +140,7 @@ public sealed class SpinnerIcon : Control
         }
         catch (Exception e)
         {
-            Log.Error($"Load spinner art failed: {e.Message}");
+            Log.Error($"Load spinner art failed: {e}");
             return null;
         }
     }
