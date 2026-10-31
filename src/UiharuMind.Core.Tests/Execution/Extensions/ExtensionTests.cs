@@ -106,6 +106,21 @@ public class ExtensionTests
         Assert.Contains("- image（内置，不可用：No image model is configured", text);
     }
 
+    /// <summary>生图扩展两条命令：出图与查模型清单，帮助里都看得到（出图的 models 参数靠它挑名字）</summary>
+    [Fact]
+    public async Task Help_Image_TellsBothGenerateAndModels()
+    {
+        BuiltinExtension image = ImageExtension.Spec.Assemble(Resources(), EReadImageMode.None, mountFiles: true);
+
+        string text = await Hub(image).HelpAsync("image", null, TestContext.Current.CancellationToken);
+
+        Assert.Contains("- generate {", text);
+        Assert.Contains("- models {}:", text);
+        //命令名归一：模型写 ImageModelsTool 的旧工具名也落到 models 上
+        Assert.Contains("# image.models", await Hub(image).HelpAsync("image", ImageModelsTool.ToolName,
+            TestContext.Current.CancellationToken));
+    }
+
     [Fact]
     public async Task Help_ByNameAndCommand_UsesCommandNamesNotToolNames()
     {
@@ -185,7 +200,7 @@ public class ExtensionTests
         Assert.Equal(["snapshot", "navigate", "act", "handoff"], browser.Commands.Select(x => x.Name));
         Assert.Equal(["windows", "snapshot", "act", "launch", "handoff"], desktop.Commands.Select(x => x.Name));
         Assert.Equal(["synthesize", "transcribe"], audio.Commands.Select(x => x.Name));
-        Assert.Equal(["generate"], image.Commands.Select(x => x.Name));
+        Assert.Equal(["generate", "models"], image.Commands.Select(x => x.Name));
         Assert.Equal(["create", "set", "sync", "remove", "list", "status"], worktree.Commands.Select(x => x.Name));
         Assert.NotNull(image.Unavailable);
         Assert.Equal(["transcribe"],
@@ -279,6 +294,7 @@ public class ExtensionTests
     [InlineData("browser", "act", EExtensionRisk.Standard)]
     [InlineData("browser", "handoff", EExtensionRisk.AlwaysAsk)]
     [InlineData("image", "generate", EExtensionRisk.Standard)]
+    [InlineData("image", "models", EExtensionRisk.ReadOnly)] //纯查询，不花钱
     [InlineData("audio", "transcribe", EExtensionRisk.Standard)]
     [InlineData("browser", "goto", EExtensionRisk.ReadOnly)] //没这条命令,什么也不会跑
     [InlineData("browser", "hand_off", EExtensionRisk.ReadOnly)]

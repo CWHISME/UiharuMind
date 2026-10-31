@@ -41,6 +41,26 @@ public sealed class ImageGenerationService
     /// <summary>至少配了一个生图模型。只看配置不看连通——装配期据此决定挂不挂工具</summary>
     public bool HasConfiguredModel => _models().Any(m => m.IsConfigured);
 
+    /// <summary>当前登记的模型，顺序即回退顺序（写时复制的那份，读的时候不要就地改）</summary>
+    public IReadOnlyList<ImageModelInfo> Models => _models();
+
+    /// <summary>
+    /// 按名字找一家：先比显示名，再比发给接口的模型 id，都不区分大小写。
+    /// 「点名哪一家」只在这里认，别在工具里另写一套
+    /// </summary>
+    /// <param name="name">模型名或模型 id</param>
+    /// <returns>找到的那一家；没有为 null</returns>
+    public ImageModelInfo? Find(string name)
+    {
+        string wanted = name.Trim();
+        if (wanted.Length == 0) return null;
+
+        IReadOnlyList<ImageModelInfo> models = _models();
+        return models.FirstOrDefault(x => string.Equals(x.Name, wanted, StringComparison.OrdinalIgnoreCase))
+               ?? models.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x.ModelId)
+                                             && string.Equals(x.ModelId, wanted, StringComparison.OrdinalIgnoreCase));
+    }
+
     /// <summary>
     /// 一个生图模型此刻的状态，设置页的列表据此显示
     /// </summary>

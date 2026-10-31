@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Text;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Character.PromptActions;
 using UiharuMind.Core.AI.Execution.Files;
@@ -11,6 +12,7 @@ namespace UiharuMind.Core.AI.Execution;
 
 /// <summary>
 /// 生图工具：带输入图即编辑，不带即生成，背后走生图回退链（ADR 0052）。
+/// 点名 <c>models</c> 时只试那几家、每家各出一张，不回退。
 /// 产出落进草稿目录的 <c>images/</c>，结果只给路径——<b>不把图交回模型</b>：
 /// Chat Completions 的 tool 消息只收文本，交回图片等于塞一串 base64。
 /// 不包审批：写入只落草稿目录，对外发图与 <see cref="VisionTool"/> 同口径。
@@ -20,10 +22,20 @@ public static class ImageGenerationTool
     /// <summary>工具名。提示词里提到本工具时一律引用这个常量</summary>
     public const string ToolName = "GenerateImage";
 
+    /// <summary>单次最多点名几家：每一家都可能计费又都慢，四家足够对比，多了只会让用户白等</summary>
+    public const int MaxModels = 4;
+
     // 结果里每张图一行，工具卡据此找图；写与读都在本类，格式只有一处
     private const string SavedPrefix = "Saved: ";
 
+    // 结果收尾那句：一家出一段图、最后统一说一遍。工具卡已经把图画出来了，点开就是原图，正文再贴用户就看到两份；
+    // 实测「只在交付终稿时贴」挡不住，一次出图模型就当终稿；只说别贴，它又把 $DRAFT 简写当位置写进正文。所以图与路径都点名不要
+    private const string NoRepeatNote = "图片已在本工具卡片上展示给用户，点开就是原文件。不要在回复里重复它的路径。";
+
     private static readonly string SupportedRatios = string.Join(", ", ImageAspectRatio.Supported);
+
+    private static readonly string ImageModelsMention =
+        BuiltinExtensions.Mention(BuiltinExtensions.Image, BuiltinExtensions.ImageModels);
 
     /// <summary>
     /// 创建生图 AIFunction
@@ -53,13 +65,17 @@ public static class ImageGenerationTool
                     [Description("宽高比，取其一：1:1、3:4、4:3、16:9、9:16、2:3、3:2。省略则用 1:1，" +
                                  "或编辑时保持第一张输入图的形状。")]
                     string? aspectRatio = null,
+                    [Description("要用哪几家生图，写模型名（最多 4 个，名字先用 image.models 查）。" +
+                                 "省略则按登记顺序自动挑一家、用不了就换下一家；点名了就只试这几家、各出一张，不再换家。")]
+                    string[]? models = null,
                     CancellationToken cancellationToken = default) =>
-                await GenerateAsync(paths, service, prompt, images, aspectRatio, ProgressOf(progressSink),
+                await GenerateAsync(paths, service, prompt, images, aspectRatio, models, ProgressOf(progressSink),
                         cancellationToken)
                     .ConfigureAwait(false),
             ToolName,
             "根据文字提示生成图像，或编辑已有图像。" +
-            "结果保存为文件并展示给用户。最多需要几分钟。");
+            "结果保存为文件并展示给用户。最多需要几分钟。" +
+            $"想选具体的生图模型（可多选、各出一张）就先查 {ImageModelsMention}，把名字填进 models。");
     }
 
     /// <summary>
@@ -78,8 +94,8 @@ public static class ImageGenerationTool
     }
 
     private static async Task<string> GenerateAsync(AgentPathResolver paths, ImageGenerationService service,
-        string prompt, string[]? imagePaths, string? aspectRatio, IProgress<ImageProgress>? progress,
-        CancellationToken ct)
+        string prompt, string[]? imagePaths, string? aspectRatio, string[]? modelNames,
+        IProgress<ImageProgress>? progress, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(prompt)) return "Error: 提示词不能为空。";
 
@@ -103,10 +119,86 @@ public static class ImageGenerationTool
         (List<ImageInput> inputs, string? inputError) = await LoadInputsAsync(paths, imagePaths, ct).ConfigureAwait(false);
         if (inputError != null) return inputError;
 
-        ImageGenerationReport report = await service.GenerateAsync(new ImageRequest(prompt.Trim(), inputs, ratio), progress, ct)
-            .ConfigureAwait(false);
+        ImageRequest request = new(prompt.Trim(), inputs, ratio);
+        return modelNames is { Length: > 0 }
+            ? await GenerateNamedAsync(paths, service, request, modelNames, progress, ct).ConfigureAwait(false)
+            : await GenerateFallbackAsync(paths, service, request, progress, ct).ConfigureAwait(false);
+    }
+
+    // 不点名：交给回退链自己挑一家（ADR 0052）
+    private static async Task<string> GenerateFallbackAsync(AgentPathResolver paths, ImageGenerationService service,
+        ImageRequest request, IProgress<ImageProgress>? progress, CancellationToken ct)
+    {
+        ImageGenerationReport report = await service.GenerateAsync(request, progress, ct).ConfigureAwait(false);
         if (report.Failure != null) return DescribeFailure(report);
 
+        return DescribeProduced(report, await SaveAllAsync(paths, report, request.Prompt, ct).ConfigureAwait(false))
+            .Append(NoRepeatNote).ToString();
+    }
+
+    // 点名了：只试点的这几家，每家各出一张，不回退（画图窗口里用户选了谁就是谁，同一条语义）。
+    // 一家挂了不牵连别家：它们各自计费、各自失败，结果一并交回
+    private static async Task<string> GenerateNamedAsync(AgentPathResolver paths, ImageGenerationService service,
+        ImageRequest request, string[] modelNames, IProgress<ImageProgress>? progress, CancellationToken ct)
+    {
+        (List<ImageModelInfo> chosen, string? error) = ResolveNamedRequest(service, modelNames);
+        if (error != null) return error;
+
+        StringBuilder sb = new();
+        List<string> failures = new();
+        foreach (ImageModelInfo model in chosen)
+        {
+            ImageGenerationReport report = await service.GenerateWithAsync(model, request, progress, ct)
+                .ConfigureAwait(false);
+            if (report.Failure != null)
+            {
+                failures.Add(DescribeFailure(report));
+                continue;
+            }
+
+            sb.Append(DescribeProduced(report, await SaveAllAsync(paths, report, request.Prompt, ct).ConfigureAwait(false)));
+        }
+
+        // 全挂：原因就是全部结果，不再多一句「图已展示」
+        if (sb.Length == 0) return string.Join("\n", failures);
+
+        sb.Append(NoRepeatNote);
+        if (failures.Count > 0) sb.Append("\n这几个没出成：\n").Append(string.Join('\n', failures));
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// 点名清单拆成具体模型：名字重复、不认识的都在这里一次说清，不让模型猜
+    /// </summary>
+    /// <param name="service">生图回退链</param>
+    /// <param name="modelNames">模型写的名字</param>
+    /// <returns>解好的模型；出错时为空，报错在 Error 里</returns>
+    private static (List<ImageModelInfo> Models, string? Error) ResolveNamedRequest(ImageGenerationService service,
+        string[] modelNames)
+    {
+        string[] names = modelNames.Select(x => x.Trim()).Where(x => x.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        if (names.Length > MaxModels)
+            return ([], $"Error: 一次最多点名 {MaxModels} 个生图模型，这次给了 {names.Length} 个。");
+
+        List<ImageModelInfo> models = new();
+        List<string> unknown = new();
+        foreach (string name in names)
+        {
+            if (service.Find(name) is not { } model) unknown.Add(name);
+            else if (!models.Contains(model)) models.Add(model);
+        }
+
+        if (unknown.Count == 0) return (models, null);
+
+        string available = string.Join("、", service.Models.Select(x => x.Name));
+        return ([], $"Error: 没有这些生图模型：{string.Join("、", unknown)}。" +
+                     $"现有的：{(available.Length > 0 ? available : "（一个都没配）")}。用 {ImageModelsMention} 查名字。");
+    }
+
+    private static async Task<List<string>> SaveAllAsync(AgentPathResolver paths, ImageGenerationReport report,
+        string prompt, CancellationToken ct)
+    {
         List<string> saved = new();
         foreach (GeneratedImage image in report.Images)
         {
@@ -114,7 +206,7 @@ public static class ImageGenerationTool
             saved.Add(paths.ToPortable(file));
         }
 
-        return DescribeSuccess(report, saved);
+        return saved;
     }
 
     // 与 AnalyzeImage 同一口径:任一缺失或认不出就整体报错并列全,不搞「缺的跳过、剩的照做」
@@ -186,16 +278,14 @@ public static class ImageGenerationTool
         return slug.Length > 0 ? $"{stamp}-{slug}" : stamp;
     }
 
-    private static string DescribeSuccess(ImageGenerationReport report, List<string> saved)
+    // 一家出图的那一段，不含收尾那句：点名多家时它属于整条结果，只出现一次
+    private static StringBuilder DescribeProduced(ImageGenerationReport report, List<string> saved)
     {
         StringBuilder sb = new($"由 {report.ModelName} 生成。\n");
         foreach (string path in saved) sb.Append(SavedPrefix).Append(path).Append('\n');
-        // 工具卡已经把图画出来了,点开就是原图:正文再贴用户就看到两份。实测「只在交付终稿时贴」挡不住,
-        // 一次出图模型就当终稿;只说别贴,它又把 $DRAFT 简写当位置写进正文。所以图与路径都点名不要
-        sb.Append("图片已在本工具卡片上展示给用户，点开就是原文件。不要在回复里重复它的路径。");
-        if (!string.IsNullOrWhiteSpace(report.RevisedPrompt)) sb.Append("\n修订后的提示词：").Append(report.RevisedPrompt);
+        if (!string.IsNullOrWhiteSpace(report.RevisedPrompt)) sb.Append("修订后的提示词：").Append(report.RevisedPrompt).Append('\n');
         AppendFallback(sb, report);
-        return sb.ToString();
+        return sb;
     }
 
     private static string DescribeFailure(ImageGenerationReport report)

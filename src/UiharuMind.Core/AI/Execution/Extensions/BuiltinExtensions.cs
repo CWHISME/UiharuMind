@@ -72,6 +72,9 @@ public static class BuiltinExtensions
     /// <summary>生图：生成或修改</summary>
     public const string ImageGenerate = "generate";
 
+    /// <summary>生图：列出生图模型（generate 的 models 参数从这份清单里选）</summary>
+    public const string ImageModels = "models";
+
     /// <summary>音频：配音成文件</summary>
     public const string AudioSynthesize = "synthesize";
 

@@ -31,6 +31,19 @@ public sealed class ImageGenerationToolTests : IDisposable
         }
     }
 
+    /// <summary>按模型给结果：点名几家时，谁成谁败要能分开设，也要看得出谁真被叫了</summary>
+    private sealed class ModelDialect(Func<ImageModelInfo, ImageOutcome> outcome) : IImageDialect
+    {
+        public List<string> Calls { get; } = new();
+
+        public Task<ImageOutcome> GenerateAsync(ImageModelInfo model, ImageRequest request,
+            IProgress<ImageProgress>? progress, CancellationToken ct)
+        {
+            Calls.Add(model.Name);
+            return Task.FromResult(outcome(model));
+        }
+    }
+
     private string Workspace => Path.Combine(_root, "workspace");
 
     private string Draft => Path.Combine(_root, "draft");
@@ -40,12 +53,20 @@ public sealed class ImageGenerationToolTests : IDisposable
         if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
     }
 
-    private async Task<string> Invoke(RecordingDialect dialect, string prompt, string[]? images = null,
-        string? aspectRatio = null)
+    private static ImageModelInfo Model(string name) =>
+        new() { Name = name, Endpoint = "https://example.com/v1", ModelId = name };
+
+    private static ImageGenerationService Service(IImageDialect dialect, params ImageModelInfo[] models) =>
+        new(() => models, _ => dialect, (_, _) => Task.FromResult(TestImages.Png(1, 1)));
+
+    private async Task<string> Invoke(IImageDialect dialect, string prompt, string[]? images = null,
+        string? aspectRatio = null) =>
+        await Invoke(Service(dialect, Model("painter")), prompt, images, aspectRatio);
+
+    private async Task<string> Invoke(ImageGenerationService service, string prompt, string[]? images = null,
+        string? aspectRatio = null, string[]? models = null)
     {
         Directory.CreateDirectory(Workspace);
-        ImageModelInfo model = new() { Name = "painter", Endpoint = "https://example.com/v1", ModelId = "x" };
-        ImageGenerationService service = new(() => [model], _ => dialect, (_, _) => Task.FromResult(TestImages.Png(1, 1)));
         AIFunction tool = (AIFunction)ImageGenerationTool.Create(new AgentPathResolver(Workspace, Draft), service);
 
         object? raw = await tool.InvokeAsync(new AIFunctionArguments
@@ -53,6 +74,7 @@ public sealed class ImageGenerationToolTests : IDisposable
             ["prompt"] = prompt,
             ["images"] = images,
             ["aspectRatio"] = aspectRatio,
+            ["models"] = models,
         }, TestContext.Current.CancellationToken);
         return raw is JsonElement { ValueKind: JsonValueKind.String } element
             ? element.GetString() ?? string.Empty
@@ -118,6 +140,84 @@ public sealed class ImageGenerationToolTests : IDisposable
         string[] images = Enumerable.Range(0, ImageRequest.MaxImages + 1).Select(i => $"{i}.png").ToArray();
 
         Assert.Contains($"单次最多 {ImageRequest.MaxImages}", await Invoke(Drawing(), "x", images));
+    }
+
+    //================= 点名模型 =================
+
+    private static ModelDialect DrawingAll() =>
+        new(_ => new ImageOutcome { Images = [new ImageOutput(TestImages.Png(8, 8), null)] });
+
+    /// <summary>点名几家就各画一张：按点名的顺序叫，每家的图各自落盘，结果里分得清谁画的</summary>
+    [Fact]
+    public async Task NamedModels_EachDrawsItsOwnImage_InTheNamedOrder()
+    {
+        ModelDialect dialect = DrawingAll();
+
+        string result = await Invoke(Service(dialect, Model("painter"), Model("artist")), "a fox",
+            models: ["artist", "painter", "ARTIST"]); //大小写与重复都归一到一家
+
+        Assert.Equal(["artist", "painter"], dialect.Calls);
+        Assert.Equal(2, ImageGenerationTool.ParseSavedPaths(result).Count);
+        Assert.Contains("由 artist 生成", result);
+        Assert.Contains("由 painter 生成", result);
+        Assert.Equal(2, Directory.GetFiles(Path.Combine(Draft, AgentOutputLayout.ImagesFolder)).Length);
+    }
+
+    /// <summary>点名了就不回退：它说这家用不了，也不能自己换一家再画一张（与画图窗口选谁就是谁同一条语义）</summary>
+    [Fact]
+    public async Task NamedModel_ThatCannotRun_DoesNotFallBack()
+    {
+        ModelDialect dialect = new(model => model.Name == "broken"
+            ? ImageOutcome.Fail(EImageFailureKind.Unavailable, "cannot reach the service")
+            : new ImageOutcome { Images = [new ImageOutput(TestImages.Png(8, 8), null)] });
+
+        string result = await Invoke(Service(dialect, Model("broken"), Model("painter")), "a fox",
+            models: ["broken"]);
+
+        Assert.Equal(["broken"], dialect.Calls);
+        Assert.Empty(ImageGenerationTool.ParseSavedPaths(result));
+        Assert.Contains("图像生成不可用", result);
+    }
+
+    /// <summary>一家挂了不牵连别家：好的照给图，坏的只说它自己那一条</summary>
+    [Fact]
+    public async Task PartialFailure_KeepsTheWorkingModelsImage()
+    {
+        ModelDialect dialect = new(model => model.Name == "flaky"
+            ? ImageOutcome.Fail(EImageFailureKind.MaybeCharged, "timed out")
+            : new ImageOutcome { Images = [new ImageOutput(TestImages.Png(8, 8), null)] });
+
+        string result = await Invoke(Service(dialect, Model("flaky"), Model("painter")), "a fox",
+            models: ["flaky", "painter"]);
+
+        Assert.Single(ImageGenerationTool.ParseSavedPaths(result));
+        Assert.Contains("由 painter 生成", result);
+        Assert.Contains("这几个没出成", result);
+        Assert.Contains("不要自行重试", result);
+    }
+
+    /// <summary>名字写错就当场报并列出现有的：一家都不叫，不白花钱</summary>
+    [Fact]
+    public async Task UnknownModelNames_AreRejectedBeforeAnyCall()
+    {
+        ModelDialect dialect = DrawingAll();
+
+        string result = await Invoke(Service(dialect, Model("painter")), "x", models: ["nope"]);
+
+        Assert.Contains("没有这些生图模型：nope", result);
+        Assert.Contains("painter", result);
+        Assert.Contains("image.models", result);
+        Assert.Empty(dialect.Calls);
+    }
+
+    [Fact]
+    public async Task TooManyNamedModels_IsRejected()
+    {
+        string[] models = Enumerable.Range(0, ImageGenerationTool.MaxModels + 1).Select(i => $"m{i}").ToArray();
+
+        string result = await Invoke(Service(DrawingAll(), Model("painter")), "x", models: models);
+
+        Assert.Contains($"最多点名 {ImageGenerationTool.MaxModels}", result);
     }
 
     [Fact]
