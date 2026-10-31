@@ -75,6 +75,46 @@ public class DrawCommandGeometryTests
     }
 
     [Fact]
+    public void ArrowLineCommand_控件贴合包围盒且端点跟随()
+    {
+        // 控件 Bounds 必须非空：屏幕合成照画，RenderTargetBitmap 走的 ImmediateRenderer 用 Bounds 与裁剪矩形求交，
+        // 空矩形永不相交 → 整条箭头被跳过（「贴图编辑里箭头看得见，双击保存后没了」）。这里钉住尺寸与位置。
+        var command = new ArrowLineCommand(new Point(10, 20), new Point(120, 90), TestColor, 4);
+        var arrow = Assert.IsType<ArrowLineControl>(command.CreateControl());
+
+        Assert.True(arrow.Width >= 110, $"宽度要覆盖端点，实际 {arrow.Width}");
+        Assert.True(arrow.Height >= 70, $"高度要覆盖端点，实际 {arrow.Height}");
+        Assert.True(Canvas.GetLeft(arrow) <= 10, "控件左上角不得晚于起点");
+        Assert.True(Canvas.GetTop(arrow) <= 20, "控件左上角不得晚于起点");
+        // 右/下边缘要包住终点（线宽 4 → 外扩 3）
+        Assert.True(Canvas.GetLeft(arrow) + arrow.Width >= 120);
+        Assert.True(Canvas.GetTop(arrow) + arrow.Height >= 90);
+
+        // 拖动把端点往外拉：位置与尺寸都要跟着走，否则导出时用的还是第一次摆出来的框
+        command.UpdateControl(arrow, new Point(200, 300));
+        Assert.True(arrow.Width >= 190, $"宽度要跟着长，实际 {arrow.Width}");
+        Assert.True(arrow.Height >= 280, $"高度要跟着长，实际 {arrow.Height}");
+        Assert.True(Canvas.GetLeft(arrow) <= 10);
+        Assert.True(Canvas.GetTop(arrow) <= 20);
+
+        // 反向拖（往左上）时左上角要跟着退回起点那侧
+        command.UpdateControl(arrow, new Point(-40, -30));
+        Assert.True(Canvas.GetLeft(arrow) <= -40, $"左上角要跟着退回，实际 {Canvas.GetLeft(arrow)}");
+        Assert.True(Canvas.GetTop(arrow) <= -30);
+    }
+
+    [Fact]
+    public void ArrowLineControl_只在线的附近命中()
+    {
+        var arrow = new ArrowLineControl(2, TestColor);
+        arrow.SetGeometry(new Point(0, 0), new Point(100, 100));
+
+        Assert.True(arrow.HitTest(new Point(50, 50)), "线上应命中");
+        Assert.True(arrow.HitTest(new Point(50, 52)), "线旁容差内应命中");
+        Assert.False(arrow.HitTest(new Point(95, 5)), "包围盒角落离得远，不该吃掉点击");
+    }
+
+    [Fact]
     public void PenCommand_点序列累积成折线()
     {
         var command = new PenCommand(new Point(0, 0), TestColor, 3);

@@ -150,6 +150,8 @@ public sealed class LineCommand : IDrawCommand
 /// <summary>箭头线（线宽透传给 <see cref="ArrowLineControl"/>）</summary>
 public sealed class ArrowLineCommand : IDrawCommand
 {
+    private const double BoundsPadding = 1; //包围盒外扩：描边以路径为中心，粗线两侧都要留量
+
     public Point Start { get; }
     public Point End { get; private set; }
     public Color Color { get; }
@@ -165,16 +167,32 @@ public sealed class ArrowLineCommand : IDrawCommand
 
     public Control CreateControl()
     {
-        return new ArrowLineControl(Start, End, Color)
-        {
-            StrokeThickness = StrokeThickness
-        };
+        var arrow = new ArrowLineControl(StrokeThickness, Color);
+        ApplyTo(arrow);
+        return arrow;
     }
 
     public void UpdateControl(Control control, Point end)
     {
         End = end;
-        if (control is ArrowLineControl arrow) arrow.UpdateEndPoint(end);
+        if (control is ArrowLineControl arrow) ApplyTo(arrow);
+    }
+
+    // 绝对几何 → 控件局部几何：控件贴在包围盒左上角，端点坐标随之平移。
+    // 控件 Bounds 必须贴合内容（空 Bounds 在 RenderTargetBitmap 里会被整条跳过，见 ArrowLineControl）
+    private void ApplyTo(ArrowLineControl arrow)
+    {
+        double padding = StrokeThickness / 2 + BoundsPadding;
+        double originX = Math.Min(Start.X, End.X) - padding;
+        double originY = Math.Min(Start.Y, End.Y) - padding;
+
+        Canvas.SetLeft(arrow, originX);
+        Canvas.SetTop(arrow, originY);
+        arrow.Width = Math.Abs(End.X - Start.X) + padding * 2;
+        arrow.Height = Math.Abs(End.Y - Start.Y) + padding * 2;
+        arrow.SetGeometry(
+            new Point(Start.X - originX, Start.Y - originY),
+            new Point(End.X - originX, End.Y - originY));
     }
 }
 
