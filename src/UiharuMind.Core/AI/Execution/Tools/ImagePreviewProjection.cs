@@ -1,5 +1,4 @@
 using System.Text;
-using System.Text.Json;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.Core.Utils;
@@ -65,9 +64,8 @@ public static class ImagePreviewProjection
             .Where(m => m.Role == ChatRole.Tool)
             .SelectMany(m => m.Contents.OfType<FunctionResultContent>())
             .Where(r => viewCalls.Contains(r.CallId))
-            .SelectMany(r => ImagePreview.ParsePreviews(TextOf(r)))
-            .ToList();
-        long tokens = previews.Sum(p => (long)(p.Width > 0
+            .SelectMany(r => ImagePreview.ParsePreviews(ImagePreview.ResultText(r)))
+            .ToList();        long tokens = previews.Sum(p => (long)(p.Width > 0
             ? InlineImageLimits.EstimateTokens(p.Width, p.Height)
             : InlineImageLimits.MaxTokensPerImage));
         return (previews.Count, tokens);
@@ -83,7 +81,7 @@ public static class ImagePreviewProjection
     private static IEnumerable<string> PreviewsIn(ChatMessage toolMessage, HashSet<string> viewCalls) => toolMessage
         .Contents.OfType<FunctionResultContent>()
         .Where(r => viewCalls.Contains(r.CallId))
-        .SelectMany(r => ImagePreview.ParsePreviewPaths(TextOf(r)));
+        .SelectMany(r => ImagePreview.ParsePreviewPaths(ImagePreview.ResultText(r)));
 
     private static ChatMessage BuildImageMessage(List<string> previews, AgentPathResolver resolver, bool attachImages)
     {
@@ -116,14 +114,6 @@ public static class ImagePreviewProjection
         return new ChatMessage(ChatRole.User, [new TextContent(text.ToString()), .. images]);
     }
 
-    // 刚产出时是字符串，从历史文件读回来是 JsonElement
-    private static string? TextOf(FunctionResultContent result) => result.Result switch
-    {
-        string text => text,
-        JsonElement { ValueKind: JsonValueKind.String } element => element.GetString(),
-        null => null,
-        var other => other.ToString(),
-    };
 }
 
 /// <summary>

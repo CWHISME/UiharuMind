@@ -13,6 +13,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat.CrossProcess;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
 using UiharuMind.Core.Core;
@@ -726,9 +727,27 @@ public partial class SessionManager : Singleton<SessionManager>, IInitialize
         copy.CreatedAt = DateTimeOffset.Now;
         // 附件文件仍归原会话所有:两边都登记会导致删除任一方时打断另一方
         copy.OwnedAttachmentFiles.Clear();
+        CarrySessionFiles(session, copy);
         Add(copy);
         return copy;
     }
+
+    /// <summary>
+    /// 把源会话房间里的附件复制到目标会话房间。
+    ///
+    /// <para>草稿目录按会话分房间，而历史里写的是 <c>$DRAFT/…</c> 相对路径：不复制过去，
+    /// 投影在新会话里找不到文件，那条消息会<b>静默</b>降级成 <c>[Image no longer available]</c>，
+    /// 字节与源会话不同，前缀从那里起永久断（实测分叉会话的缓存停在第一张图之前）。</para>
+    ///
+    /// <para>复制而非共享：两个房间各存一份，删掉任一方都不影响另一方（与
+    /// <see cref="ChatSession.OwnedAttachmentFiles"/> 同一口径——谁的文件谁删）。</para>
+    /// </summary>
+    /// <param name="source">源会话</param>
+    /// <param name="target">目标会话（已分配新标识）</param>
+    /// <returns>复制了几个文件</returns>
+    public int CarrySessionFiles(ChatSession source, ChatSession target) =>
+        ImagePreview.CarryOverPreviews(target.History,
+            AgentBuildProfile.DraftRoomOf(source), AgentBuildProfile.DraftRoomOf(target));
 
     /// <summary>
     /// 深拷贝一个会话（不入索引）

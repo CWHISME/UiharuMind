@@ -471,6 +471,9 @@ public sealed class ConversationItemActions
         // 「正文 + 工具调用」消息之后、它的结果之前,照原样截会让分出去的会话一开口就 400
         int keep = HistoryEditRange.ExpandKeptPrefix(branch.History, index + 1);
         branch.History.RemoveRange(keep, branch.History.Count - keep);
+        // 预览图跟着保留下来的历史走:新会话是另一个房间,不复制过去投影就找不到文件,
+        // 那条消息会静默降级成 [Image no longer available],前缀从那里起永久断
+        SessionManager.Instance.CarrySessionFiles(session, branch);
         SessionManager.Instance.Add(branch);
         _host.NotifySessionsChanged();
     }

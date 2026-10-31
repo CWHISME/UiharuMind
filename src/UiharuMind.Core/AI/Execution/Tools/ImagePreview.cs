@@ -120,6 +120,81 @@ public static class ImagePreview
     public static IReadOnlyList<string> ParsePreviewPaths(string? result) => ToolResultLines.Parse(result, PreviewPrefix);
 
     /// <summary>
+    /// 工具结果的正文：刚产出时是 string，从历史文件读回来是 <c>JsonElement{String}</c>。
+    /// 投影与分叉复制都要读它，口径只留这一处
+    /// </summary>
+    /// <param name="result">工具结果</param>
+    /// <returns>正文；没有结果时为空</returns>
+    internal static string? ResultText(FunctionResultContent result) => result.Result switch
+    {
+        string text => text,
+        System.Text.Json.JsonElement { ValueKind: System.Text.Json.JsonValueKind.String } element => element.GetString(),
+        null => null,
+        var other => other.ToString(),
+    };
+
+    /// <summary>
+    /// 分叉会话时把<b>保留下来的历史</b>里引用到的预览图带进新房间。
+    ///
+    /// <para>预览在历史里写的是 <c>$DRAFT/images/previews/&lt;hash&gt;.png</c>（相对草稿目录），
+    /// 而草稿目录按会话分房间——新会话那间是空的，投影就会静默降级成
+    /// <c>[Image no longer available]</c>：那条消息的字节从此与父会话不同，
+    /// 前缀从那里起永久断（实测分叉会话的缓存停在第一张图之前）。</para>
+    ///
+    /// <para>复制而不是共享：两个房间各存一份，删掉任一方都不影响另一方（与
+    /// <c>OwnedAttachmentFiles</c> 同一口径——谁的文件谁删）。</para>
+    /// </summary>
+    /// <param name="history">分叉后保留的历史</param>
+    /// <param name="fromRoom">原会话的草稿目录</param>
+    /// <param name="toRoom">新会话的草稿目录</param>
+    /// <returns>实际复制了几张</returns>
+    public static int CarryOverPreviews(IEnumerable<ChatMessage> history, string fromRoom, string toRoom)
+    {
+        if (fromRoom.Length == 0 || toRoom.Length == 0) return 0;
+        if (string.Equals(fromRoom, toRoom, StringComparison.OrdinalIgnoreCase)) return 0;
+
+        int copied = 0;
+        foreach (ChatMessage message in history)
+        {
+            foreach (FunctionResultContent result in message.Contents.OfType<FunctionResultContent>())
+            {
+                foreach (string preview in ParsePreviewPaths(ResultText(result)))
+                {
+                    if (!TryRelativeToDraft(preview, fromRoom, out string relative)) continue;
+
+                    string source = Path.Combine(fromRoom, relative);
+                    string target = Path.Combine(toRoom, relative);
+                    if (!File.Exists(source) || File.Exists(target)) continue;
+
+                    Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                    File.Copy(source, target);
+                    copied++;
+                }
+            }
+        }
+
+        return copied;
+    }
+
+    /// <summary>预览路径 → 相对草稿目录的部分。认两种写法：<c>$DRAFT/…</c> 与落在原房间里的绝对路径</summary>
+    private static bool TryRelativeToDraft(string preview, string draftRoom, out string relative)
+    {
+        relative = string.Empty;
+        string token = "$" + AgentPathResolver.DraftVariable + "/";
+        if (preview.StartsWith(token, StringComparison.OrdinalIgnoreCase))
+        {
+            relative = preview[token.Length..];
+            return relative.Length > 0;
+        }
+
+        string root = Path.TrimEndingDirectorySeparator(draftRoom) + Path.DirectorySeparatorChar;
+        if (!Path.IsPathRooted(preview) || !preview.StartsWith(root, StringComparison.OrdinalIgnoreCase)) return false;
+
+        relative = preview[root.Length..];
+        return relative.Length > 0;
+    }
+
+    /// <summary>
     /// 结果里的一张预览：路径与尺寸
     /// </summary>
     /// <param name="Path">预览路径（草稿目录简写或绝对路径）</param>
