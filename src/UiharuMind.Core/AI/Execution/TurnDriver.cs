@@ -71,8 +71,8 @@ public sealed class TurnDriver : IDisposable
 
     private bool _ratioLogged; //占用比值每轮至多记一条,见 LogUsageRatio
 
-    private long _callReasoningTokens; //本次服务调用报的思考 token,边界时消费
-    private bool _usageSinceBoundary; //边界之后有没有新到过一次用量,见 MarkThinkingNotReturned
+    private long _pendingReasoningTokens; //用量先于边界到达时暂存,等边界认领,见 NoteReasoningTokens
+    private ChatMessage? _boundaryReply; //边界刚过、用量还没到:先记下这一发产出的助手消息
 
     /// <summary>
     /// 上一轮是不是被<b>取消</b>收的尾（用户点停止、外部 <see cref="CancelSession"/>、墙钟超时）。
@@ -273,8 +273,7 @@ public sealed class TurnDriver : IDisposable
                             // 先校准再记账:水位刻度要按下一发实际用的系数换算。旁路请求(写交接)不校准,它与常规请求不同形
                             Calibrate(session, runner, usage.Details);
                             RecordUsage(session, runner, usage.Details);
-                            _callReasoningTokens = usage.Details.ReasoningTokenCount ?? 0;
-                            _usageSinceBoundary = true;
+                            NoteReasoningTokens(usage.Details.ReasoningTokenCount ?? 0);
                         }
 
                         if (imageTally.Observe(content) is > 0 and int generated) RecordGeneratedImages(session, generated);
@@ -622,6 +621,40 @@ public sealed class TurnDriver : IDisposable
     }
 
     /// <summary>
+    /// 记一次用量里的思考 token，并按<b>这一次</b>服务调用的助手消息判「思考有没有回来」。
+    ///
+    /// <para><b>用量不一定在边界之前到</b>：实测 DeepSeek 系是边界先过、带用量的那一帧后到
+    /// （<c>StreamUsage.KeepLast</c> 把用量挪到流尾）。早先的做法是把数值留在字段里等下一个边界消费，
+    /// 于是上一发的思考 token 被盖到<b>下一发</b>的助手消息上——下一发只是调了个工具、思考与正文都没有，
+    /// 界面就凭空冒出一张「加密思考」卡（实机一轮里六张，且紧贴上一发真实的思考卡）。</para>
+    ///
+    /// 边界已经过了就立刻按那一发判（<see cref="_boundaryReply"/> 是边界记下的助手消息），
+    /// 还没过就先存着，等边界认领。这样两边的先后顺序都不影响归属。
+    /// </summary>
+    /// <param name="tokens">这一发服务端报的思考 token</param>
+    private void NoteReasoningTokens(long tokens)
+    {
+        // 边界那一发的用量到了:这一格的使命到此为止,不论数值多少都不能留给下一发
+        ChatMessage? reply = _boundaryReply;
+        _boundaryReply = null;
+
+        // 报了 0 就是「这一发没思考」:清掉暂存,免得把上一发的数带过来
+        if (tokens <= 0)
+        {
+            _pendingReasoningTokens = 0;
+            return;
+        }
+
+        if (reply != null)
+        {
+            MarkThinkingUnavailable(reply, tokens);
+            return;
+        }
+
+        _pendingReasoningTokens = tokens;
+    }
+
+    /// <summary>
     /// 本次服务调用报了思考 token、历史里却一个字都没有 → 在助手消息上盖「思考未返回」标记，
     /// 并通知落点补一张「加密思考」卡。
     ///
@@ -629,29 +662,52 @@ public sealed class TurnDriver : IDisposable
     /// 内容流创建的，没有正文就一张都不会出现，界面上整段空白，读起来像模型没思考过。
     /// 用量的思考 token 是唯一能证明「它想过」的证据。
     ///
-    /// 边界之前没到过用量就整段跳过：宁可不画，也不能把上一次调用的 token 盖到这一次的消息上。
+    /// 归属靠边界：边界此刻给出的是<b>这一发</b>产出的那条助手消息，用量先到就先存着、等这里认领，
+    /// 后到则由 <see cref="NoteReasoningTokens"/> 拿这里记下的消息判——绝不跨调用带。
     /// </summary>
     /// <param name="session">本轮的会话</param>
     /// <param name="fromIndex">本轮新增段在历史里的起始下标</param>
     private void MarkThinkingNotReturned(ChatSession session, int fromIndex)
     {
-        if (!_usageSinceBoundary) return;
-        _usageSinceBoundary = false;
-        long tokens = _callReasoningTokens;
-        _callReasoningTokens = 0;
-        if (tokens <= 0) return;
+        ChatMessage? reply = LastAssistantSince(session, fromIndex);
+        long tokens = _pendingReasoningTokens;
+        _pendingReasoningTokens = 0;
+        _boundaryReply = null;
+        if (reply == null) return;
 
-        // 这次调用的助手消息是区间里最后一条 assistant
-        ChatMessage? reply = null;
-        for (int i = session.History.Count - 1; i >= Math.Max(0, fromIndex); i--)
+        // 用量先到:此刻就能判
+        if (tokens > 0)
         {
-            if (session.History[i].Role != ChatRole.Assistant) continue;
-            reply = session.History[i];
-            break;
+            MarkThinkingUnavailable(reply, tokens);
+            return;
         }
 
-        // 收得到正文就说明思考正常,不必另标
-        if (reply == null) return;
+        // 用量后到:记下这一发的助手消息,等 NoteReasoningTokens 拿它判
+        _boundaryReply = reply;
+    }
+
+    /// <summary>这一发的助手消息是区间里最后一条 assistant；没有则 null</summary>
+    private static ChatMessage? LastAssistantSince(ChatSession session, int fromIndex)
+    {
+        for (int i = session.History.Count - 1; i >= Math.Max(0, fromIndex); i--)
+        {
+            if (session.History[i].Role == ChatRole.Assistant) return session.History[i];
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 给一条助手消息盖上「思考未返回」标记并通知落点补卡。
+    /// 正文已经有思考段时什么都不做——收得到正文就说明思考正常。
+    /// </summary>
+    /// <param name="reply">这一发产出的助手消息</param>
+    /// <param name="tokens">服务端报的思考 token 数</param>
+    private void MarkThinkingUnavailable(ChatMessage reply, long tokens)
+    {
+        // 同一发可能被判两次(用量先到一次、边界一次):标过就不再补第二张卡
+        if (ChatMessageAnnotations.TryReadThinkingUnavailable(reply, out _)) return;
+
         // 先做廉价的短路:结构化思考段在,直接放过;只有它不在时才去扫正文里的 <think> 段
         foreach (AIContent content in reply.Contents)
         {
