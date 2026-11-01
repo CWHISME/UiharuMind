@@ -157,11 +157,11 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget, IL
 
         Message = text;
         NotifyContentChanged(); //收尾补上最后一段增量;没有订阅者时零成本
-        UpdateStats(fullLen, isFinal: true); //统计用全文长度,不随截断预览缩水
-        // 收尾快照:provisional 显示用,轮末被存档覆盖——条目驻留内存期间 Now 只会越涨越假
+        // 先定格快照再刷新：UpdateStats 读的是这份快照，收尾之后再补 token 也不会把耗时重算成「建卡至今」
         _closedElapsed = LiveElapsed;
         _closedChars = fullLen;
         if (_statsSource == EStatsSource.Live) _statsSource = EStatsSource.Timed; //再收一次尾不撤销已认领的存档
+        UpdateStats(fullLen, isFinal: true); //统计用全文长度,不随截断预览缩水
         IsPreviewTruncated = IsTruncated(fullLen); //超限的长思考收尾后仍保留「查看全文」入口
     }
 
@@ -259,12 +259,20 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget, IL
     /// <param name="charCount">缓冲里的字符数</param>
     private void UpdateStats(int charCount, bool isFinal = false)
     {
-        StatsText = FormatStats(LiveElapsed, charCount, isFinal, ReasoningTokens);
+        StatsText = FormatStats(DisplayElapsed, charCount, isFinal, ReasoningTokens);
         _lastStatsAt = DateTime.Now;
     }
 
     /// <summary>本段思考开始至今的耗时（live provisional 显示用；存档以历史里的为准）</summary>
     private TimeSpan LiveElapsed => Stopwatch.GetElapsedTime(_startTicks);
+
+    /// <summary>
+    /// 显示用的耗时：还在流就用墙钟，收尾之后用收尾那一刻的快照。
+    ///
+    /// 收尾后的卡可能已经挂了几小时（服务端报的 token 迟到、泵里还排着一次刷新），
+    /// 拿墙钟重算就成了「建卡至今」的假数——实机看过 4h 的「思考耗时」。
+    /// </summary>
+    private TimeSpan DisplayElapsed => _statsSource == EStatsSource.Live ? LiveElapsed : _closedElapsed;
 
     /// <summary>
     /// 开始 live 跑表。有正文的卡靠增量驱动上屏泵，没有正文的卡没有增量——建卡时踢一脚，

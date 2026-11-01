@@ -329,8 +329,11 @@ public sealed class ConversationHistoryRenderer
 
             int before = buffer.Count;
             // 加密思考：正文压根不存在，历史里也就没有对应内容，卡只能在这里补。
-            // 插在本条消息的条目之前——思考发生在正文之前
-            if (ChatMessageAnnotations.TryReadThinkingUnavailable(message, out _))
+            // 插在本条消息的条目之前——思考发生在正文之前。
+            // 证据要两样齐全：标记 + 密文。只有标记的老消息是旧判据（usage 计数）留下的，
+            // 它一条思考内容都没有，按标记补卡就是凭空冒出一张「加密思考」卡（ADR 0100 修订）
+            if (ChatMessageAnnotations.TryReadThinkingUnavailable(message, out _) &&
+                ChatMessageAnnotations.HasEncryptedThinking(message))
                 buffer.Insert(before, new ThinkingItem { IsContentUnavailable = true, IsDone = true });
 
             foreach (AIContent content in message.Contents)

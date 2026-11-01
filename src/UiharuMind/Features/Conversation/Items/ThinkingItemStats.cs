@@ -29,7 +29,6 @@ public partial class ThinkingItem
     private TimeSpan _closedElapsed; //收尾那一刻的耗时,回放对账用它而不用 Now
     private long _closedChars; //收尾那一刻的全文长度
     private DateTime _lastStatsAt = DateTime.MinValue; //上次刷标题统计的时刻,节流用
-
     // 标题统计现在显示的是谁的数
     private enum EStatsSource
     {
@@ -70,7 +69,7 @@ public partial class ThinkingItem
     /// <param name="charCount">全文字符数</param>
     /// <param name="isFinal">数已定格（收尾、存档），不会再跳</param>
     /// <param name="reasoningTokens">
-    /// 服务端报的思考 token。只在这一段<b>没有正文</b>（加密思考：只回密文或只报计数）时用得上——
+    /// 服务端报的思考 token。只在这一段<b>没有正文</b>（加密思考：只回密文）时用得上——
     /// 那时字数恒为 0，速度无从谈起，能报的只有耗时与它
     /// </param>
     /// <returns>标题栏文本</returns>
@@ -104,7 +103,8 @@ public partial class ThinkingItem
     /// 补上服务端报的思考 token 并刷新标题统计。
     ///
     /// 加密思考的 token 数要等这一发收尾（用量那一帧）才报得出来，而卡早在流里就开了——
-    /// 两条信号落到的必须是同一张卡，所以这里只改数、不新建。
+    /// 两条信号落到的必须是同一张卡，所以这里只改数、不新建。耗时取收尾快照，不重算——
+    /// 卡可能在几小时前就收尾了，拿现在重算就成了「建卡至今」的假数。
     /// </summary>
     /// <param name="tokens">服务端报的思考 token</param>
     public void SetReasoningTokens(long tokens)

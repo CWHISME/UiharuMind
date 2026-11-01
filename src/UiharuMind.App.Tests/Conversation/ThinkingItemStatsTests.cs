@@ -188,6 +188,21 @@ public class ThinkingItemStatsTests
         Assert.Equal(0, ThinkingItem.AdoptPersistedStats([own]));
     }
 
+    [Fact]
+    public void SetReasoningTokens_AfterClose_KeepsClosedDuration()
+    {
+        // 加密思考卡的 token 要等这一发收尾才报得出来，而卡早已收尾：
+        // 耗时必须取收尾快照，不能拿墙钟重算——否则卡挂几小时就是「4h 9m」的假数。
+        ThinkingItem thinking = new() { IsContentUnavailable = true };
+        thinking.Flush();
+        TimeSpan closed = thinking.ClosedElapsed;
+
+        thinking.SetReasoningTokens(790);
+
+        Assert.Equal(closed, thinking.ClosedElapsed);
+        Assert.Equal(ThinkingItem.FormatStats(closed, 0, isFinal: true, reasoningTokens: 790), thinking.StatsText);
+    }
+
     private static ThinkingItem Closed(string text, ChatMessage? source = null)
     {
         ThinkingItem thinking = new() { SourceMessage = source };

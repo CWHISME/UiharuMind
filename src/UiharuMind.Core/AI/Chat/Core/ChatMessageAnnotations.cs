@@ -539,6 +539,19 @@ public static class ChatMessageAnnotations
     public const string ThinkingUnavailableTokens = "_thinkingUnavailableTokens";
 
     /// <summary>
+    /// 这条消息里有没有<b>加密思考的密文</b>。
+    ///
+    /// 回放补卡与落盘盖标记都以它作为证据：「服务端报了多少思考 token」是计费口径，
+    /// 不是「正文被加密」的证据——明文模型在工具调用发上就是不产生正文、用量照报计数
+    /// （实测 deepseek 报 1）。旧版本只看计数就盖标记，那些消息一条思考内容都没有，
+    /// 按标记补卡会凭空多出一张「加密思考」卡（ADR 0100 修订）。
+    /// </summary>
+    /// <param name="message">消息</param>
+    /// <returns>带密文的思考内容存在时为 true</returns>
+    public static bool HasEncryptedThinking(ChatMessage message) =>
+        message.Contents.OfType<TextReasoningContent>().Any(x => x.ProtectedData is { Length: > 0 });
+
+    /// <summary>
     /// 写一条消息的思考统计（耗时毫秒 + 字数）。就地写：调用方持有的是历史里的同一引用。
     /// </summary>
     /// <param name="message">目标消息</param>

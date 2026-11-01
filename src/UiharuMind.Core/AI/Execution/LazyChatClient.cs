@@ -301,7 +301,8 @@ public class LazyChatClient : IChatClient
         // 这条日志能区分"服务端根本没发正文"与"发了但被上层丢了"
         int reasoningChars = 0;
         int textChars = 0;
-        long reasoningTokens = 0; //这一发报的思考 token,与 reasoningChars 配对判「想过但一个字没回」
+        long reasoningTokens = 0; //这一发报的思考 token,只用来给已开出的加密思考卡补数
+        bool encryptedContentSeen = false; //这一发收到了带密文的思考（responses 线由 SDK 解出）
         StreamCompletionWatch watch = new();
         // 复读不归重试管：直接抛出，本轮按失败收口（已生成的部分照常落盘）
         RepetitionLoopWatch loopWatch = new(modelName);
@@ -344,17 +345,19 @@ public class LazyChatClient : IChatClient
                 // 能走到这里,update 必已赋值(failure 分支已退出);显式断言收窄可空性
                 if (update is null) throw new UnreachableException();
 
-                // 这一发的思考正文与用量只在这里数一次：「想过但一个字没回」的两个输入都在同一发里，
-                // 不必去历史里按消息配对（那里要靠边界、落盘与用量的先后，怎么排都能排错）
+                // 这一发的思考正文、密文证据与用量只在这里看一次
                 foreach (AIContent content in update.Contents)
                 {
                     switch (content)
                     {
-                        // 只有一个空白的思考不算正文：实测 deepseek 会发一个孤立空格，
-                        // 算进来就会把「它想过但没内容」误判成「它发了内容」
+                        // 只有一个空白的思考不算正文：实测 deepseek 会发一个孤立空格
                         case TextReasoningContent { Text.Length: > 0 } reasoning
                             when !string.IsNullOrWhiteSpace(reasoning.Text):
                             reasoningChars += reasoning.Text.Length;
+                            break;
+                        // 带密文的思考内容本身就是「这一发在加密思考」的证据（responses 线由 SDK 解出）
+                        case TextReasoningContent { ProtectedData: { Length: > 0 } }:
+                            encryptedContentSeen = true;
                             break;
                         case UsageContent { Details.ReasoningTokenCount: > 0 } usage:
                             reasoningTokens = usage.Details.ReasoningTokenCount.Value;
@@ -442,10 +445,13 @@ public class LazyChatClient : IChatClient
             yield break;
         }
 
-        // 报了思考 token 却一个字正文都没回来（闭源模型只回密文、或只报计数）：
-        // 补一条信号让界面开「加密思考」卡，落盘时再转成消息上的标记（重开会话才补得回来）。
-        // 判据就在这一发里，不碰历史、不碰边界——那种判法要跟落盘与用量的先后赛跑
-        if (reasoningChars == 0 && reasoningTokens > 0)
+        // 这一发确实带回了密文，才补一条信号把服务端报的思考 token 挂到那张卡上。
+        //
+        // 证据只能是密文本身：chat 线由 HTTP 层从 reasoning_details 里切出加密条目（signal.Seen），
+        // responses 线由 SDK 解出 ProtectedData。**「正文 0 字 + usage 报了思考 token」不是证据**——
+        // 明文思考的模型在工具调用这一发上就是不产生思考正文，usage 却仍报计数（实测 deepseek
+        // 报 1），按计数判会凭空长出一张「加密思考」卡（ADR 0100 修订）。
+        if (reasoningTokens > 0 && (signal.Seen || encryptedContentSeen))
         {
             yield return (new ChatResponseUpdate(ChatRole.Assistant,
                 [new ThinkingNotReturnedContent(reasoningTokens)]), null);

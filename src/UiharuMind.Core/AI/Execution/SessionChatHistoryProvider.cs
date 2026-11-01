@@ -205,28 +205,7 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
             // ② 带票据的——转成一条持久的思考内容（ProtectedData 装密文、附加产出方身份），
             //    随消息存进历史。票据长在消息上，重启后读历史即得，
             //    不需要重建任何映射；历史一裁剪、一替换，序号映射那套就会错位。
-            // 「报了思考 token 却一个字没回」那条信号：落盘前转成消息上的标记并摘掉自己。
-            // 标记长在消息上，重开会话时卡按它补回来；留在内容里则只会跟着历史走、白占存储。
-            // 正文里带 <think> 的模型（本地那类）同样一个字的结构化思考都没有，但它真的想过——
-            // 那种消息已经有一张带正文的卡，再盖标记就是回放时凭空多插一张「加密思考」卡
-            if (message.Contents.OfType<ThinkingNotReturnedContent>().LastOrDefault() is { } unavailable)
-            {
-                // 只有一个空白的思考不算正文：留着它，回放就会多一张「1 字」的卡
-                List<AIContent> kept = new(message.Contents.Count);
-                foreach (AIContent content in message.Contents)
-                {
-                    if (content is ThinkingNotReturnedContent) continue;
-                    if (content is TextReasoningContent { Text: var text } && string.IsNullOrWhiteSpace(text)) continue;
-                    kept.Add(content);
-                }
-
-                message.Contents = kept;
-                if (ThinkingStatsRecorder.ThinkingCharsOf(message) == 0)
-                {
-                    ChatMessageAnnotations.WriteThinkingUnavailable(message, unavailable.ReasoningTokens);
-                }
-            }
-
+            // 先转票据：下面盖「思考未返回」标记要看它才能判——有密文才是真的加密过（ADR 0100 修订）
             if (message.Contents.Any(x => x is EncryptedReasoningContent))
             {
                 message.Contents = message.Contents
@@ -236,6 +215,32 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
                     .Where(x => x is not null)
                     .Select(x => x!)
                     .ToList();
+            }
+
+            // 服务端报的思考 token：落盘前转成消息上的标记并摘掉自己。
+            // 标记长在消息上，重开会话时卡按它补回来；留在内容里则只会跟着历史走、白占存储。
+            // 正文里带 <think> 的模型（本地那类）同样一个字的结构化思考都没有，但它真的想过——
+            // 那种消息已经有一张带正文的卡，再盖标记就是回放时凭空多插一张「加密思考」卡。
+            // 同理：没有任何密文的消息一个字都不盖——那只是 usage 在报计数（ADR 0100 修订）。
+            if (message.Contents.OfType<ThinkingNotReturnedContent>().LastOrDefault() is { } unavailable)
+            {
+                // 只有一个空白的思考不算正文：留着它，回放就会多一张「1 字」的卡。
+                // 带密文的空思考要留：它不是正文空白，是票据本身
+                List<AIContent> kept = new(message.Contents.Count);
+                foreach (AIContent content in message.Contents)
+                {
+                    if (content is ThinkingNotReturnedContent) continue;
+                    if (content is TextReasoningContent { Text: var text } reasoning &&
+                        string.IsNullOrWhiteSpace(text) && string.IsNullOrEmpty(reasoning.ProtectedData)) continue;
+                    kept.Add(content);
+                }
+
+                message.Contents = kept;
+                if (ThinkingStatsRecorder.ThinkingCharsOf(message) == 0 &&
+                    ChatMessageAnnotations.HasEncryptedThinking(message))
+                {
+                    ChatMessageAnnotations.WriteThinkingUnavailable(message, unavailable.ReasoningTokens);
+                }
             }
 
             session.History.Add(message);
