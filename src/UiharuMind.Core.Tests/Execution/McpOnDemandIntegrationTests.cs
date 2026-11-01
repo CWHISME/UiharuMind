@@ -401,7 +401,7 @@ public class McpOnDemandIntegrationTests : IDisposable
         McpToolSet set = _manager.Resolve(null, null, _directory);
 
         // 后台起一轮刷新:此时「server 还没起」,握手挂住。不 await,就让它一直挂着
-        _ = _manager.TestServerAsync("stub-supersede");
+        _ = _manager.TestServerAsync("stub-supersede", cancellationToken: TestContext.Current.CancellationToken);
 
         // 越过作废阈值(15s):它仍挂在连接中,没有被记成失败
         await Task.Delay(TimeSpan.FromSeconds(15.5), ct);

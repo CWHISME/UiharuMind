@@ -37,7 +37,7 @@ public class OpenAICompatibleProtocolRoutingTests
             }));
 
         using var client = new HttpClient(handler);
-        await client.GetAsync("https://api.example.com/v1/chat/completions");
+        await client.GetAsync("https://api.example.com/v1/chat/completions", TestContext.Current.CancellationToken);
 
         Assert.Equal("https://api.example.com/v1/responses", hit?.ToString());
     }
@@ -55,7 +55,7 @@ public class OpenAICompatibleProtocolRoutingTests
             }));
 
         using var client = new HttpClient(handler);
-        await client.GetAsync("https://api.example.com/v1/responses");
+        await client.GetAsync("https://api.example.com/v1/responses", TestContext.Current.CancellationToken);
 
         Assert.Equal("https://api.example.com/v1/chat/completions", hit?.ToString());
     }
@@ -77,7 +77,7 @@ public class OpenAICompatibleProtocolRoutingTests
             }));
 
         using var client = new HttpClient(handler);
-        await client.GetAsync("https://api.example.com/v1/whatever");
+        await client.GetAsync("https://api.example.com/v1/whatever", TestContext.Current.CancellationToken);
 
         Assert.Equal("https://api.example.com/v1/chat/completions", hit?.ToString());
     }
@@ -99,7 +99,7 @@ public class OpenAICompatibleProtocolRoutingTests
             }));
 
         using var client = new HttpClient(handler);
-        await client.GetAsync("https://api.example.com/v1/chat/completions");
+        await client.GetAsync("https://api.example.com/v1/chat/completions", TestContext.Current.CancellationToken);
 
         Assert.Equal("https://api.example.com/v1/messages", hit?.ToString());
     }

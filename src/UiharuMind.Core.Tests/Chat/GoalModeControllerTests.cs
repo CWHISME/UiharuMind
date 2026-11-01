@@ -205,8 +205,8 @@ public class GoalModeControllerTests
             Assert.Equal(1, receipt.Turns);
             //延迟唤醒已取消：到点不再叫
             _delays[0].Due.SetResult();
-            await Task.Delay(50);
-            Assert.Equal(1, _wakeCalls.Count);
+            await Task.Delay(50, TestContext.Current.CancellationToken);
+            Assert.Single(_wakeCalls);
         }
         finally
         {

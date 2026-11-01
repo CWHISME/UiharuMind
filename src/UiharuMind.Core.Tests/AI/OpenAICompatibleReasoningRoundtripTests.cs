@@ -176,7 +176,7 @@ public class OpenAICompatibleReasoningRoundtripTests
         // 同端点另一个模型不受这次学习影响（它是靠 deepseek 兜底开的，不是靠学）
         gateway.Config.ModelId = "deepseek/deepseek-v4.1-flash";
         Assert.True(gateway.RequireReasoningOnEveryAssistantMessage);
-        Assert.Empty(gateway.Config.ReasoningEveryAssistantModelIds.Where(x => x.Contains("deepseek")));
+        Assert.DoesNotContain(gateway.Config.ReasoningEveryAssistantModelIds, x => x.Contains("deepseek"));
         gateway.Config.ModelId = "reflection/beam:free";
         Assert.False(gateway.Config.LearnRequireReasoningOnEveryAssistantMessage());
     }

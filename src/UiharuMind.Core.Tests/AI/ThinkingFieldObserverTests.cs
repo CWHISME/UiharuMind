@@ -70,8 +70,8 @@ public class ThinkingFieldObserverTests
 
         Assert.Equal("reasoning", config.ObservedThinkingFields["m1"]);
         Assert.Equal("reasoning_text", config.ObservedThinkingFields["m2"]);
-        // 观测值只是记录，不再决定请求侧键名（见 RemoteModelInfoTests.ThinkingField_FallsBackPresetThenDefault_IgnoringObservation）
-        Assert.Equal("reasoning_content", config.RequestThinkingField);
+        // 观测值参与请求侧键名：切回 m1 时用的是 m1 观测到的字段（还原 ADR 0095 后跟随观测值）
+        Assert.Equal("reasoning", config.RequestThinkingField);
     }
 
     [Fact]

@@ -20,7 +20,7 @@ internal sealed class SendPacer
     internal static readonly TimeSpan StartInterval = TimeSpan.FromSeconds(1);
 
     /// <summary>间隔上限</summary>
-    internal static readonly TimeSpan MaxInterval = TimeSpan.FromSeconds(8); //与原重试策略的退避上限一致
+    internal static readonly TimeSpan MaxInterval = TimeSpan.FromSeconds(8); //组级兜底,刻意不与单条退避(已到 60s)对齐:整组一起干等一分钟恢复太慢;实测闸通常只开到 1~2s 就因成功撤掉
 
     /// <summary>缩到这个以下就撤闸</summary>
     internal static readonly TimeSpan OpenBelow = TimeSpan.FromMilliseconds(500);

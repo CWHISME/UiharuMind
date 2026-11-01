@@ -26,7 +26,7 @@ public class ProviderStatusServiceTests
         ProviderStatusService service = CreateService(source);
 
         Task<ProviderStatusSnapshot?>[] calls =
-            [.. Enumerable.Range(0, 5).Select(_ => service.GetAsync(Context()))];
+            [.. Enumerable.Range(0, 5).Select(_ => service.GetAsync(Context(), ct: TestContext.Current.CancellationToken))];
 
         Assert.Equal(1, source.Calls);
 
@@ -43,9 +43,9 @@ public class ProviderStatusServiceTests
         FakeSource source = new(() => _now);
         ProviderStatusService service = CreateService(source);
 
-        await service.GetAsync(Context());
+        await service.GetAsync(Context(), ct: TestContext.Current.CancellationToken);
         _now = _now.AddSeconds(30);
-        await service.GetAsync(Context());
+        await service.GetAsync(Context(), ct: TestContext.Current.CancellationToken);
 
         Assert.Equal(1, source.Calls);
     }
@@ -56,9 +56,9 @@ public class ProviderStatusServiceTests
         FakeSource source = new(() => _now);
         ProviderStatusService service = CreateService(source);
 
-        await service.GetAsync(Context());
+        await service.GetAsync(Context(), ct: TestContext.Current.CancellationToken);
         _now = _now.AddSeconds(61);
-        await service.GetAsync(Context());
+        await service.GetAsync(Context(), ct: TestContext.Current.CancellationToken);
 
         Assert.Equal(2, source.Calls);
     }
@@ -69,8 +69,8 @@ public class ProviderStatusServiceTests
         FakeSource source = new(() => _now);
         ProviderStatusService service = CreateService(source);
 
-        await service.GetAsync(Context());
-        await service.GetAsync(Context(), force: true);
+        await service.GetAsync(Context(), ct: TestContext.Current.CancellationToken);
+        await service.GetAsync(Context(), force: true, ct: TestContext.Current.CancellationToken);
 
         Assert.Equal(2, source.Calls);
     }
@@ -81,8 +81,8 @@ public class ProviderStatusServiceTests
         FakeSource source = new(() => _now);
         ProviderStatusService service = CreateService(source);
 
-        await service.GetAsync(Context("key-a"));
-        await service.GetAsync(Context("key-b"));
+        await service.GetAsync(Context("key-a"), ct: TestContext.Current.CancellationToken);
+        await service.GetAsync(Context("key-b"), ct: TestContext.Current.CancellationToken);
 
         Assert.Equal(2, source.Calls);
     }
@@ -93,12 +93,12 @@ public class ProviderStatusServiceTests
         FakeSource source = new(() => _now);
         ProviderStatusService service = CreateService(source);
 
-        ProviderStatusSnapshot? first = await service.GetAsync(Context());
+        ProviderStatusSnapshot? first = await service.GetAsync(Context(), ct: TestContext.Current.CancellationToken);
         Assert.NotNull(first);
 
         source.Fail = new HttpRequestException("boom");
         _now = _now.AddSeconds(61);
-        ProviderStatusSnapshot? second = await service.GetAsync(Context());
+        ProviderStatusSnapshot? second = await service.GetAsync(Context(), ct: TestContext.Current.CancellationToken);
 
         Assert.Same(first, second);
     }
@@ -109,17 +109,17 @@ public class ProviderStatusServiceTests
         FakeSource source = new(() => _now) { Fail = new HttpRequestException("boom") };
         ProviderStatusService service = CreateService(source);
 
-        await service.GetAsync(Context());
+        await service.GetAsync(Context(), ct: TestContext.Current.CancellationToken);
         Assert.Equal(1, source.Calls);
 
         // 退避期内：即使强制刷新也不发请求
         _now = _now.AddSeconds(5);
-        await service.GetAsync(Context(), force: true);
+        await service.GetAsync(Context(), force: true, ct: TestContext.Current.CancellationToken);
         Assert.Equal(1, source.Calls);
 
         // 过了第一档退避（15s）才再试
         _now = _now.AddSeconds(15);
-        await service.GetAsync(Context(), force: true);
+        await service.GetAsync(Context(), force: true, ct: TestContext.Current.CancellationToken);
         Assert.Equal(2, source.Calls);
     }
 
@@ -128,7 +128,7 @@ public class ProviderStatusServiceTests
     {
         ProviderStatusService service = new(new FakeRegistry(null), () => _now);
 
-        ProviderStatusSnapshot? snapshot = await service.GetAsync(Context());
+        ProviderStatusSnapshot? snapshot = await service.GetAsync(Context(), ct: TestContext.Current.CancellationToken);
 
         Assert.Null(snapshot);
         Assert.Null(service.Peek(Context()));
@@ -140,7 +140,7 @@ public class ProviderStatusServiceTests
         FakeSource source = new(() => _now);
         ProviderStatusService service = CreateService(source);
 
-        await service.GetAsync(Context());
+        await service.GetAsync(Context(), ct: TestContext.Current.CancellationToken);
 
         Assert.NotNull(service.Peek(Context()));
     }

@@ -82,7 +82,7 @@ public class AnthropicMessagesWireTests
     public async Task Request_GoesToMessagesEndpoint()
     {
         var (http, stub) = Build("https://api.example.com/v1/messages");
-        try { await Client(http).GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]); } catch { }
+        try { await Client(http).GetResponseAsync([new ChatMessage(ChatRole.User, "hi")], cancellationToken: TestContext.Current.CancellationToken); } catch { }
 
         Assert.NotNull(stub.LastUri);
         Assert.Equal("/v1/messages", stub.LastUri!.AbsolutePath);
@@ -95,7 +95,7 @@ public class AnthropicMessagesWireTests
     public async Task Request_DoesNotDoubleThePath()
     {
         var (http, stub) = Build("https://api.example.com/v1/messages");
-        try { await Client(http).GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]); } catch { }
+        try { await Client(http).GetResponseAsync([new ChatMessage(ChatRole.User, "hi")], cancellationToken: TestContext.Current.CancellationToken); } catch { }
 
         Assert.NotNull(stub.LastUri);
         Assert.Equal("/v1/messages", stub.LastUri!.AbsolutePath);
@@ -110,7 +110,7 @@ public class AnthropicMessagesWireTests
     public async Task Request_UsesBlockArrayContent()
     {
         var (http, stub) = Build();
-        try { await Client(http).GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]); } catch { }
+        try { await Client(http).GetResponseAsync([new ChatMessage(ChatRole.User, "hi")], cancellationToken: TestContext.Current.CancellationToken); } catch { }
 
         Assert.NotNull(stub.LastBody);
         JsonNode? body = JsonNode.Parse(stub.LastBody!);
@@ -142,7 +142,7 @@ public class AnthropicMessagesWireTests
             new(ChatRole.User, "追问"),
         ];
 
-        try { await Client(http).GetResponseAsync(history); } catch { }
+        try { await Client(http).GetResponseAsync(history, cancellationToken: TestContext.Current.CancellationToken); } catch { }
 
         Assert.NotNull(stub.LastBody);
         JsonNode? body = JsonNode.Parse(stub.LastBody!);
@@ -176,7 +176,7 @@ public class AnthropicMessagesWireTests
             ]),
         ];
 
-        try { await Client(http).GetResponseAsync(history); } catch { }
+        try { await Client(http).GetResponseAsync(history, cancellationToken: TestContext.Current.CancellationToken); } catch { }
 
         Assert.NotNull(stub.LastBody);
         JsonNode? body = JsonNode.Parse(stub.LastBody!);
@@ -207,7 +207,7 @@ public class AnthropicMessagesWireTests
             ]),
         ];
 
-        try { await Client(http).GetResponseAsync(history); } catch { }
+        try { await Client(http).GetResponseAsync(history, cancellationToken: TestContext.Current.CancellationToken); } catch { }
 
         Assert.NotNull(stub.LastBody);
         JsonNode? body = JsonNode.Parse(stub.LastBody!);
@@ -228,7 +228,7 @@ public class AnthropicMessagesWireTests
     public async Task Response_SplitsThinkingTextAndSignatureOntoProtectedData()
     {
         var (http, _) = Build();
-        ChatResponse response = await Client(http).GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]);
+        ChatResponse response = await Client(http).GetResponseAsync([new ChatMessage(ChatRole.User, "hi")], cancellationToken: TestContext.Current.CancellationToken);
 
         TextReasoningContent? reasoning = response.Messages
             .SelectMany(m => m.Contents)
@@ -333,7 +333,7 @@ public class AnthropicMessagesWireTests
             new(ChatRole.User, "追问"),
         ];
 
-        await Lazy(http).GetResponseAsync(history);
+        await Lazy(http).GetResponseAsync(history, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.NotNull(stub.LastBody);
         JsonNode? body = JsonNode.Parse(stub.LastBody!);
@@ -360,7 +360,7 @@ public class AnthropicMessagesWireTests
             new(ChatRole.User, "追问"),
         ];
 
-        await Lazy(http).GetResponseAsync(history);
+        await Lazy(http).GetResponseAsync(history, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.NotNull(stub.LastBody);
         JsonNode? body = JsonNode.Parse(stub.LastBody!);
@@ -416,7 +416,7 @@ public class AnthropicMessagesWireTests
     public async Task Request_WritesThinkingBudget(string level, int expectedBudget)
     {
         var (client, stub) = ThinkingClient(level);
-        await client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]);
+        await client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")], cancellationToken: TestContext.Current.CancellationToken);
 
         JsonNode? thinking = ReadThinking(stub);
         Assert.NotNull(thinking);
@@ -431,7 +431,7 @@ public class AnthropicMessagesWireTests
     public async Task Request_WritesDisabledThinking()
     {
         var (client, stub) = ThinkingClient("none");
-        await client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]);
+        await client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")], cancellationToken: TestContext.Current.CancellationToken);
 
         JsonNode? thinking = ReadThinking(stub);
         Assert.NotNull(thinking);
@@ -446,7 +446,7 @@ public class AnthropicMessagesWireTests
     public async Task Request_OmitsThinkingWhenAuto()
     {
         var (client, stub) = ThinkingClient(string.Empty);
-        await client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]);
+        await client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")], cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Null(ReadThinking(stub));
     }
@@ -460,7 +460,7 @@ public class AnthropicMessagesWireTests
     {
         // 输出预算 1024，装不下 Anthropic 的最小思考预算（也是 1024，必须严格小于）
         var (client, stub) = ThinkingClient("low", maxTokens: 1024);
-        await client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]);
+        await client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")], cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Null(ReadThinking(stub));
     }

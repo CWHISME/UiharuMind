@@ -17,7 +17,9 @@ namespace UiharuMind.Core.AI.Net.Transport;
 ///
 /// SDK 默认是 3 次重试、0.8/1.6/3.2s，对限流太急——免费档模型的 TPM 是平台侧共享容量，
 /// 拥塞窗口远不止 6 秒，四次尝试挤在里面只会既失败又加重拥塞。限流因此改成
-/// <b>不限次数</b>、2→8s 退避，并加 ±25% 抖动：共享池里所有客户端同步重试比退避长度本身更致命。
+/// <b>不限次数</b>、2→60s 退避，并加 ±25% 抖动：共享池里所有客户端同步重试比退避长度本身更致命。
+/// 60s 封顶的依据：日志实测 429 是 <c>tpm/rpm limit</c> 型且服务端从不带 Retry-After，
+/// 等窗口只能靠自己，退避要长过窗口本身才会见效（sensenova 实测窗口是分钟级）。
 /// 收手的唯一条件是用户按停止（<see cref="PipelineMessage.CancellationToken"/>）。
 ///
 /// 瞬时故障仍走短退避且仍有次数上限——502 多半几百毫秒就恢复，
@@ -29,7 +31,7 @@ internal sealed class RateLimitAwareRetryPolicy : ClientRetryPolicy
     /// 限流<b>不限重试次数</b>，只有用户主动停止才收手。
     ///
     /// 依据是这个限额的性质：它是平台侧的共享容量，撞上它跟自己发多猛无关，等就是唯一的办法；
-    /// 而放弃的代价是整轮 agent 任务作废、要从头再跑一遍。退避到 8s 封顶之后，
+    /// 而放弃的代价是整轮 agent 任务作废、要从头再跑一遍。退避到 60s 封顶之后，
     /// 一直等的成本只是时间，界面上转圈图标与停止按钮都在，随时可以中断。
     /// </summary>
     internal const int MaxRetries = int.MaxValue;
@@ -46,7 +48,7 @@ internal sealed class RateLimitAwareRetryPolicy : ClientRetryPolicy
 
     internal const int RateLimitStatus = 429;
     private static readonly TimeSpan RateLimitBaseDelay = TimeSpan.FromSeconds(2);
-    private static readonly TimeSpan RateLimitMaxDelay = TimeSpan.FromSeconds(8);
+    private static readonly TimeSpan RateLimitMaxDelay = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan TransientBaseDelay = TimeSpan.FromSeconds(0.8);
     private static readonly TimeSpan TransientMaxDelay = TimeSpan.FromSeconds(3.2);
     private static readonly TimeSpan RetryAfterCap = TimeSpan.FromSeconds(60); //服务端给的等待也要封顶,否则一个离谱的值就能把界面挂住
