@@ -1,0 +1,44 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:usage="clr-namespace:UiharuMind.Features.Models.Usage"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="1180"
+             x:Class="UiharuMind.Features.Models.Usage.UsageKpiStrip"
+             x:DataType="usage:UsagePageData">
+
+    <!-- 六张 KPI 卡：两行三列。副信息都来自同一份聚合结果，不再查库 -->
+    <StackPanel Spacing="6" IsVisible="{Binding !IsEmpty}">
+        <ItemsControl ItemsSource="{Binding Kpis}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <UniformGrid Columns="3" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="usage:UsageKpiCardViewData">
+                    <Border Classes="overview-card" Tag="{Binding Tag}" Margin="0,0,10,10">
+                        <StackPanel Spacing="3">
+                            <TextBlock Text="{Binding Title}" Classes="muted" />
+                            <TextBlock Text="{Binding Value}" Classes="kpi-value" />
+                            <TextBlock Text="{Binding Sub}"
+                                       Classes="muted"
+                                       TextWrapping="Wrap"
+                                       MinHeight="16" />
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- 口径写在页面上：单位、公式、来源、本地与未定价的区别 -->
+        <TextBlock Text="{loc:Loc UsagePricingNote}"
+                   Classes="muted"
+                   TextWrapping="Wrap"
+                   Margin="2,-2,0,0" />
+        <TextBlock Text="{loc:Loc UsageCountingNote}"
+                   Classes="muted"
+                   TextWrapping="Wrap" />
+    </StackPanel>
+</UserControl>

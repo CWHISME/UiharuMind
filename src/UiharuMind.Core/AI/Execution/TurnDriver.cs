@@ -20,6 +20,7 @@ using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Net;
+using UiharuMind.Core.AI.Usage;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.AI.Net.Errors;
 
@@ -34,7 +35,7 @@ namespace UiharuMind.Core.AI.Execution;
 ///
 /// 一个实例服务一个调用方、跨轮存活（token 账本是跨轮累计的），会话与执行者逐轮传入。
 /// </summary>
-public sealed class TurnDriver : IDisposable
+public sealed partial class TurnDriver : IDisposable
 {
     /// <summary>少于这个数压了也没意义</summary>
     private const int MinMessagesToCompact = 4;
@@ -262,29 +263,42 @@ public sealed class TurnDriver : IDisposable
                 List<ToolApprovalRequestContent> roundRequests = new();
                 // 零字思考段（加密思考）没有第一个思考增量可依，起点只能取调用发出的时刻
                 thinkingStats.NoteCallStarted();
+                // 请求级记账：发出时刻与模型身份此刻定格，终态（成功收口 / 失败出口）才写一行
+                UsageCallTracker usageCall = BeginUsageCall(session);
                 try
                 {
-                    await foreach (AIContent content in runner.RunAsync(nextMessages, cancellationToken))
+                    // 重发计数口随请求上下文下传（断线退避、max_tokens 自愈都算）
+                    using (LlmRequestScope.Push(LlmRequestScope.Current with { RetryTally = usageCall.Retries }))
                     {
-                        if (content is ToolApprovalRequestContent request) roundRequests.Add(request);
-                        if (content is UsageContent usage)
+                        await foreach (AIContent content in runner.RunAsync(nextMessages, cancellationToken))
                         {
-                            // 先校准再记账:水位刻度要按下一发实际用的系数换算。旁路请求(写交接)不校准,它与常规请求不同形
-                            Calibrate(session, runner, usage.Details);
-                            RecordUsage(session, runner, usage.Details);
-                        }
+                            usageCall.NoteFirstToken(); //首帧（重复调用只认第一次）
+                            if (content is ToolApprovalRequestContent request) roundRequests.Add(request);
+                            if (content is UsageContent usage)
+                            {
+                                // 先校准再记账:水位刻度要按下一发实际用的系数换算。旁路请求(写交接)不校准,它与常规请求不同形
+                                Calibrate(session, runner, usage.Details);
+                                RecordUsage(session, runner, usage.Details);
+                                // 只攒着：这一发万一随后断流，这些量要并进失败行
+                                usageCall.NoteUsage(usage.Details);
+                            }
 
-                        if (imageTally.Observe(content) is > 0 and int generated) RecordGeneratedImages(session, generated);
-                        _turnSink?.Apply(content);
-                        thinkingStats.NoteContent(content);
-                        // 一次服务调用到此为止、它的请求与响应已落盘（提供器先落盘才放边界）：就地把这一段的
-                        // 统计盖进内存历史——中途打开这个会话的窗口读到的就是已落盘那几段的真实耗时，
-                        // 不必等到轮末。只写内存不写文件，轮末统一 Save；计时器自带分段游标，多次盖不重摊。
-                        if (content is MessageBoundaryContent)
-                        {
-                            stampedThisTurn += StampThinkingStatsInMemory(session, thinkingStats, historyBefore);
+                            if (imageTally.Observe(content) is > 0 and int generated)
+                                RecordGeneratedImages(session, generated);
+                            _turnSink?.Apply(content);
+                            thinkingStats.NoteContent(content);
+                            // 一次服务调用到此为止、它的请求与响应已落盘（提供器先落盘才放边界）：就地把这一段的
+                            // 统计盖进内存历史——中途打开这个会话的窗口读到的就是已落盘那几段的真实耗时，
+                            // 不必等到轮末。只写内存不写文件，轮末统一 Save；计时器自带分段游标，多次盖不重摊。
+                            if (content is MessageBoundaryContent)
+                            {
+                                stampedThisTurn += StampThinkingStatsInMemory(session, thinkingStats, historyBefore);
+                            }
                         }
                     }
+
+                    // 流正常收完 = 这次服务调用成功收口
+                    usageCall.Complete();
                 }
                 catch (OperationCanceledException e)
                 {
@@ -295,6 +309,8 @@ public sealed class TurnDriver : IDisposable
                         Log.Warning($"Turn interrupted by unexpected cancellation: {e.GetType().Name}: {e.Message}");
                     }
 
+                    // 用户主动停止：ok=0、error_kind='cancel'，不计错误率；已收到的量并进这一行
+                    usageCall.Fail(UsageErrorKinds.Cancel, e);
                     WasCancelled = true;
                     SettleInterruptedTurn(session, interruptionNote);
                     break;
@@ -362,6 +378,8 @@ public sealed class TurnDriver : IDisposable
             // 框架在失败路径上补的只有请求消息(见 SessionChatHistoryProvider.InvokedCoreAsync),
             // 响应侧它拿不到——不在这里收,重开会话就是一次没有结果的调用加一段消失的回复
             interruptionNote = ToolCallCancellation.FailureResultText;
+            // 整轮级失败：在途调用的量并进它自己那行；没有在途调用时补一行 0 token 的失败
+            FailUsageCall(session, UsageErrorKinds.Classify(e), e);
             SettleInterruptedTurn(session, interruptionNote);
             stampedThisTurn += StampThinkingStatsInMemory(session, thinkingStats, historyBefore);
             if (stampedThisTurn > 0) session.Save();
@@ -383,6 +401,7 @@ public sealed class TurnDriver : IDisposable
             IsRunning = false;
             _runCancellation = null;
             _activeSession = null;
+            _activeUsageCall = null; //在途调用的引用不跨轮留存
             session.CurrentRunStartedAt = null; //轮次标记随轮末清除,下一轮起跑重盖
             _notify?.Invoke(new TurnNotice(ETurnNotice.Ended));
             runScope?.Dispose(); //收尾的最后一步,见上面声明处
@@ -509,6 +528,9 @@ public sealed class TurnDriver : IDisposable
     public void SettleForShutdown()
     {
         if (!IsRunning) return;
+        //请求级用量先落：退出时进程马上就没了，等 OCE 冒到 catch 里再入队就晚了
+        //（那一拍在别的线程上，且可能晚于账本的关队）。终态只写一次，那边晚到的 Fail 会因为已结清而空转
+        _activeUsageCall?.Fail(UsageErrorKinds.Cancel);
         _runCancellation?.Cancel();
         if (_activeSession is { } session) SettleInterruptedTurn(session, ToolCallCancellation.ResultText);
     }
@@ -870,6 +892,7 @@ public sealed class TurnDriver : IDisposable
         System.Diagnostics.Stopwatch handoffTimer = System.Diagnostics.Stopwatch.StartNew();
         SessionManager.Instance.Running.NotifyStateChanged(session.SessionId); //会话列表据此转圈
         _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffStarted));
+        UsageCallTracker? handoffCall = null; //本发在途的请求级记账器（还没发出去时为 null）
         try
         {
             // 与常规请求同一视图:同一口径供给(不带知识库片段)、同一套压缩。发原始历史的话,前缀在第一组折叠处
@@ -877,12 +900,23 @@ public sealed class TurnDriver : IDisposable
             IReadOnlyList<ChatMessage> supplied = await HistorySupply.ForSideRequestAsync(session.History,
                 runner.ChatOptions, runner.RewriteSideRequest, _usage.ContextLength,
                 runner.InputEstimate?.FixedOverhead ?? 0, compactToken);
-            // 选项取本会话装配好的那一份(系统提示词 + 工具定义 + 采样参数),与常规轮次逐字一致
-            HandoffReply reply = await HistoryHandoff.WriteAsync(HistorySupply.ClientFor(session), supplied,
-                runner.ChatOptions, _usage.ContextLength, extraInstructions,
-                // 写到一半的数交给界面：整份文档要写十几秒，干转圈看不出它在动
-                onProgress: tokens => _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffProgress, Count: tokens)),
-                compactToken);
+            // 选项取本会话装配好的那一份(系统提示词 + 工具定义 + 采样参数),与常规轮次逐字一致。
+            // 请求级用量：发出时刻、模型身份在请求之前定格；重试计数随上下文下传
+            handoffCall = UsageCallTracker.Begin(session.SessionId, ResolveUsageIdentity(session));
+            HandoffReply reply;
+            using (LlmRequestScope.Push(LlmRequestScope.Current with { RetryTally = handoffCall.Retries }))
+            {
+                reply = await HistoryHandoff.WriteAsync(HistorySupply.ClientFor(session), supplied,
+                    runner.ChatOptions, _usage.ContextLength, extraInstructions,
+                    // 写到一半的数交给界面：整份文档要写十几秒，干转圈看不出它在动。
+                    // 第一次进成 = 首 token（整份文档就是模型的输出，这里没有更细的帧可用）
+                    onProgress: tokens =>
+                    {
+                        handoffCall.NoteFirstToken();
+                        _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffProgress, Count: tokens));
+                    },
+                    compactToken);
+            }
             // 这一发往往是整个会话最大的一次请求,照常记账:不记的话会话累计少算,它命没命中缓存也无从验证。
             // 日志带上前一次常规请求的命中与折叠量:对照着看才分得清是前缀岔开了,还是服务端本就不缓存
             long previousInput = _usage.LastInput;
@@ -899,9 +933,15 @@ public sealed class TurnDriver : IDisposable
 
             if (reply.Text is not { } note)
             {
+                // 这一发花钱了却没产出：已收到的量并进失败行，不另写第二行
+                foreach (UsageDetails usage in reply.Usages) handoffCall.NoteUsage(usage);
+                handoffCall.Fail(UsageErrorKinds.Stream, detail: "handoff produced no text");
                 NotifyHandoffUnwritten(force);
                 return;
             }
+
+            // 成功收口：每次服务调用终态一行（禁工具重发的两发各一行，耗时只记在第一行）
+            handoffCall.CompleteWith(reply.Usages);
 
             // 委派段确定性追加:只报数量与查询入口,状态与编号由 ChatSessionList 现查(见 BuildSubSessionRoster)
             string roster = HistoryHandoff.BuildSubSessionRoster(
@@ -925,19 +965,22 @@ public sealed class TurnDriver : IDisposable
             _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffWritten, HistoryHandoff.NoteBody(message.Text)));
             _notify?.Invoke(new TurnNotice(ETurnNotice.ScrollToEnd));
         }
-        catch (OperationCanceledException) when (compactToken.IsCancellationRequested)
+        catch (OperationCanceledException e) when (compactToken.IsCancellationRequested)
         {
             // 用户按了停止（或会话被弃用、被 CancelSession 点到）。他自己按的，不必再解释一遍——
-            // 收掉占位卡就够，不留错误条目。不写文档：半截压缩比不压更糟
+            // 收掉占位卡就够，不留错误条目。不写文档：半截压缩比不压更糟。
+            // 记账：ok=0、error_kind='cancel'，不计错误率（与主轮的用户取消同一口径）
+            handoffCall?.Fail(UsageErrorKinds.Cancel, e);
             Log.Debug($"Context handoff cancelled: session={session.SessionId}.");
             _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffAborted));
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException e)
         {
             // 客户端超时可能把取消包装成 OCE 逃出来。普通异常已被 WriteAsync 吞掉并转成失败产出，
             // OCE 是原样上抛的——不在这里补发,占位卡会永远留在会话流里。
-            // 这不是用户取消(取消标记没动),没有向上传达的必要;
+            // 这不是用户取消(取消标记没动)，记账口径是 timeout，计入错误率;
             // rethrow 会冒到手动路径的命令管线(SendCoreAsync 没有 catch)变成未处理异常
+            handoffCall?.Fail(UsageErrorKinds.Timeout, e);
             NotifyHandoffUnwritten(force);
         }
         finally

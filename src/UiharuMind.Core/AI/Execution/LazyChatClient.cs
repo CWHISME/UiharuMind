@@ -88,6 +88,7 @@ public class LazyChatClient : IChatClient
         {
             // 服务端要求每条助手消息都带思考:记下这个模型,重发一次(请求体会按新配置重新改写)
             if (!TryLearnReasoningRequirement(model)) throw;
+            LlmRequestScope.Current.RetryTally?.NoteRetry();
             Log.Warning($"server requires reasoning on every earlier assistant message " +
                         $"(model '{model.ModelInfo.ModelId}'); marked for this model, retrying once.");
             response = await client.GetResponseAsync(gated, options, cancellationToken).ConfigureAwait(false);
@@ -172,8 +173,10 @@ public class LazyChatClient : IChatClient
         // 好在工具调用通常出现在流中后段,断线多发在思考/等待的停顿期,此时尚无新调用产出。
         bool maxTokensFixed = false; // 服务端拒 max_tokens 的自愈只做一次
         bool reasoningRequirementLearned = false; // 「每条助手消息都要带思考」的自愈只做一次
+        // 重发计数：每次进循环都算一次尝试，第 2 次起就是重试。计数口挂在请求上下文上（调用方读它记 retry_count）
         for (int attempt = 1; ; attempt++)
         {
+            if (attempt > 1) LlmRequestScope.Current.RetryTally?.NoteRetry();
             bool retryable = false;
             await foreach (var (update, failure) in StreamOnceAsync(
                                client, gated, options, toolNames, model.ModelName, signal, producer,

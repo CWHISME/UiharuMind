@@ -1,0 +1,182 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:usage="clr-namespace:UiharuMind.Features.Models.Usage"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:spinner="clr-namespace:UiharuMind.Shared.Spinner"
+             mc:Ignorable="d" d:DesignWidth="1180"
+             x:Class="UiharuMind.Features.Models.Usage.UsageDetailTable"
+             x:DataType="usage:UsagePageData">
+
+    <UserControl.Styles>
+        <!-- 数值列表头右对齐：与右对齐的数字同一列同一条边，扫一列不会跳 -->
+        <Style Selector="Button.text-row.num">
+            <Setter Property="HorizontalContentAlignment" Value="Right" />
+        </Style>
+    </UserControl.Styles>
+
+    <!-- 列宽比固定成比例：窄窗口下模型列收窄、数字列不挤（明细只有 50 行/页，不需要横向滚动） -->
+    <Border Classes="usage-card">
+        <StackPanel Spacing="8">
+            <Grid ColumnDefinitions="*,Auto,Auto">
+                <TextBlock Text="{loc:Loc UsageDetailTitle}" Classes="section-title" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1"
+                           Text="{Binding PageInfo}"
+                           Classes="muted"
+                           VerticalAlignment="Center"
+                           Margin="12,0" />
+                <!-- 翻页/换排序时只在表头转一个小圈：不重排整页，也不闪 -->
+                <spinner:SpinnerIcon Grid.Column="1"
+                                     Width="14"
+                                     Height="14"
+                                     HorizontalAlignment="Right"
+                                     VerticalAlignment="Center"
+                                     IsVisible="{Binding IsLoadingDetails}" />
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+                    <Button Classes="compact"
+                            Content="{loc:Loc UsageDetailExport}"
+                            Command="{Binding ExportCommand}" />
+                    <Button Classes="pager"
+                            Content="‹"
+                            ToolTip.Tip="{loc:Loc UsagePagePrev}"
+                            Command="{Binding PrevPageCommand}"
+                            IsEnabled="{Binding CanGoPrev}" />
+                    <Button Classes="pager"
+                            Content="›"
+                            ToolTip.Tip="{loc:Loc UsagePageNext}"
+                            Command="{Binding NextPageCommand}"
+                            IsEnabled="{Binding CanGoNext}" />
+                </StackPanel>
+            </Grid>
+
+            <TextBlock Text="{loc:Loc UsageCacheWriteNotReported}"
+                       Classes="muted"
+                       TextWrapping="Wrap"
+                       IsVisible="{Binding ShowCacheWriteNote}" />
+
+            <Grid ColumnDefinitions="110,2*,62,62,52,64,70,58,66" Margin="14,0,14,6">
+                <Button Classes="text-row"
+                        Content="{Binding TimeHeader}"
+                        Command="{Binding SortByCommand}"
+                        CommandParameter="Time" />
+                <Button Grid.Column="1"
+                        Classes="text-row"
+                        Content="{Binding ModelHeader}"
+                        Command="{Binding SortByCommand}"
+                        CommandParameter="Model" />
+                <Button Grid.Column="2"
+                        Classes="text-row num"
+                        Content="{Binding InputHeader}"
+                        Command="{Binding SortByCommand}"
+                        CommandParameter="InputTokens" />
+                <Button Grid.Column="3"
+                        Classes="text-row num"
+                        Content="{Binding OutputHeader}"
+                        Command="{Binding SortByCommand}"
+                        CommandParameter="OutputTokens" />
+                <Button Grid.Column="4"
+                        Classes="text-row num"
+                        Content="{Binding CacheHeader}"
+                        Command="{Binding SortByCommand}"
+                        CommandParameter="CachedRead" />
+                <Button Grid.Column="5"
+                        Classes="text-row num"
+                        Content="{Binding LatencyHeader}"
+                        Command="{Binding SortByCommand}"
+                        CommandParameter="Latency" />
+                <Button Grid.Column="6"
+                        Classes="text-row num"
+                        Content="{Binding CostHeader}"
+                        Command="{Binding SortByCommand}"
+                        CommandParameter="Cost" />
+                <TextBlock Grid.Column="7"
+                           Text="{loc:Loc UsageColumnResult}"
+                           Classes="muted"
+                           Margin="10,0,0,0"
+                           VerticalAlignment="Center" />
+                <TextBlock Grid.Column="8"
+                           Text="{loc:Loc UsageColumnSession}"
+                           Classes="muted"
+                           VerticalAlignment="Center" />
+            </Grid>
+
+            <!-- 50 行/页，用普通 StackPanel 就够：虚拟化面板在「外层垂直 ScrollViewer 里」会把
+                 两行高的失败行量成一行的高度，第二行压到下一行上 -->
+            <ListBox ItemsSource="{Binding Details}"
+                     Classes="model-list"
+                     ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="usage:UsageDetailItemViewData">
+                        <StackPanel Spacing="2">
+                            <Grid ColumnDefinitions="110,2*,62,62,52,64,70,58,66" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding TimeText}" Classes="mono" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding ModelName}"
+                                           TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center"
+                                           ToolTip.Tip="{Binding Tip}" />
+                                <TextBlock Grid.Column="2"
+                                           Text="{Binding InputText}"
+                                           Classes="mono"
+                                           HorizontalAlignment="Right"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="3"
+                                           Text="{Binding OutputText}"
+                                           Classes="mono"
+                                           HorizontalAlignment="Right"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="4"
+                                           Text="{Binding CacheText}"
+                                           Classes="mono"
+                                           HorizontalAlignment="Right"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="5"
+                                           Text="{Binding LatencyText}"
+                                           Classes="mono"
+                                           HorizontalAlignment="Right"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="6"
+                                           Text="{Binding CostText}"
+                                           Classes="mono"
+                                           HorizontalAlignment="Right"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="7"
+                                           Text="{Binding ResultText}"
+                                           FontSize="12"
+                                           Margin="10,0,0,0"
+                                           Foreground="{DynamicResource MessageStatusSuccessBrush}"
+                                           IsVisible="{Binding Ok}"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="7"
+                                           Text="{Binding ResultText}"
+                                           FontSize="12"
+                                           Margin="10,0,0,0"
+                                           Foreground="{DynamicResource MessageStatusErrorBrush}"
+                                           IsVisible="{Binding !Ok}"
+                                           VerticalAlignment="Center" />
+                                <Button Grid.Column="8"
+                                        Classes="text-row"
+                                        Content="{Binding SessionText}"
+                                        Foreground="{DynamicResource SemiBlue5}"
+                                        ToolTip.Tip="{Binding SessionId}"
+                                        Tag="{Binding SessionId}"
+                                        Click="OnSessionClick" />
+                            </Grid>
+                            <TextBlock Text="{Binding FailedDetailText}"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource SemiGrey5}"
+                                       TextTrimming="CharacterEllipsis"
+                                       IsVisible="{Binding HasFailedDetail}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </StackPanel>
+    </Border>
+</UserControl>

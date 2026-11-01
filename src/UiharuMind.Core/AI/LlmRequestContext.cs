@@ -53,4 +53,11 @@ public sealed record LlmRequestContext
     /// 而 <c>AsyncLocal</c> 里写下的值不会向调用方回流，标志位那样传不出来。
     /// </summary>
     public Action<byte[]>? EncryptedReasoningObserved { get; init; }
+
+    /// <summary>
+    /// 这一发内部的重发计数口（断线退避重发、<c>max_tokens</c> 400 自愈、要求带思考自愈都算）。
+    /// 由调用方（用量记账）挂一个可变对象进来，<see cref="Execution.LazyChatClient"/> 每重发一次 +1：
+    /// AsyncLocal 里写下的数字不向调用方回流，引用可以
+    /// </summary>
+    public LlmRetryTally? RetryTally { get; init; }
 }

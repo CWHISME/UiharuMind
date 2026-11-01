@@ -57,6 +57,12 @@
 		<PackageReference Include="Semi.Avalonia.ColorPicker" Version="12.1.0.1" />
 		<PackageReference Include="SharpHook" Version="8.0.0" />
 		<PackageReference Include="Svg.Controls.Skia.Avalonia" Version="12.0.0.13" />
+		<!-- 用量页的趋势/占比图。必须用 2.1.0-dev-798：2.0.5 是对着 Avalonia 11 编的，
+		     new CartesianChart() 就抛 MissingFieldException（PinchEvent 在 Avalonia 12 已移除）。
+		     dev-798 对着 Avalonia 12 / SkiaSharp 2.88 编，本仓钉的 3.119.4 由 NuGet 压制，
+		     spike 实测 restore/build/实例化/Skia 渲染全通。它会传递引入 SkiaSharp.HarfBuzz 2.88.9，
+		     刻意不 exclude（exclude 会把 LiveCharts 的字体解析依赖一并摘掉），合入后靠真实窗口冒烟盯中文 -->
+		<PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.1.0-dev-798" />
 	</ItemGroup>
 
 	<ItemGroup>

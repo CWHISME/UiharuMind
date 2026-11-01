@@ -1,0 +1,133 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:usage="clr-namespace:UiharuMind.Features.Models.Usage"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:converters="clr-namespace:UiharuMind.Shared.Converters"
+             xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.Avalonia;assembly=LiveChartsCore.SkiaSharpView.Avalonia"
+             mc:Ignorable="d" d:DesignWidth="1180"
+             x:Class="UiharuMind.Features.Models.Usage.UsageRankPanel"
+             x:DataType="usage:UsagePageData">
+
+    <UserControl.Resources>
+        <DataTemplate x:Key="RankOptionTemplate" x:DataType="usage:UsageOptionViewData">
+            <TextBlock Text="{Binding Label}" />
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Border Classes="usage-card">
+        <StackPanel Spacing="12">
+            <Grid ColumnDefinitions="*,Auto,Auto">
+                <TextBlock Text="{loc:Loc UsageRankTitle}" Classes="section-title" VerticalAlignment="Center" />
+                <ComboBox Grid.Column="1"
+                          Classes="compact"
+                          Width="110"
+                          Margin="0,0,8,0"
+                          ItemsSource="{Binding RankDimensionOptions}"
+                          SelectedItem="{Binding RankDimensionOption}"
+                          ItemTemplate="{StaticResource RankOptionTemplate}" />
+                <ComboBox Grid.Column="2"
+                          Classes="compact"
+                          Width="110"
+                          ItemsSource="{Binding RankMetricOptions}"
+                          SelectedItem="{Binding RankMetricOption}"
+                          ItemTemplate="{StaticResource RankOptionTemplate}" />
+            </Grid>
+
+            <Grid ColumnDefinitions="1.35*,1*" ColumnSpacing="24">
+                <!-- 排行：进度条形态比横条图读得快（设计文档 5.5 的退化形态，视觉上不算降级） -->
+                <StackPanel Spacing="2">
+                    <ItemsControl ItemsSource="{Binding RankItems}">
+                        <ItemsControl.Styles>
+                            <Style Selector="ContentPresenter">
+                                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            </Style>
+                        </ItemsControl.Styles>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="usage:UsageRankItemViewData">
+                                <StackPanel Spacing="3" Margin="0,0,0,9">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Text="{Binding Label}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   ToolTip.Tip="{Binding Tip}"
+                                                   Classes.muted="{Binding IsOther}" />
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="{Binding ValueText}" FontSize="12" />
+                                            <TextBlock Text="{Binding PercentText}"
+                                                       FontSize="12"
+                                                       Classes="muted"
+                                                       MinWidth="42"
+                                                       TextAlignment="Right" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <ProgressBar Height="6"
+                                                 HorizontalAlignment="Stretch"
+                                                 CornerRadius="3"
+                                                 Minimum="0"
+                                                 Maximum="1"
+                                                 Value="{Binding Ratio}"
+                                                 Foreground="{DynamicResource SemiBlue5}"
+                                                 Background="{DynamicResource SemiGrey1}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- 右栏：占比（Top5 + 其他）在上，失败原因分布在下 —— 一个窄栏放两件小东西，
+                     比三栏各挤一张图更好读 -->
+                <StackPanel Grid.Column="1" Spacing="6">
+                    <TextBlock Text="{loc:Loc UsageShareTitle}" Classes="muted" />
+                    <Grid Height="180">
+                        <lvc:PieChart Series="{Binding ShareSeries}"
+                                      LegendPosition="Hidden"
+                                      TooltipPosition="Top"
+                                      InitialRotation="-90" />
+                        <TextBlock Text="{loc:Loc UsageShareEmpty}"
+                                   Classes="muted"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   IsVisible="{Binding IsEmpty}" />
+                    </Grid>
+
+                    <TextBlock Text="{loc:Loc UsageFailureTitle}" Classes="muted" Margin="0,6,0,0" />
+                    <TextBlock Text="{loc:Loc UsageFailureEmpty}"
+                               Classes="muted"
+                               TextWrapping="Wrap"
+                               IsVisible="{Binding Failures.Count, Converter={x:Static converters:IntToBoolConverter.Inverted}}" />
+                    <ItemsControl ItemsSource="{Binding Failures}">
+                        <ItemsControl.Styles>
+                            <Style Selector="ContentPresenter">
+                                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            </Style>
+                        </ItemsControl.Styles>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="usage:UsageFailureItemViewData">
+                                <Border Classes="usage-subcard" Margin="0,0,0,6">
+                                    <StackPanel Spacing="1">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Text="{Binding Label}" Classes.muted="{Binding IsCancel}" />
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding CountText}"
+                                                       FontSize="12"
+                                                       Classes="muted" />
+                                        </Grid>
+                                        <TextBlock Text="{Binding DetailText}"
+                                                   FontSize="11"
+                                                   Classes="muted"
+                                                   TextWrapping="Wrap"
+                                                   IsVisible="{Binding DetailText, Converter={x:Static converters:StringNotEmptyConverter.Instance}}" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+    </Border>
+</UserControl>

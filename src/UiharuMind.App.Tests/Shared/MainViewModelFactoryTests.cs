@@ -28,10 +28,11 @@ public class MainViewModelFactoryTests
     }
 
     [Fact]
-    public void PageFactories_CoverAllSevenMenuKeys()
+    public void PageFactories_CoverAllMenuPages()
     {
         MenuPages[] expected = [MenuPages.MenuConversationKey, MenuPages.MenuCharacterKey, MenuPages.MenuTranslateKey,
-            MenuPages.MenuModelKey, MenuPages.MenuServicesKey, MenuPages.MenuLogKey, MenuPages.MenuHelpKey];
+            MenuPages.MenuModelKey, MenuPages.MenuUsageKey, MenuPages.MenuServicesKey, MenuPages.MenuLogKey,
+            MenuPages.MenuHelpKey];
 
         Assert.Equal(expected, MainViewModel.PageFactories.Keys);
     }

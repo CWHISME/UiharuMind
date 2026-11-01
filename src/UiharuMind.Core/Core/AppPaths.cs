@@ -138,6 +138,15 @@ public static class AppPaths
         /// <summary>剪贴板历史图片</summary>
         public static readonly string ClipboardImages = Path.Combine(ClipboardRoot, "Images");
 
+        private static readonly string UsageRoot = Path.Combine(Root, "Usage");
+
+        /// <summary>
+        /// 请求级用量明细（每次服务调用一行）。归 Data 而非 Cache：这批数据不可再生——
+        /// 重跑一次推理是另一次推理，不是同一次，删了就是真的没了（ADR 0013）。
+        /// <para>⚠️ WAL 会带 <c>-wal</c> / <c>-shm</c> 伴生文件，删除或迁移必须成套处理。</para>
+        /// </summary>
+        public static readonly string UsageDatabase = Path.Combine(UsageRoot, "Usage.db");
+
         private static readonly string AgentRoot = Path.Combine(Root, "Agent");
 
         /// <summary>定时任务</summary>

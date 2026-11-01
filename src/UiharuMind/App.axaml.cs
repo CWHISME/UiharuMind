@@ -58,6 +58,10 @@ public partial class App : Application, ILogger, IDisposable
     {
         AvaloniaXamlLoader.Load(this);
 
+        // 图表库的一次性装配（Skia + 默认映射 + 中文 typeface）。
+        // 放在设计器分支之前：预览器里也看得到真实刻度
+        UiharuMind.Features.Models.Usage.UsageChartSetup.EnsureConfigured();
+
         // 预览器每开一个 axaml 都会起一次 App:日志转去临时目录,否则每次都轮换掉一格真实日志
         if (Design.IsDesignMode)
         {
@@ -476,6 +480,10 @@ public partial class App : Application, ILogger, IDisposable
         DummyWindow?.MainViewModel?.FlushPendingDrafts();
         (Services as IDisposable)?.Dispose();
         ProcessHelper.CancelAllProcesses();
+        //用量账本最后刷一次：Append 是投递进后台通道的，不刷就丢掉退出前那几条。
+        //从没用过（没建过实例）就不为一次退出凭空建个库
+        if (UiharuMind.Core.AI.Usage.UsageJournal.IsCreated)
+            UiharuMind.Core.AI.Usage.UsageJournal.Instance.Shutdown();
         if (!_crashing) _exitGuard?.MarkClean();
         Log.Shutdown(); //必须最后:它之后打的日志会被丢掉,而上面每一步都还在打日志
     }

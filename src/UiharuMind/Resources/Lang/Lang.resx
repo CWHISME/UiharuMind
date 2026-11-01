@@ -3624,6 +3624,10 @@ Allow them?</value>
         <value>Model</value>
     </data>
 
+    <data name="MenuUsageKey" xml:space="preserve">
+        <value>Usage</value>
+    </data>
+
     <data name="MessageErrorTitle" xml:space="preserve">
         <value>Error</value>
     </data>
@@ -6270,5 +6274,308 @@ Enable it?</value>
     </data>
     <data name="ContextBudgetCostTip" xml:space="preserve">
         <value>Lowering the cap moves the handoff and folding lines up</value>
+    </data>
+    <data name="UsagePageTitle" xml:space="preserve">
+        <value>Usage &amp; spending</value>
+    </data>
+    <data name="UsagePageSubtitle" xml:space="preserve">
+        <value>One row per model request — tokens, cache hits, estimated cost, latency and failures</value>
+    </data>
+    <data name="UsageRefresh" xml:space="preserve">
+        <value>Refresh</value>
+    </data>
+    <data name="UsageRangeLabel" xml:space="preserve">
+        <value>Range</value>
+    </data>
+    <data name="UsageRangeToday" xml:space="preserve">
+        <value>Today</value>
+    </data>
+    <data name="UsageRangeLast7Days" xml:space="preserve">
+        <value>Last 7 days</value>
+    </data>
+    <data name="UsageRangeLast30Days" xml:space="preserve">
+        <value>Last 30 days</value>
+    </data>
+    <data name="UsageRangeThisMonth" xml:space="preserve">
+        <value>This month</value>
+    </data>
+    <data name="UsageRangeCustom" xml:space="preserve">
+        <value>Custom</value>
+    </data>
+    <data name="UsageCustomFrom" xml:space="preserve">
+        <value>From</value>
+    </data>
+    <data name="UsageCustomTo" xml:space="preserve">
+        <value>To</value>
+    </data>
+    <data name="UsageGranularityLabel" xml:space="preserve">
+        <value>Bucket</value>
+    </data>
+    <data name="UsageGranularityAuto" xml:space="preserve">
+        <value>Auto</value>
+    </data>
+    <data name="UsageGranularityHour" xml:space="preserve">
+        <value>Hourly</value>
+    </data>
+    <data name="UsageGranularityDay" xml:space="preserve">
+        <value>Daily</value>
+    </data>
+    <data name="UsageGranularityWeek" xml:space="preserve">
+        <value>Weekly</value>
+    </data>
+    <data name="UsageModelLabel" xml:space="preserve">
+        <value>Model</value>
+    </data>
+    <data name="UsageSessionLabel" xml:space="preserve">
+        <value>Session</value>
+    </data>
+    <data name="UsageAllModels" xml:space="preserve">
+        <value>All models</value>
+    </data>
+    <data name="UsageAllSessions" xml:space="preserve">
+        <value>All sessions</value>
+    </data>
+    <data name="UsageOnlyFailed" xml:space="preserve">
+        <value>Failed only</value>
+    </data>
+    <data name="UsageKpiTokens" xml:space="preserve">
+        <value>Total tokens</value>
+    </data>
+    <data name="UsageKpiRequests" xml:space="preserve">
+        <value>Requests</value>
+    </data>
+    <data name="UsageKpiCacheHit" xml:space="preserve">
+        <value>Cache hit rate</value>
+    </data>
+    <data name="UsageKpiCost" xml:space="preserve">
+        <value>Estimated cost</value>
+    </data>
+    <data name="UsageKpiFirstToken" xml:space="preserve">
+        <value>First token</value>
+    </data>
+    <data name="UsageKpiErrorRate" xml:space="preserve">
+        <value>Error rate</value>
+    </data>
+    <data name="UsageKpiTokensSub" xml:space="preserve">
+        <value>in {0} · out {1} · {2} per request</value>
+    </data>
+    <data name="UsageKpiRequestsSub" xml:space="preserve">
+        <value>{0} failed (cancel excluded) · {1} retries per request</value>
+    </data>
+    <data name="UsageKpiCacheSub" xml:space="preserve">
+        <value>{0} / {1} input · saved {2}</value>
+    </data>
+    <data name="UsageKpiCostSub" xml:space="preserve">
+        <value>USD · {0} · {1} unpriced</value>
+    </data>
+    <data name="UsageKpiCostNoPrice" xml:space="preserve">
+        <value>not published</value>
+    </data>
+    <data name="UsageKpiCostLocal" xml:space="preserve">
+        <value>local · not priced</value>
+    </data>
+    <data name="UsagePriceOfficial" xml:space="preserve">
+        <value>official price list</value>
+    </data>
+    <data name="UsagePriceModelsDev" xml:space="preserve">
+        <value>models.dev</value>
+    </data>
+    <data name="UsagePriceMixed" xml:space="preserve">
+        <value>mixed sources</value>
+    </data>
+    <data name="UsageKpiFirstTokenSub" xml:space="preserve">
+        <value>avg total latency {0}</value>
+    </data>
+    <data name="UsageKpiErrorRateSub" xml:space="preserve">
+        <value>{0} service failures · {1} cancels not counted</value>
+    </data>
+    <data name="UsageKpiNone" xml:space="preserve">
+        <value>—</value>
+    </data>
+    <data name="UsagePricingNote" xml:space="preserve">
+        <value>cost = (uncached input × input price + cached input × cache-read price + output × output price) / 1,000,000 — USD per 1M tokens; official price list first, then models.dev; local models are free; figures are estimates</value>
+    </data>
+    <data name="UsageCountingNote" xml:space="preserve">
+        <value>Counted per service call: a failed call that never reported usage still counts as one row here, while the session panel's cumulative request counter only counts calls that reported usage.</value>
+    </data>
+    <data name="UsageTrendTitle" xml:space="preserve">
+        <value>Trend</value>
+    </data>
+    <data name="UsageTrendSeriesTokens" xml:space="preserve">
+        <value>Tokens</value>
+    </data>
+    <data name="UsageTrendSeriesCost" xml:space="preserve">
+        <value>Cost (USD)</value>
+    </data>
+    <data name="UsageTrendSeriesLatency" xml:space="preserve">
+        <value>Avg latency</value>
+    </data>
+    <data name="UsageTrendSeriesErrorRate" xml:space="preserve">
+        <value>Error rate</value>
+    </data>
+    <data name="UsageTrendSeriesHitRate" xml:space="preserve">
+        <value>Cache hit rate</value>
+    </data>
+    <data name="UsageTrendSeriesDrop" xml:space="preserve">
+        <value>Cache dropped</value>
+    </data>
+    <data name="UsageTrendEmpty" xml:space="preserve">
+        <value>No requests in this range</value>
+    </data>
+    <data name="UsageTrendSessionTitle" xml:space="preserve">
+        <value>Cache hit timeline</value>
+    </data>
+    <data name="UsageTrendDropHint" xml:space="preserve">
+        <value>Cache hit dropped after request #{0} — the prefix changed or the cache expired</value>
+    </data>
+    <data name="UsageTrendNoDrop" xml:space="preserve">
+        <value>No cache drop detected in this session</value>
+    </data>
+    <data name="UsageTrendThinned" xml:space="preserve">
+        <value>Too many buckets — points trimmed to keep the chart readable</value>
+    </data>
+    <data name="UsageRankTitle" xml:space="preserve">
+        <value>Top models &amp; providers</value>
+    </data>
+    <data name="UsageRankModels" xml:space="preserve">
+        <value>Models</value>
+    </data>
+    <data name="UsageRankProviders" xml:space="preserve">
+        <value>Providers</value>
+    </data>
+    <data name="UsageRankTokens" xml:space="preserve">
+        <value>Tokens</value>
+    </data>
+    <data name="UsageRankRequests" xml:space="preserve">
+        <value>Requests</value>
+    </data>
+    <data name="UsageRankCost" xml:space="preserve">
+        <value>Cost</value>
+    </data>
+    <data name="UsageRankOthers" xml:space="preserve">
+        <value>Others</value>
+    </data>
+    <data name="UsageRankRowTip" xml:space="preserve">
+        <value>{0} · {1} requests · {2} cost</value>
+    </data>
+    <data name="UsageRankReasoningTip" xml:space="preserve">
+        <value>reasoning {0} of output</value>
+    </data>
+    <data name="UsageShareTitle" xml:space="preserve">
+        <value>Share</value>
+    </data>
+    <data name="UsageShareEmpty" xml:space="preserve">
+        <value>No share to show</value>
+    </data>
+    <data name="UsageFailureTitle" xml:space="preserve">
+        <value>Failure reasons</value>
+    </data>
+    <data name="UsageFailureEmpty" xml:space="preserve">
+        <value>No failures in this range</value>
+    </data>
+    <data name="UsageFailureRow" xml:space="preserve">
+        <value>{0}× · avg retry {1}</value>
+    </data>
+    <data name="UsageFailureRowNoRetry" xml:space="preserve">
+        <value>{0}×</value>
+    </data>
+    <data name="UsageFailureCancelNote" xml:space="preserve">
+        <value>cancel · not counted in the error rate</value>
+    </data>
+    <data name="UsageFailureUnknown" xml:space="preserve">
+        <value>unknown</value>
+    </data>
+    <data name="UsageDetailTitle" xml:space="preserve">
+        <value>Requests</value>
+    </data>
+    <data name="UsageDetailExport" xml:space="preserve">
+        <value>Export CSV</value>
+    </data>
+    <data name="UsageDetailExportDone" xml:space="preserve">
+        <value>Exported {0} rows to {1}</value>
+    </data>
+    <data name="UsageDetailExportFailed" xml:space="preserve">
+        <value>Export failed: {0}</value>
+    </data>
+    <data name="UsageDetailExportNoStore" xml:space="preserve">
+        <value>Usage store is unavailable</value>
+    </data>
+    <data name="UsageColumnTime" xml:space="preserve">
+        <value>Time</value>
+    </data>
+    <data name="UsageColumnModel" xml:space="preserve">
+        <value>Model</value>
+    </data>
+    <data name="UsageColumnInput" xml:space="preserve">
+        <value>In</value>
+    </data>
+    <data name="UsageColumnOutput" xml:space="preserve">
+        <value>Out</value>
+    </data>
+    <data name="UsageColumnCache" xml:space="preserve">
+        <value>Cache</value>
+    </data>
+    <data name="UsageColumnLatency" xml:space="preserve">
+        <value>Latency</value>
+    </data>
+    <data name="UsageColumnCost" xml:space="preserve">
+        <value>Cost</value>
+    </data>
+    <data name="UsageColumnResult" xml:space="preserve">
+        <value>Result</value>
+    </data>
+    <data name="UsageColumnSession" xml:space="preserve">
+        <value>Session</value>
+    </data>
+    <data name="UsageResultOk" xml:space="preserve">
+        <value>OK</value>
+    </data>
+    <data name="UsageDetailLocalCost" xml:space="preserve">
+        <value>local</value>
+    </data>
+    <data name="UsageDetailUnpriced" xml:space="preserve">
+        <value>n/a</value>
+    </data>
+    <data name="UsagePagePrev" xml:space="preserve">
+        <value>Previous</value>
+    </data>
+    <data name="UsagePageNext" xml:space="preserve">
+        <value>Next</value>
+    </data>
+    <data name="UsagePageInfo" xml:space="preserve">
+        <value>Page {0} / {1} · {2} rows</value>
+    </data>
+    <data name="UsagePageRowsEmpty" xml:space="preserve">
+        <value>No rows</value>
+    </data>
+    <data name="UsageEmptyTitle" xml:space="preserve">
+        <value>No usage recorded yet</value>
+    </data>
+    <data name="UsageEmptyHint" xml:space="preserve">
+        <value>Start a conversation — every request will show up here with tokens, cache hits and estimated cost.</value>
+    </data>
+    <data name="UsageEmptyGoChat" xml:space="preserve">
+        <value>Go to chat</value>
+    </data>
+    <data name="UsageEmptyFilteredTitle" xml:space="preserve">
+        <value>Nothing in this range</value>
+    </data>
+    <data name="UsageEmptyFilteredHint" xml:space="preserve">
+        <value>Widen the time range, or clear the model / session filter.</value>
+    </data>
+    <data name="UsageEmptyModelHint" xml:space="preserve">
+        <value>No records for “{0}” in this range.</value>
+    </data>
+    <data name="UsageCacheWriteNotReported" xml:space="preserve">
+        <value>Cache-write tokens are not reported by the current provider</value>
+    </data>
+    <data name="UsageSessionSummary" xml:space="preserve">
+        <value>{0} requests · {1}</value>
+    </data>
+    <data name="UsageSessionRange" xml:space="preserve">
+        <value>{0} → {1}</value>
+    </data>
+    <data name="UsageSessionClear" xml:space="preserve">
+        <value>Show all sessions</value>
     </data>
 </root>

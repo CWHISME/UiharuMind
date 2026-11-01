@@ -1,0 +1,117 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:usage="clr-namespace:UiharuMind.Features.Models.Usage"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="900"
+             x:Class="UiharuMind.Features.Models.Usage.UsagePage"
+             x:DataType="usage:UsagePageData">
+
+    <Design.DataContext>
+        <usage:UsagePageData />
+    </Design.DataContext>
+
+    <!-- 卡片与统计块的样式放这里：子视图（筛选栏/趋势/排行/明细）是它的逻辑后代，
+         样式一样吃得着。语义色走 Tag，与 ServicesPage 的 overview-card 同一口径 -->
+    <UserControl.Styles>
+        <Style Selector="Border.usage-card">
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="16" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+        </Style>
+        <Style Selector="Border.overview-card">
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="14" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+        </Style>
+        <Style Selector="Border.overview-card[Tag=Success]">
+            <Setter Property="BorderBrush" Value="{DynamicResource MessageStatusSuccessBrush}" />
+        </Style>
+        <Style Selector="Border.overview-card[Tag=Warning]">
+            <Setter Property="BorderBrush" Value="{DynamicResource MessageStatusWarningBrush}" />
+        </Style>
+        <Style Selector="Border.overview-card[Tag=Danger]">
+            <Setter Property="BorderBrush" Value="{DynamicResource MessageStatusErrorBrush}" />
+        </Style>
+        <Style Selector="Border.usage-subcard">
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+        </Style>
+        <Style Selector="TextBlock.section-title">
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="TextBlock.kpi-value">
+            <Setter Property="FontSize" Value="22" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+        <Style Selector="ComboBox.compact">
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="Padding" Value="8,2" />
+        </Style>
+        <Style Selector="Button.compact">
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="Padding" Value="12,4" />
+        </Style>
+        <Style Selector="Button.pager">
+            <Setter Property="MinWidth" Value="30" />
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="Padding" Value="8,2" />
+        </Style>
+    </UserControl.Styles>
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="22,14,22,24" Spacing="14">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="{loc:Loc UsagePageTitle}"
+                               FontSize="24"
+                               Foreground="{DynamicResource UiForegroundBrush}" />
+                    <TextBlock Text="{loc:Loc UsagePageSubtitle}" Foreground="{DynamicResource SemiGrey6}" />
+                </StackPanel>
+                <Button Grid.Column="1"
+                        Classes="compact"
+                        VerticalAlignment="Center"
+                        Command="{Binding RefreshCommand}"
+                        Content="{loc:Loc UsageRefresh}" />
+            </Grid>
+
+            <usage:UsageFilterBar />
+
+            <!-- 整页重算时一条细进度条就够：已有内容不闪，用户仍看得出在动 -->
+            <ProgressBar Height="2"
+                         Margin="0,-6,0,0"
+                         IsIndeterminate="True"
+                         IsVisible="{Binding IsLoading}" />
+
+            <usage:UsageKpiStrip />
+
+            <controls:EmptyStateView IsVisible="{Binding IsEmpty}"
+                                     IconName="chart-no-axes-column"
+                                     Title="{Binding EmptyTitle}"
+                                     Hint="{Binding EmptyHint}"
+                                     Margin="0,36,0,36">
+                <controls:EmptyStateView.Actions>
+                    <Button Classes="compact"
+                            Content="{loc:Loc UsageEmptyGoChat}"
+                            Command="{Binding GoToChatCommand}"
+                            IsVisible="{Binding ShowGoToChat}" />
+                </controls:EmptyStateView.Actions>
+            </controls:EmptyStateView>
+
+            <StackPanel Spacing="14" IsVisible="{Binding !IsEmpty}">
+                <usage:UsageTrendChart />
+                <usage:UsageRankPanel />
+                <usage:UsageDetailTable />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

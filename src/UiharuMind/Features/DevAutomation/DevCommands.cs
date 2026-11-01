@@ -91,7 +91,7 @@ internal sealed class JumpToPageCommand : IDevCommand
 {
     public string Name => "page.jump";
 
-    public string Usage => "跳到某一页（主窗口跟着换）。page：agent / chat / character / model / log；" +
+    public string Usage => "跳到某一页（主窗口跟着换）。page：agent / chat / character / model / usage / log；" +
                            "page 为 model 时可带 tab（chat / image / audio / downloads / image-downloads / audio-downloads）切页签，" +
                            "或带 search（可为空串）切到「获取模型」并按它搜索（会联网）";
 
@@ -105,6 +105,7 @@ internal sealed class JumpToPageCommand : IDevCommand
             "chat" => MenuPages.MenuConversationKey,
             "character" => MenuPages.MenuCharacterKey,
             "model" => MenuPages.MenuModelKey,
+            "usage" => MenuPages.MenuUsageKey,
             "log" => MenuPages.MenuLogKey,
             _ => null,
         };

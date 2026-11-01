@@ -1,0 +1,82 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:usage="clr-namespace:UiharuMind.Features.Models.Usage"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="1180"
+             x:Class="UiharuMind.Features.Models.Usage.UsageFilterBar"
+             x:DataType="usage:UsagePageData">
+
+    <UserControl.Resources>
+        <!-- 四个筛选下拉共用一份：写一遍模板，各处只换 ItemsSource -->
+        <DataTemplate x:Key="OptionTemplate" x:DataType="usage:UsageOptionViewData">
+            <TextBlock Text="{Binding Label}" />
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Border Classes="usage-card" Padding="14,12">
+        <StackPanel Spacing="10">
+            <WrapPanel Orientation="Horizontal">
+                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,16,0" VerticalAlignment="Center">
+                    <TextBlock Text="{loc:Loc UsageRangeLabel}" Classes="muted" VerticalAlignment="Center" />
+                    <ComboBox Classes="compact"
+                              Width="140"
+                              ItemsSource="{Binding RangeOptions}"
+                              SelectedItem="{Binding RangeOption}"
+                              ItemTemplate="{StaticResource OptionTemplate}" />
+                </StackPanel>
+
+                <!-- 自定义：起止日期（含首尾两天） -->
+                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,16,0"
+                            IsVisible="{Binding IsCustomRange}">
+                    <TextBlock Text="{loc:Loc UsageCustomFrom}" Classes="muted" VerticalAlignment="Center" />
+                    <CalendarDatePicker Width="130" SelectedDate="{Binding CustomFrom}" />
+                    <TextBlock Text="{loc:Loc UsageCustomTo}" Classes="muted" VerticalAlignment="Center" />
+                    <CalendarDatePicker Width="130" SelectedDate="{Binding CustomTo}" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,16,0" VerticalAlignment="Center">
+                    <TextBlock Text="{loc:Loc UsageGranularityLabel}" Classes="muted" VerticalAlignment="Center" />
+                    <ComboBox Classes="compact"
+                              Width="110"
+                              ItemsSource="{Binding GranularityOptions}"
+                              SelectedItem="{Binding GranularityOption}"
+                              ItemTemplate="{StaticResource OptionTemplate}" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,16,0" VerticalAlignment="Center">
+                    <TextBlock Text="{loc:Loc UsageModelLabel}" Classes="muted" VerticalAlignment="Center" />
+                    <ComboBox Classes="compact"
+                              Width="200"
+                              ItemsSource="{Binding ModelOptions}"
+                              SelectedItem="{Binding ModelOption}"
+                              ItemTemplate="{StaticResource OptionTemplate}" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,16,0" VerticalAlignment="Center">
+                    <TextBlock Text="{loc:Loc UsageSessionLabel}" Classes="muted" VerticalAlignment="Center" />
+                    <ComboBox Classes="compact"
+                              Width="230"
+                              ItemsSource="{Binding SessionOptions}"
+                              SelectedItem="{Binding SessionOption}"
+                              ItemTemplate="{StaticResource OptionTemplate}" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,16,0" VerticalAlignment="Center">
+                    <TextBlock Text="{loc:Loc UsageOnlyFailed}" Classes="muted" VerticalAlignment="Center" />
+                    <ToggleSwitch IsChecked="{Binding OnlyFailed}"
+                                  OnContent=""
+                                  OffContent=""
+                                  VerticalAlignment="Center" />
+                </StackPanel>
+
+                <Button Classes="compact"
+                        Content="{loc:Loc UsageSessionClear}"
+                        Command="{Binding ClearSessionCommand}"
+                        IsVisible="{Binding IsSessionView}"
+                        VerticalAlignment="Center" />
+            </WrapPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

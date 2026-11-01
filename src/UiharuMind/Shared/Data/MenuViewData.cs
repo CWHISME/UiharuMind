@@ -34,6 +34,8 @@ public class MenuViewData
         // new() { MenuHeader = Loc.Text(LangKey.MenuTranslateKey), MenuIconName ="Translate", Key = MenuKeys.MenuTranslateKey },
         // new() { MenuHeader = "语音", MenuIconName = "Voice", Key = MenuKeys.MenuKeyAudio, Status = "Goods" },
             new() { MenuHeaderResourceKey = nameof(LangKey.MenuModelKey), MenuIconName = "folder-open", Key = MenuPages.MenuModelKey },
+            // 用量：侧边栏是唯一入口（模型条目与对话页都不加入口）
+            new() { MenuHeaderResourceKey = nameof(LangKey.MenuUsageKey), MenuIconName = "chart-no-axes-column", Key = MenuPages.MenuUsageKey },
             // new() { MenuHeaderResourceKey = nameof(LangKey.MenuServicesKey), MenuIconName = "cog", Key = MenuPages.MenuServicesKey },
             new() { MenuHeaderResourceKey = nameof(LangKey.MenuLogKey), MenuIconName = "book-search", Key = MenuPages.MenuLogKey },
         // new() { MenuHeader = "绘图", MenuIconName = "Image", Key = MenuKeys.MenuKeyDraw },

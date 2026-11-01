@@ -1,5 +1,8 @@
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Core;
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.History;
+using UiharuMind.Core.AI.Usage;
 
 namespace UiharuMind.Core.AI.Chat.Group;
 
@@ -83,8 +86,32 @@ public static class GroupBackground
             cancellationToken).ConfigureAwait(false);
         if (supplied.Count == 0) return null;
 
-        HandoffReply reply = await HistoryHandoff.WriteAsync(HistorySupply.ClientFor(source), supplied, options,
-            contextLength, audience, onProgress: null, cancellationToken).ConfigureAwait(false);
+        HandoffReply reply;
+        // 请求级用量：这一发绕过了 <c>TurnDriver</c>，必须在这里自己补一条，否则群场景漏计。
+        // 模型身份用 ServingModel 判据——全局跑着 B、会话钉着没在跑的 A 时，直接用 source.ChatModelRunningData
+        // 会张冠李戴（实际请求发给 B，按 A 记）
+        UsageCallTracker call = UsageCallTracker.Begin(source.SessionId, UsageModelIdentity.From(
+            LazyChatClient.ServingModel(source.ChatModelRunningData, LlmManager.Instance.EffectiveGlobalModel),
+            DateTimeOffset.Now));
+        using (LlmRequestScope.Push(LlmRequestScope.Current with { RetryTally = call.Retries }))
+        {
+            try
+            {
+                reply = await HistoryHandoff.WriteAsync(HistorySupply.ClientFor(source), supplied, options,
+                    contextLength, audience, onProgress: null, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException e)
+            {
+                call.Fail(UsageErrorKinds.Cancel, e);
+                throw;
+            }
+            catch (Exception e)
+            {
+                call.Fail(UsageErrorKinds.Classify(e), e);
+                throw;
+            }
+        }
+
         // 是这个会话的模型花的,记进它的累计:群成员面板的成本读的就是它。不碰占用——单聊本身没有变满
         foreach (UsageDetails usage in reply.Usages)
         {
@@ -92,6 +119,17 @@ public static class GroupBackground
             // 命中不跟着进分子,那个比例就既不是命中率也没法跟官方控制台对账
             source.AccumulateUsage(usage.InputTokenCount ?? 0, usage.OutputTokenCount ?? 0,
                 usage.ReasoningTokenCount ?? 0, TurnUsageLedger.ReadCachedTokens(usage));
+        }
+
+        // 请求级记账：成功收口一行（重发的那一发各一行）；没产出正文时并进失败行
+        if (reply.Text != null)
+        {
+            call.CompleteWith(reply.Usages);
+        }
+        else
+        {
+            foreach (UsageDetails usage in reply.Usages) call.NoteUsage(usage);
+            call.Fail(UsageErrorKinds.Stream, detail: "group background produced no text");
         }
 
         if (reply.Usages.Count > 0)

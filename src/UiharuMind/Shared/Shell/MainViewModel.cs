@@ -26,6 +26,8 @@ using UiharuMind.Features.About;
 using UiharuMind.Features.Services;
 using UiharuMind.Features.Translate;
 using UiharuMind.Features.Models;
+using UsagePageData = UiharuMind.Features.Models.Usage.UsagePageData;
+using UiharuMind.Core.AI.Usage;
 using UiharuMind.Features.Characters;
 using UiharuMind.Features.Settings;
 using UiharuMind.Features.Conversation;
@@ -74,6 +76,8 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
             [MenuPages.MenuTranslateKey] = _ => new TranslatePageData(),
             [MenuPages.MenuModelKey] = sp => new ModelPageData(sp.GetRequiredService<IMessageService>(),
                 audio: sp.GetRequiredService<AudioServices>()),
+            [MenuPages.MenuUsageKey] = sp => new UsagePageData(sp.GetRequiredService<IMessageService>(),
+                UsageJournal.Instance, App.FilesService),
             [MenuPages.MenuServicesKey] = sp => new ServicesPageData(sp.GetRequiredService<IMessageService>()),
             [MenuPages.MenuLogKey] = _ => new LogPageData(),
             [MenuPages.MenuHelpKey] = _ => new HelpPageData(),
@@ -216,6 +220,7 @@ public enum MenuPages
     MenuChatKey,
     MenuTranslateKey,
     MenuModelKey,
+    MenuUsageKey,
     MenuServicesKey,
     MenuLogKey,
     MenuSettingKey,
