@@ -373,10 +373,12 @@ public sealed class ConversationHistoryRenderer
     /// <summary>
     /// 自己那一轮正跑着的时候落的盘：本轮的东西全由实时流渲染过了，这里<b>只补后续报告与后台任务结果</b>。
     ///
-    /// 它们是仅有的可能在本轮进行中从别处插进来的两类——都要等这个会话空闲才落盘
-    /// （见 <c>SubAgentReportHandoff</c>），而「登记处已空闲」与「视图的 IsRunning 归零」
+    /// 它们是仅有的可能在本轮进行中从别处插进来的两类，而「登记处已空闲」与「视图的 IsRunning 归零」
     /// 之间有一瞬的错位。整段丢掉的话那条报告就要等重开会话才看得见，用户看到的是「交回丢了」。
-    /// 其余几类（检索卡、旁白、交接文档）本轮自有渲染路径，补在这里会画成两条。
+    /// 其余几类（检索卡、旁白、交接文档）本轮自有渲染路径。
+    ///
+    /// <b>已经由流画过的不补</b>（<see cref="AppendSkippingRendered"/>）：ADR 0062 之后报告不再等会话空闲——
+    /// 收信人醒着就插进那一轮、随那次调用落盘，流早画过一份了。按类别无条件补一遍就是两份。
     /// </summary>
     private void AppendHandedBackReports(IReadOnlyList<ChatMessage> history, int fromIndex)
     {
@@ -385,14 +387,14 @@ public sealed class ConversationHistoryRenderer
             if (ConversationMessageOrigin.KindOf(history[i]) is not (EHistoryItemKind.SubAgentReport
                 or EHistoryItemKind.BackgroundTaskReport
                 or EHistoryItemKind.SubAgentMessage)) continue;
-            Append(history, i, i + 1, liveTail: true);
+            AppendSkippingRendered(Build(history, i, i + 1, liveTail: true));
         }
     }
 
     /// <summary>没有实时流时：整段照回放渲染</summary>
     private void AppendWholeSlice(IReadOnlyList<ChatMessage> history, int fromIndex)
     {
-        AppendSkippingRenderedHandoffs(Build(history, fromIndex, history.Count, liveTail: true));
+        AppendSkippingRendered(Build(history, fromIndex, history.Count, liveTail: true));
     }
 
     /// <summary>
@@ -408,7 +410,7 @@ public sealed class ConversationHistoryRenderer
             if (ConversationMessageOrigin.IsProducedByContentStream(ConversationMessageOrigin.KindOf(message)))
                 continue;
 
-            AppendSkippingRenderedHandoffs(Build(history, i, i + 1, liveTail: true));
+            AppendSkippingRendered(Build(history, i, i + 1, liveTail: true));
         }
 
         // 流式条目此刻才能与落了盘的消息配对,配上了才有编辑/删除/分叉
@@ -421,14 +423,19 @@ public sealed class ConversationHistoryRenderer
     }
 
     /// <summary>
-    /// 交接文档可能在落盘渲染入队之前已被别的路径画过（HandoffWritten 兜底、对账追加），
-    /// 按来源引用去重——否则同一条 note 会出两张卡
+    /// 界面上已经有指向这条来源的条目就不再加——判据是「同一条消息」，不是消息类别。
+    ///
+    /// 一条消息可以晚一步才从历史补画（交回报告、后台任务结果、HandoffWritten 兜底、对账追加），
+    /// 而它也可能已经由内容流画过：落进历史的那条<b>就是流手上那个实例</b>（注入路径已验证
+    /// <c>ReferenceEquals</c> 成立，<c>AppendOwned</c> 就地写），所以按引用认是严格判据。
+    /// 从前这里只认交接文档，于是「报告随那一轮落盘」变成两条各画一份（实机踩到）。
+    /// 来源为空（流式条目还没配对）的不参与，免得 <c>null == null</c> 误吞。
     /// </summary>
-    private void AppendSkippingRenderedHandoffs(List<ConversationItemBase> items)
+    private void AppendSkippingRendered(List<ConversationItemBase> items)
     {
         foreach (ConversationItemBase item in items)
         {
-            if (item is HandoffItem && IsRendered(item.SourceMessage)) continue;
+            if (item.SourceMessage is { } source && IsRendered(source)) continue;
             _items.Add(item);
         }
     }
