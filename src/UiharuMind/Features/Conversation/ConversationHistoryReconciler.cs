@@ -47,6 +47,17 @@ public interface IConversationReconcileHost
     List<ConversationItemBase> BuildItems(IReadOnlyList<ChatMessage> history, int from, int to);
 
     /// <summary>
+    /// 回放一段<b>还在长的尾巴</b>（<c>liveTail: true</c>）：轮内补画用，尚无结果的调用继续转圈。
+    /// 与 <see cref="BuildItems"/> 分成两个口而不是加一个 bool：两者的语义是「定格」与「直播」，
+    /// 混成一个参数后，谁在轮内谁在轮末就看不出去了
+    /// </summary>
+    /// <param name="history">完整历史</param>
+    /// <param name="from">起始下标</param>
+    /// <param name="to">结束下标（不含）</param>
+    /// <returns>装配好的条目</returns>
+    List<ConversationItemBase> BuildLiveTailItems(IReadOnlyList<ChatMessage> history, int from, int to);
+
+    /// <summary>
     /// 把界面上来源还没落定的流式条目与历史配对，并让思考卡接上落盘的统计（幂等）。对账先配对再判定——
     /// 「没人跑」不等于「都配好了」：轮末配对走后台线程，到这里仍可能是空来源，
     /// 不先配就判定，尾巴上那张思考卡会被当成漏画又追加一张。
@@ -112,17 +123,62 @@ public sealed class ConversationHistoryReconciler
         if (ConversationOrderCheck.FindDivergence(_items, session.History) is { } divergence)
         {
             Log.Warning($"Conversation items diverged from history ({divergence}); "
-                        + $"replaying the window ({reason}).");
+                        + $"replaying the window (session={session.SessionId}, {reason}).");
             ReplayPreservingWindow(session.History);
             return;
         }
 
         int missing = ConversationOrderCheck.FindMissingTail(_items, session.History);
         if (missing == 0) return;
+
+        AppendTail(session, missing, reason, liveTail: false);
+    }
+
+    /// <summary>
+    /// 轮内兜底：一次服务调用落盘、流段收口（消息边界）时，把界面上还缺的尾部补上。
+    ///
+    /// 与 <see cref="Reconcile"/> 只差两条：<b>不等「没人跑」</b>，且按<b>直播口径</b>回放。
+    /// 边界那一刻这次调用已经落盘、流也收了段，按「界面上有没有条目指向它」补是安全的
+    /// （下一次调用的内容还没进历史，不会跟正在流的那段抢位置）；而这次调用里的工具结果
+    /// 要等下一次调用落盘才进历史，所以缺的那几条必须按 liveTail 画，否则刚补出来的卡
+    /// 会当场被标成「历史里没有结果」。
+    ///
+    /// 不补的话整轮都指望轮末对账——一轮跑十几分钟，界面就冻十几分钟
+    /// （实机：62 条消息等了一整轮）。
+    /// </summary>
+    /// <param name="reason">触发来源，进日志</param>
+    public void CatchUpTail(string reason)
+    {
+        if (_host.IsSessionLoading) return;
+        if (_window.IsDetached) return;
+        if (_host.CurrentSession is not { } session) return;
+
+        // 先配对：流画过的那几条认回来源，才不会当成漏画又画一遍
+        _host.SettleStreamedItems(session.History);
+
+        int missing = ConversationOrderCheck.FindMissingTail(_items, session.History);
+        if (missing == 0) return;
+
+        AppendTail(session, missing, reason, liveTail: true);
+    }
+
+    /// <summary>把历史尾部缺的那几条补画进条目集合</summary>
+    /// <param name="session">会话</param>
+    /// <param name="missing">缺的条数</param>
+    /// <param name="reason">触发来源，进日志</param>
+    /// <param name="liveTail">这一段是不是还在长的尾巴（见 <see cref="BuildLiveTailItems"/>）</param>
+    private void AppendTail(ChatSession session, int missing, string reason, bool liveTail)
+    {
+        // 带上会话标识:一个窗口里同时挂着好几个会话实例(切走的那些还在后台收内容),
+        // 只写「补了 62 条」根本不知道是哪一个(实机排查时为此多花了一小时)
         Log.Warning($"Conversation items diverged from history "
-                    + $"({missing} trailing message(s) not drawn); appending the tail ({reason}).");
-        foreach (ConversationItemBase item in _host.BuildItems(session.History,
-                     session.History.Count - missing, session.History.Count))
+                    + $"({missing} trailing message(s) not drawn); appending the tail "
+                    + $"(session={session.SessionId}, {reason}).");
+        int from = session.History.Count - missing;
+        IReadOnlyList<ConversationItemBase> tail = liveTail
+            ? _host.BuildLiveTailItems(session.History, from, session.History.Count)
+            : _host.BuildItems(session.History, from, session.History.Count);
+        foreach (ConversationItemBase item in tail)
         {
             _items.Add(item);
         }

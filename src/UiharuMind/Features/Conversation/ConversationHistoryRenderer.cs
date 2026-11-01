@@ -16,6 +16,7 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group.Away;
 using UiharuMind.Core.AI.Core;
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Features.Conversation.Group;
@@ -401,22 +402,34 @@ public sealed class ConversationHistoryRenderer
     }
 
     /// <summary>
-    /// 一轮正往界面流内容时落的盘：<b>内容流产出的那几类已经渲染过了</b>（助手正文、思考段、
-    /// 工具卡、被消费的用户消息），这里只补它产不出的（检索卡、旁白、交接文档、后续报告），
-    /// 再把流式条目与消息配对。
+    /// 一轮正往界面流内容时落的盘：<b>内容流产出的那几类多半已经渲染过了</b>（助手正文、思考段、
+    /// 工具卡、被消费的用户消息），但<b>「多半」不能当成「一定」</b>——从前按类别无条件跳过，
+    /// 等于把上屏责任全押在实时流上：流那一侧漏一条（观察者没挂上、条目被后台裁掉），
+    /// 这一整轮就一条都补不回来，要等轮末对账（实机：唤醒轮跑了 12 分钟，界面停在派活那条，
+    /// 轮末对账一次性补了 62 条）。
+    ///
+    /// 所以这里改成<b>先配对、再按「界面上有没有条目指向这条消息」判</b>。唯一例外是<b>最新那一条</b>：
+    /// 框架交出这次调用的最后一块之后才落盘，那一块经通道到岔口要晚一拍
+    /// （见 <see cref="LiveTurnStream.NoteHistoryPersisted"/>），此刻它可能还在流里写，交给流；
+    /// 落盘后收口的下一拍由 <c>ConversationHistoryReconciler.CatchUpTail</c> 兜住。
     /// </summary>
     private void AppendAlongsideStream(IReadOnlyList<ChatMessage> history, int fromIndex)
     {
+        // 先配对:流画过的条目此刻才认回自己的来源消息,下面的去重才认得出它
+        _itemActions.WireStreamed(history);
+
         for (int i = fromIndex; i < history.Count; i++)
         {
-            ChatMessage message = history[i];
-            if (ConversationMessageOrigin.IsProducedByContentStream(ConversationMessageOrigin.KindOf(message)))
+            bool inFlight = i == history.Count - 1;
+            if (inFlight &&
+                ConversationMessageOrigin.IsProducedByContentStream(ConversationMessageOrigin.KindOf(history[i])))
                 continue;
 
             AppendSkippingRendered(Build(history, i, i + 1, liveTail: true));
         }
 
-        // 流式条目此刻才能与落了盘的消息配对,配上了才有编辑/删除/分叉
+        // 再配一次:刚补画的那几条也在界面上,尾部还没配好的条目靠它们回指来源(删除才摘得干净)。
+        // 顺带让流式条目与落了盘的消息配对——配上了才有编辑/删除/分叉
         _itemActions.WireStreamed(history);
         // 驱动方在每次服务调用落盘后就把那一段的统计盖进内存历史（见 TurnDriver），
         // 这里把上一批冻成纯字数/空白的卡升级成存档值——只读不写，幂等。
@@ -426,19 +439,38 @@ public sealed class ConversationHistoryRenderer
     }
 
     /// <summary>
-    /// 界面上已经有指向这条来源的条目就不再加——判据是「同一条消息」，不是消息类别。
+    /// 界面上已经有指向这条来源的条目就不再加——判据是「同一个条目」，不是消息类别。
     ///
     /// 一条消息可以晚一步才从历史补画（交回报告、后台任务结果、HandoffWritten 兜底、对账追加），
     /// 而它也可能已经由内容流画过：落进历史的那条<b>就是流手上那个实例</b>（注入路径已验证
     /// <c>ReferenceEquals</c> 成立，<c>AppendOwned</c> 就地写），所以按引用认是严格判据。
     /// 从前这里只认交接文档，于是「报告随那一轮落盘」变成两条各画一份（实机踩到）。
     /// 来源为空（流式条目还没配对）的不参与，免得 <c>null == null</c> 误吞。
+    ///
+    /// 两条粒度上的讲究：
+    /// <list type="number">
+    /// <item><b>已画集合先取快照再判。</b>边加边判的话，同一条消息拆出的第二个条目
+    /// （思考卡 + 正文 + 几张工具卡共享一个来源）会看见刚加进去的那一个，当成「已经画过」丢掉——
+    /// 整段补画于是只剩每条消息的头一个条目。</item>
+    /// <item><b>工具卡按 <c>CallId</c> 认，不按消息认。</b>一条消息里有三张卡、流只画了两张时，
+    /// 按消息判会把缺的那张一起判成「已画」——那正是这套兜底要治的漏。</item>
+    /// </list>
     /// </summary>
     private void AppendSkippingRendered(List<ConversationItemBase> items)
     {
+        HashSet<ChatMessage> rendered = new(ReferenceEqualityComparer.Instance);
+        HashSet<string> calls = new(StringComparer.Ordinal);
+        foreach (ConversationItemBase item in _items)
+        {
+            if (item.SourceMessage is { } drawn) rendered.Add(drawn);
+            if (item is ToolCallItem { CallId.Length: > 0 } card) calls.Add(card.CallId!);
+        }
+
         foreach (ConversationItemBase item in items)
         {
-            if (item.SourceMessage is { } source && IsRendered(source)) continue;
+            // 工具卡认 CallId:同一张卡画过就不再画,没画过的照补
+            if (item is ToolCallItem { CallId.Length: > 0 } fresh && calls.Contains(fresh.CallId!)) continue;
+            if (item.SourceMessage is { } source && rendered.Contains(source) && item is not ToolCallItem) continue;
             _items.Add(item);
         }
     }

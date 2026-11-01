@@ -123,7 +123,20 @@ public class ScrollViewerAutoScrollHolder
             return;
         }
 
-        // 其余情形(用户滚动、拖动进度条、视口变化、内容收缩)一律按几何重判:
+        // 只有视口<b>变矮</b>、Offset 一动没动:这同样不是用户意图,而是上方输入区在长个子
+        // (子代理状态行、后台任务行、附件 chips、图片警告都会)。照几何重判会把
+        // "视口矮了 20px" 读成"用户上滚了",跟底当场关掉;此后每次内容增长都在
+        // RequestStickToBottom 里早退,再也回不来——界面上就是"消息不再往下走",
+        // 而右下角冒出"回到最新"箭头。必须在这里补一次底,而不是让位。
+        // 变高那一侧不走这里:Avalonia 会把 Offset 钳回新的 MaxOffset,OffsetDelta 非零,
+        // 落回下面的几何重判,结论仍是"在底部"
+        if (e.OffsetDelta.Y == 0 && e.ViewportDelta.Y < 0)
+        {
+            RequestStickToBottom();
+            return;
+        }
+
+        // 其余情形(用户滚动、拖动进度条、内容收缩)一律按几何重判:
         // 在底部就接管，离开底部就让开。补底本身也走这里，它落在底部,结论仍是接管
         _isStuckToBottom = !_isSuspended && IsAtBottom;
     }

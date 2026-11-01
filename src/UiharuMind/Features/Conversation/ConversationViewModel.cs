@@ -1632,6 +1632,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         // 上一批冻成纯字数/空白的卡此刻就能认领存档，不必等到轮末。只读不写，幂等；
         // 正在流的那几张来源还没配好，自动跳过。
         AdoptPersistedTimings();
+        // 边界是轮内唯一「历史与界面都该自洽」的时刻：这次调用已落盘、流也收了段，
+        // 流那一侧漏画的在这里补上。不补就只剩轮末对账——一轮十几分钟界面就冻十几分钟
+        _reconciler.CatchUpTail("message boundary");
         _pager.TrimToBudget();
     }
 
@@ -2185,6 +2188,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// <inheritdoc />
     List<ConversationItemBase> IConversationReconcileHost.BuildItems(IReadOnlyList<ChatMessage> history,
         int from, int to) => _history.Build(history, from, to);
+
+    /// <inheritdoc />
+    List<ConversationItemBase> IConversationReconcileHost.BuildLiveTailItems(IReadOnlyList<ChatMessage> history,
+        int from, int to) => _history.Build(history, from, to, liveTail: true);
 
     /// <inheritdoc />
     void IConversationReconcileHost.SettleStreamedItems(IReadOnlyList<ChatMessage> history)
