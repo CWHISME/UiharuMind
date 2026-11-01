@@ -115,6 +115,11 @@ internal static class SubAgentAssembly
         /// <summary>会话登记的 worktree 来源(派活者那个会话的;子代理自己也能登记,合并生效)</summary>
         public Func<IReadOnlyList<ChatSession.SessionWorktreeGrant>?>? SessionWorktreeRootsSource { get; init; }
 
+        /// <summary>
+        /// worktree 根（create 的默认落盘处）。审批按它与执行层同源展开 <c>$WORKTREES</c>；空串=没有
+        /// </summary>
+        public string WorktreesRoot { get; init; } = string.Empty;
+
         /// <summary>历史压缩策略(与主代理同一份);为 null 则不压缩</summary>
         public CompactionStrategy? Compaction { get; init; }
 
@@ -244,6 +249,7 @@ internal static class SubAgentAssembly
             SessionShellApprovalSource = profile.SessionShellApprovalSource,
             SessionExtensionApprovalSource = profile.SessionExtensionApprovalSource,
             SessionWorktreeRootsSource = profile.SessionWorktreeRootsSource,
+            WorktreesRoot = plan.WorktreesRoot,
             SubAgentProfile = subProfile,
             Role = identity.Role,
             Sampling = plan.Character.Config.ExecutionSettings,
@@ -327,6 +333,7 @@ internal static class SubAgentAssembly
             SessionShellApprovalSource = profile.SessionShellApprovalSource,
             SessionExtensionApprovalSource = profile.SessionExtensionApprovalSource,
             SessionWorktreeRootsSource = profile.SessionWorktreeRootsSource,
+            WorktreesRoot = plan.WorktreesRoot,
             SubAgentProfile = subProfile,
         };
 
@@ -485,7 +492,8 @@ internal static class SubAgentAssembly
                 input.WorkingDirectory, input.PreAuthorizedShellPatterns, input.SessionShellApprovalSource,
                 // 子会话沿用派活者的房间(见 AgentBuildProfile),豁免同一间
                 outputRoom, sessionExtensionApprovalSource: input.SessionExtensionApprovalSource,
-                sessionWorktreeRootsSource: input.SessionWorktreeRootsSource),
+                sessionWorktreeRootsSource: input.SessionWorktreeRootsSource,
+                worktreesRoot: input.WorktreesRoot),
             // 自动放行链与 MaximumIterationsPerRequest 同源同值:不设就落框架默认 40,
             // 长轮后半段的工具调用不再自动放行、转成审批请求弹卡(主代理同口径见 AgentOptionsFactory)
             MaxAutoApprovalIterations = input.SubAgentProfile.MaxIterations,

@@ -65,6 +65,9 @@ public static class ApprovalModeMapper
     /// <param name="sessionExtensionApprovalSource">本会话放行过的扩展名来源,可空</param>
     /// <param name="sessionWorktreeRootsSource">本会话登记的 worktree 来源(worktree 扩展写入,
     /// 落在里面、且登记工作区与当前工作区一致的写入视为界内;规则每次执行时现取现用,变化无需重建装配),可空</param>
+    /// <param name="worktreesRoot">worktree 根（create 的默认落盘处）;空串表示没有。
+    /// 必须与执行层同一份（<see cref="AgentAssemblyPlan.WorktreesRoot"/>），否则模型写 <c>$WORKTREES/…</c> 时
+    /// 执行落在树里、审批判成界外</param>
     /// <returns>规则列表</returns>
     public static List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> BuildRules(
         EAgentPermissionMode mode, string workspaceRoot = "",
@@ -72,9 +75,11 @@ public static class ApprovalModeMapper
         Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null,
         string approvedWriteRoot = "", string memoryWriteRoot = "",
         Func<IReadOnlyList<string>?>? sessionExtensionApprovalSource = null,
-        Func<IReadOnlyList<ChatSession.SessionWorktreeGrant>?>? sessionWorktreeRootsSource = null) =>
+        Func<IReadOnlyList<ChatSession.SessionWorktreeGrant>?>? sessionWorktreeRootsSource = null,
+        string worktreesRoot = "") =>
         BuildRules(() => mode, workspaceRoot, preAuthorizedShellPatterns, sessionShellApprovalSource,
-            approvedWriteRoot, memoryWriteRoot, sessionExtensionApprovalSource, sessionWorktreeRootsSource);
+            approvedWriteRoot, memoryWriteRoot, sessionExtensionApprovalSource, sessionWorktreeRootsSource,
+            worktreesRoot);
 
     /// <summary>
     /// 同上，但档位每次判断时现取：用户中途改档（或群改档推给成员），下一条调用就按新档来，
@@ -88,6 +93,7 @@ public static class ApprovalModeMapper
     /// <param name="memoryWriteRoot">记忆目录绝对路径</param>
     /// <param name="sessionExtensionApprovalSource">本会话放行过的扩展名来源,可空</param>
     /// <param name="sessionWorktreeRootsSource">本会话登记的 worktree 来源,可空</param>
+    /// <param name="worktreesRoot">worktree 根（create 的默认落盘处）;空串表示没有</param>
     /// <returns>规则列表</returns>
     public static List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> BuildRules(
         Func<EAgentPermissionMode> modeSource, string workspaceRoot = "",
@@ -95,10 +101,12 @@ public static class ApprovalModeMapper
         Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null,
         string approvedWriteRoot = "", string memoryWriteRoot = "",
         Func<IReadOnlyList<string>?>? sessionExtensionApprovalSource = null,
-        Func<IReadOnlyList<ChatSession.SessionWorktreeGrant>?>? sessionWorktreeRootsSource = null)
+        Func<IReadOnlyList<ChatSession.SessionWorktreeGrant>?>? sessionWorktreeRootsSource = null,
+        string worktreesRoot = "")
     {
-        // 产出房间就是草稿目录:简写 $DRAFT / $MEMORY 按它们展开,与工具执行时落到同一处
-        AgentPathResolver paths = new(workspaceRoot, approvedWriteRoot, memoryWriteRoot);
+        // 产出房间就是草稿目录:简写 $DRAFT / $MEMORY / $WORKTREES 按它们展开,与工具执行时落到同一处
+        AgentPathResolver paths = new(workspaceRoot, approvedWriteRoot, memoryWriteRoot,
+            worktreesRoot: worktreesRoot);
         string room = paths.DraftRoot;
         string memory = paths.MemoryRoot;
 

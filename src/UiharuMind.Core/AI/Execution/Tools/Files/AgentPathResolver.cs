@@ -13,7 +13,7 @@ namespace UiharuMind.Core.AI.Execution.Files;
 
 /// <summary>
 /// 工具路径参数的解析口径：绝对路径直接用，相对路径拼工作区根，
-/// 以简写（<c>$DRAFT</c>、<c>$MEMORY</c> 及其各 shell 写法）开头的展开到草稿目录、记忆目录，
+/// 以简写（<c>$DRAFT</c>、<c>$MEMORY</c>、<c>$WORKTREES</c> 及其各 shell 写法）开头的展开到草稿目录、记忆目录、worktree 根，
 /// <c>~</c> 照 shell 的习惯展开到用户主目录，其余变量写法一律报错。
 ///
 /// 文件工具、搜索、识图、审批越界判定、群产物区、界面的审批预演都经这一处。
@@ -32,6 +32,12 @@ public sealed record AgentPathResolver
 
     /// <summary>记忆目录简写的环境变量名（shell 里导出的就是它）</summary>
     public const string MemoryVariable = "MEMORY";
+
+    /// <summary>
+    /// worktree 根简写的环境变量名（shell 里导出的就是它）。指 create 的<b>默认落盘根</b>，不是某棵树：
+    /// 它按工作区走、带哈希，模型每建一棵树都要抄一遍长路径，索性让简写顶替那一整段
+    /// </summary>
+    public const string WorktreesVariable = "WORKTREES";
 
     /// <summary>
     /// 转录文件简写的变量名。与 <see cref="DraftVariable"/> / <see cref="MemoryVariable"/> 不同，
@@ -58,15 +64,18 @@ public sealed record AgentPathResolver
     /// <param name="memoryRoot">记忆目录；空表示没有，同上</param>
     /// <param name="shellBinary">会话的 shell，决定写回路径时用哪种简写（见 <see cref="ShorthandFor"/>）</param>
     /// <param name="transcriptPath">本会话的转录文件绝对路径；空表示没有（<c>$TRANSCRIPT</c> 会报错）</param>
+    /// <param name="worktreesRoot">worktree 根（create 的默认落盘处）；空表示没有（<c>$WORKTREES</c> 会报错）</param>
     public AgentPathResolver(string? workspaceRoot, string? draftRoot = null, string? memoryRoot = null,
-        string? shellBinary = null, string? transcriptPath = null)
+        string? shellBinary = null, string? transcriptPath = null, string? worktreesRoot = null)
     {
         WorkspaceRoot = Normalize(workspaceRoot);
         DraftRoot = Normalize(draftRoot);
         MemoryRoot = Normalize(memoryRoot);
         TranscriptPath = Normalize(transcriptPath);
+        WorktreesRoot = Normalize(worktreesRoot);
         DraftToken = ShorthandFor(DraftVariable, shellBinary);
         MemoryToken = ShorthandFor(MemoryVariable, shellBinary);
+        WorktreesToken = ShorthandFor(WorktreesVariable, shellBinary);
     }
 
     /// <summary>工作区根（已规范化）；空串表示没有工作区</summary>
@@ -81,24 +90,34 @@ public sealed record AgentPathResolver
     /// <summary>本会话的转录文件绝对路径（已规范化）；空串表示没有</summary>
     public string TranscriptPath { get; }
 
+    /// <summary>worktree 根（已规范化，create 的默认落盘处）；空串表示没有</summary>
+    public string WorktreesRoot { get; }
+
     /// <summary>写回草稿目录里的路径时用的简写（与提示词里教的是同一种）</summary>
     public string DraftToken { get; }
 
     /// <summary>写回记忆目录里的路径时用的简写（与提示词里教的是同一种）</summary>
     public string MemoryToken { get; }
 
+    /// <summary>写回 worktree 根里的路径时用的简写（与提示词里教的是同一种）</summary>
+    public string WorktreesToken { get; }
+
     /// <summary>
     /// 有简写的根目录，<b>由深到浅</b>：没绑工作区时记忆目录就住在草稿目录里面，写回要取更贴近的那个
     /// </summary>
     private (string Variable, string Root, string Token)[] Shorthands =>
-        [(MemoryVariable, MemoryRoot, MemoryToken), (DraftVariable, DraftRoot, DraftToken)];
+    [
+        (WorktreesVariable, WorktreesRoot, WorktreesToken),
+        (MemoryVariable, MemoryRoot, MemoryToken),
+        (DraftVariable, DraftRoot, DraftToken),
+    ];
 
     /// <summary>
     /// 某个 shell 里简写的写法。PowerShell 必须写 <c>$env:DRAFT</c>：
     /// 在那里 <c>$DRAFT</c> 是个未定义的 PS 变量，会静默展开成空串，<c>$DRAFT/a.py</c> 就成了 <c>/a.py</c>。
     /// 按文件名分类，与框架 <c>ShellResolver.ClassifyKind</c> 同一口径。
     /// </summary>
-    /// <param name="variable">简写的变量名（<see cref="DraftVariable"/> / <see cref="MemoryVariable"/>）</param>
+    /// <param name="variable">简写的变量名（<see cref="DraftVariable"/> / <see cref="MemoryVariable"/> / <see cref="WorktreesVariable"/>）</param>
     /// <param name="shellBinary">shell 可执行路径；空即没有 shell</param>
     /// <returns>简写</returns>
     public static string ShorthandFor(string variable, string? shellBinary)

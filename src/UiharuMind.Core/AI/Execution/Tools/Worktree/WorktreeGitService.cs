@@ -58,15 +58,20 @@ internal sealed class WorktreeGitService
 
         string workspaceFull = Full(workspace, "工作目录");
         if (workspaceFull.Length == 0) return "Error: 工作目录路径不成形。";
-        string worktreesRoot = WorktreeLayout.GetWorktreesRoot(workspaceFull);
 
         // directory 是落盘路径：git 场景建出来的树天然属于本仓库，纯副本是工作目录内容的拷贝，
         // 都不需要把落点锁在 Worktrees 根内——真正的守卫是下面“目标必须为空/不存在”（不能把已有目录变免审批）。
         // 相对 directory 按工作目录解析（directory: "feature/foo" → <工作目录>/feature/foo）
-        string target = string.IsNullOrWhiteSpace(directory)
-            ? DefaultDirectory(workspaceFull, safeName)
-            : Full(directory.Trim(), "directory", workspaceFull);
-        if (target.Length == 0) return "Error: directory 路径不成形。";
+        string target;
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            target = DefaultDirectory(workspaceFull, safeName);
+        }
+        else
+        {
+            (target, string directoryError) = ResolvePath(workspaceFull, directory.Trim());
+            if (target.Length == 0) return $"Error: directory 解析不了：{directoryError}";
+        }
 
         if (Directory.Exists(target) && Directory.EnumerateFileSystemEntries(target).Any())
             return $"Error: 目标目录已存在且非空：{target}。换一个 name 或 directory。";
@@ -87,12 +92,13 @@ internal sealed class WorktreeGitService
         if (error != null) return error;
 
         session.AddSessionApprovedWorktreeRoot(target);
-        return $"已创建并登记 worktree：{target}\n" +
+        return $"已创建并登记 worktree：{Display(workspaceFull, target)}\n" +
                $"分支：{branchName}（{branchNote}）\n" +
                $"步骤：\n  " + string.Join("\n  ", steps) + "\n" +
-               "登记后 worktree 内的文件写入免审批（AutoEdit/FullAuto 档），子代理派活时自动继承这份登记。\n" +
+               $"登记后 worktree 内的文件写入免审批（AutoEdit/FullAuto 档），子代理派活时自动继承这份登记。\n" +
+               ShorthandNote(workspaceFull) +
                $"注意：本会话的工作目录（相对路径基准）没有变，仍是 {workspaceFull}；" +
-               "在 worktree 里干活请用绝对路径。草稿目录 $DRAFT 与记忆目录 $MEMORY 都不变。\n" +
+               "在 worktree 里干活用绝对路径或上面那个简写。草稿目录 $DRAFT 与记忆目录 $MEMORY 都不变。\n" +
                "用 worktree.status 查询状态，用 worktree.list 看每个 worktree 的上次修改时间。";
     }
 
@@ -383,11 +389,12 @@ internal sealed class WorktreeGitService
         string excludedNote = excluded.Count > 0
             ? $"\n已跳过常见大目录：{string.Join("、", excluded)}"
             : string.Empty;
-        return $"已创建并登记 worktree（纯副本，工作目录不是 git 仓库）：{target}{excludedNote}\n" +
+        return $"已创建并登记 worktree（纯副本，工作目录不是 git 仓库）：{Display(workspaceFull, target)}{excludedNote}\n" +
                "已复制工作目录内容作为隔离副本；未做 git 分支/拉取/子模块/软链接处理（没有 git，也就不做）。\n" +
                "登记后 worktree 内的文件写入免审批（AutoEdit/FullAuto 档），子代理派活时自动继承这份登记。\n" +
+               ShorthandNote(workspaceFull) +
                $"注意：本会话的工作目录（相对路径基准）没有变，仍是 {workspaceFull}；" +
-               "在 worktree 里干活请用绝对路径。草稿目录 $DRAFT 与记忆目录 $MEMORY 都不变。\n" +
+               "在 worktree 里干活用绝对路径或上面那个简写。草稿目录 $DRAFT 与记忆目录 $MEMORY 都不变。\n" +
                "用 worktree.status 查询状态。";
     }
 
@@ -438,8 +445,8 @@ internal sealed class WorktreeGitService
 
         string workspaceFull = Full(workspace, "工作目录");
         if (workspaceFull.Length == 0) return "Error: 工作目录路径不成形。";
-        string wanted = Full(path.Trim(), "path", workspaceFull);
-        if (wanted.Length == 0) return "Error: path 路径不成形。";
+        (string wanted, string pathError) = ResolvePath(workspaceFull, path.Trim());
+        if (wanted.Length == 0) return $"Error: path 解析不了：{pathError}";
         if (!Directory.Exists(wanted)) return $"Error: 目录不存在：{wanted}";
 
         // 会话工作目录得是 git 仓库，才有"同一仓库"可比；不是 git 仓库时，worktree 就是用户自己准备的
@@ -507,8 +514,8 @@ internal sealed class WorktreeGitService
         List<string> roots;
         if (path is { Length: > 0 } && !string.IsNullOrWhiteSpace(path))
         {
-            string wanted = Full(path.Trim(), "path", workspaceFull);
-            if (wanted.Length == 0) return "Error: path 路径不成形。";
+            (string wanted, string pathError) = ResolvePath(workspaceFull, path.Trim());
+            if (wanted.Length == 0) return $"Error: path 解析不了：{pathError}";
             string? root = session.SnapshotSessionApprovedWorktreeRoots().FirstOrDefault(x =>
                 RootComparer.Equals(x.Root, wanted.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)))?.Root;
             if (root == null) return $"Error: 没有登记过 {wanted}。用 worktree.list 查看当前登记的 worktree。";
@@ -651,8 +658,8 @@ internal sealed class WorktreeGitService
 
         string workspaceFull = Full(workspace, "工作目录");
         if (workspaceFull.Length == 0) return "Error: 工作目录路径不成形。";
-        string wanted = Full(path.Trim(), "path", workspaceFull);
-        if (wanted.Length == 0) return "Error: path 路径不成形。";
+        (string wanted, string pathError) = ResolvePath(workspaceFull, path.Trim());
+        if (wanted.Length == 0) return $"Error: path 解析不了：{pathError}";
 
         string? root = session.SnapshotSessionApprovedWorktreeRoots().FirstOrDefault(x =>
             RootComparer.Equals(x.Root, wanted.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)))?.Root;
@@ -748,8 +755,10 @@ internal sealed class WorktreeGitService
     {
         if (path is { Length: > 0 } && !string.IsNullOrWhiteSpace(path))
         {
-            string wanted = Full(path.Trim(), "path", WorkspaceOf(session));
-            if (wanted.Length == 0) return "Error: path 路径不成形。";
+            string workspaceFull = Full(WorkspaceOf(session) ?? string.Empty, "工作目录");
+            if (workspaceFull.Length == 0) return "Error: 工作目录路径不成形。";
+            (string wanted, string pathError) = ResolvePath(workspaceFull, path.Trim());
+            if (wanted.Length == 0) return $"Error: path 解析不了：{pathError}";
 
             bool existed = session.SnapshotSessionApprovedWorktreeRoots().Any(x =>
                 RootComparer.Equals(x.Root, wanted.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)));
@@ -795,6 +804,42 @@ internal sealed class WorktreeGitService
     /// <summary>缺省落盘位置：数据目录里项目共享的 Worktrees 下（跟 memory 同家，跨会话共享）</summary>
     private static string DefaultDirectory(string workspaceFull, string name) =>
         Path.Combine(WorktreeLayout.GetWorktreesRoot(workspaceFull), name);
+
+    /// <summary>worktree 工具的路径口径：与文件工具同源（认 $WORKTREES/$DRAFT/$MEMORY 简写、~ 与工作区相对路径）</summary>
+    private static AgentPathResolver PathsOf(string workspaceFull) =>
+        new(workspaceFull, worktreesRoot: WorktreeLayout.GetWorktreesRoot(workspaceFull));
+
+    /// <summary>解析一个路径参数；失败时 Error 非空，它是能直接回给模型的错因</summary>
+    private static (string Path, string Error) ResolvePath(string workspaceFull, string path)
+    {
+        AgentPathResolver paths = PathsOf(workspaceFull);
+        return paths.TryResolve(path, out string full, out string error) ? (full, string.Empty) : (string.Empty, error);
+    }
+
+    /// <summary>
+    /// 给模型的写法：落在 worktree 根下的写成 <c>$WORKTREES/…</c> 简写（shell 与文件工具都认）；
+    /// 别处给绝对路径（落点要说清，不推成工作区相对——那是“怎么找”不是“落在哪”）
+    /// </summary>
+    private static string Display(string workspaceFull, string root)
+    {
+        string full = Path.GetFullPath(root);
+        AgentPathResolver paths = PathsOf(workspaceFull);
+        return paths.WorktreesRoot.Length > 0 && AgentPathResolver.IsUnder(full, paths.WorktreesRoot)
+            ? paths.ToPortable(full)
+            : full;
+    }
+
+    /// <summary>
+    /// worktree 根简写的说明句：create 不给 directory 就落在那个根下，简写省掉带哈希的长前缀。
+    /// 正文固定写 POSIX 形式，与提示词里 $DRAFT 的口径一致（ADR 0080）
+    /// </summary>
+    private static string ShorthandNote(string workspaceFull)
+    {
+        string root = WorktreeLayout.GetWorktreesRoot(workspaceFull);
+        if (root.Length == 0) return string.Empty;
+        string token = "$" + AgentPathResolver.WorktreesVariable;
+        return $"worktree 根 {token}：{root}（shell 里是同名环境变量，文件工具与命令行都认这个简写，不必抄绝对路径）\n";
+    }
 
     /// <summary>绝对化；相对路径按 <paramref name="baseDirectory"/> 拼（缺省按进程 cwd——worktree 参数一律给 baseDirectory，
     /// 别让相对路径落到应用 cwd）。失败返回空串（报错话术在调用方）</summary>

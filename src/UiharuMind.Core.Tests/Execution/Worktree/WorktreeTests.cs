@@ -95,8 +95,9 @@ public class WorktreeTests
         string result = await new WorktreeGitService(git).CreateAsync(session, "feature/x", null, null,
             CreateTarget("feature", "x"), TestContext.Current.CancellationToken);
 
-        Assert.Contains(target, result);
         Assert.Contains("已创建并登记", result);
+        Assert.Contains("$WORKTREES/feature/x", result); // 落点在根下：给简写，不逼模型抄带哈希的长路径
+        Assert.Contains("$WORKTREES", result);
         Assert.Contains(target, session.SnapshotSessionApprovedWorktreeRoots().Select(x => x.Root));
         Assert.Contains("fetch origin --prune --tags", git.Commands);
         Assert.Contains("submodule update --init --recursive", git.Commands);
@@ -345,6 +346,27 @@ public class WorktreeTests
         Assert.Contains(target, result);
         Assert.Contains($"worktree add -b feature/foo {target} HEAD", git.Commands);
         Assert.Contains(target, session.SnapshotSessionApprovedWorktreeRoots().Select(x => x.Root));
+    }
+
+    /// <summary>directory 可以给 $WORKTREES/… 简写：与文件工具同一条路径口径，省掉带哈希的长前缀</summary>
+    [Fact]
+    public async Task Create_ShorthandDirectory_ResolvesUnderTheWorktreesRoot()
+    {
+        ChatSession session = NewSession();
+        FakeGit git = new()
+        {
+            Handler = (_, args) => args is ["rev-parse", "--verify", _]
+                ? new WorktreeGitResult(string.Empty, "unknown", 128)
+                : null,
+        };
+        string target = CreateTarget("feature", "bar");
+
+        string result = await new WorktreeGitService(git).CreateAsync(session, "feature/bar", null, null,
+            "$WORKTREES/feature/bar", TestContext.Current.CancellationToken);
+
+        Assert.Contains($"worktree add -b feature/bar {target} HEAD", git.Commands);
+        Assert.Contains(target, session.SnapshotSessionApprovedWorktreeRoots().Select(x => x.Root));
+        Assert.Contains("$WORKTREES/feature/bar", result);
     }
 
     /// <summary>缺省落盘：数据目录里项目共享的 Worktrees 下（跟 memory 同家）</summary>
@@ -973,6 +995,28 @@ public class WorktreeTests
 
         // 别的工作区外路径不受牵连
         Assert.False(await ApprovalRuleProbe.IsApprovedAsync(rules, Edit("/tmp/elsewhere/b.cs")));
+    }
+
+    /// <summary>
+    /// 审批层的路径口径与执行层同源：模型写 $WORKTREES/… 时，执行落在树里、审批也认界内。
+    /// 两边一旦分家，就是“写进去了但每次都要点审批”
+    /// </summary>
+    [Fact]
+    public async Task Approval_WorktreesShorthand_ResolvesLikeTheToolLayer()
+    {
+        string worktreesRoot = Path.GetFullPath("/tmp/uiharu-wt-root");
+        string root = Path.Combine(worktreesRoot, "feature", "x");
+        List<ChatSession.SessionWorktreeGrant> roots = [new(root, Path.GetFullPath(Workspace))];
+        List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> rules =
+            ApprovalModeMapper.BuildRules(EAgentPermissionMode.AutoEdit, Workspace,
+                sessionWorktreeRootsSource: () => roots, worktreesRoot: worktreesRoot);
+
+        Assert.True(await ApprovalRuleProbe.IsApprovedAsync(rules, Edit("$WORKTREES/feature/x/src/A.cs")));
+        // 没传 worktree 根的老口径：简写解析不了，当界外，保守地要审批
+        List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> legacy =
+            ApprovalModeMapper.BuildRules(EAgentPermissionMode.AutoEdit, Workspace,
+                sessionWorktreeRootsSource: () => roots);
+        Assert.False(await ApprovalRuleProbe.IsApprovedAsync(legacy, Edit("$WORKTREES/feature/x/src/A.cs")));
     }
 
     /// <summary>登记带工作区：换绑工作区/群换工作区后旧登记自动失效（不必逐会话清理）</summary>

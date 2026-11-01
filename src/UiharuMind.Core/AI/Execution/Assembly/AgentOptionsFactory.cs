@@ -164,7 +164,8 @@ internal static class AgentOptionsFactory
                 // 记忆目录:任何权限档可写(ADR 0028)。范围只认 Memory/ 这一格,与房间豁免互不重叠
                 plan.MemoryDirectory,
                 plan.Profile.SessionExtensionApprovalSource,
-                plan.Profile.SessionWorktreeRootsSource),
+                plan.Profile.SessionWorktreeRootsSource,
+                plan.WorktreesRoot),
             // 自动放行链同口径:默认 40 次后不再自动放行、剩余请求弹卡
             MaxAutoApprovalIterations = MaxIterationsPerRequest,
         };

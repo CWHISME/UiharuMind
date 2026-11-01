@@ -11,6 +11,7 @@ public class AgentPathResolverTests
     private static readonly string Workspace = Path.Combine(Path.GetTempPath(), "uiharu-paths-ws");
     private static readonly string Draft = Path.Combine(Path.GetTempPath(), "uiharu-paths-data", "ws_1234", "abcd1234");
     private static readonly string Memory = Path.Combine(Path.GetTempPath(), "uiharu-paths-data", "ws_1234", "Memory");
+    private static readonly string Worktrees = Path.Combine(Path.GetTempPath(), "uiharu-paths-data", "ws_1234", "Worktrees");
 
     [Fact]
     public void Resolve_RelativeGoesUnderWorkspace_AbsoluteStaysPut()
@@ -134,6 +135,24 @@ public class AgentPathResolverTests
 
         Assert.Equal(Path.Combine(Memory, "decisions.md"), paths.Resolve("$MEMORY/decisions.md"));
         Assert.Equal("$MEMORY/decisions.md", paths.ToPortable(Path.Combine(Memory, "decisions.md")));
+    }
+
+    /// <summary>
+    /// worktree 根也是一个简写：解析、写回、回环都跟草稿/记忆同口径。
+    /// 它是 create 的默认落盘处（带哈希、很长），模型每建一棵树都要用它
+    /// </summary>
+    [Fact]
+    public void Resolve_WorktreesShorthand_ExpandsToTheWorktreesRoot()
+    {
+        AgentPathResolver paths = new(Workspace, Draft, Memory, worktreesRoot: Worktrees);
+        string worktree = Path.Combine(Worktrees, "feature", "x");
+
+        Assert.Equal(worktree, paths.Resolve("$WORKTREES/feature/x"));
+        Assert.Equal(Worktrees, paths.Resolve("${WORKTREES}"));
+        Assert.Equal("$WORKTREES/feature/x", paths.ToPortable(worktree));
+        Assert.Equal(worktree, paths.Resolve(paths.ToPortable(worktree)));
+        // 没绑工作区的会话没有这个根：简写报错，不落到工作区里建出一个叫 $WORKTREES 的目录
+        Assert.Throws<ArgumentException>(() => new AgentPathResolver(Workspace).Resolve("$WORKTREES/x"));
     }
 
     /// <summary>

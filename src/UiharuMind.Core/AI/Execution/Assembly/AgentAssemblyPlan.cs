@@ -117,9 +117,16 @@ internal sealed class AgentAssemblyPlan
     public string OutputRoomDirectory { get; init; } = string.Empty;
 
     /// <summary>
-    /// 给 shell 追加的环境变量。两件事：
+    /// worktree 根（create 的默认落盘处，<c>Data/Agent/Workspaces/{工作区段}/Worktrees</c>）。
+    /// 与 <see cref="AgentPathResolver.WorktreesVariable"/> 同一处：注入 shell 环境变量、文件工具同名简写都认，
+    /// 模型不必抄那条带哈希的长路径。无工作区为空串
+    /// </summary>
+    public string WorktreesRoot { get; init; } = string.Empty;
+
+    /// <summary>
+    /// 给 shell 追加的环境变量。三件事：
     /// <list type="bullet">
-    /// <item>草稿目录、记忆目录导出成 <c>DRAFT</c>、<c>MEMORY</c>（<see cref="AgentPathResolver"/>），与文件工具认的简写同名</item>
+    /// <item>草稿目录、记忆目录、worktree 根导出成 <c>DRAFT</c>、<c>MEMORY</c>、<c>WORKTREES</c>（<see cref="AgentPathResolver"/>），与文件工具认的简写同名</item>
     /// <item>受管 Python 环境就绪时做一次 venv 激活：<b>前置</b>进 `PATH` 并设上 `VIRTUAL_ENV`</item>
     /// </list>
     ///
@@ -216,6 +223,9 @@ internal sealed class AgentAssemblyPlan
         string memoryDirectory = config.EnableFileAccess
             ? MemoryLayout.GetMemoryDirectory(profile.WorkspacePath, profile.OutputFolderName)
             : string.Empty;
+        // worktree 根:create 的默认落盘处。按真实工作区算(没绑时 WorkingDirectory 是 scratch,不能拿它算),
+        // 注入成一个环境变量,所有 worktree 都靠它省掉带哈希的长前缀
+        string worktreesRoot = WorktreeLayout.GetWorktreesRoot(profile.WorkspacePath);
         return new AgentAssemblyPlan
         {
             Profile = profile,
@@ -240,7 +250,8 @@ internal sealed class AgentAssemblyPlan
             OutputRoomDirectory = outputRoom,
             // 读宿主 PATH 属于"读外部世界",只能在这里做——AgentAssembler 是不碰单例的纯函数
             ShellEnvironment = config.EnableShellExecution
-                ? BuildShellEnvironment(PythonEnvironment.BuildActivationEnvironment(), outputRoom, memoryDirectory)
+                ? BuildShellEnvironment(PythonEnvironment.BuildActivationEnvironment(), outputRoom, memoryDirectory,
+                    worktreesRoot)
                 : null,
             // 提前读出:子代理要继承同一份
             WorkspaceInstructions = WorkspaceInstructionsLoader.Load(profile.WorkspacePath),
@@ -258,6 +269,7 @@ internal sealed class AgentAssemblyPlan
             // 由 AgentAssemblyFacts 入账触发重建
             DisableSkillsProvider = disableSkillsProvider,
             MemoryDirectory = memoryDirectory,
+            WorktreesRoot = worktreesRoot,
             // 模型用哪个 shell 也是装配事实:空 = 跟随系统默认,填了强制换壳。
             // 在 Resolve 读而不是 AgentAssembler 现取,好让装配保持"不碰单例的纯函数"
             ShellBinaryPath = AgentSettingConfig.Current.ShellBinaryPath,
@@ -284,7 +296,7 @@ internal sealed class AgentAssemblyPlan
     /// <returns>路径解析口径</returns>
     public AgentPathResolver CreatePathResolver(string? shellBinary) =>
         new(WorkingDirectory, OutputRoomDirectory, MemoryDirectory, shellBinary,
-            SessionManager.TranscriptPathOf(Profile.SessionId));
+            SessionManager.TranscriptPathOf(Profile.SessionId), WorktreesRoot);
 
     /// <summary>
     /// 合出 shell 的追加环境（见 <see cref="ShellEnvironment"/>）
@@ -292,13 +304,16 @@ internal sealed class AgentAssemblyPlan
     /// <param name="activation">venv 激活变量；受管环境未就绪为 null</param>
     /// <param name="outputRoom">草稿目录；没有为空串</param>
     /// <param name="memoryDirectory">记忆目录；没有为空串</param>
+    /// <param name="worktreesRoot">worktree 根；没有（未绑工作区）为空串</param>
     /// <returns>追加的环境变量；什么都不加为 null</returns>
     internal static IReadOnlyDictionary<string, string?>? BuildShellEnvironment(
-        IReadOnlyDictionary<string, string?>? activation, string outputRoom, string memoryDirectory)
+        IReadOnlyDictionary<string, string?>? activation, string outputRoom, string memoryDirectory,
+        string worktreesRoot = "")
     {
         Dictionary<string, string?> environment = activation == null ? new() : new(activation);
         if (outputRoom.Length > 0) environment[AgentPathResolver.DraftVariable] = outputRoom;
         if (memoryDirectory.Length > 0) environment[AgentPathResolver.MemoryVariable] = memoryDirectory;
+        if (worktreesRoot.Length > 0) environment[AgentPathResolver.WorktreesVariable] = worktreesRoot;
         return environment.Count > 0 ? environment : null;
     }
 

@@ -321,7 +321,8 @@ public class AgentBuildProfile
         string folder = OutputFolderNameOf(session);
         return new AgentPathResolver(workspace, AgentOutputLayout.GetRoomAbsolutePath(folder),
             MemoryLayout.GetMemoryDirectory(workspace, folder),
-            transcriptPath: SessionManager.TranscriptPathOf(session.SessionId));
+            transcriptPath: SessionManager.TranscriptPathOf(session.SessionId),
+            worktreesRoot: WorktreeLayout.GetWorktreesRoot(workspace));
     }
 
     /// <summary>

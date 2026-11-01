@@ -14,6 +14,7 @@ public class DraftShorthandToolTests : IDisposable
     private readonly string _workspace;
     private readonly string _draft;
     private readonly string _memory;
+    private readonly string _worktrees;
     private readonly AgentPathResolver _paths;
 
     public DraftShorthandToolTests()
@@ -21,7 +22,8 @@ public class DraftShorthandToolTests : IDisposable
         _workspace = Directory.CreateDirectory(Path.Combine(_root, "ws")).FullName;
         _draft = Directory.CreateDirectory(Path.Combine(_root, "Workspaces", "ws_1234", "abcd1234")).FullName;
         _memory = Path.Combine(_root, "Workspaces", "ws_1234", "Memory");
-        _paths = new AgentPathResolver(_workspace, _draft, _memory, "/bin/zsh");
+        _worktrees = Path.Combine(_root, "Workspaces", "ws_1234", "Worktrees");
+        _paths = new AgentPathResolver(_workspace, _draft, _memory, "/bin/zsh", worktreesRoot: _worktrees);
     }
 
     public void Dispose()
@@ -132,16 +134,18 @@ public class DraftShorthandToolTests : IDisposable
     }
 
     [Fact]
-    public void ShellEnvironment_ExportsBothRoots_AlongsideVenvActivation()
+    public void ShellEnvironment_ExportsAllRoots_AlongsideVenvActivation()
     {
         Dictionary<string, string?> activation = new() { ["VIRTUAL_ENV"] = "/venv" };
 
-        IReadOnlyDictionary<string, string?>? merged = AgentAssemblyPlan.BuildShellEnvironment(activation, _draft, _memory);
+        IReadOnlyDictionary<string, string?>? merged =
+            AgentAssemblyPlan.BuildShellEnvironment(activation, _draft, _memory, _worktrees);
 
         Assert.NotNull(merged);
         Assert.Equal(_draft, merged![AgentPathResolver.DraftVariable]);
         Assert.Equal(_memory, merged[AgentPathResolver.MemoryVariable]);
+        Assert.Equal(_worktrees, merged[AgentPathResolver.WorktreesVariable]);
         Assert.Equal("/venv", merged["VIRTUAL_ENV"]);
-        Assert.Null(AgentAssemblyPlan.BuildShellEnvironment(null, string.Empty, string.Empty)); //什么都不加就不改环境
+        Assert.Null(AgentAssemblyPlan.BuildShellEnvironment(null, string.Empty, string.Empty, string.Empty)); //什么都不加就不改环境
     }
 }
