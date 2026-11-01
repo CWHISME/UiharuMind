@@ -6279,6 +6279,18 @@
     <data name="UsageRefresh" xml:space="preserve">
         <value>刷新</value>
     </data>
+    <data name="UsageCleanup" xml:space="preserve">
+        <value>清理旧记录</value>
+    </data>
+    <data name="UsageCleanupConfirm" xml:space="preserve">
+        <value>将删除 {0} 之前的用量记录（保留最近 {1} 天）。此操作不可恢复，继续吗？</value>
+    </data>
+    <data name="UsageCleanupDone" xml:space="preserve">
+        <value>已清理 {0} 条记录</value>
+    </data>
+    <data name="UsageCleanupFailed" xml:space="preserve">
+        <value>清理失败：{0}</value>
+    </data>
     <data name="UsageRangeLabel" xml:space="preserve">
         <value>时间范围</value>
     </data>

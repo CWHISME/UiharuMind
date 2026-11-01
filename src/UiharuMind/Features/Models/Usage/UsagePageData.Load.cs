@@ -87,6 +87,9 @@ public partial class UsagePageData
         }
     }
 
+    /// <summary>「自定义」范围的最大跨度（天）：再长的区间只是一次全表扫描，页面也读不出新信息</summary>
+    private const int MaxCustomRangeDays = 366;
+
     private static EUsageRangeKind RangeKindOf(UsageOptionViewData? option) =>
         Enum.TryParse(option?.Value, true, out EUsageRangeKind kind) ? kind : EUsageRangeKind.Last7Days;
 
@@ -120,6 +123,8 @@ public partial class UsagePageData
                 from = new DateTimeOffset(fromDate, offset);
                 to = new DateTimeOffset(toDate, offset).AddDays(1);
                 if (to <= from) to = from.AddDays(1);
+                //超长区间当场收到上限内：范围筛选只管查得到什么，不该变成一次全表扫描
+                if ((to - from).TotalDays > MaxCustomRangeDays) from = to.AddDays(-MaxCustomRangeDays);
                 break;
             default:
                 from = dayStart.AddDays(-6);

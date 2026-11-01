@@ -6284,6 +6284,18 @@ Enable it?</value>
     <data name="UsageRefresh" xml:space="preserve">
         <value>Refresh</value>
     </data>
+    <data name="UsageCleanup" xml:space="preserve">
+        <value>Clean up</value>
+    </data>
+    <data name="UsageCleanupConfirm" xml:space="preserve">
+        <value>Delete usage records older than {0} (keep the last {1} days)? This cannot be undone.</value>
+    </data>
+    <data name="UsageCleanupDone" xml:space="preserve">
+        <value>Removed {0} records</value>
+    </data>
+    <data name="UsageCleanupFailed" xml:space="preserve">
+        <value>Cleanup failed: {0}</value>
+    </data>
     <data name="UsageRangeLabel" xml:space="preserve">
         <value>Range</value>
     </data>

@@ -40,6 +40,9 @@ public partial class UsagePageData : PageDataBase
     /// <summary>落盘通知到重查之间的合并窗口</summary>
     private const int UsageRefreshCoalesceMs = 800;
 
+    /// <summary>清理按钮保留的天数（跟着按钮走；将来要做设置项就把它挪进配置）</summary>
+    private const int RetentionDays = 180;
+
     /// <summary>排行取前几名，其余并成「其他」</summary>
     private const int RankTopCount = 8;
 
@@ -320,6 +323,36 @@ public partial class UsagePageData : PageDataBase
     /// </summary>
     [RelayCommand]
     private Task Refresh() => RefreshAsync();
+
+    /// <summary>
+    /// 清理旧记录：只由用户点，<b>不做自动保留策略</b>——用量数据不可再生，删不删由人决定。
+    /// 范围筛选只管查得到什么，不减少磁盘：行数越多文件越大，这里才是真的减
+    /// </summary>
+    [RelayCommand]
+    private async Task CleanupOldRecords()
+    {
+        DateTime cutoff = DateTime.Now.Date.AddDays(-RetentionDays);
+        if (_messages != null &&
+            !await _messages.ConfirmAsync(
+                Loc.Text(LangKey.UsageCleanupConfirm, cutoff.ToString("yyyy-MM-dd"), RetentionDays),
+                Loc.Text(LangKey.UsageCleanup)))
+            return;
+
+        try
+        {
+            long cutoffTs = new DateTimeOffset(cutoff).ToUnixTimeMilliseconds();
+            int rows = await Task.Run(() => _store.DeleteOlderThan(cutoffTs));
+            _messages?.ShowNotification(Loc.Text(LangKey.UsageCleanupDone, rows),
+                severity: MessageSeverity.Success);
+            //删完重查：KPI 与会话下拉都是按当前范围算的，旧行没了就不该再出现在汇总里
+            await RefreshAsync();
+        }
+        catch (Exception e)
+        {
+            _messages?.ShowNotification(Loc.Text(LangKey.UsageCleanupFailed, e.Message),
+                severity: MessageSeverity.Error);
+        }
+    }
 
     /// <summary>上一页</summary>
     [RelayCommand]

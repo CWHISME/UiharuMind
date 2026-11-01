@@ -77,11 +77,15 @@
                                Foreground="{DynamicResource UiForegroundBrush}" />
                     <TextBlock Text="{loc:Loc UsagePageSubtitle}" Foreground="{DynamicResource SemiGrey6}" />
                 </StackPanel>
-                <Button Grid.Column="1"
-                        Classes="compact"
-                        VerticalAlignment="Center"
-                        Command="{Binding RefreshCommand}"
-                        Content="{loc:Loc UsageRefresh}" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Button Classes="compact"
+                            Command="{Binding CleanupOldRecordsCommand}"
+                            ToolTip.Tip="{loc:Loc UsageCleanup}"
+                            Content="{loc:Loc UsageCleanup}" />
+                    <Button Classes="compact"
+                            Command="{Binding RefreshCommand}"
+                            Content="{loc:Loc UsageRefresh}" />
+                </StackPanel>
             </Grid>
 
             <usage:UsageFilterBar />
