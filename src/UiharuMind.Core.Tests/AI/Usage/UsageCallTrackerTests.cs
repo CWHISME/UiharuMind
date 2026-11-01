@@ -103,6 +103,44 @@ public sealed class UsageCallTrackerTests
     }
 
     [Fact]
+    public void EachServiceCall_WritesItsOwnRow()
+    {
+        //一轮里框架自动跑了两次工具往返：两次调用 = 两行（与右侧面板的请求数同源）
+        List<UsageRecord> records = [];
+        UsageCallTracker tracker = UsageCallTracker.Begin("s", DeepSeekIdentity(), sink: records.Add);
+        tracker.NoteFirstToken();
+        tracker.NoteUsage(new UsageDetails { InputTokenCount = 1000, OutputTokenCount = 100 });
+        tracker.NoteCallBoundary(); //工具执行完，下一次调用从这里起算
+        tracker.NoteFirstToken();
+        tracker.NoteUsage(new UsageDetails { InputTokenCount = 2000, OutputTokenCount = 200 });
+        tracker.Complete();
+
+        Assert.Equal(2, records.Count);
+        Assert.All(records, record => Assert.True(record.Ok));
+        Assert.Equal([1000L, 2000L], records.Select(record => record.InputTokens));
+        Assert.Equal([100L, 200L], records.Select(record => record.OutputTokens));
+        Assert.All(records, record => Assert.NotNull(record.LatencyMs));
+        Assert.All(records, record => Assert.NotNull(record.FirstTokenMs));
+    }
+
+    [Fact]
+    public void Failure_KeepsEarlierCallsAsSuccessRowsAndMergesOnlyTheLastOne()
+    {
+        List<UsageRecord> records = [];
+        UsageCallTracker tracker = UsageCallTracker.Begin("s", DeepSeekIdentity(), sink: records.Add);
+        tracker.NoteUsage(new UsageDetails { InputTokenCount = 100, OutputTokenCount = 10 });
+        tracker.NoteUsage(new UsageDetails { InputTokenCount = 200, OutputTokenCount = 20 });
+        tracker.Fail(UsageErrorKinds.Stream, new InvalidOperationException("boom"));
+
+        Assert.Equal(2, records.Count);
+        Assert.True(records[0].Ok); //前一发已经完整收口
+        Assert.Equal(100, records[0].InputTokens);
+        Assert.False(records[1].Ok);
+        Assert.Equal(200, records[1].InputTokens); //最后一发的量并进失败行
+        Assert.Equal(UsageErrorKinds.Stream, records[1].ErrorKind);
+    }
+
+    [Fact]
     public void RetryTally_IsCarriedIntoTheRecord()
     {
         List<UsageRecord> records = [];

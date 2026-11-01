@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using LiveChartsCore;
 using LiveChartsCore.SkiaSharpView;
+using LiveChartsCore.SkiaSharpView.Painting;
 using UiharuMind.Core.AI.Usage;
 using UiharuMind.Generated;
 using UiharuMind.Resources.Lang;
@@ -230,16 +231,29 @@ public partial class UsagePageData
             .OrderByDescending(x => x.Value.MetricOf(metric))];
         double total = sorted.Sum(x => Math.Max(0, x.Value.MetricOf(metric)));
 
+        //排行与占比图同一份排序：一遍出两样，不再各走一遍 sorted
+        UsageChartPalette palette = UsageChartPalette.Current;
         List<UsageRankItemViewData> items = [];
+        List<ISeries> series = [];
+        double shareOthers = 0;
         double others = 0;
         int othersRequests = 0;
         decimal? othersCost = null;
         long othersTokens = 0;
         long othersReasoning = 0;
         long othersOutput = 0;
-        foreach ((string label, RankAccumulator value) in sorted)
+        for (int i = 0; i < sorted.Count; i++)
         {
+            (string label, RankAccumulator value) = sorted[i];
             double metricValue = Math.Max(0, value.MetricOf(metric));
+
+            //占比饼图取前几块，碎成一片读不了
+            if (total > 0)
+            {
+                if (i < ShareTopCount) series.Add(ShareSlice(label, metricValue, palette.Series[i % palette.Series.Count]));
+                else shareOthers += metricValue;
+            }
+
             if (items.Count < RankTopCount)
             {
                 items.Add(BuildRankItem(label, value, metric, total));
@@ -268,9 +282,20 @@ public partial class UsagePageData
                 BuildRankTip(label, othersRequests, othersCost, othersReasoning, othersOutput), true));
         }
 
+        if (shareOthers > 0) series.Add(ShareSlice(Loc.Text(LangKey.UsageRankOthers), shareOthers, palette.Muted));
+
         foreach (UsageRankItemViewData item in items) RankItems.Add(item);
-        RebuildShare(sorted, metric, total);
+        ShareSeries = [.. series];
     }
+
+    private static ISeries ShareSlice(string label, double value, SolidColorPaint fill) => new PieSeries<double>
+    {
+        Values = [value],
+        Name = label,
+        Fill = fill,
+        Stroke = null,
+        DataLabelsPaint = null,
+    };
 
     private UsageRankItemViewData BuildRankItem(string label, RankAccumulator value, EUsageRankMetric metric,
         double total)
@@ -293,52 +318,6 @@ public partial class UsagePageData
         string tip = Loc.Text(LangKey.UsageRankRowTip, label, requests, UsageFormat.Money(cost));
         if (reasoning > 0 && output > 0) tip += "\n" + Loc.Text(LangKey.UsageRankReasoningTip, UsageFormat.Percent((double)reasoning / output));
         return tip;
-    }
-
-    private void RebuildShare(List<(string Label, RankAccumulator Value)> sorted, EUsageRankMetric metric,
-        double total)
-    {
-        if (total <= 0)
-        {
-            ShareSeries = [];
-            return;
-        }
-
-        UsageChartPalette palette = UsageChartPalette.Current;
-        List<ISeries> series = [];
-        double others = 0;
-        for (int i = 0; i < sorted.Count; i++)
-        {
-            double value = Math.Max(0, sorted[i].Value.MetricOf(metric));
-            if (i >= ShareTopCount)
-            {
-                others += value;
-                continue;
-            }
-
-            series.Add(new PieSeries<double>
-            {
-                Values = [value],
-                Name = sorted[i].Label,
-                Fill = palette.Series[i % palette.Series.Count],
-                Stroke = null,
-                DataLabelsPaint = null,
-            });
-        }
-
-        if (others > 0)
-        {
-            series.Add(new PieSeries<double>
-            {
-                Values = [others],
-                Name = Loc.Text(LangKey.UsageRankOthers),
-                Fill = palette.Muted,
-                Stroke = null,
-                DataLabelsPaint = null,
-            });
-        }
-
-        ShareSeries = [.. series];
     }
 
     /// <summary>聚合行（排行要按维度再分组，先留着原样）</summary>

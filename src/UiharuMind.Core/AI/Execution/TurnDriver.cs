@@ -272,14 +272,19 @@ public sealed partial class TurnDriver : IDisposable
                     {
                         await foreach (AIContent content in runner.RunAsync(nextMessages, cancellationToken))
                         {
-                            usageCall.NoteFirstToken(); //首帧（重复调用只认第一次）
+                            // 调用边界：工具结果落进流里，下一次调用从这里起算（首帧重新等）。
+                            // 不用 MessageBoundaryContent：它是落盘时补发的，实测可能晚于下一次调用的首条内容
+                            if (content is FunctionResultContent)
+                                usageCall.NoteCallBoundary();
+                            else if (content is not UsageContent)
+                                usageCall.NoteFirstToken(); //首帧（每次调用只认第一次）
                             if (content is ToolApprovalRequestContent request) roundRequests.Add(request);
                             if (content is UsageContent usage)
                             {
                                 // 先校准再记账:水位刻度要按下一发实际用的系数换算。旁路请求(写交接)不校准,它与常规请求不同形
                                 Calibrate(session, runner, usage.Details);
                                 RecordUsage(session, runner, usage.Details);
-                                // 只攒着：这一发万一随后断流，这些量要并进失败行
+                                // 一次服务调用一行：攒到终态再落（中途断流时最后一份要并进失败行）
                                 usageCall.NoteUsage(usage.Details);
                             }
 
@@ -378,8 +383,8 @@ public sealed partial class TurnDriver : IDisposable
             // 框架在失败路径上补的只有请求消息(见 SessionChatHistoryProvider.InvokedCoreAsync),
             // 响应侧它拿不到——不在这里收,重开会话就是一次没有结果的调用加一段消失的回复
             interruptionNote = ToolCallCancellation.FailureResultText;
-            // 整轮级失败：在途调用的量并进它自己那行；没有在途调用时补一行 0 token 的失败
-            FailUsageCall(session, UsageErrorKinds.Classify(e), e);
+            // 整轮级失败：在途那一次调用的量并进它自己那行；没有在途调用（两次调用之间失败）不补行
+            FailUsageCall(UsageErrorKinds.Classify(e), e);
             SettleInterruptedTurn(session, interruptionNote);
             stampedThisTurn += StampThinkingStatsInMemory(session, thinkingStats, historyBefore);
             if (stampedThisTurn > 0) session.Save();

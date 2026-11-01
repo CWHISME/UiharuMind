@@ -67,4 +67,14 @@ public interface IUsageStore
     /// <param name="cutoffTs">这个时刻（不含）之前的记录会被删掉</param>
     /// <returns>删掉的行数</returns>
     int DeleteOlderThan(long cutoffTs);
+
+    /// <summary>
+    /// 一条记录已落盘（后台单写线程触发）。界面据此知道「有新数据了」并重查；
+    /// 默认不推送，实现可以选。订阅方自行切回 UI 线程
+    /// </summary>
+    event Action? Recorded
+    {
+        add { }
+        remove { }
+    }
 }

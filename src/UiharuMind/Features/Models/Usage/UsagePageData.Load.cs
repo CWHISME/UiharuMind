@@ -27,57 +27,64 @@ public partial class UsagePageData
 
     private void InitializeOptions()
     {
-        RangeOptions.Add(new UsageOptionViewData(nameof(EUsageRangeKind.Today), Loc.Text(LangKey.UsageRangeToday)));
-        RangeOptions.Add(new UsageOptionViewData(nameof(EUsageRangeKind.Last7Days),
-            Loc.Text(LangKey.UsageRangeLast7Days)));
-        RangeOptions.Add(new UsageOptionViewData(nameof(EUsageRangeKind.Last30Days),
-            Loc.Text(LangKey.UsageRangeLast30Days)));
-        RangeOptions.Add(new UsageOptionViewData(nameof(EUsageRangeKind.ThisMonth),
-            Loc.Text(LangKey.UsageRangeThisMonth)));
-        RangeOptions.Add(new UsageOptionViewData(nameof(EUsageRangeKind.Custom),
-            Loc.Text(LangKey.UsageRangeCustom)));
-
-        GranularityOptions.Add(new UsageOptionViewData("", Loc.Text(LangKey.UsageGranularityAuto)));
-        GranularityOptions.Add(new UsageOptionViewData(nameof(EUsageGranularity.Hour),
-            Loc.Text(LangKey.UsageGranularityHour)));
-        GranularityOptions.Add(new UsageOptionViewData(nameof(EUsageGranularity.Day),
-            Loc.Text(LangKey.UsageGranularityDay)));
-        GranularityOptions.Add(new UsageOptionViewData(nameof(EUsageGranularity.Week),
-            Loc.Text(LangKey.UsageGranularityWeek)));
-
-        TrendMetricOptions.Add(new UsageOptionViewData(nameof(EUsageTrendMetric.TokensAndCost),
-            Loc.Text(LangKey.UsageTrendSeriesTokens) + " + " + Loc.Text(LangKey.UsageTrendSeriesCost)));
-        TrendMetricOptions.Add(new UsageOptionViewData(nameof(EUsageTrendMetric.Tokens),
-            Loc.Text(LangKey.UsageTrendSeriesTokens)));
-        TrendMetricOptions.Add(new UsageOptionViewData(nameof(EUsageTrendMetric.Cost),
-            Loc.Text(LangKey.UsageTrendSeriesCost)));
-        TrendMetricOptions.Add(new UsageOptionViewData(nameof(EUsageTrendMetric.Latency),
-            Loc.Text(LangKey.UsageTrendSeriesLatency)));
-        TrendMetricOptions.Add(new UsageOptionViewData(nameof(EUsageTrendMetric.ErrorRate),
-            Loc.Text(LangKey.UsageTrendSeriesErrorRate)));
-
-        RankDimensionOptions.Add(new UsageOptionViewData(nameof(EUsageDimension.Model), Loc.Text(LangKey.UsageRankModels)));
-        RankDimensionOptions.Add(new UsageOptionViewData(nameof(EUsageDimension.Provider),
-            Loc.Text(LangKey.UsageRankProviders)));
-
-        RankMetricOptions.Add(new UsageOptionViewData(nameof(EUsageRankMetric.Tokens), Loc.Text(LangKey.UsageRankTokens)));
-        RankMetricOptions.Add(new UsageOptionViewData(nameof(EUsageRankMetric.Requests),
-            Loc.Text(LangKey.UsageRankRequests)));
-        RankMetricOptions.Add(new UsageOptionViewData(nameof(EUsageRankMetric.Cost), Loc.Text(LangKey.UsageRankCost)));
-
+        //初值一律不触发重查：第一次加载交给 OnEnable，构造期同步发出去的那几轮只会被 generation 丢掉
         _suppressReload = true;
-        //列表第一项必须是「全部」，否则用户选不回去
-        ModelOptions.Add(new UsageOptionViewData(null, Loc.Text(LangKey.UsageAllModels)));
-        SessionOptions.Add(new UsageOptionViewData(null, Loc.Text(LangKey.UsageAllSessions)));
-        _suppressReload = false;
+        try
+        {
+            RangeOptions.Add(new UsageOptionViewData(nameof(EUsageRangeKind.Today), Loc.Text(LangKey.UsageRangeToday)));
+            RangeOptions.Add(new UsageOptionViewData(nameof(EUsageRangeKind.Last7Days),
+                Loc.Text(LangKey.UsageRangeLast7Days)));
+            RangeOptions.Add(new UsageOptionViewData(nameof(EUsageRangeKind.Last30Days),
+                Loc.Text(LangKey.UsageRangeLast30Days)));
+            RangeOptions.Add(new UsageOptionViewData(nameof(EUsageRangeKind.ThisMonth),
+                Loc.Text(LangKey.UsageRangeThisMonth)));
+            RangeOptions.Add(new UsageOptionViewData(nameof(EUsageRangeKind.Custom),
+                Loc.Text(LangKey.UsageRangeCustom)));
 
-        RangeOption = RangeOptions[1]; //默认近 7 天
-        GranularityOption = GranularityOptions[0];
-        TrendMetricOption = TrendMetricOptions[0];
-        RankDimensionOption = RankDimensionOptions[0];
-        RankMetricOption = RankMetricOptions[0];
-        ModelOption = ModelOptions[0];
-        SessionOption = SessionOptions[0];
+            GranularityOptions.Add(new UsageOptionViewData("", Loc.Text(LangKey.UsageGranularityAuto)));
+            GranularityOptions.Add(new UsageOptionViewData(nameof(EUsageGranularity.Hour),
+                Loc.Text(LangKey.UsageGranularityHour)));
+            GranularityOptions.Add(new UsageOptionViewData(nameof(EUsageGranularity.Day),
+                Loc.Text(LangKey.UsageGranularityDay)));
+            GranularityOptions.Add(new UsageOptionViewData(nameof(EUsageGranularity.Week),
+                Loc.Text(LangKey.UsageGranularityWeek)));
+
+            TrendMetricOptions.Add(new UsageOptionViewData(nameof(EUsageTrendMetric.TokensAndCost),
+                Loc.Text(LangKey.UsageTrendSeriesTokens) + " + " + Loc.Text(LangKey.UsageTrendSeriesCost)));
+            TrendMetricOptions.Add(new UsageOptionViewData(nameof(EUsageTrendMetric.Tokens),
+                Loc.Text(LangKey.UsageTrendSeriesTokens)));
+            TrendMetricOptions.Add(new UsageOptionViewData(nameof(EUsageTrendMetric.Cost),
+                Loc.Text(LangKey.UsageTrendSeriesCost)));
+            TrendMetricOptions.Add(new UsageOptionViewData(nameof(EUsageTrendMetric.Latency),
+                Loc.Text(LangKey.UsageTrendSeriesLatency)));
+            TrendMetricOptions.Add(new UsageOptionViewData(nameof(EUsageTrendMetric.ErrorRate),
+                Loc.Text(LangKey.UsageTrendSeriesErrorRate)));
+
+            RankDimensionOptions.Add(new UsageOptionViewData(nameof(EUsageDimension.Model), Loc.Text(LangKey.UsageRankModels)));
+            RankDimensionOptions.Add(new UsageOptionViewData(nameof(EUsageDimension.Provider),
+                Loc.Text(LangKey.UsageRankProviders)));
+
+            RankMetricOptions.Add(new UsageOptionViewData(nameof(EUsageRankMetric.Tokens), Loc.Text(LangKey.UsageRankTokens)));
+            RankMetricOptions.Add(new UsageOptionViewData(nameof(EUsageRankMetric.Requests),
+                Loc.Text(LangKey.UsageRankRequests)));
+            RankMetricOptions.Add(new UsageOptionViewData(nameof(EUsageRankMetric.Cost), Loc.Text(LangKey.UsageRankCost)));
+
+            //列表第一项必须是「全部」，否则用户选不回去
+            ModelOptions.Add(new UsageOptionViewData(null, Loc.Text(LangKey.UsageAllModels)));
+            SessionOptions.Add(new UsageOptionViewData(null, Loc.Text(LangKey.UsageAllSessions)));
+
+            RangeOption = RangeOptions[1]; //默认近 7 天
+            GranularityOption = GranularityOptions[0];
+            TrendMetricOption = TrendMetricOptions[0];
+            RankDimensionOption = RankDimensionOptions[0];
+            RankMetricOption = RankMetricOptions[0];
+            ModelOption = ModelOptions[0];
+            SessionOption = SessionOptions[0];
+        }
+        finally
+        {
+            _suppressReload = false;
+        }
     }
 
     private static EUsageRangeKind RangeKindOf(UsageOptionViewData? option) =>
@@ -207,7 +214,7 @@ public partial class UsagePageData
         catch (Exception e)
         {
             if (generation != _generation) return;
-            _messages?.ShowNotification(Loc.Text(LangKey.UsageDetailExportFailed, e.Message),
+            _messages?.ShowNotification(Loc.Text(LangKey.UsageLoadFailed, e.Message),
                 severity: MessageSeverity.Error);
         }
         finally
@@ -241,7 +248,7 @@ public partial class UsagePageData
         catch (Exception e)
         {
             if (generation != _generation) return;
-            _messages?.ShowNotification(Loc.Text(LangKey.UsageDetailExportFailed, e.Message),
+            _messages?.ShowNotification(Loc.Text(LangKey.UsageLoadFailed, e.Message),
                 severity: MessageSeverity.Error);
         }
         finally

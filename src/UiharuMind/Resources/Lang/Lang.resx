@@ -6497,6 +6497,9 @@ Enable it?</value>
     <data name="UsageDetailExportFailed" xml:space="preserve">
         <value>Export failed: {0}</value>
     </data>
+    <data name="UsageLoadFailed" xml:space="preserve">
+        <value>Failed to load usage: {0}</value>
+    </data>
     <data name="UsageDetailExportNoStore" xml:space="preserve">
         <value>Usage store is unavailable</value>
     </data>

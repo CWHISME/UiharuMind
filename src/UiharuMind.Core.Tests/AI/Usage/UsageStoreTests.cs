@@ -272,6 +272,22 @@ public sealed class UsageStoreTests : IDisposable
         Assert.Equal(2, store.QueryDetails(new UsageDetailQuery(Range(now))).Total);
     }
 
+    [Fact]
+    public void Journal_RaisesRecordedThroughTheInterfaceAfterEachRow()
+    {
+        string path = Path.Combine(_directory, "journal-event", "Usage.db");
+        long now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+        using UsageJournal journal = new(path);
+        IUsageStore store = journal; //界面拿到的就是这一层：事件得能从接口上订到
+        int fired = 0;
+        store.Recorded += () => Interlocked.Increment(ref fired);
+
+        store.Append(Record(now, "m", "p", 100, 0, 10));
+
+        SpinWait.SpinUntil(() => Volatile.Read(ref fired) > 0, TimeSpan.FromSeconds(5));
+        Assert.True(Volatile.Read(ref fired) > 0, "落盘后没有发出 Recorded 通知");
+    }
+
     private static UsageRange Range(long now) =>
         new(now - 86_400_000, now + 86_400_000, EUsageGranularity.Day);
 

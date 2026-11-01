@@ -83,18 +83,10 @@ public static class UsageFormat
     public static string ShortSession(string sessionId) =>
         sessionId.Length <= 8 ? sessionId : sessionId[..8];
 
-    /// <summary>错误类别的显示文本；cancel 单独一档（不计错误率）</summary>
-    /// <param name="kind">错误类别</param>
+    /// <summary>错误类别的显示文本（未知类别原样显示）；null 表示没记类别</summary>
+    /// <param name="kind">错误类别常量</param>
     /// <returns>显示文本</returns>
-    public static string ErrorKind(string? kind) => kind switch
-    {
-        UsageErrorKinds.Http => "http",
-        UsageErrorKinds.Timeout => "timeout",
-        UsageErrorKinds.Cancel => "cancel",
-        UsageErrorKinds.Stream => "stream",
-        null => "—",
-        _ => kind,
-    };
+    public static string ErrorKind(string? kind) => kind ?? "—";
 
     private static int IsoWeek(DateTimeOffset value) =>
         System.Globalization.ISOWeek.GetWeekOfYear(value.Date);

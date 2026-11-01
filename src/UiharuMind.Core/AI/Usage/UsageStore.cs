@@ -21,6 +21,9 @@ namespace UiharuMind.Core.AI.Usage;
 /// </summary>
 public sealed partial class UsageStore : IDisposable
 {
+    /// <summary>会话时间线的硬上限：长会话单个区间内可能有几万次调用，不该整段进内存再上屏</summary>
+    private const int TimelineLimit = 5000;
+
     private const string InsertSql = """
                                      INSERT INTO usage_record (
                                          ts, started_ts, session_id, model_name, model_id, provider_id, provider_key,
@@ -37,6 +40,7 @@ public sealed partial class UsageStore : IDisposable
                                      """;
 
     private readonly SqliteConnection _connection;
+    private readonly string _databasePath; //导出时另开一条只读连接要用
     private readonly object _locker = new();
 
     /// <summary>
@@ -48,6 +52,7 @@ public sealed partial class UsageStore : IDisposable
         string? directory = Path.GetDirectoryName(databasePath);
         if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
 
+        _databasePath = databasePath;
         _connection = new SqliteConnection($"Data Source={databasePath};Pooling=False");
         _connection.Open();
         Execute("PRAGMA journal_mode=WAL;"); //崩溃一致性交给 WAL，不自己做
@@ -182,8 +187,10 @@ public sealed partial class UsageStore : IDisposable
     /// <param name="sessionId">会话标识</param>
     /// <param name="fromTs">起点（含）</param>
     /// <param name="toTs">终点（不含）</param>
+    /// <param name="limit">最多取多少条（从最早的算起，防止长会话把整段拉进内存）</param>
     /// <returns>按时间升序的明细行</returns>
-    public IReadOnlyList<UsageDetailRow> QuerySessionTimeline(string sessionId, long fromTs, long toTs)
+    public IReadOnlyList<UsageDetailRow> QuerySessionTimeline(string sessionId, long fromTs, long toTs,
+        int limit = TimelineLimit)
     {
         lock (_locker)
         {
@@ -191,11 +198,13 @@ public sealed partial class UsageStore : IDisposable
             command.CommandText = $"""
                                    {DetailSelect}
                                    WHERE session_id = @sessionId AND ts >= @from AND ts < @to
-                                   ORDER BY ts, id;
+                                   ORDER BY ts, id
+                                   LIMIT @limit;
                                    """;
             command.Parameters.AddWithValue("@sessionId", sessionId);
             command.Parameters.AddWithValue("@from", fromTs);
             command.Parameters.AddWithValue("@to", toTs);
+            command.Parameters.AddWithValue("@limit", Math.Clamp(limit, 1, TimelineLimit));
             List<UsageDetailRow> rows = [];
             using SqliteDataReader reader = command.ExecuteReader();
             while (reader.Read()) rows.Add(ReadDetailRow(reader));
@@ -430,46 +439,34 @@ public sealed partial class UsageStore : IDisposable
         reader.GetInt32(18),
         ReadNullableDecimal(reader, 19));
 
-    private static string BuildQueryWhere(UsageQuery query, SqliteCommand command)
+    /// <summary>筛选条件只这一处拼。模型/会话都是参数，<c>onlyFailed</c> 是布尔开关，用户输入永远不拼进 SQL</summary>
+    private static string BuildWhere(UsageRange range, string? modelFilter, string? sessionFilter, bool onlyFailed,
+        SqliteCommand command)
     {
-        command.Parameters.AddWithValue("@from", query.Range.FromTs);
-        command.Parameters.AddWithValue("@to", query.Range.ToTs);
+        command.Parameters.AddWithValue("@from", range.FromTs);
+        command.Parameters.AddWithValue("@to", range.ToTs);
         List<string> conditions = ["ts >= @from", "ts < @to"];
-        if (!string.IsNullOrEmpty(query.ModelFilter))
+        if (!string.IsNullOrEmpty(modelFilter))
         {
             conditions.Add("model_name = @model");
-            command.Parameters.AddWithValue("@model", query.ModelFilter);
+            command.Parameters.AddWithValue("@model", modelFilter);
         }
 
-        if (!string.IsNullOrEmpty(query.SessionFilter))
+        if (!string.IsNullOrEmpty(sessionFilter))
         {
             conditions.Add("session_id = @session");
-            command.Parameters.AddWithValue("@session", query.SessionFilter);
+            command.Parameters.AddWithValue("@session", sessionFilter);
         }
 
+        if (onlyFailed) conditions.Add("ok = 0");
         return string.Join(" AND ", conditions);
     }
 
-    private static string BuildDetailWhere(UsageDetailQuery query, SqliteCommand command)
-    {
-        command.Parameters.AddWithValue("@from", query.Range.FromTs);
-        command.Parameters.AddWithValue("@to", query.Range.ToTs);
-        List<string> conditions = ["ts >= @from", "ts < @to"];
-        if (!string.IsNullOrEmpty(query.ModelFilter))
-        {
-            conditions.Add("model_name = @model");
-            command.Parameters.AddWithValue("@model", query.ModelFilter);
-        }
+    private static string BuildQueryWhere(UsageQuery query, SqliteCommand command) =>
+        BuildWhere(query.Range, query.ModelFilter, query.SessionFilter, false, command);
 
-        if (!string.IsNullOrEmpty(query.SessionFilter))
-        {
-            conditions.Add("session_id = @session");
-            command.Parameters.AddWithValue("@session", query.SessionFilter);
-        }
-
-        if (query.OnlyFailed) conditions.Add("ok = 0");
-        return string.Join(" AND ", conditions);
-    }
+    private static string BuildDetailWhere(UsageDetailQuery query, SqliteCommand command) =>
+        BuildWhere(query.Range, query.ModelFilter, query.SessionFilter, query.OnlyFailed, command);
 
     /// <summary>排序列白名单：用户输入永远不拼进 SQL</summary>
     private static string SortExpression(EUsageDetailSortColumn column) => column switch

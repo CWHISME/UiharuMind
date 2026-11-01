@@ -2,8 +2,11 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Core;
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Core.AI.Usage;
 
 namespace UiharuMind.Core.AI.Chat.Group.Away;
 
@@ -37,8 +40,38 @@ public static class AvatarApprovalJudge
             new(ChatRole.System, Instructions(ask.Avatar)),
             new(ChatRole.User, Question(ask)),
         ];
-        ChatResponse response = await HistorySupply.ClientFor(ask.Avatar)
-            .GetResponseAsync(messages, new ChatOptions(), timeout.Token).ConfigureAwait(false);
+        // 请求级用量：这一发绕过 TurnDriver，得自己记（与面板同源：一次服务调用一行）
+        UsageCallTracker call = UsageCallTracker.Begin(ask.Avatar.SessionId, UsageModelIdentity.From(
+            LazyChatClient.ServingModel(ask.Avatar.ChatModelRunningData, LlmManager.Instance.EffectiveGlobalModel),
+            DateTimeOffset.Now));
+        ChatResponse response;
+        using (LlmRequestScope.Push(LlmRequestScope.Current with { RetryTally = call.Retries }))
+        {
+            try
+            {
+                response = await HistorySupply.ClientFor(ask.Avatar)
+                    .GetResponseAsync(messages, new ChatOptions(), timeout.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException e) when (cancellationToken.IsCancellationRequested)
+            {
+                call.Fail(UsageErrorKinds.Cancel, e);
+                throw;
+            }
+            catch (OperationCanceledException e)
+            {
+                call.Fail(UsageErrorKinds.Timeout, e); //超时不是用户停的，计错误率
+                throw;
+            }
+            catch (Exception e)
+            {
+                call.Fail(UsageErrorKinds.Classify(e), e);
+                throw;
+            }
+        }
+
+        // 非流式响应自带一份用量
+        if (response.Usage is { } usage) call.NoteUsage(usage);
+        call.Complete();
         return Parse(response.Text);
     }
 

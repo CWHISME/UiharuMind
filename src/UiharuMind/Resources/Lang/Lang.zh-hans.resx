@@ -6492,6 +6492,9 @@
     <data name="UsageDetailExportFailed" xml:space="preserve">
         <value>导出失败：{0}</value>
     </data>
+    <data name="UsageLoadFailed" xml:space="preserve">
+        <value>读取用量失败：{0}</value>
+    </data>
     <data name="UsageDetailExportNoStore" xml:space="preserve">
         <value>用量库不可用</value>
     </data>

@@ -19,7 +19,7 @@ namespace UiharuMind.Core.AI.Usage;
 /// </summary>
 public sealed class UsageJournal : IUsageStore, IDisposable
 {
-    private static UsageJournal? _instance;
+    private static volatile UsageJournal? _instance;
     private static readonly object InstanceLocker = new();
 
     private readonly Channel<UsageRecord> _channel =
@@ -46,6 +46,9 @@ public sealed class UsageJournal : IUsageStore, IDisposable
 
     /// <summary>库是否可用（开库失败时整块降级，统计丢了不拖累应用）</summary>
     public bool IsAvailable => _store != null;
+
+    /// <inheritdoc />
+    public event Action? Recorded;
 
     /// <summary>
     /// 打开用量库并起单写线程
@@ -140,6 +143,15 @@ public sealed class UsageJournal : IUsageStore, IDisposable
             try
             {
                 _store?.Insert(record);
+                //订阅方是界面：它抛了也不许把单写线程带走（带走就一条都不再落盘）
+                try
+                {
+                    Recorded?.Invoke();
+                }
+                catch (Exception e)
+                {
+                    Log.Warning($"Usage recorded handler failed: {e.Message}");
+                }
             }
             catch (Exception e)
             {
