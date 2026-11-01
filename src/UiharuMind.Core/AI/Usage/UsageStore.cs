@@ -410,7 +410,7 @@ public sealed partial class UsageStore : IDisposable
     }
 
     private const string DetailSelect = """
-                                        SELECT id, ts, started_ts, session_id, model_name, provider_key, is_local,
+                                        SELECT id, ts, session_id, model_name, provider_key, is_local,
                                                input_tokens, cached_read, cached_write, output_tokens, reasoning_tokens,
                                                latency_ms, first_token_ms, ok, error_kind, error_detail, status_code,
                                                retry_count, cost_usd
@@ -420,24 +420,23 @@ public sealed partial class UsageStore : IDisposable
     private static UsageDetailRow ReadDetailRow(SqliteDataReader reader) => new(
         reader.GetInt64(0),
         reader.GetInt64(1),
-        reader.GetInt64(2),
+        reader.GetString(2),
         reader.GetString(3),
         reader.GetString(4),
-        reader.GetString(5),
-        reader.GetInt64(6) != 0,
+        reader.GetInt64(5) != 0,
+        reader.GetInt64(6),
         reader.GetInt64(7),
-        reader.GetInt64(8),
-        reader.IsDBNull(9) ? null : reader.GetInt64(9),
+        reader.IsDBNull(8) ? null : reader.GetInt64(8),
+        reader.GetInt64(9),
         reader.GetInt64(10),
-        reader.GetInt64(11),
+        reader.IsDBNull(11) ? null : reader.GetInt32(11),
         reader.IsDBNull(12) ? null : reader.GetInt32(12),
-        reader.IsDBNull(13) ? null : reader.GetInt32(13),
-        reader.GetInt64(14) != 0,
+        reader.GetInt64(13) != 0,
+        reader.IsDBNull(14) ? null : reader.GetString(14),
         reader.IsDBNull(15) ? null : reader.GetString(15),
-        reader.IsDBNull(16) ? null : reader.GetString(16),
-        reader.IsDBNull(17) ? null : reader.GetInt32(17),
-        reader.GetInt32(18),
-        ReadNullableDecimal(reader, 19));
+        reader.IsDBNull(16) ? null : reader.GetInt32(16),
+        reader.GetInt32(17),
+        ReadNullableDecimal(reader, 18));
 
     /// <summary>筛选条件只这一处拼。模型/会话都是参数，<c>onlyFailed</c> 是布尔开关，用户输入永远不拼进 SQL</summary>
     private static string BuildWhere(UsageRange range, string? modelFilter, string? sessionFilter, bool onlyFailed,

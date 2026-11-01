@@ -60,20 +60,34 @@ public static class ModelCapabilityResolver
         TryGetPrice(RemoteModelConfigRegistry.ProviderKeyOf(configType), modelId, out price);
 
     /// <summary>
-    /// 按 provider 键与模型 ID 查挂牌单价（编辑窗口里逐条查候选时用——那时手上只有键，没有实例）
+    /// 按 provider 键与模型 ID 查挂牌单价（编辑窗口里逐条查候选时用——那时手上只有键，没有实例）。
+    /// <b>价格只有这两跳</b>：官网覆盖层优先，models.dev 兜底；不跨供应商借价
     /// </summary>
     /// <param name="providerKey">models.dev 的 provider 键；空表示查不到</param>
     /// <param name="modelId">模型 ID</param>
     /// <param name="price">查到的单价</param>
     /// <returns>该供应商公布了单价为 true</returns>
-    public static bool TryGetPrice(string providerKey, string modelId, out ModelPrice price)
+    public static bool TryGetPrice(string providerKey, string modelId, out ModelPrice price) =>
+        TryGetPrice(providerKey, modelId, out price, out _);
+
+    /// <summary>
+    /// 同上，并告诉调用方价格是哪张表给的（用量账本要把它存进记录里留证）
+    /// </summary>
+    /// <param name="providerKey">models.dev 的 provider 键；空表示查不到</param>
+    /// <param name="modelId">模型 ID</param>
+    /// <param name="price">查到的单价</param>
+    /// <param name="fromOfficial">true = 官网价；false = models.dev</param>
+    /// <returns>该供应商公布了单价为 true</returns>
+    public static bool TryGetPrice(string providerKey, string modelId, out ModelPrice price, out bool fromOfficial)
     {
+        fromOfficial = false;
         price = ModelPrice.Unknown;
         if (providerKey.Length == 0) return false;
 
         if (ProviderPricingTable.TryGet(providerKey, modelId, out var official) && official.Price.IsKnown)
         {
             price = official.Price;
+            fromOfficial = true;
             return true;
         }
 

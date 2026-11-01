@@ -6485,6 +6485,18 @@ Enable it?</value>
     <data name="UsageFailureUnknown" xml:space="preserve">
         <value>unknown</value>
     </data>
+    <data name="UsageErrorHttp" xml:space="preserve">
+        <value>http</value>
+    </data>
+    <data name="UsageErrorTimeout" xml:space="preserve">
+        <value>timeout</value>
+    </data>
+    <data name="UsageErrorCancel" xml:space="preserve">
+        <value>cancel</value>
+    </data>
+    <data name="UsageErrorStream" xml:space="preserve">
+        <value>stream</value>
+    </data>
     <data name="UsageDetailTitle" xml:space="preserve">
         <value>Requests</value>
     </data>

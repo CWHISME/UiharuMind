@@ -69,12 +69,7 @@ public interface IUsageStore
     int DeleteOlderThan(long cutoffTs);
 
     /// <summary>
-    /// 一条记录已落盘（后台单写线程触发）。界面据此知道「有新数据了」并重查；
-    /// 默认不推送，实现可以选。订阅方自行切回 UI 线程
+    /// 一条记录已落盘（后台单写线程触发）。界面据此知道「有新数据了」并重查；订阅方自行切回 UI 线程
     /// </summary>
-    event Action? Recorded
-    {
-        add { }
-        remove { }
-    }
+    event Action? Recorded;
 }

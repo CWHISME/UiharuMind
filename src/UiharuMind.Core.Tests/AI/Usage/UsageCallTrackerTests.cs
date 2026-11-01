@@ -168,8 +168,8 @@ public sealed class UsageCallTrackerTests
         Assert.Equal(200, records[1].InputTokens);
         Assert.NotNull(records[0].LatencyMs);
         Assert.Null(records[1].LatencyMs);
-        Assert.Equal(1, records[0].RetryCount);
-        Assert.Equal(0, records[1].RetryCount);
+        Assert.Equal(0, records[0].RetryCount); //重发总数记在最后一行（旁路请求只能拿到总数）
+        Assert.Equal(1, records[1].RetryCount);
     }
 
     [Fact]

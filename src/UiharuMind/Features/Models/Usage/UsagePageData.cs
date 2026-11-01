@@ -56,6 +56,7 @@ public partial class UsagePageData : PageDataBase
     private bool _suppressReload; //程序改选项时为真（避免重建选项时触发连锁重查）
     private bool _isPageEnabled; //页面当前可见（后台来的刷新通知不在不可见时干活）
     private bool _usageRefreshPending; //已排入一次「新记录落盘」引发的重查（合并刷盘节奏）
+    private bool _hasAnyKnown; //全表查过「至少有一条记录」：单调事实，查到 true 后不再查
     private UsageTotals _totals = UsageTotals.Empty;
     private IReadOnlyList<UsageTrendPoint> _trendPoints = [];
     private IReadOnlyList<UsageTimelinePoint> _timelinePoints = [];

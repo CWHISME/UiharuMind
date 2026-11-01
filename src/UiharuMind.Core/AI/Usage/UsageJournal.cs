@@ -44,9 +44,6 @@ public sealed class UsageJournal : IUsageStore, IDisposable
     /// <summary>实例是否已经被创建过（退出时据此决定要不要 flush，不为一次没用过就建库）</summary>
     public static bool IsCreated => _instance != null;
 
-    /// <summary>库是否可用（开库失败时整块降级，统计丢了不拖累应用）</summary>
-    public bool IsAvailable => _store != null;
-
     /// <inheritdoc />
     public event Action? Recorded;
 

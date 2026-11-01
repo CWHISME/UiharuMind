@@ -109,12 +109,6 @@ public sealed record UsageAggregateRow(
     long FirstTokenSumMs,
     int SuccessRequests)
 {
-    /// <summary>模型 + 供应商是否同一组（排行去重用）</summary>
-    public bool Matches(string? modelName, string? providerKey, bool isLocal) =>
-        string.Equals(ModelName, modelName, StringComparison.Ordinal) &&
-        string.Equals(ProviderKey, providerKey, StringComparison.Ordinal) &&
-        IsLocal == isLocal;
-
     /// <summary>输入 + 输出，KPI 与排行排序都用它</summary>
     public long TotalTokens => InputTokens + OutputTokens;
 }
@@ -142,7 +136,6 @@ public sealed record UsageDetailQuery(
 public sealed record UsageDetailRow(
     long Id,
     long Ts,
-    long StartedTs,
     string SessionId,
     string ModelName,
     string ProviderKey,

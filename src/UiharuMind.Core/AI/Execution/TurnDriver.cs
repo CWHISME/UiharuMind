@@ -850,9 +850,11 @@ public sealed partial class TurnDriver : IDisposable
         // 上限按「真正会发这一发的模型」算，而不是「会话钉着的那个名字」。两者不同时
         // （全局跑着 B、会话钉着没在跑的 A），钉着的那个 ContextLength 会落到本地兜底 8192——
         // 拿它定水位与篇幅上限，等于按一个根本不发请求的窗口在算：水位每轮都到，
-        // 而请求实际发给的是 128k 的 B。判据与请求路径同一条，见 LazyChatClient.ServingModel
+        // 而请求实际发给的是 128k 的 B。判据与请求路径同一条，见 LazyChatClient.ServingModel。
+        // 全局模型取 EffectiveGlobalModel：CurrentRunningModel 在「新启动还没选过模型」时为 null，
+        // 而请求会拉起偏好模型并发给它——用 CurrentRunningModel 会得到 null，水位不更新、手动压缩直接报失败
         ModelRunningData? serving = LazyChatClient.ServingModel(
-            session.ChatModelRunningData, LlmManager.Instance.CurrentRunningModel);
+            session.ChatModelRunningData, LlmManager.Instance.EffectiveGlobalModel);
         // 会话自设上限压在这里而不是显示那一侧:交接判据读的就是 _usage.ContextLength,
         // 只改显示的话，用户调低上限后环会走到 90%，交接却永远不来
         if (serving != null)

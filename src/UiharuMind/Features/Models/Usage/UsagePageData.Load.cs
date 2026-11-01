@@ -196,8 +196,8 @@ public partial class UsagePageData
                     : _store.QuerySessionTimeline(session, range.FromTs, range.ToTs);
                 IReadOnlyList<SessionUsageSummary> sessions = _store.ListSessions(range.FromTs, range.ToTs);
                 IReadOnlyList<string> models = _store.KnownModelNames(range.FromTs, range.ToTs);
-                //「从来没有过记录」要问全表：它决定空态文案与「去对话」按钮
-                bool hasAny = _store.QueryDetails(new UsageDetailQuery(
+                //「从来没有过记录」要问全表，但它是单调事实：查到一次 true 之后不再查
+                bool hasAny = _hasAnyKnown || _store.QueryDetails(new UsageDetailQuery(
                     new UsageRange(0, DateTimeOffset.MaxValue.ToUnixTimeMilliseconds(), EUsageGranularity.Day),
                     Limit: 1)).Total > 0;
                 return new LoadResult(snapshot, details, timeline, sessions, models, hasAny);
@@ -265,6 +265,7 @@ public partial class UsagePageData
         _trendPoints = result.Snapshot.Trend;
         _timelinePoints = BuildTimeline(result.Timeline);
         HasAnyRecords = result.HasAnyRecords;
+        _hasAnyKnown |= result.HasAnyRecords;
         _totalRows = result.Details.Total;
         IsSessionView = SessionOption?.Value != null;
 
@@ -321,34 +322,46 @@ public partial class UsagePageData
     {
         string? selected = ModelOption?.Value;
         _suppressReload = true;
-        ModelOptions.Clear();
-        ModelOptions.Add(new UsageOptionViewData(null, Loc.Text(LangKey.UsageAllModels)));
-        foreach (string model in models) ModelOptions.Add(new UsageOptionViewData(model, model));
-        //钻取进来的模型可能不在当前范围里：补一项，别让选中值悬空
-        if (selected != null && ModelOptions.All(x => !string.Equals(x.Value, selected, StringComparison.Ordinal)))
-            ModelOptions.Add(new UsageOptionViewData(selected, selected));
-        ModelOption = ModelOptions.FirstOrDefault(x => string.Equals(x.Value, selected, StringComparison.Ordinal))
-                      ?? ModelOptions[0];
-        _suppressReload = false;
+        try
+        {
+            ModelOptions.Clear();
+            ModelOptions.Add(new UsageOptionViewData(null, Loc.Text(LangKey.UsageAllModels)));
+            foreach (string model in models) ModelOptions.Add(new UsageOptionViewData(model, model));
+            //钻取进来的模型可能不在当前范围里：补一项，别让选中值悬空
+            if (selected != null && ModelOptions.All(x => !string.Equals(x.Value, selected, StringComparison.Ordinal)))
+                ModelOptions.Add(new UsageOptionViewData(selected, selected));
+            ModelOption = ModelOptions.FirstOrDefault(x => string.Equals(x.Value, selected, StringComparison.Ordinal))
+                          ?? ModelOptions[0];
+        }
+        finally
+        {
+            _suppressReload = false;
+        }
     }
 
     private void UpdateSessionOptions(IReadOnlyList<SessionUsageSummary> sessions)
     {
         string? selected = SessionOption?.Value;
         _suppressReload = true;
-        SessionOptions.Clear();
-        SessionOptions.Add(new UsageOptionViewData(null, Loc.Text(LangKey.UsageAllSessions)));
-        foreach (SessionUsageSummary session in sessions)
+        try
         {
-            SessionOptions.Add(new UsageOptionViewData(session.SessionId,
-                $"{UsageFormat.ShortSession(session.SessionId)} · {session.Requests} · {UsageFormat.Timestamp(session.LastTs)}"));
-        }
+            SessionOptions.Clear();
+            SessionOptions.Add(new UsageOptionViewData(null, Loc.Text(LangKey.UsageAllSessions)));
+            foreach (SessionUsageSummary session in sessions)
+            {
+                SessionOptions.Add(new UsageOptionViewData(session.SessionId,
+                    $"{UsageFormat.ShortSession(session.SessionId)} · {session.Requests} · {UsageFormat.Timestamp(session.LastTs)}"));
+            }
 
-        if (selected != null && SessionOptions.All(x => !string.Equals(x.Value, selected, StringComparison.Ordinal)))
-            SessionOptions.Add(new UsageOptionViewData(selected, UsageFormat.ShortSession(selected)));
-        SessionOption = SessionOptions.FirstOrDefault(x => string.Equals(x.Value, selected, StringComparison.Ordinal))
-                        ?? SessionOptions[0];
-        _suppressReload = false;
+            if (selected != null && SessionOptions.All(x => !string.Equals(x.Value, selected, StringComparison.Ordinal)))
+                SessionOptions.Add(new UsageOptionViewData(selected, UsageFormat.ShortSession(selected)));
+            SessionOption = SessionOptions.FirstOrDefault(x => string.Equals(x.Value, selected, StringComparison.Ordinal))
+                            ?? SessionOptions[0];
+        }
+        finally
+        {
+            _suppressReload = false;
+        }
     }
 
     private void UpdateSortHeaders()

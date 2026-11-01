@@ -1,6 +1,9 @@
 using System;
 using System.Globalization;
 using UiharuMind.Core.AI.Usage;
+using UiharuMind.Generated;
+using UiharuMind.Resources.Lang;
+using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Models.Usage;
 
@@ -83,10 +86,18 @@ public static class UsageFormat
     public static string ShortSession(string sessionId) =>
         sessionId.Length <= 8 ? sessionId : sessionId[..8];
 
-    /// <summary>错误类别的显示文本（未知类别原样显示）；null 表示没记类别</summary>
+    /// <summary>错误类别的显示文本；null 表示没记类别，未知类别原样显示</summary>
     /// <param name="kind">错误类别常量</param>
     /// <returns>显示文本</returns>
-    public static string ErrorKind(string? kind) => kind ?? "—";
+    public static string ErrorKind(string? kind) => kind switch
+    {
+        UsageErrorKinds.Http => Loc.Text(LangKey.UsageErrorHttp),
+        UsageErrorKinds.Timeout => Loc.Text(LangKey.UsageErrorTimeout),
+        UsageErrorKinds.Cancel => Loc.Text(LangKey.UsageErrorCancel),
+        UsageErrorKinds.Stream => Loc.Text(LangKey.UsageErrorStream),
+        null => "—",
+        _ => kind,
+    };
 
     private static int IsoWeek(DateTimeOffset value) =>
         System.Globalization.ISOWeek.GetWeekOfYear(value.Date);

@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Usage;
 
 namespace UiharuMind.Core.AI.Chat;
 
@@ -191,36 +192,12 @@ public sealed class TurnUsageLedger
     }
 
     /// <summary>
-    /// 从用量的附加计数里找缓存命中数。各家键名不同（OpenAI 系是 <c>cached_tokens</c>，
-    /// 经 MEAI 映射后还会再改一次名），所以按子串命中而不是写死键名；找不到就是 0。
+    /// 从用量的附加计数里找缓存命中数——实现只有一份（<see cref="UsageTokens.ReadCachedTokens"/>），
+    /// 用量账本与这里用的是同一个口径
     /// </summary>
     /// <param name="details">响应用量</param>
     /// <returns>命中的输入 token 数</returns>
-    internal static long ReadCachedTokens(UsageDetails details)
-    {
-        if (details.CachedInputTokenCount != null) return (long)details.CachedInputTokenCount;
-        if (details.AdditionalCounts == null) return 0;
-
-        // 键名各家不同。注意 DeepSeek 会同时报 prompt_cache_hit_tokens 与
-        // prompt_cache_miss_tokens 两个键——两者都含 "cach"，字典遍历顺序不定，
-        // 先到的未必是命中数。所以优先匹配明确含 "hit" 的键，找不到再退回纯 "cach" 键。
-        long? cached = null;
-        foreach (KeyValuePair<string, long> pair in details.AdditionalCounts)
-        {
-            if (pair.Key.Contains("hit", StringComparison.OrdinalIgnoreCase) &&
-                pair.Key.Contains("cach", StringComparison.OrdinalIgnoreCase))
-            {
-                return pair.Value;
-            }
-
-            if (pair.Key.Contains("cach", StringComparison.OrdinalIgnoreCase) && cached == null)
-            {
-                cached = pair.Value;
-            }
-        }
-
-        return cached ?? 0;
-    }
+    internal static long ReadCachedTokens(UsageDetails details) => UsageTokens.ReadCachedTokens(details);
 
     /// <summary>
     /// 计入一次响应用量并写回会话本体。累计值按增量加而不是整值覆盖：

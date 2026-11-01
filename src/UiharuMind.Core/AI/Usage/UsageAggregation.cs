@@ -149,7 +149,7 @@ public static class UsageTrendFill
         if (bucketMs <= 0 || range.ToTs <= range.FromTs) return [];
 
         List<long> buckets = [];
-        for (long ts = anchor; ts < range.ToTs && buckets.Count <= MaxPoints; ts += bucketMs)
+        for (long ts = anchor; ts < range.ToTs && buckets.Count < MaxPoints; ts += bucketMs)
         {
             if (ts + bucketMs <= range.FromTs) continue; //起点之前的空桶不要
             buckets.Add(ts);
@@ -230,7 +230,9 @@ public static class UsageBucket
         return anchored.ToUnixTimeMilliseconds();
     }
 
-    /// <summary>某个时刻属于哪个桶（与 SQL 的分桶公式逐字同构，单测对拍用）</summary>
+    /// <summary>某个时刻属于哪个桶（与 SQL 的分桶公式同构，单测对拍用）。
+    /// 负数分支只是形式完整：查询范围左闭于 <paramref name="anchor"/>，实际走不到；
+    /// 且 SQLite 的整数除法向零取整，与这里的向负无穷并不等价</summary>
     /// <param name="ts">时刻（Unix 毫秒）</param>
     /// <param name="anchor">锚点（<see cref="AnchorFor"/>）</param>
     /// <param name="granularity">粒度</param>

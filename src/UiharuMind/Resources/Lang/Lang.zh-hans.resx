@@ -6480,6 +6480,18 @@
     <data name="UsageFailureUnknown" xml:space="preserve">
         <value>未知</value>
     </data>
+    <data name="UsageErrorHttp" xml:space="preserve">
+        <value>网络/HTTP</value>
+    </data>
+    <data name="UsageErrorTimeout" xml:space="preserve">
+        <value>超时</value>
+    </data>
+    <data name="UsageErrorCancel" xml:space="preserve">
+        <value>用户取消</value>
+    </data>
+    <data name="UsageErrorStream" xml:space="preserve">
+        <value>流中断</value>
+    </data>
     <data name="UsageDetailTitle" xml:space="preserve">
         <value>请求明细</value>
     </data>

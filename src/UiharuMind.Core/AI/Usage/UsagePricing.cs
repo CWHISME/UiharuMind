@@ -73,10 +73,11 @@ public sealed record UsageModelIdentity(
         BaseRemoteModelConfig config = remote.Config;
         string providerKey = ModelCapabilityResolver.ProviderKeyOf(config);
         UsagePricing.TryResolveBasePrice(providerKey, config.ModelId, out ModelPrice price, out string? source);
-        decimal multiplier = UsagePricing.PeakMultiplier(config, now);
+        //归一化 base 只算一次：身份快照与峰时规则用的是同一个值
+        string apiBase = ProviderStatusContext.DeriveBaseUrl(config.ModelPath);
+        decimal multiplier = UsagePricing.PeakMultiplier(config, now, apiBase);
         return new UsageModelIdentity(model.ModelName, config.ModelId, remote.ProviderId, providerKey,
-            ProviderStatusContext.DeriveBaseUrl(config.ModelPath), false,
-            price.IsKnown ? price : null, source, multiplier);
+            apiBase, false, price.IsKnown ? price : null, source, multiplier);
     }
 
     /// <summary>
@@ -123,8 +124,8 @@ public static class UsagePricing
 
     /// <summary>
     /// 查这个供应商 + 模型的挂牌价，并给出<b>来源</b>。
-    /// 优先级与 <see cref="ModelCapabilityResolver.TryGetPrice(BaseRemoteModelConfig, out ModelPrice)"/>
-    /// 同一条：官网 &gt; models.dev，不跨供应商借价
+    /// 优先级只有一份实现（<see cref="ModelCapabilityResolver.TryGetPrice(string,string,out ModelPrice,out bool)"/>）：
+    /// 官网 &gt; models.dev，不跨供应商借价。价格表是生成物，两份实现漂移一天就是历史账单错
     /// </summary>
     /// <param name="providerKey">定价表键；空表示查不到</param>
     /// <param name="modelId">模型 ID</param>
@@ -134,26 +135,13 @@ public static class UsagePricing
     public static bool TryResolveBasePrice(string providerKey, string modelId, out ModelPrice price,
         out string? source)
     {
-        price = ModelPrice.Unknown;
-        source = null;
-        if (providerKey.Length == 0) return false;
-
-        if (ProviderPricingTable.TryGet(providerKey, modelId, out ProviderPricingTable.PriceRow official) &&
-            official.Price.IsKnown)
+        if (!ModelCapabilityResolver.TryGetPrice(providerKey, modelId, out price, out bool fromOfficial))
         {
-            price = official.Price;
-            source = SourceOfficial;
-            return true;
-        }
-
-        if (!ModelCapabilitySource.TryGet(providerKey, modelId, out ModelCapabilityTable.Capability capability) ||
-            !capability.Price.IsKnown)
-        {
+            source = null;
             return false;
         }
 
-        price = capability.Price;
-        source = SourceModelsDev;
+        source = fromOfficial ? SourceOfficial : SourceModelsDev;
         return true;
     }
 
@@ -163,15 +151,16 @@ public static class UsagePricing
     /// </summary>
     /// <param name="config">远程模型配置</param>
     /// <param name="now">当前时刻</param>
+    /// <param name="apiBase">归一化 base url（调用方已算好的那个，不在这里重复推导）</param>
     /// <returns>倍率；没有规则或不在窗口内为 1</returns>
-    public static decimal PeakMultiplier(BaseRemoteModelConfig config, DateTimeOffset now)
+    public static decimal PeakMultiplier(BaseRemoteModelConfig config, DateTimeOffset now, string apiBase)
     {
         Type configType = config.GetType();
         if (RemoteModelConfigRegistry.ResolveConfigType(config.ConfigType) is { } resolved) configType = resolved;
         if (ProviderStatusRegistry.For(configType)?.Rule is not { } rule) return 1m;
 
         //规则只读 ModelId；密钥不参与，也不必把明文往这里带
-        ProviderStatusContext context = new(configType, ProviderStatusContext.DeriveBaseUrl(config.ModelPath),
+        ProviderStatusContext context = new(configType, apiBase,
             string.Empty, config.ModelId, config.ModelName);
         double multiplier = 1;
         foreach (ProviderStatusNotice notice in rule.Describe(context, now))

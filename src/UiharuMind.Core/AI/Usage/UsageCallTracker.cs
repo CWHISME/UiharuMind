@@ -1,5 +1,4 @@
 using Microsoft.Extensions.AI;
-using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Usage;
@@ -8,20 +7,20 @@ namespace UiharuMind.Core.AI.Usage;
 /// 一轮对话的服务调用记账器：<b>每次服务调用写一行</b>，一轮可能写多行。
 ///
 /// <para>
-/// 口径与右侧用量面板（<see cref="TurnUsageLedger.Add"/>）同源：那里每收到一份用量
+/// 口径与右侧用量面板（<c>TurnUsageLedger.Add</c>）同源：那里每收到一份用量
 /// <c>Requests++</c>，这里就落一行——<b>一个 tracker 收到的每份 usage 各占一行</b>。
 /// 不能把一轮的用量累加成一行：agent 档的一次 <c>run</c> 内部由框架自动跑工具往返
 /// （<c>MaximumIterationsPerRequest</c> 高达 32768），一轮几十次调用是常态，
 /// 累加会让「请求数」少记几十倍、单请求均值虚高、阶梯价按合计上下文换错档。
 /// </para>
 /// <para>
-/// 写入不放在「收到 usage 即写」，而是攒到终态统一写：中途断流时，最后一次收到的量属于
-/// 失败的那一发，要并进失败行（<see cref="StreamUsage"/> 会先补发最后一份再抛）；
-/// 之前的各次已经完整收口，各写成功行。绝不把同一份量写两遍。
+/// 写入不放在「收到 usage 即写」，而是攒着、除最后一份外立刻落盘：长轮跑到一半界面就能看到；
+/// 最后一次收到的量要留着——中途断流时它属于失败的那一发，要并进失败行
+/// （<see cref="StreamUsage"/> 会先补发最后一份再抛）。绝不把同一份量写两遍。
 /// </para>
 /// <para>
 /// 计时：整轮的发出时刻由调用方给（与 <c>thinkingStats.NoteCallStarted()</c> 同一处）；
-/// 每次调用自己的起点由 <see cref="NoteCallBoundary"/> 推后（工具结果落进流里、或请求响应已落盘），
+/// 每次调用自己的起点由 <see cref="NoteCallBoundary"/> 推后（工具结果落进流里），
 /// 首帧在流的首条内容上记。严格 TTFT 应在 HTTP 层，这一层对「体验延迟」够用。
 /// </para>
 /// </summary>
@@ -39,10 +38,11 @@ public sealed class UsageCallTracker
     private bool _settled;
     private long _callStartedTs; //当前这次调用的发出时刻
     private long? _firstTokenTs; //当前这次调用的首帧
+    private int _retriesSeen; //已经分摊到某一行上的重发次数
 
     /// <summary>一次调用的定格：用量与它自己的计时，收口时才变成一行</summary>
-    private readonly record struct CapturedCall(long Ts, long StartedTs, int? FirstTokenMs, int LatencyMs,
-        long Input, long CachedRead, long? CachedWrite, long Output, long Reasoning);
+    private readonly record struct CapturedCall(long Ts, long StartedTs, int? FirstTokenMs, int? LatencyMs,
+        int RetryCount, long Input, long CachedRead, long? CachedWrite, long Output, long Reasoning);
 
     private UsageCallTracker(string sessionId, UsageModelIdentity model, long startedTs,
         Action<UsageRecord>? sink)
@@ -98,25 +98,15 @@ public sealed class UsageCallTracker
     public void NoteUsage(UsageDetails details)
     {
         if (_settled) return;
-        long now = Now();
-        _calls.Add(new CapturedCall(
-            now,
-            _callStartedTs,
-            _firstTokenTs is { } first ? (int)Math.Max(0, first - _callStartedTs) : null,
-            (int)Math.Clamp(now - _callStartedTs, 0, int.MaxValue),
-            details.InputTokenCount ?? 0,
-            TurnUsageLedger.ReadCachedTokens(details),
-            UsageTokens.ReadCachedWriteTokens(details),
-            details.OutputTokenCount ?? 0,
-            details.ReasoningTokenCount ?? 0));
+        _calls.Add(Capture(details, _callStartedTs));
         //下一次调用紧接在这一发之后；工具执行的耗时由 NoteCallBoundary 再推后
-        _callStartedTs = now;
+        _callStartedTs = Now();
         _firstTokenTs = null;
         FlushSettledCalls();
     }
 
     /// <summary>
-    /// 成功收口：每次服务调用各写一行。重发计数记在最后一行的——它是整轮的重发总数
+    /// 成功收口：每次服务调用各写一行
     /// </summary>
     public void Complete()
     {
@@ -125,17 +115,16 @@ public sealed class UsageCallTracker
         if (_calls.Count == 0)
         {
             //一次用量都没报（供应商不报 usage）：整轮记一行 0 token，别把这次请求整个丢掉
-            EmitZeroRow(true, null, null, null);
+            EmitCall(ZeroCall(true), true);
             return;
         }
 
-        for (int i = 0; i < _calls.Count; i++)
-            EmitCall(_calls[i], i == _calls.Count - 1 ? _retries.Retries : 0);
+        foreach (CapturedCall call in _calls) EmitCall(call, true);
     }
 
     /// <summary>
     /// 旁路请求（写交接文档）的成功收口：一次调用可能含两次 SDK 往返（禁工具重发），
-    /// 每条 usage 各一行；计时与重试只记在第一行，避免把总耗时重复分摊
+    /// 每条 usage 各一行；计时只记在第一行（总耗时没法拆），重发总数记在最后一行
     /// </summary>
     /// <param name="usages">这次旁路请求拿到的所有用量</param>
     public void CompleteWith(IReadOnlyList<UsageDetails> usages)
@@ -144,23 +133,26 @@ public sealed class UsageCallTracker
         _settled = true;
         if (usages.Count == 0)
         {
-            EmitZeroRow(true, null, null, null);
+            EmitCall(ZeroCall(true), true);
             return;
         }
 
         long now = Now();
         for (int i = 0; i < usages.Count; i++)
         {
-            UsageDetails usage = usages[i];
-            Emit(now, i == 0 ? _startedTs : null,
-                i == 0 ? FirstTokenMs() : null,
-                i == 0 ? (int)Math.Clamp(ElapsedMs(), 0, int.MaxValue) : null,
-                usage.InputTokenCount ?? 0,
-                TurnUsageLedger.ReadCachedTokens(usage),
-                UsageTokens.ReadCachedWriteTokens(usage),
-                usage.OutputTokenCount ?? 0,
-                usage.ReasoningTokenCount ?? 0,
-                true, null, null, null, i == 0 ? _retries.Retries : 0);
+            bool isFirst = i == 0;
+            bool isLast = i == usages.Count - 1;
+            EmitCall(new CapturedCall(
+                now,
+                isFirst ? _startedTs : now,
+                isFirst ? FirstTokenMs() : null,
+                isFirst ? (int)Math.Clamp(ElapsedMs(), 0, int.MaxValue) : null,
+                isLast ? _retries.Retries : 0,
+                usages[i].InputTokenCount ?? 0,
+                UsageTokens.ReadCachedTokens(usages[i]),
+                UsageTokens.ReadCachedWriteTokens(usages[i]),
+                usages[i].OutputTokenCount ?? 0,
+                usages[i].ReasoningTokenCount ?? 0), true);
         }
     }
 
@@ -177,22 +169,23 @@ public sealed class UsageCallTracker
         if (_settled) return;
         _settled = true;
 
-        for (int i = 0; i < _calls.Count - 1; i++) EmitCall(_calls[i], 0);
+        for (int i = 0; i < _calls.Count - 1; i++) EmitCall(_calls[i], true);
 
         string? errorDetail = detail ?? UsageErrorKinds.DetailOf(error);
         int? errorStatus = statusCode ?? UsageErrorKinds.StatusCodeOf(error);
         if (_calls.Count == 0)
         {
-            EmitZeroRow(false, errorKind, errorDetail, errorStatus);
+            EmitCall(ZeroCall(false), false, errorKind, errorDetail, errorStatus);
             return;
         }
 
-        long now = Now();
-        CapturedCall inFlight = _calls[^1];
-        Emit(now, inFlight.StartedTs, inFlight.FirstTokenMs,
-            (int)Math.Clamp(now - inFlight.StartedTs, 0, int.MaxValue),
-            inFlight.Input, inFlight.CachedRead, inFlight.CachedWrite, inFlight.Output, inFlight.Reasoning,
-            false, errorKind, errorDetail, errorStatus, _retries.Retries);
+        // 在途那一发：延迟算到失败为止，重发数是它自己那一段的增量
+        CapturedCall inFlight = _calls[^1] with
+        {
+            LatencyMs = (int)Math.Clamp(Now() - _calls[^1].StartedTs, 0, int.MaxValue),
+            RetryCount = _retries.Retries - _retriesSeen,
+        };
+        EmitCall(inFlight, false, errorKind, errorDetail, errorStatus);
     }
 
     /// <summary>把已确定收口的调用（除最后一份）立刻落盘，最后一份留在手里等终态</summary>
@@ -200,8 +193,28 @@ public sealed class UsageCallTracker
     {
         int count = _calls.Count - 1;
         if (count <= 0) return;
-        for (int i = 0; i < count; i++) EmitCall(_calls[i], 0);
+        for (int i = 0; i < count; i++) EmitCall(_calls[i], true);
         _calls.RemoveRange(0, count);
+    }
+
+    /// <summary>把「刚收到的一份用量」定格成一次调用（重发数按本发增量算）</summary>
+    private CapturedCall Capture(UsageDetails details, long startedTs)
+    {
+        long now = Now();
+        int retries = _retries.Retries;
+        CapturedCall call = new(
+            now,
+            startedTs,
+            _firstTokenTs is { } first ? (int)Math.Max(0, first - startedTs) : null,
+            (int)Math.Clamp(now - startedTs, 0, int.MaxValue),
+            retries - _retriesSeen,
+            details.InputTokenCount ?? 0,
+            UsageTokens.ReadCachedTokens(details),
+            UsageTokens.ReadCachedWriteTokens(details),
+            details.OutputTokenCount ?? 0,
+            details.ReasoningTokenCount ?? 0);
+        _retriesSeen = retries;
+        return call;
     }
 
     private static long Now() => DateTimeOffset.Now.ToUnixTimeMilliseconds();
@@ -210,31 +223,27 @@ public sealed class UsageCallTracker
 
     private int? FirstTokenMs() => _firstTokenTs is { } first ? (int)Math.Max(0, first - _startedTs) : null;
 
+    /// <summary>整轮一行、0 token：只用在「没有报任何用量」那条路上</summary>
+    private CapturedCall ZeroCall(bool ok) => new(
+        Now(), _startedTs, FirstTokenMs(),
+        ok ? (int)Math.Clamp(ElapsedMs(), 0, int.MaxValue) : FailureLatencyMs(),
+        _retries.Retries, 0, 0, null, 0, 0);
+
     /// <summary>失败行的延迟：一个字节都没收到时算「未测得」（null），而不是 0</summary>
     private int? FailureLatencyMs() => _firstTokenTs != null
         ? (int)Math.Clamp(ElapsedMs(), 0, int.MaxValue)
         : null;
 
-    /// <summary>整轮一行、0 token：只用在「没有报任何用量」那条路上</summary>
-    private void EmitZeroRow(bool ok, string? errorKind, string? errorDetail, int? statusCode) =>
-        Emit(Now(), _startedTs, FirstTokenMs(), ok ? (int)Math.Clamp(ElapsedMs(), 0, int.MaxValue) : FailureLatencyMs(),
-            0, 0, null, 0, 0, ok, errorKind, errorDetail, statusCode, _retries.Retries);
-
-    private void EmitCall(CapturedCall call, int retryCount) =>
-        Emit(call.Ts, call.StartedTs, call.FirstTokenMs, call.LatencyMs, call.Input, call.CachedRead,
-            call.CachedWrite, call.Output, call.Reasoning, true, null, null, null, retryCount);
-
-    private void Emit(long ts, long? startedTs, int? firstTokenMs, int? latencyMs, long input, long cachedRead,
-        long? cachedWrite, long output, long reasoning, bool ok, string? errorKind, string? errorDetail,
-        int? statusCode, int retryCount)
+    private void EmitCall(CapturedCall call, bool ok, string? errorKind = null, string? errorDetail = null,
+        int? statusCode = null)
     {
-        long started = startedTs ?? ts;
+        long started = call.StartedTs;
         try
         {
             //计价放在 try 里：价格表解析出问题也只丢这一条的账，不能把整轮对话带走
-            UsagePriceSnapshot price = _model.PriceFor(input, cachedRead, output);
+            UsagePriceSnapshot price = _model.PriceFor(call.Input, call.CachedRead, call.Output);
             UsageRecord record = new(
-                ts,
+                call.Ts,
                 started,
                 _sessionId,
                 _model.ModelName,
@@ -243,18 +252,18 @@ public sealed class UsageCallTracker
                 _model.ProviderKey,
                 _model.ApiBase,
                 _model.IsLocal,
-                input,
-                cachedRead,
-                cachedWrite,
-                output,
-                reasoning,
-                latencyMs,
-                firstTokenMs,
+                call.Input,
+                call.CachedRead,
+                call.CachedWrite,
+                call.Output,
+                call.Reasoning,
+                call.LatencyMs,
+                call.FirstTokenMs,
                 ok,
                 errorKind,
                 errorDetail,
                 statusCode,
-                retryCount,
+                call.RetryCount,
                 price.CostUsd,
                 price.Source,
                 price.Input,
@@ -277,6 +286,38 @@ public sealed class UsageCallTracker
 /// </summary>
 public static class UsageTokens
 {
+    /// <summary>
+    /// 命中前缀缓存的输入 token。各家键名不同（OpenAI 系是 <c>cached_tokens</c>，经 MEAI 映射后还会再改一次名），
+    /// 所以按子串命中而不是写死键名；找不到就是 0
+    /// </summary>
+    /// <param name="details">服务端报的用量</param>
+    /// <returns>命中的输入 token 数</returns>
+    public static long ReadCachedTokens(UsageDetails details)
+    {
+        if (details.CachedInputTokenCount != null) return (long)details.CachedInputTokenCount;
+        if (details.AdditionalCounts == null) return 0;
+
+        // 键名各家不同。注意 DeepSeek 会同时报 prompt_cache_hit_tokens 与
+        // prompt_cache_miss_tokens 两个键——两者都含 "cach"，字典遍历顺序不定，
+        // 先到的未必是命中数。所以优先匹配明确含 "hit" 的键，找不到再退回纯 "cach" 键。
+        long? cached = null;
+        foreach (KeyValuePair<string, long> pair in details.AdditionalCounts)
+        {
+            if (pair.Key.Contains("hit", StringComparison.OrdinalIgnoreCase) &&
+                pair.Key.Contains("cach", StringComparison.OrdinalIgnoreCase))
+            {
+                return pair.Value;
+            }
+
+            if (pair.Key.Contains("cach", StringComparison.OrdinalIgnoreCase) && cached == null)
+            {
+                cached = pair.Value;
+            }
+        }
+
+        return cached ?? 0;
+    }
+
     /// <summary>
     /// 缓存<b>写入</b> token。MEAI 的 <see cref="UsageDetails"/> 没有这个字段，OpenAI 兼容协议也不报，
     /// 只有 Anthropic 系的 <c>cache_creation_input_tokens</c> 会出现在附加计数里。

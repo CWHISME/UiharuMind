@@ -26,7 +26,7 @@ namespace UiharuMind.Core.AI.Usage;
 /// <param name="ErrorKind">失败类别（<see cref="UsageErrorKinds"/> 的常量）；成功为 null</param>
 /// <param name="ErrorDetail">失败行存简短错误消息（已截断）；成功为 null</param>
 /// <param name="StatusCode">HTTP 状态码；没有为 null</param>
-/// <param name="RetryCount">一次服务调用内部的重试次数（断线退避/自愈重发都算）</param>
+/// <param name="RetryCount">这次服务调用内部的重发次数（断线退避/自愈重发都算）；旁路请求只能拿到总数，记在最后一行</param>
 /// <param name="CostUsd">估算费用；null = 未定价（≠ 免费）</param>
 /// <param name="PriceSource">价格来源 <c>official</c> / <c>modelsdev</c>；未定价为 null</param>
 /// <param name="PriceInput">计价时用的输入价（USD / 百万 token），留证回溯</param>
