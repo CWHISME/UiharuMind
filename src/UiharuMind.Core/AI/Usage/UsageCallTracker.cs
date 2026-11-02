@@ -28,6 +28,7 @@ public sealed class UsageCallTracker
 {
     private readonly string _sessionId;
     private readonly UsageModelIdentity _model;
+    private readonly LlmServedModel _served = new();
     private readonly Action<UsageRecord> _sink;
     private readonly long _startedTs;
     private readonly LlmRetryTally _retries = new();
@@ -40,9 +41,17 @@ public sealed class UsageCallTracker
     private long? _firstTokenTs; //当前这次调用的首帧
     private int _retriesSeen; //已经分摊到某一行上的重发次数
 
+    /// <summary>
+    /// 这一发实际用了哪个模型的回收口。<b>调用方必须把它挂进 <see cref="LlmRequestScope"/></b>
+    /// （与 <see cref="RetryTally"/> 同一处 push），否则记账只能退回发起时那份身份快照——
+    /// 那份可能已经过时（会话模型在运行中被改过）
+    /// </summary>
+    public LlmServedModel ServedModel => _served;
+
     /// <summary>一次调用的定格：用量与它自己的计时，收口时才变成一行</summary>
     private readonly record struct CapturedCall(long Ts, long StartedTs, int? FirstTokenMs, int? LatencyMs,
-        int RetryCount, long Input, long CachedRead, long? CachedWrite, long Output, long Reasoning);
+        int RetryCount, long Input, long CachedRead, long? CachedWrite, long Output, long Reasoning,
+        UsageModelIdentity Model);
 
     private UsageCallTracker(string sessionId, UsageModelIdentity model, long startedTs,
         Action<UsageRecord>? sink)
@@ -152,7 +161,8 @@ public sealed class UsageCallTracker
                 UsageTokens.ReadCachedTokens(usages[i]),
                 UsageTokens.ReadCachedWriteTokens(usages[i]),
                 usages[i].OutputTokenCount ?? 0,
-                usages[i].ReasoningTokenCount ?? 0), true);
+                usages[i].ReasoningTokenCount ?? 0,
+                Identity()), true);
         }
     }
 
@@ -212,10 +222,18 @@ public sealed class UsageCallTracker
             UsageTokens.ReadCachedTokens(details),
             UsageTokens.ReadCachedWriteTokens(details),
             details.OutputTokenCount ?? 0,
-            details.ReasoningTokenCount ?? 0);
+            details.ReasoningTokenCount ?? 0,
+            Identity());
         _retriesSeen = retries;
         return call;
     }
+
+    /// <summary>
+    /// 这一发记成哪个模型：<b>以请求路径实际解析出的为准</b>（<see cref="ServedModel"/>），
+    /// 拿不到才退回发起时那份快照——那份只是「发起那一刻的猜测」，会话模型中途换过就会过时
+    /// </summary>
+    private UsageModelIdentity Identity() =>
+        _served.Model is { } served ? UsageModelIdentity.From(served, DateTimeOffset.Now) : _model;
 
     private static long Now() => DateTimeOffset.Now.ToUnixTimeMilliseconds();
 
@@ -227,7 +245,7 @@ public sealed class UsageCallTracker
     private CapturedCall ZeroCall(bool ok) => new(
         Now(), _startedTs, FirstTokenMs(),
         ok ? (int)Math.Clamp(ElapsedMs(), 0, int.MaxValue) : FailureLatencyMs(),
-        _retries.Retries, 0, 0, null, 0, 0);
+        _retries.Retries, 0, 0, null, 0, 0, Identity());
 
     /// <summary>失败行的延迟：一个字节都没收到时算「未测得」（null），而不是 0</summary>
     private int? FailureLatencyMs() => _firstTokenTs != null
@@ -238,20 +256,21 @@ public sealed class UsageCallTracker
         int? statusCode = null)
     {
         long started = call.StartedTs;
+        UsageModelIdentity model = call.Model;
         try
         {
             //计价放在 try 里：价格表解析出问题也只丢这一条的账，不能把整轮对话带走
-            UsagePriceSnapshot price = _model.PriceFor(call.Input, call.CachedRead, call.Output);
+            UsagePriceSnapshot price = model.PriceFor(call.Input, call.CachedRead, call.Output);
             UsageRecord record = new(
                 call.Ts,
                 started,
                 _sessionId,
-                _model.ModelName,
-                _model.ModelId,
-                _model.ProviderId,
-                _model.ProviderKey,
-                _model.ApiBase,
-                _model.IsLocal,
+                model.ModelName,
+                model.ModelId,
+                model.ProviderId,
+                model.ProviderKey,
+                model.ApiBase,
+                model.IsLocal,
                 call.Input,
                 call.CachedRead,
                 call.CachedWrite,

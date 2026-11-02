@@ -95,7 +95,11 @@ public static class GroupBackground
         UsageCallTracker call = UsageCallTracker.Begin(source.SessionId, UsageModelIdentity.From(
             LazyChatClient.ServingModel(source.ChatModelRunningData, LlmManager.Instance.EffectiveGlobalModel),
             DateTimeOffset.Now));
-        using (LlmRequestScope.Push(LlmRequestScope.Current with { RetryTally = call.Retries }))
+        using (LlmRequestScope.Push(LlmRequestScope.Current with
+               {
+                   RetryTally = call.Retries,
+                   ServedModel = call.ServedModel,
+               }))
         {
             try
             {

@@ -324,9 +324,12 @@ public sealed class ConversationItemActions
     private void PairStreamedThinking(IReadOnlyList<ChatMessage> history)
     {
         List<ThinkingItem> unwired = new();
-        foreach (ConversationItemBase item in _items)
+        int firstUnwiredAt = -1;
+        for (int i = 0; i < _items.Count; i++)
         {
-            if (item is ThinkingItem thinking && thinking.SourceMessage == null) unwired.Add(thinking);
+            if (_items[i] is not ThinkingItem thinking || thinking.SourceMessage != null) continue;
+            if (firstUnwiredAt < 0) firstUnwiredAt = i;
+            unwired.Add(thinking);
         }
 
         if (unwired.Count == 0) return;
@@ -351,20 +354,28 @@ public sealed class ConversationItemActions
             if (length > 0) candidates.Add((message, i, length));
         }
 
+        // 这张卡上面最近一条已配对条目的历史下标。长度精确配对遇到多条同长候选时以它为准：
+        // 长历史里同长度的思考不止一条（实测 444 条里 400 字的两处相隔两百多条），
+        // 只取最早那条会把尾巴上这张卡认到旧消息上——真正那条于是仍算「没画」，
+        // 补画又画一遍，同一段思考在界面上出现两次，对账随后还报「item #11 指向 #214」
+        int frontier = LastDrawnIndexBefore(firstUnwiredAt, history);
+
         int assigned = -1; //已认走的最靠后的历史下标：之后的所有认领都不许越过它回头
         if (candidates.Count > 0)
         {
             foreach (ThinkingItem thinking in unwired)
             {
                 int length = thinking.FullLength;
-                for (int i = 0; i < candidates.Count; i++)
-                {
-                    if (candidates[i].Index < assigned || candidates[i].ReasoningLength != length) continue;
-                    thinking.SourceMessage = candidates[i].Message;
-                    assigned = candidates[i].Index;
-                    candidates.RemoveAt(i);
-                    break;
-                }
+                // 先取不比 frontier 更早的那条；一条都没有（卡属于更早的重放段）才退回原口径
+                int slot = candidates.FindIndex(x =>
+                    x.Index >= assigned && x.Index >= frontier && x.ReasoningLength == length);
+                if (slot < 0)
+                    slot = candidates.FindIndex(x => x.Index >= assigned && x.ReasoningLength == length);
+                if (slot < 0) continue;
+
+                thinking.SourceMessage = candidates[slot].Message;
+                assigned = candidates[slot].Index;
+                candidates.RemoveAt(slot);
             }
 
             foreach (ThinkingItem thinking in unwired)
@@ -391,6 +402,26 @@ public sealed class ConversationItemActions
             if (_items[i] is not ThinkingItem thinking || thinking.SourceMessage != null) continue;
             if (i + 1 < _items.Count) thinking.SourceMessage = _items[i + 1].SourceMessage;
         }
+    }
+
+    /// <summary>
+    /// <paramref name="itemIndex"/> 之上最近一条已配对条目的历史下标；一条都没有为 -1。
+    /// 流式思考卡永远长在尾巴上，认领的只能是它上面那条之后的推理消息——把这条边界交给长度配对做平局判定
+    /// </summary>
+    /// <param name="itemIndex">条目在界面集合里的下标</param>
+    /// <param name="history">当前历史</param>
+    /// <returns>历史下标；没有已配对条目为 -1</returns>
+    private int LastDrawnIndexBefore(int itemIndex, IReadOnlyList<ChatMessage> history)
+    {
+        Dictionary<ChatMessage, int> order = new(history.Count, ReferenceEqualityComparer.Instance);
+        for (int i = 0; i < history.Count; i++) order[history[i]] = i;
+
+        for (int i = itemIndex - 1; i >= 0; i--)
+        {
+            if (_items[i].SourceMessage is { } source && order.TryGetValue(source, out int index)) return index;
+        }
+
+        return -1;
     }
 
     private void OnEdited(ConversationItemBase item)

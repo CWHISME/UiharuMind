@@ -268,7 +268,11 @@ public sealed partial class TurnDriver : IDisposable
                 try
                 {
                     // 重发计数口随请求上下文下传（断线退避、max_tokens 自愈都算）
-                    using (LlmRequestScope.Push(LlmRequestScope.Current with { RetryTally = usageCall.Retries }))
+                    using (LlmRequestScope.Push(LlmRequestScope.Current with
+                           {
+                               RetryTally = usageCall.Retries,
+                               ServedModel = usageCall.ServedModel,
+                           }))
                     {
                         await foreach (AIContent content in runner.RunAsync(nextMessages, cancellationToken))
                         {
@@ -911,7 +915,11 @@ public sealed partial class TurnDriver : IDisposable
             // 请求级用量：发出时刻、模型身份在请求之前定格；重试计数随上下文下传
             handoffCall = UsageCallTracker.Begin(session.SessionId, ResolveUsageIdentity(session));
             HandoffReply reply;
-            using (LlmRequestScope.Push(LlmRequestScope.Current with { RetryTally = handoffCall.Retries }))
+            using (LlmRequestScope.Push(LlmRequestScope.Current with
+                   {
+                       RetryTally = handoffCall.Retries,
+                       ServedModel = handoffCall.ServedModel,
+                   }))
             {
                 reply = await HistoryHandoff.WriteAsync(HistorySupply.ClientFor(session), supplied,
                     runner.ChatOptions, _usage.ContextLength, extraInstructions,

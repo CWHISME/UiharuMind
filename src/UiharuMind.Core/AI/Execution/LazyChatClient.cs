@@ -799,6 +799,9 @@ public class LazyChatClient : IChatClient
             await Task.Delay(200, cancellationToken).ConfigureAwait(false);
         }
 
+        // 账要记的是「这一发发给了谁」，就是此刻定下来的这个；记账侧不再自己解析一次，
+        // 否则两条路各给一个答案（会话模型在运行中改过时尤其明显）
+        LlmRequestScope.Current.ServedModel?.Note(model);
         return (model.ChatClient ?? throw new InvalidOperationException("Model is not running."), model);
     }
 }

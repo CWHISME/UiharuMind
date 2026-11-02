@@ -45,7 +45,11 @@ public static class AvatarApprovalJudge
             LazyChatClient.ServingModel(ask.Avatar.ChatModelRunningData, LlmManager.Instance.EffectiveGlobalModel),
             DateTimeOffset.Now));
         ChatResponse response;
-        using (LlmRequestScope.Push(LlmRequestScope.Current with { RetryTally = call.Retries }))
+        using (LlmRequestScope.Push(LlmRequestScope.Current with
+               {
+                   RetryTally = call.Retries,
+                   ServedModel = call.ServedModel,
+               }))
         {
             try
             {

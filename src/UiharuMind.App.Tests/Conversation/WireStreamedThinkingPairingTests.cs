@@ -73,6 +73,43 @@ public class WireStreamedThinkingPairingTests
     }
 
     /// <summary>
+    /// 长历史里同长度的思考不止一条时，尾巴上的流式卡必须认它上面那条之后的，不能认到更早的同长消息。
+    /// 线上：444 条历史里 400 字的思考有两处（#214 与 #435），卡被认到 #214，真正那条于是仍算漏画，
+    /// 补画又画一遍——同一段思考出现两次（耗时一个墙钟、一个读存档），对账随后报
+    /// 「item #11 points at history #214, which is behind #433」。
+    /// </summary>
+    [Fact]
+    public void ATailThinkingCardDoesNotClaimAnOlderMessageOfTheSameLength()
+    {
+        var (actions, items) = Create();
+        // 很早就有一条 400 字的思考：长度上与尾巴那条一模一样，是陷阱
+        ChatMessage old = new(ChatRole.Assistant, [new TextReasoningContent(new string('旧', 400))]);
+        ChatMessage earlier = new(ChatRole.Assistant, [new FunctionCallContent("call-8", "Read")]);
+        ChatMessage earlierResult = new(ChatRole.Tool, [new FunctionResultContent("call-8", "结果")]);
+        string tailReasoning = new('新', 400);
+        ChatMessage recent = new(ChatRole.Assistant,
+        [
+            new TextReasoningContent(tailReasoning),
+            new FunctionCallContent("call-10", "Shell"),
+        ]);
+        List<ChatMessage> history = [old, earlier, earlierResult, recent];
+
+        ToolCallItem earlierCard = new() { CallId = "call-8", ToolName = "Read" };
+        ThinkingItem thinking = new();
+        thinking.Append(tailReasoning);
+        ToolCallItem tailCard = new() { CallId = "call-10", ToolName = "Shell" };
+        items.Add(earlierCard);
+        items.Add(thinking);
+        items.Add(tailCard);
+
+        actions.WireStreamed(history);
+
+        Assert.Same(recent, thinking.SourceMessage);
+        Assert.Equal(0, ConversationOrderCheck.FindMissingTail(items, history));
+        Assert.Null(ConversationOrderCheck.FindDivergence(items, history));
+    }
+
+    /// <summary>
     /// 长度对不上时（中途停止、截断）按顺序尽力配：配上总比空着强，
     /// 空着的思考卡删不掉（没有自己的删除按钮，来源也不在删除集合里）。
     /// </summary>

@@ -60,4 +60,12 @@ public sealed record LlmRequestContext
     /// AsyncLocal 里写下的数字不向调用方回流，引用可以
     /// </summary>
     public LlmRetryTally? RetryTally { get; init; }
+
+    /// <summary>
+    /// 这一发<b>实际用了哪个模型</b>的回收口。由调用方（用量记账）挂一个可变对象进来，
+    /// <see cref="Execution.LazyChatClient"/> 解析完就写进去，记账在收口时读。
+    /// 存在的理由与 <see cref="RetryTally"/> 相同；区别是记账不能自己再解析一次——
+    /// 那会与真正发请求的那次解析各给一个答案（见 <see cref="LlmServedModel"/>）
+    /// </summary>
+    public LlmServedModel? ServedModel { get; init; }
 }

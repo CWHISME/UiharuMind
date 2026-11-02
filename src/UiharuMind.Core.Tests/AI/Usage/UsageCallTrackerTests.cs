@@ -153,6 +153,35 @@ public sealed class UsageCallTrackerTests
     }
 
     [Fact]
+    public void ServedModel_OverridesTheIdentitySnapshotTakenAtBegin()
+    {
+        // 会话模型在运行中被改过：发起时那份快照已经过时，账要以请求路径实际解析出的模型为准，
+        // 否则模型列写的是别人、金额按另一家的价目算
+        List<UsageRecord> records = [];
+        UsageCallTracker tracker = UsageCallTracker.Begin("s", DeepSeekIdentity(), sink: records.Add);
+        tracker.ServedModel.Note(SensenovaModel());
+        tracker.NoteUsage(new UsageDetails { InputTokenCount = 1000, OutputTokenCount = 100 });
+        tracker.Complete();
+
+        UsageRecord record = Assert.Single(records);
+        Assert.Equal("商汤 测试", record.ModelName);
+        Assert.Equal("deepseek-flash", record.ModelId);
+        Assert.Equal("sensenova", record.ProviderKey);
+    }
+
+    [Fact]
+    public void ServedModel_Absent_FallsBackToTheSnapshot()
+    {
+        // 没把回收口挂进请求上下文（旁路路径漏挂）时退回快照，不写空身份
+        List<UsageRecord> records = [];
+        UsageCallTracker tracker = UsageCallTracker.Begin("s", DeepSeekIdentity(), sink: records.Add);
+        tracker.NoteUsage(new UsageDetails { InputTokenCount = 10, OutputTokenCount = 1 });
+        tracker.Complete();
+
+        Assert.Equal("DeepSeek 测试", Assert.Single(records).ModelName);
+    }
+
+    [Fact]
     public void CompleteWith_OneRowPerUsageAndTimingOnlyOnTheFirst()
     {
         List<UsageRecord> records = [];
@@ -243,4 +272,14 @@ public sealed class UsageCallTrackerTests
 
     private static UsageModelIdentity DeepSeekIdentity() =>
         UsageModelIdentity.From(DeepSeekModel(), DateTimeOffset.Now);
+
+    private static ModelRunningData SensenovaModel() => new(new RemoteModelInfo
+    {
+        Config = new RemoteSensenovaModelConfig
+        {
+            ModelName = "商汤 测试",
+            ModelId = "deepseek-flash",
+            ModelPath = "https://token.sensenova.cn/v1/chat/completions",
+        },
+    });
 }
