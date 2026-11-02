@@ -110,4 +110,74 @@ public class TextToolCallRecoveryTests
         Assert.Equal("a.cs", call.Arguments!["filePath"]);
         Assert.Equal("10", call.Arguments!["offset"]);
     }
+
+    /// <summary>
+    /// 实录（小米 MiMo）：两次 Grep 都写成 <c>&lt;function=…&gt;&lt;parameter=…&gt;</c> 的纯文本，
+    /// 服务端只解出一条 arguments 为 <c>{}</c> 的结构化调用，于是框架执行空调用、缺必填参数报错，
+    /// 模型反复重试同一段文本，一轮作废。正文这条必须能恢复出真正的参数。
+    /// </summary>
+    [Fact]
+    public void RealWorldLeak_FunctionParameterDialect_IsRecovered()
+    {
+        const string leaked =
+            "<tool_call><function=Grep><parameter=pattern>class PresenceSession</parameter>" +
+            "<parameter=path>Code/Hosts/Godot/Project/Framework</parameter></function></tool_call>" +
+            "<tool_call><function=Grep><parameter=pattern>class StageDirector|class PixelZoom</parameter>" +
+            "<parameter=path>Code/Hosts/Godot/Project</parameter></function></tool_call>";
+
+        TextToolCallStreamParser parser = new(Tools);
+        (string text, List<FunctionCallContent> calls) = parser.Feed(leaked);
+        (string tail, List<FunctionCallContent> tailCalls) = parser.Flush();
+
+        Assert.Equal("", text + tail); //整段都是调用，不该留半截 XML 在正文里
+        Assert.Empty(tailCalls);
+        Assert.Equal(2, calls.Count);
+        Assert.All(calls, c => Assert.Equal("Grep", c.Name));
+        Assert.Equal("class PresenceSession", calls[0].Arguments!["pattern"]);
+        Assert.Equal("Code/Hosts/Godot/Project/Framework", calls[0].Arguments!["path"]);
+        Assert.Equal("Code/Hosts/Godot/Project", calls[1].Arguments!["path"]);
+    }
+
+    /// <summary>同一个模型经常只写开标签就换下一个参数：没有 <c>&lt;/parameter&gt;</c> 也要能切</summary>
+    [Fact]
+    public void FunctionParameterDialect_WithoutClosingTags_StillParses()
+    {
+        const string leaked = "<tool_call><function=Grep><parameter=path>Code/Project" +
+                              "<parameter=pattern>class PresenceSession</tool_call>";
+
+        TextToolCallStreamParser parser = new(Tools);
+        (_, List<FunctionCallContent> calls) = parser.Feed(leaked);
+
+        FunctionCallContent call = Assert.Single(calls);
+        Assert.Equal("Code/Project", call.Arguments!["path"]);
+        Assert.Equal("class PresenceSession", call.Arguments!["pattern"]);
+    }
+
+    /// <summary>参数值里带 <c>&lt;</c>（正则、泛型）：有闭合标签时以闭合标签为界，别把它当标签切掉</summary>
+    [Fact]
+    public void FunctionParameterDialect_ValueWithAngleBracket_IsKept()
+    {
+        const string leaked = "<tool_call><function=Grep><parameter=pattern>List&lt;T&gt;|a<b</parameter>" +
+                              "<parameter=path>src</parameter></function></tool_call>";
+
+        TextToolCallStreamParser parser = new(Tools);
+        (_, List<FunctionCallContent> calls) = parser.Feed(leaked);
+
+        Assert.Equal("List&lt;T&gt;|a<b", Assert.Single(calls).Arguments!["pattern"]);
+    }
+
+    /// <summary>名字不命中已装配工具的 <c>&lt;function=…&gt;</c> 块同样原文放行</summary>
+    [Fact]
+    public void FunctionParameterDialect_UnknownTool_PassesThroughAsText()
+    {
+        const string input = "模板示例:<tool_call><function=NotATool><parameter=x>1</parameter></tool_call>";
+        TextToolCallStreamParser parser = new(Tools);
+
+        (string text, List<FunctionCallContent> calls) = parser.Feed(input);
+        (string tail, List<FunctionCallContent> tailCalls) = parser.Flush();
+
+        Assert.Empty(calls);
+        Assert.Empty(tailCalls);
+        Assert.Equal(input, text + tail);
+    }
 }

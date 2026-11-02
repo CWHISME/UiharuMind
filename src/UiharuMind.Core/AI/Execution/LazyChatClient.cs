@@ -333,6 +333,8 @@ public class LazyChatClient : IChatClient
         // 使上层框架的函数调用循环照常执行。两通道各持解析器,互不串流。
         TextToolCallStreamParser? textParser = toolNames == null ? null : new TextToolCallStreamParser(toolNames);
         TextToolCallStreamParser? reasoningParser = toolNames == null ? null : new TextToolCallStreamParser(toolNames);
+        // 这一发从正文/思考里恢复出来的工具名：服务端同时下发的空参数结构化调用靠它认出来丢掉
+        HashSet<string> recoveredCalls = new(StringComparer.Ordinal);
 
         // [诊断] 统计思考/正文各收到多少字符。流完整收完但界面没有正文时,
         // 这条日志能区分"服务端根本没发正文"与"发了但被上层丢了"
@@ -439,10 +441,14 @@ public class LazyChatClient : IChatClient
                     {
                         case TextContent { Text.Length: > 0 } tc:
                             textChars += tc.Text.Length;
-                            Append(rebuilt, textParser.Feed(tc.Text), isReasoning: false);
+                            Append(rebuilt, textParser.Feed(tc.Text), isReasoning: false, recoveredCalls);
                             break;
                         case TextReasoningContent { Text.Length: > 0 } rc:
-                            Append(rebuilt, reasoningParser!.Feed(rc.Text), isReasoning: true);
+                            Append(rebuilt, reasoningParser!.Feed(rc.Text), isReasoning: true, recoveredCalls);
+                            break;
+                        // 服务端把同一个调用发了两遍：结构化那条 arguments 是空对象，正文里那条才有参数。
+                        // 空的那条执行必然失败（缺必填参数），留着只会让模型收到一条没用的错误
+                        case FunctionCallContent emptyCall when IsRecoveredDuplicate(emptyCall, recoveredCalls):
                             break;
                         default:
                             //空正文/空思考不留:它们只会把思考段切碎,详见 ChatContentNormalizer
@@ -595,31 +601,50 @@ public class LazyChatClient : IChatClient
     }
 
     private static void Append(List<AIContent> target,
-        (string Text, List<FunctionCallContent> Calls) parsed, bool isReasoning)
+        (string Text, List<FunctionCallContent> Calls) parsed, bool isReasoning, HashSet<string>? recovered = null)
     {
         if (parsed.Text.Length > 0)
         {
             target.Add(isReasoning ? new TextReasoningContent(parsed.Text) : new TextContent(parsed.Text));
         }
 
+        if (recovered != null)
+        {
+            foreach (FunctionCallContent call in parsed.Calls) recovered.Add(call.Name);
+        }
+
         target.AddRange(parsed.Calls);
     }
+
+    /// <summary>
+    /// 这条结构化调用是不是「正文里已经恢复过的同一个调用」的空壳。
+    ///
+    /// <para>实测小米 MiMo：正文写了 <c>&lt;function=Grep&gt;&lt;parameter=…</c> 的完整调用，
+    /// 服务端同时也下发一条 <c>tool_calls</c>，但 <c>arguments</c> 是 <c>{}</c>。
+    /// 两条都执行的话，空的那条必然因缺必填参数报错，模型收到一条毫无信息量的失败，
+    /// 还会以为自己「多写了一个空调用」而反复重试。</para>
+    /// </summary>
+    private static bool IsRecoveredDuplicate(FunctionCallContent call, HashSet<string> recoveredNames) =>
+        call.Arguments is null or { Count: 0 } && recoveredNames.Contains(call.Name);
 
     /// <summary>非流式响应的同款恢复(每条消息独立解析并冲刷)</summary>
     private static IList<AIContent> RecoverTextToolCalls(IList<AIContent> contents, HashSet<string> toolNames)
     {
         TextToolCallStreamParser textParser = new(toolNames);
         TextToolCallStreamParser reasoningParser = new(toolNames);
+        HashSet<string> recoveredCalls = new(StringComparer.Ordinal);
         List<AIContent> rebuilt = new(contents.Count);
         foreach (AIContent content in contents)
         {
             switch (content)
             {
                 case TextContent { Text.Length: > 0 } tc:
-                    Append(rebuilt, textParser.Feed(tc.Text), isReasoning: false);
+                    Append(rebuilt, textParser.Feed(tc.Text), isReasoning: false, recoveredCalls);
                     break;
                 case TextReasoningContent { Text.Length: > 0 } rc:
-                    Append(rebuilt, reasoningParser.Feed(rc.Text), isReasoning: true);
+                    Append(rebuilt, reasoningParser.Feed(rc.Text), isReasoning: true, recoveredCalls);
+                    break;
+                case FunctionCallContent emptyCall when IsRecoveredDuplicate(emptyCall, recoveredCalls):
                     break;
                 default:
                     if (!ChatContentNormalizer.IsEmptyTextLike(content)) rebuilt.Add(content);
@@ -627,8 +652,8 @@ public class LazyChatClient : IChatClient
             }
         }
 
-        Append(rebuilt, textParser.Flush(), isReasoning: false);
-        Append(rebuilt, reasoningParser.Flush(), isReasoning: true);
+        Append(rebuilt, textParser.Flush(), isReasoning: false, recoveredCalls);
+        Append(rebuilt, reasoningParser.Flush(), isReasoning: true, recoveredCalls);
         return rebuilt;
     }
 

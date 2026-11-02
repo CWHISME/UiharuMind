@@ -8,19 +8,20 @@
  ****************************************************************************/
 
 using System.Text;
-using System.Text.RegularExpressions;
 using Microsoft.Extensions.AI;
 
 namespace UiharuMind.Core.AI.Execution.ToolCall;
 
 /// <summary>
-/// 从文本流中恢复漏成纯文本的工具调用(GLM 线格式:
-/// <c>&lt;tool_call&gt;名字&lt;arg_key&gt;K&lt;/arg_key&gt;&lt;arg_value&gt;V&lt;/arg_value&gt;&lt;/tool_call&gt;</c>)。
+/// 从文本流中恢复漏成纯文本的工具调用。写法按 <see cref="TextToolCallDialects.All"/> 分派——
+/// GLM 线的 <c>&lt;arg_key&gt;K&lt;/arg_key&gt;&lt;arg_value&gt;V&lt;/arg_value&gt;</c>，
+/// MiMo 线的 <c>&lt;function=名字&gt;&lt;parameter=K&gt;V</c>，两种都认。
 ///
-/// GLM 系模型以该 XML 作为工具调用协议,本应由服务端解析成结构化 tool_calls;
-/// 思考模式下模型把调用写进思考通道、或本地/代理端点缺解析器时,它会以纯文本漏进响应——
-/// 框架的函数调用循环只认结构化 <see cref="FunctionCallContent"/>,于是"模型以为调了工具,
-/// 管线以为它说完了",一轮就此终止。本解析器把完整的调用块转回结构化内容,其余文本原样放行。
+/// 这些模型以 XML 作为工具调用协议,本应由服务端解析成结构化 tool_calls;
+/// 思考模式下模型把调用写进思考通道、或服务端只解析出一半（MiMo 会给一条 arguments 为空的调用）
+/// 时,它会以纯文本漏进响应——框架的函数调用循环只认结构化 <see cref="FunctionCallContent"/>,
+/// 于是"模型以为调了工具,管线以为它说完了",一轮就此终止。
+/// 本解析器把完整的调用块转回结构化内容,其余文本原样放行。
 ///
 /// 两道安全闸:仅在请求带工具时启用(由调用方决定);解析出的工具名必须命中实际装配的工具,
 /// 否则整块按原文放行——讨论这种语法的正常文本不受影响。跨增量切断安全(块可任意分片到达)。
@@ -30,10 +31,6 @@ internal sealed class TextToolCallStreamParser
     private const string OpenTag = "<tool_call>";
     private const string CloseTag = "</tool_call>";
     private const int MaxCaptureChars = 16_384; //捕获中的块超过此长度仍无闭合标签,按原文放弃
-
-    private static readonly Regex ArgPairRegex = new(
-        "<arg_key>(?<key>.*?)</arg_key>\\s*<arg_value>(?<value>.*?)</arg_value>",
-        RegexOptions.Singleline | RegexOptions.Compiled);
 
     private readonly IReadOnlySet<string> _toolNames;
     private readonly StringBuilder _buffer = new(); //尚未定性的文本(可能含未闭合的调用块)
@@ -122,21 +119,17 @@ internal sealed class TextToolCallStreamParser
     private bool TryParseCall(string block, out FunctionCallContent? call)
     {
         call = null;
-        int firstArg = block.IndexOf("<arg_key>", StringComparison.Ordinal);
-        string name = (firstArg < 0 ? block : block[..firstArg]).Trim();
-        if (name.Length == 0 || !_toolNames.Contains(name)) return false;
-
-        Dictionary<string, object?> arguments = new();
-        if (firstArg >= 0)
+        foreach (ITextToolCallDialect dialect in TextToolCallDialects.All)
         {
-            foreach (Match match in ArgPairRegex.Matches(block, firstArg))
-            {
-                arguments[match.Groups["key"].Value.Trim()] = match.Groups["value"].Value;
-            }
+            if (!dialect.TryParse(block, out string name, out Dictionary<string, object?> arguments)) continue;
+            // 名字不命中已装配工具或形状不对:按原文放行,不做聪明事
+            if (!_toolNames.Contains(name)) continue;
+
+            call = new FunctionCallContent($"text_tool_call_{++_callSequence}", name, arguments);
+            return true;
         }
 
-        call = new FunctionCallContent($"text_tool_call_{++_callSequence}", name, arguments);
-        return true;
+        return false;
     }
 
     /// <summary>尾部若是起始标签的前缀(如 "&lt;tool_ca"),返回该前缀长度以便扣留</summary>
