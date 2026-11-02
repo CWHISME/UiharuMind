@@ -69,6 +69,13 @@ public partial class UsagePageData : PageDataBase
     /// <summary>KPI 六卡</summary>
     public ObservableCollection<UsageKpiCardViewData> Kpis { get; } = new();
 
+    /// <summary>
+    /// 趋势图/占比图的数据换过一轮（换范围、换指标、刷新都会走到）。
+    /// 视图收到后要补一次「等画布出帧再测量」，否则 LiveCharts 会把这次重建吞掉——
+    /// 它只在画布出过新帧之后才允许测量，而静止的图表不会再出帧。见 <see cref="UsagePage"/>
+    /// </summary>
+    public event Action? ChartsRebuilt;
+
     /// <summary>排行（Top N + 其他）</summary>
     public ObservableCollection<UsageRankItemViewData> RankItems { get; } = new();
 

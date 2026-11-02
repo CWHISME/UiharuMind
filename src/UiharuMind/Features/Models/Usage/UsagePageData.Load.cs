@@ -73,7 +73,7 @@ public partial class UsagePageData
             ModelOptions.Add(new UsageOptionViewData(null, Loc.Text(LangKey.UsageAllModels)));
             SessionOptions.Add(new UsageOptionViewData(null, Loc.Text(LangKey.UsageAllSessions)));
 
-            RangeOption = RangeOptions[1]; //默认近 7 天
+            RangeOption = RangeOptions[0]; //默认今日：进页面先看当天，要更长的范围再自己切
             GranularityOption = GranularityOptions[0];
             TrendMetricOption = TrendMetricOptions[0];
             RankDimensionOption = RankDimensionOptions[0];

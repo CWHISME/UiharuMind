@@ -26,12 +26,25 @@ public partial class UsagePageData
     /// <summary>X 轴最多显示这么多个刻度（其余留空，避免挤成一团）</summary>
     private const int MaxAxisLabels = 10;
 
+    /// <summary>
+    /// 折线的平滑度（0 = 折线，1 = 最圆）。<b>取 LiveCharts 官方默认的 0.65</b>：
+    /// 库里那几个示例的「贝塞尔感」就是它给的。注意两点以上才弯得起来——
+    /// 只有两个非空点的一段，控制点落在同一条直线上，再大的平滑度也还是直线
+    /// </summary>
+    private const double Smoothness = 0.65;
+
     private EUsageTrendMetric CurrentTrendMetric =>
         Enum.TryParse(TrendMetricOption?.Value, true, out EUsageTrendMetric parsed)
             ? parsed
             : EUsageTrendMetric.TokensAndCost;
 
     private void RebuildTrend()
+    {
+        RebuildTrendCore();
+        ChartsRebuilt?.Invoke();
+    }
+
+    private void RebuildTrendCore()
     {
         UsageChartPalette palette = UsageChartPalette.Current;
         if (IsSessionView)
@@ -51,7 +64,7 @@ public partial class UsagePageData
         {
             case EUsageTrendMetric.Cost:
                 TrendSeries = [CreateCostSeries(points, palette, 0)];
-                TrendYAxes = [CreateValueAxis(palette, MoneyLabel, separators: true)];
+                TrendYAxes = [CreateCostAxis(points, palette, atEnd: false)];
                 break;
             case EUsageTrendMetric.Latency:
                 TrendSeries = [CreateLatencySeries(points, palette, 0)];
@@ -75,7 +88,7 @@ public partial class UsagePageData
                 TrendYAxes =
                 [
                     CreateValueAxis(palette, TokenLabel, separators: true),
-                    CreateValueAxis(palette, MoneyLabel, separators: false, atEnd: true),
+                    CreateCostAxis(points, palette, atEnd: true),
                 ];
                 break;
         }
@@ -158,12 +171,14 @@ public partial class UsagePageData
         int scale) =>
         new LineSeries<decimal?>
         {
-            Values = points.Select(x => x.CostUsd).ToArray(),
+            //空桶落 0 而不是断线：那天没请求就是没花钱，是已知的 0，不是「不知道」；
+            //有请求但全没定价的桶仍然是 null，那才是真的没有数
+            Values = points.Select(x => x.Requests == 0 ? 0m : x.CostUsd).ToArray(),
             Name = Loc.Text(LangKey.UsageTrendSeriesCost),
             Stroke = palette.CostStroke,
             Fill = null,
             GeometrySize = 0,
-            LineSmoothness = 0.2,
+            LineSmoothness = Smoothness,
             ScalesYAt = scale,
         };
 
@@ -176,7 +191,7 @@ public partial class UsagePageData
             Stroke = palette.LatencyStroke,
             Fill = null,
             GeometrySize = 0,
-            LineSmoothness = 0.2,
+            LineSmoothness = Smoothness,
             ScalesYAt = scale,
         };
 
@@ -189,7 +204,7 @@ public partial class UsagePageData
             Stroke = palette.ErrorStroke,
             Fill = null,
             GeometrySize = 0,
-            LineSmoothness = 0.2,
+            LineSmoothness = Smoothness,
             ScalesYAt = scale,
         };
 
@@ -205,16 +220,31 @@ public partial class UsagePageData
     };
 
     private static Axis CreateValueAxis(UsageChartPalette palette, Func<double, string> labeler, bool separators,
-        bool atEnd = false) => new()
+        bool atEnd = false, double minLimit = 0) => new()
     {
-        //柱图从 0 起：只显示 200k 以上会把「安静的那几天」裁成空白，看起来像没数据
-        MinLimit = 0,
+        //默认从 0 起：只显示 200k 以上会把「安静的那几天」裁成空白，看起来像没数据。
+        //费用轴是例外，底线要压到 0 以下，见 CreateCostAxis
+        MinLimit = minLimit,
         Labeler = labeler,
         TextSize = 11,
         LabelsPaint = palette.AxisLabel,
         SeparatorsPaint = separators ? palette.Separator : null,
         Position = atEnd ? AxisPosition.End : AxisPosition.Start,
     };
+
+    /// <summary>
+    /// 费用轴。<b>底线压在 0 下面一点点</b>，不是为了好看：
+    /// 空桶落 0 之后，那条平线正好落在绘图区底边上，2px 的描边被裁掉一半，
+    /// 又和 $0 这条网格线叠在一起，看上去就是一截发黑的线。
+    /// 留出 5% 的余量让它整条描边都在绘图区内。刻度起点会向下取整到整数档
+    /// （<c>start = Truncate(min / step) * step</c>），所以标签还是 $0 / $0.5 / $1 这些整数，不会冒出 -$0.02
+    /// </summary>
+    private static Axis CreateCostAxis(IReadOnlyList<UsageTrendPoint> points, UsageChartPalette palette, bool atEnd)
+    {
+        decimal maxCost = points.Count == 0 ? 0m : points.Max(x => x.CostUsd ?? 0m);
+        return CreateValueAxis(palette, MoneyLabel, separators: !atEnd, atEnd: atEnd,
+            minLimit: -(double)maxCost * 0.05);
+    }
 
     /// <summary>桶多时只给每 k 个桶一个刻度文字，其余留空（刻度线本来也不画）</summary>
     private string[] BuildBucketLabels(IReadOnlyList<long> buckets)

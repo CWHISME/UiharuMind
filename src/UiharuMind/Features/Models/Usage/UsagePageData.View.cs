@@ -196,6 +196,12 @@ public partial class UsagePageData
 
     private void RebuildRank()
     {
+        RebuildRankCore();
+        ChartsRebuilt?.Invoke();
+    }
+
+    private void RebuildRankCore()
+    {
         RankItems.Clear();
         if (_totals.Requests == 0)
         {
@@ -250,7 +256,7 @@ public partial class UsagePageData
             //占比饼图取前几块，碎成一片读不了
             if (total > 0)
             {
-                if (i < ShareTopCount) series.Add(ShareSlice(label, metricValue, palette.Series[i % palette.Series.Count]));
+                if (i < ShareTopCount) series.Add(ShareSlice(label, metricValue, metric, palette.Series[i % palette.Series.Count]));
                 else shareOthers += metricValue;
             }
 
@@ -282,19 +288,29 @@ public partial class UsagePageData
                 BuildRankTip(label, othersRequests, othersCost, othersReasoning, othersOutput), true));
         }
 
-        if (shareOthers > 0) series.Add(ShareSlice(Loc.Text(LangKey.UsageRankOthers), shareOthers, palette.Muted));
+        if (shareOthers > 0) series.Add(ShareSlice(Loc.Text(LangKey.UsageRankOthers), shareOthers, metric, palette.Muted));
 
         foreach (UsageRankItemViewData item in items) RankItems.Add(item);
         ShareSeries = [.. series];
     }
 
-    private static ISeries ShareSlice(string label, double value, SolidColorPaint fill) => new PieSeries<double>
+    private static ISeries ShareSlice(string label, double value, EUsageRankMetric metric, SolidColorPaint fill) =>
+        new PieSeries<double>
+        {
+            Values = [value],
+            Name = label,
+            Fill = fill,
+            Stroke = null,
+            DataLabelsPaint = null,
+            //提示里别再甩一串 5459807：跟着排行选的指标格式化
+            ToolTipLabelFormatter = point => FormatRankValue(metric, point.Coordinate.PrimaryValue),
+        };
+
+    private static string FormatRankValue(EUsageRankMetric metric, double value) => metric switch
     {
-        Values = [value],
-        Name = label,
-        Fill = fill,
-        Stroke = null,
-        DataLabelsPaint = null,
+        EUsageRankMetric.Requests => ((long)Math.Round(value)).ToString(),
+        EUsageRankMetric.Cost => UsageFormat.Money((decimal)value),
+        _ => UsageFormat.Tokens((long)Math.Round(value)),
     };
 
     private UsageRankItemViewData BuildRankItem(string label, RankAccumulator value, EUsageRankMetric metric,

@@ -10,6 +10,12 @@
              x:DataType="usage:UsagePageData">
 
     <UserControl.Styles>
+        <!-- 表头这几个按钮必须先铺满整列：主题给 Button 的默认 HorizontalAlignment 是 Center，
+             按钮只占文字宽、居在列里，HorizontalContentAlignment 就完全不起作用了——
+             于是「时间」飘在列中间、数字列表头也靠不到数字那一条右边上 -->
+        <Style Selector="Button.text-row">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+        </Style>
         <!-- 数值列表头右对齐：与右对齐的数字同一列同一条边，扫一列不会跳 -->
         <Style Selector="Button.text-row.num">
             <Setter Property="HorizontalContentAlignment" Value="Right" />
@@ -55,7 +61,9 @@
                        TextWrapping="Wrap"
                        IsVisible="{Binding ShowCacheWriteNote}" />
 
-            <Grid ColumnDefinitions="110,2*,62,62,52,64,70,58,66" Margin="14,0,14,6">
+            <!-- 结果/会话两列之间与前面的数字列都要留出间隔：错误类别的文字比数字长，
+                 贴着排会压到会话那列上去。列宽和 ColumnSpacing 表头与行必须一模一样 -->
+            <Grid ColumnDefinitions="110,2*,62,62,52,64,70,96,72" ColumnSpacing="12" Margin="14,0,14,6">
                 <Button Classes="text-row"
                         Content="{Binding TimeHeader}"
                         Command="{Binding SortByCommand}"
@@ -90,14 +98,17 @@
                         Content="{Binding CostHeader}"
                         Command="{Binding SortByCommand}"
                         CommandParameter="Cost" />
+                <!-- 结果/会话不可排序，但表头得和可排序的那几列一个色：一排表头两种灰，
+                     看着像这两个标题坏了。结果列的文字居中对齐，短词（成功/超时）在列里
+                     左右留白一样，与费用、会话的间隔才看着匀 -->
                 <TextBlock Grid.Column="7"
                            Text="{loc:Loc UsageColumnResult}"
-                           Classes="muted"
-                           Margin="10,0,0,0"
+                           Foreground="{DynamicResource SemiGrey7}"
+                           TextAlignment="Center"
                            VerticalAlignment="Center" />
                 <TextBlock Grid.Column="8"
                            Text="{loc:Loc UsageColumnSession}"
-                           Classes="muted"
+                           Foreground="{DynamicResource SemiGrey7}"
                            VerticalAlignment="Center" />
             </Grid>
 
@@ -114,7 +125,8 @@
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="usage:UsageDetailItemViewData">
                         <StackPanel Spacing="2">
-                            <Grid ColumnDefinitions="110,2*,62,62,52,64,70,58,66" VerticalAlignment="Center">
+                            <Grid ColumnDefinitions="110,2*,62,62,52,64,70,96,72" ColumnSpacing="12"
+                                  VerticalAlignment="Center">
                                 <TextBlock Text="{Binding TimeText}" Classes="mono" VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="1"
                                            Text="{Binding ModelName}"
@@ -149,14 +161,18 @@
                                 <TextBlock Grid.Column="7"
                                            Text="{Binding ResultText}"
                                            FontSize="12"
-                                           Margin="10,0,0,0"
+                                           TextAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip.Tip="{Binding ResultText}"
                                            Foreground="{DynamicResource MessageStatusSuccessBrush}"
                                            IsVisible="{Binding Ok}"
                                            VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="7"
                                            Text="{Binding ResultText}"
                                            FontSize="12"
-                                           Margin="10,0,0,0"
+                                           TextAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip.Tip="{Binding ResultText}"
                                            Foreground="{DynamicResource MessageStatusErrorBrush}"
                                            IsVisible="{Binding !Ok}"
                                            VerticalAlignment="Center" />

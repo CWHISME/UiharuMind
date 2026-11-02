@@ -81,7 +81,8 @@
                 <StackPanel Grid.Column="1" Spacing="6">
                     <TextBlock Text="{loc:Loc UsageShareTitle}" Classes="muted" />
                     <Grid Height="180">
-                        <lvc:PieChart Series="{Binding ShareSeries}"
+                        <lvc:PieChart x:Name="ShareChart"
+                                      Series="{Binding ShareSeries}"
                                       LegendPosition="Hidden"
                                       TooltipPosition="Top"
                                       InitialRotation="-90" />
