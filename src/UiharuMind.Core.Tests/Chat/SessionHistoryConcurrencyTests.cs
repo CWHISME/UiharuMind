@@ -175,4 +175,69 @@ public class SessionHistoryConcurrencyTests
             reads++;
         }
     }
+
+    /// <summary>
+    /// 截断（重试的「从这条起删到末尾」）算下标与删除必须一步完成：分开走时，
+    /// 删短会让 RemoveRange 越界抛 <see cref="ArgumentException"/>，追加会多吞别人刚写进去的。
+    /// </summary>
+    [Fact]
+    public void RemoveTailFrom_RemovesAnchorThroughTail_AndReportsFalseWhenAnchorGone()
+    {
+        ChatMessage first = new(ChatRole.User, "第一句");
+        ChatMessage anchor = new(ChatRole.Assistant, "锚点");
+        ChatMessage tail = new(ChatRole.User, "尾巴");
+        SessionHistory history = new([first, anchor, tail]);
+
+        Assert.True(history.RemoveTailFrom(anchor, out int index, out int removedCount));
+        Assert.Equal(1, index);
+        Assert.Equal(2, removedCount);
+        Assert.Single(history.Snapshot(), first);
+
+        // 锚点已不在：返回 false，不动历史
+        Assert.False(history.RemoveTailFrom(anchor, out int goneIndex, out int goneCount));
+        Assert.Equal(-1, goneIndex);
+        Assert.Equal(0, goneCount);
+        Assert.Single(history.Snapshot(), first);
+    }
+
+    /// <summary>截断与并发追加同跑：不抛、前缀保住。锚点被第一次截断删掉后，后续调用都认不出它</summary>
+    [Fact]
+    public async Task RemoveTailFrom_WhileAnotherThreadAppends_NeverThrows()
+    {
+        const int Rounds = 500;
+        SessionHistory history = new(Enumerable.Range(0, 100).Select(i => new ChatMessage(ChatRole.User, $"m{i}")));
+        ChatMessage anchor = history.Snapshot()[50];
+        Exception? failure = null;
+
+        Task writer = Task.Run(() =>
+        {
+            try
+            {
+                for (int i = 0; i < Rounds; i++) history.Add(new ChatMessage(ChatRole.User, $"追加{i}"));
+            }
+            catch (Exception e)
+            {
+                failure = e;
+            }
+        }, TestContext.Current.CancellationToken);
+
+        try
+        {
+            for (int i = 0; i < Rounds; i++) history.RemoveTailFrom(anchor, out _, out _);
+        }
+        catch (Exception e)
+        {
+            failure = e;
+        }
+
+        await writer.WaitAsync(Timeout, TestContext.Current.CancellationToken);
+        Assert.Null(failure);
+
+        // 锚点之前（m0..m49）无论追加与截断谁先谁后都保住；锚点 m50 起被第一次成功的截断删掉，
+        // 之后追加的落在尾部，可能被那次截断一并吞掉、也可能留下
+        ChatMessage[] final = history.Snapshot();
+        Assert.True(final.Length >= 50);
+        for (int i = 0; i < 50; i++) Assert.Equal($"m{i}", final[i].Text);
+        Assert.DoesNotContain(final, m => ReferenceEquals(m, anchor));
+    }
 }

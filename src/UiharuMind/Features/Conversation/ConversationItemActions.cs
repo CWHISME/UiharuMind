@@ -505,14 +505,13 @@ public sealed class ConversationItemActions
         string confirmText = string.Format(Loc.Text(LangKey.MessageRetryTurnConfirmFormat), doomedCount);
         if (!await _messageService.ConfirmAsync(confirmText)) return;
 
-        // 弹窗期间历史可能被压缩、或被别的窗口删短：下标要在确认之后再取一次。
-        // 认的是消息实例，不是那个可能已经失效的数字——否则 RemoveRange 会抛 ArgumentException
-        index = session.History.IndexOf(item.SourceMessage);
-        if (index < 0) return; //这条已经不在历史里了，无从重试
-        doomedCount = session.History.Count - index;
+        // 弹窗期间历史可能被压缩、被别的窗口删短、也被别的写方追加：下标与删除必须一次完成。
+        // 分三步的话，删短会让 RemoveRange 越界抛 ArgumentException，追加会让区间多吞别人刚写进去的消息。
+        // 认的是消息实例，不是那个可能已经失效的数字
+        if (!session.History.RemoveTailFrom(item.SourceMessage, out index, out doomedCount))
+            return; //这条已经不在历史里了，无从重试
 
-        ChatMessage input = session.History[index];
-        session.History.RemoveRange(index, doomedCount);
+        ChatMessage input = item.SourceMessage;
         session.Save();
         // 停在旧消息那段时截到这里正好让窗口接回末尾,新一轮接着往末尾追加,不必整窗重放
         _host.NoteHistoryRemoved(Enumerable.Range(index, doomedCount).ToList());

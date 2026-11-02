@@ -342,7 +342,8 @@ public class ChatSession
     internal void SetHistoryReload(Func<List<ChatMessage>> reload) => _historyReload = reload;
 
     /// <summary>历史此刻在不在内存里。问它不会触发重载（读 <see cref="History"/> 会）</summary>
-    internal bool IsHistoryResident => _history != null;
+    /// <remarks>字段由 <c>_historyLock</c> 守护，这里与 getter 同口径走 <see cref="Volatile.Read"/></remarks>
+    internal bool IsHistoryResident => Volatile.Read(ref _history) != null;
 
     /// <summary>
     /// 把历史从内存里卸掉（下次访问按需重载）。会话本体<b>不换实例</b>，

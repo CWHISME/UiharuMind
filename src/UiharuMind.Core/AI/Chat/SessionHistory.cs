@@ -174,6 +174,32 @@ public sealed class SessionHistory : IList<ChatMessage>, IReadOnlyList<ChatMessa
         lock (_gate) _items.RemoveRange(index, count);
     }
 
+    /// <summary>
+    /// 从指定消息（认实例引用）起删到末尾，含它自己。算下标、算区间、删除在锁内一次完成——
+    /// 调用方原先的「IndexOf → Count → RemoveRange」三步分开走时，删短会让 RemoveRange
+    /// 越界抛 <see cref="ArgumentException"/>，追加会让区间多吞别人刚写进去的消息。
+    /// </summary>
+    /// <param name="anchor">截断点消息</param>
+    /// <param name="index">锚点删除前的下标；锚点不在历史里时为 -1</param>
+    /// <param name="removedCount">删掉的条数；锚点不在历史里时为 0</param>
+    /// <returns>锚点在历史里并已删除返回 true；不在（已被删/压缩）返回 false</returns>
+    public bool RemoveTailFrom(ChatMessage anchor, out int index, out int removedCount)
+    {
+        lock (_gate)
+        {
+            index = _items.IndexOf(anchor);
+            if (index < 0)
+            {
+                removedCount = 0;
+                return false;
+            }
+
+            removedCount = _items.Count - index;
+            _items.RemoveRange(index, removedCount);
+            return true;
+        }
+    }
+
     /// <summary>按条件删除，返回删掉的条数。<b>谓词在锁内执行</b>，里面不许再碰会话（调 Save 之类会成环）</summary>
     /// <param name="match">条件</param>
     public int RemoveAll(Predicate<ChatMessage> match)
