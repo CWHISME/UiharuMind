@@ -198,9 +198,10 @@ internal static class GroupMessageChannel
             : "\n\n【这一波谁还说了什么，用 "
               + BuiltinExtensions.Mention(BuiltinExtensions.ChatSession, BuiltinExtensions.ChatSessionGroups)
               + " 拿流水文件路径，读它。】";
-        IList<ChatMessage> history = group.History;
+        // 快照:群里别人还在往流水里发言,按下标扫活列表会随长度变化抛越界
+        ChatMessage[] history = group.History.Snapshot();
         int from = Math.Max(summary.Start, start);
-        int to = Math.Min(summary.End, history.Count);
+        int to = Math.Min(summary.End, history.Length);
         for (int i = to - 1; i >= from; i--)
         {
             ChatMessage message = history[i];

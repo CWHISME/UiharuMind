@@ -51,8 +51,9 @@ public sealed class SessionReportSink : IBackgroundTaskReportSink
             if (session.History.Any(x => ChatMessageAnnotations.ReadBackgroundTaskReportId(x) == outcome.Task.Id))
                 return ELetterWrite.Unchanged;
 
-            int from = session.History.Count;
-            session.History.Add(Compose(session));
+            // 下标与追加一次拿到：分两步的话，中间被别的写方（执行轮、群投递）插一条，
+            // 落盘起点就指到别人那条上，重开会话会多一条重复气泡
+            int from = session.History.AddReturningIndex(Compose(session));
             session.SaveAppended(from);
             return ELetterWrite.Written;
         }

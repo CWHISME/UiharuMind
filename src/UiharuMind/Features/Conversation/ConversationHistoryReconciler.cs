@@ -115,23 +115,27 @@ public sealed class ConversationHistoryReconciler
         // 被拦下的对账由「session idle」在轮结束后再来一次
         if (!_host.IsSessionIdle) return;
 
+        // 整趟只取一次快照：写方（执行线程、子代理交回报告）随时可能往活历史里追加，
+        // 全程用同一份定格，配对、找分歧、补尾巴看到的才是同一个状态
+        ChatMessage[] history = session.History.Snapshot();
+
         // 先配对再判定：“没人跑”不等于“都配好了”。轮末配对走后台线程，
         // 到这里仍可能是空来源——不先配就判定，尾巴上那张思考卡会被当成漏画又追加一张。
         // 本方法只在 UI 线程上调用，配对在这里做才是线程安全的。
-        _host.SettleStreamedItems(session.History);
+        _host.SettleStreamedItems(history);
 
-        if (ConversationOrderCheck.FindDivergence(_items, session.History) is { } divergence)
+        if (ConversationOrderCheck.FindDivergence(_items, history) is { } divergence)
         {
             Log.Warning($"Conversation items diverged from history ({divergence}); "
                         + $"replaying the window (session={session.SessionId}, {reason}).");
-            ReplayPreservingWindow(session.History);
+            ReplayPreservingWindow(history);
             return;
         }
 
-        int missing = ConversationOrderCheck.FindMissingTail(_items, session.History);
+        int missing = ConversationOrderCheck.FindMissingTail(_items, history);
         if (missing == 0) return;
 
-        AppendTail(session, missing, reason, liveTail: false);
+        AppendTail(session, history, missing, reason, liveTail: false);
     }
 
     /// <summary>
@@ -147,37 +151,45 @@ public sealed class ConversationHistoryReconciler
     /// （实机：62 条消息等了一整轮）。
     /// </summary>
     /// <param name="reason">触发来源，进日志</param>
-    public void CatchUpTail(string reason)
+    /// <param name="history">调用方<b>已经取好</b>的历史快照；null 表示这里自己取。
+    /// 消息边界那一路紧挨着 <c>WireStreamed</c> 也要一份，同一瞬间的读没有理由复制两次</param>
+    public void CatchUpTail(string reason, IReadOnlyList<ChatMessage>? history = null)
     {
         if (_host.IsSessionLoading) return;
         if (_window.IsDetached) return;
         if (_host.CurrentSession is not { } session) return;
 
-        // 先配对：流画过的那几条认回来源，才不会当成漏画又画一遍
-        _host.SettleStreamedItems(session.History);
+        // 这条路的触发点（一次服务调用落盘、消息边界）本身就是「写方刚写完」，
+        // 与写方并发是它的常态而不是意外——必须定格一份再读
+        IReadOnlyList<ChatMessage> snapshot = history ?? session.History.Snapshot();
 
-        int missing = ConversationOrderCheck.FindMissingTail(_items, session.History);
+        // 先配对：流画过的那几条认回来源，才不会当成漏画又画一遍
+        _host.SettleStreamedItems(snapshot);
+
+        int missing = ConversationOrderCheck.FindMissingTail(_items, snapshot);
         if (missing == 0) return;
 
-        AppendTail(session, missing, reason, liveTail: true);
+        AppendTail(session, snapshot, missing, reason, liveTail: true);
     }
 
     /// <summary>把历史尾部缺的那几条补画进条目集合</summary>
-    /// <param name="session">会话</param>
+    /// <param name="session">会话（只用来写日志）</param>
+    /// <param name="history">历史快照</param>
     /// <param name="missing">缺的条数</param>
     /// <param name="reason">触发来源，进日志</param>
     /// <param name="liveTail">这一段是不是还在长的尾巴（见 <see cref="BuildLiveTailItems"/>）</param>
-    private void AppendTail(ChatSession session, int missing, string reason, bool liveTail)
+    private void AppendTail(ChatSession session, IReadOnlyList<ChatMessage> history, int missing, string reason,
+        bool liveTail)
     {
         // 带上会话标识:一个窗口里同时挂着好几个会话实例(切走的那些还在后台收内容),
         // 只写「补了 62 条」根本不知道是哪一个(实机排查时为此多花了一小时)
         Log.Warning($"Conversation items diverged from history "
                     + $"({missing} trailing message(s) not drawn); appending the tail "
                     + $"(session={session.SessionId}, {reason}).");
-        int from = session.History.Count - missing;
+        int from = history.Count - missing;
         IReadOnlyList<ConversationItemBase> tail = liveTail
-            ? _host.BuildLiveTailItems(session.History, from, session.History.Count)
-            : _host.BuildItems(session.History, from, session.History.Count);
+            ? _host.BuildLiveTailItems(history, from, history.Count)
+            : _host.BuildItems(history, from, history.Count);
         foreach (ConversationItemBase item in tail)
         {
             _items.Add(item);

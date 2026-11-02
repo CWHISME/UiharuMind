@@ -116,8 +116,8 @@ public static class ParentMessageTool
 
         public override ELetterWrite Write(ChatSession session)
         {
-            int from = session.History.Count;
-            session.History.Add(Compose(session)!);
+            // 下标与追加一次拿到：中间被别人插一条，落盘起点就会指错
+            int from = session.History.AddReturningIndex(Compose(session)!);
             session.SaveAppended(from);
             return ELetterWrite.Written;
         }

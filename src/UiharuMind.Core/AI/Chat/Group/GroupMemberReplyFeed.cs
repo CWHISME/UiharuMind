@@ -68,8 +68,9 @@ internal sealed class GroupMemberReplyFeed : IDisposable
     {
         lock (_sync)
         {
-            IList<ChatMessage> history = _member.History;
-            for (; _scanned < history.Count; _scanned++)
+            // 快照:_scanned 是相对整份历史的下标,而这一轮的执行线程还在往同一份里追加
+            ChatMessage[] history = _member.History.Snapshot();
+            for (; _scanned < history.Length; _scanned++)
             {
                 if (!IsFinishedReply(history[_scanned], out string text)) continue;
 

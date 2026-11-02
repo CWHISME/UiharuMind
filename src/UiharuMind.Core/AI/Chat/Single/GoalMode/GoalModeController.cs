@@ -363,17 +363,18 @@ public sealed class GoalModeController
     {
         ChatMessage message = session.CreateMessage(ChatRole.User, text);
         ChatMessageAnnotations.MarkGoalModeInjection(message);
-        int from = session.History.Count;
-        session.History.Add(message);
+        int from = session.History.AddReturningIndex(message);
         session.SaveAppended(from);
     }
 
     // 从一段历史里认 goal.end：模型经 ExCall 调用，拆开后是内层的 EndGoalMode
     private static GoalModeEndCall? FindEndCall(ChatSession session, int fromIndex)
     {
-        for (int i = fromIndex; i < session.History.Count; i++)
+        // 快照:这一轮可能正往同一份历史里追加,按下标扫活列表会随长度变化抛越界
+        ChatMessage[] history = session.History.Snapshot();
+        for (int i = fromIndex; i < history.Length; i++)
         {
-            foreach (AIContent content in session.History[i].Contents)
+            foreach (AIContent content in history[i].Contents)
             {
                 if (content is FunctionCallContent call && EndGoalModeTool.Read(ExtensionCalls.Unwrap(call)) is { } end)
                     return end;

@@ -479,8 +479,7 @@ public sealed partial class TurnDriver : IDisposable
         string? transcriptPath = HistoryTranscript.TrySave(session, runner.ChatOptions?.Tools);
         ChatMessage message = HistoryHandoff.CreateClearNote(HistoryHandoff.ComposeClearBody(transcriptPath));
 
-        int before = session.History.Count;
-        session.History.Add(message);
+        int before = session.History.AddReturningIndex(message);
         session.SaveAppended(before);
         ForgetSupersededEstimate(runner);
         _usage.ResetOccupancyAfterCompaction(session, EstimateOccupancyAfterCompaction(session, runner));
@@ -734,8 +733,7 @@ public sealed partial class TurnDriver : IDisposable
         // 退出收尾(SettleForShutdown)时本轮的岔口已经拆了,回落到自己的落点
         if ((_turnSink ?? _sink)?.TakeStreamingText() is not { } text) return;
 
-        int before = session.History.Count;
-        session.History.Add(session.CreateMessage(ChatRole.Assistant, text));
+        int before = session.History.AddReturningIndex(session.CreateMessage(ChatRole.Assistant, text));
         session.SaveAppended(before);
         //落库后由调用方把界面条目与消息配对(Persisted 通知),气泡因此照常拿到编辑/重试/分叉
     }
@@ -904,7 +902,9 @@ public sealed partial class TurnDriver : IDisposable
         {
             // 与常规请求同一视图:同一口径供给(不带知识库片段)、同一套压缩。发原始历史的话,前缀在第一组折叠处
             // 就与已缓存的那份岔开,原始历史本身还可能比窗口还大——交接恰恰常在折叠动过手之后才写
-            IReadOnlyList<ChatMessage> supplied = await HistorySupply.ForSideRequestAsync(session.History,
+            // 快照:供给会按下标切一段并反复枚举,而群投递/子代理可能正往同一份历史里追加
+            IReadOnlyList<ChatMessage> supplied = await HistorySupply.ForSideRequestAsync(
+                session.History.Snapshot(),
                 runner.ChatOptions, runner.RewriteSideRequest, _usage.ContextLength,
                 runner.InputEstimate?.FixedOverhead ?? 0, compactToken);
             // 选项取本会话装配好的那一份(系统提示词 + 工具定义 + 采样参数),与常规轮次逐字一致。
@@ -960,8 +960,7 @@ public sealed partial class TurnDriver : IDisposable
             string noteBody = HistoryHandoff.ComposeBody(note, HistoryHandoff.LastAssistantText(session.History));
             ChatMessage message = HistoryHandoff.CreateNote(HistoryHandoff.WithAppendix(noteBody, roster, recall));
             ChatMessageAnnotations.WriteHandoffDuration(message, handoffTimer.ElapsedMilliseconds);
-            int before = session.History.Count;
-            session.History.Add(message);
+            int before = session.History.AddReturningIndex(message);
             session.SaveAppended(before);
             ForgetSupersededEstimate(runner);
             // 压缩完成:历史已被记忆压缩文档替换,占用换成压缩后的估算、进度条立即复位,等下一轮请求再被真实值覆写。

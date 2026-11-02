@@ -899,8 +899,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         Dispatcher.UIThread.Post(() =>
         {
             if (CurrentSession is not { } session) return;
-            IReadOnlyList<ChatMessage> history = session.History;
-            if (fromIndex < 0 || fromIndex >= history.Count) return;
+            // 定格一份：这个回调本身就是「刚有人写完了历史」，写方随时可能再追加，
+            // 取活引用再按下标切片，尾巴一变就 ArgumentOutOfRange 或者少画几条
+            ChatMessage[] history = session.History.Snapshot();
+            if (fromIndex < 0 || fromIndex >= history.Length) return;
             _pager.AppendPersisted(history, fromIndex, ownTurn, streaming);
             // 只念正在看的会话：后台跑着的会话不该突然出声
             if (IsDisplayed) _readAloud?.ReadNew(history.Skip(fromIndex), _currentCharacter?.CharacterId);
@@ -970,8 +972,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         Dispatcher.UIThread.Post(() =>
         {
             if (CurrentSession is not { } session) return;
-            IReadOnlyList<ChatMessage> history = session.History;
-            if (index < 0 || index >= history.Count) return;
+            ChatMessage[] history = session.History.Snapshot();
+            if (index < 0 || index >= history.Length) return;
 
             _history.Replace(history, index, replaced);
             Search.NotifyHistoryChanged();
@@ -1590,8 +1592,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         }
 
         ChatMessage message = session.CreateMessage(ChatRole.Assistant, text);
-        int before = session.History.Count;
-        session.History.Add(message);
+        // 下标与追加一次拿到：后台写方（子代理交回、群投递）可能正往同一份历史里追加
+        int before = session.History.AddReturningIndex(message);
         session.SaveAppended(before); //只追加这一条,不重写整份历史
 
         TextConversationItem item = ConversationItemFactory.CreateAssistant(_currentCharacter);
@@ -1632,14 +1634,16 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// </summary>
     private void OnMessageBoundaryReached()
     {
-        _itemActions.WireStreamed(CurrentRunner?.GetHistory() ?? []);
+        // 一次边界只取一份快照，配对与补尾巴共用：两者紧挨着跑，各取一份就是白复制一遍整份历史
+        IReadOnlyList<ChatMessage> history = CurrentRunner?.GetHistory() ?? [];
+        _itemActions.WireStreamed(history);
         // 驱动方在这次落盘后已把统计盖进内存历史（轮内盖章，见 TurnDriver），
         // 上一批冻成纯字数/空白的卡此刻就能认领存档，不必等到轮末。只读不写，幂等；
         // 正在流的那几张来源还没配好，自动跳过。
         AdoptPersistedTimings();
         // 边界是轮内唯一「历史与界面都该自洽」的时刻：这次调用已落盘、流也收了段，
         // 流那一侧漏画的在这里补上。不补就只剩轮末对账——一轮十几分钟界面就冻十几分钟
-        _reconciler.CatchUpTail("message boundary");
+        _reconciler.CatchUpTail("message boundary", history);
         _pager.TrimToBudget();
     }
 
@@ -1728,7 +1732,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 // (Ensure 同步 Add 后,posted 的落盘渲染没有去重)
                 if (_driver.IsRunning)
                 {
-                    if (CurrentSession is { } session) _history.EnsureHandoffCard(session.History);
+                    if (CurrentSession is { } session) _history.EnsureHandoffCard(session.History.Snapshot());
                 }
                 break;
 
@@ -2024,8 +2028,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             // 开在界面上。不挂的话那条报告要关掉会话再打开才看得见
             AttachSessionSignals(body);
 
-            // 外驱时执行者未必绑好,历史一律从会话本体读(两者本就是同一份)
-            ReplayMessages(externallyDriven ? body.History : body.Runner.GetHistory());
+            // 外驱时执行者未必绑好,历史一律从会话本体读(两者本就是同一份)。
+            // 取快照:回放要按下标切片,而这一轮可能已经在别处跑起来了
+            ReplayMessages(externallyDriven ? body.History.Snapshot() : body.Runner.GetHistory());
 
             // 切走时占位卡被清掉了;若压缩还在跑,切回来得重新挂上,否则会话流里毫无动静
             if (_driver.Busy == ETurnBusy.Compacting) _handoffWriting.Show();

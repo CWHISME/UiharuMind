@@ -284,8 +284,7 @@ public sealed class ConversationTurnRunner
         // 取消前若恰好已写回(罕见)就别重复追加:框架落的是同一个实例,按引用判重即可
         if (session.History.Any(x => ReferenceEquals(x, userMessage))) return;
 
-        int before = session.History.Count;
-        session.History.Add(userMessage);
+        int before = session.History.AddReturningIndex(userMessage);
         session.SaveAppended(before);
     }
 }

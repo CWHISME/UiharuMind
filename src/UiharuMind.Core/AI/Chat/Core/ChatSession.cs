@@ -37,7 +37,8 @@ namespace UiharuMind.Core.AI.Chat;
 // 需要遍历历史请直接用 History。
 public class ChatSession
 {
-    private List<ChatMessage>? _history = []; //null = 已卸载,下次访问按 _historyReload 取回;卸载条件见 SessionManager 驻留策略(ADR 0036)
+    private SessionHistory? _history = new(); //null = 已卸载,下次访问按 _historyReload 取回;卸载条件见 SessionManager 驻留策略(ADR 0036)
+    private readonly object _historyLock = new(); //守护 _history 字段本身(装/卸/懒重载),内容并发由 SessionHistory 自己管
     private Func<List<ChatMessage>>? _historyReload; //卸载后把历史取回来的入口;只有落盘过的会话给得出
     private string _savedDraft = ""; //最后一次读入或写进会话头的草稿
 
@@ -307,12 +308,30 @@ public class ChatSession
     /// 冷会话的历史会被卸掉，读到这里时按需重载。因此
     /// <b>不要把它取出来存成字段再跨 await 用</b>——中途卸载会让你手上那份成为孤儿，
     /// 往里写的东西没人落盘。要么现取现用，要么先 <c>Pin</c> 住。
+    ///
+    /// <b>跨线程</b>：写方（执行线程、子代理、群投递）与读方（UI 线程）共用这一份。
+    /// 单条读写本身是安全的，但<b>跨多条操作的读必须先 <see cref="SessionHistory.Snapshot"/></b>——
+    /// 取活引用再按下标切片或整表枚举，会在别处追加时抛
+    /// <c>Collection was modified</c> 或 <c>ArgumentOutOfRange</c>。
     /// </summary>
     [JsonIgnore]
-    public List<ChatMessage> History
+    public SessionHistory History
     {
-        get => _history ??= _historyReload?.Invoke() ?? [];
-        set => _history = value;
+        get
+        {
+            SessionHistory? resident = Volatile.Read(ref _history);
+            if (resident != null) return resident;
+
+            // 重载是磁盘 IO，放在锁外做：拿着锁读盘会把同时进来的读方一起堵住。
+            // 两个线程都读了一次盘也无妨——后到的在锁里发现已经有人发布过，
+            // 就丢掉自己那份（它还没交给任何人，不存在写丢）。
+            SessionHistory loaded = new(_historyReload?.Invoke() ?? []);
+            lock (_historyLock) return _history ??= loaded;
+        }
+        set
+        {
+            lock (_historyLock) _history = value;
+        }
     }
 
     /// <summary>
@@ -333,10 +352,13 @@ public class ChatSession
     /// <returns>真的卸掉了返回 true</returns>
     internal bool UnloadHistory()
     {
-        if (_historyReload == null || _history == null) return false;
+        lock (_historyLock)
+        {
+            if (_historyReload == null || _history == null) return false;
 
-        _history = null;
-        return true;
+            _history = null;
+            return true;
+        }
     }
 
     /// <summary>
@@ -808,11 +830,11 @@ public class ChatSession
 
     /// <summary>首条消息时间;历史为空或该消息没有时间戳时回落会话创建时间</summary>
     [JsonIgnore]
-    public DateTime FirstTime => LocalTimeOf(History.Count > 0 ? History[0] : null, CreatedAt);
+    public DateTime FirstTime => LocalTimeOf(History.Head, CreatedAt);
 
     /// <summary>末条消息时间;历史为空或该消息没有时间戳时回落会话更新时间</summary>
     [JsonIgnore]
-    public DateTime LastTime => LocalTimeOf(History.Count > 0 ? History[^1] : null, UpdatedAt);
+    public DateTime LastTime => LocalTimeOf(History.Tail, UpdatedAt);
 
     private CharacterData? _characterData;
     private MemoryData? _memory;

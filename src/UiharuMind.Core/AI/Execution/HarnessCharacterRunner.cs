@@ -301,7 +301,9 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
     {
         // 历史住在自有会话里,不再向框架索取
         if (_boundSessionId == null) return [];
-        return SessionManager.Instance.Load(_boundSessionId)?.History ?? [];
+        // 快照而不是活引用:调用方(界面配对、开窗、回放)拿去做整表枚举与下标切片,
+        // 而写方在执行线程上随时往同一份历史里追加
+        return SessionManager.Instance.Load(_boundSessionId)?.History.Snapshot() ?? [];
     }
 
     public async Task<EAgentMode> GetModeAsync()

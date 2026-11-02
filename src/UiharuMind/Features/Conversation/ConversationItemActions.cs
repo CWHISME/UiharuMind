@@ -413,8 +413,10 @@ public sealed class ConversationItemActions
 
         // 历史侧删哪些,由配对闭包算出:调用与结果成对进出,不可能留下悬空的一头。
         // 语义因此是"删掉这条消息,外加它绑着的工具往返"——不多不少,
-        // 不会顺手吞掉后面那些配对完整、本可留下的执行痕迹
-        IReadOnlyList<ChatMessage> doomed = HistoryEditRange.ResolveDeletion(session.History, item.SourceMessage);
+        // 不会顺手吞掉后面那些配对完整、本可留下的执行痕迹。
+        // 全程用同一份快照:解析与取下标之间历史可能被追加,两次读到的长度不必相同
+        ChatMessage[] history = session.History.Snapshot();
+        IReadOnlyList<ChatMessage> doomed = HistoryEditRange.ResolveDeletion(history, item.SourceMessage);
         if (doomed.Count == 0) return;
 
         // 界面侧不另算一套区间:凡来源落在同一个删除集合里的条目一起摘掉。
@@ -435,7 +437,7 @@ public sealed class ConversationItemActions
 
         // 删除集合在弹窗之前就算好了,但它装的是消息与条目的<b>实例</b>而不是下标——
         // 等待确认期间即便有新一轮落盘、追加了消息与条目,这里也不会误伤
-        List<int> removedIndices = IndicesOf(session.History, doomedSet);
+        List<int> removedIndices = IndicesOf(history, doomedSet);
         session.History.RemoveAll(doomedSet.Contains);
         session.Save();
         _items.Discard(targets);
@@ -502,6 +504,12 @@ public sealed class ConversationItemActions
         int doomedCount = session.History.Count - index;
         string confirmText = string.Format(Loc.Text(LangKey.MessageRetryTurnConfirmFormat), doomedCount);
         if (!await _messageService.ConfirmAsync(confirmText)) return;
+
+        // 弹窗期间历史可能被压缩、或被别的窗口删短：下标要在确认之后再取一次。
+        // 认的是消息实例，不是那个可能已经失效的数字——否则 RemoveRange 会抛 ArgumentException
+        index = session.History.IndexOf(item.SourceMessage);
+        if (index < 0) return; //这条已经不在历史里了，无从重试
+        doomedCount = session.History.Count - index;
 
         ChatMessage input = session.History[index];
         session.History.RemoveRange(index, doomedCount);

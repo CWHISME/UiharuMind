@@ -543,8 +543,8 @@ public sealed partial class GroupChatCoordinator : IGroupTurnHost
     {
         lock (_locker)
         {
-            int index = group.History.Count;
-            group.History.Add(post);
+            // 下标与追加一次拿到：本方法返回的下标会被当成投递游标的起点，指错就是漏投/重投
+            int index = group.History.AddReturningIndex(post);
             group.SaveAppended(index);
             return index;
         }

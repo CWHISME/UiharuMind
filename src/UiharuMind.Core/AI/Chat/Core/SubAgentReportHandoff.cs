@@ -122,8 +122,8 @@ public static class SubAgentReportHandoff
             return EHandoffOutcome.Replaced;
         }
 
-        int from = parent.History.Count;
-        parent.History.Add(message);
+        // 下标与追加必须一次拿到：分两步的话，中间被别的交回插一条，落盘起点就会指到别人那条上
+        int from = parent.History.AddReturningIndex(message);
         parent.SaveAppended(from);
         return EHandoffOutcome.Appended;
     }
@@ -150,9 +150,11 @@ public static class SubAgentReportHandoff
     /// <summary>子会话里最后一段助手正文，即它此刻的结论</summary>
     private static string LastAssistantText(ChatSession subSession)
     {
-        for (int i = subSession.History.Count - 1; i >= 0; i--)
+        // 子会话可能还在跑（交回与收尾交错），倒着扫活列表会随长度变化抛越界
+        ChatMessage[] history = subSession.History.Snapshot();
+        for (int i = history.Length - 1; i >= 0; i--)
         {
-            ChatMessage message = subSession.History[i];
+            ChatMessage message = history[i];
             if (message.Role != ChatRole.Assistant) continue;
 
             string text = message.Text?.Trim() ?? string.Empty;
@@ -305,9 +307,10 @@ public static class SubAgentReportHandoff
     // 跑着时插进去的补充不算：它并进了这一轮的回信，回信回的仍是开启这一轮的那句
     private static ChatMessage? LastRequest(ChatSession subSession)
     {
-        for (int i = subSession.History.Count - 1; i >= 0; i--)
+        ChatMessage[] history = subSession.History.Snapshot();
+        for (int i = history.Length - 1; i >= 0; i--)
         {
-            ChatMessage message = subSession.History[i];
+            ChatMessage message = history[i];
             if (message.Role != ChatRole.User || string.IsNullOrWhiteSpace(message.Text)) continue;
             if (ChatMessageAnnotations.IsParentInterjection(message)) continue;
             return message;

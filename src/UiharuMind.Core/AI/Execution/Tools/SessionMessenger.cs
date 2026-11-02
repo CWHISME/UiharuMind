@@ -104,8 +104,8 @@ internal static class SessionMessenger
 
         // 落一条「用户的话」并广播追加通知：那边开着的窗口会像用户打字一样实时看到
         ChatMessage message = body.CreateMessage(ChatRole.User, text);
-        int start = body.History.Count;
-        body.History.Add(message);
+        // 下标与追加一次拿到：收信人那一轮可能正往同一份历史里追加，分两步会指错起点
+        int start = body.History.AddReturningIndex(message);
         body.SaveAppended(start);
 
         // 起等待任务：任务体跑那一轮，跑完把最后一句送回发送方（醒着插进那一轮、闲着落盘再唤醒）
@@ -159,8 +159,9 @@ internal static class SessionMessenger
     {
         try
         {
-            IList<ChatMessage> history = session.History;
-            for (int i = history.Count - 1; i >= start; i--)
+            // 取快照再倒着扫：写方（收信人那一轮）随时可能追加，按下标扫活列表会随长度变化抛越界
+            ChatMessage[] history = session.History.Snapshot();
+            for (int i = history.Length - 1; i >= start; i--)
             {
                 ChatMessage message = history[i];
                 if (message.Role != ChatRole.Assistant) continue;

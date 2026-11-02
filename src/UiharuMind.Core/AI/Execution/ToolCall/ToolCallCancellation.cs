@@ -119,13 +119,15 @@ public static class ToolCallCancellation
         if (unanswered.Count == 0) return 0;
 
         string text = resultText ?? ResultText;
-        int before = session.History.Count;
+        int before = -1;
         foreach (string callId in unanswered)
         {
-            session.History.Add(new ChatMessage(ChatRole.Tool, [new FunctionResultContent(callId, text)])
+            int index = session.History.AddReturningIndex(new ChatMessage(ChatRole.Tool,
+                [new FunctionResultContent(callId, text)])
             {
                 CreatedAt = DateTimeOffset.Now,
             });
+            if (before < 0) before = index;
         }
 
         session.SaveAppended(before);
@@ -192,7 +194,7 @@ public static class ToolCallCancellation
 
     /// <summary>纯历史操作，供 <see cref="DropDuplicateResults(ChatSession)"/> 调用与单测。
     /// 留哪条：有真结果（不带 <c>[cancelled]</c>）就留第一条真结果，否则留第一条</summary>
-    internal static int DropDuplicateResults(List<ChatMessage> history)
+    internal static int DropDuplicateResults(IList<ChatMessage> history)
     {
         Dictionary<string, List<(ChatMessage Message, FunctionResultContent Result)>> byCall = new();
         foreach (ChatMessage message in history)
@@ -216,7 +218,17 @@ public static class ToolCallCancellation
             }
         }
 
-        if (dropped > 0) history.RemoveAll(x => x.Contents.Count == 0);
+        //倒着删,免得前面的下标在删的过程中移位。先取一份定格再找下标:
+        //入参可能是 SessionHistory(带锁的历史集合),在它上面按下标反复读要一次次进锁
+        if (dropped > 0)
+        {
+            ChatMessage[] snapshot = history is SessionHistory concurrent ? concurrent.Snapshot() : [..history];
+            for (int i = snapshot.Length - 1; i >= 0; i--)
+            {
+                if (snapshot[i].Contents.Count == 0) history.RemoveAt(i);
+            }
+        }
+
         return dropped;
     }
 

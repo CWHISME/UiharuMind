@@ -83,8 +83,9 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
 
         // 有交接文档就从它开始供给:它之前的历史已经被压进那份文档,只留在会话文件与界面上。
         // 起点每次现算(扫最后一条交接消息)而不是记个下标——分支会话、删消息都不会把它算错。
-        // 口径与旁路请求共用一处(见 HistorySupply),两边的前缀才逐字一致
-        IReadOnlyList<ChatMessage> supplied = HistorySupply.From(session.History, _promptOnly);
+        // 口径与旁路请求共用一处(见 HistorySupply),两边的前缀才逐字一致。
+        // 取快照:起点是按下标倒着扫出来的,而子代理/群投递可能正往同一份历史里追加
+        IReadOnlyList<ChatMessage> supplied = HistorySupply.From(session.History.Snapshot(), _promptOnly);
 
         // 其余开窗交给框架的在环压缩(ADR 0006):按当前模型的上下文动态定预算,先折叠老的工具结果、
         // 必要时才截断,组边界由 CompactionMessageIndex 保证不会产生孤儿工具结果。
@@ -133,16 +134,17 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
         ChatSession? session = Resolve(context.Session);
         if (session == null) return default;
 
-        int before = session.History.Count;
+        // 记的是「我们这一批从哪儿开始」，不是调用前的 Count：两者之间可能有别人（子代理交回报告、
+        // 群投递）插了一条，用旧 Count 落盘会把别人的那条再写一遍
         DateTimeOffset storedAt = DateTimeOffset.Now;
         // 请求消息属于本轮开始的那一刻,响应消息属于此刻:一轮可能跑几分钟,
         // 两者用同一个时间会让用户消息显示得比模型回复还晚
-        AppendOwned(session, context.RequestMessages, session.TurnStartedAt ?? storedAt);
+        int before = AppendOwned(session, context.RequestMessages, session.TurnStartedAt ?? storedAt);
 
         // 插在请求与响应之间,界面上才是「用户提问 → 检索到什么 → 角色回复」的顺序。
         // 凭据取用即清空:一轮只写一条,审批往返导致本方法被多次调用时也不会重复落盘
         if (session.TakeKnowledgeSnippets() is { Length: > 0 } snippets)
-            session.History.Add(CreateKnowledgeMessage(snippets, storedAt));
+            before = Merge(before, session.History.AddReturningIndex(CreateKnowledgeMessage(snippets, storedAt)));
 
         if (context.ResponseMessages != null)
         {
@@ -159,12 +161,13 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
                 }
             }
 
-            AppendOwned(session, context.ResponseMessages, storedAt, restamp: true);
+            before = Merge(before, AppendOwned(session, context.ResponseMessages, storedAt, restamp: true));
         }
+
         session.TurnStartedAt = null; //一次性凭据,用过即弃
 
         // 常规轮次只追加新消息,落盘成本与会话长度无关
-        if (session.History.Count != before) session.SaveAppended(before);
+        if (before >= 0) session.SaveAppended(before);
         // 有没有新消息都算一次调用边界:此后流出来的内容属于下一条助手消息
         session.NotifyServiceCallPersisted();
         return default;
@@ -188,10 +191,12 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
     /// <param name="messages">待追加的消息</param>
     /// <param name="stamp">缺时间戳时的回落值；<paramref name="restamp"/> 时直接用它</param>
     /// <param name="restamp">是否无视消息自带的时间戳</param>
-    internal static void AppendOwned(ChatSession session, IEnumerable<ChatMessage> messages,
+    /// <returns>这批里第一条落进历史的下标；一条都没落则 -1</returns>
+    internal static int AppendOwned(ChatSession session, IEnumerable<ChatMessage> messages,
         DateTimeOffset stamp, bool restamp = false)
     {
         DateTimeOffset floor = LastStampOf(session.History);
+        int start = -1;
         foreach (ChatMessage message in messages)
         {
             if (!IsOwnedByUs(message)) continue;
@@ -243,9 +248,16 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
                 }
             }
 
-            session.History.Add(message);
+            int index = session.History.AddReturningIndex(message);
+            if (start < 0) start = index;
         }
+
+        return start;
     }
+
+    /// <summary>两批追加里靠前的那个起点；-1 表示那一批一条都没落</summary>
+    private static int Merge(int left, int right) =>
+        left < 0 ? right : right < 0 ? left : Math.Min(left, right);
 
     private static DateTimeOffset LastStampOf(IList<ChatMessage> history)
     {

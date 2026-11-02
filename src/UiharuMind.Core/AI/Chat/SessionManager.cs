@@ -421,7 +421,7 @@ public partial class SessionManager : Singleton<SessionManager>, IInitialize
 
         _stale.TryRemove(sessionId, out _); //新读的这份就是盘上最新的,旧标记不能沿用
         TrackHistory(session);
-        session.History = LoadHistoryTracked(session);
+        session.History = new SessionHistory(LoadHistoryTracked(session));
         // 进程级中断(崩溃/强杀)时当场补的代码跑不到,孤儿 tool_call 留在盘上——
         // 严格的服务端下一条请求直接 400,这个会话从此发不出话。读取时修:下次打开就有代码可跑了。
         // 只补末尾那一轮(硬杀只会留下末尾孤儿),中间的历史遗留孤儿不碰(追加到末尾会打乱配对顺序);
@@ -498,6 +498,14 @@ public partial class SessionManager : Singleton<SessionManager>, IInitialize
             if (count > 0) WriteBackHistory(session, session.History);
 
             if (!session.UnloadHistory()) continue;
+
+            // 卸载与「别人正好在读」是竞态的：getter 在锁外读盘，可能抢在置 null 之后又把历史装了回去。
+            // 那一份要是没被销账，就成了「常驻但没人管」——驻留策略再也扫不到它，直到进程退出
+            if (session.IsHistoryResident)
+            {
+                _resident[sessionId] = UtcClock();
+                continue;
+            }
 
             _resident.TryRemove(sessionId, out _);
             // 执行者一起放掉:装配快照、框架会话状态与 MCP 租约都挂在它身上,
@@ -692,6 +700,7 @@ public partial class SessionManager : Singleton<SessionManager>, IInitialize
         if (session.IsTransient) return;
         if (RefuseWrite(session, "history append")) return;
 
+        // 落盘起点钳到当前长度：这个下标是追加那一刻拿的，中间被删过消息的话可能已经越界
         int from = Math.Clamp(fromIndex, 0, session.History.Count);
         string path = GetHistoryPath(session.SessionId);
         if (from == 0 || !File.Exists(path))
@@ -703,7 +712,10 @@ public partial class SessionManager : Singleton<SessionManager>, IInitialize
 
         try
         {
-            WriteHistoryTracked(session.SessionId, x => File.AppendAllText(x, HistoryJsonl.SerializeLines(session.History.Skip(from))));
+            // 快照在写闸内取（与 Save 同口径）：闸外取的话，两个写方的行会交错着写进同一个文件。
+            // 只复制尾部几条，不是整份历史——这条是每次服务调用都要走的
+            WriteHistoryTracked(session.SessionId,
+                x => File.AppendAllText(x, HistoryJsonl.SerializeLines(session.History.SnapshotFrom(from))));
         }
         catch (Exception e)
         {
@@ -759,8 +771,12 @@ public partial class SessionManager : Singleton<SessionManager>, IInitialize
         JsonTypeInfo<ChatSession> sessionInfo = SessionJsonOptions.Default.GetTypeInfo<ChatSession>();
         JsonTypeInfo<List<ChatMessage>> historyInfo = SessionJsonOptions.Default.GetTypeInfo<List<ChatMessage>>();
         ChatSession copy = JsonSerializer.Deserialize(JsonSerializer.Serialize(session, sessionInfo), sessionInfo)!;
-        // History 不随会话头序列化(JsonIgnore),单独往返一次拿到完全独立的副本
-        copy.History = JsonSerializer.Deserialize(JsonSerializer.Serialize(session.History, historyInfo), historyInfo) ?? [];
+        // History 不随会话头序列化(JsonIgnore),单独往返一次拿到完全独立的副本。
+        // 先定格成 List 再序列化:historyInfo 就是 List<ChatMessage> 的,直接喂快照数组会走到
+        // 非泛型重载上,类型对不上
+        List<ChatMessage> original = [..session.History.Snapshot()];
+        copy.History = new SessionHistory(
+            JsonSerializer.Deserialize(JsonSerializer.Serialize(original, historyInfo), historyInfo) ?? []);
         return copy;
     }
 

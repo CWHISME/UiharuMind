@@ -150,8 +150,8 @@ public sealed class SessionDelivery
         return runner.PendingInjections.Any(x => ReferenceEquals(x, message)) ? EInjected.Abandoned : EInjected.Pending;
     }
 
-    // 全历史里已有同键同正文的一封了吗。读历史可能与正在跑的那一轮落盘并发
-    // （List 遍历撞上追加），照 IsInHistory 的兜底：撞了就下次再看
+    // 全历史里已有同键同正文的一封了吗。取快照再扫：写方（收信人那一轮）随时可能追加，
+    // 按下标扫活列表会随长度变化抛越界
     private bool AlreadyDelivered(SessionLetter letter)
     {
         if (letter.DedupeKey is not { } key) return false;
@@ -161,8 +161,8 @@ public sealed class SessionDelivery
             ChatMessage? message = letter.Compose(session);
             if (message == null) return false;
 
-            IList<ChatMessage> history = session.History;
-            for (int i = history.Count - 1; i >= 0; i--)
+            ChatMessage[] history = session.History.Snapshot();
+            for (int i = history.Length - 1; i >= 0; i--)
             {
                 ChatMessage existing = history[i];
                 string? existingKey = letter.KeyOf(existing);
@@ -171,7 +171,7 @@ public sealed class SessionDelivery
         }
         catch (Exception)
         {
-            //那一轮正往历史里追加，下次再看
+            //组信过程出了岔子(历史里有些消息读不出来)，下次再看
         }
 
         return false;
@@ -201,15 +201,15 @@ public sealed class SessionDelivery
         try
         {
             if (_host.Load(sessionId) is not { } session) return false;
-            IList<ChatMessage> history = session.History;
-            for (int i = history.Count - 1; i >= 0 && i >= history.Count - RecentScan; i--)
+            ChatMessage[] history = session.History.Snapshot();
+            for (int i = history.Length - 1; i >= 0 && i >= history.Length - RecentScan; i--)
             {
                 if (ReferenceEquals(history[i], message) || history[i].Text == message.Text) return true;
             }
         }
         catch (Exception)
         {
-            //那一轮正往历史里追加，下次再看
+            //历史正被卸载/重载，下次再看
         }
 
         return false;
