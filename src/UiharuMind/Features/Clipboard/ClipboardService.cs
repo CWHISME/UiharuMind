@@ -65,9 +65,14 @@ public class ClipboardService : IDisposable
     private static readonly DataFormat<byte[]> ImageFormatPngMac = DataFormat.CreateBytesPlatformFormat(ImageTypePngMac);
     private static readonly DataFormat<byte[]> ImageFormatTiffMac = DataFormat.CreateBytesPlatformFormat(ImageTypeTiffMac);
 
+    /// <summary>自己写进去的那次变化最多认这么久。写成永久布尔开关的话，写失败或通知丢了就会一直挂着</summary>
+    private static readonly TimeSpan SelfWriteWindow = TimeSpan.FromSeconds(3);
+
     // public string ImageType => PlatformUtils.IsWindows ? ImageTypePngWin : ImageTypePngMac;
 
     private bool _isSelfCopying;
+    private string? _selfWrittenText; //刚写进去的文本,用来认出对应的那条变化通知
+    private DateTime _selfWriteUntil; //这之前的变化可能是自己写的
     private string? _lastRecordedText; //上一条记进历史的文本,只用于去重
     private DateTime _ignoreChangesUntil; //这之前的剪贴板变化是自己借用造成的,不记历史
     private int _readQueued; //1 表示已排了一次读取,这期间再来的变化通知并进去
@@ -76,7 +81,12 @@ public class ClipboardService : IDisposable
     public bool IsSelfCopying
     {
         get => _isSelfCopying;
-        set => _isSelfCopying = value;
+        set
+        {
+            _isSelfCopying = value;
+            _selfWriteUntil = value ? DateTime.UtcNow + SelfWriteWindow : default;
+            if (!value) _selfWrittenText = null;
+        }
     }
 
     public ClipboardService(Window target, IMessageService messages)
@@ -120,7 +130,13 @@ public class ClipboardService : IDisposable
 
     private async Task CopyToClipboardAsync(string text, bool ignoreSelfCopying, bool tips)
     {
-        if (ignoreSelfCopying) _isSelfCopying = true;
+        if (ignoreSelfCopying)
+        {
+            _isSelfCopying = true;
+            _selfWrittenText = text;
+            _selfWriteUntil = DateTime.UtcNow + SelfWriteWindow;
+        }
+
         try
         {
             await Clipboard.SetTextAsync(text);
@@ -128,9 +144,23 @@ public class ClipboardService : IDisposable
         catch (Exception e)
         {
             // 没写进去就把标记撤了，别让它去吞用户的下一次复制
-            _isSelfCopying = false;
-            Log.Error(e);
+            IsSelfCopying = false;
+            Log.Warning($"Copy to clipboard failed: {e.Message}{ClipboardWin32.DescribeHolder()}");
+            if (tips) _messages.ShowNotification(Loc.Text(LangKey.CopyToClipboardFailed), severity: MessageSeverity.Error);
             return;
+        }
+
+        // 写完必须 flush（OleFlushClipboard）。Avalonia 放上去的是延迟渲染的托管数据对象：内容归我们进程所有，
+        // 别的应用每粘一次都要回调我们的 UI 线程，UI 线程一忙它们就跟着卡住，我们一退出内容就没了。
+        // flush 之后数据归 Windows，谁粘都不再经过我们
+        try
+        {
+            await Clipboard.FlushAsync();
+        }
+        catch (Exception e)
+        {
+            // 复制本身已经成功了，flush 失败只是退化成老样子，不该报失败
+            Log.Warning($"Flush clipboard failed: {e.Message}{ClipboardWin32.DescribeHolder()}");
         }
 
         OnClipboardStringChanged?.Invoke(text);
@@ -172,7 +202,7 @@ public class ClipboardService : IDisposable
     /// <param name="ignoreSelfCopying">是否忽略由此引发的剪贴板变化通知</param>
     public void CopyImageToClipboard(Bitmap bitmap, bool ignoreSelfCopying = false)
     {
-        if (ignoreSelfCopying) _isSelfCopying = true;
+        if (ignoreSelfCopying) IsSelfCopying = true;
 
         try
         {
@@ -192,7 +222,9 @@ public class ClipboardService : IDisposable
         }
         catch (Exception e)
         {
-            Log.Error(e);
+            // 同文字那条路：没写进去就得把标记撤了，否则它会把用户下一次真实复制当成自己干的
+            IsSelfCopying = false;
+            Log.Warning($"Copy image to clipboard failed: {e.Message}{ClipboardWin32.DescribeHolder()}");
         }
     }
 
@@ -341,11 +373,19 @@ public class ClipboardService : IDisposable
         Dispatcher.UIThread.Post(RecordSystemClipboard);
     }
 
-    private bool ConsumeSelfChange()
+    /// <summary>
+    /// 这次变化是不是我们自己造成的。<b>必须拿读到的内容来判</b>：只有跟刚写进去的对得上才算，
+    /// 否则一律当用户复制——多记一条顶多是重复，吞掉一条就再也找不回来了
+    /// </summary>
+    /// <param name="text">这次读到的内容；复制的是图片等非文本时为 null</param>
+    private bool ConsumeSelfChange(string? text)
     {
-        if (DateTime.UtcNow < _ignoreChangesUntil) return true;
-        if (!_isSelfCopying) return false;
-        _isSelfCopying = false;
+        // 时间窗内可以命中多次：写完还要 flush，flush 会再触发一次剪贴板更新，
+        // 一次自我复制往往来两条通知。只吞第一条的话，第二条会把我们自己的东西记进历史
+        if (DateTime.UtcNow >= _selfWriteUntil) return false;
+
+        // 图片这类写不进文本的场景没有内容可比，只能按时间窗认
+        if (_selfWrittenText != null && !string.Equals(_selfWrittenText, text, StringComparison.Ordinal)) return false;
         return true;
     }
 
@@ -353,7 +393,8 @@ public class ClipboardService : IDisposable
     {
         try
         {
-            if (ConsumeSelfChange()) return;
+            // 借用窗口内连读都不用读：这期间的变化本来就是自己放上去的
+            if (DateTime.UtcNow < _ignoreChangesUntil) return;
 
             // 来源应用先清空再写入，读早了只会读到空、不会读到旧内容，所以空了稍等再补读一次。
             // 这一次补读是承重的：它兜住的正是「通知已经发出去、数据还没写完」那段空窗
@@ -363,6 +404,9 @@ public class ClipboardService : IDisposable
                 await Task.Delay(100);
                 clipboardContent = await GetFromClipboard();
             }
+
+            // 判自己写的要在读完以后：只有内容对得上才吞，时间窗和内容双保险
+            if (ConsumeSelfChange(clipboardContent)) return;
 
             if (string.IsNullOrEmpty(clipboardContent))
             {

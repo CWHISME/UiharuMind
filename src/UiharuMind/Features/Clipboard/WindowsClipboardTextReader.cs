@@ -10,7 +10,7 @@ using UiharuMind.Core.Core.SimpleLog;
 namespace UiharuMind.Features.Clipboard;
 
 /// <summary>
-/// Windows 上读剪贴板文本：<b>OLE 优先，独占一个 STA 线程，同一时刻只允许一个读者</b>。
+/// Windows 上读剪贴板文本：<b>只走 OLE，独占一个 STA 线程，同一时刻只允许一个读者</b>。
 ///
 /// <para>
 /// <b>为什么不能直读。</b> 来源应用若用 OLE 延迟渲染（WPF 的 <c>SetDataObject(…, false)</c>、
@@ -18,6 +18,7 @@ namespace UiharuMind.Features.Clipboard;
 /// <c>GetClipboardData</c> 会同步等对方把数据渲染出来。实测在 SourceTree 里复制一次，
 /// 这一等是 <b>20 秒</b>；而这 20 秒里剪贴板被我们独占，来源应用连自己的收尾都做不了，
 /// 于是两个应用一起卡死——这才是「复制一下卡好几秒」的真身，跟重试次数无关。
+/// 所以直读这条路已经整个删掉了，连兜底都不留。
 /// </para>
 ///
 /// <para>
@@ -47,8 +48,11 @@ public sealed class WindowsClipboardTextReader : IClipboardTextReader
 
     private static readonly TimeSpan ReadyTimeout = TimeSpan.FromSeconds(2);
 
-    /// <summary>ole32 放在剪贴板上的格式名。在就说明是 OLE 放的，直读会踩延迟渲染的坑</summary>
-    private static readonly uint DataObjectFormat = ClipboardWin32.RegisterClipboardFormat("DataObject");
+    /// <summary>剪贴板被别人开着时的重试次数。这个窗口通常几十毫秒，等一等就过去了</summary>
+    private const int OleRetryCount = 3;
+
+    /// <summary>第 n 次重试前等 n 倍，拉开间隔</summary>
+    private const int OleRetryDelayMilliseconds = 40;
 
     private readonly Thread _thread;
     private readonly ManualResetEventSlim _ready = new();
@@ -134,22 +138,45 @@ public sealed class WindowsClipboardTextReader : IClipboardTextReader
         }
     }
 
+    /// <summary>
+    /// 读一次。<b>只有 OLE 一条路</b>，没有直读兜底。
+    ///
+    /// <para>
+    /// 直读要在持有全局剪贴板的情况下等来源应用渲染（延迟渲染），那几十秒里谁都别想碰剪贴板——
+    /// 正是「复制一下把别的程序卡住」的来源。而 <c>OleGetClipboard</c> 对裸 <c>SetClipboardData</c>
+    /// 放上去的数据同样会合成一个 data object，直读没有它能读、我们读不到的东西：Avalonia 自己的
+    /// 剪贴板读取就只有 OLE 这一条路，记事本复制的东西它照样读得到。
+    /// </para>
+    /// </summary>
     private static string? ReadOnce()
     {
-        string? text = TryReadViaOle();
-        if (text != null) return text;
+        int result = 0;
+        for (int attempt = 0; attempt < OleRetryCount; attempt++)
+        {
+            if (attempt > 0) Thread.Sleep(OleRetryDelayMilliseconds * attempt);
+            result = TryReadViaOle(out string? text);
+            if (result == 0) return text;
+            // 只有「剪贴板被别人开着」值得再等一次；别的错重试也是一样的结果
+            if (result != ClipboardWin32.ClipboardCantOpen) break;
+        }
 
-        // OLE 拿不到、且剪贴板不是 OLE 放的（没有 DataObject 格式）时，才退回直读。
-        // OLE 放的剪贴板直读会卡在延迟渲染上——那正是这条路要绕开的东西
-        return LooksLikeOleClipboard() ? null : TryReadDirect();
+        // 只有被占用才报是谁占着；别的错（比如 OLE 没初始化）跟别人无关
+        string holder = result == ClipboardWin32.ClipboardCantOpen ? ClipboardWin32.DescribeHolder() : string.Empty;
+        Log.Debug($"Read clipboard skipped: 0x{result:X8}{holder}");
+        return null;
     }
 
     /// <summary>
     /// 经 OLE 取文本。<b>全程不持有剪贴板</b>，所以来源应用渲染得再慢也冻不住它
     /// </summary>
-    private static string? TryReadViaOle()
+    /// <param name="text">读到的文本；剪贴板上没有文本时为 null</param>
+    /// <returns><c>OleGetClipboard</c> 的返回值，0 表示这次拿到了剪贴板</returns>
+    private static int TryReadViaOle(out string? text)
     {
-        if (ClipboardWin32.OleGetClipboard(out IntPtr unknown) != 0 || unknown == IntPtr.Zero) return null;
+        text = null;
+        int result = ClipboardWin32.OleGetClipboard(out IntPtr unknown);
+        if (result != 0) return result;
+        if (unknown == IntPtr.Zero) return -1;
 
         IDataObject? dataObject = null;
         try
@@ -168,12 +195,12 @@ public sealed class WindowsClipboardTextReader : IClipboardTextReader
             dataObject.GetData(ref format, out STGMEDIUM medium);
             try
             {
-                if (medium.tymed != TYMED.TYMED_HGLOBAL || medium.unionmember == IntPtr.Zero) return null;
+                if (medium.tymed != TYMED.TYMED_HGLOBAL || medium.unionmember == IntPtr.Zero) return 0;
                 IntPtr pointer = ClipboardWin32.GlobalLock(medium.unionmember);
-                if (pointer == IntPtr.Zero) return null;
+                if (pointer == IntPtr.Zero) return 0;
                 try
                 {
-                    return Marshal.PtrToStringUni(pointer);
+                    text = Marshal.PtrToStringUni(pointer);
                 }
                 finally
                 {
@@ -189,7 +216,6 @@ public sealed class WindowsClipboardTextReader : IClipboardTextReader
         {
             // 拿不到格式是常态（复制的是文件或图片），不当错误刷屏
             Log.Debug($"Read clipboard via OLE failed: {e.Message}");
-            return null;
         }
         finally
         {
@@ -197,37 +223,8 @@ public sealed class WindowsClipboardTextReader : IClipboardTextReader
             Marshal.Release(unknown);
             if (dataObject != null) Marshal.ReleaseComObject(dataObject);
         }
-    }
 
-    private static bool LooksLikeOleClipboard() =>
-        DataObjectFormat == 0 || ClipboardWin32.IsClipboardFormatAvailable(DataObjectFormat);
-
-    /// <summary>
-    /// Win32 直读。<b>只在剪贴板不是 OLE 放的时候用</b>——那时延迟渲染由来源应用自己的窗口过程应答，
-    /// 通常几毫秒就返回；而 OLE 放的剪贴板走这条路会卡几十秒（见类注释）
-    /// </summary>
-    private static string? TryReadDirect()
-    {
-        if (!ClipboardWin32.OpenClipboard(IntPtr.Zero)) return null;
-        try
-        {
-            IntPtr handle = ClipboardWin32.GetClipboardData(ClipboardWin32.CF_UNICODETEXT);
-            if (handle == IntPtr.Zero) return null;
-            IntPtr pointer = ClipboardWin32.GlobalLock(handle);
-            if (pointer == IntPtr.Zero) return null;
-            try
-            {
-                return Marshal.PtrToStringUni(pointer);
-            }
-            finally
-            {
-                ClipboardWin32.GlobalUnlock(handle);
-            }
-        }
-        finally
-        {
-            ClipboardWin32.CloseClipboard();
-        }
+        return 0;
     }
 
     public void Dispose()

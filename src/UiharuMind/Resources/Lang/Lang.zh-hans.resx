@@ -876,6 +876,9 @@
     <data name="CopiedToClipboardTips" xml:space="preserve">
         <value>已复制！</value>
     </data>
+    <data name="CopyToClipboardFailed" xml:space="preserve">
+        <value>复制失败：剪贴板被其它程序占着，稍后再试一次。</value>
+    </data>
     <data name="DeleteAll" xml:space="preserve">
         <value>删除所有</value>
     </data>

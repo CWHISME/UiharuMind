@@ -46,10 +46,34 @@ public sealed class AvaloniaPasteboard : IPasteboard
         }
     }
 
-    public Task SetTextAsync(string text) => _clipboard.SetTextAsync(text);
+    public async Task SetTextAsync(string text)
+    {
+        await _clipboard.SetTextAsync(text);
+        await FlushAsync();
+    }
 
-    public Task RestoreAsync(DataTransfer? saved) =>
-        saved != null ? _clipboard.SetDataAsync(saved) : _clipboard.ClearAsync();
+    public async Task RestoreAsync(DataTransfer? saved)
+    {
+        if (saved != null) await _clipboard.SetDataAsync(saved);
+        else await _clipboard.ClearAsync();
+        await FlushAsync();
+    }
+
+    /// <summary>
+    /// 放上去就得 flush。不 flush 的话数据挂在我们自己的托管对象上延迟渲染，前台应用那一下粘贴要回调我们的
+    /// UI 线程——借用的文字和还原后的内容都可能粘不出来，进程一退更是直接丢
+    /// </summary>
+    private async Task FlushAsync()
+    {
+        try
+        {
+            await _clipboard.FlushAsync();
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Flush clipboard failed: {e.Message}");
+        }
+    }
 
     private static bool Keep(DataTransferItem item, DataFormat format, object? raw)
     {
