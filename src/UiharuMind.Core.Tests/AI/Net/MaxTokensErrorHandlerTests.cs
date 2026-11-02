@@ -62,4 +62,26 @@ public class MaxTokensErrorHandlerTests
 
         Assert.False(MaxTokensErrorHandler.TryGetUpperBound(e, out _));
     }
+
+    /// <summary>
+    /// 只回一句 Param Incorrect 的 400（实测小米 MiMo）：读不出上限，但能认出「参数被拒」，
+    /// 调用方据此把发出去的值记进日志
+    /// </summary>
+    [Fact]
+    public void OpaqueBadRequest_IsBadRequestButHasNoUpperBound()
+    {
+        var e = new Exception("HTTP 400 (invalid_request_error: )",
+            new HttpRequestException("bad request", null, System.Net.HttpStatusCode.BadRequest));
+
+        Assert.True(MaxTokensErrorHandler.IsBadRequest(e));
+        Assert.False(MaxTokensErrorHandler.TryGetUpperBound(e, out _));
+    }
+
+    [Fact]
+    public void ServerError_IsNotBadRequest()
+    {
+        var e = new HttpRequestException("boom", null, System.Net.HttpStatusCode.InternalServerError);
+
+        Assert.False(MaxTokensErrorHandler.IsBadRequest(e));
+    }
 }

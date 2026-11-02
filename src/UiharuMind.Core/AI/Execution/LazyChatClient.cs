@@ -11,6 +11,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Text;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Core;
@@ -21,6 +22,7 @@ using UiharuMind.Core.AI.Reasoning;
 using UiharuMind.Core.Configs.RemoteAI;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.RemoteOpenAI;
+using UiharuMind.Core.RemoteOpenAI.ModelCatalog;
 using UiharuMind.Core.AI.Net.Errors;
 
 namespace UiharuMind.Core.AI.Execution;
@@ -179,7 +181,7 @@ public class LazyChatClient : IChatClient
             if (attempt > 1) LlmRequestScope.Current.RetryTally?.NoteRetry();
             bool retryable = false;
             await foreach (var (update, failure) in StreamOnceAsync(
-                               client, gated, options, toolNames, model.ModelName, signal, producer,
+                               client, gated, options, toolNames, model, signal, producer,
                                cancellationToken)
                            .ConfigureAwait(false))
             {
@@ -264,6 +266,38 @@ public class LazyChatClient : IChatClient
     }
 
     /// <summary>
+    /// 参数被服务端拒（400）却不说拒了哪个时，把这一发里可能越界的几个值记成一行。
+    ///
+    /// <para>为什么值得单独记：这类 400 的正文常常只有一句 <c>Param Incorrect</c>，
+    /// 而真正越界的那个值在请求体里，不去翻 <c>Bodies.txt</c> 逐字段比对根本看不出来
+    /// （实测：小米 MiMo 的输出上限是 131072，被 384000 顶掉，报错里一个字都没提 max_tokens）。</para>
+    /// </summary>
+    private static void LogRejectedParams(ModelRunningData model, ChatOptions? options, HashSet<string>? toolNames)
+    {
+        if (model.ModelInfo is not RemoteModelInfo remote) return;
+
+        int sentMaxTokens = 0;
+        if (remote.Config.GetExtraParams() is { } extra)
+        {
+            foreach (KeyValuePair<string, JsonNode?> pair in extra)
+            {
+                if (pair.Key == "max_tokens" && pair.Value is JsonValue value && value.TryGetValue(out int parsed))
+                {
+                    sentMaxTokens = parsed;
+                }
+            }
+        }
+
+        string cap = ModelCapabilityResolver.TryGetMaxOutput(remote.Config, out int maxOutput)
+            ? maxOutput.ToString()
+            : "unknown";
+        Log.Warning($"request rejected with 400 but the body names no parameter. Sent max_tokens={sentMaxTokens} " +
+                    $"(declared cap {cap}), temperature={options?.Temperature?.ToString() ?? "(unset)"}, " +
+                    $"top_p={options?.TopP?.ToString() ?? "(unset)"}, tools={toolNames?.Count ?? 0}, " +
+                    $"model={remote.ModelId}.");
+    }
+
+    /// <summary>
     /// 记下「这个模型要求历史里每条助手消息都带思考」并落盘，供下一次重发使用。
     /// 非远程配置型模型（本地）改不了，返回 false 交上层照原样抛错。
     /// </summary>
@@ -291,7 +325,7 @@ public class LazyChatClient : IChatClient
     /// </summary>
     private async IAsyncEnumerable<(ChatResponseUpdate? Update, Exception? Failure)> StreamOnceAsync(
         IChatClient client, IReadOnlyList<ChatMessage> messages, ChatOptions? options, HashSet<string>? toolNames,
-        string? modelName, EncryptedReasoningSignal signal, ReasoningGate producer,
+        ModelRunningData model, EncryptedReasoningSignal signal, ReasoningGate producer,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         // 文本工具调用恢复:GLM 线格式的调用可能以纯文本漏进正文或思考通道
@@ -308,7 +342,7 @@ public class LazyChatClient : IChatClient
         bool encryptedContentSeen = false; //这一发收到了带密文的思考（responses 线由 SDK 解出）
         StreamCompletionWatch watch = new();
         // 复读不归重试管：直接抛出，本轮按失败收口（已生成的部分照常落盘）
-        RepetitionLoopWatch loopWatch = new(modelName);
+        RepetitionLoopWatch loopWatch = new(model.ModelName);
 
         IAsyncEnumerator<ChatResponseUpdate> enumerator = client
             .GetStreamingResponseAsync(messages, options, cancellationToken).GetAsyncEnumerator(cancellationToken);
@@ -337,6 +371,15 @@ public class LazyChatClient : IChatClient
                 {
                     // 同上:缺思考字段的 400 也交给上层,记下模型后重发
                     failure = e;
+                }
+                catch (Exception e) when (!cancellationToken.IsCancellationRequested &&
+                                          MaxTokensErrorHandler.IsBadRequest(e))
+                {
+                    // 参数被拒却不说拒了哪个(小米 MiMo 只回 Param Incorrect):本地无从判断该改什么,
+                    // 这一发救不回来。但把「我们发了什么」记一行,下次不必再去翻 Bodies.txt 逐字段比对。
+                    // 必须原样抛出——400 重发一百次还是 400,不能落到下面的断线重试里空耗
+                    LogRejectedParams(model, options, toolNames);
+                    throw;
                 }
 
                 if (failure != null)

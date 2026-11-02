@@ -200,6 +200,14 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
                 ? preset.MaxTokens
                 : DefaultMaxTokens);
 
+        // 超出模型声明上限的预算发出去就是一次必然失败的请求，且失败信息往往不含参数名
+        // （见 ModelCapabilityResolver.TryGetMaxOutput）。用户填大是想多要预算，不是想让请求被拒，
+        // 所以钳到上限继续发——配置里的值不动，编辑窗口照旧显示用户填的那个数
+        if (ModelCapabilityResolver.TryGetMaxOutput(this, out int maxOutput) && maxTokens > maxOutput)
+        {
+            maxTokens = maxOutput;
+        }
+
         // max_tokens 必须与思考档位同步给:服务端默认 8192 被思考吃光后正文为 0,
         // 表现为「思考完就没有正式对话」。这是用户最常用的「不干预」档,漏了等于没修
         string effort = ThinkingEfforts.Normalize(ThinkingEffort);

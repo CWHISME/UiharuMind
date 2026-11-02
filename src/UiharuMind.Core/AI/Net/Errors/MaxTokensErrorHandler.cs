@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System.Text.RegularExpressions;
+using UiharuMind.Core.AI.Usage;
 
 namespace UiharuMind.Core.AI.Net.Errors;
 
@@ -53,6 +54,18 @@ internal static class MaxTokensErrorHandler
     private static bool MentionsMaxTokens(string message) =>
         message.Contains("max_tokens", StringComparison.OrdinalIgnoreCase) ||
         message.Contains("maxtokens", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 是否为 400（请求体被服务端拒）。
+    ///
+    /// <para>与 <see cref="TryGetUpperBound"/> 分工：那条要从错误里读出上限，只覆盖措辞规范的实现；
+    /// 有的上游只回一句 <c>Param Incorrect</c>，什么都不说，正则永远命中不了。
+    /// 这时本地无从判断该改哪个参数，能做的只剩把「我们发了什么」记进日志
+    /// （见 <c>LazyChatClient</c> 的 400 诊断）。</para>
+    /// </summary>
+    /// <param name="exception">顶层异常；沿异常链取状态码</param>
+    /// <returns>状态码为 400 时 true</returns>
+    public static bool IsBadRequest(Exception exception) => UsageErrorKinds.StatusCodeOf(exception) == 400;
 
     /// <summary>
     /// 是否为 max_tokens 被服务端拒绝的错误（不关心合法上限的具体值）。

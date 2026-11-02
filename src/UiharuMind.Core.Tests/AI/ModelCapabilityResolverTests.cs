@@ -169,4 +169,27 @@ public class ModelCapabilityResolverTests
         Assert.Equal("", ModelPrice.Unknown.Summary);
         Assert.Equal(0, ModelPrice.Unknown.Cost(1_000_000, 0, 1_000_000));
     }
+
+    /// <summary>
+    /// 转售商条目缺行时输出上限靠 canonical：CommandCode 目录里没有 xiaomi/mimo-v2.6-flash 的能力行，
+    /// 但原厂条目的上限（131072）与谁转售无关，可以拿来钳 max_tokens
+    /// </summary>
+    [Fact]
+    public void MaxOutput_ResellerEntryMissing_UsesCanonical()
+    {
+        var config = new RemoteCommandCodeModelConfig { ModelId = "xiaomi/mimo-v2.6-flash" };
+
+        Assert.True(ModelCapabilityResolver.TryGetMaxOutput(config, out int maxOutput));
+        Assert.Equal(131072, maxOutput);
+    }
+
+    /// <summary>哪都没有的模型返回 false，调用方据此不钳</summary>
+    [Fact]
+    public void MaxOutput_UnknownEverywhere_IsUnknown()
+    {
+        var config = new RemoteCommandCodeModelConfig { ModelId = "local/definitely-not-a-model" };
+
+        Assert.False(ModelCapabilityResolver.TryGetMaxOutput(config, out int maxOutput));
+        Assert.Equal(0, maxOutput);
+    }
 }

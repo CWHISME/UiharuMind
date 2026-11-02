@@ -39,6 +39,45 @@ public static class ModelCapabilityResolver
     }
 
     /// <summary>
+    /// 该模型声明的最大输出预算（含思考 token）。查不到返回 false。
+    ///
+    /// <para>优先级同 <see cref="ResolveVision"/>：预设表 &gt; 该供应商自己的条目 &gt; canonical 兜底。
+    /// 用途是把用户填的 <c>max_tokens</c> 钳在模型真正接受的范围里——超上限的请求会被严格的上游
+    /// 直接拒掉，而且常常<b>不给任何细节</b>（实测小米 MiMo 上限 131072，CommandCode 只回一句
+    /// <c>Param Incorrect</c>，从错误里看不出是哪个参数越界）。</para>
+    /// </summary>
+    /// <param name="config">远程模型配置</param>
+    /// <param name="maxOutput">声明的最多输出 token 数；查不到为 0</param>
+    /// <returns>有声明为 true</returns>
+    public static bool TryGetMaxOutput(BaseRemoteModelConfig config, out int maxOutput)
+    {
+        if (config.ModelIdVariants.TryGetValue(config.ModelId, out RemoteModelIdVariant? preset) && preset.MaxTokens > 0)
+        {
+            maxOutput = preset.MaxTokens;
+            return true;
+        }
+
+        string providerKey = ProviderKeyOf(config);
+        if (providerKey.Length > 0 && ModelCapabilitySource.TryGet(providerKey, config.ModelId, out var capability) &&
+            capability.MaxTokens > 0)
+        {
+            maxOutput = capability.MaxTokens;
+            return true;
+        }
+
+        // 转售商目录缺行（models.dev 对 CommandCode 就缺了不少）时靠 canonical：
+        // 那一行的值取自模型原厂条目，与谁转售无关
+        if (ModelCapabilitySource.TryGetCanonical(config.ModelId, out var canonical) && canonical.MaxTokens > 0)
+        {
+            maxOutput = canonical.MaxTokens;
+            return true;
+        }
+
+        maxOutput = 0;
+        return false;
+    }
+
+    /// <summary>
     /// 模型的挂牌单价（USD / 百万 token）。<b>只查该供应商自己的条目</b>：
     /// canonical 兜底能回答"这是什么模型"，但价格是每个转售商各挂各的，跨家借价等于编。
     /// </summary>
