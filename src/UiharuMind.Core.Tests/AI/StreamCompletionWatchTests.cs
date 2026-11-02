@@ -54,4 +54,63 @@ public class StreamCompletionWatchTests
     [Fact]
     public void EmptyText_DoesNotCountAsAnswer() =>
         Assert.True(Watch(Update(new TextContent(""))).IsCutOff);
+
+    [Fact]
+    public void TextThenThousandsOfNewlines_IsWhitespaceFlooded()
+    {
+        // 实测 ling-3.1-flash 的原样：一句话 + 2948 个换行，finish_reason=stop，没有工具调用
+        StreamCompletionWatch watch = Watch(
+            Update(new TextContent("文件被占用，换 Shell 读。")),
+            Update(new TextContent(new string('\n', 2948))),
+            Finish(ChatFinishReason.Stop));
+
+        Assert.True(watch.IsWhitespaceFlooded);
+        Assert.False(watch.IsCutOff); // 有 finish_reason，不算截断
+        Assert.Equal(2948, watch.TrailingWhitespace);
+    }
+
+    [Fact]
+    public void FloodSplitAcrossDeltas_IsAccumulated()
+    {
+        StreamCompletionWatch watch = new();
+        watch.Observe(Update(new TextContent("说完了")));
+        for (int i = 0; i < 500; i++) watch.Observe(Update(new TextContent("\n")));
+
+        Assert.True(watch.IsWhitespaceFlooded);
+    }
+
+    [Fact]
+    public void FloodThenToolCall_IsNotFlooded()
+    {
+        // 后面还接了工具调用，回合不会停，不必重发
+        StreamCompletionWatch watch = Watch(
+            Update(new TextContent("先看看。")),
+            Update(new TextContent(new string('\n', 2000))),
+            Update(new FunctionCallContent("c1", "Read")));
+
+        Assert.False(watch.IsWhitespaceFlooded);
+    }
+
+    [Fact]
+    public void NormalMarkdownTrailingBlankLines_IsNotFlooded()
+    {
+        StreamCompletionWatch watch = Watch(
+            Update(new TextContent("# 标题\n\n正文一段。\n\n正文二段。\n\n")),
+            Finish(ChatFinishReason.Stop));
+
+        Assert.False(watch.IsWhitespaceFlooded);
+    }
+
+    [Fact]
+    public void WhitespaceBeforeContent_DoesNotCount()
+    {
+        // 空白在中间而非尾部，不算刷屏
+        StreamCompletionWatch watch = Watch(
+            Update(new TextContent(new string('\n', 2000))),
+            Update(new TextContent("真正的答案")),
+            Finish(ChatFinishReason.Stop));
+
+        Assert.False(watch.IsWhitespaceFlooded);
+        Assert.Equal(0, watch.TrailingWhitespace);
+    }
 }

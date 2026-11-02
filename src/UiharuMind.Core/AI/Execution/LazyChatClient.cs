@@ -37,6 +37,12 @@ public class LazyChatClient : IChatClient
     /// <summary>流式中途被服务端掐断(HttpIOException: ResponseEnded)的重试次数上限。</summary>
     private const int StreamingRetryMaxAttempts = 6;
 
+    /// <summary>
+    /// 退化回复（正文退化成一片空白）的重发次数上限。同一个模型连续几次都退化的概率不低，
+    /// 重发太多只是白烧 token
+    /// </summary>
+    private const int DegenerateRetryMaxAttempts = 2;
+
     /// <summary>断线重试退避基数:1s、2s、4s…封顶 <see cref="StreamingRetryMaxDelay"/></summary>
     private static readonly TimeSpan StreamingRetryBaseDelay = TimeSpan.FromSeconds(1);
 
@@ -175,6 +181,7 @@ public class LazyChatClient : IChatClient
         // 好在工具调用通常出现在流中后段,断线多发在思考/等待的停顿期,此时尚无新调用产出。
         bool maxTokensFixed = false; // 服务端拒 max_tokens 的自愈只做一次
         bool reasoningRequirementLearned = false; // 「每条助手消息都要带思考」的自愈只做一次
+        int degenerateRetries = 0; // 退化回复的重发次数，单独计——它不是网络问题，不该吃断线的退避预算
         // 重发计数：每次进循环都算一次尝试，第 2 次起就是重试。计数口挂在请求上下文上（调用方读它记 retry_count）
         for (int attempt = 1; ; attempt++)
         {
@@ -216,6 +223,24 @@ public class LazyChatClient : IChatClient
                         reasoningRequirementLearned = true;
                         Log.Warning($"server requires reasoning on every earlier assistant message " +
                                     $"(model '{model.ModelInfo.ModelId}'); marked for this model, retrying this stream once.");
+                        retryable = true;
+                        break;
+                    }
+
+                    // 退化回复：流是正常收尾的，退避没有意义，立刻重发。次数单独计，
+                    // 免得把断线的重试预算耗在「模型这次不行」上
+                    if (failure is DegeneratedReplyException)
+                    {
+                        if (degenerateRetries >= DegenerateRetryMaxAttempts)
+                        {
+                            Log.Warning($"[stream] reply degenerated into whitespace, giving up after " +
+                                        $"{degenerateRetries} retries: {failure.Message}");
+                            ExceptionDispatchInfo.Capture(failure).Throw();
+                        }
+
+                        degenerateRetries++;
+                        Log.Warning($"[stream] reply degenerated into whitespace ({failure.Message}); " +
+                                    $"retry {degenerateRetries}/{DegenerateRetryMaxAttempts}.");
                         retryable = true;
                         break;
                     }
@@ -494,6 +519,14 @@ public class LazyChatClient : IChatClient
         {
             yield return (null, new HttpIOException(HttpRequestError.ResponseEnded,
                 "stream ended without finish_reason, text or tool calls (reply was cut off upstream)"));
+            yield break;
+        }
+
+        // 模型退化：说完一句话后连续吐几千个空白再 stop。流是正常收尾、finish_reason 也在，
+        // 截断与复读两处都看不出问题，但这一发没有工具调用，agent 回合就此停住
+        if (watch.IsWhitespaceFlooded)
+        {
+            yield return (null, new DegeneratedReplyException(watch.TrailingWhitespace));
             yield break;
         }
 
