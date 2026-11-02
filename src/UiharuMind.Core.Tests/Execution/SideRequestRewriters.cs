@@ -13,6 +13,6 @@ internal static class SideRequestRewriters
 {
     /// <summary>不做识图投影的一份</summary>
     public static readonly SideRequestRewriter Plain = HistoryRewriteChain.ForSideRequest(
-        (transport, compaction) => HistoryRewriteChain.Build(transport, projectionPaths: null, attachImages: false,
+        (transport, compaction) => HistoryRewriteChain.Build(transport, projectionPaths: null, attachImages: () => false,
             compaction));
 }

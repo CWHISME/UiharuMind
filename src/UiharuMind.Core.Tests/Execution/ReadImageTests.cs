@@ -222,10 +222,10 @@ public sealed class ReadImageTests : IDisposable
 
     /// <summary>与 AnalyzeImage 共用识图开关、按模型互斥：自带视觉的经 Read 自己看，看不了的转交</summary>
     [Theory]
-    [InlineData(true, true, true, false)]
-    [InlineData(true, false, false, true)]
-    [InlineData(false, true, false, false)] //识图开关关了:两边都不成立
-    public void Mount_SharesTheVisionToggle_AndPicksByModel(bool enabled, bool modelSeesImages, bool attach, bool analyze)
+    [InlineData(true, true, false)]
+    [InlineData(true, false, true)]
+    [InlineData(false, true, false)] //识图开关关了:两边都不成立
+    public void Mount_SharesTheVisionToggle_AndPicksByModel(bool enabled, bool modelSeesImages, bool analyze)
     {
         CharacterData character = new()
         {
@@ -236,7 +236,7 @@ public sealed class ReadImageTests : IDisposable
             Profile = new AgentBuildProfile { Character = character }, ModelSupportsVision = modelSeesImages,
         };
 
-        Assert.Equal(attach, plan.ReadAttachesImages);
+        // "要不要附图"不在这个类上：它必须按此刻真正发请求的模型现问（见 ServingVision）
         Assert.Equal(enabled, plan.ReadProjectsImages); //投影只看开关,看不了图的模型也要发占位
         Assert.Equal(analyze, plan.MountVisionTool);
     }

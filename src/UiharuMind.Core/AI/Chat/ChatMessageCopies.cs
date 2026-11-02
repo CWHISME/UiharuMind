@@ -25,6 +25,7 @@ internal static class ChatMessageCopies
         {
             MessageId = message.MessageId,
             AuthorName = message.AuthorName,
+            CreatedAt = message.CreatedAt,
             AdditionalProperties = message.AdditionalProperties,
         };
 }

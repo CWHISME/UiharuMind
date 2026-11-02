@@ -176,11 +176,10 @@ internal sealed class AgentAssemblyPlan
     public bool MountVisionTool =>
         VisionFallback.HasFallback(IsAgentForm, Config) && !ModelSupportsVision;
 
-    /// <summary>
-    /// Read 读到图片时附给模型自己看：同一个识图开关，当前模型自带视觉时才成立（ADR 0053），与识图工具互斥。
-    /// 投影另算，见 <see cref="ReadProjectsImages"/>
-    /// </summary>
-    public bool ReadAttachesImages => VisionFallback.HasFallback(IsAgentForm, Config) && ModelSupportsVision;
+    // 【已删】曾有一个 ReadAttachesImages（= HasFallback && ModelSupportsVision）：它是装配期的值，
+    // 而「要不要把图真的发给模型」必须按<b>此刻真正发请求的模型</b>现问（否则视觉→盲切换后 400、
+    // 盲→视觉切换又白丢图）。那个开关现在在 HistoryRewriteChain 里以闭包形式给出，见 ServingVision。
+    // 别再把它加回来：有它的时候，本类的注释就是那场 bug 的成因描述。
 
     /// <summary>
     /// 发送时投影看过的图：只认识图开关，<b>与模型有没有视觉无关</b>。

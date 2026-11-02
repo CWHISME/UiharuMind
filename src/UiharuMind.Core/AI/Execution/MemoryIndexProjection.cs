@@ -53,13 +53,7 @@ public static class MemoryIndexProjection
         if (index < 0) contents.Insert(0, new TextContent(block));
         else contents[index] = new TextContent($"{block}\n\n{((TextContent)contents[index]).Text}");
 
-        return new ChatMessage(message.Role, contents)
-        {
-            AuthorName = message.AuthorName,
-            CreatedAt = message.CreatedAt,
-            MessageId = message.MessageId,
-            AdditionalProperties = message.AdditionalProperties,
-        };
+        return ChatMessageCopies.WithContents(message, contents);
     }
 }
 

@@ -215,6 +215,9 @@ Hit rate = cached input / reported input. The row above is the session total, wi
     <data name="SessionModelEffectiveFormat" xml:space="preserve">
         <value>In effect: {0}</value>
     </data>
+    <data name="SessionModelHistoryImagesFormat" xml:space="preserve">
+        <value>This model can't read images: the {0} image(s) in this session are sent as placeholder text. Switch to a vision model to let it see them</value>
+    </data>
     <data name="MessageInfoTitle" xml:space="preserve">
         <value>Info</value>
     </data>

@@ -8,6 +8,7 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Chat.Group.Away;
+using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Features.Conversation.SidePanels;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
@@ -46,8 +47,10 @@ public sealed partial class GroupAwayViewData : WakeLoopViewData
     {
         _group = group;
         _away = away ?? GroupAwayController.Instance;
-        // 化身模型走会话模型组件的空态草稿：尚无化身会话，预选存在草稿里，开离席时带入
-        ModelPicker = new SessionModelViewData(() => null, () => false, () => { });
+        // 化身模型走会话模型组件的空态草稿：尚无化身会话，预选存在草稿里，开离席时带入。
+        // 化身会话的历史里也可能躺着图（化身模型能看图时群投递连图一起给），换盲模型继续离席
+        // 一样会 400，所以张数也要接上（会话未建时为 0，自然不警示）
+        ModelPicker = new SessionModelViewData(() => null, () => false, () => { }, AvatarImageCount);
         ModelPicker.Refresh();
         PreselectHostModel(group);
         _status = _away.StatusOf(group.SessionId);
@@ -168,6 +171,9 @@ public sealed partial class GroupAwayViewData : WakeLoopViewData
     private async Task OpenSetup()
     {
         SyncFromAway();
+        // 用户此刻正是要挑模型，那张数警示得是当下的：化身会话是第一次离席才建的，
+        // 构建时数为 0，不在这里补刷新就会整个生命周期停在 0
+        ModelPicker.Refresh();
         await GroupAwaySetupWindow.ShowAsync(this);
     }
 
@@ -278,5 +284,24 @@ public sealed partial class GroupAwayViewData : WakeLoopViewData
 
         _avatarUsage.Refresh();
         OnPropertyChanged(nameof(HasAvatarUsage));
+    }
+
+    /// <summary>
+    /// 化身会话历史里的内联图片张数，供模型选择器那条“换成盲模型会丢图”的警示用
+    /// </summary>
+    /// <returns>图片张数；化身会话未建或未装载时为 0</returns>
+    private int AvatarImageCount() => InlineImageDegrading.CountIn(AvatarSession?.History);
+
+    /// <summary>
+    /// 化身会话本体。只查已装载缓存（同 <c>ConversationViewModel.CurrentSession</c>）：
+    /// 这是绑定 getter 会走到的路，<see cref="SessionManager.Load"/> 顺带的冷历史卸载会同步写盘
+    /// </summary>
+    private ChatSession? AvatarSession
+    {
+        get
+        {
+            string? id = _status?.AvatarSessionId ?? GroupAvatar.MetaOf(_group.SessionId)?.SessionId;
+            return id == null ? null : SessionManager.Instance.GetLoaded(id);
+        }
     }
 }

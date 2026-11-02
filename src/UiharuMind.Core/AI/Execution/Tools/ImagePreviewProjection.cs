@@ -91,11 +91,11 @@ public static class ImagePreviewProjection
         {
             bool resolved = resolver.TryResolve(preview, out string full);
             // 看不了图也要占住这一条：那几轮助手回复说的是"我看到了图"，消息整条消失会让它无源可依。
-            // 带上路径，模型还能把图转给 AnalyzeImage
+            // 带上路径，模型还能把图转给 AnalyzeImage。文案与内联附件的降级共用一处
+            // （<see cref="ImagePlaceholder"/>）
             if (!attachImages)
             {
-                text.Append("\n[Image omitted: this model cannot read images — ").Append(resolved ? full : preview)
-                    .Append(']');
+                text.Append('\n').Append(ImagePlaceholder.Omitted(1, resolved ? full : preview));
                 continue;
             }
 
@@ -121,18 +121,22 @@ public static class ImagePreviewProjection
 /// </summary>
 /// <param name="innerClient">下游客户端</param>
 /// <param name="resolver">解析预览路径</param>
-/// <param name="attachImages">是否真的附图；模型看不了图时传 false，只发占位</param>
+/// <param name="attachImages">
+/// 此刻这一发要不要真的附图（每次请求现问）。模型看不了图时只发占位。
+/// <b>不能固化在装配期</b>：装配读到的模型会与真正发请求的那个分叉，
+/// 而这一层在最里层，它现造的字节不会再经过外层的降级（见 <see cref="ServingVision"/>）
+/// </param>
 internal sealed class ImagePreviewProjectingChatClient(IChatClient innerClient, AgentPathResolver resolver,
-    bool attachImages = true)
+    Func<bool> attachImages)
     : DelegatingChatClient(innerClient)
 {
     public override Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages,
         ChatOptions? options = null, CancellationToken cancellationToken = default) =>
-        base.GetResponseAsync(ImagePreviewProjection.Project(messages.ToList(), resolver, attachImages), options,
+        base.GetResponseAsync(ImagePreviewProjection.Project(messages.ToList(), resolver, attachImages()), options,
             cancellationToken);
 
     public override IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages,
         ChatOptions? options = null, CancellationToken cancellationToken = default) =>
-        base.GetStreamingResponseAsync(ImagePreviewProjection.Project(messages.ToList(), resolver, attachImages), options,
-            cancellationToken);
+        base.GetStreamingResponseAsync(ImagePreviewProjection.Project(messages.ToList(), resolver, attachImages()),
+            options, cancellationToken);
 }

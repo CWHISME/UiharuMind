@@ -93,7 +93,7 @@ public class HistorySupplyTests
     public async Task ForSideRequest_RunsTheSameChain_SoANewLayerIsCarried()
     {
         SideRequestRewriter rewriter = HistoryRewriteChain.ForSideRequest((transport, compaction) =>
-            new MarkerChatClient(HistoryRewriteChain.Build(transport, projectionPaths: null, attachImages: false,
+            new MarkerChatClient(HistoryRewriteChain.Build(transport, projectionPaths: null, attachImages: () => false,
                 compaction)));
 
         IReadOnlyList<ChatMessage> supplied = await rewriter([new ChatMessage(ChatRole.User, "历史")],

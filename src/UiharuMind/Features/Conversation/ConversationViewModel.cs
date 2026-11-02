@@ -725,7 +725,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         long workspaceBegin = StartupPhaseProbe.Begin();
         Workspace = new WorkspacePickerViewData(null, OnWorkspacePathChanged,
             path => Group?.ConfirmWorkspaceChangeAsync(path) ?? Task.FromResult(true));
-        SessionModel = new SessionModelViewData(() => CurrentMeta, () => _isLoadingSession, OnSessionModelChanged);
+        SessionModel = new SessionModelViewData(() => CurrentMeta, () => _isLoadingSession, OnSessionModelChanged,
+            () => InlineImageDegrading.CountIn(CurrentSession?.History));
         SessionModel.Refresh();
         // 供应商额度读数。放在 SessionModel 之后建：它的目标解析要读那份面板的草稿，
         // 而订阅读数那一刻会立刻取一次（挂在公共调度器上），早建会读到还没准备好的状态

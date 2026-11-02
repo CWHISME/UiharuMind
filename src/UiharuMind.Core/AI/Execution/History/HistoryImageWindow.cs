@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Chat;
 
 namespace UiharuMind.Core.AI.Execution.History;
 
@@ -104,12 +105,6 @@ internal static class HistoryImageWindow
             contents.Add(content);
         }
 
-        return new ChatMessage(message.Role, contents)
-        {
-            AuthorName = message.AuthorName,
-            CreatedAt = message.CreatedAt,
-            MessageId = message.MessageId,
-            AdditionalProperties = message.AdditionalProperties,
-        };
+        return ChatMessageCopies.WithContents(message, contents);
     }
 }

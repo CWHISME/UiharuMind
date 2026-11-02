@@ -25,6 +25,12 @@
                                          HorizontalAlignment="Stretch" />
             <TextBlock Text="{Binding EffectiveHint}" Classes="muted" TextWrapping="Wrap"
                        IsVisible="{Binding EffectiveHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <!-- 历史里的图只对视觉模型有效：图片在组消息那一刻就内联成字节进了历史，
+                 换模型带不走。不提示的话，严格的服务端会直接 400，而界面看上去一切正常 -->
+            <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
+                       Foreground="{DynamicResource SemiOrange5}"
+                       Text="{Binding HistoryImageWarning}"
+                       IsVisible="{Binding HistoryImageWarning, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
         </StackPanel>
     </Border>
 

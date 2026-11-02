@@ -9,6 +9,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Core;
+using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 
@@ -34,6 +36,7 @@ public partial class SessionModelViewData : ObservableObject, IDisposable
     private readonly Func<ChatSessionMeta?> _metaSource;
     private readonly Func<bool> _isLoadingSource;
     private readonly Action _onChanged;
+    private readonly Func<int> _historyImageCountSource; //历史里内联图片的张数，供“换模型会丢图”的警示用
     private bool _syncing; //回填期抑制写回
     private string? _draftName; //空态草稿：尚无会话时的预选，建会话时带入
     private readonly Dictionary<string, SessionModelOption> _byName = new(StringComparer.Ordinal);
@@ -45,20 +48,24 @@ public partial class SessionModelViewData : ObservableObject, IDisposable
     [ObservableProperty] private bool _hasSession; //宿主会话存在（空态显示草稿，也为真）
     [ObservableProperty] private bool _hasOverride; //钉选徽章显隐
     [ObservableProperty] private string _effectiveHint = string.Empty; //实际生效模型
+    [ObservableProperty] private string _historyImageWarning = string.Empty; //历史有图而模型看不见
 
     /// <summary>设计期预览用，不订阅不刷新</summary>
-    public SessionModelViewData() : this(() => null, () => true, () => { })
+    public SessionModelViewData() : this(() => null, () => true, () => { }, NoHistoryImages)
     {
     }
 
     /// <param name="metaSource">当前会话元数据</param>
     /// <param name="isLoadingSource">会话装载中（读，不是用户改动）</param>
     /// <param name="onChanged">覆写变化，宿主据此刷模型名与用量</param>
-    public SessionModelViewData(Func<ChatSessionMeta?> metaSource, Func<bool> isLoadingSource, Action onChanged)
+    /// <param name="historyImageCountSource">当前会话历史里内联图片的张数（必传：可空就等于留一个“忘了传 = 永不警示”的静默坑）</param>
+    public SessionModelViewData(Func<ChatSessionMeta?> metaSource, Func<bool> isLoadingSource, Action onChanged,
+        Func<int> historyImageCountSource)
     {
         _metaSource = metaSource;
         _isLoadingSource = isLoadingSource;
         _onChanged = onChanged;
+        _historyImageCountSource = historyImageCountSource;
         if (App.ModelService?.ModelSources is { } sources)
             sources.CollectionChanged += OnModelSourcesChanged;
         LlmManager.Instance.OnCurrentModelChanged += OnGlobalModelChanged;
@@ -236,9 +243,11 @@ public partial class SessionModelViewData : ObservableObject, IDisposable
             }
 
             HasOverride = pinned != null;
-            EffectiveHint = string.IsNullOrEmpty(ResolveEffectiveName(pinned))
+            string? effective = ResolveEffectiveName(pinned);
+            EffectiveHint = string.IsNullOrEmpty(effective)
                 ? string.Empty
-                : string.Format(Loc.Text(LangKey.SessionModelEffectiveFormat), ResolveEffectiveName(pinned));
+                : string.Format(Loc.Text(LangKey.SessionModelEffectiveFormat), effective);
+            UpdateHistoryImageWarning(pinned, effective);
             if (!ReferenceEquals(SelectedOption, target)) SelectedOption = target;
         }
         finally
@@ -246,4 +255,49 @@ public partial class SessionModelViewData : ObservableObject, IDisposable
             _syncing = false;
         }
     }
+
+    /// <summary>
+    /// 历史里躺着图、而会发这一发的模型看不了图时，说清代价：这些图发送时会被换成占位文本
+    /// （<see cref="InlineImageDegrading"/>）。图片在组消息那一刻就内联成字节进了历史，
+    /// 换模型不会把它们带走——严格的服务端会直接 400 整轮失败，而界面看上去一切正常。
+    ///
+    /// 判据与发送侧共用 <see cref="ServingVision"/>（含“钉选的本地模型没在跑就回落全局”那一步）：
+    /// 两边各算一套就会出现「提示说会换占位、其实没换」或反过来。
+    /// </summary>
+    /// <param name="pinnedName">会话钉选的模型名；null 表示跟随全局</param>
+    /// <param name="effectiveName">此刻实际会用的模型名；<b>这里只问“有没有”，不问“是谁”</b>（是谁交给 ServingVision）</param>
+    private void UpdateHistoryImageWarning(string? pinnedName, string? effectiveName)
+    {
+        int images = _historyImageCountSource();
+        if (images == 0)
+        {
+            HistoryImageWarning = string.Empty;
+            return;
+        }
+
+        // 一个模型都还没选：此刻不存在「看不了图」的模型，别说一句让人以为模型已定的话
+        if (string.IsNullOrEmpty(effectiveName))
+        {
+            HistoryImageWarning = string.Empty;
+            return;
+        }
+
+        ModelRunningData? pinned = null;
+        if (!string.IsNullOrEmpty(pinnedName))
+        {
+            pinned = App.ModelService?.ModelSources.FirstOrDefault(m => m.ModelName == pinnedName);
+            // 钉着的那个已不在列表里：认不出就不吭声（同 VisionFallback 的「拿不准就别吓人」）
+            if (pinned == null)
+            {
+                HistoryImageWarning = string.Empty;
+                return;
+            }
+        }
+
+        HistoryImageWarning = ServingVision.ServesImages(pinned)
+            ? string.Empty
+            : string.Format(Loc.Text(LangKey.SessionModelHistoryImagesFormat), images);
+    }
+
+    private static int NoHistoryImages() => 0;
 }
