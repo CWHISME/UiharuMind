@@ -130,7 +130,8 @@ public static class SessionWakeTurn
                 return;
             }
 
-            Log.Debug($"Wake turn started: session={sessionId} cause={cause} streak={streak}");
+            Log.Debug($"Wake turn started: session={sessionId} cause={cause} streak={streak} "
+                      + $"instance={System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(session)}");
             // 无头驱动(sink 为 null),但**审批有人接**——就是这个会话自己那个窗口。
             // 这两件事必须分开告诉 TurnDriver:按 sink 推的话,共享的执行者会被标成
             // 「没人看着」,于是这一轮里派出的子代理连审批通道都不建(见 TurnDriver 的 attended)

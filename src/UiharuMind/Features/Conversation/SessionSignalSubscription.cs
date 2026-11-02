@@ -9,11 +9,13 @@
 
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Audio;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Features.Conversation;
 
@@ -65,9 +67,14 @@ public sealed class SessionSignalSubscription : IDisposable
         // 钉住它的历史:每个气泡都指着历史里的某一条消息实例,历史被卸掉重载之后
         // 那些引用全部认不回来,编辑/删除/分叉/重试会静默失效(见 SessionResidencyPolicy)
         _pin = SessionManager.Instance.Pin(session.SessionId);
+        // 本体身份进日志:界面的两条上屏通道(历史追加、内容流观察)都挂在这个实例上,
+        // 一旦它与「正在跑的那一轮用的那个」不是同一个,两条会同时哑掉、界面要等轮末对账才动。
+        // 光看会话标识分不出这件事(同一个 id 可以有两个本体),所以记实例身份
+        Log.Debug($"Session signals attached: session={session.SessionId} "
+                  + $"instance={RuntimeHelpers.GetHashCode(session)}");
         WakeApprovalHosts.Register(session.SessionId, handlers.ResolveApprovals);
         if (handlers.ApprovalsSettled != null) WakeApprovalHosts.RegisterSettled(session.SessionId, handlers.ApprovalsSettled);
-        session.HistoryAppended += handlers.HistoryAppended;
+        session.HistoryAppended += OnHistoryAppended;
         session.HistoryMessageReplaced += handlers.HistoryReplaced;
         // 这一轮跑到一半才挂上来也补得齐(尚未落盘的那一段会当场补发)
         _liveObservation = session.LiveTurn.Observe(handlers.LiveSink, handlers.LiveIdentity);
@@ -75,14 +82,37 @@ public sealed class SessionSignalSubscription : IDisposable
         if (handlers.SpeechRequested != null) session.SpeechRequested += handlers.SpeechRequested;
     }
 
+    /// <summary>
+    /// 历史被追加了。顺手核一次本体身份：<b>这个信号必须由「正在被写的那一份」发出来</b>。
+    ///
+    /// 同一个会话标识可以有两个本体（被盘上新读的顶替、或两个壳各持一份）。挂错了那一份的话，
+    /// 历史追加与内容流观察会<b>同时</b>哑掉，而轮末对账走的是 <c>GetLoaded</c>、照样能补上——
+    /// 表现就是「一轮跑十几分钟界面不动，跑完才刷」。这条只在真的挂错时打，平时零噪音
+    /// </summary>
+    /// <param name="fromIndex">新增段的起始下标</param>
+    private void OnHistoryAppended(int fromIndex)
+    {
+        if (SessionManager.Instance.GetLoaded(_session.SessionId) is { } loaded &&
+            !ReferenceEquals(loaded, _session))
+        {
+            Log.Warning($"History append arrived on a stale session body: session={_session.SessionId} "
+                        + $"fired={RuntimeHelpers.GetHashCode(_session)} "
+                        + $"loaded={RuntimeHelpers.GetHashCode(loaded)}");
+        }
+
+        _handlers.HistoryAppended(fromIndex);
+    }
+
     /// <summary>摘掉全部信号（重复调用无害）</summary>
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
+        Log.Debug($"Session signals detached: session={_session.SessionId} "
+                  + $"instance={RuntimeHelpers.GetHashCode(_session)}");
         WakeApprovalHosts.Unregister(_session.SessionId, _handlers.ResolveApprovals);
         if (_handlers.ApprovalsSettled != null) WakeApprovalHosts.UnregisterSettled(_session.SessionId, _handlers.ApprovalsSettled);
-        _session.HistoryAppended -= _handlers.HistoryAppended;
+        _session.HistoryAppended -= OnHistoryAppended;
         _session.HistoryMessageReplaced -= _handlers.HistoryReplaced;
         _session.LiveTurn.TurnEnded -= _handlers.TurnEnded;
         if (_handlers.SpeechRequested != null) _session.SpeechRequested -= _handlers.SpeechRequested;

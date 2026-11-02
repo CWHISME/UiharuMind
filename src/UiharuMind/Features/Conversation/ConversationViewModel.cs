@@ -829,6 +829,11 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
             Usage.RestoreFrom(session);
             Usage.Refresh();
+            // 别处驱动的那一轮每发一次请求报一次用量，借这个信号把界面追到历史末尾。
+            // 它<b>不依赖本视图挂在哪个会话本体上</b>：历史追加与内容流观察都挂在会话实例上，
+            // 那一份一旦不是正在被写的那一份，两条通道会同时哑掉，界面就只剩轮末对账可等
+            // （实机：唤醒轮跑十几分钟，界面一动不动）。用量上报走的是全局事件，不会跟着一起哑
+            _reconciler.CatchUpTail("service call usage");
         });
     }
 
