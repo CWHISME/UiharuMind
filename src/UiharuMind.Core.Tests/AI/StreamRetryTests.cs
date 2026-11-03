@@ -11,9 +11,10 @@ using UiharuMind.Core.Configs.RemoteAI;
 namespace UiharuMind.Core.Tests.AI;
 
 /// <summary>
-/// 断线重试的两条口径：故障要认全（SslStream 的裸 <see cref="IOException"/> 与 SDK 包的
+/// 断线重试的几条口径：故障要认全（SslStream 的裸 <see cref="IOException"/> 与 SDK 包的
 /// <see cref="HttpIOException"/> 是同一种断流），重试那一发要带着这一发的请求上下文
-/// （异步迭代器里 <c>AsyncLocal</c> 跨 yield 不保留，靠外层 <c>using</c> 挂不住）。
+/// （异步迭代器里 <c>AsyncLocal</c> 跨 yield 不保留，靠外层 <c>using</c> 挂不住），
+/// 退化回复的重发预算不与断线共用。
 ///
 /// <para>
 /// 这里钉的是真实现场：日志里 18 次断流，16 次是 <c>HttpIOException</c>、重试一次即恢复；
@@ -22,6 +23,22 @@ namespace UiharuMind.Core.Tests.AI;
 /// </summary>
 public class StreamRetryTests
 {
+    /// <summary>
+    /// 退化成一片空白（说完一句后吐几百个空白）的重发预算单独计：两次用完就收口，
+    /// 而且不走断线的退避——它不是网络问题，等一下不会变好
+    /// </summary>
+    [Fact]
+    public async Task WhitespaceFloodedReply_IsRetriedTwiceThenGivesUp()
+    {
+        WhitespaceFloodClient fake = new();
+        LazyChatClient client = new(() => Running(fake));
+
+        await Assert.ThrowsAnyAsync<DegeneratedReplyException>(async () => await CollectAsync(client));
+
+        // 首发 + 两次重发，第三次仍退化就抛给上层
+        Assert.Equal(3, fake.Calls);
+    }
+
     /// <summary>裸 <see cref="IOException"/>（TLS 收到 EOF）与 HttpIOException 一样要重发</summary>
     [Fact]
     public async Task BareTransportEof_IsRetried()
@@ -117,6 +134,32 @@ public class StreamRetryTests
         Assert.False(TransportFault.IsRetryableDrop(
             new HttpRequestException("bad request", inner: null, System.Net.HttpStatusCode.BadRequest)));
         Assert.False(TransportFault.IsRetryableDrop(new InvalidOperationException("not a transport fault")));
+    }
+
+    /// <summary>每一次尝试都退化成一片空白（说完一句后吐超过阈值的空白），从不成功</summary>
+    private sealed class WhitespaceFloodClient : IChatClient
+    {
+        public int Calls;
+
+        public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+            IEnumerable<ChatMessage> messages, ChatOptions? options = null,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref Calls);
+            await Task.Yield();
+            yield return new ChatResponseUpdate(ChatRole.Assistant, [new TextContent("一句话")]);
+            yield return new ChatResponseUpdate(ChatRole.Assistant,
+                [new TextContent(new string(' ', StreamCompletionWatch.WhitespaceFloodChars + 100))]);
+        }
+
+        public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null,
+            CancellationToken cancellationToken = default) => throw new NotImplementedException();
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public void Dispose()
+        {
+        }
     }
 
     private static async Task<List<string>> CollectAsync(LazyChatClient client)
