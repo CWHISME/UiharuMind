@@ -81,7 +81,9 @@ public sealed partial class ConversationHistoryPager
     /// <returns>真的追加了条目返回 true</returns>
     public bool LoadLater()
     {
-        IReadOnlyList<ChatMessage> history = _historySource();
+        //读不到时不能续：ExtendLater(0) 会把「脱离末尾」错误解除，而窗口实际还停在旧段——
+        //「回到最新」随之消失，新消息直接追加到旧段尾巴上，断层就出来了
+        if (TakeHistory() is not { } history) return false;
         (int From, int To)? range = Window.ExtendLater(history.Count, LaterBatchSize);
         SyncFlags();
         if (range is not { } later) return false;
@@ -95,10 +97,12 @@ public sealed partial class ConversationHistoryPager
     public bool ReturnToLatest()
     {
         if (!Window.IsDetached) return false;
+        //读不到时不能重放:空表会把整窗条目丢掉、起点归零,而缓存实例不回放,界面就再也回不来了
+        if (TakeHistory() is not { } history) return false;
 
         DiscardItems();
         HasLoadedEarlier = false;
-        Replay(_historySource(), _isTurnRunning());
+        Replay(history, _isTurnRunning());
         ReturnedToLatest?.Invoke();
         return true;
     }
@@ -125,7 +129,9 @@ public sealed partial class ConversationHistoryPager
     public void NoteRemoved(IReadOnlyCollection<int> removedIndices)
     {
         if (removedIndices.Count == 0) return;
-        Window.NoteRemoved(removedIndices, _historySource().Count);
+        //读不到时下标修正与「解除脱离」两件事都无从判起：动它就是拿一个猜的条数去改窗口
+        if (TakeHistory() is not { } history) return;
+        Window.NoteRemoved(removedIndices, history.Count);
         SyncFlags();
     }
 

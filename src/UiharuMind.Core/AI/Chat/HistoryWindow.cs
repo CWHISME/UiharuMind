@@ -83,11 +83,13 @@ public sealed class HistoryWindow
     public (int From, int To)? FillFirstWindow(int messageCount)
     {
         if (_firstScreenDeficit <= 0) return null;
+        //读不到历史不是「没有历史」:欠账留着,起点也别动,见 Extend 的同一条注释
+        if (messageCount <= 0) return null;
 
         int deficit = _firstScreenDeficit;
         _firstScreenDeficit = 0;
 
-        int end = Math.Min(Start, Math.Max(0, messageCount));
+        int end = Math.Min(Start, messageCount);
         if (end <= 0)
         {
             Start = 0;
@@ -107,9 +109,14 @@ public sealed class HistoryWindow
     /// <returns>要前插的区间 [From, To)；已到历史开头时为 null</returns>
     public (int From, int To)? Extend(int messageCount, int size = 0)
     {
+        //历史这一刻读不到（执行者还没挂接、绑定间隙、会话已被删除都会给出一张空表）不等于
+        //到了开头。把起点清零就是宣布「已到会话开头」，而续窗的触发条件正是这一点——
+        //之后滚到顶再也不会续，界面永久停在半途，只能重开会话（实机见过）
+        if (messageCount <= 0) return null;
+
         _firstScreenDeficit = 0; //用户已经自己往前翻,首屏那笔账作废
-        int end = Math.Min(Start, Math.Max(0, messageCount));
-        if (end <= 0)
+        int end = Math.Min(Start, messageCount);
+        if (end <= 0) //上面挡住后 count 肯定是正数:这里只剩「起点本就在 0」
         {
             Start = 0;
             return null;

@@ -712,7 +712,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             () => CurrentSession?.LiveTurn.IsTurnRunning == true,
             conversationType == EConversationType.Chat
                 ? ConversationItemWindowTrimmer.ChatMaxItems
-                : ConversationItemWindowTrimmer.AgentMaxItems);
+                : ConversationItemWindowTrimmer.AgentMaxItems,
+            () => CurrentMeta?.SessionId); //只给日志用:空来源时得能报出是哪个会话
         _pager.PropertyChanged += (_, e) => OnPropertyChanged(e.PropertyName); //几个状态位原名转发给绑定
         _pager.ReturnedToLatest += () => ReturnedToLatest?.Invoke();
         SearchNavigator = new ConversationSearchNavigator(Items, _pager, () => CurrentSession?.History,

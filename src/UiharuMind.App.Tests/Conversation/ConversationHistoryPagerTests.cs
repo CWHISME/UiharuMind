@@ -37,6 +37,10 @@ public class ConversationHistoryPagerTests
     {
         public ObservableCollection<ConversationItemBase> Items { get; } = new();
         public List<ChatMessage> History { get; } = new();
+
+        /// <summary>为 null 时读 <see cref="History"/>；测试用它模拟「这一刻读不到历史」</summary>
+        public IReadOnlyList<ChatMessage>? Unreadable { get; set; }
+
         public bool IsDisplayed { get; set; } = true;
         public ConversationHistoryPager Pager { get; }
 
@@ -49,8 +53,8 @@ public class ConversationHistoryPagerTests
 
             ConversationItemActions actions = new(Items, new StubHost(), new RecordingMessageService());
             ConversationHistoryRenderer renderer = new(Items, actions, () => null, () => false, () => null, () => null);
-            Pager = new ConversationHistoryPager(Items, renderer, () => History, () => IsDisplayed, () => true,
-                () => false, maxItems);
+            Pager = new ConversationHistoryPager(Items, renderer, () => Unreadable ?? History, () => IsDisplayed,
+                () => true, () => false, maxItems);
         }
     }
 
@@ -231,6 +235,91 @@ public class ConversationHistoryPagerTests
         Assert.Equal(12, fixture.Items.Count);
         Assert.True(fixture.Pager.HasLoadedEarlier);
         Assert.False(fixture.Pager.HasEarlierMessages);
+    }
+
+    /// <summary>
+    /// 历史来源是现取现用的（会话本体不在缓存、执行者还没挂接都会给出一张空表）。这一眼读不到
+    /// 不能当成「已经到开头」：起点一清零，续窗的触发条件就永久不成立，界面卡在「已到会话开头」
+    /// 而内容停在半途。实机见过：顶端挂着那一行、滚到顶没有任何反应，切走切回也救不回来
+    /// （缓存实例不回放），只能重开会话
+    /// </summary>
+    [Fact]
+    public void LoadEarlier_UnreadableHistory_KeepsTheWindowAndTheFlag()
+    {
+        Fixture fixture = new(1093);
+        fixture.Pager.Replay(fixture.History, liveTail: false);
+        fixture.Pager.FillFirstWindow();
+        Assert.True(fixture.Pager.LoadEarlier()); //用户往前翻过一窗
+        int start = fixture.Pager.Window.Start;
+        int drawn = fixture.Items.Count;
+
+        fixture.Unreadable = []; //这一眼读不到
+
+        Assert.False(fixture.Pager.LoadEarlier());
+        Assert.Equal(start, fixture.Pager.Window.Start);
+        Assert.True(fixture.Pager.HasEarlierMessages);
+        Assert.Equal(drawn, fixture.Items.Count);
+
+        fixture.Unreadable = null; //下一眼读得到，照常续
+        Assert.True(fixture.Pager.LoadEarlier());
+        Assert.True(fixture.Pager.Window.Start < start);
+    }
+
+    /// <summary>脱离末尾时读不到历史：往后续不能把「脱离末尾」解除（ExtendLater(0) 会），窗口与旗标都不动</summary>
+    [Fact]
+    public void LoadLater_UnreadableHistory_KeepsTheDetachedState()
+    {
+        Fixture fixture = new(200);
+        fixture.Pager.Replay(fixture.History, liveTail: false);
+        Assert.True(fixture.Pager.JumpTo(100));
+        Assert.True(fixture.Pager.HasLaterMessages);
+        int start = fixture.Pager.Window.Start;
+
+        fixture.Unreadable = [];
+
+        Assert.False(fixture.Pager.LoadLater());
+        Assert.True(fixture.Pager.HasLaterMessages);
+        Assert.Equal(start, fixture.Pager.Window.Start);
+    }
+
+    /// <summary>
+    /// 脱离末尾时读不到历史：点「回到最新」不能把整窗条目清掉。空表会让 Replay 清屏、起点归零，
+    /// 而缓存实例不回放——那这一下就再也回不来了，比原本的错位更狠
+    /// </summary>
+    [Fact]
+    public void ReturnToLatest_UnreadableHistory_KeepsTheItems()
+    {
+        Fixture fixture = new(200);
+        fixture.Pager.Replay(fixture.History, liveTail: false);
+        Assert.True(fixture.Pager.JumpTo(100));
+        int drawn = fixture.Items.Count;
+
+        fixture.Unreadable = [];
+
+        Assert.False(fixture.Pager.ReturnToLatest());
+        Assert.Equal(drawn, fixture.Items.Count);
+        Assert.True(fixture.Pager.HasLaterMessages);
+
+        fixture.Unreadable = null; //读得到就照常回去
+        Assert.True(fixture.Pager.ReturnToLatest());
+        Assert.False(fixture.Pager.HasLaterMessages);
+    }
+
+    /// <summary>读不到历史时删了消息：下标修正与解除脱离都无从判起，窗口一律不动</summary>
+    [Fact]
+    public void NoteRemoved_UnreadableHistory_KeepsTheDetachedState()
+    {
+        Fixture fixture = new(200);
+        fixture.Pager.Replay(fixture.History, liveTail: false);
+        Assert.True(fixture.Pager.JumpTo(100));
+        int start = fixture.Pager.Window.Start;
+
+        fixture.Unreadable = [];
+
+        fixture.Pager.NoteRemoved([150, 151, 152]);
+
+        Assert.True(fixture.Pager.HasLaterMessages);
+        Assert.Equal(start, fixture.Pager.Window.Start);
     }
 
     /// <summary>不在界面上的实例按后台上限裁，裁完「有更早」要跟着亮</summary>

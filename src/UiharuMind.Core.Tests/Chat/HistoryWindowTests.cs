@@ -186,6 +186,38 @@ public class HistoryWindowTests
     }
 
     /// <summary>
+    /// 历史<b>这一刻读不到</b>（0 条）不等于到了开头：起点不能动，也不能把「有更早」判成假。
+    /// 判成假就把续窗的触发条件永久关掉了——界面卡在「已到会话开头」、滚到顶也不再续，
+    /// 切走切回也救不回来（缓存实例不回放），只能重开会话。实机见过这种错位
+    /// </summary>
+    [Fact]
+    public void Extend_UnreadableHistory_KeepsTheStart()
+    {
+        HistoryWindow window = new(20, 20); //关掉首屏分批,只测整窗语义
+        window.Reset(100); //起点 80
+        window.Extend(100); //起点 60
+
+        Assert.Null(window.Extend(0));
+
+        Assert.Equal(60, window.Start);
+        Assert.True(window.HasEarlier);
+        Assert.Equal((40, 60), window.Extend(100)); //下一眼读得到就照常续
+    }
+
+    /// <summary>读不到历史时补齐首屏不成立：欠账留着，起点不动</summary>
+    [Fact]
+    public void FillFirstWindow_UnreadableHistory_KeepsTheStartAndTheDeficit()
+    {
+        HistoryWindow window = new(20, 5);
+        window.Reset(100); //只画首屏那 5 条，起点 95
+
+        Assert.Null(window.FillFirstWindow(0));
+
+        Assert.Equal(95, window.Start);
+        Assert.Equal((80, 95), window.FillFirstWindow(100)); //欠账还在，一眼补齐
+    }
+
+    /// <summary>
     /// 连续前扩直到到头，每批不重不漏
     /// </summary>
     [Fact]

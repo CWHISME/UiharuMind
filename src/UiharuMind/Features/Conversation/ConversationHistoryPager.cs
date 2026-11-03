@@ -15,6 +15,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.Diagnostics;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Features.Conversation.Items;
 
 namespace UiharuMind.Features.Conversation;
@@ -50,7 +51,9 @@ public sealed partial class ConversationHistoryPager : ObservableObject
     private readonly Func<IReadOnlyList<ChatMessage>> _historySource;
     private readonly Func<bool> _isDisplayed;
     private readonly Func<bool> _isTurnRunning;
+    private readonly Func<string?>? _sessionIdSource; //日志里报得出是哪个会话(一个窗口里同时挂着好几个会话实例)
     private readonly ConversationItemWindowTrimmer _trimmer;
+    private bool _historyUnreadable; //上一次取历史是否读不到;警告沿边打,见 TakeHistory
 
     /// <summary>渲染窗口。对账重放要原位保住用户已翻出的那一段，所以与它共用</summary>
     internal HistoryWindow Window { get; } = new();
@@ -64,16 +67,19 @@ public sealed partial class ConversationHistoryPager : ObservableObject
     /// <param name="isDisplayed">本实例此刻是否显示在界面上</param>
     /// <param name="isStuckToBottom">界面是否跟在底部；用户上滚在读时不裁，免得正看的内容被抽走</param>
     /// <param name="isTurnRunning">有一轮正往这个会话流内容（回到最新时末尾那次工具调用的结果可能还在路上）</param>
+    /// <param name="maxItems">运行期条目上限</param>
+    /// <param name="sessionIdSource">日志用的会话标识；没有就不报</param>
     public ConversationHistoryPager(ObservableCollection<ConversationItemBase> items,
         ConversationHistoryRenderer renderer, Func<IReadOnlyList<ChatMessage>> historySource,
         Func<bool> isDisplayed, Func<bool> isStuckToBottom, Func<bool> isTurnRunning,
-        int maxItems = ConversationItemWindowTrimmer.AgentMaxItems)
+        int maxItems = ConversationItemWindowTrimmer.AgentMaxItems, Func<string?>? sessionIdSource = null)
     {
         _items = items;
         _renderer = renderer;
         _historySource = historySource;
         _isDisplayed = isDisplayed;
         _isTurnRunning = isTurnRunning;
+        _sessionIdSource = sessionIdSource;
         // 不在界面上的实例没有会被抽走的视口,照裁——后台跑着的那个正是最该裁的
         _trimmer = new ConversationItemWindowTrimmer(items, Window, historySource,
             () => !isDisplayed() || isStuckToBottom(), maxItems);
@@ -98,7 +104,7 @@ public sealed partial class ConversationHistoryPager : ObservableObject
     /// <returns>真的前插了条目返回 true（调用方据此决定要不要补偿视口）</returns>
     public bool LoadEarlier()
     {
-        IReadOnlyList<ChatMessage> history = _historySource();
+        if (TakeHistory() is not { } history) return false;
         if (Window.Extend(history.Count) is not { } range)
         {
             SyncFlags();
@@ -119,7 +125,7 @@ public sealed partial class ConversationHistoryPager : ObservableObject
     /// <returns>真的补了条目返回 true</returns>
     public bool FillFirstWindow()
     {
-        IReadOnlyList<ChatMessage> history = _historySource();
+        if (TakeHistory() is not { } history) return false;
         if (Window.FillFirstWindow(history.Count) is not { } range)
         {
             SyncFlags();
@@ -180,6 +186,35 @@ public sealed partial class ConversationHistoryPager : ObservableObject
     {
         _renderer.Prepend(history, range);
         SyncFlags();
+    }
+
+    /// <summary>
+    /// 取当前历史。取不到时只记一条警告并给 null——<b>这一刻的「读不到」不是「没有历史」</b>，
+    /// 窗口状态一个字都不该动。历史来源是现取现用的（执行者还没挂接、绑定间隙、会话已被删除都会给出空表），
+    /// 真把它当成「到开头」就会把续窗永久关掉，见 <see cref="HistoryWindow.Extend"/>
+    /// </summary>
+    /// <returns>当前完整历史；这一刻读不到为 null</returns>
+    private IReadOnlyList<ChatMessage>? TakeHistory()
+    {
+        IReadOnlyList<ChatMessage> history = _historySource();
+        if (history.Count > 0)
+        {
+            if (!_historyUnreadable) return history;
+
+            _historyUnreadable = false;
+            Log.Debug($"History window can read the session again (session={_sessionIdSource?.Invoke() ?? "?"}).");
+            return history;
+        }
+
+        //沿边打:用户停在顶部时每次滚动都会走到这里,逐次报会把真信号淹掉
+        if (!_historyUnreadable)
+        {
+            _historyUnreadable = true;
+            Log.Warning($"History window read nothing from the session "
+                        + $"(session={_sessionIdSource?.Invoke() ?? "?"}, start={Window.Start}); leaving the window untouched.");
+        }
+
+        return null;
     }
 
     /// <summary>窗口被别处改过（对账重放挪了起点）：把状态位重新投影出来</summary>

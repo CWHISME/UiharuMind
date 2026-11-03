@@ -145,6 +145,30 @@ public class HistoryCatchUpTests
         Assert.True(host.BuiltLiveTail, "轮内补画必须走 liveTail，否则刚补出来的工具卡会被标成「历史里没有结果」");
     }
 
+    /// <summary>
+    /// 历史<b>真的空了</b>（用户把消息删光）时对账必须清屏。这一路读的是会话本体，不是现取现用的
+    /// 渲染来源，拿到空表就是真的没有——别照着开窗那边「空表一动不动」去给它加保护，
+    /// 那会把该清的屏留下来。本条用例就是防这个误改的
+    /// </summary>
+    [Fact]
+    public void Reconcile_HistoryReallyEmpty_ClearsTheWindow()
+    {
+        (ObservableCollection<ConversationItemBase> items, ConversationHistoryRenderer renderer) = Fixture();
+        List<ChatMessage> history = [new(ChatRole.User, "一句话"), new(ChatRole.Assistant, "答一句")];
+        renderer.Append(history, 0, 2, liveTail: false);
+        Assert.NotEmpty(items);
+
+        HistoryWindow window = new();
+        ReconcileHost host = new(new ChatSession(), renderer) { IsSessionIdle = true };
+        ConversationHistoryReconciler reconciler = new(items, window, host);
+
+        reconciler.Reconcile("history really empty");
+
+        Assert.Empty(items);
+        Assert.Equal(0, window.Start);
+        Assert.False(window.HasEarlier);
+    }
+
     private static ChatMessage ToolReply(string text) =>
         new(ChatRole.Assistant,
         [
