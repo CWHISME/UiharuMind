@@ -707,7 +707,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _itemActions = new ConversationItemActions(Items, this, messages);
         _history = new ConversationHistoryRenderer(Items, _itemActions, () => _currentCharacter,
             () => IsAutoCollapseThinking, () => GroupMember?.DeliveryRenderer, SessionPaths);
-        _pager = new ConversationHistoryPager(Items, _history, () => CurrentRunner?.GetHistory() ?? [],
+        _pager = new ConversationHistoryPager(Items, _history,
+            () => ConversationWindowHistory.Choose(CurrentRunner?.GetHistory(), CurrentSession),
             () => IsDisplayed, () => IsStuckToBottomSource?.Invoke() ?? true,
             () => CurrentSession?.LiveTurn.IsTurnRunning == true,
             conversationType == EConversationType.Chat

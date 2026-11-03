@@ -297,13 +297,37 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
         }
     }
 
-    public IReadOnlyList<ChatMessage> GetHistory()
+    public IReadOnlyList<ChatMessage> GetHistory() =>
+        ResolveHistory(_boundSessionId, _attachedSession, SessionManager.Instance.Load);
+
+    /// <summary>
+    /// 历史该从哪一份取：绑定着就按绑定读（快照而不是活引用——调用方要拿去做整表枚举与下标切片，
+    /// 而写方在执行线程上随时往同一份历史里追加），读不回来时只在挂接的就是同一个会话才回落。
+    ///
+    /// 两种回落的理由：绑定被清掉（装配迁移失败，见 <see cref="EnsureHandleAsync"/>）时挂接着的会话
+    /// 本体还在、界面正显示着它，<b>给空表就是告诉界面「没有历史」</b>，而它会把窗口判成已到开头
+    /// （见 <c>ConversationHistoryPager.TakeHistory</c>）。
+    ///
+    /// bound 与 attached 只会同时指向同一个会话——<see cref="AttachAsync"/> 的调用方传的都是 runner
+    /// 的宿主会话自己（会话本体一一对应持有 runner）。这里的同 SessionId 判断是对未来换宿主的防御，
+    /// 改调用图时要记得它守着「不把别人的历史递给界面」。
+    /// </summary>
+    /// <param name="boundSessionId">已绑定的框架会话标识；未绑定为 null</param>
+    /// <param name="attachedSession">当前挂接的会话本体；未挂接为 null</param>
+    /// <param name="load">按标识取会话本体（生产传 <see cref="SessionManager.Load"/>，测试可替身）</param>
+    /// <returns>历史快照；取不到时为空表</returns>
+    internal static IReadOnlyList<ChatMessage> ResolveHistory(string? boundSessionId, ChatSession? attachedSession,
+        Func<string, ChatSession?> load)
     {
-        // 历史住在自有会话里,不再向框架索取
-        if (_boundSessionId == null) return [];
-        // 快照而不是活引用:调用方(界面配对、开窗、回放)拿去做整表枚举与下标切片,
-        // 而写方在执行线程上随时往同一份历史里追加
-        return SessionManager.Instance.Load(_boundSessionId)?.History.Snapshot() ?? [];
+        if (boundSessionId != null)
+        {
+            if (load(boundSessionId) is { } bound) return bound.History.Snapshot();
+
+            // 本体读不回来(文件缺失或损坏):只回落到同一个会话,不把别人的历史递给界面
+            return attachedSession?.SessionId == boundSessionId ? attachedSession.History.Snapshot() : [];
+        }
+
+        return attachedSession?.History.Snapshot() ?? [];
     }
 
     public async Task<EAgentMode> GetModeAsync()
