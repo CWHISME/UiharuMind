@@ -382,8 +382,9 @@ public sealed class ConversationTranscript : ITurnSink
             for (int i = _target.Count - 1; i >= _segmentFirstItem; i--)
             {
                 ConversationItemBase item = _target[i];
-                // 用户自己的气泡（中途插话）不属于这一发，不能跟着作废
-                if (item.IsUser) continue;
+                // 用户那条消息画出来的气泡不属于这一发：中途插话不能被重发带走。
+                // 判据是来源消息的角色而非 IsUser——群里的投递会拆成几个成员气泡，它们 IsUser 为 false
+                if (item.IsUser || item.SourceMessage?.Role == ChatRole.User) continue;
 
                 switch (item)
                 {

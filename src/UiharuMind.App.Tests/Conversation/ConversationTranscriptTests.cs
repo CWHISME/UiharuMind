@@ -121,6 +121,47 @@ public class ConversationTranscriptTests
         Assert.Equal("插一句", FlushedMessage(bubble));
     }
 
+    /// <summary>
+    /// 群里的投递会拆成几个成员气泡，<c>IsUser</c> 为 false——只按 IsUser 跳过会把它们当成
+    /// 这一发的产物删掉。判据得是来源消息的角色
+    /// </summary>
+    [Fact]
+    public void RestartMarker_KeepsGroupDeliveryBubbles()
+    {
+        List<ConversationItemBase> items = new();
+        ConversationTranscript transcript = new(items,
+            () => new TextConversationItem(false) { IsDone = false },
+            // 成员气泡：来自用户消息，但 IsUser 为 false
+            createUserItems: message => [new TextConversationItem(false) { Message = message.Text, SourceMessage = message }]);
+
+        transcript.Apply(new TextReasoningContent("想到一半"));
+        transcript.Apply(new UserMessageContent(new ChatMessage(ChatRole.User, "群里插一句")));
+        transcript.Apply(StreamRestartContent.Instance);
+
+        TextConversationItem bubble = Assert.IsType<TextConversationItem>(Assert.Single(items));
+        Assert.False(bubble.IsUser);
+        Assert.Equal("群里插一句", FlushedMessage(bubble));
+    }
+
+    /// <summary>
+    /// 判据不能放宽成「带来源消息就保留」：段内由助手消息画出的条目仍属于这一发，照样摘掉
+    /// </summary>
+    [Fact]
+    public void RestartMarker_DiscardsItemsDrawnFromAssistantMessages()
+    {
+        List<ConversationItemBase> items = new();
+        ChatMessage earlier = new(ChatRole.Assistant, "上一轮的助手消息");
+        ConversationTranscript transcript = new(items,
+            () => new TextConversationItem(false) { IsDone = false, SourceMessage = earlier });
+
+        transcript.Apply(new TextContent("这一发的正文"));
+        Assert.Single(items); //先确认气泡真的建出来了，否则下面的 Empty 是空断言
+
+        transcript.Apply(StreamRestartContent.Instance);
+
+        Assert.Empty(items);
+    }
+
     [Fact]
     public void TextDeltas_AccumulateIntoOneBubble()
     {

@@ -34,21 +34,6 @@ public class LazyChatClient : IChatClient
 {
     private static readonly TimeSpan ReadyTimeout = TimeSpan.FromSeconds(30);
 
-    /// <summary>流式中途被服务端掐断（判据见 <see cref="TransportFault"/>）的重试次数上限。</summary>
-    private const int StreamingRetryMaxAttempts = 6;
-
-    /// <summary>
-    /// 退化回复（正文退化成一片空白）的重发次数上限。同一个模型连续几次都退化的概率不低，
-    /// 重发太多只是白烧 token
-    /// </summary>
-    private const int DegenerateRetryMaxAttempts = 2;
-
-    /// <summary>断线重试退避基数:1s、2s、4s…封顶 <see cref="StreamingRetryMaxDelay"/></summary>
-    private static readonly TimeSpan StreamingRetryBaseDelay = TimeSpan.FromSeconds(1);
-
-    /// <summary>断线重试退避封顶。连续断线多半是服务端/网络不稳,等太久的收益有限</summary>
-    private static readonly TimeSpan StreamingRetryMaxDelay = TimeSpan.FromSeconds(8);
-
     private readonly Func<ModelRunningData?>? _sessionModelSource; //会话级模型来源,优先于全局当前模型
     private readonly string? _sessionAffinity; //会话亲和值,每发请求前挂到请求上下文上供 HTTP 层写头
     // 加密思考票据**不存这里**：它长在消息上（ADR 0100），随消息落盘。
@@ -175,13 +160,10 @@ public class LazyChatClient : IChatClient
 
         HashSet<string>? toolNames = CollectToolNames(options);
 
-        // 流式中途被服务端掐断时整段重发再试几次。这类失败发生在响应头已到手、body 读到一半的时候，
-        // SDK 的限流/瞬时重试看不见它，不在这里兜底就一路冒到 TurnDriver，整轮 agent 任务直接作废。
-        // 判据见 TransportFault：HttpIOException 与 SslStream 的裸 IOException 都要认。
-        // 正常流以 [DONE] 收尾，自然走不到重试；例外是 [DONE] 收尾却只有思考、没有 finish_reason
-        // 的截断回复（见 StreamCompletionWatch），同样重试。
-        // 重发会把这一发已经吐出去的半截正文再吐一遍，代价仅此而已：框架要等流走完才执行工具调用
-        // （实测 FunctionInvokingChatClient 在流中途失败时一次都不执行），所以不存在「调用跑两遍」
+        // 断流、退化回复、服务端拒参数都在这一个循环里整段重发。要不要重发、退避多久是纯判定
+        // （见 StreamRetryPolicy），这里只管照着做：自愈、退避、写日志、把失败抛给上层。
+        // 重发的代价只有已经花掉的 token 和一次重画（StreamRestartContent 让界面丢弃上一发的半截内容），
+        // 不存在「工具调用跑两遍」：框架要等流走完才执行调用，实测流中途失败时一次都不执行
         bool maxTokensFixed = false; // 服务端拒 max_tokens 的自愈只做一次
         bool reasoningRequirementLearned = false; // 「每条助手消息都要带思考」的自愈只做一次
         int degenerateRetries = 0; // 退化回复的重发次数，单独计——它不是网络问题，不该吃断线的退避预算
@@ -195,6 +177,7 @@ public class LazyChatClient : IChatClient
                 // 重发的内容是连着流的，不打招呼的话第二发会续进第一发的卡片里
                 yield return new ChatResponseUpdate(ChatRole.Assistant, [StreamRestartContent.Instance]);
             }
+
             bool retryable = false;
             await foreach (var (update, failure) in StreamOnceAsync(
                                client, gated, options, toolNames, model, signal, producer, context,
@@ -203,68 +186,76 @@ public class LazyChatClient : IChatClient
             {
                 if (failure != null)
                 {
-                    // 服务端拒绝 max_tokens(响应头阶段的 400):不走断线退避——修好配置后立即整段重发一次。
-                    // 重发是一次全新的 SDK 调用,请求体由 OpenAICompatibleRequestPolicy 重新改写,新值真正生效。
-                    // 自愈只做一次;修不了(非远程配置型模型)或重发仍被拒 → 直接抛给上层,不空耗断线的重试次数。
-                    if (MaxTokensErrorHandler.TryGetUpperBound(failure, out int upperBound))
+                    EStreamFailureKind kind = StreamRetryPolicy.Classify(failure);
+                    StreamRetryBudget budget = new(attempt, maxTokensFixed, reasoningRequirementLearned, degenerateRetries);
+                    StreamRetryPlan plan = StreamRetryPolicy.Plan(kind, in budget);
+
+                    switch (plan.Action)
                     {
-                        if (maxTokensFixed || !TryFixMaxTokens(model, upperBound))
-                        {
+                        // 服务端拒绝 max_tokens(响应头阶段的 400):把配置回退到它声明的上限。
+                        // 重发是一次全新的 SDK 调用,请求体由 OpenAICompatibleRequestPolicy 重新改写,新值真正生效
+                        case EStreamRetryAction.FixMaxTokens:
+                            // 分类时已确认这类错误带得上限，这里再取一次是为了把值拿出来
+                            if (!MaxTokensErrorHandler.TryGetUpperBound(failure, out int upperBound) ||
+                                !TryFixMaxTokens(model, upperBound))
+                            {
+                                ExceptionDispatchInfo.Capture(failure).Throw();
+                            }
+
+                            maxTokensFixed = true;
+                            Log.Warning($"max_tokens rejected by the server (declared upper bound {upperBound}); " +
+                                        "model config corrected, retrying this stream once.");
+                            break;
+
+                        // 服务端要求历史里每条助手消息都带思考:记在这个 ModelId 名下
+                        case EStreamRetryAction.LearnReasoningRequirement:
+                            if (!TryLearnReasoningRequirement(model))
+                            {
+                                ExceptionDispatchInfo.Capture(failure).Throw();
+                            }
+
+                            reasoningRequirementLearned = true;
+                            Log.Warning($"server requires reasoning on every earlier assistant message " +
+                                        $"(model '{model.ModelInfo.ModelId}'); marked for this model, retrying this stream once.");
+                            break;
+
+                        // 退化回复：流是正常收尾的，退避没有意义，立刻重发
+                        case EStreamRetryAction.RetryImmediately:
+                            degenerateRetries++;
+                            Log.Warning($"[stream] reply degenerated into whitespace ({failure.Message}); " +
+                                        $"retry {degenerateRetries}/{StreamRetryPolicy.MaxDegenerateRetries}.");
+                            break;
+
+                        case EStreamRetryAction.RetryAfterDelay:
+                            Log.Warning($"[stream] response dropped mid-stream ({failure.Message}); " +
+                                        $"retry {attempt}/{StreamRetryPolicy.MaxAttempts} in {plan.Delay.TotalSeconds:0.#}s.");
+                            await Task.Delay(plan.Delay, cancellationToken).ConfigureAwait(false);
+                            break;
+
+                        case EStreamRetryAction.GiveUp:
+                            // 只有这两类会「重试到用完预算」，它们多记一行收口；
+                            // 自愈过又被拒的两种、以及认不出来的失败，原文由上层记
+                            switch (kind)
+                            {
+                                case EStreamFailureKind.Degenerate:
+                                    Log.Warning($"[stream] reply degenerated into whitespace, giving up after " +
+                                                $"{degenerateRetries} retries: {failure.Message}");
+                                    break;
+                                case EStreamFailureKind.TransportDrop:
+                                    Log.Warning($"[stream] response dropped mid-stream, giving up after " +
+                                                $"{attempt} attempts: {failure.Message}");
+                                    break;
+                            }
+
                             ExceptionDispatchInfo.Capture(failure).Throw();
-                        }
+                            break;
 
-                        maxTokensFixed = true;
-                        Log.Warning($"max_tokens rejected by the server (declared upper bound {upperBound}); " +
-                                    "model config corrected, retrying this stream once.");
-                        retryable = true;
-                        break;
-                    }
-
-                    // 服务端要求历史里每条助手消息都带思考:记下这个 ModelId,整段重发一次。
-                    // 同 max_tokens 一样只自愈一次——记过之后请求体已经带上字段,再被拒就是别的问题
-                    if (ReasoningRequirementErrorHandler.IsRequirementError(failure))
-                    {
-                        if (reasoningRequirementLearned || !TryLearnReasoningRequirement(model))
-                        {
-                            ExceptionDispatchInfo.Capture(failure).Throw();
-                        }
-
-                        reasoningRequirementLearned = true;
-                        Log.Warning($"server requires reasoning on every earlier assistant message " +
-                                    $"(model '{model.ModelInfo.ModelId}'); marked for this model, retrying this stream once.");
-                        retryable = true;
-                        break;
-                    }
-
-                    // 退化回复：流是正常收尾的，退避没有意义，立刻重发。次数单独计，
-                    // 免得把断线的重试预算耗在「模型这次不行」上
-                    if (failure is DegeneratedReplyException)
-                    {
-                        if (degenerateRetries >= DegenerateRetryMaxAttempts)
-                        {
-                            Log.Warning($"[stream] reply degenerated into whitespace, giving up after " +
-                                        $"{degenerateRetries} retries: {failure.Message}");
-                            ExceptionDispatchInfo.Capture(failure).Throw();
-                        }
-
-                        degenerateRetries++;
-                        Log.Warning($"[stream] reply degenerated into whitespace ({failure.Message}); " +
-                                    $"retry {degenerateRetries}/{DegenerateRetryMaxAttempts}.");
-                        retryable = true;
-                        break;
+                        // 新增动作却没在这里处理，绝不能落进「重发」——那会无限重发
+                        default:
+                            throw new UnreachableException($"unhandled stream retry action {plan.Action}");
                     }
 
                     retryable = true;
-                    if (attempt >= StreamingRetryMaxAttempts)
-                    {
-                        Log.Warning($"[stream] response dropped mid-stream, giving up after {attempt} attempts: {failure.Message}");
-                        ExceptionDispatchInfo.Capture(failure).Throw();
-                    }
-
-                    TimeSpan delay = StreamingRetryDelay(attempt);
-                    Log.Warning($"[stream] response dropped mid-stream ({failure.Message}); " +
-                                $"retry {attempt}/{StreamingRetryMaxAttempts} in {delay.TotalSeconds:0.#}s.");
-                    await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
                     break;
                 }
 
@@ -556,14 +547,6 @@ public class LazyChatClient : IChatClient
             yield return (new ChatResponseUpdate(ChatRole.Assistant,
                 [new ThinkingNotReturnedContent(reasoningTokens)]), null);
         }
-    }
-
-    /// <summary>断线重试退避:以 <see cref="StreamingRetryBaseDelay"/> 为基数的指数退避,封顶 <see cref="StreamingRetryMaxDelay"/></summary>
-    /// <param name="attempt">当前是第几次尝试(从 1 开始)</param>
-    private static TimeSpan StreamingRetryDelay(int attempt)
-    {
-        double scaled = StreamingRetryBaseDelay.TotalSeconds * Math.Pow(2, Math.Max(0, attempt - 1));
-        return TimeSpan.FromSeconds(Math.Min(scaled, StreamingRetryMaxDelay.TotalSeconds));
     }
 
     /// <summary>
