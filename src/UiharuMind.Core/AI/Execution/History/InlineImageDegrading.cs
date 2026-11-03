@@ -111,7 +111,7 @@ public static class InlineImageDegrading
 /// <summary>
 /// 挂在改写链上的降级客户端。<b>判据每次请求现读</b>（<paramref name="modelCannotSee"/>）：
 /// 固化在装配期就会两头错——普通对话形态的装配快照不含视觉一项、换模型也不重建，
-/// 于是「视觉→盲」该降的不降、「盲→视觉」反而把刚发的图也抹掉（见 <see cref="ServingVision"/>）。
+/// 于是「视觉→盲」该降的不降、「盲→视觉」反而把刚发的图也抹掉（见 <see cref="ServingModelFacts"/>）。
 /// </summary>
 /// <param name="innerClient">下游客户端</param>
 /// <param name="modelCannotSee">此刻这一发的模型看不看得见图（false 时原样放行）</param>

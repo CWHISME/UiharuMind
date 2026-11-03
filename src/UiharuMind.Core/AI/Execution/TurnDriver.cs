@@ -804,7 +804,7 @@ public sealed partial class TurnDriver : IDisposable
         bool promptOnly = runner.ChatOptions?.Tools is not { Count: > 0 };
         // 盲模型那一发根本收不到图（降级层换成占位，见 InlineImageDegrading），这里跟着不算，
         // 否则交接后那一刻的占用会虚高，水位也可能跟着提前到
-        bool seesImages = ServingVision.ServesImages(session.ChatModelRunningData);
+        bool seesImages = ServingModelFacts.SeesImages(session.ChatModelRunningData);
         long tokens = 0;
         foreach (ChatMessage message in HistorySupply.From(session.History, promptOnly))
         {

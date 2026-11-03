@@ -124,7 +124,7 @@ public static class ImagePreviewProjection
 /// <param name="attachImages">
 /// 此刻这一发要不要真的附图（每次请求现问）。模型看不了图时只发占位。
 /// <b>不能固化在装配期</b>：装配读到的模型会与真正发请求的那个分叉，
-/// 而这一层在最里层，它现造的字节不会再经过外层的降级（见 <see cref="ServingVision"/>）
+/// 而这一层在最里层，它现造的字节不会再经过外层的降级（见 <see cref="ServingModelFacts"/>）
 /// </param>
 internal sealed class ImagePreviewProjectingChatClient(IChatClient innerClient, AgentPathResolver resolver,
     Func<bool> attachImages)

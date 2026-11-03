@@ -261,11 +261,11 @@ public partial class SessionModelViewData : ObservableObject, IDisposable
     /// （<see cref="InlineImageDegrading"/>）。图片在组消息那一刻就内联成字节进了历史，
     /// 换模型不会把它们带走——严格的服务端会直接 400 整轮失败，而界面看上去一切正常。
     ///
-    /// 判据与发送侧共用 <see cref="ServingVision"/>（含“钉选的本地模型没在跑就回落全局”那一步）：
+    /// 判据与发送侧共用 <see cref="ServingModelFacts"/>（含“钉选的本地模型没在跑就回落全局”那一步）：
     /// 两边各算一套就会出现「提示说会换占位、其实没换」或反过来。
     /// </summary>
     /// <param name="pinnedName">会话钉选的模型名；null 表示跟随全局</param>
-    /// <param name="effectiveName">此刻实际会用的模型名；<b>这里只问“有没有”，不问“是谁”</b>（是谁交给 ServingVision）</param>
+    /// <param name="effectiveName">此刻实际会用的模型名；<b>这里只问“有没有”，不问“是谁”</b>（是谁交给 ServingModelFacts）</param>
     private void UpdateHistoryImageWarning(string? pinnedName, string? effectiveName)
     {
         int images = _historyImageCountSource();
@@ -294,7 +294,7 @@ public partial class SessionModelViewData : ObservableObject, IDisposable
             }
         }
 
-        HistoryImageWarning = ServingVision.ServesImages(pinned)
+        HistoryImageWarning = ServingModelFacts.SeesImages(pinned)
             ? string.Empty
             : string.Format(Loc.Text(LangKey.SessionModelHistoryImagesFormat), images);
     }

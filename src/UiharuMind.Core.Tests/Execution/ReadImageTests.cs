@@ -236,7 +236,7 @@ public sealed class ReadImageTests : IDisposable
             Profile = new AgentBuildProfile { Character = character }, ModelSupportsVision = modelSeesImages,
         };
 
-        // "要不要附图"不在这个类上：它必须按此刻真正发请求的模型现问（见 ServingVision）
+        // "要不要附图"不在这个类上：它必须按此刻真正发请求的模型现问（见 ServingModelFacts）
         Assert.Equal(enabled, plan.ReadProjectsImages); //投影只看开关,看不了图的模型也要发占位
         Assert.Equal(analyze, plan.MountVisionTool);
     }

@@ -40,11 +40,11 @@ internal static class HistoryRewriteChain
     public static IChatClient Build(IChatClient transport, AgentAssemblyPlan plan, CompactionStrategy? compaction)
     {
         // 判据现读，不固化：普通对话形态的装配快照里不含视觉一项（换模型不重建），
-        // 钉在装配期就会两头错。口径见 ServingVision。
+        // 钉在装配期就会两头错。口径见 ServingModelFacts。
         // 投影的附图开关同样现问：那一层在最里层，它现造的字节不会再经过降级
         return Build(transport, plan.ReadProjectsImages ? plan.CreatePathResolver(null) : null,
-            attachImages: () => plan.ReadProjectsImages && ServingVision.ServesImages(ServesPinned(plan)),
-            compaction, modelCannotSee: () => !ServingVision.ServesImages(ServesPinned(plan)));
+            attachImages: () => plan.ReadProjectsImages && ServingModelFacts.SeesImages(ServesPinned(plan)),
+            compaction, modelCannotSee: () => !ServingModelFacts.SeesImages(ServesPinned(plan)));
     }
 
     private static ModelRunningData? ServesPinned(AgentAssemblyPlan plan) =>

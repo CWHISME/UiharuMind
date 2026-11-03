@@ -178,7 +178,7 @@ internal sealed class AgentAssemblyPlan
 
     // 【已删】曾有一个 ReadAttachesImages（= HasFallback && ModelSupportsVision）：它是装配期的值，
     // 而「要不要把图真的发给模型」必须按<b>此刻真正发请求的模型</b>现问（否则视觉→盲切换后 400、
-    // 盲→视觉切换又白丢图）。那个开关现在在 HistoryRewriteChain 里以闭包形式给出，见 ServingVision。
+    // 盲→视觉切换又白丢图）。那个开关现在在 HistoryRewriteChain 里以闭包形式给出，见 ServingModelFacts。
     // 别再把它加回来：有它的时候，本类的注释就是那场 bug 的成因描述。
 
     /// <summary>
@@ -194,14 +194,17 @@ internal sealed class AgentAssemblyPlan
     /// <returns>装配计划</returns>
     public static AgentAssemblyPlan Resolve(AgentBuildProfile profile)
     {
-        // 压缩阈值现读当前模型的上下文上限,与 LazyChatClient 取模型的口径完全一致:
-        // agent 只在切工作区/权限档时重建,而模型随时可切,写死在构建期就会留下过期预算。
+        // 压缩阈值按<b>真正发这一发的那个模型</b>现读（ServingModelFacts）：装配里那个
+        // ResolveCurrentModel 读的是钉选名，钉着的本地模型没在跑时请求其实回落全局，
+        // 而按钉选名算预算就是按一个不发请求的窗口在算：轻会话每轮被过度折叠（前缀缓存每轮断一次），
+        // 工具重的会话额度算成 0 直接不压（窗口机制整个关掉）。两种都是白付钱。
+        // agent 只在切工作区/权限档时重建,而模型随时可切,写死在构建期更会留下过期预算。
         // 会话自设的上限同样现读——用户随时会把它压低或恢复,而那是同一个分母的两半,
-        // 各读各的就会出现「环显示 40%、交接按 128k 判」。
+        // 各读各的就会出现「环显示 40%、交接却按 128k 判」。
         // 固定开销此刻还算不出来(它含系统提示,而提示是装配现场拼的),故经盒子迟到绑定
         TurnInputEstimate estimate = new();
         CompactionStrategy compaction = HistoryCompaction.Create(
-            () => SessionContextBudget.Resolve(CurrentModel(profile)?.ContextLength ?? 0,
+            () => SessionContextBudget.Resolve(ServingModelFacts.ContextLength(profile.SessionModelSource?.Invoke()),
                 profile.ContextLengthOverrideSource?.Invoke() ?? 0), estimate);
 
         // 非 agent 形态不装配任何工具:下面这些解析既用不上,又带副作用(建沙箱目录、读盘)

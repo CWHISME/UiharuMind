@@ -324,7 +324,7 @@ public class InlineImageDegradingTests
     };
 
     /// <summary>
-    /// 假模型一律用<b>远程</b>型号：<see cref="ServingVision"/> 内部走 <c>LazyChatClient.ServingModel</c>，
+    /// 假模型一律用<b>远程</b>型号：<see cref="ServingModelFacts"/> 内部走 <c>LazyChatClient.ServingModel</c>，
     /// 而远程候选在那里直接 UseCandidate、不会去比全局模型。用本地 GGUF 的话，一旦哪个测试
     /// 调了 <c>ReloadModelList</c> 把开发者收藏填进去，这几条的答案就会随机器变。
     /// </summary>
