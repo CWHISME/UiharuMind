@@ -248,6 +248,13 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
                 }
             }
 
+            // 重发标记是给界面看的（哪一发整段作废），不是消息内容：框架会把它当普通内容并进消息，
+            // 落库前必须摘掉，否则它会跟着历史走、还在下一发请求里占位
+            if (message.Contents.Any(x => x is StreamRestartContent))
+            {
+                message.Contents = message.Contents.Where(x => x is not StreamRestartContent).ToList();
+            }
+
             int index = session.History.AddReturningIndex(message);
             if (start < 0) start = index;
         }

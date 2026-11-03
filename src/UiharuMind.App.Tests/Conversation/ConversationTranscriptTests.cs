@@ -76,6 +76,51 @@ public class ConversationTranscriptTests
         Assert.False(card.IsRunning);
     }
 
+    /// <summary>
+    /// 这一发整段重来（断线重试、参数自愈）：上一发画出来的思考卡、气泡、半截工具卡都要摘掉。
+    /// 重发的内容是<b>连着流进来</b>的，不摘就会拼成「同一段思考说两遍」，或者多出一张同样的卡，
+    /// 而那一次调用根本不会执行（框架要等流走完才执行工具调用）
+    /// </summary>
+    [Fact]
+    public void RestartMarker_DropsWhatTheFailedAttemptDrew()
+    {
+        var (transcript, items) = Create();
+
+        transcript.Apply(new TextReasoningContent("想到一半"));
+        transcript.Apply(new TextContent("半句正文"));
+        transcript.Apply(new FunctionCallContent("c1", "Read"));
+        transcript.Apply(StreamRestartContent.Instance);
+
+        Assert.Empty(items); // 旧尝试留下的东西一件都不该剩
+
+        transcript.Apply(new TextReasoningContent("重新想过"));
+        transcript.Apply(new TextContent("完整正文"));
+        transcript.CloseSegment();
+
+        Assert.Equal(2, items.Count);
+        Assert.Equal("重新想过", FlushedMessage(items[0]));
+        Assert.Equal("完整正文", FlushedMessage(items[1]));
+    }
+
+    /// <summary>中途插话的用户气泡不属于这一发，重发不能把它一起摘掉</summary>
+    [Fact]
+    public void RestartMarker_KeepsTheUsersOwnBubble()
+    {
+        List<ConversationItemBase> items = new();
+        ConversationTranscript transcript = new(items,
+            () => new TextConversationItem(false) { IsDone = false },
+            createUserItems: message => [new TextConversationItem(true) { Message = message.Text, SourceMessage = message }]);
+
+        ChatMessage interjection = new(ChatRole.User, "插一句");
+        transcript.Apply(new TextReasoningContent("想到一半"));
+        transcript.Apply(new UserMessageContent(interjection));
+        transcript.Apply(StreamRestartContent.Instance);
+
+        TextConversationItem bubble = Assert.IsType<TextConversationItem>(Assert.Single(items));
+        Assert.True(bubble.IsUser);
+        Assert.Equal("插一句", FlushedMessage(bubble));
+    }
+
     [Fact]
     public void TextDeltas_AccumulateIntoOneBubble()
     {

@@ -188,7 +188,13 @@ public class LazyChatClient : IChatClient
         // 重发计数：每次进循环都算一次尝试，第 2 次起就是重试。计数口挂在请求上下文上（调用方读它记 retry_count）
         for (int attempt = 1; ; attempt++)
         {
-            if (attempt > 1) context.RetryTally?.NoteRetry();
+            if (attempt > 1)
+            {
+                context.RetryTally?.NoteRetry();
+                // 上一发作废：界面把它画出来的思考卡/气泡/半截工具卡摘掉，新的一发从头画。
+                // 重发的内容是连着流的，不打招呼的话第二发会续进第一发的卡片里
+                yield return new ChatResponseUpdate(ChatRole.Assistant, [StreamRestartContent.Instance]);
+            }
             bool retryable = false;
             await foreach (var (update, failure) in StreamOnceAsync(
                                client, gated, options, toolNames, model, signal, producer, context,

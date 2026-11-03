@@ -2,6 +2,8 @@ using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI;
+using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Models;
@@ -160,6 +162,49 @@ public class StreamRetryTests
         public void Dispose()
         {
         }
+    }
+
+    /// <summary>
+    /// 重发之前先发一条「这一发作废」的标记：两发的内容是连着流进来的，界面靠它把上一发
+    /// 已经画出来的思考卡/气泡摘掉，否则会拼在一起重画一遍
+    /// </summary>
+    [Fact]
+    public async Task Retry_EmitsARestartMarkerBeforeTheSecondAttempt()
+    {
+        DroppingClient fake = new(1, new IOException("boom"));
+        LazyChatClient client = new(() => Running(fake));
+
+        List<AIContent> contents = [];
+        await foreach (ChatResponseUpdate update in client.GetStreamingResponseAsync(
+                           [new ChatMessage(ChatRole.User, "hi")],
+                           cancellationToken: TestContext.Current.CancellationToken))
+        {
+            contents.AddRange(update.Contents);
+        }
+
+        Assert.Equal(2, fake.Calls);
+        int marker = contents.FindIndex(content => content is StreamRestartContent);
+        int firstAttemptText = contents.FindIndex(content => content is TextContent);
+        Assert.InRange(firstAttemptText, 0, marker - 1); // 标记在第一发的正文之后、第二发的正文之前
+        Assert.IsType<TextContent>(contents[^1]);
+    }
+
+    /// <summary>标记只给界面看：落盘前摘掉，否则它会跟着历史走，还在下一发请求里占位</summary>
+    [Fact]
+    public void RestartMarker_IsNotPersistedIntoHistory()
+    {
+        ChatSession session = new("retry-test", new CharacterData { CharacterId = "retry-test" }) { IsTransient = true };
+        ChatMessage reply = new(ChatRole.Assistant, new List<AIContent>
+        {
+            new TextContent("正文"),
+            StreamRestartContent.Instance,
+        });
+
+        SessionChatHistoryProvider.AppendOwned(session, [reply], DateTimeOffset.Now);
+
+        ChatMessage stored = Assert.Single(session.History);
+        Assert.DoesNotContain(stored.Contents, content => content is StreamRestartContent);
+        Assert.Single(stored.Contents);
     }
 
     private static async Task<List<string>> CollectAsync(LazyChatClient client)

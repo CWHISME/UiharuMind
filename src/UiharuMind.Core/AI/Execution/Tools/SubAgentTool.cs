@@ -967,6 +967,7 @@ public static class SubAgentTool
     private sealed class SubAgentTurnSink : ITurnSink
     {
         private readonly StringBuilder _streaming = new(); //正在流的那一段正文,取消时由 TurnDriver 取走落库
+        private ReportAccumulator.ReportMark _mark; //本次服务调用开始时报告的位置,重发要退回它
 
         /// <summary>报告累加器</summary>
         public ReportAccumulator Report { get; } = new();
@@ -979,7 +980,18 @@ public static class SubAgentTool
 
         public void Apply(AIContent content)
         {
+            // 这一发整段重来：把它写进报告的那截退回去，正在流的正文也丢掉，
+            // 否则报告里同一段话会出现两遍
+            if (content is StreamRestartContent)
+            {
+                Report.RollbackTo(_mark);
+                _streaming.Clear();
+                return;
+            }
+
             Report.Add(content);
+            // 一次服务调用落了盘：下一发从这里起算，重发时退回的就是这里
+            if (content is MessageBoundaryContent) _mark = Report.Mark();
             if (content is TextContent { Text.Length: > 0 } text) _streaming.Append(text.Text);
             if (content is UserMessageContent { IsInterjection: true, Message: { } incoming })
             {
@@ -1019,6 +1031,32 @@ public static class SubAgentTool
         private readonly StringBuilder _report = new(); //最后一次工具调用之后的正文
         private readonly StringBuilder _allText = new(); //全程正文,仅在报告为空时兜底
         private bool _hadToolCall; //是否出现过至少一次工具调用
+
+        /// <summary>
+        /// 某一刻的累加位置。存的是<b>文本本身</b>而不是长度：一次调用里出现工具调用时
+        /// <see cref="_report"/> 会被清空，按长度回退会拿空白字符把差额补齐，
+        /// 反而把报告写坏
+        /// </summary>
+        /// <param name="Report">当时的报告正文</param>
+        /// <param name="AllText">当时的全程正文</param>
+        /// <param name="HadToolCall">当时是否已经出现过工具调用</param>
+        public readonly record struct ReportMark(string Report, string AllText, bool HadToolCall);
+
+        /// <summary>记下此刻的累加位置（整段重发时退回这里）</summary>
+        /// <returns>可交给 <see cref="RollbackTo"/> 的位置</returns>
+        public ReportMark Mark() => new(_report.ToString(), _allText.ToString(), _hadToolCall);
+
+        /// <summary>
+        /// 退回某个位置。整段重发时用：失败那一发写进来的旁白与正文都要丢掉，
+        /// 否则同一段话会在报告里出现两遍
+        /// </summary>
+        /// <param name="mark">先前用 <see cref="Mark"/> 记下的位置</param>
+        public void RollbackTo(ReportMark mark)
+        {
+            _report.Clear().Append(mark.Report);
+            _allText.Clear().Append(mark.AllText);
+            _hadToolCall = mark.HadToolCall;
+        }
 
         /// <summary>
         /// 喂入一段内容

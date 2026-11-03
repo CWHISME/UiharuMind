@@ -278,11 +278,15 @@ public sealed partial class TurnDriver : IDisposable
                         {
                             // 调用边界：工具结果落进流里，下一次调用从这里起算（首帧重新等）。
                             // 不用 MessageBoundaryContent：它是落盘时补发的，实测可能晚于下一次调用的首条内容
+                            // 也不能把重发标记当首帧：它在重发刚起步时就到，算出来的首字耗时是假的
                             if (content is FunctionResultContent)
                                 usageCall.NoteCallBoundary();
-                            else if (content is not UsageContent)
+                            else if (content is not (UsageContent or StreamRestartContent))
                                 usageCall.NoteFirstToken(); //首帧（每次调用只认第一次）
                             if (content is ToolApprovalRequestContent request) roundRequests.Add(request);
+                            // 这一发整段重来了：它带出来的审批请求跟着作废，界面那张卡也已经被摘掉，
+                            // 留着等回应就是等一张点不到的卡
+                            if (content is StreamRestartContent) roundRequests.Clear();
                             if (content is UsageContent usage)
                             {
                                 // 先校准再记账:水位刻度要按下一发实际用的系数换算。旁路请求(写交接)不校准,它与常规请求不同形

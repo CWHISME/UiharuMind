@@ -158,6 +158,12 @@ public sealed class ConversationTranscript : ITurnSink
         }
         switch (content)
         {
+            // 这一发整段重来：把它画出来的东西摘掉，新的一发从头画。放在最前面，
+            // 因为它在语义上是「撤销本段」而不是一种要装配的内容
+            case StreamRestartContent:
+                DiscardSegment();
+                break;
+
             case TextReasoningContent reasoning:
             case TextContent text:
                 // 思考边界走 ThinkingBoundary：空增量忽略、<think> 混排经解析器分离，
@@ -352,6 +358,55 @@ public sealed class ConversationTranscript : ITurnSink
         AgentPathResolver? paths = _pathsSource?.Invoke();
         item.LoadResultImages(paths);
         item.LoadResultAudio(paths);
+    }
+
+    /// <summary>
+    /// 这一发整段重来（断线重试、参数被拒后的自愈重发）：把属于它的条目全摘掉。
+    ///
+    /// <para>
+    /// 界线只有 <see cref="_segmentFirstItem"/>——段内的条目都属于这一次服务调用。重发的内容是
+    /// <b>连着流进来</b>的，不摘的话第二发会续进第一发画出的思考卡/气泡：轻则同一段思考出现两遍，
+    /// 重则先收段再重开，多出一张一样的卡。而那一发什么都不会执行（框架要等流走完才执行工具调用），
+    /// 所以半截工具卡、点不到的审批卡留在界面上都是错的。
+    /// </para>
+    /// </summary>
+    private void DiscardSegment()
+    {
+        _thinkParser.Reset();
+        _streamingText = null;
+        _streamingThinking?.StopTiming(); //不摘掉跑表，泵会一直攥着一张已经不在集合里的卡
+        _streamingThinking = null;
+
+        if (_segmentFirstItem >= 0)
+        {
+            for (int i = _target.Count - 1; i >= _segmentFirstItem; i--)
+            {
+                ConversationItemBase item = _target[i];
+                // 用户自己的气泡（中途插话）不属于这一发，不能跟着作废
+                if (item.IsUser) continue;
+
+                switch (item)
+                {
+                    case ThinkingItem thinking:
+                        thinking.StopTiming();
+                        break;
+                    case ToolCallItem call:
+                        call.FinishProvisionalDuration();
+                        break;
+                    // 卡摘掉了就没人能回应它：先按拒绝收口，免得谁还在等一个点不到的按钮
+                    case ApprovalRequestItem approval:
+                        approval.CancelAsDeny();
+                        _pending.Remove(approval);
+                        _round.Remove(approval);
+                        break;
+                }
+
+                _target.RemoveAt(i);
+            }
+        }
+
+        _segmentFirstItem = -1;
+        _segmentHadThinking = false;
     }
 
     /// <summary>
