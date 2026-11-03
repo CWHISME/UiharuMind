@@ -34,7 +34,7 @@ public class LazyChatClient : IChatClient
 {
     private static readonly TimeSpan ReadyTimeout = TimeSpan.FromSeconds(30);
 
-    /// <summary>流式中途被服务端掐断(HttpIOException: ResponseEnded)的重试次数上限。</summary>
+    /// <summary>流式中途被服务端掐断（判据见 <see cref="TransportFault"/>）的重试次数上限。</summary>
     private const int StreamingRetryMaxAttempts = 6;
 
     /// <summary>
@@ -155,9 +155,12 @@ public class LazyChatClient : IChatClient
         // 门禁过滤：换模型后旧票这一轮不带。回填由 chat 线的客户端按消息对象绑（ADR 0101）
         IReadOnlyList<ChatMessage> gated = ReasoningGateFilter.Apply([.. messageList], producer);
 
-        // 作用域覆盖整段枚举（含中途重发）：断线重试时请求体会按同一份上下文重新改写
+        // 这一发的上下文在这里定格一次，随后由 Bind 在每一次 MoveNext 上重新挂：
+        // 异步迭代器里 push 的值只管当轮 MoveNext，重试发生在若干次 yield 之后，靠外层 using 挂不住
+        // （表现为重发请求丢了会话亲和头，见 ADR 0099 修订）。用 Current with 合并，
+        // 外层的 ForbidToolCalls / RetryTally 因此原样留着
         EncryptedReasoningSignal signal = new();
-        using LlmRequestScope.Scope scope = LlmRequestScope.Push(LlmRequestScope.Current with
+        LlmRequestContext context = LlmRequestScope.Current with
         {
             SessionAffinity = _sessionAffinity,
             // 票据密文不能解析后再编码，所以原样存着；随信号内容一起发出，
@@ -168,27 +171,27 @@ public class LazyChatClient : IChatClient
                 signal.TicketJson = Encoding.UTF8.GetString(ticket);
                 signal.Producer = producer;
             },
-        });
+        };
 
         HashSet<string>? toolNames = CollectToolNames(options);
 
-        // 流式中途被服务端掐断(HttpIOException: ResponseEnded)时重发整个请求再试几次。
-        // 这类失败发生在响应头已到手、body 读到一半的时候,SDK 的限流/瞬时重试看不见它,
-        // 不在这里兜底就一路冒到 TurnDriver,整轮 agent 任务直接作废。
-        // 正常流以 [DONE] 收尾,不会抛 HttpIOException,自然走不到重试;
-        // 例外是 [DONE] 收尾却只有思考、没有 finish_reason 的截断回复(见 StreamCompletionWatch),同样重试。
-        // 重试代价:若断线前已向上层吐过完整的工具调用,重发会让同一调用被框架再执行一次——
-        // 好在工具调用通常出现在流中后段,断线多发在思考/等待的停顿期,此时尚无新调用产出。
+        // 流式中途被服务端掐断时整段重发再试几次。这类失败发生在响应头已到手、body 读到一半的时候，
+        // SDK 的限流/瞬时重试看不见它，不在这里兜底就一路冒到 TurnDriver，整轮 agent 任务直接作废。
+        // 判据见 TransportFault：HttpIOException 与 SslStream 的裸 IOException 都要认。
+        // 正常流以 [DONE] 收尾，自然走不到重试；例外是 [DONE] 收尾却只有思考、没有 finish_reason
+        // 的截断回复（见 StreamCompletionWatch），同样重试。
+        // 重发会把这一发已经吐出去的半截正文再吐一遍，代价仅此而已：框架要等流走完才执行工具调用
+        // （实测 FunctionInvokingChatClient 在流中途失败时一次都不执行），所以不存在「调用跑两遍」
         bool maxTokensFixed = false; // 服务端拒 max_tokens 的自愈只做一次
         bool reasoningRequirementLearned = false; // 「每条助手消息都要带思考」的自愈只做一次
         int degenerateRetries = 0; // 退化回复的重发次数，单独计——它不是网络问题，不该吃断线的退避预算
         // 重发计数：每次进循环都算一次尝试，第 2 次起就是重试。计数口挂在请求上下文上（调用方读它记 retry_count）
         for (int attempt = 1; ; attempt++)
         {
-            if (attempt > 1) LlmRequestScope.Current.RetryTally?.NoteRetry();
+            if (attempt > 1) context.RetryTally?.NoteRetry();
             bool retryable = false;
             await foreach (var (update, failure) in StreamOnceAsync(
-                               client, gated, options, toolNames, model, signal, producer,
+                               client, gated, options, toolNames, model, signal, producer, context,
                                cancellationToken)
                            .ConfigureAwait(false))
             {
@@ -344,13 +347,13 @@ public class LazyChatClient : IChatClient
     }
 
     /// <summary>
-    /// 单次流式枚举。中途断线(HttpIOException)、收尾判为截断或服务端拒参数(400 max_tokens)时不向外抛,
+    /// 单次流式枚举。中途断线（见 <see cref="TransportFault"/>）、收尾判为截断或服务端拒参数(400 max_tokens)时不向外抛,
     /// 而是产出 (null, 异常) 让上层决定重试;正常产出 (update, null)。手动驱动 MoveNextAsync 是为了把 yield 从带 catch
     /// 的 try 里挪出来 (C# 不允许在带 catch 的 try 内 yield)。
     /// </summary>
     private async IAsyncEnumerable<(ChatResponseUpdate? Update, Exception? Failure)> StreamOnceAsync(
         IChatClient client, IReadOnlyList<ChatMessage> messages, ChatOptions? options, HashSet<string>? toolNames,
-        ModelRunningData model, EncryptedReasoningSignal signal, ReasoningGate producer,
+        ModelRunningData model, EncryptedReasoningSignal signal, ReasoningGate producer, LlmRequestContext context,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         // 文本工具调用恢复:GLM 线格式的调用可能以纯文本漏进正文或思考通道
@@ -371,8 +374,11 @@ public class LazyChatClient : IChatClient
         // 复读不归重试管：直接抛出，本轮按失败收口（已生成的部分照常落盘）
         RepetitionLoopWatch loopWatch = new(model.ModelName);
 
-        IAsyncEnumerator<ChatResponseUpdate> enumerator = client
-            .GetStreamingResponseAsync(messages, options, cancellationToken).GetAsyncEnumerator(cancellationToken);
+        // 上下文逐次挂在这里而不是枚举外面：异步迭代器跨 yield 不保留 AsyncLocal，
+        // 重试要读到亲和头与票据回调，就得让每次 Attempt 的每一步都重新挂上
+        IAsyncEnumerator<ChatResponseUpdate> enumerator = LlmRequestScope
+            .Bind(context, client.GetStreamingResponseAsync(messages, options, cancellationToken))
+            .GetAsyncEnumerator(cancellationToken);
         await using (enumerator.ConfigureAwait(false))
         {
             while (true)
@@ -384,10 +390,13 @@ public class LazyChatClient : IChatClient
                     if (!await enumerator.MoveNextAsync().ConfigureAwait(false)) break;
                     update = enumerator.Current;
                 }
-                catch (HttpIOException e) when (!cancellationToken.IsCancellationRequested)
+                catch (Exception e) when (!cancellationToken.IsCancellationRequested && TransportFault.IsRetryableDrop(e))
                 {
+                    // SslStream 的裸 IOException 与 SDK 包的 HttpIOException 是同一种故障的两层壳，
+                    // 只认 HttpIOException 会把前一种漏在重试之外（见 TransportFault）
                     failure = e;
                 }
+
                 catch (Exception e) when (!cancellationToken.IsCancellationRequested && MaxTokensErrorHandler.IsMaxTokensError(e))
                 {
                     // 响应头阶段的 400 在此转成交付形式,交上层做一次性自愈重发(见 StreamWithRetryAsync)

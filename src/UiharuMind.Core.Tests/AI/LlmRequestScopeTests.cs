@@ -113,6 +113,34 @@ public class LlmRequestScopeTests
         Assert.Equal("stream-affinity", inner.Seen!.SessionAffinity);
     }
 
+    /// <summary>
+    /// 绑定器把上下文挂在<b>每一次</b> MoveNext 上：只在外层套一个 using 的话，
+    /// 流里跨过一次 yield 之后就读不到了（重试那一发正是这种情况）
+    /// </summary>
+    [Fact]
+    public async Task Bind_PutsTheContextOnEveryMoveNext()
+    {
+        List<string?> seen = [];
+
+        async IAsyncEnumerable<int> Source()
+        {
+            seen.Add(LlmRequestScope.Current.SessionAffinity);
+            yield return 1;
+            await Task.Yield();
+            seen.Add(LlmRequestScope.Current.SessionAffinity); // 跨过 yield 之后
+            yield return 2;
+        }
+
+        await foreach (int _ in LlmRequestScope.Bind(
+                           new LlmRequestContext { SessionAffinity = "bound" }, Source(),
+                           TestContext.Current.CancellationToken))
+        {
+        }
+
+        Assert.Equal(["bound", "bound"], seen);
+        Assert.Null(LlmRequestScope.Current.SessionAffinity); // 挂着用，不能漏给调用方
+    }
+
     /// <summary>两条并发流程各挂各的：中途真正交错，谁也不该读到对方的</summary>
     [Fact]
     public async Task ConcurrentFlows_KeepTheirOwnContext()

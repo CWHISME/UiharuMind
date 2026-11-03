@@ -53,10 +53,10 @@
    拿出完整的一份新快照。**载体**：`LlmRequestScope` 是全仓唯一持有那个 `AsyncLocal` 的地方，只有
    `Current` 读、`Push` 在 `using` 作用域内写；释放时还原成**挂之前的那整份引用**（含「之前没有」）。
    于是三条语义成立：退出即还原、嵌套回到外层、内层 `Current with { … }` 只叠加自己关心的字段。
-   七条 `LlmRequestScopeTests` 钉住它们（含并发各挂各的、流式迭代器里也读得到）。
-6. **写入点收敛到两处**：`LazyChatClient`（流式与非流式各一处，用 `with` 合并，因此自动保住外层设的
-   `ForbidToolCalls`——写交接文档那一发正靠这个）；`HistoryHandoff` 用一个作用域只在那一发禁工具，
-   删掉 `finally` 手工复位。
+   八条 `LlmRequestScopeTests` 钉住它们（含并发各挂各的、`Bind` 逐次 MoveNext 挂载）。
+6. **写入点收敛到两处**：`LazyChatClient`（非流式 `Push`；流式构造一份上下文交给 `Bind` 逐次挂上，
+   见文末修订。两条都用 `with` 合并，因此自动保住外层设的 `ForbidToolCalls`——写交接文档那一发正靠这个）；
+   `HistoryHandoff` 用一个作用域只在那一发禁工具，删掉 `finally` 手工复位。
 7. **读取点收敛**：`RequestRewrite.For(model)` 仍是生产入口（读 `Current` 一次），另加
    `For(model, context)` 纯函数给测试；`SessionAffinityHeaders.Apply/Describe` 改成**收值**，
    HTTP 处理器在 `SendAsync` 里取一次，写头与写日志用的是同一份值。
@@ -66,8 +66,10 @@
 - **上下文为什么仍是环境传递**：`ChatOptions` 到 `PipelineMessage` 之间没有可插入的通道，改写发生在管道
   最里层、拿不到调用栈上的局部变量。所以改的不是「用不用 `AsyncLocal`」，而是把它关进一个文件、只留一个
   有作用域的入口。改成显式传参需要每请求建客户端（连接池与序列化开销全重来），不划算。
-- **异步迭代器里的边界**：流式的作用域在迭代器体内挂上，覆盖整段枚举（含中途重发），但**调用方看不到
-  内层设的值**——与改造前一致，写进注释免得下次误判。
+- **异步迭代器里的边界**：流式的作用域在迭代器体内挂上**只管当轮 MoveNext**，`yield` 之后回到调用方
+  的执行上下文——**重发那一发读不到内层设的值**（实测与日志都这么显示，见文末修订）。所以现在不用
+  「枚举外面套一个 using」，改由 `LlmRequestScope.Bind` 在每一次 `MoveNext` 上重新挂；调用方仍看不到
+  内层设的值。
 - **没做的事：Chat / Responses / Messages 的协议抽象。** CommandCode 三条端点都开着，加密思考只有
   Responses 上有票据可回传。分层留出的缝是**补丁形状**（`RequestRewrite` 与 `ResponseSanitizer` 都是
   「在 SDK 序列化好的 chat 体上改几处」）：对 Responses 够用，对 Anthropic Messages 不够——那边要的是
@@ -77,3 +79,34 @@
   测试改动除 `using` 外只有两处性质变化：`ReasoningSource_IsCollected…` 改用纯函数入口；
   `Client_KeepsTheContextItWasCalledFrom` 把「客户端不抹掉外层」从碰巧成立（三个独立字段）
   变成明确保证（`with` 合并）。
+
+## 修订（2026-11-03）：流式作用域改为逐次 MoveNext 挂载
+
+上面「覆盖整段枚举（含中途重发）」的说法**是错的**，实测与线上日志都证伪：
+
+- **日志**：`Log.txt` 一天 1375 条响应里 14 条 `affinity: (none)`，其中 13 条紧跟 `retry 1/6`——
+  每一次断线重发都没带会话亲和头（首发都带）。141 次重发里首次之外的那几次因此各自冷启动一遍前缀缓存，
+  1–2 MB 的请求体白付 prefill。同一缺陷也让重发那一发拿不到票据回调（加密思考白拿）。
+- **实测**：`AsyncLocal` 在异步迭代器里跨 `yield` 不保留——写下的值只在当轮 `MoveNext` 有效，
+  下一次 `MoveNext` 回到调用方的执行上下文。所以「枚举外面套一个 using」对重发无效。
+  外层设的 `ForbidToolCalls` / `RetryTally` 不受影响（它们本来就在调用方的上下文里），
+  丢的恰好是 `LazyChatClient` 自己 `with` 进去的那两项。
+
+改动：
+
+1. 新增 `LlmRequestScope.Bind(context, source)`：把 push 放进**每一次** `MoveNext`，
+   作用域开合与它要覆盖的那次调用同生共死，与调用方是否可见无关。
+2. `LazyChatClient` 的流式路径不再在外层 push，改为把 `Current with { … }` 的上下文实参传进
+   `StreamOnceAsync`，由 `Bind` 逐次挂上；`NoteRetry` 改读那份实参。
+3. `LlmRequestScopeTests.Bind_PutsTheContextOnEveryMoveNext` 钉住「跨 yield 之后仍读得到」；
+   `StreamRetryTests` 钉住重发那一发带亲和、带票据回调、且不漏给调用方。
+
+同批修的另一处（不属本 ADR，一并记在这里）：`LazyChatClient` 的断线重试原先只认 `HttpIOException`，
+接不住 SslStream 的裸 `IOException`（同一种断流，实测约 8:1），后者会整轮作废；判据收进
+`Net/Errors/TransportFault`（另把「不带状态码的 `HttpRequestException`」也算进来——发送阶段被 reset
+与流中段被掐是同一类，且前者没花掉 token，重发更划算）。
+
+**试过又撤掉的一处**：曾加「已吐出完整工具调用就不再重发」的闸，理由是怕同一次调用被执行两遍。
+实测证伪——`FunctionInvokingChatClient` 要等流走完才执行累积的调用，流中途失败时一次都不执行
+（假客户端先吐 `FunctionCallContent` 再抛 IOException：执行 0 次；正常收尾：执行 1 次并继续迭代）。
+这道闸只会把本来能恢复的断流变成硬失败，已删除；断流重发的真实代价只是「半截正文在界面上再画一遍」。
