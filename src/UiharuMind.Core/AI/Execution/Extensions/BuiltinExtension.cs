@@ -88,8 +88,9 @@ public abstract class BuiltinExtension
     /// 各扩展覆写自己的规则（只读命令、硬问的本机/接管、按应用记的桌面…）
     /// </summary>
     /// <param name="call">扩展调用（已确认是本扩展）</param>
+    /// <param name="context">判风险要用的外部事实；默认实现用不到，浏览器用它认「界内文件页面」</param>
     /// <returns>风险</returns>
-    public virtual EExtensionRisk Classify(FunctionCallContent call)
+    public virtual EExtensionRisk Classify(FunctionCallContent call, ExtensionRiskContext? context = null)
     {
         if (!ExtensionCalls.TryRead(call, out ExtensionInvocation? invocation)) return EExtensionRisk.ReadOnly;
         return CanonicalCommand(invocation.Command) == null ? EExtensionRisk.ReadOnly : EExtensionRisk.Standard;

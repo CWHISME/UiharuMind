@@ -184,7 +184,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         {
             _currentMeta = value;
             // 「扩展不再询问」存在会话上，换会话（含回到空态）就换了那一份
-            OnPropertyChanged(nameof(ExtensionsApproved));
+            NotifyExtensionsApprovedChanged();
             OnPropertyChanged(nameof(CanOpenGoalMode));
         }
     }
@@ -349,7 +349,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     public bool IsPermissionEditable => !IsGroupMemberSession;
 
     /// <summary>
-    /// 本会话扩展调用不再询问（ADR 0079）：一般级的扩展命令直接放行，接管与浏览器去本机地址照问。
+    /// 本会话扩展调用不再询问（ADR 0079）：一般级的扩展命令直接放行；
+    /// 本机服务（localhost、回环、*.local）与工作区之外的本地文件也跟着这一格，
+    /// 但只认它（卡片上「本会话允许某个扩展」不够）；接管、上传、内网设备照问。
     /// 存在会话上，与审批卡上「本会话允许某个扩展」同一份名单（<c>*</c> 代表全部）；群壳上勾的对全体成员生效。
     /// 还没建会话时记成草稿，建会话那一刻写进去；选着会话而本体不在（文件坏了、正在装载）时读作未勾、写也不落
     /// </summary>
@@ -363,12 +365,39 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             if (value == ExtensionsApproved) return;
             if (CurrentMeta == null) _draftExtensionsApproved = value;
             else CurrentSession?.SetSessionApprovedExtension(ExtensionCalls.AllExtensions, value);
-            OnPropertyChanged();
+            NotifyExtensionsApprovedChanged();
         }
+    }
+
+    // 状态键与提示跟着勾选一起变：工具行那个图标靠它们上色
+    private void NotifyExtensionsApprovedChanged()
+    {
+        OnPropertyChanged(nameof(ExtensionsApproved));
+        OnPropertyChanged(nameof(ExtensionApprovalKey));
+        OnPropertyChanged(nameof(ExtensionApprovalTooltip));
     }
 
     /// <summary>「扩展不再询问」能不能在这里勾：群成员跟群走，在群视图里勾</summary>
     public bool CanApproveExtensions => IsAgentSession && !IsGroupMemberSession;
+
+    /// <summary>
+    /// 工具行那个设置图标的状态键（Ask / Silent）：勾着「不再询问」时变红——
+    /// 窗口上常驻看得见，才不会忘了自己把本机服务与本地文件也放开了。
+    /// 群成员自己那份名单恒为空（勾选跟群走），所以这里看的是「事实上生效」的那份
+    /// </summary>
+    public string ExtensionApprovalKey => EffectiveExtensionsApproved ? "Silent" : "Ask";
+
+    /// <summary>设置图标的悬停提示：勾着时说明放开了什么、怎么关掉</summary>
+    public string ExtensionApprovalTooltip => ExtensionsApproved
+        ? Loc.Text(LangKey.ChatComposerSettingsSilent)
+        : EffectiveExtensionsApproved
+            ? Loc.Text(LangKey.ChatComposerSettingsSilentInherited)
+            : Loc.Text(LangKey.ChatComposerSettings);
+
+    // 事实上生效的那份名单：群成员看群壳、子代理看派活者（自己那份对它们恒为空）
+    private bool EffectiveExtensionsApproved => ExtensionsApproved ||
+        (CurrentSession is { } session &&
+         AgentBuildProfile.EffectiveApprovalsOf(session).Contains(ExtensionCalls.AllExtensions));
 
     /// <summary>发送身份对应的图标名(user/bot)</summary>
     public string SenderIconName => ConversationModeLabels.SenderIcon(SenderMode == SendMode.User);
@@ -746,7 +775,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             SessionPaths,
             createUserItems: _history.CreateUserItems,
             sessionIdSource: () => CurrentSession?.SessionId,
-            approveExtension: extension => CurrentSession?.SetSessionApprovedExtension(extension, true));
+            approveExtension: extension => CurrentSession?.SetSessionApprovedExtension(extension, true),
+            // 卡片与规则侧同一份界内判据：worktree 里的文件页面不该被标成「每次都问」
+            worktreeGrantsSource: () => CurrentSession?.SnapshotSessionApprovedWorktreeRoots());
         // 用量不经转录器转发:运行侧看得见同一条内容流,由它记账并写回会话本体,
         // 这里只负责把数字刷到界面上(UsageObserved 通知)
         _transcript.HousekeepingToolCalled += () => _ = RefreshTodosAsync();
@@ -1984,7 +2015,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             _isLoadingSession = false;
         }
 
-        OnPropertyChanged(nameof(ExtensionsApproved));
+        NotifyExtensionsApprovedChanged();
 
         // 分帧:先让"清空旧会话"渲染出去,再构建新会话,把一次长冻结拆成两段短的
         await UiDispatcher.InvokeAsync(static () => { }, DispatcherPriority.Background);

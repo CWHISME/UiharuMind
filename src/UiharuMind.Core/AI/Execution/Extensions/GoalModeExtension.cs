@@ -37,7 +37,7 @@ public sealed class GoalModeExtension : BuiltinExtension
         [(BuiltinExtensions.GoalEnd, EndGoalModeTool.ToolName)];
 
     /// <summary>结束目标模式：不改任何盘，只请求收场——无人值守也得放行，否则模型结束不了目标模式</summary>
-    public override EExtensionRisk Classify(FunctionCallContent call) => EExtensionRisk.ReadOnly;
+    public override EExtensionRisk Classify(FunctionCallContent call, ExtensionRiskContext? context = null) => EExtensionRisk.ReadOnly;
 
     protected override BuiltinExtension CreateAssembled(AgentToolResources resources,
         EReadImageMode imageMode, bool mountFiles)

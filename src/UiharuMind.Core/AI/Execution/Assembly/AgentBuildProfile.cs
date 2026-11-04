@@ -84,6 +84,25 @@ public class AgentBuildProfile
     public bool IsScheduledRun { get; init; }
 
     /// <summary>
+    /// 此刻没人在场的来源：定时运行、被定时运行的会话派出（子代理跟着派活者），或所在的群在离席。
+    /// <b>动态求值</b>：离席可能在一轮中途开始或结束，审批规则要现问。
+    /// 那一刻「只认扩展不再询问」那一档一律拒（见 <see cref="ExtensionRiskContext.IsUnattended"/>）：
+    /// 没人能去勾，而默认放行比停下来更糟。
+    ///
+    /// <b>刻意不包含唤醒轮</b>（SendMessage 投递目标会话的单聊轮）：那一轮是用户主动发起的，
+    /// 且本就为无人岗干活设计——里面拒掉就什么都干不成，而不是「多问一次」。所以它按会话同意口径走：
+    /// 勾过「扩展不再询问」就放行。离席不同：那是用户离开了、会话自己继续跑，勾选可能是很久以前的事
+    /// </summary>
+    public Func<bool>? UnattendedSource { get; init; }
+
+    /// <summary>
+    /// 离席探针：某个群壳 id 此刻是不是在群离席中（由 <c>GroupAwayController</c> 初始化时接上）。
+    /// 规则在运行期现问；测试与没建离席控制器的环境为 null，按「有人在」处理。
+    /// 只传群 id 是为了与 <see cref="IsAway"/> 同形——探针方不必碰会话对象
+    /// </summary>
+    public static Func<string, bool>? AwayProbe { get; set; }
+
+    /// <summary>
     /// 群场景段正文（ADR 0048）；不是群成员为空串。两种形态都有：场景是「我在哪、有谁在」，
     /// 与装不装工具无关。它随群名、名单、主持人变，所以也进装配快照
     /// </summary>
@@ -244,6 +263,8 @@ public class AgentBuildProfile
             PermissionModeSource = () => (EAgentPermissionMode)Math.Clamp(GroupChatSessions.PermissionOf(session), 0, 2),
             PreAuthorizedShellPatterns = session.PreAuthorizedShellPatterns,
             IsScheduledRun = session.IsScheduledRun,
+            UnattendedSource = () => session.IsScheduledRun || DispatchedByScheduledRun(session) ||
+                                     AwayProbe?.Invoke(session.GroupId ?? session.SessionId) == true,
             PromptArguments = session.CustomParams,
             GroupScene = GroupSceneSource.For(session),
             IsGroupAvatar = session.IsGroupAvatar,
@@ -280,13 +301,48 @@ public class AgentBuildProfile
         if (inheritedFrom == null) return own;
         return () =>
         {
-            ChatSession? from = SessionManager.Instance.GetLoaded(inheritedFrom);
-            // 定时运行的「全部」不落在名单里（见 FromSession），它派出去的子代理要单独补上
-            IReadOnlyList<string> inherited = from is { IsScheduledRun: true }
-                ? [ExtensionCalls.AllExtensions]
-                : from?.SnapshotSessionApprovedExtensions() ?? [];
+            IReadOnlyList<string> inherited = InheritedApprovals(inheritedFrom);
             return [..own?.Invoke() ?? [], ..inherited];
         };
+    }
+
+    // 派活者/群壳那份放行名单：本体在内存里就读它（最新），否则读索引里那一份冗余。
+    // GetLoaded 只回答已加载的，而群壳刚启动时没加载过、跑一阵也可能被冷历史卸载请出内存——
+    // 那时名单就成了空的，用户勾了「扩展不再询问」的群却按「没勾」处理，每个扩展调用都弹卡。
+    // 索引是纯内存读，不进审批热路径的读盘/写盘（与 GetLoaded 同一代价量级）。
+    // 已知边界：索引随本进程的写同步，但不对另一实例的改动做文件戳比对——多实例共享档案时，
+    // 别处去勾后这边可能还按旧名单放行到下次落盘/重载（索引本就是可重建的缓存，与其它 meta 字段同一口径）
+    private static IReadOnlyList<string> InheritedApprovals(string sessionId)
+    {
+        if (SessionManager.Instance.GetLoaded(sessionId) is { } from)
+        {
+            // 定时运行的「全部」不落在名单里（见 FromSession），它派出去的子代理要单独补上
+            return from.IsScheduledRun ? [ExtensionCalls.AllExtensions] : from.SnapshotSessionApprovedExtensions();
+        }
+
+        return SessionManager.Instance.GetMeta(sessionId)?.SessionApprovedExtensions ?? [];
+    }
+
+    // 子代理跟着派活者：定时任务派出去的活同样没人看着。派活者一般还在内存里（子代理就是它那一轮里派出的，
+    // _loaded 不抽实例）；但它被释放后接着跑的子代理要能从索引那一份读懂——否则语义会退化成「有人在」
+    private static bool DispatchedByScheduledRun(ChatSession session) =>
+        session.IsSubSession && session.ParentSessionId is { Length: > 0 } parent &&
+        (SessionManager.Instance.GetLoaded(parent)?.IsScheduledRun ??
+         SessionManager.Instance.GetMeta(parent)?.IsScheduledRun == true);
+
+    /// <summary>
+    /// 这个会话<b>事实上</b>会放行哪些扩展：自己的加上继承来的（群成员看群壳、子代理看派活者）。
+    /// 给界面侧的只读展示用——群成员自己的名单永远是空的（勾选跟群走），
+    /// 状态灯假设只读自己那份就会显示成「未勾」，而实际早已放行
+    /// </summary>
+    /// <param name="session">会话</param>
+    /// <returns>放行名单（可能含 <c>*</c>）</returns>
+    public static IReadOnlyList<string> EffectiveApprovalsOf(ChatSession session)
+    {
+        List<string> merged = [..session.SnapshotSessionApprovedExtensions()];
+        string? inheritedFrom = session.IsSubSession ? session.ParentSessionId : session.GroupId;
+        if (inheritedFrom != null) merged.AddRange(InheritedApprovals(inheritedFrom));
+        return merged;
     }
 
     // 子代理/群成员沿用派活者登记的 worktree：主代理建好 worktree 后派活，子代理不必再设置一次；

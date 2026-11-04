@@ -31,7 +31,14 @@ public enum EExtensionRisk
     /// <summary>逐项：三档都问，本会话只认为这一项单独放行过的，「扩展不再询问」不算（桌面的真实键鼠，按应用记）</summary>
     PerScope,
 
-    /// <summary>硬问：永远问，本会话放行也不算（接管、浏览器去本机或内网地址）</summary>
+    /// <summary>
+    /// 只认「本会话扩展不再询问」那一格：三档都问，勾了全局那一格才放行，
+    /// 点单个扩展的「本会话允许」不算（浏览器去本机服务、打开工作区之外的本地文件）。
+    /// 无人在场时（定时运行、离席）照旧拒：那一下的同意必须是人亲手勾的
+    /// </summary>
+    SessionWideOnly,
+
+    /// <summary>硬问：永远问，本会话放行也不算（接管、上传、内网设备、非 http(s) 地址）</summary>
     AlwaysAsk,
 }
 
@@ -44,9 +51,9 @@ public static class ExtensionRisk
     /// 分级
     /// </summary>
     /// <param name="call">工具调用</param>
-    /// <param name="mcpReadOnly">MCP 工具是否自己声明了只读（server 名, 工具名）；null 时一律按「不是」</param>
+    /// <param name="context">判风险要用的外部事实（MCP 只读声明、界内路径判据）；null 时一律按「不是只读」「都不算界内」</param>
     /// <returns>风险；不是扩展调用为 null</returns>
-    public static EExtensionRisk? Classify(FunctionCallContent call, Func<string, string, bool>? mcpReadOnly = null)
+    public static EExtensionRisk? Classify(FunctionCallContent call, ExtensionRiskContext? context = null)
     {
         if (!ExtensionCalls.IsCall(call)) return null;
         // 拆不开（缺扩展名或命令名、参数 JSON 坏了）的调用到了工具里只会报错，什么也做不了：
@@ -56,9 +63,9 @@ public static class ExtensionRisk
         // 内置扩展：风险规则在各自的扩展类里（命令名解析与风险同处，不会出现
         // 「审批按没这条命令判、执行却落到别处」）。没有这条命令的调用到工具里只会报错，
         // 按只读放过去（见 BuiltinExtension.Classify）
-        if (BuiltinExtensions.SpecOf(invocation.Extension) is { } spec) return spec.Classify(call);
+        if (BuiltinExtensions.SpecOf(invocation.Extension) is { } spec) return spec.Classify(call, context);
 
-        return mcpReadOnly?.Invoke(invocation.Extension, invocation.Command) == true
+        return context?.McpReadOnly?.Invoke(invocation.Extension, invocation.Command) == true
             ? EExtensionRisk.ReadOnly
             : EExtensionRisk.Standard;
     }
@@ -67,9 +74,19 @@ public static class ExtensionRisk
     /// 是不是硬问的那一类（离席化身直接拒、子代理不自动批、审批卡不给「本会话允许」）
     /// </summary>
     /// <param name="call">工具调用</param>
+    /// <param name="context">判风险要用的外部事实</param>
     /// <returns>是为 true</returns>
-    public static bool AlwaysAsks(FunctionCallContent? call) =>
-        call != null && Classify(call) == EExtensionRisk.AlwaysAsk;
+    public static bool AlwaysAsks(FunctionCallContent? call, ExtensionRiskContext? context = null) =>
+        call != null && Classify(call, context) == EExtensionRisk.AlwaysAsk;
+
+    /// <summary>
+    /// 是不是「只有勾了本会话扩展不再询问才放行」的那一类（审批卡要据此换提示：点本扩展的按钮不够）
+    /// </summary>
+    /// <param name="call">工具调用</param>
+    /// <param name="context">判风险要用的外部事实</param>
+    /// <returns>是为 true</returns>
+    public static bool NeedsSessionWideApproval(FunctionCallContent? call, ExtensionRiskContext? context = null) =>
+        call != null && Classify(call, context) == EExtensionRisk.SessionWideOnly;
 
     /// <summary>
     /// 「本会话允许」记在哪一格：多数扩展整个记；桌面按应用记（<c>desktop:com.apple.TextEdit</c>），

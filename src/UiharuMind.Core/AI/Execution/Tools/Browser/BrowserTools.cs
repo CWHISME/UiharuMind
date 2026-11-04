@@ -323,15 +323,10 @@ public sealed class BrowserTools
         }
     }
 
-    // 模型常写 example.com 不带协议，导航会直接报无效地址
-    private static string WithScheme(string url)
-    {
-        string trimmed = url.Trim();
-        bool hasScheme = trimmed.Contains("://", StringComparison.Ordinal) ||
-                         trimmed.StartsWith("about:", StringComparison.OrdinalIgnoreCase) ||
-                         trimmed.StartsWith("data:", StringComparison.OrdinalIgnoreCase);
-        return hasScheme || trimmed.Length == 0 ? trimmed : "https://" + trimmed;
-    }
+    // 模型常写 example.com 不带协议，导航会直接报无效地址。
+    // 归一化与补协议与审批判定共用一份（见 BrowserRisk.ToAbsoluteUrl）：两边各写一份就会出现
+    // 「审批按公网判、浏览器却当文件打开」
+    private static string WithScheme(string url) => BrowserRisk.ToAbsoluteUrl(url);
 
     private enum EView
     {

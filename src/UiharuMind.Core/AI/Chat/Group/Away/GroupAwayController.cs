@@ -2,6 +2,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat.WakeLoops;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
@@ -237,6 +238,9 @@ public sealed class GroupAwayController
     {
         GroupAwayController controller = new(GroupChatCoordinator.Instance);
         HeadlessGroupMemberTurnRunner.AwayApprovals = controller.ApprovalsFor;
+        // 审批规则也要知道这个会话所在的群在不在离席：离席时「只认扩展不再询问」那一档照拒——
+        // 否则用户在离席前勾过的 `*` 会让规则层直接放行，连化身都轮不到判（见 AgentBuildProfile.AwayProbe）
+        AgentBuildProfile.AwayProbe = controller.IsAway;
         return controller;
     }
 

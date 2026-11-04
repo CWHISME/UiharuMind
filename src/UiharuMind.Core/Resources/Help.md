@@ -127,8 +127,9 @@ and the list of **Local models**: every local model process that is running or l
 - **Read aloud**: the speaker button reads new replies of the open conversation with the character's voice; the
   switch is saved on the character.
 - **Extensions approved**: **Don't ask for extensions (this session)** lets extension commands that normally ask
-  first run without asking in this session. Handing a browser or a window back to you, and opening local or
-  intranet addresses, still ask every time.
+  first run without asking, and it also covers local services (localhost etc.) and local files outside the workspace.
+  Handing a browser or a window back to you, uploading files and reaching intranet devices still ask every time.
+  While it is on, the settings icon in the tool row turns red; open it to turn the switch off.
 - **Context panel**: shows this turn and session totals, cached input, and the compaction watermarks — **Fold tool
   results**, **Handoff**, **Drop oldest**. When history reaches the handoff watermark the app writes a context
   handoff document and the model can no longer see anything before it; if that fails, the oldest messages are
@@ -345,8 +346,9 @@ every call that can change something or cost money asks you first. The built-ins
 | `image` | Generate or edit an image |
 | `audio` | Synthesise speech, transcribe audio |
 
-Handing a browser or a window to you and opening local or intranet addresses always ask, even with
-**Don't ask for extensions** on. Each extension can be switched off per character.
+Handing a browser or a window to you, uploading files and reaching intranet devices always ask, even with
+**Don't ask for extensions** on. Local services and local files outside the workspace follow that switch instead
+(and are refused outright on scheduled runs and while you are away). Each extension can be switched off per character.
 
 ### MCP servers
 

@@ -902,6 +902,8 @@ public class ChatSession
             GroupHostSessionId = GroupHostSessionId,
             GroupScheduleMode = GroupScheduleMode,
             GroupStopPolicy = GroupStopPolicy,
+            SessionApprovedExtensions = SnapshotSessionApprovedExtensions(),
+            IsScheduledRun = IsScheduledRun,
         };
     }
 

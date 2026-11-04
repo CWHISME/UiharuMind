@@ -4057,7 +4057,7 @@
         <value>开启后，目标模式唤醒的每一轮里，需要审批的操作都不再询问、直接执行：
 · 改写文件（含工作区以外的路径）
 · 执行 shell 命令
-· 调用扩展（浏览器、桌面操作，打开本机或内网地址等）
+· 调用扩展（浏览器、桌面操作，打开本机服务、工作区外的本地文件或内网地址等）
 
 模型无人值守时这些操作也会真实发生：可能改掉你的文件、执行命令、花钱。每一轮做了什么都会记在会话里。
 想恢复询问，在同一个设置里取消勾选即可。
@@ -6028,7 +6028,19 @@
         <value>本会话扩展不再询问</value>
     </data>
     <data name="ChatExtensionsApprovedTooltip" xml:space="preserve">
-        <value>这个会话里，扩展里本该先问你的命令（浏览网页、操作别的应用的窗口、生图、MCP 工具）不再询问。用真实鼠标键盘要在卡片上按应用单独允许；把浏览器或窗口交给你、打开本机或内网地址仍然每次都问。</value>
+        <value>这个会话里，扩展里本该先问你的命令（浏览网页、操作别的应用的窗口、生图、MCP 工具）不再询问，本机服务（localhost 等）与工作区之外的本地文件也一并放行。用真实鼠标键盘要在卡片上按应用单独允许；把浏览器或窗口交给你、上传文件、访问内网设备仍然每次都问。</value>
+    </data>
+    <data name="ChatComposerSettings" xml:space="preserve">
+        <value>显示与审批设置</value>
+    </data>
+    <data name="ChatComposerSettingsSilent" xml:space="preserve">
+        <value>本会话扩展不询问中：一般命令、本机服务（localhost 等）与工作区外的本地文件都不再问。点开可关掉。</value>
+    </data>
+    <data name="ChatComposerSettingsSilentInherited" xml:space="preserve">
+        <value>跟着所属会话走：那边已勾「扩展不再询问」——一般命令、本机服务（localhost 等）与工作区外的本地文件都不再问。要在群视图或派活那个会话里改。</value>
+    </data>
+    <data name="AgentApproveExtensionNeedsAll" xml:space="preserve">
+        <value>打开本机服务与工作区外的本地文件，要勾「本会话扩展不再询问」；点这里的按钮只放行本扩展的一般命令。</value>
     </data>
     <data name="ExtensionNameBrowser" xml:space="preserve">
         <value>浏览器</value>

@@ -92,7 +92,8 @@ public sealed partial class GroupApprovalViewData
     {
         MemberSessionId = member.SessionId;
         MemberName = member.CharacterData.CharacterName;
-        Card = new ApprovalRequestItem(request, AgentBuildProfile.PathResolverOf(member), member.SessionId)
+        Card = new ApprovalRequestItem(request, AgentBuildProfile.PathResolverOf(member), member.SessionId,
+            worktreeGrantsSource: member.SnapshotSessionApprovedWorktreeRoots)
         {
             RememberShellPatternCallback = member.AddSessionApprovedShellPattern,
             ApproveExtensionCallback = extension => member.SetSessionApprovedExtension(extension, true),

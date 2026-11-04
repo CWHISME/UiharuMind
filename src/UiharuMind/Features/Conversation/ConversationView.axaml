@@ -56,6 +56,10 @@
         <Style Selector="ThemedIconButton.permission-state[Tag=FullAuto] controls|ThemedSvgIcon">
             <Setter Property="CurrentColor" Value="OrangeRed" />
         </Style>
+        <!-- 设置图标兼作「本会话扩展不询问」的状态灯：勾着时变红，窗口上常驻看得见 -->
+        <Style Selector="ThemedIconButton.extension-state[Tag=Silent] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="OrangeRed" />
+        </Style>
         <Style Selector="ThemedIconButton.sender-state[Tag=User] controls|ThemedSvgIcon">
             <Setter Property="CurrentColor" Value="LightGreen" />
         </Style>
@@ -524,7 +528,8 @@
                                         <Button Classes="Small" CornerRadius="6"
                                                 IsVisible="{Binding Card.CanApproveForSession}"
                                                 Command="{Binding Card.ResolveCommand}" CommandParameter="session"
-                                                Content="{Binding Card.SessionButtonText}" />
+                                                Content="{Binding Card.SessionButtonText}"
+                                                ToolTip.Tip="{Binding Card.SessionApproveHint}" />
                                         <Button Classes="Small" CornerRadius="6"
                                                 IsVisible="{Binding Card.CanRememberCommandPattern}"
                                                 Command="{Binding Card.ResolveCommand}" CommandParameter="session-command"
@@ -739,7 +744,10 @@
                                 </DataTemplate>
                             </ContentControl.ContentTemplate>
                         </ContentControl>
-                        <ThemedIconButton IconName="settings">
+                        <ThemedIconButton IconName="settings"
+                                          Classes="extension-state"
+                                          Tag="{Binding ExtensionApprovalKey}"
+                                          ToolTips="{Binding ExtensionApprovalTooltip}">
                             <ThemedIconButton.Flyout>
                                 <Flyout Placement="Top">
                                     <Border Padding="10"
@@ -772,9 +780,6 @@
                                     </Border>
                                 </Flyout>
                             </ThemedIconButton.Flyout>
-                            <ToolTip.Tip>
-                                <TextBlock Text="{loc:Loc SettingsWindowTitle}" />
-                            </ToolTip.Tip>
                         </ThemedIconButton>
                         <!-- 宿主注入 -->
                         <ContentPresenter VerticalAlignment="Center"

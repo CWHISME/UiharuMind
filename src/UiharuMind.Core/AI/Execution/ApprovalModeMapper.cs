@@ -68,6 +68,8 @@ public static class ApprovalModeMapper
     /// <param name="worktreesRoot">worktree 根（create 的默认落盘处）;空串表示没有。
     /// 必须与执行层同一份（<see cref="AgentAssemblyPlan.WorktreesRoot"/>），否则模型写 <c>$WORKTREES/…</c> 时
     /// 执行落在树里、审批判成界外</param>
+    /// <param name="unattendedSource">无人在场的来源（定时运行、被定时运行派出、离席）：每次判定现取；
+    /// 「只认扩展不再询问」那一档在这一刻直接拒，可空</param>
     /// <returns>规则列表</returns>
     public static List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> BuildRules(
         EAgentPermissionMode mode, string workspaceRoot = "",
@@ -76,10 +78,10 @@ public static class ApprovalModeMapper
         string approvedWriteRoot = "", string memoryWriteRoot = "",
         Func<IReadOnlyList<string>?>? sessionExtensionApprovalSource = null,
         Func<IReadOnlyList<ChatSession.SessionWorktreeGrant>?>? sessionWorktreeRootsSource = null,
-        string worktreesRoot = "") =>
+        string worktreesRoot = "", Func<bool>? unattendedSource = null) =>
         BuildRules(() => mode, workspaceRoot, preAuthorizedShellPatterns, sessionShellApprovalSource,
             approvedWriteRoot, memoryWriteRoot, sessionExtensionApprovalSource, sessionWorktreeRootsSource,
-            worktreesRoot);
+            worktreesRoot, unattendedSource);
 
     /// <summary>
     /// 同上，但档位每次判断时现取：用户中途改档（或群改档推给成员），下一条调用就按新档来，
@@ -94,6 +96,7 @@ public static class ApprovalModeMapper
     /// <param name="sessionExtensionApprovalSource">本会话放行过的扩展名来源,可空</param>
     /// <param name="sessionWorktreeRootsSource">本会话登记的 worktree 来源,可空</param>
     /// <param name="worktreesRoot">worktree 根（create 的默认落盘处）;空串表示没有</param>
+    /// <param name="unattendedSource">无人在场的来源：每次判定现取（离席可能在一轮中途开始或结束），可空</param>
     /// <returns>规则列表</returns>
     public static List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> BuildRules(
         Func<EAgentPermissionMode> modeSource, string workspaceRoot = "",
@@ -102,12 +105,11 @@ public static class ApprovalModeMapper
         string approvedWriteRoot = "", string memoryWriteRoot = "",
         Func<IReadOnlyList<string>?>? sessionExtensionApprovalSource = null,
         Func<IReadOnlyList<ChatSession.SessionWorktreeGrant>?>? sessionWorktreeRootsSource = null,
-        string worktreesRoot = "")
+        string worktreesRoot = "", Func<bool>? unattendedSource = null)
     {
         // 产出房间就是草稿目录:简写 $DRAFT / $MEMORY / $WORKTREES 按它们展开,与工具执行时落到同一处
         AgentPathResolver paths = new(workspaceRoot, approvedWriteRoot, memoryWriteRoot,
             worktreesRoot: worktreesRoot);
-        string room = paths.DraftRoot;
         string memory = paths.MemoryRoot;
 
         List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> rules = new()
@@ -123,13 +125,20 @@ public static class ApprovalModeMapper
         rules.Add(context => new ValueTask<bool>(
             modeSource() == EAgentPermissionMode.FullAuto &&
             !ExtensionCalls.IsCall(context.FunctionCallContent) &&
-            !IsOutOfWorkspaceWrite(context.FunctionCallContent, paths, room, sessionWorktreeRootsSource?.Invoke())));
+            !IsOutOfWorkspaceWrite(context.FunctionCallContent, paths, sessionWorktreeRootsSource?.Invoke())));
 
         // 扩展:只读的三档都不问;一般的本会话放行过这个扩展就不问;逐项的(桌面真实键鼠)只认单独放行过的那一格;
-        // 硬问的(接管、浏览器去本机地址)永远问;完全自动档免审批的(worktree.create)只在 FullAuto 放行
+        // 只认「扩展不再询问」的(本机服务、界外本地文件)看全局那一格;内网设备与非 http(s) 永远问;
+        // 完全自动档免审批的(worktree.create)只在 FullAuto 放行
+        // 界内文件页面的判据夹在 context 里递下去：分级与放行两侧必须同一份（见 InScopePredicate）
+        ExtensionRiskContext riskContext = new()
+        {
+            McpReadOnly = (server, tool) => McpManager.Instance.IsReadOnlyTool(server, tool, workspaceRoot),
+            IsPathInScope = InScopePredicate(paths, sessionWorktreeRootsSource),
+            IsUnattended = unattendedSource,
+        };
         rules.Add(context => new ValueTask<bool>(
-            IsApprovedExtensionCall(context.FunctionCallContent, sessionExtensionApprovalSource,
-                (server, tool) => McpManager.Instance.IsReadOnlyTool(server, tool, workspaceRoot),
+            IsApprovedExtensionCall(context.FunctionCallContent, sessionExtensionApprovalSource, riskContext,
                 fullAuto: modeSource() == EAgentPermissionMode.FullAuto)));
 
         // 自动编辑:工作区内的写入放行。这一档曾经<b>一条规则都不加</b>,于是与只读档行为完全一致:
@@ -138,7 +147,7 @@ public static class ApprovalModeMapper
         rules.Add(context => new ValueTask<bool>(
             modeSource() == EAgentPermissionMode.AutoEdit &&
             IsMutatingFileTool(context.FunctionCallContent) &&
-            !IsOutOfWorkspaceWrite(context.FunctionCallContent, paths, room, sessionWorktreeRootsSource?.Invoke())));
+            !IsOutOfWorkspaceWrite(context.FunctionCallContent, paths, sessionWorktreeRootsSource?.Invoke())));
 
         // 记忆目录:任何权限档可写(ADR 0028)——记忆是 agent 的工作台,只读/计划档也得能记笔记。
         // 范围只认 Memory/ 这一格;删除不在这里,走 shell 由命令行审批纪律兜。
@@ -168,14 +177,14 @@ public static class ApprovalModeMapper
     /// </summary>
     /// <param name="call">工具调用</param>
     /// <param name="sessionApprovalSource">本会话放行过的扩展名来源,可空</param>
-    /// <param name="mcpReadOnly">MCP 工具是否声明了只读(按发起会话的工作区认 server)</param>
+    /// <param name="context">判风险要用的外部事实(MCP 只读声明、界内路径判据)</param>
     /// <param name="fullAuto">当前是否完全自动档：<see cref="EExtensionRisk.FullAutoOnly"/> 在这一档直接放行</param>
     /// <returns>放行为 true；不是扩展调用为 false</returns>
     internal static bool IsApprovedExtensionCall(FunctionCallContent call,
-        Func<IReadOnlyList<string>?>? sessionApprovalSource, Func<string, string, bool> mcpReadOnly,
+        Func<IReadOnlyList<string>?>? sessionApprovalSource, ExtensionRiskContext context,
         bool fullAuto = false)
     {
-        EExtensionRisk? risk = ExtensionRisk.Classify(call, mcpReadOnly);
+        EExtensionRisk? risk = ExtensionRisk.Classify(call, context);
         if (risk == EExtensionRisk.ReadOnly) return true;
         if (risk == EExtensionRisk.FullAutoOnly)
         {
@@ -184,6 +193,14 @@ public static class ApprovalModeMapper
             return ExtensionCalls.TryRead(call, out ExtensionInvocation? approvedInv) &&
                    ExtensionRisk.IsApproved(sessionApprovalSource?.Invoke(),
                        ExtensionRisk.ApprovalKey(approvedInv, call), coveredByAll: true);
+        }
+
+        // 只认「本会话扩展不再询问」那一格：点单个扩展的「本会话允许」不够（去本机服务、读工作区外的本地文件）。
+        // 无人在场时一律拒：那一下的同意得是人亲手勾的（见 ExtensionRiskContext.IsUnattended，离席与定时都是）
+        if (risk == EExtensionRisk.SessionWideOnly)
+        {
+            return context.IsUnattended?.Invoke() != true &&
+                   ExtensionRisk.IsApproved(sessionApprovalSource?.Invoke(), ExtensionCalls.AllExtensions);
         }
 
         if (risk is not (EExtensionRisk.Standard or EExtensionRisk.PerScope)) return false;
@@ -261,7 +278,7 @@ public static class ApprovalModeMapper
     /// <param name="paths">发起调用的会话的路径口径</param>
     /// <returns>越界写入为 true</returns>
     public static bool IsOutOfWorkspaceWrite(FunctionCallContent functionCall, AgentPathResolver paths) =>
-        IsOutOfWorkspaceWrite(functionCall, paths, paths.DraftRoot, worktreeGrants: null);
+        IsOutOfWorkspaceWrite(functionCall, paths, worktreeGrants: null);
 
     /// <summary>
     /// 同上，另给本会话登记的 worktree（化身对派活者自己的 worktree 放行；与放行规则同一份口径）
@@ -272,7 +289,7 @@ public static class ApprovalModeMapper
     /// <returns>越界写入为 true</returns>
     public static bool IsOutOfWorkspaceWrite(FunctionCallContent functionCall, AgentPathResolver paths,
         IReadOnlyList<ChatSession.SessionWorktreeGrant>? worktreeGrants) =>
-        IsOutOfWorkspaceWrite(functionCall, paths, paths.DraftRoot, worktreeGrants);
+        IsOutOfWorkspaceWriteCore(functionCall, paths, worktreeGrants);
 
     /// <summary>
     /// 这次调用是否是「工作区外的写入」。
@@ -288,11 +305,11 @@ public static class ApprovalModeMapper
     /// 接受这个缺口,因为能这么干的模型同样能直接用 shell,而真正的边界是"用户点了那一下"——
     /// 每次审批都去 realpath 一趟只是把成本花在挡不住的地方。
     /// </summary>
-    /// <param name="approvedWriteRoot">会话自己的产出房间(已规范化);落在里面的写入视为界内</param>
     /// <param name="worktreeGrants">会话登记的 worktree（已规范化）；落在里面、且登记工作区与当前有效工作区
     /// 一致才视为界内；空则无豁免。换绑工作区后旧登记自然失效</param>
-    private static bool IsOutOfWorkspaceWrite(FunctionCallContent functionCall, AgentPathResolver paths,
-        string approvedWriteRoot, IReadOnlyList<ChatSession.SessionWorktreeGrant>? worktreeGrants)
+    /// <returns>越界写入为 true</returns>
+    private static bool IsOutOfWorkspaceWriteCore(FunctionCallContent functionCall, AgentPathResolver paths,
+        IReadOnlyList<ChatSession.SessionWorktreeGrant>? worktreeGrants)
     {
         if (!IsMutatingFileTool(functionCall)) return false;
         if (paths.WorkspaceRoot.Length == 0) return true;
@@ -303,13 +320,52 @@ public static class ApprovalModeMapper
         //路径非法(含非法字符/过长)一样交给用户看一眼
         if (!paths.TryResolve(path, out string full)) return true;
 
-        if (AgentPathResolver.IsUnder(full, paths.WorkspaceRoot)) return false;
-        if (AgentPathResolver.IsUnder(full, approvedWriteRoot)) return false;
-        if (worktreeGrants is { Count: > 0 } && worktreeGrants.Any(g =>
-                g is { Root.Length: > 0, Workspace.Length: > 0 } &&
-                SameWorkspace(g.Workspace, paths.WorkspaceRoot) &&
-                AgentPathResolver.IsUnder(full, g.Root))) return false;
-        return true;
+        return !InScopePredicate(paths, () => worktreeGrants)(full);
+    }
+
+    /// <summary>
+    /// 「这个绝对路径算不算本会话界内」的判据：工作区、草稿房间、登记且同工作区的 worktree。
+    /// <b>只有这一处定义</b>：审批放行、风险分级（浏览器的界内文件页面）与离席化身都问它，
+    /// 各写一份就会出现「规则放行了、卡上却写着每次都问」。
+    /// 没绑工作区时一律 false：沙箱里没有「界内」可言。
+    /// </summary>
+    /// <param name="paths">发起调用的会话的路径口径</param>
+    /// <param name="worktreeGrantsSource">会话登记的 worktree 来源（每次判定现取，变化无需重建装配），可空</param>
+    /// <returns>判定函数</returns>
+    public static Func<string, bool> InScopePredicate(AgentPathResolver paths,
+        Func<IReadOnlyList<ChatSession.SessionWorktreeGrant>?>? worktreeGrantsSource = null) => full =>
+    {
+        if (paths.WorkspaceRoot.Length == 0) return false;
+        // 入参必须是绝对路径，且先规范化再比：判据是字面前缀比较（见 AgentPathResolver.IsUnder），
+        // 带着 ".." 传进来就能跳出工作区。相对路径与非法路径按「不在界内」处理（安全侧）
+        string normalized = NormalizeInScopePath(full);
+        if (normalized.Length == 0) return false;
+        if (AgentPathResolver.IsUnder(normalized, paths.WorkspaceRoot)) return true;
+        if (AgentPathResolver.IsUnder(normalized, paths.DraftRoot)) return true;
+        IReadOnlyList<ChatSession.SessionWorktreeGrant>? grants = worktreeGrantsSource?.Invoke();
+        return grants is { Count: > 0 } && grants.Any(g =>
+            g is { Root.Length: > 0, Workspace.Length: > 0 } &&
+            SameWorkspace(g.Workspace, paths.WorkspaceRoot) &&
+            AgentPathResolver.IsUnder(normalized, g.Root));
+    };
+
+    // 规范化到与根同一口径（AgentPathResolver 对根用的也是 GetFullPath）；拿不准的一律当不在界内。
+    // 先截掉 ?query / #fragment：`file:///C:/ws/x.html?x=1` 的 LocalPath 会把 query 带进来，
+    // GetFullPath 碰到 Windows 上非法的 ? 就抛——那会把界内页面误判成界外，白白多问
+    private static string NormalizeInScopePath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return string.Empty;
+        int cut = path.IndexOfAny(['?', '#']);
+        if (cut >= 0) path = path[..cut];
+        if (!Path.IsPathRooted(path)) return string.Empty;
+        try
+        {
+            return Path.GetFullPath(path);
+        }
+        catch (Exception e) when (e is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return string.Empty;
+        }
     }
 
     /// 登记工作区与当前有效工作区是否同一（与 <see cref="AgentPathResolver.IsUnder"/> 同一平台口径）

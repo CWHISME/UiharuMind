@@ -27,8 +27,8 @@ public sealed class BrowserExtension : BuiltinExtension
     public override string Guide =>
         "带独立配置文件的真实 Chrome 窗口，一个会话一个标签页；用户在那里登录过的站点保持登录。" +
         "先 navigate（或 snapshot 重读已打开的页面），再按最新 outline 里的 ref 对元素 act。" +
-        "snapshot 从不问用户；navigate 和 act 除非用户已为本会话放行浏览器，否则会询问；" +
-        "handoff 和上传总是等用户。";
+        "snapshot 从不问用户；navigate 和 act 一般要先问，用户为本会话放行过浏览器就不再问；" +
+        "打开本机服务或工作区外的本地文件要用户勾「扩展不再询问」；handoff、上传与内网地址总是等用户。";
 
     public override string Summary => "操作一个真实的 Chrome 窗口：打开网页、点按钮、填表、读正文、截图";
 
@@ -40,15 +40,17 @@ public sealed class BrowserExtension : BuiltinExtension
         (BuiltinExtensions.BrowserHandoff, BrowserTools.HandoffToolName),
     ];
 
-    /// <summary>快照只读；去本机/内网地址硬问；其余一般级（本会话放行过浏览器就不问）</summary>
-    public override EExtensionRisk Classify(FunctionCallContent call)
+    /// <summary>快照只读；公网页面与界内页面按一般级；本机服务与界外本地文件只认「扩展不再询问」那一格；内网设备、非 http(s) 与接管上传恒问</summary>
+    public override EExtensionRisk Classify(FunctionCallContent call, ExtensionRiskContext? context = null)
     {
         if (!ExtensionCalls.TryRead(call, out ExtensionInvocation? invocation)) return EExtensionRisk.ReadOnly;
         // 没有这条命令：执行只会报错，不为它弹卡（与基类同一口径）
         if (CanonicalCommand(invocation.Command) == null) return EExtensionRisk.ReadOnly;
         if (invocation.Command == BuiltinExtensions.BrowserSnapshot) return EExtensionRisk.ReadOnly;
-        return BrowserRisk.RequiresApprovalInAllModes(ExtensionCalls.Unwrap(call))
-            ? EExtensionRisk.AlwaysAsk
+        FunctionCallContent inner = ExtensionCalls.Unwrap(call);
+        if (BrowserRisk.RequiresApprovalInAllModes(inner)) return EExtensionRisk.AlwaysAsk;
+        return BrowserRisk.RequiresSessionWideApproval(inner, context)
+            ? EExtensionRisk.SessionWideOnly
             : EExtensionRisk.Standard;
     }
 

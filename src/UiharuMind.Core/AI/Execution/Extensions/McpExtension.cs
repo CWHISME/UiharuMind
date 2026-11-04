@@ -54,7 +54,7 @@ public sealed class McpExtension : BuiltinExtension
 
     /// <summary>两条都只读：list 不碰任何东西，connect 做的正是查一个 server 时本来就会做的事
     /// （建立连接、取回工具清单），两者同一级别</summary>
-    public override EExtensionRisk Classify(FunctionCallContent call) => EExtensionRisk.ReadOnly;
+    public override EExtensionRisk Classify(FunctionCallContent call, ExtensionRiskContext? context = null) => EExtensionRisk.ReadOnly;
 
     protected override BuiltinExtension CreateAssembled(AgentToolResources resources,
         EReadImageMode imageMode, bool mountFiles)

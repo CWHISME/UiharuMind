@@ -318,7 +318,10 @@ public class ExtensionTests
     public void Classify(string extension, string command, EExtensionRisk expected)
     {
         EExtensionRisk? risk = ExtensionRisk.Classify(ExtensionCallOf.Make(extension, command),
-            (server, tool) => server == "unity" && tool == "read_scene");
+            new ExtensionRiskContext
+            {
+                McpReadOnly = (server, tool) => server == "unity" && tool == "read_scene",
+            });
 
         Assert.Equal(expected, risk);
     }

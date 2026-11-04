@@ -61,18 +61,21 @@ public class GroupAwayApproverTests
         Assert.Contains("没人能接手", Assert.Single(_ledger).Reason);
     }
 
-    /// <summary>打开本机、内网地址与越界写入同一个口径：离席中不替用户点</summary>
-    [Fact]
-    public async Task LocalNavigation_IsDeniedWithoutAsking()
+    /// <summary>打开本机服务、内网地址、工作区外的本地文件与越界写入同一个口径：离席中不替用户点</summary>
+    [Theory]
+    [InlineData("http://192.168.1.1")]
+    [InlineData("http://localhost:3000")]
+    [InlineData("file:///etc/passwd")]
+    public async Task LocalNavigation_IsDeniedWithoutAsking(string url)
     {
         FunctionCallContent navigate = ExtensionCallOf.Make(BuiltinExtensions.Browser, BuiltinExtensions.BrowserNavigate,
-            new { url = "http://192.168.1.1" });
+            new { url });
 
         IReadOnlyList<ChatMessage> responses = await Resolve(_member, navigate);
 
         Assert.False(Approved(responses));
         Assert.Empty(_asked);
-        Assert.Contains("本机或内网", Assert.Single(_ledger).Reason);
+        Assert.Contains("本机服务、本地文件或内网地址", Assert.Single(_ledger).Reason);
     }
 
     [Fact]

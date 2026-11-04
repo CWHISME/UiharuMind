@@ -2,6 +2,8 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.Extensions;
+using UiharuMind.Core.AI.Execution.Files;
+using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools.Browser;
 using UiharuMind.Core.Core.SimpleLog;
@@ -79,7 +81,8 @@ public sealed class GroupAwayApprover
         CancellationToken cancellationToken)
     {
         // worktree 是工作目录的副本：派活者自己登记的 worktree 按界内算（与正常放行的豁免同一份口径）
-        if (ApprovalModeMapper.IsOutOfWorkspaceWrite(call, AgentBuildProfile.PathResolverOf(party.Requester),
+        AgentPathResolver requesterPaths = AgentBuildProfile.PathResolverOf(party.Requester);
+        if (ApprovalModeMapper.IsOutOfWorkspaceWrite(call, requesterPaths,
             party.Requester.SnapshotSessionApprovedWorktreeRoots()))
         {
             return new GroupAwayApprovalVerdict(false, "越界写入：离席中不替用户点，留给用户本人");
@@ -93,11 +96,23 @@ public sealed class GroupAwayApprover
 
         // 扩展调用拆开再给化身看：「BrowserAct 点 e21」比一层 ExtensionCalls.CallName 好判断
         FunctionCallContent inner = ExtensionCalls.Unwrap(call);
-        if (ExtensionRisk.AlwaysAsks(call))
+        // 界内文件页面（工作区里的拾取器/报告）不算「打开本机地址」：与审批放行同一份判据；
+        // MCP 只读声明也一并传：不传的话离席侧会把只读工具当一般级，与规则侧对不上
+        ExtensionRiskContext riskContext = new()
+        {
+            McpReadOnly = (server, tool) => McpManager.Instance.IsReadOnlyTool(server, tool, requesterPaths.WorkspaceRoot),
+            IsPathInScope = ApprovalModeMapper.InScopePredicate(requesterPaths,
+                () => party.Requester.SnapshotSessionApprovedWorktreeRoots()),
+            // 离席时「只认扩展不再询问」那一档照拒：那一刻人不在，去不了勾
+            IsUnattended = static () => true,
+        };
+        // 本机服务与界外本地文件（SessionWideOnly）同样不替用户点：读遍本机得是人亲手勾的，
+        // 而此刻人不在（见 ExtensionRiskContext.IsUnattended 同一口径）
+        if (ExtensionRisk.Classify(call, riskContext) is EExtensionRisk.AlwaysAsk or EExtensionRisk.SessionWideOnly)
         {
             return new GroupAwayApprovalVerdict(false, inner.Name == BrowserTools.HandoffToolName
                 ? "接管浏览器：用户离席，没人能接手"
-                : "打开本机或内网地址：离席中不替用户点，留给用户本人");
+                : "打开本机服务、本地文件或内网地址：离席中不替用户点，留给用户本人");
         }
 
         if (party.Requester.SessionId == party.Avatar.SessionId) return new GroupAwayApprovalVerdict(true, "化身自己的操作");

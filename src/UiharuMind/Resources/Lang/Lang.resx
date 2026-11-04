@@ -4062,7 +4062,7 @@ Allow them?</value>
         <value>When enabled, every wake turn approves without asking:
 · File writes (including paths outside the workspace)
 · Shell commands
-· Extension calls (browser, desktop, opening local or intranet addresses, …)
+· Extension calls (browser, desktop, opening local services, local files outside the workspace or intranet addresses, …)
 
 These really happen unattended: files can be changed, commands run, money spent. Everything is recorded in the session.
 Uncheck it in this setup window to go back to being asked.
@@ -6033,7 +6033,19 @@ Enable it?</value>
         <value>Don't ask for extensions (this session)</value>
     </data>
     <data name="ChatExtensionsApprovedTooltip" xml:space="preserve">
-        <value>Extension commands that would normally ask you first (browsing, operating other apps' windows, generating images, MCP tools) run without asking in this session. Using the real mouse and keyboard is allowed per app on its card; handing a browser or window to you and opening local or intranet addresses still ask every time.</value>
+        <value>Extension commands that would normally ask you first (browsing, operating other apps' windows, generating images, MCP tools) run without asking in this session, and so do local services (localhost etc.) and local files outside the workspace. Using the real mouse and keyboard is allowed per app on its card; handing a browser or window to you, uploading files and reaching intranet devices still ask every time.</value>
+    </data>
+    <data name="ChatComposerSettings" xml:space="preserve">
+        <value>Display and approval settings</value>
+    </data>
+    <data name="ChatComposerSettingsSilent" xml:space="preserve">
+        <value>Extensions don't ask in this session: ordinary commands, local services (localhost etc.) and local files outside the workspace run without asking. Open to turn it off.</value>
+    </data>
+    <data name="ChatComposerSettingsSilentInherited" xml:space="preserve">
+        <value>Inherited from the owning session: it has "Don't ask for extensions" on, so ordinary commands, local services (localhost etc.) and local files outside the workspace run without asking. Change it in the group view or the dispatching session.</value>
+    </data>
+    <data name="AgentApproveExtensionNeedsAll" xml:space="preserve">
+        <value>Opening local services or local files outside the workspace needs "Don't ask for extensions (this session)"; the button here only allows ordinary commands of this extension.</value>
     </data>
     <data name="ExtensionNameBrowser" xml:space="preserve">
         <value>Browser</value>

@@ -46,7 +46,7 @@ public sealed class WorktreeExtension : BuiltinExtension
     /// <summary>status/list/reset 纯查询/只撤豁免（恢复要审批，无副作用），都不问；
     /// create 跟随全自动档免审批（隔离副本不影响主工作区；其余档按一般问一次）；
     /// remove/set 要求额外审批（逐项：删目录、登记任意已有目录为免审批，create 的放行不连带）</summary>
-    public override EExtensionRisk Classify(FunctionCallContent call)
+    public override EExtensionRisk Classify(FunctionCallContent call, ExtensionRiskContext? context = null)
     {
         if (!ExtensionCalls.TryRead(call, out ExtensionInvocation? invocation)) return EExtensionRisk.ReadOnly;
         // 没有这条命令：执行只会报错，不为它弹卡（与基类同一口径）

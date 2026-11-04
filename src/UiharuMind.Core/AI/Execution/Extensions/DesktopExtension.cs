@@ -41,7 +41,7 @@ public sealed class DesktopExtension : BuiltinExtension
     ];
 
     /// <summary>看窗口只读；真实键鼠按应用逐项；接管、真实键鼠之外的硬问按应用判</summary>
-    public override EExtensionRisk Classify(FunctionCallContent call)
+    public override EExtensionRisk Classify(FunctionCallContent call, ExtensionRiskContext? context = null)
     {
         if (!ExtensionCalls.TryRead(call, out ExtensionInvocation? invocation)) return EExtensionRisk.ReadOnly;
         if (CanonicalCommand(invocation.Command) == null) return EExtensionRisk.ReadOnly;

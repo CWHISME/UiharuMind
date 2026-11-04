@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Extensions;
 using UiharuMind.Core.AI.Execution.Files;
@@ -66,15 +67,25 @@ public partial class ApprovalRequestItem : ConversationItemBase
     /// <param name="sessionId">发起调用的会话:浏览器调用据此把 e21 翻成「按钮『提交订单』」;可空</param>
     /// <param name="browser">浏览器宿主;缺省时浏览器调用用全应用那一个(测试传假的)</param>
     /// <param name="desktop">桌面宿主;缺省时桌面调用用全应用那一个</param>
+    /// <param name="worktreeGrantsSource">会话登记的 worktree 来源：落在里面且同工作区的本地文件页面算界内，与规则侧同一份判据（现取，不在造卡时拍照）；可空</param>
     public ApprovalRequestItem(ToolApprovalRequestContent request, AgentPathResolver? paths = null,
-        string? sessionId = null, IBrowserHost? browser = null, DesktopHost? desktop = null)
+        string? sessionId = null, IBrowserHost? browser = null, DesktopHost? desktop = null,
+        Func<IReadOnlyList<ChatSession.SessionWorktreeGrant>?>? worktreeGrantsSource = null)
     {
         _request = request;
         _sessionId = sessionId;
         if (request.ToolCall is FunctionCallContent raw)
         {
             FunctionCallContent call = ExtensionCalls.Unwrap(raw);
-            AsksEveryTime = ExtensionRisk.AlwaysAsks(raw);
+            // 界内文件页面（工作区/草稿房间/worktree 里的拾取器、报告）不算「每次都问」：与审批放行同一份判据
+            ExtensionRiskContext? riskContext = paths == null
+                ? null
+                : new ExtensionRiskContext
+                {
+                    IsPathInScope = ApprovalModeMapper.InScopePredicate(paths, worktreeGrantsSource),
+                };
+            AsksEveryTime = ExtensionRisk.AlwaysAsks(raw, riskContext);
+            NeedsSessionWideApproval = ExtensionRisk.NeedsSessionWideApproval(raw, riskContext);
             ToolName = call.Name;
             // 只有浏览器调用才碰宿主：别的卡不该把浏览器那套（闲置回收的计时器）拉起来
             _browser = BrowserTools.HasPreview(call.Name) ? browser ?? PuppeteerBrowserHost.Shared : null;
@@ -164,6 +175,12 @@ public partial class ApprovalRequestItem : ConversationItemBase
     public bool AsksEveryTime { get; }
 
     /// <summary>
+    /// 这类调用只认「本会话扩展不再询问」那一格（本机服务、工作区外的本地文件）：
+    /// 卡上按扩展记的「本会话允许」只能让这一次过去，下次还会问——要让用户看得见这个差别
+    /// </summary>
+    public bool NeedsSessionWideApproval { get; }
+
+    /// <summary>
     /// 是否提供"本会话允许"：shell 有更细的"同类命令"，每次都要问的不能整会话放行。
     /// 扩展调用的这个按钮按扩展记（<see cref="ApproveExtensionCallback"/>），不交给框架按工具名记——
     /// 那样一点就把 <see cref="ExtensionCalls.CallName"/> 整个放行，连接管一起
@@ -174,6 +191,10 @@ public partial class ApprovalRequestItem : ConversationItemBase
     public string SessionButtonText => ExtensionName != null
         ? Loc.Text(LangKey.AgentApproveSessionExtension, _sessionLabel)
         : Loc.Text(LangKey.AgentApproveSession);
+
+    /// <summary>「本会话允许」按钮的悬停说明：这类调用点了也只顶这一次（见 <see cref="NeedsSessionWideApproval"/>）；其余为 null</summary>
+    public string? SessionApproveHint =>
+        NeedsSessionWideApproval ? Loc.Text(LangKey.AgentApproveExtensionNeedsAll) : null;
 
     /// <summary>用户点"记住同类命令"时回调(由会话侧写入并持久化)</summary>
     public Action<string>? RememberShellPatternCallback { get; set; }

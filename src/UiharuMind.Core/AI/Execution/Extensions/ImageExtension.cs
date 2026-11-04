@@ -35,7 +35,7 @@ public sealed class ImageExtension : BuiltinExtension
     ];
 
     /// <summary>查清单只读、不花钱，三档都不问；出图会外呼并可能计费，与基类一致按一般级问一次</summary>
-    public override EExtensionRisk Classify(FunctionCallContent call)
+    public override EExtensionRisk Classify(FunctionCallContent call, ExtensionRiskContext? context = null)
     {
         if (!ExtensionCalls.TryRead(call, out ExtensionInvocation? invocation)) return EExtensionRisk.ReadOnly;
         // 没这条命令的走基类：按只读放过去，到工具里只会报错

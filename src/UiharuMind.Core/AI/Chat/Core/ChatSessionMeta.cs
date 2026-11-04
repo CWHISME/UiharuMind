@@ -157,8 +157,21 @@ public class ChatSessionMeta
     /// <summary>已被移出群的成员会话（群头像拼图等只读索引的地方据此排除，不必加载群壳）</summary>
     public bool HasLeftGroup { get; set; }
 
+    /// <summary>
+    /// 是不是定时任务的无头运行（<see cref="ChatSession.IsScheduledRun"/> 在索引里的冗余）。
+    /// 它派出的子代理在派活者被释放后还要能认出「没人看着」，所以只能靠索引回答
+    /// </summary>
+    public bool IsScheduledRun { get; set; }
+
     /// <summary>群的化身会话（ADR 0055）：挂在群上、不进名单</summary>
     public bool IsGroupAvatar { get; set; }
+
+    /// <summary>
+    /// 本会话放行过的扩展名（<see cref="ChatSession.SessionApprovedExtensions"/> 在索引里的冗余）。
+    /// 群成员、子代理的审批规则要读群壳/派活者那一份，而读它们的本体可能触发该会话的冷历史卸载——
+    /// 为此落一份在索引里，没加载过也能回答（旧索引没有这一项时为空）
+    /// </summary>
+    public IReadOnlyList<string> SessionApprovedExtensions { get; set; } = [];
 
     /// <summary>会话是不是群成员会话（含化身）。算出来的，不入索引（理由同 <see cref="IsSubSession"/>）</summary>
     [JsonIgnore]

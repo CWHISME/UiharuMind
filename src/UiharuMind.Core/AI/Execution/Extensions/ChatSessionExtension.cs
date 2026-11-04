@@ -45,7 +45,7 @@ public sealed class ChatSessionExtension : BuiltinExtension
 
     /// <summary>查询命令按只读放行；stop 与 create-group 会写会话（取消一轮 / 建一份新群），按一般级问一次；
     /// dump 只往免审批的草稿目录写一份流水文件，同查询级放行</summary>
-    public override EExtensionRisk Classify(FunctionCallContent call)
+    public override EExtensionRisk Classify(FunctionCallContent call, ExtensionRiskContext? context = null)
     {
         if (!ExtensionCalls.TryRead(call, out ExtensionInvocation? invocation)) return EExtensionRisk.ReadOnly;
         return invocation.Command is BuiltinExtensions.ChatSessionStop or BuiltinExtensions.ChatSessionCreateGroup

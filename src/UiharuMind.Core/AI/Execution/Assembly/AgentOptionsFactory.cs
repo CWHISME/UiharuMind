@@ -165,7 +165,9 @@ internal static class AgentOptionsFactory
                 plan.MemoryDirectory,
                 plan.Profile.SessionExtensionApprovalSource,
                 plan.Profile.SessionWorktreeRootsSource,
-                plan.WorktreesRoot),
+                plan.WorktreesRoot,
+                // 没人在场（定时运行、它派出的子代理、群离席）：「只认扩展不再询问」那一档直接拒
+                unattendedSource: plan.Profile.UnattendedSource),
             // 自动放行链同口径:默认 40 次后不再自动放行、剩余请求弹卡
             MaxAutoApprovalIterations = MaxIterationsPerRequest,
         };

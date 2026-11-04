@@ -50,6 +50,7 @@ public sealed class ConversationTranscript : ITurnSink
     private readonly Action<string>? _approveExtension; //「本会话允许某个扩展」的落点
     private readonly Func<AgentPathResolver?>? _pathsSource; //审批卡片预演 diff 要用它解析路径
     private readonly Func<string?>? _sessionIdSource; //审批卡片说清浏览器动作、接管切窗口要认会话
+    private readonly Func<IReadOnlyList<ChatSession.SessionWorktreeGrant>?>? _worktreeGrantsSource; //卡片据此把 worktree 里的文件页面当界内
     private readonly ThinkTagStreamParser _thinkParser = new();
     private readonly List<ApprovalRequestItem> _pending = new(); //待决审批(可被整体取消)
     private readonly List<ApprovalRequestItem> _round = new(); //本轮新增审批(供运行循环回应)
@@ -110,6 +111,7 @@ public sealed class ConversationTranscript : ITurnSink
     /// </param>
     /// <param name="sessionIdSource">当前会话 id 来源：浏览器调用的审批卡按它的标签页把编号翻成元素</param>
     /// <param name="approveExtension">扩展卡上「本会话允许」的落点（参数是扩展名）</param>
+    /// <param name="worktreeGrantsSource">当前会话登记的 worktree 来源：卡片据此把 worktree 里的文件页面当界内</param>
     public ConversationTranscript(
         IList<ConversationItemBase> target,
         Func<TextConversationItem> createAssistantItem,
@@ -118,7 +120,8 @@ public sealed class ConversationTranscript : ITurnSink
         IReadOnlyList<ConversationItemBase>? renderedBefore = null,
         Func<ChatMessage, IReadOnlyList<TextConversationItem>>? createUserItems = null,
         Func<string?>? sessionIdSource = null,
-        Action<string>? approveExtension = null)
+        Action<string>? approveExtension = null,
+        Func<IReadOnlyList<ChatSession.SessionWorktreeGrant>?>? worktreeGrantsSource = null)
     {
         _target = target;
         _renderedBefore = renderedBefore;
@@ -129,6 +132,7 @@ public sealed class ConversationTranscript : ITurnSink
         _pathsSource = pathsSource;
         _sessionIdSource = sessionIdSource;
         _approveExtension = approveExtension;
+        _worktreeGrantsSource = worktreeGrantsSource;
     }
 
     // [诊断探针] 界面绑定集合必须在 UI 线程写入:Avalonia 的弱事件簿记不是线程安全的,
@@ -246,7 +250,8 @@ public sealed class ConversationTranscript : ITurnSink
 
             case ToolApprovalRequestContent approvalRequest:
                 ThinkingBoundary.Dispatch(approvalRequest, _thinkParser, AppendText, AppendThinking, CloseSegment);
-                ApprovalRequestItem approvalItem = new(approvalRequest, _pathsSource?.Invoke(), _sessionIdSource?.Invoke())
+                ApprovalRequestItem approvalItem = new(approvalRequest, _pathsSource?.Invoke(), _sessionIdSource?.Invoke(),
+                    worktreeGrantsSource: _worktreeGrantsSource)
                 {
                     RememberShellPatternCallback = pattern => _rememberShellPattern?.Invoke(pattern),
                     ApproveExtensionCallback = extension => _approveExtension?.Invoke(extension),
