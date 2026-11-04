@@ -2,6 +2,7 @@
   "IsAgent": true,
   "IsUserCard": false,
   "IsShielded": true,
+  "CharacterIcon": "avares://UiharuMind/Assets/Avatars/Hoshino.png",
   "Config": {
     "PromptConfig": {
       "name": "星野",
