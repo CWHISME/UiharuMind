@@ -375,6 +375,26 @@ public class TurnDriverTests
         Assert.Equal("连接断了", failed.Payload);
     }
 
+    /// <summary>
+    /// 上游安全检查拒绝走单独的通知种类：界面据此说人话（重试/换模型），
+    /// 而不是把 SDK 的英文原文糊上去。走 UiharuMind.Core.AI.Net.Errors.SafetyCheckErrorHandler 的判据
+    /// </summary>
+    [Fact]
+    public async Task Failure_UpstreamSafetyCheck_ReportsProviderRejectedNotice()
+    {
+        List<TurnNotice> notices = new();
+        StubRunner runner = new(() => throw new System.Net.Http.HttpRequestException(
+            "HTTP 400 (failed_precondition_error: 9)\n\nsafety check failed",
+            null, System.Net.HttpStatusCode.BadRequest));
+        TurnDriver driver = new(new FakeSink(), new TurnUsageLedger(), notices.Add);
+
+        await driver.RunAsync(NewSession(), runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
+
+        TurnNotice rejected = Assert.Single(notices, x => x.Kind == ETurnNotice.ProviderRejected);
+        Assert.Contains("safety check failed", rejected.Payload);
+        Assert.DoesNotContain(notices, x => x.Kind == ETurnNotice.Failed);
+    }
+
     [Fact]
     public async Task Failure_ClosesUnansweredToolCallsAndKeepsTheHalfReply()
     {

@@ -126,6 +126,16 @@
                                                Foreground="{DynamicResource SemiOrange5}"
                                                Text="{loc:Loc GroupMemberAwaitingApproval}" />
                                 </StackPanel>
+                                <!-- 上一轮没跑成：群里那一轮没有落点，这一句是唯一说明「不是她不想说」的地方。
+                                     下一轮开跑或跑成一次就撤 -->
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
+                                            VerticalAlignment="Center"
+                                            IsVisible="{Binding ShowsNetworkFailed}">
+                                    <Border Classes="status-dot" Tag="Error" VerticalAlignment="Center" />
+                                    <TextBlock FontSize="10" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource MessageStatusErrorBrush}"
+                                               Text="{loc:Loc GroupMemberNetworkFailed}" />
+                                </StackPanel>
                             </Grid>
                         </Button>
                     </DataTemplate>

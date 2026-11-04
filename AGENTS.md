@@ -36,6 +36,8 @@ Avalonia 12 桌面应用，.NET 10。本地跑 GGUF 模型（llama.cpp）+ 远�
 
 ## 构建与测试
 
+只在需要测试时运行测试，通常不要选择全量测试（很慢）
+
 ```bash
 # 构建
 dotnet build src/UiharuMind.sln

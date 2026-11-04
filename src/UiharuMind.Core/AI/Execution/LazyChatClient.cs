@@ -167,10 +167,14 @@ public class LazyChatClient : IChatClient
         bool maxTokensFixed = false; // 服务端拒 max_tokens 的自愈只做一次
         bool reasoningRequirementLearned = false; // 「每条助手消息都要带思考」的自愈只做一次
         int degenerateRetries = 0; // 退化回复的重发次数，单独计——它不是网络问题，不该吃断线的退避预算
-        // 重发计数：每次进循环都算一次尝试，第 2 次起就是重试。计数口挂在请求上下文上（调用方读它记 retry_count）
-        for (int attempt = 1; ; attempt++)
+        int safetyRetries = 0; // 上游安全检查拒绝后的原样重发次数，同样单独计
+        int transportRetries = 0; // 断流重发次数：它自己的额度，也是退避指数唯一的依据
+        // 每一次进循环都是一发新请求；重发时要先给界面打个招呼（丢掉上一发的半截内容），
+        // 重发次数记在请求上下文上（调用方读它记 retry_count）
+        bool resend = false;
+        while (true)
         {
-            if (attempt > 1)
+            if (resend)
             {
                 context.RetryTally?.NoteRetry();
                 // 上一发作废：界面把它画出来的思考卡/气泡/半截工具卡摘掉，新的一发从头画。
@@ -187,7 +191,8 @@ public class LazyChatClient : IChatClient
                 if (failure != null)
                 {
                     EStreamFailureKind kind = StreamRetryPolicy.Classify(failure);
-                    StreamRetryBudget budget = new(attempt, maxTokensFixed, reasoningRequirementLearned, degenerateRetries);
+                    StreamRetryBudget budget = new(maxTokensFixed, reasoningRequirementLearned, degenerateRetries,
+                        safetyRetries, transportRetries);
                     StreamRetryPlan plan = StreamRetryPolicy.Plan(kind, in budget);
 
                     switch (plan.Action)
@@ -227,13 +232,26 @@ public class LazyChatClient : IChatClient
                             break;
 
                         case EStreamRetryAction.RetryAfterDelay:
+                            transportRetries++;
                             Log.Warning($"[stream] response dropped mid-stream ({failure.Message}); " +
-                                        $"retry {attempt}/{StreamRetryPolicy.MaxAttempts} in {plan.Delay.TotalSeconds:0.#}s.");
+                                        $"retry {transportRetries}/{StreamRetryPolicy.MaxTransportRetries} " +
+                                        $"in {plan.Delay.TotalSeconds:0.#}s.");
+                            await Task.Delay(plan.Delay, cancellationToken).ConfigureAwait(false);
+                            break;
+
+                        // 上游安全检查临时拒绝（400 safety check failed）：请求体没有可改的地方，隔一拍原样重发。
+                        // 这一码分不清是节点抖动还是内容判决（同一码还盖着「引擎不可用」，见 ADR 0052），
+                        // 只赌一次：3 秒盖得住秒级抖动，盖不住的就不等了。缓存命中也要付钱，这不是免费的尝试
+                        case EStreamRetryAction.RetryRejectedRequest:
+                            safetyRetries++;
+                            Log.Warning($"[stream] upstream safety check rejected this request " +
+                                        $"(model '{model.ModelInfo.ModelId}'); resending the same body once " +
+                                        $"after {plan.Delay.TotalSeconds:0.#}s.");
                             await Task.Delay(plan.Delay, cancellationToken).ConfigureAwait(false);
                             break;
 
                         case EStreamRetryAction.GiveUp:
-                            // 只有这两类会「重试到用完预算」，它们多记一行收口；
+                            // 会重试到用完预算的三类在这里多记一行收口；
                             // 自愈过又被拒的两种、以及认不出来的失败，原文由上层记
                             switch (kind)
                             {
@@ -243,7 +261,12 @@ public class LazyChatClient : IChatClient
                                     break;
                                 case EStreamFailureKind.TransportDrop:
                                     Log.Warning($"[stream] response dropped mid-stream, giving up after " +
-                                                $"{attempt} attempts: {failure.Message}");
+                                                $"{transportRetries} retries: {failure.Message}");
+                                    break;
+                                // 与上面那行配对即命中率：日后要调 RejectionDelay 就看这两行的比例
+                                case EStreamFailureKind.ProviderSafety:
+                                    Log.Warning($"[stream] upstream safety check still rejected after " +
+                                                $"{safetyRetries} resend(s): {failure.Message}");
                                     break;
                             }
 
@@ -263,6 +286,7 @@ public class LazyChatClient : IChatClient
             }
 
             if (!retryable) yield break;
+            resend = true;
         }
     }
 
@@ -403,6 +427,14 @@ public class LazyChatClient : IChatClient
                                           ReasoningRequirementErrorHandler.IsRequirementError(e))
                 {
                     // 同上:缺思考字段的 400 也交给上层,记下模型后重发
+                    failure = e;
+                }
+                // 上游安全检查拒绝的 400 同样交上层原样重发一次(见 StreamWithRetryAsync)。
+                // 顺序要紧:必须排在下面那条「400 一律算参数被拒」之前——那条会原样抛出,
+                // 落到它手里这一发就没有重试了(判定与预算再全也只是死代码)
+                catch (Exception e) when (!cancellationToken.IsCancellationRequested &&
+                                          SafetyCheckErrorHandler.IsSafetyCheckFailure(e))
+                {
                     failure = e;
                 }
                 catch (Exception e) when (!cancellationToken.IsCancellationRequested &&

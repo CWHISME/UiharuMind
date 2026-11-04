@@ -44,6 +44,7 @@ public sealed class GroupShellViewData : ObservableObject, IDisposable
         GroupChatCoordinator.Instance.SpeakerChanged += OnSpeakerChanged;
         GroupMembership.RosterChanged += OnRosterChanged;
         BackgroundTaskRegistry.Changed += OnBackgroundTaskChanged;
+        HeadlessGroupMemberTurnRunner.TurnOutcomeNotifier += OnMemberTurnOutcome;
     }
 
     /// <summary>发言人变了（已在 UI 线程上）：忙碌文案要跟着换</summary>
@@ -144,6 +145,18 @@ public sealed class GroupShellViewData : ObservableObject, IDisposable
     }
 
     /// <summary>
+    /// 某位成员这一轮收场了（<b>可能来自后台线程</b>）：是本群成员就让右栏那一行标一句「网络失败」，
+    /// 失败之后跑成了就撤掉。群这条路没有渲染落点，不标的话用户只看到「她这轮没说话」
+    /// </summary>
+    /// <param name="member">收场的成员会话</param>
+    /// <param name="failed">是不是整轮没跑成</param>
+    private void OnMemberTurnOutcome(ChatSession member, bool failed)
+    {
+        if (member.GroupId != _group.SessionId) return;
+        Dispatcher.UIThread.Post(() => Members.MarkTurnOutcome(member.SessionId, failed));
+    }
+
+    /// <summary>
     /// 某个会话刚报了一次用量（可能来自执行线程）。是本群成员就刷右栏那一行，是化身就刷离席块的用量行
     /// </summary>
     /// <param name="sessionId">报用量的会话</param>
@@ -169,6 +182,7 @@ public sealed class GroupShellViewData : ObservableObject, IDisposable
         GroupChatCoordinator.Instance.SpeakerChanged -= OnSpeakerChanged;
         GroupMembership.RosterChanged -= OnRosterChanged;
         BackgroundTaskRegistry.Changed -= OnBackgroundTaskChanged;
+        HeadlessGroupMemberTurnRunner.TurnOutcomeNotifier -= OnMemberTurnOutcome;
         Approvals.Dispose();
         Artifacts.Dispose();
         Away?.Dispose();

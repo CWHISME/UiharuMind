@@ -1700,6 +1700,17 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 Items.Add(new ErrorItem { Message = notice.Payload ?? string.Empty });
                 break;
 
+            case ETurnNotice.ProviderRejected:
+                // 上游拒收（安全检查未通过）：SDK 的英文原文对用户没有可操作性，换成一句能照着做的，
+                // 原话附在下面供查证。不说「你的内容没问题」——这一码也可能是真的内容判决，我们分不出来
+                Items.Add(new ErrorItem
+                {
+                    Message = string.IsNullOrWhiteSpace(notice.Payload)
+                        ? Loc.Text(LangKey.UpstreamRejected)
+                        : $"{Loc.Text(LangKey.UpstreamRejected)}\n{notice.Payload}",
+                });
+                break;
+
             case ETurnNotice.Refused:
                 // 发送前已问过一次,能走到这里是问过之后、开跑之前那一瞬的竞态。用提示而不是错误条目:
                 // 用户消息没进历史,空闲对帐会按历史重放,条目留不住

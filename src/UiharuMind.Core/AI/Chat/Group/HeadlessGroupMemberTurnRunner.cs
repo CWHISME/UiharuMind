@@ -26,6 +26,17 @@ public sealed class HeadlessGroupMemberTurnRunner : IGroupMemberTurnRunner
     public static Action<ChatSession>? ApprovalWaitingNotifier { get; set; }
 
     /// <summary>
+    /// 成员这一轮收场了（参数：成员会话、是不是失败）。只有两种情况回调：整轮失败（<c>Failed</c>/<c>ProviderRejected</c>），
+    /// 以及失败之后终于跑成了一次。<b>不报被用户停掉、被拒开跑</b>——那两种不是"没接上"。
+    ///
+    /// <para>
+    /// 群这条路没有渲染落点：失败就是这一轮一片空白，而"主动不接话"在界面上也是空白。
+    /// 右栏据此在成员行上标一句，免得用户把网络问题读成角色罢工。静态口，⚠️ 来自后台线程
+    /// </para>
+    /// </summary>
+    public static Action<ChatSession, bool>? TurnOutcomeNotifier { get; set; }
+
+    /// <summary>
     /// 离席期间的审批通道（ADR 0055）：返回非空就由化身接，不等用户。
     /// 开关每批现问一次——离席可能在一轮中途开始或结束；通道按轮冻结（见 <see cref="UnattendedScope"/>）。
     /// 静态口，由 <c>GroupAwayController.Instance</c> 接上
@@ -52,8 +63,24 @@ public sealed class HeadlessGroupMemberTurnRunner : IGroupMemberTurnRunner
         }
 
         // 算有人看着：审批有人接（上面那条），他派出的子代理也照有人看着的口径跑
-        return await SessionTurnRunner.RunHeadlessAsync(member, input, Resolver, attended: true,
-            onReplyFinishing: onReplyFinishing, cancellationToken: cancellationToken).ConfigureAwait(false);
+        bool turnedDown = false; //这一轮被上游/网络判死了（不是用户停、不是被拒开跑）
+        bool ok = false;
+        try
+        {
+            ok = await SessionTurnRunner.RunHeadlessAsync(member, input, Resolver, attended: true,
+                onReplyFinishing: onReplyFinishing, notify: notice =>
+                {
+                    if (notice.Kind is ETurnNotice.Failed or ETurnNotice.ProviderRejected) turnedDown = true;
+                }, cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            // 失败照报；失败之后的成功要报一次把标撤掉（同一个标挂着，用户会以为还没好）
+            if (turnedDown) TurnOutcomeNotifier?.Invoke(member, true);
+            else if (ok) TurnOutcomeNotifier?.Invoke(member, false);
+        }
+
+        return ok;
     }
 
     /// <inheritdoc />

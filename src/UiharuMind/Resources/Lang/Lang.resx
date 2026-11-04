@@ -105,6 +105,9 @@
     <data name="HandoffNothingToCompact" xml:space="preserve">
         <value>Nothing to compact yet.</value>
     </data>
+    <data name="UpstreamRejected" xml:space="preserve">
+        <value>The provider did not accept this request (its content check failed), even after one automatic retry. Try again later, or switch to another model.</value>
+    </data>
     <data name="ClearCommandDescription" xml:space="preserve">
         <value>Clear this conversation's memory (earlier messages stop feeding the model; the transcript is kept)</value>
     </data>
@@ -3488,6 +3491,9 @@ Allow them?</value>
     </data>
     <data name="GroupMemberAwaitingApproval" xml:space="preserve">
         <value>Awaiting approval</value>
+    </data>
+    <data name="GroupMemberNetworkFailed" xml:space="preserve">
+        <value>Network error</value>
     </data>
     <data name="GroupPostedTag" xml:space="preserve">
         <value>Posted to group</value>

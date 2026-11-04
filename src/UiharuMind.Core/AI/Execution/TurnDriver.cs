@@ -383,8 +383,16 @@ public sealed partial class TurnDriver : IDisposable
             // 服务端拒 max_tokens(400):配置已在请求层自愈并重发过一次(LazyChatClient),
             // 到这里要么是重发仍被拒、要么是本地模型无从修。属可预期故障,降为 Warning;
             // 界面失败提示照发,不静默。
+            // 上游安全检查拒绝同理:请求层已原样重发过一次,到这里是重发仍被拒——
+            // 它同样是上游的状态而不是我们的毛病,整段堆栈留在 Error 里只会把真问题埋掉
+            ETurnNotice failureKind = ETurnNotice.Failed;
             if (MaxTokensErrorHandler.IsMaxTokensError(e))
                 Log.Warning($"Agent turn failed: max_tokens rejected by the server. {e.Message}");
+            else if (SafetyCheckErrorHandler.IsSafetyCheckFailure(e))
+            {
+                failureKind = ETurnNotice.ProviderRejected;
+                Log.Warning($"Agent turn failed: upstream safety check rejected the request. {e.Message}");
+            }
             else
                 Log.Error($"Agent turn failed: {e}");
             // 失败与取消在历史上是同一种残局:那条工具结果永远不会来,半截回复也没人落盘。
@@ -396,7 +404,7 @@ public sealed partial class TurnDriver : IDisposable
             SettleInterruptedTurn(session, interruptionNote);
             stampedThisTurn += StampThinkingStatsInMemory(session, thinkingStats, historyBefore);
             if (stampedThisTurn > 0) session.Save();
-            _notify?.Invoke(new TurnNotice(ETurnNotice.Failed, e.Message));
+            _notify?.Invoke(new TurnNotice(failureKind, e.Message));
         }
         finally
         {

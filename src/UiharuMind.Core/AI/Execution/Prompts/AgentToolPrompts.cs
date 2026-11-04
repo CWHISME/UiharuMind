@@ -87,11 +87,10 @@ public static class AgentToolPrompts
                 "- 文件系统层面的操作——移动、改名、删除、新建目录——用 `Shell` 做。");
             // 刻意不举 cat/sed/awk 这些具体命令:框架按平台解析 shell(bash/sh/PowerShell/cmd 四种),
             sb.AppendLine(
-                "- 文件内容的搜索、读写建议走文件工具：UiharuMind 为你提供方便的 `Glob`、`Grep` 搜索、`Read` 读取，`Edit` 修改（每次改动可见、可审计）工具。");
+                "- 文件内容的搜索、读写走内置文件工具：UiharuMind 为你提供方便的 `Glob`、`Grep` 搜索、`Read` 读取，`Edit` 修改（每次改动可见、可审计）工具。");
             sb.AppendLine("搜索工具：命中数量过多时，会自动生成搜索地图，方便你逐步缩小范围；");
             sb.AppendLine("读取工具：自动处理字符编码问题，并提供了大纲模式方便查看文件结构；");
             sb.AppendLine("编辑工具：提供了三种匹配模式方便替换，当你感觉可能会抄错的时候，请优先使用工具提供的两种正则匹配模式而非精确文本替换。");
-            sb.AppendLine("- 当然这只是建议，UiharuMind 并不强制要求你一定照做，当你认为脚本(Edit)更顺手时，可以按照你的方式处理。");
         }
 
         return sb.ToString();

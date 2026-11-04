@@ -71,6 +71,14 @@ public enum ETurnNotice
     Failed,
 
     /// <summary>
+    /// 上游拒收这一发请求（安全检查未通过，请求层已原样重发过一次仍被拒），<c>Payload</c> 为上游原文。
+    /// 与 <see cref="Failed"/> 分开是为了措辞：SDK 那句英文原文对用户没有可操作性，界面换成人话
+    /// （重试或换模型），原话附在后面供查证。<b>不担保「用户的内容没问题」</b>——这一码也可能是
+    /// 真的内容判决，我们能说的只有「上游没收」
+    /// </summary>
+    ProviderRejected,
+
+    /// <summary>
     /// 本轮没开跑：会话已旧或正在同一档案的另一个实例里跑（ADR 0064）。<c>Payload</c> 为
     /// <see cref="UiharuMind.Core.AI.Chat.CrossProcess.ETurnBlock"/> 的名字，措辞由界面本地化。
     /// 无头调用方按失败算

@@ -284,8 +284,19 @@ public sealed partial class GroupMembersViewData : ObservableObject
             ESessionRunState state = SessionManager.Instance.Running.StateOf(member.SessionId);
             member.IsRunning = state != ESessionRunState.Idle;
             member.IsAwaitingApproval = state == ESessionRunState.AwaitingApproval;
+            // 又开始跑了：上一轮那句「没接上」该撤了，换成正在说的标
+            if (member.IsRunning) member.MarkTurnOutcome(false);
         }
     }
+
+    /// <summary>
+    /// 某位成员这一轮收场了（来自后台线程的失败/恢复信号）：在他那一行标一句「网络失败」，跑成了就撤标。
+    /// 只标不落盘——下一轮开跑或重开会话就没了，这不是要留档的结论
+    /// </summary>
+    /// <param name="sessionId">成员会话标识</param>
+    /// <param name="failed">这一轮是不是整轮没跑成</param>
+    public void MarkTurnOutcome(string sessionId, bool failed) =>
+        Members.FirstOrDefault(x => x.SessionId == sessionId)?.MarkTurnOutcome(failed);
 
     /// <summary>
     /// 某位成员刚报了一次用量：只刷他那一行
@@ -408,12 +419,22 @@ public sealed partial class GroupMemberItem : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowsSpeaking))]
     [NotifyPropertyChangedFor(nameof(ShowsPrivateChat))]
+    [NotifyPropertyChangedFor(nameof(ShowsNetworkFailed))]
     private bool _isAwaitingApproval;
 
     /// <summary>他的会话此刻有没有轮次在跑（群轮或私聊轮）</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowsPrivateChat))]
+    [NotifyPropertyChangedFor(nameof(ShowsNetworkFailed))]
     private bool _isRunning;
+
+    /// <summary>
+    /// 他上一轮整轮没跑成（请求失败）。群里那一轮没有渲染落点，失败就是一片空白，
+    /// 和「主动不接话」看不出区别——这一行是唯一说明「不是她不想说」的地方
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsNetworkFailed))]
+    private bool _isNetworkFailed;
 
     /// <summary>他名下有没有在跑的后台任务（名字旁挂蓝点，悬停看任务说明）</summary>
     [ObservableProperty]
@@ -440,6 +461,15 @@ public sealed partial class GroupMemberItem : ObservableObject
 
     /// <summary>标「私聊中」：在跑，但不是群里这一轮——回复只有用户看得到，不进群</summary>
     public bool ShowsPrivateChat => IsRunning && !IsSpeaking && !IsAwaitingApproval;
+
+    /// <summary>标「网络失败」：上一轮没跑成、此刻也不在跑（在跑就是新的那一轮了，让位给发言中）</summary>
+    public bool ShowsNetworkFailed => IsNetworkFailed && !IsRunning && !IsAwaitingApproval;
+
+    /// <summary>
+    /// 这一轮收场了：标上或撤掉「没接上」。只改显示，不落盘
+    /// </summary>
+    /// <param name="failed">整轮没跑成为 true</param>
+    public void MarkTurnOutcome(bool failed) => IsNetworkFailed = failed;
 
     /// <summary>打开他自己的会话：与子会话同一个浮窗，可看可聊</summary>
     [RelayCommand]

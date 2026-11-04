@@ -37,7 +37,8 @@ public static class SessionTurnRunner
         using TurnDriver driver = new(null, new TurnUsageLedger(),
             notice =>
             {
-                if (notice.Kind is ETurnNotice.Failed or ETurnNotice.Refused) failed = true;
+                if (notice.Kind is ETurnNotice.Failed or ETurnNotice.Refused or ETurnNotice.ProviderRejected)
+                    failed = true;
                 notify?.Invoke(notice);
             }, unansweredResultText);
 

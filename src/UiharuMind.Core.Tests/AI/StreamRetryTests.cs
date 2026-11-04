@@ -107,6 +107,39 @@ public class StreamRetryTests
         Assert.Equal(1, fake.Calls);
     }
 
+    /// <summary>
+    /// 上游安全检查拒绝（400 <c>safety check failed</c>）：原样重发一次就恢复。
+    ///
+    /// <para>
+    /// 这一条钉的是<b>接线</b>而不只是判定：<c>StreamOnceAsync</c> 里所有 400 都被
+    /// 「参数被拒」那条 catch 收走并原样抛出，安全检查的 400 若不在它之前单独挑出来，
+    /// 重发这一路就永远走不到——判定、预算、日志全成了死代码，而单看它们全是绿的。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task SafetyCheckRejection_IsResentOnceThenRecovers()
+    {
+        SafetyRejectingClient fake = new(failures: 1);
+        LazyChatClient client = new(() => Running(fake));
+
+        List<string> texts = await CollectAsync(client);
+
+        Assert.Equal(2, fake.Calls);
+        Assert.Equal("ok", texts[^1]);
+    }
+
+    /// <summary>重发一次仍被拒就收口：这一码也可能是真判决，多试只是再白付一次上下文</summary>
+    [Fact]
+    public async Task SafetyCheckRejectionTwice_GivesUp()
+    {
+        SafetyRejectingClient fake = new(failures: int.MaxValue);
+        LazyChatClient client = new(() => Running(fake));
+
+        await Assert.ThrowsAnyAsync<HttpRequestException>(async () => await CollectAsync(client));
+
+        Assert.Equal(2, fake.Calls);
+    }
+
     /// <summary>重试不能把客户端的上下文漏给调用方：外层那份用完还得原样回来</summary>
     [Fact]
     public async Task Retry_DoesNotLeakContextToTheCaller()
@@ -265,6 +298,41 @@ public class StreamRetryTests
             await Task.Yield();
             SeenContexts.Add(LlmRequestScope.Current);
             throw error;
+        }
+
+        public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null,
+            CancellationToken cancellationToken = default) => throw new NotImplementedException();
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public void Dispose()
+        {
+        }
+    }
+
+    /// <summary>
+    /// 前 <paramref name="failures"/> 次尝试在<b>首帧之前</b>就抛上游安全检查的 400（实测商汤原文），
+    /// 之后正常吐一句。与 <see cref="DroppingClient"/> 的区别就在这里：那一类是流到一半断，
+    /// 这一类是一帧都没发出去就被拒——重发不带任何副作用
+    /// </summary>
+    private sealed class SafetyRejectingClient(int failures) : IChatClient
+    {
+        public int Calls;
+
+        public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+            IEnumerable<ChatMessage> messages, ChatOptions? options = null,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            int call = Interlocked.Increment(ref Calls);
+            await Task.Yield();
+            if (call <= failures)
+            {
+                throw new HttpRequestException(
+                    "HTTP 400 (failed_precondition_error: 9)\n\nsafety check failed",
+                    inner: null, System.Net.HttpStatusCode.BadRequest);
+            }
+
+            yield return new ChatResponseUpdate(ChatRole.Assistant, [new TextContent("ok")]);
         }
 
         public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null,

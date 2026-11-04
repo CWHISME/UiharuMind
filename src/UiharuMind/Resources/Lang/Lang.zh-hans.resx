@@ -98,6 +98,9 @@
     <data name="HandoffNothingToCompact" xml:space="preserve">
         <value>当前没有可压缩的内容。</value>
     </data>
+    <data name="UpstreamRejected" xml:space="preserve">
+        <value>上游没有受理这次请求（内容安全检查未通过），已自动重试过一次仍未通过。可以稍后再试，或换个模型。</value>
+    </data>
     <data name="ClearCommandDescription" xml:space="preserve">
         <value>清空当前对话的记忆（之前的对话不再供给模型，原始记录保留）</value>
     </data>
@@ -3483,6 +3486,9 @@
     </data>
     <data name="GroupMemberAwaitingApproval" xml:space="preserve">
         <value>等审批</value>
+    </data>
+    <data name="GroupMemberNetworkFailed" xml:space="preserve">
+        <value>网络失败</value>
     </data>
     <data name="GroupPostedTag" xml:space="preserve">
         <value>已发到群</value>

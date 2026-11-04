@@ -23,6 +23,9 @@ public class StreamRetryPolicyTests
             new Exception("Missing required parameter: 'messages[8].reasoning_content'.")));
         Assert.Equal(EStreamFailureKind.Degenerate, StreamRetryPolicy.Classify(new DegeneratedReplyException(500)));
         Assert.Equal(EStreamFailureKind.TransportDrop, StreamRetryPolicy.Classify(new IOException("unexpected EOF")));
+        Assert.Equal(EStreamFailureKind.ProviderSafety, StreamRetryPolicy.Classify(
+            new System.Net.Http.HttpRequestException("HTTP 400 (failed_precondition_error: 9)\n\nsafety check failed",
+                null, System.Net.HttpStatusCode.BadRequest)));
         Assert.Equal(EStreamFailureKind.Fatal, StreamRetryPolicy.Classify(new InvalidOperationException("boom")));
     }
 
@@ -30,13 +33,13 @@ public class StreamRetryPolicyTests
     [Fact]
     public void SelfHealHappensOncePerKind()
     {
-        StreamRetryPlan first = StreamRetryPolicy.Plan(EStreamFailureKind.MaxTokens, new StreamRetryBudget(1, false, false, 0));
-        StreamRetryPlan again = StreamRetryPolicy.Plan(EStreamFailureKind.MaxTokens, new StreamRetryBudget(2, true, false, 0));
+        StreamRetryPlan first = StreamRetryPolicy.Plan(EStreamFailureKind.MaxTokens, new StreamRetryBudget(false, false, 0));
+        StreamRetryPlan again = StreamRetryPolicy.Plan(EStreamFailureKind.MaxTokens, new StreamRetryBudget(true, false, 0));
         Assert.Equal(EStreamRetryAction.FixMaxTokens, first.Action);
         Assert.Equal(EStreamRetryAction.GiveUp, again.Action);
 
-        first = StreamRetryPolicy.Plan(EStreamFailureKind.ReasoningRequirement, new StreamRetryBudget(1, false, false, 0));
-        again = StreamRetryPolicy.Plan(EStreamFailureKind.ReasoningRequirement, new StreamRetryBudget(2, false, true, 0));
+        first = StreamRetryPolicy.Plan(EStreamFailureKind.ReasoningRequirement, new StreamRetryBudget(false, false, 0));
+        again = StreamRetryPolicy.Plan(EStreamFailureKind.ReasoningRequirement, new StreamRetryBudget(false, true, 0));
         Assert.Equal(EStreamRetryAction.LearnReasoningRequirement, first.Action);
         Assert.Equal(EStreamRetryAction.GiveUp, again.Action);
     }
@@ -48,30 +51,30 @@ public class StreamRetryPolicyTests
         for (int retries = 0; retries < StreamRetryPolicy.MaxDegenerateRetries; retries++)
         {
             StreamRetryPlan plan = StreamRetryPolicy.Plan(EStreamFailureKind.Degenerate,
-                new StreamRetryBudget(1, false, false, retries));
+                new StreamRetryBudget(false, false, retries));
             Assert.Equal(EStreamRetryAction.RetryImmediately, plan.Action);
             Assert.Equal(TimeSpan.Zero, plan.Delay);
         }
 
         StreamRetryPlan gaveUp = StreamRetryPolicy.Plan(EStreamFailureKind.Degenerate,
-            new StreamRetryBudget(1, false, false, StreamRetryPolicy.MaxDegenerateRetries));
+            new StreamRetryBudget(false, false, StreamRetryPolicy.MaxDegenerateRetries));
         Assert.Equal(EStreamRetryAction.GiveUp, gaveUp.Action);
     }
 
-    /// <summary>断流：前五次尝试都可重发，第六次收口；退避按 1/2/4/8 封顶</summary>
+    /// <summary>断流：五次重发都可发，之后收口；退避按 1/2/4/8 封顶，且只数断线次数</summary>
     [Fact]
     public void TransportDrop_RetriesWithCappedExponentialBackoff()
     {
-        for (int attempt = 1; attempt < StreamRetryPolicy.MaxAttempts; attempt++)
+        for (int retries = 0; retries < StreamRetryPolicy.MaxTransportRetries; retries++)
         {
             StreamRetryPlan plan = StreamRetryPolicy.Plan(EStreamFailureKind.TransportDrop,
-                new StreamRetryBudget(attempt, false, false, 0));
+                new StreamRetryBudget(false, false, 0, TransportRetries: retries));
             Assert.Equal(EStreamRetryAction.RetryAfterDelay, plan.Action);
             Assert.True(plan.Delay > TimeSpan.Zero);
         }
 
         StreamRetryPlan gaveUp = StreamRetryPolicy.Plan(EStreamFailureKind.TransportDrop,
-            new StreamRetryBudget(StreamRetryPolicy.MaxAttempts, false, false, 0));
+            new StreamRetryBudget(false, false, 0, TransportRetries: StreamRetryPolicy.MaxTransportRetries));
         Assert.Equal(EStreamRetryAction.GiveUp, gaveUp.Action);
 
         Assert.Equal(TimeSpan.FromSeconds(1), StreamRetryPolicy.Delay(1));
@@ -85,7 +88,40 @@ public class StreamRetryPolicyTests
     [Fact]
     public void Fatal_IsNeverRetried()
     {
-        StreamRetryPlan plan = StreamRetryPolicy.Plan(EStreamFailureKind.Fatal, new StreamRetryBudget(1, false, false, 0));
+        StreamRetryPlan plan = StreamRetryPolicy.Plan(EStreamFailureKind.Fatal, new StreamRetryBudget(false, false, 0));
         Assert.Equal(EStreamRetryAction.GiveUp, plan.Action);
+    }
+
+    /// <summary>
+    /// 上游安全检查拒绝：原样重发一次，第二次被拒就收口——这一码可能是真判决，
+    /// 多试只是再白付一次上下文
+    /// </summary>
+    [Fact]
+    public void ProviderSafety_ResendsOnceThenGivesUp()
+    {
+        StreamRetryPlan first = StreamRetryPolicy.Plan(EStreamFailureKind.ProviderSafety,
+            new StreamRetryBudget(false, false, 0));
+        Assert.Equal(EStreamRetryAction.RetryRejectedRequest, first.Action);
+        Assert.True(first.Delay > TimeSpan.Zero);
+
+        StreamRetryPlan again = StreamRetryPolicy.Plan(EStreamFailureKind.ProviderSafety,
+            new StreamRetryBudget(false, false, 0, SafetyRetries: StreamRetryPolicy.MaxSafetyRetries));
+        Assert.Equal(EStreamRetryAction.GiveUp, again.Action);
+    }
+
+    /// <summary>
+    /// 三份预算各记各的：上游审查重发过不等于断线额度少了，断线重发过也不等于审查那一发没了
+    /// </summary>
+    [Fact]
+    public void SafetyAndTransportBudgets_DoNotConsumeEachOther()
+    {
+        StreamRetryPlan dropped = StreamRetryPolicy.Plan(EStreamFailureKind.TransportDrop,
+            new StreamRetryBudget(false, false, 0, SafetyRetries: StreamRetryPolicy.MaxSafetyRetries));
+        Assert.Equal(EStreamRetryAction.RetryAfterDelay, dropped.Action);
+        Assert.Equal(TimeSpan.FromSeconds(1), dropped.Delay); //退避指数只数断线，不被别的重发推高
+
+        StreamRetryPlan rejected = StreamRetryPolicy.Plan(EStreamFailureKind.ProviderSafety,
+            new StreamRetryBudget(false, false, 0, TransportRetries: StreamRetryPolicy.MaxTransportRetries));
+        Assert.Equal(EStreamRetryAction.RetryRejectedRequest, rejected.Action);
     }
 }
