@@ -41,6 +41,10 @@ public class ThemedIconButton : Ursa.Controls.IconButton
         set => SetValue(IconHeightProperty, value);
     }
 
+    /// <summary>
+    /// 图标颜色；null 表示跟随主题。样式/绑定要着色请设在<b>这个属性</b>上，
+    /// 别指着里头的 <see cref="ThemedSvgIcon"/> 设——图标会把自己的颜色写成局部值，样式之后就抢不回来（只生效一次）
+    /// </summary>
     public Color? CurrentColor
     {
         get => GetValue(CurrentColorProperty);
@@ -113,9 +117,9 @@ public class ThemedIconButton : Ursa.Controls.IconButton
 
     private void OnCurrentColorChanged()
     {
-        var color = CurrentColor;
-        if (_icon != null && color.HasValue)
-            _icon.CurrentColor = color.Value;
+        if (_icon == null) return;
+        if (CurrentColor is { } color) _icon.CurrentColor = color;
+        else _icon.UseThemeColor();
     }
 
     private void OnToolTipsChanged()

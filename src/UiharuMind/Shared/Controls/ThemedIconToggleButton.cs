@@ -164,8 +164,8 @@ public class ThemedIconToggleButton : ThemedIconButton
         }
         else
         {
-            // 恢复为主题色
-            _icon.ClearValue(Avalonia.Svg.Skia.Svg.CurrentColorProperty);
+            // 恢复为主题色（连本地值一起撤掉，否则主题切换/置灰重算时又会拿旧颜色回来）
+            _icon.UseThemeColor();
             _icon.InvalidateVisual();
         }
     }

@@ -40,42 +40,43 @@
             <Setter Property="Padding" Value="8,6" />
             <Setter Property="CornerRadius" Value="6" />
         </Style>
-        <!-- 工具行图标态:Tag 驱动颜色区分当前状态 -->
-        <Style Selector="ThemedIconButton.mode-state[Tag=Plan] controls|ThemedSvgIcon">
+        <!-- 工具行图标态:Tag 驱动颜色区分当前状态。颜色设在按钮的 CurrentColor 上(由按钮转给图标),
+             不要指着 controls|ThemedSvgIcon 设:图标会把自己的颜色写成局部值,之后样式再变它也不跟 -->
+        <Style Selector="ThemedIconButton.mode-state[Tag=Plan]">
             <Setter Property="CurrentColor" Value="DodgerBlue" />
         </Style>
-        <Style Selector="ThemedIconButton.mode-state[Tag=Execute] controls|ThemedSvgIcon">
+        <Style Selector="ThemedIconButton.mode-state[Tag=Execute]">
             <Setter Property="CurrentColor" Value="MediumSeaGreen" />
         </Style>
-        <Style Selector="ThemedIconButton.permission-state[Tag=ReadOnly] controls|ThemedSvgIcon">
+        <Style Selector="ThemedIconButton.permission-state[Tag=ReadOnly]">
             <Setter Property="CurrentColor" Value="Gray" />
         </Style>
-        <Style Selector="ThemedIconButton.permission-state[Tag=AutoEdit] controls|ThemedSvgIcon">
+        <Style Selector="ThemedIconButton.permission-state[Tag=AutoEdit]">
             <Setter Property="CurrentColor" Value="Orange" />
         </Style>
-        <Style Selector="ThemedIconButton.permission-state[Tag=FullAuto] controls|ThemedSvgIcon">
+        <Style Selector="ThemedIconButton.permission-state[Tag=FullAuto]">
             <Setter Property="CurrentColor" Value="OrangeRed" />
         </Style>
         <!-- 设置图标兼作「本会话扩展不询问」的状态灯：勾着时变红，窗口上常驻看得见 -->
-        <Style Selector="ThemedIconButton.extension-state[Tag=Silent] controls|ThemedSvgIcon">
+        <Style Selector="ThemedIconButton.extension-state[Tag=Silent]">
             <Setter Property="CurrentColor" Value="OrangeRed" />
         </Style>
-        <Style Selector="ThemedIconButton.sender-state[Tag=User] controls|ThemedSvgIcon">
+        <Style Selector="ThemedIconButton.sender-state[Tag=User]">
             <Setter Property="CurrentColor" Value="LightGreen" />
         </Style>
-        <Style Selector="ThemedIconButton.sender-state[Tag=Assistant] controls|ThemedSvgIcon">
+        <Style Selector="ThemedIconButton.sender-state[Tag=Assistant]">
             <Setter Property="CurrentColor" Value="DeepSkyBlue" />
         </Style>
-        <Style Selector="ThemedIconButton.memory-status controls|ThemedSvgIcon">
+        <Style Selector="ThemedIconButton.memory-status">
             <Setter Property="CurrentColor" Value="Gray" />
         </Style>
-        <Style Selector="ThemedIconButton.memory-status[Tag=Dirty] controls|ThemedSvgIcon">
+        <Style Selector="ThemedIconButton.memory-status[Tag=Dirty]">
             <Setter Property="CurrentColor" Value="DarkRed" />
         </Style>
-        <Style Selector="ThemedIconButton.memory-status[Tag=Error] controls|ThemedSvgIcon">
+        <Style Selector="ThemedIconButton.memory-status[Tag=Error]">
             <Setter Property="CurrentColor" Value="Red" />
         </Style>
-        <Style Selector="ThemedIconButton.memory-status[Tag=Ready] controls|ThemedSvgIcon">
+        <Style Selector="ThemedIconButton.memory-status[Tag=Ready]">
             <Setter Property="CurrentColor" Value="LawnGreen" />
         </Style>
         <!-- 上下文环:与右侧栏那根进度条同一套档位配色,改一处两边一起变 -->

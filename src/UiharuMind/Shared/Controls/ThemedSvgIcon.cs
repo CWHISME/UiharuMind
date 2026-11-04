@@ -116,6 +116,18 @@ public class ThemedSvgIcon : global::Avalonia.Svg.Skia.Svg
             Path = string.Format(SvgPathFormat, IconName);
     }
 
+    /// <summary>
+    /// 放弃外部给的颜色，回到跟随主题的那一种。
+    /// 必须清掉本地值：图标把颜色写在自己身上（见 <see cref="UpdateCurrentColor"/>），
+    /// 本地值优先级高于样式，留着它，之后设到图标上的样式颜色永远抢不回来
+    /// </summary>
+    public void UseThemeColor()
+    {
+        _externalColorSet = false;
+        ClearValue(CurrentColorProperty);
+        UpdateCurrentColor();
+    }
+
     private void UpdateCurrentColor()
     {
         if (_isUpdatingCurrentColor) return;
