@@ -18,14 +18,14 @@ namespace UiharuMind.Core.AI.Net.Request;
 
 /// <summary>
 /// 发往 OpenAI 兼容端点之前对请求体的几道改写：注入模型的额外参数、禁止工具调用、
-/// 修畸形的工具参数、给缺思考字段的助手消息补空串、删采样参数。
+/// 修畸形的工具参数、给缺思考正文的助手消息补占位、删采样参数。
 ///
 /// <para>回填思考正文与加密票据<b>不在这里</b>（ADR 0101）：那两样跟着消息对象走，
 /// 由 <see cref="ReasoningReplayChatClient"/> 在交给 SDK 之前绑进消息本身，
 /// 所以这一层再没有「第几条助手消息」这回事。</para>
 ///
 /// 直接在 UTF-8 字节上做，不建 DOM：根对象按「保留的属性原样拷贝 + 要设的键追加在末尾」重拼，
-/// <c>messages</c> 只在要修参数或补空串时逐条走进去，其余子树只扫不拷。原文的转义与空白一字不动。
+/// <c>messages</c> 只在要修参数或补占位时逐条走进去，其余子树只扫不拷。原文的转义与空白一字不动。
 /// 根上被覆盖的键会挪到末尾；JSON 语义不变，前缀缓存按渲染后的 token 算，不受影响。
 /// </summary>
 internal static class ChatCompletionsRequestRewriter
@@ -36,6 +36,14 @@ internal static class ChatCompletionsRequestRewriter
     private static readonly JsonWriterOptions WriterOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
     private const int MaxRetainedScratch = 64 * 1024; //超过就不留:几万字的思考会让这块缓冲常驻在线程池线程上
+
+    /// <summary>
+    /// 「每条助手消息都要带思考」的模型，历史里没正文可回传时填的占位。
+    ///
+    /// <para>不能用空串：beam 对空串与缺字段一样 400，只要非空就过（DeepSeek 系两者都不挑）。
+    /// 取空格是为了最省 token、不给历史引入语义。此值进请求字节、参与前缀缓存，改它等于让含占位的会话冷启动一次。</para>
+    /// </summary>
+    internal const string MissingReasoningPlaceholder = " ";
 
     [ThreadStatic] private static ArrayBufferWriter<byte>? _scratch; //序列化插入值用,每个线程一套
     [ThreadStatic] private static Utf8JsonWriter? _scratchWriter;
@@ -121,21 +129,19 @@ internal static class ChatCompletionsRequestRewriter
     }
 
     /// <summary>
-    /// 助手消息的思考字段补空串（「字段必须在」那半条）。
+    /// 助手消息的思考字段补占位（「字段必须在且有内容」那半条）。
     ///
-    /// <para>回填正文与票据<b>不在这里</b>（ADR 0101）：那两样跟着消息对象走，
-    /// 由 <see cref="ReasoningReplayChatClient"/> 在交给 SDK 之前用
-    /// <c>RawRepresentation</c> + <c>Patch</c> 写进消息里。这里只剩「给缺字段的补个空串」——
-    /// 它不需要知道是哪条消息，天然不会错配。</para>
+    /// <para>回填正文与票据<b>不在这里</b>（ADR 0101）：那两样跟着消息对象走，由
+    /// <see cref="ReasoningReplayChatClient"/> 在交给 SDK 之前绑进消息本身。这里只剩补占位，不需要知道是哪条消息。</para>
     ///
-    /// 已经带了正文的（绑定器写进去的那些）不覆盖，只补缺省或 null。
+    /// 已有正文的不覆盖；键在但值是 null 或空串的与缺字段同等对待——beam 只认非空正文。
     /// </summary>
     private static void ScanMessage(ref Utf8JsonReader reader, bool fixArguments,
         bool fillEmptyReasoning, string reasoningField, List<Utf8JsonSplice.Edit> edits)
     {
         bool isAssistant = false;
         bool hasReasoning = false;
-        Region nullReasoning = new(-1, -1); //思考键为 null 的值区间,补空串时只换值
+        Region blankReasoning = new(-1, -1); //思考键在但没有正文(null/空串)时的值区间,补占位时只换值
 
         while (reader.Read() && reader.TokenType == JsonTokenType.PropertyName)
         {
@@ -148,8 +154,11 @@ internal static class ChatCompletionsRequestRewriter
             else if (reader.ValueTextEquals(reasoningField))
             {
                 reader.Read();
-                if (reader.TokenType == JsonTokenType.Null)
-                    nullReasoning = new Region((int)reader.TokenStartIndex, (int)reader.BytesConsumed);
+                // 非字符串的形态(数组/对象)认不出有没有正文，当作已有，不动它
+                bool blank = reader.TokenType == JsonTokenType.Null ||
+                             (reader.TokenType == JsonTokenType.String && reader.ValueSpan.Length == 0);
+                if (blank)
+                    blankReasoning = new Region((int)reader.TokenStartIndex, (int)reader.BytesConsumed);
                 else
                     hasReasoning = true;
                 SkipValue(ref reader);
@@ -170,15 +179,16 @@ internal static class ChatCompletionsRequestRewriter
         // 此时停在消息对象的 '}' 上
         if (!isAssistant || hasReasoning || !fillEmptyReasoning) return;
 
-        if (nullReasoning.Start >= 0)
+        if (blankReasoning.Start >= 0)
         {
-            edits.Add(new Utf8JsonSplice.Edit(nullReasoning.Start, nullReasoning.End,
-                SerializeReasoning(string.Empty, withKey: false, reasoningField)));
+            edits.Add(new Utf8JsonSplice.Edit(blankReasoning.Start, blankReasoning.End,
+                SerializeReasoning(MissingReasoningPlaceholder, withKey: false, reasoningField)));
         }
         else
         {
             int at = (int)reader.TokenStartIndex;
-            edits.Add(new Utf8JsonSplice.Edit(at, at, SerializeReasoning(string.Empty, withKey: true, reasoningField)));
+            edits.Add(new Utf8JsonSplice.Edit(at, at,
+                SerializeReasoning(MissingReasoningPlaceholder, withKey: true, reasoningField)));
         }
     }
 

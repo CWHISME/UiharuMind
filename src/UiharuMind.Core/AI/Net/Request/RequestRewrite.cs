@@ -13,14 +13,14 @@ namespace UiharuMind.Core.AI.Net.Request;
 ///
 /// <para><b>回填思考不在这张清单里</b>（ADR 0101）：思考跟着消息对象走，由
 /// <see cref="ReasoningReplayChatClient"/> 在把消息交给 SDK 之前绑好。
-/// 这里只剩「字段必须在」那半条——补空串不需要知道是哪条消息。</para>
+/// 这里只剩「字段必须在且有内容」那半条——补占位不需要知道是哪条消息。</para>
 /// </summary>
 /// <param name="ExtraParams">模型的额外参数，写到根上（同名覆盖）</param>
 /// <param name="ForbidToolCalls">写 <c>tool_choice: "none"</c></param>
 /// <param name="OmitSamplingParams">删掉 <see cref="SamplingParamKeys"/></param>
 /// <param name="FillEmptyReasoning">
-/// 每一条助手消息都带思考字段：没有正文的补空串。与 opencode 的 <c>compatibility.requireReasoning</c>、
-/// pi 的「有就带」同一层级——服务端要的是「字段必须在」，不是「字段必须有内容」。
+/// 每一条助手消息都带思考字段：没有正文的补占位。比 opencode 的 <c>requireReasoning</c> 严一档——
+/// beam 连空串都拒，只认非空正文。
 /// </param>
 /// <param name="ReasoningField">思考正文的 wire 键名（预设/默认）</param>
 /// <param name="SessionAffinity">
@@ -72,7 +72,7 @@ internal readonly record struct RequestRewrite(
     /// <returns>要做的改写</returns>
     public static RequestRewrite For(ILlmModel? model, LlmRequestContext context)
     {
-        // 每条助手消息都要带思考的模型：有正文回正文，没正文补空串。
+        // 每条助手消息都要带思考的模型：有正文回正文，没正文补非空占位。
         // 这条校验发生在服务端解析历史那一层，与本次是否思考无关，因此不跟思考档位走
         bool everyAssistant = model is not null && model.RequireReasoningOnEveryAssistantMessage;
 

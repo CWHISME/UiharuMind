@@ -58,7 +58,7 @@ public class RemoteModelInfo : ILlmModel
     /// <summary>回填思考正文用的<b>请求侧</b> wire 键名（预设表/默认）；响应侧观测值不参与</summary>
     [JsonIgnore] public string ThinkingField => Config.RequestThinkingField;
 
-    /// <summary>每一条助手消息都必须带思考字段（服务端硬校验），没正文补空串</summary>
+    /// <summary>每一条助手消息都必须带思考字段（服务端硬校验），没正文补非空占位</summary>
     [JsonIgnore] public bool RequireReasoningOnEveryAssistantMessage =>
         Config.RequireReasoningOnEveryAssistantMessage;
 

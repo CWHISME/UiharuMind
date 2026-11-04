@@ -53,8 +53,9 @@ public interface ILlmModel
     public string ThinkingField => "reasoning_content";
 
     /// <summary>
-    /// <b>每一条</b>助手消息都必须带思考字段(有正文回正文,没正文补空串)。
-    /// 服务端要的是「字段必须在」,与本次是否思考无关,不跟思考档位走。
+    /// <b>每一条</b>助手消息都必须带思考字段(有正文回正文,没正文补非空占位)。
+    /// 服务端要的是「字段必须在且有内容」——beam 连空串都拒,所以补的是非空占位。
+    /// 这条校验与本次是否思考无关,不跟思考档位走。
     /// 本地模型没有这条约束,默认不带。
     /// </summary>
     public bool RequireReasoningOnEveryAssistantMessage => false;

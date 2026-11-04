@@ -27,7 +27,7 @@ namespace UiharuMind.Core.Configs.RemoteAI;
 /// 消费时按 运行时观测值 → 本预设值 → reasoning_content 查表。
 /// </param>
 /// <param name="RequireReasoningOnEveryAssistantMessage">
-/// <b>每一条</b>助手消息都必须带思考字段:有正文回正文,没正文补空串。
+/// <b>每一条</b>助手消息都必须带思考字段:有正文回正文,没正文补非空占位。
 /// 缺了报 <c>Missing required parameter: 'messages[n].reasoning_content'</c>
 /// （实测 CommandCode 的 reflection/beam:free 就是这条）。
 /// 这条校验与本次是否思考无关,消费侧不跟思考档位走。

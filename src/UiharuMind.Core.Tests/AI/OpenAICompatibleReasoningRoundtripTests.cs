@@ -8,46 +8,75 @@ using UiharuMind.Core.Configs.RemoteAI;
 namespace UiharuMind.Core.Tests.AI;
 
 /// <summary>
-/// 请求改写里与思考有关的那半条：「字段必须在」的模型补空串，以及键名从哪来。
+/// 请求改写里与思考有关的那半条：「字段必须在且有内容」的模型补占位，以及键名从哪来。
 ///
 /// <para>回填正文与票据<b>不在这层</b>（ADR 0101）：那两样跟着消息对象走，
 /// 由 <see cref="ChatCompletionMessageBinder"/> 写进消息本身，见
-/// <see cref="ChatCompletionMessageBinderTests"/>。这里只剩「补空串」——
-/// 它不需要知道是哪条消息，天然不会错配。</para>
+/// <see cref="ChatCompletionMessageBinderTests"/>。</para>
 /// </summary>
 public class OpenAICompatibleReasoningRoundtripTests
 {
+    private const string Placeholder = ChatCompletionsRequestRewriter.MissingReasoningPlaceholder;
+
+    /// <summary>占位必须非空——改回空串时下面几条断言仍会通过，这条是唯一的守卫</summary>
+    [Fact]
+    public void MissingReasoningPlaceholder_IsNotEmpty()
+    {
+        Assert.False(string.IsNullOrEmpty(ChatCompletionsRequestRewriter.MissingReasoningPlaceholder));
+    }
+
+    /// <summary>已有的空白正文原样保留：判空只看原始字节长度，不 trim、也不归一成占位</summary>
+    [Fact]
+    public void FillEmptyReasoning_KeepsWhitespaceReasoning()
+    {
+        string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(
+            """{"messages":[{"role":"assistant","reasoning_content":"  ","content":"说完了"}]}""",
+            new RequestRewrite(null, false, false, true));
+
+        var message = (JsonObject)JsonNode.Parse(rewritten!)!["messages"]![0]!;
+        Assert.Equal("  ", message["reasoning_content"]!.GetValue<string>());
+    }
+
+    /// <summary>按转义形态判空：<c>"\u4e2d"</c> 解码后是「中」，原样保留而不是当空白补掉</summary>
+    [Fact]
+    public void FillEmptyReasoning_KeepsEscapedReasoning()
+    {
+        string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(
+            """{"messages":[{"role":"assistant","reasoning_content":"\u4e2d","content":"说完了"}]}""",
+            new RequestRewrite(null, false, false, true));
+
+        var message = (JsonObject)JsonNode.Parse(rewritten!)!["messages"]![0]!;
+        Assert.Equal("中", message["reasoning_content"]!.GetValue<string>());
+    }
+
     /// <summary>
-    /// 没有思考正文可回传时补空串：DeepSeek 类要求「思考模式下带 tool_calls 的助手消息必须含
+    /// 没有思考正文可回传时补占位：DeepSeek 类要求「思考模式下带 tool_calls 的助手消息必须含
     /// reasoning_content」，字段缺了直接 400——历史里关思考档位跑出来的工具调用就是这种。
     /// </summary>
     [Fact]
-    public void FillEmptyReasoning_NoThinkingOnToolCallMessage_WritesEmptyString()
+    public void FillEmptyReasoning_NoThinkingOnToolCallMessage_WritesPlaceholder()
     {
         string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(
             """{"messages":[{"role":"assistant","content":"查一下","tool_calls":[{"id":"call-1","type":"function"}]}]}""",
             new RequestRewrite(null, false, false, true));
 
         var message = (JsonObject)JsonNode.Parse(rewritten!)!["messages"]![0]!;
-        Assert.Equal("", message["reasoning_content"]!.GetValue<string>());
+        Assert.Equal(Placeholder, message["reasoning_content"]!.GetValue<string>());
     }
 
-    /// <summary>要求每条都带时，纯文本回复没正文也补空串——字段缺了就是 400</summary>
+    /// <summary>要求每条都带时，纯文本回复没正文也补占位——beam 连空串都拒</summary>
     [Fact]
-    public void FillEmptyReasoning_PlainMessageGetsEmptyString()
+    public void FillEmptyReasoning_PlainMessageGetsPlaceholder()
     {
         string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(
             """{"messages":[{"role":"assistant","content":"说完了"}]}""",
             new RequestRewrite(null, false, false, true));
 
         var message = (JsonObject)JsonNode.Parse(rewritten!)!["messages"]![0]!;
-        Assert.Equal("", message["reasoning_content"]!.GetValue<string>());
+        Assert.Equal(Placeholder, message["reasoning_content"]!.GetValue<string>());
     }
 
-    /// <summary>
-    /// 每一条助手消息都要带字段：历史里没有思考的那些（关思考档位跑出来的旧回复）补空串，
-    /// 非助手消息一律不碰。
-    /// </summary>
+    /// <summary>每一条助手消息都要带字段：没有思考的补占位，非助手消息一律不碰</summary>
     [Fact]
     public void FillEmptyReasoning_OnlyTouchesAssistantMessages()
     {
@@ -57,13 +86,10 @@ public class OpenAICompatibleReasoningRoundtripTests
 
         JsonArray messages = (JsonArray)JsonNode.Parse(rewritten!)!["messages"]!;
         Assert.Null(messages[0]!["reasoning_content"]); // user 不补
-        Assert.Equal("", messages[1]!["reasoning_content"]!.GetValue<string>());
+        Assert.Equal(Placeholder, messages[1]!["reasoning_content"]!.GetValue<string>());
     }
 
-    /// <summary>
-    /// 已经有正文的不覆盖。绑定器写进去的那些就是这种形态——补空串要是盖上去，
-    /// 等于把思考抹成空串，服务端照样 400（字段在、内容是空，语义不同）。
-    /// </summary>
+    /// <summary>已经有正文的不覆盖——绑定器写进去的那些不能被占位抹掉</summary>
     [Fact]
     public void FillEmptyReasoning_PrefersExistingReasoning()
     {
@@ -73,6 +99,18 @@ public class OpenAICompatibleReasoningRoundtripTests
 
         var message = (JsonObject)JsonNode.Parse(rewritten!)!["messages"]![0]!;
         Assert.Equal("真的思考", message["reasoning_content"]!.GetValue<string>());
+    }
+
+    /// <summary>键在但值是空串，与缺字段同等对待（上一版补的就是空串，仍会被拒）</summary>
+    [Fact]
+    public void FillEmptyReasoning_ReplacesExistingEmptyString()
+    {
+        string? rewritten = ChatCompletionsRequestRewriterTests.Rewrite(
+            """{"messages":[{"role":"assistant","reasoning_content":"","content":"说完了"}]}""",
+            new RequestRewrite(null, false, false, true));
+
+        var message = (JsonObject)JsonNode.Parse(rewritten!)!["messages"]![0]!;
+        Assert.Equal(Placeholder, message["reasoning_content"]!.GetValue<string>());
     }
 
     /// <summary>模型不要求时保持原样：连改写都不做，照发 SDK 那份</summary>
@@ -86,7 +124,7 @@ public class OpenAICompatibleReasoningRoundtripTests
         Assert.Null(rewritten);
     }
 
-    /// <summary>补空串用模型声明的键名（如 reasoning），不写死 reasoning_content</summary>
+    /// <summary>补占位用模型声明的键名（如 reasoning），不写死 reasoning_content</summary>
     [Fact]
     public void FillEmptyReasoning_UsesConfiguredFieldName()
     {
@@ -95,11 +133,11 @@ public class OpenAICompatibleReasoningRoundtripTests
             new RequestRewrite(null, false, false, true, "reasoning"));
 
         var message = (JsonObject)JsonNode.Parse(rewritten!)!["messages"]![0]!;
-        Assert.Equal("", message["reasoning"]!.GetValue<string>());
+        Assert.Equal(Placeholder, message["reasoning"]!.GetValue<string>());
         Assert.Null(message["reasoning_content"]);
     }
 
-    /// <summary>思考键为 null 时补空串只换值，不重复写键</summary>
+    /// <summary>思考键为 null 时补占位只换值，不重复写键</summary>
     [Fact]
     public void FillEmptyReasoning_ReplacesExplicitNull()
     {
@@ -108,7 +146,7 @@ public class OpenAICompatibleReasoningRoundtripTests
             new RequestRewrite(null, false, false, true));
 
         Assert.Equal(
-            """{"messages":[{"role":"assistant","reasoning_content":"","tool_calls":[{"id":"c1","function":{"arguments":"{}"}}]}]}""",
+            $$$"""{"messages":[{"role":"assistant","reasoning_content":"{{{Placeholder}}}","tool_calls":[{"id":"c1","function":{"arguments":"{}"}}]}]}""",
             rewritten);
     }
 

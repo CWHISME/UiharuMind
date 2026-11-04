@@ -255,7 +255,7 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     public HashSet<string> ReasoningEveryAssistantModelIds { get; set; } = new(StringComparer.Ordinal);
 
     /// <summary>
-    /// 每一条助手消息都必须带思考字段:有正文回正文,没正文补空串。
+    /// 每一条助手消息都必须带思考字段:有正文回正文,没正文补非空占位。
     ///
     /// 来源三条：预设表显式声明、运行时从服务端 400 里学到（<see cref="ReasoningEveryAssistantModelIds"/>）、
     /// 或模型 ID 含 <c>deepseek</c> 的兜底——转售的 DeepSeek（CommandCode/OpenCode 等目录供应商）
