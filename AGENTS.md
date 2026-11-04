@@ -48,9 +48,6 @@ dotnet build src/UiharuMind.sln
 
 注意：Window 平台由于开发者通常调试模式运行，直接构建会有冲突，可以换成 buildWinDebug.bat 构建最终产物。
 
-实测耗时（Apple Silicon）：增量构建解决方案约 10 秒，Core 测试全量约 10 秒，App 测试全量约 40 秒（含无头界面），
-按类过滤只要一两秒。
-
 ### 无头界面测试
 
 `UiharuMind.App.Tests/Headless/` 下的测试跑的是**真实控件与真实模板**，只是不要窗口
