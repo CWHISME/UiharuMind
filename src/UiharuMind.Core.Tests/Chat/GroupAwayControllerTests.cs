@@ -146,6 +146,32 @@ public class GroupAwayControllerTests
         await Until(() => _delays.Count == 1);
     }
 
+    /// <summary>化身跑着时用户发言：立刻停掉化身当前轮（它还拿旧聊天记录判断），离席不结束；按「停止」固定延迟后再唤醒</summary>
+    [Fact]
+    public async Task UserPost_WhileAvatarRuns_StopsTheAvatarTurn_NotEndingTheAway()
+    {
+        _runner.Silent = true; //成员不接话：用户这波快速收场，连锁可控
+        TaskCompletionSource gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        _runner.During[_avatar.SessionId] = () => gate.Task; //化身首轮卡住：正在跑
+        _runner.Replies[_avatar.SessionId] = _ => ""; //就算放行也不写正文
+        _away.Start(_group, "目标", null);
+        await Until(() => AvatarCalls() == 1);
+        Assert.True(_away.StatusOf(_group.SessionId)?.IsAvatarRunning == true); //化身正在跑
+
+        await _coordinator.PostAsync(_group, "先别拍了");
+        // 离席没结束：只停了化身当前轮，等下一次激活再带新内容
+        Assert.NotNull(_away.StatusOf(_group.SessionId));
+
+        gate.SetResult(); //放行：被打断的那一轮收尾
+        await Until(() => _delays.Count >= 1);
+        // 被打断的那一轮没拿旧聊天记录继续说话：群流水里没有化身发言
+        Assert.DoesNotContain(_group.History,
+            x => ChatMessageAnnotations.GroupAvatarPostOf(x) == _avatar.SessionId);
+        // 化身按「停止」处理：固定延迟后再唤醒（下一次激活的兜底）
+        Assert.Equal(TimeSpan.FromMinutes(5), _delays[^1].Delay);
+        Assert.Equal(1, AvatarCalls());
+    }
+
     /// <summary>化身闲着时用户发言：没轮可插就不插，用户那句自己开一波，波末那次投递照常带上</summary>
     [Fact]
     public async Task UserPost_WhileAvatarIdle_DoesNotInject()
@@ -514,7 +540,8 @@ public class GroupAwayControllerTests
         Assert.Empty(_receipts);
     }
 
-    /// <summary>化身跑着时波末 defer：只记 WakePending 不排延迟，跑完收尾重判，后台还在就继续等</summary>
+    /// <summary>化身跑着时波末 defer：只记 WakePending 不排延迟，跑完收尾重判，后台还在就继续等。
+    /// 波由化身自己 Push 开（用户真身发言会打断化身轮，见 UserPost_WhileAvatarRuns_StopsTheAvatarTurn）</summary>
     [Fact]
     public async Task AvatarRunning_DefersWithWakePending_ReevaluatesAfterTurn()
     {
@@ -522,13 +549,20 @@ public class GroupAwayControllerTests
         GroupAwayController away = new(_coordinator, (_, _, _) => _avatar, () => _settings, Delay, () => _now,
             _ => _stamp, hasBackgroundWork: _ => backgroundPending);
         TaskCompletionSource gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        _runner.During[_avatar.SessionId] = () => gate.Task; //化身首轮卡住：正在跑
+        // 化身首轮：自己 Push 一句开一波后还卡着（正在跑），波收场时不排延迟，只记 WakePending
+        _runner.During[_avatar.SessionId] = () =>
+        {
+            _coordinator.TryPostFromAvatar(_avatar.SessionId, "@Alice 接着做");
+            return gate.Task;
+        };
         _runner.Replies[_avatar.SessionId] = _ => ""; //放行后没写正文：Silent
 
         Assert.True(away.Start(_group, "目标", null));
         await Until(() => AvatarCalls() == 1);
 
-        await _coordinator.PostAsync(_group, "开工"); //成员波收场时化身还在跑：Defer 只记旗，不排延迟
+        // 化身 Push 开的波收场（成员接待完）：化身还在跑 → Defer 只记旗，不排延迟
+        await Until(() => _runner.Calls.Any(x => x.Member != _avatar));
+        await Until(() => !_coordinator.IsRunning(_group.SessionId));
         Assert.Equal(1, AvatarCalls());
         Assert.Empty(_delays);
 
@@ -539,7 +573,9 @@ public class GroupAwayControllerTests
         backgroundPending = false;
         _delays[0].Due.SetResult();
         await Until(() => AvatarCalls() == 2);
-        Assert.EndsWith(GroupAvatarTranscript.SilentNote, LastAvatarInput()); //跑完那轮的提示带过来了
+        // 后台了结后化身被再次叫醒：离席没有结束
+        Assert.True(away.IsAway(_group.SessionId));
+        Assert.Empty(_receipts);
     }
 
     /// <summary>用户停了波、成员后台又没交回：按停止口径固定延迟，不悄悄等后台</summary>

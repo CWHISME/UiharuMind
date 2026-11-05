@@ -244,12 +244,21 @@ public sealed class GroupAwayController
         return controller;
     }
 
-    // 倒计时里用户发了言：取消倒计时，由他那一波收场时叫醒化身（提示留着随那次带上）
+    // 用户在群里发言：取消倒计时（他那一波收场时叫醒）。化身若正在跑，它拿的还是发言前的
+    // 旧聊天记录——直接停掉它当前轮次（Stopped → 固定延迟再唤醒），等下一次激活再带新内容跑；离席本身不结束
     private void OnUserPosted(string groupId)
     {
         bool cancelled;
-        lock (_sync) cancelled = _sessions.GetValueOrDefault(groupId)?.CancelDelay() == true;
-        if (cancelled) RaiseStatusChanged(groupId);
+        bool avatarRunning;
+        lock (_sync)
+        {
+            GroupAwaySession? session = _sessions.GetValueOrDefault(groupId);
+            cancelled = session?.CancelDelay() == true;
+            avatarRunning = session?.IsRunning == true;
+        }
+
+        if (avatarRunning) _coordinator.StopAvatarTurn(groupId);
+        if (cancelled || avatarRunning) RaiseStatusChanged(groupId);
     }
 
     // 用户在群里插了话、化身正跑着：先把新发言即时追加进流水文件，再注入一条<b>系统提示</b>（不灌正文），

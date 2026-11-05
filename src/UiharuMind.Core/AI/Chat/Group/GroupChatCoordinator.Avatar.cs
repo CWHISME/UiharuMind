@@ -176,4 +176,11 @@ public sealed partial class GroupChatCoordinator
     {
         lock (_locker) _avatarTurns.GetValueOrDefault(groupId)?.Token.Cancel();
     }
+
+    /// <summary>
+    /// 只停正在跑的化身那一轮，离席本身不结束。用户发言打断化身轮用：化身正拿旧聊天记录
+    /// 判断，停掉它等下一次激活再带新内容跑。与 <see cref="Stop"/> 的区别：不动群这一波、不清待接回
+    /// </summary>
+    /// <param name="groupId">群壳会话标识</param>
+    public void StopAvatarTurn(string groupId) => StopAvatar(groupId);
 }
