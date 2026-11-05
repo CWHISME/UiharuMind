@@ -1,4 +1,5 @@
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.History;
 
 namespace UiharuMind.Core.AI.Chat.Group;
 
@@ -87,6 +88,8 @@ internal sealed class GroupMemberReplyFeed : IDisposable
     {
         text = string.Empty;
         if (message.Role != ChatRole.Assistant) return false;
+        // 记忆压缩/清空记忆是给模型自己看的内部卡片（assistant 角色、纯文本），不是对群里谁说的一句话
+        if (HistoryHandoff.IsNote(message)) return false;
         if (message.Contents.Any(x => x is FunctionCallContent)) return false;
 
         text = message.Text.Trim();
