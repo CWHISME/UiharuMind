@@ -24,7 +24,7 @@ public enum EReadImageMode
 /// 就是 Edit 拿去匹配、写回时还原的那份正文。
 ///
 /// 附注只在需要时出现，统一贴在正文之后：截断时给行号范围、总行数与续读的 offset；非 UTF-8 时注明编码。
-/// 读不了时说清是目录、空文件、越界还是二进制；找不到时顺手列出工作区里的同名文件——
+/// 读不了时说清是空文件、越界还是二进制；找不到时顺手列出工作区里的同名文件——
 /// 实测找不到多半是目录猜错了，这样省掉模型再跑一次 Glob。
 /// </summary>
 internal sealed class FileReader
@@ -103,7 +103,8 @@ internal sealed class FileReader
     {
         if (!_paths.TryResolve(filePath, out string full, out string pathError)) return pathError;
         if (_paths.RelativeToMemory(full) == ".") return ReadMemoryIndex();
-        if (Directory.Exists(full)) return $"'{filePath}' 是目录；列出其中的文件用 `{FileToolNames.Glob}`。";
+        // 目录由工具层的 Read 接手（列直接子项）；这里只是兜底：真走到说明调用方绕过了工具面
+        if (Directory.Exists(full)) return $"'{filePath}' 是目录，不能当文件读。";
         if (!File.Exists(full))
         {
             // 多图拼接：完整路径解析不到才按分号拆——路径本身带分号的真实文件在上游已按单文件处理

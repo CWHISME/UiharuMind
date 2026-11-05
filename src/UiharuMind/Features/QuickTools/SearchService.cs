@@ -198,11 +198,11 @@ public class SearchService
     }
 
     /// <summary>
-    /// 列 <paramref name="root"/> 下一层（不递归）：当前目录的子目录与文件各是什么。
+    /// 浏览态列一层（不递归）：当前目录的子目录与文件各是什么。
     /// 浏览态用它代替全树搜——无 query 时列一层、点目录进、点文件开。
-    /// 直调 <see cref="Directory"/> 单层枚举，不走搜索器：搜索器是为全树剪枝、ignore、
-    /// 模型侧统计存在的，浏览只是把当前目录原样列出来，显隐只由
-    /// <paramref name="includeHidden"/> 定。
+    /// 枚举核心与 Read 工具共用 <see cref="DirectoryLister"/>：列目录是直述、不套搜索器的
+    /// ignore/硬排除，显隐只由 <paramref name="includeHidden"/> 定（System 属性仍跳过——
+    /// 那是界面层的口径，不是搜索器的）。
     /// </summary>
     /// <param name="includeHidden">是否列出隐藏文件；界面浏览层的显示隐藏开关用</param>
     public async Task<LayerListing> ListLayerAsync(string root, CancellationToken ct, bool includeHidden = false)
@@ -224,48 +224,18 @@ public class SearchService
 
             List<SearchItem> items = await Task.Run(() =>
             {
-                var list = new List<SearchItem>();
-                foreach (string entry in Directory.EnumerateFileSystemEntries(root))
-                {
-                    ct.ThrowIfCancellationRequested();
-                    string name = Path.GetFileName(entry);
-                    if (string.IsNullOrEmpty(name)) continue;
-                    FileAttributes attributes;
-                    try
-                    {
-                        attributes = File.GetAttributes(entry);
-                    }
-                    catch (Exception)
-                    {
-                        continue; // 竞态：列出瞬间被删或无权限，跳过这一条
-                    }
-                    bool isDir = attributes.HasFlag(FileAttributes.Directory);
-                    if (attributes.HasFlag(FileAttributes.System)) continue;
-                    bool isHiddenEntry = name.StartsWith('.') || attributes.HasFlag(FileAttributes.Hidden);
-                    if (!includeHidden && isHiddenEntry) continue;
-                    string snippet = string.Empty;
-                    if (!isDir)
-                    {
-                        try
-                        {
-                            snippet = GameUtils.FormatBytes(new FileInfo(entry).Length);
-                        }
-                        catch (Exception)
-                        {
-                            snippet = string.Empty;
-                        }
-                    }
-                    list.Add(new SearchItem(
-                        Path.GetRelativePath(root, entry),
-                        name,
-                        0,
-                        snippet,
-                        false,
-                        isDir,
-                        IsHidden: isHiddenEntry));
-                    if (list.Count >= 4000) break;
-                }
-                return list;
+                // 枚举核心与 Read 工具的列目录共用 DirectoryLister：不套搜索器的 ignore/硬排除，
+                // 显隐只由 includeHidden 定；这里只做过滤（System/显隐）与界面映射
+                DirectoryList listing = DirectoryLister.List(root, 4000, ct,
+                    include: entry => !entry.IsSystem && (includeHidden || !entry.IsHidden));
+                return listing.Entries.Select(entry => new SearchItem(
+                    Path.GetRelativePath(root, entry.FullPath),
+                    entry.Name,
+                    0,
+                    entry.IsDirectory ? string.Empty : GameUtils.FormatBytes(entry.SizeBytes),
+                    false,
+                    entry.IsDirectory,
+                    IsHidden: entry.IsHidden)).ToList();
             }, ct).ConfigureAwait(false);
 
             items = items.OrderByDescending(i => i.IsDirectory).ThenBy(i => i.FileName, StringComparer.OrdinalIgnoreCase).ToList();

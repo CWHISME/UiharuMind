@@ -31,7 +31,7 @@ internal sealed class PermissiveFileAccessTools
     //    Read 的限幅在 FileReader;Grep 的在 GrepResultShaper;Glob 超过 MaxGlobEntries 换目录统计(见
     //    RenderDirectorySummary);shell 由框架截断。——
 
-    /// <summary>Glob 内联列出的条目上限（一条约 15 token），超了换目录统计</summary>
+    /// <summary>Glob 内联列出的条目上限（一条约 15 token），超了换目录统计；Read 列目录也用它做条目总上限</summary>
     internal const int MaxGlobEntries = 150;
 
     /// <summary>Edit 回给模型的 diff 行数上限（与审批卡片共用，见 <c>FileEditPlanner.DefaultMaxDiffLines</c>）</summary>
@@ -41,8 +41,9 @@ internal sealed class PermissiveFileAccessTools
     internal const int MaxEditDiffLineChars = FileEditPlanner.DefaultMaxDiffLineChars;
 
     // 描述只写契约;Read 与 Shell 的分工归命令行纪律段(AgentToolPrompts.BuildShell)
+    // 目录那条不点 Glob 的名:脑(ADR 0082)不挂 Glob,而描述是各处共用的
     private const string ReadDescription =
-        "读取文件的内容，可通过传递 whole 参数读全文，outline 读大纲，大文件先看结构，再按行号只读需要的段。注意每行前的「行号+制表符」是参照，不是文件内容。";
+        "读取文件的内容；传目录则列出该目录下的文件与目录（只列这一层）。可通过传递 whole 参数读全文，outline 读大纲，大文件先看结构，再按行号只读需要的段。注意每行前的「行号+制表符」是参照，不是文件内容。";
 
     private const string ReadImagesDescription =
         " 也可以直接用于读取/查看图片。多张图片可用分号（;）拼接在一个 filePath 里（如 \"a.png;b.png\"）一次附加多张，"
@@ -148,22 +149,24 @@ internal sealed class PermissiveFileAccessTools
             return RenderDirectorySummary(outcome);
         }
 
-        // 每个文件都标大小:纪律段要它别把大文件整个拉进来,这是判断依据(一条约 4 token,
-        // 误读一次大文件是上万 token)。只标超阈值的不行——没标注就分不清"小"和"没测"。
-        // 目录用末尾 "/" 标识(模型最熟的约定),不再给每行加 [FILE]/[DIR] 前缀。
-        // 文件在前、目录在后:文件才是下一步 Read/Edit 的对象;按纯字典序两者会逐行交替,很难扫。
-        // 刻意按路径而不按修改时间排:同目录的文件挨在一起,模型扫得出结构。
-        // 排序只在这一层做,界面那侧有自己的习惯(见 SearchService)
-        return ToolResultText.Compose(BuildGlobNotice(outcome),
-            string.Join('\n', outcome.Entries
-                .OrderBy(x => x.IsDirectory)
-                .ThenBy(x => x.Path, StringComparer.Ordinal)
-                .Select(Render)));
-
-        static string Render(GlobEntry entry) => entry.IsDirectory
-            ? $"{entry.Path}/"
-            : $"{entry.Path} ({GameUtils.FormatBytes(entry.SizeBytes)})";
+        return ToolResultText.Compose(BuildGlobNotice(outcome), RenderEntries(outcome.Entries));
     }
+
+    /// <summary>
+    /// 条目正文:文件在前、目录在后(文件才是下一步 Read/Edit 的对象;按纯字典序两者会逐行交替,很难扫),
+    /// 目录用末尾 "/" 标识(模型最熟的约定),不再给每行加 [FILE]/[DIR] 前缀;
+    /// 文件都标大小:纪律段要它别把大文件整个拉进来,这是判断依据(一条约 4 token,误读一次大文件是上万 token)。
+    /// 只标超阈值的不行——没标注就分不清"小"和"没测"。刻意按路径而不按修改时间排:同目录的文件挨在一起,
+    /// 模型扫得出结构。排序只在这一层做,界面那侧有自己的习惯(见 SearchService)。
+    /// Glob 与 Read 列目录共用这一份,免得两处漂移。
+    /// </summary>
+    private static string RenderEntries(IReadOnlyList<GlobEntry> entries) =>
+        string.Join('\n', entries
+            .OrderBy(entry => entry.IsDirectory)
+            .ThenBy(entry => entry.Path, StringComparer.Ordinal)
+            .Select(entry => entry.IsDirectory
+                ? $"{entry.Path}/"
+                : $"{entry.Path} ({GameUtils.FormatBytes(entry.SizeBytes)})"));
 
     /// <summary>
     /// 命中过宽时渲染目录聚合统计（与 Grep 命中地图同思路，共用 <see cref="PathGrouping"/>）：
@@ -233,9 +236,11 @@ internal sealed class PermissiveFileAccessTools
             contextLines);
     }
 
-    [Description("读取指定文件")]
-    internal Task<string> Read(
-        [Description("文件路径，工作目录的相对路径(也接受其它目录的绝对路径)。")]
+    // 生效的是 CreateFunction 传进去的 ReadDescription（覆盖这里）；这里只为本地阅读，
+    // 改契约请改常量，只改这行不会出现在模型的 schema 里
+    [Description("读取指定文件；传目录则列出其中的文件与目录")]
+    internal async Task<string> Read(
+        [Description("文件路径，工作目录的相对路径(也接受其它目录的绝对路径)。传目录则列出其中的文件与目录。")]
         string filePath,
         [Description("起始行号，1 起算。负数从末尾计：-100 读最后 100 行")]
         int offset = 1,
@@ -246,10 +251,95 @@ internal sealed class PermissiveFileAccessTools
         [Description("可选，只返回文件大纲。")] bool outline = false,
         CancellationToken cancellationToken = default)
     {
-        if (limit <= 0 && !whole) return Task.FromResult($"limit 须为正数（所传 {limit}）；读末尾几行用负的 offset，读全文传 whole=true。");
+        // 目录 = 列直接子项，工具侧直接枚举这一层：脑（ADR 0082）只挂 Read/Grep，这是它唯一的目录入口
+        if (TryGetListableDirectory(filePath, out string full))
+        {
+            string listing = ListDirectory(full, cancellationToken);
+            return offset != 1 || limit != null || whole || outline
+                ? $"{listing}\noffset/limit/whole/outline 是读文件的参数，列目录时已忽略。"
+                : listing;
+        }
+
+        if (limit <= 0 && !whole) return $"limit 须为正数（所传 {limit}）；读末尾几行用负的 offset，读全文传 whole=true。";
+
         return whole
-            ? _reader.ReadAsync(filePath, 1, FileReader.WholeFile, outline, cancellationToken)
-            : _reader.ReadAsync(filePath, offset, limit, outline, cancellationToken);
+            ? await _reader.ReadAsync(filePath, 1, FileReader.WholeFile, outline, cancellationToken).ConfigureAwait(false)
+            : await _reader.ReadAsync(filePath, offset, limit, outline, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// 记忆目录本身读的是索引而不是列表，交回 <see cref="FileReader"/>
+    private bool TryGetListableDirectory(string filePath, out string full)
+    {
+        full = string.Empty;
+        return _paths.TryResolve(filePath, out full, out _)
+            && _paths.RelativeToMemory(full) != "."
+            && Directory.Exists(full);
+    }
+
+    /// <summary>
+    /// 列目录：直接枚举一层子项，不套 Glob 的排除口径（硬排除/ignore/点目录规则）——
+    /// “列出这一层有什么”是直述，不是搜索；继承搜索排除反而误导：`Read "bin"` 会诡异地为空。
+    /// 枚举核心与文件浏览器的浏览态共用 <see cref="DirectoryLister"/>，这里只做映射与裁剪。
+    ///
+    /// 额度交给 <see cref="DirectoryLister.ListDirectoriesFirst"/>：目录先占、文件用剩下的。
+    /// 不预留的话，目录名排在文件后面就会被一路挤掉（实测 160 个文件 + 一个 zdir，
+    /// 按枚举序取前 150 条里 0 个目录）——而 Read 是脑（ADR 0082）唯一的目录入口，
+    /// 看不见子目录就无路可走。条目总量仍是 <see cref="MaxGlobEntries"/>，token 预算不涨。
+    /// </summary>
+    /// <param name="full">已解析的目录绝对路径</param>
+    /// <param name="ct">取消令牌</param>
+    /// <returns>工具结果</returns>
+    private string ListDirectory(string full, CancellationToken ct)
+    {
+        string shown = _paths.ToPortable(full); // 回显用相对工作区的写法，与列表条目同形态
+        DirectoryFirstListing listing;
+        try
+        {
+            listing = DirectoryLister.ListDirectoriesFirst(full, MaxGlobEntries, ct);
+        }
+        catch (Exception e) when (e is UnauthorizedAccessException or IOException)
+        {
+            return $"无法枚举目录 \"{shown}\"：{e.Message}";
+        }
+
+        List<GlobEntry> entries = listing.Directories.Concat(listing.Files)
+            .Select(entry => new GlobEntry(_paths.ToPortable(entry.FullPath), entry.IsDirectory, entry.SizeBytes))
+            .ToList();
+
+        if (entries.Count == 0)
+        {
+            return $"目录 \"{shown}\" 是空的，里面没有条目。";
+        }
+
+        // 先声明这是目录列表再给条目：裸列表长这样会和小文件正文撞形，弱模型会把路径行当内容读
+        string head = $"目录 \"{shown}\" 的直接子项（文件在前带大小，目录带 /）：";
+        return ToolResultText.Compose(head, RenderEntries(entries), BuildTruncationNotice(listing, MaxGlobEntries));
+    }
+
+    /// <summary>
+    /// 额度怎么分的如实报账：只报放不下的事，没看过的一类不说话。
+    /// 「额度不够」与「根本没有」是两回事：前者要说，后者说了就是骗模型去找不存在的东西。
+    /// </summary>
+    /// <param name="listing">目录优先的收集结果</param>
+    /// <param name="maxItems">本次的条目总上限（文案里的数字都从它来，别硬编码常量）</param>
+    /// <returns>收窄建议；没有截断时 null</returns>
+    private static string? BuildTruncationNotice(DirectoryFirstListing listing, int maxItems)
+    {
+        List<string> parts = new();
+        if (listing.HasMoreDirectories) parts.Add($"子目录超过 {maxItems} 个，只列了前 {maxItems} 个");
+
+        if (listing.HasMoreFiles)
+        {
+            parts.Add(listing.Directories.Count >= maxItems
+                ? "条目额度已被子目录占满，文件未列出"
+                // 没子目录就别提子目录：那会描出一个根本不存在的层
+                : listing.Directories.Count > 0
+                    ? $"文件只给出 {listing.Files.Count} 个（条目额度优先留给了子目录）"
+                    : $"文件只给出 {listing.Files.Count} 个");
+        }
+
+        if (parts.Count == 0) return null;
+        return string.Join("；", parts) + "。要看更深处，Read 列表中列出的子目录；要找特定文件，用 Grep 按内容定位。";
     }
 
     [Description("新建文件，或整份替换已有文件")]

@@ -4,7 +4,7 @@ using UiharuMind.Features.QuickTools;
 namespace UiharuMind.App.Tests.Features.QuickTools;
 
 /// <summary>
-/// 浏览层（列当前目录一层）的显示隐藏开关：直调 <see cref="Directory"/> 单层枚举，
+/// 浏览层（列当前目录一层）的显示隐藏开关：走 <see cref="DirectoryLister.List"/> 的单层枚举，
 /// 不走搜索器——开关只管点开头/Hidden 条目出不出列。
 /// </summary>
 public class SearchServiceLayerTests : IDisposable
