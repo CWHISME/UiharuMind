@@ -29,7 +29,7 @@ internal static class AgentInstructionsComposer
         AgentToolConfig config,
         string workingDirectory, string workspaceInstructions,
         string extensionsSection, string shellBinary, string pythonInterpreter,
-        string outputRoomDirectory, string memoryDirectory,
+        string outputRoomDirectory, string memoryDirectory, string worktreesRoot,
         string personaCoda, out IReadOnlyList<AgentPromptSegment> segments)
     {
         List<AgentPromptSegment> registry = new();
@@ -40,7 +40,7 @@ internal static class AgentInstructionsComposer
         AppendSection(sb, SceneSection(groupScene), EPromptSection.Scene, registry);
         AppendSection(sb, AvatarDutiesSection(avatarDuties), EPromptSection.AvatarDuties, registry);
         AppendSection(sb, BuildToolDisciplines(config, workingDirectory, shellBinary,
-                pythonInterpreter, outputRoomDirectory, memoryDirectory),
+                pythonInterpreter, outputRoomDirectory, memoryDirectory, worktreesRoot),
             EPromptSection.ToolDisciplines, registry);
         if (extensionsSection.Length > 0)
         {
@@ -244,7 +244,7 @@ internal static class AgentInstructionsComposer
     /// <returns>harness 层指令文本；无任何内容时为空串</returns>
     private static string BuildToolDisciplines(AgentToolConfig config,
         string workingDirectory, string shellBinary, string pythonInterpreter,
-        string outputRoomDirectory, string memoryDirectory)
+        string outputRoomDirectory, string memoryDirectory, string worktreesRoot)
     {
         // 段序与条件都归 ToolDisciplineSections 那一张清单,主代理与子代理共用。
         // 这里只负责把"装配结果"翻译成清单认识的事实
@@ -261,6 +261,7 @@ internal static class AgentInstructionsComposer
             WorkingDirectory = workingDirectory,
             OutputRoom = outputRoomDirectory,
             Memory = memoryDirectory,
+            Worktrees = worktreesRoot,
             ShellBinary = shellBinary,
         });
     }

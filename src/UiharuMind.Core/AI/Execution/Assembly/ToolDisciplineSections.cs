@@ -55,6 +55,9 @@ internal static class ToolDisciplineSections
         /// <summary>记忆目录绝对路径；空串则不写那一条。子代理没有记忆段——它拿的是一份任务书</summary>
         public string Memory { get; init; } = string.Empty;
 
+        /// <summary>worktree 根绝对路径（create 的默认落盘处，<c>$WORKTREES</c>）；空串则不写那一条</summary>
+        public string Worktrees { get; init; } = string.Empty;
+
         /// <summary>实际解析出来的 shell 可执行路径；空串则不写那一句</summary>
         public string ShellBinary { get; init; } = string.Empty;
 
@@ -87,9 +90,14 @@ internal static class ToolDisciplineSections
         string? memoryToken = facts.Memory.Length > 0 && facts.FileRead
             ? AgentPathResolver.ShorthandFor(AgentPathResolver.MemoryVariable, facts.ShellBinary)
             : null;
-        list.Section(hasWorkingDirectory || draftToken != null || memoryToken != null,
+        // worktree 根：有路径解析能力（文件工具或 shell 任一）才写，否则说了也只是指一个写不进去的目录
+        string? worktreesToken = facts.Worktrees.Length > 0 && (facts.FileRead || facts.FileWrite || facts.Shell)
+            ? AgentPathResolver.ShorthandFor(AgentPathResolver.WorktreesVariable, facts.ShellBinary)
+            : null;
+        list.Section(hasWorkingDirectory || draftToken != null || memoryToken != null || worktreesToken != null,
             AgentPromptHeadings.Directories("##"),
-            () => AgentToolPrompts.BuildDirectories(hasWorkingDirectory,facts.WorkingDirectory, draftToken, memoryToken, facts.ForSubAgent, facts.Shell));
+            () => AgentToolPrompts.BuildDirectories(hasWorkingDirectory, facts.WorkingDirectory, draftToken, memoryToken,
+                worktreesToken, facts.ForSubAgent, facts.Shell));
 
         // shell 曾是唯一挂了工具却零指示的能力,缺口的表现是模型拿 Write 重写全文去做一次 mv。
         // 「文件系统操作用 Shell」那句刻意不写进文件纪律段:shell 可以被关掉,

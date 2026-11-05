@@ -67,8 +67,8 @@ public static class WorktreeTools
                         string? baseBranch = null,
                     [Description("新分支名；缺省同 name")]
                         string? branch = null,
-                    [Description("worktree 落盘目录的绝对路径（相对路径按工作目录解析）；缺省为数据目录项目共享的 Worktrees 下；" +
-                                      "目标须为空或不存在")]
+                    [Description("worktree 落盘目录的绝对路径（可写 $WORKTREES/<名字> 简写；相对路径按工作目录解析）；" +
+                                      "缺省为数据目录项目共享的 Worktrees 下；目标须为空或不存在")]
                         string? directory = null,
                     CancellationToken cancellationToken = default) =>
                     await service.CreateAsync(RequireSession(), name, baseBranch, branch, directory, cancellationToken)
@@ -79,9 +79,10 @@ public static class WorktreeTools
                 "带 git 身份的子模块在目标 commit 上建同名分支）、按平台能力修复软链接（Windows 需开发者模式/管理员），" +
                 "同名分支已存在则直接检出；不是 git 仓库时：复制工作目录内容成隔离副本（跳过 node_modules 等常见大目录）。" +
                 "落盘默认数据目录项目共享的 Worktrees 下（directory 给绝对路径即落在别处，目标须为空/不存在）。" +
-                "本工具不动会话的工作目录（相对路径仍解析到原工作目录），worktree 内请用绝对路径。"),
+                "本工具不动会话的工作目录（相对路径仍解析到原工作目录），worktree 内用绝对路径或 $WORKTREES/<名字> 简写" +
+                "（该环境变量已注入 shell，文件工具与命令行都认）。"),
             ToolJson.CreateFunction(
-                async ([Description("worktree 根目录的绝对路径（可给树内子目录，会归到树根）。必须属于会话绑定的同一仓库")]
+                async ([Description("worktree 根目录的绝对路径（可写 $WORKTREES/<名字> 简写；可给树内子目录，会归到树根）。必须属于会话绑定的同一仓库")]
                         string path,
                     CancellationToken cancellationToken = default) =>
                     await service.SetAsync(RequireSession(), path, cancellationToken).ConfigureAwait(false),
@@ -90,7 +91,7 @@ public static class WorktreeTools
                 "子代理派活时自动继承。git 仓库时校验目标属于同一仓库；不是 git 仓库时登记你准备的副本（确认目录是你的）。" +
                 "不动工作目录与草稿目录。"),
             ToolJson.CreateFunction(
-                async ([Description("要同步的 worktree 根目录的绝对路径；不填同步该会话全部已登记的")]
+                async ([Description("要同步的 worktree 根目录的绝对路径（可写 $WORKTREES/<名字> 简写）；不填同步该会话全部已登记的")]
                         string? path = null,
                     CancellationToken cancellationToken = default) =>
                     await service.SyncAsync(RequireSession(), path, cancellationToken).ConfigureAwait(false),
@@ -111,7 +112,7 @@ public static class WorktreeTools
             //     "只给 path 就只取消那一个，不给就全部取消。只动会话登记，不改盘、不动工作目录；" +
             //     "切回后结果会提示清理（worktree.remove）。"),
             ToolJson.CreateFunction(
-                async ([Description("要删除的 worktree 根目录的绝对路径（须已登记）")]
+                async ([Description("要删除的 worktree 根目录的绝对路径（可写 $WORKTREES/<名字> 简写，须已登记）")]
                         string path,
                     [Description("强制删除：丢弃该 worktree 里的未提交改动。默认 false（git 会拒绝删除有改动的树）")]
                         bool force = false,

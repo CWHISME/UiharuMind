@@ -130,6 +130,7 @@ internal static class AgentOptionsFactory
             plan.WorkingDirectory, plan.WorkspaceInstructions,
             ExtensionRoster.Section(config, AgentToolScopes.ScopeOf(plan.Profile)),
             shellBinary, plan.PythonInterpreterPath, plan.OutputRoomDirectory, plan.MemoryDirectory,
+            plan.WorktreesRoot,
             character.GetPersonaCoda(), out promptSegments);
 
         // 历史预算不再由我们裁剪,改由框架在环压缩按当前模型的上下文动态开窗(ADR 0006)

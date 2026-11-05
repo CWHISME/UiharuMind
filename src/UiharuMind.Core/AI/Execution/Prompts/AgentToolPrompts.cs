@@ -31,9 +31,9 @@ public static class AgentToolPrompts
     public const string ConcurrentCalls =
         "同一条回复里的多个工具调用会同时执行。";
 
-    /// 目录段：工作目录、草稿目录、记忆目录合在一个标题下，三条各按装配条件出现。
+    /// 目录段：工作目录、草稿目录、记忆目录、worktree 根合在一个标题下，各条按装配条件出现。
     public static string BuildDirectories(bool hasWorkingDirectory, string workingDirectory, string? draftToken, string? memoryToken,
-        bool forSubAgent = false, bool shellMounted = false)
+        string? worktreesToken = null, bool forSubAgent = false, bool shellMounted = false)
     {
         StringBuilder sb = new();
         if (hasWorkingDirectory)
@@ -63,12 +63,19 @@ public static class AgentToolPrompts
                           (shellMounted ? "旧文件用 `Shell` 删掉。" : "旧笔记的首行改成「已过时，见 新笔记名」。"));
         }
 
-        string tokens = string.Join("、", new[] { draftToken, memoryToken }.Where(t => t != null));
+        if (worktreesToken != null)
+        {
+            sb.AppendLine($"- worktree 根 {worktreesToken}：已创建的隔离工作副本都落在这里面。" +
+                          $"worktree 内文件的路径写 {worktreesToken}/名字 这种简写即可，文件工具与命令行都解析它；" +
+                          "用 worktree.list / worktree.status 查看当前登记的 worktree。");
+        }
+
+        string tokens = string.Join("、", new[] { worktreesToken, draftToken, memoryToken }.Where(t => t != null));
         if (tokens.Length > 0)
         {
             // 先介绍完目录再说简写怎么用
-            sb.AppendLine($"以上 {tokens} 是已注入的环境变量，文件工具的路径参数和命令行里直接写简写（如 {draftToken ?? memoryToken}/文件名），" +
-                          $"除脚本内容外，不必展开成完整路径。脚本内容里要用这个目录就读环境变量（如 Python 的 os.environ[\"{AgentPathResolver.DraftVariable}\"]）");
+            sb.AppendLine($"以上 {tokens} 是已注入的环境变量，文件工具的路径参数和命令行里直接写简写（如 {draftToken ?? memoryToken ?? worktreesToken}/文件名），" +
+                          "除脚本内容外，不必展开成完整路径。脚本内容里要用这个目录就读环境变量（os.environ 里与简写对应的同名变量）");
         }
 
         return sb.ToString().TrimEnd();

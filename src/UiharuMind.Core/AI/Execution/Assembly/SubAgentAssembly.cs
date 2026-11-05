@@ -442,9 +442,11 @@ internal static class SubAgentAssembly
                 : EAgentToolScope.SubAgent;
         bool canMutate = !AgentToolScopes.Of(scope).ReadOnlyFiles;
         string outputRoom = AgentOutputLayout.GetRoomAbsolutePath(input.OutputFolderName);
-        // 与主代理同一份路径口径:共用那间草稿目录,简写的写法跟子代理自己的 shell 走(子代理不带记忆)
+        // 与主代理同一份路径口径:共用那间草稿目录,简写的写法跟子代理自己的 shell 走(子代理不带记忆);
+        // worktree 根与主代理同一份——提示词教了 $WORKTREES,文件工具必须认
         AgentPathResolver paths = new(input.WorkingDirectory, outputRoom, shellBinary: input.ShellBinary,
-            transcriptPath: SessionManager.TranscriptPathOf(input.SessionId));
+            transcriptPath: SessionManager.TranscriptPathOf(input.SessionId),
+            worktreesRoot: input.WorktreesRoot);
 
         // 挂哪些与主代理同一份装配(AgentToolsetBuilder):子代理比主代理少的那几档只写在场合表里
         List<AgentToolEntry> entries = AgentToolsetBuilder.Build(config, scope, new AgentToolResources
@@ -508,7 +510,7 @@ internal static class SubAgentAssembly
         ChatOptions subOptions = input.Sampling?.ToChatOptions() ?? new ChatOptions();
         subOptions.Instructions = BuildSubAgentInstructions(config, hasShell,
             input.ShellBinary ?? string.Empty, canMutate, input.PythonOutputDirectory,
-            input.WorkingDirectory, outputRoom,
+            input.WorkingDirectory, outputRoom, input.WorktreesRoot,
             input.WorkspaceInstructions,
         // 只读场合不发扩展名单：脑（Brain）场合本身没有扩展
         entries.Any(x => x.Capability == EAgentCapability.Extensions)
@@ -575,7 +577,7 @@ internal static class SubAgentAssembly
     /// <returns>提示词</returns>
     private static string BuildSubAgentInstructions(AgentToolConfig config, bool hasShell,
         string shellBinary, bool canMutate, string pythonOutputDirectory,
-        string workingDirectory, string outputRoomDirectory,
+        string workingDirectory, string outputRoomDirectory, string worktreesRoot,
         string workspaceInstructions, string extensionsSection,
         string persona = "", string role = "", bool brain = false)
     {
@@ -608,6 +610,8 @@ internal static class SubAgentAssembly
             OutputRoom = outputRoomDirectory,
             // 记忆是主代理专有的:子代理拿的是一份任务书,不需要自己装载跨会话笔记(ADR 0028)
             Memory = string.Empty,
+            // 子代理沿用派活者的 worktree 根:在登录的副本里干活同样免审批、同样能用 $WORKTREES 简写
+            Worktrees = worktreesRoot,
             ShellBinary = shellBinary,
             ForSubAgent = true,
         }));

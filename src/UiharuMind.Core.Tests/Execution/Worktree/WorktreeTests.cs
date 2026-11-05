@@ -3,6 +3,8 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
+using UiharuMind.Core.AI.Execution.Files;
+using UiharuMind.Core.AI.Execution.Prompts;
 using UiharuMind.Core.AI.Execution.Tools.Worktree;
 using UiharuMind.Core.Tests.Agent;
 
@@ -102,7 +104,7 @@ public class WorktreeTests
         Assert.Contains("fetch origin --prune --tags", git.Commands);
         Assert.Contains("submodule update --init --recursive", git.Commands);
         Assert.Contains("ls-files -s", git.Commands); // 软链接探测
-        Assert.Contains($"worktree add -b feature/x {target} HEAD", git.Commands);
+        Assert.Contains(git.Commands, c => c.Contains($"worktree add -b feature/x {target} HEAD", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -116,8 +118,8 @@ public class WorktreeTests
             CreateTarget("exists"), TestContext.Current.CancellationToken);
 
         Assert.Contains("已存在同名分支", result);
-        Assert.Contains($"worktree add {target} exists", git.Commands);
-        Assert.DoesNotContain(git.Commands, c => c.StartsWith("worktree add -b", StringComparison.Ordinal));
+        Assert.Contains(git.Commands, c => c.Contains($"worktree add {target} exists", StringComparison.Ordinal));
+        Assert.DoesNotContain(git.Commands, c => c.Contains("worktree add -b", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -136,7 +138,7 @@ public class WorktreeTests
             CreateTarget("fix"), TestContext.Current.CancellationToken);
 
         Assert.Contains("跟踪 origin/fix", result);
-        Assert.Contains($"worktree add -b fix {target} origin/fix", git.Commands);
+        Assert.Contains(git.Commands, c => c.Contains($"worktree add -b fix {target} origin/fix", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -158,7 +160,7 @@ public class WorktreeTests
             CreateTarget("fix"), TestContext.Current.CancellationToken);
 
         Assert.Contains("origin/main", result);
-        Assert.Contains($"worktree add -b fix {target} origin/main", git.Commands);
+        Assert.Contains(git.Commands, c => c.Contains($"worktree add -b fix {target} origin/main", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -344,7 +346,7 @@ public class WorktreeTests
             "feature/foo", TestContext.Current.CancellationToken);
 
         Assert.Contains(target, result);
-        Assert.Contains($"worktree add -b feature/foo {target} HEAD", git.Commands);
+        Assert.Contains(git.Commands, c => c.Contains($"worktree add -b feature/foo {target} HEAD", StringComparison.Ordinal));
         Assert.Contains(target, session.SnapshotSessionApprovedWorktreeRoots().Select(x => x.Root));
     }
 
@@ -364,7 +366,7 @@ public class WorktreeTests
         string result = await new WorktreeGitService(git).CreateAsync(session, "feature/bar", null, null,
             "$WORKTREES/feature/bar", TestContext.Current.CancellationToken);
 
-        Assert.Contains($"worktree add -b feature/bar {target} HEAD", git.Commands);
+        Assert.Contains(git.Commands, c => c.Contains($"worktree add -b feature/bar {target} HEAD", StringComparison.Ordinal));
         Assert.Contains(target, session.SnapshotSessionApprovedWorktreeRoots().Select(x => x.Root));
         Assert.Contains("$WORKTREES/feature/bar", result);
     }
@@ -663,6 +665,56 @@ public class WorktreeTests
         Assert.Contains("干净", text);
     }
 
+    /// <summary>list 输出落在 worktree 根下的登记转成 $WORKTREES/… 简写（模型照抄即可），根外照旧绝对路径</summary>
+    [Fact]
+    public async Task List_ShowsTheWorktreesShorthand_ForRootsUnderTheRoot()
+    {
+        ChatSession session = NewSession();
+        string wtRoot = WorktreeLayout.GetWorktreesRoot(Workspace);
+        session.AddSessionApprovedWorktreeRoot(Path.Combine(wtRoot, "feature", "x"));
+        session.AddSessionApprovedWorktreeRoot(Path.Combine("/tmp", "wt", "outside"));
+        FakeGit git = new()
+        {
+            Handler = (_, args) => args switch
+            {
+                ["branch", "--show-current"] => new WorktreeGitResult("fix/x", string.Empty, 0),
+                ["log", "-1", "--format=%cI"] => new WorktreeGitResult("2026-01-05T08:00:00+00:00", string.Empty, 0),
+                ["status", "--porcelain"] => new WorktreeGitResult(string.Empty, string.Empty, 0),
+                _ => null,
+            },
+        };
+
+        string text = await new WorktreeGitService(git).ListAsync(session, TestContext.Current.CancellationToken);
+
+        Assert.Contains("$WORKTREES/feature/x", text);
+        Assert.Contains(Path.GetFullPath("/tmp/wt/outside"), text);
+    }
+
+    /// <summary>status 同样把登记 root 转成 $WORKTREES/… 简写</summary>
+    [Fact]
+    public void Status_ShowsTheWorktreesShorthand_ForRootsUnderTheRoot()
+    {
+        ChatSession session = NewSession();
+        string wtRoot = WorktreeLayout.GetWorktreesRoot(Workspace);
+        session.AddSessionApprovedWorktreeRoot(Path.Combine(wtRoot, "feature", "x"));
+
+        string text = WorktreeGitService.Status(session);
+
+        Assert.Contains("$WORKTREES/feature/x", text);
+    }
+
+    /// <summary>提示词目录段教 $WORKTREES 简写并说明已注入环境变量——模型不知道有这个变量，就不会用它</summary>
+    [Fact]
+    public void ToolPrompt_TeachTheWorktreesShorthand_AndTheInjectedVariable()
+    {
+        string text = AgentToolPrompts.BuildDirectories(true, "/tmp/uiharu-ws", "$DRAFT", "$MEMORY", "$WORKTREES");
+
+        Assert.Contains("- worktree 根 $WORKTREES", text);
+        Assert.Contains("$WORKTREES/名字", text);
+        Assert.Contains("已注入的环境变量", text);
+        Assert.Contains("$WORKTREES", text);
+    }
+
     //================= 子模块：本地复制 + 网络兜底 + 建分支 =================
 
     /// <summary>主工作区已检出的子模块：网络拉取失败时直接从主工作区本地 clone（保留 git 身份），
@@ -837,6 +889,9 @@ public class WorktreeTests
         Assert.Contains("config extensions.worktreeConfig true", git.Commands);
         Assert.Contains("config --worktree core.symlinks true", git.Commands);
         Assert.Contains("checkout-index -f -a", git.Commands);
+        // 平台支持时 add 保持原行为（不带 -c）：链接直接按 core.symlinks 检出，随后由上面几步确认
+        Assert.DoesNotContain(git.Commands,
+            c => c.StartsWith("-c core.symlinks=false worktree add", StringComparison.Ordinal));
         Assert.DoesNotContain(git.Commands, c => c == "config core.symlinks true");
     }
 
@@ -857,12 +912,148 @@ public class WorktreeTests
             target, TestContext.Current.CancellationToken);
 
         Assert.Contains("不能创建真符号链接", result);
+        // add 带命令级 -c core.symlinks=false：符号链接按普通文件检出，不依赖建链接权限
+        Assert.Contains(git.Commands,
+            c => c.StartsWith("-c core.symlinks=false worktree add", StringComparison.Ordinal));
         Assert.DoesNotContain(git.Commands, c => c.Contains("checkout-index", StringComparison.Ordinal));
-        Assert.DoesNotContain(git.Commands, c => c.Contains("core.symlinks", StringComparison.Ordinal));
+        // 不写任何持久配置：-c 只对该命令生效，主仓库的 core.symlinks 不被碰
+        Assert.DoesNotContain(git.Commands,
+            c => c.Contains("config", StringComparison.Ordinal) && c.Contains("core.symlinks", StringComparison.Ordinal));
+    }
+
+    /// <summary>ls-files -s 只挑 120000 条目，普通文件不混进来</summary>
+    [Fact]
+    public void SymlinkPaths_PicksOnlyThe120000Entries()
+    {
+        string output = "120000 8ab6d0 0\tlink.txt\n100644 cf8 0\treadme.md\n120000 abc 0\tdir/art\n";
+
+        Assert.Equal(["link.txt", "dir/art"], WorktreeGitService.SymlinkPathsOf(output));
+    }
+
+    /// <summary>平台建不了真符号链接时，指向目录的条目重建为 junction；文件类/解析不了的保持普通文件</summary>
+    [Fact]
+    public async Task UnsupportedPlatform_MaterializesDirectoryLinks_AsJunctions()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "wt-junc-" + Guid.NewGuid().ToString("N")[..8]);
+        try
+        {
+            string real = Path.Combine(dir, "real");
+            Directory.CreateDirectory(real);
+            File.WriteAllText(Path.Combine(real, "x.txt"), "x");
+            string art = Path.Combine(dir, "Art");
+            File.WriteAllText(art, real); //普通文件形态的链接：内容是目标路径
+            string rel = Path.Combine(dir, "rel-link");
+            File.WriteAllText(rel, "real"); //相对目标：按链接所在目录解析到 dir/real
+            File.WriteAllText(Path.Combine(dir, "plain.txt"), "file content"); //文件类链接：不 junction
+            string missing = Path.Combine(dir, "missing");
+            File.WriteAllText(missing, Path.Combine(dir, "no-such-dir")); //目标不存在：跳过
+
+            List<(string Link, string Target)> junctions = [];
+            WorktreeGitService service = new(new FakeGit(), () => false,
+                (link, target) =>
+                {
+                    junctions.Add((link, target));
+                    return true;
+                });
+
+            int created = await service.MaterializeDirectoryLinksAsync(dir, ["Art", "rel-link", "plain.txt", "missing"],
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal(2, created);
+            Assert.Equal(
+            [
+                (Path.GetFullPath(art), Path.GetFullPath(real)),
+                (Path.GetFullPath(rel), Path.GetFullPath(real)),
+            ], junctions);
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    /// <summary>junction 创建失败（creator 返回 false）时，把原普通文件写回——不能先删后建失败让该路径凭空消失</summary>
+    [Fact]
+    public async Task UnsupportedPlatform_JunctionFails_RestoresThePlainFile()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "wt-junc-" + Guid.NewGuid().ToString("N")[..8]);
+        try
+        {
+            string real = Path.Combine(dir, "real");
+            Directory.CreateDirectory(real);
+            File.WriteAllText(Path.Combine(real, "x.txt"), "x");
+            string art = Path.Combine(dir, "Art");
+            File.WriteAllText(art, real); //普通文件形态的链接：内容指向真实存在的目录
+
+            WorktreeGitService service = new(new FakeGit(), () => false, (_, _) => false); //junction 恒失败
+
+            int created = await service.MaterializeDirectoryLinksAsync(dir, ["Art"],
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal(0, created);
+            Assert.True(File.Exists(art), "失败后普通文件应被还原");
+            Assert.Equal(real, File.ReadAllText(art));
+            Assert.False(Directory.Exists(art), "失败后不应留下一个 junction 目录");
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    /// <summary>junction 创建器抛异常时同样写回原普通文件（与返回 false 同口径，不拖累整体）</summary>
+    [Fact]
+    public async Task UnsupportedPlatform_JunctionThrows_RestoresThePlainFile()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "wt-junc-" + Guid.NewGuid().ToString("N")[..8]);
+        try
+        {
+            string real = Path.Combine(dir, "real");
+            Directory.CreateDirectory(real);
+            File.WriteAllText(Path.Combine(real, "x.txt"), "x");
+            string art = Path.Combine(dir, "Art");
+            File.WriteAllText(art, real);
+
+            WorktreeGitService service = new(new FakeGit(), () => false,
+                (_, _) => throw new IOException("boom"));
+
+            int created = await service.MaterializeDirectoryLinksAsync(dir, ["Art"],
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal(0, created);
+            Assert.True(File.Exists(art), "抛异常后普通文件应被还原");
+            Assert.Equal(real, File.ReadAllText(art));
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    /// <summary>文件工具解析器带上 worktreesRoot 时，$WORKTREES/… 简写可以直接当 Read/Edit 的参数（与提示词教的同一条口径）</summary>
+    [Fact]
+    public void FileToolResolver_WithWorktreesRoot_ResolvesTheShorthand()
+    {
+        string wtRoot = WorktreeLayout.GetWorktreesRoot(Workspace);
+        AgentPathResolver paths = new(Workspace, worktreesRoot: wtRoot);
+
+        Assert.True(paths.TryResolve("$WORKTREES/feature/x", out string full));
+        Assert.Equal(Path.Combine(wtRoot, "feature", "x"), full);
+    }
+
+    /// <summary>Git Bash 风格的目标路径（/f/…）要转成盘符，否则 Windows 的 .NET 会解析到当前盘根</summary>
+    [Fact]
+    public void ConvertGitBashDrivePath_ConvertsDriveStyleOnly()
+    {
+        Assert.Equal(@"F:\MyProject\MyStory\Res\game",
+            WorktreeGitService.ConvertGitBashDrivePath("/f/MyProject/MyStory/Res/game"));
+        Assert.Equal(@"D:\a b", WorktreeGitService.ConvertGitBashDrivePath("/d/a b"));
+        Assert.Null(WorktreeGitService.ConvertGitBashDrivePath("../Res/game")); //相对路径不动
+        Assert.Null(WorktreeGitService.ConvertGitBashDrivePath("/tmp/x")); //第二段不是盘符
+        Assert.Null(WorktreeGitService.ConvertGitBashDrivePath("C:/abs/x")); //已是盘符
     }
 
     //================= sync：主工作区 → 已登记 worktree =================
-
     /// <summary>git worktree：父仓库快进到主工作区分支（共享 .git，本地未推送提交也带过来），
     /// 子模块从主工作区本地 fetch 后快进</summary>
     [Fact]

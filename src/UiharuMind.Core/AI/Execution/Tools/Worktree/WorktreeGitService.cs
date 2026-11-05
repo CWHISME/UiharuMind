@@ -7,6 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Diagnostics;
 using System.Text;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
@@ -27,12 +28,16 @@ internal sealed class WorktreeGitService
 {
     private readonly IWorktreeGitRunner _git;
     private readonly Func<bool> _symlinkProbe;
+    private readonly Func<string, string, bool> _junction; //链接文件绝对路径、目标绝对路径 → 建成了
 
-    public WorktreeGitService(IWorktreeGitRunner git, Func<bool>? symlinkProbe = null)
+    public WorktreeGitService(IWorktreeGitRunner git, Func<bool>? symlinkProbe = null,
+        Func<string, string, bool>? junction = null)
     {
         _git = git;
         // 探测平台能否建真符号链接（Windows 要开发者模式/管理员）；测试注入假探针
         _symlinkProbe = symlinkProbe ?? SymlinksSupported;
+        // 建不了真符号链接时的目录别名（Windows junction 免权限）；测试注入假创建器
+        _junction = junction ?? CreateJunction;
     }
 
     /// <summary>会话的有效工作区：群成员跟群走（GroupChatSessions.WorkspaceOf），其余取自己绑的</summary>
@@ -110,6 +115,10 @@ internal sealed class WorktreeGitService
         string workspaceFull, string target, string branchName, string? baseBranch, CancellationToken cancellationToken)
     {
         List<string> steps = [];
+        // 平台能力先探一次：可建真符号链接的平台保持原行为（add 直接按 core.symlinks 检出真链接）；
+        // 不能建的（Windows 无开发者模式/管理员）add 带 -c core.symlinks=false 按普通文件形态检出，
+        // 避免全量检出符号链接时撞权限墙（如 MyStory 顶层 Content/Art）。-c 只对该命令生效、不写任何配置
+        bool canSymlink = _symlinkProbe();
 
         // 1) 拉取：无远程不算失败（继续基于本地创建），有远程拉到最新再建
         WorktreeGitResult fetch = await _git.RunAsync(workspaceFull, ["fetch", "origin", "--prune", "--tags"], cancellationToken)
@@ -126,8 +135,10 @@ internal sealed class WorktreeGitService
         WorktreeGitResult add;
         if (branchCheck.Succeeded)
         {
-            add = await _git.RunAsync(workspaceFull, ["worktree", "add", target, branchName], cancellationToken)
-                .ConfigureAwait(false);
+            add = await _git.RunAsync(workspaceFull, canSymlink
+                ? ["worktree", "add", target, branchName]
+                : ["-c", "core.symlinks=false", "worktree", "add", target, branchName],
+                cancellationToken).ConfigureAwait(false);
             branchNote = "已存在同名分支，直接检出";
         }
         else
@@ -161,16 +172,18 @@ internal sealed class WorktreeGitService
                 ["rev-parse", "--verify", $"origin/{branchName}"], cancellationToken).ConfigureAwait(false);
             if (originCheck.Succeeded)
             {
-                add = await _git.RunAsync(workspaceFull,
-                    ["worktree", "add", "-b", branchName, target, $"origin/{branchName}"], cancellationToken)
-                    .ConfigureAwait(false);
+                add = await _git.RunAsync(workspaceFull, canSymlink
+                    ? ["worktree", "add", "-b", branchName, target, $"origin/{branchName}"]
+                    : ["-c", "core.symlinks=false", "worktree", "add", "-b", branchName, target, $"origin/{branchName}"],
+                    cancellationToken).ConfigureAwait(false);
                 branchNote = $"新建本地分支 {branchName}，跟踪 origin/{branchName}";
             }
             else
             {
-                add = await _git.RunAsync(workspaceFull,
-                    ["worktree", "add", "-b", branchName, target, baseRef], cancellationToken)
-                    .ConfigureAwait(false);
+                add = await _git.RunAsync(workspaceFull, canSymlink
+                    ? ["worktree", "add", "-b", branchName, target, baseRef]
+                    : ["-c", "core.symlinks=false", "worktree", "add", "-b", branchName, target, baseRef],
+                    cancellationToken).ConfigureAwait(false);
                 branchNote = $"新建分支 {branchName}，基于 {baseRef}";
             }
         }
@@ -190,14 +203,22 @@ internal sealed class WorktreeGitService
         //    修复只对这张 worktree 生效：extensions.worktreeConfig 只开树的开关、--worktree 只写这棵树；
         //    绝不改仓库级 core.symlinks（那会把主工作区一起翻）。
         //    平台不支持真符号链接（Windows 未开开发者模式/管理员）时不强修：
-        //    checkout-index 会先删普通文件再建链接，失败即丢文件（实测），保持普通文件形态更可靠
+        //    checkout-index 会先删普通文件再建链接，失败即丢文件（实测），保持普通文件形态更可靠；
+        //    其中目标是目录的条目改用 junction 重建（Windows 免权限别名），资源路径仍可访问。
+        //    子模块仓库自身的符号链接不在本次处理范围（clone/update 继承主配置，需开发者模式）
         WorktreeGitResult modes = await _git.RunAsync(target, ["ls-files", "-s"], cancellationToken).ConfigureAwait(false);
         if (modes.Succeeded && HasSymlinkMode(modes.Output))
         {
-            if (!_symlinkProbe())
+            if (!canSymlink)
             {
-                steps.Add("仓库含符号链接（120000）但当前平台不能创建真符号链接（Windows 需开发者模式/管理员）；" +
-                          "保持与主工作区一致的普通文件形态，未改动仓库级 core.symlinks。");
+                int junctions = await MaterializeDirectoryLinksAsync(target, SymlinkPathsOf(modes.Output), cancellationToken)
+                    .ConfigureAwait(false);
+                steps.Add(junctions > 0
+                    ? $"仓库含符号链接（120000）但当前平台不能创建真符号链接（Windows 需开发者模式/管理员）；" +
+                      $"其中 {junctions} 个指向目录的链接已改用 junction 重建，资源路径保持可用；" +
+                      "文件类链接保持普通文件形态。junction 会让 git status 把这几条报成已删除，提交时别带上它们。"
+                    : "仓库含符号链接（120000）但当前平台不能创建真符号链接（Windows 需开发者模式/管理员）；" +
+                      "保持与主工作区一致的普通文件形态，未改动仓库级 core.symlinks。");
             }
             else
             {
@@ -330,6 +351,154 @@ internal sealed class WorktreeGitService
     /// <summary>ls-files -s 的输出里有没有 120000 模式（符号链接）</summary>
     private static bool HasSymlinkMode(string output) => output.Split('\n').Any(line =>
         line.TrimStart().StartsWith("120000", StringComparison.Ordinal));
+
+    /// <summary>从 ls-files -s 输出里取出所有 120000（符号链接）条目的仓库相对路径。
+    /// 只认非引号形式的路径：文件名含 TAB/LF/引号/反斜杠时 git 会输出 C 风格引号路径（如 "dir/art"），
+    /// 这类条目解析不出、保持普通文件形态——仓库里目录链接极少用这种名字，作已知边界。
+    /// 与子模块解析同一道越界守卫：根路径或含 <c>..</c> 分量的条目不碰，杜绝把 junction 建到 worktree 外</summary>
+    internal static IReadOnlyList<string> SymlinkPathsOf(string output) => output.Split('\n')
+        .Select(line => line.Trim())
+        .Where(line => line.StartsWith("120000", StringComparison.Ordinal))
+        .Select(line => line.Split('\t', 2) is { Length: 2 } parts ? parts[1].Trim() : string.Empty)
+        .Where(path => path.Length > 0 && !Path.IsPathRooted(path) && !path.Split('/', '\\').Contains(".."))
+        .ToList();
+
+    /// <summary>
+    /// 平台建不了真符号链接时，把普通文件形态的链接条目里<b>指向目录</b>的那些重建为
+    /// junction（Windows 免权限的目录别名）：资源路径保持可用，主工作区的目录随改随见。
+    /// 文件类链接与目标解析不了/不是目录的保持普通文件形态。每个失败都只是跳过，不影响整体
+    /// </summary>
+    /// <param name="target">worktree 根</param>
+    /// <param name="symlinkPaths">仓库内 120000 条目的路径</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>重建成功的条数</returns>
+    internal async Task<int> MaterializeDirectoryLinksAsync(string target, IReadOnlyList<string> symlinkPaths,
+        CancellationToken cancellationToken)
+    {
+        int created = 0;
+        foreach (string path in symlinkPaths)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                string linkFile = Path.Combine(target, path);
+                if (!File.Exists(linkFile)) continue; //普通文件形态的链接文件（内容是目标路径）
+                string raw = File.ReadAllText(linkFile);
+                // 只剥换行不剥合法空格：Unix 上链接目标首尾可以有空格
+                string resolved = ResolveLinkTarget(raw.Trim('\r', '\n'),
+                    Path.GetDirectoryName(linkFile) ?? target);
+                if (resolved.Length == 0 || !Directory.Exists(resolved)) continue; //目标不是目录/不存在
+
+                File.Delete(linkFile);
+                bool junctioned;
+                try
+                {
+                    junctioned = _junction(linkFile, resolved);
+                }
+                catch
+                {
+                    junctioned = false; //注入的创建器可能抛：与返回 false 同口径，走写回
+                }
+
+                if (junctioned)
+                {
+                    created++;
+                }
+                else
+                {
+                    // 先删后建失败：把原普通文件写回，保持「普通文件形态」而非让该路径凭空消失
+                    File.WriteAllText(linkFile, raw);
+                }
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException
+                or NotSupportedException)
+            {
+                //单个链接重建失败：跳过，不拖累整体
+            }
+        }
+
+        return created;
+    }
+
+    /// <summary>
+    /// 解析链接文件里存的目标路径成绝对路径。git 建于 Git Bash 的链接目标可能是
+    /// <c>/f/MyProject/…</c> 这种盘符风格（Windows 的 .NET 会误判成当前盘根），转成 <c>F:\…</c>
+    /// </summary>
+    /// <param name="raw">链接文件内容（目标路径字符串）</param>
+    /// <param name="linkDir">链接文件所在目录（相对目标按它解析）</param>
+    /// <returns>绝对路径；解析不了为空串</returns>
+    private static string ResolveLinkTarget(string raw, string linkDir)
+    {
+        if (raw.Length == 0) return string.Empty;
+        string candidate = raw;
+        if (OperatingSystem.IsWindows() && ConvertGitBashDrivePath(raw) is { } converted)
+        {
+            candidate = converted;
+        }
+        else if (OperatingSystem.IsWindows() && raw[0] == '/')
+        {
+            // /tmp/x 这类非盘符的 Git Bash 绝对路径：.NET 会落到当前盘根，多半是错的，跳过
+            return string.Empty;
+        }
+
+        if (!Path.IsPathRooted(candidate)) candidate = Path.Combine(linkDir, candidate);
+        try
+        {
+            return Path.GetFullPath(candidate);
+        }
+        catch (Exception e) when (e is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return string.Empty;
+        }
+    }
+
+    /// <summary>把 Git Bash 风格 <c>/f/…</c> 转成盘符 <c>F:\…</c>；不是这种形态返回 null</summary>
+    internal static string? ConvertGitBashDrivePath(string raw)
+    {
+        if (raw.Length < 3 || raw[0] != '/' || !char.IsAsciiLetter(raw[1]) || raw[2] != '/') return null;
+        return $"{char.ToUpperInvariant(raw[1])}:{raw[2..].Replace('/', '\\')}";
+    }
+
+    /// <summary>默认的 junction 创建器：cmd 原生 mklink /J（Windows 免权限）。
+    /// 用 ArgumentList 传参，路径带空格也不会有引号问题</summary>
+    private static bool CreateJunction(string linkFile, string target)
+    {
+        try
+        {
+            ProcessStartInfo psi = new("cmd.exe")
+            {
+                CreateNoWindow = true,
+                UseShellExecute = false,
+            };
+            psi.ArgumentList.Add("/c");
+            psi.ArgumentList.Add("mklink");
+            psi.ArgumentList.Add("/J");
+            psi.ArgumentList.Add(linkFile);
+            psi.ArgumentList.Add(target);
+            using Process? process = Process.Start(psi);
+            if (process == null) return false;
+            // 超时就把进程树杀掉，不留下一个事后才建出 junction 的孤儿 cmd（会与原文件写回冲突）
+            if (!process.WaitForExit(15_000))
+            {
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                catch
+                {
+                    // 杀不掉也不影响结论：按失败处理，外层会写回普通文件
+                }
+
+                return false;
+            }
+
+            return process.ExitCode == 0;
+        }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            return false;
+        }
+    }
 
     /// <summary>
     /// 平台能否创建真符号链接：Windows 需开发者模式或管理员权限；macOS/Linux 恒真。
@@ -713,6 +882,7 @@ internal sealed class WorktreeGitService
     /// <returns>给模型的文本</returns>
     public async Task<string> ListAsync(ChatSession session, CancellationToken cancellationToken)
     {
+        string workspaceFull = Full(WorkspaceOf(session)?.Trim() ?? string.Empty, "工作目录");
         IReadOnlyList<string> roots = session.SnapshotSessionApprovedWorktreeRoots().Select(x => x.Root).ToList();
         if (roots.Count == 0) return "没有登记的 worktree。";
 
@@ -736,11 +906,12 @@ internal sealed class WorktreeGitService
                 ? (status.Output.Trim().Length > 0 ? "有未提交改动" : "干净")
                 : "—";
 
-            sb.AppendLine($"- {root}");
+            sb.AppendLine($"- {Display(workspaceFull, root)}");
             sb.AppendLine($"    分支：{branchName}；上次修改：{modified}；{dirty}");
         }
 
-        sb.AppendLine("清理用 worktree.remove <path>；切回主工作目录用 worktree.reset。");
+        sb.AppendLine("清理用 worktree.remove <path>；切回主工作目录用 worktree.reset。" +
+                      "（用 junction 重建目录链接的 worktree，git status 会一直把那几个条目报成已删除，属预期。）");
         return sb.ToString();
     }
 
@@ -794,10 +965,10 @@ internal sealed class WorktreeGitService
         sb.AppendLine($"会话工作目录（相对路径基准）：{(workspace?.Length > 0 ? workspace : "（未绑定）")}");
         sb.Append(roots.Count == 0
             ? "登记的 worktree（免审批）：无\n"
-            : "登记的 worktree（免审批）：\n  " + string.Join("\n  ", roots) + "\n");
+            : "登记的 worktree（免审批）：\n  " + string.Join("\n  ", roots.Select(paths.ToPortable)) + "\n");
         if (paths.DraftRoot.Length > 0) sb.AppendLine($"草稿目录 $DRAFT：{paths.DraftRoot}");
         if (paths.MemoryRoot.Length > 0) sb.AppendLine($"记忆目录 $MEMORY：{paths.MemoryRoot}");
-        sb.AppendLine("说明：登记的 worktree 内文件写入免审批；工作目录本身未变，worktree 内干活请用绝对路径；草稿与记忆不变。");
+        sb.AppendLine("说明：登记的 worktree 内文件写入免审批；工作目录本身未变，worktree 内干活用绝对路径或 $WORKTREES/名字 简写；草稿与记忆不变。");
         return sb.ToString();
     }
 
@@ -838,7 +1009,7 @@ internal sealed class WorktreeGitService
         string root = WorktreeLayout.GetWorktreesRoot(workspaceFull);
         if (root.Length == 0) return string.Empty;
         string token = "$" + AgentPathResolver.WorktreesVariable;
-        return $"worktree 根 {token}：{root}（shell 里是同名环境变量，文件工具与命令行都认这个简写，不必抄绝对路径）\n";
+        return $"worktree 根 {token}：{root}（该环境变量已注入 shell，文件工具与命令行都认这个简写，不必抄绝对路径）\n";
     }
 
     /// <summary>绝对化；相对路径按 <paramref name="baseDirectory"/> 拼（缺省按进程 cwd——worktree 参数一律给 baseDirectory，
