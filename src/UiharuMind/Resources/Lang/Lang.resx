@@ -4255,6 +4255,12 @@ Enable it?</value>
     <data name="ConversationSearchToolsTip" xml:space="preserve">
         <value>Also search tool calls, results and retrieved snippets</value>
     </data>
+    <data name="ConversationSearchOnlyUser" xml:space="preserve">
+        <value>My messages</value>
+    </data>
+    <data name="ConversationSearchOnlyUserTip" xml:space="preserve">
+        <value>Only my messages; leave the query empty to list all of them</value>
+    </data>
     <data name="ConversationSearchKindUser" xml:space="preserve">
         <value>Me</value>
     </data>

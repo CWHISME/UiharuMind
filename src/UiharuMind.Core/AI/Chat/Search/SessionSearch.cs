@@ -29,7 +29,8 @@ public enum ESearchHitKind
 /// <summary>搜索范围。默认只搜正文：思考与工具结果又长又多，全搜命中多半是噪音</summary>
 /// <param name="IncludeThinking">连思考一起搜</param>
 /// <param name="IncludeTools">连工具调用与检索片段一起搜</param>
-public readonly record struct SessionSearchOptions(bool IncludeThinking = false, bool IncludeTools = false);
+/// <param name="OnlyUser">只看用户消息；关键词留空时列出本会话全部用户消息（浏览模式）</param>
+public readonly record struct SessionSearchOptions(bool IncludeThinking = false, bool IncludeTools = false, bool OnlyUser = false);
 
 /// <summary>一条命中。一条消息至多一条，定位粒度是卡片</summary>
 /// <param name="MessageIndex">搜索那一刻在历史里的下标（历史之后可能变，定位以 <paramref name="Message"/> 为准）</param>
@@ -50,10 +51,11 @@ public static class SessionSearch
     private const int SnippetAfter = 60;
 
     /// <summary>
-    /// 在一份历史里找关键词（不区分大小写），按历史顺序返回
+    /// 在一份历史里找关键词（不区分大小写），按历史顺序返回。
+    /// 只看用户消息时关键词可留空：那是「翻自己发过的内容」的浏览模式，列全部用户消息、摘要取正文开头
     /// </summary>
     /// <param name="history">历史快照（调用方先复制一份再交给后台线程，别直接传会话本体那一份）</param>
-    /// <param name="query">关键词；空白返回空</param>
+    /// <param name="query">关键词；空白且未开 <paramref name="options"/> 的 OnlyUser 时返回空</param>
     /// <param name="options">搜索范围</param>
     /// <param name="cancellationToken">取消</param>
     /// <returns>命中，按历史顺序</returns>
@@ -61,11 +63,22 @@ public static class SessionSearch
         SessionSearchOptions options = default, CancellationToken cancellationToken = default)
     {
         List<SessionSearchHit> hits = new();
-        if (KeywordOf(query) is not { } keyword) return hits;
+        string? keyword = KeywordOf(query);
+        if (keyword == null && !options.OnlyUser) return hits;
 
         for (int i = 0; i < history.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (keyword == null)
+            {
+                // 用户消息只有正文，与 Extract 的 User 分支同一口径（点名调用显示用户敲的那行）；没有正文的没摘要可列，跳过
+                if (options.OnlyUser && history[i].Role == ChatRole.User &&
+                    !ChatMessageDisplay.IsFrameworkInjected(history[i]) &&
+                    ChatMessageDisplay.TextOf(history[i]) is { Length: > 0 } body)
+                    hits.Add(new SessionSearchHit(i, history[i], ESearchHitKind.Text, SnippetOf(body, 0, 0)));
+                continue;
+            }
+
             if (FindIn(history[i], i, keyword, options) is { } hit) hits.Add(hit);
         }
 
@@ -85,6 +98,7 @@ public static class SessionSearch
     private static (ESearchHitKind Kind, string Snippet)? Match(ChatMessage message, string keyword,
         SessionSearchOptions options)
     {
+        if (options.OnlyUser && message.Role != ChatRole.User) return null; //只看用户:助手/系统/工具整条不要
         if (ChatMessageDisplay.IsFrameworkInjected(message)) return null; //与界面同一口径:不画的不搜
 
         MessageText text = Extract(message, options);

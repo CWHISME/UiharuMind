@@ -48,6 +48,9 @@ public sealed partial class ConversationSearchViewData : ObservableObject, IDisp
     /// <summary>连工具调用与检索片段一起搜</summary>
     [ObservableProperty] private bool _includeTools;
 
+    /// <summary>只看用户消息；关键词留空时列出本会话全部用户消息（浏览模式）</summary>
+    [ObservableProperty] private bool _onlyUser;
+
     /// <summary>当前选中的结果下标；-1 表示还没跳过</summary>
     [ObservableProperty] private int _selectedIndex = -1;
 
@@ -86,7 +89,7 @@ public sealed partial class ConversationSearchViewData : ObservableObject, IDisp
         if (!IsOpen)
         {
             IsOpen = true;
-            if (!string.IsNullOrWhiteSpace(Query)) Schedule(TimeSpan.Zero); //关掉时结果清了,词还留着
+            if (!string.IsNullOrWhiteSpace(Query) || OnlyUser) Schedule(TimeSpan.Zero); //关掉时结果清了,词(或只看用户)还留着
         }
 
         FocusRequested?.Invoke();
@@ -118,6 +121,10 @@ public sealed partial class ConversationSearchViewData : ObservableObject, IDisp
     [RelayCommand]
     public void ToggleTools() => IncludeTools = !IncludeTools;
 
+    /// <summary>切换「只看用户消息」（浏览模式：关键词留空也能列出全部用户消息）</summary>
+    [RelayCommand]
+    public void ToggleOnlyUser() => OnlyUser = !OnlyUser;
+
     /// <summary>跳到当前选中的那条（点结果行；已选中的那行再点一次也算）</summary>
     public void JumpToSelected()
     {
@@ -145,7 +152,7 @@ public sealed partial class ConversationSearchViewData : ObservableObject, IDisp
     /// <summary>历史变了（追加、删除、换了会话）。开着就按原词重搜，选中原位保住</summary>
     public void NotifyHistoryChanged()
     {
-        if (IsOpen && !string.IsNullOrWhiteSpace(Query)) Schedule(TypingDebounce);
+        if (IsOpen && (!string.IsNullOrWhiteSpace(Query) || OnlyUser)) Schedule(TypingDebounce);
         else if (Hits.Count > 0) SetHits([]);
     }
 
@@ -166,8 +173,12 @@ public sealed partial class ConversationSearchViewData : ObservableObject, IDisp
         _revealTarget = null;
         if (string.IsNullOrWhiteSpace(value))
         {
-            _runner.Cancel();
-            SetHits([]);
+            if (OnlyUser) Schedule(TimeSpan.Zero); //只看用户时，空关键词 = 列出全部用户消息
+            else
+            {
+                _runner.Cancel();
+                SetHits([]);
+            }
             return;
         }
 
@@ -177,6 +188,19 @@ public sealed partial class ConversationSearchViewData : ObservableObject, IDisp
     partial void OnIncludeThinkingChanged(bool value) => Schedule(TimeSpan.Zero);
 
     partial void OnIncludeToolsChanged(bool value) => Schedule(TimeSpan.Zero);
+
+    partial void OnOnlyUserChanged(bool value)
+    {
+        if (string.IsNullOrWhiteSpace(Query) && !value)
+        {
+            // 关掉只看用户、又没有关键词：没有可搜的口径，清掉残留的结果
+            _runner.Cancel();
+            SetHits([]);
+            return;
+        }
+
+        Schedule(TimeSpan.Zero);
+    }
 
     partial void OnSelectedIndexChanged(int value) => RefreshStatus();
 
@@ -189,14 +213,15 @@ public sealed partial class ConversationSearchViewData : ObservableObject, IDisp
 
     private void Schedule(TimeSpan delay)
     {
-        if (!IsOpen || string.IsNullOrWhiteSpace(Query)) return;
+        if (!IsOpen) return;
+        if (string.IsNullOrWhiteSpace(Query) && !OnlyUser) return;
         _runner.Schedule(delay, SearchAsync);
     }
 
     private async Task SearchAsync(CancellationToken token)
     {
         string query = Query;
-        SessionSearchOptions options = new(IncludeThinking, IncludeTools);
+        SessionSearchOptions options = new(IncludeThinking, IncludeTools, OnlyUser);
         // 快照在 UI 线程上取:会话本体那份历史随时在被追加,冷会话还可能被卸载
         List<ChatMessage> snapshot = _history()?.ToList() ?? [];
         List<SessionSearchHit> hits = await Task.Run(() => SessionSearch.Find(snapshot, query, options, token), token);
@@ -232,7 +257,7 @@ public sealed partial class ConversationSearchViewData : ObservableObject, IDisp
 
     private void RefreshStatus()
     {
-        if (string.IsNullOrWhiteSpace(Query) || !IsOpen) StatusText = string.Empty;
+        if (!IsOpen || (string.IsNullOrWhiteSpace(Query) && !OnlyUser)) StatusText = string.Empty;
         else if (Hits.Count == 0) StatusText = Loc.Text(LangKey.ConversationSearchNoMatch);
         else if (SelectedIndex < 0) StatusText = Loc.Text(LangKey.ConversationSearchCount, Hits.Count);
         else StatusText = $"{SelectedIndex + 1}/{Hits.Count}";

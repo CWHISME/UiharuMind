@@ -140,6 +140,84 @@ public class ConversationSearchViewDataTests
         });
     }
 
+    /// <summary>记不清内容也能翻自己发过的消息：只看用户 + 空关键词 = 列出本会话全部用户消息，新到旧</summary>
+    [Fact]
+    public void OnlyUser_WithEmptyQuery_ListsAllUserMessagesNewestFirst()
+    {
+        HeadlessUi.RunAsync(async () =>
+        {
+            List<ChatMessage> history = History("我问过缓存", "回复一", "再问缓存", "回复二");
+            ConversationSearchViewData search = new(() => history);
+            search.Open();
+            search.ToggleOnlyUser();
+            await search.Pending;
+
+            Assert.True(search.IsOpen);
+            Assert.Equal([2, 0], search.Hits.Select(x => x.Hit.MessageIndex)); //新到旧
+            Assert.All(search.Hits, x => Assert.Equal(ESearchHitKind.Text, x.Hit.Kind));
+            Assert.DoesNotContain("回复", search.Hits[0].Snippet); //列的是用户消息的正文开头,不是助手回复
+        });
+    }
+
+    /// <summary>看着看着想起来了关键词：只在用户消息里搜</summary>
+    [Fact]
+    public void OnlyUser_WithKeyword_OnlyMatchesUserMessages()
+    {
+        HeadlessUi.RunAsync(async () =>
+        {
+            List<ChatMessage> history = History("我问过缓存", "缓存回复一", "再问缓存", "缓存回复二");
+            ConversationSearchViewData search = new(() => history);
+            search.Open();
+            search.Query = "缓存";
+            search.ToggleOnlyUser();
+            await search.Pending;
+
+            Assert.Equal([2, 0], search.Hits.Select(x => x.Hit.MessageIndex)); //助手两条同命中,被滤掉
+        });
+    }
+
+    /// <summary>关掉只看用户、关键词又为空：回到「没词不搜」的默认行为，结果清空</summary>
+    [Fact]
+    public void OnlyUser_Off_WithEmptyQuery_ClearsHits()
+    {
+        HeadlessUi.RunAsync(async () =>
+        {
+            List<ChatMessage> history = History("我问过缓存", "回复");
+            ConversationSearchViewData search = new(() => history);
+            search.Open();
+            search.ToggleOnlyUser();
+            await search.Pending;
+            Assert.Single(search.Hits);
+
+            search.ToggleOnlyUser();
+            await search.Pending;
+            Assert.Empty(search.Hits);
+            Assert.Equal(string.Empty, search.StatusText);
+        });
+    }
+
+    /// <summary>开着只看用户时关掉再打开：重开仍按浏览模式列出全部用户消息</summary>
+    [Fact]
+    public void CloseAndReopen_OnlyUser_RescansAllUserMessages()
+    {
+        HeadlessUi.RunAsync(async () =>
+        {
+            List<ChatMessage> history = History("我问过缓存", "回复", "再问缓存");
+            ConversationSearchViewData search = new(() => history);
+            search.Open();
+            search.ToggleOnlyUser();
+            await search.Pending;
+            Assert.Equal(2, search.Hits.Count);
+
+            search.Close();
+            Assert.Empty(search.Hits);
+            search.Open();
+            await search.Pending;
+
+            Assert.Equal(2, search.Hits.Count);
+        });
+    }
+
     [Fact]
     public void Close_ClearsHitsButKeepsTheQuery()
     {

@@ -96,6 +96,58 @@ public class SessionSearchTests
     }
 
     [Fact]
+    public void Find_OnlyUser_MatchesOnlyUserMessages()
+    {
+        List<ChatMessage> history =
+        [
+            new(ChatRole.User, "我问过缓存"),
+            new(ChatRole.Assistant, "缓存稍后答复"),
+            new(ChatRole.User, "缓存再确认一下"),
+            new(ChatRole.System, "缓存交接说明"),
+        ];
+
+        List<SessionSearchHit> hits = SessionSearch.Find(history, "缓存", new SessionSearchOptions(OnlyUser: true), TestContext.Current.CancellationToken);
+
+        Assert.Equal([0, 2], hits.Select(x => x.MessageIndex));
+        Assert.All(hits, x => Assert.Equal(ESearchHitKind.Text, x.Kind));
+    }
+
+    [Fact]
+    public void Find_OnlyUser_WithEmptyQuery_ListsAllUserMessages()
+    {
+        List<ChatMessage> history =
+        [
+            new(ChatRole.User, "第一条"),
+            new(ChatRole.Assistant, "回复"),
+            new(ChatRole.User, "第二条"),
+        ];
+
+        List<SessionSearchHit> hits = SessionSearch.Find(history, null, new SessionSearchOptions(OnlyUser: true), TestContext.Current.CancellationToken);
+
+        Assert.Equal([0, 2], hits.Select(x => x.MessageIndex));
+        Assert.All(hits, x => Assert.StartsWith("第", x.Snippet)); //摘要取正文开头,不记得关键词也能认
+    }
+
+    [Fact]
+    public void Find_EmptyQuery_WithoutOnlyUser_StillReturnsNothing()
+    {
+        Assert.Empty(SessionSearch.Find([new ChatMessage(ChatRole.User, "缓存")], null, cancellationToken: TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public void Find_OnlyUser_SkipsInjectedUserMessages()
+    {
+        ChatMessage injected = new ChatMessage(ChatRole.User, "todo 快照：缓存")
+            .WithAgentRequestMessageSource(AgentRequestMessageSourceType.AIContextProvider, "todo");
+        ChatMessage echoed = new ChatMessage(ChatRole.User, "我问过缓存")
+            .WithAgentRequestMessageSource(AgentRequestMessageSourceType.ChatHistory, "history");
+
+        List<SessionSearchHit> hits = SessionSearch.Find([injected, echoed], null, new SessionSearchOptions(OnlyUser: true), TestContext.Current.CancellationToken);
+
+        Assert.Same(echoed, Assert.Single(hits).Message); //与界面同口径:注入的不装成用户消息
+    }
+
+    [Fact]
     public void Find_SkipsInjectedButKeepsHistoryEcho()
     {
         ChatMessage injected = new ChatMessage(ChatRole.User, "todo 快照：缓存")

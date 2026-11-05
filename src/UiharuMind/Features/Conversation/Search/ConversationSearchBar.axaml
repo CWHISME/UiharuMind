@@ -51,16 +51,23 @@
                                   ToolTips="{loc:Loc ConversationSearchClose}" />
             </Grid>
 
-            <!-- 范围：默认只搜正文，思考与工具结果又长又多，要搜自己勾上 -->
+            <!-- 范围：默认只搜正文，思考与工具结果又长又多，要搜自己勾上；
+                 只看用户消息时后两项没有内容可搜(用户消息只有正文)，置灰 -->
             <StackPanel Orientation="Horizontal" Spacing="6">
                 <Button Classes="filter-pill" Classes.selected="{Binding IncludeThinking}"
                         Content="{loc:Loc ConversationSearchThinking}"
                         ToolTip.Tip="{loc:Loc ConversationSearchThinkingTip}"
-                        Command="{Binding ToggleThinkingCommand}" />
+                        Command="{Binding ToggleThinkingCommand}"
+                        IsEnabled="{Binding !OnlyUser}" />
                 <Button Classes="filter-pill" Classes.selected="{Binding IncludeTools}"
                         Content="{loc:Loc ConversationSearchTools}"
                         ToolTip.Tip="{loc:Loc ConversationSearchToolsTip}"
-                        Command="{Binding ToggleToolsCommand}" />
+                        Command="{Binding ToggleToolsCommand}"
+                        IsEnabled="{Binding !OnlyUser}" />
+                <Button Classes="filter-pill" Classes.selected="{Binding OnlyUser}"
+                        Content="{loc:Loc ConversationSearchOnlyUser}"
+                        ToolTip.Tip="{loc:Loc ConversationSearchOnlyUserTip}"
+                        Command="{Binding ToggleOnlyUserCommand}" />
             </StackPanel>
 
             <!-- 定位粒度是卡片，摘要让人不跳也能先认出是不是要找的那条 -->
