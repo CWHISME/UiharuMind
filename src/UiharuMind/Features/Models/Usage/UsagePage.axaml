@@ -56,6 +56,7 @@
         <Style Selector="ComboBox.compact">
             <Setter Property="MinHeight" Value="32" />
             <Setter Property="Padding" Value="8,2" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
         <Style Selector="Button.compact">
             <Setter Property="MinHeight" Value="32" />

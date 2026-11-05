@@ -11,7 +11,7 @@
     <UserControl.Resources>
         <!-- 四个筛选下拉共用一份：写一遍模板，各处只换 ItemsSource -->
         <DataTemplate x:Key="OptionTemplate" x:DataType="usage:UsageOptionViewData">
-            <TextBlock Text="{Binding Label}" />
+            <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
         </DataTemplate>
     </UserControl.Resources>
 

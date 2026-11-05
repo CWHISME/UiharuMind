@@ -12,7 +12,7 @@
 
     <UserControl.Resources>
         <DataTemplate x:Key="RankOptionTemplate" x:DataType="usage:UsageOptionViewData">
-            <TextBlock Text="{Binding Label}" />
+            <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
         </DataTemplate>
     </UserControl.Resources>
 

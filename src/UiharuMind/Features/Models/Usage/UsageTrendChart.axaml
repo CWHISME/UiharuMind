@@ -27,7 +27,7 @@
                           SelectedItem="{Binding TrendMetricOption}">
                     <ComboBox.ItemTemplate>
                         <DataTemplate x:DataType="usage:UsageOptionViewData">
-                            <TextBlock Text="{Binding Label}" />
+                            <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
                         </DataTemplate>
                     </ComboBox.ItemTemplate>
                 </ComboBox>
