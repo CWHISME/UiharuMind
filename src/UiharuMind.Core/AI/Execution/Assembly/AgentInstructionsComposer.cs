@@ -183,7 +183,7 @@ internal static class AgentInstructionsComposer
         string pointer = string.IsNullOrEmpty(fileName)
             ? "工作目录下有一份 AGENTS.md（或 CLAUDE.md），写着这个项目的协作规矩与禁区。"
             : $"工作目录下的 {fileName} 写着这个项目的协作规矩与禁区。";
-        return $"{AgentPromptHeadings.Workspace}\n\n{pointer}\n" + $"本会话第一次调用工具之前，先 `Read {fileName}` 它读完全文；读过就不用再读。";
+        return $"{AgentPromptHeadings.Workspace}\n\n{pointer}\n" + $"本会话第一次调用工具之前，先 `Read {fileName}` 它读完全文；读过就不用再读（记忆压缩后通常也无需再读）。";
     }
 
     /// <summary>

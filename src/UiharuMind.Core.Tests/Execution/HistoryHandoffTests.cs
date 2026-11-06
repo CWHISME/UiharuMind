@@ -149,36 +149,7 @@ public class HistoryHandoffTests
         //改名之前写下的记忆压缩,标题还是 "Context handoff"
         Assert.Equal("正文", HistoryHandoff.NoteBody("[Context handoff]\n正文"));
     }
-
-    [Fact]
-    public void ComposeBody_StartsWithOpening_AndEndsWithLastWords()
-    {
-        string body = HistoryHandoff.ComposeBody("正文", "好的，马上办。");
-
-        Assert.StartsWith("我来整理这段历史记忆。", body);
-        Assert.Contains("上一轮我的最后一句：", body);
-        Assert.EndsWith("好的，马上办。", body);
-    }
-
-    [Fact]
-    public void ComposeBody_WithoutLastSentence_OmitsTheSection()
-    {
-        Assert.Equal("我来整理这段历史记忆。\n\n正文", HistoryHandoff.ComposeBody("正文", null));
-    }
-
-    /// <summary>
-    /// 清空记忆提示复用交接的供应链:带同一注解、供给起点认它,界面上只在值上区分标题
-    /// </summary>
-    [Fact]
-    public void CreateClearNote_ReusesHandoffSupplyChain_AndIsDistinguishable()
-    {
-        ChatMessage message = HistoryHandoff.CreateClearNote("我把之前的记忆清理掉了。");
-
-        Assert.True(HistoryHandoff.IsNote(message), "供给起点要认它:它之后的窗口从这条开始");
-        Assert.True(HistoryHandoff.IsClear(message), "界面靠值区分标题:记忆已清理/记忆压缩");
-        Assert.Contains("之前的记忆", HistoryHandoff.NoteBody(message.Text));
-    }
-
+    
     [Fact]
     public void NoteBody_StripsTheClearTitle()
     {
@@ -200,19 +171,7 @@ public class HistoryHandoffTests
 
         Assert.DoesNotContain("导出到", body);
     }
-
-    /// <summary>清空提示与交接文档同一条起点判定:模型从它开始,之前的内容不可见</summary>
-    [Fact]
-    public void SupplyStart_PointsAtTheClearMessage()
-    {
-        List<ChatMessage> history =
-        [
-            User("第一条"),
-            HistoryHandoff.CreateClearNote("我把之前的记忆清理掉了。"),
-        ];
-
-        Assert.Equal(1, HistoryHandoff.SupplyStartIndex(history));
-    }
+    
 
     [Fact]
     public void LastAssistantText_TakesTheWholeBodyOfTheLastAssistantMessage()

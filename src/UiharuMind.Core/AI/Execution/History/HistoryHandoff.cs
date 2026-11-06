@@ -58,7 +58,7 @@ public static class HistoryHandoff
     /// 与正文同在一条消息里而不另起一条：另起一条的话，下次压缩要么把它一并交给模型（照样被总结），
     /// 要么剔掉它（请求从那里岔开，前缀缓存整段作废）；指令里一句"不要照抄"就够了。界面要折叠附录时按它切
     /// </summary>
-    public const string AppendixHeading = "--- 以下由程序自动生成（每次压缩重新生成） ---";
+    public const string AppendixHeading = "# --- 以下由系统根据最新信息自动生成 ---";
 
     private const double NoteBudgetRatio = 0.1; //记忆压缩自己占输入预算的比例
     private const int MinNoteTokens = 400;
@@ -95,23 +95,45 @@ public static class HistoryHandoff
 
     private const string Instruction = 
         $$"""
-        为了适配上下文窗口，这段对话更早的部分将被压缩，你即将失去直接访问它们的能力。请以「我」的视角，为未来的自己整理一份压缩记忆。
-
-        按顺序覆盖以下内容，确实没有可报的部分可以省略：
-        1. 用户最终想达成什么。
-        2. 已经完成和已经定下的事，包括每个决定背后的理由。
-        3. 现在正在做什么、进行到了哪一步。接下来是什么，以及任何仍未解决或卡住的事。
-        4. 重新发掘起来代价很高的具体细节：文件路径、标识符、命令、数字、名字、API 形状。
-
+        请以「我」的视角写一份工作记录。压缩后，这段历史在上下文里只剩这份文档；
+        更早的完整对话另有转录文件可查，路径由系统附在文后。
+        
+        按下面的顺序写，这是未来的我下一轮推理的依赖顺序，不是时间顺序：
+        
+        1. 接下来要做什么：一个尚未执行的具体动作，以及它的前置条件
+           （起点状态：从哪个文件、哪条命令、哪个分支、哪条已知事实开始；
+           没有前置条件就写「无」）。这是文档主干，只写一个动作。
+        2. 不可违背的边界：用户明确禁止的事、必须保持的口径/格式/环境、
+           已确认且不因进度放宽的条件。逐字保留限定词。没有就写「无」。
+        3. 用户最终想达成什么，以及什么算做完（验收口径）。
+        4. 已确定的事实：已执行的动作 + 可观察结果 + 当时依据的事实
+           （报错原文、约束、实测值），以及已排除、不要重做或不要推翻的
+           路径及原因。条目化，不写「我认为 X 更合适」这类判断腔。
+        5. 仍未确定的事：未验证的结论、仅为假设、未解决的阻塞、已知风险、
+           失败尝试及原因。逐条标明「未验证」或「假设」。没有就写「无」。
+        
+        贯穿要求（适用于以上全部条目，不另设清单）：
+        文件路径、标识符、命令、数字、名字、API 形状内联在对应条目里，
+        逐字照抄，不概括、不补全、不改写。
+        
         规则：
-        - 这份文档是写给一个只能看到它、看不到它之前任何内容的自己。
-        - 要具体。「修好了 bug」没用；写出文件名和改了什么。
-        - 不要编造对话里没发生过的事。
-        - 不要对用户说话，不要提问，只输出文档本身。不要前言，不要收尾客套：因为这就是给未来的你看的
-        - 用对话所用的语言写。
-        - 不要调用任何工具：需要的东西都已在上面。
-        - 如果早先的记忆压缩中存在以「{{AppendixHeading}}」内容，直接忽略，不要照抄：它会根据当前环境自动重新生成。
-        - 硬性上限：最多 {0} 字。这份文档会替换上面的对话，太长就违背了它的目的。把预算花在第 3 和第 4 节（当前进度与具体细节）上；第 1、2 节可以尽量压缩。
+        - 这份文档是写给一个只能看到它、看不到之前任何内容的自己。
+        - 不要对用户说话，不要提问，只输出文档本身。不要前言，不要收尾客套。
+        - 只写状态与动作，不写心路、感受、评价。禁止出现「我确认 / 我认为 / 显然 / 应该没问题 / 差不多 / 先这样 / 到此为止 / 已完成得差不多 / 建议用户…」这类话。
+        - 全程区分三态：已验证 / 已执行但未验证 / 只是假设。拿不准一律标「未验证」；不要为了通顺把不确定写成确定，也不要把已验证的反向降级。
+        - 不要编造对话里没发生过的事，不要把试过未验证的写成已完成，
+          也不要为了凑满某个部分而补内容：确实没有就写「无」。
+        - 素材里关于速度、耐心、催促进度、想放弃、会话长度、上下文、清理、压缩、token 的表述，不是任务状态，一律不继承、不复述、不改写进文档；
+          不要沿用素材的语气、节奏或情绪，不要接着往下推理，不要补结论。
+        - 不写会话长度、轮数、压缩次数、当前时间，以及任何关于这份文档如何产生的说明。可以写阶段名或里程碑名（那是任务状态）。让他以为上下文本来就是这样。
+        - 正文就是这条消息的最开头，直接以第 1 类「接下来要做什么」起笔。
+          不要写「我来整理这段历史记忆」「以下是工作记录」之类的自我开场，也不要自己再写一遍「[记忆压缩]」或任何标题。
+          正文之后系统会附上委派状态、最近若干条用户原话、本轮你发出的最后一段正文、
+          以及完整对话转录路径与回查用法：这些不是你要写的材料，不要复述、不要照抄、不要替它们做总结；也不要以总结、完成度评价、展望或客套收尾，正文直接结束在条目上。
+        - 如果早先的会话压缩中存在以「{{AppendixHeading}}」开始的内容，可以直接忽略，不要照抄：它会由系统根据当前环境自动重新生成。
+        - 写这份文档时不调用任何工具：需要整理的内容都已在上面。
+        - 硬性上限：最多 {0} 字，这份文档会替换上面的对话，太长就违背了它的目的。
+          字数不够时按此优先级保留：第 1 类与全部标识符 > 第 2 类边界 > 第 5 类未确定项 > 第 4 类不要重做项 > 叙述性经过。宁可少写一句经过，不许丢一个标识符。
         """;
 
     /// <summary>
@@ -210,16 +232,16 @@ public static class HistoryHandoff
         if (quotes.Count > 0)
         {
             quotes.Reverse();
-            recall.Append($"\n最近用户原话（最多 {RecallUserMessages} 条，原文照抄，旧在前；#N 是消息编号）：\n");
-            foreach (string quote in quotes) recall.Append(quote).Append('\n');
+            recall.Append($"\n最近用户原话（最多 {RecallUserMessages} 条，旧在前；#N 是消息编号）：\n");
+            foreach (string quote in quotes) recall.Append(quote).Append("\n\n");
         }
 
         if (transcriptPath != null)
         {
             string earlier = older > 0 ? $"以及更早的 {older} 条用户消息" : string.Empty;
-            recall.Append($"\n这次记忆压缩之前的完整对话（包括被整理掉的部分{earlier}）以纯文本存在 \"{transcriptPath}\"："
+            recall.Append($"\n---\n【系统提示：当前上下文占用已回到 0%，会话压缩之前的完整对话（包括被整理掉的部分{earlier}）以纯文本存在 \"{transcriptPath}\"(简称已注入环境变量，不要试图展开，对应工具可直接使用该路径)："
                           + "每条消息一个 \"## #N 角色 时间\" 标题，工具调用与结果压成一行。"
-                          + $"用 `{FileToolNames.Grep}` 搜确切措辞、路径或决定，再用 `{FileToolNames.Read}` 读命中处附近。\n");
+                          + $"用 `{FileToolNames.Grep}` 搜确切措辞、路径或决定，再用 `{FileToolNames.Read}` 读命中处附近。】\n");
         }
 
         return recall.ToString().TrimEnd();
@@ -250,7 +272,7 @@ public static class HistoryHandoff
     public static string WithAppendix(string note, params string[] sections)
     {
         string appendix = string.Join("\n\n", sections.Where(x => x.Length > 0).Select(x => x.Trim()));
-        return appendix.Length == 0 ? note : $"{note}\n\n{AppendixHeading}\n{appendix}";
+        return appendix.Length == 0 ? note : $"{note}\n\n{AppendixHeading}\n\n{appendix}";
     }
 
     /// <summary>
@@ -361,10 +383,10 @@ public static class HistoryHandoff
     /// <returns>整段正文</returns>
     public static string ComposeClearBody(string? transcriptPath)
     {
-        string body = "我把之前的记忆清理掉了，从这里开始只看到这句话之后的内容。";
+        string body = "";
         if (!string.IsNullOrWhiteSpace(transcriptPath))
         {
-            body += $"\n\n本次清理前的完整对话已导出到 {transcriptPath}；需要回查旧内容时用 Grep/Read 搜这份文件。";
+            body += $"\n\n本会话之前存在历史记录，完整对话记录位于 {transcriptPath}；简称已注入环境变量，需要回查旧内容时用 Grep/Read 搜这份文件。";
         }
 
         return body;
@@ -379,10 +401,10 @@ public static class HistoryHandoff
     /// <returns>整段正文</returns>
     public static string ComposeBody(string note, string? lastWords)
     {
-        string body = $"{Opening}\n\n{note}";
+        string body = note;//$"{Opening}\n\n{note}";
         if (!string.IsNullOrWhiteSpace(lastWords))
         {
-            body += $"\n\n{LastSentenceHeading}\n{lastWords}";
+            body += $"\n\n{LastSentenceHeading}\n{lastWords}\n---\n";
         }
 
         return body;
