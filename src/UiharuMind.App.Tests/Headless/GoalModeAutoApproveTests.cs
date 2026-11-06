@@ -220,7 +220,7 @@ public class GoalModeAutoApproveTests
         SessionManager.Instance.StartNewSession(new CharacterData { CharacterName = "目标会话" });
 
     private static GoalModeController NewGoalMode() =>
-        new(wakeTurn: (_, _, _) => Task.CompletedTask, primary: true);
+        new(wakeTurn: (_, _, _, _) => Task.CompletedTask, primary: true);
 
     private static (Window Window, CheckBox Box) ShowSetup(GoalModeViewData viewData)
     {

@@ -589,13 +589,17 @@ public sealed class GroupAwayController
     private async Task DelayThenWakeAsync(GroupAwaySession session, TimeSpan delay, CancellationToken token)
     {
         if (!await WakeLoop.WaitAsync(_delay, delay, token).ConfigureAwait(false)) return;
-        lock (_sync)
-        {
-            if (!session.TryTakeDue(token)) return;
-        }
 
-        // 到点时群正在跑一波：那一波收场会叫醒化身，提示留着随那次带上
-        if (_coordinator.IsRunning(session.Group.SessionId))
+        // 共享的闸：那次等待还有效吗、群此刻闲不闲（在跑一波就不叫，与化身自己那一轮无关）
+        bool busy = _coordinator.IsRunning(session.Group.SessionId); // 不进 _sync 调协调器（锁序）
+        EWakeDue due;
+        lock (_sync) due = session.ClaimDue(token, busy);
+        if (due == EWakeDue.Cancelled) return;
+
+        // 到点时群正在跑一波：那一波收场会叫醒化身，提示留着随那次带上。
+        // 可构造的一条路径：化身跑着 + 用户发言（StopAvatarTurn）→ 化身轮 Stopped → RunAvatarAsync
+        // 尾巴按 StopDelay 排上延迟，而用户那句开的波还在跑 → 这个分支到点撞上
+        if (due == EWakeDue.Busy)
         {
             RaiseStatusChanged(session.Group.SessionId);
             return;

@@ -37,6 +37,12 @@ public sealed record GoalModeScheduleRule(EGoalScheduleKind Kind, TimeOnly? Dail
     public static GoalModeScheduleRule Default { get; } = new(EGoalScheduleKind.Interval, Interval: TimeSpan.FromMinutes(30));
 }
 
+/// <summary>策略算出的下次唤醒</summary>
+/// <param name="At">排给定时器的时刻（没进展的退避已并进去）</param>
+/// <param name="ScheduledAt">这条唤醒原本的触发时刻（不含退避）：判「撞忙时越过了哪一刻」得用它，
+/// 因为退避会把 At 推到那一刻之后，拿 At 当窗口起点会把墙钟时刻漏掉</param>
+public readonly record struct GoalModeScheduledWake(DateTimeOffset At, DateTimeOffset ScheduledAt);
+
 /// <summary>目标模式的参数：设置弹窗里能改的几样，一次交给控制器</summary>
 /// <param name="Goal">只给模型看的目标；<see cref="GoalModeController.Update"/> 里为 null 表示不改</param>
 /// <param name="Rules">唤醒调度规则；null 不改，空用 <see cref="GoalModeScheduleRule.Default"/></param>
@@ -46,8 +52,10 @@ public sealed record GoalModeSettings(string? Goal = null, IReadOnlyList<GoalMod
 
 /// <summary>目标模式此刻的样子（界面用）</summary>
 /// <param name="AutoApproveApprovals">唤醒轮的审批是否自动同意（勾选并确认过危险度才为 true）</param>
+/// <param name="WakeOwed">上一次到点的唤醒撞上会话正忙、欠着等这一轮收场（不注入、不计轮）</param>
 public sealed record GoalModeStatus(string SessionId, DateTimeOffset StartedAt, int Turns, bool IsRunning,
-    DateTimeOffset? WakeAt, string Goal, IReadOnlyList<GoalModeScheduleRule> Rules, bool AutoApproveApprovals);
+    DateTimeOffset? WakeAt, string Goal, IReadOnlyList<GoalModeScheduleRule> Rules, bool AutoApproveApprovals,
+    bool WakeOwed = false);
 
 /// <summary>一次目标模式结束时的回执原料（界面画成一张只给人看的卡）</summary>
 public sealed record GoalModeReceipt(string SessionId, EGoalModeEndReason Reason, string Summary,

@@ -140,11 +140,12 @@ public sealed partial class GoalModeViewData : WakeLoopViewData
     /// <summary>能立即唤醒：在目标模式且没在跑（没有可触发的规则时这是唯一的唤醒入口）</summary>
     public bool CanWakeNow => _status is { IsRunning: false };
 
-    /// <summary>状态行：没在是待机文案，在时是已跑轮数或正在跑</summary>
+    /// <summary>状态行：没在是待机文案，在时是已跑轮数或正在跑；欠着一次唤醒时按「等待下次唤醒」说</summary>
     public string StatusLine => _status switch
     {
         null => Loc.Text(LangKey.GoalModeIdle),
         { IsRunning: true } => Loc.Text(LangKey.GoalModeThinking),
+        { WakeOwed: true } => Loc.Text(LangKey.GoalModeWaitingWake),
         _ => Loc.Text(LangKey.GoalModeStatusFormat, _status.Turns),
     };
 

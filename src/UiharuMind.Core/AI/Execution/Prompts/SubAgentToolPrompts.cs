@@ -99,7 +99,7 @@ public static class SubAgentToolPrompts
     /// </summary>
     public const string ReadOnlyParam =
         "可选。置真则新开的子代理恒定只读：只能读文件与联网搜资料，**没有 `Shell`**，也改不了任何东西——" +
-        "适合调研、审阅、摸底。";
+        "通常仅适用于探索、摸底、审阅，任何可能用到额外工具的地方都不要置为只读。";
 
     /// <summary>
     /// <see cref="SubAgentTool.MessageToolName"/> 的描述：给已经开过的那位续发一条，跑着时就是插话。

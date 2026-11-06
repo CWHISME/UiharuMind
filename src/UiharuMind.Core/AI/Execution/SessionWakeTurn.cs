@@ -103,7 +103,14 @@ public static class SessionWakeTurn
     /// <param name="sessionId">会话标识</param>
     /// <param name="cause">起因，只进日志</param>
     /// <param name="cancellationToken">发起方撤回时取消（如目标模式结束），这一轮随之停下</param>
-    public static async Task RunAsync(string sessionId, string cause, CancellationToken cancellationToken = default)
+    /// <param name="onStarted">
+    /// 真抢到这个会话、也没被自激封顶抑制之后，开跑之前调（抢不到 / 被封顶就一次也不调）。
+    /// 要给这一轮落一条注入的调用方必须走这里，而不是自己先写完再叫：
+    /// 「查忙 → 占位」的原子性只在这一层，「先写后叫」中间的空隙足以让用户那一轮拿到会话，
+    /// 于是那条注入就落进了别人正在跑的那一轮
+    /// </param>
+    public static async Task RunAsync(string sessionId, string cause, CancellationToken cancellationToken = default,
+        Action? onStarted = null)
     {
         try
         {
@@ -132,6 +139,10 @@ public static class SessionWakeTurn
 
             Log.Debug($"Wake turn started: session={sessionId} cause={cause} streak={streak} "
                       + $"instance={System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(session)}");
+
+            // 已经占住了才落发起方的注入（目标模式的唤醒提醒/目标交代就在这里进去）：
+            // 没占住的话它一句都不写，见参数说明
+            onStarted?.Invoke();
             // 无头驱动(sink 为 null),但**审批有人接**——就是这个会话自己那个窗口。
             // 这两件事必须分开告诉 TurnDriver:按 sink 推的话,共享的执行者会被标成
             // 「没人看着」,于是这一轮里派出的子代理连审批通道都不建(见 TurnDriver 的 attended)

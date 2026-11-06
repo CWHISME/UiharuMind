@@ -56,8 +56,8 @@ public class GoalModeWakePolicyTests
         GoalModeScheduleRule daily = new(EGoalScheduleKind.Daily, DailyTime: new TimeOnly(9, 30)); //九点半：最近
         GoalModeScheduleRule oneShot = new(EGoalScheduleKind.OneShot, FireAt: Now.AddHours(5));
 
-        DateTimeOffset? next = GoalModeWakePolicy.NextWake([interval, daily, oneShot], Now, Now, idleStreak: 0);
-        Assert.Equal(new DateTimeOffset(2026, 5, 10, 9, 30, 0, TimeSpan.Zero), next);
+        Assert.Equal(new DateTimeOffset(2026, 5, 10, 9, 30, 0, TimeSpan.Zero),
+            GoalModeWakePolicy.NextWake([interval, daily, oneShot], Now, Now, idleStreak: 0)?.At);
     }
 
     [Fact]
@@ -73,13 +73,15 @@ public class GoalModeWakePolicyTests
         Assert.Null(GoalModeWakePolicy.NextWake([expired], Now, Now, idleStreak: 0));
     }
 
+    /// <summary>退避只推后实际到点时刻，不动「原本的触发时刻」——后者是撞忙时判「越过了哪一刻」的窗口起点</summary>
     [Fact]
-    public void NoProgress_DelaysTheScheduledWakeByBackoff()
+    public void NoProgress_DelaysTheArmedMoment_ButKeepsTheScheduledOne()
     {
         GoalModeScheduleRule interval = new(EGoalScheduleKind.Interval, Interval: TimeSpan.FromMinutes(30));
-        DateTimeOffset scheduled = Now + TimeSpan.FromMinutes(30);
-        Assert.Equal(scheduled + GoalModeWakePolicy.DefaultBackoffStart,
+        GoalModeScheduledWake scheduled = Assert.IsType<GoalModeScheduledWake>(
             GoalModeWakePolicy.NextWake([interval], Now, Now, idleStreak: 1));
+        Assert.Equal(Now + TimeSpan.FromMinutes(30), scheduled.ScheduledAt);
+        Assert.Equal(Now + TimeSpan.FromMinutes(30) + GoalModeWakePolicy.DefaultBackoffStart, scheduled.At);
     }
 
     [Fact]
@@ -95,7 +97,47 @@ public class GoalModeWakePolicyTests
     {
         GoalModeScheduleRule immediate = new(EGoalScheduleKind.Immediate);
         Assert.Equal(Now + GoalModeWakePolicy.BackoffOf(2),
-            GoalModeWakePolicy.NextWake([immediate], Now, Now, idleStreak: 3));
+            GoalModeWakePolicy.NextWake([immediate], Now, Now, idleStreak: 3)?.At);
+    }
+
+    /// <summary>锚点由规则种类决定：每天 / 一次性是墙钟，间隔 / 立即是「停下」</summary>
+    [Fact]
+    public void IsWallClock_OnlyForDailyAndOneShot()
+    {
+        Assert.True(GoalModeWakePolicy.IsWallClock(EGoalScheduleKind.Daily));
+        Assert.True(GoalModeWakePolicy.IsWallClock(EGoalScheduleKind.OneShot));
+        Assert.False(GoalModeWakePolicy.IsWallClock(EGoalScheduleKind.Interval));
+        Assert.False(GoalModeWakePolicy.IsWallClock(EGoalScheduleKind.Immediate));
+    }
+
+    /// <summary>撞忙窗口里被越过的墙钟时刻：含窗口起点本身（那一次就是它自己到点）</summary>
+    [Fact]
+    public void NextWallClockAtOrAfter_IncludesTheWindowStart()
+    {
+        GoalModeScheduleRule daily = new(EGoalScheduleKind.Daily, DailyTime: new TimeOnly(9, 30));
+        Assert.Equal(new DateTimeOffset(2026, 5, 10, 9, 30, 0, TimeSpan.Zero),
+            GoalModeWakePolicy.NextWallClockAtOrAfter([daily], new DateTimeOffset(2026, 5, 10, 9, 30, 0, TimeSpan.Zero)));
+        // 窗口起点越过今天的时刻：下一个就是明天
+        Assert.Equal(new DateTimeOffset(2026, 5, 11, 9, 30, 0, TimeSpan.Zero),
+            GoalModeWakePolicy.NextWallClockAtOrAfter([daily], new DateTimeOffset(2026, 5, 10, 9, 31, 0, TimeSpan.Zero)));
+    }
+
+    /// <summary>间隔类不算墙钟：只有它们时，撞忙窗口里永远没有可补的时刻</summary>
+    [Fact]
+    public void NextWallClockAtOrAfter_IgnoresIntervalAndExpiredOneShot()
+    {
+        GoalModeScheduleRule interval = new(EGoalScheduleKind.Interval, Interval: TimeSpan.FromMinutes(30));
+        GoalModeScheduleRule expired = new(EGoalScheduleKind.OneShot, FireAt: Now.AddMinutes(-1));
+        Assert.Null(GoalModeWakePolicy.NextWallClockAtOrAfter([interval, expired], Now));
+    }
+
+    /// <summary>混排：间隔先到点也不算这一次就完了，墙钟那一条仍然会被看到</summary>
+    [Fact]
+    public void NextWallClockAtOrAfter_SeesTheLaterWallClockRule()
+    {
+        GoalModeScheduleRule interval = new(EGoalScheduleKind.Interval, Interval: TimeSpan.FromMinutes(30));
+        GoalModeScheduleRule oneShot = new(EGoalScheduleKind.OneShot, FireAt: Now.AddMinutes(5));
+        Assert.Equal(Now.AddMinutes(5), GoalModeWakePolicy.NextWallClockAtOrAfter([interval, oneShot], Now));
     }
 
     [Fact]

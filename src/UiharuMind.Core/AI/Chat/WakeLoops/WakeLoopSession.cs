@@ -69,14 +69,24 @@ internal abstract class WakeLoopSession<TReason> where TReason : struct, Enum
         return true;
     }
 
-    /// <summary>延迟到点时认领：这次延迟没被取消、循环也没结束，就摘掉它交给调用方去唤醒</summary>
-    /// <param name="token">那次延迟的令牌</param>
-    /// <returns>该唤醒为 true</returns>
-    public bool TryTakeDue(CancellationToken token)
+    /// <summary>
+    /// 到点了，认领这次唤醒。<b>参加唤醒的入口都问这一处，别在控制器里各拼一套忙闲判断</b>：
+    /// 那次等待还有效、循环没结束、会话此刻也不忙，才是 <see cref="EWakeDue.Go"/>。
+    ///
+    /// 认领不到时那条等待一并摘掉，这一次唤醒<b>不算发生</b>：不注入、不计轮，由控制器在自己的
+    /// 收场信号上补——单聊记成「欠一次」等那一轮收场（见 <c>GoalModeController</c>），
+    /// 群离席在波末重判（见 <c>GroupAwayController</c>）。
+    /// </summary>
+    /// <param name="token">那次等待的令牌</param>
+    /// <param name="busy">会话此刻被<b>别的</b>轮次占着（用户在跑自己那一轮）；本循环自己那一轮由调用方另判。
+    /// <b>具体含什么由调用方按自己的业务边界定，闸不替你判</b>：单聊付的是
+    /// <c>IsBusy &amp;&amp; !IsRunning</c>（排除本循环自己那一轮），群离席付的是「群在跑一波」（不含化身自己那一轮）</param>
+    /// <returns>处置结论</returns>
+    public EWakeDue ClaimDue(CancellationToken token, bool busy)
     {
-        if (token.IsCancellationRequested || IsEnded) return false;
+        if (token.IsCancellationRequested || IsEnded) return EWakeDue.Cancelled;
         CancelDelay();
-        return true;
+        return busy ? EWakeDue.Busy : EWakeDue.Go;
     }
 
     /// <summary>结束：取消延迟与正在跑的那一轮</summary>

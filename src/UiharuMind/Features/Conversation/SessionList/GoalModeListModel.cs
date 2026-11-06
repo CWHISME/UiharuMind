@@ -126,8 +126,9 @@ public sealed class GoalModeDisplayItem
     /// <returns>条目</returns>
     public static GoalModeDisplayItem ForStatus(GoalModeStatus status)
     {
+        // 欠着一次（到点撞上会话忙）也归「等待下次唤醒」：它排着，只是一轮收场才轮得到它
         LangKey key = status.IsRunning ? LangKey.GoalModeThinking
-            : status.WakeAt != null ? LangKey.GoalModeWaitingWake
+            : status.WakeAt != null || status.WakeOwed ? LangKey.GoalModeWaitingWake
             : LangKey.GoalModeWaitingManual;
         return new GoalModeDisplayItem(status.SessionId, status.Goal, Loc.Text(key), true);
     }

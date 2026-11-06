@@ -549,10 +549,13 @@ public class GroupAwayControllerTests
         GroupAwayController away = new(_coordinator, (_, _, _) => _avatar, () => _settings, Delay, () => _now,
             _ => _stamp, hasBackgroundWork: _ => backgroundPending);
         TaskCompletionSource gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        // 化身首轮：自己 Push 一句开一波后还卡着（正在跑），波收场时不排延迟，只记 WakePending
+        // 化身首轮：自己 Push 一句开一波后还卡着（正在跑），波收场时不排延迟，只记 WakePending。
+        // 只在首轮 Push：那 Push 会开波、波末又叫醒化身，每一轮都 Push 就变成自旋，
+        // 会把化身轮数/时长保险丝烧掉，这个用例就测不到「后台了结后被叫醒」了
+        int pushes = 0;
         _runner.During[_avatar.SessionId] = () =>
         {
-            _coordinator.TryPostFromAvatar(_avatar.SessionId, "@Alice 接着做");
+            if (pushes++ == 0) _coordinator.TryPostFromAvatar(_avatar.SessionId, "@Alice 接着做");
             return gate.Task;
         };
         _runner.Replies[_avatar.SessionId] = _ => ""; //放行后没写正文：Silent
@@ -672,6 +675,37 @@ public class GroupAwayControllerTests
         Assert.EndsWith(GroupAvatarTranscript.SilentNote, input); //没进展的提示随那次带上
         // 用户那句落进了群流水文件（化身按锚点去读，而不是被灌进来）
         Assert.Contains("顺便把第三步也做了", File.ReadAllText(GroupLogFile.PathOf(_group)));
+    }
+
+    /// <summary>
+    /// 延迟到点时群正在跑一波：不叫化身，那一波收场重判把它接上。
+    /// 造法走「化身跑着 + 用户发言」：StopAvatarTurn 让化身轮收尾时按 StopDelay 排上延迟，
+    /// 而用户那句开的波（被成员卡住）还在跑——到点就撞上这个分支
+    /// </summary>
+    [Fact]
+    public async Task TimerDueWhileAWaveRuns_DoesNotWakeTheAvatar()
+    {
+        TaskCompletionSource avatarGate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource waveGate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        _runner.During[_avatar.SessionId] = () => avatarGate.Task; //化身那一轮卡住，等测试放行
+        _runner.During[_alice.SessionId] = () => waveGate.Task; //成员波也卡住：用户那句开的波一直在跑
+        _runner.Replies[_avatar.SessionId] = _ => ""; //没写正文：首轮 Silent 排上退避
+        Assert.True(_away.Start(_group, "目标", null));
+        await Until(() => AvatarCalls() == 1);
+
+        _ = _coordinator.PostAsync(_group, "先做第一步"); //用户发言：停化身轮 + 开一波
+        await Until(() => _coordinator.IsRunning(_group.SessionId));
+
+        avatarGate.SetResult(); //化身轮得以收尾（Stopped）→ 按 StopDelay 排上延迟
+        await Until(() => _delays.Count >= 1);
+
+        _delays[^1].Due.SetResult(); //到点、群还在跑
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+        Assert.Equal(1, AvatarCalls()); //没往跑到一半的群里插一轮
+        Assert.Null(_away.StatusOf(_group.SessionId)?.WakeAt); //那一次已经摘掉
+
+        waveGate.SetResult();
+        await Until(() => AvatarCalls() == 2); //波末重判把这一次接上
     }
 
     /// <summary>化身输入换成锚点：群发言正文不进上下文，锚点含新段行号与身份点破</summary>

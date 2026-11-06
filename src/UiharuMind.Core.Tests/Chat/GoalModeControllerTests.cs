@@ -561,12 +561,16 @@ public class GoalModeControllerTests
 
             bool constructorReturned = false;
             List<bool> sawConstructorReturned = [];
-            // 同步完成的延迟：没有异步边界时唤醒轮会整个跑进 ctor（旧行为）
+            int delays = 0;
+            // 同步完成的延迟：没有异步边界时唤醒轮会整个跑进 ctor（旧行为）。
+            // 只让第一次等待同步完成：跑成一轮后尾巴会再排一次，那条永远等不到——否则这里会死循环
+            Task DelayOnce(TimeSpan _, CancellationToken __) =>
+                ++delays == 1 ? Task.CompletedTask : new TaskCompletionSource().Task;
             GoalModeController restored = new(
-                delay: (_, _) => Task.CompletedTask,
+                delay: DelayOnce,
                 now: () => _now,
                 artifactStamp: _ => _stamp,
-                wakeTurn: (_, _, _) =>
+                wakeTurn: (_, _, _, _) =>
                 {
                     sawConstructorReturned.Add(constructorReturned);
                     return Task.CompletedTask;
@@ -629,24 +633,351 @@ public class GoalModeControllerTests
         }
     }
 
+    /// <summary>
+    /// 用户自己发的那一轮跑着时「间隔」到点：不叫、不注入、不计轮；收场后按<b>新的停下</b>重新起算
+    /// （间隔的锚点是「停下」，不是墙钟——那时候模型没在睡，补上等于把间隔清零）
+    /// </summary>
+    [Fact]
+    public async Task DueWhileAUserTurnRuns_RestartsTheIntervalFromTheNewStop()
+    {
+        ChatSession session = NewSession();
+        try
+        {
+            _controller.Start(session, new GoalModeSettings("目标", [Interval30]));
+            await Until(() => _delays.Count == 1 && _controller.StatusOf(session.SessionId)?.IsRunning == false);
+            int notes = session.History.Count(ChatMessageAnnotations.IsGoalModeInjection);
+
+            using (SessionManager.Instance.Running.BeginRun(session.SessionId)) //用户在跑自己那一轮
+            {
+                _stamp = "1"; //用户那一轮落了新产物：收场重算时不该再退避
+                _delays[0].Due.SetResult();
+                await Until(() => _controller.StatusOf(session.SessionId)?.WakeAt == null);
+
+                Assert.Single(_wakeCalls); //没叫
+                Assert.Equal(notes, session.History.Count(ChatMessageAnnotations.IsGoalModeInjection)); //没塞提醒
+                Assert.Equal(1, _controller.StatusOf(session.SessionId)!.Turns); //没多算一轮
+                Assert.False(_controller.StatusOf(session.SessionId)!.WakeOwed); //间隔类不算欠
+            }
+
+            await Until(() => _delays.Count == 2);
+            Assert.Equal(TimeSpan.FromMinutes(30), _delays[1].Delay); //从新的停下起算，不是 0
+            Assert.Single(_wakeCalls);
+        }
+        finally
+        {
+            _controller.End(session.SessionId);
+            SessionManager.Instance.Delete(session.SessionId);
+        }
+    }
+
+    /// <summary>会话正被用户那一轮占着时开起目标模式：首轮等它收场，不插进跑着的那一轮</summary>
+    [Fact]
+    public async Task StartWhileAUserTurnRuns_WaitsForIt()
+    {
+        ChatSession session = NewSession();
+        try
+        {
+            using (SessionManager.Instance.Running.BeginRun(session.SessionId))
+            {
+                Assert.True(_controller.Start(session, new GoalModeSettings("目标", [Interval30])));
+                await Until(() => _controller.StatusOf(session.SessionId)?.WakeOwed == true);
+                Assert.Empty(_wakeCalls);
+            }
+
+            await Until(() => _wakeCalls.Count == 1);
+        }
+        finally
+        {
+            _controller.End(session.SessionId);
+            SessionManager.Instance.Delete(session.SessionId);
+        }
+    }
+
+    /// <summary>OneShot 到点撞上用户那一轮：还欠着，收场后照跑，不会被当成「已过期」丢掉</summary>
+    [Fact]
+    public async Task DueWhileBusy_KeepsAOneShotWake()
+    {
+        ChatSession session = NewSession();
+        try
+        {
+            _controller.Start(session, new GoalModeSettings("目标",
+                [new GoalModeScheduleRule(EGoalScheduleKind.OneShot, FireAt: _now.AddMinutes(10))]));
+            await Until(() => _delays.Count == 1);
+
+            using (SessionManager.Instance.Running.BeginRun(session.SessionId))
+            {
+                _delays[0].Due.SetResult(); //到点（此刻就是触发时刻）
+                await Until(() => _controller.StatusOf(session.SessionId)?.WakeOwed == true);
+                _now = _now.AddMinutes(30); //用户那一轮一直跑到触发时刻之后才收场
+                Assert.Single(_wakeCalls);
+            }
+
+            await Until(() => _wakeCalls.Count == 2); //欠着的那次没丢
+        }
+        finally
+        {
+            _controller.End(session.SessionId);
+            SessionManager.Instance.Delete(session.SessionId);
+        }
+    }
+
+    /// <summary>混排：间隔先到点、用户在跑，忙碌窗口又越过了今天那条墙钟时刻——那一次要补</summary>
+    [Fact]
+    public async Task DueWhileBusy_MixedRules_KeepsTheWallClockMoment()
+    {
+        ChatSession session = NewSession();
+        try
+        {
+            _now = new DateTimeOffset(2026, 5, 10, 9, 0, 0, TimeSpan.Zero);
+            GoalModeScheduleRule interval = new(EGoalScheduleKind.Interval, Interval: TimeSpan.FromMinutes(10));
+            GoalModeScheduleRule daily = new(EGoalScheduleKind.Daily, DailyTime: new TimeOnly(9, 30));
+            _controller.Start(session, new GoalModeSettings("目标", [interval, daily]));
+            await Until(() => _delays.Count == 1);
+
+            using (SessionManager.Instance.Running.BeginRun(session.SessionId))
+            {
+                _delays[0].Due.SetResult(); //间隔那一次到点，用户在跑
+                await Until(() => _controller.StatusOf(session.SessionId)?.WakeOwed == true);
+                _now = _now.AddMinutes(40); //那一轮一直跑到 09:40（越过了 09:30）
+            }
+
+            await Until(() => _wakeCalls.Count == 2); //墙钟那一次没丢
+        }
+        finally
+        {
+            _controller.End(session.SessionId);
+            SessionManager.Instance.Delete(session.SessionId);
+        }
+    }
+
+    /// <summary>「每天」撞忙：补一次就不再连补，下一次是明天那个时刻。
+    /// 到点时按<b>退避后的时刻</b>（触发时刻 + 60s）触发，盯的是窗口起点不能被退避推丢</summary>
+    [Fact]
+    public async Task Daily_DueWhileBusy_IsCashedOnce_ThenWaitsForTomorrow()
+    {
+        ChatSession session = NewSession();
+        try
+        {
+            _now = new DateTimeOffset(2026, 5, 10, 9, 0, 0, TimeSpan.Zero);
+            _controller.Start(session, new GoalModeSettings("目标",
+                [new GoalModeScheduleRule(EGoalScheduleKind.Daily, DailyTime: new TimeOnly(9, 30))]));
+            await Until(() => _delays.Count == 1);
+            Assert.Equal(TimeSpan.FromMinutes(31), _delays[0].Delay); //触发 09:30 + 没进展的退避 60s
+
+            using (SessionManager.Instance.Running.BeginRun(session.SessionId))
+            {
+                _now = _now.AddMinutes(31); //到点：此刻已在 09:30 之后
+                _delays[0].Due.SetResult();
+                await Until(() => _controller.StatusOf(session.SessionId)?.WakeOwed == true);
+                _now = _now.AddMinutes(9); //那一轮跑到 09:40
+            }
+
+            await Until(() => _wakeCalls.Count == 2); //补上一轮
+            await Until(() => _delays.Count == 2);
+            Assert.True(_delays[1].Delay > TimeSpan.FromHours(20)); //不是马上再来一次，等明天
+        }
+        finally
+        {
+            _controller.End(session.SessionId);
+            SessionManager.Instance.Delete(session.SessionId);
+        }
+    }
+
+    /// <summary>
+    /// 一个忙碌窗口跨过两个墙钟时刻：只补一轮（口径写在 ShouldCashOwed），没被单独兑现的那个按自己的规则算
+    /// （这里是一次性 10:00：补完那轮后它已过期，不会再来一次）
+    /// </summary>
+    [Fact]
+    public async Task WindowCrossingTwoWallClockMoments_CatchesUpOnlyOnce()
+    {
+        ChatSession session = NewSession();
+        try
+        {
+            _now = new DateTimeOffset(2026, 5, 10, 9, 0, 0, TimeSpan.Zero);
+            GoalModeScheduleRule daily = new(EGoalScheduleKind.Daily, DailyTime: new TimeOnly(9, 30));
+            GoalModeScheduleRule oneShot = new(EGoalScheduleKind.OneShot,
+                FireAt: new DateTimeOffset(2026, 5, 10, 10, 0, 0, TimeSpan.Zero));
+            _controller.Start(session, new GoalModeSettings("目标", [daily, oneShot]));
+            await Until(() => _delays.Count == 1);
+
+            using (SessionManager.Instance.Running.BeginRun(session.SessionId))
+            {
+                _now = _now.AddMinutes(31); //09:31 到点（09:30 + 退避 60s）
+                _delays[0].Due.SetResult();
+                await Until(() => _controller.StatusOf(session.SessionId)?.WakeOwed == true);
+                _now = _now.AddMinutes(59); //那一轮一直跑到 10:30，越过了 09:30 与 10:00
+            }
+
+            await Until(() => _wakeCalls.Count == 2); //只补一轮
+            await Until(() => _delays.Count == 2);
+            Assert.True(_delays[1].Delay > TimeSpan.FromHours(20)); //不会为了 10:00 那笔再补；下一次是明天 09:30
+            Assert.Equal(2, _wakeCalls.Count);
+        }
+        finally
+        {
+            _controller.End(session.SessionId);
+            SessionManager.Instance.Delete(session.SessionId);
+        }
+    }
+
+    /// <summary>「立即」撞忙：不记欠账，收场按新的停下重算——那一刻该醒的照样醒</summary>
+    [Fact]
+    public async Task Immediate_DueWhileBusy_StillWakesAfterTheTurn()
+    {
+        ChatSession session = NewSession();
+        try
+        {
+            _controller.Start(session, new GoalModeSettings("目标", [new GoalModeScheduleRule(EGoalScheduleKind.Immediate)]));
+            await Until(() => _delays.Count == 1);
+
+            using (SessionManager.Instance.Running.BeginRun(session.SessionId))
+            {
+                _delays[0].Due.SetResult();
+                await Until(() => _controller.StatusOf(session.SessionId)?.WakeAt == null);
+                Assert.Single(_wakeCalls);
+                Assert.False(_controller.StatusOf(session.SessionId)!.WakeOwed); //不记欠账
+            }
+
+            await Until(() => _delays.Count == 2); //收场按新停下重排
+            _delays[1].Due.SetResult();
+            await Until(() => _wakeCalls.Count == 2); //还是「停下即醒」
+        }
+        finally
+        {
+            _controller.End(session.SessionId);
+            SessionManager.Instance.Delete(session.SessionId);
+        }
+    }
+
+    /// <summary>等待期间用户按了「立即唤醒」而会话正忙：不白按，记成欠着，那一轮收场就补</summary>
+    [Fact]
+    public async Task WakeNow_WhileAUserTurnRuns_IsCashedWhenItEnds()
+    {
+        ChatSession session = NewSession();
+        try
+        {
+            _controller.Start(session, new GoalModeSettings("目标", [Interval30]));
+            await Until(() => _delays.Count == 1 && _controller.StatusOf(session.SessionId)?.IsRunning == false);
+
+            using (SessionManager.Instance.Running.BeginRun(session.SessionId))
+            {
+                _controller.WakeNow(session.SessionId);
+                await Until(() => _controller.StatusOf(session.SessionId)?.WakeOwed == true);
+                Assert.Single(_wakeCalls);
+            }
+
+            await Until(() => _wakeCalls.Count == 2);
+        }
+        finally
+        {
+            _controller.End(session.SessionId);
+            SessionManager.Instance.Delete(session.SessionId);
+        }
+    }
+
+    /// <summary>欠着的时候改了规则：旧规则的那笔欠账作废，收场按新规则排，不拿旧时刻去补一轮</summary>
+    [Fact]
+    public async Task UpdateRules_WhileOwed_DropsTheOldMoment()
+    {
+        ChatSession session = NewSession();
+        try
+        {
+            _controller.Start(session, new GoalModeSettings("目标",
+                [new GoalModeScheduleRule(EGoalScheduleKind.OneShot, FireAt: _now.AddMinutes(10))]));
+            await Until(() => _delays.Count == 1);
+
+            using (SessionManager.Instance.Running.BeginRun(session.SessionId))
+            {
+                _delays[0].Due.SetResult();
+                await Until(() => _controller.StatusOf(session.SessionId)?.WakeOwed == true);
+                Assert.True(_controller.Update(session.SessionId, new GoalModeSettings(null, [Interval30], null)));
+            }
+
+            await Until(() => _delays.Count >= 3); //改规则时排一次、收场时再排一次
+            Assert.Single(_wakeCalls); //旧时刻没有被拿去补一轮
+            Assert.False(_controller.StatusOf(session.SessionId)!.WakeOwed);
+        }
+        finally
+        {
+            _controller.End(session.SessionId);
+            SessionManager.Instance.Delete(session.SessionId);
+        }
+    }
+
+    /// <summary>
+    /// 唤醒轮没真占上会话（下游的 TryBeginRun 被拒 / 本体读不回来）：轮数退回去、欠账原样还回来，
+    /// 下一次收场照样会补；首轮目标交代也等到真跑起来才落
+    /// </summary>
+    [Fact]
+    public async Task WakeTurnNotStarted_RollsBackTheTurn_AndKeepsTheOwedWake()
+    {
+        ChatSession session = NewSession();
+        bool canStart = false; //下游这一轮能不能占上
+        GoalModeController controller = new(Delay, () => _now, _ => _stamp,
+            (id, cause, _, onStarted) =>
+            {
+                _wakeCalls.Add((id, cause));
+                if (canStart) onStarted?.Invoke();
+                return Task.CompletedTask;
+            }, primary: true);
+        try
+        {
+            Assert.True(controller.Start(session, new GoalModeSettings("目标",
+                [new GoalModeScheduleRule(EGoalScheduleKind.OneShot, FireAt: _now.AddMinutes(10))])));
+            await Until(() => _delays.Count == 1);
+            Assert.Empty(session.History.Where(ChatMessageAnnotations.IsGoalModeInjection)); //没跑成就不落交代
+            Assert.Equal(0, controller.StatusOf(session.SessionId)!.Turns); //首轮不算
+
+            using (SessionManager.Instance.Running.BeginRun(session.SessionId))
+            {
+                _delays[0].Due.SetResult(); //到点撞忙
+                await Until(() => controller.StatusOf(session.SessionId)?.WakeOwed == true);
+                _now = _now.AddMinutes(15); //那一轮一直跑到一次性时刻之后
+            }
+
+            // 收场补一次，但下游仍然没占上：轮数退回去、账又被还回来
+            await Until(() => _wakeCalls.Count == 2);
+            await Until(() => controller.StatusOf(session.SessionId)?.WakeOwed == true);
+            Assert.Equal(0, controller.StatusOf(session.SessionId)!.Turns);
+
+            // 下游能跑了：再走一次收场，欠着的那次补上
+            canStart = true;
+            using (SessionManager.Instance.Running.BeginRun(session.SessionId))
+            {
+            }
+
+            await Until(() => controller.StatusOf(session.SessionId)!.Turns == 1);
+            Assert.False(controller.StatusOf(session.SessionId)!.WakeOwed);
+            Assert.Single(session.History.Where(ChatMessageAnnotations.IsGoalModeInjection)); //目标交代终于落了
+        }
+        finally
+        {
+            controller.End(session.SessionId);
+            SessionManager.Instance.Delete(session.SessionId);
+        }
+    }
+
     private static GoalModeScheduleRule Interval30 => new(EGoalScheduleKind.Interval, Interval: TimeSpan.FromMinutes(30));
 
     private ChatSession NewSession() => SessionManager.Instance.StartNewSession(new CharacterData { CharacterName = "目标会话" });
 
     // 模拟跑一轮：登记运行态、补一条模型回复（可选带 goal.end 调用）、结束——
-    // StateChanged 广播让控制器接「一轮收场」再排下次唤醒
-    private async Task WakeTurn(string sessionId, string cause, CancellationToken token)
+    // StateChanged 广播让控制器接「一轮收场」再排下次唤醒。注入与真实 SessionWakeTurn 同口径：
+    // 抢到会话之后才执行 onStarted
+    private async Task WakeTurn(string sessionId, string cause, CancellationToken token, Action? onStarted)
     {
         _wakeCalls.Add((sessionId, cause));
         _wakeTokens.Add(token);
-        if (_holdTurn is { } hold)
-        {
-            await hold.Task.WaitAsync(token).ContinueWith(_ => { });
-            if (token.IsCancellationRequested) return; //被结束取消：这一轮没跑成
-        }
         ChatSession? session = SessionManager.Instance.Load(sessionId);
         using (SessionManager.Instance.Running.BeginRun(sessionId))
         {
+            onStarted?.Invoke();
+            if (_holdTurn is { } hold)
+            {
+                await hold.Task.WaitAsync(token).ContinueWith(_ => { });
+                if (token.IsCancellationRequested) return; //被结束取消：这一轮没跑成
+            }
+
             if (session != null)
             {
                 if (_endOnNextTurn)
