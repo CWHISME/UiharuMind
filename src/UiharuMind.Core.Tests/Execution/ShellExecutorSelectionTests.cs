@@ -57,7 +57,7 @@ public class ShellExecutorSelectionTests
     [Fact]
     public void BackgroundTaskLaunch_ArgumentsFollowShellKind()
     {
-        BackgroundTaskLaunch launch = new(@"C:\Custom\Git\bin\bash.exe", Path.GetTempPath(),
+        BackgroundTaskLaunch launch = new(Path.Combine("C:", "Custom", "Git", "bin", "bash.exe"), Path.GetTempPath(),
             new Dictionary<string, string?>(), Path.GetTempPath());
 
         Assert.Equal(["--noprofile", "--norc", "-c", "echo hi"], launch.ArgumentsFor("echo hi"));
