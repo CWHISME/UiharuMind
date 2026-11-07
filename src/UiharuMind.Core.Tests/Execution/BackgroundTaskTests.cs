@@ -96,6 +96,10 @@ public class BackgroundTaskTests
     [Fact]
     public async Task StopDuringDrain_KeepsTheNaturalExit()
     {
+        // 场景靠 bash 的后台符构造（& 放后台、壳先退、子进程占着管道）。Windows 默认 shell 是
+        // PowerShell，`&` 无后台语义（解析错误秒退），跑不出「壳已退出、还在 draining」的窗口
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "场景依赖 bash 后台符语义");
+
         RecordingSink sink = new();
         BackgroundTask task = BackgroundTaskRegistry.Start("owner", "sleep 5 & echo hi", "test",
             TimeSpan.FromMinutes(1), NewLaunch(), sink);

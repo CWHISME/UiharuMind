@@ -234,16 +234,6 @@ public class OpenAICompatibleReasoningRoundtripTests
     }
 
     [Fact]
-    public void KimiK3Preset_OmitsSamplingParams_RoundtripIsAuto()
-    {
-        var config = new RemoteSensenovaModelConfig();
-        var preset = config.ModelIdVariants["kimi-k3"];
-
-        Assert.True(preset.OmitSamplingParams);
-        Assert.Null(preset.ReplayExistingReasoning); // 默认 auto：有正文就回传
-    }
-
-    [Fact]
     public void KimiK3ModelInfo_RoundtripDefaultsToAuto()
     {
         var info = new RemoteModelInfo

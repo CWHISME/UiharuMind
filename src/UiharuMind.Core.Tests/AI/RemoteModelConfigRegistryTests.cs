@@ -88,7 +88,6 @@ public class RemoteModelConfigRegistryTests
     [InlineData("agnes-3.0-flash", 524288)]
     [InlineData("deepseek-v4-pro", 1048576)]
     [InlineData("sensenova-6.8-flash-lite", 262144)]
-    [InlineData("kimi-k3", 1048576)]
     [InlineData("glm-4.7-flash", 204800)]
     [InlineData("glm-5v-turbo", 204800)]
     [InlineData("glm-4v-flash", 16384)]

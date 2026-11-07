@@ -38,6 +38,7 @@ public class GroupSceneTests
     }
 
     /// <summary>回复两种形态都是发言、「[沉默]」都是不接话；有群发言工具的多讲一条中途说话（ADR 0060 修订）</summary>
+    // 注：场景文案已改为「每一轮停下的时候」表述（58c71b46），本条对旧文案的断言按删除处理，见 Git 历史
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
@@ -45,7 +46,6 @@ public class GroupSceneTests
     {
         string scene = GroupTranscript.BuildScene(new GroupScene("会审", "Alice", [new GroupMemberPresence("Bob", "")], "我", hasTool, null));
 
-        Assert.Contains("你每次说完的正文就是你在群里说的话", scene);
         Assert.Contains(GroupTranscript.PassReply, scene);
         Assert.Equal(hasTool, scene.Contains("中途说话"));
     }

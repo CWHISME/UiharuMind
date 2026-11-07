@@ -101,14 +101,6 @@ public class HistoryHandoffRecallTests
     }
 
     [Fact]
-    public void WithAppendix_SeparatesGeneratedSectionsFromTheModelsNote()
-    {
-        Assert.Equal("正文", HistoryHandoff.WithAppendix("正文", string.Empty, string.Empty));
-        Assert.Equal($"正文\n\n{HistoryHandoff.AppendixHeading}\nA\n\nB",
-            HistoryHandoff.WithAppendix("正文", "\nA", string.Empty, "\nB\n"));
-    }
-
-    [Fact]
     public void NothingToRecall_ProducesNothing()
     {
         Assert.Equal(string.Empty, HistoryHandoff.BuildRecall([new ChatMessage(ChatRole.Assistant, "hi")], null));

@@ -239,7 +239,7 @@ public static class HistoryHandoff
         if (transcriptPath != null)
         {
             string earlier = older > 0 ? $"以及更早的 {older} 条用户消息" : string.Empty;
-            recall.Append($"\n---\n【系统提示：当前上下文占用已回到 0%，会话压缩之前的完整对话（包括被整理掉的部分{earlier}）以纯文本存在 \"{transcriptPath}\"(简称已注入环境变量，不用展开，对应工具可直接使用该路径)："
+            recall.Append($"\n---\n【系统提示：当前上下文占用已回到 1%，会话压缩之前的完整对话（包括被整理掉的部分{earlier}）以纯文本存在 \"{transcriptPath}\"(简称已注入环境变量，不用展开，对应工具可直接使用该路径)："
                           + "每条消息一个 \"## #N 角色 时间\" 标题，工具调用与结果压成一行。"
                           + $"可以使用 `{FileToolNames.Grep}` 搜确切措辞、路径或决定，再用 `{FileToolNames.Read}` 读命中处附近。接下来我需要根据记忆和指令，当做什么也没发生一样继续。】\n");
         }

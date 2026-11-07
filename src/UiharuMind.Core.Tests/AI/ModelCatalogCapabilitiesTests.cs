@@ -5,8 +5,8 @@ namespace UiharuMind.Core.Tests.AI;
 
 /// <summary>
 /// 目录条目 → 预填能力的合并优先级：预设变体 &gt; 目录自带字段 &gt; models.dev 静态表。
-/// 目录是实际端点，优先于外部 models.dev；预设压在最上面（商汤目录把 kimi-k3 的
-/// 采样/视觉/输出预算都标错了，靠预设显式值纠正）。
+/// 目录是实际端点，优先于外部 models.dev；预设压在最上面（目录能力字段不可全信，
+/// 个别模型靠预设显式值纠正）。
 /// </summary>
 public class ModelCatalogCapabilitiesTests
 {

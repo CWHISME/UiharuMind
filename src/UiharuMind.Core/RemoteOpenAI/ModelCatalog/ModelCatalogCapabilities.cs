@@ -21,7 +21,7 @@ public readonly record struct ResolvedCapabilities(
 /// 官网与 models.dev 只在「目录没带该能力字段」时兜底（commandcode/opencode 的标准 /v1/models 只给 id）；
 /// 两者之间官网赢——models.dev 对转售商缺行（commandcode 下 94 个模型只收了 72 个），
 /// 缺一行不等于没能力，不兜就会把视觉判成 false。
-/// 商汤目录的能力字段不可全信（MaxTokens / kimi-k3 的采样与视觉都与预设冲突），
+/// 商汤目录的能力字段不可全信（个别模型 MaxTokens 的采样与视觉与预设冲突），
 /// 这类模型靠预设显式值压住；没进预设的模型按目录走。
 /// </summary>
 public static class ModelCatalogCapabilities
