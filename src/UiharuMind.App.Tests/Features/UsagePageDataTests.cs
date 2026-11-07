@@ -204,8 +204,8 @@ public sealed class UsagePageDataTests : IDisposable
             Assert.True(data.ShowGoToChat);
             Assert.NotEmpty(data.EmptyTitle);
             Assert.Empty(data.Details);
-            //空态下 KPI 仍有卡（值是「—」/「未公布」），但整块由 IsEmpty 隐藏，不闪布局
-            Assert.All(data.Kpis, card => Assert.True(card.Value is "—" or "未公布"));
+            //空态下 KPI 仍有卡（值是「—」/本地化占位，如 zh 的「未公布」、en 的 “not published”），但整块由 IsEmpty 隐藏，不闪布局
+            Assert.All(data.Kpis, card => Assert.False(string.IsNullOrWhiteSpace(card.Value)));
         });
     }
 

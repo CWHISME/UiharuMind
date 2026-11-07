@@ -99,7 +99,9 @@ public partial class DownloadQueueViewData : ObservableObject
             Items.Add(new DownloadJobItemData(job));
         }
 
-        foreach (DownloadJobItemData item in Items) item.Refresh();
+        // 用快照遍历：行刷新(Refresh)会触发作业属性变化事件 → ScheduleSync 重入。
+        // 真机上 _post 是 UI 线程异步投递不会重入，但同步投递（测试）下循环里集合可能被递归 Sync 改掉
+        foreach (DownloadJobItemData item in Items.ToArray()) item.Refresh();
         ActiveCount = Items.Count(x => x.Job.State is EDownloadJobState.Queued or EDownloadJobState.Running);
         OnPropertyChanged(nameof(HasItems));
         OnPropertyChanged(nameof(Summary));
