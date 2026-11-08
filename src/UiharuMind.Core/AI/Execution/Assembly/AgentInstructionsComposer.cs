@@ -19,7 +19,6 @@ namespace UiharuMind.Core.AI.Execution.Assembly;
 /// </summary>
 internal static class AgentInstructionsComposer
 {
-
     /// 按固定顺序拼出 agent 档的整段系统提示：
     /// 基座(所有角色共用、系统锁定) → 角色段(人格 + 用户卡 + 对话模板) → 群场景(群成员才有) → 化身职责(化身才有) → 工具纪律与工作目录 → 扩展名单 → 工作区规矩 → 人格 coda(末尾回锚)。
     /// 角色段(人格)标题由装配层在卡无自带标题时补上（见 CharacterSection）；卡自带时归卡所有。
@@ -53,7 +52,7 @@ internal static class AgentInstructionsComposer
             // 含糊着写会逼模型先 Glob 消歧（还可能扫出嵌套目录里的同名说明文件）。
             // 路径默认相对工作目录，这里只需点名文件名，模型零搜索直接 Read。
             AppendSection(sb,
-                WorkspacePointerSection(WorkspaceInstructionsLoader.ResolveFileName(workingDirectory)),
+                WorkspaceSection(workspaceInstructions, WorkspaceInstructionsLoader.ResolveFileName(workingDirectory)),
                 EPromptSection.Workspace, registry);
         }
 
@@ -164,7 +163,8 @@ internal static class AgentInstructionsComposer
     /// <returns>整段文本</returns>
     internal static string WorkspaceSection(string workspaceInstructions, string fileName = "")
     {
-        return $"{AgentPromptHeadings.Workspace}\n\n{TruncateWorkspaceInstructions(workspaceInstructions, fileName)}";
+        return $"{AgentPromptHeadings.Workspace}\n\n{workspaceInstructions}";
+        // return $"{AgentPromptHeadings.Workspace}\n\n{TruncateWorkspaceInstructions(workspaceInstructions, fileName)}";
     }
 
     /// <summary>
@@ -183,7 +183,8 @@ internal static class AgentInstructionsComposer
         string pointer = string.IsNullOrEmpty(fileName)
             ? "工作目录下有一份 AGENTS.md（或 CLAUDE.md），写着这个项目的协作规矩与禁区。"
             : $"工作目录下的 {fileName} 写着这个项目的协作规矩与禁区。";
-        return $"{AgentPromptHeadings.Workspace}\n\n{pointer}\n" + $"本会话第一次调用工具之前，先 `Read {fileName}` 它读完全文；读过就不用再读（会话压缩后也无需再读）。";
+        return $"{AgentPromptHeadings.Workspace}\n\n{pointer}\n" +
+               $"本会话第一次调用工具之前，先 `Read {fileName}` 它读完全文；读过就不用再读（会话压缩后也无需再读）。";
     }
 
     /// <summary>

@@ -18,7 +18,7 @@ namespace UiharuMind.Core.AI.Execution;
 /// </summary>
 internal static class WorkspaceInstructionsLoader
 {
-    private const int MaxChars = 500; //说明文件也占系统提示预算,超长截断
+    private const int MaxChars = 16000; //说明文件也占系统提示预算,超长截断
 
     private static readonly string[] FileNames = ["AGENTS.md", "CLAUDE.md"];
 

@@ -1593,16 +1593,6 @@ public class SubAgentBoundaryTests
         Assert.DoesNotContain(body[..100], instructions); //正文整段不进系统提示
     }
 
-    /// <summary>指路指针本身够短:它才是每轮重发的那部分</summary>
-    [Fact]
-    public void WorkspacePointerSection_StaysShort()
-    {
-        string section = AgentInstructionsComposer.WorkspacePointerSection();
-
-        Assert.Contains(AgentPromptHeadings.Workspace, section);
-        Assert.True(section.Length < 300, $"指针膨胀到 {section.Length} 字,失去了全摘的意义");
-    }
-
     /// <summary>
     /// 报告只取<b>最后一次工具调用之后</b>的正文。框架默认工作循环要求 agent
     /// 在工具调用之间解释进展，于是全程正文里绝大部分是「我接下来去看 X」的旁白；
