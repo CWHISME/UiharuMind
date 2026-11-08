@@ -108,15 +108,37 @@ public class ThinkingItemStatsTests
     [Fact]
     public void FreezeReplayItems_WithStats_ReadsArchive()
     {
-        ChatMessage message = new(ChatRole.Assistant, [new TextReasoningContent("先想。")]);
-        ChatMessageAnnotations.WriteThinkingStats(message, 2500, 1234);
+        // 存档的字数就是这条消息的思考字数，与单张卡的长度一致：这种情况才读存档的耗时
+        string reasoning = new('想', 40);
+        ChatMessage message = new(ChatRole.Assistant, [new TextReasoningContent(reasoning)]);
+        ChatMessageAnnotations.WriteThinkingStats(message, 2500, 40);
         ThinkingItem thinking = new();
-        thinking.Append("先想。");
+        thinking.Append(reasoning);
         thinking.Flush();
 
         ThinkingItem.FreezeReplayItems([thinking], message);
 
-        Assert.Equal(ThinkingItem.FormatStats(TimeSpan.FromSeconds(2.5), 1234, isFinal: true), thinking.StatsText);
+        Assert.Equal(TimeSpan.FromSeconds(2.5), thinking.ClosedElapsed);
+        Assert.Equal(ThinkingItem.FormatStats(TimeSpan.FromSeconds(2.5), 40, isFinal: true), thinking.StatsText);
+    }
+
+    /// <summary>
+    /// 单张卡的字数与存档对不上：它不是整条消息的思考（一条消息拆多段时的那一段，
+    /// 或者来源认错了）。整条的耗时与字数都不能挂到它头上——界面会变成
+    /// 「10 字的碎片顶着 7,901 字 · 21.8s」。只定格自己的字数。
+    /// </summary>
+    [Fact]
+    public void FreezeReplayItems_SingleCardWithOtherLength_DoesNotBorrowTheArchive()
+    {
+        ChatMessage message = new(ChatRole.Assistant, [new TextReasoningContent(new string('想', 7901))]);
+        ChatMessageAnnotations.WriteThinkingStats(message, 21821, 7901);
+        ThinkingItem fragment = Closed(" filtered.");
+
+        ThinkingItem.FreezeReplayItems([fragment], message);
+
+        // 字是自己的，耗时一个数都不给：宁可少报一行，不把别条的 21.8s 编上去
+        Assert.True(fragment.ClosedElapsed < TimeSpan.FromSeconds(1), $"不该借用存档的耗时：{fragment.ClosedElapsed}");
+        Assert.Equal(string.Format(Loc.Text("AgentThinkingCharsFormat"), "10"), fragment.StatsText);
     }
 
     [Fact]

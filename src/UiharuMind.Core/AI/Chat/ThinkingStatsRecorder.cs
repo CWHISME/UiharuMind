@@ -258,40 +258,20 @@ public sealed class ThinkingStatsRecorder
 
     /// <summary>
     /// 一条消息里的思考字数：结构化思考段求和，正文里的 &lt;think&gt; 段经解析器提取后求和。
+    /// 段首空白不计——口径与界面建卡的一面（<see cref="ThinkingSegments"/>）
     /// </summary>
-    internal static long ThinkingCharsOf(ChatMessage message)
-    {
-        long chars = 0;
-        ThinkTagStreamParser? parser = null;
-        foreach (AIContent content in message.Contents)
-        {
-            switch (content)
-            {
-                case TextReasoningContent reasoning:
-                    chars += reasoning.Text?.Length ?? 0;
-                    break;
-                case TextContent text when !string.IsNullOrEmpty(text.Text):
-                    parser ??= new ThinkTagStreamParser();
-                    parser.Feed(text.Text, _ => { }, segment => chars += segment.Length);
-                    break;
-            }
-        }
-
-        if (parser != null)
-        {
-            long held = chars;
-            parser.Complete(_ => { }, segment => held += segment.Length);
-            chars = held;
-        }
-
-        return chars;
-    }
+    internal static long ThinkingCharsOf(ChatMessage message) => ThinkingSegments.TotalLengthOf(message);
 
     private void AddThinking(string delta)
     {
         if (string.IsNullOrEmpty(delta)) return;
         if (!_segmentOpen)
         {
+            // 段首空白不计：界面为纯空白不建卡（见 ConversationTranscript.AppendThinking），
+            // 存档要是照全额计，两边的长度就永远差这几个空格，回放认领时那张卡
+            // 看着像「认错了消息」，只好放弃耗时与字数。段中、句中的空白照计
+            delta = delta.TrimStart();
+            if (delta.Length == 0) return;
             _segmentOpen = true;
             _segmentStart = _clock.Elapsed;
             _segmentChars = 0;

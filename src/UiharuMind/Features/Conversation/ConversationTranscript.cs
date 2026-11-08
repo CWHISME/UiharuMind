@@ -643,9 +643,16 @@ public sealed class ConversationTranscript : ITurnSink
     private void AppendThinking(string delta)
     {
         CloseText();
-        // 整段只有空白（实测 deepseek 会发一个孤立空格）：不建卡——否则界面上是一张
-        // 「1 字 · 1 字/秒」的假思考卡。已有正文时照常追加，句中的空格是真内容
-        if (_streamingThinking == null && string.IsNullOrWhiteSpace(delta)) return;
+        // 开卡前先把段首空白剥掉：纯空白不建卡（实测 deepseek 会发一个孤立空格，
+        // 照建就是一张「1 字 · 1 字/秒」的假思考卡）。已有的卡照原样追加，句中的空格是真内容。
+        // 这条口径与存档侧同一处（ThinkingSegments）：两边差那几个空格，
+        // 回放认领时这张卡就会被当成「认错了消息」而丢掉耗时
+        if (_streamingThinking == null || _streamingThinking.IsContentUnavailable)
+        {
+            delta = delta.TrimStart();
+            if (delta.Length == 0) return;
+        }
+
         _segmentHadThinking = true;
         // 先开的是「没有正文」那张（加密思考的信号），正文真来了就把它换成正常的卡
         if (_streamingThinking is { IsContentUnavailable: true } placeholder)

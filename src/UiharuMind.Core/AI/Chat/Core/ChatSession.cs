@@ -1172,6 +1172,10 @@ public class ChatSession
     /// 本轮的输入与输出由历史提供器统一写入历史，调用方不要预先把输入加进 <see cref="History"/>。
     /// 只要正文的调用方自行过滤 <see cref="TextContent"/>——不在这里额外开一条只出正文的口子，
     /// 否则取消补存那段逻辑就要跟着复制一份。
+    ///
+    /// <b>取消补存只补「正在流的那一发」</b>：历史是一条消息对一次服务调用，前面几发已经由
+    /// <c>SessionChatHistoryProvider</c> 逐次落盘；把整轮正文拼成一条再写一遍，会让历史里
+    /// 多出一条把几句发言粘在一起的重复假回复（与子代理停止那次是同一个形状）。
     /// </summary>
     /// <param name="input">本轮用户输入；为 null 表示基于现有历史重新生成</param>
     /// <param name="cancellationToken">取消令牌</param>
@@ -1188,30 +1192,60 @@ public class ChatSession
         using RunnerLease lease = await AcquireRunnerAsync(cancellationToken).ConfigureAwait(false);
 
         List<ChatMessage> turnInput = input == null ? [] : [input];
-        StringBuilder finalText = StringBuilderPool.Get();
+        // 只攒「这一发还没落盘的正文」；对外透出的仍是增量
+        StringBuilder streaming = StringBuilderPool.Get();
         try
         {
             await foreach (AIContent content in lease.Runner.RunAsync(turnInput, cancellationToken)
                                .ConfigureAwait(false))
             {
-                // 只在本地累积一份正文用于取消时补存,对外透出的仍是增量
-                if (content is TextContent { Text.Length: > 0 } text) finalText.Append(text.Text);
+                // 一次服务调用落了盘：它的正文已经在历史里，缓冲从下一发起算
+                if (content is MessageBoundaryContent) streaming.Clear();
+                else if (content is TextContent { Text.Length: > 0 } text) streaming.Append(text.Text);
                 yield return content;
             }
         }
         finally
         {
-            // 取消时框架不会写入历史(InvokedAsync 收到异常即跳过存储),
-            // 手动补上本轮输入与已收到的部分内容,与旧行为一致:取消也保留已生成的文本。
+            // 取消时框架不会写入响应消息（InvokedAsync 收到异常即跳过存储），
+            // 但请求侧它已经补过了（见 SessionChatHistoryProvider.InvokedCoreAsync）：
+            // 所以这里只补「正在流的那一段正文」，输入只在确实没进历史时才补
             if (cancellationToken.IsCancellationRequested)
             {
-                if (input != null) History.Add(input);
-                if (finalText.Length > 0) History.Add(CreateMessage(ChatRole.Assistant, finalText.ToString()));
-                if (input != null || finalText.Length > 0) Save();
+                bool added = false;
+                if (input != null && !ContainsMessage(input))
+                {
+                    History.Add(input);
+                    added = true;
+                }
+
+                if (streaming.Length > 0)
+                {
+                    History.Add(CreateMessage(ChatRole.Assistant, streaming.ToString()));
+                    added = true;
+                }
+
+                if (added) Save();
             }
 
-            StringBuilderPool.Release(finalText);
+            StringBuilderPool.Release(streaming);
         }
+    }
+
+    /// <summary>
+    /// 这条消息是否已经在历史里。先按实例认（我们自己传进去的那一条），
+    /// 再按「同角色同正文」在末尾几条里认——历史提供器落盘时用的是重建的副本，实例认不出。
+    /// </summary>
+    private bool ContainsMessage(ChatMessage message)
+    {
+        for (int i = Count - 1; i >= 0 && i >= Count - 8; i--)
+        {
+            ChatMessage existing = this[i];
+            if (ReferenceEquals(existing, message)) return true;
+            if (existing.Role == message.Role && existing.Text == message.Text) return true;
+        }
+
+        return false;
     }
 
     /// <summary>

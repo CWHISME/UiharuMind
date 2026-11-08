@@ -143,7 +143,8 @@ public partial class ThinkingItem
     /// 回放定格：命中存档读存档，未命中只留字数。调用方在转录器收尾之后、逐条配来源时调。
     ///
     /// 存档是整条消息的合并值，一条消息拆成多张卡（think/text 交替）时按各卡字数分回去——
-    /// 每张都挂合并值的话，三段思考就显示成三倍耗时。
+    /// 每张都挂合并值的话，三段思考就显示成三倍耗时。单张卡与存档字数对不上的同理：
+    /// 那不是它的数，只定格自己的字数。
     /// </summary>
     /// <param name="items">同一条来源消息产出的思考条目，按显示顺序</param>
     /// <param name="message">来源历史消息</param>
@@ -177,6 +178,17 @@ public partial class ThinkingItem
 
         if (items.Count == 1)
         {
+            // 存档是整条消息的合并值，只有「这张卡就是整条消息的思考」时才能直接挂上去。
+            // 字数不等就说明这张卡只是那条消息的一部分（或来源本身认错了）——
+            // 把整条的耗时盖在一张碎片卡上，界面就是「10 字的碎片顶着 7,901 字」的假数。
+            // 这种情形只定格它自己的字数，耗时留空（宁可少报一行，不编一个数）
+            long own = items[0].FullLength;
+            if (own != chars)
+            {
+                items[0].FreezeCharsOnly(own);
+                return;
+            }
+
             items[0].ApplyPersistedStats(duration, chars);
             return;
         }

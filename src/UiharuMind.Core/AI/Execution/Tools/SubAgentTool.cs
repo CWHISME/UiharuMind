@@ -959,63 +959,6 @@ public static class SubAgentTool
     }
 
     /// <summary>
-    /// 子代理这一轮的渲染落点。它只攒交给主代理的报告，<b>自己不认识界面</b>——
-    /// 打开着的子会话窗口看到的实时内容，来自 <c>TurnDriver</c> 在
-    /// <c>ChatSession.LiveTurn</c> 上开的那个分岔口（同一条流的另一个订阅者），
-    /// 与本类无关。
-    /// </summary>
-    private sealed class SubAgentTurnSink : ITurnSink
-    {
-        private readonly StringBuilder _streaming = new(); //正在流的那一段正文,取消时由 TurnDriver 取走落库
-        private ReportAccumulator.ReportMark _mark; //本次服务调用开始时报告的位置,重发要退回它
-
-        /// <summary>报告累加器</summary>
-        public ReportAccumulator Report { get; } = new();
-
-        /// <summary>本轮是否出现过用户插话(报告里要交代,否则主代理会把它当成自己的委派结果)</summary>
-        public bool SawUserInterjection { get; private set; }
-
-        /// <summary>本轮是否出现过派活方插话(同上,但来源不同,报告里分开交代)</summary>
-        public bool SawParentInterjection { get; private set; }
-
-        public void Apply(AIContent content)
-        {
-            // 这一发整段重来：把它写进报告的那截退回去，正在流的正文也丢掉，
-            // 否则报告里同一段话会出现两遍
-            if (content is StreamRestartContent)
-            {
-                Report.RollbackTo(_mark);
-                _streaming.Clear();
-                return;
-            }
-
-            Report.Add(content);
-            // 一次服务调用落了盘：下一发从这里起算，重发时退回的就是这里
-            if (content is MessageBoundaryContent) _mark = Report.Mark();
-            if (content is TextContent { Text.Length: > 0 } text) _streaming.Append(text.Text);
-            if (content is UserMessageContent { IsInterjection: true, Message: { } incoming })
-            {
-                if (ChatMessageAnnotations.IsParentInterjection(incoming)) SawParentInterjection = true;
-                else SawUserInterjection = true;
-            }
-        }
-
-        public void CloseSegment() => _streaming.Clear();
-
-        public void StopRunningToolCalls(string note)
-        {
-        }
-
-        public string? TakeStreamingText()
-        {
-            if (_streaming.Length == 0) return null;
-            string text = _streaming.ToString();
-            _streaming.Clear();
-            return text;
-        }
-    }
-
-    /// <summary>
     /// 从子代理的内容流里提取报告。
     ///
     /// 报告 = <b>最后一次工具调用之后</b>的正文,而非全程正文拼接。

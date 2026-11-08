@@ -121,6 +121,26 @@ public class ThinkingStatsRecorderTests
         Assert.Equal("先想想。".Length, chars);
     }
 
+    /// <summary>
+    /// 纯空白开头的思考：界面不为它建卡（会是一张「1 字」假卡），存档也不能把这几字算进去。
+    /// 两边口径不一致，存档字数就会比卡里攒的那段多出几个空白，回放认领时那张卡只好
+    /// 放弃耗时与字数（它看着像「认错了消息」，其实只是多了几个空格）。
+    /// </summary>
+    [Fact]
+    public void Stamp_LeadingWhitespaceOnlyDelta_IsNotCounted()
+    {
+        ThinkingStatsRecorder recorder = new();
+        recorder.NoteContent(new TextReasoningContent(" "));
+        recorder.NoteContent(new TextReasoningContent("先想。"));
+        recorder.NoteSegmentClosed();
+        // 落盘那份带着开头的空白；界面那张卡攒的是剥掉空白后的那三个字
+        List<ChatMessage> history = [new(ChatRole.Assistant, [new TextReasoningContent(" 先想。")])];
+
+        Assert.Equal(1, recorder.Stamp(history, 0));
+        Assert.True(ChatMessageAnnotations.TryReadThinkingStats(history[0], out _, out long chars));
+        Assert.Equal("先想。".Length, chars);
+    }
+
     [Fact]
     public void Stamp_SkipsAlreadyStampedAndOutOfRange()
     {

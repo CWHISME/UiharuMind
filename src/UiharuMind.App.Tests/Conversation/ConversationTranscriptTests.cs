@@ -467,6 +467,45 @@ public class ConversationTranscriptTests
     }
 
     /// <summary>
+    /// 回答里引用了 &lt;think&gt;（实机事故的形状）：一旦有正文上屏，后面的标签按字面量，
+    /// 不能被当成开标签把后半个回答吞进思考卡——从前一条 5620 字的回答会被切成两块，
+    /// 后 4784 字顶着「思考」显示。
+    /// </summary>
+    [Fact]
+    public void QuotedThinkTagInAnswer_DoesNotSplitTheBubble()
+    {
+        var (transcript, items) = Create();
+        const string answer = "实测（400 条 <think> 混排：1.7 ms）";
+
+        transcript.Apply(new TextContent(answer));
+        transcript.CloseSegment();
+
+        ConversationItemBase single = Assert.Single(items);
+        Assert.IsType<TextConversationItem>(single);
+        Assert.Equal(answer, FlushedMessage(single));
+    }
+
+    /// <summary>
+    /// 段边界之后（这里是一次工具调用）下一条消息开头的 &lt;think&gt; 仍然算标签：
+    /// 「只在段首认」不能把本地模型带工具的那条路一起关死。
+    /// </summary>
+    [Fact]
+    public void InlineThinkTagAfterToolCall_IsStillRecognized()
+    {
+        var (transcript, items) = Create();
+
+        transcript.Apply(new TextContent("先查一下"));
+        transcript.Apply(new FunctionCallContent("call-1", "Shell", null));
+        transcript.Apply(new FunctionResultContent("call-1", "结果"));
+        transcript.Apply(new TextContent("<think>再想</think>结论"));
+        transcript.CloseSegment();
+
+        ThinkingItem thinking = Assert.Single(items.OfType<ThinkingItem>());
+        Assert.Equal("再想", FlushedMessage(thinking));
+        Assert.Equal("结论", FlushedMessage(items[^1]));
+    }
+
+    /// <summary>
     /// 思考段与正文段互斥。条目按到达顺序进集合，正在流的那条气泡排在后来的思考卡<b>前面</b>
     /// ——不收尾的话，思考之后的正文会续进那条气泡里，界面上就成了「回答在思考过程上面」，
     /// 而历史里它们是两条消息，重开会话立刻对不上（子会话窗口那个「实时看是一坨、

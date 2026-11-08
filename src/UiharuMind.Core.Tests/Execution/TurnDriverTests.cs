@@ -8,6 +8,7 @@ using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Execution.ToolCall;
+using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Models;
 
 namespace UiharuMind.Core.Tests.Execution;
@@ -344,6 +345,199 @@ public class TurnDriverTests
         await driver.RunAsync(session, runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
 
         Assert.Single(session.History);
+    }
+
+    /// <summary>
+    /// 落点交上来的正文里<b>已经落过盘</b>的那截要削掉。子代理落点曾把整轮正文
+    /// 当成「正在流的那一段」交上来，历史末尾于是多出一条把前面几十条正文拼在一起的假回复
+    /// （实机 5075 字、68 段），重开会话与真回复无从分辨，还会被当成真回复回填给模型。
+    /// </summary>
+    [Fact]
+    public async Task Cancelled_WritesOnlyThePartThatIsNotPersistedYet()
+    {
+        ChatSession session = NewSession();
+        session.History.Add(Prompt());
+        string persisted = new('已', 60);
+        session.History.Add(new ChatMessage(ChatRole.Assistant, persisted));
+
+        const string fresh = "这一截还没落盘";
+        StubRunner runner = new(Interrupted(new TextContent(fresh)));
+        TurnDriver driver = new(new FakeSink(persisted + fresh), new TurnUsageLedger());
+
+        await driver.RunAsync(session, runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, session.History.Count);
+        Assert.Equal(fresh, session.History[2].Text);
+    }
+
+    /// <summary>
+    /// 本轮只落过一句短正文时，<b>绝不能</b>因为它出现在新内容末尾就判「全落盘」：
+    /// 那会把整段新内容静默丢掉（判等才能避免这个方向）。
+    /// </summary>
+    [Fact]
+    public void TrimShortPersistedBody_DoesNotSwallowNewContentEndingWithIt()
+    {
+        const string persisted = "好的。";
+        List<ChatMessage> history = [new ChatMessage(ChatRole.Assistant, persisted)];
+        const string fresh = "这一段是新写的，最后一句是：好的。";
+
+        Assert.Equal(fresh, TurnDriver.TrimPersistedPrefix(history, null, fresh));
+    }
+
+    /// <summary>
+    /// 新内容里引了一段旧正文、末尾又逐字复述一遍：切点要落在<b>第一次</b>出现处，
+    /// 那才能保住中间的真实新内容（剩下的重复算「多写」，可发现、可删）。
+    /// </summary>
+    [Fact]
+    public void TrimRepeatedPersistedBody_CutsAtTheFirstOccurrence()
+    {
+        string persisted = new('已', 60);
+        List<ChatMessage> history = [new ChatMessage(ChatRole.Assistant, persisted)];
+        string fresh = new('新', 40);
+
+        Assert.Equal(fresh + persisted, TurnDriver.TrimPersistedPrefix(history, null, persisted + fresh + persisted));
+    }
+
+    /// <summary>
+    /// 末尾那条正文很短时，切点要按<b>链</b>算：只拿「够长的单条」去切会切在它前面，
+    /// 把已经落盘的那一句又写一遍（事故档案上实测最坏多写 82 字）。
+    /// </summary>
+    [Fact]
+    public void TrimShortTrailingBody_SlicesAtTheChain()
+    {
+        string first = new('甲', 60);
+        string second = new('乙', 20); // 自己不到门槛
+        List<ChatMessage> history =
+            [new ChatMessage(ChatRole.Assistant, first), new ChatMessage(ChatRole.Assistant, second)];
+
+        const string fresh = "还没落盘的这一截";
+
+        Assert.Equal(fresh, TurnDriver.TrimPersistedPrefix(history, null, first + second + fresh));
+    }
+
+    /// <summary>
+    /// 整轮正文都很碎（每条都不到门槛）：链拼起来够长就照样能切——
+    /// 否则整轮会被原样写进去，那就是假回复回来了。
+    /// </summary>
+    [Fact]
+    public void TrimFragmentedBodies_StillSlicesByChain()
+    {
+        string a = new('甲', 20);
+        string b = new('乙', 20);
+        string c = new('丙', 20);
+        List<ChatMessage> history =
+        [
+            new ChatMessage(ChatRole.Assistant, a), new ChatMessage(ChatRole.Assistant, b),
+            new ChatMessage(ChatRole.Assistant, c),
+        ];
+
+        Assert.Equal("尾巴", TurnDriver.TrimPersistedPrefix(history, null, a + b + c + "尾巴"));
+    }
+
+    /// <summary>
+    /// <b>已知边界</b>：模型把上一段正文逐字重复到这次末尾时，判据会认为「整段都已落盘」，
+    /// 连前面新写的内容一起丢掉。缓冲里只有文本，两种情形（攒了整轮 vs 新内容 + 逐字重复）
+    /// 无从区分；反过来「不切」就会回到「整轮假回复」那个更常见的毛病。
+    /// 行为若变了，这里是第一个变红的地方。
+    /// </summary>
+    [Fact]
+    public void TrimVerbatimRepeatAtTheEnd_IsTreatedAsAllPersisted()
+    {
+        string persisted = new('已', 60);
+        List<ChatMessage> history = [new ChatMessage(ChatRole.Assistant, persisted)];
+
+        Assert.Null(TurnDriver.TrimPersistedPrefix(history, null, new string('新', 30) + persisted));
+    }
+
+    /// <summary>
+    /// 整段都已经在历史里：一个字都不写。不然每按一次停止就在会话末尾多一条重复的“回复”
+    /// </summary>
+    [Fact]
+    public async Task Cancelled_WithFullyPersistedText_AppendsNothing()
+    {
+        ChatSession session = NewSession();
+        session.History.Add(Prompt());
+        string persisted = new('已', 60);
+        session.History.Add(new ChatMessage(ChatRole.Assistant, persisted));
+
+        StubRunner runner = new(Interrupted());
+        TurnDriver driver = new(new FakeSink(persisted), new TurnUsageLedger());
+
+        await driver.RunAsync(session, runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, session.History.Count);
+    }
+
+    /// <summary>
+    /// 事故的组合形状：真落点 + 真取消收尾。子代理那个落点攒着整轮正文（它不能靠服务调用
+    /// 边界清——那里清会丢掉下一发已流出的首段），落盘只该多出 0 条。
+    /// 两层各自有测试，“合起来不漏”就靠这一条钉住。
+    /// </summary>
+    [Fact]
+    public async Task Cancelled_WithTheRealSubAgentSink_AppendsNothingAfterPersistedText()
+    {
+        ChatSession session = NewSession();
+        session.History.Add(Prompt());
+        string first = new('甲', 60);
+        string second = new('乙', 60);
+        session.History.Add(new ChatMessage(ChatRole.Assistant, first));
+        session.History.Add(new ChatMessage(ChatRole.Assistant, second));
+
+        SubAgentTurnSink sink = new();
+        StubRunner runner = new(Interrupted(
+            new TextContent(first), MessageBoundaryContent.Instance,
+            new TextContent(second), MessageBoundaryContent.Instance));
+        TurnDriver driver = new(sink, new TurnUsageLedger());
+
+        await driver.RunAsync(session, runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, session.History.Count);
+    }
+
+    /// <summary>
+    /// 末尾那条只有 20 字：按长度切的闸门（48 字）够不着它，后缀链要能认出来——
+    /// 事故那条 5075 字正是靠这个形状被整条拦下的（最后一条正文只有 49 字）。
+    /// </summary>
+    [Fact]
+    public async Task Cancelled_ShortTrailingBody_StillRecognizedAsPersisted()
+    {
+        ChatSession session = NewSession();
+        session.History.Add(Prompt());
+        string longBody = new('丙', 200);
+        string shortTail = new('丁', 20);
+        session.History.Add(new ChatMessage(ChatRole.Assistant, longBody));
+        session.History.Add(new ChatMessage(ChatRole.Assistant, shortTail));
+
+        StubRunner runner = new(Interrupted());
+        TurnDriver driver = new(new FakeSink(longBody + shortTail), new TurnUsageLedger());
+
+        await driver.RunAsync(session, runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, session.History.Count);
+    }
+
+    /// <summary>
+    /// 只认本轮的消息：上一轮那条正文与缓冲里的文字恰好一样时，不许拿它来切。
+    /// 时间闸门就是为这个存在的（老存档里框架产出的副本没有时间戳，那时候宁可多扫描几条）。
+    /// </summary>
+    [Fact]
+    public async Task Cancelled_TextMatchingAnEarlierTurn_IsWrittenInFull()
+    {
+        ChatSession session = NewSession();
+        session.History.Add(Prompt());
+        string shared = new('旧', 60);
+        session.History.Add(new ChatMessage(ChatRole.Assistant, shared)
+        {
+            CreatedAt = DateTimeOffset.Now.AddHours(-1),
+        });
+
+        StubRunner runner = new(Interrupted());
+        TurnDriver driver = new(new FakeSink(shared), new TurnUsageLedger());
+
+        await driver.RunAsync(session, runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, session.History.Count);
+        Assert.Equal(shared, session.History[2].Text);
     }
 
     [Fact]

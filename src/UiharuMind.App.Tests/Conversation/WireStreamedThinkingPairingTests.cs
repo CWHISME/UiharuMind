@@ -130,7 +130,152 @@ public class WireStreamedThinkingPairingTests
     }
 
     /// <summary>
-    /// 配对幂等：已经认好来源的不碰，剩下的只在剩下的候选里找，重复调用不会漂移。
+    /// 思考与正文交替下发的模型：一条消息里有几段思考、界面上就有几张卡。
+    /// 候选必须按<b>片段</b>长度比，否则按整条消息求和总是对不上，全部掉进顺序兜底，
+    /// 一路错位——卡的耗时与字数随后被盖成前面几条消息的（实机：10 字的碎片顶着「7,901 字」）。
+    ///
+    /// 注：正文也拆成几段时，第二段的气泡仍只能认到同一轮里别的消息（一条消息只被
+    /// 配对一次）——那是气泡侧的事，与这里的思考卡归属无关，不在此例。
+    /// </summary>
+    [Fact]
+    public void InterleavedReasoningFragmentsPairWithTheirOwnMessage()
+    {
+        var (actions, items) = Create();
+        // 前面一条已经认完的单段思考：错位配对会把后面的卡拖到它身上
+        ChatMessage older = new(ChatRole.Assistant, [new TextReasoningContent(new string('旧', 906))]);
+        ChatMessage olderResult = new(ChatRole.Tool, [new FunctionResultContent("call-1", "结果")]);
+        // 交错的那一条：思考 251 → 正文 → 思考 10 → 工具调用
+        string first = new('甲', 251);
+        string second = new('乙', 10);
+        ChatMessage interleaved = new(ChatRole.Assistant,
+        [
+            new TextReasoningContent(first),
+            new TextContent("正文"),
+            new TextReasoningContent(second),
+            new FunctionCallContent("call-2", "Shell"),
+        ]);
+        List<ChatMessage> history = [older, olderResult, interleaved];
+
+        ThinkingItem card1 = new();
+        card1.Append(first);
+        TextConversationItem bubble = new(false) { Message = "正文" };
+        ThinkingItem card2 = new();
+        card2.Append(second);
+        ToolCallItem toolCard = new() { CallId = "call-2", ToolName = "Shell" };
+        items.Add(card1);
+        items.Add(bubble);
+        items.Add(card2);
+        items.Add(toolCard);
+
+        actions.WireStreamed(history);
+
+        Assert.Same(interleaved, card1.SourceMessage);
+        Assert.Same(interleaved, bubble.SourceMessage);
+        Assert.Same(interleaved, card2.SourceMessage);
+        Assert.Same(interleaved, toolCard.SourceMessage);
+        Assert.Null(ConversationOrderCheck.FindDivergence(items, history));
+        Assert.Equal(0, ConversationOrderCheck.FindMissingTail(items, history));
+    }
+
+    /// <summary>
+    /// 交错消息里只剩一张卡（另一段被裁掉/没画）：这张卡仍然只能认它自己那一条，
+    /// 不能因为长度碰不上就去认前面的消息——那是把它变成了另一条消息的卡。
+    /// </summary>
+    [Fact]
+    public void ASingleFragmentOfAnInterleavedMessageStaysOnIt()
+    {
+        var (actions, items) = Create();
+        ChatMessage older = new(ChatRole.Assistant, [new TextReasoningContent(new string('旧', 300))]);
+        string first = new('甲', 251);
+        string second = " filtered.";
+        ChatMessage interleaved = new(ChatRole.Assistant,
+        [
+            new TextReasoningContent(first),
+            new TextContent("正文"),
+            new TextReasoningContent(second),
+        ]);
+
+        ThinkingItem card = new();
+        card.Append(second.TrimStart()); //卡里的段首空白已被剥掉（见 ConversationTranscript.AppendThinking）
+        TextConversationItem bubble = new(false) { Message = "正文" };
+        items.Add(card);
+        items.Add(bubble);
+
+        actions.WireStreamed([older, interleaved]);
+
+        Assert.Same(interleaved, card.SourceMessage);
+        Assert.Same(interleaved, bubble.SourceMessage);
+    }
+
+    /// <summary>
+    /// 跨调用重配：一条交错消息的第一段卡已经认好、第二段卡到下一次落盘才建出来。
+    /// 已认走的只是<b>那一段</b>，不是整条消息——第二段仍得按长度认回来，
+    /// 否则它会被顺序兜底拽到前面别的消息上（之后统计又照着那条消息盖下去）。
+    /// </summary>
+    [Fact]
+    public void SecondFragmentPairsEvenWhenTheMessageIsAlreadyClaimed()
+    {
+        var (actions, items) = Create();
+        ChatMessage older = new(ChatRole.Assistant, [new TextReasoningContent(new string('旧', 400))]);
+        string first = new('甲', 251);
+        string second = new('乙', 10);
+        ChatMessage interleaved = new(ChatRole.Assistant,
+        [
+            new TextReasoningContent(first),
+            new TextContent("正文"),
+            new TextReasoningContent(second),
+        ]);
+
+        ThinkingItem card1 = new();
+        card1.Append(first);
+        card1.SourceMessage = interleaved; //上一次重配时认好的
+        ThinkingItem card2 = new();
+        card2.Append(second); //这一次才建出来
+        items.Add(card1);
+        items.Add(card2);
+
+        actions.WireStreamed([older, interleaved]);
+
+        Assert.Same(interleaved, card1.SourceMessage);
+        Assert.Same(interleaved, card2.SourceMessage);
+    }
+
+    /// <summary>
+    /// 已知代价：一张还在流、长度尚未长齐的卡，长度扣不掉存档里那一段，于是那一段仍留在候选里，
+    /// 后到的「长度正好对上」的卡会再认一次（一段两卡）。
+    /// 取舍：让<b>齐的赢</b>——碎片占着位置反而会把真正那条挤去前面别的消息（旧行为）。
+    /// （想把碎片也钉住，得给「卡是否还在长」一个真实标记：现在 `IsDone` 默认就是 true，
+    /// 无法区分流中与收尾，所以这一条暂时只能靠长度。）
+    /// </summary>
+    [Fact]
+    public void AStillGrowingCard_CanLoseItsSegmentToTheCompleteOne()
+    {
+        var (actions, items) = Create();
+        ChatMessage older = new(ChatRole.Assistant, [new TextReasoningContent(new string('旧', 400))]);
+        string segment = new('段', 200);
+        ChatMessage message = new(ChatRole.Assistant,
+            [new TextReasoningContent(segment), new FunctionCallContent("c1", "Shell")]);
+
+        ThinkingItem growing = new();
+        growing.Append(new string('半', 30)); //还在流：只攒到 30，与存档的 200 对不上
+        growing.SourceMessage = message;
+        ThinkingItem late = new();
+        late.Append(segment);
+        items.Add(growing);
+        items.Add(late);
+
+        actions.WireStreamed([older, message]);
+
+        Assert.Same(message, growing.SourceMessage);
+        Assert.Same(message, late.SourceMessage); //齐的那张赢
+    }
+
+    /// <summary>
+    /// 配对幂等：已经认好来源的不碰。
+    ///
+    /// 而「已认走」只占掉<b>它那一段</b>：上面那张卡长度是 10，目标消息只有一段 20，扣不掉——
+    /// 说明它不是这条消息的段（截断/取消的半截卡）。这种卡不得把整段名额占掉，
+    /// 否则真正的 20 字卡只能去认前面别的消息（旧行为，删除与统计都会跟着错）。
     /// </summary>
     [Fact]
     public void PairingLeavesAlreadyWiredThinkingCardsAlone()
@@ -141,7 +286,7 @@ public class WireStreamedThinkingPairingTests
 
         ThinkingItem settled = new();
         settled.Append(new string('s', 10));
-        settled.SourceMessage = second;
+        settled.SourceMessage = second; // 人工造成的不一致：长度对不上
         ThinkingItem fresh = new();
         fresh.Append(new string('f', 20));
         items.Add(settled);
@@ -150,7 +295,7 @@ public class WireStreamedThinkingPairingTests
         actions.WireStreamed([first, second]);
 
         Assert.Same(second, settled.SourceMessage);
-        Assert.Same(first, fresh.SourceMessage);
+        Assert.Same(second, fresh.SourceMessage);
     }
 
     /// <summary>

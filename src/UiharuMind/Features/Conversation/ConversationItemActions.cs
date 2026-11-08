@@ -307,8 +307,8 @@ public sealed class ConversationItemActions
     ///
     /// 三阶段认领，每一阶段都不许交叉（显示在前的卡只能认更早或同时的消息）：
     /// <list type="number">
-    /// <item>先按全文长度精确配对。直播缓冲与落盘文本逐字一致（规整只删空增量、合并碎片，
-    /// 见 <c>ChatContentNormalizer</c>），长度对上就是同一段思考。</item>
+    /// <item>先按<b>思考片段</b>的长度精确配对。直播缓冲与落盘文本逐字一致（规整只删空增量、合并碎片，
+    /// 见 <c>ChatContentNormalizer</c>），长度对上就是同一段思考；一条消息可以有几段，候选就按片段列。</item>
     /// <item>剩下的按顺序配对（尽力而为）；实在没有位置了就跟最近认走的那条抱团——
     /// 同一条消息本来就会拆出多张卡（思考/正文交替），抱团与回放形状一致。</item>
     /// <item>历史里根本没有带推理的消息时（如取消打断的半截思考），沿用原来的回落：
@@ -334,24 +334,44 @@ public sealed class ConversationItemActions
 
         if (unwired.Count == 0) return;
 
-        HashSet<ChatMessage> claimed = new(ReferenceEqualityComparer.Instance);
+        // 已认走的是<b>段</b>，而且得<b>按长度扣</b>：靠顺序兜底认上的卡（截断/取消的半截思考）
+        // 长度跟哪一段都不等，按「占掉前 N 段」去扣必然扣错，把那一段白白留给后来的同长卡。
+        // 扣不掉就什么都不扣——那张卡不是这条消息的段，不该替别人占位。
+        // 代价（已知）：一张还在流、长度未长齐的卡扣不掉时，它那一段会被后到的「长度正好对上」的
+        // 卡再认一次（一段两卡）——但那张才是齐的，让齐的赢比让碎片占位更接近真相
+        Dictionary<ChatMessage, List<int>> claimedSegments = new(ReferenceEqualityComparer.Instance);
         foreach (ConversationItemBase item in _items)
         {
-            if (item is ThinkingItem thinking && thinking.SourceMessage != null) claimed.Add(thinking.SourceMessage);
+            if (item is not ThinkingItem thinking) continue;
+            if (thinking.SourceMessage is not { } source) continue;
+            // 没有正文的卡（加密思考）不占段位：它压根不是某段思考的载体
+            if (thinking.IsContentUnavailable) continue;
+            if (!claimedSegments.TryGetValue(source, out List<int>? lengths))
+                claimedSegments[source] = lengths = new List<int>();
+            lengths.Add(thinking.FullLength);
         }
 
-        List<(ChatMessage Message, int Index, int ReasoningLength)> candidates = new();
+        // 候选按<b>思考段</b>列：一张卡装的正是一段（思考与正文交替下发的模型一条消息能有好几段，
+        // 每段一张卡）。按消息求和去比，这些卡永远对不上长度，只能全部掉进下面的顺序兜底，
+        // 一路错位——卡的耗时与字数随后被盖成了前面几条消息的（实机：10 字的碎片顶着「7,901 字」）。
+        // 段长的口径从 ThinkingSegments 取，与落盘的字数、渲染的卡同一处
+        List<(ChatMessage Message, int Index, int Length)> candidates = new();
         for (int i = 0; i < history.Count; i++)
         {
             ChatMessage message = history[i];
-            if (message.Role != ChatRole.Assistant || claimed.Contains(message)) continue;
-            int length = 0;
-            foreach (TextReasoningContent reasoning in message.Contents.OfType<TextReasoningContent>())
+            if (message.Role != ChatRole.Assistant) continue;
+
+            List<int> segments = ThinkingSegments.LengthsOf(message);
+            if (claimedSegments.TryGetValue(message, out List<int>? taken))
             {
-                length += reasoning.Text?.Length ?? 0;
+                foreach (int used in taken)
+                {
+                    int at = segments.IndexOf(used);
+                    if (at >= 0) segments.RemoveAt(at);
+                }
             }
 
-            if (length > 0) candidates.Add((message, i, length));
+            foreach (int length in segments) candidates.Add((message, i, length));
         }
 
         // 这张卡上面最近一条已配对条目的历史下标。长度精确配对遇到多条同长候选时以它为准：
@@ -368,9 +388,9 @@ public sealed class ConversationItemActions
                 int length = thinking.FullLength;
                 // 先取不比 frontier 更早的那条；一条都没有（卡属于更早的重放段）才退回原口径
                 int slot = candidates.FindIndex(x =>
-                    x.Index >= assigned && x.Index >= frontier && x.ReasoningLength == length);
+                    x.Index >= assigned && x.Index >= frontier && x.Length == length);
                 if (slot < 0)
-                    slot = candidates.FindIndex(x => x.Index >= assigned && x.ReasoningLength == length);
+                    slot = candidates.FindIndex(x => x.Index >= assigned && x.Length == length);
                 if (slot < 0) continue;
 
                 thinking.SourceMessage = candidates[slot].Message;

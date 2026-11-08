@@ -21,6 +21,18 @@ namespace UiharuMind.Core.AI.Chat;
 public static class ThinkingBoundary
 {
     /// <summary>
+    /// 这一段内容是否把当前的思考段收了口。
+    ///
+    /// <b>名单只有这一份</b>：流式侧（转录器、计时器）与存档侧
+    /// （<see cref="ThinkingSegments"/>）都问它。名单不一致的话，同一条消息会被切出
+    /// 与卡片对不上的段数——存档说有 2 段、界面只画了 1 张卡，那张卡就永远认不到耗时。
+    /// </summary>
+    /// <param name="content">内容流里的一段</param>
+    /// <returns>收口为 true</returns>
+    public static bool EndsThinking(AIContent content) =>
+        content is FunctionCallContent or MessageBoundaryContent or ToolApprovalRequestContent or UserMessageContent;
+
+    /// <summary>
     /// 按思考边界分发一段内容：思考增量走 <paramref name="onThinking"/>，
     /// 正文原文走 <paramref name="onText"/>，终结思考段的走 <paramref name="onBreak"/>，
     /// 其余（用量/工具结果/子会话通知/错误）三方都不叫——与转录器原来的口径一致。
@@ -42,11 +54,10 @@ public static class ThinkingBoundary
                 // 本地/部分远程模型把 <think> 混在正文流里，经解析器分离
                 parser.Feed(text.Text, onText, onThinking);
                 break;
-            case FunctionCallContent:
-            case MessageBoundaryContent:
-            case ToolApprovalRequestContent:
-            case UserMessageContent:
+            case var ending when EndsThinking(ending):
                 onBreak();
+                //段边界之后是下一条消息的开头:开标签重新算数(见 ThinkTagStreamParser)
+                parser.Reset();
                 break;
             default:
                 break;

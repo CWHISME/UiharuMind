@@ -7,6 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI;
@@ -41,6 +42,19 @@ public sealed partial class TurnDriver : IDisposable
     private const int MinMessagesToCompact = 4;
 
     /// <summary>
+    /// 取消收尾时往前扫多少条消息，用来认出「这段正文里哪些已经落盘」
+    /// （见 <see cref="TrimPersistedPrefix"/>）。一轮最多几十次工具往返，这个深度足够
+    /// </summary>
+    private const int PersistedScanDepth = 32;
+
+    /// <summary>
+    /// 切点要拿多长的链去认。不看单条正文的长短：末尾那一句常常不到这个长度，
+    /// 只拿「够长的那一条」去切，切点会往前移，把已经落盘的正文又写一遍；
+    /// 太短也不行——「好。」这种在谁的话里都可能出现，拿它切会把真内容切掉
+    /// </summary>
+    private const int MinPersistedChainChars = 48;
+
+    /// <summary>
     /// 还活着的实例。退出收尾要给每个仍在跑的轮次补上取消结果，而调用方可能是页面、
     /// 可能是快速对话窗口、也可能是定时任务——没有一个统一的宿主可以遍历，索引记在这里。
     /// </summary>
@@ -56,6 +70,8 @@ public sealed partial class TurnDriver : IDisposable
 
     private CancellationTokenSource? _runCancellation;
     private ChatSession? _activeSession; //本轮的会话,退出收尾要靠它
+    private DateTimeOffset? _turnStartedAt; //本轮的起跑时刻,退出收尾（另一线程）用它当时间阑门
+    private int _settled; //本轮是否已经收过尾:退出收尾与运行循环的取消收尾可能并发
     private bool _isRunning;
     private volatile ETurnBusy _busy;
     private volatile string? _compactingSessionId; //正在整理交接文档的会话,列表侧据此显示运行中
@@ -222,6 +238,9 @@ public sealed partial class TurnDriver : IDisposable
         // 中间那一瞬「登记处说闲着、本实例说在跑」——正等着交回报告的后台子代理会恰好在这一瞬
         // 写进历史,而界面把自己这一轮进行中的落盘当成重复渲染丢掉,那条报告就此不上屏
         IDisposable? runScope = null;
+        // 本轮盖在会话上的起跑时刻。收尾只清自己盖的那个（同一会话两轮重叠时，
+        // 先结束的那一轮不许抹掉后开那轮的标记）
+        DateTimeOffset? turnStartedAt = null;
         try
         {
             // 唤醒轮没有输入消息:模型这一轮读的是已经落在历史里的那条后续报告
@@ -233,7 +252,7 @@ public sealed partial class TurnDriver : IDisposable
             runScope = SessionManager.Instance.Running.BeginRun(session.SessionId);
 
             // 本轮的内容流从这里分岔:自己的落点之外,打开着这个会话的窗口也挂在上面。
-            // 子代理那一轮的落点只攒报告(见 SubAgentTool.SubAgentTurnSink),
+            // 子代理那一轮的落点只攒报告(见 Tools.SubAgentTurnSink),
             // 没有这个岔口,子会话窗口就只能等落盘,工具结果要晚整整一次模型调用才出现
             liveScope = session.LiveTurn.BeginTurn(_sink);
             _turnSink = liveScope.Sink;
@@ -255,7 +274,10 @@ public sealed partial class TurnDriver : IDisposable
             session.TurnStartedAt = DateTimeOffset.Now;
             // 外驱观察窗的计时起点:与请求消息共用同一时刻,但轮内不清(那一个是每次落盘都要消费的一次性凭据),
             // 轮末才清,见 finally
-            session.CurrentRunStartedAt = session.TurnStartedAt;
+            turnStartedAt = session.CurrentRunStartedAt = session.TurnStartedAt;
+            _turnStartedAt = turnStartedAt;
+            // 新的一轮：上一次的收尾标记作废（驱动者跨轮存活）
+            Interlocked.Exchange(ref _settled, 0);
 
             while (firstRound || nextMessages is { Count: > 0 })
             {
@@ -325,7 +347,7 @@ public sealed partial class TurnDriver : IDisposable
                     // 用户主动停止：ok=0、error_kind='cancel'，不计错误率；已收到的量并进这一行
                     usageCall.Fail(UsageErrorKinds.Cancel, e);
                     WasCancelled = true;
-                    SettleInterruptedTurn(session, interruptionNote);
+                    SettleInterruptedTurn(session, interruptionNote, turnStartedAt);
                     break;
                 }
 
@@ -359,7 +381,7 @@ public sealed partial class TurnDriver : IDisposable
                     // 不补上就留孤儿 tool_call(严格服务端直接 400)。停完还能接着续,
                     // 所以按「用户停止」口径补,与取消分支同款
                     WasCancelled = true;
-                    SettleInterruptedTurn(session, interruptionNote);
+                    SettleInterruptedTurn(session, interruptionNote, turnStartedAt);
                     break;
                 }
 
@@ -401,7 +423,7 @@ public sealed partial class TurnDriver : IDisposable
             interruptionNote = ToolCallCancellation.FailureResultText;
             // 整轮级失败：在途那一次调用的量并进它自己那行；没有在途调用（两次调用之间失败）不补行
             FailUsageCall(UsageErrorKinds.Classify(e), e);
-            SettleInterruptedTurn(session, interruptionNote);
+            SettleInterruptedTurn(session, interruptionNote, turnStartedAt);
             stampedThisTurn += StampThinkingStatsInMemory(session, thinkingStats, historyBefore);
             if (stampedThisTurn > 0) session.Save();
             _notify?.Invoke(new TurnNotice(failureKind, e.Message));
@@ -423,7 +445,10 @@ public sealed partial class TurnDriver : IDisposable
             _runCancellation = null;
             _activeSession = null;
             _activeUsageCall = null; //在途调用的引用不跨轮留存
-            session.CurrentRunStartedAt = null; //轮次标记随轮末清除,下一轮起跑重盖
+            // 轮次标记随轮末清除,下一轮起跑重盖。只清自己盖的那个：同一会话两轮重叠是允许的
+            // （见 LiveTurnStream），先结束的那一轮不许把后开那轮刚盖的标记抹成 null——
+            // 抹了之后取消收尾的 TrimPersistedPrefix 就退化成「不限轮次」扫描了
+            if (session.CurrentRunStartedAt == turnStartedAt) session.CurrentRunStartedAt = null;
             _notify?.Invoke(new TurnNotice(ETurnNotice.Ended));
             runScope?.Dispose(); //收尾的最后一步,见上面声明处
         }
@@ -552,7 +577,7 @@ public sealed partial class TurnDriver : IDisposable
         //（那一拍在别的线程上，且可能晚于账本的关队）。终态只写一次，那边晚到的 Fail 会因为已结清而空转
         _activeUsageCall?.Fail(UsageErrorKinds.Cancel);
         _runCancellation?.Cancel();
-        if (_activeSession is { } session) SettleInterruptedTurn(session, ToolCallCancellation.ResultText);
+        if (_activeSession is { } session) SettleInterruptedTurn(session, ToolCallCancellation.ResultText, _turnStartedAt);
     }
 
     /// <summary>
@@ -740,18 +765,115 @@ public sealed partial class TurnDriver : IDisposable
     /// </summary>
     /// <param name="session">当前会话</param>
     /// <param name="toolResultNote">补写给未完成工具调用的结果正文（停止与失败两种口径）</param>
-    private void SettleInterruptedTurn(ChatSession session, string toolResultNote)
+    private void SettleInterruptedTurn(ChatSession session, string toolResultNote, DateTimeOffset? runStartedAt = null)
     {
+        // 只收一次尾：退出收尾（另一线程）与运行循环的取消/失败收尾可以同时到，
+        // 两边都去取正文字冲就会交出两份、还会同 callId 补两条结果
+        if (Interlocked.Exchange(ref _settled, 1) == 1) return;
         // 先补工具结果再落正文:结果必须紧跟在它那条调用之后,顺序反了历史就对不上。
         // 框架已经把真正的结果落进去时这里是空操作——补写只针对没配对的调用
         ToolCallCancellation.CloseUnansweredAtTail(session, toolResultNote);
 
         // 退出收尾(SettleForShutdown)时本轮的岔口已经拆了,回落到自己的落点
-        if ((_turnSink ?? _sink)?.TakeStreamingText() is not { } text) return;
+        if ((_turnSink ?? _sink)?.TakeStreamingText() is not { } raw) return;
+        // 只写还没落盘的那截：落点的缓冲可能攒着整轮（它不能靠服务调用边界清——
+        // 那里清会丢掉下一发已经流出的首段，实机与仓内注释都有据），
+        // 所以真正把「已落盘」剥掉的是这里，失错方向是「多写」而不是「少写」
+        ChatMessage[] snapshot = session.History.Snapshot();
+        // 本轮起点取自己盖的那个（退出收尾跑在别的线程上，会话字段可能已被后开的轮次重盖）
+        if (TrimPersistedPrefix(snapshot, runStartedAt ?? session.CurrentRunStartedAt, raw) is not { } text) return;
 
         int before = session.History.AddReturningIndex(session.CreateMessage(ChatRole.Assistant, text));
         session.SaveAppended(before);
         //落库后由调用方把界面条目与消息配对(Persisted 通知),气泡因此照常拿到编辑/重试/分叉
+    }
+
+    /// <summary>
+    /// 削掉这段文本里<b>本轮已经落盘</b>的那些正文，只留还没写进历史的那一截。
+    ///
+    /// 判据只看本轮内的助手消息：落点的缓冲按到达顺序攒正文，所以本轮那些已落盘的正文
+    /// 必然是这段文本的一个前缀片段。两步，先精确后兜底：
+    /// <list type="number">
+    /// <item>从尾往前把本轮正文拼起来，拼出的东西正好是它的<b>后缀</b>——整段都落过盘了，一个字不写。
+    /// 攒了整轮、或话刚说完就被停，走的都是这条。</item>
+    /// <item>否则按「本轮最后一条够长的正文在文本里的最后一次出现」切掉前缀，剩下的就是还在流的那截。</item>
+    /// </list>
+    /// 两步都不命中就是全新内容，原样返回。
+    /// </summary>
+    /// <param name="history">会话历史<b>快照</b>（活引用会在取消路径上与落盘并发）</param>
+    /// <param name="runStartedAt">本轮开始时刻；早于它的消息属于上一轮，不参与判定</param>
+    /// <param name="text">落点交上来的正文</param>
+    /// <returns>还没落盘的那一截；全都落过盘则为 null</returns>
+    internal static string? TrimPersistedPrefix(IReadOnlyList<ChatMessage> history, DateTimeOffset? runStartedAt,
+        string text)
+    {
+        // 本轮窗口里的助手正文，按落盘顺序。落点的缓冲按到达顺序攒正文，所以它们拼起来
+        // 必然是这段文本的一段连续前缀片段
+        List<string> bodies = new();
+        int oldest = Math.Max(0, history.Count - PersistedScanDepth);
+        for (int i = history.Count - 1; i >= oldest; i--)
+        {
+            ChatMessage message = history[i];
+            if (InThisRun(runStartedAt, message) is false) break;
+            if (message.Role != ChatRole.Assistant) continue;
+
+            string body = ChatMessageDisplay.TextOf(message);
+            if (body.Length > 0) bodies.Add(body);
+        }
+
+        if (bodies.Count == 0) return text;
+        bodies.Reverse();
+        StringBuilder chain = new();
+        foreach (string body in bodies) chain.Append(body);
+        string persistedText = chain.ToString();
+
+        // 一、整段都已落盘：缓冲<b>恰好就是</b>这条链（攒了整轮，或话刚说完就被停）。
+        // 这里判等而不是 EndsWith：链很短时（本轮只落过一句「好的。」）几乎任何新内容
+        // 都能以它结尾，那就是把真正新写的字静默丢掉——方向反了
+        if (text.Length == persistedText.Length && text.Equals(persistedText, StringComparison.Ordinal)) return null;
+
+        // 二、常态：缓冲就是「这条链 + 新写的那截」。直接按链长切，不用搜索：
+        // 搜索在「重复句」上会切错位置，而这条比较是确定的
+        if (text.StartsWith(persistedText, StringComparison.Ordinal))
+        {
+            string tail = text[persistedText.Length..];
+            return string.IsNullOrWhiteSpace(tail) ? null : tail;
+        }
+
+        // 三、链前面还夹着别的东西（上一发没落盘的残留，或落盘侧将前缀剥过）：
+        // 从短链开始找，取<b>第一次</b>出现的位置。取最后一次的话，
+        // 「先写新内容、末尾再逐字复述旧正文」会把中间那段真实新内容切掉（方向又反了）；
+        // 重复命中时宁可多写
+        chain.Clear();
+        for (int i = bodies.Count - 1; i >= 0; i--)
+        {
+            chain.Insert(0, bodies[i]);
+            if (chain.Length < MinPersistedChainChars) continue;
+
+            string probe = chain.ToString();
+            int position = text.IndexOf(probe, StringComparison.Ordinal);
+            if (position < 0) continue;
+
+            int rest = position + probe.Length;
+            if (rest >= text.Length) return null;
+            string remaining = text[rest..];
+            return string.IsNullOrWhiteSpace(remaining) ? null : remaining;
+        }
+
+        return text;
+    }
+
+    /// <summary>
+    /// 这条消息属不属于本轮。时间戳缺失（老存档里框架产出的副本）时不敢下结论：
+    /// 返回 null 让调用方继续往前找（宁可多扫几条）
+    /// </summary>
+    /// <param name="runStartedAt">本轮开始时刻</param>
+    /// <param name="message">待判定的消息</param>
+    /// <returns>属于本轮为 true，属于更早的轮次为 false，判不了为 null</returns>
+    private static bool? InThisRun(DateTimeOffset? runStartedAt, ChatMessage message)
+    {
+        if (runStartedAt is not { } started || message.CreatedAt is not { } at) return null;
+        return at >= started;
     }
 
     /// <summary>
