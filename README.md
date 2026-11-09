@@ -13,14 +13,24 @@ one hotkey away. Local speech synthesis / recognition and image generation are b
 
 ## Features
 
-- **Local and remote models** — run GGUF models through the llama.cpp runtime, or add any OpenAI-compatible endpoint.
-  API keys are encrypted on your machine. Vision, image and audio models are registered separately.
+- **Local and remote models** — run GGUF models through the llama.cpp runtime, browse and download them from the
+  built-in GGUF repository (HuggingFace search, model card, quantisation sizes), or add any OpenAI-compatible
+  endpoint. A remote model starts from a provider preset or a custom URL; the model ID is pulled from the provider
+  together with its input / output / cache-read price and vision tag. API keys are encrypted on your machine. Vision,
+  image and audio models are registered separately.
 - **Chat and Agent modes** — one conversation page, switched in the left sidebar. *Chat* is a plain conversation;
-  *Agent* gets tools (file read/write, shell, web search, knowledge search…), a workspace folder and a permission tier.
+  *Agent* gets tools (file read/write, shell, web search, knowledge search…), a workspace folder and a permission tier,
+  with a live panel for context budget, cache hits, sub-agents, scheduled tasks and per-tool prompt cost. Sub-agents
+  can be pinned to their own models.
 - **Role-play characters** — built-in and hand-made characters with persona, greetings, prompt snippets and voices.
-  Agent characters carry a toolset, skills, extensions and a sub-agent roster.
-- **Group chat and away mode** — agent groups talk in serial or parallel rounds with an optional host, and collect
-  everything they wrote into an artifact board. Hand your seat to an avatar and the group keeps working.
+  Agent characters carry a per-tool switchboard (file operations, shell, web search, image reading, speaking,
+  knowledge search, sub-agents, scheduled tasks, task list, plan mode) plus a set of skills and extensions.
+- **Group chat and away mode** — agent groups talk in serial or parallel rounds, at a conservative or aggressive pace,
+  in a chosen speaking order, with an optional host; each member opens as its own session window. Everything they
+  wrote is collected into an artifact board. Hand your seat to an avatar and the group keeps working.
+- **Token usage and cost** — every request is logged with input / output / cached tokens, estimated cost, latency and
+  failure; overview cards, a spending trend chart, model and provider rankings, failure reasons and a request log that
+  exports to CSV.
 - **Quick tools** (global hotkeys) — screen capture with OCR / vision Q&A / annotation, quick ask, clipboard history,
   translation, auto-click record and replay, hold-to-talk dictation.
 - **Knowledge, memory, world settings** — RAG over files, folders and URLs; agent-written notes kept across sessions;
@@ -34,26 +44,36 @@ one hotkey away. Local speech synthesis / recognition and image generation are b
 
 ## Screenshots
 
+▶ [Watch an agent session from task to answer (60 s, 4.7 MB GIF)](Images/screenshots/chat-agent-demo.gif)
+
 <table>
   <tr>
-    <td width="50%"><img src="Images/screenshots/chat.png" alt="Conversation and agent session"></td>
-    <td width="50%"><img src="Images/screenshots/agent.png" alt="Agent workspace with tools and skills"></td>
+    <td width="50%"><img src="Images/screenshots/chat.png" alt="Agent conversation: context meter, cache hits and capability panel"></td>
+    <td width="50%"><img src="Images/screenshots/characters.png" alt="Character page: agent capabilities, tools and skills"></td>
   </tr>
   <tr>
-    <td><img src="Images/screenshots/characters.png" alt="Characters"></td>
-    <td><img src="Images/screenshots/group.png" alt="Group chat"></td>
+    <td><img src="Images/screenshots/group.png" alt="Group chat: members, speaking order, host and avatar seat"></td>
+    <td><img src="Images/screenshots/create-group.png" alt="Creating a group: members with their own models, speaking order, pacing"></td>
   </tr>
   <tr>
-    <td><img src="Images/screenshots/models.png" alt="Models"></td>
-    <td><img src="Images/screenshots/settings-general.png" alt="Settings"></td>
+    <td><img src="Images/screenshots/group-member-session.png" alt="A group member's own session window"></td>
+    <td><img src="Images/screenshots/models.png" alt="Models: remote endpoints with prices and vision tags"></td>
   </tr>
   <tr>
-    <td><img src="Images/screenshots/screen-capture.png" alt="Screen capture with OCR"></td>
-    <td><img src="Images/screenshots/clipboard.png" alt="Clipboard history"></td>
+    <td><img src="Images/screenshots/add-remote-model-1.png" alt="Adding a remote model from a provider preset"></td>
+    <td><img src="Images/screenshots/add-remote-model-2.png" alt="Custom remote model configuration and the provider catalogue"></td>
   </tr>
   <tr>
-    <td><img src="Images/screenshots/translate.png" alt="Translation"></td>
-    <td><img src="Images/screenshots/auto-click.png" alt="Auto click"></td>
+    <td><img src="Images/screenshots/get-models.png" alt="Browsing the built-in GGUF repository"></td>
+    <td><img src="Images/screenshots/usage.png" alt="Usage and cost: tokens, cache hit rate, spending trend"></td>
+  </tr>
+  <tr>
+    <td><img src="Images/screenshots/usage-ranking.png" alt="Usage: model ranking, failure reasons, request log"></td>
+    <td><img src="Images/screenshots/settings-general.png" alt="Settings: general"></td>
+  </tr>
+  <tr>
+    <td><img src="Images/screenshots/settings-agent.png" alt="Settings: agent and sub-agent models"></td>
+    <td><img src="Images/screenshots/settings-about.png" alt="Settings: about"></td>
   </tr>
 </table>
 
@@ -83,12 +103,14 @@ the bundle keeps its identity; it is lost if you rebuild it with a different cer
 
 ## Quick start
 
-**Online model** — open **Model**, click **Add remote model**, fill in the endpoint (for example
-`https://api.example.com/v1/chat/completions`), the model ID and your API key, then choose that model in the title bar
-of the **Conversation** page.
+**Online model** — open **Model**, click **Add remote model**, pick a provider preset (or **Custom configuration** and
+the endpoint, for example `https://api.example.com/v1/chat/completions`), paste your API key and pull the model ID —
+the picker shows each model's input / output / cache-read price and whether it takes images. Then choose that model in
+the title bar of the **Conversation** page.
 
-**Local model** — open **Settings → Local Models (Text)** and download a llama.cpp runtime for your system, put GGUF
-files into the model folder (**Model → folder icon**), load one from the list and start chatting.
+**Local model** — open **Model → Get models** and download a GGUF from the built-in repository, or put files into the
+model folder (**Model → folder icon**); install a llama.cpp runtime for your system in **Settings → Local Models
+(Text)**, load the model from the list and start chatting.
 
 Nothing else is required. If a model does not show up, check the model folder, whether the runtime is installed, and
 whether the file is a supported GGUF.

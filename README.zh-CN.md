@@ -12,12 +12,19 @@ OpenAI 接口的远程模型。除了聊天，它还给模型提供在目录里�
 
 ## 功能特性
 
-- **本地与远程模型** — 用 llama.cpp 运行时加载 GGUF 模型，或添加任何兼容 OpenAI 接口的地址。API Key 在本机加密保存。
-  视觉、生图与音频模型分别登记管理。
+- **本地与远程模型** — 用 llama.cpp 运行时加载 GGUF 模型，也可以在内置 GGUF 仓库里搜索下载（HuggingFace 检索、
+  模型说明、量化体积）；或添加任何兼容 OpenAI 接口的地址。远程模型可从服务商预设或自定义地址开始，
+  模型 ID 能直接从服务商拉取，并带出输入 / 输出 / 缓存读价与视觉标记。API Key 在本机加密保存。视觉、生图与
+  音频模型分别登记管理。
 - **普通对话与智能体** — 对话页合并为一页，左栏切换器拨类型。*普通对话*就是聊天；*智能体*会获得工具（文件读写、shell、
-  Web 搜索、知识库检索……）、工作区目录与权限档。
-- **角色扮演** — 内置与自建角色，支持人设、开场白、提示词片段与朗读音色。智能体角色可配置工具集、技能、扩展与子智能体名单。
-- **群聊与离席** — 智能体群支持串行/并行轮次与可选主持人，并把成员写盘的产物汇总到产物板。把座位交给化身，群聊继续推进。
+  Web 搜索、知识库检索……）、工作区目录与权限档，右侧面板实时显示上下文档位、缓存命中、子代理、定时任务与每个工具的
+  提示词开销。子代理可以单独指定模型。
+- **角色扮演** — 内置与自建角色，支持人设、开场白、提示词片段与朗读音色。智能体角色带一份逐工具开关（文件操作、Shell、
+  网络搜索、识图、开口说话、知识库检索、子代理、定时任务、任务清单、计划模式），再配一组技能包与扩展。
+- **群聊与离席** — 智能体群支持串行/并行轮次、保守/激进的推进节奏、指定的发言顺序与可选主持人，每个成员都能单独开成自己的
+  会话窗；成员写盘的产物汇总到产物板。把座位交给化身，群聊继续推进。
+- **用量与消费** — 每次请求都记下输入 / 输出 / 缓存 token、估算费用、延迟与失败；概览卡片、消费趋势图、模型与供应商排行榜、
+  失败原因，以及可导出 CSV 的请求明细。
 - **快捷功能**（全局快捷键）— 截图 OCR / 识图问答 / 标注、快捷询问、剪切板历史、翻译、自动点击录制回放、按住说话听写。
 - **知识库、记忆与世界设定** — 对文件、目录与 URL 做 RAG 检索；智能体在工作区里维护跨会话记忆；按关键词激活的世界书可在
   多个角色之间共享。
@@ -28,26 +35,36 @@ OpenAI 接口的远程模型。除了聊天，它还给模型提供在目录里�
 
 ## 截图
 
+▶ [看一次智能体会话的完整过程（60 秒，4.7 MB GIF）](Images/screenshots/chat-agent-demo.gif)
+
 <table>
   <tr>
-    <td width="50%"><img src="Images/screenshots/chat.png" alt="对话与智能体会话"></td>
-    <td width="50%"><img src="Images/screenshots/agent.png" alt="智能体工作区：工具与技能"></td>
+    <td width="50%"><img src="Images/screenshots/chat.png" alt="智能体会话：上下文档位、缓存命中与能力面板"></td>
+    <td width="50%"><img src="Images/screenshots/characters.png" alt="角色页：智能体能力、工具与技能"></td>
   </tr>
   <tr>
-    <td><img src="Images/screenshots/characters.png" alt="角色"></td>
-    <td><img src="Images/screenshots/group.png" alt="群聊"></td>
+    <td><img src="Images/screenshots/group.png" alt="群聊：成员、发言顺序、主持人与化身座位"></td>
+    <td><img src="Images/screenshots/create-group.png" alt="新建群聊：成员各自模型、发言顺序、推进节奏"></td>
   </tr>
   <tr>
-    <td><img src="Images/screenshots/models.png" alt="模型"></td>
-    <td><img src="Images/screenshots/settings-general.png" alt="设置"></td>
+    <td><img src="Images/screenshots/group-member-session.png" alt="群成员的独立会话窗"></td>
+    <td><img src="Images/screenshots/models.png" alt="模型：远程地址、价格与视觉标记"></td>
   </tr>
   <tr>
-    <td><img src="Images/screenshots/screen-capture.png" alt="截图与 OCR"></td>
-    <td><img src="Images/screenshots/clipboard.png" alt="剪切板历史"></td>
+    <td><img src="Images/screenshots/add-remote-model-1.png" alt="从服务商预设添加远程模型"></td>
+    <td><img src="Images/screenshots/add-remote-model-2.png" alt="自定义远程模型与供应商目录"></td>
   </tr>
   <tr>
-    <td><img src="Images/screenshots/translate.png" alt="翻译"></td>
-    <td><img src="Images/screenshots/auto-click.png" alt="自动点击"></td>
+    <td><img src="Images/screenshots/get-models.png" alt="浏览内置 GGUF 仓库"></td>
+    <td><img src="Images/screenshots/usage.png" alt="用量与消费：token、缓存命中率、消费趋势"></td>
+  </tr>
+  <tr>
+    <td><img src="Images/screenshots/usage-ranking.png" alt="用量：模型排行、失败原因、请求明细"></td>
+    <td><img src="Images/screenshots/settings-general.png" alt="设置：通用"></td>
+  </tr>
+  <tr>
+    <td><img src="Images/screenshots/settings-agent.png" alt="设置：智能体与子代理模型"></td>
+    <td><img src="Images/screenshots/settings-about.png" alt="设置：关于"></td>
   </tr>
 </table>
 
@@ -75,11 +92,12 @@ xattr -dr com.apple.quarantine /Applications/UiharuMind.app
 
 ## 快速开始
 
-**在线模型** — 打开**模型**页，点**添加远程模型**，填好接口地址（例如 `https://api.example.com/v1/chat/completions`）、
-模型 ID 和 API Key，然后到**对话**页标题栏选中它。
+**在线模型** — 打开**模型**页，点**添加远程模型**，选一个服务商预设（或选**自定义配置**并填接口地址，例如
+`https://api.example.com/v1/chat/completions`），粘贴 API Key 再**拉取**模型 ID——下拉里每个模型都带输入 / 输出 /
+缓存读价与是否支持视觉。然后到**对话**页标题栏选中它。
 
-**本地模型** — 打开**设置 → 本地模型（文本）**，为你的系统下载一个 llama.cpp 运行时；把 GGUF 文件放进模型目录
-（**模型**页的文件夹按钮），在列表里加载一个，然后开始对话。
+**本地模型** — 打开**模型 → 获取模型**，从内置仓库下载一个 GGUF；或者把文件放进模型目录（**模型**页的文件夹按钮）。
+在**设置 → 本地模型（文本）**里为你的系统装好 llama.cpp 运行时，在列表里加载一个，然后开始对话。
 
 除此之外不需要别的配置。如果模型没有显示，检查模型目录、运行时是否装上，以及文件是不是受支持的 GGUF。
 
