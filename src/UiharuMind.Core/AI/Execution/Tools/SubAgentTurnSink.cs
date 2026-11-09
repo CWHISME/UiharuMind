@@ -66,10 +66,16 @@ internal sealed class SubAgentTurnSink : ITurnSink
             return;
         }
 
+        // 可靠的新发起点：报告从这里重新起算（重发时退回的就是这里）。
+        // 落盘信号会迟到，拿它记位置会把重发范围推到下一发的内容之后
+        if (content is ServiceCallStartedContent)
+        {
+            _mark = Report.Mark();
+            return;
+        }
+
         Report.Add(content);
-        // 一次服务调用落盘了：报告从这里重新起算（重发时退回的就是这里）。
         // 正文缓冲不动——见类注释：边界不一定长在这一发正文的尾巴上
-        if (content is MessageBoundaryContent) _mark = Report.Mark();
 
         if (content is TextContent { Text.Length: > 0 } text) _streaming.Append(text.Text);
         if (content is UserMessageContent { IsInterjection: true, Message: { } incoming })

@@ -12,6 +12,26 @@ namespace UiharuMind.Core.Tests.Chat;
 /// </summary>
 public class SessionSearchTests
 {
+    /// <summary>
+    /// 结构化思考 + 工具调用边界之后，正文里的 &lt;think&gt; 仍是引用：
+    /// 搜索分类必须与界面卡片同口径，不能把引用词翻进 Thinking。
+    /// </summary>
+    [Fact]
+    public void StructuredReasoning_TagLiteralInBodyStaysTextAcrossBoundary()
+    {
+        ChatMessage message = new(ChatRole.Assistant,
+        [
+            new TextReasoningContent("先想"),
+            new FunctionCallContent("call-1", "Read"),
+            new TextContent("<think>标签内部词</think>答案"),
+        ]);
+
+        SessionSearchHit hit = Assert.Single(SessionSearch.Find([message], "标签内部词",
+            new SessionSearchOptions(IncludeThinking: true), TestContext.Current.CancellationToken));
+
+        Assert.Equal(ESearchHitKind.Text, hit.Kind);
+    }
+
     [Fact]
     public void Find_MatchesTextIgnoringCase_InHistoryOrder()
     {

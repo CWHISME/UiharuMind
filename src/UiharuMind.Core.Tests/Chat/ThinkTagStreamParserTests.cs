@@ -110,6 +110,53 @@ public class ThinkTagStreamParserTests
         Assert.Equal("再想", thinking.ToString());
     }
 
+    /// <summary>
+    /// 框架给出结构化思考后，正文开头的标签也只能是引用；Reset（下一条消息）之后重新认标签。
+    /// </summary>
+    [Fact]
+    public void DisabledInlineTagsResumeAfterReset()
+    {
+        ThinkTagStreamParser parser = new();
+        StringBuilder text = new();
+        StringBuilder thinking = new();
+        void Feed(string delta) => parser.Feed(delta, x => text.Append(x), x => thinking.Append(x));
+
+        parser.DisableInlineTags();
+        Feed("<think>引用</think>回答");
+
+        Assert.Equal("<think>引用</think>回答", text.ToString());
+        Assert.Equal("", thinking.ToString());
+
+        parser.Reset();
+        Feed("<think>再想</think>结论");
+
+        Assert.Equal("<think>引用</think>回答结论", text.ToString());
+        Assert.Equal("再想", thinking.ToString());
+    }
+
+    /// <summary>
+    /// Complete 只收段、不复位调用级开关：结构化思考之后经过多次段边界，
+    /// 正文里的标签仍按字面量；只有 Reset（新的一发/切会话/重发）才重新认标签。
+    /// </summary>
+    [Fact]
+    public void CompleteDoesNotReenableInlineTags()
+    {
+        ThinkTagStreamParser parser = new();
+        StringBuilder text = new();
+        StringBuilder thinking = new();
+        void Feed(string delta) => parser.Feed(delta, x => text.Append(x), x => thinking.Append(x));
+        void Complete() => parser.Complete(x => text.Append(x), x => thinking.Append(x));
+
+        parser.DisableInlineTags();
+        Feed("<think>引用</think>回答");
+        Complete();
+        Feed("<think>仍是引用</think>结论");
+        Complete();
+
+        Assert.Equal("<think>引用</think>回答<think>仍是引用</think>结论", text.ToString());
+        Assert.Equal("", thinking.ToString());
+    }
+
     [Fact]
     public void UnterminatedThinkFlushedAsThinking()
     {

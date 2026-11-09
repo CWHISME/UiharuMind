@@ -45,6 +45,9 @@ public sealed class ThinkingStatsRecorder
     private long _stampedThinkingMs; //已分摊出去的思考毫秒数，与上同源
     private readonly Dictionary<string, TimeSpan> _toolStarted = new(); //调用发出时刻（相对 _clock），按 CallId
     private readonly Dictionary<string, long> _toolDurations = new(); //已收齐的调用耗时毫秒，按 CallId
+    // 本次服务调用开始时的统计水位：重发要整段退回去（与 SubAgentTurnSink.RollbackTo 同一语义）。
+    // 不含盖章游标：那属于已经落盘的历史，退回去会把已盖章的段当新增段再摊一次
+    private (int Segments, long Chars, TimeSpan Thinking, int Bodiless) _callMark;
 
     /// <summary>本轮已累计的思考耗时</summary>
     public TimeSpan TotalThinking => _totalThinking + (_segmentOpen ? _clock.Elapsed - _segmentStart : TimeSpan.Zero);
@@ -56,7 +59,11 @@ public sealed class ThinkingStatsRecorder
     /// 一次服务调用开始了。零字思考段（加密思考）没有「第一个思考增量」可依，
     /// 起点只能取这次调用发出的时刻。
     /// </summary>
-    public void NoteCallStarted() => _callStart = _clock.Elapsed;
+    public void NoteCallStarted()
+    {
+        _callStart = _clock.Elapsed;
+        _callMark = (_segments.Count, _totalThinkingChars, _totalThinking, _bodilessDurations.Count);
+    }
 
     /// <summary>
     /// 喂入一段内容。由 <see cref="UiharuMind.Core.AI.Execution.TurnDriver"/> 在转发给渲染落点时顺带调用。
@@ -69,6 +76,16 @@ public sealed class ThinkingStatsRecorder
         ThinkingBoundary.Dispatch(content, _thinkParser, _ => CloseSegment(), AddThinking, NoteSegmentClosed);
         switch (content)
         {
+            // 这一发整段重来：界面在 DiscardSegment 里摘卡并复位，计时器必须同步退回，
+            // 否则两次尝试的思考会并成一段，字数与耗时算在一条已落盘的消息上
+            case StreamRestartContent:
+                RollbackCall();
+                break;
+            // 新的一发：回滚水位按服务调用记，一轮多次调用时每次都刷新。
+            // 落盘信号会迟到，不能拿它记水位
+            case ServiceCallStartedContent:
+                NoteCallStarted();
+                break;
             // 报了思考 token 却一个字正文都没回（加密思考）：开一段零字思考，由下一段内容收尾。
             // 起点取调用发出的时刻——它没有「第一个思考增量」可依，而思考就是从那时开始的
             case ThinkingNotReturnedContent when !_bodilessOpen:
@@ -92,6 +109,33 @@ public sealed class ThinkingStatsRecorder
     public void NoteSegmentClosed()
     {
         ThinkingBoundary.Complete(_thinkParser, _ => CloseSegment(), AddThinking, CloseSegment);
+    }
+
+    /// <summary>
+    /// 整段重发：把本次服务调用产出的思考统计退回到发出前的水位。
+    /// 只回滚内存里的累计与段列表；重发的响应消息由框架在落盘前处理。
+    /// </summary>
+    private void RollbackCall()
+    {
+        _segmentOpen = false;
+        _bodilessOpen = false;
+        _thinkParser.Reset();
+
+        if (_segments.Count > _callMark.Segments)
+            _segments.RemoveRange(_callMark.Segments, _segments.Count - _callMark.Segments);
+        if (_bodilessDurations.Count > _callMark.Bodiless)
+        {
+            long[] kept = _bodilessDurations.Take(_callMark.Bodiless).ToArray();
+            _bodilessDurations.Clear();
+            foreach (long duration in kept) _bodilessDurations.Enqueue(duration);
+        }
+
+        _totalThinkingChars = _callMark.Chars;
+        _totalThinking = _callMark.Thinking;
+        // 盖章游标只夹上限、不回滚：迟到的落盘信号可能已经盖过章，把游标退回水位
+        // 会让那一段在轮末被当成新增段再摊一次耗时
+        _stampedSegmentCount = Math.Min(_stampedSegmentCount, _segments.Count);
+        _stampedThinkingMs = Math.Min(_stampedThinkingMs, (long)_totalThinking.TotalMilliseconds);
     }
 
     /// <summary>

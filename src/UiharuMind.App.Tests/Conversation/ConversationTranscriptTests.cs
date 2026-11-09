@@ -213,6 +213,118 @@ public class ConversationTranscriptTests
         Assert.Equal("第二次调用的回复", FlushedMessage(items[1]));
     }
 
+    /// <summary>
+    /// 框架给出结构化思考后，正文里引用的标签不能把回答切成「思考卡 + 正文 + 思考卡」。
+    /// 这是模型讨论标签解析器时被自己的引用切碎的实机形状。
+    /// </summary>
+    [Fact]
+    public void StructuredReasoningThenQuotedTagInBody_StaysOneBubble()
+    {
+        var (transcript, items) = Create();
+        const string body = "<think> 与 </think> 都是引用，回答继续";
+
+        transcript.Apply(new TextReasoningContent("先想"));
+        transcript.Apply(new TextContent(body));
+        transcript.Apply(MessageBoundaryContent.Instance);
+
+        Assert.Equal(2, items.Count);
+        Assert.Equal("先想", Assert.IsType<ThinkingItem>(items[0]).CurrentText);
+        Assert.Equal(body, FlushedMessage(items[1]));
+    }
+
+    /// <summary>
+    /// 上游把推理流切进 TextContent 时按框架类型显示：续句留在正文气泡，内容不丢。
+    /// 猜「这是不是思考续段」会把整段回答（实机：一份总结报告）折叠进思考卡。
+    /// </summary>
+    [Fact]
+    public void MislabeledReasoningTail_StaysVisibleAsBody()
+    {
+        var (transcript, items) = Create();
+        const string head = "考虑一段文本 \"hello ";
+        const string tail = "\". Streaming: 后续分析仍然是推理的一部分";
+
+        transcript.Apply(new TextReasoningContent(head));
+        transcript.Apply(new TextContent(tail));
+        transcript.Apply(MessageBoundaryContent.Instance);
+
+        Assert.Equal(2, items.Count);
+        Assert.Equal(head, Assert.IsType<ThinkingItem>(items[0]).CurrentText);
+        Assert.Equal(tail, FlushedMessage(items[1]));
+    }
+
+    /// <summary>正常的短进度说明是正文，不该被任何启发式吞进思考卡</summary>
+    [Fact]
+    public void NormalProgressNote_StaysABubble()
+    {
+        var (transcript, items) = Create();
+
+        transcript.Apply(new TextReasoningContent("先想清楚"));
+        transcript.Apply(new TextContent("我先看下项目规矩，再去找相关代码"));
+        transcript.Apply(MessageBoundaryContent.Instance);
+
+        Assert.Equal(2, items.Count);
+        Assert.Equal("先想清楚", Assert.IsType<ThinkingItem>(items[0]).CurrentText);
+        Assert.Equal("我先看下项目规矩，再去找相关代码", FlushedMessage(items[1]));
+    }
+
+    /// <summary>
+    /// 同一串内容，界面画出的思考卡字数必须等于存档侧的思考段字数。
+    /// 两侧共用 ThinkingBoundary，任何一处自立规则都会让耗时认领静默失配。
+    /// </summary>
+    [Fact]
+    public void RenderedThinkingLength_MatchesArchivedSegments()
+    {
+        var (transcript, items) = Create();
+        transcript.Apply(new TextReasoningContent("先想清楚"));
+        transcript.Apply(new TextContent("<think> 与 </think> 都是引用，回答继续"));
+        transcript.Apply(MessageBoundaryContent.Instance);
+        transcript.Apply(new TextReasoningContent("再想"));
+        transcript.Apply(new TextContent("最终结论"));
+        transcript.CloseSegment();
+
+        // 落盘信号不进历史：两次服务调用在历史里是两条消息
+        long archived = ThinkingSegments.TotalLengthOf(new ChatMessage(ChatRole.Assistant,
+                        [
+                            new TextReasoningContent("先想清楚"),
+                            new TextContent("<think> 与 </think> 都是引用，回答继续"),
+                        ]))
+                        + ThinkingSegments.TotalLengthOf(new ChatMessage(ChatRole.Assistant,
+                        [
+                            new TextReasoningContent("再想"),
+                            new TextContent("最终结论"),
+                        ]));
+
+        long rendered = 0;
+        int cards = 0;
+        foreach (ConversationItemBase item in items)
+        {
+            if (item is not ThinkingItem thinking) continue;
+            rendered += thinking.CurrentText.Length;
+            cards++;
+        }
+
+        Assert.Equal(archived, rendered);
+        Assert.Equal(2, cards);
+    }
+
+    /// <summary>新的一发开始后内联标签重新算数：跨发、换模型都不该残留上一发的开关</summary>
+    [Fact]
+    public void ServiceCallStarted_ReenablesInlineTagsAcrossCalls()
+    {
+        var (transcript, items) = Create();
+        transcript.Apply(new TextReasoningContent("先想"));
+        transcript.Apply(new TextContent("<think> 是引用"));
+        transcript.Apply(MessageBoundaryContent.Instance);
+        transcript.Apply(ServiceCallStartedContent.Instance);
+        transcript.Apply(new TextContent("<think>本地推理</think>结论"));
+
+        Assert.Equal(4, items.Count);
+        Assert.Equal("先想", Assert.IsType<ThinkingItem>(items[0]).CurrentText);
+        Assert.Equal("<think> 是引用", FlushedMessage(items[1]));
+        Assert.Equal("本地推理", Assert.IsType<ThinkingItem>(items[2]).CurrentText);
+        Assert.Equal("结论", FlushedMessage(items[3]));
+    }
+
     private static (ConversationTranscript Transcript, List<ConversationItemBase> Items) CreateWithUserFactory(
         IReadOnlyList<ConversationItemBase>? renderedBefore = null)
     {

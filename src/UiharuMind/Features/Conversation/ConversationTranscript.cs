@@ -155,7 +155,7 @@ public sealed class ConversationTranscript : ITurnSink
     public void Apply(AIContent content)
     {
         VerifyUiAccess();
-        if (content is not MessageBoundaryContent && _segmentFirstItem < 0)
+        if (content is not (MessageBoundaryContent or ServiceCallStartedContent) && _segmentFirstItem < 0)
         {
             _segmentFirstItem = _target.Count;
             _segmentHadThinking = false;
@@ -235,11 +235,19 @@ public sealed class ConversationTranscript : ITurnSink
                 ThinkingStarted(notReturned.ReasoningTokens);
                 break;
 
-            // 一次服务调用到此为止:之后的正文属于下一条助手消息,不能续进当前气泡
-            case MessageBoundaryContent boundary:
-                ThinkingBoundary.Dispatch(boundary, _thinkParser, AppendText, AppendThinking, CloseSegment);
+            // 一次服务调用到此为止:之后的正文属于下一条助手消息,不能续进当前气泡。
+            // 收段、冲刷扣留内容与解析器复位统一由 ThinkingBoundary 驱动
+            case MessageBoundaryContent:
+                ThinkingBoundary.Dispatch(content, _thinkParser, AppendText, AppendThinking, CloseSegment);
                 _segmentFirstItem = -1;
                 MessageBoundaryReached?.Invoke();
+                break;
+
+            // 新的一发开始：解析器完整复位，重发时摘卡的起点从这里重算。
+            // 落盘信号会迟到，不能拿它翻篇
+            case ServiceCallStartedContent:
+                ThinkingBoundary.Dispatch(content, _thinkParser, AppendText, AppendThinking, CloseSegment);
+                _segmentFirstItem = -1;
                 break;
 
             case UserMessageContent consumed:

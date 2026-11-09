@@ -15,8 +15,18 @@ namespace UiharuMind.Core.AI.Chat;
 /// 真正的内联思考总在消息开头,所以这条规则不会误伤它;反过来,正文中间真出现第二段内联思考时
 /// 它会按正文显示——不丢内容,只是不折叠,取舍是「宁可多显示,不要吞掉正文」。</para>
 ///
-/// <para>段边界(一次服务调用结束、工具调用、审批)之后是下一条消息的开头,由
-/// <see cref="ThinkingBoundary.Dispatch"/> 收口时调 <see cref="Reset"/> 重新打开。</para>
+/// <para><b>框架已经给出结构化思考（<c>TextReasoningContent</c>）时不再解析标签</b>：
+/// 那一发的思考已由独立字段表达，同一段正文里再出现 <c>&lt;think&gt;</c> 只能是引用。
+/// 由 <see cref="ThinkingBoundary"/> 分发结构化思考时调 <see cref="DisableInlineTags"/>，
+/// <see cref="Reset"/> 时恢复。少了这道，模型讨论标签解析器的回答会被自己的引用切成好几块。</para>
+///
+/// <para><b>不从文本猜「这段正文其实是不是思考」</b>：推理续句与正常回答在字节上无从区分，
+/// 上游把推理流切进 <c>content</c> 时，SDK 给出的类型就是唯一事实。宁可把续句按正文显示，
+/// 也不能据此把整段回答折叠进思考卡（实机：一份总结报告被整段吞掉）。</para>
+///
+/// <para>段边界由 <see cref="ThinkingBoundary.Dispatch"/> 统一收口并冲刷扣留内容（只收段）；
+/// 只有新的一发、切换会话或整段重发才走 <see cref="Reset"/> 重新判定要不要解析内联标签。
+/// 「本发已给出结构化思考」是调用级事实，工具调用与迟到的落盘信号都不该把它抹掉。</para>
 /// </summary>
 public class ThinkTagStreamParser
 {
@@ -26,6 +36,7 @@ public class ThinkTagStreamParser
     private readonly StringBuilder _pending = new();
     private bool _inThinking;
     private bool _tagAllowed = true; //本段还没吐出过可见正文:此时开标签才算标签
+    private bool _inlineTagsEnabled = true; //框架给出结构化思考后，正文里的标签只能是引用
 
     /// <summary>
     /// 喂入一段流式增量,按当前所在区段把可确定的部分分发给正文或思考回调
@@ -36,6 +47,16 @@ public class ThinkTagStreamParser
     public void Feed(string delta, Action<string> onText, Action<string> onThinking)
     {
         if (string.IsNullOrEmpty(delta)) return;
+        // 框架已把这一发的思考放进独立字段：正文里的标签只能是引用，连半截标签也不必扣留
+        if (!_inlineTagsEnabled)
+        {
+            string buffered = _pending.ToString() + delta;
+            _pending.Clear();
+            _inThinking = false;
+            onText(buffered);
+            return;
+        }
+
         _pending.Append(delta);
 
         while (true)
@@ -86,13 +107,33 @@ public class ThinkTagStreamParser
     public void Complete(Action<string> onText, Action<string> onThinking)
     {
         Emit(_pending.ToString(), onText, onThinking);
-        Reset();
+        ResetSegment();
     }
 
     /// <summary>
-    /// 复位解析状态
+    /// 标记本发已由框架给出结构化思考：后续正文里的 &lt;think&gt; 一律按字面量
+    /// </summary>
+    public void DisableInlineTags()
+    {
+        _inlineTagsEnabled = false;
+        _inThinking = false; //禁用态下 Complete 也按正文放出，不把扣留的半标签误计成思考
+    }
+
+    /// <summary>
+    /// 完整复位（新的一发、切换会话、整段重发）：连「本发有没有结构化思考」一起重新判
     /// </summary>
     public void Reset()
+    {
+        ResetSegment();
+        _inlineTagsEnabled = true;
+    }
+
+    /// <summary>
+    /// 只收掉当前段。段边界不能抹掉「本发已给出结构化思考」：抹掉之后回答里引用的
+    /// &lt;think&gt; 又会被当成真标签把正文切进思考卡。本地内联模型从没调过
+    /// <see cref="DisableInlineTags"/>，这里也不影响它跨段继续认标签。
+    /// </summary>
+    private void ResetSegment()
     {
         _pending.Clear();
         _inThinking = false;

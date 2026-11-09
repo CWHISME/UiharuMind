@@ -138,19 +138,18 @@ public static class SessionSearch
         StringBuilder body = new();
         StringBuilder? thinking = options.IncludeThinking ? new StringBuilder() : null;
         StringBuilder? tool = options.IncludeTools ? new StringBuilder() : null;
-        ThinkTagStreamParser? parser = null;
+        ThinkTagStreamParser parser = new();
         foreach (AIContent content in message.Contents)
         {
+            // 分类与边界跟渲染/计时/存档同一份口径：搜出来的形状恒等于界面上的形状
+            ThinkingBoundary.Dispatch(content, parser,
+                x => body.Append(x),
+                x => thinking?.Append(x),
+                () => { });
+            if (content is TextReasoningContent) thinking?.Append('\n');
+
             switch (content)
             {
-                case TextReasoningContent reasoning:
-                    thinking?.Append(reasoning.Text).Append('\n');
-                    break;
-                case TextContent { Text.Length: > 0 } plain:
-                    // 本地/部分远程模型把 <think> 混在正文里,界面上那段画成思考卡
-                    parser ??= new ThinkTagStreamParser();
-                    parser.Feed(plain.Text, x => body.Append(x), x => thinking?.Append(x));
-                    break;
                 case FunctionCallContent call when tool != null:
                     tool.Append(call.Name).Append(' ');
                     if (call.Arguments != null)
@@ -166,7 +165,7 @@ public static class SessionSearch
             }
         }
 
-        parser?.Complete(x => body.Append(x), x => thinking?.Append(x));
+        parser.Complete(x => body.Append(x), x => thinking?.Append(x));
         return new MessageText(body.ToString(), thinking?.ToString(), tool?.ToString());
     }
 

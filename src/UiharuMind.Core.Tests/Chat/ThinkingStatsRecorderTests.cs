@@ -13,6 +13,91 @@ namespace UiharuMind.Core.Tests.Chat;
 /// </summary>
 public class ThinkingStatsRecorderTests
 {
+    /// <summary>
+    /// 整段重发：界面摘卡并复位，计时器必须同步撤掉那一发的思考段，
+    /// 否则两次尝试会被并成一段，字数与耗时都记在一条已落盘的消息上。
+    /// </summary>
+    [Fact]
+    public void StreamRestart_RollsBackTheDiscardedAttempt()
+    {
+        ThinkingStatsRecorder recorder = new();
+        recorder.NoteCallStarted();
+        recorder.NoteContent(new TextReasoningContent("第一发的思考"));
+        recorder.NoteContent(StreamRestartContent.Instance);
+        recorder.NoteContent(new TextReasoningContent("重发的思考"));
+        recorder.NoteContent(MessageBoundaryContent.Instance);
+
+        Assert.Equal("重发的思考".Length, recorder.TotalThinkingChars);
+    }
+
+    /// <summary>重发前已经被工具调用收过口的段，也要一起退回</summary>
+    [Fact]
+    public void StreamRestart_DropsSegmentsClosedInsideTheDiscardedAttempt()
+    {
+        ThinkingStatsRecorder recorder = new();
+        recorder.NoteCallStarted();
+        recorder.NoteContent(new TextReasoningContent("甲"));
+        recorder.NoteContent(new FunctionCallContent("call-1", "Read"));
+        recorder.NoteContent(new TextReasoningContent("乙"));
+        recorder.NoteContent(StreamRestartContent.Instance);
+        recorder.NoteContent(new TextReasoningContent("丙"));
+        recorder.NoteContent(MessageBoundaryContent.Instance);
+
+        Assert.Equal("丙".Length, recorder.TotalThinkingChars);
+    }
+
+    /// <summary>一轮多次服务调用：回滚水位按调用刷新，重发不能删掉上一发已收尾的段</summary>
+    [Fact]
+    public void ServiceCallStarted_MovesTheRollbackMarkPerCall()
+    {
+        ThinkingStatsRecorder recorder = new();
+        recorder.NoteCallStarted();
+        recorder.NoteContent(ServiceCallStartedContent.Instance);
+        recorder.NoteContent(new TextReasoningContent("第一发"));
+        recorder.NoteContent(MessageBoundaryContent.Instance);
+        recorder.NoteContent(ServiceCallStartedContent.Instance); //第二次调用
+        recorder.NoteContent(new TextReasoningContent("作废"));
+        recorder.NoteContent(StreamRestartContent.Instance);
+        recorder.NoteContent(new TextReasoningContent("重发"));
+        recorder.NoteContent(MessageBoundaryContent.Instance);
+
+        Assert.Equal("第一发".Length + "重发".Length, recorder.TotalThinkingChars);
+    }
+
+    /// <summary>
+    /// 迟到的落盘信号已经盖过章、随后又重发：已盖章的段属于更早的调用，
+    /// 回滚不能把盖章游标退回去，否则轮末会把那一段再摊一次。
+    /// </summary>
+    [Fact]
+    public void StreamRestart_AfterLateStamp_KeepsStampedSegmentCursor()
+    {
+        ThinkingStatsRecorder recorder = new();
+        ChatMessage first = new(ChatRole.Assistant, [new TextReasoningContent("第一发的思考")]);
+        List<ChatMessage> history = [first];
+
+        recorder.NoteCallStarted();
+        recorder.NoteContent(ServiceCallStartedContent.Instance);
+        recorder.NoteContent(new TextReasoningContent("第一发的思考"));
+        recorder.NoteContent(new TextContent("回答"));
+        recorder.NoteContent(MessageBoundaryContent.Instance);
+        recorder.Stamp(history, 0);
+        Assert.True(ChatMessageAnnotations.TryReadThinkingStats(first, out _, out long firstChars));
+
+        recorder.NoteContent(ServiceCallStartedContent.Instance); //第二次调用
+        recorder.NoteContent(new TextReasoningContent("作废"));
+        recorder.NoteContent(MessageBoundaryContent.Instance); //迟到的落盘，也盖一次
+        recorder.Stamp(history, 0);
+        recorder.NoteContent(StreamRestartContent.Instance);
+        recorder.NoteContent(new TextReasoningContent("重发的思考"));
+        history.Add(new ChatMessage(ChatRole.Assistant, [new TextReasoningContent("重发的思考")]));
+        recorder.NoteContent(MessageBoundaryContent.Instance);
+        recorder.Stamp(history, 0);
+
+        Assert.Equal("第一发的思考".Length + "重发的思考".Length, recorder.TotalThinkingChars);
+        Assert.True(ChatMessageAnnotations.TryReadThinkingStats(first, out _, out long after));
+        Assert.Equal(firstChars, after);
+    }
+
     [Fact]
     public void DistributeDurations_SplitsProportionallyAndSumsToTotal()
     {

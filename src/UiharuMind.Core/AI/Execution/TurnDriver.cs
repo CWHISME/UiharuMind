@@ -303,8 +303,8 @@ public sealed partial class TurnDriver : IDisposable
                             // 也不能把重发标记当首帧：它在重发刚起步时就到，算出来的首字耗时是假的
                             if (content is FunctionResultContent)
                                 usageCall.NoteCallBoundary();
-                            else if (content is not (UsageContent or StreamRestartContent))
-                                usageCall.NoteFirstToken(); //首帧（每次调用只认第一次）
+                            else if (content is not (UsageContent or StreamRestartContent or ServiceCallStartedContent))
+                                usageCall.NoteFirstToken(); //首帧（控制信令不算首帧，每次调用只认第一次）
                             if (content is ToolApprovalRequestContent request) roundRequests.Add(request);
                             // 这一发整段重来了：它带出来的审批请求跟着作废，界面那张卡也已经被摘掉，
                             // 留着等回应就是等一张点不到的卡

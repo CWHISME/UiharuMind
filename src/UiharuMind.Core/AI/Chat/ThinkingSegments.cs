@@ -22,6 +22,9 @@ namespace UiharuMind.Core.AI.Chat;
 /// 渲染的卡、思考卡与历史消息的配对、回放认领的比较）都从这一处取。</para>
 ///
 /// 段中、句中的空白照计：那是真内容。
+///
+/// <para>分段名单、内联标签开关与扣留内容的冲刷全走 <see cref="ThinkingBoundary.Dispatch"/>，
+/// 不在这里另立一套；parser 每条消息新建，与流式侧在服务调用边界 Reset 后的状态对齐。</para>
 /// </summary>
 public static class ThinkingSegments
 {
@@ -33,7 +36,7 @@ public static class ThinkingSegments
     public static List<int> LengthsOf(ChatMessage message)
     {
         List<int> lengths = new();
-        ThinkTagStreamParser? parser = null;
+        ThinkTagStreamParser parser = new();
         int current = 0;
         bool open = false;
 
@@ -60,27 +63,10 @@ public static class ThinkingSegments
 
         foreach (AIContent content in message.Contents)
         {
-            switch (content)
-            {
-                case TextReasoningContent reasoning:
-                    Feed(reasoning.Text);
-                    break;
-                // 本地/部分远程模型把 <think> 混在正文流里：解析出来的每一段各算一段
-                case TextContent text when !string.IsNullOrEmpty(text.Text):
-                    parser ??= new ThinkTagStreamParser();
-                    parser.Feed(text.Text, _ => CloseRun(), Feed);
-                    break;
-                // 段边界问的是同一份名单（ThinkingBoundary.EndsThinking）：名单不一致的话，
-                // 同一条消息会被切出与卡片对不上的段数——空正文、用量、子会话通知都不算收口
-                case var ending when ThinkingBoundary.EndsThinking(ending):
-                    CloseRun();
-                    //段边界之后是下一段的开头:开标签重新算数（与流式侧同一口径）
-                    parser?.Reset();
-                    break;
-            }
+            ThinkingBoundary.Dispatch(content, parser, _ => CloseRun(), text => Feed(text), CloseRun);
         }
 
-        if (parser != null) parser.Complete(_ => CloseRun(), Feed);
+        parser.Complete(_ => CloseRun(), text => Feed(text));
         CloseRun();
         return lengths;
     }

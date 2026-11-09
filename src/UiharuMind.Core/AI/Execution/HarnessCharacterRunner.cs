@@ -247,7 +247,13 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
 
             // 每次服务调用发出之前问一次"插话被取走了没"(见 ServiceCallSignalingChatClient):
             // 回调跑在泵自己的执行流里,上一轮的工具结果此刻已写进通道,气泡因此排在它之后、这次调用的产出之前
-            handle.ServiceCalls.Starting = token => EmitConsumedInjectionsAsync(handle, session, channel, token);
+            handle.ServiceCalls.Starting = async token =>
+            {
+                // 可靠的新发起点：落盘信号会迟到，只有发请求前这一刻能把解析器的
+                // 调用级状态（内联标签开关、重发回滚水位）干净地翻篇
+                channel.Writer.TryWrite(ServiceCallStartedContent.Instance);
+                await EmitConsumedInjectionsAsync(handle, session, channel, token);
+            };
             handle.ServiceCalls.Finishing = token => ReplyFinishing?.Invoke(token) ?? Task.CompletedTask;
 
             // 消费方提前 break(不取消令牌)时用它给泵收尾,否则末尾的 await 会挂死
