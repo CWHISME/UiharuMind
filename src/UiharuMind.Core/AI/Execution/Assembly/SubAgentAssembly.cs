@@ -70,6 +70,14 @@ internal static class SubAgentAssembly
         /// </summary>
         public bool ModelSupportsVision { get; init; }
 
+        /// <summary>
+        /// 此刻真正发这一发的模型看不看得见图（每次现问，口径同 <see cref="ServingModelFacts"/>）。
+        /// 给 Read 的「这张图已经在你眼前」判据用（<see cref="TurnAttachedImages"/>）。
+        /// 派活前的探活输入不用给：那只数工具、不跑工具，工具行为从假变真没意义。
+        /// <b>必须用子会话自己的模型源</b>，不能用派活者的：子代理可被指定另一个模型。
+        /// </summary>
+        public Func<bool>? SeesImagesNow { get; init; }
+
         /// <summary>配了生图模型</summary>
         public bool ImageModelsConfigured { get; init; }
 
@@ -238,6 +246,9 @@ internal static class SubAgentAssembly
             Name = identity.AgentName,
             WorkingDirectory = plan.WorkingDirectory,
             ModelSupportsVision = plan.ModelSupportsVision,
+            // 与主代理同一口径（ServingModelFacts），但取<b>子会话自己</b>的模型源：
+            // 子代理可被指定另一个模型，用派活者的会把它当成看得见/看不见的另一个
+            SeesImagesNow = () => ServingModelFacts.SeesImages(profile.SessionModelSource?.Invoke()),
             ImageModelsConfigured = plan.ImageModelsConfigured,
             SessionId = profile.SessionId,
             Browser = PuppeteerBrowserHost.Shared,
@@ -454,6 +465,9 @@ internal static class SubAgentAssembly
             Paths = paths,
             OutputRoomDirectory = outputRoom,
             ModelSupportsVision = input.ModelSupportsVision,
+            // 与主代理同一条 builder，这里也得把「这一发看不看得见图」交下去，
+            // 否则子会话里 Read 已附图时不会回提示（子会话也能被用户附图，它是可打开的会话，ADR 0021）
+            SeesImagesNow = input.SeesImagesNow,
             ImageModelsConfigured = input.ImageModelsConfigured,
             Mcp = input.Mcp,
             Shell = input.ShellTool is { } shellTool ? _ => shellTool : null,

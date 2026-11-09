@@ -58,6 +58,7 @@ internal sealed class FileReader
     private readonly SimpleGlobber _glob;
     private readonly EReadImageMode _imageMode;
     private readonly ImagePreview.ImageDownscaler? _downscaler;
+    private readonly Func<byte[], bool>? _attachedImageVisible; //图已随本轮用户消息附在眼前时只回提示，见 TurnAttachedImages
     private readonly string? _truncationHint; //截断时追加的去处提示；Summary 没挂时为 null
 
     /// <summary>
@@ -67,13 +68,18 @@ internal sealed class FileReader
     /// <param name="imageMode">读到图片时怎么办</param>
     /// <param name="downscaler">看图的缩图器；null 原样复制</param>
     /// <param name="offerSummary">截断时是否提示可交给 Summary（它真的挂着才提）</param>
+    /// <param name="attachedImageVisible">
+    /// 图片（缩好的那一份）是否已随本轮用户消息附在眼前（见 <see cref="TurnAttachedImages"/>）；
+    /// null 表示不做这个判断
+    /// </param>
     public FileReader(AgentPathResolver paths, EReadImageMode imageMode, ImagePreview.ImageDownscaler? downscaler,
-        bool offerSummary = false)
+        bool offerSummary = false, Func<byte[], bool>? attachedImageVisible = null)
     {
         _paths = paths;
         _glob = new SimpleGlobber(paths);
         _imageMode = imageMode;
         _downscaler = downscaler;
+        _attachedImageVisible = attachedImageVisible;
         // 大文件要「整体理解」时不该一页页翻：交给 Summary 带着意图去读，主会话只收结论。
         // 不在 Read 里自动总结——Read 是 Edit 的原文来源，且它不知道模型读的目的
         _truncationHint = offerSummary ? $"要整体理解这份文件，可交给 `{BrainTool.ToolName}`，task 里写清要什么。" : null;
@@ -134,7 +140,7 @@ internal sealed class FileReader
 
     private Task<string> ReadImageAsync(string filePath, string full, CancellationToken ct) => _imageMode switch
     {
-        EReadImageMode.Attach => ImagePreview.AttachAsync(_paths, filePath, full, _downscaler, ct),
+        EReadImageMode.Attach => ImagePreview.AttachAsync(_paths, filePath, full, _downscaler, ct, _attachedImageVisible),
         EReadImageMode.PointToAnalyzeImage => ImagePreview.DescribeAsync(filePath, full,
             $"你自己看不了图片，可以让 `{VisionTool.ToolName}` 帮你看。", ct),
         _ => ImagePreview.DescribeAsync(filePath, full, "本会话无法查看图片。", ct),

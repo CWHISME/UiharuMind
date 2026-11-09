@@ -45,6 +45,12 @@ public sealed record AgentToolResources
     /// <summary>当前模型自带视觉：Read 直接附图；看不了图时识图另挂 AnalyzeImage</summary>
     public bool ModelSupportsVision { get; init; }
 
+    /// <summary>
+    /// 此刻真正发这一发的模型看不看得见图（每次现问，口径同 <see cref="ServingModelFacts"/>）。
+    /// 给「这张图已经在你眼前」的判据用（<see cref="TurnAttachedImages"/>）；null 表示不做这个判断
+    /// </summary>
+    public Func<bool>? SeesImagesNow { get; init; }
+
     /// <summary>配了生图模型（没配时生图扩展照样列出，调用时说明去哪儿配）</summary>
     public bool ImageModelsConfigured { get; init; }
 
@@ -192,7 +198,15 @@ internal static class AgentToolsetBuilder
 
         if (mountFiles)
         {
-            foreach (AITool tool in new PermissiveFileAccessTools(paths, imageMode: imageMode, offerSummary: mountSummary)
+            // 图已经随用户这一轮的消息附在眼前时，再读一次只是把同一张图烘成第二份：
+            // 一次白付一张图的 token，此后每轮重发。判据见 TurnAttachedImages
+            Func<byte[], bool>? attachedImageVisible =
+                imageMode == EReadImageMode.Attach && resources.SeesImagesNow is { } seesImages
+                    ? new TurnAttachedImages(resources.Session, seesImages).Contains
+                    : null;
+
+            foreach (AITool tool in new PermissiveFileAccessTools(paths, imageMode: imageMode, offerSummary: mountSummary,
+                         attachedImageVisible: attachedImageVisible)
                          .Create(disableWriteTools: rule.ReadOnlyFiles))
             {
                 Add(EAgentCapability.FileAccess, tool);

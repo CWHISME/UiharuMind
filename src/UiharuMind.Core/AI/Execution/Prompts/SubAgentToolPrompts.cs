@@ -91,15 +91,14 @@ public static class SubAgentToolPrompts
         "可选的精确模型名。";
 
     /// <summary>
-    /// <c>readOnly</c> 参数说明（探索档）。
+    /// <c>IsExploreParam</c> 参数说明（探索档）。
     ///
     /// 置真 = 派一位<b>探索档</b>：恒定只读——只能读文件与搜资料，改不了任何东西，
     /// 适合大范围调研、审阅、摸底（翻代码找结论），不适合实现活。默认给主代理派活者权限。
     /// 探索档默认用设置页的探索模型，<c>model</c> 仍可单趟点名。
     /// </summary>
-    public const string ReadOnlyParam =
-        "可选。置真则新开的子代理恒定只读：只能读文件与联网搜资料，**没有 `Shell`**，也改不了任何东西——" +
-        "通常仅适用于探索、摸底、审阅，任何可能用到额外工具的地方都不要置为只读。";
+    public const string IsExploreParam =
+        "可选。将子代理指定为「探索模式」，仅适用于**仓库探索**、**信息获取**等。";
 
     /// <summary>
     /// <see cref="SubAgentTool.MessageToolName"/> 的描述：给已经开过的那位续发一条，跑着时就是插话。

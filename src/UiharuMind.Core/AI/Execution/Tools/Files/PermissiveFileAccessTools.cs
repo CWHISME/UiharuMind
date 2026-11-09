@@ -93,11 +93,13 @@ internal sealed class PermissiveFileAccessTools
     /// <param name="backupStore">Write 覆盖前的备份；null 用默认目录</param>
     /// <param name="imageMode">Read 读到图片时怎么办，由装配按模型与识图开关定</param>
     /// <param name="offerSummary">Read 截断时是否提示可交给 Summary，由装配按它是否挂载定</param>
+    /// <param name="attachedImageVisible">图片是否已随本轮用户消息附在眼前，见 <see cref="TurnAttachedImages"/></param>
     public PermissiveFileAccessTools(AgentPathResolver paths, IFileBackupStore? backupStore = null,
-        EReadImageMode imageMode = EReadImageMode.None, bool offerSummary = false)
+        EReadImageMode imageMode = EReadImageMode.None, bool offerSummary = false,
+        Func<byte[], bool>? attachedImageVisible = null)
     {
         _paths = paths;
-        _reader = new FileReader(paths, imageMode, ImagePreview.Downscaler, offerSummary);
+        _reader = new FileReader(paths, imageMode, ImagePreview.Downscaler, offerSummary, attachedImageVisible);
         _glob = new SimpleGlobber(paths);
         _grepper = new SimpleGrepper(paths);
         _backupStore = backupStore ?? new FileBackupStore();

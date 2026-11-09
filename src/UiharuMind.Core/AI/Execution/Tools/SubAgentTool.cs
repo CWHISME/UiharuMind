@@ -219,8 +219,8 @@ public static class SubAgentTool
                     string? topic = null,
                     [Description(SubAgentToolPrompts.ModelParam)]
                     string? model = null,
-                    [Description(SubAgentToolPrompts.ReadOnlyParam)]
-                    bool readOnly = false) => Launch(context, prompt, null, topic, model, readOnly),
+                    [Description(SubAgentToolPrompts.IsExploreParam)]
+                    bool isExplore = false) => Launch(context, prompt, null, topic, model, isExplore),
                 ToolName,
                 SubAgentToolPrompts.AgentDescription);
         }
@@ -233,8 +233,8 @@ public static class SubAgentTool
                 string? topic = null,
                 [Description(SubAgentToolPrompts.ModelParam)]
                 string? model = null,
-                [Description(SubAgentToolPrompts.ReadOnlyParam)]
-                bool readOnly = false) => Launch(context, prompt, character, topic, model, readOnly),
+                [Description(SubAgentToolPrompts.IsExploreParam)]
+                bool isExplore = false) => Launch(context, prompt, character, topic, model, isExplore),
             ToolName,
             SubAgentToolPrompts.AgentDescription);
         return new ParameterDescriptionFunction(function, "character",

@@ -155,6 +155,8 @@ internal static class AgentAssembler
             Session = () => SessionManager.Instance.GetLoaded(profile.SessionId),
             OutputRoomDirectory = plan.OutputRoomDirectory,
             ModelSupportsVision = plan.ModelSupportsVision,
+            // 与投影的附图开关、内联图的降级同源：发这一发的模型（钉选回落算在内）现问现得
+            SeesImagesNow = () => ServingModelFacts.SeesImages(plan.Profile.SessionModelSource?.Invoke()),
             ImageModelsConfigured = plan.ImageModelsConfigured,
             ImageProgress = profile.ImageProgressReported,
             Mcp = plan.Mcp,

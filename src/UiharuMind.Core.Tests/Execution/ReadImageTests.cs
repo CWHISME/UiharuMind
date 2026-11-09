@@ -30,8 +30,10 @@ public sealed class ReadImageTests : IDisposable
 
     private AgentPathResolver Paths() => new(Workspace, Draft);
 
-    private Task<string> Read(string path, EReadImageMode mode, ImagePreview.ImageDownscaler? downscaler = null) =>
-        new FileReader(Paths(), mode, downscaler).ReadAsync(path, 1, null, TestContext.Current.CancellationToken);
+    private Task<string> Read(string path, EReadImageMode mode, ImagePreview.ImageDownscaler? downscaler = null,
+        Func<byte[], bool>? attachedImageVisible = null) =>
+        new FileReader(Paths(), mode, downscaler, attachedImageVisible: attachedImageVisible)
+            .ReadAsync(path, 1, null, TestContext.Current.CancellationToken);
 
     private async Task WriteFile(string name, byte[] bytes)
     {
@@ -171,6 +173,79 @@ public sealed class ReadImageTests : IDisposable
 
         Assert.StartsWith("Error:", result);
         Assert.Contains(VisionTool.MaxImages.ToString(), result);
+    }
+
+    [Fact]
+    public async Task ImageAlreadyAttachedToThisTurnsMessage_ReturnsAHint_WithoutWritingAPreview()
+    {
+        byte[] shrunk = TestImages.Jpeg(2, 2);
+        await WriteFile("cat.png", TestImages.Png(64, 64));
+        byte[] inline = shrunk; //组装内联的字节就是同一个缩图器的输出
+
+        string result = await Read("cat.png", EReadImageMode.Attach, (_, _) => (shrunk, "image/jpeg"),
+            already => already.SequenceEqual(inline));
+
+        Assert.Empty(ImagePreview.ParsePreviewPaths(result));
+        Assert.Contains("already attached", result);
+        Assert.Contains("2x2", result); //尺寸照给：模型有时正是为它才读的
+        Assert.False(Directory.Exists(Path.Combine(Draft, ImagePreview.PreviewFolder)));
+    }
+
+    /// <summary>判据说「不在眼前」时照旧烘副本：这是常态（读的是磁盘上别的图、或这一发图会被降级）</summary>
+    [Fact]
+    public async Task ImageNotAttachedYet_StillAttachesAsBefore()
+    {
+        byte[] shrunk = TestImages.Jpeg(2, 2);
+        await WriteFile("cat.png", TestImages.Png(64, 64));
+
+        string result = await Read("cat.png", EReadImageMode.Attach, (_, _) => (shrunk, "image/jpeg"),
+            _ => false);
+
+        Assert.Single(ImagePreview.ParsePreviewPaths(result));
+        Assert.Contains("The image follows", result);
+    }
+
+    /// <summary>
+    /// 判据吃的是「要发给模型的那一份」，不是磁盘上的原图：
+    /// 用户附上的是缩过的那份字节，与同字节的预览副本才能对上
+    /// </summary>
+    [Fact]
+    public async Task HintMatchesTheDownscaledBytes_NotTheOriginalFile()
+    {
+        byte[] original = TestImages.Png(64, 64);
+        byte[] shrunk = TestImages.Jpeg(2, 2);
+        await WriteFile("cat.png", original);
+        List<byte[]> probed = new();
+
+        await Read("cat.png", EReadImageMode.Attach, (_, _) => (shrunk, "image/jpeg"),
+            bytes =>
+            {
+                probed.Add(bytes);
+                return false;
+            });
+
+        Assert.Equal(shrunk, Assert.Single(probed));
+    }
+
+    /// <summary>
+    /// 批量拼接里混着已附与未附：按图分别判，已附的只回提示、未附的照旧烘副本。
+    /// 整体报错或整体放行都不对——那样一图已附就把另一图的字节也吞了
+    /// </summary>
+    [Fact]
+    public async Task SemicolonJoin_Mixed_OnlyTheAlreadyAttachedOneIsGated()
+    {
+        byte[] attached = TestImages.Png(8, 8);
+        byte[] fresh = TestImages.Png(16, 16);
+        await WriteFile("a.png", attached);
+        await WriteFile("b.png", fresh);
+
+        string result = await Read("a.png;b.png", EReadImageMode.Attach,
+            attachedImageVisible: bytes => bytes.SequenceEqual(attached));
+
+        Assert.Single(ImagePreview.ParsePreviewPaths(result));
+        Assert.Contains("already attached", result);
+        Assert.Contains("a.png", result);
+        Assert.Contains("b.png", result);
     }
 
     [Fact]

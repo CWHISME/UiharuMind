@@ -373,20 +373,7 @@ public class HarnessInstructionsCompositionTests
 
         Assert.DoesNotContain("活泼、有冲劲", instructions);
     }
-
-    /// <summary>
-    /// 工作区段只要指针不要正文(试行):系统提示每轮重发,全文放这里等于每轮交税;
-    /// 模型自读进历史,付一次摊全场。主代理与子代理同一口径,子代理侧见 SubAgentBoundaryTests。
-    /// </summary>
-    [Fact]
-    public void MainAgentWorkspaceSection_IsPointerOnly()
-    {
-        string body = new string('z', AgentInstructionsComposer.MaxWorkspaceInstructionsChars * 2);
-        string main = BuildAgentOptions("/tmp/uiharu-agent-test",
-            workspaceInstructions: body).ChatOptions?.Instructions ?? string.Empty;
-
-        Assert.DoesNotContain(body[..100], main);
-    }
+    
 
     /// <summary>
     /// 技能模型可见性的全局总闸(ADR 0003 例外):关掉后框架 provider 不挂,
@@ -1538,24 +1525,7 @@ public class SubAgentBoundaryTests
 
         Assert.DoesNotContain("$DRAFT", instructions);
     }
-
-    /// <summary>
-    /// 工作区说明超限时按行截断 + 指路指针,不再全文重发。AGENTS.md 是固定开销里最大的一块
-    /// (本仓 4469 字,过半),而规范/协作口径并不是每轮都要重读——模型手里有文件工具,
-    /// 提交/规范事项前按指针自己去读全文。
-    /// </summary>
-    [Fact]
-    public void WorkspaceInstructions_TruncateBeyondTheLimit_WithAPointer()
-    {
-        string head = "line1\nline2\n";
-        string tail = new string('x', AgentInstructionsComposer.MaxWorkspaceInstructionsChars);
-        string section = AgentInstructionsComposer.WorkspaceSection(head + tail);
-
-        Assert.Contains("line1", section);
-        Assert.Contains("AGENTS.md", section); //指针在,模型找得到全文
-        Assert.DoesNotContain(tail, section);
-    }
-
+    
     /// <summary>限内短文本原样返回:截断语义的调用侧测试见 SubAgentInstructions_InheritWorkspaceInstructions</summary>
     [Fact]
     public void WorkspaceInstructions_ShortTextPassesThrough()

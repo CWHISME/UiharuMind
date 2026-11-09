@@ -71,14 +71,18 @@ public static class ImagePreview
     /// <param name="fullPath">图片绝对路径</param>
     /// <param name="downscaler">缩图器；null 原样复制</param>
     /// <param name="ct">取消令牌</param>
+    /// <param name="alreadyVisible">
+    /// 这张图（缩好的那一份）是不是已经随本轮的用户消息附在眼前；为 true 时只回一句提示，不烘副本
+    /// </param>
     /// <returns>工具结果</returns>
     internal static async Task<string> AttachAsync(AgentPathResolver paths, string label, string fullPath,
-        ImageDownscaler? downscaler, CancellationToken ct)
+        ImageDownscaler? downscaler, CancellationToken ct, Func<byte[], bool>? alreadyVisible = null)
     {
         byte[] bytes = await File.ReadAllBytesAsync(fullPath, ct).ConfigureAwait(false);
         if (ImageFormats.Sniff(bytes) is not { } mediaType) return NotAnImage(label);
 
         (byte[] preview, string previewType) = downscaler?.Invoke(bytes, mediaType) ?? (bytes, mediaType);
+        if (alreadyVisible?.Invoke(preview) == true) return AlreadyAttached(label, preview);
         if (preview.Length > MaxUnscaledBytes) return $"Error: '{label}' is too large to attach.";
 
         string saved = await SavePreviewAsync(paths, preview, previewType, ct).ConfigureAwait(false);
@@ -228,6 +232,15 @@ public static class ImagePreview
     }
 
     private static string NotAnImage(string label) => $"Error: '{label}' is not a PNG, JPEG or WebP image.";
+
+    // 图已经随用户这一轮的消息附在眼前：不再烘副本、不再多投影一份。尺寸照给——
+    // 原来 Attach 会带回它，模型有时正是为它才读的（写 <img> 的宽高、算布局）
+    private static string AlreadyAttached(string label, byte[] preview)
+    {
+        string size = ImageFormats.TryReadSize(preview, out int width, out int height) ? $" ({width}x{height})" : string.Empty;
+        return $"'{label}' is already attached to the message in front of you{size}. "
+               + "Look at it there instead of reading it again.";
+    }
 
     private static bool TryParseSize(string text, out int width, out int height)
     {
