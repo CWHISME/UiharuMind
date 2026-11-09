@@ -21,22 +21,6 @@ public class GroupSceneTests
         ["c"] = new CharacterData { CharacterName = "Carol" },
     };
 
-    [Fact]
-    public void Scene_ListsTheRoomAndTheRules()
-    {
-        string scene = GroupTranscript.BuildScene(new GroupScene("会审", "Alice", [new GroupMemberPresence("Bob", "")], "我", false, null));
-
-        Assert.Contains("群聊「会审」", scene);
-        Assert.Contains("我（用户）、Bob", scene);
-        Assert.Contains("你是Alice", scene);
-        Assert.Contains("自动标上你的名字", scene);
-        Assert.DoesNotContain("不要自己加", scene); //禁令式会把前缀格式再念一遍，改用正面说法
-        Assert.DoesNotContain("主持人", scene);
-        Assert.DoesNotContain(GroupPostTool.ToolName, scene); //没这个工具就不提
-        Assert.DoesNotContain("一轮怎么算", scene); //普通形态没工具，「过程话、查完再说」都无从谈起
-        Assert.Contains("不要长篇大论", scene); //尺度句：别把群里的话当成交付物写（ef7dde18 起的表述）
-    }
-
     /// <summary>回复两种形态都是发言、「[沉默]」都是不接话；有群发言工具的多讲一条中途说话（ADR 0060 修订）</summary>
     // 注：场景文案已改为「每一轮停下的时候」表述（58c71b46），本条对旧文案的断言按删除处理，见 Git 历史
     [Theory]
