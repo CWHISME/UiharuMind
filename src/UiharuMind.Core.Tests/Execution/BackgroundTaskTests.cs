@@ -249,6 +249,27 @@ public class BackgroundTaskTests
         Assert.True(ChatMessageAnnotations.IsBackgroundTaskReport(BackgroundTaskReport.BuildMessage(outcome)));
     }
 
+    /// <summary>
+    /// 超时的报告必须把「不会再唤醒」写死：实机里模型把超时读成「这一轮没等到，下一轮还有」，
+    /// 而那一轮永远不会来（2026-11-14 群评审一波 73 分钟、等待任务一小时就断了）
+    /// </summary>
+    [Fact]
+    public async Task InlineReport_OnTimeLimit_SaysNoMoreWakeUp()
+    {
+        RecordingSink sink = new();
+        BackgroundTaskRegistry.StartInline("owner", "等《评审群》这一波跑完", TimeSpan.FromSeconds(1),
+            async ct => { await Task.Delay(TimeSpan.FromSeconds(30), ct); return string.Empty; }, sink);
+        BackgroundTaskOutcome outcome = await sink.Delivered.Task.WaitAsync(TimeSpan.FromSeconds(10),
+            TestContext.Current.CancellationToken);
+
+        string text = BackgroundTaskReport.BuildText(outcome);
+
+        Assert.Equal(EBackgroundTaskEnd.TimeLimit, outcome.End);
+        Assert.Contains("跑满时间上限（1 秒）", text);
+        Assert.Contains("最后一次通知", text);
+        Assert.Contains("不会再唤醒你", text);
+    }
+
     /// <summary>任务体不响应取消时也要收口：没有进程树可杀，只能靠宽限兜住「永远停在在跑」</summary>
     [Fact]
     public async Task InlineTask_ThatIgnoresCancellation_IsSettledAnyway()

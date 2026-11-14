@@ -46,12 +46,17 @@ public static class BackgroundTaskReport
     // inline 任务没拼出正文时，按结束方式交代一句（正常完成不会走到这里）
     private static string HowInlineEnded(BackgroundTaskOutcome outcome) => outcome.End switch
     {
-        EBackgroundTaskEnd.TimeLimit => "跑满时间上限被结束，还没等到",
+        EBackgroundTaskEnd.TimeLimit => $"跑满时间上限（{TimeUtils.FormatDuration(outcome.Task.MaxRuntime)}）被结束，还没等到",
         EBackgroundTaskEnd.Stopped => "被用户叫停，没有等到",
         EBackgroundTaskEnd.AppExit => "在应用退出时被中止",
         _ => "已结束",
     };
 
+    // 超时是这条等待的终点，必须写死：不写的话模型会以为之后还有一轮唤醒
+    // （实机 2026-11-14：超时后仍答「继续等，下一轮唤醒再看」，而那一轮永远不会来）
+    private const string TimeLimitTail =
+        "这是最后一次通知，之后不会再唤醒你。要结果：请用 ChatSession 导流水看状态，或再发一条消息过去。";
+    
     /// <summary>
     /// 把一段<b>模型输出</b>包成能直接进报告正文的样子：过长截断，整段进围栏。
     ///
@@ -77,7 +82,8 @@ public static class BackgroundTaskReport
         {
             // inline 任务（SendMessage 的等待任务）：正文由任务体拼好；没拼出来时按结束方式兜底
             if (inline.ResultText is { Length: > 0 } result) return result;
-            return $"等待任务（{inline.Description}）{HowInlineEnded(outcome)}，没有产出结果。";
+            string ended = $"等待任务（{inline.Description}）{HowInlineEnded(outcome)}，没有产出结果。";
+            return outcome.End == EBackgroundTaskEnd.TimeLimit ? ended + TimeLimitTail : ended;
         }
 
         // 认不出的实现（第三个形态）按最小面交代，别在这里抛 InvalidCastException

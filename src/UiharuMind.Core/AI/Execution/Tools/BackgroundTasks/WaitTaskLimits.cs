@@ -15,8 +15,9 @@ namespace UiharuMind.Core.AI.Execution.Tools.BackgroundTasks;
 internal static class WaitTaskLimits
 {
     /// <summary>
-    /// 等待的时间上限。单聊一轮正常几分钟，群一波实测十几分钟（ADR 0089），一小时盖得住。
+    /// 等待的时间上限。单聊一轮正常几分钟，群一波实测十几分钟（ADR 0089），但长评审一波实测 73 分钟
+    /// （2026-11-14 实机：一小时上限在群还在跑的时候就把等待掐了），四小时留三倍余量。
     /// 到点按超时收口，仍会送一封「没等到」的回信，不算断头
     /// </summary>
-    public static readonly TimeSpan MaxRuntime = TimeSpan.FromHours(1);
+    public static readonly TimeSpan MaxRuntime = TimeSpan.FromHours(4);
 }
