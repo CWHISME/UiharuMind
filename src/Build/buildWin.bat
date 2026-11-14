@@ -24,6 +24,9 @@ if exist "%STAGE_DIR%\UiharuMind\runtimes" (
     )
 )
 
+rem Release 包不带调试符号（含 SkiaSharp 等原生库带的超大 PDB）
+del /s /q "%STAGE_DIR%\UiharuMind\*.pdb" >nul 2>&1
+
 if not exist Output md Output
 set ARCHIVE=Output\UiharuMind-%APP_VERSION%-%TARGET_RUNTIME%.zip
 if exist "%ARCHIVE%" del /q "%ARCHIVE%"

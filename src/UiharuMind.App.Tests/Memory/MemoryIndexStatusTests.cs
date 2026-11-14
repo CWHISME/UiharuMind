@@ -172,12 +172,9 @@ public class MemoryIndexStatusTests
     [Theory]
     [InlineData("Embedding request failed: 500", "MemoryIndexEmbeddingRequestFailed")]
     [InlineData("embedding request failed: 500", "MemoryIndexEmbeddingRequestFailed")] //前缀匹配忽略大小写
-    [InlineData("LLamaSharp embedding request failed: out of memory", "MemoryIndexEmbeddingRequestFailed")]
     [InlineData("Response status code does not indicate success: 401 (Unauthorized).",
         "MemoryIndexEmbeddingRequestFailed")]
     [InlineData("Embedding model startup failed.", "MemoryIndexEmbeddingServerUnavailable")]
-    [InlineData("Failed to load LLamaSharp embedding model: /models/e5.gguf",
-        "MemoryIndexEmbeddingServerUnavailable")]
     [InlineData("Remote embedding backend is not implemented yet.", "MemoryIndexEmbeddingServerUnavailable")]
     [InlineData("Memory vector store failed to open", "MemoryIndexStorageFailed")] //含子串即命中
     [InlineData("SQLite Error 8: 'attempt to write a readonly database'", "MemoryIndexStorageFailed")]

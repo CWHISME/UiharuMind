@@ -9,7 +9,7 @@ namespace UiharuMind.Core.Tests.AI;
 
 /// <summary>
 /// 本地引擎可插拔：用哪个是配置，不是写死。
-/// 旧档案里存着已屏蔽引擎的 Id（如 LLamaSharp），必须落到还能跑的那个，而不是报「没有引擎」。
+/// 旧档案里存着已移除引擎的 Id（如 LLamaSharp），必须落到还能跑的那个，而不是报「没有引擎」。
 /// </summary>
 public class ModelRuntimeBackendRegistryTests
 {
@@ -32,7 +32,7 @@ public class ModelRuntimeBackendRegistryTests
     }
 
     [Theory]
-    [InlineData("LLamaSharp")] //已屏蔽、未注册
+    [InlineData("LLamaSharp")] //已移除、未注册
     [InlineData("")]
     [InlineData(null)]
     public void UnknownOrUnsetEngine_FallsBackToFirstCapable(string? preferred)

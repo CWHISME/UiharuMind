@@ -49,7 +49,6 @@ internal sealed class ModelRuntimeService
         RemoteModelManager remoteModelManager,
         Func<CancellationToken, Task<VersionInfo?>> currentLLamaCppVersion)
     {
-        // LLamaSharp 已屏蔽（ADR 0067），代码留待移除
         _registry.Register(new LLamaCppRuntimeBackend(llamaCppServer, currentLLamaCppVersion));
         _registry.Register(new OpenAICompatibleRuntimeBackend(remoteModelManager));
     }
@@ -234,8 +233,7 @@ internal sealed class ModelRuntimeService
             UBatchSize = Math.Max(0, settings.UBatchSize),
             GpuLayers = settings.GpuLayers,
             Threads = 0,
-            FlashAttention = false,
-            LLamaSharpBackendMode = ModelRuntimeSettingConfig.LLamaSharpBackendAuto
+            FlashAttention = false
         };
 
         RuntimeParameterPolicy policy = new(

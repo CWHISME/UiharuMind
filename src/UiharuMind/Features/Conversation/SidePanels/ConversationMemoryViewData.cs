@@ -106,12 +106,8 @@ public partial class ConversationMemoryViewData : ObservableObject
     private static string GetMemoryIndexErrorText(string error)
     {
         if (error.StartsWith("Embedding model startup failed", StringComparison.OrdinalIgnoreCase) ||
-            error.StartsWith("Failed to load LLamaSharp embedding model", StringComparison.OrdinalIgnoreCase) ||
             error.StartsWith("Remote embedding backend is not implemented", StringComparison.OrdinalIgnoreCase))
             return Loc.Text(LangKey.MemoryIndexEmbeddingServerUnavailable);
-
-        if (error.StartsWith("LLamaSharp embedding request failed", StringComparison.OrdinalIgnoreCase))
-            return Loc.Text(LangKey.MemoryIndexEmbeddingRequestFailed);
 
         return error switch
         {

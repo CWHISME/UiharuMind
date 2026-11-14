@@ -14,21 +14,11 @@ namespace UiharuMind.Core.Configs;
 [DisplayName("Model Runtime")]
 public class ModelRuntimeSettingConfig : TConfigBase<ModelRuntimeSettingConfig>
 {
-    public const string LLamaSharpBackendAuto = "Auto";
-    public const string LLamaSharpBackendCpu = "CPU";
-    public const string LLamaSharpBackendGpu = "GPU";
-
     /// <summary>
     /// 首选的本地引擎 Id，空或未注册时用第一个能跑的。沿用旧字段名 EngineType，旧值本就是引擎 Id
     /// </summary>
     [JsonPropertyName("EngineType")]
     public string LocalEngineId { get; set; } = "";
-
-    // LLamaSharp 已屏蔽（ADR 0067），只剩其死代码还在读
-    [SettingConfigDesc("LLamaSharp backend mode")]
-    [SettingConfigDesc("LLamaSharp 后端模式", LanguageUtils.ChineseSimplified)]
-    [SettingConfigOptions(LLamaSharpBackendAuto, LLamaSharpBackendCpu, LLamaSharpBackendGpu)]
-    public string LLamaSharpBackendMode { get; set; } = LLamaSharpBackendAuto;
 
     [SettingConfigDesc("Context size")]
     [SettingConfigDesc("上下文长度", LanguageUtils.ChineseSimplified)]
@@ -107,7 +97,6 @@ public class ModelRuntimeSettingConfig : TConfigBase<ModelRuntimeSettingConfig>
         return new ModelRuntimeSettingConfig
         {
             LocalEngineId = LocalEngineId,
-            LLamaSharpBackendMode = LLamaSharpBackendMode,
             ContextSize = overrides.ContextSize ?? ContextSize,
             GpuLayers = overrides.GpuLayers ?? GpuLayers,
             BatchSize = overrides.BatchSize ?? BatchSize,

@@ -8,7 +8,7 @@ namespace UiharuMind.Core.Configs.RemoteAI;
 [SettingConfigDesc("商汤科技(Sensenova)", LanguageUtils.ChineseSimplified)]
 public class RemoteSensenovaModelConfig : BaseRemoteModelConfig, IRemoteModelConfig
 {
-    public override string ModelName { get; set; } = "Deepseek-V4-Flash";
+    public override string ModelName { get; set; } = "Deepseek-Flash";
 
     public override string ModelPath { get; set; } = "https://token.sensenova.cn/v1/chat/completions";
 
@@ -22,14 +22,14 @@ public class RemoteSensenovaModelConfig : BaseRemoteModelConfig, IRemoteModelCon
 
     public override string ModelDescription { get; set; } = "";
 
-    public override string ModelId { get; set; } = "deepseek-v4-flash";
+    public override string ModelId { get; set; } = "deepseek-flash";
 
     public override IReadOnlyDictionary<string, RemoteModelIdVariant> ModelIdVariants { get; } =
         new Dictionary<string, RemoteModelIdVariant>
         {
             // 商汤平台转售的第三方模型,ID 与参数沿用平台口径。
             // DeepSeek 的「必须含 reasoning_content」由基类按模型 ID 自动判定;roundtrip 默认 auto。
-            ["deepseek-v4-flash"] = new(ContextLength: 1048576, MaxTokens: 327680),
+            // ["deepseek-v4-flash"] = new(ContextLength: 1048576, MaxTokens: 327680),
             ["deepseek-flash"] = new(ContextLength: 1048576, MaxTokens: 393216, IsVision: true),
             ["sensenova-6.8-flash-lite"] = new(ContextLength: 262144, MaxTokens: 65535, IsVision: true,
                 ReplayExistingReasoning: false, ThinkingField: "reasoning"),

@@ -9,10 +9,6 @@
   一旦有人另写一份，tag、包名、应用内版本就各说各话。
 - **发布参数不能每个脚本各抄一份。** 三平台打包参数不同，收在 csproj 里按 RID 生效后，
   脚本与 CI 只给 `-r <RID>`，打包参数只有一份，不会漂移。
-- **不上 `PublishTrimmed` / NativeAOT。** 全仓默认反射绑定
-  （`AvaloniaUseCompiledBindingsByDefault=false`，90 个 axaml 只有 30 个有 `x:DataType`）
-  加上反射 JSON，裁剪与 AOT 造成的不是编译期错误，而是**静默的运行时失败**——发出去才坏。
-  R2R 基线已实测到用户可感下限（§修订），AOT 增量收益换不掉前置工程，**关门，不排期**。
 - **macOS 签名不能用 ad-hoc。** TCC（辅助功能 / 屏幕录制授权）把权限钉在 app 的**指定要求**
   （Designated Requirement）上。ad-hoc 没有颁发者，系统退化成用 cdhash 当身份，而 cdhash
   每次编译都变——表现是「权限列表里条目还在，但权限已失效」。自签名证书的指定要求是
@@ -25,8 +21,7 @@
    从程序集读、`Info.plist` 由脚本填、CI 拿它校验 tag——都别再写第二份。
 2. **发布参数收在 `UiharuMind.Desktop.csproj`**（自包含、ReadyToRun、单文件），按 RID 生效；
    脚本与 CI 只需给 `-r <RID>`。
-3. **不上 `PublishTrimmed` / NativeAOT，ReadyToRun 是发布终点**（§修订）。
-4. **`UiharuMind/Build/` 下四脚本一张表**，共享部分在 `common.sh`（取版本、发布、签名、打包）：
+3. **`UiharuMind/Build/` 下四脚本一张表**，共享部分在 `common.sh`（取版本、发布、签名、打包）：
 
    | 脚本 | 产物 |
    |---|---|
@@ -35,17 +30,17 @@
    | `buildLinux.sh` | `Output/UiharuMind-<版本>-linux-x64.tar.gz` |
    | `buildWin.bat` | `Output/UiharuMind-<版本>-win-x64.zip` |
 
-5. **macOS 的 bundle 签名必须是最后一步**：签完再往里拷东西，密封就失效。
-6. **macOS 签名必须用自签名证书，不能用 ad-hoc**。证书本地 `openssl` 生成、永久复用，
+4. **macOS 的 bundle 签名必须是最后一步**：签完再往里拷东西，密封就失效。
+5. **macOS 签名必须用自签名证书，不能用 ad-hoc**。证书本地 `openssl` 生成、永久复用，
    不需要 Apple 账号（Gatekeeper 的「无法验证开发者」不受影响，那需要付费 Developer ID）。
    生成与启用见 [Build/signing/README.md](UiharuMind/Build/signing/README.md)。
    **别重新生成**——换证书等于换身份，所有用户要再授权一次。
-7. **证书不在 keychain 时**：本机回退 ad-hoc 并打警告（fork 与新机器仍能构建）；
+6. **证书不在 keychain 时**：本机回退 ad-hoc 并打警告（fork 与新机器仍能构建）；
    CI 上（`CI=true`）硬失败，避免发出身份不对的 Release。
-8. **CI（`.github/workflows/`）**：`ci.yml` 在 push/PR 上构建加测试；`release.yml` 由
+7. **CI（`.github/workflows/`）**：`ci.yml` 在 push/PR 上构建加测试；`release.yml` 由
    `v*` tag 触发，先断言 tag 与 `<Version>` 一致，再在三平台上**调用 Build/ 脚本**
    （打包逻辑只有一份），产物加 `SHA256SUMS` 发成草稿 Release。
-9. **开发与冒烟统一用证书签名的 `.app` 跑**：TCC 按「签名主体 + bundle id」记授权，
+8. **开发与冒烟统一用证书签名的 `.app` 跑**：TCC 按「签名主体 + bundle id」记授权，
    **同一个 bundle id 下，ad-hoc 签名的裸 exe 与证书签名的 `.app` 是两个身份，授权互不共用**。
    从终端/脚本裸跑 bin exe（责任进程是终端、路径无授权记录），桌面扩展查不到授权——不是 bug；
    Rider 调试是例外：调试器启动的进程，责任链最后落在 IDE 上，桌面权限走 IDE 的授权。
@@ -77,33 +72,11 @@
 - [ADR 0027](0027-应用根搬到-uiharu.md)：`buildMacFull.sh` 的硬编码旧根随应用根搬迁
   同步更新，脚本细节以 `Build/` 为准。
 
-## §修订（2026-10-13）：AOT 关门，R2R 为终点
+## §修订（2026-10-13）：R2R 启动基线实测
 
 R2R 基线实测（osx-arm64，5 样本，commit 732b6b15）：冷启动到首屏 p50 = 530ms、切会话
-p50 = 65ms，均到用户可感下限。NativeAOT 相对 R2R 的启动增量收益为社区经验值 100–200ms，
-代价是 145 个 axaml 补 `x:DataType` + 全仓 STJ source-gen + 反射装配三块前置，加长期
-升级/维护税。性价比为负，NativeAOT 关门，ReadyToRun 定为发布终点。
-
-由此撤销的是「为 AOT 才要做的」前置排期：
-
-- 74 个 axaml 的 `x:DataType`（编译绑定，纯为让 AOT 裁剪不剪属性）——不做了。
-- 反射清单 #5/#6/#7 字段反射、#8 设置面板反射渲染、#9 主题 Locale——全撤，不排。
-- 序列化清单 A3 外部 API source-gen——撤，不排。
-- A2 `SaveUtility` object 路由 source-gen（承重墙）——进后备，不进主排期。
-
-不撤、照跑的净收益项（与 AOT 无关）：
-
-- A1 会话持久化 source-gen（承重墙 + 旧存档形状护栏）——继续。
-- 远程模型配置显式注册表（#1/#2/#3）——已提交（732b6b15）。
+p50 = 65ms，均到用户可感下限。
 
 基线数据：[`docs/perf/2026-10-13-R2R基线启动与切会话实测.md`](../perf/2026-10-13-R2R基线启动与切会话实测.md)。
 
-## §待重估（2026-10-14）：裁剪理由被削弱，是否开 Trim 重新拍
-
-b05e363f 把 `AvaloniaUseCompiledBindingsByDefault` 全仓翻成 `=true`、并补了 74 个 axaml 的
-`x:DataType`——「不开 Trim」的原始理由（反射绑定被裁剪剪属性）由此被削弱。注意与本修订
-上文「74 个 axaml 的 x:DataType 不做了」存在张力（那条撤销的是*为 AOT 才要*的前置，b05e363f
-仍翻转了），重估时一并核一致性。
-
-现状维持 R2R 不裁剪（不冒静默运行时失败的风险）。是否重开 PublishTrimmed 不在本条决策——
-记一笔，下次单独开题；触发条件是「裁剪后全量冒烟绿」而非「编译过」。
+>AOT / `PublishTrimmed` 是否采用，未在本 ADR 定论，另议。

@@ -636,8 +636,7 @@ internal static class SubAgentAssembly
         // 挂了扩展的元工具就得给名单:不知道有什么,子代理想不到去查
         list.Raw(extensionsSection.Length > 0, extensionsSection);
         list.Raw(workspaceInstructions.Length > 0,
-            AgentInstructionsComposer.WorkspacePointerSection(
-                WorkspaceInstructionsLoader.ResolveFileName(workingDirectory)));
+            AgentInstructionsComposer.WorkspaceSection(workspaceInstructions, WorkspaceInstructionsLoader.ResolveFileName(workingDirectory)));
 
         return list.ToString();
     }

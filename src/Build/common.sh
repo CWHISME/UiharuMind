@@ -29,6 +29,8 @@ publish_for() {
     if [ -d "$output/runtimes" ]; then
         find "$output/runtimes" -mindepth 1 -maxdepth 1 -type d ! -name "$rid" -exec rm -rf {} +
     fi
+    # Release 包不带调试符号（含 SkiaSharp 等原生库带的超大 PDB）
+    find "$output" -name '*.pdb' -delete
 }
 
 # bundle 级签名。Apple Silicon 上 arm64 可执行文件必须有签名才能运行，

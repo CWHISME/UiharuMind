@@ -24,7 +24,7 @@ namespace UiharuMind.Core.AI.Net.Request;
 /// <c>AsAIFunction</c> 造的（shell）、MCP 客户端给的、以后还会加。逐个工具补一道，
 /// 补漏一个就是一次全价重算，而且补没补看不出来。这里只有一道：<b>凡是走 HTTP 的模型，每一发请求都经过它</b>，
 /// 与工具是谁造的、走哪条协议线（chat / responses / messages）都无关。
-/// （进程内的 <c>LLamaSharpChatClient</c> 不经此处：它把 tool 角色映射成 <c>Unknown</c>、没有工具调用，
+/// （进程内的本地引擎不经此处：它把 tool 角色映射成 <c>Unknown</c>、没有工具调用，
 /// 不会收到工具结果。）</para>
 ///
 /// <para><b>就地改而不是克隆</b>：改的就是历史里那一个对象，与读盘时 <see cref="ChatContentNormalizer"/>

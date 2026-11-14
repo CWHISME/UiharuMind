@@ -98,7 +98,7 @@ public static class SubAgentToolPrompts
     /// 探索档默认用设置页的探索模型，<c>model</c> 仍可单趟点名。
     /// </summary>
     public const string IsExploreParam =
-        "可选。将子代理指定为「探索模式」，仅适用于**仓库探索**、**信息获取**等。";
+        "可选。将子代理指定为「探索模式」，只读，没有 shell 工具，仅适用于**仓库探索**、**信息获取**等。";
 
     /// <summary>
     /// <see cref="SubAgentTool.MessageToolName"/> 的描述：给已经开过的那位续发一条，跑着时就是插话。

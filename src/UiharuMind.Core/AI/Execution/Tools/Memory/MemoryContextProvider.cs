@@ -22,8 +22,7 @@ namespace UiharuMind.Core.AI.Execution.Tools.Memory;
 ///
 /// 每轮都会跑一次检索，但只有 <see cref="MemorySearcher"/> 的相关性闸门放行时才注入；
 /// 与本次提问无关的轮次（「你好」之类）注入 0 token。
-/// 改为由模型主动调用 KnowledgeSearch 工具是后续独立一步——那需要按后端能力分流，
-/// 因为 LLamaSharpChatClient 完全忽略 ChatOptions.Tools，本地模型下工具调用是零支持。
+/// 改为由模型主动调用 KnowledgeSearch 工具是后续独立一步——那需要按后端能力分流。
 /// </summary>
 internal sealed class MemoryContextProvider : AIContextProvider
 {
@@ -89,8 +88,7 @@ internal sealed class MemoryContextProvider : AIContextProvider
         MemoryData? memory = session?.Memory;
         if (memory == null) return empty;
 
-        // 装配了 KnowledgeSearch 且当前模型支持工具调用时,检索交给模型按需发起,不再每轮强制注入;
-        // 本地 LLamaSharp 完全忽略 ChatOptions.Tools,只能留在注入模式
+        // 装配了 KnowledgeSearch 且当前模型支持工具调用时,检索交给模型按需发起,不再每轮强制注入
         if (_hasKnowledgeTool && session!.ChatModelRunningData?.SupportsToolCalling == true) return empty;
 
         // 历史取自会话而非 context：AIContext.Messages 默认只含本轮外部输入(见 BuildQuery)

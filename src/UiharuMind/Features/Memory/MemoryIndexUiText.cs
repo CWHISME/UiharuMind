@@ -184,7 +184,6 @@ internal static class MemoryIndexUiText
     public static string? GetIndexErrorTextKey(string error)
     {
         if (error.StartsWith("Embedding request failed", StringComparison.OrdinalIgnoreCase) ||
-            error.StartsWith("LLamaSharp embedding request failed", StringComparison.OrdinalIgnoreCase) ||
             error.StartsWith("Response status code does not indicate success",
                 StringComparison.OrdinalIgnoreCase))
         {
@@ -192,7 +191,6 @@ internal static class MemoryIndexUiText
         }
 
         if (error.StartsWith("Embedding model startup failed", StringComparison.OrdinalIgnoreCase) ||
-            error.StartsWith("Failed to load LLamaSharp embedding model", StringComparison.OrdinalIgnoreCase) ||
             error.StartsWith("Remote embedding backend is not implemented", StringComparison.OrdinalIgnoreCase))
         {
             return "MemoryIndexEmbeddingServerUnavailable";

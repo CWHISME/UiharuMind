@@ -37,9 +37,6 @@ public partial class UsagePageData : PageDataBase
 {
     private const int PageSize = 50;
 
-    /// <summary>落盘通知到重查之间的合并窗口</summary>
-    private const int UsageRefreshCoalesceMs = 800;
-
     /// <summary>清理按钮保留的天数（跟着按钮走；将来要做设置项就把它挪进配置）</summary>
     private const int RetentionDays = 180;
 
@@ -57,8 +54,6 @@ public partial class UsagePageData : PageDataBase
     private int _pageIndex;
     private int _totalRows;
     private bool _suppressReload; //程序改选项时为真（避免重建选项时触发连锁重查）
-    private bool _isPageEnabled; //页面当前可见（后台来的刷新通知不在不可见时干活）
-    private bool _usageRefreshPending; //已排入一次「新记录落盘」引发的重查（合并刷盘节奏）
     private bool _hasAnyKnown; //全表查过「至少有一条记录」：单调事实，查到 true 后不再查
     private UsageTotals _totals = UsageTotals.Empty;
     private IReadOnlyList<UsageTrendPoint> _trendPoints = [];
@@ -243,9 +238,8 @@ public partial class UsagePageData : PageDataBase
     {
         base.OnEnable();
         if (Application.Current is { } app) app.ActualThemeVariantChanged += OnThemeVariantChanged;
-        _isPageEnabled = true;
-        //新记录落盘就重查：一轮对话刚结束时不点刷新也看得到（后台单写线程触发，自己切回 UI）
-        _store.Recorded += OnStoreRecorded;
+        //停留期间不自动重查：整页刷新会重建图表、重置下拉，打断正在翻页/看图的人；
+        //要看最新数据手动点刷新，或切走再切回来（这里会查一次）
         _ = RefreshAsync();
     }
 
@@ -254,40 +248,7 @@ public partial class UsagePageData : PageDataBase
     {
         base.OnDisable();
         if (Application.Current is { } app) app.ActualThemeVariantChanged -= OnThemeVariantChanged;
-        _isPageEnabled = false;
-        _store.Recorded -= OnStoreRecorded;
         ReleaseData();
-    }
-
-    /// <summary>落盘通知可能在后台线程：切回 UI 线程再重查</summary>
-    private void OnStoreRecorded()
-    {
-        if (Dispatcher.UIThread.CheckAccess()) QueueUsageRefresh();
-        else Dispatcher.UIThread.Post(QueueUsageRefresh);
-    }
-
-    private void QueueUsageRefresh()
-    {
-        if (!_isPageEnabled || _usageRefreshPending) return;
-        _usageRefreshPending = true;
-        _ = RefreshAfterUsageAsync();
-    }
-
-    /// <summary>
-    /// 落盘后稍等一拍再查：一轮里的几行会合成一次重查，不跟着写盘节奏抖；
-    /// 查期间又来的通知直接忽略，下一次落盘会再排一次
-    /// </summary>
-    private async Task RefreshAfterUsageAsync()
-    {
-        try
-        {
-            await Task.Delay(UsageRefreshCoalesceMs);
-            if (_isPageEnabled && !IsLoading) await RefreshAsync();
-        }
-        finally
-        {
-            _usageRefreshPending = false;
-        }
     }
 
     /// <summary>

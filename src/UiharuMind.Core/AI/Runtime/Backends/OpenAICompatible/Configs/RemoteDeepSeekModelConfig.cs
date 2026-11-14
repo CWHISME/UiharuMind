@@ -25,7 +25,6 @@ public class RemoteDeepSeekModelConfig : BaseRemoteModelConfig, IRemoteModelConf
             // 「思考模式下带 tool_calls 的助手消息必须含 reasoning_content」由基类按模型 ID 含 deepseek 自动判定;
             // roundtrip 默认 auto(有正文就回传),这里只留能力字段。
             ["deepseek-flash"] = new(ContextLength: 1048576, MaxTokens: 393216, IsVision: true),
-            ["deepseek-v4-flash"] = new(ContextLength: 1048576, MaxTokens: 393216, IsVision: true),
             ["deepseek-v4-pro"] = new(ContextLength: 1048576, MaxTokens: 393216),
         };
 
