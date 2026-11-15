@@ -202,20 +202,66 @@ public static class FileOpener
     /// <param name="fullPath">文件或目录的绝对路径</param>
     public static void RevealInFolder(string fullPath)
     {
-        string? dir = Directory.Exists(fullPath) ? fullPath : Path.GetDirectoryName(fullPath);
-        if (Directory.Exists(dir))
+        RevealTarget? target;
+        try
+        {
+            target = ResolveRevealTarget(fullPath);
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Reveal in folder failed '{fullPath}': {e.Message}");
+            Messages.ShowNotification(Loc.Text(LangKey.TextFileOpenFailed), severity: MessageSeverity.Error);
+            return;
+        }
+
+        if (target == null)
+        {
+            Messages.ShowNotification("Directory not found");
+            return;
+        }
+
+        try
         {
             if (PlatformUtils.IsWindows)
             {
-                Process.Start("explorer.exe", $"/select,\"{fullPath}\"");
+                Process.Start(new ProcessStartInfo("explorer.exe", WindowsRevealArguments(target))
+                    { UseShellExecute = true })?.Dispose();
             }
-            else if (PlatformUtils.IsMacOS)
-            {
-                Process.Start("open", $"-R \"{fullPath}\"");
-            }
-            else App.FilesService.OpenFolder(dir);
+            else if (PlatformUtils.IsMacOS) Process.Start("open", $"-R \"{target.Path}\"")?.Dispose();
+            else App.FilesService.OpenFolder(target.Directory);
         }
-        else
-            App.Services.GetRequiredService<IMessageService>().ShowNotification("Directory not found");
+        catch (Exception e)
+        {
+            Log.Warning($"Reveal in folder failed '{target.Path}': {e.Message}");
+            Messages.ShowNotification(
+                $"{Loc.Text(LangKey.TextFileOpenFailed)} ({e.Message})", severity: MessageSeverity.Error);
+        }
     }
+
+    /// <summary>揭示目标：规范化的路径、要打开的目录、以及能不能选中文件</summary>
+    internal sealed record RevealTarget(string Path, string Directory, bool SelectFile);
+
+    /// <summary>
+    /// 把来源各异的路径收成系统文件管理器认的形态：绝对、分隔符统一、文件不在了退到所在目录。
+    /// Windows 上这步不能省——草稿目录名由 <c>AgentOutputLayout.GetFolderName</c> 用 / 拼出，
+    /// 路径里混着正斜杠时 explorer 会把 / 后面的片段当命令行开关，整条 /select 作废、只弹默认位置（桌面）。
+    /// </summary>
+    /// <param name="fullPath">文件或目录路径</param>
+    /// <returns>揭示目标；所在目录也不存在时返回 null（调用方提示）</returns>
+    internal static RevealTarget? ResolveRevealTarget(string fullPath)
+    {
+        string path = Path.GetFullPath(fullPath);
+        if (Directory.Exists(path)) return new RevealTarget(path, path, false);
+
+        string? dir = Path.GetDirectoryName(path);
+        return dir != null && Directory.Exists(dir)
+            ? new RevealTarget(path, dir, File.Exists(path))
+            : null;
+    }
+
+    /// <summary>Windows 资源管理器参数：文件还在就 /select 选中，否则只打开所在目录</summary>
+    /// <param name="target">揭示目标</param>
+    /// <returns>explorer.exe 的参数</returns>
+    internal static string WindowsRevealArguments(RevealTarget target) =>
+        target.SelectFile ? $"/select,\"{target.Path}\"" : $"\"{target.Directory}\"";
 }
