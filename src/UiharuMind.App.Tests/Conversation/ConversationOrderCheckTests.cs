@@ -117,6 +117,32 @@ public class ConversationOrderCheckTests
         Assert.Equal(2, ConversationOrderCheck.FindMissingTail(items, [question, answer, report, reply]));
     }
 
+    /// <summary>
+    /// 尾部的工具结果消息只回写已有工具卡、不产生自己的条目。把它算成漏画，
+    /// 对账就会在每个消息边界白跑一次补画（实机全天 157 次「2 trailing」）。
+    /// </summary>
+    [Fact]
+    public void TrailingToolResultIsNotMissing()
+    {
+        ChatMessage call = new(ChatRole.Assistant, "跑一下。");
+        ChatMessage result = new(ChatRole.Tool, new List<AIContent> { new FunctionResultContent("c1", "done") });
+        List<ConversationItemBase> items = [Item(call)];
+
+        Assert.Equal(0, ConversationOrderCheck.FindMissingTail(items, [call, result]));
+    }
+
+    /// <summary>工具结果之后真有漏画的助手消息：仍按整段尾部报，from 切片不能跳过中间那段</summary>
+    [Fact]
+    public void MissingAssistantAfterToolResultIsStillReported()
+    {
+        ChatMessage call = new(ChatRole.Assistant, "跑一下。");
+        ChatMessage result = new(ChatRole.Tool, new List<AIContent> { new FunctionResultContent("c1", "done") });
+        ChatMessage reply = new(ChatRole.Assistant, "跑完了。");
+        List<ConversationItemBase> items = [Item(call)];
+
+        Assert.Equal(2, ConversationOrderCheck.FindMissingTail(items, [call, result, reply]));
+    }
+
     /// <summary>对得上时是 0；窗口之外的旧消息本来就不画，不算漏</summary>
     [Fact]
     public void DrawnTailIsNotMissing()

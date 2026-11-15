@@ -146,6 +146,39 @@ public class HistoryCatchUpTests
     }
 
     /// <summary>
+    /// 流已经把思考卡与正文画出、但来源还没配对上时，对账补尾不许再补一份。
+    ///
+    /// 实机：19:35 流式那份与 19:36 回放那份一字不差。从前 <c>AppendTail</c> 无条件 Add，
+    /// 而 <c>FindMissingTail</c> 只认 <c>SourceMessage</c> 引用——空来源的条目在它眼里等于没画过。
+    /// 这条路径此前没有回归用例，去重只测了 <c>AppendPersisted</c> 那一侧。
+    /// </summary>
+    [Fact]
+    public void CatchUpTail_StreamDrewButNotPaired_NoSecondCopy()
+    {
+        (ObservableCollection<ConversationItemBase> items, ConversationHistoryRenderer renderer) = Fixture();
+        ChatSession session = new() { SessionId = "dup" };
+        ChatMessage reply = new(ChatRole.Assistant,
+        [
+            new TextReasoningContent("想一下。"),
+            new TextContent("2D 58558 字节确认。"),
+        ]);
+        session.History.Add(reply);
+
+        // 流画出来的样子：思考卡与正文都还没认回来源
+        items.Add(new ThinkingItem { Message = "想一下。" });
+        items.Add(new TextConversationItem(false, false) { Message = "2D 58558 字节确认。" });
+
+        ReconcileHost host = new(session, renderer) { IsSessionIdle = false };
+        ConversationHistoryReconciler reconciler = new(items, new HistoryWindow(), host);
+
+        reconciler.CatchUpTail("stream not paired");
+
+        Assert.Equal(2, items.Count);
+        Assert.Single(items.OfType<ThinkingItem>());
+        Assert.Single(items.OfType<TextConversationItem>());
+    }
+
+    /// <summary>
     /// 历史<b>真的空了</b>（用户把消息删光）时对账必须清屏。这一路读的是会话本体，不是现取现用的
     /// 渲染来源，拿到空表就是真的没有——别照着开窗那边「空表一动不动」去给它加保护，
     /// 那会把该清的屏留下来。本条用例就是防这个误改的

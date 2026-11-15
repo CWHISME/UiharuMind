@@ -133,7 +133,7 @@ public sealed class ConversationHistoryReconciler
         }
 
         int missing = ConversationOrderCheck.FindMissingTail(_items, history);
-        if (missing == 0) return;
+        if (missing <= 0) return; //负数说明界面指向了历史末尾之后，不是漏画，别拿越界下标去 Build
 
         AppendTail(session, history, missing, reason, liveTail: false);
     }
@@ -167,7 +167,7 @@ public sealed class ConversationHistoryReconciler
         _host.SettleStreamedItems(snapshot);
 
         int missing = ConversationOrderCheck.FindMissingTail(_items, snapshot);
-        if (missing == 0) return;
+        if (missing <= 0) return; //负数说明界面指向了历史末尾之后，不是漏画，别拿越界下标去 Build
 
         AppendTail(session, snapshot, missing, reason, liveTail: true);
     }
@@ -181,18 +181,22 @@ public sealed class ConversationHistoryReconciler
     private void AppendTail(ChatSession session, IReadOnlyList<ChatMessage> history, int missing, string reason,
         bool liveTail)
     {
-        // 带上会话标识:一个窗口里同时挂着好几个会话实例(切走的那些还在后台收内容),
-        // 只写「补了 62 条」根本不知道是哪一个(实机排查时为此多花了一小时)
-        Log.Warning($"Conversation items diverged from history "
-                    + $"({missing} trailing message(s) not drawn); appending the tail "
-                    + $"(session={session.SessionId}, {reason}).");
         int from = history.Count - missing;
         IReadOnlyList<ConversationItemBase> tail = liveTail
             ? _host.BuildLiveTailItems(history, from, history.Count)
             : _host.BuildItems(history, from, history.Count);
-        foreach (ConversationItemBase item in tail)
+
+        // 与落盘补渲染共用一道去重闸：流已画出、只是来源还没配对上的条目，按引用判重认不出来，
+        // 从前这里无条件 Add 就会在界面上多出一份（实机：同一句话两个气泡、思考与正文各一份）
+        int added = ConversationItemDedup.Append(_items, tail);
+        // 判重全挡掉了说明流其实已经画过，只是来源没配上：别报「补了 N 条」刷日志
+        if (added > 0)
         {
-            _items.Add(item);
+            // 带上会话标识:一个窗口里同时挂着好几个会话实例(切走的那些还在后台收内容),
+            // 只写「补了 62 条」根本不知道是哪一个(实机排查时为此多花了一小时)
+            Log.Warning($"Conversation items diverged from history "
+                        + $"({missing} trailing message(s) not drawn); appended {added} item(s) "
+                        + $"(session={session.SessionId}, {reason}).");
         }
 
         _host.RefreshTokenUsage();

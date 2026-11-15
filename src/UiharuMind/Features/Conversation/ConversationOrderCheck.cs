@@ -94,7 +94,7 @@ public static class ConversationOrderCheck
     ///
     /// 只查尾部：窗口之外的旧消息本来就不画（「加载更早」负责它们），
     /// 只有“最后一条已画消息之后还有历史”才是漏画（实机见过：交回报告与唤醒回复都落盘了，
-    /// 界面却停在派活那条，切会话才出来）。
+    /// 界面却停在派活那条，切会话才出来）。尾部只回写工具卡、不产条目的工具结果消息不计入。
     ///
     /// 调用方必须保证没人跑——流式中的气泡来源是空，跑着的时候查这个必误判。
     /// </summary>
@@ -113,6 +113,20 @@ public static class ConversationOrderCheck
             if (order.TryGetValue(source, out int index) && index > lastDrawn) lastDrawn = index;
         }
 
+        // 工具结果消息只回写已有工具卡、不新增条目（ConversationTranscript.ApplyResultToExisting）。
+        // 尾部只剩这类消息时不该触发补画——否则每个消息边界都白跑一次 Build，
+        // 日志里全天 157 次稳定的「2 trailing message(s) not drawn」就是这个形状。
+        // 真有漏画时仍按整段尾部计数：AppendTail 用 from = Count - missing 切片，
+        // 缩小这个数会跳过中间该补的消息
+        int lastPaintable = history.Count - 1;
+        while (lastPaintable >= 0 && !ProducesOwnItems(history[lastPaintable])) lastPaintable--;
+        if (lastPaintable <= lastDrawn) return 0;
+
         return history.Count - 1 - lastDrawn;
     }
+
+    /// <summary>这条历史消息会不会在界面上产生属于自己的条目</summary>
+    private static bool ProducesOwnItems(ChatMessage message) =>
+        !(message.Role == ChatRole.Tool &&
+          ConversationMessageOrigin.KindOf(message) == EHistoryItemKind.StreamContents);
 }

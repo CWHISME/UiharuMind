@@ -439,41 +439,14 @@ public sealed class ConversationHistoryRenderer
     }
 
     /// <summary>
-    /// 界面上已经有指向这条来源的条目就不再加——判据是「同一个条目」，不是消息类别。
-    ///
-    /// 一条消息可以晚一步才从历史补画（交回报告、后台任务结果、HandoffWritten 兜底、对账追加），
-    /// 而它也可能已经由内容流画过：落进历史的那条<b>就是流手上那个实例</b>（注入路径已验证
-    /// <c>ReferenceEquals</c> 成立，<c>AppendOwned</c> 就地写），所以按引用认是严格判据。
-    /// 从前这里只认交接文档，于是「报告随那一轮落盘」变成两条各画一份（实机踩到）。
-    /// 来源为空（流式条目还没配对）的不参与，免得 <c>null == null</c> 误吞。
-    ///
-    /// 两条粒度上的讲究：
-    /// <list type="number">
-    /// <item><b>已画集合先取快照再判。</b>边加边判的话，同一条消息拆出的第二个条目
-    /// （思考卡 + 正文 + 几张工具卡共享一个来源）会看见刚加进去的那一个，当成「已经画过」丢掉——
-    /// 整段补画于是只剩每条消息的头一个条目。</item>
-    /// <item><b>工具卡按 <c>CallId</c> 认，不按消息认。</b>一条消息里有三张卡、流只画了两张时，
-    /// 按消息判会把缺的那张一起判成「已画」——那正是这套兜底要治的漏。</item>
-    /// </list>
+    /// 界面上已经有对应条目就不再加：按来源消息引用认人，工具卡按 <c>CallId</c> 认，
+    /// 来源还没配对上的流式条目按同类同正文认领。判据与对账补尾共用一份，见
+    /// <see cref="ConversationItemDedup"/>——从前只这一条路判重，对账补尾无条件追加，
+    /// 于是同一句话在界面上出现两次（19:35 流式、19:36 回放）。
     /// </summary>
-    private void AppendSkippingRendered(List<ConversationItemBase> items)
-    {
-        HashSet<ChatMessage> rendered = new(ReferenceEqualityComparer.Instance);
-        HashSet<string> calls = new(StringComparer.Ordinal);
-        foreach (ConversationItemBase item in _items)
-        {
-            if (item.SourceMessage is { } drawn) rendered.Add(drawn);
-            if (item is ToolCallItem { CallId.Length: > 0 } card) calls.Add(card.CallId!);
-        }
-
-        foreach (ConversationItemBase item in items)
-        {
-            // 工具卡认 CallId:同一张卡画过就不再画,没画过的照补
-            if (item is ToolCallItem { CallId.Length: > 0 } fresh && calls.Contains(fresh.CallId!)) continue;
-            if (item.SourceMessage is { } source && rendered.Contains(source) && item is not ToolCallItem) continue;
-            _items.Add(item);
-        }
-    }
+    /// <param name="items">这一批待补的条目</param>
+    private void AppendSkippingRendered(List<ConversationItemBase> items) =>
+        ConversationItemDedup.Append(_items, items);
 
     private bool IsRendered(ChatMessage? source) => _items.Any(x => ReferenceEquals(x.SourceMessage, source));
 }
