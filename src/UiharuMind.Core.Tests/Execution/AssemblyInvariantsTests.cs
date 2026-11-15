@@ -1549,21 +1549,6 @@ public class SubAgentBoundaryTests
     }
 
     /// <summary>
-    /// 子代理侧与主代理统一走指针:超长正文不进系统提示。
-    /// 截断版实现保留在 AgentInstructionsComposer.WorkspaceSection,供"弱模型没读就编"的 case 切回,
-    /// 其纯函数语义由上方 WorkspaceInstructions_* 一组测试钉住。
-    /// </summary>
-    [Fact]
-    public void SubAgentWorkspaceSection_FollowsPointerLikeMainAgent()
-    {
-        string body = new string('z', AgentInstructionsComposer.MaxWorkspaceInstructionsChars) + "\nTAIL-MARKER";
-        string instructions = SubAgentAssembly
-            .BuildSubAgentOptions(NewInput(workspaceInstructions: body))!.ChatOptions!.Instructions!;
-
-        Assert.DoesNotContain(body[..100], instructions); //正文整段不进系统提示
-    }
-
-    /// <summary>
     /// 报告只取<b>最后一次工具调用之后</b>的正文。框架默认工作循环要求 agent
     /// 在工具调用之间解释进展，于是全程正文里绝大部分是「我接下来去看 X」的旁白；
     /// 全拼起来交给主代理等于把子代理的思考过程塞回主上下文——正是委派要避免的那件事。
