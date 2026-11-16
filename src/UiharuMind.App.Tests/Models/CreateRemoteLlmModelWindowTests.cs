@@ -11,7 +11,7 @@ public class CreateRemoteLlmModelWindowTests
 {
     private static RemoteModelInfo CreateSource(
         string name = "source-model",
-        string modelId = "deepseek-v4-flash")
+        string modelId = "deepseek-flash")
     {
         return new RemoteModelInfo
         {
@@ -78,6 +78,19 @@ public class CreateRemoteLlmModelWindowTests
         Assert.Equal(source.Config.ModelId, vm.ModelId);
         Assert.Equal(source.Config.ModelId, vm.SelectedModelIdOption?.Id);
         Assert.Equal(source.Config.ModelId, vm.BuildResult().Config.ModelId);
+    }
+
+    /// <summary>复制自定义/已退役 ID：文本照常带过去；候选表里没有它、选不中属预期，不拦保存</summary>
+    [Fact]
+    public void CopySource_RetiredModelId_KeepsIdWithNoCandidate()
+    {
+        RemoteModelInfo source = CreateSource(modelId: "deepseek-v4-flash"); //已退役旧名，候选表（ModelIdVariants）已不含它
+        RemoteModelEditViewData vm = CreateViewModelFor(typeof(RemoteDeepSeekModelConfig));
+        vm.SelectCopySourceCommand.Execute(source);
+
+        Assert.Equal("deepseek-v4-flash", vm.ModelId);
+        Assert.Null(vm.SelectedModelIdOption);
+        Assert.Equal("deepseek-v4-flash", vm.BuildResult().Config.ModelId);
     }
 
     /// <summary>复制名是占位（xxx-copy）：再选模型 id 时名字跟随，不被占位顶住</summary>
