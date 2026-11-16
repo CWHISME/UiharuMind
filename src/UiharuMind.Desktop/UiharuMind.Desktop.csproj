@@ -30,11 +30,12 @@
   <!-- 发布口径：三个平台共用，脚本与 CI 都只需给 -r <RID>。
        不开 PublishTrimmed：当初的理由是全仓反射绑定（裁剪会剪掉绑定属性、且静默挂），
        b05e363f 已把 AvaloniaUseCompiledBindingsByDefault 翻成全仓 =true，这条理由被削弱；
-       现状维持 R2R 不裁剪，是否重开 Trim 另议。
+       现状维持不裁剪，是否重开 Trim 另议。
+       不开 PublishReadyToRun：R2R 预编译让包体膨胀约 2.4 倍（win-x64 实测 515MB→210MB），
+       为控制体积关闭；代价是冷启动与功能首用走 JIT 编译、会慢一点，两难时以体积优先。
        TieredPGO 自 .NET 8 起默认开启，不必显式声明。 -->
   <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
     <SelfContained>true</SelfContained>
-    <PublishReadyToRun>true</PublishReadyToRun>
     <!-- AOT 并行发布通道（AOT 是 buildAotMac.sh 的另一条通道，与 R2R 并行）：
          PublishAot 放项目条件属性而非命令行全局——命令行 -p:PublishAot=true 会传给 netstandard 的
          Localization.Generator，NETSDK1207。buildAotMac.sh 经 -p:PublishAotOverride=true 打开；
@@ -48,6 +49,9 @@
   <!-- macOS 走 .app 目录形态：单文件会妨碍 codesign 逐 dylib 签名 -->
   <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'win-x64' Or '$(RuntimeIdentifier)' == 'linux-x64'">
     <PublishSingleFile>true</PublishSingleFile>
+    <!-- 原生库（Skia/SQLite/ANGLE/uiohook 等）也塞进单文件，目录只剩一个 exe；
+         运行时自解压到临时目录再加载，代价是冷启动多一次解压 -->
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
   <ItemGroup>
