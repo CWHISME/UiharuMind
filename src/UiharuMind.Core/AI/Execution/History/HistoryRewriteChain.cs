@@ -17,11 +17,13 @@ using UiharuMind.Core.AI.Execution.Files;
 namespace UiharuMind.Core.AI.Execution.History;
 
 /// <summary>
-/// 发送前的逐次改写链：记忆清单并进正文 → 内联图片降级 → 压缩 → 识图投影。
+/// 发送前的逐次改写链：记忆清单并进正文 → 内联图片降级 → 压缩 → 识图投影 → 图片总量预算。
 /// <b>常规请求与旁路请求（写记忆压缩、群背景摘要）共用这一条</b>，顺序即语义——
 /// 清单在压缩外面（压缩按并进清单后的真实大小算），识图投影在压缩里面（工具组被折叠，图就跟着不发），
 /// 内联图片降级（<see cref="InlineImageDegrading"/>）在压缩外面：那些字节模型根本收不到，
 /// 先摘掉压缩才按真实要发的量估预算。
+/// 预算（<see cref="ImageBudget"/>）在<b>最里层</b>：投影把图拼进来之后才看得见总量，
+/// 而它要裁的正是那份最终字节。
 ///
 /// 为什么必须共用一处：旁路请求绕开了常规那条客户端链（插话、审批、逐次落盘都是有状态层，不能跟着用），
 /// 于是同一套改写得有人再做一遍。照着重写就会漏，而漏了不会报错——只是请求从那一层起岔开，
@@ -36,15 +38,17 @@ internal static class HistoryRewriteChain
     /// <param name="transport">链末端的传输端</param>
     /// <param name="plan">装配计划（路径口径、附图开关与"谁在真正发请求"的来源都从它取）</param>
     /// <param name="compaction">压缩策略；null 表示这一发不压</param>
+    /// <param name="limits">图片总量预算；null 表示按配置现读</param>
     /// <returns>改写好、可以直接发的客户端</returns>
-    public static IChatClient Build(IChatClient transport, AgentAssemblyPlan plan, CompactionStrategy? compaction)
+    public static IChatClient Build(IChatClient transport, AgentAssemblyPlan plan, CompactionStrategy? compaction,
+        Func<ImageBudgetLimits>? limits = null)
     {
         // 判据现读，不固化：普通对话形态的装配快照里不含视觉一项（换模型不重建），
         // 钉在装配期就会两头错。口径见 ServingModelFacts。
         // 投影的附图开关同样现问：那一层在最里层，它现造的字节不会再经过降级
         return Build(transport, plan.ReadProjectsImages ? plan.CreatePathResolver(null) : null,
             attachImages: () => plan.ReadProjectsImages && ServingModelFacts.SeesImages(ServesPinned(plan)),
-            compaction, modelCannotSee: () => !ServingModelFacts.SeesImages(ServesPinned(plan)));
+            compaction, modelCannotSee: () => !ServingModelFacts.SeesImages(ServesPinned(plan)), limits);
     }
 
     private static ModelRunningData? ServesPinned(AgentAssemblyPlan plan) =>
@@ -62,11 +66,16 @@ internal static class HistoryRewriteChain
     /// 此刻这一发的模型看不看得见图（每次请求现问）；null 表示不挂降级层。
     /// 装配那条路一律传闭包，见上面那条重载
     /// </param>
+    /// <param name="limits">图片总量预算；null 表示<b>不裁</b>（默认值留给组装层注入，这一层不认识配置）</param>
     /// <returns>改写好、可以直接发的客户端</returns>
     public static IChatClient Build(IChatClient transport, AgentPathResolver? projectionPaths,
-        Func<bool> attachImages, CompactionStrategy? compaction, Func<bool>? modelCannotSee = null)
+        Func<bool> attachImages, CompactionStrategy? compaction, Func<bool>? modelCannotSee = null,
+        Func<ImageBudgetLimits>? limits = null)
     {
-        IChatClient chain = transport;
+        // 预算挂在最里层：它要数的是「投影拼完之后、真正发出去之前」的字节——
+        // 压缩看不见投影的图，投影看不见自己拼完的总量，只有这里两样都在手上
+        IChatClient chain = new ImageBudgetingChatClient(transport, limits ?? (() => ImageBudgetLimits.Off));
+
         // 识图开关开着才挂投影：模型自己看不了图时发占位而不是整条不发，否则历史里那些看图回合会断在半空
         if (projectionPaths != null) chain = new ImagePreviewProjectingChatClient(chain, projectionPaths, attachImages);
 
@@ -97,19 +106,25 @@ internal static class HistoryRewriteChain
     /// <param name="plan">装配计划</param>
     /// <returns>改写入口</returns>
     public static SideRequestRewriter ForSideRequest(AgentAssemblyPlan plan) =>
-        ForSideRequest((transport, compaction) => Build(transport, plan, compaction));
+        ForSideRequest((transport, compaction) => Build(transport, plan, compaction),
+            () => ServesPinned(plan)?.ModelName);
 
     /// <summary>
     /// 旁路请求的改写入口，链由调用方给（测试与不装配计划的场合）
     /// </summary>
     /// <param name="build">链的造法</param>
+    /// <param name="servingModel">
+    /// 发这一发的模型名，每次现读；null 表示不知道。
+    /// 图片 token 要按它取口径——旁路发的是同一份历史，与主链用两套口径就等于两个水位
+    /// </param>
     /// <returns>改写入口</returns>
-    public static SideRequestRewriter ForSideRequest(Func<IChatClient, CompactionStrategy?, IChatClient> build) =>
+    public static SideRequestRewriter ForSideRequest(Func<IChatClient, CompactionStrategy?, IChatClient> build,
+        Func<string?>? servingModel = null) =>
         async (supplied, contextLength, fixedOverhead, cancellationToken) =>
         {
             MessageCapturingChatClient capture = new();
-            CompactionStrategy compaction =
-                HistoryCompaction.Create(() => contextLength, TurnInputEstimate.Detached(fixedOverhead));
+            CompactionStrategy compaction = HistoryCompaction.Create(() => contextLength,
+                TurnInputEstimate.Detached(fixedOverhead, servingModel?.Invoke()));
             // 走流式：常规请求就是流式出去的，压缩与投影在两条路上的落点必须一致
             await foreach (ChatResponseUpdate _ in build(capture, compaction)
                                .GetStreamingResponseAsync(supplied, null, cancellationToken)

@@ -51,12 +51,15 @@ public static class ImagePreviewProjection
 
     /// <summary>
     /// 一组消息投影出去会多带几张图、按多少 token 计。压缩在投影之前跑，看不见这些字节，靠它补上；
-    /// 尺寸取工具结果里记下的预览尺寸，没记（老结果）按上限
+    /// 尺寸取工具结果里记下的预览尺寸，没记（老结果）按该口径的上界
     /// </summary>
     /// <param name="messages">消息（一个压缩组）</param>
+    /// <param name="pricing">按哪种口径数图片；null 用默认口径</param>
     /// <returns>张数与 token 数</returns>
-    public static (int Count, long Tokens) EstimateProjectedImages(IReadOnlyList<ChatMessage> messages)
+    public static (int Count, long Tokens) EstimateProjectedImages(IReadOnlyList<ChatMessage> messages,
+        ImageTokenPricing? pricing = null)
     {
+        pricing ??= ImageTokenPricing.Default;
         HashSet<string> viewCalls = ViewCallsIn(messages);
         if (viewCalls.Count == 0) return (0, 0);
 
@@ -65,9 +68,10 @@ public static class ImagePreviewProjection
             .SelectMany(m => m.Contents.OfType<FunctionResultContent>())
             .Where(r => viewCalls.Contains(r.CallId))
             .SelectMany(r => ImagePreview.ParsePreviews(ImagePreview.ResultText(r)))
-            .ToList();        long tokens = previews.Sum(p => (long)(p.Width > 0
-            ? InlineImageLimits.EstimateTokens(p.Width, p.Height)
-            : InlineImageLimits.MaxTokensPerImage));
+            .ToList();
+        long tokens = previews.Sum(p => (long)(p.Width > 0
+            ? pricing.Estimate(p.Width, p.Height)
+            : pricing.MaxTokens));
         return (previews.Count, tokens);
     }
 

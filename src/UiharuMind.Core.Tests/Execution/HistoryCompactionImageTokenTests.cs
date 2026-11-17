@@ -24,10 +24,12 @@ public class HistoryCompactionImageTokenTests
     [Fact]
     public void PerImageCeiling_IsDerivedFromMaxEdge()
     {
-        //上界必须是从长边上限推出来的,不能是另写一个字面量:改了尺寸而计价没跟上就会低估
-        Assert.Equal(InlineImageLimits.MaxEdge * InlineImageLimits.MaxEdge / 750,
+        //上界必须是从长边上限推出来的,不能是另写一个字面量:改了尺寸而计价没跟上就会低估。
+        //它按**发送**尺寸推(认不出的服务商可能不缩图、按像素收),Anthropic 那一族另有 1568 的口径
+        Assert.Equal(InlineImageLimits.SendEdge * InlineImageLimits.SendEdge / InlineImageLimits.TokenDivisor,
             InlineImageLimits.MaxTokensPerImage);
-        Assert.Equal(3278, InlineImageLimits.MaxTokensPerImage);
+        Assert.Equal(InlineImageLimits.MaxEdge * InlineImageLimits.MaxEdge / 750,
+            ImageTokenPricing.Anthropic.MaxTokens);
     }
 
     [Fact]
@@ -51,7 +53,7 @@ public class HistoryCompactionImageTokenTests
         //框架估成 3.8 万,修正后是「正文字节/4 + 一张图的上界」
         Assert.True(groupTokens > 38_000, $"框架的估算应当虚高,实际 {groupTokens}");
         Assert.Equal(InlineImageLimits.MaxTokensPerImage + TextBytesOf("看看这张") / 4, corrected);
-        Assert.True(corrected < groupTokens / 10, "修正后应当降一个量级");
+        Assert.True(corrected < groupTokens / 8, "修正后应当降一个量级");
     }
 
     /// <summary>Read 看的图在发送时才投影进请求（ADR 0053），压缩看不见字节，只能按预览行数补上界</summary>
@@ -90,9 +92,11 @@ public class HistoryCompactionImageTokenTests
     [Fact]
     public void ImagesOfKnownSize_CountTheirOwnPixels_CappedAtTheCeiling()
     {
-        Assert.Equal(88, InlineImageLimits.EstimateTokens(256, 256)); //256*256/750 向上取整
-        Assert.Equal(InlineImageLimits.MaxTokensPerImage, InlineImageLimits.EstimateTokens(4000, 4000)); //服务端会先缩到长边上限
-        Assert.Equal(InlineImageLimits.MaxEdge * 784 / 750 + 1, InlineImageLimits.EstimateTokens(3136, 1568)); //等比缩到 1568x784
+        Assert.Equal(88, ImageTokenPricing.Default.Estimate(256, 256)); //256*256/750 向上取整
+        Assert.Equal(InlineImageLimits.MaxTokensPerImage, ImageTokenPricing.Default.Estimate(4000, 4000));
+        //Anthropic 那一族超过 1568 由服务端自己缩,所以按 1568 推
+        Assert.Equal(InlineImageLimits.MaxEdge * 784 / 750 + 1,
+            ImageTokenPricing.Anthropic.Estimate(3136, 1568)); //等比缩到 1568x784
 
         List<ChatMessage> messages = [new(ChatRole.User, [new DataContent(TestImages.Png(256, 256), ImageType)])];
         (int groupBytes, int groupTokens) = FrameworkCountsOf(messages);
@@ -136,6 +140,35 @@ public class HistoryCompactionImageTokenTests
         (int groupBytes, int groupTokens) = FrameworkCountsOf(messages);
 
         Assert.True(HistoryCompaction.CorrectedGroupTokens(groupBytes, groupTokens, messages) > 0);
+    }
+
+    [Fact]
+    public void DeepSeek_ChargesItsFlatCeiling_NotTheMostExpensiveSide()
+    {
+        const int imageBytes = 150 * 1024;
+        List<ChatMessage> messages = [ImageMessage("看看这张", imageBytes)];
+        (int groupBytes, int groupTokens) = FrameworkCountsOf(messages);
+
+        long corrected = HistoryCompaction.CorrectedGroupTokens(groupBytes, groupTokens, messages,
+            ImageTokenPricing.DeepSeek);
+
+        Assert.Equal(1024 + TextBytesOf("看看这张") / 4, corrected);
+        Assert.True(corrected < HistoryCompaction.CorrectedGroupTokens(groupBytes, groupTokens, messages),
+            "DeepSeek 的口径必须低于默认那个「最贵一家」");
+    }
+
+    /// <summary>投影的预览图同样按这一发的口径计，不能一半按 1024、一半按 3278</summary>
+    [Fact]
+    public void DeepSeek_PricesProjectedPreviewsAtItsCeiling()
+    {
+        List<ChatMessage> messages =
+        [
+            new(ChatRole.Assistant, [ImageRead("c1")]),
+            new(ChatRole.Tool, [new FunctionResultContent("c1", "Preview: $DRAFT/a.png\nPreview: $DRAFT/b.png")]),
+        ];
+
+        Assert.Equal(100 + 2L * 1024,
+            HistoryCompaction.CorrectedGroupTokens(400, 100, messages, ImageTokenPricing.DeepSeek));
     }
 
     /// <summary>

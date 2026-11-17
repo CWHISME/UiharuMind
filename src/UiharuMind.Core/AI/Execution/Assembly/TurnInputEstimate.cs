@@ -30,6 +30,7 @@ public sealed class TurnInputEstimate
 
     private Func<int>? _fixedOverhead;
     private string? _calibratedModel; //系数属于哪个模型
+    private bool _highInputWarned; //估高已经报过一次
 
     /// <summary>
     /// 最近一次压缩判定时的历史 token 估算。由 <c>HistoryCompaction</c> 的触发条件写入——
@@ -56,6 +57,12 @@ public sealed class TurnInputEstimate
 
     /// <summary>我们估的本轮输入合计，即<b>有效占用</b>取大的那一侧</summary>
     public long Total => FixedOverhead + LastHistory;
+
+    /// <summary>
+    /// 这一发按哪种口径数图片的 token。模型名由 <see cref="UseModel"/> 在轮次开头声明，
+    /// 所以压缩判定随时来问都是对的；没声明过（如旁路请求建的独立一份）回落默认口径
+    /// </summary>
+    public ImageTokenPricing ImagePricing => ImageTokenPricing.For(_calibratedModel);
 
     /// <summary>
     /// 校准系数（≥ 1）：最近一次量过的请求里，服务端报的输入 ÷ 我们估的输入。
@@ -99,6 +106,18 @@ public sealed class TurnInputEstimate
     }
 
     /// <summary>
+    /// 取一次「估算偏高」告警的许可。<b>每个模型只给一次</b>：图片计价的偏差是系统性的，
+    /// 每发都报只会把日志刷成同一句话，正好淹没别的告警
+    /// </summary>
+    /// <returns>还没报过则为 true</returns>
+    public bool TakeHighInputWarning()
+    {
+        if (_highInputWarned) return false;
+        _highInputWarned = true;
+        return true;
+    }
+
+    /// <summary>
     /// 声明接下来用哪个模型；与上次校准的不是同一个就把系数归 1。轮次开头调：
     /// agent 不随换模型重建，不在发出第一发之前归位的话，那一发会按上一个模型的系数压
     /// </summary>
@@ -108,6 +127,7 @@ public sealed class TurnInputEstimate
         if (model == _calibratedModel) return;
         _calibratedModel = model;
         Calibration = 1;
+        _highInputWarned = false; //比值跟着模型走,换个模型重新给一次机会
     }
 
     /// <summary>
@@ -125,9 +145,10 @@ public sealed class TurnInputEstimate
     /// 压缩会回写这里的历史估算，与 agent 那份共用的话，旁路一压就把界面与交接水位读的数改掉了
     /// </summary>
     /// <param name="fixedOverhead">固定开销</param>
+    /// <param name="model">发这一发的模型名；图片计价与主链同口径（旁路请求发的是同一份历史）</param>
     /// <returns>独立的一份估算</returns>
-    internal static TurnInputEstimate Detached(int fixedOverhead)
+    internal static TurnInputEstimate Detached(int fixedOverhead, string? model = null)
     {
-        return new TurnInputEstimate { _fixedOverhead = () => fixedOverhead };
+        return new TurnInputEstimate { _fixedOverhead = () => fixedOverhead, _calibratedModel = model };
     }
 }

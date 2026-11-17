@@ -63,49 +63,18 @@ public static class InlineImageDegrading
     /// <param name="messages">消息；null 当作一条都没有</param>
     /// <returns>图片张数</returns>
     public static int CountIn(IEnumerable<ChatMessage>? messages) =>
-        messages?.Sum(message => message.Contents.Count(IsImage)) ?? 0;
+        messages?.Sum(message => message.Contents.Count(ImageContentRewrite.IsImage)) ?? 0;
 
     /// <summary>
     /// 复制一条消息，把图片换成占位文本，其余内容原样保留。<b>占位并进原来那块文字里</b>：
-    /// 部分 OpenAI 兼容网关遇到多个文本块会 400（同 <see cref="ImagePreviewProjection"/>）
+    /// 部分 OpenAI 兼容网关遇到多个文本块会 400（同 <see cref="ImagePreviewProjection"/>）。
+    /// 摘图那一步与预算共用 <see cref="ImageContentRewrite"/>，这里只给成因与文案
     /// </summary>
     /// <param name="message">原消息</param>
     /// <returns>新消息；没有图片时返回同一个实例</returns>
-    private static ChatMessage Degrade(ChatMessage message)
-    {
-        int images = 0;
-        int textIndex = -1;
-        for (int i = 0; i < message.Contents.Count; i++)
-        {
-            if (IsImage(message.Contents[i])) images++;
-            else if (textIndex < 0 && message.Contents[i] is TextContent) textIndex = i;
-        }
-
-        if (images == 0) return message;
-
-        string note = ImagePlaceholder.Omitted(images, null);
-        List<AIContent> kept = new(message.Contents.Count);
-        for (int i = 0; i < message.Contents.Count; i++)
-        {
-            AIContent content = message.Contents[i];
-            if (IsImage(content)) continue;
-            kept.Add(i == textIndex ? AppendNote((TextContent)content, note) : content);
-        }
-
-        // 整条只有图（用户只贴了张截图、一个字没打）：占位自己成一块文本
-        if (textIndex < 0) kept.Add(new TextContent(note));
-
-        return ChatMessageCopies.WithContents(message, kept);
-    }
-
-    private static TextContent AppendNote(TextContent text, string note) =>
-        new(string.IsNullOrEmpty(text.Text) ? note : $"{text.Text}\n\n{note}")
-        {
-            AdditionalProperties = text.AdditionalProperties,
-        };
-
-    private static bool IsImage(AIContent content) =>
-        content is DataContent data && data.HasTopLevelMediaType("image");
+    private static ChatMessage Degrade(ChatMessage message) =>
+        // 分隔用两个换行:这一路的历史字节一直是这么排的,改成一个换行会让已存在的会话白断一次前缀
+        ImageContentRewrite.DropImages(message, int.MaxValue, images => ImagePlaceholder.Omitted(images, null), "\n\n");
 }
 
 /// <summary>

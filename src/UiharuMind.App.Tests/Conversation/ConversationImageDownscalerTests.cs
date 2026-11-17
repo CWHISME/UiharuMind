@@ -74,7 +74,7 @@ public class ConversationImageDownscalerTests
 
         using SKBitmap decoded = SKBitmap.Decode(bytes);
         Assert.Equal(ConversationImageDownscaler.MaxEdge, decoded.Width);
-        Assert.Equal(882, decoded.Height); //2160 * 1568 / 3840
+        Assert.Equal(1008, decoded.Height); //2160 * 1792 / 3840
     }
 
     /// <summary>
@@ -94,27 +94,36 @@ public class ConversationImageDownscalerTests
         Assert.Equal(ConversationImageDownscaler.MaxEdge, decoded.Width);
     }
 
+    /// <summary>
+    /// JPEG 没有 alpha 通道，不铺白底的话带透明区域的截图会变成黑块。
+    ///
+    /// 素材必须是<b>压不动的</b>（噪声 + 中间一块透明）：纯透明的图 PNG 压完只有几 KB，
+    /// 会走无损那条直接把 alpha 留着，测不到铺底这一步。
+    /// </summary>
     [Fact]
     public void TransparentAreas_BecomeWhiteNotBlack()
     {
-        //JPEG 没有 alpha 通道,不铺白底的话带透明区域的截图会变成黑块
-        using SKBitmap source = new(2000, 2000);
-        using (SKCanvas canvas = new(source)) canvas.Clear(SKColors.Transparent);
+        using SKBitmap source = SKBitmap.Decode(MakeNoisyPhoto(2000, 2000));
+        using (SKCanvas canvas = new(source))
+        {
+            using SKPaint clear = new() { BlendMode = SKBlendMode.Clear };
+            canvas.DrawRect(new SKRect(800, 800, 1200, 1200), clear);
+        }
+
         using SKData png = SKImage.FromBitmap(source).Encode(SKEncodedImageFormat.Png, 100);
+        (byte[] bytes, string type) = ConversationImageDownscaler.Downscale(png.ToArray(), "image/png");
 
-        (byte[] bytes, _) = ConversationImageDownscaler.Downscale(png.ToArray(), "image/png");
-
+        Assert.Equal("image/jpeg", type); //压不动才会走有损,铺底也才谈得上
         using SKBitmap decoded = SKBitmap.Decode(bytes);
         SKColor pixel = decoded.GetPixel(decoded.Width / 2, decoded.Height / 2);
         Assert.True(pixel.Red > 200 && pixel.Green > 200 && pixel.Blue > 200, $"透明区应铺成白色,实际 {pixel}");
     }
 
     /// <summary>
-    /// 照片走 JPEG 时也得进体积预算。只有 q85 一档的话，一张大照片会以 300~400KB 发出去——
-    /// 而图片是随历史每一轮重传的，那些字节要付很多次。
+    /// 照片走 JPEG 时也得进体积预算。图片是随历史每一轮重传的，超出去的那些字节要付很多次。
     ///
-    /// 素材是特意挑的：这张图 q85=362KB、q70=156KB 都超预算，要一路降到 q55=87KB 才进得去，
-    /// 所以它真的会走完整个降质循环。换成压得动的素材，这条测试就是空的。
+    /// 素材是特意挑的：这张图在长边上限下 q85 就超预算，要降到下一档才进得去，
+    /// 所以它真的会走一遍降质循环。换成压得动的素材，这条测试就是空的。
     /// </summary>
     [Fact]
     public void PhotoLikeImage_FitsTheInlineByteBudget()

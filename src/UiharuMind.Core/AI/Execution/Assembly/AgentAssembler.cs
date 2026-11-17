@@ -24,6 +24,7 @@ using UiharuMind.Core.AI.Execution.Tools.Browser;
 using UiharuMind.Core.AI.Execution.Tools.Desktop;
 using UiharuMind.Core.AI.Execution.Tools.Memory;
 using UiharuMind.Core.AI.Execution.Tools.Skills;
+using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.AI.WorldSettings;
 
 namespace UiharuMind.Core.AI.Execution.Assembly;
@@ -218,9 +219,13 @@ internal static class AgentAssembler
         // 将插件库内部日志(含工具执行失败的真实异常)转发到 UiharuMind 日志
         MfaLoggerFactory loggerFactory = new();
         IServiceProvider services = new MfaServiceProvider(loggerFactory);
-        // 逐次改写链只有这一处(记忆清单 → 压缩 → 识图投影):常规请求与旁路请求共用,旁路那份由句柄带出去
-        ServiceCallSignalingChatClient serviceCalls =
-            new(HistoryRewriteChain.Build(client, plan, TakeCompaction(options)));
+        // 逐次改写链只有这一处(记忆清单 → 降级 → 压缩 → 识图投影 → 图片预算):常规请求与旁路请求共用,旁路那份由句柄带出去。
+        // 图片预算的阈值由组装端注入、每发现读:Execution 那几层不认识配置,同层其它可变项也都是这么传下去的
+        ServiceCallSignalingChatClient serviceCalls = new(HistoryRewriteChain.Build(client, plan,
+            TakeCompaction(options),
+            () => ImageBudgetLimits.From(ChatSettingConfig.Current.ImageBudgetTriggerMiB,
+                ChatSettingConfig.Current.ImageBudgetTargetMiB,
+                ChatSettingConfig.Current.ImageBudgetMaxCount)));
         AIAgent agent = serviceCalls.AsHarnessAgent(options, loggerFactory, services);
 
         // [MFA绕坑] 绕:工具异常只回给模型一句"Error: Function failed." 因:框架管道内部构造 FunctionInvokingChatClient,选项不外露 删除条件:HarnessAgentOptions 暴露该开关

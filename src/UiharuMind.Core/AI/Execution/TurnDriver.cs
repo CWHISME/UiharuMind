@@ -899,17 +899,32 @@ public sealed partial class TurnDriver : IDisposable
         SyncEstimate(runner);
     }
 
-    // 系数变了才记一行:有死区挡着不会多,而它是「折叠与截断此刻按什么口径判」的唯一线索
+    /// <summary>
+    /// 按服务端报的输入校准，并记下这一次的实际比值。
+    ///
+    /// <b>每一发都记</b>：系数有死区，而且下界就是 1（只向上调，见 ADR 0009），所以「我们估高了」
+    /// 永远不会体现在系数上——从前只在系数变化时打日志，估高一整段路都是无声的
+    /// （图多的会话正是这样：图片按最贵口径计，服务端却按自己的单价计）。比值才是那条线索
+    /// </summary>
     private static void Calibrate(ChatSession session, ICharacterRunner runner, UsageDetails details)
     {
         if (runner.InputEstimate is not { } estimate) return;
 
         double before = estimate.Calibration;
         long ours = estimate.Total;
-        estimate.Calibrate(session.ChatModelRunningData?.ModelName, details.InputTokenCount ?? 0);
-        if (estimate.Calibration != before)
-            Log.Debug($"Usage calibration {before:0.00} -> {estimate.Calibration:0.00} " +
-                      $"(server {details.InputTokenCount} / ours {ours})");
+        long reported = details.InputTokenCount ?? 0;
+        estimate.Calibrate(session.ChatModelRunningData?.ModelName, reported);
+
+        double ratio = ours > 0 && reported > 0 ? (double)reported / ours : 0;
+        Log.Debug($"Usage calibration {before:0.00} -> {estimate.Calibration:0.00} " +
+                  $"(server {reported} / ours {ours}, ratio {ratio:0.000})");
+
+        // 估高没有哪一层会纠（系数下界是 1）：不在这里留痕，压缩提前、缓存提前断都查不出来。
+        // 只在「高出一大截」时喊一声，且每个模型只喊一次——常态那点偏差（文本分词器偏低 1~3 成）
+        // 由上面那行 Debug 带着比值就够了
+        if (ratio is > 0 and < 0.6 && estimate.TakeHighInputWarning())
+            Log.Warning($"Input estimate runs ~{1 / ratio:0.0}x high (server {reported} / ours {ours}); " +
+                        "calibration cannot correct downward, so compaction may fire early.");
     }
 
     /// <summary>
@@ -939,6 +954,8 @@ public sealed partial class TurnDriver : IDisposable
         // 盲模型那一发根本收不到图（降级层换成占位，见 InlineImageDegrading），这里跟着不算，
         // 否则交接后那一刻的占用会虚高，水位也可能跟着提前到
         bool seesImages = ServingModelFacts.SeesImages(session.ChatModelRunningData);
+        // 图片按这一发模型的单价计，不套那个「最贵一家」的上界（见 ImageTokenPricing）
+        ImageTokenPricing pricing = ImageTokenPricing.For(session.ChatModelRunningData?.ModelName);
         long tokens = 0;
         foreach (ChatMessage message in HistorySupply.From(session.History, promptOnly))
         {
@@ -959,7 +976,7 @@ public sealed partial class TurnDriver : IDisposable
                         tokens += LlmTokenizer.CountTokens(text);
                         break;
                     case DataContent data when data.HasTopLevelMediaType("image"):
-                        if (seesImages) tokens += InlineImageLimits.EstimateTokens(data.Data.Span);
+                        if (seesImages) tokens += pricing.Estimate(data.Data.Span);
                         break;
                 }
             }

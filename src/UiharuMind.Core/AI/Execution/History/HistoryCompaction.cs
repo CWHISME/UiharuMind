@@ -151,7 +151,7 @@ public static class HistoryCompaction
         double scale = 1; //这一次压缩用的校准系数：触发与停止必须同一个
         CompactionTrigger trigger = index =>
         {
-            start = CorrectedTokenCount(index);
+            start = CorrectedTokenCount(index, estimate.ImagePricing);
             onStart?.Invoke(start);
             estimate.LastHistory = start;
             scale = estimate.Calibration;
@@ -160,7 +160,7 @@ public static class HistoryCompaction
         };
         CompactionTrigger stop = index =>
         {
-            long now = CorrectedTokenCount(index);
+            long now = CorrectedTokenCount(index, estimate.ImagePricing);
             estimate.LastHistory = now;
             int quota = CalibratedQuota(contextSource(), estimate, scale);
             double step = quota * (threshold - target);
@@ -183,7 +183,9 @@ public static class HistoryCompaction
     /// 框架把图片按 <c>字节数 / 4</c> 估：一张 150KB 的截图会被算成 3.7 万 token，
     /// 而它真实只值一两千——虚高二三十倍。后果不是多花钱，是<b>压缩被凭空提前触发</b>，
     /// 三张图就能把 128k 模型顶过截断水位去砍真实对话。所以这里把图片那部分换成
-    /// <see cref="InlineImageLimits.MaxTokensPerImage"/>。
+    /// <paramref name="pricing"/> 的口径——<b>按模型取</b>，因为各家单价并不一样
+    /// （DeepSeek 每张封顶 1024 且与尺寸无关，见 <see cref="ImageTokenPricing"/>）。
+    /// 这也顺带解释了为什么不能指望校准去纠：那个系数只向上调，高估它永远发现不了。
     ///
     /// <b>必须按组抵消而不是按条</b>：无 <c>Tokenizer</c> 时框架是「整组字节 ÷ 4」除一次
     /// （<c>CompactionMessageIndex.CreateGroup</c>），逐条相减会带进舍入偏差。
@@ -192,14 +194,16 @@ public static class HistoryCompaction
     /// 每组修正后的贡献 =（非图片字节 ÷ 4）+ 图片数 × 上界 ≥ 0，因此排除任意一组都只会让总数变小。
     /// </summary>
     /// <param name="index">框架给出的消息分组索引</param>
+    /// <param name="pricing">这一发按哪种口径数图片；null 用默认口径（偏高的一侧）</param>
     /// <returns>修正后的 token 数</returns>
-    internal static long CorrectedTokenCount(CompactionMessageIndex index)
+    internal static long CorrectedTokenCount(CompactionMessageIndex index, ImageTokenPricing? pricing = null)
     {
+        pricing ??= ImageTokenPricing.Default;
         long total = 0;
         foreach (CompactionMessageGroup group in index.Groups)
         {
             if (group.IsExcluded) continue;
-            total += CorrectedGroupTokens(group.ByteCount, group.TokenCount, group.Messages);
+            total += CorrectedGroupTokens(group.ByteCount, group.TokenCount, group.Messages, pricing);
         }
 
         return total;
@@ -213,13 +217,15 @@ public static class HistoryCompaction
     /// <param name="groupByteCount">框架算出的该组字节数</param>
     /// <param name="groupTokenCount">框架算出的该组 token 数</param>
     /// <param name="messages">该组的消息</param>
+    /// <param name="pricing">这一发按哪种口径数图片；null 用默认口径</param>
     /// <returns>修正后的 token 数；不含图片时原样返回 <paramref name="groupTokenCount"/></returns>
     internal static long CorrectedGroupTokens(int groupByteCount, int groupTokenCount,
-        IReadOnlyList<ChatMessage> messages)
+        IReadOnlyList<ChatMessage> messages, ImageTokenPricing? pricing = null)
     {
-        (int imageBytes, long imageTokens, int imageCount) = ImagePayloadOf(messages);
+        pricing ??= ImageTokenPricing.Default;
+        (int imageBytes, long imageTokens, int imageCount) = ImagePayloadOf(messages, pricing);
         // 发送时才投影进去的图(ADR 0053):字节不在这组里,按结果里记下的预览尺寸计
-        (int projectedCount, long projectedTokens) = ImagePreviewProjection.EstimateProjectedImages(messages);
+        (int projectedCount, long projectedTokens) = ImagePreviewProjection.EstimateProjectedImages(messages, pricing);
         // 不含图片的组原样采用框架的数:那一侧的估算本来就够准,也不必假设它是怎么算出来的
         if (imageCount + projectedCount == 0) return groupTokenCount;
 
@@ -230,8 +236,10 @@ public static class HistoryCompaction
     /// 统计一组消息里图片内容的字节数、token 数与张数
     /// </summary>
     /// <param name="messages">消息</param>
+    /// <param name="pricing">这一发按哪种口径数图片</param>
     /// <returns>字节口径与框架的 <c>ComputeContentByteCount</c> 一致；token 按每张图自己的尺寸计</returns>
-    private static (int Bytes, long Tokens, int Count) ImagePayloadOf(IReadOnlyList<ChatMessage> messages)
+    private static (int Bytes, long Tokens, int Count) ImagePayloadOf(IReadOnlyList<ChatMessage> messages,
+        ImageTokenPricing pricing)
     {
         int bytes = 0;
         long tokens = 0;
@@ -244,7 +252,7 @@ public static class HistoryCompaction
 
                 // 与框架同口径:数据体 + MediaType + Name 的 UTF-8 字节数
                 bytes += data.Data.Length + ByteCountOf(data.MediaType) + ByteCountOf(data.Name);
-                tokens += InlineImageLimits.EstimateTokens(data.Data.Span);
+                tokens += pricing.Estimate(data.Data.Span);
                 count++;
             }
         }
