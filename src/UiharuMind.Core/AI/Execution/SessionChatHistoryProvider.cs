@@ -116,7 +116,7 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
     /// </list>
     ///
     /// 只补请求侧，不会多写任何东西：失败时 <c>ResponseMessages</c> 本就为 null
-    /// （半截回复由 <c>TurnDriver</c> 从渲染侧取，走另一条路）。
+    /// （半截回复由 <c>TurnDriver</c> 用驱动侧流式缓冲补存，走另一条路，见 ADR 0110）。
     /// </summary>
     protected override ValueTask InvokedCoreAsync(InvokedContext context, CancellationToken cancellationToken = default)
     {

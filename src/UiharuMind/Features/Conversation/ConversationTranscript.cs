@@ -435,22 +435,6 @@ public sealed class ConversationTranscript : ITurnSink
     }
 
     /// <summary>
-    /// 收尾并取走「当前正在流的那一段正文」。
-    ///
-    /// 取消时用它落库：本轮更早的那些段落已经由框架逐次服务调用各自落过盘了
-    /// （每完成一次调用就持久化一次），只有正在流的这一段随着失败一起丢掉。
-    /// 拿界面条目去猜是哪一段不行——条目要等整轮结束才与历史配对，
-    /// 「还没配对」并不等于「还没落盘」，照那个判据会把已经落盘的段落再写一遍。
-    /// </summary>
-    /// <returns>正在流的正文；当时没在流正文（比如卡在工具调用上）则为 null</returns>
-    public string? TakeStreamingText()
-    {
-        TextConversationItem? streaming = _streamingText;
-        CloseSegment(); //先收尾:正文是节流更新的,不冲刷的话最后几个字还在缓冲里
-        return string.IsNullOrWhiteSpace(streaming?.Message) ? null : streaming!.Message;
-    }
-
-    /// <summary>
     /// 把仍挂着「运行中」的工具卡片收掉。
     ///
     /// 工具卡片的运行态是靠 <c>FunctionResultContent</c> 落下的，而中途停止意味着那条结果

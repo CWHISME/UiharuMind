@@ -20,8 +20,6 @@ public class LiveTurnStreamPersistOrderingTests
         public void CloseSegment() { }
 
         public void StopRunningToolCalls(string note) { }
-
-        public string? TakeStreamingText() => null;
     }
 
     [Fact]

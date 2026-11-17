@@ -15,7 +15,7 @@ namespace UiharuMind.Core.AI.Execution;
 /// 一轮对话的渲染落点。<see cref="TurnDriver"/> 把内容流与几个收尾动作交给它，
 /// 自己不认识任何界面类型。
 ///
-/// 界面侧由 <c>ConversationTranscript</c> 实现（这五个成员它本来就有，逐字同名）；
+/// 界面侧由 <c>ConversationTranscript</c> 实现（这三个成员它本来就有，逐字同名）；
 /// 无头执行（定时任务）没有要渲染的东西，传 null 即可。
 ///
 /// 一轮的落点可以不止一个：驱动者之外，打开着这个会话的窗口也挂在
@@ -39,15 +39,6 @@ public interface ITurnSink
     /// </summary>
     /// <param name="note">写进结果区的说明</param>
     void StopRunningToolCalls(string note);
-
-    /// <summary>
-    /// 收尾并取走「正在流的那一段正文」。
-    ///
-    /// 取消时用它落库：本轮更早的那些段落已经由框架逐次服务调用各自落过盘了，
-    /// 只有正在流的这一段随着失败一起丢掉。
-    /// </summary>
-    /// <returns>正在流的正文；当时没在流正文（比如卡在工具调用上）则为 null</returns>
-    string? TakeStreamingText();
 }
 
 /// <summary>

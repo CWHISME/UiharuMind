@@ -53,16 +53,5 @@ public sealed class LiveObserverSink : ITurnSink
     /// <inheritdoc />
     public void StopRunningToolCalls(string note) => Post(() => _inner.StopRunningToolCalls(note));
 
-    /// <summary>
-    /// 观察者的正文不进任何人的历史，所以只做它的另一半职责——收尾当前流段——并返回 null。
-    /// 返回值得同步给出，而这里的调用来自后台线程，取不到也不该取。
-    /// </summary>
-    /// <returns>恒为 null</returns>
-    public string? TakeStreamingText()
-    {
-        CloseSegment();
-        return null;
-    }
-
     private static void Post(Action action) => Dispatcher.UIThread.Post(action);
 }

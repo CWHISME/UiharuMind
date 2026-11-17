@@ -21,7 +21,6 @@ using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Memory;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Core.Core.Utils;
 using UiharuMind.Core.AI.Audio;
 
 namespace UiharuMind.Core.AI.Chat;
@@ -990,6 +989,23 @@ public class ChatSession
     }
 
     /// <summary>
+    /// 构造一条消息（不入历史），可带任意内容列表（正文、结构化思考等，原样保留）。
+    /// 取消/失败收尾把流式缓冲重建为 Contents 时用（见 <c>InterruptedStreamSaver</c>）。
+    /// </summary>
+    /// <param name="role">角色</param>
+    /// <param name="contents">内容列表；为空则消息无内容</param>
+    /// <param name="createdAt">时间戳，默认当前</param>
+    /// <returns>消息</returns>
+    public ChatMessage CreateMessage(ChatRole role, IList<AIContent> contents, DateTimeOffset? createdAt = null)
+    {
+        return new ChatMessage(role, contents)
+        {
+            AuthorName = AuthorNameOf(role),
+            CreatedAt = createdAt ?? DateTimeOffset.Now,
+        };
+    }
+
+    /// <summary>
     /// 追加一条模型生成的回复；内容为空则忽略
     /// </summary>
     /// <param name="content">回复文本</param>
@@ -1192,16 +1208,18 @@ public class ChatSession
         using RunnerLease lease = await AcquireRunnerAsync(cancellationToken).ConfigureAwait(false);
 
         List<ChatMessage> turnInput = input == null ? [] : [input];
-        // 只攒「这一发还没落盘的正文」；对外透出的仍是增量
-        StringBuilder streaming = StringBuilderPool.Get();
+        // 只攒「这一发还没落盘的正文与思考」；对外透出的仍是增量。
+        // 与主轮同一套语义：缓冲只按重发（StreamRestartContent）清，取消时用
+        // InterruptedStreamSaver 做内容级去重后补存——思考与正文一起、只补未落盘的那截
+        List<AIContent> streaming = new();
         try
         {
             await foreach (AIContent content in lease.Runner.RunAsync(turnInput, cancellationToken)
                                .ConfigureAwait(false))
             {
-                // 一次服务调用落了盘：它的正文已经在历史里，缓冲从下一发起算
-                if (content is MessageBoundaryContent) streaming.Clear();
-                else if (content is TextContent { Text.Length: > 0 } text) streaming.Append(text.Text);
+                // 这一发整段重来：作废的半截内容不能跟着新发的一起落盘
+                if (content is StreamRestartContent) streaming.Clear();
+                else if (InterruptedStreamSaver.IsPersistableText(content)) streaming.Add(content);
                 yield return content;
             }
         }
@@ -1209,7 +1227,7 @@ public class ChatSession
         {
             // 取消时框架不会写入响应消息（InvokedAsync 收到异常即跳过存储），
             // 但请求侧它已经补过了（见 SessionChatHistoryProvider.InvokedCoreAsync）：
-            // 所以这里只补「正在流的那一段正文」，输入只在确实没进历史时才补
+            // 所以这里只补「正在流的那一段内容」，输入只在确实没进历史时才补
             if (cancellationToken.IsCancellationRequested)
             {
                 bool added = false;
@@ -1219,16 +1237,18 @@ public class ChatSession
                     added = true;
                 }
 
-                if (streaming.Length > 0)
+                // 与主轮同一套内容级去重（不再按服务调用边界清缓冲——边界信号实测可能
+                // 迟到，清了会把下一发刚流出的首段误删）：削掉已落盘前缀，思考与正文一起补
+                List<AIContent>? unpersisted =
+                    InterruptedStreamSaver.TrimContents(History.Snapshot(), null, streaming);
+                if (unpersisted is { Count: > 0 })
                 {
-                    History.Add(CreateMessage(ChatRole.Assistant, streaming.ToString()));
+                    History.Add(CreateMessage(ChatRole.Assistant, unpersisted.ToList()));
                     added = true;
                 }
 
                 if (added) Save();
             }
-
-            StringBuilderPool.Release(streaming);
         }
     }
 

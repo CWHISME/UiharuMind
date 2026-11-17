@@ -14,6 +14,7 @@ using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.CrossProcess;
 using UiharuMind.Core.AI.Chat.Group;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.History;
@@ -42,17 +43,17 @@ public sealed partial class TurnDriver : IDisposable
     private const int MinMessagesToCompact = 4;
 
     /// <summary>
-    /// 取消收尾时往前扫多少条消息，用来认出「这段正文里哪些已经落盘」
-    /// （见 <see cref="TrimPersistedPrefix"/>）。一轮最多几十次工具往返，这个深度足够
+    /// 本轮「还没落盘」的流式内容缓冲（可落盘文本，按到达顺序）。
+    ///
+    /// 取消/失败收尾用它与历史比对、削掉已落盘前缀后落盘——思考与正文一起补，
+    /// 形状与正常完成时的消息逐案一致（见 <see cref="InterruptedStreamSaver"/>）。
+    /// 原来从渲染落点（<c>ITurnSink.TakeStreamingText</c>）取正文：思考没有出口、
+    /// 无头轮次没有落点，两条路都丢。<b>只在 <see cref="StreamRestartContent"/> 时清空</b>：
+    /// 落盘信号（<see cref="MessageBoundaryContent"/>）实测迟于下一次调用首条内容，
+    /// 拿它清会把下一发刚流出的首段误删；重复靠收尾时的内容级去重兜底。
     /// </summary>
-    private const int PersistedScanDepth = 32;
-
-    /// <summary>
-    /// 切点要拿多长的链去认。不看单条正文的长短：末尾那一句常常不到这个长度，
-    /// 只拿「够长的那一条」去切，切点会往前移，把已经落盘的正文又写一遍；
-    /// 太短也不行——「好。」这种在谁的话里都可能出现，拿它切会把真内容切掉
-    /// </summary>
-    private const int MinPersistedChainChars = 48;
+    private readonly object _pendingGate = new();
+    private readonly List<AIContent> _pendingSegment = new();
 
     /// <summary>
     /// 还活着的实例。退出收尾要给每个仍在跑的轮次补上取消结果，而调用方可能是页面、
@@ -307,8 +308,19 @@ public sealed partial class TurnDriver : IDisposable
                                 usageCall.NoteFirstToken(); //首帧（控制信令不算首帧，每次调用只认第一次）
                             if (content is ToolApprovalRequestContent request) roundRequests.Add(request);
                             // 这一发整段重来了：它带出来的审批请求跟着作废，界面那张卡也已经被摘掉，
-                            // 留着等回应就是等一张点不到的卡
-                            if (content is StreamRestartContent) roundRequests.Clear();
+                            // 留着等回应就是等一张点不到的卡；流式缓冲同样作废——重发的内容是
+                            // 连着流进来的，不摘掉的话收尾会把作废那半截跟新发的一起落盘
+                            if (content is StreamRestartContent)
+                            {
+                                lock (_pendingGate) _pendingSegment.Clear();
+                                roundRequests.Clear();
+                            }
+                            else if (InterruptedStreamSaver.IsPersistableText(content))
+                            {
+                                // 攒「还没落盘」的文本：思考（TextReasoningContent）与正文（TextContent）
+                                // 一起留，停止时才能按原样补进历史，不再只补正文
+                                lock (_pendingGate) _pendingSegment.Add(content);
+                            }
                             if (content is UsageContent usage)
                             {
                                 // 先校准再记账:水位刻度要按下一发实际用的系数换算。旁路请求(写交接)不校准,它与常规请求不同形
@@ -441,6 +453,8 @@ public sealed partial class TurnDriver : IDisposable
             _turnSink?.StopRunningToolCalls(interruptionNote);
             liveScope?.Dispose(); //岔口随本轮消失,观察者的订阅仍挂在会话上等下一轮
             _turnSink = null;
+            // 流式缓冲随本轮清空:驱动者跨轮存活,不清的话下一轮的收尾会拿到上一轮的残留
+            lock (_pendingGate) _pendingSegment.Clear();
             IsRunning = false;
             _runCancellation = null;
             _activeSession = null;
@@ -774,107 +788,52 @@ public sealed partial class TurnDriver : IDisposable
         // 框架已经把真正的结果落进去时这里是空操作——补写只针对没配对的调用
         ToolCallCancellation.CloseUnansweredAtTail(session, toolResultNote);
 
-        // 退出收尾(SettleForShutdown)时本轮的岔口已经拆了,回落到自己的落点
-        if ((_turnSink ?? _sink)?.TakeStreamingText() is not { } raw) return;
-        // 只写还没落盘的那截：落点的缓冲可能攒着整轮（它不能靠服务调用边界清——
-        // 那里清会丢掉下一发已经流出的首段，实机与仓内注释都有据），
-        // 所以真正把「已落盘」剥掉的是这里，失错方向是「多写」而不是「少写」
+        // 取缓冲快照：退出收尾(SettleForShutdown)跑在别的线程上，消费循环可能还在往里写。
+        // 原来的实现从渲染落点（<c>ITurnSink.TakeStreamingText</c>）取正文：
+        // 思考没有出口、无头轮次没有落点，两条路都会丢；现在直接攒流里的原始内容
+        List<AIContent> pending;
+        lock (_pendingGate) pending = new List<AIContent>(_pendingSegment);
+        if (pending.Count == 0) return;
+
+        // 只写还没落盘的那截：缓冲按到达顺序攒整段内容，与历史比对削掉已落盘前缀——
+        // 在这里实现不了「按服务调用边界清」（落盘信号实测迟到，清了会丢下一发的首段），
+        // 所以真正把「已落盘」剥掉的是这一下，失错方向是「多写」而不是「少写」
         ChatMessage[] snapshot = session.History.Snapshot();
         // 本轮起点取自己盖的那个（退出收尾跑在别的线程上，会话字段可能已被后开的轮次重盖）
-        if (TrimPersistedPrefix(snapshot, runStartedAt ?? session.CurrentRunStartedAt, raw) is not { } text) return;
+        List<AIContent>? contents = InterruptedStreamSaver.TrimContents(
+            snapshot, runStartedAt ?? session.CurrentRunStartedAt, pending);
+        if (contents == null || contents.Count == 0) return;
 
-        int before = session.History.AddReturningIndex(session.CreateMessage(ChatRole.Assistant, text));
+        ChatMessage assistant = session.CreateMessage(ChatRole.Assistant, contents);
+        // 群成员照自己的格式给自己加 [名字]: 前缀（与正常路径 SessionChatHistoryProvider 同款）：
+        // 取消补存也要剥，否则重开会话看到带前缀的发言，下一轮供给模型还会学得更起劲
+        if (session.IsGroupMember)
+        {
+            if (GroupTranscript.StripOwnPrefix(assistant, GroupSceneSource.SpeakerNameOf(session),
+                    CharacterManager.Instance.UserCharacterName))
+            {
+                Log.Debug($"Group member '{GroupSceneSource.SpeakerNameOf(session)}' self-added "
+                          + "speaker prefix on the cancelled reply, stripped.");
+            }
+        }
+
+        int before = session.History.AddReturningIndex(assistant);
         session.SaveAppended(before);
         //落库后由调用方把界面条目与消息配对(Persisted 通知),气泡因此照常拿到编辑/重试/分叉
     }
 
     /// <summary>
-    /// 削掉这段文本里<b>本轮已经落盘</b>的那些正文，只留还没写进历史的那一截。
-    ///
-    /// 判据只看本轮内的助手消息：落点的缓冲按到达顺序攒正文，所以本轮那些已落盘的正文
-    /// 必然是这段文本的一个前缀片段。两步，先精确后兜底：
-    /// <list type="number">
-    /// <item>从尾往前把本轮正文拼起来，拼出的东西正好是它的<b>后缀</b>——整段都落过盘了，一个字不写。
-    /// 攒了整轮、或话刚说完就被停，走的都是这条。</item>
-    /// <item>否则按「本轮最后一条够长的正文在文本里的最后一次出现」切掉前缀，剩下的就是还在流的那截。</item>
-    /// </list>
-    /// 两步都不命中就是全新内容，原样返回。
+    /// 削掉这段文本里<b>本轮已经落盘</b>的那些内容，只留还没写进历史的那一截。
+    /// 实现已迁到 <see cref="InterruptedStreamSaver.TrimPersistedPrefix"/>（历史链现在含思考），
+    /// 这里保留同名转发以兼容既有测试与调用面。
     /// </summary>
-    /// <param name="history">会话历史<b>快照</b>（活引用会在取消路径上与落盘并发）</param>
-    /// <param name="runStartedAt">本轮开始时刻；早于它的消息属于上一轮，不参与判定</param>
-    /// <param name="text">落点交上来的正文</param>
-    /// <returns>还没落盘的那一截；全都落过盘则为 null</returns>
-    internal static string? TrimPersistedPrefix(IReadOnlyList<ChatMessage> history, DateTimeOffset? runStartedAt,
-        string text)
-    {
-        // 本轮窗口里的助手正文，按落盘顺序。落点的缓冲按到达顺序攒正文，所以它们拼起来
-        // 必然是这段文本的一段连续前缀片段
-        List<string> bodies = new();
-        int oldest = Math.Max(0, history.Count - PersistedScanDepth);
-        for (int i = history.Count - 1; i >= oldest; i--)
-        {
-            ChatMessage message = history[i];
-            if (InThisRun(runStartedAt, message) is false) break;
-            if (message.Role != ChatRole.Assistant) continue;
-
-            string body = ChatMessageDisplay.TextOf(message);
-            if (body.Length > 0) bodies.Add(body);
-        }
-
-        if (bodies.Count == 0) return text;
-        bodies.Reverse();
-        StringBuilder chain = new();
-        foreach (string body in bodies) chain.Append(body);
-        string persistedText = chain.ToString();
-
-        // 一、整段都已落盘：缓冲<b>恰好就是</b>这条链（攒了整轮，或话刚说完就被停）。
-        // 这里判等而不是 EndsWith：链很短时（本轮只落过一句「好的。」）几乎任何新内容
-        // 都能以它结尾，那就是把真正新写的字静默丢掉——方向反了
-        if (text.Length == persistedText.Length && text.Equals(persistedText, StringComparison.Ordinal)) return null;
-
-        // 二、常态：缓冲就是「这条链 + 新写的那截」。直接按链长切，不用搜索：
-        // 搜索在「重复句」上会切错位置，而这条比较是确定的
-        if (text.StartsWith(persistedText, StringComparison.Ordinal))
-        {
-            string tail = text[persistedText.Length..];
-            return string.IsNullOrWhiteSpace(tail) ? null : tail;
-        }
-
-        // 三、链前面还夹着别的东西（上一发没落盘的残留，或落盘侧将前缀剥过）：
-        // 从短链开始找，取<b>第一次</b>出现的位置。取最后一次的话，
-        // 「先写新内容、末尾再逐字复述旧正文」会把中间那段真实新内容切掉（方向又反了）；
-        // 重复命中时宁可多写
-        chain.Clear();
-        for (int i = bodies.Count - 1; i >= 0; i--)
-        {
-            chain.Insert(0, bodies[i]);
-            if (chain.Length < MinPersistedChainChars) continue;
-
-            string probe = chain.ToString();
-            int position = text.IndexOf(probe, StringComparison.Ordinal);
-            if (position < 0) continue;
-
-            int rest = position + probe.Length;
-            if (rest >= text.Length) return null;
-            string remaining = text[rest..];
-            return string.IsNullOrWhiteSpace(remaining) ? null : remaining;
-        }
-
-        return text;
-    }
-
-    /// <summary>
-    /// 这条消息属不属于本轮。时间戳缺失（老存档里框架产出的副本）时不敢下结论：
-    /// 返回 null 让调用方继续往前找（宁可多扫几条）
-    /// </summary>
+    /// <param name="history">会话历史<b>快照</b></param>
     /// <param name="runStartedAt">本轮开始时刻</param>
-    /// <param name="message">待判定的消息</param>
-    /// <returns>属于本轮为 true，属于更早的轮次为 false，判不了为 null</returns>
-    private static bool? InThisRun(DateTimeOffset? runStartedAt, ChatMessage message)
-    {
-        if (runStartedAt is not { } started || message.CreatedAt is not { } at) return null;
-        return at >= started;
-    }
+    /// <param name="text">驱动侧交上来的投影文本</param>
+    /// <returns>还没落盘的那截；全都落过盘则为 null</returns>
+    internal static string? TrimPersistedPrefix(IReadOnlyList<ChatMessage> history, DateTimeOffset? runStartedAt,
+        string text) => InterruptedStreamSaver.TrimPersistedPrefix(history, runStartedAt, text);
+
 
     /// <summary>
     /// 审批始终没人回应时按未决收口：补结果正文（无宿主的唤醒轮写专用正文，卡片据此解释原因）。

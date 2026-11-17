@@ -14,8 +14,6 @@ public class LiveTurnStreamTests
         public List<string> Texts { get; } = new();
         public int Closed { get; private set; }
         public string? StoppedNote { get; private set; }
-        public string? StreamingText { get; set; }
-        public int TakenStreamingText { get; private set; }
 
         public void Apply(AIContent content)
         {
@@ -25,12 +23,6 @@ public class LiveTurnStreamTests
         public void CloseSegment() => Closed++;
 
         public void StopRunningToolCalls(string note) => StoppedNote = note;
-
-        public string? TakeStreamingText()
-        {
-            TakenStreamingText++;
-            return StreamingText;
-        }
     }
 
     private sealed class ThrowingSink : ITurnSink
@@ -40,8 +32,6 @@ public class LiveTurnStreamTests
         public void CloseSegment() => throw new InvalidOperationException("boom");
 
         public void StopRunningToolCalls(string note) => throw new InvalidOperationException("boom");
-
-        public string? TakeStreamingText() => throw new InvalidOperationException("boom");
     }
 
     [Fact]
@@ -131,24 +121,6 @@ public class LiveTurnStreamTests
 
         Assert.Equal(1, observer.Closed);
         Assert.Equal("stopped", observer.StoppedNote);
-    }
-
-    /// <summary>
-    /// 取消时要落库的正文只认驱动者那一份——观察者的条目不进任何人的历史。
-    /// 但观察者仍要走一遍，因为 TakeStreamingText 同时是「收尾当前流段」。
-    /// </summary>
-    [Fact]
-    public void StreamingTextForPersistenceComesFromTheDriverOnly()
-    {
-        LiveTurnStream stream = new();
-        RecordingSink primary = new() { StreamingText = "半截回复" };
-        RecordingSink observer = new() { StreamingText = "观察者的那份" };
-        using IDisposable subscription = stream.Observe(observer);
-
-        using LiveTurnStream.Scope scope = stream.BeginTurn(primary);
-
-        Assert.Equal("半截回复", scope.Sink.TakeStreamingText());
-        Assert.Equal(1, observer.TakenStreamingText);
     }
 
     /// <summary>看客炸了不能带倒这一轮：子代理还得把报告交回去</summary>

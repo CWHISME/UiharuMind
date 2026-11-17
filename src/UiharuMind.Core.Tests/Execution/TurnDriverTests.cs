@@ -70,6 +70,18 @@ public class TurnDriverTests
         return () => throw new InvalidOperationException(message);
     }
 
+    /// <summary>一段内容流：吐完给定内容后撞上网络/服务端故障（等价于失败发生在流式途中）</summary>
+    private static Func<IEnumerable<AIContent>> FailingAfter(string message, params AIContent[] before)
+    {
+        return () => FailingAfterCore(message, before);
+    }
+
+    private static IEnumerable<AIContent> FailingAfterCore(string message, AIContent[] before)
+    {
+        foreach (AIContent content in before) yield return content;
+        throw new InvalidOperationException(message);
+    }
+
     //================= 内容流与收尾 =================
 
     /// <summary>
@@ -316,7 +328,7 @@ public class TurnDriverTests
         session.History.Add(Prompt());
         session.History.Add(AssistantCall("c1"));
 
-        FakeSink sink = new("半截回复");
+        FakeSink sink = new();
         StubRunner runner = new(Interrupted(new TextContent("半截回复")));
         TurnDriver driver = new(sink, new TurnUsageLedger());
 
@@ -362,7 +374,7 @@ public class TurnDriverTests
 
         const string fresh = "这一截还没落盘";
         StubRunner runner = new(Interrupted(new TextContent(fresh)));
-        TurnDriver driver = new(new FakeSink(persisted + fresh), new TurnUsageLedger());
+        TurnDriver driver = new(new FakeSink(), new TurnUsageLedger());
 
         await driver.RunAsync(session, runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
 
@@ -460,8 +472,9 @@ public class TurnDriverTests
         string persisted = new('已', 60);
         session.History.Add(new ChatMessage(ChatRole.Assistant, persisted));
 
-        StubRunner runner = new(Interrupted());
-        TurnDriver driver = new(new FakeSink(persisted), new TurnUsageLedger());
+        // 流里又吐出了已经落盘的那句（停在说完之后）：去重判等，一个字都不该写
+        StubRunner runner = new(Interrupted(new TextContent(persisted)));
+        TurnDriver driver = new(new FakeSink(), new TurnUsageLedger());
 
         await driver.RunAsync(session, runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
 
@@ -469,7 +482,7 @@ public class TurnDriverTests
     }
 
     /// <summary>
-    /// 事故的组合形状：真落点 + 真取消收尾。子代理那个落点攒着整轮正文（它不能靠服务调用
+    /// 事故的组合形状：真落点 + 真取消收尾。驱动侧缓冲攒着整轮内容（它不能靠服务调用
     /// 边界清——那里清会丢掉下一发已流出的首段），落盘只该多出 0 条。
     /// 两层各自有测试，“合起来不漏”就靠这一条钉住。
     /// </summary>
@@ -508,8 +521,9 @@ public class TurnDriverTests
         session.History.Add(new ChatMessage(ChatRole.Assistant, longBody));
         session.History.Add(new ChatMessage(ChatRole.Assistant, shortTail));
 
-        StubRunner runner = new(Interrupted());
-        TurnDriver driver = new(new FakeSink(longBody + shortTail), new TurnUsageLedger());
+        // 流里又吐出整条已落盘链（含末尾短句）：链判据认出来，一个字都不该写
+        StubRunner runner = new(Interrupted(new TextContent(longBody + shortTail)));
+        TurnDriver driver = new(new FakeSink(), new TurnUsageLedger());
 
         await driver.RunAsync(session, runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
 
@@ -519,6 +533,7 @@ public class TurnDriverTests
     /// <summary>
     /// 只认本轮的消息：上一轮那条正文与缓冲里的文字恰好一样时，不许拿它来切。
     /// 时间闸门就是为这个存在的（老存档里框架产出的副本没有时间戳，那时候宁可多扫描几条）。
+    /// 缓冲只攒本轮流式产出，所以这里让流里再次出现与上一轮相同的文本。
     /// </summary>
     [Fact]
     public async Task Cancelled_TextMatchingAnEarlierTurn_IsWrittenInFull()
@@ -531,8 +546,8 @@ public class TurnDriverTests
             CreatedAt = DateTimeOffset.Now.AddHours(-1),
         });
 
-        StubRunner runner = new(Interrupted());
-        TurnDriver driver = new(new FakeSink(shared), new TurnUsageLedger());
+        StubRunner runner = new(Interrupted(new TextContent(shared)));
+        TurnDriver driver = new(new FakeSink(), new TurnUsageLedger());
 
         await driver.RunAsync(session, runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
 
@@ -546,7 +561,7 @@ public class TurnDriverTests
         //用户主动停止不是错误,界面上不该冒出一条错误条目
         List<TurnNotice> notices = new();
         StubRunner runner = new(Interrupted(new TextContent("半截")));
-        TurnDriver driver = new(new FakeSink("半截"), new TurnUsageLedger(), notices.Add);
+        TurnDriver driver = new(new FakeSink(), new TurnUsageLedger(), notices.Add);
 
         await driver.RunAsync(NewSession(), runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
 
@@ -598,8 +613,8 @@ public class TurnDriverTests
         session.History.Add(Prompt());
         session.History.Add(AssistantCall("c1"));
 
-        FakeSink sink = new("半截回复");
-        StubRunner runner = new(Failing("连接断了"));
+        FakeSink sink = new();
+        StubRunner runner = new(FailingAfter("连接断了", new TextContent("半截回复")));
         TurnDriver driver = new(sink, new TurnUsageLedger());
 
         await driver.RunAsync(session, runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
@@ -637,7 +652,7 @@ public class TurnDriverTests
         ChatSession session = NewSession();
         session.History.Add(AssistantCall("c1"));
 
-        FakeSink sink = new("半截回复");
+        FakeSink sink = new();
         StubRunner runner = new(Interrupted(new TextContent("半截回复"), new TextContent("再一段")));
         TurnDriver driver = new(sink, new TurnUsageLedger());
         sink.OnApplied = _ => driver.SettleForShutdown(); //流到一半时进程要退出
@@ -652,13 +667,13 @@ public class TurnDriverTests
     [Fact]
     public void SettleForShutdown_WhenIdle_DoesNothing()
     {
-        FakeSink sink = new("不该被取走");
+        FakeSink sink = new();
         TurnDriver driver = new(sink, new TurnUsageLedger());
 
         driver.SettleForShutdown();
 
+        Assert.Empty(sink.Applied);
         Assert.Empty(sink.StopNotes);
-        Assert.Equal(0, sink.TakeStreamingTextCalls);
     }
 
     //================= 运行态与用量 =================
@@ -1142,17 +1157,11 @@ public class TurnDriverTests
 
     private sealed class FakeSink : ITurnSink
     {
-        private readonly Queue<string?> _streamingTexts;
-
-        public FakeSink(params string?[] streamingTexts) => _streamingTexts = new Queue<string?>(streamingTexts);
-
         public List<AIContent> Applied { get; } = new();
 
         public List<string> StopNotes { get; } = new();
 
         public int CloseSegmentCalls { get; private set; }
-
-        public int TakeStreamingTextCalls { get; private set; }
 
         /// <summary>流到某一段时插进来做点别的（模拟用户点停止、进程退出）</summary>
         public Action<AIContent>? OnApplied { get; set; }
@@ -1166,12 +1175,6 @@ public class TurnDriverTests
         public void CloseSegment() => CloseSegmentCalls++;
 
         public void StopRunningToolCalls(string note) => StopNotes.Add(note);
-
-        public string? TakeStreamingText()
-        {
-            TakeStreamingTextCalls++;
-            return _streamingTexts.Count > 0 ? _streamingTexts.Dequeue() : null;
-        }
     }
 
     /// <summary>生图按张计、不进 token 账本：张数单独累计在会话本体上</summary>

@@ -1,54 +1,63 @@
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.Tests.Execution;
 
 /// <summary>
-/// 子代理落点攒的正文。取消时 TurnDriver 会把它当成「还没落盘的那一段」补进历史，
-/// 而「哪些已经落盘」的判定不能压在一个不可靠的信号上。
-///
-/// 线上事故：一个 turn 跑了 42 分钟、170 条消息，停止时历史里多出一条 5075 字的消息，
-/// 内容 100% 是前面 68 条正文的拼接（一个新增的字都没有）。
+/// 子代理落点的<b>活职责</b>：只攒交给主代理的报告（半截正文的补存已不在本类，
+/// 由 <c>TurnDriver</c> 的驱动侧缓冲承担）。这些分支在删除旧的
+/// <c>TakeStreamingText</c> 测试时一起消失过，专门钉回来。
 /// </summary>
 public class SubAgentTurnSinkTests
 {
     /// <summary>
-    /// 边界<b>不</b>清空正文。清在这里的前提是「边界恰好落在那一发正文的尾巴上」，
-    /// 而仓内两处注释说这个边界可能晚于下一次调用的首条内容：真晚到时，清空会丢掉
-    /// 下一发已经流出来的首段，取消后交上去的就是一句从中间开始的半截——丢内容比多写一条重复更糟。
-    /// 所以它只追加，去重交给写历史前的 TrimPersistedPrefix。
+    /// 一整发重来（断线重试/自愈重发）：失败那一发写进报告的旁白要退回去，
+    /// 退回位置是 <see cref="ServiceCallStartedContent"/> 记下的水位，
+    /// 而不是更早的轮首——否则重发范围会一直推到第一发的内容之后
     /// </summary>
     [Fact]
-    public void StreamingText_KeepsTheWholeTurnAcrossBoundaries()
+    public void StreamRestart_RollsBackTheReportToTheLastCallStart()
     {
         SubAgentTurnSink sink = new();
-        sink.Apply(new TextContent("第一发的正文"));
-        sink.Apply(MessageBoundaryContent.Instance); //这一发已落盘
-        sink.Apply(new TextContent("第二发的正文"));
+        sink.Apply(new TextContent("第一发正文"));
+        sink.Apply(new FunctionCallContent("c1", "Grep", null)); //第一发正文到此只是旁白,报告从调用后重算
+        sink.Apply(ServiceCallStartedContent.Instance); //记水位：重发退回这里
+        sink.Apply(new TextContent("重发前多写的旁白"));
+        sink.Apply(StreamRestartContent.Instance); //整段重来
 
-        Assert.Equal("第一发的正文第二发的正文", sink.TakeStreamingText());
+        string report = sink.Report.Build(false);
+        Assert.Contains("第一发正文", report); //水位之前的正文保住了
+        Assert.DoesNotContain("重发前多写的旁白", report); //失败那一发的旁白被回滚
     }
 
+    /// <summary>
+    /// 插话分两种来源（用户 / 派活方），报告里要分开交代：一个都不能漏、不能串
+    /// </summary>
     [Fact]
-    public void StreamingText_IsTakenOnlyOnce()
+    public void Interjections_AreFlaggedSeparately()
     {
         SubAgentTurnSink sink = new();
-        sink.Apply(new TextContent("正文"));
+        ChatMessage user = new(ChatRole.User, "用户的插话");
+        ChatMessage parent = new(ChatRole.User, "派活方的插话");
+        ChatMessageAnnotations.MarkParentInterjection(parent);
 
-        Assert.Equal("正文", sink.TakeStreamingText());
-        //取走即清：同一个落点被问两次不该交出去两遍
-        Assert.Null(sink.TakeStreamingText());
+        sink.Apply(new UserMessageContent(user, isInterjection: true));
+        sink.Apply(new UserMessageContent(parent, isInterjection: true));
+
+        Assert.True(sink.SawUserInterjection);
+        Assert.True(sink.SawParentInterjection);
     }
 
+    /// <summary>本轮开头的输入不是插话：两个标记都该保持干净</summary>
     [Fact]
-    public void StreamingText_SurvivesTheToolCallOfItsOwnCall()
+    public void NonInterjection_LeavesTheFlagsClean()
     {
-        //工具调用不切正文：这一段要留到这一发落盘
         SubAgentTurnSink sink = new();
-        sink.Apply(new TextContent("说明要去查什么"));
-        sink.Apply(new FunctionCallContent("c1", "Grep", null));
+        sink.Apply(new UserMessageContent(new ChatMessage(ChatRole.User, "委派内容")));
 
-        Assert.Equal("说明要去查什么", sink.TakeStreamingText());
+        Assert.False(sink.SawUserInterjection);
+        Assert.False(sink.SawParentInterjection);
     }
 }

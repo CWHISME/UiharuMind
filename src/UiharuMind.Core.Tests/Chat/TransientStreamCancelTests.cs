@@ -27,6 +27,9 @@ public class TransientStreamCancelTests
     {
         ChatSession session = NewSession();
         session.History.Add(session.CreateMessage(ChatRole.User, "问一句")); //让「基于现有历史重生成」这条路能走通
+        // 历史提供器已把两发各自落盘（真实场景中 MB 到达时历史里有对应的响应消息）
+        session.History.Add(session.CreateMessage(ChatRole.Assistant, "第一发"));
+        session.History.Add(session.CreateMessage(ChatRole.Assistant, "第二发"));
         session.SetRunnerForTest(new ScriptedRunner(
             new TextContent("第一发"),
             MessageBoundaryContent.Instance, //这一发已落盘
@@ -44,6 +47,7 @@ public class TransientStreamCancelTests
     {
         ChatSession session = NewSession();
         session.History.Add(session.CreateMessage(ChatRole.User, "问一句"));
+        session.History.Add(session.CreateMessage(ChatRole.Assistant, "已经落盘的第一发"));
         session.SetRunnerForTest(new ScriptedRunner(
             new TextContent("已经落盘的第一发"),
             MessageBoundaryContent.Instance,

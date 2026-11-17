@@ -1042,31 +1042,18 @@ public class ConversationTranscriptTests
     }
 
     /// <summary>
-    /// 取消落库只该拿「正在流的那一段」。更早的段落已经由框架逐次服务调用各自落过盘
-    /// （HarnessAgent 开着 RequirePerServiceCallChatHistoryPersistence），
-    /// 再写一遍就会在会话里多出一句一模一样的话。
+    /// 工具调用会收掉上一段正文（它已随本次服务调用落盘），后续正文另起气泡——回放同规则
     /// </summary>
     [Fact]
-    public void TakeStreamingText_ReturnsOnlyTheSegmentStillStreaming()
+    public void FunctionCall_ClosesTheCurrentTextSegment()
     {
-        var (transcript, _) = Create();
+        var (transcript, items) = Create();
         transcript.Apply(new TextContent("第一段"));
-        //工具调用会收掉上一段:此后那一段已经随本次服务调用落过盘了
         transcript.Apply(new FunctionCallContent("call-1", "run_shell", null));
         transcript.Apply(new TextContent("第二段"));
 
-        Assert.Equal("第二段", transcript.TakeStreamingText());
-    }
-
-    [Fact]
-    public void TakeStreamingText_IsNullWhenStoppedOnAToolCall()
-    {
-        var (transcript, _) = Create();
-        transcript.Apply(new TextContent("第一段"));
-        transcript.Apply(new FunctionCallContent("call-1", "AnalyzeImage", null));
-
-        //卡在工具调用上停止:没有任何在流的正文,一个字都不该落库
-        Assert.Null(transcript.TakeStreamingText());
+        // 第二段是独立气泡，不续进第一段
+        Assert.Equal(2, items.OfType<TextConversationItem>().Count());
     }
 
     [Fact]

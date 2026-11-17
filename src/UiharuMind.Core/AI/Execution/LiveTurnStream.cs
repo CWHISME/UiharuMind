@@ -193,21 +193,6 @@ public sealed class LiveTurnStream
 
         public void StopRunningToolCalls(string note) => ForEach(x => x.StopRunningToolCalls(note));
 
-        /// <summary>
-        /// 落库用的正文只认<b>驱动者</b>那一份：观察者的条目不进任何人的历史。
-        /// 仍要对观察者走一遍，因为它同时是「收尾当前流段」。
-        /// </summary>
-        public string? TakeStreamingText()
-        {
-            (ITurnSink? primary, Observer[] observers) = _owner.Snapshot();
-            foreach (Observer observer in observers)
-            {
-                Safe(() => observer.Sink.TakeStreamingText());
-            }
-
-            return primary?.TakeStreamingText();
-        }
-
         private void ForEach(Action<ITurnSink> action)
         {
             (ITurnSink? primary, Observer[] observers) = _owner.Snapshot();
