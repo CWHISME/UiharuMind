@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Runtime.CompilerServices;
 using System.Text;
+using UiharuMind.Core.AI.Net.Errors;
 using UiharuMind.Core.AI.Reasoning;
 using UiharuMind.Core.Core.SimpleLog;
 
@@ -17,7 +18,19 @@ internal sealed class SseSanitizingStream : Stream
 {
     private const int InitialBufferSize = 16 * 1024;
 
+    /// <summary>
+    /// 单次读的静默上限：这么久一个字节都不来就按断流处理。
+    ///
+    /// <para>
+    /// 取值刻意远高于正常的帧间隔（思考期服务端一直在发 reasoning 帧，间隔以秒计）：
+    /// <c>ChatClientFactory</c> 关掉读时限的理由正是「思考期 chunk 间隔一长就被掐」，
+    /// 所以不能按 SDK 那个 100 秒来。真正要盖住的是半开连接——它一个字节都不会再来。
+    /// </para>
+    /// </summary>
+    internal static readonly TimeSpan DefaultIdleLimit = TimeSpan.FromSeconds(240);
+
     private readonly Stream _inner;
+    private readonly TimeSpan _idleLimit; //单次读的静默上限,见 DefaultIdleLimit
     private readonly Action<string>? _reasoningFieldObserver; //观测到思考字段原名(reasoning/reasoning_text)时回调,供上层按模型记录回传键名
     private readonly ArrayBufferWriter<byte> _output = new(InitialBufferSize); //处理好、待吐给下游的字节
     private byte[] _input = new byte[InitialBufferSize]; //读进来还没成行的字节
@@ -34,16 +47,18 @@ internal sealed class SseSanitizingStream : Stream
     private int _linesRead; //已读行数(诊断用:终止时看流到底被消费了多少)
     private byte[] _lastDataLine = []; //最后一条 data 行原文(诊断用:看服务端收尾时到底发了什么)
     private int _lastDataLineLength;
+    private ProviderStreamErrorException? _streamError; //上游在流里回的错误帧(收尾日志的措辞要用它)
     private readonly SseReasoningCensus _reasoningCensus = new(); //思考字段普查:加密思考有没有下发,只能在这里看
     private readonly Action<byte[]>? _encryptedReasoningObserver; //看见加密思考时交出它的原文(界面开卡 + 下一发回填)
     private bool _encryptedSeen; //只交一次:一条流里它可能出现多帧,且票据始终是同一张
 
     public SseSanitizingStream(Stream inner, Action<string>? reasoningFieldObserver = null,
-        Action<byte[]>? encryptedReasoningObserver = null)
+        Action<byte[]>? encryptedReasoningObserver = null, TimeSpan? idleLimit = null)
     {
         _inner = inner;
         _reasoningFieldObserver = reasoningFieldObserver;
         _encryptedReasoningObserver = encryptedReasoningObserver;
+        _idleLimit = idleLimit ?? DefaultIdleLimit;
     }
 
     /// <summary>
@@ -119,7 +134,7 @@ internal sealed class SseSanitizingStream : Stream
             int read;
             try
             {
-                read = await _inner.ReadAsync(_input.AsMemory(_inputEnd), cancellationToken).ConfigureAwait(false);
+                read = await ReadInnerAsync(cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
@@ -134,6 +149,32 @@ internal sealed class SseSanitizingStream : Stream
             }
 
             AcceptInput(read);
+        }
+    }
+
+    /// <summary>
+    /// 带静默上限的一次读。
+    ///
+    /// <para>
+    /// 上游把连接挂在那里不吭声时，这个读会永远不返回：轮次不结束、执行者闸门不放、
+    /// 界面就一直显示「运行中」（<c>NetworkTimeout</c> 是 Infinite，没人替我们收这个场）。
+    /// 超时按<b>断流</b>抛（<see cref="ProviderStreamIdleException"/> 是 IOException），
+    /// 于是现有的断流重发链照常接住它——重发真的能过去，实测这类半开连接重连即恢复。
+    /// </para>
+    /// </summary>
+    private async ValueTask<int> ReadInnerAsync(CancellationToken cancellationToken)
+    {
+        using CancellationTokenSource idle = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        idle.CancelAfter(_idleLimit);
+        try
+        {
+            return await _inner.ReadAsync(_input.AsMemory(_inputEnd), idle.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            Log.Warning($"SSE stream went silent for {_idleLimit.TotalSeconds:0}s "
+                        + $"({_linesRead} line(s) read so far); treating it as a dropped connection.");
+            throw new ProviderStreamIdleException(_idleLimit, _linesRead);
         }
     }
 
@@ -217,6 +258,15 @@ internal sealed class SseSanitizingStream : Stream
         _linesRead++;
         if (line.IndexOf("[DONE]"u8) >= 0) _sawDone = true;
         if (line.IndexOf("\"usage\":{"u8) >= 0) _usageFrames++;
+        // 上游错误帧:认出来就当场抛,不往下游放。
+        // 放下去等于「这一轮模型什么都没说」——上层会把空回复记成成功收口,派活方随即重发,
+        // 而真相是链路失败(实机:连续三轮 45 秒空转)
+        if (ProviderStreamErrorParser.TryParse(line, out ProviderStreamErrorException? streamError))
+        {
+            _streamError = streamError;
+            RememberLastDataLine(line); //收尾日志里要看的就是这一行
+            throw streamError!;
+        }
         // 只看 data 行:思考字段只可能出现在帧正文里,而注释行/事件名要占掉每行一次扫描
         if (line.StartsWith("data:"u8))
         {
@@ -313,7 +363,10 @@ internal sealed class SseSanitizingStream : Stream
         // 这是判断"服务端到底发没发完"的决定性观测——行数为 0 说明流根本没被读。
         // 顺带把思考字段的普查打在同一行:全 0 就是"这条流没有思考字段",与界面上看不看得见无关
         string census = _linesRead > 0 ? $", {_reasoningCensus.Describe()}" : "";
-        if (_sawDone)
+        if (_streamError != null)
+            Log.Warning($"SseSanitizingStream disposed: {_linesRead} lines{census}, "
+                        + $"aborted by provider error: {_streamError.Message}");
+        else if (_sawDone)
             Log.Debug($"SseSanitizingStream disposed: {_linesRead} lines, {_usageFrames} usage frames{census}, " +
                       "saw [DONE] (normal end).");
         else

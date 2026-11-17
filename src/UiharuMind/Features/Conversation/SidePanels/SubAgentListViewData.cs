@@ -184,11 +184,22 @@ public sealed partial class SubSessionDisplayItem : ObservableObject
     public bool IsRunning => IsRunningMeta(_meta);
 
     /// <summary>
+    /// 已经跑完、报告还没交回（父会话忙着，那封回信还排在队里）。
+    ///
+    /// <para>
+    /// <b>这一档不能按「在跑」显示秒表</b>：那一轮早就结束了，秒表却一直往上跳，
+    /// 看起来就是「停在那儿不动，状态还是在跑」。它不是失败，只是还没送到，所以照实写这三个字。
+    /// </para>
+    /// </summary>
+    public bool IsAwaitingHandoff =>
+        !SessionManager.Instance.Running.IsBusy(_meta.SessionId) && _meta.BackgroundReportPending;
+
+    /// <summary>
     /// 跑得太久了。<c>SubAgentTool.Timeout</c>（24 小时）刻意没动，靠这一档把它顶到用户眼前。
     /// 判据用<b>本轮起点</b>而不是创建时刻：续跑多次的会话创建很早，用创建时刻会把
     /// 「本轮刚开」的续跑误标成跑了很久（见 ADR 0025 的同一背景）
     /// </summary>
-    public bool IsLongRunning => IsRunning
+    public bool IsLongRunning => IsRunning && !IsAwaitingHandoff
                                  && DateTimeOffset.Now - RunStart > BackgroundSubAgentDispatcher.LongRunNotice;
 
     /// <summary>
@@ -230,6 +241,8 @@ public sealed partial class SubSessionDisplayItem : ObservableObject
     {
         get
         {
+            // 跑完了、报告还没交回：这里不该再走秒表（那一轮已经结束），照实说它在等什么
+            if (IsAwaitingHandoff) return "待交回";
             if (IsRunning) return $"本次 {FormatDuration(DateTimeOffset.Now - RunStart)}";
             if (_meta.LastRunStartedAt is { } started)
             {
@@ -245,6 +258,7 @@ public sealed partial class SubSessionDisplayItem : ObservableObject
         get
         {
             string start = RunStart.ToLocalTime().ToString("MM/dd HH:mm:ss");
+            if (IsAwaitingHandoff) return $"开始 {start} · 已跑完，报告还没交给派活者";
             return IsRunning
                 ? $"开始 {start} · 进行中"
                 : $"开始 {start} · 结束 {_meta.UpdatedAt.ToLocalTime():MM/dd HH:mm:ss}";

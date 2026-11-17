@@ -7,6 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -98,6 +99,25 @@ public static class SubAgentTool
     /// 交互场景下用户看得见嵌套过程、也按得动停止,不靠这条兜底。
     /// </summary>
     public const int MaxIterations = 32768;
+
+    /// <summary>
+    /// 同一个子会话连续几轮一个字都没产出就刹住重发。
+    ///
+    /// <para>
+    /// 派活方拿到空白回执时无法分辨「它没话说」和「这一轮废了」，于是立刻再发一遍——
+    /// 上游真出问题时这就是一条几十秒一轮的失败循环（实机连着三轮 <c>elapsed=45s report=10 chars</c>）。
+    /// 两次是刻意的：一次空白可能是抖动，两次连着空白基本就是链路/请求的问题，原地重发只会继续付费。
+    /// </para>
+    /// <para>
+    /// 过 <see cref="BlankTurnWindow"/> 之后自动失效：那是隔了很久的重新尝试，不该被旧账挡住。
+    /// </para>
+    /// </summary>
+    internal const int MaxBlankTurnStreak = 2;
+
+    /// <summary>空转计数的有效期，超过它重新计数（见 <see cref="MaxBlankTurnStreak"/>）</summary>
+    internal static readonly TimeSpan BlankTurnWindow = TimeSpan.FromMinutes(10);
+
+    private static readonly ConcurrentDictionary<string, (int Count, DateTimeOffset At)> _blankTurns = new(); //子会话 → 连续空转轮次
 
     /// <summary>
     /// 交互场景的墙钟上限。宽松是因为用户看得见、也按得动停止。
@@ -564,9 +584,52 @@ public static class SubAgentTool
     private static string DispatchToBackground(LaunchContext context, ChatSession session, string message,
         string notice = "")
     {
+        // 连续空转到顶就不再派发：再发一遍只会再空一遍，而每次都要付一整段上下文
+        if (TryBuildBlankTurnRefusal(session) is { } refusal) return refusal;
+
         bool attended = context.IsAttended;
         return BackgroundSubAgentDispatcher.Dispatch(session,
             token => RunTurnAsync(session, message, attended, token), notice);
+    }
+
+    /// <summary>
+    /// 记一次「这一轮一个字都没产出」，返回连续次数（过期的旧账在这里归零）
+    /// </summary>
+    /// <param name="sessionId">子会话标识</param>
+    /// <returns>连续空转次数</returns>
+    private static int RecordBlankTurn(string sessionId)
+    {
+        DateTimeOffset now = DateTimeOffset.Now;
+        (int Count, DateTimeOffset At) entry = _blankTurns.AddOrUpdate(sessionId,
+            _ => (1, now),
+            (_, current) => current.At + BlankTurnWindow < now ? (1, now) : (current.Count + 1, now));
+        return entry.Count;
+    }
+
+    /// <summary>
+    /// 连续空转到顶时的拒发说明；未到顶返回 null。
+    ///
+    /// <para>
+    /// 措辞要同时做到三件事：说清「空白不是结论」、给出可查的方向（日志关键字）、
+    /// 留一条人能决定的后路（等一会儿再试 / 换个子会话 / 自己接手）。
+    /// 只说「不许再发」会让主代理转而反复问同一个子会话，循环照样在，只是换了形状。
+    /// </para>
+    /// </summary>
+    /// <param name="session">子会话</param>
+    /// <returns>工具结果文本；不需要刹车时为 null</returns>
+    internal static string? TryBuildBlankTurnRefusal(ChatSession session)
+    {
+        if (!_blankTurns.TryGetValue(session.SessionId, out (int Count, DateTimeOffset At) entry)) return null;
+        if (entry.At + BlankTurnWindow < DateTimeOffset.Now) return null;
+        if (entry.Count < MaxBlankTurnStreak) return null;
+
+        Log.Warning($"Sub-agent dispatch blocked after {entry.Count} blank turn(s): session={session.SessionId}");
+        string who = session.SubAgentName.Length > 0 ? session.SubAgentName : session.SubAgentRole;
+        return $"Error: 「{who}」连续 {entry.Count} 轮一个字的正文都没产出，这条路上再发一遍大概率还是空白，已先停下。\n"
+               + "可能的原因：上游在流里回了错误帧（日志里搜 provider returned an error frame）、连接中途断了，"
+               + "或这个子会话的上下文已经大到服务端直接拒绝。\n"
+               + $"建议：这一步自己接手，或者换个子会话重开；确实要再试就等 {BlankTurnWindow.TotalMinutes:0} 分钟后，"
+               + "并在消息里明确要求它「这一轮必须给出文字结论」，别再让它继续查材料。";
     }
 
     /// <summary>
@@ -773,6 +836,22 @@ public static class SubAgentTool
         // 不缀 [sub-session: …]:它作为来信正文交回,信头已带署名(SubAgentReportHandoff.BuildText)
         string report = turnSink.Report.Build(timedOut, limit,
             stopped || parentToken.IsCancellationRequested, turnSink.SawUserInterjection);
+        // 一句话都没有：这不是「干完了」。上游错误帧/空流会让一轮以「正常收尾」的样子结束，
+        // 而派活方拿到空白回执只会当场再发一次——实机连撞三轮、每轮 45 秒。
+        // 这里把真相写进报告，并记一次空转：连续几轮都空就刹车（见 TryBuildBlankTurnRefusal）
+        if (turnSink.Report.ProducedNothing && !timedOut && !stopped)
+        {
+            int streak = RecordBlankTurn(session.SessionId);
+            Log.Warning($"Sub-agent produced no text at all: session={session.SessionId} streak={streak}");
+            report += "\n（注：他这一轮一个字的正文都没有产出——不是「做完了」，是这一轮没有结果。"
+                      + "多半是上游在流里回了错误帧或连接中途断了；别把空白当成结论。"
+                      + "真要接着试，就在消息里明确要求他「这一轮必须给出文字结论」。"
+                      + "连撞几轮都空白时该换一条路，而不是原地重发。）";
+        }
+        else if (!timedOut && !stopped)
+        {
+            _blankTurns.TryRemove(session.SessionId, out _);
+        }
         // 派活方中途插过话:报告里可能答了原任务之外的东西,主代理该知道这份结论不全是它要的。
         // 与用户插话分开交代——两者来源不同,混成一句会让主代理误判是谁改了方向。
         if (turnSink.SawParentInterjection)
@@ -1027,6 +1106,12 @@ public static class SubAgentTool
         /// 用于代码兜底:追加一轮"请总结"让模型补上报告。
         /// </summary>
         public bool NeedsSummary => _hadToolCall && _report.Length == 0 && _allText.Length > 0;
+
+        /// <summary>
+        /// 这一轮<b>一个字的正文都没有</b>（思考段不算）。正常收尾时这意味着模型什么都没说，
+        /// 判据留给调用方决定怎么说——它要么是上游故障，要么是模型空转，都不该被当成「干完了」。
+        /// </summary>
+        public bool ProducedNothing => _report.Length == 0 && _allText.Length == 0;
 
         /// <summary>
         /// 生成交给主代理的报告

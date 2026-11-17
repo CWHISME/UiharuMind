@@ -1,4 +1,5 @@
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Net.Errors;
 
 namespace UiharuMind.Core.Tests.AI;
 
@@ -123,5 +124,46 @@ public class StreamRetryPolicyTests
         StreamRetryPlan rejected = StreamRetryPolicy.Plan(EStreamFailureKind.ProviderSafety,
             new StreamRetryBudget(false, false, 0, TransportRetries: StreamRetryPolicy.MaxTransportRetries));
         Assert.Equal(EStreamRetryAction.RetryRejectedRequest, rejected.Action);
+    }
+
+    /// <summary>
+    /// 错误帧按「值不值得再试」分成两类，且各走各的动作：
+    /// 抖动类原样重发、有上限；4xx 一次都不发（请求体的问题，重发只会再白付一次上下文）。
+    /// </summary>
+    [Fact]
+    public void ProviderStreamError_SplitsByCodeAndRetriesWithOwnBudget()
+    {
+        // 无码/429/5xx：可能是节点抖动
+        Assert.Equal(EStreamFailureKind.ProviderStream,
+            StreamRetryPolicy.Classify(new ProviderStreamErrorException(null, "no code", "id", false)));
+        Assert.Equal(EStreamFailureKind.ProviderStream,
+            StreamRetryPolicy.Classify(new ProviderStreamErrorException(503, "busy", "id", false)));
+        // 4xx：请求本身的问题
+        Assert.Equal(EStreamFailureKind.ProviderStreamRejected,
+            StreamRetryPolicy.Classify(new ProviderStreamErrorException(400, "bad request", "id", false)));
+
+        StreamRetryPlan first = StreamRetryPolicy.Plan(EStreamFailureKind.ProviderStream,
+            new StreamRetryBudget(false, false, 0));
+        Assert.Equal(EStreamRetryAction.ResendStreamError, first.Action);
+        Assert.True(first.Delay > TimeSpan.Zero);
+
+        StreamRetryPlan exhausted = StreamRetryPolicy.Plan(EStreamFailureKind.ProviderStream,
+            new StreamRetryBudget(false, false, 0,
+                ProviderStreamRetries: StreamRetryPolicy.MaxProviderStreamRetries));
+        Assert.Equal(EStreamRetryAction.GiveUp, exhausted.Action);
+
+        Assert.Equal(EStreamRetryAction.GiveUp, StreamRetryPolicy.Plan(EStreamFailureKind.ProviderStreamRejected,
+            new StreamRetryBudget(false, false, 0)).Action);
+    }
+
+    /// <summary>错误帧的额度不吃断线的：撞过几次错误帧之后，真断线仍该拿到完整退避与次数</summary>
+    [Fact]
+    public void ProviderStreamBudget_DoesNotConsumeTransportBudget()
+    {
+        StreamRetryPlan dropped = StreamRetryPolicy.Plan(EStreamFailureKind.TransportDrop,
+            new StreamRetryBudget(false, false, 0,
+                ProviderStreamRetries: StreamRetryPolicy.MaxProviderStreamRetries));
+        Assert.Equal(EStreamRetryAction.RetryAfterDelay, dropped.Action);
+        Assert.Equal(TimeSpan.FromSeconds(1), dropped.Delay);
     }
 }

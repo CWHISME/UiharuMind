@@ -200,6 +200,15 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
         foreach (ChatMessage message in messages)
         {
             if (!IsOwnedByUs(message)) continue;
+            // 空助手消息不落盘：它在框架眼里是「模型答了一句空话」，实际是上游错误帧/空流的残影
+            // （见 HistorySupply.IsEmptyAssistant）。落进去就会被逐轮发回，还会在界面上留一个空气泡
+            if (HistorySupply.IsEmptyAssistant(message))
+            {
+                Log.Warning($"Skipped an empty assistant message (session={session.SessionId}): "
+                            + "the provider returned no content for this service call.");
+                continue;
+            }
+
             DateTimeOffset at = restamp ? stamp : message.CreatedAt ?? stamp;
             if (at < floor) at = floor;
             message.CreatedAt = at;

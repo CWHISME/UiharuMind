@@ -29,15 +29,35 @@ public class SubSessionDisplayItemRunTimeTests
         ChatSessionMeta meta = new()
         {
             SessionId = "run-1",
-            BackgroundReportPending = true,
             LastRunStartedAt = DateTimeOffset.Now.AddSeconds(-65),
         };
+        using IDisposable run = SessionManager.Instance.Running.BeginRun(meta.SessionId);
 
         SubSessionDisplayItem item = new(meta);
 
         Assert.True(item.IsRunning);
         // 65 秒前开始 → 01:0x；只断言格式，不赌执行快慢的秒位
         Assert.Matches(new Regex(@"^本次 01:0\d$"), item.RunTimeText);
+    }
+
+    [Fact]
+    public void RunTimeText_FinishedButUndeliveredSaysAwaitingHandoff()
+    {
+        // 跑完、报告还排在父会话队里：那一轮已经结束，秒表不能继续走
+        ChatSessionMeta meta = new()
+        {
+            SessionId = "handoff-1",
+            BackgroundReportPending = true,
+            LastRunStartedAt = DateTimeOffset.Now.AddMinutes(-12),
+        };
+
+        SubSessionDisplayItem item = new(meta);
+
+        Assert.True(item.IsAwaitingHandoff);
+        Assert.Equal("待交回", item.RunTimeText);
+        Assert.Contains("报告还没交给派活者", item.RunTimeTip);
+        // 不算「跑太久」：跑完就是跑完，不该被标成需要用户看一眼的那一档
+        Assert.False(item.IsLongRunning);
     }
 
     [Fact]
@@ -79,12 +99,13 @@ public class SubSessionDisplayItemRunTimeTests
     {
         TimeSpan offset = TimeZoneInfo.Local.GetUtcOffset(new DateTime(2024, 1, 2));
         DateTimeOffset started = new(2024, 1, 2, 3, 4, 5, offset);
-        SubSessionDisplayItem running = new(new ChatSessionMeta
+        ChatSessionMeta runningMeta = new()
         {
             SessionId = "tip-run",
-            BackgroundReportPending = true,
             LastRunStartedAt = started,
-        });
+        };
+        using IDisposable run = SessionManager.Instance.Running.BeginRun(runningMeta.SessionId);
+        SubSessionDisplayItem running = new(runningMeta);
         SubSessionDisplayItem done = new(new ChatSessionMeta
         {
             SessionId = "tip-done",

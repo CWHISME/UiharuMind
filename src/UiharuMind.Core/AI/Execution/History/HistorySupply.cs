@@ -33,9 +33,25 @@ internal static class HistorySupply
         IReadOnlyList<ChatMessage> supplied = full
             .Skip(HistoryHandoff.SupplyStartIndex(full))
             .Where(x => !ChatMessageAnnotations.IsKnowledge(x))
+            .Where(x => !IsEmptyAssistant(x))
             .ToList();
         return promptOnly ? PromptOnlyHistory.StripToolContents(supplied) : supplied;
     }
+
+    /// <summary>
+    /// 空助手消息：上游在流里回错误帧、或流空着收尾时，框架会产出一条 <c>contents</c> 为空的 assistant 消息。
+    ///
+    /// <para>
+    /// 它<b>不是一次发言</b>，只是那次故障的残影：落盘了会让界面多一个空气泡，供给出去还会被原样发回服务端
+    /// （严格的服务端直接 400，于是这个会话此后每一轮都失败）。
+    /// 落盘侧（<c>SessionChatHistoryProvider.AppendOwned</c>）已经拦新产生的，这里拦历史里既有的——
+    /// 两边共用这一条判据，免得哪天改了一边又漂开。
+    /// </para>
+    /// </summary>
+    /// <param name="message">待判定的消息</param>
+    /// <returns>是空助手消息返回 true</returns>
+    public static bool IsEmptyAssistant(ChatMessage message) =>
+        message.Role == ChatRole.Assistant && message.Contents.Count == 0;
 
     /// <summary>
     /// 旁路请求的客户端：与常规请求同一条路径，而不是直接用会话模型的底层客户端。

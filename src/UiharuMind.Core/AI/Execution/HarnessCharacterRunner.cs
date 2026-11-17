@@ -46,6 +46,11 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
     private readonly object _injectedGate = new();
     private readonly List<ChatMessage> _injected = new(); //已投入注入队列、尚未被模型消费的插话
 
+    /// <summary>
+    /// 收尾等泵的上限。远大于正常的取消收尾（毫秒级），又远小于「用户以为卡死了」的耐心。
+    /// </summary>
+    private static readonly TimeSpan PumpExitGrace = TimeSpan.FromSeconds(15);
+
     public bool HasSession => _session != null;
 
     public ChatOptions? ChatOptions => _handle?.ChatOptions;
@@ -168,7 +173,7 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
         // 恢复路径找不到该文件时会新建框架会话并重新 Bind,行为不变
         if (_attachedSession?.CharacterData.IsAgent != true) return;
 
-        await _gate.WaitAsync().ConfigureAwait(false);
+        await GateWait.EnterAsync(_gate, $"Saving agent state for session '{_boundSessionId}'").ConfigureAwait(false);
         try
         {
             JsonElement state = await _handle.Agent.SerializeSessionAsync(_session).ConfigureAwait(false);
@@ -183,6 +188,27 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
         {
             _gate.Release();
         }
+    }
+
+    /// <summary>
+    /// 有上限地等泵退出；超时返回 false（调用方记一行并放闸）。
+    /// 泵自身不抛异常（异常经通道交给消费方），所以正常路径上 <c>await</c> 是安全的；
+    /// 超时那条路要挂一个续体把可能迟到的异常吃掉，否则会变成未观察异常。
+    /// </summary>
+    /// <param name="pump">泵任务</param>
+    /// <returns>在期限内退出返回 true</returns>
+    private static async Task<bool> WaitPumpExitAsync(Task pump)
+    {
+        Task finished = await Task.WhenAny(pump, Task.Delay(PumpExitGrace)).ConfigureAwait(false);
+        if (finished == pump)
+        {
+            await pump.ConfigureAwait(false);
+            return true;
+        }
+
+        _ = pump.ContinueWith(static t => _ = t.Exception, CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+        return false;
     }
 
     private async Task<AgentSession> RestoreOrCreateSessionAsync(AgentHandle handle, string sessionId,
@@ -293,7 +319,15 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
                 handle.ServiceCalls.Finishing = null;
                 _activityChannel = null;
                 await pumpSource.CancelAsync().ConfigureAwait(false);
-                await pump.ConfigureAwait(false);
+                // 收尾不能无上限等泵：泵可能卡在一次不响应取消的读上（半开连接 + 无读时限），
+                // 而这里等不到就等于把这个会话的执行者闸门永久扣住——界面上是「一直在跑、什么都没发生」。
+                // 有上限地等，超时就留一行并放闸；泵自己收尾，它写的仍是这一轮自己的通道
+                if (!await WaitPumpExitAsync(pump).ConfigureAwait(false))
+                {
+                    Log.Warning($"Stream pump still running {PumpExitGrace.TotalSeconds:0}s after cancel; "
+                                + $"releasing the runner gate anyway. session={_boundSessionId}");
+                }
+
                 pumpSource.Dispose();
             }
         }

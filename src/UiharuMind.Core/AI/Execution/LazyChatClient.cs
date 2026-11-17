@@ -169,6 +169,7 @@ public class LazyChatClient : IChatClient
         int degenerateRetries = 0; // 退化回复的重发次数，单独计——它不是网络问题，不该吃断线的退避预算
         int safetyRetries = 0; // 上游安全检查拒绝后的原样重发次数，同样单独计
         int transportRetries = 0; // 断流重发次数：它自己的额度，也是退避指数唯一的依据
+        int providerStreamRetries = 0; // 流里回错误帧后的原样重发次数，同样单独计
         // 每一次进循环都是一发新请求；重发时要先给界面打个招呼（丢掉上一发的半截内容），
         // 重发次数记在请求上下文上（调用方读它记 retry_count）
         bool resend = false;
@@ -192,7 +193,7 @@ public class LazyChatClient : IChatClient
                 {
                     EStreamFailureKind kind = StreamRetryPolicy.Classify(failure);
                     StreamRetryBudget budget = new(maxTokensFixed, reasoningRequirementLearned, degenerateRetries,
-                        safetyRetries, transportRetries);
+                        safetyRetries, transportRetries, providerStreamRetries);
                     StreamRetryPlan plan = StreamRetryPolicy.Plan(kind, in budget);
 
                     switch (plan.Action)
@@ -250,6 +251,17 @@ public class LazyChatClient : IChatClient
                             await Task.Delay(plan.Delay, cancellationToken).ConfigureAwait(false);
                             break;
 
+                        // 上游在流里回了错误帧（没有正文，HTTP 仍是 200）。不认出它的话这一发会被
+                        // 记成「模型什么都没说」，派活方随即重发——那一轮 45 秒的空转就是这么来的
+                        case EStreamRetryAction.ResendStreamError:
+                            providerStreamRetries++;
+                            Log.Warning($"[stream] provider returned an error frame mid-stream " +
+                                        $"({failure.Message}); retry {providerStreamRetries}/" +
+                                        $"{StreamRetryPolicy.MaxProviderStreamRetries} " +
+                                        $"in {plan.Delay.TotalSeconds:0.#}s.");
+                            await Task.Delay(plan.Delay, cancellationToken).ConfigureAwait(false);
+                            break;
+
                         case EStreamRetryAction.GiveUp:
                             // 会重试到用完预算的三类在这里多记一行收口；
                             // 自愈过又被拒的两种、以及认不出来的失败，原文由上层记
@@ -267,6 +279,14 @@ public class LazyChatClient : IChatClient
                                 case EStreamFailureKind.ProviderSafety:
                                     Log.Warning($"[stream] upstream safety check still rejected after " +
                                                 $"{safetyRetries} resend(s): {failure.Message}");
+                                    break;
+                                case EStreamFailureKind.ProviderStream:
+                                    Log.Warning($"[stream] provider still returned an error frame after " +
+                                                $"{providerStreamRetries} resend(s): {failure.Message}");
+                                    break;
+                                // 4xx 的错误帧一次都不重发，但仍要留痕：它多半意味着请求本身有问题
+                                case EStreamFailureKind.ProviderStreamRejected:
+                                    Log.Warning($"[stream] provider rejected this stream outright: {failure.Message}");
                                     break;
                             }
 
@@ -414,8 +434,9 @@ public class LazyChatClient : IChatClient
                 catch (Exception e) when (!cancellationToken.IsCancellationRequested && TransportFault.IsRetryableDrop(e))
                 {
                     // SslStream 的裸 IOException 与 SDK 包的 HttpIOException 是同一种故障的两层壳，
-                    // 只认 HttpIOException 会把前一种漏在重试之外（见 TransportFault）
-                    failure = e;
+                    // 只认 HttpIOException 会把前一种漏在重试之外（见 TransportFault）。
+                    // 若壳里裹的是「流里回错误帧」，就交出里面那颗：日志与判定都该看它
+                    failure = ProviderStreamErrorException.Find(e) ?? e;
                 }
 
                 catch (Exception e) when (!cancellationToken.IsCancellationRequested && MaxTokensErrorHandler.IsMaxTokensError(e))
@@ -434,6 +455,13 @@ public class LazyChatClient : IChatClient
                 // 落到它手里这一发就没有重试了(判定与预算再全也只是死代码)
                 catch (Exception e) when (!cancellationToken.IsCancellationRequested &&
                                           SafetyCheckErrorHandler.IsSafetyCheckFailure(e))
+                {
+                    failure = e;
+                }
+                // 上游在流里回的错误帧（HTTP 200 + SSE error）。它必须走重试链而不是原样抛出：
+                // 抛出只会在上层变成「这一轮什么都没产出」，而那正是要根除的那种假成功
+                catch (Exception e) when (!cancellationToken.IsCancellationRequested &&
+                                          e is ProviderStreamErrorException)
                 {
                     failure = e;
                 }

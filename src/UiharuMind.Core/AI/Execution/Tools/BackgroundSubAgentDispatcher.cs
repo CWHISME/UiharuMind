@@ -457,7 +457,8 @@ public static class BackgroundSubAgentDispatcher
     internal static async Task DeliverParentMessageAsync(string childSessionId, SessionLetter letter)
     {
         SemaphoreSlim gate = _deliverGates.GetOrAdd(childSessionId, _ => new SemaphoreSlim(1, 1));
-        await gate.WaitAsync().ConfigureAwait(false);
+        await GateWait.EnterAsync(gate, $"Parent message delivery for session '{childSessionId}'")
+            .ConfigureAwait(false);
         try
         {
             EDeliveryOutcome outcome = await SessionDelivery.Instance.DeliverAsync(letter).ConfigureAwait(false);
@@ -492,7 +493,7 @@ public static class BackgroundSubAgentDispatcher
         // 执行者,而 ParentBusy 的重试可能无上限等待(父会话跑得久),压着闸会让同子会话
         // 的排队轮/窗口直发干等。交回自己的并发安全由父级写锁保证(见 SubAgentReportHandoff)。
         SemaphoreSlim gate = _turnGates.GetOrAdd(subSession.SessionId, _ => new SemaphoreSlim(1, 1));
-        await gate.WaitAsync().ConfigureAwait(false);
+        await GateWait.EnterAsync(gate, $"Sub-agent turn for session '{subSession.SessionId}'").ConfigureAwait(false);
         string report = string.Empty;
         try
         {
@@ -545,7 +546,8 @@ public static class BackgroundSubAgentDispatcher
         // 不串行的话「晚跑完的先提交」会让更早那份的 ResolveSlot 命中历史尾部并原地替换掉新回信。
         // 只在交回期间持有,不占 _turnGates
         SemaphoreSlim deliverGate = _deliverGates.GetOrAdd(subSession.SessionId, _ => new SemaphoreSlim(1, 1));
-        await deliverGate.WaitAsync().ConfigureAwait(false);
+        await GateWait.EnterAsync(deliverGate,
+            $"Report delivery for session '{subSession.SessionId}'").ConfigureAwait(false);
         EDeliveryOutcome outcome = EDeliveryOutcome.Missing;
         try
         {

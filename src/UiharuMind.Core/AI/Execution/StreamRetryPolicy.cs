@@ -22,6 +22,9 @@ internal enum EStreamRetryAction
 
     /// <summary>退避后原样重发（上游安全检查临时拒绝，请求体没有可改的地方）</summary>
     RetryRejectedRequest,
+
+    /// <summary>退避后原样重发（上游在流里回了错误帧，多半是节点级抖动）</summary>
+    ResendStreamError,
 }
 
 /// <summary>失败的种类：只用于诊断与措辞，处置由 <see cref="EStreamRetryAction"/> 表达</summary>
@@ -45,6 +48,16 @@ internal enum EStreamFailureKind
     /// </summary>
     ProviderSafety,
 
+    /// <summary>
+    /// 上游在流里回了错误帧，且码是「可能是抖动」那一类（无码 / 429 / 5xx）。
+    /// 见 <see cref="Net.Errors.ProviderStreamErrorException"/>：这类帧没有正文，
+    /// 不认出来就会被记成一次正常的空回复
+    /// </summary>
+    ProviderStream,
+
+    /// <summary>上游在流里回了错误帧，且码是请求体的问题（4xx）：原样重发只会再白付一次上下文</summary>
+    ProviderStreamRejected,
+
     /// <summary>以上都不是：原样抛给上层</summary>
     Fatal,
 }
@@ -55,8 +68,9 @@ internal enum EStreamFailureKind
 /// <param name="DegenerateRetries">已经因退化重发过几次</param>
 /// <param name="SafetyRetries">已经因上游安全检查重发过几次</param>
 /// <param name="TransportRetries">已经因断流重发过几次（断线退避的指数也按它算，别掺进别的重发）</param>
+/// <param name="ProviderStreamRetries">已经因「上游在流里回了错误帧」重发过几次</param>
 internal readonly record struct StreamRetryBudget(bool MaxTokensFixed, bool ReasoningLearned,
-    int DegenerateRetries, int SafetyRetries = 0, int TransportRetries = 0);
+    int DegenerateRetries, int SafetyRetries = 0, int TransportRetries = 0, int ProviderStreamRetries = 0);
 
 /// <summary>这一次的处置</summary>
 /// <param name="Action">要做什么</param>
@@ -101,6 +115,20 @@ internal static class StreamRetryPolicy
     /// </summary>
     public const int MaxSafetyRetries = 1;
 
+    /// <summary>
+    /// 「流里回错误帧」的原样重发次数上限。
+    ///
+    /// <para>
+    /// 给两次而不是一次：这类帧实测来自网关起流失败（<c>Error processing stream start</c>），
+    /// 换个节点往往就过去了，而放弃的代价是整轮委派作废、还要被派活方重新发一遍。
+    /// 也不能更多——同一条请求连撞三次说明问题在请求本身（多半是体积或参数），再发只是白付上下文。
+    /// </para>
+    /// <para>
+    /// 4xx 不走这条预算，直接收口（见 <see cref="EStreamFailureKind.ProviderStreamRejected"/>）。
+    /// </para>
+    /// </summary>
+    public const int MaxProviderStreamRetries = 2;
+
     private static readonly TimeSpan BaseDelay = TimeSpan.FromSeconds(1); //退避基数:1s、2s、4s…
     private static readonly TimeSpan MaxDelay = TimeSpan.FromSeconds(8); //封顶:连续断线时等太久收益有限
     private static readonly TimeSpan RejectionDelay = TimeSpan.FromSeconds(3); //上游审查拒绝后等一拍,只盖秒级抖动（依据见 MaxSafetyRetries）
@@ -116,6 +144,10 @@ internal static class StreamRetryPolicy
         if (MaxTokensErrorHandler.IsMaxTokensError(failure)) return EStreamFailureKind.MaxTokens;
         if (ReasoningRequirementErrorHandler.IsRequirementError(failure)) return EStreamFailureKind.ReasoningRequirement;
         if (SafetyCheckErrorHandler.IsSafetyCheckFailure(failure)) return EStreamFailureKind.ProviderSafety;
+        // 错误帧要在断流之前认：它的处置比「断了重发五次」保守得多，认晚了就变成烧五次上下文。
+        // 用 Find 走一遍内部异常链——SDK 有时把它包进 IOException，那时上面那条断流判定会先命中
+        if (ProviderStreamErrorException.Find(failure) is { } streamError)
+            return streamError.Transient ? EStreamFailureKind.ProviderStream : EStreamFailureKind.ProviderStreamRejected;
         if (failure is DegeneratedReplyException) return EStreamFailureKind.Degenerate;
         if (TransportFault.IsRetryableDrop(failure)) return EStreamFailureKind.TransportDrop;
         return EStreamFailureKind.Fatal;
@@ -139,6 +171,14 @@ internal static class StreamRetryPolicy
         EStreamFailureKind.ProviderSafety => budget.SafetyRetries >= MaxSafetyRetries
             ? new StreamRetryPlan(EStreamRetryAction.GiveUp, TimeSpan.Zero)
             : new StreamRetryPlan(EStreamRetryAction.RetryRejectedRequest, RejectionDelay),
+
+        // 错误帧原样重发也吃自己那份预算：一次节点抖动不该吃掉「断线五次」的额度
+        EStreamFailureKind.ProviderStream => budget.ProviderStreamRetries >= MaxProviderStreamRetries
+            ? new StreamRetryPlan(EStreamRetryAction.GiveUp, TimeSpan.Zero)
+            : new StreamRetryPlan(EStreamRetryAction.ResendStreamError, RejectionDelay),
+
+        // 4xx 的错误帧：请求体的问题，一次也不重发
+        EStreamFailureKind.ProviderStreamRejected => new StreamRetryPlan(EStreamRetryAction.GiveUp, TimeSpan.Zero),
 
         EStreamFailureKind.TransportDrop => budget.TransportRetries >= MaxTransportRetries
             ? new StreamRetryPlan(EStreamRetryAction.GiveUp, TimeSpan.Zero)
