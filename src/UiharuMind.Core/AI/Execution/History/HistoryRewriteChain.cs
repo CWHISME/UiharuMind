@@ -104,9 +104,14 @@ internal static class HistoryRewriteChain
     /// （<see cref="HistoryCompaction.Create"/> 的注释）。
     /// </summary>
     /// <param name="plan">装配计划</param>
+    /// <param name="limits">
+    /// 图片总量预算；null 表示不裁。<b>必须与常规那条链传同一个闭包</b>：
+    /// 旁路发的是同一份历史，一边裁一边不裁，从第一张被裁的图起整段前缀就与主链不同
+    /// </param>
     /// <returns>改写入口</returns>
-    public static SideRequestRewriter ForSideRequest(AgentAssemblyPlan plan) =>
-        ForSideRequest((transport, compaction) => Build(transport, plan, compaction),
+    public static SideRequestRewriter ForSideRequest(AgentAssemblyPlan plan,
+        Func<ImageBudgetLimits>? limits = null) =>
+        ForSideRequest((transport, compaction) => Build(transport, plan, compaction, limits),
             () => ServesPinned(plan)?.ModelName);
 
     /// <summary>

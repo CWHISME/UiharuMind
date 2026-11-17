@@ -117,7 +117,7 @@ public static class SubAgentTool
     /// <summary>空转计数的有效期，超过它重新计数（见 <see cref="MaxBlankTurnStreak"/>）</summary>
     internal static readonly TimeSpan BlankTurnWindow = TimeSpan.FromMinutes(10);
 
-    private static readonly ConcurrentDictionary<string, (int Count, DateTimeOffset At)> _blankTurns = new(); //子会话 → 连续空转轮次
+    private static readonly ConcurrentDictionary<string, (int Count, DateTimeOffset At)> _blankTurns = new(); //子会话 → (连续空转轮次, 这一串的第一次)
 
     /// <summary>
     /// 交互场景的墙钟上限。宽松是因为用户看得见、也按得动停止。
@@ -526,6 +526,10 @@ public static class SubAgentTool
             return $"Error: '{subSessionId}' 不是本会话里你联系过的人。";
         }
 
+        // 空转到顶就别再碰界面：NoteStarted 会把「查看过程」卡片挂出来，
+        // 之后再拒绝，等于留下一个跑不起来的空壳
+        if (TryBuildBlankTurnRefusal(session) is { } refusal) return refusal;
+
         NoteStarted(context, session.SessionId);
 
         // 跑着就实时插话:新起一轮要等执行者闸门放行(它整轮持有),纠偏得等整轮跑完。
@@ -602,7 +606,9 @@ public static class SubAgentTool
         DateTimeOffset now = DateTimeOffset.Now;
         (int Count, DateTimeOffset At) entry = _blankTurns.AddOrUpdate(sessionId,
             _ => (1, now),
-            (_, current) => current.At + BlankTurnWindow < now ? (1, now) : (current.Count + 1, now));
+            // At 记这一串空白的**第一次**，窗口从那时算起；每轮都刷新成 now 的话，
+            // 每 9 分钟空一次就能无限累计，「连续两轮」这条刹车永远踩不下去
+            (_, current) => current.At + BlankTurnWindow < now ? (1, now) : (current.Count + 1, current.At));
         return entry.Count;
     }
 

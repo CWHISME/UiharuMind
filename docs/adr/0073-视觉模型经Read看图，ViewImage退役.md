@@ -31,7 +31,7 @@
 agent 形态组装用户消息时，内联给视觉模型的图片旁边**还写着一条** `[Attached file: 路径]`
 （路径要留给 `Edit` 一类工具，见 `AttachmentTrayViewData.BuildUserMessage`）。模型于是常沿着这个路径再
 `Read` 一次：同一张图被烘成第二份预览、投影成第二条带图 user 消息——一次白付一张图的 token
-（上限 `InlineImageLimits.MaxTokensPerImage`，此后每轮重发）。
+（上限 `InlineImageLimits.MaxTokensPerImage`，此后每轮重发；按模型口径计价的改动见 ADR 0105）。
 （首次那次 Read 的往返谁也省不掉，它已经发出去了；这里省的是回读循环与那份重发的图。）
 
 决定：`Read` 读到**已经随本轮用户消息附在眼前**的图，只回一句提示（带上尺寸），不烘副本、不投影。

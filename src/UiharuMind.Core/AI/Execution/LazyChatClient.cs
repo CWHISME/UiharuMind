@@ -170,6 +170,7 @@ public class LazyChatClient : IChatClient
         int safetyRetries = 0; // 上游安全检查拒绝后的原样重发次数，同样单独计
         int transportRetries = 0; // 断流重发次数：它自己的额度，也是退避指数唯一的依据
         int providerStreamRetries = 0; // 流里回错误帧后的原样重发次数，同样单独计
+        int idleRetries = 0; // 流长时间不出声后的重连次数，同样单独计（单次代价是分钟级）
         // 每一次进循环都是一发新请求；重发时要先给界面打个招呼（丢掉上一发的半截内容），
         // 重发次数记在请求上下文上（调用方读它记 retry_count）
         bool resend = false;
@@ -193,7 +194,7 @@ public class LazyChatClient : IChatClient
                 {
                     EStreamFailureKind kind = StreamRetryPolicy.Classify(failure);
                     StreamRetryBudget budget = new(maxTokensFixed, reasoningRequirementLearned, degenerateRetries,
-                        safetyRetries, transportRetries, providerStreamRetries);
+                        safetyRetries, transportRetries, providerStreamRetries, idleRetries);
                     StreamRetryPlan plan = StreamRetryPolicy.Plan(kind, in budget);
 
                     switch (plan.Action)
@@ -262,6 +263,16 @@ public class LazyChatClient : IChatClient
                             await Task.Delay(plan.Delay, cancellationToken).ConfigureAwait(false);
                             break;
 
+                        // 流开着但一个字节都不来（半开连接）。重连真的能过去，但每次都要等满看门狗，
+                        // 所以自己一份额度、只给一次，不按断线的五次跑
+                        case EStreamRetryAction.RetryIdle:
+                            idleRetries++;
+                            Log.Warning($"[stream] no data for the whole idle window ({failure.Message}); " +
+                                        $"reconnecting {idleRetries}/{StreamRetryPolicy.MaxIdleRetries} " +
+                                        $"in {plan.Delay.TotalSeconds:0.#}s.");
+                            await Task.Delay(plan.Delay, cancellationToken).ConfigureAwait(false);
+                            break;
+
                         case EStreamRetryAction.GiveUp:
                             // 会重试到用完预算的三类在这里多记一行收口；
                             // 自愈过又被拒的两种、以及认不出来的失败，原文由上层记
@@ -287,6 +298,10 @@ public class LazyChatClient : IChatClient
                                 // 4xx 的错误帧一次都不重发，但仍要留痕：它多半意味着请求本身有问题
                                 case EStreamFailureKind.ProviderStreamRejected:
                                     Log.Warning($"[stream] provider rejected this stream outright: {failure.Message}");
+                                    break;
+                                case EStreamFailureKind.StreamIdle:
+                                    Log.Warning($"[stream] stream stayed silent again after {idleRetries} " +
+                                                $"reconnect(s), giving up: {failure.Message}");
                                     break;
                             }
 

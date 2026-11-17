@@ -220,12 +220,14 @@ internal static class AgentAssembler
         MfaLoggerFactory loggerFactory = new();
         IServiceProvider services = new MfaServiceProvider(loggerFactory);
         // 逐次改写链只有这一处(记忆清单 → 降级 → 压缩 → 识图投影 → 图片预算):常规请求与旁路请求共用,旁路那份由句柄带出去。
-        // 图片预算的阈值由组装端注入、每发现读:Execution 那几层不认识配置,同层其它可变项也都是这么传下去的
+        // 图片预算的阈值由组装端注入、每发现读:Execution 那几层不认识配置,同层其它可变项也都是这么传下去的。
+        // 两条链必须共用同一个闭包——旁路那发(写交接)常常是整个会话最大的一次请求,漏了它等于没修
+        Func<ImageBudgetLimits> budgetLimits = () => ImageBudgetLimits.From(
+            ChatSettingConfig.Current.ImageBudgetTriggerMiB,
+            ChatSettingConfig.Current.ImageBudgetTargetMiB,
+            ChatSettingConfig.Current.ImageBudgetMaxCount);
         ServiceCallSignalingChatClient serviceCalls = new(HistoryRewriteChain.Build(client, plan,
-            TakeCompaction(options),
-            () => ImageBudgetLimits.From(ChatSettingConfig.Current.ImageBudgetTriggerMiB,
-                ChatSettingConfig.Current.ImageBudgetTargetMiB,
-                ChatSettingConfig.Current.ImageBudgetMaxCount)));
+            TakeCompaction(options), budgetLimits));
         AIAgent agent = serviceCalls.AsHarnessAgent(options, loggerFactory, services);
 
         // [MFA绕坑] 绕:工具异常只回给模型一句"Error: Function failed." 因:框架管道内部构造 FunctionInvokingChatClient,选项不外露 删除条件:HarnessAgentOptions 暴露该开关
@@ -246,7 +248,7 @@ internal static class AgentAssembler
             promptSegments, inputEstimate)
         {
             // 旁路请求不经上面那条链,但改写口径必须与它同一条:只换压缩实例,链还是这一条
-            RewriteSideRequest = HistoryRewriteChain.ForSideRequest(plan),
+            RewriteSideRequest = HistoryRewriteChain.ForSideRequest(plan, budgetLimits),
         };
     }
 

@@ -74,6 +74,13 @@ internal sealed class ProviderStreamErrorException : Exception
         for (Exception? current = error; current != null; current = current.InnerException)
         {
             if (current is ProviderStreamErrorException found) return found;
+
+            // 并行迭代器与多播回调会把它包进 AggregateException，只看 InnerException 会漏
+            if (current is not AggregateException aggregate) continue;
+            foreach (Exception inner in aggregate.Flatten().InnerExceptions)
+            {
+                if (Find(inner) is { } nested) return nested;
+            }
         }
 
         return null;

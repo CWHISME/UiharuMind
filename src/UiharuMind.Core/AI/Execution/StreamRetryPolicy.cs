@@ -25,6 +25,9 @@ internal enum EStreamRetryAction
 
     /// <summary>退避后原样重发（上游在流里回了错误帧，多半是节点级抖动）</summary>
     ResendStreamError,
+
+    /// <summary>退避后重连（流开着但长时间一个字节都不来，多半是半开连接）</summary>
+    RetryIdle,
 }
 
 /// <summary>失败的种类：只用于诊断与措辞，处置由 <see cref="EStreamRetryAction"/> 表达</summary>
@@ -58,6 +61,13 @@ internal enum EStreamFailureKind
     /// <summary>上游在流里回了错误帧，且码是请求体的问题（4xx）：原样重发只会再白付一次上下文</summary>
     ProviderStreamRejected,
 
+    /// <summary>
+    /// 流开着、但长时间一个字节都不来（<see cref="ProviderStreamIdleException"/>）。
+    /// 与 <see cref="TransportDrop"/> 分开：一次静默要等满看门狗的时限（分钟级），
+    /// 按断线的五次额度跑，最坏会把一次卡死拖成二十多分钟
+    /// </summary>
+    StreamIdle,
+
     /// <summary>以上都不是：原样抛给上层</summary>
     Fatal,
 }
@@ -69,8 +79,10 @@ internal enum EStreamFailureKind
 /// <param name="SafetyRetries">已经因上游安全检查重发过几次</param>
 /// <param name="TransportRetries">已经因断流重发过几次（断线退避的指数也按它算，别掺进别的重发）</param>
 /// <param name="ProviderStreamRetries">已经因「上游在流里回了错误帧」重发过几次</param>
+/// <param name="IdleRetries">已经因「流长时间不出声」重连过几次</param>
 internal readonly record struct StreamRetryBudget(bool MaxTokensFixed, bool ReasoningLearned,
-    int DegenerateRetries, int SafetyRetries = 0, int TransportRetries = 0, int ProviderStreamRetries = 0);
+    int DegenerateRetries, int SafetyRetries = 0, int TransportRetries = 0, int ProviderStreamRetries = 0,
+    int IdleRetries = 0);
 
 /// <summary>这一次的处置</summary>
 /// <param name="Action">要做什么</param>
@@ -129,6 +141,13 @@ internal static class StreamRetryPolicy
     /// </summary>
     public const int MaxProviderStreamRetries = 2;
 
+    /// <summary>
+    /// 「流长时间不出声」的重连次数上限。只给一次：一次静默要等满看门狗（分钟级），
+    /// 按断线的五次额度跑，最坏能把一次卡死拖成二十多分钟——那在用户眼里还是卡死；
+    /// 而半开连接换一次连接就该好，连着两次静默说明不是这条链路能自愈的事
+    /// </summary>
+    public const int MaxIdleRetries = 1;
+
     private static readonly TimeSpan BaseDelay = TimeSpan.FromSeconds(1); //退避基数:1s、2s、4s…
     private static readonly TimeSpan MaxDelay = TimeSpan.FromSeconds(8); //封顶:连续断线时等太久收益有限
     private static readonly TimeSpan RejectionDelay = TimeSpan.FromSeconds(3); //上游审查拒绝后等一拍,只盖秒级抖动（依据见 MaxSafetyRetries）
@@ -145,12 +164,24 @@ internal static class StreamRetryPolicy
         if (ReasoningRequirementErrorHandler.IsRequirementError(failure)) return EStreamFailureKind.ReasoningRequirement;
         if (SafetyCheckErrorHandler.IsSafetyCheckFailure(failure)) return EStreamFailureKind.ProviderSafety;
         // 错误帧要在断流之前认：它的处置比「断了重发五次」保守得多，认晚了就变成烧五次上下文。
-        // 用 Find 走一遍内部异常链——SDK 有时把它包进 IOException，那时上面那条断流判定会先命中
+        // 用 Find 走一遍内部异常链——SDK 有时把它包进 IOException，那时下面那条断流判定会先命中
         if (ProviderStreamErrorException.Find(failure) is { } streamError)
             return streamError.Transient ? EStreamFailureKind.ProviderStream : EStreamFailureKind.ProviderStreamRejected;
         if (failure is DegeneratedReplyException) return EStreamFailureKind.Degenerate;
+        // 静默也走内部链：它是 IOException，不先认出来就会被按断线的五次额度处置
+        if (FindIdle(failure) != null) return EStreamFailureKind.StreamIdle;
         if (TransportFault.IsRetryableDrop(failure)) return EStreamFailureKind.TransportDrop;
         return EStreamFailureKind.Fatal;
+    }
+
+    private static ProviderStreamIdleException? FindIdle(Exception? failure)
+    {
+        for (Exception? current = failure; current != null; current = current.InnerException)
+        {
+            if (current is ProviderStreamIdleException idle) return idle;
+        }
+
+        return null;
     }
 
     /// <summary>按已经用掉的预算决定这一次的处置</summary>
@@ -176,6 +207,11 @@ internal static class StreamRetryPolicy
         EStreamFailureKind.ProviderStream => budget.ProviderStreamRetries >= MaxProviderStreamRetries
             ? new StreamRetryPlan(EStreamRetryAction.GiveUp, TimeSpan.Zero)
             : new StreamRetryPlan(EStreamRetryAction.ResendStreamError, RejectionDelay),
+
+        // 静默重连同样独立计：它的单次代价是分钟级看门狗，不该与断线共用额度
+        EStreamFailureKind.StreamIdle => budget.IdleRetries >= MaxIdleRetries
+            ? new StreamRetryPlan(EStreamRetryAction.GiveUp, TimeSpan.Zero)
+            : new StreamRetryPlan(EStreamRetryAction.RetryIdle, BaseDelay),
 
         // 4xx 的错误帧：请求体的问题，一次也不重发
         EStreamFailureKind.ProviderStreamRejected => new StreamRetryPlan(EStreamRetryAction.GiveUp, TimeSpan.Zero),

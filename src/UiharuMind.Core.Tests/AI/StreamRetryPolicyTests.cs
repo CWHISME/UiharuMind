@@ -166,4 +166,42 @@ public class StreamRetryPolicyTests
         Assert.Equal(EStreamRetryAction.RetryAfterDelay, dropped.Action);
         Assert.Equal(TimeSpan.FromSeconds(1), dropped.Delay);
     }
+
+    /// <summary>
+    /// 静默有自己的种类与额度：它是 IOException，不单独认出来就会按断线的五次跑，
+    /// 而每次都要等满分钟级的看门狗——最坏把一次卡死拖成二十多分钟，用户眼里那还是卡死
+    /// </summary>
+    [Fact]
+    public void Idle_HasItsOwnKindAndOnlyOneReconnect()
+    {
+        Assert.Equal(EStreamFailureKind.StreamIdle,
+            StreamRetryPolicy.Classify(new ProviderStreamIdleException(TimeSpan.FromSeconds(240), 3)));
+
+        StreamRetryPlan first = StreamRetryPolicy.Plan(EStreamFailureKind.StreamIdle,
+            new StreamRetryBudget(false, false, 0));
+        Assert.Equal(EStreamRetryAction.RetryIdle, first.Action);
+
+        StreamRetryPlan second = StreamRetryPolicy.Plan(EStreamFailureKind.StreamIdle,
+            new StreamRetryBudget(false, false, 0, IdleRetries: StreamRetryPolicy.MaxIdleRetries));
+        Assert.Equal(EStreamRetryAction.GiveUp, second.Action);
+    }
+
+    /// <summary>SDK 或 HttpContent 包了一层壳时仍要认得出静默</summary>
+    [Fact]
+    public void Idle_WrappedInAnotherIOException_IsStillRecognised()
+    {
+        IOException wrapped = new("copy failed", new ProviderStreamIdleException(TimeSpan.FromSeconds(240), 1));
+
+        Assert.Equal(EStreamFailureKind.StreamIdle, StreamRetryPolicy.Classify(wrapped));
+    }
+
+    /// <summary>静默不吃断线的额度：重连过一次之后，真断线仍该拿到完整的五次</summary>
+    [Fact]
+    public void IdleBudget_DoesNotConsumeTransportBudget()
+    {
+        StreamRetryPlan dropped = StreamRetryPolicy.Plan(EStreamFailureKind.TransportDrop,
+            new StreamRetryBudget(false, false, 0, IdleRetries: StreamRetryPolicy.MaxIdleRetries));
+
+        Assert.Equal(EStreamRetryAction.RetryAfterDelay, dropped.Action);
+    }
 }

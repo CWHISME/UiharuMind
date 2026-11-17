@@ -73,7 +73,7 @@ public class ConversationImageDownscalerTests
             $"重编码后应更小,实际 {original.Length} → {bytes.Length}");
 
         using SKBitmap decoded = SKBitmap.Decode(bytes);
-        Assert.Equal(ConversationImageDownscaler.MaxEdge, decoded.Width);
+        Assert.Equal(ConversationImageDownscaler.SendEdge, decoded.Width);
         Assert.Equal(1008, decoded.Height); //2160 * 1792 / 3840
     }
 
@@ -91,7 +91,7 @@ public class ConversationImageDownscalerTests
         Assert.Equal("image/png", type);
 
         using SKBitmap decoded = SKBitmap.Decode(bytes);
-        Assert.Equal(ConversationImageDownscaler.MaxEdge, decoded.Width);
+        Assert.Equal(ConversationImageDownscaler.SendEdge, decoded.Width);
     }
 
     /// <summary>

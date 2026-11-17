@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 
 namespace UiharuMind.Core.AI.Net.Errors;
@@ -27,7 +28,7 @@ internal static class ProviderStreamErrorParser
         error = null;
         if (!line.StartsWith("data:"u8)) return false;
 
-        ReadOnlySpan<byte> payload = line[5..].TrimStart(" "u8);
+        ReadOnlySpan<byte> payload = line[5..].TrimStart(" \t"u8);
         if (payload.IsEmpty || payload.SequenceEqual("[DONE]"u8)) return false;
         // 预判：没有 error 字段、也没有 finish_reason，就不必解析
         if (payload.IndexOf("\"error\""u8) < 0 && payload.IndexOf("\"finish_reason\""u8) < 0) return false;
@@ -121,17 +122,31 @@ internal static class ProviderStreamErrorParser
         }
     }
 
-    /// <summary>code 有时是数字、有时是字符串（商汤给 "9"），两种都收</summary>
+    /// <summary>
+    /// code 有时是数字、有时是字符串（商汤给 "9"），还有给 400.0 或对象形态的。
+    /// 非标量要整块 Skip 掉：留在对象内部的话，外层 <c>ReadErrorBody</c> 会把这个对象的 EndObject
+    /// 当成 error 对象的收尾，后面的 message 一个都读不到
+    /// </summary>
     private static int? ReadCode(ref Utf8JsonReader reader)
     {
-        if (reader.TokenType == JsonTokenType.Number && reader.TryGetInt32(out int numeric)) return numeric;
-        if (reader.TokenType == JsonTokenType.String)
+        switch (reader.TokenType)
         {
-            string? text = reader.GetString();
-            if (int.TryParse(text, out int parsed)) return parsed;
+            case JsonTokenType.Number:
+                if (reader.TryGetInt32(out int numeric)) return numeric;
+                if (reader.TryGetDouble(out double real) && real is >= int.MinValue and <= int.MaxValue)
+                    return (int)real;
+                return null;
+            case JsonTokenType.String:
+                string? text = reader.GetString();
+                if (int.TryParse(text, out int parsed)) return parsed;
+                if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double fromText)
+                    && fromText is >= int.MinValue and <= int.MaxValue)
+                    return (int)fromText;
+                return null;
+            default:
+                reader.Skip();
+                return null;
         }
-
-        return null;
     }
 
     /// <summary>choices 数组里有没有 finish_reason=error</summary>

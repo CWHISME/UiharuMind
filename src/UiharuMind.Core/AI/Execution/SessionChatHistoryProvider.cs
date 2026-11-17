@@ -94,12 +94,13 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
         // 现已停用,那道窗有两条理由,如今都不成立:
         //   1. 防「字节数/4」的虚高估算——已由 HistoryCompaction.CorrectedTokenCount 从源头修掉,
         //      而且那条路不改发出去的字节,零缓存代价;
-        //   2. 省上传体积——已由 ConversationImageDownscaler 把单张压到 150KB 级。
+        //   2. 省上传体积——已由 ConversationImageDownscaler 把单张压到 400KB 级。
         // 相反,它的代价很实:每来一张新图就改写一条靠前的历史,从那个位置往后的服务端前缀缓存
         // 全部失效,等于一次近乎全量的缓存丢失;被降级的图模型也彻底够不着了。
         //
-        // 代码与测试保留。若实测发现长对话里图片累积仍然吃掉太多真实上下文(状态栏占用涨得离谱),
-        // 接回去即可——届时更该按「图片总字节预算」触发,而不是现在这个按条数的窗口。
+        // 代码与测试保留。它留下的那句话（「真想接回时该按图片总字节预算触发」）已经落地:
+        // 那一档现在是 History.ImageBudget（ADR 0105），发请求前按字节裁掉最老的几张，
+        // 同样改前缀，但带走一步裁到底的回差，不是每来一张就动一刀。
         return new ValueTask<IEnumerable<ChatMessage>>(supplied);
     }
 

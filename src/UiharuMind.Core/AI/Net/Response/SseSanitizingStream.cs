@@ -98,7 +98,9 @@ internal sealed class SseSanitizingStream : Stream
             int read;
             try
             {
-                read = _inner.Read(_input, _inputEnd, _input.Length - _inputEnd);
+                // 同步读也走同一条带静默上限的路径：两条读法给两套故障语义的话，
+                // 走同步的消费方（HttpContent 的基类实现、测试里的 Drain）就又回到「永远挂着」
+                read = ReadInnerAsync(CancellationToken.None).AsTask().GetAwaiter().GetResult();
             }
             catch (OperationCanceledException)
             {
@@ -140,6 +142,11 @@ internal sealed class SseSanitizingStream : Stream
             {
                 // 非上层取消的读中断(超时/连接被掐):留个痕迹,否则这类故障永远无声
                 Log.Warning("SSE read cancelled unexpectedly (not user stop): the connection was likely dropped mid-stream.");
+                throw;
+            }
+            catch (OperationCanceledException)
+            {
+                // 用户按了停止：这是预期路径。落到下面那句 failed 里会把排查带向反方向
                 throw;
             }
             catch (Exception e)

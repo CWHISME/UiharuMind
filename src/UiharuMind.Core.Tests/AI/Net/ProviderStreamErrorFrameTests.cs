@@ -101,4 +101,32 @@ public class ProviderStreamErrorFrameTests
         {
         }
     }
+
+    /// <summary>码写成 400.0 时仍要认成 400：认不出会当成「不明抖动」，白白重发两次</summary>
+    [Fact]
+    public void FractionalCode_IsRoundedToAnInt()
+    {
+        byte[] line = Encoding.UTF8.GetBytes(
+            "data: {\"error\":{\"code\":400.0,\"message\":\"Error processing stream start\"}}");
+
+        Assert.True(ProviderStreamErrorParser.TryParse(line, out ProviderStreamErrorException? error));
+        Assert.Equal(400, error!.Code);
+        Assert.False(error.Transient);
+        Assert.Contains("Error processing stream start", error.Message);
+    }
+
+    /// <summary>
+    /// 码是整个对象时，跳过它但不能丢掉 message：留在对象内部的话，
+    /// 外层会把这个对象的 EndObject 当成 error 对象的收尾，错因一个都读不到
+    /// </summary>
+    [Fact]
+    public void ObjectCode_IsSkippedWithoutLosingTheMessage()
+    {
+        byte[] line = Encoding.UTF8.GetBytes(
+            "data: {\"error\":{\"code\":{\"value\":400},\"message\":\"bad request\"}}");
+
+        Assert.True(ProviderStreamErrorParser.TryParse(line, out ProviderStreamErrorException? error));
+        Assert.Null(error!.Code);
+        Assert.Contains("bad request", error.Message);
+    }
 }

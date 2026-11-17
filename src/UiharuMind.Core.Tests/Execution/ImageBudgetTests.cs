@@ -61,7 +61,10 @@ public class ImageBudgetTests
 
     /// <summary>
     /// 回差：裁完之后再来一张图，只要没重新越过触发线就不再动刀。
-    /// 否则每来一张新图前缀就断一次，与停用那条窗口没有区别
+    /// 否则每来一张新图前缀就断一次，与停用那条窗口没有区别。
+    ///
+    /// 输入必须是<b>裁过的那份</b>：<see cref="ImageBudget.Apply"/> 是纯函数，
+    /// 拿原始历史再加一张，总量本来就又越线了，那测的不是回差
     /// </summary>
     [Fact]
     public void CutHoldsUntilTheTriggerIsPassedAgain()
@@ -74,11 +77,62 @@ public class ImageBudgetTests
             ImageMessage("四", Mb(1)),
             ImageMessage("五", Mb(1)),
         ];
-        Assert.Equal(2, ImageBudget.Apply(history, ByteLimited).Sum(ImagesIn)); //5 → 2
+        IReadOnlyList<ChatMessage> trimmed = ImageBudget.Apply(history, ByteLimited);
+        Assert.Equal(2, trimmed.Sum(ImagesIn)); //5 → 2
 
-        //再添一张(3 张的量,仍在 4 张的触发线之下):裁掉的位置不许动
-        List<ChatMessage> grown = [.. history, ImageMessage("六", Mb(1))];
-        Assert.Equal(3, ImageBudget.Apply(grown, ByteLimited).Sum(ImagesIn)); //3 → 3,一刀没多
+        //在裁过的那份上添一张:3 张仍在 4 张的触发线之下,一刀都不该动
+        List<ChatMessage> grown = [.. trimmed, ImageMessage("六", Mb(1))];
+        Assert.Same(grown, ImageBudget.Apply(grown, ByteLimited));
+    }
+
+    /// <summary>
+    /// 一刀必须落到停止线之下，不能停在触发线上。
+    /// 边走边裁的写法在这里会留下 4 张（正好 4MiB = 触发线），下一张进来就得再断一次前缀——
+    /// 「每来一张断一次」那个毛病就回来了
+    /// </summary>
+    [Fact]
+    public void OneCutLandsBelowTarget_EvenWhenTheTailCouldFillTheGap()
+    {
+        List<ChatMessage> ten =
+        [
+            .. Enumerable.Range(0, 10).Select(i => ImageMessage($"图{i}", Mb(1))),
+        ];
+
+        Assert.Equal(2, ImageBudget.Apply(ten, ByteLimited).Sum(ImagesIn));
+    }
+
+    /// <summary>同一份历史连算两次要得到同一刀（纯函数，不依赖消息 id / 时间戳）</summary>
+    [Fact]
+    public void SameHistoryTwice_ProducesTheSameCut()
+    {
+        List<ChatMessage> ten = [.. Enumerable.Range(0, 10).Select(i => ImageMessage($"图{i}", Mb(1)))];
+
+        IReadOnlyList<ChatMessage> first = ImageBudget.Apply(ten, ByteLimited);
+        IReadOnlyList<ChatMessage> second = ImageBudget.Apply(ten, ByteLimited);
+
+        Assert.Equal(first.Select(ImagesIn), second.Select(ImagesIn));
+        Assert.Equal(first.Select(m => m.Text), second.Select(m => m.Text));
+        Assert.Same(first[^1], second[^1]); //没动过的消息复用同一实例
+    }
+
+    /// <summary>
+    /// 旁路请求（写交接、群摘要）必须与主链用同一份预算。
+    /// 漏了它，那一发照样是十几 MB；更糟的是从第一张被裁的图起就与主链分叉，
+    /// 而从那里往后整段前缀缓存作废——交接那发恰恰是整个会话最贵的一次
+    /// </summary>
+    [Fact]
+    public async Task SideRequest_TrimsWithTheSameBudget()
+    {
+        ImageBudgetLimits limits = new(OneImage * 4, OneImage * 2, 0);
+        SideRequestRewriter side = HistoryRewriteChain.ForSideRequest(
+            (transport, compaction) => HistoryRewriteChain.Build(transport, projectionPaths: null,
+                attachImages: () => false, compaction, modelCannotSee: null, limits: () => limits),
+            () => "deepseek-chat");
+        List<ChatMessage> history = [.. Enumerable.Range(0, 10).Select(i => ImageMessage($"图{i}", Mb(1)))];
+
+        IReadOnlyList<ChatMessage> rewritten = await side(history, 0, 0, CancellationToken.None);
+
+        Assert.Equal(2, rewritten.Sum(ImagesIn));
     }
 
     /// <summary>
@@ -90,11 +144,12 @@ public class ImageBudgetTests
     {
         ImageBudgetLimits capped = new(0, 0, 8);
         List<ChatMessage> nine = [.. Enumerable.Range(0, 9).Select(i => ImageMessage($"图{i}", 64))];
-        Assert.Equal(6, ImageBudget.Apply(nine, capped).Sum(ImagesIn)); //9 → 6
+        IReadOnlyList<ChatMessage> trimmed = ImageBudget.Apply(nine, capped);
+        Assert.Equal(6, trimmed.Sum(ImagesIn)); //9 → 6
 
-        //再加一张(10 张)只到 7:上限是 8,没重新越过就不动刀(回差就是 6→8 这段)
-        List<ChatMessage> ten = [.. nine, ImageMessage("十", 64)];
-        Assert.Equal(7, ImageBudget.Apply(ten, capped).Sum(ImagesIn));
+        //在裁过的那份上添一张(7 张,仍在上限 8 之内):不动刀(回差就是 6→8 这段)
+        List<ChatMessage> grown = [.. trimmed, ImageMessage("十", 64)];
+        Assert.Same(grown, ImageBudget.Apply(grown, capped));
     }
 
     /// <summary>字节那条线关掉(0)不影响张数那条:两条是独立开关</summary>

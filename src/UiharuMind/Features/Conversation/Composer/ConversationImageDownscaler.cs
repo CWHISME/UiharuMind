@@ -21,7 +21,7 @@ namespace UiharuMind.Features.Conversation.Composer;
 /// <list type="number">
 /// <item><b>缩尺寸</b>——超过视觉模型的有效分辨率之后，再大的图既不会更清楚，也只是徒增上传体积。
 /// 而图片是随历史每一轮重传的，省下的不是一次，是每一次。</item>
-/// <item><b>按内容选格式</b>——只缩尺寸不换格式的话，一张 1568px 的照片存成 PNG 仍有 1~2MB，
+/// <item><b>按内容选格式</b>——只缩尺寸不换格式的话，一张 1792px 的照片存成 PNG 仍有 1~2MB，
 /// 是同尺寸 JPEG 的 5~10 倍。</item>
 /// </list>
 ///
@@ -30,8 +30,9 @@ namespace UiharuMind.Features.Conversation.Composer;
 /// 而截图恰恰是本应用的主场景。照片则相反，q85 几乎无损。
 ///
 /// 分流规则用的是 PNG 自己的压缩率，不猜内容类型：<b>PNG 编完够小就直接用它</b>（无损，零风险）。
-/// 截图那种大片纯色的合成图 PNG 压得极好，天然走这条；照片压不动，才落到 JPEG。
-/// 这条规则同时优化了体积与质量，且不需要任何图像分类。
+/// 但别指望这条路——实测 344 次缩放里只有 2 次落在 PNG：真实素材在这个尺寸下极少能压进预算，
+/// 绝大多数走的是 JPEG 的降质阶梯。所以单张预算要按<b>画质</b>定（见 <c>MaxInlineBytes</c>），
+/// 不能指望"PNG 会兜住截图"。
 ///
 /// 用 SkiaSharp 而不是 Avalonia 的 <c>Bitmap.Save</c>：后者只写 PNG，
 /// 它那个 quality 参数不改变格式（<c>Avalonia.Skia</c> 里 <c>SKEncodedImageFormat</c> 只出现一次）。
@@ -39,14 +40,14 @@ namespace UiharuMind.Features.Conversation.Composer;
 public static class ConversationImageDownscaler
 {
     /// <summary>
-    /// 长边上限。值住在 Core：压缩策略要按 <see cref="InlineImageLimits.MaxEdge"/> 推算图片的 token 上界，
-    /// 而 Core 看不见 App——两边各写一个字面量会无声漂移。
+    /// 实际发出去的长边上限，直接取 Core 那个值。
     ///
-    /// <b>缩放按 <see cref="InlineImageLimits.SendEdge"/>，计价按 <see cref="InlineImageLimits.MaxEdge"/></b>：
-    /// 前者是「能吃满像素的那一家」（DeepSeek 归一化到 1.69M 总像素），后者是「最贵的那一家」
-    /// （Anthropic 超过 1568 自己缩）。多出来的像素不多花 token，只多花一点上传
+    /// <b>它不叫 MaxEdge 是刻意的</b>：计价那边有个同名的 <see cref="InlineImageLimits.MaxEdge"/>（1568，
+    /// Anthropic 的计价边），两个边数值不同、用途不同，同名最容易看错。
+    /// 缩放按这里（能吃满像素的那家，DeepSeek 归一化到 1.69M 总像素），
+    /// 计价按 <see cref="ImageTokenPricing"/>（认得模型就取那家的口径）
     /// </summary>
-    public const int MaxEdge = InlineImageLimits.SendEdge;
+    public const int SendEdge = InlineImageLimits.SendEdge;
 
     /// <summary>
     /// 单张内联图片的体积预算。PNG 编完不超过它就直接无损送，超了才退到 JPEG，
@@ -82,7 +83,7 @@ public static class ConversationImageDownscaler
             using SKBitmap? source = SKBitmap.Decode(original);
             if (source == null || source.Width <= 0 || source.Height <= 0) return (original, mediaType);
 
-            (int Width, int Height) size = ComputeTargetSize(source.Width, source.Height, MaxEdge)
+            (int Width, int Height) size = ComputeTargetSize(source.Width, source.Height, SendEdge)
                                            ?? (source.Width, source.Height);
 
             using SKSurface surface = SKSurface.Create(new SKImageInfo(size.Width, size.Height));

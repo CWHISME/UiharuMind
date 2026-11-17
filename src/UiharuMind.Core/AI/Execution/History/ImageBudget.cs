@@ -23,9 +23,10 @@ namespace UiharuMind.Core.AI.Execution.History;
 ///
 /// <para>
 /// <b>代价说清楚</b>：裁掉的那条图在历史靠前的位置，改它等于从那里往后整段前缀缓存作废。
-/// 所以这里的算法不是「超了就裁」，而是带<b>回差</b>：一次裁到 trigger 之下（通常落在 target 附近），
-/// 之后要再攒够 trigger − target 才动下一刀。60 张图的会话因此只断 1~2 次缓存，
-/// 而不是像已停用的 <c>HistoryImageWindow</c> 那样每来一张新图就断一次。
+/// 所以这里的算法不是「超了就裁」，而是带<b>回差</b>：一次裁到 target 之下，之后要再攒够 trigger − target 才动下一刀。
+/// 60 张 400KB 的图在 8/4MiB 下大约断六次缓存，而按张数开窗（<c>HistoryImageWindow</c> 那种）
+/// 是每来一张新图断一次、六十次——回差把同一件事压下一个数量级，但它不消除代价。
+/// 单张上限抬到 400KB 之后这个次数会跟着变多，调阈值前先把这一条算进去。
 /// </para>
 ///
 /// <para>
@@ -61,14 +62,20 @@ public static class ImageBudget
         foreach (long size in sizes) total += size;
 
         Log.Debug($"[image budget] dropped {cut}/{sizes.Count} oldest images " +
-                  $"({total / 1024.0 / 1024:0.0}MB → {(total - droppedBytes) / 1024.0 / 1024:0.0}MB of encoded bytes, " +
+                  $"({total / 1024.0 / 1024:0.0}MB → {(total - droppedBytes) / 1024.0 / 1024:0.0}MB of wire bytes, " +
                   $"trigger {limits.TriggerBytes / 1024.0 / 1024:0.#}MB / {limits.MaxCount} images).");
         return Replace(messages, cut);
     }
 
     /// <summary>
-    /// 该丢几张。两条线（字节 / 张数）在同一次扫描里判，各自带回差：
-    /// 越过任何一条就一路丢到两条都满足，之后要再攒够余量才动下一刀。
+    /// 该丢几张。两条线（字节 / 张数）各自带回差：越过任何一条就一次丢到两条都满足，
+    /// 之后要再攒够 trigger − target 才动下一刀。
+    ///
+    /// <para>
+    /// <b>必须先算总量再裁，不能边走边裁</b>：边走边裁时，中途腾出来的余量会被后面的尾巴重新吃掉，
+    /// 最后一刀往往把总量停在触发线上（10 张各 1MiB、4/2 时会留下 4 张 = 正好 4MiB），
+    /// 「下一次裁剪要等新图攒够差额」当场不成立——一张新图进来就得再断一次前缀。
+    /// </para>
     ///
     /// <b>至少留一张</b>：单张就超过停止线时（未注入缩图器的 CLI、或 target 配得比一张图还小），
     /// 宁可变大超标也不能一张不剩——模型看到「这一轮没有图」比请求大一圈更难查
@@ -78,21 +85,18 @@ public static class ImageBudget
     /// <returns>丢最老的前几张，以及它们合起来多少字节</returns>
     private static (int Cut, long DroppedBytes) CutFor(IReadOnlyList<long> sizes, ImageBudgetLimits limits)
     {
-        int cut = 0;
-        long kept = 0;
-        long dropped = 0;
-        for (int i = 0; i < sizes.Count; i++)
-        {
-            kept += sizes[i];
-            // cut < i 是「至少留一张」：i 就是刚扫进来的最新那张，不许连它一起丢
-            if (cut >= i || !OverTrigger(kept, i + 1 - cut, limits)) continue;
+        long total = 0;
+        foreach (long size in sizes) total += size;
 
-            while (cut < i && OverTarget(kept, i + 1 - cut, limits))
-            {
-                kept -= sizes[cut];
-                dropped += sizes[cut];
-                cut++;
-            }
+        if (!OverTrigger(total, sizes.Count, limits)) return (0, 0);
+
+        int cut = 0;
+        long dropped = 0;
+        // cut < sizes.Count - 1 是「至少留一张」：最后一张是最新的，不许连它一起丢
+        while (cut < sizes.Count - 1 && OverTarget(total - dropped, sizes.Count - cut, limits))
+        {
+            dropped += sizes[cut];
+            cut++;
         }
 
         return (cut, dropped);
@@ -123,8 +127,8 @@ public static class ImageBudget
         {
             foreach (AIContent content in message.Contents)
             {
-                if (content is not DataContent data || !data.HasTopLevelMediaType("image")) continue;
-                int length = data.Data.Length;
+                if (!ImageContentRewrite.IsImage(content)) continue;
+                int length = ((DataContent)content).Data.Length;
                 sizes.Add((long)(length + 2) / 3 * 4); //base64:每 3 字节 4 个字符
             }
         }

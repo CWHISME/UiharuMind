@@ -180,8 +180,8 @@ public static class HistoryCompaction
     /// <summary>
     /// 修正框架估算后的已计入 token 数。
     ///
-    /// 框架把图片按 <c>字节数 / 4</c> 估：一张 150KB 的截图会被算成 3.7 万 token，
-    /// 而它真实只值一两千——虚高二三十倍。后果不是多花钱，是<b>压缩被凭空提前触发</b>，
+    /// 框架把图片按 <c>字节数 / 4</c> 估：一张 400KB 的截图会被算成 10 万 token，
+    /// 而它真实只值一两千——虚高几十倍。后果不是多花钱，是<b>压缩被凭空提前触发</b>，
     /// 三张图就能把 128k 模型顶过截断水位去砍真实对话。所以这里把图片那部分换成
     /// <paramref name="pricing"/> 的口径——<b>按模型取</b>，因为各家单价并不一样
     /// （DeepSeek 每张封顶 1024 且与尺寸无关，见 <see cref="ImageTokenPricing"/>）。
@@ -248,7 +248,7 @@ public static class HistoryCompaction
         {
             foreach (AIContent content in message.Contents)
             {
-                if (content is not DataContent data || !data.HasTopLevelMediaType("image")) continue;
+                if (content is not DataContent data || !ImageContentRewrite.IsImage(data)) continue;
 
                 // 与框架同口径:数据体 + MediaType + Name 的 UTF-8 字节数
                 bytes += data.Data.Length + ByteCountOf(data.MediaType) + ByteCountOf(data.Name);

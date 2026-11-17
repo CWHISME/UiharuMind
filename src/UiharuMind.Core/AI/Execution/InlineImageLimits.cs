@@ -47,9 +47,11 @@ public static class InlineImageLimits
     /// <summary>
     /// <b>默认口径</b>下每张内联图片的计价上界：按<b>发送尺寸</b>推，认不出服务商时的安全侧。
     ///
-    /// 误差方向是<b>刻意偏高</b>的：高估只会让压缩早触发一点，低估则会发出超长请求换来 400。
-    /// 但它是天花板、不是通行价：认得模型时按 <see cref="ImageTokenPricing"/> 取该服务商的口径
-    /// （DeepSeek 每张固定 1024，Anthropic 按 1568 推，用这一个数计都会高估）
+    /// 误差方向偏高，但<b>高估是有代价的</b>：压缩会提前动手，而压缩本身是一次断前缀缓存，
+    /// 校准又只往上调、纠不回来。所以它只是认不出服务商时的兜底，认得模型就该走
+    /// <see cref="ImageTokenPricing"/> 取那家的口径（DeepSeek 每张固定 1024，Anthropic 按 1568 推）。
+    /// 这个上界也只对发送边以内的图成立：没注入缩图器的 CLI 能把原图直接发出去，
+    /// 那种情况靠字节上限（<c>ImagePreview</c>）拦，不靠这里。
     /// </summary>
     public const int MaxTokensPerImage = SendEdge * SendEdge / TokenDivisor;
 }
