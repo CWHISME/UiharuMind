@@ -37,6 +37,7 @@ internal static class ProviderStreamErrorParser
         string? message = null;
         string? streamId = null;
         bool hasErrorObject = false;
+        bool hasErrorCode = false;
         bool finishError = false;
 
         try
@@ -62,13 +63,13 @@ internal static class ProviderStreamErrorParser
                     reader.Read();
                     if (reader.TokenType == JsonTokenType.StartObject)
                     {
-                        hasErrorObject = true;
-                        ReadErrorBody(ref reader, ref code, ref message);
+                        ReadErrorBody(ref reader, ref code, ref message, ref hasErrorCode);
+                        hasErrorObject = hasErrorCode || !string.IsNullOrWhiteSpace(message);
                     }
                     else if (reader.TokenType == JsonTokenType.String)
                     {
-                        hasErrorObject = true;
                         message = reader.GetString();
+                        hasErrorObject = !string.IsNullOrWhiteSpace(message);
                     }
                     else if (reader.TokenType is not JsonTokenType.Null)
                     {
@@ -99,7 +100,8 @@ internal static class ProviderStreamErrorParser
     }
 
     /// <summary>读 error 对象里的 code / message；其余字段跳过</summary>
-    private static void ReadErrorBody(ref Utf8JsonReader reader, ref int? code, ref string? message)
+    private static void ReadErrorBody(ref Utf8JsonReader reader, ref int? code, ref string? message,
+        ref bool hasErrorCode)
     {
         while (reader.Read() && reader.TokenType != JsonTokenType.EndObject)
         {
@@ -108,6 +110,9 @@ internal static class ProviderStreamErrorParser
             if (reader.ValueTextEquals("code"))
             {
                 reader.Read();
+                hasErrorCode = reader.TokenType == JsonTokenType.Number
+                               || reader.TokenType == JsonTokenType.String
+                               && !string.IsNullOrWhiteSpace(reader.GetString());
                 code = ReadCode(ref reader);
             }
             else if (reader.ValueTextEquals("message"))

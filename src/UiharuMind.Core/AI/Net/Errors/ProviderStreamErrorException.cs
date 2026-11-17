@@ -69,20 +69,5 @@ internal sealed class ProviderStreamErrorException : Exception
     /// </summary>
     /// <param name="error">顶层异常</param>
     /// <returns>链上的第一个实例；没有返回 null</returns>
-    public static ProviderStreamErrorException? Find(Exception? error)
-    {
-        for (Exception? current = error; current != null; current = current.InnerException)
-        {
-            if (current is ProviderStreamErrorException found) return found;
-
-            // 并行迭代器与多播回调会把它包进 AggregateException，只看 InnerException 会漏
-            if (current is not AggregateException aggregate) continue;
-            foreach (Exception inner in aggregate.Flatten().InnerExceptions)
-            {
-                if (Find(inner) is { } nested) return nested;
-            }
-        }
-
-        return null;
-    }
+    public static ProviderStreamErrorException? Find(Exception? error) => ExceptionChain.Find<ProviderStreamErrorException>(error);
 }

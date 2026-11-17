@@ -177,7 +177,7 @@ internal sealed class SseSanitizingStream : Stream
         {
             return await _inner.ReadAsync(_input.AsMemory(_inputEnd), idle.Token).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && idle.Token.IsCancellationRequested)
         {
             Log.Warning($"SSE stream went silent for {_idleLimit.TotalSeconds:0}s "
                         + $"({_linesRead} line(s) read so far); treating it as a dropped connection.");

@@ -476,7 +476,7 @@ public class LazyChatClient : IChatClient
                 // 上游在流里回的错误帧（HTTP 200 + SSE error）。它必须走重试链而不是原样抛出：
                 // 抛出只会在上层变成「这一轮什么都没产出」，而那正是要根除的那种假成功
                 catch (Exception e) when (!cancellationToken.IsCancellationRequested &&
-                                          e is ProviderStreamErrorException)
+                                          ProviderStreamErrorException.Find(e) is not null)
                 {
                     failure = e;
                 }

@@ -271,25 +271,34 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
             Action onPersisted = () => channel.Writer.TryWrite(MessageBoundaryContent.Instance);
             if (attached != null) attached.ServiceCallPersisted += onPersisted;
 
+            // 消费方提前 break(不取消令牌)时用它给泵收尾,否则末尾的 await 会挂死
+            CancellationTokenSource pumpSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            CancellationToken pumpToken = pumpSource.Token;
+            int abandoned = 0;
+
             // 每次服务调用发出之前问一次"插话被取走了没"(见 ServiceCallSignalingChatClient):
-            // 回调跑在泵自己的执行流里,上一轮的工具结果此刻已写进通道,气泡因此排在它之后、这次调用的产出之前
+            // 回调跑在泵自己的执行流里,上一轮的工具结果此刻已写进通道,气泡因此排在它之后、这次调用的产出之前。
+            // 超时放闸后旧泵可能仍存活；共享回调字段会被下一轮覆盖，所以还要校验令牌属于本轮，
+            // 避免旧泵恢复后误跑新轮回调。超时标记则拦住旧回调本身之后的调用。
             handle.ServiceCalls.Starting = async token =>
             {
+                if (Volatile.Read(ref abandoned) != 0 || token != pumpToken) return;
+
                 // 可靠的新发起点：落盘信号会迟到，只有发请求前这一刻能把解析器的
                 // 调用级状态（内联标签开关、重发回滚水位）干净地翻篇
                 channel.Writer.TryWrite(ServiceCallStartedContent.Instance);
                 await EmitConsumedInjectionsAsync(handle, session, channel, token);
             };
-            handle.ServiceCalls.Finishing = token => ReplyFinishing?.Invoke(token) ?? Task.CompletedTask;
-
-            // 消费方提前 break(不取消令牌)时用它给泵收尾,否则末尾的 await 会挂死
-            CancellationTokenSource pumpSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            handle.ServiceCalls.Finishing = token =>
+                Volatile.Read(ref abandoned) != 0 || token != pumpToken
+                    ? Task.CompletedTask
+                    : ReplyFinishing?.Invoke(token) ?? Task.CompletedTask;
             Task pump = Task.Run(async () =>
             {
                 try
                 {
                     await foreach (AgentResponseUpdate update in handle.Agent
-                                       .RunStreamingAsync(input, session, cancellationToken: pumpSource.Token)
+                                       .RunStreamingAsync(input, session, cancellationToken: pumpToken)
                                        .ConfigureAwait(false))
                     {
                         foreach (AIContent content in update.Contents) channel.Writer.TryWrite(content);
@@ -324,6 +333,8 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
                 // 有上限地等，超时就留一行并放闸；泵自己收尾，它写的仍是这一轮自己的通道
                 if (!await WaitPumpExitAsync(pump).ConfigureAwait(false))
                 {
+                    // 放闸后旧泵仍可能恢复；从此拒绝它后续的服务调用信号，避免共享回调已换成本轮。
+                    Volatile.Write(ref abandoned, 1);
                     Log.Warning($"Stream pump still running {PumpExitGrace.TotalSeconds:0}s after cancel; "
                                 + $"releasing the runner gate anyway. session={_boundSessionId}");
                 }

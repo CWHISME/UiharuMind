@@ -1,5 +1,6 @@
 using System.Text;
 using UiharuMind.Core.AI.Net;
+using UiharuMind.Core.AI.Net.Errors;
 using UiharuMind.Core.AI.Net.Response;
 
 namespace UiharuMind.Core.Tests.AI;
@@ -134,11 +135,125 @@ public class SseSanitizingStreamTests
                      "reasoning_details=1, encrypted=1", stream.ReasoningCensus);
     }
 
+    [Fact]
+    public async Task SilentStream_ThrowsIdleException()
+    {
+        await using SseSanitizingStream stream = new(new SilentStream(), idleLimit: TimeSpan.FromMilliseconds(50));
+        using StreamReader reader = new(stream);
+
+        await Assert.ThrowsAsync<ProviderStreamIdleException>(async () =>
+            await reader.ReadToEndAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task InnerCancellation_IsNotTranslatedToIdleTimeout()
+    {
+        await using SseSanitizingStream stream = new(new SelfCanceledStream(), idleLimit: TimeSpan.FromSeconds(1));
+        using MemoryStream output = new();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await stream.CopyToAsync(output, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task IncomingBytes_ResetIdleWatchdog()
+    {
+        byte[] data = Encoding.UTF8.GetBytes("data: {}\n\n");
+        await using SseSanitizingStream stream = new(
+            new DelayedByteStream(data, TimeSpan.FromMilliseconds(40)), idleLimit: TimeSpan.FromMilliseconds(300));
+        using StreamReader reader = new(stream);
+
+        string text = await reader.ReadToEndAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal("data: {}\n\n", text);
+    }
+
     private static async Task<string> ReadAllAsync(Stream inner)
     {
         await using var stream = new SseSanitizingStream(inner);
         using var reader = new StreamReader(stream);
         return await reader.ReadToEndAsync(TestContext.Current.CancellationToken);
+    }
+
+    private sealed class SilentStream : Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
+            WaitForCancellationAsync(cancellationToken);
+
+        private static async ValueTask<int> WaitForCancellationAsync(CancellationToken cancellationToken)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            return 0;
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override void Flush() => throw new NotSupportedException();
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    private sealed class SelfCanceledStream : Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
+            ValueTask.FromCanceled<int>(new CancellationToken(true));
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override void Flush() => throw new NotSupportedException();
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    private sealed class DelayedByteStream(byte[] data, TimeSpan delay) : Stream
+    {
+        private int _position;
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => data.Length;
+        public override long Position
+        {
+            get => _position;
+            set => throw new NotSupportedException();
+        }
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(delay, cancellationToken);
+            int size = Math.Min(1, Math.Min(buffer.Length, data.Length - _position));
+            if (size == 0) return 0;
+            data.AsMemory(_position, size).CopyTo(buffer);
+            _position += size;
+            return size;
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override void Flush() => throw new NotSupportedException();
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
     // 每次只吐 1～7 个字节，专门制造跨读的半行与被拆开的 \r\n

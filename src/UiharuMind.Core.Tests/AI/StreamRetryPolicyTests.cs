@@ -195,6 +195,24 @@ public class StreamRetryPolicyTests
         Assert.Equal(EStreamFailureKind.StreamIdle, StreamRetryPolicy.Classify(wrapped));
     }
 
+    [Fact]
+    public void Idle_WrappedInAggregateException_IsStillRecognised()
+    {
+        AggregateException wrapped = new(new Exception("unrelated"),
+            new ProviderStreamIdleException(TimeSpan.FromSeconds(240), 1));
+
+        Assert.Equal(EStreamFailureKind.StreamIdle, StreamRetryPolicy.Classify(wrapped));
+    }
+
+    [Fact]
+    public void ProviderStreamError_FindTraversesAggregateException()
+    {
+        ProviderStreamErrorException expected = new(503, "busy", "id", false);
+        AggregateException wrapped = new(new Exception("unrelated"), expected);
+
+        Assert.Same(expected, ProviderStreamErrorException.Find(wrapped));
+    }
+
     /// <summary>静默不吃断线的额度：重连过一次之后，真断线仍该拿到完整的五次</summary>
     [Fact]
     public void IdleBudget_DoesNotConsumeTransportBudget()

@@ -42,13 +42,13 @@ public class ChatSettingConfig : TConfigBase<ChatSettingConfig>
     /// 一次请求里图片总量越过多少 MiB 就开始裁掉最老的几张。<b>0 表示不按字节裁</b>（张数那条仍生效）。
     ///
     /// 口径是<b>请求体里的长度</b>（base64 之后，约等于原始字节的 4/3），因为撞网关的是请求体。
-    /// 默认 8：图片随历史每轮重传，而预览图只进不出；实测两个会话涨到 12.3MB / 14.3MB 之后，
-    /// 上游每一发都只回一帧「Error processing stream start」，怎么重试都是同一个 400。
-    /// 官方文档给的请求体上限（DeepSeek 48MiB）在这里不作数——撞的是中转网关，限比官方紧得多
+    /// 默认 32：按官方请求体上限（DeepSeek 48MiB）留出非图片部分的余量。当初定 8 是因为实测
+    /// 12.3MB / 14.3MB 的请求撞过一帧「Error processing stream start」，但那未必是体积撞线——
+    /// 先放宽观察，真撞了再收
     /// </summary>
     [SettingConfigDesc("Trim the oldest images once a request's images exceed this many MiB (0 = not by size)")]
     [SettingConfigDesc("一次请求的图片总量越过多少 MiB 就开始裁掉最老的几张(0 表示不按体积裁)", LanguageUtils.ChineseSimplified)]
-    public int ImageBudgetTriggerMiB { get; set; } = 8;
+    public int ImageBudgetTriggerMiB { get; set; } = 32;
 
     /// <summary>
     /// 裁就一次裁到这条线以下。与上一项之差就是回差：每裁一次都要断掉一段前缀缓存，
@@ -56,14 +56,16 @@ public class ChatSettingConfig : TConfigBase<ChatSettingConfig>
     /// </summary>
     [SettingConfigDesc("Trim down to this many MiB in one go; the gap to the trigger is the hysteresis")]
     [SettingConfigDesc("一次裁到这条线以下;与上一项的差额就是回差(0 表示取上一项的一半)", LanguageUtils.ChineseSimplified)]
-    public int ImageBudgetTargetMiB { get; set; } = 4;
+    public int ImageBudgetTargetMiB { get; set; } = 16;
 
     /// <summary>
     /// 一次请求最多留几张图。纯兜底，正常由字节那一档先触发；挡的是「很多张很小的图」
-    /// 以及按张数计费的中转。0 表示不设
+    /// 以及按张数计费的中转。0 表示不设。
+    /// 字节线抬高时这一档要跟着抬：48 张在 400KB 单张下（19.2MB）会先于字节线触发，
+    /// 只抬字节线就没有意义
     /// </summary>
     [SettingConfigDesc("Keep at most this many images per request (0 = no cap)")]
     [SettingConfigDesc("一次请求最多保留几张图(0 表示不设)", LanguageUtils.ChineseSimplified)]
-    public int ImageBudgetMaxCount { get; set; } = 48;
+    public int ImageBudgetMaxCount { get; set; } = 96;
 
 }

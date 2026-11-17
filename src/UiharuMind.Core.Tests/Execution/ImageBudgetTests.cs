@@ -31,6 +31,62 @@ public class ImageBudgetTests
     }
 
     [Fact]
+    public void ExactlyAtByteTrigger_ReturnsTheSameInstance()
+    {
+        ImageBudgetLimits limits = new(8 * 1024 * 1024, 4 * 1024 * 1024, 48);
+        List<ChatMessage> messages = [ImageMessage("正好触发字节线", 6L * 1024 * 1024)];
+
+        Assert.Equal(limits.TriggerBytes, messages.Sum(WireBytes));
+        Assert.Same(messages, ImageBudget.Apply(messages, limits));
+    }
+
+    [Fact]
+    public void ExactlyAtCountTrigger_ReturnsTheSameInstance()
+    {
+        ImageBudgetLimits limits = new(8 * 1024 * 1024, 4 * 1024 * 1024, 48);
+        List<ChatMessage> messages = [.. Enumerable.Range(0, limits.MaxCount)
+            .Select(i => ImageMessage($"图{i}", 64))];
+
+        Assert.Equal(limits.MaxCount, messages.Sum(ImagesIn));
+        Assert.True(messages.Sum(WireBytes) < limits.TriggerBytes);
+        Assert.Same(messages, ImageBudget.Apply(messages, limits));
+    }
+
+    [Fact]
+    public void BothLinesExceeded_TrimsBelowBothTargets()
+    {
+        ImageBudgetLimits limits = new(8 * 1024 * 1024, 4 * 1024 * 1024, 48);
+        List<ChatMessage> messages = [.. Enumerable.Range(0, 49)
+            .Select(i => ImageMessage($"图{i}", 192 * 1024))];
+
+        Assert.True(messages.Take(32).Sum(WireBytes) <= limits.TriggerBytes);
+        Assert.True(messages.Take(33).Sum(WireBytes) > limits.TriggerBytes);
+        Assert.True(messages.Take(limits.MaxCount).Sum(ImagesIn) <= limits.MaxCount);
+        Assert.True(messages.Sum(ImagesIn) > limits.MaxCount);
+
+        IReadOnlyList<ChatMessage> trimmed = ImageBudget.Apply(messages, limits);
+
+        Assert.True(trimmed.Sum(WireBytes) <= limits.TargetBytes);
+        Assert.True(trimmed.Sum(ImagesIn) <= limits.EffectiveCountFloor);
+    }
+
+    [Fact]
+    public void OnlyCountTriggerExceeded_TrimsEvenWhenBytesAreBelowTrigger()
+    {
+        ImageBudgetLimits limits = new(8 * 1024 * 1024, 4 * 1024 * 1024, 48);
+        List<ChatMessage> messages = [.. Enumerable.Range(0, limits.MaxCount + 1)
+            .Select(i => ImageMessage($"图{i}", 64))];
+
+        Assert.True(messages.Sum(WireBytes) < limits.TriggerBytes);
+        Assert.True(messages.Sum(ImagesIn) > limits.MaxCount);
+
+        IReadOnlyList<ChatMessage> trimmed = ImageBudget.Apply(messages, limits);
+
+        Assert.Equal(limits.EffectiveCountFloor, trimmed.Sum(ImagesIn));
+        Assert.True(trimmed.Sum(WireBytes) < limits.TriggerBytes);
+    }
+
+    [Fact]
     public void Off_NeverTouchesAnything()
     {
         List<ChatMessage> messages =
@@ -253,6 +309,11 @@ public class ImageBudgetTests
 
     private static int ImagesIn(ChatMessage message) =>
         message.Contents.Count(c => c is DataContent data && data.HasTopLevelMediaType("image"));
+
+    private static long WireBytes(ChatMessage message) =>
+        message.Contents.OfType<DataContent>()
+            .Where(data => data.HasTopLevelMediaType("image"))
+            .Sum(data => Wire(data.Data.Length));
 
     private static ChatMessage ImageMessage(string text, params long[] imageSizes)
     {

@@ -74,6 +74,33 @@ public class ProviderStreamErrorFrameTests
         Assert.False(ProviderStreamErrorParser.TryParse(line, out _));
     }
 
+    [Theory]
+    [InlineData("{\"error\":\"\"}")]
+    [InlineData("{\"error\":\"   \"}")]
+    [InlineData("{\"error\":{}}")]
+    [InlineData("{\"error\":null}")]
+    public void EmptyOrNullError_IsNotAnError(string payload)
+    {
+        Assert.False(ProviderStreamErrorParser.TryParse(Encoding.UTF8.GetBytes("data: " + payload), out _));
+    }
+
+    [Fact]
+    public void NonEmptyErrorString_IsParsed()
+    {
+        Assert.True(ProviderStreamErrorParser.TryParse(
+            Encoding.UTF8.GetBytes("data: {\"error\":\"some message\"}"), out ProviderStreamErrorException? error));
+        Assert.Contains("some message", error!.Message);
+    }
+
+    [Fact]
+    public void ErrorTextInsideContent_IsNotParsedAsErrorFrame()
+    {
+        byte[] line = Encoding.UTF8.GetBytes(
+            "data: {\"choices\":[{\"delta\":{\"content\":\"{\\\"error\\\":{}}\"}}]}");
+
+        Assert.False(ProviderStreamErrorParser.TryParse(line, out _));
+    }
+
     [Fact]
     public void NonDataLine_IsNotAnError()
     {

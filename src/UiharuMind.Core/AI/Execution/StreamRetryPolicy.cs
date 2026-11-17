@@ -174,15 +174,8 @@ internal static class StreamRetryPolicy
         return EStreamFailureKind.Fatal;
     }
 
-    private static ProviderStreamIdleException? FindIdle(Exception? failure)
-    {
-        for (Exception? current = failure; current != null; current = current.InnerException)
-        {
-            if (current is ProviderStreamIdleException idle) return idle;
-        }
-
-        return null;
-    }
+    private static ProviderStreamIdleException? FindIdle(Exception? failure) =>
+        ExceptionChain.Find<ProviderStreamIdleException>(failure);
 
     /// <summary>按已经用掉的预算决定这一次的处置</summary>
     /// <param name="kind">失败种类</param>

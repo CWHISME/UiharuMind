@@ -526,12 +526,6 @@ public static class SubAgentTool
             return $"Error: '{subSessionId}' 不是本会话里你联系过的人。";
         }
 
-        // 空转到顶就别再碰界面：NoteStarted 会把「查看过程」卡片挂出来，
-        // 之后再拒绝，等于留下一个跑不起来的空壳
-        if (TryBuildBlankTurnRefusal(session) is { } refusal) return refusal;
-
-        NoteStarted(context, session.SessionId);
-
         // 跑着就实时插话:新起一轮要等执行者闸门放行(它整轮持有),纠偏得等整轮跑完。
         // 插话走注入队列,在下一次模型请求前消费,效果并入当前轮的报告,不另交报告。
         if (SessionManager.Instance.Running.IsBusy(session.SessionId))
@@ -558,8 +552,17 @@ public static class SubAgentTool
                             + $"session={session.SessionId}: {e.Message}");
             }
 
-            if (injected) return BuildInjectedReceipt(session.Title, session.SessionId);
+            if (injected)
+            {
+                NoteStarted(context, session.SessionId);
+                return BuildInjectedReceipt(session.Title, session.SessionId);
+            }
         }
+
+        // 空转拒绝只针对新起一轮；正在运行的轮次必须保留实时插话纠偏通道。
+        if (TryBuildBlankTurnRefusal(session) is { } refusal) return refusal;
+
+        NoteStarted(context, session.SessionId);
 
         // 没在跑(或注入失败回落到排队续跑):新起一轮。同样自报家门——子代理按【发信人】前缀
         // 区分发信人与用户,续跑轮不带上它,子代理会把它当成用户的话。
@@ -601,9 +604,14 @@ public static class SubAgentTool
     /// </summary>
     /// <param name="sessionId">子会话标识</param>
     /// <returns>连续空转次数</returns>
-    private static int RecordBlankTurn(string sessionId)
+    internal static int RecordBlankTurn(string sessionId) => RecordBlankTurn(sessionId, DateTimeOffset.Now);
+
+    /// <summary>记录指定时刻的一次空转，用于固定时间窗口判定。</summary>
+    /// <param name="sessionId">子会话标识</param>
+    /// <param name="now">本次空转发生时刻</param>
+    /// <returns>连续空转次数</returns>
+    internal static int RecordBlankTurn(string sessionId, DateTimeOffset now)
     {
-        DateTimeOffset now = DateTimeOffset.Now;
         (int Count, DateTimeOffset At) entry = _blankTurns.AddOrUpdate(sessionId,
             _ => (1, now),
             // At 记这一串空白的**第一次**，窗口从那时算起；每轮都刷新成 now 的话，
@@ -611,6 +619,10 @@ public static class SubAgentTool
             (_, current) => current.At + BlankTurnWindow < now ? (1, now) : (current.Count + 1, current.At));
         return entry.Count;
     }
+
+    /// <summary>清除成功产出后的连续空转记录。</summary>
+    /// <param name="sessionId">子会话标识</param>
+    internal static void ClearBlankTurn(string sessionId) => _blankTurns.TryRemove(sessionId, out _);
 
     /// <summary>
     /// 连续空转到顶时的拒发说明；未到顶返回 null。
@@ -623,10 +635,17 @@ public static class SubAgentTool
     /// </summary>
     /// <param name="session">子会话</param>
     /// <returns>工具结果文本；不需要刹车时为 null</returns>
-    internal static string? TryBuildBlankTurnRefusal(ChatSession session)
+    internal static string? TryBuildBlankTurnRefusal(ChatSession session) =>
+        TryBuildBlankTurnRefusal(session, DateTimeOffset.Now);
+
+    /// <summary>按指定时刻判断是否应拒绝启动新一轮。</summary>
+    /// <param name="session">子会话</param>
+    /// <param name="now">当前判定时刻</param>
+    /// <returns>拒绝说明；不需要刹车时为 null</returns>
+    internal static string? TryBuildBlankTurnRefusal(ChatSession session, DateTimeOffset now)
     {
         if (!_blankTurns.TryGetValue(session.SessionId, out (int Count, DateTimeOffset At) entry)) return null;
-        if (entry.At + BlankTurnWindow < DateTimeOffset.Now) return null;
+        if (entry.At + BlankTurnWindow < now) return null;
         if (entry.Count < MaxBlankTurnStreak) return null;
 
         Log.Warning($"Sub-agent dispatch blocked after {entry.Count} blank turn(s): session={session.SessionId}");
@@ -856,7 +875,7 @@ public static class SubAgentTool
         }
         else if (!timedOut && !stopped)
         {
-            _blankTurns.TryRemove(session.SessionId, out _);
+            ClearBlankTurn(session.SessionId);
         }
         // 派活方中途插过话:报告里可能答了原任务之外的东西,主代理该知道这份结论不全是它要的。
         // 与用户插话分开交代——两者来源不同,混成一句会让主代理误判是谁改了方向。
@@ -1114,10 +1133,10 @@ public static class SubAgentTool
         public bool NeedsSummary => _hadToolCall && _report.Length == 0 && _allText.Length > 0;
 
         /// <summary>
-        /// 这一轮<b>一个字的正文都没有</b>（思考段不算）。正常收尾时这意味着模型什么都没说，
-        /// 判据留给调用方决定怎么说——它要么是上游故障，要么是模型空转，都不该被当成「干完了」。
+        /// 这一轮<b>一个字的正文都没有</b>（思考段不算），且没有工具调用。工具调用本身算产出，
+        /// 判据留给调用方决定怎么说——全无产出要么是上游故障，要么是模型空转，都不该被当成「干完了」。
         /// </summary>
-        public bool ProducedNothing => _report.Length == 0 && _allText.Length == 0;
+        public bool ProducedNothing => !_hadToolCall && _report.Length == 0 && _allText.Length == 0;
 
         /// <summary>
         /// 生成交给主代理的报告

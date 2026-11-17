@@ -128,6 +128,49 @@ public class ServiceCallSignalTests
         Assert.Equal("好", response.Text);
     }
 
+    /// <summary>
+    /// 绕坑承重的框架行为：从 <c>RunStreamingAsync</c> 到服务调用回调，token 必须原样传递、不得衍生。
+    /// <c>HarnessCharacterRunner</c> 的回调用「token 是否本轮泵的 token」拦截超时放闸后的旧泵，
+    /// 框架哪天在中间挂了 linked token，正常轮次的回调就会被误拦（插话失效）。哪天这条红了，
+    /// 先改那边的判据，别改回调
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task TheStartingCallback_ReceivesTheSameToken_TheRunnerPassedIn(bool streaming)
+    {
+        RecordingChatClient leaf = new();
+        ServiceCallSignalingChatClient signal = new(leaf);
+        AIAgent agent = signal.AsHarnessAgent(Options());
+        AgentSession session = await agent.CreateSessionAsync(TestContext.Current.CancellationToken);
+
+        CancellationToken seen = default;
+        bool invoked = false;
+        signal.Starting = token =>
+        {
+            invoked = true;
+            seen = token;
+            return Task.CompletedTask;
+        };
+
+        CancellationToken passed = CancellationTokenSource.CreateLinkedTokenSource(
+            TestContext.Current.CancellationToken).Token;
+        if (streaming)
+        {
+            await foreach (AgentResponseUpdate _ in agent.RunStreamingAsync("你好", session,
+                               cancellationToken: passed))
+            {
+            }
+        }
+        else
+        {
+            await agent.RunAsync("你好", session, cancellationToken: passed);
+        }
+
+        Assert.True(invoked, "回调没被调用，验证不成立");
+        Assert.Equal(passed, seen);
+    }
+
     private static HarnessAgentOptions Options()
     {
         HarnessAgentOptions options =
