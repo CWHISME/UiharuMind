@@ -151,24 +151,35 @@ public sealed class PuppeteerBrowserHost : IBrowserHost
         if (_browser is { IsConnected: true } running) return running;
 
         Directory.CreateDirectory(AppPaths.Data.Browser);
-        IBrowser browser = await Puppeteer.LaunchAsync(new LaunchOptions
-        {
-            Browser = SupportedBrowser.Chrome,
-            Channel = ChromeReleaseChannel.Stable,
-            Headless = _headless,
-            UserDataDir = AppPaths.Data.Browser,
-            // 有窗口时跟着窗口走；无头时给个桌面尺寸，免得网站按手机排版
-            DefaultViewport = _headless ? new ViewPortOptions { Width = 1280, Height = 900 } : null,
-            Args = ["--no-first-run", "--no-default-browser-check"],
-            // 走管道而不是调试端口：应用被强杀、崩溃时管道一断，Chrome 跟着退，不留后台孤儿进程占着档案
-            Pipe = true,
-        });
+        // Chrome 起不来（多半没装）就找 Edge 补位；两个都没有才报错
+        IBrowser browser = await BrowserLauncher.LaunchWithFallbackAsync(
+            executable => Puppeteer.LaunchAsync(NewLaunchOptions(executable)));
         // 用户把浏览器整个关了：标签页记录作废，下次调用重新起
         browser.Disconnected += (_, _) => _tabs.Clear();
         _browser = browser;
         _spare = (await browser.PagesAsync()).FirstOrDefault(p => p.Url == "about:blank");
         await PuppeteerDownloads.EnableAsync(browser, DownloadStaging, FindDownloadTab);
         return browser;
+    }
+
+    /// <summary>
+    /// 构造启动参数：Chrome 走 Puppeteer 系统检测，Edge 填 ExecutablePath 补位。
+    /// Pipe/Channel/Windows 重启参数/独立档案等差异交给 <see cref="BrowserLauncher.ApplyFallbackOptions"/> 一次定好
+    /// </summary>
+    private LaunchOptions NewLaunchOptions(string? executablePath)
+    {
+        LaunchOptions options = new()
+        {
+            Browser = SupportedBrowser.Chrome,
+            Headless = _headless,
+            // 有窗口时跟着窗口走；无头时给个桌面尺寸，免得网站按手机排版
+            DefaultViewport = _headless ? new ViewPortOptions { Width = 1280, Height = 900 } : null,
+            Args = ["--no-first-run", "--no-default-browser-check"],
+            // 首次启动（含杀毒扫描）可能慢，默认 30s 不够
+            Timeout = 60_000,
+        };
+        BrowserLauncher.ApplyFallbackOptions(options, executablePath, AppPaths.Data.Browser);
+        return options;
     }
 
     // 认不出框架（新开的标签页里点出来的下载）就归最近动过手的会话

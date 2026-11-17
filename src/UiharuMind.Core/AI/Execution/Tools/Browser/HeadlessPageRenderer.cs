@@ -18,7 +18,7 @@ namespace UiharuMind.Core.AI.Execution.Tools.Browser;
 /// </summary>
 public interface IHtmlRenderer
 {
-    /// <summary>当前能不能用：上次起浏览器失败（多半没装 Chrome）后冷却期内为 false</summary>
+    /// <summary>当前能不能用：上次起浏览器失败（Chrome 和 Edge 都没起来）后冷却期内为 false</summary>
     bool IsAvailable { get; }
 
     /// <summary>
@@ -114,25 +114,19 @@ public sealed class HeadlessPageRenderer : IHtmlRenderer
         try
         {
             if (_browser is { IsConnected: true } existing) return existing;
-            if (!IsAvailable) throw new InvalidOperationException("Chrome could not be started recently.");
+            if (!IsAvailable) throw new InvalidOperationException("No browser could be started recently.");
 
             try
             {
-                _browser = await Puppeteer.LaunchAsync(new LaunchOptions
-                {
-                    Browser = SupportedBrowser.Chrome,
-                    Channel = ChromeReleaseChannel.Stable,
-                    Headless = true,
-                    UserDataDir = _profileDir,
-                    Args = ["--no-first-run", "--no-default-browser-check"],
-                    Pipe = true,
-                });
+                // Chrome 起不来（多半没装）就找 Edge 补位；两个都没有才报错
+                _browser = await BrowserLauncher.LaunchWithFallbackAsync(
+                    executable => Puppeteer.LaunchAsync(NewLaunchOptions(executable)));
                 return _browser;
             }
             catch (Exception e)
             {
                 _launchBlockedUntil = DateTime.UtcNow + LaunchRetryDelay;
-                Log.Warning($"[WebFetch] headless Chrome failed to start: {e.Message}");
+                Log.Warning($"[WebFetch] headless browser failed to start: {e.Message}");
                 throw;
             }
         }
@@ -140,6 +134,23 @@ public sealed class HeadlessPageRenderer : IHtmlRenderer
         {
             _gate.Release();
         }
+    }
+
+    /// <summary>
+    /// 构造启动参数：Chrome 走 Puppeteer 系统检测，Edge 填 ExecutablePath 补位。
+    /// Pipe/Channel/Windows 重启参数/独立档案等差异交给 <see cref="BrowserLauncher.ApplyFallbackOptions"/> 一次定好
+    /// </summary>
+    private LaunchOptions NewLaunchOptions(string? executablePath)
+    {
+        LaunchOptions options = new()
+        {
+            Browser = SupportedBrowser.Chrome,
+            Headless = true,
+            Args = ["--no-first-run", "--no-default-browser-check"],
+            Timeout = 60_000,
+        };
+        BrowserLauncher.ApplyFallbackOptions(options, executablePath, _profileDir);
+        return options;
     }
 
     private async Task SweepIdleAsync()
