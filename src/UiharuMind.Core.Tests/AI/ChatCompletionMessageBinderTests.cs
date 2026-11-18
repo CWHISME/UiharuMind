@@ -179,6 +179,12 @@ public class ChatCompletionMessageBinderTests
         Assert.Equal(
             """{"role":"assistant","content":"查一下","tool_calls":[{"id":"c1","type":"function","function":{"name":"Read","arguments":"{}"}}],"reasoning_content":"想"}""",
             Wire(Bind(TextAndToolCall(), "想", null)));
+
+        // 思考-only 的收口形状（断流保留思考、不再重发，见 StreamCompletionWatch）：
+        // 正文空、只带思考。与 M.E.AI 逐字节一致，否则这一条消息的前缀缓存就与上一轮对不上
+        Assert.Equal(
+            """{"role":"assistant","content":"","reasoning_content":"想"}""",
+            Wire(Bind(Assistant(""), "想", null)));
     }
 
     private static ChatMessage ToolCallOnly() =>

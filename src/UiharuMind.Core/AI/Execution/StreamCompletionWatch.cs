@@ -18,9 +18,22 @@ public sealed class DegeneratedReplyException(int trailingWhitespace)
 
 /// <summary>
 /// 判定一次流式回复是否被半路截断：流正常收尾（带 [DONE]、不抛异常），却既没有 finish_reason、
-/// 也没有正文或工具调用。中转网关断了上游时会自己补上用量帧和 [DONE]，传输层看不出异常，
-/// 只能从内容上认（实测 agnes 一轮只思考了 1.8 万字就收尾，finish_reason 缺失）。
-/// 只有思考、但带了 finish_reason 的不算——那是服务端明确说完了。
+/// 也没有正文、工具调用或<b>有效思考</b>。中转网关断了上游时会自己补上用量帧和 [DONE]，
+/// 传输层看不出异常（<c>SseSanitizingStream</c> 在 EOF 无 [DONE] 时也只打日志哨兵、不抛异常），
+/// 只能从内容上认——这正是判据存在的理由，而不是因为「断流都会抛异常」：那条缝仍然存在。
+///
+/// <para><b>思考也是产出</b>：实测 agnes 一轮只思考了 1.8 万字就收尾、finish_reason 缺失——
+/// 把只有思考的一发当作「无产出断流」整段作废（StreamRestartContent），会丢掉思考者真实
+/// 想过的内容，还要重烧一遍 token。所以非空、非全空白的思考算产出；空白思考不算
+/// （与 <c>LazyChatClient</c> 统计口径一致；落盘侧 normalizer 保留空白，那是保存的口径、
+/// 与断流判定无关，是有意的不对称）。</para>
+///
+/// <para><b>加密思考（密文）另说</b>：chat 线的票据在适配层就被丢弃、到不了这里；
+/// responses/messages 线以 <see cref="TextReasoningContent.ProtectedData"/> 出现时 Text 为空。
+/// 密文是整块一帧语义（<c>ReasoningDetailExtractor</c> 要求同一行内完整闭合，残缺直接放弃），
+/// 客户端不解密、只回传服务端在下一轮解密——所以<b>半截密文不会入库；只有完整票 + 没回答的
+/// 轮次</b>才会命中这里。那种轮次没有答案，票不可见，重发拿完整轮次比保留一张票更值，
+/// 因此密文<b>不算产出</b>，仍是 IsCutOff（重发）。</para>
 /// </summary>
 internal sealed class StreamCompletionWatch
 {
@@ -30,7 +43,7 @@ internal sealed class StreamCompletionWatch
     /// </summary>
     public const int WhitespaceFloodChars = 400;
 
-    private bool _sawAnswer; //见过正文或工具调用
+    private bool _sawAnswer; //见过正文、有效思考或工具调用
     private bool _sawToolCall; //见过工具调用
     private int _trailingWhitespace; //正文尾部连续空白的长度
 
@@ -73,6 +86,14 @@ internal sealed class StreamCompletionWatch
                 case TextContent { Text.Length: > 0 } text:
                     _sawAnswer = true;
                     TrackTrailingWhitespace(text.Text);
+                    break;
+                // 有效思考也是产出：模型真的想过（agnes 一轮 1.8 万字）。不认它的话，
+                // 思考段假收尾会被当作「无产出断流」整段重发，第一发的思考全部作废。
+                // 只看非空且非全空白：孤立空格不算（实测 deepseek 会发），与统计口径同款；
+                // 加密思考（Text 为空、内容在 ProtectedData）不算，见类注释
+                case TextReasoningContent { Text.Length: > 0 } reasoning
+                    when !string.IsNullOrWhiteSpace(reasoning.Text):
+                    _sawAnswer = true;
                     break;
             }
         }

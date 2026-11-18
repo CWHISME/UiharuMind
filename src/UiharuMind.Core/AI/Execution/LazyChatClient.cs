@@ -34,6 +34,9 @@ public class LazyChatClient : IChatClient
 {
     private static readonly TimeSpan ReadyTimeout = TimeSpan.FromSeconds(30);
 
+    // 思考-only 无 finish_reason 收口已提过 Warning 的模型（进程内去重，防合法长思考刷屏）
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, bool> ThinkingOnlyWarned = new();
+
     private readonly Func<ModelRunningData?>? _sessionModelSource; //会话级模型来源,优先于全局当前模型
     private readonly string? _sessionAffinity; //会话亲和值,每发请求前挂到请求上下文上供 HTTP 层写头
     // 加密思考票据**不存这里**：它长在消息上（ADR 0100），随消息落盘。
@@ -382,6 +385,27 @@ public class LazyChatClient : IChatClient
     }
 
     /// <summary>
+    /// 流收口后的汇总日志（两个分支共用：无工具聊天此前一行都没有，思考-only 收口不可观测）。
+    /// 思考-only + 无 finish_reason 是「保留思考、不重发」的收口（ADR 0110 修订）——这种收口
+    /// 常常是上游/网关策略性截断的合法结果，所以细节保持 Debug，只对每个模型第一次出现
+    /// 时提一次 Warning，避免 agnes 这类长思考合法收口每轮刷屏。
+    /// </summary>
+    private static void LogStreamSummary(ModelRunningData model, StreamCompletionWatch watch,
+        int reasoningChars, int textChars)
+    {
+        Log.Debug($"[stream] assistant reply ended: reasoning={reasoningChars:N0} chars, text={textChars:N0} chars, " +
+                  $"finish_reason={watch.FinishReason ?? "(none)"}.");
+
+        if (textChars == 0 && reasoningChars > 0 && watch.FinishReason == null &&
+            ThinkingOnlyWarned.TryAdd(model.ModelInfo.ModelId, true))
+        {
+            Log.Warning($"[stream] thinking-only reply ended without finish_reason " +
+                        $"(model '{model.ModelInfo.ModelId}'): {reasoningChars:N0} reasoning chars, no answer text. " +
+                        "Kept instead of retried (thinking counts as output).");
+        }
+    }
+
+    /// <summary>
     /// 记下「这个模型要求历史里每条助手消息都带思考」并落盘，供下一次重发使用。
     /// 非远程配置型模型（本地）改不了，返回 false 交上层照原样抛错。
     /// </summary>
@@ -581,9 +605,6 @@ public class LazyChatClient : IChatClient
 
         if (textParser != null)
         {
-            Log.Debug($"[stream] assistant reply ended: reasoning={reasoningChars:N0} chars, text={textChars:N0} chars, " +
-                      $"finish_reason={watch.FinishReason ?? "(none)"}.");
-
             List<AIContent> tail = new();
             Append(tail, textParser.Flush(), isReasoning: false);
             Append(tail, reasoningParser!.Flush(), isReasoning: true);
@@ -595,7 +616,13 @@ public class LazyChatClient : IChatClient
             }
         }
 
-        // 网关断了上游仍会补 [DONE] 正常收尾，传输层看不出来；按断线处理，交给上层重试
+        // 两个分支共用的收口摘要：无工具聊天（textParser == null）原先一行都没有，
+        // 思考-only 收口在这种形态下完全不可观测
+        LogStreamSummary(model, watch, reasoningChars, textChars);
+
+        // 有产出（含非空思考）的假收尾不再是「无产出断流」：不重发、保留思考（ADR 0110 修订）。
+        // 这里只认「没有任何产出（含思考）却收了尾」的假收尾；真正的传输断流在更早的 catch
+        // 分支或 SseSanitizingStream 的哨兵日志里（EOF 无 [DONE] 只打日志、不抛异常）
         if (watch.IsCutOff)
         {
             yield return (null, new HttpIOException(HttpRequestError.ResponseEnded,

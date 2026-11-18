@@ -4,7 +4,9 @@ using UiharuMind.Core.AI.Execution;
 namespace UiharuMind.Core.Tests.AI;
 
 /// <summary>
-/// 网关断了上游仍补 [DONE] 正常收尾：只剩思考、没有 finish_reason 的回复要认成截断
+/// 网关断了上游仍补 [DONE] 正常收尾：
+/// <b>思考也是产出</b>——只剩思考、没有 finish_reason 的回复不该整段作废重发
+/// （第一发的思考全部丢掉，代价远大于保留）。真正的断流在传输层抛异常走另一条路。
 /// </summary>
 public class StreamCompletionWatchTests
 {
@@ -20,14 +22,18 @@ public class StreamCompletionWatchTests
     private static ChatResponseUpdate Finish(ChatFinishReason reason) =>
         new(ChatRole.Assistant, Array.Empty<AIContent>()) { FinishReason = reason };
 
+    /// <summary>
+    /// 只剩思考、没有 finish_reason：思考是实打实的产出，不能当作「无产出断流」
+    /// 整段重发作废——agnès 一轮 1.8 万字思考就是被这个判据白丢的
+    /// </summary>
     [Fact]
-    public void ReasoningOnly_WithoutFinishReason_IsCutOff()
+    public void ReasoningOnly_WithoutFinishReason_IsNotCutOff()
     {
         StreamCompletionWatch watch = Watch(
             Update(new TextReasoningContent("想一想")),
             Update(new UsageContent(new UsageDetails { OutputTokenCount = 5197 })));
 
-        Assert.True(watch.IsCutOff);
+        Assert.False(watch.IsCutOff);
         Assert.Null(watch.FinishReason);
     }
 
@@ -54,6 +60,49 @@ public class StreamCompletionWatchTests
     [Fact]
     public void EmptyText_DoesNotCountAsAnswer() =>
         Assert.True(Watch(Update(new TextContent(""))).IsCutOff);
+
+    /// <summary>空思考与空正文同口径：没内容就不算产出，仍是截断</summary>
+    [Fact]
+    public void EmptyReasoning_DoesNotCountAsAnswer() =>
+        Assert.True(Watch(Update(new TextReasoningContent(""))).IsCutOff);
+
+    /// <summary>
+    /// 纯空白思考不算产出：实测 deepseek 会发孤立空格，照算会把「只有空格思考」当成
+    /// 成功收口（与 LazyChatClient 统计口径一致；落盘侧 normalizer 保留空白是保存口径，
+    /// 两者是有意的不对称）
+    /// </summary>
+    [Fact]
+    public void WhitespaceOnlyReasoning_DoesNotCountAsAnswer() =>
+        Assert.True(Watch(Update(new TextReasoningContent("   \n  "))).IsCutOff);
+
+    /// <summary>
+    /// 只有密文（Text 空、ProtectedData 有值）+ 无 finish_reason：仍是截断，重发。
+    /// 密文整块一帧，半截不入库；而“完整票 + 没回答”的轮次没有答案，
+    /// 重发拿完整轮次比保留一张看不见的票更值（见 StreamCompletionWatch 类注释）
+    /// </summary>
+    [Fact]
+    public void EncryptedOnlyReasoning_WithoutFinishReason_IsCutOff()
+    {
+        StreamCompletionWatch watch = Watch(
+            Update(new TextReasoningContent(string.Empty) { ProtectedData = "BLOB" }));
+
+        Assert.True(watch.IsCutOff);
+        Assert.Null(watch.FinishReason);
+    }
+
+    /// <summary>思考 + 正文混合、无 finish_reason：早就有正文了，当然不算截断</summary>
+    [Fact]
+    public void ReasoningAndText_WithoutFinishReason_IsNotCutOff() =>
+        Assert.False(Watch(
+            Update(new TextReasoningContent("想一想"), new TextContent("答案"))).IsCutOff);
+
+    /// <summary>多个思考段（思考/正文交替）也一样：有产出就不是截断</summary>
+    [Fact]
+    public void MultiSegmentReasoning_WithoutFinishReason_IsNotCutOff() =>
+        Assert.False(Watch(
+            Update(new TextReasoningContent("第一段思考")),
+            Update(new TextContent("正文")),
+            Update(new TextReasoningContent("第二段思考"))).IsCutOff);
 
     [Fact]
     public void TextThenThousandsOfNewlines_IsWhitespaceFlooded()

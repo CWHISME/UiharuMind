@@ -240,6 +240,57 @@ public class StreamRetryTests
         Assert.Single(stored.Contents);
     }
 
+    /// <summary>
+    /// 内容型断流的<b>接线</b>：流正常收尾（不抛异常）+ 零内容 + 无 finish_reason →
+    /// IsCutOff 合成 ResponseEnded → 分类 → 重发一次带 <see cref="StreamRestartContent"/>。
+    /// 这条链以前只有抛异常的传输断流测试覆盖，IsCutOff 合成的失败从没被端到端钉过——
+    /// 而本次改动翻转的正是它的输入
+    /// </summary>
+    [Fact]
+    public async Task CutOffEmptyReply_IsRetriedWithRestartMarker()
+    {
+        ContentClient fake = new(attempt => attempt == 1
+            ? [] // 第一次：正常收尾、零内容、无 finish_reason（触发 IsCutOff）
+            : [new TextContent("ok")]);
+        LazyChatClient client = new(() => Running(fake));
+
+        List<AIContent> contents = [];
+        await foreach (ChatResponseUpdate update in client.GetStreamingResponseAsync(
+                           [new ChatMessage(ChatRole.User, "hi")],
+                           cancellationToken: TestContext.Current.CancellationToken))
+        {
+            contents.AddRange(update.Contents);
+        }
+
+        Assert.Equal(2, fake.Calls); //首发 + 1 次重发
+        Assert.Contains(contents, content => content is StreamRestartContent);
+        Assert.Contains(contents, content => content is TextContent { Text: "ok" });
+    }
+
+    /// <summary>
+    /// 只有思考、无 finish_reason 的假收尾<b>不再重发</b>（有效思考算产出，ADR）：
+    /// 重发会作废第一发的思考、还要重烧一遍 token。断言 0 重发 + 思考真的从客户端
+    /// 流出来了——防止「思考被别处误丢、但恰好没重发」的假绿
+    /// </summary>
+    [Fact]
+    public async Task ThinkingOnlyReply_IsNotRetried()
+    {
+        ContentClient fake = new(_ => [new TextReasoningContent("想一想")]);
+        LazyChatClient client = new(() => Running(fake));
+
+        List<AIContent> contents = [];
+        await foreach (ChatResponseUpdate update in client.GetStreamingResponseAsync(
+                           [new ChatMessage(ChatRole.User, "hi")],
+                           cancellationToken: TestContext.Current.CancellationToken))
+        {
+            contents.AddRange(update.Contents);
+        }
+
+        Assert.Equal(1, fake.Calls); //没有重发
+        Assert.DoesNotContain(contents, content => content is StreamRestartContent);
+        Assert.Contains(contents, content => content is TextReasoningContent { Text: "想一想" });
+    }
+
     private static async Task<List<string>> CollectAsync(LazyChatClient client)
     {
         List<string> texts = [];
@@ -298,6 +349,36 @@ public class StreamRetryTests
             await Task.Yield();
             SeenContexts.Add(LlmRequestScope.Current);
             throw error;
+        }
+
+        public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null,
+            CancellationToken cancellationToken = default) => throw new NotImplementedException();
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public void Dispose()
+        {
+        }
+    }
+
+    /// <summary>
+    /// 每次尝试按尝试序号吐指定内容、<b>正常收尾</b>（不抛异常、不设 finish_reason）。
+    /// 用于内容型断流（IsCutOff 合成失败）的接线测试：零内容/只有思考的形状都从它来
+    /// </summary>
+    private sealed class ContentClient(Func<int, AIContent[]> contentsForAttempt) : IChatClient
+    {
+        public int Calls;
+
+        public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+            IEnumerable<ChatMessage> messages, ChatOptions? options = null,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            int call = Interlocked.Increment(ref Calls);
+            foreach (AIContent content in contentsForAttempt(call))
+            {
+                await Task.Yield();
+                yield return new ChatResponseUpdate(ChatRole.Assistant, [content]);
+            }
         }
 
         public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null,
