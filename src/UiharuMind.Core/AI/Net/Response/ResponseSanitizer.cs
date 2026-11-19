@@ -44,11 +44,15 @@ internal sealed class ResponseSanitizer
         // 这一发的「看见加密思考」回调：由 LazyChatClient 每发一次挂上，界面据此先开一张没有正文的思考卡。
         // 在这里取而不是构造时取——清洗器按端点长期存活，回调是逐请求的
         Action<byte[]>? encryptedReasoning = LlmRequestScope.Current.EncryptedReasoningObserved;
+        // 这一发的「流式响应收尾」回调：字节层读完整条流后报告是否见过 [DONE]，
+        // 断流判定要靠它区分「正常收尾」与「服务端掐连接」。同样逐请求取
+        Action<bool>? streamDone = LlmRequestScope.Current.StreamDoneObserved;
 
         var mediaType = response.Content.Headers.ContentType?.MediaType;
         if (mediaType == "text/event-stream")
         {
-            response.Content = new SseSanitizingContent(response.Content, _reasoningFieldObserver, encryptedReasoning);
+            response.Content = new SseSanitizingContent(response.Content, _reasoningFieldObserver, encryptedReasoning,
+                streamDone);
         }
         else if (mediaType == "application/json")
         {

@@ -10,13 +10,15 @@ internal sealed class SseSanitizingContent : HttpContent
     private readonly HttpContent _inner;
     private readonly Action<string>? _reasoningFieldObserver; //观测到思考字段原名时回调,透传给 SseSanitizingStream
     private readonly Action<byte[]>? _encryptedReasoningObserver; //看见加密思考时交出原文,透传给 SseSanitizingStream
+    private readonly Action<bool>? _streamDoneObserver; //流走到 EOF 时交出收尾状态,透传给 SseSanitizingStream
 
     public SseSanitizingContent(HttpContent inner, Action<string>? reasoningFieldObserver = null,
-        Action<byte[]>? encryptedReasoningObserver = null)
+        Action<byte[]>? encryptedReasoningObserver = null, Action<bool>? streamDoneObserver = null)
     {
         _inner = inner;
         _reasoningFieldObserver = reasoningFieldObserver;
         _encryptedReasoningObserver = encryptedReasoningObserver;
+        _streamDoneObserver = streamDoneObserver;
         foreach (var header in inner.Headers)
         {
             // 内容被改写后长度不再准确，Content-Length 不能照抄
@@ -28,13 +30,13 @@ internal sealed class SseSanitizingContent : HttpContent
     protected override async Task SerializeToStreamAsync(Stream stream, TransportContext? context)
     {
         await using var source = new SseSanitizingStream(await _inner.ReadAsStreamAsync(), _reasoningFieldObserver,
-            _encryptedReasoningObserver);
+            _encryptedReasoningObserver, streamDoneObserver: _streamDoneObserver);
         await source.CopyToAsync(stream);
     }
 
     protected override async Task<Stream> CreateContentReadStreamAsync()
         => new SseSanitizingStream(await _inner.ReadAsStreamAsync(), _reasoningFieldObserver,
-            _encryptedReasoningObserver);
+            _encryptedReasoningObserver, streamDoneObserver: _streamDoneObserver);
 
     protected override bool TryComputeLength(out long length)
     {

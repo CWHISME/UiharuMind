@@ -115,6 +115,40 @@ public class SseSanitizingStreamTests
     }
 
     /// <summary>
+    /// 传输层收尾状态真的接在流上：读到 [DONE] 的正常收尾，EOF 时回调 sawDone=true。
+    /// 接线断了就该红——断流判定要靠它区分「正常收尾」与「服务端抬连接」
+    /// </summary>
+    [Fact]
+    public async Task StreamEnd_WithDone_ReportsSawDoneTrue()
+    {
+        bool? reported = null;
+        string sse = Chunk + "\n\ndata: [DONE]\n\n";
+        await using var stream = new SseSanitizingStream(
+            new MemoryStream(Encoding.UTF8.GetBytes(sse)), streamDoneObserver: sawDone => reported = sawDone);
+        using var reader = new StreamReader(stream);
+        await reader.ReadToEndAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(reported);
+    }
+
+    /// <summary>
+    /// EOF 时没见过 [DONE]（服务端静默抬连接）：回调 sawDone=false。
+    /// 这是本次修复的核心输入——以前这一路只打哨兵日志，判定层根本不知道
+    /// </summary>
+    [Fact]
+    public async Task StreamEnd_WithoutDone_ReportsSawDoneFalse()
+    {
+        bool? reported = null;
+        string sse = Chunk + "\n\n"; //没有 [DONE] 就 EOF
+        await using var stream = new SseSanitizingStream(
+            new MemoryStream(Encoding.UTF8.GetBytes(sse)), streamDoneObserver: sawDone => reported = sawDone);
+        using var reader = new StreamReader(stream);
+        await reader.ReadToEndAsync(TestContext.Current.CancellationToken);
+
+        Assert.False(reported);
+    }
+
+    /// <summary>
     /// 思考字段普查真的接在流上（不只是类本身能算）：「加密条目有没有下发」这个判断
     /// 全靠这条计数，接线断了就该红。
     /// </summary>

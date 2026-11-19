@@ -291,6 +291,56 @@ public class StreamRetryTests
         Assert.Contains(contents, content => content is TextReasoningContent { Text: "想一想" });
     }
 
+    /// <summary>
+    /// 本次修复的接线：思考段<b>真断流</b>（传输层在 EOF 报告未见 [DONE]）时要<b>重发</b>——
+    /// 内容侧看「有思考」不再算成功收口。fake 在枚举时经 LlmRequestScope 回调
+    /// StreamDoneObserved(false)，等价字节层 SseSanitizingStream 走到 EOF 无 [DONE]
+    /// </summary>
+    [Fact]
+    public async Task ThinkingOnly_WithTransportNoDone_IsRetriedWithRestartMarker()
+    {
+        DoneReportingClient fake = new(
+            sawDoneForAttempt: attempt => attempt == 1 ? false : true,
+            contentsForAttempt: attempt => attempt == 1
+                ? [new TextReasoningContent("想一想")]
+                : [new TextReasoningContent("想一想"), new TextContent("ok")]);
+        LazyChatClient client = new(() => Running(fake));
+
+        List<AIContent> contents = [];
+        await foreach (ChatResponseUpdate update in client.GetStreamingResponseAsync(
+                           [new ChatMessage(ChatRole.User, "hi")],
+                           cancellationToken: TestContext.Current.CancellationToken))
+        {
+            contents.AddRange(update.Contents);
+        }
+
+        Assert.Equal(2, fake.Calls); //首发（思考段断流）+ 1 次重发
+        Assert.Contains(contents, content => content is StreamRestartContent);
+        Assert.Contains(contents, content => content is TextContent { Text: "ok" });
+    }
+
+    /// <summary>对照：传输层报告见过 [DONE]（正常收尾）+ 思考-only → 仍不重发（守 agnes 语义）</summary>
+    [Fact]
+    public async Task ThinkingOnly_WithTransportDone_IsNotRetried()
+    {
+        DoneReportingClient fake = new(
+            sawDoneForAttempt: _ => true,
+            contentsForAttempt: _ => [new TextReasoningContent("想一想")]);
+        LazyChatClient client = new(() => Running(fake));
+
+        List<AIContent> contents = [];
+        await foreach (ChatResponseUpdate update in client.GetStreamingResponseAsync(
+                           [new ChatMessage(ChatRole.User, "hi")],
+                           cancellationToken: TestContext.Current.CancellationToken))
+        {
+            contents.AddRange(update.Contents);
+        }
+
+        Assert.Equal(1, fake.Calls); //没有重发
+        Assert.DoesNotContain(contents, content => content is StreamRestartContent);
+        Assert.Contains(contents, content => content is TextReasoningContent { Text: "想一想" });
+    }
+
     private static async Task<List<string>> CollectAsync(LazyChatClient client)
     {
         List<string> texts = [];
@@ -374,6 +424,41 @@ public class StreamRetryTests
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             int call = Interlocked.Increment(ref Calls);
+            foreach (AIContent content in contentsForAttempt(call))
+            {
+                await Task.Yield();
+                yield return new ChatResponseUpdate(ChatRole.Assistant, [content]);
+            }
+        }
+
+        public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null,
+            CancellationToken cancellationToken = default) => throw new NotImplementedException();
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public void Dispose()
+        {
+        }
+    }
+
+    /// <summary>
+    /// 每次尝试按序号报告传输层收尾状态（sawDone）并吐指定内容、正常收尾。
+    /// 报告经 LlmRequestScope.Current.StreamDoneObserved 回调，等价字节层
+    /// SseSanitizingStream 走到 EOF 时交出是否见过 [DONE]
+    /// </summary>
+    private sealed class DoneReportingClient(Func<int, bool> sawDoneForAttempt, Func<int, AIContent[]> contentsForAttempt)
+        : IChatClient
+    {
+        public int Calls;
+
+        public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+            IEnumerable<ChatMessage> messages, ChatOptions? options = null,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            int call = Interlocked.Increment(ref Calls);
+            bool sawDone = sawDoneForAttempt(call);
+            await Task.Yield();
+            LlmRequestScope.Current.StreamDoneObserved?.Invoke(sawDone);
             foreach (AIContent content in contentsForAttempt(call))
             {
                 await Task.Yield();

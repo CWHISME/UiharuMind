@@ -42,6 +42,7 @@ internal sealed class SseSanitizingStream : Stream
     private bool _innerEnded;
     private bool _endReported;
     private bool _disposed;
+    private bool _doneReported; //收尾状态已交出去过一次（EOF 每被触达一次都会走到 FinishInput）
     private bool _sawDone; //是否见过 data: [DONE]——EOF 时没见过说明服务器掐了流
     private int _usageFrames; //带 usage 的帧数:多于 1 时用量会被记多次
     private int _linesRead; //已读行数(诊断用:终止时看流到底被消费了多少)
@@ -50,14 +51,17 @@ internal sealed class SseSanitizingStream : Stream
     private ProviderStreamErrorException? _streamError; //上游在流里回的错误帧(收尾日志的措辞要用它)
     private readonly SseReasoningCensus _reasoningCensus = new(); //思考字段普查:加密思考有没有下发,只能在这里看
     private readonly Action<byte[]>? _encryptedReasoningObserver; //看见加密思考时交出它的原文(界面开卡 + 下一发回填)
+    private readonly Action<bool>? _streamDoneObserver; //流走到 EOF 时交出收尾状态(是否见过 [DONE])，断流判定要用
     private bool _encryptedSeen; //只交一次:一条流里它可能出现多帧,且票据始终是同一张
 
     public SseSanitizingStream(Stream inner, Action<string>? reasoningFieldObserver = null,
-        Action<byte[]>? encryptedReasoningObserver = null, TimeSpan? idleLimit = null)
+        Action<byte[]>? encryptedReasoningObserver = null, TimeSpan? idleLimit = null,
+        Action<bool>? streamDoneObserver = null)
     {
         _inner = inner;
         _reasoningFieldObserver = reasoningFieldObserver;
         _encryptedReasoningObserver = encryptedReasoningObserver;
+        _streamDoneObserver = streamDoneObserver;
         _idleLimit = idleLimit ?? DefaultIdleLimit;
     }
 
@@ -338,6 +342,15 @@ internal sealed class SseSanitizingStream : Stream
         }
 
         ReportEndIfAbnormal();
+        // 传输层收尾状态交出去：断流判定要区分「见过 [DONE] 的正常收尾」与
+        // 「EOF 无 [DONE] 的静默掐连接」——后者在内容侧（思考也算产出后）看不出来。
+        // EOF 每次被触达都会走到这里，只交一次（回调用方的信号是可变对象，重复置位无害但语义乱）
+        if (!_doneReported && _streamDoneObserver != null)
+        {
+            _doneReported = true;
+            _streamDoneObserver(_sawDone);
+        }
+
         return true;
     }
 

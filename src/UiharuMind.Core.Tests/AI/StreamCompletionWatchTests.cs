@@ -90,6 +90,64 @@ public class StreamCompletionWatchTests
         Assert.Null(watch.FinishReason);
     }
 
+    /// <summary>
+    /// 本次修复的核心：思考段<b>真断流</b>（传输层报告 EOF 未见 [DONE]）时，
+    /// 有思考也不再算「成功收口」——连半截都没有收完，必须整段重发
+    /// </summary>
+    [Fact]
+    public void Thinking_WithTransportNoDone_IsCutOff()
+    {
+        StreamCompletionWatch watch = Watch(Update(new TextReasoningContent("想一想")));
+        watch.MarkTransportEnd(sawDone: false);
+
+        Assert.True(watch.IsCutOff);
+    }
+
+    /// <summary>守 agnes 语义：见过 [DONE] 的正常收尾 + 思考-only，仍保留思考不重发</summary>
+    [Fact]
+    public void Thinking_WithTransportDone_IsNotCutOff()
+    {
+        StreamCompletionWatch watch = Watch(Update(new TextReasoningContent("想一想")));
+        watch.MarkTransportEnd(sawDone: true);
+
+        Assert.False(watch.IsCutOff);
+    }
+
+    /// <summary>finish_reason=length（max_tokens 截断）是合法收尾：无论 [DONE] 与否都不该重发</summary>
+    [Fact]
+    public void FinishReasonLength_WithTransportNoDone_IsNotCutOff()
+    {
+        StreamCompletionWatch watch = Watch(
+            Update(new TextReasoningContent("想一想")), Finish(ChatFinishReason.Length));
+        watch.MarkTransportEnd(sawDone: false);
+
+        Assert.False(watch.IsCutOff);
+        Assert.Equal("length", watch.FinishReason);
+    }
+
+    /// <summary>
+    /// 「未见 [DONE] + 无 finish_reason → 一律重发」的代价显式钉住：正文完整但收尾帧被掐
+    /// 同样重发（宁可白烧一次，不可静默收口）。这条同时封住工具调用半截的缝
+    /// </summary>
+    [Fact]
+    public void Text_WithTransportNoDone_IsCutOff()
+    {
+        StreamCompletionWatch watch = Watch(Update(new TextContent("答案")));
+        watch.MarkTransportEnd(sawDone: false);
+
+        Assert.True(watch.IsCutOff);
+    }
+
+    /// <summary>传输层报告过 [DONE] 的正文收口不受影响</summary>
+    [Fact]
+    public void Text_WithTransportDone_IsNotCutOff()
+    {
+        StreamCompletionWatch watch = Watch(Update(new TextContent("答案")));
+        watch.MarkTransportEnd(sawDone: true);
+
+        Assert.False(watch.IsCutOff);
+    }
+
     /// <summary>思考 + 正文混合、无 finish_reason：早就有正文了，当然不算截断</summary>
     [Fact]
     public void ReasoningAndText_WithoutFinishReason_IsNotCutOff() =>

@@ -148,6 +148,7 @@ public class LazyChatClient : IChatClient
         // （表现为重发请求丢了会话亲和头，见 ADR 0099 修订）。用 Current with 合并，
         // 外层的 ForbidToolCalls / RetryTally 因此原样留着
         EncryptedReasoningSignal signal = new();
+        StreamDoneSignal doneSignal = new();
         LlmRequestContext context = LlmRequestScope.Current with
         {
             SessionAffinity = _sessionAffinity,
@@ -158,6 +159,13 @@ public class LazyChatClient : IChatClient
                 signal.Seen = true;
                 signal.TicketJson = Encoding.UTF8.GetString(ticket);
                 signal.Producer = producer;
+            },
+            // 传输层收尾状态：字节层读完整条流后报告是否见过 [DONE]（SDK 只能读到 EOF，
+            // 区分不了「正常收尾」与「服务端掐连接」）。收尾判定并进 watch（见 MarkTransportEnd）
+            StreamDoneObserved = sawDone =>
+            {
+                doneSignal.Reported = true;
+                doneSignal.SawDone = sawDone;
             },
         };
 
@@ -179,6 +187,10 @@ public class LazyChatClient : IChatClient
         bool resend = false;
         while (true)
         {
+            // 每一次尝试都是一次全新的传输：上一发的 [DONE] 状态不能带到这一发
+            // （context 跨尝试复用，回调会覆盖字段，但显式重置让判定不依赖回调时序）
+            doneSignal.Reported = false;
+
             if (resend)
             {
                 context.RetryTally?.NoteRetry();
@@ -189,7 +201,7 @@ public class LazyChatClient : IChatClient
 
             bool retryable = false;
             await foreach (var (update, failure) in StreamOnceAsync(
-                               client, gated, options, toolNames, model, signal, producer, context,
+                               client, gated, options, toolNames, model, signal, doneSignal, producer, context,
                                cancellationToken)
                            .ConfigureAwait(false))
             {
@@ -433,8 +445,8 @@ public class LazyChatClient : IChatClient
     /// </summary>
     private async IAsyncEnumerable<(ChatResponseUpdate? Update, Exception? Failure)> StreamOnceAsync(
         IChatClient client, IReadOnlyList<ChatMessage> messages, ChatOptions? options, HashSet<string>? toolNames,
-        ModelRunningData model, EncryptedReasoningSignal signal, ReasoningGate producer, LlmRequestContext context,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
+        ModelRunningData model, EncryptedReasoningSignal signal, StreamDoneSignal doneSignal, ReasoningGate producer,
+        LlmRequestContext context, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         // 文本工具调用恢复:GLM 线格式的调用可能以纯文本漏进正文或思考通道
         // (服务端未翻译成结构化 tool_calls 时),在此转回 FunctionCallContent,
@@ -618,6 +630,9 @@ public class LazyChatClient : IChatClient
 
         // 两个分支共用的收口摘要：无工具聊天（textParser == null）原先一行都没有，
         // 思考-only 收口在这种形态下完全不可观测
+        // 传输层收尾状态并进断流判定：未报告（responses/messages 线、本地、fake）保持现状；
+        // 报告且未见 [DONE] 时，watch 会把「有思考/正文/工具的假收尾」也判成真断流（重发）
+        if (doneSignal.Reported) watch.MarkTransportEnd(doneSignal.SawDone);
         LogStreamSummary(model, watch, reasoningChars, textChars);
 
         // 有产出（含非空思考）的假收尾不再是「无产出断流」：不重发、保留思考（ADR 0110 修订）。
@@ -800,6 +815,18 @@ public class LazyChatClient : IChatClient
     public void Dispose()
     {
         // 不持有底层客户端所有权
+    }
+
+    /// <summary>
+    /// 流式响应的传输层收尾信号：字节层在 EOF 时置 <see cref="Reported"/> 与 <see cref="SawDone"/>，
+    /// 收尾判定据此区分「见过 [DONE] 的正常收尾」与「EOF 无 [DONE] 的静默掐连接」。
+    /// 每次尝试开始前重置 <see cref="Reported"/>——context 跨尝试复用，不重置的话第二发的
+    /// [DONE] 状态会污染第一发的判定。
+    /// </summary>
+    private sealed class StreamDoneSignal
+    {
+        public bool Reported; //这一发传输层是否报告了收尾
+        public bool SawDone; //报告时是否见过 [DONE]
     }
 
     /// <summary>

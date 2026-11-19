@@ -55,6 +55,22 @@ public sealed record LlmRequestContext
     public Action<byte[]>? EncryptedReasoningObserved { get; init; }
 
     /// <summary>
+    /// 这一发<b>流式响应在传输层收尾</b>时通知一次，交出「是否见过 [DONE]」。
+    ///
+    /// 由 <see cref="Execution.LazyChatClient"/> 每发请求挂上，字节层读完整条流、走到
+    /// EOF 时调（<c>sawDone=true</c> = 正常收尾；<c>false</c> = 服务端掐了连接）。
+    ///
+    /// 存在的理由：断流判定需要「传输层收尾状态」这个输入。以前只有
+    /// <see cref="Execution.StreamCompletionWatch"/> 从内容侧判「有没有产出」——有效思考
+    /// 也算产出之后（ADR 0110 修订），思考段中途断流会被误认成正常收尾直接收口，
+    /// 这一整个轮次带着半截思考静默结束。
+    ///
+    /// 传回调而不是标志位：回调是同一个对象，HTTP 层在深处调它，调用方拿得到结果——
+    /// 而 <c>AsyncLocal</c> 里写下的值不会向调用方回流（与 <see cref="EncryptedReasoningObserved"/> 同款约束）。
+    /// </summary>
+    public Action<bool>? StreamDoneObserved { get; init; }
+
+    /// <summary>
     /// 这一发内部的重发计数口（断线退避重发、<c>max_tokens</c> 400 自愈、要求带思考自愈都算）。
     /// 由调用方（用量记账）挂一个可变对象进来，<see cref="Execution.LazyChatClient"/> 每重发一次 +1：
     /// AsyncLocal 里写下的数字不向调用方回流，引用可以

@@ -45,6 +45,8 @@ internal sealed class StreamCompletionWatch
 
     private bool _sawAnswer; //见过正文、有效思考或工具调用
     private bool _sawToolCall; //见过工具调用
+    private bool _transportReported; //传输层是否报告过收尾（EOF 已到）
+    private bool _transportSawDone; //传输层报告时是否见过 [DONE]
     private int _trailingWhitespace; //正文尾部连续空白的长度
 
     /// <summary>
@@ -53,9 +55,28 @@ internal sealed class StreamCompletionWatch
     public string? FinishReason { get; private set; }
 
     /// <summary>
-    /// 流已收尾但看起来被截断了
+    /// 流已收尾但看起来被截断了。
+    ///
+    /// 两个输入合成：内容侧（有没有产出）与传输侧（收尾状态）。
+    /// 未报告传输侧时只认内容——有正文/有效思考/工具调用就不算断流（思考也是产出）；
+    /// 报告且<b>未见 [DONE]</b>（服务端掐了连接）时，只要没有 finish_reason 一律算真断流——
+    /// 内容被截断到一半同样是断流，正文/思考/工具调用的增量都救不回来
     /// </summary>
-    public bool IsCutOff => FinishReason == null && !_sawAnswer;
+    public bool IsCutOff => FinishReason == null && (!_sawAnswer || (_transportReported && !_transportSawDone));
+
+    /// <summary>
+    /// 传输层报告整条流的收尾状态。<paramref name="sawDone"/> 为 true 表示读过 [DONE]（正常收尾），
+    /// false 表示 EOF 时没见过 [DONE]（服务端掐了连接）。
+    ///
+    /// 不调用（默认）等于「未报告」，判据只按内容走：responses/messages 线没有 [DONE] 哨兵、
+    /// 本地模型与不经字节层的 fake 也不报告，它们的行为不能因此翻转。
+    /// </summary>
+    /// <param name="sawDone">是否见过 [DONE]</param>
+    public void MarkTransportEnd(bool sawDone)
+    {
+        _transportReported = true;
+        _transportSawDone = sawDone;
+    }
 
     /// <summary>
     /// 正文尾部堆了一大段空白、且这一发没有工具调用：回合会就此停住，该重发
