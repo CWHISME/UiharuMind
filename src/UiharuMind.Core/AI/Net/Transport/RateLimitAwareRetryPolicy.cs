@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System.ClientModel.Primitives;
+using UiharuMind.Core.AI.Net.Errors;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Net.Transport;
@@ -71,12 +72,12 @@ internal sealed class RateLimitAwareRetryPolicy : ClientRetryPolicy
 
     protected override bool ShouldRetry(PipelineMessage message, Exception? exception)
     {
-        return Decide(message, base.ShouldRetry(message, exception));
+        return Decide(message, exception, base.ShouldRetry(message, exception));
     }
 
     protected override async ValueTask<bool> ShouldRetryAsync(PipelineMessage message, Exception? exception)
     {
-        return Decide(message, await base.ShouldRetryAsync(message, exception).ConfigureAwait(false));
+        return Decide(message, exception, await base.ShouldRetryAsync(message, exception).ConfigureAwait(false));
     }
 
     protected override TimeSpan GetNextDelay(PipelineMessage message, int tryCount)
@@ -87,23 +88,42 @@ internal sealed class RateLimitAwareRetryPolicy : ClientRetryPolicy
         TimeSpan delay = ApplyJitter(ComputeDelay(rateLimited, tryCount, ReadRetryAfterSeconds(message)));
         Log.Warning($"Remote model {(rateLimited ? "rate limited (429)" : "request failed")}, " +
                     $"retry #{tryCount} in {delay.TotalSeconds:0.#}s.");
+        // SDK 层每重试一次都记账：上层（用量账本）原来只能看见 LazyChatClient 整段重发的那几次，
+        // 429/5xx 在 SDK 内部的尝试对账本不可见（重试不可观测的根子就在这一层失明）
+        LlmRequestScope.Current.RetryTally?.NoteRetry();
         return delay;
     }
 
     /// <summary>
-    /// 在 SDK 的可重试判定之上加两条：本轮已取消就不再重试；
+    /// 在 SDK 的可重试判定之上加三条：本轮已取消就不再重试；
+    /// 等响应头超时不重试（它有更上层、带预算的断流重发链接管，SDK 层无限重试会把它拖回黑洞）；
     /// 非限流的失败按 <see cref="TransientMaxRetries"/> 提前收手（限流才用满 <see cref="MaxRetries"/>）。
     /// </summary>
     /// <param name="message">管道消息</param>
+    /// <param name="exception">本次失败的异常；SDK 可能包了一层，按链找</param>
     /// <param name="baseDecision">SDK 默认判定</param>
     /// <returns>是否重试</returns>
-    private bool Decide(PipelineMessage message, bool baseDecision)
+    private bool Decide(PipelineMessage message, Exception? exception, bool baseDecision)
     {
         if (message.CancellationToken.IsCancellationRequested) return false;
+        // 响应头超时要交给上层的断流重发链（LazyChatClient 的 StreamWithRetryAsync，预算 6 次、退避、可观测）：
+        // SDK 层在这里重试既没有上限意识（Transient 4096 / 429 无限），打日志也只能靠 GetNextDelay 猜状态。
+        // 提供 ResponseHeaderTimeoutException 的那个 handler 已经自己记过一行，不用再补。
+        if (ContainsHeaderTimeout(exception)) return false;
         if (!baseDecision) return false;
         if (IsRateLimited(message)) return true;
 
         return CounterOf(message).Value <= TransientMaxRetries;
+    }
+
+    private static bool ContainsHeaderTimeout(Exception? exception)
+    {
+        for (Exception? current = exception; current != null; current = current.InnerException)
+        {
+            if (current is ResponseHeaderTimeoutException) return true;
+        }
+
+        return false;
     }
 
     private static bool IsRateLimited(PipelineMessage message)

@@ -11,7 +11,9 @@
 
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Net.Diagnostics;
+using UiharuMind.Core.AI.Net.Errors;
 using UiharuMind.Core.AI.Net.Response;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Net.Transport;
 
@@ -23,10 +25,14 @@ namespace UiharuMind.Core.AI.Net.Transport;
 /// </summary>
 class WireHttpHandler : DelegatingHandler
 {
+    /// <summary>等响应头的默认上限。见 <see cref="ResponseHeaderTimeoutException"/>：这段路原来没有任何看门狗</summary>
+    internal static readonly TimeSpan DefaultHeaderTimeout = TimeSpan.FromSeconds(120);
+
     private readonly Uri _baseUri; //真正要打的那个地址
     private readonly WireProtocol _protocol; //这条端点的协议(决定地址归一与响应清洗各走哪套)
     private readonly SessionAffinityHeaders _affinity; //本端点的亲和头
     private readonly ResponseSanitizer _sanitizer; //响应清洗（流式与一次性两种形状）
+    private readonly TimeSpan _headerTimeout; //等响应头的上限；默认 DefaultHeaderTimeout，测试与特殊端点可注入
 
     public WireHttpHandler(string address = "http://127.0.0.1:1369/v1/chat/completions",
         Action<string>? reasoningFieldObserver = null,
@@ -55,7 +61,8 @@ class WireHttpHandler : DelegatingHandler
         Action<string>? reasoningFieldObserver = null,
         IReadOnlyList<string>? affinityHeaders = null,
         EApiFormat? format = null,
-        bool sendsAffinity = false) : base(inner)
+        bool sendsAffinity = false,
+        TimeSpan? headerTimeout = null) : base(inner)
     {
         _protocol = format is { } declared
             ? WireProtocols.For(declared)
@@ -64,6 +71,7 @@ class WireHttpHandler : DelegatingHandler
         // 三层在这里合流：公共头默认发，协议头按线补，供应商只补自己独有的
         _affinity = new SessionAffinityHeaders(sendsAffinity, _protocol.SessionHeaders, affinityHeaders);
         _sanitizer = new ResponseSanitizer(_protocol.SanitizesResponse, reasoningFieldObserver);
+        _headerTimeout = headerTimeout ?? DefaultHeaderTimeout;
     }
 
     public WireHttpHandler(string host = "http://127.0.0.1", int port = 1369,
@@ -84,10 +92,33 @@ class WireHttpHandler : DelegatingHandler
         request.RequestUri = _baseUri;
         _affinity.Apply(request, affinity);
 
-        HttpResponseMessage response = await base.SendAsync(request, cancellationToken);
+        HttpResponseMessage response = await SendWithHeaderTimeoutAsync(request, cancellationToken);
         ResponseDiagnostics.LogResponse(response, _affinity.Describe(affinity), SessionAffinityHeaders.Echo(response),
             _protocol.SanitizesResponse);
         await ResponseDiagnostics.LogFailureAsync(response, request.RequestUri, cancellationToken);
         return await _sanitizer.SanitizeAsync(response, cancellationToken);
+    }
+
+    /// <summary>
+    /// 等响应头带看门狗。响应头迟迟不来（建连/上传/服务端处理任一段挂起）时按断流抛
+    /// <see cref="ResponseHeaderTimeoutException"/>，让既有断流重发链接管——否则这段路是无超时的黑洞，
+    /// 挂了只有用户按停止才能脱身。拿到响应头后立即释放计时，不影响响应体读取。
+    /// </summary>
+    private async Task<HttpResponseMessage> SendWithHeaderTimeoutAsync(HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        using CancellationTokenSource header = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        header.CancelAfter(_headerTimeout);
+        try
+        {
+            return await base.SendAsync(request, header.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException e) when (!cancellationToken.IsCancellationRequested && header.IsCancellationRequested)
+        {
+            Log.Warning($"Waiting for response headers timed out after {_headerTimeout.TotalSeconds:0}s" +
+                        $" ({_baseUri.GetLeftPart(UriPartial.Path)}); treating as a dropped connection.",
+                ELogCategory.LlmResponse);
+            throw new ResponseHeaderTimeoutException(_headerTimeout, e);
+        }
     }
 }
