@@ -21,6 +21,22 @@ public class ModelApiFormatWiringTests
         Assert.Equal(EApiFormat.Responses, model.ApiFormat);
     }
 
+    /// <summary>
+    /// 运行时用的是 <see cref="RemoteModelInfo"/> 包装层（模型列表、建客户端的入参都是它），
+    /// 不是配置类本身。接口上 ApiFormat 的默认实现是 ChatCompletions——包装层不委托配置就只能读到 chat，
+    /// 于是 messages 端点的请求被归一成 chat 端点发出去（CommandCode Claude 的 400 就是这么来的）。
+    /// </summary>
+    [Theory]
+    [InlineData(EApiFormat.ChatCompletions)]
+    [InlineData(EApiFormat.Messages)]
+    [InlineData(EApiFormat.Responses)]
+    public void RemoteModelInfo_ReadsConfiguredFormat_NotTheInterfaceDefault(EApiFormat format)
+    {
+        ILlmModel model = new RemoteModelInfo { Config = new RemoteModelConfig { ApiFormat = format } };
+
+        Assert.Equal(format, model.ApiFormat);
+    }
+
     [Fact]
     public void Interface_DefaultsToChatCompletions_WhenNotOverridden()
     {

@@ -33,6 +33,14 @@ public class RemoteModelInfo : ILlmModel
     /// <summary>是否发会话亲和（远程模型默认开，本地与显式关掉的供应商不发）</summary>
     [JsonIgnore] public bool SendsSessionAffinity => Config.SendsSessionAffinity;
 
+    /// <summary>
+    /// 这个模型答话的 wire 格式（chat / responses / messages）。
+    /// <b>必须委托给 <see cref="Config"/> 的配置值</b>：接口上的默认实现是
+    /// <c>=> EApiFormat.ChatCompletions</c>，不委托的话配置里存的 Messages/Responses
+    /// 永远读不到——运行时会把 messages 端点的请求归一成 chat 端点发出去。
+    /// </summary>
+    [JsonIgnore] public EApiFormat ApiFormat => Config.ApiFormat;
+
     /// <summary>公共头之外追加的请求头名；空 = 只发公共头与协议头</summary>
     [JsonIgnore] public IReadOnlyList<string>? SessionAffinityHeaders => Config.SessionAffinityHeaders;
 
