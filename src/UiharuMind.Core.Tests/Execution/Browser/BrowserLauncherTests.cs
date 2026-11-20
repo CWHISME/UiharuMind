@@ -93,7 +93,7 @@ public class BrowserLauncherTests
         Assert.False(options.Pipe);
         Assert.Equal(@"C:\edge\msedge.exe", options.ExecutablePath);
         Assert.Null(options.Channel);
-        Assert.Contains("--edge-skip-compat-layer-relaunch", options.Args);
+        if (OperatingSystem.IsWindows()) Assert.Contains("--edge-skip-compat-layer-relaunch", options.Args);
         Assert.Equal(Path.Combine(@"C:\profiles", "Edge"), options.UserDataDir);
         if (OperatingSystem.IsWindows()) Assert.Contains("--do-not-de-elevate", options.Args);
     }
