@@ -20,7 +20,8 @@ public partial class DownloadQueueViewData : ObservableObject
 {
     private readonly DownloadQueue _queue;
     private readonly Action<Action> _post; //切回界面线程
-    private int _isSyncPending; //同一拍里多次变化只同步一次（队列事件来自多个线程）
+    private int _isSyncPending; //有待刷新的变化（多线程可置位）
+    private int _isSyncActive; //已有刷新循环在跑：保证同时只有一个线程在改 Items
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasActive))]
@@ -76,12 +77,27 @@ public partial class DownloadQueueViewData : ObservableObject
 
     private void ScheduleSync()
     {
-        if (Interlocked.Exchange(ref _isSyncPending, 1) == 1) return;
-        _post(() =>
+        // 置待刷新标志；若已有循环在跑（含同步投递下正处于 Sync 中）就只置位，
+        // 由那个循环的下一轮收掉——否则两个线程会同时进 Sync，枚举 Items 时被对方 Add/Remove 打爆
+        Interlocked.Exchange(ref _isSyncPending, 1);
+        if (Interlocked.Exchange(ref _isSyncActive, 1) == 1) return;
+        _post(RunSyncCycle);
+    }
+
+    private void RunSyncCycle()
+    {
+        try
         {
-            Volatile.Write(ref _isSyncPending, 0);
-            Sync();
-        });
+            do
+            {
+                Interlocked.Exchange(ref _isSyncPending, 0);
+                Sync();
+            } while (Volatile.Read(ref _isSyncPending) == 1);
+        }
+        finally
+        {
+            Volatile.Write(ref _isSyncActive, 0);
+        }
     }
 
     private void Sync()
