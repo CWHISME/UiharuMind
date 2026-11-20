@@ -164,7 +164,26 @@ jobs:
             tag="v$VERSION"
           fi
 
-          cat > notes.md <<'NOTES'
+          # 摘出 CHANGELOG.md 里当前版本的段落（`## <版本>（日期）` 到下一个 `## ` 之前）
+          changelog_segment=$(awk -v ver="## $VERSION" '
+            $0 ~ /^## / { if (found) exit; if ($0 ~ "^" ver "([（(]| *$)") found = 1; next }
+            found { print }
+          ' CHANGELOG.md)
+
+          {
+            echo "## 更新日志（$VERSION）"
+            if [ -n "$changelog_segment" ]; then
+              printf '%s\n' "$changelog_segment"
+            else
+              echo
+              echo "> CHANGELOG.md 里还没有 $VERSION 的条目，发布前记得补上。"
+            fi
+            echo
+            cat <<'EOF'
+          ## Windows/Linux
+
+          解包即用
+
           ## macOS
 
           包未经 Apple 公证，首次打开会被 Gatekeeper 拦下（「无法验证开发者」）。
@@ -174,11 +193,8 @@ jobs:
           - 或在终端执行：`xattr -dr com.apple.quarantine /Applications/UiharuMind.app`
 
           校验完整性：`shasum -a 256 -c SHA256SUMS`
-
-          ## Linux
-
-          解包即用：`tar -xzf UiharuMind-*-linux-x64.tar.gz && ./UiharuMind/UiharuMind.Desktop`
-          NOTES
+          EOF
+          } > notes.md
 
           gh release create "$tag" \
             --repo "$GITHUB_REPOSITORY" \
